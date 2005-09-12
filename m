@@ -1,596 +1,1401 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Mon, 12 Sep 2005 17:15:43 +0000
-Subject: [PATCH] - Cleanup use of various #defines related to nodes
-Message-Id: <20050912171542.GA10992@sgi.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 12 Sep 2005 14:48:50 +0000
+Subject: [patch 2.6.13 1/6] swiotlb: move from arch/ia64/lib to lib
+Message-Id: <09122005104850.30928@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09122005104847.30871@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
+The swiotlb implementation is shared by both IA-64 and EM64T. However,
+the source itself lives under arch/ia64. This patch moves swiotlb.c
+from arch/ia64/lib to lib and fixes-up the appropriate Makefile and
+Kconfig files. No actual changes are made to swiotlb.c.
 
-Some of the SN code & #defines related to compact nodes & IO discovery
-have gotten stale over the years. This patch attempts to clean them up. 
-Some of the various SN MAX_xxx #defines were also unclear & misused.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-The primary changes are:
+ arch/ia64/Kconfig           |    4 
+ arch/ia64/lib/Makefile      |    2 
+ arch/ia64/lib/swiotlb.c     |  657 --------------------------------------------
+ arch/x86_64/kernel/Makefile |    2 
+ lib/Makefile                |    2 
+ lib/swiotlb.c               |  657 ++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 664 insertions(+), 660 deletions(-)
 
-	- use MAX_NUMNODES. This is the generic linux #define for the number
-	  of nodes that are known to the generic kernel. Arrays & loops
-	  for constructs that are 1:1 with linux-defined nodes should
-	  use the linux #define - not an SN equivalent. 
-
-	- use MAX_COMPACT_NODES for MAX_NUMNODES + NUM_TIOS. This is the
-	  number of nodes in the SSI system. Compact nodes are a hack to 
-	  get around the IA64 architectural limit of 256 nodes. Large SGI
-	  systems have more than 256 nodes. When we upgrade to ACPI3.0, 
-	  I _hope_ that all nodes will be real nodes that are known to 
-	  the generic kernel. That will allow us to delete the notion
-	  of "compact nodes".
-
-	- add MAX_NUMALINK_NODES for the total number of nodes that
-	  are in the numalink domain - all partitions.
-
-	- simplified (understandable) scan_for_ionodes()
-
-	- small amount of cleanup related to cnodes
-	
-
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
- arch/ia64/sn/kernel/io_init.c       |    4 
- arch/ia64/sn/kernel/setup.c         |  162 +++++++++++-------------------------
- arch/ia64/sn/kernel/sn2/sn_hwperf.c |    4 
- arch/ia64/sn/kernel/tiocx.c         |    5 -
- arch/ia64/sn/kernel/xpc_partition.c |    2 
- drivers/char/snsc.c                 |    4 
- include/asm-ia64/sn/arch.h          |   36 +++++---
- include/asm-ia64/sn/io.h            |    2 
- include/asm-ia64/sn/klconfig.h      |   34 -------
- include/asm-ia64/sn/sn_cpuid.h      |    3 
- include/asm-ia64/sn/sn_sal.h        |   12 --
- include/asm-ia64/sn/xp.h            |    2 
- 12 files changed, 93 insertions(+), 177 deletions(-)
-
-
-Index: linux/arch/ia64/sn/kernel/setup.c
-=================================--- linux.orig/arch/ia64/sn/kernel/setup.c	2005-09-12 10:40:09.791149924 -0500
-+++ linux/arch/ia64/sn/kernel/setup.c	2005-09-12 11:49:10.783319504 -0500
-@@ -59,8 +59,6 @@ DEFINE_PER_CPU(struct pda_s, pda_percpu)
+--- linux-swiotlb-9_9_2005/lib/swiotlb.c.orig	2005-09-09 16:18:36.000000000 -0400
++++ linux-swiotlb-9_9_2005/lib/swiotlb.c	2005-09-09 16:18:27.000000000 -0400
+@@ -0,0 +1,657 @@
++/*
++ * Dynamic DMA mapping support.
++ *
++ * This implementation is for IA-64 platforms that do not support
++ * I/O TLBs (aka DMA address translation hardware).
++ * Copyright (C) 2000 Asit Mallick <Asit.K.Mallick@intel.com>
++ * Copyright (C) 2000 Goutham Rao <goutham.rao@intel.com>
++ * Copyright (C) 2000, 2003 Hewlett-Packard Co
++ *	David Mosberger-Tang <davidm@hpl.hp.com>
++ *
++ * 03/05/07 davidm	Switch from PCI-DMA to generic device DMA API.
++ * 00/12/13 davidm	Rename to swiotlb.c and add mark_clean() to avoid
++ *			unnecessary i-cache flushing.
++ * 04/07/.. ak          Better overflow handling. Assorted fixes.
++ */
++
++#include <linux/cache.h>
++#include <linux/mm.h>
++#include <linux/module.h>
++#include <linux/pci.h>
++#include <linux/spinlock.h>
++#include <linux/string.h>
++#include <linux/types.h>
++#include <linux/ctype.h>
++
++#include <asm/io.h>
++#include <asm/pci.h>
++#include <asm/dma.h>
++
++#include <linux/init.h>
++#include <linux/bootmem.h>
++
++#define OFFSET(val,align) ((unsigned long)	\
++	                   ( (val) & ( (align) - 1)))
++
++#define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
++#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
++
++/*
++ * Maximum allowable number of contiguous slabs to map,
++ * must be a power of 2.  What is the appropriate value ?
++ * The complexity of {map,unmap}_single is linearly dependent on this value.
++ */
++#define IO_TLB_SEGSIZE	128
++
++/*
++ * log of the size of each IO TLB slab.  The number of slabs is command line
++ * controllable.
++ */
++#define IO_TLB_SHIFT 11
++
++int swiotlb_force;
++
++/*
++ * Used to do a quick range check in swiotlb_unmap_single and
++ * swiotlb_sync_single_*, to see if the memory was in fact allocated by this
++ * API.
++ */
++static char *io_tlb_start, *io_tlb_end;
++
++/*
++ * The number of IO TLB blocks (in groups of 64) betweeen io_tlb_start and
++ * io_tlb_end.  This is command line adjustable via setup_io_tlb_npages.
++ */
++static unsigned long io_tlb_nslabs;
++
++/*
++ * When the IOMMU overflows we return a fallback buffer. This sets the size.
++ */
++static unsigned long io_tlb_overflow = 32*1024;
++
++void *io_tlb_overflow_buffer;
++
++/*
++ * This is a free list describing the number of free entries available from
++ * each index
++ */
++static unsigned int *io_tlb_list;
++static unsigned int io_tlb_index;
++
++/*
++ * We need to save away the original address corresponding to a mapped entry
++ * for the sync operations.
++ */
++static unsigned char **io_tlb_orig_addr;
++
++/*
++ * Protect the above data structures in the map and unmap calls
++ */
++static DEFINE_SPINLOCK(io_tlb_lock);
++
++static int __init
++setup_io_tlb_npages(char *str)
++{
++	if (isdigit(*str)) {
++		io_tlb_nslabs = simple_strtoul(str, &str, 0);
++		/* avoid tail segment of size < IO_TLB_SEGSIZE */
++		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
++	}
++	if (*str = ',')
++		++str;
++	if (!strcmp(str, "force"))
++		swiotlb_force = 1;
++	return 1;
++}
++__setup("swiotlb=", setup_io_tlb_npages);
++/* make io_tlb_overflow tunable too? */
++
++/*
++ * Statically reserve bounce buffer space and initialize bounce buffer data
++ * structures for the software IO TLB used to implement the PCI DMA API.
++ */
++void
++swiotlb_init_with_default_size (size_t default_size)
++{
++	unsigned long i;
++
++	if (!io_tlb_nslabs) {
++		io_tlb_nslabs = (default_size >> IO_TLB_SHIFT);
++		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
++	}
++
++	/*
++	 * Get IO TLB memory from the low pages
++	 */
++	io_tlb_start = alloc_bootmem_low_pages(io_tlb_nslabs *
++					       (1 << IO_TLB_SHIFT));
++	if (!io_tlb_start)
++		panic("Cannot allocate SWIOTLB buffer");
++	io_tlb_end = io_tlb_start + io_tlb_nslabs * (1 << IO_TLB_SHIFT);
++
++	/*
++	 * Allocate and initialize the free list array.  This array is used
++	 * to find contiguous free memory regions of size up to IO_TLB_SEGSIZE
++	 * between io_tlb_start and io_tlb_end.
++	 */
++	io_tlb_list = alloc_bootmem(io_tlb_nslabs * sizeof(int));
++	for (i = 0; i < io_tlb_nslabs; i++)
++ 		io_tlb_list[i] = IO_TLB_SEGSIZE - OFFSET(i, IO_TLB_SEGSIZE);
++	io_tlb_index = 0;
++	io_tlb_orig_addr = alloc_bootmem(io_tlb_nslabs * sizeof(char *));
++
++	/*
++	 * Get the overflow emergency buffer
++	 */
++	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
++	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
++	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
++}
++
++void
++swiotlb_init (void)
++{
++	swiotlb_init_with_default_size(64 * (1<<20));	/* default to 64MB */
++}
++
++static inline int
++address_needs_mapping(struct device *hwdev, dma_addr_t addr)
++{
++	dma_addr_t mask = 0xffffffff;
++	/* If the device has a mask, use it, otherwise default to 32 bits */
++	if (hwdev && hwdev->dma_mask)
++		mask = *hwdev->dma_mask;
++	return (addr & ~mask) != 0;
++}
++
++/*
++ * Allocates bounce buffer and returns its kernel virtual address.
++ */
++static void *
++map_single(struct device *hwdev, char *buffer, size_t size, int dir)
++{
++	unsigned long flags;
++	char *dma_addr;
++	unsigned int nslots, stride, index, wrap;
++	int i;
++
++	/*
++	 * For mappings greater than a page, we limit the stride (and
++	 * hence alignment) to a page size.
++	 */
++	nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
++	if (size > PAGE_SIZE)
++		stride = (1 << (PAGE_SHIFT - IO_TLB_SHIFT));
++	else
++		stride = 1;
++
++	if (!nslots)
++		BUG();
++
++	/*
++	 * Find suitable number of IO TLB entries size that will fit this
++	 * request and allocate a buffer from that IO TLB pool.
++	 */
++	spin_lock_irqsave(&io_tlb_lock, flags);
++	{
++		wrap = index = ALIGN(io_tlb_index, stride);
++
++		if (index >= io_tlb_nslabs)
++			wrap = index = 0;
++
++		do {
++			/*
++			 * If we find a slot that indicates we have 'nslots'
++			 * number of contiguous buffers, we allocate the
++			 * buffers from that slot and mark the entries as '0'
++			 * indicating unavailable.
++			 */
++			if (io_tlb_list[index] >= nslots) {
++				int count = 0;
++
++				for (i = index; i < (int) (index + nslots); i++)
++					io_tlb_list[i] = 0;
++				for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
++					io_tlb_list[i] = ++count;
++				dma_addr = io_tlb_start + (index << IO_TLB_SHIFT);
++
++				/*
++				 * Update the indices to avoid searching in
++				 * the next round.
++				 */
++				io_tlb_index = ((index + nslots) < io_tlb_nslabs
++						? (index + nslots) : 0);
++
++				goto found;
++			}
++			index += stride;
++			if (index >= io_tlb_nslabs)
++				index = 0;
++		} while (index != wrap);
++
++		spin_unlock_irqrestore(&io_tlb_lock, flags);
++		return NULL;
++	}
++  found:
++	spin_unlock_irqrestore(&io_tlb_lock, flags);
++
++	/*
++	 * Save away the mapping from the original address to the DMA address.
++	 * This is needed when we sync the memory.  Then we sync the buffer if
++	 * needed.
++	 */
++	io_tlb_orig_addr[index] = buffer;
++	if (dir = DMA_TO_DEVICE || dir = DMA_BIDIRECTIONAL)
++		memcpy(dma_addr, buffer, size);
++
++	return dma_addr;
++}
++
++/*
++ * dma_addr is the kernel virtual address of the bounce buffer to unmap.
++ */
++static void
++unmap_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
++{
++	unsigned long flags;
++	int i, count, nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
++	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
++	char *buffer = io_tlb_orig_addr[index];
++
++	/*
++	 * First, sync the memory before unmapping the entry
++	 */
++	if (buffer && ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL)))
++		/*
++		 * bounce... copy the data back into the original buffer * and
++		 * delete the bounce buffer.
++		 */
++		memcpy(buffer, dma_addr, size);
++
++	/*
++	 * Return the buffer to the free list by setting the corresponding
++	 * entries to indicate the number of contigous entries available.
++	 * While returning the entries to the free list, we merge the entries
++	 * with slots below and above the pool being returned.
++	 */
++	spin_lock_irqsave(&io_tlb_lock, flags);
++	{
++		count = ((index + nslots) < ALIGN(index + 1, IO_TLB_SEGSIZE) ?
++			 io_tlb_list[index + nslots] : 0);
++		/*
++		 * Step 1: return the slots to the free list, merging the
++		 * slots with superceeding slots
++		 */
++		for (i = index + nslots - 1; i >= index; i--)
++			io_tlb_list[i] = ++count;
++		/*
++		 * Step 2: merge the returned slots with the preceding slots,
++		 * if available (non zero)
++		 */
++		for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
++			io_tlb_list[i] = ++count;
++	}
++	spin_unlock_irqrestore(&io_tlb_lock, flags);
++}
++
++static void
++sync_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
++{
++	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
++	char *buffer = io_tlb_orig_addr[index];
++
++	/*
++	 * bounce... copy the data back into/from the original buffer
++	 * XXX How do you handle DMA_BIDIRECTIONAL here ?
++	 */
++	if (dir = DMA_FROM_DEVICE)
++		memcpy(buffer, dma_addr, size);
++	else if (dir = DMA_TO_DEVICE)
++		memcpy(dma_addr, buffer, size);
++	else
++		BUG();
++}
++
++void *
++swiotlb_alloc_coherent(struct device *hwdev, size_t size,
++		       dma_addr_t *dma_handle, int flags)
++{
++	unsigned long dev_addr;
++	void *ret;
++	int order = get_order(size);
++
++	/*
++	 * XXX fix me: the DMA API should pass us an explicit DMA mask
++	 * instead, or use ZONE_DMA32 (ia64 overloads ZONE_DMA to be a ~32
++	 * bit range instead of a 16MB one).
++	 */
++	flags |= GFP_DMA;
++
++	ret = (void *)__get_free_pages(flags, order);
++	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
++		/*
++		 * The allocated memory isn't reachable by the device.
++		 * Fall back on swiotlb_map_single().
++		 */
++		free_pages((unsigned long) ret, order);
++		ret = NULL;
++	}
++	if (!ret) {
++		/*
++		 * We are either out of memory or the device can't DMA
++		 * to GFP_DMA memory; fall back on
++		 * swiotlb_map_single(), which will grab memory from
++		 * the lowest available address range.
++		 */
++		dma_addr_t handle;
++		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
++		if (dma_mapping_error(handle))
++			return NULL;
++
++		ret = phys_to_virt(handle);
++	}
++
++	memset(ret, 0, size);
++	dev_addr = virt_to_phys(ret);
++
++	/* Confirm address can be DMA'd by device */
++	if (address_needs_mapping(hwdev, dev_addr)) {
++		printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016lx\n",
++		       (unsigned long long)*hwdev->dma_mask, dev_addr);
++		panic("swiotlb_alloc_coherent: allocated memory is out of "
++		      "range for device");
++	}
++	*dma_handle = dev_addr;
++	return ret;
++}
++
++void
++swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
++		      dma_addr_t dma_handle)
++{
++	if (!(vaddr >= (void *)io_tlb_start
++                    && vaddr < (void *)io_tlb_end))
++		free_pages((unsigned long) vaddr, get_order(size));
++	else
++		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
++		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
++}
++
++static void
++swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
++{
++	/*
++	 * Ran out of IOMMU space for this operation. This is very bad.
++	 * Unfortunately the drivers cannot handle this operation properly.
++	 * unless they check for pci_dma_mapping_error (most don't)
++	 * When the mapping is small enough return a static buffer to limit
++	 * the damage, or panic when the transfer is too big.
++	 */
++	printk(KERN_ERR "PCI-DMA: Out of SW-IOMMU space for %lu bytes at "
++	       "device %s\n", size, dev ? dev->bus_id : "?");
++
++	if (size > io_tlb_overflow && do_panic) {
++		if (dir = PCI_DMA_FROMDEVICE || dir = PCI_DMA_BIDIRECTIONAL)
++			panic("PCI-DMA: Memory would be corrupted\n");
++		if (dir = PCI_DMA_TODEVICE || dir = PCI_DMA_BIDIRECTIONAL)
++			panic("PCI-DMA: Random memory would be DMAed\n");
++	}
++}
++
++/*
++ * Map a single buffer of the indicated size for DMA in streaming mode.  The
++ * PCI address to use is returned.
++ *
++ * Once the device is given the dma address, the device owns this memory until
++ * either swiotlb_unmap_single or swiotlb_dma_sync_single is performed.
++ */
++dma_addr_t
++swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
++{
++	unsigned long dev_addr = virt_to_phys(ptr);
++	void *map;
++
++	if (dir = DMA_NONE)
++		BUG();
++	/*
++	 * If the pointer passed in happens to be in the device's DMA window,
++	 * we can safely return the device addr and not worry about bounce
++	 * buffering it.
++	 */
++	if (!address_needs_mapping(hwdev, dev_addr) && !swiotlb_force)
++		return dev_addr;
++
++	/*
++	 * Oh well, have to allocate and map a bounce buffer.
++	 */
++	map = map_single(hwdev, ptr, size, dir);
++	if (!map) {
++		swiotlb_full(hwdev, size, dir, 1);
++		map = io_tlb_overflow_buffer;
++	}
++
++	dev_addr = virt_to_phys(map);
++
++	/*
++	 * Ensure that the address returned is DMA'ble
++	 */
++	if (address_needs_mapping(hwdev, dev_addr))
++		panic("map_single: bounce buffer is not DMA'ble");
++
++	return dev_addr;
++}
++
++/*
++ * Since DMA is i-cache coherent, any (complete) pages that were written via
++ * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
++ * flush them when they get mapped into an executable vm-area.
++ */
++static void
++mark_clean(void *addr, size_t size)
++{
++	unsigned long pg_addr, end;
++
++	pg_addr = PAGE_ALIGN((unsigned long) addr);
++	end = (unsigned long) addr + size;
++	while (pg_addr + PAGE_SIZE <= end) {
++		struct page *page = virt_to_page(pg_addr);
++		set_bit(PG_arch_1, &page->flags);
++		pg_addr += PAGE_SIZE;
++	}
++}
++
++/*
++ * Unmap a single streaming mode DMA translation.  The dma_addr and size must
++ * match what was provided for in a previous swiotlb_map_single call.  All
++ * other usages are undefined.
++ *
++ * After this call, reads by the cpu to the buffer are guaranteed to see
++ * whatever the device wrote there.
++ */
++void
++swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
++		     int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr);
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		unmap_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++/*
++ * Make physical memory consistent for a single streaming mode DMA translation
++ * after a transfer.
++ *
++ * If you perform a swiotlb_map_single() but wish to interrogate the buffer
++ * using the cpu, yet do not wish to teardown the PCI dma mapping, you must
++ * call this function before doing so.  At the next point you give the PCI dma
++ * address back to the card, you must first perform a
++ * swiotlb_dma_sync_for_device, and then the device again owns the buffer
++ */
++void
++swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++			    size_t size, int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr);
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++void
++swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
++			       size_t size, int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr);
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++/*
++ * Map a set of buffers described by scatterlist in streaming mode for DMA.
++ * This is the scatter-gather version of the above swiotlb_map_single
++ * interface.  Here the scatter gather list elements are each tagged with the
++ * appropriate dma address and length.  They are obtained via
++ * sg_dma_{address,length}(SG).
++ *
++ * NOTE: An implementation may be able to use a smaller number of
++ *       DMA address/length pairs than there are SG table elements.
++ *       (for example via virtual mapping capabilities)
++ *       The routine returns the number of addr/length pairs actually
++ *       used, at most nents.
++ *
++ * Device ownership issues as mentioned above for swiotlb_map_single are the
++ * same here.
++ */
++int
++swiotlb_map_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
++	       int dir)
++{
++	void *addr;
++	unsigned long dev_addr;
++	int i;
++
++	if (dir = DMA_NONE)
++		BUG();
++
++	for (i = 0; i < nelems; i++, sg++) {
++		addr = SG_ENT_VIRT_ADDRESS(sg);
++		dev_addr = virt_to_phys(addr);
++		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
++			sg->dma_address = (dma_addr_t) virt_to_phys(map_single(hwdev, addr, sg->length, dir));
++			if (!sg->dma_address) {
++				/* Don't panic here, we expect map_sg users
++				   to do proper error handling. */
++				swiotlb_full(hwdev, sg->length, dir, 0);
++				swiotlb_unmap_sg(hwdev, sg - i, i, dir);
++				sg[0].dma_length = 0;
++				return 0;
++			}
++		} else
++			sg->dma_address = dev_addr;
++		sg->dma_length = sg->length;
++	}
++	return nelems;
++}
++
++/*
++ * Unmap a set of streaming mode DMA translations.  Again, cpu read rules
++ * concerning calls here are the same as for swiotlb_unmap_single() above.
++ */
++void
++swiotlb_unmap_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
++		 int dir)
++{
++	int i;
++
++	if (dir = DMA_NONE)
++		BUG();
++
++	for (i = 0; i < nelems; i++, sg++)
++		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
++			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
++		else if (dir = DMA_FROM_DEVICE)
++			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
++}
++
++/*
++ * Make physical memory consistent for a set of streaming mode DMA translations
++ * after a transfer.
++ *
++ * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
++ * and usage.
++ */
++void
++swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
++			int nelems, int dir)
++{
++	int i;
++
++	if (dir = DMA_NONE)
++		BUG();
++
++	for (i = 0; i < nelems; i++, sg++)
++		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
++			sync_single(hwdev, (void *) sg->dma_address,
++				    sg->dma_length, dir);
++}
++
++void
++swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
++			   int nelems, int dir)
++{
++	int i;
++
++	if (dir = DMA_NONE)
++		BUG();
++
++	for (i = 0; i < nelems; i++, sg++)
++		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
++			sync_single(hwdev, (void *) sg->dma_address,
++				    sg->dma_length, dir);
++}
++
++int
++swiotlb_dma_mapping_error(dma_addr_t dma_addr)
++{
++	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
++}
++
++/*
++ * Return whether the given PCI device DMA address mask can be supported
++ * properly.  For example, if your device can only drive the low 24-bits
++ * during PCI bus mastering, then you would pass 0x00ffffff as the mask to
++ * this function.
++ */
++int
++swiotlb_dma_supported (struct device *hwdev, u64 mask)
++{
++	return (virt_to_phys (io_tlb_end) - 1) <= mask;
++}
++
++EXPORT_SYMBOL(swiotlb_init);
++EXPORT_SYMBOL(swiotlb_map_single);
++EXPORT_SYMBOL(swiotlb_unmap_single);
++EXPORT_SYMBOL(swiotlb_map_sg);
++EXPORT_SYMBOL(swiotlb_unmap_sg);
++EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
++EXPORT_SYMBOL(swiotlb_sync_single_for_device);
++EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
++EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
++EXPORT_SYMBOL(swiotlb_dma_mapping_error);
++EXPORT_SYMBOL(swiotlb_alloc_coherent);
++EXPORT_SYMBOL(swiotlb_free_coherent);
++EXPORT_SYMBOL(swiotlb_dma_supported);
+--- linux-swiotlb-9_9_2005/lib/Makefile.orig	2005-09-09 14:27:39.000000000 -0400
++++ linux-swiotlb-9_9_2005/lib/Makefile	2005-09-09 16:17:44.000000000 -0400
+@@ -43,6 +43,8 @@ obj-$(CONFIG_TEXTSEARCH_KMP) += ts_kmp.o
+ obj-$(CONFIG_TEXTSEARCH_BM) += ts_bm.o
+ obj-$(CONFIG_TEXTSEARCH_FSM) += ts_fsm.o
  
- #define MAX_PHYS_MEMORY		(1UL << IA64_MAX_PHYS_BITS)	/* Max physical address supported */
++obj-$(CONFIG_SWIOTLB) += swiotlb.o
++
+ hostprogs-y	:= gen_crc32table
+ clean-files	:= crc32table.h
  
--lboard_t *root_lboard[MAX_COMPACT_NODES];
--
- extern void bte_init_node(nodepda_t *, cnodeid_t);
+--- linux-swiotlb-9_9_2005/arch/x86_64/kernel/Makefile.orig	2005-09-09 14:27:34.000000000 -0400
++++ linux-swiotlb-9_9_2005/arch/x86_64/kernel/Makefile	2005-09-09 16:17:44.000000000 -0400
+@@ -27,7 +27,6 @@ obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
+ obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
+ obj-$(CONFIG_GART_IOMMU)	+= pci-gart.o aperture.o
+ obj-$(CONFIG_DUMMY_IOMMU)	+= pci-nommu.o pci-dma.o
+-obj-$(CONFIG_SWIOTLB)		+= swiotlb.o
+ obj-$(CONFIG_KPROBES)		+= kprobes.o
+ obj-$(CONFIG_X86_PM_TIMER)	+= pmtimer.o
  
- extern void sn_timer_init(void);
-@@ -97,15 +95,15 @@ u8 sn_region_size;
- EXPORT_SYMBOL(sn_region_size);
- int sn_prom_type;	/* 0=hardware, 1=medusa/realprom, 2=medusa/fakeprom */
+@@ -41,7 +40,6 @@ CFLAGS_vsyscall.o		:= $(PROFILING) -g0
+ bootflag-y			+= ../../i386/kernel/bootflag.o
+ cpuid-$(subst m,y,$(CONFIG_X86_CPUID))  += ../../i386/kernel/cpuid.o
+ topology-y                     += ../../i386/mach-default/topology.o
+-swiotlb-$(CONFIG_SWIOTLB)      += ../../ia64/lib/swiotlb.o
+ microcode-$(subst m,y,$(CONFIG_MICROCODE))  += ../../i386/kernel/microcode.o
+ intel_cacheinfo-y		+= ../../i386/kernel/cpu/intel_cacheinfo.o
+ quirks-y			+= ../../i386/kernel/quirks.o
+--- linux-swiotlb-9_9_2005/arch/ia64/Kconfig.orig	2005-09-09 14:27:33.000000000 -0400
++++ linux-swiotlb-9_9_2005/arch/ia64/Kconfig	2005-09-09 16:17:44.000000000 -0400
+@@ -26,6 +26,10 @@ config MMU
+ 	bool
+ 	default y
  
--short physical_node_map[MAX_PHYSNODE_ID];
-+short physical_node_map[MAX_NUMALINK_NODES];
- static unsigned long sn_prom_features[MAX_PROM_FEATURE_SETS];
- 
- EXPORT_SYMBOL(physical_node_map);
- 
--int numionodes;
-+int num_cnodes;
- 
- static void sn_init_pdas(char **);
--static void scan_for_ionodes(void);
-+static void build_cnode_tables(void);
- 
- static nodepda_t *nodepdaindr[MAX_COMPACT_NODES];
- 
-@@ -140,19 +138,6 @@ char drive_info[4 * 16];
- #endif
- 
- /*
-- * Get nasid of current cpu early in boot before nodepda is initialized
++config SWIOTLB
++       bool
++       default y
++
+ config RWSEM_XCHGADD_ALGORITHM
+ 	bool
+ 	default y
+--- linux-swiotlb-9_9_2005/arch/ia64/lib/swiotlb.c.orig	2005-09-09 14:27:33.000000000 -0400
++++ linux-swiotlb-9_9_2005/arch/ia64/lib/swiotlb.c	2005-09-09 16:18:46.000000000 -0400
+@@ -1,657 +0,0 @@
+-/*
+- * Dynamic DMA mapping support.
+- *
+- * This implementation is for IA-64 platforms that do not support
+- * I/O TLBs (aka DMA address translation hardware).
+- * Copyright (C) 2000 Asit Mallick <Asit.K.Mallick@intel.com>
+- * Copyright (C) 2000 Goutham Rao <goutham.rao@intel.com>
+- * Copyright (C) 2000, 2003 Hewlett-Packard Co
+- *	David Mosberger-Tang <davidm@hpl.hp.com>
+- *
+- * 03/05/07 davidm	Switch from PCI-DMA to generic device DMA API.
+- * 00/12/13 davidm	Rename to swiotlb.c and add mark_clean() to avoid
+- *			unnecessary i-cache flushing.
+- * 04/07/.. ak          Better overflow handling. Assorted fixes.
 - */
--static int
--boot_get_nasid(void)
--{
--	int nasid;
 -
--	if (ia64_sn_get_sapic_info(get_sapicid(), &nasid, NULL, NULL))
--		BUG();
--	return nasid;
+-#include <linux/cache.h>
+-#include <linux/mm.h>
+-#include <linux/module.h>
+-#include <linux/pci.h>
+-#include <linux/spinlock.h>
+-#include <linux/string.h>
+-#include <linux/types.h>
+-#include <linux/ctype.h>
+-
+-#include <asm/io.h>
+-#include <asm/pci.h>
+-#include <asm/dma.h>
+-
+-#include <linux/init.h>
+-#include <linux/bootmem.h>
+-
+-#define OFFSET(val,align) ((unsigned long)	\
+-	                   ( (val) & ( (align) - 1)))
+-
+-#define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
+-#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
+-
+-/*
+- * Maximum allowable number of contiguous slabs to map,
+- * must be a power of 2.  What is the appropriate value ?
+- * The complexity of {map,unmap}_single is linearly dependent on this value.
+- */
+-#define IO_TLB_SEGSIZE	128
+-
+-/*
+- * log of the size of each IO TLB slab.  The number of slabs is command line
+- * controllable.
+- */
+-#define IO_TLB_SHIFT 11
+-
+-int swiotlb_force;
+-
+-/*
+- * Used to do a quick range check in swiotlb_unmap_single and
+- * swiotlb_sync_single_*, to see if the memory was in fact allocated by this
+- * API.
+- */
+-static char *io_tlb_start, *io_tlb_end;
+-
+-/*
+- * The number of IO TLB blocks (in groups of 64) betweeen io_tlb_start and
+- * io_tlb_end.  This is command line adjustable via setup_io_tlb_npages.
+- */
+-static unsigned long io_tlb_nslabs;
+-
+-/*
+- * When the IOMMU overflows we return a fallback buffer. This sets the size.
+- */
+-static unsigned long io_tlb_overflow = 32*1024;
+-
+-void *io_tlb_overflow_buffer;
+-
+-/*
+- * This is a free list describing the number of free entries available from
+- * each index
+- */
+-static unsigned int *io_tlb_list;
+-static unsigned int io_tlb_index;
+-
+-/*
+- * We need to save away the original address corresponding to a mapped entry
+- * for the sync operations.
+- */
+-static unsigned char **io_tlb_orig_addr;
+-
+-/*
+- * Protect the above data structures in the map and unmap calls
+- */
+-static DEFINE_SPINLOCK(io_tlb_lock);
+-
+-static int __init
+-setup_io_tlb_npages(char *str)
+-{
+-	if (isdigit(*str)) {
+-		io_tlb_nslabs = simple_strtoul(str, &str, 0);
+-		/* avoid tail segment of size < IO_TLB_SEGSIZE */
+-		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
+-	}
+-	if (*str = ',')
+-		++str;
+-	if (!strcmp(str, "force"))
+-		swiotlb_force = 1;
+-	return 1;
+-}
+-__setup("swiotlb=", setup_io_tlb_npages);
+-/* make io_tlb_overflow tunable too? */
+-
+-/*
+- * Statically reserve bounce buffer space and initialize bounce buffer data
+- * structures for the software IO TLB used to implement the PCI DMA API.
+- */
+-void
+-swiotlb_init_with_default_size (size_t default_size)
+-{
+-	unsigned long i;
+-
+-	if (!io_tlb_nslabs) {
+-		io_tlb_nslabs = (default_size >> IO_TLB_SHIFT);
+-		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
+-	}
+-
+-	/*
+-	 * Get IO TLB memory from the low pages
+-	 */
+-	io_tlb_start = alloc_bootmem_low_pages(io_tlb_nslabs *
+-					       (1 << IO_TLB_SHIFT));
+-	if (!io_tlb_start)
+-		panic("Cannot allocate SWIOTLB buffer");
+-	io_tlb_end = io_tlb_start + io_tlb_nslabs * (1 << IO_TLB_SHIFT);
+-
+-	/*
+-	 * Allocate and initialize the free list array.  This array is used
+-	 * to find contiguous free memory regions of size up to IO_TLB_SEGSIZE
+-	 * between io_tlb_start and io_tlb_end.
+-	 */
+-	io_tlb_list = alloc_bootmem(io_tlb_nslabs * sizeof(int));
+-	for (i = 0; i < io_tlb_nslabs; i++)
+- 		io_tlb_list[i] = IO_TLB_SEGSIZE - OFFSET(i, IO_TLB_SEGSIZE);
+-	io_tlb_index = 0;
+-	io_tlb_orig_addr = alloc_bootmem(io_tlb_nslabs * sizeof(char *));
+-
+-	/*
+-	 * Get the overflow emergency buffer
+-	 */
+-	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
+-	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
+-	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
+-}
+-
+-void
+-swiotlb_init (void)
+-{
+-	swiotlb_init_with_default_size(64 * (1<<20));	/* default to 64MB */
+-}
+-
+-static inline int
+-address_needs_mapping(struct device *hwdev, dma_addr_t addr)
+-{
+-	dma_addr_t mask = 0xffffffff;
+-	/* If the device has a mask, use it, otherwise default to 32 bits */
+-	if (hwdev && hwdev->dma_mask)
+-		mask = *hwdev->dma_mask;
+-	return (addr & ~mask) != 0;
 -}
 -
 -/*
-  * This routine can only be used during init, since
-  * smp_boot_data is an init data structure.
-  * We have to use smp_boot_data.cpu_phys_id to find
-@@ -223,7 +208,6 @@ void __init early_sn_setup(void)
- }
- 
- extern int platform_intr_list[];
--extern nasid_t master_nasid;
- static int __initdata shub_1_1_found = 0;
- 
- /*
-@@ -269,7 +253,6 @@ static void __init sn_check_for_wars(voi
- void __init sn_setup(char **cmdline_p)
- {
- 	long status, ticks_per_sec, drift;
--	int pxm;
- 	u32 version = sn_sal_rev();
- 	extern void sn_cpu_init(void);
- 
-@@ -300,11 +283,10 @@ void __init sn_setup(char **cmdline_p)
- 
- 	MAX_DMA_ADDRESS = PAGE_OFFSET + MAX_PHYS_MEMORY;
- 
--	memset(physical_node_map, -1, sizeof(physical_node_map));
--	for (pxm = 0; pxm < MAX_PXM_DOMAINS; pxm++)
--		if (pxm_to_nid_map[pxm] != -1)
--			physical_node_map[pxm_to_nasid(pxm)] -			    pxm_to_nid_map[pxm];
-+	/*
-+	 * Build the tables for managing cnodes.
-+	 */
-+	build_cnode_tables();
- 
- 	/*
- 	 * Old PROMs do not provide an ACPI FADT. Disable legacy keyboard
-@@ -319,8 +301,6 @@ void __init sn_setup(char **cmdline_p)
- 
- 	printk("SGI SAL version %x.%02x\n", version >> 8, version & 0x00FF);
- 
--	master_nasid = boot_get_nasid();
--
- 	status  	    ia64_sal_freq_base(SAL_FREQ_BASE_REALTIME_CLOCK, &ticks_per_sec,
- 			       &drift);
-@@ -378,15 +358,6 @@ static void __init sn_init_pdas(char **c
- {
- 	cnodeid_t cnode;
- 
--	memset(sn_cnodeid_to_nasid, -1,
--			sizeof(__ia64_per_cpu_var(__sn_cnodeid_to_nasid)));
--	for_each_online_node(cnode)
--		sn_cnodeid_to_nasid[cnode] -				pxm_to_nasid(nid_to_pxm_map[cnode]);
--
--	numionodes = num_online_nodes();
--	scan_for_ionodes();
--
- 	/*
- 	 * Allocate & initalize the nodepda for each node.
- 	 */
-@@ -402,7 +373,7 @@ static void __init sn_init_pdas(char **c
- 	/*
- 	 * Allocate & initialize nodepda for TIOs.  For now, put them on node 0.
- 	 */
--	for (cnode = num_online_nodes(); cnode < numionodes; cnode++) {
-+	for (cnode = num_online_nodes(); cnode < num_cnodes; cnode++) {
- 		nodepdaindr[cnode]  		    alloc_bootmem_node(NODE_DATA(0), sizeof(nodepda_t));
- 		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
-@@ -411,7 +382,7 @@ static void __init sn_init_pdas(char **c
- 	/*
- 	 * Now copy the array of nodepda pointers to each nodepda.
- 	 */
--	for (cnode = 0; cnode < numionodes; cnode++)
-+	for (cnode = 0; cnode < num_cnodes; cnode++)
- 		memcpy(nodepdaindr[cnode]->pernode_pdaindr, nodepdaindr,
- 		       sizeof(nodepdaindr));
- 
-@@ -428,7 +399,7 @@ static void __init sn_init_pdas(char **c
- 	 * Initialize the per node hubdev.  This includes IO Nodes and
- 	 * headless/memless nodes.
- 	 */
--	for (cnode = 0; cnode < numionodes; cnode++) {
-+	for (cnode = 0; cnode < num_cnodes; cnode++) {
- 		hubdev_init_node(nodepdaindr[cnode], cnode);
- 	}
- }
-@@ -553,87 +524,58 @@ void __init sn_cpu_init(void)
- }
- 
- /*
-- * Scan klconfig for ionodes.  Add the nasids to the
-- * physical_node_map and the pda and increment numionodes.
-+ * Build tables for converting between NASIDs and cnodes.
-  */
-+static inline int __init board_needs_cnode(int type)
-+{
-+	return (type = KLTYPE_SNIA || type = KLTYPE_TIO);
-+}
- 
--static void __init scan_for_ionodes(void)
-+void __init build_cnode_tables(void)
- {
--	int nasid = 0;
-+	int nasid;
-+	int node;
- 	lboard_t *brd;
- 
--	/* fakeprom does not support klgraph */
--	if (IS_RUNNING_ON_FAKE_PROM())
--		return;
--
--	/* Setup ionodes with memory */
--	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
--		char *klgraph_header;
--		cnodeid_t cnodeid;
--
--		if (physical_node_map[nasid] = -1)
--			continue;
--
--		cnodeid = -1;
--		klgraph_header = __va(ia64_sn_get_klconfig_addr(nasid));
--		if (!klgraph_header) {
--			BUG();	/* All nodes must have klconfig tables! */
--		}
--		cnodeid = nasid_to_cnodeid(nasid);
--		root_lboard[cnodeid] = (lboard_t *)
--		    NODE_OFFSET_TO_LBOARD((nasid),
--					  ((kl_config_hdr_t
--					    *) (klgraph_header))->
--					  ch_board_info);
--	}
--
--	/* Scan headless/memless IO Nodes. */
--	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
--		/* if there's no nasid, don't try to read the klconfig on the node */
--		if (physical_node_map[nasid] = -1)
--			continue;
--		brd = find_lboard_any((lboard_t *)
--				      root_lboard[nasid_to_cnodeid(nasid)],
--				      KLTYPE_SNIA);
--		if (brd) {
--			brd = KLCF_NEXT_ANY(brd);	/* Skip this node's lboard */
--			if (!brd)
--				continue;
--		}
-+	memset(physical_node_map, -1, sizeof(physical_node_map));
-+	memset(sn_cnodeid_to_nasid, -1,
-+			sizeof(__ia64_per_cpu_var(__sn_cnodeid_to_nasid)));
- 
--		brd = find_lboard_any(brd, KLTYPE_SNIA);
-+	/*
-+	 * First populate the tables with C/M bricks. This ensures that
-+	 * cnode = node for all C & M bricks.
-+	 */
-+	for_each_online_node(node) {
-+		nasid = pxm_to_nasid(nid_to_pxm_map[node]);
-+		sn_cnodeid_to_nasid[node] = nasid;
-+		physical_node_map[nasid] = node;
-+	}
- 
--		while (brd) {
--			sn_cnodeid_to_nasid[numionodes] = brd->brd_nasid;
--			physical_node_map[brd->brd_nasid] = numionodes;
--			root_lboard[numionodes] = brd;
--			numionodes++;
--			brd = KLCF_NEXT_ANY(brd);
--			if (!brd)
--				break;
-+	/*
-+	 * num_cnodes is total number of C/M/TIO bricks. Because of the 256 node
-+	 * limit on the number of nodes, we can't use the generic node numbers 
-+	 * for this. Note that num_cnodes is incremented below as TIOs or
-+	 * headless/memoryless nodes are discovered.
-+	 */
-+	num_cnodes = num_online_nodes();
- 
--			brd = find_lboard_any(brd, KLTYPE_SNIA);
--		}
--	}
-+	/* fakeprom does not support klgraph */
-+	if (IS_RUNNING_ON_FAKE_PROM())
-+		return;
- 
--	/* Scan for TIO nodes. */
--	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
--		/* if there's no nasid, don't try to read the klconfig on the node */
--		if (physical_node_map[nasid] = -1)
--			continue;
--		brd = find_lboard_any((lboard_t *)
--				      root_lboard[nasid_to_cnodeid(nasid)],
--				      KLTYPE_TIO);
-+	/* Find TIOs & headless/memoryless nodes and add them to the tables */
-+	for_each_online_node(node) {
-+		kl_config_hdr_t *klgraph_header;
-+		nasid = cnodeid_to_nasid(node);
-+		if ((klgraph_header = ia64_sn_get_klconfig_addr(nasid)) = NULL)
-+			BUG();
-+		brd = NODE_OFFSET_TO_LBOARD(nasid, klgraph_header->ch_board_info);
- 		while (brd) {
--			sn_cnodeid_to_nasid[numionodes] = brd->brd_nasid;
--			physical_node_map[brd->brd_nasid] = numionodes;
--			root_lboard[numionodes] = brd;
--			numionodes++;
--			brd = KLCF_NEXT_ANY(brd);
--			if (!brd)
--				break;
--
--			brd = find_lboard_any(brd, KLTYPE_TIO);
-+			if (board_needs_cnode(brd->brd_type) && physical_node_map[brd->brd_nasid] < 0) {
-+				sn_cnodeid_to_nasid[num_cnodes] = brd->brd_nasid;
-+				physical_node_map[brd->brd_nasid] = num_cnodes++;
-+			}
-+			brd = find_lboard_next(brd);
- 		}
- 	}
- }
-Index: linux/arch/ia64/sn/kernel/xpc_partition.c
-=================================--- linux.orig/arch/ia64/sn/kernel/xpc_partition.c	2005-09-12 10:40:09.804820413 -0500
-+++ linux/arch/ia64/sn/kernel/xpc_partition.c	2005-09-12 11:49:10.787225351 -0500
-@@ -44,7 +44,7 @@ static u64 xpc_sh2_IPI_access3;
- 
- 
- /* original protection values for each node */
--u64 xpc_prot_vec[MAX_COMPACT_NODES];
-+u64 xpc_prot_vec[MAX_NUMNODES];
- 
- 
- /* this partition's reserved page */
-Index: linux/include/asm-ia64/sn/arch.h
-=================================--- linux.orig/include/asm-ia64/sn/arch.h	2005-09-12 10:40:18.784378552 -0500
-+++ linux/include/asm-ia64/sn/arch.h	2005-09-12 11:49:10.803825201 -0500
-@@ -18,6 +18,32 @@
- #include <asm/sn/sn_cpuid.h>
- 
- /*
-+ * This is the maximum number of NUMALINK nodes that can be part of a single
-+ * SSI kernel. This number includes C-brick, M-bricks, and TIOs. Nodes in
-+ * remote partitions are NOT included in this number.
-+ * The number of compact nodes cannot exceed size of a coherency domain.
-+ * The purpose of this define is to specify a node count that includes
-+ * all C/M/TIO nodes in an SSI system.
-+ *
-+ * SGI system can currently support up to 256 C/M nodes plus additional TIO nodes.
-+ *
-+ * 	Note: ACPI20 has an architectural limit of 256 nodes. When we upgrade
-+ * 	to ACPI3.0, this limit will be removed. The notion of "compact nodes"
-+ * 	should be deleted and TIOs should be included in MAX_NUMNODES.
-+ */
-+#define MAX_COMPACT_NODES	512
-+
-+/*
-+ * Maximum number of nodes in all partitions and in all coherency domains.
-+ * This is the total number of nodes accessible in the numalink fabric. It
-+ * includes all C & M bricks, plus all TIOs.
-+ *
-+ * This value is also the value of the maximum number of NASIDs in the numalink
-+ * fabric.
-+ */
-+#define MAX_NUMALINK_NODES	2048
-+
-+/*
-  * The following defines attributes of the HUB chip. These attributes are
-  * frequently referenced. They are kept in the per-cpu data areas of each cpu.
-  * They are kept together in a struct to minimize cache misses.
-@@ -41,15 +67,6 @@ DECLARE_PER_CPU(struct sn_hub_info_s, __
- 
- 
- /*
-- * This is the maximum number of nodes that can be part of a kernel.
-- * Effectively, it's the maximum number of compact node ids (cnodeid_t).
-- * This is not necessarily the same as MAX_NASIDS.
+- * Allocates bounce buffer and returns its kernel virtual address.
 - */
--#define MAX_COMPACT_NODES	2048
--#define CPUS_PER_NODE		4
--
--
--/*
-  * Compact node ID to nasid mappings kept in the per-cpu data areas of each
-  * cpu.
-  */
-@@ -57,7 +74,6 @@ DECLARE_PER_CPU(short, __sn_cnodeid_to_n
- #define sn_cnodeid_to_nasid	(&__get_cpu_var(__sn_cnodeid_to_nasid[0]))
- 
- 
--
- extern u8 sn_partition_id;
- extern u8 sn_system_size;
- extern u8 sn_sharing_domain_size;
-Index: linux/include/asm-ia64/sn/klconfig.h
-=================================--- linux.orig/include/asm-ia64/sn/klconfig.h	2005-09-12 10:40:18.786331479 -0500
-+++ linux/include/asm-ia64/sn/klconfig.h	2005-09-12 11:49:10.805778125 -0500
-@@ -208,19 +208,6 @@ typedef struct lboard_s {
- 	klconf_off_t	brd_next_same;    /* Next BOARD with same nasid */
- } lboard_t;
- 
--#define KLCF_NUM_COMPS(_brd)	((_brd)->brd_numcompts)
--#define NODE_OFFSET_TO_KLINFO(n,off)    ((klinfo_t*) TO_NODE_CAC(n,off))
--#define KLCF_NEXT(_brd)         \
--        ((_brd)->brd_next_same ?     \
--         (NODE_OFFSET_TO_LBOARD((_brd)->brd_next_same_host, (_brd)->brd_next_same)): NULL)
--#define KLCF_NEXT_ANY(_brd)         \
--        ((_brd)->brd_next_any ?     \
--         (NODE_OFFSET_TO_LBOARD(NASID_GET(_brd), (_brd)->brd_next_any)): NULL)
--#define KLCF_COMP(_brd, _ndx)   \
--                ((((_brd)->brd_compts[(_ndx)]) = 0) ? 0 : \
--			(NODE_OFFSET_TO_KLINFO(NASID_GET(_brd), (_brd)->brd_compts[(_ndx)])))
--
--
- /*
-  * Generic info structure. This stores common info about a 
-  * component.
-@@ -249,24 +236,11 @@ typedef struct klinfo_s {               
- } klinfo_t ;
- 
- 
--static inline lboard_t *find_lboard_any(lboard_t * start, unsigned char brd_type)
-+static inline lboard_t *find_lboard_next(lboard_t * brd)
- {
--        /* Search all boards stored on this node. */
--
--        while (start) {
--                if (start->brd_type = brd_type)
--                        return start;
--                start = KLCF_NEXT_ANY(start);
--        }
--        /* Didn't find it. */
--        return (lboard_t *) NULL;
-+	if (brd && brd->brd_next_any)
-+		return NODE_OFFSET_TO_LBOARD(NASID_GET(brd), brd->brd_next_any);
-+        return NULL;
- }
- 
--
--/* external declarations of Linux kernel functions. */
--
--extern lboard_t *root_lboard[];
--extern klinfo_t *find_component(lboard_t *brd, klinfo_t *kli, unsigned char type);
--extern klinfo_t *find_first_component(lboard_t *brd, unsigned char type);
--
- #endif /* _ASM_IA64_SN_KLCONFIG_H */
-Index: linux/include/asm-ia64/sn/sn_sal.h
-=================================--- linux.orig/include/asm-ia64/sn/sn_sal.h	2005-09-12 10:40:18.798049041 -0500
-+++ linux/include/asm-ia64/sn/sn_sal.h	2005-09-12 11:49:10.808707510 -0500
-@@ -206,26 +206,16 @@ ia64_sn_get_master_baseio_nasid(void)
- 	return ret_stuff.v0;
- }
- 
--static inline char *
-+static inline void *
- ia64_sn_get_klconfig_addr(nasid_t nasid)
- {
- 	struct ia64_sal_retval ret_stuff;
--	int cnodeid;
- 
--	cnodeid = nasid_to_cnodeid(nasid);
- 	ret_stuff.status = 0;
- 	ret_stuff.v0 = 0;
- 	ret_stuff.v1 = 0;
- 	ret_stuff.v2 = 0;
- 	SAL_CALL(ret_stuff, SN_SAL_GET_KLCONFIG_ADDR, (u64)nasid, 0, 0, 0, 0, 0, 0);
+-static void *
+-map_single(struct device *hwdev, char *buffer, size_t size, int dir)
+-{
+-	unsigned long flags;
+-	char *dma_addr;
+-	unsigned int nslots, stride, index, wrap;
+-	int i;
 -
 -	/*
--	 * We should panic if a valid cnode nasid does not produce
--	 * a klconfig address.
+-	 * For mappings greater than a page, we limit the stride (and
+-	 * hence alignment) to a page size.
 -	 */
--	if (ret_stuff.status != 0) {
--		panic("ia64_sn_get_klconfig_addr: Returned error %lx\n", ret_stuff.status);
--	}
- 	return ret_stuff.v0 ? __va(ret_stuff.v0) : NULL;
- }
- 
-Index: linux/include/asm-ia64/sn/xp.h
-=================================--- linux.orig/include/asm-ia64/sn/xp.h	2005-09-12 10:40:18.801954895 -0500
-+++ linux/include/asm-ia64/sn/xp.h	2005-09-12 11:49:10.811636896 -0500
-@@ -49,7 +49,7 @@
-  * C-brick nasids, thus the need for bitmaps which don't account for
-  * odd-numbered (non C-brick) nasids.
-  */
--#define XP_MAX_PHYSNODE_ID	(MAX_PHYSNODE_ID / 2)
-+#define XP_MAX_PHYSNODE_ID	(MAX_NUMALINK_NODES / 2)
- #define XP_NASID_MASK_BYTES	((XP_MAX_PHYSNODE_ID + 7) / 8)
- #define XP_NASID_MASK_WORDS	((XP_MAX_PHYSNODE_ID + 63) / 64)
- 
-Index: linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-09-12 10:40:09.796032242 -0500
-+++ linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-09-12 11:49:10.817495666 -0500
-@@ -476,8 +476,8 @@ static int sn_topology_show(struct seq_f
- 				for_each_online_cpu(j) {
- 					seq_printf(s, j ? ":%d" : ", dist %d",
- 						node_distance(
--						    cpuid_to_cnodeid(i),
--						    cpuid_to_cnodeid(j)));
-+						    cpu_to_node(i),
-+						    cpu_to_node(j)));
- 				}
- 				seq_putc(s, '\n');
- 			}
-Index: linux/include/asm-ia64/sn/sn_cpuid.h
-=================================--- linux.orig/include/asm-ia64/sn/sn_cpuid.h	2005-09-12 10:40:18.797072577 -0500
-+++ linux/include/asm-ia64/sn/sn_cpuid.h	2005-09-12 11:49:10.820425052 -0500
-@@ -105,7 +105,6 @@ extern short physical_node_map[];	/* ind
- #define cpuid_to_nasid(cpuid)		(sn_nodepda->phys_cpuid[cpuid].nasid)
- #define cpuid_to_subnode(cpuid)		(sn_nodepda->phys_cpuid[cpuid].subnode)
- #define cpuid_to_slice(cpuid)		(sn_nodepda->phys_cpuid[cpuid].slice)
--#define cpuid_to_cnodeid(cpuid)		(physical_node_map[cpuid_to_nasid(cpuid)])
- 
- 
- /*
-@@ -113,8 +112,6 @@ extern short physical_node_map[];	/* ind
-  * of potentially large tables.
-  */
- extern int nasid_slice_to_cpuid(int, int);
--#define nasid_slice_to_cpu_physical_id(nasid, slice)			\
--	cpu_physical_id(nasid_slice_to_cpuid(nasid, slice))
- 
- /*
-  * cnodeid_to_nasid - convert a cnodeid to a NASID
-Index: linux/arch/ia64/sn/kernel/io_init.c
-=================================--- linux.orig/arch/ia64/sn/kernel/io_init.c	2005-09-12 10:40:09.787244070 -0500
-+++ linux/arch/ia64/sn/kernel/io_init.c	2005-09-12 11:49:10.824330899 -0500
-@@ -22,8 +22,6 @@
- #include "xtalk/hubdev.h"
- #include "xtalk/xwidgetdev.h"
- 
--nasid_t master_nasid = INVALID_NASID;	/* Partition Master */
+-	nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
+-	if (size > PAGE_SIZE)
+-		stride = (1 << (PAGE_SHIFT - IO_TLB_SHIFT));
+-	else
+-		stride = 1;
 -
- static struct list_head sn_sysdata_list;
+-	if (!nslots)
+-		BUG();
+-
+-	/*
+-	 * Find suitable number of IO TLB entries size that will fit this
+-	 * request and allocate a buffer from that IO TLB pool.
+-	 */
+-	spin_lock_irqsave(&io_tlb_lock, flags);
+-	{
+-		wrap = index = ALIGN(io_tlb_index, stride);
+-
+-		if (index >= io_tlb_nslabs)
+-			wrap = index = 0;
+-
+-		do {
+-			/*
+-			 * If we find a slot that indicates we have 'nslots'
+-			 * number of contiguous buffers, we allocate the
+-			 * buffers from that slot and mark the entries as '0'
+-			 * indicating unavailable.
+-			 */
+-			if (io_tlb_list[index] >= nslots) {
+-				int count = 0;
+-
+-				for (i = index; i < (int) (index + nslots); i++)
+-					io_tlb_list[i] = 0;
+-				for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
+-					io_tlb_list[i] = ++count;
+-				dma_addr = io_tlb_start + (index << IO_TLB_SHIFT);
+-
+-				/*
+-				 * Update the indices to avoid searching in
+-				 * the next round.
+-				 */
+-				io_tlb_index = ((index + nslots) < io_tlb_nslabs
+-						? (index + nslots) : 0);
+-
+-				goto found;
+-			}
+-			index += stride;
+-			if (index >= io_tlb_nslabs)
+-				index = 0;
+-		} while (index != wrap);
+-
+-		spin_unlock_irqrestore(&io_tlb_lock, flags);
+-		return NULL;
+-	}
+-  found:
+-	spin_unlock_irqrestore(&io_tlb_lock, flags);
+-
+-	/*
+-	 * Save away the mapping from the original address to the DMA address.
+-	 * This is needed when we sync the memory.  Then we sync the buffer if
+-	 * needed.
+-	 */
+-	io_tlb_orig_addr[index] = buffer;
+-	if (dir = DMA_TO_DEVICE || dir = DMA_BIDIRECTIONAL)
+-		memcpy(dma_addr, buffer, size);
+-
+-	return dma_addr;
+-}
+-
+-/*
+- * dma_addr is the kernel virtual address of the bounce buffer to unmap.
+- */
+-static void
+-unmap_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
+-{
+-	unsigned long flags;
+-	int i, count, nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
+-	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
+-	char *buffer = io_tlb_orig_addr[index];
+-
+-	/*
+-	 * First, sync the memory before unmapping the entry
+-	 */
+-	if (buffer && ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL)))
+-		/*
+-		 * bounce... copy the data back into the original buffer * and
+-		 * delete the bounce buffer.
+-		 */
+-		memcpy(buffer, dma_addr, size);
+-
+-	/*
+-	 * Return the buffer to the free list by setting the corresponding
+-	 * entries to indicate the number of contigous entries available.
+-	 * While returning the entries to the free list, we merge the entries
+-	 * with slots below and above the pool being returned.
+-	 */
+-	spin_lock_irqsave(&io_tlb_lock, flags);
+-	{
+-		count = ((index + nslots) < ALIGN(index + 1, IO_TLB_SEGSIZE) ?
+-			 io_tlb_list[index + nslots] : 0);
+-		/*
+-		 * Step 1: return the slots to the free list, merging the
+-		 * slots with superceeding slots
+-		 */
+-		for (i = index + nslots - 1; i >= index; i--)
+-			io_tlb_list[i] = ++count;
+-		/*
+-		 * Step 2: merge the returned slots with the preceding slots,
+-		 * if available (non zero)
+-		 */
+-		for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
+-			io_tlb_list[i] = ++count;
+-	}
+-	spin_unlock_irqrestore(&io_tlb_lock, flags);
+-}
+-
+-static void
+-sync_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
+-{
+-	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
+-	char *buffer = io_tlb_orig_addr[index];
+-
+-	/*
+-	 * bounce... copy the data back into/from the original buffer
+-	 * XXX How do you handle DMA_BIDIRECTIONAL here ?
+-	 */
+-	if (dir = DMA_FROM_DEVICE)
+-		memcpy(buffer, dma_addr, size);
+-	else if (dir = DMA_TO_DEVICE)
+-		memcpy(dma_addr, buffer, size);
+-	else
+-		BUG();
+-}
+-
+-void *
+-swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+-		       dma_addr_t *dma_handle, int flags)
+-{
+-	unsigned long dev_addr;
+-	void *ret;
+-	int order = get_order(size);
+-
+-	/*
+-	 * XXX fix me: the DMA API should pass us an explicit DMA mask
+-	 * instead, or use ZONE_DMA32 (ia64 overloads ZONE_DMA to be a ~32
+-	 * bit range instead of a 16MB one).
+-	 */
+-	flags |= GFP_DMA;
+-
+-	ret = (void *)__get_free_pages(flags, order);
+-	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
+-		/*
+-		 * The allocated memory isn't reachable by the device.
+-		 * Fall back on swiotlb_map_single().
+-		 */
+-		free_pages((unsigned long) ret, order);
+-		ret = NULL;
+-	}
+-	if (!ret) {
+-		/*
+-		 * We are either out of memory or the device can't DMA
+-		 * to GFP_DMA memory; fall back on
+-		 * swiotlb_map_single(), which will grab memory from
+-		 * the lowest available address range.
+-		 */
+-		dma_addr_t handle;
+-		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
+-		if (dma_mapping_error(handle))
+-			return NULL;
+-
+-		ret = phys_to_virt(handle);
+-	}
+-
+-	memset(ret, 0, size);
+-	dev_addr = virt_to_phys(ret);
+-
+-	/* Confirm address can be DMA'd by device */
+-	if (address_needs_mapping(hwdev, dev_addr)) {
+-		printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016lx\n",
+-		       (unsigned long long)*hwdev->dma_mask, dev_addr);
+-		panic("swiotlb_alloc_coherent: allocated memory is out of "
+-		      "range for device");
+-	}
+-	*dma_handle = dev_addr;
+-	return ret;
+-}
+-
+-void
+-swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
+-		      dma_addr_t dma_handle)
+-{
+-	if (!(vaddr >= (void *)io_tlb_start
+-                    && vaddr < (void *)io_tlb_end))
+-		free_pages((unsigned long) vaddr, get_order(size));
+-	else
+-		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
+-		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
+-}
+-
+-static void
+-swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
+-{
+-	/*
+-	 * Ran out of IOMMU space for this operation. This is very bad.
+-	 * Unfortunately the drivers cannot handle this operation properly.
+-	 * unless they check for pci_dma_mapping_error (most don't)
+-	 * When the mapping is small enough return a static buffer to limit
+-	 * the damage, or panic when the transfer is too big.
+-	 */
+-	printk(KERN_ERR "PCI-DMA: Out of SW-IOMMU space for %lu bytes at "
+-	       "device %s\n", size, dev ? dev->bus_id : "?");
+-
+-	if (size > io_tlb_overflow && do_panic) {
+-		if (dir = PCI_DMA_FROMDEVICE || dir = PCI_DMA_BIDIRECTIONAL)
+-			panic("PCI-DMA: Memory would be corrupted\n");
+-		if (dir = PCI_DMA_TODEVICE || dir = PCI_DMA_BIDIRECTIONAL)
+-			panic("PCI-DMA: Random memory would be DMAed\n");
+-	}
+-}
+-
+-/*
+- * Map a single buffer of the indicated size for DMA in streaming mode.  The
+- * PCI address to use is returned.
+- *
+- * Once the device is given the dma address, the device owns this memory until
+- * either swiotlb_unmap_single or swiotlb_dma_sync_single is performed.
+- */
+-dma_addr_t
+-swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
+-{
+-	unsigned long dev_addr = virt_to_phys(ptr);
+-	void *map;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	/*
+-	 * If the pointer passed in happens to be in the device's DMA window,
+-	 * we can safely return the device addr and not worry about bounce
+-	 * buffering it.
+-	 */
+-	if (!address_needs_mapping(hwdev, dev_addr) && !swiotlb_force)
+-		return dev_addr;
+-
+-	/*
+-	 * Oh well, have to allocate and map a bounce buffer.
+-	 */
+-	map = map_single(hwdev, ptr, size, dir);
+-	if (!map) {
+-		swiotlb_full(hwdev, size, dir, 1);
+-		map = io_tlb_overflow_buffer;
+-	}
+-
+-	dev_addr = virt_to_phys(map);
+-
+-	/*
+-	 * Ensure that the address returned is DMA'ble
+-	 */
+-	if (address_needs_mapping(hwdev, dev_addr))
+-		panic("map_single: bounce buffer is not DMA'ble");
+-
+-	return dev_addr;
+-}
+-
+-/*
+- * Since DMA is i-cache coherent, any (complete) pages that were written via
+- * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+- * flush them when they get mapped into an executable vm-area.
+- */
+-static void
+-mark_clean(void *addr, size_t size)
+-{
+-	unsigned long pg_addr, end;
+-
+-	pg_addr = PAGE_ALIGN((unsigned long) addr);
+-	end = (unsigned long) addr + size;
+-	while (pg_addr + PAGE_SIZE <= end) {
+-		struct page *page = virt_to_page(pg_addr);
+-		set_bit(PG_arch_1, &page->flags);
+-		pg_addr += PAGE_SIZE;
+-	}
+-}
+-
+-/*
+- * Unmap a single streaming mode DMA translation.  The dma_addr and size must
+- * match what was provided for in a previous swiotlb_map_single call.  All
+- * other usages are undefined.
+- *
+- * After this call, reads by the cpu to the buffer are guaranteed to see
+- * whatever the device wrote there.
+- */
+-void
+-swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
+-		     int dir)
+-{
+-	char *dma_addr = phys_to_virt(dev_addr);
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		unmap_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
+-}
+-
+-/*
+- * Make physical memory consistent for a single streaming mode DMA translation
+- * after a transfer.
+- *
+- * If you perform a swiotlb_map_single() but wish to interrogate the buffer
+- * using the cpu, yet do not wish to teardown the PCI dma mapping, you must
+- * call this function before doing so.  At the next point you give the PCI dma
+- * address back to the card, you must first perform a
+- * swiotlb_dma_sync_for_device, and then the device again owns the buffer
+- */
+-void
+-swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+-			    size_t size, int dir)
+-{
+-	char *dma_addr = phys_to_virt(dev_addr);
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
+-}
+-
+-void
+-swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
+-			       size_t size, int dir)
+-{
+-	char *dma_addr = phys_to_virt(dev_addr);
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
+-}
+-
+-/*
+- * Map a set of buffers described by scatterlist in streaming mode for DMA.
+- * This is the scatter-gather version of the above swiotlb_map_single
+- * interface.  Here the scatter gather list elements are each tagged with the
+- * appropriate dma address and length.  They are obtained via
+- * sg_dma_{address,length}(SG).
+- *
+- * NOTE: An implementation may be able to use a smaller number of
+- *       DMA address/length pairs than there are SG table elements.
+- *       (for example via virtual mapping capabilities)
+- *       The routine returns the number of addr/length pairs actually
+- *       used, at most nents.
+- *
+- * Device ownership issues as mentioned above for swiotlb_map_single are the
+- * same here.
+- */
+-int
+-swiotlb_map_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
+-	       int dir)
+-{
+-	void *addr;
+-	unsigned long dev_addr;
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++) {
+-		addr = SG_ENT_VIRT_ADDRESS(sg);
+-		dev_addr = virt_to_phys(addr);
+-		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
+-			sg->dma_address = (dma_addr_t) virt_to_phys(map_single(hwdev, addr, sg->length, dir));
+-			if (!sg->dma_address) {
+-				/* Don't panic here, we expect map_sg users
+-				   to do proper error handling. */
+-				swiotlb_full(hwdev, sg->length, dir, 0);
+-				swiotlb_unmap_sg(hwdev, sg - i, i, dir);
+-				sg[0].dma_length = 0;
+-				return 0;
+-			}
+-		} else
+-			sg->dma_address = dev_addr;
+-		sg->dma_length = sg->length;
+-	}
+-	return nelems;
+-}
+-
+-/*
+- * Unmap a set of streaming mode DMA translations.  Again, cpu read rules
+- * concerning calls here are the same as for swiotlb_unmap_single() above.
+- */
+-void
+-swiotlb_unmap_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
+-		 int dir)
+-{
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
+-		else if (dir = DMA_FROM_DEVICE)
+-			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
+-}
+-
+-/*
+- * Make physical memory consistent for a set of streaming mode DMA translations
+- * after a transfer.
+- *
+- * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
+- * and usage.
+- */
+-void
+-swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+-			int nelems, int dir)
+-{
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
+-}
+-
+-void
+-swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+-			   int nelems, int dir)
+-{
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
+-}
+-
+-int
+-swiotlb_dma_mapping_error(dma_addr_t dma_addr)
+-{
+-	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
+-}
+-
+-/*
+- * Return whether the given PCI device DMA address mask can be supported
+- * properly.  For example, if your device can only drive the low 24-bits
+- * during PCI bus mastering, then you would pass 0x00ffffff as the mask to
+- * this function.
+- */
+-int
+-swiotlb_dma_supported (struct device *hwdev, u64 mask)
+-{
+-	return (virt_to_phys (io_tlb_end) - 1) <= mask;
+-}
+-
+-EXPORT_SYMBOL(swiotlb_init);
+-EXPORT_SYMBOL(swiotlb_map_single);
+-EXPORT_SYMBOL(swiotlb_unmap_single);
+-EXPORT_SYMBOL(swiotlb_map_sg);
+-EXPORT_SYMBOL(swiotlb_unmap_sg);
+-EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
+-EXPORT_SYMBOL(swiotlb_sync_single_for_device);
+-EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
+-EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
+-EXPORT_SYMBOL(swiotlb_dma_mapping_error);
+-EXPORT_SYMBOL(swiotlb_alloc_coherent);
+-EXPORT_SYMBOL(swiotlb_free_coherent);
+-EXPORT_SYMBOL(swiotlb_dma_supported);
+--- linux-swiotlb-9_9_2005/arch/ia64/lib/Makefile.orig	2005-09-09 14:27:33.000000000 -0400
++++ linux-swiotlb-9_9_2005/arch/ia64/lib/Makefile	2005-09-09 16:17:44.000000000 -0400
+@@ -9,7 +9,7 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ 	bitop.o checksum.o clear_page.o csum_partial_copy.o		\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+-	memset.o strlen.o swiotlb.o
++	memset.o strlen.o
  
- /* sysdata list struct */
-@@ -165,7 +163,7 @@ static void sn_fixup_ionodes(void)
- 	 * Get SGI Specific HUB chipset information.
- 	 * Inform Prom that this kernel can support domain bus numbering.
- 	 */
--	for (i = 0; i < numionodes; i++) {
-+	for (i = 0; i < num_cnodes; i++) {
- 		hubdev = (struct hubdev_info *)(NODEPDA(i)->pdinfo);
- 		nasid = cnodeid_to_nasid(i);
- 		hubdev->max_segment_number = 0xffffffff;
-Index: linux/drivers/char/snsc.c
-=================================--- linux.orig/drivers/char/snsc.c	2005-09-12 10:40:12.941221102 -0500
-+++ linux/drivers/char/snsc.c	2005-09-12 11:49:10.830189669 -0500
-@@ -377,7 +377,7 @@ scdrv_init(void)
- 	dev_t first_dev, dev;
- 	nasid_t event_nasid = ia64_sn_get_console_nasid();
- 
--	if (alloc_chrdev_region(&first_dev, 0, numionodes,
-+	if (alloc_chrdev_region(&first_dev, 0, num_cnodes,
- 				SYSCTL_BASENAME) < 0) {
- 		printk("%s: failed to register SN system controller device\n",
- 		       __FUNCTION__);
-@@ -385,7 +385,7 @@ scdrv_init(void)
- 	}
- 	snsc_class = class_create(THIS_MODULE, SYSCTL_BASENAME);
- 
--	for (cnode = 0; cnode < numionodes; cnode++) {
-+	for (cnode = 0; cnode < num_cnodes; cnode++) {
- 			geoid = cnodeid_get_geoid(cnode);
- 			devnamep = devname;
- 			format_module_id(devnamep, geo_module(geoid),
-Index: linux/include/asm-ia64/sn/io.h
-=================================--- linux.orig/include/asm-ia64/sn/io.h	2005-09-12 10:40:18.786331479 -0500
-+++ linux/include/asm-ia64/sn/io.h	2005-09-12 11:49:10.833119055 -0500
-@@ -14,7 +14,7 @@
- extern void * sn_io_addr(unsigned long port) __attribute_const__; /* Forward definition */
- extern void __sn_mmiowb(void); /* Forward definition */
- 
--extern int numionodes;
-+extern int num_cnodes;
- 
- #define __sn_mf_a()   ia64_mfa()
- 
-Index: linux/arch/ia64/sn/kernel/tiocx.c
-=================================--- linux.orig/arch/ia64/sn/kernel/tiocx.c	2005-09-12 10:40:09.798961632 -0500
-+++ linux/arch/ia64/sn/kernel/tiocx.c	2005-09-12 11:52:12.035139096 -0500
-@@ -489,12 +489,11 @@ static int __init tiocx_init(void)
- 
- 	bus_register(&tiocx_bus_type);
- 
--	for (cnodeid = 0; cnodeid < MAX_COMPACT_NODES; cnodeid++) {
-+	for (cnodeid = 0; cnodeid < num_cnodes; cnodeid++) {
- 		nasid_t nasid;
- 		int bt;
- 
--		if ((nasid = cnodeid_to_nasid(cnodeid)) < 0)
--			break;	/* No more nasids .. bail out of loop */
-+		nasid = cnodeid_to_nasid(cnodeid);
- 
- 		if ((nasid & 0x1) && is_fpga_tio(nasid, &bt)) {
- 			struct hubdev_info *hubdev;
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+ lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+ lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
