@@ -1,28 +1,73 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 13 Sep 2005 00:06:13 +0000
-Subject: Re: [patch 2.6.13] ia64: add EXPORT_SYMBOL_GPL for ia64_max_cacheline_size
-Message-Id: <20050913000611.GI19644@tuxdriver.com>
+Date: Mon, 12 Sep 2005 23:45:34 +0000
+Subject: [patch 2.6.13 (take #2)] swiotlb: BUG() for DMA_NONE in sync_single
+Message-Id: <20050912234532.GH19644@tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <09122005104852.31327@bilbo.tuxdriver.com> <20050912192524.GA14360@infradead.org>
-In-Reply-To: <20050912192524.GA14360@infradead.org>
+References: <09122005104851.31056@bilbo.tuxdriver.com> <09122005104851.31120@bilbo.tuxdriver.com> <20050912185120.GD21820@esmail.cup.hp.com> <20050912195110.GC19644@tuxdriver.com> <20050912195356.GD19644@tuxdriver.com> <20050912202333.GF21820@esmail.cup.hp.com>
+In-Reply-To: <20050912202333.GF21820@esmail.cup.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: Grant Grundler <iod00d@hp.com>
+Cc: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
-On Mon, Sep 12, 2005 at 08:25:24PM +0100, Christoph Hellwig wrote:
-> On Mon, Sep 12, 2005 at 10:48:52AM -0400, John W. Linville wrote:
-> > The implementation of dma_get_cache_alignment for ia64 makes reference
-> > to ia64_max_cacheline_size inside of a static inline. For this to
-> > work for modules, this needs to be EXPORT_SYMBOL{,_GPL}.
-> 
-> This is not supposed to be a _GPL api.  best just move
-> dma_get_cache_alignment out of line.
+Call BUG() if DMA_NONE is passed-in as direction for sync_single.
+Also remove unnecessary checks for DMA_NONE in callers of sync_single.
 
-You are thinking of something like the x86_64 implementation?
-That seems reasonable to me.  Patch to follow...
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+This patch replaces the previous patch with (almost) the same subject.
 
-John
+ lib/swiotlb.c |   11 ++---------
+ 1 files changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -315,13 +315,13 @@ sync_single(struct device *hwdev, char *
+ 	case SYNC_FOR_CPU:
+ 		if (likely(dir = DMA_FROM_DEVICE || dma = DMA_BIDIRECTIONAL))
+ 			memcpy(buffer, dma_addr, size);
+-		else if (dir != DMA_TO_DEVICE && dir != DMA_NONE)
++		else if (dir != DMA_TO_DEVICE)
+ 			BUG();
+ 		break;
+ 	case SYNC_FOR_DEVICE:
+ 		if (likely(dir = DMA_TO_DEVICE || dma = DMA_BIDIRECTIONAL))
+ 			memcpy(dma_addr, buffer, size);
+-		else if (dir != DMA_FROM_DEVICE && dir != DMA_NONE)
++		else if (dir != DMA_FROM_DEVICE)
+ 			BUG();
+ 		break;
+ 	default:
+@@ -515,8 +515,6 @@ swiotlb_sync_single(struct device *hwdev
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr);
+ 
+-	if (dir = DMA_NONE)
+-		BUG();
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+ 		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+@@ -547,8 +545,6 @@ swiotlb_sync_single_range(struct device 
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr) + offset;
+ 
+-	if (dir = DMA_NONE)
+-		BUG();
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+ 		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+@@ -651,9 +647,6 @@ swiotlb_sync_sg(struct device *hwdev, st
+ {
+ 	int i;
+ 
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+ 	for (i = 0; i < nelems; i++, sg++)
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+ 			sync_single(hwdev, (void *) sg->dma_address,
 -- 
 John W. Linville
 linville@tuxdriver.com
