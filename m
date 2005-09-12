@@ -1,71 +1,44 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Sun, 11 Sep 2005 17:04:54 +0000
+From: "Tian, Kevin" <kevin.tian@intel.com>
+Date: Mon, 12 Sep 2005 16:27:25 +0000
 Subject: RE: [RFC] timer_interrupt: Avoid device timeouts by freezing time if system froze
-Message-Id: <516F50407E01324991DD6D07B0531AD5695995@cacexc12.americas.cpqcorp.net>
+Message-Id: <571ACEFD467F7749BC50E0A98C17CDD802C06819@pdsmsx403>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-It seems like both "test for too much time passed"
-and "recover from too much time passed" at least ought
-to be out-of-line and easily overridden, e.g. by adding
-a level of abstraction along the lines of default_idle.
+>From: Luck, Tony
+>Sent: 2005=C4=EA9=D4=C210=C8=D5 6:36
+>
+>>I am aware of at least two ia64 virtualization systems
+>>that rely on the existing behavior to compensate for
+>>the fact that one guest linux may be inactive while another
+>>is active.  This isn't to say that another solution
+>>couldn't be found, but just turning off the existing
+>>behavior doesn't seem like a good alternative.
+>
+>There must be some minimum frequency at which a hypervisor
+>allows a guest to run in order for it to operate normally
+>[e.g. a guest that gets no cpu time for several seconds at
+>a stretch will experience network time-outs with external
+>systems that it is unable to supply with "keep-alive" packets].
+>
+>I'm not sure what that minimum frequency is, but I expect that
+>it may be contrained by some of the shorter TCP timeouts.  I
+>think that there is one around the 200 milli-second mark.
 
-> -----Original Message-----
-> From: dmosberger@gmail.com [mailto:dmosberger@gmail.com] On 
-> Behalf Of David Mosberger-Tang
-> Sent: Friday, September 09, 2005 5:18 PM
-> To: Christoph Lameter
-> Cc: Magenheimer, Dan (HP Labs Fort Collins); 
-> linux-ia64@vger.kernel.org
-> Subject: Re: [RFC] timer_interrupt: Avoid device timeouts by 
-> freezing time if system froze
-> 
-> I see your point about non-interrupt sources but the idea can be
-> generalized: rather than letting time catch up in a single huge jump,
-> do it gradually.  Say for every timer tick, you advance by one extra
-> tick.  I _think_ that could work well in practice.
-> 
->   --david
-> 
-> On 9/9/05, Christoph Lameter <clameter@engr.sgi.com> wrote:
-> > On Fri, 9 Sep 2005, David Mosberger-Tang wrote:
-> > 
-> > > I also would be nervous about the proposed patch.
-> > 
-> > Yes, I am also a bit concerned but there seems to be no other
-> > good solution.
-> > 
-> > > I'm wondering: could the problem be avoided perhaps by running all
-> > > other pending (lower-priority) interrupts first when you detect a
-> > > large jump in elapsed time?  In other words, when you 
-> detect a jump
-> > > from time T1 to T2 with (T2-T1) greater than some 
-> threshold, you make
-> > > sure you run all pending interrupts while still at time 
-> T1 and only
-> > > after that is done you let time catch up to T2.
-> > 
-> > I think we are not talking about hardware interupts. Those 
-> can happen
-> > anytime and given the system was frozen for an extended time period
-> > likely have already completed before the timer interrupt happens for
-> > the first time after the system begins to unfreeze.
-> > 
-> > I think the main issue are drivers events. These are 
-> dependent on jiffies
-> > (which may be checked by drivers in a varity of ways) or 
-> are timer events
-> > (which also may expect jiffies to have a certain value).
-> > 
-> 
-> 
-> -- 
-> Mosberger Consulting LLC, voice/fax: 510-744-9372,
-> http://www.mosberger-consulting.com/
-> 35706 Runckel Lane, Fremont, CA 94536
-> 
+Yes, this is one important facet in virtualization system. In one of our ti=
+me virtualization approaches, we add max_jump for max suspension period whe=
+n one guest is scheduled off. Once the guest is back alive, check is made u=
+pon max_jump whether exceeds. If exceeds, it means that we can't show a vir=
+tual itc to guest with actual drift which may make device request timeout. =
+Instead we record the actual drift in another field, and only show guest wi=
+th a max_jump increment on virtual itc. Next time the cached drift value wi=
+ll be checked again, and compensate virtual itc gradually. Max_jump is set =
+as 500ms by default, which is tunable as Tony's example here.
+
+Thanks,
+Kevin
