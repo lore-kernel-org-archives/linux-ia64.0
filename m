@@ -1,33 +1,29 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 27 Sep 2005 22:00:32 +0000
-Subject: RE: [PATCH 0/4] V4 ia64 SPARSEMEM
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0482A591@scsmsx401.amr.corp.intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 12 Sep 2005 14:48:47 +0000
+Subject: [patch 2.6.13 0/6] swiotlb maintenance and x86_64 dma_sync_single_range_for_{cpu,device}
+Message-Id: <09122005104847.30871@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050922161418.GW16066@localhost.localdomain>
-In-Reply-To: <20050922161418.GW16066@localhost.localdomain>
+In-Reply-To: <20050830180912.GE18998@tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
->Okay. There was a bug in my Kconfig.  All defconfigs and my own memory model
->configs build correctly and produce the correct config options.  Below is
->a replacement for patch 1/4 which I've included for your config testing.  I'll
->post V5 patchset when we agree on where we want to proceed with config(s).  
+Conduct some maintenance of the swiotlb code:
 
-Yup, all my configs now build too (includes some of the distributed ones
-with CONFIG_SMP turned off).  I booted three sample kernels (zx1,
-generic and generic with s/discontig/sparse/) on rx2620 with nothing
-odd happening.
+	-- Move the code from arch/ia64/lib to lib
 
->I'm thinking all we need is sparsemem_defconfig which is defconfig but with
->the SPARSEMEM memory model.
+	-- Cleanup some cruft (code duplication)
 
-That would do as a starting point ... it gives me an easy hook
-into my automatic build script to make sure that SPARSEMEM is being
-test compiled.
+	-- Add support for syncing sub-ranges of mappings
 
-Do you have, or can you generate, the full list of all the combinations
-of memory model related options that Kconfig will accept?
+	-- Add support for syncing DMA_BIDIRECTIONAL mappings
 
--Tony
+	-- Comment fixup & change record
+
+Also, tack-on an x86_64 implementation of dma_sync_single_range_for_cpu
+and dma_sync_single_range_for _device.  This makes use of the new
+swiotlb sync sub-range support.
+
+Patches to follow...
