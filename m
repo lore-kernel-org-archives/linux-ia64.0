@@ -1,37 +1,105 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 08 Sep 2005 20:28:28 +0000
-Subject: [PATCH] - Increase max physical address for SN platforms
-Message-Id: <20050908202828.GA6009@sgi.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 12 Sep 2005 14:48:50 +0000
+Subject: [patch 2.6.13 2/6] swiotlb: cleanup some code duplication cruft
+Message-Id: <09122005104850.30992@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09122005104850.30928@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
+The implementations of swiotlb_sync_single_for_{cpu,device} are
+identical. Likewise for swiotlb_syng_sg_for_{cpu,device}. This patch
+move the guts of those functions to two new inline functions, and
+calls the appropriate one from the bodies of those functions.
 
-Increase the value for the maximum physical address on SN systems.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
+ lib/swiotlb.c |   45 ++++++++++++++++++++++-----------------------
+ 1 files changed, 22 insertions(+), 23 deletions(-)
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
-
-Index: linux/arch/ia64/sn/kernel/setup.c
-=================================--- linux.orig/arch/ia64/sn/kernel/setup.c	2005-09-08 15:17:08.581816534 -0500
-+++ linux/arch/ia64/sn/kernel/setup.c	2005-09-08 15:25:26.002687196 -0500
-@@ -57,7 +57,7 @@
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -492,9 +492,9 @@ swiotlb_unmap_single(struct device *hwde
+  * address back to the card, you must first perform a
+  * swiotlb_dma_sync_for_device, and then the device again owns the buffer
+  */
+-void
+-swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+-			    size_t size, int dir)
++static inline void
++swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
++		    size_t size, int dir)
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr);
  
- DEFINE_PER_CPU(struct pda_s, pda_percpu);
+@@ -507,17 +507,17 @@ swiotlb_sync_single_for_cpu(struct devic
+ }
  
--#define MAX_PHYS_MEMORY		(1UL << 49)	/* 1 TB */
-+#define MAX_PHYS_MEMORY		(1UL << IA64_MAX_PHYS_BITS)	/* Max physical address supported */
+ void
++swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++			    size_t size, int dir)
++{
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
++}
++
++void
+ swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
+ 			       size_t size, int dir)
+ {
+-	char *dma_addr = phys_to_virt(dev_addr);
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
+ }
  
- lboard_t *root_lboard[MAX_COMPACT_NODES];
+ /*
+@@ -594,9 +594,9 @@ swiotlb_unmap_sg(struct device *hwdev, s
+  * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
+  * and usage.
+  */
+-void
+-swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+-			int nelems, int dir)
++static inline void
++swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
++		int nelems, int dir)
+ {
+ 	int i;
  
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+@@ -610,18 +610,17 @@ swiotlb_sync_sg_for_cpu(struct device *h
+ }
+ 
+ void
++swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
++			int nelems, int dir)
++{
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++}
++
++void
+ swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+ 			   int nelems, int dir)
+ {
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
+ }
+ 
+ int
