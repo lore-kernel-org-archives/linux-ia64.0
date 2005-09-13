@@ -1,82 +1,24 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 12 Sep 2005 23:59:36 +0000
-Subject: Re: [patch 2.6.13 (take #2)] swiotlb: BUG() for DMA_NONE in sync_single
-Message-Id: <20050912235936.GK21820@esmail.cup.hp.com>
+From: Andi Kleen <ak@suse.de>
+Date: Tue, 13 Sep 2005 04:05:30 +0000
+Subject: Re: [discuss] [patch 2.6.13 (take #2)] swiotlb: BUG() for DMA_NONE in sync_single
+Message-Id: <200509130605.31104.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <09122005104851.31056@bilbo.tuxdriver.com> <09122005104851.31120@bilbo.tuxdriver.com> <20050912185120.GD21820@esmail.cup.hp.com> <20050912195110.GC19644@tuxdriver.com> <20050912195356.GD19644@tuxdriver.com> <20050912202333.GF21820@esmail.cup.hp.com> <20050912234532.GH19644@tuxdriver.com>
+References: <09122005104851.31056@bilbo.tuxdriver.com> <20050912202333.GF21820@esmail.cup.hp.com> <20050912234532.GH19644@tuxdriver.com>
 In-Reply-To: <20050912234532.GH19644@tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>, linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
+To: discuss@x86-64.org
+Cc: "John W. Linville" <linville@tuxdriver.com>, Grant Grundler <iod00d@hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
-On Mon, Sep 12, 2005 at 07:45:34PM -0400, John W. Linville wrote:
+On Tuesday 13 September 2005 01:45, John W. Linville wrote:
 > Call BUG() if DMA_NONE is passed-in as direction for sync_single.
 > Also remove unnecessary checks for DMA_NONE in callers of sync_single.
-
-Looks good to me! :^)
-
+>
 > Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-In case it matters:
-	ACKed-by: Grant Grundler <iod00d@hp.com>
+Hi - your changes look good, but you missed the 2.6.14 merge window now
+so it'll be all 2.6.15 material. If you think there are any critical bug fixes
+in there (I didn't there were any) please extract them only.
 
-thanks
-grant
-
-> ---
-> This patch replaces the previous patch with (almost) the same subject.
-> 
->  lib/swiotlb.c |   11 ++---------
->  1 files changed, 2 insertions(+), 9 deletions(-)
-> 
-> diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-> --- a/lib/swiotlb.c
-> +++ b/lib/swiotlb.c
-> @@ -315,13 +315,13 @@ sync_single(struct device *hwdev, char *
->  	case SYNC_FOR_CPU:
->  		if (likely(dir = DMA_FROM_DEVICE || dma = DMA_BIDIRECTIONAL))
->  			memcpy(buffer, dma_addr, size);
-> -		else if (dir != DMA_TO_DEVICE && dir != DMA_NONE)
-> +		else if (dir != DMA_TO_DEVICE)
->  			BUG();
->  		break;
->  	case SYNC_FOR_DEVICE:
->  		if (likely(dir = DMA_TO_DEVICE || dma = DMA_BIDIRECTIONAL))
->  			memcpy(dma_addr, buffer, size);
-> -		else if (dir != DMA_FROM_DEVICE && dir != DMA_NONE)
-> +		else if (dir != DMA_FROM_DEVICE)
->  			BUG();
->  		break;
->  	default:
-> @@ -515,8 +515,6 @@ swiotlb_sync_single(struct device *hwdev
->  {
->  	char *dma_addr = phys_to_virt(dev_addr);
->  
-> -	if (dir = DMA_NONE)
-> -		BUG();
->  	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
->  		sync_single(hwdev, dma_addr, size, dir, target);
->  	else if (dir = DMA_FROM_DEVICE)
-> @@ -547,8 +545,6 @@ swiotlb_sync_single_range(struct device 
->  {
->  	char *dma_addr = phys_to_virt(dev_addr) + offset;
->  
-> -	if (dir = DMA_NONE)
-> -		BUG();
->  	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
->  		sync_single(hwdev, dma_addr, size, dir, target);
->  	else if (dir = DMA_FROM_DEVICE)
-> @@ -651,9 +647,6 @@ swiotlb_sync_sg(struct device *hwdev, st
->  {
->  	int i;
->  
-> -	if (dir = DMA_NONE)
-> -		BUG();
-> -
->  	for (i = 0; i < nelems; i++, sg++)
->  		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
->  			sync_single(hwdev, (void *) sg->dma_address,
-> -- 
-> John W. Linville
-> linville@tuxdriver.com
+-Andi
