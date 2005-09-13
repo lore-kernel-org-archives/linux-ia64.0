@@ -1,7 +1,7 @@
 From: Khalid Aziz <khalid.aziz@hp.com>
-Date: Tue, 13 Sep 2005 22:47:27 +0000
+Date: Tue, 13 Sep 2005 22:52:55 +0000
 Subject: Re: [RFC] /proc/efi_memmap
-Message-Id: <1126651647.29344.31.camel@lyra.fc.hp.com>
+Message-Id: <1126651975.29344.35.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200509092346.j89NkDdo001318@agluck-lia64.sc.intel.com>
 In-Reply-To: <200509092346.j89NkDdo001318@agluck-lia64.sc.intel.com>
@@ -22,13 +22,6 @@ On Tue, 2005-09-13 at 12:30 -0700, Luck, Tony wrote:
 > 
 > I should dust that off and take a look at it.  /proc/iomem seems a curious
 > name for a file that contains this information.
-
-It may have evolved from its original use. On x86, it currently seems to
-give information about full memory space. David pointed out a bug in the
-last patch I had sent out. I found another bug in that patch this
-morning which I have fixed now. I am running a few tests on it. I will
-send out updated patch tomorrow.
-
 > 
 > So what is the current state of kexec for ia64?  I think that there
 > are two modes of operation:
@@ -55,11 +48,12 @@ send out updated patch tomorrow.
 > 
 > -Tony
 
-I am testing my patch for 2.6.13 kernel. I will try to send it out next
-week. A normal reboot using kexec (your case 1) works very reliably. I
-have done 9000 back to back kexec reboots bypassing firmware each time
-successfully. I have case 2 working as well. If a kernel is pre-loaded,
-a pnic or INIT automatically causes a kexec reboot.
+A working kexec patch requires the EFI memory map walk rewrite patch (so
+we can pass a pristine EFI memory map to the kernel being kexec'd)
+and /proc/iomem patch (for kexec-tool to work). I have been dragging my
+feet on kexec patch partially since those two have not been accepted
+yet :) If you add those two patches, it makes it lot easier for me to
+give you a final kexec patch.
 
 -- 
 Khalid
