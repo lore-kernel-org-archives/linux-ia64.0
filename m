@@ -1,160 +1,167 @@
-From: hawkes@sgi.com
-Date: Sat, 03 Sep 2005 16:22:22 +0000
-Subject: [PATCH 2/3] 2.6.13: cpuset + build_sched_domains() fix
-Message-Id: <20050903162222.22566.31038.sendpatchset@tomahawk.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 13 Sep 2005 02:20:32 +0000
+Subject: [patch 2.6.13 git] Add Documentation/ia64/mca.txt
+Message-Id: <4941.1126578032@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dinakar Guniguntala <dino@in.ibm.com>, Andrew Morton <akpm@osdl.org>, Ingo Molnar <mingo@elte.hu>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, linux-ia64@vger.kernel.org, hawkes@sgi.com, Paul Jackson <pj@sgi.com>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Fix part 2:
-My fix to the 2.6.13 problem:  dynamically allocate sched_group_nodes[]
-and sched_group_allnodes[] for each invocation of build_sched_domains(),
-rather than use global arrays for these structures, taking care to
-remember kmalloc() addresses so that arch_destroy_sched_domains() can
-properly kfree() them.
+Add Documentation/ia64/mca.txt, an ad-hoc collection of notes on IA64
+MCA and INIT processing.
 
-Signed-off-by: John Hawkes <hawkes@sgi.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Index: linux/kernel/sched.c
-=================================--- linux.orig/kernel/sched.c	2005-09-02 08:44:24.000000000 -0700
-+++ linux/kernel/sched.c	2005-09-02 08:44:53.000000000 -0700
-@@ -4970,10 +4970,10 @@
-  * gets dynamically allocated.
-  */
- static DEFINE_PER_CPU(struct sched_domain, node_domains);
--static struct sched_group *sched_group_nodes[MAX_NUMNODES];
-+static struct sched_group **sched_group_nodes_bycpu[NR_CPUS];
- 
- static DEFINE_PER_CPU(struct sched_domain, allnodes_domains);
--static struct sched_group sched_group_allnodes[MAX_NUMNODES];
-+static struct sched_group *sched_group_allnodes_bycpu[NR_CPUS];
- 
- static int cpu_to_allnodes_group(int cpu)
- {
-@@ -4988,6 +4988,21 @@
- void build_sched_domains(const cpumask_t *cpu_map)
- {
- 	int i;
-+#ifdef CONFIG_NUMA
-+	struct sched_group **sched_group_nodes = NULL;
-+	struct sched_group *sched_group_allnodes = NULL;
+---
+
+ mca.txt |  142 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 142 insertions(+)
+
+Index: linux/Documentation/ia64/mca.txt
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux/Documentation/ia64/mca.txt	2005-09-13 12:18:02.030381449 +1000
+@@ -0,0 +1,142 @@
++An ad-hoc collection of notes on IA64 MCA and INIT processing.  Feel
++free to update it with notes about any area that is not clear.
 +
-+	/*
-+	 * Allocate the per-node list of sched groups
-+	 */
-+	sched_group_nodes = kmalloc(sizeof(struct sched_group*)*MAX_NUMNODES,
-+					   GFP_ATOMIC);
-+	if (!sched_group_nodes) {
-+		printk(KERN_WARNING "Can not alloc sched group node list\n");
-+		return;
-+	}
-+	sched_group_nodes_bycpu[first_cpu(*cpu_map)] = sched_group_nodes;
-+#endif
- 
- 	/*
- 	 * Set up domains for cpus specified by the cpu_map.
-@@ -5000,8 +5015,21 @@
- 		cpus_and(nodemask, nodemask, *cpu_map);
- 
- #ifdef CONFIG_NUMA
--		if (num_online_cpus()
-+		if (cpus_weight(*cpu_map)
- 				> SD_NODES_PER_DOMAIN*cpus_weight(nodemask)) {
-+			if (!sched_group_allnodes) {
-+				sched_group_allnodes
-+					= kmalloc(sizeof(struct sched_group)
-+							* MAX_NUMNODES,
-+						  GFP_KERNEL);
-+				if (!sched_group_allnodes) {
-+					printk(KERN_WARNING
-+					"Can not alloc allnodes sched group\n");
-+					break;
-+				}
-+				sched_group_allnodes_bycpu[i]
-+						= sched_group_allnodes;
-+			}
- 			sd = &per_cpu(allnodes_domains, i);
- 			*sd = SD_ALLNODES_INIT;
- 			sd->span = *cpu_map;
-@@ -5065,7 +5093,8 @@
- 
- #ifdef CONFIG_NUMA
- 	/* Set up node groups */
--	init_sched_build_groups(sched_group_allnodes, *cpu_map,
-+	if (sched_group_allnodes)
-+		init_sched_build_groups(sched_group_allnodes, *cpu_map,
- 					&cpu_to_allnodes_group);
- 
- 	for (i = 0; i < MAX_NUMNODES; i++) {
-@@ -5077,8 +5106,10 @@
- 		int j;
- 
- 		cpus_and(nodemask, nodemask, *cpu_map);
--		if (cpus_empty(nodemask))
-+		if (cpus_empty(nodemask)) {
-+			sched_group_nodes[i] = NULL;
- 			continue;
-+		}
- 
- 		domainspan = sched_domain_node_span(i);
- 		cpus_and(domainspan, domainspan, *cpu_map);
-@@ -5223,24 +5254,42 @@
- {
- #ifdef CONFIG_NUMA
- 	int i;
--	for (i = 0; i < MAX_NUMNODES; i++) {
--		cpumask_t nodemask = node_to_cpumask(i);
--		struct sched_group *oldsg, *sg = sched_group_nodes[i];
-+	int cpu;
- 
--		cpus_and(nodemask, nodemask, *cpu_map);
--		if (cpus_empty(nodemask))
--			continue;
-+	for_each_cpu_mask(cpu, *cpu_map) {
-+		struct sched_group *sched_group_allnodes
-+			= sched_group_allnodes_bycpu[cpu];
-+		struct sched_group **sched_group_nodes
-+			= sched_group_nodes_bycpu[cpu];
++---
 +
-+		if (sched_group_allnodes) {
-+			kfree(sched_group_allnodes);
-+			sched_group_allnodes_bycpu[cpu] = NULL;
-+		}
- 
--		if (sg = NULL)
-+		if (!sched_group_nodes)
- 			continue;
--		sg = sg->next;
++MCA/INIT are completely asynchronous.  They can occur at any time, when
++the OS is in any state.  Including when one of the cpus is already
++holding a spinlock.  Trying to get any lock from MCA/INIT state is
++asking for deadlock.  Also the state of structures that are protected
++by locks is indeterminate, including linked lists.
 +
-+		for (i = 0; i < MAX_NUMNODES; i++) {
-+			cpumask_t nodemask = node_to_cpumask(i);
-+			struct sched_group *oldsg, *sg = sched_group_nodes[i];
++---
 +
-+			cpus_and(nodemask, nodemask, *cpu_map);
-+			if (cpus_empty(nodemask))
-+				continue;
++The complicated ia64 MCA process.  All of this is mandated by Intel's
++specification for ia64 SAL, error recovery and and unwind, it is not as
++if we have a choice here.
 +
-+			if (sg = NULL)
-+				continue;
-+			sg = sg->next;
- next_sg:
--		oldsg = sg;
--		sg = sg->next;
--		kfree(oldsg);
--		if (oldsg != sched_group_nodes[i])
--			goto next_sg;
--		sched_group_nodes[i] = NULL;
-+			oldsg = sg;
-+			sg = sg->next;
-+			kfree(oldsg);
-+			if (oldsg != sched_group_nodes[i])
-+				goto next_sg;
-+		}
-+		kfree(sched_group_nodes);
-+		sched_group_nodes_bycpu[cpu] = NULL;
- 	}
- #endif
- }
++* MCA occurs on one cpu, usually due to a double bit memory error.
++  This is the monarch cpu.
++
++* SAL sends an MCA rendezvous interrupt (which is a normal interrupt)
++  to all the other cpus, the slaves.
++
++* Slave cpus that receive the MCA interrupt call down into SAL, they
++  end up spinning disabled while the MCA is being serviced.
++
++* If any slave cpu was already spinning disabled when the MCA occurred
++  then it cannot service the MCA interrupt.  SAL waits ~20 seconds then
++  sends an unmaskable INIT event to the slave cpus that have not
++  already rendezvoused.
++
++* Because MCA/INIT can be delivered at any time, including when the cpu
++  is down in PAL in physical mode, the registers at the time of the
++  event are _completely_ undefined.  In particular the MCA/INIT
++  handlers cannot rely on the thread pointer, PAL physical mode can
++  (and does) modify TP.  It is allowed to do that as long as it resets
++  TP on return.  However MCA/INIT events expose us to these PAL
++  internal TP changes.  Hence curr_task().
++
++* If an MCA/INIT event occurs while the kernel was running (not user
++  space) and the kernel has called PAL then the MCA/INIT handler cannot
++  assume that the kernel stack is in a fit state to be used.  Mainly
++  because PAL may or may not maintain the stack pointer internally.
++  Because the MCA/INIT handlers cannot trust the kernel stack, they
++  have to use their own, per-cpu stacks.  The MCA/INIT stacks are
++  preformatted with just enough task state to let the relevant handlers
++  do their job.
++
++* Unlike most other architectures, the ia64 struct task is embedded in
++  the kernel stack[1].  So switching to a new kernel stack means that
++  we switch to a new task as well.  Because various bits of the kernel
++  assume that current points into the struct task, switching to a new
++  stack also means a new value for current.
++
++* Once all slaves have rendezvoused and are spinning disabled, the
++  monarch is entered.  The monarch now tries to diagnose the problem
++  and decide if it can recover or not.
++
++* Part of the monarch's job is to look at the state of all the other
++  tasks.  The only way to do that on ia64 is to call the unwinder,
++  as mandated by Intel.
++
++* The starting point for the unwind depends on whether a task is
++  running or not.  That is, whether it is on a cpu or is blocked.  The
++  monarch has to determine whether or not a task is on a cpu before it
++  knows how to start unwinding it.  The tasks that received an MCA or
++  INIT event are no longer running, they have been converted to blocked
++  tasks.  But (and its a big but), the cpus that received the MCA
++  rendezvous interrupt are still running on their normal kernel stacks!
++
++* To distinguish between these two cases, the monarch must know which
++  tasks are on a cpu and which are not.  Hence each slave cpu that
++  switches to an MCA/INIT stack, registers its new stack using
++  set_curr_task(), so the monarch can tell that the _original_ task is
++  no longer running on that cpu.  That gives us a decent chance of
++  getting a valid backtrace of the _original_ task.
++
++* MCA/INIT can be nested, to a depth of 2 on any cpu.  In the case of a
++  nested error, we want diagnostics on the MCA/INIT handler that
++  failed, not on the task that was originally running.  Again this
++  requires set_curr_task() so the MCA/INIT handlers can register their
++  own stack as running on that cpu.  Then a recursive error gets a
++  trace of the failing handler's "task".
++
++[1] My (Keith Owens) original design called for ia64 to separate its
++    struct task and the kernel stacks.  Then the MCA/INIT data would be
++    chained stacks like i386 interrupt stacks.  But that required
++    radical surgery on the rest of ia64, plus extra hard wired TLB
++    entries with its associated performance degradation.  David
++    Mosberger vetoed that approach.  Which meant that separate kernel
++    stacks meant separate "tasks" for the MCA/INIT handlers.
++
++---
++
++INIT is less complicated than MCA.  Pressing the nmi button or using
++the equivalent command on the management console sends INIT to all
++cpus.  SAL picks one one of the cpus as the monarch and the rest are
++slaves.  All the OS INIT handlers are entered at approximately the same
++time.  The OS monarch prints the state of all tasks and returns, after
++which the slaves return and the system resumes.
++
++At least that is what is supposed to happen.  Alas there are broken
++versions of SAL out there.  Some drive all the cpus as monarchs.  Some
++drive them all as slaves.  Some drive one cpu as monarch, wait for that
++cpu to return from the OS then drive the rest as slaves.  Some versions
++of SAL cannot even cope with returning from the OS, they spin inside
++SAL on resume.  The OS INIT code has workarounds for some of these
++broken SAL symptoms, but some simply cannot be fixed from the OS side.
++
++---
++
++The scheduler hooks used by ia64 (curr_task, set_curr_task) are layer
++violations.  Unfortunately MCA/INIT start off as massive layer
++violations (can occur at _any_ time) and they build from there.
++
++At least ia64 makes an attempt at recovering from hardware errors, but
++it is a difficult problem because of the asynchronous nature of these
++errors.  When processing an unmaskable interrupt we sometimes need
++special code to cope with our inability to take any locks.
++
++---
++
++How is ia64 MCA/INIT different from x86 NMI?
++
++* x86 NMI typically gets delivered to one cpu.  MCA/INIT gets sent to
++  all cpus.
++
++* x86 NMI cannot be nested.  MCA/INIT can be nested, to a depth of 2
++  per cpu.
++
++* x86 has a separate struct task which points to one of multiple kernel
++  stacks.  ia64 has the struct task embedded in the single kernel
++  stack, so switching stack means switching task.
++
++* x86 does not call the BIOS so the NMI handler does not have to worry
++  about any registers having changed.  MCA/INIT can occur while the cpu
++  is in PAL in physical mode, with undefined registers and an undefined
++  kernel stack.
++
++* i386 backtrace is not very sensitive to whether a process is running
++  or not.  ia64 unwind is very, very sensitive to whether a process is
++  running or not.
+
