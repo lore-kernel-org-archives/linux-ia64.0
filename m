@@ -1,37 +1,30 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 16 Sep 2005 17:08:21 +0000
-Subject: Re: Fix simscsi for new SCSI midlayer
-Message-Id: <20050916170821.GA9382@agluck-lia64.sc.intel.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 13 Sep 2005 06:32:04 +0000
+Subject: 2.6.14-rc1 ia64 rebuilds everything every time
+Message-Id: <23363.1126593124@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17193.2055.852485.3865@berry.gelato.unsw.EDU.AU>
-In-Reply-To: <17193.2055.852485.3865@berry.gelato.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 15, 2005 at 03:35:03PM +1000, Peter Chubb wrote:
-> +	char localbuf[60];
+Because of the recursive definition in ia64 asm-offset.c, where the
+file has to exist with a dummy line before it can be generated, we end
+up with this recursive dependency.
 
-What is the magic number "60"? Shouldn't this be some kind of structure?
+arch/ia64/kernel/asm-offsets.s -> include/asm/asm-offsets.h (.cmd file)
+include/asm/asm-offsets.h -> arch/ia64/kernel/asm-offsets.s (explicit)
 
-> -			buf = sc->request_buffer;
-> +			buf = localbuf;
+Every 2.6.14-rc1 build rebuilds asm-offsets.s, because it asm-offsets.h
+is newer.  Which then rebuilds asm-offsets.h, which in turn rebuilds
+everything else.
 
-Ahh, I see, you inherited this avoidance of real structure ... but the
-60 only needs to be 36, yes?
+Best solution: remove (and forbid) recursive definitions in asm-offset.c.
 
->  			buf[0] = 0;	/* magnetic disk */
->  			buf[1] = 0;	/* not a removable medium */
->  			buf[2] = 2;	/* SCSI-2 compliant device */
->  			buf[3] = 2;	/* SCSI-2 response data format */
->  			buf[4] = 31;	/* additional length (bytes) */
->  			buf[5] = 0;	/* reserved */
->  			buf[6] = 0;	/* reserved */
->  			buf[7] = 0;	/* various flags */
->  			memcpy(buf + 8, "HP      SIMULATED DISK  0.00",  28);
-> +			simscsi_fillresult(sc, buf, 34);
+Kludge 1: edit arch/$(ARCH)/kernel/.asm-offsets.s.cmd to remove
+include/asm/asm-offsets.h.
 
-28 + 8 = 36 ... so you lose the "00" by only copying 34 bytes.
+Kludge 2: Build arch/$(ARCH)/kernel/asm-offsets.s as a temporary file
+then check if it has changed or not, only updating the real
+arch/$(ARCH)/kernel/asm-offsets.s if there is any change.
 
--Tony
