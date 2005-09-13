@@ -1,40 +1,95 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sun, 11 Sep 2005 03:47:13 +0000
-Subject: Re: [PATCH 2.6.13 8/7 respin 1] MCA/INIT: tweaks
-Message-Id: <22319.1126410433@ocs3.ocs.com.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 13 Sep 2005 16:02:15 +0000
+Subject: ia64 circular dependency on asm-offsets.h
+Message-Id: <200509131602.j8DG2Ffr005104@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <22055.1126409801@ocs3.ocs.com.au>
-In-Reply-To: <22055.1126409801@ocs3.ocs.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 11 Sep 2005 13:36:41 +1000, 
-Keith Owens <kaos@sgi.com> wrote:
->Respin 1 of the tweaks to the previous MCA/INIT patch sets.
->
->* Remove the requirement that kernel stacks be aligned on KERNEL_STACK_SIZE.
->* Remove the serialization of MCA/INIT handlers returning to SAL.  The
->  problem looked like a race but was really caused by a broken prom
->  doing cacheable accesses to the minstate area.
->* Print the cpu number and monarch status in the INIT handler.
->* Workaround for broken proms that access the minstate area using
->  cacheable addresses.
->* Remove the export of the scheduler hooks until we have modular code
->  that needs them.
->* Remove the final reference to MINSTATE_VIRT.
->* Workaround for broken proms that drive all INIT events as slaves.
->* Workaround for broken proms that drive all INIT events as monarchs.
+I am not proud of this patch (but Linus has already declared that
+I have no taste :-).  More of a case of changing out one ugly hack for
+a new ugly hack.  It's only merit is that this ugly hack works, where
+the old one has run into terminal problems.
 
-Tony, that is all the changes that I have planned for the (fast
-approaching) 2.6.14-rc1.  The scheduler hooks have already been posted
-to linux-kernel for discussion[1], the patch got just one query which
-has been answered.
+But unless someone can see a better way to fix this (in a simple patch
+suitable for merging in -rc1 ... I'll be ecstatic to entertain better
+patches for 2.6.15) then I'm going to submit it to Linus.
 
-Do you want me to reissue a new complete patch set or are you happy
-with appending the tweaks to the existing patch set?  Whatever is
-easier for your git tree.
+-Tony
 
-[1] http://lkml.org/lkml/2005/9/8/315/
-
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -82,17 +82,7 @@ unwcheck: vmlinux
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
+ 
+-archprepare:  include/asm-ia64/.offsets.h.stamp
+-
+-include/asm-ia64/.offsets.h.stamp:
+-	mkdir -p include/asm-ia64
+-	[ -s include/asm-ia64/asm-offsets.h ] \
+-	|| echo "#define IA64_TASK_SIZE 0" > include/asm-ia64/asm-offsets.h
+-	touch $@
+-
+-
+-
+-CLEAN_FILES += vmlinux.gz bootloader include/asm-ia64/.offsets.h.stamp
++CLEAN_FILES += vmlinux.gz bootloader
+ 
+ boot:	lib/lib.a vmlinux
+ 	$(Q)$(MAKE) $(build)=$(boot) $@
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -4,6 +4,7 @@
+  * to extract and format the required data.
+  */
+ 
++#define ASM_OFFSETS_C 1
+ #include <linux/config.h>
+ 
+ #include <linux/sched.h>
+diff --git a/include/asm-ia64/ptrace.h b/include/asm-ia64/ptrace.h
+--- a/include/asm-ia64/ptrace.h
++++ b/include/asm-ia64/ptrace.h
+@@ -57,7 +57,9 @@
+ #include <linux/config.h>
+ 
+ #include <asm/fpu.h>
++#ifndef ASM_OFFSETS_C
+ #include <asm/asm-offsets.h>
++#endif
+ 
+ /*
+  * Base-2 logarithm of number of pages to allocate per task structure
+diff --git a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
+--- a/include/asm-ia64/thread_info.h
++++ b/include/asm-ia64/thread_info.h
+@@ -5,7 +5,9 @@
+ #ifndef _ASM_IA64_THREAD_INFO_H
+ #define _ASM_IA64_THREAD_INFO_H
+ 
++#ifndef ASM_OFFSETS_C
+ #include <asm/asm-offsets.h>
++#endif
+ #include <asm/processor.h>
+ #include <asm/ptrace.h>
+ 
+@@ -51,9 +53,14 @@ struct thread_info {
+ 	},					\
+ }
+ 
++#ifndef ASM_OFFSETS_C
+ /* how to get the thread information struct from C */
+ #define current_thread_info()	((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
+ #define alloc_thread_info(tsk)	((struct thread_info *) ((char *) (tsk) + IA64_TASK_SIZE))
++#else
++#define current_thread_info()	((struct thread_info *) 0)
++#define alloc_thread_info(tsk)	((struct thread_info *) 0)
++#endif
+ #define free_thread_info(ti)	/* nothing */
+ 
+ #define __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
