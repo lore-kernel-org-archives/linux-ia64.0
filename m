@@ -1,60 +1,65 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Thu, 22 Sep 2005 17:31:35 +0000
-Subject: Re: [PATCH 1/4] V4 ia64 SPARSEMEM - Kconfig and Makefile
-Message-Id: <20050922173135.GB16066@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 13 Sep 2005 00:14:29 +0000
+Subject: [patch 2.6.13] ia64: re-implement dma_get_cache_alignment to avoid EXPORT_SYMBOL
+Message-Id: <20050913001429.GJ19644@tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050922161425.GX16066@localhost.localdomain>
-In-Reply-To: <20050922161425.GX16066@localhost.localdomain>
+References: <09122005104852.31327@bilbo.tuxdriver.com> <20050912192524.GA14360@infradead.org> <20050913000611.GI19644@tuxdriver.com>
+In-Reply-To: <20050913000611.GI19644@tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-Greg Edwards wrote:	[Thu Sep 22 2005, 12:38:59PM EDT]
-> On Thu, Sep 22, 2005 at 12:14:25PM -0400, Bob Picco wrote:
-> | 
-> | The patch modifies the Kconfig file to introduce the new memory model
-> | options and other related SPARSEMEM changes.  There is also a minor change 
-> | in the Makefile.
-> 
-> This doesn't seem to be working entirely yet.  If I make sn2_defconfig
-> and manually switch to SPARSEMEM_MANUAL it does the right thing.
-> 
-> If I make the generic defconfig, and switch it to SPARSEMEM_MANUAL,
-> VIRTUAL_MEM_MAP is still left on:
-> 
-> [...]
-> CONFIG_IA64_GENERIC=y
-> [...]
-> CONFIG_SELECT_MEMORY_MODEL=y
-> # CONFIG_FLATMEM_MANUAL is not set
-> # CONFIG_DISCONTIGMEM_MANUAL is not set
-> CONFIG_SPARSEMEM_MANUAL=y
-> CONFIG_DISCONTIGMEM=y
-> CONFIG_SPARSEMEM=y
-> CONFIG_NEED_MULTIPLE_NODES=y
-> CONFIG_HAVE_MEMORY_PRESENT=y
-> # CONFIG_SPARSEMEM_STATIC is not set
-> CONFIG_SPARSEMEM_EXTREME=y
-> CONFIG_ARCH_SELECT_MEMORY_MODEL=y
-> CONFIG_ARCH_FLATMEM_ENABLE=y
-> CONFIG_ARCH_DISCONTIGMEM_ENABLE=y
-> CONFIG_ARCH_DISCONTIGMEM_DEFAULT=y
-> CONFIG_ARCH_SPARSEMEM_ENABLE=y
-> CONFIG_NUMA=y
-> CONFIG_VIRTUAL_MEM_MAP=y
-> CONFIG_HOLES_IN_ZONE=y
-> CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID=y
-> [...]
-Greg,
+The current ia64 implementation of dma_get_cache_alignment does not
+work for modules because it relies on a symbol which is not exported.
+Direct access to a global is a little ugly anyway, so this patch
+re-implements dma_get_cache_alignment in a manner similar to what is
+currently used for x86_64.
 
-Thanks for catching this.  Just too many memory model permutations. Hopefully
-someday just SPARSEMEM and NUMA.  I think what is best here is to remove these
-Kconfig options from IA64_GENERIC.
--       select VIRTUAL_MEM_MAP
--       select DISCONTIGMEM
-This works for both config files you tested. 
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+This patch replaces the patch at the link below:
 
+	http://www.ussg.iu.edu/hypermail/linux/kernel/0509.1/1365.html
 
-bob
+ arch/ia64/kernel/setup.c       |    7 +++++++
+ include/asm-ia64/dma-mapping.h |    7 +------
+ 2 files changed, 8 insertions(+), 6 deletions(-)
 
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -79,6 +79,13 @@ unsigned long vga_console_iobase;
+ unsigned long vga_console_membase;
+ 
+ unsigned long ia64_max_cacheline_size;
++
++int dma_get_cache_alignment(void)
++{
++        return ia64_max_cacheline_size;
++}
++EXPORT_SYMBOL(dma_get_cache_alignment);
++
+ unsigned long ia64_iobase;	/* virtual address for I/O accesses */
+ EXPORT_SYMBOL(ia64_iobase);
+ struct io_space io_space[MAX_IO_SPACES];
+diff --git a/include/asm-ia64/dma-mapping.h b/include/asm-ia64/dma-mapping.h
+--- a/include/asm-ia64/dma-mapping.h
++++ b/include/asm-ia64/dma-mapping.h
+@@ -48,12 +48,7 @@ dma_set_mask (struct device *dev, u64 ma
+ 	return 0;
+ }
+ 
+-static inline int
+-dma_get_cache_alignment (void)
+-{
+-	extern int ia64_max_cacheline_size;
+-	return ia64_max_cacheline_size;
+-}
++extern int dma_get_cache_alignment(void);
+ 
+ static inline void
+ dma_cache_sync (void *vaddr, size_t size, enum dma_data_direction dir)
+-- 
+John W. Linville
+linville@tuxdriver.com
