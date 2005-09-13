@@ -1,58 +1,28 @@
-From: "John Ik Lee \(WA\)" <jlee@platsolns.com>
-Date: Thu, 01 Sep 2005 22:14:45 +0000
-Subject: RE: Update to Software Developer's Manual
-Message-Id: <AEBB9AF2F7713A4FAB1397435451162E018A4BC9@spock.invent.psi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 13 Sep 2005 05:22:17 +0000
+Subject: 2.6.14-rc1 breaks tg3 on ia64
+Message-Id: <22029.1126588937@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-
-Hi,
-
-Could you IPF platform makers share when the new PAL entry
-PAL_MC_ERROR_INJECT is going to be available in your platforms?
-
-Thanks,
-John Ik Lee (J.I.)
-Sr. Staff Engineer
-Platform Solutions, Inc
-
------Original Message-----
-From: linux-ia64-owner@vger.kernel.org
-[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Christian Hildner
-Sent: Thursday, August 18, 2005 11:20 PM
-To: Luck, Tony
+To: linux-kernel@vger.kernel.org
 Cc: linux-ia64@vger.kernel.org
-Subject: Re: Update to Software Developer's Manual
 
-Luck, Tony schrieb:
+2.6.14-rc1 + kdb on ia64 (SGI Altix).
 
->There is a specification update to the Itanium Architecture
->Software Developer's Manual available at:
->
->http://developer.intel.com/design/itanium/downloads/248699.htm
->
->One new goody is a new PAL call for error injection (which should
->help a lot with testing the MCA paths ... bad news is that you'll
->have to wait for Montecito to see a PAL that implements it).
->
-Just for interest. Did anyone already boot Linux on Montecito hardware? 
-Are additional patches necessary to do so?
+tg3.c:v3.39 (September 5, 2005)
+ACPI: PCI Interrupt 0001:01:04.0[A]: no GSI
+BRIDGE ERR_STATUS 0x800
+BRIDGE ERR_STATUS 0x800
+PCI BRIDGE ERROR: int_status is 0x800 for 011c32:slab0:widget15:bus0
+    Dumping relevant 011c32:slab0:widget15:bus0 registers for each bit set...
+        11: PCI bus device select timeout
+            PCI Error Address Register: 0x3000000316808
+            PCI Error Address: 0x316808
+    PIC Multiple Interrupt Register is 0x800
+        11: PCI bus device select timeout
 
-Christian
+Followed by a machine check and reboot :(  2.6.13 worked fine.  Any
+ideas which patch to backout this time?
 
->-Tony
->
->P.S. Sunglasses may be required for pages 15-17 ... the authors
->of those pages seem to have gone a little wild with their use
->of colour :-)
->
-PPS: I wasn't careful enough and even burned my skin ;-).
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
