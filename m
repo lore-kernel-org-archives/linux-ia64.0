@@ -1,100 +1,88 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 21 Sep 2005 06:21:11 +0000
-Subject: Announce: kdb v4.4 is available for kernel 2.6.14-rc2
-Message-Id: <8905.1127283671@kao2.melbourne.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 14 Sep 2005 22:26:44 +0000
+Subject: Attribute spinlock contention ticks to caller.
+Message-Id: <20050914222644.GA5036@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12956.1085377697@kao2.melbourne.sgi.com>
-In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kdb@oss.sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-KDB (Linux Kernel Debugger) has been updated.
-
-ftp://oss.sgi.com/projects/kdb/download/v4.4/
-ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
-
-Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
-subscriber only.  If you reply to this mail, you may wish to trim
-kdb@oss.sgi.com from the cc: list.
-
-Current versions are :-
-
-  kdb-v4.4-2.6.14-rc2-common-1.bz2
-  kdb-v4.4-2.6.14-rc2-i386-1.bz2
-  kdb-v4.4-2.6.14-rc2-ia64-1.bz2
-
-The register display (rd, r) and register modify (rm) commands now work
-for tasks that were running when MCA/INIT was delivered.
-
-There is a small change in the behaviour of rd/rm after you use the
-pid, btt, btp and btc commands.  I recommend that you read the rd and
-bt man pages in Documentation/kdb, pay attention to KDB's notion of the
-"current task" when working with registers.
-
-Changelog extract since kdb-v4.4-2.6.13-common-1.
-
-2005-09-21 Keith Owens  <kaos@sgi.com>
-
-	* Support kdb_current_task in register display and modify commands.
-	* Document what changes kdb's notion of the current task.
-	* Update rd documentation for IA64.
-	* Move some definitions to kdbprivate.h and remove some unused symbol
-	  exports.
-	* kdb v4.4-2.6.14-rc2-common-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Document IA64 handlers command.
-	* Add more fields to the task command.
-	* Cope with MCA/INIT handlers in the ps command.
-	* Namespace cleanup, delete unused exports, make some functions static.
-	* Add a kdb_notifier_list callback when kdb is about to reboot the
-	  system.
-	* kdb v4.4-2.6.14-rc1-common-1.
+To: linux-ia64@vger.kernel.org
 
 
-Changelog extract since kdb-v4.4-2.6.13-i386-1.
+On larger systems, ia64_spinlock_contention frequently shows up in
+pfmon output.  Determining whether it is a frequently contended lock or
+numerous different locks is very difficult.
 
-2005-09-21 Keith Owens  <kaos@sgi.com>
-
-	* Support kdb_current_task in register display and modify commands.
-	* kdb v4.4-2.6.14-rc2-i386-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Remove use of __STDC_VERSION__ in ansidecl.h.
-	* kdb v4.4-2.6.14-rc1-i386-1.
+The following patch attributes the ticks received while in
+ia64_spinlock_contention to the requestor of the lock.
 
 
-Changelog extract since kdb v4.4-2.6.13-ia64-1.
+Signed-off-by: Robin Holt <holt@sgi.com>
 
-2005-09-21 Keith Owens  <kaos@sgi.com>
 
-	* Support kdb_current_task in register display and modify commands.
-	* kdb v4.4-2.6.14-rc2-ia64-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Coexist with kprobes.
-	* Coexist with MCA/INIT rewrite.
-	* Add KDB_ENTER_SLAVE to handle concurrent entry to kdb from multiple
-	  cpus.
-	* Add handlers command to control whether the MCA/INIT task or the
-	  original task is displayed.
-	* Namespace clean up, remove unused kdba_sw_interrupt.
-	* kdb v4.4-2.6.14-rc1-ia64-1.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQFDMPvXi4UHNye0ZOoRAkEtAKCj7n5RUJ31iP3xjPFx1M1rZAemUQCePHiL
-Fgaq2p2ceW8p771aCY5OIQQ=CiVw
------END PGP SIGNATURE-----
-
+Index: linux-2.6/arch/ia64/kernel/head.S
+=================================--- linux-2.6.orig/arch/ia64/kernel/head.S	2005-09-09 18:06:16.000000000 -0500
++++ linux-2.6/arch/ia64/kernel/head.S	2005-09-14 14:38:03.946010176 -0500
+@@ -1119,6 +1119,8 @@ GLOBAL_ENTRY(ia64_spinlock_contention)
+ (p14)	br.cond.sptk.few .wait
+ 
+ 	br.ret.sptk.many b6	// lock is now taken
++	.global ia64_spinlock_contention_end	// for determining if we are in ia64_spinlock_contention code.
++ia64_spinlock_contention_end:
+ END(ia64_spinlock_contention)
+ 
+ #endif
+Index: linux-2.6/arch/ia64/kernel/ia64_ksyms.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/ia64_ksyms.c	2005-09-01 09:30:56.000000000 -0500
++++ linux-2.6/arch/ia64/kernel/ia64_ksyms.c	2005-09-14 14:39:24.411493406 -0500
+@@ -109,6 +109,8 @@ EXPORT_SYMBOL(unw_init_running);
+  */
+ extern char ia64_spinlock_contention_pre3_4;
+ EXPORT_SYMBOL(ia64_spinlock_contention_pre3_4);
++extern char ia64_spinlock_contention_pre3_4_end;
++EXPORT_SYMBOL(ia64_spinlock_contention_pre3_4_end);
+ #  else
+ /*
+  * This is not a normal routine and we don't want a function descriptor for it, so we use
+@@ -116,6 +118,8 @@ EXPORT_SYMBOL(ia64_spinlock_contention_p
+  */
+ extern char ia64_spinlock_contention;
+ EXPORT_SYMBOL(ia64_spinlock_contention);
++extern char ia64_spinlock_contention_end;
++EXPORT_SYMBOL(ia64_spinlock_contention_end);
+ #  endif
+ # endif
+ #endif
+Index: linux-2.6/arch/ia64/kernel/perfmon_default_smpl.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/perfmon_default_smpl.c	2005-09-01 09:30:56.000000000 -0500
++++ linux-2.6/arch/ia64/kernel/perfmon_default_smpl.c	2005-09-14 14:43:26.445574995 -0500
+@@ -99,6 +99,16 @@ default_init(struct task_struct *task, v
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_SMP
++#if __GNUC__ < 3 || (__GNUC__ = 3 && __GNUC_MINOR__ < 3)
++extern char ia64_spinlock_contention_pre3_4[], ia64_spinlock_contention_pre3_4_end[];
++#define ia64_spinlock_contention		ia64_spinlock_contention_pre3_4
++#define ia64_spinlock_contention_end		ia64_spinlock_contention_pre3_4_end
++#else
++extern char ia64_spinlock_contention[], ia64_spinlock_contention_end[];
++#endif
++#endif
++
+ static int
+ default_handler(struct task_struct *task, void *buf, pfm_ovfl_arg_t *arg, struct pt_regs *regs, unsigned long stamp)
+ {
+@@ -165,6 +175,12 @@ default_handler(struct task_struct *task
+ 	 * where did the fault happen (includes slot number)
+ 	 */
+ 	ent->ip = regs->cr_iip | ((regs->cr_ipsr >> 41) & 0x3);
++#ifdef CONFIG_SMP
++	/* Fix up the ip for code in the spinlock contention path. */
++	if ((ent->ip >= (unsigned long)ia64_spinlock_contention) &&
++	    (ent->ip < (unsigned long)ia64_spinlock_contention_end))
++		ent->ip = regs->b6;
++#endif
+ 
+ 	ent->tstamp    = stamp;
+ 	ent->cpu       = smp_processor_id();
