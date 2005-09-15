@@ -1,7 +1,7 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 15 Sep 2005 06:34:35 +0000
+Date: Thu, 15 Sep 2005 08:19:09 +0000
 Subject: Re: Attribute spinlock contention ticks to caller.
-Message-Id: <1126766075.7372.16.camel@uluru.grenoble.hp.com>
+Message-Id: <20050915081909.GA24631@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050914222644.GA5036@lnx-holt.americas.sgi.com>
 In-Reply-To: <20050914222644.GA5036@lnx-holt.americas.sgi.com>
@@ -12,36 +12,52 @@ To: linux-ia64@vger.kernel.org
 
 Robin,
 
-> +
->  static int
->  default_handler(struct task_struct *task, void *buf, pfm_ovfl_arg_t *arg, struct pt_regs *regs, unsigned long stamp)
->  {
-> @@ -165,6 +175,12 @@ default_handler(struct task_struct *task
->  	 * where did the fault happen (includes slot number)
->  	 */
->  	ent->ip = regs->cr_iip | ((regs->cr_ipsr >> 41) & 0x3);
-> +#ifdef CONFIG_SMP
-> +	/* Fix up the ip for code in the spinlock contention path. */
-> +	if ((ent->ip >= (unsigned long)ia64_spinlock_contention) &&
-> +	    (ent->ip < (unsigned long)ia64_spinlock_contention_end))
-> +		ent->ip = regs->b6;
-> +#endif
+On Thu, Sep 15, 2005 at 10:37:50AM -0700, Luck, Tony wrote:
+> >This also opens the door for people submitted other special cases.
+> 
+> I'm very sympathetic to getting better performance data.  I agree
+> 100% that knowing who called spinlock contention is far better than
+> just lumping all spinlock contention together.
+> 
+I think you need to clarify this a little bit I may be missing
+somethin here. 
 
-I think SGI already submitted something similar for the 2.4 kernel.
-I understand your motivations for doing this. Yet it does not look
-so clean and error proof. Keith already mentioned a potential gap.
-I also think it is hard to maintain because if for some reasons someone
-changes from b6 to b7 there is no way of tracking this from default_handler().
-For your purpose, the value of b6 is more interesting than ip. Would that
-always be the case for every measurement?
+It seems you assume you know something in advance here. 
+I think you need a two-step process somehow. First you need to
+discover that you have contention, i.e., lots of samples
+in the contention code. Second you want to know from where
+and that's why you record the return from contention rather
+than contention. This sequence makes sense. 
 
-This also opens the door for people submitted other special cases.
-This is the reasons why I designed sampling formats to be plug-in
-modules such that for special needs, people can simply develop their
-own format. I understand that your modification does not deeply alter
-the default format and integrates seamlessly with existing applications.
-But it seems there ought to be a cleaner way of doing this.
+With your patch, you would skip the first step.  If you don't
+know you have contention, how would you interpret the samples
+you get? For each sample, you have to search backwards to see
+if there is a br.call or similar that points to some 
+spinlock code. Why would you do this costly search systematically?
+Unless the tool is designed just to look for this. 
 
---
--stephane
+So I think that this should somehow be an option. Like Tony suggest
+I would like to have a cleaner mechanism to track code range
+for which this could be useful. Furthermore, the name of the
+register to swap for iip should not be hardcoded becasue it is hard
+to maintain, should the spinlock code evolve.
 
+> But I have to agree with Stephane that this looks like the start
+> of a slippery slope of special cases (each of which provides two
+> new exported symbols).
+> 
+> We should look to see if there is a better way to flag address
+> ranges in the kernel where you'd like to bill time to the caller
+> rather than the function (perhaps some sort of tag table like the
+> extable used for copyin/copyout fault recovery?  Then we can just
+> export one table and have the profiler search it ... rather than
+> a new pair of symbols for every case.
+> 
+> Or you can try to convince me that spinlock contention is such
+> a special one off case, and we will never, ever, want to do this
+> anywhere else.
+> 
+
+-- 
+
+-Stephane
