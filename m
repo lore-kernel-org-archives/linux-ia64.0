@@ -1,7 +1,7 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Thu, 15 Sep 2005 22:54:43 +0000
-Subject: RE: Attribute spinlock contention ticks to caller.
-Message-Id: <1126824883.2523.14.camel@linux-znh>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 16 Sep 2005 09:37:31 +0000
+Subject: Re: Attribute spinlock contention ticks to caller.
+Message-Id: <20050916093731.GG25984@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050914222644.GA5036@lnx-holt.americas.sgi.com>
 In-Reply-To: <20050914222644.GA5036@lnx-holt.americas.sgi.com>
@@ -10,39 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 2005-09-16 at 01:37, Luck, Tony wrote:
-> >This also opens the door for people submitted other special cases.
-> 
-> I'm very sympathetic to getting better performance data.  I agree
-> 100% that knowing who called spinlock contention is far better than
-> just lumping all spinlock contention together.
-> 
-> But I have to agree with Stephane that this looks like the start
-> of a slippery slope of special cases (each of which provides two
-> new exported symbols).
-> 
-> We should look to see if there is a better way to flag address
-> ranges in the kernel where you'd like to bill time to the caller
-> rather than the function (perhaps some sort of tag table like the
-> extable used for copyin/copyout fault recovery?  Then we can just
-> export one table and have the profiler search it ... rather than
-> a new pair of symbols for every case.
-> 
-> Or you can try to convince me that spinlock contention is such
-> a special one off case, and we will never, ever, want to do this
-> anywhere else.
-> 
-> -Tony
+Robin,
 
-  There is a function in_lock_function in kernel/spinlock.c
-  However in latest kernel, ia64_spinlock_contention is not in 
-.spinlock.text section.
-  We could first collect ia64_spinlock_contention into .spinlock.text
-section. Then use in_lock_function.
+On Thu, Sep 15, 2005 at 05:29:00PM -0500, Robin Holt wrote:
+> > It seems you assume you know something in advance here. 
+> > I think you need a two-step process somehow. First you need to
+> > discover that you have contention, i.e., lots of samples
+> > in the contention code. Second you want to know from where
+> > and that's why you record the return from contention rather
+> > than contention. This sequence makes sense. 
+> > 
+> > With your patch, you would skip the first step.  If you don't
+> > know you have contention, how would you interpret the samples
+> > you get? For each sample, you have to search backwards to see
+> > if there is a br.call or similar that points to some 
+> > spinlock code. Why would you do this costly search systematically?
+> > Unless the tool is designed just to look for this. 
+> 
+> Unfortunately, without this patch, ia64_spinlock_contention become the
+> top billing issue on nearly every large cpu count sample.  It does not
+> mean you are contending on the same lock.  I have been fooled many times
+> into chasing a contention problem when in reality there were many locks
+> lightly contended which artificially raised the number of ticks to a
+> significant level.
+> 
+You have another side effect in here: interrupt masking. With existing
+PMU, you cannot take a sample is interrupts are masked. For some
+of the kernel code, it means that you get samples attributed to the
+bundle(s) just following interrupt unmasking.
 
-Zou Nan hai
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I think what you are really after here is kernel call stack unwinding.
+Your patch is effectively a quick hack to get this for a specific function
+and for one level of unwinding.
 
+I have shown in several presentations (incl. Gelato May 2004) that the existing
+infrastructure can be used to sample the kernel call stack. I have written
+a prototype perfmon2 sampling format that does just that. You can
+say, for instance:" Every 100,0000 cycles in the kernel record the full
+(or partial) call stack". The format is just a prototype at this point
+but I think it could be useful for your situation. The format was
+designed to show the power of the interface in that it allows you
+sample on PMU event and yet record non PMU-based information.
+
+-- 
+
+-Stephane
