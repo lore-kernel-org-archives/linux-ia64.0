@@ -1,91 +1,236 @@
-From: "John Ik Lee \(WA\)" <jlee@platsolns.com>
-Date: Mon, 12 Sep 2005 23:36:29 +0000
-Subject: RE: [RFC] SAL_MC_RENDEZ logic
-Message-Id: <AEBB9AF2F7713A4FAB1397435451162E0197CFEC@spock.invent.psi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 16 Sep 2005 17:42:33 +0000
+Subject: [PATCH] serial: remove 8250_acpi (subsumed by 8250_pnp and PNPACPI)
+Message-Id: <200509161142.33723.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <43252738.8030303@jp.fujitsu.com>
-In-Reply-To: <43252738.8030303@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Russell King <rmk+serial@arm.linux.org.uk>
+Cc: linux-serial@vger.kernel.org, Len Brown <len.brown@intel.com>, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-MCA experts,
+With the combination of PNPACPI and 8250_pnp, we no longer need
+8250_acpi.
 
-Itanium 2 processor datasheet mentions about ETM generated CMCI but none
-of the PAL/SAL spec/Itanium error handling guide has that info.
-PAL_MC_ERROR_INFO/SAL_GET_STATE_INFO for processor errors do not have
-any entries related to thermal event.
+The only in-tree configs that contain CONFIG_SERIAL_8250_ACPI are ia64.
+ia64 users should make sure CONFIG_PNP and CONFIG_PNPACPI are set so
+8250_pnp.c can discover built-in serial ports.  Tony has already
+accepted a patch to turn them on in the default configs.
 
-When CMCI is sent, I presume there's an error record of it.
-Where can I find the info of ETM-CMC related error record format/doc?
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Itanium 2 processor datasheet reads:
-#5.1.2 Enhanced Thermal Management
-...Once the thermal sensing device observes the temperature rise above
-the thermal entry point, the processor will enter a low power mode of
-execution and notify the system by sending a Correctable Machine Check
-Interrupt (CMCI). ...
-
-Thanks,
-John Ik Lee (J.I.)
-Sr. Staff Engineer
-Platform Solutions, Inc
-
------Original Message-----
-From: linux-ia64-owner@vger.kernel.org
-[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Hidetoshi Seto
-Sent: Monday, September 12, 2005 1:28 AM
-To: Keith Owens
-Cc: linux-ia64@vger.kernel.org
-Subject: Re: [RFC] SAL_MC_RENDEZ logic
-
-Thank you for your reply, Keith.
-
-Keith Owens wrote:
-> The IRR bits are read only.  The OS clears them by reading cr.ivr, in
-> the external interrupt vector.  The only reason that mca.c tests IRR
-> directly is because at that point interrupts are disabled.
-
-I forgot to mention, the SAL actually reads cr.ivr and writes cr.eoi.
-
->>I'm not sure but it seems "if any" means that SAL can clear
->>the IRR bits on behalf of OS.  So OS shouldn't expect the IRR
->>always be set on returning from SAL_MC_RENDEZ, is this right?
-> 
-> The phrase "if any" is quite ambiguous, it is not clear what it means
-> here.
-
-I agree.  It should be written in full sentence.
-
->>I don't know whether there is any old SAL never spins in
->>SAL_MC_RENDEZ or not.  Or is this the beginning of nightmare,
->>having different MCA codes depend on the SAL version?
-> 
-> I hope not.  In any case my MCA/INIT rewrite removes the spin in mca.c
-> waiting for IRR to be set.  Instead the slave comes out of SAL due to
-a
-> wake up call, waits for the monarch to exit then the slaves all exit.
-> 
-> Once a slave resumes to its normal context and interrupts are enabled
-> again, then the external interrupt vector clears the wake up bit and
-> calls ia64_mca_wakeup_int_handler() which is a no-op.  The rendezvous
-> IRR bit is cleared when we read cr.ivr prior to calling
-> ia64_mca_rendez_int_handler(), i.e. this bit is already clear when we
-> rendezvous.
-> 
-> In your case I would say that SAL is wrong.  I would argue that SAL
-> should not be reading cr.ivr at all, it should leave that to the OS.
-> The existing (2.6.13) code will not work with that SAL.  My rewrite
-> (hopefully in 2.6.14-rc1) will work with that SAL.
-
-I appreciate your work very well.
-I'll argue off this problem with developers of the SAL instead of you.
-
-Thanks,
-H.Seto
-
+Index: work-vga2/drivers/serial/Kconfig
+=================================--- work-vga2.orig/drivers/serial/Kconfig	2005-09-14 09:29:08.000000000 -0600
++++ work-vga2/drivers/serial/Kconfig	2005-09-15 09:58:40.000000000 -0600
+@@ -77,14 +77,6 @@
+ 
+ 	  If unsure, say N.
+ 
+-config SERIAL_8250_ACPI
+-	bool "8250/16550 device discovery via ACPI namespace"
+-	default y if IA64
+-	depends on ACPI && SERIAL_8250
+-	---help---
+-	  If you wish to enable serial port discovery via the ACPI
+-	  namespace, say Y here.  If unsure, say N.
 -
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ config SERIAL_8250_NR_UARTS
+ 	int "Maximum number of 8250/16550 serial ports"
+ 	depends on SERIAL_8250
+Index: work-vga2/drivers/serial/Makefile
+=================================--- work-vga2.orig/drivers/serial/Makefile	2005-09-14 09:29:08.000000000 -0600
++++ work-vga2/drivers/serial/Makefile	2005-09-15 09:58:18.000000000 -0600
+@@ -5,7 +5,6 @@
+ #
+ 
+ serial-8250-y :-serial-8250-$(CONFIG_SERIAL_8250_ACPI) += 8250_acpi.o
+ serial-8250-$(CONFIG_PNP) += 8250_pnp.o
+ serial-8250-$(CONFIG_GSC) += 8250_gsc.o
+ serial-8250-$(CONFIG_PCI) += 8250_pci.o
+Index: work-vga2/drivers/serial/8250_acpi.c
+=================================--- work-vga2.orig/drivers/serial/8250_acpi.c	2005-09-14 09:29:08.000000000 -0600
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,183 +0,0 @@
+-/*
+- * Copyright (c) 2002-2003 Matthew Wilcox for Hewlett-Packard
+- * Copyright (C) 2004 Hewlett-Packard Co
+- *	Bjorn Helgaas <bjorn.helgaas@hp.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- */
+-
+-#include <linux/acpi.h>
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/serial_core.h>
+-
+-#include <acpi/acpi_bus.h>
+-
+-#include <asm/io.h>
+-
+-#include "8250.h"
+-
+-struct serial_private {
+-	int	line;
+-};
+-
+-static acpi_status acpi_serial_mmio(struct uart_port *port,
+-				    struct acpi_resource_address64 *addr)
+-{
+-	port->mapbase = addr->min_address_range;
+-	port->iotype = UPIO_MEM;
+-	port->flags |= UPF_IOREMAP;
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_port(struct uart_port *port,
+-				    struct acpi_resource_io *io)
+-{
+-	if (io->range_length) {
+-		port->iobase = io->min_base_address;
+-		port->iotype = UPIO_PORT;
+-	} else
+-		printk(KERN_ERR "%s: zero-length IO port range?\n", __FUNCTION__);
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_ext_irq(struct uart_port *port,
+-				       struct acpi_resource_ext_irq *ext_irq)
+-{
+-	int rc;
+-
+-	if (ext_irq->number_of_interrupts > 0) {
+-		rc = acpi_register_gsi(ext_irq->interrupts[0],
+-	                   ext_irq->edge_level, ext_irq->active_high_low);
+-		if (rc < 0)
+-			return AE_ERROR;
+-		port->irq = rc;
+-	}
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_irq(struct uart_port *port,
+-				   struct acpi_resource_irq *irq)
+-{
+-	int rc;
+-
+-	if (irq->number_of_interrupts > 0) {
+-		rc = acpi_register_gsi(irq->interrupts[0],
+-	                   irq->edge_level, irq->active_high_low);
+-		if (rc < 0)
+-			return AE_ERROR;
+-		port->irq = rc;
+-	}
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_resource(struct acpi_resource *res, void *data)
+-{
+-	struct uart_port *port = (struct uart_port *) data;
+-	struct acpi_resource_address64 addr;
+-	acpi_status status;
+-
+-	status = acpi_resource_to_address64(res, &addr);
+-	if (ACPI_SUCCESS(status))
+-		return acpi_serial_mmio(port, &addr);
+-	else if (res->id = ACPI_RSTYPE_IO)
+-		return acpi_serial_port(port, &res->data.io);
+-	else if (res->id = ACPI_RSTYPE_EXT_IRQ)
+-		return acpi_serial_ext_irq(port, &res->data.extended_irq);
+-	else if (res->id = ACPI_RSTYPE_IRQ)
+-		return acpi_serial_irq(port, &res->data.irq);
+-	return AE_OK;
+-}
+-
+-static int acpi_serial_add(struct acpi_device *device)
+-{
+-	struct serial_private *priv;
+-	acpi_status status;
+-	struct uart_port port;
+-	int result;
+-
+-	memset(&port, 0, sizeof(struct uart_port));
+-
+-	port.uartclk = 1843200;
+-	port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
+-
+-	priv = kmalloc(sizeof(struct serial_private), GFP_KERNEL);
+-	if (!priv) {
+-		result = -ENOMEM;
+-		goto fail;
+-	}
+-	memset(priv, 0, sizeof(*priv));
+-
+-	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+-				     acpi_serial_resource, &port);
+-	if (ACPI_FAILURE(status)) {
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	if (!port.mapbase && !port.iobase) {
+-		printk(KERN_ERR "%s: no iomem or port address in %s _CRS\n",
+-			__FUNCTION__, device->pnp.bus_id);
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	priv->line = serial8250_register_port(&port);
+-	if (priv->line < 0) {
+-		printk(KERN_WARNING "Couldn't register serial port %s: %d\n",
+-			device->pnp.bus_id, priv->line);
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	acpi_driver_data(device) = priv;
+-	return 0;
+-
+-fail:
+-	kfree(priv);
+-
+-	return result;
+-}
+-
+-static int acpi_serial_remove(struct acpi_device *device, int type)
+-{
+-	struct serial_private *priv;
+-
+-	if (!device || !acpi_driver_data(device))
+-		return -EINVAL;
+-
+-	priv = acpi_driver_data(device);
+-	serial8250_unregister_port(priv->line);
+-	kfree(priv);
+-
+-	return 0;
+-}
+-
+-static struct acpi_driver acpi_serial_driver = {
+-	.name =		"serial",
+-	.class =	"",
+-	.ids =		"PNP0501",
+-	.ops =	{
+-		.add =		acpi_serial_add,
+-		.remove =	acpi_serial_remove,
+-	},
+-};
+-
+-static int __init acpi_serial_init(void)
+-{
+-	return acpi_bus_register_driver(&acpi_serial_driver);
+-}
+-
+-static void __exit acpi_serial_exit(void)
+-{
+-	acpi_bus_unregister_driver(&acpi_serial_driver);
+-}
+-
+-module_init(acpi_serial_init);
+-module_exit(acpi_serial_exit);
+-
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Generic 8250/16x50 ACPI serial driver");
