@@ -1,198 +1,130 @@
-From: Khalid Aziz <khalid_aziz@hp.com>
-Date: Fri, 16 Sep 2005 15:26:27 +0000
-Subject: Re: [PATCH] Updated /proc/iomem patch
-Message-Id: <1126884387.1287.11.camel@lyra.fc.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 16 Sep 2005 21:02:08 +0000
+Subject: RE: [PATCH] Updated /proc/iomem patch
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F046A1A96@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-lAqlNJmX8zidnWktvTqa"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C5BB01.E6A0BE1A"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1126716323.29344.55.camel@lyra.fc.hp.com>
 In-Reply-To: <1126716323.29344.55.camel@lyra.fc.hp.com>
 To: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
 
---=-lAqlNJmX8zidnWktvTqa
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+------_=_NextPart_001_01C5BB01.E6A0BE1A
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, 2005-09-15 at 10:26 -0600, Khalid Aziz wrote:
-> On Wed, 2005-09-14 at 10:45 -0600, Khalid Aziz wrote:
-> > Here is an updated patch that makes /proc/iomem include information
-> > about system RAM as well. This makes /proc/iomem on ia64 look like it
-> > does on x86 and also enables kexec-tools to work on ia64.
-> > 
-> 
-> I am not sure if marking the memory allocated by bootloader for kernel,
-> inital ramdisk, EFI memory map and boot parameters as "reserved"
-> in /proc/iomem is the right thing to do. I have done it this way in the
-> patch but I would appreciate other opinions.
-> 
+Just a couple of quibbles:
 
-The more I think about it, the more I am convinced memory type
-EFI_LOADER_DATA should be marked simply "System RAM", not
-"reserved". /proc/iomem is supposed to represent how physical address
-space is used, not how physical memory is used.
+You still tested for md->num_pages =3D=3D 0 with a comment saying
+that this may be the result of trimming.  With the clean-up
+to efi_memmap_walk() we don't trim any more, so perhaps this
+whole test can go?  I've kept it with a toned down comment
+(as paranoia against an implementation of EFI that hands us
+a zero sized object).
 
-Updated patch attached.
+What do you need from the "Kernel data" information?  Right
+now you use _edata as the end point ... which is the end of
+initialized data from the kernel Elf file.  But perhaps it
+might be more sane to include all the other sections that
+follow ... and use "_end" as the endpoint (actually _end
+rounded up to a page boundary) ... which neatly fill in the
+block of "System RAM" that the kernel is a sub-resource of
+without leaving some nebulous hole at the end.  I haven't
+changed this yet ... pending your reply on what is needed.
 
--- 
-Khalid
+And some minor nits (all of which I've fixed)
 
-====================================================================
-Khalid Aziz                       Open Source and Linux Organization
-(970)898-9214                                        Hewlett-Packard
-khalid.aziz@hp.com                                  Fort Collins, CO
+use kcalloc() rather than kmalloc+memset
 
-"The Linux kernel is subject to relentless development" 
-                                - Alessandro Rubini
+delay calling the allocator until you know you need it
 
---=-lAqlNJmX8zidnWktvTqa
-Content-Disposition: attachment; filename=iomem.patch
-Content-Type: text/x-patch; name=iomem.patch; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 7bit
+register_memory() throws a warning from the __initcall,
+it needs to be an "int" returning function, not "void".
 
-diff -urNp linux-2.6.13.orig/arch/ia64/kernel/efi.c linux-2.6.13/arch/ia64/kernel/efi.c
---- linux-2.6.13.orig/arch/ia64/kernel/efi.c	2005-08-28 17:41:01.000000000 -0600
-+++ linux-2.6.13/arch/ia64/kernel/efi.c	2005-09-14 09:37:47.000000000 -0600
-@@ -862,3 +862,91 @@ efi_uart_console_only(void)
- 	printk(KERN_ERR "Malformed %s value\n", name);
- 	return 0;
- }
-+
-+void 
-+efi_initialize_iomem_resources(struct resource *code_resource,
-+			       struct resource *data_resource)
-+{
-+	struct resource *res;
-+	void *efi_map_start, *efi_map_end, *p;
-+	efi_memory_desc_t *md;
-+	u64 efi_desc_size;
-+
-+	efi_map_start = __va(ia64_boot_param->efi_memmap);
-+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-+
-+	res = NULL;
-+  
-+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-+		md = p;
-+    
-+		/* 
-+		 * Data was trimmed and may not be correct, look for bad data 
-+		 * and skip it 
-+		 */
-+		if (md->num_pages == 0)
-+			continue;
-+
-+		if ((res = kmalloc(sizeof(struct resource), GFP_KERNEL)) == NULL) {
-+			printk("ERROR: failed to alocate resource for iomem\n");
-+			return;
-+		}
-+		memset(res, 0, sizeof(*res));
-+		res->flags = IORESOURCE_MEM;
-+		switch (md->type) {
-+
-+			case EFI_MEMORY_MAPPED_IO:
-+			case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
-+				kfree(res);
-+				continue;
-+				break;
-+
-+			case EFI_LOADER_CODE:
-+			case EFI_LOADER_DATA:
-+			case EFI_BOOT_SERVICES_DATA:
-+			case EFI_BOOT_SERVICES_CODE:
-+			case EFI_CONVENTIONAL_MEMORY:
-+				if (md->attribute & EFI_MEMORY_WP) {
-+					res->name = "System ROM";
-+					res->flags |= IORESOURCE_READONLY;
-+				} else {
-+					res->name = "System RAM";
-+				}
-+				break;
-+
-+			case EFI_ACPI_MEMORY_NVS:
-+				res->name = "ACPI Non-volatile Storage";
-+				res->flags |= IORESOURCE_BUSY;
-+				break;
-+    
-+			case EFI_UNUSABLE_MEMORY:
-+				res->name = "reserved";
-+				res->flags |= IORESOURCE_BUSY | IORESOURCE_DISABLED;
-+				break;
-+
-+			case EFI_RESERVED_TYPE:
-+			case EFI_RUNTIME_SERVICES_CODE:
-+			case EFI_RUNTIME_SERVICES_DATA:
-+			case EFI_ACPI_RECLAIM_MEMORY:
-+			default:
-+				res->name = "reserved";
-+				res->flags |= IORESOURCE_BUSY;
-+				break;
-+		}
-+
-+		res->start = md->phys_addr;
-+		res->end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1;
-+		if (insert_resource(&iomem_resource, res) < 0)
-+			kfree(res);
-+		else {
-+			/*
-+			 * We don't know which region contains 
-+			 * kernel data so we try it repeatedly and 
-+			 * let the resource manager test it.
-+			 */
-+			insert_resource(res, code_resource);
-+			insert_resource(res, data_resource);
-+		}
-+	}
-+}
-diff -urNp linux-2.6.13.orig/arch/ia64/kernel/setup.c linux-2.6.13/arch/ia64/kernel/setup.c
---- linux-2.6.13.orig/arch/ia64/kernel/setup.c	2005-08-28 17:41:01.000000000 -0600
-+++ linux-2.6.13/arch/ia64/kernel/setup.c	2005-09-14 09:16:50.000000000 -0600
-@@ -78,6 +78,23 @@ struct screen_info screen_info;
- unsigned long vga_console_iobase;
- unsigned long vga_console_membase;
- 
-+static struct resource data_resource = {
-+	.name	= "Kernel data",
-+	.start	= 0,
-+	.end	= 0,
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
-+};
-+
-+static struct resource code_resource = {
-+	.name	= "Kernel code",
-+	.start	= 0,
-+	.end	= 0,
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
-+};
-+extern void efi_initialize_iomem_resources(struct resource *,
-+		struct resource *);
-+extern char _text[], _edata[], _etext[];
-+
- unsigned long ia64_max_cacheline_size;
- unsigned long ia64_iobase;	/* virtual address for I/O accesses */
- EXPORT_SYMBOL(ia64_iobase);
-@@ -171,6 +188,20 @@ sort_regions (struct rsvd_region *rsvd_r
- 	}
- }
- 
-+/*
-+ * Request address space for all standard resources
-+ */
-+static void __init register_memory(void)
-+{
-+        code_resource.start = ia64_tpa(_text);
-+	code_resource.end   = ia64_tpa(_etext) - 1;
-+	data_resource.start = ia64_tpa(_etext);
-+	data_resource.end   = ia64_tpa(_edata) - 1;
-+	efi_initialize_iomem_resources(&code_resource, &data_resource);
-+}
-+
-+__initcall(register_memory);
-+
- /**
-  * reserve_memory - setup reserved memory areas
-  *
+stylistically I don't like "continue; break;"
 
---=-lAqlNJmX8zidnWktvTqa--
+s/printk("ERROR/printk(KERN_ERR "/
 
+trailing white space deleted
+
+-Tony
+
+
+------_=_NextPart_001_01C5BB01.E6A0BE1A
+Content-Type: application/octet-stream;
+	name="newiomem.patch"
+Content-Transfer-Encoding: base64
+Content-Description: newiomem.patch
+Content-Disposition: attachment;
+	filename="newiomem.patch"
+
+ZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMgYi9hcmNoL2lhNjQva2VybmVsL2Vm
+aS5jCi0tLSBhL2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9l
+ZmkuYwpAQCAtOTIzLDMgKzkyMyw5MCBAQCBlZmlfbWVtbWFwX2luaXQodW5zaWduZWQgbG9uZyAq
+cywgdW5zaWduCiAJKnMgPSAodTY0KWtlcm5fbWVtbWFwOwogCSplID0gKHU2NCkrK2s7CiB9CisK
+K3ZvaWQKK2VmaV9pbml0aWFsaXplX2lvbWVtX3Jlc291cmNlcyhzdHJ1Y3QgcmVzb3VyY2UgKmNv
+ZGVfcmVzb3VyY2UsCisJCQkgICAgICAgc3RydWN0IHJlc291cmNlICpkYXRhX3Jlc291cmNlKQor
+eworCXN0cnVjdCByZXNvdXJjZSAqcmVzOworCXZvaWQgKmVmaV9tYXBfc3RhcnQsICplZmlfbWFw
+X2VuZCwgKnA7CisJZWZpX21lbW9yeV9kZXNjX3QgKm1kOworCXU2NCBlZmlfZGVzY19zaXplOwor
+CWNoYXIgKm5hbWU7CisJdW5zaWduZWQgbG9uZyBmbGFnczsKKworCWVmaV9tYXBfc3RhcnQgPSBf
+X3ZhKGlhNjRfYm9vdF9wYXJhbS0+ZWZpX21lbW1hcCk7CisJZWZpX21hcF9lbmQgICA9IGVmaV9t
+YXBfc3RhcnQgKyBpYTY0X2Jvb3RfcGFyYW0tPmVmaV9tZW1tYXBfc2l6ZTsKKwllZmlfZGVzY19z
+aXplID0gaWE2NF9ib290X3BhcmFtLT5lZmlfbWVtZGVzY19zaXplOworCisJcmVzID0gTlVMTDsK
+KworCWZvciAocCA9IGVmaV9tYXBfc3RhcnQ7IHAgPCBlZmlfbWFwX2VuZDsgcCArPSBlZmlfZGVz
+Y19zaXplKSB7CisJCW1kID0gcDsKKworCQlpZiAobWQtPm51bV9wYWdlcyA9PSAwKSAvKiBzaG91
+bGQgbm90IGhhcHBlbiAqLworCQkJY29udGludWU7CisKKwkJZmxhZ3MgPSBJT1JFU09VUkNFX01F
+TTsKKwkJc3dpdGNoIChtZC0+dHlwZSkgeworCisJCQljYXNlIEVGSV9NRU1PUllfTUFQUEVEX0lP
+OgorCQkJY2FzZSBFRklfTUVNT1JZX01BUFBFRF9JT19QT1JUX1NQQUNFOgorCQkJCWNvbnRpbnVl
+OworCisJCQljYXNlIEVGSV9MT0FERVJfQ09ERToKKwkJCWNhc2UgRUZJX0xPQURFUl9EQVRBOgor
+CQkJY2FzZSBFRklfQk9PVF9TRVJWSUNFU19EQVRBOgorCQkJY2FzZSBFRklfQk9PVF9TRVJWSUNF
+U19DT0RFOgorCQkJY2FzZSBFRklfQ09OVkVOVElPTkFMX01FTU9SWToKKwkJCQlpZiAobWQtPmF0
+dHJpYnV0ZSAmIEVGSV9NRU1PUllfV1ApIHsKKwkJCQkJbmFtZSA9ICJTeXN0ZW0gUk9NIjsKKwkJ
+CQkJZmxhZ3MgfD0gSU9SRVNPVVJDRV9SRUFET05MWTsKKwkJCQl9IGVsc2UgeworCQkJCQluYW1l
+ID0gIlN5c3RlbSBSQU0iOworCQkJCX0KKwkJCQlicmVhazsKKworCQkJY2FzZSBFRklfQUNQSV9N
+RU1PUllfTlZTOgorCQkJCW5hbWUgPSAiQUNQSSBOb24tdm9sYXRpbGUgU3RvcmFnZSI7CisJCQkJ
+ZmxhZ3MgfD0gSU9SRVNPVVJDRV9CVVNZOworCQkJCWJyZWFrOworCisJCQljYXNlIEVGSV9VTlVT
+QUJMRV9NRU1PUlk6CisJCQkJbmFtZSA9ICJyZXNlcnZlZCI7CisJCQkJZmxhZ3MgfD0gSU9SRVNP
+VVJDRV9CVVNZIHwgSU9SRVNPVVJDRV9ESVNBQkxFRDsKKwkJCQlicmVhazsKKworCQkJY2FzZSBF
+RklfUkVTRVJWRURfVFlQRToKKwkJCWNhc2UgRUZJX1JVTlRJTUVfU0VSVklDRVNfQ09ERToKKwkJ
+CWNhc2UgRUZJX1JVTlRJTUVfU0VSVklDRVNfREFUQToKKwkJCWNhc2UgRUZJX0FDUElfUkVDTEFJ
+TV9NRU1PUlk6CisJCQlkZWZhdWx0OgorCQkJCW5hbWUgPSAicmVzZXJ2ZWQiOworCQkJCWZsYWdz
+IHw9IElPUkVTT1VSQ0VfQlVTWTsKKwkJCQlicmVhazsKKwkJfQorCisJCWlmICgocmVzID0ga2Nh
+bGxvYygxLCBzaXplb2Yoc3RydWN0IHJlc291cmNlKSwgR0ZQX0tFUk5FTCkpID09IE5VTEwpIHsK
+KwkJCXByaW50ayhLRVJOX0VSUiAiZmFpbGVkIHRvIGFsb2NhdGUgcmVzb3VyY2UgZm9yIGlvbWVt
+XG4iKTsKKwkJCXJldHVybjsKKwkJfQorCisJCXJlcy0+bmFtZSA9IG5hbWU7CisJCXJlcy0+c3Rh
+cnQgPSBtZC0+cGh5c19hZGRyOworCQlyZXMtPmVuZCA9IG1kLT5waHlzX2FkZHIgKyAobWQtPm51
+bV9wYWdlcyA8PCBFRklfUEFHRV9TSElGVCkgLSAxOworCQlyZXMtPmZsYWdzID0gZmxhZ3M7CisK
+KwkJaWYgKGluc2VydF9yZXNvdXJjZSgmaW9tZW1fcmVzb3VyY2UsIHJlcykgPCAwKQorCQkJa2Zy
+ZWUocmVzKTsKKwkJZWxzZSB7CisJCQkvKgorCQkJICogV2UgZG9uJ3Qga25vdyB3aGljaCByZWdp
+b24gY29udGFpbnMKKwkJCSAqIGtlcm5lbCBkYXRhIHNvIHdlIHRyeSBpdCByZXBlYXRlZGx5IGFu
+ZAorCQkJICogbGV0IHRoZSByZXNvdXJjZSBtYW5hZ2VyIHRlc3QgaXQuCisJCQkgKi8KKwkJCWlu
+c2VydF9yZXNvdXJjZShyZXMsIGNvZGVfcmVzb3VyY2UpOworCQkJaW5zZXJ0X3Jlc291cmNlKHJl
+cywgZGF0YV9yZXNvdXJjZSk7CisJCX0KKwl9Cit9CmRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2Vy
+bmVsL3NldHVwLmMgYi9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMKLS0tIGEvYXJjaC9pYTY0L2tl
+cm5lbC9zZXR1cC5jCisrKyBiL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYwpAQCAtNzgsNiArNzgs
+MjMgQEAgc3RydWN0IHNjcmVlbl9pbmZvIHNjcmVlbl9pbmZvOwogdW5zaWduZWQgbG9uZyB2Z2Ff
+Y29uc29sZV9pb2Jhc2U7CiB1bnNpZ25lZCBsb25nIHZnYV9jb25zb2xlX21lbWJhc2U7CiAKK3N0
+YXRpYyBzdHJ1Y3QgcmVzb3VyY2UgZGF0YV9yZXNvdXJjZSA9IHsKKwkubmFtZQk9ICJLZXJuZWwg
+ZGF0YSIsCisJLnN0YXJ0CT0gMCwKKwkuZW5kCT0gMCwKKwkuZmxhZ3MJPSBJT1JFU09VUkNFX0JV
+U1kgfCBJT1JFU09VUkNFX01FTQorfTsKKworc3RhdGljIHN0cnVjdCByZXNvdXJjZSBjb2RlX3Jl
+c291cmNlID0geworCS5uYW1lCT0gIktlcm5lbCBjb2RlIiwKKwkuc3RhcnQJPSAwLAorCS5lbmQJ
+PSAwLAorCS5mbGFncwk9IElPUkVTT1VSQ0VfQlVTWSB8IElPUkVTT1VSQ0VfTUVNCit9OworZXh0
+ZXJuIHZvaWQgZWZpX2luaXRpYWxpemVfaW9tZW1fcmVzb3VyY2VzKHN0cnVjdCByZXNvdXJjZSAq
+LAorCQlzdHJ1Y3QgcmVzb3VyY2UgKik7CitleHRlcm4gY2hhciBfdGV4dFtdLCBfZWRhdGFbXSwg
+X2V0ZXh0W107CisKIHVuc2lnbmVkIGxvbmcgaWE2NF9tYXhfY2FjaGVsaW5lX3NpemU7CiB1bnNp
+Z25lZCBsb25nIGlhNjRfaW9iYXNlOwkvKiB2aXJ0dWFsIGFkZHJlc3MgZm9yIEkvTyBhY2Nlc3Nl
+cyAqLwogRVhQT1JUX1NZTUJPTChpYTY0X2lvYmFzZSk7CkBAIC0xNzEsNiArMTg4LDIyIEBAIHNv
+cnRfcmVnaW9ucyAoc3RydWN0IHJzdmRfcmVnaW9uICpyc3ZkX3IKIAl9CiB9CiAKKy8qCisgKiBS
+ZXF1ZXN0IGFkZHJlc3Mgc3BhY2UgZm9yIGFsbCBzdGFuZGFyZCByZXNvdXJjZXMKKyAqLworc3Rh
+dGljIGludCBfX2luaXQgcmVnaXN0ZXJfbWVtb3J5KHZvaWQpCit7CisgICAgICAgIGNvZGVfcmVz
+b3VyY2Uuc3RhcnQgPSBpYTY0X3RwYShfdGV4dCk7CisJY29kZV9yZXNvdXJjZS5lbmQgICA9IGlh
+NjRfdHBhKF9ldGV4dCkgLSAxOworCWRhdGFfcmVzb3VyY2Uuc3RhcnQgPSBpYTY0X3RwYShfZXRl
+eHQpOworCWRhdGFfcmVzb3VyY2UuZW5kICAgPSBpYTY0X3RwYShfZWRhdGEpIC0gMTsKKwllZmlf
+aW5pdGlhbGl6ZV9pb21lbV9yZXNvdXJjZXMoJmNvZGVfcmVzb3VyY2UsICZkYXRhX3Jlc291cmNl
+KTsKKworCXJldHVybiAwOworfQorCitfX2luaXRjYWxsKHJlZ2lzdGVyX21lbW9yeSk7CisKIC8q
+KgogICogcmVzZXJ2ZV9tZW1vcnkgLSBzZXR1cCByZXNlcnZlZCBtZW1vcnkgYXJlYXMKICAqCg==
+
+------_=_NextPart_001_01C5BB01.E6A0BE1A--
