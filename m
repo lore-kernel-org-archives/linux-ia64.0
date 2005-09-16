@@ -1,44 +1,64 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 22 Sep 2005 16:41:15 +0000
-Subject: [PATCH] ia64 printk_clock()
-Message-Id: <200509221641.j8MGfFKF031443@agluck-lia64.sc.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 16 Sep 2005 17:43:10 +0000
+Subject: [PATCH] ia64: add ar.k0 usage note
+Message-Id: <200509161143.10842.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Linus just took a patch from Andrew that allows architectures to
-override the clock used for time-stamping kernel printk().  Ia64
-needs to override for two reasons:
+Update comment about how ar.k0 is used.  Make the initialization the
+same as in start_secondary() (no functional change, just make it look
+more similar).
 
-1) default printk_clock() uses sched_clock() which accesses per-cpu
-   variables ... this means the kernel crashes on an early printk
-   before the per-cpu mapping is set up.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-2) sched_clock() is based on ar.itc which some systems do not keep
-   synchronized, so printk() timestamps jump about as different cpus
-   print messages.
-
-Here is a trivial printk_clock() based on jiffies, so we get much less
-resolution in exchange for correctness.  I'd be happy to see a better
-version that does interpolation (but remember that you can't take
-locks or access per-cpu variables).
-
--Tony
-
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -253,3 +253,9 @@ time_init (void)
+Index: work-vga2/arch/ia64/kernel/setup.c
+=================================--- work-vga2.orig/arch/ia64/kernel/setup.c	2005-09-14 09:28:07.000000000 -0600
++++ work-vga2/arch/ia64/kernel/setup.c	2005-09-14 12:14:37.000000000 -0600
+@@ -244,28 +244,31 @@
+ static void __init
+ io_port_init (void)
+ {
+-	extern unsigned long ia64_iobase;
+ 	unsigned long phys_iobase;
+ 
+ 	/*
+-	 *  Set `iobase' to the appropriate address in region 6 (uncached access range).
++	 * Set `iobase' based on the EFI memory map or, failing that, the
++	 * value firmware left in ar.k0.
+ 	 *
+-	 *  The EFI memory map is the "preferred" location to get the I/O port space base,
+-	 *  rather the relying on AR.KR0. This should become more clear in future SAL
+-	 *  specs. We'll fall back to getting it out of AR.KR0 if no appropriate entry is
+-	 *  found in the memory map.
++	 * Note that in ia32 mode, IN/OUT instructions use ar.k0 to compute
++	 * the port's virtual address, so ia32_load_state() loads it with a
++	 * user virtual address.  But in ia64 mode, glibc uses the
++	 * *physical* address in ar.k0 to mmap the appropriate area from
++	 * /dev/mem, and the inX()/outX() interfaces use MMIO.  In both
++	 * cases, user-mode can only use the legacy 0-64K I/O port space.
++	 *
++	 * ar.k0 is not involved in kernel I/O port accesses, which can use
++	 * any of the I/O port spaces and are done via MMIO using the
++	 * virtual mmio_base from the appropriate io_space[].
  	 */
- 	set_normalized_timespec(&wall_to_monotonic, -xtime.tv_sec, -xtime.tv_nsec);
- }
-+
-+unsigned long long printk_clock(void)
-+{
-+	return (unsigned long long)(jiffies_64 - INITIAL_JIFFIES)*(1000000000/HZ);
-+}
-+
+ 	phys_iobase = efi_get_iobase();
+-	if (phys_iobase)
+-		/* set AR.KR0 since this is all we use it for anyway */
+-		ia64_set_kr(IA64_KR_IO_BASE, phys_iobase);
+-	else {
++	if (!phys_iobase) {
+ 		phys_iobase = ia64_get_kr(IA64_KR_IO_BASE);
+-		printk(KERN_INFO "No I/O port range found in EFI memory map, falling back "
+-		       "to AR.KR0\n");
+-		printk(KERN_INFO "I/O port base = 0x%lx\n", phys_iobase);
++		printk(KERN_INFO "No I/O port range found in EFI memory map, "
++			"falling back to AR.KR0 (0x%lx)\n", phys_iobase);
+ 	}
+ 	ia64_iobase = (unsigned long) ioremap(phys_iobase, 0);
++	ia64_set_kr(IA64_KR_IO_BASE, __pa(ia64_iobase));
+ 
+ 	/* setup legacy IO port space */
+ 	io_space[0].mmio_base = ia64_iobase;
