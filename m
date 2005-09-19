@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Mon, 19 Sep 2005 21:38:05 +0000
-Subject: Re: [RFC] timer_interrupt: Avoid device timeouts by freezing time
-Message-Id: <Pine.LNX.4.62.0509191435300.27198@schroedinger.engr.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 19 Sep 2005 22:03:35 +0000
+Subject: RE: [RFC] timer_interrupt: Avoid device timeouts by freezing time if system froze
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F046E6487@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
@@ -10,33 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 19 Sep 2005, David Mosberger-Tang wrote:
+I don't think that I've followed all the steps and proposed
+solutions in this thread.  There are (at least) two issues to
+try to solve when the system has been frozen for an extended
+period of time (more than a few ticks):
 
-> On 9/19/05, Christoph Lameter <clameter@engr.sgi.com> wrote:
-> 
-> > Doing two ticks per interrupt may cause hardware to fail that relies on
-> > the interval accurately being observed. I.e. lets say we have a device
-> > that typically responds after 10 ticks but times out after 15.
-> > 
-> > If we use 2 ticks per interrupt then we will timeout after 15/2 = 7 ticks
-> > before the device had a chance to do anything.
-> 
-> You're forgetting that the real time has already passed!
+1) The system clock (gettimeofday(2)) needs to catch up the
+missed time.  We can either do this in one mighty bound, or
+we can creep up on it.  Either is plausible (though each may
+have its own issues for applications, neither should be
+catastrophic as applications should already deal with jumping
+and slewing time due to NTP and other agents setting the
+system clock).
 
-I did not think about the freeze occurring in this interval.
+2) There are some pending timeouts from the interval of real
+time that we skipped.  Dealing with these may be harder, as
+some of them may be related to physical limitations of devices,
+so almost any choice we make about these (call all the pending
+timeouts immediately, call them at some accelerated rate, skip
+them) may cause problems for some device driver.  I think to
+make any progress on a solution here we need to restrict the
+discussion to real device drivers that are currently in the
+tree.  Otherwise we will rathole forever discussing theoretical
+situations.
 
-Think about what happens if the timeout is scheduled after the system has 
-been unfrozen while the 2 ticks per tick hack is active. 
+Any other issues?
 
-> > I think all these additional tricks just make the situation worse. My
-> > patch is already a bad hack and adding more logic just makes follow-on
-> > failures difficult to analyze. I'd say the cleanest solution is still to
-> > stick with freezing time. I also do not feel too enthusiastic about
-> > abusing the time interpolator tuning logic for compenstation.
-> 
-> It was you who suggested to use the time interpolator logic.  My
-> approach would have been just to keep track of the "deficit" in the
-> timer interrupt handler.
-
-I suggested it because it does just involve removing a statement. Your 
-approach would involve adding even more logic to the timer interrupt.
+-Tony
