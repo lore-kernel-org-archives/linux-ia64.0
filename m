@@ -1,23 +1,36 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 19 Sep 2005 15:52:03 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 20 Sep 2005 23:09:57 +0000
 Subject: Re: [ACPI] [PATCH] ACPI: implement UUID-labelled vendor-defined resources
-Message-Id: <20050919155203.GA24346@infradead.org>
+Message-Id: <200509201709.57955.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <971FCB6690CD0E4898387DBF7552B90E02C0B5F2@orsmsx403.amr.corp.intel.com>
-In-Reply-To: <971FCB6690CD0E4898387DBF7552B90E02C0B5F2-sBd4vmA9Se5Qxe9IK+vIArfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+References: <971FCB6690CD0E4898387DBF7552B90E02C0B5F2@orsmsx403.amr.corp.intel.com> <200509190931.20643.bjorn.helgaas@hp.com>
+In-Reply-To: <200509190931.20643.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Moore, Robert" <robert.moore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Alex Williamson <alex.williamson-VXdhtT5mjnY@public.gmane.org>, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: "Moore, Robert" <robert.moore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Alex Williamson <alex.williamson-VXdhtT5mjnY@public.gmane.org>, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-On Fri, Sep 16, 2005 at 02:56:31PM -0700, Moore, Robert wrote:
-> And to make things even more interesting, the base ACPICA code looks
-> nothing like the final Linux version of the code; it is converted on the
-> fly before every release to Linux.
+On Monday 19 September 2005 9:31 am, Bjorn Helgaas wrote:
+> > BTW, Please explain in more detail what support is needed in ACPICA for
+> > the ACPI 3.0 vendor-defined resource.  Also, any idea how we are
+> > supposed to determine if the UUID data exists within the descriptor?
+> > (i.e., how do we differentiate an ACPI 2.0 vendor descriptor from an
+> > ACPI 3.0 descriptor?)
+> 
+> There's no mark that distinguishes 2.0 and 3.0 vendor descriptors.
+> As far as I can tell, a 3.0 descriptor (that contains a UUID and
+> sub-type) is also a perfectly valid 2.0 descriptor.
+> 
+> ACPI 3.0 "strongs recommends," but apparently doesn't actually
+> require a UUID, so a 2.0 vendor descriptor should also be a valid
+> 3.0 descriptor.
+> 
+> The idea is that we just look through all the vendor descriptors
+> for the supplied UUID.  If we find one, we return the information.
+> There's a small possibility that an ACPI 2.0, non-UUID-labelled
+> descriptor will contain data that happens to match the random
+> 16-byte UUID, and we'll return it by mistake.  But that possibility
+> is pretty remote, I think.
 
-So the Linux code is not the "preferred from of modification"?  You're
-on an extremly slipperly slope vs the GPL there.  Not that I want to
-sue your or intel, but this is certainly not in the spirit of the
-License.
-
+Ping...  Did this make any sense, or did I answer the wrong questions?
