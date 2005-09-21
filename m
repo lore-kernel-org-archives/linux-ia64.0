@@ -1,7 +1,7 @@
-From: Gary Hade <garyhade@us.ibm.com>
-Date: Wed, 21 Sep 2005 20:23:59 +0000
+From: James E Wilson <wilson@tuliptree.org>
+Date: Wed, 21 Sep 2005 21:30:15 +0000
 Subject: Re: ia64 dispersal analysis capability
-Message-Id: <20050921202359.GD4692@us.ibm.com>
+Message-Id: <1127338215.26485.38.camel@aretha.corp.specifix.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050921182143.GA30873@sgi.com>
 In-Reply-To: <20050921182143.GA30873@sgi.com>
@@ -10,47 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Sep 21, 2005 at 01:23:43PM -0500, Jack Steiner wrote:
-> In 2002, Gary Hade posted a patch to binutils that added dispersal
-> analysis to the output of objdump. 
+On Wed, 2005-09-21 at 13:23, Gary Hade wrote:
+> At the time, I obtained a FSF copyright assignment for
+> the code at the request of one of the binutils maintainers.
+> AFAIK the patch was never incorporated although I do
+> not remember seeing any technical concerns from the
+> binutils maintainers before I moved on to a different
+> project.
 
-That was a long time ago. :)
+I searched the binutils mailing lists for "Gary Hade" and all I found
+was a ppc disassembler patch.  Was it ever submitted to the binutils
+group?  Maybe it was only submitted to some IA-64 list?  If it only went
+to an IA-64 list, that may be part of the reason why it got dropped.
 
-> Does anyone know what happened to the patch? 
+The other part of the reason is probably that there weren't any active
+IA-64 binutils developers at the time.  I'm listed at the IA-64
+maintainer, but there was a period in 2002-2003 before and after I left
+Red Hat where I could not do much IA-64 related work.  Nowadays, we've
+got HJ at Intel who does quite a bit of IA-64 related binutils work.
 
-I think it may have died due to lack of interest.  I'm 
-not aware many folks like you that have actually been
-using it.
-
-At the time, I obtained a FSF copyright assignment for 
-the code at the request of one of the binutils maintainers.
-AFAIK the patch was never incorporated although I do 
-not remember seeing any technical concerns from the 
-binutils maintainers before I moved on to a different 
-project.
-
-> Is there another tool that provides the same information?
-
-Not that I'm aware of.
-The binutils patch was based on an earlier stand-alone utility 
-that processed `objdump -d` output but that program lacked 
-Itanium 2 support and several other improvements that I put
-in the binutils version.  I can't remember very much about the
-code but I suspect that some of these changes would not have 
-been adaptable to the stand-alone utility.
-
-> 
-> I've found the tool very useful for providing insight into IA64
-> code scheduling. 
-
-Thanks.  We thought it might be useful to someone.
-
-Gary
-
--- 
-Gary Hade
-IBM Linux Technology Center
-503-578-4503  IBM T/L: 775-4503
-garyhade@us.ibm.com
-http://www.ibm.com/linux/ltc
 
