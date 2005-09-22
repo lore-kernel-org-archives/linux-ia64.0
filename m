@@ -1,24 +1,31 @@
-From: Andi Kleen <ak@suse.de>
-Date: Tue, 13 Sep 2005 04:05:30 +0000
-Subject: Re: [discuss] [patch 2.6.13 (take #2)] swiotlb: BUG() for DMA_NONE in sync_single
-Message-Id: <200509130605.31104.ak@suse.de>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 22 Sep 2005 20:07:47 +0000
+Subject: [PATCH] Increase maximum kmalloc size to 256K
+Message-Id: <Pine.LNX.4.62.0509221306380.18133@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <09122005104851.31056@bilbo.tuxdriver.com> <20050912202333.GF21820@esmail.cup.hp.com> <20050912234532.GH19644@tuxdriver.com>
-In-Reply-To: <20050912234532.GH19644@tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: discuss@x86-64.org
-Cc: "John W. Linville" <linville@tuxdriver.com>, Grant Grundler <iod00d@hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com, Asit.K.Mallick@intel.com
+To: akpm@osdl.org
+Cc: linux-mm@kvack.org, linux-ia64@vger.kernel.org, manfred@colorfulllife.com
 
-On Tuesday 13 September 2005 01:45, John W. Linville wrote:
-> Call BUG() if DMA_NONE is passed-in as direction for sync_single.
-> Also remove unnecessary checks for DMA_NONE in callers of sync_single.
->
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
+The workqueue structure can grow larger than 128k under 2.6.14-rc2 (with 
+all debugging features enabled on 64 bit platforms) which will make 
+kzalloc for workqueue structure entries fail. This patch increases the 
+maximum slab entry size to 256K.
 
-Hi - your changes look good, but you missed the 2.6.14 merge window now
-so it'll be all 2.6.15 material. If you think there are any critical bug fixes
-in there (I didn't there were any) please extract them only.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
--Andi
+Index: linux-2.6.14-rc2/include/linux/kmalloc_sizes.h
+=================================--- linux-2.6.14-rc2.orig/include/linux/kmalloc_sizes.h	2005-09-19 20:00:41.000000000 -0700
++++ linux-2.6.14-rc2/include/linux/kmalloc_sizes.h	2005-09-22 12:41:19.000000000 -0700
+@@ -19,8 +19,8 @@
+ 	CACHE(32768)
+ 	CACHE(65536)
+ 	CACHE(131072)
+-#ifndef CONFIG_MMU
+ 	CACHE(262144)
++#ifndef CONFIG_MMU
+ 	CACHE(524288)
+ 	CACHE(1048576)
+ #ifdef CONFIG_LARGE_ALLOCS
