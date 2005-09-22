@@ -1,30 +1,151 @@
-From: Pavel Machek <pavel@ucw.cz>
-Date: Thu, 22 Sep 2005 17:48:36 +0000
-Subject: Re: [ACPI] [PATCH] ACPI: implement UUID-labelled vendor-defined resources
-Message-Id: <20050922174835.GA27011@elf.ucw.cz>
+From: Bob Picco <bob.picco@hp.com>
+Date: Thu, 22 Sep 2005 16:14:25 +0000
+Subject: [PATCH 1/4] V4 ia64 SPARSEMEM - Kconfig and Makefile
+Message-Id: <20050922161425.GX16066@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <971FCB6690CD0E4898387DBF7552B90E02C0B5F2@orsmsx403.amr.corp.intel.com> <20050919155203.GA24346@infradead.org>
-In-Reply-To: <20050919155203.GA24346-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Cc: "Moore, Robert" <robert.moore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Bjorn Helgaas <bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Alex Williamson <alex.williamson-VXdhtT5mjnY@public.gmane.org>, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-ia64@vger.kernel.org
 
-Hi!
 
-> > And to make things even more interesting, the base ACPICA code looks
-> > nothing like the final Linux version of the code; it is converted on the
-> > fly before every release to Linux.
-> 
-> So the Linux code is not the "preferred from of modification"?  You're
-> on an extremly slipperly slope vs the GPL there.  Not that I want to
-> sue your or intel, but this is certainly not in the spirit of the
-> License.
+The patch modifies the Kconfig file to introduce the new memory model
+options and other related SPARSEMEM changes.  There is also a minor change 
+in the Makefile.
 
-Actually, they change it to conform to kernel coding-style... That
-should be okay.
+Signed-off-by: Bob Picco <bob.picco@hp.com>
 
-								Pavel
--- 
-if you have sharp zaurus hardware you don't need... you know my address
+ arch/ia64/Kconfig     |   94 ++++++++++++++++++++++++++++++--------------------
+ arch/ia64/mm/Makefile |    5 +-
+ 2 files changed, 60 insertions(+), 39 deletions(-)
+
+Index: linux-2.6.14-rc2/arch/ia64/Kconfig
+=================================--- linux-2.6.14-rc2.orig/arch/ia64/Kconfig	2005-09-20 17:23:34.000000000 -0400
++++ linux-2.6.14-rc2/arch/ia64/Kconfig	2005-09-21 12:28:23.000000000 -0400
+@@ -176,40 +176,6 @@ config IA64_L1_CACHE_SHIFT
+ 	default "6" if ITANIUM
+ 
+ # align cache-sensitive data to 64 bytes
+-config NUMA
+-	bool "NUMA support"
+-	depends on !IA64_HP_SIM
+-	default y if IA64_SGI_SN2
+-	select ACPI_NUMA
+-	help
+-	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
+-	  Access).  This option is for configuring high-end multiprocessor
+-	  server systems.  If in doubt, say N.
+-
+-config VIRTUAL_MEM_MAP
+-	bool "Virtual mem map"
+-	default y if !IA64_HP_SIM
+-	help
+-	  Say Y to compile the kernel with support for a virtual mem map.
+-	  This code also only takes effect if a memory hole of greater than
+-	  1 Gb is found during boot.  You must turn this option on if you
+-	  require the DISCONTIGMEM option for your machine. If you are
+-	  unsure, say Y.
+-
+-config HOLES_IN_ZONE
+-	bool
+-	default y if VIRTUAL_MEM_MAP
+-
+-config ARCH_DISCONTIGMEM_ENABLE
+-	bool "Discontiguous memory support"
+-	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB) && NUMA && VIRTUAL_MEM_MAP
+-	default y if (IA64_SGI_SN2 || IA64_GENERIC) && NUMA
+-	help
+-	  Say Y to support efficient handling of discontiguous physical memory,
+-	  for architectures which are either NUMA (Non-Uniform Memory Access)
+-	  or have huge holes in the physical address space for other reasons.
+-	  See <file:Documentation/vm/numa> for more.
+-
+ config IA64_CYCLONE
+ 	bool "Cyclone (EXA) Time Source support"
+ 	help
+@@ -232,8 +198,10 @@ config IA64_SGI_SN_XP
+ 	  based on a network adapter and DMA messaging.
+ 
+ config FORCE_MAX_ZONEORDER
+-	int
+-	default "18"
++	int "MAX_ORDER (11 - 17)"  if !HUGETLB_PAGE
++	range 11 17  if !HUGETLB_PAGE
++	default "17" if HUGETLB_PAGE
++	default "11"
+ 
+ config SMP
+ 	bool "Symmetric multi-processing support"
+@@ -298,6 +266,60 @@ config PREEMPT
+ 
+ source "mm/Kconfig"
+ 
++config ARCH_SELECT_MEMORY_MODEL
++	def_bool y
++
++config ARCH_FLATMEM_ENABLE
++       def_bool y
++
++config ARCH_DISCONTIGMEM_ENABLE
++	def_bool y
++	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB)
++	help
++	  Say Y to support efficient handling of discontiguous physical memory,
++	  for architectures which are either NUMA (Non-Uniform Memory Access)
++	  or have huge holes in the physical address space for other reasons.
++ 	  See <file:Documentation/vm/numa> for more.
++
++config ARCH_DISCONTIGMEM_DEFAULT
++	def_bool y
++	depends on ARCH_DISCONTIGMEM_ENABLE
++
++config ARCH_FLATMEM_ENABLE
++	def_bool y
++
++config ARCH_SPARSEMEM_ENABLE
++	def_bool y
++	depends on ARCH_DISCONTIGMEM_ENABLE
++
++config NUMA
++	bool "NUMA support"
++	depends on !IA64_HP_SIM && !FLATMEM
++	default y if IA64_SGI_SN2
++	help
++	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
++	  Access).  This option is for configuring high-end multiprocessor
++	  server systems.  If in doubt, say N.
++
++config VIRTUAL_MEM_MAP
++	bool "Virtual mem map"
++	depends on !SPARSEMEM
++	default y if !IA64_HP_SIM
++	help
++	  Say Y to compile the kernel with support for a virtual mem map.
++	  This code also only takes effect if a memory hole of greater than
++	  1 Gb is found during boot.  You must turn this option on if you
++	  require the DISCONTIGMEM option for your machine. If you are
++	  unsure, say Y.
++
++config HOLES_IN_ZONE
++	bool
++	default y if VIRTUAL_MEM_MAP
++
++config HAVE_ARCH_EARLY_PFN_TO_NID
++	def_bool y
++	depends on NEED_MULTIPLE_NODES
++
+ config IA32_SUPPORT
+ 	bool "Support for Linux/x86 binaries"
+ 	help
+Index: linux-2.6.14-rc2/arch/ia64/mm/Makefile
+=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/Makefile	2004-12-24 16:34:30.000000000 -0500
++++ linux-2.6.14-rc2/arch/ia64/mm/Makefile	2005-09-21 12:26:31.000000000 -0400
+@@ -7,6 +7,5 @@ obj-y := init.o fault.o tlb.o extable.o
+ obj-$(CONFIG_HUGETLB_PAGE) += hugetlbpage.o
+ obj-$(CONFIG_NUMA)	   += numa.o
+ obj-$(CONFIG_DISCONTIGMEM) += discontig.o
+-ifndef CONFIG_DISCONTIGMEM
+-obj-y += contig.o
+-endif
++obj-$(CONFIG_SPARSEMEM)	   += discontig.o
++obj-$(CONFIG_FLATMEM)	   += contig.o
