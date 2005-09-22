@@ -1,7 +1,7 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Thu, 22 Sep 2005 18:01:11 +0000
-Subject: Re: [Lhms-devel] [PATCH 4/4] V4 ia64 SPARSEMEM - SPARSEMEM code changes
-Message-Id: <20050922180111.GD16066@localhost.localdomain>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Thu, 22 Sep 2005 18:05:07 +0000
+Subject: Re: [Lhms-devel] [PATCH 4/4] V4 ia64 SPARSEMEM - SPARSEMEM code
+Message-Id: <1127412307.10664.69.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1127406976.10664.52.camel@localhost>
 In-Reply-To: <1127406976.10664.52.camel@localhost>
@@ -10,26 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matthew Wilcox wrote:	[Thu Sep 22 2005, 01:13:40PM EDT]
-> On Thu, Sep 22, 2005 at 09:36:16AM -0700, Dave Hansen wrote:
-> > >  
-> > > -	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
-> > > +	return (i < num_node_memblks) ?
-> > > +		node_memblk[i].nid : (num_node_memblks ? -1 : 0);
-> > >  }
+On Thu, 2005-09-22 at 13:59 -0400, Bob Picco wrote:
+> > > +#ifdef CONFIG_VIRTUAL_MEM_MAP
+> > >             NODE_DATA(node)->node_mem_map = vmem_map + pfn_offset;
+> > > +#endif
 > > 
-> > Looks like just a whitespace change.
-> 
-> But really far less radical than it deserves ... nested conditional
-> expressions?  Come on.  How about:
-> 
-> 	if (i < num_node_memblks)
-> 		return node_memblk[i].nid;
-> 	if (num_node_memblks)
-> 		return -1;
-> 	return 0;
-Yup looks better. As I said to Dave, it shouldn't have been introduced. So this
-is a nice patch suggestion for clean up but later.
+> > Is CONFIG_FLAT_NODE_MEM_MAP more appropriate here?  That's how
+> > ->node_mem_map is #ifdef'd to begin with in mmzone.h.
+>
+> Well I think this is doable but probaably shouldn't. This code is very
+> specific to CONFIG_VIRTUAL_MEM_MAP.
+
+FLAT_NODE_MEM_MAP depends on only !SPARSEMEM, as does VIRTUAL_MEM_MAP.
+So, I guess they're functionally equivalent right now.  It might be most
+nice to at least add a comment, saying that it actually depends on both.
 
 
-bob
+
+-- Dave
+
