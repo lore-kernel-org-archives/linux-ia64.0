@@ -1,64 +1,189 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 16 Sep 2005 17:43:10 +0000
-Subject: [PATCH] ia64: add ar.k0 usage note
-Message-Id: <200509161143.10842.bjorn.helgaas@hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 22 Sep 2005 08:49:15 +0000
+Subject: [patch 2.6.14-rc2 v2] Wire in the MCA/INIT handler stacks
+Message-Id: <12016.1127378955@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Update comment about how ar.k0 is used.  Make the initialization the
-same as in start_secondary() (no functional change, just make it look
-more similar).
+Wire the MCA/INIT handler stacks into DTR[2] and track them in
+IA64_KR(CURRENT_STACK).  This gives the MCA/INIT handler stacks the
+same TLB status as normal kernel stacks.  Reload the old CURRENT_STACK
+data on return from OS to SAL.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Index: work-vga2/arch/ia64/kernel/setup.c
-=================================--- work-vga2.orig/arch/ia64/kernel/setup.c	2005-09-14 09:28:07.000000000 -0600
-+++ work-vga2/arch/ia64/kernel/setup.c	2005-09-14 12:14:37.000000000 -0600
-@@ -244,28 +244,31 @@
- static void __init
- io_port_init (void)
- {
--	extern unsigned long ia64_iobase;
- 	unsigned long phys_iobase;
+---
+
+ include/asm-ia64/mca.h     |    5 ++
+ arch/ia64/kernel/mca_asm.S |   96 +++++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 90 insertions(+), 11 deletions(-)
+
+Version 2, correct the test for the resumed task being in the kernel
+region.  cmp.eq changed to cmp.ne.
+
+Index: linux/include/asm-ia64/mca.h
+=================================--- linux.orig/include/asm-ia64/mca.h	2005-09-22 18:28:11.378070428 +1000
++++ linux/include/asm-ia64/mca.h	2005-09-22 18:28:23.671575491 +1000
+@@ -80,7 +80,12 @@ struct ia64_sal_os_state {
+ 	u64			sal_ra;			/* Return address in SAL, physical */
+ 	u64			sal_gp;			/* GP of the SAL - physical */
+ 	pal_min_state_area_t	*pal_min_state;		/* from R17.  physical in asm, virtual in C */
++	/* Previous values of IA64_KR(CURRENT) and IA64_KR(CURRENT_STACK).
++	 * Note: if the MCA/INIT recovery code wants to resume to a new context
++	 * then it must change these values to reflect the new kernel stack.
++	 */
+ 	u64			prev_IA64_KR_CURRENT;	/* previous value of IA64_KR(CURRENT) */
++	u64			prev_IA64_KR_CURRENT_STACK;
+ 	struct task_struct	*prev_task;		/* previous task, NULL if it is not useful */
+ 	/* Some interrupt registers are not saved in minstate, pt_regs or
+ 	 * switch_stack.  Because MCA/INIT can occur when interrupts are
+
+Index: linux/arch/ia64/kernel/mca_asm.S
+=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2005-09-22 18:28:07.580811844 +1000
++++ linux/arch/ia64/kernel/mca_asm.S	2005-09-22 18:44:41.417882709 +1000
+@@ -489,24 +489,27 @@ ia64_state_save:
+ 	;;
+ 	st8 [temp1]=r17,16	// pal_min_state
+ 	st8 [temp2]=r6,16	// prev_IA64_KR_CURRENT
++	mov r6=IA64_KR(CURRENT_STACK)
++	;;
++	st8 [temp1]=r6,16	// prev_IA64_KR_CURRENT_STACK
++	st8 [temp2]=r0,16	// prev_task, starts off as NULL
+ 	mov r6=cr.ifa
+ 	;;
+-	st8 [temp1]=r0,16	// prev_task, starts off as NULL
+-	st8 [temp2]=r12,16	// cr.isr
++	st8 [temp1]=r12,16	// cr.isr
++	st8 [temp2]=r6,16	// cr.ifa
+ 	mov r12=cr.itir
+ 	;;
+-	st8 [temp1]=r6,16	// cr.ifa
+-	st8 [temp2]=r12,16	// cr.itir
++	st8 [temp1]=r12,16	// cr.itir
++	st8 [temp2]=r11,16	// cr.iipa
+ 	mov r12=cr.iim
+ 	;;
+-	st8 [temp1]=r11,16	// cr.iipa
+-	st8 [temp2]=r12,16	// cr.iim
+-	mov r6=cr.iha
++	st8 [temp1]=r12,16	// cr.iim
+ (p1)	mov r12=IA64_MCA_COLD_BOOT
+ (p2)	mov r12=IA64_INIT_WARM_BOOT
++	mov r6=cr.iha
+ 	;;
+-	st8 [temp1]=r6,16	// cr.iha
+-	st8 [temp2]=r12		// os_status, default is cold boot
++	st8 [temp2]=r6,16	// cr.iha
++	st8 [temp1]=r12		// os_status, default is cold boot
+ 	mov r6=IA64_MCA_SAME_CONTEXT
+ 	;;
+ 	st8 [temp1]=r6		// context, default is same context
+@@ -823,9 +826,12 @@ ia64_state_restore:
+ 	ld8 r12=[temp1],16	// sal_ra
+ 	ld8 r9=[temp2],16	// sal_gp
+ 	;;
+-	ld8 r22=[temp1],24	// pal_min_state, virtual.  skip prev_task
++	ld8 r22=[temp1],16	// pal_min_state, virtual
+ 	ld8 r21=[temp2],16	// prev_IA64_KR_CURRENT
+ 	;;
++	ld8 r16=[temp1],16	// prev_IA64_KR_CURRENT_STACK
++	ld8 r20=[temp2],16	// prev_task
++	;;
+ 	ld8 temp3=[temp1],16	// cr.isr
+ 	ld8 temp4=[temp2],16	// cr.ifa
+ 	;;
+@@ -846,6 +852,45 @@ ia64_state_restore:
+ 	ld8 r8=[temp1]		// os_status
+ 	ld8 r10=[temp2]		// context
  
- 	/*
--	 *  Set `iobase' to the appropriate address in region 6 (uncached access range).
-+	 * Set `iobase' based on the EFI memory map or, failing that, the
-+	 * value firmware left in ar.k0.
- 	 *
--	 *  The EFI memory map is the "preferred" location to get the I/O port space base,
--	 *  rather the relying on AR.KR0. This should become more clear in future SAL
--	 *  specs. We'll fall back to getting it out of AR.KR0 if no appropriate entry is
--	 *  found in the memory map.
-+	 * Note that in ia32 mode, IN/OUT instructions use ar.k0 to compute
-+	 * the port's virtual address, so ia32_load_state() loads it with a
-+	 * user virtual address.  But in ia64 mode, glibc uses the
-+	 * *physical* address in ar.k0 to mmap the appropriate area from
-+	 * /dev/mem, and the inX()/outX() interfaces use MMIO.  In both
-+	 * cases, user-mode can only use the legacy 0-64K I/O port space.
++	/* Wire IA64_TR_CURRENT_STACK to the stack that we are resuming to.  To
++	 * avoid any dependencies on the algorithm in ia64_switch_to(), just
++	 * purge any existing CURRENT_STACK mapping and insert the new one.
 +	 *
-+	 * ar.k0 is not involved in kernel I/O port accesses, which can use
-+	 * any of the I/O port spaces and are done via MMIO using the
-+	 * virtual mmio_base from the appropriate io_space[].
- 	 */
- 	phys_iobase = efi_get_iobase();
--	if (phys_iobase)
--		/* set AR.KR0 since this is all we use it for anyway */
--		ia64_set_kr(IA64_KR_IO_BASE, phys_iobase);
--	else {
-+	if (!phys_iobase) {
- 		phys_iobase = ia64_get_kr(IA64_KR_IO_BASE);
--		printk(KERN_INFO "No I/O port range found in EFI memory map, falling back "
--		       "to AR.KR0\n");
--		printk(KERN_INFO "I/O port base = 0x%lx\n", phys_iobase);
-+		printk(KERN_INFO "No I/O port range found in EFI memory map, "
-+			"falling back to AR.KR0 (0x%lx)\n", phys_iobase);
- 	}
- 	ia64_iobase = (unsigned long) ioremap(phys_iobase, 0);
-+	ia64_set_kr(IA64_KR_IO_BASE, __pa(ia64_iobase));
++	 * r16 contains prev_IA64_KR_CURRENT_STACK, r21 contains
++	 * prev_IA64_KR_CURRENT, these values may have been changed by the C
++	 * code.  Do not use r8, r9, r10, r22, they contain values ready for
++	 * the return to SAL.
++	 */
++
++	mov r15=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
++	;;
++	shl r15=r15,IA64_GRANULE_SHIFT
++	;;
++	dep r15=-1,r15,61,3			// virtual granule
++	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
++	;;
++	ptr.d r15,r18
++	;;
++	srlz.d
++
++	extr.u r19=r21,61,3			// r21 = prev_IA64_KR_CURRENT
++	shl r20=r16,IA64_GRANULE_SHIFT		// r16 = prev_IA64_KR_CURRENT_STACK
++	movl r21=PAGE_KERNEL			// page properties
++	;;
++	mov IA64_KR(CURRENT_STACK)=r16
++	cmp.ne p6,p0=RGN_KERNEL,r19		// new stack is in the kernel region?
++	or r21=r20,r21				// construct PA | page properties
++(p6)	br.spnt 1f				// the dreaded cpu 0 idle task in region 5:(
++	;;
++	mov cr.itir=r18
++	mov cr.ifa=r21
++	mov r20=IA64_TR_CURRENT_STACK
++	;;
++	itr.d dtr[r20]=r21
++	;;
++	srlz.d
++1:
++
+ 	br.sptk b0
  
- 	/* setup legacy IO port space */
- 	io_space[0].mmio_base = ia64_iobase;
+ //EndStub//////////////////////////////////////////////////////////////////////
+@@ -982,6 +1027,7 @@ ia64_set_kernel_registers:
+ 	add temp4=temp4, temp1	// &struct ia64_sal_os_state.os_gp
+ 	add r12=temp1, temp3	// kernel stack pointer on MCA/INIT stack
+ 	add r13=temp1, r3	// set current to start of MCA/INIT stack
++	add r20=temp1, r3	// physical start of MCA/INIT stack
+ 	;;
+ 	ld8 r1=[temp4]		// OS GP from SAL OS state
+ 	;;
+@@ -991,7 +1037,35 @@ ia64_set_kernel_registers:
+ 	;;
+ 	mov IA64_KR(CURRENT)=r13
+ 
+-	// FIXME: do I need to wire IA64_KR_CURRENT_STACK and IA64_TR_CURRENT_STACK?
++	/* Wire IA64_TR_CURRENT_STACK to the MCA/INIT handler stack.  To avoid
++	 * any dependencies on the algorithm in ia64_switch_to(), just purge
++	 * any existing CURRENT_STACK mapping and insert the new one.
++	 */
++
++	mov r16=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
++	;;
++	shl r16=r16,IA64_GRANULE_SHIFT
++	;;
++	dep r16=-1,r16,61,3			// virtual granule
++	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
++	;;
++	ptr.d r16,r18
++	;;
++	srlz.d
++
++	shr.u r16=r20,IA64_GRANULE_SHIFT	// r20 = physical start of MCA/INIT stack
++	movl r21=PAGE_KERNEL			// page properties
++	;;
++	mov IA64_KR(CURRENT_STACK)=r16
++	or r21=r20,r21				// construct PA | page properties
++	;;
++	mov cr.itir=r18
++	mov cr.ifa=r13
++	mov r20=IA64_TR_CURRENT_STACK
++	;;
++	itr.d dtr[r20]=r21
++	;;
++	srlz.d
+ 
+ 	br.sptk b0
+ 
+
