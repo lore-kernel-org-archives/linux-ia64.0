@@ -1,50 +1,142 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Thu, 08 Sep 2005 15:46:58 +0000
-Subject: [PATCH] ensure XPC and XPNET are loaded on sn2 platforms only
-Message-Id: <43205CF2.mailx6N91YXFZ1@aqua.americas.sgi.com>
+From: Bob Picco <bob.picco@hp.com>
+Date: Thu, 22 Sep 2005 16:14:55 +0000
+Subject: [PATCH 4/4] V4 ia64 SPARSEMEM - SPARSEMEM code changes
+Message-Id: <20050922161455.GA16066@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-These are SN2 only drivers.  They should have platform checks to prevent
-them from doing evil stuff in GENERIC kernels.
+This patch is the minimal set of changes required by ia64 to use SPARSEMEM.
 
-Signed-off-by: Martin Hicks <mort@sgi.com>
-Acked-by: Dean Nelson <dcn@sgi.com>
+Signed-off-by: Bob Picco <bob.picco@hp.com>
 
+ arch/ia64/mm/discontig.c |   38 ++++++++++++++++++++++++++++++++++++--
+ arch/ia64/mm/init.c      |    2 +-
+ arch/ia64/mm/numa.c      |   27 ++++++++++++++++++++++++++-
+ 3 files changed, 63 insertions(+), 4 deletions(-)
 
- arch/ia64/sn/kernel/xpc_main.c |    4 ++++
- arch/ia64/sn/kernel/xpnet.c    |    4 ++++
- 2 files changed, 8 insertions(+)
-
-
-Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2005-09-08 06:58:26.134622631 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2005-09-08 09:47:31.081587119 -0500
-@@ -885,6 +885,10 @@
- 	pid_t pid;
+Index: linux-2.6.14-rc2/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/discontig.c	2005-09-21 12:28:49.000000000 -0400
++++ linux-2.6.14-rc2/arch/ia64/mm/discontig.c	2005-09-21 12:29:05.000000000 -0400
+@@ -421,6 +421,29 @@ static void __init memory_less_nodes(voi
+ 	return;
+ }
  
++#ifdef CONFIG_SPARSEMEM
++/**
++ * register_sparse_mem - notify SPARSEMEM that this memory range exists.
++ * @start: physical start of range
++ * @end: physical end of range
++ * @arg: unused
++ *
++ * Simply calls SPARSEMEM to register memory section(s).
++ */
++static int __init register_sparse_mem(unsigned long start, unsigned long end,
++	void *arg)
++{
++	int nid;
++
++	start = __pa(start) >> PAGE_SHIFT;
++	end = __pa(end) >> PAGE_SHIFT;
++	nid = early_pfn_to_nid(start);
++	memory_present(nid, start, end);
++
++	return 0;
++}
++#endif
++
+ /**
+  * find_memory - walk the EFI memory map and setup the bootmem allocator
+  *
+@@ -528,8 +551,10 @@ void show_mem(void)
+ 		int shared = 0, cached = 0, reserved = 0;
+ 		printk("Node ID: %d\n", pgdat->node_id);
+ 		for(i = 0; i < pgdat->node_spanned_pages; i++) {
+-			struct page *page = pgdat_page_nr(pgdat, i);
+-			if (!ia64_pfn_valid(pgdat->node_start_pfn+i))
++			struct page *page;
++			if (pfn_valid(pgdat->node_start_pfn + i))
++				page = pfn_to_page(pgdat->node_start_pfn + i);
++			else
+ 				continue;
+ 			if (PageReserved(page))
+ 				reserved++;
+@@ -648,12 +673,19 @@ void __init paging_init(void)
  
-+	if (!ia64_platform_is("sn2")) {
-+		return -ENODEV;
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 
++#ifdef CONFIG_SPARSEMEM
++	efi_memmap_walk(register_sparse_mem, NULL);
++#endif
++	sparse_init();
++
+ 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
+ 
++#ifdef CONFIG_VIRTUAL_MEM_MAP
+ 	vmalloc_end -= PAGE_ALIGN(max_low_pfn * sizeof(struct page));
+ 	vmem_map = (struct page *) vmalloc_end;
+ 	efi_memmap_walk(create_mem_map_page_table, NULL);
+ 	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
++#endif
+ 
+ 	for_each_online_node(node) {
+ 		memset(zones_size, 0, sizeof(zones_size));
+@@ -690,7 +722,9 @@ void __init paging_init(void)
+ 
+ 		pfn_offset = mem_data[node].min_pfn;
+ 
++#ifdef CONFIG_VIRTUAL_MEM_MAP
+ 		NODE_DATA(node)->node_mem_map = vmem_map + pfn_offset;
++#endif
+ 		free_area_init_node(node, NODE_DATA(node), zones_size,
+ 				    pfn_offset, zholes_size);
+ 	}
+Index: linux-2.6.14-rc2/arch/ia64/mm/init.c
+=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/init.c	2005-09-21 12:28:49.000000000 -0400
++++ linux-2.6.14-rc2/arch/ia64/mm/init.c	2005-09-21 12:29:05.000000000 -0400
+@@ -593,7 +593,7 @@ mem_init (void)
+ 	platform_dma_init();
+ #endif
+ 
+-#ifndef CONFIG_DISCONTIGMEM
++#ifdef CONFIG_FLATMEM
+ 	if (!mem_map)
+ 		BUG();
+ 	max_mapnr = max_low_pfn;
+Index: linux-2.6.14-rc2/arch/ia64/mm/numa.c
+=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/numa.c	2005-09-21 12:28:49.000000000 -0400
++++ linux-2.6.14-rc2/arch/ia64/mm/numa.c	2005-09-21 12:29:05.000000000 -0400
+@@ -45,5 +45,30 @@ paddr_to_nid(unsigned long paddr)
+ 		    paddr < node_memblk[i].start_paddr + node_memblk[i].size)
+ 			break;
+ 
+-	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
++	return (i < num_node_memblks) ?
++		node_memblk[i].nid : (num_node_memblks ? -1 : 0);
+ }
++
++#if defined(CONFIG_SPARSEMEM) && defined(CONFIG_NUMA)
++/*
++ * Because of holes evaluate on section limits.
++ * If the section of memory exists, then return the node where the section
++ * resides.  Otherwise return node 0 as the default.  This is used by
++ * SPARSEMEM to allocate the SPARSEMEM sectionmap on the NUMA node where
++ * the section resides.
++ */
++int early_pfn_to_nid(unsigned long pfn)
++{
++	int i, section = pfn >> PFN_SECTION_SHIFT, ssec, esec;
++
++	for (i = 0; i < num_node_memblks; i++) {
++		ssec = node_memblk[i].start_paddr >> PA_SECTION_SHIFT;
++		esec = (node_memblk[i].start_paddr + node_memblk[i].size +
++			((1L << PA_SECTION_SHIFT) - 1)) >> PA_SECTION_SHIFT;
++		if (section >= ssec && section < esec)
++			return node_memblk[i].nid;
 +	}
 +
- 	/*
- 	 * xpc_remote_copy_buffer is used as a temporary buffer for bte_copy'ng
- 	 * both a partition's reserved page and its XPC variables. Its size was
-Index: linux-2.6/arch/ia64/sn/kernel/xpnet.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpnet.c	2005-09-08 06:58:26.136575561 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/xpnet.c	2005-09-08 09:47:36.693330520 -0500
-@@ -636,6 +636,10 @@
- 	int result = -ENOMEM;
- 
- 
-+	if (!ia64_platform_is("sn2")) {
-+		return -ENODEV;
-+	}
-+
- 	dev_info(xpnet, "registering network device %s\n", XPNET_DEVICE_NAME);
- 
- 	/*
++	return 0;
++}
++#endif
