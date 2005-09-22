@@ -1,167 +1,186 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Tue, 13 Sep 2005 02:20:32 +0000
-Subject: [patch 2.6.13 git] Add Documentation/ia64/mca.txt
-Message-Id: <4941.1126578032@kao2.melbourne.sgi.com>
+Date: Thu, 22 Sep 2005 08:39:29 +0000
+Subject: [patch 2.6.14-rc2] Wire in the MCA/INIT handler stacks
+Message-Id: <11557.1127378369@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add Documentation/ia64/mca.txt, an ad-hoc collection of notes on IA64
-MCA and INIT processing.
+Wire the MCA/INIT handler stacks into DTR[2] and track them in
+IA64_KR(CURRENT_STACK).  This gives the MCA/INIT handler stacks the
+same TLB status as normal kernel stacks.  Reload the old CURRENT_STACK
+data on return from OS to SAL.
 
 Signed-off-by: Keith Owens <kaos@sgi.com>
 
 ---
 
- mca.txt |  142 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 142 insertions(+)
+ include/asm-ia64/mca.h     |    5 ++
+ arch/ia64/kernel/mca_asm.S |   96 +++++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 90 insertions(+), 11 deletions(-)
 
-Index: linux/Documentation/ia64/mca.txt
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux/Documentation/ia64/mca.txt	2005-09-13 12:18:02.030381449 +1000
-@@ -0,0 +1,142 @@
-+An ad-hoc collection of notes on IA64 MCA and INIT processing.  Feel
-+free to update it with notes about any area that is not clear.
+Index: linux/include/asm-ia64/mca.h
+=================================--- linux.orig/include/asm-ia64/mca.h	2005-09-21 16:41:46.520554241 +1000
++++ linux/include/asm-ia64/mca.h	2005-09-22 16:11:25.000000000 +1000
+@@ -80,7 +80,12 @@ struct ia64_sal_os_state {
+ 	u64			sal_ra;			/* Return address in SAL, physical */
+ 	u64			sal_gp;			/* GP of the SAL - physical */
+ 	pal_min_state_area_t	*pal_min_state;		/* from R17.  physical in asm, virtual in C */
++	/* Previous values of IA64_KR(CURRENT) and IA64_KR(CURRENT_STACK).
++	 * Note: if the MCA/INIT recovery code wants to resume to a new context
++	 * then it must change these values to reflect the new kernel stack.
++	 */
+ 	u64			prev_IA64_KR_CURRENT;	/* previous value of IA64_KR(CURRENT) */
++	u64			prev_IA64_KR_CURRENT_STACK;
+ 	struct task_struct	*prev_task;		/* previous task, NULL if it is not useful */
+ 	/* Some interrupt registers are not saved in minstate, pt_regs or
+ 	 * switch_stack.  Because MCA/INIT can occur when interrupts are
+
+Index: linux/arch/ia64/kernel/mca_asm.S
+=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2005-09-21 16:41:42.653900949 +1000
++++ linux/arch/ia64/kernel/mca_asm.S	2005-09-22 18:17:17.663495626 +1000
+@@ -489,24 +489,27 @@ ia64_state_save:
+ 	;;
+ 	st8 [temp1]=r17,16	// pal_min_state
+ 	st8 [temp2]=r6,16	// prev_IA64_KR_CURRENT
++	mov r6=IA64_KR(CURRENT_STACK)
++	;;
++	st8 [temp1]=r6,16	// prev_IA64_KR_CURRENT_STACK
++	st8 [temp2]=r0,16	// prev_task, starts off as NULL
+ 	mov r6=cr.ifa
+ 	;;
+-	st8 [temp1]=r0,16	// prev_task, starts off as NULL
+-	st8 [temp2]=r12,16	// cr.isr
++	st8 [temp1]=r12,16	// cr.isr
++	st8 [temp2]=r6,16	// cr.ifa
+ 	mov r12=cr.itir
+ 	;;
+-	st8 [temp1]=r6,16	// cr.ifa
+-	st8 [temp2]=r12,16	// cr.itir
++	st8 [temp1]=r12,16	// cr.itir
++	st8 [temp2]=r11,16	// cr.iipa
+ 	mov r12=cr.iim
+ 	;;
+-	st8 [temp1]=r11,16	// cr.iipa
+-	st8 [temp2]=r12,16	// cr.iim
+-	mov r6=cr.iha
++	st8 [temp1]=r12,16	// cr.iim
+ (p1)	mov r12=IA64_MCA_COLD_BOOT
+ (p2)	mov r12=IA64_INIT_WARM_BOOT
++	mov r6=cr.iha
+ 	;;
+-	st8 [temp1]=r6,16	// cr.iha
+-	st8 [temp2]=r12		// os_status, default is cold boot
++	st8 [temp2]=r6,16	// cr.iha
++	st8 [temp1]=r12		// os_status, default is cold boot
+ 	mov r6=IA64_MCA_SAME_CONTEXT
+ 	;;
+ 	st8 [temp1]=r6		// context, default is same context
+@@ -823,9 +826,12 @@ ia64_state_restore:
+ 	ld8 r12=[temp1],16	// sal_ra
+ 	ld8 r9=[temp2],16	// sal_gp
+ 	;;
+-	ld8 r22=[temp1],24	// pal_min_state, virtual.  skip prev_task
++	ld8 r22=[temp1],16	// pal_min_state, virtual
+ 	ld8 r21=[temp2],16	// prev_IA64_KR_CURRENT
+ 	;;
++	ld8 r16=[temp1],16	// prev_IA64_KR_CURRENT_STACK
++	ld8 r20=[temp2],16	// prev_task
++	;;
+ 	ld8 temp3=[temp1],16	// cr.isr
+ 	ld8 temp4=[temp2],16	// cr.ifa
+ 	;;
+@@ -846,6 +852,45 @@ ia64_state_restore:
+ 	ld8 r8=[temp1]		// os_status
+ 	ld8 r10=[temp2]		// context
+ 
++	/* Wire IA64_TR_CURRENT_STACK to the stack that we are resuming to.  To
++	 * avoid any dependencies on the algorithm in ia64_switch_to(), just
++	 * purge any existing CURRENT_STACK mapping and insert the new one.
++	 *
++	 * r16 contains prev_IA64_KR_CURRENT_STACK, r21 contains
++	 * prev_IA64_KR_CURRENT, these values may have been changed by the C
++	 * code.  Do not use r8, r9, r10, r22, they contain values ready for
++	 * the return to SAL.
++	 */
 +
-+---
++	mov r15=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
++	;;
++	shl r15=r15,IA64_GRANULE_SHIFT
++	;;
++	dep r15=-1,r15,61,3			// virtual granule
++	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
++	;;
++	ptr.d r15,r18
++	;;
++	srlz.d
 +
-+MCA/INIT are completely asynchronous.  They can occur at any time, when
-+the OS is in any state.  Including when one of the cpus is already
-+holding a spinlock.  Trying to get any lock from MCA/INIT state is
-+asking for deadlock.  Also the state of structures that are protected
-+by locks is indeterminate, including linked lists.
++	extr.u r19=r21,61,3			// r21 = prev_IA64_KR_CURRENT
++	shl r20=r16,IA64_GRANULE_SHIFT		// r16 = prev_IA64_KR_CURRENT_STACK
++	movl r21=PAGE_KERNEL			// page properties
++	;;
++	mov IA64_KR(CURRENT_STACK)=r16
++	cmp.eq p6,p0=RGN_KERNEL,r19		// new stack is in the kernel region?
++	or r21=r20,r21				// construct PA | page properties
++(p6)	br.spnt 1f				// the dreaded cpu 0 idle task in region 5:(
++	;;
++	mov cr.itir=r18
++	mov cr.ifa=r21
++	mov r20=IA64_TR_CURRENT_STACK
++	;;
++	itr.d dtr[r20]=r21
++	;;
++	srlz.d
++1:
 +
-+---
+ 	br.sptk b0
+ 
+ //EndStub//////////////////////////////////////////////////////////////////////
+@@ -982,6 +1027,7 @@ ia64_set_kernel_registers:
+ 	add temp4=temp4, temp1	// &struct ia64_sal_os_state.os_gp
+ 	add r12=temp1, temp3	// kernel stack pointer on MCA/INIT stack
+ 	add r13=temp1, r3	// set current to start of MCA/INIT stack
++	add r20=temp1, r3	// physical start of MCA/INIT stack
+ 	;;
+ 	ld8 r1=[temp4]		// OS GP from SAL OS state
+ 	;;
+@@ -991,7 +1037,35 @@ ia64_set_kernel_registers:
+ 	;;
+ 	mov IA64_KR(CURRENT)=r13
+ 
+-	// FIXME: do I need to wire IA64_KR_CURRENT_STACK and IA64_TR_CURRENT_STACK?
++	/* Wire IA64_TR_CURRENT_STACK to the MCA/INIT handler stack.  To avoid
++	 * any dependencies on the algorithm in ia64_switch_to(), just purge
++	 * any existing CURRENT_STACK mapping and insert the new one.
++	 */
 +
-+The complicated ia64 MCA process.  All of this is mandated by Intel's
-+specification for ia64 SAL, error recovery and and unwind, it is not as
-+if we have a choice here.
++	mov r16=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
++	;;
++	shl r16=r16,IA64_GRANULE_SHIFT
++	;;
++	dep r16=-1,r16,61,3			// virtual granule
++	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
++	;;
++	ptr.d r16,r18
++	;;
++	srlz.d
 +
-+* MCA occurs on one cpu, usually due to a double bit memory error.
-+  This is the monarch cpu.
-+
-+* SAL sends an MCA rendezvous interrupt (which is a normal interrupt)
-+  to all the other cpus, the slaves.
-+
-+* Slave cpus that receive the MCA interrupt call down into SAL, they
-+  end up spinning disabled while the MCA is being serviced.
-+
-+* If any slave cpu was already spinning disabled when the MCA occurred
-+  then it cannot service the MCA interrupt.  SAL waits ~20 seconds then
-+  sends an unmaskable INIT event to the slave cpus that have not
-+  already rendezvoused.
-+
-+* Because MCA/INIT can be delivered at any time, including when the cpu
-+  is down in PAL in physical mode, the registers at the time of the
-+  event are _completely_ undefined.  In particular the MCA/INIT
-+  handlers cannot rely on the thread pointer, PAL physical mode can
-+  (and does) modify TP.  It is allowed to do that as long as it resets
-+  TP on return.  However MCA/INIT events expose us to these PAL
-+  internal TP changes.  Hence curr_task().
-+
-+* If an MCA/INIT event occurs while the kernel was running (not user
-+  space) and the kernel has called PAL then the MCA/INIT handler cannot
-+  assume that the kernel stack is in a fit state to be used.  Mainly
-+  because PAL may or may not maintain the stack pointer internally.
-+  Because the MCA/INIT handlers cannot trust the kernel stack, they
-+  have to use their own, per-cpu stacks.  The MCA/INIT stacks are
-+  preformatted with just enough task state to let the relevant handlers
-+  do their job.
-+
-+* Unlike most other architectures, the ia64 struct task is embedded in
-+  the kernel stack[1].  So switching to a new kernel stack means that
-+  we switch to a new task as well.  Because various bits of the kernel
-+  assume that current points into the struct task, switching to a new
-+  stack also means a new value for current.
-+
-+* Once all slaves have rendezvoused and are spinning disabled, the
-+  monarch is entered.  The monarch now tries to diagnose the problem
-+  and decide if it can recover or not.
-+
-+* Part of the monarch's job is to look at the state of all the other
-+  tasks.  The only way to do that on ia64 is to call the unwinder,
-+  as mandated by Intel.
-+
-+* The starting point for the unwind depends on whether a task is
-+  running or not.  That is, whether it is on a cpu or is blocked.  The
-+  monarch has to determine whether or not a task is on a cpu before it
-+  knows how to start unwinding it.  The tasks that received an MCA or
-+  INIT event are no longer running, they have been converted to blocked
-+  tasks.  But (and its a big but), the cpus that received the MCA
-+  rendezvous interrupt are still running on their normal kernel stacks!
-+
-+* To distinguish between these two cases, the monarch must know which
-+  tasks are on a cpu and which are not.  Hence each slave cpu that
-+  switches to an MCA/INIT stack, registers its new stack using
-+  set_curr_task(), so the monarch can tell that the _original_ task is
-+  no longer running on that cpu.  That gives us a decent chance of
-+  getting a valid backtrace of the _original_ task.
-+
-+* MCA/INIT can be nested, to a depth of 2 on any cpu.  In the case of a
-+  nested error, we want diagnostics on the MCA/INIT handler that
-+  failed, not on the task that was originally running.  Again this
-+  requires set_curr_task() so the MCA/INIT handlers can register their
-+  own stack as running on that cpu.  Then a recursive error gets a
-+  trace of the failing handler's "task".
-+
-+[1] My (Keith Owens) original design called for ia64 to separate its
-+    struct task and the kernel stacks.  Then the MCA/INIT data would be
-+    chained stacks like i386 interrupt stacks.  But that required
-+    radical surgery on the rest of ia64, plus extra hard wired TLB
-+    entries with its associated performance degradation.  David
-+    Mosberger vetoed that approach.  Which meant that separate kernel
-+    stacks meant separate "tasks" for the MCA/INIT handlers.
-+
-+---
-+
-+INIT is less complicated than MCA.  Pressing the nmi button or using
-+the equivalent command on the management console sends INIT to all
-+cpus.  SAL picks one one of the cpus as the monarch and the rest are
-+slaves.  All the OS INIT handlers are entered at approximately the same
-+time.  The OS monarch prints the state of all tasks and returns, after
-+which the slaves return and the system resumes.
-+
-+At least that is what is supposed to happen.  Alas there are broken
-+versions of SAL out there.  Some drive all the cpus as monarchs.  Some
-+drive them all as slaves.  Some drive one cpu as monarch, wait for that
-+cpu to return from the OS then drive the rest as slaves.  Some versions
-+of SAL cannot even cope with returning from the OS, they spin inside
-+SAL on resume.  The OS INIT code has workarounds for some of these
-+broken SAL symptoms, but some simply cannot be fixed from the OS side.
-+
-+---
-+
-+The scheduler hooks used by ia64 (curr_task, set_curr_task) are layer
-+violations.  Unfortunately MCA/INIT start off as massive layer
-+violations (can occur at _any_ time) and they build from there.
-+
-+At least ia64 makes an attempt at recovering from hardware errors, but
-+it is a difficult problem because of the asynchronous nature of these
-+errors.  When processing an unmaskable interrupt we sometimes need
-+special code to cope with our inability to take any locks.
-+
-+---
-+
-+How is ia64 MCA/INIT different from x86 NMI?
-+
-+* x86 NMI typically gets delivered to one cpu.  MCA/INIT gets sent to
-+  all cpus.
-+
-+* x86 NMI cannot be nested.  MCA/INIT can be nested, to a depth of 2
-+  per cpu.
-+
-+* x86 has a separate struct task which points to one of multiple kernel
-+  stacks.  ia64 has the struct task embedded in the single kernel
-+  stack, so switching stack means switching task.
-+
-+* x86 does not call the BIOS so the NMI handler does not have to worry
-+  about any registers having changed.  MCA/INIT can occur while the cpu
-+  is in PAL in physical mode, with undefined registers and an undefined
-+  kernel stack.
-+
-+* i386 backtrace is not very sensitive to whether a process is running
-+  or not.  ia64 unwind is very, very sensitive to whether a process is
-+  running or not.
++	shr.u r16=r20,IA64_GRANULE_SHIFT	// r20 = physical start of MCA/INIT stack
++	movl r21=PAGE_KERNEL			// page properties
++	;;
++	mov IA64_KR(CURRENT_STACK)=r16
++	or r21=r20,r21				// construct PA | page properties
++	;;
++	mov cr.itir=r18
++	mov cr.ifa=r13
++	mov r20=IA64_TR_CURRENT_STACK
++	;;
++	itr.d dtr[r20]=r21
++	;;
++	srlz.d
+ 
+ 	br.sptk b0
+ 
 
