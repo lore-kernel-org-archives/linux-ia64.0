@@ -1,168 +1,53 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 30 Sep 2005 16:07:25 +0000
-Subject: Re: [PATCH]Remove pgdat list ver.2 [1/2]
-Message-Id: <1128096445.6145.36.camel@localhost>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-3h7T//jpab1Af9qtgb8B"
+From: Bob Picco <bob.picco@hp.com>
+Date: Thu, 22 Sep 2005 16:14:18 +0000
+Subject: [PATCH 0/4] V4 ia64 SPARSEMEM
+Message-Id: <20050922161418.GW16066@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050930205919.7019.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20050930205919.7019.Y-GOTO@jp.fujitsu.com>
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: linux-mm <linux-mm@kvack.org>, ia64 list <linux-ia64@vger.kernel.org>
-
-
---=-3h7T//jpab1Af9qtgb8B
-Content-Type: text/plain
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-This works around my compile problem for now.  But, it might cause some
-more issues.  Can you take a closer look?
+Tony,
 
+This patchset differs very little from V3. It requires SPARSEMEM EXTREME
+patches which are in 2.6.14-rcX.
 
+ChangeLog V2:
+	Jesse's review input has been applied to patches 3 and 4.
+	These were all cosmetic changes.
+ChangeLog V3:
+	This patchset has changes for building ia64 with 
+	ARCH_SPARSEMEM_EXTREME config options.  The configuration options
+	SECTION_BITS and PHYSICAL_MEMORY_BITS have been removed.  I've
+	chosen SECTION_SIZE_BITS to be 30. I'm sure this will be debated
+	but seems adequate for the near term. 
 
--- Dave
+	This patchset depends on SPARSEMEM EXTREME patch submitted to -mm.
+	The -mm patch makes mem_section a one dimensional array of pointers 
+	to mem_sections. The two level layout reduces the memory requirements
+	of SPARSEMEM for very sparse memory but at the expense of an 
+	additional shift and load instruction.
 
---=-3h7T//jpab1Af9qtgb8B
-Content-Disposition: attachment; filename=no-pgdat-list-fix.patch
-Content-Type: text/x-patch; name=no-pgdat-list-fix.patch; charset=ANSI_X3.4-1968
-Content-Transfer-Encoding: 7bit
+	The SPARSEMEM function memory_present, which marks sections with
+	memory, is called from paging_init instead of find_memory. This is
+	done because the bootmem allocator in used by SPARSEMEM to allocate
+	the SPARSEMEM section arrays. This is the only code change within
+	this patchset.
+ChanageLog V4:
+	SPARSEMEM EXTREME is now the default SPARSEMEM configuration. Thus
+	the arch doesn't need to request EXTREME.  A couple of preprocessor
+	#elif were cleaned up. There was a merge conflict in discontig.c's
+	paging_init function and some minor code rearranging was required.
 
+	Thanks to Kame and Yasunori for review and corrections.
 
+	Memory models SPARSEMEM+EXTREME, DISCONTIG+VIRTUAL_MEM_MAP, 
+	FLATMEM and FLATMEM+VIRTUAL_MEM_MAP were boot tested on rx2600
+	by me; against -rcX.  Yasunori did the same configuration testing 
+	on his Tiger4 box with Node emulation for NUMA; against -rc1.
+	
 
----
+thanks,
 
- memhotplug-dave/include/linux/mmzone.h |  104 ++++++++++++++++-----------------
- 1 files changed, 53 insertions(+), 51 deletions(-)
-
-diff -puN include/linux/mmzone.h~no-pgdat-list-fix include/linux/mmzone.h
---- memhotplug/include/linux/mmzone.h~no-pgdat-list-fix	2005-09-30 08:59:56.000000000 -0700
-+++ memhotplug-dave/include/linux/mmzone.h	2005-09-30 09:06:10.000000000 -0700
-@@ -15,6 +15,7 @@
- #include <linux/init.h>
- #include <linux/seqlock.h>
- #include <asm/atomic.h>
-+#include <asm/mmzone.h>
- #include <asm/semaphore.h>
- 
- /* Free memory management - zoned buddy allocator.  */
-@@ -342,6 +343,58 @@ static inline void memory_present(int ni
- unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
- #endif
- 
-+static inline int is_highmem_idx(int idx)
-+{
-+	return (idx == ZONE_HIGHMEM);
-+}
-+
-+static inline int is_normal_idx(int idx)
-+{
-+	return (idx == ZONE_NORMAL);
-+}
-+/**
-+ * is_highmem - helper function to quickly check if a struct zone is a 
-+ *              highmem zone or not.  This is an attempt to keep references
-+ *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
-+ * @zone - pointer to struct zone variable
-+ */
-+static inline int is_highmem(struct zone *zone)
-+{
-+	return zone == zone->zone_pgdat->node_zones + ZONE_HIGHMEM;
-+}
-+
-+static inline int is_normal(struct zone *zone)
-+{
-+	return zone == zone->zone_pgdat->node_zones + ZONE_NORMAL;
-+}
-+
-+/* These two functions are used to setup the per zone pages min values */
-+struct ctl_table;
-+struct file;
-+int min_free_kbytes_sysctl_handler(struct ctl_table *, int, struct file *, 
-+					void __user *, size_t *, loff_t *);
-+extern int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1];
-+int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int, struct file *,
-+					void __user *, size_t *, loff_t *);
-+
-+#include <linux/topology.h>
-+/* Returns the number of the current Node. */
-+#define numa_node_id()		(cpu_to_node(raw_smp_processor_id()))
-+
-+#ifndef CONFIG_NEED_MULTIPLE_NODES
-+
-+extern struct pglist_data contig_page_data;
-+#define NODE_DATA(nid)		(&contig_page_data)
-+#define NODE_MEM_MAP(nid)	mem_map
-+#define MAX_NODES_SHIFT		1
-+#define pfn_to_nid(pfn)		(0)
-+
-+#else /* CONFIG_NEED_MULTIPLE_NODES */
-+
-+#include <asm/mmzone.h>
-+
-+#endif /* !CONFIG_NEED_MULTIPLE_NODES */
-+
- /*
-  * zone_idx() returns 0 for the ZONE_DMA zone, 1 for the ZONE_NORMAL zone, etc.
-  */
-@@ -408,57 +461,6 @@ static inline struct zone *next_zone(str
- 	for (zone = first_online_pgdat()->node_zones;	\
- 	     zone; zone = next_zone(zone))
- 
--static inline int is_highmem_idx(int idx)
--{
--	return (idx == ZONE_HIGHMEM);
--}
--
--static inline int is_normal_idx(int idx)
--{
--	return (idx == ZONE_NORMAL);
--}
--/**
-- * is_highmem - helper function to quickly check if a struct zone is a 
-- *              highmem zone or not.  This is an attempt to keep references
-- *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
-- * @zone - pointer to struct zone variable
-- */
--static inline int is_highmem(struct zone *zone)
--{
--	return zone == zone->zone_pgdat->node_zones + ZONE_HIGHMEM;
--}
--
--static inline int is_normal(struct zone *zone)
--{
--	return zone == zone->zone_pgdat->node_zones + ZONE_NORMAL;
--}
--
--/* These two functions are used to setup the per zone pages min values */
--struct ctl_table;
--struct file;
--int min_free_kbytes_sysctl_handler(struct ctl_table *, int, struct file *, 
--					void __user *, size_t *, loff_t *);
--extern int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1];
--int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int, struct file *,
--					void __user *, size_t *, loff_t *);
--
--#include <linux/topology.h>
--/* Returns the number of the current Node. */
--#define numa_node_id()		(cpu_to_node(raw_smp_processor_id()))
--
--#ifndef CONFIG_NEED_MULTIPLE_NODES
--
--extern struct pglist_data contig_page_data;
--#define NODE_DATA(nid)		(&contig_page_data)
--#define NODE_MEM_MAP(nid)	mem_map
--#define MAX_NODES_SHIFT		1
--#define pfn_to_nid(pfn)		(0)
--
--#else /* CONFIG_NEED_MULTIPLE_NODES */
--
--#include <asm/mmzone.h>
--
--#endif /* !CONFIG_NEED_MULTIPLE_NODES */
- 
- #ifdef CONFIG_SPARSEMEM
- #include <asm/sparsemem.h>
-_
-
---=-3h7T//jpab1Af9qtgb8B--
-
+bob
