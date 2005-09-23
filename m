@@ -1,189 +1,86 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 22 Sep 2005 08:49:15 +0000
-Subject: [patch 2.6.14-rc2 v2] Wire in the MCA/INIT handler stacks
-Message-Id: <12016.1127378955@kao2.melbourne.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 23 Sep 2005 17:39:07 +0000
+Subject: [PATCH] ia64: respect ACPI producer/consumer flag for PCI root bridges
+Message-Id: <200509231139.07720.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org, acpi-devel@lists.sourceforge.net
 
-Wire the MCA/INIT handler stacks into DTR[2] and track them in
-IA64_KR(CURRENT_STACK).  This gives the MCA/INIT handler stacks the
-same TLB status as normal kernel stacks.  Reload the old CURRENT_STACK
-data on return from OS to SAL.
+Address space resources for ACPI devices have a producer/consumer
+flag.  All devices "consume" the indicated address space.  If the
+resource is marked as a "producer", the range is also passed on
+to child devices.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+We currently ignore this flag when setting up MMIO and I/O port
+windows for PCI root bridges, so we could mistakenly interpret
+a "consumed-only" range, like CSR space for the device itself,
+as a window that is routed to children.
 
----
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
- include/asm-ia64/mca.h     |    5 ++
- arch/ia64/kernel/mca_asm.S |   96 +++++++++++++++++++++++++++++++++++++++------
- 2 files changed, 90 insertions(+), 11 deletions(-)
-
-Version 2, correct the test for the resumed task being in the kernel
-region.  cmp.eq changed to cmp.ne.
-
-Index: linux/include/asm-ia64/mca.h
-=================================--- linux.orig/include/asm-ia64/mca.h	2005-09-22 18:28:11.378070428 +1000
-+++ linux/include/asm-ia64/mca.h	2005-09-22 18:28:23.671575491 +1000
-@@ -80,7 +80,12 @@ struct ia64_sal_os_state {
- 	u64			sal_ra;			/* Return address in SAL, physical */
- 	u64			sal_gp;			/* GP of the SAL - physical */
- 	pal_min_state_area_t	*pal_min_state;		/* from R17.  physical in asm, virtual in C */
-+	/* Previous values of IA64_KR(CURRENT) and IA64_KR(CURRENT_STACK).
-+	 * Note: if the MCA/INIT recovery code wants to resume to a new context
-+	 * then it must change these values to reflect the new kernel stack.
+Index: work-vga2/arch/ia64/pci/pci.c
+=================================--- work-vga2.orig/arch/ia64/pci/pci.c	2005-09-23 10:11:45.000000000 -0600
++++ work-vga2/arch/ia64/pci/pci.c	2005-09-23 10:15:56.000000000 -0600
+@@ -168,6 +168,29 @@
+ 	return IO_SPACE_BASE(i);
+ }
+ 
++static acpi_status __devinit resource_to_window(struct acpi_resource *resource,
++	struct acpi_resource_address64 *addr)
++{
++	acpi_status status;
++
++	/*
++	 * We're only interested in _CRS descriptors that are
++	 *	- address space descriptors for memory or I/O space
++	 *	- non-zero size
++	 *	- producers, i.e., the address space is routed downstream,
++	 *	  not consumed by the bridge itself
 +	 */
- 	u64			prev_IA64_KR_CURRENT;	/* previous value of IA64_KR(CURRENT) */
-+	u64			prev_IA64_KR_CURRENT_STACK;
- 	struct task_struct	*prev_task;		/* previous task, NULL if it is not useful */
- 	/* Some interrupt registers are not saved in minstate, pt_regs or
- 	 * switch_stack.  Because MCA/INIT can occur when interrupts are
-
-Index: linux/arch/ia64/kernel/mca_asm.S
-=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2005-09-22 18:28:07.580811844 +1000
-+++ linux/arch/ia64/kernel/mca_asm.S	2005-09-22 18:44:41.417882709 +1000
-@@ -489,24 +489,27 @@ ia64_state_save:
- 	;;
- 	st8 [temp1]=r17,16	// pal_min_state
- 	st8 [temp2]=r6,16	// prev_IA64_KR_CURRENT
-+	mov r6=IA64_KR(CURRENT_STACK)
-+	;;
-+	st8 [temp1]=r6,16	// prev_IA64_KR_CURRENT_STACK
-+	st8 [temp2]=r0,16	// prev_task, starts off as NULL
- 	mov r6=cr.ifa
- 	;;
--	st8 [temp1]=r0,16	// prev_task, starts off as NULL
--	st8 [temp2]=r12,16	// cr.isr
-+	st8 [temp1]=r12,16	// cr.isr
-+	st8 [temp2]=r6,16	// cr.ifa
- 	mov r12=cr.itir
- 	;;
--	st8 [temp1]=r6,16	// cr.ifa
--	st8 [temp2]=r12,16	// cr.itir
-+	st8 [temp1]=r12,16	// cr.itir
-+	st8 [temp2]=r11,16	// cr.iipa
- 	mov r12=cr.iim
- 	;;
--	st8 [temp1]=r11,16	// cr.iipa
--	st8 [temp2]=r12,16	// cr.iim
--	mov r6=cr.iha
-+	st8 [temp1]=r12,16	// cr.iim
- (p1)	mov r12=IA64_MCA_COLD_BOOT
- (p2)	mov r12=IA64_INIT_WARM_BOOT
-+	mov r6=cr.iha
- 	;;
--	st8 [temp1]=r6,16	// cr.iha
--	st8 [temp2]=r12		// os_status, default is cold boot
-+	st8 [temp2]=r6,16	// cr.iha
-+	st8 [temp1]=r12		// os_status, default is cold boot
- 	mov r6=IA64_MCA_SAME_CONTEXT
- 	;;
- 	st8 [temp1]=r6		// context, default is same context
-@@ -823,9 +826,12 @@ ia64_state_restore:
- 	ld8 r12=[temp1],16	// sal_ra
- 	ld8 r9=[temp2],16	// sal_gp
- 	;;
--	ld8 r22=[temp1],24	// pal_min_state, virtual.  skip prev_task
-+	ld8 r22=[temp1],16	// pal_min_state, virtual
- 	ld8 r21=[temp2],16	// prev_IA64_KR_CURRENT
- 	;;
-+	ld8 r16=[temp1],16	// prev_IA64_KR_CURRENT_STACK
-+	ld8 r20=[temp2],16	// prev_task
-+	;;
- 	ld8 temp3=[temp1],16	// cr.isr
- 	ld8 temp4=[temp2],16	// cr.ifa
- 	;;
-@@ -846,6 +852,45 @@ ia64_state_restore:
- 	ld8 r8=[temp1]		// os_status
- 	ld8 r10=[temp2]		// context
- 
-+	/* Wire IA64_TR_CURRENT_STACK to the stack that we are resuming to.  To
-+	 * avoid any dependencies on the algorithm in ia64_switch_to(), just
-+	 * purge any existing CURRENT_STACK mapping and insert the new one.
-+	 *
-+	 * r16 contains prev_IA64_KR_CURRENT_STACK, r21 contains
-+	 * prev_IA64_KR_CURRENT, these values may have been changed by the C
-+	 * code.  Do not use r8, r9, r10, r22, they contain values ready for
-+	 * the return to SAL.
-+	 */
++	status = acpi_resource_to_address64(resource, addr);
++	if (ACPI_SUCCESS(status) &&
++	    (addr->resource_type = ACPI_MEMORY_RANGE ||
++	     addr->resource_type = ACPI_IO_RANGE) &&
++	    addr->address_length &&
++	    addr->producer_consumer = ACPI_PRODUCER)
++		return AE_OK;
 +
-+	mov r15=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
-+	;;
-+	shl r15=r15,IA64_GRANULE_SHIFT
-+	;;
-+	dep r15=-1,r15,61,3			// virtual granule
-+	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
-+	;;
-+	ptr.d r15,r18
-+	;;
-+	srlz.d
++	return AE_ERROR;
++}
 +
-+	extr.u r19=r21,61,3			// r21 = prev_IA64_KR_CURRENT
-+	shl r20=r16,IA64_GRANULE_SHIFT		// r16 = prev_IA64_KR_CURRENT_STACK
-+	movl r21=PAGE_KERNEL			// page properties
-+	;;
-+	mov IA64_KR(CURRENT_STACK)=r16
-+	cmp.ne p6,p0=RGN_KERNEL,r19		// new stack is in the kernel region?
-+	or r21=r20,r21				// construct PA | page properties
-+(p6)	br.spnt 1f				// the dreaded cpu 0 idle task in region 5:(
-+	;;
-+	mov cr.itir=r18
-+	mov cr.ifa=r21
-+	mov r20=IA64_TR_CURRENT_STACK
-+	;;
-+	itr.d dtr[r20]=r21
-+	;;
-+	srlz.d
-+1:
-+
- 	br.sptk b0
+ static acpi_status __devinit
+ count_window (struct acpi_resource *resource, void *data)
+ {
+@@ -175,11 +198,9 @@
+ 	struct acpi_resource_address64 addr;
+ 	acpi_status status;
  
- //EndStub//////////////////////////////////////////////////////////////////////
-@@ -982,6 +1027,7 @@ ia64_set_kernel_registers:
- 	add temp4=temp4, temp1	// &struct ia64_sal_os_state.os_gp
- 	add r12=temp1, temp3	// kernel stack pointer on MCA/INIT stack
- 	add r13=temp1, r3	// set current to start of MCA/INIT stack
-+	add r20=temp1, r3	// physical start of MCA/INIT stack
- 	;;
- 	ld8 r1=[temp4]		// OS GP from SAL OS state
- 	;;
-@@ -991,7 +1037,35 @@ ia64_set_kernel_registers:
- 	;;
- 	mov IA64_KR(CURRENT)=r13
+-	status = acpi_resource_to_address64(resource, &addr);
++	status = resource_to_window(resource, &addr);
+ 	if (ACPI_SUCCESS(status))
+-		if (addr.resource_type = ACPI_MEMORY_RANGE ||
+-		    addr.resource_type = ACPI_IO_RANGE)
+-			(*windows)++;
++		(*windows)++;
  
--	// FIXME: do I need to wire IA64_KR_CURRENT_STACK and IA64_TR_CURRENT_STACK?
-+	/* Wire IA64_TR_CURRENT_STACK to the MCA/INIT handler stack.  To avoid
-+	 * any dependencies on the algorithm in ia64_switch_to(), just purge
-+	 * any existing CURRENT_STACK mapping and insert the new one.
-+	 */
-+
-+	mov r16=IA64_KR(CURRENT_STACK)		// physical granule mapped by IA64_TR_CURRENT_STACK
-+	;;
-+	shl r16=r16,IA64_GRANULE_SHIFT
-+	;;
-+	dep r16=-1,r16,61,3			// virtual granule
-+	mov r18=IA64_GRANULE_SHIFT<<2		// for cr.itir.ps
-+	;;
-+	ptr.d r16,r18
-+	;;
-+	srlz.d
-+
-+	shr.u r16=r20,IA64_GRANULE_SHIFT	// r20 = physical start of MCA/INIT stack
-+	movl r21=PAGE_KERNEL			// page properties
-+	;;
-+	mov IA64_KR(CURRENT_STACK)=r16
-+	or r21=r20,r21				// construct PA | page properties
-+	;;
-+	mov cr.itir=r18
-+	mov cr.ifa=r13
-+	mov r20=IA64_TR_CURRENT_STACK
-+	;;
-+	itr.d dtr[r20]=r21
-+	;;
-+	srlz.d
+ 	return AE_OK;
+ }
+@@ -198,13 +219,11 @@
+ 	unsigned long flags, offset = 0;
+ 	struct resource *root;
  
- 	br.sptk b0
+-	status = acpi_resource_to_address64(res, &addr);
++	/* Return AE_OK for non-window resources to keep scanning for more */
++	status = resource_to_window(res, &addr);
+ 	if (!ACPI_SUCCESS(status))
+ 		return AE_OK;
  
-
+-	if (!addr.address_length)
+-		return AE_OK;
+-
+ 	if (addr.resource_type = ACPI_MEMORY_RANGE) {
+ 		flags = IORESOURCE_MEM;
+ 		root = &iomem_resource;
