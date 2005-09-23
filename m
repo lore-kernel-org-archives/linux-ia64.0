@@ -1,56 +1,145 @@
-From: Gary Hade <garyhade@us.ibm.com>
-Date: Thu, 22 Sep 2005 17:30:09 +0000
+From: "John S. Worley" <jsworley@qwest.net>
+Date: Fri, 23 Sep 2005 20:41:17 +0000
 Subject: Re: ia64 dispersal analysis capability
-Message-Id: <20050922173009.GA4699@us.ibm.com>
+Message-Id: <4334686D.9010007@qwest.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------ms010007080007000500090200"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050921182143.GA30873@sgi.com>
 In-Reply-To: <20050921182143.GA30873@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Sep 21, 2005 at 11:31:30AM -0700, Stephane Eranian wrote:
-> On Wed, Sep 21, 2005 at 10:45:37PM -0700, David Mosberger-Tang wrote:
-> > On 9/21/05, Jack Steiner <steiner@sgi.com> wrote:
-> > 
-> > > In 2002, Gary Hade posted a patch to binutils that added dispersal
-> > > analysis to the output of objdump. Does anyone know what happened to
-> > > the patch? Is there another tool that provides the same information?
-> > 
-> > Yeah, a tool called Montecito! ;-)
-> > 
-> 
-> Indeed.
-> 
-> > I don't remember whether you were at the last Gelato meeting and
-> > whether you attended the PMU talk.  If you didn't: I had some slides
-> > in there that showed how the IP-EAR can be used to get
-> > instruction-group issue traces which show you exactly how many
-> > stall-cycles there are between subsequent instruction-groups.  Yes,
-> > that's a bit different from the static info you are looking for, but
-> > in many ways it's much better info, so it's real (measured) data and
-> > takes into affect all corner cases, including memory latency etc.
-> > 
-> 
-> You can get the presentation at:
-> 	http://www.gelato.org/pdf/may2005/gelato_may2005_profiling_eranian_callister.pdf
+This is a cryptographically signed message in MIME format.
 
-Good stuff.
+--------------ms010007080007000500090200
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-One concern I had 3+ years ago when we proposed dispersal analysis 
-inclusion in binutils was the likelyhood that the code would keep 
-pace as the processor evolved.  The number of users of such 
-specialized functionality is obviously very small and I was 
-skeptical that a subset of those users would also be interested 
-in keeping the dispersal analysis code updated... especially if 
-there were other analysis alternatives.
+On Wed, Sep 21, 2005 at 01:23:43PM -0500, Jack Steiner wrote:
 
-Gary
+ >> In 2002, Gary Hade posted a patch to binutils that added dispersal
+ >> analysis to the output of objdump.
 
--- 
-Gary Hade
-IBM Linux Technology Center
-503-578-4503  IBM T/L: 775-4503
-garyhade@us.ibm.com
-http://www.ibm.com/linux/ltc
+ >> Is there another tool that provides the same information?
+
+     In my misspent days at HP, I developed a "tool" that would
+postprocess objdump -d (and other disassemblers) and create Excel
+CVS files that showed the instruction dispatch. There were models
+for Merced (LOL) and McKinley/Madison; Montecito would be relatively
+easy to add.
+
+     I had to leave the code when I "left", so perhaps some brave
+soul still at HP (Stephan?) could dig it up and release it, or
+make it public domain so that I could. Any interest out there?
+
+	Regards,
+	John Worley
+	jsworley@qwest.net
+
+--------------ms010007080007000500090200
+Content-Type: application/x-pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
+
+MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIQMDCC
+BSowggSToAMCAQICBAIAApowDQYJKoZIhvcNAQEFBQAwdTELMAkGA1UEBhMCVVMxGDAWBgNV
+BAoTD0dURSBDb3Jwb3JhdGlvbjEnMCUGA1UECxMeR1RFIEN5YmVyVHJ1c3QgU29sdXRpb25z
+LCBJbmMuMSMwIQYDVQQDExpHVEUgQ3liZXJUcnVzdCBHbG9iYWwgUm9vdDAeFw0wMjA4Mjcx
+OTAyMDBaFw0xMjA4MjcyMzU5MDBaMIHcMQswCQYDVQQGEwJHQjEXMBUGA1UEChMOQ29tb2Rv
+IExpbWl0ZWQxHTAbBgNVBAsTFENvbW9kbyBUcnVzdCBOZXR3b3JrMUYwRAYDVQQLEz1UZXJt
+cyBhbmQgQ29uZGl0aW9ucyBvZiB1c2U6IGh0dHA6Ly93d3cuY29tb2RvLm5ldC9yZXBvc2l0
+b3J5MR8wHQYDVQQLExYoYykyMDAyIENvbW9kbyBMaW1pdGVkMSwwKgYDVQQDEyNDb21vZG8g
+Q2xhc3MgMyBTZWN1cml0eSBTZXJ2aWNlcyBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCC
+AQoCggEBAPIMts+HhOoKcRRSLehXXElSOs/D8EJtYvL+puk+PHhkAw4gfmtraYeJVDgF9NrH
+BUAFGHd+/GuLDhyigsyshZs56ctLSBhIayjkwtFbrgOpfpgvTBNx37ApDE6qpjcmOLnQRFKC
+kD5wSNZ6mwkHvJTk9FUs8rcqvhyRHGqLg001bBDhc9oh2WLY8Rmw8ecgjbWXRyNLaoE1G69I
+4DaokExNTOz1iM7GsdAv/3mQAdhRZOcvsQiNXc+t+rKAlqusi7VMtHTCRxPt6CMx9Cq5YRu9
+zqRbNzG95Zyc+7IP18U7v8xaqw/IhkCJIqaQINOzbL4S8+MgLLvBrkNa2hZ26B8CAwEAAaOC
+AdkwggHVMEUGA1UdHwQ+MDwwOqA4oDaGNGh0dHA6Ly93d3cucHVibGljLXRydXN0LmNvbS9j
+Z2ktYmluL0NSTC8yMDE4L2NkcC5jcmwwHQYDVR0OBBYEFDbg6HxtnUWR7pnlQnZNcLNQMKxe
+MIGSBgNVHSAEgYowgYcwSQYKKoZIhvhjAQIBBTA7MDkGCCsGAQUFBwIBFi1odHRwOi8vd3d3
+LnB1YmxpYy10cnVzdC5jb20vQ1BTL09tbmlSb290Lmh0bWwwOgYMKwYBBAGyMQECAQMBMCow
+KAYIKwYBBQUHAgEWHGh0dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1AwgYkGA1UdIwSBgTB/
+oXmkdzB1MQswCQYDVQQGEwJVUzEYMBYGA1UEChMPR1RFIENvcnBvcmF0aW9uMScwJQYDVQQL
+Ex5HVEUgQ3liZXJUcnVzdCBTb2x1dGlvbnMsIEluYy4xIzAhBgNVBAMTGkdURSBDeWJlclRy
+dXN0IEdsb2JhbCBSb290ggIBpTArBgNVHRAEJDAigA8yMDAyMDgyNzE5MDIyNFqBDzIwMDkw
+ODI3MjM1OTAwWjAOBgNVHQ8BAf8EBAMCAeYwDwYDVR0TBAgwBgEB/wIBADANBgkqhkiG9w0B
+AQUFAAOBgQA6HiRv2ts2bP46czndzWocaaEAH2/UrtUf1IgppSHCV/ZVezDn0mTWDsSqcDx2
+dOIqrsdGZzKSyUvxp9fgVrz2chCdf7B11p1XtXGFqsQ6p0u47A/m0vj/tc3URSWs6ganirXN
+MiLkIZIb7840rjBEGu6bf/CUEYaKhxkBKDrPszCCBX0wggRloAMCAQICEQDCJaGo/UImwnTv
+R+zJdXs/MA0GCSqGSIb3DQEBBQUAMIHcMQswCQYDVQQGEwJHQjEXMBUGA1UEChMOQ29tb2Rv
+IExpbWl0ZWQxHTAbBgNVBAsTFENvbW9kbyBUcnVzdCBOZXR3b3JrMUYwRAYDVQQLEz1UZXJt
+cyBhbmQgQ29uZGl0aW9ucyBvZiB1c2U6IGh0dHA6Ly93d3cuY29tb2RvLm5ldC9yZXBvc2l0
+b3J5MR8wHQYDVQQLExYoYykyMDAyIENvbW9kbyBMaW1pdGVkMSwwKgYDVQQDEyNDb21vZG8g
+Q2xhc3MgMyBTZWN1cml0eSBTZXJ2aWNlcyBDQTAeFw0wNTA4MjAwMDAwMDBaFw0wNjA4MjAy
+MzU5NTlaMIHfMTUwMwYDVQQLEyxDb21vZG8gVHJ1c3QgTmV0d29yayAtIFBFUlNPTkEgTk9U
+IFZBTElEQVRFRDFGMEQGA1UECxM9VGVybXMgYW5kIENvbmRpdGlvbnMgb2YgdXNlOiBodHRw
+Oi8vd3d3LmNvbW9kby5uZXQvcmVwb3NpdG9yeTEfMB0GA1UECxMWKGMpMjAwMyBDb21vZG8g
+TGltaXRlZDEUMBIGA1UEAxMLSm9obiBXb3JsZXkxJzAlBgkqhkiG9w0BCQEWGGpvaG4ud29y
+bGV5QHNlY3VyZTY0LmNvbTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAv5pkUa6fELMA
+yf0k8vyEpfqNVVag3EkcJa5R5jVXticcGVPTsVYF68aCZ8eMDqevE67YBq4Zn/IXiUJBV3rW
+d0ax3qNV3q1XyHMRWOnEuf6aB/tkdI8WaGigImrTBxwY22j1gdsrQixtj3b0Wk0sFEKD3ZuH
+W+M9pb+gmPEtWUUCAwEAAaOCAbcwggGzMB8GA1UdIwQYMBaAFDbg6HxtnUWR7pnlQnZNcLNQ
+MKxeMB0GA1UdDgQWBBSSK78Zwh+CjzkjThA4ST+Kf4Y60TAOBgNVHQ8BAf8EBAMCBaAwDAYD
+VR0TAQH/BAIwADAgBgNVHSUEGTAXBggrBgEFBQcDBAYLKwYBBAGyMQEDBQIwEQYJYIZIAYb4
+QgEBBAQDAgUgMEYGA1UdIAQ/MD0wOwYMKwYBBAGyMQECAQEBMCswKQYIKwYBBQUHAgEWHWh0
+dHBzOi8vc2VjdXJlLmNvbW9kby5uZXQvQ1BTMIGwBgNVHR8EgagwgaUwOKA2oDSGMmh0dHA6
+Ly9jcmwuY29tb2RvLm5ldC9DbGFzczNTZWN1cml0eVNlcnZpY2VzXzMuY3JsMDqgOKA2hjRo
+dHRwOi8vY3JsLmNvbW9kb2NhLmNvbS9DbGFzczNTZWN1cml0eVNlcnZpY2VzXzMuY3JsMC2g
+K6ApgSdDbGFzczNTZWN1cml0eVNlcnZpY2VzXzNAY3JsLmNvbW9kby5uZXQwIwYDVR0RBBww
+GoEYam9obi53b3JsZXlAc2VjdXJlNjQuY29tMA0GCSqGSIb3DQEBBQUAA4IBAQBT9Pl8N+Ru
+jkLbMq9d2zOmeEbIJDRmRDIA5kt2BgThz8RhFb/qgytMxEc+eJtET1njzQVozP9erXlpB3rS
+g3R32s3K5DVg2UoiIU6J5d+SdSUU9Z+AyTaZ89+ACaUYRr/LvtKi8LyHOc4RaERPGnHwDFjC
+yFJ5Aqx35qps/SrSfAdoimCzl8Sc2JErk6aLGFzIVhJJMw7Dtzne/FM7pcgshF8FsVwByTDy
+N1pOYfBRKoKjvR/SPT1YvTDQzwE/d1P47YCLw2foYywko7/ZYHQELwFwWLV3XWUI272qZj4h
+sugvo8acH2bW6iBlbb3nHYKmIDVZg1Bfcepf12whaS75MIIFfTCCBGWgAwIBAgIRAMIloaj9
+QibCdO9H7Ml1ez8wDQYJKoZIhvcNAQEFBQAwgdwxCzAJBgNVBAYTAkdCMRcwFQYDVQQKEw5D
+b21vZG8gTGltaXRlZDEdMBsGA1UECxMUQ29tb2RvIFRydXN0IE5ldHdvcmsxRjBEBgNVBAsT
+PVRlcm1zIGFuZCBDb25kaXRpb25zIG9mIHVzZTogaHR0cDovL3d3dy5jb21vZG8ubmV0L3Jl
+cG9zaXRvcnkxHzAdBgNVBAsTFihjKTIwMDIgQ29tb2RvIExpbWl0ZWQxLDAqBgNVBAMTI0Nv
+bW9kbyBDbGFzcyAzIFNlY3VyaXR5IFNlcnZpY2VzIENBMB4XDTA1MDgyMDAwMDAwMFoXDTA2
+MDgyMDIzNTk1OVowgd8xNTAzBgNVBAsTLENvbW9kbyBUcnVzdCBOZXR3b3JrIC0gUEVSU09O
+QSBOT1QgVkFMSURBVEVEMUYwRAYDVQQLEz1UZXJtcyBhbmQgQ29uZGl0aW9ucyBvZiB1c2U6
+IGh0dHA6Ly93d3cuY29tb2RvLm5ldC9yZXBvc2l0b3J5MR8wHQYDVQQLExYoYykyMDAzIENv
+bW9kbyBMaW1pdGVkMRQwEgYDVQQDEwtKb2huIFdvcmxleTEnMCUGCSqGSIb3DQEJARYYam9o
+bi53b3JsZXlAc2VjdXJlNjQuY29tMIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC/mmRR
+rp8QswDJ/STy/ISl+o1VVqDcSRwlrlHmNVe2JxwZU9OxVgXrxoJnx4wOp68TrtgGrhmf8heJ
+QkFXetZ3RrHeo1XerVfIcxFY6cS5/poH+2R0jxZoaKAiatMHHBjbaPWB2ytCLG2PdvRaTSwU
+QoPdm4db4z2lv6CY8S1ZRQIDAQABo4IBtzCCAbMwHwYDVR0jBBgwFoAUNuDofG2dRZHumeVC
+dk1ws1AwrF4wHQYDVR0OBBYEFJIrvxnCH4KPOSNOEDhJP4p/hjrRMA4GA1UdDwEB/wQEAwIF
+oDAMBgNVHRMBAf8EAjAAMCAGA1UdJQQZMBcGCCsGAQUFBwMEBgsrBgEEAbIxAQMFAjARBglg
+hkgBhvhCAQEEBAMCBSAwRgYDVR0gBD8wPTA7BgwrBgEEAbIxAQIBAQEwKzApBggrBgEFBQcC
+ARYdaHR0cHM6Ly9zZWN1cmUuY29tb2RvLm5ldC9DUFMwgbAGA1UdHwSBqDCBpTA4oDagNIYy
+aHR0cDovL2NybC5jb21vZG8ubmV0L0NsYXNzM1NlY3VyaXR5U2VydmljZXNfMy5jcmwwOqA4
+oDaGNGh0dHA6Ly9jcmwuY29tb2RvY2EuY29tL0NsYXNzM1NlY3VyaXR5U2VydmljZXNfMy5j
+cmwwLaAroCmBJ0NsYXNzM1NlY3VyaXR5U2VydmljZXNfM0BjcmwuY29tb2RvLm5ldDAjBgNV
+HREEHDAagRhqb2huLndvcmxleUBzZWN1cmU2NC5jb20wDQYJKoZIhvcNAQEFBQADggEBAFP0
++Xw35G6OQtsyr13bM6Z4RsgkNGZEMgDmS3YGBOHPxGEVv+qDK0zERz54m0RPWePNBWjM/16t
+eWkHetKDdHfazcrkNWDZSiIhTonl35J1JRT1n4DJNpnz34AJpRhGv8u+0qLwvIc5zhFoRE8a
+cfAMWMLIUnkCrHfmqmz9KtJ8B2iKYLOXxJzYkSuTposYXMhWEkkzDsO3Od78UzulyCyEXwWx
+XAHJMPI3Wk5h8FEqgqO9H9I9PVi9MNDPAT93U/jtgIvDZ+hjLCSjv9lgdAQvAXBYtXddZQjb
+vapmPiGy6C+jxpwfZtbqIGVtvecdgqYgNVmDUF9x6l/XbCFpLvkxggReMIIEWgIBATCB8jCB
+3DELMAkGA1UEBhMCR0IxFzAVBgNVBAoTDkNvbW9kbyBMaW1pdGVkMR0wGwYDVQQLExRDb21v
+ZG8gVHJ1c3QgTmV0d29yazFGMEQGA1UECxM9VGVybXMgYW5kIENvbmRpdGlvbnMgb2YgdXNl
+OiBodHRwOi8vd3d3LmNvbW9kby5uZXQvcmVwb3NpdG9yeTEfMB0GA1UECxMWKGMpMjAwMiBD
+b21vZG8gTGltaXRlZDEsMCoGA1UEAxMjQ29tb2RvIENsYXNzIDMgU2VjdXJpdHkgU2Vydmlj
+ZXMgQ0ECEQDCJaGo/UImwnTvR+zJdXs/MAkGBSsOAwIaBQCgggLBMBgGCSqGSIb3DQEJAzEL
+BgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTA1MDkyMzIwNDExN1owIwYJKoZIhvcNAQkE
+MRYEFDHws+XHlCDw79xnPJfuLVis2xQLMFIGCSqGSIb3DQEJDzFFMEMwCgYIKoZIhvcNAwcw
+DgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqGSIb3DQMCAgEo
+MIIBAwYJKwYBBAGCNxAEMYH1MIHyMIHcMQswCQYDVQQGEwJHQjEXMBUGA1UEChMOQ29tb2Rv
+IExpbWl0ZWQxHTAbBgNVBAsTFENvbW9kbyBUcnVzdCBOZXR3b3JrMUYwRAYDVQQLEz1UZXJt
+cyBhbmQgQ29uZGl0aW9ucyBvZiB1c2U6IGh0dHA6Ly93d3cuY29tb2RvLm5ldC9yZXBvc2l0
+b3J5MR8wHQYDVQQLExYoYykyMDAyIENvbW9kbyBMaW1pdGVkMSwwKgYDVQQDEyNDb21vZG8g
+Q2xhc3MgMyBTZWN1cml0eSBTZXJ2aWNlcyBDQQIRAMIloaj9QibCdO9H7Ml1ez8wggEFBgsq
+hkiG9w0BCRACCzGB9aCB8jCB3DELMAkGA1UEBhMCR0IxFzAVBgNVBAoTDkNvbW9kbyBMaW1p
+dGVkMR0wGwYDVQQLExRDb21vZG8gVHJ1c3QgTmV0d29yazFGMEQGA1UECxM9VGVybXMgYW5k
+IENvbmRpdGlvbnMgb2YgdXNlOiBodHRwOi8vd3d3LmNvbW9kby5uZXQvcmVwb3NpdG9yeTEf
+MB0GA1UECxMWKGMpMjAwMiBDb21vZG8gTGltaXRlZDEsMCoGA1UEAxMjQ29tb2RvIENsYXNz
+IDMgU2VjdXJpdHkgU2VydmljZXMgQ0ECEQDCJaGo/UImwnTvR+zJdXs/MA0GCSqGSIb3DQEB
+AQUABIGAL0YRVvI4e3b6zI/AUuJJtMKCSUKSmAsT03hrwXAezDbtP6EgrD7CoGgtETQ/RyXE
+3NaxYjg5Umrlaj0SM/udBpK48QHt4Spz2zvtBwfKhixIZ0LtXJftoMENo/Um1bpfHaybtOrf
+7ejARNDWl3UtoOxWEi9P5qHfXnlFJf5hyY0AAAAAAAA=
+--------------ms010007080007000500090200--
+
