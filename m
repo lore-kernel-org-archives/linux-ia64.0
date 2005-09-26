@@ -1,51 +1,33 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Sat, 03 Sep 2005 09:36:56 +0000
-Subject: Re: [PATCH 2.6.13] IOCHK interface for I/O error handling/detecting
-Message-Id: <43196EB8.9090207@jp.fujitsu.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 26 Sep 2005 21:01:19 +0000
+Subject: [patch 2.6.14-rc2 0/5] swiotlb maintenance and x86_64 dma_sync_single_range_for_{cpu,device}
+Message-Id: <09262005170119.15628@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <431694DB.90400@jp.fujitsu.com> <20050901172917.I10072@chenjesu.americas.sgi.com> <20050902182453.GB28254@parisc-linux.org>
-In-Reply-To: <20050902182453.GB28254@parisc-linux.org>
+In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F04795ED2@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Brent Casavant <bcasavan@sgi.com>, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-Matthew Wilcox wrote:
-> On Thu, Sep 01, 2005 at 05:45:54PM -0500, Brent Casavant wrote:
-> 
->>I am extremely concerned about the performance implications of this
->>implementation.  These changes have several deleterious effects on I/O
->>performance.
-> 
-> 
-> I agree.  I think the iochk patches should be abandoned and the feature
-> reimplemented on top of the asynchronous PCI error notification patches
-> from Linas Vepstas.
+Conduct some maintenance of the swiotlb code:
 
-Do you mean that all architecture especially other than PPC64 already
-have enough synchronization point or enough infrastructure to invoke
-those notifiers effectively?  I don't think so.
+	-- Move the code from arch/ia64/lib to drivers/pci
 
-As far as I know, PPC64 is enveloped by a favorable situation.
-At least in situation of readX and inX on PPC64, they already have
-a error check point, and the EEH technology and the firmware make their
-error recovery easier.
-Because PPC64 firmware (or hardware? - I'm not sure) automatically detects
-errors, isolates erroneous device and returns "(type)~0" to kernel,
-readX/inX doesn't need to do any expensive thing unless it get "(type)~0."
-Therefore PPC64 can have a nice chance to invoke notifiers by extending
-the codes in the error check point.
-It is clear that doing same thing on other architecture will be quite
-painful and expensive.
+	-- Cleanup some cruft (code duplication)
 
-Why don't you think that it would be useful if the error notifier
-could be invoked from iochk_read()?  I believe the iochk patches
-will help implementing PCI error notification on not only IA64 but
-also i386 and so on.
-Or do you mean we would be happy if we all have a PPC64 box?
+	-- Add support for syncing sub-ranges of mappings
 
+	-- Add support for syncing DMA_BIDIRECTIONAL mappings
 
-Thanks,
-H.Seto
+	-- Comment fixup & change record
 
+Also, tack-on an x86_64 implementation of dma_sync_single_range_for_cpu
+and dma_sync_single_range_for _device.  This makes use of the new
+swiotlb sync sub-range support.
+
+In this round, the new location for swiotlb is driver/pci/swiotlb.c.
+This is the result of discussions on lkml pointing-out that swiotlb is
+closely related to PCI.
+
+Patches to follow...
