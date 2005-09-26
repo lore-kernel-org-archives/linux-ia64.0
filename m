@@ -1,54 +1,91 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sun, 11 Sep 2005 07:20:14 +0000
-Subject: [PATCH 2.6.13 2/6] MCA/INIT: add an extra thread_info flag
-Message-Id: <25347.1126423214@ocs3.ocs.com.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 26 Sep 2005 21:01:20 +0000
+Subject: [patch 2.6.14-rc2 3/5] swiotlb: support syncing sub-ranges of mappings
+Message-Id: <09262005170120.15812@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09262005170120.15749@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-Add an extra thread_info flag to indicate the special MCA/INIT stacks.
-Mainly for debuggers.
+This patch implements swiotlb_sync_single_range_for_{cpu,device}. This
+is intended to support an x86_64 implementation of
+dma_sync_single_range_for_{cpu,device}.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
-
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- ptrace.h      |    2 +-
- thread_info.h |    2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ drivers/pci/swiotlb.c        |   33 +++++++++++++++++++++++++++++++++
+ include/asm-x86_64/swiotlb.h |    8 ++++++++
+ 2 files changed, 41 insertions(+)
 
-Index: linux/include/asm-ia64/ptrace.h
-=================================--- linux.orig/include/asm-ia64/ptrace.h	2005-06-18 05:48:29.000000000 +1000
-+++ linux/include/asm-ia64/ptrace.h	2005-08-01 12:25:33.360883229 +1000
-@@ -119,7 +119,7 @@ struct pt_regs {
- 	unsigned long ar_unat;		/* interrupted task's NaT register (preserved) */
- 	unsigned long ar_pfs;		/* prev function state  */
- 	unsigned long ar_rsc;		/* RSE configuration */
--	/* The following two are valid only if cr_ipsr.cpl > 0: */
-+	/* The following two are valid only if cr_ipsr.cpl > 0 || ti->flags & _TIF_MCA_INIT */
- 	unsigned long ar_rnat;		/* RSE NaT */
- 	unsigned long ar_bspstore;	/* RSE bspstore */
+diff --git a/drivers/pci/swiotlb.c b/drivers/pci/swiotlb.c
+--- a/drivers/pci/swiotlb.c
++++ b/drivers/pci/swiotlb.c
+@@ -521,6 +521,37 @@ swiotlb_sync_single_for_device(struct de
+ }
  
-Index: linux/include/asm-ia64/thread_info.h
-=================================--- linux.orig/include/asm-ia64/thread_info.h	2005-08-01 11:49:13.053126287 +1000
-+++ linux/include/asm-ia64/thread_info.h	2005-08-01 12:25:48.541555064 +1000
-@@ -76,6 +76,7 @@ struct thread_info {
- #define TIF_SIGDELAYED		5	/* signal delayed from MCA/INIT/NMI/PMI context */
- #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
- #define TIF_MEMDIE		17
-+#define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
- 
- #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
- #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
-@@ -85,6 +86,7 @@ struct thread_info {
- #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
- #define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
- #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
-+#define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
- 
- /* "work to do on user-return" bits */
- #define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
-
-
+ /*
++ * Same as above, but for a sub-range of the mapping.
++ */
++static inline void
++swiotlb_sync_single_range(struct device *hwdev, dma_addr_t dev_addr,
++			  unsigned long offset, size_t size, int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr) + offset;
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++void
++swiotlb_sync_single_range_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++				  unsigned long offset, size_t size, int dir)
++{
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++}
++
++void
++swiotlb_sync_single_range_for_device(struct device *hwdev, dma_addr_t dev_addr,
++				     unsigned long offset, size_t size, int dir)
++{
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++}
++
++/*
+  * Map a set of buffers described by scatterlist in streaming mode for DMA.
+  * This is the scatter-gather version of the above swiotlb_map_single
+  * interface.  Here the scatter gather list elements are each tagged with the
+@@ -648,6 +679,8 @@ EXPORT_SYMBOL(swiotlb_map_sg);
+ EXPORT_SYMBOL(swiotlb_unmap_sg);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_device);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_cpu);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_device);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
+ EXPORT_SYMBOL(swiotlb_dma_mapping_error);
+diff --git a/include/asm-x86_64/swiotlb.h b/include/asm-x86_64/swiotlb.h
+--- a/include/asm-x86_64/swiotlb.h
++++ b/include/asm-x86_64/swiotlb.h
+@@ -15,6 +15,14 @@ extern void swiotlb_sync_single_for_cpu(
+ extern void swiotlb_sync_single_for_device(struct device *hwdev,
+ 					    dma_addr_t dev_addr,
+ 					    size_t size, int dir);
++extern void swiotlb_sync_single_range_for_cpu(struct device *hwdev,
++					      dma_addr_t dev_addr,
++					      unsigned long offset,
++					      size_t size, int dir);
++extern void swiotlb_sync_single_range_for_device(struct device *hwdev,
++						 dma_addr_t dev_addr,
++						 unsigned long offset,
++						 size_t size, int dir);
+ extern void swiotlb_sync_sg_for_cpu(struct device *hwdev,
+ 				     struct scatterlist *sg, int nelems,
+ 				     int dir);
