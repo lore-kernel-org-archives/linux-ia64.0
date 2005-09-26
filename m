@@ -1,105 +1,45 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 28 Sep 2005 21:50:49 +0000
-Subject: [patch 2.6.14-rc2 2/6] swiotlb: cleanup some code duplication cruft
-Message-Id: <09282005175049.10217@bilbo.tuxdriver.com>
+Date: Mon, 26 Sep 2005 21:01:20 +0000
+Subject: [patch 2.6.14-rc2 5/5] swiotlb: file header comments
+Message-Id: <09262005170120.15941@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <09282005175048.10153@bilbo.tuxdriver.com>
+In-Reply-To: <09262005170120.15877@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
 Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-The implementations of swiotlb_sync_single_for_{cpu,device} are
-identical. Likewise for swiotlb_syng_sg_for_{cpu,device}. This patch
-move the guts of those functions to two new inline functions, and
-calls the appropriate one from the bodies of those functions.
+Change comment at top of swiotlb.c to reflect that the code is shared
+with EM64T (i.e. Intel x86_64). Also add an entry for myself so that
+if I "broke it", everyone knows who "bought it"... :-)
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- lib/swiotlb.c |   45 ++++++++++++++++++++++-----------------------
- 1 files changed, 22 insertions(+), 23 deletions(-)
+ drivers/pci/swiotlb.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -492,9 +492,9 @@ swiotlb_unmap_single(struct device *hwde
-  * address back to the card, you must first perform a
-  * swiotlb_dma_sync_for_device, and then the device again owns the buffer
-  */
--void
--swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
--			    size_t size, int dir)
-+static inline void
-+swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
-+		    size_t size, int dir)
- {
- 	char *dma_addr = phys_to_virt(dev_addr);
- 
-@@ -507,17 +507,17 @@ swiotlb_sync_single_for_cpu(struct devic
- }
- 
- void
-+swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
-+			    size_t size, int dir)
-+{
-+	swiotlb_sync_single(hwdev, dev_addr, size, dir);
-+}
-+
-+void
- swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
- 			       size_t size, int dir)
- {
--	char *dma_addr = phys_to_virt(dev_addr);
--
--	if (dir = DMA_NONE)
--		BUG();
--	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
--		sync_single(hwdev, dma_addr, size, dir);
--	else if (dir = DMA_FROM_DEVICE)
--		mark_clean(dma_addr, size);
-+	swiotlb_sync_single(hwdev, dev_addr, size, dir);
- }
- 
+diff --git a/drivers/pci/swiotlb.c b/drivers/pci/swiotlb.c
+--- a/drivers/pci/swiotlb.c
++++ b/drivers/pci/swiotlb.c
+@@ -1,7 +1,7 @@
  /*
-@@ -594,9 +594,9 @@ swiotlb_unmap_sg(struct device *hwdev, s
-  * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
-  * and usage.
+  * Dynamic DMA mapping support.
+  *
+- * This implementation is for IA-64 platforms that do not support
++ * This implementation is for IA-64 and EM64T platforms that do not support
+  * I/O TLBs (aka DMA address translation hardware).
+  * Copyright (C) 2000 Asit Mallick <Asit.K.Mallick@intel.com>
+  * Copyright (C) 2000 Goutham Rao <goutham.rao@intel.com>
+@@ -11,7 +11,9 @@
+  * 03/05/07 davidm	Switch from PCI-DMA to generic device DMA API.
+  * 00/12/13 davidm	Rename to swiotlb.c and add mark_clean() to avoid
+  *			unnecessary i-cache flushing.
+- * 04/07/.. ak          Better overflow handling. Assorted fixes.
++ * 04/07/.. ak		Better overflow handling. Assorted fixes.
++ * 05/09/10 linville	Add support for syncing ranges, support syncing for
++ *			DMA_BIDIRECTIONAL mappings, miscellaneous cleanup.
   */
--void
--swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
--			int nelems, int dir)
-+static inline void
-+swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
-+		int nelems, int dir)
- {
- 	int i;
  
-@@ -610,18 +610,17 @@ swiotlb_sync_sg_for_cpu(struct device *h
- }
- 
- void
-+swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
-+			int nelems, int dir)
-+{
-+	swiotlb_sync_sg(hwdev, sg, nelems, dir);
-+}
-+
-+void
- swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
- 			   int nelems, int dir)
- {
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++)
--		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			sync_single(hwdev, (void *) sg->dma_address,
--				    sg->dma_length, dir);
-+	swiotlb_sync_sg(hwdev, sg, nelems, dir);
- }
- 
- int
+ #include <linux/cache.h>
