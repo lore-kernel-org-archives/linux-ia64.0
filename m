@@ -1,40 +1,105 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Thu, 22 Sep 2005 16:14:34 +0000
-Subject: [PATCH 2/4] V4 ia64 SPARSEMEM - eliminate contig_page_data
-Message-Id: <20050922161434.GY16066@localhost.localdomain>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 26 Sep 2005 21:01:20 +0000
+Subject: [patch 2.6.14-rc2 2/5] swiotlb: cleanup some code duplication cruft
+Message-Id: <09262005170120.15749@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09262005170119.15684@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
+The implementations of swiotlb_sync_single_for_{cpu,device} are
+identical. Likewise for swiotlb_syng_sg_for_{cpu,device}. This patch
+move the guts of those functions to two new inline functions, and
+calls the appropriate one from the bodies of those functions.
 
-For FLATMEM contig_page_data has been made transparent to the arch code.
-This patch conforms to that change.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
+ drivers/pci/swiotlb.c |   45 ++++++++++++++++++++++-----------------------
+ 1 files changed, 22 insertions(+), 23 deletions(-)
 
- arch/ia64/mm/contig.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-Index: linux-2.6.14-rc2/arch/ia64/mm/contig.c
-=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/contig.c	2005-09-21 12:28:51.000000000 -0400
-+++ linux-2.6.14-rc2/arch/ia64/mm/contig.c	2005-09-21 12:28:56.000000000 -0400
-@@ -269,7 +269,7 @@ paging_init (void)
- 	efi_memmap_walk(find_largest_hole, (u64 *)&max_gap);
- 	if (max_gap < LARGE_GAP) {
- 		vmem_map = (struct page *) 0;
--		free_area_init_node(0, &contig_page_data, zones_size, 0,
-+		free_area_init_node(0, NODE_DATA(0), zones_size, 0,
- 				    zholes_size);
- 	} else {
- 		unsigned long map_size;
-@@ -282,7 +282,7 @@ paging_init (void)
- 		efi_memmap_walk(create_mem_map_page_table, NULL);
+diff --git a/drivers/pci/swiotlb.c b/drivers/pci/swiotlb.c
+--- a/drivers/pci/swiotlb.c
++++ b/drivers/pci/swiotlb.c
+@@ -492,9 +492,9 @@ swiotlb_unmap_single(struct device *hwde
+  * address back to the card, you must first perform a
+  * swiotlb_dma_sync_for_device, and then the device again owns the buffer
+  */
+-void
+-swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+-			    size_t size, int dir)
++static inline void
++swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
++		    size_t size, int dir)
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr);
  
- 		NODE_DATA(0)->node_mem_map = vmem_map;
--		free_area_init_node(0, &contig_page_data, zones_size,
-+		free_area_init_node(0, NODE_DATA(0), zones_size,
- 				    0, zholes_size);
+@@ -507,17 +507,17 @@ swiotlb_sync_single_for_cpu(struct devic
+ }
  
- 		printk("Virtual mem_map starts at 0x%p\n", mem_map);
+ void
++swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++			    size_t size, int dir)
++{
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
++}
++
++void
+ swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
+ 			       size_t size, int dir)
+ {
+-	char *dma_addr = phys_to_virt(dev_addr);
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
+ }
+ 
+ /*
+@@ -594,9 +594,9 @@ swiotlb_unmap_sg(struct device *hwdev, s
+  * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
+  * and usage.
+  */
+-void
+-swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+-			int nelems, int dir)
++static inline void
++swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
++		int nelems, int dir)
+ {
+ 	int i;
+ 
+@@ -610,18 +610,17 @@ swiotlb_sync_sg_for_cpu(struct device *h
+ }
+ 
+ void
++swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
++			int nelems, int dir)
++{
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++}
++
++void
+ swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+ 			   int nelems, int dir)
+ {
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
+ }
+ 
+ int
