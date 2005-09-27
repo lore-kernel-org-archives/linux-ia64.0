@@ -1,40 +1,37 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 21 Sep 2005 23:21:14 +0000
-Subject: Re: MCA/INIT: need to wire CURRENT_STACK?
-Message-Id: <14725.1127344874@ocs3.ocs.com.au>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Tue, 27 Sep 2005 00:12:57 +0000
+Subject: Re: [Lhms-devel] Re: [PATCH 0/4] V4 ia64 SPARSEMEM
+Message-Id: <1127779977.10315.6.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16451.1127265127@ocs3.ocs.com.au>
-In-Reply-To: <16451.1127265127@ocs3.ocs.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 21 Sep 2005 16:09:49 -0700, 
-David Mosberger-Tang <David.Mosberger@acm.org> wrote:
->On 9/21/05, Keith Owens <kaos@sgi.com> wrote:
->> On Wed, 21 Sep 2005 11:12:58 -0700,
+On Mon, 2005-09-26 at 19:35 -0400, Bob Picco wrote:
+> > regular scripts.  Right now this whole change is a close to being
+> > a no-op as none of the default configs enables SPARSEMEM.
 >
->> The virtual mode handlers are entered with psr.ic=1 and psr.i=0.
->
->I'm not sure what you mean by virtual mode handlers,
+> This is true and just about universally true for other arches with SPARSEMEM
+> enabled. I took a quick look and only i386 selects SPARSEMEM for NUMA.
+> I couldn't find any default config files with SPARSEMEM.  I think the objective
+> was for more soak time before defaulting to SPARSEMEM. Also just a few
+> arches have SPARSEMEM support.  Dave Hansen can possibly fill in my gaps.
 
-The C code that starts with ia64_mca_handler and ia64_init_handler.
-mca_asm.S is entered in physical mode with psr.ic=0, it switches to
-virtual with psr.ic=1 and psr.i=0 before calling the handlers.
+Usually a change being an effective no-op for those that don't care is a
+*plus* for a patch :)
 
->but execution in
->the IVT starts with PSR.IC=0.
+In any case, no, it isn't the default for anything, yet.  This is
+partially because sparsemem isn't a universal win over discontig in all
+cases.  We wanted to allow a bit of choice.  This phased introduction is
+a bit smoother that just wiping out discontigmem completely. 
 
-Right, so the real question is - is there any path that causes an
-interrupt before the virtual mode handlers have accessed their stacks
-and the required DTC has been created?  Alternatively can the DTC for
-the MCA/INIT stacks be lost once the handlers have started running?
+On i386 it isn't the default because sparsemem is really only good in
+places where discontig was used as well.  i386 only uses discontig and
+NUMA together.  So, it was natural to keep the same relationship with
+sparsemem. 
 
-Given the uncertainty and the fact the the TLB error recovery in
-mca_asm.S assumes that CURRENT_STACK is defined, I need to wire
-CURRENT_STACK around the C code handlers.  Patch coming soon.
+-- Dave
 
-BTW David, are you aware that your mailer is using quoted printable,
-even for plain text messages?  All the '=' signs come out as '='.
+
 
