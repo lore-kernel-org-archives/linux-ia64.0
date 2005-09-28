@@ -1,23 +1,34 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 07 Sep 2005 19:12:45 +0000
-Subject: RE: [patch] delete sync.i in ia64_switch_to()
-Message-Id: <200509071913.j87JDOg01754@unix-os.sc.intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 28 Sep 2005 21:50:47 +0000
+Subject: [patch 2.6.14-rc2 0/6] swiotlb maintenance and x86_64 dma_sync_single_range_for_{cpu,device}
+Message-Id: <09282005175047.10096@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200509070723.j877N9g25144@unix-os.sc.intel.com>
-In-Reply-To: <200509070723.j877N9g25144@unix-os.sc.intel.com>
+In-Reply-To: <12c511ca050926194784b63e5@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-Jim Hull wrote on Wednesday, September 07, 2005 10:33 AM
-> That sync.i is not old code - it is required.
-> 
-> It is not there to handle kernel fc instructions - as you say, they have
-> their own sync instructions.  The sync.i in the context switch path is there
-> to guarantee that user-mode fc's become visible.
+Conduct some maintenance of the swiotlb code:
 
-Thank you for the explanation.  Now I see the lights :-)
+	-- Move the code from arch/ia64/lib/ to lib/
 
-- Ken
+	-- Cleanup some cruft (code duplication)
 
+	-- Add support for syncing sub-ranges of mappings
+
+	-- Add support for syncing DMA_BIDIRECTIONAL mappings
+
+	-- Comment fixup & change record
+
+Also, tack-on an x86_64 implementation of dma_sync_single_range_for_cpu
+and dma_sync_single_range_for _device.  This makes use of the new
+swiotlb sync sub-range support.
+
+In this (third) round, the new location for swiotlb is (again) lib/swiotlb.c.
+
+This set does NOT include the PCI excision that Tony Luck started after the
+last round of discussion.
+
+Patches to follow...
