@@ -1,73 +1,105 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sun, 11 Sep 2005 07:24:42 +0000
-Subject: [PATCH 2.6.13 6/6] MCA/INIT: remove obsolete unwind code
-Message-Id: <25485.1126423482@ocs3.ocs.com.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 28 Sep 2005 21:50:49 +0000
+Subject: [patch 2.6.14-rc2 2/6] swiotlb: cleanup some code duplication cruft
+Message-Id: <09282005175049.10217@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09282005175048.10153@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-Delete the special case unwind code that was only used by the old
-MCA/INIT handler.
+The implementations of swiotlb_sync_single_for_{cpu,device} are
+identical. Likewise for swiotlb_syng_sg_for_{cpu,device}. This patch
+move the guts of those functions to two new inline functions, and
+calls the appropriate one from the bodies of those functions.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
-
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- arch/ia64/kernel/unwind.c |   22 ----------------------
- include/asm-ia64/unwind.h |    7 -------
- 2 files changed, 29 deletions(-)
+ lib/swiotlb.c |   45 ++++++++++++++++++++++-----------------------
+ 1 files changed, 22 insertions(+), 23 deletions(-)
 
-Index: linux/arch/ia64/kernel/unwind.c
-=================================--- linux.orig/arch/ia64/kernel/unwind.c	2005-08-12 17:19:20.903916664 +1000
-+++ linux/arch/ia64/kernel/unwind.c	2005-08-12 17:22:26.545613275 +1000
-@@ -2020,28 +2020,6 @@ init_frame_info (struct unw_frame_info *
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -492,9 +492,9 @@ swiotlb_unmap_single(struct device *hwde
+  * address back to the card, you must first perform a
+  * swiotlb_dma_sync_for_device, and then the device again owns the buffer
+  */
+-void
+-swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+-			    size_t size, int dir)
++static inline void
++swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
++		    size_t size, int dir)
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr);
+ 
+@@ -507,17 +507,17 @@ swiotlb_sync_single_for_cpu(struct devic
  }
  
  void
--unw_init_from_interruption (struct unw_frame_info *info, struct task_struct *t,
--			    struct pt_regs *pt, struct switch_stack *sw)
--{
--	unsigned long sof;
--
--	init_frame_info(info, t, sw, pt->r12);
--	info->cfm_loc = &pt->cr_ifs;
--	info->unat_loc = &pt->ar_unat;
--	info->pfs_loc = &pt->ar_pfs;
--	sof = *info->cfm_loc & 0x7f;
--	info->bsp = (unsigned long) ia64_rse_skip_regs((unsigned long *) info->regstk.top, -sof);
--	info->ip = pt->cr_iip + ia64_psr(pt)->ri;
--	info->pt = (unsigned long) pt;
--	UNW_DPRINT(3, "unwind.%s:\n"
--		   "  bsp    0x%lx\n"
--		   "  sof    0x%lx\n"
--		   "  ip     0x%lx\n",
--		   __FUNCTION__, info->bsp, sof, info->ip);
--	find_save_locs(info);
--}
--
--void
- unw_init_frame_info (struct unw_frame_info *info, struct task_struct *t, struct switch_stack *sw)
++swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++			    size_t size, int dir)
++{
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
++}
++
++void
+ swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
+ 			       size_t size, int dir)
  {
- 	unsigned long sol;
-Index: linux/include/asm-ia64/unwind.h
-=================================--- linux.orig/include/asm-ia64/unwind.h	2005-08-12 17:19:20.900986975 +1000
-+++ linux/include/asm-ia64/unwind.h	2005-08-12 17:22:32.848350877 +1000
-@@ -114,13 +114,6 @@ extern void unw_remove_unwind_table (voi
-  */
- extern void unw_init_from_blocked_task (struct unw_frame_info *info, struct task_struct *t);
- 
--/*
-- * Prepare to unwind from interruption.  The pt-regs and switch-stack structures must have
-- * be "adjacent" (no state modifications between pt-regs and switch-stack).
-- */
--extern void unw_init_from_interruption (struct unw_frame_info *info, struct task_struct *t,
--					struct pt_regs *pt, struct switch_stack *sw);
+-	char *dma_addr = phys_to_virt(dev_addr);
 -
- extern void unw_init_frame_info (struct unw_frame_info *info, struct task_struct *t,
- 				 struct switch_stack *sw);
+-	if (dir = DMA_NONE)
+-		BUG();
+-	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
+-	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++	swiotlb_sync_single(hwdev, dev_addr, size, dir);
+ }
  
-
-
-
+ /*
+@@ -594,9 +594,9 @@ swiotlb_unmap_sg(struct device *hwdev, s
+  * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
+  * and usage.
+  */
+-void
+-swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+-			int nelems, int dir)
++static inline void
++swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
++		int nelems, int dir)
+ {
+ 	int i;
+ 
+@@ -610,18 +610,17 @@ swiotlb_sync_sg_for_cpu(struct device *h
+ }
+ 
+ void
++swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
++			int nelems, int dir)
++{
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++}
++
++void
+ swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+ 			   int nelems, int dir)
+ {
+-	int i;
+-
+-	if (dir = DMA_NONE)
+-		BUG();
+-
+-	for (i = 0; i < nelems; i++, sg++)
+-		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
++	swiotlb_sync_sg(hwdev, sg, nelems, dir);
+ }
+ 
+ int
