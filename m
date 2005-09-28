@@ -1,157 +1,91 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sun, 11 Sep 2005 07:15:33 +0000
-Subject: [PATCH 2.6.13 0/6] MCA/INIT: summary
-Message-Id: <25138.1126422933@ocs3.ocs.com.au>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 28 Sep 2005 21:50:49 +0000
+Subject: [patch 2.6.14-rc2 3/6] swiotlb: support syncing sub-ranges of mappings
+Message-Id: <09282005175049.10281@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <09282005175049.10217@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
 
-The patches in the following mails are a rewrite of the MCA/INIT
-handlers.  They are ready for inclusion in 2.6.14-rc1.
+This patch implements swiotlb_sync_single_range_for_{cpu,device}. This
+is intended to support an x86_64 implementation of
+dma_sync_single_range_for_{cpu,device}.
 
-Changes since last complete spin:
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-* Remove the requirement that kernel stacks be aligned on KERNEL_STACK_SIZE.
-* Remove the serialization of MCA/INIT handlers returning to SAL.  The
-  problem looked like a race but was really caused by a broken prom
-  doing cacheable accesses to the minstate area.
-* Print the cpu number and monarch status in the INIT handler.
-* Workaround for broken proms that access the minstate area using
-  cacheable addresses.
-* Remove the export of the scheduler hooks until we have modular code
-  that needs them.
-* Remove the final reference to MINSTATE_VIRT.
-* Workaround for broken proms that drive all INIT events as slaves.
-* Workaround for broken proms that drive all INIT events as monarchs.
-* Simplify the termination of the backtrace of the MCA/INIT handlers.
+ include/asm-x86_64/swiotlb.h |    8 ++++++++
+ lib/swiotlb.c                |   33 +++++++++++++++++++++++++++++++++
+ 2 files changed, 41 insertions(+)
 
-Some background might be useful.  The current MCA/INIT handlers have
-several shortcomings :-
-
-(1) Only one MCA stack, so we cannot handle concurrent MCA on multiple
-    cpus.
-
-(2) Only one INIT stack, for the monarch.  Slave INIT events never get
-    into the C code, which gives no data for the slave processes.
-
-(3) The lack of slave INIT processing also means that some MCA events
-    that could normally be recovered may turn into fatal events.  If
-    one or more cpus are spinning disabled when an MCA occurs then SAL
-    will eventually hit the disabled cpus with a slave INIT event.
-    Even if the MCA is recoverable (e.g. DBE in user space), the cpus
-    that were hit by INIT are now dead, which makes MCA recovery
-    pointless.
-
-(4) A monarch INIT event assumes that it can use the existing stack.
-    If the INIT was delivered while the cpu was in physical mode then
-    the OS monarch handler gets a recursive error.  Ditto if the kernel
-    stack has overflowed.
-
-(5) MCA and INIT stacks are completely non-standard.  You cannot get a
-    backtrace nor debug the MCA/INIT handlers.  We even have a special
-    entry point in the unwind code just for MCA/INIT.  Only the kernel
-    knows about that unwind routine, external code such as libunwind
-    does not.
-
-(6) The current code relies on getting data from the MCA/INIT record.
-    If we hang trying to retrieve that record then we get no useful
-    data.  A side effect of using the MCA/INIT record is that we may
-    read a record from an earlier event, it may not have been cleared
-    when a second event occurs.
-
-(7) Some horrible assembler code in minstate.h, to handle both the
-    normal stacks and the non-standard MCA/INIT stacks.
-
-(8) Only one copy of the SAL to OS state, which prevents multiple cpus
-    from returning to SAL.
-
-My MCA/INIT rewrite addresses these problems by :-
-
-(1) Using per cpu MCA stacks.
-
-(2) Using per cpu INIT stacks.
-
-(3) Using a common code path for both monarch and slave INIT events,
-    passing in a flag to indicate if the event is monarch or slave.
-
-(4) Neither MCA nor INIT will use any part of the current stack until
-    they have verified that it is safe to do so.
-
-(5) MCA/INIT stacks look like normal process stacks.  I can even get a
-    backtrace through the MCA/INIT handlers :).  This removes the need
-    for the special unwind routine.
-
-(6) All data is obtained from PAL/SAL data areas.  There is no need to
-    call SAL to get the record, and the problem of stale data goes
-    away.
-
-(7) minstate.h is now all virtual mode code.
-
-(8) Each cpu gets its own copy of the SAL to OS state.
-
-
-The original plan was to treat an MCA/INIT as an interrupt that
-switched stacks, even if a cpu was already using a kernel stack.
-However that caused problems with the notion of "current", mainly
-because the task structure is stored in the stack area.  Separating the
-task structure from the rest of the stack was vetoed on performance
-grounds, it would require extra TLB entries.  This plan would also have
-required changes to unwinders, both in the kernel and in external
-packages such as lcrash.
-
-Plan B involves switching to the MCA/INIT stacks, making them look like
-normal processes with no dependency on data in other stacks.  The
-process that was running at the time of MCA/INIT is converted to look
-like a sleeping task, complete with its state at the time of interrupt.
-The MCA/INIT stack has a pointer to the interrupted task; in addition
-the pid of the interrupted task is placed in the 'comm' field of the
-MCA/INIT process for humans to read.  This approach does not require
-extra TLBs and it works with the existing unwind code.  The only
-downside is that it requires two small hooks in the scheduler code to
-adjust the scheduler's notion of "this process is on this cpu".
-
-The following 6 patches contain :-
-
-1) Scheduler hooks to change which process is deemed to be on a cpu.
-
-2) Add an extra thread_info flag to indicate the special MCA/INIT
-   stacks.  Mainly for debuggers.
-
-3) Avoid reading the INIT record from SAL during the INIT event.  Just
-   tell salinfo.c that a new rcord is available, it will be read and
-   processed in a normal context.
-
-4) The bulk of the change.  Use per cpu MCA/INIT stacks.  Change the
-   SAL to OS state (sos) to be per process.  Do all the assembler work
-   on the MCA/INIT stacks, leaving the original stack alone.  Pass per
-   cpu state data to the C handlers for MCA and INIT, which also means
-   changing the mca_drv interfaces slightly.  Lots of verification on
-   whether the original stack is usable before converting it to a
-   sleeping process.
-
-5) Remove the physical mode path from minstate.h.
-
-6) Delete the special case unwind code that was only used by the old
-   MCA/INIT handler.
-
-
-TODO:
-
-Although we could theoretically handle concurrent MCA with these
-patches, MCA is still single threaded by ia64_mca_serialize.  It is not
-clear what our model should be for handling concurrent MCA on multiple
-cpus, some discussion is required first.
-
-Now that MCA/INIT is recoverable, we will have to address the SCSI
-timeouts that occur if interrupts are disabled for long periods.  MCA
-can disable interrupts for up to 20 seconds while it does the
-rendezvous.  On resume, the timer code tries to bring jiffies in sync
-with itc, time runs too fast and we get spurious timeouts.  There is no
-point in recovering from MCA if the disk dies as a side effect of the
-lost interrupts.  Christoph Lameter is already working on this.
-
-Convert mca_drv.c to use the pt_regs, switch_stack and minstate areas
-instead of reading the MCA record.
-
+diff --git a/include/asm-x86_64/swiotlb.h b/include/asm-x86_64/swiotlb.h
+--- a/include/asm-x86_64/swiotlb.h
++++ b/include/asm-x86_64/swiotlb.h
+@@ -15,6 +15,14 @@ extern void swiotlb_sync_single_for_cpu(
+ extern void swiotlb_sync_single_for_device(struct device *hwdev,
+ 					    dma_addr_t dev_addr,
+ 					    size_t size, int dir);
++extern void swiotlb_sync_single_range_for_cpu(struct device *hwdev,
++					      dma_addr_t dev_addr,
++					      unsigned long offset,
++					      size_t size, int dir);
++extern void swiotlb_sync_single_range_for_device(struct device *hwdev,
++						 dma_addr_t dev_addr,
++						 unsigned long offset,
++						 size_t size, int dir);
+ extern void swiotlb_sync_sg_for_cpu(struct device *hwdev,
+ 				     struct scatterlist *sg, int nelems,
+ 				     int dir);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -521,6 +521,37 @@ swiotlb_sync_single_for_device(struct de
+ }
+ 
+ /*
++ * Same as above, but for a sub-range of the mapping.
++ */
++static inline void
++swiotlb_sync_single_range(struct device *hwdev, dma_addr_t dev_addr,
++			  unsigned long offset, size_t size, int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr) + offset;
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++void
++swiotlb_sync_single_range_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++				  unsigned long offset, size_t size, int dir)
++{
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++}
++
++void
++swiotlb_sync_single_range_for_device(struct device *hwdev, dma_addr_t dev_addr,
++				     unsigned long offset, size_t size, int dir)
++{
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++}
++
++/*
+  * Map a set of buffers described by scatterlist in streaming mode for DMA.
+  * This is the scatter-gather version of the above swiotlb_map_single
+  * interface.  Here the scatter gather list elements are each tagged with the
+@@ -648,6 +679,8 @@ EXPORT_SYMBOL(swiotlb_map_sg);
+ EXPORT_SYMBOL(swiotlb_unmap_sg);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_device);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_cpu);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_device);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
+ EXPORT_SYMBOL(swiotlb_dma_mapping_error);
