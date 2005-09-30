@@ -1,28 +1,168 @@
 From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 30 Sep 2005 16:03:08 +0000
+Date: Fri, 30 Sep 2005 16:07:25 +0000
 Subject: Re: [PATCH]Remove pgdat list ver.2 [1/2]
-Message-Id: <1128096188.6145.34.camel@localhost>
+Message-Id: <1128096445.6145.36.camel@localhost>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-3h7T//jpab1Af9qtgb8B"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050930205919.7019.Y-GOTO@jp.fujitsu.com>
-	 <1128092954.6145.12.camel@localhost>
-In-Reply-To: <1128092954.6145.12.camel@localhost>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+In-Reply-To: <20050930205919.7019.Y-GOTO@jp.fujitsu.com>
 To: Yasunori Goto <y-goto@jp.fujitsu.com>
 Cc: linux-mm <linux-mm@kvack.org>, ia64 list <linux-ia64@vger.kernel.org>
 
-On Fri, 2005-09-30 at 08:09 -0700, Dave Hansen wrote:
-> On Fri, 2005-09-30 at 22:07 +0900, Yasunori Goto wrote:
-> > I updated patches to remove pgdat link. They are for 2.6.14-rc2.
-> > Please include this in your -mhp patch set.
-> 
-> Looks very nice.  I'll pull them in.
 
-I spoke too soon :)
+--=-3h7T//jpab1Af9qtgb8B
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-linux/mmzone.h uses the !NUMA NODE_DATA() before it is declared.  I'm
-seeing if I can work around it now.
+This works around my compile problem for now.  But, it might cause some
+more issues.  Can you take a closer look?
+
+
 
 -- Dave
+
+--=-3h7T//jpab1Af9qtgb8B
+Content-Disposition: attachment; filename=no-pgdat-list-fix.patch
+Content-Type: text/x-patch; name=no-pgdat-list-fix.patch; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 7bit
+
+
+
+---
+
+ memhotplug-dave/include/linux/mmzone.h |  104 ++++++++++++++++-----------------
+ 1 files changed, 53 insertions(+), 51 deletions(-)
+
+diff -puN include/linux/mmzone.h~no-pgdat-list-fix include/linux/mmzone.h
+--- memhotplug/include/linux/mmzone.h~no-pgdat-list-fix	2005-09-30 08:59:56.000000000 -0700
++++ memhotplug-dave/include/linux/mmzone.h	2005-09-30 09:06:10.000000000 -0700
+@@ -15,6 +15,7 @@
+ #include <linux/init.h>
+ #include <linux/seqlock.h>
+ #include <asm/atomic.h>
++#include <asm/mmzone.h>
+ #include <asm/semaphore.h>
+ 
+ /* Free memory management - zoned buddy allocator.  */
+@@ -342,6 +343,58 @@ static inline void memory_present(int ni
+ unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
+ #endif
+ 
++static inline int is_highmem_idx(int idx)
++{
++	return (idx == ZONE_HIGHMEM);
++}
++
++static inline int is_normal_idx(int idx)
++{
++	return (idx == ZONE_NORMAL);
++}
++/**
++ * is_highmem - helper function to quickly check if a struct zone is a 
++ *              highmem zone or not.  This is an attempt to keep references
++ *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
++ * @zone - pointer to struct zone variable
++ */
++static inline int is_highmem(struct zone *zone)
++{
++	return zone == zone->zone_pgdat->node_zones + ZONE_HIGHMEM;
++}
++
++static inline int is_normal(struct zone *zone)
++{
++	return zone == zone->zone_pgdat->node_zones + ZONE_NORMAL;
++}
++
++/* These two functions are used to setup the per zone pages min values */
++struct ctl_table;
++struct file;
++int min_free_kbytes_sysctl_handler(struct ctl_table *, int, struct file *, 
++					void __user *, size_t *, loff_t *);
++extern int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1];
++int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int, struct file *,
++					void __user *, size_t *, loff_t *);
++
++#include <linux/topology.h>
++/* Returns the number of the current Node. */
++#define numa_node_id()		(cpu_to_node(raw_smp_processor_id()))
++
++#ifndef CONFIG_NEED_MULTIPLE_NODES
++
++extern struct pglist_data contig_page_data;
++#define NODE_DATA(nid)		(&contig_page_data)
++#define NODE_MEM_MAP(nid)	mem_map
++#define MAX_NODES_SHIFT		1
++#define pfn_to_nid(pfn)		(0)
++
++#else /* CONFIG_NEED_MULTIPLE_NODES */
++
++#include <asm/mmzone.h>
++
++#endif /* !CONFIG_NEED_MULTIPLE_NODES */
++
+ /*
+  * zone_idx() returns 0 for the ZONE_DMA zone, 1 for the ZONE_NORMAL zone, etc.
+  */
+@@ -408,57 +461,6 @@ static inline struct zone *next_zone(str
+ 	for (zone = first_online_pgdat()->node_zones;	\
+ 	     zone; zone = next_zone(zone))
+ 
+-static inline int is_highmem_idx(int idx)
+-{
+-	return (idx == ZONE_HIGHMEM);
+-}
+-
+-static inline int is_normal_idx(int idx)
+-{
+-	return (idx == ZONE_NORMAL);
+-}
+-/**
+- * is_highmem - helper function to quickly check if a struct zone is a 
+- *              highmem zone or not.  This is an attempt to keep references
+- *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
+- * @zone - pointer to struct zone variable
+- */
+-static inline int is_highmem(struct zone *zone)
+-{
+-	return zone == zone->zone_pgdat->node_zones + ZONE_HIGHMEM;
+-}
+-
+-static inline int is_normal(struct zone *zone)
+-{
+-	return zone == zone->zone_pgdat->node_zones + ZONE_NORMAL;
+-}
+-
+-/* These two functions are used to setup the per zone pages min values */
+-struct ctl_table;
+-struct file;
+-int min_free_kbytes_sysctl_handler(struct ctl_table *, int, struct file *, 
+-					void __user *, size_t *, loff_t *);
+-extern int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1];
+-int lowmem_reserve_ratio_sysctl_handler(struct ctl_table *, int, struct file *,
+-					void __user *, size_t *, loff_t *);
+-
+-#include <linux/topology.h>
+-/* Returns the number of the current Node. */
+-#define numa_node_id()		(cpu_to_node(raw_smp_processor_id()))
+-
+-#ifndef CONFIG_NEED_MULTIPLE_NODES
+-
+-extern struct pglist_data contig_page_data;
+-#define NODE_DATA(nid)		(&contig_page_data)
+-#define NODE_MEM_MAP(nid)	mem_map
+-#define MAX_NODES_SHIFT		1
+-#define pfn_to_nid(pfn)		(0)
+-
+-#else /* CONFIG_NEED_MULTIPLE_NODES */
+-
+-#include <asm/mmzone.h>
+-
+-#endif /* !CONFIG_NEED_MULTIPLE_NODES */
+ 
+ #ifdef CONFIG_SPARSEMEM
+ #include <asm/sparsemem.h>
+_
+
+--=-3h7T//jpab1Af9qtgb8B--
 
