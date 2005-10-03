@@ -1,30 +1,27 @@
-From: David Mosberger-Tang <David.Mosberger@acm.org>
-Date: Wed, 12 Oct 2005 17:45:16 +0000
-Subject: Re: More on the ia64 pipe filling problem
-Message-Id: <ed5aea430510121045g47044d05j3e0b1a6389d57076@mail.gmail.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Mon, 03 Oct 2005 05:19:53 +0000
+Subject: Re: [PATCH]Remove pgdat list ver.2 [1/2]
+Message-Id: <20051003135936.0EAE.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1129063790.4128.55.camel@laptop1>
-In-Reply-To: <1129063790.4128.55.camel@laptop1>
+References: <20050930205919.7019.Y-GOTO@jp.fujitsu.com> <1128096445.6145.36.camel@localhost>
+In-Reply-To: <1128096445.6145.36.camel@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Dave Hansen <haveblue@us.ibm.com>
+Cc: linux-mm <linux-mm@kvack.org>, ia64 list <linux-ia64@vger.kernel.org>
 
-On 10/11/05, Jeff Licquia <licquia@progeny.com> wrote:
+> This works around my compile problem for now.  But, it might cause some
+> more issues.  Can you take a closer look?
 
-> It could be simply asserted that ia64 kernels must be configured with 4K
-> page sizes in order to be LSB compliant.  That doesn't sound very
-> useful.  I imagine there is a benefit to larger page sizes, or the
-> option wouldn't be available.
+It works well in my ia64 box.
+But, I have not understood why this patch moves also the lines from
+is_highmem_idx() to lowmem_reserve_ratio_sysctl_handler() yet.
+Is it necessary?
+If no, the patch becomes a bit smaller. :-)
 
-Certainly not acceptable.  TLB pressure is way bigger with 4KB pages
-and causes measurable performance degradation.
+Thanks.
 
-I suspect you'll want to ask Linus' opinion since he's the author of
-the code in question (AFAIK).
+-- 
+Yasunori Goto 
 
-  --david
---
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
