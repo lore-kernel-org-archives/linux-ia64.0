@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 05 Oct 2005 22:09:57 +0000
+From: Jeff Licquia <licquia@progeny.com>
+Date: Wed, 05 Oct 2005 22:13:05 +0000
 Subject: RE: [Fwd: Weird ia64 problem]
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0495CAF8@scsmsx401.amr.corp.intel.com>
+Message-Id: <1128550385.4623.52.camel@laptop1>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1128548614.4623.45.camel@laptop1>
 In-Reply-To: <1128548614.4623.45.camel@laptop1>
@@ -10,20 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Do you expect a partial write, rather than the EAGAIN?
+On Wed, 2005-10-05 at 14:54 -0700, Luck, Tony wrote:
+> >It was suggested to me that this might be of interest outside the LSB,
+> >and that I should forward it more widely...
+> 
+> Running under strace, I see you write 2048 bytes at a time until you
+> see EAGAIN.  Then you read 4096 bytes to empty the pipe a little.
+> 
+> Then you try to write 4120 bytes (more than you just emptied).
+> 
+> Is that what you are trying to do?
 
-I suppose you should expect EAGAIN here: http://tinyurl.com/82wr9
-describes this situation quite clearly.
+That sounds about right.
 
-So either:
-1) ia64 thinks 4120 is less than PIPE_BUF, so that it believes
-   that it should not do a partial write
-2) Even though we removed some data from the pipe, it thinks that
-   it is still all the way full.
+FWIW, if you'd like a look at the source of one of the LSB tests that's
+failing, see:
 
-[My tests on 2.6.14-rc2].
+http://cvs.gforge.freestandards.org/cgi-bin/cvsweb.cgi/tests/lsb-runtime-test/modules/vsx-pcts/tset/ANSI.os/streamio/fwrite/fwrite.c?rev=1.1.1.1&contenttype=text/x-cvsweb-markup&cvsroot=lsb
 
-Which other architectures have you tried this on?  Is ia64 all alone
-in failing this test?
+Look at function "test3", specifically the part after where it reports
+"testing assertion using non-blocking pipe".
 
--Tony
+> Do you expect a partial write, rather than the EAGAIN?
+
+That appears to be what's happening in most other cases, and also
+appears to be what the LSB tests want.
+
