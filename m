@@ -1,28 +1,42 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 14 Oct 2005 19:14:55 +0000
-Subject: Re: [Patch 2/2] Special Memory (mspec) driver.
-Message-Id: <20051014191455.GA14418@lnx-holt.americas.sgi.com>
+From: Bryan Sutula <Bryan.Sutula@hp.com>
+Date: Wed, 05 Oct 2005 17:02:06 +0000
+Subject: [PATCH] - Avoid kernel hang during CMC interrupt storm
+Message-Id: <1128531726.27874.36.camel@xw.sutula>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051012194022.GE17458@lnx-holt.americas.sgi.com> <20051012194233.GG17458@lnx-holt.americas.sgi.com> <20051012202925.GA23081@sgi.com>
-In-Reply-To: <20051012202925.GA23081@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jack Steiner <steiner@sgi.com>
-Cc: Robin Holt <holt@sgi.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, wli@holomorphy.com
+To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 12, 2005 at 03:29:25PM -0500, Jack Steiner wrote:
-> On Wed, Oct 12, 2005 at 02:42:33PM -0500, Robin Holt wrote:
-> > Introduce the special memory (mspec) driver.  This is used to allow
-> > userland to map fetchop, etc pages
-> > 
-> > Signed-off-by: holt@sgi.com
-> 
-> Robin - 
-> 
-> I think you are missing the shub2 code that is required for flushing the fetchop 
-> cache. The cache is new in shub2. Take a look at the old PP4 driver - clear_mspec_page();
+I've noticed a kernel hang during a storm of CMC interrupts, which was
+tracked down to the continual execution of the interrupt handler.
 
-Done.  Will test when I get access to a shub2 machine.
+There's code in the CMC handler that's supposed to disable CMC
+interrupts and switch to polling mode when it sees a bunch of CMCs.
+Because disabling CMCs across all CPUs isn't safe in interrupt context,
+the disable is done with a schedule_work().  But with continual CMC
+interrupts, the schedule_work() never gets executed.
 
-Robin
+The following patch immediately disables CMC interrupts for the current
+CPU.  This then allows (at least) one CPU to ignore CMC interrupts,
+execute the schedule_work() code, and disable CMC interrupts on the rest
+of the CPUs.
+
+Signed-off-by: Bryan Sutula <Bryan.Sutula@hp.com>
+
+
+--- linux-2.6.14-rc3-git5/arch/ia64/kernel/mca.c
++++ linux-2.6.14-rc3-git5_new/arch/ia64/kernel/mca.c
+@@ -1016,6 +1016,11 @@ ia64_mca_cmc_int_handler(int cmc_irq, vo
+ 
+ 			cmc_polling_enabled = 1;
+ 			spin_unlock(&cmc_history_lock);
++			/* If we're being hit with CMC interrupts, we won't
++			 * ever execute the schedule_work() below.  Need to
++			 * disable CMC interrupts on this processor now.
++			 */
++			ia64_mca_cmc_vector_disable(NULL);
+ 			schedule_work(&cmc_disable_work);
+ 
+ 			/*
+
