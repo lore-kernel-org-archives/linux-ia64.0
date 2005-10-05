@@ -1,27 +1,33 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Mon, 03 Oct 2005 05:19:53 +0000
-Subject: Re: [PATCH]Remove pgdat list ver.2 [1/2]
-Message-Id: <20051003135936.0EAE.Y-GOTO@jp.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 05 Oct 2005 23:43:35 +0000
+Subject: patches added to test tree
+Message-Id: <200510052343.j95NhZWP001643@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050930205919.7019.Y-GOTO@jp.fujitsu.com> <1128096445.6145.36.camel@localhost>
-In-Reply-To: <1128096445.6145.36.camel@localhost>
+References: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
+In-Reply-To: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
-Cc: linux-mm <linux-mm@kvack.org>, ia64 list <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-> This works around my compile problem for now.  But, it might cause some
-> more issues.  Can you take a closer look?
+The following patches have been added to the test tree:
 
-It works well in my ia64 box.
-But, I have not understood why this patch moves also the lines from
-is_highmem_idx() to lowmem_reserve_ratio_sysctl_handler() yet.
-Is it necessary?
-If no, the patch becomes a bit smaller. :-)
+Bob Picco:
+  V5 ia64 SPARSEMEM - Kconfig and Makefile
+  V5 ia64 SPARSEMEM - eliminate contig_page_data
+  V5 ia64 SPARSEMEM - conditional changes for SPARSEMEM
+  V5 ia64 SPARSEMEM - SPARSEMEM code changes
+  V5 ia64 SPARSEMEM - gensparse_defconfig
 
-Thanks.
+Dean Roe:
+  [IA64-SGI] Remove references to the SN bist_lock
 
--- 
-Yasunori Goto 
+Greg Edwards:
+  [IA64] mbcs_init() should give up unless running on sn2
+
+Jack Steiner:
+  [IA64-SGI] Increase max system size of SGI SN systems
+
+Tony Luck:
+  [IA64] end of kernel 'data' is at _end, not _edata
 
