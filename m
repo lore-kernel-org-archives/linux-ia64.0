@@ -1,40 +1,69 @@
-From: Bryan Sutula <Bryan.Sutula@hp.com>
-Date: Mon, 17 Oct 2005 16:01:21 +0000
-Subject: Re: Handling nested MCA/INIT
-Message-Id: <1129564881.19773.18.camel@xw.sutula>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 06 Oct 2005 22:25:00 +0000
+Subject: bugfix git pull on ia64 linux tree
+Message-Id: <200510062225.j96MP09o009567@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <6443.1129561424@ocs3.ocs.com.au>
-In-Reply-To: <6443.1129561424@ocs3.ocs.com.au>
+References: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
+In-Reply-To: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2005-10-18 at 01:03 +1000, Keith Owens wrote:
+Hi Linus,
 
-> The current MCA/INIT handlers run with psr.mc = 1, so nested events
-> cannot be delivered.  This makes it impossible to use the nmi button to
-> find out why the MCA/INIT handler is hung.  I am thinking of changing
-> mca_asm.S to set psr.mc to 0 to allow nested events.  The handlers
-> would detect a nested event, gather minimal diagnostics then reboot.
-> Then we may be able to diagnose hung MCA/INIT handlers, right now we
-> get no data for this case, which is extremely frustrating.
+please pull from:
 
-Your suggestion seems better than a hang.  In a production environment,
-it's pretty important to be able to reset the machine reliably.
+	rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-> The only downside that I can see is if the handler is accessing memory
-> with a hard double bit error, we could get nested MCA events.  Since
-> the only thing we can do if the MCA handler gets an MCA is to reboot,
-> the nested event is not really a problem and allowing nested MCA may
-> still give us better diagnostics.
+This will update the files shown below.
 
-Another issue I see is the case where a second MCA occurs fairly soon
-after the first.  With your proposed change, we may lose some of the
-information on the first.  (E.g., the handler wasn't hung but just
-"doin' it's thing".)  Would there be a way to detect the difference
-without complicating the code to the point where it would be unreliable?
+Thanks!
 
--- 
-Bryan Sutula <Bryan.Sutula@hp.com>
+-Tony
 
+ arch/ia64/kernel/mca.c |    5 +++++
+ 1 files changed, 5 insertions(+)
+
+Bryan Sutula:
+  [IA64] Avoid kernel hang during CMC interrupt storm
+
+diff-tree 76e677e25dd3d8af77d0b3810eacaacaf2f93f2f (from c0758146adbe39514e75ac860ce7e49f865c2297)
+Author: Bryan Sutula <Bryan.Sutula@hp.com>
+Date:   Wed Oct 5 11:02:06 2005 -0600
+
+    [IA64] Avoid kernel hang during CMC interrupt storm
+    
+    I've noticed a kernel hang during a storm of CMC interrupts, which was
+    tracked down to the continual execution of the interrupt handler.
+    
+    There's code in the CMC handler that's supposed to disable CMC
+    interrupts and switch to polling mode when it sees a bunch of CMCs.
+    Because disabling CMCs across all CPUs isn't safe in interrupt context,
+    the disable is done with a schedule_work().  But with continual CMC
+    interrupts, the schedule_work() never gets executed.
+    
+    The following patch immediately disables CMC interrupts for the current
+    CPU.  This then allows (at least) one CPU to ignore CMC interrupts,
+    execute the schedule_work() code, and disable CMC interrupts on the rest
+    of the CPUs.
+    
+    Acked-by: Keith Owens <kaos@sgi.com>
+    Signed-off-by: Bryan Sutula <Bryan.Sutula@hp.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1016,6 +1016,11 @@ ia64_mca_cmc_int_handler(int cmc_irq, vo
+ 
+ 			cmc_polling_enabled = 1;
+ 			spin_unlock(&cmc_history_lock);
++			/* If we're being hit with CMC interrupts, we won't
++			 * ever execute the schedule_work() below.  Need to
++			 * disable CMC interrupts on this processor now.
++			 */
++			ia64_mca_cmc_vector_disable(NULL);
+ 			schedule_work(&cmc_disable_work);
+ 
+ 			/*
