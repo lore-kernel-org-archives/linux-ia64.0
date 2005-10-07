@@ -1,50 +1,69 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 28 Sep 2005 10:33:31 +0000
-Subject: 2.6.14-rc2-mm1 new perfmon2 kernel patch available
-Message-Id: <20050928103331.GB3808@frankl.hpl.hp.com>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Fri, 07 Oct 2005 18:01:19 +0000
+Subject: PATCH: Fix 2.6 kernel for the new ia64 assembler
+Message-Id: <20051007180119.GA11645@lucon.org>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="82I3+IH0IqGh5yIs"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44BDAFB888F59F408FAE3CC35AB4704102225AA9@orsmsx409> <20050928040218.GB3170@frankl.hpl.hp.com>
-In-Reply-To: <20050928040218.GB3170@frankl.hpl.hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: perfctr-devel@lists.sourceforge.net
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux ia64 kernel <linux-ia64@vger.kernel.org>
+Cc: linux kernel <linux-kernel@vger.kernel.org>
 
-Hello everyone,
 
-I am pleased to announce that I have released an  updated version
-of new-perfmon2 code base. This patch is against 2.6.14-rc2-mm1.
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-This new releases includes:
-	- several bug fixes
-	- many performance improvements (a PMD read on Itanium2 is down to 645 cycles).
-	- a lot of code simplifications
-	- support for P4/Xeon 32-bit (e.g., family 15 model 2).
-	  includes support for HyperThreading(HT).
-	- a P4/Xeon 32-bit sampling format for Precise Event Based sampling (PEBS)
+The new ia64 assembler uses slot 1 for the offset of a long (2-slot)
+instruction and the old assembler uses slot 2. The 2.6 kernel assumes
+slot 2 and won't boot when the new assembler is used:
 
-The patch is known to work for all Itanium processors, P6/Pentium M,
-AMD X86-64, P4/Xeon 32-bit. I do not have a lot of user level support for P4 so
-testing was limited. Hopefully some people on this list may help with this.
-The EM64T is currently broken and must be updated to match the level of
-the P4/Xeon 32-bit version. The ppc64 portion has not been tested at all,
-it might not even compile.
+http://sources.redhat.com/bugzilla/show_bug.cgi?id=1433
 
-For all PMU models, the mapping from PMC/PMD to actual PMU registers is
-accessible through /proc/perfmon_map. That is useful for people porting
-applications from other interfaces.
+This patch will work with either slot 1 or 2.
 
-I encourage everybody to test this patch on their machine and report any
-problems.
 
-You can download the new patch from our project website at:
+H.J.
 
-	http://www.sf.net/projects/perfmon2
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="linux-2.6-ia64-slo1-1.patch"
 
-as release: 2.6.14-rc2-mm1-050928
+--- linux/arch/ia64/kernel/patch.c.slot	2004-10-18 14:54:39.000000000 -0700
++++ linux/arch/ia64/kernel/patch.c	2005-10-07 09:23:04.000000000 -0700
+@@ -64,22 +64,30 @@ ia64_patch (u64 insn_addr, u64 mask, u64
+ void
+ ia64_patch_imm64 (u64 insn_addr, u64 val)
+ {
+-	ia64_patch(insn_addr,
++	/* The assembler may generate offset pointing to either slot 1
++	   or slot 2 for a long (2-slot) instruction, occupying slots 1
++	   and 2.  */
++  	insn_addr &= -16UL;
++	ia64_patch(insn_addr + 2,
+ 		   0x01fffefe000UL, (  ((val & 0x8000000000000000UL) >> 27) /* bit 63 -> 36 */
+ 				     | ((val & 0x0000000000200000UL) <<  0) /* bit 21 -> 21 */
+ 				     | ((val & 0x00000000001f0000UL) <<  6) /* bit 16 -> 22 */
+ 				     | ((val & 0x000000000000ff80UL) << 20) /* bit  7 -> 27 */
+ 				     | ((val & 0x000000000000007fUL) << 13) /* bit  0 -> 13 */));
+-	ia64_patch(insn_addr - 1, 0x1ffffffffffUL, val >> 22);
++	ia64_patch(insn_addr + 1, 0x1ffffffffffUL, val >> 22);
+ }
+ 
+ void
+ ia64_patch_imm60 (u64 insn_addr, u64 val)
+ {
+-	ia64_patch(insn_addr,
++	/* The assembler may generate offset pointing to either slot 1
++	   or slot 2 for a long (2-slot) instruction, occupying slots 1
++	   and 2.  */
++  	insn_addr &= -16UL;
++	ia64_patch(insn_addr + 2,
+ 		   0x011ffffe000UL, (  ((val & 0x0800000000000000UL) >> 23) /* bit 59 -> 36 */
+ 				     | ((val & 0x00000000000fffffUL) << 13) /* bit  0 -> 13 */));
+-	ia64_patch(insn_addr - 1, 0x1fffffffffcUL, val >> 18);
++	ia64_patch(insn_addr + 1, 0x1fffffffffcUL, val >> 18);
+ }
+ 
+ /*
 
-Enjoy,
-
--- 
--Stephane
+--82I3+IH0IqGh5yIs--
