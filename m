@@ -1,69 +1,37 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 07 Oct 2005 18:01:19 +0000
-Subject: PATCH: Fix 2.6 kernel for the new ia64 assembler
-Message-Id: <20051007180119.GA11645@lucon.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="82I3+IH0IqGh5yIs"
+From: David Mosberger-Tang <David.Mosberger@acm.org>
+Date: Fri, 07 Oct 2005 18:05:40 +0000
+Subject: Re: PATCH: Fix 2.6 kernel for the new ia64 assembler
+Message-Id: <ed5aea430510071105y5f76b5b6qe4d92c829fc3262e@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux ia64 kernel <linux-ia64@vger.kernel.org>
-Cc: linux kernel <linux-kernel@vger.kernel.org>
+References: <20051007180119.GA11645@lucon.org>
+In-Reply-To: <20051007180119.GA11645@lucon.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "H. J. Lu" <hjl@lucon.org>
+Cc: linux ia64 kernel <linux-ia64@vger.kernel.org>, linux kernel <linux-kernel@vger.kernel.org>
+
+Looks fine to me.
+
+  --david
+
+On 10/7/05, H. J. Lu <hjl@lucon.org> wrote:
+> The new ia64 assembler uses slot 1 for the offset of a long (2-slot)
+> instruction and the old assembler uses slot 2. The 2.6 kernel assumes
+> slot 2 and won't boot when the new assembler is used:
+>
+> http://sources.redhat.com/bugzilla/show_bug.cgi?id33
+>
+> This patch will work with either slot 1 or 2.
+>
+>
+> H.J.
+>
+>
+>
 
 
---82I3+IH0IqGh5yIs
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-The new ia64 assembler uses slot 1 for the offset of a long (2-slot)
-instruction and the old assembler uses slot 2. The 2.6 kernel assumes
-slot 2 and won't boot when the new assembler is used:
-
-http://sources.redhat.com/bugzilla/show_bug.cgi?id=1433
-
-This patch will work with either slot 1 or 2.
-
-
-H.J.
-
---82I3+IH0IqGh5yIs
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="linux-2.6-ia64-slo1-1.patch"
-
---- linux/arch/ia64/kernel/patch.c.slot	2004-10-18 14:54:39.000000000 -0700
-+++ linux/arch/ia64/kernel/patch.c	2005-10-07 09:23:04.000000000 -0700
-@@ -64,22 +64,30 @@ ia64_patch (u64 insn_addr, u64 mask, u64
- void
- ia64_patch_imm64 (u64 insn_addr, u64 val)
- {
--	ia64_patch(insn_addr,
-+	/* The assembler may generate offset pointing to either slot 1
-+	   or slot 2 for a long (2-slot) instruction, occupying slots 1
-+	   and 2.  */
-+  	insn_addr &= -16UL;
-+	ia64_patch(insn_addr + 2,
- 		   0x01fffefe000UL, (  ((val & 0x8000000000000000UL) >> 27) /* bit 63 -> 36 */
- 				     | ((val & 0x0000000000200000UL) <<  0) /* bit 21 -> 21 */
- 				     | ((val & 0x00000000001f0000UL) <<  6) /* bit 16 -> 22 */
- 				     | ((val & 0x000000000000ff80UL) << 20) /* bit  7 -> 27 */
- 				     | ((val & 0x000000000000007fUL) << 13) /* bit  0 -> 13 */));
--	ia64_patch(insn_addr - 1, 0x1ffffffffffUL, val >> 22);
-+	ia64_patch(insn_addr + 1, 0x1ffffffffffUL, val >> 22);
- }
- 
- void
- ia64_patch_imm60 (u64 insn_addr, u64 val)
- {
--	ia64_patch(insn_addr,
-+	/* The assembler may generate offset pointing to either slot 1
-+	   or slot 2 for a long (2-slot) instruction, occupying slots 1
-+	   and 2.  */
-+  	insn_addr &= -16UL;
-+	ia64_patch(insn_addr + 2,
- 		   0x011ffffe000UL, (  ((val & 0x0800000000000000UL) >> 23) /* bit 59 -> 36 */
- 				     | ((val & 0x00000000000fffffUL) << 13) /* bit  0 -> 13 */));
--	ia64_patch(insn_addr - 1, 0x1fffffffffcUL, val >> 18);
-+	ia64_patch(insn_addr + 1, 0x1fffffffffcUL, val >> 18);
- }
- 
- /*
-
---82I3+IH0IqGh5yIs--
+--
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
