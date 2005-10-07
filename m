@@ -1,44 +1,45 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Thu, 06 Oct 2005 01:02:58 +0000
-Subject: Re: [Fwd: Weird ia64 problem]
-Message-Id: <20051006010258.GL1394@cse.unsw.EDU.AU>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="U3s59FfKcByyGl+j"
+From: Jeff Licquia <licquia@progeny.com>
+Date: Fri, 07 Oct 2005 14:29:43 +0000
+Subject: RE: [Fwd: Weird ia64 problem]
+Message-Id: <1128695383.21049.11.camel@server1.internal.licquia.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1128548614.4623.45.camel@laptop1>
 In-Reply-To: <1128548614.4623.45.camel@laptop1>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Wed, 2005-10-05 at 16:28 -0700, Luck, Tony wrote:
+> Now, the question becomes "is this a bug". As you pointed
+> out in an earlier e-mail the standard makes no mention of
+> what happens when you read some data from a full pipe. So
+> we appear not to be in violation of the letter of the standard.
+> 
+> But this does fly in the face of common sense.
+> 
+> As you say above, reporting the PIPE_BUF value as PAGE_SIZE
+> [probably max(4096, PAGE_SIZE) ... for any arch that has a
+> page size smaller than 4k] would fix this.  But then we get
+> back to the historical properties of 4k as the PIPE_BUF size.
+> Would such a change break existing applications that are not
+> well enough written to use fpathconf(fd, _PC_PIPE_BUF)?
 
---U3s59FfKcByyGl+j
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I think there's a problem with this.  While PIPE_BUF is specified in a
+kernel header, it ends up becoming an embedded value in glibc, from what
+I can tell.  Which also makes it an embedded value in statically linked
+apps.  This looks like a dead end, even for apps that use fpathconf().
 
-On Wed, Oct 05, 2005 at 04:40:24PM -0700, Luck, Tony wrote:
-> Hmmph.  According to strace, there are no system calls resulting from
-> the fpathconf() call.  How does it come up with the magic 4096 value?
+Also, from looking at some of the kernel comments (like where PIPE_SIZE
+is defined), it seems that the kernel powers-that-be also intend to keep
+PIPE_BUF and PAGE_SIZE decoupled.
 
-Looks like it's built with the value of PIPE_BUF from
-include/linux/limits.h
+So the way forward seems to be to add a test to pipe_readv() for this
+condition.
 
-Through a binary search, on my system (16K pages) with the original
-test program, setting pipe_buf to 10923 fails with EAGAIN, but add one
-more byte (10924) and it works.  I can't immediately see how that
-number relates to anything.
+I'm thinking it should check if (PIPE_SIZE - buf->len) > PIPE_BUF, and
+set do_wakeup.  The code could be #defined out if PIPE_SIZE = PIPE_BUF,
+so the change reduces to a no-op on other archs.
 
--i
+Does that sound right?  I'm going to work on a patch here.
 
---U3s59FfKcByyGl+j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDRHfCWDlSU/gp6ecRAs6fAJ43t0+Rau+iB7uDz077zkX17iyYWQCgiRZG
-47Vq8IgVdxiNNwkGbJ+Rdcs=
-=3T5f
------END PGP SIGNATURE-----
-
---U3s59FfKcByyGl+j--
