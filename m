@@ -1,7 +1,7 @@
 From: Mark Maule <maule@sgi.com>
-Date: Tue, 04 Oct 2005 20:46:47 +0000
+Date: Tue, 11 Oct 2005 20:00:24 +0000
 Subject: Re: [PATCH] set altix preferred console
-Message-Id: <20051004204647.GF2997@sgi.com>
+Message-Id: <20051011200024.GF31265@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050930200422.GD13855@sgi.com>
 In-Reply-To: <20050930200422.GD13855@sgi.com>
@@ -31,10 +31,6 @@ On Tue, Oct 04, 2005 at 01:07:14PM -0600, Bjorn Helgaas wrote:
 > The important thing is that the PCDP doesn't influence the naming
 > of the device (and there isn't really a "name" for VGA devices,
 > AFAIK).
-
-Ok.  I was assuming that tty0 implied a vga device, but I guess tty0 is
-really the VT driver which drives whatever conswitchp is pointing to ...
-
 > 
 > > Out of curiousity, what are the mmio_tra/ioport_tra fields in the PCDP PCI
 > > interface structure intended for if not for this purpose?
@@ -55,13 +51,11 @@ really the VT driver which drives whatever conswitchp is pointing to ...
 > change to pcdp.c.
 > 
 
-Ok.  One other hitch is that the sn prom doesn't guarantee that all
-VGA cards will have their firmware executed.  The only vga cards guaranteed
-to be init'd are the ones present in the pcdp table which could be a
-subset of the vga cards in a system.  Were it not for this, we could
-just pick one (say lowest segment/bus number or some such thing) during
-sn pci discovery.  But we'll have to scan the pcdp in order to see what
-cards are available (unless there's some other standard way to tell if a
-vga card is initialized).
+Finally getting back to this ...
 
+So we will dup some of the PCDP scan code in sn/kernel/setup.c for the time
+being.  Does anyone have a problem with moving drivers/firmware/pcdp.h under
+include/asm-ia64 so that I don't also have to dup the structure definitions?
+
+thanks
 Mark
