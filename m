@@ -1,39 +1,49 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Tue, 04 Oct 2005 19:13:44 +0000
-Subject: [PATCH 2/5] V5 ia64 SPARSEMEM - eliminate contig_page_data
-Message-Id: <20051004191344.GR25483@localhost.localdomain>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 12 Oct 2005 19:41:41 +0000
+Subject: [Patch 1/2] Add a NOPAGE_FAULTED flag.
+Message-Id: <20051012194141.GF17458@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20051012194022.GE17458@lnx-holt.americas.sgi.com>
+In-Reply-To: <20051012194022.GE17458@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, wli@holomorphy.com
 
-For FLATMEM contig_page_data has been made transparent to the arch code.
-This patch conforms to that change.
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
+Introduce a NOPAGE_FAULTED flag.  This flag is returned from a drivers
+nopage handler to indicate the desired pte has been inserted and should
+be handled as a minor fault.
 
- arch/ia64/mm/contig.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Signed-off-by: holt@sgi.com
 
-Index: linux-2.6.14-rc2/arch/ia64/mm/contig.c
-=================================--- linux-2.6.14-rc2.orig/arch/ia64/mm/contig.c	2005-10-03 19:57:16.000000000 -0400
-+++ linux-2.6.14-rc2/arch/ia64/mm/contig.c	2005-10-03 19:57:20.000000000 -0400
-@@ -269,7 +269,7 @@ paging_init (void)
- 	efi_memmap_walk(find_largest_hole, (u64 *)&max_gap);
- 	if (max_gap < LARGE_GAP) {
- 		vmem_map = (struct page *) 0;
--		free_area_init_node(0, &contig_page_data, zones_size, 0,
-+		free_area_init_node(0, NODE_DATA(0), zones_size, 0,
- 				    zholes_size);
- 	} else {
- 		unsigned long map_size;
-@@ -282,7 +282,7 @@ paging_init (void)
- 		efi_memmap_walk(create_mem_map_page_table, NULL);
+
+Index: linux-2.6/include/linux/mm.h
+=================================--- linux-2.6.orig/include/linux/mm.h	2005-10-11 21:15:45.147011169 -0500
++++ linux-2.6/include/linux/mm.h	2005-10-11 21:17:15.814561844 -0500
+@@ -619,6 +619,7 @@ static inline int page_mapped(struct pag
+  */
+ #define NOPAGE_SIGBUS	(NULL)
+ #define NOPAGE_OOM	((struct page *) (-1))
++#define NOPAGE_FAULTED	((struct page *) (-2))
  
- 		NODE_DATA(0)->node_mem_map = vmem_map;
--		free_area_init_node(0, &contig_page_data, zones_size,
-+		free_area_init_node(0, NODE_DATA(0), zones_size,
- 				    0, zholes_size);
+ /*
+  * Different kinds of faults, as returned by handle_mm_fault().
+Index: linux-2.6/mm/memory.c
+=================================--- linux-2.6.orig/mm/memory.c	2005-10-11 21:15:45.162634582 -0500
++++ linux-2.6/mm/memory.c	2005-10-11 21:17:15.849714525 -0500
+@@ -1862,6 +1862,14 @@ retry:
+ 		return VM_FAULT_SIGBUS;
+ 	if (new_page = NOPAGE_OOM)
+ 		return VM_FAULT_OOM;
++	if (new_page = NOPAGE_FAULTED) {
++		spin_lock(&mm->page_table_lock);
++		page_table = pte_offset_map(pmd, address);
++		pte_unmap(page_table);
++		spin_unlock(&mm->page_table_lock);
++
++		return VM_FAULT_MINOR;
++	}
  
- 		printk("Virtual mem_map starts at 0x%p\n", mem_map);
+ 	/*
+ 	 * Should we do an early C-O-W break?
