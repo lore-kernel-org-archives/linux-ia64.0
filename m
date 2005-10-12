@@ -1,32 +1,49 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 20 Oct 2005 21:47:53 +0000
-Subject: RE: [PATCH 0/1] ia64:  numa emulation
-Message-Id: <200510202148.j9KLmBg26310@unix-os.sc.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 12 Oct 2005 19:40:22 +0000
+Subject: [Patch 0/2] SGI Altix and ia64 special memory support.
+Message-Id: <20051012194022.GE17458@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1129840588.6182.36.camel@localhost.localdomain>
-In-Reply-To: <1129840588.6182.36.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-
-Lee Schermerhorn wrote on Thursday, October 20, 2005 1:59 PM
-> > > Back around 2.6.10, I recall seeing discussion of dynamically
-> > > sizing hugetlbfs based on max order.  I haven't tracked this
-> > > to see if it went in.  But, if it did, one could reenable
-> > > hugetlbfs and adapted to the reduced max order automatically.
-> > 
-> > I have a patch does better than that.  We can change the hugetlb
-> > page size at run time.  I will clean up my patch and post it.
-> > 
-> 
-> Cool.  Sounds like a generic [!just ia64] patch, right?
+To: linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, wli@holomorphy.com
 
 
-Well, the patch is ia64 only since x86 and x86_64 doesn't offer
-multiple page size for hugetlb page.  In any case, this probably
-should be arch specific, since it uses arch specific API to find
-out supported page size.
+SGI hardware supports a special type of memory called fetchop or atomic
+memory. This memory does atomic operations at the memory controller
+instead of using the processor.
 
-- Ken
+This patch set introduces a driver so user land can map the devices and
+fault pages of the appropriate type.  Pages are inserted on first touch.
+The reason for that was hashed out earlier on the lists, but can be
+distilled to node locality, node resource limitation, and application
+performance.
 
+Since a typical ia64 uncached page does not have a page struct backing it,
+we first modify do_no_page to handle a new return type of NOPAGE_FAULTED.
+This indicates to the nopage handler that the desired operation is
+complete and should be treated as a minor fault.  This is a result of a
+discussion which Jes Sorenson started on the the ia64 mailing list and
+Christoph Hellwig carried over to the linux-mm mailing list.
+
+The second patch introduces the mspec driver.
+
+I am reposting these today.  The last version went out in a rush last
+night and I did not take the time to notify the people that were part
+of the earlier discussion.
+
+Additionally, the version which Jes posted last April was using
+remap_pfn_range().  This version uses set_pte().  I realize that is
+probably the wrong thing to do.  Unfortunately, we need this to be
+thread-safe.  With remap_pfn_range() there is a BUG_ON(!pte_none(*pte));
+in remap_pte_range() which would trip if there were multiple threads
+faulting at the same time.  To work around that, I started looking at
+breaking remap_pfn_range() into an _remap_pfn_range() which assumed
+the locks were already held.  At that point, it became apparent I
+was stretching the use of remap_pfn_range beyond its original intent.
+For this driver, we are inserting a single pte, the page tables have
+already been put in place by the caller's chain, why not just insert
+the pte directly.  That is what I finally did.
+
+Thanks,
+Robin Holt
