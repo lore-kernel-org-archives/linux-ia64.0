@@ -1,45 +1,28 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Fri, 28 Oct 2005 23:09:05 +0000
-Subject: RE: virtualization hooks patch for ia64 2.6.15
-Message-Id: <516F50407E01324991DD6D07B0531AD57E78E2@cacexc12.americas.cpqcorp.net>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Mon, 17 Oct 2005 09:32:17 +0000
+Subject: Re: perfmon not counting idle?
+Message-Id: <20051017093217.GA2446@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <516F50407E01324991DD6D07B0531AD57E78CC@cacexc12.americas.cpqcorp.net>
-In-Reply-To: <516F50407E01324991DD6D07B0531AD57E78CC@cacexc12.americas.cpqcorp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > See further down in my (admittedly wordy) message.
-> > Some of the Xen/ia64 functionality is shared with Xen/x86
-> > and the Xen/x86 patch is coming through a different channel
-> > so I can't submit a full working Xen/ia64 patch.
-> > 
-> > This patch provides an ia64 generic abstraction layer which
-> > is required when the (multiple architecture) Xen patch
-> > is ready, but other ia64 virtualization solutions can also
-> > make use of the hooks too.  Since these hooks are largely
-> > independent of the Xen patch, I'm submitting them
-> > separately so that the foundation is ready when the
-> > rest of the Xen stuff gets submitted.
+Matt,
+
+On Tue, Oct 18, 2005 at 03:44:53AM +1000, Matt Chapman wrote:
+> I am probably missing something blatantly obvious due to lack of sleep,
+> but, I can't seem to get perfmon to include the idle task.
 > 
-> We have a pretty strong no unused hooks policy for the linux
-> kernel, as we don't want to put in unused code.  This is more
-> of a restructuring than actual hooks though, so it's on a borderline.
-
-Yeah... one could argue that ALL the hooks are used, just
-trivially for now.  :-) There is no unused code.
- 
-> I'd really prefer to get Xen/ia64 and the Xen common code merged soon
-> though - it's in a much better shape then Xen/i386 and would give the
-> common code some badly needed exposure.
-
-Me too, but I'm not in a position to submit (or defend) things
-like the Xen virtual I/O drivers which are ultimately necessary
-for a real user to make use of Xen/ia64.  With my proposed
-patch and the Xen/ia64 usage of the hooks, one can run
-Xen's "domain0" virtualized, but other guests will need
-the Xen virtual I/O drivers which are coming through another
-channel.
-
-Dan
+> I booted with nohalt and even commented out pm_idle and safe_halt in the
+> idle loop, to try and make sure that power management isn't kicking in,
+> but I still get numbers that seem to exclude idle time.
+> 
+> torrone:~# pfmon --system-wide
+> <press ENTER to stop session>
+>   ... run for a few seconds ...
+> CPU0                       69597 CPU_CYCLES
+> 
+By default pfmon measures only at the user level (pl3).  If you want
+kernel+user you need to add -k. You can tune priv levels per event
+using --prev-levels.
