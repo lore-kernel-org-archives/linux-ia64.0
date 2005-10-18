@@ -1,36 +1,21 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Mon, 17 Oct 2005 20:59:12 +0000
+From: Carsten Otte <cotte@de.ibm.com>
+Date: Tue, 18 Oct 2005 08:48:13 +0000
 Subject: Re: [Patch 2/3] Export get_one_pte_map.
-Message-Id: <Pine.LNX.4.61.0510172157590.3969@goblin.wat.veritas.com>
+Message-Id: <4354B6CD.20907@de.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051014192111.GB14418@lnx-holt.americas.sgi.com>
- <20051014192225.GD14418@lnx-holt.americas.sgi.com> <20051014213038.GA7450@kroah.com>
- <20051017113131.GA30898@lnx-holt.americas.sgi.com> <1129549312.32658.32.camel@localhost>
- <20051017114730.GC30898@lnx-holt.americas.sgi.com>
- <Pine.LNX.4.61.0510171331090.2993@goblin.wat.veritas.com>
- <20051017151430.GA2564@lnx-holt.americas.sgi.com>
- <Pine.LNX.4.61.0510171644220.4773@goblin.wat.veritas.com>
- <20051017202501.GB15670@lnx-holt.americas.sgi.com>
-In-Reply-To: <20051017202501.GB15670@lnx-holt.americas.sgi.com>
+References: <20051014192111.GB14418@lnx-holt.americas.sgi.com>	<20051014192225.GD14418@lnx-holt.americas.sgi.com>	<20051014213038.GA7450@kroah.com>	<20051017113131.GA30898@lnx-holt.americas.sgi.com>	<1129549312.32658.32.camel@localhost>	<20051017114730.GC30898@lnx-holt.americas.sgi.com>	<Pine.LNX.4.61.0510171331090.2993@goblin.wat.veritas.com>	<20051017151430.GA2564@lnx-holt.americas.sgi.com>	<20051017152034.GA32286@kroah.com>	<20051017155605.GB2564@lnx-holt.americas.sgi.com>	<Pine.LNX.4.61.0510171700150.4934@goblin.wat.veritas.com> <20051017135314.3a59fb17.akpm@osdl.org>
+In-Reply-To: <20051017135314.3a59fb17.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Holt <holt@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, Dave Hansen <haveblue@us.ibm.com>, Greg KH <greg@kroah.com>, ia64 list <linux-ia64@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, hch@infradead.org, jgarzik@pobox.com, William Lee Irwin III <wli@holomorphy.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Carsten Otte <cotte@de.ibm.com>, Jack Steiner <steiner@americas.sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: Hugh Dickins <hugh@veritas.com>, holt@sgi.com, greg@kroah.com, haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, wli@holomorphy.com, nickpiggin@yahoo.com.au, steiner@americas.sgi.com, mschwid2@de.ibm.com
 
-On Mon, 17 Oct 2005, Robin Holt wrote:
-> On Mon, Oct 17, 2005 at 04:59:20PM +0100, Hugh Dickins wrote:
-> > Repeating a technical question (sorry, that now seems off-topic!):
-> > what do you expect to happen with PROT_WRITE, MAP_PRIVATE?
-> 
-> That would end up with a MAP_PRIVATE, PROT_WRITE, VM_RESERVED
-> mapping.  That does not make sense for this device, so I added
-> the following check to mspec_mmap()
-> 
->         if ((vma->vm_flags & VM_SHARED) = 0)
->                 return -EINVAL;
-
-Great, that saves us (or at least postpones) some nastiness!
-
-Thanks,
-Hugh
+Andrew Morton wrote:
+> Ther are nearly 100 mm patches in -mm.  I need to do a round of discussion
+> with the originators to work out what's suitable for 2.6.15.  For "Hugh
+> stuff" I'm thinking maybe the first batch
+> (mm-hugetlb-truncation-fixes.patch to mm-m68k-kill-stram-swap.patch) and
+> not the second batch.  But we need to think about it.
+We tested Hugh's stuff that is currently in -mm, mainly from the xip
+perspecive. Seems to work fine for 390.
