@@ -1,49 +1,57 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 12 Oct 2005 19:40:22 +0000
-Subject: [Patch 0/2] SGI Altix and ia64 special memory support.
-Message-Id: <20051012194022.GE17458@lnx-holt.americas.sgi.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Thu, 20 Oct 2005 02:31:19 +0000
+Subject: Allow simulator to use bigger disks
+Message-Id: <17239.375.822659.911150@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, wli@holomorphy.com
+To: linux-ia64@vger.kernel.org
 
 
-SGI hardware supports a special type of memory called fetchop or atomic
-memory. This memory does atomic operations at the memory controller
-instead of using the processor.
+The simscsi code at present overflows an int if it's given a large
+disk image.  The attached patch increases the possible size to 128G.
+While it's unlikely that anyone will want to use SKI with such a
+large drive, the same framework is currently being used for various
+virtualisation experiments.
 
-This patch set introduces a driver so user land can map the devices and
-fault pages of the appropriate type.  Pages are inserted on first touch.
-The reason for that was hashed out earlier on the lists, but can be
-distilled to node locality, node resource limitation, and application
-performance.
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
-Since a typical ia64 uncached page does not have a page struct backing it,
-we first modify do_no_page to handle a new return type of NOPAGE_FAULTED.
-This indicates to the nopage handler that the desired operation is
-complete and should be treated as a minor fault.  This is a result of a
-discussion which Jes Sorenson started on the the ia64 mailing list and
-Christoph Hellwig carried over to the linux-mm mailing list.
+diff --git a/arch/ia64/hp/sim/simscsi.c b/arch/ia64/hp/sim/simscsi.c
+--- a/arch/ia64/hp/sim/simscsi.c
++++ b/arch/ia64/hp/sim/simscsi.c
+@@ -205,10 +205,11 @@ simscsi_get_disk_size (int fd)
+ 	char buf[512];
+ 
+ 	/*
+-	 * This is a bit kludgey: the simulator doesn't provide a direct way of determining
+-	 * the disk size, so we do a binary search, assuming a maximum disk size of 4GB.
++	 * This is a bit kludgey: the simulator doesn't provide a
++	 * direct way of determining the disk size, so we do a binary
++	 * search, assuming a maximum disk size of 128GB.
+ 	 */
+-	for (bit = (4UL << 30)/512; bit != 0; bit >>= 1) {
++	for (bit = (128UL << 30)/512; bit != 0; bit >>= 1) {
+ 		req.addr = __pa(&buf);
+ 		req.len = sizeof(buf);
+ 		ia64_ssc(fd, 1, __pa(&req), ((sectors | bit) - 1)*512, SSC_READ);
+@@ -225,8 +226,10 @@ simscsi_readwrite10 (struct scsi_cmnd *s
+ {
+ 	unsigned long offset;
+ 
+-	offset = (  (sc->cmnd[2] << 24) | (sc->cmnd[3] << 16)
+-		  | (sc->cmnd[4] <<  8) | (sc->cmnd[5] <<  0))*512;
++	offset = (((unsigned long)sc->cmnd[2] << 24) 
++		| ((unsigned long)sc->cmnd[3] << 16)
++		| ((unsigned long)sc->cmnd[4] <<  8) 
++		| ((unsigned long)sc->cmnd[5] <<  0))*512UL;
+ 	if (sc->use_sg > 0)
+ 		simscsi_sg_readwrite(sc, mode, offset);
+ 	else
 
-The second patch introduces the mspec driver.
 
-I am reposting these today.  The last version went out in a rush last
-night and I did not take the time to notify the people that were part
-of the earlier discussion.
 
-Additionally, the version which Jes posted last April was using
-remap_pfn_range().  This version uses set_pte().  I realize that is
-probably the wrong thing to do.  Unfortunately, we need this to be
-thread-safe.  With remap_pfn_range() there is a BUG_ON(!pte_none(*pte));
-in remap_pte_range() which would trip if there were multiple threads
-faulting at the same time.  To work around that, I started looking at
-breaking remap_pfn_range() into an _remap_pfn_range() which assumed
-the locks were already held.  At that point, it became apparent I
-was stretching the use of remap_pfn_range beyond its original intent.
-For this driver, we are inserting a single pte, the page tables have
-already been put in place by the caller's chain, why not just insert
-the pte directly.  That is what I finally did.
+--
+Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
 
-Thanks,
-Robin Holt
