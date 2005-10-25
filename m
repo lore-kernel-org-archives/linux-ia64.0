@@ -1,1341 +1,651 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Tue, 04 Oct 2005 19:14:05 +0000
-Subject: [PATCH 5/5] V5 ia64 SPARSEMEM - gensparse_defconfig
-Message-Id: <20051004191405.GU25483@localhost.localdomain>
+From: dcn@sgi.com (Dean Nelson)
+Date: Tue, 25 Oct 2005 19:07:43 +0000
+Subject: [PATCH] fixes for XPC disengage and open/close protocol
+Message-Id: <435E827F.mailx5HV11SRY9@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-gensparse_defconfig is a config generated file for SPARSEMEM and GENERIC 
-kernel configuration (defconfig). 
+This patch addresses a few issues with the open/close protocol that
+were revealed by the newly added disengage functionality combined
+with more extensive testing.
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
- arch/ia64/configs/gensparse_defconfig | 1319 ++++++++++++++++++++++++++++++++++
- 1 files changed, 1319 insertions(+)
 
-Index: linux-2.6.14-rc2/arch/ia64/configs/gensparse_defconfig
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.14-rc2/arch/ia64/configs/gensparse_defconfig	2005-10-03 19:57:38.000000000 -0400
-@@ -0,0 +1,1319 @@
-+#
-+# Automatically generated make config: don't edit
-+# Linux kernel version: 2.6.14-rc2
-+# Wed Sep 28 08:27:29 2005
-+#
-+
-+#
-+# Code maturity level options
-+#
-+CONFIG_EXPERIMENTAL=y
-+CONFIG_CLEAN_COMPILE=y
-+CONFIG_LOCK_KERNEL=y
-+CONFIG_INIT_ENV_ARG_LIMIT2
-+
-+#
-+# General setup
-+#
-+CONFIG_LOCALVERSION=""
-+CONFIG_LOCALVERSION_AUTO=y
-+CONFIG_SWAP=y
-+CONFIG_SYSVIPC=y
-+CONFIG_POSIX_MQUEUE=y
-+# CONFIG_BSD_PROCESS_ACCT is not set
-+CONFIG_SYSCTL=y
-+# CONFIG_AUDIT is not set
-+CONFIG_HOTPLUG=y
-+CONFIG_KOBJECT_UEVENT=y
-+CONFIG_IKCONFIG=y
-+CONFIG_IKCONFIG_PROC=y
-+# CONFIG_CPUSETS is not set
-+CONFIG_INITRAMFS_SOURCE=""
-+# CONFIG_EMBEDDED is not set
-+CONFIG_KALLSYMS=y
-+CONFIG_KALLSYMS_ALL=y
-+# CONFIG_KALLSYMS_EXTRA_PASS is not set
-+CONFIG_PRINTK=y
-+CONFIG_BUG=y
-+CONFIG_BASE_FULL=y
-+CONFIG_FUTEX=y
-+CONFIG_EPOLL=y
-+CONFIG_SHMEM=y
-+CONFIG_CC_ALIGN_FUNCTIONS=0
-+CONFIG_CC_ALIGN_LABELS=0
-+CONFIG_CC_ALIGN_LOOPS=0
-+CONFIG_CC_ALIGN_JUMPS=0
-+# CONFIG_TINY_SHMEM is not set
-+CONFIG_BASE_SMALL=0
-+
-+#
-+# Loadable module support
-+#
-+CONFIG_MODULES=y
-+CONFIG_MODULE_UNLOAD=y
-+# CONFIG_MODULE_FORCE_UNLOAD is not set
-+CONFIG_OBSOLETE_MODPARM=y
-+CONFIG_MODVERSIONS=y
-+# CONFIG_MODULE_SRCVERSION_ALL is not set
-+CONFIG_KMOD=y
-+CONFIG_STOP_MACHINE=y
-+
-+#
-+# Processor type and features
-+#
-+CONFIG_IA64=y
-+CONFIG_64BIT=y
-+CONFIG_MMU=y
-+CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-+CONFIG_GENERIC_CALIBRATE_DELAY=y
-+CONFIG_TIME_INTERPOLATION=y
-+CONFIG_EFI=y
-+CONFIG_GENERIC_IOMAP=y
-+CONFIG_SCHED_NO_NO_OMIT_FRAME_POINTER=y
-+CONFIG_IA64_GENERIC=y
-+# CONFIG_IA64_DIG is not set
-+# CONFIG_IA64_HP_ZX1 is not set
-+# CONFIG_IA64_HP_ZX1_SWIOTLB is not set
-+# CONFIG_IA64_SGI_SN2 is not set
-+# CONFIG_IA64_HP_SIM is not set
-+# CONFIG_ITANIUM is not set
-+CONFIG_MCKINLEY=y
-+# CONFIG_IA64_PAGE_SIZE_4KB is not set
-+# CONFIG_IA64_PAGE_SIZE_8KB is not set
-+CONFIG_IA64_PAGE_SIZE_16KB=y
-+# CONFIG_IA64_PAGE_SIZE_64KB is not set
-+# CONFIG_HZ_100 is not set
-+CONFIG_HZ_250=y
-+# CONFIG_HZ_1000 is not set
-+CONFIG_HZ%0
-+CONFIG_IA64_L1_CACHE_SHIFT=7
-+CONFIG_IA64_CYCLONE=y
-+CONFIG_IOSAPIC=y
-+# CONFIG_IA64_SGI_SN_XP is not set
-+CONFIG_FORCE_MAX_ZONEORDER
-+CONFIG_SMP=y
-+CONFIG_NR_CPUSQ2
-+CONFIG_HOTPLUG_CPU=y
-+# CONFIG_SCHED_SMT is not set
-+# CONFIG_PREEMPT is not set
-+CONFIG_SELECT_MEMORY_MODEL=y
-+# CONFIG_FLATMEM_MANUAL is not set
-+# CONFIG_DISCONTIGMEM_MANUAL is not set
-+CONFIG_SPARSEMEM_MANUAL=y
-+CONFIG_SPARSEMEM=y
-+CONFIG_NEED_MULTIPLE_NODES=y
-+CONFIG_HAVE_MEMORY_PRESENT=y
-+# CONFIG_SPARSEMEM_STATIC is not set
-+CONFIG_SPARSEMEM_EXTREME=y
-+CONFIG_ARCH_SELECT_MEMORY_MODEL=y
-+CONFIG_ARCH_DISCONTIGMEM_ENABLE=y
-+CONFIG_ARCH_FLATMEM_ENABLE=y
-+CONFIG_ARCH_SPARSEMEM_ENABLE=y
-+CONFIG_ARCH_DISCONTIGMEM_DEFAULT=y
-+CONFIG_NUMA=y
-+CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID=y
-+CONFIG_IA32_SUPPORT=y
-+CONFIG_COMPAT=y
-+CONFIG_IA64_MCA_RECOVERY=y
-+CONFIG_PERFMON=y
-+CONFIG_IA64_PALINFO=y
-+
-+#
-+# Firmware Drivers
-+#
-+CONFIG_EFI_VARS=y
-+CONFIG_EFI_PCDP=y
-+# CONFIG_DELL_RBU is not set
-+CONFIG_BINFMT_ELF=y
-+CONFIG_BINFMT_MISC=m
-+
-+#
-+# Power management and ACPI
-+#
-+CONFIG_PM=y
-+# CONFIG_PM_DEBUG is not set
-+
-+#
-+# ACPI (Advanced Configuration and Power Interface) Support
-+#
-+CONFIG_ACPI=y
-+CONFIG_ACPI_BUTTON=m
-+CONFIG_ACPI_FAN=m
-+CONFIG_ACPI_PROCESSOR=m
-+CONFIG_ACPI_HOTPLUG_CPU=y
-+CONFIG_ACPI_THERMAL=m
-+CONFIG_ACPI_NUMA=y
-+CONFIG_ACPI_BLACKLIST_YEAR=0
-+# CONFIG_ACPI_DEBUG is not set
-+CONFIG_ACPI_POWER=y
-+CONFIG_ACPI_SYSTEM=y
-+CONFIG_ACPI_CONTAINER=m
-+
-+#
-+# CPU Frequency scaling
-+#
-+# CONFIG_CPU_FREQ is not set
-+
-+#
-+# Bus options (PCI, PCMCIA)
-+#
-+CONFIG_PCI=y
-+CONFIG_PCI_DOMAINS=y
-+# CONFIG_PCI_MSI is not set
-+CONFIG_PCI_LEGACY_PROC=y
-+# CONFIG_PCI_DEBUG is not set
-+
-+#
-+# PCI Hotplug Support
-+#
-+CONFIG_HOTPLUG_PCI=m
-+# CONFIG_HOTPLUG_PCI_FAKE is not set
-+CONFIG_HOTPLUG_PCI_ACPI=m
-+# CONFIG_HOTPLUG_PCI_ACPI_IBM is not set
-+# CONFIG_HOTPLUG_PCI_CPCI is not set
-+# CONFIG_HOTPLUG_PCI_SHPC is not set
-+# CONFIG_HOTPLUG_PCI_SGI is not set
-+
-+#
-+# PCCARD (PCMCIA/CardBus) support
-+#
-+# CONFIG_PCCARD is not set
-+
-+#
-+# Networking
-+#
-+CONFIG_NET=y
-+
-+#
-+# Networking options
-+#
-+CONFIG_PACKET=y
-+# CONFIG_PACKET_MMAP is not set
-+CONFIG_UNIX=y
-+# CONFIG_NET_KEY is not set
-+CONFIG_INET=y
-+CONFIG_IP_MULTICAST=y
-+# CONFIG_IP_ADVANCED_ROUTER is not set
-+CONFIG_IP_FIB_HASH=y
-+# CONFIG_IP_PNP is not set
-+# CONFIG_NET_IPIP is not set
-+# CONFIG_NET_IPGRE is not set
-+# CONFIG_IP_MROUTE is not set
-+CONFIG_ARPD=y
-+CONFIG_SYN_COOKIES=y
-+# CONFIG_INET_AH is not set
-+# CONFIG_INET_ESP is not set
-+# CONFIG_INET_IPCOMP is not set
-+# CONFIG_INET_TUNNEL is not set
-+CONFIG_INET_DIAG=y
-+CONFIG_INET_TCP_DIAG=y
-+# CONFIG_TCP_CONG_ADVANCED is not set
-+CONFIG_TCP_CONG_BIC=y
-+# CONFIG_IPV6 is not set
-+# CONFIG_NETFILTER is not set
-+
-+#
-+# DCCP Configuration (EXPERIMENTAL)
-+#
-+# CONFIG_IP_DCCP is not set
-+
-+#
-+# SCTP Configuration (EXPERIMENTAL)
-+#
-+# CONFIG_IP_SCTP is not set
-+# CONFIG_ATM is not set
-+# CONFIG_BRIDGE is not set
-+# CONFIG_VLAN_8021Q is not set
-+# CONFIG_DECNET is not set
-+# CONFIG_LLC2 is not set
-+# CONFIG_IPX is not set
-+# CONFIG_ATALK is not set
-+# CONFIG_X25 is not set
-+# CONFIG_LAPB is not set
-+# CONFIG_NET_DIVERT is not set
-+# CONFIG_ECONET is not set
-+# CONFIG_WAN_ROUTER is not set
-+# CONFIG_NET_SCHED is not set
-+# CONFIG_NET_CLS_ROUTE is not set
-+
-+#
-+# Network testing
-+#
-+# CONFIG_NET_PKTGEN is not set
-+# CONFIG_HAMRADIO is not set
-+# CONFIG_IRDA is not set
-+# CONFIG_BT is not set
-+# CONFIG_IEEE80211 is not set
-+
-+#
-+# Device Drivers
-+#
-+
-+#
-+# Generic Driver Options
-+#
-+CONFIG_STANDALONE=y
-+CONFIG_PREVENT_FIRMWARE_BUILD=y
-+CONFIG_FW_LOADER=m
-+# CONFIG_DEBUG_DRIVER is not set
-+
-+#
-+# Connector - unified userspace <-> kernelspace linker
-+#
-+# CONFIG_CONNECTOR is not set
-+
-+#
-+# Memory Technology Devices (MTD)
-+#
-+# CONFIG_MTD is not set
-+
-+#
-+# Parallel port support
-+#
-+# CONFIG_PARPORT is not set
-+
-+#
-+# Plug and Play support
-+#
-+# CONFIG_PNP is not set
-+
-+#
-+# Block devices
-+#
-+# CONFIG_BLK_CPQ_DA is not set
-+# CONFIG_BLK_CPQ_CISS_DA is not set
-+# CONFIG_BLK_DEV_DAC960 is not set
-+# CONFIG_BLK_DEV_UMEM is not set
-+# CONFIG_BLK_DEV_COW_COMMON is not set
-+CONFIG_BLK_DEV_LOOP=m
-+CONFIG_BLK_DEV_CRYPTOLOOP=m
-+CONFIG_BLK_DEV_NBD=m
-+# CONFIG_BLK_DEV_SX8 is not set
-+# CONFIG_BLK_DEV_UB is not set
-+CONFIG_BLK_DEV_RAM=y
-+CONFIG_BLK_DEV_RAM_COUNT
-+CONFIG_BLK_DEV_RAM_SIZE@96
-+CONFIG_BLK_DEV_INITRD=y
-+# CONFIG_CDROM_PKTCDVD is not set
-+
-+#
-+# IO Schedulers
-+#
-+CONFIG_IOSCHED_NOOP=y
-+CONFIG_IOSCHED_AS=y
-+CONFIG_IOSCHED_DEADLINE=y
-+CONFIG_IOSCHED_CFQ=y
-+# CONFIG_ATA_OVER_ETH is not set
-+
-+#
-+# ATA/ATAPI/MFM/RLL support
-+#
-+CONFIG_IDE=y
-+CONFIG_BLK_DEV_IDE=y
-+
-+#
-+# Please see Documentation/ide.txt for help/info on IDE drives
-+#
-+# CONFIG_BLK_DEV_IDE_SATA is not set
-+CONFIG_BLK_DEV_IDEDISK=y
-+# CONFIG_IDEDISK_MULTI_MODE is not set
-+CONFIG_BLK_DEV_IDECD=y
-+# CONFIG_BLK_DEV_IDETAPE is not set
-+CONFIG_BLK_DEV_IDEFLOPPY=y
-+CONFIG_BLK_DEV_IDESCSI=m
-+# CONFIG_IDE_TASK_IOCTL is not set
-+
-+#
-+# IDE chipset support/bugfixes
-+#
-+CONFIG_IDE_GENERIC=y
-+CONFIG_BLK_DEV_IDEPCI=y
-+# CONFIG_IDEPCI_SHARE_IRQ is not set
-+# CONFIG_BLK_DEV_OFFBOARD is not set
-+CONFIG_BLK_DEV_GENERIC=y
-+# CONFIG_BLK_DEV_OPTI621 is not set
-+CONFIG_BLK_DEV_IDEDMA_PCI=y
-+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
-+CONFIG_IDEDMA_PCI_AUTO=y
-+# CONFIG_IDEDMA_ONLYDISK is not set
-+# CONFIG_BLK_DEV_AEC62XX is not set
-+# CONFIG_BLK_DEV_ALI15X3 is not set
-+# CONFIG_BLK_DEV_AMD74XX is not set
-+CONFIG_BLK_DEV_CMD64X=y
-+# CONFIG_BLK_DEV_TRIFLEX is not set
-+# CONFIG_BLK_DEV_CY82C693 is not set
-+# CONFIG_BLK_DEV_CS5520 is not set
-+# CONFIG_BLK_DEV_CS5530 is not set
-+# CONFIG_BLK_DEV_HPT34X is not set
-+# CONFIG_BLK_DEV_HPT366 is not set
-+# CONFIG_BLK_DEV_SC1200 is not set
-+CONFIG_BLK_DEV_PIIX=y
-+# CONFIG_BLK_DEV_IT821X is not set
-+# CONFIG_BLK_DEV_NS87415 is not set
-+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
-+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
-+# CONFIG_BLK_DEV_SVWKS is not set
-+CONFIG_BLK_DEV_SGIIOC4=y
-+# CONFIG_BLK_DEV_SIIMAGE is not set
-+# CONFIG_BLK_DEV_SLC90E66 is not set
-+# CONFIG_BLK_DEV_TRM290 is not set
-+# CONFIG_BLK_DEV_VIA82CXXX is not set
-+# CONFIG_IDE_ARM is not set
-+CONFIG_BLK_DEV_IDEDMA=y
-+# CONFIG_IDEDMA_IVB is not set
-+CONFIG_IDEDMA_AUTO=y
-+# CONFIG_BLK_DEV_HD is not set
-+
-+#
-+# SCSI device support
-+#
-+# CONFIG_RAID_ATTRS is not set
-+CONFIG_SCSI=y
-+CONFIG_SCSI_PROC_FS=y
-+
-+#
-+# SCSI support type (disk, tape, CD-ROM)
-+#
-+CONFIG_BLK_DEV_SD=y
-+CONFIG_CHR_DEV_ST=m
-+# CONFIG_CHR_DEV_OSST is not set
-+CONFIG_BLK_DEV_SR=m
-+# CONFIG_BLK_DEV_SR_VENDOR is not set
-+CONFIG_CHR_DEV_SG=m
-+# CONFIG_CHR_DEV_SCH is not set
-+
-+#
-+# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-+#
-+# CONFIG_SCSI_MULTI_LUN is not set
-+# CONFIG_SCSI_CONSTANTS is not set
-+# CONFIG_SCSI_LOGGING is not set
-+
-+#
-+# SCSI Transport Attributes
-+#
-+CONFIG_SCSI_SPI_ATTRS=y
-+CONFIG_SCSI_FC_ATTRS=y
-+# CONFIG_SCSI_ISCSI_ATTRS is not set
-+# CONFIG_SCSI_SAS_ATTRS is not set
-+
-+#
-+# SCSI low-level drivers
-+#
-+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
-+# CONFIG_SCSI_3W_9XXX is not set
-+# CONFIG_SCSI_ACARD is not set
-+# CONFIG_SCSI_AACRAID is not set
-+# CONFIG_SCSI_AIC7XXX is not set
-+# CONFIG_SCSI_AIC7XXX_OLD is not set
-+# CONFIG_SCSI_AIC79XX is not set
-+# CONFIG_MEGARAID_NEWGEN is not set
-+# CONFIG_MEGARAID_LEGACY is not set
-+CONFIG_SCSI_SATA=y
-+# CONFIG_SCSI_SATA_AHCI is not set
-+# CONFIG_SCSI_SATA_SVW is not set
-+# CONFIG_SCSI_ATA_PIIX is not set
-+# CONFIG_SCSI_SATA_MV is not set
-+# CONFIG_SCSI_SATA_NV is not set
-+# CONFIG_SCSI_SATA_PROMISE is not set
-+# CONFIG_SCSI_SATA_QSTOR is not set
-+# CONFIG_SCSI_SATA_SX4 is not set
-+# CONFIG_SCSI_SATA_SIL is not set
-+# CONFIG_SCSI_SATA_SIS is not set
-+# CONFIG_SCSI_SATA_ULI is not set
-+# CONFIG_SCSI_SATA_VIA is not set
-+CONFIG_SCSI_SATA_VITESSE=y
-+# CONFIG_SCSI_DMX3191D is not set
-+# CONFIG_SCSI_FUTURE_DOMAIN is not set
-+# CONFIG_SCSI_IPS is not set
-+# CONFIG_SCSI_INITIO is not set
-+# CONFIG_SCSI_INIA100 is not set
-+CONFIG_SCSI_SYM53C8XX_2=y
-+CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
-+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS
-+CONFIG_SCSI_SYM53C8XX_MAX_TAGSd
-+# CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
-+# CONFIG_SCSI_IPR is not set
-+# CONFIG_SCSI_QLOGIC_FC is not set
-+CONFIG_SCSI_QLOGIC_1280=y
-+# CONFIG_SCSI_QLOGIC_1280_1040 is not set
-+CONFIG_SCSI_QLA2XXX=y
-+CONFIG_SCSI_QLA21XX=m
-+CONFIG_SCSI_QLA22XX=m
-+CONFIG_SCSI_QLA2300=m
-+CONFIG_SCSI_QLA2322=m
-+# CONFIG_SCSI_QLA6312 is not set
-+# CONFIG_SCSI_QLA24XX is not set
-+# CONFIG_SCSI_LPFC is not set
-+# CONFIG_SCSI_DC395x is not set
-+# CONFIG_SCSI_DC390T is not set
-+# CONFIG_SCSI_DEBUG is not set
-+
-+#
-+# Multi-device support (RAID and LVM)
-+#
-+CONFIG_MD=y
-+CONFIG_BLK_DEV_MD=m
-+CONFIG_MD_LINEAR=m
-+CONFIG_MD_RAID0=m
-+CONFIG_MD_RAID1=m
-+# CONFIG_MD_RAID10 is not set
-+CONFIG_MD_RAID5=m
-+CONFIG_MD_RAID6=m
-+CONFIG_MD_MULTIPATH=m
-+# CONFIG_MD_FAULTY is not set
-+CONFIG_BLK_DEV_DM=m
-+CONFIG_DM_CRYPT=m
-+CONFIG_DM_SNAPSHOT=m
-+CONFIG_DM_MIRROR=m
-+CONFIG_DM_ZERO=m
-+CONFIG_DM_MULTIPATH=m
-+# CONFIG_DM_MULTIPATH_EMC is not set
-+
-+#
-+# Fusion MPT device support
-+#
-+CONFIG_FUSION=y
-+CONFIG_FUSION_SPI=y
-+CONFIG_FUSION_FC=m
-+CONFIG_FUSION_MAX_SGE8
-+# CONFIG_FUSION_CTL is not set
-+
-+#
-+# IEEE 1394 (FireWire) support
-+#
-+# CONFIG_IEEE1394 is not set
-+
-+#
-+# I2O device support
-+#
-+# CONFIG_I2O is not set
-+
-+#
-+# Network device support
-+#
-+CONFIG_NETDEVICES=y
-+CONFIG_DUMMY=m
-+# CONFIG_BONDING is not set
-+# CONFIG_EQUALIZER is not set
-+# CONFIG_TUN is not set
-+
-+#
-+# ARCnet devices
-+#
-+# CONFIG_ARCNET is not set
-+
-+#
-+# PHY device support
-+#
-+# CONFIG_PHYLIB is not set
-+
-+#
-+# Ethernet (10 or 100Mbit)
-+#
-+CONFIG_NET_ETHERNET=y
-+CONFIG_MII=m
-+# CONFIG_HAPPYMEAL is not set
-+# CONFIG_SUNGEM is not set
-+# CONFIG_NET_VENDOR_3COM is not set
-+
-+#
-+# Tulip family network device support
-+#
-+CONFIG_NET_TULIP=y
-+# CONFIG_DE2104X is not set
-+CONFIG_TULIP=m
-+# CONFIG_TULIP_MWI is not set
-+# CONFIG_TULIP_MMIO is not set
-+# CONFIG_TULIP_NAPI is not set
-+# CONFIG_DE4X5 is not set
-+# CONFIG_WINBOND_840 is not set
-+# CONFIG_DM9102 is not set
-+# CONFIG_ULI526X is not set
-+# CONFIG_HP100 is not set
-+CONFIG_NET_PCI=y
-+# CONFIG_PCNET32 is not set
-+# CONFIG_AMD8111_ETH is not set
-+# CONFIG_ADAPTEC_STARFIRE is not set
-+# CONFIG_B44 is not set
-+# CONFIG_FORCEDETH is not set
-+# CONFIG_DGRS is not set
-+CONFIG_EEPRO100=m
-+CONFIG_E100=m
-+# CONFIG_FEALNX is not set
-+# CONFIG_NATSEMI is not set
-+# CONFIG_NE2K_PCI is not set
-+# CONFIG_8139CP is not set
-+# CONFIG_8139TOO is not set
-+# CONFIG_SIS900 is not set
-+# CONFIG_EPIC100 is not set
-+# CONFIG_SUNDANCE is not set
-+# CONFIG_VIA_RHINE is not set
-+
-+#
-+# Ethernet (1000 Mbit)
-+#
-+# CONFIG_ACENIC is not set
-+# CONFIG_DL2K is not set
-+CONFIG_E1000=y
-+# CONFIG_E1000_NAPI is not set
-+# CONFIG_NS83820 is not set
-+# CONFIG_HAMACHI is not set
-+# CONFIG_YELLOWFIN is not set
-+# CONFIG_R8169 is not set
-+# CONFIG_SIS190 is not set
-+# CONFIG_SKGE is not set
-+# CONFIG_SK98LIN is not set
-+# CONFIG_VIA_VELOCITY is not set
-+CONFIG_TIGON3=y
-+# CONFIG_BNX2 is not set
-+
-+#
-+# Ethernet (10000 Mbit)
-+#
-+# CONFIG_CHELSIO_T1 is not set
-+# CONFIG_IXGB is not set
-+# CONFIG_S2IO is not set
-+
-+#
-+# Token Ring devices
-+#
-+# CONFIG_TR is not set
-+
-+#
-+# Wireless LAN (non-hamradio)
-+#
-+# CONFIG_NET_RADIO is not set
-+
-+#
-+# Wan interfaces
-+#
-+# CONFIG_WAN is not set
-+# CONFIG_FDDI is not set
-+# CONFIG_HIPPI is not set
-+# CONFIG_PPP is not set
-+# CONFIG_SLIP is not set
-+# CONFIG_NET_FC is not set
-+# CONFIG_SHAPER is not set
-+CONFIG_NETCONSOLE=y
-+CONFIG_NETPOLL=y
-+# CONFIG_NETPOLL_RX is not set
-+# CONFIG_NETPOLL_TRAP is not set
-+CONFIG_NET_POLL_CONTROLLER=y
-+
-+#
-+# ISDN subsystem
-+#
-+# CONFIG_ISDN is not set
-+
-+#
-+# Telephony Support
-+#
-+# CONFIG_PHONE is not set
-+
-+#
-+# Input device support
-+#
-+CONFIG_INPUT=y
-+
-+#
-+# Userland interfaces
-+#
-+CONFIG_INPUT_MOUSEDEV=y
-+CONFIG_INPUT_MOUSEDEV_PSAUX=y
-+CONFIG_INPUT_MOUSEDEV_SCREEN_X24
-+CONFIG_INPUT_MOUSEDEV_SCREEN_Yv8
-+# CONFIG_INPUT_JOYDEV is not set
-+# CONFIG_INPUT_TSDEV is not set
-+# CONFIG_INPUT_EVDEV is not set
-+# CONFIG_INPUT_EVBUG is not set
-+
-+#
-+# Input Device Drivers
-+#
-+CONFIG_INPUT_KEYBOARD=y
-+CONFIG_KEYBOARD_ATKBD=y
-+# CONFIG_KEYBOARD_SUNKBD is not set
-+# CONFIG_KEYBOARD_LKKBD is not set
-+# CONFIG_KEYBOARD_XTKBD is not set
-+# CONFIG_KEYBOARD_NEWTON is not set
-+CONFIG_INPUT_MOUSE=y
-+CONFIG_MOUSE_PS2=y
-+# CONFIG_MOUSE_SERIAL is not set
-+# CONFIG_MOUSE_VSXXXAA is not set
-+# CONFIG_INPUT_JOYSTICK is not set
-+# CONFIG_INPUT_TOUCHSCREEN is not set
-+# CONFIG_INPUT_MISC is not set
-+
-+#
-+# Hardware I/O ports
-+#
-+CONFIG_SERIO=y
-+CONFIG_SERIO_I8042=y
-+# CONFIG_SERIO_SERPORT is not set
-+# CONFIG_SERIO_PCIPS2 is not set
-+CONFIG_SERIO_LIBPS2=y
-+# CONFIG_SERIO_RAW is not set
-+CONFIG_GAMEPORT=m
-+# CONFIG_GAMEPORT_NS558 is not set
-+# CONFIG_GAMEPORT_L4 is not set
-+# CONFIG_GAMEPORT_EMU10K1 is not set
-+# CONFIG_GAMEPORT_FM801 is not set
-+
-+#
-+# Character devices
-+#
-+CONFIG_VT=y
-+CONFIG_VT_CONSOLE=y
-+CONFIG_HW_CONSOLE=y
-+CONFIG_SERIAL_NONSTANDARD=y
-+# CONFIG_ROCKETPORT is not set
-+# CONFIG_CYCLADES is not set
-+# CONFIG_DIGIEPCA is not set
-+# CONFIG_MOXA_SMARTIO is not set
-+# CONFIG_ISI is not set
-+# CONFIG_SYNCLINKMP is not set
-+# CONFIG_N_HDLC is not set
-+# CONFIG_SPECIALIX is not set
-+# CONFIG_SX is not set
-+# CONFIG_STALDRV is not set
-+CONFIG_SGI_SNSC=y
-+CONFIG_SGI_TIOCX=y
-+CONFIG_SGI_MBCS=m
-+
-+#
-+# Serial drivers
-+#
-+CONFIG_SERIAL_8250=y
-+CONFIG_SERIAL_8250_CONSOLE=y
-+CONFIG_SERIAL_8250_ACPI=y
-+CONFIG_SERIAL_8250_NR_UARTS=6
-+CONFIG_SERIAL_8250_EXTENDED=y
-+CONFIG_SERIAL_8250_SHARE_IRQ=y
-+# CONFIG_SERIAL_8250_DETECT_IRQ is not set
-+# CONFIG_SERIAL_8250_RSA is not set
-+
-+#
-+# Non-8250 serial port support
-+#
-+CONFIG_SERIAL_CORE=y
-+CONFIG_SERIAL_CORE_CONSOLE=y
-+CONFIG_SERIAL_SGI_L1_CONSOLE=y
-+# CONFIG_SERIAL_JSM is not set
-+CONFIG_SERIAL_SGI_IOC4=y
-+CONFIG_UNIX98_PTYS=y
-+CONFIG_LEGACY_PTYS=y
-+CONFIG_LEGACY_PTY_COUNT%6
-+
-+#
-+# IPMI
-+#
-+# CONFIG_IPMI_HANDLER is not set
-+
-+#
-+# Watchdog Cards
-+#
-+# CONFIG_WATCHDOG is not set
-+# CONFIG_HW_RANDOM is not set
-+CONFIG_EFI_RTC=y
-+# CONFIG_DTLK is not set
-+# CONFIG_R3964 is not set
-+# CONFIG_APPLICOM is not set
-+
-+#
-+# Ftape, the floppy tape device driver
-+#
-+CONFIG_AGP=m
-+CONFIG_AGP_I460=m
-+CONFIG_AGP_HP_ZX1=m
-+CONFIG_AGP_SGI_TIOCA=m
-+CONFIG_DRM=m
-+CONFIG_DRM_TDFX=m
-+CONFIG_DRM_R128=m
-+CONFIG_DRM_RADEON=m
-+CONFIG_DRM_MGA=m
-+CONFIG_DRM_SIS=m
-+# CONFIG_DRM_VIA is not set
-+# CONFIG_DRM_SAVAGE is not set
-+CONFIG_RAW_DRIVER=m
-+CONFIG_HPET=y
-+# CONFIG_HPET_RTC_IRQ is not set
-+CONFIG_HPET_MMAP=y
-+CONFIG_MAX_RAW_DEVS%6
-+# CONFIG_HANGCHECK_TIMER is not set
-+CONFIG_MMTIMER=y
-+
-+#
-+# TPM devices
-+#
-+# CONFIG_TCG_TPM is not set
-+
-+#
-+# I2C support
-+#
-+# CONFIG_I2C is not set
-+
-+#
-+# Dallas's 1-wire bus
-+#
-+# CONFIG_W1 is not set
-+
-+#
-+# Hardware Monitoring support
-+#
-+CONFIG_HWMON=y
-+# CONFIG_HWMON_VID is not set
-+# CONFIG_HWMON_DEBUG_CHIP is not set
-+
-+#
-+# Misc devices
-+#
-+
-+#
-+# Multimedia Capabilities Port drivers
-+#
-+
-+#
-+# Multimedia devices
-+#
-+# CONFIG_VIDEO_DEV is not set
-+
-+#
-+# Digital Video Broadcasting Devices
-+#
-+# CONFIG_DVB is not set
-+
-+#
-+# Graphics support
-+#
-+# CONFIG_FB is not set
-+
-+#
-+# Console display driver support
-+#
-+CONFIG_VGA_CONSOLE=y
-+CONFIG_DUMMY_CONSOLE=y
-+
-+#
-+# Sound
-+#
-+CONFIG_SOUND=m
-+
-+#
-+# Advanced Linux Sound Architecture
-+#
-+CONFIG_SND=m
-+CONFIG_SND_TIMER=m
-+CONFIG_SND_PCM=m
-+CONFIG_SND_HWDEP=m
-+CONFIG_SND_RAWMIDI=m
-+CONFIG_SND_SEQUENCER=m
-+CONFIG_SND_SEQ_DUMMY=m
-+CONFIG_SND_OSSEMUL=y
-+CONFIG_SND_MIXER_OSS=m
-+CONFIG_SND_PCM_OSS=m
-+CONFIG_SND_SEQUENCER_OSS=y
-+CONFIG_SND_VERBOSE_PRINTK=y
-+# CONFIG_SND_DEBUG is not set
-+CONFIG_SND_GENERIC_DRIVER=y
-+
-+#
-+# Generic devices
-+#
-+CONFIG_SND_MPU401_UART=m
-+CONFIG_SND_OPL3_LIB=m
-+CONFIG_SND_DUMMY=m
-+CONFIG_SND_VIRMIDI=m
-+CONFIG_SND_MTPAV=m
-+CONFIG_SND_SERIAL_U16550=m
-+CONFIG_SND_MPU401=m
-+CONFIG_SND_AC97_CODEC=m
-+CONFIG_SND_AC97_BUS=m
-+
-+#
-+# PCI devices
-+#
-+# CONFIG_SND_ALI5451 is not set
-+# CONFIG_SND_ATIIXP is not set
-+# CONFIG_SND_ATIIXP_MODEM is not set
-+# CONFIG_SND_AU8810 is not set
-+# CONFIG_SND_AU8820 is not set
-+# CONFIG_SND_AU8830 is not set
-+# CONFIG_SND_AZT3328 is not set
-+# CONFIG_SND_BT87X is not set
-+CONFIG_SND_CS46XX=m
-+CONFIG_SND_CS46XX_NEW_DSP=y
-+CONFIG_SND_CS4281=m
-+CONFIG_SND_EMU10K1=m
-+# CONFIG_SND_EMU10K1X is not set
-+# CONFIG_SND_CA0106 is not set
-+# CONFIG_SND_KORG1212 is not set
-+# CONFIG_SND_MIXART is not set
-+# CONFIG_SND_NM256 is not set
-+# CONFIG_SND_RME32 is not set
-+# CONFIG_SND_RME96 is not set
-+# CONFIG_SND_RME9652 is not set
-+# CONFIG_SND_HDSP is not set
-+# CONFIG_SND_HDSPM is not set
-+# CONFIG_SND_TRIDENT is not set
-+# CONFIG_SND_YMFPCI is not set
-+# CONFIG_SND_AD1889 is not set
-+# CONFIG_SND_CMIPCI is not set
-+# CONFIG_SND_ENS1370 is not set
-+# CONFIG_SND_ENS1371 is not set
-+# CONFIG_SND_ES1938 is not set
-+# CONFIG_SND_ES1968 is not set
-+# CONFIG_SND_MAESTRO3 is not set
-+CONFIG_SND_FM801=m
-+# CONFIG_SND_FM801_TEA575X is not set
-+# CONFIG_SND_ICE1712 is not set
-+# CONFIG_SND_ICE1724 is not set
-+# CONFIG_SND_INTEL8X0 is not set
-+# CONFIG_SND_INTEL8X0M is not set
-+# CONFIG_SND_SONICVIBES is not set
-+# CONFIG_SND_VIA82XX is not set
-+# CONFIG_SND_VIA82XX_MODEM is not set
-+# CONFIG_SND_VX222 is not set
-+# CONFIG_SND_HDA_INTEL is not set
-+
-+#
-+# USB devices
-+#
-+# CONFIG_SND_USB_AUDIO is not set
-+
-+#
-+# Open Sound System
-+#
-+# CONFIG_SOUND_PRIME is not set
-+
-+#
-+# USB support
-+#
-+CONFIG_USB_ARCH_HAS_HCD=y
-+CONFIG_USB_ARCH_HAS_OHCI=y
-+CONFIG_USB=m
-+# CONFIG_USB_DEBUG is not set
-+
-+#
-+# Miscellaneous USB options
-+#
-+CONFIG_USB_DEVICEFS=y
-+# CONFIG_USB_BANDWIDTH is not set
-+# CONFIG_USB_DYNAMIC_MINORS is not set
-+# CONFIG_USB_SUSPEND is not set
-+# CONFIG_USB_OTG is not set
-+
-+#
-+# USB Host Controller Drivers
-+#
-+CONFIG_USB_EHCI_HCD=m
-+# CONFIG_USB_EHCI_SPLIT_ISO is not set
-+# CONFIG_USB_EHCI_ROOT_HUB_TT is not set
-+# CONFIG_USB_ISP116X_HCD is not set
-+CONFIG_USB_OHCI_HCD=m
-+# CONFIG_USB_OHCI_BIG_ENDIAN is not set
-+CONFIG_USB_OHCI_LITTLE_ENDIAN=y
-+CONFIG_USB_UHCI_HCD=m
-+# CONFIG_USB_SL811_HCD is not set
-+
-+#
-+# USB Device Class drivers
-+#
-+# CONFIG_OBSOLETE_OSS_USB_DRIVER is not set
-+# CONFIG_USB_BLUETOOTH_TTY is not set
-+# CONFIG_USB_ACM is not set
-+# CONFIG_USB_PRINTER is not set
-+
-+#
-+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support' may also be needed; see USB_STORAGE Help for more information
-+#
-+CONFIG_USB_STORAGE=m
-+# CONFIG_USB_STORAGE_DEBUG is not set
-+# CONFIG_USB_STORAGE_DATAFAB is not set
-+# CONFIG_USB_STORAGE_FREECOM is not set
-+# CONFIG_USB_STORAGE_ISD200 is not set
-+# CONFIG_USB_STORAGE_DPCM is not set
-+# CONFIG_USB_STORAGE_USBAT is not set
-+# CONFIG_USB_STORAGE_SDDR09 is not set
-+# CONFIG_USB_STORAGE_SDDR55 is not set
-+# CONFIG_USB_STORAGE_JUMPSHOT is not set
-+
-+#
-+# USB Input Devices
-+#
-+CONFIG_USB_HID=m
-+CONFIG_USB_HIDINPUT=y
-+# CONFIG_HID_FF is not set
-+# CONFIG_USB_HIDDEV is not set
-+
-+#
-+# USB HID Boot Protocol drivers
-+#
-+# CONFIG_USB_KBD is not set
-+# CONFIG_USB_MOUSE is not set
-+# CONFIG_USB_AIPTEK is not set
-+# CONFIG_USB_WACOM is not set
-+# CONFIG_USB_ACECAD is not set
-+# CONFIG_USB_KBTAB is not set
-+# CONFIG_USB_POWERMATE is not set
-+# CONFIG_USB_MTOUCH is not set
-+# CONFIG_USB_ITMTOUCH is not set
-+# CONFIG_USB_EGALAX is not set
-+# CONFIG_USB_YEALINK is not set
-+# CONFIG_USB_XPAD is not set
-+# CONFIG_USB_ATI_REMOTE is not set
-+# CONFIG_USB_KEYSPAN_REMOTE is not set
-+# CONFIG_USB_APPLETOUCH is not set
-+
-+#
-+# USB Imaging devices
-+#
-+# CONFIG_USB_MDC800 is not set
-+# CONFIG_USB_MICROTEK is not set
-+
-+#
-+# USB Multimedia devices
-+#
-+# CONFIG_USB_DABUSB is not set
-+
-+#
-+# Video4Linux support is needed for USB Multimedia device support
-+#
-+
-+#
-+# USB Network Adapters
-+#
-+# CONFIG_USB_CATC is not set
-+# CONFIG_USB_KAWETH is not set
-+# CONFIG_USB_PEGASUS is not set
-+# CONFIG_USB_RTL8150 is not set
-+# CONFIG_USB_USBNET is not set
-+CONFIG_USB_MON=y
-+
-+#
-+# USB port drivers
-+#
-+
-+#
-+# USB Serial Converter support
-+#
-+# CONFIG_USB_SERIAL is not set
-+
-+#
-+# USB Miscellaneous drivers
-+#
-+# CONFIG_USB_EMI62 is not set
-+# CONFIG_USB_EMI26 is not set
-+# CONFIG_USB_AUERSWALD is not set
-+# CONFIG_USB_RIO500 is not set
-+# CONFIG_USB_LEGOTOWER is not set
-+# CONFIG_USB_LCD is not set
-+# CONFIG_USB_LED is not set
-+# CONFIG_USB_CYTHERM is not set
-+# CONFIG_USB_PHIDGETKIT is not set
-+# CONFIG_USB_PHIDGETSERVO is not set
-+# CONFIG_USB_IDMOUSE is not set
-+# CONFIG_USB_SISUSBVGA is not set
-+# CONFIG_USB_LD is not set
-+# CONFIG_USB_TEST is not set
-+
-+#
-+# USB DSL modem support
-+#
-+
-+#
-+# USB Gadget Support
-+#
-+# CONFIG_USB_GADGET is not set
-+
-+#
-+# MMC/SD Card support
-+#
-+# CONFIG_MMC is not set
-+
-+#
-+# InfiniBand support
-+#
-+CONFIG_INFINIBAND=m
-+# CONFIG_INFINIBAND_USER_MAD is not set
-+# CONFIG_INFINIBAND_USER_ACCESS is not set
-+CONFIG_INFINIBAND_MTHCA=m
-+# CONFIG_INFINIBAND_MTHCA_DEBUG is not set
-+CONFIG_INFINIBAND_IPOIB=m
-+# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
-+
-+#
-+# SN Devices
-+#
-+CONFIG_SGI_IOC4=y
-+
-+#
-+# File systems
-+#
-+CONFIG_EXT2_FS=y
-+CONFIG_EXT2_FS_XATTR=y
-+CONFIG_EXT2_FS_POSIX_ACL=y
-+CONFIG_EXT2_FS_SECURITY=y
-+# CONFIG_EXT2_FS_XIP is not set
-+CONFIG_EXT3_FS=y
-+CONFIG_EXT3_FS_XATTR=y
-+CONFIG_EXT3_FS_POSIX_ACL=y
-+CONFIG_EXT3_FS_SECURITY=y
-+CONFIG_JBD=y
-+# CONFIG_JBD_DEBUG is not set
-+CONFIG_FS_MBCACHE=y
-+CONFIG_REISERFS_FS=y
-+# CONFIG_REISERFS_CHECK is not set
-+# CONFIG_REISERFS_PROC_INFO is not set
-+CONFIG_REISERFS_FS_XATTR=y
-+CONFIG_REISERFS_FS_POSIX_ACL=y
-+CONFIG_REISERFS_FS_SECURITY=y
-+# CONFIG_JFS_FS is not set
-+CONFIG_FS_POSIX_ACL=y
-+CONFIG_XFS_FS=y
-+CONFIG_XFS_EXPORT=y
-+# CONFIG_XFS_QUOTA is not set
-+# CONFIG_XFS_SECURITY is not set
-+# CONFIG_XFS_POSIX_ACL is not set
-+# CONFIG_XFS_RT is not set
-+# CONFIG_MINIX_FS is not set
-+# CONFIG_ROMFS_FS is not set
-+CONFIG_INOTIFY=y
-+# CONFIG_QUOTA is not set
-+CONFIG_DNOTIFY=y
-+CONFIG_AUTOFS_FS=y
-+CONFIG_AUTOFS4_FS=y
-+# CONFIG_FUSE_FS is not set
-+
-+#
-+# CD-ROM/DVD Filesystems
-+#
-+CONFIG_ISO9660_FS=m
-+CONFIG_JOLIET=y
-+# CONFIG_ZISOFS is not set
-+CONFIG_UDF_FS=m
-+CONFIG_UDF_NLS=y
-+
-+#
-+# DOS/FAT/NT Filesystems
-+#
-+CONFIG_FAT_FS=y
-+# CONFIG_MSDOS_FS is not set
-+CONFIG_VFAT_FS=y
-+CONFIG_FAT_DEFAULT_CODEPAGEC7
-+CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
-+CONFIG_NTFS_FS=m
-+# CONFIG_NTFS_DEBUG is not set
-+# CONFIG_NTFS_RW is not set
-+
-+#
-+# Pseudo filesystems
-+#
-+CONFIG_PROC_FS=y
-+CONFIG_PROC_KCORE=y
-+CONFIG_SYSFS=y
-+CONFIG_TMPFS=y
-+CONFIG_HUGETLBFS=y
-+CONFIG_HUGETLB_PAGE=y
-+CONFIG_RAMFS=y
-+# CONFIG_RELAYFS_FS is not set
-+
-+#
-+# Miscellaneous filesystems
-+#
-+# CONFIG_ADFS_FS is not set
-+# CONFIG_AFFS_FS is not set
-+# CONFIG_HFS_FS is not set
-+# CONFIG_HFSPLUS_FS is not set
-+# CONFIG_BEFS_FS is not set
-+# CONFIG_BFS_FS is not set
-+# CONFIG_EFS_FS is not set
-+# CONFIG_CRAMFS is not set
-+# CONFIG_VXFS_FS is not set
-+# CONFIG_HPFS_FS is not set
-+# CONFIG_QNX4FS_FS is not set
-+# CONFIG_SYSV_FS is not set
-+# CONFIG_UFS_FS is not set
-+
-+#
-+# Network File Systems
-+#
-+CONFIG_NFS_FS=m
-+CONFIG_NFS_V3=y
-+# CONFIG_NFS_V3_ACL is not set
-+CONFIG_NFS_V4=y
-+CONFIG_NFS_DIRECTIO=y
-+CONFIG_NFSD=m
-+CONFIG_NFSD_V3=y
-+# CONFIG_NFSD_V3_ACL is not set
-+CONFIG_NFSD_V4=y
-+CONFIG_NFSD_TCP=y
-+CONFIG_LOCKD=m
-+CONFIG_LOCKD_V4=y
-+CONFIG_EXPORTFS=y
-+CONFIG_NFS_COMMON=y
-+CONFIG_SUNRPC=m
-+CONFIG_SUNRPC_GSS=m
-+CONFIG_RPCSEC_GSS_KRB5=m
-+# CONFIG_RPCSEC_GSS_SPKM3 is not set
-+CONFIG_SMB_FS=m
-+CONFIG_SMB_NLS_DEFAULT=y
-+CONFIG_SMB_NLS_REMOTE="cp437"
-+CONFIG_CIFS=m
-+# CONFIG_CIFS_STATS is not set
-+# CONFIG_CIFS_XATTR is not set
-+# CONFIG_CIFS_EXPERIMENTAL is not set
-+# CONFIG_NCP_FS is not set
-+# CONFIG_CODA_FS is not set
-+# CONFIG_AFS_FS is not set
-+# CONFIG_9P_FS is not set
-+
-+#
-+# Partition Types
-+#
-+CONFIG_PARTITION_ADVANCED=y
-+# CONFIG_ACORN_PARTITION is not set
-+# CONFIG_OSF_PARTITION is not set
-+# CONFIG_AMIGA_PARTITION is not set
-+# CONFIG_ATARI_PARTITION is not set
-+# CONFIG_MAC_PARTITION is not set
-+CONFIG_MSDOS_PARTITION=y
-+# CONFIG_BSD_DISKLABEL is not set
-+# CONFIG_MINIX_SUBPARTITION is not set
-+# CONFIG_SOLARIS_X86_PARTITION is not set
-+# CONFIG_UNIXWARE_DISKLABEL is not set
-+# CONFIG_LDM_PARTITION is not set
-+CONFIG_SGI_PARTITION=y
-+# CONFIG_ULTRIX_PARTITION is not set
-+# CONFIG_SUN_PARTITION is not set
-+CONFIG_EFI_PARTITION=y
-+
-+#
-+# Native Language Support
-+#
-+CONFIG_NLS=y
-+CONFIG_NLS_DEFAULT="iso8859-1"
-+CONFIG_NLS_CODEPAGE_437=y
-+CONFIG_NLS_CODEPAGE_737=m
-+CONFIG_NLS_CODEPAGE_775=m
-+CONFIG_NLS_CODEPAGE_850=m
-+CONFIG_NLS_CODEPAGE_852=m
-+CONFIG_NLS_CODEPAGE_855=m
-+CONFIG_NLS_CODEPAGE_857=m
-+CONFIG_NLS_CODEPAGE_860=m
-+CONFIG_NLS_CODEPAGE_861=m
-+CONFIG_NLS_CODEPAGE_862=m
-+CONFIG_NLS_CODEPAGE_863=m
-+CONFIG_NLS_CODEPAGE_864=m
-+CONFIG_NLS_CODEPAGE_865=m
-+CONFIG_NLS_CODEPAGE_866=m
-+CONFIG_NLS_CODEPAGE_869=m
-+CONFIG_NLS_CODEPAGE_936=m
-+CONFIG_NLS_CODEPAGE_950=m
-+CONFIG_NLS_CODEPAGE_932=m
-+CONFIG_NLS_CODEPAGE_949=m
-+CONFIG_NLS_CODEPAGE_874=m
-+CONFIG_NLS_ISO8859_8=m
-+CONFIG_NLS_CODEPAGE_1250=m
-+CONFIG_NLS_CODEPAGE_1251=m
-+# CONFIG_NLS_ASCII is not set
-+CONFIG_NLS_ISO8859_1=y
-+CONFIG_NLS_ISO8859_2=m
-+CONFIG_NLS_ISO8859_3=m
-+CONFIG_NLS_ISO8859_4=m
-+CONFIG_NLS_ISO8859_5=m
-+CONFIG_NLS_ISO8859_6=m
-+CONFIG_NLS_ISO8859_7=m
-+CONFIG_NLS_ISO8859_9=m
-+CONFIG_NLS_ISO8859_13=m
-+CONFIG_NLS_ISO8859_14=m
-+CONFIG_NLS_ISO8859_15=m
-+CONFIG_NLS_KOI8_R=m
-+CONFIG_NLS_KOI8_U=m
-+CONFIG_NLS_UTF8=m
-+
-+#
-+# Library routines
-+#
-+# CONFIG_CRC_CCITT is not set
-+# CONFIG_CRC16 is not set
-+CONFIG_CRC32=y
-+# CONFIG_LIBCRC32C is not set
-+CONFIG_GENERIC_HARDIRQS=y
-+CONFIG_GENERIC_IRQ_PROBE=y
-+CONFIG_GENERIC_PENDING_IRQ=y
-+
-+#
-+# HP Simulator drivers
-+#
-+# CONFIG_HP_SIMETH is not set
-+# CONFIG_HP_SIMSERIAL is not set
-+# CONFIG_HP_SIMSCSI is not set
-+
-+#
-+# Profiling support
-+#
-+# CONFIG_PROFILING is not set
-+
-+#
-+# Kernel hacking
-+#
-+# CONFIG_PRINTK_TIME is not set
-+CONFIG_DEBUG_KERNEL=y
-+CONFIG_MAGIC_SYSRQ=y
-+CONFIG_LOG_BUF_SHIFT 
-+CONFIG_DETECT_SOFTLOCKUP=y
-+# CONFIG_SCHEDSTATS is not set
-+# CONFIG_DEBUG_SLAB is not set
-+# CONFIG_DEBUG_SPINLOCK is not set
-+# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-+# CONFIG_DEBUG_KOBJECT is not set
-+# CONFIG_DEBUG_INFO is not set
-+# CONFIG_DEBUG_FS is not set
-+# CONFIG_KPROBES is not set
-+CONFIG_IA64_GRANULE_16MB=y
-+# CONFIG_IA64_GRANULE_64MB is not set
-+# CONFIG_IA64_PRINT_HAZARDS is not set
-+# CONFIG_DISABLE_VHPT is not set
-+# CONFIG_IA64_DEBUG_CMPXCHG is not set
-+# CONFIG_IA64_DEBUG_IRQ is not set
-+CONFIG_SYSVIPC_COMPAT=y
-+
-+#
-+# Security options
-+#
-+# CONFIG_KEYS is not set
-+# CONFIG_SECURITY is not set
-+
-+#
-+# Cryptographic options
-+#
-+CONFIG_CRYPTO=y
-+# CONFIG_CRYPTO_HMAC is not set
-+# CONFIG_CRYPTO_NULL is not set
-+# CONFIG_CRYPTO_MD4 is not set
-+CONFIG_CRYPTO_MD5=y
-+# CONFIG_CRYPTO_SHA1 is not set
-+# CONFIG_CRYPTO_SHA256 is not set
-+# CONFIG_CRYPTO_SHA512 is not set
-+# CONFIG_CRYPTO_WP512 is not set
-+# CONFIG_CRYPTO_TGR192 is not set
-+CONFIG_CRYPTO_DES=m
-+# CONFIG_CRYPTO_BLOWFISH is not set
-+# CONFIG_CRYPTO_TWOFISH is not set
-+# CONFIG_CRYPTO_SERPENT is not set
-+# CONFIG_CRYPTO_AES is not set
-+# CONFIG_CRYPTO_CAST5 is not set
-+# CONFIG_CRYPTO_CAST6 is not set
-+# CONFIG_CRYPTO_TEA is not set
-+# CONFIG_CRYPTO_ARC4 is not set
-+# CONFIG_CRYPTO_KHAZAD is not set
-+# CONFIG_CRYPTO_ANUBIS is not set
-+# CONFIG_CRYPTO_DEFLATE is not set
-+# CONFIG_CRYPTO_MICHAEL_MIC is not set
-+# CONFIG_CRYPTO_CRC32C is not set
-+# CONFIG_CRYPTO_TEST is not set
-+
-+#
-+# Hardware crypto devices
-+#
+Index: linux-2.6.git#test/include/asm-ia64/sn/xp.h
+=================================--- linux-2.6.git#test.orig/include/asm-ia64/sn/xp.h	2005-10-13 09:14:09.306720356 -0500
++++ linux-2.6.git#test/include/asm-ia64/sn/xp.h	2005-10-13 09:42:56.749093273 -0500
+@@ -225,7 +225,9 @@
+ 
+ 	xpcDisconnecting,	/* 49: channel disconnecting (closing) */
+ 
+-	xpcUnknownReason	/* 50: unknown reason -- must be last in list */
++	xpcOpenCloseError,	/* 50: channel open/close protocol error */
++
++	xpcUnknownReason	/* 51: unknown reason -- must be last in list */
+ };
+ 
+ 
+@@ -350,7 +352,7 @@
+  *
+  * The 'func' field points to the function to call when aynchronous
+  * notification is required for such events as: a connection established/lost,
+- * or an incomming message received, or an error condition encountered. A
++ * or an incoming message received, or an error condition encountered. A
+  * non-NULL 'func' field indicates that there is an active registration for
+  * the channel.
+  */
+Index: linux-2.6.git#test/arch/ia64/sn/kernel/xpc.h
+=================================--- linux-2.6.git#test.orig/arch/ia64/sn/kernel/xpc.h	2005-10-13 09:13:35.654851937 -0500
++++ linux-2.6.git#test/arch/ia64/sn/kernel/xpc.h	2005-10-14 10:50:35.521602529 -0500
+@@ -417,6 +417,9 @@
+ 	atomic_t n_on_msg_allocate_wq;   /* #on msg allocation wait queue */
+ 	wait_queue_head_t msg_allocate_wq; /* msg allocation wait queue */
+ 
++	u8 delayed_IPI_flags;		/* IPI flags received, but delayed */
++					/* action until channel disconnected */
++
+ 	/* queue of msg senders who want to be notified when msg received */
+ 
+ 	atomic_t n_to_notify;		/* #of msg senders to notify */
+@@ -478,7 +481,8 @@
+ 
+ #define	XPC_C_DISCONNECTED	0x00002000 /* channel is disconnected */
+ #define	XPC_C_DISCONNECTING	0x00004000 /* channel is being disconnected */
+-#define	XPC_C_WDISCONNECT	0x00008000 /* waiting for channel disconnect */
++#define	XPC_C_DISCONNECTCALLOUT	0x00008000 /* chan disconnected callout made */
++#define	XPC_C_WDISCONNECT	0x00010000 /* waiting for channel disconnect */
+ 
+ 
+ 
+@@ -508,13 +512,13 @@
+ 	int reason_line;		/* line# deactivation initiated from */
+ 	int reactivate_nasid;		/* nasid in partition to reactivate */
+ 
+-	unsigned long disengage_request_timeout; /* timeout in XPC_TICKS */
++	unsigned long disengage_request_timeout; /* timeout in jiffies */
+ 	struct timer_list disengage_request_timer;
+ 
+ 
+ 	/* XPC infrastructure referencing and teardown control */
+ 
+-	volatile u8 setup_state;			/* infrastructure setup state */
++	volatile u8 setup_state;	/* infrastructure setup state */
+ 	wait_queue_head_t teardown_wq;	/* kthread waiting to teardown infra */
+ 	atomic_t references;		/* #of references to infrastructure */
+ 
+@@ -604,7 +608,7 @@
+ 
+ 
+ /* number of seconds to wait for other partitions to disengage */
+-#define XPC_DISENGAGE_REQUEST_TIMELIMIT 90
++#define XPC_DISENGAGE_REQUEST_DEFAULT_TIMELIMIT	90
+ 
+ /* interval in seconds to print 'waiting disengagement' messages */
+ #define XPC_DISENGAGE_PRINTMSG_INTERVAL		10
+@@ -618,20 +622,18 @@
+ extern struct xpc_registration xpc_registrations[];
+ 
+ 
+-/* >>> found in xpc_main.c only */
++/* found in xpc_main.c */
+ extern struct device *xpc_part;
+ extern struct device *xpc_chan;
++extern int xpc_disengage_request_timelimit;
+ extern irqreturn_t xpc_notify_IRQ_handler(int, void *, struct pt_regs *);
+ extern void xpc_dropped_IPI_check(struct xpc_partition *);
++extern void xpc_activate_partition(struct xpc_partition *);
+ extern void xpc_activate_kthreads(struct xpc_channel *, int);
+ extern void xpc_create_kthreads(struct xpc_channel *, int);
+ extern void xpc_disconnect_wait(int);
+ 
+ 
+-/* found in xpc_main.c and efi-xpc.c */
+-extern void xpc_activate_partition(struct xpc_partition *);
+-
+-
+ /* found in xpc_partition.c */
+ extern int xpc_exiting;
+ extern struct xpc_vars *xpc_vars;
+@@ -1077,6 +1079,7 @@
+ 
+ /* given an AMO variable and a channel#, get its associated IPI flags */
+ #define XPC_GET_IPI_FLAGS(_amo, _c)	((u8) (((_amo) >> ((_c) * 8)) & 0xff))
++#define XPC_SET_IPI_FLAGS(_amo, _c, _f)	(_amo) |= ((u64) (_f) << ((_c) * 8))
+ 
+ #define	XPC_ANY_OPENCLOSE_IPI_FLAGS_SET(_amo) ((_amo) & 0x0f0f0f0f0f0f0f0f)
+ #define XPC_ANY_MSG_IPI_FLAGS_SET(_amo)       ((_amo) & 0x1010101010101010)
+Index: linux-2.6.git#test/arch/ia64/sn/kernel/xpc_main.c
+=================================--- linux-2.6.git#test.orig/arch/ia64/sn/kernel/xpc_main.c	2005-10-13 09:13:35.656804865 -0500
++++ linux-2.6.git#test/arch/ia64/sn/kernel/xpc_main.c	2005-10-14 11:19:27.816319194 -0500
+@@ -91,6 +91,10 @@
+ static int xpc_hb_check_min_interval = 10;
+ static int xpc_hb_check_max_interval = 120;
+ 
++int xpc_disengage_request_timelimit = XPC_DISENGAGE_REQUEST_DEFAULT_TIMELIMIT;
++static int xpc_disengage_request_min_timelimit = 0;
++static int xpc_disengage_request_max_timelimit = 120;
++
+ static ctl_table xpc_sys_xpc_hb_dir[] = {
+ 	{
+ 		1,
+@@ -129,6 +133,19 @@
+ 		0555,
+ 		xpc_sys_xpc_hb_dir
+ 	},
++	{
++		2,
++		"disengage_request_timelimit",
++		&xpc_disengage_request_timelimit,
++		sizeof(int),
++		0644,
++		NULL,
++		&proc_dointvec_minmax,
++		&sysctl_intvec,
++		NULL,
++		&xpc_disengage_request_min_timelimit,
++		&xpc_disengage_request_max_timelimit
++	},
+ 	{0}
+ };
+ static ctl_table xpc_sys_dir[] = {
+@@ -153,11 +170,11 @@
+ 
+ static unsigned long xpc_hb_check_timeout;
+ 
+-/* used as an indication of when the xpc_hb_checker thread is inactive */
+-static DECLARE_MUTEX_LOCKED(xpc_hb_checker_inactive);
++/* notification that the xpc_hb_checker thread has exited */
++static DECLARE_MUTEX_LOCKED(xpc_hb_checker_exited);
+ 
+-/* used as an indication of when the xpc_discovery thread is inactive */
+-static DECLARE_MUTEX_LOCKED(xpc_discovery_inactive);
++/* notification that the xpc_discovery thread has exited */
++static DECLARE_MUTEX_LOCKED(xpc_discovery_exited);
+ 
+ 
+ static struct timer_list xpc_hb_timer;
+@@ -181,7 +198,7 @@
+ 	struct xpc_partition *part = (struct xpc_partition *) data;
+ 
+ 
+-	DBUG_ON(XPC_TICKS < part->disengage_request_timeout);
++	DBUG_ON(jiffies < part->disengage_request_timeout);
+ 
+ 	(void) xpc_partition_disengaged(part);
+ 
+@@ -292,8 +309,8 @@
+ 	dev_dbg(xpc_part, "heartbeat checker is exiting\n");
+ 
+ 
+-	/* mark this thread as inactive */
+-	up(&xpc_hb_checker_inactive);
++	/* mark this thread as having exited */
++	up(&xpc_hb_checker_exited);
+ 	return 0;
+ }
+ 
+@@ -312,8 +329,8 @@
+ 
+ 	dev_dbg(xpc_part, "discovery thread is exiting\n");
+ 
+-	/* mark this thread as inactive */
+-	up(&xpc_discovery_inactive);
++	/* mark this thread as having exited */
++	up(&xpc_discovery_exited);
+ 	return 0;
+ }
+ 
+@@ -703,6 +720,7 @@
+ 	struct xpc_partition *part = &xpc_partitions[partid];
+ 	struct xpc_channel *ch;
+ 	int n_needed;
++	unsigned long irq_flags;
+ 
+ 
+ 	daemonize("xpc%02dc%d", partid, ch_number);
+@@ -713,11 +731,14 @@
+ 	ch = &part->channels[ch_number];
+ 
+ 	if (!(ch->flags & XPC_C_DISCONNECTING)) {
+-		DBUG_ON(!(ch->flags & XPC_C_CONNECTED));
+ 
+ 		/* let registerer know that connection has been established */
+ 
+-		if (atomic_read(&ch->kthreads_assigned) = 1) {
++		spin_lock_irqsave(&ch->lock, irq_flags);
++		if (!(ch->flags & XPC_C_CONNECTCALLOUT)) {
++			ch->flags |= XPC_C_CONNECTCALLOUT;
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++
+ 			xpc_connected_callout(ch);
+ 
+ 			/*
+@@ -732,14 +753,23 @@
+ 					!(ch->flags & XPC_C_DISCONNECTING)) {
+ 				xpc_activate_kthreads(ch, n_needed);
+ 			}
++		} else {
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 		}
+ 
+ 		xpc_kthread_waitmsgs(part, ch);
+ 	}
+ 
+ 	if (atomic_dec_return(&ch->kthreads_assigned) = 0) {
+-		if (ch->flags & XPC_C_CONNECTCALLOUT) {
++		spin_lock_irqsave(&ch->lock, irq_flags);
++		if ((ch->flags & XPC_C_CONNECTCALLOUT) &&
++				!(ch->flags & XPC_C_DISCONNECTCALLOUT)) {
++			ch->flags |= XPC_C_DISCONNECTCALLOUT;
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++
+ 			xpc_disconnecting_callout(ch);
++		} else {
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 		}
+ 		if (atomic_dec_return(&part->nchannels_engaged) = 0) {
+ 			xpc_mark_partition_disengaged(part);
+@@ -780,9 +810,29 @@
+ 
+ 
+ 	while (needed-- > 0) {
++
++		/*
++		 * The following is done on behalf of the newly created
++		 * kthread. That kthread is responsible for doing the
++		 * counterpart to the following before it exits.
++		 */
++		(void) xpc_part_ref(part);
++		xpc_msgqueue_ref(ch);
++		if (atomic_inc_return(&ch->kthreads_assigned) = 1 &&
++		    atomic_inc_return(&part->nchannels_engaged) = 1) {
++			xpc_mark_partition_engaged(part);
++		}
++
+ 		pid = kernel_thread(xpc_daemonize_kthread, (void *) args, 0);
+ 		if (pid < 0) {
+ 			/* the fork failed */
++			if (atomic_dec_return(&ch->kthreads_assigned) = 0 &&
++			    atomic_dec_return(&part->nchannels_engaged) = 0) {
++				xpc_mark_partition_disengaged(part);
++				xpc_IPI_send_disengage(part);
++			}
++			xpc_msgqueue_deref(ch);
++			xpc_part_deref(part);
+ 
+ 			if (atomic_read(&ch->kthreads_assigned) <
+ 						ch->kthreads_idle_limit) {
+@@ -802,18 +852,6 @@
+ 			break;
+ 		}
+ 
+-		/*
+-		 * The following is done on behalf of the newly created
+-		 * kthread. That kthread is responsible for doing the
+-		 * counterpart to the following before it exits.
+-		 */
+-		(void) xpc_part_ref(part);
+-		xpc_msgqueue_ref(ch);
+-		if (atomic_inc_return(&ch->kthreads_assigned) = 1) {
+-			if (atomic_inc_return(&part->nchannels_engaged) = 1) {
+-				xpc_mark_partition_engaged(part);
+-			}
+-		}
+ 		ch->kthreads_created++;	// >>> temporary debug only!!!
+ 	}
+ }
+@@ -826,26 +864,49 @@
+ 	partid_t partid;
+ 	struct xpc_partition *part;
+ 	struct xpc_channel *ch;
++	int wakeup_channel_mgr;
+ 
+ 
+ 	/* now wait for all callouts to the caller's function to cease */
+ 	for (partid = 1; partid < XP_MAX_PARTITIONS; partid++) {
+ 		part = &xpc_partitions[partid];
+ 
+-		if (xpc_part_ref(part)) {
+-			ch = &part->channels[ch_number];
++		if (!xpc_part_ref(part)) {
++			continue;
++		}
+ 
+-			if (ch->flags & XPC_C_WDISCONNECT) {
+-				if (!(ch->flags & XPC_C_DISCONNECTED)) {
+-					(void) down(&ch->wdisconnect_sema);
+-				}
+-				spin_lock_irqsave(&ch->lock, irq_flags);
+-				ch->flags &= ~XPC_C_WDISCONNECT;
+-				spin_unlock_irqrestore(&ch->lock, irq_flags);
+-			}
++		ch = &part->channels[ch_number];
+ 
++		if (!(ch->flags & XPC_C_WDISCONNECT)) {
+ 			xpc_part_deref(part);
++			continue;
++		}
++
++		(void) down(&ch->wdisconnect_sema);
++
++		spin_lock_irqsave(&ch->lock, irq_flags);
++		DBUG_ON(!(ch->flags & XPC_C_DISCONNECTED));
++		wakeup_channel_mgr = 0;
++
++		if (ch->delayed_IPI_flags) {
++			if (part->act_state != XPC_P_DEACTIVATING) {
++				spin_lock(&part->IPI_lock);
++				XPC_SET_IPI_FLAGS(part->local_IPI_amo,
++					ch->number, ch->delayed_IPI_flags);
++				spin_unlock(&part->IPI_lock);
++				wakeup_channel_mgr = 1;
++			}
++			ch->delayed_IPI_flags = 0;
++		}
++
++		ch->flags &= ~XPC_C_WDISCONNECT;
++		spin_unlock_irqrestore(&ch->lock, irq_flags);
++
++		if (wakeup_channel_mgr) {
++			xpc_wakeup_channel_mgr(part);
+ 		}
++
++		xpc_part_deref(part);
+ 	}
+ }
+ 
+@@ -873,11 +934,11 @@
+ 	/* ignore all incoming interrupts */
+ 	free_irq(SGI_XPC_ACTIVATE, NULL);
+ 
+-	/* wait for the discovery thread to mark itself inactive */
+-	down(&xpc_discovery_inactive);
++	/* wait for the discovery thread to exit */
++	down(&xpc_discovery_exited);
+ 
+-	/* wait for the heartbeat checker thread to mark itself inactive */
+-	down(&xpc_hb_checker_inactive);
++	/* wait for the heartbeat checker thread to exit */
++	down(&xpc_hb_checker_exited);
+ 
+ 
+ 	/* sleep for a 1/3 of a second or so */
+@@ -893,6 +954,7 @@
+ 
+ 		for (partid = 1; partid < XP_MAX_PARTITIONS; partid++) {
+ 			part = &xpc_partitions[partid];
++
+ 			if (xpc_partition_disengaged(part) &&
+ 					part->act_state = XPC_P_INACTIVE) {
+ 				continue;
+@@ -930,7 +992,7 @@
+ 
+ 	/* now it's time to eliminate our heartbeat */
+ 	del_timer_sync(&xpc_hb_timer);
+-	DBUG_ON(xpc_vars->heartbeating_to_mask = 0);
++	DBUG_ON(xpc_vars->heartbeating_to_mask != 0);
+ 
+ 	/* take ourselves off of the reboot_notifier_list */
+ 	(void) unregister_reboot_notifier(&xpc_reboot_notifier);
+@@ -1138,7 +1200,7 @@
+ 		dev_err(xpc_part, "failed while forking discovery thread\n");
+ 
+ 		/* mark this new thread as a non-starter */
+-		up(&xpc_discovery_inactive);
++		up(&xpc_discovery_exited);
+ 
+ 		xpc_do_exit(xpcUnloading);
+ 		return -EBUSY;
+@@ -1176,3 +1238,7 @@
+ MODULE_PARM_DESC(xpc_hb_check_interval, "Number of seconds between "
+ 		"heartbeat checks.");
+ 
++module_param(xpc_disengage_request_timelimit, int, 0);
++MODULE_PARM_DESC(xpc_disengage_request_timelimit, "Number of seconds to wait "
++		"for disengage request to complete.");
++
+Index: linux-2.6.git#test/arch/ia64/sn/kernel/xpc_partition.c
+=================================--- linux-2.6.git#test.orig/arch/ia64/sn/kernel/xpc_partition.c	2005-10-13 09:13:35.657781329 -0500
++++ linux-2.6.git#test/arch/ia64/sn/kernel/xpc_partition.c	2005-10-14 11:12:42.327800543 -0500
+@@ -578,7 +578,7 @@
+ 
+ 
+ /*
+- * Prior code has determine the nasid which generated an IPI.  Inspect
++ * Prior code has determined the nasid which generated an IPI.  Inspect
+  * that nasid to determine if its partition needs to be activated or
+  * deactivated.
+  *
+@@ -942,14 +942,14 @@
+ 
+ 		/* set a timelimit on the disengage request */
+ 		part->disengage_request_timeout = jiffies +
+-					(XPC_DISENGAGE_REQUEST_TIMELIMIT * HZ);
++					(xpc_disengage_request_timelimit * HZ);
+ 		part->disengage_request_timer.expires  					part->disengage_request_timeout;
+ 		add_timer(&part->disengage_request_timer);
+ 	}
+ 
+-	dev_dbg(xpc_part, "bringing partition %d down, reason = %d\n", partid,
+-		reason);
++	dev_dbg(xpc_part, "bringing partition %d down, reason = %d\n",
++		XPC_PARTID(part), reason);
+ 
+ 	xpc_partition_going_down(part, reason);
+ }
+Index: linux-2.6.git#test/arch/ia64/sn/kernel/xpc_channel.c
+=================================--- linux-2.6.git#test.orig/arch/ia64/sn/kernel/xpc_channel.c	2005-10-13 09:13:35.655828401 -0500
++++ linux-2.6.git#test/arch/ia64/sn/kernel/xpc_channel.c	2005-10-17 07:29:45.288958360 -0500
+@@ -792,11 +792,20 @@
+ 			"reason=%d\n", ch->number, ch->partid, ch->reason);
+ 	}
+ 
+-	/* wake the thread that is waiting for this channel to disconnect */
+ 	if (ch->flags & XPC_C_WDISCONNECT) {
+ 		spin_unlock_irqrestore(&ch->lock, *irq_flags);
+ 		up(&ch->wdisconnect_sema);
+ 		spin_lock_irqsave(&ch->lock, *irq_flags);
++
++	} else if (ch->delayed_IPI_flags) {
++		if (part->act_state != XPC_P_DEACTIVATING) {
++			/* time to take action on any delayed IPI flags */
++			spin_lock(&part->IPI_lock);
++			XPC_SET_IPI_FLAGS(part->local_IPI_amo, ch->number,
++							ch->delayed_IPI_flags);
++			spin_unlock(&part->IPI_lock);
++		}
++		ch->delayed_IPI_flags = 0;
+ 	}
+ }
+ 
+@@ -818,6 +827,19 @@
+ 
+ 	spin_lock_irqsave(&ch->lock, irq_flags);
+ 
++again:
++
++	if ((ch->flags & XPC_C_DISCONNECTED) &&
++					(ch->flags & XPC_C_WDISCONNECT)) {
++		/*
++		 * Delay processing IPI flags until thread waiting disconnect
++		 * has had a chance to see that the channel is disconnected.
++		 */
++		ch->delayed_IPI_flags |= IPI_flags;
++		spin_unlock_irqrestore(&ch->lock, irq_flags);
++		return;
++	}
++
+ 
+ 	if (IPI_flags & XPC_IPI_CLOSEREQUEST) {
+ 
+@@ -843,14 +865,22 @@
+ 
+ 			/* both sides have finished disconnecting */
+ 			xpc_process_disconnect(ch, &irq_flags);
++			DBUG_ON(!(ch->flags & XPC_C_DISCONNECTED));
++			goto again;
+ 		}
+ 
+ 		if (ch->flags & XPC_C_DISCONNECTED) {
+-			// >>> explain this section
+-
+ 			if (!(IPI_flags & XPC_IPI_OPENREQUEST)) {
+-				DBUG_ON(part->act_state !-							XPC_P_DEACTIVATING);
++				if ((XPC_GET_IPI_FLAGS(part->local_IPI_amo,
++					 ch_number) & XPC_IPI_OPENREQUEST)) {
++
++					DBUG_ON(ch->delayed_IPI_flags != 0);
++					spin_lock(&part->IPI_lock);
++					XPC_SET_IPI_FLAGS(part->local_IPI_amo,
++							ch_number,
++							XPC_IPI_CLOSEREQUEST);
++					spin_unlock(&part->IPI_lock);
++				}
+ 				spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 				return;
+ 			}
+@@ -880,9 +910,13 @@
+ 			}
+ 
+ 			XPC_DISCONNECT_CHANNEL(ch, reason, &irq_flags);
+-		} else {
+-			xpc_process_disconnect(ch, &irq_flags);
++
++			DBUG_ON(IPI_flags & XPC_IPI_CLOSEREPLY);
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++			return;
+ 		}
++
++		xpc_process_disconnect(ch, &irq_flags);
+ 	}
+ 
+ 
+@@ -898,7 +932,20 @@
+ 		}
+ 
+ 		DBUG_ON(!(ch->flags & XPC_C_CLOSEREQUEST));
+-		DBUG_ON(!(ch->flags & XPC_C_RCLOSEREQUEST));
++
++		if (!(ch->flags & XPC_C_RCLOSEREQUEST)) {
++			if ((XPC_GET_IPI_FLAGS(part->local_IPI_amo, ch_number)
++						& XPC_IPI_CLOSEREQUEST)) {
++
++				DBUG_ON(ch->delayed_IPI_flags != 0);
++				spin_lock(&part->IPI_lock);
++				XPC_SET_IPI_FLAGS(part->local_IPI_amo,
++						ch_number, XPC_IPI_CLOSEREPLY);
++				spin_unlock(&part->IPI_lock);
++			}
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++			return;
++		}
+ 
+ 		ch->flags |= XPC_C_RCLOSEREPLY;
+ 
+@@ -916,8 +963,14 @@
+ 			"channel=%d\n", args->msg_size, args->local_nentries,
+ 			ch->partid, ch->number);
+ 
+-		if ((ch->flags & (XPC_C_DISCONNECTING | XPC_C_WDISCONNECT)) ||
+-					part->act_state = XPC_P_DEACTIVATING) {
++		if (part->act_state = XPC_P_DEACTIVATING ||
++					(ch->flags & XPC_C_ROPENREQUEST)) {
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++			return;
++		}
++
++		if (ch->flags & (XPC_C_DISCONNECTING | XPC_C_WDISCONNECT)) {
++			ch->delayed_IPI_flags |= XPC_IPI_OPENREQUEST;
+ 			spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 			return;
+ 		}
+@@ -931,8 +984,11 @@
+ 		 *      msg_size = size of channel's messages in bytes
+ 		 *      local_nentries = remote partition's local_nentries
+ 		 */
+-		DBUG_ON(args->msg_size = 0);
+-		DBUG_ON(args->local_nentries = 0);
++		if (args->msg_size = 0 || args->local_nentries = 0) {
++			/* assume OPENREQUEST was delayed by mistake */
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++			return;
++		}
+ 
+ 		ch->flags |= (XPC_C_ROPENREQUEST | XPC_C_CONNECTING);
+ 		ch->remote_nentries = args->local_nentries;
+@@ -970,7 +1026,13 @@
+ 			spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 			return;
+ 		}
+-		DBUG_ON(!(ch->flags & XPC_C_OPENREQUEST));
++		if (!(ch->flags & XPC_C_OPENREQUEST)) {
++			XPC_DISCONNECT_CHANNEL(ch, xpcOpenCloseError,
++								&irq_flags);
++			spin_unlock_irqrestore(&ch->lock, irq_flags);
++			return;
++		}
++
+ 		DBUG_ON(!(ch->flags & XPC_C_ROPENREQUEST));
+ 		DBUG_ON(ch->flags & XPC_C_CONNECTED);
+ 
+@@ -1024,8 +1086,8 @@
+ 	struct xpc_registration *registration = &xpc_registrations[ch->number];
+ 
+ 
+-	if (down_interruptible(&registration->sema) != 0) {
+-		return xpcInterrupted;
++	if (down_trylock(&registration->sema) != 0) {
++		return xpcRetry;
+ 	}
+ 
+ 	if (!XPC_CHANNEL_REGISTERED(ch->number)) {
+@@ -1445,19 +1507,11 @@
+ 		if (xpc_part_ref(part)) {
+ 			ch = &part->channels[ch_number];
+ 
+-			if (!(ch->flags & XPC_C_DISCONNECTING)) {
+-				DBUG_ON(ch->flags & XPC_C_OPENREQUEST);
+-				DBUG_ON(ch->flags & XPC_C_CONNECTED);
+-				DBUG_ON(ch->flags & XPC_C_SETUP);
+-
+-				/*
+-				 * Initiate the establishment of a connection
+-				 * on the newly registered channel to the
+-				 * remote partition.
+-				 */
+-				xpc_wakeup_channel_mgr(part);
+-			}
+-
++			/*
++			 * Initiate the establishment of a connection on the
++			 * newly registered channel to the remote partition.
++			 */
++			xpc_wakeup_channel_mgr(part);
+ 			xpc_part_deref(part);
+ 		}
+ 	}
+@@ -1467,9 +1521,6 @@
+ void
+ xpc_connected_callout(struct xpc_channel *ch)
+ {
+-	unsigned long irq_flags;
+-
+-
+ 	/* let the registerer know that a connection has been established */
+ 
+ 	if (ch->func != NULL) {
+@@ -1482,10 +1533,6 @@
+ 		dev_dbg(xpc_chan, "ch->func() returned, reason=xpcConnected, "
+ 			"partid=%d, channel=%d\n", ch->partid, ch->number);
+ 	}
+-
+-	spin_lock_irqsave(&ch->lock, irq_flags);
+-	ch->flags |= XPC_C_CONNECTCALLOUT;
+-	spin_unlock_irqrestore(&ch->lock, irq_flags);
+ }
+ 
+ 
