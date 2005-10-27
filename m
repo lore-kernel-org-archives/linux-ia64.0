@@ -1,7 +1,7 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Wed, 26 Oct 2005 23:21:32 +0000
-Subject: RE: [PATCH] kexec on ia64
-Message-Id: <1130368892.17266.24.camel@linux-znh>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 27 Oct 2005 07:10:58 +0000
+Subject: Re: [PATCH] kexec on ia64
+Message-Id: <m1acgvcu4d.fsf@ebiederm.dsl.xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1100550721.26287.32.camel@lyra.fc.hp.com>
 In-Reply-To: <1100550721.26287.32.camel@lyra.fc.hp.com>
@@ -10,118 +10,64 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Khalid,
+"Luck, Tony" <tony.luck@intel.com> writes:
 
-On Thu, 2005-10-27 at 05:49, Khalid Aziz wrote:
-> On Wed, 2005-10-26 at 12:02 -0700, Luck, Tony wrote:
-> > > Cool.  Tony, what are your plans for pushing this to Linus?  Will
-> it make 
-> > > 2.6.15?
-> > 
-> > Nanhai Zou here at Intel expressed a few concerns to me last night
-> > about Khalid's patch.  I'll paste them here to speed discussion
-> about
-> > this (as I expect Nanhai is asleep at the moment, he should be
-> > around to start commenting for himself by 4-5pm Pacific).
-> > 
-> > > I think his patch is still not able to boot an unmodified kernel.
-> > > It appends a kernel parameter to bypass the issue, thus the second
-> kernel need to be modified.
-> > 
-> 
-> True. The only time I use this parameter is to determine whether to
-> virtualize EFI or not. EFI does not respond well to being virtualized
-> once it has been virtualized already. So the kernel needs to know if
-> EFI
-> has already been virtualized by previous kernel. It is possible to
-> pass
-> this information to the next kernel as a command line parameter, as I
-> have done, or in one of the kexec segments. One way or the other,
-> kernel
-> needs to know this. I have not found a way around it. If there is one,
-> I
-> would like to hear about it. That will make enable unmodified kernel
-> to
-> be booted.
-> 
-> > > It also hardcoded initrd logic in kernel patch.
-> 
-> I could not find a better way to pass initrd image to ia64 kernel
-> since
-> it is not placed in a fixed location. Using a fixed kexec segment
-> looked
-> fairly logical to me. Alternative would be to add a type field to
-> struct
-> kexec_segment, then kernel can determine which segment holds initrd
-> image without having to use a fixed kexec segment.
-> 
-> > > Command line is still using old command line.
-> 
-> Please explain.
-> 
-  Sorry, I see how your patch can deal with command line. I missed the
-machine_kexec_prepare part at the first look. However I prefer to put
-command line and initrd logic to kexec tools instead of hack on segment
-index.
+> On Wed, Oct 26, 2005 at 02:25:56PM -0600, Eric W. Biederman wrote:
+>> Interesting.  This should be a decision made by kexec-tools,
+>> not by the kernel.  On x86 the kernel just verifies we load the
+>> crash kernel into the reserved chunk of the address space.  I haven't
+>> looked closely enough to see if the architecture part has fixed
+>> address assumptions yet.  
+>> 
+>> Tony what were you seeing that made you conclude that the code
+>> would always load over the existing kernel?
+>
+> Ok .. kexectools should be able to make a decision about where to load the
+> new kernel based on what it finds in /proc/iomem (and in the Elf header
+> of the new kernel).  I don't know enough Elf (elvish? :-) to know
+> whether the Elf header we currently generate for a kernel describes
+> things in a way that would convey that it is OK to drop the image
+> at any (suitably aligned) address, or whether there will have to be
+> some ia64 specific magic in the kexectools to choose the load address.
 
-> > > No purgatory code support etc.
-> > 
-> > > How, I prefer to put a small and clean patch in kernel while leave
-> most of the things in kexec-tools. 
-> > > That will provide more flexibility.
-> > 
-> > > There are also some other issues I can see, like, 
-> > > 1. icache flusing miss
-> > > 2. rendez code is fake, I prefer to use hotplug API.
-> 
-> That would be preferable, and would be a good enhancement over current
-> code if it can be made to work reliably. I was planning to look into
-> it
-> after initial implementation (I wrote initial implementation before
-> CPU
-> hotplug API was available).
-> 
-> > > 3. Disable PCI master code should be in generic PCI driver code
-> instead of IA64 arch code.
-> 
-> Agreed. This is part of some of the cleanup that can still be done.
-> 
-> > 
-> > Nanhai has his own patches for kexec/kexec-tools, which are
-> > stuck in some Intel bureaucracy at the moment ...  I'm trying
-> > to get them unstuck so that we can get some meaningful
-> > commentary from the community about both versions.
-> > 
-> > My biggest issue with both patches at the moment is that I
-> > can't see how either of them can be extended to be useful
-> > for use in crash-dump case without some significant surgery.
-> > Both of them over-write the existing kernel with the new one,
-> > which is a big problem when you'd like to dump the data space
-> > of the old kernel.  Ia64 is quite happy to run a kernel loaded
-> > at any suitably aligned address ... so why not load the new
-> > kernel in some different location from the old kernel?
-> > 
-> > Including this in 2.6.15?  It's possible, but it's looking like
-> > this might be a rush.  Assuming Linus releases 2.6.14 by the
-> > end of this week, we only have a couple of weeks to check that
-> > this runs on all of the weird configurations.  I'd need to see
-> > a lot of "tested on xxx-config ... no problems" e-mail to get
-> > confidence in this.
-> > 
-> > -Tony
-> 
-> -- 
-> Khalid
-> 
-	
-	As Tony said, I have my kexec and kexec-tools patches
-solved those issues. It can boots any unmodified kernel. But they are
-pending at Intel bureaucracy.
+I don't think ld can be talked into setting ET_REL instead ET_EXEC right
+now, without building as a shared library.  (readelf -a on the kernel
+will tell you) but since that is a general problem it is likely worth
+an extra flag to /sbin/kexec to tell it to assume an ELF executable is
+relocatable even if it doesn't say ET_REL.
 
-Hope I can send out them to community for comments soon.
+>> I also didn't see the trivial patch to put the 32bit compat support
+>> in.  It's not terribly important or useful but there is no reason
+>> not to include it.
+>
+> Usefullness is a key here.  The kexectools definitely include some
+> architecture specific components.  So taking the x86 version of the
+> "kexec" binary onto an ia64 system isn't going to be very useful even
+> if the kernel did happen to have an ia32 entry point for kexec
+> enabled.  Building an ia32 binary, but with all the ia64 specific
+> parts enabled would seem to be _challenging_ (Nanhai's version has
+> purgatory/arch/ia64/entry.S!).  Perhaps there might be a better outlet
+> for that much creativity? [Which is another way of saying that I'm
+> not interested in seeing a patch to enable the ia32 kexec entry point
+> on ia64 ... so don't waste any time creating one].
 
-Thanks
-Zou Nan hai
+I know of at least one application that before it flashes your rom
+chip checks to see if you have kexec in your kernel.  And it does
+that by calling sys_kexec and seeing if it gets -EINVAL instead
+of -ENOSYS.  At least with kexec present it knows that if something
+terribly goes wrong it has the chance to load another kernel, in the
+event the mtd drivers in the kernel don't handle some subtle hardware
+bug.  That application can safely be distributed as a 32bit binary
+on i386, x86_64, and ia64.
 
+I'm not quite certain what the build issues that would be involved
+but it wouldn't surprise one of the architectures that normally run
+a 32bit user space with a 64bit kernel happened to solve the issue.
+So I only expect to use the code that comes pretty much for free.
 
+The kernel side of the implementation already exists and I suspect
+it is as useful as any other ia32 compat syscall entry point on the 
+ia64 kernel.  I care as this is a completeness issue and I don't
+see a reason not to enable the kernel side.
 
+Eric
