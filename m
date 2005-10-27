@@ -1,7 +1,7 @@
-From: Khalid Aziz <khalid_aziz@hp.com>
-Date: Thu, 27 Oct 2005 19:05:50 +0000
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Thu, 27 Oct 2005 23:17:33 +0000
 Subject: RE: [PATCH] kexec on ia64
-Message-Id: <1130439950.25351.17.camel@lyra.fc.hp.com>
+Message-Id: <1130455053.17266.30.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1100550721.26287.32.camel@lyra.fc.hp.com>
 In-Reply-To: <1100550721.26287.32.camel@lyra.fc.hp.com>
@@ -10,23 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2005-10-27 at 07:21 +0800, Zou Nan hai wrote:
-> 	
-> 	As Tony said, I have my kexec and kexec-tools patches
-> solved those issues. It can boots any unmodified kernel. But they are
-> pending at Intel bureaucracy.
+On Fri, 2005-10-28 at 03:05, Khalid Aziz wrote:
+> On Thu, 2005-10-27 at 07:21 +0800, Zou Nan hai wrote:
+> > 	
+> > 	As Tony said, I have my kexec and kexec-tools patches
+> > solved those issues. It can boots any unmodified kernel. But they are
+> > pending at Intel bureaucracy.
+> 
+> Can you give us some idea of how you got around the EFI virtualization
+> issue?
 
-Can you give us some idea of how you got around the EFI virtualization
-issue?
+ I patched the EFI bootparam pointer in purgatory code to an empty dummy
+function.
 
--- 
-Khalid
-
-==================================
-Khalid Aziz                       Open Source and Linux Organization
-(970)898-9214                                        Hewlett-Packard
-khalid.aziz@hp.com                                  Fort Collins, CO
-
-"The Linux kernel is subject to relentless development" 
-                                - Alessandro Rubini
+ Zou Nan hai
 
