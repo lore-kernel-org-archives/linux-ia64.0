@@ -1,35 +1,33 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 31 Oct 2005 18:03:33 +0000
-Subject: RE: ia64 get_mmu_context patch - v2
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04D0179A@scsmsx401.amr.corp.intel.com>
+From: Roy Dragseth <Roy.Dragseth@cc.uit.no>
+Date: Fri, 28 Oct 2005 11:18:51 +0000
+Subject: Probing for physical number of cpus.
+Message-Id: <200510281318.51532.Roy.Dragseth@cc.uit.no>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200510300133.j9U1Xwg10988@unix-os.sc.intel.com>
-In-Reply-To: <200510300133.j9U1Xwg10988@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-> Glad to see the range limit is back in.
->
->As for the printk I can remove it. 
->Do I put out a patch on top of yours?
->Not sure what the protocol is here, first time.
+Hi.
 
-Can you roll your patch and Ken's fixes into just one
-patch (just Ken's code change patch ... not the code
-layout patch that makes it all 80-column friendly).
+Do anyone know how to figure out the physical number of cpus in an ia64=20
+system?  No, /proc/cpuinfo wont do because the kernel is booted with=20
+maxcpus=3D1.
 
-Re-submit the rolled up patch to the list:
+When installing RH EL the install kernel is booted with maxcpus=3D1 and I n=
+eed=20
+to figure out the physical number of cpus in the system for later use in th=
+e=20
+software setup.  I need to be able to get this from userspace.
 
-1) With a "Signed-off-by" line (your orginal patch
-submission is missing one of these).
+Any hints is greatly appreciated.
 
-2) With an updated description of how the new version
-of the patch fixes the problem (high level summary, don't
-put too much detail here ... it's what I'll include as
-the changeset commentary).
+Regards,
+r.
 
-3) Don't forget to credit Ken and Rohit for their changes.
+--=20
 
--Tony
+  The Computer Center, University of Troms=F8, N-9037 TROMS=D8 Norway.
+	      phone:+47 77 64 41 07, fax:+47 77 64 41 00
+     Roy Dragseth, High Performance Computing System Administrator
+	 Direct call: +47 77 64 62 56. email: royd@cc.uit.no
