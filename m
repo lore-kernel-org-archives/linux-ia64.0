@@ -1,153 +1,279 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 28 Oct 2005 07:29:43 +0000
-Subject: Announce: kdb v4.4 is available for kernel 2.6.14
-Message-Id: <5859.1130484583@kao2.melbourne.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Fri, 28 Oct 2005 20:02:56 +0000
+Subject: [Patch 1/1] 4-level page tables.
+Message-Id: <20051028200256.GA11692@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12956.1085377697@kao2.melbourne.sgi.com>
-In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kdb@oss.sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+This patch introduces 4-level page tables to ia64.  I have run
+some benchmarks and found nothing interesting.  Performance has
+consistently fallen within the noise range.  I have not done any
+benchmarks that specifically target page table insertion/deletion
+speeds.  This has run under heavy stress loads overnight.
 
-KDB (Linux Kernel Debugger) has been updated for kernel 2.6.14.
-
-ftp://oss.sgi.com/projects/kdb/download/v4.4/
-ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
-
-Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
-subscriber only.  If you reply to this mail, you may wish to trim
-kdb@oss.sgi.com from the cc: list.
-
-Current versions are :-
-
-  kdb-v4.4-2.6.14-common-1.bz2
-  kdb-v4.4-2.6.14-i386-1.bz2
-  kdb-v4.4-2.6.14-ia64-1.bz2
-
-The register display (rd, r) and register modify (rm) commands now work
-for tasks that were running when MCA/INIT was delivered.
-
-There is a small change in the behaviour of rd/rm after you use the
-pid, btt, btp and btc commands.  I recommend that you read the rd and
-bt man pages in Documentation/kdb, pay attention to KDB's notion of the
-"current task" when working with registers.
-
-Changelog extract since kdb-v4.4-2.6.13-common-1.
-
-2005-10-28 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-common-1.
-
-2005-10-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc5-common-1.
-
-2005-10-11 Keith Owens  <kaos@sgi.com>
-
-	* Handle removal of USB keyboard.  Aaron Young, SGI.
-	* kdb v4.4-2.6.14-rc4-common-1.
-
-2005-10-05 Keith Owens  <kaos@sgi.com>
-
-	* Extend kdb_notifier_list() codes to include dumping.
-	* Use emergency_restart() for reboot, it can be called from interrupt
-	  context, unlike machine_restart().
-	* kdb v4.4-2.6.14-rc3-common-1.
-
-2005-09-21 Keith Owens  <kaos@sgi.com>
-
-	* Support kdb_current_task in register display and modify commands.
-	* Document what changes kdb's notion of the current task.
-	* Update rd documentation for IA64.
-	* Move some definictions to kdbprivate.h and remove some unused symbol
-	  exports.
-	* kdb v4.4-2.6.14-rc2-common-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Document IA64 handlers command.
-	* Add more fields to the task command.
-	* Cope with MCA/INIT handlers in the ps command.
-	* Namespace cleanup, delete unused exports, make some functions static.
-	* Add a kdb_notifier_list callback when kdb is about to reboot the
-	  system.
-	* kdb v4.4-2.6.14-rc1-common-1.
+Signed-off-by: Robin Holt <holt@sgi.com>
 
 
-Changelog extract since kdb-v4.4-2.6.13-i386-1.
-
-2005-10-28 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-i386-1.
-
-2005-10-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc5-i386-1.
-
-2005-10-11 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc4-i386-1.
-
-2005-10-04 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc3-i386-1.
-
-2005-09-21 Keith Owens  <kaos@sgi.com>
-
-	* Support kdb_current_task in register display and modify commands.
-	* kdb v4.4-2.6.14-rc2-i386-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Remove use of __STDC_VERSION__ in ansidecl.h.
-	* kdb v4.4-2.6.14-rc1-i386-1.
-
-
-Changelog extract since kdb v4.4-2.6.13-ia64-1.
-
-2005-10-28 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-ia64-1.
-
-2005-10-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc5-ia64-1.
-
-2005-10-11 Keith Owens  <kaos@sgi.com>
-
-	* Handle removal of USB keyboard.  Aaron Young, SGI
-	* kdb v4.4-2.6.14-rc4-ia64-1.
-
-2005-10-04 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.14-rc3-ia64-1.
-
-2005-09-21 Keith Owens  <kaos@sgi.com>
-
-	* Support kdb_current_task in register display and modify commands.
-	* kdb v4.4-2.6.14-rc2-ia64-1.
-
-2005-09-20 Keith Owens  <kaos@sgi.com>
-
-	* Coexist with kprobes.
-	* Coexist with MCA/INIT rewrite.
-	* Add KDB_ENTER_SLAVE to handle concurrent entry to kdb from multiple
-	  cpus.
-	* Add handlers command to control whether the MCA/INIT task or the
-	  original task is displayed.
-	* Namespace clean up, remove unused kdba_sw_interrupt.
-	* kdb v4.4-2.6.14-rc1-ia64-1.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQFDYdNni4UHNye0ZOoRAjsBAJ9c65ND3qM321G48CD/rl8Py5+h7ACfdc28
-r4niIGhux3YL7d6Blqv7RBA=vEhG
------END PGP SIGNATURE-----
-
+Index: linux-2.6/include/asm-ia64/pgtable.h
+=================================--- linux-2.6.orig/include/asm-ia64/pgtable.h	2005-10-28 14:57:15.304395638 -0500
++++ linux-2.6/include/asm-ia64/pgtable.h	2005-10-28 14:59:53.296378977 -0500
+@@ -84,32 +84,48 @@
+ #define __DIRTY_BITS		_PAGE_ED | __DIRTY_BITS_NO_ED
+ 
+ /*
+- * Definitions for first level:
+- *
+- * PGDIR_SHIFT determines what a first-level page table entry can map.
++ * How many pointers will a page table level hold expressed in shift
+  */
+-#define PGDIR_SHIFT		(PAGE_SHIFT + 2*(PAGE_SHIFT-3))
+-#define PGDIR_SIZE		(__IA64_UL(1) << PGDIR_SHIFT)
+-#define PGDIR_MASK		(~(PGDIR_SIZE-1))
+-#define PTRS_PER_PGD		(1UL << (PAGE_SHIFT-3))
+-#define USER_PTRS_PER_PGD	(5*PTRS_PER_PGD/8)	/* regions 0-4 are user regions */
+-#define FIRST_USER_ADDRESS	0
++#define PTRS_PER_PTD_SHIFT	(PAGE_SHIFT-3)
+ 
+ /*
+- * Definitions for second level:
++ * Definitions for fourth level:
++ */
++#define PTRS_PER_PTE	(__IA64_UL(1) << (PTRS_PER_PTD_SHIFT))
++
++/*
++ * Definitions for third level:
+  *
+- * PMD_SHIFT determines the size of the area a second-level page table
++ * PMD_SHIFT determines the size of the area a third-level page table
+  * can map.
+  */
+-#define PMD_SHIFT	(PAGE_SHIFT + (PAGE_SHIFT-3))
++#define PMD_SHIFT	(PAGE_SHIFT + (PTRS_PER_PTD_SHIFT))
+ #define PMD_SIZE	(1UL << PMD_SHIFT)
+ #define PMD_MASK	(~(PMD_SIZE-1))
+-#define PTRS_PER_PMD	(1UL << (PAGE_SHIFT-3))
++#define PTRS_PER_PMD	(1UL << (PTRS_PER_PTD_SHIFT))
+ 
+ /*
+- * Definitions for third level:
++ * Definitions for second level:
++ *
++ * PUD_SHIFT determines the size of the area a second-level page table
++ * can map.
+  */
+-#define PTRS_PER_PTE	(__IA64_UL(1) << (PAGE_SHIFT-3))
++#define PUD_SHIFT	(PMD_SHIFT + (PTRS_PER_PTD_SHIFT))
++#define PUD_SIZE	(1UL << PUD_SHIFT)
++#define PUD_MASK	(~(PUD_SIZE-1))
++#define PTRS_PER_PUD	(1UL << (PTRS_PER_PTD_SHIFT))
++
++/*
++ * Definitions for first level:
++ *
++ * PGDIR_SHIFT determines what a first-level page table entry can map.
++ */
++#define PGDIR_SHIFT		(PUD_SHIFT + (PTRS_PER_PTD_SHIFT))
++#define PGDIR_SIZE		(__IA64_UL(1) << PGDIR_SHIFT)
++#define PGDIR_MASK		(~(PGDIR_SIZE-1))
++#define PTRS_PER_PGD		(1UL << (PTRS_PER_PTD_SHIFT))
++#define USER_PTRS_PER_PGD	(5*PTRS_PER_PGD/8)	/* regions 0-4 are user regions */
++#define FIRST_USER_ADDRESS	0
+ 
+ /*
+  * All the normal masks have the "page accessed" bits on, as any time
+@@ -160,6 +176,7 @@
+ #define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
+ 
+ #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
++#define pud_ERROR(e)	printk("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
+ #define pmd_ERROR(e)	printk("%s:%d: bad pmd %016lx.\n", __FILE__, __LINE__, pmd_val(e))
+ #define pte_ERROR(e)	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
+ 
+@@ -217,6 +234,8 @@ ia64_phys_addr_valid (unsigned long addr
+ #define	kc_vaddr_to_offset(v) ((v) - RGN_BASE(RGN_GATE))
+ #define	kc_offset_to_vaddr(o) ((o) + RGN_BASE(RGN_GATE))
+ 
++#define RGN_MAP_LIMIT	((1UL << (PGDIR_SHIFT + PTRS_PER_PTD_SHIFT - 3)) - PAGE_SIZE)	/* per region addr limit */
++
+ /*
+  * Conversion functions: convert page frame number (pfn) and a protection value to a page
+  * table entry (pte).
+@@ -256,9 +275,14 @@ ia64_phys_addr_valid (unsigned long addr
+ #define pud_bad(pud)			(!ia64_phys_addr_valid(pud_val(pud)))
+ #define pud_present(pud)		(pud_val(pud) != 0UL)
+ #define pud_clear(pudp)			(pud_val(*(pudp)) = 0UL)
+-
+ #define pud_page(pud)			((unsigned long) __va(pud_val(pud) & _PFN_MASK))
+ 
++#define pgd_none(pgd)			(!pgd_val(pgd))
++#define pgd_bad(pgd)			(!ia64_phys_addr_valid(pgd_val(pgd)))
++#define pgd_present(pgd)		(pgd_val(pgd) != 0UL)
++#define pgd_clear(pgdp)			(pgd_val(*(pgdp)) = 0UL)
++#define pgd_page(pgd)			((unsigned long) __va(pgd_val(pgd) & _PFN_MASK))
++
+ /*
+  * The following have defined behavior only work if pte_present() is true.
+  */
+@@ -327,6 +351,10 @@ pgd_offset (struct mm_struct *mm, unsign
+ #define pgd_offset_gate(mm, addr)	pgd_offset_k(addr)
+ 
+ /* Find an entry in the second-level page table.. */
++#define pud_offset(dir,addr) \
++	((pud_t *) pgd_page(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
++
++/* Find an entry in the third-level page table.. */
+ #define pmd_offset(dir,addr) \
+ 	((pmd_t *) pud_page(*(dir)) + (((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1)))
+ 
+@@ -559,7 +587,6 @@ do {											\
+ #define __HAVE_ARCH_PGD_OFFSET_GATE
+ #define __HAVE_ARCH_LAZY_MMU_PROT_UPDATE
+ 
+-#include <asm-generic/pgtable-nopud.h>
+ #include <asm-generic/pgtable.h>
+ 
+ #endif /* _ASM_IA64_PGTABLE_H */
+Index: linux-2.6/include/asm-ia64/pgalloc.h
+=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-10-28 14:57:15.304395638 -0500
++++ linux-2.6/include/asm-ia64/pgalloc.h	2005-10-28 14:59:53.297355442 -0500
+@@ -87,6 +87,23 @@ static inline void pgd_free(pgd_t * pgd)
+ }
+ 
+ static inline void
++pgd_populate(struct mm_struct *mm, pgd_t * pgd_entry, pud_t * pud)
++{
++	pgd_val(*pgd_entry) = __pa(pud);
++}
++
++static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
++{
++	return pgtable_quicklist_alloc();
++}
++
++static inline void pud_free(pud_t * pud)
++{
++	pgtable_quicklist_free(pud);
++}
++#define __pud_free_tlb(tlb, pud)	pud_free(pud)
++
++static inline void
+ pud_populate(struct mm_struct *mm, pud_t * pud_entry, pmd_t * pmd)
+ {
+ 	pud_val(*pud_entry) = __pa(pmd);
+Index: linux-2.6/include/asm-ia64/page.h
+=================================--- linux-2.6.orig/include/asm-ia64/page.h	2005-10-28 14:57:15.304395638 -0500
++++ linux-2.6/include/asm-ia64/page.h	2005-10-28 14:59:53.297355442 -0500
+@@ -47,8 +47,6 @@
+ #define PERCPU_PAGE_SHIFT	16	/* log2() of max. size of per-CPU area */
+ #define PERCPU_PAGE_SIZE	(__IA64_UL_CONST(1) << PERCPU_PAGE_SHIFT)
+ 
+-#define RGN_MAP_LIMIT	((1UL << (4*PAGE_SHIFT - 12)) - PAGE_SIZE)	/* per region addr limit */
+-
+ 
+ #ifdef CONFIG_HUGETLB_PAGE
+ # define HPAGE_REGION_BASE	RGN_BASE(RGN_HPAGE)
+@@ -174,11 +172,13 @@ get_order (unsigned long size)
+    */
+   typedef struct { unsigned long pte; } pte_t;
+   typedef struct { unsigned long pmd; } pmd_t;
++  typedef struct { unsigned long pud; } pud_t;
+   typedef struct { unsigned long pgd; } pgd_t;
+   typedef struct { unsigned long pgprot; } pgprot_t;
+ 
+ # define pte_val(x)	((x).pte)
+ # define pmd_val(x)	((x).pmd)
++# define pud_val(x)	((x).pud)
+ # define pgd_val(x)	((x).pgd)
+ # define pgprot_val(x)	((x).pgprot)
+ 
+Index: linux-2.6/arch/ia64/kernel/ivt.S
+=================================--- linux-2.6.orig/arch/ia64/kernel/ivt.S	2005-10-28 14:57:15.325877860 -0500
++++ linux-2.6/arch/ia64/kernel/ivt.S	2005-10-28 14:59:53.300284836 -0500
+@@ -140,20 +140,26 @@ ENTRY(vhpt_miss)
+ (p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
+ (p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
+ 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
+-	shr.u r18=r22,PMD_SHIFT			// shift L2 index into position
++	shr.u r28=r22,PUD_SHIFT			// shift L2 index into position
+ 	;;
+ 	ld8 r17=[r17]				// fetch the L1 entry (may be 0)
+ 	;;
+ (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
+-	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
++	dep r28=r28,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
+ 	;;
+-(p7)	ld8 r20=[r17]				// fetch the L2 entry (may be 0)
+-	shr.u r19=r22,PAGE_SHIFT		// shift L3 index into position
++	shr.u r20=r22,PMD_SHIFT			// shift L3 index into position
++(p7)	ld8 r29=[r28]				// fetch the L2 entry (may be 0)
+ 	;;
+-(p7)	cmp.eq.or.andcm p6,p7=r20,r0		// was L2 entry NULL?
+-	dep r21=r19,r20,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
++(p7)	cmp.eq.or.andcm p6,p7=r29,r0		// was L2 entry NULL?
++	dep r17=r20,r29,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
+ 	;;
+-(p7)	ld8 r18=[r21]				// read the L3 PTE
++	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
++(p7)	ld8 r20=[r17]				// fetch the L3 entry (may be 0)
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=r20,r0		// was L3 entry NULL?
++	dep r21=r19,r20,3,(PAGE_SHIFT-3)	// compute address of L4 page table entry
++	;;
++(p7)	ld8 r18=[r21]				// read the L4 PTE
+ 	mov r19=cr.isr				// cr.isr bit 0 tells us if this is an insn miss
+ 	;;
+ (p7)	tbit.z p6,p7=r18,_PAGE_P_BIT		// page present bit cleared?
+@@ -192,14 +198,17 @@ ENTRY(vhpt_miss)
+ 	 * between reading the pagetable and the "itc".  If so, flush the entry we
+ 	 * inserted and retry.
+ 	 */
+-	ld8 r25=[r21]				// read L3 PTE again
+-	ld8 r26=[r17]				// read L2 entry again
++	ld8 r25=[r21]				// read L4 PTE again
++	ld8 r26=[r17]				// read L3 entry again
++	ld8 r30=[r28]				// read L2 entry again
+ 	;;
+-	cmp.ne p6,p7=r26,r20			// did L2 entry change
++	cmp.ne p6,p7=r30,r29			// did L2 entry change
+ 	mov r27=PAGE_SHIFT<<2
+ 	;;
++(p7)	cmp.ne.or.andcm p6,p7=r26,r20		// did L3 entry change
++	;;
+ (p6)	ptc.l r22,r27				// purge PTE page translation
+-(p7)	cmp.ne.or.andcm p6,p7=r25,r18		// did L3 PTE change
++(p7)	cmp.ne.or.andcm p6,p7=r25,r18		// did L4 PTE change
+ 	;;
+ (p6)	ptc.l r16,r27				// purge translation
+ #endif
+@@ -432,18 +441,24 @@ ENTRY(nested_dtlb_miss)
+ (p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
+ (p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
+ 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
+-	shr.u r18=r22,PMD_SHIFT			// shift L2 index into position
++	shr.u r19=r22,PUD_SHIFT			// shift L2 index into position
+ 	;;
+ 	ld8 r17=[r17]				// fetch the L1 entry (may be 0)
++	shr.u r18=r22,PMD_SHIFT			// shift L3 index into position
+ 	;;
+ (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
+-	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
++	dep r17=r19,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
+ 	;;
+ (p7)	ld8 r17=[r17]				// fetch the L2 entry (may be 0)
+-	shr.u r19=r22,PAGE_SHIFT		// shift L3 index into position
++	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
+ 	;;
+ (p7)	cmp.eq.or.andcm p6,p7=r17,r0		// was L2 entry NULL?
+-	dep r17=r19,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
++	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
++	;;
++(p7)	ld8 r17=[r17]				// fetch the L3 entry (may be 0)
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=r17,r0		// was L3 entry NULL?
++	dep r17=r19,r17,3,(PAGE_SHIFT-3)	// compute address of L4 page table entry
+ (p6)	br.cond.spnt page_fault
+ 	mov b0=r30
+ 	br.sptk.many b0				// return to continuation point
