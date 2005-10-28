@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 28 Oct 2005 11:19:29 +0000
-Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <20051028111929.GA28317@lnx-holt.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 28 Oct 2005 23:23:27 +0000
+Subject: RE: [RFC] 4-level page table directories.
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04D00FCF@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,28 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Oct 28, 2005 at 03:19:57PM +1000, Ian Wienand wrote:
-> On Wed, Oct 26, 2005 at 11:17:09PM -0500, Robin Holt wrote:
-> > I have started to work on 4-level page tables.  This boots.  I
-> > make no further claims than that.
-> 
-> Do you need 4 level page tables for something?  I seem to remember it
-> coming up before too, I'd certainly be interested in seeing any
-> numbers you have.
+> At one point, I discussed 4-level page tables on the ia64 mailing
+> list but did not find that discussion in my quick search from
+> marc.
 
-We have an mpi library which makes memory available for multiple
-processors.  We have squezzed as hard as we can to reduce the size of
-that block.  Right now, the most processors we can service hits about
-3192 (IIRC) which is more than enough for current hardware (limits to
-2048 cpus).  In the next version of our hardware due out next spring,
-that limit is raised to 16384 (IIRC).  To make the library work with
-that size, we need to be able to mmap a larger region.
+IIRC the previous discussion foundered on the general usefulness
+of 4-level page tables.  3-level table with a 16K page size provide
+a virtual address space that is plenty big enough for the majority
+of users (640K should be enough for anyone, so 128T is just over the
+top :-).  So 4-level tables are definitely targetted at a small niche.
 
-Unfortunately, we still want this to work with SUSE and RHEL
-distributions.  Those distributors strongly favor a 16k page size.
-To be able to use their standard kernel, we need to either convince the
-entire community that 64k pages is right or we need to implement 4-level
-page tables.
+Making this a config option would be one approach ... but would
+almost certainly leave you in the same predicament with the OSDs
+that you are in now (if they won't ship a 64K pagesize configured
+kernel, I doubt that they will jump for joy about a 4-level page
+table config).
 
-Thanks,
-Robin
+Run-time switching between 3-level and 4-level would quite possibly
+have even more overhead than just running a 4-level table.
+
+Thanks for supplying the kernbench numbers on this.  I'll see
+if I can get Ken interested in running his favorite online
+transaction processing benchmark on a 4-level kernel to see
+what happens to it.
+
+The worst-case loser from this might be a benchmark that runs
+oodles of small processes (partly from the overhead of the extra
+page, and partly because I suspect that fork/exec/exit might see
+the most impact).  So I'd like to see some AIM7 numbers too.
+
+But overall ... it looks likely that the only possible direction
+for the benchmarks is towards worse performance.  Maybe it is a
+small to insignificant amount, but there doesn't appear to be
+any upside (performance-wise).
+
+Your other potential hope would be long format VHPT.  At least
+that has some usage models where performance is better.
+
+-Tony
