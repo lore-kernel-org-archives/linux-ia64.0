@@ -1,54 +1,153 @@
-From: Cliff Wickman <cpw@sgi.com>
-Date: Thu, 27 Oct 2005 20:18:50 +0000
-Subject: Re: [PATCH 1/2] ia64: ptrace - find memory sharers on children list
-Message-Id: <20051027201850.GA25930@sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 28 Oct 2005 07:29:43 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.14
+Message-Id: <5859.1130484583@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4360F244.mailxI4A11KHTU@eag09.americas.sgi.com>
-In-Reply-To: <4360F244.mailxI4A11KHTU@eag09.americas.sgi.com>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, Oct 27, 2005 at 11:03:46AM -0700, Luck, Tony wrote:
-> >The ptrace caller (presumably a debugger) specifies the pid of
-> >its target and an address to peek or poke.  But the debugger could be
-> >attached to several tasks.
-> 
-> Perhaps I'm being overly dense here (I haven't ever tried to
-> debug a multi-threaded application) ... but how can this situation
-> happen?  Since ptrace takes a "pid" argument, I'd expect that any
-> activities performed by the kernel in response to that ptrace call
-> would be restricted to just the process that was mentioned.  Searching
-> off through other processes to see if any of them have the data
-> just sounds wrong.  Why can't the debugger keep track of which
-> process is which and give the right "pid" to the ptrace call?
-> 
-> -Tony
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-These are the comments from arch/ia64/kernel/ptrace.c:
-  /*
-   * GDB apparently wants to be able to read the register-backing store of
-   * any thread when attached to a given process.  If we are peeking or
-   * poking an address that happens to reside in the kernel-backing store
-   * of another thread, we need to attach to that thread, because otherwise
-   * we end up accessing stale data.
- 
-In other words (as I understand it) the specified pid is some member of
-the multitasked application and represents the whole application.  I agree
-that it would be nice if the debugger passed us the pid of the specific
-task whose register image it wants to peek or poke.  But apparently it is
-not constrained by such a rule.
+KDB (Linux Kernel Debugger) has been updated for kernel 2.6.14.
 
-If we are peeking at some task's register backing storage we must be
-sure that that task is inactive and its registers stored to memory or else
-we get a register image that is not current.  find_thread_for_addr() is
-called to find that task.
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
 
--Cliff
+Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
+subscriber only.  If you reply to this mail, you may wish to trim
+kdb@oss.sgi.com from the cc: list.
 
--- 
-Cliff Wickman
-Silicon Graphics, Inc.
-cpw@sgi.com
-(651) 683-3824
+Current versions are :-
+
+  kdb-v4.4-2.6.14-common-1.bz2
+  kdb-v4.4-2.6.14-i386-1.bz2
+  kdb-v4.4-2.6.14-ia64-1.bz2
+
+The register display (rd, r) and register modify (rm) commands now work
+for tasks that were running when MCA/INIT was delivered.
+
+There is a small change in the behaviour of rd/rm after you use the
+pid, btt, btp and btc commands.  I recommend that you read the rd and
+bt man pages in Documentation/kdb, pay attention to KDB's notion of the
+"current task" when working with registers.
+
+Changelog extract since kdb-v4.4-2.6.13-common-1.
+
+2005-10-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-common-1.
+
+2005-10-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc5-common-1.
+
+2005-10-11 Keith Owens  <kaos@sgi.com>
+
+	* Handle removal of USB keyboard.  Aaron Young, SGI.
+	* kdb v4.4-2.6.14-rc4-common-1.
+
+2005-10-05 Keith Owens  <kaos@sgi.com>
+
+	* Extend kdb_notifier_list() codes to include dumping.
+	* Use emergency_restart() for reboot, it can be called from interrupt
+	  context, unlike machine_restart().
+	* kdb v4.4-2.6.14-rc3-common-1.
+
+2005-09-21 Keith Owens  <kaos@sgi.com>
+
+	* Support kdb_current_task in register display and modify commands.
+	* Document what changes kdb's notion of the current task.
+	* Update rd documentation for IA64.
+	* Move some definictions to kdbprivate.h and remove some unused symbol
+	  exports.
+	* kdb v4.4-2.6.14-rc2-common-1.
+
+2005-09-20 Keith Owens  <kaos@sgi.com>
+
+	* Document IA64 handlers command.
+	* Add more fields to the task command.
+	* Cope with MCA/INIT handlers in the ps command.
+	* Namespace cleanup, delete unused exports, make some functions static.
+	* Add a kdb_notifier_list callback when kdb is about to reboot the
+	  system.
+	* kdb v4.4-2.6.14-rc1-common-1.
+
+
+Changelog extract since kdb-v4.4-2.6.13-i386-1.
+
+2005-10-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-i386-1.
+
+2005-10-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc5-i386-1.
+
+2005-10-11 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc4-i386-1.
+
+2005-10-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc3-i386-1.
+
+2005-09-21 Keith Owens  <kaos@sgi.com>
+
+	* Support kdb_current_task in register display and modify commands.
+	* kdb v4.4-2.6.14-rc2-i386-1.
+
+2005-09-20 Keith Owens  <kaos@sgi.com>
+
+	* Remove use of __STDC_VERSION__ in ansidecl.h.
+	* kdb v4.4-2.6.14-rc1-i386-1.
+
+
+Changelog extract since kdb v4.4-2.6.13-ia64-1.
+
+2005-10-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-ia64-1.
+
+2005-10-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc5-ia64-1.
+
+2005-10-11 Keith Owens  <kaos@sgi.com>
+
+	* Handle removal of USB keyboard.  Aaron Young, SGI
+	* kdb v4.4-2.6.14-rc4-ia64-1.
+
+2005-10-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.14-rc3-ia64-1.
+
+2005-09-21 Keith Owens  <kaos@sgi.com>
+
+	* Support kdb_current_task in register display and modify commands.
+	* kdb v4.4-2.6.14-rc2-ia64-1.
+
+2005-09-20 Keith Owens  <kaos@sgi.com>
+
+	* Coexist with kprobes.
+	* Coexist with MCA/INIT rewrite.
+	* Add KDB_ENTER_SLAVE to handle concurrent entry to kdb from multiple
+	  cpus.
+	* Add handlers command to control whether the MCA/INIT task or the
+	  original task is displayed.
+	* Namespace clean up, remove unused kdba_sw_interrupt.
+	* kdb v4.4-2.6.14-rc1-ia64-1.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFDYdNni4UHNye0ZOoRAjsBAJ9c65ND3qM321G48CD/rl8Py5+h7ACfdc28
+r4niIGhux3YL7d6Blqv7RBA=vEhG
+-----END PGP SIGNATURE-----
+
