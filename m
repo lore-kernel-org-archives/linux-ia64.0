@@ -1,33 +1,28 @@
-From: Roy Dragseth <Roy.Dragseth@cc.uit.no>
-Date: Fri, 28 Oct 2005 11:18:51 +0000
-Subject: Probing for physical number of cpus.
-Message-Id: <200510281318.51532.Roy.Dragseth@cc.uit.no>
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 28 Oct 2005 12:43:50 +0000
+Subject: Re: Probing for physical number of cpus.
+Message-Id: <jeek65n75l.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200510281318.51532.Roy.Dragseth@cc.uit.no>
+In-Reply-To: <200510281318.51532.Roy.Dragseth@cc.uit.no>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi.
+Roy Dragseth <Roy.Dragseth@cc.uit.no> writes:
 
-Do anyone know how to figure out the physical number of cpus in an ia64=20
-system?  No, /proc/cpuinfo wont do because the kernel is booted with=20
-maxcpus=3D1.
+> Do anyone know how to figure out the physical number of cpus in an ia64=20
+> system?  No, /proc/cpuinfo wont do because the kernel is booted with=20
+> maxcpus=3D1.
 
-When installing RH EL the install kernel is booted with maxcpus=3D1 and I n=
-eed=20
-to figure out the physical number of cpus in the system for later use in th=
-e=20
-software setup.  I need to be able to get this from userspace.
+Read and parse the ACPI tables off of /dev/mem, starting with the address
+from /sys/firmware/efi/systab.
 
-Any hints is greatly appreciated.
-
-Regards,
-r.
+Andreas.
 
 --=20
-
-  The Computer Center, University of Troms=F8, N-9037 TROMS=D8 Norway.
-	      phone:+47 77 64 41 07, fax:+47 77 64 41 00
-     Roy Dragseth, High Performance Computing System Administrator
-	 Direct call: +47 77 64 62 56. email: royd@cc.uit.no
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
