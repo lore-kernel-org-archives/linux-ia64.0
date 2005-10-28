@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 28 Oct 2005 18:06:28 +0000
-Subject: RE:  ia64 get_mmu_context patch
-Message-Id: <200510281806.j9SI6Sg23377@unix-os.sc.intel.com>
+Date: Fri, 28 Oct 2005 18:40:40 +0000
+Subject: RE: ia64 get_mmu_context patch
+Message-Id: <200510281840.j9SIeeg23727@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200510271728.j9RHScS0002221922@kitche.zk3.dec.com>
 In-Reply-To: <200510271728.j9RHScS0002221922@kitche.zk3.dec.com>
@@ -10,88 +10,86 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth W wrote on Thursday, October 27, 2005 8:09 PM
-> Here is the patch, on top of Peter's patch: Add a flush bitmap to
-> track which rid can be recycled when wrap happens.  This optimization
-> allows kernel to only wrap and flush tlb when the entire rid space is
-> exhausted.  It should dramatically reduce number of rid wrap frequency
-> compare to current implementation.
-> 
-> Lightly tested, I will do more thorough testing.  Also, I have a few
-> things want to look at, especially in the area of setting the flushmap
-> bit.  There are a few other areas to fine tune Peter's original patch
-> as well.
-> 
-> --- ./include/asm-ia64/tlbflush.h.orig	2005-10-27 
-> +++ ./include/asm-ia64/tlbflush.h	2005-10-27
-> @@ -51,7 +51,8 @@ flush_tlb_mm (struct mm_struct *mm)
->  	if (!mm)
->  		return;
->  
-> -	clear_bit(mm->context, ia64_ctx.bitmap);
-> +	/* fix me: should we hold ia64_ctx.lock? */
-> +	set_bit(mm->context, ia64_ctx.flushmap);
->  	mm->context = 0;
+I did a crude fork bomb test, then printed out ia64_ctx.next
+ia64_ctx.limit and the diff in wrap_mmu_context().  Here is
+the result:
 
-I convinced myself that I really need a lock here. Otherwise, It will
-have write-after-write race with flushmap and cause ctx_id to leak.
-Spin lock is the wrong kind of lock to use here because it should
-allow concurrent updates between wrap_mmu_context().
+First call resulted expected 2M hole.  Look what happens
+after first wrap.  My worst fear of global tlb flush after
+just one ctx_id allocation is actually happening!  Average
+~ 90,000 ctx_id allocation between flush.  Much smaller
+than advertised 2^21.  This find_next_hole() is horribly
+broken in terms of performance.
+
+- Ken
 
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-
---- ./arch/ia64/mm/tlb.c.orig	2005-10-28 01:13:23.083525760 -0700
-+++ ./arch/ia64/mm/tlb.c	2005-10-28 01:51:13.934083880 -0700
-@@ -35,6 +35,7 @@ static struct {
- 
- struct ia64_ctx ia64_ctx = {
- 	.lock =		SPIN_LOCK_UNLOCKED,
-+	.flushmap_rwlock = RW_LOCK_UNLOCKED,
- 	.next =		1,
- 	.max_ctx =	~0U
- };
-@@ -73,9 +74,12 @@ wrap_mmu_context (struct mm_struct *mm)
- {
- 	int i;
- 
-+	write_lock(&ia64_ctx.flushmap_rwlock);
- 	bitmap_xor(ia64_ctx.bitmap, ia64_ctx.bitmap,
- 		   ia64_ctx.flushmap, ia64_ctx.max_ctx);
- 	bitmap_zero(ia64_ctx.flushmap, ia64_ctx.max_ctx);
-+	write_unlock(&ia64_ctx.flushmap_rwlock);
-+
- 	/* use offset at 300 to skip daemons */
- 	ia64_ctx.next = find_next_zero_bit(ia64_ctx.bitmap,
- 				ia64_ctx.max_ctx, 300);
---- ./include/asm-ia64/mmu_context.h.orig	2005-10-28 01:09:18.186067823 -0700
-+++ ./include/asm-ia64/mmu_context.h	2005-10-28 01:49:44.337405290 -0700
-@@ -31,11 +31,12 @@
- 
- struct ia64_ctx {
- 	spinlock_t lock;
-+	rwlock_t   flushmap_rwlock;
- 	unsigned int next;	/* next context number to use */
- 	unsigned int max_ctx;	/* max. context value supported by all CPUs */
- 				/* next > max_ctx => must call wrap_mmu_context() */
- 	unsigned long *bitmap;	/* bitmap size is max_ctx+1 */
--	unsigned long *flushmap;/* pending rid to be flushed */
-+	unsigned long *flushmap;/* pending ctx id to be flushed */
- };
- 
- extern struct ia64_ctx ia64_ctx;
---- ./include/asm-ia64/tlbflush.h.orig	2005-10-28 01:08:49.198763490 -0700
-+++ ./include/asm-ia64/tlbflush.h	2005-10-28 01:08:57.562044638 -0700
-@@ -52,8 +52,9 @@ flush_tlb_mm (struct mm_struct *mm)
- 	if (!mm)
- 		return;
- 
--	/* fix me: should we hold ia64_ctx.lock? */
--	set_bit(mm->context, ia64_ctx.flushmap);
-+	read_lock(&ia64_ctx.flushmap_rwlock);
-+	set_bit(mm->context, ia64_ctx.flushmap);
-+	read_unlock(&ia64_ctx.flushmap_rwlock);
- 	mm->context = 0;
- 
- 	if (atomic_read(&mm->mm_users) = 0)
+wrap_mmu_context: next = 32767, limit = 2097152 n = 2064385
+wrap_mmu_context: next = 300, limit = 1782 n = 1482
+wrap_mmu_context: next = 1783, limit = 1872 n = 89
+wrap_mmu_context: next = 1873, limit = 1883 n = 10
+wrap_mmu_context: next = 1884, limit = 1921 n = 37
+wrap_mmu_context: next = 1922, limit = 1973 n = 51
+wrap_mmu_context: next = 1974, limit = 1998 n = 24
+wrap_mmu_context: next = 1999, limit = 2055 n = 56
+wrap_mmu_context: next = 2056, limit = 2109 n = 53
+wrap_mmu_context: next = 2110, limit = 2111 n = 1
+wrap_mmu_context: next = 2118, limit = 2124 n = 6
+wrap_mmu_context: next = 2125, limit = 2128 n = 3
+wrap_mmu_context: next = 2129, limit = 140411 n = 138282
+wrap_mmu_context: next = 140412, limit = 518442 n = 378030
+wrap_mmu_context: next = 518443, limit = 520789 n = 2346
+wrap_mmu_context: next = 520790, limit = 980204 n = 459414
+wrap_mmu_context: next = 980205, limit = 1864365 n = 884160
+wrap_mmu_context: next = 1864366, limit = 1864528 n = 162
+wrap_mmu_context: next = 1864529, limit = 2066917 n = 202388
+wrap_mmu_context: next = 2066918, limit = 2097152 n = 30234
+wrap_mmu_context: next = 300, limit = 1782 n = 1482
+wrap_mmu_context: next = 1783, limit = 1872 n = 89
+wrap_mmu_context: next = 1873, limit = 1883 n = 10
+wrap_mmu_context: next = 1884, limit = 1921 n = 37
+wrap_mmu_context: next = 1922, limit = 1973 n = 51
+wrap_mmu_context: next = 1974, limit = 1998 n = 24
+wrap_mmu_context: next = 1999, limit = 2055 n = 56
+wrap_mmu_context: next = 2056, limit = 2109 n = 53
+wrap_mmu_context: next = 2110, limit = 2111 n = 1
+wrap_mmu_context: next = 2118, limit = 2124 n = 6
+wrap_mmu_context: next = 2125, limit = 2128 n = 3
+wrap_mmu_context: next = 2129, limit = 140411 n = 138282
+wrap_mmu_context: next = 140412, limit = 184686 n = 44274
+wrap_mmu_context: next = 184687, limit = 188664 n = 3977
+wrap_mmu_context: next = 188665, limit = 398496 n = 209831
+wrap_mmu_context: next = 398497, limit = 492604 n = 94107
+wrap_mmu_context: next = 492605, limit = 510747 n = 18142
+wrap_mmu_context: next = 510748, limit = 510923 n = 175
+wrap_mmu_context: next = 510924, limit = 518442 n = 7518
+wrap_mmu_context: next = 518443, limit = 520789 n = 2346
+wrap_mmu_context: next = 520790, limit = 980204 n = 459414
+wrap_mmu_context: next = 980205, limit = 1864365 n = 884160
+wrap_mmu_context: next = 1864366, limit = 1864528 n = 162
+wrap_mmu_context: next = 1864529, limit = 2097152 n = 232623
+wrap_mmu_context: next = 300, limit = 1782 n = 1482
+wrap_mmu_context: next = 1783, limit = 1872 n = 89
+wrap_mmu_context: next = 1873, limit = 1883 n = 10
+wrap_mmu_context: next = 1884, limit = 1921 n = 37
+wrap_mmu_context: next = 1922, limit = 1973 n = 51
+wrap_mmu_context: next = 1974, limit = 1998 n = 24
+wrap_mmu_context: next = 1999, limit = 2055 n = 56
+wrap_mmu_context: next = 2056, limit = 2109 n = 53
+wrap_mmu_context: next = 2110, limit = 2111 n = 1
+wrap_mmu_context: next = 2118, limit = 2124 n = 6
+wrap_mmu_context: next = 2125, limit = 2128 n = 3
+wrap_mmu_context: next = 2129, limit = 140411 n = 138282
+wrap_mmu_context: next = 140412, limit = 184686 n = 44274
+wrap_mmu_context: next = 184687, limit = 188664 n = 3977
+wrap_mmu_context: next = 188665, limit = 398496 n = 209831
+wrap_mmu_context: next = 398497, limit = 492604 n = 94107
+wrap_mmu_context: next = 492605, limit = 510747 n = 18142
+wrap_mmu_context: next = 510748, limit = 510923 n = 175
+wrap_mmu_context: next = 510924, limit = 518442 n = 7518
+wrap_mmu_context: next = 518443, limit = 520789 n = 2346
+wrap_mmu_context: next = 520790, limit = 980204 n = 459414
+wrap_mmu_context: next = 980205, limit = 1864365 n = 884160
+wrap_mmu_context: next = 1864366, limit = 1864528 n = 162
+wrap_mmu_context: next = 1864529, limit = 2097152 n = 232623
 
