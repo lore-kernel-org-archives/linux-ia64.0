@@ -1,27 +1,25 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Tue, 18 Oct 2005 23:28:24 +0000
-Subject: Re: [Patch 2/3] Export get_one_pte_map.
-Message-Id: <20051018232824.GQ29402@holomorphy.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Mon, 31 Oct 2005 03:36:55 +0000
+Subject: Recent SPARSEMEM and DISCONTIG changes break some builds
+Message-Id: <17253.37207.664571.236714@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051014192111.GB14418@lnx-holt.americas.sgi.com> <20051014192225.GD14418@lnx-holt.americas.sgi.com> <20051014213038.GA7450@kroah.com> <20051017113131.GA30898@lnx-holt.americas.sgi.com>
-In-Reply-To: <20051017113131.GA30898@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Holt <holt@sgi.com>
-Cc: Greg KH <greg@kroah.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, hch@infradead.org, jgarzik@pobox.com, Dave Hansen <haveblue@us.ibm.com>, Jack Steiner <steiner@americas.sgi.com>
-
-On Mon, Oct 17, 2005 at 06:31:31AM -0500, Robin Holt wrote:
-> Not sure why it would fall that way.  Looking at the directory,
-> I get:
-> [holt@lnx-holt mm]$ grep -c 'EXPORT_SYMBOL(' *.c | egrep -v ":0$"
-[...]
-> I will happily change it, but that seems inconsistent with the
-> majority of the exports from that subsystem.
-
-I'm a bit more laissez-faire on this: I don't mind the export either
-way. That said, I'm aware that the prevailing opinion is in favor of
-EXPORT_SYMBOL_GPL().
+To: linux-ia64@vger.kernel.org
 
 
--- wli
+Is it intended that CONFIG_SPARSEMEM and CONFIG_DISCONTIGMEM be usable
+without CONFIG_NUMA?
+
+Currently (2.6.14+GIT as of 31 October) 
+	  -- compiling with CONFIG_SPARSEMEM gives undefined ref to
+	     pfn_to_node().
+	  -- compiling with CONFIG_DISCONTIGMEM gives many errors
+	     linux-2.6-import/arch/ia64/mm/discontig.c:326: error: dereferencing
+	     pointer to incomplete type when referencing struct
+	     ia64_node_data 
+
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
