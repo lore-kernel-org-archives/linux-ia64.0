@@ -1,44 +1,28 @@
-From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-Date: Thu, 10 Nov 2005 01:50:00 +0000
-Subject: Re: Montecito processor family
-Message-Id: <20051110.105000.112623152.t-kochi@bq.jp.nec.com>
+From: Bob Picco <bob.picco@hp.com>
+Date: Tue, 01 Nov 2005 00:25:28 +0000
+Subject: Re: Recent SPARSEMEM and DISCONTIG changes break some builds
+Message-Id: <20051101002528.GJ6019@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42ADD890.1010406@free.fr>
-In-Reply-To: <42ADD890.1010406@free.fr>
+References: <17253.37207.664571.236714@wombat.chubb.wattle.id.au>
+In-Reply-To: <17253.37207.664571.236714@wombat.chubb.wattle.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-
-> > I see that nothing has happend to Montecito's family name
-> > in both Linus' and Tony's tree since then.
-> > 
-> > Is adding 'Itanium 2' for case 0x20 enough or do we need
-> > something different?
-> > 
-> > Intel people may want to decide what it should be, according to
-> > their marketing/branding plan ;)
+luck wrote:	[Mon Oct 31 2005, 02:00:46PM EST]
+> >Your build must be against -mm because pfn_to_kaddr shouldn't be required
+> >in 2.6.14.  The patch below will fix this.
 > 
-> I'm sure they're having trouble getting that patch through Intel legal ;-)
+> I was building 2.6.14+(all the bits in Linus' git tree that I pulled
+> at about 8:30 PST today).  Presumably this bit has already been moved
+> from -mm to -linus?
+Actually you are correct. I just updated my local Linus' git tree and 
+pfn_to_kaddr is now required for ia64 because of changes in mm/sparse.c.
 > 
-> Maybe we could put in a patch temporarily that calls it "Montecito",
-> then Intel can patch it to whatever the official marketing name is
-> upon release?
-
-IIRC the field once was "McKinley" for Itanium2 but later replaced with
-"Itanium 2".  So this sounds ok.  But probably as no real application
-depends on or relies on the field, I think we can display '32' as it
-is until the 'official' name is given.
-
-> I'm not quite sure why we're so allergic to using the codenames in the
-> ia64 port.  I mean, look at arch/i386/kernel/cpu/intel.c
-
-Maybe we can add 'codename' field in cpuinfo so that people can
-recognize codename:marketing name correspondense, and we can
-distinguish McKinley, Madison, Deerfield, ... (I don't remember all)
-among Itanium2s ;)
-
----
-Takayoshi Kochi
+> Thanks for the patch, I'll give it a spin.
+your welcome.
+> 
+> -Tony
+> -
+bob
