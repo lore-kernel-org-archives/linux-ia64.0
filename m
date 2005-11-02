@@ -1,33 +1,47 @@
-From: David Mosberger-Tang <David.Mosberger@acm.org>
-Date: Wed, 02 Nov 2005 18:59:04 +0000
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 02 Nov 2005 22:26:12 +0000
 Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <ed5aea430511021059s3d486d68yb2a8a360756449c6@mail.gmail.com>
+Message-Id: <20051102222612.GK11202@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="JbKQpFqZXJ2T76Sg"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin,
 
-Thanks for running all those benchmarks.
+--JbKQpFqZXJ2T76Sg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 11/2/05, Robin Holt <holt@sgi.com> wrote:
+On Wed, Nov 02, 2005 at 11:16:11AM -0600, Robin Holt wrote:
+> I think I will hold off on doing this for now.  I think it is better done
+> as a seperate patch.  I will happily try to tackle this once the direction
+> of 4-level PTDs is set, but until then, I think I want to skip this.
 
-> Does anybody have any objections to making 4 level the default?
+Ok, cool.  I'll try again later (once I've finished fixing all our
+patches to account for 4 levels ;).
 
-My concern is that 4-level PT really isn't needed on ia64 for all but
-the largest machines and adding a 4-th level cannot possibly help
-performance and definitely has a (small) cost.  I see that you have a
-CONFIG option now, which is good.  I don't have a strong opinion what
-should be the default.  Longer term, it would be good to settle on one
-implementation, so perhaps it's not a bad idea to make 4-level the
-default and see if anyone complains about performance regressions.
+I must admit to be a bit perplexed however.  I would have thought that
+a customer who just spent (what I assume is a lot of) money on a
+machine to map huge areas of contiguous memory would really want to
+evaluate the probable benefits of larger pages, despite what Redhat
+ships.  I'm probably just extremley naive as to what customers really
+want, however.
 
-  --david
---
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+-i
+
+--JbKQpFqZXJ2T76Sg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDaT0EWDlSU/gp6ecRAqRZAKDYlW8g7fNhp8CaEdrwxbsk3wnRQgCgoAu2
+7ddxTHldKmlSmYaZft5Lz1o=
+=Qcjp
+-----END PGP SIGNATURE-----
+
+--JbKQpFqZXJ2T76Sg--
