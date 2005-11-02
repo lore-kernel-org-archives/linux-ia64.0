@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 02 Nov 2005 17:16:11 +0000
+From: David Mosberger-Tang <David.Mosberger@acm.org>
+Date: Wed, 02 Nov 2005 18:59:04 +0000
 Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <20051102171611.GB23600@lnx-holt.americas.sgi.com>
+Message-Id: <ed5aea430511021059s3d486d68yb2a8a360756449c6@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,21 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Robin,
 
-I think I will hold off on doing this for now.  I think it is better done
-as a seperate patch.  I will happily try to tackle this once the direction
-of 4-level PTDs is set, but until then, I think I want to skip this.
+Thanks for running all those benchmarks.
 
-Thanks,
-Robin
+On 11/2/05, Robin Holt <holt@sgi.com> wrote:
 
-On Fri, Oct 28, 2005 at 03:19:57PM +1000, Ian Wienand wrote:
-> Something I would really like is a small abstraction of some of the
-> page table access macros to make it a little clearer as to what is
-> happening.  Besides which using '-3' in many places assumes the size
-> of entries (of particular interest is the size of a PTE, which you
-> might want to increase; I can't see why you would increase the upper
-> levels).
-> 
-> I'd like to see something like this go in, or possibly wrap it up with
-> your changes.  I also tried to make comments a little more explicit.
+> Does anybody have any objections to making 4 level the default?
+
+My concern is that 4-level PT really isn't needed on ia64 for all but
+the largest machines and adding a 4-th level cannot possibly help
+performance and definitely has a (small) cost.  I see that you have a
+CONFIG option now, which is good.  I don't have a strong opinion what
+should be the default.  Longer term, it would be good to settle on one
+implementation, so perhaps it's not a bad idea to make 4-level the
+default and see if anyone complains about performance regressions.
+
+  --david
+--
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
