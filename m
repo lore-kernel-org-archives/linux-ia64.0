@@ -1,8 +1,10 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Wed, 02 Nov 2005 02:32:51 +0000
+Date: Wed, 02 Nov 2005 03:29:21 +0000
 Subject: [Patch 2.6.14] Extend notify_die() hooks for IA64
-Message-Id: <5844.1130898771@kao2.melbourne.sgi.com>
+Message-Id: <7073.1130902161@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <5844.1130898771@kao2.melbourne.sgi.com>
+In-Reply-To: <5844.1130898771@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -43,7 +45,11 @@ that change.  http://marc.theaimsgroup.com/?l=linux-kernel&m3018709002036&w=2
 
 Leading white space removed from arch/ia64/kernel/kprobes.c.
 
+Signed-off-by: Keith Owens <kaos@sgi.com>
+
 ---
+
+Resend, forgot the the signed off line.
 
  arch/ia64/kernel/kprobes.c |   32 ++++++------
  arch/ia64/kernel/mca.c     |  120 +++++++++++++++++++++++++++++++++++----------
@@ -545,4 +551,5 @@ Index: linux/arch/ia64/kernel/traps.c
  		siginfo.si_signo = SIGTRAP;
  		siginfo.si_errno = 0;
  		siginfo.si_addr  = (void __user *) ifa;
+
 
