@@ -1,46 +1,33 @@
-From: David Mosberger-Tang <David.Mosberger@acm.org>
-Date: Tue, 15 Nov 2005 21:16:27 +0000
-Subject: Re: Question about interrupt enabling/disabling in kernel exit path
-Message-Id: <ed5aea430511151316s308e7eedhf02e6c1f4bbd2f42@mail.gmail.com>
+From: Roy Dragseth <Roy.Dragseth@cc.uit.no>
+Date: Thu, 03 Nov 2005 08:10:34 +0000
+Subject: Re: Probing for physical number of cpus.
+Message-Id: <200511030910.34808.Roy.Dragseth@cc.uit.no>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1131559925.5214.100.camel@localhost.localdomain>
-In-Reply-To: <1131559925.5214.100.camel@localhost.localdomain>
+References: <200510281318.51532.Roy.Dragseth@cc.uit.no>
+In-Reply-To: <200510281318.51532.Roy.Dragseth@cc.uit.no>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On 11/15/05, Chen, Kenneth W <kenneth.w.chen@intel.com> wrote:
-> Lee Schermerhorn wrote on Tuesday, November 15, 2005 12:21 PM
-> > On Mon, 2005-11-14 at 13:52 -0800, David Mosberger-Tang wrote:
-> > > > Then I notice that after we return from do_notify_resume_user() we don't
-> > > > recheck TIF_NEED_RESCHED, etc. in the thread_info flags.
-> > >
-> > > Why do you say this?  It's not true.  After processing pending work,
-> > > we go back to .work_processed_{syscall,kernel), which will again
-> > > invoke .work_pending, if necessary.
-> >
-> > OK.  I guess I'm misinterpreting the comments on the line labeled
-> > '.ret10:'.
-> > Say's it's setting p6 to zero, so no recheck.  I'm not fluent [writing
-> > nor reading] ia64 assembler, but it appeared to me that with p6 set to
-> > zero on return from notify_resume(), the checks for more work back
-> > at .work_processed_* would be disabled.
-> >
+On Friday 28 October 2005 14:43, Andreas Schwab wrote:
+> Roy Dragseth <Roy.Dragseth@cc.uit.no> writes:
+> > Do anyone know how to figure out the physical number of cpus in an ia64
+> > system?  No, /proc/cpuinfo wont do because the kernel is booted with
+> > maxcpus=3D1.
 >
-> Looking at the code, I think Lee is correct that upon returning from
-> notify_resume_user, p6 is turned off and subsequently turns off all
-> the check in work_pending.
+> Read and parse the ACPI tables off of /dev/mem, starting with the address
+> from /sys/firmware/efi/systab.
 
-Yes, I goofed.
+Yikes!  Thanks for the answer.  I've been toying around with pmtools/acpidu=
+mp=20
+which gives me a text dump, but I'm still a bit confused (to say the least).
 
-The ia64 code shouldn't be different from other platforms in this
-respect though.  If x86 nowadays does the re-check unconditionally, we
-need to look into what happened.  Perhaps x86 got updated and we
-missed that update for ia64?
+r.
 
-  --david
---
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+--=20
+
+  The Computer Center, University of Troms=F8, N-9037 TROMS=D8 Norway.
+	      phone:+47 77 64 41 07, fax:+47 77 64 41 00
+     Roy Dragseth, High Performance Computing System Administrator
+	 Direct call: +47 77 64 62 56. email: royd@cc.uit.no
