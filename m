@@ -1,34 +1,27 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 25 Oct 2005 22:34:19 +0000
-Subject: [PATCH] fix bte_copy() calling get_nasid() while preemptible
-Message-Id: <200510252234.j9PMYJeO56012215@clink.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 03 Nov 2005 21:36:18 +0000
+Subject: RE: virtualization hooks patch for ia64 2.6.15
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04DC0833@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <516F50407E01324991DD6D07B0531AD57E78CC@cacexc12.americas.cpqcorp.net>
+In-Reply-To: <516F50407E01324991DD6D07B0531AD57E78CC@cacexc12.americas.cpqcorp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[PATCH] fix bte_copy() calling get_nasid() while preemptible
+> Comments appreciated.  Tony, if this explanation and
+> more generalized patch doesn't resolve your previously
+> stated philosophical concerns (e.g. don't want to lead
+> x86 Xen changes; and don't know if all virtualization
+> solutions will be instruction-based), please let me know.
 
-bte_copy() calls calls get_nasid(), which will get flagged if
-preemption if enabled.  raw_smp_processor_id() is used instead.
-It is OK if we migrate off node.
+I still don't see a pressing need to rush this into the
+base ... maintaining this out of tree doesn't look like
+it will consume any significant bandwidth for you.
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+On the patch itself ... can you describe why some of the
+static symbols in entry.S need to be global (load_switch_stack,
+__ia64_leave_syscall, notify_resume_user).
 
---------------------------------------------------------------
- arch/ia64/sn/kernel/bte.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-Index: test/arch/ia64/sn/kernel/bte.c
-=================================--- test.orig/arch/ia64/sn/kernel/bte.c	2005-10-25 10:46:49.311175529 -0500
-+++ test/arch/ia64/sn/kernel/bte.c	2005-10-25 11:05:25.652058057 -0500
-@@ -87,7 +87,7 @@ bte_result_t bte_copy(u64 src, u64 dest,
- 	unsigned long irq_flags;
- 	unsigned long itc_end = 0;
- 	int nasid_to_try[MAX_NODES_TO_TRY];
--	int my_nasid = get_nasid();
-+	int my_nasid = cpuid_to_nasid(raw_smp_processor_id());
- 	int bte_if_index, nasid_index;
- 	int bte_first, btes_per_node = BTES_PER_NODE;
- 
+-Tony
