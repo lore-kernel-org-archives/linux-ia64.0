@@ -1,76 +1,36 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 15 Nov 2005 22:37:05 +0000
-Subject: [patch] cpu_idle performance bug fix
-Message-Id: <200511152237.jAFMb5g14072@unix-os.sc.intel.com>
+From: Russ Anderson <rja@efs.americas.sgi.com>
+Date: Fri, 04 Nov 2005 19:57:00 +0000
+Subject: [patch] MCA recovery: pfn_valid() needs a pfn
+Message-Id: <200511041957.jA4Jv0xN049183@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: "Luck, Tony" <tony.luck@intel.com>, 'Nick Piggin' <nickpiggin@yahoo.com.au>, "Seth, Rohit" <rohit.seth@intel.com>, 'Linus Torvalds' <torvalds@osdl.org>, akpm@osdl.org
+To: linux-ia64@vger.kernel.org
 
-All,
+[patch] MCA recovery: pfn_valid() needs a pfn
 
-Our performance validation on 2.6.15-rc1 caught a disastrous
-performance regression with netperf (-98%) and volanomark (-58%)
-compares to previous kernel version 2.6.14-git7.  See the following
-chart (result group 1 & 2).
+paddr needs to be shifted by PAGE_SHIFT to be valid
+input for pfn_valid().
 
-http://kernel-perf.sourceforge.net/results.machine_id&.html
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
+--------------------------------------------------------------
+ arch/ia64/kernel/mca_drv.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-We have root caused it to this changeset: http://tinyurl.com/cetoa
-
-This changeset broke the ia64 task resched notification.  In
-sched.c:resched_task(), a reschedule IPI is conditioned upon
-TIF_POLLING_NRFLAG.  However, the above changeset unconditionally
-set the polling thread flag for idle tasks regardless whether
-pal_halt_light is in use or not.  As a result, resched IPI is not
-sent from resched_task().  And since the default behavior on ia64
-is to use pal_halt_light, we end up delaying the rescheduling task
-until next timer tick, and thus cause the performance regression.
-
-Here is the patch to fix the performance bug.  I'm glad our performance
-suite is turning up bad performance bug like this in time.  
-
-Tony, since this is such a catastrophic performance failure, please
-consider merge this fix for 2.6.15-rc2.
-
-
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-
---- ./arch/ia64/kernel/process.c.orig	2005-11-15 11:43:30.019045450 -0800
-+++ ./arch/ia64/kernel/process.c	2005-11-15 12:15:27.116678215 -0800
-@@ -202,12 +202,9 @@ default_idle (void)
- {
- 	local_irq_enable();
- 	while (!need_resched()) {
--		if (can_do_pal_halt) {
--			local_irq_disable();
--			if (!need_resched())
--				safe_halt();
--			local_irq_enable();
--		} else
-+		if (can_do_pal_halt)
-+			safe_halt();
-+		else
- 			cpu_relax();
- 	}
- }
-@@ -272,10 +269,14 @@ cpu_idle (void)
- {
- 	void (*mark_idle)(int) = ia64_mark_idle;
-   	int cpu = smp_processor_id();
--	set_thread_flag(TIF_POLLING_NRFLAG);
+Index: test/arch/ia64/kernel/mca_drv.c
+=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2005-11-04 11:10:08.869613186 -0600
++++ test/arch/ia64/kernel/mca_drv.c	2005-11-04 11:10:59.376035037 -0600
+@@ -88,7 +88,7 @@ mca_page_isolate(unsigned long paddr)
+ 	if (!ia64_phys_addr_valid(paddr))
+ 		return ISOLATE_NONE;
  
- 	/* endless idle loop with no priority at all */
- 	while (1) {
-+		if (can_do_pal_halt)
-+			clear_thread_flag(TIF_POLLING_NRFLAG);
-+		else
-+			set_thread_flag(TIF_POLLING_NRFLAG);
-+
- 		if (!need_resched()) {
- 			void (*idle)(void);
- #ifdef CONFIG_SMP
-
+-	if (!pfn_valid(paddr))
++	if (!pfn_valid(paddr >> PAGE_SHIFT))
+ 		return ISOLATE_NONE;
+ 
+ 	/* convert physical address to physical page number */
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
