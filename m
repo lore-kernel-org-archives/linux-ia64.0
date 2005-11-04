@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 03 Nov 2005 19:59:00 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 04 Nov 2005 17:58:51 +0000
 Subject: RE: [RFC] 4-level page table directories.
-Message-Id: <200511031959.jA3Jx0g29354@unix-os.sc.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04DF5690@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,23 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote on Thursday, November 03, 2005 8:37 AM
-> On Wed, Nov 02, 2005 at 05:53:10PM -0800, Chen, Kenneth W wrote:
-> > I just did a quick measurement with I/O submission path.  get_user_pages
-> > is my biggest concern that extra level means more code and cache foot
-> > print for each I/O submission.  It cost about 1.5% more in I/O path
-> > length on a micro-benchmark (from block layer and Up).  This could be
-> > all buried as noise in a larger scheme for industry database benchmark.
-> 
-> Can you point me at the benchmark?
+>It turns out that we have measurable performance regression with
+>4-level page table running industry database benchmark, the penalty
+>is ~0.2% (I thought the number would be smaller than 0.2%, but ...).
+>Our resolution with this workload is typically 0.05%.
 
-Here, kernel null blk driver:
-http://marc.theaimsgroup.com/?l=linux-kernel&m1033439400836&w=2
+That makes it tough to make 4-level the default.  If there were a
+lot more users that needed 4-level, I might tell Ken he'd have to
+just live with it ... but this is only needed for a few HPC jobs
+on very, very high end machines.
 
+I'll put the patches into the test tree as they are (with 4-level
+as the default) so that we'll get some test exposure in -mm.  But
+if they move into the base it will be with 3-level as the default.
 
-And here: user space micro-benchmark:
-http://marc.theaimsgroup.com/?l=linux-kernel&m1033404219628&w=2
-
-
-- Ken
-
+-Tony
