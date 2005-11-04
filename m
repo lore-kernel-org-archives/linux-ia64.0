@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 04 Nov 2005 21:42:41 +0000
+Date: Fri, 04 Nov 2005 22:50:26 +0000
 Subject: RE: [RFC] 4-level page table directories.
-Message-Id: <200511042142.jA4Lgfg14906@unix-os.sc.intel.com>
+Message-Id: <200511042250.jA4MoQg15713@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,28 +10,57 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote on Friday, November 04, 2005 1:38 PM
-> On Fri, Nov 04, 2005 at 10:51:07AM -0800, Chen, Kenneth W wrote:
-> > Luck, Tony wrote on Wednesday, November 02, 2005 8:31 AM
-> > > Good to hear that (though I must remember to specify what I mean
-> > > by "small memory" when talking to SGI ... there are ia64 boxes
-> > > with only 1G :-)
-> > > 
-> > > Ken: Any predictions on when a 4-level run might get to the
-> > > top of your queue for a run with an industry standard transaction
-> > > benchmark?
-> > 
-> > It turns out that we have measurable performance regression with
-> > 4-level page table running industry database benchmark, the penalty
-> > is ~0.2% (I thought the number would be smaller than 0.2%, but ...).
-> > Our resolution with this workload is typically 0.05%.
+David Mosberger-Tang wrote on Tuesday, November 01, 2005 7:41 AM
+> On 11/1/05, Robin Holt <holt@sgi.com> wrote:
+> > I am trying to get time on one of our larger machines today to run the
+> > RandomAccess benchmark (as well as some help from somebody that has run
+> > these before).  Is there a certain number of cpus you would like this
+> > run on or is a 64p box adequate?
 > 
-> Can you point me at this benchmark?
+> Oh, even a single CPU should be fine.  Just use a large working set. 
+> IIRC, about 16GB should ensure that not even the page tables fit in
+> the cache (depending on your cache-size, of course).
 
-I hope everyone knows by now what this "industry standard database
-transaction processing benchmark" is.  If not, please google it.
 
-Sorry, this is the best I can do without breaking any U.S. law.
+Robin, here, something as silly as this test program [*] will show you
+the performance regression with 4-level page table:
+
+#include <sys/mman.h>
+
+#define SIZE	(16*1024*1024*1024UL)
+
+int main()
+{
+	char* addr;
+	unsigned long i, j, sum;
+	unsigned long start, end;
+
+	addr = mmap(0, SIZE, PROT_READ | PROT_WRITE,
+		    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+	/* fault in all the pages */
+	for (i=0; i<SIZE; i+384)
+		addr[i] = 0;
+
+	asm volatile ("mov %0=ar.itc" : "=r"(start));
+
+	for (j=0; j<100000; j++)
+		for (i=0; i<SIZE; i+= (1UL << 25))
+			sum += addr[i];
+
+	asm volatile ("mov %0=ar.itc" : "=r"(end));
+
+	printf("time is %ld\n", end - start);
+}
+
+With 3-level page table kernel: time is 16405345406
+With 4-level page table kernel: time is 26768668506
 
 - Ken
+
+
+[*] disclaimer: this code can not be even called as a benchmark
+    since it does not meet basic benchmark criteria and definitions.
+    I did it with maybe 2 minutes or so.  However, given its
+    simplicity, such program can be used as an illustrative purpose.
 
