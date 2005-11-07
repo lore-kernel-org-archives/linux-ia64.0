@@ -1,44 +1,243 @@
-From: David Mosberger-Tang <David.Mosberger@acm.org>
-Date: Thu, 03 Nov 2005 18:20:41 +0000
-Subject: Re: [patch] align signal-frame even when not using alternate signal-stack
-Message-Id: <ed5aea430511031020m5c354349u33f3ad9aa0a0ec66@mail.gmail.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 07 Nov 2005 21:59:27 +0000
+Subject: [PATCH] serial: remove 8250_acpi (subsumed by 8250_pnp and PNPACPI)
+Message-Id: <200511071459.27119.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051103064019.5B552B3421@localhost.localdomain>
-In-Reply-To: <20051103064019.5B552B3421@localhost.localdomain>
+References: <200509161142.33723.bjorn.helgaas@hp.com>
+In-Reply-To: <200509161142.33723.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Russell King <rmk+serial@arm.linux.org.uk>
+Cc: linux-serial@vger.kernel.org, len.brown@intel.com, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-On 11/2/05, Keith Owens <kaos@sgi.com> wrote:
-> On Wed, 2 Nov 2005 22:40:19 -0800 (PST),
-> davidm@mail.mostang.com (David Mosberger-Tang) wrote:
-> >At the moment, attempting to invoke a signal-handler on the normal
-> >stack is guaranteed to fail if the stack-pointer happens not to be
-> >16-byte aligned.
->
-> Itanium Software Conventions and Runtime Architecture Guide, section
-> 7.1 says that the stack pointer must always be aligned on a 16 byte
-> boundary.  What software is not using 16 byte alignment for the stack?
+With the combination of PNPACPI and 8250_pnp, we no longer need
+8250_acpi.
 
-Buggy software...
+The only in-tree configs that contain CONFIG_SERIAL_8250_ACPI are ia64.
+ia64 users should make sure CONFIG_PNP and CONFIG_PNPACPI are set so
+8250_pnp.c can discover built-in serial ports.  Tony has already
+accepted a patch to turn them on in the default configs.
 
-This really is more a "ease debugging" kind of thing.  Clearly you're
-in a heap of trouble once your stack-pointer is misaligned, but with
-the old behavior, that was aggravated by triggering an infinite series
-of nested signals, which makes it quite hard to just stop the process
-(plus it may eat lots of memory if the stack limit is large).
+Note: This depends on these patches that are in 2.6.14-mm1, but are
+not in Linus' tree yet:
+    pnpacpi-handle-address-descriptors-in-_prs.patch
+    pnpacpi-handle-address-descriptors-in-_prs-fix-for-git-acpi-change.patch
 
-On top of that, I don't think it makes a lot of sense to force 16-byte
-alignment for delivery on alternate signal-stacks and not do so for
-the normal stack.  I don't have access to the very earliest ia64-linux
-patches anymore (prior to 2000, when things went public), but I'm
-pretty sure this was a historical accident.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Thanks,
-
-  --david
---
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+Index: work-mm1/drivers/serial/Kconfig
+=================================--- work-mm1.orig/drivers/serial/Kconfig	2005-11-03 10:39:15.000000000 -0700
++++ work-mm1/drivers/serial/Kconfig	2005-11-03 13:26:31.000000000 -0700
+@@ -77,14 +77,6 @@
+ 
+ 	  If unsure, say N.
+ 
+-config SERIAL_8250_ACPI
+-	bool "8250/16550 device discovery via ACPI namespace"
+-	default y if IA64
+-	depends on ACPI && SERIAL_8250
+-	---help---
+-	  If you wish to enable serial port discovery via the ACPI
+-	  namespace, say Y here.  If unsure, say N.
+-
+ config SERIAL_8250_NR_UARTS
+ 	int "Maximum number of 8250/16550 serial ports"
+ 	depends on SERIAL_8250
+Index: work-mm1/drivers/serial/Makefile
+=================================--- work-mm1.orig/drivers/serial/Makefile	2005-08-28 17:41:01.000000000 -0600
++++ work-mm1/drivers/serial/Makefile	2005-11-03 13:26:31.000000000 -0700
+@@ -5,7 +5,6 @@
+ #
+ 
+ serial-8250-y :-serial-8250-$(CONFIG_SERIAL_8250_ACPI) += 8250_acpi.o
+ serial-8250-$(CONFIG_PNP) += 8250_pnp.o
+ serial-8250-$(CONFIG_GSC) += 8250_gsc.o
+ serial-8250-$(CONFIG_PCI) += 8250_pci.o
+Index: work-mm1/drivers/serial/8250_acpi.c
+=================================--- work-mm1.orig/drivers/serial/8250_acpi.c	2005-11-03 10:40:16.000000000 -0700
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,183 +0,0 @@
+-/*
+- * Copyright (c) 2002-2003 Matthew Wilcox for Hewlett-Packard
+- * Copyright (C) 2004 Hewlett-Packard Co
+- *	Bjorn Helgaas <bjorn.helgaas@hp.com>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- */
+-
+-#include <linux/acpi.h>
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/serial_core.h>
+-
+-#include <acpi/acpi_bus.h>
+-
+-#include <asm/io.h>
+-
+-#include "8250.h"
+-
+-struct serial_private {
+-	int	line;
+-};
+-
+-static acpi_status acpi_serial_mmio(struct uart_port *port,
+-				    struct acpi_resource_address64 *addr)
+-{
+-	port->mapbase = addr->min_address_range;
+-	port->iotype = UPIO_MEM;
+-	port->flags |= UPF_IOREMAP;
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_port(struct uart_port *port,
+-				    struct acpi_resource_io *io)
+-{
+-	if (io->range_length) {
+-		port->iobase = io->min_base_address;
+-		port->iotype = UPIO_PORT;
+-	} else
+-		printk(KERN_ERR "%s: zero-length IO port range?\n", __FUNCTION__);
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_ext_irq(struct uart_port *port,
+-				       struct acpi_resource_ext_irq *ext_irq)
+-{
+-	int rc;
+-
+-	if (ext_irq->number_of_interrupts > 0) {
+-		rc = acpi_register_gsi(ext_irq->interrupts[0],
+-	                   ext_irq->edge_level, ext_irq->active_high_low);
+-		if (rc < 0)
+-			return AE_ERROR;
+-		port->irq = rc;
+-	}
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_irq(struct uart_port *port,
+-				   struct acpi_resource_irq *irq)
+-{
+-	int rc;
+-
+-	if (irq->number_of_interrupts > 0) {
+-		rc = acpi_register_gsi(irq->interrupts[0],
+-	                   irq->edge_level, irq->active_high_low);
+-		if (rc < 0)
+-			return AE_ERROR;
+-		port->irq = rc;
+-	}
+-	return AE_OK;
+-}
+-
+-static acpi_status acpi_serial_resource(struct acpi_resource *res, void *data)
+-{
+-	struct uart_port *port = (struct uart_port *) data;
+-	struct acpi_resource_address64 addr;
+-	acpi_status status;
+-
+-	status = acpi_resource_to_address64(res, &addr);
+-	if (ACPI_SUCCESS(status))
+-		return acpi_serial_mmio(port, &addr);
+-	else if (res->type = ACPI_RSTYPE_IO)
+-		return acpi_serial_port(port, &res->data.io);
+-	else if (res->type = ACPI_RSTYPE_EXT_IRQ)
+-		return acpi_serial_ext_irq(port, &res->data.extended_irq);
+-	else if (res->type = ACPI_RSTYPE_IRQ)
+-		return acpi_serial_irq(port, &res->data.irq);
+-	return AE_OK;
+-}
+-
+-static int acpi_serial_add(struct acpi_device *device)
+-{
+-	struct serial_private *priv;
+-	acpi_status status;
+-	struct uart_port port;
+-	int result;
+-
+-	memset(&port, 0, sizeof(struct uart_port));
+-
+-	port.uartclk = 1843200;
+-	port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
+-
+-	priv = kmalloc(sizeof(struct serial_private), GFP_KERNEL);
+-	if (!priv) {
+-		result = -ENOMEM;
+-		goto fail;
+-	}
+-	memset(priv, 0, sizeof(*priv));
+-
+-	status = acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+-				     acpi_serial_resource, &port);
+-	if (ACPI_FAILURE(status)) {
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	if (!port.mapbase && !port.iobase) {
+-		printk(KERN_ERR "%s: no iomem or port address in %s _CRS\n",
+-			__FUNCTION__, device->pnp.bus_id);
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	priv->line = serial8250_register_port(&port);
+-	if (priv->line < 0) {
+-		printk(KERN_WARNING "Couldn't register serial port %s: %d\n",
+-			device->pnp.bus_id, priv->line);
+-		result = -ENODEV;
+-		goto fail;
+-	}
+-
+-	acpi_driver_data(device) = priv;
+-	return 0;
+-
+-fail:
+-	kfree(priv);
+-
+-	return result;
+-}
+-
+-static int acpi_serial_remove(struct acpi_device *device, int type)
+-{
+-	struct serial_private *priv;
+-
+-	if (!device || !acpi_driver_data(device))
+-		return -EINVAL;
+-
+-	priv = acpi_driver_data(device);
+-	serial8250_unregister_port(priv->line);
+-	kfree(priv);
+-
+-	return 0;
+-}
+-
+-static struct acpi_driver acpi_serial_driver = {
+-	.name =		"serial",
+-	.class =	"",
+-	.ids =		"PNP0501",
+-	.ops =	{
+-		.add =		acpi_serial_add,
+-		.remove =	acpi_serial_remove,
+-	},
+-};
+-
+-static int __init acpi_serial_init(void)
+-{
+-	return acpi_bus_register_driver(&acpi_serial_driver);
+-}
+-
+-static void __exit acpi_serial_exit(void)
+-{
+-	acpi_bus_unregister_driver(&acpi_serial_driver);
+-}
+-
+-module_init(acpi_serial_init);
+-module_exit(acpi_serial_exit);
+-
+-MODULE_LICENSE("GPL");
+-MODULE_DESCRIPTION("Generic 8250/16x50 ACPI serial driver");
