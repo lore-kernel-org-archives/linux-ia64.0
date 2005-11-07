@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 01 Nov 2005 01:03:57 +0000
+Date: Mon, 07 Nov 2005 22:09:39 +0000
 Subject: patches added to test tree
-Message-Id: <200511010103.jA113vPt011259@agluck-lia64.sc.intel.com>
+Message-Id: <200511072209.jA7M9d6L025699@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
 In-Reply-To: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
@@ -12,9 +12,12 @@ To: linux-ia64@vger.kernel.org
 
 The following patches have been added to the test tree:
 
-Bob Picco: (also included in release tree)
-      [IA64] Recent SPARSEMEM and DISCONTIG changes break some builds
+Chen, Kenneth W:
+      [IA64] make mmu_context.h and tlb.c 80-column friendly
 
-Peter Keilty:
-      [IA64] Use bitmaps for efficient context allocation/free
+Dean Nelson:
+      [IA64] restrict CONFIG_SGI_SN_XP to IA64_GENERIC or IA64_SGI_SN2
+
+Keith Owens:
+      [IA64] Extend notify_die() hooks for IA64
 
