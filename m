@@ -1,28 +1,34 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 10 Nov 2005 09:13:14 +0000
-Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <20051110091314.GA7928@lnx-holt.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 07 Nov 2005 22:09:19 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200511072209.jA7M9J3D025691@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051027041709.GA13193@attica.americas.sgi.com>
-In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> For example, if you have:
-> 
-> 	128 GB per SSI 
-> 	16 SSIs connected via NUMALINK
-> 
-> a task running within an SSI can access all 2TB of memory (excluding memory
-> used by the kernel)
+Hi Linus,
 
-And here to, access may not mean exactly what you expect.  Some accesses
-are simple uncached accesses.  Some are cached accesses for the owning
-SSI uncached accesses for the remote side (write coalesced).  Some are
-DMA reads from the remote side to cachable local side.  When Jack says
-access, he truly means it in a very broad sense.
+please pull from:
 
-Thanks,
-Robin
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/Kconfig       |    1 +
+ include/asm-ia64/page.h |    1 +
+ 2 files changed, 2 insertions(+)
+
+Bob Picco:
+      [IA64] Recent SPARSEMEM and DISCONTIG changes break some builds
+
+Dean Nelson:
+      [IA64] restrict CONFIG_SGI_SN_XP to IA64_GENERIC or IA64_SGI_SN2
+
