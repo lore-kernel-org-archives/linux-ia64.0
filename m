@@ -1,54 +1,41 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Tue, 08 Nov 2005 22:09:13 +0000
+From: Gerald Pfeifer <gp@suse.de>
+Date: Tue, 08 Nov 2005 23:58:51 +0000
 Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <20051108220913.GI20935@cse.unsw.EDU.AU>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nO3oAMapP4dBpMZi"
+Message-Id: <Pine.LNX.4.63.0511082003120.11938@lifschitz.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Tue, 8 Nov 2005, Rohit Seth wrote:
+> I agree with you completely about OSV certification part.  And SuSE is
+> again a good example here, they have a released kernel with 64K page
+> size.  There is no reason why end customer should not be using this
+> bigger page kernel when desired.
 
---nO3oAMapP4dBpMZi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Unfortuantely, I'm pretty sure that if you run such a kernel and call
+$BIGISV for support you'll find yourself in troubles. :-(
 
-(CC trimmed)
+For example, at least one important ISV even requires a specific
+version of the distro kernel RPMs (excluding security updates), so
+I pretty much doubt they'll support an alternative kernel such as
+one with 64K page size.
 
-On Tue, Nov 08, 2005 at 10:52:38AM -0800, Magenheimer, Dan (HP Labs Fort Collins) wrote:
-> Just a thought... shouldn't it be possible (at least in theory)
-> for all the page table macros to be made a bit more dynamically
-> flexible so that PAGESIZE can (at least optionally) be specified
-> as a boottime parameter?  For example (very loosely):
+> I just think that we should validate the 64K page size more rigorously. 
+> So as to have the OSVs gain more confidence.  There is such a wide range 
+> of system configurations...having a single kernel configuration may not 
+> be the optimal solution.
 
-Well, this suggests to me that maybe we could start working towards a
-proper page table abstraction where we can implement totally different
-underlying page table implementations with relative ease.
+As an OSV, we are facing combinatorial explosion.  For example when
+we also consider CPU counts we get 32p vs 512p maximum on one dimension,
+and 16K vs 64K on another, and there may be further ones lurking in the
+dark right now (like Xen Dom0 versus Xen Dom1).
 
-Paul Davies has been looking into this area with some success with an
-initial implementation of a guarded page table underneath his
-abstraction interface.  The abstraction stuff was posted to linux-mm
+OSVs and ISVs, on the other hand, usually prefer to only test and harden 
+and qualify/certify a single kernel (which is why Dan's approach to Xen/ia64
+looks quite appealing).
 
-http://thread.gmane.org/gmane.linux.kernel.mm/7847
-
-Obviously it isn't something that will happen overnight, but certainly
-if a few people could agree it is a useful long term goal that might
-be useful.
-
--i
-
---nO3oAMapP4dBpMZi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
-
-iD8DBQFDcSIJWDlSU/gp6ecRAm0JAJ463VLOW44I8MhEW+M3GG4piX8kAQCgmK7k
-BnTVSu0ygv5B4VoMmVSnp/M=
-=Inv6
------END PGP SIGNATURE-----
-
---nO3oAMapP4dBpMZi--
+Gerald
