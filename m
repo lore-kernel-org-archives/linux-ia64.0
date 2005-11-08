@@ -1,42 +1,54 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 08 Nov 2005 20:27:17 +0000
-Subject: RE: [RFC] 4-level page table directories.
-Message-Id: <200511082027.jA8KRHg18986@unix-os.sc.intel.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 08 Nov 2005 22:09:13 +0000
+Subject: Re: [RFC] 4-level page table directories.
+Message-Id: <20051108220913.GI20935@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="nO3oAMapP4dBpMZi"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote on Tuesday, November 08, 2005 11:37 AM
-> Can I get you to reproduce this?  I have tried many times and
-> your test is giving me numbers that are very close between 3
-> and 4 level page tables.  For 25 runs, I got:
-> 
-> With 3-level page table kernel: Average of 25 is 24612659771.96
-> With 4-level page table kernel: Average of 25 is 24686556792.96
-> 
-> Which is showing that a vhtp_miss test is adding a 0.30% overhead
-> which can also be expressed as an average 1.44 clock cycles per
-> miss.  As of this writing, the loops have run over 250 times and
-> the min reading to this point is 23946196482.  This is nowhere
-> close to your min reported.
 
-The other option is to instrument vhpt_miss handler and measure
-average clock ticks spend in that handler.  I had that instrumented
-and measured with 3-level/4-level page table configurations.  I
-measured 221 clocks with 3-level page table, versus 298 clocks with
-4-level page table [*].  This measurement is certainly depends on
-system chipset/platform.  But the point is that penalty with 4-level
-page table is certainly visible.  Not only the low level hander has
-to Walk the extra level, it also incurs additional cache misses while
-walking the table, and it has damaging side effect of evicting other
-Working set data resides in the cache.
+--nO3oAMapP4dBpMZi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-- Ken
+(CC trimmed)
 
-[*] measured on: 1.6 GHz Itainum2 processor, 9M L3, Intel server platform
-    SR870BN4.  32GB PC2100 DDR memory.
+On Tue, Nov 08, 2005 at 10:52:38AM -0800, Magenheimer, Dan (HP Labs Fort Collins) wrote:
+> Just a thought... shouldn't it be possible (at least in theory)
+> for all the page table macros to be made a bit more dynamically
+> flexible so that PAGESIZE can (at least optionally) be specified
+> as a boottime parameter?  For example (very loosely):
 
+Well, this suggests to me that maybe we could start working towards a
+proper page table abstraction where we can implement totally different
+underlying page table implementations with relative ease.
+
+Paul Davies has been looking into this area with some success with an
+initial implementation of a guarded page table underneath his
+abstraction interface.  The abstraction stuff was posted to linux-mm
+
+http://thread.gmane.org/gmane.linux.kernel.mm/7847
+
+Obviously it isn't something that will happen overnight, but certainly
+if a few people could agree it is a useful long term goal that might
+be useful.
+
+-i
+
+--nO3oAMapP4dBpMZi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFDcSIJWDlSU/gp6ecRAm0JAJ463VLOW44I8MhEW+M3GG4piX8kAQCgmK7k
+BnTVSu0ygv5B4VoMmVSnp/M=
+=Inv6
+-----END PGP SIGNATURE-----
+
+--nO3oAMapP4dBpMZi--
