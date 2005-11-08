@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 08 Nov 2005 19:36:57 +0000
-Subject: Re: [RFC] 4-level page table directories.
-Message-Id: <20051108193657.GB22803@lnx-holt.americas.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 08 Nov 2005 20:07:02 +0000
+Subject: RE: [RFC] 4-level page table directories.
+Message-Id: <200511082007.jA8K72g18882@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,23 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ken,
+Magenheimer, Dan wrote on Tuesday, November 08, 2005 10:53 AM
+> The cost is of course a global (or cpu) variable access for
+> every pud/pgd/pmd/pte macro usage, but one would expect the
+> global would always be in cache/TLB so the performance impact
+> should be near zero.
 
-Can I get you to reproduce this?  I have tried many times and
-your test is giving me numbers that are very close between 3
-and 4 level page tables.  For 25 runs, I got:
+That is only true when your entire working set fits into the
+cache (both kernel and user data).  Here you burn an extra cache
+line for global page size variable, it will displace one cache
+line for user application.  Enterprise workloads all have working
+set much bigger than CPU's last level cache.  In the end, both
+kernel and user side hurt with more cache miss rate.
 
-With 3-level page table kernel: Average of 25 is 24612659771.96
-With 4-level page table kernel: Average of 25 is 24686556792.96
+- Ken
 
-Which is showing that a vhtp_miss test is adding a 0.30% overhead
-which can also be expressed as an average 1.44 clock cycles per
-miss.  As of this writing, the loops have run over 250 times and
-the min reading to this point is 23946196482.  This is nowhere
-close to your min reported.
-
-> With 3-level page table kernel: time is 16405345406
-> With 4-level page table kernel: time is 26768668506
-
-Thanks,
-Robin Holt
