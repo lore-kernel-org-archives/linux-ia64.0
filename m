@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 07 Nov 2005 22:09:39 +0000
+Date: Wed, 09 Nov 2005 00:19:28 +0000
 Subject: patches added to test tree
-Message-Id: <200511072209.jA7M9d6L025699@agluck-lia64.sc.intel.com>
+Message-Id: <200511090019.jA90JSvU015754@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
 In-Reply-To: <200509160423.j8G4NCub007777@agluck-lia64.sc.intel.com>
@@ -12,12 +12,20 @@ To: linux-ia64@vger.kernel.org
 
 The following patches have been added to the test tree:
 
-Chen, Kenneth W:
-      [IA64] make mmu_context.h and tlb.c 80-column friendly
+Bjorn Helgaas:
+      [IA64] add the MMIO regions that are translated to I/O port space to /proc/iomem
 
-Dean Nelson:
-      [IA64] restrict CONFIG_SGI_SN_XP to IA64_GENERIC or IA64_SGI_SN2
+Bob Picco:
+      [IA64] fix memory less node allocation
 
-Keith Owens:
-      [IA64] Extend notify_die() hooks for IA64
+David Mosberger-Tang:
+      [IA64] align signal-frame even when not using alternate signal-stack
+
+Mark Maule:
+      [IA64] altix: misc pci interrupt related fixes
+
+Russ Anderson:
+      [IA64] MCA recovery based on PSP bits
+      [IA64] MCA recovery: pfn_valid() needs a pfn
+      [IA64] MCA recovery: Bump reference count on bad pages
 
