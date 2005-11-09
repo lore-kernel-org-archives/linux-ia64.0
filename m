@@ -1,67 +1,46 @@
-From: Roy Dragseth <Roy.Dragseth@cc.uit.no>
-Date: Mon, 07 Nov 2005 10:20:36 +0000
-Subject: Re: Probing for physical number of cpus.
-Message-Id: <200511071120.37245.Roy.Dragseth@cc.uit.no>
+From: Dean Roe <roe@sgi.com>
+Date: Wed, 09 Nov 2005 20:25:06 +0000
+Subject: [PATCH] - Make pfn_valid more precise for SGI Altix systems
+Message-Id: <20051109202506.GA4152@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200510281318.51532.Roy.Dragseth@cc.uit.no>
-In-Reply-To: <200510281318.51532.Roy.Dragseth@cc.uit.no>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 03 November 2005 22:06, Ashok Raj wrote:
-> Actually even of you boot with maxcpus=3D1, we still create sysfs entries=
- for
-> each cpus physically present in the system.
->
-> you should be able to look at /sys/devices/system/cpu/cpuX entries
->
-> if you compiled with CONFIG_HOTPLUG_CPU enabled, then you could
-> echo 1 > online file in the appropriate cpu directory to add more
-> cpus.
->
-> Let me know if you dont see this behaviour.
+A single SGI Altix system can be divided into multiple partitions,
+each running their own instance of the Linux kernel.  pfn_valid()
+is currently not optimal for any but the first partition, since it
+does not compare the pfn with min_low_pfn before calling the more
+costly ia64_pfn_valid().
 
-Hi, this is more in line of what I was hoping for ;-)
+	Signed-off-by: Dean Roe <roe@sgi.com>
 
-However I don't see this behaviour on my system.  I'm running RH EL 4 with =
 
-this setup:
 
-[root@testing ~]# ls /sys/devices/system/cpu/
-cpu0
-[root@testing ~]# uname -a
-Linux testing.cluster.none 2.6.9-22.EL #1 SMP Wed Oct 5 15:20:11 EEST 2005 =
+Index: linux-ia64-test/arch/ia64/kernel/ia64_ksyms.c
+=================================--- linux-ia64-test.orig/arch/ia64/kernel/ia64_ksyms.c	2005-11-09 14:10:17.473464250 -0600
++++ linux-ia64-test/arch/ia64/kernel/ia64_ksyms.c	2005-11-09 14:10:50.800226042 -0600
+@@ -42,6 +42,7 @@
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ #include <linux/bootmem.h>
++EXPORT_SYMBOL(min_low_pfn);	/* defined by bootmem.c, but not exported by generic code */
+ EXPORT_SYMBOL(max_low_pfn);	/* defined by bootmem.c, but not exported by generic code */
+ #endif
+ 
+Index: linux-ia64-test/include/asm-ia64/page.h
+=================================--- linux-ia64-test.orig/include/asm-ia64/page.h	2005-11-09 14:10:17.484205369 -0600
++++ linux-ia64-test/include/asm-ia64/page.h	2005-11-09 14:10:50.803155438 -0600
+@@ -112,8 +112,9 @@
+ # define pfn_to_page(pfn)	(mem_map + (pfn))
+ #elif defined(CONFIG_DISCONTIGMEM)
+ extern struct page *vmem_map;
++extern unsigned long min_low_pfn;
+ extern unsigned long max_low_pfn;
+-# define pfn_valid(pfn)		(((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
++# define pfn_valid(pfn)		(((pfn) >= min_low_pfn) && ((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
+ # define page_to_pfn(page)	((unsigned long) (page - vmem_map))
+ # define pfn_to_page(pfn)	(vmem_map + (pfn))
+ #endif
 
-ia64 ia64 ia64 GNU/Linux
-[root@testing ~]# cat /proc/cmdline
-BOOT_IMAGE=3Dscsi0:\EFI\redhat\vmlinuz-2.6.9-22.EL  console=3DttyS0 maxcpus=
-=3D1 rhgb=20
-quiet root=3DLABEL=3D/1 ro
-
-Upgrading the kernel will not help because I need to be able to probe this =
-
-under the install kernel.
-
-Some background:
-
-This is for the Rocks Cluster Distribution (www.rocksclusters.org), where t=
-he=20
-compute node installation is done using RH kickstart files that is=20
-automatically generated on, and fetched from, the frontend based on the=20
-information that is sent from the compute node when it  asks for the=20
-kickstart file.  For instance, the number of cpus on the node is used to=20
-configure the queueing system.
-
-Any further hints is greatly appreciated.
-
-Regards,
-r.
-
---=20
-
-  The Computer Center, University of Troms=F8, N-9037 TROMS=D8 Norway.
-	      phone:+47 77 64 41 07, fax:+47 77 64 41 00
-     Roy Dragseth, High Performance Computing System Administrator
-	 Direct call: +47 77 64 62 56. email: royd@cc.uit.no
