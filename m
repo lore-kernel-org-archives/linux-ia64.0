@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 07 Nov 2005 22:09:19 +0000
+Date: Wed, 09 Nov 2005 05:52:46 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200511072209.jA7M9J3D025691@agluck-lia64.sc.intel.com>
+Message-Id: <200511090552.jA95qkK2015958@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -22,13 +22,15 @@ Thanks!
 
 -Tony
 
- arch/ia64/Kconfig       |    1 +
- include/asm-ia64/page.h |    1 +
- 2 files changed, 2 insertions(+)
+ arch/ia64/kernel/mca_drv.c              |    3 ++-
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |    4 ++--
+ arch/ia64/sn/pci/pcibr/pcibr_reg.c      |    2 +-
+ 3 files changed, 5 insertions(+), 4 deletions(-)
 
-Bob Picco:
-      [IA64] Recent SPARSEMEM and DISCONTIG changes break some builds
+Mark Maule:
+      [IA64] altix: misc pci interrupt related fixes
 
-Dean Nelson:
-      [IA64] restrict CONFIG_SGI_SN_XP to IA64_GENERIC or IA64_SGI_SN2
+Russ Anderson:
+      [IA64] MCA recovery: pfn_valid() needs a pfn
+      [IA64] MCA recovery: Bump reference count on bad pages
 
