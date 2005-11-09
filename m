@@ -1,7 +1,7 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Wed, 09 Nov 2005 00:46:21 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 09 Nov 2005 01:18:23 +0000
 Subject: RE: [RFC] 4-level page table directories.
-Message-Id: <516F50407E01324991DD6D07B0531AD57E7EE4@cacexc12.americas.cpqcorp.net>
+Message-Id: <200511090118.jA91INg21964@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051027041709.GA13193@attica.americas.sgi.com>
 In-Reply-To: <20051027041709.GA13193@attica.americas.sgi.com>
@@ -10,34 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> On 11/8/05, Gerald Pfeifer <gp@suse.de> wrote:
-> 
-> > OSVs and ISVs, on the other hand, usually prefer to only 
-> test and harden
-> > and qualify/certify a single kernel (which is why Dan's 
-> approach to Xen/ia64
-> > looks quite appealing).
-> 
-> That's a completely bogus argument though.  Perhaps the ISV is stupid
-> enough not to realize what happens when you boot with pgsizedK but
-> it certainly doesn't avoid combinatorial explosion (e.g., programs
-> that have 16KB page size hardcoded still may fail...).
-> 
->   --david
+Magenheimer, Dan wrote on Tuesday, November 08, 2005 4:46 PM
+> Not completely bogus.  Flexibility always leads to combinatorial
+> explosion, yet OSVs still support a wide variety of devices,
+> filesystems, GUIs, etc.  Exposing the ability to more easily
+> change pagesize is just one more degree of flexibility.
 
-Not completely bogus.  Flexibility always leads to combinatorial
-explosion, yet OSVs still support a wide variety of devices,
-filesystems, GUIs, etc.  Exposing the ability to more easily
-change pagesize is just one more degree of flexibility.  Why
-restrict it to "must rebuild kernel"?  And in that case, why not
-restrict it to 4K pages only and remove the flexibility from
-the ia64 kernel entirely?  (after all, programs that have 4KB page
-size hardcoded may fail on ia64 because a small group of kernel
-designers decided that 16KB is a better default than 4KB :-)
+I think you are mixing the argument here.  Single kernel image does
+not equate to better/easier OSD/ISV certification.  I boot this
+fancy-one-image-handle-all-cases kernel with half a dozen special
+boot time arguments that changes page-size, xen, numa, cpuset,
+scheduler parameters.  And then call up the ISV and ask for support,
+are they going to support that special configuration?  Referring
+to Rohit Seth's earlier point: ISV is going to say: "we don't support
+that configuration, boot without any boot time argument and call back".
 
-So, the question becomes who should bear the burden of pagesize
-flexibility?  Why should kernel designers decide this (rather
-than pass the buck upstream as CPU designers have :-)?
+I don't see how ISV/OSD's certification job is any easier.  Perhaps,
+even harder because unless one covers the entire permutation of all
+the options, it will never be complete.
 
-My two cents,
-Dan
+Having a flexibility does not automatically grant you certification
+for all configurations unless someone spend the time and effort in
+validating them all.  There is no shortcut here.
+
+- Ken
+
