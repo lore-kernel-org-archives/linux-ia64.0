@@ -1,46 +1,45 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Tue, 08 Nov 2005 01:37:29 +0000
-Subject: RE: [Patch]IA64 kexec
-Message-Id: <894E37DECA393E4D9374E0ACBBE7427003BC95C8@pdsmsx402.ccr.corp.intel.com>
+From: Lee Schermerhorn <lee.schermerhorn@hp.com>
+Date: Wed, 09 Nov 2005 18:12:05 +0000
+Subject: Question about interrupt enabling/disabling in kernel exit path
+Message-Id: <1131559925.5214.100.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1131406068.2524.15.camel@linux-znh>
-In-Reply-To: <1131406068.2524.15.camel@linux-znh>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Zou Nan hai
-> Sent: 2005=C4=EA11=D4=C28=C8=D5 7:28
-> To: linux-ia64@vger.kernel.org
-> Cc: khalid_aziz@hp.com
-> Subject: [Patch]IA64 kexec
->=20
-> Here is my patches of kexec on IA64.
->=20
-> The kernel patch is against 2.6.14
-> The kexec-tools patch is against kexec-tools-1.101
->=20
-> I have tested it on a Tiger-4 and a ZX1 machine.
->=20
-> Please test and review it.
->=20
-> Thanks.
-> Zou Nan hai
->=20
+Hello:
 
-To try the patches,=20
-You may download kexec-tools
-From http://www.xmission.com/~ebiederm/files/kexec/kexec-tools-1.101.tar.gz
-Then patch the kexec-tools and install it.
-Run
-kexec -l vmlinuz --initrd=3Dinitrd --append=3D"root=3D...";
-kexec -e to see the second kernel booting.
+I have a question about enabling interrupts in the kernel exit path.
+Especially, in do_notify_resume_user().  I have work that I need to
+defer to this point, but it needs to run with interrupts enabled.  I
+wanted to piggy back off TIF_NOTIFY_RESUME, because that is more or less
+generic code and gets handled in a C function where I can play the usual
+header games:  static inline wrapper function when feature is
+configured;  null macro when not.
 
-Thanks
-Zou Nan hai
+I see a comment at the beginning of ia64_leave_kernel that says that
+"work.need_resched, etc. mustn't get changed by this CPU before it
+returns to user- or fsys-mode, hence we disable interrupts early on."
+[This may be a stale comment.  I.e., we now check for resched needed in
+current task's thread_info flags.] But, then I see later that when
+CONFIG_PREEMPT is set, we do enable interrupts and then re-disable them.
+
+Then I notice that after we return from do_notify_resume_user() we don't
+recheck TIF_NEED_RESCHED, etc. in the thread_info flags.   So, maybe
+this is the issue?  If I open an interrupt window in
+do_notify_resume_user(), 'NEED_RESCHED might get set and we wouldn't
+notice it on return to the assembly language code.  [I might even sleep
+here.  Is that a problem?]
+
+I took a look at the x86_64 and i386 versions and they always goes back
+to check for resched after calling their version of do_notify_resume()
+[no '_user suffix on the routine].  If this were the only issue with
+enabling interrupts in do_notify_resume_user(), I could change it to
+return non-zero if recheck is needed [zero in the usual case] and then
+go back and recheck thread_info flags.
+
+Regards,
+Lee
 
 
-=20
