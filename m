@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 10 Nov 2005 23:30:39 +0000
+Date: Thu, 10 Nov 2005 23:54:37 +0000
 Subject: RE: [Patch 1/1] 4-level page tables v4.
-Message-Id: <200511102330.jAANUdg21565@unix-os.sc.intel.com>
+Message-Id: <200511102354.jAANsbg21726@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051110161915.GA3630@lnx-holt.americas.sgi.com>
 In-Reply-To: <20051110161915.GA3630@lnx-holt.americas.sgi.com>
@@ -10,30 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote on Thursday, November 10, 2005 2:39 PM
-> On Thu, Nov 10, 2005 at 01:49:26PM -0800, Luck, Tony wrote:
-> > Compiling with three levels, I see some differences in the scheduling
-> > of instructions in the vhpt_miss handler and the nested_dtlb miss
-> > handler.  Side-by-side diff of a disassembly included below (original
-> > sequence is on the left, new sequence is on the right).  For the vhpt
-> > case the new handler is 3 instructions shorter ... but shorter isn't
-> > always better.
-> 
-> I used the objdump that Jack Steiner pointed me towards to optomize the
-> vhpt_miss handler and then test.  This instruction order gave the best
-> performance, but we are talking extremely small differences.
-> 
-> Is the goal to make these identical?  If so, it should be easy to do,
-> but I was not aware that was the intent.
+Robin Holt wrote on Thursday, November 10, 2005 8:19 AM
+> --- linux-2.6.orig/arch/ia64/kernel/ivt.S	2005-11-10 06:49:03.399350630 -0600
+> +++ linux-2.6/arch/ia64/kernel/ivt.S	2005-11-10 10:06:49.272116003 -0600
+> @@ -114,7 +114,7 @@ ENTRY(vhpt_miss)
+> @@ -192,14 +207,23 @@ ENTRY(vhpt_miss)
+>  	 * between reading the pagetable and the "itc".  If so, flush the entry we
+>  	 * inserted and retry.
+>  	 */
+> -	ld8 r25=[r21]				// read L3 PTE again
+> -	ld8 r26=[r17]				// read L2 entry again
+> +	ld8 r26=[r30]				// read L3 entry again
+> +#ifdef CONFIG_PGTABLE_4
+> +	ld8 r30=[r28]				// read L2 entry again
+>  	;;
+> -	cmp.ne p6,p7=r26,r20			// did L2 entry change
+> +	cmp.ne p6,p7=r30,r29			// did L2 entry change
+>  	mov r27=PAGE_SHIFT<<2
+>  	;;
+> +(p7)	cmp.ne.or.andcm p6,p7=r26,r20		// did L3 entry change
+> +#else
 
-I was wondering earlier too why you changed all the register usage etc.
-You really don't need to make that big of change since the resource
-contention is around dep/cmp.  cmp instruction is ALU type and can be
-schedule on all 6 integer units.  The easiest way is to just re-order
-these two instructions.  There is one change you made around tbit/dep on
-line 163 (dep r23=0,r20,0,PAGE_SHIFT), but that is outside the 4-level
-page table walk.  And again, easiest thing to do is to pull that ins 2
-bundle earlier.
 
-- Ken
+You can shave off one cycle here by using parallel cmp.  Initialize
+p6,p7 in the load bundle.  Something like:
+
+
++#ifdef CONFIG_PGTABLE_4
++	ld8 r30=[r28]				// read L2 entry again
++	cmp.ne p6,p7=r0,r0
+ 	;;
+-	cmp.ne p6,p7=r26,r20			// did L2 entry change
++	cmp.ne.or.andcm p6,p7=r30,r29
++	cmp.ne.or.andcm p6,p7=r26,r20
+ 	mov r27=PAGE_SHIFT<<2
++#else
 
