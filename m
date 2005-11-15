@@ -1,69 +1,76 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Tue, 22 Nov 2005 22:15:49 +0000
-Subject: [PATCH] Remove getting break_num by decoding instruction
-Message-Id: <20051122141549.A16679@unix-os.sc.intel.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 15 Nov 2005 22:37:05 +0000
+Subject: [patch] cpu_idle performance bug fix
+Message-Id: <200511152237.jAFMb5g14072@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: "Luck, Tony" <tony.luck@intel.com>, 'Nick Piggin' <nickpiggin@yahoo.com.au>, "Seth, Rohit" <rohit.seth@intel.com>, 'Linus Torvalds' <torvalds@osdl.org>, akpm@osdl.org
+
+All,
+
+Our performance validation on 2.6.15-rc1 caught a disastrous
+performance regression with netperf (-98%) and volanomark (-58%)
+compares to previous kernel version 2.6.14-git7.  See the following
+chart (result group 1 & 2).
+
+http://kernel-perf.sourceforge.net/results.machine_id&.html
 
 
-break.b always sets cr.iim to 0 and the current code tries to
-get the break_num by decoding instruction. However, their 
-seems to be a race condition while reading the regs->cr_iip, 
-as on other cpu the break.b at regs->cr_iip might have been 
-replaced with the original instruction as a result of 
-unregister_kprobe() and hence decoding instruction to 
-obtain break_num will result in wrong value in this case.
+We have root caused it to this changeset: http://tinyurl.com/cetoa
 
-Also includes changes to kprobes.c which now has to handle
-break number zero.
+This changeset broke the ia64 task resched notification.  In
+sched.c:resched_task(), a reschedule IPI is conditioned upon
+TIF_POLLING_NRFLAG.  However, the above changeset unconditionally
+set the polling thread flag for idle tasks regardless whether
+pal_halt_light is in use or not.  As a result, resched IPI is not
+sent from resched_task().  And since the default behavior on ia64
+is to use pal_halt_light, we end up delaying the rescheduling task
+until next timer tick, and thus cause the performance regression.
 
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Here is the patch to fix the performance bug.  I'm glad our performance
+suite is turning up bad performance bug like this in time.  
 
---------------------------------------------------------------------
- arch/ia64/kernel/kprobes.c |    2 +-
- arch/ia64/kernel/traps.c   |   18 ------------------
- 2 files changed, 1 insertion(+), 19 deletions(-)
+Tony, since this is such a catastrophic performance failure, please
+consider merge this fix for 2.6.15-rc2.
 
-Index: linux-2.6.15-rc1/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.15-rc1.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.15-rc1/arch/ia64/kernel/kprobes.c
-@@ -740,7 +740,7 @@ int __kprobes kprobe_exceptions_notify(s
- 	switch(val) {
- 	case DIE_BREAK:
- 		/* err is break number from ia64_bad_break() */
--		if (args->err = 0x80200 || args->err = 0x80300)
-+		if (args->err = 0x80200 || args->err = 0x80300 || args->err = 0)
- 			if (pre_kprobes_handler(args))
- 				ret = NOTIFY_STOP;
- 		break;
-Index: linux-2.6.15-rc1/arch/ia64/kernel/traps.c
-=================================--- linux-2.6.15-rc1.orig/arch/ia64/kernel/traps.c
-+++ linux-2.6.15-rc1/arch/ia64/kernel/traps.c
-@@ -132,24 +132,6 @@ __kprobes ia64_bad_break (unsigned long 
- 	siginfo_t siginfo;
- 	int sig, code;
+
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+--- ./arch/ia64/kernel/process.c.orig	2005-11-15 11:43:30.019045450 -0800
++++ ./arch/ia64/kernel/process.c	2005-11-15 12:15:27.116678215 -0800
+@@ -202,12 +202,9 @@ default_idle (void)
+ {
+ 	local_irq_enable();
+ 	while (!need_resched()) {
+-		if (can_do_pal_halt) {
+-			local_irq_disable();
+-			if (!need_resched())
+-				safe_halt();
+-			local_irq_enable();
+-		} else
++		if (can_do_pal_halt)
++			safe_halt();
++		else
+ 			cpu_relax();
+ 	}
+ }
+@@ -272,10 +269,14 @@ cpu_idle (void)
+ {
+ 	void (*mark_idle)(int) = ia64_mark_idle;
+   	int cpu = smp_processor_id();
+-	set_thread_flag(TIF_POLLING_NRFLAG);
  
--	/* break.b always sets cr.iim to 0, which causes problems for
--	 * debuggers.  Get the real break number from the original instruction,
--	 * but only for kernel code.  User space break.b is left alone, to
--	 * preserve the existing behaviour.  All break codings have the same
--	 * format, so there is no need to check the slot type.
--	 */
--	if (break_num = 0 && !user_mode(regs)) {
--		struct ia64_psr *ipsr = ia64_psr(regs);
--		unsigned long *bundle = (unsigned long *)regs->cr_iip;
--		unsigned long slot;
--		switch (ipsr->ri) {
--		      case 0:  slot = (bundle[0] >>  5); break;
--		      case 1:  slot = (bundle[0] >> 46) | (bundle[1] << 18); break;
--		      default: slot = (bundle[1] >> 23); break;
--		}
--		break_num = ((slot >> 36 & 1) << 20) | (slot >> 6 & 0xfffff);
--	}
--
- 	/* SIGILL, SIGFPE, SIGSEGV, and SIGBUS want these field initialized: */
- 	siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
- 	siginfo.si_imm = break_num;
+ 	/* endless idle loop with no priority at all */
+ 	while (1) {
++		if (can_do_pal_halt)
++			clear_thread_flag(TIF_POLLING_NRFLAG);
++		else
++			set_thread_flag(TIF_POLLING_NRFLAG);
++
+ 		if (!need_resched()) {
+ 			void (*idle)(void);
+ #ifdef CONFIG_SMP
+
