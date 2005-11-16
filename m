@@ -1,373 +1,394 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 17 Nov 2005 21:39:10 +0000
-Subject: bugfix git pull on ia64 linux tree
-Message-Id: <200511172139.jAHLdAtE031181@agluck-lia64.sc.intel.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 16 Nov 2005 05:00:37 +0000
+Subject: [PATCH] RFC : Page table macros
+Message-Id: <20051116050037.GF2440@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
-In-Reply-To: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi,
 
-One small bugfix to the 4-level page table code, plus a larger patch that
-improves the comments in the assembly code handlers.
+Please find below a patch to make some page table modifications
+similar to something I posted earlier before the 4 level stuff.
 
-please pull from:
+This patch tries to make the macros in pgtable.h flow on from each
+other a little more than they presently do.  For example, if you
+currently change the size of a PTE you need to make a changes in other
+places where it is assumed a PTE is always 8 bytes big.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+As another example, VMALLOC_END is defined as 
 
-This will update the files shown below.
+(1UL << (4*PAGE_SHIFT -9)))
 
-Thanks!
+which is assuming 3 levels of 8 byte pointers.  I really think this
+should be defined flowing on from the previous definitions, as in the
+patch below.  A similar thing happens with the checks in init.c
 
--Tony
+I just renamed some things in ivt.S so it is hopefully a little more
+clear as to what is being loaded where.  I also tried to standardise
+on __IA64_UL(1) rather than 1UL.  I've tried to be a bit more verbose
+with comments, as I figure more comments can't hurt.
 
- arch/ia64/kernel/ivt.S |  137 ++++++++++++++++++++++++++------------------=
------
- 1 files changed, 73 insertions(+), 64 deletions(-)
+I built and tested the following patch with a variety of configs on
+the hardware I have.  
 
-Chen, Kenneth W:
-      [IA64] 4 level page table bug fix in vhpt_miss
-      [IA64] polish comments for tlb fault handler in ivt.S
+Thanks,
 
-diff-tree e8aabc47168d24eabc08418db4e034a4c625721c (from fedb25fae72bc2c370=
-9448a43be067439643da87)
-Author: Chen, Kenneth W <kenneth.w.chen@intel.com>
-Date:   Thu Nov 17 01:55:34 2005 -0800
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
 
-    [IA64] polish comments for tlb fault handler in ivt.S
-   =20
-    Polish the comments specifically in vhpt_miss and nested_dtlb_miss
-    handlers.  I think it's better to explicitly name each page table
-    level with its name instead of numerically name them.  i.e., use
-    pgd, pud, pmd, and pte instead of referring as L1, L2, L3 etc.
-    Along the line, remove some magic number in the comments like:
-    "PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)".  No code change at
-    all, pure comment update.  Feel free to shoot anything you have,
-    darts or tomahawk cruise missile.  I will duck behind a bunker ;-)
-   =20
-    Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-    Acked-by: Robin Holt <holt@sgi.com>
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
+--
+
+Signed-off-by: Ian Wienand <ianw@gelato.unsw.edu.au>
+
+ arch/ia64/kernel/ivt.S     |   44 ++++++++++--------
+ arch/ia64/mm/init.c        |   11 +---
+ include/asm-ia64/pgtable.h |  108 ++++++++++++++++++++++++++++++---------------
+ 3 files changed, 100 insertions(+), 63 deletions(-)
 
 diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index c71c792..301f2e9 100644
+index e06f21f..3566fe8 100644
 --- a/arch/ia64/kernel/ivt.S
 +++ b/arch/ia64/kernel/ivt.S
-@@ -91,16 +91,17 @@ ENTRY(vhpt_miss)
- 	 * (the "original") TLB miss, which may either be caused by an instruction
- 	 * fetch or a data access (or non-access).
- 	 *
--	 * What we do here is normal TLB miss handing for the _original_ miss, fo=
-llowed
--	 * by inserting the TLB entry for the virtual page table page that the VH=
-PT
--	 * walker was attempting to access.  The latter gets inserted as long
--	 * as both L1 and L2 have valid mappings for the faulting address.
--	 * The TLB entry for the original miss gets inserted only if
--	 * the L3 entry indicates that the page is present.
-+	 * What we do here is normal TLB miss handing for the _original_ miss,
-+	 * followed by inserting the TLB entry for the virtual page table page
-+	 * that the VHPT walker was attempting to access.  The latter gets
-+	 * inserted as long as page table entry above pte level have valid
-+	 * mappings for the faulting address.  The TLB entry for the original
-+	 * miss gets inserted only if the pte entry indicates that the page is
-+	 * present.
- 	 *
- 	 * do_page_fault gets invoked in the following cases:
- 	 *	- the faulting virtual address uses unimplemented address bits
--	 *	- the faulting virtual address has no L1, L2, or L3 mapping
-+	 *	- the faulting virtual address has no valid page table mapping
- 	 */
- 	mov r16=3Dcr.ifa				// get address that caused the TLB miss
- #ifdef CONFIG_HUGETLB_PAGE
-@@ -126,7 +127,7 @@ ENTRY(vhpt_miss)
+@@ -111,7 +111,7 @@ ENTRY(vhpt_miss)
+ 	rsm psr.dt				// use physical addressing for data
+ 	mov r31=pr				// save the predicate registers
+ 	mov r19=IA64_KR(PT_BASE)		// get page table base address
+-	shl r21=r16,3				// shift bit 60 into sign bit
++	shl r21=r16,3				// shift out region number
+ 	shr.u r17=r16,61			// get the region number into r17
+ 	;;
+ 	shr.u r22=r21,3
+@@ -125,20 +125,20 @@ ENTRY(vhpt_miss)
+ (p8)	shr r22=r22,r27
  #endif
  	;;
- 	cmp.eq p6,p7=3D5,r17			// is IFA pointing into to region 5?
--	shr.u r18=3Dr22,PGDIR_SHIFT		// get bits 33-63 of the faulting address
-+	shr.u r18=3Dr22,PGDIR_SHIFT		// get bottom portion of pgd index bit
+-	cmp.eq p6,p7=5,r17			// is IFA pointing into to region 5?
++	cmp.eq p6,p7=5,r17			// is faulting address o to region 5?
+ 	shr.u r18=r22,PGDIR_SHIFT		// get bits 33-63 of the faulting address
  	;;
- (p7)	dep r17=3Dr17,r19,(PAGE_SHIFT-3),3	// put region number bits in place
-=20
-@@ -137,38 +138,38 @@ ENTRY(vhpt_miss)
- (p6)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
- (p7)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
+-(p7)	dep r17=r17,r19,(PAGE_SHIFT-3),3	// put region number bits in place
++(p7)	dep r17=r17,r19,PGD_INDEX_BITS,PGD_ENTRY_BITS	// put region number bits in place
+ 
+ 	srlz.d
+ 	LOAD_PHYSICAL(p6, r19, swapper_pg_dir)	// region 5 is rooted at swapper_pg_dir
+ 
+ 	.pred.rel "mutex", p6, p7
+-(p6)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT
+-(p7)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT-3
++(p6)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT	// shift out r21 to make sure unsed bits zero
++(p7)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT-3	// for !r5 we already shifted out top 3 bits
  	;;
--(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3DPTA + IFA(33,42)*8
--(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3DPTA + (((IFA(61,63) << 7)=
- | IFA(33,39))*8)
-+(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3Dpgd_offset for region 5
-+(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3Dpgd_offset for region[0-4]
- 	cmp.eq p7,p6=3D0,r21			// unused address bits all zeroes?
+-(p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
+-(p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
++(p6)	dep r17=r18,r19,PGD_ENTRY_BITS,PGD_INDEX_BITS	// find the PGD offset from the page table
++(p7)	dep r17=r18,r17,PGD_ENTRY_BITS,PGD_INDEX_BITS-3	// for !r5 we already have region bits
+ 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
  #ifdef CONFIG_PGTABLE_4
--	shr.u r28=3Dr22,PUD_SHIFT			// shift L2 index into position
-+	shr.u r28=3Dr22,PUD_SHIFT			// shift pud index into position
+ 	shr.u r28=r22,PUD_SHIFT			// shift L2 index into position
+@@ -150,22 +150,22 @@ ENTRY(vhpt_miss)
+ 	;;
+ (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
+ #ifdef CONFIG_PGTABLE_4
+-	dep r28=r28,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
++	dep r28=r28,r17,PUD_ENTRY_BITS,PUD_INDEX_BITS	// compute address of L2 page table entry
+ 	;;
+ 	shr.u r18=r22,PMD_SHIFT			// shift L3 index into position
+ (p7)	ld8 r29=[r28]				// fetch the L2 entry (may be 0)
+ 	;;
+ (p7)	cmp.eq.or.andcm p6,p7=r29,r0		// was L2 entry NULL?
+-	dep r17=r18,r29,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
++	dep r17=r18,r29,PMD_ENTRY_BITS,PMD_INDEX_BITS	// compute address of L3 page table entry
  #else
--	shr.u r18=3Dr22,PMD_SHIFT			// shift L3 index into position
-+	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
+-	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
++	dep r17=r18,r17,PMD_ENTRY_BITS,PMD_INDEX_BITS	// compute address of L3 page table entry
  #endif
  	;;
--	ld8 r17=3D[r17]				// fetch the L1 entry (may be 0)
-+	ld8 r17=3D[r17]				// get *pgd (may be 0)
+ (p7)	ld8 r20=[r17]				// fetch the L3 entry (may be 0)
+ 	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
  	;;
--(p7)	cmp.eq p6,p7=3Dr17,r0			// was L1 entry NULL?
-+(p7)	cmp.eq p6,p7=3Dr17,r0			// was pgd_present(*pgd) =3D NULL?
+ (p7)	cmp.eq.or.andcm p6,p7=r20,r0		// was L3 entry NULL?
+-	dep r21=r19,r20,3,(PAGE_SHIFT-3)	// compute address of L4 page table entry
++	dep r21=r19,r20,PTD_ENTRY_BITS,PTD_INDEX_BITS	// compute address of L4 page table entry
+ 	;;
+ (p7)	ld8 r18=[r21]				// read the L4 PTE
+ 	mov r19=cr.isr				// cr.isr bit 0 tells us if this is an insn miss
+@@ -429,7 +429,7 @@ ENTRY(nested_dtlb_miss)
+ 	 */
+ 	rsm psr.dt				// switch to using physical data addressing
+ 	mov r19=IA64_KR(PT_BASE)		// get the page table base address
+-	shl r21=r16,3				// shift bit 60 into sign bit
++	shl r21=r16,3				// shift out region number
+ 	mov r18=cr.itir
+ 	;;
+ 	shr.u r17=r16,61			// get the region number into r17
+@@ -441,17 +441,17 @@ ENTRY(nested_dtlb_miss)
+ 	;;
+ 	shr.u r22=r16,r22
+ 	shr.u r18=r16,r18
+-(p7)	dep r17=r17,r19,(PAGE_SHIFT-3),3	// put region number bits in place
++(p7)	dep r17=r17,r19,PGD_INDEX_BITS,PGD_ENTRY_BITS	// put region number bits in place
+ 
+ 	srlz.d
+ 	LOAD_PHYSICAL(p6, r19, swapper_pg_dir)	// region 5 is rooted at swapper_pg_dir
+ 
+ 	.pred.rel "mutex", p6, p7
+-(p6)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT
+-(p7)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT-3
++(p6)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT	// shift out r21 to make sure unused bits zero
++(p7)	shr.u r21=r21,PGDIR_SHIFT+PAGE_SHIFT-3	// for !r5 we already shifted out the top 3 bits
+ 	;;
+-(p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
+-(p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
++(p6)	dep r17=r18,r19,PGD_ENTRY_BITS,PGD_INDEX_BITS	// find the PGD offset from the page table base
++(p7)	dep r17=r18,r17,PGD_ENTRY_BITS,PGD_INDEX_BITS-3	// for !r5 we already have region bits
+ 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
  #ifdef CONFIG_PGTABLE_4
--	dep r28=3Dr28,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table en=
-try
-+	dep r28=3Dr28,r17,3,(PAGE_SHIFT-3)	// r28=3Dpud_offset(pgd,addr)
+ 	shr.u r18=r22,PUD_SHIFT			// shift L2 index into position
+@@ -462,21 +462,25 @@ ENTRY(nested_dtlb_miss)
+ 	ld8 r17=[r17]				// fetch the L1 entry (may be 0)
  	;;
--	shr.u r18=3Dr22,PMD_SHIFT			// shift L3 index into position
--(p7)	ld8 r29=3D[r28]				// fetch the L2 entry (may be 0)
-+	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
-+(p7)	ld8 r29=3D[r28]				// get *pud (may be 0)
- 	;;
--(p7)	cmp.eq.or.andcm p6,p7=3Dr29,r0		// was L2 entry NULL?
--	dep r17=3Dr18,r29,3,(PAGE_SHIFT-3)	// compute address of L3 page table en=
-try
-+(p7)	cmp.eq.or.andcm p6,p7=3Dr29,r0		// was pud_present(*pud) =3D NULL?
-+	dep r17=3Dr18,r29,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pud,addr)
- #else
--	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table en=
-try
-+	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pgd,addr)
- #endif
- 	;;
--(p7)	ld8 r20=3D[r17]				// fetch the L3 entry (may be 0)
--	shr.u r19=3Dr22,PAGE_SHIFT		// shift L4 index into position
-+(p7)	ld8 r20=3D[r17]				// get *pmd (may be 0)
-+	shr.u r19=3Dr22,PAGE_SHIFT		// shift pte index into position
- 	;;
--(p7)	cmp.eq.or.andcm p6,p7=3Dr20,r0		// was L3 entry NULL?
--	dep r21=3Dr19,r20,3,(PAGE_SHIFT-3)	// compute address of L4 page table en=
-try
-+(p7)	cmp.eq.or.andcm p6,p7=3Dr20,r0		// was pmd_present(*pmd) =3D NULL?
-+	dep r21=3Dr19,r20,3,(PAGE_SHIFT-3)	// r21=3Dpte_offset(pmd,addr)
- 	;;
--(p7)	ld8 r18=3D[r21]				// read the L4 PTE
--	mov r19=3Dcr.isr				// cr.isr bit 0 tells us if this is an insn miss
-+(p7)	ld8 r18=3D[r21]				// read *pte
-+	mov r19=3Dcr.isr				// cr.isr bit 32 tells us if this is an insn miss
- 	;;
- (p7)	tbit.z p6,p7=3Dr18,_PAGE_P_BIT		// page present bit cleared?
- 	mov r22=3Dcr.iha				// get the VHPT address that caused the TLB miss
-@@ -202,25 +203,33 @@ ENTRY(vhpt_miss)
- 	dv_serialize_data
-=20
- 	/*
--	 * Re-check L2 and L3 pagetable.  If they changed, we may have received a=
- ptc.g
-+	 * Re-check pagetable entry.  If they changed, we may have received a ptc=
-.g
- 	 * between reading the pagetable and the "itc".  If so, flush the entry we
--	 * inserted and retry.
-+	 * inserted and retry.  At this point, we have:
-+	 *
-+	 * r28 =3D equivalent of pud_offset(pgd, ifa)
-+	 * r17 =3D equivalent of pmd_offset(pud, ifa)
-+	 * r21 =3D equivalent of pte_offset(pmd, ifa)
-+	 *
-+	 * r29 =3D *pud
-+	 * r20 =3D *pmd
-+	 * r18 =3D *pte
- 	 */
--	ld8 r25=3D[r21]				// read L4 entry again
--	ld8 r26=3D[r17]				// read L3 PTE again
-+	ld8 r25=3D[r21]				// read *pte again
-+	ld8 r26=3D[r17]				// read *pmd again
- #ifdef CONFIG_PGTABLE_4
--	ld8 r19=3D[r28]				// read L2 entry again
-+	ld8 r19=3D[r28]				// read *pud again
- #endif
- 	cmp.ne p6,p7=3Dr0,r0
- 	;;
--	cmp.ne.or.andcm p6,p7=3Dr26,r20		// did L3 entry change
-+	cmp.ne.or.andcm p6,p7=3Dr26,r20		// did *pmd change
- #ifdef CONFIG_PGTABLE_4
--	cmp.ne.or.andcm p6,p7=3Dr19,r29		// did L4 PTE change
-+	cmp.ne.or.andcm p6,p7=3Dr19,r29		// did *pud change
- #endif
- 	mov r27=3DPAGE_SHIFT<<2
- 	;;
- (p6)	ptc.l r22,r27				// purge PTE page translation
--(p7)	cmp.ne.or.andcm p6,p7=3Dr25,r18		// did L4 PTE change
-+(p7)	cmp.ne.or.andcm p6,p7=3Dr25,r18		// did *pte change
- 	;;
- (p6)	ptc.l r16,r27				// purge translation
- #endif
-@@ -235,19 +244,19 @@ END(vhpt_miss)
- ENTRY(itlb_miss)
- 	DBG_FAULT(1)
- 	/*
--	 * The ITLB handler accesses the L3 PTE via the virtually mapped linear
-+	 * The ITLB handler accesses the PTE via the virtually mapped linear
- 	 * page table.  If a nested TLB miss occurs, we switch into physical
--	 * mode, walk the page table, and then re-execute the L3 PTE read
--	 * and go on normally after that.
-+	 * mode, walk the page table, and then re-execute the PTE read and
-+	 * go on normally after that.
- 	 */
- 	mov r16=3Dcr.ifa				// get virtual address
- 	mov r29=B0				// save b0
- 	mov r31=3Dpr				// save predicates
- .itlb_fault:
--	mov r17=3Dcr.iha				// get virtual address of L3 PTE
-+	mov r17=3Dcr.iha				// get virtual address of PTE
- 	movl r30=1F				// load nested fault continuation point
- 	;;
--1:	ld8 r18=3D[r17]				// read L3 PTE
-+1:	ld8 r18=3D[r17]				// read *pte
- 	;;
- 	mov b0=3Dr29
- 	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
-@@ -262,7 +271,7 @@ ENTRY(itlb_miss)
- 	 */
- 	dv_serialize_data
-=20
--	ld8 r19=3D[r17]				// read L3 PTE again and see if same
-+	ld8 r19=3D[r17]				// read *pte again and see if same
- 	mov r20=3DPAGE_SHIFT<<2			// setup page size for purge
- 	;;
- 	cmp.ne p7,p0=3Dr18,r19
-@@ -279,19 +288,19 @@ END(itlb_miss)
- ENTRY(dtlb_miss)
- 	DBG_FAULT(2)
- 	/*
--	 * The DTLB handler accesses the L3 PTE via the virtually mapped linear
-+	 * The DTLB handler accesses the PTE via the virtually mapped linear
- 	 * page table.  If a nested TLB miss occurs, we switch into physical
--	 * mode, walk the page table, and then re-execute the L3 PTE read
--	 * and go on normally after that.
-+	 * mode, walk the page table, and then re-execute the PTE read and
-+	 * go on normally after that.
- 	 */
- 	mov r16=3Dcr.ifa				// get virtual address
- 	mov r29=B0				// save b0
- 	mov r31=3Dpr				// save predicates
- dtlb_fault:
--	mov r17=3Dcr.iha				// get virtual address of L3 PTE
-+	mov r17=3Dcr.iha				// get virtual address of PTE
- 	movl r30=1F				// load nested fault continuation point
- 	;;
--1:	ld8 r18=3D[r17]				// read L3 PTE
-+1:	ld8 r18=3D[r17]				// read *pte
- 	;;
- 	mov b0=3Dr29
- 	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
-@@ -306,7 +315,7 @@ dtlb_fault:
- 	 */
- 	dv_serialize_data
-=20
--	ld8 r19=3D[r17]				// read L3 PTE again and see if same
-+	ld8 r19=3D[r17]				// read *pte again and see if same
- 	mov r20=3DPAGE_SHIFT<<2			// setup page size for purge
- 	;;
- 	cmp.ne p7,p0=3Dr18,r19
-@@ -420,7 +429,7 @@ ENTRY(nested_dtlb_miss)
- 	 *		r30:	continuation address
- 	 *		r31:	saved pr
- 	 *
--	 * Output:	r17:	physical address of L3 PTE of faulting address
-+	 * Output:	r17:	physical address of PTE of faulting address
- 	 *		r29:	saved b0
- 	 *		r30:	continuation address
- 	 *		r31:	saved pr
-@@ -450,33 +459,33 @@ ENTRY(nested_dtlb_miss)
- (p6)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
- (p7)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
- 	;;
--(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3DPTA + IFA(33,42)*8
--(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3DPTA + (((IFA(61,63) << 7)=
- | IFA(33,39))*8)
-+(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3Dpgd_offset for region 5
-+(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3Dpgd_offset for region[0-4]
- 	cmp.eq p7,p6=3D0,r21			// unused address bits all zeroes?
- #ifdef CONFIG_PGTABLE_4
--	shr.u r18=3Dr22,PUD_SHIFT			// shift L2 index into position
-+	shr.u r18=3Dr22,PUD_SHIFT			// shift pud index into position
- #else
--	shr.u r18=3Dr22,PMD_SHIFT			// shift L3 index into position
-+	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
- #endif
- 	;;
--	ld8 r17=3D[r17]				// fetch the L1 entry (may be 0)
-+	ld8 r17=3D[r17]				// get *pgd (may be 0)
- 	;;
--(p7)	cmp.eq p6,p7=3Dr17,r0			// was L1 entry NULL?
--	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table en=
-try
-+(p7)	cmp.eq p6,p7=3Dr17,r0			// was pgd_present(*pgd) =3D NULL?
-+	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dp[u|m]d_offset(pgd,addr)
+ (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
+-	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
++#ifdef CONFIG_PGTABLE_4
++	dep r17=r18,r17,PUD_ENTRY_BITS,PUD_INDEX_BITS	// compute address of L3 page table entry
++#else
++	dep r17=r18,r17,PMD_ENTRY_BITS,PMD_INDEX_BITS	// compute address of L2 page table entry
++#endif
  	;;
  #ifdef CONFIG_PGTABLE_4
--(p7)	ld8 r17=3D[r17]				// fetch the L2 entry (may be 0)
--	shr.u r18=3Dr22,PMD_SHIFT			// shift L3 index into position
-+(p7)	ld8 r17=3D[r17]				// get *pud (may be 0)
-+	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
+ (p7)	ld8 r17=[r17]				// fetch the L2 entry (may be 0)
+ 	shr.u r18=r22,PMD_SHIFT			// shift L3 index into position
  	;;
--(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was L2 entry NULL?
--	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table en=
-try
-+(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was pud_present(*pud) =3D NULL?
-+	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pud,addr)
+ (p7)	cmp.eq.or.andcm p6,p7=r17,r0		// was L2 entry NULL?
+-	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
++	dep r17=r18,r17,PMD_ENTRY_BITS,PMD_INDEX_BITS	// compute address of L2 page table entry
  	;;
  #endif
--(p7)	ld8 r17=3D[r17]				// fetch the L3 entry (may be 0)
--	shr.u r19=3Dr22,PAGE_SHIFT		// shift L4 index into position
-+(p7)	ld8 r17=3D[r17]				// get *pmd (may be 0)
-+	shr.u r19=3Dr22,PAGE_SHIFT		// shift pte index into position
+ (p7)	ld8 r17=[r17]				// fetch the L3 entry (may be 0)
+ 	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
  	;;
--(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was L3 entry NULL?
--	dep r17=3Dr19,r17,3,(PAGE_SHIFT-3)	// compute address of L4 page table en=
-try
-+(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was pmd_present(*pmd) =3D NULL?
-+	dep r17=3Dr19,r17,3,(PAGE_SHIFT-3)	// r17=3Dpte_offset(pmd,addr);
+ (p7)	cmp.eq.or.andcm p6,p7=r17,r0		// was L3 entry NULL?
+-	dep r17=r19,r17,3,(PAGE_SHIFT-3)	// compute address of L4 page table entry
++	dep r17=r19,r17,PTD_ENTRY_BITS,PTD_INDEX_BITS	// compute address of L4 page table entry
  (p6)	br.cond.spnt page_fault
- 	mov b0=3Dr30
+ 	mov b0=r30
  	br.sptk.many b0				// return to continuation point
-
-diff-tree fedb25fae72bc2c3709448a43be067439643da87 (from 6027994423e12a3c0b=
-22d3dbf9ac87364ca4e0ec)
-Author: Chen, Kenneth W <kenneth.w.chen@intel.com>
-Date:   Thu Nov 17 01:38:42 2005 -0800
-
-    [IA64] 4 level page table bug fix in vhpt_miss
-   =20
-    From source code inspection, I think there is a bug with 4 level
-    page table with vhpt_miss handler.  In the code path of rechecking
-    page table entry against previously read value after tlb insertion,
-    *pte value in register r18 was overwritten with value newly read
-    from pud pointer, render the check of new *pte against previous
-    *pte completely wrong.  Though the bug is none fatal and the penalty
-    is to purge the entry and retry.  For functional correctness, it
-    should be fixed.  The fix is to use a different register so new
-    *pud don't trash *pte.  (btw, the comments in the cmp statement is
-    wrong as well, which I will address in the next patch).
-   =20
-    Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index e06f21f..c71c792 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -209,13 +209,13 @@ ENTRY(vhpt_miss)
- 	ld8 r25=3D[r21]				// read L4 entry again
- 	ld8 r26=3D[r17]				// read L3 PTE again
- #ifdef CONFIG_PGTABLE_4
--	ld8 r18=3D[r28]				// read L2 entry again
-+	ld8 r19=3D[r28]				// read L2 entry again
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index e3215ba..cc209b5 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -360,17 +360,14 @@ ia64_mmu_init (void *my_cpu_data)
+ 	 * problem in practice.  Alternatively, we could truncate the top of the mapped
+ 	 * address space to not permit mappings that would overlap with the VMLPT.
+ 	 * --davidm 00/12/06
+-	 */
+-#	define pte_bits			3
+-#	define mapped_space_bits	(3*(PAGE_SHIFT - pte_bits) + PAGE_SHIFT)
+-	/*
++	 *
+ 	 * The virtual page table has to cover the entire implemented address space within
+ 	 * a region even though not all of this space may be mappable.  The reason for
+ 	 * this is that the Access bit and Dirty bit fault handlers perform
+ 	 * non-speculative accesses to the virtual page table, so the address range of the
+ 	 * virtual page table itself needs to be covered by virtual page table.
+ 	 */
+-#	define vmlpt_bits		(impl_va_bits - PAGE_SHIFT + pte_bits)
++#	define vmlpt_bits		(impl_va_bits - PAGE_SHIFT + PTD_ENTRY_BITS)
+ #	define POW2(n)			(1ULL << (n))
+ 
+ 	impl_va_bits = ffz(~(local_cpu_data->unimpl_va_mask | (7UL << 61)));
+@@ -383,8 +380,8 @@ ia64_mmu_init (void *my_cpu_data)
+ 	 * the test makes sure that our mapped space doesn't overlap the
+ 	 * unimplemented hole in the middle of the region.
+ 	 */
+-	if ((mapped_space_bits - PAGE_SHIFT > vmlpt_bits - pte_bits) ||
+-	    (mapped_space_bits > impl_va_bits - 1))
++	if ((MAPPED_SPACE_BITS - PAGE_SHIFT > vmlpt_bits - PTD_ENTRY_BITS) ||
++	    (MAPPED_SPACE_BITS > impl_va_bits - 1))
+ 		panic("Cannot build a big enough virtual-linear page table"
+ 		      " to cover mapped address space.\n"
+ 		      " Try using a smaller page size.\n");
+diff --git a/include/asm-ia64/pgtable.h b/include/asm-ia64/pgtable.h
+index e2560c5..58cdbc5 100644
+--- a/include/asm-ia64/pgtable.h
++++ b/include/asm-ia64/pgtable.h
+@@ -84,54 +84,72 @@
+ #define __DIRTY_BITS		_PAGE_ED | __DIRTY_BITS_NO_ED
+ 
+ /*
+- * How many pointers will a page table level hold expressed in shift
++ * Overall page table macro explanations
++ * ==================+ * level_ENTRY_BITS : How many bits in one entry at this level.
++ *                    i.e. log2(width of entry)
++ * level_INDEX_BITS : Those bits in a page full of entries that identify unique entries.
++ *                    i.e. PAGE_SIZE / (width of entry)
++ * PTRS_PER_level   : The number of entries of level a page can hold
++ *                    i.e. 2^level_INDEX_BITS
++ * level_SHIFT      : number of bits this level maps (cumulative with lower levels)
++ * level_SIZE       : how much an address space an entry at this level maps
++ *                    i.e. 2^level_SHIFT
++ * level_MASK       : mask of bits that make up this level and lower levels
+  */
+-#define PTRS_PER_PTD_SHIFT	(PAGE_SHIFT-3)
+ 
+ /*
+  * Definitions for fourth level:
++ * A PTD is a page full of PTE entries
+  */
+-#define PTRS_PER_PTE	(__IA64_UL(1) << (PTRS_PER_PTD_SHIFT))
++#define PTD_ENTRY_BITS	3
++#define PTD_INDEX_BITS	(PAGE_SHIFT - PTD_ENTRY_BITS)
++#define PTRS_PER_PTD	(__IA64_UL(1) << PTD_INDEX_BITS)
++/* some other places in the kernel expect PTRS_PER_PTE to be defined
++ * to the number of ptes in a page; we define it here but try not to
++ * use it to avoid further confusion
++ */
++#define PTRS_PER_PTE	PTRS_PER_PTD
++#define PTD_SHIFT	PAGE_SHIFT
+ 
+ /*
+- * Definitions for third level:
+- *
+- * PMD_SHIFT determines the size of the area a third-level page table
+- * can map.
++ * Definitions for third level (middle)
+  */
+-#define PMD_SHIFT	(PAGE_SHIFT + (PTRS_PER_PTD_SHIFT))
+-#define PMD_SIZE	(1UL << PMD_SHIFT)
++#define PMD_ENTRY_BITS	3
++#define PMD_INDEX_BITS	(PAGE_SHIFT - PMD_ENTRY_BITS)
++#define PMD_SHIFT	(PMD_INDEX_BITS + PTD_SHIFT)
++#define PMD_SIZE	(__IA64_UL(1) << PMD_SHIFT)
+ #define PMD_MASK	(~(PMD_SIZE-1))
+-#define PTRS_PER_PMD	(1UL << (PTRS_PER_PTD_SHIFT))
++#define PTRS_PER_PMD	(__IA64_UL(1) << (PMD_INDEX_BITS))
+ 
+-#ifdef CONFIG_PGTABLE_4
+ /*
+- * Definitions for second level:
+- *
+- * PUD_SHIFT determines the size of the area a second-level page table
+- * can map.
++ * Definitions for second level (upper)
++ * By default we do not have 4 level page tables
+  */
+-#define PUD_SHIFT	(PMD_SHIFT + (PTRS_PER_PTD_SHIFT))
+-#define PUD_SIZE	(1UL << PUD_SHIFT)
++#ifdef CONFIG_PGTABLE_4
++#define PUD_ENTRY_BITS	3
++#define PUD_INDEX_BITS	(PAGE_SHIFT - PUD_ENTRY_BITS)
++#define PUD_SHIFT	(PUD_INDEX_BITS + PMD_SHIFT)
++#define PUD_SIZE	(__IA64_UL(1) << PUD_SHIFT)
+ #define PUD_MASK	(~(PUD_SIZE-1))
+-#define PTRS_PER_PUD	(1UL << (PTRS_PER_PTD_SHIFT))
++#define PTRS_PER_PUD	(__IA64_UL(1) << PUD_INDEX_BITS)
  #endif
- 	cmp.ne p6,p7=3Dr0,r0
- 	;;
- 	cmp.ne.or.andcm p6,p7=3Dr26,r20		// did L3 entry change
+ 
+ /*
+- * Definitions for first level:
+- *
+- * PGDIR_SHIFT determines what a first-level page table entry can map.
++ * Definitions for first level (global)
+  */
++#define PGD_ENTRY_BITS		3
++#define PGD_INDEX_BITS		(PAGE_SHIFT - PGD_ENTRY_BITS)
  #ifdef CONFIG_PGTABLE_4
--	cmp.ne.or.andcm p6,p7=3Dr29,r18		// did L4 PTE change
-+	cmp.ne.or.andcm p6,p7=3Dr19,r29		// did L4 PTE change
+-#define PGDIR_SHIFT		(PUD_SHIFT + (PTRS_PER_PTD_SHIFT))
++#define PGDIR_SHIFT		(PGD_INDEX_BITS + PUD_SHIFT)
+ #else
+-#define PGDIR_SHIFT		(PMD_SHIFT + (PTRS_PER_PTD_SHIFT))
++#define PGDIR_SHIFT		(PGD_INDEX_BITS + PMD_SHIFT)
  #endif
- 	mov r27=3DPAGE_SHIFT<<2
- 	;;
+ #define PGDIR_SIZE		(__IA64_UL(1) << PGDIR_SHIFT)
+ #define PGDIR_MASK		(~(PGDIR_SIZE-1))
+-#define PTRS_PER_PGD_SHIFT	PTRS_PER_PTD_SHIFT
+-#define PTRS_PER_PGD		(1UL << PTRS_PER_PGD_SHIFT)
+-#define USER_PTRS_PER_PGD	(5*PTRS_PER_PGD/8)	/* regions 0-4 are user regions */
++#define PTRS_PER_PGD		(__IA64_UL(1) << PGD_INDEX_BITS)
++/* Of the 8 regions, userspace may only map in the 5 regions 0-4 */
++#define USER_PTRS_PER_PGD	(5 * (PTRS_PER_PGD/8))
+ #define FIRST_USER_ADDRESS	0
+ 
+ /*
+@@ -231,22 +249,40 @@ ia64_phys_addr_valid (unsigned long addr
+ #define set_pte(ptep, pteval)	(*(ptep) = (pteval))
+ #define set_pte_at(mm,addr,ptep,pteval) set_pte(ptep,pteval)
+ 
++/*
++ * MAPPED_SPACE_BITS is the number of bits that make up the maximum
++ * space we can map with our page tables
++ * i.e a page full of pgd entries fully populated
++ */
++#define MAPPED_SPACE_BITS	(PGDIR_SHIFT + PGD_INDEX_BITS)
++/* PGTABLE_MAP_LIMIT is how much space we can map with our page tables */
++#define PGTABLE_MAP_LIMIT	(__IA64_UL(1) << MAPPED_SPACE_BITS)
++
++/*
++ * RGN_MAP_LIMIT is the most one region can map, thus we remove the
++ * three region bits from the calculation.  Also remove a guard page.
++ */
++#define RGN_MAP_LIMIT		((__IA64_UL(1) << (MAPPED_SPACE_BITS - 3)) - PAGE_SIZE)
++
+ #define VMALLOC_START		(RGN_BASE(RGN_GATE) + 0x200000000UL)
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-# define VMALLOC_END_INIT	(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
++/*
++ * With virtual mem_map, we reduce the vmalloc space and place the
++ * vmem_map virtual array above the vmalloc space.  The actual
++ * vmem_map size obviously depends on how much physical memory we
++ * have.
++ */
++# define VMALLOC_END_INIT	(RGN_BASE(RGN_GATE) + PGTABLE_MAP_LIMIT)
+ # define VMALLOC_END		vmalloc_end
+   extern unsigned long vmalloc_end;
+ #else
+-# define VMALLOC_END		(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
++# define VMALLOC_END		(RGN_BASE(RGN_GATE) + PGTABLE_MAP_LIMIT)
+ #endif
+ 
+ /* fs/proc/kcore.c */
+ #define	kc_vaddr_to_offset(v) ((v) - RGN_BASE(RGN_GATE))
+ #define	kc_offset_to_vaddr(o) ((o) + RGN_BASE(RGN_GATE))
+ 
+-#define RGN_MAP_SHIFT (PGDIR_SHIFT + PTRS_PER_PGD_SHIFT - 3)
+-#define RGN_MAP_LIMIT	((1UL << RGN_MAP_SHIFT) - PAGE_SIZE)	/* per region addr limit */
+-
+ /*
+  * Conversion functions: convert page frame number (pfn) and a protection value to a page
+  * table entry (pte).
+@@ -333,17 +369,17 @@ ia64_phys_addr_valid (unsigned long addr
+  */
+ #define pgprot_writecombine(prot)	__pgprot((pgprot_val(prot) & ~_PAGE_MA_MASK) | _PAGE_MA_WC)
+ 
++/* The offset in the PGD directory is given by the 3 region bits
++   (61..63) and the level-1 bits.  */
+ static inline unsigned long
+ pgd_index (unsigned long address)
+ {
+ 	unsigned long region = address >> 61;
+-	unsigned long l1index = (address >> PGDIR_SHIFT) & ((PTRS_PER_PGD >> 3) - 1);
++	unsigned long index = (address >> PGDIR_SHIFT) & ((PTRS_PER_PGD >> 3) - 1);
+ 
+-	return (region << (PAGE_SHIFT - 6)) | l1index;
++	return (region << (PGD_INDEX_BITS - 3)) | index;
+ }
+ 
+-/* The offset in the 1-level directory is given by the 3 region bits
+-   (61..63) and the level-1 bits.  */
+ static inline pgd_t*
+ pgd_offset (struct mm_struct *mm, unsigned long address)
+ {
+@@ -374,7 +410,7 @@ pgd_offset (struct mm_struct *mm, unsign
+  * Find an entry in the third-level page table.  This looks more complicated than it
+  * should be because some platforms place page tables in high memory.
+  */
+-#define pte_index(addr)	 	(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
++#define pte_index(addr)	 	(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTD - 1))
+ #define pte_offset_kernel(dir,addr)	((pte_t *) pmd_page_kernel(*(dir)) + pte_index(addr))
+ #define pte_offset_map(dir,addr)	pte_offset_kernel(dir, addr)
+ #define pte_offset_map_nested(dir,addr)	pte_offset_map(dir, addr)
+
