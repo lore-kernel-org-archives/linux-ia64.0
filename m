@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 18 Nov 2005 04:09:18 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 18 Nov 2005 05:23:17 +0000
 Subject: Re: 2.6.14 boots on sgi altix?
-Message-Id: <8110.1132286958@kao2.melbourne.sgi.com>
+Message-Id: <20051118052317.GA22784@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200511180316.jAI3G9g06785@unix-os.sc.intel.com>
 In-Reply-To: <200511180316.jAI3G9g06785@unix-os.sc.intel.com>
@@ -10,30 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 17 Nov 2005 19:16:07 -0800, 
-"Chen, Kenneth W" <kenneth.w.chen@intel.com> wrote:
->Is there something special I need to do to boot 2.6.14 on SGI
->altix machine?  I took 7 day old 2.6.14.2 kernel source, and
->did the following:
->
->cp arch/ia64/config/sn2_defconfig .config
->make oldconfig
->make vmlinux
->
->And it resulted with a bug check at very early stage of boot.
->The boot log says:
->
->Linux version 2.6.14.2 (root@linux-sgi) (gcc version 3.2.3 20030502 (Red Hat Linux 3.2.3-24)) #3 SMP Thu Nov 17 19:25:56 PST 2005
->EFI v1.02 by SGI: SALsystab=0x3002514a60 ACPI 2.0=0x30027a1950
->Number of logical nodes in system = 16
->Number of memory chunks in system = 16
->SAL 2.9: SGI SN2 version 4.4
->SAL Platform features: ITC_Drift
->SAL: AP wakeup using external interrupt vector 0x12
->No logical to physical processor mapping available
->kernel BUG at arch/ia64/sn/kernel/setup.c:468!
->swapper[0]: bugcheck! 0 [1]
+On Thu, Nov 17, 2005 at 07:16:07PM -0800, Chen, Kenneth W wrote:
+> Is there something special I need to do to boot 2.6.14 on SGI
+> altix machine?  I took 7 day old 2.6.14.2 kernel source, and
+> did the following:
 
-You need a newer version of SAL for kernel 2.6.14.  From memory you
-need at least SAL 4.30, but check with your SGI support person.
+Give this a try. Line numbers may be slightly off - I have a different
+version of the tree but this _should_ apply. Untested ...
+
+
+
+Index: linux/include/asm/sn/sn_sal.h
+=================================--- linux.orig/include/asm/sn/sn_sal.h	2005-11-03 18:07:57.000000000 -0600
++++ linux/include/asm/sn/sn_sal.h	2005-11-17 22:28:22.607430600 -0600
+@@ -1018,6 +1018,24 @@ ia64_sn_get_sn_info(int fc, u8 *shubtype
+ 	ret_stuff.v2 = 0;
+ 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_GET_SN_INFO, fc, 0, 0, 0, 0, 0, 0);
+ 
++/***** BEGIN HACK - temp til old proms no longer supported ********/
++	if (ret_stuff.status = SALRET_NOT_IMPLEMENTED) {
++		int nasid = get_sapicid() & 0xfff;;
++#define SH_SHUB_ID_NODES_PER_BIT_MASK 0x001f000000000000UL                                               
++#define SH_SHUB_ID_NODES_PER_BIT_SHFT 48                                                               
++		if (shubtype) *shubtype = 0;
++		if (nasid_bitmask) *nasid_bitmask = 0x7ff;
++		if (nasid_shift) *nasid_shift = 38;
++		if (systemsize) *systemsize = 10;
++		if (sharing_domain_size) *sharing_domain_size = 8;
++		if (partid) *partid = sn_partition_serial_number;
++		if (coher) *coher = nasid >> 9;
++		if (reg) *reg = (HUB_L((u64 *) LOCAL_MMR_ADDR(SH1_SHUB_ID)) & SH_SHUB_ID_NODES_PER_BIT_MASK) >>
++			SH_SHUB_ID_NODES_PER_BIT_SHFT;
++		return 0;
++	}
++/***** END HACK *******/
++
+ 	if (ret_stuff.status < 0)
+ 		return ret_stuff.status;
+ 
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
 
