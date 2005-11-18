@@ -1,211 +1,214 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Wed, 09 Nov 2005 20:41:57 +0000
-Subject: [PATCH] utilize notify_die() for XPC disengage
-Message-Id: <43725F15.mailx5K311LZHD@aqua.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 18 Nov 2005 02:43:41 +0000
+Subject: [Patch 2.6.15-rc1-git] Delete MCA/INIT sigdelayed code
+Message-Id: <6307.1132281821@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-XPC (as in arch/ia64/sn/kernel/xp*) has a need to notify other partitions
-(SGI Altix) whenever a partition is going down in order to get them to
-disengage from accessing the halting partition's memory. If this is not
-done before the reset of the hardware, the other partitions can find
-themselves encountering MCAs that bring them down.
+The only user of the MCA/INIT sigdelayed code (SGI's I/O probing) has
+moved from the kernel into SAL.  Delete the MCA/INIT sigdelayed code.
 
-This functionality depends on patches submitted by Keith Owens <kaos@sgi.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-	http://marc.theaimsgroup.com/?l=linux-ia64&m3090221421071&w=2
-	http://marc.theaimsgroup.com/?l=linux-kernel&m3132971819786&w=2
+---
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+ arch/ia64/kernel/entry.S       |   14 -----
+ arch/ia64/kernel/signal.c      |  101 -----------------------------------------
+ include/asm-ia64/signal.h      |    2 
+ include/asm-ia64/thread_info.h |   11 ----
+ 4 files changed, 1 insertion(+), 127 deletions(-)
 
-
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_main.c	2005-11-09 12:50:16.949830222 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c	2005-11-09 14:05:41.891525144 -0600
-@@ -57,6 +57,7 @@
- #include <linux/reboot.h>
- #include <asm/sn/intr.h>
- #include <asm/sn/sn_sal.h>
-+#include <asm/kdebug.h>
- #include <asm/uaccess.h>
- #include "xpc.h"
+Index: linux-ia64/arch/ia64/kernel/entry.S
+=================================--- linux-ia64.orig/arch/ia64/kernel/entry.S	2005-11-18 13:37:25.780989467 +1100
++++ linux-ia64/arch/ia64/kernel/entry.S	2005-11-18 13:37:56.328542031 +1100
+@@ -1100,9 +1100,6 @@ skip_rbs_switch:
+ 	st8 [r2]=r8
+ 	st8 [r3]=r10
+ .work_pending:
+-	tbit.nz p6,p0=r31,TIF_SIGDELAYED		// signal delayed from  MCA/INIT/NMI/PMI context?
+-(p6)	br.cond.sptk.few .sigdelayed
+-	;;
+ 	tbit.z p6,p0=r31,TIF_NEED_RESCHED		// current_thread_info()->need_resched=0?
+ (p6)	br.cond.sptk.few .notify
+ #ifdef CONFIG_PREEMPT
+@@ -1129,17 +1126,6 @@ skip_rbs_switch:
+ (pLvSys)br.cond.sptk.few  .work_pending_syscall_end
+ 	br.cond.sptk.many .work_processed_kernel	// don't re-check
  
-@@ -188,6 +189,11 @@
- 	.notifier_call = xpc_system_reboot,
+-// There is a delayed signal that was detected in MCA/INIT/NMI/PMI context where
+-// it could not be delivered.  Deliver it now.  The signal might be for us and
+-// may set TIF_SIGPENDING, so redrive ia64_leave_* after processing the delayed
+-// signal.
+-
+-.sigdelayed:
+-	br.call.sptk.many rp=do_sigdelayed
+-	cmp.eq p6,p0=r0,r0				// p6 <- 1, always re-check
+-(pLvSys)br.cond.sptk.few  .work_pending_syscall_end
+-	br.cond.sptk.many .work_processed_kernel	// re-check
+-
+ .work_pending_syscall_end:
+ 	adds r2=PT(R8)+16,r12
+ 	adds r3=PT(R10)+16,r12
+Index: linux-ia64/arch/ia64/kernel/signal.c
+=================================--- linux-ia64.orig/arch/ia64/kernel/signal.c	2005-11-18 13:37:25.810282310 +1100
++++ linux-ia64/arch/ia64/kernel/signal.c	2005-11-18 13:37:56.329518459 +1100
+@@ -588,104 +588,3 @@ ia64_do_signal (sigset_t *oldset, struct
+ 	}
+ 	return 0;
+ }
+-
+-/* Set a delayed signal that was detected in MCA/INIT/NMI/PMI context where it
+- * could not be delivered.  It is important that the target process is not
+- * allowed to do any more work in user space.  Possible cases for the target
+- * process:
+- *
+- * - It is sleeping and will wake up soon.  Store the data in the current task,
+- *   the signal will be sent when the current task returns from the next
+- *   interrupt.
+- *
+- * - It is running in user context.  Store the data in the current task, the
+- *   signal will be sent when the current task returns from the next interrupt.
+- *
+- * - It is running in kernel context on this or another cpu and will return to
+- *   user context.  Store the data in the target task, the signal will be sent
+- *   to itself when the target task returns to user space.
+- *
+- * - It is running in kernel context on this cpu and will sleep before
+- *   returning to user context.  Because this is also the current task, the
+- *   signal will not get delivered and the task could sleep indefinitely.
+- *   Store the data in the idle task for this cpu, the signal will be sent
+- *   after the idle task processes its next interrupt.
+- *
+- * To cover all cases, store the data in the target task, the current task and
+- * the idle task on this cpu.  Whatever happens, the signal will be delivered
+- * to the target task before it can do any useful user space work.  Multiple
+- * deliveries have no unwanted side effects.
+- *
+- * Note: This code is executed in MCA/INIT/NMI/PMI context, with interrupts
+- * disabled.  It must not take any locks nor use kernel structures or services
+- * that require locks.
+- */
+-
+-/* To ensure that we get the right pid, check its start time.  To avoid extra
+- * include files in thread_info.h, convert the task start_time to unsigned long,
+- * giving us a cycle time of > 580 years.
+- */
+-static inline unsigned long
+-start_time_ul(const struct task_struct *t)
+-{
+-	return t->start_time.tv_sec * NSEC_PER_SEC + t->start_time.tv_nsec;
+-}
+-
+-void
+-set_sigdelayed(pid_t pid, int signo, int code, void __user *addr)
+-{
+-	struct task_struct *t;
+-	unsigned long start_time =  0;
+-	int i;
+-
+-	for (i = 1; i <= 3; ++i) {
+-		switch (i) {
+-		case 1:
+-			t = find_task_by_pid(pid);
+-			if (t)
+-				start_time = start_time_ul(t);
+-			break;
+-		case 2:
+-			t = current;
+-			break;
+-		default:
+-			t = idle_task(smp_processor_id());
+-			break;
+-		}
+-
+-		if (!t)
+-			return;
+-		t->thread_info->sigdelayed.signo = signo;
+-		t->thread_info->sigdelayed.code = code;
+-		t->thread_info->sigdelayed.addr = addr;
+-		t->thread_info->sigdelayed.start_time = start_time;
+-		t->thread_info->sigdelayed.pid = pid;
+-		wmb();
+-		set_tsk_thread_flag(t, TIF_SIGDELAYED);
+-	}
+-}
+-
+-/* Called from entry.S when it detects TIF_SIGDELAYED, a delayed signal that
+- * was detected in MCA/INIT/NMI/PMI context where it could not be delivered.
+- */
+-
+-void
+-do_sigdelayed(void)
+-{
+-	struct siginfo siginfo;
+-	pid_t pid;
+-	struct task_struct *t;
+-
+-	clear_thread_flag(TIF_SIGDELAYED);
+-	memset(&siginfo, 0, sizeof(siginfo));
+-	siginfo.si_signo = current_thread_info()->sigdelayed.signo;
+-	siginfo.si_code = current_thread_info()->sigdelayed.code;
+-	siginfo.si_addr = current_thread_info()->sigdelayed.addr;
+-	pid = current_thread_info()->sigdelayed.pid;
+-	t = find_task_by_pid(pid);
+-	if (!t)
+-		return;
+-	if (current_thread_info()->sigdelayed.start_time != start_time_ul(t))
+-		return;
+-	force_sig_info(siginfo.si_signo, &siginfo, t);
+-}
+Index: linux-ia64/include/asm-ia64/signal.h
+=================================--- linux-ia64.orig/include/asm-ia64/signal.h	2005-11-18 13:37:40.223337244 +1100
++++ linux-ia64/include/asm-ia64/signal.h	2005-11-18 13:37:56.331471315 +1100
+@@ -158,8 +158,6 @@ struct k_sigaction {
+ 
+ #define ptrace_signal_deliver(regs, cookie) do { } while (0)
+ 
+-void set_sigdelayed(pid_t pid, int signo, int code, void __user *addr);
+-
+ #endif /* __KERNEL__ */
+ 
+ # endif /* !__ASSEMBLY__ */
+Index: linux-ia64/include/asm-ia64/thread_info.h
+=================================--- linux-ia64.orig/include/asm-ia64/thread_info.h	2005-11-18 13:37:40.437174994 +1100
++++ linux-ia64/include/asm-ia64/thread_info.h	2005-11-18 13:37:56.332447743 +1100
+@@ -29,13 +29,6 @@ struct thread_info {
+ 	mm_segment_t addr_limit;	/* user-level address space limit */
+ 	int preempt_count;		/* 0=premptable, <0=BUG; will also serve as bh-counter */
+ 	struct restart_block restart_block;
+-	struct {
+-		int signo;
+-		int code;
+-		void __user *addr;
+-		unsigned long start_time;
+-		pid_t pid;
+-	} sigdelayed;			/* Saved information for TIF_SIGDELAYED */
  };
  
-+static int xpc_system_die(struct notifier_block *, unsigned long, void *);
-+static struct notifier_block xpc_die_notifier = {
-+	.notifier_call = xpc_system_die,
-+};
-+
+ #define THREAD_SIZE			KERNEL_STACK_SIZE
+@@ -80,7 +73,6 @@ struct thread_info {
+ #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
+ #define TIF_SYSCALL_TRACE	3	/* syscall trace active */
+ #define TIF_SYSCALL_AUDIT	4	/* syscall auditing active */
+-#define TIF_SIGDELAYED		5	/* signal delayed from MCA/INIT/NMI/PMI context */
+ #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
+ #define TIF_MEMDIE		17
+ #define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
+@@ -91,12 +83,11 @@ struct thread_info {
+ #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+-#define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
+ #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
+ #define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
  
- /*
-  * Timer function to enforce the timelimit on the partition disengage request.
-@@ -997,6 +1003,9 @@
- 	/* take ourselves off of the reboot_notifier_list */
- 	(void) unregister_reboot_notifier(&xpc_reboot_notifier);
+ /* "work to do on user-return" bits */
+-#define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
++#define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
+ /* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_TRACE or TIF_SYSCALL_AUDIT */
+ #define TIF_WORK_MASK		(TIF_ALLWORK_MASK&~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT))
  
-+	/* take ourselves off of the die_notifier list */
-+	(void) unregister_die_notifier(&xpc_die_notifier);
-+
- 	/* close down protections for IPI operations */
- 	xpc_restrict_IPI_ops();
- 
-@@ -1011,6 +1020,63 @@
- 
- 
- /*
-+ * Called when the system is about to be either restarted or halted.
-+ */
-+static void
-+xpc_die_disengage(void)
-+{
-+	struct xpc_partition *part;
-+	partid_t partid;
-+	unsigned long engaged;
-+	long time, print_time, disengage_request_timeout;
-+
-+
-+	/* keep xpc_hb_checker thread from doing anything (just in case) */
-+	xpc_exiting = 1;
-+
-+	xpc_vars->heartbeating_to_mask = 0;  /* indicate we're deactivated */
-+
-+	for (partid = 1; partid < XP_MAX_PARTITIONS; partid++) {
-+		part = &xpc_partitions[partid];
-+
-+		if (!XPC_SUPPORTS_DISENGAGE_REQUEST(part->
-+							remote_vars_version)) {
-+
-+			/* just in case it was left set by an earlier XPC */
-+			xpc_clear_partition_engaged(1UL << partid);
-+			continue;
-+		}
-+
-+		if (xpc_partition_engaged(1UL << partid) ||
-+					part->act_state != XPC_P_INACTIVE) {
-+			xpc_request_partition_disengage(part);
-+			xpc_mark_partition_disengaged(part);
-+			xpc_IPI_send_disengage(part);
-+		}
-+	}
-+
-+	print_time = rtc_time();
-+	disengage_request_timeout = print_time +
-+		(xpc_disengage_request_timelimit * sn_rtc_cycles_per_second);
-+
-+	/* wait for all other partitions to disengage from us */
-+
-+	while ((engaged = xpc_partition_engaged(-1UL)) &&
-+			(time = rtc_time()) < disengage_request_timeout) {
-+
-+		if (time >= print_time) {
-+			dev_info(xpc_part, "waiting for remote partitions to "
-+				"disengage, engaged=0x%lx\n", engaged);
-+			print_time = time + (XPC_DISENGAGE_PRINTMSG_INTERVAL *
-+						sn_rtc_cycles_per_second);
-+		}
-+	}
-+	dev_info(xpc_part, "finished waiting for remote partitions to "
-+				"disengage, engaged=0x%lx\n", engaged);
-+}
-+
-+
-+/*
-  * This function is called when the system is being rebooted.
-  */
- static int
-@@ -1038,6 +1104,33 @@
- }
- 
- 
-+/*
-+ * This function is called when the system is being rebooted.
-+ */
-+static int
-+xpc_system_die(struct notifier_block *nb, unsigned long event, void *unused)
-+{
-+	switch (event) {
-+	case DIE_MACHINE_RESTART:
-+	case DIE_MACHINE_HALT:
-+		xpc_die_disengage();
-+		break;
-+	case DIE_MCA_MONARCH_ENTER:
-+	case DIE_INIT_MONARCH_ENTER:
-+		xpc_vars->heartbeat++;
-+		xpc_vars->heartbeat_offline = 1;
-+		break;
-+	case DIE_MCA_MONARCH_LEAVE:
-+	case DIE_INIT_MONARCH_LEAVE:
-+		xpc_vars->heartbeat++;
-+		xpc_vars->heartbeat_offline = 0;
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+
- int __init
- xpc_init(void)
- {
-@@ -1154,6 +1247,12 @@
- 		dev_warn(xpc_part, "can't register reboot notifier\n");
- 	}
- 
-+	/* add ourselves to the die_notifier list (i.e., ia64die_chain) */
-+	ret = register_die_notifier(&xpc_die_notifier);
-+	if (ret != 0) {
-+		dev_warn(xpc_part, "can't register die notifier\n");
-+	}
-+
- 
- 	/*
- 	 * Set the beating to other partitions into motion.  This is
-@@ -1179,6 +1278,9 @@
- 		/* take ourselves off of the reboot_notifier_list */
- 		(void) unregister_reboot_notifier(&xpc_reboot_notifier);
- 
-+		/* take ourselves off of the die_notifier list */
-+		(void) unregister_die_notifier(&xpc_die_notifier);
-+
- 		del_timer_sync(&xpc_hb_timer);
- 		free_irq(SGI_XPC_ACTIVATE, NULL);
- 		xpc_restrict_IPI_ops();
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc.h	2005-11-09 12:50:16.851207102 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h	2005-11-09 14:01:08.472479792 -0600
-@@ -163,7 +163,7 @@
- 	u8 version;
- 	u64 heartbeat;
- 	u64 heartbeating_to_mask;
--	u64 kdb_status;		/* 0 = machine running */
-+	u64 heartbeat_offline;	/* if 0, heartbeat should be changing */
- 	int act_nasid;
- 	int act_phys_cpuid;
- 	u64 vars_part_pa;
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_partition.c	2005-11-09 12:50:16.851207102 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c	2005-11-09 14:08:45.629087760 -0600
-@@ -436,13 +436,13 @@
- 		}
- 
- 		dev_dbg(xpc_part, "partid = %d, heartbeat = %ld, last_heartbeat"
--			" = %ld, kdb_status = %ld, HB_mask = 0x%lx\n", partid,
--			remote_vars->heartbeat, part->last_heartbeat,
--			remote_vars->kdb_status,
-+			" = %ld, heartbeat_offline = %ld, HB_mask = 0x%lx\n",
-+			partid, remote_vars->heartbeat, part->last_heartbeat,
-+			remote_vars->heartbeat_offline,
- 			remote_vars->heartbeating_to_mask);
- 
- 		if (((remote_vars->heartbeat = part->last_heartbeat) &&
--			(remote_vars->kdb_status = 0)) ||
-+			(remote_vars->heartbeat_offline = 0)) ||
- 			     !xpc_hb_allowed(sn_partition_id, remote_vars)) {
- 
- 			XPC_DEACTIVATE_PARTITION(part, xpcNoHeartbeat);
+
