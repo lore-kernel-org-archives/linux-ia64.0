@@ -1,145 +1,49 @@
-From: Brett Johnson <brett@fc.hp.com>
-Date: Mon, 28 Nov 2005 16:45:47 +0000
-Subject: Re: initrd_size inflation breaks initramfs
-Message-Id: <1133196347.16188.4.camel@localhost.localdomain>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-RNklbocQt6yqtWVzbhB/"
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 18 Nov 2005 15:19:11 +0000
+Subject: [PATCH] - SN support for older versions of PROM
+Message-Id: <20051118151911.GA10918@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1133159027.6062.98.camel@localhost>
-In-Reply-To: <1133159027.6062.98.camel@localhost>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
---=-RNklbocQt6yqtWVzbhB/
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Add support for old versions of SN PROMs. Eventually this
+support will be deleted but it is useful right now to continue 
+supporting older PROMs.
 
-On Mon, 2005-11-28 at 09:28 -0700, dann frazier wrote:
-> Ah - found the sourceforge page - looks like a patch to fix this went in
-> in February, but just missed the 3.5pre1 release.
+(The support for older PROMs use to be in the tree. It was 
+deleted by accident).
 
-Here's the actual patch that I applied to 3.5pre1 to fix this bug.  Man,
-I really need to make another release...
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
--- 
-Brett Johnson <brett@hp.com>
 
---=-RNklbocQt6yqtWVzbhB/
-Content-Disposition: attachment; filename=initrd-changes.diff
-Content-Type: text/x-patch; name=initrd-changes.diff; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-Index: elilo.c
-===================================================================
-RCS file: /cvsroot/elilo/elilo/elilo.c,v
-retrieving revision 1.3
-retrieving revision 1.6
-diff -b -B -u -r1.3 -r1.6
---- elilo.c	20 Feb 2004 22:30:37 -0000	1.3
-+++ elilo.c	28 Feb 2005 17:57:28 -0000	1.6
-@@ -164,7 +163,7 @@
+Index: linux/include/asm/sn/sn_sal.h
+=================================--- linux.orig/include/asm/sn/sn_sal.h	2005-11-17 22:38:30.741828181 -0600
++++ linux/include/asm/sn/sn_sal.h	2005-11-18 09:06:12.328192683 -0600
+@@ -1018,6 +1018,24 @@ ia64_sn_get_sn_info(int fc, u8 *shubtype
+ 	ret_stuff.v2 = 0;
+ 	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_GET_SN_INFO, fc, 0, 0, 0, 0, 0, 0);
  
- 	for(;;) {
- 		kname[0] = cmdline_tmp[0] = cmdline[0] = CHAR_NULL;
--		imem.start_addr = 0; imem.pgcnt = 0;
-+		imem.start_addr = 0; imem.pgcnt = 0; imem.size = 0;
- 		elilo_opt.sys_img_opts = NULL;
++/***** BEGIN HACK - temp til old proms no longer supported ********/
++	if (ret_stuff.status = SALRET_NOT_IMPLEMENTED) {
++		int nasid = get_sapicid() & 0xfff;;
++#define SH_SHUB_ID_NODES_PER_BIT_MASK 0x001f000000000000UL                                               
++#define SH_SHUB_ID_NODES_PER_BIT_SHFT 48                                                               
++		if (shubtype) *shubtype = 0;
++		if (nasid_bitmask) *nasid_bitmask = 0x7ff;
++		if (nasid_shift) *nasid_shift = 38;
++		if (systemsize) *systemsize = 10;
++		if (sharing_domain_size) *sharing_domain_size = 8;
++		if (partid) *partid = sn_partition_serial_number;
++		if (coher) *coher = nasid >> 9;
++		if (reg) *reg = (HUB_L((u64 *) LOCAL_MMR_ADDR(SH1_SHUB_ID)) & 
++				 SH_SHUB_ID_NODES_PER_BIT_MASK) >> SH_SHUB_ID_NODES_PER_BIT_SHFT;
++		return 0;
++	}
++/***** END HACK *******/
++
+ 	if (ret_stuff.status < 0)
+ 		return ret_stuff.status;
  
- 		if (kernel_chooser(argv, argc, index, kname, cmdline_tmp) == -1) goto exit_error;
-Index: elilo.h
-===================================================================
-RCS file: /cvsroot/elilo/elilo/elilo.h,v
-retrieving revision 1.3
-retrieving revision 1.4
-diff -b -B -u -r1.3 -r1.4
---- elilo.h	20 Feb 2004 22:30:37 -0000	1.3
-+++ elilo.h	28 Feb 2005 17:57:28 -0000	1.4
-@@ -112,6 +112,7 @@
- typedef struct {
- 	VOID 	*start_addr;
- 	UINTN	pgcnt;
-+	UINTN	size;
- } memdesc_t;
- 
- typedef struct {
-Index: initrd.c
-===================================================================
-RCS file: /cvsroot/elilo/elilo/initrd.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.2
-diff -b -B -u -r1.1.1.1 -r1.2
---- initrd.c	19 Aug 2003 16:47:18 -0000	1.1.1.1
-+++ initrd.c	28 Feb 2005 17:57:28 -0000	1.2
-@@ -66,10 +66,10 @@
- 		goto error;
- 	}
- 	
--	/* round up to get required number of pages (4KB) */
--	initrd->pgcnt = pgcnt = EFI_SIZE_TO_PAGES(size);
--
-+	initrd->size = size;
- 
-+	/* round up to get required number of pages (4KB) */
-+	initrd->pgcnt = pgcnt = EFI_SIZE_TO_PAGES(initrd->size);
- 
- 	start_addr = alloc_pages(pgcnt, EfiLoaderData, start_addr ? AllocateAddress : AllocateAnyPages, start_addr);
- 	if (start_addr == NULL) {
-@@ -77,11 +77,11 @@
- 		goto error;
- 	}
- 	VERB_PRT(2, Print(L"initrd: total_size: %ld bytes base: 0x%lx pages %d\n", 
--			size, (UINT64)start_addr, pgcnt));
-+			initrd->size, (UINTN)start_addr, pgcnt));
- 
- 	Print(L"Loading initrd %s...", filename);
- 
--	ret = read_file(fd, size, start_addr);	
-+	ret = read_file(fd, initrd->size, start_addr);	
- 
- 	fops_close(fd);
- 
-@@ -105,6 +105,7 @@
- 	 */
- 	initrd->start_addr = 0;
- 	initrd->pgcnt      = 0;
-+	initrd->size       = 0;
- 
- 	return ret;
- }
-Index: ia32/system.c
-===================================================================
-RCS file: /cvsroot/elilo/elilo/ia32/system.c,v
-retrieving revision 1.2
-retrieving revision 1.3
-diff -b -B -u -r1.2 -r1.3
---- ia32/system.c	17 Feb 2004 23:42:41 -0000	1.2
-+++ ia32/system.c	28 Feb 2005 17:57:30 -0000	1.3
-@@ -270,7 +270,7 @@
- 	if (initrd->start_addr && initrd->pgcnt) {
- 		/* %%TBD - This will probably have to be changed. */
- 		bp->s.initrd_start = (UINT32)initrd->start_addr;
--		bp->s.initrd_size = (UINT32)(initrd->pgcnt * EFI_PAGE_SIZE);
-+		bp->s.initrd_size = (UINT32)(initrd->size);
- 
- 		/*
- 		 * This is the RAMdisk root device for RedHat 2.2.x
-Index: ia64/system.c
-===================================================================
-RCS file: /cvsroot/elilo/elilo/ia64/system.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.2
-diff -b -B -u -r1.1.1.1 -r1.2
---- ia64/system.c	19 Aug 2003 16:46:49 -0000	1.1.1.1
-+++ ia64/system.c	28 Feb 2005 17:57:30 -0000	1.2
-@@ -64,7 +64,7 @@
- 	bp->efi_memdesc_version = mdesc.desc_version;
- 	bp->command_line	= (UINTN)cmdline;
- 	bp->initrd_start	= (UINTN) initrd->start_addr;
--	bp->initrd_size		= initrd->pgcnt << EFI_PAGE_SHIFT;
-+	bp->initrd_size		= initrd->size;
- 
- 	/* fetch console parameters: */
- 	conout = systab->ConOut;
-
---=-RNklbocQt6yqtWVzbhB/--
-
