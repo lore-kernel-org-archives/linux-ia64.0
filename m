@@ -1,36 +1,25 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 21 Nov 2005 21:26:37 +0000
-Subject: Re: Fix asm constraint in put_user
-Message-Id: <jelkzhofoy.fsf@sykes.suse.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 21 Nov 2005 22:11:28 +0000
+Subject: RE: Fix asm constraint in put_user
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0504DD49@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je7jb2nigc.fsf@sykes.suse.de>
 In-Reply-To: <je7jb2nigc.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-James E Wilson <wilson@tuliptree.org> writes:
-
-> On Mon, 2005-11-21 at 07:12, Andreas Schwab wrote:
->> The st insn on the ia64 does not allow the post-increment to come from a
->> register (only ld does).  Thus the "m" constraint is not suitable for the
->> asm statement in __put_user_size.
+>> You could use the "S" constraint here.  This isn't used anywhere in
+>> gcc.  This exists solely for use by asms that need a non-postinc MEM.
 >
-> You could use the "S" constraint here.  This isn't used anywhere in
-> gcc.  This exists solely for use by asms that need a non-postinc MEM.
+>Alas, it does not work:
 
-Alas, it does not work:
+So should I go with the original patch using "r"?  I agree with Andreas'
+assessment that it doesn't matter that we didn't tell gcc that memory
+was being changed, since the memory that gets changed isn't in a space
+that gcc knows about.
 
-sound/oss/rme96xx.c:744: error: 'asm' operand requires impossible reload
+Or are there any more letters of the alphabet to try :-)
 
-That's exactly the place where gcc would like to use a POST_MODIFY with a
-register operand.
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+-Tony
