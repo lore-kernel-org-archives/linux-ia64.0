@@ -1,65 +1,50 @@
-From: "Tian, Kevin" <kevin.tian@intel.com>
-Date: Tue, 22 Nov 2005 04:44:25 +0000
-Subject: RE: [Xen-devel] __ia64__ ifdef in xmalloc.c: "Fix ar.unat handling forfast paths"
-Message-Id: <571ACEFD467F7749BC50E0A98C17CDD802C069CF@pdsmsx403>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 22 Nov 2005 16:11:18 +0000
+Subject: Re: [Xen-devel] __ia64__ ifdef in xmalloc.c: "Fix ar.unat handling forfast paths"
+Message-Id: <20051122161118.GA28064@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1132548798.1478.7.camel@localhost.localdomain> <571ACEFD467F7749BC50E0A98C17CDD802C069CF@pdsmsx403>
+In-Reply-To: <571ACEFD467F7749BC50E0A98C17CDD802C069CF@pdsmsx403>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Rusty Russell <rusty@rustcorp.com.au>, Xen Mailing List <xen-devel@lists.xensource.com>
-Cc: Tony Breeds <tony@bakeyournoodle.com>, djm@kirby.fc.hp.com, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Tian, Kevin" <kevin.tian@intel.com>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Xen Mailing List <xen-devel@lists.xensource.com>, Tony Breeds <tony@bakeyournoodle.com>, djm@kirby.fc.hp.com, linux-ia64@vger.kernel.org
 
->From: Rusty Russell
->Sent: 2005=C4=EA11=D4=C221=C8=D5 12:53
->Hi all,
->
->	While browsing the code, I noticed this in xmalloc.c:
->
->#ifndef __ia64__
->    BUG_ON(align > SMP_CACHE_BYTES);
->#endif
->
->	This is clearly wrong: due to header alignment we cannot give you a
->greater alignment than SMP_CACHE_BYTES.  Overriding this will cause the
->allocation to succeed, but not give the alignment requested.  It usually
->indicates the caller should be fixed.
->
->Does someone with an ia64 box know why, or want to rip it out and see
->what breaks?
->
->Thanks!
->Rusty.
->--
->A bad analogy is like a leaky screwdriver -- Richard Braakman
->
+This comment:
+>   /*
+>    * The "aligned" directive can only _increase_ alignment, so this is
+>    * safe and provides an easy way to avoid wasting space on a
+>    * uni-processor:
+>    */
+suggests that we only expected SMP_CACHE_BYTES to be used in "aligned"
+directives, where having a smaller value than the actual alignment
+requirement of some object would simply be ignored by the compiler.
 
-I didn't note that ifdef before, and removing it doesn't break dom0. I doub=
-t the reason from following definition which is copied from Linux directly =
-into Xen:
+A search for SMP_CACHE_BYTES across the kernel picks up a few drivers
+that don't follow this usage model.   E.g. drivers/net/acenic.c might
+print a warning about unsupported cache line size on a UP ia64.
 
-#ifdef CONFIG_SMP
-# define SMP_CACHE_SHIFT	L1_CACHE_SHIFT
-# define SMP_CACHE_BYTES	L1_CACHE_BYTES
-#else
-  /*
-   * The "aligned" directive can only _increase_ alignment, so this is
-   * safe and provides an easy way to avoid wasting space on a
-   * uni-processor:
-   */
-# define SMP_CACHE_SHIFT	3
-# define SMP_CACHE_BYTES	(1 << 3)
-#endif
+Your usage:
+	BUG_ON(align > SMP_CACHE_BYTES);
 
-For a UP system, SMP_CACHE_BYTES is only 8 bytes to save space. Then maybe =
-several months ago, there's such requirement to xmalloc a 16bytes aligned (=
-legal on ia64 system like a long double) structure and then failed due to B=
-UG_ON with an immediate lazy hack to add ifdef there. For now, such case se=
-ems disappearing after a quick test.
+is another instance of this define being used in a way that ia64
+didn't expect (it appears that only ia64 has this space saving
+trick in the definition of SMP_CACHE_BYTES ... so it is unsurprising
+that general users are not following our usage model).
 
-However I think the preferred way is to increase SMP_CACHE_SHIFT to 4 to ma=
-tch maximum allowed alignment value. But I'm not sure from the comment abov=
-e why "3" is defined there on native linux. CC to linux-ia64 list for stand=
-ard answer. ;-)
+How much is this trick saving us?  Static size of data area in
+vmlinux doesn't change very much as SMP_CACHE_BYTES is varied:
 
-Thanks,
-Kevin
+   text    data     bss     dec     hex filename
+8677481 1139704 1206357 11023542         a834b6 vmlinux-8
+8677417 1141808 1206397 11025622         a83cd6 vmlinux-16
+8677417 1146000 1206477 11029894         a84d86 vmlinux-32
+8677353 1146256 1206573 11030182         a84ea6 vmlinux-64
+8677353 1163152 1207085 11047590         a892a6 vmlinux-128
+
+I'm not sure how to evaluate dynamic behavior (allocation of
+structures whose size is dependent on SMP_CACHE_BYTES at
+runtime).
+
+-Tony
