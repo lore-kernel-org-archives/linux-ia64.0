@@ -1,34 +1,24 @@
-From: Keir Fraser <Keir.Fraser@cl.cam.ac.uk>
-Date: Wed, 23 Nov 2005 15:37:07 +0000
+From: David Mosberger-Tang <David.Mosberger@acm.org>
+Date: Wed, 23 Nov 2005 16:30:59 +0000
 Subject: Re: [Xen-devel] __ia64__ ifdef in xmalloc.c: "Fix ar.unat handling forfast paths"
-Message-Id: <883776988128f1657bc6dbd7d993cae1@cl.cam.ac.uk>
+Message-Id: <ed5aea430511230830v68b02db6g2bd61996fe243a8a@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F05080A09@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F05080A09@scsmsx401.amr.corp.intel.com>
+References: <571ACEFD467F7749BC50E0A98C17CDD802C069E3@pdsmsx403>
+In-Reply-To: <571ACEFD467F7749BC50E0A98C17CDD802C069E3@pdsmsx403>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: "Tian, Kevin" <kevin.tian@intel.com>, Xen Mailing List <xen-devel@lists.xensource.com>, linux-ia64@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>, Tony Breeds <tony@bakeyournoodle.com>, djm@kirby.fc.hp.com, David Mosberger-Tang <David.Mosberger@acm.org>
+To: "Tian, Kevin" <kevin.tian@intel.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Rusty Russell <rusty@rustcorp.com.au>, Xen Mailing List <xen-devel@lists.xensource.com>, Tony Breeds <tony@bakeyournoodle.com>, djm@kirby.fc.hp.com, linux-ia64@vger.kernel.org
 
+On 11/22/05, Tian, Kevin <kevin.tian@intel.com> wrote:
+> Now I think even '16' can't cover all cases. It's possible for a user defined structure with .align directive to force by '32' or larger, and then allocator happens to have similar check upon SMP_CACHE_BYTES like case in this thread. Because both structure definition and allocator may have no idea about IA64 trick of saving space for UP. Max alignment of any C style only solves the natural alignment case, but not above forced one. We can just give its real assumption to SMP_CACHE_BYTES - cache line size. ;-)
 
-On 23 Nov 2005, at 15:07, Luck, Tony wrote:
+Not likely to be a problem.  Memory allocators generally guarantee
+only 16-byte alignment (as per ia64 software conventions).
 
->> It's not hard to support arbitrary alignment, at the cost of burning
->> some space. We should probably do that.
->
-> The "we" in that last sentence is the Xen team ... referring
-> to making fixes to xmalloc?
-
-Correct. But I've thought more on it and I guess that actually the 
-number of cases where we have structures with alignment requirements 
-stricter than SMP_CACHE_BYTES will be very small. In fact I can't think 
-of any in Xen right now. :-)
-
-So it makes most sense for ia64 Xen to define SMP_CACHE_BYTES to a 
-sensible largeish number irrespective of CONFIG_SMP (after all, how 
-many uniproc ia64 systems are there), and solve the general alignment 
-problem in xmalloc only if we really need to.
-
-  -- Keir
-
+  --david
+--
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
