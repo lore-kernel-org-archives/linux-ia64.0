@@ -1,33 +1,38 @@
-From: dann frazier <dannf@hp.com>
-Date: Mon, 28 Nov 2005 06:23:46 +0000
-Subject: initrd_size inflation breaks initramfs
-Message-Id: <1133159027.6062.98.camel@localhost>
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 28 Nov 2005 09:44:25 +0000
+Subject: Re: initrd_size inflation breaks initramfs
+Message-Id: <jek6etcdja.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1133159027.6062.98.camel@localhost>
+In-Reply-To: <1133159027.6062.98.camel@localhost>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-hey,
-  I've been trying to track down why initramfs seems to be broken on
-ia64 when passed using the initrd= flag.  This appears to be due to an
-inflated ia64_boot_param->initrd_size.  In my case, initrd_size got set
-to 1957888 (which happens to be a multiple of 4K), when my initramfs
-file is actually 1957415 bytes.
+dann frazier <dannf@hp.com> writes:
 
-unpack_to_rootfs() expects gunzip() to succeed until it has reached the
-initrd_size.  Since it thinks the image is larger than it actually is,
-it runs off the end of the initrd and the initramfs footprinting fails.
-I can get unpack_to_rootfs to succeed by hardcoding my initrd_size.
+> My guess is that this is a bug in elilo.
 
-My guess is that this is a bug in elilo.
+Try this patch:
 
-initrd.c has:
-        /* round up to get required number of pages (4KB) */
-        initrd->pgcnt = pgcnt = EFI_SIZE_TO_PAGES(size);
+--- initrd.c
++++ initrd.c
+@@ -94,6 +94,9 @@
+=20
+ 	initrd->start_addr =3D start_addr;
+=20
++	/* Clear extra memory since we don't pass the exact size.  */
++	Memset(start_addr + size, 0, (pgcnt << EFI_PAGE_SHIFT) - size);
++
+ 	return ELILO_LOAD_SUCCESS;
+=20
+ error:
 
-initrd->pgcnt is later used to calculate the initrd_size boot param, but
-it is now (size % 4096) bytes too big.
--- 
-dann frazier <dannf@hp.com>
+Andreas.
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
