@@ -1,7 +1,7 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Mon, 28 Nov 2005 11:36:38 +0000
-Subject: [Patch] New zone ZONE_EASY_RECLAIM take 2[4/5]
-Message-Id: <20051128200435.5D80.Y-GOTO@jp.fujitsu.com>
+Date: Mon, 28 Nov 2005 11:36:51 +0000
+Subject: [Patch] New zone ZONE_EASY_RECLAIM take 2[5/5]
+Message-Id: <20051128200550.5D82.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051128195854.5D78.Y-GOTO@jp.fujitsu.com>
 In-Reply-To: <20051128195854.5D78.Y-GOTO@jp.fujitsu.com>
@@ -11,57 +11,29 @@ Content-Transfer-Encoding: 7bit
 To: linux-mm <linux-mm@kvack.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
 Cc: Joel Schopp <jschopp@austin.ibm.com>, linux-ia64@vger.kernel.org
 
+This is to disable __GFP_EASY_RECLAIM flag at add_to_page_cache().
+If this patch is not applied, cache_grow() checks and call BUG(),
+at here. 
 
-This is for calculation of the watermark zone->pages_min/low/high.
+	if (flags & ~(SLAB_DMA|SLAB_LEVEL_MASK|SLAB_NO_GROW))
+		BUG();
+
+This patch is to solve it.
 
 Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Index: new_zone_mm/include/linux/mmzone.h
-=================================--- new_zone_mm.orig/include/linux/mmzone.h	2005-11-17 17:07:30.000000000 +0900
-+++ new_zone_mm/include/linux/mmzone.h	2005-11-17 17:17:51.000000000 +0900
-@@ -401,6 +401,11 @@ static inline struct zone *next_zone(str
- #define for_each_zone(zone) \
- 	for (zone = pgdat_list->node_zones; zone; zone = next_zone(zone))
- 
-+static inline int is_easy_reclaim_idx(int idx)
-+{
-+	return (idx = ZONE_EASY_RECLAIM);
-+}
-+
- static inline int is_highmem_idx(int idx)
+Index: new_zone_mm/mm/filemap.c
+=================================--- new_zone_mm.orig/mm/filemap.c	2005-11-22 15:21:23.000000000 +0900
++++ new_zone_mm/mm/filemap.c	2005-11-22 15:21:27.000000000 +0900
+@@ -381,7 +381,7 @@ int filemap_write_and_wait_range(struct 
+ int add_to_page_cache(struct page *page, struct address_space *mapping,
+ 		pgoff_t offset, gfp_t gfp_mask)
  {
- 	return (idx = ZONE_HIGHMEM);
-@@ -416,6 +421,11 @@ static inline int is_normal_idx(int idx)
-  *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
-  * @zone - pointer to struct zone variable
-  */
-+static inline int is_easy_reclaim(struct zone *zone)
-+{
-+	return zone = zone->zone_pgdat->node_zones + ZONE_EASY_RECLAIM;
-+}
-+
- static inline int is_highmem(struct zone *zone)
- {
- 	return zone = zone->zone_pgdat->node_zones + ZONE_HIGHMEM;
-Index: new_zone_mm/mm/page_alloc.c
-=================================--- new_zone_mm.orig/mm/page_alloc.c	2005-11-17 17:09:05.000000000 +0900
-+++ new_zone_mm/mm/page_alloc.c	2005-11-17 17:17:51.000000000 +0900
-@@ -2495,13 +2495,13 @@ void setup_per_zone_pages_min(void)
+-	int error = radix_tree_preload(gfp_mask & ~__GFP_HIGHMEM);
++	int error = radix_tree_preload(gfp_mask & ~(__GFP_HIGHMEM | __GFP_EASY_RECLAIM));
  
- 	/* Calculate total number of !ZONE_HIGHMEM pages */
- 	for_each_zone(zone) {
--		if (!is_highmem(zone))
-+		if (!is_highmem(zone) && !is_easy_reclaim(zone))
- 			lowmem_pages += zone->present_pages;
- 	}
- 
- 	for_each_zone(zone) {
- 		spin_lock_irqsave(&zone->lru_lock, flags);
--		if (is_highmem(zone)) {
-+		if (is_highmem(zone) || is_easy_reclaim(zone)) {
- 			/*
- 			 * Often, highmem doesn't need to reserve any pages.
- 			 * But the pages_min/low/high values are also used for
+ 	if (error = 0) {
+ 		write_lock_irq(&mapping->tree_lock);
 
 -- 
 Yasunori Goto 
