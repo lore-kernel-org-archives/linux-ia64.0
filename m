@@ -1,23 +1,92 @@
-From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Date: Fri, 23 Dec 2005 05:58:51 +0000
-Subject: Re: [PATCH] ia64: disable preemption in udelay()
-Message-Id: <Pine.LNX.4.64.0512222202190.3822@montezuma.fsmlabs.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Thu, 01 Dec 2005 02:28:09 +0000
+Subject: [PATCH] save parameter registers and restore them for jprobe handling
+Message-Id: <8126E4F969BA254AB43EA03C59F44E84040B3BF4@pdsmsx404>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C5F61E.E1616E9D"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <8270.1135296864@kao2.melbourne.sgi.com>
-In-Reply-To: <8270.1135296864@kao2.melbourne.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Keith Owens <kaos@sgi.com>
-Cc: Bill Davidsen <davidsen@tmr.com>, Lee Revell <rlrevell@joe-job.com>, "Luck, Tony" <tony.luck@intel.com>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-On Fri, 23 Dec 2005, Keith Owens wrote:
+This is a multi-part message in MIME format.
 
-> Agreed.  See [RFC] Add thread_info flag for "no cpu migration"[1] on
-> lkml.  It got no response.
-> 
-> [1] http://marc.theaimsgroup.com/?l=linux-kernel&m3471059115107&w=2
+------_=_NextPart_001_01C5F61E.E1616E9D
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-I read it and it would make fixing cpuhotplug + cpufreq also easier. 
-However you could also argue that the whole locking in cpufreq should be 
-fixed instead.
+When jprobe is hit, the function parameters of the original function
+should be saved before jprobe handler is executed, and restored it after
+jprobe handler is executed, because jprobe handler might change the
+register values.
+
+Here is a patch against 2.6.14-mm1.
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
+
+
+------_=_NextPart_001_01C5F61E.E1616E9D
+Content-Type: application/octet-stream;
+	name="jprobe_protect_out_reg_ia64_v2.patch"
+Content-Transfer-Encoding: base64
+Content-Description: jprobe_protect_out_reg_ia64_v2.patch
+Content-Disposition: attachment;
+	filename="jprobe_protect_out_reg_ia64_v2.patch"
+
+ZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMuYyBs
+aW51eC0yLjYuMTRfbW0xX2pwcm9iZS9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMuYwotLS0gbGlu
+dXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMuYwkyMDA1LTExLTA5IDE5OjA4
+OjUxLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjE0X21tMV9qcHJvYmUvYXJjaC9pYTY0
+L2tlcm5lbC9rcHJvYmVzLmMJMjAwNS0xMS0zMCAxNzo1ODowMy4wMDAwMDAwMDAgKzA4MDAKQEAg
+LTc1OSwxMyArNzU5LDQ5IEBAIGludCBfX2twcm9iZXMga3Byb2JlX2V4Y2VwdGlvbnNfbm90aWZ5
+KHMKIAlyZXR1cm4gcmV0OwogfQogCitzdHJ1Y3QgcGFyYW1fYnNwX2NmbSB7CisJdW5zaWduZWQg
+bG9uZyBpcDsKKwl1bnNpZ25lZCBsb25nICpic3A7CisJdW5zaWduZWQgbG9uZyBjZm07Cit9Owor
+CitzdGF0aWMgdm9pZCBpYTY0X2dldF9ic3BfY2ZtKHN0cnVjdCB1bndfZnJhbWVfaW5mbyAqaW5m
+bywgdm9pZCAqYXJnKQoreworCXVuc2lnbmVkIGxvbmcgaXA7CisJc3RydWN0IHBhcmFtX2JzcF9j
+Zm0gKmxwID0gYXJnOworCisJZG8geworCQl1bndfZ2V0X2lwKGluZm8sICZpcCk7CisJCWlmIChp
+cCA9PSAwKQorCQkJYnJlYWs7CisJCWlmIChpcCA9PSBscC0+aXApIHsKKwkJCXVud19nZXRfYnNw
+KGluZm8sICh1bnNpZ25lZCBsb25nKikmbHAtPmJzcCk7CisJCQl1bndfZ2V0X2NmbShpbmZvLCAo
+dW5zaWduZWQgbG9uZyopJmxwLT5jZm0pOworCQkJcmV0dXJuOworCQl9CisJfSB3aGlsZSAodW53
+X3Vud2luZChpbmZvKSA+PSAwKTsKKwlscC0+YnNwID0gMDsKKwlscC0+Y2ZtID0gMDsKKwlyZXR1
+cm47Cit9CisKIGludCBfX2twcm9iZXMgc2V0am1wX3ByZV9oYW5kbGVyKHN0cnVjdCBrcHJvYmUg
+KnAsIHN0cnVjdCBwdF9yZWdzICpyZWdzKQogewogCXN0cnVjdCBqcHJvYmUgKmpwID0gY29udGFp
+bmVyX29mKHAsIHN0cnVjdCBqcHJvYmUsIGtwKTsKIAl1bnNpZ25lZCBsb25nIGFkZHIgPSAoKHN0
+cnVjdCBmbnB0ciAqKShqcC0+ZW50cnkpKS0+aXA7CiAJc3RydWN0IGtwcm9iZV9jdGxibGsgKmtj
+YiA9IGdldF9rcHJvYmVfY3RsYmxrKCk7CisJc3RydWN0IHBhcmFtX2JzcF9jZm0gcGE7CisJaW50
+IGJ5dGVzOwogCiAJLyogc2F2ZSBhcmNoaXRlY3R1cmFsIHN0YXRlICovCisJcGEuaXAgPSByZWdz
+LT5jcl9paXA7CisJdW53X2luaXRfcnVubmluZyhpYTY0X2dldF9ic3BfY2ZtLCAmcGEpOworCWJ5
+dGVzID0gKGNoYXIgKilpYTY0X3JzZV9za2lwX3JlZ3MocGEuYnNwLCBwYS5jZm0gJiAweDNmKQor
+CQkJCS0gKGNoYXIgKilwYS5ic3A7CisJbWVtY3B5KCBrY2ItPmpwcm9iZXNfc2F2ZWRfc3RhY2tl
+ZF9yZWdzLAorCQlwYS5ic3AsCisJCWJ5dGVzICk7CisKIAlrY2ItPmpwcm9iZV9zYXZlZF9yZWdz
+ID0gKnJlZ3M7CiAKIAkvKiBhZnRlciByZmksIGV4ZWN1dGUgdGhlIGpwcm9iZSBpbnN0cnVtZW50
+ZWQgZnVuY3Rpb24gKi8KQEAgLTc4NSw4ICs4MjEsMTkgQEAgaW50IF9fa3Byb2JlcyBzZXRqbXBf
+cHJlX2hhbmRsZXIoc3RydWN0IAogaW50IF9fa3Byb2JlcyBsb25nam1wX2JyZWFrX2hhbmRsZXIo
+c3RydWN0IGtwcm9iZSAqcCwgc3RydWN0IHB0X3JlZ3MgKnJlZ3MpCiB7CiAJc3RydWN0IGtwcm9i
+ZV9jdGxibGsgKmtjYiA9IGdldF9rcHJvYmVfY3RsYmxrKCk7CisJc3RydWN0IHBhcmFtX2JzcF9j
+Zm0gcGE7CisJaW50IGJ5dGVzOwogCiAJKnJlZ3MgPSBrY2ItPmpwcm9iZV9zYXZlZF9yZWdzOwor
+CXBhLmlwID0gcmVncy0+Y3JfaWlwOworCXVud19pbml0X3J1bm5pbmcoaWE2NF9nZXRfYnNwX2Nm
+bSwgJnBhKTsKKwlieXRlcyA9IChjaGFyICopaWE2NF9yc2Vfc2tpcF9yZWdzKHBhLmJzcCwgcGEu
+Y2ZtICYgMHgzZikKKwkJCQktIChjaGFyICopcGEuYnNwOworCW1lbWNweSggcGEuYnNwLAorCQlr
+Y2ItPmpwcm9iZXNfc2F2ZWRfc3RhY2tlZF9yZWdzLAorCQlieXRlcyApOworCWludmFsaWRhdGVf
+c3RhY2tlZF9yZWdzKCk7CisKIAlwcmVlbXB0X2VuYWJsZV9ub19yZXNjaGVkKCk7CiAJcmV0dXJu
+IDE7CiB9CmRpZmYgLU5yYXVwIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9rcHJv
+YmVzLmggbGludXgtMi42LjE0X21tMV9qcHJvYmUvaW5jbHVkZS9hc20taWE2NC9rcHJvYmVzLmgK
+LS0tIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9rcHJvYmVzLmgJMjAwNS0xMS0w
+OSAxOTowODo0My4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4LTIuNi4xNF9tbTFfanByb2JlL2lu
+Y2x1ZGUvYXNtLWlhNjQva3Byb2Jlcy5oCTIwMDUtMTEtMzAgMTg6MDE6MzQuMDAwMDAwMDAwICsw
+ODAwCkBAIC02OCwxMyArNjgsMjUgQEAgc3RydWN0IHByZXZfa3Byb2JlIHsKIAl1bnNpZ25lZCBs
+b25nIHN0YXR1czsKIH07CiAKKyNkZWZpbmUJTUFYX1BBUkFNX1JTRV9TSVpFCSgweDgwKzB4ODAv
+MHgzZikKIC8qIHBlci1jcHUga3Byb2JlIGNvbnRyb2wgYmxvY2sgKi8KIHN0cnVjdCBrcHJvYmVf
+Y3RsYmxrIHsKIAl1bnNpZ25lZCBsb25nIGtwcm9iZV9zdGF0dXM7CiAJc3RydWN0IHB0X3JlZ3Mg
+anByb2JlX3NhdmVkX3JlZ3M7CisJdW5zaWduZWQgbG9uZyBqcHJvYmVzX3NhdmVkX3N0YWNrZWRf
+cmVnc1tNQVhfUEFSQU1fUlNFX1NJWkVdOwogCXN0cnVjdCBwcmV2X2twcm9iZSBwcmV2X2twcm9i
+ZTsKIH07CiAKKy8qSW52YWxpZGF0ZSBzdGFja2VkIHJlZ2lzdGVycyBvdXRzaWRlIHRoZSBjdXJy
+ZW50IGZyYW1lKi8KKyNkZWZpbmUgaW52YWxpZGF0ZV9zdGFja2VkX3JlZ3MoKSB7IAkJCQlcCisJ
+dW5zaWduZWQgbG9uZyByc2Nfc2F2ZSA9IDA7CQkJCVwKKwlhc20gdm9sYXRpbGUoIm1vdiAlMD1h
+ci5yc2M7O1xuXHQiCQkJXAorCQkibW92IGFyLnJzYz0wOztcblx0IgkJCQlcCisJCSJ7XG5cdGxv
+YWRyczs7XG5cdFxuXHRcblx0fVxuXHQiCQlcCisJCSJtb3YgYXIucnNjPSUxXG5cdCIJCQkJXAor
+CQk6Ij1yIiAocnNjX3NhdmUpOiJyIiAocnNjX3NhdmUpOiJtZW1vcnkiKTsJXAorCX0KKwogI2Rl
+ZmluZSBKUFJPQkVfRU5UUlkocGVudHJ5KQkoa3Byb2JlX29wY29kZV90ICopcGVudHJ5CiAKICNk
+ZWZpbmUgQVJDSF9TVVBQT1JUU19LUkVUUFJPQkVTCg==
+
+------_=_NextPart_001_01C5F61E.E1616E9D--
