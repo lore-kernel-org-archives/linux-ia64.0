@@ -1,133 +1,23 @@
-From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Thu, 01 Dec 2005 05:19:02 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 01 Dec 2005 19:25:50 +0000
 Subject: RE: [PATCH] save parameter registers and restore them for jprobe handling
-Message-Id: <8126E4F969BA254AB43EA03C59F44E84040B3E57@pdsmsx404>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C5F636.BEC0F0C5"
+Message-Id: <200512011925.jB1JPog05500@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <8126E4F969BA254AB43EA03C59F44E84040B3BF4@pdsmsx404>
 In-Reply-To: <8126E4F969BA254AB43EA03C59F44E84040B3BF4@pdsmsx404>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Zhang, Yanmin wrote on Wednesday, November 30, 2005 9:19 PM
+> >>We try to avoid inline asm in the .c files, it makes it harder to
+> >>compile the kernel with Intel compilers.
+> 
+> How about the new patch? I add a new function in arch/ia64/kernel/entry.S.
 
-------_=_NextPart_001_01C5F636.BEC0F0C5
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: quoted-printable
+I think it's more appropriate to place the new assembly function in
+arch/ia64/kernel/jprobes.S.
 
->>-----Original Message-----
->>From: linux-ia64-owner@vger.kernel.org
->>[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Keith Owens
->>Sent: 2005=C4=EA12=D4=C21=C8=D5 10:37
->>To: Zhang, Yanmin
->>Cc: linux-ia64@vger.kernel.org; Keshavamurthy, Anil S;
->>systemtap@sources.redhat.com
->>Subject: Re: [PATCH] save parameter registers and restore them for =
-jprobe
->>handling
->>
->>On Thu, 1 Dec 2005 10:28:09 +0800,
->>"Zhang, Yanmin" <yanmin.zhang@intel.com> wrote:
->>>Content-Transfer-Encoding: base64
->>
->>Why base64 encoding for the patch?
->>
->>+/*Invalidate stacked registers outside the current frame*/
->>+#define invalidate_stacked_regs() { 				\
->>+	unsigned long rsc_save =3D 0;				\
->>+	asm volatile("mov %0=3Dar.rsc;;\n\t"			\
->>+		"mov ar.rsc=3D0;;\n\t"				\
->>+		"{\n\tloadrs;;\n\t\n\t\n\t}\n\t"		\
->>+		"mov ar.rsc=3D%1\n\t"				\
->>+		:"=3Dr" (rsc_save):"r" (rsc_save):"memory");	\
->>+	}
->>+
->>
->>We try to avoid inline asm in the .c files, it makes it harder to
->>compile the kernel with Intel compilers.
+- Ken
 
-How about the new patch? I add a new function in =
-arch/ia64/kernel/entry.S.
-
-
-------_=_NextPart_001_01C5F636.BEC0F0C5
-Content-Type: application/octet-stream;
-	name="jprobe_protect_out_reg_ia64_v3.patch"
-Content-Transfer-Encoding: base64
-Content-Description: jprobe_protect_out_reg_ia64_v3.patch
-Content-Disposition: attachment;
-	filename="jprobe_protect_out_reg_ia64_v3.patch"
-
-ZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2VudHJ5LlMgbGlu
-dXgtMi42LjE0X21tMV9qcHJvYmUvYXJjaC9pYTY0L2tlcm5lbC9lbnRyeS5TCi0tLSBsaW51eC0y
-LjYuMTRfbW0xL2FyY2gvaWE2NC9rZXJuZWwvZW50cnkuUwkyMDA1LTExLTA5IDE5OjA4OjUxLjAw
-MDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjE0X21tMV9qcHJvYmUvYXJjaC9pYTY0L2tlcm5l
-bC9lbnRyeS5TCTIwMDUtMTEtMzAgMjA6NTA6NDcuMDAwMDAwMDAwICswODAwCkBAIC0xMzQwLDYg
-KzEzNDAsMjUgQEAgR0xPQkFMX0VOVFJZKHVud19pbml0X3J1bm5pbmcpCiAJYnIucmV0LnNwdGsu
-bWFueSBycAogRU5EKHVud19pbml0X3J1bm5pbmcpCiAKK0dMT0JBTF9FTlRSWShpbnZhbGlkYXRl
-X3N0YWNrZWRfcmVncykKKwltb3ZsIHIxNj1pbnZhbGlkYXRlX3Jlc3RvcmVfY2ZtCisJOzsKKwlt
-b3YgYjY9cjE2CisJOzsKKwlici5yZXQuc3B0ay5tYW55IGI2CisJOzsKK2ludmFsaWRhdGVfcmVz
-dG9yZV9jZm06CisJbW92IHIxNj1hci5yc2MKKwk7OworCW1vdiBhci5yc2M9cjAKKwk7OworCWxv
-YWRycworCTs7CisJbW92IGFyLnJzYz1yMTYKKwk7OworCWJyLmNvbmQuc3B0ay5tYW55IHJwCitF
-TkQoaW52YWxpZGF0ZV9zdGFja2VkX3JlZ3MpCisKIAkucm9kYXRhCiAJLmFsaWduIDgKIAkuZ2xv
-Ymwgc3lzX2NhbGxfdGFibGUKZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQv
-a2VybmVsL2twcm9iZXMuYyBsaW51eC0yLjYuMTRfbW0xX2pwcm9iZS9hcmNoL2lhNjQva2VybmVs
-L2twcm9iZXMuYwotLS0gbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMu
-YwkyMDA1LTExLTA5IDE5OjA4OjUxLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjE0X21t
-MV9qcHJvYmUvYXJjaC9pYTY0L2tlcm5lbC9rcHJvYmVzLmMJMjAwNS0xMS0zMCAxNzo1ODowMy4w
-MDAwMDAwMDAgKzA4MDAKQEAgLTc1OSwxMyArNzU5LDQ5IEBAIGludCBfX2twcm9iZXMga3Byb2Jl
-X2V4Y2VwdGlvbnNfbm90aWZ5KHMKIAlyZXR1cm4gcmV0OwogfQogCitzdHJ1Y3QgcGFyYW1fYnNw
-X2NmbSB7CisJdW5zaWduZWQgbG9uZyBpcDsKKwl1bnNpZ25lZCBsb25nICpic3A7CisJdW5zaWdu
-ZWQgbG9uZyBjZm07Cit9OworCitzdGF0aWMgdm9pZCBpYTY0X2dldF9ic3BfY2ZtKHN0cnVjdCB1
-bndfZnJhbWVfaW5mbyAqaW5mbywgdm9pZCAqYXJnKQoreworCXVuc2lnbmVkIGxvbmcgaXA7CisJ
-c3RydWN0IHBhcmFtX2JzcF9jZm0gKmxwID0gYXJnOworCisJZG8geworCQl1bndfZ2V0X2lwKGlu
-Zm8sICZpcCk7CisJCWlmIChpcCA9PSAwKQorCQkJYnJlYWs7CisJCWlmIChpcCA9PSBscC0+aXAp
-IHsKKwkJCXVud19nZXRfYnNwKGluZm8sICh1bnNpZ25lZCBsb25nKikmbHAtPmJzcCk7CisJCQl1
-bndfZ2V0X2NmbShpbmZvLCAodW5zaWduZWQgbG9uZyopJmxwLT5jZm0pOworCQkJcmV0dXJuOwor
-CQl9CisJfSB3aGlsZSAodW53X3Vud2luZChpbmZvKSA+PSAwKTsKKwlscC0+YnNwID0gMDsKKwls
-cC0+Y2ZtID0gMDsKKwlyZXR1cm47Cit9CisKIGludCBfX2twcm9iZXMgc2V0am1wX3ByZV9oYW5k
-bGVyKHN0cnVjdCBrcHJvYmUgKnAsIHN0cnVjdCBwdF9yZWdzICpyZWdzKQogewogCXN0cnVjdCBq
-cHJvYmUgKmpwID0gY29udGFpbmVyX29mKHAsIHN0cnVjdCBqcHJvYmUsIGtwKTsKIAl1bnNpZ25l
-ZCBsb25nIGFkZHIgPSAoKHN0cnVjdCBmbnB0ciAqKShqcC0+ZW50cnkpKS0+aXA7CiAJc3RydWN0
-IGtwcm9iZV9jdGxibGsgKmtjYiA9IGdldF9rcHJvYmVfY3RsYmxrKCk7CisJc3RydWN0IHBhcmFt
-X2JzcF9jZm0gcGE7CisJaW50IGJ5dGVzOwogCiAJLyogc2F2ZSBhcmNoaXRlY3R1cmFsIHN0YXRl
-ICovCisJcGEuaXAgPSByZWdzLT5jcl9paXA7CisJdW53X2luaXRfcnVubmluZyhpYTY0X2dldF9i
-c3BfY2ZtLCAmcGEpOworCWJ5dGVzID0gKGNoYXIgKilpYTY0X3JzZV9za2lwX3JlZ3MocGEuYnNw
-LCBwYS5jZm0gJiAweDNmKQorCQkJCS0gKGNoYXIgKilwYS5ic3A7CisJbWVtY3B5KCBrY2ItPmpw
-cm9iZXNfc2F2ZWRfc3RhY2tlZF9yZWdzLAorCQlwYS5ic3AsCisJCWJ5dGVzICk7CisKIAlrY2It
-Pmpwcm9iZV9zYXZlZF9yZWdzID0gKnJlZ3M7CiAKIAkvKiBhZnRlciByZmksIGV4ZWN1dGUgdGhl
-IGpwcm9iZSBpbnN0cnVtZW50ZWQgZnVuY3Rpb24gKi8KQEAgLTc4NSw4ICs4MjEsMTkgQEAgaW50
-IF9fa3Byb2JlcyBzZXRqbXBfcHJlX2hhbmRsZXIoc3RydWN0IAogaW50IF9fa3Byb2JlcyBsb25n
-am1wX2JyZWFrX2hhbmRsZXIoc3RydWN0IGtwcm9iZSAqcCwgc3RydWN0IHB0X3JlZ3MgKnJlZ3Mp
-CiB7CiAJc3RydWN0IGtwcm9iZV9jdGxibGsgKmtjYiA9IGdldF9rcHJvYmVfY3RsYmxrKCk7CisJ
-c3RydWN0IHBhcmFtX2JzcF9jZm0gcGE7CisJaW50IGJ5dGVzOwogCiAJKnJlZ3MgPSBrY2ItPmpw
-cm9iZV9zYXZlZF9yZWdzOworCXBhLmlwID0gcmVncy0+Y3JfaWlwOworCXVud19pbml0X3J1bm5p
-bmcoaWE2NF9nZXRfYnNwX2NmbSwgJnBhKTsKKwlieXRlcyA9IChjaGFyICopaWE2NF9yc2Vfc2tp
-cF9yZWdzKHBhLmJzcCwgcGEuY2ZtICYgMHgzZikKKwkJCQktIChjaGFyICopcGEuYnNwOworCW1l
-bWNweSggcGEuYnNwLAorCQlrY2ItPmpwcm9iZXNfc2F2ZWRfc3RhY2tlZF9yZWdzLAorCQlieXRl
-cyApOworCWludmFsaWRhdGVfc3RhY2tlZF9yZWdzKCk7CisKIAlwcmVlbXB0X2VuYWJsZV9ub19y
-ZXNjaGVkKCk7CiAJcmV0dXJuIDE7CiB9CmRpZmYgLU5yYXVwIGxpbnV4LTIuNi4xNF9tbTEvaW5j
-bHVkZS9hc20taWE2NC9rcHJvYmVzLmggbGludXgtMi42LjE0X21tMV9qcHJvYmUvaW5jbHVkZS9h
-c20taWE2NC9rcHJvYmVzLmgKLS0tIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9r
-cHJvYmVzLmgJMjAwNS0xMS0wOSAxOTowODo0My4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4LTIu
-Ni4xNF9tbTFfanByb2JlL2luY2x1ZGUvYXNtLWlhNjQva3Byb2Jlcy5oCTIwMDUtMTEtMzAgMjA6
-Mjc6MzMuMDAwMDAwMDAwICswODAwCkBAIC02OCwxMCArNjgsMTIgQEAgc3RydWN0IHByZXZfa3By
-b2JlIHsKIAl1bnNpZ25lZCBsb25nIHN0YXR1czsKIH07CiAKKyNkZWZpbmUJTUFYX1BBUkFNX1JT
-RV9TSVpFCSgweDgwKzB4ODAvMHgzZikKIC8qIHBlci1jcHUga3Byb2JlIGNvbnRyb2wgYmxvY2sg
-Ki8KIHN0cnVjdCBrcHJvYmVfY3RsYmxrIHsKIAl1bnNpZ25lZCBsb25nIGtwcm9iZV9zdGF0dXM7
-CiAJc3RydWN0IHB0X3JlZ3MganByb2JlX3NhdmVkX3JlZ3M7CisJdW5zaWduZWQgbG9uZyBqcHJv
-YmVzX3NhdmVkX3N0YWNrZWRfcmVnc1tNQVhfUEFSQU1fUlNFX1NJWkVdOwogCXN0cnVjdCBwcmV2
-X2twcm9iZSBwcmV2X2twcm9iZTsKIH07CiAKZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9p
-bmNsdWRlL2FzbS1pYTY0L3B0cmFjZS5oIGxpbnV4LTIuNi4xNF9tbTFfanByb2JlL2luY2x1ZGUv
-YXNtLWlhNjQvcHRyYWNlLmgKLS0tIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9w
-dHJhY2UuaAkyMDA1LTExLTA5IDE5OjA4OjQzLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42
-LjE0X21tMV9qcHJvYmUvaW5jbHVkZS9hc20taWE2NC9wdHJhY2UuaAkyMDA1LTExLTMwIDIwOjMy
-OjQ5LjAwMDAwMDAwMCArMDgwMApAQCAtMjk3LDYgKzI5Nyw4IEBAIHN0cnVjdCBzd2l0Y2hfc3Rh
-Y2sgewogICBleHRlcm4gdm9pZCBpYTY0X2luY3JlbWVudF9pcCAoc3RydWN0IHB0X3JlZ3MgKnB0
-KTsKICAgZXh0ZXJuIHZvaWQgaWE2NF9kZWNyZW1lbnRfaXAgKHN0cnVjdCBwdF9yZWdzICpwdCk7
-CiAKKyAgZXh0ZXJuIHZvaWQgaW52YWxpZGF0ZV9zdGFja2VkX3JlZ3Modm9pZCk7CisKICNlbmRp
-ZiAvKiAhX19LRVJORUxfXyAqLwogCiAvKiBwdF9hbGxfdXNlcl9yZWdzIGlzIHVzZWQgZm9yIFBU
-UkFDRV9HRVRSRUdTIFBUUkFDRV9TRVRSRUdTICovCg==
-
-------_=_NextPart_001_01C5F636.BEC0F0C5--
