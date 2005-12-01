@@ -1,116 +1,160 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Thu, 22 Dec 2005 20:32:56 +0000
-Subject: [PATCH] ensure XPC disengage request is processed
-Message-Id: <43AB0D78.mailxEG61RPPNY@aqua.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 01 Dec 2005 04:11:26 +0000
+Subject: Test patch for salinfo record injection
+Message-Id: <7893.1133410286@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch fixes a problem in XPC disengage processing whereby it was not
-seeing the request to disengage from a remote partition, so the disengage
-wasn't happening. The disengagement is suppose to transpire during the time
-a XPC channel is disconnecting, and should be completed before the channel
-is declared to be disconnected.
+This patch allows testing of salinfo record processing by injecting
+records into the kernel.  It is not for inclusion in the base kernel,
+there is no validation of the input record format so it is all too easy
+to oops the kernel and/or prom.  Against 2.6.15-rc3, although salinfo.c
+has not changed for some time.  Use by
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+  cat /var/log/salinfo/raw/2005-11-20-22_27_24-cpu0-mca.0 > /proc/sal/mca/inject
 
-
-Index: linux-2.6.git-test/include/asm-ia64/sn/xp.h
-=================================--- linux-2.6.git-test.orig/include/asm-ia64/sn/xp.h	2005-12-22 06:49:41.254970354 -0600
-+++ linux-2.6.git-test/include/asm-ia64/sn/xp.h	2005-12-22 06:50:18.479711698 -0600
-@@ -227,7 +227,9 @@
+Index: linux/arch/ia64/kernel/salinfo.c
+=================================--- linux.orig/arch/ia64/kernel/salinfo.c	2005-12-01 13:19:38.859297686 +1100
++++ linux/arch/ia64/kernel/salinfo.c	2005-12-01 15:01:41.967970272 +1100
+@@ -76,7 +76,7 @@ static char *salinfo_log_name[] = {
+ static struct proc_dir_entry *salinfo_proc_entries[
+ 	ARRAY_SIZE(salinfo_entries) +			/* /proc/sal/bus_lock */
+ 	ARRAY_SIZE(salinfo_log_name) +			/* /proc/sal/{mca,...} */
+-	(2 * ARRAY_SIZE(salinfo_log_name)) +		/* /proc/sal/mca/{event,data} */
++	(3 * ARRAY_SIZE(salinfo_log_name)) +		/* /proc/sal/mca/{event,data,inject} */
+ 	1];						/* /proc/sal */
  
- 	xpcOpenCloseError,	/* 50: channel open/close protocol error */
- 
--	xpcUnknownReason	/* 51: unknown reason -- must be last in list */
-+	xpcDisconnected,	/* 51: channel disconnected (closed) */
-+
-+	xpcUnknownReason	/* 52: unknown reason -- must be last in list */
+ /* Some records we get ourselves, some are accessed as saved data in buffers
+@@ -144,6 +144,7 @@ struct salinfo_data {
+ 	u8			padding;
+ 	int			cpu_check;	/* next CPU to check */
+ 	struct salinfo_data_saved data_saved[5];/* save last 5 records from mca.c, must be < 255 */
++	struct salinfo_data_saved inject;	/* data about injected record for testing */
  };
  
- 
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc.h	2005-12-22 06:49:41.254970354 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h	2005-12-22 06:50:18.481664625 -0600
-@@ -707,7 +707,7 @@
- extern void xpc_deliver_msg(struct xpc_channel *);
- extern void xpc_disconnect_channel(const int, struct xpc_channel *,
- 					enum xpc_retval, unsigned long *);
--extern void xpc_disconnecting_callout(struct xpc_channel *);
-+extern void xpc_disconnect_callout(struct xpc_channel *, enum xpc_retval);
- extern void xpc_partition_going_down(struct xpc_partition *, enum xpc_retval);
- extern void xpc_teardown_infrastructure(struct xpc_partition *);
- 
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_partition.c	2005-12-22 06:28:25.053721391 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c	2005-12-22 06:55:30.386530303 -0600
-@@ -771,7 +771,8 @@
- 		}
- 	}
- 
--	if (!xpc_partition_disengaged(part)) {
-+	if (part->disengage_request_timeout > 0 &&
-+					!xpc_partition_disengaged(part)) {
- 		/* still waiting on other side to disengage from us */
- 		return;
- 	}
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_channel.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_channel.c	2005-12-22 06:28:25.050792007 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_channel.c	2005-12-22 07:39:56.437818525 -0600
-@@ -779,6 +779,12 @@
- 
- 	/* both sides are disconnected now */
- 
-+	if (ch->flags & XPC_C_CONNECTCALLOUT) {
-+		spin_unlock_irqrestore(&ch->lock, *irq_flags);
-+		xpc_disconnect_callout(ch, xpcDisconnected);
-+		spin_lock_irqsave(&ch->lock, *irq_flags);
-+	}
-+
- 	/* it's now safe to free the channel's message queues */
- 	xpc_free_msgqueues(ch);
- 
-@@ -1645,7 +1651,7 @@
- 
- 
- void
--xpc_disconnecting_callout(struct xpc_channel *ch)
-+xpc_disconnect_callout(struct xpc_channel *ch, enum xpc_retval reason)
- {
- 	/*
- 	 * Let the channel's registerer know that the channel is being
-@@ -1654,15 +1660,13 @@
- 	 */
- 
- 	if (ch->func != NULL) {
--		dev_dbg(xpc_chan, "ch->func() called, reason=xpcDisconnecting,"
--			" partid=%d, channel=%d\n", ch->partid, ch->number);
-+		dev_dbg(xpc_chan, "ch->func() called, reason=%d, partid=%d, "
-+			"channel=%d\n", reason, ch->partid, ch->number);
- 
--		ch->func(xpcDisconnecting, ch->partid, ch->number, NULL,
--								ch->key);
-+		ch->func(reason, ch->partid, ch->number, NULL, ch->key);
- 
--		dev_dbg(xpc_chan, "ch->func() returned, reason="
--			"xpcDisconnecting, partid=%d, channel=%d\n",
--			ch->partid, ch->number);
-+		dev_dbg(xpc_chan, "ch->func() returned, reason=%d, partid=%d, "
-+			"channel=%d\n", reason, ch->partid, ch->number);
+ static struct salinfo_data salinfo_data[ARRAY_SIZE(salinfo_log_name)];
+@@ -241,6 +242,90 @@ salinfo_log_wakeup(int type, u8 *buffer,
  	}
  }
  
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_main.c	2005-12-22 06:28:25.051768468 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c	2005-12-22 07:47:39.695252809 -0600
-@@ -773,7 +773,7 @@
- 			ch->flags |= XPC_C_DISCONNECTCALLOUT;
- 			spin_unlock_irqrestore(&ch->lock, irq_flags);
++/* The /proc/sal/{mca,..}/inject files are write only.  They allow user space
++ * to inject records of each type and have them processed as if the record was
++ * generated by SAL.  A record to be injected is written in raw format to the
++ * relevant inject file and stored via the salinfo_data.inject field.  When the
++ * inject file is closed, the record is processed as if it came from SAL,
++ * including driving the event and data files.
++ *
++ * Because this is a testing only patch, no verification is done on the record
++ * format, GIGO applies.  Multiple programs doing injection at the same time
++ * will create corrupted records and probably oops the kernel.  The records
++ * appear to come from various cpus, depending on which cpu the injection code
++ * runs on.  Seeking on the inject file is not supported, this code only
++ * handles sequential write.
++ */
++
++static DECLARE_MUTEX(inject_sem);
++
++static int
++salinfo_inject_open(struct inode *inode, struct file *file)
++{
++	if (!capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	return 0;
++}
++
++static int
++salinfo_inject_release(struct inode *inode, struct file *file)
++{
++	struct proc_dir_entry *entry = PDE(inode);
++	struct salinfo_data *data = entry->data;
++	int irq_safe = data->type != SAL_INFO_TYPE_MCA;
++	down(&inject_sem);
++	if (!data->inject.size) {
++		vfree(data->inject.buffer);
++		data->inject.id = 0;
++	} else {
++		salinfo_log_wakeup(data->type, data->inject.buffer, data->inject.size, irq_safe);
++	}
++	up(&inject_sem);
++	return 0;
++}
++
++static ssize_t
++salinfo_inject_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
++{
++	struct inode *inode = file->f_dentry->d_inode;
++	struct proc_dir_entry *entry = PDE(inode);
++	struct salinfo_data *data = entry->data;
++	int ret = 0;
++	down(&inject_sem);
++	/* Hack: reuse data->inject.id to hold the physical size of the buffer */
++	if (*ppos + count > data->inject.id) {
++		u64 new_size = *ppos + count;
++		u8* new_buffer;
++		new_buffer = vmalloc(new_size);
++		if (!new_buffer) {
++			ret = -ENOMEM;
++		} else {
++			memcpy(new_buffer, data->inject.buffer, data->inject.size);
++			vfree(data->inject.buffer);
++			data->inject.buffer = new_buffer;
++			data->inject.id = new_size;
++		}
++	}
++	if (!ret)
++		if ((ret = copy_from_user(data->inject.buffer + *ppos, buffer, count)))
++			ret = -EFAULT;
++
++	up(&inject_sem);
++	if (ret) {
++		return ret;
++	} else {
++		*ppos += count;
++		data->inject.size = *ppos;
++		return count;
++	}
++}
++
++static struct file_operations salinfo_inject_fops = {
++	.open    = salinfo_inject_open,
++	.release = salinfo_inject_release,
++	.write   = salinfo_inject_write,
++};
++
+ /* Check for outstanding MCA/INIT records every minute (arbitrary) */
+ #define SALINFO_TIMER_DELAY (60*HZ)
+ static struct timer_list salinfo_timer;
+@@ -410,6 +495,7 @@ salinfo_log_new_read(int cpu, struct sal
+ 	int saved_size = ARRAY_SIZE(data->data_saved);
  
--			xpc_disconnecting_callout(ch);
-+			xpc_disconnect_callout(ch, xpcDisconnecting);
- 		} else {
- 			spin_unlock_irqrestore(&ch->lock, irq_flags);
+ 	data->saved_num = 0;
++	down(&inject_sem);
+ 	spin_lock_irqsave(&data_saved_lock, flags);
+ retry:
+ 	for (i = 0, data_saved = data->data_saved; i < saved_size; ++i, ++data_saved) {
+@@ -428,6 +514,7 @@ retry:
  		}
+ 	}
+ 	spin_unlock_irqrestore(&data_saved_lock, flags);
++	up(&inject_sem);
+ 
+ 	if (!data->saved_num)
+ 		call_on_cpu(cpu, salinfo_log_read_cpu, data);
+@@ -590,6 +677,13 @@ salinfo_init(void)
+ 		entry->proc_fops = &salinfo_data_fops;
+ 		*sdir++ = entry;
+ 
++		entry = create_proc_entry("inject", S_IWUSR, dir);
++		if (!entry)
++			continue;
++		entry->data = data;
++		entry->proc_fops = &salinfo_inject_fops;
++		*sdir++ = entry;
++
+ 		/* we missed any events before now */
+ 		online = 0;
+ 		for_each_online_cpu(j) {
+
