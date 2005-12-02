@@ -1,50 +1,118 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Thu, 01 Dec 2005 20:06:36 +0000
-Subject: Re: [PATCH] save parameter registers and restore them for jprobe handling
-Message-Id: <20051201120636.A7726@unix-os.sc.intel.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Fri, 02 Dec 2005 02:29:36 +0000
+Subject: RE: [PATCH] save parameter registers and restore them for jprobe handling
+Message-Id: <8126E4F969BA254AB43EA03C59F44E840410AEB8@pdsmsx404>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C5F6E8.3D8062F6"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <8126E4F969BA254AB43EA03C59F44E84040B3BF4@pdsmsx404>
 In-Reply-To: <8126E4F969BA254AB43EA03C59F44E84040B3BF4@pdsmsx404>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Nov 30, 2005 at 09:19:02PM -0800, Zhang, Yanmin wrote:
+This is a multi-part message in MIME format.
 
-> How about the new patch? I add a new function in arch/ia64/kernel/entry.S.
-> 
-I agree with Ken, move the assembly function to arch/ia64/kernel/jprobe.S file.
-Also, please see my comments.
+------_=_NextPart_001_01C5F6E8.3D8062F6
+Content-Type: text/plain;
+	charset="gb2312"
+Content-Transfer-Encoding: quoted-printable
 
->  int __kprobes setjmp_pre_handler(struct kprobe *p, struct pt_regs *regs)
->  {
-[...]
->  	/* save architectural state */
-Wrong comment above, we are not saving architectural state. 
-I guess the comment should be
-"Callee owns the argument space and could overwrite it, eg
-tail call optimization. So to be absolutely safe
-we save the argument space before transfering the control
-to instrumented jprobe function which runs in 
-the process context"
+>>-----Original Message-----
+>>From: Keshavamurthy Anil S [mailto:anil.s.keshavamurthy@intel.com]
+>>Sent: 2005=C4=EA12=D4=C22=C8=D5 4:07
+>>To: Zhang, Yanmin
+>>Cc: Keith Owens; linux-ia64@vger.kernel.org; Keshavamurthy, Anil S;
+>>systemtap@sources.redhat.com
+>>Subject: Re: [PATCH] save parameter registers and restore them for =
+jprobe
+>>handling
+Thanks. I updated the patch.
+1) Move the assembly function to arch/ia64/kernel/jprobe.S;
+2) Add/change comments;
+3) Optimize. To do so, I add a new assembly function to flush register =
+stack.
 
-> @@ -785,8 +821,19 @@ int __kprobes setjmp_pre_handler(struct 
->  int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
->  {
-[....]
-> +	unw_init_running(ia64_get_bsp_cfm, &pa);
-Just an optimization, avoid calling unw_init_running()
-and just save bsp and cfm in the previous call and
-reuse it. I think you can save in the kcb
-structure.
 
-> +	bytes = (char *)ia64_rse_skip_regs(pa.bsp, pa.cfm & 0x3f)
-> +				- (char *)pa.bsp;
-Again Comment please.. like
-	/* restoring the original argument space */
-> +	memcpy( pa.bsp,
-> +		kcb->jprobes_saved_stacked_regs,
-> +		bytes );
+------_=_NextPart_001_01C5F6E8.3D8062F6
+Content-Type: application/octet-stream;
+	name="jprobe_protect_out_reg_ia64_v3.patch"
+Content-Transfer-Encoding: base64
+Content-Description: jprobe_protect_out_reg_ia64_v3.patch
+Content-Disposition: attachment;
+	filename="jprobe_protect_out_reg_ia64_v3.patch"
 
--Anil Keshavamurthy
+ZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2pwcm9iZXMuUyBs
+aW51eC0yLjYuMTRfbW0xX2pwcm9iZS9hcmNoL2lhNjQva2VybmVsL2pwcm9iZXMuUwotLS0gbGlu
+dXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL2pwcm9iZXMuUwkyMDA1LTExLTA5IDE5OjA4
+OjUxLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjE0X21tMV9qcHJvYmUvYXJjaC9pYTY0
+L2tlcm5lbC9qcHJvYmVzLlMJMjAwNS0xMi0wMSAxNzo1OTowNC4wMDAwMDAwMDAgKzA4MDAKQEAg
+LTYwLDMgKzYwLDMwIEBAIEVORChqcHJvYmVfYnJlYWspCiBHTE9CQUxfRU5UUlkoanByb2JlX2lu
+c3RfcmV0dXJuKQogCWJyLmNhbGwuc3B0ay5tYW55IGIwPWpwcm9iZV9icmVhawogRU5EKGpwcm9i
+ZV9pbnN0X3JldHVybikKKworR0xPQkFMX0VOVFJZKGludmFsaWRhdGVfc3RhY2tlZF9yZWdzKQor
+CW1vdmwgcjE2PWludmFsaWRhdGVfcmVzdG9yZV9jZm0KKwk7OworCW1vdiBiNj1yMTYKKwk7Owor
+CWJyLnJldC5zcHRrLm1hbnkgYjYKKwk7OworaW52YWxpZGF0ZV9yZXN0b3JlX2NmbToKKwltb3Yg
+cjE2PWFyLnJzYworCTs7CisJbW92IGFyLnJzYz1yMAorCTs7CisJbG9hZHJzCisJOzsKKwltb3Yg
+YXIucnNjPXIxNgorCTs7CisJYnIuY29uZC5zcHRrLm1hbnkgcnAKK0VORChpbnZhbGlkYXRlX3N0
+YWNrZWRfcmVncykKKworR0xPQkFMX0VOVFJZKGZsdXNoX3JlZ2lzdGVyX3N0YWNrKQorCS8vIGZs
+dXNoIGRpcnR5IHJlZ3MgdG8gYmFja2luZyBzdG9yZSAobXVzdCBiZSBmaXJzdCBpbiBpbnNuIGdy
+b3VwKQorCWZsdXNocnMKKwk7OworCWJyLnJldC5zcHRrLm1hbnkgcnAKK0VORChmbHVzaF9yZWdp
+c3Rlcl9zdGFjaykKKwpkaWZmIC1OcmF1cCBsaW51eC0yLjYuMTRfbW0xL2FyY2gvaWE2NC9rZXJu
+ZWwva3Byb2Jlcy5jIGxpbnV4LTIuNi4xNF9tbTFfanByb2JlL2FyY2gvaWE2NC9rZXJuZWwva3By
+b2Jlcy5jCi0tLSBsaW51eC0yLjYuMTRfbW0xL2FyY2gvaWE2NC9rZXJuZWwva3Byb2Jlcy5jCTIw
+MDUtMTEtMDkgMTk6MDg6NTEuMDAwMDAwMDAwICswODAwCisrKyBsaW51eC0yLjYuMTRfbW0xX2pw
+cm9iZS9hcmNoL2lhNjQva2VybmVsL2twcm9iZXMuYwkyMDA1LTEyLTAxIDE4OjAwOjAzLjAwMDAw
+MDAwMCArMDgwMApAQCAtNzU5LDExICs3NTksNTYgQEAgaW50IF9fa3Byb2JlcyBrcHJvYmVfZXhj
+ZXB0aW9uc19ub3RpZnkocwogCXJldHVybiByZXQ7CiB9CiAKK3N0cnVjdCBwYXJhbV9ic3BfY2Zt
+IHsKKwl1bnNpZ25lZCBsb25nIGlwOworCXVuc2lnbmVkIGxvbmcgKmJzcDsKKwl1bnNpZ25lZCBs
+b25nIGNmbTsKK307CisKK3N0YXRpYyB2b2lkIGlhNjRfZ2V0X2JzcF9jZm0oc3RydWN0IHVud19m
+cmFtZV9pbmZvICppbmZvLCB2b2lkICphcmcpCit7CisJdW5zaWduZWQgbG9uZyBpcDsKKwlzdHJ1
+Y3QgcGFyYW1fYnNwX2NmbSAqbHAgPSBhcmc7CisKKwlkbyB7CisJCXVud19nZXRfaXAoaW5mbywg
+JmlwKTsKKwkJaWYgKGlwID09IDApCisJCQlicmVhazsKKwkJaWYgKGlwID09IGxwLT5pcCkgewor
+CQkJdW53X2dldF9ic3AoaW5mbywgKHVuc2lnbmVkIGxvbmcqKSZscC0+YnNwKTsKKwkJCXVud19n
+ZXRfY2ZtKGluZm8sICh1bnNpZ25lZCBsb25nKikmbHAtPmNmbSk7CisJCQlyZXR1cm47CisJCX0K
+Kwl9IHdoaWxlICh1bndfdW53aW5kKGluZm8pID49IDApOworCWxwLT5ic3AgPSAwOworCWxwLT5j
+Zm0gPSAwOworCXJldHVybjsKK30KKwogaW50IF9fa3Byb2JlcyBzZXRqbXBfcHJlX2hhbmRsZXIo
+c3RydWN0IGtwcm9iZSAqcCwgc3RydWN0IHB0X3JlZ3MgKnJlZ3MpCiB7CiAJc3RydWN0IGpwcm9i
+ZSAqanAgPSBjb250YWluZXJfb2YocCwgc3RydWN0IGpwcm9iZSwga3ApOwogCXVuc2lnbmVkIGxv
+bmcgYWRkciA9ICgoc3RydWN0IGZucHRyICopKGpwLT5lbnRyeSkpLT5pcDsKIAlzdHJ1Y3Qga3By
+b2JlX2N0bGJsayAqa2NiID0gZ2V0X2twcm9iZV9jdGxibGsoKTsKKwlzdHJ1Y3QgcGFyYW1fYnNw
+X2NmbSBwYTsKKwlpbnQgYnl0ZXM7CisKKwkvKgorCSAqIENhbGxlZSBvd25zIHRoZSBhcmd1bWVu
+dCBzcGFjZSBhbmQgY291bGQgb3ZlcndyaXRlIGl0LCBlZworCSAqIHRhaWwgY2FsbCBvcHRpbWl6
+YXRpb24uIFNvIHRvIGJlIGFic29sdXRlbHkgc2FmZQorCSAqIHdlIHNhdmUgdGhlIGFyZ3VtZW50
+IHNwYWNlIGJlZm9yZSB0cmFuc2ZlcmluZyB0aGUgY29udHJvbAorCSAqIHRvIGluc3RydW1lbnRl
+ZCBqcHJvYmUgZnVuY3Rpb24gd2hpY2ggcnVucyBpbiAKKwkgKiB0aGUgcHJvY2VzcyBjb250ZXh0
+CisJICovCisJcGEuaXAgPSByZWdzLT5jcl9paXA7CisJdW53X2luaXRfcnVubmluZyhpYTY0X2dl
+dF9ic3BfY2ZtLCAmcGEpOworCWJ5dGVzID0gKGNoYXIgKilpYTY0X3JzZV9za2lwX3JlZ3MocGEu
+YnNwLCBwYS5jZm0gJiAweDNmKQorCQkJCS0gKGNoYXIgKilwYS5ic3A7CisJbWVtY3B5KCBrY2It
+Pmpwcm9iZXNfc2F2ZWRfc3RhY2tlZF9yZWdzLAorCQlwYS5ic3AsCisJCWJ5dGVzICk7CisJa2Ni
+LT5ic3AgPSBwYS5ic3A7CisJa2NiLT5jZm0gPSBwYS5jZm07CiAKIAkvKiBzYXZlIGFyY2hpdGVj
+dHVyYWwgc3RhdGUgKi8KIAlrY2ItPmpwcm9iZV9zYXZlZF9yZWdzID0gKnJlZ3M7CkBAIC03ODUs
+OCArODMwLDIwIEBAIGludCBfX2twcm9iZXMgc2V0am1wX3ByZV9oYW5kbGVyKHN0cnVjdCAKIGlu
+dCBfX2twcm9iZXMgbG9uZ2ptcF9icmVha19oYW5kbGVyKHN0cnVjdCBrcHJvYmUgKnAsIHN0cnVj
+dCBwdF9yZWdzICpyZWdzKQogewogCXN0cnVjdCBrcHJvYmVfY3RsYmxrICprY2IgPSBnZXRfa3By
+b2JlX2N0bGJsaygpOworCWludCBieXRlczsKIAorCS8qIHJlc3RvcmluZyBhcmNoaXRlY3R1cmFs
+IHN0YXRlICovCiAJKnJlZ3MgPSBrY2ItPmpwcm9iZV9zYXZlZF9yZWdzOworCisJLyogcmVzdG9y
+aW5nIHRoZSBvcmlnaW5hbCBhcmd1bWVudCBzcGFjZSAqLworCWZsdXNoX3JlZ2lzdGVyX3N0YWNr
+KCk7CisJYnl0ZXMgPSAoY2hhciAqKWlhNjRfcnNlX3NraXBfcmVncyhrY2ItPmJzcCwga2NiLT5j
+Zm0gJiAweDNmKQorCQkJCS0gKGNoYXIgKilrY2ItPmJzcDsKKwltZW1jcHkoIGtjYi0+YnNwLAor
+CQlrY2ItPmpwcm9iZXNfc2F2ZWRfc3RhY2tlZF9yZWdzLAorCQlieXRlcyApOworCWludmFsaWRh
+dGVfc3RhY2tlZF9yZWdzKCk7CisKIAlwcmVlbXB0X2VuYWJsZV9ub19yZXNjaGVkKCk7CiAJcmV0
+dXJuIDE7CiB9CmRpZmYgLU5yYXVwIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9r
+cHJvYmVzLmggbGludXgtMi42LjE0X21tMV9qcHJvYmUvaW5jbHVkZS9hc20taWE2NC9rcHJvYmVz
+LmgKLS0tIGxpbnV4LTIuNi4xNF9tbTEvaW5jbHVkZS9hc20taWE2NC9rcHJvYmVzLmgJMjAwNS0x
+MS0wOSAxOTowODo0My4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4LTIuNi4xNF9tbTFfanByb2Jl
+L2luY2x1ZGUvYXNtLWlhNjQva3Byb2Jlcy5oCTIwMDUtMTItMDEgMTg6MTM6MjguMDAwMDAwMDAw
+ICswODAwCkBAIC02OCwxMCArNjgsMTQgQEAgc3RydWN0IHByZXZfa3Byb2JlIHsKIAl1bnNpZ25l
+ZCBsb25nIHN0YXR1czsKIH07CiAKKyNkZWZpbmUJTUFYX1BBUkFNX1JTRV9TSVpFCSgweDYwKzB4
+NjAvMHgzZikKIC8qIHBlci1jcHUga3Byb2JlIGNvbnRyb2wgYmxvY2sgKi8KIHN0cnVjdCBrcHJv
+YmVfY3RsYmxrIHsKIAl1bnNpZ25lZCBsb25nIGtwcm9iZV9zdGF0dXM7CiAJc3RydWN0IHB0X3Jl
+Z3MganByb2JlX3NhdmVkX3JlZ3M7CisJdW5zaWduZWQgbG9uZyBqcHJvYmVzX3NhdmVkX3N0YWNr
+ZWRfcmVnc1tNQVhfUEFSQU1fUlNFX1NJWkVdOworCXVuc2lnbmVkIGxvbmcgKmJzcDsKKwl1bnNp
+Z25lZCBsb25nIGNmbTsKIAlzdHJ1Y3QgcHJldl9rcHJvYmUgcHJldl9rcHJvYmU7CiB9OwogCkBA
+IC0xMjQsNiArMTI4LDggQEAgc3RhdGljIGlubGluZSB2b2lkIGpwcm9iZV9yZXR1cm4odm9pZCkK
+IHsKIH0KIAorZXh0ZXJuIHZvaWQgaW52YWxpZGF0ZV9zdGFja2VkX3JlZ3Modm9pZCk7CitleHRl
+cm4gdm9pZCBmbHVzaF9yZWdpc3Rlcl9zdGFjayh2b2lkKTsKICNlbHNlCQkJCS8qICFDT05GSUdf
+S1BST0JFUyAqLwogc3RhdGljIGlubGluZSBpbnQga3Byb2JlX2V4Y2VwdGlvbnNfbm90aWZ5KHN0
+cnVjdCBub3RpZmllcl9ibG9jayAqc2VsZiwKIAkJCQkJICAgdW5zaWduZWQgbG9uZyB2YWwsIHZv
+aWQgKmRhdGEpCg==
+
+------_=_NextPart_001_01C5F6E8.3D8062F6--
