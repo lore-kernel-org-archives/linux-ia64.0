@@ -1,7 +1,7 @@
 From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 05 Dec 2005 23:36:20 +0000
+Date: Mon, 05 Dec 2005 23:46:42 +0000
 Subject: Re: Reading /proc/stat is slooow
-Message-Id: <jeiru386bv.fsf@sykes.suse.de>
+Message-Id: <jebqzv85ul.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je1x0v4cpy.fsf@sykes.suse.de>
 In-Reply-To: <je1x0v4cpy.fsf@sykes.suse.de>
@@ -12,12 +12,13 @@ To: linux-ia64@vger.kernel.org
 
 "Luck, Tony" <tony.luck@intel.com> writes:
 
-> How slow is sloow?
+> On Fri, Dec 02, 2005 at 06:42:49PM +0100, Andreas Schwab wrote:
+>> At some point after 2.6.13 reading /proc/stat has become too slow.  This
+>> is most visible with xosview, which spends up to 80% in kernel space.  I
+>> have attached a simple program that you can run with "strace -r" to see
 
-About 20 miliseconds, ten times of what I see with 2.6.13.  It appears to
-be that the generation of /proc/stat doesn't scale well any more with the
-number of configured CPUs (CONFIG_NR_CPUS is 512 here).  Processes that
-monitor /proc/stat add a significant amount of load to the system.
+Actually I meant to use "strace -T", which displays the time spent _in_
+the syscall.
 
 Andreas.
 
