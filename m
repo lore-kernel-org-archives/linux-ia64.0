@@ -1,86 +1,40 @@
-From: Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
-Date: Wed, 21 Dec 2005 01:47:50 +0000
-Subject: [PATCH v2:2/3]Export cpu topology by sysfs
-Message-Id: <20051220174750.A19129@unix-os.sc.intel.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Mon, 05 Dec 2005 19:56:50 +0000
+Subject: [PATCH] - Limit the maximum NODEDATA_ALIGN() offset
+Message-Id: <20051205195650.GA3069@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
-Cc: yanmin.zhang@intel.com, suresh.b.siddha@intel.com, rajesh.shah@intel.com, venkatesh.pallipadi@intel.com
+To: linux-ia64@vger.kernel.org
 
-From: Zhang, Yanmin <yanmin.zhang@intel.com>
 
-The second patch against kernel 2.6.15-rc5 is to save thread_id and show it
-in /proc/cpuinfo for x86_64 architecture.
+The per-node data structures are allocated with strided offsets that are a
+function of the node number. This prevents excessive cache-aliasing from
+occurring. 
 
-Signed-off-by: Zhang, Yanmin <yanmin.zhang@intel.com>
+On systems with a large number of nodes, the strided offset becomes
+too large. This patch restricts the maximum offset to 32MB. This is far larger
+than the size of any current L3 cache.
 
-#diffstat collect_thread_id_2.6.15-rc5_x86_64.patch
- arch/x86_64/kernel/setup.c   |   13 ++++++++++++-
- arch/x86_64/kernel/smpboot.c |    2 ++
- include/asm-x86_64/smp.h     |    1 +
- 3 files changed, 15 insertions, 1 deletion
 
----
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-diff -Nraup linux-2.6.15-rc5/arch/x86_64/kernel/setup.c linux-2.6.15-rc5_thread_id/arch/x86_64/kernel/setup.c
---- linux-2.6.15-rc5/arch/x86_64/kernel/setup.c	2005-12-13 23:07:35.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id/arch/x86_64/kernel/setup.c	2005-12-16 11:55:05.000000000 +0800
-@@ -888,7 +888,7 @@ static void __cpuinit detect_ht(struct c
- {
- #ifdef CONFIG_SMP
- 	u32 	eax, ebx, ecx, edx;
--	int 	index_msb, core_bits;
-+	int 	index_msb, core_bits, thread_bits;
- 	int 	cpu = smp_processor_id();
+
+
+
+Index: linux/arch/ia64/mm/discontig.c
+=================================--- linux.orig/arch/ia64/mm/discontig.c	2005-12-01 11:41:02.372089800 -0600
++++ linux/arch/ia64/mm/discontig.c	2005-12-05 13:47:54.789625199 -0600
+@@ -50,8 +50,10 @@ static nodemask_t memory_less_mask __ini
+  * To prevent cache aliasing effects, align per-node structures so that they
+  * start at addresses that are strided by node number.
+  */
++#define MAX_NODE_ALIGN_OFFSET	(32 * 1024 * 1024)
+ #define NODEDATA_ALIGN(addr, node)						\
+-	((((addr) + 1024*1024-1) & ~(1024*1024-1)) + (node)*PERCPU_PAGE_SIZE)
++	((((addr) + 1024*1024-1) & ~(1024*1024-1)) + 				\
++	     (((node)*PERCPU_PAGE_SIZE) & (MAX_NODE_ALIGN_OFFSET - 1)))
  
- 	cpuid(1, &eax, &ebx, &ecx, &edx);
-@@ -928,6 +928,13 @@ static void __cpuinit detect_ht(struct c
- 		if (c->x86_max_cores > 1)
- 			printk(KERN_INFO  "CPU: Processor Core ID: %d\n",
- 			       cpu_core_id[cpu]);
-+
-+		thread_bits = index_msb;
-+		cpu_thread_id[cpu] = phys_pkg_id(0) & ((1 << thread_bits) - 1);
-+
-+		if (smp_num_siblings > 1)
-+			printk(KERN_INFO  "CPU: Processor Thread ID: %d\n",
-+			       cpu_thread_id[cpu]);
- 	}
- #endif
- }
-@@ -1272,6 +1279,10 @@ static int show_cpuinfo(struct seq_file 
- 		seq_printf(m, "core id\t\t: %d\n", cpu_core_id[cpu]);
- 		seq_printf(m, "cpu cores\t: %d\n", c->booted_cores);
- 	}
-+	if (smp_num_siblings > 1) {
-+		int cpu = c - cpu_data;
-+		seq_printf(m, "thread id\t: %d\n", cpu_thread_id[cpu]);
-+	}
- #endif	
- 
- 	seq_printf(m,
-diff -Nraup linux-2.6.15-rc5/arch/x86_64/kernel/smpboot.c linux-2.6.15-rc5_thread_id/arch/x86_64/kernel/smpboot.c
---- linux-2.6.15-rc5/arch/x86_64/kernel/smpboot.c	2005-12-13 23:07:35.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id/arch/x86_64/kernel/smpboot.c	2005-12-16 10:29:09.000000000 +0800
-@@ -66,6 +66,8 @@ int smp_num_siblings = 1;
- u8 phys_proc_id[NR_CPUS] __read_mostly = { [0 ... NR_CPUS-1] = BAD_APICID };
- /* core ID of each logical CPU */
- u8 cpu_core_id[NR_CPUS] __read_mostly = { [0 ... NR_CPUS-1] = BAD_APICID };
-+/* thread ID of each logical CPU */
-+u8 cpu_thread_id[NR_CPUS] __read_mostly = { [0 ... NR_CPUS-1] = BAD_APICID };
- 
- /* Bitmask of currently online CPUs */
- cpumask_t cpu_online_map __read_mostly;
-diff -Nraup linux-2.6.15-rc5/include/asm-x86_64/smp.h linux-2.6.15-rc5_thread_id/include/asm-x86_64/smp.h
---- linux-2.6.15-rc5/include/asm-x86_64/smp.h	2005-12-13 23:07:39.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id/include/asm-x86_64/smp.h	2005-12-16 10:30:02.000000000 +0800
-@@ -55,6 +55,7 @@ extern cpumask_t cpu_sibling_map[NR_CPUS
- extern cpumask_t cpu_core_map[NR_CPUS];
- extern u8 phys_proc_id[NR_CPUS];
- extern u8 cpu_core_id[NR_CPUS];
-+extern u8 cpu_thread_id[NR_CPUS];
- 
- #define SMP_TRAMPOLINE_BASE 0x6000
- 
+ /**
+  * build_node_maps - callback to setup bootmem structs for each node
