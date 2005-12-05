@@ -1,122 +1,165 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Fri, 23 Dec 2005 16:14:57 +0000
-Subject: [PATCH] cleanup XPC disengage related messages
-Message-Id: <43AC2281.mailxDCB118CPI@aqua.americas.sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 05 Dec 2005 19:01:04 +0000
+Subject: [PATCH 1/3] Arch specific zone reclaim framework
+Message-Id: <20051205190104.12037.69672.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org, torvalds@osdl.org
+Cc: linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org
 
-Cleanup the XPC disengage related messages that are printed to the log.
+Generic framework for arch specific zone reclaim.
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+Zone reclaim allows the reclaiming of pages from a zone if the number of free
+pages falls below the watermark even if other zones still have enough pages
+available.
 
+Zone reclaim is of particular importance for NUMA machines. It can be more
+beneficial to reclaim a page than taking the performance penalties that come
+with allocating a page on a remote zone. Maybe this will also be useful
+to implement reclaim for DMA zones in some architectures.
 
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_main.c	2005-12-23 07:37:53.313511106 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_main.c	2005-12-23 09:23:40.968770289 -0600
-@@ -162,6 +162,8 @@
- };
- static struct ctl_table_header *xpc_sysctl;
- 
-+/* non-zero if any remote partition disengage request was timed out */
-+int xpc_disengage_request_timedout;
- 
- /* #of IRQs received */
- static atomic_t xpc_act_IRQ_rcvd;
-@@ -921,9 +923,9 @@
- xpc_do_exit(enum xpc_retval reason)
- {
- 	partid_t partid;
--	int active_part_count;
-+	int active_part_count, printed_waiting_msg = 0;
- 	struct xpc_partition *part;
--	unsigned long printmsg_time;
-+	unsigned long printmsg_time, disengage_request_timeout = 0;
- 
- 
- 	/* a 'rmmod XPC' and a 'reboot' cannot both end up here together */
-@@ -953,7 +955,8 @@
- 
- 	/* wait for all partitions to become inactive */
- 
--	printmsg_time = jiffies;
-+	printmsg_time = jiffies + (XPC_DISENGAGE_PRINTMSG_INTERVAL * HZ);
-+	xpc_disengage_request_timedout = 0;
- 
- 	do {
- 		active_part_count = 0;
-@@ -969,20 +972,39 @@
- 			active_part_count++;
- 
- 			XPC_DEACTIVATE_PARTITION(part, reason);
--		}
- 
--		if (active_part_count = 0) {
--			break;
-+			if (part->disengage_request_timeout >
-+						disengage_request_timeout) {
-+				disengage_request_timeout +						part->disengage_request_timeout;
-+			}
+The penalty incurred by remote page accesses varies depending on the NUMA
+factor of the archictecture. If the NUMA factor is very low (architectures
+that have multiple nodes on the same motherboard like for example Opteron
+multi-processor boards) then no page reclaim may be needed since access to
+another nodes memory is almost as fast as a direct access.
+On Itanium architectures and other bus based NUMA architectures a remote
+access usually means that the access has to occur over some sort of NUMA
+interlink. It is worth to sacrifice easily reclaimable pages in order to
+allow a local allocation. Typically there are large number of easily reclaimable
+page available if a scan over some files has just been done or if an application
+has just terminated that mmapped many files.
+
+Other architectures (especially software NUMA like VirtualIron) may have
+higher NUMA factors and consequently it may be beneficial to do even more
+cleaning of the local zone before going off-node for those.
+
+This patch adds a hook to the page allocator and defines a generic zone
+reclaim function. These allow an arch to implement its own zone reclaim
+so that the off-node allocation behavior of of the page allocator may be
+controlled in an arch specific way. The patch replaces Martin Hick's zone
+reclaim function (which was never working properly).
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.15-rc4/mm/page_alloc.c
+=================================--- linux-2.6.15-rc4.orig/mm/page_alloc.c	2005-11-30 22:25:15.000000000 -0800
++++ linux-2.6.15-rc4/mm/page_alloc.c	2005-12-05 10:21:36.000000000 -0800
+@@ -842,7 +842,8 @@ get_page_from_freelist(gfp_t gfp_mask, u
+ 				mark = (*z)->pages_high;
+ 			if (!zone_watermark_ok(*z, order, mark,
+ 				    classzone_idx, alloc_flags))
+-				continue;
++				if (!arch_zone_reclaim(*z, gfp_mask, order))
++						continue;
  		}
  
--		if (jiffies >= printmsg_time) {
--			dev_info(xpc_part, "waiting for partitions to "
--				"deactivate/disengage, active count=%d, remote "
--				"engaged=0x%lx\n", active_part_count,
--				xpc_partition_engaged(1UL << partid));
+ 		page = buffered_rmqueue(*z, order, gfp_mask);
+Index: linux-2.6.15-rc4/include/linux/swap.h
+=================================--- linux-2.6.15-rc4.orig/include/linux/swap.h	2005-11-30 22:25:15.000000000 -0800
++++ linux-2.6.15-rc4/include/linux/swap.h	2005-12-05 10:21:36.000000000 -0800
+@@ -172,7 +172,7 @@ extern void swap_setup(void);
+ 
+ /* linux/mm/vmscan.c */
+ extern int try_to_free_pages(struct zone **, gfp_t);
+-extern int zone_reclaim(struct zone *, gfp_t, unsigned int);
++extern int zone_reclaim(struct zone *, gfp_t, int, int);
+ extern int shrink_all_memory(int);
+ extern int vm_swappiness;
+ 
+Index: linux-2.6.15-rc4/mm/vmscan.c
+=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-11-30 22:25:15.000000000 -0800
++++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-05 10:21:36.000000000 -0800
+@@ -1354,47 +1354,45 @@ static int __init kswapd_init(void)
+ 
+ module_init(kswapd_init)
+ 
 -
--			printmsg_time = jiffies +
-+		if (xpc_partition_engaged(-1UL)) {
-+			if (jiffies >= printmsg_time) {
-+				dev_info(xpc_part, "waiting for remote "
-+					"partitions to disengage, timeout in "
-+					"%ld seconds\n",
-+					(disengage_request_timeout - jiffies)
-+									/ HZ);
-+				printmsg_time = jiffies +
- 					(XPC_DISENGAGE_PRINTMSG_INTERVAL * HZ);
-+				printed_waiting_msg = 1;
-+			}
-+
-+		} else if (active_part_count > 0) {
-+			if (printed_waiting_msg) {
-+				dev_info(xpc_part, "waiting for local partition"
-+					" to disengage\n");
-+				printed_waiting_msg = 0;
-+			}
-+
-+		} else {
-+			if (!(volatile int) xpc_disengage_request_timedout) {
-+				dev_info(xpc_part, "all partitions have "
-+					"disengaged\n");
-+			}
-+			break;
- 		}
+ /*
+  * Try to free up some pages from this zone through reclaim.
+  */
+-int zone_reclaim(struct zone *zone, gfp_t gfp_mask, unsigned int order)
++#ifdef CONFIG_ARCH_ZONE_RECLAIM
++int zone_reclaim(struct zone *z, gfp_t gfp_mask, int writepage, int swap)
+ {
++	struct task_struct *p = current;
+ 	struct scan_control sc;
+-	int nr_pages = 1 << order;
+-	int total_reclaimed = 0;
++	struct reclaim_state reclaim_state;
  
- 		/* sleep for a 1/3 of a second or so */
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc_partition.c	2005-12-23 07:37:53.313511106 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc_partition.c	2005-12-23 07:38:47.033491740 -0600
-@@ -874,6 +874,9 @@
- 			 * request in a timely fashion, so assume it's dead.
- 			 */
+-	/* The reclaim may sleep, so don't do it if sleep isn't allowed */
+-	if (!(gfp_mask & __GFP_WAIT))
+-		return 0;
+-	if (zone->all_unreclaimable)
+-		return 0;
+-
+-	sc.gfp_mask = gfp_mask;
+-	sc.may_writepage = 0;
+-	sc.may_swap = 0;
+-	sc.nr_mapped = read_page_state(nr_mapped);
+ 	sc.nr_scanned = 0;
+ 	sc.nr_reclaimed = 0;
+-	/* scan at the highest priority */
++	sc.nr_mapped = read_page_state(nr_mapped);
+ 	sc.priority = 0;
+-	disable_swap_token();
+-
+-	if (nr_pages > SWAP_CLUSTER_MAX)
+-		sc.swap_cluster_max = nr_pages;
+-	else
+-		sc.swap_cluster_max = SWAP_CLUSTER_MAX;
++	sc.gfp_mask = gfp_mask;
++	sc.may_writepage = writepage;
++	sc.may_swap = swap;
++	sc.swap_cluster_max = SWAP_CLUSTER_MAX;
  
-+			dev_info(xpc_part, "disengage from remote partition %d "
-+				"timed out\n", partid);
-+			xpc_disengage_request_timedout = 1;
- 			xpc_clear_partition_engaged(1UL << partid);
- 			disengaged = 1;
- 		}
-Index: linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h
-=================================--- linux-2.6.git-test.orig/arch/ia64/sn/kernel/xpc.h	2005-12-23 07:37:53.314487567 -0600
-+++ linux-2.6.git-test/arch/ia64/sn/kernel/xpc.h	2005-12-23 08:35:54.575338459 -0600
-@@ -663,6 +663,7 @@
- extern struct device *xpc_part;
- extern struct device *xpc_chan;
- extern int xpc_disengage_request_timelimit;
-+extern int xpc_disengage_request_timedout;
- extern irqreturn_t xpc_notify_IRQ_handler(int, void *, struct pt_regs *);
- extern void xpc_dropped_IPI_check(struct xpc_partition *);
- extern void xpc_activate_partition(struct xpc_partition *);
++	/* The reclaim may sleep, so don't do it if sleep isn't allowed */
++	if (!(gfp_mask & __GFP_WAIT))
++		return 0;
++	if (z->all_unreclaimable)
++		return 0;
+ 	/* Don't reclaim the zone if there are other reclaimers active */
+-	if (atomic_read(&zone->reclaim_in_progress) > 0)
+-		goto out;
+-
+-	shrink_zone(zone, &sc);
+-	total_reclaimed = sc.nr_reclaimed;
++	if (atomic_read(&z->reclaim_in_progress) > 0)
++		return 0;
+ 
+- out:
+-	return total_reclaimed;
++	cond_resched();
++	p->flags |= PF_MEMALLOC;
++	reclaim_state.reclaimed_slab = 0;
++	p->reclaim_state = &reclaim_state;
++	shrink_zone(z, &sc);
++	p->reclaim_state = NULL;
++	current->flags &= ~PF_MEMALLOC;
++	cond_resched();
++	return sc.nr_reclaimed;
+ }
++#endif
+ 
+ asmlinkage long sys_set_zone_reclaim(unsigned int node, unsigned int zone,
+ 				     unsigned int state)
+Index: linux-2.6.15-rc4/include/linux/gfp.h
+=================================--- linux-2.6.15-rc4.orig/include/linux/gfp.h	2005-11-30 22:25:15.000000000 -0800
++++ linux-2.6.15-rc4/include/linux/gfp.h	2005-12-05 10:21:54.000000000 -0800
+@@ -100,6 +100,13 @@ static inline int gfp_zone(gfp_t gfp)
+ static inline void arch_free_page(struct page *page, int order) { }
+ #endif
+ 
++#ifndef CONFIG_ARCH_ZONE_RECLAIM
++static inline int arch_zone_reclaim(struct zone *z, gfp_t mask, unsigned int order)
++{
++	return 0;
++}
++#endif
++
+ extern struct page *
+ FASTCALL(__alloc_pages(gfp_t, unsigned int, struct zonelist *));
+ 
