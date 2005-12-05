@@ -1,39 +1,42 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 09 Dec 2005 17:03:46 +0000
-Subject: RE: SAL calling conventions + locking
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F052A3FAB@scsmsx401.amr.corp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 05 Dec 2005 10:45:27 +0000
+Subject: [PATCH] ACPI EC driver on ia64
+Message-Id: <43941A47.40304@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4399B3EE.6050408@bull.net>
-In-Reply-To: <4399B3EE.6050408@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: acpi-devel@lists.sourceforge.net
+Cc: len.brown@intel.com, linux-ia64@vger.kernel.org
 
->Can someone please tell me:
->- why the spec. requires to call the SAL with interrupts enabled,
->- why Linux calls the SAL with interrupts disabled,
->- what happens if the SAL is called with interrupts disabled?
+Hi,
 
-A quick scan of the SAL spec didn't come up with text to match
-that comment.  On the contrary in chapter 8 on calling conventions
-table 8-2 on requirements for PSR says that the "i" bit is preserved
-across SAL calls (with a footnote "b" remarking that SAL procedures
-may not enable interrupts if they are disabled on entry).  This
-appears to be very clear that the call can be made either with
-interrupts enabled or disabled.
+I need an ACPI EC driver on my IA64 machine. Currently CONFIG_ACPI_EC
+depends on X86, so I cannot build ACPI EC driver on ia64. I tested
+ACPI EC driver on ia64 with my special Kconfig, and it seemed to work
+well. Could you consider applying the following patch to enable ACPI
+EC driver on ia64?
 
-Section 9.1.1 on invoking runtime services in virtual mode does
-say that "the normal operating system environment is with translation
-on and interrupts enabled but operating system may choose to call SAL
-runtime services in physical mode".  This is perhaps a bit hazy, but
-I don't see that this should be interpreted as a requirement that
-interrupts be enabled when calling in virtual mode.
+Thanks,
+Kenji Kaneshige
 
-The SAL_GET_STATE_INFO only says that it is callable in either virtual
-or physical mode.
 
-So I think that the comment is wrong, and the SAL spec does not
-require that this be called with interrupts enabled.
+This patch enables ACPI EC driver on ia64.
 
--Tony
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+ drivers/acpi/Kconfig |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.15-rc5/drivers/acpi/Kconfig
+=================================--- linux-2.6.15-rc5.orig/drivers/acpi/Kconfig
++++ linux-2.6.15-rc5/drivers/acpi/Kconfig
+@@ -269,7 +269,7 @@ config ACPI_DEBUG
+ 
+ config ACPI_EC
+ 	bool
+-	depends on X86
++	depends on IA64 || X86
+ 	default y
+ 	help
+ 	  This driver is required on some systems for the proper operation of
