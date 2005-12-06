@@ -1,102 +1,79 @@
-From: Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
-Date: Wed, 21 Dec 2005 01:37:41 +0000
-Subject: [PATCH v2:1/3]Export cpu topology by sysfs
-Message-Id: <20051220173741.A18484@unix-os.sc.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 06 Dec 2005 02:02:31 +0000
+Subject: [Patch 1/1] Change SET_PERSONALITY to comply with comment in binfmt_elf.c.
+Message-Id: <20051206020231.GA25396@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
-Cc: yanmin.zhang@intel.com, suresh.b.siddha@intel.com, rajesh.shah@intel.com, venkatesh.pallipadi@intel.com
+To: linux-ia64@vger.kernel.org
 
-From: Zhang, Yanmin <yanmin.zhang@intel.com>
+We have a customer application which trips a bug.  The problem arises
+when a driver attempts to call do_munmap on an area which is mapped, but
+because current->thread.task_size has been set to 0xC0000000, the call
+to do_munmap fails thinking it is an unmap beyond the user's address
+space.
 
-The patches export the cpu topology info through sysfs.
-Based on the opinions of Nathan, Andi, Paul and Venki, I revised the patches.
-I really appreciate their good comments.
+The comment in fs/binfmt_elf.c in load_elf_library() before the call
+to SET_PERSONALITY() indicates that task_size must not be changed for
+the running application until flush_thread, but is for ia64 executing
+ia32 binaries.
 
-1) The main exportation logic is implemented arch-independently. The specific
-architectures just need to provides 5 defines; My thread patch provides the
-defines for i386, x86_64, and ia64. Other architectures need provide their own
-defines.
-2) Add a new document;
-3) Current i386 and x86_64 architectures don't save thread_id and don't show
-thread_id in /proc/cpuinfo. my patches fix it.
+This patch moves the setting of task_size from SET_PERSONALITY() to
+flush_thread() as indicated.  The customer application no longer is able
+to trip the bug.
 
-The first patch against kernel 2.6.15-rc5 is to save thread_id and show it
-in /proc/cpuinfo for i386 architecture.
+Signed-off-by: Robin Holt <holt@sgi.com>
 
-Signed-off-by: Zhang, Yanmin <yanmin.zhang@intel.com>
 
-#diffstat collect_thread_id_2.6.15-rc5_i386.patch
- arch/i386/kernel/cpu/common.c |   10 +++++++++-
- arch/i386/kernel/cpu/proc.c   |    2 ++
- arch/i386/kernel/smpboot.c    |    3 +++
- include/asm-i386/processor.h  |    1 +
- 4 files changed, 15 insertions, 1 deletion
-
----
-
-diff -Nraup linux-2.6.15-rc5/arch/i386/kernel/cpu/common.c linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/cpu/common.c
---- linux-2.6.15-rc5/arch/i386/kernel/cpu/common.c	2005-12-13 23:07:34.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/cpu/common.c	2005-12-16 12:32:48.000000000 +0800
-@@ -443,7 +443,7 @@ void __devinit identify_cpu(struct cpuin
- void __devinit detect_ht(struct cpuinfo_x86 *c)
+Index: linux-2.6/arch/ia64/ia32/ia32priv.h
+=================================--- linux-2.6.orig/arch/ia64/ia32/ia32priv.h	2005-11-09 10:53:59.000000000 -0600
++++ linux-2.6/arch/ia64/ia32/ia32priv.h	2005-12-05 16:08:27.413575723 -0600
+@@ -305,7 +305,6 @@ struct old_linux32_dirent {
+ #define ELF_DATA	ELFDATA2LSB
+ #define ELF_ARCH	EM_386
+ 
+-#define IA32_PAGE_OFFSET	0xc0000000
+ #define IA32_STACK_TOP		IA32_PAGE_OFFSET
+ #define IA32_GATE_OFFSET	IA32_PAGE_OFFSET
+ #define IA32_GATE_END		IA32_PAGE_OFFSET + PAGE_SIZE
+Index: linux-2.6/include/asm-ia64/ia32.h
+=================================--- linux-2.6.orig/include/asm-ia64/ia32.h	2005-11-09 10:54:11.000000000 -0600
++++ linux-2.6/include/asm-ia64/ia32.h	2005-12-05 16:08:25.701815335 -0600
+@@ -13,6 +13,8 @@
+ 
+ # ifdef CONFIG_IA32_SUPPORT
+ 
++#define IA32_PAGE_OFFSET	0xc0000000
++
+ extern void ia32_cpu_init (void);
+ extern void ia32_mem_init (void);
+ extern void ia32_gdt_init (void);
+Index: linux-2.6/arch/ia64/ia32/binfmt_elf32.c
+=================================--- linux-2.6.orig/arch/ia64/ia32/binfmt_elf32.c	2005-11-09 10:53:59.000000000 -0600
++++ linux-2.6/arch/ia64/ia32/binfmt_elf32.c	2005-12-05 19:43:09.471600081 -0600
+@@ -261,8 +261,6 @@ elf32_set_personality (void)
  {
- 	u32 	eax, ebx, ecx, edx;
--	int 	index_msb, core_bits;
-+	int 	index_msb, core_bits, thread_bits;
- 	int 	cpu = smp_processor_id();
- 
- 	cpuid(1, &eax, &ebx, &ecx, &edx);
-@@ -483,6 +483,14 @@ void __devinit detect_ht(struct cpuinfo_
- 		if (c->x86_max_cores > 1)
- 			printk(KERN_INFO  "CPU: Processor Core ID: %d\n",
- 			       cpu_core_id[cpu]);
-+
-+		thread_bits = index_msb;
-+		cpu_thread_id[cpu] = phys_pkg_id((ebx >> 24) & 0xFF, 0) &
-+						((1 << thread_bits) - 1);
-+
-+		if (smp_num_siblings > 1)
-+			printk(KERN_INFO  "CPU: Processor Thread ID: %d\n",
-+				cpu_thread_id[cpu]);
- 	}
+ 	set_personality(PER_LINUX32);
+ 	current->thread.map_base  = IA32_PAGE_OFFSET/3;
+-	current->thread.task_size = IA32_PAGE_OFFSET;	/* use what Linux/x86 uses... */
+-	set_fs(USER_DS);				/* set addr limit for new TASK_SIZE */
  }
- #endif
-diff -Nraup linux-2.6.15-rc5/arch/i386/kernel/cpu/proc.c linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/cpu/proc.c
---- linux-2.6.15-rc5/arch/i386/kernel/cpu/proc.c	2005-12-13 23:07:34.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/cpu/proc.c	2005-12-16 11:56:17.000000000 +0800
-@@ -100,6 +100,8 @@ static int show_cpuinfo(struct seq_file 
- 		seq_printf(m, "core id\t\t: %d\n", cpu_core_id[n]);
- 		seq_printf(m, "cpu cores\t: %d\n", c->booted_cores);
- 	}
-+	if (smp_num_siblings > 1)
-+		seq_printf(m, "thread id\t: %d\n", cpu_thread_id[n]);
- #endif
- 	
- 	/* We use exception 16 if we have hardware math and we've either seen it or the CPU claims it is internal */
-diff -Nraup linux-2.6.15-rc5/arch/i386/kernel/smpboot.c linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/smpboot.c
---- linux-2.6.15-rc5/arch/i386/kernel/smpboot.c	2005-12-13 23:07:34.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id_i386/arch/i386/kernel/smpboot.c	2005-12-16 11:00:28.000000000 +0800
-@@ -72,6 +72,9 @@ int phys_proc_id[NR_CPUS] __read_mostly 
- /* Core ID of each logical CPU */
- int cpu_core_id[NR_CPUS] __read_mostly = {[0 ... NR_CPUS-1] = BAD_APICID};
  
-+/* Thread ID of each logical CPU */
-+int cpu_thread_id[NR_CPUS] __read_mostly = {[0 ... NR_CPUS-1] = BAD_APICID};
-+
- /* representing HT siblings of each logical CPU */
- cpumask_t cpu_sibling_map[NR_CPUS] __read_mostly;
- EXPORT_SYMBOL(cpu_sibling_map);
-diff -Nraup linux-2.6.15-rc5/include/asm-i386/processor.h linux-2.6.15-rc5_thread_id_i386/include/asm-i386/processor.h
---- linux-2.6.15-rc5/include/asm-i386/processor.h	2005-12-13 23:07:39.000000000 +0800
-+++ linux-2.6.15-rc5_thread_id_i386/include/asm-i386/processor.h	2005-12-16 11:02:21.000000000 +0800
-@@ -101,6 +101,7 @@ extern struct cpuinfo_x86 cpu_data[];
+ static unsigned long
+Index: linux-2.6/arch/ia64/kernel/process.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/process.c	2005-11-23 19:05:46.000000000 -0600
++++ linux-2.6/arch/ia64/kernel/process.c	2005-12-05 19:43:10.834749298 -0600
+@@ -721,8 +721,11 @@ flush_thread (void)
+ 	/* drop floating-point and debug-register state if it exists: */
+ 	current->thread.flags &= ~(IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID);
+ 	ia64_drop_fpu(current);
+-	if (IS_IA32_PROCESS(ia64_task_regs(current)))
++	if (IS_IA32_PROCESS(ia64_task_regs(current))) {
+ 		ia32_drop_partial_page_list(current);
++		current->thread.task_size = IA32_PAGE_OFFSET;
++		set_fs(USER_DS);
++	}
+ }
  
- extern	int phys_proc_id[NR_CPUS];
- extern	int cpu_core_id[NR_CPUS];
-+extern	int cpu_thread_id[NR_CPUS];
- extern char ignore_fpu_irq;
- 
- extern void identify_cpu(struct cpuinfo_x86 *);
+ /*
