@@ -1,18 +1,27 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 22 Dec 2005 13:14:39 +0000
-Subject: Re: [PATCH 3/4] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
-Message-Id: <20051222131439.GJ2361@parisc-linux.org>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 07 Dec 2005 18:54:55 +0000
+Subject: [PATCH] Fix missing parameter for local_add
+Message-Id: <Pine.LNX.4.62.0512071053450.24789@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051221193220.GF2361@parisc-linux.org> <8995.1135232772@kao2.melbourne.sgi.com>
-In-Reply-To: <8995.1135232772@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keith Owens <kaos@ocs.com.au>
-Cc: Mark Maule <maule@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Thu, Dec 22, 2005 at 05:26:12PM +1100, Keith Owens wrote:
-> Semi off topic nit pick.  C99 standard, section 6.7.8, note 10.
+Local add needs to have a parameter that specifies how much to add
+to a local_t. atomic64_add also requires two parameters.
 
-Thanks, Keith.  I learned something there.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
+Index: linux-2.6.15-rc5/include/asm-ia64/local.h
+=================================--- linux-2.6.15-rc5.orig/include/asm-ia64/local.h	2005-12-03 21:10:42.000000000 -0800
++++ linux-2.6.15-rc5/include/asm-ia64/local.h	2005-12-06 14:39:47.000000000 -0800
+@@ -17,7 +17,7 @@ typedef struct {
+ #define local_set(l, i)	atomic64_set(&(l)->val, i)
+ #define local_inc(l)	atomic64_inc(&(l)->val)
+ #define local_dec(l)	atomic64_dec(&(l)->val)
+-#define local_add(l)	atomic64_add(&(l)->val)
++#define local_add(i, l)	atomic64_add((i), &(l)->val)
+ #define local_sub(l)	atomic64_sub(&(l)->val)
+ 
+ /* Non-atomic variants, i.e., preemption disabled and won't be touched in interrupt, etc.  */
