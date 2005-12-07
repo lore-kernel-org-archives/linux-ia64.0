@@ -1,33 +1,73 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Tue, 20 Dec 2005 19:20:19 +0000
-Subject: dmi_scan on ia64
-Message-Id: <20051220192019.GC21868@lists.us.dell.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 07 Dec 2005 19:54:52 +0000
+Subject: [PATCH] Drop per-irq counters from /proc/stat (Was: Reading /proc/stat is slooow)
+Message-Id: <20051207195452.GA8873@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F05204A1E@scsmsx401.amr.corp.intel.com> <894E37DECA393E4D9374E0ACBBE7427003BC9642@pdsmsx402.ccr.corp.intel.com> <20051206165800.GA6277@agluck-lia64.sc.intel.com> <jeslt6xib3.fsf@sykes.suse.de>
+In-Reply-To: <jeslt6xib3.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Andreas Schwab <schwab@suse.de>
 
-I recently noticed that the IPMI device driver (drivers/char/ipmi) has
-converted from using it's own manual parsing of the BIOS-provided DMI
-table to find the address of the IPMI controller, and instead now uses
-the i386 implementation of arch/i386/kernel/dmi_scan.c.  This of
-course broke IPMI device autodetection on x86_64 and ia64 which
-weren't using the i386 code.
+On Tue, Dec 06, 2005 at 06:10:40PM +0100, Andreas Schwab wrote:
+> "Luck, Tony" <tony.luck@intel.com> writes:
+> 
+> > 2) The problem loop is already #ifdef'd out for PPC64 and ALPHA.  We could add
+> > IA64 to that exclusive club and just not include the per irq sums.  Since kstat_irqs()
+> > computes the sums in an "int", they will wrap frequently on a large system
+> > (512 cpus * default 250Hz = 128000 ... which wraps a 32-bit unsigned in 9 hours
+> > and 19 minutes) ... so their usefulness is questionable.  Does xosview use
+> > the per-irq values?
+> 
+> It doesn't use them, it uses /proc/interrupts instead.  So IMHO this would
+> be the preferred solution.
 
-Andi Kleen worked up a patch (and now I can't find the mail reference
-to it) for post-2.6.15 which enables arch/i386/kernel/dmi_scan.c for
-x86_64.  It made a generic CONFIG_DMI option which could be set
-per-arch for arches that support having DMI tables.  I'd appreciate
-it, if/when that hits the tree, that ia64 get similar changes.  I'll
-watch for it and try to submit a patch, but wanted others to be on the
-lookout too.
+Anyone know of any applications that *DO* depend on the per-irq counters
+in /proc/stat?
 
-Thanks,
-Matt
+I could just add IA64 to the ugly #ifdef:
 
--- 
-Matt Domsch
-Software Architect
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+-#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA)
++#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA) && !defined(CONFIG_IA64)
+
+But perhaps it might be simpler to skip straight to this:
+
+[PATCH] Drop per-irq counters from /proc/stat
+
+It is very expensive to produce the per-irq counter values in /proc/stat
+(the code does a very cache unfriendly walk across all percpu structures
+for each irq).  Some architectures (PPC64, ALPHA) don't provide this
+information in this file.  Applications which do want this can derive it
+by adding the percpu values in /proc/interrupts.
+
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+---
+
+diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
+index 5b6b0b6..64d96bf 100644
+--- a/fs/proc/proc_misc.c
++++ b/fs/proc/proc_misc.c
+@@ -396,15 +396,10 @@ static int show_stat(struct seq_file *p,
+ 			(unsigned long long)cputime64_to_clock_t(softirq),
+ 			(unsigned long long)cputime64_to_clock_t(steal));
+ 	}
+-	seq_printf(p, "intr %llu", (unsigned long long)sum);
+-
+-#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA)
+-	for (i = 0; i < NR_IRQS; i++)
+-		seq_printf(p, " %u", kstat_irqs(i));
+-#endif
++	seq_printf(p, "intr %llu\n", (unsigned long long)sum);
+ 
+ 	seq_printf(p,
+-		"\nctxt %llu\n"
++		"ctxt %llu\n"
+ 		"btime %lu\n"
+ 		"processes %lu\n"
+ 		"procs_running %lu\n"
+
+
+-Tony
