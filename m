@@ -1,53 +1,72 @@
-From: Andi Kleen <ak@suse.de>
-Date: Tue, 06 Dec 2005 15:43:08 +0000
-Subject: Re: [PATCH 1/3] Arch specific zone reclaim framework
-Message-Id: <p73lkyyq987.fsf@verdi.suse.de>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 08 Dec 2005 20:37:17 +0000
+Subject: [PATCH 3/3] Zone reclaim V3: Frequency of failed reclaim attempts
+Message-Id: <20051208203717.30456.17434.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051205190104.12037.69672.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20051205190104.12037.69672.sendpatchset@schroedinger.engr.sgi.com>
+References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@osdl.org
+Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org, ak@suse.de, Wu Fengguang <wfg@mail.ustc.edu.cn>, Christoph Lameter <clameter@sgi.com>
 
-Christoph Lameter <clameter@sgi.com> writes:
+Reduce frequency of unsuccessful zone reclaim attempts
 
-> Generic framework for arch specific zone reclaim.
-> 
-> Zone reclaim allows the reclaiming of pages from a zone if the number of free
-> pages falls below the watermark even if other zones still have enough pages
-> available.
-> 
-> Zone reclaim is of particular importance for NUMA machines. It can be more
-> beneficial to reclaim a page than taking the performance penalties that come
-> with allocating a page on a remote zone. Maybe this will also be useful
-> to implement reclaim for DMA zones in some architectures.
-> 
-> The penalty incurred by remote page accesses varies depending on the NUMA
-> factor of the archictecture. If the NUMA factor is very low (architectures
-> that have multiple nodes on the same motherboard like for example Opteron
-> multi-processor boards) then no page reclaim may be needed since access to
-> another nodes memory is almost as fast as a direct access.
-> On Itanium architectures and other bus based NUMA architectures a remote
-> access usually means that the access has to occur over some sort of NUMA
-> interlink. It is worth to sacrifice easily reclaimable pages in order to
-> allow a local allocation. Typically there are large number of easily reclaimable
-> page available if a scan over some files has just been done or if an application
-> has just terminated that mmapped many files.
-> 
-> Other architectures (especially software NUMA like VirtualIron) may have
-> higher NUMA factors and consequently it may be beneficial to do even more
-> cleaning of the local zone before going off-node for those.
+It is unlikely that zone reclaim is successful once it has failed. The
+performance of the page allocator will sink signficantly for off-node
+allocation if every page allocation attempt first requires a zone reclaim
+scan to establish that no local memory is availale.
 
-I think it's a very very bad idea to have architecture specific
-functions for such generic VM tasks. I'm all for fixing this
-particular problem, but do it in generic code, possible
-with an ifdef and some arch settable parameters. But no
-architecture specific VM code please. Going down that path     
-would cause long term maintenance headaches.
+This patch limits the number of unsuccessful zone reclaim attempts to one
+per tick by remembering the last time a zone reclaim failed on a zone.
 
-I suppose this particular problem could be just handled by
-just checking node_distance()
+Note that this approach may be avoided once we have per zone statistics
+on the number of unmapped (=easily reclaimable) pages. I am working on
+a statistics patch that may allow keeping track of unmapped pages per
+zone. A check of that number may then allow an easy determination if it
+makes sense to run zone reclaim.
 
--Andi
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.15-rc4/mm/vmscan.c
+=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-12-08 11:10:14.000000000 -0800
++++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-08 12:04:38.000000000 -0800
+@@ -1379,6 +1379,16 @@ int zone_reclaim(struct zone *zone, gfp_
+ 	    atomic_read(&zone->reclaim_in_progress) > 0)
+ 		return 0;
+ 
++	/*
++	 * If an unsuccessful zone reclaim occurred in this tick then we
++	 * already needed to go off before. Our local purity is already
++	 * tainted and its likely that the scan for easily reclaimable pages
++	 * will be a waste of time. Continue off node allocations for the
++	 * duration of this tick.
++	 */
++	if (zone->last_unsuccessful_zone_reclaim = get_jiffies_64())
++		return 0;
++
+ 	sc.gfp_mask = gfp_mask;
+ 	sc.may_writepage = 0;
+ 	sc.may_swap = 0;
+@@ -1397,6 +1407,8 @@ int zone_reclaim(struct zone *zone, gfp_
+ 	shrink_zone(zone, &sc);
+ 	p->reclaim_state = NULL;
+ 	current->flags &= ~PF_MEMALLOC;
++	if (sc.nr_reclaimed = 0)
++		zone->last_unsuccessful_zone_reclaim = get_jiffies_64();
+ 	cond_resched();
+ 	return sc.nr_reclaimed >= (1 << order);
+ }
+Index: linux-2.6.15-rc4/include/linux/mmzone.h
+=================================--- linux-2.6.15-rc4.orig/include/linux/mmzone.h	2005-12-08 11:10:14.000000000 -0800
++++ linux-2.6.15-rc4/include/linux/mmzone.h	2005-12-08 12:00:43.000000000 -0800
+@@ -153,6 +153,8 @@ struct zone {
+ 	/* A count of how many reclaimers are scanning this zone */
+ 	atomic_t		reclaim_in_progress;
+ 
++	unsigned long		last_unsuccessful_zone_reclaim;
++
+ 	/*
+ 	 * prev_priority holds the scanning priority for this zone.  It is
+ 	 * defined as the scanning priority at which we achieved our reclaim
