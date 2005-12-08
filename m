@@ -1,60 +1,45 @@
-From: xb <xavier.bru@bull.net>
-Date: Tue, 13 Dec 2005 13:51:54 +0000
-Subject: Re: sal record header concern
-Message-Id: <439ED1FA.1010702@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------090206000409090005070303"
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Thu, 08 Dec 2005 01:37:30 +0000
+Subject: RE: [BUG] Variable stopmachine_state should be volatile
+Message-Id: <8126E4F969BA254AB43EA03C59F44E8404210E76@pdsmsx404>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <439D4ACE.9020701@bull.net>
-In-Reply-To: <439D4ACE.9020701@bull.net>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Arjan van de Ven <arjan@infradead.org>, Pavel Machek <pavel@ucw.cz>
+Cc: linux-kernel@vger.kernel.org, "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>, "Shah, Rajesh" <rajesh.shah@intel.com>, linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090206000409090005070303
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-
-Luck, Tony wrote:
-
->>Is your severity "code" set to 02 80?  VALIDATION_BITS Bit 0 = if 1,
->>the OEM_PLATFORM_ID field below contains valid information.
->>    
+>>-----Original Message-----
+>>From: Arjan van de Ven [mailto:arjan@infradead.org]
+>>Sent: 2005=C4=EA12=D4=C22=C8=D5 16:04
+>>To: Zhang, Yanmin
+>>Cc: linux-kernel@vger.kernel.org; Pallipadi, Venkatesh; Shah, Rajesh
+>>Subject: Re: [BUG] Variable stopmachine_state should be volatile
 >>
->
->If the 16-bit value is 258, then the two bytes must be "02 01" (since
->258 = 2 + 1*256).  This looks perfectly legal ... the "1" in the next
->byte up (the VALIDATION_BITS) indicating that the OEM_PLATFORM_ID
->contains information.
->
->-Tony
->-
->To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
-This is exactly what occurs. Thanks.
+>>On Wed, 2005-11-30 at 10:04 +0800, Zhang, Yanmin wrote:
+>>> The model to access variable stopmachine_state is that a main thread
+>>> writes it and other threads read it. Its declaration has no sign
+>>> volatile. In the while loop in function stopmachine, this variable is
+>>> read, and compiler might optimize it by reading it once before the loop
+>>> and not reading it again in the loop, so the thread might enter dead
+>>> loop.
+>>
+>>cpu_relax() includes a compiler barier..... so... what's wrong with the
+>>compiler that it ignores such barriers?
 
---------------090206000409090005070303
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-vcard; charset=utf-8;
- name="xavier.bru.vcf"
-Content-Disposition: attachment;
- filename="xavier.bru.vcf"
+You are right. I hit the problem when I compiled kernel 2.6.9 on IA64 by in=
+tel compiler.
+cpu_relax has the compiler barrier if we use gcc, but cpu_relax becomes jus=
+t ia64_hint which is null when I use intel compiler to compile kernel on ia=
+64. file include/asm-ia64/intel_intrin.h defines ia64_hint as null.
 
-begin:vcard
-fn:Xavier Bru
-n:Bru;Xavier
-adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
-email;internet:Xavier.Bru@bull.net
-title:BULL/DT/Open Software/linux/ia64
-tel;work:+33 (0)4 76 29 77 45
-tel;fax:+33 (0)4 76 29 77 70 
-x-mozilla-html:TRUE
-url:http://www.bull.com
-version:2.1
-end:vcard
+Function stopmachine in kernel/stop_machine.c uses cpu_relax to prevent com=
+piler from moving the reading of stopmachine_state out of the while loop. B=
+ut when we use intel compiler, cpu_relax doesn't work because it is just nu=
+ll.
 
+The right approach is to define ia64_hint to ia64_barrier in file include/a=
+sm-ia64/intel_intrin.h. I tested the new approach and it does work.
 
---------------090206000409090005070303--
+Thank Arjan, Pavel, and Venki.
+
