@@ -1,40 +1,75 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 06 Dec 2005 14:05:24 +0000
-Subject: [PATCH] - Fix SN PTC deadlock recovery
-Message-Id: <20051206140524.GA32456@sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 08 Dec 2005 20:37:12 +0000
+Subject: [PATCH 2/3] Zone reclaim V3: Remove debris from old zone reclaim
+Message-Id: <20051208203712.30456.49833.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org, ak@suse.de, Wu Fengguang <wfg@mail.ustc.edu.cn>, Christoph Lameter <clameter@sgi.com>
 
-The patch that added support for a new platform chipset (shub2) broke
-PTC deadlock recovery on older versions of the chipset. (PTCs are the
-SN platform-specific method for doing a global TLB purge). This
-patch fixes deadlock recovery so that it works on both the old & new 
-chipsets.
+Remove debris of old zone reclaim
 
+Removes the leftovers from prior attempts to implement Zone reclaim.
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
+sys_set_zone_reclaim is not rechable in 2.6.14.
 
+The reclaim_pages field in struct zone is only used by sys_set_zone_reclaim.
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Index: linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/ptc_deadlock.S	2005-12-01 11:41:02.394548556 -0600
-+++ linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S	2005-12-06 07:59:32.176021944 -0600
-@@ -39,9 +39,13 @@ sn2_ptc_deadlock_recovery_core:
- 	mov	r8=r0
+Index: linux-2.6.15-rc4/include/linux/mmzone.h
+=================================--- linux-2.6.15-rc4.orig/include/linux/mmzone.h	2005-11-30 22:25:15.000000000 -0800
++++ linux-2.6.15-rc4/include/linux/mmzone.h	2005-12-08 09:35:29.000000000 -0800
+@@ -150,11 +150,6 @@ struct zone {
+ 	unsigned long		pages_scanned;	   /* since last reclaim */
+ 	int			all_unreclaimable; /* All pages pinned */
  
- 1:
-+	cmp.ne  p8,p9=r0,ptc1		// Test for shub type (ptc1 non-null on shub1)
-+					// p8 = 1 if shub1, p9 = 1 if shub2
-+
- 	add	scr2=ALIAS_OFFSET,piowc	// Address of WRITE_STATUS alias register 
--	;;
--	ld8.acq	scr1=[scr2];;
-+	mov	scr1=7;;		// Clear DEADLOCK, WRITE_ERROR, MULTI_WRITE_ERROR
-+(p8)	st8.rel	[scr2]=scr1;;
-+(p9)	ld8.acq	scr1=[scr2];;
+-	/*
+-	 * Does the allocator try to reclaim pages from the zone as soon
+-	 * as it fails a watermark_ok() in __alloc_pages?
+-	 */
+-	int			reclaim_pages;
+ 	/* A count of how many reclaimers are scanning this zone */
+ 	atomic_t		reclaim_in_progress;
  
- 5:	ld8.acq	scr1=[piowc];;		// Wait for PIOs to complete.
- 	hint	@pause
+Index: linux-2.6.15-rc4/mm/vmscan.c
+=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-12-08 09:23:59.000000000 -0800
++++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-08 09:35:29.000000000 -0800
+@@ -1402,33 +1402,3 @@ int zone_reclaim(struct zone *zone, gfp_
+ }
+ #endif
+ 
+-asmlinkage long sys_set_zone_reclaim(unsigned int node, unsigned int zone,
+-				     unsigned int state)
+-{
+-	struct zone *z;
+-	int i;
+-
+-	if (!capable(CAP_SYS_ADMIN))
+-		return -EACCES;
+-
+-	if (node >= MAX_NUMNODES || !node_online(node))
+-		return -EINVAL;
+-
+-	/* This will break if we ever add more zones */
+-	if (!(zone & (1<<ZONE_DMA|1<<ZONE_NORMAL|1<<ZONE_HIGHMEM)))
+-		return -EINVAL;
+-
+-	for (i = 0; i < MAX_NR_ZONES; i++) {
+-		if (!(zone & 1<<i))
+-			continue;
+-
+-		z = &NODE_DATA(node)->node_zones[i];
+-
+-		if (state)
+-			z->reclaim_pages = 1;
+-		else
+-			z->reclaim_pages = 0;
+-	}
+-
+-	return 0;
+-}
