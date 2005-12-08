@@ -1,72 +1,30 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 08 Dec 2005 20:37:17 +0000
-Subject: [PATCH 3/3] Zone reclaim V3: Frequency of failed reclaim attempts
-Message-Id: <20051208203717.30456.17434.sendpatchset@schroedinger.engr.sgi.com>
+From: Andi Kleen <ak@suse.de>
+Date: Thu, 08 Dec 2005 20:52:41 +0000
+Subject: Re: [PATCH 3/3] Zone reclaim V3: Frequency of failed reclaim attempts
+Message-Id: <20051208205241.GR11190@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
+References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com> <20051208203717.30456.17434.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20051208203717.30456.17434.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org, ak@suse.de, Wu Fengguang <wfg@mail.ustc.edu.cn>, Christoph Lameter <clameter@sgi.com>
+To: Christoph Lameter <clameter@sgi.com>
+Cc: akpm@osdl.org, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org, ak@suse.de, Wu Fengguang <wfg@mail.ustc.edu.cn>
 
-Reduce frequency of unsuccessful zone reclaim attempts
+> +	if (zone->last_unsuccessful_zone_reclaim = get_jiffies_64())
+> +		return 0;
 
-It is unlikely that zone reclaim is successful once it has failed. The
-performance of the page allocator will sink signficantly for off-node
-allocation if every page allocation attempt first requires a zone reclaim
-scan to establish that no local memory is availale.
 
-This patch limits the number of unsuccessful zone reclaim attempts to one
-per tick by remembering the last time a zone reclaim failed on a zone.
+and
 
-Note that this approach may be avoided once we have per zone statistics
-on the number of unmapped (=easily reclaimable) pages. I am working on
-a statistics patch that may allow keeping track of unmapped pages per
-zone. A check of that number may then allow an easy determination if it
-makes sense to run zone reclaim.
+>  
+> +	unsigned long		last_unsuccessful_zone_reclaim;
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+For long you don't need get_jiffies_64. On 32bit it would be 32bit
+anyways and on 64bit even normal jiffies is 64bit. So normal
+jiffies would be suffice.
 
-Index: linux-2.6.15-rc4/mm/vmscan.c
-=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-12-08 11:10:14.000000000 -0800
-+++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-08 12:04:38.000000000 -0800
-@@ -1379,6 +1379,16 @@ int zone_reclaim(struct zone *zone, gfp_
- 	    atomic_read(&zone->reclaim_in_progress) > 0)
- 		return 0;
- 
-+	/*
-+	 * If an unsuccessful zone reclaim occurred in this tick then we
-+	 * already needed to go off before. Our local purity is already
-+	 * tainted and its likely that the scan for easily reclaimable pages
-+	 * will be a waste of time. Continue off node allocations for the
-+	 * duration of this tick.
-+	 */
-+	if (zone->last_unsuccessful_zone_reclaim = get_jiffies_64())
-+		return 0;
-+
- 	sc.gfp_mask = gfp_mask;
- 	sc.may_writepage = 0;
- 	sc.may_swap = 0;
-@@ -1397,6 +1407,8 @@ int zone_reclaim(struct zone *zone, gfp_
- 	shrink_zone(zone, &sc);
- 	p->reclaim_state = NULL;
- 	current->flags &= ~PF_MEMALLOC;
-+	if (sc.nr_reclaimed = 0)
-+		zone->last_unsuccessful_zone_reclaim = get_jiffies_64();
- 	cond_resched();
- 	return sc.nr_reclaimed >= (1 << order);
- }
-Index: linux-2.6.15-rc4/include/linux/mmzone.h
-=================================--- linux-2.6.15-rc4.orig/include/linux/mmzone.h	2005-12-08 11:10:14.000000000 -0800
-+++ linux-2.6.15-rc4/include/linux/mmzone.h	2005-12-08 12:00:43.000000000 -0800
-@@ -153,6 +153,8 @@ struct zone {
- 	/* A count of how many reclaimers are scanning this zone */
- 	atomic_t		reclaim_in_progress;
- 
-+	unsigned long		last_unsuccessful_zone_reclaim;
-+
- 	/*
- 	 * prev_priority holds the scanning priority for this zone.  It is
- 	 * defined as the scanning priority at which we achieved our reclaim
+But I suspect it would be better to just merge the proper patch
+with the full accounting instead of this kludge.
+
+-Andi
