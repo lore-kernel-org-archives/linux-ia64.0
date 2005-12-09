@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 09 Dec 2005 17:11:58 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 09 Dec 2005 17:46:15 +0000
 Subject: Re: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
-Message-Id: <20051209171158.GA21552@attica.americas.sgi.com>
+Message-Id: <200512091046.15976.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
@@ -10,75 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Prarit, I don't think your patch catches all the cases.  Try
-this one.
+On Friday 09 December 2005 10:11 am, Robin Holt wrote:
+> Prarit, I don't think your patch catches all the cases.  Try
+> this one.
+> 
+> Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+> =================================> --- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-11-21 20:05:40.000000000 -0600
+> +++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-12-09 10:53:19.159948227 -0600
+> @@ -973,6 +973,9 @@ static int __devinit sn_hwperf_misc_regi
+>  {
+>  	int e;
+>  
+> +	if (!ia64_platform_is("sn2"))
+> +		return -ENODEV;
 
-Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-11-21 20:05:40.000000000 -0600
-+++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-12-09 10:53:19.159948227 -0600
-@@ -973,6 +973,9 @@ static int __devinit sn_hwperf_misc_regi
- {
- 	int e;
- 
-+	if (!ia64_platform_is("sn2"))
-+		return -ENODEV;
-+
- 	sn_hwperf_init();
- 
- 	/*
-Index: linux-2.6/arch/ia64/sn/kernel/mca.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/mca.c	2005-11-09 10:53:59.000000000 -0600
-+++ linux-2.6/arch/ia64/sn/kernel/mca.c	2005-12-09 10:49:52.089585038 -0600
-@@ -136,6 +136,9 @@ int sn_salinfo_platform_oemdata(const u8
- 
- static int __init sn_salinfo_init(void)
- {
-+	if (!ia64_platform_is("sn2"))
-+		return -ENODEV;
-+
- 	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
- 	return 0;
- }
-Index: linux-2.6/drivers/char/snsc.c
-=================================--- linux-2.6.orig/drivers/char/snsc.c	2005-11-09 10:54:02.000000000 -0600
-+++ linux-2.6/drivers/char/snsc.c	2005-12-09 10:54:48.619864496 -0600
-@@ -375,7 +375,12 @@ scdrv_init(void)
- 	struct sysctl_data_s *scd;
- 	void *salbuf;
- 	dev_t first_dev, dev;
--	nasid_t event_nasid = ia64_sn_get_console_nasid();
-+	nasid_t event_nasid;
-+
-+	if (!ia64_platform_is("sn2"))
-+		return -ENODEV;
-+
-+	event_nasid = ia64_sn_get_console_nasid();
- 
- 	if (alloc_chrdev_region(&first_dev, 0, num_cnodes,
- 				SYSCTL_BASENAME) < 0) {
-Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
-=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2005-11-09 10:54:05.000000000 -0600
-+++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2005-12-09 10:49:46.197589209 -0600
-@@ -552,6 +552,9 @@ static int sn_pci_hotplug_init(void)
- 	int rc;
- 	int registered = 0;
- 
-+	if (!ia64_platform_is("sn2"))
-+		return -ENODEV;
-+
- 	if (sn_sal_rev() < SGI_HOTPLUG_PROM_REV) {
- 		printk(KERN_ERR "%s: PROM version must be greater than 4.30\n",
- 		       __FUNCTION__);
-Index: linux-2.6/drivers/sn/ioc4.c
-=================================--- linux-2.6.orig/drivers/sn/ioc4.c	2005-11-09 10:54:06.000000000 -0600
-+++ linux-2.6/drivers/sn/ioc4.c	2005-12-09 10:51:18.627908933 -0600
-@@ -406,6 +406,9 @@ MODULE_DEVICE_TABLE(pci, ioc4_id_table);
- static int __devinit
- ioc4_init(void)
- {
-+	if (!ia64_platform_is("sn2"))
-+		return -ENODEV;
-+
- 	return pci_register_driver(&ioc4_driver);
- }
- 
+I'm not thrilled about this approach.
+
+I'd *like* to be able to assume that "changes in arch/ia64/sn/* clearly
+don't affect non-SN platforms".  But this style breaks that.  Every ia64
+box calls all these SN init functions, and if somebody forgets the
+ia64_platform_is("sn2") check, bad things will happen.
+
+I'd like it a whole lot better if all these initialization-type things
+could be hidden inside sn_setup() or some other machine vector.
+
