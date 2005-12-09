@@ -1,25 +1,84 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Fri, 09 Dec 2005 00:10:20 +0000
-Subject: Re: [discuss] Re: [PATCH 1/3] Zone reclaim V3: main patch
-Message-Id: <Pine.LNX.4.62.0512081609400.31444@schroedinger.engr.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Fri, 09 Dec 2005 17:11:58 +0000
+Subject: Re: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
+Message-Id: <20051209171158.GA21552@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com>
- <20051208210850.GS11190@wotan.suse.de> <Pine.LNX.4.62.0512081320200.30786@schroedinger.engr.sgi.com>
- <20051208225102.GW11190@wotan.suse.de> <Pine.LNX.4.62.0512081514510.31246@schroedinger.engr.sgi.com>
- <20051208232827.GZ11190@wotan.suse.de> <Pine.LNX.4.62.0512081531150.31342@schroedinger.engr.sgi.com>
- <20051208234058.GA11190@wotan.suse.de>
-In-Reply-To: <20051208234058.GA11190@wotan.suse.de>
+References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
+In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: steiner@sgi.com
-Cc: akpm@osdl.org, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, Wu Fengguang <wfg@mail.ustc.edu.cn>, discuss@x86-64.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, 9 Dec 2005, Andi Kleen wrote:
+Prarit, I don't think your patch catches all the cases.  Try
+this one.
 
-> Unless non local same box is 2 times as slow as the local I wouldn't
-> consider that correct.  (I would expect the Altix to do better than that) 
-
-Maybe Jack could give us a hint how these slit numbers relate to 
-reality?
-
+Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-11-21 20:05:40.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-12-09 10:53:19.159948227 -0600
+@@ -973,6 +973,9 @@ static int __devinit sn_hwperf_misc_regi
+ {
+ 	int e;
+ 
++	if (!ia64_platform_is("sn2"))
++		return -ENODEV;
++
+ 	sn_hwperf_init();
+ 
+ 	/*
+Index: linux-2.6/arch/ia64/sn/kernel/mca.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/mca.c	2005-11-09 10:53:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/mca.c	2005-12-09 10:49:52.089585038 -0600
+@@ -136,6 +136,9 @@ int sn_salinfo_platform_oemdata(const u8
+ 
+ static int __init sn_salinfo_init(void)
+ {
++	if (!ia64_platform_is("sn2"))
++		return -ENODEV;
++
+ 	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
+ 	return 0;
+ }
+Index: linux-2.6/drivers/char/snsc.c
+=================================--- linux-2.6.orig/drivers/char/snsc.c	2005-11-09 10:54:02.000000000 -0600
++++ linux-2.6/drivers/char/snsc.c	2005-12-09 10:54:48.619864496 -0600
+@@ -375,7 +375,12 @@ scdrv_init(void)
+ 	struct sysctl_data_s *scd;
+ 	void *salbuf;
+ 	dev_t first_dev, dev;
+-	nasid_t event_nasid = ia64_sn_get_console_nasid();
++	nasid_t event_nasid;
++
++	if (!ia64_platform_is("sn2"))
++		return -ENODEV;
++
++	event_nasid = ia64_sn_get_console_nasid();
+ 
+ 	if (alloc_chrdev_region(&first_dev, 0, num_cnodes,
+ 				SYSCTL_BASENAME) < 0) {
+Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
+=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2005-11-09 10:54:05.000000000 -0600
++++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2005-12-09 10:49:46.197589209 -0600
+@@ -552,6 +552,9 @@ static int sn_pci_hotplug_init(void)
+ 	int rc;
+ 	int registered = 0;
+ 
++	if (!ia64_platform_is("sn2"))
++		return -ENODEV;
++
+ 	if (sn_sal_rev() < SGI_HOTPLUG_PROM_REV) {
+ 		printk(KERN_ERR "%s: PROM version must be greater than 4.30\n",
+ 		       __FUNCTION__);
+Index: linux-2.6/drivers/sn/ioc4.c
+=================================--- linux-2.6.orig/drivers/sn/ioc4.c	2005-11-09 10:54:06.000000000 -0600
++++ linux-2.6/drivers/sn/ioc4.c	2005-12-09 10:51:18.627908933 -0600
+@@ -406,6 +406,9 @@ MODULE_DEVICE_TABLE(pci, ioc4_id_table);
+ static int __devinit
+ ioc4_init(void)
+ {
++	if (!ia64_platform_is("sn2"))
++		return -ENODEV;
++
+ 	return pci_register_driver(&ioc4_driver);
+ }
+ 
