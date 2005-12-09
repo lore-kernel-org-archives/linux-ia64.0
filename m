@@ -1,23 +1,53 @@
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 08 Dec 2005 21:10:50 +0000
-Subject: Re: [PATCH 3/3] Zone reclaim V3: Frequency of failed reclaim attempts
-Message-Id: <20051208211049.GT11190@wotan.suse.de>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Fri, 09 Dec 2005 16:42:22 +0000
+Subject: SAL calling conventions + locking
+Message-Id: <4399B3EE.6050408@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051208203707.30456.57439.sendpatchset@schroedinger.engr.sgi.com> <20051208203717.30456.17434.sendpatchset@schroedinger.engr.sgi.com> <20051208205241.GR11190@wotan.suse.de> <Pine.LNX.4.62.0512081308360.30567@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.62.0512081308360.30567@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@engr.sgi.com>
-Cc: Andi Kleen <ak@suse.de>, akpm@osdl.org, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org, Wu Fengguang <wfg@mail.ustc.edu.cn>
+To: linux-ia64@vger.kernel.org
 
-On Thu, Dec 08, 2005 at 01:08:50PM -0800, Christoph Lameter wrote:
-> Patch:
+The SAL specification does say that the SAL procedures should be called
+with interrupts enabled if we call them in virtual mode.
 
-Looks good thanks.
+Here is the simplified CPEI handler control flow:
 
-I hope this will help Opteron users a lot who have been always
-complaining about this too.
+ia64_mca_cpe_int_handler():
 
--Andi
+	/* SAL spec states this should run w/ interrupts enabled */
+	local_irq_enable();
+	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE):
 
+		ia64_log_get():
+
+			IA64_LOG_LOCK():
+
+				spin_lock_irqsave():
+
+			ia64_sal_get_state_info();
+			IA64_LOG_UNLOCK()
+
+		salinfo_log_wakeup()
+		if (rh->severity = sal_log_severity_corrected)
+			ia64_sal_clear_state_info();
+
+Despite the note "SAL spec ... w/ interrupts enabled" the interrupts
+are disabled before "ia64_sal_get_state_info()" is invoked.
+
+Can someone please tell me:
+- why the spec. requires to call the SAL with interrupts enabled,
+- why Linux calls the SAL with interrupts disabled,
+- what happens if the SAL is called with interrupts disabled?
+
+The second issue is:
+The lock of the log is released before "salinfo_log_wakeup()" could record
+the existence of the current log. Two more logs can arrive and overwrite
+the current log without even indicting the loss of the information.
+(E.g. CPEI-s with interrupt redirection, CMCI-s on multiple CPUs.)
+Should not we keep the log lock at least while "salinfo_log_wakeup()"
+executes?
+
+Thanks.
+
+Zoltan Menyhart
