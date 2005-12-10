@@ -1,47 +1,39 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 15 Dec 2005 18:41:22 +0000
-Subject: Re: [PATCH] - Missed TLB flush
-Message-Id: <20051215184121.GA20289@sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 10 Dec 2005 03:24:28 +0000
+Subject: [patch 2.6.15-rc5] Define an ia64 version of __raw_read_trylock
+Message-Id: <17916.1134185068@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051215174525.GA28885@sgi.com>
-In-Reply-To: <20051215174525.GA28885@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Second try.
+IA64 is using the generic version of __raw_read_trylock, which always
+waits for the lock to be free instead of returning when the lock is in
+use.  Define an ia64 version of __raw_read_trylock which behaves
+correctly, and drop the generic one.
 
-I see why the problem exists only on SN. SN uses a different hardware
-mechanism to purge TLB entries across nodes. The first part of the patch 
-can be skipped.
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-
-
-It looks like there is a bug in the SN TLB flushing code. During context switch,
-kernel threads inherit the mm of the task that was previously running on the
-cpu. This confuses the code in sn2_global_tlb_purge().
-
-The result is a missed TLB purge for the task that owns the "borrowed" mm.
-
-(I hit the problem running heavy stress where kswapd was purging code pages of
-a user task that woke kswapd. The user task took a SIGILL fault trying to
-execute code in the page that had been ripped out from underneath it).
-
-
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
-Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	2005-12-15 11:20:49.192339703 -0600
-+++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2005-12-15 11:33:28.163678685 -0600
-@@ -202,7 +202,7 @@ sn2_global_tlb_purge(struct mm_struct *m
- 		     unsigned long end, unsigned long nbits)
- {
- 	int i, opt, shub1, cnode, mynasid, cpu, lcpu = 0, nasid, flushed = 0;
--	int mymm = (mm = current->active_mm);
-+	int mymm = (mm = current->active_mm && current->mm);
- 	volatile unsigned long *ptc0, *ptc1;
- 	unsigned long itc, itc2, flags, data0 = 0, data1 = 0, rr_value;
- 	short nasids[MAX_NUMNODES], nix;
+Index: linux/include/asm-ia64/spinlock.h
+=================================--- linux.orig/include/asm-ia64/spinlock.h	2005-12-09 14:44:56.883252331 +1100
++++ linux/include/asm-ia64/spinlock.h	2005-12-10 14:20:44.459423430 +1100
+@@ -201,6 +201,16 @@ static inline void __raw_write_unlock(ra
+ 
+ #endif /* !ASM_SUPPORTED */
+ 
+-#define __raw_read_trylock(lock) generic__raw_read_trylock(lock)
++static inline int __raw_read_trylock(raw_rwlock_t *x)
++{
++	union {
++		raw_rwlock_t lock;
++		__u32 word;
++	} old, new;
++	old.lock = new.lock = *x;
++	old.lock.write_lock = new.lock.write_lock = 0;
++	++new.lock.read_counter;
++	return (u32)ia64_cmpxchg4_acq((__u32 *)(x), new.word, old.word) = old.word;
++}
+ 
+ #endif /*  _ASM_IA64_SPINLOCK_H */
 
