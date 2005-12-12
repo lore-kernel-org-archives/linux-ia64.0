@@ -1,30 +1,63 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 15 Dec 2005 21:08:15 +0000
-Subject: RE: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F053928F5@scsmsx401.amr.corp.intel.com>
+From: xb <xavier.bru@bull.net>
+Date: Mon, 12 Dec 2005 10:02:54 +0000
+Subject: sal record header concern
+Message-Id: <439D4ACE.9020701@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------040306040709010208040006"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
-In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->> I do recognize that this doesn't cover all the current uses of
->> ia64_platform_is(), but it covers a pretty big chunk of them.
->> 
->
->Which prolly means that I should continue with the solution that was 
->previously put forward.
+This is a multi-part message in MIME format.
+--------------040306040709010208040006
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 
-Not necessarily.  If all the device uses can be fixed with a fake
-ACPI table, and if the remaining cases all fall into just a couple
-of the six other init levels, then it might be sufficent to just make
-sn_init functions for the two levels that are used.
+Hello Keith and all
 
-You may need this as a backup plan anyway, the "tuples in the init
-table" only has a limited chance of success of getting accepted into
-mainline.  Depends on how pretty it comes out, and whether anyone
-other than ia64 will actually use it.
+It seems there is a concern around the SAL record header:
+     SEVERITY item is defined as a 8 bits item in SAL documentation 
+($B.2.1 rev december 2003), but as an u16 in sal.h.
+This has the side effect that current code in mca.c does not call 
+ia64_sal_clear_state_info() upon receiving corrected platform errors 
+(priority is reported as 258 instead of 2).
 
--Tony 
+
+--- linux-2.6.12.6/include/asm-ia64/sal.h~    2005-08-29 
+18:55:27.000000000 +0200
++++ linux-2.6.12.6/include/asm-ia64/sal.h    2005-12-12 
+10:19:17.000000000 +0100
+@@ -320,7 +320,8 @@
+ typedef struct sal_log_record_header {
+     u64 id;                /* Unique monotonically increasing ID */
+     sal_log_revision_t revision;    /* Major and Minor revision of 
+header */
+-    u16 severity;            /* Error Severity */
++    u8 severity;            /* Error Severity */
++    u8 validation_bits;        /* Validation Bits */
+     u32 len;            /* Length of this error log in bytes */
+     sal_log_timestamp_t timestamp;    /* Timestamp */
+     efi_guid_t platform_guid;    /* Unique OEM Platform ID */
+
+
+--------------040306040709010208040006
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-vcard; charset=utf-8;
+ name="xavier.bru.vcf"
+Content-Disposition: attachment;
+ filename="xavier.bru.vcf"
+
+begin:vcard
+fn:Xavier Bru
+n:Bru;Xavier
+adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
+email;internet:Xavier.Bru@bull.net
+title:BULL/DT/Open Software/linux/ia64
+tel;work:+33 (0)4 76 29 77 45
+tel;fax:+33 (0)4 76 29 77 70 
+x-mozilla-html:TRUE
+url:http://www.bull.com
+version:2.1
+end:vcard
+
+
+--------------040306040709010208040006--
