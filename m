@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 13 Dec 2005 17:57:50 +0000
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Tue, 13 Dec 2005 18:26:00 +0000
 Subject: Re: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
-Message-Id: <20051213175750.GA28808@agluck-lia64.sc.intel.com>
+Message-Id: <439F1238.9090601@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
@@ -10,44 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Dec 13, 2005 at 10:42:28AM -0500, Prarit Bhargava wrote:
-> Therefore the could would be something like (this is based off the existing 
-> do_initcalls)
+Bjorn Helgaas wrote:
+
 > 
-> for (call = __initcall_start, platform = __platform_start;
->       call < __initcall_end; call++, platform++) {
+> Well, sure.  device_setup() was just an example.  I expect they'd
+> want to add more (subsys, etc).  I doubt that all the levels would
+> be needed, but even if they were, I'd prefer it over sprinkling
+> "ia64_platform_is" everywhere.
+> 
 
-Running two separate parallel structures seems complex.
-Why not make the entries in the .initcall sections be tuples
-instead of just being an array:
+OTOH the moment they change the initcall sequence we would
+have to change our machine vector interfaces.  And AFAICT no
+one is happy with the 7 levels of init (everything from too
+granular to not granular enough).
 
-struct initcalls {
-	initcall_t	call;
-#ifdef	CONFIG_PLATFORM_SPECIFIC_INIT
-	char		*platform;
-#endif
-};
+I'm inclined to move the direction that Tony suggests:
 
-#ifndef CONFIG_PLATFORM_SPECIFIC_INIT
-#define	arch_match(str) 1
-old definition of __define_initcall (modified for structure}
-#else
-new definition of __define_initcall initializes to "{ fn, 0 }"
-plus a __define_initcall_platform() that takes the extra arg
-and initializes to "{ fn, plat }"
-#endif
+Tony Luck wrote:
+> Running two separate parallel structures seems complex.
+> Why not make the entries in the .initcall sections be tuples
+> instead of just being an array:
+> 
 
-Then the do_initcalls loop looks like this:
+I think this seems a lot more sane than what I suggested.
 
-	struct initcalls *call;
+I'll code something up and try to see if I can dig up a PPC
+system to test on as well.
 
-	for (call = __initcall_start; call < __initcall_end; call++) {
-		if (!arch_match(call->platform))
-			continue;
-		(*call->call)();
-
-
-		...
-	}
-
--Tony
+P.
