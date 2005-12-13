@@ -1,38 +1,95 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 13 Dec 2005 15:10:15 +0000
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Tue, 13 Dec 2005 15:42:28 +0000
 Subject: Re: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
-Message-Id: <jevext3ueg.fsf@sykes.suse.de>
+Message-Id: <439EEBE4.5080203@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Prarit Bhargava <prarit@sgi.com> writes:
+This is sort of a mini-RFC for linux-ia64 -- just to see if anyone objects to 
+the solution before I implement it.  I'll throw this out onto lkml after I get 
+some input here.
 
-> Andreas -- I just recieved the following from a PPC engineer at IBM:
->
-> "I don't think it is possible to build a ppc kernel with just
-> CONFIG_PPC_MULTIPLATFORM set. You'll need to "choose" another compile
-> option such as "cell" or "iseries" or "pseries" or somesuch (from
-> arch/powerpc/platforms/). Check arch/powerpc/configs for the relevant
-> defconfigs."
->
-> ... so it looks like this is currently limited to ia64 ...
+I spent the past day or so looking at a couple of solutions to this problem and 
+the only solution that appears viable is to (as stated previously) create new 
+initcalls of the form
 
-CONFIG_PPC_MULTIPLATFORM is just a meta config that enables you to
-configure for multiple platforms.  In this way it is perfectly comparable
-to CONFIG_IA64_GENERIC.  The only difference is that CONFIG_IA64_GENERIC
-enables _all_ platforms with one option, whereas CONFIG_PPC_MULTIPLATFORM
-still lets you chose which one of the platforms to support at all, but you
-can chose to support more than one in a single kernel.
+platform_calltype_initcall(fn,platform)
 
-Andreas.
+ex)
+	platform_device_initcall(sn_prarit_driver, "sn2");
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+which would check the platform type prior to loading a kernel.
+
+As it turns out this is a little bit more tricky than I thought as the initcalls 
+are placed in a list of initcalls in the .initcall section.
+
+do_initcalls then goes through this list in order to run the various initcalls 
+on the list.
+
+Since the macro calltype_initcall is placing the specified function in the 
+.initcall list we cannot do
+
+if (ia64_platform_is(foo))
+	platform_calltype_initcall(fn,platform)
+
+So I'm modifying my original suggestion.  We will still have
+
+platform_calltype_initcall(fn,platform)
+
+ex)
+
+platform_device_initcall(sn_prarit_driver, IA64_PLATFORM_SN2);
+
+but instead of doing the above wrapper, we would create a new section called 
+.platform (name of the section is open to debate) and would traverse both the 
+.initcall and the .platform sections at the sametime.
+
+Therefore the could would be something like (this is based off the existing 
+do_initcalls)
+
+for (call = __initcall_start, platform = __platform_start;
+      call < __initcall_end; call++, platform++) {
+
+
+	if (platform = __platform_end)
+		panic(); /* BUG? size(.platform) != size(!initcall) */
+
+	if (platform && IA64_PLATFORM)
+		(*call)();
+
+where platform would be some bitmask that represents the various flavours of 
+ia64 that the initcall can run on, and IA64_PLATFORM is set very early in the init.
+
+A few other things:
+
+- by default the value of platform would default to all platforms.
+
+ie)
+	device_initcall(sn_prarit_driver)
+
+resolves to
+
+	platform_device_initcall(sn_prarit_driver, IA64_PLATFORM_ALL);
+
+- maybe there should be a runtime warning noting that you are using initcall or 
+calltype_initcall on ia64?  (Someone convince me that this is really needed)
+
+- I passed this by an ia64 engineer from HP and he made the comment that the 
+nice thing about Linux is that the initcalls on all platforms are handled in 
+EXACTLY the same manner.  I sort of agree with his assessment, however, no other 
+  arch in Linux can compile a generic kernel and run on all of it's subarches...
+
+Suggestions/comments?  Anyone think this is too much bother for the original 
+issue of avoiding
+
+	if (!ia64_platform_is("sn2"))
+		return -ENOSYS;
+
+?
+
+P.
