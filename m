@@ -1,35 +1,60 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Mon, 12 Dec 2005 09:38:15 +0000
+From: Adrian Bunk <bunk@stusta.de>
+Date: Tue, 13 Dec 2005 00:10:28 +0000
 Subject: Re: [2.6 patch] defconfig's shouldn't set CONFIG_BROKEN=y
-Message-Id: <1134380295.10234.62.camel@localhost.localdomain>
+Message-Id: <20051213001028.GS23349@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051211185212.GQ23349@stusta.de>
-	 <20051211192109.GA22537@flint.arm.linux.org.uk>
-	 <20051211193118.GR23349@stusta.de>
-In-Reply-To: <20051211193118.GR23349@stusta.de>
+References: <20051211185212.GQ23349@stusta.de> <20051211192109.GA22537@flint.arm.linux.org.uk> <20051211193118.GR23349@stusta.de> <20051211194437.GB22537@flint.arm.linux.org.uk>
+In-Reply-To: <20051211194437.GB22537@flint.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Adrian Bunk <bunk@stusta.de>
-Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, matthew@wil.cx, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, paulus@samba.org, linuxppc-dev@ozlabs.org, lethal@linux-sh.org, kkojima@rr.iij4u.or.jp, linux-mtd@lists.infradead.xn--org-boa
+To: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, matthew@wil.cx, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, paulus@samba.org, linuxppc-dev@ozlabs.org, lethal@linux-sh.org, kkojima@rr.iij4u.or.jp, dwmw2@infradead.org, linux-mtd@lists.infradead.org
 
-On Sun, 2005-12-11 at 20:31 +0100, Adrian Bunk wrote:
-> Either the depency of MTD_OBSOLETE_CHIPS on BROKEN is correct (in
-> which case CONFIG_MTD_OBSOLETE_CHIPS=y wouldn't bring you anything),
-> or the dependency on BROKEN is not correct and should be corrected.
+On Sun, Dec 11, 2005 at 07:44:37PM +0000, Russell King wrote:
+> On Sun, Dec 11, 2005 at 08:31:18PM +0100, Adrian Bunk wrote:
+> > On Sun, Dec 11, 2005 at 07:21:10PM +0000, Russell King wrote:
+> > > On Sun, Dec 11, 2005 at 07:52:12PM +0100, Adrian Bunk wrote:
+> > > > defconfig's shouldn't set CONFIG_BROKEN=y.
+> > > 
+> > > NACK.  This changes other configuration options in addition, for example
+> > > in collie_defconfig:
+> > > 
+> > > -CONFIG_MTD_OBSOLETE_CHIPS=y
+> > > -# CONFIG_MTD_AMDSTD is not set
+> > > -CONFIG_MTD_SHARP=y
+> > > -# CONFIG_MTD_JEDEC is not set
+> > 
+> > That's not a problem introduced by my patch.
 > 
-> David, can you comment on this issue?
+> It's a problem introduced by your patch because the resulting defconfig
+> file becomes _wrong_ by your change, and other changes in the defconfig
+> are thereby hidden.
+>...
 
-I don't see any justification for MTD_OBSOLETE_CHIPS depending on
-BROKEN. That option covers a few of the obsolete chip drivers which
-people shouldn't be using any more -- and I'm perfectly willing to
-believe that one or two of those don't work any more, but if that's the
-case then those individual drivers ought to be marked BROKEN (or just
-removed). We shouldn't mark MTD_OBSOLETE_CHIPS broken.
 
-I'd like to see the collie_defconfig updated to use the appropriate CFI
-driver back end.
+No, CONFIG_BROKEN=y in a defconfig file is a bug.
+
+Either the defconfig doesn't use BROKEN code in which case it's simply 
+wrong, or it's a wrong workaround (as in the CONFIG_MTD_SHARP case) for 
+a wrong BROKEN dependency.
+
+
+And it's a dangerous workaround:
+
+Consider e.g. that "both marked as obsolete and BROKEN" are the best 
+candidates for "remove obsolete code" cleanups - and there goes your 
+driver to /dev/null ...
+
+
+> Russell King
+
+cu
+Adrian
 
 -- 
-dwmw2
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
