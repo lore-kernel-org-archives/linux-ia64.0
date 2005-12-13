@@ -1,7 +1,7 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 13 Dec 2005 18:26:00 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 13 Dec 2005 20:27:26 +0000
 Subject: Re: [PATCH]: Prevent sn2 ptc code from executing on all ia64 subarches
-Message-Id: <439F1238.9090601@sgi.com>
+Message-Id: <200512131327.26350.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
 In-Reply-To: <20051121180016.24224.2378.sendpatchset@prarit.boston.redhat.com>
@@ -10,31 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bjorn Helgaas wrote:
+On Tuesday 13 December 2005 11:26 am, Prarit Bhargava wrote:
+> OTOH the moment they change the initcall sequence we would
+> have to change our machine vector interfaces.  And AFAICT no
+> one is happy with the 7 levels of init (everything from too
+> granular to not granular enough).
 
-> 
-> Well, sure.  device_setup() was just an example.  I expect they'd
-> want to add more (subsys, etc).  I doubt that all the levels would
-> be needed, but even if they were, I'd prefer it over sprinkling
-> "ia64_platform_is" everywhere.
-> 
+Whoa, hold on a minute.  Let's back up.
 
-OTOH the moment they change the initcall sequence we would
-have to change our machine vector interfaces.  And AFAICT no
-one is happy with the 7 levels of init (everything from too
-granular to not granular enough).
+Most of the uses of ia64_platform_is() are really just hacks
+to bind drivers to devices that only exist on SN2:
 
-I'm inclined to move the direction that Tony suggests:
+  arch/ia64/sn/kernel/tiocx.c          tiocx_init()
+  arch/ia64/sn/kernel/xp_main.c        xp_init()
+  arch/ia64/sn/kernel/xpc_main.c       xpc_init()
+  arch/ia64/sn/kernel/xpnet.c          xpnet_init()
+  arch/ia64/sn/kernel/sn2/sn_hwperf.c  sn_hwperf_misc_register_init()
+  drivers/char/mbcs.c                  mbcs_init()
+  drivers/char/mmtimer.c               mmtimer_init()
+  drivers/char/snsc.c                  scdrv_init()
+  drivers/pci/hotplug/sgi_hotplug.c    sn_pci_hotplug_init()
+  drivers/serial/sn_console.c          sn_sal_module_init()
+  drivers/sn/ioc4.c                    ioc4_init()
 
-Tony Luck wrote:
-> Running two separate parallel structures seems complex.
-> Why not make the entries in the .initcall sections be tuples
-> instead of just being an array:
-> 
+It's totally backwards to limit driver binding by using
+ia64_platform_is().
 
-I think this seems a lot more sane than what I suggested.
+You ought to just describe this hardware in the ACPI namespace
+and use acpi_bus_register_driver() to bind the drivers.
 
-I'll code something up and try to see if I can dig up a PPC
-system to test on as well.
-
-P.
+Then you can register the drivers on all platforms, but the .add()
+function (and hence, the rest of the driver) will only be called
+when the hardware is actually present.  So you don't need any
+platform-qualified initcalls.
