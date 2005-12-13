@@ -1,63 +1,51 @@
-From: xb <xavier.bru@bull.net>
-Date: Mon, 12 Dec 2005 10:02:54 +0000
-Subject: sal record header concern
-Message-Id: <439D4ACE.9020701@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------040306040709010208040006"
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 13 Dec 2005 04:11:21 +0000
+Subject: Re: sal record header concern
+Message-Id: <6640.1134447081@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <439D4ACE.9020701@bull.net>
+In-Reply-To: <439D4ACE.9020701@bull.net>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040306040709010208040006
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+On Mon, 12 Dec 2005 11:02:54 +0100, 
+xb <xavier.bru@bull.net> wrote:
+>This is a multi-part message in MIME format.
+>--------------040306040709010208040006
+>Content-Transfer-Encoding: 7bit
+>Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 
-Hello Keith and all
+Please change your mailer not to use format=flowed.  It destroys the
+patch format.
 
-It seems there is a concern around the SAL record header:
-     SEVERITY item is defined as a 8 bits item in SAL documentation 
-($B.2.1 rev december 2003), but as an u16 in sal.h.
-This has the side effect that current code in mca.c does not call 
-ia64_sal_clear_state_info() upon receiving corrected platform errors 
-(priority is reported as 258 instead of 2).
+>It seems there is a concern around the SAL record header:
+>     SEVERITY item is defined as a 8 bits item in SAL documentation 
+>($B.2.1 rev december 2003), but as an u16 in sal.h.
+>This has the side effect that current code in mca.c does not call 
+>ia64_sal_clear_state_info() upon receiving corrected platform errors 
+>(priority is reported as 258 instead of 2).
 
+I agree that the record definition is wrong, it should be a pair of
+bytes.  However I want to check why you are seeing a value of 258
+instead of 2.  hd output on a typical SGI salinfo record header
 
---- linux-2.6.12.6/include/asm-ia64/sal.h~    2005-08-29 
-18:55:27.000000000 +0200
-+++ linux-2.6.12.6/include/asm-ia64/sal.h    2005-12-12 
-10:19:17.000000000 +0100
-@@ -320,7 +320,8 @@
- typedef struct sal_log_record_header {
-     u64 id;                /* Unique monotonically increasing ID */
-     sal_log_revision_t revision;    /* Major and Minor revision of 
-header */
--    u16 severity;            /* Error Severity */
-+    u8 severity;            /* Error Severity */
-+    u8 validation_bits;        /* Validation Bits */
-     u32 len;            /* Length of this error log in bytes */
-     sal_log_timestamp_t timestamp;    /* Timestamp */
-     efi_guid_t platform_guid;    /* Unique OEM Platform ID */
+0000  03 00 00 03  F4 A1 02 00  02 00 02 00  38 02 00 00  * ............8... *
+      |-------- ID ----------|  |rev| |sev|  |--length-|
 
+Even though the severity code is defined as 2 bytes instead of the
+correct 1 byte, it still gives the value '2' in little endian mode.
 
---------------040306040709010208040006
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-vcard; charset=utf-8;
- name="xavier.bru.vcf"
-Content-Disposition: attachment;
- filename="xavier.bru.vcf"
+Is your severity "code" set to 02 80?  VALIDATION_BITS Bit 0 = if 1,
+the OEM_PLATFORM_ID field below contains valid information.
 
-begin:vcard
-fn:Xavier Bru
-n:Bru;Xavier
-adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
-email;internet:Xavier.Bru@bull.net
-title:BULL/DT/Open Software/linux/ia64
-tel;work:+33 (0)4 76 29 77 45
-tel;fax:+33 (0)4 76 29 77 70 
-x-mozilla-html:TRUE
-url:http://www.bull.com
-version:2.1
-end:vcard
+Useful command 'hd', defined as
 
+hexdump  -e '"%04.4_Ax\n"' \
+         -e '"%04.4_ax  "' \
+         -e '4/1 "%02X " "  " 4/1 "%02X " "  " 4/1 "%02X " "  " 4/1 "%02X "' \
+         -e '"  * " 16/1 "%_p" " *"' \
+         -e '"\n"' \
+         $*
 
---------------040306040709010208040006--
