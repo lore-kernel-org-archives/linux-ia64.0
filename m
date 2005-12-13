@@ -1,60 +1,54 @@
-From: Adrian Bunk <bunk@stusta.de>
-Date: Tue, 13 Dec 2005 00:10:28 +0000
+From: Simon Richter <Simon.Richter@hogyros.de>
+Date: Tue, 13 Dec 2005 13:34:04 +0000
 Subject: Re: [2.6 patch] defconfig's shouldn't set CONFIG_BROKEN=y
-Message-Id: <20051213001028.GS23349@stusta.de>
+Message-Id: <439ECDCC.80707@hogyros.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------enig113C1197884926ACD3D8B3B4"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051211185212.GQ23349@stusta.de> <20051211192109.GA22537@flint.arm.linux.org.uk> <20051211193118.GR23349@stusta.de> <20051211194437.GB22537@flint.arm.linux.org.uk>
-In-Reply-To: <20051211194437.GB22537@flint.arm.linux.org.uk>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+References: <20051211185212.GQ23349@stusta.de>	<20051211192109.GA22537@flint.arm.linux.org.uk>	<20051211193118.GR23349@stusta.de>	<20051211194437.GB22537@flint.arm.linux.org.uk> <20051213001028.GS23349@stusta.de>
+In-Reply-To: <20051213001028.GS23349@stusta.de>
+To: Adrian Bunk <bunk@stusta.de>
+Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, matthew@wil.cx, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, paulus@samba.org, linuxppc-dev@ozlabs.org, lethal@linux-sh.org, kkojima@rr.iij4u.or.jp, dwmw2@infradead.org, linux-mtd@lists.infradead.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig113C1197884926ACD3D8B3B4
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, matthew@wil.cx, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, paulus@samba.org, linuxppc-dev@ozlabs.org, lethal@linux-sh.org, kkojima@rr.iij4u.or.jp, dwmw2@infradead.org, linux-mtd@lists.infradead.org
 
-On Sun, Dec 11, 2005 at 07:44:37PM +0000, Russell King wrote:
-> On Sun, Dec 11, 2005 at 08:31:18PM +0100, Adrian Bunk wrote:
-> > On Sun, Dec 11, 2005 at 07:21:10PM +0000, Russell King wrote:
-> > > On Sun, Dec 11, 2005 at 07:52:12PM +0100, Adrian Bunk wrote:
-> > > > defconfig's shouldn't set CONFIG_BROKEN=y.
-> > > 
-> > > NACK.  This changes other configuration options in addition, for example
-> > > in collie_defconfig:
-> > > 
-> > > -CONFIG_MTD_OBSOLETE_CHIPS=y
-> > > -# CONFIG_MTD_AMDSTD is not set
-> > > -CONFIG_MTD_SHARP=y
-> > > -# CONFIG_MTD_JEDEC is not set
-> > 
-> > That's not a problem introduced by my patch.
-> 
-> It's a problem introduced by your patch because the resulting defconfig
-> file becomes _wrong_ by your change, and other changes in the defconfig
-> are thereby hidden.
->...
+Hi,
 
+Adrian Bunk wrote:
 
-No, CONFIG_BROKEN=y in a defconfig file is a bug.
+>>It's a problem introduced by your patch because the resulting defconfig
+>>file becomes _wrong_ by your change, and other changes in the defconfig
+>>are thereby hidden.
+>>...
 
-Either the defconfig doesn't use BROKEN code in which case it's simply 
-wrong, or it's a wrong workaround (as in the CONFIG_MTD_SHARP case) for 
-a wrong BROKEN dependency.
+> No, CONFIG_BROKEN=y in a defconfig file is a bug.
 
+Indeed, but that's not the point. A defconfig file should be the result 
+of running one of the various configuration targets; yours are 
+hand-patched. If you run the defconfig target, it will copy the config 
+file and run oldconfig, thus resulting in a different configuration file 
+(because options may now be gone and hence disabled) than what was in 
+the defconfig, and thus people may come to the wrong conclusion that if 
+a driver is enabled in a defconfig file, it will be built.
 
-And it's a dangerous workaround:
+    Simon
 
-Consider e.g. that "both marked as obsolete and BROKEN" are the best 
-candidates for "remove obsolete code" cleanups - and there goes your 
-driver to /dev/null ...
+--------------enig113C1197884926ACD3D8B3B4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
 
-> Russell King
+iQCVAwUBQ57NzVYr4CN7gCINAQL+jAQAjf9uj07ZkTXInhywX9qoZN1m70XTuPxl
+h0PVv4ms9q3sf7DFwasFyyq/39FhgSlivBKS3LdYzvssMIZCQ6qsS/v2znllqRGp
+3rR2vSWjAhxnX25ekYUNYanRqSYtUBU3E9rNEDyPiKdxXfPWZd+3DzIWKHh//AdR
+syvKAqLxHhE=
+=sMLF
+-----END PGP SIGNATURE-----
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+--------------enig113C1197884926ACD3D8B3B4--
