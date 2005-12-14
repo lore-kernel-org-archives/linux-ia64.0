@@ -1,76 +1,123 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 05 Dec 2005 19:01:14 +0000
-Subject: [PATCH 3/3] Remove debris from old zone reclaim
-Message-Id: <20051205190114.12037.18860.sendpatchset@schroedinger.engr.sgi.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Wed, 14 Dec 2005 04:26:11 +0000
+Subject: FW: [PATCH 1/2] Export cpu info by sysfs
+Message-Id: <8126E4F969BA254AB43EA03C59F44E840431BBBE@pdsmsx404>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C60066.83478E61"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051205190104.12037.69672.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20051205190104.12037.69672.sendpatchset@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, torvalds@osdl.org
-Cc: linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Remove debris of old zone reclaim
+This is a multi-part message in MIME format.
 
-Removes the leftovers from prior attempts to implement Zone reclaim.
+------_=_NextPart_001_01C60066.83478E61
+Content-Type: text/plain;
+	charset="GB2312"
+Content-Transfer-Encoding: quoted-printable
 
-sys_set_zone_reclaim is not reachable in 2.6.14.
+Sorry. The patch should be sent to ia64 mail list.
 
-The reclaim_pages field in struct zone is only used by sys_set_zone_reclaim.
+-----Original Message-----
+From: linux-kernel-owner@vger.kernel.org =
+[mailto:linux-kernel-owner@vger.kernel.org] On Behalf Of Zhang, Yanmin
+Sent: 2005=C4=EA12=D4=C214=C8=D5 11:30
+To: linux-kernel@vger.kernel.org
+Cc: Pallipadi, Venkatesh
+Subject: [PATCH 1/2] Export cpu info by sysfs
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+I worked out 2 patches to export cpu topology and cache info by sysfs.
 
-Index: linux-2.6.15-rc4/include/linux/mmzone.h
-=================================--- linux-2.6.15-rc4.orig/include/linux/mmzone.h	2005-11-30 22:25:15.000000000 -0800
-+++ linux-2.6.15-rc4/include/linux/mmzone.h	2005-12-05 09:57:36.000000000 -0800
-@@ -150,11 +150,6 @@ struct zone {
- 	unsigned long		pages_scanned;	   /* since last reclaim */
- 	int			all_unreclaimable; /* All pages pinned */
- 
--	/*
--	 * Does the allocator try to reclaim pages from the zone as soon
--	 * as it fails a watermark_ok() in __alloc_pages?
--	 */
--	int			reclaim_pages;
- 	/* A count of how many reclaimers are scanning this zone */
- 	atomic_t		reclaim_in_progress;
- 
-Index: linux-2.6.15-rc4/mm/vmscan.c
-=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-12-03 13:34:59.000000000 -0800
-+++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-05 09:57:36.000000000 -0800
-@@ -1394,33 +1394,3 @@ int zone_reclaim(struct zone *z, gfp_t g
- }
- #endif
- 
--asmlinkage long sys_set_zone_reclaim(unsigned int node, unsigned int zone,
--				     unsigned int state)
--{
--	struct zone *z;
--	int i;
--
--	if (!capable(CAP_SYS_ADMIN))
--		return -EACCES;
--
--	if (node >= MAX_NUMNODES || !node_online(node))
--		return -EINVAL;
--
--	/* This will break if we ever add more zones */
--	if (!(zone & (1<<ZONE_DMA|1<<ZONE_NORMAL|1<<ZONE_HIGHMEM)))
--		return -EINVAL;
--
--	for (i = 0; i < MAX_NR_ZONES; i++) {
--		if (!(zone & 1<<i))
--			continue;
--
--		z = &NODE_DATA(node)->node_zones[i];
--
--		if (state)
--			z->reclaim_pages = 1;
--		else
--			z->reclaim_pages = 0;
--	}
--
--	return 0;
--}
+The first patch is to export cpu topology info including below items
+(attributes) which are similar to /proc/cpuinfo.
 
+/sys/devices/system/cpu/cpuX/topology/physical_package_id(representing
+the physical package id of  cpu X)
+/sys/devices/system/cpu/cpuX/topology/core_id (representing the cpu core
+id  to cpu X)
+/sys/devices/system/cpu/cpuX/topology/thread_id (representing the cpu
+thread id  to cpu X)
+/sys/devices/system/cpu/cpuX/topology/thread_siblings (representing the
+thread siblings to cpu X)
+/sys/devices/system/cpu/cpuX/topology/core_siblings (represeting the
+core siblings to cpu X)
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
+
+------_=_NextPart_001_01C60066.83478E61
+Content-Type: application/octet-stream;
+	name="export_topology_2.6.14_mm1_ia64.v5.patch"
+Content-Transfer-Encoding: base64
+Content-Description: export_topology_2.6.14_mm1_ia64.v5.patch
+Content-Disposition: attachment;
+	filename="export_topology_2.6.14_mm1_ia64.v5.patch"
+
+ZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMg
+bGludXgtMi42LjE0X21tMV90b3BvbG9neS9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMKLS0t
+IGxpbnV4LTIuNi4xNF9tbTEvYXJjaC9pYTY0L2tlcm5lbC90b3BvbG9neS5jCTIwMDUtMTEtMDcg
+MDI6MzQ6MDYuMDAwMDAwMDAwICswODAwCisrKyBsaW51eC0yLjYuMTRfbW0xX3RvcG9sb2d5L2Fy
+Y2gvaWE2NC9rZXJuZWwvdG9wb2xvZ3kuYwkyMDA1LTEyLTEzIDE4OjI1OjA4LjAwMDAwMDAwMCAr
+MDgwMApAQCAtOTgsNCArOTgsMTUxIEBAIG91dDoKIAlyZXR1cm4gZXJyOwogfQogCi1fX2luaXRj
+YWxsKHRvcG9sb2d5X2luaXQpOworc3Vic3lzX2luaXRjYWxsKHRvcG9sb2d5X2luaXQpOworCisK
+KyNpZiBkZWZpbmVkKENPTkZJR19TWVNGUykKKworI2lmIGRlZmluZWQoQ09ORklHX1NNUCkKKwor
+LyoKKyAqIEV4cG9ydCBjcHUgdG9wb2xvZ3kgdGhyb3VnaCBzeXNmcworICovCisKKy8qIHBvaW50
+ZXIgdG8ga29iamVjdCBmb3IgY3B1WC90b3BvbG9neSAqLworc3RhdGljIHN0cnVjdCBrb2JqZWN0
+ICogY3B1X3RvcG9sb2d5X2tvYmplY3Q7CisKKyNkZWZpbmUgZGVmaW5lX29uZV9ybyhfbmFtZSkg
+XAorc3RhdGljIHN0cnVjdCBhdHRyaWJ1dGUgX25hbWUgPSBcCisJey5uYW1lID0gX19zdHJpbmdp
+ZnkoX25hbWUpLCAubW9kZSA9IDA0NDQsIC5vd25lciA9IFRISVNfTU9EVUxFfQorCitkZWZpbmVf
+b25lX3JvKHBoeXNpY2FsX3BhY2thZ2VfaWQpOworZGVmaW5lX29uZV9ybyhjb3JlX2lkKTsKK2Rl
+ZmluZV9vbmVfcm8odGhyZWFkX2lkKTsKK2RlZmluZV9vbmVfcm8odGhyZWFkX3NpYmxpbmdzKTsK
+K2RlZmluZV9vbmVfcm8oY29yZV9zaWJsaW5ncyk7CisKK3N0YXRpYyBzdHJ1Y3QgYXR0cmlidXRl
+ICogdG9wb2xvZ3lfZGVmYXVsdF9hdHRyc1tdID0geworCSZwaHlzaWNhbF9wYWNrYWdlX2lkLAor
+CSZjb3JlX2lkLAorCSZ0aHJlYWRfaWQsCisJJnRocmVhZF9zaWJsaW5ncywKKwkmY29yZV9zaWJs
+aW5ncywKKwlOVUxMCit9OworCitzdGF0aWMgc3NpemVfdCB0b3BvbG9neV9zaG93KHN0cnVjdCBr
+b2JqZWN0ICoga29iaiwgc3RydWN0IGF0dHJpYnV0ZSAqIGF0dHIsIGNoYXIgKiBidWYpCit7CisJ
+dW5zaWduZWQgaW50IGNwdTsKKwlzc2l6ZV90IGxlbiA9IC0xOworCisJY3B1ID0gY29udGFpbmVy
+X29mKGtvYmotPnBhcmVudCwgc3RydWN0IHN5c19kZXZpY2UsIGtvYmopLT5pZDsKKworCWlmIChh
+dHRyID09ICZwaHlzaWNhbF9wYWNrYWdlX2lkKQorCQlyZXR1cm4gc3ByaW50ZihidWYsICIlZFxu
+IiwgY3B1X2RhdGEoY3B1KS0+c29ja2V0X2lkKTsKKwlpZiAoYXR0ciA9PSAmY29yZV9pZCkKKwkJ
+cmV0dXJuIHNwcmludGYoYnVmLCAiJWRcbiIsIGNwdV9kYXRhKGNwdSktPmNvcmVfaWQpOworCWlm
+IChhdHRyID09ICZ0aHJlYWRfaWQpCisJCXJldHVybiBzcHJpbnRmKGJ1ZiwgIiVkXG4iLCBjcHVf
+ZGF0YShjcHUpLT50aHJlYWRfaWQpOworCWlmIChhdHRyID09ICZ0aHJlYWRfc2libGluZ3MpIHsK
+KwkJbGVuID0gY3B1bWFza19zY25wcmludGYoYnVmLCBOUl9DUFVTKzEsIGNwdV9zaWJsaW5nX21h
+cFtjcHVdKTsKKwkJbGVuICs9IHNwcmludGYgKGJ1ZiArIGxlbiwgIlxuIik7CisJCXJldHVybiBs
+ZW47CisJfQorCWlmIChhdHRyID09ICZjb3JlX3NpYmxpbmdzKSB7CisJCWxlbiA9IGNwdW1hc2tf
+c2NucHJpbnRmKGJ1ZiwgTlJfQ1BVUysxLCBjcHVfY29yZV9tYXBbY3B1XSk7CisJCWxlbiArPSBz
+cHJpbnRmIChidWYgKyBsZW4sICJcbiIpOworCQlyZXR1cm4gbGVuOworCX0KKworCXJldHVybiBs
+ZW47Cit9CisKK3N0YXRpYyBzc2l6ZV90IHRvcG9sb2d5X3N0b3JlKHN0cnVjdCBrb2JqZWN0ICog
+a29iaiwgc3RydWN0IGF0dHJpYnV0ZSAqIGF0dHIsCisJCSAgICAgY29uc3QgY2hhciAqIGJ1Ziwg
+c2l6ZV90IGNvdW50KQoreworCXJldHVybiAwOworfQorCitzdGF0aWMgc3RydWN0IHN5c2ZzX29w
+cyB0b3BvbG9neV9zeXNmc19vcHMgPSB7CisJLnNob3cgICA9IHRvcG9sb2d5X3Nob3csCisJLnN0
+b3JlICA9IHRvcG9sb2d5X3N0b3JlLAorfTsKKworc3RhdGljIHN0cnVjdCBrb2JqX3R5cGUgdG9w
+b2xvZ3lfa3R5cGUgPSB7CisJLnN5c2ZzX29wcwk9ICZ0b3BvbG9neV9zeXNmc19vcHMsCisJLmRl
+ZmF1bHRfYXR0cnMJPSB0b3BvbG9neV9kZWZhdWx0X2F0dHJzLAorfTsKKworLyogQWRkL1JlbW92
+ZSBjcHVfdG9wb2xvZ3kgaW50ZXJmYWNlIGZvciBDUFUgZGV2aWNlICovCitzdGF0aWMgaW50IF9f
+Y3B1aW5pdCB0b3BvbG9neV9hZGRfZGV2KHN0cnVjdCBzeXNfZGV2aWNlICogc3lzX2RldikKK3sK
+Kwl1bnNpZ25lZCBpbnQgY3B1ID0gc3lzX2Rldi0+aWQ7CisKKwltZW1zZXQoJmNwdV90b3BvbG9n
+eV9rb2JqZWN0W2NwdV0sIDAsIHNpemVvZihzdHJ1Y3Qga29iamVjdCkpOworCisJY3B1X3RvcG9s
+b2d5X2tvYmplY3RbY3B1XS5wYXJlbnQgPSAmc3lzX2Rldi0+a29iajsKKwlrb2JqZWN0X3NldF9u
+YW1lKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdLCAiJXMiLCAidG9wb2xvZ3kiKTsKKwljcHVf
+dG9wb2xvZ3lfa29iamVjdFtjcHVdLmt0eXBlID0gJnRvcG9sb2d5X2t0eXBlOworCisJcmV0dXJu
+ICBrb2JqZWN0X3JlZ2lzdGVyKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdKTsKK30KKworc3Rh
+dGljIGludCBfX2NwdWV4aXQgdG9wb2xvZ3lfcmVtb3ZlX2RldihzdHJ1Y3Qgc3lzX2RldmljZSAq
+IHN5c19kZXYpCit7CisJdW5zaWduZWQgaW50IGNwdSA9IHN5c19kZXYtPmlkOworCisJa29iamVj
+dF91bnJlZ2lzdGVyKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdKTsKKworCXJldHVybiAwOwor
+fQorCitzdGF0aWMgaW50IF9fY3B1aW5pdCB0b3BvbG9neV9jcHVfY2FsbGJhY2soc3RydWN0IG5v
+dGlmaWVyX2Jsb2NrICpuZmIsCisJCXVuc2lnbmVkIGxvbmcgYWN0aW9uLCB2b2lkICpoY3B1KQor
+eworCXVuc2lnbmVkIGludCBjcHUgPSAodW5zaWduZWQgbG9uZyloY3B1OworCXN0cnVjdCBzeXNf
+ZGV2aWNlICpzeXNfZGV2OworCisJc3lzX2RldiA9IGdldF9jcHVfc3lzZGV2KGNwdSk7CisJc3dp
+dGNoIChhY3Rpb24pIHsKKwkJY2FzZSBDUFVfT05MSU5FOgorCQkJdG9wb2xvZ3lfYWRkX2Rldihz
+eXNfZGV2KTsKKwkJCWJyZWFrOworI2lmZGVmCUNPTkZJR19IT1RQTFVHX0NQVQorCQljYXNlIENQ
+VV9ERUFEOgorCQkJdG9wb2xvZ3lfcmVtb3ZlX2RldihzeXNfZGV2KTsKKwkJCWJyZWFrOworI2Vu
+ZGlmCisJfQorCXJldHVybiBOT1RJRllfT0s7Cit9CisKK3N0YXRpYyBzdHJ1Y3Qgbm90aWZpZXJf
+YmxvY2sgdG9wb2xvZ3lfY3B1X25vdGlmaWVyID0KK3sKKwkubm90aWZpZXJfY2FsbCA9IHRvcG9s
+b2d5X2NwdV9jYWxsYmFjaywKK307CisKK3N0YXRpYyBpbnQgX19jcHVpbml0IHRvcG9sb2d5X3N5
+c2ZzX2luaXQodm9pZCkKK3sKKwlpbnQgaTsKKworCWNwdV90b3BvbG9neV9rb2JqZWN0ID0ga21h
+bGxvYyhzaXplb2Yoc3RydWN0IGtvYmplY3QpICogTlJfQ1BVUywKKwkJCUdGUF9LRVJORUwpOwor
+CWlmICghY3B1X3RvcG9sb2d5X2tvYmplY3QpCisJCXJldHVybiAtRU5PTUVNOworCisJZm9yX2Vh
+Y2hfb25saW5lX2NwdShpKSB7CisJCXRvcG9sb2d5X2NwdV9jYWxsYmFjaygmdG9wb2xvZ3lfY3B1
+X25vdGlmaWVyLCBDUFVfT05MSU5FLAorCQkJCSh2b2lkICopKGxvbmcpaSk7CisJfQorCisJcmVn
+aXN0ZXJfY3B1X25vdGlmaWVyKCZ0b3BvbG9neV9jcHVfbm90aWZpZXIpOworCisJcmV0dXJuIDA7
+Cit9CisKK2RldmljZV9pbml0Y2FsbCh0b3BvbG9neV9zeXNmc19pbml0KTsKKworI2VuZGlmIC8v
+Q09ORklHX1NNUAorI2VuZGlmCS8vQ09ORklHX1NZU0ZTCisK
+
+------_=_NextPart_001_01C60066.83478E61--
