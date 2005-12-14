@@ -1,45 +1,47 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Mon, 12 Dec 2005 17:34:32 +0000
-Subject: [PATCH] Add __read_mostly support for IA64
-Message-Id: <Pine.LNX.4.62.0512120933550.14498@schroedinger.engr.sgi.com>
+From: hawkes@sgi.com
+Date: Wed, 14 Dec 2005 18:47:59 +0000
+Subject: [PATCH] disable preemption in udelay()
+Message-Id: <20051214184759.13503.88346.sendpatchset@tomahawk.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-sparc64, i386 and x86_64 have support for a special data section dedicated
-to rarely updated data that is frequently read. The section was created to
-avoid false sharing of those rarely read data with frequently written kernel
-data.
+The udelay() inline for ia64 uses the ITC.  If CONFIG_PREEMPT is enabled
+and the platform has unsynchronized ITCs and the calling task migrates to
+another CPU while doing the udelay loop, then the effective delay may be
+too short or very, very long.
 
-This patch creates such a data section for ia64 and will group rarely written
-data into this section.
+The most simple fix is to disable preemption around the udelay looping.
+The downside is that inhibits realtime preemption for cases of long
+udelays.  I am reluctant to propose a much more complicated patch (that
+disables preemption only for "short" delays, and uses the global RTC as
+the time base for longer, preemptible delays) unless there are valid
+objections to this more simple fix.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: John Hawkes <hawkes@sgi.com>
 
-Index: linux-2.6.15-rc5-mm2/arch/ia64/kernel/vmlinux.lds.S
-=================================--- linux-2.6.15-rc5-mm2.orig/arch/ia64/kernel/vmlinux.lds.S	2005-12-03 21:10:42.000000000 -0800
-+++ linux-2.6.15-rc5-mm2/arch/ia64/kernel/vmlinux.lds.S	2005-12-12 09:21:32.000000000 -0800
-@@ -177,6 +177,9 @@ SECTIONS
- 	}
-   . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose kernel data */
- 
-+  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
-+        { *(.data.read_mostly) }
+Index: linux/include/asm-ia64/delay.h
+=================================--- linux.orig/include/asm-ia64/delay.h	2005-10-27 17:02:08.000000000 -0700
++++ linux/include/asm-ia64/delay.h	2005-12-14 10:30:55.000000000 -0800
+@@ -87,11 +87,17 @@
+ static __inline__ void
+ udelay (unsigned long usecs)
+ {
+-	unsigned long start = ia64_get_itc();
+-	unsigned long cycles = usecs*local_cpu_data->cyc_per_usec;
++	unsigned long start;
++	unsigned long cycles;
 +
-   .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
-         { *(.data.cacheline_aligned) }
++	preempt_disable();
++	cycles = usecs*local_cpu_data->cyc_per_usec;
++	start = ia64_get_itc();
  
-Index: linux-2.6.15-rc5-mm2/include/linux/cache.h
-=================================--- linux-2.6.15-rc5-mm2.orig/include/linux/cache.h	2005-12-12 09:10:34.000000000 -0800
-+++ linux-2.6.15-rc5-mm2/include/linux/cache.h	2005-12-12 09:14:57.000000000 -0800
-@@ -13,7 +13,7 @@
- #define SMP_CACHE_BYTES L1_CACHE_BYTES
- #endif
+ 	while (ia64_get_itc() - start < cycles)
+ 		cpu_relax();
++
++	preempt_enable();
+ }
  
--#if defined(CONFIG_X86) || defined(CONFIG_SPARC64)
-+#if defined(CONFIG_X86) || defined(CONFIG_SPARC64) || defined(CONFIG_IA64)
- #define __read_mostly __attribute__((__section__(".data.read_mostly")))
- #else
- #define __read_mostly
+ #endif /* _ASM_IA64_DELAY_H */
