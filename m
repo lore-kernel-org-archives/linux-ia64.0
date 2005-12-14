@@ -1,26 +1,33 @@
-From: "Tian, Kevin" <kevin.tian@intel.com>
-Date: Mon, 26 Dec 2005 05:44:55 +0000
-Subject: Why is psr.ic off for ia64_pal_cache_flush?
-Message-Id: <571ACEFD467F7749BC50E0A98C17CDD802C06B64@pdsmsx403>
+From: hawkes@sgi.com
+Date: Wed, 14 Dec 2005 23:07:13 +0000
+Subject: [PATCH] ia64: eliminate softlockup warning
+Message-Id: <20051214230713.7528.68477.sendpatchset@tomahawk.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, hawkes@sgi.com
 
-I know that currently there's no such invocation to ia64_pal_cache_flush
-within ia64 linux kernel, but like to know why it's the only instance to
-call PAL_CALL_IC_OFF under virtual mode? Since there's no DTR setup for
-pal area, it can only work if DTC entry exists just before off psr.ic,
-or pal procedure for this type doesn't issue any data access. Or else
-nested dtlb miss may happen and it seems not to be handled by current
-linux code.
+Fix an unnecessary softlockup watchdog warning in the ia64
+uncached_build_memmap() that occurs occasionally at 256p and always at
+512p.  The problem occurs at boot time.
 
-Currently this stub is invoked by XEN (an open source VMM with code
-derived from linux) to sync I/D cache after management tool loads kernel
-image and initrd of another domain (guest OS). Though we may take place
-of it by fc.i, I'm still curious to know historical background for this
-design.
+It would be good if we had a cleaner mechanism to temporarily silence
+the watchdog thread, e.g.,
+    http://marc.theaimsgroup.com/?l=linux-kernel&m1552476401175&w=2
+but until that patch gets merged, this fix will have to suffice.
 
-Thanks in advance,
-Kevin
+Signed-off-by: John Hawkes <hawkes@sgi.com>
+
+Index: linux/arch/ia64/kernel/uncached.c
+=================================--- linux.orig/arch/ia64/kernel/uncached.c	2005-12-06 15:12:14.000000000 -0800
++++ linux/arch/ia64/kernel/uncached.c	2005-12-14 14:50:55.000000000 -0800
+@@ -210,6 +210,7 @@
+ 
+ 	dprintk(KERN_ERR "uncached_build_memmap(%lx %lx)\n", start, end);
+ 
++	touch_softlockup_watchdog();
+ 	memset((char *)start, 0, length);
+ 
+ 	node = paddr_to_nid(start - __IA64_UNCACHED_OFFSET);
