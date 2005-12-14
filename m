@@ -1,67 +1,54 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Tue, 06 Dec 2005 18:41:57 +0000
-Subject: Re: [PATCH 1/2] Zone reclaim V2
-Message-Id: <Pine.LNX.4.62.0512061037180.19225@schroedinger.engr.sgi.com>
+From: hawkes@sgi.com
+Date: Wed, 14 Dec 2005 23:25:26 +0000
+Subject: [PATCH] ia64: disable preemption in udelay()
+Message-Id: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051206172444.18786.30131.sendpatchset@schroedinger.engr.sgi.com>
- <20051206175256.GO11190@wotan.suse.de> <Pine.LNX.4.62.0512060957160.18975@schroedinger.engr.sgi.com>
- <20051206180920.GR11190@wotan.suse.de>
-In-Reply-To: <20051206180920.GR11190@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: akpm@osdl.org, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, torvalds@osdl.org
+To: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, hawkes@sgi.com, Dimitri Sivanich <sivanich@sgi.com>
 
-On Tue, 6 Dec 2005, Andi Kleen wrote:
+Sending this to a wider audience:
 
-> I would enable it if distance for any combination of online (or possible?) nodes is 
-> > LOCAL_DISTANCE. I guess hotplug can be ignored for now.
-> 
-> If an architecture really needs something better it can be still refined. But there aren't 
-> that many NUMA architectures anyways, so it shouldn't be a big issue. 
-> 
-> It will actually need some tweaking on Opterons because many BIOS just
-> report 10 everywhere in SLIT and it should be still enabled, but that can be done 
-> in the architecture then.
+The udelay() inline for ia64 uses the ITC.  If CONFIG_PREEMPT is enabled
+and the platform has unsynchronized ITCs and the calling task migrates
+to another CPU while doing the udelay loop, then the effective delay may
+be too short or very, very long.
 
-Here is a patch that may do what you want. The LOCAL_DISTANCE may have to 
-be set per arch and we may need a reasonable default:
+The most simple fix is to disable preemption around the udelay looping.
+The downside is that this inhibits realtime preemption for cases of long
+udelays.  One datapoint:  an SGI realtime engineer reports that if
+CONFIG_PREEMPT is turned off, that no significant holdoffs are
+are attributed to udelay().
 
+I am reluctant to propose a much more complicated patch (that disables
+preemption only for "short" delays, and uses the global RTC as the time
+base for longer, preemptible delays) unless this patch introduces
+significant and unacceptable preemption delays.
 
-Index: linux-2.6.15-rc4/mm/page_alloc.c
-=================================--- linux-2.6.15-rc4.orig/mm/page_alloc.c	2005-12-06 10:30:35.000000000 -0800
-+++ linux-2.6.15-rc4/mm/page_alloc.c	2005-12-06 10:35:03.000000000 -0800
-@@ -1561,13 +1561,17 @@ static void __init build_zonelists(pg_da
- 	prev_node = local_node;
- 	nodes_clear(used_mask);
- 	while ((node = find_next_best_node(local_node, &used_mask)) >= 0) {
-+		int distance = node_distance(local_node, node);
- 		/*
- 		 * We don't want to pressure a particular node.
- 		 * So adding penalty to the first node in same
- 		 * distance group to make it round-robin.
- 		 */
--		if (node_distance(local_node, node) !-				node_distance(local_node, prev_node))
+Signed-off-by: John Hawkes <hawkes@sgi.com>
+
+Index: linux/include/asm-ia64/delay.h
+=================================--- linux.orig/include/asm-ia64/delay.h	2005-10-27 17:02:08.000000000 -0700
++++ linux/include/asm-ia64/delay.h	2005-12-14 10:30:55.000000000 -0800
+@@ -87,11 +87,17 @@
+ static __inline__ void
+ udelay (unsigned long usecs)
+ {
+-	unsigned long start = ia64_get_itc();
+-	unsigned long cycles = usecs*local_cpu_data->cyc_per_usec;
++	unsigned long start;
++	unsigned long cycles;
 +
-+		if (distance > LOCAL_DISTANCE)
-+			zone_reclaim_mode = 1;
-+
-+		if (distance != node_distance(local_node, prev_node))
- 			node_load[node] += load;
- 		prev_node = node;
- 		load--;
-Index: linux-2.6.15-rc4/include/linux/numa.h
-=================================--- linux-2.6.15-rc4.orig/include/linux/numa.h	2005-11-30 22:25:15.000000000 -0800
-+++ linux-2.6.15-rc4/include/linux/numa.h	2005-12-06 10:32:49.000000000 -0800
-@@ -13,4 +13,8 @@
++	preempt_disable();
++	cycles = usecs*local_cpu_data->cyc_per_usec;
++	start = ia64_get_itc();
  
- #define MAX_NUMNODES    (1 << NODES_SHIFT)
- 
-+#ifndef LOCAL_DISTANCE
-+#define LOCAL_DISTANCE 10
-+#endif
+ 	while (ia64_get_itc() - start < cycles)
+ 		cpu_relax();
 +
- #endif /* _LINUX_NUMA_H */
-
-
++	preempt_enable();
+ }
+ 
+ #endif /* _ASM_IA64_DELAY_H */
