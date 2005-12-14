@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 13 Dec 2005 20:12:06 +0000
+Date: Wed, 14 Dec 2005 21:40:31 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200512132012.jBDKC6rb029761@agluck-lia64.sc.intel.com>
+Message-Id: <200512142140.jBELeV0X005351@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -12,47 +12,50 @@ To: linux-ia64@vger.kernel.org
 
 Hi Linus,
 
-Another "last" ia64 pull for 2.6.15.  Please pull from:
+Second (third?) in the series of "this is the last ia64 pull for 2.6.15".
+
+Please pull from:
 
 	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This will update the file shown below.
+This will update the files shown below.
 
 Thanks!
 
 -Tony
 
- include/asm-ia64/sal.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
+ arch/ia64/kernel/process.c |    2 ++
+ 1 files changed, 2 insertions(+)
 
-Tony Luck:
-      [IA64] Split 16-bit severity field in sal_log_record_header
+Robin Holt:
+      [IA64] fix for SET_PERSONALITY when CONFIG_IA32_SUPPORT is not set.
 
-diff-tree eed66cfcbbea851c97e287440d940286fce3f829 (from 90ac8f7741be4ff66de1f52904f4f67f272f74ce)
-Author: Tony Luck <tony.luck@intel.com>
-Date:   Tue Dec 13 10:41:49 2005 -0800
+diff-tree 27af4cfd11883073359bd5acab1962b0fa96a3bf (from acd9b7b4e08a3f0f48afa922d8e371414cf2d3b2)
+Author: Robin Holt <holt@sgi.com>
+Date:   Wed Dec 14 06:58:05 2005 -0600
 
-    [IA64] Split 16-bit severity field in sal_log_record_header
+    [IA64] fix for SET_PERSONALITY when CONFIG_IA32_SUPPORT is not set.
     
-    ERR_SEVERITY item is defined as a 8 bits item in SAL documentation
-    ($B.2.1 rev december 2003), but as an u16 in sal.h.
-    This has the side effect that current code in mca.c may not call
-    ia64_sal_clear_state_info() upon receiving corrected platform errors
-    if there are bits set in the validation byte.  Reported by Xavier Bru.
+    Missed this when fixing the SET_PERSONALITY change.
     
+    Signed-off-by: Robin Holt <holt@sgi.com>
     Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-diff --git a/include/asm-ia64/sal.h b/include/asm-ia64/sal.h
-index 29df88b..313cad0 100644
---- a/include/asm-ia64/sal.h
-+++ b/include/asm-ia64/sal.h
-@@ -320,7 +320,8 @@ typedef struct sal_log_timestamp {
- typedef struct sal_log_record_header {
- 	u64 id;				/* Unique monotonically increasing ID */
- 	sal_log_revision_t revision;	/* Major and Minor revision of header */
--	u16 severity;			/* Error Severity */
-+	u8 severity;			/* Error Severity */
-+	u8 validation_bits;		/* 0: platform_guid, 1: !timestamp */
- 	u32 len;			/* Length of this error log in bytes */
- 	sal_log_timestamp_t timestamp;	/* Timestamp */
- 	efi_guid_t platform_guid;	/* Unique OEM Platform ID */
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index a4da715..e9904c7 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -721,11 +721,13 @@ flush_thread (void)
+ 	/* drop floating-point and debug-register state if it exists: */
+ 	current->thread.flags &= ~(IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID);
+ 	ia64_drop_fpu(current);
++#ifdef CONFIG_IA32_SUPPORT
+ 	if (IS_IA32_PROCESS(ia64_task_regs(current))) {
+ 		ia32_drop_partial_page_list(current);
+ 		current->thread.task_size = IA32_PAGE_OFFSET;
+ 		set_fs(USER_DS);
+ 	}
++#endif
+ }
+ 
+ /*
