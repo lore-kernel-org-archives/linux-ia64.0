@@ -1,70 +1,56 @@
-From: William Cohen <wcohen@redhat.com>
-Date: Thu, 15 Dec 2005 21:22:28 +0000
-Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm
-Message-Id: <43A1DE94.8050105@redhat.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Thu, 15 Dec 2005 21:59:21 +0000
+Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm available
+Message-Id: <20051215215921.GJ18331@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051215104604.GA16937@frankl.hpl.hp.com>
-In-Reply-To: <20051215104604.GA16937@frankl.hpl.hp.com>
+References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com>
+In-Reply-To: <43A1DE94.8050105@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: eranian@hpl.hp.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: William Cohen <wcohen@redhat.com>
 Cc: perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-U3RlcGhhbmUgRXJhbmlhbiB3cm90ZToKPiBIZWxsbywKPiAKPiBJIGhhdmUgcmVsZWFzZWQgYSBu
-ZXcgdmVyc2lvbiBvZiB0aGUgcGVyZm1vbiBiYXNlIHBhY2thZ2UuCj4gVGhpcyByZWxlYXNlIGlz
-IHJlbGF0aXZlIHRvIDIuNi4xNS1yYzUtZ2l0My4KPiAKPiBJIGhhdmUgYWxzbyB1cGRhdGVkIHRo
-ZSBsaWJyYXJ5LCBsaWJwZm0tMy4yLCB0byBtYXRjaCB0aGUga2VybmVsCj4gbGV2ZWwgY2hhbmdl
-cy4gCgpIaSBTdGVwaGFuZSwKCkkgZG93bmxvYWRlZCB0aGUgbmV3IHZlcnNpb24gb2YgcGVyZm1v
-biBhbmQgdGhlIG1hdGNoaW5nIGxpYnBmbS4gSSBidWlsdCAKZXZlcnl0aGluZyBvbiBhIHA2IGJh
-c2VkIG1hY2hpbmUuIFRoZSBrZXJuZWwgYm9vdGVkIGZpbmUuIEkgdHJpZWQgdGhlIAp0YXNrX3Nt
-cGxfdXNlciBpbiB0aGUgbGlicGZtIGV4YW1wbGVzLiBUaGF0IGNyYXNoZWQgdGhlIGtlcm5lbC4g
-V2hhdCB3YXMgCm9uIHRoZSB4dGVybToKCiQgLi90YXNrX3NtcGxfdXNlciBscwptZWFzdXJpbmcg
-YXQgcGxtPTB4OApwcm9ncmFtbWluZyAyIFBNQ1MgYW5kIDIgUE1EUwpTZWdtZW50YXRpb24gZmF1
-bHQKClRoZSByZWxhdGVkIG9vcHMgL3Zhci9sb2cvbWVzc2FnZXM6CgpEZWMgMTUgMTU6NTQ6NDAg
-dHJlayBrZXJuZWw6IFVuYWJsZSB0byBoYW5kbGUga2VybmVsIHBhZ2luZyByZXF1ZXN0IGF0IAp2
-aXJ0dWFsIGFkZHJlc3MgNmI2YjZiYTcKRGVjIDE1IDE1OjU0OjQwIHRyZWsga2VybmVsOiAgcHJp
-bnRpbmcgZWlwOgpEZWMgMTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6IGMwMjAyYjUxCkRlYyAxNSAx
-NTo1NDo0MCB0cmVrIGtlcm5lbDogKnBkZSA9IDZiNmI2YjZiCkRlYyAxNSAxNTo1NDo0MCB0cmVr
-IGtlcm5lbDogT29wczogMDAwMCBbIzFdCkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDogU01Q
-CkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDogTW9kdWxlcyBsaW5rZWQgaW46IGlwdjYgbHAg
-YXV0b2ZzNCByZmNvbW0gCmwyY2FwIGJsdWV0b290aCBzdW5ycGMgaXB0X1JFSkVDVCBpcHRfc3Rh
-dGUgaXBfY29ubnRyYWNrIG5mbmV0bGluayAKaXB0YWJsZV9maWx0ZXIgaXBfdGFibGVzIGRtX21p
-cnJvciBkbV9tb2QgdmlkZW8gYnV0dG9uIGJhdHRlcnkgYWMgCnBhcnBvcnRfcGMgcGFycG9ydCBz
-bmRfZW11MTBrMV9zeW50aCBzbmRfZW11eF9zeW50aCBzbmRfc2VxX3Zpcm1pZGkgCnNuZF9jczQ2
-eHggc25kX3NlcV9taWRpX2VtdWwgc25kX3NlcV9kdW1teSBzbmRfc2VxX29zcyBzbmRfZW11MTBr
-MSAKc25kX3NlcV9taWRpX2V2ZW50IHNuZF9zZXEgc25kX3Jhd21pZGkgc25kX3NlcV9kZXZpY2Ug
-c25kX3BjbV9vc3MgCnNuZF9hYzk3X2NvZGVjIHNuZF9taXhlcl9vc3Mgc25kX2FjOTdfYnVzIHNu
-ZF9wY20gc25kX3V0aWxfbWVtIGZsb3BweSAKc25kX2h3ZGVwIHNuZF90aW1lciBlbXUxMGsxX2dw
-IHNuZCBnYW1lcG9ydCBzb3VuZGNvcmUgc25kX3BhZ2VfYWxsb2MgCjNjNTl4IG1paSBpMmNfaTgw
-MSBod19yYW5kb20gdWhjaV9oY2Qgc2hwY2hwIGkyY19jb3JlIGV4dDMgamJkCkRlYyAxNSAxNTo1
-NDo0MCB0cmVrIGtlcm5lbDogQ1BVOiAgICAwCkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDog
-RUlQOiAgICAwMDYwOls8YzAyMDJiNTE+XSAgICBOb3QgdGFpbnRlZCBWTEkKRGVjIDE1IDE1OjU0
-OjQwIHRyZWsga2VybmVsOiBFRkxBR1M6IDAwMDEwMjg2ICAgKDIuNi4xNS1yYzUtZ2l0My1wZXJm
-b3ApCkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDogRUlQIGlzIGF0IHBmbV9zbXBsX2ZtdF9w
-dXQrMHgxMS8weDYwCkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDogZWF4OiBkNmVlNmFiMCAg
-IGVieDogNmI2YjZiNmIgICBlY3g6IAowMDAwMDAwMCAgIGVkeDogMDAwMDBjZjQKRGVjIDE1IDE1
-OjU0OjQwIHRyZWsga2VybmVsOiBlc2k6IGNmOWYyMDAwICAgZWRpOiAwMDAwMDAwMCAgIGVicDog
-CjAwMDAwMDAwICAgZXNwOiBjZmMxZmYwMApEZWMgMTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6IGRz
-OiAwMDdiICAgZXM6IDAwN2IgICBzczogMDA2OApEZWMgMTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6
-IFByb2Nlc3MgdGFza19zbXBsX3VzZXIgKHBpZDogMjY1NCwgCnRocmVhZGluZm/PYzFmMDAwIHRh
-c2vWZWU2YWIwKQpEZWMgMTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6IFN0YWNrOiBmZmZmZmZkYSBj
-MDIwMWVlNyAwMDAwMDAwMCBjMDEwNDAwYyAKZDZlZTZhYjAgZDZkZWE1NzAgZDZkZWE3NDAgMDAw
-MDAwMDAKRGVjIDE1IDE1OjU0OjQwIHRyZWsga2VybmVsOiAgICAgICAgZDcwMTBhMzQgMDA4MDIx
-NDAgMDAwMDAwMDAgMDAwMDAwMDAgCjAwMDAwMDAwIGNmYzFmZjY4IGQyZDViOWE0IDAwMDAwMDAw
-CkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDogICAgICAgIDAwMDAwMDNjIDAwMDAwMDAwIGNm
-YzFmMDAwIDAwMDAwMDAwIApjZmMxZmY2OCAwMDAwMDAwMCBjZmMxZjAwMCBjMDIwM2Y5OApEZWMg
-MTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6IENhbGwgVHJhY2U6CkRlYyAxNSAxNTo1NDo0MCB0cmVr
-IGtlcm5lbDogIFs8YzAyMDFlZTc+XSBfX3BmbV9jcmVhdGVfY29udGV4dCsweDE2Ny8weDQ0MApE
-ZWMgMTUgMTU6NTQ6NDAgdHJlayBrZXJuZWw6ICBbPGMwMTA0MDBjPl0gX19zd2l0Y2hfdG8rMHgx
-NWMvMHgyMjAKRGVjIDE1IDE1OjU0OjQwIHRyZWsga2VybmVsOiAgWzxjMDIwM2Y5OD5dIHN5c19w
-Zm1fY3JlYXRlX2NvbnRleHQrMHg3OC8weGUwCkRlYyAxNSAxNTo1NDo0MCB0cmVrIGtlcm5lbDog
-IFs8YzAxMDU2OWQ+XSBzeXNjYWxsX2NhbGwrMHg3LzB4YgpEZWMgMTUgMTU6NTQ6NDAgdHJlayBr
-ZXJuZWw6IENvZGU6IDAwIDAxIDAwIDAwIGZmIDAwIGI4IDgwIDRjIDQ0IGMwIGU4IAo5YSBkMiAx
-NiAwMCA4OSBkOCA1YiBjMyAzMSBkYiBlYiBlZSA4OSBmNiA4NSBjMCA1MyA4OSBjMyA3NCAzOSBi
-OCA4MCA0YyAKNDQgYzAgZTggNWYgZDIgMTYgMDAgPDhiPiA1MyAzYyA4NSBkMiA3NCAxYiBiOCAw
-MCBmMCBmZiBmZiAyMSBlMCA4YiA0MCAKMTAgYzEgZTAgMDcgOGQKCgotV2lsbAotClRvIHVuc3Vi
-c2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1p
-YTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
-ZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9t
-by1pbmZvLmh0bWw=
+Will,
+
+
+On Thu, Dec 15, 2005 at 04:22:28PM -0500, William Cohen wrote:
+> Stephane Eranian wrote:
+
+> >I have released a new version of the perfmon base package.
+> >This release is relative to 2.6.15-rc5-git3.
+> >
+> >I have also updated the library, libpfm-3.2, to match the kernel
+> >level changes. 
+> 
+> I downloaded the new version of perfmon and the matching libpfm. I built 
+> everything on a p6 based machine. The kernel booted fine. I tried the 
+> task_smpl_user in the libpfm examples. That crashed the kernel. What was 
+> on the xterm:
+> 
+> $ ./task_smpl_user ls
+> measuring at plm=0x8
+> programming 2 PMCS and 2 PMDS
+> Segmentation fault
+> 
+I have not tried this particular test program in a long time. I nfact, I would
+like to remove it from the suite because it does not make any real sense.
+In any case, it should not crash the kernel. I will investigate this.
+I don't think it it related to you using a P6. This is more the case of
+an error in the cleanup code in case the context cannot be created properly.
+
+Does task_smpl work properly?
+
+
+> snd_hwdep snd_timer emu10k1_gp snd gameport soundcore snd_page_alloc 
+> Dec 15 15:54:40 trek kernel: EIP is at pfm_smpl_fmt_put+0x11/0x60
+> Dec 15 15:54:40 trek kernel: Call Trace:
+> Dec 15 15:54:40 trek kernel:  [<c0201ee7>] __pfm_create_context+0x167/0x440
+> Dec 15 15:54:40 trek kernel:  [<c010400c>] __switch_to+0x15c/0x220
+> Dec 15 15:54:40 trek kernel:  [<c0203f98>] sys_pfm_create_context+0x78/0xe0
+> Dec 15 15:54:40 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
+
+Thanks.
+
+-- 
+-Stephane
