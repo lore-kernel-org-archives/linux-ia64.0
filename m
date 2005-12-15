@@ -1,163 +1,190 @@
-From: William Cohen <wcohen@nc.rr.com>
-Date: Thu, 15 Dec 2005 22:23:27 +0000
-Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm
-Message-Id: <43A1ECDF.9040200@nc.rr.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Thu, 15 Dec 2005 23:15:10 +0000
+Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm available
+Message-Id: <20051215231510.GC18796@frankl.hpl.hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com>
-In-Reply-To: <20051215215921.GJ18331@frankl.hpl.hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: eranian@hpl.hp.com
+References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com> <43A1ECDF.9040200@nc.rr.com>
+In-Reply-To: <43A1ECDF.9040200@nc.rr.com>
+To: William Cohen <wcohen@nc.rr.com>
 Cc: William Cohen <wcohen@redhat.com>, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-U3RlcGhhbmUgRXJhbmlhbiB3cm90ZToKPiBXaWxsLAo+IAo+IAo+IE9uIFRodSwgRGVjIDE1LCAy
-MDA1IGF0IDA0OjIyOjI4UE0gLTA1MDAsIFdpbGxpYW0gQ29oZW4gd3JvdGU6Cj4gCj4+U3RlcGhh
-bmUgRXJhbmlhbiB3cm90ZToKPiAKPiAKPj4+SSBoYXZlIHJlbGVhc2VkIGEgbmV3IHZlcnNpb24g
-b2YgdGhlIHBlcmZtb24gYmFzZSBwYWNrYWdlLgo+Pj5UaGlzIHJlbGVhc2UgaXMgcmVsYXRpdmUg
-dG8gMi42LjE1LXJjNS1naXQzLgo+Pj4KPj4+SSBoYXZlIGFsc28gdXBkYXRlZCB0aGUgbGlicmFy
-eSwgbGlicGZtLTMuMiwgdG8gbWF0Y2ggdGhlIGtlcm5lbAo+Pj5sZXZlbCBjaGFuZ2VzLiAKPj4K
-Pj5JIGRvd25sb2FkZWQgdGhlIG5ldyB2ZXJzaW9uIG9mIHBlcmZtb24gYW5kIHRoZSBtYXRjaGlu
-ZyBsaWJwZm0uIEkgYnVpbHQgCj4+ZXZlcnl0aGluZyBvbiBhIHA2IGJhc2VkIG1hY2hpbmUuIFRo
-ZSBrZXJuZWwgYm9vdGVkIGZpbmUuIEkgdHJpZWQgdGhlIAo+PnRhc2tfc21wbF91c2VyIGluIHRo
-ZSBsaWJwZm0gZXhhbXBsZXMuIFRoYXQgY3Jhc2hlZCB0aGUga2VybmVsLiBXaGF0IHdhcyAKPj5v
-biB0aGUgeHRlcm06Cj4+Cj4+JCAuL3Rhc2tfc21wbF91c2VyIGxzCj4+bWVhc3VyaW5nIGF0IHBs
-bT0weDgKPj5wcm9ncmFtbWluZyAyIFBNQ1MgYW5kIDIgUE1EUwo+PlNlZ21lbnRhdGlvbiBmYXVs
-dAo+Pgo+IAo+IEkgaGF2ZSBub3QgdHJpZWQgdGhpcyBwYXJ0aWN1bGFyIHRlc3QgcHJvZ3JhbSBp
-biBhIGxvbmcgdGltZS4gSSBuZmFjdCwgSSB3b3VsZAo+IGxpa2UgdG8gcmVtb3ZlIGl0IGZyb20g
-dGhlIHN1aXRlIGJlY2F1c2UgaXQgZG9lcyBub3QgbWFrZSBhbnkgcmVhbCBzZW5zZS4KPiBJbiBh
-bnkgY2FzZSwgaXQgc2hvdWxkIG5vdCBjcmFzaCB0aGUga2VybmVsLiBJIHdpbGwgaW52ZXN0aWdh
-dGUgdGhpcy4KPiBJIGRvbid0IHRoaW5rIGl0IGl0IHJlbGF0ZWQgdG8geW91IHVzaW5nIGEgUDYu
-IFRoaXMgaXMgbW9yZSB0aGUgY2FzZSBvZgo+IGFuIGVycm9yIGluIHRoZSBjbGVhbnVwIGNvZGUg
-aW4gY2FzZSB0aGUgY29udGV4dCBjYW5ub3QgYmUgY3JlYXRlZCBwcm9wZXJseS4KCklmIGl0IGp1
-c3Qgc2VnIGZhdWx0ZWQgdGhlIHVzZXIgc3BhY2UgcHJvZ3JhbSBJIHdvdWxkbid0IGNhcmUgZWl0
-aGVyLCAKYnV0IHdoZW4gaXQgY3Jhc2hlZCB0aGUga2VybmVsIEkgdGhvdWdodCB0aGF0IHlvdSBt
-aWdodCBsaWtlIHRvIGtub3cgCmFib3V0IHRoYXQuCgo+IERvZXMgdGFza19zbXBsIHdvcmsgcHJv
-cGVybHk/Cgp0YXNrX3NtcGwgZ2F2ZSBkYXRhLCBidXQgYXBwZWFyZWQgdG8gZ2V0IGEga2VybmVs
-IG9vcHMuIE91dHB1dCBmcm9tIHh0ZXJtOgoKJCAuL3Rhc2tfc21wbCBscwpzbXBsX3BtZF9tYXNr
-PTB4Mwpwcm9ncmFtbWluZyAyIFBNQ1MgYW5kIDIgUE1EUwpjb250ZXh0IFszXSBidWZmZXIgbWFw
-cGVkIEAweGI3ZjhmMDAwCmhkcl9jdXJfb2ZmcxEyIHZlcnNpb249MS4wCmlhMzIgICAgICAgICAg
-ICAgICAgIHNlbGYgICAgICAgICAgICAgICB0YXNrCmlhNjQgICAgICAgICAgICAgICAgIHNlbGYy
-ICAgICAgICAgICAgICB0YXNrX2F0dGFjaApNYWtlZmlsZSAgICAgICAgICAgICBzZWxmMi5jICAg
-ICAgICAgICAgdGFza19hdHRhY2guYwptdWx0aXBsZXggICAgICAgICAgICBzZWxmMi5vICAgICAg
-ICAgICAgdGFza19hdHRhY2gubwptdWx0aXBsZXgyICAgICAgICAgICBzZWxmLmMgICAgICAgICAg
-ICAgdGFza19hdHRhY2hfdGltZW91dAptdWx0aXBsZXgyLmMgICAgICAgICBzZWxmLm8gICAgICAg
-ICAgICAgdGFza19hdHRhY2hfdGltZW91dC5jCm11bHRpcGxleDIubyAgICAgICAgIHNlbGZfc3Rh
-bmRhbG9uZSAgICB0YXNrX2F0dGFjaF90aW1lb3V0Lm8KbXVsdGlwbGV4LmMgICAgICAgICAgc2Vs
-Zl9zdGFuZGFsb25lLmMgIHRhc2suYwptdWx0aXBsZXgubyAgICAgICAgICBzZWxmX3N0YW5kYWxv
-bmUubyAgdGFzay5vCm5vdGlmeV9zZWxmICAgICAgICAgIHNlbGZfdmlldyAgICAgICAgICB0YXNr
-X3NtcGwKbm90aWZ5X3NlbGYyICAgICAgICAgc2VsZl92aWV3LmMgICAgICAgIHRhc2tfc21wbC5j
-Cm5vdGlmeV9zZWxmMi5jICAgICAgIHNlbGZfdmlldy5vICAgICAgICB0YXNrX3NtcGwubwpub3Rp
-Znlfc2VsZjIubyAgICAgICBzZXRfbm90aWZ5ICAgICAgICAgdGFza19zbXBsX3VzZXIKbm90aWZ5
-X3NlbGYzICAgICAgICAgc2V0X25vdGlmeS5jICAgICAgIHRhc2tfc21wbF91c2VyLmMKbm90aWZ5
-X3NlbGYzLmMgICAgICAgc2V0X25vdGlmeS5vICAgICAgIHRhc2tfc21wbF91c2VyLm8Kbm90aWZ5
-X3NlbGYzLm8gICAgICAgc2hvd3JlZ2luZm8gICAgICAgIHRhc2tfdmlldwpub3RpZnlfc2VsZi5j
-ICAgICAgICBzaG93cmVnaW5mby5jICAgICAgdGFza192aWV3LmMKbm90aWZ5X3NlbGYubyAgICAg
-ICAgc2hvd3JlZ2luZm8ubyAgICAgIHRhc2tfdmlldy5vCm5vdGlmeV9zdGFuZGFsb25lICAgIHNt
-cGxfc3RhbmRhbG9uZSAgICB3aGljaHBtdQpub3RpZnlfc3RhbmRhbG9uZS5jICBzbXBsX3N0YW5k
-YWxvbmUuYyAgd2hpY2hwbXUuYwpub3RpZnlfc3RhbmRhbG9uZS5vICBzbXBsX3N0YW5kYWxvbmUu
-byAgd2hpY2hwbXUubwpydG9wICAgICAgICAgICAgICAgICBzeXN0ICAgICAgICAgICAgICAgeDg2
-XzY0CnJ0b3AuYyAgICAgICAgICAgICAgIHN5c3QuYwpydG9wLm8gICAgICAgICAgICAgICBzeXN0
-Lm8KdGFzayB0ZXJtaW5hdGVkCmVudHJ5IDAgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9W
-QUw6IDEwMDAwMCBJSVA6MHgwMDAwMDAwMGMwMTA1Njc4ClBNRDEgID0gMHgwMDAwMDAwMDAwMDAz
-Y2FhCmVudHJ5IDEgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEwMDAwNSBJSVA6
-MHgwMDAwMDAwMDAwM2U5NGMyClBNRDEgID0gMHgwMDAwMDAwMDAwMDA5OGEwCmVudHJ5IDIgUElE
-OjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEwMDA2NyBJSVA6MHgwMDAwMDAwMDAwNTUw
-OTNiClBNRDEgID0gMHgwMDAwMDAwMDAwMDA4OGRjCmVudHJ5IDMgUElEOjI4MDAgVElEOjI4MDAg
-Q1BVOjAgTEFTVF9WQUw6IDEwMDE4MSBJSVA6MHgwMDAwMDAwMDAwNGY3ZGQ2ClBNRDEgID0gMHgw
-MDAwMDAwMDAwMDA2NDQ4CmVudHJ5IDQgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6
-IDEwMDAyMCBJSVA6MHgwMDAwMDAwMDAwNDVhZDUxClBNRDEgID0gMHgwMDAwMDAwMDAwMDA2Mjgx
-CmVudHJ5IDUgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEwMDAxMiBJSVA6MHgw
-MDAwMDAwMDAwNDBmNDkwClBNRDEgID0gMHgwMDAwMDAwMDAwMDA3ZTM0CmVudHJ5IDYgUElEOjI4
-MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEwMDIxMiBJSVA6MHgwMDAwMDAwMDAwM2U2MGQz
-ClBNRDEgID0gMHgwMDAwMDAwMDAwMDA1ZmQwCmVudHJ5IDcgUElEOjI4MDAgVElEOjI4MDAgQ1BV
-OjAgTEFTVF9WQUw6IDEwMDA3NiBJSVA6MHgwMDAwMDAwMDAwM2VhODcxClBNRDEgID0gMHgwMDAw
-MDAwMDAwMDA3OGMyCmVudHJ5IDggUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEw
-MDE0OSBJSVA6MHgwMDAwMDAwMDAwNDI0NzQ1ClBNRDEgID0gMHgwMDAwMDAwMDAwMDA2NGRhCmVu
-dHJ5IDkgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEwMDA1MSBJSVA6MHgwMDAw
-MDAwMDAwNDViNDY1ClBNRDEgID0gMHgwMDAwMDAwMDAwMDBjMGFhCmVudHJ5IDEwIFBJRDoyODAw
-IFRJRDoyODAwIENQVTowIExBU1RfVkFMOiAxMDAwNzAgSUlQOjB4MDAwMDAwMDAwMDQ2Njc3YwpQ
-TUQxICA9IDB4MDAwMDAwMDAwMDAwNzVjYQplbnRyeSAxMSBQSUQ6MjgwMCBUSUQ6MjgwMCBDUFU6
-MCBMQVNUX1ZBTDogMTAwMTcwIElJUDoweDAwMDAwMDAwMDA0Njg5OWUKUE1EMSAgPSAweDAwMDAw
-MDAwMDAwMTQ4MDgKZW50cnkgMTIgUElEOjI4MDAgVElEOjI4MDAgQ1BVOjAgTEFTVF9WQUw6IDEw
-MDIzMCBJSVA6MHgwMDAwMDAwMDAwNDY2MzdhClBNRDEgID0gMHgwMDAwMDAwMDAwMDE2YjIxCmVu
-dHJ5IDEzIFBJRDoyODAwIFRJRDoyODAwIENQVTowIExBU1RfVkFMOiAxMDAwMTEgSUlQOjB4MDAw
-MDAwMDAwMDQ2ODJhYQpQTUQxICA9IDB4MDAwMDAwMDAwMDAxODViNgplbnRyeSAxNCBQSUQ6Mjgw
-MCBUSUQ6MjgwMCBDUFU6MCBMQVNUX1ZBTDogMTAwMDQ1IElJUDoweDAwMDAwMDAwMDgwNGRkZmIK
-UE1EMSAgPSAweDAwMDAwMDAwMDAwMTZlM2QKZW50cnkgMTUgUElEOjI4MDAgVElEOjI4MDAgQ1BV
-OjAgTEFTVF9WQUw6IDEwMDA5MiBJSVA6MHgwMDAwMDAwMDA4MDRkZGZmClBNRDEgID0gMHgwMDAw
-MDAwMDAwMDEyYjM1CmVudHJ5IDE2IFBJRDoyODAwIFRJRDoyODAwIENQVTowIExBU1RfVkFMOiAx
-MDAwMDUgSUlQOjB4MDAwMDAwMDAwODA0ZDRjZApQTUQxICA9IDB4MDAwMDAwMDAwMDAxNTQ0Zgpl
-bnRyeSAxNyBQSUQ6MjgwMCBUSUQ6MjgwMCBDUFU6MCBMQVNUX1ZBTDogMTAwMDY3IElJUDoweDAw
-MDAwMDAwMDgwNGMyMjAKUE1EMSAgPSAweDAwMDAwMDAwMDAwMTc2MWYKMTggc2FtcGxlcyBjb2xs
-ZWN0ZWQgaW4gMCBidWZmZXIgb3ZlcmZsb3dzCnJlYWwgMGgwMG0wMC4wMDdzIHVzZXIgMGgwMG0w
-MC4wMDBzIHN5cyAxMTQxaDMzbTMwLjEzNDUxM3MKClJlbGF0ZWQgaW5mb3JtYXRpb24gaW4gL3Zh
-ci9sb2cvbWVzc2FnZXM6CgpEZWMgMTUgMTc6MTM6MDAgdHJlayBrZXJuZWw6IHBlcmZtb25fcDY6
-IGZhbWlseT02IHg4Nl9tb2RlbD04CkRlYyAxNSAxNzoxMzowMCB0cmVrIGtlcm5lbDogUDYgY29y
-ZSBQTVUgZGV0ZWN0ZWQKRGVjIDE1IDE3OjEzOjAwIHRyZWsga2VybmVsOiBwZXJmbW9uOiBJbnRl
-bCBQNiBGYW1pbHkgUHJvY2Vzc29yIFBNVSAKZGV0ZWN0ZWQsIDIgUE1DcywgMiBQTURzLCAyIGNv
-dW50ZXJzICgzMSBiaXRzKSBSV19tYXg6MgpEZWMgMTUgMTc6MTM6MDAgdHJlayBrZXJuZWw6IElu
-dGVsIFA2IEZhbWlseSBQcm9jZXNzb3IgUE1VIGluc3RhbGxlZApEZWMgMTUgMTc6MTM6MjIgdHJl
-ayBrZXJuZWw6IERlYnVnOiBzbGVlcGluZyBmdW5jdGlvbiBjYWxsZWQgZnJvbSAKaW52YWxpZCBj
-b250ZXh0IGF0IGFyY2gvaTM4Ni9saWIvdXNlcmNvcHkuYzo2MDcKRGVjIDE1IDE3OjEzOjIyIHRy
-ZWsga2VybmVsOiBpbl9hdG9taWMoKTowLCBpcnFzX2Rpc2FibGVkKCk6MQpEZWMgMTUgMTc6MTM6
-MjIgdHJlayBrZXJuZWw6ICBbPGMwMjBlNGUzPl0gY29weV90b191c2VyKzB4MjMvMHg5MApEZWMg
-MTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6ICBbPGMwMjA1MTI5Pl0gcGZtX3JlYWQrMHhhOS8weDMy
-MApEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6ICBbPGMwMTIxMTgwPl0gZGVmYXVsdF93YWtl
-X2Z1bmN0aW9uKzB4MC8weDEwCkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIFs8YzAyMDUw
-ODA+XSBwZm1fcmVhZCsweDAvMHgzMjAKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiAgWzxj
-MDE3MTNlOD5dIHZmc19yZWFkKzB4YjgvMHgxNzAKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVs
-OiAgWzxjMDE3MTc3MT5dIHN5c19yZWFkKzB4NDEvMHg3MApEZWMgMTUgMTc6MTM6MjIgdHJlayBr
-ZXJuZWw6ICBbPGMwMTA1NjlkPl0gc3lzY2FsbF9jYWxsKzB4Ny8weGIKRGVjIDE1IDE3OjEzOjIy
-IHRyZWsga2VybmVsOiBVbmFibGUgdG8gaGFuZGxlIGtlcm5lbCBwYWdpbmcgcmVxdWVzdCBhdCAK
-dmlydHVhbCBhZGRyZXNzIDZiNmI2YmE3CkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIHBy
-aW50aW5nIGVpcDoKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiBjMDIwMmI1MQpEZWMgMTUg
-MTc6MTM6MjIgdHJlayBrZXJuZWw6ICpwZGUgPSAwMDAwMDAwMApEZWMgMTUgMTc6MTM6MjIgdHJl
-ayBrZXJuZWw6IE9vcHM6IDAwMDAgWyMxXQpEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6IFNN
-UApEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6IE1vZHVsZXMgbGlua2VkIGluOiBwZXJmbW9u
-X3A2IGlwdjYgbHAgCmF1dG9mczQgcmZjb21tIGwyY2FwIGJsdWV0b290aCBzdW5ycGMgaXB0X1JF
-SkVDVCBpcHRfc3RhdGUgaXBfY29ubnRyYWNrIApuZm5ldGxpbmsgaXB0YWJsZV9maWx0ZXIgaXBf
-dGFibGVzIGRtX21pcnJvciBkbV9tb2QgdmlkZW8gYnV0dG9uIGJhdHRlcnkgCmFjIHBhcnBvcnRf
-cGMgcGFycG9ydCBzbmRfZW11MTBrMV9zeW50aCBzbmRfZW11eF9zeW50aCBzbmRfc2VxX3Zpcm1p
-ZGkgCnNuZF9zZXFfbWlkaV9lbXVsIHNuZF9jczQ2eHggc25kX2VtdTEwazEgc25kX3NlcV9kdW1t
-eSBzbmRfc2VxX29zcyAKc25kX3NlcV9taWRpX2V2ZW50IHNuZF9zZXEgc25kX3Jhd21pZGkgc25k
-X3NlcV9kZXZpY2Ugc25kX2FjOTdfY29kZWMgCnNuZF9wY21fb3NzIHNuZF9hYzk3X2J1cyBzbmRf
-bWl4ZXJfb3NzIHNuZF91dGlsX21lbSBzbmRfcGNtIHNuZF9od2RlcCAKc25kX3RpbWVyIGZsb3Bw
-eSBlbXUxMGsxX2dwIHNuZCBzbmRfcGFnZV9hbGxvYyBzb3VuZGNvcmUgZ2FtZXBvcnQgM2M1OXgg
-Cm1paSBpMmNfaTgwMSBpMmNfY29yZSBod19yYW5kb20gdWhjaV9oY2Qgc2hwY2hwIGV4dDMgamJk
-CkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogQ1BVOiAgICAxCkRlYyAxNSAxNzoxMzoyMiB0
-cmVrIGtlcm5lbDogRUlQOiAgICAwMDYwOls8YzAyMDJiNTE+XSAgICBOb3QgdGFpbnRlZCBWTEkK
-RGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiBFRkxBR1M6IDAwMDEwMjgyICAgKDIuNi4xNS1y
-YzUtZ2l0My1wZXJmb3ApCkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogRUlQIGlzIGF0IHBm
-bV9zbXBsX2ZtdF9wdXQrMHgxMS8weDYwCkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogZWF4
-OiBkNjFhZmFiMCAgIGVieDogNmI2YjZiNmIgICBlY3g6IApkOGIzZDdhMCAgIGVkeDogZDhiM2Q5
-MDAKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiBlc2k6IGQxODUyMDAwICAgZWRpOiAwMDAw
-MDAwMSAgIGVicDogCjAwMDAwMDAxICAgZXNwOiBkMWYzN2VlMApEZWMgMTUgMTc6MTM6MjIgdHJl
-ayBrZXJuZWw6IGRzOiAwMDdiICAgZXM6IDAwN2IgICBzczogMDA2OApEZWMgMTUgMTc6MTM6MjIg
-dHJlayBrZXJuZWw6IFByb2Nlc3MgdGFza19zbXBsIChwaWQ6IDI3OTksIAp0aHJlYWRpbmZv0WYz
-NzAwMCB0YXNr1jFhZmFiMCkKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiBTdGFjazogMDAw
-MDAwMDEgYzAyMDU4MDMgYzAxNTY1NjkgNmIwMDAyNDYgCmMxMzE2M2E0IGQxZjkzNWEwIGQxZjkz
-NjE0IGQyMmViYjc4CkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogICAgICAgIDAwMDAwMjg2
-IDAwMDAwMDAwIDAwMDAwMDEwIDAwMDAwMDEwIApkMWY5MzYxNCBkMWY1N2QzYyBkMjJlYmI3OCBj
-MDE3MjQ3NQpEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6ICAgICAgICAwMDAwMDAwMCBkMWY5
-MzVhMCBkN2Y4ZmI2OCBkMWY1N2QzYyAKZDFlMTAxMWMgZDI3ODliY2MgZDdlNDVkYmMgMDAwMDAw
-MDEKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiBDYWxsIFRyYWNlOgpEZWMgMTUgMTc6MTM6
-MjIgdHJlayBrZXJuZWw6ICBbPGMwMjA1ODAzPl0gcGZtX2Nsb3NlKzB4MTEzLzB4M2QwCkRlYyAx
-NSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIFs8YzAxNTY1Njk+XSBwb2lzb25fb2JqKzB4MjkvMHg2
-MApEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6ICBbPGMwMTcyNDc1Pl0gX19mcHV0KzB4YjUv
-MHgxYTAKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiAgWzxjMDE2MjVlOT5dIHJlbW92ZV92
-bWErMHgzOS8weDUwCkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIFs8YzAxNjQ3N2I+XSBl
-eGl0X21tYXArMHhhYi8weDEwMApEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6ICBbPGMwMTIz
-NDIzPl0gbW1wdXQrMHgzMy8weGEwCkRlYyAxNSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIFs8YzAx
-Mjg4MTY+XSBkb19leGl0KzB4ZjYvMHgzZDAKRGVjIDE1IDE3OjEzOjIyIHRyZWsga2VybmVsOiAg
-WzxjMDEwOWRhOD5dIGRvX3N5c2NhbGxfdHJhY2UrMHgyMTgvMHgyMmEKRGVjIDE1IDE3OjEzOjIy
-IHRyZWsga2VybmVsOiAgWzxjMDEyOGI2Nz5dIGRvX2dyb3VwX2V4aXQrMHgzNy8weGEwCkRlYyAx
-NSAxNzoxMzoyMiB0cmVrIGtlcm5lbDogIFs8YzAxMDU2OWQ+XSBzeXNjYWxsX2NhbGwrMHg3LzB4
-YgpEZWMgMTUgMTc6MTM6MjIgdHJlayBrZXJuZWw6IENvZGU6IDAwIDAxIDAwIDAwIGZmIDAwIGI4
-IDgwIDRjIDQ0IGMwIGU4IAo5YSBkMiAxNiAwMCA4OSBkOCA1YiBjMyAzMSBkYiBlYiBlZSA4OSBm
-NiA4NSBjMCA1MyA4OSBjMyA3NCAzOSBiOCA4MCA0YyAKNDQgYzAgZTggNWYgZDIgMTYgMDAgPDhi
-PiA1MyAzYyA4NSBkMiA3NCAxYiBiOCAwMCBmMCBmZiBmZiAyMSBlMCA4YiA0MCAKMTAgYzEgZTAg
-MDcgOGQKCi1XaWxsCi0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
-bmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
-YWpvcmRvbW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92
-Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
+
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Will,
+
+Ok, I found the two bugs you ran into. I also found
+a third one somewhat similar.
+
+Could you try the attached patch on top of what
+you have?
+
+I will check all the copy_from/to() tomorrow.
+
+Thanks.
+
+On Thu, Dec 15, 2005 at 05:23:27PM -0500, William Cohen wrote:
+> >>>I have released a new version of the perfmon base package.
+> >>>This release is relative to 2.6.15-rc5-git3.
+> >>>
+> >>>I have also updated the library, libpfm-3.2, to match the kernel
+> >>>level changes. 
+> >>
+> >>I downloaded the new version of perfmon and the matching libpfm. I built 
+> >>everything on a p6 based machine. The kernel booted fine. I tried the 
+> >>task_smpl_user in the libpfm examples. That crashed the kernel. What was 
+> >>on the xterm:
+> >>
+> >>$ ./task_smpl_user ls
+> >>measuring at plm=0x8
+> >>programming 2 PMCS and 2 PMDS
+> >>Segmentation fault
+> >>
+> >
+> >I have not tried this particular test program in a long time. I nfact, I 
+> >would
+> >like to remove it from the suite because it does not make any real sense.
+> >In any case, it should not crash the kernel. I will investigate this.
+> >I don't think it it related to you using a P6. This is more the case of
+> >an error in the cleanup code in case the context cannot be created 
+> >properly.
+> 
+> If it just seg faulted the user space program I wouldn't care either, 
+> but when it crashed the kernel I thought that you might like to know 
+> about that.
+> 
+> >Does task_smpl work properly?
+> 
+> task_smpl gave data, but appeared to get a kernel oops. Output from xterm:
+> 
+> Dec 15 17:13:00 trek kernel: perfmon_p6: family=6 x86_model=8
+> Dec 15 17:13:00 trek kernel: P6 core PMU detected
+> Dec 15 17:13:00 trek kernel: perfmon: Intel P6 Family Processor PMU 
+> detected, 2 PMCs, 2 PMDs, 2 counters (31 bits) RW_max:2
+> Dec 15 17:13:00 trek kernel: Intel P6 Family Processor PMU installed
+> Dec 15 17:13:22 trek kernel: Debug: sleeping function called from 
+> invalid context at arch/i386/lib/usercopy.c:607
+> Dec 15 17:13:22 trek kernel: in_atomic():0, irqs_disabled():1
+> Dec 15 17:13:22 trek kernel:  [<c020e4e3>] copy_to_user+0x23/0x90
+> Dec 15 17:13:22 trek kernel:  [<c0205129>] pfm_read+0xa9/0x320
+> Dec 15 17:13:22 trek kernel:  [<c0121180>] default_wake_function+0x0/0x10
+> Dec 15 17:13:22 trek kernel:  [<c0205080>] pfm_read+0x0/0x320
+> Dec 15 17:13:22 trek kernel:  [<c01713e8>] vfs_read+0xb8/0x170
+> Dec 15 17:13:22 trek kernel:  [<c0171771>] sys_read+0x41/0x70
+> Dec 15 17:13:22 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
+> Dec 15 17:13:22 trek kernel: Unable to handle kernel paging request at 
+>
+> Dec 15 17:13:22 trek kernel: EIP is at pfm_smpl_fmt_put+0x11/0x60
+> Dec 15 17:13:22 trek kernel: eax: d61afab0   ebx: 6b6b6b6b   ecx: 
+> d8b3d7a0   edx: d8b3d900
+> Dec 15 17:13:22 trek kernel: esi: d1852000   edi: 00000001   ebp: 
+> 00000001   esp: d1f37ee0
+> Dec 15 17:13:22 trek kernel: ds: 007b   es: 007b   ss: 0068
+> Dec 15 17:13:22 trek kernel: Process task_smpl (pid: 2799, 
+> threadinfo=d1f37000 task=d61afab0)
+> Dec 15 17:13:22 trek kernel: Stack: 00000001 c0205803 c0156569 6b000246 
+> c13163a4 d1f935a0 d1f93614 d22ebb78
+> Dec 15 17:13:22 trek kernel:        00000286 00000000 00000010 00000010 
+> d1f93614 d1f57d3c d22ebb78 c0172475
+> Dec 15 17:13:22 trek kernel:        00000000 d1f935a0 d7f8fb68 d1f57d3c 
+> d1e1011c d2789bcc d7e45dbc 00000001
+> Dec 15 17:13:22 trek kernel: Call Trace:
+> Dec 15 17:13:22 trek kernel:  [<c0205803>] pfm_close+0x113/0x3d0
+> Dec 15 17:13:22 trek kernel:  [<c0156569>] poison_obj+0x29/0x60
+> Dec 15 17:13:22 trek kernel:  [<c0172475>] __fput+0xb5/0x1a0
+> Dec 15 17:13:22 trek kernel:  [<c01625e9>] remove_vma+0x39/0x50
+> Dec 15 17:13:22 trek kernel:  [<c016477b>] exit_mmap+0xab/0x100
+> Dec 15 17:13:22 trek kernel:  [<c0123423>] mmput+0x33/0xa0
+> Dec 15 17:13:22 trek kernel:  [<c0128816>] do_exit+0xf6/0x3d0
+> Dec 15 17:13:22 trek kernel:  [<c0109da8>] do_syscall_trace+0x218/0x22a
+> Dec 15 17:13:22 trek kernel:  [<c0128b67>] do_group_exit+0x37/0xa0
+> Dec 15 17:13:22 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
+
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="perfmon-2.6.15-rc5-git3-will.diff"
+
+diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_file.c linux-2.6.15-rc5-git3/perfmon/perfmon_file.c
+--- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_file.c	2005-12-15 15:10:36.000000000 -0800
++++ linux-2.6.15-rc5-git3/perfmon/perfmon_file.c	2005-12-15 15:06:54.000000000 -0800
+@@ -247,7 +247,7 @@
+ 			loff_t *ppos)
+ {
+ 	struct pfm_context *ctx;
+-	pfm_msg_t *msg;
++	pfm_msg_t *msg, msg_buf;
+ 	ssize_t ret;
+ 	unsigned long flags;
+   	DECLARE_WAITQUEUE(wait, current);
+@@ -274,6 +274,10 @@
+ 	if (size > sizeof(pfm_msg_t))
+ 		size = sizeof(pfm_msg_t);
+ 
++	/*
++	 * we must masks interrupts to avoid a race condition
++	 * with the PMU interrupt handler.
++	 */
+ 	spin_lock_irqsave(&ctx->ctx_lock, flags);
+ 
+ 	if(PFM_CTXQ_EMPTY(ctx) == 0)
+@@ -348,17 +352,27 @@
+ 	if (unlikely(msg == NULL))
+ 		goto retry;
+ 
+-	DPRINT(("type=%d size=%zu\n", msg->type, size));
++	/*
++	 * we must make a local copy before we unlock
++	 * to ensure that the message queue cannot fill
++	 * (overwriting our message) up before
++	 * we do copy_to_user() which cannot be done
++	 * with interrupts masked.
++	 */
++	msg_buf = *msg;
+ 
++	DPRINT(("type=%d size=%zu\n", msg->type, size));
+ 
+ 	/*
+ 	 * message can be truncated when size < sizeof(pfm_msg_t)
+ 	 * The leftover is systematically lost
+ 	 */
+-	ret = -EFAULT;
+-  	if(copy_to_user(buf, msg, size) == 0) ret = size;
+ abort_locked:
+ 	spin_unlock_irqrestore(&ctx->ctx_lock, flags);
++
++	ret = -EFAULT;
++  	if(copy_to_user(buf, &msg_buf, size) == 0)
++		ret = size;
+ abort:
+ 	return ret;
+ }
+diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_fmt.c linux-2.6.15-rc5-git3/perfmon/perfmon_fmt.c
+--- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_fmt.c	2005-12-15 15:10:36.000000000 -0800
++++ linux-2.6.15-rc5-git3/perfmon/perfmon_fmt.c	2005-12-15 15:04:38.000000000 -0800
+@@ -67,7 +67,7 @@
+ 	if (fmt == NULL)
+ 		return;
+ 	spin_lock(&pfm_smpl_fmt_lock);
+-	module_put(fmt->owner);
++	if (fmt->owner) module_put(fmt->owner);
+ 	spin_unlock(&pfm_smpl_fmt_lock);
+ }
+ 
+diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_pmu.c linux-2.6.15-rc5-git3/perfmon/perfmon_pmu.c
+--- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_pmu.c	2005-12-15 15:10:36.000000000 -0800
++++ linux-2.6.15-rc5-git3/perfmon/perfmon_pmu.c	2005-12-15 15:06:34.000000000 -0800
+@@ -286,7 +286,7 @@
+ 	if (pfm_pmu_conf == NULL)
+ 		return;
+ 	spin_lock(&pfm_pmu_conf_lock);
+-	module_put(pfm_pmu_conf->owner);
++	if (pfm_pmu_conf->owner) module_put(pfm_pmu_conf->owner);
+ 	spin_unlock(&pfm_pmu_conf_lock);
+ }
+ 
+
+--envbJBWh7q8WU6mo--
