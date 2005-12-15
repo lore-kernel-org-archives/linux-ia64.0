@@ -1,43 +1,112 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Date: Tue, 13 Dec 2005 17:31:12 +0000
-Subject: Re: [2.6 patch] defconfig's shouldn't set CONFIG_BROKEN=y
-Message-Id: <20051213173112.GA24094@flint.arm.linux.org.uk>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Thu, 15 Dec 2005 02:37:37 +0000
+Subject: 2.6.15-rc5-mm2 can't boot on ia64 due to changing on_each_cpu().
+Message-Id: <20051215103344.241C.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051211185212.GQ23349@stusta.de> <20051211192109.GA22537@flint.arm.linux.org.uk> <20051211193118.GR23349@stusta.de> <20051211194437.GB22537@flint.arm.linux.org.uk> <20051213001028.GS23349@stusta.de> <439ECDCC.80707@hogyros.de> <20051213140001.GG23349@stusta.de>
-In-Reply-To: <20051213140001.GG23349@stusta.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Adrian Bunk <bunk@stusta.de>
-Cc: Simon Richter <Simon.Richter@hogyros.de>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, matthew@wil.cx, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, paulus@samba.org, linuxppc-dev@ozlabs.org, lethal@linux-sh.org, kkojima@rr.iij4u.or.jp, dwmw2@infradead.org, linux-mtd@lists.infradead.org
+To: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>, Benjamin LaHaise <bcrl@kvack.org>
+Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>
 
-On Tue, Dec 13, 2005 at 03:00:01PM +0100, Adrian Bunk wrote:
-> defconfig files are virtually never a configuration for the kernel they 
-> are shipped with since they aren't updated every time some configuration 
-> option is changed.
-> 
-> Consider a defconfig with CONFIG_BROKEN=n, and a driver that is enabled 
-> in this defconfig gets for some reason marked as broken in the Kconfig 
-> file - this will give exactly the same result as the one you describe.
 
-Adrian,
+Hello.
 
-The defconfig files in arch/arm/configs are for platform configurations
-and are provided by the platform maintainers as a _working_ configuration
-for their platform.  They're not "defconfigs".  They got called
-"defconfigs" as a result of the kbuild "cleanups".  Please don't confuse
-them as such.
+I met a trouble in 2.6.15-rc5-mm2 on my ia64 box. (Tiger4)
+The trouble was kernel panic at early boot time due to calling
+strange instruction "break 0" at smp_flush_tlb_all().
 
-If, in order to have a working platform configuration, they deem that
-CONFIG_BROKEN must be enabled, then that's the way it is.
+I investigated its cause and realized that gcc warned following 
+messages.
+  "arch/ia64/kernel/smp.c:228 Warning: function called through a non-
+   compatible type"
+  "arch/ia64/kernel/smp.c:228: note: if this code is reached,
+   the program will abort"
+  "arch/ia64/kernel/smp.c:251 Warning: function called through a non-
+   compatible type"
+  "arch/ia64/kernel/smp.c:251: note: if this code is reached,
+   the program will abort"
 
-Therefore, I request that either you leave the ARM platform configurations
-well alone, or follow the advice I've given so that we can _properly_
-assess the impact of your changes.
+The line 228 and 251 are calling on_each_cpu(). And the last
+instruction of this function was "break 0" indeed.
+
+void
+smp_flush_tlb_all (void)
+{
+	on_each_cpu((void (*)(void *))local_flush_tlb_all, NULL, 1, 1);
+}
+
+
+void
+smp_flush_tlb_mm (struct mm_struct *mm)
+{
+             :
+             :
+	 */
+	on_each_cpu((void (*)(void *))local_finish_flush_tlb_mm, mm, 1, 1);
+}
+
+When I removed following patch which is in 2.6.15-rc5-mm2,
+which changes on_each_cpu() from static inline function to macro,
+then there was no warning, and kernel could boot up.
+So, I guess that gcc was not able to solve a bit messy cast
+for calling function "local_flush_tlb_all()" due to its change.
 
 Thanks.
 
+--------------------------------------------------------------------------
+
+From: Benjamin LaHaise <bcrl@kvack.org>
+
+An inline function in smp.h introduces messy ordering requirements on
+thread_info by way of using an inline function instead of macro.  Convert
+on_each_cpu to a macro in order to avoid a big include mess.
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ include/linux/smp.h |   25 +++++++++++++------------
+ 1 files changed, 13 insertions(+), 12 deletions(-)
+
+diff -puN include/linux/smp.h~untangle-smph-vs-thread_info include/linux/smp.h
+--- 25/include/linux/smp.h~untangle-smph-vs-thread_info	Fri Dec  9 15:16:46 2005
++++ 25-akpm/include/linux/smp.h	Fri Dec  9 15:16:46 2005
+@@ -57,19 +57,20 @@ extern int smp_call_function (void (*fun
+ 			      int retry, int wait);
+ 
+ /*
+- * Call a function on all processors
++ * Call a function on all processors.
++ * This needs to be a macro to allow for arch specific dependances on
++ * sched.h in preempt_*().
+  */
+-static inline int on_each_cpu(void (*func) (void *info), void *info,
+-			      int retry, int wait)
+-{
+-	int ret = 0;
+-
+-	preempt_disable();
+-	ret = smp_call_function(func, info, retry, wait);
+-	func(info);
+-	preempt_enable();
+-	return ret;
+-}
++#define on_each_cpu(func, info, retry, wait)			\
++({								\
++	int _ret = 0;						\
++								\
++	preempt_disable();					\
++	_ret = smp_call_function(func, info, retry, wait);	\
++	(func)(info);						\
++	preempt_enable();					\
++	_ret;							\
++})
+ 
+ #define MSG_ALL_BUT_SELF	0x8000	/* Assume <32768 CPU's */
+ #define MSG_ALL			0x8001
+_
+
 -- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 Serial core
+Yasunori Goto 
+
+
