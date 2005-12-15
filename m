@@ -1,170 +1,162 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Fri, 16 Dec 2005 23:19:01 +0000
-Subject: [patch] Altix BTE error handling fixes
-Message-Id: <200512162319.jBGNJ1QZ026941@efs.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 15 Dec 2005 07:17:32 +0000
+Subject: [ANNOUNCE] salinfo 1.0 is available
+Message-Id: <13035.1134631052@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-[patch] Altix BTE error handling fixes
+There is a new and (so far) unofficial version of salinfo on
+ftp://ftp.ocs.com.au, in /pub/salinfo-1.0.tar.bz2 and
+salinfo-1.0-1.src.rpm.  I hope that they will move to the official HP
+location soon.
 
-Altix (shub2) pushes the BTE clean-up into SAL.
-This patch correctly interfaces with the now implemented SAL call.
-It also fixes a bug when delaying clean-up to allow busy BTEs to 
-complete (or error out).
+The base functionality of salinfo has not changed, it still reads from
+/proc/sal/{cmc,cpe,init,mca}/* and writes to /var/log/salinfo.  The
+changes are above this layer and are aimed at making the salinfo code
+more resilient, less of a potential denial of service and to make it
+easier to post process the SAL records.
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
+Note: you need this kernel patch to let salinfo_decode 1.0 see alarm
+signals.  Without this patch it will still work, just not log the
+dropped records correctly.
 
-------------
- arch/ia64/sn/kernel/bte_error.c |   58 +++++++++++++++++++++++++++++++++-------
- arch/ia64/sn/kernel/huberror.c  |    9 +++---
- include/asm-ia64/sn/sn_sal.h    |    2 -
- 3 files changed, 54 insertions(+), 15 deletions(-)
+diff-tree 05f70395c642bed0300bc1955bfa8c0f93de2bc2 (from 885da19e8044051a92=
+cfd70099398c373245c431)
+Author: Keith Owens <kaos@sgi.com>
+Date:   Fri Dec 2 13:40:15 2005 +1100
 
-Index: test/include/asm-ia64/sn/sn_sal.h
-=================================--- test.orig/include/asm-ia64/sn/sn_sal.h	2005-12-14 12:58:15.270315202 -0600
-+++ test/include/asm-ia64/sn/sn_sal.h	2005-12-16 13:33:45.254146655 -0600
-@@ -1100,7 +1100,7 @@ ia64_sn_bte_recovery(nasid_t nasid)
- 	struct ia64_sal_retval rv;
- 
- 	rv.status = 0;
--	SAL_CALL_NOLOCK(rv, SN_SAL_BTE_RECOVER, 0, 0, 0, 0, 0, 0, 0);
-+	SAL_CALL_NOLOCK(rv, SN_SAL_BTE_RECOVER, (u64)nasid, 0, 0, 0, 0, 0, 0);
- 	if (rv.status = SALRET_NOT_IMPLEMENTED)
- 		return 0;
- 	return (int) rv.status;
-Index: test/arch/ia64/sn/kernel/bte_error.c
-=================================--- test.orig/arch/ia64/sn/kernel/bte_error.c	2005-12-14 12:58:08.035675745 -0600
-+++ test/arch/ia64/sn/kernel/bte_error.c	2005-12-16 15:31:18.382816725 -0600
-@@ -33,7 +33,7 @@ void bte_error_handler(unsigned long);
-  * Wait until all BTE related CRBs are completed
-  * and then reset the interfaces.
-  */
--void shub1_bte_error_handler(unsigned long _nodepda)
-+int shub1_bte_error_handler(unsigned long _nodepda)
- {
- 	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
- 	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
-@@ -53,7 +53,7 @@ void shub1_bte_error_handler(unsigned lo
- 	    (err_nodepda->bte_if[1].bh_error = BTE_SUCCESS)) {
- 		BTE_PRINTK(("eh:%p:%d Nothing to do.\n", err_nodepda,
- 			    smp_processor_id()));
--		return;
-+		return 1;
+    [IA64] Allow salinfo_decode to detect signals on read
+   =20
+    Return -EINTR instead of -ERESTARTSYS when signals are delivered during
+    a blocked read of /proc/sal/*/event.  This allows salinfo_decode to
+    detect signals when it is blocked on a read of those files.
+   =20
+    Signed-off-by: Keith Owens <kaos@sgi.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
+index ca68e6e..1461dc6 100644
+--- a/arch/ia64/kernel/salinfo.c
++++ b/arch/ia64/kernel/salinfo.c
+@@ -293,7 +293,7 @@ retry:
+ 		if (file->f_flags & O_NONBLOCK)
+ 			return -EAGAIN;
+ 		if (down_interruptible(&data->sem))
+-			return -ERESTARTSYS;
++			return -EINTR;
  	}
- 
- 	/* Determine information about our hub */
-@@ -81,7 +81,7 @@ void shub1_bte_error_handler(unsigned lo
- 		mod_timer(recovery_timer, HZ * 5);
- 		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
- 			    smp_processor_id()));
--		return;
-+		return 1;
- 	}
- 	if (icmr.ii_icmr_fld_s.i_crb_vld != 0) {
- 
-@@ -99,7 +99,7 @@ void shub1_bte_error_handler(unsigned lo
- 				BTE_PRINTK(("eh:%p:%d Valid %d, Giving up\n",
- 					    err_nodepda, smp_processor_id(),
- 					    i));
--				return;
-+				return 1;
- 			}
- 		}
- 	}
-@@ -124,6 +124,42 @@ void shub1_bte_error_handler(unsigned lo
- 	REMOTE_HUB_S(nasid, IIO_IBCR, ibcr.ii_ibcr_regval);
- 
- 	del_timer(recovery_timer);
-+	return 0;
-+}
-+
-+/*
-+ * Wait until all BTE related CRBs are completed
-+ * and then reset the interfaces.
-+ */
-+int shub2_bte_error_handler(unsigned long _nodepda)
-+{
-+	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
-+	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
-+	struct bteinfo_s *bte;
-+	nasid_t nasid;
-+	u64 status;
-+	int i;
-+
-+	nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
-+
-+	/*
-+	 * Verify that all the BTEs are complete
-+	 */
-+	for (i = 0; i < BTES_PER_NODE; i++) {
-+		bte = &err_nodepda->bte_if[i];
-+		status = BTE_LNSTAT_LOAD(bte);
-+		if ((status & IBLS_ERROR) || !(status & IBLS_BUSY))
-+			continue;
-+		mod_timer(recovery_timer, HZ * 5);
-+		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
-+			    smp_processor_id()));
-+		return 1;
-+	}
-+	if (ia64_sn_bte_recovery(nasid))
-+		panic("bte_error_handler(): Fatal BTE Error");
-+
-+	del_timer(recovery_timer);
-+	return 0;
- }
- 
- /*
-@@ -135,7 +171,6 @@ void bte_error_handler(unsigned long _no
- 	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
- 	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
- 	int i;
--	nasid_t nasid;
- 	unsigned long irq_flags;
- 	volatile u64 *notify;
- 	bte_result_t bh_error;
-@@ -160,12 +195,15 @@ void bte_error_handler(unsigned long _no
- 	}
- 
- 	if (is_shub1()) {
--		shub1_bte_error_handler(_nodepda);
-+		if (shub1_bte_error_handler(_nodepda)) {
-+			spin_unlock_irqrestore(recovery_lock, irq_flags);
-+			return;
-+		}
- 	} else {
--		nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
--
--		if (ia64_sn_bte_recovery(nasid))
--			panic("bte_error_handler(): Fatal BTE Error");
-+		if (shub2_bte_error_handler(_nodepda)) {
-+			spin_unlock_irqrestore(recovery_lock, irq_flags);
-+			return;
-+		}
- 	}
- 
- 	for (i = 0; i < BTES_PER_NODE; i++) {
-Index: test/arch/ia64/sn/kernel/huberror.c
-=================================--- test.orig/arch/ia64/sn/kernel/huberror.c	2005-12-14 12:58:08.035675745 -0600
-+++ test/arch/ia64/sn/kernel/huberror.c	2005-12-16 14:50:29.315025175 -0600
-@@ -32,13 +32,14 @@ static irqreturn_t hub_eint_handler(int 
- 	ret_stuff.v0 = 0;
- 	hubdev_info = (struct hubdev_info *)arg;
- 	nasid = hubdev_info->hdi_nasid;
--	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_HUB_ERROR_INTERRUPT,
-+
-+	if (is_shub1()) {
-+		SAL_CALL_NOLOCK(ret_stuff, SN_SAL_HUB_ERROR_INTERRUPT,
- 			(u64) nasid, 0, 0, 0, 0, 0, 0);
- 
--	if ((int)ret_stuff.v0)
--		panic("hubii_eint_handler(): Fatal TIO Error");
-+		if ((int)ret_stuff.v0)
-+			panic("hubii_eint_handler(): Fatal TIO Error");
- 
--	if (is_shub1()) {
- 		if (!(nasid & 1)) /* Not a TIO, handle CRB errors */
- 			(void)hubiio_crb_error_handler(hubdev_info);
- 	} else 
+=20
+ 	n =3D data->cpu_check;
+
+
+Changelog extract for salinfo 1.0.
+
+2005-12-14  Keith Owens  <kaos@sgi.com>
+
+	* Released as 1.0.
+
+	* salinfo_decode_all is now a C program instead of a shell script.  It
+	  monitors the health of the salinfo_decode tasks.
+
+	* Add salinfo_decode option -i pct, do not write records if the -D
+	  filesystem inode percentage used is pct or greater.
+
+	* Add salinfo_decode option -s pct, do not write records if the -D
+	  filesystem space used percentage is pct or greater.
+
+	* Add salinfo_decode option -l limit, limit the number of events per
+	  minute.
+
+	* Add salinfo_decode option -T filename, write a trigger record to
+	  filename for each SAL record.
+
+	* Site specific options can be set in /etc/sysconfig/salinfo_decode_all.
+
+	* Count and log the number of dropped records.
+
+	* Build allows separate source and object directories.
+
+	* Fix use after free bug in read_salinfo_decode_oem().
+
+
+Default /etc/sysconfig/salinfo_decode_all.
+
+  # Define custom options in /etc/sysconfig/salinfo_decode_all
+  #
+  # All variables come in two forms, global (applies to all record types) a=
+nd
+  # per record (only applies to that record type).  The per record variables
+  # have a prefix of 'CMC_', 'CPE_', 'INIT_' or 'MCA_', global settings hav=
+e no
+  # prefix.  The global value is used if there is no record specific variab=
+le in
+  # the environment.
+  #
+  # Required variables are :-
+  #
+  # DIRECTORY             The value passed as parameter -D to salinfo_decod=
+e.
+  #
+  # RETRIES               How many times a version of salinfo_decode is res=
+tarted
+  #                       before we give up and log the failure.
+  #
+  # Optional variables are :-
+  #
+  # INODE_PCT             Passed as -i <value> to salinfo_decode.
+  #
+  # SPACE_PCT             Passed as -s <value> to salinfo_decode.
+  #
+  # RATE_LIMIT            Passed as -l <value> to salinfo_decode.
+  #
+  # TRIGGER               Passed as -T <value> to salinfo_decode.
+
+  # Required variables
+  export DIRECTORY=3D/var/log/salinfo
+  export RETRIES=3D3
+
+  # Optional variables, these are rule of thumb limits
+  export INODE_PCT=90     # drop records if inodes used is >=3D 90%
+  export SPACE_PCT=90     # drop records if space used is >=3D 90%
+  export RATE_LIMIT=10    # drop records if more than 10/minute
+  # TRIGGER=3D is not set, it only makes sense if you install a post proces=
+sing program
+
+
+Typical syslog entries from salinfo_decode_all when any of the
+salinfo_decode children fail.
+
+  Dec 15 06:27:50 salinfo_decode_all[2637]: Retry 1 for type INIT, previous=
+ status was 15
+  Dec 15 06:28:05 salinfo_decode_all[2637]: Type INIT died very quickly, no=
+ respawn, last status was 15
+
+
+Typical syslog entry when salinfo_decode drops records because of the
+limits.  This one says that 6 records were dropped because the
+filesystem was filling up and 5 records were dropped because they
+exceeded the rate limit.
+
+  Dec 13 16:31:56 salinfo_decode[21460]: 11 cpe records dropped since Tue D=
+ec 13 16:31:39 2005, 6 -s pct, 5 -l limit
+
+
+Typical syslog entry when salinfo_decode drops trigger records because
+the post processing program is not working.  The actual cpe records
+were still processed and saved, the only things lost in this case were
+the post processing triggers.
+
+  Dec 13 20:37:27 salinfo_decode[30292]: 4 cpe trigger records dropped sinc=
+e Tue Dec 13 20:37:18 2005
+
+
+We hope that we do not see this one :).  If all the children die and
+they have reached their retry limit or they are dying too quickly, then
+there is nothing that salinfo_decode_all can do.
+
+  Dec 15 06:28:05 salinfo_decode_all[2637]: All children have died, giving =
+up
+
