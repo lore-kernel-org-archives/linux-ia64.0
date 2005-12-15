@@ -1,38 +1,60 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 14 Dec 2005 15:48:56 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 15 Dec 2005 22:06:40 +0000
 Subject: Re: [patch 2/2] /dev/mem validate mmap requests
-Message-Id: <200512140848.56570.bjorn.helgaas@hp.com>
+Message-Id: <20051215220640.GA8967@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com> <200512140848.56570.bjorn.helgaas@hp.com>
+In-Reply-To: <200512140848.56570.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org
 
-On Tuesday 13 December 2005 5:25 pm, Luck, Tony wrote:
-> > Tony, can you ack/nak this please?  It touches both ia64 and generic
-> > code.
+On Wed, Dec 14, 2005 at 08:48:56AM -0700, Bjorn Helgaas wrote:
+> > I think you may need a more complex checker that does aggregation
+> > of adjacent efi memory descriptors with the same attributes.
 > 
-> So if someone tries to mmap a range that spans across more than
-> one EFI memory descriptor, the size will get trimmed back to an
-> EFI memory boundary.  Isn't that a problem since 1<<EFI_PAGE_SHIFT
-> is less than the default ia64 Linux page size?
+> We could, but I don't think it's worth it at this point.  We've
+> been using the same simple-minded scheme for validating /dev/mem
+> read & write requests for quite a while with no problems, and I
+> don't want to over-engineer this.
 
-The EFI page size is smaller than the Linux page size, but firmware
-typically coalesces adjacent ranges with the same attributes.
+Here's the spot in the efi memory map that worried me:
 
-> I think you may need a more complex checker that does aggregation
-> of adjacent efi memory descriptors with the same attributes.
+4000000 - 4a54000 type=2 attr=b
+4a54000 - ff80000 type=7 attr=b
 
-We could, but I don't think it's worth it at this point.  We've
-been using the same simple-minded scheme for validating /dev/mem
-read & write requests for quite a while with no problems, and I
-don't want to over-engineer this.
+The first of these two blocks is the space that Elilo allocated
+to hold the kernel, the second is the remainder of memory in
+the block of same-attribute memory.  In this case the boundary
+is on a 16K boundary, so all is well.  But is this guaranteed
+to work?
 
-If hot-plug memory is ever finished, the checker may have to
-be extended to comprehend regions described by ACPI as well as
-those described in the boot-time EFI memory map.  I think that
-would be the right time to make it smarter about spanning
-descriptors.
+Booting a kernel with a 64K pagesize, I see:
+4000000 - 4aa0000 type=2 attr=b
+4aa0000 - ff80000 type=7 attr=b
+
+So perhaps this is ok ... maybe the size of the kernel
+will always come out as a whole number of pages?
+
+But looking further down the map (on the 64K boot) I see:
+
+180000000 - 1fedfa000 type=7 attr=b
+1fedfa000 - 1fee00000 type=2 attr=b
+1fee00000 - 1fee01000 type=7 attr=b
+1fee01000 - 1fef56000 type=2 attr=b
+1fef56000 - 1fefae000 type=1 attr=b
+1fefae000 - 1fefb8000 type=2 attr=b
+1fefb8000 - 1feffe000 type=1 attr=b
+1feffe000 - 1ff454000 type=7 attr=b
+1ff454000 - 1ff801000 type=4 attr=b
+1ff801000 - 1ff8cc000 type=7 attr=b
+1ff8cc000 - 1ff904000 type=4 attr=b
+1ff904000 - 1ff908000 type=7 attr=b
+1ff908000 - 1ff90a000 type=4 attr=b
+
+Now these EFI areas all have the same attributes, but the boundaries
+are not neatly aligned to kernel page size.
+
+-Tony
