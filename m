@@ -1,315 +1,51 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 22 Dec 2005 21:49:10 +0000
-Subject: Re: [patch 2/2] /dev/mem validate mmap requests
-Message-Id: <200512221449.10457.bjorn.helgaas@hp.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 15 Dec 2005 17:45:25 +0000
+Subject: [PATCH] - Missed TLB flush
+Message-Id: <20051215174525.GA28885@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com> <20051215220640.GA8967@agluck-lia64.sc.intel.com> <200512201353.51236.bjorn.helgaas@hp.com>
-In-Reply-To: <200512201353.51236.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Andrew, could you replace dev-mem-validate-mmap-requests.patch
-with the patch below?  This addresses Tony's request that
-the checking handle regions that span EFI memory descriptors.
+It looks like there is a bug in the TLB flushing code. During context switch,
+kernel threads inherit the mm of the task that was previously running on the
+cpu. This confuses the code in ia64_global_tlb_purge() &
+sn2_global_tlb_purge().
+
+The result is a missed TLB purge for the task that owns the "borrowed" mm.
+
+(I hit the problem running heavy stress where kswapd was purging code pages of
+the user task that woke kswapd. The user task eventually took a SIGILL fault
+trying to execute code in the page that had been ripped out from underneath it).
+
+Am I overlooking something???? AFAICT, this problem has existed for a long time.
 
 
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
 
-Add a hook so architectures can validate /dev/mem mmap requests.
-
-This is analogous to validation we already perform in the read/write
-paths.
-
-The identity mapping scheme used on ia64 requires that each 16MB or
-64MB granule be accessed with exactly one attribute (write-back or
-uncacheable).  This avoids "attribute aliasing", which can cause a
-machine check.
-
-Sample problem scenario:
-  - Machine supports VGA, so it has uncacheable (UC) MMIO at 640K-768K
-  - efi_memmap_init() discards any write-back (WB) memory in the first granule
-  - Application (e.g., "hwinfo") mmaps /dev/mem, offset 0
-  - hwinfo receives UC mapping (the default, since memmap says "no WB here")
-  - Machine check abort (on chipsets that don't support UC access to WB
-    memory, e.g., sx1000)
-
-In the scenario above, the only choices are
-  - Use WB for hwinfo mmap.  Can't do this because it causes attribute
-    aliasing with the UC mapping for the VGA MMIO space.
-  - Use UC for hwinfo mmap.  Can't do this because the chipset may not
-    support UC for that region.
-  - Disallow the hwinfo mmap with -EINVAL.  That's what this patch does.
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
- arch/ia64/kernel/efi.c |   44 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/char/mem.c     |   14 ++++++++++++--
- include/asm-ia64/io.h  |    1 +
- 3 files changed, 57 insertions(+), 2 deletions(-)
-
-Index: work6/arch/ia64/kernel/efi.c
-=================================--- work6.orig/arch/ia64/kernel/efi.c	2005-12-19 12:50:52.000000000 -0700
-+++ work6/arch/ia64/kernel/efi.c	2005-12-20 10:32:49.000000000 -0700
-@@ -247,6 +247,32 @@
- 
- static kern_memdesc_t *kern_memmap;
- 
-+#define efi_md_size(md)	(md->num_pages << EFI_PAGE_SHIFT)
-+
-+static inline u64
-+kmd_end(kern_memdesc_t *kmd)
-+{
-+	return (kmd->start + (kmd->num_pages << EFI_PAGE_SHIFT));
-+}
-+
-+static inline u64
-+efi_md_end(efi_memory_desc_t *md)
-+{
-+	return (md->phys_addr + efi_md_size(md));
-+}
-+
-+static inline int
-+efi_wb(efi_memory_desc_t *md)
-+{
-+	return (md->attribute & EFI_MEMORY_WB);
-+}
-+
-+static inline int
-+efi_uc(efi_memory_desc_t *md)
-+{
-+	return (md->attribute & EFI_MEMORY_UC);
-+}
-+
- static void
- walk (efi_freemem_callback_t callback, void *arg, u64 attr)
+Index: linux/arch/ia64/mm/tlb.c
+=================================--- linux.orig/arch/ia64/mm/tlb.c	2005-12-08 12:11:15.271472386 -0600
++++ linux/arch/ia64/mm/tlb.c	2005-12-15 11:24:51.009417801 -0600
+@@ -90,7 +90,7 @@ ia64_global_tlb_purge (struct mm_struct 
  {
-@@ -595,8 +621,8 @@
- 	return 0;
- }
+ 	static DEFINE_SPINLOCK(ptcg_lock);
  
--u32
--efi_mem_type (unsigned long phys_addr)
-+static efi_memory_desc_t *
-+efi_memory_descriptor (unsigned long phys_addr)
- {
- 	void *efi_map_start, *efi_map_end, *p;
- 	efi_memory_desc_t *md;
-@@ -610,13 +636,13 @@
- 		md = p;
- 
- 		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
--			 return md->type;
-+			 return md;
+-	if (mm != current->active_mm) {
++	if (mm != current->active_mm || !current->mm) {
+ 		flush_tlb_all();
+ 		return;
  	}
- 	return 0;
- }
- 
--u64
--efi_mem_attributes (unsigned long phys_addr)
-+static int
-+efi_memmap_has_mmio (void)
+Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
+=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	2005-12-15 11:20:49.192339703 -0600
++++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2005-12-15 11:33:28.163678685 -0600
+@@ -202,7 +202,7 @@ sn2_global_tlb_purge(struct mm_struct *m
+ 		     unsigned long end, unsigned long nbits)
  {
- 	void *efi_map_start, *efi_map_end, *p;
- 	efi_memory_desc_t *md;
-@@ -629,36 +655,98 @@
- 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
- 		md = p;
- 
--		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
--			return md->attribute;
-+		if (md->type = EFI_MEMORY_MAPPED_IO)
-+			return 1;
- 	}
- 	return 0;
- }
-+
-+u32
-+efi_mem_type (unsigned long phys_addr)
-+{
-+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
-+
-+	if (md)
-+		return md->type;
-+	return 0;
-+}
-+
-+u64
-+efi_mem_attributes (unsigned long phys_addr)
-+{
-+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
-+
-+	if (md)
-+		return md->attribute;
-+	return 0;
-+}
- EXPORT_SYMBOL(efi_mem_attributes);
- 
-+/*
-+ * Determines whether the memory at phys_addr supports the desired
-+ * attribute (WB, UC, etc).  If this returns 1, the caller can safely
-+ * access *size bytes at phys_addr with the specified attribute.
-+ */
-+static int
-+efi_mem_attribute_range (unsigned long phys_addr, unsigned long *size, u64 attr)
-+{
-+	efi_memory_desc_t *md = efi_memory_descriptor(phys_addr);
-+	unsigned long md_end;
-+
-+	if (!md || (md->attribute & attr) != attr)
-+		return 0;
-+
-+	do {
-+		md_end = efi_md_end(md);
-+		if (phys_addr + *size <= md_end)
-+			return 1;
-+
-+		md = efi_memory_descriptor(md_end);
-+		if (!md || (md->attribute & attr) != attr) {
-+			*size = md_end - phys_addr;
-+			return 1;
-+		}
-+	} while (md);
-+	return 0;
-+}
-+
-+/*
-+ * For /dev/mem, we only allow read & write system calls to access
-+ * write-back memory, because read & write don't allow the user to
-+ * control access size.
-+ */
- int
- valid_phys_addr_range (unsigned long phys_addr, unsigned long *size)
- {
--	void *efi_map_start, *efi_map_end, *p;
--	efi_memory_desc_t *md;
--	u64 efi_desc_size;
-+	return efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_WB);
-+}
- 
--	efi_map_start = __va(ia64_boot_param->efi_memmap);
--	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
--	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-+/*
-+ * We allow mmap of anything in the EFI memory map that supports
-+ * either write-back or uncacheable access.  For uncacheable regions,
-+ * the supported access sizes are system-dependent, and the user is
-+ * responsible for using the correct size.
-+ *
-+ * Note that this doesn't currently allow access to hot-added memory,
-+ * because that doesn't appear in the boot-time EFI memory map.
-+ */
-+int
-+valid_mmap_phys_addr_range (unsigned long phys_addr, unsigned long *size)
-+{
-+	if (efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_WB))
-+		return 1;
- 
--	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
--		md = p;
-+	if (efi_mem_attribute_range(phys_addr, size, EFI_MEMORY_UC))
-+		return 1;
- 
--		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT)) {
--			if (!(md->attribute & EFI_MEMORY_WB))
--				return 0;
-+	/*
-+	 * Some firmware doesn't report MMIO regions in the EFI memory map.
-+	 * The Intel BigSur (a.k.a. HP i2000) has this problem.  In this
-+	 * case, we can't use the EFI memory map to validate mmap requests.
-+	 */
-+	if (!efi_memmap_has_mmio())
-+		return 1;
- 
--			if (*size > md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - phys_addr)
--				*size = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - phys_addr;
--			return 1;
--		}
--	}
- 	return 0;
- }
- 
-@@ -707,32 +795,6 @@
- 	return 0;
- }
- 
--#define efi_md_size(md)	(md->num_pages << EFI_PAGE_SHIFT)
--
--static inline u64
--kmd_end(kern_memdesc_t *kmd)
--{
--	return (kmd->start + (kmd->num_pages << EFI_PAGE_SHIFT));
--}
--
--static inline u64
--efi_md_end(efi_memory_desc_t *md)
--{
--	return (md->phys_addr + efi_md_size(md));
--}
--
--static inline int
--efi_wb(efi_memory_desc_t *md)
--{
--	return (md->attribute & EFI_MEMORY_WB);
--}
--
--static inline int
--efi_uc(efi_memory_desc_t *md)
--{
--	return (md->attribute & EFI_MEMORY_UC);
--}
--
- /*
-  * Look for the first granule aligned memory descriptor memory
-  * that is big enough to hold EFI memory map. Make sure this
-Index: work6/drivers/char/mem.c
-=================================--- work6.orig/drivers/char/mem.c	2005-12-19 12:50:52.000000000 -0700
-+++ work6/drivers/char/mem.c	2005-12-20 10:32:49.000000000 -0700
-@@ -101,6 +101,11 @@
- 
- 	return 1;
- }
-+
-+static inline int valid_mmap_phys_addr_range(unsigned long addr, size_t *size)
-+{
-+	return 1;
-+}
- #endif
- 
- /*
-@@ -244,15 +249,20 @@
- 
- static int mmap_mem(struct file * file, struct vm_area_struct * vma)
- {
-+	size_t size = vma->vm_end - vma->vm_start;
-+
-+	if (!valid_mmap_phys_addr_range(vma->vm_pgoff << PAGE_SHIFT, &size))
-+		return -EINVAL;
-+
- 	vma->vm_page_prot = phys_mem_access_prot(file, vma->vm_pgoff,
--						 vma->vm_end - vma->vm_start,
-+						 size,
- 						 vma->vm_page_prot);
- 
- 	/* Remap-pfn-range will mark the range VM_IO and VM_RESERVED */
- 	if (remap_pfn_range(vma,
- 			    vma->vm_start,
- 			    vma->vm_pgoff,
--			    vma->vm_end-vma->vm_start,
-+			    size,
- 			    vma->vm_page_prot))
- 		return -EAGAIN;
- 	return 0;
-Index: work6/include/asm-ia64/io.h
-=================================--- work6.orig/include/asm-ia64/io.h	2005-12-19 12:50:52.000000000 -0700
-+++ work6/include/asm-ia64/io.h	2005-12-20 10:32:49.000000000 -0700
-@@ -89,6 +89,7 @@
- 
- #define ARCH_HAS_VALID_PHYS_ADDR_RANGE
- extern int valid_phys_addr_range (unsigned long addr, size_t *count); /* efi.c */
-+extern int valid_mmap_phys_addr_range (unsigned long addr, size_t *count);
- 
- /*
-  * The following two macros are deprecated and scheduled for removal.
+ 	int i, opt, shub1, cnode, mynasid, cpu, lcpu = 0, nasid, flushed = 0;
+-	int mymm = (mm = current->active_mm);
++	int mymm = (mm = current->active_mm && current->mm);
+ 	volatile unsigned long *ptc0, *ptc1;
+ 	unsigned long itc, itc2, flags, data0 = 0, data1 = 0, rr_value;
+ 	short nasids[MAX_NUMNODES], nix;
