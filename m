@@ -1,65 +1,55 @@
-From: Andi Kleen <ak@muc.de>
-Date: Mon, 19 Dec 2005 08:17:14 +0000
-Subject: [ANNOUNCE] numactl-0.8 - user space NUMA policy interface released
-Message-Id: <20051219081714.GA33604@muc.de>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Fri, 16 Dec 2005 03:09:18 +0000
+Subject: Linux-on-Linux for IA64
+Message-Id: <17314.12254.972129.658644@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: lse-tech@projects.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
 
-Sorry for the huge cc list. I will try to create a more focussed
-list for numa policy user space in the future.
+Hi Folks,
+	Ever wanted UML-like functionality for Itanium?  Now you can
+have it!
 
-numactl-0.8 has been released. It consists of libnuma - which
-is the prefered NUMA API to the NUMA policy system calls in the
-Linux kernel -, numactl - a command line program for to 
-run programs with a specific NUMA policy and various tools.
+This week we made the first release of Linux-On-Linux, a
+paravirtualised system that allows Linux to be used as a hypervisor.
 
-The biggest new features compared to 0.6 (0.7 was skipped) are lots
-of bug fixes, PPC support and support for parsing numa distances
-from sysfs.
+You can get it from
+http://www.ertos.nicta.com.au/software/virtualisation/
 
-It is backwards binary compatible to earlier libnuma releases. 
+The package consists of a virtual machine monitor that runs in
+userspace on a lightly-patched kernel, a perl script to rewrite
+assembly language for automatic paravirtualisation
+(previrtualisation, or compiler afterburning), and patches for host
+and guest.
 
-This version has everything I wanted to implement for numactl 1.0.
-Unless some bad bugs come up it will be eventually renamed to
-numactl-1.0
+The host patches are primarily to add extra functionality to ptrace.
+You can live without them, but the virtualised system runs very
+slowly, and incorrectly if any floating point ops are done.  I've also
+included Peter William's PlugSched patches, which are useful if you're
+running multiple virtual machines and want to carve up the real
+machine's CPU power.
 
-Please report all problems to ak@suse.de
+The guest patches are primarily to rearrange the memory regions so as
+not to collide with the host kernel's use of regions 5 through 7, and
+to add in the wedge for interfacing with the afterburner.
 
-ftp://ftp.suse.com/pub/people/ak/numa/numactl-0.8.tar.gz
-36fb1f81d647d66cf9c119db3c215be4  numactl-0.8.tar.gz
+I'll post the patches here for comment next week; I'm unhappy about the ptrace
+improvement patch, and would like to know a better way to do things.
 
-Changes since 0.6.5: 
+Performance with all the patches is around 70% of the bare-metal
+performance for many macro benchmarks; address space switching and
+creation are the main slowdowns in microbenchmark testing.
 
-0.7-pre1
+The virtualisation technique we use (previrtualisation, or compiler
+afterburning) is to replace the assembler with a perl script that
+modifies the code on the fly then invokes the real assembler.  This
+means we don't have to modify binutils at all --- just compile the
+guest kernel with some extra Makefile arguments.
 
-- add test/regress2 and some fixes to test programs
-- Fix DSO relocation patch for global variables
-- Change nodeset sizes back to be binary compatible with SLES9
-- Cosmetic changes to manpages (pointed out by Eric S. Raymond) 
-- Make numa_run_on_node etc. act on current thread only even on NPTL systems
-  (Dinakar Guniguntala)
-- Make numa_no_nodes / numa_all_nodes const (Werner Almesberger) 
-- Fix up the warnings caused by above change
-- Add numa_distance() on systems with ACPI
-- remove some obsolete code
-- add rdtsc for ppc64
-- fix unsigned/unsigned long confusion in cpumasks (Matt Dobson)
-- fix CPU_BYTES and rename CPU_WORDS to CPU_LONGS (Matt Dobson) 
-- Print node distances in numactl
+--
+Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
+National ICT Australia				  http://ertos.nicta.com.au 
 
-0.8
-- hardend numactl command line parsing against bad arguments in some cases
-- remove cpumask/nodemask confusion which has become a FAQ:
-  --cpubind deprecated, added --cpunodebind and --physcpubind= options
-  print both in --show, old cpumask kept for compatibility
-- Fix --show problems
-- various fixes for bugs noted by Mike Stroyan (thanks!)
-- install set_mempolicy manpage
-- various smaller fixes
-
--Andi Kleen
