@@ -1,32 +1,42 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 16 Dec 2005 01:04:40 +0000
+From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Date: Fri, 16 Dec 2005 01:52:02 +0000
 Subject: Re: [PATCH] ia64: disable preemption in udelay()
-Message-Id: <20051216010440.GA9886@agluck-lia64.sc.intel.com>
+Message-Id: <Pine.LNX.4.64.0512151750500.1678@montezuma.fsmlabs.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com> <20051215225040.GA9086@agluck-lia64.sc.intel.com>
+References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
+ <20051215225040.GA9086@agluck-lia64.sc.intel.com>
 In-Reply-To: <20051215225040.GA9086@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hawkes@sgi.com
-Cc: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: hawkes@sgi.com, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
 
-On Thu, Dec 15, 2005 at 02:50:40PM -0800, Luck, Tony wrote:
-> This does make the function a bit big for an "inline" though.  Does
-> it really need to be inline?  Do we care how fast our delay loops
-> are?
+On Thu, 15 Dec 2005, Luck, Tony wrote:
 
-Moving the current slim-line udelay() out of line would save 41 Kbytes
-of text in the generic vmlinux, plus making any modules that use
-udelay smaller too. Savings run from a 128-160 bytes for drivers
-with just one call to a max of 9 Kbytes for qla2xxx.ko.
+> On Wed, Dec 14, 2005 at 03:25:26PM -0800, hawkes@sgi.com wrote:
+> > Sending this to a wider audience:
+> > 
+> > The udelay() inline for ia64 uses the ITC.  If CONFIG_PREEMPT is enabled
+> > and the platform has unsynchronized ITCs and the calling task migrates
+> > to another CPU while doing the udelay loop, then the effective delay may
+> > be too short or very, very long.
+> > 
+> > The most simple fix is to disable preemption around the udelay looping.
+> > The downside is that this inhibits realtime preemption for cases of long
+> > udelays.  One datapoint:  an SGI realtime engineer reports that if
+> > CONFIG_PREEMPT is turned off, that no significant holdoffs are
+> > are attributed to udelay().
+> > 
+> > I am reluctant to propose a much more complicated patch (that disables
+> > preemption only for "short" delays, and uses the global RTC as the time
+> > base for longer, preemptible delays) unless this patch introduces
+> > significant and unacceptable preemption delays.
+> 
+> Stuck between a rock and the proverbial hard place.
+> 
+> I think that the more complex patch is needed though.  If some crazy
+> driver has a pre-emptible udelay(10000), then you really don't want
+> to spin for that long without allowing preemption.
 
-Being out-of-line would reduce accuracy, but this would only be
-significant when the sleep is for a very small number of microseconds.
-
-So if we need to add more code to udelay(), I think that it
-should be moved out-of-line too (into arch/ia64/kernel/time.c).
-
-alpha, m68knommu, powerpc and sh64 already have out of line udelay().
-
--Tony
+If it's a preemptible sleep period it should just use msleep.
