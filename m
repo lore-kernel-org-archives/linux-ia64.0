@@ -1,23 +1,44 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Fri, 16 Dec 2005 14:14:28 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 16 Dec 2005 17:33:42 +0000
 Subject: Re: [PATCH] ia64: disable preemption in udelay()
-Message-Id: <1134742468.28761.38.camel@localhost.localdomain>
+Message-Id: <20051216173342.GA12205@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
-	 <20051215225040.GA9086@agluck-lia64.sc.intel.com>
-	 <20051216010440.GA9886@agluck-lia64.sc.intel.com>
-In-Reply-To: <20051216010440.GA9886@agluck-lia64.sc.intel.com>
+References: <20051216024252.27639.63120.sendpatchset@tomahawk.engr.sgi.com> <20051216122854.GA10375@lnx-holt.americas.sgi.com>
+In-Reply-To: <20051216122854.GA10375@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
+To: Robin Holt <holt@sgi.com>
 Cc: hawkes@sgi.com, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
 
-On Iau, 2005-12-15 at 17:04 -0800, Luck, Tony wrote:
-> Being out-of-line would reduce accuracy, but this would only be
-> significant when the sleep is for a very small number of microseconds.
+On Fri, Dec 16, 2005 at 06:28:54AM -0600, Robin Holt wrote:
+> > +#define SMALLUSECS 100
+> 
+> John, I did not see your posts until this had already made it out.
+> I would think that the folks running realtime applications would expect
+> udelay to hold off for even shorter periods of time.  I would expect
+> something along the line of 20 or 25 uSec.
 
-Even then its a predicted branch to code that will probably be in cache
-so really ought to have no material impact.
+A good question ... I'm going to put John's change in as-is for now so
+that 2.6.15 can benefit from the reduced code size of the out-of-line
+and avoid the ugly bug when preemption is enabled on a drifty system.
 
+We can make fine tune changes to the udelay() implementation after we
+get some data on what is needed.
 
+> How much drift would you expect from this?  I have not tried this, but
+> what about something more along the lines of:
+> 
+> #define MAX_USECS_WHILE_NOT_PREMPTIBLE	20
+
+As we reduce the non-preemtible window drift in my version of udelay()
+would get worse ... but I haven't done any measurements on how much worse.
+
+> 		timeout += next * local_cpu_data->cyc_per_usec;
+> 		while (ia64_get_itc() < timeout)
+> 			cpu_relax();
+
+Bad news if your ar.itc wraps around (less than four centuries of uptime
+at 1.6GHz :-)
+
+-Tony
