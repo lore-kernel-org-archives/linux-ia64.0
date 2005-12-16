@@ -1,79 +1,32 @@
-From: hawkes@sgi.com
-Date: Fri, 16 Dec 2005 02:42:52 +0000
+From: Lee Revell <rlrevell@joe-job.com>
+Date: Fri, 16 Dec 2005 03:19:11 +0000
 Subject: Re: [PATCH] ia64: disable preemption in udelay()
-Message-Id: <20051216024252.27639.63120.sendpatchset@tomahawk.engr.sgi.com>
+Message-Id: <1134703152.12086.231.camel@mindpipe>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
-In-Reply-To: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
+	 <20051215225040.GA9086@agluck-lia64.sc.intel.com>
+	 <Pine.LNX.4.64.0512151750500.1678@montezuma.fsmlabs.com>
+	 <1134698636.12086.222.camel@mindpipe>
+	 <00b201c601e6$30c87ff0$d6069aa3@johnhaonw7lw1r>
+In-Reply-To: <00b201c601e6$30c87ff0$d6069aa3@johnhaonw7lw1r>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, hawkes@sgi.com, Dimitri Sivanich <sivanich@sgi.com>
+To: John Hawkes <hawkes@sgi.com>
+Cc: Zwane Mwaikambo <zwane@arm.linux.org.uk>, "Luck, Tony" <tony.luck@intel.com>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
 
-Resubmitting using Tony Luck's suggested alternative.
+On Thu, 2005-12-15 at 18:12 -0800, John Hawkes wrote:
+> From: "Lee Revell" <rlrevell@joe-job.com>
+> > There are 10 drivers that udelay(10000) or more and a TON that
+> > udelay(1000).  Turning those all into 1ms+ non preemptible sections will
+> > be very bad.
+> 
+> What about 100usec non-preemptible sections?
 
-The udelay() inline for ia64 uses the ITC.  If CONFIG_PREEMPT is enabled
-and the platform has unsynchronized ITCs and the calling task migrates
-to another CPU while doing the udelay loop, then the effective delay may
-be too short or very, very long.
+That will disappear into the noise, in normal usage these happen all the
+time.  500usec non preemptible regions are rare (~1 hour to show up) and
+1ms very rare (24 hours).  My tests show that 300 usec or so is a good
+place to draw the line if you don't want it to show up in latency tests.
 
-This patch disables preemption around 100 usec chunks of the overall
-desired udelay time.  This minimizes preemption-holdoffs.
+Lee
 
-Signed-off-by: John Hawkes <hawkes@sgi.com>
-
-Index: linux/include/asm-ia64/delay.h
-=================================--- linux.orig/include/asm-ia64/delay.h	2005-12-15 15:34:16.000000000 -0800
-+++ linux/include/asm-ia64/delay.h	2005-12-15 15:34:57.000000000 -0800
-@@ -84,14 +84,6 @@
- 	ia64_delay_loop (loops - 1);
- }
- 
--static __inline__ void
--udelay (unsigned long usecs)
--{
--	unsigned long start = ia64_get_itc();
--	unsigned long cycles = usecs*local_cpu_data->cyc_per_usec;
--
--	while (ia64_get_itc() - start < cycles)
--		cpu_relax();
--}
-+extern void udelay (unsigned long usecs);
- 
- #endif /* _ASM_IA64_DELAY_H */
-Index: linux/arch/ia64/kernel/time.c
-=================================--- linux.orig/arch/ia64/kernel/time.c	2005-12-15 15:34:16.000000000 -0800
-+++ linux/arch/ia64/kernel/time.c	2005-12-15 15:34:57.000000000 -0800
-@@ -249,3 +249,31 @@
- 	 */
- 	set_normalized_timespec(&wall_to_monotonic, -xtime.tv_sec, -xtime.tv_nsec);
- }
-+
-+#define SMALLUSECS 100
-+
-+void
-+udelay (unsigned long usecs)
-+{
-+	unsigned long start;
-+	unsigned long cycles;
-+	unsigned long smallusecs;
-+
-+	/*
-+	 * Execute the non-preemptible delay loop (because the ITC might
-+	 * not be synchronized between CPUS) in relatively short time
-+	 * chunks, allowing preemption between the chunks.
-+	 */
-+	while (usecs > 0) {
-+		smallusecs = (usecs > SMALLUSECS) ? SMALLUSECS : usecs;
-+		preempt_disable();
-+		cycles = smallusecs*local_cpu_data->cyc_per_usec;
-+		start = ia64_get_itc();
-+
-+		while (ia64_get_itc() - start < cycles)
-+			cpu_relax();
-+
-+		preempt_enable();
-+		usecs -= smallusecs;
-+	}
-+}
