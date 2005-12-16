@@ -1,51 +1,19 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Date: Fri, 16 Dec 2005 02:03:55 +0000
+From: "John Hawkes" <hawkes@sgi.com>
+Date: Fri, 16 Dec 2005 02:12:39 +0000
 Subject: Re: [PATCH] ia64: disable preemption in udelay()
-Message-Id: <1134698636.12086.222.camel@mindpipe>
+Message-Id: <00b201c601e6$30c87ff0$d6069aa3@johnhaonw7lw1r>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com>
-	 <20051215225040.GA9086@agluck-lia64.sc.intel.com>
-	 <Pine.LNX.4.64.0512151750500.1678@montezuma.fsmlabs.com>
-In-Reply-To: <Pine.LNX.4.64.0512151750500.1678@montezuma.fsmlabs.com>
+References: <20051214232526.9039.15753.sendpatchset@tomahawk.engr.sgi.com> <20051215225040.GA9086@agluck-lia64.sc.intel.com> <Pine.LNX.4.64.0512151750500.1678@montezuma.fsmlabs.com> <1134698636.12086.222.camel@mindpipe>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Cc: "Luck, Tony" <tony.luck@intel.com>, hawkes@sgi.com, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
+To: Lee Revell <rlrevell@joe-job.com>, Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Keith Owens <kaos@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>
 
-On Thu, 2005-12-15 at 17:52 -0800, Zwane Mwaikambo wrote:
-> On Thu, 15 Dec 2005, Luck, Tony wrote:
-> 
-> > On Wed, Dec 14, 2005 at 03:25:26PM -0800, hawkes@sgi.com wrote:
-> > > Sending this to a wider audience:
-> > > 
-> > > The udelay() inline for ia64 uses the ITC.  If CONFIG_PREEMPT is enabled
-> > > and the platform has unsynchronized ITCs and the calling task migrates
-> > > to another CPU while doing the udelay loop, then the effective delay may
-> > > be too short or very, very long.
-> > > 
-> > > The most simple fix is to disable preemption around the udelay looping.
-> > > The downside is that this inhibits realtime preemption for cases of long
-> > > udelays.  One datapoint:  an SGI realtime engineer reports that if
-> > > CONFIG_PREEMPT is turned off, that no significant holdoffs are
-> > > are attributed to udelay().
-> > > 
-> > > I am reluctant to propose a much more complicated patch (that disables
-> > > preemption only for "short" delays, and uses the global RTC as the time
-> > > base for longer, preemptible delays) unless this patch introduces
-> > > significant and unacceptable preemption delays.
-> > 
-> > Stuck between a rock and the proverbial hard place.
-> > 
-> > I think that the more complex patch is needed though.  If some crazy
-> > driver has a pre-emptible udelay(10000), then you really don't want
-> > to spin for that long without allowing preemption.
-> 
-> If it's a preemptible sleep period it should just use msleep.
+From: "Lee Revell" <rlrevell@joe-job.com>
+> There are 10 drivers that udelay(10000) or more and a TON that
+> udelay(1000).  Turning those all into 1ms+ non preemptible sections will
+> be very bad.
 
-There are 10 drivers that udelay(10000) or more and a TON that
-udelay(1000).  Turning those all into 1ms+ non preemptible sections will
-be very bad.
-
-Lee
-
+What about 100usec non-preemptible sections?
+John Hawkes
