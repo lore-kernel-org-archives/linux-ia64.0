@@ -1,123 +1,170 @@
-From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Wed, 14 Dec 2005 04:26:11 +0000
-Subject: FW: [PATCH 1/2] Export cpu info by sysfs
-Message-Id: <8126E4F969BA254AB43EA03C59F44E840431BBBE@pdsmsx404>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C60066.83478E61"
+From: Russ Anderson <rja@efs.americas.sgi.com>
+Date: Fri, 16 Dec 2005 23:19:01 +0000
+Subject: [patch] Altix BTE error handling fixes
+Message-Id: <200512162319.jBGNJ1QZ026941@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+[patch] Altix BTE error handling fixes
 
-------_=_NextPart_001_01C60066.83478E61
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: quoted-printable
+Altix (shub2) pushes the BTE clean-up into SAL.
+This patch correctly interfaces with the now implemented SAL call.
+It also fixes a bug when delaying clean-up to allow busy BTEs to 
+complete (or error out).
 
-Sorry. The patch should be sent to ia64 mail list.
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
------Original Message-----
-From: linux-kernel-owner@vger.kernel.org =
-[mailto:linux-kernel-owner@vger.kernel.org] On Behalf Of Zhang, Yanmin
-Sent: 2005=C4=EA12=D4=C214=C8=D5 11:30
-To: linux-kernel@vger.kernel.org
-Cc: Pallipadi, Venkatesh
-Subject: [PATCH 1/2] Export cpu info by sysfs
+------------
+ arch/ia64/sn/kernel/bte_error.c |   58 +++++++++++++++++++++++++++++++++-------
+ arch/ia64/sn/kernel/huberror.c  |    9 +++---
+ include/asm-ia64/sn/sn_sal.h    |    2 -
+ 3 files changed, 54 insertions(+), 15 deletions(-)
 
-I worked out 2 patches to export cpu topology and cache info by sysfs.
-
-The first patch is to export cpu topology info including below items
-(attributes) which are similar to /proc/cpuinfo.
-
-/sys/devices/system/cpu/cpuX/topology/physical_package_id(representing
-the physical package id of  cpu X)
-/sys/devices/system/cpu/cpuX/topology/core_id (representing the cpu core
-id  to cpu X)
-/sys/devices/system/cpu/cpuX/topology/thread_id (representing the cpu
-thread id  to cpu X)
-/sys/devices/system/cpu/cpuX/topology/thread_siblings (representing the
-thread siblings to cpu X)
-/sys/devices/system/cpu/cpuX/topology/core_siblings (represeting the
-core siblings to cpu X)
-
-Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
-
-
-------_=_NextPart_001_01C60066.83478E61
-Content-Type: application/octet-stream;
-	name="export_topology_2.6.14_mm1_ia64.v5.patch"
-Content-Transfer-Encoding: base64
-Content-Description: export_topology_2.6.14_mm1_ia64.v5.patch
-Content-Disposition: attachment;
-	filename="export_topology_2.6.14_mm1_ia64.v5.patch"
-
-ZGlmZiAtTnJhdXAgbGludXgtMi42LjE0X21tMS9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMg
-bGludXgtMi42LjE0X21tMV90b3BvbG9neS9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMKLS0t
-IGxpbnV4LTIuNi4xNF9tbTEvYXJjaC9pYTY0L2tlcm5lbC90b3BvbG9neS5jCTIwMDUtMTEtMDcg
-MDI6MzQ6MDYuMDAwMDAwMDAwICswODAwCisrKyBsaW51eC0yLjYuMTRfbW0xX3RvcG9sb2d5L2Fy
-Y2gvaWE2NC9rZXJuZWwvdG9wb2xvZ3kuYwkyMDA1LTEyLTEzIDE4OjI1OjA4LjAwMDAwMDAwMCAr
-MDgwMApAQCAtOTgsNCArOTgsMTUxIEBAIG91dDoKIAlyZXR1cm4gZXJyOwogfQogCi1fX2luaXRj
-YWxsKHRvcG9sb2d5X2luaXQpOworc3Vic3lzX2luaXRjYWxsKHRvcG9sb2d5X2luaXQpOworCisK
-KyNpZiBkZWZpbmVkKENPTkZJR19TWVNGUykKKworI2lmIGRlZmluZWQoQ09ORklHX1NNUCkKKwor
-LyoKKyAqIEV4cG9ydCBjcHUgdG9wb2xvZ3kgdGhyb3VnaCBzeXNmcworICovCisKKy8qIHBvaW50
-ZXIgdG8ga29iamVjdCBmb3IgY3B1WC90b3BvbG9neSAqLworc3RhdGljIHN0cnVjdCBrb2JqZWN0
-ICogY3B1X3RvcG9sb2d5X2tvYmplY3Q7CisKKyNkZWZpbmUgZGVmaW5lX29uZV9ybyhfbmFtZSkg
-XAorc3RhdGljIHN0cnVjdCBhdHRyaWJ1dGUgX25hbWUgPSBcCisJey5uYW1lID0gX19zdHJpbmdp
-ZnkoX25hbWUpLCAubW9kZSA9IDA0NDQsIC5vd25lciA9IFRISVNfTU9EVUxFfQorCitkZWZpbmVf
-b25lX3JvKHBoeXNpY2FsX3BhY2thZ2VfaWQpOworZGVmaW5lX29uZV9ybyhjb3JlX2lkKTsKK2Rl
-ZmluZV9vbmVfcm8odGhyZWFkX2lkKTsKK2RlZmluZV9vbmVfcm8odGhyZWFkX3NpYmxpbmdzKTsK
-K2RlZmluZV9vbmVfcm8oY29yZV9zaWJsaW5ncyk7CisKK3N0YXRpYyBzdHJ1Y3QgYXR0cmlidXRl
-ICogdG9wb2xvZ3lfZGVmYXVsdF9hdHRyc1tdID0geworCSZwaHlzaWNhbF9wYWNrYWdlX2lkLAor
-CSZjb3JlX2lkLAorCSZ0aHJlYWRfaWQsCisJJnRocmVhZF9zaWJsaW5ncywKKwkmY29yZV9zaWJs
-aW5ncywKKwlOVUxMCit9OworCitzdGF0aWMgc3NpemVfdCB0b3BvbG9neV9zaG93KHN0cnVjdCBr
-b2JqZWN0ICoga29iaiwgc3RydWN0IGF0dHJpYnV0ZSAqIGF0dHIsIGNoYXIgKiBidWYpCit7CisJ
-dW5zaWduZWQgaW50IGNwdTsKKwlzc2l6ZV90IGxlbiA9IC0xOworCisJY3B1ID0gY29udGFpbmVy
-X29mKGtvYmotPnBhcmVudCwgc3RydWN0IHN5c19kZXZpY2UsIGtvYmopLT5pZDsKKworCWlmIChh
-dHRyID09ICZwaHlzaWNhbF9wYWNrYWdlX2lkKQorCQlyZXR1cm4gc3ByaW50ZihidWYsICIlZFxu
-IiwgY3B1X2RhdGEoY3B1KS0+c29ja2V0X2lkKTsKKwlpZiAoYXR0ciA9PSAmY29yZV9pZCkKKwkJ
-cmV0dXJuIHNwcmludGYoYnVmLCAiJWRcbiIsIGNwdV9kYXRhKGNwdSktPmNvcmVfaWQpOworCWlm
-IChhdHRyID09ICZ0aHJlYWRfaWQpCisJCXJldHVybiBzcHJpbnRmKGJ1ZiwgIiVkXG4iLCBjcHVf
-ZGF0YShjcHUpLT50aHJlYWRfaWQpOworCWlmIChhdHRyID09ICZ0aHJlYWRfc2libGluZ3MpIHsK
-KwkJbGVuID0gY3B1bWFza19zY25wcmludGYoYnVmLCBOUl9DUFVTKzEsIGNwdV9zaWJsaW5nX21h
-cFtjcHVdKTsKKwkJbGVuICs9IHNwcmludGYgKGJ1ZiArIGxlbiwgIlxuIik7CisJCXJldHVybiBs
-ZW47CisJfQorCWlmIChhdHRyID09ICZjb3JlX3NpYmxpbmdzKSB7CisJCWxlbiA9IGNwdW1hc2tf
-c2NucHJpbnRmKGJ1ZiwgTlJfQ1BVUysxLCBjcHVfY29yZV9tYXBbY3B1XSk7CisJCWxlbiArPSBz
-cHJpbnRmIChidWYgKyBsZW4sICJcbiIpOworCQlyZXR1cm4gbGVuOworCX0KKworCXJldHVybiBs
-ZW47Cit9CisKK3N0YXRpYyBzc2l6ZV90IHRvcG9sb2d5X3N0b3JlKHN0cnVjdCBrb2JqZWN0ICog
-a29iaiwgc3RydWN0IGF0dHJpYnV0ZSAqIGF0dHIsCisJCSAgICAgY29uc3QgY2hhciAqIGJ1Ziwg
-c2l6ZV90IGNvdW50KQoreworCXJldHVybiAwOworfQorCitzdGF0aWMgc3RydWN0IHN5c2ZzX29w
-cyB0b3BvbG9neV9zeXNmc19vcHMgPSB7CisJLnNob3cgICA9IHRvcG9sb2d5X3Nob3csCisJLnN0
-b3JlICA9IHRvcG9sb2d5X3N0b3JlLAorfTsKKworc3RhdGljIHN0cnVjdCBrb2JqX3R5cGUgdG9w
-b2xvZ3lfa3R5cGUgPSB7CisJLnN5c2ZzX29wcwk9ICZ0b3BvbG9neV9zeXNmc19vcHMsCisJLmRl
-ZmF1bHRfYXR0cnMJPSB0b3BvbG9neV9kZWZhdWx0X2F0dHJzLAorfTsKKworLyogQWRkL1JlbW92
-ZSBjcHVfdG9wb2xvZ3kgaW50ZXJmYWNlIGZvciBDUFUgZGV2aWNlICovCitzdGF0aWMgaW50IF9f
-Y3B1aW5pdCB0b3BvbG9neV9hZGRfZGV2KHN0cnVjdCBzeXNfZGV2aWNlICogc3lzX2RldikKK3sK
-Kwl1bnNpZ25lZCBpbnQgY3B1ID0gc3lzX2Rldi0+aWQ7CisKKwltZW1zZXQoJmNwdV90b3BvbG9n
-eV9rb2JqZWN0W2NwdV0sIDAsIHNpemVvZihzdHJ1Y3Qga29iamVjdCkpOworCisJY3B1X3RvcG9s
-b2d5X2tvYmplY3RbY3B1XS5wYXJlbnQgPSAmc3lzX2Rldi0+a29iajsKKwlrb2JqZWN0X3NldF9u
-YW1lKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdLCAiJXMiLCAidG9wb2xvZ3kiKTsKKwljcHVf
-dG9wb2xvZ3lfa29iamVjdFtjcHVdLmt0eXBlID0gJnRvcG9sb2d5X2t0eXBlOworCisJcmV0dXJu
-ICBrb2JqZWN0X3JlZ2lzdGVyKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdKTsKK30KKworc3Rh
-dGljIGludCBfX2NwdWV4aXQgdG9wb2xvZ3lfcmVtb3ZlX2RldihzdHJ1Y3Qgc3lzX2RldmljZSAq
-IHN5c19kZXYpCit7CisJdW5zaWduZWQgaW50IGNwdSA9IHN5c19kZXYtPmlkOworCisJa29iamVj
-dF91bnJlZ2lzdGVyKCZjcHVfdG9wb2xvZ3lfa29iamVjdFtjcHVdKTsKKworCXJldHVybiAwOwor
-fQorCitzdGF0aWMgaW50IF9fY3B1aW5pdCB0b3BvbG9neV9jcHVfY2FsbGJhY2soc3RydWN0IG5v
-dGlmaWVyX2Jsb2NrICpuZmIsCisJCXVuc2lnbmVkIGxvbmcgYWN0aW9uLCB2b2lkICpoY3B1KQor
-eworCXVuc2lnbmVkIGludCBjcHUgPSAodW5zaWduZWQgbG9uZyloY3B1OworCXN0cnVjdCBzeXNf
-ZGV2aWNlICpzeXNfZGV2OworCisJc3lzX2RldiA9IGdldF9jcHVfc3lzZGV2KGNwdSk7CisJc3dp
-dGNoIChhY3Rpb24pIHsKKwkJY2FzZSBDUFVfT05MSU5FOgorCQkJdG9wb2xvZ3lfYWRkX2Rldihz
-eXNfZGV2KTsKKwkJCWJyZWFrOworI2lmZGVmCUNPTkZJR19IT1RQTFVHX0NQVQorCQljYXNlIENQ
-VV9ERUFEOgorCQkJdG9wb2xvZ3lfcmVtb3ZlX2RldihzeXNfZGV2KTsKKwkJCWJyZWFrOworI2Vu
-ZGlmCisJfQorCXJldHVybiBOT1RJRllfT0s7Cit9CisKK3N0YXRpYyBzdHJ1Y3Qgbm90aWZpZXJf
-YmxvY2sgdG9wb2xvZ3lfY3B1X25vdGlmaWVyID0KK3sKKwkubm90aWZpZXJfY2FsbCA9IHRvcG9s
-b2d5X2NwdV9jYWxsYmFjaywKK307CisKK3N0YXRpYyBpbnQgX19jcHVpbml0IHRvcG9sb2d5X3N5
-c2ZzX2luaXQodm9pZCkKK3sKKwlpbnQgaTsKKworCWNwdV90b3BvbG9neV9rb2JqZWN0ID0ga21h
-bGxvYyhzaXplb2Yoc3RydWN0IGtvYmplY3QpICogTlJfQ1BVUywKKwkJCUdGUF9LRVJORUwpOwor
-CWlmICghY3B1X3RvcG9sb2d5X2tvYmplY3QpCisJCXJldHVybiAtRU5PTUVNOworCisJZm9yX2Vh
-Y2hfb25saW5lX2NwdShpKSB7CisJCXRvcG9sb2d5X2NwdV9jYWxsYmFjaygmdG9wb2xvZ3lfY3B1
-X25vdGlmaWVyLCBDUFVfT05MSU5FLAorCQkJCSh2b2lkICopKGxvbmcpaSk7CisJfQorCisJcmVn
-aXN0ZXJfY3B1X25vdGlmaWVyKCZ0b3BvbG9neV9jcHVfbm90aWZpZXIpOworCisJcmV0dXJuIDA7
-Cit9CisKK2RldmljZV9pbml0Y2FsbCh0b3BvbG9neV9zeXNmc19pbml0KTsKKworI2VuZGlmIC8v
-Q09ORklHX1NNUAorI2VuZGlmCS8vQ09ORklHX1NZU0ZTCisK
-
-------_=_NextPart_001_01C60066.83478E61--
+Index: test/include/asm-ia64/sn/sn_sal.h
+=================================--- test.orig/include/asm-ia64/sn/sn_sal.h	2005-12-14 12:58:15.270315202 -0600
++++ test/include/asm-ia64/sn/sn_sal.h	2005-12-16 13:33:45.254146655 -0600
+@@ -1100,7 +1100,7 @@ ia64_sn_bte_recovery(nasid_t nasid)
+ 	struct ia64_sal_retval rv;
+ 
+ 	rv.status = 0;
+-	SAL_CALL_NOLOCK(rv, SN_SAL_BTE_RECOVER, 0, 0, 0, 0, 0, 0, 0);
++	SAL_CALL_NOLOCK(rv, SN_SAL_BTE_RECOVER, (u64)nasid, 0, 0, 0, 0, 0, 0);
+ 	if (rv.status = SALRET_NOT_IMPLEMENTED)
+ 		return 0;
+ 	return (int) rv.status;
+Index: test/arch/ia64/sn/kernel/bte_error.c
+=================================--- test.orig/arch/ia64/sn/kernel/bte_error.c	2005-12-14 12:58:08.035675745 -0600
++++ test/arch/ia64/sn/kernel/bte_error.c	2005-12-16 15:31:18.382816725 -0600
+@@ -33,7 +33,7 @@ void bte_error_handler(unsigned long);
+  * Wait until all BTE related CRBs are completed
+  * and then reset the interfaces.
+  */
+-void shub1_bte_error_handler(unsigned long _nodepda)
++int shub1_bte_error_handler(unsigned long _nodepda)
+ {
+ 	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+ 	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
+@@ -53,7 +53,7 @@ void shub1_bte_error_handler(unsigned lo
+ 	    (err_nodepda->bte_if[1].bh_error = BTE_SUCCESS)) {
+ 		BTE_PRINTK(("eh:%p:%d Nothing to do.\n", err_nodepda,
+ 			    smp_processor_id()));
+-		return;
++		return 1;
+ 	}
+ 
+ 	/* Determine information about our hub */
+@@ -81,7 +81,7 @@ void shub1_bte_error_handler(unsigned lo
+ 		mod_timer(recovery_timer, HZ * 5);
+ 		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
+ 			    smp_processor_id()));
+-		return;
++		return 1;
+ 	}
+ 	if (icmr.ii_icmr_fld_s.i_crb_vld != 0) {
+ 
+@@ -99,7 +99,7 @@ void shub1_bte_error_handler(unsigned lo
+ 				BTE_PRINTK(("eh:%p:%d Valid %d, Giving up\n",
+ 					    err_nodepda, smp_processor_id(),
+ 					    i));
+-				return;
++				return 1;
+ 			}
+ 		}
+ 	}
+@@ -124,6 +124,42 @@ void shub1_bte_error_handler(unsigned lo
+ 	REMOTE_HUB_S(nasid, IIO_IBCR, ibcr.ii_ibcr_regval);
+ 
+ 	del_timer(recovery_timer);
++	return 0;
++}
++
++/*
++ * Wait until all BTE related CRBs are completed
++ * and then reset the interfaces.
++ */
++int shub2_bte_error_handler(unsigned long _nodepda)
++{
++	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
++	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
++	struct bteinfo_s *bte;
++	nasid_t nasid;
++	u64 status;
++	int i;
++
++	nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
++
++	/*
++	 * Verify that all the BTEs are complete
++	 */
++	for (i = 0; i < BTES_PER_NODE; i++) {
++		bte = &err_nodepda->bte_if[i];
++		status = BTE_LNSTAT_LOAD(bte);
++		if ((status & IBLS_ERROR) || !(status & IBLS_BUSY))
++			continue;
++		mod_timer(recovery_timer, HZ * 5);
++		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
++			    smp_processor_id()));
++		return 1;
++	}
++	if (ia64_sn_bte_recovery(nasid))
++		panic("bte_error_handler(): Fatal BTE Error");
++
++	del_timer(recovery_timer);
++	return 0;
+ }
+ 
+ /*
+@@ -135,7 +171,6 @@ void bte_error_handler(unsigned long _no
+ 	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+ 	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
+ 	int i;
+-	nasid_t nasid;
+ 	unsigned long irq_flags;
+ 	volatile u64 *notify;
+ 	bte_result_t bh_error;
+@@ -160,12 +195,15 @@ void bte_error_handler(unsigned long _no
+ 	}
+ 
+ 	if (is_shub1()) {
+-		shub1_bte_error_handler(_nodepda);
++		if (shub1_bte_error_handler(_nodepda)) {
++			spin_unlock_irqrestore(recovery_lock, irq_flags);
++			return;
++		}
+ 	} else {
+-		nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
+-
+-		if (ia64_sn_bte_recovery(nasid))
+-			panic("bte_error_handler(): Fatal BTE Error");
++		if (shub2_bte_error_handler(_nodepda)) {
++			spin_unlock_irqrestore(recovery_lock, irq_flags);
++			return;
++		}
+ 	}
+ 
+ 	for (i = 0; i < BTES_PER_NODE; i++) {
+Index: test/arch/ia64/sn/kernel/huberror.c
+=================================--- test.orig/arch/ia64/sn/kernel/huberror.c	2005-12-14 12:58:08.035675745 -0600
++++ test/arch/ia64/sn/kernel/huberror.c	2005-12-16 14:50:29.315025175 -0600
+@@ -32,13 +32,14 @@ static irqreturn_t hub_eint_handler(int 
+ 	ret_stuff.v0 = 0;
+ 	hubdev_info = (struct hubdev_info *)arg;
+ 	nasid = hubdev_info->hdi_nasid;
+-	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_HUB_ERROR_INTERRUPT,
++
++	if (is_shub1()) {
++		SAL_CALL_NOLOCK(ret_stuff, SN_SAL_HUB_ERROR_INTERRUPT,
+ 			(u64) nasid, 0, 0, 0, 0, 0, 0);
+ 
+-	if ((int)ret_stuff.v0)
+-		panic("hubii_eint_handler(): Fatal TIO Error");
++		if ((int)ret_stuff.v0)
++			panic("hubii_eint_handler(): Fatal TIO Error");
+ 
+-	if (is_shub1()) {
+ 		if (!(nasid & 1)) /* Not a TIO, handle CRB errors */
+ 			(void)hubiio_crb_error_handler(hubdev_info);
+ 	} else 
