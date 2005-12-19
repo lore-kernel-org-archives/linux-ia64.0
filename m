@@ -1,75 +1,35 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 06 Dec 2005 17:24:49 +0000
-Subject: [PATCH 2/2] Remove debris from old zone reclaim
-Message-Id: <20051206172449.18786.31298.sendpatchset@schroedinger.engr.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Mon, 19 Dec 2005 21:52:08 +0000
+Subject: Workaround genksyms not handling an EXPORT_SYMBOL() on a struct nodepda_s *.
+Message-Id: <20051219215208.GB25888@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051206172444.18786.30131.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20051206172444.18786.30131.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ak@suse.de, torvalds@osdl.org, Christoph Lameter <clameter@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-Remove debris of old zone reclaim
+Tony,
 
-Removes the leftovers from prior attempts to implement Zone reclaim.
+The following works around a problem in genksyms.  I do not understand
+flex and bison.  For the short term, I was wondering if the following
+patch would be acceptable.  I would hope it is not a final solution,
+but it at least generates a CRC for __sn_nodepda.
 
-sys_set_zone_reclaim is not rechable in 2.6.14.
+Thanks,
+Robin
 
-The reclaim_pages field in struct zone is only used by sys_set_zone_reclaim.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.15-rc4/include/linux/mmzone.h
-=================================--- linux-2.6.15-rc4.orig/include/linux/mmzone.h	2005-11-30 22:25:15.000000000 -0800
-+++ linux-2.6.15-rc4/include/linux/mmzone.h	2005-12-06 09:17:58.000000000 -0800
-@@ -150,11 +150,6 @@ struct zone {
- 	unsigned long		pages_scanned;	   /* since last reclaim */
- 	int			all_unreclaimable; /* All pages pinned */
+Index: linux-2.6/arch/ia64/sn/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2005-12-13 02:30:25.579260799 -0600
++++ linux-2.6/arch/ia64/sn/kernel/setup.c	2005-12-19 15:02:09.574333683 -0600
+@@ -77,7 +77,9 @@ EXPORT_PER_CPU_SYMBOL(__sn_hub_info);
+ DEFINE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_NUMNODES]);
+ EXPORT_PER_CPU_SYMBOL(__sn_cnodeid_to_nasid);
  
--	/*
--	 * Does the allocator try to reclaim pages from the zone as soon
--	 * as it fails a watermark_ok() in __alloc_pages?
--	 */
--	int			reclaim_pages;
- 	/* A count of how many reclaimers are scanning this zone */
- 	atomic_t		reclaim_in_progress;
+-DEFINE_PER_CPU(struct nodepda_s *, __sn_nodepda);
++/* Really ugly hack to get genksyms to produce a CRC value. */
++typedef struct nodepda_s * nodepda_s_p;
++DEFINE_PER_CPU(nodepda_s_p, __sn_nodepda);
+ EXPORT_PER_CPU_SYMBOL(__sn_nodepda);
  
-Index: linux-2.6.15-rc4/mm/vmscan.c
-=================================--- linux-2.6.15-rc4.orig/mm/vmscan.c	2005-12-06 09:10:00.000000000 -0800
-+++ linux-2.6.15-rc4/mm/vmscan.c	2005-12-06 09:17:58.000000000 -0800
-@@ -1400,33 +1400,3 @@ int zone_reclaim(struct zone *zone, gfp_
- 	return sc.nr_reclaimed > (1 << order);
- }
- 
--asmlinkage long sys_set_zone_reclaim(unsigned int node, unsigned int zone,
--				     unsigned int state)
--{
--	struct zone *z;
--	int i;
--
--	if (!capable(CAP_SYS_ADMIN))
--		return -EACCES;
--
--	if (node >= MAX_NUMNODES || !node_online(node))
--		return -EINVAL;
--
--	/* This will break if we ever add more zones */
--	if (!(zone & (1<<ZONE_DMA|1<<ZONE_NORMAL|1<<ZONE_HIGHMEM)))
--		return -EINVAL;
--
--	for (i = 0; i < MAX_NR_ZONES; i++) {
--		if (!(zone & 1<<i))
--			continue;
--
--		z = &NODE_DATA(node)->node_zones[i];
--
--		if (state)
--			z->reclaim_pages = 1;
--		else
--			z->reclaim_pages = 0;
--	}
--
--	return 0;
--}
+ char sn_system_serial_number_string[128];
