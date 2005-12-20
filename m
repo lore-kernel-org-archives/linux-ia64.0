@@ -1,190 +1,93 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 15 Dec 2005 23:15:10 +0000
-Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm available
-Message-Id: <20051215231510.GC18796@frankl.hpl.hp.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="envbJBWh7q8WU6mo"
+From: William Cohen <wcohen@nc.rr.com>
+Date: Tue, 20 Dec 2005 16:05:02 +0000
+Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm
+Message-Id: <43A82BAE.1010008@nc.rr.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com> <43A1ECDF.9040200@nc.rr.com>
-In-Reply-To: <43A1ECDF.9040200@nc.rr.com>
-To: William Cohen <wcohen@nc.rr.com>
+References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com> <43A1ECDF.9040200@nc.rr.com> <20051215231510.GC18796@frankl.hpl.hp.com>
+In-Reply-To: <20051215231510.GC18796@frankl.hpl.hp.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: eranian@hpl.hp.com
 Cc: William Cohen <wcohen@redhat.com>, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+Stephane Eranian wrote:
+> Will,
+>=20
+> Ok, I found the two bugs you ran into. I also found
+> a third one somewhat similar.
+>=20
+> Could you try the attached patch on top of what
+> you have?
+>=20
+> I will check all the copy_from/to() tomorrow.
+>=20
+> Thanks.
 
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Have you tried running the examples without the kernel module installed?=20
+I think that one of the tracebacks in the earlier email was due to that.=20
+Like the following:
 
-Will,
+Dec 20 10:39:01 trek kernel: Call Trace:
+Dec 20 10:39:01 trek kernel:  [<c0201ee7>] __pfm_create_context+0x167/0x440
+Dec 20 10:39:01 trek kernel:  [<c010400c>] __switch_to+0x15c/0x220
+Dec 20 10:39:01 trek kernel:  [<c0203f98>] sys_pfm_create_context+0x78/0xe0
+Dec 20 10:39:01 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
 
-Ok, I found the two bugs you ran into. I also found
-a third one somewhat similar.
+I tried the patch. Things are still not working on the p6 machine with=20
+the module installed. for "./task_smpl ls". The associated kernel backtrace:
 
-Could you try the attached patch on top of what
-you have?
 
-I will check all the copy_from/to() tomorrow.
+Dec 20 10:29:47 trek kernel: Unable to handle kernel paging request at=20
+virtual address 6b6b6ba7
+Dec 20 10:29:47 trek kernel:  printing eip:
+Dec 20 10:29:47 trek kernel: c0202b51
+Dec 20 10:29:47 trek kernel: *pde =3D 00000000
+Dec 20 10:29:47 trek kernel: Oops: 0000 [#1]
+Dec 20 10:29:47 trek kernel: SMP
+Dec 20 10:29:47 trek kernel: Modules linked in: perfmon_p6 ipv6 lp=20
+autofs4 rfcomm l2cap bluetooth sunrpc ipt_REJECT ipt_state ip_conntrack=20
+nfnetlink iptable_filter ip_tables dm_mirror dm_mod video button battery=20
+ac parport_pc parport snd_cs46xx snd_seq_dummy snd_emu10k1_synth=20
+snd_emux_synth snd_seq_virmidi snd_seq_midi_emul snd_seq_oss=20
+snd_seq_midi_event snd_emu10k1 snd_seq snd_rawmidi snd_pcm_oss=20
+snd_seq_device snd_mixer_oss snd_ac97_codec snd_ac97_bus snd_pcm=20
+snd_util_mem emu10k1_gp floppy gameport 3c59x snd_hwdep snd_timer snd=20
+snd_page_alloc soundcore mii uhci_hcd hw_random i2c_i801 shpchp i2c_core=20
+ext3 jbd
+Dec 20 10:29:47 trek kernel: CPU:    1
+Dec 20 10:29:47 trek kernel: EIP:    0060:[<c0202b51>]    Not tainted VLI
+Dec 20 10:29:47 trek kernel: EFLAGS: 00010282   (2.6.15-rc5-git3-perfop)
+Dec 20 10:29:47 trek kernel: EIP is at pfm_smpl_fmt_put+0x11/0x60
+Dec 20 10:29:47 trek kernel: eax: d6cc3ab0   ebx: 6b6b6b6b   ecx:=20
+d8be87a0   edx: d8be8900
+Dec 20 10:29:47 trek kernel: esi: d2434000   edi: 00000001   ebp:=20
+00000001   esp: d707cee0
+Dec 20 10:29:47 trek kernel: ds: 007b   es: 007b   ss: 0068
+Dec 20 10:29:47 trek kernel: Process task_smpl (pid: 2574,=20
+threadinfo=D707c000 task=D6cc3ab0)
+Dec 20 10:29:47 trek kernel: Stack: 00000001 c0205813 c0156569 6b000246=20
+c1336ae0 d2ab36e8 d2ab375c d7203548
+Dec 20 10:29:47 trek kernel:        00000286 00000000 00000010 00000010=20
+d2ab375c d2b8ab58 d7203548 c0172475
+Dec 20 10:29:47 trek kernel:        00000000 d2ab36e8 d7f8fb68 d2b8ab58=20
+d245dc7c d2f18664 d7276d9c 00000001
+Dec 20 10:29:47 trek kernel: Call Trace:
+Dec 20 10:29:47 trek kernel:  [<c0205813>] pfm_close+0x113/0x3d0
+Dec 20 10:29:47 trek kernel:  [<c0156569>] poison_obj+0x29/0x60
+Dec 20 10:29:47 trek kernel:  [<c0172475>] __fput+0xb5/0x1a0
+Dec 20 10:29:47 trek kernel:  [<c01625e9>] remove_vma+0x39/0x50
+Dec 20 10:29:47 trek kernel:  [<c016477b>] exit_mmap+0xab/0x100
+Dec 20 10:29:47 trek kernel:  [<c0123423>] mmput+0x33/0xa0
+Dec 20 10:29:47 trek kernel:  [<c0128816>] do_exit+0xf6/0x3d0
+Dec 20 10:29:47 trek kernel:  [<c0109da8>] do_syscall_trace+0x218/0x22a
+Dec 20 10:29:47 trek kernel:  [<c0128b67>] do_group_exit+0x37/0xa0
+Dec 20 10:29:47 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
+Dec 20 10:29:47 trek kernel: Code: 00 01 00 00 ff 00 b8 80 4c 44 c0 e8=20
+aa d2 16 00 89 d8 5b c3 31 db eb ee 89 f6 85 c0 53 89 c3 74 39 b8 80 4c=20
+44 c0 e8 6f d2 16 00 <8b> 53 3c 85 d2 74 1b b8 00 f0 ff ff 21 e0 8b 40=20
+10 c1 e0 07 8d
+Dec 20 10:29:47 trek kernel:  <1>Fixing recursive fault but reboot is=20
+needed!
 
-Thanks.
-
-On Thu, Dec 15, 2005 at 05:23:27PM -0500, William Cohen wrote:
-> >>>I have released a new version of the perfmon base package.
-> >>>This release is relative to 2.6.15-rc5-git3.
-> >>>
-> >>>I have also updated the library, libpfm-3.2, to match the kernel
-> >>>level changes. 
-> >>
-> >>I downloaded the new version of perfmon and the matching libpfm. I built 
-> >>everything on a p6 based machine. The kernel booted fine. I tried the 
-> >>task_smpl_user in the libpfm examples. That crashed the kernel. What was 
-> >>on the xterm:
-> >>
-> >>$ ./task_smpl_user ls
-> >>measuring at plm=0x8
-> >>programming 2 PMCS and 2 PMDS
-> >>Segmentation fault
-> >>
-> >
-> >I have not tried this particular test program in a long time. I nfact, I 
-> >would
-> >like to remove it from the suite because it does not make any real sense.
-> >In any case, it should not crash the kernel. I will investigate this.
-> >I don't think it it related to you using a P6. This is more the case of
-> >an error in the cleanup code in case the context cannot be created 
-> >properly.
-> 
-> If it just seg faulted the user space program I wouldn't care either, 
-> but when it crashed the kernel I thought that you might like to know 
-> about that.
-> 
-> >Does task_smpl work properly?
-> 
-> task_smpl gave data, but appeared to get a kernel oops. Output from xterm:
-> 
-> Dec 15 17:13:00 trek kernel: perfmon_p6: family=6 x86_model=8
-> Dec 15 17:13:00 trek kernel: P6 core PMU detected
-> Dec 15 17:13:00 trek kernel: perfmon: Intel P6 Family Processor PMU 
-> detected, 2 PMCs, 2 PMDs, 2 counters (31 bits) RW_max:2
-> Dec 15 17:13:00 trek kernel: Intel P6 Family Processor PMU installed
-> Dec 15 17:13:22 trek kernel: Debug: sleeping function called from 
-> invalid context at arch/i386/lib/usercopy.c:607
-> Dec 15 17:13:22 trek kernel: in_atomic():0, irqs_disabled():1
-> Dec 15 17:13:22 trek kernel:  [<c020e4e3>] copy_to_user+0x23/0x90
-> Dec 15 17:13:22 trek kernel:  [<c0205129>] pfm_read+0xa9/0x320
-> Dec 15 17:13:22 trek kernel:  [<c0121180>] default_wake_function+0x0/0x10
-> Dec 15 17:13:22 trek kernel:  [<c0205080>] pfm_read+0x0/0x320
-> Dec 15 17:13:22 trek kernel:  [<c01713e8>] vfs_read+0xb8/0x170
-> Dec 15 17:13:22 trek kernel:  [<c0171771>] sys_read+0x41/0x70
-> Dec 15 17:13:22 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
-> Dec 15 17:13:22 trek kernel: Unable to handle kernel paging request at 
->
-> Dec 15 17:13:22 trek kernel: EIP is at pfm_smpl_fmt_put+0x11/0x60
-> Dec 15 17:13:22 trek kernel: eax: d61afab0   ebx: 6b6b6b6b   ecx: 
-> d8b3d7a0   edx: d8b3d900
-> Dec 15 17:13:22 trek kernel: esi: d1852000   edi: 00000001   ebp: 
-> 00000001   esp: d1f37ee0
-> Dec 15 17:13:22 trek kernel: ds: 007b   es: 007b   ss: 0068
-> Dec 15 17:13:22 trek kernel: Process task_smpl (pid: 2799, 
-> threadinfo=d1f37000 task=d61afab0)
-> Dec 15 17:13:22 trek kernel: Stack: 00000001 c0205803 c0156569 6b000246 
-> c13163a4 d1f935a0 d1f93614 d22ebb78
-> Dec 15 17:13:22 trek kernel:        00000286 00000000 00000010 00000010 
-> d1f93614 d1f57d3c d22ebb78 c0172475
-> Dec 15 17:13:22 trek kernel:        00000000 d1f935a0 d7f8fb68 d1f57d3c 
-> d1e1011c d2789bcc d7e45dbc 00000001
-> Dec 15 17:13:22 trek kernel: Call Trace:
-> Dec 15 17:13:22 trek kernel:  [<c0205803>] pfm_close+0x113/0x3d0
-> Dec 15 17:13:22 trek kernel:  [<c0156569>] poison_obj+0x29/0x60
-> Dec 15 17:13:22 trek kernel:  [<c0172475>] __fput+0xb5/0x1a0
-> Dec 15 17:13:22 trek kernel:  [<c01625e9>] remove_vma+0x39/0x50
-> Dec 15 17:13:22 trek kernel:  [<c016477b>] exit_mmap+0xab/0x100
-> Dec 15 17:13:22 trek kernel:  [<c0123423>] mmput+0x33/0xa0
-> Dec 15 17:13:22 trek kernel:  [<c0128816>] do_exit+0xf6/0x3d0
-> Dec 15 17:13:22 trek kernel:  [<c0109da8>] do_syscall_trace+0x218/0x22a
-> Dec 15 17:13:22 trek kernel:  [<c0128b67>] do_group_exit+0x37/0xa0
-> Dec 15 17:13:22 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
-
---envbJBWh7q8WU6mo
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="perfmon-2.6.15-rc5-git3-will.diff"
-
-diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_file.c linux-2.6.15-rc5-git3/perfmon/perfmon_file.c
---- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_file.c	2005-12-15 15:10:36.000000000 -0800
-+++ linux-2.6.15-rc5-git3/perfmon/perfmon_file.c	2005-12-15 15:06:54.000000000 -0800
-@@ -247,7 +247,7 @@
- 			loff_t *ppos)
- {
- 	struct pfm_context *ctx;
--	pfm_msg_t *msg;
-+	pfm_msg_t *msg, msg_buf;
- 	ssize_t ret;
- 	unsigned long flags;
-   	DECLARE_WAITQUEUE(wait, current);
-@@ -274,6 +274,10 @@
- 	if (size > sizeof(pfm_msg_t))
- 		size = sizeof(pfm_msg_t);
- 
-+	/*
-+	 * we must masks interrupts to avoid a race condition
-+	 * with the PMU interrupt handler.
-+	 */
- 	spin_lock_irqsave(&ctx->ctx_lock, flags);
- 
- 	if(PFM_CTXQ_EMPTY(ctx) == 0)
-@@ -348,17 +352,27 @@
- 	if (unlikely(msg == NULL))
- 		goto retry;
- 
--	DPRINT(("type=%d size=%zu\n", msg->type, size));
-+	/*
-+	 * we must make a local copy before we unlock
-+	 * to ensure that the message queue cannot fill
-+	 * (overwriting our message) up before
-+	 * we do copy_to_user() which cannot be done
-+	 * with interrupts masked.
-+	 */
-+	msg_buf = *msg;
- 
-+	DPRINT(("type=%d size=%zu\n", msg->type, size));
- 
- 	/*
- 	 * message can be truncated when size < sizeof(pfm_msg_t)
- 	 * The leftover is systematically lost
- 	 */
--	ret = -EFAULT;
--  	if(copy_to_user(buf, msg, size) == 0) ret = size;
- abort_locked:
- 	spin_unlock_irqrestore(&ctx->ctx_lock, flags);
-+
-+	ret = -EFAULT;
-+  	if(copy_to_user(buf, &msg_buf, size) == 0)
-+		ret = size;
- abort:
- 	return ret;
- }
-diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_fmt.c linux-2.6.15-rc5-git3/perfmon/perfmon_fmt.c
---- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_fmt.c	2005-12-15 15:10:36.000000000 -0800
-+++ linux-2.6.15-rc5-git3/perfmon/perfmon_fmt.c	2005-12-15 15:04:38.000000000 -0800
-@@ -67,7 +67,7 @@
- 	if (fmt == NULL)
- 		return;
- 	spin_lock(&pfm_smpl_fmt_lock);
--	module_put(fmt->owner);
-+	if (fmt->owner) module_put(fmt->owner);
- 	spin_unlock(&pfm_smpl_fmt_lock);
- }
- 
-diff -ur /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_pmu.c linux-2.6.15-rc5-git3/perfmon/perfmon_pmu.c
---- /tmp/linux-2.6.15-rc5-git3.orig/perfmon/perfmon_pmu.c	2005-12-15 15:10:36.000000000 -0800
-+++ linux-2.6.15-rc5-git3/perfmon/perfmon_pmu.c	2005-12-15 15:06:34.000000000 -0800
-@@ -286,7 +286,7 @@
- 	if (pfm_pmu_conf == NULL)
- 		return;
- 	spin_lock(&pfm_pmu_conf_lock);
--	module_put(pfm_pmu_conf->owner);
-+	if (pfm_pmu_conf->owner) module_put(pfm_pmu_conf->owner);
- 	spin_unlock(&pfm_pmu_conf_lock);
- }
- 
-
---envbJBWh7q8WU6mo--
+-Will
