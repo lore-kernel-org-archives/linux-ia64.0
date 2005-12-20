@@ -1,93 +1,19 @@
-From: William Cohen <wcohen@nc.rr.com>
-Date: Tue, 20 Dec 2005 16:05:02 +0000
-Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm
-Message-Id: <43A82BAE.1010008@nc.rr.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 20 Dec 2005 16:54:46 +0000
+Subject: Re: [Perfctr-devel] 2.6.15-rc5-git3 perfmon2 new code base + libpfm available
+Message-Id: <20051220165446.GY2361@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com> <43A1ECDF.9040200@nc.rr.com> <20051215231510.GC18796@frankl.hpl.hp.com>
-In-Reply-To: <20051215231510.GC18796@frankl.hpl.hp.com>
+References: <20051215104604.GA16937@frankl.hpl.hp.com> <43A1DE94.8050105@redhat.com> <20051215215921.GJ18331@frankl.hpl.hp.com> <43A1ECDF.9040200@nc.rr.com> <20051215231510.GC18796@frankl.hpl.hp.com> <43A82BAE.1010008@nc.rr.com>
+In-Reply-To: <43A82BAE.1010008@nc.rr.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: eranian@hpl.hp.com
-Cc: William Cohen <wcohen@redhat.com>, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: William Cohen <wcohen@nc.rr.com>
+Cc: eranian@hpl.hp.com, William Cohen <wcohen@redhat.com>, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Stephane Eranian wrote:
-> Will,
->=20
-> Ok, I found the two bugs you ran into. I also found
-> a third one somewhat similar.
->=20
-> Could you try the attached patch on top of what
-> you have?
->=20
-> I will check all the copy_from/to() tomorrow.
->=20
-> Thanks.
+On Tue, Dec 20, 2005 at 11:05:02AM -0500, William Cohen wrote:
+> Dec 20 10:29:47 trek kernel: Unable to handle kernel paging request at 
+> virtual address 6b6b6ba7
 
-Have you tried running the examples without the kernel module installed?=20
-I think that one of the tracebacks in the earlier email was due to that.=20
-Like the following:
+mm/slab.c:#define POISON_FREE   0x6b    /* for use-after-free poisoning */
 
-Dec 20 10:39:01 trek kernel: Call Trace:
-Dec 20 10:39:01 trek kernel:  [<c0201ee7>] __pfm_create_context+0x167/0x440
-Dec 20 10:39:01 trek kernel:  [<c010400c>] __switch_to+0x15c/0x220
-Dec 20 10:39:01 trek kernel:  [<c0203f98>] sys_pfm_create_context+0x78/0xe0
-Dec 20 10:39:01 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
-
-I tried the patch. Things are still not working on the p6 machine with=20
-the module installed. for "./task_smpl ls". The associated kernel backtrace:
-
-
-Dec 20 10:29:47 trek kernel: Unable to handle kernel paging request at=20
-virtual address 6b6b6ba7
-Dec 20 10:29:47 trek kernel:  printing eip:
-Dec 20 10:29:47 trek kernel: c0202b51
-Dec 20 10:29:47 trek kernel: *pde =3D 00000000
-Dec 20 10:29:47 trek kernel: Oops: 0000 [#1]
-Dec 20 10:29:47 trek kernel: SMP
-Dec 20 10:29:47 trek kernel: Modules linked in: perfmon_p6 ipv6 lp=20
-autofs4 rfcomm l2cap bluetooth sunrpc ipt_REJECT ipt_state ip_conntrack=20
-nfnetlink iptable_filter ip_tables dm_mirror dm_mod video button battery=20
-ac parport_pc parport snd_cs46xx snd_seq_dummy snd_emu10k1_synth=20
-snd_emux_synth snd_seq_virmidi snd_seq_midi_emul snd_seq_oss=20
-snd_seq_midi_event snd_emu10k1 snd_seq snd_rawmidi snd_pcm_oss=20
-snd_seq_device snd_mixer_oss snd_ac97_codec snd_ac97_bus snd_pcm=20
-snd_util_mem emu10k1_gp floppy gameport 3c59x snd_hwdep snd_timer snd=20
-snd_page_alloc soundcore mii uhci_hcd hw_random i2c_i801 shpchp i2c_core=20
-ext3 jbd
-Dec 20 10:29:47 trek kernel: CPU:    1
-Dec 20 10:29:47 trek kernel: EIP:    0060:[<c0202b51>]    Not tainted VLI
-Dec 20 10:29:47 trek kernel: EFLAGS: 00010282   (2.6.15-rc5-git3-perfop)
-Dec 20 10:29:47 trek kernel: EIP is at pfm_smpl_fmt_put+0x11/0x60
-Dec 20 10:29:47 trek kernel: eax: d6cc3ab0   ebx: 6b6b6b6b   ecx:=20
-d8be87a0   edx: d8be8900
-Dec 20 10:29:47 trek kernel: esi: d2434000   edi: 00000001   ebp:=20
-00000001   esp: d707cee0
-Dec 20 10:29:47 trek kernel: ds: 007b   es: 007b   ss: 0068
-Dec 20 10:29:47 trek kernel: Process task_smpl (pid: 2574,=20
-threadinfo=D707c000 task=D6cc3ab0)
-Dec 20 10:29:47 trek kernel: Stack: 00000001 c0205813 c0156569 6b000246=20
-c1336ae0 d2ab36e8 d2ab375c d7203548
-Dec 20 10:29:47 trek kernel:        00000286 00000000 00000010 00000010=20
-d2ab375c d2b8ab58 d7203548 c0172475
-Dec 20 10:29:47 trek kernel:        00000000 d2ab36e8 d7f8fb68 d2b8ab58=20
-d245dc7c d2f18664 d7276d9c 00000001
-Dec 20 10:29:47 trek kernel: Call Trace:
-Dec 20 10:29:47 trek kernel:  [<c0205813>] pfm_close+0x113/0x3d0
-Dec 20 10:29:47 trek kernel:  [<c0156569>] poison_obj+0x29/0x60
-Dec 20 10:29:47 trek kernel:  [<c0172475>] __fput+0xb5/0x1a0
-Dec 20 10:29:47 trek kernel:  [<c01625e9>] remove_vma+0x39/0x50
-Dec 20 10:29:47 trek kernel:  [<c016477b>] exit_mmap+0xab/0x100
-Dec 20 10:29:47 trek kernel:  [<c0123423>] mmput+0x33/0xa0
-Dec 20 10:29:47 trek kernel:  [<c0128816>] do_exit+0xf6/0x3d0
-Dec 20 10:29:47 trek kernel:  [<c0109da8>] do_syscall_trace+0x218/0x22a
-Dec 20 10:29:47 trek kernel:  [<c0128b67>] do_group_exit+0x37/0xa0
-Dec 20 10:29:47 trek kernel:  [<c010569d>] syscall_call+0x7/0xb
-Dec 20 10:29:47 trek kernel: Code: 00 01 00 00 ff 00 b8 80 4c 44 c0 e8=20
-aa d2 16 00 89 d8 5b c3 31 db eb ee 89 f6 85 c0 53 89 c3 74 39 b8 80 4c=20
-44 c0 e8 6f d2 16 00 <8b> 53 3c 85 d2 74 1b b8 00 f0 ff ff 21 e0 8b 40=20
-10 c1 e0 07 8d
-Dec 20 10:29:47 trek kernel:  <1>Fixing recursive fault but reboot is=20
-needed!
-
--Will
