@@ -1,52 +1,140 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Tue, 20 Dec 2005 18:16:08 +0000
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Tue, 20 Dec 2005 23:52:45 +0000
 Subject: Re: [Perfctr-devel] Re: quick overview of the perfmon2 interface
-Message-Id: <20051220181608.GD5516@frankl.hpl.hp.com>
+Message-Id: <20051220235245.GE19042@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051219113140.GC2690@frankl.hpl.hp.com> <20051220025156.a86b418f.akpm@osdl.org> <12c511ca0512201005k4d499b57v724815258f80322@mail.gmail.com>
-In-Reply-To: <12c511ca0512201005k4d499b57v724815258f80322@mail.gmail.com>
+References: <20051219113140.GC2690@frankl.hpl.hp.com> <20051220025156.a86b418f.akpm@osdl.org>
+In-Reply-To: <20051220025156.a86b418f.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net
+To: Andrew Morton <akpm@osdl.org>
+Cc: eranian@hpl.hp.com, linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net
 
-Andrew,
-
-I will reply to your comments in details.
-
-On Tue, Dec 20, 2005 at 10:05:11AM -0800, Tony Luck wrote:
-> > >       The interface also supports automatic randomization of the reset value
-> > >       for a PMD after an overflow.
-> >
-> > Why would one want to randomise the PMD after an overflow?
+On Tue, Dec 20, 2005 at 02:51:56AM -0800, Andrew Morton wrote:
+> Stephane Eranian <eranian@hpl.hp.com> wrote:
+> > 	or create full sampling measurements.
+> > ...
+> > 
+> > 	Sampling is supported at the user level and also at the kernel level with
+> > 	the ability to use a kernel-level sampling buffer. The format of the kernel
+> > 	sampling buffer is implemented by a kernel pluggable module. As such it is
+> > 	very easy to develop a custom format without any modification to the
+> > 	interface nor its implementation.
 > 
-> To get better data.  Using a constant reload value may keep measuring the
-> same spot in the application if you are using a sample frequency that
-> matches some repeat pattern in the application (and Murphy's law says
-> that you'll hit this a lot).
+> Why would one want to change the format of the sampling buffer?
 > 
-Yes, Tony is right.
+> Would much simplification be realised if we were to remove this option?
+> 
+> > 	To compensate for limitations of many PMU, such as a small number of
+> > 	counters, the interface also exports the notion of event sets and allows
+> > 	applications to multiplex sets, thereby allowing more events to be
+> > 	measured in a single run than there are actual counters.
+> > 
+> > 	The PMU register description is implemented by a kernel pluggable module
+> > 	thereby allowing new hardware to be supported without the need to wait
+> > 	for the next release of the kernel.
+> 
+> Is that option important, or likely to be useful?  Are you sure there isn't
+> some overdesign here?
 
-For several sampling measurments which are using events that occur very
-frequently such as branches, it becomes very important to avoid getting
-in lockstep with the execution. Using prime numbers is not always enough
-and randomization is the best way to solve this problem.
+Heh, I've been wondering that for some time.  It's better than it
+was..
 
-We have ecountered this when David Mosberger was developing
-q-syscollect for Linux/IA64. This tool is sampling return branches
-using the MckInley Branch Trace Buffer. With the collected samples
-it is possible to build a statistical call graph (a la gprof).
-Without randomization, the samples were so biased that the data
-was unusable. With randomization, the data was very close to actual
-call graph as measured by gprof. The same argument applies to
-sampling for cache misses, you want to make sure you are not
-always capturing the same cache misses. 
+[snip]
+> > 	- pfm_load_context(int fd, pfarg_load_t *load)
+> > 
+> > 	   Attach a perfmon context to either a thread or a processor. In the
+> > 	   case of a thread, the thread id is passed. In the case of a
+> > 	   processor, the context is bound to the CPU on which the call is
+> > 	   performed.
+> 
+> Why should userspace concern itself with a particular CPU?  That's really
+> only valid if the process has bound itself to a single CPU?  If the CPU is
+> fully virtuialised by perfmon (it is) then why do we care about individual
+> CPU instances?
 
-The random number generator does not have to be super fancy. That's why
-we use the Carta algorithm, it is simple and fast and gives us very
-good samples.
+This option is for a context monitoring the whole system, rather than
+a single thread, which you sometimes want to do (because one thread's
+actions could have an impact on others, for example).  But a context
+can't sensibly track more than one thing simultaneously executing, so
+it needs to be bound to a particular CPU.  In practice such a context
+would almost invariably be used as part of a 1-per-cpu set of contexts
+the results ultimately aggregated.
+
+[snip]
+> > 	A system-wide context allows a tool to monitor all activities on one
+> > 	processor, i.e, across all threads. Full System-wide monitoring in an
+> > 	SMP system is achieved by creating and binding a perfmon context on
+> > 	each processor. By construction, a perfmon context can only be bound
+> > 	to one processor at a time.  This design choice is motivated by the
+> > 	desire to enforce locality and to simplify the kernel implementation.
+> 
+> hm.  I'm surprised at such a CPU-centric approach.  I'd have expected to
+> see a more task-centric model.
+
+It is task-centric, usually.  The CPU binding is only when doing
+full-system monitoring.  The above is a bit unclear, giving undue
+emphasis to the per-CPU case: the point is that (from the kernel's
+point of view) a context can only ever be active on one CPU at a time.
+For a thread-virtualized context (the common case) that happens
+automatically because the thread can't run on multiple CPUs at once,
+for a full system monitoring context the binding must be explicit instead.
+
+[snip]
+> > 	This is not such a new idea, it is present in OProfile or perfctr.
+> > 	However, the interface needs to remains generic and flexible. If
+> > 	the sampling buffer is in kernel, its format and what gets recorded
+> > 	becomes somehow locked by the implementation. Every tool has different
+> > 	needs. For instance, a tool such as Oprofile may want to aggregate
+> > 	samples in the kernel, others such as VTUNE want to record all samples
+> > 	sequentially. Furthermore, some tools may want to combine in each sample
+> > 	PMU information with other kernel level information, such as a kernel
+> > 	call stack for instance. It is hard to design a generic buffer format
+> > 	that can handle all possible request. Instead, the interface provides
+> > 	an infrastructure  in which the buffer format is implemented by a kernel
+> > 	module. Each module controls, what gets recorded, how it is recorded,
+> > 	how the information is exported to user, when a 'buffer full'
+> > 	notification must be sent. The perfmon core has an interface to
+> > 	dynamically register new formats. Each format is uniquely identified by
+> > 	a 128-bit UUID which is passed by the tool when the context is created.
+> > 	Arguments for the buffer format are also passed during this call.
+> 
+> Well that addresses my earlier questions I guess.
+> 
+> Is this actually useful?  oprofile is there and works OK.  Again, is there
+> overdesign here?
+> 
+> And why is it necessary to make the presentation of the samples to
+> userspace pluggable?  I'd have thought that a single relayfs-based
+> implementation would suit all sampling buffer formats.
+
+I think there's some confusion here because the term "pluggable buffer
+format" isn't a particularly good one.  It makes sense in the context
+of perfmon's internal architecture, but doesn't really convey the
+basic idea.
+
+As I understand it from working with the perfmon code a bit, the point
+is not so much the buffer itself, but the selection of what things to
+sample when and how.  The default format gives a fairly configurable
+set of ways to do this but for some applications you'd have a choice
+of either not collecting all the data you need, or collecting so much
+extra data that it would bog down trying to save and/or aggregate it
+all.  So, the point of "custom buffer formats" is more a matter of
+being able to add new (potentially application specific) sampling
+schemes.
+
+As you say, relayfs should be fine for the actual presentation of the
+buffer to userspace, whatever it contains.
+
+[snip]
+> Overall: I worry about excessive configurability, excessive
+> features.
+
+Join the club :)
 
 -- 
-
--Stephane
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/~dgibson
