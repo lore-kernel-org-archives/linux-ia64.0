@@ -1,73 +1,38 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 07 Dec 2005 19:54:52 +0000
-Subject: [PATCH] Drop per-irq counters from /proc/stat (Was: Reading /proc/stat is slooow)
-Message-Id: <20051207195452.GA8873@agluck-lia64.sc.intel.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Tue, 20 Dec 2005 18:07:44 +0000
+Subject: 2.6.15-rc6 updated perfmon2 patch
+Message-Id: <20051220180744.GC5516@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F05204A1E@scsmsx401.amr.corp.intel.com> <894E37DECA393E4D9374E0ACBBE7427003BC9642@pdsmsx402.ccr.corp.intel.com> <20051206165800.GA6277@agluck-lia64.sc.intel.com> <jeslt6xib3.fsf@sykes.suse.de>
-In-Reply-To: <jeslt6xib3.fsf@sykes.suse.de>
+References: <20051215104604.GA16937@frankl.hpl.hp.com>
+In-Reply-To: <20051215104604.GA16937@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, Andreas Schwab <schwab@suse.de>
+To: perfctr-devel@lists.sourceforge.net
+Cc: perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Dec 06, 2005 at 06:10:40PM +0100, Andreas Schwab wrote:
-> "Luck, Tony" <tony.luck@intel.com> writes:
-> 
-> > 2) The problem loop is already #ifdef'd out for PPC64 and ALPHA.  We could add
-> > IA64 to that exclusive club and just not include the per irq sums.  Since kstat_irqs()
-> > computes the sums in an "int", they will wrap frequently on a large system
-> > (512 cpus * default 250Hz = 128000 ... which wraps a 32-bit unsigned in 9 hours
-> > and 19 minutes) ... so their usefulness is questionable.  Does xosview use
-> > the per-irq values?
-> 
-> It doesn't use them, it uses /proc/interrupts instead.  So IMHO this would
-> be the preferred solution.
+Hi,
 
-Anyone know of any applications that *DO* depend on the per-irq counters
-in /proc/stat?
+I have released another verison of the perfmon2 new code base.
+This one is relative to 2.6.15-rc6 and hopefully should
+fix some of the problems people have reported.
 
-I could just add IA64 to the ugly #ifdef:
+This new kernel patch fixes the following:
+	- kernel panic in perfmon_pmu.c or perfmon_fmt.c
+	  if PMU description or buffer format is compiled in.
 
--#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA)
-+#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA) && !defined(CONFIG_IA64)
+	- missing __user in perfmon_syscalls.c
 
-But perhaps it might be simpler to skip straight to this:
+	- better handling of NMI reservation for X86-64, EM64T
+	  and i386.
 
-[PATCH] Drop per-irq counters from /proc/stat
+You MUST use libpfm-3.2-051215 with this kernel due to
+interface change for pfm_create_context().
 
-It is very expensive to produce the per-irq counter values in /proc/stat
-(the code does a very cache unfriendly walk across all percpu structures
-for each irq).  Some architectures (PPC64, ALPHA) don't provide this
-information in this file.  Applications which do want this can derive it
-by adding the percpu values in /proc/interrupts.
+As usual, you can download the latest packages from the
+SourceForge website at:
 
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+	http://www.sf.net/projects/perfmon2
 
----
-
-diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
-index 5b6b0b6..64d96bf 100644
---- a/fs/proc/proc_misc.c
-+++ b/fs/proc/proc_misc.c
-@@ -396,15 +396,10 @@ static int show_stat(struct seq_file *p,
- 			(unsigned long long)cputime64_to_clock_t(softirq),
- 			(unsigned long long)cputime64_to_clock_t(steal));
- 	}
--	seq_printf(p, "intr %llu", (unsigned long long)sum);
--
--#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA)
--	for (i = 0; i < NR_IRQS; i++)
--		seq_printf(p, " %u", kstat_irqs(i));
--#endif
-+	seq_printf(p, "intr %llu\n", (unsigned long long)sum);
- 
- 	seq_printf(p,
--		"\nctxt %llu\n"
-+		"ctxt %llu\n"
- 		"btime %lu\n"
- 		"processes %lu\n"
- 		"procs_running %lu\n"
-
-
--Tony
+-- 
+-Stephane
