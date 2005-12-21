@@ -1,78 +1,100 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 21 Dec 2005 19:17:41 +0000
+Date: Wed, 21 Dec 2005 19:33:00 +0000
 Subject: Re: [PATCH 2/4] msi vector targeting abstractions
-Message-Id: <20051221191741.GI9920@sgi.com>
+Message-Id: <20051221193300.GK9920@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051221184337.5003.85653.32527@attica.americas.sgi.com> <20051221184348.5003.7540.53186@attica.americas.sgi.com> <20051221185637.GA13210@infradead.org>
-In-Reply-To: <20051221185637.GA13210@infradead.org>
+References: <20051221184337.5003.85653.32527@attica.americas.sgi.com> <20051221184348.5003.7540.53186@attica.americas.sgi.com> <20051221190558.GD2361@parisc-linux.org>
+In-Reply-To: <20051221190558.GD2361@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-On Wed, Dec 21, 2005 at 06:56:37PM +0000, Christoph Hellwig wrote:
+On Wed, Dec 21, 2005 at 12:05:58PM -0700, Matthew Wilcox wrote:
 > On Wed, Dec 21, 2005 at 12:42:41PM -0600, Mark Maule wrote:
-> > Abstract portions of the MSI core for platforms that do not use standard
-> > APIC interrupt controllers.  This is implemented through a set of callouts
-> > which default to current behavior, but which can be overridden by calling
-> > msi_register_callouts() in the platform msi init code.
 > 
-> we tend to calls these _ops or _operations instead of _callouts.
-> Also I'd suggest to not keep the generic ones where they are but
-> in a separate file and let the existing plattforms calls msi_register()
-> with the ops table for those.  This keeps the interface symmetric instead
-> of favouring the first implementation.
-
-ok.
-
-> 
-> > @@ -89,10 +91,25 @@
-> >  }
+> > @@ -108,28 +125,38 @@
+> >     		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
+> >  			return;
 > >  
-> >  #ifdef CONFIG_SMP
-> > +static void msi_target_generic(unsigned int vector,
-> > +			       unsigned int dest_cpu,
-> > +			       uint32_t *address_hi,	/* in/out */
-> > +			       uint32_t *address_lo)	/* in/out */
-> 
-> Please try to use u32 instead of uint32_t everywhere.  Dito for other
-> sizes and signed types.
-
-ok.
-
-> 
-> > +{
-> > +	struct msg_address address;
+> > +		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
+> > +			&address_hi);
+> >  		pci_read_config_dword(entry->dev, msi_lower_address_reg(pos),
+> > -			&address.lo_address.value);
+> > -		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
+> > -		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
+> > -									MSI_TARGET_CPU_SHIFT);
+> > -		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
+> > +			&address_lo);
 > > +
-> > +	address.lo_address.value = *address_lo;
-> > +	address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
-> > +	address.lo_address.value |> > +		(cpu_physical_id(dest_cpu) << MSI_TARGET_CPU_SHIFT);
+> > +		msi_callouts.msi_target(vector, dest_cpu,
+> > +					&address_hi, &address_lo);
 > > +
-> > +	*address_lo = address.lo_address.value;
-> > +}
+> > +		pci_write_config_dword(entry->dev, msi_upper_address_reg(pos),
+> > +			address_hi);
+> >  		pci_write_config_dword(entry->dev, msi_lower_address_reg(pos),
+> > -			address.lo_address.value);
+> > +			address_lo);
 > 
-> Why do we need the full struct msg_address here?  What about just:
-> 
-> static void msi_target_apic(unsigned int vector, unsigned int dest_cpu,
-> 			    u32 *address_hi, u32 *address_lo)
-> {
-> 	u32 addr = *address_lo;
-> 
-> 	addr &= MSI_ADDRESS_DEST_ID_MASK;
-> 	addr |= (cpu_physical_id(dest_cpu) << MSI_TARGET_CPU_SHIFT);
-> 
-> 	*address_lo = addr;
-> }
+> But actually, I don't understand why you don't just pass a msg_address
+> pointer to msi_target instead.
 
-Right.
+Mainly I did it this way 'cause msg_address seems to be geared toward specific
+hw (apic?).  In the case of altix interrupt hw, we don't know about
+dest_mode et. al., but only care about the raw address.
 
+I think this style makes it clearer that the core code should only be
+using opaque data when interacting with the platform hooks and the MSI
+registers.
 
 > 
+> (last two points apply throughtout this patch)
+> 
+> >  
 > > +	(*msi_callouts.msi_teardown)(vector);
 > > +
 > 
-> just
-> 	msi_ops.teardown(vector);
-> 
+> Yuck.  There's a reason C allows you to call through function pointers as if
+> they were functions.
 
-ok.
+My bad ... I used the alternate style elsewhere, just botched this one up.
+
+> 
+> > +int
+> > +msi_register_callouts(struct msi_callouts *co)
+> > +{
+> > +	msi_callouts = *co;	/* structure copy */
+> > +	return 0;
+> 
+> Why do it this way instead of having a pointer to a struct?
+
+Are you suggesting just have:
+
+struct msi_callouts *msi_callouts = (some default value or NULL)
+
+and then having each platform just assign msi_callouts in their msi_arch_init?
+
+Doesn't matter to me either way ... I thought having an interface to set
+the callouts was cleaner.
+
+> 
+> > -struct msg_data {
+> > +union msg_data {
+> > +	struct {
+> 
+> How about leaving struct msg_data alone and adding
+> 
+> union good_name {
+> 	struct msg_data;
+> 	u32 value;
+> }
+> 
+> Or possibly struct msg_data should just be deleted and we should use
+> shift/mask to access the contents of it.  ISTR GCC handled that much
+> better.
+
+Christoph had similiar comments.  Will put some thought into it.
+
+Mark
+
