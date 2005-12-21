@@ -1,78 +1,80 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 21 Dec 2005 19:05:58 +0000
+From: "linux-os \(Dick Johnson\)" <linux-os@analogic.com>
+Date: Wed, 21 Dec 2005 19:17:32 +0000
 Subject: Re: [PATCH 2/4] msi vector targeting abstractions
-Message-Id: <20051221190558.GD2361@parisc-linux.org>
+Message-Id: <Pine.LNX.4.61.0512211410200.12572@chaos.analogic.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051221184337.5003.85653.32527@attica.americas.sgi.com> <20051221184348.5003.7540.53186@attica.americas.sgi.com>
-In-Reply-To: <20051221184348.5003.7540.53186@attica.americas.sgi.com>
+References: <20051221184337.5003.85653.32527@attica.americas.sgi.com> <20051221184348.5003.7540.53186@attica.americas.sgi.com> <20051221190558.GD2361@parisc-linux.org>
+In-Reply-To: <20051221190558.GD2361@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mark Maule <maule@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Mark Maule <maule@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-On Wed, Dec 21, 2005 at 12:42:41PM -0600, Mark Maule wrote:
->  {
->  	struct msi_desc *entry;
-> -	struct msg_address address;
-> +	uint32_t address_hi, address_lo;
 
-Don't use uint32_t.  Use u32 instead.
+On Wed, 21 Dec 2005, Matthew Wilcox wrote:
 
-> @@ -108,28 +125,38 @@
->     		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
->  			return;
->  
-> +		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
-> +			&address_hi);
->  		pci_read_config_dword(entry->dev, msi_lower_address_reg(pos),
-> -			&address.lo_address.value);
-> -		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
-> -		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
-> -									MSI_TARGET_CPU_SHIFT);
-> -		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
-> +			&address_lo);
-> +
-> +		msi_callouts.msi_target(vector, dest_cpu,
-> +					&address_hi, &address_lo);
-> +
-> +		pci_write_config_dword(entry->dev, msi_upper_address_reg(pos),
-> +			address_hi);
->  		pci_write_config_dword(entry->dev, msi_lower_address_reg(pos),
-> -			address.lo_address.value);
-> +			address_lo);
+> On Wed, Dec 21, 2005 at 12:42:41PM -0600, Mark Maule wrote:
+>>  {
+>>  	struct msi_desc *entry;
+>> -	struct msg_address address;
+>> +	uint32_t address_hi, address_lo;
+>
+> Don't use uint32_t.  Use u32 instead.
+a>
 
-But actually, I don't understand why you don't just pass a msg_address
-pointer to msi_target instead.
+But uint32_t is a correct POSIX type. Why would you smear its
+use in the kernel when, in fact, one is not allowed to mix/match
+kernel and user headers so it's impossible to pollute namespace?
 
-(last two points apply throughtout this patch)
+>> @@ -108,28 +125,38 @@
+>>     		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
+>>  			return;
+>>
+>> +		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
+>> +			&address_hi);
+>>  		pci_read_config_dword(entry->dev, msi_lower_address_reg(pos),
+>> -			&address.lo_address.value);
+>> -		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
+>> -		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
+>> -									MSI_TARGET_CPU_SHIFT);
+>> -		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
+>> +			&address_lo);
+>> +
+>> +		msi_callouts.msi_target(vector, dest_cpu,
+>> +					&address_hi, &address_lo);
+>> +
+>> +		pci_write_config_dword(entry->dev, msi_upper_address_reg(pos),
+>> +			address_hi);
+>>  		pci_write_config_dword(entry->dev, msi_lower_address_reg(pos),
+>> -			address.lo_address.value);
+>> +			address_lo);
+>
+> But actually, I don't understand why you don't just pass a msg_address
+> pointer to msi_target instead.
+>
+> (last two points apply throughtout this patch)
+>
+>>
+>> +	(*msi_callouts.msi_teardown)(vector);
+>> +
+>
+> Yuck.  There's a reason C allows you to call through function pointers as if
+> they were functions.
 
->  
-> +	(*msi_callouts.msi_teardown)(vector);
-> +
+The reason is to allow sloppy coding. The patch writer was properly
+instructed to dereference function pointers. If you don't like
+this "obviously correct" syntax there is no reason to force your
+will on others.
 
-Yuck.  There's a reason C allows you to call through function pointers as if
-they were functions.
 
-> +int
-> +msi_register_callouts(struct msi_callouts *co)
-> +{
-> +	msi_callouts = *co;	/* structure copy */
-> +	return 0;
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.13.4 on an i686 machine (5589.55 BogoMips).
+Warning : 98.36% of all statistics are fiction.
+.
 
-Why do it this way instead of having a pointer to a struct?
+****************************************************************
+The information transmitted in this message is confidential and may be privileged.  Any review, retransmission, dissemination, or other use of this information by persons or entities other than the intended recipient is prohibited.  If you are not the intended recipient, please notify Analogic Corporation immediately - by replying to this message or by sending an email to DeliveryErrors@analogic.com - and destroy all copies of this information, including any attachments, without reading or disclosing them.
 
-> -struct msg_data {
-> +union msg_data {
-> +	struct {
-
-How about leaving struct msg_data alone and adding
-
-union good_name {
-	struct msg_data;
-	u32 value;
-}
-
-Or possibly struct msg_data should just be deleted and we should use
-shift/mask to access the contents of it.  ISTR GCC handled that much
-better.
+Thank you.
