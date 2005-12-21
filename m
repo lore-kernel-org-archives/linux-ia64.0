@@ -1,15 +1,15 @@
 From: Mark Maule <maule@sgi.com>
-Date: Thu, 22 Dec 2005 20:15:57 +0000
-Subject: [PATCH 2/3] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
-Message-Id: <20051222201705.2019.59377.24060@lnx-maule.americas.sgi.com>
+Date: Wed, 21 Dec 2005 18:42:46 +0000
+Subject: [PATCH 3/4] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
+Message-Id: <20051221184353.5003.87888.74327@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com>
-In-Reply-To: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com>
+References: <20051221184337.5003.85653.32527@attica.americas.sgi.com>
+In-Reply-To: <20051221184337.5003.85653.32527@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Mark Maule <maule@sgi.com>
 
 Abstract IA64_FIRST_DEVICE_VECTOR/IA64_LAST_DEVICE_VECTOR since SN platforms
 use a subset of the IA64 range.  Implement this by making the above macros
@@ -21,8 +21,8 @@ in-use when that weren't allocated through assign_irq_vector().
 Signed-off-by: Mark Maule <maule@sgi.com>
 
 Index: msi/arch/ia64/kernel/irq_ia64.c
-=================================--- msi.orig/arch/ia64/kernel/irq_ia64.c	2005-12-21 22:59:09.199823700 -0600
-+++ msi/arch/ia64/kernel/irq_ia64.c	2005-12-22 14:10:01.012860466 -0600
+=================================--- msi.orig/arch/ia64/kernel/irq_ia64.c	2005-12-19 18:22:03.288789302 -0600
++++ msi/arch/ia64/kernel/irq_ia64.c	2005-12-19 18:24:08.578523710 -0600
 @@ -46,6 +46,10 @@
  
  #define IRQ_DEBUG	0
@@ -62,8 +62,8 @@ Index: msi/arch/ia64/kernel/irq_ia64.c
  #	define IS_RESCHEDULE(vec)	(vec = IA64_IPI_RESCHEDULE)
  #else
 Index: msi/arch/ia64/sn/kernel/irq.c
-=================================--- msi.orig/arch/ia64/sn/kernel/irq.c	2005-12-21 22:59:09.199823700 -0600
-+++ msi/arch/ia64/sn/kernel/irq.c	2005-12-22 14:10:01.024578027 -0600
+=================================--- msi.orig/arch/ia64/sn/kernel/irq.c	2005-12-19 18:22:03.289765771 -0600
++++ msi/arch/ia64/sn/kernel/irq.c	2005-12-20 09:40:22.176226204 -0600
 @@ -203,6 +203,9 @@
  	int i;
  	irq_desc_t *base_desc = irq_desc;
@@ -95,8 +95,8 @@ Index: msi/arch/ia64/sn/kernel/irq.c
  
  static inline void
 Index: msi/include/asm-ia64/hw_irq.h
-=================================--- msi.orig/include/asm-ia64/hw_irq.h	2005-12-21 22:59:09.200800164 -0600
-+++ msi/include/asm-ia64/hw_irq.h	2005-12-22 14:10:01.046060224 -0600
+=================================--- msi.orig/include/asm-ia64/hw_irq.h	2005-12-19 18:22:03.289765771 -0600
++++ msi/include/asm-ia64/hw_irq.h	2005-12-19 18:24:08.596100146 -0600
 @@ -47,9 +47,19 @@
  #define IA64_CMC_VECTOR			0x1f	/* corrected machine-check interrupt vector */
  /*
@@ -128,18 +128,18 @@ Index: msi/include/asm-ia64/hw_irq.h
  extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
  
 Index: msi/drivers/pci/msi.c
-=================================--- msi.orig/drivers/pci/msi.c	2005-12-21 22:59:09.200800164 -0600
-+++ msi/drivers/pci/msi.c	2005-12-22 14:10:19.301044796 -0600
-@@ -35,7 +35,7 @@
+=================================--- msi.orig/drivers/pci/msi.c	2005-12-19 18:22:03.290742240 -0600
++++ msi/drivers/pci/msi.c	2005-12-20 09:59:14.669765449 -0600
+@@ -37,7 +37,7 @@
  
  #ifndef CONFIG_X86_IO_APIC
  int vector_irq[NR_VECTORS] = { [0 ... NR_VECTORS - 1] = -1};
 -u8 irq_vector[NR_IRQ_VECTORS] = { FIRST_DEVICE_VECTOR , 0 };
-+u8 irq_vector[NR_IRQ_VECTORS];
++u8 irq_vector[NR_IRQ_VECTORS] = { [0 ... NR_IRQ_VECTORS - 1 ] = 0 };
  #endif
  
- static struct msi_ops *msi_ops;
-@@ -377,6 +377,11 @@
+ static struct msi_callouts msi_callouts;
+@@ -421,6 +421,11 @@
  		printk(KERN_WARNING "PCI: MSI cache init failed\n");
  		return status;
  	}
