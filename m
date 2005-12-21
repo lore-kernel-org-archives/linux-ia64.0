@@ -1,98 +1,370 @@
-From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Wed, 14 Dec 2005 09:10:31 +0000
-Subject: RE: [BUG] Variable stopmachine_state should be volatile
-Message-Id: <8126E4F969BA254AB43EA03C59F44E840431BFE9@pdsmsx404>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C6008E.3CA08D30"
+From: Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
+Date: Wed, 21 Dec 2005 02:09:29 +0000
+Subject: [PATCH v2:3/3]Export cpu topology by sysfs
+Message-Id: <20051220180929.B19129@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <8126E4F969BA254AB43EA03C59F44E8404210E76@pdsmsx404>
-In-Reply-To: <8126E4F969BA254AB43EA03C59F44E8404210E76@pdsmsx404>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
+Cc: yanmin.zhang@intel.com, suresh.b.siddha@intel.com, rajesh.shah@intel.com, venkatesh.pallipadi@intel.com
 
-This is a multi-part message in MIME format.
+From: Zhang, Yanmin <yanmin.zhang@intel.com>
 
-------_=_NextPart_001_01C6008E.3CA08D30
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: quoted-printable
+The third patch implements the topology exportation by sysfs.
 
->>-----Original Message-----
->>From: linux-ia64-owner@vger.kernel.org
->>[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Zhang, Yanmin
->>Sent: 2005=C4=EA12=D4=C212=C8=D5 15:07
->>To: Luck, Tony; Arjan van de Ven; Pavel Machek
->>Cc: linux-kernel@vger.kernel.org; Pallipadi, Venkatesh; Shah, Rajesh;
->>linux-ia64@vger.kernel.org
->>Subject: RE: [BUG] Variable stopmachine_state should be volatile
->>
->>>>-----Original Message-----
->>>>From: linux-ia64-owner@vger.kernel.org
->>>>[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Luck, Tony
->>>>Sent: 2005=C4=EA12=D4=C29=C8=D5 2:53
->>>>To: Zhang, Yanmin; Arjan van de Ven; Pavel Machek
->>>>Cc: linux-kernel@vger.kernel.org; Pallipadi, Venkatesh; Shah, =
-Rajesh;
->>>>linux-ia64@vger.kernel.org
->>>>Subject: RE: [BUG] Variable stopmachine_state should be volatile
->>>>
->>>>> The right approach is to define ia64_hint to ia64_barrier in file
->>>>> include/asm-ia64/intel_intrin.h. I tested the new approach and it
->>>>> does work.
->>>>
->>>>Does that get you a "hint@pause" instruction inside the loop?  If =
-not, then
->>>>it isn't all the way to the "right" approach.
->>
->>Tony,
->>
->>The approach just fixes compiler scheduling barrier problem of =
-cpu_relax, and
->>there is no hint@pause inside the loop.
->>
->>Today I tried the latest icc, 9.0.027. It provides __hint, a new =
-intrinsic,
->>to support hint@pause. __hint also has the meaning of compiler =
-scheduling
->>barrier. So the best solution is to use __hint(0). The disassembled =
-result
->>showed the new intrinsic did work.
-Tony,
+Items (attributes) are similar to /proc/cpuinfo.
 
-Here is the patch against 2.6.15-rc5.
+1) /sys/devices/system/cpu/cpuX/topology/physical_package_id:
+represent the physical package id of  cpu X;
+2) /sys/devices/system/cpu/cpuX/topology/core_id:
+represent the cpu core id to cpu X;
+3) /sys/devices/system/cpu/cpuX/topology/thread_id:
+represent the cpu thread id  to cpu X;
+4) /sys/devices/system/cpu/cpuX/topology/thread_siblings:
+represent the thread siblings to cpu X in the same core;
+5) /sys/devices/system/cpu/cpuX/topology/core_siblings:
+represent the thread siblings to cpu X in the same physical package;
 
-The latest intel compiler on ia64 also adds some other intrinsic, but I =
-am not sure if they're useful in kernel except __hint, so I just enabled =
-ia64_hint.
+If one architecture wants to support this feature, it just needs to
+implement 5 defines, typically in file include/asm-XXX/topology.h.
+The 5 defines are:
+#define topology_physical_package_id(cpu)
+#define topology_core_id(cpu)
+#define topology_thread_id(cpu)
+#define topology_thread_siblings(cpu)
+#define topology_core_siblings(cpu)
 
-Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+The type of siblings is cpumask_t.
 
+If an attribute isn't defined on an architecture, it won't be exported.
 
-------_=_NextPart_001_01C6008E.3CA08D30
-Content-Type: application/octet-stream;
-	name="ia64_hint_2.6.15-rc5.patch"
-Content-Transfer-Encoding: base64
-Content-Description: ia64_hint_2.6.15-rc5.patch
-Content-Disposition: attachment;
-	filename="ia64_hint_2.6.15-rc5.patch"
+The patch against 2.6.15-rc5 provides defines for i386/x86_64/ia64.
 
-ZGlmZiAtTnJhdXAgbGludXgtMi42LjE1LXJjNS9pbmNsdWRlL2FzbS1pYTY0L2ludGVsX2ludHJp
-bi5oIGxpbnV4LTIuNi4xNS1yYzVfZml4L2luY2x1ZGUvYXNtLWlhNjQvaW50ZWxfaW50cmluLmgK
-LS0tIGxpbnV4LTIuNi4xNS1yYzUvaW5jbHVkZS9hc20taWE2NC9pbnRlbF9pbnRyaW4uaAkyMDA1
-LTA4LTI5IDA3OjQxOjAxLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjE1LXJjNV9maXgv
-aW5jbHVkZS9hc20taWE2NC9pbnRlbF9pbnRyaW4uaAkyMDA1LTEyLTE0IDAwOjU2OjEwLjAwMDAw
-MDAwMCArMDgwMApAQCAtMTEzLDYgKzExMywxMyBAQCBfX3M2NCBfbTY0X2RlcF9taShjb25zdCBp
-bnQgdiwgX19zNjQgcywgCiBfX3M2NCBfbTY0X3NocnAoX19zNjQgYSwgX19zNjQgYiwgY29uc3Qg
-aW50IGNvdW50KTsKIF9fczY0IF9tNjRfcG9wY250KF9fczY0IGEpOwogCisvKiB2YWx1ZSBmb3Ig
-YXJndW1lbnRzIHRvIHRoZSBoaW50IGluc3RydWN0aW9uICovCisjZGVmaW5lIGlhNjRfaGludF9w
-YXVzZQkwCisKKy8qIGdlbmVyYXRlcyB0aGUgaXRhbml1bSBoaW50IGluc3RydWN0aW9uICovCit2
-b2lkIF9faGludChjb25zdCBpbnQpOworCisKICNkZWZpbmUgaWE2NF9iYXJyaWVyKCkJCV9fbWVt
-b3J5X2JhcnJpZXIoKQogCiAjZGVmaW5lIGlhNjRfc3RvcCgpCS8qIE5vdGhpbmc6IEFzIG9mIG5v
-dyBzdG9wIGJpdCBpcyBnZW5lcmF0ZWQgZm9yIGVhY2gKQEAgLTEyMiw3ICsxMjksMTQgQEAgX19z
-NjQgX202NF9wb3BjbnQoX19zNjQgYSk7CiAjZGVmaW5lIGlhNjRfZ2V0cmVnCQlfX2dldFJlZwog
-I2RlZmluZSBpYTY0X3NldHJlZwkJX19zZXRSZWcKIAotI2RlZmluZSBpYTY0X2hpbnQoeCkKKyNk
-ZWZpbmUgaWE2NF9oaW50KG1vZGUpCQkJCQkJXAorKHsJCQkJCQkJCVwKKwlzd2l0Y2ggKG1vZGUp
-IHsJCQkJCQlcCisJY2FzZSBpYTY0X2hpbnRfcGF1c2U6CQkJCQlcCisJCV9faGludChpYTY0X2hp
-bnRfcGF1c2UpOwkJCVwKKwkJYnJlYWs7CQkJCQkJXAorCX0JCQkJCQkJXAorfSkKIAogI2RlZmlu
-ZSBpYTY0X211eDFfYnJjc3QJIDAKICNkZWZpbmUgaWE2NF9tdXgxX21peAkJIDgK
+Signed-off-by: Zhang, Yanmin <yanmin.zhang@intel.com>
 
-------_=_NextPart_001_01C6008E.3CA08D30--
+#diffstat export_topology_2.6.15-rc5_v4.patch
+ Documentation/cputopology.txt |   31 ++++++
+ arch/ia64/kernel/topology.c   |    2
+ drivers/base/Makefile         |    1
+ drivers/base/topology.c       |  201 ++++++++++++++++++++++++++++++++++++++++++
+ include/asm-i386/topology.h   |    8 +
+ include/asm-ia64/topology.h   |    8 +
+ include/asm-x86_64/topology.h |    8 +
+ 7 files changed, 258 insertions, 1 deletion
+
+---
+
+diff -Nraup linux-2.6.15-rc5/arch/ia64/kernel/topology.c linux-2.6.15-rc5_topology/arch/ia64/kernel/topology.c
+--- linux-2.6.15-rc5/arch/ia64/kernel/topology.c	2005-11-07 02:34:06.000000000 +0800
++++ linux-2.6.15-rc5_topology/arch/ia64/kernel/topology.c	2005-12-14 21:20:54.000000000 +0800
+@@ -98,4 +98,4 @@ out:
+ 	return err;
+ }
+ 
+-__initcall(topology_init);
++subsys_initcall(topology_init);
+diff -Nraup linux-2.6.15-rc5/Documentation/cputopology.txt linux-2.6.15-rc5_topology/Documentation/cputopology.txt
+--- linux-2.6.15-rc5/Documentation/cputopology.txt	1970-01-01 08:00:00.000000000 +0800
++++ linux-2.6.15-rc5_topology/Documentation/cputopology.txt	2005-12-20 17:55:26.000000000 +0800
+@@ -0,0 +1,31 @@
++
++Export cpu topology info by sysfs. Items (attributes) are similar
++to /proc/cpuinfo.
++
++1) /sys/devices/system/cpu/cpuX/topology/physical_package_id:
++represent the physical package id of  cpu X;
++2) /sys/devices/system/cpu/cpuX/topology/core_id:
++represent the cpu core id to cpu X;
++3) /sys/devices/system/cpu/cpuX/topology/thread_id:
++represent the cpu thread id  to cpu X;
++4) /sys/devices/system/cpu/cpuX/topology/thread_siblings:
++represent the thread siblings to cpu X in the same core;
++5) /sys/devices/system/cpu/cpuX/topology/core_siblings:
++represent the thread siblings to cpu X in the same physical package;
++
++To implement it in an architecture-neutral way, a new source file,
++driver/base/topology.c, is to export the 5 attributes.
++
++If one architecture wants to support this feature, it just needs to
++implement 5 defines, typically in file include/asm-XXX/topology.h.
++The 5 defines are:
++#define topology_physical_package_id(cpu)
++#define topology_core_id(cpu)
++#define topology_thread_id(cpu)
++#define topology_thread_siblings(cpu)
++#define topology_core_siblings(cpu)
++
++The type of siblings is cpumask_t.
++
++If an attribute isn't defined on an architecture, it won't be exported.
++
+diff -Nraup linux-2.6.15-rc5/drivers/base/Makefile linux-2.6.15-rc5_topology/drivers/base/Makefile
+--- linux-2.6.15-rc5/drivers/base/Makefile	2005-12-13 23:07:35.000000000 +0800
++++ linux-2.6.15-rc5_topology/drivers/base/Makefile	2005-12-14 20:47:00.000000000 +0800
+@@ -8,6 +8,7 @@ obj-y			+= power/
+ obj-$(CONFIG_FW_LOADER)	+= firmware_class.o
+ obj-$(CONFIG_NUMA)	+= node.o
+ obj-$(CONFIG_MEMORY_HOTPLUG) += memory.o
++obj-$(CONFIG_SMP)	+= topology.o
+ 
+ ifeq ($(CONFIG_DEBUG_DRIVER),y)
+ EXTRA_CFLAGS += -DDEBUG
+diff -Nraup linux-2.6.15-rc5/drivers/base/topology.c linux-2.6.15-rc5_topology/drivers/base/topology.c
+--- linux-2.6.15-rc5/drivers/base/topology.c	1970-01-01 08:00:00.000000000 +0800
++++ linux-2.6.15-rc5_topology/drivers/base/topology.c	2005-12-20 00:33:49.000000000 +0800
+@@ -0,0 +1,201 @@
++/*
++ * driver/base/topology.c - Populate driverfs with cpu topology information
++ *
++ * Written by: Zhang Yanmin, Intel Corporation
++ *
++ * Copyright (C) 2005, Intel Corp.
++ *
++ * All rights reserved.          
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ */
++#include <linux/sysdev.h>
++#include <linux/init.h>
++#include <linux/mm.h>
++#include <linux/cpu.h>
++#include <linux/module.h>
++#include <linux/topology.h>
++
++struct _topology_attr {
++	struct attribute attr;
++	ssize_t (*show)(int cpu, char *);
++	ssize_t (*store)(const char *, size_t count);
++};
++
++#define to_attr(a) container_of(a, struct _topology_attr, attr)
++
++/* pointer to kobject for cpuX/topology */
++static struct kobject cpu_topology_kobject[NR_CPUS];
++
++#define define_one_ro(_name) 		\
++static struct _topology_attr _name =	\
++	__ATTR(_name, 0444, show_##_name, NULL)
++
++#define define_id_show_func(name)				\
++static ssize_t show_##name(int cpu, char *buf)			\
++{								\
++	return sprintf(buf, "%d\n", topology_##name(cpu));	\
++}
++
++#define define_siblings_show_func(name)					\
++static ssize_t show_##name(int cpu, char *buf)				\
++{									\
++	ssize_t len = -1;						\
++	len = cpumask_scnprintf(buf, NR_CPUS+1, topology_##name(cpu));	\
++	return (len + sprintf(buf + len, "\n"));			\
++}
++
++#ifdef	topology_physical_package_id
++define_id_show_func(physical_package_id);
++define_one_ro(physical_package_id);
++#define ref_physical_package_id_attr	&physical_package_id.attr,
++#else
++#define ref_physical_package_id_attr
++#endif
++
++#ifdef topology_core_id
++define_id_show_func(core_id);
++define_one_ro(core_id);
++#define ref_core_id_attr		&core_id.attr,
++#else
++#define ref_core_id_attr
++#endif
++
++#ifdef topology_thread_id
++define_id_show_func(thread_id);
++define_one_ro(thread_id);
++#define ref_thread_id_attr		&thread_id.attr,
++#else
++#define ref_thread_id_attr
++#endif
++
++#ifdef topology_thread_siblings
++define_siblings_show_func(thread_siblings);
++define_one_ro(thread_siblings);
++#define ref_thread_siblings_attr	&thread_siblings.attr,
++#else
++#define ref_thread_siblings_attr
++#endif
++
++#ifdef topology_core_siblings
++define_siblings_show_func(core_siblings);
++define_one_ro(core_siblings);
++#define ref_core_siblings_attr		&core_siblings.attr,
++#else
++#define ref_core_siblings_attr
++#endif
++
++static struct attribute * topology_default_attrs[] = {
++	ref_physical_package_id_attr
++	ref_core_id_attr
++	ref_thread_id_attr
++	ref_thread_siblings_attr
++	ref_core_siblings_attr
++	NULL
++};
++
++static ssize_t topology_show(struct kobject * kobj, struct attribute * attr, char * buf)
++{
++	unsigned int cpu;
++        struct _topology_attr *fattr = to_attr(attr);
++        ssize_t ret;
++
++	cpu = container_of(kobj->parent, struct sys_device, kobj)->id;
++        ret = fattr->show ? fattr->show(cpu, buf): 0;
++        return ret;
++}
++
++static ssize_t topology_store(struct kobject * kobj, struct attribute * attr,
++		     const char * buf, size_t count)
++{
++	return 0;
++}
++
++static struct sysfs_ops topology_sysfs_ops = {
++	.show   = topology_show,
++	.store  = topology_store,
++};
++
++static struct kobj_type topology_ktype = {
++	.sysfs_ops	= &topology_sysfs_ops,
++	.default_attrs	= topology_default_attrs,
++};
++
++/* Add/Remove cpu_topology interface for CPU device */
++static int __cpuinit topology_add_dev(struct sys_device * sys_dev)
++{
++	unsigned int cpu = sys_dev->id;
++
++	memset(&cpu_topology_kobject[cpu], 0, sizeof(struct kobject));
++
++	cpu_topology_kobject[cpu].parent = &sys_dev->kobj;
++	kobject_set_name(&cpu_topology_kobject[cpu], "%s", "topology");
++	cpu_topology_kobject[cpu].ktype = &topology_ktype;
++
++	return  kobject_register(&cpu_topology_kobject[cpu]);
++}
++
++static int __cpuexit topology_remove_dev(struct sys_device * sys_dev)
++{
++	unsigned int cpu = sys_dev->id;
++
++	kobject_unregister(&cpu_topology_kobject[cpu]);
++
++	return 0;
++}
++
++static int __cpuinit topology_cpu_callback(struct notifier_block *nfb,
++		unsigned long action, void *hcpu)
++{
++	unsigned int cpu = (unsigned long)hcpu;
++	struct sys_device *sys_dev;
++
++	sys_dev = get_cpu_sysdev(cpu);
++	switch (action) {
++		case CPU_ONLINE:
++			topology_add_dev(sys_dev);
++			break;
++#ifdef	CONFIG_HOTPLUG_CPU
++		case CPU_DEAD:
++			topology_remove_dev(sys_dev);
++			break;
++#endif
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block topology_cpu_notifier +{
++	.notifier_call = topology_cpu_callback,
++};
++
++static int __cpuinit topology_sysfs_init(void)
++{
++	int i;
++
++	for_each_online_cpu(i) {
++		topology_cpu_callback(&topology_cpu_notifier, CPU_ONLINE,
++				(void *)(long)i);
++	}
++
++	register_cpu_notifier(&topology_cpu_notifier);
++
++	return 0;
++}
++
++device_initcall(topology_sysfs_init);
++
+diff -Nraup linux-2.6.15-rc5/include/asm-i386/topology.h linux-2.6.15-rc5_topology/include/asm-i386/topology.h
+--- linux-2.6.15-rc5/include/asm-i386/topology.h	2005-11-07 02:34:08.000000000 +0800
++++ linux-2.6.15-rc5_topology/include/asm-i386/topology.h	2005-12-15 19:15:47.000000000 +0800
+@@ -27,6 +27,14 @@
+ #ifndef _ASM_I386_TOPOLOGY_H
+ #define _ASM_I386_TOPOLOGY_H
+ 
++#ifdef CONFIG_SMP
++#define topology_physical_package_id(cpu)	phys_proc_id[cpu]
++#define topology_core_id(cpu)			cpu_core_id[cpu]
++#define topology_thread_id(cpu)			cpu_thread_id[cpu]
++#define topology_core_siblings(cpu)		cpu_core_map[cpu]
++#define topology_thread_siblings(cpu)		cpu_sibling_map[cpu]
++#endif
++
+ #ifdef CONFIG_NUMA
+ 
+ #include <asm/mpspec.h>
+diff -Nraup linux-2.6.15-rc5/include/asm-ia64/topology.h linux-2.6.15-rc5_topology/include/asm-ia64/topology.h
+--- linux-2.6.15-rc5/include/asm-ia64/topology.h	2005-11-07 02:34:08.000000000 +0800
++++ linux-2.6.15-rc5_topology/include/asm-ia64/topology.h	2005-12-14 23:21:58.000000000 +0800
+@@ -100,6 +100,14 @@ void build_cpu_to_node_map(void);
+ 
+ #endif /* CONFIG_NUMA */
+ 
++#ifdef CONFIG_SMP
++#define topology_physical_package_id(cpu)	cpu_data(cpu)->socket_id
++#define topology_core_id(cpu)		cpu_data(cpu)->core_id
++#define topology_thread_id(cpu)		cpu_data(cpu)->thread_id
++#define topology_core_siblings(cpu)		cpu_core_map[cpu]
++#define topology_thread_siblings(cpu)	cpu_sibling_map[cpu]
++#endif
++
+ #include <asm-generic/topology.h>
+ 
+ #endif /* _ASM_IA64_TOPOLOGY_H */
+diff -Nraup linux-2.6.15-rc5/include/asm-x86_64/topology.h linux-2.6.15-rc5_topology/include/asm-x86_64/topology.h
+--- linux-2.6.15-rc5/include/asm-x86_64/topology.h	2005-12-13 23:07:39.000000000 +0800
++++ linux-2.6.15-rc5_topology/include/asm-x86_64/topology.h	2005-12-15 19:16:05.000000000 +0800
+@@ -58,6 +58,14 @@ extern int __node_distance(int, int);
+ 
+ #endif
+ 
++#ifdef CONFIG_SMP
++#define topology_physical_package_id(cpu)	phys_proc_id[cpu]
++#define topology_core_id(cpu)			cpu_core_id[cpu]
++#define topology_thread_id(cpu)			cpu_thread_id[cpu]
++#define topology_core_siblings(cpu)		cpu_core_map[cpu]
++#define topology_thread_siblings(cpu)		cpu_sibling_map[cpu]
++#endif
++
+ #include <asm-generic/topology.h>
+ 
+ #endif
