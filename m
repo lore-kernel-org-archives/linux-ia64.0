@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Wed, 21 Dec 2005 18:56:37 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 21 Dec 2005 19:05:58 +0000
 Subject: Re: [PATCH 2/4] msi vector targeting abstractions
-Message-Id: <20051221185637.GA13210@infradead.org>
+Message-Id: <20051221190558.GD2361@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051221184337.5003.85653.32527@attica.americas.sgi.com> <20051221184348.5003.7540.53186@attica.americas.sgi.com>
 In-Reply-To: <20051221184348.5003.7540.53186@attica.americas.sgi.com>
@@ -12,96 +12,67 @@ To: Mark Maule <maule@sgi.com>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
 On Wed, Dec 21, 2005 at 12:42:41PM -0600, Mark Maule wrote:
-> Abstract portions of the MSI core for platforms that do not use standard
-> APIC interrupt controllers.  This is implemented through a set of callouts
-> which default to current behavior, but which can be overridden by calling
-> msi_register_callouts() in the platform msi init code.
+>  {
+>  	struct msi_desc *entry;
+> -	struct msg_address address;
+> +	uint32_t address_hi, address_lo;
 
-we tend to calls these _ops or _operations instead of _callouts.
-Also I'd suggest to not keep the generic ones where they are but
-in a separate file and let the existing plattforms calls msi_register()
-with the ops table for those.  This keeps the interface symmetric instead
-of favouring the first implementation.
+Don't use uint32_t.  Use u32 instead.
 
-> @@ -89,10 +91,25 @@
->  }
+> @@ -108,28 +125,38 @@
+>     		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
+>  			return;
 >  
->  #ifdef CONFIG_SMP
-> +static void msi_target_generic(unsigned int vector,
-> +			       unsigned int dest_cpu,
-> +			       uint32_t *address_hi,	/* in/out */
-> +			       uint32_t *address_lo)	/* in/out */
-
-Please try to use u32 instead of uint32_t everywhere.  Dito for other
-sizes and signed types.
-
-> +{
-> +	struct msg_address address;
+> +		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
+> +			&address_hi);
+>  		pci_read_config_dword(entry->dev, msi_lower_address_reg(pos),
+> -			&address.lo_address.value);
+> -		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
+> -		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
+> -									MSI_TARGET_CPU_SHIFT);
+> -		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
+> +			&address_lo);
 > +
-> +	address.lo_address.value = *address_lo;
-> +	address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
-> +	address.lo_address.value |> +		(cpu_physical_id(dest_cpu) << MSI_TARGET_CPU_SHIFT);
+> +		msi_callouts.msi_target(vector, dest_cpu,
+> +					&address_hi, &address_lo);
 > +
-> +	*address_lo = address.lo_address.value;
-> +}
+> +		pci_write_config_dword(entry->dev, msi_upper_address_reg(pos),
+> +			address_hi);
+>  		pci_write_config_dword(entry->dev, msi_lower_address_reg(pos),
+> -			address.lo_address.value);
+> +			address_lo);
 
-Why do we need the full struct msg_address here?  What about just:
+But actually, I don't understand why you don't just pass a msg_address
+pointer to msi_target instead.
 
-static void msi_target_apic(unsigned int vector, unsigned int dest_cpu,
-			    u32 *address_hi, u32 *address_lo)
-{
-	u32 addr = *address_lo;
+(last two points apply throughtout this patch)
 
-	addr &= MSI_ADDRESS_DEST_ID_MASK;
-	addr |= (cpu_physical_id(dest_cpu) << MSI_TARGET_CPU_SHIFT);
-
-	*address_lo = addr;
-}
-
+>  
 > +	(*msi_callouts.msi_teardown)(vector);
 > +
 
-just
-	msi_ops.teardown(vector);
+Yuck.  There's a reason C allows you to call through function pointers as if
+they were functions.
 
+> +int
+> +msi_register_callouts(struct msi_callouts *co)
+> +{
+> +	msi_callouts = *co;	/* structure copy */
+> +	return 0;
+
+Why do it this way instead of having a pointer to a struct?
+
+> -struct msg_data {
 > +union msg_data {
 > +	struct {
->  #if defined(__LITTLE_ENDIAN_BITFIELD)
-> -	__u32	vector		:  8;
-> -	__u32	delivery_mode	:  3;	/* 000b: FIXED | 001b: lowest prior */
-> -	__u32	reserved_1	:  3;
-> -	__u32	level		:  1;	/* 0: deassert | 1: assert */
-> -	__u32	trigger		:  1;	/* 0: edge | 1: level */
-> -	__u32	reserved_2	: 16;
-> +		__u32	vector		:  8;
-> +		__u32	delivery_mode	:  3;	/* 000b: FIXED */
-> +						/* 001b: lowest prior */
-> +		__u32	reserved_1	:  3;
-> +		__u32	level		:  1;	/* 0: deassert | 1: assert */
-> +		__u32	trigger		:  1;	/* 0: edge | 1: level */
-> +		__u32	reserved_2	: 16;
->  #elif defined(__BIG_ENDIAN_BITFIELD)
-> -	__u32	reserved_2	: 16;
-> -	__u32	trigger		:  1;	/* 0: edge | 1: level */
-> -	__u32	level		:  1;	/* 0: deassert | 1: assert */
-> -	__u32	reserved_1	:  3;
-> -	__u32	delivery_mode	:  3;	/* 000b: FIXED | 001b: lowest prior */
-> -	__u32	vector		:  8;
-> +		__u32	reserved_2	: 16;
-> +		__u32	trigger		:  1;	/* 0: edge | 1: level */
-> +		__u32	level		:  1;	/* 0: deassert | 1: assert */
-> +		__u32	reserved_1	:  3;
-> +		__u32	delivery_mode	:  3;	/* 000b: FIXED */
-> +						/* 001b: lowest prior */
-> +		__u32	vector		:  8;
->  #else
->  #error "Bitfield endianness not defined! Check your byteorder.h"
->  #endif
-> +	}u;
-> +	__u32 value;
->  } __attribute__ ((packed));
 
+How about leaving struct msg_data alone and adding
 
-While you're cleaning things up, could you please kill the horrible abuse
-of bitfields for H/W structures and do proper masking instead.
+union good_name {
+	struct msg_data;
+	u32 value;
+}
 
+Or possibly struct msg_data should just be deleted and we should use
+shift/mask to access the contents of it.  ISTR GCC handled that much
+better.
