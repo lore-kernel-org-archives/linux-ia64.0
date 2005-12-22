@@ -1,30 +1,54 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 20 Dec 2005 20:53:51 +0000
+Date: Thu, 22 Dec 2005 21:49:10 +0000
 Subject: Re: [patch 2/2] /dev/mem validate mmap requests
-Message-Id: <200512201353.51236.bjorn.helgaas@hp.com>
+Message-Id: <200512221449.10457.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com> <200512140848.56570.bjorn.helgaas@hp.com> <20051215220640.GA8967@agluck-lia64.sc.intel.com>
-In-Reply-To: <20051215220640.GA8967@agluck-lia64.sc.intel.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0531E4BB@scsmsx401.amr.corp.intel.com> <20051215220640.GA8967@agluck-lia64.sc.intel.com> <200512201353.51236.bjorn.helgaas@hp.com>
+In-Reply-To: <200512201353.51236.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thursday 15 December 2005 3:06 pm, Luck, Tony wrote:
-> On Wed, Dec 14, 2005 at 08:48:56AM -0700, Bjorn Helgaas wrote:
-> > > I think you may need a more complex checker that does aggregation
-> > > of adjacent efi memory descriptors with the same attributes.
+Andrew, could you replace dev-mem-validate-mmap-requests.patch
+with the patch below?  This addresses Tony's request that
+the checking handle regions that span EFI memory descriptors.
 
-OK, I'm convinced :-)  How about the below?  It looks a bit
-more complicated because I moved a few things around and fixed
-up the /dev/mem read/write path check as well as the mmap check.
 
-One of these days I'll get around to consolidating more of the
-ia64/x86 EFI code.
 
-If this looks OK to you, I'll ask Andrew to replace his
-dev-mem-validate-mmap-requests.patch with this.
+
+Add a hook so architectures can validate /dev/mem mmap requests.
+
+This is analogous to validation we already perform in the read/write
+paths.
+
+The identity mapping scheme used on ia64 requires that each 16MB or
+64MB granule be accessed with exactly one attribute (write-back or
+uncacheable).  This avoids "attribute aliasing", which can cause a
+machine check.
+
+Sample problem scenario:
+  - Machine supports VGA, so it has uncacheable (UC) MMIO at 640K-768K
+  - efi_memmap_init() discards any write-back (WB) memory in the first granule
+  - Application (e.g., "hwinfo") mmaps /dev/mem, offset 0
+  - hwinfo receives UC mapping (the default, since memmap says "no WB here")
+  - Machine check abort (on chipsets that don't support UC access to WB
+    memory, e.g., sx1000)
+
+In the scenario above, the only choices are
+  - Use WB for hwinfo mmap.  Can't do this because it causes attribute
+    aliasing with the UC mapping for the VGA MMIO space.
+  - Use UC for hwinfo mmap.  Can't do this because the chipset may not
+    support UC for that region.
+  - Disallow the hwinfo mmap with -EINVAL.  That's what this patch does.
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+
+ arch/ia64/kernel/efi.c |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/char/mem.c     |   14 ++++++++++++--
+ include/asm-ia64/io.h  |    1 +
+ 3 files changed, 57 insertions(+), 2 deletions(-)
 
 Index: work6/arch/ia64/kernel/efi.c
 =================================--- work6.orig/arch/ia64/kernel/efi.c	2005-12-19 12:50:52.000000000 -0700
