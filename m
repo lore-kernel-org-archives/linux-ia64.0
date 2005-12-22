@@ -1,247 +1,640 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 02 Nov 2005 17:30:16 +0000
-Subject: [Patch 2/2] Make 4-Level Page Tables configurable.
-Message-Id: <20051102173016.GE23600@lnx-holt.americas.sgi.com>
+From: Mark Maule <maule@sgi.com>
+Date: Thu, 22 Dec 2005 17:15:13 +0000
+Subject: [PATCH 1/3] msi vector targeting abstractions
+Message-Id: <20051222171621.8240.71918.22618@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Mark Maule <maule@sgi.com>
 
+Abstract portions of the MSI core for platforms that do not use standard
+APIC interrupt controllers.  This is implemented through a new arch-specific
+msi setup routine, and a set of msi ops which can be set on a per platform
+basis.
 
-This patch makes the page table levels configurable.  I made
-it a seperate patch since I have not yet measured any performance
-difference and I thought this would make it easier to remove the
-config option once it is deemed unneeded.
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-Signed-off-by: Robin Holt <holt@sgi.com>
-
-
-Index: linux-2.6/include/asm-ia64/page.h
-=================================--- linux-2.6.orig/include/asm-ia64/page.h	2005-11-02 06:01:21.252977544 -0600
-+++ linux-2.6/include/asm-ia64/page.h	2005-11-02 06:01:21.988255563 -0600
-@@ -172,13 +172,17 @@ get_order (unsigned long size)
-    */
-   typedef struct { unsigned long pte; } pte_t;
-   typedef struct { unsigned long pmd; } pmd_t;
-+#ifdef CONFIG_PGTABLE_4
-   typedef struct { unsigned long pud; } pud_t;
-+#endif
-   typedef struct { unsigned long pgd; } pgd_t;
-   typedef struct { unsigned long pgprot; } pgprot_t;
+Index: msi/drivers/pci/msi.c
+=================================--- msi.orig/drivers/pci/msi.c	2005-12-13 12:22:42.784269607 -0600
++++ msi/drivers/pci/msi.c	2005-12-21 22:59:09.200800164 -0600
+@@ -23,8 +23,6 @@
+ #include "pci.h"
+ #include "msi.h"
  
- # define pte_val(x)	((x).pte)
- # define pmd_val(x)	((x).pmd)
-+#ifdef CONFIG_PGTABLE_4
- # define pud_val(x)	((x).pud)
-+#endif
- # define pgd_val(x)	((x).pgd)
- # define pgprot_val(x)	((x).pgprot)
+-#define MSI_TARGET_CPU		first_cpu(cpu_online_map)
+-
+ static DEFINE_SPINLOCK(msi_lock);
+ static struct msi_desc* msi_desc[NR_IRQS] = { [0 ... NR_IRQS-1] = NULL };
+ static kmem_cache_t* msi_cachep;
+@@ -40,6 +38,15 @@
+ u8 irq_vector[NR_IRQ_VECTORS] = { FIRST_DEVICE_VECTOR , 0 };
+ #endif
  
-Index: linux-2.6/include/asm-ia64/pgtable.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgtable.h	2005-11-02 06:01:21.252001079 -0600
-+++ linux-2.6/include/asm-ia64/pgtable.h	2005-11-02 06:01:21.989232027 -0600
-@@ -104,6 +104,7 @@
- #define PMD_MASK	(~(PMD_SIZE-1))
- #define PTRS_PER_PMD	(1UL << (PTRS_PER_PTD_SHIFT))
- 
-+#ifdef CONFIG_PGTABLE_4
- /*
-  * Definitions for second level:
-  *
-@@ -114,13 +115,18 @@
- #define PUD_SIZE	(1UL << PUD_SHIFT)
- #define PUD_MASK	(~(PUD_SIZE-1))
- #define PTRS_PER_PUD	(1UL << (PTRS_PER_PTD_SHIFT))
-+#endif
- 
- /*
-  * Definitions for first level:
-  *
-  * PGDIR_SHIFT determines what a first-level page table entry can map.
-  */
-+#ifdef CONFIG_PGTABLE_4
- #define PGDIR_SHIFT		(PUD_SHIFT + (PTRS_PER_PTD_SHIFT))
-+#else
-+#define PGDIR_SHIFT		(PMD_SHIFT + (PTRS_PER_PTD_SHIFT))
-+#endif
- #define PGDIR_SIZE		(__IA64_UL(1) << PGDIR_SHIFT)
- #define PGDIR_MASK		(~(PGDIR_SIZE-1))
- #define PTRS_PER_PGD		(1UL << (PTRS_PER_PTD_SHIFT))
-@@ -176,7 +182,9 @@
- #define __S111	__pgprot(__ACCESS_BITS | _PAGE_PL_3 | _PAGE_AR_RWX)
- 
- #define pgd_ERROR(e)	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
-+#ifdef CONFIG_PGTABLE_4
- #define pud_ERROR(e)	printk("%s:%d: bad pud %016lx.\n", __FILE__, __LINE__, pud_val(e))
-+#endif
- #define pmd_ERROR(e)	printk("%s:%d: bad pmd %016lx.\n", __FILE__, __LINE__, pmd_val(e))
- #define pte_ERROR(e)	printk("%s:%d: bad pte %016lx.\n", __FILE__, __LINE__, pte_val(e))
- 
-@@ -277,11 +285,13 @@ ia64_phys_addr_valid (unsigned long addr
- #define pud_clear(pudp)			(pud_val(*(pudp)) = 0UL)
- #define pud_page(pud)			((unsigned long) __va(pud_val(pud) & _PFN_MASK))
- 
-+#ifdef CONFIG_PGTABLE_4
- #define pgd_none(pgd)			(!pgd_val(pgd))
- #define pgd_bad(pgd)			(!ia64_phys_addr_valid(pgd_val(pgd)))
- #define pgd_present(pgd)		(pgd_val(pgd) != 0UL)
- #define pgd_clear(pgdp)			(pgd_val(*(pgdp)) = 0UL)
- #define pgd_page(pgd)			((unsigned long) __va(pgd_val(pgd) & _PFN_MASK))
-+#endif
- 
- /*
-  * The following have defined behavior only work if pte_present() is true.
-@@ -350,9 +360,11 @@ pgd_offset (struct mm_struct *mm, unsign
-    here.  */
- #define pgd_offset_gate(mm, addr)	pgd_offset_k(addr)
- 
-+#ifdef CONFIG_PGTABLE_4
- /* Find an entry in the second-level page table.. */
- #define pud_offset(dir,addr) \
- 	((pud_t *) pgd_page(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
-+#endif
- 
- /* Find an entry in the third-level page table.. */
- #define pmd_offset(dir,addr) \
-@@ -587,6 +599,9 @@ do {											\
- #define __HAVE_ARCH_PGD_OFFSET_GATE
- #define __HAVE_ARCH_LAZY_MMU_PROT_UPDATE
- 
-+#ifndef CONFIG_PGTABLE_4
-+#include <asm-generic/pgtable-nopud.h>
-+#endif
- #include <asm-generic/pgtable.h>
- 
- #endif /* _ASM_IA64_PGTABLE_H */
-Index: linux-2.6/arch/ia64/kernel/ivt.S
-=================================--- linux-2.6.orig/arch/ia64/kernel/ivt.S	2005-11-02 06:01:21.255906938 -0600
-+++ linux-2.6/arch/ia64/kernel/ivt.S	2005-11-02 06:41:13.291247266 -0600
-@@ -140,11 +140,16 @@ ENTRY(vhpt_miss)
- (p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
- (p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
- 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
-+#ifdef CONFIG_PGTABLE_4
- 	shr.u r28=r22,PUD_SHIFT			// shift L2 index into position
-+#else
-+	shr.u r20=r22,PMD_SHIFT			// shift L3 index into position
-+#endif
- 	;;
- 	ld8 r17=[r17]				// fetch the L1 entry (may be 0)
- 	;;
- (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
-+#ifdef CONFIG_PGTABLE_4
- 	dep r28=r28,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
- 	;;
- 	shr.u r20=r22,PMD_SHIFT			// shift L3 index into position
-@@ -152,6 +157,9 @@ ENTRY(vhpt_miss)
- 	;;
- (p7)	cmp.eq.or.andcm p6,p7=r29,r0		// was L2 entry NULL?
- 	dep r17=r20,r29,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
-+#else
-+	dep r17=r20,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
-+#endif
- 	;;
- 	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
- (p7)	ld8 r20=[r17]				// fetch the L3 entry (may be 0)
-@@ -200,12 +208,18 @@ ENTRY(vhpt_miss)
- 	 */
- 	ld8 r25=[r21]				// read L4 PTE again
- 	ld8 r26=[r17]				// read L3 entry again
-+#ifdef CONFIG_PGTABLE_4
- 	ld8 r30=[r28]				// read L2 entry again
- 	;;
- 	cmp.ne p6,p7=r30,r29			// did L2 entry change
- 	mov r27=PAGE_SHIFT<<2
- 	;;
- (p7)	cmp.ne.or.andcm p6,p7=r26,r20		// did L3 entry change
-+#else
-+	cmp.ne p6,p7=r26,r20			// did L3 entry change
-+	mov r27=PAGE_SHIFT<<2
-+	;;
-+#endif
- 	;;
- (p6)	ptc.l r22,r27				// purge PTE page translation
- (p7)	cmp.ne.or.andcm p6,p7=r25,r18		// did L4 PTE change
-@@ -441,18 +455,28 @@ ENTRY(nested_dtlb_miss)
- (p6)	dep r17=r18,r19,3,(PAGE_SHIFT-3)	// r17=PTA + IFA(33,42)*8
- (p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=PTA + (((IFA(61,63) << 7) | IFA(33,39))*8)
- 	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
-+#ifdef CONFIG_PGTABLE_4
- 	shr.u r19=r22,PUD_SHIFT			// shift L2 index into position
-+#else
-+	shr.u r18=r22,PMD_SHIFT			// shift L3 index into position
-+#endif
- 	;;
- 	ld8 r17=[r17]				// fetch the L1 entry (may be 0)
-+#ifdef CONFIG_PGTABLE_4
- 	shr.u r18=r22,PMD_SHIFT			// shift L3 index into position
-+#else
-+	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
-+#endif
- 	;;
- (p7)	cmp.eq p6,p7=r17,r0			// was L1 entry NULL?
-+#ifdef CONFIG_PGTABLE_4
- 	dep r17=r19,r17,3,(PAGE_SHIFT-3)	// compute address of L2 page table entry
- 	;;
- (p7)	ld8 r17=[r17]				// fetch the L2 entry (may be 0)
- 	shr.u r19=r22,PAGE_SHIFT		// shift L4 index into position
- 	;;
- (p7)	cmp.eq.or.andcm p6,p7=r17,r0		// was L2 entry NULL?
-+#endif
- 	dep r17=r18,r17,3,(PAGE_SHIFT-3)	// compute address of L3 page table entry
- 	;;
- (p7)	ld8 r17=[r17]				// fetch the L3 entry (may be 0)
-Index: linux-2.6/arch/ia64/Kconfig
-=================================--- linux-2.6.orig/arch/ia64/Kconfig	2005-10-28 19:05:30.000000000 -0500
-+++ linux-2.6/arch/ia64/Kconfig	2005-11-02 06:06:23.081186944 -0600
-@@ -160,6 +160,18 @@ config IA64_PAGE_SIZE_64KB
- 
- endchoice
- 
-+choice
-+	prompt "Page Table Levels"
-+	default PGTABLE_4
++static struct msi_ops *msi_ops;
 +
-+config PGTABLE_3
-+	bool "3 Levels"
++int
++msi_register(struct msi_ops *ops)
++{
++	msi_ops = ops;
++	return 0;
++}
 +
-+config PGTABLE_4
-+	bool "4 Levels"
-+
-+endchoice
-+
- source kernel/Kconfig.hz
- 
- config IA64_BRL_EMU
-Index: linux-2.6/include/asm/pgalloc.h
-=================================--- linux-2.6.orig/include/asm/pgalloc.h	2005-11-02 06:01:21.252001079 -0600
-+++ linux-2.6/include/asm/pgalloc.h	2005-11-02 06:12:52.449469685 -0600
-@@ -86,6 +86,7 @@ static inline void pgd_free(pgd_t * pgd)
- 	pgtable_quicklist_free(pgd);
- }
- 
-+#ifdef CONFIG_PGTABLE_4
- static inline void
- pgd_populate(struct mm_struct *mm, pgd_t * pgd_entry, pud_t * pud)
+ static void msi_cache_ctor(void *p, kmem_cache_t *cache, unsigned long flags)
  {
-@@ -102,6 +103,7 @@ static inline void pud_free(pud_t * pud)
- 	pgtable_quicklist_free(pud);
- }
- #define __pud_free_tlb(tlb, pud)	pud_free(pud)
-+#endif /* CONFIG_PGTABLE_4 */
+ 	memset(p, 0, NR_IRQS * sizeof(struct msi_desc));
+@@ -92,7 +99,7 @@
+ static void set_msi_affinity(unsigned int vector, cpumask_t cpu_mask)
+ {
+ 	struct msi_desc *entry;
+-	struct msg_address address;
++	u32 address_hi, address_lo;
+ 	unsigned int irq = vector;
+ 	unsigned int dest_cpu = first_cpu(cpu_mask);
+ 
+@@ -108,28 +115,36 @@
+    		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
+ 			return;
+ 
++		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
++			&address_hi);
+ 		pci_read_config_dword(entry->dev, msi_lower_address_reg(pos),
+-			&address.lo_address.value);
+-		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
+-		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
+-									MSI_TARGET_CPU_SHIFT);
+-		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
++			&address_lo);
++
++		msi_ops->target(vector, dest_cpu, &address_hi, &address_lo);
++
++		pci_write_config_dword(entry->dev, msi_upper_address_reg(pos),
++			address_hi);
+ 		pci_write_config_dword(entry->dev, msi_lower_address_reg(pos),
+-			address.lo_address.value);
++			address_lo);
+ 		set_native_irq_info(irq, cpu_mask);
+ 		break;
+ 	}
+ 	case PCI_CAP_ID_MSIX:
+ 	{
+-		int offset = entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
+-			PCI_MSIX_ENTRY_LOWER_ADDR_OFFSET;
++		int offset_hi +			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
++				PCI_MSIX_ENTRY_UPPER_ADDR_OFFSET;
++		int offset_lo +			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
++				PCI_MSIX_ENTRY_LOWER_ADDR_OFFSET;
++
++		address_hi = readl(entry->mask_base + offset_hi);
++		address_lo = readl(entry->mask_base + offset_lo);
+ 
+-		address.lo_address.value = readl(entry->mask_base + offset);
+-		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
+-		address.lo_address.value |= (cpu_physical_id(dest_cpu) <<
+-									MSI_TARGET_CPU_SHIFT);
+-		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
+-		writel(address.lo_address.value, entry->mask_base + offset);
++		msi_ops->target(vector, dest_cpu, &address_hi, &address_lo);
++
++		writel(address_hi, entry->mask_base + offset_hi);
++		writel(address_lo, entry->mask_base + offset_lo);
+ 		set_native_irq_info(irq, cpu_mask);
+ 		break;
+ 	}
+@@ -249,30 +264,6 @@
+ 	.set_affinity	= set_msi_irq_affinity
+ };
+ 
+-static void msi_data_init(struct msg_data *msi_data,
+-			  unsigned int vector)
+-{
+-	memset(msi_data, 0, sizeof(struct msg_data));
+-	msi_data->vector = (u8)vector;
+-	msi_data->delivery_mode = MSI_DELIVERY_MODE;
+-	msi_data->level = MSI_LEVEL_MODE;
+-	msi_data->trigger = MSI_TRIGGER_MODE;
+-}
+-
+-static void msi_address_init(struct msg_address *msi_address)
+-{
+-	unsigned int	dest_id;
+-	unsigned long	dest_phys_id = cpu_physical_id(MSI_TARGET_CPU);
+-
+-	memset(msi_address, 0, sizeof(struct msg_address));
+-	msi_address->hi_address = (u32)0;
+-	dest_id = (MSI_ADDRESS_HEADER << MSI_ADDRESS_HEADER_SHIFT);
+-	msi_address->lo_address.u.dest_mode = MSI_PHYSICAL_MODE;
+-	msi_address->lo_address.u.redirection_hint = MSI_REDIRECTION_HINT_MODE;
+-	msi_address->lo_address.u.dest_id = dest_id;
+-	msi_address->lo_address.value |= (dest_phys_id << MSI_TARGET_CPU_SHIFT);
+-}
+-
+ static int msi_free_vector(struct pci_dev* dev, int vector, int reassign);
+ static int assign_msi_vector(void)
+ {
+@@ -367,6 +358,20 @@
+ 		return status;
+ 	}
+ 
++	if ((status = msi_arch_init()) < 0) {
++		pci_msi_enable = 0;
++		printk(KERN_WARNING
++		       "PCI: MSI arch init failed.  MSI disabled.\n");
++		return status;
++	}
++
++	if (! msi_ops) {
++		printk(KERN_WARNING
++		       "PCI: MSI ops not registered. MSI disabled.\n");
++		status = -EINVAL;
++		return status;
++	}
++
+ 	if ((status = msi_cache_init()) < 0) {
+ 		pci_msi_enable = 0;
+ 		printk(KERN_WARNING "PCI: MSI cache init failed\n");
+@@ -510,9 +515,11 @@
+  **/
+ static int msi_capability_init(struct pci_dev *dev)
+ {
++	int status;
+ 	struct msi_desc *entry;
+-	struct msg_address address;
+-	struct msg_data data;
++	u32 address_lo;
++	u32 address_hi;
++	u32 data;
+ 	int pos, vector;
+ 	u16 control;
+ 
+@@ -539,23 +546,26 @@
+ 		entry->mask_base = (void __iomem *)(long)msi_mask_bits_reg(pos,
+ 				is_64bit_address(control));
+ 	}
++	/* Configure MSI capability structure */
++	status = msi_ops->setup(dev, vector,
++				&address_hi,
++				&address_lo,
++				&data);
++	if (status < 0) {
++		kmem_cache_free(msi_cachep, entry);
++		return status;
++	}
+ 	/* Replace with MSI handler */
+ 	irq_handler_init(PCI_CAP_ID_MSI, vector, entry->msi_attrib.maskbit);
+-	/* Configure MSI capability structure */
+-	msi_address_init(&address);
+-	msi_data_init(&data, vector);
+-	entry->msi_attrib.current_cpu = ((address.lo_address.u.dest_id >>
+-				MSI_TARGET_CPU_SHIFT) & MSI_TARGET_CPU_MASK);
+-	pci_write_config_dword(dev, msi_lower_address_reg(pos),
+-			address.lo_address.value);
++
++	pci_write_config_dword(dev, msi_lower_address_reg(pos), address_lo);
+ 	if (is_64bit_address(control)) {
+ 		pci_write_config_dword(dev,
+-			msi_upper_address_reg(pos), address.hi_address);
+-		pci_write_config_word(dev,
+-			msi_data_reg(pos, 1), *((u32*)&data));
++			msi_upper_address_reg(pos), address_hi);
++		pci_write_config_word(dev, msi_data_reg(pos, 1), data);
+ 	} else
+-		pci_write_config_word(dev,
+-			msi_data_reg(pos, 0), *((u32*)&data));
++		pci_write_config_word(dev, msi_data_reg(pos, 0), data);
++
+ 	if (entry->msi_attrib.maskbit) {
+ 		unsigned int maskbits, temp;
+ 		/* All MSIs are unmasked by default, Mask them all */
+@@ -590,13 +600,15 @@
+ 				struct msix_entry *entries, int nvec)
+ {
+ 	struct msi_desc *head = NULL, *tail = NULL, *entry = NULL;
+-	struct msg_address address;
+-	struct msg_data data;
++	u32 address_hi;
++	u32 address_lo;
++	u32 data;
+ 	int vector, pos, i, j, nr_entries, temp = 0;
+ 	u32 phys_addr, table_offset;
+  	u16 control;
+ 	u8 bir;
+ 	void __iomem *base;
++	int status;
+ 
+    	pos = pci_find_capability(dev, PCI_CAP_ID_MSIX);
+ 	/* Request & Map MSI-X table region */
+@@ -643,18 +655,20 @@
+ 		/* Replace with MSI-X handler */
+ 		irq_handler_init(PCI_CAP_ID_MSIX, vector, 1);
+ 		/* Configure MSI-X capability structure */
+-		msi_address_init(&address);
+-		msi_data_init(&data, vector);
+-		entry->msi_attrib.current_cpu -			((address.lo_address.u.dest_id >>
+-			MSI_TARGET_CPU_SHIFT) & MSI_TARGET_CPU_MASK);
+-		writel(address.lo_address.value,
++		status = msi_ops->setup(dev, vector,
++					&address_hi,
++					&address_lo,
++					&data);
++		if (status < 0)
++			break;
++
++		writel(address_lo,
+ 			base + j * PCI_MSIX_ENTRY_SIZE +
+ 			PCI_MSIX_ENTRY_LOWER_ADDR_OFFSET);
+-		writel(address.hi_address,
++		writel(address_hi,
+ 			base + j * PCI_MSIX_ENTRY_SIZE +
+ 			PCI_MSIX_ENTRY_UPPER_ADDR_OFFSET);
+-		writel(*(u32*)&data,
++		writel(data,
+ 			base + j * PCI_MSIX_ENTRY_SIZE +
+ 			PCI_MSIX_ENTRY_DATA_OFFSET);
+ 		attach_msi_entry(entry, vector);
+@@ -789,6 +803,8 @@
+ 	void __iomem *base;
+ 	unsigned long flags;
+ 
++	msi_ops->teardown(vector);
++
+ 	spin_lock_irqsave(&msi_lock, flags);
+ 	entry = msi_desc[vector];
+ 	if (!entry || entry->dev != dev) {
+Index: msi/include/asm-i386/msi.h
+=================================--- msi.orig/include/asm-i386/msi.h	2005-12-13 12:22:42.785246074 -0600
++++ msi/include/asm-i386/msi.h	2005-12-21 23:18:10.602753071 -0600
+@@ -12,4 +12,11 @@
+ #define LAST_DEVICE_VECTOR		232
+ #define MSI_TARGET_CPU_SHIFT	12
+ 
++static inline int msi_arch_init(void)
++{
++	extern struct msi_ops msi_apic_ops;
++	msi_register(&msi_apic_ops);
++	return 0;
++}
++
+ #endif /* ASM_MSI_H */
+Index: msi/include/asm-x86_64/msi.h
+=================================--- msi.orig/include/asm-x86_64/msi.h	2005-12-13 12:22:42.786222541 -0600
++++ msi/include/asm-x86_64/msi.h	2005-12-21 23:18:20.733573956 -0600
+@@ -13,4 +13,11 @@
+ #define LAST_DEVICE_VECTOR		232
+ #define MSI_TARGET_CPU_SHIFT	12
+ 
++static inline int msi_arch_init(void)
++{
++	extern struct msi_ops msi_apic_ops;
++	msi_register_apic(&msi_apic_ops);
++	return 0;
++}
++
+ #endif /* ASM_MSI_H */
+Index: msi/include/asm-ia64/machvec.h
+=================================--- msi.orig/include/asm-ia64/machvec.h	2005-12-13 12:22:42.786222541 -0600
++++ msi/include/asm-ia64/machvec.h	2005-12-21 23:18:32.231445414 -0600
+@@ -74,6 +74,7 @@
+ typedef unsigned short ia64_mv_readw_relaxed_t (const volatile void __iomem *);
+ typedef unsigned int ia64_mv_readl_relaxed_t (const volatile void __iomem *);
+ typedef unsigned long ia64_mv_readq_relaxed_t (const volatile void __iomem *);
++typedef int ia64_mv_msi_init_t (void);
  
  static inline void
- pud_populate(struct mm_struct *mm, pud_t * pud_entry, pmd_t * pmd)
-Index: linux-2.6/arch/ia64/configs/sn2_defconfig
-=================================--- linux-2.6.orig/arch/ia64/configs/sn2_defconfig	2005-10-12 10:43:53.000000000 -0500
-+++ linux-2.6/arch/ia64/configs/sn2_defconfig	2005-11-02 06:52:21.251052933 -0600
-@@ -80,6 +80,8 @@ CONFIG_MCKINLEY=y
- # CONFIG_IA64_PAGE_SIZE_8KB is not set
- CONFIG_IA64_PAGE_SIZE_16KB=y
- # CONFIG_IA64_PAGE_SIZE_64KB is not set
-+# CONFIG_PGTABLE_3 is not set
-+CONFIG_PGTABLE_4=y
- # CONFIG_HZ_100 is not set
- CONFIG_HZ_250=y
- # CONFIG_HZ_1000 is not set
+ machvec_noop (void)
+@@ -146,6 +147,7 @@
+ #  define platform_readw_relaxed        ia64_mv.readw_relaxed
+ #  define platform_readl_relaxed        ia64_mv.readl_relaxed
+ #  define platform_readq_relaxed        ia64_mv.readq_relaxed
++#  define platform_msi_init	ia64_mv.msi_init
+ # endif
+ 
+ /* __attribute__((__aligned__(16))) is required to make size of the
+@@ -194,6 +196,7 @@
+ 	ia64_mv_readw_relaxed_t *readw_relaxed;
+ 	ia64_mv_readl_relaxed_t *readl_relaxed;
+ 	ia64_mv_readq_relaxed_t *readq_relaxed;
++	ia64_mv_msi_init_t *msi_init;
+ } __attribute__((__aligned__(16))); /* align attrib? see above comment */
+ 
+ #define MACHVEC_INIT(name)			\
+@@ -238,6 +241,7 @@
+ 	platform_readw_relaxed,			\
+ 	platform_readl_relaxed,			\
+ 	platform_readq_relaxed,			\
++	platform_msi_init,			\
+ }
+ 
+ extern struct ia64_machine_vector ia64_mv;
+@@ -386,5 +390,9 @@
+ #ifndef platform_readq_relaxed
+ # define platform_readq_relaxed	__ia64_readq_relaxed
+ #endif
++#ifndef platform_msi_init
++# define platform_msi_init	{ extern struct msi_ops msi_apic_ops; \
++				  msi_register(&msi_apic_ops); return 0; }
++#endif
+ 
+ #endif /* _ASM_IA64_MACHVEC_H */
+Index: msi/include/asm-ia64/machvec_sn2.h
+=================================--- msi.orig/include/asm-ia64/machvec_sn2.h	2005-12-13 12:22:42.787199008 -0600
++++ msi/include/asm-ia64/machvec_sn2.h	2005-12-13 16:09:49.257035213 -0600
+@@ -71,6 +71,7 @@
+ extern ia64_mv_dma_sync_sg_for_device	sn_dma_sync_sg_for_device;
+ extern ia64_mv_dma_mapping_error	sn_dma_mapping_error;
+ extern ia64_mv_dma_supported		sn_dma_supported;
++extern ia64_mv_msi_init_t		sn_msi_init;
+ 
+ /*
+  * This stuff has dual use!
+@@ -120,6 +121,7 @@
+ #define platform_dma_sync_sg_for_device	sn_dma_sync_sg_for_device
+ #define platform_dma_mapping_error		sn_dma_mapping_error
+ #define platform_dma_supported		sn_dma_supported
++#define platform_msi_init		sn_msi_init
+ 
+ #include <asm/sn/io.h>
+ 
+Index: msi/include/asm-ia64/msi.h
+=================================--- msi.orig/include/asm-ia64/msi.h	2005-12-13 12:22:42.787199008 -0600
++++ msi/include/asm-ia64/msi.h	2005-12-13 16:09:49.268752815 -0600
+@@ -14,4 +14,6 @@
+ #define ack_APIC_irq		ia64_eoi
+ #define MSI_TARGET_CPU_SHIFT	4
+ 
++static inline int msi_arch_init(void)	{ return platform_msi_init(); }
++
+ #endif /* ASM_MSI_H */
+Index: msi/arch/ia64/sn/pci/Makefile
+=================================--- msi.orig/arch/ia64/sn/pci/Makefile	2005-12-13 12:22:42.788175474 -0600
++++ msi/arch/ia64/sn/pci/Makefile	2005-12-13 16:09:49.296093887 -0600
+@@ -3,8 +3,9 @@
+ # License.  See the file "COPYING" in the main directory of this archive
+ # for more details.
+ #
+-# Copyright (C) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
++# Copyright (C) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
+ #
+ # Makefile for the sn pci general routines.
+ 
+ obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
++obj-$(CONFIG_PCI_MSI) += msi.o
+Index: msi/arch/ia64/sn/pci/msi.c
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ msi/arch/ia64/sn/pci/msi.c	2005-12-21 22:59:02.713172526 -0600
+@@ -0,0 +1,18 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2005 Silicon Graphics, Inc.  All Rights Reserved.
++ */
++
++#include <asm/errno.h>
++
++int
++sn_msi_init(void)
++{
++	/*
++	 * return error until MSI is supported on altix platforms
++	 */
++	return -EINVAL;
++}
+Index: msi/drivers/pci/Makefile
+=================================--- msi.orig/drivers/pci/Makefile	2005-12-21 16:08:58.222841575 -0600
++++ msi/drivers/pci/Makefile	2005-12-21 16:10:32.848440390 -0600
+@@ -23,7 +23,7 @@
+ obj-$(CONFIG_PPC64) += setup-bus.o
+ obj-$(CONFIG_MIPS) += setup-bus.o setup-irq.o
+ obj-$(CONFIG_X86_VISWS) += setup-irq.o
+-obj-$(CONFIG_PCI_MSI) += msi.o
++obj-$(CONFIG_PCI_MSI) += msi.o msi-apic.o
+ 
+ #
+ # ACPI Related PCI FW Functions
+Index: msi/drivers/pci/msi-apic.c
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ msi/drivers/pci/msi-apic.c	2005-12-22 11:09:37.022232088 -0600
+@@ -0,0 +1,102 @@
++/*
++ * MSI hooks for standard x86 apic
++ */
++
++#include <linux/pci.h>
++
++#include "msi.h"
++
++/*
++ * Shifts for APIC-based data
++ */
++
++#define MSI_DATA_VECTOR_SHIFT		0
++#define	    MSI_DATA_VECTOR(v)		(((u8)v) << MSI_DATA_VECTOR_SHIFT)
++
++#define MSI_DATA_DELIVERY_SHIFT		8
++#define     MSI_DATA_DELIVERY_FIXED	(0 << MSI_DATA_DELIVERY_SHIFT)
++#define     MSI_DATA_DELIVERY_LOWPRI	(1 << MSI_DATA_DELIVERY_SHIFT)
++
++#define MSI_DATA_LEVEL_SHIFT		14
++#define     MSI_DATA_LEVEL_DEASSERT	(0 << MSI_DATA_LEVEL_SHIFT)
++#define     MSI_DATA_LEVEL_ASSERT	(1 << MSI_DATA_LEVEL_SHIFT)
++
++#define MSI_DATA_TRIGGER_SHIFT		15
++#define     MSI_DATA_TRIGGER_EDGE	(0 << MSI_DATA_TRIGGER_SHIFT)
++#define     MSI_DATA_TRIGGER_LEVEL	(1 << MSI_DATA_TRIGGER_SHIFT)
++
++/*
++ * Shift/mask fields for APIC-based bus address
++ */
++
++#define MSI_ADDR_HEADER			0xfee00000
++
++#define MSI_ADDR_DESTID_MASK		0xfff0000f
++#define     MSI_ADDR_DESTID_CPU(cpu)	((cpu) << MSI_TARGET_CPU_SHIFT)
++
++#define MSI_ADDR_DESTMODE_SHIFT		2
++#define     MSI_ADDR_DESTMODE_PHYS	(0 << MSI_ADDR_DESTMODE_SHIFT)
++#define	    MSI_ADDR_DESTMODE_LOGIC	(1 << MSI_ADDR_DESTMODE_SHIFT)
++
++#define MSI_ADDR_REDIRECTION_SHIFT	3
++#define     MSI_ADDR_REDIRECTION_CPU	(0 << MSI_ADDR_REDIRECTION_SHIFT)
++#define     MSI_ADDR_REDIRECTION_LOWPRI	(1 << MSI_ADDR_REDIRECTION_SHIFT)
++
++
++static void
++msi_target_apic(unsigned int vector,
++		unsigned int dest_cpu,
++		u32 *address_hi,	/* in/out */
++		u32 *address_lo)	/* in/out */
++{
++	u32 addr = *address_lo;
++
++	addr &= MSI_ADDR_DESTID_MASK;
++	addr |= MSI_ADDR_DESTID_CPU(cpu_physical_id(dest_cpu));
++
++	*address_lo = addr;
++}
++
++static int
++msi_setup_apic(struct pci_dev *pdev,	/* unused in generic */
++		unsigned int vector,
++		u32 *address_hi,
++		u32 *address_lo,
++		u32 *data)
++{
++	unsigned long	dest_phys_id;
++
++	dest_phys_id = cpu_physical_id(first_cpu(cpu_online_map));
++
++	*address_hi = 0;
++	*address_lo =	MSI_ADDR_HEADER |
++			MSI_ADDR_DESTMODE_PHYS |
++			MSI_ADDR_REDIRECTION_CPU |
++			MSI_ADDR_DESTID_CPU(dest_phys_id);
++
++	*data = MSI_DATA_TRIGGER_EDGE |
++		MSI_DATA_LEVEL_ASSERT |
++		MSI_DATA_DELIVERY_FIXED |
++		MSI_DATA_VECTOR(vector);
++
++	return 0;
++}
++
++static void
++msi_teardown_apic(unsigned int vector)
++{
++	return;		/* no-op */
++}
++
++/*
++ * Generic callouts used on most archs/platforms.  Override with
++ * msi_register_callouts()
++ */
++
++struct msi_ops msi_apic_ops = {
++	.setup = msi_setup_apic,
++	.teardown = msi_teardown_apic,
++#ifdef CONFIG_SMP
++	.target = msi_target_apic,
++#endif
++};
+Index: msi/drivers/pci/msi.h
+=================================--- msi.orig/drivers/pci/msi.h	2005-12-21 16:08:58.222841575 -0600
++++ msi/drivers/pci/msi.h	2005-12-21 23:06:48.292305590 -0600
+@@ -69,67 +69,6 @@
+ #define msix_mask(address)		(address | PCI_MSIX_FLAGS_BITMASK)
+ #define msix_is_pending(address) 	(address & PCI_MSIX_FLAGS_PENDMASK)
+ 
+-/*
+- * MSI Defined Data Structures
+- */
+-#define MSI_ADDRESS_HEADER		0xfee
+-#define MSI_ADDRESS_HEADER_SHIFT	12
+-#define MSI_ADDRESS_HEADER_MASK		0xfff000
+-#define MSI_ADDRESS_DEST_ID_MASK	0xfff0000f
+-#define MSI_TARGET_CPU_MASK		0xff
+-#define MSI_DELIVERY_MODE		0
+-#define MSI_LEVEL_MODE			1	/* Edge always assert */
+-#define MSI_TRIGGER_MODE		0	/* MSI is edge sensitive */
+-#define MSI_PHYSICAL_MODE		0
+-#define MSI_LOGICAL_MODE		1
+-#define MSI_REDIRECTION_HINT_MODE	0
+-
+-struct msg_data {
+-#if defined(__LITTLE_ENDIAN_BITFIELD)
+-	__u32	vector		:  8;
+-	__u32	delivery_mode	:  3;	/* 000b: FIXED | 001b: lowest prior */
+-	__u32	reserved_1	:  3;
+-	__u32	level		:  1;	/* 0: deassert | 1: assert */
+-	__u32	trigger		:  1;	/* 0: edge | 1: level */
+-	__u32	reserved_2	: 16;
+-#elif defined(__BIG_ENDIAN_BITFIELD)
+-	__u32	reserved_2	: 16;
+-	__u32	trigger		:  1;	/* 0: edge | 1: level */
+-	__u32	level		:  1;	/* 0: deassert | 1: assert */
+-	__u32	reserved_1	:  3;
+-	__u32	delivery_mode	:  3;	/* 000b: FIXED | 001b: lowest prior */
+-	__u32	vector		:  8;
+-#else
+-#error "Bitfield endianness not defined! Check your byteorder.h"
+-#endif
+-} __attribute__ ((packed));
+-
+-struct msg_address {
+-	union {
+-		struct {
+-#if defined(__LITTLE_ENDIAN_BITFIELD)
+-			__u32	reserved_1	:  2;
+-			__u32	dest_mode	:  1;	/*0:physic | 1:logic */
+-			__u32	redirection_hint:  1;  	/*0: dedicated CPU
+-							  1: lowest priority */
+-			__u32	reserved_2	:  4;
+- 			__u32	dest_id		: 24;	/* Destination ID */
+-#elif defined(__BIG_ENDIAN_BITFIELD)
+- 			__u32	dest_id		: 24;	/* Destination ID */
+-			__u32	reserved_2	:  4;
+-			__u32	redirection_hint:  1;  	/*0: dedicated CPU
+-							  1: lowest priority */
+-			__u32	dest_mode	:  1;	/*0:physic | 1:logic */
+-			__u32	reserved_1	:  2;
+-#else
+-#error "Bitfield endianness not defined! Check your byteorder.h"
+-#endif
+-      		}u;
+-       		__u32  value;
+-	}lo_address;
+-	__u32 	hi_address;
+-} __attribute__ ((packed));
+-
+ struct msi_desc {
+ 	struct {
+ 		__u8	type	: 5; 	/* {0: unused, 5h:MSI, 11h:MSI-X} */
+@@ -138,7 +77,7 @@
+ 		__u8	reserved: 1; 	/* reserved			  */
+ 		__u8	entry_nr;    	/* specific enabled entry 	  */
+ 		__u8	default_vector; /* default pre-assigned vector    */
+-		__u8	current_cpu; 	/* current destination cpu	  */
++		__u8	unused; 	/* formerly unused destination cpu*/
+ 	}msi_attrib;
+ 
+ 	struct {
+Index: msi/include/linux/pci.h
+=================================--- msi.orig/include/linux/pci.h	2005-12-21 16:08:58.223818043 -0600
++++ msi/include/linux/pci.h	2005-12-21 16:10:32.847463922 -0600
+@@ -478,6 +478,16 @@
+ 	u16	entry;	/* driver uses to specify entry, OS writes */
+ };
+ 
++struct msi_ops {
++	int	(*setup)    (struct pci_dev *pdev, unsigned int vector,
++			     u32 *addr_hi, u32 *addr_lo, u32 *data);
++	void	(*teardown) (unsigned int vector);
++#ifdef CONFIG_SMP
++	void	(*target)   (unsigned int vector, unsigned int cpu,
++			     u32 *addr_hi, u32 *addr_lo);
++#endif
++};
++
+ #ifndef CONFIG_PCI_MSI
+ static inline void pci_scan_msi_device(struct pci_dev *dev) {}
+ static inline int pci_enable_msi(struct pci_dev *dev) {return -1;}
+@@ -486,6 +496,7 @@
+ 	struct msix_entry *entries, int nvec) {return -1;}
+ static inline void pci_disable_msix(struct pci_dev *dev) {}
+ static inline void msi_remove_pci_irq_vectors(struct pci_dev *dev) {}
++static inline int msi_register(struct msi_ops *ops) {return -1;}
+ #else
+ extern void pci_scan_msi_device(struct pci_dev *dev);
+ extern int pci_enable_msi(struct pci_dev *dev);
+@@ -494,6 +505,7 @@
+ 	struct msix_entry *entries, int nvec);
+ extern void pci_disable_msix(struct pci_dev *dev);
+ extern void msi_remove_pci_irq_vectors(struct pci_dev *dev);
++extern int msi_register(struct msi_ops *ops);
+ #endif
+ 
+ extern void pci_block_user_cfg_access(struct pci_dev *dev);
