@@ -1,15 +1,15 @@
 From: Mark Maule <maule@sgi.com>
-Date: Thu, 22 Dec 2005 17:15:24 +0000
+Date: Thu, 22 Dec 2005 20:16:02 +0000
 Subject: [PATCH 2/3] altix:  msi support
-Message-Id: <20051222171631.8240.29741.95001@lnx-maule.americas.sgi.com>
+Message-Id: <20051222201710.2019.3976.52779@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
-In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+References: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com>
+In-Reply-To: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Mark Maule <maule@sgi.com>
+To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
 MSI callouts for altix.  Involves a fair amount of code reorg in sn irq.c
 code as well as adding some extensions to the altix PCI provider abstaction.
