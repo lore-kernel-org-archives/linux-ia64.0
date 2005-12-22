@@ -1,15 +1,17 @@
 From: Mark Maule <maule@sgi.com>
-Date: Thu, 22 Dec 2005 17:15:08 +0000
+Date: Thu, 22 Dec 2005 20:15:44 +0000
 Subject: [PATCH 0/3] msi abstractions and support for altix
-Message-Id: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+Message-Id: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Mark Maule <maule@sgi.com>
+To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
-Resend:
+Resend #2: including linuxppc64-dev and linux-pci as well as PCI maintainer
 
 Patch set to abstract portions of the MSI core so that it can be used on
 architectures which don't use standard interrupt controllers.
