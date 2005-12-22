@@ -1,52 +1,39 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 06 Dec 2005 04:49:32 +0000
-Subject: Re: [PATCH] ACPI EC driver on ia64
-Message-Id: <4395185C.9010802@jp.fujitsu.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 22 Dec 2005 19:45:41 +0000
+Subject: Possibly hole in IA64 TLB flushing from system threads
+Message-Id: <20051222194541.GA27329@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <43941A47.40304@jp.fujitsu.com> <200512050911.01808.bjorn.helgaas@hp.com>
-In-Reply-To: <200512050911.01808.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: acpi-devel@lists.sourceforge.net, len.brown@intel.com, linux-ia64@vger.kernel.org
-
->> config ACPI_EC
->> 	bool
->>-	depends on X86
->>+	depends on IA64 || X86
-> 
-> 
-> Why not just remove the "depends on" altogether?  I don't see anything
-> in ec.c that's architecture-dependent.
-> 
-
-Only the reason was I didn't have x86_64 machine for testing
-ACPI EC driver. But I think "depends on" should be removed,
-as you said.
-
-I'm attaching the updated patch.
-
-Thanks,
-Kenji Kaneshige
+To: linux-ia64@vger.kernel.org
 
 
-This patch removes "depends on X86" from config ACPI_EC. With this
-patch, ACPI EC driver will be built also on x86_64 and ia64.
+I originally thought this was an bug only in the SN code, but I think I
+also see a hole in the generic IA64 tlb code. (Separate patch was sent 
+for the SN problem).
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+It looks like there is a bug in the TLB flushing code. During context switch,
+kernel threads (kswapd, for example) inherit the mm of the task that was 
+previously running on the cpu. Normally, this is ok because the previous context
+is still loaded into the RR registers. However, if the owner of the mm
+migrates to another cpu, changes it's context number, and references a
+page before kswapd issues a tlb_purge for that same page, the purge will be 
+done with a stale context number (& RR registers).
 
- drivers/acpi/Kconfig |    1 -
- 1 files changed, 1 deletion(-)
+Am I overlooking something????
 
-Index: linux-2.6.15-rc5/drivers/acpi/Kconfig
-=================================--- linux-2.6.15-rc5.orig/drivers/acpi/Kconfig
-+++ linux-2.6.15-rc5/drivers/acpi/Kconfig
-@@ -269,7 +269,6 @@ config ACPI_DEBUG
+
+
+Index: linux/arch/ia64/mm/tlb.c
+=================================--- linux.orig/arch/ia64/mm/tlb.c	2005-12-08 12:11:15.271472386 -0600
++++ linux/arch/ia64/mm/tlb.c	2005-12-15 11:24:51.009417801 -0600
+@@ -90,7 +90,7 @@ ia64_global_tlb_purge (struct mm_struct 
+ {
+ 	static DEFINE_SPINLOCK(ptcg_lock);
  
- config ACPI_EC
- 	bool
--	depends on X86
- 	default y
- 	help
- 	  This driver is required on some systems for the proper operation of
+-	if (mm != current->active_mm) {
++	if (mm != current->active_mm || !current->mm) {
+ 		flush_tlb_all();
+ 		return;
+ 	}
