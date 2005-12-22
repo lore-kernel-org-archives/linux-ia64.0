@@ -1,7 +1,7 @@
-From: William Cohen <wcohen@redhat.com>
-Date: Thu, 22 Dec 2005 18:17:48 +0000
+From: John Reiser <jreiser@BitWagon.com>
+Date: Thu, 22 Dec 2005 18:36:14 +0000
 Subject: Re: [Perfctr-devel] Re: quick overview of the perfmon2 interface
-Message-Id: <43AAEDCC.4080909@redhat.com>
+Message-Id: <43AAF21E.5040800@BitWagon.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051219113140.GC2690@frankl.hpl.hp.com> <20051220025156.a86b418f.akpm@osdl.org> <20051222115632.GA8773@frankl.hpl.hp.com> <20051222120558.GA31303@infradead.org> <43AAC854.6020608@redhat.com> <20051222172303.GC6038@infradead.org>
 In-Reply-To: <20051222172303.GC6038@infradead.org>
@@ -32,14 +32,15 @@ Christoph Hellwig wrote:
 > interfaces, and oprofile has broad plattform support over most support
 > architectures.
 
-At what point would adding interfaces to OProfile turn it into perfmon? 
-Some of the additions like per-thread monitoring would require signicant 
-changes in the kernel that perfmon already implements. The IA64 OProfile 
-already uses the perfmon support in the kernel.
+Oprofile cannot be improved to provide stopwatch timing.
+It is impossible because oprofile is sampling, not direct measurement.
+Perfmon2, or anything which requires a system call to read a meter
+[counter] of nanoseconds [per-thread virtualized cycle counter]
+often adds unreasonably high overhead: hundreds of cycles or more,
+instead of tens or less.  CPU manufacturers are making life
+difficult for users of perfctr, by muddying the meaning of
+their user-readable cycle counters (see x86 RDTSC) or by omitting
+user-readable cycle counters entirely (whether in the name of lower cost,
+reducing "side channel" system information leaks, or otherwise.)
 
-Perfmon2 has support for ia64, p6, pentium4, x86_64, ppc, and mips, so 
-there is multiple architectures support. OProfile currently supports 
-more architectures: alpha,  arm,  i386 (p6/pentium4/athlon),  ia64, 
-mips,  ppc,  ppc64,  x86-64, and a fall-back timer mechanisms.
-
--Will
+-- 
