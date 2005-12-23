@@ -1,48 +1,57 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 06 Dec 2005 20:49:11 +0000
-Subject: Re: [PATCH] /dev/mem validate mmap requests
-Message-Id: <200512061349.11895.bjorn.helgaas@hp.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 23 Dec 2005 16:38:16 +0000
+Subject: [PATCH] - Fix memory ordering problem in wake_futex()
+Message-Id: <20051223163816.GA30906@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200512051700.20269.bjorn.helgaas@hp.com> <Pine.LNX.4.61.0512061832090.26899@goblin.wat.veritas.com>
-In-Reply-To: <Pine.LNX.4.61.0512061832090.26899@goblin.wat.veritas.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hugh Dickins <hugh@veritas.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
-On Tuesday 06 December 2005 11:39 am, Hugh Dickins wrote:
-> On Mon, 5 Dec 2005, Bjorn Helgaas wrote:
-> > Add a hook so architectures can validate /dev/mem mmap requests.
-> 
-> Not a comment on your patch at all, just an FYI in case you've missed
-> it, and in case it makes any difference to your ia64 needs.
-> 
-> A side-effect of 2.6.15-rc's PageReserved changes is that a user with
-> access to /dev/mem can now mmap any page of it, and see what's there
-> rather than zeroes, whether or not it has been marked PageReserved.
 
-Thanks for the pointer.
+Here is a fix for a ugly race condition that occurs in wake_futex() on IA64.
 
-I think my patch is orthogonal to your PageReserved changes.
+On IA64, locks are released using a "st.rel" instruction. This ensures that
+preceding "stores" are visible before the lock is released but does NOT prevent
+a "store" that follows the "st.rel" from becoming visible before the "st.rel".
+The result is that the task that owns the futex_q continues prematurely. 
 
-Here's a little more detail on the problem scenario.  An HP
-sx1000 machine with VGA has a memory map like this:
+The failure I saw is the task that owned the futex_q resumed prematurely and
+was context-switch off of the cpu. The task's switch_stack occupied the same
+space of the futex_q. The store to q->lock_ptr overwrote the ar.bspstore in the
+switch_stack. When the task resumed, it ran with a corrupted ar.bspstore.
+Things went downhill from there.
 
-	0-640K 		memory (supports only WB mappings)
-	640K-768K	VGA frame buffer (MMIO, supports only UC mappings)
-	768K-16M	memory (supports only WB mappings)
+Without the fix, the application fails roughly every 10 minutes. With
+the fix, it ran 16 hours without a failure.
 
-We use a 16MB "granule".  All mappings within a granule have to
-be the same type to avoid attribute aliasing.  Since we're using
-VGA, we have to use UC mappings for the MMIO frame buffer.  We
-can't use UC mappings for the memory, because the sx1000 chipset
-doesn't support that.  We can't use WB mappings, because that would
-cause attribute aliasing.
+----
+Fix a memory ordering problem that occurs on IA64. The "store" to q->lock_ptr
+in wake_futex() can become visible before wake_up_all() clears the lock in the
+futex_q. 
 
-Since we can't use WB mappings, the kernel ignores all that memory
-between 0-16MB.  There aren't even any page structures for it.  But
-without my patch, /dev/mem allows users to mmap it.  And there's no
-safe way to allow access of any kind to that memory.
 
-Bjorn
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
+
+
+
+
+
+Index: linux/kernel/futex.c
+=================================--- linux.orig/kernel/futex.c	2005-12-22 15:05:43.821889257 -0600
++++ linux/kernel/futex.c	2005-12-22 15:30:21.617973325 -0600
+@@ -287,7 +287,13 @@ static void wake_futex(struct futex_q *q
+ 	/*
+ 	 * The waiting task can free the futex_q as soon as this is written,
+ 	 * without taking any locks.  This must come last.
++	 *
++	 * A memory barrier is required here to prevent the following store
++	 * to lock_ptr from getting ahead of the wakeup. Clearing the lock
++	 * at the end of wake_up_all() does not prevent this store from
++	 * moving.
+ 	 */
++	wmb();
+ 	q->lock_ptr = NULL;
+ }
+ 
