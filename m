@@ -1,57 +1,61 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 23 Dec 2005 23:48:58 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Sat, 24 Dec 2005 13:45:23 +0000
 Subject: Re: [PATCH] - Fix memory ordering problem in wake_futex()
-Message-Id: <20051223234858.GA31945@lnx-holt.americas.sgi.com>
+Message-Id: <20051224134523.GA7187@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051223163816.GA30906@sgi.com> <20051223204822.GC24601@pb15.lixom.net> <20051223213216.GA29541@sgi.com> <20051223215915.GE24601@pb15.lixom.net>
-In-Reply-To: <20051223215915.GE24601@pb15.lixom.net>
+References: <20051223163816.GA30906@sgi.com>
+In-Reply-To: <20051223163816.GA30906@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Olof Johansson <olof@lixom.net>
-Cc: Jack Steiner <steiner@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, Dec 23, 2005 at 03:59:16PM -0600, Olof Johansson wrote:
-> On Fri, Dec 23, 2005 at 03:32:16PM -0600, Jack Steiner wrote:
-> 
-> > On IA64, the "sync" instructions are actually part of the ld.acq ot st.rel
-> > instructions that are used to set/clear spinlocks.
-> [...]
-> > IA64 implements fencing of ld.acq or st.rel instructions as one-directional
-> > barriers.
-> 
-> So ia64 spin_unlock doesn't do store-store ordering across it. I'm
-> surprised this is the first time this causes problems. Other architectures
-> seem to order:
-> 
-> * sparc64 does a membar StoreStore|LoadStore
-> * powerpc does lwsync or sync, depending on arch
-> * alpha does an mb();
-> 
-> * x86 is in-order
-> 
-> So, sounds to me like you need to fix your lock primitives, not add
-> barriers to generic code?
-
-I don't think this is a case which is handled by the typical lock
-primitives.  Here we essentially have two things being unlocked in
-close succession.  The first is the wait queue, the second the futex_q.
-
-There is nothing in the typical unlock path which would require unlocks
-to be ordered with respect to each other.  However, in this case, the
-futex_q expects to finish processing the wake_up_all before releasing
-the lock_ptr.  That is a requirement of wake_futex and not the locking
-primitives.  If wake_futex() requires it, then it should be responsible
-for enforcing that requirement.
-
-I suppose a step in the right direction would be doing a volatile store
-to q->lock_ptr.  I haven't looked, but that should at least prevent the
-clearing of lock_ptr until the wait queue is unlocked.
-
-Jack, can you repeat your testing with a cast on the q->lock_ptr line to
-a volatile.  After looking at it some more, shouldn't the struct futex_q{}
-definition for the spinlock_t *lock_ptr be volatile?
+This patch is identical to the first patch except I used smp_wmb() instead
+of wmb(). Ordering doen't matter on non-SMP kernels.
 
 
-Thanks,
-Robin Holt
+Here is a fix for a ugly race condition that occurs in wake_futex() on IA64.
+
+On IA64, locks are released using a "st.rel" instruction. This ensures that
+preceding "stores" are visible before the lock is released but does NOT prevent
+a "store" that follows the "st.rel" from becoming visible before the "st.rel".
+The result is that the task that owns the futex_q continues prematurely. 
+
+The failure I saw is the task that owned the futex_q resumed prematurely and
+was context-switch off of the cpu. The task's switch_stack occupied the same
+space of the futex_q. The store to q->lock_ptr overwrote the ar.bspstore in the
+switch_stack. When the task resumed, it ran with a corrupted ar.bspstore.
+Things went downhill from there.
+
+Without the fix, the application fails roughly every 10 minutes. With
+the fix, it ran 16 hours without a failure.
+
+----
+Fix a memory ordering problem that occurs on IA64. The "store" to q->lock_ptr
+in wake_futex() can become visible before wake_up_all() clears the lock in the
+futex_q. 
+
+
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
+
+
+
+
+
+Index: linux/kernel/futex.c
+=================================--- linux.orig/kernel/futex.c	2005-12-22 15:05:43.821889257 -0600
++++ linux/kernel/futex.c	2005-12-22 15:30:21.617973325 -0600
+@@ -287,7 +287,13 @@ static void wake_futex(struct futex_q *q
+ 	/*
+ 	 * The waiting task can free the futex_q as soon as this is written,
+ 	 * without taking any locks.  This must come last.
++	 *
++	 * A memory barrier is required here to prevent the following store
++	 * to lock_ptr from getting ahead of the wakeup. Clearing the lock
++	 * at the end of wake_up_all() does not prevent this store from
++	 * moving.
+ 	 */
++	smp_wmb();
+ 	q->lock_ptr = NULL;
+ }
+ 
