@@ -1,22 +1,26 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 20 Dec 2005 02:35:37 +0000
-Subject: Re: Can somebody with flex/bison experience help with genksyms?
-Message-Id: <20051220023537.GA27004@lnx-holt.americas.sgi.com>
+From: "Tian, Kevin" <kevin.tian@intel.com>
+Date: Mon, 26 Dec 2005 05:44:55 +0000
+Subject: Why is psr.ic off for ia64_pal_cache_flush?
+Message-Id: <571ACEFD467F7749BC50E0A98C17CDD802C06B64@pdsmsx403>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051219214019.GA25888@lnx-holt.americas.sgi.com> <jelkygljkg.fsf@sykes.suse.de>
-In-Reply-To: <jelkygljkg.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andreas Schwab <schwab@suse.de>
-Cc: Robin Holt <holt@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, rth@redhat.com, bj0rn@blox.se
+To: linux-ia64@vger.kernel.org
 
-On Tue, Dec 20, 2005 at 01:05:03AM +0100, Andreas Schwab wrote:
-> -	| TYPEOF_KEYW '(' decl_specifier_seq ')'
-> +	| TYPEOF_KEYW '(' decl_specifier_seq m_abstract_declarator ')'
+I know that currently there's no such invocation to ia64_pal_cache_flush
+within ia64 linux kernel, but like to know why it's the only instance to
+call PAL_CALL_IC_OFF under virtual mode? Since there's no DTR setup for
+pal area, it can only work if DTC entry exists just before off psr.ic,
+or pal procedure for this type doesn't issue any data access. Or else
+nested dtlb miss may happen and it seems not to be handled by current
+linux code.
 
-Thank you.  It was on the STRUCT_KEYW a few lines down and now it
-works.  I will post shortly.
+Currently this stub is invoked by XEN (an open source VMM with code
+derived from linux) to sync I/D cache after management tool loads kernel
+image and initrd of another domain (guest OS). Though we may take place
+of it by fc.i, I'm still curious to know historical background for this
+design.
 
-Thanks,
-Robin
+Thanks in advance,
+Kevin
