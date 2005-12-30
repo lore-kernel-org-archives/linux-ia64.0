@@ -1,634 +1,85 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 16 Dec 2005 18:54:33 +0000
-Subject: PATCH: Fix include/asm-ia64/intel_intrin.h
-Message-Id: <20051216185433.GA10829@lucon.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
+From: Jason Uhlenkott <jasonuhl@sgi.com>
+Date: Fri, 30 Dec 2005 10:27:01 +0000
+Subject: [PATCH] Handle debug traps in fsys mode
+Message-Id: <20051230102701.GA328696@dragonfly.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+We need to handle debug traps in fsys mode non-fatally.  They can
+happen now that we have fsyscalls which contain probe instructions.
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-include/asm-ia64/intel_intrin.h doesn't include <ia64intrin.h> and
-defines icc intrinsics itself. It doesn't work when <ia64intrin.h>
-is included when kernel header is used with icc outside of the
-kernel tree. I am enclosing 2 patches here:
-
-1. linux-2.6.9-icc-dummy-1.patch. It removes all contents from
-include/asm-ia64/intel_intrin.h. Since noone icc hasn't been used to
-build kernel recently, it shouldn't be a problem.
-2. linux-2.6.9-icc-8.patch. It changes include/asm-ia64/sn/rw_mmr.h
-and rewrites include/asm-ia64/intel_intrin.h with <ia64intrin.h>
-included.
-
-I am running the patched linux 2.6.9 compiled with gcc. I compiled
-linux 2.6.9 with icc 8.1. But I didn't run the icc compiled kernel. I
-don't have SN platform to test SN changes. Could someone please try it
-out on SN?
-
-Thanks.
+Signed-off-by: Jason Uhlenkott <jasonuhl@sgi.com>
 
 
-
-H.J.
-
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="linux-2.6.9-icc-dummy-1.patch"
-
---- linux/include/asm-ia64/intel_intrin.h.dummy	2004-10-18 14:55:29.000000000 -0700
-+++ linux/include/asm-ia64/intel_intrin.h	2005-12-06 06:46:32.000000000 -0800
-@@ -1,257 +1,4 @@
- #ifndef _ASM_IA64_INTEL_INTRIN_H
- #define _ASM_IA64_INTEL_INTRIN_H
--/*
-- * Intel Compiler Intrinsics
-- *
-- * Copyright (C) 2002,2003 Jun Nakajima <jun.nakajima@intel.com>
-- * Copyright (C) 2002,2003 Suresh Siddha <suresh.b.siddha@intel.com>
-- *
-- */
--#include <asm/types.h>
--
--void  __lfetch(int lfhint, void *y);
--void  __lfetch_excl(int lfhint, void *y);
--void  __lfetch_fault(int lfhint, void *y);
--void  __lfetch_fault_excl(int lfhint, void *y);
--
--/* In the following, whichFloatReg should be an integer from 0-127 */
--void  __ldfs(const int whichFloatReg, void *src);
--void  __ldfd(const int whichFloatReg, void *src);
--void  __ldfe(const int whichFloatReg, void *src);
--void  __ldf8(const int whichFloatReg, void *src);
--void  __ldf_fill(const int whichFloatReg, void *src);
--void  __stfs(void *dst, const int whichFloatReg);
--void  __stfd(void *dst, const int whichFloatReg);
--void  __stfe(void *dst, const int whichFloatReg);
--void  __stf8(void *dst, const int whichFloatReg);
--void  __stf_spill(void *dst, const int whichFloatReg);
--
--void  __st1_rel(void *dst, const __s8  value);
--void  __st2_rel(void *dst, const __s16 value);
--void  __st4_rel(void *dst, const __s32 value);
--void  __st8_rel(void *dst, const __s64 value);
--__u8  __ld1_acq(void *src);
--__u16 __ld2_acq(void *src);
--__u32 __ld4_acq(void *src);
--__u64 __ld8_acq(void *src);
--
--__u64 __fetchadd4_acq(__u32 *addend, const int increment);
--__u64 __fetchadd4_rel(__u32 *addend, const int increment);
--__u64 __fetchadd8_acq(__u64 *addend, const int increment);
--__u64 __fetchadd8_rel(__u64 *addend, const int increment);
--
--__u64 __getf_exp(double d);
--
--/* OS Related Itanium(R) Intrinsics  */
--
--/* The names to use for whichReg and whichIndReg below come from
--   the include file asm/ia64regs.h */
--
--__u64 __getIndReg(const int whichIndReg, __s64 index);
--__u64 __getReg(const int whichReg);
--
--void  __setIndReg(const int whichIndReg, __s64 index, __u64 value);
--void  __setReg(const int whichReg, __u64 value);
--
--void  __mf(void);
--void  __mfa(void);
--void  __synci(void);
--void  __itcd(__s64 pa);
--void  __itci(__s64 pa);
--void  __itrd(__s64 whichTransReg, __s64 pa);
--void  __itri(__s64 whichTransReg, __s64 pa);
--void  __ptce(__s64 va);
--void  __ptcl(__s64 va, __s64 pagesz);
--void  __ptcg(__s64 va, __s64 pagesz);
--void  __ptcga(__s64 va, __s64 pagesz);
--void  __ptri(__s64 va, __s64 pagesz);
--void  __ptrd(__s64 va, __s64 pagesz);
--void  __invala (void);
--void  __invala_gr(const int whichGeneralReg /* 0-127 */ );
--void  __invala_fr(const int whichFloatReg /* 0-127 */ );
--void  __nop(const int);
--void  __fc(__u64 *addr);
--void  __sum(int mask);
--void  __rum(int mask);
--void  __ssm(int mask);
--void  __rsm(int mask);
--__u64 __thash(__s64);
--__u64 __ttag(__s64);
--__s64 __tpa(__s64);
--
--/* Intrinsics for implementing get/put_user macros */
--void __st_user(const char *tableName, __u64 addr, char size, char relocType, __u64 val);
--void __ld_user(const char *tableName, __u64 addr, char size, char relocType);
--
--/* This intrinsic does not generate code, it creates a barrier across which
-- * the compiler will not schedule data access instructions.
-- */
--void __memory_barrier(void);
--
--void __isrlz(void);
--void __dsrlz(void);
--
--__u64  _m64_mux1(__u64 a, const int n);
--__u64  __thash(__u64);
--
--/* Lock and Atomic Operation Related Intrinsics */
--__u64 _InterlockedExchange8(volatile __u8 *trgt, __u8 value);
--__u64 _InterlockedExchange16(volatile __u16 *trgt, __u16 value);
--__s64 _InterlockedExchange(volatile __u32 *trgt, __u32 value);
--__s64 _InterlockedExchange64(volatile __u64 *trgt, __u64 value);
--
--__u64 _InterlockedCompareExchange8_rel(volatile __u8 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange8_acq(volatile __u8 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange16_rel(volatile __u16 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange16_acq(volatile __u16 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange_rel(volatile __u32 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange_acq(volatile __u32 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange64_rel(volatile __u64 *dest, __u64 xchg, __u64 comp);
--__u64 _InterlockedCompareExchange64_acq(volatile __u64 *dest, __u64 xchg, __u64 comp);
--
--__s64 _m64_dep_mi(const int v, __s64 s, const int p, const int len);
--__s64 _m64_shrp(__s64 a, __s64 b, const int count);
--__s64 _m64_popcnt(__s64 a);
--
--#define ia64_barrier()		__memory_barrier()
--
--#define ia64_stop()	/* Nothing: As of now stop bit is generated for each
--		 	 * intrinsic
--		 	 */
--
--#define ia64_getreg		__getReg
--#define ia64_setreg		__setReg
--
--#define ia64_hint(x)
--
--#define ia64_mux1_brcst	 0
--#define ia64_mux1_mix		 8
--#define ia64_mux1_shuf		 9
--#define ia64_mux1_alt		10
--#define ia64_mux1_rev		11
--
--#define ia64_mux1		_m64_mux1
--#define ia64_popcnt		_m64_popcnt
--#define ia64_getf_exp		__getf_exp
--#define ia64_shrp		_m64_shrp
--
--#define ia64_tpa		__tpa
--#define ia64_invala		__invala
--#define ia64_invala_gr		__invala_gr
--#define ia64_invala_fr		__invala_fr
--#define ia64_nop		__nop
--#define ia64_sum		__sum
--#define ia64_ssm		__ssm
--#define ia64_rum		__rum
--#define ia64_rsm		__rsm
--#define ia64_fc 		__fc
--
--#define ia64_ldfs		__ldfs
--#define ia64_ldfd		__ldfd
--#define ia64_ldfe		__ldfe
--#define ia64_ldf8		__ldf8
--#define ia64_ldf_fill		__ldf_fill
--
--#define ia64_stfs		__stfs
--#define ia64_stfd		__stfd
--#define ia64_stfe		__stfe
--#define ia64_stf8		__stf8
--#define ia64_stf_spill		__stf_spill
--
--#define ia64_mf		__mf
--#define ia64_mfa		__mfa
--
--#define ia64_fetchadd4_acq	__fetchadd4_acq
--#define ia64_fetchadd4_rel	__fetchadd4_rel
--#define ia64_fetchadd8_acq	__fetchadd8_acq
--#define ia64_fetchadd8_rel	__fetchadd8_rel
--
--#define ia64_xchg1		_InterlockedExchange8
--#define ia64_xchg2		_InterlockedExchange16
--#define ia64_xchg4		_InterlockedExchange
--#define ia64_xchg8		_InterlockedExchange64
--
--#define ia64_cmpxchg1_rel	_InterlockedCompareExchange8_rel
--#define ia64_cmpxchg1_acq	_InterlockedCompareExchange8_acq
--#define ia64_cmpxchg2_rel	_InterlockedCompareExchange16_rel
--#define ia64_cmpxchg2_acq	_InterlockedCompareExchange16_acq
--#define ia64_cmpxchg4_rel	_InterlockedCompareExchange_rel
--#define ia64_cmpxchg4_acq	_InterlockedCompareExchange_acq
--#define ia64_cmpxchg8_rel	_InterlockedCompareExchange64_rel
--#define ia64_cmpxchg8_acq	_InterlockedCompareExchange64_acq
--
--#define __ia64_set_dbr(index, val)	\
--		__setIndReg(_IA64_REG_INDR_DBR, index, val)
--#define ia64_set_ibr(index, val)	\
--		__setIndReg(_IA64_REG_INDR_IBR, index, val)
--#define ia64_set_pkr(index, val)	\
--		__setIndReg(_IA64_REG_INDR_PKR, index, val)
--#define ia64_set_pmc(index, val)	\
--		__setIndReg(_IA64_REG_INDR_PMC, index, val)
--#define ia64_set_pmd(index, val)	\
--		__setIndReg(_IA64_REG_INDR_PMD, index, val)
--#define ia64_set_rr(index, val)	\
--		__setIndReg(_IA64_REG_INDR_RR, index, val)
--
--#define ia64_get_cpuid(index) 	__getIndReg(_IA64_REG_INDR_CPUID, index)
--#define __ia64_get_dbr(index) 	__getIndReg(_IA64_REG_INDR_DBR, index)
--#define ia64_get_ibr(index) 	__getIndReg(_IA64_REG_INDR_IBR, index)
--#define ia64_get_pkr(index) 	__getIndReg(_IA64_REG_INDR_PKR, index)
--#define ia64_get_pmc(index) 	__getIndReg(_IA64_REG_INDR_PMC, index)
--#define ia64_get_pmd(index)  	__getIndReg(_IA64_REG_INDR_PMD, index)
--#define ia64_get_rr(index) 	__getIndReg(_IA64_REG_INDR_RR, index)
--
--#define ia64_srlz_d		__dsrlz
--#define ia64_srlz_i		__isrlz
--
--#define ia64_dv_serialize_data()
--#define ia64_dv_serialize_instruction()
--
--#define ia64_st1_rel		__st1_rel
--#define ia64_st2_rel		__st2_rel
--#define ia64_st4_rel		__st4_rel
--#define ia64_st8_rel		__st8_rel
--
--#define ia64_ld1_acq		__ld1_acq
--#define ia64_ld2_acq		__ld2_acq
--#define ia64_ld4_acq		__ld4_acq
--#define ia64_ld8_acq		__ld8_acq
--
--#define ia64_sync_i		__synci
--#define ia64_thash		__thash
--#define ia64_ttag		__ttag
--#define ia64_itcd		__itcd
--#define ia64_itci		__itci
--#define ia64_itrd		__itrd
--#define ia64_itri		__itri
--#define ia64_ptce		__ptce
--#define ia64_ptcl		__ptcl
--#define ia64_ptcg		__ptcg
--#define ia64_ptcga		__ptcga
--#define ia64_ptri		__ptri
--#define ia64_ptrd		__ptrd
--#define ia64_dep_mi		_m64_dep_mi
--
--/* Values for lfhint in __lfetch and __lfetch_fault */
--
--#define ia64_lfhint_none   	0
--#define ia64_lfhint_nt1    	1
--#define ia64_lfhint_nt2    	2
--#define ia64_lfhint_nta    	3
--
--#define ia64_lfetch		__lfetch
--#define ia64_lfetch_excl	__lfetch_excl
--#define ia64_lfetch_fault	__lfetch_fault
--#define ia64_lfetch_fault_excl	__lfetch_fault_excl
--
--#define ia64_intrin_local_irq_restore(x)		\
--do {							\
--	if ((x) != 0) {					\
--		ia64_ssm(IA64_PSR_I);			\
--		ia64_srlz_d();				\
--	} else {					\
--		ia64_rsm(IA64_PSR_I);			\
--	}						\
--} while (0)
+Index: linux/arch/ia64/kernel/traps.c
+=================================--- linux.orig/arch/ia64/kernel/traps.c	2005-12-08 14:19:53.761003480 -0800
++++ linux/arch/ia64/kernel/traps.c	2005-12-30 02:13:57.700204467 -0800
+@@ -530,12 +530,15 @@
+ 		if (fsys_mode(current, &regs)) {
+ 			extern char __kernel_syscall_via_break[];
+ 			/*
+-			 * Got a trap in fsys-mode: Taken Branch Trap and Single Step trap
+-			 * need special handling; Debug trap is not supposed to happen.
++			 * Got a trap in fsys-mode: Taken Branch Trap
++			 * and Single Step trap need special handling;
++			 * Debug trap is ignored (we disable it here
++			 * and re-enable it in the lower-privilege trap).
+ 			 */
+ 			if (unlikely(vector = 29)) {
+-				die("Got debug trap in fsys-mode---not supposed to happen!",
+-				    &regs, 0);
++				set_thread_flag(TIF_DB_DISABLED);
++				ia64_psr(&regs)->db = 0;
++				ia64_psr(&regs)->lp = 1;
+ 				return;
+ 			}
+ 			/* re-do the system call via break 0x100000: */
+@@ -589,10 +592,19 @@
+ 	      case 34:
+ 		if (isr & 0x2) {
+ 			/* Lower-Privilege Transfer Trap */
++
++			/* If we disabled debug traps during an fsyscall,
++			 * re-enable them here.
++			 */
++			if (test_thread_flag(TIF_DB_DISABLED)) {
++				clear_thread_flag(TIF_DB_DISABLED);
++				ia64_psr(&regs)->db = 1;
++			}
++
+ 			/*
+-			 * Just clear PSR.lp and then return immediately: all the
+-			 * interesting work (e.g., signal delivery is done in the kernel
+-			 * exit path).
++			 * Just clear PSR.lp and then return immediately:
++			 * all the interesting work (e.g., signal delivery)
++			 * is done in the kernel exit path.
+ 			 */
+ 			ia64_psr(&regs)->lp = 0;
+ 			return;
+Index: linux/include/asm-ia64/thread_info.h
+=================================--- linux.orig/include/asm-ia64/thread_info.h	2005-12-08 14:20:17.290561439 -0800
++++ linux/include/asm-ia64/thread_info.h	2005-12-30 02:15:39.749259718 -0800
+@@ -84,6 +84,7 @@
+ #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
+ #define TIF_MEMDIE		17
+ #define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
++#define TIF_DB_DISABLED		19	/* debug trap disabled for fsyscall */
  
- #endif /* _ASM_IA64_INTEL_INTRIN_H */
-
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="linux-2.6.9-icc-8.patch"
-
---- linux-2.6.9/include/asm-ia64/bug.h.icc	2004-10-18 14:55:36.000000000 -0700
-+++ linux-2.6.9/include/asm-ia64/bug.h	2005-12-09 12:52:57.000000000 -0800
-@@ -1,11 +1,8 @@
- #ifndef _ASM_IA64_BUG_H
- #define _ASM_IA64_BUG_H
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
+ #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+@@ -91,9 +92,10 @@
+ #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+-#define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
++#define _TIF_SIGDELAYED		(1 << TIF_SIGDELAYED)
+ #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
+ #define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
++#define _TIF_DB_DISABLED	(1 << TIF_DB_DISABLED)
  
--#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
--# define ia64_abort()	__builtin_trap()
--#else
--# define ia64_abort()	(*(volatile int *) 0 = 0)
--#endif
-+#include <asm/intrinsics.h>
-+
- #define BUG() do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); ia64_abort(); } while (0)
- 
- /* should this BUG should be made generic? */
---- linux-2.6.9/include/asm-ia64/gcc_intrin.h.icc	2004-10-18 14:54:07.000000000 -0700
-+++ linux-2.6.9/include/asm-ia64/gcc_intrin.h	2005-12-09 14:48:06.000000000 -0800
-@@ -388,6 +388,44 @@ register unsigned long ia64_r13 asm ("r1
- # define ia64_dv_serialize_instruction()
- #endif
- 
-+#define ia64_st1_rel(dst, val) \
-+  asm volatile ("st1.rel [%0]=%1":: "r"(dst), "r"(val) : "memory")
-+#define ia64_st2_rel(dst, val) \
-+  asm volatile ("st2.rel [%0]=%1":: "r"(dst), "r"(val) : "memory")
-+#define ia64_st4_rel(dst, val) \
-+  asm volatile ("st4.rel [%0]=%1":: "r"(dst), "r"(val) : "memory")
-+#define ia64_st8_rel(dst, val) \
-+  asm volatile ("st8.rel [%0]=%1":: "r"(dst), "r"(val) : "memory")
-+
-+#define ia64_ld1_acq(src) \
-+({								\
-+	__u8 val;						\
-+	asm volatile ("ld1.acq %0=[%1]"				\
-+		      : "r"(val) : "r"(src) : "memory");	\
-+	val;							\
-+})
-+#define ia64_ld2_acq(src) \
-+({								\
-+	__u16 val;						\
-+	asm volatile ("ld2.acq %0=[%1]"				\
-+		      : "r"(val) : "r"(src) : "memory");	\
-+	val;							\
-+})
-+#define ia64_ld4_acq(src) \
-+({								\
-+	__u32 val;						\
-+	asm volatile ("ld4.acq %0=[%1]"				\
-+		      : "r"(val) : "r"(src) : "memory");	\
-+	val;							\
-+})
-+#define ia64_ld8_acq(src) \
-+({								\
-+	__u64 val;						\
-+	asm volatile ("ld8.acq %0=[%1]"				\
-+		      : "r"(val) : "r"(src) : "memory");	\
-+	val;							\
-+})
-+
- #define ia64_nop(x)	asm volatile ("nop %0"::"i"(x));
- 
- #define ia64_itci(addr)	asm volatile ("itc.i %0;;" :: "r"(addr) : "memory")
-@@ -594,4 +632,23 @@ do {								\
- 		      :: "r"((x)) : "p6", "p7", "memory");	\
- } while (0)
- 
-+
-+#define ia64_getpsr()						\
-+({								\
-+	__u64 psr;						\
-+	asm volatile ("mov %0=psr" : "=r"(psr));		\
-+	psr;							\
-+})
-+
-+#define ia64_setpsrlow(l)					\
-+({								\
-+	asm volatile ("mov psr.l=%0" :: "r"(l));		\
-+})
-+
-+#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
-+# define ia64_abort()	__builtin_trap()
-+#else
-+# define ia64_abort()	(*(volatile int *) 0 = 0)
-+#endif
-+
- #endif /* _ASM_IA64_GCC_INTRIN_H */
---- linux-2.6.9/include/asm-ia64/intel_intrin.h.icc	2005-12-09 12:52:57.000000000 -0800
-+++ linux-2.6.9/include/asm-ia64/intel_intrin.h	2005-12-09 12:52:57.000000000 -0800
-@@ -1,4 +1,159 @@
- #ifndef _ASM_IA64_INTEL_INTRIN_H
- #define _ASM_IA64_INTEL_INTRIN_H
-+/*
-+ * Intel Compiler Intrinsics
-+ *
-+ * Copyright (C) 2002,2003 Jun Nakajima <jun.nakajima@intel.com>
-+ * Copyright (C) 2002,2003 Suresh Siddha <suresh.b.siddha@intel.com>
-+ *
-+ */
-+#include <ia64intrin.h>
-+
-+#define ia64_barrier()		__memory_barrier()
-+
-+#define ia64_stop()	/* Nothing: As of now stop bit is generated for each
-+		 	 * intrinsic
-+		 	 */
-+
-+#define ia64_getreg		__getReg
-+#define ia64_setreg		__setReg
-+
-+#define ia64_hint(x)
-+
-+#define ia64_mux1_brcst	 0
-+#define ia64_mux1_mix		 8
-+#define ia64_mux1_shuf		 9
-+#define ia64_mux1_alt		10
-+#define ia64_mux1_rev		11
-+
-+#define ia64_mux1(x,v)					\
-+	_m_to_int64 (_m64_mux1 (_m_from_int64 (x), (v)))
-+#define ia64_popcnt		_m64_popcnt
-+#define ia64_getf_exp		__getf_exp
-+#define ia64_shrp		_m64_shrp
-+
-+#define ia64_tpa		__tpa
-+#define ia64_invala		__invala
-+#define ia64_invala_gr		__invala_gr
-+#define ia64_invala_fr		__invala_fr
-+#define ia64_nop		__nop
-+#define ia64_sum		__sum
-+#define ia64_ssm		__ssm
-+#define ia64_rum		__rum
-+#define ia64_rsm		__rsm
-+#define ia64_fc 		__fc
-+
-+#define ia64_ldfs		__ldfs
-+#define ia64_ldfd		__ldfd
-+#define ia64_ldfe		__ldfe
-+#define ia64_ldf8		__ldf8
-+#define ia64_ldf_fill		__ldf_fill
-+
-+#define ia64_stfs		__stfs
-+#define ia64_stfd		__stfd
-+#define ia64_stfe		__stfe
-+#define ia64_stf8		__stf8
-+#define ia64_stf_spill		__stf_spill
-+
-+#define ia64_mf		__mf
-+#define ia64_mfa		__mfa
-+
-+#define ia64_fetchadd4_acq	__fetchadd4_acq
-+#define ia64_fetchadd4_rel	__fetchadd4_rel
-+#define ia64_fetchadd8_acq	__fetchadd8_acq
-+#define ia64_fetchadd8_rel	__fetchadd8_rel
-+
-+#define ia64_xchg1		_InterlockedExchange8
-+#define ia64_xchg2		_InterlockedExchange16
-+#define ia64_xchg4		_InterlockedExchange
-+#define ia64_xchg8		_InterlockedExchange64
-+
-+#define ia64_cmpxchg1_rel	_InterlockedCompareExchange8_rel
-+#define ia64_cmpxchg1_acq	_InterlockedCompareExchange8_acq
-+#define ia64_cmpxchg2_rel	_InterlockedCompareExchange16_rel
-+#define ia64_cmpxchg2_acq	_InterlockedCompareExchange16_acq
-+#define ia64_cmpxchg4_rel	_InterlockedCompareExchange_rel
-+#define ia64_cmpxchg4_acq	_InterlockedCompareExchange_acq
-+#define ia64_cmpxchg8_rel	_InterlockedCompareExchange64_rel
-+#define ia64_cmpxchg8_acq	_InterlockedCompareExchange64_acq
-+
-+#define __ia64_set_dbr(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_DBR, index, val)
-+#define ia64_set_ibr(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_IBR, index, val)
-+#define ia64_set_pkr(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_PKR, index, val)
-+#define ia64_set_pmc(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_PMC, index, val)
-+#define ia64_set_pmd(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_PMD, index, val)
-+#define ia64_set_rr(index, val)	\
-+		__setIndReg(_IA64_REG_INDR_RR, index, val)
-+
-+#define ia64_get_cpuid(index) 	__getIndReg(_IA64_REG_INDR_CPUID, index)
-+#define __ia64_get_dbr(index) 	__getIndReg(_IA64_REG_INDR_DBR, index)
-+#define ia64_get_ibr(index) 	__getIndReg(_IA64_REG_INDR_IBR, index)
-+#define ia64_get_pkr(index) 	__getIndReg(_IA64_REG_INDR_PKR, index)
-+#define ia64_get_pmc(index) 	__getIndReg(_IA64_REG_INDR_PMC, index)
-+#define ia64_get_pmd(index)  	__getIndReg(_IA64_REG_INDR_PMD, index)
-+#define ia64_get_rr(index) 	__getIndReg(_IA64_REG_INDR_RR, index)
-+
-+#define ia64_srlz_d		__dsrlz
-+#define ia64_srlz_i		__isrlz
-+
-+#define ia64_dv_serialize_data()
-+#define ia64_dv_serialize_instruction()
-+
-+#define ia64_st1_rel		__st1_rel
-+#define ia64_st2_rel		__st2_rel
-+#define ia64_st4_rel		__st4_rel
-+#define ia64_st8_rel		__st8_rel
-+
-+#define ia64_ld1_acq		__ld1_acq
-+#define ia64_ld2_acq		__ld2_acq
-+#define ia64_ld4_acq		__ld4_acq
-+#define ia64_ld8_acq		__ld8_acq
-+
-+#define ia64_sync_i		__synci
-+#define ia64_thash		__thash
-+#define ia64_ttag		__ttag
-+#define ia64_itcd		__itcd
-+#define ia64_itci		__itci
-+#define ia64_itrd		__itrd
-+#define ia64_itri		__itri
-+#define ia64_ptce		__ptce
-+#define ia64_ptcl		__ptcl
-+#define ia64_ptcg		__ptcg
-+#define ia64_ptcga		__ptcga
-+#define ia64_ptri		__ptri
-+#define ia64_ptrd		__ptrd
-+#define ia64_dep_mi		_m64_dep_mi
-+
-+/* Values for lfhint in __lfetch and __lfetch_fault */
-+
-+#define ia64_lfhint_none   	0
-+#define ia64_lfhint_nt1    	1
-+#define ia64_lfhint_nt2    	2
-+#define ia64_lfhint_nta    	3
-+
-+#define ia64_lfetch		__lfetch
-+#define ia64_lfetch_excl	__lfetch_excl
-+#define ia64_lfetch_fault	__lfetch_fault
-+#define ia64_lfetch_fault_excl	__lfetch_fault_excl
-+
-+#define ia64_intrin_local_irq_restore(x)		\
-+do {							\
-+	if ((x) != 0) {					\
-+		ia64_ssm(IA64_PSR_I);			\
-+		ia64_srlz_d();				\
-+	} else {					\
-+		ia64_rsm(IA64_PSR_I);			\
-+	}						\
-+} while (0)
-+
-+#define ia64_getpsr()		__GetPSR ()
-+#define ia64_setpsrlow(l)	__SetPSRLow (l)
-+
-+#define ia64_abort()		__break (0)
- 
- #endif /* _ASM_IA64_INTEL_INTRIN_H */
---- linux-2.6.9/include/asm-ia64/sn/rw_mmr.h.icc	2005-12-09 12:52:52.000000000 -0800
-+++ linux-2.6.9/include/asm-ia64/sn/rw_mmr.h	2005-12-09 12:52:57.000000000 -0800
-@@ -25,17 +25,13 @@
- extern inline long
- pio_phys_read_mmr(volatile long *mmr) 
- {
--	long val;
--        asm volatile
--            ("mov r2=psr;;"
--             "rsm psr.i | psr.dt;;"
--             "srlz.i;;"
--             "ld8.acq %0=[%1];;"
--             "mov psr.l=r2;;"
--             "srlz.i;;"
--             : "=r"(val)
--             : "r"(mmr)
--	     : "r2");
-+	long val, psr_saved;
-+	psr_saved = ia64_getpsr ();
-+	ia64_rsm (IA64_PSR_I | IA64_PSR_DT);
-+	ia64_srlz_i ();
-+	val = ia64_ld8_acq (mmr);
-+	ia64_setpsrlow (psr_saved);
-+	ia64_srlz_i ();
-         return val;
- }
- 
-@@ -44,31 +40,27 @@ pio_phys_read_mmr(volatile long *mmr) 
- extern inline void
- pio_phys_write_mmr(volatile long *mmr, long val) 
- {
--        asm volatile
--            ("mov r2=psr;;"
--             "rsm psr.i | psr.dt;;"
--             "srlz.i;;"
--             "st8.rel [%0]=%1;;"
--             "mov psr.l=r2;;"
--             "srlz.i;;"
--	     :: "r"(mmr), "r"(val)
--             : "r2", "memory");
--}            
-+	long psr_saved;
-+	psr_saved = ia64_getpsr ();
-+	ia64_rsm (IA64_PSR_I | IA64_PSR_DT);
-+	ia64_srlz_i ();
-+	ia64_st8_rel (mmr, val);
-+	ia64_setpsrlow (psr_saved);
-+	ia64_srlz_i ();
-+}
- 
- extern inline void
- pio_atomic_phys_write_mmrs(volatile long *mmr1, long val1, volatile long *mmr2, long val2) 
- {
--        asm volatile
--            ("mov r2=psr;;"
--             "rsm psr.i | psr.dt | psr.ic;;"
--	     "cmp.ne p9,p0=%2,r0;"
--             "srlz.i;;"
--             "st8.rel [%0]=%1;"
--             "(p9) st8.rel [%2]=%3;;"
--             "mov psr.l=r2;;"
--             "srlz.i;;"
--	     :: "r"(mmr1), "r"(val1), "r"(mmr2), "r"(val2)
--             : "p9", "r2", "memory");
--}            
-+	long psr_saved;
-+	psr_saved = ia64_getpsr ();
-+	ia64_rsm (IA64_PSR_I | IA64_PSR_DT | IA64_PSR_IC);
-+	ia64_srlz_i ();
-+	ia64_st8_rel (mmr1, val1);
-+	if (mmr2 != NULL)
-+		ia64_st8_rel (mmr2, val2);
-+	ia64_setpsrlow (psr_saved);
-+	ia64_srlz_i ();
-+}
- 
- #endif /* _ASM_IA64_SN_RW_MMR_H */
-
---opJtzjQTFsWo+cga--
+ /* "work to do on user-return" bits */
+ #define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
