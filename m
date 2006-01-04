@@ -1,121 +1,78 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Wed, 25 Jan 2006 23:51:14 +0000
-Subject: [PATCH]: Add PROM feature set for device flush list
-Message-Id: <20060125235113.9721.46324.sendpatchset@prarit.boston.redhat.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Wed, 04 Jan 2006 22:19:37 +0000
+Subject: [PATCH 2.6.15 2/2] ipmi: use CONFIG_DMI instead of CONFIG_X86
+Message-Id: <20060104221937.GB26064@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org
+Cc: linux-kernel@vger.kernel.org
 
-Introduce PRF_DEVICE_FLUSH_LIST flag for older PROMs.
+With Andi Kleen's x86_64 patch to use DMI, and my ia64 to use DMI,
+there is now a new CONFIG_DMI option which takes the place of
+CONFIG_X86 to denote the availability of the DMI functions.  Make the
+IPMI driver use CONFIG_DMI instead.
 
-This patch depends on Dean Roe's previous patch,
+Tested on ia64 2.6.15 kernel plus the previous patch, on a Dell
+PowerEdge 7250 Itanium2 server, and it now autodetects the IPMI KCS
+driver as expected.
 
-http://marc.theaimsgroup.com/?l=linux-ia64&m3811317607416&w=2
+Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
 
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
----
-commit 4ed422a973ed005a6dd4bd8f5297508ad30d4d73
-tree 95dbca2ac7d9a63115e63917a6bc3902f98606d2
-parent ff85044c690cfabb8079509d0f7cac093d5b436d
-author Prarit Bhargava <prarit@sgi.com> Wed, 25 Jan 2006 14:45:49 -0500
-committer Prarit Bhargava <prarit@sgi.com> Wed, 25 Jan 2006 14:45:49 -0500
 
- arch/ia64/sn/kernel/io_init.c         |   36 +++++++++++++++++----------------
- include/asm-ia64/sn/sn_feature_sets.h |    7 ++++--
- 2 files changed, 22 insertions(+), 21 deletions(-)
+-- 
+Matt Domsch
+Software Architect
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -10,6 +10,7 @@
- #include <linux/nodemask.h>
- #include <asm/sn/types.h>
- #include <asm/sn/addrs.h>
-+#include <asm/sn/sn_feature_sets.h>
- #include <asm/sn/geo.h>
- #include <asm/sn/io.h>
- #include <asm/sn/pcibr_provider.h>
-@@ -173,8 +174,8 @@ sn_pcidev_info_get(struct pci_dev *dev)
-  */
- static u8 war_implemented = 0;
+diff --git a/drivers/char/ipmi/ipmi_si_intf.c b/drivers/char/ipmi/ipmi_si_intf.c
+index beea450..c67ef3e 100644
+--- a/drivers/char/ipmi/ipmi_si_intf.c
++++ b/drivers/char/ipmi/ipmi_si_intf.c
+@@ -1056,7 +1056,7 @@ MODULE_PARM_DESC(slave_addrs, "Set the d
+ #define IPMI_MEM_ADDR_SPACE 1
+ #define IPMI_IO_ADDR_SPACE  2
  
--static void sn_device_fixup_war(u64 nasid, u64 widget, int device,
--				struct sn_flush_device_common *common)
-+static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
-+			       struct sn_flush_device_common *common)
+-#if defined(CONFIG_ACPI) || defined(CONFIG_X86) || defined(CONFIG_PCI)
++#if defined(CONFIG_ACPI) || defined(CONFIG_DMI) || defined(CONFIG_PCI)
+ static int is_new_interface(int intf, u8 addr_space, unsigned long base_addr)
  {
- 	struct sn_flush_device_war *war_list;
- 	struct sn_flush_device_war *dev_entry;
-@@ -198,8 +199,9 @@ static void sn_device_fixup_war(u64 nasi
- 
- 	dev_entry = war_list + device;
- 	memcpy(common,dev_entry, sizeof(*common));
--
- 	kfree(war_list);
-+
-+	return isrv.status;
+ 	int i;
+@@ -1669,7 +1669,7 @@ static int try_init_acpi(int intf_num, s
  }
+ #endif
  
- /*
-@@ -279,23 +281,21 @@ static void sn_fixup_ionodes(void)
- 				memset(dev_entry->common, 0x0, sizeof(struct
- 					     	       sn_flush_device_common));
+-#ifdef CONFIG_X86
++#ifdef CONFIG_DMI
+ typedef struct dmi_ipmi_data
+ {
+ 	u8   		type;
+@@ -1829,7 +1829,7 @@ static int try_init_smbios(int intf_num,
+ 	       ipmi_data->slave_addr);
+ 	return 0;
+ }
+-#endif /* CONFIG_X86 */
++#endif /* CONFIG_DMI */
  
--				status = sal_get_device_dmaflush_list(nasid,
--									widget,
--								       	device,
-+				if (sn_prom_feature_available(
-+						       PRF_DEVICE_FLUSH_LIST))
-+					status = sal_get_device_dmaflush_list(
-+									  nasid,
-+									 widget,
-+								       	 device,
- 						      (u64)(dev_entry->common));
--				if (status) {
--					if (sn_sal_rev() < 0x0450) {
--						/* shortlived WAR for older
--						 * PROM images
--						 */
--						sn_device_fixup_war(nasid,
--								    widget,
--								    device,
-+				else
-+					status = sn_device_fixup_war(nasid,
-+								     widget,
-+							    	     device,
- 							     dev_entry->common);
--					}
--					else
--						BUG();
--				}
-+				if (status != SALRET_OK)
-+					panic("SAL call failed: %s\n",
-+					      ia64_sal_strerror(status));
+ #ifdef CONFIG_PCI
  
- 				spin_lock_init(&dev_entry->sfdl_flush_lock);
- 			}
-diff --git a/include/asm-ia64/sn/sn_feature_sets.h b/include/asm-ia64/sn/sn_feature_sets.h
---- a/include/asm-ia64/sn/sn_feature_sets.h
-+++ b/include/asm-ia64/sn/sn_feature_sets.h
-@@ -30,7 +30,8 @@ extern int sn_prom_feature_available(int
-  * 		if (sn_prom_feature_available(PRF_XXX))
-  * 			...
-  */
--#define PRF_PAL_CACHE_FLUSH_SAFE		0
-+#define PRF_PAL_CACHE_FLUSH_SAFE	0
-+#define PRF_DEVICE_FLUSH_LIST		1
+@@ -2222,7 +2222,7 @@ static int init_one_smi(int intf_num, st
+ 	if (rv && si_trydefaults)
+ 		rv = try_init_acpi(intf_num, &new_smi);
+ #endif
+-#ifdef CONFIG_X86
++#ifdef CONFIG_DMI
+ 	if (rv && si_trydefaults)
+ 		rv = try_init_smbios(intf_num, &new_smi);
+ #endif
+@@ -2433,7 +2433,7 @@ static __init int init_ipmi_si(void)
  
+ 	printk(KERN_INFO "IPMI System Interface driver.\n");
  
+-#ifdef CONFIG_X86
++#ifdef CONFIG_DMI
+ 	dmi_find_bmc();
+ #endif
  
-@@ -47,7 +48,7 @@ extern int sn_prom_feature_available(int
-  *
-  * By default, features are disabled unless explicitly enabled.
-  */
--#define  OSF_MCA_SLV_TO_OS_INIT_SLV		0
--#define  OSF_FEAT_LOG_SBES			1
-+#define  OSF_MCA_SLV_TO_OS_INIT_SLV	0
-+#define  OSF_FEAT_LOG_SBES		1
- 
- #endif /* _ASM_IA64_SN_FEATURE_SETS_H */
