@@ -1,180 +1,30 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 04 Jan 2006 09:10:49 +0000
-Subject: Announce: kdb v4.4 is available for kernel 2.6.15
-Message-Id: <13550.1136365849@kao2.melbourne.sgi.com>
+From: "Jeff V. Merkey" <jmerkey@wolfmountaingroup.com>
+Date: Wed, 04 Jan 2006 15:04:46 +0000
+Subject: Re: Announce: kdb v4.4 is available for kernel 2.6.15
+Message-Id: <43BBE40E.5040600@wolfmountaingroup.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12956.1085377697@kao2.melbourne.sgi.com>
-In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
+References: <13550.1136365849@kao2.melbourne.sgi.com>
+In-Reply-To: <13550.1136365849@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kdb@oss.sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-KDB (Linux Kernel Debugger) has been updated for kernel 2.6.15.
-
-ftp://oss.sgi.com/projects/kdb/download/v4.4/
-ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
-
-Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
-subscriber only.  If you reply to this mail, you may wish to trim
-kdb@oss.sgi.com from the cc: list.
-
-Current versions are :-
-
-  kdb-v4.4-2.6.15-common-1.bz2
-  kdb-v4.4-2.6.15-i386-1.bz2
-  kdb-v4.4-2.6.15-ia64-1.bz2
-
-Changelog extract since kdb-v4.4-2.6.14-common-1.
-
-2006-01-04 Keith Owens  <kaos@sgi.com>
-
-	* Print all buffers on a page in inode pages and update formatting to be
-	  legible, too.  David Chinner, SGI.
-	* Update page flags in kdbm_pg.
-	* Remove inline from *.c files.
-	* kdb v4.4-2.6.15-common-1.
-
-2005-12-25 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc7-common-1.
-
-2005-12-20 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc6-common-1.
-
-2005-12-10 Keith Owens  <kaos@sgi.com>
-
-	* Update mapping of flags to strings in kdbm_pg.c and kdbm_vm.c.
-	* kdb v4.4-2.6.15-rc5-common-3.
-
-2005-12-06 Keith Owens  <kaos@sgi.com>
-
-	* Add RECOVERY flag to global KDB flags.
-	* Add kdb_{save,restore}_flags.
-	* kdb v4.4-2.6.15-rc5-common-2.
-
-2005-12-05 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc5-common-1.
-
-2005-12-02 Keith Owens  <kaos@sgi.com>
-
-	* kdbm_vm.c: offsets of page macros should be unsigned long.  Reported
-	  by Dean Nelson, SGI.
-	* kdb v4.4-2.6.15-rc4-common-1.
-
-2005-11-30 Keith Owens  <kaos@sgi.com>
-
-	* New follow_page() API.
-	* kdb v4.4-2.6.15-rc3-common-1.
-
-2005-11-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc2-common-1.
-
-2005-11-15 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc1-common-1.
-
-2005-11-15 Keith Owens  <kaos@sgi.com>
-
-	* Allow kdb_printf() to be used outside kdb, in preemptible context.
-	* Build with CONFIG_SWAP=n.  Reported by Leo Yuriev.
-	* kdb v4.4-2.6.14-common-2.
-
-
-Changelog extract since kdb-v4.4-2.6.14-i386-1.
-
-2006-01-04 Keith Owens  <kaos@sgi.com>
-
-	* Remove some inlines and the last vestige of CONFIG_NUMA_REPLICATE.
-	* Read the keyboard acknowledgment after sending a character.  SuSE
-	  Bugzilla 60240.
-	* kdb v4.4-2.6.15-i386-1.
-
-2005-12-25 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc7-i386-1.
-
-2005-12-20 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc6-i386-1.
-
-2005-12-05 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc5-i386-1.
-
-2005-12-02 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc4-i386-1.
-
-2005-11-30 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc3-i386-1.
-
-2005-11-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc2-i386-1.
-
-2005-11-15 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc1-i386-1.
-
-
-Changelog extract since kdb v4.4-2.6.14-ia64-1.
-
-2006-01-04 Keith Owens  <kaos@sgi.com>
-
-	* Remove some inlines and the last vestige of CONFIG_NUMA_REPLICATE.
-	* Read the keyboard acknowledgment after sending a character.  SuSE
-	  Bugzilla 60240.
-	* kdb v4.4-2.6.15-ia64-1.
-
-2005-12-25 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc7-ia64-1.
-
-2005-12-20 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc6-ia64-1.
-
-2005-12-06 Keith Owens  <kaos@sgi.com>
-
-	* Use RECOVERY flag in MCA handler.
-	* kdb v4.4-2.6.15-rc5-ia64-2.
-
-2005-12-05 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc5-ia64-1.
-
-2005-12-02 Keith Owens  <kaos@sgi.com>
-
-	* Reinstate hook for debug trap, the patch chunk was accidentally
-	  dropped in 2.6.15-rc1.
-	* kdb v4.4-2.6.15-rc4-ia64-1.
-
-2005-11-30 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc3-ia64-1.
-
-2005-11-21 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc2-ia64-1.
-
-2005-11-15 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.15-rc1-ia64-1.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQFDu5EZi4UHNye0ZOoRAladAJ9dOrLAnfedShRieBScdUM4LKoXdgCfa14w
-XkFg0U23y9XgZD64xu0iZ4Q=nYyJ
------END PGP SIGNATURE-----
+To: Keith Owens <kaos@sgi.com>
+Cc: kdb@oss.sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+
+Keith,
+
+I noticed that during page faults, the OOPS handler is not getting
+called when the kernel crashes in
+filp_open() -- the notifier chain does not return for some reason.  I
+also noticed that when this happens, if you the section in 
+/arch/i386/kernel/traps.c in function die() prior to the busting of
+spinlocks, it will work (sortof work).  To reproduce this error, call 
+filp_open with a text string complied in the kernel.  I can reproduce on 
+2.6.10 and 2.6.11 Fedora Kernels.   Also noticed that when Kprobes is 
+enabled, the debugger page faults during a page fault exeception. 
+Seems related to the notifier chain.
+
+If you fixed this already, disregard this notice.
+
+Jeff
 
