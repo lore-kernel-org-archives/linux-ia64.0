@@ -1,32 +1,44 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Wed, 04 Jan 2006 23:29:44 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 05 Jan 2006 16:41:15 +0000
 Subject: Re: [PATCH 2.6.15 1/2] ia64: use i386 dmi_scan.c
-Message-Id: <20060104232944.GA32250@lists.us.dell.com>
+Message-Id: <200601050941.15915.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com> <1136414164.6198.36.camel@localhost.localdomain>
-In-Reply-To: <1136414164.6198.36.camel@localhost.localdomain>
+References: <20060104221627.GA26064@lists.us.dell.com> <1136414164.6198.36.camel@localhost.localdomain> <20060104232944.GA32250@lists.us.dell.com>
+In-Reply-To: <20060104232944.GA32250@lists.us.dell.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Williamson <alex.williamson@hp.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>
-Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, linux-kernel@vger.kernel.org
+To: Matt Domsch <Matt_Domsch@dell.com>
+Cc: Alex Williamson <alex.williamson@hp.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, linux-kernel@vger.kernel.org
 
-On Wed, Jan 04, 2006 at 03:36:03PM -0700, Alex Williamson wrote:
-> On Wed, 2006-01-04 at 16:16 -0600, Matt Domsch wrote:
-> > Andi Kleen has a patch in his x86_64 tree which enables the use of
-> > i386 dmi_scan.c on x86_64.  dmi_scan.c functions are being used by the
-> > drivers/char/ipmi/ipmi_si_intf.c driver for autodetecting the ports or
-> > memory spaces where the IPMI controllers may be found.
-> 
->    Can't this be done via ACPI/EFI?  I'm really opposed to adding
-> anything to ia64 that blindly picks memory ranges and starts scanning
-> for magic legacy tables.  If nothing else, this can be found via
-> efi.smbios.  Thanks,
+On Wednesday 04 January 2006 16:29, Matt Domsch wrote:
+> On Wed, Jan 04, 2006 at 03:36:03PM -0700, Alex Williamson wrote:
+> > On Wed, 2006-01-04 at 16:16 -0600, Matt Domsch wrote:
+> > > Andi Kleen has a patch in his x86_64 tree which enables the use
+> > > of i386 dmi_scan.c on x86_64.  dmi_scan.c functions are being
+> > > used by the drivers/char/ipmi/ipmi_si_intf.c driver for
+> > > autodetecting the ports or memory spaces where the IPMI
+> > > controllers may be found.
+> >
+> >    Can't this be done via ACPI/EFI?  I'm really opposed to adding
+> > anything to ia64 that blindly picks memory ranges and starts
+> > scanning for magic legacy tables.  If nothing else, this can be
+> > found via efi.smbios.  Thanks,
+>
+> I'll redo this to use efi.smbios.  Thanks for the tip.
 
-I'll redo this to use efi.smbios.  Thanks for the tip.
+The DMI scan looks like it's done in try_init_smbios().  But
+try_init_acpi() is done first.  Since every ia64 machine has
+ACPI, I would think try_init_acpi() should be sufficient.
 
--- 
-Matt Domsch
-Software Architect
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Or do you have a machine that doesn't supply the SPMI
+table used by try_init_acpi()?
+
+Personally, I think try_init_acpi() should be re-done so it uses
+the normal acpi_bus_register_driver() mechanism, which would
+locate the IPMI device in the ACPI namespace.  I don't think
+there's any need to rely on the SPMI, which is primarily there
+to support OS's that want to do IPMI stuff early in boot, before
+the ACPI machinery is ready.
+
+Bjorn
