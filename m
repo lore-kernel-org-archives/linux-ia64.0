@@ -1,48 +1,59 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Mon, 30 Jan 2006 20:52:57 +0000
-Subject: Re: boot-time slowdown for measure_migration_cost
-Message-Id: <43DE7CA9.5070608@sgi.com>
+From: Russell King <rmk@arm.linux.org.uk>
+Date: Thu, 05 Jan 2006 14:34:06 +0000
+Subject: [CFT 9/29] Add tiocx bus_type probe/remove methods
+Message-Id: <20060105142951.13.09@flint.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu> <20060130185301.GA4622@agluck-lia64.sc.intel.com> <20060130192438.GA29129@elte.hu> <20060130200026.GA5081@agluck-lia64.sc.intel.com> <43DE7A70.8030004@sgi.com>
-In-Reply-To: <43DE7A70.8030004@sgi.com>
+References: <20060105142951.13.01@flint.arm.linux.org.uk>
+In-Reply-To: <20060105142951.13.01@flint.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Prarit Bhargava <prarit@sgi.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Ingo Molnar <mingo@elte.hu>, Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Greg K-H <greg@kroah.com>, IA64 <linux-ia64@vger.kernel.org>
 
-Prarit Bhargava wrote:
-> 
-> Tony,
-> 
->>
->>
->> Might it be wise to see whether the 2% variation that I saw can be
->> repeated on some other architecture?   Can someone else try
->> this patch and post the before/after values for migration_cost from 
->> dmesg?
->>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 
-Whoops.  Let's try that again:
+---
+ arch/ia64/sn/kernel/tiocx.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-Pristine (with build_sched_domains measurement):
-
-
-[    9.942253] Brought up 64 CPUs
-[    9.942904] Total of 64 processors activated (143654.91 BogoMIPS).
-[    9.943995] build_sched_domains: start
-[   32.108439] migration_cost=0,32232,39021
-[   37.894391] build_sched_domains: end
-
-Patched (with build_sched_domains measurement):
-
-[    9.942267] Brought up 64 CPUs
-[    9.942930] Total of 64 processors activated (143654.91 BogoMIPS).
-[    9.944032] build_sched_domains: beginmigration_cost=0,31854,38739
-[   23.868304] build_sched_domains: end
-
-
-P.
-
-> 
-
+diff -up -x BitKeeper -x ChangeSet -x SCCS -x _xlk -x *.orig -x *.rej -x .git linus/arch/ia64/sn/kernel/tiocx.c linux/arch/ia64/sn/kernel/tiocx.c
+--- linus/arch/ia64/sn/kernel/tiocx.c	Sun Nov  6 22:14:30 2005
++++ linux/arch/ia64/sn/kernel/tiocx.c	Sun Nov 13 16:07:12 2005
+@@ -76,12 +76,6 @@ static void tiocx_bus_release(struct dev
+ 	kfree(to_cx_dev(dev));
+ }
+ 
+-struct bus_type tiocx_bus_type = {
+-	.name = "tiocx",
+-	.match = tiocx_match,
+-	.hotplug = tiocx_hotplug,
+-};
+-
+ /**
+  * cx_device_match - Find cx_device in the id table.
+  * @ids: id table from driver
+@@ -148,6 +142,14 @@ static int cx_driver_remove(struct devic
+ 	return 0;
+ }
+ 
++struct bus_type tiocx_bus_type = {
++	.name = "tiocx",
++	.match = tiocx_match,
++	.hotplug = tiocx_hotplug,
++	.probe = cx_device_probe,
++	.remove = cx_device_remove,
++};
++
+ /**
+  * cx_driver_register - Register the driver.
+  * @cx_driver: driver table (cx_drv struct) from driver
+@@ -161,8 +163,6 @@ int cx_driver_register(struct cx_drv *cx
+ {
+ 	cx_driver->driver.name = cx_driver->name;
+ 	cx_driver->driver.bus = &tiocx_bus_type;
+-	cx_driver->driver.probe = cx_device_probe;
+-	cx_driver->driver.remove = cx_driver_remove;
+ 
+ 	return driver_register(&cx_driver->driver);
+ }
