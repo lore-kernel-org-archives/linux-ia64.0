@@ -1,86 +1,48 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:32:36 +0000
-Subject: [PATCH 4/12] generic fls() and fls64()
-Message-Id: <20060126033235.GC11138@miraclelinux.com>
+From: "Xu, Anthony" <anthony.xu@intel.com>
+Date: Mon, 09 Jan 2006 02:36:35 +0000
+Subject: [linux-ia64][PATCH] pal cache flush patch
+Message-Id: <2BF508F394C196468CCBEC031320DCDF380888@pdsmsx405>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C614C5.82913B0C"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalent of the function:
-int fls(int x);
-int fls64(__u64 x);
+This is a multi-part message in MIME format.
 
-HAVE_ARCH_FLS_BITOPS is defined when the architecture has its own
-fls().
-HAVE_ARCH_FLS64_BITOPS is defined when the architecture has its own
-fls64()
+------_=_NextPart_001_01C614C5.82913B0C
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-This code largely copied from:
-include/linux/bitops.h
+Hi all,
 
+Because PAL spec has changed since 2002, you can goto
+http://developer.intel.com/design/itanium/manuals/iiasdmanual.htm to
+download new SDM, all PAL calls should be invoked with psr.ic=3D1, and
+it's caller's responsibility to handle possible tlb miss.
+Ia64_pal_cache_flush was written according to old spec, it is obsolete,
+and this patch has ia64_pal_cache_flush conform to new spec.
 
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-@@ -237,12 +237,54 @@
- 
- #endif /* HAVE_ARCH_FFZ_BITOPS */
- 
-+#ifndef HAVE_ARCH_FLS_BITOPS
-+
- /*
-  * fls: find last bit set.
-  */
- 
--#define fls(x) generic_fls(x)
--#define fls64(x)   generic_fls64(x)
-+static __inline__ int fls(int x)
-+{
-+	int r = 32;
-+
-+	if (!x)
-+		return 0;
-+	if (!(x & 0xffff0000u)) {
-+		x <<= 16;
-+		r -= 16;
-+	}
-+	if (!(x & 0xff000000u)) {
-+		x <<= 8;
-+		r -= 8;
-+	}
-+	if (!(x & 0xf0000000u)) {
-+		x <<= 4;
-+		r -= 4;
-+	}
-+	if (!(x & 0xc0000000u)) {
-+		x <<= 2;
-+		r -= 2;
-+	}
-+	if (!(x & 0x80000000u)) {
-+		x <<= 1;
-+		r -= 1;
-+	}
-+	return r;
-+}
-+
-+#endif /* HAVE_ARCH_FLS_BITOPS */
-+
-+#ifndef HAVE_ARCH_FLS64_BITOPS
-+
-+static inline int fls64(__u64 x)
-+{
-+	__u32 h = x >> 32;
-+	if (h)
-+		return fls(x) + 32;
-+	return fls(x);
-+}
-+
-+#endif /* HAVE_ARCH_FLS64_BITOPS */
- 
- #ifdef __KERNEL__
- 
+Signed-off-by Anthony Xu <anthony.xu@intel.com>
+
+------_=_NextPart_001_01C614C5.82913B0C
+Content-Type: application/octet-stream;
+	name="ia64_pal_cache_flush.patch"
+Content-Transfer-Encoding: base64
+Content-Description: ia64_pal_cache_flush.patch
+Content-Disposition: attachment;
+	filename="ia64_pal_cache_flush.patch"
+
+ZGlmZiAtcnVOIGxpbnV4LTIuNi4xNS9pbmNsdWRlL2FzbS1pYTY0L3BhbC5oIGxpbnV4LTIuNi4x
+NS5uZXcvaW5jbHVkZS9hc20taWE2NC9wYWwuaAotLS0gbGludXgtMi42LjE1L2luY2x1ZGUvYXNt
+LWlhNjQvcGFsLmgJMjAwNi0wMS0wMyAxMToyMToxMC4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4
+LTIuNi4xNS5uZXcvaW5jbHVkZS9hc20taWE2NC9wYWwuaAkyMDA2LTAxLTA5IDA5OjU2OjE4LjAw
+MDAwMDAwMCArMDgwMApAQCAtOTI3LDcgKzkyNyw3IEBACiBpYTY0X3BhbF9jYWNoZV9mbHVzaCAo
+dTY0IGNhY2hlX3R5cGUsIHU2NCBpbnZhbGlkYXRlLCB1NjQgKnByb2dyZXNzLCB1NjQgKnZlY3Rv
+cikKIHsKIAlzdHJ1Y3QgaWE2NF9wYWxfcmV0dmFsIGlwcnY7Ci0JUEFMX0NBTExfSUNfT0ZGKGlw
+cnYsIFBBTF9DQUNIRV9GTFVTSCwgY2FjaGVfdHlwZSwgaW52YWxpZGF0ZSwgKnByb2dyZXNzKTsK
+KwlQQUxfQ0FMTChpcHJ2LCBQQUxfQ0FDSEVfRkxVU0gsIGNhY2hlX3R5cGUsIGludmFsaWRhdGUs
+ICpwcm9ncmVzcyk7CiAJaWYgKHZlY3RvcikKIAkJKnZlY3RvciA9IGlwcnYudjA7CiAJKnByb2dy
+ZXNzID0gaXBydi52MTsK
+
+------_=_NextPart_001_01C614C5.82913B0C--
