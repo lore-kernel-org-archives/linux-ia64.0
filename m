@@ -1,7 +1,7 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Mon, 09 Jan 2006 17:21:49 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Mon, 09 Jan 2006 17:25:54 +0000
 Subject: Re: [PATCH] ia64: including <asm/signal.h> alone causes compilation errors
-Message-Id: <20060109172149.GQ19769@parisc-linux.org>
+Message-Id: <20060109172554.GA3026@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060109171514.GA25096@locomotive.unixthugs.org>
 In-Reply-To: <20060109171514.GA25096@locomotive.unixthugs.org>
@@ -12,24 +12,23 @@ To: Jeff Mahoney <jeffm@suse.com>
 Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
 On Mon, Jan 09, 2006 at 12:15:14PM -0500, Jeff Mahoney wrote:
-> +++ linux-2.6.15-ocfs2/include/asm-ia64/signal.h	2006-01-09 11:08:16.404700640 -0500
-> @@ -1,6 +1,8 @@
->  #ifndef _ASM_IA64_SIGNAL_H
->  #define _ASM_IA64_SIGNAL_H
->  
-> +#include <linux/types.h>
-> +
->  /*
->   * Modified 1998-2001, 2003
->   *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
-> @@ -122,8 +124,6 @@
->  
->  # ifndef __ASSEMBLY__
->  
-> -#  include <linux/types.h>
-> -
->  /* Avoid too many header ordering problems.  */
->  struct siginfo;
+> 
+>  Including *just* <asm/signal.h> on ia64 will result in a compilation failure,
+>  where it will succeed on every other architecture.
+> 
+>  Every other arch includes <linux/compiler.h> either directly or via
+>  <linux/types.h> at the top of <asm-*/signal.h>. ia64 includes
+>  <linux/types.h> after including <asm-generic/signal.h>, which causes
+>  the __user in <asm-generic/signal.h> to get passed through untouched, causing
+>  compilation errors.
+> 
+>  This patch moves the #include <linux/types.h> up to the beginning of signal.h,
+>  as found on every other arch.
+> 
+>  A specific example of where this behavior is observed is the recent addition
+>  of OCFS2. fs/ocfs2/cluster/userdlm.c seems alone in only including
+>  <asm/signal.h>, which seems to be perfectly valid.
 
-Is it still possible to include this file from assembly?  Do we still
-need to do that?
+Generally you should only include <asm/signal.h> via <linux/signal.h>, which gets
+<linux/compiler.h> via <linux/spinlock.h>
+
