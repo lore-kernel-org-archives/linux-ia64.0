@@ -1,59 +1,23 @@
-From: Mike Habeck <habeck@sgi.com>
-Date: Wed, 11 Jan 2006 22:40:24 +0000
-Subject: [PATCH] pass segment
-Message-Id: <20060111224024.1129.47007.13037@attica.americas.sgi.com>
+From: Brett Johnson <brett@hp.com>
+Date: Mon, 09 Jan 2006 22:14:53 +0000
+Subject: [ANNOUNCE] elilo 3.6 released
+Message-Id: <1136844893.31780.2.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bugfix... the altix SN_SAL_IOIF_SLOT_ENABLE & SN_SAL_IOIF_SLOT_DISABLE 
-SAL calls need to pass the segment# down
+Actual announcement and download URLS are at:
 
-Signed-off-by: Mike Habeck <habeck@sgi.com>
+    http://elilo.sourceforge.net
 
+So, since I stupidly named the pre-release versions, I've decided to
+skip 3.5 and release the "stable" elilo as 3.6.  The only change since
+3.5pre2 is:
 
-Index: sal_fix/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================--- sal_fix.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-01-11 11:28:37.243628493 -0600
-+++ sal_fix/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-01-11 14:23:48.953744738 -0600
-@@ -24,13 +24,17 @@
- {
- 	struct ia64_sal_retval ret_stuff;
- 	uint64_t busnum;
-+	u64 segment;
- 
- 	ret_stuff.status = 0;
- 	ret_stuff.v0 = 0;
- 
-+	segment = soft->pbi_buscommon.bs_persist_segment;
- 	busnum = soft->pbi_buscommon.bs_persist_busnum;
--	SAL_CALL_NOLOCK(ret_stuff, (u64) SN_SAL_IOIF_SLOT_ENABLE, (u64) busnum,
--			(u64) device, (u64) resp, 0, 0, 0, 0);
-+
-+	SAL_CALL_NOLOCK(ret_stuff, (u64) SN_SAL_IOIF_SLOT_ENABLE,
-+			(u64) segment, (u64) busnum, (u64) device,
-+			(u64) resp, 0, 0, 0);
- 
- 	return (int)ret_stuff.v0;
- }
-@@ -41,14 +45,17 @@
- {
- 	struct ia64_sal_retval ret_stuff;
- 	uint64_t busnum;
-+	u64 segment;
- 
- 	ret_stuff.status = 0;
- 	ret_stuff.v0 = 0;
- 
-+	segment = soft->pbi_buscommon.bs_persist_segment;
- 	busnum = soft->pbi_buscommon.bs_persist_busnum;
-+
- 	SAL_CALL_NOLOCK(ret_stuff, (u64) SN_SAL_IOIF_SLOT_DISABLE,
--			(u64) busnum, (u64) device, (u64) action,
--			(u64) resp, 0, 0, 0);
-+			(u64) segment, (u64) busnum, (u64) device,
-+			(u64) action, (u64) resp, 0, 0);
- 
- 	return (int)ret_stuff.v0;
- }
+1) Fixed a textmenu bug.
+
+-- 
+Brett Johnson <brett@hp.com>
+
