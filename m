@@ -1,45 +1,51 @@
 From: Jeff Mahoney <jeffm@suse.com>
-Date: Mon, 09 Jan 2006 17:32:51 +0000
+Date: Mon, 09 Jan 2006 17:42:59 +0000
 Subject: Re: [PATCH] ia64: including <asm/signal.h> alone causes compilation
-Message-Id: <43C29E43.8030405@suse.com>
+Message-Id: <43C2A0A3.8070901@suse.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060109171514.GA25096@locomotive.unixthugs.org> <20060109172554.GA3026@infradead.org>
-In-Reply-To: <20060109172554.GA3026@infradead.org>
+References: <20060109171514.GA25096@locomotive.unixthugs.org> <20060109172149.GQ19769@parisc-linux.org>
+In-Reply-To: <20060109172149.GQ19769@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
+To: Matthew Wilcox <matthew@wil.cx>
 Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-Christoph Hellwig wrote:
+Matthew Wilcox wrote:
 > On Mon, Jan 09, 2006 at 12:15:14PM -0500, Jeff Mahoney wrote:
->>  Including *just* <asm/signal.h> on ia64 will result in a compilation failure,
->>  where it will succeed on every other architecture.
->>
->>  Every other arch includes <linux/compiler.h> either directly or via
->>  <linux/types.h> at the top of <asm-*/signal.h>. ia64 includes
->>  <linux/types.h> after including <asm-generic/signal.h>, which causes
->>  the __user in <asm-generic/signal.h> to get passed through untouched, causing
->>  compilation errors.
->>
->>  This patch moves the #include <linux/types.h> up to the beginning of signal.h,
->>  as found on every other arch.
->>
->>  A specific example of where this behavior is observed is the recent addition
->>  of OCFS2. fs/ocfs2/cluster/userdlm.c seems alone in only including
->>  <asm/signal.h>, which seems to be perfectly valid.
+>> +++ linux-2.6.15-ocfs2/include/asm-ia64/signal.h	2006-01-09 11:08:16.404700640 -0500
+>> @@ -1,6 +1,8 @@
+>>  #ifndef _ASM_IA64_SIGNAL_H
+>>  #define _ASM_IA64_SIGNAL_H
+>>  
+>> +#include <linux/types.h>
+>> +
+>>  /*
+>>   * Modified 1998-2001, 2003
+>>   *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+>> @@ -122,8 +124,6 @@
+>>  
+>>  # ifndef __ASSEMBLY__
+>>  
+>> -#  include <linux/types.h>
+>> -
+>>  /* Avoid too many header ordering problems.  */
+>>  struct siginfo;
 > 
-> Generally you should only include <asm/signal.h> via <linux/signal.h>, which gets
-> <linux/compiler.h> via <linux/spinlock.h>
+> Is it still possible to include this file from assembly?  Do we still
+> need to do that?
+> 
+> 
 
-Ok. I just did a quick grep and saw a number of places where
-<asm/signal.h> was included. A closer look reveals most of those are in
-arch/.
+Yes, actually, it is. :(
 
-Ignore the noise.
+Christoph also pointed out that including <linux/signal.h> is the better
+solution, so I'm submitting that patch to the OCFS2 folks instead.
+
+Sorry for the noise.
 
 - -Jeff
 
@@ -50,6 +56,6 @@ SUSE Labs
 Version: GnuPG v1.4.2 (GNU/Linux)
 Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
 
-iD8DBQFDwp5DLPWxlyuTD7IRAoZBAKCf4MMQNC/rfcdXOH0Dto3RTa32qgCfSeFf
-pX68kyrbj2ZdH23Mo+EmUZ4=y7xp
+iD8DBQFDwqCjLPWxlyuTD7IRAj8PAJwLv2EghfMR9yPuaVhpTLQMGysKpwCfcVBq
+7ZT0LwuYEjKYVnJT/QeXmCw=Yt8o
 -----END PGP SIGNATURE-----
