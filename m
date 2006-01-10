@@ -1,77 +1,109 @@
-From: "Bob Picco" <bob.picco@hp.com>
-Date: Thu, 26 Jan 2006 16:25:27 +0000
-Subject: [PATCH] ia64 fix for -mm unify-mapping-from-pxm-to-node-id
-Message-Id: <20060126162527.GJ7306@localhost>
+From: Dean Nelson <dcn@sgi.com>
+Date: Tue, 10 Jan 2006 17:12:32 +0000
+Subject: [PATCH 2/2] move xpc.h to include/asm-ia64/sn
+Message-Id: <20060110171232.GA32287@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Andrew:
+Cleanup a few items after moving xpc.h from arch/ia64/sn/kernel to
+include/asm-ia64/sn.
 
-I was unable to build ia64. I didn't check closely but assume one of the
-x86-x86_64-ia64-unify-mapping-from-pxm-to-node* patches in -mm caused
-this issue.
-
-I boot tested this on rx2600 ia64.  The sn2 change was only compile
-tested using sn2_defconfig config.
-
-thanks,
-
-bob
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
-
- arch/ia64/hp/common/sba_iommu.c |    2 +-
- arch/ia64/sn/kernel/setup.c     |    4 ++--
- include/asm-ia64/acpi.h         |    2 --
- 3 files changed, 3 insertions(+), 5 deletions(-)
-
-Index: linux-2.6.16-rc1-mm3/include/asm-ia64/acpi.h
-=================================--- linux-2.6.16-rc1-mm3.orig/include/asm-ia64/acpi.h	2006-01-02 22:21:10.000000000 -0500
-+++ linux-2.6.16-rc1-mm3/include/asm-ia64/acpi.h	2006-01-26 06:30:35.000000000 -0500
-@@ -110,8 +110,6 @@ extern unsigned int get_cpei_target_cpu(
- #ifdef CONFIG_ACPI_NUMA
- /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
- #define MAX_PXM_DOMAINS (256)
--extern int __devinitdata pxm_to_nid_map[MAX_PXM_DOMAINS];
--extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
- #endif
+Index: linux-2.6/include/asm-ia64/sn/xpc.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/xpc.h	2006-01-10 08:25:43.705867053 -0600
++++ linux-2.6/include/asm-ia64/sn/xpc.h	2006-01-10 08:25:43.724419924 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
  
- extern u16 ia64_acpiid_to_sapicid[];
-Index: linux-2.6.16-rc1-mm3/arch/ia64/hp/common/sba_iommu.c
-=================================--- linux-2.6.16-rc1-mm3.orig/arch/ia64/hp/common/sba_iommu.c	2006-01-26 10:15:16.000000000 -0500
-+++ linux-2.6.16-rc1-mm3/arch/ia64/hp/common/sba_iommu.c	2006-01-26 10:16:25.000000000 -0500
-@@ -1958,7 +1958,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acp
- 	if (pxm < 0)
- 		return;
  
--	node = pxm_to_nid_map[pxm];
-+	node = pxm_to_node_map[pxm];
+@@ -11,8 +11,8 @@
+  * Cross Partition Communication (XPC) structures and macros.
+  */
  
- 	if (node >= MAX_NUMNODES || !node_online(node))
- 		return;
-Index: linux-2.6.16-rc1-mm3/arch/ia64/sn/kernel/setup.c
-=================================--- linux-2.6.16-rc1-mm3.orig/arch/ia64/sn/kernel/setup.c	2006-01-26 10:15:49.000000000 -0500
-+++ linux-2.6.16-rc1-mm3/arch/ia64/sn/kernel/setup.c	2006-01-26 11:17:04.000000000 -0500
-@@ -152,7 +152,7 @@ static int __init pxm_to_nasid(int pxm)
- 	int i;
- 	int nid;
+-#ifndef _IA64_SN_KERNEL_XPC_H
+-#define _IA64_SN_KERNEL_XPC_H
++#ifndef _ASM_IA64_SN_XPC_H
++#define _ASM_IA64_SN_XPC_H
  
--	nid = pxm_to_nid_map[pxm];
-+	nid = pxm_to_node_map[pxm];
- 	for (i = 0; i < num_node_memblks; i++) {
- 		if (node_memblk[i].nid = nid) {
- 			return NASID_GET(node_memblk[i].start_paddr);
-@@ -696,7 +696,7 @@ void __init build_cnode_tables(void)
- 	 * cnode = node for all C & M bricks.
- 	 */
- 	for_each_online_node(node) {
--		nasid = pxm_to_nasid(nid_to_pxm_map[node]);
-+		nasid = pxm_to_nasid(node_to_pxm(node));
- 		sn_cnodeid_to_nasid[node] = nasid;
- 		physical_node_map[nasid] = node;
- 	}
-
+ 
+ #include <linux/config.h>
+@@ -1270,5 +1270,5 @@
+ }
+ 
+ 
+-#endif /* _IA64_SN_KERNEL_XPC_H */
++#endif /* _ASM_IA64_SN_XPC_H */
+ 
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2006-01-10 08:00:42.441460880 -0600
++++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2006-01-10 08:27:56.373546380 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -24,7 +24,7 @@
+ #include <linux/slab.h>
+ #include <asm/sn/bte.h>
+ #include <asm/sn/sn_sal.h>
+-#include "xpc.h"
++#include <asm/sn/xpc.h>
+ 
+ 
+ /*
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2006-01-10 08:25:43.661926041 -0600
++++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2006-01-10 08:28:35.291612451 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -59,7 +59,7 @@
+ #include <asm/sn/sn_sal.h>
+ #include <asm/kdebug.h>
+ #include <asm/uaccess.h>
+-#include "xpc.h"
++#include <asm/sn/xpc.h>
+ 
+ 
+ /* define two XPC debug device structures to be used with dev_dbg() et al */
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_partition.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_partition.c	2006-01-10 08:00:45.579826575 -0600
++++ linux-2.6/arch/ia64/sn/kernel/xpc_partition.c	2006-01-10 08:29:03.072096726 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -28,7 +28,7 @@
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/nodepda.h>
+ #include <asm/sn/addrs.h>
+-#include "xpc.h"
++#include <asm/sn/xpc.h>
+ 
+ 
+ /* XPC is exiting flag */
