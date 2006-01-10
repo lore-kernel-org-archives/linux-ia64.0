@@ -1,30 +1,36 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 31 Jan 2006 10:16:48 +0000
-Subject: [patch 0/6] remove non-functional code in ia64_leave_syscall
-Message-Id: <200601311016.k0VAGvg19028@unix-os.sc.intel.com>
+From: dcn@sgi.com (Dean Nelson)
+Date: Tue, 10 Jan 2006 17:07:19 +0000
+Subject: [PATCH] XPC and unregistering from notifier lists
+Message-Id: <43C3E9C7.mailxHY1P31X4@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In syscall leave path, cr.ifs gets the value direct from the
-cover instruction.  We never want to restore cr.ifs from the
-pt_regs.  The setting of p9 in ia64_leave_syscall is spurious
-and unnecessary. (in the later part, it is reset to 0). This
-patch cleans up the code.
+Only unregister from notifier lists if XPC is unloading.
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
---- ./arch/ia64/kernel/entry.S.orig	2006-01-31 02:44:56.406164880 -0800
-+++ ./arch/ia64/kernel/entry.S	2006-01-31 03:08:49.949116069 -0800
-@@ -739,7 +739,6 @@ ENTRY(ia64_leave_syscall)
- 	;;
- 	invala			// M0|1 invalidate ALAT
- 	rsm psr.i | psr.ic	// M2   turn off interrupts and interruption collection
--	cmp.eq p9,p0=r0,r0	// A    set p9 to indicate that we should restore cr.ifs
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2006-01-10 08:00:45.578850108 -0600
++++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2006-01-10 08:00:47.674348795 -0600
+@@ -1022,11 +1022,13 @@
+ 	del_timer_sync(&xpc_hb_timer);
+ 	DBUG_ON(xpc_vars->heartbeating_to_mask != 0);
  
- 	ld8 r29=[r2],16		// M0|1 load cr.ipsr
- 	ld8 r28=[r3],16		// M0|1 load cr.iip
-
+-	/* take ourselves off of the reboot_notifier_list */
+-	(void) unregister_reboot_notifier(&xpc_reboot_notifier);
++	if (reason = xpcUnloading) {
++		/* take ourselves off of the reboot_notifier_list */
++		(void) unregister_reboot_notifier(&xpc_reboot_notifier);
+ 
+-	/* take ourselves off of the die_notifier list */
+-	(void) unregister_die_notifier(&xpc_die_notifier);
++		/* take ourselves off of the die_notifier list */
++		(void) unregister_die_notifier(&xpc_die_notifier);
++	}
+ 
+ 	/* close down protections for IPI operations */
+ 	xpc_restrict_IPI_ops();
