@@ -1,53 +1,110 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:39:11 +0000
-Subject: [PATCH 12/12] generic minix_{test,set,test_and_clear,test,find_first_zero}_bit()
-Message-Id: <20060126033910.GK11138@miraclelinux.com>
+From: <gregkh@suse.de>
+Date: Tue, 10 Jan 2006 06:00:10 +0000
+Subject: patch add-tiocx-bus_type-probe-remove-methods.patch added to gregkh-2.6 tree
+Message-Id: <1EwCYF-2tk-00@press.kroah.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalents of the functions below:
 
-HAVE_ARCH_MINIX_BITOPS is defined when the architecture has its own
-version of these functions.
+This is a note to let you know that I've just added the patch titled
 
-int minix_test_and_set_bit(int nr, volatile unsigned long *addr);
-int minix_set_bit(int nr, volatile unsigned long *addr);
-int minix_test_and_clear_bit(int nr, volatile unsigned long *addr);
-int minix_test_bit(int nr, const volatile unsigned long *addr);
-unsigned long minix_find_first_zero_bit(const unsigned long *addr,
-                                        unsigned long size);
+     Subject: [CFT 9/29] Add tiocx bus_type probe/remove methods
 
-This code largely copied from:
-include/asm-sparc/bitops.h
+to my gregkh-2.6 tree.  Its filename is
 
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
-@@ -667,6 +667,21 @@
+     add-tiocx-bus_type-probe-remove-methods.patch
+
+This tree can be found at 
+    http://www.kernel.org/pub/linux/kernel/people/gregkh/gregkh-2.6/patches/
+
+
+From rmk+greg=kroah.com@arm.linux.org.uk Thu Jan  5 06:37:15 2006
+From: Russell King <rmk@arm.linux.org.uk>
+CC: Greg K-H <greg@kroah.com>, IA64 <linux-ia64@vger.kernel.org>
+Subject: [CFT 9/29] Add tiocx bus_type probe/remove methods
+Date: Thu, 05 Jan 2006 14:34:06 +0000
+Message-ID: <20060105142951.13.09@flint.arm.linux.org.uk>
+
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ arch/ia64/sn/kernel/tiocx.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
+
+--- gregkh-2.6.orig/arch/ia64/sn/kernel/tiocx.c
++++ gregkh-2.6/arch/ia64/sn/kernel/tiocx.c
+@@ -76,12 +76,6 @@ static void tiocx_bus_release(struct dev
+ 	kfree(to_cx_dev(dev));
+ }
  
- #endif /* HAVE_ARCH_EXT2_ATOMIC_BITOPS */
+-struct bus_type tiocx_bus_type = {
+-	.name = "tiocx",
+-	.match = tiocx_match,
+-	.uevent = tiocx_uevent,
+-};
+-
+ /**
+  * cx_device_match - Find cx_device in the id table.
+  * @ids: id table from driver
+@@ -148,6 +142,14 @@ static int cx_driver_remove(struct devic
+ 	return 0;
+ }
  
-+#ifndef HAVE_ARCH_MINIX_BITOPS
++struct bus_type tiocx_bus_type = {
++	.name = "tiocx",
++	.match = tiocx_match,
++	.uevent = tiocx_uevent,
++	.probe = cx_device_probe,
++	.remove = cx_device_remove,
++};
 +
-+#define minix_test_and_set_bit(nr,addr)	\
-+	__test_and_set_bit((nr),(unsigned long *)(addr))
-+#define minix_set_bit(nr,addr)		\
-+	__set_bit((nr),(unsigned long *)(addr))
-+#define minix_test_and_clear_bit(nr,addr) \
-+	__test_and_clear_bit((nr),(unsigned long *)(addr))
-+#define minix_test_bit(nr,addr)		\
-+	test_bit((nr),(unsigned long *)(addr))
-+#define minix_find_first_zero_bit(addr,size) \
-+	find_first_zero_bit((unsigned long *)(addr),(size))
-+
-+#endif /* HAVE_ARCH_MINIX_BITOPS */
-+
- #endif /* __KERNEL__ */
+ /**
+  * cx_driver_register - Register the driver.
+  * @cx_driver: driver table (cx_drv struct) from driver
+@@ -161,8 +163,6 @@ int cx_driver_register(struct cx_drv *cx
+ {
+ 	cx_driver->driver.name = cx_driver->name;
+ 	cx_driver->driver.bus = &tiocx_bus_type;
+-	cx_driver->driver.probe = cx_device_probe;
+-	cx_driver->driver.remove = cx_driver_remove;
  
- #endif /* _ASM_GENERIC_BITOPS_H */
+ 	return driver_register(&cx_driver->driver);
+ }
+
+
+Patches currently in gregkh-2.6 which might be from rmk@arm.linux.org.uk are
+
+driver/add-bttv-sub-bus_type-probe-and-remove-methods.patch
+driver/add-bus_type-probe-remove-shutdown-methods..patch
+driver/add-ccwgroup_bus_type-probe-and-remove-methods.patch
+driver/add-dio_bus_type-probe-and-remove-methods.patch
+driver/add-ecard_bus_type-probe-remove-shutdown-methods.patch
+driver/add-gameport-bus_type-probe-and-remove-methods.patch
+driver/add-i2c_bus_type-probe-and-remove-methods.patch
+driver/add-ide_bus_type-probe-and-remove-methods.patch
+driver/add-locomo-bus_type-probe-remove-methods.patch
+driver/add-logic-module-bus_type-probe-remove-methods.patch
+driver/add-macio_bus_type-probe-and-remove-methods.patch
+driver/add-mcp-bus_type-probe-and-remove-methods.patch
+driver/add-mmc_bus_type-probe-and-remove-methods.patch
+driver/add-ocp_bus_type-probe-and-remove-methods.patch
+driver/add-of_platform_bus_type-probe-and-remove-methods.patch
+driver/add-parisc_bus_type-probe-and-remove-methods.patch
+driver/add-pci_bus_type-probe-and-remove-methods.patch
+driver/add-pcmcia_bus_type-probe-and-remove-methods.patch
+driver/add-pnp_bus_type-probe-and-remove-methods.patch
+driver/add-pseudo-lld-bus_type-probe-and-remove-methods.patch
+driver/add-rio_bus_type-probe-and-remove-methods.patch
+driver/add-sa1111-bus_type-probe-remove-methods.patch
+driver/add-serio-bus_type-probe-and-remove-methods.patch
+driver/add-sh_bus_type-probe-and-remove-methods.patch
+driver/add-superhyway_bus_type-probe-and-remove-methods.patch
+driver/add-tiocx-bus_type-probe-remove-methods.patch
+driver/add-usb_serial_bus_type-probe-and-remove-methods.patch
+driver/add-vio_bus_type-probe-and-remove-methods.patch
+driver/add-zorro_bus_type-probe-and-remove-methods.patch
+driver/remove-usb-gadget-generic-driver-methods.patch
