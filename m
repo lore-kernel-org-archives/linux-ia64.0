@@ -1,25 +1,70 @@
-From: "Miller, Mike (OS Dev)" <Mike.Miller@hp.com>
-Date: Fri, 27 Jan 2006 15:34:13 +0000
-Subject: RE: Problems with MSI-X on ia64
-Message-Id: <D4CFB69C345C394284E4B78B876C1CF10B8ABBD0@cceexc23.americas.cpqcorp.net>
+From: dann frazier <dannf@hp.com>
+Date: Tue, 10 Jan 2006 21:21:11 +0000
+Subject: Re: ip_contrack refuses to load if built UP as a module on IA64
+Message-Id: <1136928071.11049.19.camel@krebs.dannf>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
-In-Reply-To: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0443A5FA@scsmsx401.amr.corp.intel.com>
+	 <ed5aea430508301229386fc596@mail.gmail.com>
+	 <17172.54563.329758.846131@wombat.chubb.wattle.id.au>
+	 <17174.35525.283392.703723@berry.gelato.unsw.EDU.AU>
+	 <1127426700.25159.63.camel@krebs.dannf>
+	 <20051219210750.GA15849@agluck-lia64.sc.intel.com>
+In-Reply-To: <20051219210750.GA15849@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>
-Cc: "Grundler, Grant G" <grant.grundler@hp.com>, linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, linux-ia64@vger.kernel.org, dmosberger@gmail.com, linux-kernel@vger.kernel.org
 
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com] 
-> cciss/c2d0:
+On Mon, 2005-12-19 at 13:07 -0800, Luck, Tony wrote: 
+> On Thu, Sep 22, 2005 at 04:04:59PM -0600, dann frazier wrote:
+> > On Thu, 2005-09-01 at 14:59 +1000, Peter Chubb wrote:
+> > > 
+> > > This patch makes UP and SMP do the same thing as far as module per-cpu
+> > > data go.
+> > > 
+> > > Unfortunately it affects core code.
 > > 
-> > And this is where we hang, when enabling interrupts in the driver.
+> > It causes 2.6.13/x86 to fail to link:
+> > kernel/built-in.o: In function `load_module':
+> > : undefined reference to `percpu_modcopy'
+> > make: *** [.tmp_vmlinux1] Error 1
+> > 
+> > fyi, this is a problem we're seeing in the Debian UP packages:
+> >   http://bugs.debian.org/cgi-bin/bugreport.cgi?bug25070
 > 
-> Can you try 2.6.15, or possibly 2.6.16-rc1-mm3?
+> Another possible solution is to make ia64 more like other
+> architectures and make per-cpu variables just turn into
+> ordinary variables on UP.  There are some pros and cons to
+> this:
 > 
-That's the next step. Unfortunately the system is at another site so
-there is latency in the process.
+> +) Being more like other architectures makes it less likely that
+>    we'll be burned by changes in generic code/tools that depend
+>    on implementation details
+> 
+> -) We probably get worse code to access per-cpu variables from
+>    C-compiled code, and definitely get worse code in a couple of
+>    critical paths in assembler (where an "addl" becomes a "movl")
+> 
+> Here's the patch ... lightly tested (just booted and checked that
+> I could load the ip_conntrack module).
 
-mikem
+Thanks Tony; sorry for taking so long to test this.  I required an
+additional change to discontig.c to get this to build w/ the Debian
+config.  With this additional patch, a UP kernel boots fine on my
+rx2600.
+
+--- build-ia64-none-mckinley/arch/ia64/mm/discontig.c~	2006-01-02 20:21:10.000000000 -0700
++++ build-ia64-none-mckinley/arch/ia64/mm/discontig.c	2006-01-09 19:56:58.000000000 -0700
+@@ -339,8 +339,7 @@
+ 		struct cpuinfo_ia64 *cpu0_cpu_info;
+ 		cpu = 0;
+ 		node = node_cpuid[cpu].nid;
+-		cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
+-			((char *)&per_cpu__cpu_info - __per_cpu_start));
++		cpu0_cpu_info = &per_cpu(cpu_info, 0);
+ 		cpu0_cpu_info->node_data = mem_data[node].node_data;
+ 	}
+ #endif /* CONFIG_SMP */
+
+
