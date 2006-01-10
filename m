@@ -1,59 +1,55 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 24 Jan 2006 09:23:16 +0000
-Subject: [patch] XPC remove unnecessary GFP_DMA flag
-Message-Id: <yq03bje6ku3.fsf@jaguar.mkp.net>
+From: Francois WELLENREITER <francois.wellenreiter@bull.net>
+Date: Tue, 10 Jan 2006 15:36:46 +0000
+Subject: INIT handler return does not work
+Message-Id: <43C3D48E.5040206@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080300010103050708080905"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-
-This patch gets rid of the GFP_DMA flag in the SN2 XPC code, as there
-is no real need to set it.
-
-Cheers,
-Jes
-
-Remove the GFP_DMA flag from XPC kmalloc() calls.
-
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-Acked-by: Dean Nelson <dcn@sgi.com>
-
-----
-
- arch/ia64/sn/kernel/xpc_channel.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+This is a multi-part message in MIME format.
+--------------080300010103050708080905
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 
 
-Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2006-01-12 06:39:28.106257339 -0600
-+++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2006-01-12 06:33:11.669629026 -0600
-@@ -447,7 +447,7 @@
- 
- 		nbytes = nentries * ch->msg_size;
- 		ch->local_msgqueue = xpc_kmalloc_cacheline_aligned(nbytes,
--						(GFP_KERNEL | GFP_DMA),
-+						GFP_KERNEL,
- 						&ch->local_msgqueue_base);
- 		if (ch->local_msgqueue = NULL) {
- 			continue;
-@@ -455,7 +455,7 @@
- 		memset(ch->local_msgqueue, 0, nbytes);
- 
- 		nbytes = nentries * sizeof(struct xpc_notify);
--		ch->notify_queue = kmalloc(nbytes, (GFP_KERNEL | GFP_DMA));
-+		ch->notify_queue = kmalloc(nbytes, GFP_KERNEL);
- 		if (ch->notify_queue = NULL) {
- 			kfree(ch->local_msgqueue_base);
- 			ch->local_msgqueue = NULL;
-@@ -502,7 +502,7 @@
- 
- 		nbytes = nentries * ch->msg_size;
- 		ch->remote_msgqueue = xpc_kmalloc_cacheline_aligned(nbytes,
--						(GFP_KERNEL | GFP_DMA),
-+						GFP_KERNEL,
- 						&ch->remote_msgqueue_base);
- 		if (ch->remote_msgqueue = NULL) {
- 			continue;
+
+                                           Hi everyone,
+
+
+          first of all, my best wishes for this new year 2006.
+
+Second, I have worked on INIT handler code for BULL NovaScale machines
+and it appeared that return code do not work well due to a false argument
+returned by OS_INIT function (in fact the pal_min_state pointer
+physical address [recorded in r22 register] is not uncached as it is
+specified).
+The reason is that the computation of this register is not well done,
+we have a virtual address in region 6 (souding like 0xC00000007F.....)
+to be converted into an uncached physical address (0x800000007F....).
+I think that the patch in attachment with this mail may correct this error.
+Best regards,
+
+
+                                              Francois WELLENREITER
+
+--------------080300010103050708080905
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-patch;
+ name="correct_init_return.patch"
+Content-Disposition: inline;
+ filename="correct_init_return.patch"
+
+--- linux-2.6.15_reference/arch/ia64/kernel/mca_asm.S	2006-01-03 04:21:10.000000000 +0100
++++ linux-2.6.15_modified/arch/ia64/kernel/mca_asm.S	2006-01-10 16:10:31.000000000 +0100
+@@ -847,7 +847,7 @@
+ 	;;
+ 	mov cr.iim=temp3
+ 	mov cr.iha=temp4
+-	dep r22=0,r22,62,2	// pal_min_state, physical, uncached
++	dep r22=0,r22,62,1	// pal_min_state, physical, uncached
+ 	mov IA64_KR(CURRENT)=r21
+ 	ld8 r8=[temp1]		// os_status
+ 	ld8 r10=[temp2]		// context
+
+--------------080300010103050708080905--
