@@ -1,7 +1,7 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 11 Jan 2006 15:52:51 +0000
+Date: Wed, 11 Jan 2006 22:16:33 +0000
 Subject: [PATCH 0/3] msi abstractions and support for altix
-Message-Id: <20060111155251.12460.71269.12163@attica.americas.sgi.com>
+Message-Id: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
@@ -11,16 +11,22 @@ Content-Transfer-Encoding: 7bit
 To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
-Resend #3: misc fixups
+Resend #4: 
 
 Patch set to abstract portions of the MSI core so that it can be used on
 architectures which don't use standard interrupt controllers.
 
-Changes from Resend #2 to Resend #3:
+Changes from Resend #3 
+
++ Move external declarations of msi_apic_ops out of routines, and up earlier
+  in the respective .h files.
++ Add comments to the msi_ops structure declaration
+
+Changes from Resend #2
 
 + Cleanup the ia64 platform_msi_init macro so it works on non-altix ia64
 
-Changes from initial version to Resend #2:
+Changes from initial version
 
 + Change uintXX_t to uXX
 + Change _callouts to _ops
