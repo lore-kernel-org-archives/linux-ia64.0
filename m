@@ -1,36 +1,59 @@
-From: Greg KH <greg@kroah.com>
-Date: Tue, 10 Jan 2006 17:11:02 +0000
-Subject: Re: [PATCH 0/3] msi abstractions and support for altix
-Message-Id: <20060110171102.GA13239@kroah.com>
+From: Mark Maule <maule@sgi.com>
+Date: Wed, 11 Jan 2006 15:52:51 +0000
+Subject: [PATCH 0/3] msi abstractions and support for altix
+Message-Id: <20060111155251.12460.71269.12163@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051222201651.2019.37913.96422@lnx-maule.americas.sgi.com> <20051222202259.GA4959@suse.de> <20051222202627.GI17552@sgi.com> <20051222203415.GA28240@suse.de> <20051222203824.GJ17552@sgi.com> <20051222205023.GK2361@parisc-linux.org> <20060103032249.GA4957@sgi.com> <20060103060719.GA1845@suse.de> <20060110170032.GC18399@sgi.com> <20060110170339.GA2567@infradead.org>
-In-Reply-To: <20060110170339.GA2567@infradead.org>
+References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
-Cc: Mark Maule <maule@sgi.com>, Greg KH <gregkh@suse.de>, Matthew Wilcox <matthew@wil.cx>, linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
-On Tue, Jan 10, 2006 at 05:03:39PM +0000, Christoph Hellwig wrote:
-> > Ok, looks like it's going to be a bit until I have time to work on the
-> > vector allocation stuff.
-> > 
-> > In the mean time, would folks be recepteive to taking this portion of the
-> > initial patchset:
-> > 
-> > [PATCH 1/4] msi archetecture init hook
-> > http://lkml.org/lkml/2005/12/21/168
-> > 
-> > This would at least give us a graceful pci_enable_msi() failure on altix
-> > until I find the time to work on the other stuff.
-> 
-> Personally I think your patchkit should just go in after all the other
-> comments have addresses [1].  It's a huge improvement over the mess that's
-> there currently.
+Resend #3: misc fixups
 
-Yes, please repost your patches with all of the comments addressed and
-we can look at it from there...
+Patch set to abstract portions of the MSI core so that it can be used on
+architectures which don't use standard interrupt controllers.
 
-thanks,
+Changes from Resend #2 to Resend #3:
 
-greg k-h
++ Cleanup the ia64 platform_msi_init macro so it works on non-altix ia64
+
+Changes from initial version to Resend #2:
+
++ Change uintXX_t to uXX
++ Change _callouts to _ops
++ Renamed the _generic routines to _apic and moved them to a new file
+  msi-apic.c
++ Have each msi_arch_init() routine call msi_register() with the desired
+  msi ops for that platform.
++ Moved msi_address, msi_data, and related defs out of msi.h and into
+  msi-apic.c, replaced by shifts/masks.
++ Rolled msi-arch-init.patch and msi-callouts.patch into a single msi-ops.patch
+
+Mark
+
+1/3 msi-ops.patch
+	Add an msi_arch_init() hook which can be used to perform platform
+	specific setup prior to msi use.
+
+	Define a set of msi ops to implement the platform-specific tasks:
+
+	    setup - set up plumbing to get a vector directed at a default
+		cpu, and return the corresponding MSI bus address and data.
+	    teardown - inverse of msi_setup
+	    target - retarget a vector to a given cpu
+
+	Define the routine msi_register() called from msi_arch_init()
+	to set the desired ops.
+
+	Move a bunch of apic-specific code out of the msi core .h/.c and
+	into a new msi-apic.c file.
+
+2/3 ia64-per-platform-device-vector.patch
+	For the ia64 arch, allow per-platform definitions of
+	IA64_FIRST_DEVICE_VECTOR and IA64_LAST_DEVICE_VECTOR.
+	
+3/3 msi-altix.patch 
+	Altix specific callouts to implement MSI.
