@@ -1,10 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 11 Jan 2006 15:53:01 +0000
+Date: Wed, 11 Jan 2006 22:16:43 +0000
 Subject: [PATCH 2/3] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
-Message-Id: <20060111155301.12460.7283.98468@attica.americas.sgi.com>
+Message-Id: <20060111221643.28765.38687.79085@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060111155251.12460.71269.12163@attica.americas.sgi.com>
-In-Reply-To: <20060111155251.12460.71269.12163@attica.americas.sgi.com>
+References: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
+In-Reply-To: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
