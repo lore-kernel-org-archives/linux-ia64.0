@@ -1,59 +1,113 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 27 Jan 2006 01:19:46 +0000
-Subject: [patch 4/5] use icc defined constant
-Message-Id: <200601270119.k0R1Jlg21055@unix-os.sc.intel.com>
+From: jes@trained-monkey.org (Jes Sorensen)
+Date: Wed, 11 Jan 2006 12:13:09 +0000
+Subject: [patch] sem2mutex sys_ia32.c
+Message-Id: <17348.63061.396088.428841@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use icc defined constant instead of magic number.
+Hi,
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+This one is relative to Linus' git tree as of this morning, but I assume
+it should apply to any recent tree that has the mutex code included.
+
+Cheers,
+Jes
 
 
---- ./include/asm-ia64/intel_intrin.h.orig	2006-01-26 16:57:54.058290891 -0800
-+++ ./include/asm-ia64/intel_intrin.h	2006-01-26 17:11:34.656913651 -0800
-@@ -22,11 +22,11 @@
- #define ia64_hint		__hint
- #define ia64_hint_pause		__hint_pause
- 
--#define ia64_mux1_brcst	 0
--#define ia64_mux1_mix		 8
--#define ia64_mux1_shuf		 9
--#define ia64_mux1_alt		10
--#define ia64_mux1_rev		11
-+#define ia64_mux1_brcst		_m64_mux1_brcst
-+#define ia64_mux1_mix		_m64_mux1_mix
-+#define ia64_mux1_shuf		_m64_mux1_shuf
-+#define ia64_mux1_alt		_m64_mux1_alt
-+#define ia64_mux1_rev		_m64_mux1_rev
- 
- #define ia64_mux1(x,v)		_m_to_int64(_m64_mux1(_m_from_int64(x), (v)))
- #define ia64_popcnt		_m64_popcnt
-@@ -56,7 +56,7 @@
- #define ia64_stf8		__stf8
- #define ia64_stf_spill		__stf_spill
- 
--#define ia64_mf		__mf
-+#define ia64_mf			__mf
- #define ia64_mfa		__mfa
- 
- #define ia64_fetchadd4_acq	__fetchadd4_acq
-@@ -132,10 +132,10 @@
- 
- /* Values for lfhint in __lfetch and __lfetch_fault */
- 
--#define ia64_lfhint_none   	0
--#define ia64_lfhint_nt1    	1
--#define ia64_lfhint_nt2    	2
--#define ia64_lfhint_nta    	3
-+#define ia64_lfhint_none	__lfhint_none
-+#define ia64_lfhint_nt1		__lfhint_nt1
-+#define ia64_lfhint_nt2		__lfhint_nt2
-+#define ia64_lfhint_nta		__lfhint_nta
- 
- #define ia64_lfetch		__lfetch
- #define ia64_lfetch_excl	__lfetch_excl
+Migrate arch/ia64/ia32/sys_ia32 to using a mutex for mmap protection.
 
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+----
+
+ arch/ia64/ia32/sys_ia32.c |   28 ++++++++++++----------------
+ 1 files changed, 12 insertions(+), 16 deletions(-)
+
+Index: linux-2.6.15-rc7-quilt/arch/ia64/ia32/sys_ia32.c
+=================================--- linux-2.6.15-rc7-quilt.orig/arch/ia64/ia32/sys_ia32.c
++++ linux-2.6.15-rc7-quilt/arch/ia64/ia32/sys_ia32.c
+@@ -51,9 +51,9 @@
+ #include <linux/compat.h>
+ #include <linux/vfs.h>
+ #include <linux/mman.h>
++#include <linux/mutex.h>
+ 
+ #include <asm/intrinsics.h>
+-#include <asm/semaphore.h>
+ #include <asm/types.h>
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+@@ -85,7 +85,7 @@
+  * while doing so.
+  */
+ /* XXX make per-mm: */
+-static DECLARE_MUTEX(ia32_mmap_sem);
++static DEFINE_MUTEX(ia32_mmap_mutex);
+ 
+ asmlinkage long
+ sys32_execve (char __user *name, compat_uptr_t __user *argv, compat_uptr_t __user *envp,
+@@ -894,11 +894,11 @@
+ 	prot = get_prot32(prot);
+ 
+ #if PAGE_SHIFT > IA32_PAGE_SHIFT
+-	down(&ia32_mmap_sem);
++	mutex_lock(&ia32_mmap_mutex);
+ 	{
+ 		addr = emulate_mmap(file, addr, len, prot, flags, offset);
+ 	}
+-	up(&ia32_mmap_sem);
++	mutex_unlock(&ia32_mmap_mutex);
+ #else
+ 	down_write(&current->mm->mmap_sem);
+ 	{
+@@ -999,11 +999,9 @@
+ 	if (start >= end)
+ 		return 0;
+ 
+-	down(&ia32_mmap_sem);
+-	{
+-		ret = sys_munmap(start, end - start);
+-	}
+-	up(&ia32_mmap_sem);
++	mutex_lock(&ia32_mmap_mutex);
++	ret = sys_munmap(start, end - start);
++	mutex_unlock(&ia32_mmap_mutex);
+ #endif
+ 	return ret;
+ }
+@@ -1055,7 +1053,7 @@
+ 	if (retval < 0)
+ 		return retval;
+ 
+-	down(&ia32_mmap_sem);
++	mutex_lock(&ia32_mmap_mutex);
+ 	{
+ 		if (offset_in_page(start)) {
+ 			/* start address is 4KB aligned but not page aligned. */
+@@ -1079,7 +1077,7 @@
+ 		retval = sys_mprotect(start, end - start, prot);
+ 	}
+   out:
+-	up(&ia32_mmap_sem);
++	mutex_unlock(&ia32_mmap_mutex);
+ 	return retval;
+ #endif
+ }
+@@ -1123,11 +1121,9 @@
+ 	old_len = PAGE_ALIGN(old_end) - addr;
+ 	new_len = PAGE_ALIGN(new_end) - addr;
+ 
+-	down(&ia32_mmap_sem);
+-	{
+-		ret = sys_mremap(addr, old_len, new_len, flags, new_addr);
+-	}
+-	up(&ia32_mmap_sem);
++	mutex_lock(&ia32_mmap_mutex);
++	ret = sys_mremap(addr, old_len, new_len, flags, new_addr);
++	mutex_unlock(&ia32_mmap_mutex);
+ 
+ 	if ((ret >= 0) && (old_len < new_len)) {
+ 		/* mremap expanded successfully */
