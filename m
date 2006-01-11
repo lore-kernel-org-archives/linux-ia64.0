@@ -1,23 +1,42 @@
-From: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Date: Thu, 19 Jan 2006 14:19:42 +0000
-Subject: RE: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <D36CE1FCEFD3524B81CA12C6FE5BCAB00C26DFB1@fmsmsx406.amr.corp.intel.com>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Wed, 11 Jan 2006 23:41:33 +0000
+Subject: 2.6.15-mm3: arch/ia64/sn/kernel/sn2/sn_proc_fs.c compile error
+Message-Id: <20060111234133.GI29663@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060106172140.GB19605@lists.us.dell.com>
-In-Reply-To: <20060106172140.GB19605@lists.us.dell.com>
+References: <20060111042135.24faf878.akpm@osdl.org>
+In-Reply-To: <20060111042135.24faf878.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>, Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>, Arjan van de Ven <arjan@infradead.org>
+Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, edwardsg@sgi.com, linux-altix@sgi.com
 
-Andi Kleen <> wrote:
-> Regarding physical vs virtual efi.smbios -- it sounds nasty to have
-> such a difference in the EFI support for different architectures.
-> Matthew, do you have a suggestion how this can be unified?
+Arjan, it seems the following compile error on ia64 is caused by a patch 
+of you that makes some stuff static:
 
-Yes, Bjorn and I talked about this offline.  I had a patch out there
-a while back that converged this specifically for the acpi addresses.  
-We should be able to convert them all to just one type.  
+<--  snip  -->
 
-matt
+...
+  CC      arch/ia64/sn/kernel/sn2/sn_proc_fs.o
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c: In function 'sn_procfs_create_entry':
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:104: warning: passing argument 1 of 'memset' discards qualifiers from pointer target type
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:105: error: assignment of read-only member 'open'
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:106: error: assignment of read-only member 'read'
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:107: error: assignment of read-only member 'llseek'
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:108: error: assignment of read-only member 'release'
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c: In function 'register_sn_procfs':
+arch/ia64/sn/kernel/sn2/sn_proc_fs.c:140: error: assignment of read-only member 'write'
+make[3]: *** [arch/ia64/sn/kernel/sn2/sn_proc_fs.o] Error 1
+
+<--  snip  -->
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
