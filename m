@@ -1,43 +1,87 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Thu, 12 Jan 2006 00:09:37 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 12 Jan 2006 19:04:22 +0000
 Subject: Re: [PATCH] ia64: change defconfig to NR_CPUS==1024
-Message-Id: <20060111160937.921a719d.pj@sgi.com>
+Message-Id: <Pine.LNX.4.62.0601121057550.30182@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060105213948.11412.45463.sendpatchset@tomahawk.engr.sgi.com>
-In-Reply-To: <20060105213948.11412.45463.sendpatchset@tomahawk.engr.sgi.com>
+ <20060111160937.921a719d.pj@sgi.com>
+In-Reply-To: <20060111160937.921a719d.pj@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hawkes@sgi.com
-Cc: tony.luck@gmail.com, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, steiner@sgi.com, djh@sgi.com, jh@sgi.com, edwardsg@sgi.com
+To: Paul Jackson <pj@sgi.com>
+Cc: hawkes@sgi.com, tony.luck@gmail.com, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, steiner@sgi.com, djh@sgi.com, jh@sgi.com, edwardsg@sgi.com
 
-When I tried to build a 2.6.15-mm2 kernel with NR_CPUS 1024, and turned
-on some of the LOCK DEBUG options:
+On Wed, 11 Jan 2006, Paul Jackson wrote:
 
-    1160c1160
-    < # CONFIG_DEBUG_SLAB is not set
-    ---
-    > CONFIG_DEBUG_SLAB=y
-    1163,1164c1163,1164
-    < # CONFIG_DEBUG_SPINLOCK is not set
-    < # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-    ---
-    > CONFIG_DEBUG_SPINLOCK=y
-    > CONFIG_DEBUG_SPINLOCK_SLEEP=y
+>       LD      .tmp_vmlinux1
+>     arch/ia64/kernel/built-in.o(.init.text+0x68b2): In function `topology_init':
+>     arch/ia64/kernel/ivt.S:1465: undefined reference to `__you_cannot_kmalloc_that_much'
+>     make: *** [.tmp_vmlinux1] Error 1
+> 
+> Backing off to 512 CPUs built ok.
+> 
+> There are a couple of kmalloc() calls in topology_init().  I didn't try
+> to figure out which one blew up, nor did I try to investigate further.
 
-then the build failed:
+Here are two patches that might to cure it (used to be in 
+2.6.15-rc5-mm1 but the cure accepted for the workqueues was to use
+alloc_percpu):
 
-      LD      .tmp_vmlinux1
-    arch/ia64/kernel/built-in.o(.init.text+0x68b2): In function `topology_init':
-    arch/ia64/kernel/ivt.S:1465: undefined reference to `__you_cannot_kmalloc_that_much'
-    make: *** [.tmp_vmlinux1] Error 1
+From: Christoph Lameter <clameter@engr.sgi.com>
 
-Backing off to 512 CPUs built ok.
+The workqueue structure can grow larger than 128k under 2.6.14-rc2 (with
+all debugging features enabled on 64 bit platforms) which will make kzalloc
+for workqueue structure entries fail.  This patch increases the maximum
+slab entry size to 256K.
 
-There are a couple of kmalloc() calls in topology_init().  I didn't try
-to figure out which one blew up, nor did I try to investigate further.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Cc: Manfred Spraul <manfred@colorfullife.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+ include/linux/kmalloc_sizes.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN include/linux/kmalloc_sizes.h~increase-maximum-kmalloc-size-to-256k include/linux/kmalloc_sizes.h
+--- 25/include/linux/kmalloc_sizes.h~increase-maximum-kmalloc-size-to-256k	Thu Sep 22 15:09:57 2005
++++ 25-akpm/include/linux/kmalloc_sizes.h	Thu Sep 22 15:09:57 2005
+@@ -19,8 +19,8 @@
+ 	CACHE(32768)
+ 	CACHE(65536)
+ 	CACHE(131072)
+-#ifndef CONFIG_MMU
+ 	CACHE(262144)
++#ifndef CONFIG_MMU
+ 	CACHE(524288)
+ 	CACHE(1048576)
+ #ifdef CONFIG_LARGE_ALLOCS
+_
+
+From: Andrew Morton <akpm@osdl.org>
+
+Fix instaoops.
+
+Cc: Christoph Lameter <clameter@sgi.com>
+Cc: Manfred Spraul <manfred@colorfullife.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ mm/slab.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff -puN mm/slab.c~increase-maximum-kmalloc-size-to-256k-fix mm/slab.c
+--- devel/mm/slab.c~increase-maximum-kmalloc-size-to-256k-fix	2005-09-22 21:19:27.000000000 -0700
++++ devel-akpm/mm/slab.c	2005-09-22 21:19:27.000000000 -0700
+@@ -551,8 +551,8 @@ static void **dbg_userword(kmem_cache_t 
+ #define	MAX_OBJ_ORDER	13	/* up to 32Mb */
+ #define	MAX_GFP_ORDER	13	/* up to 32Mb */
+ #elif defined(CONFIG_MMU)
+-#define	MAX_OBJ_ORDER	5	/* 32 pages */
+-#define	MAX_GFP_ORDER	5	/* 32 pages */
++#define	MAX_OBJ_ORDER	6	/* 64 pages */
++#define	MAX_GFP_ORDER	6	/* 64 pages */
+ #else
+ #define	MAX_OBJ_ORDER	8	/* up to 1Mb */
+ #define	MAX_GFP_ORDER	8	/* up to 1Mb */
+_
