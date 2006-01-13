@@ -1,19 +1,31 @@
-From: Nathan Lynch <ntl@pobox.com>
-Date: Thu, 26 Jan 2006 05:11:07 +0000
-Subject: Re: [PATCH v3]Export cpu topology by sysfs
-Message-Id: <20060126051107.GC2827@localhost.localdomain>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 13 Jan 2006 00:46:29 +0000
+Subject: Preserving CMC/CPE records across reboot
+Message-Id: <14947.1137113189@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <99FA2ED298A9834DB1BF5DE8BDBF24130D24F9@pdsmsx403>
-In-Reply-To: <99FA2ED298A9834DB1BF5DE8BDBF24130D24F9@pdsmsx403>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, greg@kroah.com, discuss@x86-64.org, linux-ia64@vger.kernel.org, "Siddha, Suresh B" <suresh.b.siddha@intel.com>, "Shah, Rajesh" <rajesh.shah@intel.com>, "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>, Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
+To: linux-ia64@vger.kernel.org
 
-Zhang, Yanmin wrote:
-> >>>>This week I'll try to do an implementation for powerpc.
+CMC/CPE records (unlike MCA/INIT) are copied into kernel space and
+cleared from NVRAM as soon as they occur.  That decision was made by
+Bjorn Helgaas some years ago.  The idea is that if you do not have
+salinfo_decode or some equivalent program running then the correctable
+errors still need to be deleted from NVRAM.  But if the system hangs
+while reading the CMC/CPE then we get no data at all.
 
-> Is your implementation for powerpc ready?
+SGI just had an example of this.  A cpu took a CMC, salinfo_decode
+started running and hung while processing the CMC record, the system
+had to be rebooted.  Because the CMC record had been cleared from NVRAM
+before handing a copy to salinfo_decode, the contents were lost.
 
-No, I've been too busy with other things, sorry.
+We should be able to keep the first few CMC/CPE records for each cpu in
+NVRAM and discard the later ones if we start getting a backlog.  Then
+if the system hangs while processing a CMC/CPE, the data will still be
+available in NVRAM and will be processed on the next boot.  If the
+reboot hangs again in salinfo processing then we have a solid error,
+either cpu or SAL, so switch the offending cpu out of the system.
+
+Any objections from other platforms?
+
