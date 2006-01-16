@@ -1,30 +1,119 @@
-From: Matthew Chapman <matthewc@cse.unsw.edu.au>
-Date: Wed, 18 Jan 2006 14:11:47 +0000
-Subject: Re: [ia64-technical] Re: First Montecito Reference Manual is now available
-Message-Id: <20060118141146.GA25456@cse.unsw.EDU.AU>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Mon, 16 Jan 2006 20:31:52 +0000
+Subject: [PATCH]: ia64/sn: Older PROM WAR for device flush code
+Message-Id: <20060116203101.7794.18322.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F05701C2A@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F05701C2A@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jan 19, 2006 at 12:14:53AM +1100, Matthew Chapman wrote:
-> 
-> It seems to me that, at least at the L2TLB level, the "untagged" model
-> could be implemented as an alternative at minimal cost;  e.g. OR the
-> control bit into the tag.
+Work-around to temporarily support older PROMs with new flush device code.
 
-Having thought it through, it may not be quite that simple, because of
-RR prevalidation.  I'd guess that perhaps on Montecito the Active (RR
-match) bit is set on both sets of entries to avoid revalidation on
-thread switch?  And you sure don't want the set of mappings merged if
-the two threads have different RRs!
+This code allows systems running older PROMs to continue to run on the new
+kernel base until a new official PROM is released.
 
-In principle I still like the idea of an untagged mode, however...
-especially since Itanium is targetted at HPC, and such workloads tend
-to have overlap in working sets.  Just my 2c :)
+Signed-off-by: Prarit Bhargava <prarit@sgi.com>
 
-Matt
+---
+commit 68f8dbea53d0bd9d02bfe3665f98cbf1321114f3
+tree 71b33a3aed8cfd59ecb687be52b273ec5de135b1
+parent 4a8e4a270b89030bdeb09d2f8cef7cfe9a50e54d
+author root <root@altix3.lab.boston.redhat.com> Mon, 16 Jan 2006 16:23:15 -0500
+committer root <root@altix3.lab.boston.redhat.com> Mon, 16 Jan 2006 16:23:15 -0500
 
+ arch/ia64/sn/include/xtalk/hubdev.h |    9 ++++++
+ arch/ia64/sn/kernel/io_init.c       |   54 +++++++++++++++++++++++++++++++++--
+ 2 files changed, 60 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/sn/include/xtalk/hubdev.h b/arch/ia64/sn/include/xtalk/hubdev.h
+--- a/arch/ia64/sn/include/xtalk/hubdev.h
++++ b/arch/ia64/sn/include/xtalk/hubdev.h
+@@ -51,6 +51,15 @@ struct sn_flush_device_kernel {
+ 	struct sn_flush_device_common *common;
+ };
+ 
++/* 01/16/06 This struct is the old PROM/kernel struct and needs to be included
++ * for older official PROMs to function on the new kernel base.  This struct
++ * will be removed when the next official PROM release occurs. */
++
++struct sn_flush_device_war {
++	struct sn_flush_device_common common;
++	u32 filler; /* older PROMs expect the default size of a spinlock_t */
++};
++
+ /*
+  * **widget_p - Used as an array[wid_num][device] of sn_flush_device_kernel.
+  */
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -165,8 +165,45 @@ sn_pcidev_info_get(struct pci_dev *dev)
+ 	return NULL;
+ }
+ 
++/* Older PROM flush WAR
++ *
++ * 01/16/06 -- This war will be in place until a new official PROM is released.
++ * Additionally note that the struct sn_flush_device_war also has to be
++ * removed from arch/ia64/sn/include/xtalk/hubdev.h
++ */
++static u8 war_implemented = 0;
++
++static void sn_device_fixup_war(u64 nasid, u64 widget, int device,
++				struct sn_flush_device_common *common)
++{
++	struct sn_flush_device_war *war_list;
++	struct sn_flush_device_war *dev_entry;
++	struct ia64_sal_retval isrv = {0,0,0,0};
++
++	if (!war_implemented) {
++		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
++		       "PROM flush WAR\n");
++		war_implemented = 1;
++	}
++
++	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
++	if (!war_list)
++		BUG();
++
++	SAL_CALL_NOLOCK(isrv, SN_SAL_IOIF_GET_WIDGET_DMAFLUSH_LIST,
++			nasid, widget, __pa(war_list), 0, 0, 0 ,0);
++	if (isrv.status)
++		panic("sn_device_fixup_war failed: %s\n",
++		      ia64_sal_strerror(isrv.status));
++
++	dev_entry = war_list + device;
++	memcpy(common,dev_entry, sizeof(*common));
++
++	kfree(war_list);
++}
++
+ /*
+- * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for 
++ * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for
+  *	each node in the system.
+  */
+ static void sn_fixup_ionodes(void)
+@@ -246,8 +283,19 @@ static void sn_fixup_ionodes(void)
+ 									widget,
+ 								       	device,
+ 						      (u64)(dev_entry->common));
+-				if (status)
+-					BUG();
++				if (status) {
++					if (sn_sal_rev() < 0x0450) {
++						/* shortlived WAR for older
++						 * PROM images
++						 */
++						sn_device_fixup_war(nasid,
++								    widget,
++								    device,
++							     dev_entry->common);
++					}
++					else
++						BUG();
++				}
+ 
+ 				spin_lock_init(&dev_entry->sfdl_flush_lock);
+ 			}
