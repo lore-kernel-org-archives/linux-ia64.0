@@ -1,67 +1,83 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:34:15 +0000
-Subject: [PATCH 6/12] generic sched_find_first_bit()
-Message-Id: <20060126033415.GE11138@miraclelinux.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 16 Jan 2006 04:45:23 +0000
+Subject: [PATCH][BUG] Stop multiple pci_claim_resource() call for the same
+Message-Id: <43CB24E3.8030006@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalent of the function:
-int sched_find_first_bit(const unsigned long *b);
+Hi,
 
-HAVE_ARCH_SCHED_BITOPS is defined when the architecture has its own
-version of these functions.
+I encountered the following problems:
 
-This code largely copied from:
-include/asm-powerpc/bitops.h
+    o Reading /proc/iomem cause endless loop.
+    o request_mem_region() for PCI-to-PCI bridge fails.
 
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-@@ -383,6 +383,41 @@
+This problem is caused by the bug that pci_claim_resource() is called
+multiple times for the same P2P bridge's resource structure if P2P
+bridge requires their own PCI I/O resources.
+
+The patch below fixes this bug.
+
+Thanks,
+Kenji Kaneshige
+
+
+This patch fixes the bug that pci_claim_resource() is called multiple
+times for the same P2P bridge's resource structures if P2P bridges
+require their own PCI I/O resources.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+ arch/ia64/pci/pci.c |   19 ++++++++++++++-----
+ 1 files changed, 14 insertions(+), 5 deletions(-)
+
+Index: linux-2.6.15/arch/ia64/pci/pci.c
+=================================--- linux-2.6.15.orig/arch/ia64/pci/pci.c	2006-01-11 21:51:43.000000000 +0900
++++ linux-2.6.15/arch/ia64/pci/pci.c	2006-01-11 22:20:51.000000000 +0900
+@@ -454,14 +454,13 @@
+ 	return 0;
+ }
  
- #ifdef __KERNEL__
+-static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
++static void __devinit
++pcibios_fixup_resources(struct pci_dev *dev, int start, int limit)
+ {
+ 	struct pci_bus_region region;
+ 	int i;
+-	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
+-		PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
  
-+#ifndef HAVE_ARCH_SCHED_BITOPS
-+
-+#include <linux/compiler.h>	/* unlikely() */
-+
-+/*
-+ * Every architecture must define this function. It's the fastest
-+ * way of searching a 140-bit bitmap where the first 100 bits are
-+ * unlikely to be set. It's guaranteed that at least one of the 140
-+ * bits is cleared.
-+ */
-+static inline int sched_find_first_bit(const unsigned long *b)
+-	for (i = 0; i < limit; i++) {
++	for (i = start; i < limit; i++) {
+ 		if (!dev->resource[i].flags)
+ 			continue;
+ 		region.start = dev->resource[i].start;
+@@ -472,6 +471,16 @@
+ 	}
+ }
+ 
++static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
 +{
-+#if BITS_PER_LONG = 64
-+	if (unlikely(b[0]))
-+		return __ffs(b[0]);
-+	if (unlikely(b[1]))
-+		return __ffs(b[1]) + 64;
-+	return __ffs(b[2]) + 128;
-+#elif BITS_PER_LONG = 32
-+	if (unlikely(b[0]))
-+		return __ffs(b[0]);
-+	if (unlikely(b[1]))
-+		return __ffs(b[1]) + 32;
-+	if (unlikely(b[2]))
-+		return __ffs(b[2]) + 64;
-+	if (b[3])
-+		return __ffs(b[3]) + 96;
-+	return __ffs(b[4]) + 128;
-+#else
-+#error BITS_PER_LONG not defined
-+#endif
++	pcibios_fixup_resources(dev, 0, PCI_BRIDGE_RESOURCES);
 +}
 +
-+#endif /* HAVE_ARCH_SCHED_BITOPS */
++static void __devinit pcibios_fixup_bridge_resources(struct pci_dev *dev)
++{
++	pcibios_fixup_resources(dev, PCI_BRIDGE_RESOURCES, PCI_NUM_RESOURCES);
++}
 +
  /*
-  * ffs: find first bit set. This is defined the same way as
-  * the libc and compiler builtin ffs routines, therefore
+  *  Called after each bus is probed, but before its children are examined.
+  */
+@@ -482,7 +491,7 @@
+ 
+ 	if (b->self) {
+ 		pci_read_bridge_bases(b);
+-		pcibios_fixup_device_resources(b->self);
++		pcibios_fixup_bridge_resources(b->self);
+ 	}
+ 	list_for_each_entry(dev, &b->devices, bus_list)
+ 		pcibios_fixup_device_resources(dev);
