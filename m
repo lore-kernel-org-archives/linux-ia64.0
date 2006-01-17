@@ -1,32 +1,24 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 31 Jan 2006 19:24:01 +0000
-Subject: RE: [patch 5/6] remove per-cpu ia64_phys_stacked_size_p8
-Message-Id: <200601311924.k0VJO9g01579@unix-os.sc.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 17 Jan 2006 04:32:56 +0000
+Subject: First Montecito Reference Manual is now available
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05701C2A@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601310928.k0V9Seg14417@unix-os.sc.intel.com>
-In-Reply-To: <200601310928.k0V9Seg14417@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger-Tang wrote on Tuesday, January 31, 2006 9:40 AM
-> To be safe, I think you need to default to the maximum number of
-> physical stacked registers (which is somewhere around 16,384, based on
-> the width of the ARC.RSC.LOADRS field).
+The Dual-Core Update to the Intel Itanium 2 Processor 
+Reference Manual is now available publicly at:
 
-Do I really need to do that?  I'm checking physical stack register
-size at time of cpu_init() and patch the kernel code to use largest
-size found in the entire system.  Wouldn't that be enough?
+http://developer.intel.com/design/itanium2/manuals/308065.htm:
 
+This document is our first public release of the Montecito 
+micro-architecture and describes the micro-architectural 
+changes in the Montecito processor, including cache 
+hierarchies, memory management, and instruction execution 
+latencies.  This manual is targeted for developers of 
+compilers and performance software and contains information 
+regarding optimization via performance monitoring events.  
 
-> Also, did you verify that the
-> patching is indeed atomic (we just modify a few bits, so we're
-> *probably* OK, but it needs to be verified that the bits we modify
-> don't straddle a word-boundary)?
-
-Yes I did.  The patch instruction is in the first slot of a bundle,
-which doesn't straddle word boundary.
-
-- Ken
-
+-Tony
