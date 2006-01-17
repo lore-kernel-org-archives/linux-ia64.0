@@ -1,119 +1,29 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Mon, 16 Jan 2006 20:31:52 +0000
-Subject: [PATCH]: ia64/sn: Older PROM WAR for device flush code
-Message-Id: <20060116203101.7794.18322.sendpatchset@prarit.boston.redhat.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 17 Jan 2006 10:37:20 +0000
+Subject: Re: [PATCH]: ia64/sn: Older PROM WAR for device flush code
+Message-Id: <yq0r777qgwv.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060116203101.7794.18322.sendpatchset@prarit.boston.redhat.com>
+In-Reply-To: <20060116203101.7794.18322.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Work-around to temporarily support older PROMs with new flush device code.
+>>>>> "Prarit" = Prarit Bhargava <prarit@sgi.com> writes:
 
-This code allows systems running older PROMs to continue to run on the new
-kernel base until a new official PROM is released.
+Prarit> Work-around to temporarily support older PROMs with new flush
+Prarit> device code.  This code allows systems running older PROMs to
+Prarit> continue to run on the new kernel base until a new official
+Prarit> PROM is released.
 
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
+Looks good, even works for me ;-) I'd say we should keep this in for a
+couple of months at least, say through 2.6.17 or so, to give the new
+PROM time to propagate out.
 
----
-commit 68f8dbea53d0bd9d02bfe3665f98cbf1321114f3
-tree 71b33a3aed8cfd59ecb687be52b273ec5de135b1
-parent 4a8e4a270b89030bdeb09d2f8cef7cfe9a50e54d
-author root <root@altix3.lab.boston.redhat.com> Mon, 16 Jan 2006 16:23:15 -0500
-committer root <root@altix3.lab.boston.redhat.com> Mon, 16 Jan 2006 16:23:15 -0500
+Prarit> Signed-off-by: Prarit Bhargava <prarit@sgi.com>
 
- arch/ia64/sn/include/xtalk/hubdev.h |    9 ++++++
- arch/ia64/sn/kernel/io_init.c       |   54 +++++++++++++++++++++++++++++++++--
- 2 files changed, 60 insertions(+), 3 deletions(-)
+Acked-by: Jes Sorensen <jes@sgi.com>
 
-diff --git a/arch/ia64/sn/include/xtalk/hubdev.h b/arch/ia64/sn/include/xtalk/hubdev.h
---- a/arch/ia64/sn/include/xtalk/hubdev.h
-+++ b/arch/ia64/sn/include/xtalk/hubdev.h
-@@ -51,6 +51,15 @@ struct sn_flush_device_kernel {
- 	struct sn_flush_device_common *common;
- };
- 
-+/* 01/16/06 This struct is the old PROM/kernel struct and needs to be included
-+ * for older official PROMs to function on the new kernel base.  This struct
-+ * will be removed when the next official PROM release occurs. */
-+
-+struct sn_flush_device_war {
-+	struct sn_flush_device_common common;
-+	u32 filler; /* older PROMs expect the default size of a spinlock_t */
-+};
-+
- /*
-  * **widget_p - Used as an array[wid_num][device] of sn_flush_device_kernel.
-  */
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -165,8 +165,45 @@ sn_pcidev_info_get(struct pci_dev *dev)
- 	return NULL;
- }
- 
-+/* Older PROM flush WAR
-+ *
-+ * 01/16/06 -- This war will be in place until a new official PROM is released.
-+ * Additionally note that the struct sn_flush_device_war also has to be
-+ * removed from arch/ia64/sn/include/xtalk/hubdev.h
-+ */
-+static u8 war_implemented = 0;
-+
-+static void sn_device_fixup_war(u64 nasid, u64 widget, int device,
-+				struct sn_flush_device_common *common)
-+{
-+	struct sn_flush_device_war *war_list;
-+	struct sn_flush_device_war *dev_entry;
-+	struct ia64_sal_retval isrv = {0,0,0,0};
-+
-+	if (!war_implemented) {
-+		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
-+		       "PROM flush WAR\n");
-+		war_implemented = 1;
-+	}
-+
-+	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
-+	if (!war_list)
-+		BUG();
-+
-+	SAL_CALL_NOLOCK(isrv, SN_SAL_IOIF_GET_WIDGET_DMAFLUSH_LIST,
-+			nasid, widget, __pa(war_list), 0, 0, 0 ,0);
-+	if (isrv.status)
-+		panic("sn_device_fixup_war failed: %s\n",
-+		      ia64_sal_strerror(isrv.status));
-+
-+	dev_entry = war_list + device;
-+	memcpy(common,dev_entry, sizeof(*common));
-+
-+	kfree(war_list);
-+}
-+
- /*
-- * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for 
-+ * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for
-  *	each node in the system.
-  */
- static void sn_fixup_ionodes(void)
-@@ -246,8 +283,19 @@ static void sn_fixup_ionodes(void)
- 									widget,
- 								       	device,
- 						      (u64)(dev_entry->common));
--				if (status)
--					BUG();
-+				if (status) {
-+					if (sn_sal_rev() < 0x0450) {
-+						/* shortlived WAR for older
-+						 * PROM images
-+						 */
-+						sn_device_fixup_war(nasid,
-+								    widget,
-+								    device,
-+							     dev_entry->common);
-+					}
-+					else
-+						BUG();
-+				}
- 
- 				spin_lock_init(&dev_entry->sfdl_flush_lock);
- 			}
+Cheers,
+Jes
