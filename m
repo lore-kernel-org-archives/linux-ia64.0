@@ -1,49 +1,31 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Sat, 28 Jan 2006 03:34:41 +0000
-Subject: [PATCH 002/003]Fix unify mapping from pxm to node id.
-Message-Id: <20060128122934.CF53.Y-GOTO@jp.fujitsu.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 17 Jan 2006 21:42:46 +0000
+Subject: [PATCH] - Zonelists for nodes without cpus
+Message-Id: <20060117214246.GA15872@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060123165644.C147.Y-GOTO@jp.fujitsu.com> <20060126074846.1a6dd300.pj@sgi.com>
-In-Reply-To: <20060126074846.1a6dd300.pj@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, Andy Whitcroft <apw@shadowen.org>, Bob Picco <bob.picco@hp.com>, Paul Jackson <pj@sgi.com>
-Cc: linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com, ak@suse.de, len.brown@intel.com, discuss@x86-64.org
+To: linux-ia64@vger.kernel.org
 
-Enable ACPI_NUMA for x86 machines with SRAT's.
+If a node runs out of memory, ensure that memory on nodes w/o cpus is used
+before using memory on nodes with cpus. 
 
-Signed-off-by: Andy Whitcroft <apw@shadowen.org>
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
- arch/i386/Kconfig    |    1 +
- drivers/acpi/Kconfig |    2 +-
- 2 files changed, 2 insertions(+), 1 deletion(-)
-diff -upN reference/arch/i386/Kconfig current/arch/i386/Kconfig
---- reference/arch/i386/Kconfig
-+++ current/arch/i386/Kconfig
-@@ -139,6 +139,7 @@ config ACPI_SRAT
- 	bool
- 	default y
- 	depends on NUMA && (X86_SUMMIT || X86_GENERICARCH)
-+	select ACPI_NUMA
+
+
+Index: linux/include/asm-ia64/topology.h
+=================================--- linux.orig/include/asm-ia64/topology.h	2006-01-17 14:27:48.473073976 -0600
++++ linux/include/asm-ia64/topology.h	2006-01-17 14:28:12.070373036 -0600
+@@ -18,6 +18,10 @@
+ #include <asm/smp.h>
  
- config X86_SUMMIT_NUMA
- 	bool
-diff -upN reference/drivers/acpi/Kconfig current/drivers/acpi/Kconfig
---- reference/drivers/acpi/Kconfig
-+++ current/drivers/acpi/Kconfig
-@@ -162,7 +162,7 @@ config ACPI_THERMAL
- config ACPI_NUMA
- 	bool "NUMA support"
- 	depends on NUMA
--	depends on (IA64 || X86_64)
-+	depends on (X86_32 || IA64 || X86_64)
- 	default y if IA64_GENERIC || IA64_SGI_SN2
- 
- config ACPI_ASUS
-
--- 
-Yasunori Goto 
-
-
+ #ifdef CONFIG_NUMA
++
++/* Nodes w/o CPUs are preferred for memory allocations, see build_zonelists */
++#define PENALTY_FOR_NODE_WITH_CPUS 255
++
+ /*
+  * Returns the number of the node containing CPU 'cpu'
+  */
