@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 17 Jan 2006 08:11:16 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 17 Jan 2006 17:59:35 +0000
 Subject: Re: [RFC]: Standardizing the SAL calls in arch/ia64
-Message-Id: <yq0vewjqnob.fsf@jaguar.mkp.net>
+Message-Id: <20060117175935.GA4944@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <43CBF385.60205@sgi.com>
 In-Reply-To: <43CBF385.60205@sgi.com>
@@ -10,31 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Prarit" = Prarit Bhargava <prarit@sgi.com> writes:
+> I agree with the principle, the current SAL code is an utter
+> mess. However, rather than obfuscating the code with a bunch of
+> macros, I'd prefer to simply stick a guideline at the top of the
+> relevant files and then change the code to match that. In particular
+> declaring variables within macros and macros that call 'return' aren't
+> good for making the code easy to read.
 
-Prarit> After looking at the SAL calls in arch/ia64, I suggest that we
-Prarit> standardize the SAL calls by using:
+If the SAL stubs are sufficently regular, then you *might* make
+a macro (or small set of macros) to generate them:
 
-Prarit> #define SAL_CALL_RETURN(isrv) do { \ return isrv.status; \ }
-Prarit> while (0)
+#define MK_VOID_SAL_STUB(fname, salfn)			\
+static inline s64					\
+fname(void)						\
+{							\
+	struct ia64_sal_retval isrv;			\
+	SAL_CALL(isrv, salfn, 0, 0, 0, 0, 0, 0, 0);	\
+	return isrv.status;				\
+}
 
-Prarit> b) return status and isrv.v0,
+MK_VOID_SAL_STUB(ia64_sal_cache_init, SAL_CACHE_INIT)
 
-Prarit> #define SAL_CALL_RETURN_V0(isrv, value) do { \ *value Prarit> isrv.v0; \ return isrv.status; \ } while (0)
 
-Prarit> #define SAL_RETVAL_DECLARE(isrv) do { \ struct ia64_sal_retval
-Prarit> isrv = { 0,0,0,0 }; \ }while (0)
+But I think that you'd end up with lots of generator macros that are
+only used once each unless you are astonishingly clever[1] with cpp macros,
+so you'd have been better off to just write them in C.
 
-Prarit> Thoughts, concerns?
+Macros to generate functions can also be irritating as tools like
+cscope can't show you the definition ... but they are used elsewhere
+in the Linux kernel.
 
-Hi Prarit,
+Summary: take a quick look at whether macros might help, if not then
+just clean up the C code.
 
-I agree with the principle, the current SAL code is an utter
-mess. However, rather than obfuscating the code with a bunch of
-macros, I'd prefer to simply stick a guideline at the top of the
-relevant files and then change the code to match that. In particular
-declaring variables within macros and macros that call 'return' aren't
-good for making the code easy to read.
+-Tony
 
-Cheers,
-Jes
+[1] which can have its own issues of code legibility.
