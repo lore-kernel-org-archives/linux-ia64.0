@@ -1,53 +1,38 @@
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 18 Jan 2006 02:32:19 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 18 Jan 2006 15:53:46 +0000
 Subject: Re: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <200601180332.19692.ak@suse.de>
+Message-Id: <200601180853.46290.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com> <200601131724.42054.bjorn.helgaas@hp.com> <200601171717.03192.bjorn.helgaas@hp.com>
-In-Reply-To: <200601171717.03192.bjorn.helgaas@hp.com>
+References: <20060104221627.GA26064@lists.us.dell.com> <200601171717.03192.bjorn.helgaas@hp.com> <200601180332.19692.ak@suse.de>
+In-Reply-To: <200601180332.19692.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+To: Andi Kleen <ak@suse.de>
 Cc: Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
 
-On Wednesday 18 January 2006 01:17, Bjorn Helgaas wrote:
-> On Friday 13 January 2006 17:24, Bjorn Helgaas wrote:
-> > ... the
-> > DMI stuff crashes HP sx2000 (and probably sx1000) boxes, probably
-> > because of some memory attribute problem.  So I'll have more
-> > feedback after I debug that ;-)
->
-> It *is* a memory attribute problem.  The current code always calls
-> ioremap() on efi.smbios.  The first problem is that this is a
-> physical address on x86, but a virtual address on ia64.
->
-> The second problem is that we don't check the supported attributes
-> for the SMBIOS table.  On HP sx1000/sx2000, these tables are in system
-> memory, which doesn't support uncacheable access, so iorem
-> ap() does the wrong thing.
+On Tuesday 17 January 2006 19:32, Andi Kleen wrote:
+> At least on x86-64/i386 the ioremap is actually cached unless a MTRR
+> changes it, but it normally doesn't here. If one wants to force uncached
+> access one has to use ioremap_uncached(). You're saying IA64 ioremap
+> forces uncached access? That seems weird.
 
-At least on x86-64/i386 the ioremap is actually cached unless a MTRR
-changes it, but it normally doesn't here. If one wants to force uncached
-access one has to use ioremap_uncached(). You're saying IA64 ioremap
-forces uncached access? That seems weird.
+Right.  On ia64, ioremap() and ioremap_nocache() are the same.  You'd
+have to ask David about the history behind this.
 
-> +	if (efi_enabled) {
-> +		if (efi_mem_attributes(base & EFI_MEMORY_WB)) {
-> +			iomem = 0;
-> +			buf = (u8 *) phys_to_virt(base);
-> +		} else if (efi_mem_attributes(base & EFI_MEMORY_UC))
-> +			buf = dmi_ioremap(base, len);
-> +		else
-> +			buf = NULL;
+> > +	if (efi_enabled) {
+> > +		if (efi_mem_attributes(base & EFI_MEMORY_WB)) {
+> > +			iomem = 0;
+> > +			buf = (u8 *) phys_to_virt(base);
+> > +		} else if (efi_mem_attributes(base & EFI_MEMORY_UC))
+> > +			buf = dmi_ioremap(base, len);
+> > +		else
+> > +			buf = NULL;
+> 
+> I would expect your ioremap to already do such a lookup. That is at least
+> how MTRRs on i386/x86-64 work.  If it does not how about you fix
+> ioremap()?
 
-I would expect your ioremap to already do such a lookup. That is at least
-how MTRRs on i386/x86-64 work.  If it does not how about you fix
-ioremap()? Or provide a suitable ia64 dmi_ioremap, but it's likely
-better to do it generally.
-
-Regarding physical vs virtual efi.smbios -- it sounds nasty to have such
-a difference in the EFI support for different architectures. Matthew, do
-you have a suggestion how this can be unified?
-
--Andi
+Yes, hiding this all inside ioremap() is probably a good idea.
+It'll slow it down a lot, but I guess it's probably not used in
+performance paths anyway.  Thanks for the advice.
