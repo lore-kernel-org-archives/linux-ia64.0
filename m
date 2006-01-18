@@ -1,190 +1,88 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 17 Jan 2006 18:05:12 +0000
-Subject: [patch] sn_console.c minor cleanup
-Message-Id: <yq0ek36raqv.fsf@jaguar.mkp.net>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 18 Jan 2006 04:38:14 +0000
+Subject: [patch 2.6.16-rc1] Recursive flags do not work for selective builds
+Message-Id: <8734.1137559094@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, Pat Gefre <pfg@sgi.com>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi,
+arch/ia64/sn/Makefile sets CPPFLAGS, expecting that setting to
+propogate to all the subdirectories.  For a normal build with its
+recursive descent it does work, but doing a selective build like
+'make arch/ia64/sn/kernel/io_init.i' does not do a recursive descent,
+it goes directly to arch/ia64/sn/kernel/Makefile so the flags do not
+get set.
 
-A small round of house keeping for the sn_console.c driver.
+To support selective builds, set the flags in all the subordinate Makefiles.
 
-Cheers,
-Jes
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
+---
 
-Fix printk level and remove unnecessary CONFIG_SMP|CONFIG_PREEMPT tests
-as this is taken care through the spinlock macros anyway.
+This only fixes the sn Makefiles, other subtrees may have the same
+problem.
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-Signed-off-by: Pat Gefre <pfg@sgi.com>
+ Makefile            |    2 --
+ kernel/Makefile     |    2 ++
+ kernel/sn2/Makefile |    2 ++
+ pci/Makefile        |    2 ++
+ pci/pcibr/Makefile  |    2 ++
+ 5 files changed, 8 insertions(+), 2 deletions(-)
 
-----
-
- drivers/serial/sn_console.c |  129 +++++++++++++++++++-------------------------
- 1 files changed, 58 insertions(+), 71 deletions(-)
-
-Index: linux-2.6/drivers/serial/sn_console.c
-=================================--- linux-2.6.orig/drivers/serial/sn_console.c
-+++ linux-2.6/drivers/serial/sn_console.c
-@@ -6,7 +6,7 @@
-  * driver for that.
-  *
-  *
-- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
-+ * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
-  *
-  * This program is free software; you can redistribute it and/or modify it
-  * under the terms of version 2 of the GNU General Public License
-@@ -829,8 +829,8 @@
- 		misc.name = DEVICE_NAME_DYNAMIC;
- 		retval = misc_register(&misc);
- 		if (retval != 0) {
--			printk
--			    ("Failed to register console device using misc_register.\n");
-+			printk(KERN_WARNING "Failed to register console "
-+			       "device using misc_register.\n");
- 			return -ENODEV;
- 		}
- 		sal_console_uart.major = MISC_MAJOR;
-@@ -942,88 +942,75 @@
- {
- 	unsigned long flags = 0;
- 	struct sn_cons_port *port = &sal_console_port;
--#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
- 	static int stole_lock = 0;
--#endif
+Index: linux/arch/ia64/sn/Makefile
+=================================--- linux.orig/arch/ia64/sn/Makefile	2006-01-03 14:21:10.000000000 +1100
++++ linux/arch/ia64/sn/Makefile	2006-01-18 15:21:08.348599626 +1100
+@@ -9,6 +9,4 @@
+ # Makefile for the sn ia64 subplatform
+ #
  
- 	BUG_ON(!port->sc_is_asynch);
- 
- 	/* We can't look at the xmit buffer if we're not registered with serial core
- 	 *  yet.  So only do the fancy recovery after registering
- 	 */
--	if (port->sc_port.info) {
+-CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
 -
--		/* somebody really wants this output, might be an
--		 * oops, kdb, panic, etc.  make sure they get it. */
--#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
--		if (spin_is_locked(&port->sc_port.lock)) {
--			int lhead = port->sc_port.info->xmit.head;
--			int ltail = port->sc_port.info->xmit.tail;
--			int counter, got_lock = 0;
-+	if (!port->sc_port.info) {
-+		/* Not yet registered with serial core - simple case */
-+		puts_raw_fixed(port->sc_ops->sal_puts_raw, s, count);
-+		return;
-+	}
+ obj-y += kernel/ pci/
+Index: linux/arch/ia64/sn/kernel/Makefile
+=================================--- linux.orig/arch/ia64/sn/kernel/Makefile	2006-01-03 14:21:10.000000000 +1100
++++ linux/arch/ia64/sn/kernel/Makefile	2006-01-18 15:21:29.739207327 +1100
+@@ -7,6 +7,8 @@
+ # Copyright (C) 1999,2001-2005 Silicon Graphics, Inc.  All Rights Reserved.
+ #
  
--			/*
--			 * We attempt to determine if someone has died with the
--			 * lock. We wait ~20 secs after the head and tail ptrs
--			 * stop moving and assume the lock holder is not functional
--			 * and plow ahead. If the lock is freed within the time out
--			 * period we re-get the lock and go ahead normally. We also
--			 * remember if we have plowed ahead so that we don't have
--			 * to wait out the time out period again - the asumption
--			 * is that we will time out again.
--			 */
-+	/* somebody really wants this output, might be an
-+	 * oops, kdb, panic, etc.  make sure they get it. */
-+	if (spin_is_locked(&port->sc_port.lock)) {
-+		int lhead = port->sc_port.info->xmit.head;
-+		int ltail = port->sc_port.info->xmit.tail;
-+		int counter, got_lock = 0;
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
 +
-+		/*
-+		 * We attempt to determine if someone has died with the
-+		 * lock. We wait ~20 secs after the head and tail ptrs
-+		 * stop moving and assume the lock holder is not functional
-+		 * and plow ahead. If the lock is freed within the time out
-+		 * period we re-get the lock and go ahead normally. We also
-+		 * remember if we have plowed ahead so that we don't have
-+		 * to wait out the time out period again - the asumption
-+		 * is that we will time out again.
-+		 */
+ obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
+ 				   huberror.o io_init.o iomv.o klconflib.o sn2/
+ obj-$(CONFIG_IA64_GENERIC)      += machvec.o
+Index: linux/arch/ia64/sn/kernel/sn2/Makefile
+=================================--- linux.orig/arch/ia64/sn/kernel/sn2/Makefile	2006-01-03 14:21:10.000000000 +1100
++++ linux/arch/ia64/sn/kernel/sn2/Makefile	2006-01-18 15:21:35.709087973 +1100
+@@ -9,5 +9,7 @@
+ # sn2 specific kernel files
+ #
  
--			for (counter = 0; counter < 150; mdelay(125), counter++) {
--				if (!spin_is_locked(&port->sc_port.lock)
--				    || stole_lock) {
--					if (!stole_lock) {
--						spin_lock_irqsave(&port->
--								  sc_port.lock,
--								  flags);
--						got_lock = 1;
--					}
--					break;
--				} else {
--					/* still locked */
--					if ((lhead !-					     port->sc_port.info->xmit.head)
--					    || (ltail !-						port->sc_port.info->xmit.
--						tail)) {
--						lhead -						    port->sc_port.info->xmit.
--						    head;
--						ltail -						    port->sc_port.info->xmit.
--						    tail;
--						counter = 0;
--					}
-+		for (counter = 0; counter < 150; mdelay(125), counter++) {
-+			if (!spin_is_locked(&port->sc_port.lock)
-+			    || stole_lock) {
-+				if (!stole_lock) {
-+					spin_lock_irqsave(&port->sc_port.lock,
-+							  flags);
-+					got_lock = 1;
- 				}
--			}
--			/* flush anything in the serial core xmit buffer, raw */
--			sn_transmit_chars(port, 1);
--			if (got_lock) {
--				spin_unlock_irqrestore(&port->sc_port.lock,
--						       flags);
--				stole_lock = 0;
-+				break;
- 			} else {
--				/* fell thru */
--				stole_lock = 1;
-+				/* still locked */
-+				if ((lhead != port->sc_port.info->xmit.head)
-+				    || (ltail !+					port->sc_port.info->xmit.tail)) {
-+					lhead +						port->sc_port.info->xmit.head;
-+					ltail +						port->sc_port.info->xmit.tail;
-+					counter = 0;
-+				}
- 			}
--			puts_raw_fixed(port->sc_ops->sal_puts_raw, s, count);
--		} else {
--			stole_lock = 0;
--#endif
--			spin_lock_irqsave(&port->sc_port.lock, flags);
--			sn_transmit_chars(port, 1);
-+		}
-+		/* flush anything in the serial core xmit buffer, raw */
-+		sn_transmit_chars(port, 1);
-+		if (got_lock) {
- 			spin_unlock_irqrestore(&port->sc_port.lock, flags);
--
--			puts_raw_fixed(port->sc_ops->sal_puts_raw, s, count);
--#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
-+			stole_lock = 0;
-+		} else {
-+			/* fell thru */
-+			stole_lock = 1;
- 		}
--#endif
--	}
--	else {
--		/* Not yet registered with serial core - simple case */
-+		puts_raw_fixed(port->sc_ops->sal_puts_raw, s, count);
-+	} else {
-+		stole_lock = 0;
-+		spin_lock_irqsave(&port->sc_port.lock, flags);
-+		sn_transmit_chars(port, 1);
-+		spin_unlock_irqrestore(&port->sc_port.lock, flags);
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
 +
- 		puts_raw_fixed(port->sc_ops->sal_puts_raw, s, count);
- 	}
- }
+ obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
+ 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
+Index: linux/arch/ia64/sn/pci/Makefile
+=================================--- linux.orig/arch/ia64/sn/pci/Makefile	2006-01-03 14:21:10.000000000 +1100
++++ linux/arch/ia64/sn/pci/Makefile	2006-01-18 15:21:41.877183495 +1100
+@@ -7,4 +7,6 @@
+ #
+ # Makefile for the sn pci general routines.
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
+Index: linux/arch/ia64/sn/pci/pcibr/Makefile
+=================================--- linux.orig/arch/ia64/sn/pci/pcibr/Makefile	2006-01-03 14:21:10.000000000 +1100
++++ linux/arch/ia64/sn/pci/pcibr/Makefile	2006-01-18 15:21:46.363870041 +1100
+@@ -7,5 +7,7 @@
+ #
+ # Makefile for the sn2 io routines.
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y				+=  pcibr_dma.o pcibr_reg.o \
+ 				    pcibr_ate.o pcibr_provider.o
+
