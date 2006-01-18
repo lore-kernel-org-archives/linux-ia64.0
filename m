@@ -1,34 +1,116 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Sat, 14 Jan 2006 05:05:30 +0000
+Date: Wed, 18 Jan 2006 00:17:03 +0000
 Subject: Re: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <200601132205.30675.bjorn.helgaas@hp.com>
+Message-Id: <200601171717.03192.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com> <200601131724.42054.bjorn.helgaas@hp.com> <200601140219.39765.ak@suse.de>
-In-Reply-To: <200601140219.39765.ak@suse.de>
+References: <20060104221627.GA26064@lists.us.dell.com> <20060106223932.GB9230@lists.us.dell.com> <200601131724.42054.bjorn.helgaas@hp.com>
+In-Reply-To: <200601131724.42054.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andi Kleen <ak@suse.de>
-Cc: Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Matt Domsch <Matt_Domsch@dell.com>
+Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
 
-On Friday 13 January 2006 18:19, Andi Kleen wrote:
-> On Saturday 14 January 2006 01:24, Bjorn Helgaas wrote:
-> > On Friday 06 January 2006 15:39, Matt Domsch wrote:
-> > > diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-> > > ...
-> > > +config DMI
-> > > +=A0=A0=A0=A0=A0=A0=A0bool
-> > > +=A0=A0=A0=A0=A0=A0=A0default y
-> >
-> > Should we have a way to turn this off?
->=20
-> At least on i386/x86-64 it is largely used for hardware/firmware bug=20
-> workaround and these have been traditionally always compiled in
->=20
-> Or do you want to spend a lot of time on a bug report from
-> a user only to discover they didn't enable the workarounds for
-> their particular platform?
+On Friday 13 January 2006 17:24, Bjorn Helgaas wrote:
+> ... the
+> DMI stuff crashes HP sx2000 (and probably sx1000) boxes, probably
+> because of some memory attribute problem.  So I'll have more
+> feedback after I debug that ;-)
 
-Yeah, that was a dumb idea.  I just need to fix whatever's
-currently broken and then there'll be no harm in having it
-all the time.
+It *is* a memory attribute problem.  The current code always calls
+ioremap() on efi.smbios.  The first problem is that this is a
+physical address on x86, but a virtual address on ia64.
+
+The second problem is that we don't check the supported attributes
+for the SMBIOS table.  On HP sx1000/sx2000, these tables are in system
+memory, which doesn't support uncacheable access, so ioremap() does
+the wrong thing.
+
+The patch below addresses both problems (but I can't test the x86 EFI
+change).  I don't really like it, because the memory attribute checking
+is not complete (it only checks the first page, not the whole range),
+and there's already very similar code in acpi_os_map_memory(),
+acpi_os_read_memory(), acpi_os_write_memory(), and efi_range_is_wc().
+
+But it's a start, and maybe the consolidation could be done later.
+
+Index: work-mm3/arch/i386/kernel/dmi_scan.c
+=================================--- work-mm3.orig/arch/i386/kernel/dmi_scan.c	2006-01-17 15:18:42.000000000 -0700
++++ work-mm3/arch/i386/kernel/dmi_scan.c	2006-01-17 16:58:11.000000000 -0700
+@@ -39,9 +39,18 @@
+ 			    void (*decode)(struct dmi_header *))
+ {
+ 	u8 *buf, *data;
+-	int i = 0;
++	int iomem = 1, i = 0;
+ 		
+-	buf = dmi_ioremap(base, len);
++	if (efi_enabled) {
++		if (efi_mem_attributes(base & EFI_MEMORY_WB)) {
++			iomem = 0;
++			buf = (u8 *) phys_to_virt(base);
++		} else if (efi_mem_attributes(base & EFI_MEMORY_UC))
++			buf = dmi_ioremap(base, len);
++		else
++			buf = NULL;
++	} else
++		buf = dmi_ioremap(base, len);
+ 	if (buf = NULL)
+ 		return -1;
+ 
+@@ -66,7 +75,8 @@
+ 		data += 2;
+ 		i++;
+ 	}
+-	dmi_iounmap(buf, len);
++	if (iomem)
++		dmi_iounmap(buf, len);
+ 	return 0;
+ }
+ 
+@@ -216,19 +226,30 @@
+ 	int rc;
+ 
+ 	if (efi_enabled) {
+-		if (!efi.smbios)
++		unsigned long phys_addr = __pa(efi.smbios);
++		int iomem = 0;
++
++		if (!phys_addr)
+ 			goto out;
+ 
+                /* This is called as a core_initcall() because it isn't
+                 * needed during early boot.  This also means we can
+                 * iounmap the space when we're done with it.
+ 		*/
+-		p = ioremap((unsigned long)efi.smbios, 0x10000);
++		if (efi_mem_attributes(phys_addr & EFI_MEMORY_WB))
++			p = (char *) phys_to_virt(phys_addr);
++		else if (efi_mem_attributes(phys_addr & EFI_MEMORY_UC)) {
++			iomem = 1;
++			p = ioremap(phys_addr, 0x10000);
++		} else
++			p = NULL;
++
+ 		if (p = NULL)
+ 			goto out;
+ 
+ 		rc = dmi_present(p + 0x10); /* offset of _DMI_ string */
+-		iounmap(p);
++		if (iomem)
++			iounmap(p);
+ 		if (!rc)
+ 			return;
+ 	}
+Index: work-mm3/arch/i386/kernel/efi.c
+=================================--- work-mm3.orig/arch/i386/kernel/efi.c	2005-10-27 18:02:08.000000000 -0600
++++ work-mm3/arch/i386/kernel/efi.c	2006-01-17 17:10:20.000000000 -0700
+@@ -391,7 +391,7 @@
+ 			printk(KERN_INFO " ACPI=0x%lx ", config_tables[i].table);
+ 		} else
+ 		    if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
+-			efi.smbios = (void *) config_tables[i].table;
++			efi.smbios = __va(config_tables[i].table);
+ 			printk(KERN_INFO " SMBIOS=0x%lx ", config_tables[i].table);
+ 		} else
+ 		    if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) = 0) {
