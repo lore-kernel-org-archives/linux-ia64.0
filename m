@@ -1,10 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 11 Jan 2006 22:16:48 +0000
+Date: Thu, 19 Jan 2006 19:47:02 +0000
 Subject: [PATCH 3/3] altix:  msi support
-Message-Id: <20060111221648.28765.41741.34942@attica.americas.sgi.com>
+Message-Id: <20060119194702.12213.16524.93275@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
-In-Reply-To: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
+References: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,9 +16,9 @@ code as well as adding some extensions to the altix PCI provider abstaction.
 
 Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: linux-2.6.14/arch/ia64/sn/pci/msi.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/pci/msi.c	2005-12-21 22:37:02.978262311 -0600
-+++ linux-2.6.14/arch/ia64/sn/pci/msi.c	2005-12-21 22:38:24.090685912 -0600
+Index: msi/arch/ia64/sn/pci/msi.c
+=================================--- msi.orig/arch/ia64/sn/pci/msi.c	2006-01-18 14:00:52.097507212 -0600
++++ msi/arch/ia64/sn/pci/msi.c	2006-01-18 14:01:06.964228604 -0600
 @@ -6,13 +6,205 @@
   * Copyright (C) 2005 Silicon Graphics, Inc.  All Rights Reserved.
   */
@@ -228,9 +228,9 @@ Index: linux-2.6.14/arch/ia64/sn/pci/msi.c
 +	msi_register(&sn_msi_ops);
 +	return 0;
  }
-Index: linux-2.6.14/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/kernel/io_init.c	2005-12-21 22:35:23.436286704 -0600
-+++ linux-2.6.14/arch/ia64/sn/kernel/io_init.c	2005-12-21 22:38:24.091685671 -0600
+Index: msi/arch/ia64/sn/kernel/io_init.c
+=================================--- msi.orig/arch/ia64/sn/kernel/io_init.c	2006-01-18 14:00:52.099460147 -0600
++++ msi/arch/ia64/sn/kernel/io_init.c	2006-01-18 14:01:06.969110943 -0600
 @@ -51,7 +51,7 @@
   */
  
@@ -240,9 +240,9 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/io_init.c
  {
  	return 0;
  }
-Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/kernel/irq.c	2005-12-21 22:37:58.120953676 -0600
-+++ linux-2.6.14/arch/ia64/sn/kernel/irq.c	2005-12-21 22:38:24.092685429 -0600
+Index: msi/arch/ia64/sn/kernel/irq.c
+=================================--- msi.orig/arch/ia64/sn/kernel/irq.c	2006-01-18 14:01:05.024963679 -0600
++++ msi/arch/ia64/sn/kernel/irq.c	2006-01-18 14:01:06.971063878 -0600
 @@ -25,11 +25,11 @@
  
  int sn_force_interrupt_flag = 1;
@@ -251,9 +251,9 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
 +struct list_head **sn_irq_lh;
  static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ lock */
  
--static inline uint64_t sn_intr_alloc(nasid_t local_nasid, int local_widget,
+-static inline u64 sn_intr_alloc(nasid_t local_nasid, int local_widget,
 -				     u64 sn_irq_info,
-+uint64_t sn_intr_alloc(nasid_t local_nasid, int local_widget,
++u64 sn_intr_alloc(nasid_t local_nasid, int local_widget,
 +				     struct sn_irq_info *sn_irq_info,
  				     int req_irq, nasid_t req_nasid,
  				     int req_slice)
@@ -300,7 +300,7 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
  
 -	list_for_each_entry_safe(sn_irq_info, sn_irq_info_safe,
 -				 sn_irq_lh[irq], list) {
--		uint64_t bridge;
+-		u64 bridge;
 -		int local_widget, status;
 -		nasid_t local_nasid;
 -		struct sn_irq_info *new_irq_info;
@@ -311,7 +311,7 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
 -			break;
 -		memcpy(new_irq_info, sn_irq_info, sizeof(struct sn_irq_info));
 -
--		bridge = (uint64_t) new_irq_info->irq_bridge;
+-		bridge = (u64) new_irq_info->irq_bridge;
 -		if (!bridge) {
 -			kfree(new_irq_info);
 -			break; /* irq is not a device interrupt */
@@ -319,7 +319,7 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
 +	memcpy(new_irq_info, sn_irq_info, sizeof(struct sn_irq_info));
  
 -		local_nasid = NASID_GET(bridge);
-+	bridge = (uint64_t) new_irq_info->irq_bridge;
++	bridge = (u64) new_irq_info->irq_bridge;
 +	if (!bridge) {
 +		kfree(new_irq_info);
 +		return NULL; /* irq is not a device interrupt */
@@ -429,9 +429,9 @@ Index: linux-2.6.14/arch/ia64/sn/kernel/irq.c
  	}
 -
  }
-Index: linux-2.6.14/arch/ia64/sn/pci/pci_dma.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/pci/pci_dma.c	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/arch/ia64/sn/pci/pci_dma.c	2005-12-21 22:38:24.092685429 -0600
+Index: msi/arch/ia64/sn/pci/pci_dma.c
+=================================--- msi.orig/arch/ia64/sn/pci/pci_dma.c	2006-01-18 14:00:52.097507212 -0600
++++ msi/arch/ia64/sn/pci/pci_dma.c	2006-01-18 14:01:06.971063878 -0600
 @@ -11,7 +11,7 @@
  
  #include <linux/module.h>
@@ -470,15 +470,15 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pci_dma.c
  
  		if (!sg->dma_address) {
  			printk(KERN_ERR "%s: out of ATEs\n", __FUNCTION__);
-Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-12-21 22:35:23.445284532 -0600
-+++ linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-12-21 22:38:24.093685188 -0600
+Index: msi/arch/ia64/sn/pci/pcibr/pcibr_dma.c
+=================================--- msi.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-01-18 14:00:52.098483680 -0600
++++ msi/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-01-18 14:01:06.974969749 -0600
 @@ -41,7 +41,7 @@
  
  static dma_addr_t
  pcibr_dmamap_ate32(struct pcidev_info *info,
--		   uint64_t paddr, size_t req_size, uint64_t flags)
-+		   uint64_t paddr, size_t req_size, uint64_t flags, int dma_flags)
+-		   u64 paddr, size_t req_size, u64 flags)
++		   u64 paddr, size_t req_size, u64 flags, int dma_flags)
  {
  
  	struct pcidev_info *pcidev_info = info->pdi_host_pcidev_info;
@@ -520,13 +520,13 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  }
  
  static dma_addr_t
- pcibr_dmatrans_direct64(struct pcidev_info * info, uint64_t paddr,
--			uint64_t dma_attributes)
-+			uint64_t dma_attributes, int dma_flags)
+ pcibr_dmatrans_direct64(struct pcidev_info * info, u64 paddr,
+-			u64 dma_attributes)
++			u64 dma_attributes, int dma_flags)
  {
  	struct pcibus_info *pcibus_info = (struct pcibus_info *)
  	    ((info->pdi_host_pcidev_info)->pdi_pcibus_info);
- 	uint64_t pci_addr;
+ 	u64 pci_addr;
  
  	/* Translate to Crosstalk View of Physical Address */
 -	pci_addr = (IS_PIC_SOFT(pcibus_info) ? PHYS_TO_DMA(paddr) :
@@ -543,7 +543,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  	/* Handle Bus mode */
  	if (IS_PCIX(pcibus_info))
 @@ -130,7 +147,9 @@
- 		    ((uint64_t) pcibus_info->
+ 		    ((u64) pcibus_info->
  		     pbi_hub_xid << PIC_PCI64_ATTR_TARG_SHFT);
  	} else
 -		pci_addr |= TIOCP_PCI64_CMDTYPE_MEM;
@@ -557,8 +557,8 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  
  static dma_addr_t
  pcibr_dmatrans_direct32(struct pcidev_info * info,
--			uint64_t paddr, size_t req_size, uint64_t flags)
-+			uint64_t paddr, size_t req_size, uint64_t flags, int dma_flags)
+-			u64 paddr, size_t req_size, u64 flags)
++			u64 paddr, size_t req_size, u64 flags, int dma_flags)
  {
  
  	struct pcidev_info *pcidev_info = info->pdi_host_pcidev_info;
@@ -579,7 +579,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  
  	xio_base = pcibus_info->pbi_dir_xbase;
  	offset = xio_addr - xio_base;
-@@ -331,7 +356,7 @@
+@@ -333,7 +358,7 @@
   */
  
  dma_addr_t
@@ -588,7 +588,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  {
  	dma_addr_t dma_handle;
  	struct pcidev_info *pcidev_info = SN_PCIDEV_INFO(hwdev);
-@@ -348,11 +373,11 @@
+@@ -350,11 +375,11 @@
  		 */
  
  		dma_handle = pcibr_dmatrans_direct64(pcidev_info, phys_addr,
@@ -602,7 +602,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  		if (!dma_handle) {
  			/*
  			 * It is a 32 bit card and we cannot do direct mapping,
-@@ -360,7 +385,8 @@
+@@ -362,7 +387,8 @@
  			 */
  
  			dma_handle = pcibr_dmamap_ate32(pcidev_info, phys_addr,
@@ -612,7 +612,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  		}
  	}
  
-@@ -369,18 +395,18 @@
+@@ -371,18 +397,18 @@
  
  dma_addr_t
  pcibr_dma_map_consistent(struct pci_dev * hwdev, unsigned long phys_addr,
@@ -634,17 +634,17 @@ Index: linux-2.6.14/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  	}
  
  	return dma_handle;
-Index: linux-2.6.14/arch/ia64/sn/pci/tioca_provider.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/pci/tioca_provider.c	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/arch/ia64/sn/pci/tioca_provider.c	2005-12-21 22:38:24.093685188 -0600
+Index: msi/arch/ia64/sn/pci/tioca_provider.c
+=================================--- msi.orig/arch/ia64/sn/pci/tioca_provider.c	2006-01-18 14:00:52.098483680 -0600
++++ msi/arch/ia64/sn/pci/tioca_provider.c	2006-01-18 14:01:06.975946217 -0600
 @@ -515,11 +515,17 @@
   * use the GART mapped mode.
   */
- static uint64_t
--tioca_dma_map(struct pci_dev *pdev, uint64_t paddr, size_t byte_count)
-+tioca_dma_map(struct pci_dev *pdev, uint64_t paddr, size_t byte_count, int dma_flags)
+ static u64
+-tioca_dma_map(struct pci_dev *pdev, u64 paddr, size_t byte_count)
++tioca_dma_map(struct pci_dev *pdev, u64 paddr, size_t byte_count, int dma_flags)
  {
- 	uint64_t mapaddr;
+ 	u64 mapaddr;
  
  	/*
 +	 * Not supported for now ...
@@ -656,9 +656,9 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioca_provider.c
  	 * If card is 64 or 48 bit addresable, use a direct mapping.  32
  	 * bit direct is so restrictive w.r.t. where the memory resides that
  	 * we don't use it even though CA has some support.
-Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
-=================================--- linux-2.6.14.orig/arch/ia64/sn/pci/tioce_provider.c	2005-12-21 22:35:23.445284532 -0600
-+++ linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c	2005-12-21 22:38:24.094684947 -0600
+Index: msi/arch/ia64/sn/pci/tioce_provider.c
+=================================--- msi.orig/arch/ia64/sn/pci/tioce_provider.c	2006-01-18 14:00:52.099460147 -0600
++++ msi/arch/ia64/sn/pci/tioce_provider.c	2006-01-18 14:01:06.976922685 -0600
 @@ -52,7 +52,8 @@
  	(ATE_PAGE((start)+(len)-1, pagesize) - ATE_PAGE(start, pagesize) + 1)
  
@@ -677,11 +677,11 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
 + * 61    - msi bit ... specified through dma_flags
   * 60:54 - reserved, MBZ
   */
- static uint64_t
+ static u64
 -tioce_dma_d64(unsigned long ct_addr)
 +tioce_dma_d64(unsigned long ct_addr, int dma_flags)
  {
- 	uint64_t bus_addr;
+ 	u64 bus_addr;
  
  	bus_addr = ct_addr | (1UL << 63);
 +	if (dma_flags & SN_DMA_MSI)
@@ -691,10 +691,10 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
  }
 @@ -143,7 +146,7 @@
   */
- static uint64_t
+ static u64
  tioce_alloc_map(struct tioce_kernel *ce_kern, int type, int port,
--		uint64_t ct_addr, int len)
-+		uint64_t ct_addr, int len, int dma_flags)
+-		u64 ct_addr, int len)
++		u64 ct_addr, int len, int dma_flags)
  {
  	int i;
  	int j;
@@ -703,9 +703,9 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
  	int nates;
  	int pagesize;
 +	int msi_capable, msi_wanted;
- 	uint64_t *ate_shadow;
- 	uint64_t *ate_reg;
- 	uint64_t addr;
+ 	u64 *ate_shadow;
+ 	u64 *ate_reg;
+ 	u64 addr;
 @@ -173,6 +177,7 @@
  		ate_reg = ce_mmr->ce_ure_ate3240;
  		pagesize = ce_kern->ce_ate3240_pagesize;
@@ -741,7 +741,7 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
  		return 0;
 @@ -226,7 +237,7 @@
  	for (j = 0; j < nates; j++) {
- 		uint64_t ate;
+ 		u64 ate;
  
 -		ate = ATE_MAKE(addr, pagesize);
 +		ate = ATE_MAKE(addr, pagesize, msi_wanted);
@@ -751,14 +751,14 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
 @@ -253,7 +264,7 @@
   * Map @paddr into 32-bit bus space of the CE associated with @pcidev_info.
   */
- static uint64_t
--tioce_dma_d32(struct pci_dev *pdev, uint64_t ct_addr)
-+tioce_dma_d32(struct pci_dev *pdev, uint64_t ct_addr, int dma_flags)
+ static u64
+-tioce_dma_d32(struct pci_dev *pdev, u64 ct_addr)
++tioce_dma_d32(struct pci_dev *pdev, u64 ct_addr, int dma_flags)
  {
  	int dma_ok;
  	int port;
 @@ -263,6 +274,9 @@
- 	uint64_t ct_lower;
+ 	u64 ct_lower;
  	dma_addr_t bus_addr;
  
 +	if (dma_flags & SN_DMA_MSI)
@@ -769,13 +769,13 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
  
 @@ -387,7 +401,7 @@
   */
- static uint64_t
- tioce_do_dma_map(struct pci_dev *pdev, uint64_t paddr, size_t byte_count,
+ static u64
+ tioce_do_dma_map(struct pci_dev *pdev, u64 paddr, size_t byte_count,
 -		 int barrier)
 +		 int barrier, int dma_flags)
  {
  	unsigned long flags;
- 	uint64_t ct_addr;
+ 	u64 ct_addr;
 @@ -403,15 +417,18 @@
  	if (dma_mask < 0x7fffffffUL)
  		return 0;
@@ -850,9 +850,9 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
 @@ -502,9 +523,9 @@
   * in the address.
   */
- static uint64_t
--tioce_dma(struct pci_dev *pdev, uint64_t paddr, size_t byte_count)
-+tioce_dma(struct pci_dev *pdev, uint64_t paddr, size_t byte_count, int dma_flags)
+ static u64
+-tioce_dma(struct pci_dev *pdev, u64 paddr, size_t byte_count)
++tioce_dma(struct pci_dev *pdev, u64 paddr, size_t byte_count, int dma_flags)
  {
 -	return tioce_do_dma_map(pdev, paddr, byte_count, 0);
 +	return tioce_do_dma_map(pdev, paddr, byte_count, 0, dma_flags);
@@ -862,18 +862,18 @@ Index: linux-2.6.14/arch/ia64/sn/pci/tioce_provider.c
 @@ -516,9 +537,9 @@
   * Simply call tioce_do_dma_map() to create a map with the barrier bit set
   * in the address.
-  */ static uint64_t
--tioce_dma_consistent(struct pci_dev *pdev, uint64_t paddr, size_t byte_count)
-+tioce_dma_consistent(struct pci_dev *pdev, uint64_t paddr, size_t byte_count, int dma_flags)
+  */ static u64
+-tioce_dma_consistent(struct pci_dev *pdev, u64 paddr, size_t byte_count)
++tioce_dma_consistent(struct pci_dev *pdev, u64 paddr, size_t byte_count, int dma_flags)
  {
 -	return tioce_do_dma_map(pdev, paddr, byte_count, 1);
 +	return tioce_do_dma_map(pdev, paddr, byte_count, 1, dma_flags);
  }
  
  /**
-Index: linux-2.6.14/include/asm-ia64/sn/intr.h
-=================================--- linux-2.6.14.orig/include/asm-ia64/sn/intr.h	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/include/asm-ia64/sn/intr.h	2005-12-21 22:38:24.094684947 -0600
+Index: msi/include/asm-ia64/sn/intr.h
+=================================--- msi.orig/include/asm-ia64/sn/intr.h	2006-01-18 14:00:52.100436615 -0600
++++ msi/include/asm-ia64/sn/intr.h	2006-01-18 14:01:06.982781491 -0600
 @@ -3,13 +3,14 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -895,14 +895,14 @@ Index: linux-2.6.14/include/asm-ia64/sn/intr.h
  	int		irq_irq;	/* the IRQ number */
  	int		irq_int_bit;	/* Bridge interrupt pin */
 +					/* <0 means MSI */
- 	uint64_t	irq_xtalkaddr;	/* xtalkaddr IRQ is sent to  */
+ 	u64	irq_xtalkaddr;	/* xtalkaddr IRQ is sent to  */
  	int		irq_bridge_type;/* pciio asic type (pciio.h) */
  	void	       *irq_bridge;	/* bridge generating irq     */
 @@ -53,6 +55,12 @@
  };
  
  extern void sn_send_IPI_phys(int, long, int, int);
-+extern uint64_t sn_intr_alloc(nasid_t, int,
++extern u64 sn_intr_alloc(nasid_t, int,
 +			      struct sn_irq_info *,
 +			      int, nasid_t, int);
 +extern void sn_intr_free(nasid_t, int, struct sn_irq_info *);
@@ -911,9 +911,9 @@ Index: linux-2.6.14/include/asm-ia64/sn/intr.h
  
  #define CPU_VECTOR_TO_IRQ(cpuid,vector) (vector)
  
-Index: linux-2.6.14/include/asm-ia64/sn/pcibr_provider.h
-=================================--- linux-2.6.14.orig/include/asm-ia64/sn/pcibr_provider.h	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/include/asm-ia64/sn/pcibr_provider.h	2005-12-21 22:38:24.094684947 -0600
+Index: msi/include/asm-ia64/sn/pcibr_provider.h
+=================================--- msi.orig/include/asm-ia64/sn/pcibr_provider.h	2006-01-18 14:00:52.100436615 -0600
++++ msi/include/asm-ia64/sn/pcibr_provider.h	2006-01-18 14:01:06.984734427 -0600
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -942,9 +942,9 @@ Index: linux-2.6.14/include/asm-ia64/sn/pcibr_provider.h
  extern void pcibr_dma_unmap(struct pci_dev *, dma_addr_t, int);
  
  /*
-Index: linux-2.6.14/include/asm-ia64/sn/pcibus_provider_defs.h
-=================================--- linux-2.6.14.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/include/asm-ia64/sn/pcibus_provider_defs.h	2005-12-21 22:38:24.095684706 -0600
+Index: msi/include/asm-ia64/sn/pcibus_provider_defs.h
+=================================--- msi.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2006-01-18 14:00:52.101413083 -0600
++++ msi/include/asm-ia64/sn/pcibus_provider_defs.h	2006-01-18 14:01:06.986687362 -0600
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -981,9 +981,9 @@ Index: linux-2.6.14/include/asm-ia64/sn/pcibus_provider_defs.h
 +
  extern struct sn_pcibus_provider *sn_pci_provider[];
  #endif				/* _ASM_IA64_SN_PCI_PCIBUS_PROVIDER_H */
-Index: linux-2.6.14/include/asm-ia64/sn/tiocp.h
-=================================--- linux-2.6.14.orig/include/asm-ia64/sn/tiocp.h	2005-12-21 22:35:23.446284291 -0600
-+++ linux-2.6.14/include/asm-ia64/sn/tiocp.h	2005-12-21 22:38:24.095684706 -0600
+Index: msi/include/asm-ia64/sn/tiocp.h
+=================================--- msi.orig/include/asm-ia64/sn/tiocp.h	2006-01-18 14:00:52.101413083 -0600
++++ msi/include/asm-ia64/sn/tiocp.h	2006-01-18 14:01:06.988640298 -0600
 @@ -3,13 +3,14 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
