@@ -1,7 +1,7 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 11 Jan 2006 22:16:33 +0000
+Date: Thu, 19 Jan 2006 19:46:47 +0000
 Subject: [PATCH 0/3] msi abstractions and support for altix
-Message-Id: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
+Message-Id: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
@@ -11,10 +11,18 @@ Content-Transfer-Encoding: 7bit
 To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 Cc: Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
-Resend #4: 
+Resend #5:  bug fixes
 
 Patch set to abstract portions of the MSI core so that it can be used on
 architectures which don't use standard interrupt controllers.
+
+Changes from Resend #4
+
++ Fix an x86_64 build problem
++ Fix an ia64 CONFIG_IA64_GENERIC build problem
++ Fix a bug in the new ia64 reserve_irq_vector()
++ Restore dev->irq if msi_ops->setup fails
++ Redo msi-altix.patch so it applies on 2.6.16-rc1
 
 Changes from Resend #3 
 
