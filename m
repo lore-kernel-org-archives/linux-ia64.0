@@ -1,13 +1,15 @@
 From: Adrian Bunk <bunk@stusta.de>
-Date: Fri, 13 Jan 2006 13:55:11 +0000
+Date: Thu, 19 Jan 2006 02:11:47 +0000
 Subject: [RFC: 2.6 patch] kill _INLINE_
-Message-Id: <20060113135511.GJ29663@stusta.de>
+Message-Id: <20060119021147.GB19398@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060113135511.GJ29663@stusta.de>
+In-Reply-To: <20060113135511.GJ29663@stusta.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: macro@linux-mips.org, rmk+serial@arm.linux.org.uk, linux-serial@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, macro@linux-mips.org, rmk+serial@arm.linux.org.uk, linux-serial@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
 This patch removes all occurances of _INLINE_ in the kernel.
 
@@ -18,6 +20,9 @@ gcc should know best which functions to be inlined.
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
+
+This patch was already sent on:
+- 13 Jan 2006
 
  arch/ia64/hp/sim/simserial.c       |    7 --
  arch/xtensa/platform-iss/console.c |    4 -
