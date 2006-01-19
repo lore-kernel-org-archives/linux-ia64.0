@@ -1,68 +1,33 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 26 Jan 2006 05:59:17 +0000
-Subject: [PATCH] enable ACPI/NUMA for HP ZX1 config
-Message-Id: <20060126055917.GA12615@esmail.cup.hp.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 19 Jan 2006 20:10:57 +0000
+Subject: [PATCH 0/5] ia64 ioremap, DMI, EFI system table
+Message-Id: <200601191310.57303.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060104221627.GA26064@lists.us.dell.com> <200601181029.46352.bjorn.helgaas@hp.com> <20060118181116.GA5537@lists.us.dell.com>
+In-Reply-To: <20060118181116.GA5537@lists.us.dell.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org
+To: Matt Domsch <Matt_Domsch@dell.com>
+Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
 
-Tony,
+OK, here's a set of patches to (hopefully) clean up this area
+a bit:
 
-Bjorn/Alex cleaned up IA64_HP_ZX1 to also support SX1000 as well.
-I suspect NUMA was introduced later and HP forgot to update
-the ZX1/SX1000 config to also support NUMA. ACPI support
-just seems to have been overlooked since it's required for
-HP platforms.
+1  Simplify efi_mem_attribute_range() so I can use it both for
+   /dev/mem validation and ioremap() attribute checking.
 
-How would you prefer to handle ACPI_NUMA?
-Instead of adding more machines to change the default,
-I suggest the default be "Y" with no coniditions (as proposed below).
-Given the "depends NUMA", it means the user already said Y to NUMA,
-this only applies if ia64 or x86_64, and I don't expect any
-performance impact in the ACPI code path.
+2  Make ia64 ioremap() check memory attributes, so it works for
+   plain memory that only supports write-back access, as well as
+   for MMIO space that only supports uncacheable access.
 
-thanks,
-grant
+3  DMI ioremaps too much space, which makes it fail on machines
+   where the SMBIOS table is near the end of a memory region.
 
-Signed-off-by: Grant Grundler <iod00d@hp.com>
+4  Keep EFI table addresses as physical, not virtual.  The SMBIOS
+   address was physical on x86 but virtual on ia64, which broke
+   dmi_scan_machine().
 
---- a/arch/ia64/Kconfig	19 Dec 2005 12:42:13 -0000
-+++ b/arch/ia64/Kconfig	25 Jan 2006 21:08:04 -0000
-@@ -90,12 +90,14 @@ config IA64_DIG
- 
- config IA64_HP_ZX1
- 	bool "HP-zx1/sx1000"
-+	select ACPI
- 	help
- 	  Build a kernel that runs on HP zx1 and sx1000 systems.  This adds
- 	  support for the HP I/O MMU.
- 
- config IA64_HP_ZX1_SWIOTLB
- 	bool "HP-zx1/sx1000 with software I/O TLB"
-+	select ACPI
- 	help
- 	  Build a kernel that runs on HP zx1 and sx1000 systems even when they
- 	  have broken PCI devices which cannot DMA to full 32 bits.  Apart
-@@ -311,7 +313,7 @@ config ARCH_DISCONTIGMEM_DEFAULT
- config NUMA
- 	bool "NUMA support"
- 	depends on !IA64_HP_SIM && !FLATMEM
--	default y if IA64_SGI_SN2
-+	default y if IA64_SGI_SN2 || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB
- 	help
- 	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
- 	  Access).  This option is for configuring high-end multiprocessor
---- a/drivers/acpi/Kconfig	17 Jan 2006 14:51:01 -0000
-+++ b/drivers/acpi/Kconfig	25 Jan 2006 21:08:06 -0000
-@@ -163,7 +163,7 @@ config ACPI_NUMA
- 	bool "NUMA support"
- 	depends on NUMA
- 	depends on (IA64 || X86_64)
--	default y if IA64_GENERIC || IA64_SGI_SN2
-+	default y
- 
- config ACPI_ASUS
-         tristate "ASUS/Medion Laptop Extras"
+5  Use smarter ioremap() implementation to remove some cruft in
+   acpi_os_{read,write,map}_memory().  This one's just an optional
+   cleanup; I don't think it fixes any bugs.
