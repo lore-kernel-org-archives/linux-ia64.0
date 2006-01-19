@@ -1,40 +1,23 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 18 Jan 2006 17:29:46 +0000
-Subject: Re: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <200601181029.46352.bjorn.helgaas@hp.com>
+From: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
+Date: Thu, 19 Jan 2006 14:19:42 +0000
+Subject: RE: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
+Message-Id: <D36CE1FCEFD3524B81CA12C6FE5BCAB00C26DFB1@fmsmsx406.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com> <200601131724.42054.bjorn.helgaas@hp.com> <200601171717.03192.bjorn.helgaas@hp.com>
-In-Reply-To: <200601171717.03192.bjorn.helgaas@hp.com>
+References: <20060106172140.GB19605@lists.us.dell.com>
+In-Reply-To: <20060106172140.GB19605@lists.us.dell.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matt Domsch <Matt_Domsch@dell.com>
-Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
+To: Andi Kleen <ak@suse.de>, Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, linux-kernel@vger.kernel.org
 
-On Tuesday 17 January 2006 17:17, Bjorn Helgaas wrote:
->> But it's a start, and maybe the consolidation could be done later.
-> 
-> Index: work-mm3/arch/i386/kernel/dmi_scan.c
-> =================================> --- work-mm3.orig/arch/i386/kernel/dmi_scan.c	2006-01-17 15:18:42.000000000 -0700
-> +++ work-mm3/arch/i386/kernel/dmi_scan.c	2006-01-17 16:58:11.000000000 -0700
-> @@ -39,9 +39,18 @@
->  			    void (*decode)(struct dmi_header *))
->  {
->  	u8 *buf, *data;
-> -	int i = 0;
-> +	int iomem = 1, i = 0;
->  		
-> -	buf = dmi_ioremap(base, len);
-> +	if (efi_enabled) {
-> +		if (efi_mem_attributes(base & EFI_MEMORY_WB)) {
+Andi Kleen <> wrote:
+> Regarding physical vs virtual efi.smbios -- it sounds nasty to have
+> such a difference in the EFI support for different architectures.
+> Matthew, do you have a suggestion how this can be unified?
 
-Ouch, ignore this patch if you haven't already.  The above is
-parenthesized wrong.
+Yes, Bjorn and I talked about this offline.  I had a patch out there
+a while back that converged this specifically for the acpi addresses.  
+We should be able to convert them all to just one type.  
 
-Matt, what's your opinion on proceeding?  I know you want to get
-the DMI stuff in distros.  I'm looking at reworking ioremap to
-hide all this stuff, but that'll be a bigger change and may be
-harder to get into distro releases.
-
-For upstream, the ioremap rework sounds like the way to go, but
-I don't know which the distros would prefer for updates.
+matt
