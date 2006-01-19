@@ -1,10 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Wed, 11 Jan 2006 22:16:43 +0000
+Date: Thu, 19 Jan 2006 19:46:57 +0000
 Subject: [PATCH 2/3] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
-Message-Id: <20060111221643.28765.38687.79085@attica.americas.sgi.com>
+Message-Id: <20060119194657.12213.25378.83969@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
-In-Reply-To: <20060111221633.28765.95775.64741@attica.americas.sgi.com>
+References: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,9 +20,9 @@ in-use when that weren't allocated through assign_irq_vector().
 
 Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: msi/arch/ia64/kernel/irq_ia64.c
-=================================--- msi.orig/arch/ia64/kernel/irq_ia64.c	2005-12-21 22:59:09.000000000 -0600
-+++ msi/arch/ia64/kernel/irq_ia64.c	2005-12-22 14:10:01.000000000 -0600
+Index: linux-maule/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-maule.orig/arch/ia64/kernel/irq_ia64.c	2006-01-17 11:09:12.000000000 -0600
++++ linux-maule/arch/ia64/kernel/irq_ia64.c	2006-01-19 10:35:05.494256362 -0600
 @@ -46,6 +46,10 @@
  
  #define IRQ_DEBUG	0
@@ -43,27 +43,29 @@ Index: msi/arch/ia64/kernel/irq_ia64.c
  
  int
  assign_irq_vector (int irq)
-@@ -89,6 +93,17 @@
+@@ -89,6 +93,19 @@
  		printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
  }
  
 +int
 +reserve_irq_vector (int vector)
 +{
++	int pos;
++
 +	if (vector < IA64_FIRST_DEVICE_VECTOR ||
 +	    vector > IA64_LAST_DEVICE_VECTOR)
 +		return -EINVAL;
 +
-+	return test_and_set_bit(IA64_FIRST_DEVICE_VECTOR + vector,
-+				ia64_vector_mask);
++	pos = vector - IA64_FIRST_DEVICE_VECTOR;
++	return test_and_set_bit(pos, ia64_vector_mask);
 +}
 +
  #ifdef CONFIG_SMP
  #	define IS_RESCHEDULE(vec)	(vec = IA64_IPI_RESCHEDULE)
  #else
-Index: msi/arch/ia64/sn/kernel/irq.c
-=================================--- msi.orig/arch/ia64/sn/kernel/irq.c	2005-12-21 22:59:09.000000000 -0600
-+++ msi/arch/ia64/sn/kernel/irq.c	2005-12-22 14:10:01.000000000 -0600
+Index: linux-maule/arch/ia64/sn/kernel/irq.c
+=================================--- linux-maule.orig/arch/ia64/sn/kernel/irq.c	2006-01-17 11:09:12.000000000 -0600
++++ linux-maule/arch/ia64/sn/kernel/irq.c	2006-01-19 10:34:44.803879833 -0600
 @@ -203,6 +203,9 @@
  	int i;
  	irq_desc_t *base_desc = irq_desc;
@@ -94,9 +96,9 @@ Index: msi/arch/ia64/sn/kernel/irq.c
  }
  
  static inline void
-Index: msi/include/asm-ia64/hw_irq.h
-=================================--- msi.orig/include/asm-ia64/hw_irq.h	2005-12-21 22:59:09.000000000 -0600
-+++ msi/include/asm-ia64/hw_irq.h	2005-12-22 14:10:01.000000000 -0600
+Index: linux-maule/include/asm-ia64/hw_irq.h
+=================================--- linux-maule.orig/include/asm-ia64/hw_irq.h	2006-01-17 11:09:18.000000000 -0600
++++ linux-maule/include/asm-ia64/hw_irq.h	2006-01-19 09:47:23.915399191 -0600
 @@ -47,9 +47,19 @@
  #define IA64_CMC_VECTOR			0x1f	/* corrected machine-check interrupt vector */
  /*
@@ -127,9 +129,9 @@ Index: msi/include/asm-ia64/hw_irq.h
  extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
  extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
  
-Index: msi/drivers/pci/msi.c
-=================================--- msi.orig/drivers/pci/msi.c	2005-12-21 22:59:09.000000000 -0600
-+++ msi/drivers/pci/msi.c	2005-12-22 14:10:19.000000000 -0600
+Index: linux-maule/drivers/pci/msi.c
+=================================--- linux-maule.orig/drivers/pci/msi.c	2006-01-19 09:46:52.315749136 -0600
++++ linux-maule/drivers/pci/msi.c	2006-01-19 09:47:23.915399191 -0600
 @@ -35,7 +35,7 @@
  
  #ifndef CONFIG_X86_IO_APIC
