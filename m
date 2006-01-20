@@ -1,43 +1,53 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Fri, 20 Jan 2006 06:47:03 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 20 Jan 2006 08:36:51 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060120003303.O81637@chenjesu.americas.sgi.com>
+Message-Id: <20060120083651.GA3970@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
- <200601191818.43157.jbarnes@virtuousgeek.org>
-In-Reply-To: <200601191818.43157.jbarnes@virtuousgeek.org>
+In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Brent Casavant <bcasavan@sgi.com>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jes@sgi.com, tony.luck@intel.com
 
-On Thu, 19 Jan 2006, Jesse Barnes wrote:
 
-> Maybe you could just turn the above into mmiowb() calls instead?  That 
-> would cover altix, origin, and ppc as well I think.  On other platforms 
-> it would be a complete no-op.
+* Brent Casavant <bcasavan@sgi.com> wrote:
 
-As you obviously noted, the core of the code was lifted from mmiowb().
-But no, an mmiowb() as such isn't correct.  At the time this code is
-executing, it's on a CPU remote from the one which issued any PIO writes
-to the device.  So in this case we need to poll the Shub register for
-a remote node, but mmiowb() only polls for the Shub corresponding to
-the current CPU.
+> --- a/kernel/sched.c
+> +++ b/kernel/sched.c
+> @@ -291,6 +291,9 @@ for (domain = rcu_dereference(cpu_rq(cpu
+>  #ifndef finish_arch_switch
+>  # define finish_arch_switch(prev)	do { } while (0)
+>  #endif
+> +#ifndef arch_task_migrate
+> +# define arch_task_migrate(task)	do { } while (0)
+> +#endif
 
-My first incarnation of this patch (never publicly presented) did
-implement a new mmiowb_remote(cpu) machvec instead, and this was
-placed in the context-switch (in) path instead of the task migration
-path.  However, since this behavior is only needed for the task
-migration case, Jack Steiner pointed out that this was a more
-appropriate way to implement it.  As migration is much less frequent
-than context switching, this is a better-performing method to solve
-the problem.
+>  	if (!p->array && !task_running(rq, p)) {
+> +		arch_task_migrate(p);
+>  		set_task_cpu(p, dest_cpu);
 
-Thanks,
-Brent
+>  	if (new_cpu != cpu) {
+> +		arch_task_migrate(p);
+>  		set_task_cpu(p, new_cpu);
 
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+>  	dec_nr_running(p, src_rq);
+> +	arch_task_migrate(p);
+>  	set_task_cpu(p, this_cpu);
+
+> +	arch_task_migrate(p);
+>  	set_task_cpu(p, dest_cpu);
+
+hm, why isnt the synchronization done in switch_to()? Your arch-level 
+switch_to() could have something like thread->last_cpu_sync, and if 
+thread->last_cpu_sync != this_cpu, do the flush. This would not only 
+keep this stuff out of the generic scheduler, but it would also optimize 
+things a bit more: the moment we do a set_task_cpu() it does not mean 
+that CPU _will_ run the task. Another CPU could grab that task later on.  
+So we should delay such IO-synchronization to the last possible moment: 
+when we know that we've hit a new CPU on which we havent done a flush 
+yet. For same-CPU context switches there wouldnt be any extra 
+synchronization, because thread->last_cpu_sync = this_cpu.
+
+	Ingo
