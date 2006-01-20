@@ -1,32 +1,28 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Fri, 20 Jan 2006 16:14:21 +0000
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date: Fri, 20 Jan 2006 17:31:58 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060120101221.R91550@chenjesu.americas.sgi.com>
+Message-Id: <200601200931.58281.jbarnes@virtuousgeek.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
- <20060120083651.GA3970@elte.hu>
-In-Reply-To: <20060120083651.GA3970@elte.hu>
+References: <20060118163305.Y42462@chenjesu.americas.sgi.com> <200601191818.43157.jbarnes@virtuousgeek.org> <20060120132650.GA4272@sgi.com>
+In-Reply-To: <20060120132650.GA4272@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jes@sgi.com, tony.luck@intel.com
+To: Jack Steiner <steiner@sgi.com>
+Cc: Brent Casavant <bcasavan@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jes@sgi.com, tony.luck@intel.com
 
-On Fri, 20 Jan 2006, Ingo Molnar wrote:
+On Friday, January 20, 2006 5:26 am, Jack Steiner wrote:
+> I don't think calling mmiob() directly would work. In order to make
+> CONFIG_IA64_GENERIC work, the call to mmiob() needs to be underneath a
+> platform vector. Using ia64_platform_is() would also work but I think
+> a platform vector is cleaner.
 
-> hm, why isnt the synchronization done in switch_to()? Your arch-level 
-> switch_to() could have something like thread->last_cpu_sync, and if 
-> thread->last_cpu_sync != this_cpu, do the flush. This would not only 
-> keep this stuff out of the generic scheduler, but it would also optimize 
-> things a bit more: the moment we do a set_task_cpu() it does not mean 
-> that CPU _will_ run the task. Another CPU could grab that task later on.  
+mmiowb is already a platform vector on ia64, so I think you're ok there.
 
-Very good points all around.  I'll rework the changes in just the
-manner you mentioned.
+> A second reason for an arch_task_migrate() instead of a specific
+> mmiob() is to provide a hook for a future platform that require
+> additional work to be done when a task migrates.
 
-Brent
+What does the new platform require (just curious)?
 
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+Jesse
