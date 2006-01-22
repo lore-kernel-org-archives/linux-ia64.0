@@ -1,26 +1,36 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Thu, 05 Jan 2006 19:59:29 +0000
-Subject: RE: Why is psr.ic off for ia64_pal_cache_flush?
-Message-Id: <516F50407E01324991DD6D07B0531AD5902E7E@cacexc12.americas.cpqcorp.net>
+From: Andrew Morton <akpm@osdl.org>
+Date: Sun, 22 Jan 2006 20:31:50 +0000
+Subject: Re: [PATCH] disable per cpu intr in /proc/stat
+Message-Id: <20060122123150.3a289ac3.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <571ACEFD467F7749BC50E0A98C17CDD802C06B64@pdsmsx403>
-In-Reply-To: <571ACEFD467F7749BC50E0A98C17CDD802C06B64@pdsmsx403>
+References: <20060122202204.GA26295@suse.de>
+In-Reply-To: <20060122202204.GA26295@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Olaf Hering <olh@suse.de>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 
-> Did you get any responses to this?  I played with ia64_pal_cache_flush
-> on an Altix (over a year ago) and couldn't get it to work without
-> converting it to use PAL_CALL.  Are you having a similar problem when
-> you use it for XEN?
+Olaf Hering <olh@suse.de> wrote:
+>
+> (No bugzilla or benchmark)
+> 
+> From: schwab@suse.de
+> Subject: Reading /proc/stat is slooow
+> 
+> Don't compute and display the per-irq sums on ia64 either, too much
+> overhead for mostly useless figures.
+> 
+> --- linux-2.6.14/fs/proc/proc_misc.c.~1~	2005-12-06 18:12:28.840059961 +0100
+> +++ linux-2.6.14/fs/proc/proc_misc.c	2005-12-06 18:13:51.211896515 +0100
+> @@ -498,7 +498,7 @@ static int show_stat(struct seq_file *p,
+>  	}
+>  	seq_printf(p, "intr %llu", (unsigned long long)sum);
+>  
+> -#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA)
+> +#if !defined(CONFIG_PPC64) && !defined(CONFIG_ALPHA) && !defined(CONFIG_IA64)
+>  	for (i = 0; i < NR_IRQS; i++)
+>  		seq_printf(p, " %u", kstat_irqs(i));
+>  #endif
 
-The PAL spec has changed so that PAL_CALL is correct and PAL_CALL_IC_OFF
-is incorrect.  So this is a bug in Linux/ia64, though currently
-harmless since ia64_pal_cache_flush is unused.
-
-I think Kevin was going to submit a patch to the linux-ia64 list
-so that others don't run into this problem in the future.
-
-Dan
-
+We'd need a big ack from the ia64 team for this, please.
