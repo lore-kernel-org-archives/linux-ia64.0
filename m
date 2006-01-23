@@ -1,28 +1,25 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 20 Jan 2006 11:24:41 +0000
-Subject: [RFT/PATCH]Unify mapping from pxm to node id (take 2).
-Message-Id: <20060120195733.1263.Y-GOTO@jp.fujitsu.com>
+Date: Mon, 23 Jan 2006 07:57:58 +0000
+Subject: Re: [RFT/PATCH]Unify mapping from pxm to node id (take 2).
+Message-Id: <20060123165644.C147.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060120195733.1263.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060120195733.1263.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>
 Cc: linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, x86-64 Discuss <discuss@x86-64.org>
 
+
 Hello.
 
-I modified previous patch which is to unify mapping from pxm to
-node id.
-And I could test it on ia64 and x86-64 box with dummy SRAT
-emulation. 
-However, I couldn't make NUMA emulation environment for i386 
-by dummy SRAT. (It couldn't boot up due to fault of mount root dir).
-So, test of this patch hasn't completed.  :-(
+Previous patch was for 2.6.15. But, pxm_to_node() of x86_64 is
+already changed in 2.6.16-rc1. 
+So, I rewrote my patch for 2.6.16-rc1.
 
-Unfortunately, I don't have any i386 NUMA machine.
-So, I would like to ask to test this patch on i386 NUMA machine.
-
-Does anyone have i386 NUMA box? If so, please test this.
+I have not been able to boot up with i386 NUMA emulation.
+If anyone has i386 NUMA box, please test this.
 
 Thanks.
 
@@ -36,12 +33,9 @@ This mapping should be written at drivers/acpi/numa.c as a common code.
 
 This patch is for 2.6.15.
 
-
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
-
 Index: unify_pxm/arch/i386/kernel/srat.c
-=================================--- unify_pxm.orig/arch/i386/kernel/srat.c	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/arch/i386/kernel/srat.c	2006-01-17 19:59:18.000000000 +0900
+=================================--- unify_pxm.orig/arch/i386/kernel/srat.c	2006-01-23 11:54:57.000000000 +0900
++++ unify_pxm/arch/i386/kernel/srat.c	2006-01-23 12:04:54.000000000 +0900
 @@ -213,13 +213,6 @@ static __init void node_read_chunk(int n
  		node_end_pfn[nid] = memory_chunk->end_pfn;
  }
@@ -88,8 +82,8 @@ Index: unify_pxm/arch/i386/kernel/srat.c
  	printk("pxm bitmap: ");
  	for (i = 0; i < sizeof(pxm_bitmap); i++) {
 Index: unify_pxm/arch/ia64/kernel/acpi.c
-=================================--- unify_pxm.orig/arch/ia64/kernel/acpi.c	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/arch/ia64/kernel/acpi.c	2006-01-17 21:12:12.000000000 +0900
+=================================--- unify_pxm.orig/arch/ia64/kernel/acpi.c	2006-01-23 11:54:57.000000000 +0900
++++ unify_pxm/arch/ia64/kernel/acpi.c	2006-01-23 12:04:54.000000000 +0900
 @@ -409,9 +409,6 @@ static int __initdata srat_num_cpus;	/* 
  static u32 __devinitdata pxm_flag[PXM_FLAG_LEN];
  #define pxm_bit_set(bit)	(set_bit(bit,(void *)pxm_flag))
@@ -170,9 +164,9 @@ Index: unify_pxm/arch/ia64/kernel/acpi.c
  	if (node >= MAX_NUMNODES || !node_online(node) ||
  	    cpus_empty(node_to_cpumask(node)))
 Index: unify_pxm/drivers/acpi/numa.c
-=================================--- unify_pxm.orig/drivers/acpi/numa.c	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/drivers/acpi/numa.c	2006-01-19 12:07:19.000000000 +0900
-@@ -36,12 +36,56 @@
+=================================--- unify_pxm.orig/drivers/acpi/numa.c	2006-01-23 11:54:57.000000000 +0900
++++ unify_pxm/drivers/acpi/numa.c	2006-01-23 15:03:56.000000000 +0900
+@@ -36,12 +36,62 @@
  #define _COMPONENT	ACPI_NUMA
  ACPI_MODULE_NAME("numa")
  
@@ -192,14 +186,20 @@ Index: unify_pxm/drivers/acpi/numa.c
  					       acpi_madt_entry_handler handler,
  					       unsigned int max_entries);
  
-+int __cpuinit pxm_to_node(u8 pxm)
++int __cpuinit pxm_to_node(int pxm)
 +{
-+	return (int)pxm_to_node_map[pxm];
++	if ((unsigned)pxm >= 256)
++		return -1;
++	/* Extent 0xff to (int)-1 */
++	return (signed char)pxm_to_node_map[pxm];
 +}
 +
-+u8 __cpuinit node_to_pxm(int node)
++int __cpuinit node_to_pxm(int node)
 +{
-+	return node_to_pxm_map[node];
++	if ((unsigned)node >= 256)
++		return -1;
++	/* Extent 0xff to (int)-1 */
++	return (signed char)node_to_pxm_map[node];
 +}
 +
 +int __cpuinit acpi_map_pxm_to_node(u8 pxm)
@@ -230,23 +230,24 @@ Index: unify_pxm/drivers/acpi/numa.c
  {
  
 Index: unify_pxm/arch/x86_64/mm/srat.c
-=================================--- unify_pxm.orig/arch/x86_64/mm/srat.c	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/arch/x86_64/mm/srat.c	2006-01-17 19:59:18.000000000 +0900
-@@ -21,30 +21,11 @@
+=================================--- unify_pxm.orig/arch/x86_64/mm/srat.c	2006-01-23 12:04:26.000000000 +0900
++++ unify_pxm/arch/x86_64/mm/srat.c	2006-01-23 12:10:16.000000000 +0900
+@@ -22,31 +22,11 @@
  static struct acpi_table_slit *acpi_slit;
  
  static nodemask_t nodes_parsed __initdata;
 -static nodemask_t nodes_found __initdata;
  static struct node nodes[MAX_NUMNODES] __initdata;
--static __u8  pxm2node[256] = { [0 ... 255] = 0xff };
+-static u8 pxm2node[256] = { [0 ... 255] = 0xff };
 -
 -static int node_to_pxm(int n);
 -
 -int pxm_to_node(int pxm)
 -{
 -	if ((unsigned)pxm >= 256)
--		return 0;
--	return pxm2node[pxm];
+-		return -1;
+-	/* Extend 0xff to (int)-1 */
+-	return (signed char)pxm2node[pxm];
 -}
  
  static __init int setup_node(int pxm)
@@ -260,11 +261,11 @@ Index: unify_pxm/arch/x86_64/mm/srat.c
 -		pxm2node[pxm] = node;
 -	}
 -	return pxm2node[pxm];
-+	return acpi_map_pxm_to_node(pxm);
++	acpi_map_pxm_to_node(pxm);
  }
  
  static __init int conflicting_nodes(unsigned long start, unsigned long end)
-@@ -205,17 +186,6 @@ int __init acpi_scan_nodes(unsigned long
+@@ -266,17 +246,6 @@ int __init acpi_scan_nodes(unsigned long
  	return 0;
  }
  
@@ -283,8 +284,8 @@ Index: unify_pxm/arch/x86_64/mm/srat.c
  {
  	int index;
 Index: unify_pxm/include/asm-x86_64/numa.h
-=================================--- unify_pxm.orig/include/asm-x86_64/numa.h	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/include/asm-x86_64/numa.h	2006-01-17 19:59:18.000000000 +0900
+=================================--- unify_pxm.orig/include/asm-x86_64/numa.h	2006-01-23 12:04:38.000000000 +0900
++++ unify_pxm/include/asm-x86_64/numa.h	2006-01-23 12:04:54.000000000 +0900
 @@ -9,7 +9,6 @@ struct node { 
  };
  
@@ -295,7 +296,7 @@ Index: unify_pxm/include/asm-x86_64/numa.h
  
 Index: unify_pxm/include/acpi/acpi_numa.h
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ unify_pxm/include/acpi/acpi_numa.h	2006-01-19 12:10:24.000000000 +0900
++++ unify_pxm/include/acpi/acpi_numa.h	2006-01-23 15:05:11.000000000 +0900
 @@ -0,0 +1,18 @@
 +#ifndef __ACPI_NUMA_H
 +#define __ACPI_NUMA_H
@@ -308,16 +309,16 @@ Index: unify_pxm/include/acpi/acpi_numa.h
 +extern u8 __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS];
 +extern u8 __cpuinitdata node_to_pxm_map[MAX_NUMNODES];
 +
-+extern int __cpuinit pxm_to_node(u8);
-+extern u8 __cpuinit node_to_pxm(int);
++extern int __cpuinit pxm_to_node(int);
++extern int __cpuinit node_to_pxm(int);
 +extern int __cpuinit acpi_map_pxm_to_node(u8);
 +extern void __cpuinit acpi_unmap_pxm_to_node(int);
 +
 +#endif				/* CONFIG_ACPI_NUMA */
 +#endif				/* __ACP_NUMA_H */
 Index: unify_pxm/arch/ia64/pci/pci.c
-=================================--- unify_pxm.orig/arch/ia64/pci/pci.c	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/arch/ia64/pci/pci.c	2006-01-17 19:59:18.000000000 +0900
+=================================--- unify_pxm.orig/arch/ia64/pci/pci.c	2006-01-23 12:04:24.000000000 +0900
++++ unify_pxm/arch/ia64/pci/pci.c	2006-01-23 12:04:54.000000000 +0900
 @@ -353,7 +353,7 @@ pci_acpi_scan_root(struct acpi_device *d
  	pxm = acpi_get_pxm(controller->acpi_handle);
  #ifdef CONFIG_NUMA
@@ -328,14 +329,15 @@ Index: unify_pxm/arch/ia64/pci/pci.c
  
  	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
 Index: unify_pxm/include/linux/acpi.h
-=================================--- unify_pxm.orig/include/linux/acpi.h	2006-01-17 19:59:15.000000000 +0900
-+++ unify_pxm/include/linux/acpi.h	2006-01-17 19:59:18.000000000 +0900
+=================================--- unify_pxm.orig/include/linux/acpi.h	2006-01-23 11:54:57.000000000 +0900
++++ unify_pxm/include/linux/acpi.h	2006-01-23 12:04:54.000000000 +0900
 @@ -38,6 +38,7 @@
  #include <acpi/acpi.h>
  #include <acpi/acpi_bus.h>
  #include <acpi/acpi_drivers.h>
 +#include <acpi/acpi_numa.h>
  #include <asm/acpi.h>
+ 
  
 
 -- 
