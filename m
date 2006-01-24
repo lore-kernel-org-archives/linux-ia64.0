@@ -1,7 +1,7 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Tue, 24 Jan 2006 06:41:23 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 24 Jan 2006 07:04:21 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060124003047.O80998@chenjesu.americas.sgi.com>
+Message-Id: <20060124070421.GA32132@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,25 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 24 Jan 2006, Keith Owens wrote:
+On Tue, Jan 24, 2006 at 12:30:42AM -0600, Brent Casavant wrote:
+> On Mon, 23 Jan 2006, Grant Grundler wrote:
+> > Would an app first need to mmap an uncached address?
+> > Or some other obvious "marker" that might warn the kernel?
+> 
+> I'm not sure an uncached address would be appropriate, as I
+> believe there are other non-IO uncached mappings which can
+> be performed (whatever the fetchop stuff morphed into, for
+> example -- I can't remember what its called now).
 
-> The problem with setting arch specific flags in mailine code is the
-> need to use #ifdef or to define dummy funcions for all architectures.
-> Apart from that, the idea works for me.  You can pinch the
-> TIF_SIGDELAYED bit, which I just removed.
+OK - just not many user space programs map uncache IO space.
 
-It's actually quite clean.  See prepare_arch_switch() and
-finish_arch_switch() as an example of how I'd pattern the code.
-Those are done by #ifdef, but very clearly isolated.
+> The only obvious marker I can thing of would be a flag in the
+> mm struct set by a device driver when such a mapping occurs.
 
-Hmm, I might be able to utilize prepare_arch_switch() -- I'll have
-to take a closer look when I get back into the office Tuesday.  I
-sure hope that would work, as it would avoid the need for changes to
-kernel/sched.c.
+Device driver? Your original email only talks about user space:
+http://marc.theaimsgroup.com/?l=linux-ia64&m3771591308925&w=2
 
-Brent
+Something that has to go through syscall/mmap and eventually
+into IA64 specific code to setup a virtual address.
+Or did I miss some later bit about a kernel driver?
 
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+> I can't think of any obviously correct state/flag to inspect,
+> short of the other suggestion I made tonight.
+
+ok. nevermind then...
+
+grant
