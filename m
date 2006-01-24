@@ -1,7 +1,7 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Tue, 24 Jan 2006 16:52:38 +0000
+Date: Tue, 24 Jan 2006 16:57:13 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060124105029.G90635@chenjesu.americas.sgi.com>
+Message-Id: <20060124105351.D90635@chenjesu.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,21 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 23 Jan 2006, Grant Grundler wrote:
+On Tue, 24 Jan 2006, Robin Holt wrote:
 
-> On Tue, Jan 24, 2006 at 12:30:42AM -0600, Brent Casavant wrote:
-> > The only obvious marker I can thing of would be a flag in the
-> > mm struct set by a device driver when such a mapping occurs.
-> 
-> Device driver? Your original email only talks about user space:
-> http://marc.theaimsgroup.com/?l=linux-ia64&m3771591308925&w=2
+> The mspec driver does.  It has not gotten into the mainline kernel yet,
+> but we continue to build an add-on module for the necessary releases.
+> To prevent this out of order write from happening on those machines,
+> we require the process to be pinned to a single cpu.  For MPI, this
+> is a normal way to operate for other reasons as well.
 
-Right.  But the whole situation occurs when user space mmap()s
-an IO device (e.g. a PCI aperture).  That mmap() call triggers
-kernel device driver mmap code to take place, and that is where
-the flag would need to be set.
-
-Sorry I wasn't clear about that.
+Oh, this problem affects mspec as well?  I didn't realize that.  You're
+saying that uncached memory writes are the same as PIO writes, as far
+as Shub is concerned?  If so, then the patch I'm trying to work through
+here should solve your problem as well.
 
 Brent
 
