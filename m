@@ -1,276 +1,598 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:29:18 +0000
-Subject: [PATCH 1/12] generic *_bit()
-Message-Id: <20060126032918.GB9984@miraclelinux.com>
+From: Mark Maule <maule@sgi.com>
+Date: Tue, 24 Jan 2006 20:09:04 +0000
+Subject: [PATCH] altix:  driver bugfixes and hardware workarounds for CE1.0 asic
+Message-Id: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalents of the functions below:
+Various bugfixes and hardware bug workarounds necessary for the rev 1.0 version
+of the altix TIO CE asic.
 
-- atomic operation:
-void set_bit(int nr, volatile unsigned long *addr);
-void clear_bit(int nr, volatile unsigned long *addr);
-void change_bit(int nr, volatile unsigned long *addr);
-int test_and_set_bit(int nr, volatile unsigned long *addr);
-int test_and_clear_bit(int nr, volatile unsigned long *addr);
-int test_and_change_bit(int nr, volatile unsigned long *addr);
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-- non-atomic operation:
-void __set_bit(int nr, volatile unsigned long *addr);
-void __clear_bit(int nr, volatile unsigned long *addr);
-void __change_bit(int nr, volatile unsigned long *addr);
-int __test_and_set_bit(int nr, volatile unsigned long *addr);
-int __test_and_clear_bit(int nr, volatile unsigned long *addr);
-int __test_and_change_bit(int nr, volatile unsigned long *addr);
-int test_bit(int nr, const volatile unsigned long *addr);
-
-HAVE_ARCH_ATOMIC_BITOPS is defined when the architecture has its own
-{,test_and_}{set,clear,change}_bit()
-
-HAVE_ARCH_NON_ATOMIC_BITOPS is defined when the architecture has its own
-__{,test_and_}{set,clear,change}_bit() and test_bit()
-
-This code largely copied from:
-include/asm-powerpc/bitops.h
-include/asm-parisc/bitops.h
-include/asm-parisc/atomic.h
-
-
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:07:14.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:08.000000000 +0900
-@@ -1,56 +1,198 @@
- #ifndef _ASM_GENERIC_BITOPS_H_
- #define _ASM_GENERIC_BITOPS_H_
+Index: ce/arch/ia64/sn/pci/tioce_provider.c
+=================================--- ce.orig/arch/ia64/sn/pci/tioce_provider.c	2006-01-20 09:37:22.575989625 -0600
++++ ce/arch/ia64/sn/pci/tioce_provider.c	2006-01-20 15:53:56.638595795 -0600
+@@ -15,7 +15,117 @@
+ #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/tioce_provider.h>
++#include <asm/sn/sn2/sn_hwperf.h>
  
-+#include <asm/types.h>
-+
-+#define BITOP_MASK(nr)		(1UL << ((nr) % BITS_PER_LONG))
-+#define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
-+
-+#ifndef HAVE_ARCH_ATOMIC_BITOPS
-+
-+#ifdef CONFIG_SMP
-+#include <asm/spinlock.h>
-+#include <asm/cache.h>		/* we use L1_CACHE_BYTES */
-+
-+/* Use an array of spinlocks for our atomic_ts.
-+ * Hash function to index into a different SPINLOCK.
-+ * Since "a" is usually an address, use one spinlock per cacheline.
++/*
++ * WAR for SGI PV 944642.  For revA TIOCE, need to use the following recipe
++ * (taken from the above PV) before and after accessing tioce internal MMR's
++ * to avoid tioce lockups.
++ *
++ * The recipe as taken from the PV:
++ *
++ *	if(mmr address < 0x45000) {
++ *		if(mmr address = 0 or 0x80)
++ *			mmr wrt or read address 0xc0
++ *		else if(mmr address = 0x148 or 0x200)
++ *			mmr wrt or read address 0x28
++ *		else
++ *			mmr wrt or read address 0x158
++ *
++ *		do desired mmr access (rd or wrt)
++ *
++ *		if(mmr address = 0x100)
++ *			mmr wrt or read address 0x38
++ *		mmr wrt or read address 0xb050
++ *	} else
++ *		do desired mmr access
++ *
++ * According to hw, we can use reads instead of writes to the above addres
++ *
++ * Note this WAR can only to be used for accessing internal MMR's in the
++ * TIOCE Coretalk Address Range 0x0 - 0x07ff_ffff.  This includes the
++ * "Local CE Registers and Memories" and "PCI Compatible Config Space" address
++ * spaces from table 2-1 of the "CE Programmer's Reference Overview" document.
++ *
++ * All registers defined in struct tioce will meet that criteria.
 + */
-+#  define ATOMIC_HASH_SIZE 4
-+#  define ATOMIC_HASH(a) (&(__atomic_hash[ (((unsigned long) a)/L1_CACHE_BYTES) & (ATOMIC_HASH_SIZE-1) ]))
 +
-+extern raw_spinlock_t __atomic_hash[ATOMIC_HASH_SIZE] __lock_aligned;
++static void inline
++tioce_mmr_war_pre(struct tioce_kernel *kern, void *mmr_addr)
++{
++	u64 mmr_base;
++	u64 mmr_offset;
 +
-+/* Can't use raw_spin_lock_irq because of #include problems, so
-+ * this is the substitute */
-+#define _atomic_spin_lock_irqsave(l,f) do {	\
-+	raw_spinlock_t *s = ATOMIC_HASH(l);	\
-+	local_irq_save(f);			\
-+	__raw_spin_lock(s);			\
-+} while(0)
++	if (kern->ce_common->ce_rev != TIOCE_REV_A)
++		return;
 +
-+#define _atomic_spin_unlock_irqrestore(l,f) do {	\
-+	raw_spinlock_t *s = ATOMIC_HASH(l);		\
-+	__raw_spin_unlock(s);				\
-+	local_irq_restore(f);				\
-+} while(0)
++	mmr_base = kern->ce_common->ce_pcibus.bs_base;
++	mmr_offset = (u64)mmr_addr - mmr_base;
 +
++	if (mmr_offset < 0x45000) {
++		u64 mmr_war_offset;
 +
-+#else
-+#  define _atomic_spin_lock_irqsave(l,f) do { local_irq_save(f); } while (0)
-+#  define _atomic_spin_unlock_irqrestore(l,f) do { local_irq_restore(f); } while (0)
-+#endif
++		if (mmr_offset = 0 || mmr_offset = 0x80)
++			mmr_war_offset = 0xc0;
++		else if (mmr_offset = 0x148 || mmr_offset = 0x200)
++			mmr_war_offset = 0x28;
++		else
++			mmr_war_offset = 0x158;
 +
- /*
-  * For the benefit of those who are trying to port Linux to another
-  * architecture, here are some C-language equivalents.  You should
-  * recode these in the native assembly language, if at all possible.
-- * To guarantee atomicity, these routines call cli() and sti() to
-- * disable interrupts while they operate.  (You have to provide inline
-- * routines to cli() and sti().)
-  *
-- * Also note, these routines assume that you have 32 bit longs.
-- * You will have to change this if you are trying to port Linux to the
-- * Alpha architecture or to a Cray.  :-)
-- * 
-  * C language equivalents written by Theodore Ts'o, 9/26/92
++		readq_relaxed((void *)(mmr_base + mmr_war_offset));
++	}
++}
++
++static void inline
++tioce_mmr_war_post(struct tioce_kernel *kern, void *mmr_addr)
++{
++	u64 mmr_base;
++	u64 mmr_offset;
++
++	if (kern->ce_common->ce_rev != TIOCE_REV_A)
++		return;
++
++	mmr_base = kern->ce_common->ce_pcibus.bs_base;
++	mmr_offset = (u64)mmr_addr - mmr_base;
++
++	if (mmr_offset < 0x45000) {
++		if (mmr_offset = 0x100)
++			readq_relaxed((void *)(mmr_base + 0x38));
++		readq_relaxed((void *)(mmr_base + 0xb050));
++	}
++}
++
++/* load mmr contents into a variable */
++#define tioce_mmr_load(kern, mmrp, varp) \
++	{ tioce_mmr_war_pre(kern, mmrp); \
++	  *(varp) = readq_relaxed(mmrp); \
++	  tioce_mmr_war_post(kern, mmrp); }
++
++/* store variable contents into mmr */
++#define tioce_mmr_store(kern, mmrp, varp) \
++	{ tioce_mmr_war_pre(kern, mmrp); \
++	  writeq(*varp, mmrp); \
++	  tioce_mmr_war_post(kern, mmrp); }
++
++/* store immediate value into mmr */
++#define tioce_mmr_storei(kern, mmrp, val) \
++	{ tioce_mmr_war_pre(kern, mmrp); \
++	  writeq(val, mmrp); \
++	  tioce_mmr_war_post(kern, mmrp); }
++
++/* set bits (immediate value) into mmr */
++#define tioce_mmr_seti(kern, mmrp, bits) \
++	{ u64 tmp; \
++	  tioce_mmr_load(kern, mmrp, &tmp); \
++	  tmp |= (bits); \
++	  tioce_mmr_store(kern, mmrp, &tmp); }
++
++/* clear bits (immediate value) into mmr */
++#define tioce_mmr_clri(kern, mmrp, bits) \
++	{ u64 tmp; \
++	  tioce_mmr_load(kern, mmrp, &tmp); \
++	  tmp &= ~(bits); \
++	  tioce_mmr_store(kern, mmrp, &tmp); }
+ /**
+  * Bus address ranges for the 5 flavors of TIOCE DMA
   */
+@@ -62,9 +172,9 @@
+ #define TIOCE_ATE_M40	2
+ #define TIOCE_ATE_M40S	3
  
--extern __inline__ int set_bit(int nr,long * addr)
-+static __inline__ void set_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long flags;
-+
-+	_atomic_spin_lock_irqsave(p, flags);
-+	*p  |= mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
-+}
-+
-+static __inline__ void clear_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long flags;
-+
-+	_atomic_spin_lock_irqsave(p, flags);
-+	*p &= ~mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
-+}
-+
-+static __inline__ void change_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long flags;
-+
-+	_atomic_spin_lock_irqsave(p, flags);
-+	*p ^= mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
-+}
-+
-+static __inline__ int test_and_set_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old;
-+	unsigned long flags;
-+
-+	_atomic_spin_lock_irqsave(p, flags);
-+	old = *p;
-+	*p = old | mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
-+
-+	return (old & mask) != 0;
-+}
-+
-+static __inline__ int test_and_clear_bit(int nr, volatile unsigned long *addr)
- {
--	int	mask, retval;
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old;
-+	unsigned long flags;
-+
-+	_atomic_spin_lock_irqsave(p, flags);
-+	old = *p;
-+	*p = old & ~mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
+-#define KB(x)	((x) << 10)
+-#define MB(x)	((x) << 20)
+-#define GB(x)	((x) << 30)
++#define KB(x)	((u64)(x) << 10)
++#define MB(x)	((u64)(x) << 20)
++#define GB(x)	((u64)(x) << 30)
  
--	addr += nr >> 5;
--	mask = 1 << (nr & 0x1f);
--	cli();
--	retval = (mask & *addr) != 0;
--	*addr |= mask;
--	sti();
--	return retval;
-+	return (old & mask) != 0;
+ /**
+  * tioce_dma_d64 - create a DMA mapping using 64-bit direct mode
+@@ -151,7 +261,7 @@
+ 	int last;
+ 	int entries;
+ 	int nates;
+-	int pagesize;
++	u64 pagesize;
+ 	u64 *ate_shadow;
+ 	u64 *ate_reg;
+ 	u64 addr;
+@@ -228,7 +338,7 @@
+ 
+ 		ate = ATE_MAKE(addr, pagesize);
+ 		ate_shadow[i + j] = ate;
+-		writeq(ate, &ate_reg[i + j]);
++		tioce_mmr_storei(ce_kern, &ate_reg[i + j], ate);
+ 		addr += pagesize;
+ 	}
+ 
+@@ -272,7 +382,8 @@
+ 		u64 tmp;
+ 
+ 		ce_kern->ce_port[port].dirmap_shadow = ct_upper;
+-		writeq(ct_upper, &ce_mmr->ce_ure_dir_map[port]);
++		tioce_mmr_storei(ce_kern,
++				 &ce_mmr->ce_ure_dir_map[port], ct_upper);
+ 		tmp = ce_mmr->ce_ure_dir_map[port];
+ 		dma_ok = 1;
+ 	} else
+@@ -344,7 +455,8 @@
+ 	if (TIOCE_D32_ADDR(bus_addr)) {
+ 		if (--ce_kern->ce_port[port].dirmap_refcnt = 0) {
+ 			ce_kern->ce_port[port].dirmap_shadow = 0;
+-			writeq(0, &ce_mmr->ce_ure_dir_map[port]);
++			tioce_mmr_storei(ce_kern,
++					 &ce_mmr->ce_ure_dir_map[port], 0);
+ 		}
+ 	} else {
+ 		struct tioce_dmamap *map;
+@@ -365,7 +477,7 @@
+ 		} else if (--map->refcnt = 0) {
+ 			for (i = 0; i < map->ate_count; i++) {
+ 				map->ate_shadow[i] = 0;
+-				map->ate_hw[i] = 0;
++				tioce_mmr_storei(ce_kern, &map->ate_hw[i], 0);
+ 			}
+ 
+ 			list_del(&map->ce_dmamap_list);
+@@ -486,7 +598,7 @@
+ 	spin_unlock_irqrestore(&ce_kern->ce_lock, flags);
+ 
+ dma_map_done:
+-	if (mapaddr & barrier)
++	if (mapaddr && barrier)
+ 		mapaddr = tioce_dma_barrier(mapaddr, 1);
+ 
+ 	return mapaddr;
+@@ -541,17 +653,61 @@
+ 			soft->ce_pcibus.bs_persist_segment,
+ 			soft->ce_pcibus.bs_persist_busnum, 0, 0, 0, 0, 0);
+ 
++	if (ret_stuff.v0)
++		panic("tioce_error_intr_handler:  Fatal TIOCE error");
++
+ 	return IRQ_HANDLED;
  }
  
--extern __inline__ int clear_bit(int nr, long * addr)
-+static __inline__ int test_and_change_bit(int nr, volatile unsigned long *addr)
- {
--	int	mask, retval;
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old;
-+	unsigned long flags;
+ /**
++ * tioce_reserve_m32 - reserve M32 ate's for the indicated address range
++ * @tioce_kernel: TIOCE context to reserve ate's for
++ * @base: starting bus address to reserve
++ * @limit: last bus address to reserve
++ *
++ * If base/limit falls within the range of bus space mapped through the
++ * M32 space, reserve the resources corresponding to the range.
++ */
++static void
++tioce_reserve_m32(struct tioce_kernel *ce_kern, u64 base, u64 limit)
++{
++	int ate_index, last_ate, ps;
++	struct tioce *ce_mmr;
 +
-+	_atomic_spin_lock_irqsave(p, flags);
-+	old = *p;
-+	*p = old ^ mask;
-+	_atomic_spin_unlock_irqrestore(p, flags);
++	if (! TIOCE_M32_ADDR(base))
++		return;
++
++	ce_mmr = (struct tioce *)ce_kern->ce_common->ce_pcibus.bs_base;
++	ps = ce_kern->ce_ate3240_pagesize;
++	ate_index = ATE_PAGE(base, ps);
++	last_ate = ate_index + ATE_NPAGES(base, limit-base+1, ps) -1;
++
++	if (ate_index < 64)
++		ate_index = 64;
++
++	while (ate_index <= last_ate) {
++		u64 ate;
++
++		ate = ATE_MAKE(0xdeadbeef, ps);
++		ce_kern->ce_ate3240_shadow[ate_index] = ate;
++		tioce_mmr_storei(ce_kern,
++				 &ce_mmr->ce_ure_ate3240[ate_index], ate);
++		ate_index++;
++	}
++}
++
++/**
+  * tioce_kern_init - init kernel structures related to a given TIOCE
+  * @tioce_common: ptr to a cached tioce_common struct that originated in prom
+- */ static struct tioce_kernel *
++ */
++static struct tioce_kernel *
+ tioce_kern_init(struct tioce_common *tioce_common)
+ {
+ 	int i;
++	int ps;
++	int dev;
+ 	u32 tmp;
++	unsigned int seg, bus;
+ 	struct tioce *tioce_mmr;
+ 	struct tioce_kernel *tioce_kern;
  
--	addr += nr >> 5;
--	mask = 1 << (nr & 0x1f);
--	cli();
--	retval = (mask & *addr) != 0;
--	*addr &= ~mask;
--	sti();
--	return retval;
-+	return (old & mask) != 0;
+@@ -572,9 +728,10 @@
+ 	 * here to use pci_read_config_xxx() so use the raw_pci_ops vector.
+ 	 */
+ 
+-	raw_pci_ops->read(tioce_common->ce_pcibus.bs_persist_segment,
+-			  tioce_common->ce_pcibus.bs_persist_busnum,
+-			  PCI_DEVFN(2, 0), PCI_SECONDARY_BUS, 1, &tmp);
++	seg = tioce_common->ce_pcibus.bs_persist_segment;
++	bus = tioce_common->ce_pcibus.bs_persist_busnum;
++
++	raw_pci_ops->read(seg, bus, PCI_DEVFN(2, 0), PCI_SECONDARY_BUS, 1,&tmp);
+ 	tioce_kern->ce_port1_secondary = (u8) tmp;
+ 
+ 	/*
+@@ -583,18 +740,76 @@
+ 	 */
+ 
+ 	tioce_mmr = (struct tioce *)tioce_common->ce_pcibus.bs_base;
+-	__sn_clrq_relaxed(&tioce_mmr->ce_ure_page_map, CE_URE_PAGESIZE_MASK);
+-	__sn_setq_relaxed(&tioce_mmr->ce_ure_page_map, CE_URE_256K_PAGESIZE);
+-	tioce_kern->ce_ate3240_pagesize = KB(256);
++	tioce_mmr_clri(tioce_kern,
++		       &tioce_mmr->ce_ure_page_map, CE_URE_PAGESIZE_MASK);
++	tioce_mmr_seti(tioce_kern,
++		       &tioce_mmr->ce_ure_page_map, CE_URE_256K_PAGESIZE);
++	ps = tioce_kern->ce_ate3240_pagesize = KB(256);
+ 
+ 	for (i = 0; i < TIOCE_NUM_M40_ATES; i++) {
+ 		tioce_kern->ce_ate40_shadow[i] = 0;
+-		writeq(0, &tioce_mmr->ce_ure_ate40[i]);
++		tioce_mmr_storei(tioce_kern, &tioce_mmr->ce_ure_ate40[i], 0);
+ 	}
+ 
+ 	for (i = 0; i < TIOCE_NUM_M3240_ATES; i++) {
+ 		tioce_kern->ce_ate3240_shadow[i] = 0;
+-		writeq(0, &tioce_mmr->ce_ure_ate3240[i]);
++		tioce_mmr_storei(tioce_kern, &tioce_mmr->ce_ure_ate3240[i], 0);
++	}
++
++	/*
++	 * Reserve ATE's corresponding to reserved address ranges.  These
++	 * include:
++	 *
++	 *	Memory space covered by each PPB mem base/limit register
++	 * 	Memory space covered by each PPB prefetch base/limit register
++	 *
++	 * These bus ranges are for pio (downstream) traffic only, and so
++	 * cannot be used for DMA.
++	 */
++
++	for (dev = 1; dev <= 2; dev++) {
++		u64 base, limit;
++
++		/* mem base/limit */
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_MEMORY_BASE, 2, &tmp);
++		base = (u64)tmp << 16;
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_MEMORY_LIMIT, 2, &tmp);
++		limit = (u64)tmp << 16;
++		limit |= 0xfffffUL;
++
++		if (base < limit)
++			tioce_reserve_m32(tioce_kern, base, limit);
++
++		/*
++		 * prefetch mem base/limit.  The tioce ppb's have 64-bit
++		 * decoders, so read the upper portions w/o checking the
++		 * attributes.
++		 */
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_PREF_MEMORY_BASE, 2, &tmp);
++		base = ((u64)tmp & PCI_PREF_RANGE_MASK) << 16;
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_PREF_BASE_UPPER32, 4, &tmp);
++		base |= (u64)tmp << 32;
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_PREF_MEMORY_LIMIT, 2, &tmp);
++
++		limit = ((u64)tmp & PCI_PREF_RANGE_MASK) << 16;
++		limit |= 0xfffffUL;
++
++		raw_pci_ops->read(seg, bus, PCI_DEVFN(dev, 0),
++				  PCI_PREF_LIMIT_UPPER32, 4, &tmp);
++		limit |= (u64)tmp << 32;
++
++		if ((base < limit) && TIOCE_M32_ADDR(base))
++			tioce_reserve_m32(tioce_kern, base, limit);
+ 	}
+ 
+ 	return tioce_kern;
+@@ -614,6 +829,7 @@
+ {
+ 	struct pcidev_info *pcidev_info;
+ 	struct tioce_common *ce_common;
++	struct tioce_kernel *ce_kern;
+ 	struct tioce *ce_mmr;
+ 	u64 force_int_val;
+ 
+@@ -629,6 +845,29 @@
+ 
+ 	ce_common = (struct tioce_common *)pcidev_info->pdi_pcibus_info;
+ 	ce_mmr = (struct tioce *)ce_common->ce_pcibus.bs_base;
++	ce_kern = (struct tioce_kernel *)ce_common->ce_kernel_private;
++
++	/*
++	 * TIOCE Rev A workaround (PV 945826), force an interrupt by writing
++	 * the TIO_INTx register directly
++	 */
++	if (ce_common->ce_rev = TIOCE_REV_A) {
++		u64 int_bit_mask = (1ULL << sn_irq_info->irq_int_bit);
++		u64 status;
++
++		tioce_mmr_load(ce_kern, &ce_mmr->ce_adm_int_status, &status);
++		if (status & int_bit_mask) {
++			u64 force_irq = (1 << 8) | sn_irq_info->irq_irq;
++			u64 ctalk = sn_irq_info->irq_xtalkaddr;
++			u64 nasid, offset;
++
++			nasid = (ctalk & CTALK_NASID_MASK) >> CTALK_NASID_SHFT;
++			offset = (ctalk & CTALK_NODE_OFFSET);
++			HUB_S(TIO_IOSPACE_ADDR(nasid, offset), force_irq);
++		}
++
++		return;
++	}
+ 
+ 	/*
+ 	 * irq_int_bit is originally set up by prom, and holds the interrupt
+@@ -666,7 +905,7 @@
+ 	default:
+ 		return;
+ 	}
+-	writeq(force_int_val, &ce_mmr->ce_adm_force_int);
++	tioce_mmr_storei(ce_kern, &ce_mmr->ce_adm_force_int, force_int_val);
  }
  
--extern __inline__ int test_bit(int nr, const unsigned long * addr)
-+#endif /* HAVE_ARCH_ATOMIC_BITOPS */
-+
-+#ifndef HAVE_ARCH_NON_ATOMIC_BITOPS
-+
-+static __inline__ void __set_bit(int nr, volatile unsigned long *addr)
+ /**
+@@ -685,6 +924,7 @@
  {
--	int	mask;
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
+ 	struct pcidev_info *pcidev_info;
+ 	struct tioce_common *ce_common;
++	struct tioce_kernel *ce_kern;
+ 	struct tioce *ce_mmr;
+ 	int bit;
+ 	u64 vector;
+@@ -695,14 +935,15 @@
  
--	addr += nr >> 5;
--	mask = 1 << (nr & 0x1f);
--	return ((mask & *addr) != 0);
-+	*p  |= mask;
+ 	ce_common = (struct tioce_common *)pcidev_info->pdi_pcibus_info;
+ 	ce_mmr = (struct tioce *)ce_common->ce_pcibus.bs_base;
++	ce_kern = (struct tioce_kernel *)ce_common->ce_kernel_private;
+ 
+ 	bit = sn_irq_info->irq_int_bit;
+ 
+-	__sn_setq_relaxed(&ce_mmr->ce_adm_int_mask, (1UL << bit));
++	tioce_mmr_seti(ce_kern, &ce_mmr->ce_adm_int_mask, (1UL << bit));
+ 	vector = (u64)sn_irq_info->irq_irq << INTR_VECTOR_SHFT;
+ 	vector |= sn_irq_info->irq_xtalkaddr;
+-	writeq(vector, &ce_mmr->ce_adm_int_dest[bit]);
+-	__sn_clrq_relaxed(&ce_mmr->ce_adm_int_mask, (1UL << bit));
++	tioce_mmr_storei(ce_kern, &ce_mmr->ce_adm_int_dest[bit], vector);
++	tioce_mmr_clri(ce_kern, &ce_mmr->ce_adm_int_mask, (1UL << bit));
+ 
+ 	tioce_force_interrupt(sn_irq_info);
+ }
+@@ -721,7 +962,11 @@
+ static void *
+ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *controller)
+ {
++	int my_nasid;
++	cnodeid_t my_cnode, mem_cnode;
+ 	struct tioce_common *tioce_common;
++	struct tioce_kernel *tioce_kern;
++	struct tioce *tioce_mmr;
+ 
+ 	/*
+ 	 * Allocate kernel bus soft and copy from prom.
+@@ -734,11 +979,22 @@
+ 	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
+ 	tioce_common->ce_pcibus.bs_base |= __IA64_UNCACHED_OFFSET;
+ 
+-	if (tioce_kern_init(tioce_common) = NULL) {
++	tioce_kern = tioce_kern_init(tioce_common);
++	if (tioce_kern = NULL) {
+ 		kfree(tioce_common);
+ 		return NULL;
+ 	}
+ 
++	/*
++	 * Clear out any transient errors before registering the error
++	 * interrupt handler.
++	 */
++
++	tioce_mmr = (struct tioce *)tioce_common->ce_pcibus.bs_base;
++	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_adm_int_status_alias, ~0ULL);
++	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_adm_error_summary_alias, ~0ULL);
++	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_dre_comp_err_addr, ~0ULL);
++
+ 	if (request_irq(SGI_PCIASIC_ERROR,
+ 			tioce_error_intr_handler,
+ 			SA_SHIRQ, "TIOCE error", (void *)tioce_common))
+@@ -750,6 +1006,21 @@
+ 		       tioce_common->ce_pcibus.bs_persist_segment,
+ 		       tioce_common->ce_pcibus.bs_persist_busnum);
+ 
++	/*
++	 * identify closest nasid for memory allocations
++	 */
++
++	my_nasid = NASID_GET(tioce_common->ce_pcibus.bs_base);
++	my_cnode = nasid_to_cnodeid(my_nasid);
++
++	if (sn_hwperf_get_nearest_node(my_cnode, &mem_cnode, NULL) < 0) {
++		printk(KERN_WARNING "tioce_bus_fixup: failed to find "
++		       "closest node with MEM to TIO node %d\n", my_cnode);
++		mem_cnode = (cnodeid_t)-1; /* use any node */
++	}
++
++	controller->node = mem_cnode;
++
+ 	return tioce_common;
  }
  
-+static __inline__ void __clear_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+
-+	*p &= ~mask;
-+}
-+
-+static __inline__ void __change_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+
-+	*p ^= mask;
-+}
-+
-+static __inline__ int __test_and_set_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old | mask;
-+	return (old & mask) != 0;
-+}
-+
-+static __inline__ int __test_and_clear_bit(int nr, volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old & ~mask;
-+	return (old & mask) != 0;
-+}
-+
-+static __inline__ int __test_and_change_bit(int nr,
-+					    volatile unsigned long *addr)
-+{
-+	unsigned long mask = BITOP_MASK(nr);
-+	unsigned long *p = ((unsigned long *)addr) + BITOP_WORD(nr);
-+	unsigned long old = *p;
-+
-+	*p = old ^ mask;
-+	return (old & mask) != 0;
-+}
-+
-+static __inline__ int test_bit(int nr, __const__ volatile unsigned long *addr)
-+{
-+	return 1UL & (addr[BITOP_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
-+}
-+
-+#endif /* HAVE_ARCH_NON_ATOMIC_BITOPS */
-+
- /*
-  * fls: find last bit set.
-  */
+Index: ce/include/asm-ia64/sn/addrs.h
+=================================--- ce.orig/include/asm-ia64/sn/addrs.h	2006-01-20 09:37:29.194482809 -0600
++++ ce/include/asm-ia64/sn/addrs.h	2006-01-20 10:15:04.267796269 -0600
+@@ -283,5 +283,13 @@
+ #define REMOTE_HUB_L(n, a)		HUB_L(REMOTE_HUB_ADDR((n), (a)))
+ #define REMOTE_HUB_S(n, a, d)		HUB_S(REMOTE_HUB_ADDR((n), (a)), (d))
+ 
++/*
++ * Coretalk address breakdown
++ */
++#define CTALK_NASID_SHFT		40
++#define CTALK_NASID_MASK		(0x3FFFULL << CTALK_NASID_SHFT)
++#define CTALK_CID_SHFT			38
++#define CTALK_CID_MASK			(0x3ULL << CTALK_CID_SHFT)
++#define CTALK_NODE_OFFSET		0x3FFFFFFFFF
+ 
+ #endif /* _ASM_IA64_SN_ADDRS_H */
+Index: ce/include/asm-ia64/sn/tioce.h
+=================================--- ce.orig/include/asm-ia64/sn/tioce.h	2006-01-20 09:37:29.207176879 -0600
++++ ce/include/asm-ia64/sn/tioce.h	2006-01-20 10:16:41.769974248 -0600
+@@ -11,7 +11,7 @@
+ 
+ /* CE ASIC part & mfgr information  */
+ #define TIOCE_PART_NUM			0xCE00
+-#define TIOCE_MFGR_NUM			0x36
++#define TIOCE_SRC_ID			0x01
+ #define TIOCE_REV_A			0x1
+ 
+ /* CE Virtual PPB Vendor/Device IDs */
+@@ -20,7 +20,7 @@
+ 
+ /* CE Host Bridge Vendor/Device IDs */
+ #define CE_HOST_BRIDGE_VENDOR_ID	0x10a9
+-#define CE_HOST_BRIDGE_DEVICE_ID	0x4003
++#define CE_HOST_BRIDGE_DEVICE_ID	0x4001
+ 
+ 
+ #define TIOCE_NUM_M40_ATES		4096
+@@ -463,6 +463,25 @@
+ 	u64	ce_end_of_struct;			/* 0x044400 */
+ } tioce_t;
+ 
++/* ce_lsiX_gb_cfg1 register bit masks & shifts */
++#define CE_LSI_GB_CFG1_RXL0S_THS_SHFT	0
++#define CE_LSI_GB_CFG1_RXL0S_THS_MASK	(0xffULL << CE_LSI_GB_CFG1_RXL0S_THS_SHFT)
++#define CE_LSI_GB_CFG1_RXL0S_SMP_SHFT	8
++#define CE_LSI_GB_CFG1_RXL0S_SMP_MASK	(0xfULL << CE_LSI_GB_CFG1_RXL0S_SMP_SHFT);
++#define CE_LSI_GB_CFG1_RXL0S_ADJ_SHFT	12
++#define CE_LSI_GB_CFG1_RXL0S_ADJ_MASK	(0x7ULL << CE_LSI_GB_CFG1_RXL0S_ADJ_SHFT)
++#define CE_LSI_GB_CFG1_RXL0S_FLT_SHFT	15
++#define CE_LSI_GB_CFG1_RXL0S_FLT_MASK	(0x1ULL << CE_LSI_GB_CFG1_RXL0S_FLT_SHFT)
++#define CE_LSI_GB_CFG1_LPBK_SEL_SHFT	16
++#define CE_LSI_GB_CFG1_LPBK_SEL_MASK	(0x3ULL << CE_LSI_GB_CFG1_LPBK_SEL_SHFT)
++#define CE_LSI_GB_CFG1_LPBK_EN_SHFT	18
++#define CE_LSI_GB_CFG1_LPBK_EN_MASK	(0x1ULL << CE_LSI_GB_CFG1_LPBK_EN_SHFT)
++#define CE_LSI_GB_CFG1_RVRS_LB_SHFT	19
++#define CE_LSI_GB_CFG1_RVRS_LB_MASK	(0x1ULL << CE_LSI_GB_CFG1_RVRS_LB_SHFT)
++#define CE_LSI_GB_CFG1_RVRS_CLK_SHFT	20
++#define CE_LSI_GB_CFG1_RVRS_CLK_MASK	(0x3ULL << CE_LSI_GB_CFG1_RVRS_CLK_SHFT)
++#define CE_LSI_GB_CFG1_SLF_TS_SHFT	24
++#define CE_LSI_GB_CFG1_SLF_TS_MASK	(0xfULL << CE_LSI_GB_CFG1_SLF_TS_SHFT)
+ 
+ /* ce_adm_int_mask/ce_adm_int_status register bit defines */
+ #define CE_ADM_INT_CE_ERROR_SHFT		0
+@@ -592,6 +611,11 @@
+ #define CE_URE_RD_MRG_ENABLE		(0x1ULL << 0)
+ #define CE_URE_WRT_MRG_ENABLE1		(0x1ULL << 4)
+ #define CE_URE_WRT_MRG_ENABLE2		(0x1ULL << 5)
++#define CE_URE_WRT_MRG_TIMER_SHFT	12
++#define CE_URE_WRT_MRG_TIMER_MASK	(0x7FFULL << CE_URE_WRT_MRG_TIMER_SHFT)
++#define CE_URE_WRT_MRG_TIMER(x)		(((u64)(x) << \
++					  CE_URE_WRT_MRG_TIMER_SHFT) & \
++					 CE_URE_WRT_MRG_TIMER_MASK)
+ #define CE_URE_RSPQ_BYPASS_DISABLE	(0x1ULL << 24)
+ #define CE_URE_UPS_DAT1_PAR_DISABLE	(0x1ULL << 32)
+ #define CE_URE_UPS_HDR1_PAR_DISABLE	(0x1ULL << 33)
+@@ -653,8 +677,12 @@
+ #define CE_URE_SI			(0x1ULL << 0)
+ #define CE_URE_ELAL_SHFT		4
+ #define CE_URE_ELAL_MASK		(0x7ULL << CE_URE_ELAL_SHFT)
++#define CE_URE_ELAL_SET(n)		(((u64)(n) << CE_URE_ELAL_SHFT) & \
++					 CE_URE_ELAL_MASK)
+ #define CE_URE_ELAL1_SHFT		8
+ #define CE_URE_ELAL1_MASK		(0x7ULL << CE_URE_ELAL1_SHFT)
++#define CE_URE_ELAL1_SET(n)		(((u64)(n) << CE_URE_ELAL1_SHFT) & \
++					 CE_URE_ELAL1_MASK)
+ #define CE_URE_SCC			(0x1ULL << 12)
+ #define CE_URE_PN1_SHFT			16
+ #define CE_URE_PN1_MASK			(0xFFULL << CE_URE_PN1_SHFT)
+@@ -675,8 +703,12 @@
+ #define CE_URE_HPC			(0x1ULL << 6)
+ #define CE_URE_SPLV_SHFT		7
+ #define CE_URE_SPLV_MASK		(0xFFULL << CE_URE_SPLV_SHFT)
++#define CE_URE_SPLV_SET(n)		(((u64)(n) << CE_URE_SPLV_SHFT) & \
++					 CE_URE_SPLV_MASK)
+ #define CE_URE_SPLS_SHFT		15
+ #define CE_URE_SPLS_MASK		(0x3ULL << CE_URE_SPLS_SHFT)
++#define CE_URE_SPLS_SET(n)		(((u64)(n) << CE_URE_SPLS_SHFT) & \
++					 CE_URE_SPLS_MASK)
+ #define CE_URE_PSN1_SHFT		19
+ #define CE_URE_PSN1_MASK		(0x1FFFULL << CE_URE_PSN1_SHFT)
+ #define CE_URE_PSN2_SHFT		32
