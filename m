@@ -1,7 +1,7 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Tue, 24 Jan 2006 22:41:35 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 24 Jan 2006 23:25:15 +0000
 Subject: RE: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060124163651.O90635@chenjesu.americas.sgi.com>
+Message-Id: <200601242325.k0ONPFg16082@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,30 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 24 Jan 2006, Chen, Kenneth W wrote:
+Brent Casavant wrote on Friday, January 20, 2006 12:01 PM
+> Regarding the direction Ingo sent me down, and considering what Jack
+> said about needing a hook for a future platform, I'm thinking of grabbing
+> a bit in task->thread.flags that IA64_HAS_EXTRA_STATE() could detect and
+> let ia64_{save,load}_extra() call new machvecs to perform this
+> chipset-specific context management.  It's a bit overengineered for
+> my particular case, but would allow Jack to plug in his work very
+> cleanly.
 
-> Brent Casavant wrote on Tuesday, January 24, 2006 2:12 PM
-> > > On the other hand, it may not be too bad because on kernel exit, flags
-> > > field in thread_info is accessed for TIF_* and if kernel exit path is
-> > > taken back-to-back with context switch, the net effect maybe small.
-> > 
-> > Actually, IA64_HAS_EXTRA_STATE() reads the TIF_* flags, and is called
-> > in __switch_to(), which is in very close proximity to checking last_cpu.
-> 
-> Where??
-> 
-> IA64_HAS_EXTRA_STATE() uses task->thread.flags, not task->thread_info->flags.
-> These two flags are in two different places.
+I wonder why you did not continue on this path.  I think the best you
+can do is to grab a bit in task->thread.flags, at boot time dynamically
+set it to 1 for init_task on sn2 platform and 0 for others, invent a
+name something like IA64_THREAD_MMIO_SYNC. Then in switch_to(), you do:
 
-Bhaa! You are right of course. My mistake.
+If (t->thread.flags & IA64_THREAD_MMIO_SYNC)
+	platform_switch_from(...)
 
-Still, other than moving last_cpu to neighbor cpu (or getting them
-moved to the thread_struct, as you inquired of Ingo), I'm not sure
-what can be done to further mitigate the cacheline impact.
+On non-sgi machine, the test will always false, which address most of
+the performance concerns from various people (including me).  And on
+sn2 platform, it will handle the synchronization in sn2 platform specific
+vector.
 
-Brent
+You can go even one step further that only set the bit for process that
+has the MMIO address mapped.  So on sn2, you won't pay the extra cost if
+it is not required for most of the processes.  Something workable?
 
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+- Ken
+
