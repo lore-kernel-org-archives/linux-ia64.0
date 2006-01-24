@@ -1,26 +1,29 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 27 Jan 2006 01:12:02 +0000
-Subject: [patch 3/5] add __builtin_trap definition for icc build
-Message-Id: <200601270112.k0R1C3g20970@unix-os.sc.intel.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 24 Jan 2006 01:31:26 +0000
+Subject: [patch 2.6.16-rc1] Set the correct default OS status in the MCA handler
+Message-Id: <6999.1138066286@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Map __builtin_trap function to break 0 instruction.
+sos->os_status is set to a default value of IA64_MCA_COLD_BOOT for an
+MCA, but then is incorrectly overwritten with IA64_MCA_SAME_CONTEXT (0).
+This makes SAL think that all MCAs have been recovered.
 
-Signed-off-by: HJ Lu <hongjiu.lu@intel.com>
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-
---- ./include/asm-ia64/intel_intrin.h.orig	2006-01-26 16:46:38.263377294 -0800
-+++ ./include/asm-ia64/intel_intrin.h	2006-01-26 16:57:54.058290891 -0800
-@@ -152,4 +152,6 @@ do {							\
- 	}						\
- } while (0)
+Index: linux/arch/ia64/kernel/mca_asm.S
+=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2006-01-19 10:27:30.921806584 +1100
++++ linux/arch/ia64/kernel/mca_asm.S	2006-01-24 12:13:35.878617761 +1100
+@@ -512,7 +512,7 @@ ia64_state_save:
+ 	st8 [temp1]=r12		// os_status, default is cold boot
+ 	mov r6=IA64_MCA_SAME_CONTEXT
+ 	;;
+-	st8 [temp1]=r6		// context, default is same context
++	st8 [temp2]=r6		// context, default is same context
  
-+#define __builtin_trap()	__break(0);
-+
- #endif /* _ASM_IA64_INTEL_INTRIN_H */
+ 	// Save the pt_regs data that is not in minstate.  The previous code
+ 	// left regs at sos.
 
