@@ -1,73 +1,44 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:35:16 +0000
-Subject: [PATCH 7/12] generic ffs()
-Message-Id: <20060126033516.GF11138@miraclelinux.com>
+From: Greg Edwards <edwardsg@sgi.com>
+Date: Tue, 24 Jan 2006 16:58:32 +0000
+Subject: [PATCH] sn_dma_alloc_coherent should use gfp flags
+Message-Id: <20060124165832.GA19461@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalent of the function:
-int ffs(int x);
+Takashi helped us track down a bad page state bug we thought was coming
+from alsa.  It turns out we weren't paying attention to the gfp flags
+that were passed in to sn_dma_alloc_coherent().
 
-HAVE_ARCH_FFS_BITOPS is defined when the architecture has its own
-version of these functions.
+From: Takashi Iwai <tiwai@suse.de>
+Signed-off-by: Greg Edwards <edwardsg@sgi.com>
+Signed-off-by: Mark Maule <maule@sgi.com>
+Signed-off-by: Jes Sorensen <jes@sgi.com>
 
-This code largely copied from:
-include/linux/bitops.h
+---
 
+ arch/ia64/sn/pci/pci_dma.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
-@@ -418,13 +418,45 @@
+Index: git-linus/arch/ia64/sn/pci/pci_dma.c
+=================================--- git-linus.orig/arch/ia64/sn/pci/pci_dma.c	2006-01-09 12:52:26.212773620 -0600
++++ git-linus/arch/ia64/sn/pci/pci_dma.c	2006-01-24 10:47:49.532645570 -0600
+@@ -90,14 +90,14 @@ void *sn_dma_alloc_coherent(struct devic
+ 	 */
+ 	node = pcibus_to_node(pdev->bus);
+ 	if (likely(node >=0)) {
+-		struct page *p = alloc_pages_node(node, GFP_ATOMIC, get_order(size));
++		struct page *p = alloc_pages_node(node, flags, get_order(size));
  
- #endif /* HAVE_ARCH_SCHED_BITOPS */
+ 		if (likely(p))
+ 			cpuaddr = page_address(p);
+ 		else
+ 			return NULL;
+ 	} else
+-		cpuaddr = (void *)__get_free_pages(GFP_ATOMIC, get_order(size));
++		cpuaddr = (void *)__get_free_pages(flags, get_order(size));
  
-+#ifndef HAVE_ARCH_FFS_BITOPS
-+
- /*
-  * ffs: find first bit set. This is defined the same way as
-  * the libc and compiler builtin ffs routines, therefore
-  * differs in spirit from the above ffz (man ffs).
-  */
- 
--#define ffs(x) generic_ffs(x)
-+static inline int ffs(int x)
-+{
-+	int r = 1;
-+
-+	if (!x)
-+		return 0;
-+	if (!(x & 0xffff)) {
-+		x >>= 16;
-+		r += 16;
-+	}
-+	if (!(x & 0xff)) {
-+		x >>= 8;
-+		r += 8;
-+	}
-+	if (!(x & 0xf)) {
-+		x >>= 4;
-+		r += 4;
-+	}
-+	if (!(x & 3)) {
-+		x >>= 2;
-+		r += 2;
-+	}
-+	if (!(x & 1)) {
-+		x >>= 1;
-+		r += 1;
-+	}
-+	return r;
-+}
-+
-+#endif /* HAVE_ARCH_FFS_BITOPS */
-+
- 
- /*
-  * hweightN: returns the hamming weight (i.e. the number
+ 	if (unlikely(!cpuaddr))
+ 		return NULL;
