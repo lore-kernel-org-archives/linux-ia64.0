@@ -1,7 +1,7 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Tue, 24 Jan 2006 09:02:35 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 24 Jan 2006 09:14:28 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060124090235.GA673@elte.hu>
+Message-Id: <43D5EFF4.9090206@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,20 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Luck, Tony wrote:
+> Thinking about this a bit more, wouldn't it be better to do this
+> work in the rebalance code that is making the decision to move
+> the process.  The earlier argument that this would sometimes
+> waste time because the process might not actually move doesn't
+> sound so strong ... we context switch frequently, we move processes
+> rarely.  Doing some work that may be wasted in the rare path sounds
+> better than always doing work in the common path.
 
-* Brent Casavant <bcasavan@sgi.com> wrote:
+Alternatively one could make platform_switch_from() a wrapper around
+a function pointer that is only set when in use. Then it would be a
+load and a compare and the rest will be predicated away on non SN
+hardware in the generic kernel.
 
-> I agree with him that it's not wonderful to hook into mainline 
-> scheduler code to solve this, but the alternative is what I presented 
-> here: check if old CPU = new CPU at each context switch-in, entirely 
-> within IA64 code.
-
-what's the problem with doing that? It's a single comparison [of two 
-values we already have accessed in that function!] and a rarely taken 
-branch in a single subarch of a single arch's switch_to() function. If 
-this use (of migration related arch functionality) becomes more 
-widespread then we can generalize it, but right now i just dont see the 
-point, given that the two solutions are almost totally equivalent in 
-terms of "overhead".
-
-	Ingo
+Cheers,
+Jes
