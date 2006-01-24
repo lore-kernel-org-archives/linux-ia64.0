@@ -1,31 +1,30 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Fri, 27 Jan 2006 06:39:09 +0000
-Subject: [PATCH] parisc: add ()-pair in __ffs()
-Message-Id: <20060127063909.GA8166@miraclelinux.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 24 Jan 2006 22:32:11 +0000
+Subject: [PATCH] - Scaling fix for simulatneous unaligned accesses
+Message-Id: <20060124223210.GA6878@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com> <20060126033156.GB11138@miraclelinux.com> <43D886A5.8010309@tls.msk.ru>
-In-Reply-To: <43D886A5.8010309@tls.msk.ru>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Tokarev <mjt@tls.msk.ru>
-Cc: Grant Grundler <iod00d@hp.com>, Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Found by Michael Tokarev
+Eliminate a hot shared cacheline that occurs if multiple cpus are
+taking unaligned exceptions.
 
-Add missing ()-pair in ffz() macro.
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
 
-Index: 2.6-git/include/asm-parisc/bitops.h
-=================================--- 2.6-git.orig/include/asm-parisc/bitops.h	2006-01-26 18:33:40.000000000 +0900
-+++ 2.6-git/include/asm-parisc/bitops.h	2006-01-26 19:32:07.000000000 +0900
-@@ -220,7 +220,7 @@
- }
+Index: linux/arch/ia64/kernel/unaligned.c
+=================================--- linux.orig/arch/ia64/kernel/unaligned.c	2006-01-23 14:02:18.582928211 -0600
++++ linux/arch/ia64/kernel/unaligned.c	2006-01-24 16:02:26.266232267 -0600
+@@ -1283,8 +1283,9 @@ within_logging_rate_limit (void)
  
- /* Undefined if no bit is zero. */
--#define ffz(x)	__ffs(~x)
-+#define ffz(x)	__ffs(~(x))
- 
- /*
-  * ffs: find first bit set. returns 1 to BITS_PER_LONG or 0 (if none set)
+ 	if (jiffies - last_time > 5*HZ)
+ 		count = 0;
+-	if (++count < 5) {
++	if (count < 5) {
+ 		last_time = jiffies;
++		count++;
+ 		return 1;
+ 	}
+ 	return 0;
