@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 24 Jan 2006 09:14:28 +0000
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 24 Jan 2006 12:10:52 +0000
 Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <43D5EFF4.9090206@sgi.com>
+Message-Id: <20060124121052.GC5334@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,19 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
-> Thinking about this a bit more, wouldn't it be better to do this
-> work in the rebalance code that is making the decision to move
-> the process.  The earlier argument that this would sometimes
-> waste time because the process might not actually move doesn't
-> sound so strong ... we context switch frequently, we move processes
-> rarely.  Doing some work that may be wasted in the rare path sounds
-> better than always doing work in the common path.
+On Mon, Jan 23, 2006 at 11:04:21PM -0800, Grant Grundler wrote:
+> On Tue, Jan 24, 2006 at 12:30:42AM -0600, Brent Casavant wrote:
+> > On Mon, 23 Jan 2006, Grant Grundler wrote:
+> > > Would an app first need to mmap an uncached address?
+> > > Or some other obvious "marker" that might warn the kernel?
+> > 
+> > I'm not sure an uncached address would be appropriate, as I
+> > believe there are other non-IO uncached mappings which can
+> > be performed (whatever the fetchop stuff morphed into, for
+> > example -- I can't remember what its called now).
+> 
+> OK - just not many user space programs map uncache IO space.
 
-Alternatively one could make platform_switch_from() a wrapper around
-a function pointer that is only set when in use. Then it would be a
-load and a compare and the rest will be predicated away on non SN
-hardware in the generic kernel.
+The mspec driver does.  It has not gotten into the mainline kernel yet,
+but we continue to build an add-on module for the necessary releases.
+To prevent this out of order write from happening on those machines,
+we require the process to be pinned to a single cpu.  For MPI, this
+is a normal way to operate for other reasons as well.
 
-Cheers,
-Jes
+Brent, if you find a way to prevent this out-of-order write, please
+remind me to include it in the mspec driver.
+
+Thanks,
+Robin
