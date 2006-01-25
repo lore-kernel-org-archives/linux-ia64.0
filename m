@@ -1,61 +1,88 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Date: Mon, 09 Jan 2006 17:42:59 +0000
-Subject: Re: [PATCH] ia64: including <asm/signal.h> alone causes compilation
-Message-Id: <43C2A0A3.8070901@suse.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 25 Jan 2006 22:28:44 +0000
+Subject: Re: [Perfctr-devel] RE: [perfmon] Re: quick overview of the perfmon2 interface
+Message-Id: <20060125222844.GB10451@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060109171514.GA25096@locomotive.unixthugs.org> <20060109172149.GQ19769@parisc-linux.org>
-In-Reply-To: <20060109172149.GQ19769@parisc-linux.org>
+References: <3C87FFF91369A242B9C9147F8BD0908A02C6955C@cacexc04.americas.cpqcorp.net> <1138221212.15295.35.camel@serpentine.pathscale.com>
+In-Reply-To: <1138221212.15295.35.camel@serpentine.pathscale.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Bryan O'Sullivan <bos@pathscale.com>
+Cc: "Truong, Dan" <dan.truong@hp.com>, Andrew Morton <akpm@osdl.org>, "Eranian, Stephane" <stephane.eranian@hp.com>, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Bryan,
 
-Matthew Wilcox wrote:
-> On Mon, Jan 09, 2006 at 12:15:14PM -0500, Jeff Mahoney wrote:
->> +++ linux-2.6.15-ocfs2/include/asm-ia64/signal.h	2006-01-09 11:08:16.404700640 -0500
->> @@ -1,6 +1,8 @@
->>  #ifndef _ASM_IA64_SIGNAL_H
->>  #define _ASM_IA64_SIGNAL_H
->>  
->> +#include <linux/types.h>
->> +
->>  /*
->>   * Modified 1998-2001, 2003
->>   *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
->> @@ -122,8 +124,6 @@
->>  
->>  # ifndef __ASSEMBLY__
->>  
->> -#  include <linux/types.h>
->> -
->>  /* Avoid too many header ordering problems.  */
->>  struct siginfo;
+On Wed, Jan 25, 2006 at 12:33:32PM -0800, Bryan O'Sullivan wrote:
+> On Fri, 2006-01-20 at 10:37 -0800, Truong, Dan wrote:
+> > Would you want Stephane to guard the extended
+> > functionalities with tunables or something to
+> > Disable their regular use and herd enterprise
+> > Tools into a standard mold... yet allow R&D to
+> > Move on by enabling the extentions?
 > 
-> Is it still possible to include this file from assembly?  Do we still
-> need to do that?
+> I'd prefer to see all of the extended stuff left out entirely for now.
+
+I usually don't add things to the interface just because they are cool
+ideas but rather because there is a need expressed by some tool
+developer or system person. So it would help if you could
+name the extended features you referring to. 
+
+The problem with an incremental approach is to maintained backward compatibility
+for existing applications. I have had to deal with this on IA-64. For instance
+moving from a single syscall to multiple syscall. Similarly, when passing
+data structures, you have to provision some reserved fields for potential
+extensions. You don't really want to add more system call if you need to
+to add a feature.
+
+> The mainline kernel has no PMU support for any popular architecture,
+> even though external patches have existed in stable form for years.
+
+You do not count Oprofile. I think this is a fine tool. And perfmon
+does allow it to continue working using almost all of its kernel code.
+This is leveraging the custom sampling buffer format support in perfmon.
+So you can say this is an extended feature that adds complexity.
+But OTOH, this is one elegant way of supporting an existing interface
+without breaking all the tools.
+
+Take another example, suppose some tool comes along and say: "I would
+like to add in each recorded sample the kernel call stack at the point
+of the counter overflow". How would you do this without having to hack
+kernel code? With the buffer format, you simply insert of module that
+does what you want. There are hundreds of things you can include in your
+samples. I don't think that we can come up with a very generic sampling
+buffer format.
+
+Sometimes, it is not so much what is recorded but how it is recorded.
+Some tool may prefer to have samples aggreagated in the kernel, other
+would like to use a double-buffer approach to minimize blind spots.
+All are valid requests. Our infrastructure allows this without modification
+to the core interface nor core kernel code. I believe this is a very strong
+value-add.
+
+Without this infrastructure, it would have been pretty difficult to add
+support for the P4 Precise Event Based Sampling (PEBS) which by the way,
+nobody was able to offer so far. We were able to proide this support
+with a few hundred lines of code without hacking the regular sampling
+format. Instead we simply created a dedicated PEBS format as a kernel module.
+
+
+> Filling that gap ought to be the priority; the interface can be extended
+> when actual users of new features show up and ask for them.
 > 
+Again that is fine as long as you can keep backward complexity and a clean
+interface.
+
+> > It would restrict the R&D mindset, and new ideas.
+> > The field hasn't grown yet to a stable mature form.
 > 
+I would agree with you, that people have not yet realized the potential
+of those performance counters. But this maybe in part a chicken and egg
+problem.  People cannot take full advantage because they don't have
+a generic interface on any platform.
 
-Yes, actually, it is. :(
-
-Christoph also pointed out that including <linux/signal.h> is the better
-solution, so I'm submitting that patch to the OCFS2 folks instead.
-
-Sorry for the noise.
-
-- -Jeff
-
-- --
-Jeff Mahoney
-SUSE Labs
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.2 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQFDwqCjLPWxlyuTD7IRAj8PAJwLv2EghfMR9yPuaVhpTLQMGysKpwCfcVBq
-7ZT0LwuYEjKYVnJT/QeXmCw=Yt8o
------END PGP SIGNATURE-----
+Designing a generic perfmon interface is hard because:
+	- the hardware is extremely diverse
+	- there are so many things you can measure
+-- 
+-Stephane
