@@ -1,7 +1,7 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 25 Jan 2006 17:45:04 +0000
-Subject: RE: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060125113959.H16092@chenjesu.americas.sgi.com>
+Date: Wed, 25 Jan 2006 17:48:57 +0000
+Subject: Re: [PATCH] SN2 user-MMIO CPU migration
+Message-Id: <20060125114523.V16092@chenjesu.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,36 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 25 Jan 2006, Chen, Kenneth W wrote:
+On Wed, 25 Jan 2006, Keith Owens wrote:
 
-> Thought everyone agreed to call the sync function with the new task context,
-> (after ia64_switch_to). Something changed which made you changed your mind?
-
-Yeah.  I mentioned this in my other message, but I kept running into
-invalid accesses (and migration/swapper threads dying) in sn_migrate()
-when the sync was done after ia64_switch_to().  Any idea what I might
-be doing wrong?  Perhaps I need to call barrier() first?
-
-> diff --git a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
-> > @@ -46,6 +47,7 @@ struct thread_info {
-> >  	.exec_domain	= &default_exec_domain,	\
-> >  	.flags		= 0,			\
-> >  	.cpu		= 0,			\
-> > +	.last_cpu	= 0,			\
-> >  	.addr_limit	= KERNEL_DS,		\
-> >  	.preempt_count	= 0,			\
-> >  	.restart_block = {			\
+> Brent Casavant (on Tue, 24 Jan 2006 15:12:48 -0600 (CST)) wrote:
+> >+void sn_switch_from(struct task_struct *task)
+> >+{
+> >+	pda_t *last_pda = pdacpu(task_thread_info(task)->last_cpu);
+> >+	volatile unsigned long *adr = last_pda->pio_write_status_addr;
+> >+	unsigned long val = last_pda->pio_write_status_val;
+> >+
+> >+	/* Drain PIO writes from old CPU's Shub */
+> >+	while ((*adr & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK) != val)
+> >+		cpu_relax();
+> >+}
 > 
-> Looked spurious, init_task has static initializer, which will have zero
-> initial value automatically.
+> cpu_relax() maps to ia64_hint(ia64_hint_pause) which is defined as a
+> memory clobber, so you do not need to mark adr as volatile.  Linus
+> recommends against relying on volatile in C code, memory barrier
+> operations like cpu_relax should be used instead.
 
-I was just following the existing mechanism in the code (obviously
-I'm not the only one to add "= 0" in here.
+Hmm.  Does that mean that the SN mmiowb() implementation is incorrect
+as well?  Because this was pretty much a cut-n-paste job from there.
 
-I can submit a separate cleanup patch for this and quite a bit of other
-code if you'd like.  I've run into all sorts of 80-column/etc issues
-while working on this, but didn't want to mix cleanup with meatier
-changes.
+I can probably fix that (mmiowb()) in the near future, as there's
+some upcoming work needed in that area.
+
+> Alas include/asm-ia64/intel_intrin.h defines ia64_hint() as a no-op.
+
+Err, so we should hold off on fixing this plus mmiowb() until the
+intrinsic is fixed, correct?
 
 Brent
 
