@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 25 Jan 2006 09:24:54 +0000
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Wed, 25 Jan 2006 17:04:07 +0000
 Subject: RE: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <200601250924.k0P9Otg22689@unix-os.sc.intel.com>
+Message-Id: <20060125104727.W16092@chenjesu.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,38 +10,47 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Brent Casavant wrote on Tuesday, January 24, 2006 3:29 PM
-> Take 4.  Moved "really migrated?" check as late as possible in
-> __switch_task(), and moved thread_info last_cpu field closer to
-> flags and cpu fields.  Some nomenclature changes as well.
+On Wed, 25 Jan 2006, Chen, Kenneth W wrote:
 
-diff --git a/include/asm-ia64/system.h b/include/asm-ia64/system.h
->  #define __switch_to(prev,next,last) do {							 \
->  	if (IA64_HAS_EXTRA_STATE(prev))								 \
->  		ia64_save_extra(prev);								 \
->  	if (IA64_HAS_EXTRA_STATE(next))								 \
->  		ia64_load_extra(next);								 \
->  	ia64_psr(task_pt_regs(next))->dfh = !ia64_is_local_fpu_owner(next);			 \
-> +	arch_migrate(next);									 \
->  	(last) = ia64_switch_to((next));							 \
+> This is the "what the heck is he talking about?" patch, on top of
+> "take 4" patch:
+
+Thank you very much.  I get it now.
+
+What I thought you meant was flipping a bit in locations such as
+migrate_task() to indicate that this task has migrated since it
+last ran.  That obviously requird a scheduler hook, and where
+I was running into a misunderstanding.  Thanks for clarifying it
+with code.
+
+A few questions:
+
+> --- linus-2.6.git/include/asm-ia64/system.h.orig	2006-01-25 01:14:07.661605464 -0800
+> +++ linus-2.6.git/include/asm-ia64/system.h	2006-01-25 01:17:36.173321660 -0800
+> @@ -255,6 +244,8 @@ extern void ia64_load_extra (struct task
+>  		__ia64_save_fpu((prev)->thread.fph);				\
+>  	}									\
+>  	__switch_to(prev, next, last);						\
+> +	if (unlikely((next)->thread.flags & IA64_THREAD_MIGRATION))		\
+> +		platform_migrate(next);						\
 >  } while (0)
+>  #else
+>  # define switch_to(prev,next,last)	__switch_to(prev, next, last)
 
-Thought everyone agreed to call the sync function with the new task context,
-(after ia64_switch_to). Something changed which made you changed your mind?
+Would it be better to add this to the IA64_HAS_EXTRA_STATE() check,
+and move the call to platform_migrate() into ia64_load_extra()?  Or
+am I failing to take something into consideration?
 
- 
-diff --git a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
-> @@ -46,6 +47,7 @@ struct thread_info {
->  	.exec_domain	= &default_exec_domain,	\
->  	.flags		= 0,			\
->  	.cpu		= 0,			\
-> +	.last_cpu	= 0,			\
->  	.addr_limit	= KERNEL_DS,		\
->  	.preempt_count	= 0,			\
->  	.restart_block = {			\
+Also, yesterday when I moved the platform_migrate() call after
+__switch_task() (actually, after ia64_switch_to()) I would receive
+kernel panics during boot (the migration threads would die from an
+invalid access, swapper shortly thereafter, and finally a "soft lockup"
+on swapper).  Was I perhaps missing something?
 
-Looked spurious, init_task has static initializer, which will have zero
-initial value automatically.
+Thanks,
+Brent
 
-- Ken
-
+-- 
+Brent Casavant                          All music is folk music.  I ain't
+bcasavan@sgi.com                        never heard a horse sing a song.
+Silicon Graphics, Inc.                    -- Louis Armstrong
