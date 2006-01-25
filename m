@@ -1,100 +1,87 @@
 From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Mon, 09 Jan 2006 06:47:48 +0000
+Date: Wed, 25 Jan 2006 02:05:15 +0000
 Subject: RE: [PATCH v3]Export cpu topology by sysfs
-Message-Id: <8126E4F969BA254AB43EA03C59F44E8404693250@pdsmsx404>
+Message-Id: <99FA2ED298A9834DB1BF5DE8BDBF24130D24F9@pdsmsx403>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060104010658.A16342@unix-os.sc.intel.com>
 In-Reply-To: <20060104010658.A16342@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Nathan Lynch <ntl@pobox.com>, Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
-Cc: linux-kernel@vger.kernel.org, greg@kroah.com, discuss@x86-64.org, linux-ia64@vger.kernel.org, "Siddha, Suresh B" <suresh.b.siddha@intel.com>, "Shah, Rajesh" <rajesh.shah@intel.com>, "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+To: Nathan Lynch <ntl@pobox.com>, Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, greg@kroah.com, discuss@x86-64.org, linux-ia64@vger.kernel.org, "Siddha, Suresh B" <suresh.b.siddha@intel.com>, "Shah, Rajesh" <rajesh.shah@intel.com>, "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>, Yanmin Zhang <ymzhang@unix-os.sc.intel.com>
 
->>-----Original Message-----
->>From: linux-ia64-owner@vger.kernel.org [mailto:linux-ia64-owner@vger.kern=
-el.org] On Behalf Of Nathan Lynch
->>Sent: 2006=C4=EA1=D4=C29=C8=D5 13:10
->>To: Yanmin Zhang
->>Cc: linux-kernel@vger.kernel.org; greg@kroah.com; discuss@x86-64.org; lin=
-ux-ia64@vger.kernel.org; Siddha, Suresh B; Shah, Rajesh;
->>Pallipadi, Venkatesh
->>Subject: Re: [PATCH v3]Export cpu topology by sysfs
->>> 2) Set consistent default values for the 4 attributes.
->>>
->>
->><snip>
->>
->>> If one architecture wants to support this feature, it just needs to
->>> implement 4 defines, typically in file include/asm-XXX/topology.h.
->>> The 4 defines are:
->>> #define topology_physical_package_id(cpu)
->>> #define topology_core_id(cpu)
->>> #define topology_thread_siblings(cpu)
->>> #define topology_core_siblings(cpu)
->>>
->>> The type of **_id is int.
->>> The type of siblings is cpumask_t.
->>>
->>> To be consistent on all architectures, the 4 attributes should have
->>> deafult values if their values are unavailable. Below is the rule.
->>> 1) physical_package_id: If cpu has no physical package id, -1 is the
->>> default value.
->>> 2) core_id: If cpu doesn't support multi-core, its core id is 0.
->>
->>Why not -1 as with the physical package id?  0 could be a valid core
->>id.
-If the cpu has only 1 core, we could call it single-core, so it's reasonabl=
-e to use 0 as its core id.
-
-
->>
->>> 3) thread_siblings: Just include itself, if the cpu doesn't support
->>> HT/multi-thread.
->>> 4) core_siblings: Just include itself, if the cpu doesn't support
->>> multi-core and HT/Multi-thread.
->>
->>Really, I think the least confusing interface would not export those
->>attributes which are not relevant for the system.  E.g. if the system
->>isn't multi-core, you don't see core_id and core_siblings attributes.
->>
->>Failing that, let's at least have consistent, unambiguous values for
->>the ids which are not applicable.
-Current kernel will output core id by /proc/cpuinfo if a physical cpu has 2=
- threads, no matter if it's a multi-core, or just a multi-thread. To be con=
-sistent with /proc/cpuinfo, I think we need export core id and its default =
-value is 0.
-
->>
->><snip>
->>> +static int __cpuinit topology_cpu_callback(struct notifier_block *nfb,
->>> +		unsigned long action, void *hcpu)
->>> +{
->>> +	unsigned int cpu =3D (unsigned long)hcpu;
->>> +	struct sys_device *sys_dev;
->>> +
->>> +	sys_dev =3D get_cpu_sysdev(cpu);
->>> +	switch (action) {
->>> +		case CPU_ONLINE:
->>> +			topology_add_dev(sys_dev);
->>> +			break;
->>> +		case CPU_DEAD:
->>> +			topology_remove_dev(sys_dev);
->>> +			break;
->>> +	}
->>> +	return NOTIFY_OK;
->>> +}
->>
->>I still oppose this bit.  I want the attributes there for powerpc even
->>for offline cpus -- the topology information (if obtainable, which it
->>is on powerpc) is useful regardless of the cpu's online state.  The
->>attributes should appear when a cpu is made present, and go away when
->>a cpu is removed.
-As my previous email says, there are concerns/issues to do so. A compromise=
- is that the patch could register a sysdev driver. When the cpu becomes off=
-line from online, we don't delete the topology kobj. The compromise has a d=
-efect. If the cpu is never online since machine boots, the topology info of=
- the cpu is incorrect.=20
-
->>
->>This week I'll try to do an implementation for powerpc.
+Pj4tLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+PkZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdl
+ci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9u
+IEJlaGFsZiBPZiBaaGFuZywgWWFubWluCj4+U2VudDogMjAwNsTqMdTCOcjVIDE0OjQ4Cj4+VG86
+IE5hdGhhbiBMeW5jaDsgWWFubWluIFpoYW5nCj4+Q2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5l
+bC5vcmc7IGdyZWdAa3JvYWguY29tOyBkaXNjdXNzQHg4Ni02NC5vcmc7IGxpbnV4LWlhNjRAdmdl
+ci5rZXJuZWwub3JnOyBTaWRkaGEsIFN1cmVzaCBCOyBTaGFoLCBSYWplc2g7Cj4+UGFsbGlwYWRp
+LCBWZW5rYXRlc2gKPj5TdWJqZWN0OiBSRTogW1BBVENIIHYzXUV4cG9ydCBjcHUgdG9wb2xvZ3kg
+Ynkgc3lzZnMKPj4KPj4+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4+Pj5Gcm9tOiBsaW51
+eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRvOmxpbnV4LWlhNjQtb3duZXJAdmdl
+ci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgTmF0aGFuIEx5bmNoCj4+Pj5TZW50OiAyMDA2xOox
+1MI5yNUgMTM6MTAKPj4+PlRvOiBZYW5taW4gWmhhbmcKPj4+PkNjOiBsaW51eC1rZXJuZWxAdmdl
+ci5rZXJuZWwub3JnOyBncmVnQGtyb2FoLmNvbTsgZGlzY3Vzc0B4ODYtNjQub3JnOyBsaW51eC1p
+YTY0QHZnZXIua2VybmVsLm9yZzsgU2lkZGhhLCBTdXJlc2ggQjsgU2hhaCwgUmFqZXNoOwo+Pj4+
+UGFsbGlwYWRpLCBWZW5rYXRlc2gKPj4+PlN1YmplY3Q6IFJlOiBbUEFUQ0ggdjNdRXhwb3J0IGNw
+dSB0b3BvbG9neSBieSBzeXNmcwo+Pj4+PiAyKSBTZXQgY29uc2lzdGVudCBkZWZhdWx0IHZhbHVl
+cyBmb3IgdGhlIDQgYXR0cmlidXRlcy4KPj4+Pj4KPj4+Pgo+Pj4+PHNuaXA+Cj4+Pj4KPj4+Pj4g
+SWYgb25lIGFyY2hpdGVjdHVyZSB3YW50cyB0byBzdXBwb3J0IHRoaXMgZmVhdHVyZSwgaXQganVz
+dCBuZWVkcyB0bwo+Pj4+PiBpbXBsZW1lbnQgNCBkZWZpbmVzLCB0eXBpY2FsbHkgaW4gZmlsZSBp
+bmNsdWRlL2FzbS1YWFgvdG9wb2xvZ3kuaC4KPj4+Pj4gVGhlIDQgZGVmaW5lcyBhcmU6Cj4+Pj4+
+ICNkZWZpbmUgdG9wb2xvZ3lfcGh5c2ljYWxfcGFja2FnZV9pZChjcHUpCj4+Pj4+ICNkZWZpbmUg
+dG9wb2xvZ3lfY29yZV9pZChjcHUpCj4+Pj4+ICNkZWZpbmUgdG9wb2xvZ3lfdGhyZWFkX3NpYmxp
+bmdzKGNwdSkKPj4+Pj4gI2RlZmluZSB0b3BvbG9neV9jb3JlX3NpYmxpbmdzKGNwdSkKPj4+Pj4K
+Pj4+Pj4gVGhlIHR5cGUgb2YgKipfaWQgaXMgaW50Lgo+Pj4+PiBUaGUgdHlwZSBvZiBzaWJsaW5n
+cyBpcyBjcHVtYXNrX3QuCj4+Pj4+Cj4+Pj4+IFRvIGJlIGNvbnNpc3RlbnQgb24gYWxsIGFyY2hp
+dGVjdHVyZXMsIHRoZSA0IGF0dHJpYnV0ZXMgc2hvdWxkIGhhdmUKPj4+Pj4gZGVhZnVsdCB2YWx1
+ZXMgaWYgdGhlaXIgdmFsdWVzIGFyZSB1bmF2YWlsYWJsZS4gQmVsb3cgaXMgdGhlIHJ1bGUuCj4+
+Pj4+IDEpIHBoeXNpY2FsX3BhY2thZ2VfaWQ6IElmIGNwdSBoYXMgbm8gcGh5c2ljYWwgcGFja2Fn
+ZSBpZCwgLTEgaXMgdGhlCj4+Pj4+IGRlZmF1bHQgdmFsdWUuCj4+Pj4+IDIpIGNvcmVfaWQ6IElm
+IGNwdSBkb2Vzbid0IHN1cHBvcnQgbXVsdGktY29yZSwgaXRzIGNvcmUgaWQgaXMgMC4KPj4+Pgo+
+Pj4+V2h5IG5vdCAtMSBhcyB3aXRoIHRoZSBwaHlzaWNhbCBwYWNrYWdlIGlkPyAgMCBjb3VsZCBi
+ZSBhIHZhbGlkIGNvcmUKPj4+PmlkLgo+PklmIHRoZSBjcHUgaGFzIG9ubHkgMSBjb3JlLCB3ZSBj
+b3VsZCBjYWxsIGl0IHNpbmdsZS1jb3JlLCBzbyBpdCdzIHJlYXNvbmFibGUgdG8gdXNlIDAgYXMg
+aXRzIGNvcmUgaWQuCj4+Cj4+Cj4+Pj4KPj4+Pj4gMykgdGhyZWFkX3NpYmxpbmdzOiBKdXN0IGlu
+Y2x1ZGUgaXRzZWxmLCBpZiB0aGUgY3B1IGRvZXNuJ3Qgc3VwcG9ydAo+Pj4+PiBIVC9tdWx0aS10
+aHJlYWQuCj4+Pj4+IDQpIGNvcmVfc2libGluZ3M6IEp1c3QgaW5jbHVkZSBpdHNlbGYsIGlmIHRo
+ZSBjcHUgZG9lc24ndCBzdXBwb3J0Cj4+Pj4+IG11bHRpLWNvcmUgYW5kIEhUL011bHRpLXRocmVh
+ZC4KPj4+Pgo+Pj4+UmVhbGx5LCBJIHRoaW5rIHRoZSBsZWFzdCBjb25mdXNpbmcgaW50ZXJmYWNl
+IHdvdWxkIG5vdCBleHBvcnQgdGhvc2UKPj4+PmF0dHJpYnV0ZXMgd2hpY2ggYXJlIG5vdCByZWxl
+dmFudCBmb3IgdGhlIHN5c3RlbS4gIEUuZy4gaWYgdGhlIHN5c3RlbQo+Pj4+aXNuJ3QgbXVsdGkt
+Y29yZSwgeW91IGRvbid0IHNlZSBjb3JlX2lkIGFuZCBjb3JlX3NpYmxpbmdzIGF0dHJpYnV0ZXMu
+Cj4+Pj4KPj4+PkZhaWxpbmcgdGhhdCwgbGV0J3MgYXQgbGVhc3QgaGF2ZSBjb25zaXN0ZW50LCB1
+bmFtYmlndW91cyB2YWx1ZXMgZm9yCj4+Pj50aGUgaWRzIHdoaWNoIGFyZSBub3QgYXBwbGljYWJs
+ZS4KPj5DdXJyZW50IGtlcm5lbCB3aWxsIG91dHB1dCBjb3JlIGlkIGJ5IC9wcm9jL2NwdWluZm8g
+aWYgYSBwaHlzaWNhbCBjcHUgaGFzIDIgdGhyZWFkcywgbm8gbWF0dGVyIGlmIGl0J3MgYSBtdWx0
+aS1jb3JlLCBvciBqdXN0IGEgbXVsdGktdGhyZWFkLgo+PlRvIGJlIGNvbnNpc3RlbnQgd2l0aCAv
+cHJvYy9jcHVpbmZvLCBJIHRoaW5rIHdlIG5lZWQgZXhwb3J0IGNvcmUgaWQgYW5kIGl0cyBkZWZh
+dWx0IHZhbHVlIGlzIDAuCj4+Cj4+Pj4KPj4+PjxzbmlwPgo+Pj4+PiArc3RhdGljIGludCBfX2Nw
+dWluaXQgdG9wb2xvZ3lfY3B1X2NhbGxiYWNrKHN0cnVjdCBub3RpZmllcl9ibG9jayAqbmZiLAo+
+Pj4+PiArCQl1bnNpZ25lZCBsb25nIGFjdGlvbiwgdm9pZCAqaGNwdSkKPj4+Pj4gK3sKPj4+Pj4g
+Kwl1bnNpZ25lZCBpbnQgY3B1ID0gKHVuc2lnbmVkIGxvbmcpaGNwdTsKPj4+Pj4gKwlzdHJ1Y3Qg
+c3lzX2RldmljZSAqc3lzX2RldjsKPj4+Pj4gKwo+Pj4+PiArCXN5c19kZXYgPSBnZXRfY3B1X3N5
+c2RldihjcHUpOwo+Pj4+PiArCXN3aXRjaCAoYWN0aW9uKSB7Cj4+Pj4+ICsJCWNhc2UgQ1BVX09O
+TElORToKPj4+Pj4gKwkJCXRvcG9sb2d5X2FkZF9kZXYoc3lzX2Rldik7Cj4+Pj4+ICsJCQlicmVh
+azsKPj4+Pj4gKwkJY2FzZSBDUFVfREVBRDoKPj4+Pj4gKwkJCXRvcG9sb2d5X3JlbW92ZV9kZXYo
+c3lzX2Rldik7Cj4+Pj4+ICsJCQlicmVhazsKPj4+Pj4gKwl9Cj4+Pj4+ICsJcmV0dXJuIE5PVElG
+WV9PSzsKPj4+Pj4gK30KPj4+Pgo+Pj4+SSBzdGlsbCBvcHBvc2UgdGhpcyBiaXQuICBJIHdhbnQg
+dGhlIGF0dHJpYnV0ZXMgdGhlcmUgZm9yIHBvd2VycGMgZXZlbgo+Pj4+Zm9yIG9mZmxpbmUgY3B1
+cyAtLSB0aGUgdG9wb2xvZ3kgaW5mb3JtYXRpb24gKGlmIG9idGFpbmFibGUsIHdoaWNoIGl0Cj4+
+Pj5pcyBvbiBwb3dlcnBjKSBpcyB1c2VmdWwgcmVnYXJkbGVzcyBvZiB0aGUgY3B1J3Mgb25saW5l
+IHN0YXRlLiAgVGhlCj4+Pj5hdHRyaWJ1dGVzIHNob3VsZCBhcHBlYXIgd2hlbiBhIGNwdSBpcyBt
+YWRlIHByZXNlbnQsIGFuZCBnbyBhd2F5IHdoZW4KPj4+PmEgY3B1IGlzIHJlbW92ZWQuCj4+QXMg
+bXkgcHJldmlvdXMgZW1haWwgc2F5cywgdGhlcmUgYXJlIGNvbmNlcm5zL2lzc3VlcyB0byBkbyBz
+by4gQSBjb21wcm9taXNlIGlzIHRoYXQgdGhlIHBhdGNoIGNvdWxkIHJlZ2lzdGVyIGEgc3lzZGV2
+IGRyaXZlci4gV2hlbiB0aGUKPj5jcHUgYmVjb21lcyBvZmZsaW5lIGZyb20gb25saW5lLCB3ZSBk
+b24ndCBkZWxldGUgdGhlIHRvcG9sb2d5IGtvYmouIFRoZSBjb21wcm9taXNlIGhhcyBhIGRlZmVj
+dC4gSWYgdGhlIGNwdSBpcyBuZXZlciBvbmxpbmUgc2luY2UgbWFjaGluZQo+PmJvb3RzLCB0aGUg
+dG9wb2xvZ3kgaW5mbyBvZiB0aGUgY3B1IGlzIGluY29ycmVjdC4KPj4KPj4+Pgo+Pj4+VGhpcyB3
+ZWVrIEknbGwgdHJ5IHRvIGRvIGFuIGltcGxlbWVudGF0aW9uIGZvciBwb3dlcnBjLgpOYXRoYW4s
+CgpJcyB5b3VyIGltcGxlbWVudGF0aW9uIGZvciBwb3dlcnBjIHJlYWR5PwoKQW5kcmV3LApDb3Vs
+ZCB0aGUgcGF0Y2ggb2YgdmVyc2lvbiAzIGJlIHB1dCBpbnRvIG1tIHRyZWUgZmlyc3RseT8KClRo
+YW5rcywKWWFubWluCgotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBs
+aW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8g
+bWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8v
+dmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
