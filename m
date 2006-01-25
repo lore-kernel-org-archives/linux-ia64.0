@@ -1,7 +1,7 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 25 Jan 2006 17:04:07 +0000
+Date: Wed, 25 Jan 2006 17:45:04 +0000
 Subject: RE: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <20060125104727.W16092@chenjesu.americas.sgi.com>
+Message-Id: <20060125113959.H16092@chenjesu.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -12,42 +12,35 @@ To: linux-ia64@vger.kernel.org
 
 On Wed, 25 Jan 2006, Chen, Kenneth W wrote:
 
-> This is the "what the heck is he talking about?" patch, on top of
-> "take 4" patch:
+> Thought everyone agreed to call the sync function with the new task context,
+> (after ia64_switch_to). Something changed which made you changed your mind?
 
-Thank you very much.  I get it now.
+Yeah.  I mentioned this in my other message, but I kept running into
+invalid accesses (and migration/swapper threads dying) in sn_migrate()
+when the sync was done after ia64_switch_to().  Any idea what I might
+be doing wrong?  Perhaps I need to call barrier() first?
 
-What I thought you meant was flipping a bit in locations such as
-migrate_task() to indicate that this task has migrated since it
-last ran.  That obviously requird a scheduler hook, and where
-I was running into a misunderstanding.  Thanks for clarifying it
-with code.
+> diff --git a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
+> > @@ -46,6 +47,7 @@ struct thread_info {
+> >  	.exec_domain	= &default_exec_domain,	\
+> >  	.flags		= 0,			\
+> >  	.cpu		= 0,			\
+> > +	.last_cpu	= 0,			\
+> >  	.addr_limit	= KERNEL_DS,		\
+> >  	.preempt_count	= 0,			\
+> >  	.restart_block = {			\
+> 
+> Looked spurious, init_task has static initializer, which will have zero
+> initial value automatically.
 
-A few questions:
+I was just following the existing mechanism in the code (obviously
+I'm not the only one to add "= 0" in here.
 
-> --- linus-2.6.git/include/asm-ia64/system.h.orig	2006-01-25 01:14:07.661605464 -0800
-> +++ linus-2.6.git/include/asm-ia64/system.h	2006-01-25 01:17:36.173321660 -0800
-> @@ -255,6 +244,8 @@ extern void ia64_load_extra (struct task
->  		__ia64_save_fpu((prev)->thread.fph);				\
->  	}									\
->  	__switch_to(prev, next, last);						\
-> +	if (unlikely((next)->thread.flags & IA64_THREAD_MIGRATION))		\
-> +		platform_migrate(next);						\
->  } while (0)
->  #else
->  # define switch_to(prev,next,last)	__switch_to(prev, next, last)
+I can submit a separate cleanup patch for this and quite a bit of other
+code if you'd like.  I've run into all sorts of 80-column/etc issues
+while working on this, but didn't want to mix cleanup with meatier
+changes.
 
-Would it be better to add this to the IA64_HAS_EXTRA_STATE() check,
-and move the call to platform_migrate() into ia64_load_extra()?  Or
-am I failing to take something into consideration?
-
-Also, yesterday when I moved the platform_migrate() call after
-__switch_task() (actually, after ia64_switch_to()) I would receive
-kernel panics during boot (the migration threads would die from an
-invalid access, swapper shortly thereafter, and finally a "soft lockup"
-on swapper).  Was I perhaps missing something?
-
-Thanks,
 Brent
 
 -- 
