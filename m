@@ -1,56 +1,53 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 18 Jan 2006 20:56:30 +0000
-Subject: 2.6.16-rc1 perfmon2 new code base with Montecito support + libpfm available
-Message-Id: <20060118205630.GC19020@frankl.hpl.hp.com>
+From: mita@miraclelinux.com (Akinobu Mita)
+Date: Thu, 26 Jan 2006 03:39:11 +0000
+Subject: [PATCH 12/12] generic minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+Message-Id: <20060126033910.GK11138@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
+In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, perfmon@napali.hpl.hp.com, perfctr-devel@lists.sourceforge.net
+To: Grant Grundler <iod00d@hp.com>
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Hello,
+This patch introduces the C-language equivalents of the functions below:
 
-I have released a new version of the perfmon base package.
-This release is relative to 2.6.16-rc1.
+HAVE_ARCH_MINIX_BITOPS is defined when the architecture has its own
+version of these functions.
 
-Due to the addition of the migrate_pages() system call, all perfmon
-system calls have been shifted by one. As a consequence, you must
-relink your applications using the new version of libpfm which
-is also released today: libpfm-3.2-060118.
+int minix_test_and_set_bit(int nr, volatile unsigned long *addr);
+int minix_set_bit(int nr, volatile unsigned long *addr);
+int minix_test_and_clear_bit(int nr, volatile unsigned long *addr);
+int minix_test_bit(int nr, const volatile unsigned long *addr);
+unsigned long minix_find_first_zero_bit(const unsigned long *addr,
+                                        unsigned long size);
 
-This new kernel patch includes several important changes:
+This code largely copied from:
+include/asm-sparc/bitops.h
 
-	- added support for the Dual-Core Itanium 2 (Montecito) processor
-
-	- working support for MIPS5K and MIPS20k (by Phil Mucci)
-
-	- lots of cleanups in the PMU description modules. Some common
-	  functionalities moved into core (masking of reserved fields)
-
-	- PFM_REGFL_NEMUL64 managed from perfmon core
-
-The new version of the library, libpfm, includes the following changes:
-
-	- added support for MIPS5K, MIPS20K
-
-	- added pfm_get_event_counter() interface with man page
-
-	- added support for compiling using a 32-bit ABI on a 64-bit OS
-	  (not available on all platforms, see config.mk)
-
-	- reworked all standalone examples
-
-	- cleanups and fixes in the generic examples
-
-The two packages can be downloaded from the SourceForge website at:
-
-	http://www.sf.net/projects/perfmon2
-
-I will be posting the patches directly to LKML for
-review very shortly.
-
-Enjoy,
-
--- 
--Stephane
+Index: 2.6-git/include/asm-generic/bitops.h
+=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
++++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
+@@ -667,6 +667,21 @@
+ 
+ #endif /* HAVE_ARCH_EXT2_ATOMIC_BITOPS */
+ 
++#ifndef HAVE_ARCH_MINIX_BITOPS
++
++#define minix_test_and_set_bit(nr,addr)	\
++	__test_and_set_bit((nr),(unsigned long *)(addr))
++#define minix_set_bit(nr,addr)		\
++	__set_bit((nr),(unsigned long *)(addr))
++#define minix_test_and_clear_bit(nr,addr) \
++	__test_and_clear_bit((nr),(unsigned long *)(addr))
++#define minix_test_bit(nr,addr)		\
++	test_bit((nr),(unsigned long *)(addr))
++#define minix_find_first_zero_bit(addr,size) \
++	find_first_zero_bit((unsigned long *)(addr),(size))
++
++#endif /* HAVE_ARCH_MINIX_BITOPS */
++
+ #endif /* __KERNEL__ */
+ 
+ #endif /* _ASM_GENERIC_BITOPS_H */
