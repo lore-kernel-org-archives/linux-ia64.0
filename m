@@ -1,61 +1,35 @@
-From: dann frazier <dannf@hp.com>
-Date: Sun, 22 Jan 2006 19:31:20 +0000
-Subject: Re: ip_contrack refuses to load if built UP as a module on IA64
-Message-Id: <1137958281.31860.5.camel@localhost>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 26 Jan 2006 04:24:33 +0000
+Subject: [patch] fix ia64_hint definition for intel compiler intrinsic
+Message-Id: <200601260424.k0Q4OXg05063@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0443A5FA@scsmsx401.amr.corp.intel.com>
-	 <ed5aea430508301229386fc596@mail.gmail.com>
-	 <17172.54563.329758.846131@wombat.chubb.wattle.id.au>
-	 <17174.35525.283392.703723@berry.gelato.unsw.EDU.AU>
-	 <1127426700.25159.63.camel@krebs.dannf>
-	 <20051219210750.GA15849@agluck-lia64.sc.intel.com>
-	 <1136928071.11049.19.camel@krebs.dannf>
-In-Reply-To: <1136928071.11049.19.camel@krebs.dannf>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, linux-ia64@vger.kernel.org, dmosberger@gmail.com, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Tue, 2006-01-10 at 14:21 -0700, dann frazier wrote:
-> On Mon, 2005-12-19 at 13:07 -0800, Luck, Tony wrote: 
-> > On Thu, Sep 22, 2005 at 04:04:59PM -0600, dann frazier wrote:
-> > > On Thu, 2005-09-01 at 14:59 +1000, Peter Chubb wrote:
-> > > > 
-> > > > This patch makes UP and SMP do the same thing as far as module per-cpu
-> > > > data go.
-> > > > 
-> > > > Unfortunately it affects core code.
-> > > 
-> > > It causes 2.6.13/x86 to fail to link:
-> > > kernel/built-in.o: In function `load_module':
-> > > : undefined reference to `percpu_modcopy'
-> > > make: *** [.tmp_vmlinux1] Error 1
-> > > 
-> > > fyi, this is a problem we're seeing in the Debian UP packages:
-> > >   http://bugs.debian.org/cgi-bin/bugreport.cgi?bug25070
-> > 
-> > Another possible solution is to make ia64 more like other
-> > architectures and make per-cpu variables just turn into
-> > ordinary variables on UP.  There are some pros and cons to
-> > this:
-> > 
-> > +) Being more like other architectures makes it less likely that
-> >    we'll be burned by changes in generic code/tools that depend
-> >    on implementation details
-> > 
-> > -) We probably get worse code to access per-cpu variables from
-> >    C-compiled code, and definitely get worse code in a couple of
-> >    critical paths in assembler (where an "addl" becomes a "movl")
-> > 
-> > Here's the patch ... lightly tested (just booted and checked that
-> > I could load the ip_conntrack module).
-> 
-> Thanks Tony; sorry for taking so long to test this.  I required an
-> additional change to discontig.c to get this to build w/ the Debian
-> config.  With this additional patch, a UP kernel boots fine on my
-> rx2600.
+Map ia64_hint() to internal intel compiler intrinsic.
 
-fyi, just noticed that the efivars module still doesn't load.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+---
+Compile tested on selective files.  icc 9.0 appears to have
+memory clobber behavior for the hint@pause intrinsic similar
+to gcc with "memory" clobber modifier. Your mileage may vary.
+
+
+--- ./include/asm-ia64/intel_intrin.h.orig	2006-01-25 17:40:12.468497883 -0800
++++ ./include/asm-ia64/intel_intrin.h	2006-01-25 21:04:41.921472582 -0800
+@@ -122,7 +122,8 @@ __s64 _m64_popcnt(__s64 a);
+ #define ia64_getreg		__getReg
+ #define ia64_setreg		__setReg
+ 
+-#define ia64_hint(x)
++#define ia64_hint		__hint
++#define ia64_hint_pause		0
+ 
+ #define ia64_mux1_brcst	 0
+ #define ia64_mux1_mix		 8
+
 
 
