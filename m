@@ -1,32 +1,29 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Sun, 15 Jan 2006 15:46:16 +0000
-Subject: Re: [linux-usb-devel] Re: [2.6 patch] remove unused tmp_buf_sem's
-Message-Id: <1137339976.2350.2.camel@localhost.localdomain>
+From: "Miller, Mike (OS Dev)" <Mike.Miller@hp.com>
+Date: Thu, 26 Jan 2006 17:14:22 +0000
+Subject: Problems with MSI-X on ia64
+Message-Id: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17348.61824.49889.569928@jaguar.mkp.net>
-	 <20060114020816.GW29663@stusta.de>  <20060114034903.GA23074@suse.de>
-In-Reply-To: <20060114034903.GA23074@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <gregkh@suse.de>
-Cc: Adrian Bunk <bunk@stusta.de>, Jes Sorensen <jes@trained-monkey.org>, torvalds@osdl.org, akpm@osdl.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-usb-devel@lists.sourceforge.net, R.E.Wolff@BitWizard.nl, paulus@samba.org, linuxppc-dev@ozlabs.org
+To: linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Gwe, 2006-01-13 at 19:49 -0800, Greg KH wrote:
-> On Sat, Jan 14, 2006 at 03:08:16AM +0100, Adrian Bunk wrote:
-> > <--  snip  -->
-> > 
-> > 
-> > tmp_buf_sem sems to be a common name for something completely unused...
+Hello,
+Has anyone tested MSI-X on ia64 based platforms? We're using a 2.6.9
+variant and a cciss driver with MSI/MSI-X support. The kernel has MSI
+enabled. On ia64 the MSI-X table is all zeroes. On Intel x86_64
+platforms the table contains valid data and everything works as
+expected.
 
+If I understand how this works the Linux kernel is supposed to program
+up the table based on the HW platform. I can't find anything in the ia64
+code that does this. For x86_64 and i386 it looks like the magic address
+is 
 
-That would be correct. The old tty driver layer used to call ->write
-from both kernel and user contexts according to a flag. Drivers then all
-ended up with the same code copying it into a tmp buffer and using a
-locking semaphore. 
+	#define APIC_DEFAULT_BASE	0xfee00000
 
-Linus took out that code and arranged that ->write always got a kernel
-buffer so the remainders should indeed go.
+Anybody know why this isn't defined for ia64? Any answers, input, or
+flames are appreciated.
 
-Alan
-
+Thanks,
+mikem
