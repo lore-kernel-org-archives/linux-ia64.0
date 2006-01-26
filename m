@@ -1,7 +1,7 @@
-From: Mark Maule <maule@sgi.com>
-Date: Thu, 26 Jan 2006 17:24:07 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 26 Jan 2006 20:24:47 +0000
 Subject: Re: Problems with MSI-X on ia64
-Message-Id: <20060126172407.GL17501@sgi.com>
+Message-Id: <20060126202447.GB15440@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
 In-Reply-To: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
@@ -11,25 +11,38 @@ Content-Transfer-Encoding: 7bit
 To: "Miller, Mike (OS Dev)" <Mike.Miller@hp.com>
 Cc: linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org
 
-I don't know what release added MSI to ia64, but as of 2.6.15 it was there.
-
-I recently submitted a series of patches that abstract portions of the MSI
-core so that it works on non-apic platforms, and did verify that MSI appeared
-to be working on an hp zx1 system with the infiniband driver.
-
-My patches have not made it to Linus yet, but they are present in the latest
-gregkh trees, and I believe the latest 2.6.16 -mm tree.
-
-Mark
-
 On Thu, Jan 26, 2006 at 11:14:22AM -0600, Miller, Mike (OS Dev) wrote:
 > Hello,
-> Has anyone tested MSI-X on ia64 based platforms? We're using a 2.6.9
-> variant and a cciss driver with MSI/MSI-X support. The kernel has MSI
-> enabled. On ia64 the MSI-X table is all zeroes. On Intel x86_64
-> platforms the table contains valid data and everything works as
-> expected.
-> 
+> Has anyone tested MSI-X on ia64 based platforms?
+
+IIRC, Martine Silberman did some of the developement for
+ia64 support. At least she provided the original documentation
+for 2.6.4 kernel. So this is mostly not new code.
+	http://www.ussg.iu.edu/hypermail/linux/kernel/0402.2/1543.html
+
+I've also posted 2.6.10 tg3 patch to enable MSI:
+        http://www.gelato.unsw.edu.au/archives/linux-ia64/0503/13332.html
+
+I've been using MSI-X on ia64 with OpenIB for over a year.
+My guess is that was also starting with 2.6.10.
+Here's current output with 2.6.15:
+grundler@gsyprf3:/usr/src/linux-2.6.15$ fgrep MSI /proc/interrupts 
+ 70: 1067582561          0       PCI-MSI-X  ib_mthca (comp)
+ 71:         10          0       PCI-MSI-X  ib_mthca (async)
+ 72:      41279          0       PCI-MSI-X  ib_mthca (cmd)
+
+
+> We're using a 2.6.9 variant and a cciss driver with MSI/MSI-X support.
+> The kernel has MSI enabled. On ia64 the MSI-X table is all zeroes.
+
+Could you post the debug output you've collected so far?
+
+> On Intel x86_64 platforms the table contains valid data and
+> everything works as expected.
+
+It should look similar for ia64 since both use 0xfeeXXXXX
+Processor Interrupt Block address and similar intr vectors.
+
 > If I understand how this works the Linux kernel is supposed to program
 > up the table based on the HW platform. I can't find anything in the ia64
 > code that does this. For x86_64 and i386 it looks like the magic address
@@ -39,10 +52,16 @@ On Thu, Jan 26, 2006 at 11:14:22AM -0600, Miller, Mike (OS Dev) wrote:
 > 
 > Anybody know why this isn't defined for ia64? Any answers, input, or
 > flames are appreciated.
-> 
-> Thanks,
-> mikem
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+APIC_DEAFULT_BASE isn't used.  See 
+
+fgrep MSI_ADDRESS_HEADER drivers/pci/*
+drivers/pci/msi.c:      dest_id = (MSI_ADDRESS_HEADER << MSI_ADDRESS_HEADER_SHIFT);
+drivers/pci/msi.h:#define MSI_ADDRESS_HEADER            0xfee
+drivers/pci/msi.h:#define MSI_ADDRESS_HEADER_SHIFT      12
+drivers/pci/msi.h:#define MSI_ADDRESS_HEADER_MASK       0xfff000
+
+This is one of the things that Mark Maule/SGI needs to change
+to support MSI on SN2.
+
+grant
