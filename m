@@ -1,32 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Thu, 26 Jan 2006 00:04:30 +0000
+From: mita@miraclelinux.com (Akinobu Mita)
+Date: Thu, 26 Jan 2006 03:50:04 +0000
 Subject: Re: [PATCH 5/6] fix warning on test_ti_thread_flag()
-Message-Id: <20060125.160430.94334986.davem@davemloft.net>
+Message-Id: <20060126035004.GA11543@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com>
-	<20060125113446.GF18584@miraclelinux.com>
-	<17367.64370.844350.972910@cargo.ozlabs.ibm.com>
-In-Reply-To: <17367.64370.844350.972910@cargo.ozlabs.ibm.com>
+References: <Pine.LNX.4.62.0601251814350.19174@pademelon.sonytel.be> <200601252002.k0PK2Mg31276@unix-os.sc.intel.com>
+In-Reply-To: <200601252002.k0PK2Mg31276@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: paulus@samba.org
-Cc: mita@miraclelinux.com, linux-kernel@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, spyro@f2s.com, dhowells@redhat.com, linuxppc-dev@ozlabs.org, gerg@uclinux.org, sparclinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, torvalds@osdl.org, ysato@users.sourceforge.jp, takata@linux-m32r.org, linuxsh-shmedia-dev@lists.sourceforge.net, linux-m68k@vger.kernel.org, ink@jurassic.park.msu.ru, rth@twiddle.net, chris@zankel.net, dev-etrax@axis.com, ultralinux@vger.kernel.org, ak@suse.de, linuxsh-dev@lists.sourceforge.net, linux390@de.ibm.com, rmk@arm.linux.org.uk, parisc-linux@parisc-linux.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: 'Geert Uytterhoeven' <geert@linux-m68k.org>, Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, parisc-linux@parisc-linux.org, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Andi Kleen <ak@suse.de>
 
-From: Paul Mackerras <paulus@samba.org>
-Date: Thu, 26 Jan 2006 09:28:02 +1100
-
-> Akinobu Mita writes:
-> 
-> > If the arechitecture is
-> > - BITS_PER_LONG = 64
-> > - struct thread_info.flag 32 is bits
-> > - second argument of test_bit() was void *
+On Wed, Jan 25, 2006 at 12:02:21PM -0800, Chen, Kenneth W wrote:
+> Geert Uytterhoeven wrote on Wednesday, January 25, 2006 9:19 AM
+> > > I don't think you need to change the flags size.
 > > 
-> > Then compiler print error message on test_ti_thread_flags()
-> > in include/linux/thread_info.h
+> > Passing a pointer to a 32-bit entity to a function that takes a
+> > pointer to a 64-bit entity is a classical endianness bug. So it's
+> > better to change it, before people copy the code to a big endian
+> > platform.
 > 
-> And correctly so.  The correct fix is to make thread_info.flag an
-> unsigned long.  This patch is NAKed.
+> Well, x86-64 and linux-ia64 both use little endian.  I don't
+> understand why you are barking at us with big endian issue.
+> 
 
-I agree.
+I can fix this without changing the flags size for those architectures.
+
+1. Introduce *_le_bit() bit operations which takes void *addr
+   (already I have these functions in the scope of
+    HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS in my patch)
+
+2. Change flags to __u8 flags[4] or __u8 flags[8] for each architectures.
+
+3. Use *_le_bit() in include/linux/thread_info.h
+
