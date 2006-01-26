@@ -1,12 +1,16 @@
 From: Mark Maule <maule@sgi.com>
-Date: Tue, 24 Jan 2006 20:09:04 +0000
+Date: Thu, 26 Jan 2006 20:46:39 +0000
 Subject: [PATCH] altix:  driver bugfixes and hardware workarounds for CE1.0 asic
-Message-Id: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
+Message-Id: <20060126204639.7488.16510.53667@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
+In-Reply-To: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+RESEND:  add in misc. cleanups suggested by Prarit
 
 Various bugfixes and hardware bug workarounds necessary for the rev 1.0 version
 of the altix TIO CE asic.
@@ -15,14 +19,16 @@ Signed-off-by: Mark Maule <maule@sgi.com>
 
 Index: ce/arch/ia64/sn/pci/tioce_provider.c
 =================================--- ce.orig/arch/ia64/sn/pci/tioce_provider.c	2006-01-20 09:37:22.575989625 -0600
-+++ ce/arch/ia64/sn/pci/tioce_provider.c	2006-01-20 15:53:56.638595795 -0600
-@@ -15,7 +15,117 @@
++++ ce/arch/ia64/sn/pci/tioce_provider.c	2006-01-26 14:41:38.442622922 -0600
+@@ -15,6 +15,124 @@
  #include <asm/sn/pcidev.h>
  #include <asm/sn/pcibus_provider_defs.h>
  #include <asm/sn/tioce_provider.h>
 +#include <asm/sn/sn2/sn_hwperf.h>
- 
++
 +/*
++ * 1/26/2006
++ *
 + * WAR for SGI PV 944642.  For revA TIOCE, need to use the following recipe
 + * (taken from the above PV) before and after accessing tioce internal MMR's
 + * to avoid tioce lockups.
@@ -101,40 +107,45 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
 +}
 +
 +/* load mmr contents into a variable */
-+#define tioce_mmr_load(kern, mmrp, varp) \
-+	{ tioce_mmr_war_pre(kern, mmrp); \
-+	  *(varp) = readq_relaxed(mmrp); \
-+	  tioce_mmr_war_post(kern, mmrp); }
++#define tioce_mmr_load(kern, mmrp, varp) do {\
++	tioce_mmr_war_pre(kern, mmrp); \
++	*(varp) = readq_relaxed(mmrp); \
++	tioce_mmr_war_post(kern, mmrp); \
++} while (0)
 +
 +/* store variable contents into mmr */
-+#define tioce_mmr_store(kern, mmrp, varp) \
-+	{ tioce_mmr_war_pre(kern, mmrp); \
-+	  writeq(*varp, mmrp); \
-+	  tioce_mmr_war_post(kern, mmrp); }
++#define tioce_mmr_store(kern, mmrp, varp) do {\
++	tioce_mmr_war_pre(kern, mmrp); \
++	writeq(*varp, mmrp); \
++	tioce_mmr_war_post(kern, mmrp); \
++} while (0)
 +
 +/* store immediate value into mmr */
-+#define tioce_mmr_storei(kern, mmrp, val) \
-+	{ tioce_mmr_war_pre(kern, mmrp); \
-+	  writeq(val, mmrp); \
-+	  tioce_mmr_war_post(kern, mmrp); }
++#define tioce_mmr_storei(kern, mmrp, val) do {\
++	tioce_mmr_war_pre(kern, mmrp); \
++	writeq(val, mmrp); \
++	tioce_mmr_war_post(kern, mmrp); \
++} while (0)
 +
 +/* set bits (immediate value) into mmr */
-+#define tioce_mmr_seti(kern, mmrp, bits) \
-+	{ u64 tmp; \
-+	  tioce_mmr_load(kern, mmrp, &tmp); \
-+	  tmp |= (bits); \
-+	  tioce_mmr_store(kern, mmrp, &tmp); }
++#define tioce_mmr_seti(kern, mmrp, bits) do {\
++	u64 tmp; \
++	tioce_mmr_load(kern, mmrp, &tmp); \
++	tmp |= (bits); \
++	tioce_mmr_store(kern, mmrp, &tmp); \
++} while (0)
 +
 +/* clear bits (immediate value) into mmr */
-+#define tioce_mmr_clri(kern, mmrp, bits) \
-+	{ u64 tmp; \
-+	  tioce_mmr_load(kern, mmrp, &tmp); \
-+	  tmp &= ~(bits); \
-+	  tioce_mmr_store(kern, mmrp, &tmp); }
++#define tioce_mmr_clri(kern, mmrp, bits) do { \
++	u64 tmp; \
++	tioce_mmr_load(kern, mmrp, &tmp); \
++	tmp &= ~(bits); \
++	tioce_mmr_store(kern, mmrp, &tmp); \
++} while (0)
+ 
  /**
   * Bus address ranges for the 5 flavors of TIOCE DMA
-  */
-@@ -62,9 +172,9 @@
+@@ -62,9 +180,9 @@
  #define TIOCE_ATE_M40	2
  #define TIOCE_ATE_M40S	3
  
@@ -147,7 +158,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  
  /**
   * tioce_dma_d64 - create a DMA mapping using 64-bit direct mode
-@@ -151,7 +261,7 @@
+@@ -151,7 +269,7 @@
  	int last;
  	int entries;
  	int nates;
@@ -156,7 +167,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	u64 *ate_shadow;
  	u64 *ate_reg;
  	u64 addr;
-@@ -228,7 +338,7 @@
+@@ -228,7 +346,7 @@
  
  		ate = ATE_MAKE(addr, pagesize);
  		ate_shadow[i + j] = ate;
@@ -165,27 +176,27 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  		addr += pagesize;
  	}
  
-@@ -272,7 +382,8 @@
+@@ -272,7 +390,8 @@
  		u64 tmp;
  
  		ce_kern->ce_port[port].dirmap_shadow = ct_upper;
 -		writeq(ct_upper, &ce_mmr->ce_ure_dir_map[port]);
-+		tioce_mmr_storei(ce_kern,
-+				 &ce_mmr->ce_ure_dir_map[port], ct_upper);
++		tioce_mmr_storei(ce_kern, &ce_mmr->ce_ure_dir_map[port],
++				 ct_upper);
  		tmp = ce_mmr->ce_ure_dir_map[port];
  		dma_ok = 1;
  	} else
-@@ -344,7 +455,8 @@
+@@ -344,7 +463,8 @@
  	if (TIOCE_D32_ADDR(bus_addr)) {
  		if (--ce_kern->ce_port[port].dirmap_refcnt = 0) {
  			ce_kern->ce_port[port].dirmap_shadow = 0;
 -			writeq(0, &ce_mmr->ce_ure_dir_map[port]);
-+			tioce_mmr_storei(ce_kern,
-+					 &ce_mmr->ce_ure_dir_map[port], 0);
++			tioce_mmr_storei(ce_kern, &ce_mmr->ce_ure_dir_map[port],
++					 0);
  		}
  	} else {
  		struct tioce_dmamap *map;
-@@ -365,7 +477,7 @@
+@@ -365,7 +485,7 @@
  		} else if (--map->refcnt = 0) {
  			for (i = 0; i < map->ate_count; i++) {
  				map->ate_shadow[i] = 0;
@@ -194,7 +205,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  			}
  
  			list_del(&map->ce_dmamap_list);
-@@ -486,7 +598,7 @@
+@@ -486,7 +606,7 @@
  	spin_unlock_irqrestore(&ce_kern->ce_lock, flags);
  
  dma_map_done:
@@ -203,7 +214,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  		mapaddr = tioce_dma_barrier(mapaddr, 1);
  
  	return mapaddr;
-@@ -541,17 +653,61 @@
+@@ -541,17 +661,61 @@
  			soft->ce_pcibus.bs_persist_segment,
  			soft->ce_pcibus.bs_persist_busnum, 0, 0, 0, 0, 0);
  
@@ -228,13 +239,13 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
 +	int ate_index, last_ate, ps;
 +	struct tioce *ce_mmr;
 +
-+	if (! TIOCE_M32_ADDR(base))
++	if (!TIOCE_M32_ADDR(base))
 +		return;
 +
 +	ce_mmr = (struct tioce *)ce_kern->ce_common->ce_pcibus.bs_base;
 +	ps = ce_kern->ce_ate3240_pagesize;
 +	ate_index = ATE_PAGE(base, ps);
-+	last_ate = ate_index + ATE_NPAGES(base, limit-base+1, ps) -1;
++	last_ate = ate_index + ATE_NPAGES(base, limit-base+1, ps) - 1;
 +
 +	if (ate_index < 64)
 +		ate_index = 64;
@@ -244,8 +255,8 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
 +
 +		ate = ATE_MAKE(0xdeadbeef, ps);
 +		ce_kern->ce_ate3240_shadow[ate_index] = ate;
-+		tioce_mmr_storei(ce_kern,
-+				 &ce_mmr->ce_ure_ate3240[ate_index], ate);
++		tioce_mmr_storei(ce_kern, &ce_mmr->ce_ure_ate3240[ate_index],
++				 ate);
 +		ate_index++;
 +	}
 +}
@@ -266,7 +277,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	struct tioce *tioce_mmr;
  	struct tioce_kernel *tioce_kern;
  
-@@ -572,9 +728,10 @@
+@@ -572,9 +736,10 @@
  	 * here to use pci_read_config_xxx() so use the raw_pci_ops vector.
  	 */
  
@@ -280,17 +291,17 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	tioce_kern->ce_port1_secondary = (u8) tmp;
  
  	/*
-@@ -583,18 +740,76 @@
+@@ -583,18 +748,76 @@
  	 */
  
  	tioce_mmr = (struct tioce *)tioce_common->ce_pcibus.bs_base;
 -	__sn_clrq_relaxed(&tioce_mmr->ce_ure_page_map, CE_URE_PAGESIZE_MASK);
 -	__sn_setq_relaxed(&tioce_mmr->ce_ure_page_map, CE_URE_256K_PAGESIZE);
 -	tioce_kern->ce_ate3240_pagesize = KB(256);
-+	tioce_mmr_clri(tioce_kern,
-+		       &tioce_mmr->ce_ure_page_map, CE_URE_PAGESIZE_MASK);
-+	tioce_mmr_seti(tioce_kern,
-+		       &tioce_mmr->ce_ure_page_map, CE_URE_256K_PAGESIZE);
++	tioce_mmr_clri(tioce_kern, &tioce_mmr->ce_ure_page_map,
++		       CE_URE_PAGESIZE_MASK);
++	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_ure_page_map,
++		       CE_URE_256K_PAGESIZE);
 +	ps = tioce_kern->ce_ate3240_pagesize = KB(256);
  
  	for (i = 0; i < TIOCE_NUM_M40_ATES; i++) {
@@ -362,7 +373,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	}
  
  	return tioce_kern;
-@@ -614,6 +829,7 @@
+@@ -614,6 +837,7 @@
  {
  	struct pcidev_info *pcidev_info;
  	struct tioce_common *ce_common;
@@ -370,7 +381,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	struct tioce *ce_mmr;
  	u64 force_int_val;
  
-@@ -629,6 +845,29 @@
+@@ -629,6 +853,29 @@
  
  	ce_common = (struct tioce_common *)pcidev_info->pdi_pcibus_info;
  	ce_mmr = (struct tioce *)ce_common->ce_pcibus.bs_base;
@@ -378,7 +389,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
 +
 +	/*
 +	 * TIOCE Rev A workaround (PV 945826), force an interrupt by writing
-+	 * the TIO_INTx register directly
++	 * the TIO_INTx register directly (1/26/2006)
 +	 */
 +	if (ce_common->ce_rev = TIOCE_REV_A) {
 +		u64 int_bit_mask = (1ULL << sn_irq_info->irq_int_bit);
@@ -400,7 +411,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  
  	/*
  	 * irq_int_bit is originally set up by prom, and holds the interrupt
-@@ -666,7 +905,7 @@
+@@ -666,7 +913,7 @@
  	default:
  		return;
  	}
@@ -409,7 +420,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  }
  
  /**
-@@ -685,6 +924,7 @@
+@@ -685,6 +932,7 @@
  {
  	struct pcidev_info *pcidev_info;
  	struct tioce_common *ce_common;
@@ -417,7 +428,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  	struct tioce *ce_mmr;
  	int bit;
  	u64 vector;
-@@ -695,14 +935,15 @@
+@@ -695,14 +943,15 @@
  
  	ce_common = (struct tioce_common *)pcidev_info->pdi_pcibus_info;
  	ce_mmr = (struct tioce *)ce_common->ce_pcibus.bs_base;
@@ -436,7 +447,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  
  	tioce_force_interrupt(sn_irq_info);
  }
-@@ -721,7 +962,11 @@
+@@ -721,7 +970,11 @@
  static void *
  tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *controller)
  {
@@ -448,7 +459,7 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
  
  	/*
  	 * Allocate kernel bus soft and copy from prom.
-@@ -734,11 +979,22 @@
+@@ -734,11 +987,23 @@
  	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
  	tioce_common->ce_pcibus.bs_base |= __IA64_UNCACHED_OFFSET;
  
@@ -466,13 +477,14 @@ Index: ce/arch/ia64/sn/pci/tioce_provider.c
 +
 +	tioce_mmr = (struct tioce *)tioce_common->ce_pcibus.bs_base;
 +	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_adm_int_status_alias, ~0ULL);
-+	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_adm_error_summary_alias, ~0ULL);
++	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_adm_error_summary_alias,
++		       ~0ULL);
 +	tioce_mmr_seti(tioce_kern, &tioce_mmr->ce_dre_comp_err_addr, ~0ULL);
 +
  	if (request_irq(SGI_PCIASIC_ERROR,
  			tioce_error_intr_handler,
  			SA_SHIRQ, "TIOCE error", (void *)tioce_common))
-@@ -750,6 +1006,21 @@
+@@ -750,6 +1015,21 @@
  		       tioce_common->ce_pcibus.bs_persist_segment,
  		       tioce_common->ce_pcibus.bs_persist_busnum);
  
@@ -513,7 +525,7 @@ Index: ce/include/asm-ia64/sn/addrs.h
  #endif /* _ASM_IA64_SN_ADDRS_H */
 Index: ce/include/asm-ia64/sn/tioce.h
 =================================--- ce.orig/include/asm-ia64/sn/tioce.h	2006-01-20 09:37:29.207176879 -0600
-+++ ce/include/asm-ia64/sn/tioce.h	2006-01-20 10:16:41.769974248 -0600
++++ ce/include/asm-ia64/sn/tioce.h	2006-01-26 14:43:43.542704107 -0600
 @@ -11,7 +11,7 @@
  
  /* CE ASIC part & mfgr information  */
@@ -538,23 +550,23 @@ Index: ce/include/asm-ia64/sn/tioce.h
  
 +/* ce_lsiX_gb_cfg1 register bit masks & shifts */
 +#define CE_LSI_GB_CFG1_RXL0S_THS_SHFT	0
-+#define CE_LSI_GB_CFG1_RXL0S_THS_MASK	(0xffULL << CE_LSI_GB_CFG1_RXL0S_THS_SHFT)
++#define CE_LSI_GB_CFG1_RXL0S_THS_MASK	(0xffULL << 0)
 +#define CE_LSI_GB_CFG1_RXL0S_SMP_SHFT	8
-+#define CE_LSI_GB_CFG1_RXL0S_SMP_MASK	(0xfULL << CE_LSI_GB_CFG1_RXL0S_SMP_SHFT);
++#define CE_LSI_GB_CFG1_RXL0S_SMP_MASK	(0xfULL << 8);
 +#define CE_LSI_GB_CFG1_RXL0S_ADJ_SHFT	12
-+#define CE_LSI_GB_CFG1_RXL0S_ADJ_MASK	(0x7ULL << CE_LSI_GB_CFG1_RXL0S_ADJ_SHFT)
++#define CE_LSI_GB_CFG1_RXL0S_ADJ_MASK	(0x7ULL << 12)
 +#define CE_LSI_GB_CFG1_RXL0S_FLT_SHFT	15
-+#define CE_LSI_GB_CFG1_RXL0S_FLT_MASK	(0x1ULL << CE_LSI_GB_CFG1_RXL0S_FLT_SHFT)
++#define CE_LSI_GB_CFG1_RXL0S_FLT_MASK	(0x1ULL << 15)
 +#define CE_LSI_GB_CFG1_LPBK_SEL_SHFT	16
-+#define CE_LSI_GB_CFG1_LPBK_SEL_MASK	(0x3ULL << CE_LSI_GB_CFG1_LPBK_SEL_SHFT)
++#define CE_LSI_GB_CFG1_LPBK_SEL_MASK	(0x3ULL << 16)
 +#define CE_LSI_GB_CFG1_LPBK_EN_SHFT	18
-+#define CE_LSI_GB_CFG1_LPBK_EN_MASK	(0x1ULL << CE_LSI_GB_CFG1_LPBK_EN_SHFT)
++#define CE_LSI_GB_CFG1_LPBK_EN_MASK	(0x1ULL << 18)
 +#define CE_LSI_GB_CFG1_RVRS_LB_SHFT	19
-+#define CE_LSI_GB_CFG1_RVRS_LB_MASK	(0x1ULL << CE_LSI_GB_CFG1_RVRS_LB_SHFT)
++#define CE_LSI_GB_CFG1_RVRS_LB_MASK	(0x1ULL << 19)
 +#define CE_LSI_GB_CFG1_RVRS_CLK_SHFT	20
-+#define CE_LSI_GB_CFG1_RVRS_CLK_MASK	(0x3ULL << CE_LSI_GB_CFG1_RVRS_CLK_SHFT)
++#define CE_LSI_GB_CFG1_RVRS_CLK_MASK	(0x3ULL << 20)
 +#define CE_LSI_GB_CFG1_SLF_TS_SHFT	24
-+#define CE_LSI_GB_CFG1_SLF_TS_MASK	(0xfULL << CE_LSI_GB_CFG1_SLF_TS_SHFT)
++#define CE_LSI_GB_CFG1_SLF_TS_MASK	(0xfULL << 24)
  
  /* ce_adm_int_mask/ce_adm_int_status register bit defines */
  #define CE_ADM_INT_CE_ERROR_SHFT		0
