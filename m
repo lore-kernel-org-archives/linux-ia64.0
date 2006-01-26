@@ -1,48 +1,56 @@
-From: "Xu, Anthony" <anthony.xu@intel.com>
-Date: Mon, 09 Jan 2006 02:36:35 +0000
-Subject: [linux-ia64][PATCH] pal cache flush patch
-Message-Id: <2BF508F394C196468CCBEC031320DCDF380888@pdsmsx405>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C614C5.82913B0C"
+From: mita@miraclelinux.com (Akinobu Mita)
+Date: Thu, 26 Jan 2006 03:38:41 +0000
+Subject: [PATCH 11/12] generic ext2_{set,clear}_bit_atomic()
+Message-Id: <20060126033840.GJ11138@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
+In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Grant Grundler <iod00d@hp.com>
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+This patch introduces the C-language equivalents of the functions below:
+int ext2_set_bit_atomic(int nr, volatile unsigned long *addr);
+int ext2_clear_bit_atomic(int nr, volatile unsigned long *addr);
 
-------_=_NextPart_001_01C614C5.82913B0C
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+HAVE_ARCH_EXT2_ATOMIC_BITOPS is defined when the architecture has its
+own
+version of these functions.
 
-Hi all,
+This code largely copied from:
+include/asm-sparc/bitops.h
 
-Because PAL spec has changed since 2002, you can goto
-http://developer.intel.com/design/itanium/manuals/iiasdmanual.htm to
-download new SDM, all PAL calls should be invoked with psr.ic=3D1, and
-it's caller's responsibility to handle possible tlb miss.
-Ia64_pal_cache_flush was written according to old spec, it is obsolete,
-and this patch has ia64_pal_cache_flush conform to new spec.
-
-Signed-off-by Anthony Xu <anthony.xu@intel.com>
-
-------_=_NextPart_001_01C614C5.82913B0C
-Content-Type: application/octet-stream;
-	name="ia64_pal_cache_flush.patch"
-Content-Transfer-Encoding: base64
-Content-Description: ia64_pal_cache_flush.patch
-Content-Disposition: attachment;
-	filename="ia64_pal_cache_flush.patch"
-
-ZGlmZiAtcnVOIGxpbnV4LTIuNi4xNS9pbmNsdWRlL2FzbS1pYTY0L3BhbC5oIGxpbnV4LTIuNi4x
-NS5uZXcvaW5jbHVkZS9hc20taWE2NC9wYWwuaAotLS0gbGludXgtMi42LjE1L2luY2x1ZGUvYXNt
-LWlhNjQvcGFsLmgJMjAwNi0wMS0wMyAxMToyMToxMC4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4
-LTIuNi4xNS5uZXcvaW5jbHVkZS9hc20taWE2NC9wYWwuaAkyMDA2LTAxLTA5IDA5OjU2OjE4LjAw
-MDAwMDAwMCArMDgwMApAQCAtOTI3LDcgKzkyNyw3IEBACiBpYTY0X3BhbF9jYWNoZV9mbHVzaCAo
-dTY0IGNhY2hlX3R5cGUsIHU2NCBpbnZhbGlkYXRlLCB1NjQgKnByb2dyZXNzLCB1NjQgKnZlY3Rv
-cikKIHsKIAlzdHJ1Y3QgaWE2NF9wYWxfcmV0dmFsIGlwcnY7Ci0JUEFMX0NBTExfSUNfT0ZGKGlw
-cnYsIFBBTF9DQUNIRV9GTFVTSCwgY2FjaGVfdHlwZSwgaW52YWxpZGF0ZSwgKnByb2dyZXNzKTsK
-KwlQQUxfQ0FMTChpcHJ2LCBQQUxfQ0FDSEVfRkxVU0gsIGNhY2hlX3R5cGUsIGludmFsaWRhdGUs
-ICpwcm9ncmVzcyk7CiAJaWYgKHZlY3RvcikKIAkJKnZlY3RvciA9IGlwcnYudjA7CiAJKnByb2dy
-ZXNzID0gaXBydi52MTsK
-
-------_=_NextPart_001_01C614C5.82913B0C--
+Index: 2.6-git/include/asm-generic/bitops.h
+=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:11.000000000 +0900
++++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
+@@ -645,6 +645,28 @@
+ 
+ #endif /* HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS */
+ 
++#ifndef HAVE_ARCH_EXT2_ATOMIC_BITOPS
++
++#define ext2_set_bit_atomic(lock, nr, addr)		\
++	({						\
++		int ret;				\
++		spin_lock(lock);			\
++		ret = ext2_set_bit((nr), (unsigned long *)(addr)); \
++		spin_unlock(lock);			\
++		ret;					\
++	})
++
++#define ext2_clear_bit_atomic(lock, nr, addr)		\
++	({						\
++		int ret;				\
++		spin_lock(lock);			\
++		ret = ext2_clear_bit((nr), (unsigned long *)(addr)); \
++		spin_unlock(lock);			\
++		ret;					\
++	})
++
++#endif /* HAVE_ARCH_EXT2_ATOMIC_BITOPS */
++
+ #endif /* __KERNEL__ */
+ 
+ #endif /* _ASM_GENERIC_BITOPS_H */
