@@ -1,167 +1,138 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 17 Jan 2006 17:24:39 +0000
-Subject: [patch] sem2mutex ioc4.c
-Message-Id: <yq0mzhurcmg.fsf@jaguar.mkp.net>
+From: mita@miraclelinux.com (Akinobu Mita)
+Date: Thu, 26 Jan 2006 03:33:20 +0000
+Subject: [PATCH 5/12] generic find_{next,first}{,_zero}_bit()
+Message-Id: <20060126033320.GD11138@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
+In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Brent Casavant <bcasavan@sgi.com>
+To: Grant Grundler <iod00d@hp.com>
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Hi,
+This patch introduces the C-language equivalents of the functions below:
 
-Another simple sem2mutex conversion.
+unsigned logn find_next_bit(const unsigned long *addr, unsigned long
+size,
+                            unsigned long offset);
+unsigned long find_next_zero_bit(const unsigned long *addr, unsigned
+long size,
+                                 unsigned long offset);
+unsigned long find_first_zero_bit(const unsigned long *addr,
+                                  unsigned long size);
+unsigned long find_first_bit(const unsigned long *addr, unsigned long
+size);
 
-Cheers,
-Jes
+HAVE_ARCH_FIND_BITOPS is defined when the architecture has its own
+version of these functions.
+
+This code largely copied from:
+arch/powerpc/lib/bitops.c
 
 
-Convert to use a single mutex instead of two rwsems as this isn't
-performance critical.
-
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-Signed-off-by: Brent Casavant <bcasavan@sgi.com>
-
-----
-
- drivers/sn/ioc4.c |   41 ++++++++++++++++++-----------------------
- 1 files changed, 18 insertions(+), 23 deletions(-)
-
-Index: linux-2.6.15-quilt/drivers/sn/ioc4.c
-=================================--- linux-2.6.15-quilt.orig/drivers/sn/ioc4.c
-+++ linux-2.6.15-quilt/drivers/sn/ioc4.c
-@@ -31,7 +31,7 @@
- #include <linux/ioc4.h>
- #include <linux/mmtimer.h>
- #include <linux/rtc.h>
--#include <linux/rwsem.h>
-+#include <linux/mutex.h>
- #include <asm/sn/addrs.h>
- #include <asm/sn/clksupport.h>
- #include <asm/sn/shub_mmr.h>
-@@ -54,11 +54,10 @@
-  * Submodule management *
-  ************************/
+Index: 2.6-git/include/asm-generic/bitops.h
+=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
++++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
+@@ -286,6 +286,101 @@
  
--static LIST_HEAD(ioc4_devices);
--static DECLARE_RWSEM(ioc4_devices_rwsem);
-+static DEFINE_MUTEX(ioc4_mutex);
+ #endif /* HAVE_ARCH_FLS64_BITOPS */
  
-+static LIST_HEAD(ioc4_devices);
- static LIST_HEAD(ioc4_submodules);
--static DECLARE_RWSEM(ioc4_submodules_rwsem);
- 
- /* Register an IOC4 submodule */
- int
-@@ -66,15 +65,13 @@
- {
- 	struct ioc4_driver_data *idd;
- 
--	down_write(&ioc4_submodules_rwsem);
-+	mutex_lock(&ioc4_mutex);
- 	list_add(&is->is_list, &ioc4_submodules);
--	up_write(&ioc4_submodules_rwsem);
- 
- 	/* Initialize submodule for each IOC4 */
- 	if (!is->is_probe)
--		return 0;
-+		goto out;
- 
--	down_read(&ioc4_devices_rwsem);
- 	list_for_each_entry(idd, &ioc4_devices, idd_list) {
- 		if (is->is_probe(idd)) {
- 			printk(KERN_WARNING
-@@ -84,8 +81,8 @@
- 			       pci_name(idd->idd_pdev));
- 		}
- 	}
--	up_read(&ioc4_devices_rwsem);
--
-+ out:
-+	mutex_unlock(&ioc4_mutex);
- 	return 0;
- }
- 
-@@ -95,15 +92,13 @@
- {
- 	struct ioc4_driver_data *idd;
- 
--	down_write(&ioc4_submodules_rwsem);
-+	mutex_lock(&ioc4_mutex);
- 	list_del(&is->is_list);
--	up_write(&ioc4_submodules_rwsem);
- 
- 	/* Remove submodule for each IOC4 */
- 	if (!is->is_remove)
--		return;
-+		goto out;
- 
--	down_read(&ioc4_devices_rwsem);
- 	list_for_each_entry(idd, &ioc4_devices, idd_list) {
- 		if (is->is_remove(idd)) {
- 			printk(KERN_WARNING
-@@ -113,7 +108,8 @@
- 			       pci_name(idd->idd_pdev));
- 		}
- 	}
--	up_read(&ioc4_devices_rwsem);
-+ out:
-+	mutex_unlock(&ioc4_mutex);
- }
- 
- /*********************
-@@ -312,12 +308,11 @@
- 	/* Track PCI-device specific data */
- 	idd->idd_serial_data = NULL;
- 	pci_set_drvdata(idd->idd_pdev, idd);
--	down_write(&ioc4_devices_rwsem);
++#ifndef HAVE_ARCH_FIND_BITOPS
 +
-+	mutex_lock(&ioc4_mutex);
- 	list_add(&idd->idd_list, &ioc4_devices);
--	up_write(&ioc4_devices_rwsem);
++/**
++ * find_next_bit - find the next set bit in a memory region
++ * @addr: The address to base the search on
++ * @offset: The bitnumber to start searching at
++ * @size: The maximum size to search
++ */
++static inline unsigned long find_next_bit(const unsigned long *addr,
++				unsigned long size, unsigned long offset)
++{
++	const unsigned long *p = addr + BITOP_WORD(offset);
++	unsigned long result = offset & ~(BITS_PER_LONG-1);
++	unsigned long tmp;
++
++	if (offset >= size)
++		return size;
++	size -= result;
++	offset %= BITS_PER_LONG;
++	if (offset) {
++		tmp = *(p++);
++		tmp &= (~0UL << offset);
++		if (size < BITS_PER_LONG)
++			goto found_first;
++		if (tmp)
++			goto found_middle;
++		size -= BITS_PER_LONG;
++		result += BITS_PER_LONG;
++	}
++	while (size & ~(BITS_PER_LONG-1)) {
++		if ((tmp = *(p++)))
++			goto found_middle;
++		result += BITS_PER_LONG;
++		size -= BITS_PER_LONG;
++	}
++	if (!size)
++		return result;
++	tmp = *p;
++
++found_first:
++	tmp &= (~0UL >> (BITS_PER_LONG - size));
++	if (tmp = 0UL)		/* Are any bits set? */
++		return result + size;	/* Nope. */
++found_middle:
++	return result + __ffs(tmp);
++}
++
++/*
++ * This implementation of find_{first,next}_zero_bit was stolen from
++ * Linus' asm-alpha/bitops.h.
++ */
++static inline unsigned long find_next_zero_bit(const unsigned long *addr,
++				unsigned long size, unsigned long offset)
++{
++	const unsigned long *p = addr + BITOP_WORD(offset);
++	unsigned long result = offset & ~(BITS_PER_LONG-1);
++	unsigned long tmp;
++
++	if (offset >= size)
++		return size;
++	size -= result;
++	offset %= BITS_PER_LONG;
++	if (offset) {
++		tmp = *(p++);
++		tmp |= ~0UL >> (BITS_PER_LONG - offset);
++		if (size < BITS_PER_LONG)
++			goto found_first;
++		if (~tmp)
++			goto found_middle;
++		size -= BITS_PER_LONG;
++		result += BITS_PER_LONG;
++	}
++	while (size & ~(BITS_PER_LONG-1)) {
++		if (~(tmp = *(p++)))
++			goto found_middle;
++		result += BITS_PER_LONG;
++		size -= BITS_PER_LONG;
++	}
++	if (!size)
++		return result;
++	tmp = *p;
++
++found_first:
++	tmp |= ~0UL << size;
++	if (tmp = ~0UL)	/* Are any bits zero? */
++		return result + size;	/* Nope. */
++found_middle:
++	return result + ffz(tmp);
++}
++
++#define find_first_zero_bit(addr, size) find_next_zero_bit((addr), (size), 0)
++#define find_first_bit(addr, size) find_next_bit((addr), (size), 0)
++
++#endif /* HAVE_ARCH_FIND_BITOPS */
++
+ #ifdef __KERNEL__
  
- 	/* Add this IOC4 to all submodules */
--	down_read(&ioc4_submodules_rwsem);
- 	list_for_each_entry(is, &ioc4_submodules, is_list) {
- 		if (is->is_probe && is->is_probe(idd)) {
- 			printk(KERN_WARNING
-@@ -327,7 +322,7 @@
- 			       pci_name(idd->idd_pdev));
- 		}
- 	}
--	up_read(&ioc4_submodules_rwsem);
-+	mutex_unlock(&ioc4_mutex);
- 
- 	return 0;
- 
-@@ -351,7 +346,7 @@
- 	idd = pci_get_drvdata(pdev);
- 
- 	/* Remove this IOC4 from all submodules */
--	down_read(&ioc4_submodules_rwsem);
-+	mutex_lock(&ioc4_mutex);
- 	list_for_each_entry(is, &ioc4_submodules, is_list) {
- 		if (is->is_remove && is->is_remove(idd)) {
- 			printk(KERN_WARNING
-@@ -361,7 +356,7 @@
- 			       pci_name(idd->idd_pdev));
- 		}
- 	}
--	up_read(&ioc4_submodules_rwsem);
-+	mutex_unlock(&ioc4_mutex);
- 
- 	/* Release resources */
- 	iounmap(idd->idd_misc_regs);
-@@ -377,9 +372,9 @@
- 	pci_disable_device(pdev);
- 
- 	/* Remove and free driver data */
--	down_write(&ioc4_devices_rwsem);
-+	mutex_lock(&ioc4_mutex);
- 	list_del(&idd->idd_list);
--	up_write(&ioc4_devices_rwsem);
-+	mutex_unlock(&ioc4_mutex);
- 	kfree(idd);
- }
- 
+ /*
