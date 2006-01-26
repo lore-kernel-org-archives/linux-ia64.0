@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 26 Jan 2006 02:43:56 +0000
-Subject: Re: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <5020.1138243436@ocs3.ocs.com.au>
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Thu, 26 Jan 2006 04:40:25 +0000
+Subject: RE: [PATCH] SN2 user-MMIO CPU migration
+Message-Id: <20060125223745.Y28863@chenjesu.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
@@ -10,38 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Brent Casavant (on Wed, 25 Jan 2006 11:48:57 -0600 (CST)) wrote:
->On Wed, 25 Jan 2006, Keith Owens wrote:
->
->> Brent Casavant (on Tue, 24 Jan 2006 15:12:48 -0600 (CST)) wrote:
->> >+void sn_switch_from(struct task_struct *task)
->> >+{
->> >+	pda_t *last_pda = pdacpu(task_thread_info(task)->last_cpu);
->> >+	volatile unsigned long *adr = last_pda->pio_write_status_addr;
->> >+	unsigned long val = last_pda->pio_write_status_val;
->> >+
->> >+	/* Drain PIO writes from old CPU's Shub */
->> >+	while ((*adr & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK) != val)
->> >+		cpu_relax();
->> >+}
->> 
->> cpu_relax() maps to ia64_hint(ia64_hint_pause) which is defined as a
->> memory clobber, so you do not need to mark adr as volatile.  Linus
->> recommends against relying on volatile in C code, memory barrier
->> operations like cpu_relax should be used instead.
->
->Hmm.  Does that mean that the SN mmiowb() implementation is incorrect
->as well?  Because this was pretty much a cut-n-paste job from there.
+On Wed, 25 Jan 2006, Luck, Tony wrote:
 
-Yes.
+> says that the changelog comes first, and the random commentary
+> comes after the "---" line (see paragraph "g").  You have this
+> backwards, so git attempted to use the wrong bit of text as the
+> changelog.
 
->I can probably fix that (mmiowb()) in the near future, as there's
->some upcoming work needed in that area.
->
->> Alas include/asm-ia64/intel_intrin.h defines ia64_hint() as a no-op.
->
->Err, so we should hold off on fixing this plus mmiowb() until the
->intrinsic is fixed, correct?
+Sorry about that.
 
-Yes.
+> > Signed-off-by: Brent Casavant <bcasavan@sgi.com>
+> > Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> > Signed-off-by: Brent Casavant <bcasavan@sgi.com>
+> 
+> Perhaps a little presumptious to assume that Ken is ok with
+> the combined version of his part of this patch (ok, I checked
+> with Ken, and as it happens he is ok with it).  One signoff from
+> you would be sufficient.
 
+Sorry.  Wasn't sure how to handle the "I got part of this from
+so-and-so, but hacked on it myself, and here's the new version".
+No offense or presumption intended.
+
+I get a new patch fired off in the morning (at home right now,
+pain to edit things remotely).
+
+Brent
+
+-- 
+Brent Casavant                          All music is folk music.  I ain't
+bcasavan@sgi.com                        never heard a horse sing a song.
+Silicon Graphics, Inc.                    -- Louis Armstrong
