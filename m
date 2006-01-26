@@ -1,129 +1,374 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Sat, 07 Jan 2006 02:50:38 +0000
-Subject: Re: [PATCH] Simple memory hot-add for ia64.
-Message-Id: <20060107114233.120C.Y-GOTO@jp.fujitsu.com>
+From: mita@miraclelinux.com (Akinobu Mita)
+Date: Thu, 26 Jan 2006 01:49:34 +0000
+Subject: Re: [PATCH 4/6] use include/asm-generic/bitops for each architecture
+Message-Id: <20060126014934.GA6648@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060106114249.5649.Y-GOTO@jp.fujitsu.com> <1136575296.8189.25.camel@localhost.localdomain>
-In-Reply-To: <1136575296.8189.25.camel@localhost.localdomain>
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113336.GE18584@miraclelinux.com>
+In-Reply-To: <20060125113336.GE18584@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
-Cc: Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Bob Picco <bob.picco@hp.com>, Mike Kravetz <kravetz@us.ibm.com>
+To: linux-kernel@vger.kernel.org
+Cc: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>
 
-> On Fri, 2006-01-06 at 11:50 +0900, Yasunori Goto wrote:
-> > Fortunately, 2.6.15 includes memory hot-add function for i386 and ppc.
-> > So, I made a patch for ia64.
-> > This doesn't make new pgdat. All of new memory will belong to
-> > node 0 by this patch. But this is simplest first step and best start for
-> > future work.
+On Wed, Jan 25, 2006 at 08:33:37PM +0900, mita wrote:
+> compile test on i386, x86_64, ppc, sparc, sparc64, alpha
+> boot test on i386, x86_64, ppc
 > 
-> It does look quite simple.  Nice work.
-> 
-> > +#ifdef CONFIG_MEMORY_HOTPLUG
-> > +void online_page(struct page *page)
-> > +{
-> > +	ClearPageReserved(page);
-> > +	set_page_count(page, 1);
-> > +	__free_page(page);
-> > +	totalram_pages++;
-> > +	num_physpages++;
-> > +}
-> 
-> You're the first one to get one of these in for an alternate
-> architecture.  We'll need to keep an eye out so that one of these
-> doesn't pop up on each of the 64-bit arches with no highmem as we add
-> support.  But, this should be just fine for now. 
-> 
-> > +int add_memory(u64 start, u64 size)
-> > +{
-> > +	pg_data_t *pgdat;
-> > +	struct zone *zone;
-> > +	unsigned long start_pfn = start >> PAGE_SHIFT;
-> > +	unsigned long nr_pages = size >> PAGE_SHIFT;
-> > +	int ret;
-> > +
-> > +	pgdat = NODE_DATA(0);
-> > +
-> > +	zone = pgdat->node_zones + ZONE_NORMAL;
-> > +	ret = __add_pages(zone, start_pfn, nr_pages);
-> > +
-> > +	if (ret)
-> > +		printk("%s: Problem encountered in __add_pages() as ret=%d\n", __func__,  ret);
-> 
-> For some reason, I thought we were officially supposed to use
-> __FUNCTION__ for stuff like this.  However, I am usually lazy in my
-> debugging patches and use __func__.  I'm a bad example.
 
-I didn't know it. Thanks!
+I have fogotten attaching the changes for each archtecture.
 
-> This also looks a bit past 80 columns.
+o alpha
 
-Ok. This is newer one. :-)
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- define HAVE_ARCH_FFS_BITOPS
 
-Bye.
+- if defined(__alpha_cix__) and defined(__alpha_fix__)
+  - define HAVE_ARCH_FLS_BITOPS
+  - define HAVE_ARCH_HWEIGHT_BITOPS
+  - define HAVE_ARCH_HWEIGHT64_BITOPS
+- else
+  - remove fls()
+  - remove hweight64()
+  - remove hweight{32,16,8}()
 
-------------------
+- remove fls64()
+- remove find_{next,first}{,_zero}_bit()
+- define HAVE_ARCH_SCHED_BITOPS
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
 
-Fortunately, 2.6.15 includes memory hot-add function for i386 and ppc.
-So, I made a patch for ia64.
-This doesn't make new pgdat. All of new memory will belong to
-node 0 by this patch. But this is simplest first step and best start for
-future work.
+o arm
 
-I tested on my Tiger4. Please apply.
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
 
-(This patch doesn't use ZONE_EASY_RECLAIM yet, because its zone will be useful
- for just hot-remove.)
+- if __LINUX_ARM_ARCH__ < 5
+  - remove ffz()
+  - remove __ffs()
+  - remove fls()
+  - remove ffs()
+- else (__LINUX_ARM_ARCH__ >= 5)
+  - define HAVE_ARCH_FLS_BITOPS
+  - define HAVE_ARCH_FFS_BITOPS
+  - define HAVE_ARCH___FFS_BITOPS
+  - define HAVE_ARCH_FFZ_BITOPS
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+- remove fls64()
+- remove hweight64()
+- remove hweight{32,16,8}()
+- remove sched_find_first_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove HAVE_ARCH_MINIX_BITOPS
 
+o arm26
 
-Index: new_feature_patch/arch/ia64/mm/init.c
-=================================--- new_feature_patch.orig/arch/ia64/mm/init.c	2006-01-07 10:58:27.000000000 +0900
-+++ new_feature_patch/arch/ia64/mm/init.c	2006-01-07 10:59:52.000000000 +0900
-@@ -635,3 +635,39 @@ mem_init (void)
- 	ia32_mem_init();
- #endif
- }
-+
-+#ifdef CONFIG_MEMORY_HOTPLUG
-+void online_page(struct page *page)
-+{
-+	ClearPageReserved(page);
-+	set_page_count(page, 1);
-+	__free_page(page);
-+	totalram_pages++;
-+	num_physpages++;
-+}
-+
-+int add_memory(u64 start, u64 size)
-+{
-+	pg_data_t *pgdat;
-+	struct zone *zone;
-+	unsigned long start_pfn = start >> PAGE_SHIFT;
-+	unsigned long nr_pages = size >> PAGE_SHIFT;
-+	int ret;
-+
-+	pgdat = NODE_DATA(0);
-+
-+	zone = pgdat->node_zones + ZONE_NORMAL;
-+	ret = __add_pages(zone, start_pfn, nr_pages);
-+
-+	if (ret)
-+		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
-+		       __FUNCTION__,  ret);
-+
-+	return ret;
-+}
-+
-+int remove_memory(u64 start, u64 size)
-+{
-+	return -EINVAL;
-+}
-+#endif
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- remove ffz()
+- remove __ffs()
+- remove fls()
+- remove fls64()
+- remove ffs()
+- remove sched_find_first_bit()
+- remove hweight{32,16,8}()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- define HAVE_MINIX_BITOPS
 
--- 
-Yasunori Goto 
+o cris
 
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- remove fls()
+- remove fls64()
+- remove hweight{32,16,8}()
+- remove find_{next,first}{,_zero}_bit()
+- define HAVE_ARCH_FFS_BITOPS
+- remove sched_find_first_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o frv
+
+- remove ffz()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- remove find_{next,first}{,_zero}_bit()
+- remove ffs()
+- remove __ffs()
+- remove fls64()
+- remove sched_find_first_bit()
+- remove hweight{32,16,8}()
+- define HAVE_ARCH_FLS_BITOPS
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- define HAVE_ARCH_MINIX_BITOPS
+
+o h8300
+
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- remove ffs()
+- remove find_{next,first}{,_zero}_bit()
+- remove sched_find_first_bit()
+- remove hweight{32,16,8}()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- define HAVE_ARCH___FFS_BITOPS
+- remove fls()
+- remove fls64()
+
+o i386
+
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- remove fls64()
+- remove sched_find_first_bit()
+- define HAVE_ARCH_FFS_BITOPS
+- remove hweight{32,16,8}()
+- define HAVE_ARCH_FLS_BITOPS
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o ia64
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- remove fls64()
+- define HAVE_ARCH_FLS_BITOPS
+- define HAVE_ARCH_FFS_BITOPS
+- define HAVE_ARCH_HWEIGHT_BITOPS
+- define HAVE_ARCH_HWEIGHT64_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove sched_find_first_bit()
+
+o m32r
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- remove ffz()
+- remove find_{next,first}{,_zero}_bit()
+- remove __ffs()
+- remove fls()
+- remove fls64()
+- remove sched_find_first_bit()
+- remove ffs()
+- remove hweight()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+
+o m68k
+
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH_FFS_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- remove fls64()
+- remove sched_find_first_bit()
+- remove ffs()
+- remove hweight()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_MINIX_BITOPS
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+
+o m68knommu
+
+- remove ffs()
+- remove __ffs()
+- remove sched_find_first_bit()
+- remove ffz()
+- remove find_{next,first}{,_zero}_bit()
+- remove hweight()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove fls()
+- remove fls64()
+
+o mips
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+
+- if defined(CONFIG_CPU_MIPS32) or defined(CONFIG_CPU_MIPS64)
+  - define HAVE_ARCH___FFS_BITOPS
+  - define HAVE_ARCH_FFS_BITOPS
+  - define HAVE_ARCH_FFZ_BITOPS
+  - define HAVE_ARCH_FLS_BITOPS
+- else
+  - remove __ffs()
+  - remove ffs()
+  - remove ffz()
+  - remove fls()
+
+- remove fls64()
+- remove find_{next,first}{,_zero}_bit()
+- remove sched_find_first_bit()
+- remove hweight()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o s390
+
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- remove ffs()
+- remove fls()
+- remove fls64()
+- remove hweight()
+- remove hweight64()
+- define HAVE_ARCH_SCHED_BITOPS
+- define HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o sh
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- remove find_{next,first}{,_zero}_bit()
+- remove ffs()
+- remove hweight()
+- remove sched_find_first_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove fls()
+- remove fls64()
+
+o sh64
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- remove __ffs()
+- remove find_{next,first}{,_zero}_bit()
+- remove hweight()
+- remove sched_find_first_bit()
+- remove ffs()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove fls()
+- remove fls64()
+
+o sparc
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- remove ffz()
+- remove __ffs()
+- remove sched_find_first_bit()
+- remove ffs()
+- remove fls()
+- remove fls64()
+- remove hweight{32,16,8}()
+- remove find_{next,first}{,_zero}_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove ext2_{set,clear}_bit_atomic()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o sparc64
+
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- remove ffz()
+- remove __ffs()
+- remove fls()
+- remove fls64()
+- remove sched_find_first_bit()
+- remove ffs()
+
+- if defined(ULTRA_HAS_POPULATION_COUNT)
+  - define HAVE_ARCH_HWEIGHT64_BITOPS
+  - define HAVE_ARCH_HWEIGHT_BITOPS
+- else
+  - remove hweight64()
+  - remove hweight{32,16,8}()
+
+- define HAVE_ARCH_FIND_BITOPS
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- define HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o v850
+
+- remove ffz()
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- remove find_{next,first}{,_zero}_bit()
+- remove ffs()
+- remove fls()
+- remove fls64()
+- remove __ffs()
+- remove sched_find_first_bit()
+- remove hweight{32,16,8}()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o x86_64
+
+- define HAVE_ARCH_ATOMIC_BITOPS
+- define HAVE_ARCH_NON_ATOMIC_BITOPS
+- define HAVE_ARCH_FIND_BITOPS
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- define HAVE_ARCH_FLS_BITOPS
+- remove sched_find_first_bit()
+- define HAVE_ARCH_FFS_BITOPS
+- define HAVE_ARCH_FLS64_BITOPS
+- remove hweight{32,16,8}()
+- define HAVE_ARCH_FLS_BITOPS
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o xtensa
+
+- remove {,test_and_}{set,clear,change}_bit()
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- define HAVE_ARCH_FFZ_BITOPS
+- define HAVE_ARCH___FFS_BITOPS
+- define HAVE_ARCH_FFS_BITOPS
+- define HAVE_ARCH_FLS_BITOPS
+- remove fls64()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- define HAVE_ARCH_EXT2_ATOMIC_BITOPS
+- remove hweight{32,16,8}()
+- remove sched_find_first_bit()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+
+o remove unused generic bitops
 
