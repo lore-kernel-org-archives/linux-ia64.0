@@ -1,57 +1,39 @@
-From: Rutger Nijlunsing <rutger@nospam.com>
-Date: Thu, 26 Jan 2006 10:04:25 +0000
+From: "Bryan O'Sullivan" <bos@serpentine.com>
+Date: Thu, 26 Jan 2006 18:57:47 +0000
 Subject: Re: [PATCH 8/12] generic hweight{32,16,8}()
-Message-Id: <20060126100425.GA12345@nospam.com>
+Message-Id: <1138301867.12632.71.camel@serpentine.pathscale.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com> <20060126033613.GG11138@miraclelinux.com> <661de9470601252312m1f9c9256peb79451e49fc8662@mail.gmail.com>
-In-Reply-To: <661de9470601252312m1f9c9256peb79451e49fc8662@mail.gmail.com>
+References: <20060125112625.GA18584@miraclelinux.com>
+	 <20060125113206.GD18584@miraclelinux.com>
+	 <20060125200250.GA26443@flint.arm.linux.org.uk>
+	 <20060125205907.GF9995@esmail.cup.hp.com>
+	 <20060126032713.GA9984@miraclelinux.com>
+	 <20060126033613.GG11138@miraclelinux.com>
+In-Reply-To: <20060126033613.GG11138@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Balbir Singh <bsingharora@gmail.com>
-Cc: Akinobu Mita <mita@miraclelinux.com>, Grant Grundler <iod00d@hp.com>, Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Akinobu Mita <mita@miraclelinux.com>
+Cc: Grant Grundler <iod00d@hp.com>, Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-[snip]
-> >  /*
-> >   * hweightN: returns the hamming weight (i.e. the number
-> >   * of bits set) of a N-bit word
-> >   */
-> >
-> > -#define hweight32(x) generic_hweight32(x)
-> > -#define hweight16(x) generic_hweight16(x)
-> > -#define hweight8(x) generic_hweight8(x)
-> > +static inline unsigned int hweight32(unsigned int w)
-> > +{
-> > +        unsigned int res = (w & 0x55555555) + ((w >> 1) & 0x55555555);
-> > +        res = (res & 0x33333333) + ((res >> 2) & 0x33333333);
-> > +        res = (res & 0x0F0F0F0F) + ((res >> 4) & 0x0F0F0F0F);
-> > +        res = (res & 0x00FF00FF) + ((res >> 8) & 0x00FF00FF);
-> > +        return (res & 0x0000FFFF) + ((res >> 16) & 0x0000FFFF);
-> > +}
-> > +
-> 
-> This can be replaced with
-> 
->   register int res=w;
->   res=res-((res>>1)&0x55555555);
->   res=(res&0x33333333)+((res>>2)&0x33333333);
->   res=(res+(res>>4))&0x0f0f0f0f;
->   res=res+(res>>8);
->   return (res+(res>>16)) & 0xff;
-> 
-> Similar optimizations can be applied to the routines below. Please see
-> http://www-cs-faculty.stanford.edu/~knuth/mmixware.html errata and the code
-> in mmix-arith.w for the complete set of optimizations and credits.
-> 
-> http://www.jjj.de/fxt/fxtbook.pdf is another inspirational source for
-> such algorithms.
+On Thu, 2006-01-26 at 12:36 +0900, Akinobu Mita wrote:
 
-Ah, the joys of bit twiddling!
+> HAVE_ARCH_HWEIGHT_BITOPS is defined when the architecture has its own
+> version of these functions.
 
-http://graphics.stanford.edu/~seander/bithacks.html
-...has some more.
+All of this HAVE_ARCH_xxx stuff gave Linus heartburn a few weeks ago,
+and you're massively increasing its proliferation.
 
--- 
-Rutger Nijlunsing ---------------------------------- eludias ed dse.nl
-never attribute to a conspiracy which can be explained by incompetence
-----------------------------------------------------------------------
+How about putting each class of bitop into its own header file in
+asm-generic, and getting the arches that need each one to include the
+specific files it needs in its own bitops.h header?
+
+For example, the hweight stuff would go into
+asm-generic/bitops-hweight.h, and then asm-foo/bitops.h would just use
+
+#include <asm-generic/bitops-hweight.h>
+
+or else define its own if it didn't need the generic versions.
+
+	<b
+
