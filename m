@@ -1,36 +1,42 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 25 Jan 2006 23:56:54 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 26 Jan 2006 01:06:39 +0000
 Subject: RE: [PATCH] SN2 user-MMIO CPU migration
-Message-Id: <200601252356.k0PNutg01667@unix-os.sc.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05891BD3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 In-Reply-To: <20060118163305.Y42462@chenjesu.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Brent Casavant wrote on Wednesday, January 25, 2006 3:10 PM
-> On Wed, 25 Jan 2006, Brent Casavant wrote:
->=20
-> > Hmm.  I have only scant evidence to go on from the panic output,
-> > but it looks like "current" (r13) is not equal to the value of "next"
-> > by the time we get into sn_migrate().  One example run apparently
-> > has current=E0000030079d8000, next=E000003015990000.
->=20
-> Got it!  We're context switching.  "next" became "current".  No
-> telling what on earth "next's next" was.  So after calling
-> ia64_switch_to(next), I have to refer to "current" in order to
-> access what was "next" before the call.  My brain's all knotted up.
+Getting real close.  Now I'm down to nitpicking the format
+of the e-mail :-)
 
-Oh my gosh, what a nasty bug !!  Thanks for finding it. "next's next"
-in the "next" context is the task that "next" was previously context
-switched to.  Enough mind-boggling wording :-(
+Andrew Morton's perfect patch document:
+ http://www.zipworld.com.au/~akpm/linux/patches/stuff/tpp.txt
 
-p1 switch to p2, then switch to p3 and p3 switched to p1, after
-ia64_switch_to, p1 next is pointing to p2.  The kernel would die and
-fall flat on its face in no time.  I guess I'm overly lucky by not
-deriving anything pointer value read from thread_info->cpu/last_cpu.
+says that the changelog comes first, and the random commentary
+comes after the "---" line (see paragraph "g").  You have this
+backwards, so git attempted to use the wrong bit of text as the
+changelog.
 
-- Ken
+> Signed-off-by: Brent Casavant <bcasavan@sgi.com>
+> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> Signed-off-by: Brent Casavant <bcasavan@sgi.com>
 
+Perhaps a little presumptious to assume that Ken is ok with
+the combined version of his part of this patch (ok, I checked
+with Ken, and as it happens he is ok with it).  One signoff from
+you would be sufficient.
+
+And now an actual (albeit trivial) problem.  I see a couple of
+warnings when building sn2/generic kernels from the new code
+that you added:
+
+arch/ia64/sn/kernel/sn2/sn2_smp.c:184: warning: initialization discards qualifiers from pointer target type
+arch/ia64/sn/kernel/sn2/sn2_smp.c:185: warning: ISO C90 forbids mixed declarations and code
+
+(compiling with gcc 3.4.3)
+
+-Tony
