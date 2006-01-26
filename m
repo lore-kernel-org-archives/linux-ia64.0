@@ -1,30 +1,40 @@
 From: mita@miraclelinux.com (Akinobu Mita)
-Date: Mon, 30 Jan 2006 03:15:22 +0000
-Subject: Re: [PATCH 4/6] use include/asm-generic/bitops for each architecture
-Message-Id: <20060130031522.GA6897@miraclelinux.com>
+Date: Thu, 26 Jan 2006 03:31:56 +0000
+Subject: [PATCH 3/12] generic ffz()
+Message-Id: <20060126033156.GB11138@miraclelinux.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113336.GE18584@miraclelinux.com> <20060126014934.GA6648@miraclelinux.com> <20060127.220401.356433243.takata.hirokazu@renesas.com>
-In-Reply-To: <20060127.220401.356433243.takata.hirokazu@renesas.com>
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
+In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hirokazu Takata <takata@linux-m32r.org>
-Cc: linux-kernel@vger.kernel.org, rth@twiddle.net, ink@jurassic.park.msu.ru, rmk@arm.linux.org.uk, spyro@f2s.com, dev-etrax@axis.com, dhowells@redhat.com, ysato@users.sourceforge.jp, torvalds@osdl.org, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, gerg@uclinux.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, ak@suse.de, chris@zankel.net, akpm@osdl.org
+To: Grant Grundler <iod00d@hp.com>
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-On Fri, Jan 27, 2006 at 10:04:01PM +0900, Hirokazu Takata wrote:
+This patch introduces the C-language equivalent of the function:
+unsigned long ffz(unsigned long word);
 
-> compile and boot test on m32r: OK
+HAVE_ARCH_FFZ_BITOPS is defined when the architecture has its own
+version of these functions.
 
-Thanks.
+This code largely copied from:
+include/asm-sparc64/bitops.h
 
-> Code size became a little bigger...  ;-)
-> 
-> $ size linux-2.6.16-rc1*/vmlinux
->    text    data     bss     dec     hex filename
-> 1768030  124412  721632 2614074  27e33a linux-2.6.16-rc1.bitops/vmlinux
-> 1755010  124412  721632 2601054  27b05e linux-2.6.16-rc1.org/vmlinux
 
-The only difference I can find is __ffs()/ffz().
-As Russel King clealy pointed out, it will generate larger code
-than before.
-
+Index: 2.6-git/include/asm-generic/bitops.h
+=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:09.000000000 +0900
++++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:10.000000000 +0900
+@@ -230,6 +230,13 @@
+ 
+ #endif /* HAVE_ARCH___FFS_BITOPS */
+ 
++#ifndef HAVE_ARCH_FFZ_BITOPS
++
++/* Undefined if no bit is zero. */
++#define ffz(x)	__ffs(~x)
++
++#endif /* HAVE_ARCH_FFZ_BITOPS */
++
+ /*
+  * fls: find last bit set.
+  */
