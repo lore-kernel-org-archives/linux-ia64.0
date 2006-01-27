@@ -1,40 +1,36 @@
-From: Nicolas Pitre <nico@cam.org>
-Date: Thu, 26 Jan 2006 16:30:43 +0000
+From: "John David Anglin" <dave@hiauly1.hia.nrc.ca>
+Date: Fri, 27 Jan 2006 00:28:29 +0000
 Subject: Re: [parisc-linux] Re: [PATCH 3/6] C-language equivalents of
-Message-Id: <Pine.LNX.4.64.0601261128280.16649@localhost.localdomain>
+Message-Id: <200601270028.k0R0STBB021468@hiauly1.hia.nrc.ca>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com>
- <20060125113206.GD18584@miraclelinux.com>
- <20060125200250.GA26443@flint.arm.linux.org.uk>
- <20060126000618.GA5592@twiddle.net>
- <20060126085540.GA15377@flint.arm.linux.org.uk>
- <20060126161849.GA13632@colo.lackof.org>
-In-Reply-To: <20060126161849.GA13632@colo.lackof.org>
+In-Reply-To: <20060126230443.GC13632@colo.lackof.org> from "Grant Grundler" at Jan 26, 2006 04:04:43 pm
+References: <Pine.LNX.4.64.0601261128280.16649@localhost.localdomain>
+In-Reply-To: <Pine.LNX.4.64.0601261128280.16649@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Grant Grundler <grundler@parisc-linux.org>
-Cc: Akinobu Mita <mita@miraclelinux.com>, lkml <linux-kernel@vger.kernel.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>
+Cc: grundler@parisc-linux.org, mita@miraclelinux.com, linux-kernel@vger.kernel.org, ink@jurassic.park.msu.ru, spyro@f2s.com, dev-etrax@axis.com, dhowells@redhat.com, ysato@users.sourceforge.jp, torvalds@osdl.org, linux-ia64@vger.kernel.org, takata@linux-m32r.org, linux-m68k@vger.kernel.org, gerg@uclinux.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, ak@suse.de, chris@zankel.net
 
-On Thu, 26 Jan 2006, Grant Grundler wrote:
-
-> On Thu, Jan 26, 2006 at 08:55:41AM +0000, Russell King wrote:
-> > Unfortunately that's not correct.  You do not appear to have checked
-> > the compiler output like I did - this code does _not_ generate
-> > constant shifts.
+> Yeah, about the same for parisc.
 > 
-> Russell,
-> By "written stupidly", I thought Richard meant they could have
-> used constants instead of "s".  e.g.:
-> 	if (word << 16 = 0) { b += 16; word >>= 16); }
-> 	if (word << 24 = 0) { b +=  8; word >>=  8); }
-> 	if (word << 28 = 0) { b +=  4; word >>=  4); }
+> > Clearly the smallest of the lot with the smallest register pressure,
+> > being the best candidate out of the lot, whether we inline it or not.
 > 
-> But I prefer what Edgar Toernig suggested.
+> Agreed. But I expect parisc will have to continue using it's asm
+> sequence and ignore the generic version. AFAIK, the compiler isn't that
+> good with instruction nullification and I have other issues I'd
+> rather work on.
 
-It is just as bad on ARM since it requires large constants that cannot 
-be expressed with immediate litteral values.  The constant shift 
-approach is really the best on ARM.
+I looked at the assembler code generated on parisc with 4.1.0 (prerelease).
+The toernig code is definitely inferior.  The mita sequence is four
+instructions longer than the arm sequence, but it didn't have any branches.
+The arm sequence has four branches.  Thus, it's not clear to me which
+would perform better in the real world.  There were no nullified instructions
+generated for any of the sequences.  However, neither is as good as the
+handcraft asm sequence currently being used.
 
-
-Nicolas
+Dave
+-- 
+J. David Anglin                                  dave.anglin@nrc-cnrc.gc.ca
+National Research Council of Canada              (613) 990-0752 (FAX: 952-6602)
