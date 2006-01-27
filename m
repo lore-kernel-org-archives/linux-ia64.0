@@ -1,39 +1,32 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Wed, 18 Jan 2006 18:11:17 +0000
-Subject: Re: [Openipmi-developer] Re: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <20060118181116.GA5537@lists.us.dell.com>
+From: Mark Maule <maule@sgi.com>
+Date: Fri, 27 Jan 2006 19:59:07 +0000
+Subject: [PATCH] altix:  disable msi for all altix pci devices
+Message-Id: <20060127195907.8398.91096.98219@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com> <200601131724.42054.bjorn.helgaas@hp.com> <200601171717.03192.bjorn.helgaas@hp.com> <200601181029.46352.bjorn.helgaas@hp.com>
-In-Reply-To: <200601181029.46352.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Wed, Jan 18, 2006 at 10:29:46AM -0700, Bjorn Helgaas wrote:
-> Matt, what's your opinion on proceeding?  I know you want to get
-> the DMI stuff in distros.  I'm looking at reworking ioremap to
-> hide all this stuff, but that'll be a bigger change and may be
-> harder to get into distro releases.
-> 
-> For upstream, the ioremap rework sounds like the way to go, but
-> I don't know which the distros would prefer for updates.
+Temporary patch to make pci_enable_msi() fail gracefully on altix.  Will be
+removed after 2.6.16 releases and the msi abstraction patches start flowing.
 
-Existing distros (RHEL3, RHEL4, SLES9, ..) don't have a huge problem
-because my target user - the ipmi driver - does its own DMI scanning
-on those distros still.  Ugly, but works.  So the only concern is
-SLES10 and RHEL5, both of which are still rebasing to upstream best as
-I can tell from their publicly posted kernels.  So if it can be done
-"right" in 2.6.16-rc, let's do that.  If it will be intrusive, and
-after 2.6.16 is out, than a minimally intrusive but working patch for
-2.6.16-rc would be preferred.
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-Thanks!
-Matt
-
--- 
-Matt Domsch
-Software Architect
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Index: linux-2.6.14/arch/ia64/sn/kernel/io_init.c
+=================================--- linux-2.6.14.orig/arch/ia64/sn/kernel/io_init.c	2006-01-10 09:29:57.172407877 -0600
++++ linux-2.6.14/arch/ia64/sn/kernel/io_init.c	2006-01-25 09:50:00.308356617 -0600
+@@ -407,6 +407,13 @@
+ 		pcidev_info->pdi_sn_irq_info = NULL;
+ 		kfree(sn_irq_info);
+ 	}
++
++	/*
++	 * MSI currently not supported on altix.  Remove this when
++	 * the MSI abstraction patches are integrated into the kernel
++	 * (sometime after 2.6.16 releases)
++	 */
++	dev->no_msi = 1;
+ }
+ 
+ /*
