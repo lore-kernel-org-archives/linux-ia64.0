@@ -1,41 +1,47 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Sun, 22 Jan 2006 20:59:02 +0000
-Subject: Re: [PATCH] disable per cpu intr in /proc/stat
-Message-Id: <12c511ca0601221259i25f26410l5c94871b7495283f@mail.gmail.com>
+From: dann frazier <dannf@hp.com>
+Date: Fri, 27 Jan 2006 22:21:06 +0000
+Subject: salinfo incorrectly returning -ENOMEM
+Message-Id: <1138400466.19287.24.camel@krebs.dannf>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060122202204.GA26295@suse.de>
-	 <20060122123150.3a289ac3.akpm@osdl.org>
-In-Reply-To: <20060122123150.3a289ac3.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Olaf Hering <olh@suse.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 1/22/06, Andrew Morton <akpm@osdl.org> wrote:
-> Olaf Hering <olh@suse.de> wrote:
-> > Don't compute and display the per-irq sums on ia64 either, too much
-> > overhead for mostly useless figures.
->
-> We'd need a big ack from the ia64 team for this, please.
+salinfo_decode will silently exit occasionally due to a failed open
+of /proc/sal/XXX/data.  This is because the kernel is returning -ENOMEM
+after attempting to vmalloc a buffer of size  
+ia64_sal_get_state_info_size(data->type).
 
-This was found early in December.  I proposed:
-http://marc.theaimsgroup.com/?l=linux-kernel&m3398553428807&w=2
-dropping it for all architectures, but got no response.
+However, on my system ia64_sal_get_state_info_size is returning 0, in
+which case I'd think a NULL vmalloc() result is correct.  
 
-The problem is the horribly cache unfriendly scan of all percpu
-structures ... not too much of a problem for low cpu count, but
-really bad when the count gets high (just configured high is
-enough to cause the problem in a CONFIG_HOTPLUG_CPU
-kernel ... even if the cpu isn't present we still scan).
+This patch assumes, of course, that 0 is a reasonable return value from
+ia64_sal_get_state_info_size().
 
-An alternative if someone really is using these values would be
-to compute the sums earlier in the function ... but that would
-require a memory allocation to save the per-irq sums.
+Signed-off-by: dann frazier <dannf@hp.com>
 
-Unless someone comes up soon with the name of an existing
-application that depends on these per-irq sums, consider this
+--- linux-2.6.16-rc1/arch/ia64/kernel/salinfo.c.orig	2006-01-27 14:44:20.000000000 -0700
++++ linux-2.6.16-rc1/arch/ia64/kernel/salinfo.c	2006-01-27 14:45:39.000000000 -0700
+@@ -358,6 +358,7 @@ salinfo_log_open(struct inode *inode, st
+ {
+ 	struct proc_dir_entry *entry = PDE(inode);
+ 	struct salinfo_data *data = entry->data;
++	u64 size;
+ 
+ 	if (!capable(CAP_SYS_ADMIN))
+ 		return -EPERM;
+@@ -370,8 +371,9 @@ salinfo_log_open(struct inode *inode, st
+ 	data->open = 1;
+ 	spin_unlock(&data_lock);
+ 
+-	if (data->state = STATE_NO_DATA &&
+-	    !(data->log_buffer = vmalloc(ia64_sal_get_state_info_size(data->type)))) {
++	size = ia64_sal_get_state_info_size(data->type);
++	if (data->state = STATE_NO_DATA && size &&
++	    !(data->log_buffer = vmalloc(size))) {
+ 		data->open = 0;
+ 		return -ENOMEM;
+ 	}
 
-Acked-by: Tony Luck <tony.luck@intel.com>
 
--Tony
