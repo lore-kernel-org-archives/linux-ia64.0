@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Fri, 27 Jan 2006 09:57:18 +0000
-Subject: Re: [patch 5/5] fix sn rw_mmr.h to use intrinsic
-Message-Id: <yq04q3qhu2p.fsf@jaguar.mkp.net>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 27 Jan 2006 23:35:14 +0000
+Subject: RE: [patch 5/5] fix sn rw_mmr.h to use intrinsic
+Message-Id: <B05667366EE6204181EABE9C1B1C0EB5097F1D0D@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200601270137.k0R1big21236@unix-os.sc.intel.com>
 In-Reply-To: <200601270137.k0R1big21236@unix-os.sc.intel.com>
@@ -10,20 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Kenneth" = Chen, Kenneth W <kenneth.w.chen@intel.com> writes:
+Jes Sorensen wrote on Friday, January 27, 2006 1:57 AM
+> Kenneth> Use ia64 intrinsic for functions in sn/rw_mmr.h.
+> Kenneth> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> 
+> I'll have to test this. However it really doesn't matter much as we
+> won't be building the SN kernel with ICC.
 
-Kenneth> Use ia64 intrinsic for functions in sn/rw_mmr.h.
-Kenneth> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+When I build a generic kernel, all sn code are pulled in and need to
+be compiled.  It would be nice to have sn portion of kernel code free
+of asm statement in the source. I heard that gcc is also going in the
+direction of implementing intrinsic in the long term.  Or do we have
+an option of CONFIG_NON_SGI?  I can cook up something if this is really
+what people Want (I suspect not).
 
-Hi Ken,
+- Ken
 
-I'll have to test this. However it really doesn't matter much as we
-won't be building the SN kernel with ICC.
-
-Kenneth> By the way, for my learning purpose, why does
-Kenneth> pio_atomic_phys_write_mmrs() need to turn off psr.ic bit?
-
-No idea, maybe Jack knows?
-
-Cheers,
-Jes
