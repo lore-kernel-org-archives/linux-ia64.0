@@ -1,29 +1,31 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 02 Dec 2005 02:40:15 +0000
-Subject: [patch 2.6.15-rc4] Allow salinfo_decode to detect signals on read
-Message-Id: <4727.1133491215@kao2.melbourne.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 27 Jan 2006 21:03:27 +0000
+Subject: boot-time slowdown for measure_migration_cost
+Message-Id: <200601271403.27065.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@redhat.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Return -EINTR instead of -ERESTARTSYS when signals are delivered during
-a blocked read of /proc/sal/*/event.  This allows salinfo_decode to
-detect signals when it is blocked on a read of those files.
+The boot-time migration cost auto-tuning stuff seems to have
+been merged to Linus' tree since 2.6.15.  On little one- or
+two-processor systems, the time required to measure the
+migration costs isn't very noticeable, but by the time we
+get to even a four-processor ia64 box, it adds about
+30 seconds to the boot time, which seems like a lot.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+Is that expected?  Is the information we get really worth
+that much?  Could the measurement be done at run-time
+instead?  Is there a smaller hammer we could use, e.g.,
+flushing just the buffer rather than the *entire* cache?
+Did we just implement sched_cacheflush() incorrectly for
+ia64?
 
-Index: linux/arch/ia64/kernel/salinfo.c
-=================================--- linux.orig/arch/ia64/kernel/salinfo.c	2005-12-02 13:34:44.753350991 +1100
-+++ linux/arch/ia64/kernel/salinfo.c	2005-12-02 13:35:12.055229613 +1100
-@@ -293,7 +293,7 @@ retry:
- 		if (file->f_flags & O_NONBLOCK)
- 			return -EAGAIN;
- 		if (down_interruptible(&data->sem))
--			return -ERESTARTSYS;
-+			return -EINTR;
- 	}
- 
- 	n = data->cpu_check;
+Only ia64, x86, and x86_64 currently have a non-empty
+sched_cacheflush(), and the x86* ones contain only "wbinvd()".
+So I suspect that only ia64 sees this slowdown.  But I would
+guess that other arches will implement it in the future.
 
+Bjorn
