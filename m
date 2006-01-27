@@ -1,50 +1,99 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 31 Jan 2006 19:48:02 +0000
-Subject: FW: [patch 1/6] remove dead code in ia64_leave_kernel
-Message-Id: <200601311948.k0VJmAg03598@unix-os.sc.intel.com>
+Date: Fri, 27 Jan 2006 01:37:43 +0000
+Subject: [patch 5/5] fix sn rw_mmr.h to use intrinsic
+Message-Id: <200601270137.k0R1big21236@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601310907.k0V976g12698@unix-os.sc.intel.com>
-In-Reply-To: <200601310907.k0V976g12698@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I just did a reply on the original mail.  Forwarding my response.
+Use ia64 intrinsic for functions in sn/rw_mmr.h.
 
------Original Message-----
-From: Chen, Kenneth W [mailto:kenneth.w.chen@intel.com] 
-Sent: Tuesday, January 31, 2006 11:42 AM
-To: 'David Mosberger-Tang'
-Subject: RE: [patch 1/6] remove dead code in ia64_leave_kernel
-
-David Mosberger-Tang wrote on Tuesday, January 31, 2006 9:51 AM
-> Be careful here.  Signal-delivery triggers some strange corner-cases. 
-> I don't have this all in my head at the moment, but one tricky part is
-> returning from a signal-handler, where you enter the kernel as a
-> syscall, but leave it as a non-syscall (usually).  I trust that you
-> already checked this case, but wanted to make sure the point isn't
-> lost.
-
-Thanks for the warning, I don't think I checked that corner case. I will
-look at it again.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
 
-> Also, I believe with your patch, you'll end up consuming the read of
-> ar.bsp which could adversely affect the latency of syscalls
-> (especially when everything is cached).  Did you check on this?
+--- ./include/asm-ia64/sn/rw_mmr.h.orig	2006-01-26 18:27:42.750607692 -0800
++++ ./include/asm-ia64/sn/rw_mmr.h	2006-01-26 18:33:46.337517301 -0800
+@@ -25,50 +25,43 @@
+ extern inline long
+ pio_phys_read_mmr(volatile long *mmr) 
+ {
+-	long val;
+-        asm volatile
+-            ("mov r2=psr;;"
+-             "rsm psr.i | psr.dt;;"
+-             "srlz.i;;"
+-             "ld8.acq %0=[%1];;"
+-             "mov psr.l=r2;;"
+-             "srlz.i;;"
+-             : "=r"(val)
+-             : "r"(mmr)
+-	     : "r2");
+-        return val;
+-}
+-
++	long val, flags;
+ 
++	local_irq_save(flags);
++	ia64_rsm(IA64_PSR_DT);
++	ia64_srlz_d();
++	val = *mmr;
++	ia64_ssm(IA64_PSR_DT);
++	local_irq_restore(flags);
++	return val;
++}
+ 
+ extern inline void
+ pio_phys_write_mmr(volatile long *mmr, long val) 
+ {
+-        asm volatile
+-            ("mov r2=psr;;"
+-             "rsm psr.i | psr.dt;;"
+-             "srlz.i;;"
+-             "st8.rel [%0]=%1;;"
+-             "mov psr.l=r2;;"
+-             "srlz.i;;"
+-	     :: "r"(mmr), "r"(val)
+-             : "r2", "memory");
+-}            
++	unsigned long flags;
++
++	local_irq_save(flags);
++	ia64_rsm(IA64_PSR_DT);
++	ia64_srlz_d();
++	*mmr = val;
++	ia64_ssm(IA64_PSR_DT);
++	local_irq_restore(flags);
++}
+ 
+ extern inline void
+ pio_atomic_phys_write_mmrs(volatile long *mmr1, long val1, volatile long *mmr2, long val2) 
+ {
+-        asm volatile
+-            ("mov r2=psr;;"
+-             "rsm psr.i | psr.dt | psr.ic;;"
+-	     "cmp.ne p9,p0=%2,r0;"
+-             "srlz.i;;"
+-             "st8.rel [%0]=%1;"
+-             "(p9) st8.rel [%2]=%3;;"
+-             "mov psr.l=r2;;"
+-             "srlz.i;;"
+-	     :: "r"(mmr1), "r"(val1), "r"(mmr2), "r"(val2)
+-             : "p9", "r2", "memory");
+-}            
++	unsigned long flags;
++
++	local_irq_save(flags);
++	ia64_rsm(IA64_PSR_DT);
++	ia64_srlz_d();
++	*mmr1 = val1;
++	if (mmr2)
++		*mmr2 = val2;
++	ia64_ssm(IA64_PSR_DT);
++	local_irq_restore(flags);
++}
+ 
+ #endif /* _ASM_IA64_SN_RW_MMR_H */
 
-Kernel currently consumes the read of ar.bsp, since it has to preserve
-the current frame, and it does so by doing two ar.bsp read: once before
-cover instruction, and once after to calculate new ndirty value to be
-loaded into ar.rsc.  I'm not changing the order or location of these
-ar.bsp reads in this patch.  The code that I moved are always executed
-for syscall leave.
-
-Having said that, I have a craze idea of optimize away two bsp reads
-along with cover instruction in the syscall leave path.  I'm still
-exploring whether that is achievable or not.  If we can do that, then
-all that latency would go away along with the code that this patch moved.
-
-- Ken
 
