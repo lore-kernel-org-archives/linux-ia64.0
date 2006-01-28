@@ -1,7 +1,7 @@
-From: dann frazier <dannf@hp.com>
-Date: Fri, 27 Jan 2006 23:24:15 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 28 Jan 2006 00:07:25 +0000
 Subject: Re: salinfo incorrectly returning -ENOMEM
-Message-Id: <1138404255.19287.26.camel@krebs.dannf>
+Message-Id: <15585.1138406845@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1138400466.19287.24.camel@krebs.dannf>
 In-Reply-To: <1138400466.19287.24.camel@krebs.dannf>
@@ -10,36 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 2006-01-27 at 17:45 -0500, Prarit Bhargava wrote:
-> dann frazier wrote:
-> > salinfo_decode will silently exit occasionally due to a failed open
-> > of /proc/sal/XXX/data.  This is because the kernel is returning -ENOMEM
-> > after attempting to vmalloc a buffer of size  
-> > ia64_sal_get_state_info_size(data->type).
-> > 
-> > However, on my system ia64_sal_get_state_info_size is returning 0, in
-> > which case I'd think a NULL vmalloc() result is correct.  
-> > 
-> > This patch assumes, of course, that 0 is a reasonable return value from
-> > ia64_sal_get_state_info_size().
-> > 
-> 
-> I'm working on fixing this up ...
-> 
-> The issue here is that ia64_sal_get_state_info_size is not doing any 
-> test on ia64_sal_retval.status other than to return 0.  0 is a 
-> reasonable return on an error, but :) as you noted the caller better be 
-> watching for it.
-> 
-> Dann, this patch will at least tell you what that return value is and 
-> might a) indicate a bigger bug, or b) indicate what's wrong with your 
-> platform ;).
+dann frazier (on Fri, 27 Jan 2006 15:21:06 -0700) wrote:
+>salinfo_decode will silently exit occasionally due to a failed open
+>of /proc/sal/XXX/data.  This is because the kernel is returning -ENOMEM
+>after attempting to vmalloc a buffer of size  
+>ia64_sal_get_state_info_size(data->type).
+>
+>However, on my system ia64_sal_get_state_info_size is returning 0, in
+>which case I'd think a NULL vmalloc() result is correct.  
+>
+>This patch assumes, of course, that 0 is a reasonable return value from
+>ia64_sal_get_state_info_size().
 
-Thanks Prarit.  Here's the output I get:
+Nak this patch.
 
-ia64_sal_get_state_info failed: Call completed with error
-ia64_sal_get_state_info failed: Call completed with error
+Zero is not a valid return value from ia64_sal_get_state_info_size().
+That SAL call must return the maximum size for the record type so that
+the OS can preallocate the required buffers while the OS is in normal
+context.  The buffers cannot be allocated when the SAL interrupt occurs
+because vmalloc cannot be used in interrupt context.  If SAL is not
+returning a valid value from ia64_sal_get_state_info_size() then your
+version of SAL is wrong and the only thing that the OS can do is to
+give up on that record type.  So an error return to salinfo_decode is
+the correct response here.
 
-Useful, eh? :)
-
+You said that salinfo_decode will silently exit.  Have you tried
+salinfo 1.0, that logs why the salinfo_decode failed and retries it a
+few times.
 
