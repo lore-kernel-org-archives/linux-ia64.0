@@ -1,67 +1,82 @@
-From: Hirokazu Takata <takata@linux-m32r.org>
-Date: Fri, 27 Jan 2006 12:51:47 +0000
-Subject: Re: [PATCH 3/6] C-language equivalents of include/asm-*/bitops.h
-Message-Id: <20060127.215147.670306403.takata.hirokazu@renesas.com>
+From: Stuart Brady <sdbrady@ntlworld.com>
+Date: Sun, 29 Jan 2006 07:12:42 +0000
+Subject: Re: [parisc-linux] Re: [PATCH 3/6] C-language equivalents of include/asm-*/bitops.h
+Message-Id: <20060129071242.GA24624@miranda.arrow>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com>
-	<20060125113206.GD18584@miraclelinux.com>
-In-Reply-To: <20060125113206.GD18584@miraclelinux.com>
+References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060126000618.GA5592@twiddle.net> <20060126085540.GA15377@flint.arm.linux.org.uk> <20060126161849.GA13632@colo.lackof.org> <20060126164020.GA27222@flint.arm.linux.org.uk> <20060126230443.GC13632@colo.lackof.org> <20060126230353.GC27222@flint.arm.linux.org.uk>
+In-Reply-To: <20060126230353.GC27222@flint.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mita@miraclelinux.com
-Cc: linux-kernel@vger.kernel.org, rth@twiddle.net, ink@jurassic.park.msu.ru, rmk@arm.linux.org.uk, spyro@f2s.com, dev-etrax@axis.com, dhowells@redhat.com, ysato@users.sourceforge.jp, torvalds@osdl.org, linux-ia64@vger.kernel.org, takata@linux-m32r.org, linux-m68k@vger.kernel.org, gerg@uclinux.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, ak@suse.de, chris@zankel.net, akpm@osdl.org
+To: Grant Grundler <grundler@parisc-linux.org>, Akinobu Mita <mita@miraclelinux.com>, linux-kernel@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>
 
-Hello Mita-san, and folks,
+On Thu, Jan 26, 2006 at 11:03:54PM +0000, Russell King wrote:
+> Me too - already solved this problem once.  However, I'd rather not
+> needlessly take a step backwards in the name of generic bitops.
 
-From: mita@miraclelinux.com (Akinobu Mita)
-Subject: [PATCH 3/6] C-language equivalents of include/asm-*/bitops.h
-Date: Wed, 25 Jan 2006 20:32:06 +0900
-> o generic {,test_and_}{set,clear,change}_bit() (atomic bitops)
-> 
-> This patch introduces the C-language equivalents of the functions below:
-> void set_bit(int nr, volatile unsigned long *addr);
-> void clear_bit(int nr, volatile unsigned long *addr);
-...
-> int test_and_change_bit(int nr, volatile unsigned long *addr);
-> 
-> HAVE_ARCH_ATOMIC_BITOPS is defined when the architecture has its own
-> version of these functions.
-> 
-> This code largely copied from:
-> include/asm-powerpc/bitops.h
-> include/asm-parisc/bitops.h
-> include/asm-parisc/atomic.h
+Indeed.  However, I think we can actually improve bitops for some
+architectures.  Here's what I've found so far:
 
-Could you tell me more about the new generic {set,clear,test}_bit()
-routines?
+Versions of Alpha, ARM, MIPS, PowerPC and SPARC have bit counting
+instructions which we're using in most cases.  I may have missed some:
 
-Why do you copied these routines from parisc and employed them
- as generic ones?
-I'm not sure whether these generic {set,clear,test}_bit() routines
-are really generic or not.
+  Alpha may have:
+    ctlz, CounT Leading Zeros
+    cttz, CounT Trailing Zeros
 
-> +/* Can't use raw_spin_lock_irq because of #include problems, so
-> + * this is the substitute */
-> +#define _atomic_spin_lock_irqsave(l,f) do {	\
-> +	raw_spinlock_t *s = ATOMIC_HASH(l);	\
-> +	local_irq_save(f);			\
-> +	__raw_spin_lock(s);			\
-> +} while(0)
-> +
-> +#define _atomic_spin_unlock_irqrestore(l,f) do {	\
-> +	raw_spinlock_t *s = ATOMIC_HASH(l);		\
-> +	__raw_spin_unlock(s);				\
-> +	local_irq_restore(f);				\
-> +} while(0)
+  ARM (since v5) has:
+    clz, Count Leading Zeros
 
-Is there a possibility that these routines affect for archs
-with no HAVE_ARCH_ATOMIC_BITOPS for SMP ?
-I think __raw_spin_lock() is sufficient and local_irqsave() is 
-not necessary in general atomic routines.
+  MIPS may have:
+    clz, Count Leading Zeros
+    clo, Count Leading Ones
 
-If the parisc's LDCW instruction required disabling interrupts,
-it would be parisc specific and not generic case, I think, 
-although I'm not familier with the parisc architecture...
+  PowerPC has:
+    cntlz[wd], CouNT Leading Zeros (for Word/Double-word)
 
--- Takata
+  SPARC v9 has:
+    popc, POPulation Count
+
+PA-RISC has none.  I've not checked any others.
+
+The Alpha, ARM and PowerPC functions look fine to me.
+
+On MIPS, fls() and flz() should probably use CLO.  Curiously, MIPS is
+the only arch with a flz() function.
+
+On SPARC, the implementation of ffz() appears to be "cheese", and the
+proposed generic versions would be better.  ffs() looks quite generic,
+and fls() uses the linux/bitops.h implementation.
+
+There are versions of hweight*() for sparc64 which use POPC when
+ULTRA_HAS_POPULATION_COUNT is defined, but AFAICS, it's never defined.
+
+The SPARC v9 arch manual recommends using popc(x ^ ~-x) for functions
+like ffs().  ffz() would return ffs(~x).
+
+I've had an idea for fls():
+
+static inline int fls(unsigned long x)
+{
+	x |= x >> 1;
+	x |= x >> 2;
+	x |= x >> 4;
+	x |= x >> 8;
+	x |= x >> 16;
+	return popc(x);
+}
+
+I'm not sure how that compares to the generic fls(), but I suspect it's
+quite a bit faster.  Unfortunately, I don't have any MIPS or SPARC v9
+hardware to test this on.
+
+I'm not sure if this is of any use:
+
+static inline int __ffs(unsigned long x)
+{
+	return (int)hweight_long(x ^ ~-x) - 1;
+}
+
+The idea being that the generic hweight_long has no branches.
+-- 
+Stuart Brady
