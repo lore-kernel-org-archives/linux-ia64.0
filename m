@@ -1,29 +1,50 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Tue, 24 Jan 2006 01:31:26 +0000
-Subject: [patch 2.6.16-rc1] Set the correct default OS status in the MCA handler
-Message-Id: <6999.1138066286@kao2.melbourne.sgi.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Mon, 30 Jan 2006 17:11:31 +0000
+Subject: Re: [Openipmi-developer] [PATCH 0/5] ia64 ioremap, DMI, EFI system table
+Message-Id: <20060130171131.GA24947@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060104221627.GA26064@lists.us.dell.com> <200601181029.46352.bjorn.helgaas@hp.com> <20060118181116.GA5537@lists.us.dell.com> <200601191310.57303.bjorn.helgaas@hp.com>
+In-Reply-To: <200601191310.57303.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, akpm@osdl.org, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
 
-sos->os_status is set to a default value of IA64_MCA_COLD_BOOT for an
-MCA, but then is incorrectly overwritten with IA64_MCA_SAME_CONTEXT (0).
-This makes SAL think that all MCAs have been recovered.
+On Thu, Jan 19, 2006 at 01:10:57PM -0700, Bjorn Helgaas wrote:
+> OK, here's a set of patches to (hopefully) clean up this area
+> a bit:
+> 
+> 1  Simplify efi_mem_attribute_range() so I can use it both for
+>    /dev/mem validation and ioremap() attribute checking.
+> 
+> 2  Make ia64 ioremap() check memory attributes, so it works for
+>    plain memory that only supports write-back access, as well as
+>    for MMIO space that only supports uncacheable access.
+> 
+> 3  DMI ioremaps too much space, which makes it fail on machines
+>    where the SMBIOS table is near the end of a memory region.
+> 
+> 4  Keep EFI table addresses as physical, not virtual.  The SMBIOS
+>    address was physical on x86 but virtual on ia64, which broke
+>    dmi_scan_machine().
+> 
+> 5  Use smarter ioremap() implementation to remove some cruft in
+>    acpi_os_{read,write,map}_memory().  This one's just an optional
+>    cleanup; I don't think it fixes any bugs.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Index: linux/arch/ia64/kernel/mca_asm.S
-=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2006-01-19 10:27:30.921806584 +1100
-+++ linux/arch/ia64/kernel/mca_asm.S	2006-01-24 12:13:35.878617761 +1100
-@@ -512,7 +512,7 @@ ia64_state_save:
- 	st8 [temp1]=r12		// os_status, default is cold boot
- 	mov r6=IA64_MCA_SAME_CONTEXT
- 	;;
--	st8 [temp1]=r6		// context, default is same context
-+	st8 [temp2]=r6		// context, default is same context
- 
- 	// Save the pt_regs data that is not in minstate.  The previous code
- 	// left regs at sos.
+This set of patches works for me on my IA64 Tiger4 (Dell PowerEdge
+7250) in kernel 2.6.16-rc1-mm4.  modprobe ipmi_si successfully
+automatically finds the IPMI controller now.
 
+Thanks Bjorn for doing a more complete cleanup in support of this!
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Software Architect
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
