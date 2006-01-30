@@ -1,57 +1,71 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 30 Jan 2006 18:53:01 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 30 Jan 2006 19:24:38 +0000
 Subject: Re: boot-time slowdown for measure_migration_cost
-Message-Id: <20060130185301.GA4622@agluck-lia64.sc.intel.com>
+Message-Id: <20060130192438.GA29129@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu>
-In-Reply-To: <20060130172140.GB11793@elte.hu>
+References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu> <20060130185301.GA4622@agluck-lia64.sc.intel.com>
+In-Reply-To: <20060130185301.GA4622@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
-To: Ingo Molnar <mingo@elte.hu>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
 
-On Mon, Jan 30, 2006 at 06:21:40PM +0100, Ingo Molnar wrote:
-> - double-check that max_cache_size gets set up correctly on your=20
->   architecture - the code searches from ~64K to 2*max_cache_size.
 
-Ia64 gets that from PAL in get_max_cacheline_size() in ia64/kernel/setup.c
-A quick printk() in there confirms that we get the right answer (9MB for
-me), and that it happens before we compute the migration cost.
+* Luck, Tony <tony.luck@intel.com> wrote:
 
-> - take the values that are auto-detected and use the migration_cost=3D=20
->   boot parameter - see Documentation/kernel-parameters.txt:
->   ...
->   via this solution you will get zero overhead on subsequent bootups.
+> Doing this drops the time to compute the value from 15.58s to 10.39s,=20
+> while the value of migration_cost changes from 10112 to 9909.
+>
+> > - in kernel/sched.c, change this line:
+> >                 size =3D size * 20 / 19;
+> >   to:
+> >                 size =3D size * 10 / 9;
+>
+> Doing this instead of changing ITERATIONS makes the computation take=20
+> 7.79s and the computed migration_cost is 9987.
+>
+> Doing both gets the time down to 5.20s, and the migration_cost=9990.
 
-But if you are going to go this route, you could drop all this code from
-the kernel and have a hard-wired constant, with a user-mode test program
-to compute the more accurate value.
+ok, that's good enough i think - we could certainly do the patch below=20
+in v2.6.16.
 
-> - in kernel/sched.c, decrease ITERATIONS from 2 to 1. This will make the =
+> On the plus side Prarit's results show that this time isn't scaling=20
+> with NR_CPUS ... apparently just cache size and number of domains are=20
+> significant in the time to compute.
 
->   measurement more noisy though.
+yes, this comes from the algorithm, it only computes once per distance=20
+(and uses the cached value from then on), independently of the number of=20
+CPUs.
 
-Doing this drops the time to compute the value from 15.58s to 10.39s, while
-the value of migration_cost changes from 10112 to 9909.
+	Ingo
 
-> - in kernel/sched.c, change this line:
->                 size =3D size * 20 / 19;
->   to:
->                 size =3D size * 10 / 9;
+---
+reduce the amount of time the migration cost calculations cost during=20
+bootup.
 
-Doing this instead of changing ITERATIONS makes the computation take 7.79s
-and the computed migration_cost is 9987.
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
-Doing both gets the time down to 5.20s, and the migration_cost=9990.
-
-So the variation in the computed value of migration_cost was at worst
-2% with these modifications to the algorithm.  Do you really need to know
-the value to this accuracy?  What 2nd order bad effects would occur from
-using an off-by-2% value for scheduling decisions?
-
-On the plus side Prarit's results show that this time isn't scaling with
-NR_CPUS ... apparently just cache size and number of domains are significant
-in the time to compute.
-
--Tony
+--- linux/kernel/sched.c.orig
++++ linux/kernel/sched.c
+@@ -5141,7 +5141,7 @@ static void init_sched_build_groups(stru
+ #define SEARCH_SCOPE		2
+ #define MIN_CACHE_SIZE		(64*1024U)
+ #define DEFAULT_CACHE_SIZE	(5*1024*1024U)
+-#define ITERATIONS		2
++#define ITERATIONS		1
+ #define SIZE_THRESH		130
+ #define COST_THRESH		130
+=20
+@@ -5480,9 +5480,9 @@ static unsigned long long measure_migrat
+ 				break;
+ 			}
+ 		/*
+-		 * Increase the cachesize in 5% steps:
++		 * Increase the cachesize in 10% steps:
+ 		 */
+-		size =3D size * 20 / 19;
++		size =3D size * 10 / 9;
+ 	}
+=20
+ 	if (migration_debug)
