@@ -1,58 +1,35 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 30 Jan 2006 20:00:26 +0000
+From: "John Hawkes" <hawkes@sgi.com>
+Date: Mon, 30 Jan 2006 20:43:22 +0000
 Subject: Re: boot-time slowdown for measure_migration_cost
-Message-Id: <20060130200026.GA5081@agluck-lia64.sc.intel.com>
+Message-Id: <008901c625dd$d02e6760$6f00a8c0@comcast.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu> <20060130185301.GA4622@agluck-lia64.sc.intel.com> <20060130192438.GA29129@elte.hu>
-In-Reply-To: <20060130192438.GA29129@elte.hu>
+References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu> <20060130185301.GA4622@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Ingo Molnar <mingo@elte.hu>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Luck, Tony" <tony.luck@intel.com>, Ingo Molnar <mingo@elte.hu>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Mon, Jan 30, 2006 at 08:24:38PM +0100, Ingo Molnar wrote:
-> > Doing both gets the time down to 5.20s, and the migration_cost=9990.
->=20
-> ok, that's good enough i think - we could certainly do the patch below=20
-> in v2.6.16.
+From: "Luck, Tony" <tony.luck@intel.com>
+...
+> So the variation in the computed value of migration_cost was at worst
+> 2% with these modifications to the algorithm.  Do you really need to know
+> the value to this accuracy?  What 2nd order bad effects would occur from
+> using an off-by-2% value for scheduling decisions?
+>
+> On the plus side Prarit's results show that this time isn't scaling with
+> NR_CPUS ... apparently just cache size and number of domains are significant
+> in the time to compute.
 
-Might it be wise to see whether the 2% variation that I saw can be
-repeated on some other architecture?  Bjorn's initial post was just
-questioning whether we need to spend this much time during boot to acquire
-this data.  Now we have *one* data point that on an ia64 with four cpus
-with 9MB cache in a single domain that we can speed the calculation by
-a factor of three with only a 2% loss of accuracy.  Can someone else try
-this patch and post the before/after values for migration_cost from dmesg?
+Yes, the calculation is done just once per domain level, and a desire to
+achieve great accuracy for the calculation presupposes that the cpuM-to-cpuN
+migration cost for a given domain level is identical (or very close) across
+all the CPU pairs.  That is, for a given domain level, only one CPU pair are
+chosen for the calculation.  For the ia64/sn2 NUMA Altix, and I suspect for
+other NUMA platforms, this just isn't true for the middle domain level (i.e.,
+the level that appears when the CPU count is >32p) -- i.e., some CPU pairs are
+"closer" than other pairs.  The variation for other CPU pairs in this domain
+level is certainly much greater than 2%.
 
--Tony
+John Hawkes
 
----
-reduce the amount of time the migration cost calculations cost during=20
-bootup.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
---- linux/kernel/sched.c.orig
-+++ linux/kernel/sched.c
-@@ -5141,7 +5141,7 @@ static void init_sched_build_groups(stru
- #define SEARCH_SCOPE		2
- #define MIN_CACHE_SIZE		(64*1024U)
- #define DEFAULT_CACHE_SIZE	(5*1024*1024U)
--#define ITERATIONS		2
-+#define ITERATIONS		1
- #define SIZE_THRESH		130
- #define COST_THRESH		130
-=20
-@@ -5480,9 +5480,9 @@ static unsigned long long measure_migrat
- 				break;
- 			}
- 		/*
--		 * Increase the cachesize in 5% steps:
-+		 * Increase the cachesize in 10% steps:
- 		 */
--		size =3D size * 20 / 19;
-+		size =3D size * 10 / 9;
- 	}
-=20
- 	if (migration_debug)
