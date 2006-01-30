@@ -1,77 +1,57 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 30 Jan 2006 17:21:40 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 30 Jan 2006 18:53:01 +0000
 Subject: Re: boot-time slowdown for measure_migration_cost
-Message-Id: <20060130172140.GB11793@elte.hu>
+Message-Id: <20060130185301.GA4622@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601271403.27065.bjorn.helgaas@hp.com>
-In-Reply-To: <200601271403.27065.bjorn.helgaas@hp.com>
+References: <200601271403.27065.bjorn.helgaas@hp.com> <20060130172140.GB11793@elte.hu>
+In-Reply-To: <20060130172140.GB11793@elte.hu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Ingo Molnar <mingo@elte.hu>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+On Mon, Jan 30, 2006 at 06:21:40PM +0100, Ingo Molnar wrote:
+> - double-check that max_cache_size gets set up correctly on your=20
+>   architecture - the code searches from ~64K to 2*max_cache_size.
 
-* Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
+Ia64 gets that from PAL in get_max_cacheline_size() in ia64/kernel/setup.c
+A quick printk() in there confirms that we get the right answer (9MB for
+me), and that it happens before we compute the migration cost.
 
-> The boot-time migration cost auto-tuning stuff seems to have been 
-> merged to Linus' tree since 2.6.15.  On little one- or two-processor 
-> systems, the time required to measure the migration costs isn't very 
-> noticeable, but by the time we get to even a four-processor ia64 box, 
-> it adds about 30 seconds to the boot time, which seems like a lot.
-> 
-> Is that expected?  Is the information we get really worth that much?  
-> Could the measurement be done at run-time instead?  Is there a smaller 
-> hammer we could use, e.g., flushing just the buffer rather than the 
-> *entire* cache? Did we just implement sched_cacheflush() incorrectly 
-> for ia64?
-> 
-> Only ia64, x86, and x86_64 currently have a non-empty 
-> sched_cacheflush(), and the x86* ones contain only "wbinvd()". So I 
-> suspect that only ia64 sees this slowdown.  But I would guess that 
-> other arches will implement it in the future.
+> - take the values that are auto-detected and use the migration_cost=3D=20
+>   boot parameter - see Documentation/kernel-parameters.txt:
+>   ...
+>   via this solution you will get zero overhead on subsequent bootups.
 
-the main cost comes from accessing the test-buffer when the buffer size 
-gets above the real cachesize. There are a coupe of ways to improve 
-that:
+But if you are going to go this route, you could drop all this code from
+the kernel and have a hard-wired constant, with a user-mode test program
+to compute the more accurate value.
 
-- double-check that max_cache_size gets set up correctly on your 
-  architecture - the code searches from ~64K to 2*max_cache_size.
+> - in kernel/sched.c, decrease ITERATIONS from 2 to 1. This will make the =
 
-- take the values that are auto-detected and use the migration_cost= 
-  boot parameter - see Documentation/kernel-parameters.txt:
+>   measurement more noisy though.
 
-        migration_cost                        [KNL,SMP] debug: override scheduler migration costs
-                        Format: <level-1-usecs>,<level-2-usecs>,...
-                        This debugging option can be used to override the
-                        default scheduler migration cost matrix. The numbers
-                        are indexed by 'CPU domain distance'.
-                        E.g. migration_cost00,2000,3000 on an SMT NUMA
-                        box will set up an intra-core migration cost of
-                        1 msec, an inter-core migration cost of 2 msecs,
-                        and an inter-node migration cost of 3 msecs.
+Doing this drops the time to compute the value from 15.58s to 10.39s, while
+the value of migration_cost changes from 10112 to 9909.
 
-  (a distribution could do this automatically as well in the installer, 
-  i've constructed the bootup printout to be in the format that is 
-  needed for migration_cost. I have not tested this too extensively 
-  though, so double-check the result via an additional 
-  migration_debug=2 printout as well! Let me know if you find any bugs 
-  here.)
+> - in kernel/sched.c, change this line:
+>                 size =3D size * 20 / 19;
+>   to:
+>                 size =3D size * 10 / 9;
 
-  via this solution you will get zero overhead on subsequent bootups.
+Doing this instead of changing ITERATIONS makes the computation take 7.79s
+and the computed migration_cost is 9987.
 
-- in kernel/sched.c, decrease ITERATIONS from 2 to 1. This will make the 
-  measurement more noisy though.
+Doing both gets the time down to 5.20s, and the migration_cost=9990.
 
-- in kernel/sched.c, change this line:
+So the variation in the computed value of migration_cost was at worst
+2% with these modifications to the algorithm.  Do you really need to know
+the value to this accuracy?  What 2nd order bad effects would occur from
+using an off-by-2% value for scheduling decisions?
 
-                size = size * 20 / 19;
+On the plus side Prarit's results show that this time isn't scaling with
+NR_CPUS ... apparently just cache size and number of domains are significant
+in the time to compute.
 
-  to:
-
-                size = size * 10 / 9;
-
-  this will probably halve the cost - against at the expense of 
-  accuracy and statistical stability.
-
-	Ingo
+-Tony
