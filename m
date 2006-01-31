@@ -1,32 +1,79 @@
-From: Dave Jones <davej@redhat.com>
-Date: Fri, 20 Jan 2006 02:29:39 +0000
-Subject: Re: [2.6 patch] drivers/sn/ must be entered for CONFIG_SGI_IOC3
-Message-Id: <20060120022939.GA22184@redhat.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 31 Jan 2006 09:06:58 +0000
+Subject: [patch 1/6] remove dead code in ia64_leave_kernel
+Message-Id: <200601310907.k0V976g12698@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060117235521.GA14298@redhat.com> <20060119032423.GI19398@stusta.de> <yq0vewg7dc7.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0vewg7dc7.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Adrian Bunk <bunk@stusta.de>, pfg@sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Thu, Jan 19, 2006 at 04:54:00AM -0500, Jes Sorensen wrote:
- > >>>>> "Adrian" = Adrian Bunk <bunk@stusta.de> writes:
- > 
- > Adrian> On Tue, Jan 17, 2006 at 06:55:21PM -0500, Dave Jones wrote:
- > >> kernel/drivers/serial/ioc3_serial.ko needs unknown symbol
- > >> ioc3_unregister_submodule
- > >> 
- > >> CONFIG_SERIAL_SGI_IOC3=m CONFIG_SGI_IOC3=m
- > 
- > Adrian> The untested patch below should fix it.
- > 
- > Actually I think this is more appropriate so we don't end up with 17
- > cases that add drivers/sn to the build lib.
- > 
- > Dave, does this solve the problem?
+The code around restoring user backing store in ia64_leave_kernel
+is just plain dumb.  ia64_leave_kernel is used for non-syscall
+exit path.  When entering the kernel from the user space, we
+already preserved the user stack register frame by doing a
+cover instruction.  on the way out, ia64_leave_kernel uncondition-
+ally bypass a section of code by "br dont_preserve_current_frame"
+(pNonSys should always be one in that path).  However, part of
+code in the beginning of rbs_switch is used by ia64_leave_syscall
+to calculate new "ndirty" bytes since in leave syscall, kernel
+have to preserve the current frame and thus needing to re
+calculate new ndirty size for loadrs.  Streamline that section of
+code into ia64_leave_syscall and remove unneeded reading ar.bsp
+in the leave kernel path.
 
-Yep, looks like it.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-		Dave
+--- ./arch/ia64/kernel/entry.S.orig	2006-01-02 19:21:10.000000000 -0800
++++ ./arch/ia64/kernel/entry.S	2006-01-22 02:20:46.475278554 -0800
+@@ -787,6 +787,13 @@ ENTRY(ia64_leave_syscall)
+=20
+ 	mov.m ar.ssd=3Dr0			// M2   clear ar.ssd
+ 	mov f11=F0			// F    clear f11
++	sub r16=3Dr16,r18			// krbs =3D old bsp - size of dirty partition
++	cmp.ne p9,p0=3Dr0,r0		// clear p9 to skip restore of cr.ifs
++	;;
++	sub r19=3Dr19,r16			// calculate total byte size of dirty partition
++	add r18d,r18			// don't force in0-in7 into memory...
++	;;
++	shl r19=3Dr19,16			// shift size of dirty partition into loadrs pos
+ 	br.cond.sptk.many rbs_switch	// B
+ END(ia64_leave_syscall)
+=20
+@@ -951,32 +958,17 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+ (pUStk)	st1 [r18]=3Dr17		// restore current->thread.on_ustack
+ 	shr.u r18=3Dr19,16	// get byte size of existing "dirty" partition
+ 	;;
+-	mov r16=3Dar.bsp		// get existing backing store pointer
+ 	addl r17=3DTHIS_CPU(ia64_phys_stacked_size_p8),r0
+ 	;;
+ 	ld4 r17=3D[r17]		// r17 =3D cpu_data->phys_stacked_size_p8
+ (pKStk)	br.cond.dpnt skip_rbs_switch
+=20
++rbs_switch:
+ 	/*
+ 	 * Restore user backing store.
+ 	 *
+ 	 * NOTE: alloc, loadrs, and cover can't be predicated.
+-	 */
+-(pNonSys) br.cond.dpnt dont_preserve_current_frame
+-	cover				// add current frame into dirty partition and set cr.ifs
+-	;;
+-	mov r19=3Dar.bsp			// get new backing store pointer
+-rbs_switch:
+-	sub r16=3Dr16,r18			// krbs =3D old bsp - size of dirty partition
+-	cmp.ne p9,p0=3Dr0,r0		// clear p9 to skip restore of cr.ifs
+-	;;
+-	sub r19=3Dr19,r16			// calculate total byte size of dirty partition
+-	add r18d,r18			// don't force in0-in7 into memory...
+-	;;
+-	shl r19=3Dr19,16			// shift size of dirty partition into loadrs position
+-	;;
+-dont_preserve_current_frame:
+-	/*
++	 *
+ 	 * To prevent leaking bits between the kernel and user-space,
+ 	 * we must clear the stacked registers in the "invalid" partition here.
+ 	 * Not pretty, but at least it's fast (3.34 registers/cycle on Itanium,
+
+
