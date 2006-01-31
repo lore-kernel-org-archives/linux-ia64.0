@@ -1,56 +1,25 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Thu, 26 Jan 2006 03:38:41 +0000
-Subject: [PATCH 11/12] generic ext2_{set,clear}_bit_atomic()
-Message-Id: <20060126033840.GJ11138@miraclelinux.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 31 Jan 2006 08:52:37 +0000
+Subject: [patch 0/6] optimize kernel rbs in kernel exit path
+Message-Id: <200601310852.k0V8qkg11440@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060125112625.GA18584@miraclelinux.com> <20060125113206.GD18584@miraclelinux.com> <20060125200250.GA26443@flint.arm.linux.org.uk> <20060125205907.GF9995@esmail.cup.hp.com> <20060126032713.GA9984@miraclelinux.com>
-In-Reply-To: <20060126032713.GA9984@miraclelinux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalents of the functions below:
-int ext2_set_bit_atomic(int nr, volatile unsigned long *addr);
-int ext2_clear_bit_atomic(int nr, volatile unsigned long *addr);
+The following is a set of 6 patches to optimize kernel RBS stack
+access in the kernel exit path.  Our perfmon data collection on
+several enterprise workloads showed that in the kernel exit path,
+accessing to kernel RBS stack has generated quite a bit of L3
+cache misses, primarily coming from loading the user dirty stack
+register partition. This set of patch specifically tries to prefetch
+the memory corresponding to the dirty RBS section as early as
+possible in the kernel exit path.
 
-HAVE_ARCH_EXT2_ATOMIC_BITOPS is defined when the architecture has its
-own
-version of these functions.
+Detail explanation is given in each follow up posting.  I'm posting
+these patches for wider exposure.  Comments and feedback are appre-
+ciated.
 
-This code largely copied from:
-include/asm-sparc/bitops.h
+- Ken
 
-Index: 2.6-git/include/asm-generic/bitops.h
-=================================--- 2.6-git.orig/include/asm-generic/bitops.h	2006-01-25 19:14:11.000000000 +0900
-+++ 2.6-git/include/asm-generic/bitops.h	2006-01-25 19:14:12.000000000 +0900
-@@ -645,6 +645,28 @@
- 
- #endif /* HAVE_ARCH_EXT2_NON_ATOMIC_BITOPS */
- 
-+#ifndef HAVE_ARCH_EXT2_ATOMIC_BITOPS
-+
-+#define ext2_set_bit_atomic(lock, nr, addr)		\
-+	({						\
-+		int ret;				\
-+		spin_lock(lock);			\
-+		ret = ext2_set_bit((nr), (unsigned long *)(addr)); \
-+		spin_unlock(lock);			\
-+		ret;					\
-+	})
-+
-+#define ext2_clear_bit_atomic(lock, nr, addr)		\
-+	({						\
-+		int ret;				\
-+		spin_lock(lock);			\
-+		ret = ext2_clear_bit((nr), (unsigned long *)(addr)); \
-+		spin_unlock(lock);			\
-+		ret;					\
-+	})
-+
-+#endif /* HAVE_ARCH_EXT2_ATOMIC_BITOPS */
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _ASM_GENERIC_BITOPS_H */
