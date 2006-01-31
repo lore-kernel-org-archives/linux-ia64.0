@@ -1,39 +1,30 @@
-From: Jes Sorensen <jes@trained-monkey.org>
-Date: Tue, 31 Jan 2006 10:57:05 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 31 Jan 2006 11:19:35 +0000
 Subject: Re: [patch 5/5] fix sn rw_mmr.h to use intrinsic
-Message-Id: <yq04q3kr7ge.fsf@jaguar.mkp.net>
+Message-Id: <20060131111935.GA6699@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200601270137.k0R1big21236@unix-os.sc.intel.com>
 In-Reply-To: <200601270137.k0R1big21236@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
->>>>> "Ken" = Chen, Kenneth W <kenneth.w.chen@intel.com> writes:
-
-Ken> Jes Sorensen wrote on Friday, January 27, 2006 1:57 AM
->>  I'll have to test this. However it really doesn't matter much as
->> we won't be building the SN kernel with ICC.
-
-Ken> When I build a generic kernel, all sn code are pulled in and need
-Ken> to be compiled.  It would be nice to have sn portion of kernel
-Ken> code free of asm statement in the source. I heard that gcc is
-Ken> also going in the direction of implementing intrinsic in the long
-Ken> term.  Or do we have an option of CONFIG_NON_SGI?  I can cook up
-Ken> something if this is really what people Want (I suspect not).
-
-Ken,
-
-Speaking solely on my own behalf, and not that of my employer here.
-
-I have to say that I have always found it very discouraging how the
-kernel had this mess added which is badly obfuscating the code solely
-to support one vendor's broken compiler.
-
-The real solution to this problem would be for Intel's compiler people
-to fix the brokenness of ICC instead of adding any more of this
-obfuscation to the kernel ;-(
-
-Regards,
-Jes
+T24gVHVlLCBKYW4gMzEsIDIwMDYgYXQgMDU6NTc6MDVBTSAtMDUwMCwgSmVzIFNvcmVuc2VuIHdy
+b3RlOgo+IEkgaGF2ZSB0byBzYXkgdGhhdCBJIGhhdmUgYWx3YXlzIGZvdW5kIGl0IHZlcnkgZGlz
+Y291cmFnaW5nIGhvdyB0aGUKPiBrZXJuZWwgaGFkIHRoaXMgbWVzcyBhZGRlZCB3aGljaCBpcyBi
+YWRseSBvYmZ1c2NhdGluZyB0aGUgY29kZSBzb2xlbHkKPiB0byBzdXBwb3J0IG9uZSB2ZW5kb3In
+cyBicm9rZW4gY29tcGlsZXIuCj4gCj4gVGhlIHJlYWwgc29sdXRpb24gdG8gdGhpcyBwcm9ibGVt
+IHdvdWxkIGJlIGZvciBJbnRlbCdzIGNvbXBpbGVyIHBlb3BsZQo+IHRvIGZpeCB0aGUgYnJva2Vu
+bmVzcyBvZiBJQ0MgaW5zdGVhZCBvZiBhZGRpbmcgYW55IG1vcmUgb2YgdGhpcwo+IG9iZnVzY2F0
+aW9uIHRvIHRoZSBrZXJuZWwgOy0oCgpBZ3JlZWQuICBPYnNmdWNhdGluZyBmb3IgYSBwcm9wcml0
+YXJ5IGFuZCBwcmV0dHkgbXVjaCBpcnJlbGV2YW50IChmb3IgdGhlCmtlcm5lbCkgY29tcGlsZXIg
+aXMgYSBob3JyaWJsZSB0aGluZyB0byBkby4gIEFuZCB0aGUgb25seSByZWFzb24gd2UgZG8gdGhh
+dAphdCBhbGwgaXMgdGhhdCB0aGUgY29tcGlsZXIgaXMgZnJvbSB0aGUgc2FtZSBjb21wYW55IHRo
+YXQncyBiZWhpbmQgaWE2NC4KUGxlYXNlIGZpeCB1cCB5b3VyIGRhbW4gY29tcGlsZXIuICBFdmVu
+IFNHSSBtYW5hZ2VkIHRvIGFkZCBwcm9wZXIgaW5saW5lCmFz32VtYmx5IHN1cHBvcnQgdG8gUHJv
+NjQsIGFuZCB0aGV5IGhhZCBtdWNoIGxlc3MgcmVzc291cmNlcy4KLQpUbyB1bnN1YnNjcmliZSBm
+cm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4K
+dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBt
+YWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5o
+dG1s
