@@ -1,38 +1,47 @@
-From: "Bryan O'Sullivan" <bos@serpentine.com>
-Date: Thu, 26 Jan 2006 18:26:42 +0000
-Subject: Re: [Perfctr-devel] RE: [perfmon] Re: quick overview of the
-Message-Id: <1138300002.12632.51.camel@serpentine.pathscale.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 31 Jan 2006 09:13:24 +0000
+Subject: [patch 3/6] prefetch bottom of kernel rbs stack at syscall exit path
+Message-Id: <200601310913.k0V9DWg13193@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3C87FFF91369A242B9C9147F8BD0908A02C6955C@cacexc04.americas.cpqcorp.net>
-	 <1138221212.15295.35.camel@serpentine.pathscale.com>
-	 <20060125222844.GB10451@frankl.hpl.hp.com>
-	 <1138229203.15295.65.camel@serpentine.pathscale.com>
-	 <20060126074850.GA11138@frankl.hpl.hp.com>
-In-Reply-To: <20060126074850.GA11138@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: eranian@hpl.hp.com
-Cc: perfctr-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, perfmon@napali.hpl.hp.com, "Eranian, Stephane" <stephane.eranian@hp.com>, Andrew Morton <akpm@osdl.org>, "Truong, Dan" <dan.truong@hp.com>
+To: linux-ia64@vger.kernel.org
 
-On Wed, 2006-01-25 at 23:48 -0800, Stephane Eranian wrote:
+Kernel knows where the register backing store is corresponding
+to user dirty stack registers.  Prefetch those cache lines as
+early as possible in ia64_leave_syscall path.
 
-> You need to be root to insert the module. But I believe that for many user
-> environments, this is more practical than having to recompile a custom kernel.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-Clearly.
 
-> You can imagine the format being shipped with the tool, when the sysadmin
-> installs the tool it also installs the module.
+--- ./arch/ia64/kernel/entry.S.orig	2006-01-02 19:21:10.000000000 -0800
++++ ./arch/ia64/kernel/entry.S	2006-01-30 13:26:41.161634409 -0800
+@@ -715,10 +715,11 @@ ENTRY(ia64_leave_syscall)
+ 	;;
+ (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
+ 	ld8 r19=[r2],PT(B6)-PT(LOADRS)		// load ar.rsc value for "loadrs"
+-	nop.i 0
++	add r17=IA64_RBS_OFFSET,r13
+ 	;;
+ 	mov r16=ar.bsp				// M2  get existing backing store pointer
+ 	ld8 r18=[r2],PT(R9)-PT(B6)		// load b6
++	shr r22=r19,16
+ (p6)	and r15=TIF_WORK_MASK,r31		// any work other than TIF_SYSCALL_TRACE?
+ 	;;
+ 	ld8 r23=[r3],PT(R11)-PT(AR_BSPSTORE)	// load ar.bspstore (may be garbage)
+@@ -729,6 +730,12 @@ ENTRY(ia64_leave_syscall)
+ 	ld8 r9=[r2],PT(CR_IPSR)-PT(R9)
+ 	ld8 r11=[r3],PT(CR_IIP)-PT(R11)
+ (pNonSys) break 0		//      bug check: we shouldn't be here if pNonSys is TRUE!
++1:
++(pUStk)	lfetch [r17],128
++	add r22=-128,r22
++	;;
++(pUStk)	cmp.gt.unc p7,p0=r22,r0
++(p7)	br.dptk.few 1b
+ 	;;
+ 	invala			// M0|1 invalidate ALAT
+ 	rsm psr.i | psr.ic	// M2   turn off interrupts and interruption collection
 
-In that case, you need some kind of per-distro cruft to make sure the
-module gets loaded at every boot, or a setuid program that can install
-the module, right?.  Neither of these approaches works well in a cluster
-environment where you're running your tools from a shared directory.
-
-I'd really like the default mode of operation for users to not require
-root privileges to get at normal functionality.  This is something
-perfctr makes possible, for example.
-
-	<b
 
