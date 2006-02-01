@@ -1,104 +1,75 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Feb 2006 13:28:33 +0000
-Subject: [PATCH: 002/012] Memory hotplug for new nodes v.2. (changing to __meminit)
-Message-Id: <20060217211158.406C.Y-GOTO@jp.fujitsu.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 01 Feb 2006 09:02:41 +0000
+Subject: [patch 17/44] generic minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+Message-Id: <20060201090326.484695000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060201090224.536581000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: linux-kernel@vger.kernel.org
+Cc: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
+This patch introduces the C-language equivalents of the functions below:
 
-This is a patch to change from __init to __meminit.
-These functions and data can be used after bootup by this patch.
+int minix_test_and_set_bit(int nr, volatile unsigned long *addr);
+int minix_set_bit(int nr, volatile unsigned long *addr);
+int minix_test_and_clear_bit(int nr, volatile unsigned long *addr);
+int minix_test_bit(int nr, const volatile unsigned long *addr);
+unsigned long minix_find_first_zero_bit(const unsigned long *addr,
+                                        unsigned long size);
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+In include/asm-generic/bitops/minix.h
+   and include/asm-generic/bitops/minix-le.h
 
-Index: pgdat3/mm/page_alloc.c
-=================================--- pgdat3.orig/mm/page_alloc.c	2006-02-17 15:58:06.000000000 +0900
-+++ pgdat3/mm/page_alloc.c	2006-02-17 16:12:43.000000000 +0900
-@@ -82,8 +82,8 @@ EXPORT_SYMBOL(zone_table);
- static char *zone_names[MAX_NR_ZONES] = { "DMA", "DMA32", "Normal", "HighMem" };
- int min_free_kbytes = 1024;
- 
--unsigned long __initdata nr_kernel_pages;
--unsigned long __initdata nr_all_pages;
-+unsigned long __meminitdata nr_kernel_pages;
-+unsigned long __meminitdata nr_all_pages;
- 
- #ifdef CONFIG_DEBUG_VM
- static int page_outside_zone_boundaries(struct zone *zone, struct page *page)
-@@ -1579,7 +1579,7 @@ void show_free_areas(void)
-  *
-  * Add all populated zones of a node to the zonelist.
-  */
--static int __init build_zonelists_node(pg_data_t *pgdat,
-+static int __meminit build_zonelists_node(pg_data_t *pgdat,
- 			struct zonelist *zonelist, int nr_zones, int zone_type)
- {
- 	struct zone *zone;
-@@ -1630,7 +1630,7 @@ static int __initdata node_load[MAX_NUMN
-  * on them otherwise.
-  * It returns -1 if no node is found.
-  */
--static int __init find_next_best_node(int node, nodemask_t *used_node_mask)
-+static int __meminit find_next_best_node(int node, nodemask_t *used_node_mask)
- {
- 	int i, n, val;
- 	int min_val = INT_MAX;
-@@ -1676,7 +1676,7 @@ static int __init find_next_best_node(in
- 	return best_node;
- }
- 
--static void __init build_zonelists(pg_data_t *pgdat)
-+static void __meminit build_zonelists(pg_data_t *pgdat)
- {
- 	int i, j, k, node, local_node;
- 	int prev_node, load;
-@@ -1728,7 +1728,7 @@ static void __init build_zonelists(pg_da
- 
- #else	/* CONFIG_NUMA */
- 
--static void __init build_zonelists(pg_data_t *pgdat)
-+static void __meminit build_zonelists(pg_data_t *pgdat)
- {
- 	int i, j, k, node, local_node;
- 
-@@ -2134,7 +2134,7 @@ static __meminit void init_currently_emp
-  *   - mark all memory queues empty
-  *   - clear the memory bitmaps
-  */
--static void __init free_area_init_core(struct pglist_data *pgdat,
-+static void __meminit free_area_init_core(struct pglist_data *pgdat,
- 		unsigned long *zones_size, unsigned long *zholes_size)
- {
- 	unsigned long j;
-@@ -2214,7 +2214,7 @@ static void __init alloc_node_mem_map(st
- #endif /* CONFIG_FLAT_NODE_MEM_MAP */
- }
- 
--void __init free_area_init_node(int nid, struct pglist_data *pgdat,
-+void __meminit free_area_init_node(int nid, struct pglist_data *pgdat,
- 		unsigned long *zones_size, unsigned long node_start_pfn,
- 		unsigned long *zholes_size)
- {
-Index: pgdat3/include/linux/bootmem.h
-=================================--- pgdat3.orig/include/linux/bootmem.h	2006-02-17 15:51:08.000000000 +0900
-+++ pgdat3/include/linux/bootmem.h	2006-02-17 16:12:43.000000000 +0900
-@@ -86,8 +86,8 @@ static inline void *alloc_remap(int nid,
- }
- #endif
- 
--extern unsigned long __initdata nr_kernel_pages;
--extern unsigned long __initdata nr_all_pages;
-+extern unsigned long __meminitdata nr_kernel_pages;
-+extern unsigned long __meminitdata nr_all_pages;
- 
- extern void *__init alloc_large_system_hash(const char *tablename,
- 					    unsigned long bucketsize,
+This code largely copied from:
+include/asm-sparc/bitops.h
 
--- 
-Yasunori Goto 
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
 
+ include/asm-generic/bitops/minix-le.h |   17 +++++++++++++++++
+ include/asm-generic/bitops/minix.h    |   15 +++++++++++++++
+ 2 files changed, 32 insertions(+)
 
+Index: 2.6-git/include/asm-generic/bitops/minix.h
+=================================--- /dev/null
++++ 2.6-git/include/asm-generic/bitops/minix.h
+@@ -0,0 +1,15 @@
++#ifndef _ASM_GENERIC_BITOPS_MINIX_H_
++#define _ASM_GENERIC_BITOPS_MINIX_H_
++
++#define minix_test_and_set_bit(nr,addr)	\
++	__test_and_set_bit((nr),(unsigned long *)(addr))
++#define minix_set_bit(nr,addr)		\
++	__set_bit((nr),(unsigned long *)(addr))
++#define minix_test_and_clear_bit(nr,addr) \
++	__test_and_clear_bit((nr),(unsigned long *)(addr))
++#define minix_test_bit(nr,addr)		\
++	test_bit((nr),(unsigned long *)(addr))
++#define minix_find_first_zero_bit(addr,size) \
++	find_first_zero_bit((unsigned long *)(addr),(size))
++
++#endif /* _ASM_GENERIC_BITOPS_MINIX_H_ */
+Index: 2.6-git/include/asm-generic/bitops/minix-le.h
+=================================--- /dev/null
++++ 2.6-git/include/asm-generic/bitops/minix-le.h
+@@ -0,0 +1,17 @@
++#ifndef _ASM_GENERIC_BITOPS_MINIX_LE_H_
++#define _ASM_GENERIC_BITOPS_MINIX_LE_H_
++
++#include <asm-generic/bitops/le.h>
++
++#define minix_test_and_set_bit(nr,addr)	\
++	generic___test_and_set_le_bit((nr),(unsigned long *)(addr))
++#define minix_set_bit(nr,addr)		\
++	generic___set_le_bit((nr),(unsigned long *)(addr))
++#define minix_test_and_clear_bit(nr,addr) \
++	generic___test_and_clear_le_bit((nr),(unsigned long *)(addr))
++#define minix_test_bit(nr,addr)		\
++	generic_test_le_bit((nr),(unsigned long *)(addr))
++#define minix_find_first_zero_bit(addr,size) \
++	generic_find_first_zero_le_bit((unsigned long *)(addr),(size))
++
++#endif /* _ASM_GENERIC_BITOPS_MINIX_LE_H_ */
+
+--
