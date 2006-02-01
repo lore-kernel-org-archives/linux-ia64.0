@@ -1,71 +1,66 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 15 Feb 2006 03:12:37 +0000
-Subject: Re: [Patch]IA64 kexec
-Message-Id: <20060215031236.GE15712@verge.net.au>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 01 Feb 2006 09:02:36 +0000
+Subject: [patch 12/44] generic sched_find_first_bit()
+Message-Id: <20060201090325.497639000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1131406068.2524.15.camel@linux-znh>
-In-Reply-To: <1131406068.2524.15.camel@linux-znh>
+References: <20060201090224.536581000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
-On Wed, Feb 15, 2006 at 01:40:46PM +1100, Keith Owens wrote:
-> Horms (on Wed, 15 Feb 2006 11:10:57 +0900) wrote:
-> >On Tue, Feb 14, 2006 at 04:13:07PM +1100, Keith Owens wrote:
-> >> But what kexec can do is to register itself on the
-> >> notify_die() chain ...
-> >
-> >Thanks, that looks quite promising indeed. However, after poking round a
-> >bit more I'm a little confused about what the intent of using INIT is.
-> >
-> >Is the idea to intercept an INIT, produced by the front panel, a
-> >maintenence processor, (or perhaps an internal error), and then start
-> >kexecing? Or is the idea for kexec to use INIT internally to halt the
-> >processors.
-> 
-> kexec (or any other RAS tool) should avoid using INIT itself.  The ia64
-> INIT handlers are coded on the assumption that INIT is sent to all cpus
-> at the same time, or that INIT is issued as part of the MCA rendezvous.
-> In either case, the code assumes that the entire system is first
-> brought to a dead stop, with all cpus under MCA or INIT control, before
-> processing with the RAS code.  IOW, the user invokes INIT via a button
-> or BMC command, all cpus stop, then you start the debug process.
+This patch introduces the C-language equivalent of the function:
+int sched_find_first_bit(const unsigned long *b);
 
-Understood. So the idea is that INIT would be a way of triggering kexec?
-That is in addition to it being triggerable from user-space (kexec -e) and
-being triggerable on panic (presumably not using INIT).
+In include/asm-generic/bitops/sched.h
 
-> But there is still the problem of working out what the user means when
-> they send INIT.  Do they want a debugger or kexec to run, followed by
-> reboot?  Or do they just want a stack trace followed by resumption of
-> normal processing.  Some people want one option, some want another, and
-> they are mutually exclusive.
+This code largely copied from:
+include/asm-powerpc/bitops.h
 
-If its just a user prefereance, then it seems like it would
-be easy enough to let them select the action to take on INIT, 
-say through proc. 
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ include/asm-generic/bitops/sched.h |   36 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 36 insertions(+)
 
-Or if the only two methods are debug, which is the existing behaviour,
-and kexec.  Then perhaps when they register a kernel for kexecing on
-INIT.  I think that would be consistent with the way that a kernel can
-be registered for kexecing on panic.
+Index: 2.6-git/include/asm-generic/bitops/sched.h
+=================================--- /dev/null
++++ 2.6-git/include/asm-generic/bitops/sched.h
+@@ -0,0 +1,36 @@
++#ifndef _ASM_GENERIC_BITOPS_SCHED_H_
++#define _ASM_GENERIC_BITOPS_SCHED_H_
++
++#include <linux/compiler.h>	/* unlikely() */
++#include <asm/types.h>
++
++/*
++ * Every architecture must define this function. It's the fastest
++ * way of searching a 140-bit bitmap where the first 100 bits are
++ * unlikely to be set. It's guaranteed that at least one of the 140
++ * bits is cleared.
++ */
++static inline int sched_find_first_bit(const unsigned long *b)
++{
++#if BITS_PER_LONG = 64
++	if (unlikely(b[0]))
++		return __ffs(b[0]);
++	if (unlikely(b[1]))
++		return __ffs(b[1]) + 64;
++	return __ffs(b[2]) + 128;
++#elif BITS_PER_LONG = 32
++	if (unlikely(b[0]))
++		return __ffs(b[0]);
++	if (unlikely(b[1]))
++		return __ffs(b[1]) + 32;
++	if (unlikely(b[2]))
++		return __ffs(b[2]) + 64;
++	if (b[3])
++		return __ffs(b[3]) + 96;
++	return __ffs(b[4]) + 128;
++#else
++#error BITS_PER_LONG not defined
++#endif
++}
++
++#endif /* _ASM_GENERIC_BITOPS_SCHED_H_ */
 
-> >Lastly, if INIT is being used to shut off the processors by kexec, is it
-> >reasonable to assume that an INIT will hit all processors, and thus the
-> >slave processors can halt themselves in the callback (using cpu_die()?).
-> 
-> The combination of MCA and INIT will hit all processors.  Both the MCA
-> and INIT handlers call ia64_wait_for_slaves(), so the monarch event
-> will not proceed until all slaves have been stopped, or we decide that
-> they are never going to stop and proceed anyway.  So kexec should run
-> off the monarch notifier.
-> 
-> Have you read linux/Documentation/ia64/mca.txt?
-
-Indeed I have. I know that it mentions having software workarounds
-for various INIT delivery indosyncracies, but I wasn't sure if that
-meant the callbacks have to worry about it. Thanks for clearing that up.
-
--- 
-Horms
+--
