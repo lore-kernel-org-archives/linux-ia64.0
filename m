@@ -1,77 +1,91 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 08 Feb 2006 15:19:28 +0000
-Subject: [patch] prevent sn2 specific code to be run in generic kernels
-Message-Id: <yq08xslnain.fsf@jaguar.mkp.net>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Wed, 01 Feb 2006 12:36:49 +0000
+Subject: [Patch:003/004] Unify pxm_to_node id ver.2. (for x86_64)
+Message-Id: <20060201205337.41EC.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, Bob Picco <bob.picco@hp.com>, Paul Jackson <pj@sgi.com>, Andy Whitcroft <apw@shadowen.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
-Hi,
 
-Last two cases where sn2 specific init calls would execute on any
-platform when running a generic kernel.
+This is to remove the code of pxm_to_node from x86-64 code.
 
-Both cases are non fatal, which is why we didn't notice it
-before. Still shouldn't be run.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Cheers,
-Jes
 
-Prevent SN2 specific code to be executed on non SN2 platforms when
-compiling a generic kernel.
+ arch/x86_64/mm/srat.c     |   33 +--------------------------------
+ include/asm-x86_64/numa.h |    1 -
+ 2 files changed, 1 insertion(+), 33 deletions(-)
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-
-----
-
- arch/ia64/sn/kernel/mca.c           |    5 +++--
- arch/ia64/sn/kernel/sn2/sn_hwperf.c |    5 ++++-
- 2 files changed, 7 insertions(+), 3 deletions(-)
-
-Index: linux-2.6/arch/ia64/sn/kernel/mca.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/mca.c
-+++ linux-2.6/arch/ia64/sn/kernel/mca.c
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
-+ * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
-  */
+Index: pxm_ver2/arch/x86_64/mm/srat.c
+=================================--- pxm_ver2.orig/arch/x86_64/mm/srat.c	2006-02-01 18:53:45.000000000 +0900
++++ pxm_ver2/arch/x86_64/mm/srat.c	2006-02-01 18:54:25.000000000 +0900
+@@ -22,31 +22,11 @@
+ static struct acpi_table_slit *acpi_slit;
  
- #include <linux/types.h>
-@@ -137,7 +137,8 @@
+ static nodemask_t nodes_parsed __initdata;
+-static nodemask_t nodes_found __initdata;
+ static struct bootnode nodes[MAX_NUMNODES] __initdata;
+-static u8 pxm2node[256] = { [0 ... 255] = 0xff };
+-
+-static int node_to_pxm(int n);
+-
+-int pxm_to_node(int pxm)
+-{
+-	if ((unsigned)pxm >= 256)
+-		return -1;
+-	/* Extend 0xff to (int)-1 */
+-	return (signed char)pxm2node[pxm];
+-}
  
- static int __init sn_salinfo_init(void)
+ static __init int setup_node(int pxm)
  {
--	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
-+	if (ia64_platform_is("sn2"))
-+		salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
+-	unsigned node = pxm2node[pxm];
+-	if (node = 0xff) {
+-		if (nodes_weight(nodes_found) >= MAX_NUMNODES)
+-			return -1;
+-		node = first_unset_node(nodes_found); 
+-		node_set(node, nodes_found);
+-		pxm2node[pxm] = node;
+-	}
+-	return pxm2node[pxm];
++	return acpi_map_pxm_to_node(pxm);
+ }
+ 
+ static __init int conflicting_nodes(unsigned long start, unsigned long end)
+@@ -302,17 +282,6 @@ int __init acpi_scan_nodes(unsigned long
  	return 0;
  }
  
-Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-+++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2004-2005 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (C) 2004-2006 Silicon Graphics, Inc. All rights reserved.
-  *
-  * SGI Altix topology and hardware performance monitoring API.
-  * Mark Goodwin <markgw@sgi.com>. 
-@@ -973,6 +973,9 @@
+-static int node_to_pxm(int n)
+-{
+-       int i;
+-       if (pxm2node[n] = n)
+-               return n;
+-       for (i = 0; i < 256; i++)
+-               if (pxm2node[i] = n)
+-                       return i;
+-       return 0;
+-}
+-
+ int __node_distance(int a, int b)
  {
- 	int e;
+ 	int index;
+Index: pxm_ver2/include/asm-x86_64/numa.h
+=================================--- pxm_ver2.orig/include/asm-x86_64/numa.h	2006-02-01 18:53:45.000000000 +0900
++++ pxm_ver2/include/asm-x86_64/numa.h	2006-02-01 18:54:25.000000000 +0900
+@@ -9,7 +9,6 @@ struct bootnode { 
+ };
  
-+	if (!ia64_platform_is("sn2"))
-+		return 0;
-+
- 	sn_hwperf_init();
+ extern int compute_hash_shift(struct bootnode *nodes, int numnodes);
+-extern int pxm_to_node(int nid);
  
- 	/*
+ #define ZONE_ALIGN (1UL << (MAX_ORDER+PAGE_SHIFT))
+ 
+
+-- 
+Yasunori Goto 
+
 
