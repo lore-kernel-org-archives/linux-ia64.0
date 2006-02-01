@@ -1,27 +1,51 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 22 Feb 2006 00:57:55 +0000
-Subject: [PATCH] IA64: Document the nomca boot parameter
-Message-Id: <20060222005755.GA4903@verge.net.au>
+From: Lee Schermerhorn <lee.schermerhorn@hp.com>
+Date: Wed, 01 Feb 2006 15:20:07 +0000
+Subject: Unable to handle kernel paging request in 2.6.16-rc1-mm4
+Message-Id: <1138807207.5211.39.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, "Zhang, Yanmin" <yanmin.zhang@intel.com>
 
-IA64: Document the nomca boot parameter
+Just a "heads up" because I haven't found reference to this in the ia64
+nor kernel lists.  Maybe just happens on my platform?
 
-Signed-Off-By: Horms <horms@verge.net.au>
+I'm seeing this on an HP rx8620 [16xIA64, 4 NUMA nodes, 32GB], booting
+subject kernel.  Log excerpts:
+---
+Unable to handle kernel paging request at virtual address
+a004037b4dc28110
+events/12[62]: Oops 11012296146944 [1]
+<snip>
+Call Trace:
+<snip>
+ [<a00000010000cca0>] ia64_leave_kernel+0x0/0x280
+                                sp=E0000721fe84fb80 bsp=E0000721fe849290
+ [<a0000001001483b0>] free_block+0x90/0x360
+                                sp=E0000721fe84fd50 bsp=E0000721fe849200
+ [<a0000001001489d0>] drain_array_locked+0x110/0x180
+                                sp=E0000721fe84fd50 bsp=E0000721fe8491b8
+ [<a00000010014e6c0>] cache_reap+0x1a0/0x600
+                                sp=E0000721fe84fd50 bsp=E0000721fe849140
+ [<a0000001000c61c0>] run_workqueue+0x180/0x2c0
+                                sp=E0000721fe84fd60 bsp=E0000721fe8490f0
+ [<a0000001000c6540>] worker_thread+0x240/0x2c0
+                                sp=E0000721fe84fd60 bsp=E0000721fe8490b8
+<snip>
+ BUG: events/12/62, lock held at task exit time!
+ [a000000100867fe0] {cache_chain_mutex}
+.. held by:         events/12:   62 [e0000721fe848000, 110]
+... acquired at:               cache_reap+0x30/0x600
+---
+Eventually the boot hangs...
 
-diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
-index b874771..7520539 100644
---- a/Documentation/kernel-parameters.txt
-+++ b/Documentation/kernel-parameters.txt
-@@ -1034,6 +1034,8 @@ running once the system is up.
- 
- 	nomce		[IA-32] Machine Check Exception
- 
-+	nomca		[IA-64] Disable machine check abort handling
-+
- 	noresidual	[PPC] Don't use residual data on PReP machines.
- 
- 	noresume	[SWSUSP] Disables resume and restores original swap
+I did a bisection search of the mm4 broken out patches and isolated the
+problem to the "export-cpu-topology-by-sysfs" patches.  I.e., if I
+comment these out, builds and boots fine [with a one-liner build fix
+from Christoph Lameter for an SGI sn pci source file].  Something
+overstepping a slab allocation?  Still investigating.
+
+Regards,
+Lee
+
