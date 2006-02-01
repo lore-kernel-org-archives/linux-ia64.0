@@ -1,37 +1,42 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Wed, 15 Feb 2006 15:08:23 +0000
-Subject: Re: [PATCH] ia64: simplify and fix udelay()
-Message-Id: <20060215150823.GA27208@sgi.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 01 Feb 2006 09:02:34 +0000
+Subject: [patch 10/44] generic fls64()
+Message-Id: <20060201090323.294297000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060214184017.20492.48141.sendpatchset@tomahawk.engr.sgi.com> <200602150908.k1F98dg02934@unix-os.sc.intel.com>
-In-Reply-To: <200602150908.k1F98dg02934@unix-os.sc.intel.com>
+References: <20060201090224.536581000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: hawkes@sgi.com, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Robin Holt <holt@sgi.com>, Dimitri Sivanich <sivanich@sgi.com>, Jes Sorensen <jes@sgi.com>
+To: linux-kernel@vger.kernel.org
+Cc: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
-On Wed, Feb 15, 2006 at 01:08:41AM -0800, Chen, Kenneth W wrote:
-> hawkes@sgi.com wrote on Tuesday, February 14, 2006 10:40 AM
-> > a preemption and migration to another CPU during the
-> > while-loop
-> 
-> Off topic from the subject line a bit, but related: how many Altix
-> SN2 customers in the field turn on CONFIG_PREEMPT? Redhat EL4 doesn't
-> turn on preempt, SuSE SLES9 and SLES10 beta don't turn it on either.
-> Is there a real benefit of turning that option on for SN2?
+This patch introduces the C-language equivalent of the function:
+int fls64(__u64 x);
 
-AFAICT, no one at SGI uses or plans to use CONFIG_PREEMPT. Most of
-our customers use kernels from one of the distros & none at this point
-enables preemption. 
+In include/asm-generic/bitops/fls64.h
 
-The realtime folks here have experimented with CONFIG_PREEMPT but so
-far have not seen any significant benefit.
+This code largely copied from:
+include/linux/bitops.h
 
-Regardless, we should fix udelay() to handle unsync'ed ITCs.  It would
-be nice to have it working.
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ include/asm-generic/bitops/fls64.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+)
 
+Index: 2.6-git/include/asm-generic/bitops/fls64.h
+=================================--- /dev/null
++++ 2.6-git/include/asm-generic/bitops/fls64.h
+@@ -0,0 +1,12 @@
++#ifndef _ASM_GENERIC_BITOPS_FLS64_H_
++#define _ASM_GENERIC_BITOPS_FLS64_H_
++
++static inline int fls64(__u64 x)
++{
++	__u32 h = x >> 32;
++	if (h)
++		return fls(x) + 32;
++	return fls(x);
++}
++
++#endif /* _ASM_GENERIC_BITOPS_FLS64_H_ */
 
-
--- Jack
-
+--
