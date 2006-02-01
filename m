@@ -1,40 +1,45 @@
-From: Adrian Bunk <bunk@stusta.de>
-Date: Fri, 17 Feb 2006 16:33:22 +0000
-Subject: Re: [2.6 patch] show "SN Devices" menu only if CONFIG_SGI_SN
-Message-Id: <20060217163322.GH4422@stusta.de>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 01 Feb 2006 14:55:37 +0000
+Subject: [Patch] Fix XPC code which sleeps with spin_lock_irqsave().
+Message-Id: <20060201145537.GC21833@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060217132245.GG4422@stusta.de> <yq08xsaxb0s.fsf@jaguar.mkp.net>
-In-Reply-To: <yq08xsaxb0s.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, Feb 17, 2006 at 10:25:39AM -0500, Jes Sorensen wrote:
-> >>>>> "Adrian" = Adrian Bunk <bunk@stusta.de> writes:
-> 
-> Adrian> On architectures like i386, the "Multimedia Capabilities Port
-> Adrian> drivers" menu is visible, but it can't be visited since it
-> Adrian> contains nothing usable for CONFIG_SGI_SN=n.
-> 
-> Thats only a third of the patch, if you want to do that, you should
-> remove the redundant SGI_SN checks below.
-> 
-> Like this.
+During some testing, we got a warning about trying to allocate
+memory while holding a lock.  This fixes that problem.
 
-Looks good.
+Signed-off-by: Robin Holt <holt@sgi.com>
+Acked-by: Dean Nelson <dcn@sgi.com>
 
-> Jes
->...
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2006-02-01 07:26:10.156287841 -0600
++++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2006-02-01 07:29:04.463443840 -0600
+@@ -575,14 +575,19 @@ xpc_activate_partition(struct xpc_partit
+ 
+ 	spin_lock_irqsave(&part->act_lock, irq_flags);
+ 
++	DBUG_ON(part->act_state != XPC_P_INACTIVE);
++
++	part->act_state = XPC_P_ACTIVATION_REQ;
++	XPC_SET_REASON(part, xpcCloneKThread, __LINE__);
++
++	spin_unlock_irqrestore(&part->act_lock, irq_flags);
++
+ 	pid = kernel_thread(xpc_activating, (void *) ((u64) partid), 0);
+ 
+-	DBUG_ON(part->act_state != XPC_P_INACTIVE);
++	spin_lock_irqsave(&part->act_lock, irq_flags);
+ 
+-	if (pid > 0) {
+-		part->act_state = XPC_P_ACTIVATION_REQ;
+-		XPC_SET_REASON(part, xpcCloneKThread, __LINE__);
+-	} else {
++	if (pid <= 0) {
++		part->act_state = XPC_P_INACTIVE;
+ 		XPC_SET_REASON(part, xpcCloneKThreadFailed, __LINE__);
+ 	}
+ 
