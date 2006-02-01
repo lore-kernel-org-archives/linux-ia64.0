@@ -1,173 +1,386 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 10 Feb 2006 14:20:48 +0000
-Subject: [RFC/PATCH: 002/010] Memory hotplug for new nodes with pgdat allocation. (Wait table and zonelists i
-Message-Id: <20060210223841.C532.Y-GOTO@jp.fujitsu.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 01 Feb 2006 09:02:49 +0000
+Subject: [patch 25/44] ia64: use generic bitops
+Message-Id: <20060201090332.136237000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060201090224.536581000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Akinobu Mita <mita@miraclelinux.com>
 
+- remove __{,test_and_}{set,clear,change}_bit() and test_bit()
+- remove generic_fls64()
+- remove find_{next,first}{,_zero}_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove sched_find_first_bit()
 
-This patch is to initialize wait table and zonelists for new pgdat.
-When new node is added, free_area_init_node() is called to initialize
-pgdat. But, wait table must be allocated by kmalloc (not bootmem) for it.
-And, zonelists is accessed from any other process every time,
-So, stop_machine_run() is used for safety update.
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ arch/ia64/lib/Makefile    |    2 
+ arch/ia64/lib/bitop.c     |   88 ------------------------
+ include/asm-ia64/bitops.h |  168 ++++------------------------------------------
+ 3 files changed, 19 insertions(+), 239 deletions(-)
 
-
- Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
- Signed-off-by: Hiroyuki Kamezawa <kamezawa.hiroyu@jp.fujitsu.com>
- Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
-
-Index: pgdat2/mm/page_alloc.c
-=================================--- pgdat2.orig/mm/page_alloc.c	2006-02-10 17:02:22.000000000 +0900
-+++ pgdat2/mm/page_alloc.c	2006-02-10 17:02:34.000000000 +0900
-@@ -37,6 +37,7 @@
- #include <linux/nodemask.h>
- #include <linux/vmalloc.h>
- #include <linux/mempolicy.h>
-+#include <linux/stop_machine.h>
+Index: 2.6-git/include/asm-ia64/bitops.h
+=================================--- 2.6-git.orig/include/asm-ia64/bitops.h
++++ 2.6-git/include/asm-ia64/bitops.h
+@@ -5,8 +5,8 @@
+  * Copyright (C) 1998-2003 Hewlett-Packard Co
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  *
+- * 02/06/02 find_next_bit() and find_first_bit() added from Erich Focht's ia64 O(1)
+- *	    scheduler patch
++ * 02/06/02 find_next_bit() and find_first_bit() added from Erich Focht's ia64
++ * O(1) scheduler patch
+  */
  
- #include <asm/tlbflush.h>
- #include "internal.h"
-@@ -2071,18 +2072,24 @@ void __init setup_per_cpu_pageset(void)
- static __meminit
- void zone_wait_table_init(struct zone *zone, unsigned long zone_size_pages)
- {
--	int i;
-+	int i, hotadd = (system_state = SYSTEM_RUNNING);
- 	struct pglist_data *pgdat = zone->zone_pgdat;
-+	unsigned long allocsize;
- 
- 	/*
- 	 * The per-page waitqueue mechanism uses hashed waitqueues
- 	 * per zone.
- 	 */
-+	if (hotadd && (zone_size_pages = PAGES_PER_SECTION))
-+		zone_size_pages = PAGES_PER_SECTION << 2;
- 	zone->wait_table_size = wait_table_size(zone_size_pages);
- 	zone->wait_table_bits =	wait_table_bits(zone->wait_table_size);
--	zone->wait_table = (wait_queue_head_t *)
--		alloc_bootmem_node(pgdat, zone->wait_table_size
--					* sizeof(wait_queue_head_t));
-+	allocsize = zone->wait_table_size * sizeof(wait_queue_head_t);
-+	if (hotadd)
-+		zone->wait_table = kmalloc(allocsize, GFP_KERNEL);
-+	else
-+		zone->wait_table = (wait_queue_head_t *)
-+			alloc_bootmem_node(pgdat, allocsize);
- 
- 	for(i = 0; i < zone->wait_table_size; ++i)
- 		init_waitqueue_head(zone->wait_table + i);
-@@ -2111,7 +2118,6 @@ static __meminit void init_currently_emp
- {
- 	struct pglist_data *pgdat = zone->zone_pgdat;
- 
--	zone_wait_table_init(zone, size);
- 	pgdat->nr_zones = zone_idx(zone) + 1;
- 
- 	zone->zone_mem_map = pfn_to_page(zone_start_pfn);
-@@ -2120,6 +2126,7 @@ static __meminit void init_currently_emp
- 	memmap_init(size, pgdat->node_id, zone_idx(zone), zone_start_pfn);
- 
- 	zone_init_free_lists(pgdat, zone, zone->spanned_pages);
-+	zone->spanned_pages = size;
+ #include <linux/compiler.h>
+@@ -25,9 +25,9 @@
+  * restricted to acting on a single-word quantity.
+  *
+  * The address must be (at least) "long" aligned.
+- * Note that there are driver (e.g., eepro100) which use these operations to operate on
+- * hw-defined data-structures, so we can't easily change these operations to force a
+- * bigger alignment.
++ * Note that there are driver (e.g., eepro100) which use these operations to
++ * operate on hw-defined data-structures, so we can't easily change these
++ * operations to force a bigger alignment.
+  *
+  * bit 0 is the LSB of addr; bit 32 is the LSB of (addr+1).
+  */
+@@ -47,21 +47,6 @@ set_bit (int nr, volatile void *addr)
+ 	} while (cmpxchg_acq(m, old, new) != old);
  }
+ 
+-/**
+- * __set_bit - Set a bit in memory
+- * @nr: the bit to set
+- * @addr: the address to start counting from
+- *
+- * Unlike set_bit(), this function is non-atomic and may be reordered.
+- * If it's called on the same region of memory simultaneously, the effect
+- * may be that only one operation succeeds.
+- */
+-static __inline__ void
+-__set_bit (int nr, volatile void *addr)
+-{
+-	*((__u32 *) addr + (nr >> 5)) |= (1 << (nr & 31));
+-}
+-
+ /*
+  * clear_bit() has "acquire" semantics.
+  */
+@@ -95,17 +80,6 @@ clear_bit (int nr, volatile void *addr)
+ }
+ 
+ /**
+- * __clear_bit - Clears a bit in memory (non-atomic version)
+- */
+-static __inline__ void
+-__clear_bit (int nr, volatile void *addr)
+-{
+-	volatile __u32 *p = (__u32 *) addr + (nr >> 5);
+-	__u32 m = 1 << (nr & 31);
+-	*p &= ~m;
+-}
+-
+-/**
+  * change_bit - Toggle a bit in memory
+  * @nr: Bit to clear
+  * @addr: Address to start counting from
+@@ -131,21 +105,6 @@ change_bit (int nr, volatile void *addr)
+ }
+ 
+ /**
+- * __change_bit - Toggle a bit in memory
+- * @nr: the bit to set
+- * @addr: the address to start counting from
+- *
+- * Unlike change_bit(), this function is non-atomic and may be reordered.
+- * If it's called on the same region of memory simultaneously, the effect
+- * may be that only one operation succeeds.
+- */
+-static __inline__ void
+-__change_bit (int nr, volatile void *addr)
+-{
+-	*((__u32 *) addr + (nr >> 5)) ^= (1 << (nr & 31));
+-}
+-
+-/**
+  * test_and_set_bit - Set a bit and return its old value
+  * @nr: Bit to set
+  * @addr: Address to count from
+@@ -171,26 +130,6 @@ test_and_set_bit (int nr, volatile void 
+ }
+ 
+ /**
+- * __test_and_set_bit - Set a bit and return its old value
+- * @nr: Bit to set
+- * @addr: Address to count from
+- *
+- * This operation is non-atomic and can be reordered.  
+- * If two examples of this operation race, one can appear to succeed
+- * but actually fail.  You must protect multiple accesses with a lock.
+- */
+-static __inline__ int
+-__test_and_set_bit (int nr, volatile void *addr)
+-{
+-	__u32 *p = (__u32 *) addr + (nr >> 5);
+-	__u32 m = 1 << (nr & 31);
+-	int oldbitset = (*p & m) != 0;
+-
+-	*p |= m;
+-	return oldbitset;
+-}
+-
+-/**
+  * test_and_clear_bit - Clear a bit and return its old value
+  * @nr: Bit to set
+  * @addr: Address to count from
+@@ -216,26 +155,6 @@ test_and_clear_bit (int nr, volatile voi
+ }
+ 
+ /**
+- * __test_and_clear_bit - Clear a bit and return its old value
+- * @nr: Bit to set
+- * @addr: Address to count from
+- *
+- * This operation is non-atomic and can be reordered.  
+- * If two examples of this operation race, one can appear to succeed
+- * but actually fail.  You must protect multiple accesses with a lock.
+- */
+-static __inline__ int
+-__test_and_clear_bit(int nr, volatile void * addr)
+-{
+-	__u32 *p = (__u32 *) addr + (nr >> 5);
+-	__u32 m = 1 << (nr & 31);
+-	int oldbitset = *p & m;
+-
+-	*p &= ~m;
+-	return oldbitset;
+-}
+-
+-/**
+  * test_and_change_bit - Change a bit and return its old value
+  * @nr: Bit to set
+  * @addr: Address to count from
+@@ -260,32 +179,14 @@ test_and_change_bit (int nr, volatile vo
+ 	return (old & bit) != 0;
+ }
+ 
+-/*
+- * WARNING: non atomic version.
+- */
+-static __inline__ int
+-__test_and_change_bit (int nr, void *addr)
+-{
+-	__u32 old, bit = (1 << (nr & 31));
+-	__u32 *m = (__u32 *) addr + (nr >> 5);
+-
+-	old = *m;
+-	*m = old ^ bit;
+-	return (old & bit) != 0;
+-}
+-
+-static __inline__ int
+-test_bit (int nr, const volatile void *addr)
+-{
+-	return 1 & (((const volatile __u32 *) addr)[nr >> 5] >> (nr & 31));
+-}
++#include <asm-generic/bitops/non-atomic.h>
+ 
+ /**
+  * ffz - find the first zero bit in a long word
+  * @x: The long word to find the bit in
+  *
+- * Returns the bit-number (0..63) of the first (least significant) zero bit.  Undefined if
+- * no zero exists, so code should check against ~0UL first...
++ * Returns the bit-number (0..63) of the first (least significant) zero bit.
++ * Undefined if no zero exists, so code should check against ~0UL first...
+  */
+ static inline unsigned long
+ ffz (unsigned long x)
+@@ -345,13 +246,14 @@ fls (int t)
+ 	x |= x >> 16;
+ 	return ia64_popcnt(x);
+ }
+-#define fls64(x)   generic_fls64(x)
++
++#include <asm-generic/bitops/fls64.h>
  
  /*
-@@ -2175,6 +2182,7 @@ void __meminit free_area_init_core(struc
- 			continue;
+- * ffs: find first bit set. This is defined the same way as the libc and compiler builtin
+- * ffs routines, therefore differs in spirit from the above ffz (man ffs): it operates on
+- * "int" values only and the result value is the bit number + 1.  ffs(0) is defined to
+- * return zero.
++ * ffs: find first bit set. This is defined the same way as the libc and
++ * compiler builtin ffs routines, therefore differs in spirit from the above
++ * ffz (man ffs): it operates on "int" values only and the result value is the
++ * bit number + 1.  ffs(0) is defined to return zero.
+  */
+ #define ffs(x)	__builtin_ffs(x)
  
- 		zonetable_add(zone, nid, j, zone_start_pfn, size);
-+		zone_wait_table_init(zone, size);
- 		init_currently_empty_zone(zone, zone_start_pfn, size);
- 		zone_start_pfn += size;
- 	}
-@@ -2818,3 +2826,54 @@ void *__init alloc_large_system_hash(con
+@@ -373,51 +275,17 @@ hweight64 (unsigned long x)
  
- 	return table;
- }
-+
-+static inline int zone_previously_initialized(struct zone *zone)
-+{
-+	if (zone->wait_table_size)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+#ifdef CONFIG_MEMORY_HOTPLUG
-+static int __build_all_zonelists(void *dummy)
-+{
-+	int i;
-+	for_each_online_node(i)
-+		build_zonelists(NODE_DATA(i));
-+	/* XXX: Cpuset must be updated when node is hotplugged. */
-+	return 0;
-+}
-+
-+DEFINE_SPINLOCK(zone_init_lock);
-+int hot_add_zone_init(struct zone *zone, unsigned long phys_start_pfn,
-+		      unsigned long size_pages)
-+{
-+	int ret = 0;
-+	unsigned long flags;
-+	spin_lock_irqsave(&zone_init_lock,flags);
-+	if (zone_previously_initialized(zone)) {
-+		ret = -EEXIST;
-+		goto out;
-+	}
-+
-+	zone_wait_table_init(zone, size_pages);
-+	printk(KERN_DEBUG "hot add zone init %lx %lx.....\n",
-+	       phys_start_pfn, size_pages);
-+	init_currently_empty_zone(zone, phys_start_pfn, size_pages);
-+	zone_pcp_init(zone);
-+
-+	/*
-+	 * This is an awfully blunt way to do this.  But, the
-+	 * zonelists are accessed many times over large areas
-+	 * of performance-critical code in the allocator.
-+	 * That makes it very hard to get a conventional lock
-+	 * to work.  This of this as a rw lock with a huge
-+	 * write cost.
-+	 */
-+	stop_machine_run(__build_all_zonelists, zone->zone_pgdat, NR_CPUS);
-+out:
-+	spin_unlock_irqrestore(&zone_init_lock, flags);
-+	return ret;
-+}
-+#endif
-Index: pgdat2/include/linux/mmzone.h
-=================================--- pgdat2.orig/include/linux/mmzone.h	2006-02-10 16:59:51.000000000 +0900
-+++ pgdat2/include/linux/mmzone.h	2006-02-10 17:02:34.000000000 +0900
-@@ -403,7 +403,9 @@ static inline struct zone *next_zone(str
+ #endif /* __KERNEL__ */
  
- static inline int populated_zone(struct zone *zone)
- {
--	return (!!zone->present_pages);
-+	/* When hot-dadd, present page is 0 at this point.
-+	   So check spanned_pages instead of present_pages */
-+	return (!!zone->spanned_pages);
- }
+-extern int __find_next_zero_bit (const void *addr, unsigned long size,
+-			unsigned long offset);
+-extern int __find_next_bit(const void *addr, unsigned long size,
+-			unsigned long offset);
+-
+-#define find_next_zero_bit(addr, size, offset) \
+-			__find_next_zero_bit((addr), (size), (offset))
+-#define find_next_bit(addr, size, offset) \
+-			__find_next_bit((addr), (size), (offset))
+-
+-/*
+- * The optimizer actually does good code for this case..
+- */
+-#define find_first_zero_bit(addr, size) find_next_zero_bit((addr), (size), 0)
+-
+-#define find_first_bit(addr, size) find_next_bit((addr), (size), 0)
++#include <asm-generic/bitops/find.h>
  
- static inline int is_highmem_idx(int idx)
-Index: pgdat2/mm/memory_hotplug.c
-=================================--- pgdat2.orig/mm/memory_hotplug.c	2006-02-10 16:59:51.000000000 +0900
-+++ pgdat2/mm/memory_hotplug.c	2006-02-10 17:02:34.000000000 +0900
-@@ -48,6 +48,8 @@ static int __add_section(struct zone *zo
+ #ifdef __KERNEL__
  
- 	ret = sparse_add_one_section(zone, phys_start_pfn, nr_pages);
+-#define __clear_bit(nr, addr)		clear_bit(nr, addr)
++#include <asm-generic/bitops/ext2-non-atomic.h>
  
-+	hot_add_zone_init(zone, phys_start_pfn, PAGES_PER_SECTION);
-+
- 	if (ret < 0)
- 		return ret;
+-#define ext2_set_bit			__test_and_set_bit
+ #define ext2_set_bit_atomic(l,n,a)	test_and_set_bit(n,a)
+-#define ext2_clear_bit			__test_and_clear_bit
+ #define ext2_clear_bit_atomic(l,n,a)	test_and_clear_bit(n,a)
+-#define ext2_test_bit			test_bit
+-#define ext2_find_first_zero_bit	find_first_zero_bit
+-#define ext2_find_next_zero_bit		find_next_zero_bit
+-
+-/* Bitmap functions for the minix filesystem.  */
+-#define minix_test_and_set_bit(nr,addr)		__test_and_set_bit(nr,addr)
+-#define minix_set_bit(nr,addr)			__set_bit(nr,addr)
+-#define minix_test_and_clear_bit(nr,addr)	__test_and_clear_bit(nr,addr)
+-#define minix_test_bit(nr,addr)			test_bit(nr,addr)
+-#define minix_find_first_zero_bit(addr,size)	find_first_zero_bit(addr,size)
  
+-static inline int
+-sched_find_first_bit (unsigned long *b)
+-{
+-	if (unlikely(b[0]))
+-		return __ffs(b[0]);
+-	if (unlikely(b[1]))
+-		return 64 + __ffs(b[1]);
+-	return __ffs(b[2]) + 128;
+-}
++#include <asm-generic/bitops/minix.h>
++#include <asm-generic/bitops/sched.h>
+ 
+ #endif /* __KERNEL__ */
+ 
+Index: 2.6-git/arch/ia64/lib/Makefile
+=================================--- 2.6-git.orig/arch/ia64/lib/Makefile
++++ 2.6-git/arch/ia64/lib/Makefile
+@@ -6,7 +6,7 @@ obj-y := io.o
+ 
+ lib-y := __divsi3.o __udivsi3.o __modsi3.o __umodsi3.o			\
+ 	__divdi3.o __udivdi3.o __moddi3.o __umoddi3.o			\
+-	bitop.o checksum.o clear_page.o csum_partial_copy.o		\
++	checksum.o clear_page.o csum_partial_copy.o			\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+ 	memset.o strlen.o
+Index: 2.6-git/arch/ia64/lib/bitop.c
+=================================--- 2.6-git.orig/arch/ia64/lib/bitop.c
++++ /dev/null
+@@ -1,88 +0,0 @@
+-#include <linux/compiler.h>
+-#include <linux/types.h>
+-#include <asm/intrinsics.h>
+-#include <linux/module.h>
+-#include <linux/bitops.h>
+-
+-/*
+- * Find next zero bit in a bitmap reasonably efficiently..
+- */
+-
+-int __find_next_zero_bit (const void *addr, unsigned long size, unsigned long offset)
+-{
+-	unsigned long *p = ((unsigned long *) addr) + (offset >> 6);
+-	unsigned long result = offset & ~63UL;
+-	unsigned long tmp;
+-
+-	if (offset >= size)
+-		return size;
+-	size -= result;
+-	offset &= 63UL;
+-	if (offset) {
+-		tmp = *(p++);
+-		tmp |= ~0UL >> (64-offset);
+-		if (size < 64)
+-			goto found_first;
+-		if (~tmp)
+-			goto found_middle;
+-		size -= 64;
+-		result += 64;
+-	}
+-	while (size & ~63UL) {
+-		if (~(tmp = *(p++)))
+-			goto found_middle;
+-		result += 64;
+-		size -= 64;
+-	}
+-	if (!size)
+-		return result;
+-	tmp = *p;
+-found_first:
+-	tmp |= ~0UL << size;
+-	if (tmp = ~0UL)		/* any bits zero? */
+-		return result + size;	/* nope */
+-found_middle:
+-	return result + ffz(tmp);
+-}
+-EXPORT_SYMBOL(__find_next_zero_bit);
+-
+-/*
+- * Find next bit in a bitmap reasonably efficiently..
+- */
+-int __find_next_bit(const void *addr, unsigned long size, unsigned long offset)
+-{
+-	unsigned long *p = ((unsigned long *) addr) + (offset >> 6);
+-	unsigned long result = offset & ~63UL;
+-	unsigned long tmp;
+-
+-	if (offset >= size)
+-		return size;
+-	size -= result;
+-	offset &= 63UL;
+-	if (offset) {
+-		tmp = *(p++);
+-		tmp &= ~0UL << offset;
+-		if (size < 64)
+-			goto found_first;
+-		if (tmp)
+-			goto found_middle;
+-		size -= 64;
+-		result += 64;
+-	}
+-	while (size & ~63UL) {
+-		if ((tmp = *(p++)))
+-			goto found_middle;
+-		result += 64;
+-		size -= 64;
+-	}
+-	if (!size)
+-		return result;
+-	tmp = *p;
+-  found_first:
+-	tmp &= ~0UL >> (64-size);
+-	if (tmp = 0UL)		/* Are any bits set? */
+-		return result + size; /* Nope. */
+-  found_middle:
+-	return result + __ffs(tmp);
+-}
+-EXPORT_SYMBOL(__find_next_bit);
 
--- 
-Yasunori Goto 
-
-
+--
