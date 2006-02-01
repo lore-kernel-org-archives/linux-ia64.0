@@ -1,46 +1,89 @@
-From: Chuck Ebbert <76306.1226@compuserve.com>
-Date: Wed, 01 Feb 2006 00:50:17 +0000
-Subject: Re: boot-time slowdown for measure_migration_cost
-Message-Id: <200601311952_MC3-1-B742-9F59@compuserve.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Wed, 01 Feb 2006 09:02:38 +0000
+Subject: [patch 14/44] generic hweight{64,32,16,8}()
+Message-Id: <20060201090325.905071000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200601271403.27065.bjorn.helgaas@hp.com>
-In-Reply-To: <200601271403.27065.bjorn.helgaas@hp.com>
+References: <20060201090224.536581000@localhost.localdomain>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@elte.hu>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-
-In-Reply-To: <20060130200026.GA5081@agluck-lia64.sc.intel.com>
-
-On Mon, 30 Jan 2006, Tony Luck wrote:
-
-> Might it be wise to see whether the 2% variation that I saw can be
-> repeated on some other architecture?  Bjorn's initial post was just
-> questioning whether we need to spend this much time during boot to acquire
-> this data.  Now we have *one* data point that on an ia64 with four cpus
-> with 9MB cache in a single domain that we can speed the calculation by
-> a factor of three with only a 2% loss of accuracy.  Can someone else try
-> this patch and post the before/after values for migration_cost from dmesg?
-
-Before:
-
-messages.1:Jan 24 01:19:45 d2 kernel: [    6.377117] migration_cost=9352
-messages.1:Jan 27 21:07:55 d2 kernel: [    6.384871] migration_cost=9329
-messages.1:Jan 28 11:00:32 d2 kernel: [    6.384215] migration_cost=9338
-messages.1:Jan 28 12:55:03 d2 kernel: [    6.389189] migration_cost=9364
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
 
-After:
+This patch introduces the C-language equivalents of the functions below:
 
-messages:Jan 31 07:55:07 d2 kernel: [    1.859359] migration_cost=9274
+unsigned int hweight32(unsigned int w);
+unsigned int hweight16(unsigned int w);
+unsigned int hweight8(unsigned int w);
+unsigned long hweight64(__u64 w);
 
+In include/asm-generic/bitops/hweight.h
 
-This was on a dual PII Xeon with 2MB L2 cache.  About 3.5x as fast and
-only 1% change.
+This code largely copied from:
+include/linux/bitops.h
 
-Maybe the default could be to run the quick test with an option to run the
-more-accurate one?
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ include/asm-generic/bitops/hweight.h |   54 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 54 insertions(+)
 
---=20
-Chuck
+Index: 2.6-git/include/asm-generic/bitops/hweight.h
+=================================--- /dev/null
++++ 2.6-git/include/asm-generic/bitops/hweight.h
+@@ -0,0 +1,54 @@
++#ifndef _ASM_GENERIC_BITOPS_HWEIGHT_H_
++#define _ASM_GENERIC_BITOPS_HWEIGHT_H_
++
++#include <asm/types.h>
++
++/**
++ * hweightN - returns the hamming weight of a N-bit word
++ * @x: the word to weigh
++ *
++ * The Hamming Weight of a number is the total number of bits set in it.
++ */
++
++static inline unsigned int hweight32(unsigned int w)
++{
++        unsigned int res = (w & 0x55555555) + ((w >> 1) & 0x55555555);
++        res = (res & 0x33333333) + ((res >> 2) & 0x33333333);
++        res = (res & 0x0F0F0F0F) + ((res >> 4) & 0x0F0F0F0F);
++        res = (res & 0x00FF00FF) + ((res >> 8) & 0x00FF00FF);
++        return (res & 0x0000FFFF) + ((res >> 16) & 0x0000FFFF);
++}
++
++static inline unsigned int hweight16(unsigned int w)
++{
++        unsigned int res = (w & 0x5555) + ((w >> 1) & 0x5555);
++        res = (res & 0x3333) + ((res >> 2) & 0x3333);
++        res = (res & 0x0F0F) + ((res >> 4) & 0x0F0F);
++        return (res & 0x00FF) + ((res >> 8) & 0x00FF);
++}
++
++static inline unsigned int hweight8(unsigned int w)
++{
++        unsigned int res = (w & 0x55) + ((w >> 1) & 0x55);
++        res = (res & 0x33) + ((res >> 2) & 0x33);
++        return (res & 0x0F) + ((res >> 4) & 0x0F);
++}
++
++static inline unsigned long hweight64(__u64 w)
++{
++#if BITS_PER_LONG = 32
++	return hweight32((unsigned int)(w >> 32)) + hweight32((unsigned int)w);
++#elif BITS_PER_LONG = 64
++	u64 res;
++	res = (w & 0x5555555555555555ul) + ((w >> 1) & 0x5555555555555555ul);
++	res = (res & 0x3333333333333333ul) + ((res >> 2) & 0x3333333333333333ul);
++	res = (res & 0x0F0F0F0F0F0F0F0Ful) + ((res >> 4) & 0x0F0F0F0F0F0F0F0Ful);
++	res = (res & 0x00FF00FF00FF00FFul) + ((res >> 8) & 0x00FF00FF00FF00FFul);
++	res = (res & 0x0000FFFF0000FFFFul) + ((res >> 16) & 0x0000FFFF0000FFFFul);
++	return (res & 0x00000000FFFFFFFFul) + ((res >> 32) & 0x00000000FFFFFFFFul);
++#else
++#error BITS_PER_LONG not defined
++#endif
++}
++
++#endif /* _ASM_GENERIC_BITOPS_HWEIGHT_H_ */
+
+--
