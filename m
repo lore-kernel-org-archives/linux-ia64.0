@@ -1,83 +1,46 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Mon, 16 Jan 2006 04:45:23 +0000
-Subject: [PATCH][BUG] Stop multiple pci_claim_resource() call for the same
-Message-Id: <43CB24E3.8030006@jp.fujitsu.com>
+From: Chuck Ebbert <76306.1226@compuserve.com>
+Date: Wed, 01 Feb 2006 00:50:17 +0000
+Subject: Re: boot-time slowdown for measure_migration_cost
+Message-Id: <200601311952_MC3-1-B742-9F59@compuserve.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200601271403.27065.bjorn.helgaas@hp.com>
+In-Reply-To: <200601271403.27065.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Ingo Molnar <mingo@elte.hu>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>
 
-Hi,
+In-Reply-To: <20060130200026.GA5081@agluck-lia64.sc.intel.com>
 
-I encountered the following problems:
+On Mon, 30 Jan 2006, Tony Luck wrote:
 
-    o Reading /proc/iomem cause endless loop.
-    o request_mem_region() for PCI-to-PCI bridge fails.
+> Might it be wise to see whether the 2% variation that I saw can be
+> repeated on some other architecture?  Bjorn's initial post was just
+> questioning whether we need to spend this much time during boot to acquire
+> this data.  Now we have *one* data point that on an ia64 with four cpus
+> with 9MB cache in a single domain that we can speed the calculation by
+> a factor of three with only a 2% loss of accuracy.  Can someone else try
+> this patch and post the before/after values for migration_cost from dmesg?
 
-This problem is caused by the bug that pci_claim_resource() is called
-multiple times for the same P2P bridge's resource structure if P2P
-bridge requires their own PCI I/O resources.
+Before:
 
-The patch below fixes this bug.
-
-Thanks,
-Kenji Kaneshige
+messages.1:Jan 24 01:19:45 d2 kernel: [    6.377117] migration_cost=9352
+messages.1:Jan 27 21:07:55 d2 kernel: [    6.384871] migration_cost=9329
+messages.1:Jan 28 11:00:32 d2 kernel: [    6.384215] migration_cost=9338
+messages.1:Jan 28 12:55:03 d2 kernel: [    6.389189] migration_cost=9364
 
 
-This patch fixes the bug that pci_claim_resource() is called multiple
-times for the same P2P bridge's resource structures if P2P bridges
-require their own PCI I/O resources.
+After:
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+messages:Jan 31 07:55:07 d2 kernel: [    1.859359] migration_cost=9274
 
- arch/ia64/pci/pci.c |   19 ++++++++++++++-----
- 1 files changed, 14 insertions(+), 5 deletions(-)
 
-Index: linux-2.6.15/arch/ia64/pci/pci.c
-=================================--- linux-2.6.15.orig/arch/ia64/pci/pci.c	2006-01-11 21:51:43.000000000 +0900
-+++ linux-2.6.15/arch/ia64/pci/pci.c	2006-01-11 22:20:51.000000000 +0900
-@@ -454,14 +454,13 @@
- 	return 0;
- }
- 
--static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
-+static void __devinit
-+pcibios_fixup_resources(struct pci_dev *dev, int start, int limit)
- {
- 	struct pci_bus_region region;
- 	int i;
--	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
--		PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
- 
--	for (i = 0; i < limit; i++) {
-+	for (i = start; i < limit; i++) {
- 		if (!dev->resource[i].flags)
- 			continue;
- 		region.start = dev->resource[i].start;
-@@ -472,6 +471,16 @@
- 	}
- }
- 
-+static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
-+{
-+	pcibios_fixup_resources(dev, 0, PCI_BRIDGE_RESOURCES);
-+}
-+
-+static void __devinit pcibios_fixup_bridge_resources(struct pci_dev *dev)
-+{
-+	pcibios_fixup_resources(dev, PCI_BRIDGE_RESOURCES, PCI_NUM_RESOURCES);
-+}
-+
- /*
-  *  Called after each bus is probed, but before its children are examined.
-  */
-@@ -482,7 +491,7 @@
- 
- 	if (b->self) {
- 		pci_read_bridge_bases(b);
--		pcibios_fixup_device_resources(b->self);
-+		pcibios_fixup_bridge_resources(b->self);
- 	}
- 	list_for_each_entry(dev, &b->devices, bus_list)
- 		pcibios_fixup_device_resources(dev);
+This was on a dual PII Xeon with 2MB L2 cache.  About 3.5x as fast and
+only 1% change.
+
+Maybe the default could be to run the quick test with an option to run the
+more-accurate one?
+
+--=20
+Chuck
