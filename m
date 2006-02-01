@@ -1,61 +1,121 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Feb 2006 13:29:12 +0000
-Subject: [PATCH: 006/012] Memory hotplug for new nodes v.2.(create sysfs for node (ia64))
-Message-Id: <20060217212032.4074.Y-GOTO@jp.fujitsu.com>
+Date: Wed, 01 Feb 2006 12:36:28 +0000
+Subject: [Patch:001/004] Unify pxm_to_node id ver.2. (generic code)
+Message-Id: <20060201205204.41E8.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, Andi Kleen <ak@suse.de>, Bob Picco <bob.picco@hp.com>, Paul Jackson <pj@sgi.com>, Andy Whitcroft <apw@shadowen.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
+This is new generic code for pxm_to_node_map.
 
-'register_node()' is to create sysfs file for node.
-This is to add arch specific functions 'arch_register_node()'
-and 'arch_unregister_node()' to IA64 to call the generic
-function 'register_node()' and 'unregister_node()' respectively.
-
-Signed-off-by: Keiichiro Tokunaga <tokuanga.keiich@jp.fujitsu.com>
 Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
+ drivers/acpi/numa.c      |   50 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/acpi/acpi_numa.h |   18 ++++++++++++++++
+ include/linux/acpi.h     |    1 
+ 3 files changed, 69 insertions(+)
 
-Index: pgdat3/arch/ia64/kernel/topology.c
-=================================--- pgdat3.orig/arch/ia64/kernel/topology.c	2006-02-17 15:58:03.000000000 +0900
-+++ pgdat3/arch/ia64/kernel/topology.c	2006-02-17 16:17:01.000000000 +0900
-@@ -65,6 +65,21 @@ EXPORT_SYMBOL(arch_register_cpu);
- EXPORT_SYMBOL(arch_unregister_cpu);
- #endif /*CONFIG_HOTPLUG_CPU*/
+Index: pxm_ver2/drivers/acpi/numa.c
+=================================--- pxm_ver2.orig/drivers/acpi/numa.c	2006-02-01 18:53:46.000000000 +0900
++++ pxm_ver2/drivers/acpi/numa.c	2006-02-01 18:53:53.000000000 +0900
+@@ -36,12 +36,62 @@
+ #define _COMPONENT	ACPI_NUMA
+ ACPI_MODULE_NAME("numa")
  
-+#ifdef CONFIG_NUMA
-+int arch_register_node(int num)
-+{
-+	if (sysfs_nodes[num].sysdev.id = num)
-+		return 0;
++static nodemask_t nodes_found_map = NODE_MASK_NONE;
++#define PXM_INVAL	0xff
++#define NID_INVAL	0xff
 +
-+	return register_node(&sysfs_nodes[num], num, 0);
++/* maps to convert between proximity domain and logical node ID */
++u8 __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS]
++				= { [0 ... MAX_PXM_DOMAINS - 1] = NID_INVAL };
++u8 __cpuinitdata node_to_pxm_map[MAX_NUMNODES]
++				= { [0 ... MAX_NUMNODES - 1] = PXM_INVAL };
++
+ extern int __init acpi_table_parse_madt_family(enum acpi_table_id id,
+ 					       unsigned long madt_size,
+ 					       int entry_id,
+ 					       acpi_madt_entry_handler handler,
+ 					       unsigned int max_entries);
+ 
++int __cpuinit pxm_to_node(int pxm)
++{
++	if ((unsigned)pxm >= 256)
++		return -1;
++	/* Extent 0xff to (int)-1 */
++	return (signed char)pxm_to_node_map[pxm];
 +}
 +
-+void arch_unregister_node(int num)
++int __cpuinit node_to_pxm(int node)
 +{
-+	unregister_node(&sysfs_nodes[num]);
-+	sysfs_nodes[num].sysdev.id = -1;
++	if ((unsigned)node >= 256)
++		return -1;
++	/* Extent 0xff to (int)-1 */
++	return (signed char)node_to_pxm_map[node];
 +}
-+#endif
- 
- static int __init topology_init(void)
++
++int __cpuinit acpi_map_pxm_to_node(u8 pxm)
++{
++	u8 node = pxm_to_node_map[pxm];
++
++	if (node = NID_INVAL){
++		if (nodes_weight(nodes_found_map) >= MAX_NUMNODES)
++			return -1;
++		node = first_unset_node(nodes_found_map);
++		pxm_to_node_map[pxm] = node;
++		node_to_pxm_map[node] = pxm;
++		node_set(node, nodes_found_map);
++	}
++
++	return (int)node;
++}
++
++void __cpuinit acpi_unmap_pxm_to_node(int node)
++{
++	u8 pxm = node_to_pxm_map[node];
++	pxm_to_node_map[pxm] = NID_INVAL;
++	node_to_pxm_map[node] = PXM_INVAL;
++	node_clear(node, nodes_found_map);
++}
++
+ void __init acpi_table_print_srat_entry(acpi_table_entry_header * header)
  {
-Index: pgdat3/include/asm-ia64/numa.h
-=================================--- pgdat3.orig/include/asm-ia64/numa.h	2005-03-02 16:37:55.000000000 +0900
-+++ pgdat3/include/asm-ia64/numa.h	2006-02-17 16:17:01.000000000 +0900
-@@ -23,6 +23,9 @@
  
- #include <asm/mmzone.h>
- 
-+extern int arch_register_node(int num);
-+extern void arch_unregister_node(int num);
+Index: pxm_ver2/include/acpi/acpi_numa.h
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ pxm_ver2/include/acpi/acpi_numa.h	2006-02-01 18:53:53.000000000 +0900
+@@ -0,0 +1,18 @@
++#ifndef __ACPI_NUMA_H
++#define __ACPI_NUMA_H
 +
- extern u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
- extern cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
++#ifdef CONFIG_ACPI_NUMA
++#include <linux/kernel.h>
++
++/* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
++#define MAX_PXM_DOMAINS (256)
++extern u8 __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS];
++extern u8 __cpuinitdata node_to_pxm_map[MAX_NUMNODES];
++
++extern int __cpuinit pxm_to_node(int);
++extern int __cpuinit node_to_pxm(int);
++extern int __cpuinit acpi_map_pxm_to_node(u8);
++extern void __cpuinit acpi_unmap_pxm_to_node(int);
++
++#endif				/* CONFIG_ACPI_NUMA */
++#endif				/* __ACP_NUMA_H */
+Index: pxm_ver2/include/linux/acpi.h
+=================================--- pxm_ver2.orig/include/linux/acpi.h	2006-02-01 18:53:46.000000000 +0900
++++ pxm_ver2/include/linux/acpi.h	2006-02-01 18:53:53.000000000 +0900
+@@ -38,6 +38,7 @@
+ #include <acpi/acpi.h>
+ #include <acpi/acpi_bus.h>
+ #include <acpi/acpi_drivers.h>
++#include <acpi/acpi_numa.h>
+ #include <asm/acpi.h>
+ 
  
 
 -- 
