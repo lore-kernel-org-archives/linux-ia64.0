@@ -1,33 +1,24 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Tue, 07 Feb 2006 02:02:16 +0000
-Subject: Re: [patch 11/44] generic find_{next,first}{,_zero}_bit()
-Message-Id: <20060207020216.GA9323@miraclelinux.com>
+From: David Mosberger-Tang <David.Mosberger@acm.org>
+Date: Wed, 01 Feb 2006 03:12:26 +0000
+Subject: Re: FW: [patch 1/6] remove dead code in ia64_leave_kernel
+Message-Id: <ed5aea430601311912ncbc9ea5oc28cb6a2fe17e81@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060201090324.373982000@localhost.localdomain> <20060201090224.536581000@localhost.localdomain> <12367.1139221560@warthog.cambridge.redhat.com>
-In-Reply-To: <12367.1139221560@warthog.cambridge.redhat.com>
+References: <200601310907.k0V976g12698@unix-os.sc.intel.com>
+In-Reply-To: <200601310907.k0V976g12698@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Howells <dhowells@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, dev-etrax@axis.com, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Chris Zankel <chris@zankel.net>
+To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 06, 2006 at 10:26:00AM +0000, David Howells wrote:
-> Akinobu Mita <mita@miraclelinux.com> wrote:
-> 
-> > This patch introduces the C-language equivalents of the functions below:
-> > 
-> > unsigned logn find_next_bit(const unsigned long *addr, unsigned long size,
-> >                             unsigned long offset);
-> > unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size,
-> >                                  unsigned long offset);
-> > unsigned long find_first_zero_bit(const unsigned long *addr,
-> >                                   unsigned long size);
-> > unsigned long find_first_bit(const unsigned long *addr, unsigned long size);
-> 
-> These big functions should perhaps be out of line.
+On 1/31/06, Chen, Kenneth W <kenneth.w.chen@intel.com> wrote:
 
-Yes. I'll make them and below out of line.
+> Having said that, I have a craze idea of optimize away two bsp reads
+> along with cover instruction in the syscall leave path.  I'm still
+> exploring whether that is achievable or not.  If we can do that, then
+> all that latency would go away along with the code that this patch moved.
 
-- hweight*()
-- ext2_find_*_zero_bit()
-- minix_find_first_zero_bit()
+That would be nice, indeed.
+
+  --david
+--
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
