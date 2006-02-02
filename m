@@ -1,44 +1,56 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 08 Feb 2006 02:41:10 +0000
-Subject: [PATCH 2.6.16-rc2 3/3] MCA: remove obsolete ifdef
-Message-Id: <20060208024110.9264.91992.sendpatchset@kao2.melbourne.sgi.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Thu, 02 Feb 2006 10:02:15 +0000
+Subject: [patch] Build drivers/sn/ for all sn2 builds
+Message-Id: <yq01wymoz88.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Dave Jones <davej@redhat.com>, tony.luck@intel.com
 
-No platform in the community tree uses PLATFORM_MCA_HANDLERS, remove
-the references.
+Hi,
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+Reposting this patch which solves the problem where drivers/sn isn't
+being evaluated by the build system for some config cases.
 
----
+Solves a problem earlier reported by Dave Jones.
 
- mca.c |    7 -------
- 1 files changed, 7 deletions(-)
+Cheers,
+Jes
 
-Index: linux/arch/ia64/kernel/mca.c
-=================================--- linux.orig/arch/ia64/kernel/mca.c	2006-02-08 12:10:15.603478247 +1100
-+++ linux/arch/ia64/kernel/mca.c	2006-02-08 12:12:22.726542463 +1100
-@@ -281,11 +281,6 @@ ia64_mca_log_sal_error_record(int sal_in
- 		ia64_sal_clear_state_info(sal_info_type);
- }
+Include drivers/sn when CONFIG_IA64_SGI_SN2 or CONFIG_IA64_GENERIC
+is enabled.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+----
+
+ arch/ia64/Kconfig |    3 +++
+ drivers/Makefile  |    2 +-
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+Index: linux-2.6/arch/ia64/Kconfig
+=================================--- linux-2.6.orig/arch/ia64/Kconfig
++++ linux-2.6/arch/ia64/Kconfig
+@@ -374,6 +374,9 @@
+ 	  To use this option, you have to ensure that the "/proc file system
+ 	  support" (CONFIG_PROC_FS) is enabled, too.
  
--/*
-- * platform dependent error handling
-- */
--#ifndef PLATFORM_MCA_HANDLERS
--
- #ifdef CONFIG_ACPI
++config SGI_SN
++	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
++
+ source "drivers/firmware/Kconfig"
  
- int cpe_vector = -1;
-@@ -377,8 +372,6 @@ ia64_mca_register_cpev (int cpev)
- }
- #endif /* CONFIG_ACPI */
- 
--#endif /* PLATFORM_MCA_HANDLERS */
--
- /*
-  * ia64_mca_cmc_vector_setup
-  *
+ source "fs/Kconfig.binfmt"
+Index: linux-2.6/drivers/Makefile
+=================================--- linux-2.6.orig/drivers/Makefile
++++ linux-2.6/drivers/Makefile
+@@ -69,7 +69,7 @@
+ obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
+ obj-$(CONFIG_MMC)		+= mmc/
+ obj-$(CONFIG_INFINIBAND)	+= infiniband/
+-obj-$(CONFIG_SGI_IOC4)		+= sn/
++obj-$(CONFIG_SGI_SN)		+= sn/
+ obj-y				+= firmware/
+ obj-$(CONFIG_CRYPTO)		+= crypto/
+ obj-$(CONFIG_SUPERH)		+= sh/
