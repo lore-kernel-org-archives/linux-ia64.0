@@ -1,7 +1,7 @@
-From: Dean Roe <roe@sgi.com>
-Date: Thu, 02 Feb 2006 21:22:40 +0000
-Subject: Re: ia64 printk_clock()
-Message-Id: <20060202212240.GA17176@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 02 Feb 2006 21:46:05 +0000
+Subject: RE: ia64 printk_clock()
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F059C0653@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060202204422.GA27082@sgi.com>
 In-Reply-To: <20060202204422.GA27082@sgi.com>
@@ -10,25 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Feb 02, 2006 at 02:44:22PM -0600, Jack Steiner wrote:
-> We are seeing kernel hangs in early boot if CONFIG_PRINTK_TIME is
-> enabled. The hang is caused by a reference in sched_clock() to 
-> the percpu data area before it is initialized. 
-> 
-> I know there was discussion about this late last summer & I thought
-> Tony posted a patch. Does anyone recall the status.
-> 
-> AFAICT, we see failures on SN systems but other IA64 systems work ok.
-> 
-> ---
-> Jack
+> Jack, I think this is the thread you are looking for:
+>    http://marc.theaimsgroup.com/?l=linux-ia64&m2422250517703&w=2
 
-Jack, I think this is the thread you are looking for:
-    http://marc.theaimsgroup.com/?l=linux-ia64&m2422250517703&w=2
+The current state of the tree is that Andrew added the patch
+to make the definition of printk_clock() in kernel/printk.c
+"__attribute__((weak))" so that architectures could override
+with their own version.  Default version uses sched_clock().
 
-Dean
+So far we haven't made use of this ... but we need to do it (partly
+because it crashes early on Altix, but also because it returns
+meaningless values on any system where the clocks are not synched
+on different cpus (perhaps just Altix).
 
--- 
-Dean Roe
-Silicon Graphics, Inc.
-roe@sgi.com
+-Tony
