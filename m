@@ -1,66 +1,77 @@
-From: Akinobu Mita <mita@miraclelinux.com>
-Date: Tue, 14 Feb 2006 05:04:04 +0000
-Subject: [patch 13/47] generic sched_find_first_bit()
-Message-Id: <20060214050444.235416000@localhost.localdomain>
+From: Jes Sorensen <jes@sgi.com>
+Date: Thu, 02 Feb 2006 10:50:05 +0000
+Subject: [patch] include/asm-ia64/sn/intr.h more sn2 housekeeping
+Message-Id: <yq0oe1qnig2.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: akpm@osdl.org, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
+To: linux-ia64@vger.kernel.org
 
-This patch introduces the C-language equivalent of the function:
-int sched_find_first_bit(const unsigned long *b);
 
-In include/asm-generic/bitops/sched.h
+House keeping - eliminate unneeded parenthesis in macro defines.
 
-This code largely copied from:
-include/asm-powerpc/bitops.h
+Signed-off-by: Jes Sorensen <jes@sgi.com>
 
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
- include/asm-generic/bitops/sched.h |   36 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 36 insertions(+)
+----
 
-Index: 2.6-rc/include/asm-generic/bitops/sched.h
-=================================--- /dev/null
-+++ 2.6-rc/include/asm-generic/bitops/sched.h
-@@ -0,0 +1,36 @@
-+#ifndef _ASM_GENERIC_BITOPS_SCHED_H_
-+#define _ASM_GENERIC_BITOPS_SCHED_H_
+ include/asm-ia64/sn/intr.h |   38 +++++++++++++++++++-------------------
+ 1 files changed, 19 insertions(+), 19 deletions(-)
+
+Index: linux-2.6/include/asm-ia64/sn/intr.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/intr.h
++++ linux-2.6/include/asm-ia64/sn/intr.h
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 1992 - 1997, 2000-2004 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 1992 - 1997, 2000-2006 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
+ #ifndef _ASM_IA64_SN_INTR_H
+@@ -11,26 +11,26 @@
+ 
+ #include <linux/rcupdate.h>
+ 
+-#define SGI_UART_VECTOR		(0xe9)
++#define SGI_UART_VECTOR		0xe9
+ 
+ /* Reserved IRQs : Note, not to exceed IA64_SN2_FIRST_DEVICE_VECTOR */
+-#define SGI_XPC_ACTIVATE                (0x30)
+-#define SGI_II_ERROR                    (0x31)
+-#define SGI_XBOW_ERROR                  (0x32)
+-#define SGI_PCIASIC_ERROR               (0x33)
+-#define SGI_ACPI_SCI_INT                (0x34)
+-#define SGI_TIOCA_ERROR                 (0x35)
+-#define SGI_TIO_ERROR                   (0x36)
+-#define SGI_TIOCX_ERROR                 (0x37)
+-#define SGI_MMTIMER_VECTOR              (0x38)
+-#define SGI_XPC_NOTIFY                  (0xe7)
+-
+-#define IA64_SN2_FIRST_DEVICE_VECTOR    (0x3c)
+-#define IA64_SN2_LAST_DEVICE_VECTOR     (0xe6)
+-
+-#define SN2_IRQ_RESERVED        (0x1)
+-#define SN2_IRQ_CONNECTED       (0x2)
+-#define SN2_IRQ_SHARED          (0x4)
++#define SGI_XPC_ACTIVATE	0x30
++#define SGI_II_ERROR		0x31
++#define SGI_XBOW_ERROR		0x32
++#define SGI_PCIASIC_ERROR	0x33
++#define SGI_ACPI_SCI_INT	0x34
++#define SGI_TIOCA_ERROR		0x35
++#define SGI_TIO_ERROR		0x36
++#define SGI_TIOCX_ERROR		0x37
++#define SGI_MMTIMER_VECTOR	0x38
++#define SGI_XPC_NOTIFY		0xe7
 +
-+#include <linux/compiler.h>	/* unlikely() */
-+#include <asm/types.h>
++#define IA64_SN2_FIRST_DEVICE_VECTOR	0x3c
++#define IA64_SN2_LAST_DEVICE_VECTOR	0xe6
 +
-+/*
-+ * Every architecture must define this function. It's the fastest
-+ * way of searching a 140-bit bitmap where the first 100 bits are
-+ * unlikely to be set. It's guaranteed that at least one of the 140
-+ * bits is cleared.
-+ */
-+static inline int sched_find_first_bit(const unsigned long *b)
-+{
-+#if BITS_PER_LONG = 64
-+	if (unlikely(b[0]))
-+		return __ffs(b[0]);
-+	if (unlikely(b[1]))
-+		return __ffs(b[1]) + 64;
-+	return __ffs(b[2]) + 128;
-+#elif BITS_PER_LONG = 32
-+	if (unlikely(b[0]))
-+		return __ffs(b[0]);
-+	if (unlikely(b[1]))
-+		return __ffs(b[1]) + 32;
-+	if (unlikely(b[2]))
-+		return __ffs(b[2]) + 64;
-+	if (b[3])
-+		return __ffs(b[3]) + 96;
-+	return __ffs(b[4]) + 128;
-+#else
-+#error BITS_PER_LONG not defined
-+#endif
-+}
-+
-+#endif /* _ASM_GENERIC_BITOPS_SCHED_H_ */
-
---
++#define SN2_IRQ_RESERVED	0x1
++#define SN2_IRQ_CONNECTED	0x2
++#define SN2_IRQ_SHARED		0x4
+ 
+ // The SN PROM irq struct
+ struct sn_irq_info {
