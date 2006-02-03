@@ -1,29 +1,38 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 17 Feb 2006 15:51:37 +0000
-Subject: Re: [PATCH: 005/012] Memory hotplug for new nodes v.2.(pgdat alloc
-Message-Id: <1140191497.21383.77.camel@localhost.localdomain>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 03 Feb 2006 00:03:07 +0000
+Subject: patches added to release/test trees
+Message-Id: <200602030003.k130374M032634@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060217211729.4072.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060217211729.4072.Y-GOTO@jp.fujitsu.com>
+References: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
+In-Reply-To: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: linux-ia64@vger.kernel.org
 
-On Fri, 2006-02-17 at 22:29 +0900, Yasunori Goto wrote:
-> +       zone_type = start_pfn < MAX_DMA32_PFN ?
-> +                   ZONE_DMA32 : ZONE_NORMAL; 
+The following patches have been added to the release tree:
 
-Please change this to something which we can more easily parse, such as
-this:
+Bjorn Helgaas:
+      [IA64] avoid broken SAL_CACHE_FLUSH implementations
 
-	if (start_pfn < MAX_DMA32_PFN)
-		zone_type = ZONE_DMA32;
-	else
-		zone_type = ZONE_NORMAL;
+Chen, Kenneth W:
+      [IA64] remove staled comments in asm/system.h
 
-I think it is worth the extra two lines.
+Jack Steiner:
+      [IA64-SGI] Update TLB flushing code for SN platform (pulled from test)
 
--- Dave
+Jes Sorensen:
+      drivers/sn/ must be entered for CONFIG_SGI_IOC3 (pulled from test)
+      [IA64-SGI] sn2 housekeeping
+      [IA64-SGI] include/asm-ia64/sn/intr.h more sn2 housekeeping
+
+Kyle McMartin:
+      [IA64] Remove stale comment from ia64/Kconfig
+
+Mark Maule:
+      [IA64-SGI] fix smp_affinity redirection when using CONFIG_PCI_MSI
+      [IA64-SGI] disable msi for all altix pci devices
+
+Robin Holt:
+      [IA64-SGI] Fix XPC code which sleeps with spin_lock_irqsave().
 
