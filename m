@@ -1,24 +1,53 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 03 Feb 2006 17:07:47 +0000
-Subject: RE: [PATCH 1/12] generic *_bit()
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F059C0E92@scsmsx401.amr.corp.intel.com>
+From: Paul Jackson <pj@sgi.com>
+Date: Sat, 04 Feb 2006 04:14:41 +0000
+Subject: Altix SN2 2.6.16-rc1-mm5 build breakage (was:  msi support)
+Message-Id: <20060203201441.194be500.pj@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060126032918.GB9984@miraclelinux.com>
-In-Reply-To: <20060126032918.GB9984@miraclelinux.com>
+References: <20060119194647.12213.44658.14543@lnx-maule.americas.sgi.com>
+	<20060119194702.12213.16524.93275@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060119194702.12213.16524.93275@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King <rmk+lkml@arm.linux.org.uk>, Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, Christoph Hellwig <hch@infradead.org>, Akinobu Mita <mita@miraclelinux.com>, Grant Grundler <iod00d@hp.com>, Linux Kernel Development <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Mark Maule <maule@sgi.com>, Andrew Morton <akpm@osdl.org>
+Cc: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, gregkh@suse.de, maule@sgi.com
 
-> > Intel doesn't care about big endian (cfr. your lkml back issues of January
-> > 2006).
-> 
-> Incorrect.  Intel does actually produce big endian CPUs - most of the
-> Intel IXP (ARM based) stuff is big endian.  It just depends which part
-> of Intel you're referring to.
+Andrew,
 
-Set PSR.be (and DCR.be) to 1 and ia64 becomes a big-endian cpu (which,
-IIRC, how HP-UX uses it).
+The following patch seems to be breaking my ia64 sn2_defconfig
+build of 2.6.16-rc1-mm5:
 
--Tony
+    gregkh-pci-altix-msi-support-git-ia64-fix.patch
+
+I'm guessing you should remove it for now.
+
+
+Details:
+====
+
+When I try to build an ia64 sn2_defconfig 2.6.16-rc1-mm5, the
+build fails:
+
+    arch/ia64/sn/pci/tioce_provider.c:699:49: macro "ATE_MAKE" passed 3 arguments, but takes just 2
+    arch/ia64/sn/pci/tioce_provider.c: In function `tioce_reserve_m32':
+    arch/ia64/sn/pci/tioce_provider.c:699: error: `ATE_MAKE' undeclared (first use in this function)
+
+If I remove the patch:
+
+    gregkh-pci-altix-msi-support-git-ia64-fix.patch
+
+then it compiles fine.
+
+It seems that someone added a patchset to change the ATE_MAKE()
+macro from 2 to 3 args, then someone added this above fix patch
+for a missed change, then someone reverted it all back to 2 args,
+but leaving this fix patch.
+
+I guess it means Andrew should remove the above patch.
+
+But I really do not know what is going on here.
+
+-- 
+                  I won't rest till it's the best ...
+                  Programmer, Linux Scalability
+                  Paul Jackson <pj@sgi.com> 1.925.600.0401
