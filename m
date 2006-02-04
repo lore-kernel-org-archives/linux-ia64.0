@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 04 Feb 2006 00:16:09 +0000
-Subject: Re: ia64 printk_clock()
-Message-Id: <15306.1139012169@ocs3>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sat, 04 Feb 2006 00:28:35 +0000
+Subject: RE: ia64 printk_clock()
+Message-Id: <200602040028.k140SZg17845@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060202204422.GA27082@sgi.com>
 In-Reply-To: <20060202204422.GA27082@sgi.com>
@@ -10,23 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" (on Fri, 3 Feb 2006 10:43:08 -0800) wrote:
->> Now that I read the whole thread, how about remove pining DTR 
->> requirement for per-cpu data?  In alt_dtlb_miss, we can just
->> detect whether ifa is per_cpu address and read ar.k3 to get the
->> physical address, then insert a TC.  That will free up a tlb
->> entry for application to use.
->
->What will you do when someone accesses per-cpu area before ar.k3
->has been initialized (the bug that we are trying to fix here)?
->
->This would add some extra code to the Alt-DTLB handler.  Could
->you hide all/most of the extra latency?
->
->Are there any correctness issues?  Any place where we access a
->per-cpu variable where we absolutely cannot take an Alt-DTLB fault?
+Keith Owens wrote on Friday, February 03, 2006 4:16 PM
+> >Are there any correctness issues?  Any place where we access a
+> >per-cpu variable where we absolutely cannot take an Alt-DTLB fault?
+> 
+> mca_asm.S, GET_IA64_MCA_DATA().  ia64_mca_data is per cpu and is
+> accessed right from the start of the MCA/INIT handlers, with psr.i,
+> psr.ic both 0.
 
-mca_asm.S, GET_IA64_MCA_DATA().  ia64_mca_data is per cpu and is
-accessed right from the start of the MCA/INIT handlers, with psr.i,
-psr.ic both 0.
+Ouch, can I turn off psr.dt, then access ia64_mca_data in physical
+mode, and switch psr.dt back on?  Are there any ill effect this
+could cause?
+
+- Ken
 
