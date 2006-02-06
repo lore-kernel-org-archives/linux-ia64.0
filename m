@@ -1,36 +1,40 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Wed, 08 Feb 2006 10:41:21 +0000
-Subject: Re: [patch 15/44] generic ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
-Message-Id: <20060208104121.GB27490@miraclelinux.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Mon, 06 Feb 2006 13:37:08 +0000
+Subject: [RFC:PATCH(000/003)] Memory add to onlined node.
+Message-Id: <20060206221815.0605.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060201090224.536581000@localhost.localdomain> <20060201090326.139510000@localhost.localdomain> <Pine.LNX.4.61.0602011214270.12293@scrub.home>
-In-Reply-To: <Pine.LNX.4.61.0602011214270.12293@scrub.home>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Roman Zippel <zippel@linux-m68k.org>
-Cc: linux-kernel@vger.kernel.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>
+To: "Brown, Len" <len.brown@intel.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, naveen.b.s@intel.com
+Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
-On Wed, Feb 01, 2006 at 12:27:38PM +0100, Roman Zippel wrote:
+Hello.
 
-> For the inline version I would prefer this version:
-> 
-> {
-> 	const unsigned char *tmp = (const unsigned char *)addr;
-> 	return (tmp[nr >> 3] & (unsigned char)(1 << (nr & 7))) != 0;
-> }
-> 
-> Although this would be a good alternative as well:
-> 
-> {
-> 	return (addr[nr >> 5] & (1 << ((nr ^ 24) & 31))) != 0;
-> }
+I would like to post patches for memory hot-add.
+Current code allow addition to just node 0.
+By this patch, the new memory is able to be added to appropriate node,
+- if the node is already online.-  If the node is offline, 
+(It means new node is comming!)  then the memory will belongs
+to node 0 yet.
 
-Thanks, maybe I could use BITOP_LE_SWIZZLE similar to other *_le_bit().
+If new memory belongs to new node, new pgdat must be initialized.
+But, it still need more many steps. So, I would like to propose
+this small steps for a while.
 
-#define BITOP_LE_SWIZZLE       ((BITS_PER_LONG-1) & ~0x7)
- :
-#define generic_test_le_bit(nr, addr) test_bit((nr) ^ BITOP_LE_SWIZZLE, (addr))
- :
-#endif /* __BIG_ENDIAN */
+This patch is use acpi's DSDT to fined node id from physicall address.
+So, this patch is just for intel/AMD architecture.
+
+I tested this patch on ia64, and confirm copile completion for x86_64.
+If there is no objection, I would like to test it too.
+
+This patch is for 2.6.16-rc1-mm5. -mm5 already has pxm_to_nid map's
+clean up and add_memory for x86_64. 
+So, these patches could be small. :-)
+
+Please comment.
+
+-- 
+Yasunori Goto 
+
 
