@@ -1,74 +1,49 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Thu, 23 Feb 2006 11:09:21 +0000
-Subject: Re: [PATCH] unify pfn_to_page take3 [23/23] ia64 pfn_to_page
-Message-Id: <43FD97E1.2010307@jp.fujitsu.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------080508030302030003010406"
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Mon, 06 Feb 2006 13:37:25 +0000
+Subject: [RFC:PATCH(002/003)] Memory add to onlined node.(For ia64)
+Message-Id: <20060206222320.0609.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <43F1A753.2020003@jp.fujitsu.com> <43F1B950.4040403@jp.fujitsu.com>
-In-Reply-To: <43F1B950.4040403@jp.fujitsu.com>
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------080508030302030003010406
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "Brown, Len" <len.brown@intel.com>, naveen.b.s@intel.com
+Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
-KAMEZAWA Hiroyuki wrote:
-> ia64 has special config CONFIG_VIRTUAL_MEM_MAP.
-This vesion had a BUG. This is fixed one.
---Kame
+This is for ia64 to add memory which belongs onlined node.
 
---------------080508030302030003010406
-Content-Type: text/x-patch;
- name="b022-ia64.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="b022-ia64.patch"
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-
-ia64 has special config CONFIG_VIRTUAL_MEM_MAP.
-CONFIG_DISCONTIGMEM=y && CONFIG_VIRTUAL_MEM_MAP!=y is bug ?
-
-Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-
-Index: unify_page_to_pfn/include/asm-ia64/page.h
-===================================================================
---- unify_page_to_pfn.orig/include/asm-ia64/page.h
-+++ unify_page_to_pfn/include/asm-ia64/page.h
-@@ -104,17 +104,25 @@ extern int ia64_pfn_valid (unsigned long
- # define ia64_pfn_valid(pfn) 1
- #endif
+Index: node_add2/arch/ia64/mm/init.c
+=================================--- node_add2.orig/arch/ia64/mm/init.c	2006-02-03 20:51:48.000000000 +0900
++++ node_add2/arch/ia64/mm/init.c	2006-02-03 21:39:21.000000000 +0900
+@@ -20,6 +20,7 @@
+ #include <linux/swap.h>
+ #include <linux/proc_fs.h>
+ #include <linux/bitops.h>
++#include <linux/acpi.h>
  
-+#ifdef CONFIG_VIRTUAL_MEM_MAP
-+extern struct page *vmem_map;
-+#ifdef CONFIG_DISCONTIGMEM
-+# define page_to_pfn(page)	((unsigned long) (page - vmem_map))
-+# define pfn_to_page(pfn)	(vmem_map + (pfn))
-+#endif
-+#endif
-+
-+#if defined(CONFIG_FLATMEM) || defined(CONFIG_SPARSEMEM)
-+/* FLATMEM always configures mem_map (mem_map = vmem_map if necessary) */
-+#include <asm-generic/memory_model.h>
-+#endif
-+
- #ifdef CONFIG_FLATMEM
- # define pfn_valid(pfn)		(((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
--# define page_to_pfn(page)	((unsigned long) (page - mem_map))
--# define pfn_to_page(pfn)	(mem_map + (pfn))
- #elif defined(CONFIG_DISCONTIGMEM)
--extern struct page *vmem_map;
- extern unsigned long min_low_pfn;
- extern unsigned long max_low_pfn;
- # define pfn_valid(pfn)		(((pfn) >= min_low_pfn) && ((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
--# define page_to_pfn(page)	((unsigned long) (page - vmem_map))
--# define pfn_to_page(pfn)	(vmem_map + (pfn))
- #endif
+ #include <asm/a.out.h>
+ #include <asm/dma.h>
+@@ -652,9 +653,15 @@ int add_memory(u64 start, u64 size)
+ 	struct zone *zone;
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+-	int ret;
++	int ret, node;
  
- #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
+-	pgdat = NODE_DATA(0);
++	node = acpi_paddr_to_node(start, size);
++
++	if (node >= 0 && node_online(node))
++		pgdat = NODE_DATA(node);
++	else
++		/* New node's memory will be added to Node 0 temporally. */
++		pgdat = NODE_DATA(0);
+ 
+ 	zone = pgdat->node_zones + ZONE_NORMAL;
+ 	ret = __add_pages(zone, start_pfn, nr_pages);
 
---------------080508030302030003010406--
+-- 
+Yasunori Goto 
 
 
