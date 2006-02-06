@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 03 Feb 2006 00:02:41 +0000
+Date: Mon, 06 Feb 2006 17:51:59 +0000
 Subject: bugfix git pull on ia64 linux tree
-Message-Id: <200602030002.k1302fkn032627@agluck-lia64.sc.intel.com>
+Message-Id: <200602061751.k16HpxCG027547@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
 In-Reply-To: <200509142223.j8EMN0qk011773@agluck-lia64.sc.intel.com>
@@ -18,30 +18,31 @@ please pull from:
 
 This will update the files shown below.
 
-So you don't have to trawl through the whole diff below, the change
-to Drivers/Makefile is from Jes, and is just:
-
--obj-$(CONFIG_SGI_IOC4)		+= sn/
-+obj-$(CONFIG_SGI_SN)		+= sn/
-
 Thanks!
 
 -Tony
 
  arch/ia64/Kconfig                 |    4 
  arch/ia64/kernel/sal.c            |   75 ++++++++++++++
+ arch/ia64/sn/Makefile             |    2 
+ arch/ia64/sn/kernel/Makefile      |    2 
+ arch/ia64/sn/kernel/bte.c         |   17 +--
  arch/ia64/sn/kernel/io_init.c     |    9 +
  arch/ia64/sn/kernel/irq.c         |   21 +---
  arch/ia64/sn/kernel/klconflib.c   |   29 ++---
  arch/ia64/sn/kernel/setup.c       |   19 ++-
+ arch/ia64/sn/kernel/sn2/Makefile  |    2 
  arch/ia64/sn/kernel/sn2/sn2_smp.c |  196 ++++++++++++++------------------------
  arch/ia64/sn/kernel/xpc_main.c    |   19 ++-
+ arch/ia64/sn/pci/Makefile         |    2 
+ arch/ia64/sn/pci/pcibr/Makefile   |    2 
  drivers/Makefile                  |    2 
  include/asm-ia64/processor.h      |   17 +++
  include/asm-ia64/sal.h            |   10 -
+ include/asm-ia64/sn/bte.h         |   23 +++-
  include/asm-ia64/sn/intr.h        |   38 +++----
  include/asm-ia64/system.h         |   25 ----
- 13 files changed, 245 insertions(+), 219 deletions(-)
+ 20 files changed, 278 insertions(+), 236 deletions(-)
 
 Bjorn Helgaas:
       [IA64] avoid broken SAL_CACHE_FLUSH implementations
@@ -57,6 +58,9 @@ Jes Sorensen:
       [IA64-SGI] sn2 housekeeping
       [IA64-SGI] include/asm-ia64/sn/intr.h more sn2 housekeeping
 
+Keith Owens:
+      [IA64-SGI] Recursive flags do not work for selective builds
+
 Kyle McMartin:
       [IA64] Remove stale comment from ia64/Kconfig
 
@@ -67,6 +71,107 @@ Mark Maule:
 Robin Holt:
       [IA64-SGI] Fix XPC code which sleeps with spin_lock_irqsave().
 
+Russ Anderson:
+      [IA64-SGI] Shub2 BTE address fix
+
+
+diff-tree 913e4a75572354995b330f57082d9a86250cd75f (from 27ee6e0592c7d624836835dd8d2f0f74e9d289f6)
+Author: Russ Anderson <rja@efs.americas.sgi.com>
+Date:   Fri Feb 3 14:47:15 2006 -0600
+
+    [IA64-SGI] Shub2 BTE address fix
+    
+    After converting the cpu physical address to shub2 physical
+    addressing, the address was run through TO_PHYS() which
+    clobbered a high node offset bit causing the BTE to fail
+    on shub2 nodes with large memory.  This fix corrects
+    that problem.
+    
+    Signed-off-by: Russ Anderson (rja@sgi.com)
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/sn/kernel/bte.c b/arch/ia64/sn/kernel/bte.c
+index dd73c0c..1f11db4 100644
+--- a/arch/ia64/sn/kernel/bte.c
++++ b/arch/ia64/sn/kernel/bte.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ #include <linux/config.h>
+@@ -186,18 +186,13 @@ retry_bteop:
+ 
+ 	/* Initialize the notification to a known value. */
+ 	*bte->most_rcnt_na = BTE_WORD_BUSY;
+-	notif_phys_addr = TO_PHYS(ia64_tpa((unsigned long)bte->most_rcnt_na));
++	notif_phys_addr = (u64)bte->most_rcnt_na;
+ 
+-	if (is_shub2()) {
+-		src = SH2_TIO_PHYS_TO_DMA(src);
+-		dest = SH2_TIO_PHYS_TO_DMA(dest);
+-		notif_phys_addr = SH2_TIO_PHYS_TO_DMA(notif_phys_addr);
+-	}
+ 	/* Set the source and destination registers */
+-	BTE_PRINTKV(("IBSA = 0x%lx)\n", (TO_PHYS(src))));
+-	BTE_SRC_STORE(bte, TO_PHYS(src));
+-	BTE_PRINTKV(("IBDA = 0x%lx)\n", (TO_PHYS(dest))));
+-	BTE_DEST_STORE(bte, TO_PHYS(dest));
++	BTE_PRINTKV(("IBSA = 0x%lx)\n", src));
++	BTE_SRC_STORE(bte, src);
++	BTE_PRINTKV(("IBDA = 0x%lx)\n", dest));
++	BTE_DEST_STORE(bte, dest);
+ 
+ 	/* Set the notification register */
+ 	BTE_PRINTKV(("IBNA = 0x%lx)\n", notif_phys_addr));
+diff --git a/include/asm-ia64/sn/bte.h b/include/asm-ia64/sn/bte.h
+index f50da3d..01e5b41 100644
+--- a/include/asm-ia64/sn/bte.h
++++ b/include/asm-ia64/sn/bte.h
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -100,13 +100,28 @@
+ #define BTE_LNSTAT_STORE(_bte, _x)					\
+ 			HUB_S(_bte->bte_base_addr, (_x))
+ #define BTE_SRC_STORE(_bte, _x)						\
+-			HUB_S(_bte->bte_source_addr, (_x))
++({									\
++		u64 __addr = ((_x) & ~AS_MASK);				\
++		if (is_shub2()) 					\
++			__addr = SH2_TIO_PHYS_TO_DMA(__addr);		\
++		HUB_S(_bte->bte_source_addr, __addr);			\
++})
+ #define BTE_DEST_STORE(_bte, _x)					\
+-			HUB_S(_bte->bte_destination_addr, (_x))
++({									\
++		u64 __addr = ((_x) & ~AS_MASK);				\
++		if (is_shub2()) 					\
++			__addr = SH2_TIO_PHYS_TO_DMA(__addr);		\
++		HUB_S(_bte->bte_destination_addr, __addr);		\
++})
+ #define BTE_CTRL_STORE(_bte, _x)					\
+ 			HUB_S(_bte->bte_control_addr, (_x))
+ #define BTE_NOTIF_STORE(_bte, _x)					\
+-			HUB_S(_bte->bte_notify_addr, (_x))
++({									\
++		u64 __addr = ia64_tpa((_x) & ~AS_MASK);			\
++		if (is_shub2()) 					\
++			__addr = SH2_TIO_PHYS_TO_DMA(__addr);		\
++		HUB_S(_bte->bte_notify_addr, __addr);			\
++})
+ 
+ #define BTE_START_TRANSFER(_bte, _len, _mode)				\
+ 	is_shub2() ? BTE_CTRL_STORE(_bte, IBLS_BUSY | (_mode << 24) | _len) \
 
 diff-tree 7c6c66362941df847957766ad133ff5fde67579c (from 9a52bbed905fa41ca10f4db2e845b588f0fdfbef)
 Author: Robin Holt <holt@sgi.com>
@@ -1094,3 +1199,81 @@ index 619dd96..5c69b86 100644
  obj-y				+= firmware/
  obj-$(CONFIG_CRYPTO)		+= crypto/
  obj-$(CONFIG_SUPERH)		+= sh/
+
+diff-tree 103ec0910d6b9401b7f72ba3ac71fed88306d2d0 (from 3ee68c4af3fd7228c1be63254b9f884614f9ebb2)
+Author: Keith Owens <kaos@sgi.com>
+Date:   Wed Jan 18 15:38:14 2006 +1100
+
+    [IA64-SGI] Recursive flags do not work for selective builds
+    
+    arch/ia64/sn/Makefile sets CPPFLAGS, expecting that setting to
+    propogate to all the subdirectories.  For a normal build with its
+    recursive descent it does work, but doing a selective build like
+    'make arch/ia64/sn/kernel/io_init.i' does not do a recursive descent,
+    it goes directly to arch/ia64/sn/kernel/Makefile so the flags do not
+    get set.
+    
+    To support selective builds, set the flags in all the subordinate Makefiles.
+    
+    Signed-off-by: Keith Owens <kaos@sgi.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/sn/Makefile b/arch/ia64/sn/Makefile
+index a269f6d..79a7df0 100644
+--- a/arch/ia64/sn/Makefile
++++ b/arch/ia64/sn/Makefile
+@@ -9,6 +9,4 @@
+ # Makefile for the sn ia64 subplatform
+ #
+ 
+-CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
+-
+ obj-y += kernel/ pci/
+diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
+index 4351c4f..3e9b4ee 100644
+--- a/arch/ia64/sn/kernel/Makefile
++++ b/arch/ia64/sn/kernel/Makefile
+@@ -7,6 +7,8 @@
+ # Copyright (C) 1999,2001-2005 Silicon Graphics, Inc.  All Rights Reserved.
+ #
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
+ 				   huberror.o io_init.o iomv.o klconflib.o sn2/
+ obj-$(CONFIG_IA64_GENERIC)      += machvec.o
+diff --git a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
+index 170bde4..99e1776 100644
+--- a/arch/ia64/sn/kernel/sn2/Makefile
++++ b/arch/ia64/sn/kernel/sn2/Makefile
+@@ -9,5 +9,7 @@
+ # sn2 specific kernel files
+ #
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
+ 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
+diff --git a/arch/ia64/sn/pci/Makefile b/arch/ia64/sn/pci/Makefile
+index 321576b..c694678 100644
+--- a/arch/ia64/sn/pci/Makefile
++++ b/arch/ia64/sn/pci/Makefile
+@@ -7,4 +7,6 @@
+ #
+ # Makefile for the sn pci general routines.
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
+diff --git a/arch/ia64/sn/pci/pcibr/Makefile b/arch/ia64/sn/pci/pcibr/Makefile
+index 1850c4a..3b403ea 100644
+--- a/arch/ia64/sn/pci/pcibr/Makefile
++++ b/arch/ia64/sn/pci/pcibr/Makefile
+@@ -7,5 +7,7 @@
+ #
+ # Makefile for the sn2 io routines.
+ 
++CPPFLAGS += -I$(srctree)/arch/ia64/sn/include
++
+ obj-y				+=  pcibr_dma.o pcibr_reg.o \
+ 				    pcibr_ate.o pcibr_provider.o
