@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 04 Feb 2006 00:36:00 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 06 Feb 2006 18:14:14 +0000
 Subject: Re: ia64 printk_clock()
-Message-Id: <16487.1139013360@ocs3>
+Message-Id: <20060206181414.GA27657@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060202204422.GA27082@sgi.com>
 In-Reply-To: <20060202204422.GA27082@sgi.com>
@@ -10,27 +10,50 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens (on Sat, 04 Feb 2006 11:16:09 +1100) wrote:
->"Luck, Tony" (on Fri, 3 Feb 2006 10:43:08 -0800) wrote:
->>> Now that I read the whole thread, how about remove pining DTR 
->>> requirement for per-cpu data?  In alt_dtlb_miss, we can just
->>> detect whether ifa is per_cpu address and read ar.k3 to get the
->>> physical address, then insert a TC.  That will free up a tlb
->>> entry for application to use.
->>
->>What will you do when someone accesses per-cpu area before ar.k3
->>has been initialized (the bug that we are trying to fix here)?
->>
->>This would add some extra code to the Alt-DTLB handler.  Could
->>you hide all/most of the extra latency?
->>
->>Are there any correctness issues?  Any place where we access a
->>per-cpu variable where we absolutely cannot take an Alt-DTLB fault?
->
->mca_asm.S, GET_IA64_MCA_DATA().  ia64_mca_data is per cpu and is
->accessed right from the start of the MCA/INIT handlers, with psr.i,
->psr.ic both 0.
+On Fri, Feb 03, 2006 at 09:43:29AM -0800, Chen, Kenneth W wrote:
+> Why don't we look at ar.k3, it contains per_cpu base address.
+> If it has a none zero value, then it is initialized by
+> per_cpu_init and is safe to call sched_clock.
 
-Ignore that, ia64_mca_data and the data that it points to uses physical
-addresses, not virtual.
+We also need to check whether ar.itc is synchronized on different
+cpus ... if it isn't, then sched_clock() is useless.  Here's a
+simple extension of your patch that does this, falling back to using
+a jiffie based clock (which means you'd only have HZ resolution on
+systems where there is drift).
 
+If that isn't good enough, then I'd be happy to see a patch that
+does a lockless interpolation.
+
+-Tony
+
+
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index fbc7ea3..99cfef8 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -352,6 +352,7 @@ start_ap:
+ 	mov ar.rsc=0		// place RSE in enforced lazy mode
+ 	;;
+ 	loadrs			// clear the dirty partition
++	mov ar.k3=r0		// clear physical per-CPU base
+ 	;;
+ 	mov ar.bspstore=r2	// establish the new RSE stack
+ 	;;
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index 028a2b9..648c116 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -278,3 +278,13 @@ udelay (unsigned long usecs)
+ 	}
+ }
+ EXPORT_SYMBOL(udelay);
++
++unsigned long long printk_clock(void)
++{
++	if (sal_platform_features & IA64_SAL_PLATFORM_FEATURE_ITC_DRIFT) {
++		return (unsigned long long)(jiffies_64 - INITIAL_JIFFIES) *
++			(1000000000/HZ);
++	} else if (ia64_get_kr(IA64_KR_PER_CPU_DATA))
++		return sched_clock();
++	return 0;
++}
