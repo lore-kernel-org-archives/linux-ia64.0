@@ -1,26 +1,34 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 27 Feb 2006 19:18:34 +0000
-Subject: RE: Export cpu cache info by sysfs
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05CE60FC@scsmsx401.amr.corp.intel.com>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Tue, 07 Feb 2006 03:25:55 +0000
+Subject: [PATCH]Fix a possible buffer overflow in efi.c
+Message-Id: <1139282755.8654.5.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I think consistency with other arch is a better choice.  My vote would be
-> index it from 0.
+There is a possible buffer overflow in efi.c
+At lease the code logic is wrong.
 
-How do the applications that read this handle the levels ... I'd expect that a
-well written application wouldn't care whether you indexed "C" style from 0
-or "Fortran" style from 1 ... just so long as you provided some sanity that
-lower numbered levels are closer to the cpu, and bigger numbers are further
-away.
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
-Are there any applications that look at /sys/devices/system/cpu/cpu*/cache*?
+diff -Nraup linux-2.6.15/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+--- linux-2.6.15/arch/ia64/kernel/efi.c	2006-02-06 07:57:06.000000000 +0800
++++ b/arch/ia64/kernel/efi.c	2006-02-08 04:19:56.000000000 +0800
+@@ -432,7 +432,7 @@ efi_init (void)
+ 	/* Show what we know for posterity */
+ 	c16 = __va(efi.systab->fw_vendor);
+ 	if (c16) {
+-		for (i = 0;i < (int) sizeof(vendor) && *c16; ++i)
++		for (i = 0;i < (int) sizeof(vendor) - 1 && *c16; ++i)
+ 			vendor[i] = *c16++;
+ 		vendor[i] = '\0';
+ 	}
 
-This like it might require some care to get right (different architectures providing
-from 0 (unreported) to 3 (or more?) levels of cache ... with split/unified options
-all over the map at each level.
 
--Tony
+
+
+
+
+
