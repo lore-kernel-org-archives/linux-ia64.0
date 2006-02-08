@@ -1,442 +1,104 @@
-From: Akinobu Mita <mita@miraclelinux.com>
-Date: Tue, 14 Feb 2006 05:03:56 +0000
-Subject: [patch 05/47] use non atomic operations for minix_*_bit() and ext2_*_bit()
-Message-Id: <20060214050442.695246000@localhost.localdomain>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 08 Feb 2006 02:41:04 +0000
+Subject: [PATCH 2.6.16-rc2 2/3] MCA: update MCA comm field for user space tasks
+Message-Id: <20060208024104.9264.23245.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: akpm@osdl.org, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
+To: linux-ia64@vger.kernel.org
 
-Bitmap functions for the minix filesystem and the ext2 filesystem
-except ext2_set_bit_atomic() and ext2_clear_bit_atomic()
-do not require the atomic guarantees.
+Update the comm field on the MCA handler for user tasks as well as for
+verified kernel tasks.  This helps to identify the task that was
+running when the MCA occurred.
 
-But these are defined by using atomic bit operations on several architectures.
-(cris, frv, h8300, ia64, m32r, m68k, m68knommu, mips, s390, sh, sh64, sparc,
- sparc64, v850, and xtensa)
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-This patch switches to non atomic bit operation.
+---
 
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ mca.c |   52 ++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 32 insertions(+), 20 deletions(-)
 
- include/asm-cris/bitops.h      |    8 ++++----
- include/asm-frv/bitops.h       |   14 +++++++-------
- include/asm-h8300/bitops.h     |    6 +++---
- include/asm-ia64/bitops.h      |   10 +++++-----
- include/asm-m32r/bitops.h      |    2 +-
- include/asm-m68k/bitops.h      |   10 +++++-----
- include/asm-m68knommu/bitops.h |    6 +++---
- include/asm-mips/bitops.h      |    6 +++---
- include/asm-s390/bitops.h      |   10 +++++-----
- include/asm-sh/bitops.h        |   16 +++++-----------
- include/asm-sh64/bitops.h      |   16 +++++-----------
- include/asm-sparc/bitops.h     |    6 +++---
- include/asm-sparc64/bitops.h   |    6 +++---
- include/asm-v850/bitops.h      |   10 +++++-----
- include/asm-xtensa/bitops.h    |    6 +++---
- 15 files changed, 60 insertions(+), 72 deletions(-)
-
-Index: 2.6-rc/include/asm-h8300/bitops.h
-=================================--- 2.6-rc.orig/include/asm-h8300/bitops.h
-+++ 2.6-rc/include/asm-h8300/bitops.h
-@@ -397,9 +397,9 @@ found_middle:
+Index: linux/arch/ia64/kernel/mca.c
+=================================--- linux.orig/arch/ia64/kernel/mca.c	2006-02-08 11:45:03.892937679 +1100
++++ linux/arch/ia64/kernel/mca.c	2006-02-08 11:54:26.782690102 +1100
+@@ -630,6 +630,32 @@ copy_reg(const u64 *fr, u64 fnat, u64 *t
+ 	*tnat |= (nat << tslot);
  }
  
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-ia64/bitops.h
-=================================--- 2.6-rc.orig/include/asm-ia64/bitops.h
-+++ 2.6-rc/include/asm-ia64/bitops.h
-@@ -394,18 +394,18 @@ extern int __find_next_bit(const void *a
- 
- #define __clear_bit(nr, addr)		clear_bit(nr, addr)
- 
--#define ext2_set_bit			test_and_set_bit
-+#define ext2_set_bit			__test_and_set_bit
- #define ext2_set_bit_atomic(l,n,a)	test_and_set_bit(n,a)
--#define ext2_clear_bit			test_and_clear_bit
-+#define ext2_clear_bit			__test_and_clear_bit
- #define ext2_clear_bit_atomic(l,n,a)	test_and_clear_bit(n,a)
- #define ext2_test_bit			test_bit
- #define ext2_find_first_zero_bit	find_first_zero_bit
- #define ext2_find_next_zero_bit		find_next_zero_bit
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr)		test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr)			set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr)	test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr)		__test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr)			__set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr)	__test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr)			test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size)	find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-mips/bitops.h
-=================================--- 2.6-rc.orig/include/asm-mips/bitops.h
-+++ 2.6-rc/include/asm-mips/bitops.h
-@@ -962,9 +962,9 @@ found_middle:
-  * FIXME: These assume that Minix uses the native byte/bitorder.
-  * This limits the Minix filesystem's value for data exchange very much.
-  */
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-s390/bitops.h
-=================================--- 2.6-rc.orig/include/asm-s390/bitops.h
-+++ 2.6-rc/include/asm-s390/bitops.h
-@@ -871,11 +871,11 @@ static inline int sched_find_first_bit(u
-  */
- 
- #define ext2_set_bit(nr, addr)       \
--	test_and_set_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
-+	__test_and_set_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
- #define ext2_set_bit_atomic(lock, nr, addr)       \
- 	test_and_set_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
- #define ext2_clear_bit(nr, addr)     \
--	test_and_clear_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
-+	__test_and_clear_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
- #define ext2_clear_bit_atomic(lock, nr, addr)     \
- 	test_and_clear_bit((nr)^(__BITOPS_WORDSIZE - 8), (unsigned long *)addr)
- #define ext2_test_bit(nr, addr)      \
-@@ -1014,11 +1014,11 @@ ext2_find_next_zero_bit(void *vaddr, uns
- /* Bitmap functions for the minix filesystem.  */
- /* FIXME !!! */
- #define minix_test_and_set_bit(nr,addr) \
--	test_and_set_bit(nr,(unsigned long *)addr)
-+	__test_and_set_bit(nr,(unsigned long *)addr)
- #define minix_set_bit(nr,addr) \
--	set_bit(nr,(unsigned long *)addr)
-+	__set_bit(nr,(unsigned long *)addr)
- #define minix_test_and_clear_bit(nr,addr) \
--	test_and_clear_bit(nr,(unsigned long *)addr)
-+	__test_and_clear_bit(nr,(unsigned long *)addr)
- #define minix_test_bit(nr,addr) \
- 	test_bit(nr,(unsigned long *)addr)
- #define minix_find_first_zero_bit(addr,size) \
-Index: 2.6-rc/include/asm-sh/bitops.h
-=================================--- 2.6-rc.orig/include/asm-sh/bitops.h
-+++ 2.6-rc/include/asm-sh/bitops.h
-@@ -339,8 +339,8 @@ static inline int sched_find_first_bit(c
- }
- 
- #ifdef __LITTLE_ENDIAN__
--#define ext2_set_bit(nr, addr) test_and_set_bit((nr), (addr))
--#define ext2_clear_bit(nr, addr) test_and_clear_bit((nr), (addr))
-+#define ext2_set_bit(nr, addr) __test_and_set_bit((nr), (addr))
-+#define ext2_clear_bit(nr, addr) __test_and_clear_bit((nr), (addr))
- #define ext2_test_bit(nr, addr) test_bit((nr), (addr))
- #define ext2_find_first_zero_bit(addr, size) find_first_zero_bit((addr), (size))
- #define ext2_find_next_zero_bit(addr, size, offset) \
-@@ -349,30 +349,24 @@ static inline int sched_find_first_bit(c
- static __inline__ int ext2_set_bit(int nr, volatile void * addr)
++/* Change the comm field on the MCA/INT task to include the pid that
++ * was interrupted, it makes for easier debugging.  If that pid was 0
++ * (swapper or nested MCA/INIT) then use the start of the previous comm
++ * field suffixed with its cpu.
++ */
++
++static void
++ia64_mca_modify_comm(const task_t *previous_current)
++{
++	char *p, comm[sizeof(current->comm)];
++	if (previous_current->pid)
++		snprintf(comm, sizeof(comm), "%s %d",
++			current->comm, previous_current->pid);
++	else {
++		int l;
++		if ((p = strchr(previous_current->comm, ' ')))
++			l = p - previous_current->comm;
++		else
++			l = strlen(previous_current->comm);
++		snprintf(comm, sizeof(comm), "%s %*s %d",
++			current->comm, l, previous_current->comm,
++			task_thread_info(previous_current)->cpu);
++	}
++	memcpy(current->comm, comm, sizeof(current->comm));
++}
++
+ /* On entry to this routine, we are running on the per cpu stack, see
+  * mca_asm.h.  The original stack has not been touched by this event.  Some of
+  * the original stack's registers will be in the RBS on this stack.  This stack
+@@ -648,7 +674,7 @@ ia64_mca_modify_original_stack(struct pt
+ 		struct ia64_sal_os_state *sos,
+ 		const char *type)
  {
- 	int		mask, retval;
--	unsigned long	flags;
- 	volatile unsigned char	*ADDR = (unsigned char *) addr;
+-	char *p, comm[sizeof(current->comm)];
++	char *p;
+ 	ia64_va va;
+ 	extern char ia64_leave_kernel[];	/* Need asm address, not function descriptor */
+ 	const pal_min_state_area_t *ms = sos->pal_min_state;
+@@ -721,6 +747,10 @@ ia64_mca_modify_original_stack(struct pt
+ 	/* Verify the previous stack state before we change it */
+ 	if (user_mode(regs)) {
+ 		msg = "occurred in user space";
++		/* previous_current is guaranteed to be valid when the task was
++		 * in user space, so ...
++		 */
++		ia64_mca_modify_comm(previous_current);
+ 		goto no_mod;
+ 	}
+ 	if (r13 != sos->prev_IA64_KR_CURRENT) {
+@@ -750,25 +780,7 @@ ia64_mca_modify_original_stack(struct pt
+ 		goto no_mod;
+ 	}
  
- 	ADDR += nr >> 3;
- 	mask = 1 << (nr & 0x07);
--	local_irq_save(flags);
- 	retval = (mask & *ADDR) != 0;
- 	*ADDR |= mask;
--	local_irq_restore(flags);
- 	return retval;
- }
+-	/* Change the comm field on the MCA/INT task to include the pid that
+-	 * was interrupted, it makes for easier debugging.  If that pid was 0
+-	 * (swapper or nested MCA/INIT) then use the start of the previous comm
+-	 * field suffixed with its cpu.
+-	 */
+-	if (previous_current->pid)
+-		snprintf(comm, sizeof(comm), "%s %d",
+-			current->comm, previous_current->pid);
+-	else {
+-		int l;
+-		if ((p = strchr(previous_current->comm, ' ')))
+-			l = p - previous_current->comm;
+-		else
+-			l = strlen(previous_current->comm);
+-		snprintf(comm, sizeof(comm), "%s %*s %d",
+-			current->comm, l, previous_current->comm,
+-			task_thread_info(previous_current)->cpu);
+-	}
+-	memcpy(current->comm, comm, sizeof(current->comm));
++	ia64_mca_modify_comm(previous_current);
  
- static __inline__ int ext2_clear_bit(int nr, volatile void * addr)
- {
- 	int		mask, retval;
--	unsigned long	flags;
- 	volatile unsigned char	*ADDR = (unsigned char *) addr;
- 
- 	ADDR += nr >> 3;
- 	mask = 1 << (nr & 0x07);
--	local_irq_save(flags);
- 	retval = (mask & *ADDR) != 0;
- 	*ADDR &= ~mask;
--	local_irq_restore(flags);
- 	return retval;
- }
- 
-@@ -459,9 +453,9 @@ found_middle:
- 	})
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-sh64/bitops.h
-=================================--- 2.6-rc.orig/include/asm-sh64/bitops.h
-+++ 2.6-rc/include/asm-sh64/bitops.h
-@@ -382,8 +382,8 @@ static inline int sched_find_first_bit(u
- #define hweight8(x) generic_hweight8(x)
- 
- #ifdef __LITTLE_ENDIAN__
--#define ext2_set_bit(nr, addr) test_and_set_bit((nr), (addr))
--#define ext2_clear_bit(nr, addr) test_and_clear_bit((nr), (addr))
-+#define ext2_set_bit(nr, addr) __test_and_set_bit((nr), (addr))
-+#define ext2_clear_bit(nr, addr) __test_and_clear_bit((nr), (addr))
- #define ext2_test_bit(nr, addr) test_bit((nr), (addr))
- #define ext2_find_first_zero_bit(addr, size) find_first_zero_bit((addr), (size))
- #define ext2_find_next_zero_bit(addr, size, offset) \
-@@ -392,30 +392,24 @@ static inline int sched_find_first_bit(u
- static __inline__ int ext2_set_bit(int nr, volatile void * addr)
- {
- 	int		mask, retval;
--	unsigned long	flags;
- 	volatile unsigned char	*ADDR = (unsigned char *) addr;
- 
- 	ADDR += nr >> 3;
- 	mask = 1 << (nr & 0x07);
--	local_irq_save(flags);
- 	retval = (mask & *ADDR) != 0;
- 	*ADDR |= mask;
--	local_irq_restore(flags);
- 	return retval;
- }
- 
- static __inline__ int ext2_clear_bit(int nr, volatile void * addr)
- {
- 	int		mask, retval;
--	unsigned long	flags;
- 	volatile unsigned char	*ADDR = (unsigned char *) addr;
- 
- 	ADDR += nr >> 3;
- 	mask = 1 << (nr & 0x07);
--	local_irq_save(flags);
- 	retval = (mask & *ADDR) != 0;
- 	*ADDR &= ~mask;
--	local_irq_restore(flags);
- 	return retval;
- }
- 
-@@ -502,9 +496,9 @@ found_middle:
- 	})
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-sparc/bitops.h
-=================================--- 2.6-rc.orig/include/asm-sparc/bitops.h
-+++ 2.6-rc/include/asm-sparc/bitops.h
-@@ -523,11 +523,11 @@ found_middle:
- 
- /* Bitmap functions for the minix filesystem.  */
- #define minix_test_and_set_bit(nr,addr)	\
--	test_and_set_bit((nr),(unsigned long *)(addr))
-+	__test_and_set_bit((nr),(unsigned long *)(addr))
- #define minix_set_bit(nr,addr)		\
--	set_bit((nr),(unsigned long *)(addr))
-+	__set_bit((nr),(unsigned long *)(addr))
- #define minix_test_and_clear_bit(nr,addr) \
--	test_and_clear_bit((nr),(unsigned long *)(addr))
-+	__test_and_clear_bit((nr),(unsigned long *)(addr))
- #define minix_test_bit(nr,addr)		\
- 	test_bit((nr),(unsigned long *)(addr))
- #define minix_find_first_zero_bit(addr,size) \
-Index: 2.6-rc/include/asm-sparc64/bitops.h
-=================================--- 2.6-rc.orig/include/asm-sparc64/bitops.h
-+++ 2.6-rc/include/asm-sparc64/bitops.h
-@@ -280,11 +280,11 @@ extern unsigned long find_next_zero_le_b
- 
- /* Bitmap functions for the minix filesystem.  */
- #define minix_test_and_set_bit(nr,addr)	\
--	test_and_set_bit((nr),(unsigned long *)(addr))
-+	__test_and_set_bit((nr),(unsigned long *)(addr))
- #define minix_set_bit(nr,addr)	\
--	set_bit((nr),(unsigned long *)(addr))
-+	__set_bit((nr),(unsigned long *)(addr))
- #define minix_test_and_clear_bit(nr,addr) \
--	test_and_clear_bit((nr),(unsigned long *)(addr))
-+	__test_and_clear_bit((nr),(unsigned long *)(addr))
- #define minix_test_bit(nr,addr)	\
- 	test_bit((nr),(unsigned long *)(addr))
- #define minix_find_first_zero_bit(addr,size) \
-Index: 2.6-rc/include/asm-v850/bitops.h
-=================================--- 2.6-rc.orig/include/asm-v850/bitops.h
-+++ 2.6-rc/include/asm-v850/bitops.h
-@@ -336,18 +336,18 @@ static inline int sched_find_first_bit(u
- #define hweight16(x) 			generic_hweight16 (x)
- #define hweight8(x) 			generic_hweight8 (x)
- 
--#define ext2_set_bit			test_and_set_bit
-+#define ext2_set_bit			__test_and_set_bit
- #define ext2_set_bit_atomic(l,n,a)      test_and_set_bit(n,a)
--#define ext2_clear_bit			test_and_clear_bit
-+#define ext2_clear_bit			__test_and_clear_bit
- #define ext2_clear_bit_atomic(l,n,a)    test_and_clear_bit(n,a)
- #define ext2_test_bit			test_bit
- #define ext2_find_first_zero_bit	find_first_zero_bit
- #define ext2_find_next_zero_bit		find_next_zero_bit
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit		test_and_set_bit
--#define minix_set_bit			set_bit
--#define minix_test_and_clear_bit	test_and_clear_bit
-+#define minix_test_and_set_bit		__test_and_set_bit
-+#define minix_set_bit			__set_bit
-+#define minix_test_and_clear_bit	__test_and_clear_bit
- #define minix_test_bit 			test_bit
- #define minix_find_first_zero_bit 	find_first_zero_bit
- 
-Index: 2.6-rc/include/asm-xtensa/bitops.h
-=================================--- 2.6-rc.orig/include/asm-xtensa/bitops.h
-+++ 2.6-rc/include/asm-xtensa/bitops.h
-@@ -436,9 +436,9 @@ static inline int sched_find_first_bit(c
- 
- /* Bitmap functions for the minix filesystem.  */
- 
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-m32r/bitops.h
-=================================--- 2.6-rc.orig/include/asm-m32r/bitops.h
-+++ 2.6-rc/include/asm-m32r/bitops.h
-@@ -575,7 +575,7 @@ found_middle:
-  */
- 
- #ifdef __LITTLE_ENDIAN__
--#define ext2_set_bit			test_and_set_bit
-+#define ext2_set_bit			__test_and_set_bit
- #define ext2_clear_bit			__test_and_clear_bit
- #define ext2_test_bit			test_bit
- #define ext2_find_first_zero_bit	find_first_zero_bit
-Index: 2.6-rc/include/asm-cris/bitops.h
-=================================--- 2.6-rc.orig/include/asm-cris/bitops.h
-+++ 2.6-rc/include/asm-cris/bitops.h
-@@ -352,17 +352,17 @@ found_middle:
- #define find_first_bit(addr, size) \
-         find_next_bit((addr), (size), 0)
- 
--#define ext2_set_bit                 test_and_set_bit
-+#define ext2_set_bit                 __test_and_set_bit
- #define ext2_set_bit_atomic(l,n,a)   test_and_set_bit(n,a)
--#define ext2_clear_bit               test_and_clear_bit
-+#define ext2_clear_bit               __test_and_clear_bit
- #define ext2_clear_bit_atomic(l,n,a) test_and_clear_bit(n,a)
- #define ext2_test_bit                test_bit
- #define ext2_find_first_zero_bit     find_first_zero_bit
- #define ext2_find_next_zero_bit      find_next_zero_bit
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-frv/bitops.h
-=================================--- 2.6-rc.orig/include/asm-frv/bitops.h
-+++ 2.6-rc/include/asm-frv/bitops.h
-@@ -259,11 +259,11 @@ static inline int sched_find_first_bit(c
- #define hweight16(x) generic_hweight16(x)
- #define hweight8(x) generic_hweight8(x)
- 
--#define ext2_set_bit(nr, addr)		test_and_set_bit  ((nr) ^ 0x18, (addr))
--#define ext2_clear_bit(nr, addr)	test_and_clear_bit((nr) ^ 0x18, (addr))
-+#define ext2_set_bit(nr, addr)		__test_and_set_bit  ((nr) ^ 0x18, (addr))
-+#define ext2_clear_bit(nr, addr)	__test_and_clear_bit((nr) ^ 0x18, (addr))
- 
--#define ext2_set_bit_atomic(lock,nr,addr)	ext2_set_bit((nr), addr)
--#define ext2_clear_bit_atomic(lock,nr,addr)	ext2_clear_bit((nr), addr)
-+#define ext2_set_bit_atomic(lock,nr,addr)	test_and_set_bit  ((nr) ^ 0x18, (addr))
-+#define ext2_clear_bit_atomic(lock,nr,addr)	test_and_clear_bit((nr) ^ 0x18, (addr))
- 
- static inline int ext2_test_bit(int nr, const volatile void * addr)
- {
-@@ -331,9 +331,9 @@ found_middle:
- }
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr)		ext2_set_bit(nr,addr)
--#define minix_set_bit(nr,addr)			ext2_set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr)	ext2_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr)		__test_and_set_bit  ((nr) ^ 0x18, (addr))
-+#define minix_set_bit(nr,addr)			__set_bit((nr) ^ 0x18, (addr))
-+#define minix_test_and_clear_bit(nr,addr)	__test_and_clear_bit((nr) ^ 0x18, (addr))
- #define minix_test_bit(nr,addr)			ext2_test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size)	ext2_find_first_zero_bit(addr,size)
- 
-Index: 2.6-rc/include/asm-m68k/bitops.h
-=================================--- 2.6-rc.orig/include/asm-m68k/bitops.h
-+++ 2.6-rc/include/asm-m68k/bitops.h
-@@ -365,9 +365,9 @@ static inline int minix_find_first_zero_
- 	return ((p - addr) << 4) + (res ^ 31);
- }
- 
--#define minix_test_and_set_bit(nr, addr)	test_and_set_bit((nr) ^ 16, (unsigned long *)(addr))
--#define minix_set_bit(nr,addr)			set_bit((nr) ^ 16, (unsigned long *)(addr))
--#define minix_test_and_clear_bit(nr, addr)	test_and_clear_bit((nr) ^ 16, (unsigned long *)(addr))
-+#define minix_test_and_set_bit(nr, addr)	__test_and_set_bit((nr) ^ 16, (unsigned long *)(addr))
-+#define minix_set_bit(nr,addr)			__set_bit((nr) ^ 16, (unsigned long *)(addr))
-+#define minix_test_and_clear_bit(nr, addr)	__test_and_clear_bit((nr) ^ 16, (unsigned long *)(addr))
- 
- static inline int minix_test_bit(int nr, const void *vaddr)
- {
-@@ -377,9 +377,9 @@ static inline int minix_test_bit(int nr,
- 
- /* Bitmap functions for the ext2 filesystem. */
- 
--#define ext2_set_bit(nr, addr)			test_and_set_bit((nr) ^ 24, (unsigned long *)(addr))
-+#define ext2_set_bit(nr, addr)			__test_and_set_bit((nr) ^ 24, (unsigned long *)(addr))
- #define ext2_set_bit_atomic(lock, nr, addr)	test_and_set_bit((nr) ^ 24, (unsigned long *)(addr))
--#define ext2_clear_bit(nr, addr)		test_and_clear_bit((nr) ^ 24, (unsigned long *)(addr))
-+#define ext2_clear_bit(nr, addr)		__test_and_clear_bit((nr) ^ 24, (unsigned long *)(addr))
- #define ext2_clear_bit_atomic(lock, nr, addr)	test_and_clear_bit((nr) ^ 24, (unsigned long *)(addr))
- 
- static inline int ext2_test_bit(int nr, const void *vaddr)
-Index: 2.6-rc/include/asm-m68knommu/bitops.h
-=================================--- 2.6-rc.orig/include/asm-m68knommu/bitops.h
-+++ 2.6-rc/include/asm-m68knommu/bitops.h
-@@ -476,9 +476,9 @@ found_middle:
- }
- 
- /* Bitmap functions for the minix filesystem.  */
--#define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
--#define minix_set_bit(nr,addr) set_bit(nr,addr)
--#define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)
-+#define minix_test_and_set_bit(nr,addr) __test_and_set_bit(nr,addr)
-+#define minix_set_bit(nr,addr) __set_bit(nr,addr)
-+#define minix_test_and_clear_bit(nr,addr) __test_and_clear_bit(nr,addr)
- #define minix_test_bit(nr,addr) test_bit(nr,addr)
- #define minix_find_first_zero_bit(addr,size) find_first_zero_bit(addr,size)
- 
-
---
+ 	/* Make the original task look blocked.  First stack a struct pt_regs,
+ 	 * describing the state at the time of interrupt.  mca_asm.S built a
