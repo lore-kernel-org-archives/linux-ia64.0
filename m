@@ -1,60 +1,47 @@
-From: Adrian Bunk <bunk@stusta.de>
-Date: Wed, 08 Feb 2006 01:19:38 +0000
-Subject: Re: [2.6 patch] let IA64_GENERIC select more stuff
-Message-Id: <20060208011938.GJ3524@stusta.de>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 08 Feb 2006 01:40:13 +0000
+Subject: RE: [2.6 patch] let IA64_GENERIC select more stuff
+Message-Id: <200602080140.k181eDg20764@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060207231713.GG3524@stusta.de> <200602080052.k180qxg16788@unix-os.sc.intel.com>
-In-Reply-To: <200602080052.k180qxg16788@unix-os.sc.intel.com>
+In-Reply-To: <20060208011938.GJ3524@stusta.de>
+References: <20060207231713.GG3524@stusta.de>
+In-Reply-To: <20060207231713.GG3524@stusta.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+To: 'Adrian Bunk' <bunk@stusta.de>
 Cc: Keith Owens <kaos@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Feb 07, 2006 at 04:52:59PM -0800, Chen, Kenneth W wrote:
-> Adrian Bunk wrote on Tuesday, February 07, 2006 3:17 PM
-> > IOW, you want the patch below?
-> > 
-> 
-> No, I really don't think so.
-> 
-> 
-> > --- linux-2.6.16-rc1-mm5-ia64/arch/ia64/Kconfig.old
-> > +++ linux-2.6.16-rc1-mm5-ia64/arch/ia64/Kconfig
-> > @@ -132,10 +134,11 @@
-> >  	  This choice is safe for all IA-64 systems, but may not perform
-> >  	  optimally on systems with, say, Itanium 2 or newer processors.
-> >  
-> >  config MCKINLEY
-> >  	bool "Itanium 2"
-> > +	depends on IA64_GENERIC=n
-> >  	help
-> >  	  Select this to configure for an Itanium 2 (McKinley) processor.
-> >  
-> >  endchoice
-> >  
-> 
-> This hunk does not make any logical sense.  Select generic system type
-> does not mean Itanium processor is the only choice I can have.  What's
-> wrong with having an option that works just fine right now?
+Adrian Bunk wrote on Tuesday, February 07, 2006 5:20 PM
+> You could ask the same question for NUMA:
+> Select generic system type does not mean NUMA systems are only choice I 
+> can have. What's wrong with having an option that works just fine?
 
-You could ask the same question for NUMA:
-Select generic system type does not mean NUMA systems are only choice I 
-can have. What's wrong with having an option that works just fine?
+Please read more ia64 arch specific code ...
 
-Keith said IA64_GENERIC should select all the options required in order 
-to run on all the IA64 platforms out there.
-This is what my patch does.
+CONFIG_IA64_GENERIC is a platform type choice, you can have platform
+type of DIG, HPZX1, SGI SN2, or all of the above.  DIG platform depends
+on ACPI, thus need ACPI on.  SGI altix is a numa box, thus, need NUMA
+on.  NEC, Fujitsu build numa machines with ACPI SRAT table, thus, need
+ACPI_NUMA on.  When you build a kernel to boot on all platforms, you
+have no choice but to turn on all of the above.  Processor type and SMP
+is different from platform type.  It does not have any dependency on
+platform type.  They are orthogonal choice.
 
-> - Ken
 
-cu
-Adrian
+> Keith said IA64_GENERIC should select all the options required in
+> order to run on all the IA64 platforms out there.
+                          ^^^^^^^^^^^^^^
+> This is what my patch does.
 
--- 
+You patch does more than what you described and is wrong.  Selecting
+platform type should not be tied into selecting SMP nor should it tied
+with processor type, nor should it tied with ARCH_FLATMEM_ENABLE.  All
+of them are orthogonal and independent.
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Theoretically and maybe academically interesting, I should be able to
+build a kernel that boots on all UP platforms, with your patch, that
+is not possible.
+
+- Ken
 
