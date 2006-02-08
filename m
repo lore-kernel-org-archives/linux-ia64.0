@@ -1,65 +1,77 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 10 Feb 2006 14:21:23 +0000
-Subject: [RFC/PATCH: 007/010] Memory hotplug for new nodes with pgdat allocation. (pgdat link insert)
-Message-Id: <20060210224529.C53E.Y-GOTO@jp.fujitsu.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 08 Feb 2006 15:19:28 +0000
+Subject: [patch] prevent sn2 specific code to be run in generic kernels
+Message-Id: <yq08xslnain.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Cc: x86-64 Discuss <discuss@x86-64.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
+To: linux-ia64@vger.kernel.org
 
-This is to insert pgdat to its link.
-To be honest, I would like remove this pgdat link, and
-I posted patches to remove it for a long time ago to -mm.
+Hi,
 
-http://marc.theaimsgroup.com/?l=linux-mm&m2808582217281&w=2
-http://marc.theaimsgroup.com/?l=linux-mm&m2808582227966&w=2
+Last two cases where sn2 specific init calls would execute on any
+platform when running a generic kernel.
 
-But, it might have influence against performance for big NUMA box.
-So, I should check it.
-However, I'm very hard to access big NUMA box. Our machine is 
-divided as small partitioned for test of each team inside of fujitsu
-every time. Sigh. :-(. 
+Both cases are non fatal, which is why we didn't notice it
+before. Still shouldn't be run.
 
-This is small lazy patch instead of them.
+Cheers,
+Jes
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Prevent SN2 specific code to be executed on non SN2 platforms when
+compiling a generic kernel.
 
-Index: pgdat2/arch/ia64/mm/discontig.c
-=================================--- pgdat2.orig/arch/ia64/mm/discontig.c	2006-02-10 17:40:05.000000000 +0900
-+++ pgdat2/arch/ia64/mm/discontig.c	2006-02-10 19:42:27.000000000 +0900
-@@ -384,7 +384,7 @@ static void __init *memory_less_node_all
-  * pgdat_insert - insert the pgdat into global pgdat_list
-  * @pgdat: the pgdat for a node.
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+----
+
+ arch/ia64/sn/kernel/mca.c           |    5 +++--
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |    5 ++++-
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+Index: linux-2.6/arch/ia64/sn/kernel/mca.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/mca.c
++++ linux-2.6/arch/ia64/sn/kernel/mca.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
   */
--static void __init pgdat_insert(pg_data_t *pgdat)
-+void __meminit pgdat_insert(pg_data_t *pgdat)
- {
- 	pg_data_t *prev = NULL, *next;
  
-Index: pgdat2/arch/ia64/mm/init.c
-=================================--- pgdat2.orig/arch/ia64/mm/init.c	2006-02-10 17:29:30.000000000 +0900
-+++ pgdat2/arch/ia64/mm/init.c	2006-02-10 19:42:41.000000000 +0900
-@@ -647,6 +647,8 @@ void online_page(struct page *page)
- 	num_physpages++;
+ #include <linux/types.h>
+@@ -137,7 +137,8 @@
+ 
+ static int __init sn_salinfo_init(void)
+ {
+-	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
++	if (ia64_platform_is("sn2"))
++		salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
+ 	return 0;
  }
  
-+extern void __meminit pgdat_insert(pg_data_t *pgdat);
-+
- int add_memory(u64 start, u64 size)
+Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 2004-2005 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 2004-2006 Silicon Graphics, Inc. All rights reserved.
+  *
+  * SGI Altix topology and hardware performance monitoring API.
+  * Mark Goodwin <markgw@sgi.com>. 
+@@ -973,6 +973,9 @@
  {
- 	pg_data_t *pgdat;
-@@ -663,6 +665,7 @@ int add_memory(u64 start, u64 size)
+ 	int e;
  
- 	if (!node_online(node)){
- 		ret = new_pgdat_init(node, start_pfn, nr_pages);
-+		pgdat_insert(NODE_DATA(node));
- 		if (ret)
- 			return ret;
++	if (!ia64_platform_is("sn2"))
++		return 0;
++
+ 	sn_hwperf_init();
  
-
--- 
-Yasunori Goto 
-
+ 	/*
 
