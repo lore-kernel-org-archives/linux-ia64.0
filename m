@@ -1,77 +1,44 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 02 Feb 2006 10:50:05 +0000
-Subject: [patch] include/asm-ia64/sn/intr.h more sn2 housekeeping
-Message-Id: <yq0oe1qnig2.fsf@jaguar.mkp.net>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 08 Feb 2006 02:41:10 +0000
+Subject: [PATCH 2.6.16-rc2 3/3] MCA: remove obsolete ifdef
+Message-Id: <20060208024110.9264.91992.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+No platform in the community tree uses PLATFORM_MCA_HANDLERS, remove
+the references.
 
-House keeping - eliminate unneeded parenthesis in macro defines.
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
+---
 
-----
+ mca.c |    7 -------
+ 1 files changed, 7 deletions(-)
 
- include/asm-ia64/sn/intr.h |   38 +++++++++++++++++++-------------------
- 1 files changed, 19 insertions(+), 19 deletions(-)
-
-Index: linux-2.6/include/asm-ia64/sn/intr.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/intr.h
-+++ linux-2.6/include/asm-ia64/sn/intr.h
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
+Index: linux/arch/ia64/kernel/mca.c
+=================================--- linux.orig/arch/ia64/kernel/mca.c	2006-02-08 12:10:15.603478247 +1100
++++ linux/arch/ia64/kernel/mca.c	2006-02-08 12:12:22.726542463 +1100
+@@ -281,11 +281,6 @@ ia64_mca_log_sal_error_record(int sal_in
+ 		ia64_sal_clear_state_info(sal_info_type);
+ }
+ 
+-/*
+- * platform dependent error handling
+- */
+-#ifndef PLATFORM_MCA_HANDLERS
+-
+ #ifdef CONFIG_ACPI
+ 
+ int cpe_vector = -1;
+@@ -377,8 +372,6 @@ ia64_mca_register_cpev (int cpev)
+ }
+ #endif /* CONFIG_ACPI */
+ 
+-#endif /* PLATFORM_MCA_HANDLERS */
+-
+ /*
+  * ia64_mca_cmc_vector_setup
   *
-- * Copyright (C) 1992 - 1997, 2000-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (C) 1992 - 1997, 2000-2006 Silicon Graphics, Inc. All rights reserved.
-  */
- 
- #ifndef _ASM_IA64_SN_INTR_H
-@@ -11,26 +11,26 @@
- 
- #include <linux/rcupdate.h>
- 
--#define SGI_UART_VECTOR		(0xe9)
-+#define SGI_UART_VECTOR		0xe9
- 
- /* Reserved IRQs : Note, not to exceed IA64_SN2_FIRST_DEVICE_VECTOR */
--#define SGI_XPC_ACTIVATE                (0x30)
--#define SGI_II_ERROR                    (0x31)
--#define SGI_XBOW_ERROR                  (0x32)
--#define SGI_PCIASIC_ERROR               (0x33)
--#define SGI_ACPI_SCI_INT                (0x34)
--#define SGI_TIOCA_ERROR                 (0x35)
--#define SGI_TIO_ERROR                   (0x36)
--#define SGI_TIOCX_ERROR                 (0x37)
--#define SGI_MMTIMER_VECTOR              (0x38)
--#define SGI_XPC_NOTIFY                  (0xe7)
--
--#define IA64_SN2_FIRST_DEVICE_VECTOR    (0x3c)
--#define IA64_SN2_LAST_DEVICE_VECTOR     (0xe6)
--
--#define SN2_IRQ_RESERVED        (0x1)
--#define SN2_IRQ_CONNECTED       (0x2)
--#define SN2_IRQ_SHARED          (0x4)
-+#define SGI_XPC_ACTIVATE	0x30
-+#define SGI_II_ERROR		0x31
-+#define SGI_XBOW_ERROR		0x32
-+#define SGI_PCIASIC_ERROR	0x33
-+#define SGI_ACPI_SCI_INT	0x34
-+#define SGI_TIOCA_ERROR		0x35
-+#define SGI_TIO_ERROR		0x36
-+#define SGI_TIOCX_ERROR		0x37
-+#define SGI_MMTIMER_VECTOR	0x38
-+#define SGI_XPC_NOTIFY		0xe7
-+
-+#define IA64_SN2_FIRST_DEVICE_VECTOR	0x3c
-+#define IA64_SN2_LAST_DEVICE_VECTOR	0xe6
-+
-+#define SN2_IRQ_RESERVED	0x1
-+#define SN2_IRQ_CONNECTED	0x2
-+#define SN2_IRQ_SHARED		0x4
- 
- // The SN PROM irq struct
- struct sn_irq_info {
