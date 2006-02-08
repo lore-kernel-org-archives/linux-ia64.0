@@ -1,41 +1,41 @@
-From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Date: Fri, 17 Feb 2006 04:23:09 +0000
-Subject: Re: [PATCH] Delete a redundant instruction in unaligned_access
-Message-Id: <1140150189.15920.11.camel@ymzhang-perf.sh.intel.com>
+From: dann frazier <dannf@hp.com>
+Date: Wed, 08 Feb 2006 17:52:41 +0000
+Subject: Re: salinfo incorrectly returning -ENOMEM
+Message-Id: <1139421161.30996.93.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1140149396.15920.5.camel@ymzhang-perf.sh.intel.com>
-In-Reply-To: <1140149396.15920.5.camel@ymzhang-perf.sh.intel.com>
+References: <1138400466.19287.24.camel@krebs.dannf>
+In-Reply-To: <1138400466.19287.24.camel@krebs.dannf>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 2006-02-17 at 12:09, Zhang, Yanmin wrote:
-> From: Zhang, Yanmin <yanmin.zhang@intel.com>
+On Sat, 2006-01-28 at 11:07 +1100, Keith Owens wrote:
+> dann frazier (on Fri, 27 Jan 2006 15:21:06 -0700) wrote:
+> >salinfo_decode will silently exit occasionally due to a failed open
+> >of /proc/sal/XXX/data.  This is because the kernel is returning -ENOMEM
+> >after attempting to vmalloc a buffer of size  
+> >ia64_sal_get_state_info_size(data->type).
+> >
+> >However, on my system ia64_sal_get_state_info_size is returning 0, in
+> >which case I'd think a NULL vmalloc() result is correct.  
+> >
+> >This patch assumes, of course, that 0 is a reasonable return value from
+> >ia64_sal_get_state_info_size().
 > 
-> unaligned_access does fetch cr.ipsr, then calls
-> dispatch_unaligned_handler, but dispatch_unaligned_handler fetches
-> cr.ipsr again, so delete the first one.
+> Nak this patch.
 > 
-> The patch is against kernel 2.6.16-rc3.
-> 
-> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
-> 
-> ---
-> 
-I don't know why unexpected line breaks appeared. Resend the patch.
+> Zero is not a valid return value from ia64_sal_get_state_info_size().
+> That SAL call must return the maximum size for the record type so that
+> the OS can preallocate the required buffers while the OS is in normal
+> context.  The buffers cannot be allocated when the SAL interrupt occurs
+> because vmalloc cannot be used in interrupt context.  If SAL is not
+> returning a valid value from ia64_sal_get_state_info_size() then your
+> version of SAL is wrong and the only thing that the OS can do is to
+> give up on that record type.  
 
----
-diff -Nraup linux-2.6.16-rc3/arch/ia64/kernel/ivt.S linux-2.6.16-rc3_fix/arch/ia64/kernel/ivt.S
---- linux-2.6.16-rc3/arch/ia64/kernel/ivt.S	2006-01-25 21:54:04.000000000 +0800
-+++ linux-2.6.16-rc3_fix/arch/ia64/kernel/ivt.S	2006-02-18 00:31:08.000000000 +0800
-@@ -1362,7 +1362,6 @@ END(debug_vector)
- // 0x5a00 Entry 30 (size 16 bundles) Unaligned Reference (57)
- ENTRY(unaligned_access)
- 	DBG_FAULT(30)
--	mov r16=cr.ipsr
- 	mov r31=pr		// prepare to save predicates
- 	;;
- 	br.sptk.many dispatch_unaligned_handler
+Just to follow-up - we've determined that is an issue with the version
+of firmware some of our machines are running.  Thanks for everyone's
+responses.
 
 
