@@ -1,52 +1,77 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 07 Feb 2006 20:31:49 +0000
-Subject: [PATCH]: Minor cleanup of sn_bus_free_sysdata
-Message-Id: <20060207203127.20095.46850.sendpatchset@prarit.boston.redhat.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 08 Feb 2006 02:40:59 +0000
+Subject: [PATCH 2.6.16-rc2 1/3] MCA: print messages in MCA handler
+Message-Id: <20060208024059.9264.4992.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Small cleanup for misuse of list_for_each to list_for_each_safe.
+Print a message identifying the monarch MCA handler.  Print a summary
+of the status of the slave MCA cpus.
 
-This patch was suggested by Kenneth W. Chen here, and depends on the patch
-in that discussion:
-http://marc.theaimsgroup.com/?l=linux-ia64&m3929797803776&w=2
-
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
 ---
-commit eb9f45aec29f8c25f5a55dd0b4af9b6bf94cef7f
-tree d6a9cc6af919ef006633579e9eaf81b04e0ffd18
-parent 2f251784f604791190b89cb07df7672c73fa6832
-author Prarit Bhargava <prarit@sgi.com> Tue, 07 Feb 2006 16:23:10 -0500
-committer Prarit Bhargava <prarit@sgi.com> Tue, 07 Feb 2006 16:23:10 -0500
 
- arch/ia64/sn/kernel/io_init.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ mca.c |   25 +++++++++++++++++++++++--
+ 1 files changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
-index 2e4e56b..3437c23 100644
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -617,17 +617,15 @@ void sn_bus_store_sysdata(struct pci_dev
- void sn_bus_free_sysdata(void)
+Index: linux/arch/ia64/kernel/mca.c
+=================================--- linux.orig/arch/ia64/kernel/mca.c	2006-02-08 11:41:55.494263795 +1100
++++ linux/arch/ia64/kernel/mca.c	2006-02-08 12:10:03.619783349 +1100
+@@ -908,7 +908,7 @@ no_mod:
+ static void
+ ia64_wait_for_slaves(int monarch)
  {
- 	struct sysdata_el *element;
--	struct list_head *list;
-+	struct list_head *list, *safe;
- 
--sn_sysdata_free_start:
--	list_for_each(list, &sn_sysdata_list) {
-+	list_for_each_safe(list, safe, &sn_sysdata_list) {
- 		element = list_entry(list, struct sysdata_el, entry);
- 		list_del(&element->entry);
- 		list_del(&(((struct pcidev_info *)
- 			     (element->sysdata))->pdi_list));
- 		kfree(element->sysdata);
- 		kfree(element);
--		goto sn_sysdata_free_start;
+-	int c, wait = 0;
++	int c, wait = 0, missing = 0;
+ 	for_each_online_cpu(c) {
+ 		if (c = monarch)
+ 			continue;
+@@ -919,15 +919,32 @@ ia64_wait_for_slaves(int monarch)
+ 		}
  	}
- 	return;
+ 	if (!wait)
+-		return;
++		goto all_in;
+ 	for_each_online_cpu(c) {
+ 		if (c = monarch)
+ 			continue;
+ 		if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE) {
+ 			udelay(5*1000000);	/* wait 5 seconds for slaves (arbitrary) */
++			if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE)
++				missing = 1;
+ 			break;
+ 		}
+ 	}
++	if (!missing)
++		goto all_in;
++	printk(KERN_INFO "OS MCA slave did not rendezvous on cpu");
++	for_each_online_cpu(c) {
++		if (c = monarch)
++			continue;
++		if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE)
++			printk(" %d", c);
++	}
++	printk("\n");
++	return;
++
++all_in:
++	printk(KERN_INFO "All OS MCA slaves have reached rendezvous\n");
++	return;
  }
+ 
+ /*
+@@ -953,6 +970,10 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 	task_t *previous_current;
+ 
+ 	oops_in_progress = 1;	/* FIXME: make printk NMI/MCA/INIT safe */
++	console_loglevel = 15;	/* make sure printks make it to console */
++	printk(KERN_INFO "Entered OS MCA handler. PSP=%lx cpu=%d monarch=%ld\n",
++		sos->proc_state_param, cpu, sos->monarch);
++
+ 	previous_current = ia64_mca_modify_original_stack(regs, sw, sos, "MCA");
+ 	monarch_cpu = cpu;
+ 	if (notify_die(DIE_MCA_MONARCH_ENTER, "MCA", regs, 0, 0, 0)
