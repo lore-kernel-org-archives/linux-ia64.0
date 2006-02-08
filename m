@@ -1,33 +1,47 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 08 Feb 2006 21:36:33 +0000
-Subject: RE: [2.6 patch] let IA64_GENERIC select more stuff
-Message-Id: <200602082136.k18LaXg20942@unix-os.sc.intel.com>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Wed, 08 Feb 2006 21:38:25 +0000
+Subject: Re: [2.6 patch] let IA64_GENERIC select more stuff
+Message-Id: <20060208213825.GQ3524@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20060208212416.GA1593@parisc-linux.org>
-References: <20060207231713.GG3524@stusta.de>
-In-Reply-To: <20060207231713.GG3524@stusta.de>
+References: <20060208035112.GM3524@stusta.de> <200602080552.k185q9g07813@unix-os.sc.intel.com> <20060208115946.GN3524@stusta.de> <yq0d5hym0lq.fsf@jaguar.mkp.net>
+In-Reply-To: <yq0d5hym0lq.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Matthew Wilcox' <matthew@wil.cx>
-Cc: 'Jes Sorensen' <jes@sgi.com>, Alex Williamson <alex.williamson@hp.com>, "Luck, Tony" <tony.luck@intel.com>, Adrian Bunk <bunk@stusta.de>, Keith Owens <kaos@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'Keith Owens' <kaos@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Matthew Wilcox wrote on Wednesday, February 08, 2006 1:24 PM
-> On Wed, Feb 08, 2006 at 11:55:58AM -0800, Chen, Kenneth W wrote:
-> > CONFIG_IA64_GENERIC select CONFIG_ACPI, and CONFIG_ACPI select CONFIG_PCI,
-> > This whole thread is silly since the beginning and it is a moot point for
-> > all of previous discussions.  What are we talking about exactly??
+On Wed, Feb 08, 2006 at 08:38:57AM -0500, Jes Sorensen wrote:
+> >>>>> "Adrian" = Adrian Bunk <bunk@stusta.de> writes:
 > 
-> I think the problem is that ia64 is abusing the 'select' feature.
-> Select is a reverse dependency.  It should be used to turn things on
-> which are required for this option to work.  Right now, the generic
-> config uses it to turn on things which people think you probably want
-> if you're building a generic kernel.
+> Adrian> On Tue, Feb 07, 2006 at 09:52:09PM -0800, Chen, Kenneth W
+> Adrian> wrote:
+> >> But for the bit that this thread started, which disables
+> >> CONFIG_MCKINLEY for CONFIG_IA64_GENERIC, it is totally wrong and is
+> >> the "over my dead body" type of thing.
 > 
-> IMO, the select statements should be deleted.  They make it impossible to
-> build a generic kernel without ACPI or NUMA.  While both are ubiquitous
-> in ia64 implementations, they really aren't mandatory.
+> Adrian> My initial patch that started this thread was to remove all
+> Adrian> select's from CONFIG_IA64_GENERIC.
+> 
+> Adrian> Is this OK for you?
+> 
+> Adrian,
+> 
+> Not really, it helps a bit by selecting some things we know we need
+> for all GENERIC builds. True we can't make it bullet proof, but whats
+> there is better than removing it.
 
-Things are mangled so badly that you can't even compile a generic kernel
-after deselecting ACPI.
+Like the bug of allowing the illegal configuration NUMA=y, FLATMEM=y?
+
+> Jes
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
