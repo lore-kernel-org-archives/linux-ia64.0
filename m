@@ -1,186 +1,132 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Date: Tue, 28 Feb 2006 00:16:22 +0000
-Subject: [PATCH]IA64: New IA64 core/thread detection patch
-Message-Id: <20060227161622.A5605@unix-os.sc.intel.com>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Thu, 09 Feb 2006 01:06:24 +0000
+Subject: [PATCH 2/2]: Tollhouse HP: SGI hotplug driver changes
+Message-Id: <20060209010600.26182.49088.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-IPF SDM 2.2 changes definition of PAL_LOGICAL_TO_PHYSICAL to add proc_number=-1 to get core/thread mapping info on the running processer.  
- 
-Based on this change, we had better to update existing core/thread detection in IA64 kernel correspondingly. The attached patch implements this change. It simplifies detection code and eliminates potential race condition. It also runs a bit faster and has better scalability especially when cores and threads number grows up in one package.
-  
-Please review and accept it.
+SGI hotplug driver changes required to support Tollhouse system PCI
+hotplug, and implements the PRF_HOTPLUG_SUPPORT feature bit.
 
-Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Prarit Bhargava <prarit@sgi.com>
 
---- linux-2.6.16-rc4.ia64coremapping/arch/ia64/kernel/smpboot.c.orig	2006-02-24 09:19:07.000000000 -0800
-+++ linux-2.6.16-rc4.ia64coremapping/arch/ia64/kernel/smpboot.c	2006-02-24 16:34:05.000000000 -0800
-@@ -572,32 +572,8 @@ void __devinit smp_prepare_boot_cpu(void
- 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
- }
+---
+commit a082096f4d69fd71dfcb7cc981b8bb34b4abd84e
+tree 4aee3fe438584e34e9804bb9535c8fd87cef3095
+parent 2ab0f68bd8613bf0a41a28c122d36ffe63a4489c
+author Prarit Bhargava <prarit@sgi.com> Wed, 08 Feb 2006 13:48:17 -0500
+committer Prarit Bhargava <prarit@sgi.com> Wed, 08 Feb 2006 13:48:17 -0500
+
+ drivers/pci/hotplug/sgi_hotplug.c |   42 +++++++++++++++++++------------------
+ 1 files changed, 21 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/pci/hotplug/sgi_hotplug.c b/drivers/pci/hotplug/sgi_hotplug.c
+index a32ae82..60f64bb 100644
+--- a/drivers/pci/hotplug/sgi_hotplug.c
++++ b/drivers/pci/hotplug/sgi_hotplug.c
+@@ -17,11 +17,13 @@
+ #include <linux/types.h>
  
--/*
-- * mt_info[] is a temporary store for all info returned by
-- * PAL_LOGICAL_TO_PHYSICAL, to be copied into cpuinfo_ia64 when the
-- * specific cpu comes.
-- */
--static struct {
--	__u32   socket_id;
--	__u16   core_id;
--	__u16   thread_id;
--	__u16   proc_fixed_addr;
--	__u8    valid;
--} mt_info[NR_CPUS] __devinitdata;
--
- #ifdef CONFIG_HOTPLUG_CPU
- static inline void
--remove_from_mtinfo(int cpu)
--{
--	int i;
--
--	for_each_cpu(i)
--		if (mt_info[i].valid &&  mt_info[i].socket_id =
--		    				cpu_data(cpu)->socket_id)
--			mt_info[i].valid = 0;
--}
--
--static inline void
- clear_cpu_sibling_map(int cpu)
+ #include <asm/sn/addrs.h>
++#include <asm/sn/geo.h>
+ #include <asm/sn/l1.h>
+ #include <asm/sn/module.h>
+ #include <asm/sn/pcibr_provider.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
++#include <asm/sn/sn_feature_sets.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/types.h>
+ 
+@@ -101,8 +103,7 @@ static struct hotplug_slot_attribute sn_
+ static int sn_pci_slot_valid(struct pci_bus *pci_bus, int device)
  {
- 	int i;
-@@ -626,12 +602,6 @@ remove_siblinginfo(int cpu)
+ 	struct pcibus_info *pcibus_info;
+-	int bricktype;
+-	int bus_num;
++	u16 busnum, segment, ioboard_type;
  
- 	/* remove it from all sibling map's */
- 	clear_cpu_sibling_map(cpu);
--
--	/* if this cpu is the last in the core group, remove all its info 
--	 * from mt_info structure
--	 */
--	if (last)
--		remove_from_mtinfo(cpu);
- }
+ 	pcibus_info = SN_PCIBUS_BUSSOFT_INFO(pci_bus);
  
- extern void fixup_irqs(void);
-@@ -776,40 +746,6 @@ init_smp_config(void)
- 		       ia64_sal_strerror(sal_ret));
- }
+@@ -110,12 +111,14 @@ static int sn_pci_slot_valid(struct pci_
+ 	if (!(pcibus_info->pbi_valid_devices & (1 << device)))
+ 		return -EPERM;
  
--static inline int __devinit
--check_for_mtinfo_index(void)
--{
--	int i;
--	
--	for_each_cpu(i)
--		if (!mt_info[i].valid)
--			return i;
--
--	return -1;
--}
--
--/*
-- * Search the mt_info to find out if this socket's cid/tid information is
-- * cached or not. If the socket exists, fill in the core_id and thread_id 
-- * in cpuinfo
-- */
--static int __devinit
--check_for_new_socket(__u16 logical_address, struct cpuinfo_ia64 *c)
--{
--	int i;
--	__u32 sid = c->socket_id;
--
--	for_each_cpu(i) {
--		if (mt_info[i].valid && mt_info[i].proc_fixed_addr = logical_address
--		    && mt_info[i].socket_id = sid) {
--			c->core_id = mt_info[i].core_id;
--			c->thread_id = mt_info[i].thread_id;
--			return 1; /* not a new socket */
--		}
--	}
--	return 0;
--}
--
- /*
-  * identify_siblings(cpu) gets called from identify_cpu. This populates the 
-  * information related to logical execution units in per_cpu_data structure.
-@@ -819,14 +755,12 @@ identify_siblings(struct cpuinfo_ia64 *c
+-	bricktype = MODULE_GET_BTYPE(pcibus_info->pbi_moduleid);
+-	bus_num = pcibus_info->pbi_buscommon.bs_persist_busnum & 0xf;
++	ioboard_type = sn_ioboard_to_pci_bus(pci_bus);
++	busnum = pcibus_info->pbi_buscommon.bs_persist_busnum;
++	segment = pci_domain_nr(pci_bus) & 0xf;
+ 
+ 	/* Do not allow hotplug operations on base I/O cards */
+-	if ((bricktype = L1_BRICKTYPE_IX ||  bricktype = L1_BRICKTYPE_IA) &&
+-	    (bus_num = 1 && device != 1))
++	if ((ioboard_type = L1_BRICKTYPE_IX ||
++	     ioboard_type = L1_BRICKTYPE_IA) &&
++	    (segment = 1 && busnum = 0 && device != 1))
+ 		return -EPERM;
+ 
+ 	return 1;
+@@ -124,23 +127,23 @@ static int sn_pci_slot_valid(struct pci_
+ static int sn_pci_bus_valid(struct pci_bus *pci_bus)
  {
- 	s64 status;
- 	u16 pltid;
--	u64 proc_fixed_addr;
--	int count, i;
- 	pal_logical_to_physical_t info;
- 
- 	if (smp_num_cpucores = 1 && smp_num_siblings = 1)
- 		return;
- 
--	if ((status = ia64_pal_logical_to_phys(0, &info)) != PAL_STATUS_SUCCESS) {
-+	if ((status = ia64_pal_logical_to_phys(-1, &info)) != PAL_STATUS_SUCCESS) {
- 		printk(KERN_ERR "ia64_pal_logical_to_phys failed with %ld\n",
- 		       status);
- 		return;
-@@ -835,47 +769,12 @@ identify_siblings(struct cpuinfo_ia64 *c
- 		printk(KERN_ERR "ia64_sal_pltid failed with %ld\n", status);
- 		return;
- 	}
--	if ((status = ia64_pal_fixed_addr(&proc_fixed_addr)) != PAL_STATUS_SUCCESS) {
--		printk(KERN_ERR "ia64_pal_fixed_addr failed with %ld\n", status);
--		return;
--	}
- 
- 	c->socket_id =  (pltid << 8) | info.overview_ppid;
- 	c->cores_per_socket = info.overview_cpp;
- 	c->threads_per_core = info.overview_tpc;
--	count = c->num_log = info.overview_num_log;
+ 	struct pcibus_info *pcibus_info;
+-	int asic_type;
+-	int bricktype;
 -
--	/* If the thread and core id information is already cached, then
--	 * we will simply update cpu_info and return. Otherwise, we will
--	 * do the PAL calls and cache core and thread id's of all the siblings.
--	 */
--	if (check_for_new_socket(proc_fixed_addr, c))
--		return;
--
--	for (i = 0; i < count; i++) {
--		int index;
-+	c->num_log = info.overview_num_log;
+-	pcibus_info = SN_PCIBUS_BUSSOFT_INFO(pci_bus);
++	u32 asic_type;
++	u16 ioboard_type;
  
--		if (i && (status = ia64_pal_logical_to_phys(i, &info))
--			  != PAL_STATUS_SUCCESS) {
--                	printk(KERN_ERR "ia64_pal_logical_to_phys failed"
--					" with %ld\n", status);
--                	return;
--		}
--		if (info.log2_la = proc_fixed_addr) {
--			c->core_id = info.log1_cid;
--			c->thread_id = info.log1_tid;
--		}
--
--		index = check_for_mtinfo_index();
--		/* We will not do the mt_info caching optimization in this case.
--		 */
--		if (index < 0)
--			continue;
--
--		mt_info[index].valid = 1;
--		mt_info[index].socket_id = c->socket_id;
--		mt_info[index].core_id = info.log1_cid;
--		mt_info[index].thread_id = info.log1_tid;
--		mt_info[index].proc_fixed_addr = info.log2_la;
--	}
-+	c->core_id = info.log1_cid;
-+	c->thread_id = info.log1_tid;
- }
---- linux-2.6.16-rc4.ia64coremapping/include/asm-ia64/pal.h.orig	2006-02-24 15:37:39.000000000 -0800
-+++ linux-2.6.16-rc4.ia64coremapping/include/asm-ia64/pal.h	2006-02-24 15:38:00.000000000 -0800
-@@ -1640,8 +1640,7 @@ ia64_pal_logical_to_phys(u64 proc_number
+ 	/* Don't register slots hanging off the TIOCA bus */
++	pcibus_info = SN_PCIBUS_BUSSOFT_INFO(pci_bus);
+ 	asic_type = pcibus_info->pbi_buscommon.bs_asic_type;
+ 	if (asic_type = PCIIO_ASIC_TYPE_TIOCA)
+ 		return -EPERM;
  
- 	if (iprv.status = PAL_STATUS_SUCCESS)
- 	{
--		if (proc_number = 0)
--			mapping->overview.overview_data = iprv.v0;
-+		mapping->overview.overview_data = iprv.v0;
- 		mapping->ppli1.ppli1_data = iprv.v1;
- 		mapping->ppli2.ppli2_data = iprv.v2;
+ 	/* Only register slots in I/O Bricks that support hotplug */
+-	bricktype = MODULE_GET_BTYPE(pcibus_info->pbi_moduleid);
+-	switch (bricktype) {
++	ioboard_type = sn_ioboard_to_pci_bus(pci_bus);
++	switch (ioboard_type) {
+ 		case L1_BRICKTYPE_IX:
+ 		case L1_BRICKTYPE_PX:
+ 		case L1_BRICKTYPE_IA:
+ 		case L1_BRICKTYPE_PA:
++		case L1_BOARDTYPE_PCIX3SLOT:
+ 			return 1;
+ 			break;
+ 		default:
+@@ -174,14 +177,11 @@ static int sn_hp_slot_private_alloc(stru
+ 	slot->pci_bus = pci_bus;
+ 	sprintf(bss_hotplug_slot->name, "%04x:%02x:%02x",
+ 		pci_domain_nr(pci_bus),
+-		((int)pcibus_info->pbi_buscommon.bs_persist_busnum) & 0xf,
++		((u16)pcibus_info->pbi_buscommon.bs_persist_busnum),
+ 		device + 1);
+-	sprintf(slot->physical_path, "module_%c%c%c%c%.2d",
+-		'0'+RACK_GET_CLASS(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
+-		'0'+RACK_GET_GROUP(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
+-		'0'+RACK_GET_NUM(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
+-		MODULE_GET_BTCHAR(pcibus_info->pbi_moduleid),
+-		MODULE_GET_BPOS(pcibus_info->pbi_moduleid));
++
++	sn_generate_path(pci_bus, slot->physical_path);
++
+ 	slot->hotplug_slot = bss_hotplug_slot;
+ 	list_add(&slot->hp_list, &sn_hp_list);
+ 
+@@ -552,8 +552,8 @@ static int sn_pci_hotplug_init(void)
+ 	int rc;
+ 	int registered = 0;
+ 
+-	if (sn_sal_rev() < SGI_HOTPLUG_PROM_REV) {
+-		printk(KERN_ERR "%s: PROM version must be greater than 4.30\n",
++	if (!sn_prom_feature_available(PRF_HOTPLUG_SUPPORT)) {
++		printk(KERN_ERR "%s: PROM version does not support hotplug.\n",
+ 		       __FUNCTION__);
+ 		return -EPERM;
  	}
