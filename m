@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 09 Feb 2006 00:09:46 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 09 Feb 2006 00:29:42 +0000
 Subject: RE: [PATCH] registration for new system call unshare
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05AA112A@scsmsx401.amr.corp.intel.com>
+Message-Id: <200602090029.k190Thg28463@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1139440466.2535.2.camel@hobbes.atlanta.ibm.com>
 In-Reply-To: <1139440466.2535.2.camel@hobbes.atlanta.ibm.com>
@@ -10,18 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->> +#define __NR_ni_syscall			1294
->> +#define __NR_ni_syscall			1295
->>
->
->These should be __NR_sys_pselect and __NR_sys_ppoll otherwise you will
->get warnings...
+Luck, Tony wrote on Wednesday, February 08, 2006 4:10 PM
+> It's also time to bump up NR_syscalls.
 
-I'm just going to put a /* 1294, 1295 reserved for pselect/ppoll */
-comment there. (If anyone is looking for something to do, then take
-a look at the TIF_RESTORE_SIGMASK changes that are a pre-requisite
-for these two calls).
+Just an idea, can we recycle some of old unused syscall number?
+9-10'ish in arch/ia64.
 
-It's also time to bump up NR_syscalls.
+- Ken
 
--Tony
