@@ -1,46 +1,23 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 20 Feb 2006 21:37:36 +0000
-Subject: Re: [PATCH -mm HOT-FIX] fix build on ia64 (modpost.c)
-Message-Id: <20060220133736.2df448c8.akpm@osdl.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 09 Feb 2006 17:04:43 +0000
+Subject: RE: [Lhms-devel] [RFC:PATCH(000/003)] Memory add to onlined node. (ver. 2)
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05AA16C3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060220042615.5af1bddc.akpm@osdl.org>
-	<20060220192500.GA17003@mars.ravnborg.org>
-In-Reply-To: <20060220192500.GA17003@mars.ravnborg.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@elte.hu>
+To: Yasunori Goto <y-goto@jp.fujitsu.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "S, Naveen B" <naveen.b.s@intel.com>, Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: ACPI-ML <linux-acpi@vger.kernel.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
 
-Sam Ravnborg <sam@ravnborg.org> wrote:
->
-> > 
-> > - This kernel won't compile on ia64 (and possibly other architectures)
-> >   because the kbuild tree is using Elf_Rela in scripts/mod/modpost.c.  Is OK
-> >   on x86, x86_64 and powerpc.  Sam might send a hotfix?
-> 
-> Attached is a real hot-fix. It disables the new check entirely.
+> - if the node is already online.-  If the node is offline, 
+> (It means new node is comming!)  then the memory will belongs
+> to node 0 yet.
 
-Well that bit compiles.
+What is the long term plan to address this?  Can you make sure
+that the new node is always brought online before you get to
+this code?  Or will you have to bring the node online in the
+middle of the memory hot-add code?
 
-> I like to learn:
-> 1) Why IA64 is missing Elf64_Rela. Can someone drop me a copy of elf.h -
-> and include gcc + binutils version in the mail - thanks.
+Presumably there is a similar issue with hot add cpu.
 
-This thing's running RHAS2.1 which I think dates from before the invention
-of the transistor.  Running home-made gcc-3.3.2 and binutils-2.14.90.0.6-1.
-
-I'll send along the three elf.h's under /usr/include.
-
-> 2) I also like to know if other architectures broke - so I can figure
-> out how to fix this.
-
-Dunno yet - I didn't do the normal batch of cross-compiles due to spending
-six hours chasing down new bugs.
-
-> I have tested this on X86_64/amd64 (gentoo based) only.
-
-That fixes the modpost.c compile, but the new futex stuff fails because
-ia64 doesn't implement ptr_to_compat().  In fact only three architectures
-appear to do so.
-
+-Tony
