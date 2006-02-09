@@ -1,23 +1,23 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Mon, 06 Feb 2006 13:37:31 +0000
-Subject: [RFC:PATCH(003/003)] Memory add to onlined node.(For x86_64)
-Message-Id: <20060206222347.060B.Y-GOTO@jp.fujitsu.com>
+Date: Thu, 09 Feb 2006 07:06:44 +0000
+Subject: [RFC:PATCH(003/003)] Memory add to onlined node. (ver. 2) (For x86_64)
+Message-Id: <20060209153803.6CF4.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060206222347.060B.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060206222347.060B.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "Brown, Len" <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, naveen.b.s@intel.com, Andi Kleen <ak@suse.de>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
+To: Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "Brown, Len" <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, naveen.b.s@intel.com, Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
 
 This is for x86_64 to add memory which belongs onlined node.
-This patch is just confirmed compile completion.
-If there is no objection, I would like to test this.
 
 Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Index: linux-2.6.15/arch/x86_64/mm/init.c
-=================================--- linux-2.6.15.orig/arch/x86_64/mm/init.c	2006-02-06 16:47:41.000000000 +0900
-+++ linux-2.6.15/arch/x86_64/mm/init.c	2006-02-06 18:31:52.000000000 +0900
+Index: node_simple3/arch/x86_64/mm/init.c
+=================================--- node_simple3.orig/arch/x86_64/mm/init.c	2006-02-09 12:01:47.000000000 +0900
++++ node_simple3/arch/x86_64/mm/init.c	2006-02-09 14:09:11.000000000 +0900
 @@ -26,6 +26,7 @@
  #include <linux/dma-mapping.h>
  #include <linux/module.h>
@@ -26,7 +26,7 @@ Index: linux-2.6.15/arch/x86_64/mm/init.c
  
  #include <asm/processor.h>
  #include <asm/system.h>
-@@ -494,11 +495,20 @@
+@@ -494,11 +495,20 @@ void online_page(struct page *page)
  
  int add_memory(u64 start, u64 size)
  {
