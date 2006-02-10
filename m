@@ -1,7 +1,7 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 09 Feb 2006 19:11:18 +0000
+Date: Fri, 10 Feb 2006 13:35:24 +0000
 Subject: Re: PMU and timer interrupts
-Message-Id: <20060209191118.GC26865@frankl.hpl.hp.com>
+Message-Id: <20060210133524.GE27419@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060209171648.GA26865@frankl.hpl.hp.com>
 In-Reply-To: <20060209171648.GA26865@frankl.hpl.hp.com>
@@ -10,49 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jack,
+Jack, Tony,
 
-On Thu, Feb 09, 2006 at 01:10:22PM -0600, Jack Steiner wrote:
-> On Thu, Feb 09, 2006 at 10:39:49AM -0800, Stephane Eranian wrote:
-> > Tony, Jack,
-> > 
-> > On Thu, Feb 09, 2006 at 10:20:18AM -0800, Luck, Tony wrote:
-> > > >It was recently pointed out to me that the PMU interrupt
-> > > >vector is set to 0xee just below the timer interrupt at 0xef.
-> > > >As such, the timer interrupt has higher priority than the PMU
-> > > >interrupt. This would make sense except that a side effect is
-> > > >that it is not possible to collect samples from within the timer
-> > > >interrupt, i.e. we have a blind spot. Another side effect is
-> > > >that events happening during the timer handler, may be falsely
-> > > >attributed to the point where we write the EOI register.
-> > > >
-> > > >I looked at the timer_interrupt() path, and I did not see anything special
-> > > >that would prevent us from swapping the interrupt vectors thereby removing
-> > > >the blind spot we have.
-> > > >
-> > > >Does anybody see a problem with this?
-> > > 
-> > > How much would this help?  Both 0xEF and 0xEE are part of the
-> > > same priority class (see table 5-8 on p. 2-112 of SDM).
-> > > 
-> > Correct me if I am wrong, but the class masking happens only with TPR
-> > masking. So if we had timer=0xee, PMU=0xef and if the kernel does not
-> > raise the TPR class masking to the priority class of 0xef/0xee, then
-> > we could still get a PMU interrupt while executing the timer handler.
-> > 
-> 
-> What you say is true. However, the kernel does use the TPR to enforce 
-> priority classes:
-> 
-> 	void
-> 	ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
-> 	{
-> 		...
-> 		saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
-> 		while (vector != IA64_SPURIOUS_INT_VECTOR) {
-> 			if (!IS_RESCHEDULE(vector)) {
-> 				ia64_setreg(_IA64_REG_CR_TPR, vector);
-> 				__do_IRQ(local_vector_to_irq(vector), regs);
+Suposing I move up the PERFMON_VECTOR to 0xf1, it will be in the
+top priority class (15) with the following vectors:
 
-Ok, now I understand better where you were coming from. So what would be the
-problem in push PMU interrupt in the next class up?
+> 	#define IA64_MCA_WAKEUP_VECTOR          0xf0    /* MCA wakeup (must be >MCA_RENDEZ_VECTOR) */
+> 	#define IA64_IPI_RESCHEDULE             0xfd    /* SMP reschedule */
+> 	#define IA64_IPI_VECTOR                 0xfe    /* inter-processor interrupt vector */
+
+The impact will be that, while servicing a PMU interrupt, I will not be able to get:
+	-  an MCA interrupt
+	-  a reschedule IPI
+	-  a generic IPI
+
+Today, the PMU interrupt handler runs with interrupts disabled, as such the situation would not
+be different. In fact, we could skip masking/unmasking because we would be in the top class +
+TPR masking done by the kernel on interrupt.
+
+Anybody, has a problem with this?
+
+-- 
+-Stephane
