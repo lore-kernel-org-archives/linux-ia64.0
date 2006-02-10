@@ -1,140 +1,63 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 01 Feb 2006 12:36:56 +0000
-Subject: [Patch:004/004] Unify pxm_to_node id ver.2. (For i386)
-Message-Id: <20060201205415.41EE.Y-GOTO@jp.fujitsu.com>
+Date: Fri, 10 Feb 2006 14:21:23 +0000
+Subject: [RFC/PATCH: 007/010] Memory hotplug for new nodes with pgdat allocation. (pgdat link insert)
+Message-Id: <20060210224529.C53E.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Bob Picco <bob.picco@hp.com>, Paul Jackson <pj@sgi.com>, Andy Whitcroft <apw@shadowen.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
+Cc: x86-64 Discuss <discuss@x86-64.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
 
+This is to insert pgdat to its link.
+To be honest, I would like remove this pgdat link, and
+I posted patches to remove it for a long time ago to -mm.
 
-This is to remove the code of pxm_to_nid_map from i386 code.
-And, some of changing Kconfig and dummy function for compile.
+http://marc.theaimsgroup.com/?l=linux-mm&m2808582217281&w=2
+http://marc.theaimsgroup.com/?l=linux-mm&m2808582227966&w=2
 
+But, it might have influence against performance for big NUMA box.
+So, I should check it.
+However, I'm very hard to access big NUMA box. Our machine is 
+divided as small partitioned for test of each team inside of fujitsu
+every time. Sigh. :-(. 
 
-Signed-off-by: Andy Whitcroft <apw@shadowen.org>
+This is small lazy patch instead of them.
+
 Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
- arch/i386/Kconfig       |    6 ++++++
- arch/i386/kernel/srat.c |   19 ++-----------------
- drivers/acpi/Kconfig    |    2 +-
- include/linux/acpi.h    |    8 ++++++++
- 4 files changed, 17 insertions(+), 18 deletions(-)
-
-Index: pxm_ver2/arch/i386/kernel/srat.c
-=================================--- pxm_ver2.orig/arch/i386/kernel/srat.c	2006-02-01 18:53:44.000000000 +0900
-+++ pxm_ver2/arch/i386/kernel/srat.c	2006-02-01 18:54:36.000000000 +0900
-@@ -39,7 +39,6 @@
- #define NODE_ARRAY_OFFSET(x)	((x) % 8)	/* 8 bits/char */
- #define BMAP_SET(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] |= 1 << NODE_ARRAY_OFFSET(bit))
- #define BMAP_TEST(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] & (1 << NODE_ARRAY_OFFSET(bit)))
--#define MAX_PXM_DOMAINS		256	/* 1 byte and no promises about values */
- /* bitmap length; _PXM is at most 255 */
- #define PXM_BITMAP_LEN (MAX_PXM_DOMAINS / 8) 
- static u8 pxm_bitmap[PXM_BITMAP_LEN];	/* bitmap of proximity domains */
-@@ -213,19 +212,11 @@ static __init void node_read_chunk(int n
- 		node_end_pfn[nid] = memory_chunk->end_pfn;
+Index: pgdat2/arch/ia64/mm/discontig.c
+=================================--- pgdat2.orig/arch/ia64/mm/discontig.c	2006-02-10 17:40:05.000000000 +0900
++++ pgdat2/arch/ia64/mm/discontig.c	2006-02-10 19:42:27.000000000 +0900
+@@ -384,7 +384,7 @@ static void __init *memory_less_node_all
+  * pgdat_insert - insert the pgdat into global pgdat_list
+  * @pgdat: the pgdat for a node.
+  */
+-static void __init pgdat_insert(pg_data_t *pgdat)
++void __meminit pgdat_insert(pg_data_t *pgdat)
+ {
+ 	pg_data_t *prev = NULL, *next;
+ 
+Index: pgdat2/arch/ia64/mm/init.c
+=================================--- pgdat2.orig/arch/ia64/mm/init.c	2006-02-10 17:29:30.000000000 +0900
++++ pgdat2/arch/ia64/mm/init.c	2006-02-10 19:42:41.000000000 +0900
+@@ -647,6 +647,8 @@ void online_page(struct page *page)
+ 	num_physpages++;
  }
  
--static u8 pxm_to_nid_map[MAX_PXM_DOMAINS];/* _PXM to logical node ID map */
--
--int pxm_to_node(int pxm)
--{
--	return pxm_to_nid_map[pxm];
--}
--
- /* Parse the ACPI Static Resource Affinity Table */
- static int __init acpi20_parse_srat(struct acpi_table_srat *sratp)
- {
- 	u8 *start, *end, *p;
- 	int i, j, nid;
--	u8 nid_to_pxm_map[MAX_NUMNODES];/* logical node ID to _PXM map */
- 
- 	start = (u8 *)(&(sratp->reserved) + 1);	/* skip header */
- 	p = start;
-@@ -235,10 +226,6 @@ static int __init acpi20_parse_srat(stru
- 	memset(node_memory_chunk, 0, sizeof(node_memory_chunk));
- 	memset(zholes_size, 0, sizeof(zholes_size));
- 
--	/* -1 in these maps means not available */
--	memset(pxm_to_nid_map, -1, sizeof(pxm_to_nid_map));
--	memset(nid_to_pxm_map, -1, sizeof(nid_to_pxm_map));
--
- 	num_memory_chunks = 0;
- 	while (p < end) {
- 		switch (*p) {
-@@ -278,9 +265,7 @@ static int __init acpi20_parse_srat(stru
- 	nodes_clear(node_online_map);
- 	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
- 		if (BMAP_TEST(pxm_bitmap, i)) {
--			nid = num_online_nodes();
--			pxm_to_nid_map[i] = nid;
--			nid_to_pxm_map[nid] = i;
-+			int nid = acpi_map_pxm_to_node(i);
- 			node_set_online(nid);
- 		}
- 	}
-@@ -288,7 +273,7 @@ static int __init acpi20_parse_srat(stru
- 
- 	/* set cnode id in memory chunk structure */
- 	for (i = 0; i < num_memory_chunks; i++)
--		node_memory_chunk[i].nid = pxm_to_nid_map[node_memory_chunk[i].pxm];
-+		node_memory_chunk[i].nid = pxm_to_node(node_memory_chunk[i].pxm);
- 
- 	printk("pxm bitmap: ");
- 	for (i = 0; i < sizeof(pxm_bitmap); i++) {
-Index: pxm_ver2/arch/i386/Kconfig
-=================================--- pxm_ver2.orig/arch/i386/Kconfig	2006-02-01 18:53:44.000000000 +0900
-+++ pxm_ver2/arch/i386/Kconfig	2006-02-01 18:54:36.000000000 +0900
-@@ -139,6 +139,12 @@ config ACPI_SRAT
- 	bool
- 	default y
- 	depends on NUMA && (X86_SUMMIT || X86_GENERICARCH)
-+	select ACPI_NUMA
++extern void __meminit pgdat_insert(pg_data_t *pgdat);
 +
-+config HAVE_ARCH_PARSE_SRAT
-+       bool
-+       default y
-+       depends on ACPI_SRAT
+ int add_memory(u64 start, u64 size)
+ {
+ 	pg_data_t *pgdat;
+@@ -663,6 +665,7 @@ int add_memory(u64 start, u64 size)
  
- config X86_SUMMIT_NUMA
- 	bool
-Index: pxm_ver2/drivers/acpi/Kconfig
-=================================--- pxm_ver2.orig/drivers/acpi/Kconfig	2006-02-01 18:53:44.000000000 +0900
-+++ pxm_ver2/drivers/acpi/Kconfig	2006-02-01 18:54:36.000000000 +0900
-@@ -162,7 +162,7 @@ config ACPI_THERMAL
- config ACPI_NUMA
- 	bool "NUMA support"
- 	depends on NUMA
--	depends on (IA64 || X86_64)
-+	depends on (X86_32 || IA64 || X86_64)
- 	default y if IA64_GENERIC || IA64_SGI_SN2
+ 	if (!node_online(node)){
+ 		ret = new_pgdat_init(node, start_pfn, nr_pages);
++		pgdat_insert(NODE_DATA(node));
+ 		if (ret)
+ 			return ret;
  
- config ACPI_ASUS
-Index: pxm_ver2/include/linux/acpi.h
-=================================--- pxm_ver2.orig/include/linux/acpi.h	2006-02-01 18:53:53.000000000 +0900
-+++ pxm_ver2/include/linux/acpi.h	2006-02-01 18:54:36.000000000 +0900
-@@ -409,10 +409,18 @@ void acpi_table_print_madt_entry (acpi_t
- void acpi_table_print_srat_entry (acpi_table_entry_header *srat);
- 
- /* the following four functions are architecture-dependent */
-+#ifdef CONFIG_HAVE_ARCH_PARSE_SRAT
-+#define NR_NODE_MEMBLKS MAX_NUMNODES
-+#define acpi_numa_slit_init(slit) do {} while (0)
-+#define acpi_numa_processor_affinity_init(pa) do {} while (0)
-+#define acpi_numa_memory_affinity_init(ma) do {} while (0)
-+#define acpi_numa_arch_fixup() do {} while (0)
-+#else
- void acpi_numa_slit_init (struct acpi_table_slit *slit);
- void acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa);
- void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
- void acpi_numa_arch_fixup(void);
-+#endif
- 
- #ifdef CONFIG_ACPI_HOTPLUG_CPU
- /* Arch dependent functions for cpu hotplug support */
 
 -- 
 Yasunori Goto 
