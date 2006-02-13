@@ -1,57 +1,29 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Thu, 09 Feb 2006 07:06:44 +0000
-Subject: [RFC:PATCH(003/003)] Memory add to onlined node. (ver. 2) (For x86_64)
-Message-Id: <20060209153803.6CF4.Y-GOTO@jp.fujitsu.com>
+From: Horms <horms@verge.net.au>
+Date: Mon, 13 Feb 2006 08:06:59 +0000
+Subject: RE: [Patch]IA64 kexec
+Message-Id: <20060213080659.GA27330@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060206222347.060B.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060206222347.060B.Y-GOTO@jp.fujitsu.com>
+References: <1131406068.2524.15.camel@linux-znh>
+In-Reply-To: <1131406068.2524.15.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, "Brown, Len" <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, naveen.b.s@intel.com, Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
+To: linux-ia64@vger.kernel.org
 
-This is for x86_64 to add memory which belongs onlined node.
+On 2005-11-07 at 23:27:49 Zou Nan Hai wrote:
+> Here is my patches of kexec on IA64.
+>
+> The kernel patch is against 2.6.14
+> The kexec-tools patch is against kexec-tools-1.101
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Am i right in assuming that this is still the latest version of
+kexec for ia64? If not, could someone point me to a newer one.
 
-Index: node_simple3/arch/x86_64/mm/init.c
-=================================--- node_simple3.orig/arch/x86_64/mm/init.c	2006-02-09 12:01:47.000000000 +0900
-+++ node_simple3/arch/x86_64/mm/init.c	2006-02-09 14:09:11.000000000 +0900
-@@ -26,6 +26,7 @@
- #include <linux/dma-mapping.h>
- #include <linux/module.h>
- #include <linux/memory_hotplug.h>
-+#include <linux/acpi.h>
- 
- #include <asm/processor.h>
- #include <asm/system.h>
-@@ -494,11 +495,20 @@ void online_page(struct page *page)
- 
- int add_memory(u64 start, u64 size)
- {
--	struct pglist_data *pgdat = NODE_DATA(0);
--	struct zone *zone = pgdat->node_zones + MAX_NR_ZONES-2;
-+	struct pglist_data *pgdat;
-+	struct zone *zone;
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
--	int ret;
-+	int ret, node;
-+
-+	node = acpi_paddr_to_node(start, size);
-+	if (node >= 0 && node_online(node))
-+		pgdat = NODE_DATA(node);
-+	else
-+		/* New node's memory will be added to Node 0 temporally. */
-+		pgdat = NODE_DATA(0);
-+
-+	zone = pgdat->node_zones + MAX_NR_ZONES - 2;
- 
- 	ret = __add_pages(zone, start_pfn, nr_pages);
- 	if (ret)
+> I have tested it on a Tiger-4 and a ZX1 machine.
+
+Is it possible to get the config that you used on Tiger-4?
+
+> Please test and review it.
 
 -- 
-Yasunori Goto 
-
-
+Horms
