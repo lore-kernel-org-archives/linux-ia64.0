@@ -1,68 +1,34 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 10 Feb 2006 14:21:41 +0000
-Subject: [RFC/PATCH: 009/010] Memory hotplug for new nodes with pgdat allocation.(Register start func for acp
-Message-Id: <20060210224641.C542.Y-GOTO@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 13 Feb 2006 17:34:33 +0000
+Subject: [ANNOUNCE] salinfo 1.1 is available
+Message-Id: <200602131034.33693.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>, Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>
+To: linux-ia64@vger.kernel.org
 
+Keith has put together salinfo 1.1, available here:
 
-This is a patch to create start function which calls add_memory().
-Container driver can call add_memory() by this.
+    ftp://kernel.org/pub/linux/kernel/people/helgaas/salinfo-1.1.tar.bz2
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+The changelog is:
 
-Index: pgdat2/drivers/acpi/acpi_memhotplug.c
-=================================--- pgdat2.orig/drivers/acpi/acpi_memhotplug.c	2006-02-10 17:24:09.000000000 +0900
-+++ pgdat2/drivers/acpi/acpi_memhotplug.c	2006-02-10 17:24:10.000000000 +0900
-@@ -57,6 +57,7 @@ MODULE_LICENSE("GPL");
- 
- static int acpi_memory_device_add(struct acpi_device *device);
- static int acpi_memory_device_remove(struct acpi_device *device, int type);
-+static int acpi_memory_device_start (struct acpi_device *device);
- 
- static struct acpi_driver acpi_memory_device_driver = {
- 	.name = ACPI_MEMORY_DEVICE_DRIVER_NAME,
-@@ -65,6 +66,7 @@ static struct acpi_driver acpi_memory_de
- 	.ops = {
- 		.add = acpi_memory_device_add,
- 		.remove = acpi_memory_device_remove,
-+		.start = acpi_memory_device_start,
- 		},
- };
- 
-@@ -391,6 +393,26 @@ static int acpi_memory_device_remove(str
- 	return_VALUE(0);
- }
- 
-+static int
-+acpi_memory_device_start (struct acpi_device *device)
-+{
-+	struct acpi_memory_device *mem_device = NULL;
-+	int result = 0;
-+
-+	ACPI_FUNCTION_TRACE("acpi_memory_device_start");
-+
-+	mem_device = (struct acpi_memory_device *) acpi_driver_data(device);
-+
-+	if (!acpi_memory_check_device(mem_device)){
-+		/* call add_memory func */
-+		result = acpi_memory_enable_device(mem_device);
-+		if (result)
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Error in acpi_memory_enable_device\n"));
-+	}
-+	return_VALUE(result);
-+}
-+
- /*
-  * Helper function to check for memory device
-  */
-
--- 
-Yasunori Goto 
-
-
+       * mandir patch to Makefile, from SuSE.
+       * gcc 4 alias fixes, from SuSE.
+       * Remove spurious exports from /etc/sysconfig/salinfo_decode_all,
+         from SuSE.
+       * salinfo_decode_all has to catch signals so it can send them to its
+         children.  SuSE's killproc sends three signals in quick succession,
+         STOP, TERM, CONT which can cause a timing race where only the last
+         one caught by salinfo_decode_all gets through to the children.  Do
+         not catch SIGSTOP or SIGCONT, so killproc's SIGTERM gets through to
+         the children.
+       * Set some sensible defaults for MCA and INIT rate limiting.
+       * Remove SGI specific decoding of nasid, now done in SGI's
+         salinfo_decode_oem.
+       * Detect and drop duplicate records.  This gives SAL the flexibility to
+         save some records that would normally be lost over a reboot, without
+         creating duplicate records in the filesystem.
+       * Fix pointer signedness warnings from gcc 4.1.
+       * Released as 1.1.
