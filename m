@@ -1,41 +1,91 @@
-From: dann frazier <dannf@hp.com>
-Date: Wed, 08 Feb 2006 17:52:41 +0000
-Subject: Re: salinfo incorrectly returning -ENOMEM
-Message-Id: <1139421161.30996.93.camel@localhost>
+From: Jes Sorensen <jes@sgi.com>
+Date: Mon, 13 Feb 2006 10:32:09 +0000
+Subject: [patch] remote obsolete corporate address
+Message-Id: <yq0slqny2fq.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1138400466.19287.24.camel@krebs.dannf>
-In-Reply-To: <1138400466.19287.24.camel@krebs.dannf>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, 2006-01-28 at 11:07 +1100, Keith Owens wrote:
-> dann frazier (on Fri, 27 Jan 2006 15:21:06 -0700) wrote:
-> >salinfo_decode will silently exit occasionally due to a failed open
-> >of /proc/sal/XXX/data.  This is because the kernel is returning -ENOMEM
-> >after attempting to vmalloc a buffer of size  
-> >ia64_sal_get_state_info_size(data->type).
-> >
-> >However, on my system ia64_sal_get_state_info_size is returning 0, in
-> >which case I'd think a NULL vmalloc() result is correct.  
-> >
-> >This patch assumes, of course, that 0 is a reasonable return value from
-> >ia64_sal_get_state_info_size().
-> 
-> Nak this patch.
-> 
-> Zero is not a valid return value from ia64_sal_get_state_info_size().
-> That SAL call must return the maximum size for the record type so that
-> the OS can preallocate the required buffers while the OS is in normal
-> context.  The buffers cannot be allocated when the SAL interrupt occurs
-> because vmalloc cannot be used in interrupt context.  If SAL is not
-> returning a valid value from ia64_sal_get_state_info_size() then your
-> version of SAL is wrong and the only thing that the OS can do is to
-> give up on that record type.  
+Hi,
 
-Just to follow-up - we've determined that is an issue with the version
-of firmware some of our machines are running.  Thanks for everyone's
-responses.
+This one removes a now obsolete SGI corporate address from a few
+files.
+
+Cheers,
+Jes
 
 
+Remove obsolete SGI address
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+----
+
+ arch/ia64/sn/kernel/sn2/timer_interrupt.c |    7 +------
+ drivers/ide/pci/sgiioc4.c                 |    5 -----
+ include/asm-ia64/machvec_sn2.h            |    7 +------
+ 3 files changed, 2 insertions(+), 17 deletions(-)
+
+Index: linux-2.6/arch/ia64/sn/kernel/sn2/timer_interrupt.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/timer_interrupt.c
++++ linux-2.6/arch/ia64/sn/kernel/sn2/timer_interrupt.c
+@@ -1,7 +1,7 @@
+ /*
+  *
+  *
+- * Copyright (c) 2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2005, 2006 Silicon Graphics, Inc.  All Rights Reserved.
+  * 
+  * This program is free software; you can redistribute it and/or modify it 
+  * under the terms of version 2 of the GNU General Public License 
+@@ -22,11 +22,6 @@
+  * License along with this program; if not, write the Free Software 
+  * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+  * 
+- * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
+- * Mountain View, CA  94043, or:
+- * 
+- * http://www.sgi.com 
+- * 
+  * For further information regarding this notice, see: 
+  * 
+  * http://oss.sgi.com/projects/GenInfo/NoticeExplan
+Index: linux-2.6/drivers/ide/pci/sgiioc4.c
+=================================--- linux-2.6.orig/drivers/ide/pci/sgiioc4.c
++++ linux-2.6/drivers/ide/pci/sgiioc4.c
+@@ -13,11 +13,6 @@
+  * License along with this program; if not, write the Free Software
+  * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+  *
+- * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
+- * Mountain View, CA  94043, or:
+- *
+- * http://www.sgi.com
+- *
+  * For further information regarding this notice, see:
+  *
+  * http://oss.sgi.com/projects/GenInfo/NoticeExplan
+Index: linux-2.6/include/asm-ia64/machvec_sn2.h
+=================================--- linux-2.6.orig/include/asm-ia64/machvec_sn2.h
++++ linux-2.6/include/asm-ia64/machvec_sn2.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2002-2003 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2002-2003, 2006 Silicon Graphics, Inc.  All Rights Reserved.
+  * 
+  * This program is free software; you can redistribute it and/or modify it 
+  * under the terms of version 2 of the GNU General Public License 
+@@ -20,11 +20,6 @@
+  * License along with this program; if not, write the Free Software 
+  * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+  * 
+- * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
+- * Mountain View, CA  94043, or:
+- * 
+- * http://www.sgi.com 
+- * 
+  * For further information regarding this notice, see: 
+  * 
+  * http://oss.sgi.com/projects/GenInfo/NoticeExplan
