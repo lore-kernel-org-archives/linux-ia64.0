@@ -1,124 +1,42 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 01 Feb 2006 12:36:28 +0000
-Subject: [Patch:001/004] Unify pxm_to_node id ver.2. (generic code)
-Message-Id: <20060201205204.41E8.Y-GOTO@jp.fujitsu.com>
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Tue, 14 Feb 2006 23:01:11 +0000
+Subject: [patch 1/2] Dont set NR_CPUS for cpu_possible_map when CPU hotplug is enabled.
+Message-Id: <20060214230622.236017529@csdlinux-2.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, Andi Kleen <ak@suse.de>, Bob Picco <bob.picco@hp.com>, Paul Jackson <pj@sgi.com>, Andy Whitcroft <apw@shadowen.org>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
+To: linux-ia64@vger.kernel.org
 
-This is new generic code for pxm_to_node_map.
+Do not set cpu_possible_map for NR_CPUS when ACPI_CONFIG_HOTPLUG_CPU is set.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Signed-off-by: Ashok Raj <ashok.raj@intel.com>
+---------------------------------------------------------------------
+ arch/ia64/kernel/smpboot.c |    5 +----
+ 1 files changed, 1 insertion(+), 4 deletions(-)
 
- drivers/acpi/numa.c      |   50 +++++++++++++++++++++++++++++++++++++++++++++++
- include/acpi/acpi_numa.h |   18 ++++++++++++++++
- include/linux/acpi.h     |    1 
- 3 files changed, 69 insertions(+)
-
-Index: pxm_ver2/drivers/acpi/numa.c
-=================================--- pxm_ver2.orig/drivers/acpi/numa.c	2006-02-01 18:53:46.000000000 +0900
-+++ pxm_ver2/drivers/acpi/numa.c	2006-02-01 18:53:53.000000000 +0900
-@@ -36,12 +36,62 @@
- #define _COMPONENT	ACPI_NUMA
- ACPI_MODULE_NAME("numa")
+Index: linux-2.6.16-rc3-mm1/arch/ia64/kernel/smpboot.c
+=================================--- linux-2.6.16-rc3-mm1.orig/arch/ia64/kernel/smpboot.c
++++ linux-2.6.16-rc3-mm1/arch/ia64/kernel/smpboot.c
+@@ -135,7 +135,7 @@ DEFINE_PER_CPU(int, cpu_state);
+ /* Bitmasks of currently online, and possible CPUs */
+ cpumask_t cpu_online_map;
+ EXPORT_SYMBOL(cpu_online_map);
+-cpumask_t cpu_possible_map;
++cpumask_t cpu_possible_map = CPU_MASK_NONE;
+ EXPORT_SYMBOL(cpu_possible_map);
  
-+static nodemask_t nodes_found_map = NODE_MASK_NONE;
-+#define PXM_INVAL	0xff
-+#define NID_INVAL	0xff
-+
-+/* maps to convert between proximity domain and logical node ID */
-+u8 __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS]
-+				= { [0 ... MAX_PXM_DOMAINS - 1] = NID_INVAL };
-+u8 __cpuinitdata node_to_pxm_map[MAX_NUMNODES]
-+				= { [0 ... MAX_NUMNODES - 1] = PXM_INVAL };
-+
- extern int __init acpi_table_parse_madt_family(enum acpi_table_id id,
- 					       unsigned long madt_size,
- 					       int entry_id,
- 					       acpi_madt_entry_handler handler,
- 					       unsigned int max_entries);
+ cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
+@@ -558,9 +558,6 @@ smp_build_cpu_map (void)
  
-+int __cpuinit pxm_to_node(int pxm)
-+{
-+	if ((unsigned)pxm >= 256)
-+		return -1;
-+	/* Extent 0xff to (int)-1 */
-+	return (signed char)pxm_to_node_map[pxm];
-+}
-+
-+int __cpuinit node_to_pxm(int node)
-+{
-+	if ((unsigned)node >= 256)
-+		return -1;
-+	/* Extent 0xff to (int)-1 */
-+	return (signed char)node_to_pxm_map[node];
-+}
-+
-+int __cpuinit acpi_map_pxm_to_node(u8 pxm)
-+{
-+	u8 node = pxm_to_node_map[pxm];
-+
-+	if (node = NID_INVAL){
-+		if (nodes_weight(nodes_found_map) >= MAX_NUMNODES)
-+			return -1;
-+		node = first_unset_node(nodes_found_map);
-+		pxm_to_node_map[pxm] = node;
-+		node_to_pxm_map[node] = pxm;
-+		node_set(node, nodes_found_map);
-+	}
-+
-+	return (int)node;
-+}
-+
-+void __cpuinit acpi_unmap_pxm_to_node(int node)
-+{
-+	u8 pxm = node_to_pxm_map[node];
-+	pxm_to_node_map[pxm] = NID_INVAL;
-+	node_to_pxm_map[node] = PXM_INVAL;
-+	node_clear(node, nodes_found_map);
-+}
-+
- void __init acpi_table_print_srat_entry(acpi_table_entry_header * header)
- {
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+ 		ia64_cpu_to_sapicid[cpu] = -1;
+-#ifdef CONFIG_HOTPLUG_CPU
+-		cpu_set(cpu, cpu_possible_map);
+-#endif
+ 	}
  
-Index: pxm_ver2/include/acpi/acpi_numa.h
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ pxm_ver2/include/acpi/acpi_numa.h	2006-02-01 18:53:53.000000000 +0900
-@@ -0,0 +1,18 @@
-+#ifndef __ACPI_NUMA_H
-+#define __ACPI_NUMA_H
-+
-+#ifdef CONFIG_ACPI_NUMA
-+#include <linux/kernel.h>
-+
-+/* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
-+#define MAX_PXM_DOMAINS (256)
-+extern u8 __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS];
-+extern u8 __cpuinitdata node_to_pxm_map[MAX_NUMNODES];
-+
-+extern int __cpuinit pxm_to_node(int);
-+extern int __cpuinit node_to_pxm(int);
-+extern int __cpuinit acpi_map_pxm_to_node(u8);
-+extern void __cpuinit acpi_unmap_pxm_to_node(int);
-+
-+#endif				/* CONFIG_ACPI_NUMA */
-+#endif				/* __ACP_NUMA_H */
-Index: pxm_ver2/include/linux/acpi.h
-=================================--- pxm_ver2.orig/include/linux/acpi.h	2006-02-01 18:53:46.000000000 +0900
-+++ pxm_ver2/include/linux/acpi.h	2006-02-01 18:53:53.000000000 +0900
-@@ -38,6 +38,7 @@
- #include <acpi/acpi.h>
- #include <acpi/acpi_bus.h>
- #include <acpi/acpi_drivers.h>
-+#include <acpi/acpi_numa.h>
- #include <asm/acpi.h>
- 
- 
+ 	ia64_cpu_to_sapicid[0] = boot_cpu_id;
 
--- 
-Yasunori Goto 
-
+--
 
