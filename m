@@ -1,71 +1,259 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Feb 2006 13:29:48 +0000
-Subject: [PATCH: 011/012] Memory hotplug for new nodes v.2 (Register start func for acpi_memhotplug)
-Message-Id: <20060217214043.407E.Y-GOTO@jp.fujitsu.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Tue, 14 Feb 2006 05:04:17 +0000
+Subject: [patch 26/47] ia64: use generic bitops
+Message-Id: <20060214050446.720915000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, linux-ia64@vger.kernel.org, Akinobu Mita <mita@miraclelinux.com>
 
+- remove generic_fls64()
+- remove find_{next,first}{,_zero}_bit()
+- remove ext2_{set,clear,test,find_first_zero,find_next_zero}_bit()
+- remove minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+- remove sched_find_first_bit()
 
-This is a patch to create start function which calls add_memory().
-Container driver can call add_memory() by this. If this is not,
-even if the node which is defined container device in DSDT is added,
-the container driver can't call memory hotplug code.
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ arch/ia64/Kconfig         |    4 ++
+ arch/ia64/lib/Makefile    |    2 -
+ arch/ia64/lib/bitop.c     |   88 ----------------------------------------------
+ include/asm-ia64/bitops.h |   67 ++++++++---------------------------
+ 4 files changed, 22 insertions(+), 139 deletions(-)
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
-
-
-Index: pgdat3/drivers/acpi/acpi_memhotplug.c
-=================================--- pgdat3.orig/drivers/acpi/acpi_memhotplug.c	2006-02-17 15:58:04.000000000 +0900
-+++ pgdat3/drivers/acpi/acpi_memhotplug.c	2006-02-17 16:18:36.000000000 +0900
-@@ -57,6 +57,7 @@ MODULE_LICENSE("GPL");
- 
- static int acpi_memory_device_add(struct acpi_device *device);
- static int acpi_memory_device_remove(struct acpi_device *device, int type);
-+static int acpi_memory_device_start (struct acpi_device *device);
- 
- static struct acpi_driver acpi_memory_device_driver = {
- 	.name = ACPI_MEMORY_DEVICE_DRIVER_NAME,
-@@ -65,6 +66,7 @@ static struct acpi_driver acpi_memory_de
- 	.ops = {
- 		.add = acpi_memory_device_add,
- 		.remove = acpi_memory_device_remove,
-+		.start = acpi_memory_device_start,
- 		},
- };
- 
-@@ -382,6 +384,26 @@ static int acpi_memory_device_remove(str
- 	return_VALUE(0);
- }
- 
-+static int
-+acpi_memory_device_start (struct acpi_device *device)
-+{
-+	struct acpi_memory_device *mem_device = NULL;
-+	int result = 0;
-+
-+	ACPI_FUNCTION_TRACE("acpi_memory_device_start");
-+
-+	mem_device = (struct acpi_memory_device *) acpi_driver_data(device);
-+
-+	if (!acpi_memory_check_device(mem_device)){
-+		/* call add_memory func */
-+		result = acpi_memory_enable_device(mem_device);
-+		if (result)
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Error in acpi_memory_enable_device\n"));
-+	}
-+	return_VALUE(result);
-+}
-+
- /*
-  * Helper function to check for memory device
+Index: 2.6-rc/include/asm-ia64/bitops.h
+=================================--- 2.6-rc.orig/include/asm-ia64/bitops.h
++++ 2.6-rc/include/asm-ia64/bitops.h
+@@ -5,8 +5,8 @@
+  * Copyright (C) 1998-2003 Hewlett-Packard Co
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  *
+- * 02/06/02 find_next_bit() and find_first_bit() added from Erich Focht's ia64 O(1)
+- *	    scheduler patch
++ * 02/06/02 find_next_bit() and find_first_bit() added from Erich Focht's ia64
++ * O(1) scheduler patch
   */
+ 
+ #include <linux/compiler.h>
+@@ -25,9 +25,9 @@
+  * restricted to acting on a single-word quantity.
+  *
+  * The address must be (at least) "long" aligned.
+- * Note that there are driver (e.g., eepro100) which use these operations to operate on
+- * hw-defined data-structures, so we can't easily change these operations to force a
+- * bigger alignment.
++ * Note that there are driver (e.g., eepro100) which use these operations to
++ * operate on hw-defined data-structures, so we can't easily change these
++ * operations to force a bigger alignment.
+  *
+  * bit 0 is the LSB of addr; bit 32 is the LSB of (addr+1).
+  */
+@@ -284,8 +284,8 @@ test_bit (int nr, const volatile void *a
+  * ffz - find the first zero bit in a long word
+  * @x: The long word to find the bit in
+  *
+- * Returns the bit-number (0..63) of the first (least significant) zero bit.  Undefined if
+- * no zero exists, so code should check against ~0UL first...
++ * Returns the bit-number (0..63) of the first (least significant) zero bit.
++ * Undefined if no zero exists, so code should check against ~0UL first...
+  */
+ static inline unsigned long
+ ffz (unsigned long x)
+@@ -345,13 +345,14 @@ fls (int t)
+ 	x |= x >> 16;
+ 	return ia64_popcnt(x);
+ }
+-#define fls64(x)   generic_fls64(x)
++
++#include <asm-generic/bitops/fls64.h>
+ 
+ /*
+- * ffs: find first bit set. This is defined the same way as the libc and compiler builtin
+- * ffs routines, therefore differs in spirit from the above ffz (man ffs): it operates on
+- * "int" values only and the result value is the bit number + 1.  ffs(0) is defined to
+- * return zero.
++ * ffs: find first bit set. This is defined the same way as the libc and
++ * compiler builtin ffs routines, therefore differs in spirit from the above
++ * ffz (man ffs): it operates on "int" values only and the result value is the
++ * bit number + 1.  ffs(0) is defined to return zero.
+  */
+ #define ffs(x)	__builtin_ffs(x)
+ 
+@@ -373,51 +374,17 @@ hweight64 (unsigned long x)
+ 
+ #endif /* __KERNEL__ */
+ 
+-extern int __find_next_zero_bit (const void *addr, unsigned long size,
+-			unsigned long offset);
+-extern int __find_next_bit(const void *addr, unsigned long size,
+-			unsigned long offset);
+-
+-#define find_next_zero_bit(addr, size, offset) \
+-			__find_next_zero_bit((addr), (size), (offset))
+-#define find_next_bit(addr, size, offset) \
+-			__find_next_bit((addr), (size), (offset))
+-
+-/*
+- * The optimizer actually does good code for this case..
+- */
+-#define find_first_zero_bit(addr, size) find_next_zero_bit((addr), (size), 0)
+-
+-#define find_first_bit(addr, size) find_next_bit((addr), (size), 0)
++#include <asm-generic/bitops/find.h>
+ 
+ #ifdef __KERNEL__
+ 
+-#define __clear_bit(nr, addr)		clear_bit(nr, addr)
++#include <asm-generic/bitops/ext2-non-atomic.h>
+ 
+-#define ext2_set_bit			__test_and_set_bit
+ #define ext2_set_bit_atomic(l,n,a)	test_and_set_bit(n,a)
+-#define ext2_clear_bit			__test_and_clear_bit
+ #define ext2_clear_bit_atomic(l,n,a)	test_and_clear_bit(n,a)
+-#define ext2_test_bit			test_bit
+-#define ext2_find_first_zero_bit	find_first_zero_bit
+-#define ext2_find_next_zero_bit		find_next_zero_bit
+-
+-/* Bitmap functions for the minix filesystem.  */
+-#define minix_test_and_set_bit(nr,addr)		__test_and_set_bit(nr,addr)
+-#define minix_set_bit(nr,addr)			__set_bit(nr,addr)
+-#define minix_test_and_clear_bit(nr,addr)	__test_and_clear_bit(nr,addr)
+-#define minix_test_bit(nr,addr)			test_bit(nr,addr)
+-#define minix_find_first_zero_bit(addr,size)	find_first_zero_bit(addr,size)
+ 
+-static inline int
+-sched_find_first_bit (unsigned long *b)
+-{
+-	if (unlikely(b[0]))
+-		return __ffs(b[0]);
+-	if (unlikely(b[1]))
+-		return 64 + __ffs(b[1]);
+-	return __ffs(b[2]) + 128;
+-}
++#include <asm-generic/bitops/minix.h>
++#include <asm-generic/bitops/sched.h>
+ 
+ #endif /* __KERNEL__ */
+ 
+Index: 2.6-rc/arch/ia64/lib/Makefile
+=================================--- 2.6-rc.orig/arch/ia64/lib/Makefile
++++ 2.6-rc/arch/ia64/lib/Makefile
+@@ -6,7 +6,7 @@ obj-y := io.o
+ 
+ lib-y := __divsi3.o __udivsi3.o __modsi3.o __umodsi3.o			\
+ 	__divdi3.o __udivdi3.o __moddi3.o __umoddi3.o			\
+-	bitop.o checksum.o clear_page.o csum_partial_copy.o		\
++	checksum.o clear_page.o csum_partial_copy.o			\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+ 	memset.o strlen.o
+Index: 2.6-rc/arch/ia64/lib/bitop.c
+=================================--- 2.6-rc.orig/arch/ia64/lib/bitop.c
++++ /dev/null
+@@ -1,88 +0,0 @@
+-#include <linux/compiler.h>
+-#include <linux/types.h>
+-#include <asm/intrinsics.h>
+-#include <linux/module.h>
+-#include <linux/bitops.h>
+-
+-/*
+- * Find next zero bit in a bitmap reasonably efficiently..
+- */
+-
+-int __find_next_zero_bit (const void *addr, unsigned long size, unsigned long offset)
+-{
+-	unsigned long *p = ((unsigned long *) addr) + (offset >> 6);
+-	unsigned long result = offset & ~63UL;
+-	unsigned long tmp;
+-
+-	if (offset >= size)
+-		return size;
+-	size -= result;
+-	offset &= 63UL;
+-	if (offset) {
+-		tmp = *(p++);
+-		tmp |= ~0UL >> (64-offset);
+-		if (size < 64)
+-			goto found_first;
+-		if (~tmp)
+-			goto found_middle;
+-		size -= 64;
+-		result += 64;
+-	}
+-	while (size & ~63UL) {
+-		if (~(tmp = *(p++)))
+-			goto found_middle;
+-		result += 64;
+-		size -= 64;
+-	}
+-	if (!size)
+-		return result;
+-	tmp = *p;
+-found_first:
+-	tmp |= ~0UL << size;
+-	if (tmp = ~0UL)		/* any bits zero? */
+-		return result + size;	/* nope */
+-found_middle:
+-	return result + ffz(tmp);
+-}
+-EXPORT_SYMBOL(__find_next_zero_bit);
+-
+-/*
+- * Find next bit in a bitmap reasonably efficiently..
+- */
+-int __find_next_bit(const void *addr, unsigned long size, unsigned long offset)
+-{
+-	unsigned long *p = ((unsigned long *) addr) + (offset >> 6);
+-	unsigned long result = offset & ~63UL;
+-	unsigned long tmp;
+-
+-	if (offset >= size)
+-		return size;
+-	size -= result;
+-	offset &= 63UL;
+-	if (offset) {
+-		tmp = *(p++);
+-		tmp &= ~0UL << offset;
+-		if (size < 64)
+-			goto found_first;
+-		if (tmp)
+-			goto found_middle;
+-		size -= 64;
+-		result += 64;
+-	}
+-	while (size & ~63UL) {
+-		if ((tmp = *(p++)))
+-			goto found_middle;
+-		result += 64;
+-		size -= 64;
+-	}
+-	if (!size)
+-		return result;
+-	tmp = *p;
+-  found_first:
+-	tmp &= ~0UL >> (64-size);
+-	if (tmp = 0UL)		/* Are any bits set? */
+-		return result + size; /* Nope. */
+-  found_middle:
+-	return result + __ffs(tmp);
+-}
+-EXPORT_SYMBOL(__find_next_bit);
+Index: 2.6-rc/arch/ia64/Kconfig
+=================================--- 2.6-rc.orig/arch/ia64/Kconfig
++++ 2.6-rc/arch/ia64/Kconfig
+@@ -34,6 +34,10 @@ config RWSEM_XCHGADD_ALGORITHM
+ 	bool
+ 	default y
+ 
++config GENERIC_FIND_NEXT_BIT
++	bool
++	default y
++
+ config GENERIC_CALIBRATE_DELAY
+ 	bool
+ 	default y
 
--- 
-Yasunori Goto 
-
-
+--
