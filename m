@@ -1,167 +1,48 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Thu, 09 Feb 2006 07:06:25 +0000
-Subject: [RFC:PATCH(001/003)] Memory add to onlined node (ver. 2) (Node id search by acpi's dsdt)
-Message-Id: <20060209153723.6CF0.Y-GOTO@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 14 Feb 2006 23:13:09 +0000
+Subject: [PATCH] ACPI: fix vendor resource length computation
+Message-Id: <200602141613.09152.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060206222216.0607.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060206222216.0607.Y-GOTO@jp.fujitsu.com>
+References: <971FCB6690CD0E4898387DBF7552B90E0452B0D7@orsmsx403.amr.corp.intel.com> <je7j7yc1f8.fsf@sykes.suse.de> <200602131722.28703.bjorn.helgaas@hp.com>
+In-Reply-To: <200602131722.28703.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, naveen.b.s@intel.com, Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Linux Hotplug Memory Support <lhms-devel@lists.sourceforge.net>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, ACPI-ML <linux-acpi@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: Andreas Schwab <schwab@suse.de>
+Cc: Thomas Renninger <trenn@suse.de>, "Moore, Robert" <robert.moore@intel.com>, "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, efocht@hpce.nec.com
 
+acpi_rs_get_list_length() needs to account for all the vendor-defined
+data bytes.  Failing to include these causes buffers to be sized too
+small, which causes slab corruption when we later convert AML to
+resources and run off the end of the buffer.
 
-This is to find node id from physical address via acpi's DSDT.
-The acpi_memhotplug driver searches its handle of memory block
-in DSDT by paddr, and gets pxm.
-Then it translates pxm to node id.
+I'm no expert on this code, so please scrutinize this carefully.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+This causes slab corruption on machines that use ACPI vendor-defined
+resources.  All HP ia64 machines do, and I'm told that some NEC
+machines may as well.  So if the fix is correct, it would be good
+to have it in 2.6.16.
 
-Index: node_simple3/drivers/acpi/acpi_memhotplug.c
-=================================--- node_simple3.orig/drivers/acpi/acpi_memhotplug.c	2006-02-08 16:27:43.000000000 +0900
-+++ node_simple3/drivers/acpi/acpi_memhotplug.c	2006-02-09 14:02:14.000000000 +0900
-@@ -469,6 +469,93 @@ acpi_memory_deregister_notify_handler(ac
- 	return_ACPI_STATUS(status);
- }
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+
+Index: work-mm4/drivers/acpi/resources/rscalc.c
+=================================--- work-mm4.orig/drivers/acpi/resources/rscalc.c	2006-02-14 13:32:50.000000000 -0700
++++ work-mm4/drivers/acpi/resources/rscalc.c	2006-02-14 13:33:25.000000000 -0700
+@@ -391,8 +391,7 @@
+ 			 * Ensure a 32-bit boundary for the structure
+ 			 */
+ 			extra_struct_bytes -			    ACPI_ROUND_UP_to_32_bITS(resource_length) -
+-			    resource_length;
++			    ACPI_ROUND_UP_to_32_bITS(resource_length);
+ 			break;
  
-+struct find_memdevice_arg{
-+	u64 start_addr;
-+	u64 size;
-+};
-+
-+acpi_status
-+acpi_memory_match_paddr_to_memdevice(acpi_handle handle, u32 lvl,
-+				     void *context, void **retv)
-+{
-+	acpi_status status;
-+	struct acpi_device *device = NULL;
-+	struct find_memdevice_arg *arg = context;
-+	struct acpi_memory_device *mem_device = NULL;
-+	unsigned long mem_dev_end, arg_end;
-+
-+	ACPI_FUNCTION_TRACE("acpi_memory_match_paddr_to_memdevice");
-+
-+	/* If this device is NOT memory device, continue to walk name space.*/
-+	status = is_memory_device(handle);
-+	if (ACPI_FAILURE(status))
-+		return_ACPI_STATUS(AE_OK); 
-+
-+	/* If the device is not attached. continue */
-+	if (acpi_bus_get_device(handle, &device) || !device)
-+		return_ACPI_STATUS(AE_OK);  
-+
-+	/* If this mem_device is NOT online. continue */
-+	mem_device = acpi_driver_data(device);
-+	if ((status = acpi_memory_check_device(mem_device)) < 0)
-+		return_ACPI_STATUS(AE_OK);
-+
-+	/* If this mem_device doesn't match target, continue.*/
-+	mem_dev_end = mem_device->start_addr + mem_device->length;
-+	arg_end = arg->start_addr + arg->size;
-+	if (mem_device->start_addr > arg->start_addr || mem_dev_end < arg_end)
-+		return_ACPI_STATUS(AE_OK);    
-+
-+	/* Ok. We could get mem_device for this physical memory. */
-+	*retv = (void *)mem_device;
-+
-+	return_ACPI_STATUS(AE_CTRL_TERMINATE);
-+}
-+
-+static int
-+acpi_memory_find_memdevice(u64 start_addr, u64 size,
-+			struct acpi_memory_device **mem_device)
-+{
-+	acpi_status status;
-+	struct find_memdevice_arg arg;
-+
-+	ACPI_FUNCTION_TRACE("acpi_memory_find_memdevice");
-+
-+	arg.start_addr = start_addr;
-+	arg.size = size;
-+
-+	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, ACPI_ROOT_OBJECT,
-+				     ACPI_UINT32_MAX,
-+				     acpi_memory_match_paddr_to_memdevice,
-+				     (void *)&arg, (void **)mem_device);
-+
-+	if (ACPI_FAILURE(status)) {
-+		ACPI_DEBUG_PRINT ((ACPI_DB_ERROR,
-+			"walk_namespace_failed at acpi_memory_fine_memdevice"));
-+		return_VALUE(-ENODEV);
-+	}
-+	return_VALUE(0);
-+}
-+
-+/*
-+ * acpi_paddr_to_node():
-+ *   Helper function to find which node the physical memory
-+ *   belongs to via DSDT.
-+ */
-+
-+int
-+acpi_paddr_to_node(u64 start_addr, u64 size)
-+{
-+	struct acpi_memory_device *mem_device;
-+	int node = -1;
-+	ACPI_FUNCTION_TRACE("acpi_paddr_to_node");
-+
-+	if (!acpi_memory_find_memdevice(start_addr, size, &mem_device))
-+		node = acpi_get_node(mem_device->handle);
-+
-+	return_VALUE(node);
-+}
-+
- static int __init acpi_memory_device_init(void)
- {
- 	int result;
-Index: node_simple3/drivers/acpi/numa.c
-=================================--- node_simple3.orig/drivers/acpi/numa.c	2006-02-08 16:27:43.000000000 +0900
-+++ node_simple3/drivers/acpi/numa.c	2006-02-09 15:17:25.000000000 +0900
-@@ -258,3 +258,18 @@ int acpi_get_pxm(acpi_handle h)
- }
+ 		case ACPI_RESOURCE_NAME_END_TAG:
+@@ -408,8 +407,7 @@
+ 			 * Add vendor data and ensure a 32-bit boundary for the structure
+ 			 */
+ 			extra_struct_bytes -			    ACPI_ROUND_UP_to_32_bITS(resource_length) -
+-			    resource_length;
++			    ACPI_ROUND_UP_to_32_bITS(resource_length);
+ 			break;
  
- EXPORT_SYMBOL(acpi_get_pxm);
-+
-+int acpi_get_node(acpi_handle *handle)
-+{
-+	int pxm, node = -1;
-+
-+	ACPI_FUNCTION_TRACE("acpi_get_node");
-+
-+	pxm = acpi_get_pxm(handle);
-+	if (pxm >= 0)
-+		node = pxm_to_node(pxm);
-+
-+	return_VALUE(node);
-+}
-+
-+EXPORT_SYMBOL(acpi_get_node);
-Index: node_simple3/include/linux/acpi.h
-=================================--- node_simple3.orig/include/linux/acpi.h	2006-02-08 16:27:45.000000000 +0900
-+++ node_simple3/include/linux/acpi.h	2006-02-08 16:28:17.000000000 +0900
-@@ -529,12 +529,18 @@ static inline void acpi_set_cstate_limit
- 
- #ifdef CONFIG_ACPI_NUMA
- int acpi_get_pxm(acpi_handle handle);
-+int acpi_get_node(acpi_handle *handle);
- #else
- static inline int acpi_get_pxm(acpi_handle handle)
- {
- 	return 0;
- }
-+static inline int acpi_get_node(acpi_handle *handle)
-+{
-+	return 0;
-+}
- #endif
-+extern int acpi_paddr_to_node(u64 start_addr, u64 size);
- 
- extern int pnpacpi_disabled;
- 
-
--- 
-Yasunori Goto 
-
-
+ 		case ACPI_RESOURCE_NAME_ADDRESS32:
