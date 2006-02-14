@@ -1,17 +1,33 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 14 Feb 2006 23:19:47 +0000
-Subject: Re: [PATCH] ACPI: fix vendor resource length computation
-Message-Id: <200602141619.47684.bjorn.helgaas@hp.com>
+From: "Moore, Robert" <robert.moore@intel.com>
+Date: Tue, 14 Feb 2006 23:25:17 +0000
+Subject: RE: [PATCH] ACPI: fix vendor resource length computation
+Message-Id: <971FCB6690CD0E4898387DBF7552B90E045AABC5@orsmsx403.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <971FCB6690CD0E4898387DBF7552B90E0452B0D7@orsmsx403.amr.corp.intel.com> <200602131722.28703.bjorn.helgaas@hp.com> <200602141613.09152.bjorn.helgaas@hp.com>
+References: <200602141613.09152.bjorn.helgaas@hp.com>
 In-Reply-To: <200602141613.09152.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andreas Schwab <schwab@suse.de>
-Cc: Thomas Renninger <trenn@suse.de>, "Moore, Robert" <robert.moore@intel.com>, "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, efocht@hpce.nec.com
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>, Andreas Schwab <schwab@suse.de>
+Cc: Thomas Renninger <trenn@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "Brown, Len" <len.brown@intel.com>, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, efocht@hpce.nec.com
 
-On Tuesday 14 February 2006 16:13, Bjorn Helgaas wrote:
+I'll look at this. 
+
+Does this fix all of the slab corruptions issues we have been hearing
+about?
+
+Bob
+
+
+> -----Original Message-----
+> From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com]
+> Sent: Tuesday, February 14, 2006 3:13 PM
+> To: Andreas Schwab
+> Cc: Thomas Renninger; Moore, Robert; Luck, Tony; Brown, Len; linux-
+> acpi@vger.kernel.org; linux-ia64@vger.kernel.org; Andrew Morton;
+> efocht@hpce.nec.com
+> Subject: [PATCH] ACPI: fix vendor resource length computation
+> 
 > acpi_rs_get_list_length() needs to account for all the vendor-defined
 > data bytes.  Failing to include these causes buffers to be sized too
 > small, which causes slab corruption when we later convert AML to
@@ -25,13 +41,12 @@ On Tuesday 14 February 2006 16:13, Bjorn Helgaas wrote:
 > to have it in 2.6.16.
 > 
 > Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
-I forgot to mention that this patch may be used under either the GPL
-or the BSD license used for the ACPI CA.
-
+> 
 > Index: work-mm4/drivers/acpi/resources/rscalc.c
-> =================================> --- work-mm4.orig/drivers/acpi/resources/rscalc.c	2006-02-14 13:32:50.000000000 -0700
-> +++ work-mm4/drivers/acpi/resources/rscalc.c	2006-02-14 13:33:25.000000000 -0700
+> =================================> --- work-mm4.orig/drivers/acpi/resources/rscalc.c	2006-02-14
+> 13:32:50.000000000 -0700
+> +++ work-mm4/drivers/acpi/resources/rscalc.c	2006-02-14
+> 13:33:25.000000000 -0700
 > @@ -391,8 +391,7 @@
 >  			 * Ensure a 32-bit boundary for the structure
 >  			 */
@@ -39,19 +54,16 @@ or the BSD license used for the ACPI CA.
 > -			    resource_length;
 > +			    ACPI_ROUND_UP_to_32_bITS(resource_length);
 >  			break;
->  
+> 
 >  		case ACPI_RESOURCE_NAME_END_TAG:
 > @@ -408,8 +407,7 @@
->  			 * Add vendor data and ensure a 32-bit boundary for the structure
+>  			 * Add vendor data and ensure a 32-bit boundary
+for the
+> structure
 >  			 */
 >  			extra_struct_bytes > -			    ACPI_ROUND_UP_to_32_bITS(resource_length) -
 > -			    resource_length;
 > +			    ACPI_ROUND_UP_to_32_bITS(resource_length);
 >  			break;
->  
->  		case ACPI_RESOURCE_NAME_ADDRESS32:
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
+>  		case ACPI_RESOURCE_NAME_ADDRESS32:
