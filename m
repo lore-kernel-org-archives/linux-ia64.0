@@ -1,34 +1,42 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Tue, 07 Feb 2006 03:25:55 +0000
-Subject: [PATCH]Fix a possible buffer overflow in efi.c
-Message-Id: <1139282755.8654.5.camel@linux-znh>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Tue, 14 Feb 2006 05:04:02 +0000
+Subject: [patch 11/47] generic fls64()
+Message-Id: <20060214050443.852246000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
-There is a possible buffer overflow in efi.c
-At lease the code logic is wrong.
+This patch introduces the C-language equivalent of the function:
+int fls64(__u64 x);
 
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+In include/asm-generic/bitops/fls64.h
 
-diff -Nraup linux-2.6.15/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
---- linux-2.6.15/arch/ia64/kernel/efi.c	2006-02-06 07:57:06.000000000 +0800
-+++ b/arch/ia64/kernel/efi.c	2006-02-08 04:19:56.000000000 +0800
-@@ -432,7 +432,7 @@ efi_init (void)
- 	/* Show what we know for posterity */
- 	c16 = __va(efi.systab->fw_vendor);
- 	if (c16) {
--		for (i = 0;i < (int) sizeof(vendor) && *c16; ++i)
-+		for (i = 0;i < (int) sizeof(vendor) - 1 && *c16; ++i)
- 			vendor[i] = *c16++;
- 		vendor[i] = '\0';
- 	}
+This code largely copied from:
+include/linux/bitops.h
 
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ include/asm-generic/bitops/fls64.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+)
 
+Index: 2.6-rc/include/asm-generic/bitops/fls64.h
+=================================--- /dev/null
++++ 2.6-rc/include/asm-generic/bitops/fls64.h
+@@ -0,0 +1,12 @@
++#ifndef _ASM_GENERIC_BITOPS_FLS64_H_
++#define _ASM_GENERIC_BITOPS_FLS64_H_
++
++static inline int fls64(__u64 x)
++{
++	__u32 h = x >> 32;
++	if (h)
++		return fls(h) + 32;
++	return fls(x);
++}
++
++#endif /* _ASM_GENERIC_BITOPS_FLS64_H_ */
 
-
-
-
-
+--
