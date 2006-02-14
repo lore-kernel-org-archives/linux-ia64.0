@@ -1,35 +1,39 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Feb 2006 06:43:05 +0000
-Subject: [PATCH] mca_drv: Add minstate validation
-Message-Id: <43EAE479.4050606@jp.fujitsu.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Tue, 14 Feb 2006 05:04:34 +0000
+Subject: [patch 43/47] ia64: make partial_page.bitmap an unsigned long
+Message-Id: <20060214050449.842801000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, linux-ia64@vger.kernel.org, Akinobu Mita <mita@miraclelinux.com>
 
-MCA driver can cause panic if kernel gets a state info with no minstate.
-This patch adds minstate validation before handling it.
+The find_*_bit() routines are defined to work on a pointer to unsigned long.
+But partial_page.bitmap is unsigned int and it is passed to find_*_bit() in
+arch/ia64/ia32/sys_ia32.c. So the compiler will print warnings.
 
-signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+This patch changes to unsigned long instead.
 
------
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ arch/ia64/ia32/ia32priv.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-  arch/ia64/kernel/mca_drv.c |    3 +++
-  1 files changed, 3 insertions(+)
+Index: 2.6-rc/arch/ia64/ia32/ia32priv.h
+=================================--- 2.6-rc.orig/arch/ia64/ia32/ia32priv.h
++++ 2.6-rc/arch/ia64/ia32/ia32priv.h
+@@ -29,9 +29,9 @@
+ struct partial_page {
+ 	struct partial_page	*next; /* linked list, sorted by address */
+ 	struct rb_node		pp_rb;
+-	/* 64K is the largest "normal" page supported by ia64 ABI. So 4K*32
++	/* 64K is the largest "normal" page supported by ia64 ABI. So 4K*64
+ 	 * should suffice.*/
+-	unsigned int		bitmap;
++	unsigned long		bitmap;
+ 	unsigned int		base;
+ };
+ 
 
-Index: linux-2.6.16-rc2/arch/ia64/kernel/mca_drv.c
-=================================--- linux-2.6.16-rc2.orig/arch/ia64/kernel/mca_drv.c	2006-02-08 13:03:49.000000000 +0900
-+++ linux-2.6.16-rc2/arch/ia64/kernel/mca_drv.c	2006-02-08 15:24:09.000000000 +0900
-@@ -437,6 +437,9 @@
-  	 *    the process not have any locks of kernel.
-  	 */
-
-+	/* Is minstate valid? */
-+	if (!peidx_bottom(peidx) || !(peidx_bottom(peidx)->valid.minstate))
-+		return 0;
-  	psr1 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_ipsr);
-
-  	/*
-
-
+--
