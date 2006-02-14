@@ -1,42 +1,66 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Tue, 14 Feb 2006 23:01:11 +0000
-Subject: [patch 1/2] Dont set NR_CPUS for cpu_possible_map when CPU hotplug is enabled.
-Message-Id: <20060214230622.236017529@csdlinux-2.jf.intel.com>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Tue, 14 Feb 2006 05:04:04 +0000
+Subject: [patch 13/47] generic sched_find_first_bit()
+Message-Id: <20060214050444.235416000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, Russell King <rmk@arm.linux.org.uk>, Ian Molton <spyro@f2s.com>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, linux-m68k@vger.kernel.org, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
-Do not set cpu_possible_map for NR_CPUS when ACPI_CONFIG_HOTPLUG_CPU is set.
+This patch introduces the C-language equivalent of the function:
+int sched_find_first_bit(const unsigned long *b);
 
-Signed-off-by: Ashok Raj <ashok.raj@intel.com>
----------------------------------------------------------------------
- arch/ia64/kernel/smpboot.c |    5 +----
- 1 files changed, 1 insertion(+), 4 deletions(-)
+In include/asm-generic/bitops/sched.h
 
-Index: linux-2.6.16-rc3-mm1/arch/ia64/kernel/smpboot.c
-=================================--- linux-2.6.16-rc3-mm1.orig/arch/ia64/kernel/smpboot.c
-+++ linux-2.6.16-rc3-mm1/arch/ia64/kernel/smpboot.c
-@@ -135,7 +135,7 @@ DEFINE_PER_CPU(int, cpu_state);
- /* Bitmasks of currently online, and possible CPUs */
- cpumask_t cpu_online_map;
- EXPORT_SYMBOL(cpu_online_map);
--cpumask_t cpu_possible_map;
-+cpumask_t cpu_possible_map = CPU_MASK_NONE;
- EXPORT_SYMBOL(cpu_possible_map);
- 
- cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
-@@ -558,9 +558,6 @@ smp_build_cpu_map (void)
- 
- 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
- 		ia64_cpu_to_sapicid[cpu] = -1;
--#ifdef CONFIG_HOTPLUG_CPU
--		cpu_set(cpu, cpu_possible_map);
--#endif
- 	}
- 
- 	ia64_cpu_to_sapicid[0] = boot_cpu_id;
+This code largely copied from:
+include/asm-powerpc/bitops.h
+
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+ include/asm-generic/bitops/sched.h |   36 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 36 insertions(+)
+
+Index: 2.6-rc/include/asm-generic/bitops/sched.h
+=================================--- /dev/null
++++ 2.6-rc/include/asm-generic/bitops/sched.h
+@@ -0,0 +1,36 @@
++#ifndef _ASM_GENERIC_BITOPS_SCHED_H_
++#define _ASM_GENERIC_BITOPS_SCHED_H_
++
++#include <linux/compiler.h>	/* unlikely() */
++#include <asm/types.h>
++
++/*
++ * Every architecture must define this function. It's the fastest
++ * way of searching a 140-bit bitmap where the first 100 bits are
++ * unlikely to be set. It's guaranteed that at least one of the 140
++ * bits is cleared.
++ */
++static inline int sched_find_first_bit(const unsigned long *b)
++{
++#if BITS_PER_LONG = 64
++	if (unlikely(b[0]))
++		return __ffs(b[0]);
++	if (unlikely(b[1]))
++		return __ffs(b[1]) + 64;
++	return __ffs(b[2]) + 128;
++#elif BITS_PER_LONG = 32
++	if (unlikely(b[0]))
++		return __ffs(b[0]);
++	if (unlikely(b[1]))
++		return __ffs(b[1]) + 32;
++	if (unlikely(b[2]))
++		return __ffs(b[2]) + 64;
++	if (b[3])
++		return __ffs(b[3]) + 96;
++	return __ffs(b[4]) + 128;
++#else
++#error BITS_PER_LONG not defined
++#endif
++}
++
++#endif /* _ASM_GENERIC_BITOPS_SCHED_H_ */
 
 --
-
