@@ -1,51 +1,75 @@
-From: Lee Schermerhorn <lee.schermerhorn@hp.com>
-Date: Wed, 01 Feb 2006 15:20:07 +0000
-Subject: Unable to handle kernel paging request in 2.6.16-rc1-mm4
-Message-Id: <1138807207.5211.39.camel@localhost.localdomain>
+From: Akinobu Mita <mita@miraclelinux.com>
+Date: Tue, 14 Feb 2006 05:04:09 +0000
+Subject: [patch 18/47] generic minix_{test,set,test_and_clear,test,find_first_zero}_bit()
+Message-Id: <20060214050445.212426000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060214050351.252615000@localhost.localdomain>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, dev-etrax@axis.com, David Howells <dhowells@redhat.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Hirokazu Takata <takata@linux-m32r.org>, Greg Ungerer <gerg@uclinux.org>, linux-mips@linux-mips.org, linux390@de.ibm.com, linuxsh-dev@lists.sourceforge.net, linuxsh-shmedia-dev@lists.sourceforge.net, sparclinux@vger.kernel.org, ultralinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Andi Kleen <ak@suse.de>, Chris Zankel <chris@zankel.net>, Akinobu Mita <mita@miraclelinux.com>
 
-Just a "heads up" because I haven't found reference to this in the ia64
-nor kernel lists.  Maybe just happens on my platform?
+This patch introduces the C-language equivalents of the functions below:
 
-I'm seeing this on an HP rx8620 [16xIA64, 4 NUMA nodes, 32GB], booting
-subject kernel.  Log excerpts:
----
-Unable to handle kernel paging request at virtual address
-a004037b4dc28110
-events/12[62]: Oops 11012296146944 [1]
-<snip>
-Call Trace:
-<snip>
- [<a00000010000cca0>] ia64_leave_kernel+0x0/0x280
-                                sp=E0000721fe84fb80 bsp=E0000721fe849290
- [<a0000001001483b0>] free_block+0x90/0x360
-                                sp=E0000721fe84fd50 bsp=E0000721fe849200
- [<a0000001001489d0>] drain_array_locked+0x110/0x180
-                                sp=E0000721fe84fd50 bsp=E0000721fe8491b8
- [<a00000010014e6c0>] cache_reap+0x1a0/0x600
-                                sp=E0000721fe84fd50 bsp=E0000721fe849140
- [<a0000001000c61c0>] run_workqueue+0x180/0x2c0
-                                sp=E0000721fe84fd60 bsp=E0000721fe8490f0
- [<a0000001000c6540>] worker_thread+0x240/0x2c0
-                                sp=E0000721fe84fd60 bsp=E0000721fe8490b8
-<snip>
- BUG: events/12/62, lock held at task exit time!
- [a000000100867fe0] {cache_chain_mutex}
-.. held by:         events/12:   62 [e0000721fe848000, 110]
-... acquired at:               cache_reap+0x30/0x600
----
-Eventually the boot hangs...
+int minix_test_and_set_bit(int nr, volatile unsigned long *addr);
+int minix_set_bit(int nr, volatile unsigned long *addr);
+int minix_test_and_clear_bit(int nr, volatile unsigned long *addr);
+int minix_test_bit(int nr, const volatile unsigned long *addr);
+unsigned long minix_find_first_zero_bit(const unsigned long *addr,
+                                        unsigned long size);
 
-I did a bisection search of the mm4 broken out patches and isolated the
-problem to the "export-cpu-topology-by-sysfs" patches.  I.e., if I
-comment these out, builds and boots fine [with a one-liner build fix
-from Christoph Lameter for an SGI sn pci source file].  Something
-overstepping a slab allocation?  Still investigating.
+In include/asm-generic/bitops/minix.h
+   and include/asm-generic/bitops/minix-le.h
 
-Regards,
-Lee
+This code largely copied from:
+include/asm-sparc/bitops.h
 
+Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+
+ include/asm-generic/bitops/minix-le.h |   17 +++++++++++++++++
+ include/asm-generic/bitops/minix.h    |   15 +++++++++++++++
+ 2 files changed, 32 insertions(+)
+
+Index: 2.6-rc/include/asm-generic/bitops/minix.h
+=================================--- /dev/null
++++ 2.6-rc/include/asm-generic/bitops/minix.h
+@@ -0,0 +1,15 @@
++#ifndef _ASM_GENERIC_BITOPS_MINIX_H_
++#define _ASM_GENERIC_BITOPS_MINIX_H_
++
++#define minix_test_and_set_bit(nr,addr)	\
++	__test_and_set_bit((nr),(unsigned long *)(addr))
++#define minix_set_bit(nr,addr)		\
++	__set_bit((nr),(unsigned long *)(addr))
++#define minix_test_and_clear_bit(nr,addr) \
++	__test_and_clear_bit((nr),(unsigned long *)(addr))
++#define minix_test_bit(nr,addr)		\
++	test_bit((nr),(unsigned long *)(addr))
++#define minix_find_first_zero_bit(addr,size) \
++	find_first_zero_bit((unsigned long *)(addr),(size))
++
++#endif /* _ASM_GENERIC_BITOPS_MINIX_H_ */
+Index: 2.6-rc/include/asm-generic/bitops/minix-le.h
+=================================--- /dev/null
++++ 2.6-rc/include/asm-generic/bitops/minix-le.h
+@@ -0,0 +1,17 @@
++#ifndef _ASM_GENERIC_BITOPS_MINIX_LE_H_
++#define _ASM_GENERIC_BITOPS_MINIX_LE_H_
++
++#include <asm-generic/bitops/le.h>
++
++#define minix_test_and_set_bit(nr,addr)	\
++	generic___test_and_set_le_bit((nr),(unsigned long *)(addr))
++#define minix_set_bit(nr,addr)		\
++	generic___set_le_bit((nr),(unsigned long *)(addr))
++#define minix_test_and_clear_bit(nr,addr) \
++	generic___test_and_clear_le_bit((nr),(unsigned long *)(addr))
++#define minix_test_bit(nr,addr)		\
++	generic_test_le_bit((nr),(unsigned long *)(addr))
++#define minix_find_first_zero_bit(addr,size) \
++	generic_find_first_zero_le_bit((unsigned long *)(addr),(size))
++
++#endif /* _ASM_GENERIC_BITOPS_MINIX_LE_H_ */
+
+--
