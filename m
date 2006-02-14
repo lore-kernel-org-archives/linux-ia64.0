@@ -1,135 +1,41 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Feb 2006 13:29:35 +0000
-Subject: [PATCH: 009/012] Memory hotplug for new nodes v.2 (pgdat link insert)
-Message-Id: <20060217213711.407A.Y-GOTO@jp.fujitsu.com>
+From: Dean Roe <roe@sgi.com>
+Date: Tue, 14 Feb 2006 21:01:23 +0000
+Subject: [PATCH] fix the size of __sn_cnodeid_to_nasid
+Message-Id: <20060214210123.GA15369@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: linux-ia64@vger.kernel.org
 
-This is to insert pgdat to its link.
-To be honest, I would like remove this pgdat link, and
-I posted patches to remove it for a long time ago to -mm.
+The __sn_cnodeid_to_nasid array was incorrectly sized at MAX_NUMNODES.
+On a large system, this array could overflow.  The following patch
+corrects this by defining it to MAX_COMPACT_NODES.
 
-http://marc.theaimsgroup.com/?l=linux-mm&m2808582217281&w=2
-http://marc.theaimsgroup.com/?l=linux-mm&m2808582227966&w=2
-
-But, it might have influence against performance for big NUMA box.
-So, I should check it.
-However, I'm very hard to access big NUMA box. Our machine is 
-divided as small partitioned for test of each team inside of fujitsu
-every time. Sigh. :-(. 
-
-This is lazy patch instead of them.
-To use this code for x86_64, this code is moved to generic place.
-
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Signed-off-by: Dean Roe <roe@sgi.com>
 
 
-Index: pgdat3/arch/ia64/mm/discontig.c
-=================================--- pgdat3.orig/arch/ia64/mm/discontig.c	2006-02-17 16:52:52.000000000 +0900
-+++ pgdat3/arch/ia64/mm/discontig.c	2006-02-17 18:35:33.000000000 +0900
-@@ -381,31 +381,6 @@ static void __init *memory_less_node_all
- }
+Index: linux-2.6/arch/ia64/sn/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c
++++ linux-2.6/arch/ia64/sn/kernel/setup.c
+@@ -75,7 +75,7 @@
+ DEFINE_PER_CPU(struct sn_hub_info_s, __sn_hub_info);
+ EXPORT_PER_CPU_SYMBOL(__sn_hub_info);
  
- /**
-- * pgdat_insert - insert the pgdat into global pgdat_list
-- * @pgdat: the pgdat for a node.
-- */
--static void __init pgdat_insert(pg_data_t *pgdat)
--{
--	pg_data_t *prev = NULL, *next;
--
--	for_each_pgdat(next)
--		if (pgdat->node_id < next->node_id)
--			break;
--		else
--			prev = next;
--
--	if (prev) {
--		prev->pgdat_next = pgdat;
--		pgdat->pgdat_next = next;
--	} else {
--		pgdat->pgdat_next = pgdat_list;
--		pgdat_list = pgdat;
--	}
--
--	return;
--}
--
--/**
-  * memory_less_nodes - allocate and initialize CPU only nodes pernode
-  *	information.
+-DEFINE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_NUMNODES]);
++DEFINE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_COMPACT_NODES]);
+ EXPORT_PER_CPU_SYMBOL(__sn_cnodeid_to_nasid);
+ 
+ DEFINE_PER_CPU(struct nodepda_s *, __sn_nodepda);
+
+Index: linux-2.6/include/asm-ia64/sn/arch.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/arch.h
++++ linux-2.6/include/asm-ia64/sn/arch.h
+@@ -70,7 +70,7 @@
+  * Compact node ID to nasid mappings kept in the per-cpu data areas of each
+  * cpu.
   */
-Index: pgdat3/mm/page_alloc.c
-=================================--- pgdat3.orig/mm/page_alloc.c	2006-02-17 16:52:50.000000000 +0900
-+++ pgdat3/mm/page_alloc.c	2006-02-17 16:52:53.000000000 +0900
-@@ -1575,6 +1575,31 @@ void show_free_areas(void)
- 	show_swap_cache_info();
- }
+-DECLARE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_NUMNODES]);
++DECLARE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_COMPACT_NODES]);
+ #define sn_cnodeid_to_nasid	(&__get_cpu_var(__sn_cnodeid_to_nasid[0]))
  
-+/**
-+ * pgdat_insert - insert the pgdat into global pgdat_list
-+ * @pgdat: the pgdat for a node.
-+ */
-+void __meminit pgdat_insert(pg_data_t *pgdat)
-+{
-+	pg_data_t *prev = NULL, *next;
-+
-+	for_each_pgdat(next)
-+		if (pgdat->node_id < next->node_id)
-+			break;
-+		else
-+			prev = next;
-+
-+	if (prev) {
-+		prev->pgdat_next = pgdat;
-+		pgdat->pgdat_next = next;
-+	} else {
-+		pgdat->pgdat_next = pgdat_list;
-+		pgdat_list = pgdat;
-+	}
-+
-+	return;
-+}
-+
- /*
-  * Builds allocation fallback zone lists.
-  *
-Index: pgdat3/mm/memory_hotplug.c
-=================================--- pgdat3.orig/mm/memory_hotplug.c	2006-02-17 16:52:50.000000000 +0900
-+++ pgdat3/mm/memory_hotplug.c	2006-02-17 16:52:53.000000000 +0900
-@@ -57,6 +57,7 @@ static int __add_section(struct zone *zo
- 	return register_new_memory(__pfn_to_section(phys_start_pfn));
- }
- 
-+extern void __meminit pgdat_insert(pg_data_t *pgdat);
- extern int kswapd(void *);
- int new_pgdat_init(int nid, unsigned long start_pfn, unsigned long nr_pages)
- {
-@@ -89,6 +90,7 @@ int new_pgdat_init(int nid, unsigned lon
- 
- 	pgdat->kswapd = p;
- 	node_set_online(nid);
-+	pgdat_insert(pgdat);
- 	arch_register_node(nid);
- 
- 	return 0;
-Index: pgdat3/include/linux/mmzone.h
-=================================--- pgdat3.orig/include/linux/mmzone.h	2006-02-17 16:52:50.000000000 +0900
-+++ pgdat3/include/linux/mmzone.h	2006-02-17 18:39:48.000000000 +0900
-@@ -650,6 +650,7 @@ void sparse_init(void);
- 
- void memory_present(int nid, unsigned long start, unsigned long end);
- unsigned long __init node_memmap_size_bytes(int, unsigned long, unsigned long);
-+extern void __meminit pgdat_insert(pg_data_t *);
- 
- #endif /* !__ASSEMBLY__ */
- #endif /* __KERNEL__ */
-
--- 
-Yasunori Goto 
-
-
