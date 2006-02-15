@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 15 Feb 2006 19:58:25 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 15 Feb 2006 20:04:36 +0000
 Subject: RE: missing entries in fsys.S
-Message-Id: <200602151958.k1FJwQg09773@unix-os.sc.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05B875C0@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060215143359.GB14787@frankl.hpl.hp.com>
 In-Reply-To: <20060215143359.GB14787@frankl.hpl.hp.com>
@@ -10,19 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote on Wednesday, February 15, 2006 11:40 AM
-> +	// guard against failures to increase NR_syscalls
-> +	.org fsyscall_table + 8*NR_syscalls
+> Sadly gnu assembler gives only warning if .space's count argument
+> is zero or negative.
 > 
-> Is this redundant ... with the .space directive I don't think
-> that this can ever trip ... can it?
+> I agree that this is redundant given that we already check the
+> size in sys_call_table (entry.S).  So this can be removed.  Tony,
+> do you want me to send you another patch or you can just massage it?
 
-Sadly gnu assembler gives only warning if .space's count argument
-is zero or negative.
+I think that the .org thing only gives a warning too.
 
-I agree that this is redundant given that we already check the
-size in sys_call_table (entry.S).  So this can be removed.  Tony,
-do you want me to send you another patch or you can just massage it?
+I'll massage the patch (gives me a chance to try out the "git squash"
+code that I'm working on).
 
-- Ken
-
+-Tony
