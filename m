@@ -1,31 +1,20 @@
-From: Chris Wedgwood <cw@f00f.org>
-Date: Fri, 17 Feb 2006 19:10:26 +0000
-Subject: Re: Problems with MSI-X on ia64
-Message-Id: <20060217191026.GA3136@taniwha.stupidest.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 17 Feb 2006 19:52:45 +0000
+Subject: RE: Problems with MSI-X on ia64
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05BF610F@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net> <20060217075829.GB22451@esmail.cup.hp.com> <20060217084605.GG4523@taniwha.stupidest.org> <20060217163605.GA26660@colo.lackof.org>
-In-Reply-To: <20060217163605.GA26660@colo.lackof.org>
+References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
+In-Reply-To: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <grundler@parisc-linux.org>
+To: Chris Wedgwood <cw@f00f.org>, Grant Grundler <grundler@parisc-linux.org>
 Cc: Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz, "Miller, Mike (OS Dev)" <Mike.Miller@hp.com>, Jesse Barnes <jbarnes@virtuousgeek.org>
 
-On Fri, Feb 17, 2006 at 09:36:05AM -0700, Grant Grundler wrote:
+> Hrm, it may be doing this.  I wonder how that works though with 4GB's
+> of RAM installed?
 
-> If the machine is suppose to support a 32-bit OS, then yeah, it's a
-> BIOS bug. It all depends on who defines the support matrix.
+Systems with 4G of RAM usually map part of the RAM above 4G so as to
+leave a hole for i/o mapping etc.
 
-Well, maybe.  I mean, the CPUs all have PAE (in 32-bit mode) and thus
-can use 36-bit physical addressing these days (or more in the case of
-amd chips).
-
-> The other way is to reassign "invalid" resources (above 4GB) with
-> "valid" ones (below 4GB).  I suspect windows is doing this and I'd
-> rather see linux take this route as well if possible.
-
-Hrm, it may be doing this.  I wonder how that works though with 4GB's
-of RAM installed?
-
-I originally thought Windows probably allowed the larger addresses
-and use PAE but that might not be the case at all.
+-Tony
