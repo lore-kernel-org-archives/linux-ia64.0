@@ -1,41 +1,31 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Fri, 17 Feb 2006 16:36:05 +0000
+From: Chris Wedgwood <cw@f00f.org>
+Date: Fri, 17 Feb 2006 19:10:26 +0000
 Subject: Re: Problems with MSI-X on ia64
-Message-Id: <20060217163605.GA26660@colo.lackof.org>
+Message-Id: <20060217191026.GA3136@taniwha.stupidest.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net> <20060217075829.GB22451@esmail.cup.hp.com> <20060217084605.GG4523@taniwha.stupidest.org>
-In-Reply-To: <20060217084605.GG4523@taniwha.stupidest.org>
+References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net> <20060217075829.GB22451@esmail.cup.hp.com> <20060217084605.GG4523@taniwha.stupidest.org> <20060217163605.GA26660@colo.lackof.org>
+In-Reply-To: <20060217163605.GA26660@colo.lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Chris Wedgwood <cw@f00f.org>
+To: Grant Grundler <grundler@parisc-linux.org>
 Cc: Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz, "Miller, Mike (OS Dev)" <Mike.Miller@hp.com>, Jesse Barnes <jbarnes@virtuousgeek.org>
 
-On Fri, Feb 17, 2006 at 12:46:05AM -0800, Chris Wedgwood wrote:
-> On Thu, Feb 16, 2006 at 11:58:29PM -0800, Grant Grundler wrote:
-> 
-> > The root cause is the use of u32 to describe a PCI resource "start".
-> > phys_addr needs to be "unsigned long". More details in Log entry
-> > below.
-> 
-> That won't always suffice.
-> 
-> I have machines at work that will place some PCI resources above the
-> 4GB boundary even when booting in '32-bit OS' mode (there is a BIOS
-> option for this but no matter the setting some resources always end up
-> above 4GB).  I've heard from others they've also been hit by this
-> (with 64-bit kernels it's fine).  I guess it could be argued that it's
-> a BIOS bug, I'm not entirely sure what to thing,  Windows seems to
-> deal with it.
+On Fri, Feb 17, 2006 at 09:36:05AM -0700, Grant Grundler wrote:
 
-If the machine is suppose to support a 32-bit OS, then yeah, it's
-a BIOS bug. It all depends on who defines the support matrix.
+> If the machine is suppose to support a 32-bit OS, then yeah, it's a
+> BIOS bug. It all depends on who defines the support matrix.
 
-One way to support that behavior is use u64 in struct resource (ioport.h)
-(NOT dma_addr_t) instead of "unsigned long".
+Well, maybe.  I mean, the CPUs all have PAE (in 32-bit mode) and thus
+can use 36-bit physical addressing these days (or more in the case of
+amd chips).
 
-The other way is to reassign "invalid" resources (above 4GB) with 
-"valid" ones (below 4GB).  I suspect windows is doing this and
-I'd rather see linux take this route as well if possible.
+> The other way is to reassign "invalid" resources (above 4GB) with
+> "valid" ones (below 4GB).  I suspect windows is doing this and I'd
+> rather see linux take this route as well if possible.
 
-grant
+Hrm, it may be doing this.  I wonder how that works though with 4GB's
+of RAM installed?
+
+I originally thought Windows probably allowed the larger addresses
+and use PAE but that might not be the case at all.
