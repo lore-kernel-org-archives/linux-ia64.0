@@ -1,60 +1,38 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 02 Feb 2006 18:30:21 +0000
-Subject: Re: [Patch] Fix XPC code which sleeps with spin_lock_irqsave().
-Message-Id: <20060202183021.GA13871@attica.americas.sgi.com>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Fri, 17 Feb 2006 04:09:56 +0000
+Subject: [PATCH] Delete a redundant instruction in unaligned_access
+Message-Id: <1140149396.15920.5.camel@ymzhang-perf.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060201145537.GC21833@lnx-holt.americas.sgi.com>
-In-Reply-To: <20060201145537.GC21833@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-During some testing, we got a warning about trying to allocate
-memory while holding a lock.  This fixes that problem.
+From: Zhang, Yanmin <yanmin.zhang@intel.com>
 
-Signed-off-by: Robin Holt <holt@sgi.com>
-Acked-by: Dean Nelson <dcn@sgi.com>
+unaligned_access does fetch cr.ipsr, then calls
+dispatch_unaligned_handler, but dispatch_unaligned_handler fetches
+cr.ipsr again, so delete the first one.
 
-----
+The patch is against kernel 2.6.16-rc3.
 
-This replaces the patch I sent yesterday.  Dean pointed out that the
-spin_lock_irqsave does not need to happen when the kernel_thread succeeds.
-Tony, If you have not already taken either of the patches, please use
-this one instead.
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
 
+---
 
-Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2006-02-01 07:26:10.156287841 -0600
-+++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2006-02-02 07:25:25.611646908 -0600
-@@ -575,18 +575,21 @@ xpc_activate_partition(struct xpc_partit
- 
- 	spin_lock_irqsave(&part->act_lock, irq_flags);
- 
--	pid = kernel_thread(xpc_activating, (void *) ((u64) partid), 0);
--
- 	DBUG_ON(part->act_state != XPC_P_INACTIVE);
- 
--	if (pid > 0) {
--		part->act_state = XPC_P_ACTIVATION_REQ;
--		XPC_SET_REASON(part, xpcCloneKThread, __LINE__);
--	} else {
--		XPC_SET_REASON(part, xpcCloneKThreadFailed, __LINE__);
--	}
-+	part->act_state = XPC_P_ACTIVATION_REQ;
-+	XPC_SET_REASON(part, xpcCloneKThread, __LINE__);
- 
- 	spin_unlock_irqrestore(&part->act_lock, irq_flags);
-+
-+	pid = kernel_thread(xpc_activating, (void *) ((u64) partid), 0);
-+
-+	if (unlikely(pid <= 0)) {
-+		spin_lock_irqsave(&part->act_lock, irq_flags);
-+		part->act_state = XPC_P_INACTIVE;
-+		XPC_SET_REASON(part, xpcCloneKThreadFailed, __LINE__);
-+		spin_unlock_irqrestore(&part->act_lock, irq_flags);
-+	}
- }
- 
- 
+diff -Nraup linux-2.6.16-rc3/arch/ia64/kernel/ivt.S
+linux-2.6.16-rc3_fix/arch/ia64/kernel/ivt.S
+--- linux-2.6.16-rc3/arch/ia64/kernel/ivt.S	2006-01-25
+21:54:04.000000000 +0800
++++ linux-2.6.16-rc3_fix/arch/ia64/kernel/ivt.S	2006-02-18
+00:31:08.000000000 +0800
+@@ -1362,7 +1362,6 @@ END(debug_vector)
+ // 0x5a00 Entry 30 (size 16 bundles) Unaligned Reference (57)
+ ENTRY(unaligned_access)
+ 	DBG_FAULT(30)
+-	mov r16=cr.ipsr
+ 	mov r31=pr		// prepare to save predicates
+ 	;;
+ 	br.sptk.many dispatch_unaligned_handler
+
 
