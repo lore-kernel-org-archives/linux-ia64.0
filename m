@@ -1,25 +1,29 @@
-From: Balbir Singh <bsingharora@gmail.com>
-Date: Thu, 02 Feb 2006 09:46:18 +0000
-Subject: Re: [PATCH 8/12] generic hweight{32,16,8}()
-Message-Id: <661de9470602020134i7f487717p6ed7641ec4d491bb@mail.gmail.com>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Fri, 17 Feb 2006 13:22:45 +0000
+Subject: [2.6 patch] show "SN Devices" menu only if CONFIG_SGI_SN
+Message-Id: <20060217132245.GG4422@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060131164949.3365.qmail@science.horizon.com>
-In-Reply-To: <20060131164949.3365.qmail@science.horizon.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "linux@horizon.com" <linux@horizon.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mita@miraclelinux.com
+To: jes@sgi.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> This is an extremely well-known technique.  You can see a similar version
-> that uses a multiply for the last few steps at
-> http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel
-> whch refers to
-> "Software Optimization Guide for AMD Athlon 64 and Opteron Processors"
-> http://www.amd.com/us-en/assets/content_type/white_papers_and_tech_docs/25112.PDF
->
-> It's section 8.6, "Efficient Implementation of Population-Count Function
-> in 32-bit Mode", pages 179-180.
+On architectures like i386, the "Multimedia Capabilities Port drivers"
+menu is visible, but it can't be visited since it contains nothing
+usable for CONFIG_SGI_SN=n.
 
-Thanks for doing this. The proof looks good except for what has been
-already pointed out by Grant Grundler.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.16-rc3-mm1-full/drivers/sn/Kconfig.old	2006-02-17 14:07:11.000000000 +0100
++++ linux-2.6.16-rc3-mm1-full/drivers/sn/Kconfig	2006-02-17 14:07:37.000000000 +0100
+@@ -3,6 +3,7 @@
+ #
+ 
+ menu "SN Devices"
++	depends on SGI_SN
+ 
+ config SGI_IOC4
+ 	tristate "SGI IOC4 Base IO support"
+
