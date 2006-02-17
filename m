@@ -1,25 +1,49 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Tue, 14 Feb 2006 23:01:10 +0000
-Subject: [patch 0/2] Do not set cpu_possible_map to NR_CPUS bits when CPU hotplug is enabled
-Message-Id: <20060214230109.997471398@csdlinux-2.jf.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 17 Feb 2006 13:29:56 +0000
+Subject: [PATCH: 012/012] Memory hotplug for new nodes v.2 (allow -EEXIST of add_memory)
+Message-Id: <20060217214125.4080.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
 
-Hi Tony,
+When acpi_memory_device_init() is called at boottime to
+register struct memory acpi_memory_device. So, 
+acpi_bus_add() are called via acpi_driver_attach().
+But it also calls ops->start() function.
+It is called even if the memory blocks are initialized at
+early boottime. In this case add_memory() return -EEXIST, and
+the memory blocks becomes INVALID state even if it is normal.
 
-here is patch to not set NR_CPUS bits in cpu_possible_map when 
-CONFIG_HOTPLUG_CPU is enabled. This just restricts the cpu_possible_map
-to a more reasonable number. We now count the number of disabled cpus in
-MADT as potentially hotpluggable cpus. In case thats not true, parameter 
-additional_cpus=x can be used at startup to add extra bits to cpu_possible_map.
+This is patch for it.
 
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Will be good to fix it before 2.6.16 gets released. Other arch code is mostly
-checked in already I think.
+Index: pgdat3/drivers/acpi/acpi_memhotplug.c
+=================================--- pgdat3.orig/drivers/acpi/acpi_memhotplug.c	2006-02-17 16:18:36.000000000 +0900
++++ pgdat3/drivers/acpi/acpi_memhotplug.c	2006-02-17 16:20:53.000000000 +0900
+@@ -199,7 +199,16 @@ static int acpi_memory_enable_device(str
+ 	 * Note: Assume that this function returns zero on success
+ 	 */
+ 	result = add_memory(mem_device->start_addr, mem_device->length);
+-	if (result) {
++	switch(result) {
++	case 0:
++		break;
++	case -EEXIST:
++		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
++				  "\nmemory start=%lu size=%lu has already existed\n",
++				  mem_device->start_addr,
++				  mem_device->length));
++		return 0;
++	default:
+ 		ACPI_ERROR((AE_INFO, "add_memory failed"));
+ 		mem_device->state = MEMORY_INVALID_STATE;
+ 		return result;
 
-Cheers,
-ashok
+-- 
+Yasunori Goto 
+
 
