@@ -1,37 +1,68 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 13 Feb 2006 23:46:50 +0000
-Subject: Re: PMU and timer interrupts
-Message-Id: <20060213234650.GN11285@frankl.hpl.hp.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 17 Feb 2006 13:28:52 +0000
+Subject: [PATCH: 004/012] Memory hotplug for new nodes v.2. (pgdat alloc caller for ia64)
+Message-Id: <20060217211436.4070.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060209171648.GA26865@frankl.hpl.hp.com>
-In-Reply-To: <20060209171648.GA26865@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
 
-Ken,
+This is caller of pgdat allocation for ia64.
+If new memory belongs to new nodes, pgdat is allocated...
 
-On Mon, Feb 13, 2006 at 02:49:57PM -0800, Chen, Kenneth W wrote:
-> Chen, Kenneth W wrote on Monday, February 13, 2006 12:32 PM
-> > Stephane Eranian wrote on Monday, February 13, 2006 12:13 PM
-> > > Jes seems to believe than this is more historical than anything for qla2xxx.
-> > > Now what about the timer interrupt, why does it really need SA_INTERRUPT especially
-> > > given that it is so high priority and with the TPR mechanism. IT seems to be
-> > > a protection against MCA, IPI, IPI_RESCHEDULE based on the current layout.
-> > 
-> > scheduler_tick function expects irq off because it calls load_balance and
-> > will muck around with runqueue list.  Won't that race with resched IPI if
-> > irq is not masked?
-> 
-> NO! Ken needs more coffee Monday morning ....
-> 
-> I forgot that we don't check TIF_ flag when we are still on kernel stack.
-> So resched IPI should be safe w.r.t timer interrupt because schedule is
-> called after timer_interrupt finishes.
-> 
-Thanks for checking on this. That leaves us with regular IPI which is
-can be quite vast and MCA.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+Index: pgdat3/arch/ia64/mm/init.c
+=================================--- pgdat3.orig/arch/ia64/mm/init.c	2006-02-17 15:51:04.000000000 +0900
++++ pgdat3/arch/ia64/mm/init.c	2006-02-17 16:14:59.000000000 +0900
+@@ -20,6 +20,7 @@
+ #include <linux/swap.h>
+ #include <linux/proc_fs.h>
+ #include <linux/bitops.h>
++#include <linux/acpi.h>
+ 
+ #include <asm/a.out.h>
+ #include <asm/dma.h>
+@@ -652,16 +653,32 @@ int add_memory(u64 start, u64 size)
+ 	struct zone *zone;
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+-	int ret;
++	int ret, node, new_pgdat = 0;
+ 
+-	pgdat = NODE_DATA(0);
++	node = acpi_paddr_to_node(start, size);
++
++	if (node < 0)
++	        node = 0; /* pxm is undefined in DSDT.
++			     This might be non NUMA case */
++
++	if (!node_online(node)){
++		ret = new_pgdat_init(node, start_pfn, nr_pages);
++		if (ret)
++			return ret;
++
++		new_pgdat = 1;
++	}
++	pgdat = NODE_DATA(node);
+ 
+ 	zone = pgdat->node_zones + ZONE_NORMAL;
+ 	ret = __add_pages(zone, start_pfn, nr_pages);
+ 
+-	if (ret)
++	if (ret){
+ 		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
+ 		       __FUNCTION__,  ret);
++		if (new_pgdat)
++			release_pgdat(pgdat);
++	}
+ 
+ 	return ret;
+ }
 
 -- 
--Stephane
+Yasunori Goto 
+
+
