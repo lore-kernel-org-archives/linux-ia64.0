@@ -1,41 +1,39 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Mon, 20 Feb 2006 13:12:07 +0000
-Subject: "BUG()" definition
-Message-Id: <43F9C027.20203@bull.net>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Mon, 20 Feb 2006 13:24:59 +0000
+Subject: Re: "BUG()" definition
+Message-Id: <20060220132459.GA7712@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <43F9C027.20203@bull.net>
+In-Reply-To: <43F9C027.20203@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Can someone please explain me why the generic "BUG()" definition
+On Mon, Feb 20, 2006 at 02:12:07PM +0100, Zoltan Menyhart wrote:
+> Can someone please explain me why the generic "BUG()" definition
 
-#define BUG() do { \
-        printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
-        panic("BUG!"); \
-} while (0)
+The "generic" case is the one we do when the architecture hasn't got
+its own implementation.  For a guide to what *should* be done, you
+should look at x86 instead.  There, you'll see:
 
-has been changed to
+        do_exit(SIGSEGV);
+(see arch/i386/kernel/traps.c)
 
-#define BUG() do { i\
-	printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); \
-	ia64_abort(); \
-} while (0)
-
-?
-
-Only for the sake of "show_regs()" ?
-
-If a task calls a kernel service, and that service detects some
-incoherency in the kernel data, then we usually call "BUG()".
-
-Due to the actual "BUG()" definition, only the calling task gets
-killed, the system continues with the incoherent kernel data.
-
-Maybe "die()" should call "panic()" unconditionally, instead
-of "do_exit()" ?
-
-Thanks,
-
-Zoltan Menyhart
-
+> If a task calls a kernel service, and that service detects some
+> incoherency in the kernel data, then we usually call "BUG()".
+> 
+> Due to the actual "BUG()" definition, only the calling task gets
+> killed, the system continues with the incoherent kernel data.
+> 
+> Maybe "die()" should call "panic()" unconditionally, instead
+> of "do_exit()" ?
+> 
+> Thanks,
+> 
+> Zoltan Menyhart
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
