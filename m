@@ -1,34 +1,58 @@
-From: "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
-Date: Mon, 27 Feb 2006 20:28:08 +0000
-Subject: RE: Export cpu cache info by sysfs
-Message-Id: <88056F38E9E48644A0F562A38C64FB60075F68B4@scsmsx403.amr.corp.intel.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Mon, 20 Feb 2006 19:25:00 +0000
+Subject: [PATCH -mm HOT-FIX] fix build on ia64 (modpost.c)
+Message-Id: <20060220192500.GA17003@mars.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1140066744.13438.27.camel@ymzhang-perf.sh.intel.com>
-In-Reply-To: <1140066744.13438.27.camel@ymzhang-perf.sh.intel.com>
+References: <20060220042615.5af1bddc.akpm@osdl.org>
+In-Reply-To: <20060220042615.5af1bddc.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
+> 
+> - This kernel won't compile on ia64 (and possibly other architectures)
+>   because the kbuild tree is using Elf_Rela in scripts/mod/modpost.c.  Is OK
+>   on x86, x86_64 and powerpc.  Sam might send a hotfix?
+
+Attached is a real hot-fix. It disables the new check entirely.
+
+I like to learn:
+1) Why IA64 is missing Elf64_Rela. Can someone drop me a copy of elf.h -
+and include gcc + binutils version in the mail - thanks.
+
+2) I also like to know if other architectures broke - so I can figure
+out how to fix this.
+
+I have tested this on X86_64/amd64 (gentoo based) only.
+
+	Sam
+
+	
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index 844f84b..b87070a 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -451,6 +451,7 @@ static char *get_modinfo(void *modinfo, 
+ 	return NULL;
+ }
  
-
->-----Original Message-----
->From: Luck, Tony 
->Sent: Monday, February 27, 2006 11:19 AM
->To: Chen, Kenneth W; Zhang, Yanmin
->Cc: linux-ia64@vger.kernel.org; Pallipadi, Venkatesh; Siddha, 
->Suresh B; Zhang, Yanmin
->Subject: RE: Export cpu cache info by sysfs
->
->
->Are there any applications that look at 
->/sys/devices/system/cpu/cpu*/cache*?
->
-
-I don't know of any application that use this interface today. Though we
-want applications to be using it, I don't think this interface is
-publicised enough for aplications to be using it yet. The i386 version
-went in pretty recently (2.6.14 or so)... 
-
-Thanks,
-Venki
++#if 0
+ /**
+  * Find symbol based on relocation record info.
+  * In some cases the symbol supplied is a valid symbol so
+@@ -616,7 +617,12 @@ static void check_sec_ref(struct module 
+ 		}
+ 	}
+ }
+-
++#endif
++static void check_sec_ref(struct module *mod, const char *modname,
++			  struct elf_info *elf,
++			  int section(const char*),
++			  int section_ref_ok(const char *))
++{}
+ /**
+  * Functions used only during module init is marked __init and is stored in
+  * a .init.text section. Likewise data is marked __initdata and stored in
