@@ -1,26 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Wed, 22 Feb 2006 00:39:35 +0000
-Subject: Re: IA64 non-contiguous memory space bugs
-Message-Id: <20060221.163935.32626284.davem@davemloft.net>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 22 Feb 2006 01:31:59 +0000
+Subject: RE: IA64 non-contiguous memory space bugs
+Message-Id: <200602220132.k1M1Vxg09552@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <20060222001359.GA23574@localhost.localdomain>
 References: <20060222001359.GA23574@localhost.localdomain>
 In-Reply-To: <20060222001359.GA23574@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: david@gibson.dropbear.id.au
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: 'David Gibson' <david@gibson.dropbear.id.au>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: David Gibson <david@gibson.dropbear.id.au>
-Date: Wed, 22 Feb 2006 11:13:59 +1100
+David Gibson wrote on Tuesday, February 21, 2006 4:14 PM
+> Second problem is in the hugepage logic in free_pgtables()
+> (mm/memory.c).  As far as I can tell it's complete crap, and only
+> works by accident, for different accidental reasons on ppc64 and ia64,
+> the only archs that have a non-trivial is_hugepage_only_range().
+> Except that I'm not sure it does entirely work by accident on ia64:
+> suppose a process has a hugepage mapping that begins some way after
+> the beginning of the hugepage address range.  Before
+> hugetlb_free_pgd_range() gets called on that area, it will be called
+> on the next normal page VMA down - but with an end address at the
+> beginning of the hugepage VMA and so extending into the hugepage
+> address range.  I don't really understand the ia64 pagetable mapping
+> stuff well enough to tell if that's dangerous or not.
 
-> Quite some time ago, I found (by inspection) an ia64 specific bug
-> related to its non-contiguous user address space.  I've never done
-> anything about it, because I don't have an ia64 to test on - but
-> somebody should fix it.  Recently I've spotted another possible bug,
-> also by inspection - I don't know enough about ia64 to tell if it's a
-> real problem or not.
+I don't see any problem in the ia64 code.  The start and end address is
+what the vma specified.  Floor and ceiling is just a hint for free_pgtables()
+to free any left over page tables between vma holes (to prev and next).
+As far as I can tell, the code looks fine.
 
-Good catch David, I'll need to add similar checks on sparc64 as
-we have a 64-bit virtual address space hole on several processors
-there.
+- Ken
+
