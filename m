@@ -1,33 +1,37 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 17 Feb 2006 15:52:37 +0000
-Subject: Re: [PATCH: 004/012] Memory hotplug for new nodes v.2. (pgdat
-Message-Id: <1140191557.21383.79.camel@localhost.localdomain>
+From: David Mansfield <david@cobite.com>
+Date: Thu, 23 Feb 2006 22:34:21 +0000
+Subject: ioctl32 unknown cmd on Opteron system
+Message-Id: <1140734061.28066.28.camel@gandalf.cobite.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060217211436.4070.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060217211436.4070.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, Joel Schopp <jschopp@austin.ibm.com>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, x86-64 Discuss <discuss@x86-64.org>
+To: linux-ia64@vger.kernel.org
 
-On Fri, 2006-02-17 at 22:28 +0900, Yasunori Goto wrote:
-> 
-> +       if (node < 0)
-> +               node = 0; /* pxm is undefined in DSDT.
-> +                            This might be non NUMA case */
-> +
-> +       if (!node_online(node)){
-> +               ret = new_pgdat_init(node, start_pfn, nr_pages);
-> +               if (ret)
-> +                       return ret;
-> +
-> +               new_pgdat = 1;
-> +       }
-> +       pgdat = NODE_DATA(node); 
+Hi folks,
 
-Now that I've seen this exact code copy-and-pasted into two different
-architectures, it begs the question: do we need a common function here?
+I'm getting the following kernel message when I try to run a RAID
+management tool for the megaraid:
 
--- Dave
+ioctl32(megamgr.bin:12688): Unknown cmd fd(3) cmd(c06e6d00){00}
+arg(080f3f00) on /dev/megadev0
+
+The tool is binary only, and is clearly a 32bit version.
+
+My system is a 'AMD Opteron(tm) Processor 246' running kernel
+2.6.10-1.771_FC2smp.
+
+Am I correct in guessing that some 'stuff' needs to be added to
+fs/compat_ioctl.c to get this working?  
+
+If so, how does one tell whether the ioctl needs 32bit <-> 64bit
+twiddling to work? 
+
+If anyone has any hints, I might have time to take a look at it.
+
+For example, how would I find out how this ioctl gets handled on a 32bit
+(i386) kernel?
+
+David
+
 
