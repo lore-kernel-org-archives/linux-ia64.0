@@ -1,35 +1,24 @@
-From: mita@miraclelinux.com (Akinobu Mita)
-Date: Fri, 03 Feb 2006 01:27:35 +0000
-Subject: [PATCH] fix generic_fls64()
-Message-Id: <20060203012735.GA21567@miraclelinux.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 24 Feb 2006 02:30:35 +0000
+Subject: [patch 0/2] remove per-cpu dtr requirement
+Message-Id: <200602240230.k1O2UZg05919@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <DCEAAC0833DD314AB0B58112AD99B93B859547@ismail.innsys.innovsys.com>
-In-Reply-To: <DCEAAC0833DD314AB0B58112AD99B93B859547@ismail.innsys.innovsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rune Torgersen <runet@innovsys.com>
-Cc: linux-kernel@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, Ian Molton <spyro@f2s.com>, David Howells <dhowells@redhat.com>, linuxppc-dev@ozlabs.org, Greg Ungerer <gerg@uclinux.org>, sparclinux@vger.kernel.org, Miles Bader <uclinux-v850@lsi.nec.co.jp>, Linus Torvalds <torvalds@osdl.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Hirokazu Takata <takata@linux-m32r.org>, linuxsh-shmedia-dev@lists.sourceforge.net, linux-m68k@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Richard Henderson <rth@twiddle.net>, Chris Zankel <chris@zankel.net>, dev-etrax@axis.com, ultralinux@vger.kernel.org, Andi Kleen <ak@suse.de>, linuxsh-dev@lists.sourceforge.net, linux390@de.ibm.com, Russell King <rmk@arm.linux.org.uk>, parisc-linux@parisc-linux.org, akpm@osdl.org, Stephen Hemminger <shemminger@osdl.org>
+To: linux-ia64@vger.kernel.org
 
-Noticed by Rune Torgersen.
+Here is a respin of previously posted patches that remove pinned
+DTR per-cpu TLB requirement.  Instead we use DTC to map that
+translation.
 
-fix generic_fls64().
-tcp_cubic is using fls64().
+With these two patches, we measured substantial performance gain
+on a database benchmark, in the vicinity of 1.6%. I've also done
+extensive performance measurement on two other industry standard
+benchmarks (cpu, java), and have found to have small gain on those
+workloads.
 
-Signed-off-by: Akinobu Mita <mita@miraclelinux.com>
+Detail description in the follow on patches.
 
- include/linux/bitops.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+- Ken
 
-Index: 2.6-git/include/linux/bitops.h
-=================================--- 2.6-git.orig/include/linux/bitops.h
-+++ 2.6-git/include/linux/bitops.h
-@@ -81,7 +81,7 @@ static inline int generic_fls64(__u64 x)
- {
- 	__u32 h = x >> 32;
- 	if (h)
--		return fls(x) + 32;
-+		return fls(h) + 32;
- 	return fls(x);
- }
- 
