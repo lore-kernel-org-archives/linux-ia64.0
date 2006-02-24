@@ -1,33 +1,37 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Sat, 25 Feb 2006 11:55:26 +0000
-Subject: Re: [PATCH] altix:  export sn_pcidev_info_get
-Message-Id: <20060225115526.GB24439@infradead.org>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 24 Feb 2006 01:45:14 +0000
+Subject: [patch] fix ia64 hugetlb_free_pgd_range
+Message-Id: <200602240145.k1O1jEg05475@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060214162337.GA16954@sgi.com> <20060220201713.GA4992@infradead.org> <20060220133956.01b59562.akpm@osdl.org> <20060221104841.GE19349@infradead.org>
-In-Reply-To: <20060221104841.GE19349@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>, Andrew Morton <akpm@osdl.org>, maule@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: 'David Gibson' <david@gibson.dropbear.id.au>, 'Hugh Dickins' <hugh@veritas.com>, "Luck, Tony" <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Feb 21, 2006 at 10:48:41AM +0000, Christoph Hellwig wrote:
-> On Mon, Feb 20, 2006 at 01:39:56PM -0800, Andrew Morton wrote:
-> > Christoph Hellwig <hch@infradead.org> wrote:
-> > >
-> > >  On Tue, Feb 14, 2006 at 10:23:37AM -0600, Mark Maule wrote:
-> > >  > Export sn_pcidev_info_get.
-> > > 
-> > >  Tony or Andrew please back this out again.
-> > 
-> > Please send a patch.
+I've looked at hugetlb_free_pgd_range() right side up, right side
+down, up side up, up side down.  And it just doesn't look correct
+to me at all.
 
-ping?
+In that function, we do address transformation before calling
+free_pgd_range, so the generic function can traverse to right set
+of page table page.  There is no need to do any range check.
 
-> --- a/arch/ia64/sn/kernel/io_init.c	20 Feb 2006 14:29:08 -0000	1.11
-> +++ b/arch/ia64/sn/kernel/io_init.c	21 Feb 2006 10:47:10 -0000
-> @@ -716,4 +716,3 @@ EXPORT_SYMBOL(sn_pci_unfixup_slot);
->  EXPORT_SYMBOL(sn_pci_controller_fixup);
->  EXPORT_SYMBOL(sn_bus_store_sysdata);
->  EXPORT_SYMBOL(sn_bus_free_sysdata);
-> -EXPORT_SYMBOL(sn_pcidev_info_get);
----end quoted text---
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+--- ./arch/ia64/mm/hugetlbpage.c.orig	2006-02-23 18:21:28.202422392 -0800
++++ ./arch/ia64/mm/hugetlbpage.c	2006-02-23 18:26:28.256129654 -0800
+@@ -125,9 +125,9 @@ void hugetlb_free_pgd_range(struct mmu_g
+ 
+ 	addr = htlbpage_to_page(addr);
+ 	end  = htlbpage_to_page(end);
+-	if (is_hugepage_only_range(tlb->mm, floor, HPAGE_SIZE))
++	if (REGION_NUMBER(floor) = RGN_HPAGE)
+ 		floor = htlbpage_to_page(floor);
+-	if (is_hugepage_only_range(tlb->mm, ceiling, HPAGE_SIZE))
++	if (REGION_NUMBER(ceiling) = RGN_HPAGE)
+ 		ceiling = htlbpage_to_page(ceiling);
+ 
+ 	free_pgd_range(tlb, addr, end, floor, ceiling);
+
+
