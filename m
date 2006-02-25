@@ -1,26 +1,33 @@
 From: Christoph Hellwig <hch@infradead.org>
-Date: Sat, 25 Feb 2006 11:55:12 +0000
+Date: Sat, 25 Feb 2006 11:55:26 +0000
 Subject: Re: [PATCH] altix:  export sn_pcidev_info_get
-Message-Id: <20060225115512.GA24439@infradead.org>
+Message-Id: <20060225115526.GB24439@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060214162337.GA16954@sgi.com> <20060220201713.GA4992@infradead.org> <20060221024710.GB30226@sgi.com> <20060221103633.GA19349@infradead.org> <yq0r75x6jmn.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0r75x6jmn.fsf@jaguar.mkp.net>
+References: <20060214162337.GA16954@sgi.com> <20060220201713.GA4992@infradead.org> <20060220133956.01b59562.akpm@osdl.org> <20060221104841.GE19349@infradead.org>
+In-Reply-To: <20060221104841.GE19349@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Christoph Hellwig <hch@infradead.org>, Mark Maule <maule@sgi.com>, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>, Andrew Morton <akpm@osdl.org>, maule@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Feb 21, 2006 at 06:23:12AM -0500, Jes Sorensen wrote:
-> Point is that there are cases where tuning requires you to know what
-> PCI bridge is below you in order to get the best performance out of a
-> card. One can keep a PCI ID blacklist to handle tuning of the PCI
-> bridge itself, but it can't handle things that needs to be tuned
-> by setting the PCI device's own registers.
-> 
-> Having a generic API to export this information would be a good thing
-> IMHO.
+On Tue, Feb 21, 2006 at 10:48:41AM +0000, Christoph Hellwig wrote:
+> On Mon, Feb 20, 2006 at 01:39:56PM -0800, Andrew Morton wrote:
+> > Christoph Hellwig <hch@infradead.org> wrote:
+> > >
+> > >  On Tue, Feb 14, 2006 at 10:23:37AM -0600, Mark Maule wrote:
+> > >  > Export sn_pcidev_info_get.
+> > > 
+> > >  Tony or Andrew please back this out again.
+> > 
+> > Please send a patch.
 
-So please submit a patch to add querying/tuning pci bridges.  And please
-make it _GPL exports so people don't accidentally use it in their illegal
-drivers.
+ping?
+
+> --- a/arch/ia64/sn/kernel/io_init.c	20 Feb 2006 14:29:08 -0000	1.11
+> +++ b/arch/ia64/sn/kernel/io_init.c	21 Feb 2006 10:47:10 -0000
+> @@ -716,4 +716,3 @@ EXPORT_SYMBOL(sn_pci_unfixup_slot);
+>  EXPORT_SYMBOL(sn_pci_controller_fixup);
+>  EXPORT_SYMBOL(sn_bus_store_sysdata);
+>  EXPORT_SYMBOL(sn_bus_free_sysdata);
+> -EXPORT_SYMBOL(sn_pcidev_info_get);
+---end quoted text---
