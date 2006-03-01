@@ -1,36 +1,50 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 23 Mar 2006 05:41:50 +0000
-Subject: Re: perfmon2 context: thread_struct vs. task_struct?
-Message-Id: <20060323054150.GC26848@frankl.hpl.hp.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 01 Mar 2006 13:34:41 +0000
+Subject: Re: [PATCH] altix:  export sn_pcidev_info_get
+Message-Id: <yq0hd6i70ge.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060322233253.GB26602@frankl.hpl.hp.com> <20060322183736.4a3bb1c2.akpm@osdl.org>
-In-Reply-To: <20060322183736.4a3bb1c2.akpm@osdl.org>
+References: <20060214162337.GA16954@sgi.com>
+	<20060220201713.GA4992@infradead.org> <20060221024710.GB30226@sgi.com>
+	<20060221103633.GA19349@infradead.org>
+	<yq0r75x6jmn.fsf@jaguar.mkp.net>
+	<20060225115512.GA24439@infradead.org>
+In-Reply-To: <20060225115512.GA24439@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>
+Cc: Mark Maule <maule@sgi.com>, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Andrew,
+>>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
 
-On Wed, Mar 22, 2006 at 06:37:36PM -0800, Andrew Morton wrote:
-> > Would it make sense  to move the pointer to the perfmon2
-> > context into the task_struct?
-> 
-> I'd say so, yes.  Especialy if the struct is the same on all architectures,
-> is referred to from non-arch-specific code and is absent if
-> CONFIG_PERFMON=n.
-> 
-Yes the structure is the same for all architectures. It looks like
-task_struct already has #ifdefs in it. So I could do:
+Christoph> On Tue, Feb 21, 2006 at 06:23:12AM -0500, Jes Sorensen
+Christoph> wrote:
+>> Point is that there are cases where tuning requires you to know
+>> what PCI bridge is below you in order to get the best performance
+>> out of a card. One can keep a PCI ID blacklist to handle tuning of
+>> the PCI bridge itself, but it can't handle things that needs to be
+>> tuned by setting the PCI device's own registers.
+>> 
+>> Having a generic API to export this information would be a good
+>> thing IMHO.
 
-struct task_struct {
-	....
-#ifdef CONFIG_PERFMON
-	struct pfm_context *pfm_context;
-#endif
-	...
-};
+Christoph> So please submit a patch to add querying/tuning pci
+Christoph> bridges.  And please make it _GPL exports so people don't
+Christoph> accidentally use it in their illegal drivers.
 
--- 
--Stephane
+Mark checked with the gfx people and it seems that the requirement for
+this information was a leftover from an older codebase and they don't
+actually need it anymore. Anyway, I'm not sure what illegal drivers
+you keep referring to.
+
+Tony/Andrew, it should be ok to take the export out again.
+
+I'll try to look into doing a more generic interface for querying
+information about the low level PCI briges at some point. Since
+there's no new users screaming for this right now and most current
+drivers that will benefit from it are somewhat old, it's not going to
+be my top priority item at this moment. Since this would be an
+interface, it would obviously have to a regular symbol export.
+
+Cheers,
+Jes
