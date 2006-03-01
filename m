@@ -1,50 +1,19 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 01 Mar 2006 13:34:41 +0000
-Subject: Re: [PATCH] altix:  export sn_pcidev_info_get
-Message-Id: <yq0hd6i70ge.fsf@jaguar.mkp.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 01 Mar 2006 14:41:20 +0000
+Subject: RE: [PATCH] altix:  export sn_pcidev_info_get
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05D5CE36@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060214162337.GA16954@sgi.com>
-	<20060220201713.GA4992@infradead.org> <20060221024710.GB30226@sgi.com>
-	<20060221103633.GA19349@infradead.org>
-	<yq0r75x6jmn.fsf@jaguar.mkp.net>
-	<20060225115512.GA24439@infradead.org>
-In-Reply-To: <20060225115512.GA24439@infradead.org>
+In-Reply-To: <20060214162337.GA16954@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
+To: Jes Sorensen <jes@sgi.com>, Christoph Hellwig <hch@infradead.org>
 Cc: Mark Maule <maule@sgi.com>, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
+> Tony/Andrew, it should be ok to take the export out again.
 
-Christoph> On Tue, Feb 21, 2006 at 06:23:12AM -0500, Jes Sorensen
-Christoph> wrote:
->> Point is that there are cases where tuning requires you to know
->> what PCI bridge is below you in order to get the best performance
->> out of a card. One can keep a PCI ID blacklist to handle tuning of
->> the PCI bridge itself, but it can't handle things that needs to be
->> tuned by setting the PCI device's own registers.
->> 
->> Having a generic API to export this information would be a good
->> thing IMHO.
+I'm glad that this causes no distress ... I took the export out
+yesterday, and Linus pulled, so it is already gone.
 
-Christoph> So please submit a patch to add querying/tuning pci
-Christoph> bridges.  And please make it _GPL exports so people don't
-Christoph> accidentally use it in their illegal drivers.
-
-Mark checked with the gfx people and it seems that the requirement for
-this information was a leftover from an older codebase and they don't
-actually need it anymore. Anyway, I'm not sure what illegal drivers
-you keep referring to.
-
-Tony/Andrew, it should be ok to take the export out again.
-
-I'll try to look into doing a more generic interface for querying
-information about the low level PCI briges at some point. Since
-there's no new users screaming for this right now and most current
-drivers that will benefit from it are somewhat old, it's not going to
-be my top priority item at this moment. Since this would be an
-interface, it would obviously have to a regular symbol export.
-
-Cheers,
-Jes
+-Tony
