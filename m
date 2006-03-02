@@ -1,42 +1,57 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Mon, 27 Mar 2006 12:56:22 +0000
-Subject: atomic_ops.txt vs. test_and_set_bit()
-Message-Id: <4427E0F6.20308@bull.net>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 02 Mar 2006 22:02:32 +0000
+Subject: PATCH[4/4] - Increase max node count on SN platforms
+Message-Id: <20060302220232.GA17657@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I had a look at the atomic_ops.txt:
+Update configuration files with new CONFIG option.
 
-"      int test_and_set_bit(unsigned long nr, volatils unsigned long *addr);
-       int test_and_clear_bit(unsigned long nr, volatils unsigned long *addr);
-       int test_and_change_bit(unsigned long nr, volatils unsigned long *addr);
-[...]
 
-These routines, like the atomic_t counter operations returning values,
-require explicit memory barrier semantics around their execution.  All
-memory operations before the atomic bit operation call must be made
-visible globally before the atomic bit operation is made visible.
-Likewise, the atomic bit operation must be visible globally before any
-subsequent memory operation is made visible.  For example:
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-       obj->dead = 1;
-       if (test_and_set_bit(0, &obj->flags))
-               /* ... */;
-       obj->killed = 1;
 
-The implementation of test_and_set_bit() must guarentee that
-"obj->dead = 1;" is visible to cpus before the atomic memory operation
-done by test_and_set_bit() becomes visible.  Likewise, the atomic
-memory operation done by test_and_set_bit() must become visible before
-"obj->killed = 1;" is visible."
+ configs/gensparse_defconfig |    1 +
+ configs/sn2_defconfig       |    1 +
+ defconfig                   |    1 +
+ 3 files changed, 3 insertions(+)
 
-The implementation of "test_and_set_bit()" does not meet this
-requirement. It's a bad news.
-If the description in atomic_ops.txt were not quite up to date... :-)
 
-Regards,
 
-Zoltan 
+
+Index: linux/arch/ia64/defconfig
+=================================--- linux.orig/arch/ia64/defconfig	2006-03-01 16:07:24.000000000 -0600
++++ linux/arch/ia64/defconfig	2006-03-02 15:27:11.948214644 -0600
+@@ -116,6 +116,7 @@ CONFIG_IOSAPIC=y
+ CONFIG_FORCE_MAX_ZONEORDER
+ CONFIG_SMP=y
+ CONFIG_NR_CPUSQ2
++CONFIG_IA64_NR_NODES%6
+ CONFIG_HOTPLUG_CPU=y
+ # CONFIG_SCHED_SMT is not set
+ # CONFIG_PREEMPT is not set
+Index: linux/arch/ia64/configs/gensparse_defconfig
+=================================--- linux.orig/arch/ia64/configs/gensparse_defconfig	2006-03-01 16:07:24.000000000 -0600
++++ linux/arch/ia64/configs/gensparse_defconfig	2006-03-02 15:32:17.298135055 -0600
+@@ -116,6 +116,7 @@ CONFIG_IOSAPIC=y
+ CONFIG_FORCE_MAX_ZONEORDER
+ CONFIG_SMP=y
+ CONFIG_NR_CPUSQ2
++CONFIG_IA64_NR_NODES%6
+ CONFIG_HOTPLUG_CPU=y
+ # CONFIG_SCHED_SMT is not set
+ # CONFIG_PREEMPT is not set
+Index: linux/arch/ia64/configs/sn2_defconfig
+=================================--- linux.orig/arch/ia64/configs/sn2_defconfig	2006-03-01 16:07:24.000000000 -0600
++++ linux/arch/ia64/configs/sn2_defconfig	2006-03-02 15:32:21.071202353 -0600
+@@ -116,6 +116,7 @@ CONFIG_IA64_SGI_SN_XP=m
+ CONFIG_FORCE_MAX_ZONEORDER
+ CONFIG_SMP=y
+ CONFIG_NR_CPUS24
++CONFIG_IA64_NR_NODES%6
+ # CONFIG_HOTPLUG_CPU is not set
+ CONFIG_SCHED_SMT=y
+ CONFIG_PREEMPT=y
