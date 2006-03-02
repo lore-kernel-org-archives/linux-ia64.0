@@ -1,56 +1,63 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 12 Mar 2006 18:23:37 +0000
-Subject: [patch] move machvec_noop from inline to c file
-Message-Id: <200603121823.k2CINZg10902@unix-os.sc.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 02 Mar 2006 23:59:50 +0000
+Subject: [PATCH] gensparse_defconfig: turn on PNPACPI
+Message-Id: <200603021659.50082.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There are 9 copy of these thing when compile with CONFIG_IA64_GENERIC
-because it is declared as inline function but called through function
-pointer.  gcc makes 9 copy of these empty function around.  Move it
-into machvec.c file.
+Turn on CONFIG_PNPACPI.  I recently removed 8250_acpi.c.  All devices
+previously claimed by 8250_acpi.c should now be claimed by 8250_pnp.c.
+This depends on having CONFIG_PNPACPI so ACPI devices show up as PNP
+devices.
 
+All other ia64 defconfigs either have CONFIG_PNPACPI already, or
+don't have 8250 support turned on at all.
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
---- ./arch/ia64/kernel/machvec.c.orig	2006-01-02 19:21:10.000000000 -0800
-+++ ./arch/ia64/kernel/machvec.c	2006-03-12 10:54:23.311711322 -0800
-@@ -41,6 +41,13 @@ machvec_init (const char *name)
- 	printk(KERN_INFO "booting generic kernel on platform %s\n", name);
- }
+diff -r e2b91b5a8109 arch/ia64/configs/gensparse_defconfig
+--- a/arch/ia64/configs/gensparse_defconfig	Thu Mar  2 07:49:50 2006 +0800
++++ b/arch/ia64/configs/gensparse_defconfig	Thu Mar  2 16:53:03 2006 -0700
+@@ -1,7 +1,7 @@
+ #
+ # Automatically generated make config: don't edit
+ # Linux kernel version: 2.6.16-rc5
+-# Mon Feb 27 16:15:43 2006
++# Thu Mar  2 16:39:10 2006
+ #
  
-+void machvec_noop (void)
-+{
-+}
+ #
+@@ -312,7 +312,13 @@ CONFIG_FW_LOADER=m
+ #
+ # Plug and Play support
+ #
+-# CONFIG_PNP is not set
++CONFIG_PNP=y
++# CONFIG_PNP_DEBUG is not set
 +
-+void machvec_noop_mm (struct mm_struct *mm)
-+{
-+}
- #endif /* CONFIG_IA64_GENERIC */
++#
++# Protocols
++#
++CONFIG_PNPACPI=y
  
- void
---- ./include/asm-ia64/machvec.h.orig	2006-01-02 19:21:10.000000000 -0800
-+++ ./include/asm-ia64/machvec.h	2006-03-12 11:07:24.618342376 -0800
-@@ -75,6 +75,10 @@ typedef unsigned short ia64_mv_readw_rel
- typedef unsigned int ia64_mv_readl_relaxed_t (const volatile void __iomem *);
- typedef unsigned long ia64_mv_readq_relaxed_t (const volatile void __iomem *);
+ #
+ # Block devices
+@@ -357,6 +363,7 @@ CONFIG_BLK_DEV_IDESCSI=m
+ # IDE chipset support/bugfixes
+ #
+ CONFIG_IDE_GENERIC=y
++# CONFIG_BLK_DEV_IDEPNP is not set
+ CONFIG_BLK_DEV_IDEPCI=y
+ # CONFIG_IDEPCI_SHARE_IRQ is not set
+ # CONFIG_BLK_DEV_OFFBOARD is not set
+@@ -525,6 +532,7 @@ CONFIG_DUMMY=m
+ # CONFIG_BONDING is not set
+ # CONFIG_EQUALIZER is not set
+ # CONFIG_TUN is not set
++# CONFIG_NET_SB1000 is not set
  
-+#if defined (CONFIG_IA64_GENERIC)
-+extern void machvec_noop (void);
-+extern void machvec_noop_mm (struct mm_struct *mm);
-+#else
- static inline void
- machvec_noop (void)
- {
-@@ -84,6 +88,7 @@ static inline void
- machvec_noop_mm (struct mm_struct *mm)
- {
- }
-+#endif
- 
- extern void machvec_setup (char **);
- extern void machvec_timer_interrupt (int, void *, struct pt_regs *);
-
+ #
+ # ARCnet devices
