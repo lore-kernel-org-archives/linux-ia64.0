@@ -1,46 +1,30 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 17 Mar 2006 17:19:11 +0000
-Subject: Re: [PATCH: 009/017]Memory hotplug for new nodes v.4.(add return
-Message-Id: <1142615951.10906.70.camel@localhost.localdomain>
+From: Dean Roe <roe@sgi.com>
+Date: Fri, 03 Mar 2006 15:03:12 +0000
+Subject: [PATCH] fix for-loop in sn_hwperf_geoid_to_cnode()
+Message-Id: <20060303150312.GA32225@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060317163404.C649.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060317163404.C649.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-On Fri, 2006-03-17 at 17:22 +0900, Yasunori Goto wrote:
-> --- pgdat8.orig/mm/memory_hotplug.c	2006-03-16 16:05:38.000000000 +0900
-> +++ pgdat8/mm/memory_hotplug.c	2006-03-16 16:45:30.000000000 +0900
-> @@ -26,16 +26,23 @@
->  
->  extern void zonetable_add(struct zone *zone, int nid, int zid, unsigned long pfn,
->  			  unsigned long size);
-> -static void __add_zone(struct zone *zone, unsigned long phys_start_pfn)
-> +static int __add_zone(struct zone *zone, unsigned long phys_start_pfn)
->  {
->  	struct pglist_data *pgdat = zone->zone_pgdat;
->  	int nr_pages = PAGES_PER_SECTION;
->  	int nid = pgdat->node_id;
->  	int zone_type;
-> +	int ret = 0;
->  
->  	zone_type = zone - pgdat->node_zones;
-> +	if (!populated_zone(zone)) {
-> +		ret = init_currently_empty_zone(zone, phys_start_pfn, nr_pages);
-> +		if (ret < 0)
-> +			return ret;
-> +	}
->  	memmap_init_zone(nr_pages, nid, zone_type, phys_start_pfn);
->  	zonetable_add(zone, nid, zone_type, phys_start_pfn, nr_pages);
-> +	return 0;
->  }
+Fix a for-loop in sn_hwperf_geoid_to_cnode().  It needs to loop over
+num_cnodes to ensure it can still process TIO nodes in addition to
+compute nodes on systems with many nodes.
 
-Minor nit: If you're going to introduce a top-level 'ret' variable, it
-is probably best to just use it everywhere.  In this case, you only use
-it inside of that if(), so you _could_ declare it in there.
+	Signed-off-by: Dean Roe <roe@sgi.com>
 
--- Dave
+
+Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ linux-2.6/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -110,7 +110,7 @@
+ 	if (sn_hwperf_location_to_bpos(location, &rack, &bay, &slot, &slab))
+ 		return -1;
+ 
+-	for_each_node(cnode) {
++	for (cnode = 0; cnode < num_cnodes; cnode++) {
+ 		geoid = cnodeid_get_geoid(cnode);
+ 		module_id = geo_module(geoid);
+ 		this_rack = MODULE_GET_RACK(module_id);
 
