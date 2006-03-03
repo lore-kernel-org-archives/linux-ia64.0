@@ -1,28 +1,39 @@
-From: hawkes@sgi.com
-Date: Mon, 27 Mar 2006 21:18:17 +0000
-Subject: [PATCH] ia64 sn_hwperf use of num_online_cpus()
-Message-Id: <20060327211817.16768.77971.sendpatchset@tomahawk.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 03 Mar 2006 22:34:34 +0000
+Subject: [PATCH] SGI SN drivers: don't report !sn2 hardware as an error
+Message-Id: <200603031534.34456.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Jack Steiner <steiner@sgi.com>, hawkes@sgi.com, Jes Sorensen <jes@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-Eliminate an unnecessary -- and flawed -- use of the expensive
-num_online_cpus().
+This stuff is all in the generic ia64 kernel, and the new initcall error
+reporting complains about them.
 
-Signed-off-by: John Hawkes <hawkes@sgi.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Index: linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2006-03-19 21:53:29.000000000 -0800
-+++ linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2006-03-27 13:14:12.000000000 -0800
-@@ -605,7 +605,7 @@ static int sn_hwperf_op_cpu(struct sn_hw
- 	op_info->a->arg &= SN_HWPERF_ARG_OBJID_MASK;
+Index: work-mm4/drivers/char/mmtimer.c
+=================================--- work-mm4.orig/drivers/char/mmtimer.c	2006-03-03 15:10:21.000000000 -0700
++++ work-mm4/drivers/char/mmtimer.c	2006-03-03 15:12:48.000000000 -0700
+@@ -675,7 +675,7 @@
+ 	cnodeid_t node, maxn = -1;
  
- 	if (cpu != SN_HWPERF_ARG_ANY_CPU) {
--		if (cpu >= num_online_cpus() || !cpu_online(cpu)) {
-+		if (cpu >= NR_CPUS || !cpu_online(cpu)) {
- 			r = -EINVAL;
- 			goto out;
- 		}
+ 	if (!ia64_platform_is("sn2"))
+-		return -1;
++		return 0;
+ 
+ 	/*
+ 	 * Sanity check the cycles/sec variable
+Index: work-mm4/drivers/serial/sn_console.c
+=================================--- work-mm4.orig/drivers/serial/sn_console.c	2006-03-03 15:10:21.000000000 -0700
++++ work-mm4/drivers/serial/sn_console.c	2006-03-03 15:12:48.000000000 -0700
+@@ -820,7 +820,7 @@
+ 	int retval;
+ 
+ 	if (!ia64_platform_is("sn2"))
+-		return -ENODEV;
++		return 0;
+ 
+ 	printk(KERN_INFO "sn_console: Console driver init\n");
+ 
