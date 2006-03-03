@@ -1,33 +1,41 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@free.fr>
-Date: Tue, 21 Mar 2006 23:31:33 +0000
-Subject: MCA: Should we always wake up the non-monarch CPUs?
-Message-Id: <44208CD5.2010206@free.fr>
+From: Russ Anderson <rja@efs.americas.sgi.com>
+Date: Fri, 03 Mar 2006 22:42:26 +0000
+Subject: [patch] mca recovery return value when no bus check
+Message-Id: <200603032242.k23MgQrO1552614@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The MCA handler always releases the non-monarch CPUs from the
-rendez-vous before returning to the SAL.
+[patch] mca recovery return value when no bus check.
 
-It is quite o.k. if the MCA has been recovered.
+When there is no bus check, the return code should be failure, not success.
 
-Yet, if the MCA cannot be recovered, what is the use of releasing
-the non-monarch CPUs from the rendez-vous?
-(It is much more easy to analyze the system state by use of some
-"external intelligence" if the non-monarch CPUs cannot run after
-an MCA for some considerably long time.)
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
-As far as I can see in the flow chart of the MCA handling in the
-SAL spec. (Dec. 2003, figure 4-6, page 61), it indicates that a
-_typical_ MCA handler should wake up the non-monarch CPUs.
+---
+ arch/ia64/kernel/mca_drv.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-Do I interpret correctly the spec. saying it is not an obligation,
-and the monarch CPU can return to the SAL and can request a reboot
-without waking up the non-monarch CPUs?
-
-Thanks,
-
-Zoltan Menyhart
-
+Index: test/arch/ia64/kernel/mca_drv.c
+=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2006-03-02 20:02:28.000000000 -0600
++++ test/arch/ia64/kernel/mca_drv.c	2006-03-02 21:40:56.915601996 -0600
+@@ -567,10 +567,15 @@ recover_from_processor_error(int platfor
+ 		return 0;
+ 
+ 	/*
+-	 * If there is no bus error, record is weird but we need not to recover.
++	 * The cache check and bus check bits have four possible states
++	 *   cc bc
++	 *    0  0	Weird record, not recovered
++	 *    1  0	Cache error, not recovered
++	 *    0  1	I/O error, attempt recovery
++	 *    1  1	Memory error, attempt recovery
+ 	 */
+ 	if (psp->bc = 0 || pbci = NULL)
+-		return 1;
++		return 0;
+ 
+ 	/*
+ 	 * Sorry, we cannot handle so many.
