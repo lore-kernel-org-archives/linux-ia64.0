@@ -1,52 +1,55 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:22:58 +0000
-Subject: [PATCH: 015/017]Memory hotplug for new nodes v.4.(avoid calling add_memory() for already exist memor
-Message-Id: <20060317163803.C655.Y-GOTO@jp.fujitsu.com>
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Mon, 06 Mar 2006 02:00:05 +0000
+Subject: hugepage: Move hugetlb_free_pgd_range() prototype to hugetlb.h
+Message-Id: <20060306020005.GB21408@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, William Lee Irwin <wli@holomorphy.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-When acpi_memory_device_init() is called at boottime to
-register struct memory acpi_memory_device, 
-acpi_bus_add() are called via acpi_driver_attach().
+The optional hugepage callback, hugetlb_free_pgd_range() is presently
+implemented non-trivially only on ia64 (but I plan to add one for
+powerpc shortly).  It has its own prototype for the function in
+asm-ia64/pgtable.h.  However, since the function is called from
+generic code, it make sense for its prototype to be in the generic
+hugetlb.h header file, as the protypes other arch callbacks already
+are (prepare_hugepage_range(), set_huge_pte_at(), etc.).  This patch
+makes it so.
 
-But it also calls ops->start() function.
-It is called even if the memory blocks are initialized at
-early boottime. In this case add_memory() return -EEXIST, and
-the memory blocks becomes INVALID state even if it is normal.
+Signed-off-by: David Gibson <dwg@au1.ibm.com>
 
-This is patch to avoid calling add_memory() for already available memory.
-
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
-
- drivers/acpi/acpi_memhotplug.c |   10 ++++++++++
- 1 files changed, 10 insertions(+)
-
-Index: pgdat8/drivers/acpi/acpi_memhotplug.c
-=================================--- pgdat8.orig/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:06:27.000000000 +0900
-+++ pgdat8/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:41:36.000000000 +0900
-@@ -234,6 +234,16 @@ static int acpi_memory_enable_device(str
-          * (i.e. memory-hot-remove function)
- 	 */
- 	list_for_each_entry(info, &mem_device->res_list, list) {
-+		u64 start_pfn, end_pfn;
-+		start_pfn= info->start_addr >> PAGE_SHIFT;
-+		end_pfn = (info->start_addr + info->length - 1) >> PAGE_SHIFT;
-+
-+		if (pfn_valid(start_pfn) || pfn_valid(end_pfn)){
-+			/* already enabled. try next area */
-+			num_enabled++;
-+			continue;
-+		}
-+
- 		result = add_memory(info->start_addr, info->length);
- 		if (result)
- 			continue;
+Index: working-2.6/include/asm-ia64/pgtable.h
+=================================--- working-2.6.orig/include/asm-ia64/pgtable.h	2006-02-24 11:44:35.000000000 +1100
++++ working-2.6/include/asm-ia64/pgtable.h	2006-03-06 12:57:11.000000000 +1100
+@@ -505,9 +505,6 @@ extern struct page *zero_page_memmap_ptr
+ #define HUGETLB_PGDIR_SHIFT	(HPAGE_SHIFT + 2*(PAGE_SHIFT-3))
+ #define HUGETLB_PGDIR_SIZE	(__IA64_UL(1) << HUGETLB_PGDIR_SHIFT)
+ #define HUGETLB_PGDIR_MASK	(~(HUGETLB_PGDIR_SIZE-1))
+-struct mmu_gather;
+-void hugetlb_free_pgd_range(struct mmu_gather **tlb, unsigned long addr,
+-		unsigned long end, unsigned long floor, unsigned long ceiling);
+ #endif
+ 
+ /*
+Index: working-2.6/include/linux/hugetlb.h
+=================================--- working-2.6.orig/include/linux/hugetlb.h	2006-03-06 11:38:45.000000000 +1100
++++ working-2.6/include/linux/hugetlb.h	2006-03-06 12:53:20.000000000 +1100
+@@ -47,6 +47,10 @@ void hugetlb_change_protection(struct vm
+ 
+ #ifndef ARCH_HAS_HUGETLB_FREE_PGD_RANGE
+ #define hugetlb_free_pgd_range	free_pgd_range
++#else
++void hugetlb_free_pgd_range(struct mmu_gather **tlb, unsigned long addr,
++			    unsigned long end, unsigned long floor,
++			    unsigned long ceiling);
+ #endif
+ 
+ #ifndef ARCH_HAS_PREPARE_HUGEPAGE_RANGE
 
 -- 
-Yasunori Goto 
-
-
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/~dgibson
