@@ -1,24 +1,74 @@
-From: James E Wilson <wilson@specifix.com>
-Date: Fri, 17 Mar 2006 23:54:28 +0000
-Subject: Re: PATCH: Fix gnu-efi-3.0b-041222 for ia32
-Message-Id: <1142639668.24881.109.camel@aretha.corp.specifix.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Wed, 08 Mar 2006 13:41:03 +0000
+Subject: [PATCH: 000/017] (RFC)Memory hotplug for new nodes v.3.
+Message-Id: <20060308212316.0022.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060317202301.GA20807@lucon.org>
-In-Reply-To: <20060317202301.GA20807@lucon.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
+Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 
-On Fri, 2006-03-17 at 15:31, H. J. Lu wrote:
-> I guess we never used TLS in EFI applications before. It doesn't
-> really matter since TLS needs more than the linker script change.
+Hello.
 
-True, but there is always the danger that someone might copy this linker
-script somewhere else where it does matter.  So we may as well get it
-right.
+I'll post newest patches for memory hotadd with pgdat allocation as V3.
+There are many changes to make more common code.
 
-This version looks good to me.
+This may be too many patches, but I would like to show
+total feature of this code now.
+
+This patches are for 2.6.16-rc5-mm3.
+I tested these patch on just Tiger4(ia64) with emulation now.
+But, I'll test them for x86-64 too after this post.
+
+Please comment.
+
+---------------------------------------
+
+This is memory hotadd code when new node is added.
+In this patch, pgdat is allocated when new node is comming.
+To initialize pgdat and zones, a set of patches are necessary.
+  - to allcate and initialize pgdat, zone, zonelist.
+  - to make new kswapd
+  - to initialize node_data[] array (ia64)
+  - to register sysfs file for new node.
+  - to call memory_hotplug code from acpi container driver.
+
+Note:
+ - kzalloc is used for pgdat allocation in this version.
+   So, even if pgdat is allocated, it will be allocated on the other node.
+   This is only to simplify patches a bit. :-P
+
+-----------------------------
+Followings are updates.
+
+Updates from V2 to V3.
+  - update for 2.6.16-rc5-mm3.
+  - The caller function of pgdat allcation and so on become common code.
+  - Passing node id at add_memory().
+  - build_zonelists() is called after that pages are onlined.
+  - Updating NODE_DATA() for ia64 become simple and become 
+    common code between booting and hotadd.
+    (But other consideration will be necessary for hot-remove.)
+  - kswapd is called by kthread_run().
+  - finding node id by acpi use handle of its memory device.
+  - 
+
+Updates from V1 to V2.
+  - update for 2.6.16-rc5-mm2.
+  - not only ia64, This is tested on x86_64 with NUMA emulation too. :-)
+  - wait_table_size() allcation is changed.
+      - Take max size as much as possible.
+      - Change using GFP_ATOMIC. It is inside of zone_init_lock.
+        (Warining message of might_sleep() is very well.)
+  - stop_machine_run(build_zonelists) is move to outside of lock.
+  - pgdat_insert() is moved to generic code to be used by x86_64.
+  - add decision of ZONE_DMA32 or ZONE_NORMAL to x86_64's add_memory().
+  - Make a separated patch to change from __init to __meminit.
+  - Fix some typo
+
+
 -- 
-Jim Wilson, GNU Tools Support, http://www.specifix.com
+Yasunori Goto 
+
 
