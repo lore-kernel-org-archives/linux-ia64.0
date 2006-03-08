@@ -1,46 +1,52 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Fri, 24 Mar 2006 09:34:27 +0000
-Subject: gnu-efi-3.0c is available
-Message-Id: <20060324093427.GC28939@frankl.hpl.hp.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Wed, 08 Mar 2006 13:42:11 +0000
+Subject: [PATCH: 008/017](RFC) Memory hotplug for new nodes v.3. (allocate pgdat for ia64)
+Message-Id: <20060308213020.0032.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, nigel.croxon@hp.com
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Dave Hansen <haveblue@us.ibm.com>, Joel Schopp <jschopp@austin.ibm.com>
+Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
 
-Hello,
+This is a patch to allocate pgdat and per node data area for ia64.
+The size for them can be calculated by compute_pernodesize().
 
-I have released a new version of the GNU-EFI package.
-This package is used to build EFI applications on Linux
-for both IA-32 and IA-64 architectures.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-This is a maintenance release with no new features just
-updates to support the latest GNU compilers:
-
-	- updated linker scripts to support latest gcc sections.
-	  Provided by H.J. Lu from Intel. Special thanks to Jim Wilson
-	  for his help.
-
-	- updated library to compile cleanly with gcc4.1.
-	  Provided by Raymund Will from SuSE
-
-I have tested the package on Linux/ia64 with Debian gcc-4.0.3
-and binutils 2.16.91. With this, you can build a working elilo3.6.
-
-It compiles on Debian/i386 with gcc 4.0.3 and binutils 2.6.91.
-I dot have the setup to test i386 efi
-binaries.
-
-You can grab the package at:
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-3.0c.tar.gz
-	MD5SUM: 823e5f04d1c0a7b88831f91fbf12d470
-
-This is the last gnu-efi release that I manage. I am handing over
-the maintenance of the package to Nigel Croxon from HP. Please forward
-any new questions to him from now on. He is copied on this announcement.
-
-Thanks.
+Index: pgdat6/arch/ia64/mm/discontig.c
+=================================--- pgdat6.orig/arch/ia64/mm/discontig.c	2006-03-06 18:26:11.000000000 +0900
++++ pgdat6/arch/ia64/mm/discontig.c	2006-03-06 18:26:15.000000000 +0900
+@@ -115,7 +115,7 @@ static int __init early_nr_cpus_node(int
+  * compute_pernodesize - compute size of pernode data
+  * @node: the node id.
+  */
+-static unsigned long __init compute_pernodesize(int node)
++static unsigned long __meminit compute_pernodesize(int node)
+ {
+ 	unsigned long pernodesize = 0, cpus;
+ 
+@@ -728,6 +728,18 @@ void __init paging_init(void)
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
+ }
+ 
++pg_data_t *arch_alloc_nodedata(int nid)
++{
++	unsigned long size = compute_pernodesize(nid);
++
++	return kzalloc(size, GFP_KERNEL);
++}
++
++void arch_free_nodedata(pg_data_t *pgdat)
++{
++	kfree(pgdat);
++}
++
+ void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
+ {
+ 	pgdat_list[update_node] = update_pgdat;
 
 -- 
--Stephane
+Yasunori Goto 
+
+
