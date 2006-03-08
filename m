@@ -1,108 +1,115 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 02 Mar 2006 22:02:25 +0000
-Subject: PATCH[2/4] - Increase max node count on SN platforms
-Message-Id: <20060302220224.GA17134@sgi.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Wed, 08 Mar 2006 13:42:03 +0000
+Subject: [PATCH: 007/017](RFC) Memory hotplug for new nodes v.3. (refresh NODE_DATA() for ia64)
+Message-Id: <20060308212941.0030.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
+Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
 
-Add support in IA64 acpi for platforms that support more than 
-256 nodes. Currently, ACPI is limited to 256 nodes because the
-proximity domain number is 8-bits.
+ This is to refresh node_data[] array for ia64.
+As I mentioned previous patches,
+ia64 has copies of information of pgdat address array on each node
+as per node data.
 
-Long term, we expect to use ACPI3.0 to support >256 nodes. 
-This patch is an interim solution that works with platforms 
-that pass the  high order bits of the proximity domain in 
-"reserved" fields of the ACPI tables. This code is enabled 
-ONLY on SN platforms.
+At v2, this function used stop_machine_run() to update them.
+(I wished that they were copied safety as much as possible.)
+But, in this patch, this arrays are just copied simply, and
+set node_online_map bit after completion of pgdat initialization.
 
+So, kernel must touch NODE_DATA() macro after checking 
+node_online_map(). (Current code has already done it.)
+This is more simple way for just hot-add.....
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
- arch/ia64/kernel/acpi.c |   32 ++++++++++++++++++++++++++++----
- include/asm-ia64/acpi.h |    4 ++++
- 2 files changed, 32 insertions(+), 4 deletions(-)
-
-
+Note : It will be problem when hot-remove will occur,
+       because, even if online_map bit is upset, kernel may
+       touch NODE_DATA() due to race condition. :-(
 
 
-Index: linux/arch/ia64/kernel/acpi.c
-=================================--- linux.orig/arch/ia64/kernel/acpi.c	2006-03-01 16:07:24.179876869 -0600
-+++ linux/arch/ia64/kernel/acpi.c	2006-03-02 13:21:53.345807130 -0600
-@@ -414,6 +414,26 @@ int __devinitdata pxm_to_nid_map[MAX_PXM
- int __initdata nid_to_pxm_map[MAX_NUMNODES];
- static struct acpi_table_slit __initdata *slit_table;
- 
-+static int get_processor_proximity_domain(struct acpi_table_processor_affinity *pa)
-+{
-+	int pxm;
-+
-+	pxm = pa->proximity_domain;
-+	if (ia64_platform_is("sn2"))
-+		pxm += pa->reserved[0] << 8;
-+	return pxm;
-+}
-+
-+static int get_memory_proximity_domain(struct acpi_table_memory_affinity *ma)
-+{
-+	int pxm;
-+
-+	pxm = ma->proximity_domain;
-+	if (ia64_platform_is("sn2"))
-+		pxm += ma->reserved1[0] << 8;
-+	return pxm;
-+}
-+
- /*
-  * ACPI 2.0 SLIT (System Locality Information Table)
-  * http://devresource.hp.com/devresource/Docs/TechPapers/IA64/slit.pdf
-@@ -437,13 +457,17 @@ void __init acpi_numa_slit_init(struct a
- void __init
- acpi_numa_processor_affinity_init(struct acpi_table_processor_affinity *pa)
- {
-+	int pxm;
-+
-+	pxm = get_processor_proximity_domain(pa);
-+
- 	/* record this node in proximity bitmap */
--	pxm_bit_set(pa->proximity_domain);
-+	pxm_bit_set(pxm);
- 
- 	node_cpuid[srat_num_cpus].phys_id  	    (pa->apic_id << 8) | (pa->lsapic_eid);
- 	/* nid should be overridden as logical node id later */
--	node_cpuid[srat_num_cpus].nid = pa->proximity_domain;
-+	node_cpuid[srat_num_cpus].nid = pxm;
- 	srat_num_cpus++;
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+Index: pgdat6/arch/ia64/mm/discontig.c
+=================================--- pgdat6.orig/arch/ia64/mm/discontig.c	2006-03-06 18:26:07.000000000 +0900
++++ pgdat6/arch/ia64/mm/discontig.c	2006-03-06 18:26:11.000000000 +0900
+@@ -308,6 +308,17 @@ static void __init reserve_pernode_space
+ 	}
  }
  
-@@ -451,10 +475,10 @@ void __init
- acpi_numa_memory_affinity_init(struct acpi_table_memory_affinity *ma)
++void __meminit scatter_node_data(void)
++{
++	pg_data_t **dst;
++	int node;
++
++	for_each_online_node(node){
++		dst = LOCAL_DATA_ADDR(pgdat_list[node])->pg_data_ptrs;
++		memcpy(dst, pgdat_list, sizeof(pgdat_list));
++	}
++}
++
+ /**
+  * initialize_pernode_data - fixup per-cpu & per-node pointers
+  *
+@@ -320,11 +331,8 @@ static void __init initialize_pernode_da
  {
- 	unsigned long paddr, size;
--	u8 pxm;
-+	int pxm;
- 	struct node_memblk_s *p, *q, *pend;
+ 	int cpu, node;
  
--	pxm = ma->proximity_domain;
-+	pxm = get_memory_proximity_domain(ma);
+-	/* Copy the pg_data_t list to each node and init the node field */
+-	for_each_online_node(node) {
+-		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+-		       sizeof(pgdat_list));
+-	}
++	scatter_node_data();
++
+ #ifdef CONFIG_SMP
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+@@ -719,3 +727,9 @@ void __init paging_init(void)
  
- 	/* fill node memory chunk structure */
- 	paddr = ma->base_addr_hi;
-Index: linux/include/asm-ia64/acpi.h
-=================================--- linux.orig/include/asm-ia64/acpi.h	2006-03-01 16:07:30.037695249 -0600
-+++ linux/include/asm-ia64/acpi.h	2006-03-02 13:21:53.356548273 -0600
-@@ -111,7 +111,11 @@ extern int additional_cpus;
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
+ }
++
++void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
++{
++	pgdat_list[update_node] = update_pgdat;
++	scatter_node_data();
++}
+Index: pgdat6/arch/ia64/Kconfig
+=================================--- pgdat6.orig/arch/ia64/Kconfig	2006-03-06 18:25:31.000000000 +0900
++++ pgdat6/arch/ia64/Kconfig	2006-03-06 18:26:11.000000000 +0900
+@@ -364,6 +364,10 @@ config HAVE_ARCH_EARLY_PFN_TO_NID
+ 	def_bool y
+ 	depends on NEED_MULTIPLE_NODES
  
- #ifdef CONFIG_ACPI_NUMA
- /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
-+#ifdef CONFIG_IA64_NR_NODES
-+#define MAX_PXM_DOMAINS CONFIG_IA64_NR_NODES
-+#else
- #define MAX_PXM_DOMAINS (256)
-+#endif
- extern int __devinitdata pxm_to_nid_map[MAX_PXM_DOMAINS];
- extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
- #endif
++config HAVE_ARCH_NODEDATA_EXTENSION
++	def_bool y
++	depends on NUMA
++
+ config IA32_SUPPORT
+ 	bool "Support for Linux/x86 binaries"
+ 	help
+Index: pgdat6/include/asm-ia64/nodedata.h
+=================================--- pgdat6.orig/include/asm-ia64/nodedata.h	2006-03-06 18:24:02.000000000 +0900
++++ pgdat6/include/asm-ia64/nodedata.h	2006-03-06 18:26:11.000000000 +0900
+@@ -47,6 +47,15 @@ struct ia64_node_data {
+  */
+ #define NODE_DATA(nid)		(local_node_data->pg_data_ptrs[nid])
+ 
++/*
++ * LOCAL_DATA_ADDR - This is to calculate each local_node_data address among hot-plug phase.
++ *                   When new node is hot-added, the addresses of local data for other nodes
++ *                   are necessary to be updated. In addtion, the cpu's on the new node
++ *                   will be initialized after this local_data initialization. So,
++ *                   per_cpu_page and local_node_data can't be used.
++ */
++#define LOCAL_DATA_ADDR(pgdat) ((struct ia64_node_data *)((u64)(pgdat) + L1_CACHE_ALIGN(sizeof(struct pglist_data))))
++
+ #endif /* CONFIG_NUMA */
+ 
+ #endif /* _ASM_IA64_NODEDATA_H */
+
+-- 
+Yasunori Goto 
+
+
