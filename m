@@ -1,31 +1,80 @@
-From: Mark Maule <maule@sgi.com>
-Date: Fri, 17 Mar 2006 01:18:27 +0000
-Subject: Re: [PATCH] (-mm) drivers/pci/msi: explicit declaration of msi_register
-Message-Id: <20060317011827.GD13666@sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 08 Mar 2006 15:53:11 +0000
+Subject: 2.6.16-rc5 perfmon2 new code base + libpfm with Montecito support
+Message-Id: <20060308155311.GD13168@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44172F0E.6070708@ce.jp.nec.com> <20060314134535.72eb7243.akpm@osdl.org> <44176502.9050109@ce.jp.nec.com> <20060315235544.GA6504@suse.de> <44198210.6090109@ce.jp.nec.com> <20060316181934.GM13666@sgi.com> <20060316234118.GB9746@esmail.cup.hp.com> <20060316234906.GA24675@suse.de> <20060317004108.GH9746@esmail.cup.hp.com>
-In-Reply-To: <20060317004108.GH9746@esmail.cup.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Greg KH <gregkh@suse.de>, Jun'ichi Nomura <j-nomura@ce.jp.nec.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, shaohua.li@intel.com
+To: linux-kernel@vger.kernel.org
+Cc: perfmon@napali.hpl.hp.com, perfctr-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-On Thu, Mar 16, 2006 at 04:41:08PM -0800, Grant Grundler wrote:
-> On Thu, Mar 16, 2006 at 03:49:06PM -0800, Greg KH wrote:
-> > > There are other transaction based interrupt subsystems that are typically
-> > > arch specific (e.g. GSC device interrupts on PA-RISC). So far, MSI is the
-> > > only generic one and that is clearly part of the PCI spec. 
-> > 
-> > Yes, that's fine.  But the core pci msi structures do not need to be
-> > exported for the whole kernel to see, right?  That's my only point here.
-> 
-> Yes, got it. I agree.
-> 
+Hello,
 
-Ok, I'll move the SN stuff down into pci/drivers.  I think that's ok, and
-still allow the separation we want.  Basicly there's [almost] generic
-msi core code (msi.c) and platform dependent interrupt controllers
-(msi-apic.c and soon msi-altix.c).
+I have released another version of the perfmon new base package.
+This release is relative to 2.6.16-rc5
 
-Mark
+Due to the addition of a few system calls since 2.6.16-rc1, the
+system call base number for all perfmon calls has changed yet again
+on all architectures. As such you need to use the new version of
+libpfm: libpfm-3.2-060308. 
+
+This new kernel patch includes several important changes:
+
+	- migrated all of /proc perfmon interface to /sys. The information
+	  is split between general and per-cpu. As such it is located in
+	  /sys/kernel/perfmon and /sys/devices/system/cpu*/perfmon/
+
+	- all data structures exchanged with the kernel now use fixed size
+	  data types. As such they can be used without any changes by a 32-bit
+	  application running on top on a 64-bit OS. The following changes took
+	  place:
+		* all bitvectors use u64 and have fixed number of bits
+		* size_t is now u64
+		* struct timespec (set timeout) replaced by u32 (unit in micro-seconds)
+		* default format sampling buffer IP (instruction pointer) is u64
+
+	- added 32-bit ABI support for x86-64 arch. As a consequence, it is now
+	  possible to run a 32-bit P4 tool on a 64-bit EM64T processor, assuming the
+	  tool know the specifics of EM64T PMU. That goes also for PEBS support.
+
+	- Simplified the PMU description data structures. The structure pfm_pmu_config
+	  is now split between a perfmon internal and PMU description version providing
+	  further isolation between the core and module-provided support. There is
+	  a simplification also in the struct pfm_reg_desc tables describing the mappings.
+	  Tables are much smaller because they only contain the actual register mappings
+	  for a particular PMU model as opposed to a fixed size table of 320 elements. The
+	  perfmon core now builds its internal representation based on this information as
+	  opposed to using it directly.
+
+	- removed extraneous locking and interrupt masking for the PMU interrupt handler
+
+	- split kernel perfmon headers files based on functionality
+
+	- added experimental support for smp_call_single() on i386. If the implementation
+	  is satisfactory, I'll push it as a separate patch to lkml.
+
+There was not update to the MIPS specific patch. As such it is currently broken and
+cannot be used with the new libpfm.
+
+The new version of the library, libpfm, includes the following changes:
+
+	- preliminary support for Dual-Core Itanium 2 (Montecito) based on
+	  publicly available documentation
+
+	- update to match 2.6.16-rc5 kernel patch
+
+	- renamed all *gen_x86_64* files to *amd_x86_64* to avoid confusion
+	  with EM64T.
+
+	- incorporated AMD provided event table for Opteron (Ray Bryant)
+
+
+The two packages can be downloaded from the SourceForge website at:
+
+	http://www.sf.net/projects/perfmon2
+
+Enjoy,
+
+-- 
+-Stephane
