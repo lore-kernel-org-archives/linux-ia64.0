@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 08 Mar 2006 10:48:35 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 08 Mar 2006 15:33:06 +0000
 Subject: Re: Fix race in the accessed/dirty bit handlers
-Message-Id: <20060308104835.GC31680@lnx-holt.americas.sgi.com>
+Message-Id: <Pine.LNX.4.64.0603080731240.5074@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
@@ -10,98 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Are you sure this does not lead to a data integrity issue.  What if we
-have a clean writable page.  If we get started on the dirty handler and
-the pte gets zapped from under us, the page would not get marked as dirty
-(pte had not gotten updated yet) and the process would continue running.
-If the page never gets dirtied again until the process terminates, we
-would never record a need to flush it to backing store.
+On Wed, 8 Mar 2006, Robin Holt wrote:
 
-I can possibly buy the change to the iaccess_bit handler, but I would need
-a better explanation of how a race is prevented for the dirty_bit handler.
+> Are you sure this does not lead to a data integrity issue.  What if we
+> have a clean writable page.  If we get started on the dirty handler and
+> the pte gets zapped from under us, the page would not get marked as dirty
+> (pte had not gotten updated yet) and the process would continue running.
 
-I think this might be the wrong direction, but I am still not awake
-enough to think all the way through this.
+No the process would not continue running. The page is not present and 
+therefore the page fault handler gets involved next to get the page back. 
 
-Thanks,
-Robin
-
-
-On Tue, Mar 07, 2006 at 07:05:32PM -0800, Christoph Lameter wrote:
-> A pte may be zapped by the swapper, exiting process, unmapping or page
-> migration while the accessed or dirty bit handers are about to run. In that
-> case the accessed bit or dirty is set on an zeroed pte which leads the VM to
-> conclude that this is a swap pte. This may lead to
-> 
-> - Messages from the vm like
-> 
-> swap_free: Bad swap file entry 4000000000000000
-> 
-> - Processes being aborted
-> 
-> swap_dup: Bad swap file entry 4000000000000000
-> VM: killing process ....
-> 
-> Page migration is particular suitable for the creation of this race since
-> it needs to remove and restore page table entries.
-> 
-> The fix here is to check for the present bit and simply not update
-> the pte if the page is not present anymore. If the page is not present
-> then the fault handler should run next which will take care of the problem
-> by bringing the page back and then mark the page dirty or move it onto the
-> active list.
-> 
-> Signed-off-by: Christoph Lameter <clameter@sgi.com>
-> 
-> Index: linux-2.6.16-rc5-mm3/arch/ia64/kernel/ivt.S
-> =================================> --- linux-2.6.16-rc5-mm3.orig/arch/ia64/kernel/ivt.S	2006-03-07 09:17:22.000000000 -0800
-> +++ linux-2.6.16-rc5-mm3/arch/ia64/kernel/ivt.S	2006-03-07 18:53:11.000000000 -0800
-> @@ -561,11 +561,12 @@ ENTRY(dirty_bit)
->  	;;					// avoid RAW on r18
->  	mov ar.ccv=r18				// set compare value for cmpxchg
->  	or r25=_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
-> +	tbit.z p7,p6 = r18,_PAGE_P_BIT		// Check present bit
->  	;;
-> -	cmpxchg8.acq r26=[r17],r25,ar.ccv
-> +(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only update if page is present
->  	mov r24=PAGE_SHIFT<<2
->  	;;
-> -	cmp.eq p6,p7=r26,r18
-> +(p6)	cmp.eq p6,p7=r26,r18			// Only compare if page is present
->  	;;
->  (p6)	itc.d r25				// install updated PTE
->  	;;
-> @@ -626,11 +627,12 @@ ENTRY(iaccess_bit)
->  	;;
->  	mov ar.ccv=r18				// set compare value for cmpxchg
->  	or r25=_PAGE_A,r18			// set the accessed bit
-> +	tbit.z p7,p6 = r18,_PAGE_P_BIT	 	// Check present bit
->  	;;
-> -	cmpxchg8.acq r26=[r17],r25,ar.ccv
-> +(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only if page present
->  	mov r24=PAGE_SHIFT<<2
->  	;;
-> -	cmp.eq p6,p7=r26,r18
-> +(p6)	cmp.eq p6,p7=r26,r18			// Only if page present
->  	;;
->  (p6)	itc.i r25				// install updated PTE
->  	;;
-> @@ -680,11 +682,12 @@ ENTRY(daccess_bit)
->  	;;					// avoid RAW on r18
->  	mov ar.ccv=r18				// set compare value for cmpxchg
->  	or r25=_PAGE_A,r18			// set the dirty bit
-> +	tbit.z p7,p6 = r18,_PAGE_P_BIT		// Check present bit
->  	;;
-> -	cmpxchg8.acq r26=[r17],r25,ar.ccv
-> +(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only if page is present
->  	mov r24=PAGE_SHIFT<<2
->  	;;
-> -	cmp.eq p6,p7=r26,r18
-> +(p6)	cmp.eq p6,p7=r26,r18			// Only if page is present
->  	;;
->  (p6)	itc.d r25				// install updated PTE
->  	/*
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The page fault handler gets invoked with the write flag set. So it 
+will bring back the page and mark it dirty. Then it will return to the 
+process which will perform the write operation.
