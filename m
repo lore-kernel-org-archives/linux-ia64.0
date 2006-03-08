@@ -1,111 +1,110 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:21:04 +0000
-Subject: [PATCH: 004/017]Memory hotplug for new nodes v.4.(generic alloc pgdat)
-Message-Id: <20060317162912.C63F.Y-GOTO@jp.fujitsu.com>
+Date: Wed, 08 Mar 2006 13:41:55 +0000
+Subject: [PATCH: 006/017](RFC) Memory hotplug for new nodes v.3. (move out pgdat array from mem_data for ia64
+Message-Id: <20060308212845.002E.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
+Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
 
-For node hotplug, basically we have to allocate new pgdat.
-But, there are several types of implementations of pgdat.
+This is preparing patch for updating of NODE_DATA() to make common code
+of ia64 between boottime and hotplug.
 
-1. Allocate only pgdat.
-   This style allocate only pgdat area.
-   And its address is recorded in node_data[].
-   It is most popular style.
+Current code remembers pgdat address in mem_data which is used at just boot
+time. But its information can be used at hotplug time
+by moving to global value.
+The following patche use this array.
 
-2. Static array of pgdat
-   In this case, all of pgdats are static array.
-   Some archs use this style.
 
-3. Allocate not only pgdat, but also per node data.
-   To increase performance, each node has copy of some data as
-   a per node data. So, this area must be allocated too.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-   Ia64 is this style. Ia64 has the copies of node_data[] array
-   on each per node data to increase performance.
-
-In this series of patches, treat (1) as generic arch.
-
-generic archs can use generic function. (2) and (3) should have
-its own if necessary. 
-
-This patch defines pgdat allocator.
-Updating NODE_DATA() macro function is in other patch.
-
-( I'll post another patch for (3).
-  I don't know (2) which can use memory hotplug.
-  So, there is not patch for (2). )
-
-Signed-off-by: Yasonori Goto     <y-goto@jp.fujitsu.com>
-Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-
- include/linux/memory_hotplug.h |   50 +++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 50 insertions(+)
-
-Index: pgdat8/include/linux/memory_hotplug.h
-=================================--- pgdat8.orig/include/linux/memory_hotplug.h	2006-03-17 11:12:41.933104080 +0900
-+++ pgdat8/include/linux/memory_hotplug.h	2006-03-17 12:05:14.554754256 +0900
-@@ -75,6 +75,56 @@ static inline int arch_nid_probe(u64 sta
- }
- #endif
+Index: pgdat6/arch/ia64/mm/discontig.c
+=================================--- pgdat6.orig/arch/ia64/mm/discontig.c	2006-03-06 18:25:31.000000000 +0900
++++ pgdat6/arch/ia64/mm/discontig.c	2006-03-06 18:26:07.000000000 +0900
+@@ -33,7 +33,6 @@
+  */
+ struct early_node_data {
+ 	struct ia64_node_data *node_data;
+-	pg_data_t *pgdat;
+ 	unsigned long pernode_addr;
+ 	unsigned long pernode_size;
+ 	struct bootmem_data bootmem_data;
+@@ -46,6 +45,8 @@ struct early_node_data {
+ static struct early_node_data mem_data[MAX_NUMNODES] __initdata;
+ static nodemask_t memory_less_mask __initdata;
  
-+#ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
-+/*
-+ * For supporint node-hotadd, we have to allocate new pgdat.
-+ *
-+ * If an arch have generic style NODE_DATA(),
-+ * node_data[nid] = kzalloc() works well . But it depends on each arch.
-+ *
-+ * In general, generic_alloc_nodedata() is used.
-+ * Now, arch_free_nodedata() is just defined for error path of node_hot_add.
-+ *
-+ */
-+extern pg_data_t * arch_alloc_nodedata(int nid);
-+extern void arch_free_nodedata(pg_data_t *pgdat);
++static pg_data_t *pgdat_list[MAX_NUMNODES];
 +
-+#else /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-+
-+#define arch_alloc_nodedata(nid)	generic_alloc_nodedata(nid)
-+#define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
-+
-+#ifdef CONFIG_NUMA
-+/*
-+ * If ARCH_HAS_NODEDATA_EXTENSION=n, this func is used to allocate pgdat.
-+ * XXX: kmalloc_node() can't work well to get new node's memory at this time.
-+ *	Because, pgdat for the new node is not allocated/initialized yet itself.
-+ *	To use new node's memory, more consideration will be necessary.
-+ */
-+#define generic_alloc_nodedata(nid)				\
-+({								\
-+	(pg_data_t *)kzalloc(sizeof(pg_data_t), GFP_KERNEL);	\
-+})
-+/*
-+ * This definition is just for error path in node hotadd.
-+ * For node hotremove, we have to replace this.
-+ */
-+#define generic_free_nodedata(pgdat)	kfree(pgdat)
-+
-+#else /* !CONFIG_NUMA */
-+
-+/* never called */
-+static inline pg_data_t *generic_alloc_nodedata(int nid)
-+{
-+	BUG();
-+	return NULL;
-+}
-+static inline void generic_free_nodedata(pg_data_t *pgdat)
-+{
-+}
-+#endif /* CONFIG_NUMA */
-+#endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-+
- #else /* ! CONFIG_MEMORY_HOTPLUG */
  /*
-  * Stub functions for when hotplug is off
+  * To prevent cache aliasing effects, align per-node structures so that they
+  * start at addresses that are strided by node number.
+@@ -175,13 +176,13 @@ static void __init fill_pernode(int node
+ 	pernode += PERCPU_PAGE_SIZE * cpus;
+ 	pernode += node * L1_CACHE_BYTES;
+ 
+-	mem_data[node].pgdat = __va(pernode);
++	pgdat_list[node] = __va(pernode);
+ 	pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 
+ 	mem_data[node].node_data = __va(pernode);
+ 	pernode += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
+ 
+-	mem_data[node].pgdat->bdata = bdp;
++	pgdat_list[node]->bdata = bdp;
+ 	pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 
+ 	cpu_data = per_cpu_node_setup(cpu_data, node);
+@@ -268,7 +269,7 @@ static int __init find_pernode_space(uns
+ static int __init free_node_bootmem(unsigned long start, unsigned long len,
+ 				    int node)
+ {
+-	free_bootmem_node(mem_data[node].pgdat, start, len);
++	free_bootmem_node(pgdat_list[node], start, len);
+ 
+ 	return 0;
+ }
+@@ -287,7 +288,7 @@ static void __init reserve_pernode_space
+ 	int node;
+ 
+ 	for_each_online_node(node) {
+-		pg_data_t *pdp = mem_data[node].pgdat;
++		pg_data_t *pdp = pgdat_list[node];
+ 
+ 		if (node_isset(node, memory_less_mask))
+ 			continue;
+@@ -317,12 +318,8 @@ static void __init reserve_pernode_space
+  */
+ static void __init initialize_pernode_data(void)
+ {
+-	pg_data_t *pgdat_list[MAX_NUMNODES];
+ 	int cpu, node;
+ 
+-	for_each_online_node(node)
+-		pgdat_list[node] = mem_data[node].pgdat;
+-
+ 	/* Copy the pg_data_t list to each node and init the node field */
+ 	for_each_online_node(node) {
+ 		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+@@ -372,7 +369,7 @@ static void __init *memory_less_node_all
+ 	if (bestnode = -1)
+ 		bestnode = anynode;
+ 
+-	ptr = __alloc_bootmem_node(mem_data[bestnode].pgdat, pernodesize,
++	ptr = __alloc_bootmem_node(pgdat_list[bestnode], pernodesize,
+ 		PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
+ 
+ 	return ptr;
+@@ -476,7 +473,7 @@ void __init find_memory(void)
+ 		pernodesize = mem_data[node].pernode_size;
+ 		map = pernode + pernodesize;
+ 
+-		init_bootmem_node(mem_data[node].pgdat,
++		init_bootmem_node(pgdat_list[node],
+ 				  map>>PAGE_SHIFT,
+ 				  bdp->node_boot_start>>PAGE_SHIFT,
+ 				  bdp->node_low_pfn);
 
 -- 
 Yasunori Goto 
