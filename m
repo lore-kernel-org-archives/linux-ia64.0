@@ -1,221 +1,123 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 01 Mar 2006 23:57:55 +0000
-Subject: [PATCH] ia64: update HP CSR space discovery via ACPI
-Message-Id: <200603011657.55501.bjorn.helgaas@hp.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Wed, 08 Mar 2006 13:42:19 +0000
+Subject: [PATCH: 009/017](RFC) Memory hotplug for new nodes v.3. (add return code init_currently_empty_zone)
+Message-Id: <20060308213104.0034.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
+Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
 
-[This is post-2.6.16 material]
+When add_zone() is called against empty zone (not populated zone),
+we have to initialize the zone which didn't initialize at boot time.
+But, init_currently_empty_zone() may fail due to allocation of 
+wait table. So, this patch is to catch its error code.
 
-Get rid of the manual search of _CRS, in favor of acpi_get_vendor_resource()
-which is now provided by the ACPI CA.  And fall back to searching for a
-consumer-only address space descriptor if no vendor-defined resource is found.
+Changes against wait_table is in the next patch.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Index: work-mm4/arch/ia64/kernel/acpi-ext.c
-=================================--- work-mm4.orig/arch/ia64/kernel/acpi-ext.c	2006-02-01 16:24:45.000000000 -0700
-+++ work-mm4/arch/ia64/kernel/acpi-ext.c	2006-02-22 09:27:53.000000000 -0700
-@@ -1,105 +1,104 @@
+Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+Index: pgdat6/mm/page_alloc.c
+=================================--- pgdat6.orig/mm/page_alloc.c	2006-03-06 18:25:37.000000000 +0900
++++ pgdat6/mm/page_alloc.c	2006-03-06 18:26:22.000000000 +0900
+@@ -2107,8 +2107,9 @@ static __meminit void zone_pcp_init(stru
+ 		zone->name, zone->present_pages, batch);
+ }
+ 
+-static __meminit void init_currently_empty_zone(struct zone *zone,
+-		unsigned long zone_start_pfn, unsigned long size)
++__meminit int init_currently_empty_zone(struct zone *zone,
++					unsigned long zone_start_pfn,
++					unsigned long size)
+ {
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
+ 
+@@ -2120,6 +2121,8 @@ static __meminit void init_currently_emp
+ 	memmap_init(size, pgdat->node_id, zone_idx(zone), zone_start_pfn);
+ 
+ 	zone_init_free_lists(pgdat, zone, zone->spanned_pages);
++
++	return 0;
+ }
+ 
  /*
-- * arch/ia64/kernel/acpi-ext.c
-+ * (c) Copyright 2003, 2006 Hewlett-Packard Development Company, L.P.
-+ *	Alex Williamson <alex.williamson@hp.com>
-+ *	Bjorn Helgaas <bjorn.helgaas@hp.com>
-  *
-- * Copyright (C) 2003 Hewlett-Packard
-- * Copyright (C) Alex Williamson
-- * Copyright (C) Bjorn Helgaas
-- *
-- * Vendor specific extensions to ACPI.
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-  */
+@@ -2134,6 +2137,7 @@ static void __init free_area_init_core(s
+ 	unsigned long j;
+ 	int nid = pgdat->node_id;
+ 	unsigned long zone_start_pfn = pgdat->node_start_pfn;
++	int ret;
  
- #include <linux/config.h>
- #include <linux/module.h>
- #include <linux/types.h>
- #include <linux/acpi.h>
--#include <linux/efi.h>
+ 	pgdat_resize_init(pgdat);
+ 	pgdat->nr_zones = 0;
+@@ -2175,7 +2179,8 @@ static void __init free_area_init_core(s
+ 			continue;
  
- #include <asm/acpi-ext.h>
+ 		zonetable_add(zone, nid, j, zone_start_pfn, size);
+-		init_currently_empty_zone(zone, zone_start_pfn, size);
++		ret = init_currently_empty_zone(zone, zone_start_pfn, size);
++		BUG_ON(ret);
+ 		zone_start_pfn += size;
+ 	}
+ }
+Index: pgdat6/mm/memory_hotplug.c
+=================================--- pgdat6.orig/mm/memory_hotplug.c	2006-03-06 18:26:17.000000000 +0900
++++ pgdat6/mm/memory_hotplug.c	2006-03-06 18:26:22.000000000 +0900
+@@ -26,16 +26,23 @@
  
--struct acpi_vendor_descriptor {
--	u8 guid_id;
--	efi_guid_t guid;
--};
-+/*
-+ * Device CSRs that do not appear in PCI config space should be described
-+ * via ACPI.  This would normally be done with Address Space Descriptors
-+ * marked as "consumer-only," but old versions of Windows and Linux ignore
-+ * the producer/consumer flag, so HP invented a vendor-defined resource to
-+ * describe the location and size of CSR space.
-+ */
- 
--struct acpi_vendor_info {
--	struct acpi_vendor_descriptor *descriptor;
--	u8 *data;
--	u32 length;
-+struct acpi_vendor_uuid hp_ccsr_uuid = {
-+	.subtype = 2,
-+	.data = { 0xf9, 0xad, 0xe9, 0x69, 0x4f, 0x92, 0x5f, 0xab, 0xf6, 0x4a,
-+	    0x24, 0xd2, 0x01, 0x37, 0x0e, 0xad },
- };
- 
--acpi_status
--acpi_vendor_resource_match(struct acpi_resource *resource, void *context)
-+static acpi_status hp_ccsr_locate(acpi_handle obj, u64 *base, u64 *length)
+ extern void zonetable_add(struct zone *zone, int nid, int zid, unsigned long pfn,
+ 			  unsigned long size);
+-static void __add_zone(struct zone *zone, unsigned long phys_start_pfn)
++static int __add_zone(struct zone *zone, unsigned long phys_start_pfn)
  {
--	struct acpi_vendor_info *info = (struct acpi_vendor_info *)context;
--	struct acpi_resource_vendor *vendor;
--	struct acpi_vendor_descriptor *descriptor;
--	u32 byte_length;
--
--	if (resource->type != ACPI_RESOURCE_TYPE_VENDOR)
--		return AE_OK;
--
--	vendor = (struct acpi_resource_vendor *)&resource->data;
--	descriptor = (struct acpi_vendor_descriptor *)vendor->byte_data;
--	if (vendor->byte_length <= sizeof(*info->descriptor) ||
--	    descriptor->guid_id != info->descriptor->guid_id ||
--	    efi_guidcmp(descriptor->guid, info->descriptor->guid))
--		return AE_OK;
--
--	byte_length = vendor->byte_length - sizeof(struct acpi_vendor_descriptor);
--	info->data = acpi_os_allocate(byte_length);
--	if (!info->data)
--		return AE_NO_MEMORY;
--
--	memcpy(info->data,
--	       vendor->byte_data + sizeof(struct acpi_vendor_descriptor),
--	       byte_length);
--	info->length = byte_length;
--	return AE_CTRL_TERMINATE;
-+	acpi_status status;
-+	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
-+	struct acpi_resource *resource;
-+	struct acpi_resource_vendor_typed *vendor;
-+
-+	status = acpi_get_vendor_resource(obj, METHOD_NAME__CRS, &hp_ccsr_uuid,
-+		&buffer);
-+
-+	resource = buffer.pointer;
-+	vendor = &resource->data.vendor_typed;
-+
-+	if (ACPI_FAILURE(status) || vendor->byte_length < 16) {
-+		status = AE_NOT_FOUND;
-+		goto exit;
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
+ 	int nr_pages = PAGES_PER_SECTION;
+ 	int nid = pgdat->node_id;
+ 	int zone_type;
++	int ret = 0;
+ 
+ 	zone_type = zone - pgdat->node_zones;
++	if (!populated_zone(zone)) {
++		ret =init_currently_empty_zone(zone, phys_start_pfn , nr_pages);
++		if (ret < 0)
++			return ret;
 +	}
-+
-+	memcpy(base, vendor->byte_data, sizeof(*base));
-+	memcpy(length, vendor->byte_data + 8, sizeof(*length));
-+
-+  exit:
-+	acpi_os_free(buffer.pointer);
-+	return status;
+ 	memmap_init_zone(nr_pages, nid, zone_type, phys_start_pfn);
+ 	zonetable_add(zone, nid, zone_type, phys_start_pfn, nr_pages);
++	return 0;
  }
  
--acpi_status
--acpi_find_vendor_resource(acpi_handle obj, struct acpi_vendor_descriptor * id,
--			  u8 ** data, u32 * byte_length)
-+struct csr_space {
-+	u64	base;
-+	u64	length;
-+};
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+@@ -50,7 +57,11 @@ static int __add_section(struct zone *zo
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	__add_zone(zone, phys_start_pfn);
++	ret = __add_zone(zone, phys_start_pfn);
 +
-+static acpi_status find_csr_space(struct acpi_resource *resource, void *data)
- {
--	struct acpi_vendor_info info;
-+	struct csr_space *space = data;
-+	struct acpi_resource_address64 addr;
-+	acpi_status status;
++	if (ret < 0)
++		return ret;
 +
-+	status = acpi_resource_to_address64(resource, &addr);
-+	if (ACPI_SUCCESS(status) &&
-+	    addr.resource_type = ACPI_MEMORY_RANGE &&
-+	    addr.address_length &&
-+	    addr.producer_consumer = ACPI_CONSUMER) {
-+		space->base = addr.minimum;
-+		space->length = addr.address_length;
-+		return AE_CTRL_TERMINATE;
-+	}
-+	return AE_OK;		/* keep looking */
-+}
- 
--	info.descriptor = id;
--	info.data = NULL;
-+static acpi_status hp_crs_locate(acpi_handle obj, u64 *base, u64 *length)
-+{
-+	struct csr_space space = { 0, 0 };
- 
--	acpi_walk_resources(obj, METHOD_NAME__CRS, acpi_vendor_resource_match,
--			    &info);
--	if (!info.data)
-+	acpi_walk_resources(obj, METHOD_NAME__CRS, find_csr_space, &space);
-+	if (!space.length)
- 		return AE_NOT_FOUND;
- 
--	*data = info.data;
--	*byte_length = info.length;
-+	*base = space.base;
-+	*length = space.length;
- 	return AE_OK;
+ 	return register_new_memory(__pfn_to_section(phys_start_pfn));
  }
  
--struct acpi_vendor_descriptor hp_ccsr_descriptor = {
--	.guid_id = 2,
--	.guid -	    EFI_GUID(0x69e9adf9, 0x924f, 0xab5f, 0xf6, 0x4a, 0x24, 0xd2, 0x01,
--		     0x37, 0x0e, 0xad)
--};
--
--acpi_status hp_acpi_csr_space(acpi_handle obj, u64 * csr_base, u64 * csr_length)
-+acpi_status hp_acpi_csr_space(acpi_handle obj, u64 *csr_base, u64 *csr_length)
- {
- 	acpi_status status;
--	u8 *data;
--	u32 length;
+Index: pgdat6/include/linux/mmzone.h
+=================================--- pgdat6.orig/include/linux/mmzone.h	2006-03-06 18:25:37.000000000 +0900
++++ pgdat6/include/linux/mmzone.h	2006-03-06 18:26:22.000000000 +0900
+@@ -332,6 +332,9 @@ void wakeup_kswapd(struct zone *zone, in
+ int zone_watermark_ok(struct zone *z, int order, unsigned long mark,
+ 		int classzone_idx, int alloc_flags);
  
--	status -	    acpi_find_vendor_resource(obj, &hp_ccsr_descriptor, &data, &length);
-+	status = hp_ccsr_locate(obj, csr_base, csr_length);
-+	if (ACPI_SUCCESS(status))
-+		return status;
- 
--	if (ACPI_FAILURE(status) || length != 16)
--		return AE_NOT_FOUND;
--
--	memcpy(csr_base, data, sizeof(*csr_base));
--	memcpy(csr_length, data + 8, sizeof(*csr_length));
--	acpi_os_free(data);
--
--	return AE_OK;
-+	return hp_crs_locate(obj, csr_base, csr_length);
- }
--
- EXPORT_SYMBOL(hp_acpi_csr_space);
-Index: work-mm4/include/asm-ia64/acpi-ext.h
-=================================--- work-mm4.orig/include/asm-ia64/acpi-ext.h	2006-01-02 20:21:10.000000000 -0700
-+++ work-mm4/include/asm-ia64/acpi-ext.h	2006-02-08 14:37:52.000000000 -0700
-@@ -1,12 +1,15 @@
- /*
-- * ia64/platform/hp/common/hp_acpi.h
-+ * (c) Copyright 2003, 2006 Hewlett-Packard Development Company, L.P.
-+ *	Alex Williamson <alex.williamson@hp.com>
-+ *	Bjorn Helgaas <bjorn.helgaas@hp.com>
-  *
-- * Copyright (C) 2003 Hewlett-Packard
-- * Copyright (C) Alex Williamson
-- * Copyright (C) Bjorn Helgaas
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-  *
-  * Vendor specific extensions to ACPI.
-  */
++extern int init_currently_empty_zone(struct zone *zone, unsigned long start_pfn,
++				     unsigned long size);
 +
- #ifndef _ASM_IA64_ACPI_EXT_H
- #define _ASM_IA64_ACPI_EXT_H
- 
+ #ifdef CONFIG_HAVE_MEMORY_PRESENT
+ void memory_present(int nid, unsigned long start, unsigned long end);
+ #else
+
+-- 
+Yasunori Goto 
+
+
