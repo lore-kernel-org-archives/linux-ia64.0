@@ -1,7 +1,7 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Thu, 09 Mar 2006 18:09:52 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 09 Mar 2006 18:27:43 +0000
 Subject: Re: Fix race in the accessed/dirty bit handlers
-Message-Id: <44106F70.1000901@bull.net>
+Message-Id: <Pine.LNX.4.64.0603091016480.16875@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
@@ -10,98 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
-> [...]
-> 
-> Hmm.... maybe I am missing something. What do you mean by "global"? I do 
-> not have too much experience here. Just looking at the Intel manual. It 
-> seems that global refers to ptc broadcasting purges to all processors.
+On Thu, 9 Mar 2006, Zoltan Menyhart wrote:
 
-The term "globally performed" does not always mean that some info goes
-out of a CPU.
-A store is globally performed (in cached mode) when the new data is in the
-(local) L2 and its status is set accordingly. I.e. any external demand will
-find the freshly stored value and the correct cache status response.
-If the cache line is in "E" state, then a transition to "M" will not be seen
-from external agents, unless they explicitly ask for the data.
+> In short: unless we use "srlz.d", how to make sure:
+> - the visibility of the "itc" instruction to generated purges is
+>  guaranteed first
+> - issuing "ld" goes after ?
 
-I consider an "itc" as globally performed if any external demand (purge)
-will not miss our new translation and the HW responds accordingly (see TND#).
+The manual states that serialization is only necessary before a data 
+access uses the mapping. We do not use the mapping in the function we are 
+discussing and I would think that the rfi is certainly serialization 
+enough.
 
-If the term "globally performed" is not well chosen, I can use this
-longer phrase from the Intel book:
-"visibility of the itc instruction to generated purges" is guaranteed.
+The manual also has a rather complex section on ptc purges.
 
->>1. "itc.d r25" is issued.
->>   It is not globally performed (an external purge request would miss it).
-> 
-> Right this only affects this processor. itc.d never has a global effect as 
-> far as I can see.
+I think we need to refer to how our purges work under ia64.
 
-Let's say: the visibility of "itc" to generated purges is not guaranteed
-at this point.
+What we do in essence from the remote processor is:
 
->>2. "ld8 r18=[r17]" is executed - we read back the good value.
->>   (Even an L3 cache miss can be quickly prepared on multi core / threaded
->>   processors by a cache intervention.)
-> 
-> 
-> Thats fine.
+1. We invalidate a pte (overwite the entry with zero)
 
-The problem is here: the algorithm requires that our new translation be
-able to catch the external purge request *before* we issue "ld".
+2. We purge the caches (and then broadcast the purge?).
 
-As far as I can see, the ";;" dos not delays this "ld" to guarantee that
-the TLB entries involved all correctly updated (L1D invalidated, etc.).
+So if the fault handlers run then they will discover that either the pte 
+has been zapped or the cmpxchg will fail. In either case we just do 
+nothing and redo the fault.
 
->>3. Someone tears down the same PTE: s/he clears it, then
->>4. s/he issues a global purge - we miss it, because our "itc.d r25" still
->>   has not been globally performed.
-> 
-> 
-> itc.d is not globally performed at all. We could theorize that we may miss 
-> the purge because this processor may perform the itc.d immediately after 
-> getting the purge broadcast from another processor.
+I guess this scheme could fail if the remote processor would 
+zap the pte and do the broadcast between the local processors cmpxchg and 
+the itc. Thats only two bundles. 
 
-Let's say: the visibility of "itc" to generated purges is still
-not guaranteed at this point.
-
-> There is this cryptic sentence on page 3:127
-> 
-> "The visibility of the itc instruction to generated purges (ptc.g, ptc.ga) 
-> must occur before subsequent memory operations. From a software 
-> perspective, this is similar to acquire semantics. Serialization is still 
-> required to observe the side-effects of the translation being present."
-> 
-> What does this exactly mean? Guess we need some more details on how these 
-> purge broadcasts work.
-
-As far as I can see, we have to avoid to feed the memory / cache queues and
-the TLB look up unit with new demands until the visibility of the itc
-instruction to generated purges can be guaranteed.
-In our case, "srlz.d" stalls the exec. pipeline.
-This is why a ";;" is not enough.
-
->>5. Finally "itc.d r25" is globally performed (e.g. it is in our DTLB1).
-> 
-> 
-> The global is throwing me off again here.
-
-I mean the visibility of the itc instruction to generated purges is O.K.
-
->>6. "cmp" compares a stale value in r18 and our freshly inserted translation
->>   has missed the purge.
-> 
-> 
-> Maybe.
-
-In short: unless we use "srlz.d", how to make sure:
-- the visibility of the "itc" instruction to generated purges is
-  guaranteed first
-- issuing "ld" goes after ?
-
-Thanks,
-
-Zoltan
-
+Maybe we need some experts to explain the situation. Ken? David?
 
