@@ -1,74 +1,47 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 08 Mar 2006 13:41:03 +0000
-Subject: [PATCH: 000/017] (RFC)Memory hotplug for new nodes v.3.
-Message-Id: <20060308212316.0022.Y-GOTO@jp.fujitsu.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 09 Mar 2006 12:00:21 +0000
+Subject: Re: [PATCH: 000/017] (RFC)Memory hotplug for new nodes v.3.
+Message-Id: <20060309040021.3cf64e4b.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060308212316.0022.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060308212316.0022.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+To: Yasunori Goto <y-goto@jp.fujitsu.com>
+Cc: tony.luck@intel.com, ak@suse.de, jschopp@austin.ibm.com, haveblue@us.ibm.com, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-Hello.
+Yasunori Goto <y-goto@jp.fujitsu.com> wrote:
+>
+> I'll post newest patches for memory hotadd with pgdat allocation as V3.
+>  There are many changes to make more common code.
 
-I'll post newest patches for memory hotadd with pgdat allocation as V3.
-There are many changes to make more common code.
+General comments:
 
-This may be too many patches, but I would like to show
-total feature of this code now.
+- Thanks for working against -mm.  It can be a bit of a pain, but it
+  eases staging and integration later on.
 
-This patches are for 2.6.16-rc5-mm3.
-I tested these patch on just Tiger4(ia64) with emulation now.
-But, I'll test them for x86-64 too after this post.
+- Please review all the code to check that all those functions which can
+  be made static are indeed made static.  I see quite a few global
+  functions there.
 
-Please comment.
+- Make sure that all functions which can be tagged __meminit are so tagged.
 
----------------------------------------
+- It would be useful to build a CONFIG_MEMORY_HOTPLUG=n kernel both with
+  and without the patchsets and to publish and maintain the increase in
+  code size.  Ideally that increase will be zero.  Probably it won't be,
+  and it'd be nice to understand why, and to minimise it.
 
-This is memory hotadd code when new node is added.
-In this patch, pgdat is allocated when new node is comming.
-To initialize pgdat and zones, a set of patches are necessary.
-  - to allcate and initialize pgdat, zone, zonelist.
-  - to make new kswapd
-  - to initialize node_data[] array (ia64)
-  - to register sysfs file for new node.
-  - to call memory_hotplug code from acpi container driver.
+- Arch issues:
 
-Note:
- - kzalloc is used for pgdat allocation in this version.
-   So, even if pgdat is allocated, it will be allocated on the other node.
-   This is only to simplify patches a bit. :-P
+  - Which architectures is this patchset aimed at and tested on?
 
------------------------------
-Followings are updates.
+  - Which other architectures might be able to use this code in the
+    future?  Because we should ask the maintainers of those other
+    architectures to take a look at the changes.
 
-Updates from V2 to V3.
-  - update for 2.6.16-rc5-mm3.
-  - The caller function of pgdat allcation and so on become common code.
-  - Passing node id at add_memory().
-  - build_zonelists() is called after that pages are onlined.
-  - Updating NODE_DATA() for ia64 become simple and become 
-    common code between booting and hotadd.
-    (But other consideration will be necessary for hot-remove.)
-  - kswapd is called by kthread_run().
-  - finding node id by acpi use handle of its memory device.
-  - 
-
-Updates from V1 to V2.
-  - update for 2.6.16-rc5-mm2.
-  - not only ia64, This is tested on x86_64 with NUMA emulation too. :-)
-  - wait_table_size() allcation is changed.
-      - Take max size as much as possible.
-      - Change using GFP_ATOMIC. It is inside of zone_init_lock.
-        (Warining message of might_sleep() is very well.)
-  - stop_machine_run(build_zonelists) is move to outside of lock.
-  - pgdat_insert() is moved to generic code to be used by x86_64.
-  - add decision of ZONE_DMA32 or ZONE_NORMAL to x86_64's add_memory().
-  - Make a separated patch to change from __init to __meminit.
-  - Fix some typo
-
-
--- 
-Yasunori Goto 
-
+- What locking does node hot-add use?  There are quite a few places in
+  the kernel which cheerfully iterate across node lists while assuming that
+  they won't change.  The usage of stop_machine_run() is supposed to cover
+  all that, I assume?
 
