@@ -1,110 +1,114 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 08 Mar 2006 13:41:35 +0000
-Subject: [PATCH: 004/017](RFC) Memory hotplug for new nodes v.3. (generic alloc pgdat)
-Message-Id: <20060308212719.002A.Y-GOTO@jp.fujitsu.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 09 Mar 2006 12:00:45 +0000
+Subject: Re: [PATCH: 004/017](RFC) Memory hotplug for new nodes v.3.
+Message-Id: <20060309040045.17dbf286.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060308212719.002A.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060308212719.002A.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
+To: Yasunori Goto <y-goto@jp.fujitsu.com>
+Cc: tony.luck@intel.com, ak@suse.de, jschopp@austin.ibm.com, haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-For node hotplug, basically we have to allocate new pgdat.
-But, there are several types of implementations of pgdat.
+Yasunori Goto <y-goto@jp.fujitsu.com> wrote:
+>
+> For node hotplug, basically we have to allocate new pgdat.
+> But, there are several types of implementations of pgdat.
+> 
+> 1. Allocate only pgdat.
+>    This style allocate only pgdat area.
+>    And its address is recorded in node_data[].
+>    It is most popular style.
+> 
+> 2. Static array of pgdat
+>    In this case, all of pgdats are static array.
+>    Some archs use this style.
+> 
+> 3. Allocate not only pgdat, but also per node data.
+>    To increase performance, each node has copy of some data as
+>    a per node data. So, this area must be allocated too.
+> 
+>    Ia64 is this style. Ia64 has the copies of node_data[] array
+>    on each per node data to increase performance.
+> 
+> In this series of patches, treat (1) as generic arch.
+> 
+> generic archs can use generic function. (2) and (3) should have
+> its own if necessary. 
+> 
+> This patch defines pgdat allocator.
+> Updating NODE_DATA() macro function is in other patch.
+> 
+> ( I'll post another patch for (3).
+>   I don't know (2) which can use memory hotplug.
+>   So, there is not patch for (2). )
+> 
+> ...
+>
+> +#ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
+> +/*
+> + * For supporint node-hotadd, we have to allocate new pgdat.
+> + *
+> + * If an arch have generic style NODE_DATA(),
+> + * node_data[nid] = kzalloc() works well . But it depends on each arch.
+> + *
+> + * In general, generic_alloc_nodedata() is used.
+> + * generic...is a local function in mm/memory_hotplug.c
+> + *
+> + * Now, arch_free_nodedata() is just defined for error path of node_hot_add.
+> + *
+> + */
+> +extern struct pglist_data * arch_alloc_nodedata(int nid);
+> +extern void arch_free_nodedata(pg_data_t *pgdat);
+> +
+> +#else /* !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
+> +#define arch_alloc_nodedata(nid)	generic_alloc_nodedata(nid)
+> +#define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
+> +
+> +#ifdef CONFIG_NUMA
+> +/*
+> + * If ARCH_HAS_NODEDATA_EXTENSION=n, this func is used to allocate pgdat.
+> + */
+> +static inline struct pglist_data *generic_alloc_nodedata(int nid)
+> +{
+> +	return kzalloc(sizeof(struct pglist_data), GFP_ATOMIC);
+> +}
 
-1. Allocate only pgdat.
-   This style allocate only pgdat area.
-   And its address is recorded in node_data[].
-   It is most popular style.
+From an interface design point of view it's usually best to pass the
+gfp_flags ito a function which performs memory allocation, rather than
+assuming the worst-case like this.
 
-2. Static array of pgdat
-   In this case, all of pgdats are static array.
-   Some archs use this style.
+If it's known that callers of generic_alloc_nodedata() can just never ever
+be permitted to sleep then OK.  But GFP_KERNEL allocations are always
+preferable.
 
-3. Allocate not only pgdat, but also per node data.
-   To increase performance, each node has copy of some data as
-   a per node data. So, this area must be allocated too.
+> +/*
+> + * This definition is just for error path in node hotadd.
+> + * For node hotremove, we have to replace this.
+> + */
+> +static inline void generic_free_nodedata(struct pglist_data *pgdat)
+> +{
+> +	kfree(pgdat);
+> +}
+> +
+> +#else /* !CONFIG_NUMA */
+> +/* never called */
+> +static inline struct pglist_data *generic_alloc_nodedata(int nid)
+> +{
+> +	BUG();
+> +	return NULL;
+> +}
+> +static inline void generic_free_nodedata(struct pglist_data *pgdat)
+> +{
+> +}
+> +#endif /* CONFIG_NUMA */
+> +#endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
+> +
 
-   Ia64 is this style. Ia64 has the copies of node_data[] array
-   on each per node data to increase performance.
+Should the patch provide stubs for generic_alloc_nodedata() and
+generic_alloc_nodedata() if !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION?
 
-In this series of patches, treat (1) as generic arch.
-
-generic archs can use generic function. (2) and (3) should have
-its own if necessary. 
-
-This patch defines pgdat allocator.
-Updating NODE_DATA() macro function is in other patch.
-
-( I'll post another patch for (3).
-  I don't know (2) which can use memory hotplug.
-  So, there is not patch for (2). )
-
-Signed-off-by: Yasonori Goto     <y-goto@jp.fujitsu.com>
-Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-
-Index: pgdat6/include/linux/memory_hotplug.h
-=================================--- pgdat6.orig/include/linux/memory_hotplug.h	2006-03-06 19:40:57.000000000 +0900
-+++ pgdat6/include/linux/memory_hotplug.h	2006-03-06 19:42:21.000000000 +0900
-@@ -72,6 +72,56 @@ static inline int arch_nid_probe(u64 sta
- }
- #endif
- 
-+#ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
-+/*
-+ * For supporint node-hotadd, we have to allocate new pgdat.
-+ *
-+ * If an arch have generic style NODE_DATA(),
-+ * node_data[nid] = kzalloc() works well . But it depends on each arch.
-+ *
-+ * In general, generic_alloc_nodedata() is used.
-+ * generic...is a local function in mm/memory_hotplug.c
-+ *
-+ * Now, arch_free_nodedata() is just defined for error path of node_hot_add.
-+ *
-+ */
-+extern struct pglist_data * arch_alloc_nodedata(int nid);
-+extern void arch_free_nodedata(pg_data_t *pgdat);
-+
-+#else /* !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-+#define arch_alloc_nodedata(nid)	generic_alloc_nodedata(nid)
-+#define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
-+
-+#ifdef CONFIG_NUMA
-+/*
-+ * If ARCH_HAS_NODEDATA_EXTENSION=n, this func is used to allocate pgdat.
-+ */
-+static inline struct pglist_data *generic_alloc_nodedata(int nid)
-+{
-+	return kzalloc(sizeof(struct pglist_data), GFP_ATOMIC);
-+}
-+/*
-+ * This definition is just for error path in node hotadd.
-+ * For node hotremove, we have to replace this.
-+ */
-+static inline void generic_free_nodedata(struct pglist_data *pgdat)
-+{
-+	kfree(pgdat);
-+}
-+
-+#else /* !CONFIG_NUMA */
-+/* never called */
-+static inline struct pglist_data *generic_alloc_nodedata(int nid)
-+{
-+	BUG();
-+	return NULL;
-+}
-+static inline void generic_free_nodedata(struct pglist_data *pgdat)
-+{
-+}
-+#endif /* CONFIG_NUMA */
-+#endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-+
- #else /* ! CONFIG_MEMORY_HOTPLUG */
- /*
-  * Stub functions for when hotplug is off
-
--- 
-Yasunori Goto 
-
+(If all callers are also inside #ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
+then the answer would be "no").
 
