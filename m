@@ -1,75 +1,102 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Wed, 15 Mar 2006 00:07:13 +0000
-Subject: Re: [PATCH] kexec for ia64
-Message-Id: <1142381233.2684.19.camel@linux-znh>
+From: Horms <horms@verge.net.au>
+Date: Fri, 10 Mar 2006 08:24:46 +0000
+Subject: [RFC] IA64: Use early_parm to handle mvec_name and nomca
+Message-Id: <20060310082445.GA18715@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1142271576.10787.15.camel@lyra.fc.hp.com>
-	 <1142318909.2545.4.camel@linux-znh>
-	 <1142352485.18421.11.camel@lyra.fc.hp.com>
-In-Reply-To: <1142352485.18421.11.camel@lyra.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Khalid Aziz <khalid_aziz@hp.com>
-Cc: Fastboot mailing list <fastboot@lists.osdl.org>, Linux ia64 <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Wed, 2006-03-15 at 00:08, Khalid Aziz wrote:
-> On Tue, 2006-03-14 at 14:48 +0800, Zou Nan hai wrote:
-> > 3. Is the set ar.k0 code necessary? ar.k0 is already holding the right
-> > value.
-> 
-> Purely defensive coding to ensure new kernel does not fall on its
-> face :)
-> 
-  I am afraid purely defensive code should go through efi memory map and
-find out the ar.k0. This can be done in purgatory code, In my current
-pugatory implement, ar.k0 is take from the previous kernel, but I can
-modify it to pick the value from efi memmap if this is really a concern.
-	
-> > 
-> > 4. Is the VHPT disable code necessary? kernel will soon goes into
-> > Physical mode and the new kernel will reset VHPT walker.
-> 
-> Again, playing it safe. We do not want VHPT walker waking up at this
-> point. Instead of assuming code will not do anything that could cause
-> VHPT walker to wake up, it is better to just disable it. This way, if
-> any code makes erroneous references to a virtual address which causes
-> VHPT walker to make a TLB entry, it will simply get a page fault and we
-> can catch that. It is much harder to debug if VHPT walker silently makes
-> a TLB entry for an unexpected virtual address reference and then things
-> go wrong further down the line.
-> 
-  But we are running in physical mode, how could VHPT walker be
-invoked?	
-> > 
-> > 5. Is the PCI disable code too complex?
-> 
-> I have simplified it as much as I can. Suggestions to simplify further
-> would be appreciated.
-> > 
-   I am afraid the irq and device disable code in machine_shutdown in
-your patch will never be called because kernel has already iterate on
-each device and called the driver->shutdown method for them, and I don't
-think we need to set affinity and power state here.
+I'm not sure of the worthiness of this idea, so please consider it an RFC. 
+Its key merits are:
 
-   Please take a look at my patch, machine_shutdown is empty except CPU
-down code. There is another function device_shootdown used at the time
-of crashing.
-> > The overall concern is I am afraid the code is too much than
-> > necessary. 
-> > 
-> 
-> After testing this kexec code for over 10,000 iterations of kexec'ing, I
-> have found not shutting devices down results in many corner cases that
-> have been fairly hard to debug. Adding all this code to shut down as
-> much of the hardware as possible has resulted in much more reliable
-> kexec code.
-  I have also tested tens of thousands round of kexec to kexec over my
-patch, I have never seem device shutdown issue.
-  
-  I still prefer small and clean kernel patch than put too much
-redundant code in kernel.
+* Reuse existing infrastructure
+* Greatly tightens up the parsing of nomca
+* Greatly simplifies the parsing of machvec
 
-  Thanks.
-Zou Nan hai
+Signed-Off-By: Horms <horms@verge.net.au>
 
+ setup.c |   47 ++++++++++++++++++++++++-----------------------
+ 1 file changed, 24 insertions(+), 23 deletions(-)
+
+4ed9fbfd2b02aea51ee5848966465397eec5a1c6
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 3258e09..53a60fa 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -389,6 +389,24 @@ check_for_logical_procs (void)
+ }
+ #endif
+ 
++#ifdef CONFIG_IA64_GENERIC
++static const char *mvec_name = NULL;
++static __init int setup_mvec(char *s)
++{
++	mvec_name = s;
++	return 0;
++}
++early_param("machvec", setup_mvec);
++#endif
++
++static int nomca = 0;
++static __init int setup_nomca(char *s)
++{
++	nomca = 1;
++	return 0;
++}
++early_param("nomca", setup_nomca);
++
+ void __init
+ setup_arch (char **cmdline_p)
+ {
+@@ -402,35 +420,18 @@ setup_arch (char **cmdline_p)
+ 	efi_init();
+ 	io_port_init();
+ 
+-#ifdef CONFIG_IA64_GENERIC
+-	{
+-		const char *mvec_name = strstr (*cmdline_p, "machvec=");
+-		char str[64];
++	parse_early_param();
+ 
+-		if (mvec_name) {
+-			const char *end;
+-			size_t len;
+-
+-			mvec_name += 8;
+-			end = strchr (mvec_name, ' ');
+-			if (end)
+-				len = end - mvec_name;
+-			else
+-				len = strlen (mvec_name);
+-			len = min(len, sizeof (str) - 1);
+-			strncpy (str, mvec_name, len);
+-			str[len] = '\0';
+-			mvec_name = str;
+-		} else
+-			mvec_name = acpi_get_sysname();
++#ifdef CONFIG_IA64_GENERIC
++	if (!mvec_name)
++		machvec_init(acpi_get_sysname());
++	else
+ 		machvec_init(mvec_name);
+-	}
+ #endif
+ 
+ 	if (early_console_setup(*cmdline_p) = 0)
+ 		mark_bsp_online();
+ 
+-	parse_early_param();
+ #ifdef CONFIG_ACPI
+ 	/* Initialize the ACPI boot-time table parser */
+ 	acpi_table_init();
+@@ -493,7 +494,7 @@ setup_arch (char **cmdline_p)
+ #endif
+ 
+ 	/* enable IA-64 Machine Check Abort Handling unless disabled */
+-	if (!strstr(saved_command_line, "nomca"))
++	if (!nomca)
+ 		ia64_mca_init();
+ 
+ 	platform_setup(cmdline_p);
