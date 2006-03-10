@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 10 Mar 2006 17:22:37 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 10 Mar 2006 17:28:25 +0000
 Subject: RE: Fix race in the accessed/dirty bit handlers
-Message-Id: <200603101722.k2AHMag04717@unix-os.sc.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F05EC7B9F@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0603071901420.2463@schroedinger.engr.sgi.com>
@@ -10,28 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan Menyhart wrote on Friday, March 10, 2006 1:47 AM
-> > CPU A        CPU B       | CPU A       CPU B     | cpu A    cpu B
-> > -----        -----       | -----       -----     | -----    -----
-> >              change pte  |                       |
-> >                          |                       |
-> > read pte                 |read pte               |read pte
-> > insert TLB               |           change pte  |insert
-> > re-read                  |insert                 |re-read
-> >                          |re-read                |          change pte
-> >                          |ptc.l
-> 
-> These scenarii assume that the sequence:
-> 
-> 	insert TLB
-> 	;;
-> 	re-read
-> 
-> is executed in the same order for everyone as it is coded.
+> Please consider the second issue I mentioned about the "itc":
+> Making sure that an external purge request will not be missed by our new
+> translation. See also on page 3:127:
 
-Just for the record, itc has acquire semantics, though this is not
-immediately relevant in this discussion with respect to external
-ptc.g.
+While this is true, I'm still not seeing how this can cause
+a problem (but I didn't see the problem that Christoph just
+found that started this whole thread in six years of looking
+at this code, so I'm willing to accept that I may be missing
+something).
 
-- Ken
+If another processor has a purge floating out there on the
+bus at this time, it would be because that other processor
+was making some change to this mapping.  In which case it
+would have executed:
 
+ *pte = new_value
+ ptc
+
+Are you saying that these events may become visible to the
+processor that is executing the dirty_bit handler in either
+order, so that you are worried we'll see the old *pte value
+when we do the load, but miss the purge because we didn't
+wait for the itc.d to complete before we did the load?
+
+-Tony
