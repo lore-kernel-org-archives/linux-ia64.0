@@ -1,106 +1,99 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:23:04 +0000
-Subject: [PATCH: 016/017]Memory hotplug for new nodes v.4.(get node id from acpi's handle)
-Message-Id: <20060317163841.C657.Y-GOTO@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 17:00:13 +0000
+Subject: [patch 2/6] add init declaration to cpu initialization functions
+Message-Id: <200603121700.k2CH0Bg10078@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-This is to find node id from acpi's handle of memory_device in DSDT.
-_PXM for the new node can be found by acpi_get_pxm()
-by using new memory's handle. 
-So, node id can be found by pxm_to_nid_map[].
+Add init declaration to cpu initialization functions.
 
-  This patch becomes simpler than v2. Because old add_memory()
-  function doesn't have node id parameter. So, kernel must 
-  find its handle by physical address via DSDT again.
-  But, v3 just give node id to add_memory() now.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
- drivers/acpi/acpi_memhotplug.c |    5 +++--
- drivers/acpi/numa.c            |   15 +++++++++++++++
- include/linux/acpi.h           |    6 ++++++
- 3 files changed, 24 insertions(+), 2 deletions(-)
-
-Index: pgdat8/drivers/acpi/acpi_memhotplug.c
-=================================--- pgdat8.orig/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:06:27.000000000 +0900
-+++ pgdat8/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:06:27.000000000 +0900
-@@ -214,7 +214,7 @@ static int acpi_memory_check_device(stru
- 
- static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
- {
--	int result, num_enabled = 0;
-+	int result, num_enabled = 0, node;
- 	struct acpi_memory_info *info;
- 
- 	ACPI_FUNCTION_TRACE("acpi_memory_enable_device");
-@@ -227,6 +227,7 @@ static int acpi_memory_enable_device(str
- 		return result;
- 	}
- 
-+	node = acpi_get_node(mem_device->handle);
- 	/*
- 	 * Tell the VM there is more memory here...
- 	 * Note: Assume that this function returns zero on success
-@@ -244,7 +245,7 @@ static int acpi_memory_enable_device(str
- 			continue;
- 		}
- 
--		result = add_memory(info->start_addr, info->length);
-+		result = add_memory(node, info->start_addr, info->length);
- 		if (result)
- 			continue;
- 		info->enabled = 1;
-Index: pgdat8/drivers/acpi/numa.c
-=================================--- pgdat8.orig/drivers/acpi/numa.c	2006-03-16 16:04:55.000000000 +0900
-+++ pgdat8/drivers/acpi/numa.c	2006-03-16 16:06:27.000000000 +0900
-@@ -258,3 +258,18 @@ int acpi_get_pxm(acpi_handle h)
+--- ./arch/ia64/kernel/setup.c.orig	2006-03-12 01:23:18.000000000 -0800
++++ ./arch/ia64/kernel/setup.c	2006-03-12 09:02:44.095973075 -0800
+@@ -362,7 +362,7 @@ mark_bsp_online (void)
  }
  
- EXPORT_SYMBOL(acpi_get_pxm);
-+
-+int acpi_get_node(acpi_handle *handle)
-+{
-+	int pxm, node = -1;
-+
-+	ACPI_FUNCTION_TRACE("acpi_get_node");
-+
-+	pxm = acpi_get_pxm(handle);
-+	if (pxm >= 0)
-+		node = acpi_map_pxm_to_node(pxm);
-+
-+	return_VALUE(node);
-+}
-+
-+EXPORT_SYMBOL(acpi_get_node);
-Index: pgdat8/include/linux/acpi.h
-=================================--- pgdat8.orig/include/linux/acpi.h	2006-03-16 16:04:55.000000000 +0900
-+++ pgdat8/include/linux/acpi.h	2006-03-16 16:06:27.000000000 +0900
-@@ -529,12 +529,18 @@ static inline void acpi_set_cstate_limit
- 
- #ifdef CONFIG_ACPI_NUMA
- int acpi_get_pxm(acpi_handle handle);
-+int acpi_get_node(acpi_handle *handle);
- #else
- static inline int acpi_get_pxm(acpi_handle handle)
+ #ifdef CONFIG_SMP
+-static void
++static void __init
+ check_for_logical_procs (void)
  {
- 	return 0;
+ 	pal_logical_to_physical_t info;
+@@ -623,7 +623,7 @@ struct seq_operations cpuinfo_op = {
+ 	.show =		show_cpuinfo
+ };
+ 
+-void
++static void __cpuinit
+ identify_cpu (struct cpuinfo_ia64 *c)
+ {
+ 	union {
+@@ -700,7 +700,7 @@ setup_per_cpu_areas (void)
+  * In addition, the minimum of the i-cache stride sizes is calculated for
+  * "flush_icache_range()".
+  */
+-static void
++static void __cpuinit
+ get_max_cacheline_size (void)
+ {
+ 	unsigned long line_size, max = 1;
+@@ -763,10 +763,10 @@ get_max_cacheline_size (void)
+  * cpu_init() initializes state that is per-CPU.  This function acts
+  * as a 'CPU state barrier', nothing should get across.
+  */
+-void
++void __cpuinit
+ cpu_init (void)
+ {
+-	extern void __devinit ia64_mmu_init (void *);
++	extern void __cpuinit ia64_mmu_init (void *);
+ 	unsigned long num_phys_stacked;
+ 	pal_vm_info_2_u_t vmi;
+ 	unsigned int max_ctx;
+@@ -894,7 +894,7 @@ void sched_cacheflush(void)
+ 	ia64_sal_cache_flush(3);
  }
-+static inline int acpi_get_node(acpi_handle *handle)
-+{
-+	return 0;
-+}
- #endif
-+extern int acpi_paddr_to_node(u64 start_addr, u64 size);
  
- extern int pnpacpi_disabled;
+-void
++void __init
+ check_bugs (void)
+ {
+ 	ia64_patch_mckinley_e9((unsigned long) __start___mckinley_e9_bundles,
+--- ./arch/ia64/mm/contig.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ ./arch/ia64/mm/contig.c	2006-03-12 09:02:33.840113826 -0800
+@@ -176,7 +176,7 @@ find_memory (void)
+  *
+  * Allocate and setup per-cpu data areas.
+  */
+-void *
++void * __cpuinit
+ per_cpu_init (void)
+ {
+ 	void *cpu_data;
+--- ./arch/ia64/mm/discontig.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ ./arch/ia64/mm/discontig.c	2006-03-12 09:02:33.841090388 -0800
+@@ -525,7 +525,7 @@ void __init find_memory(void)
+  * find_pernode_space() does most of this already, we just need to set
+  * local_per_cpu_offset
+  */
+-void *per_cpu_init(void)
++void __cpuinit *per_cpu_init(void)
+ {
+ 	int cpu;
  
-
--- 
-Yasunori Goto 
-
+--- ./include/asm-ia64/processor.h.orig	2006-03-12 01:23:21.000000000 -0800
++++ ./include/asm-ia64/processor.h	2006-03-12 09:02:33.841090388 -0800
+@@ -180,7 +180,6 @@ DECLARE_PER_CPU(struct cpuinfo_ia64, cpu
+ #define local_cpu_data		(&__ia64_per_cpu_var(cpu_info))
+ #define cpu_data(cpu)		(&per_cpu(cpu_info, cpu))
+ 
+-extern void identify_cpu (struct cpuinfo_ia64 *);
+ extern void print_cpu_info (struct cpuinfo_ia64 *);
+ 
+ typedef struct {
 
