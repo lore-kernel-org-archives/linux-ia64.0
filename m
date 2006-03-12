@@ -1,88 +1,42 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:22:51 +0000
-Subject: [PATCH: 014/017]Memory hotplug for new nodes v.4.(add start function acpi_memhotplug)
-Message-Id: <20060317163738.C653.Y-GOTO@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 19:25:26 +0000
+Subject: [patch] add init declaration to machvec.c
+Message-Id: <200603121925.k2CJPPg11482@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
+
+Add init declaration to machvec initialization functions.
 
 
-This is a patch to call add_memory() when notify reaches for 
-new node's add event.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-When new node is added, notify of ACPI reaches container device
-which means the node.
-Container device driver calls acpi_bus_scan() to find and add
-belonging devices (which means cpu, memory and so on).
-Its function calls add and start function of belonging 
-devices's driver.
+---
 
-Howevever, current memory hotplug driver just register add function to
-create sysfs file for its memory. But, acpi_memory_enable_device()
-is not called because it is considered just the case that notify reaches
-memory device directly. So, if notify reaches container device 
-nothing can call add_memory().
-
-This is a patch to create start function which calls add_memory().
-add_memory() can be called by this when notify reaches container device.
+Now I'm totally convinced that Ken is extremely bored at the moment ;-)
 
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
-
- drivers/acpi/acpi_memhotplug.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+)
-
-Index: pgdat8/drivers/acpi/acpi_memhotplug.c
-=================================--- pgdat8.orig/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:05:38.000000000 +0900
-+++ pgdat8/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:41:56.000000000 +0900
-@@ -57,6 +57,7 @@ MODULE_LICENSE("GPL");
+--- ./arch/ia64/kernel/machvec.c.orig	2006-03-12 12:17:01.700322457 -0800
++++ ./arch/ia64/kernel/machvec.c	2006-03-12 12:17:23.556767502 -0800
+@@ -14,7 +14,7 @@
+ struct ia64_machine_vector ia64_mv;
+ EXPORT_SYMBOL(ia64_mv);
  
- static int acpi_memory_device_add(struct acpi_device *device);
- static int acpi_memory_device_remove(struct acpi_device *device, int type);
-+static int acpi_memory_device_start (struct acpi_device *device);
- 
- static struct acpi_driver acpi_memory_device_driver = {
- 	.name = ACPI_MEMORY_DEVICE_DRIVER_NAME,
-@@ -65,6 +66,7 @@ static struct acpi_driver acpi_memory_de
- 	.ops = {
- 		.add = acpi_memory_device_add,
- 		.remove = acpi_memory_device_remove,
-+		.start = acpi_memory_device_start,
- 		},
- };
- 
-@@ -429,6 +431,26 @@ static int acpi_memory_device_remove(str
- 	return_VALUE(0);
+-static struct ia64_machine_vector *
++static struct ia64_machine_vector * __init
+ lookup_machvec (const char *name)
+ {
+ 	extern struct ia64_machine_vector machvec_start[];
+@@ -28,7 +28,7 @@ lookup_machvec (const char *name)
+ 	return 0;
  }
  
-+static int
-+acpi_memory_device_start (struct acpi_device *device)
-+{
-+	struct acpi_memory_device *mem_device;
-+	int result = 0;
-+
-+	ACPI_FUNCTION_TRACE("acpi_memory_device_start");
-+
-+	mem_device = (struct acpi_memory_device *) acpi_driver_data(device);
-+
-+	if (!acpi_memory_check_device(mem_device)){
-+		/* call add_memory func */
-+		result = acpi_memory_enable_device(mem_device);
-+		if (result)
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Error in acpi_memory_enable_device\n"));
-+	}
-+	return_VALUE(result);
-+}
-+
- /*
-  * Helper function to check for memory device
-  */
-
--- 
-Yasunori Goto 
+-void
++void __init
+ machvec_init (const char *name)
+ {
+ 	struct ia64_machine_vector *mv;
 
 
