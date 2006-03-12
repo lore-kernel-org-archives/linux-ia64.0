@@ -1,44 +1,63 @@
-From: Kenji Kaneshige <kaneshige.kenji@soft.fujitsu.com>
-Date: Wed, 15 Mar 2006 05:45:11 +0000
-Subject: [PATCH][BUG] Ignore disabled Local SAPIC Affinity Structure in SRAT
-Message-Id: <4417A9E7.3030904@soft.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 01:38:02 +0000
+Subject: [patch] more __init declaration in setup.c
+Message-Id: <200603120138.k2C1c0g23350@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-
-Here is a patch to fix a bug in the code for parsing SRAT.
-
-Thanks,
-Kenji Kaneshige
+More __init and __devinit declaration for setup related functions.
 
 
-According to the ACPI spec, the OSPM must ignore the contents of the
-Processor Local APIC/SAPIC Affinity Structure in System Resource
-Affinity Table (SRAT), if its enable flag is cleared. However, ia64
-linux refers all of the Processor Local APIC/SAPIC Affinity Structures
-in SRAT regardless of the enable flag. This is obviously against the
-ACPI spec. This patch fixes this bug.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
----
- arch/ia64/kernel/acpi.c |    3 +++
- 1 files changed, 3 insertions(+)
-
-Index: linux-2.6.16-rc6/arch/ia64/kernel/acpi.c
-=================================--- linux-2.6.16-rc6.orig/arch/ia64/kernel/acpi.c	2006-03-15 12:59:46.000000000 +0900
-+++ linux-2.6.16-rc6/arch/ia64/kernel/acpi.c	2006-03-15 12:59:57.000000000 +0900
-@@ -437,6 +437,9 @@
- void __init
- acpi_numa_processor_affinity_init(struct acpi_table_processor_affinity *pa)
- {
-+	if (!pa->flags.enabled)
-+		return;
-+
- 	/* record this node in proximity bitmap */
- 	pxm_bit_set(pa->proximity_domain);
+--- ./arch/ia64/kernel/setup.c.orig	2006-03-11 17:47:21.491177127 -0800
++++ ./arch/ia64/kernel/setup.c	2006-03-11 17:57:22.897419760 -0800
+@@ -358,7 +358,7 @@ mark_bsp_online (void)
+ }
  
+ #ifdef CONFIG_SMP
+-static void
++static void __init
+ check_for_logical_procs (void)
+ {
+ 	pal_logical_to_physical_t info;
+@@ -611,7 +611,7 @@ struct seq_operations cpuinfo_op = {
+ 	.show =		show_cpuinfo
+ };
+ 
+-void
++static void __devinit
+ identify_cpu (struct cpuinfo_ia64 *c)
+ {
+ 	union {
+@@ -685,7 +685,7 @@ setup_per_cpu_areas (void)
+  * In addition, the minimum of the i-cache stride sizes is calculated for
+  * "flush_icache_range()".
+  */
+-static void
++static void __devinit
+ get_max_cacheline_size (void)
+ {
+ 	unsigned long line_size, max = 1;
+@@ -742,7 +742,7 @@ get_max_cacheline_size (void)
+  * cpu_init() initializes state that is per-CPU.  This function acts
+  * as a 'CPU state barrier', nothing should get across.
+  */
+-void
++void __devinit
+ cpu_init (void)
+ {
+ 	extern void __devinit ia64_mmu_init (void *);
+@@ -864,7 +864,7 @@ cpu_init (void)
+ 	pm_idle = default_idle;
+ }
+ 
+-void
++void __init
+ check_bugs (void)
+ {
+ 	ia64_patch_mckinley_e9((unsigned long) __start___mckinley_e9_bundles,
+
