@@ -1,70 +1,94 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 02 Mar 2006 22:02:21 +0000
-Subject: PATCH[1/4] - Increase max node count on SN platforms
-Message-Id: <20060302220221.GA16668@sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 17:20:27 +0000
+Subject: [patch 6/6] move patchlist and machvec into init section
+Message-Id: <200603121720.k2CHKPg10336@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add a configuration option to allow the maximum
-number of nodes to be configurable for GENERIC or SN
-kernels. 
+ia64_mv is initialized based on platform detected or specified.
+However, there is one instantiation of each platform type.  We
+don't expect to switch platform vector during run time.  Move
+those platform specific type into init section since a copy is
+made into global ia64_mv at initialization.
+
+Also move instruction patch list into init section as well.
 
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
 
- arch/ia64/Kconfig           |    9 +++++++++
- include/asm-ia64/numnodes.h |   13 +++++++++----
- 2 files changed, 18 insertions(+), 4 deletions(-)
-
-
-
-
-Index: linux/arch/ia64/Kconfig
-=================================--- linux.orig/arch/ia64/Kconfig	2006-03-02 13:18:50.720983429 -0600
-+++ linux/arch/ia64/Kconfig	2006-03-02 13:21:53.330183650 -0600
-@@ -252,6 +252,15 @@ config NR_CPUS
- 	  than 64 will cause the use of a CPU mask array, causing a small
- 	  performance hit.
+--- ./arch/ia64/kernel/vmlinux.lds.S.orig	2006-03-12 01:48:31.255471910 -0800
++++ ./arch/ia64/kernel/vmlinux.lds.S	2006-03-12 01:53:12.983007521 -0800
+@@ -70,34 +70,9 @@ SECTIONS
+ 	  __stop___ex_table = .;
+ 	}
  
-+config IA64_NR_NODES
-+	int "Maximum number of NODEs (256-1024)" if (IA64_SGI_SN2 || IA64_GENERIC)
-+	range 256 1024
-+	depends on IA64_SGI_SN2 || IA64_GENERIC
-+	default "256"
-+	help
-+	  This option specifies the maximum number of nodes in your SSI system.
-+	  If in doubt, use the default.
+-  .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
+-	{
+-	  __start___vtop_patchlist = .;
+-	  *(.data.patch.vtop)
+-	  __end___vtop_patchlist = .;
+-	}
+-
+-  .data.patch.mckinley_e9 : AT(ADDR(.data.patch.mckinley_e9) - LOAD_OFFSET)
+-	{
+-	  __start___mckinley_e9_bundles = .;
+-	  *(.data.patch.mckinley_e9)
+-	  __end___mckinley_e9_bundles = .;
+-	}
+-
+   /* Global data */
+   _data = .;
+ 
+-#if defined(CONFIG_IA64_GENERIC)
+-  /* Machine Vector */
+-  . = ALIGN(16);
+-  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
+-	{
+-	  machvec_start = .;
+-	  *(.machvec)
+-	  machvec_end = .;
+-	}
+-#endif
+-
+   /* Unwind info & table: */
+   . = ALIGN(8);
+   .IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - LOAD_OFFSET)
+@@ -154,6 +129,32 @@ SECTIONS
+ 	  *(.initcall7.init)
+ 	  __initcall_end = .;
+ 	}
 +
- config HOTPLUG_CPU
- 	bool "Support for hot-pluggable CPUs (EXPERIMENTAL)"
- 	depends on SMP && EXPERIMENTAL
-Index: linux/include/asm-ia64/numnodes.h
-=================================--- linux.orig/include/asm-ia64/numnodes.h	2006-03-02 13:18:50.721959896 -0600
-+++ linux/include/asm-ia64/numnodes.h	2006-03-02 13:21:53.357524740 -0600
-@@ -3,13 +3,18 @@
- 
- #ifdef CONFIG_IA64_DIG
- /* Max 8 Nodes */
--#define NODES_SHIFT	3
-+#  define NODES_SHIFT	3
- #elif defined(CONFIG_IA64_HP_ZX1) || defined(CONFIG_IA64_HP_ZX1_SWIOTLB)
- /* Max 32 Nodes */
--#define NODES_SHIFT	5
-+#  define NODES_SHIFT	5
- #elif defined(CONFIG_IA64_SGI_SN2) || defined(CONFIG_IA64_GENERIC)
--/* Max 256 Nodes */
--#define NODES_SHIFT	8
-+#  if CONFIG_IA64_NR_NODES = 256
-+#    define NODES_SHIFT	8
-+#  elif CONFIG_IA64_NR_NODES <= 512
-+#    define NODES_SHIFT    9
-+#  elif CONFIG_IA64_NR_NODES <= 1024
-+#    define NODES_SHIFT    10
-+#  endif
- #endif
- 
- #endif /* _ASM_MAX_NUMNODES_H */
++  .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
++	{
++	  __start___vtop_patchlist = .;
++	  *(.data.patch.vtop)
++	  __end___vtop_patchlist = .;
++	}
++
++  .data.patch.mckinley_e9 : AT(ADDR(.data.patch.mckinley_e9) - LOAD_OFFSET)
++	{
++	  __start___mckinley_e9_bundles = .;
++	  *(.data.patch.mckinley_e9)
++	  __end___mckinley_e9_bundles = .;
++	}
++
++#if defined(CONFIG_IA64_GENERIC)
++  /* Machine Vector */
++  . = ALIGN(16);
++  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
++	{
++	  machvec_start = .;
++	  *(.machvec)
++	  machvec_end = .;
++	}
++#endif
++
+    __con_initcall_start = .;
+   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
+ 	{ *(.con_initcall.init) }
+
+
