@@ -1,109 +1,155 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 24 Mar 2006 07:49:20 +0000
-Subject: [PATCH 3/6] PCIERR : interfaces for synchronous I/O error detection
-Message-Id: <4423A480.1080402@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 17:04:54 +0000
+Subject: [patch 3/6] add init declaration to memory initialization functions
+Message-Id: <200603121704.k2CH4qg10206@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com>
-In-Reply-To: <20060322210157.GH12335@kroah.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: linux-ia64@vger.kernel.org
 
-This patch is 2/4 of PCIERR implementation for IA64.
+Add init declaration to variables/functions used for memory
+initialization.  I don't think they would clash with memory
+hotplug.  If they do, please yell.
 
-This part describes base of IA64-specific PCIERR, registering
-driver and checking status.
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
------
-  arch/ia64/lib/pcierr_check.c |   53 +++++++++++++++++++++++++++++++++++++++++--
-  include/asm-ia64/pci.h       |    4 ++-
-  2 files changed, 54 insertions(+), 3 deletions(-)
 
-Index: linux-2.6.16_WORK/arch/ia64/lib/pcierr_check.c
-=================================--- linux-2.6.16_WORK.orig/arch/ia64/lib/pcierr_check.c
-+++ linux-2.6.16_WORK/arch/ia64/lib/pcierr_check.c
-@@ -8,14 +8,63 @@
-  void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
-  int  pcierr_read(iocookie *cookie);
+--- ./arch/ia64/kernel/setup.c.orig	2006-03-12 00:25:16.844400279 -0800
++++ ./arch/ia64/kernel/setup.c	2006-03-12 00:25:52.983071711 -0800
+@@ -131,8 +131,8 @@ EXPORT_SYMBOL(ia64_max_iommu_merge_mask)
+ /*
+  * We use a special marker for the end of memory and it uses the extra (+1) slot
+  */
+-struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1];
+-int num_rsvd_regions;
++struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1] __initdata;
++static int num_rsvd_regions __initdata;
+ 
+ 
+ /*
+@@ -141,7 +141,7 @@ int num_rsvd_regions;
+  * caller-specified function is called with the memory ranges that remain after filtering.
+  * This routine does not assume the incoming segments are sorted.
+  */
+-int
++int __init
+ filter_rsvd_memory (unsigned long start, unsigned long end, void *arg)
+ {
+ 	unsigned long range_start, range_end, prev_start;
+@@ -177,7 +177,7 @@ filter_rsvd_memory (unsigned long start,
+ 	return 0;
+ }
+ 
+-static void
++static void __init
+ sort_regions (struct rsvd_region *rsvd_region, int max)
+ {
+ 	int j;
+@@ -218,7 +218,7 @@ __initcall(register_memory);
+  * initrd, etc.  There are currently %IA64_MAX_RSVD_REGIONS defined,
+  * see include/asm-ia64/meminit.h if you need to define more.
+  */
+-void
++void __init
+ reserve_memory (void)
+ {
+ 	int n = 0;
+@@ -270,7 +270,7 @@ reserve_memory (void)
+  * Grab the initrd start and end from the boot parameter struct given us by
+  * the boot loader.
+  */
+-void
++void __init
+ find_initrd (void)
+ {
+ #ifdef CONFIG_BLK_DEV_INITRD
+--- ./arch/ia64/mm/init.c.orig	2006-03-12 00:25:16.848306529 -0800
++++ ./arch/ia64/mm/init.c	2006-03-12 00:23:05.937175000 -0800
+@@ -206,7 +206,7 @@ free_initmem (void)
+ 	       (__init_end - __init_begin) >> 10);
+ }
+ 
+-void
++void __init
+ free_initrd_mem (unsigned long start, unsigned long end)
+ {
+ 	struct page *page;
+@@ -261,7 +261,7 @@ free_initrd_mem (unsigned long start, un
+ /*
+  * This installs a clean page in the kernel's page table.
+  */
+-struct page *
++static struct page * __init
+ put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
+ {
+ 	pgd_t *pgd;
+@@ -411,7 +411,7 @@ ia64_mmu_init (void *my_cpu_data)
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ 
+-int
++int __init
+ create_mem_map_page_table (u64 start, u64 end, void *arg)
+ {
+ 	unsigned long address, start_page, end_page;
+@@ -519,7 +519,7 @@ ia64_pfn_valid (unsigned long pfn)
+ }
+ EXPORT_SYMBOL(ia64_pfn_valid);
+ 
+-int
++int __init
+ find_largest_hole (u64 start, u64 end, void *arg)
+ {
+ 	u64 *max_gap = arg;
+@@ -535,7 +535,7 @@ find_largest_hole (u64 start, u64 end, v
+ }
+ #endif /* CONFIG_VIRTUAL_MEM_MAP */
+ 
+-static int
++static int __init
+ count_reserved_pages (u64 start, u64 end, void *arg)
+ {
+ 	unsigned long num_reserved = 0;
+@@ -567,7 +567,7 @@ nolwsys_setup (char *s)
+ 
+ __setup("nolwsys", nolwsys_setup);
+ 
+-void
++void __init
+ mem_init (void)
+ {
+ 	long reserved_pages, codesize, datasize, initsize;
+--- ./arch/ia64/mm/contig.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ ./arch/ia64/mm/contig.c	2006-03-12 00:25:52.983071711 -0800
+@@ -97,7 +97,7 @@ find_max_pfn (unsigned long start, unsig
+  * Find a place to put the bootmap and return its starting address in
+  * bootmap_start.  This address must be page-aligned.
+  */
+-int
++static int __init
+ find_bootmap_location (unsigned long start, unsigned long end, void *arg)
+ {
+ 	unsigned long needed = *(unsigned long *)arg;
+@@ -141,7 +141,7 @@ find_bootmap_location (unsigned long sta
+  * Walk the EFI memory map and find usable memory for the system, taking
+  * into account reserved areas.
+  */
+-void
++void __init
+ find_memory (void)
+ {
+ 	unsigned long bootmap_size;
+@@ -226,7 +226,7 @@ count_dma_pages (u64 start, u64 end, voi
+  * Set up the page tables.
+  */
+ 
+-void
++void __init
+ paging_init (void)
+ {
+ 	unsigned long max_dma;
 
-+LIST_HEAD(pcierr_list);		/* all iocookies are listed in this */
-+DEFINE_SPINLOCK(pcierr_lock);	/* to protect list above */
-+
-+static int have_error(struct pci_dev *dev);
-+
-  void pcierr_clear(iocookie *cookie, struct pci_dev *dev)
-  {
--	/* register device etc. */
-+	unsigned long flag;
-+
-+	INIT_LIST_HEAD(&(cookie->list));
-+
-+	cookie->dev = dev;
-+
-+	spin_lock_irqsave(&pcierr_lock, flag);
-+	list_add(&cookie->list, &pcierr_list);
-+	spin_unlock_irqrestore(&pcierr_lock, flag);
-+
-+	cookie->error = 0;
-  }
-
-  int pcierr_read(iocookie *cookie)
-  {
--	/* check error etc. */
-+	unsigned long flag;
-+	int ret = 0;
-+
-+	spin_lock_irqsave(&pcierr_lock, flag);
-+	if (cookie->error || have_error(cookie->dev))
-+		ret = 1;
-+	list_del(&cookie->list);
-+	spin_unlock_irqrestore(&pcierr_lock, flag);
-+
-+	return ret;
-+}
-+
-+static int have_error(struct pci_dev *dev)
-+{
-+	u16 status;
-+
-+	/* check status */
-+	switch (dev->hdr_type) {
-+	case PCI_HEADER_TYPE_NORMAL: /* 0 */
-+		pci_read_config_word(dev, PCI_STATUS, &status);
-+		break;
-+	case PCI_HEADER_TYPE_BRIDGE: /* 1 */
-+		pci_read_config_word(dev, PCI_SEC_STATUS, &status);
-+		break;
-+	case PCI_HEADER_TYPE_CARDBUS: /* 2 */
-+		return 0; /* FIX ME */
-+	default:
-+		BUG();
-+	}
-+
-+	if ( (status & PCI_STATUS_REC_TARGET_ABORT)
-+		|| (status & PCI_STATUS_REC_MASTER_ABORT)
-+		|| (status & PCI_STATUS_DETECTED_PARITY) )
-+		return 1;
-+
-  	return 0;
-  }
-
-Index: linux-2.6.16_WORK/include/asm-ia64/pci.h
-=================================--- linux-2.6.16_WORK.orig/include/asm-ia64/pci.h
-+++ linux-2.6.16_WORK/include/asm-ia64/pci.h
-@@ -175,7 +175,9 @@
-  /* Enable ia64 pcierr - See arch/ia64/lib/pcierr_check.c */
-  #define HAVE_ARCH_PCIERR_CHECK
-  typedef struct {
--	int dummy;
-+	struct list_head	list;
-+	struct pci_dev		*dev;	/* target device */
-+	unsigned long		error;	/* error flag */
-  } iocookie;
-  #endif /* CONFIG_PCIERR_CHECK  */
 
 
