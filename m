@@ -1,64 +1,56 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:21:38 +0000
-Subject: [PATCH: 008/017]Memory hotplug for new nodes v.4.(allocate pgdat for ia64)
-Message-Id: <20060317163324.C647.Y-GOTO@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 12 Mar 2006 19:10:00 +0000
+Subject: [patch] cleanup dig_irq_init
+Message-Id: <200603121909.k2CJ9xg11359@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-This is a patch to allocate pgdat and per node data area for ia64.
-The size for them can be calculated by compute_pernodesize().
+dig_irq_init is equivalent to machvec_noop, no need to define
+another empty function.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
- arch/ia64/mm/discontig.c |   16 ++++++++++++++--
- 1 files changed, 14 insertions(+), 2 deletions(-)
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-Index: pgdat8/arch/ia64/mm/discontig.c
-=================================--- pgdat8.orig/arch/ia64/mm/discontig.c	2006-03-16 21:20:31.251828760 +0900
-+++ pgdat8/arch/ia64/mm/discontig.c	2006-03-16 21:21:25.615109344 +0900
-@@ -100,7 +100,7 @@ static int __init build_node_maps(unsign
-  * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
-  * called yet.  Note that node 0 will also count all non-existent cpus.
-  */
--static int __init early_nr_cpus_node(int node)
-+static int __meminit early_nr_cpus_node(int node)
- {
- 	int cpu, n = 0;
- 
-@@ -115,7 +115,7 @@ static int __init early_nr_cpus_node(int
-  * compute_pernodesize - compute size of pernode data
-  * @node: the node id.
-  */
--static unsigned long __init compute_pernodesize(int node)
-+static unsigned long __meminit compute_pernodesize(int node)
- {
- 	unsigned long pernodesize = 0, cpus;
- 
-@@ -728,6 +728,18 @@ void __init paging_init(void)
- 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
+---
+
+Hack, I start to sense that I must be extremely bored and have
+too much free time ....
+
+Next target: machvec_setup() and machvec_timer_interrupt().
+Q: How many empty function does one need to implement for linux kernel?
+A: apparently many :-(
+
+
+
+--- ./arch/ia64/dig/setup.c.orig	2006-03-12 11:52:28.953270185 -0800
++++ ./arch/ia64/dig/setup.c	2006-03-12 11:53:04.583152561 -0800
+@@ -69,8 +69,3 @@ dig_setup (char **cmdline_p)
+ 	screen_info.orig_video_isVGA = 1;	/* XXX fake */
+ 	screen_info.orig_video_ega_bx = 3;	/* XXX fake */
  }
+-
+-void __init
+-dig_irq_init (void)
+-{
+-}
+--- ./include/asm-ia64/machvec_dig.h.orig	2006-03-12 11:51:07.238427436 -0800
++++ ./include/asm-ia64/machvec_dig.h	2006-03-12 11:58:19.316547143 -0800
+@@ -2,7 +2,6 @@
+ #define _ASM_IA64_MACHVEC_DIG_h
  
-+pg_data_t *arch_alloc_nodedata(int nid)
-+{
-+	unsigned long size = compute_pernodesize(nid);
-+
-+	return kzalloc(size, GFP_KERNEL);
-+}
-+
-+void arch_free_nodedata(pg_data_t *pgdat)
-+{
-+	kfree(pgdat);
-+}
-+
- void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
- {
- 	pgdat_list[update_node] = update_pgdat;
-
--- 
-Yasunori Goto 
-
+ extern ia64_mv_setup_t dig_setup;
+-extern ia64_mv_irq_init_t dig_irq_init;
+ 
+ /*
+  * This stuff has dual use!
+@@ -13,6 +12,5 @@ extern ia64_mv_irq_init_t dig_irq_init;
+  */
+ #define platform_name		"dig"
+ #define platform_setup		dig_setup
+-#define platform_irq_init	dig_irq_init
+ 
+ #endif /* _ASM_IA64_MACHVEC_DIG_h */
 
