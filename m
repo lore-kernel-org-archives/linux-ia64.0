@@ -1,7 +1,7 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 13 Mar 2006 04:08:26 +0000
-Subject: Re: [RFC] IA64: Use early_parm to handle mvec_name and nomca
-Message-Id: <20060313040825.GA31703@verge.net.au>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Mon, 13 Mar 2006 06:33:27 +0000
+Subject: RE: [RFC] IA64: Use early_parm to handle mvec_name and nomca
+Message-Id: <200603130633.k2D6XRg17557@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060310082445.GA18715@verge.net.au>
 In-Reply-To: <20060310082445.GA18715@verge.net.au>
@@ -10,61 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, Mar 11, 2006 at 09:51:41AM +0100, Jes Sorensen wrote:
-> Horms wrote:
-> >Below is a fressh diff that resolves those initialisation problems.
+Horms wrote on Sunday, March 12, 2006 8:08 PM
+> IA64: Use early_parm to handle mvec_name and nomca
 > 
-> You're still zero initializingn them in the new diff ;-(
-
-Sorry, sent the wrong thing :(
-
-[snip]
-
-On Sat, Mar 11, 2006 at 12:17:39PM -0800, Chen, Kenneth W wrote:
-> Jes Sorensen wrote on Saturday, March 11, 2006 12:52 AM
-> > > I was actually thinking that the main drawback of this appoach was the
-> > > extra space devoted to these variables. Marking them as __init made the
-> > > linker very unhappy. Given their current delaration, will they just
-> > > stick around forever?
-> > > 
-> > 
-> > Yous hould be able to mark them __init, otherwise they just end up
-> > sticking around forever as you say. Grep around some other code in the
-> > vicinity to see how it's declared if it causes problems.
+> I'm not sure of the worthiness of this idea, so please consider it an RFC. 
+> Its key merits are:
 > 
-> You should use __initdata.
+> * Reuse existing infrastructure
+> * Greatly tightens up the parsing of nomca
+> * Greatly simplifies the parsing of machvec
 
-Thanks,
+It is kind of odd though that parse_early_param() is called twice,
+once from init/main.c:start_kernel and once from arch/ia64/kernel/
+setup.c:setup_arch.  Though you are not the one introduces that
+Oddity.
 
-The patch below should address the BSS and __initdata deficiencies.
-I also did a bit more testing, and it does indeed seem to work.
+The other thing is that the code you changed are going to be thrown
+away after initialization, so I take your motivation of the patch
+is in some form of uncluttered the source code?
 
--- 
-Horms
+If I were you, I would put machvec code into machvec.c, like this:
 
-IA64: Use early_parm to handle mvec_name and nomca
 
-I'm not sure of the worthiness of this idea, so please consider it an RFC. 
-Its key merits are:
+ machvec.c |   17 ++++++++++++++---
+ setup.c   |   30 +++++-------------------------
+ 2 files changed, 19 insertions(+), 28 deletions(-)
 
-* Reuse existing infrastructure
-* Greatly tightens up the parsing of nomca
-* Greatly simplifies the parsing of machvec
-
-Signed-Off-By: Horms <horms@verge.net.au>
-
- setup.c |   47 ++++++++++++++++++++++++-----------------------
- 1 file changed, 24 insertions(+), 23 deletions(-)
-
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 3258e09..afabe1b 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -389,6 +389,24 @@ check_for_logical_procs (void)
- }
- #endif
+--- ./arch/ia64/kernel/machvec.c.orig	2006-03-12 22:52:30.208644445 -0800
++++ ./arch/ia64/kernel/machvec.c	2006-03-12 23:07:09.688125859 -0800
+@@ -14,6 +14,14 @@
+ struct ia64_machine_vector ia64_mv;
+ EXPORT_SYMBOL(ia64_mv);
  
-+#ifdef CONFIG_IA64_GENERIC
 +static __initdata const char *mvec_name;
 +static __init int setup_mvec(char *s)
 +{
@@ -72,20 +49,30 @@ index 3258e09..afabe1b 100644
 +	return 0;
 +}
 +early_param("machvec", setup_mvec);
-+#endif
 +
-+static __initdata int nomca;
-+static __init int setup_nomca(char *s)
-+{
-+	nomca = 1;
-+	return 0;
-+}
-+early_param("nomca", setup_nomca);
-+
- void __init
- setup_arch (char **cmdline_p)
+ static struct ia64_machine_vector * __init
+ lookup_machvec (const char *name)
  {
-@@ -402,35 +420,18 @@ setup_arch (char **cmdline_p)
+@@ -33,10 +41,13 @@ machvec_init (const char *name)
+ {
+ 	struct ia64_machine_vector *mv;
+ 
++	if (!name)
++		name = mvec_name ? mvec_name : acpi_get_sysname();
+ 	mv = lookup_machvec(name);
+-	if (!mv) {
+-		panic("generic kernel failed to find machine vector for platform %s!", name);
+-	}
++	if (!mv)
++		panic("generic kernel failed to find machine vector for"
++		      " platform %s!", name);
++
+ 	ia64_mv = *mv;
+ 	printk(KERN_INFO "booting generic kernel on platform %s\n", name);
+ }
+--- ./arch/ia64/kernel/setup.c.orig	2006-03-12 22:53:16.178370444 -0800
++++ ./arch/ia64/kernel/setup.c	2006-03-12 23:01:43.595356416 -0800
+@@ -402,35 +402,15 @@ setup_arch (char **cmdline_p)
  	efi_init();
  	io_port_init();
  
@@ -93,8 +80,7 @@ index 3258e09..afabe1b 100644
 -	{
 -		const char *mvec_name = strstr (*cmdline_p, "machvec=");
 -		char str[64];
-+	parse_early_param();
- 
+-
 -		if (mvec_name) {
 -			const char *end;
 -			size_t len;
@@ -111,27 +97,20 @@ index 3258e09..afabe1b 100644
 -			mvec_name = str;
 -		} else
 -			mvec_name = acpi_get_sysname();
-+#ifdef CONFIG_IA64_GENERIC
-+	if (!mvec_name)
-+		machvec_init(acpi_get_sysname());
-+	else
- 		machvec_init(mvec_name);
+-		machvec_init(mvec_name);
 -	}
- #endif
- 
+-#endif
+-
  	if (early_console_setup(*cmdline_p) = 0)
  		mark_bsp_online();
  
--	parse_early_param();
+ 	parse_early_param();
++
++#ifdef CONFIG_IA64_GENERIC
++	machvec_init(NULL);
++#endif
++
  #ifdef CONFIG_ACPI
  	/* Initialize the ACPI boot-time table parser */
  	acpi_table_init();
-@@ -493,7 +494,7 @@ setup_arch (char **cmdline_p)
- #endif
- 
- 	/* enable IA-64 Machine Check Abort Handling unless disabled */
--	if (!strstr(saved_command_line, "nomca"))
-+	if (!nomca)
- 		ia64_mca_init();
- 
- 	platform_setup(cmdline_p);
+
