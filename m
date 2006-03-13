@@ -1,74 +1,70 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 13 Mar 2006 21:21:21 +0000
+Date: Mon, 13 Mar 2006 23:58:48 +0000
 Subject: Re: [Perfctr-devel] 2.6.16-rc5 perfmon2 new code base + libpfm with Montecito support
-Message-Id: <20060313212121.GH32683@frankl.hpl.hp.com>
+Message-Id: <20060313235848.GI32683@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060308155311.GD13168@frankl.hpl.hp.com> <4415BC45.1010601@nc.rr.com> <20060313185500.GB32683@frankl.hpl.hp.com> <4415C4E9.5070702@nc.rr.com> <20060313202554.GD32683@frankl.hpl.hp.com> <4415DCDE.1080507@nc.rr.com>
-In-Reply-To: <4415DCDE.1080507@nc.rr.com>
+References: <20060308155311.GD13168@frankl.hpl.hp.com> <4415BC45.1010601@nc.rr.com> <20060313185500.GB32683@frankl.hpl.hp.com> <4415C4E9.5070702@nc.rr.com> <20060313210127.GA13453@totally.trollied.org> <20060313210354.GG32683@frankl.hpl.hp.com> <20060313232057.GA16582@totally.trollied.org>
+In-Reply-To: <20060313232057.GA16582@totally.trollied.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Cohen <wcohen@nc.rr.com>
-Cc: linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, perfctr-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, oprofile-list <oprofile-list@lists.sourceforge.net>
+To: John Levon <levon@movementarian.org>
+Cc: William Cohen <wcohen@nc.rr.com>, oprofile-list <oprofile-list@lists.sourceforge.net>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com
 
-Will,
+John,
 
-On Mon, Mar 13, 2006 at 03:58:06PM -0500, William Cohen wrote:
+On Mon, Mar 13, 2006 at 11:20:57PM +0000, John Levon wrote:
+> On Mon, Mar 13, 2006 at 01:03:54PM -0800, Stephane Eranian wrote:
 > 
-> Is new identifier cpu_type being created or is i386/pentium_m being used 
-> also for perfmon2? It could be inferred that perfmon2 is being used if 
-> the procesor is identified, but there are no number directories for the 
-> counters (/dev/oprofile/[0-9]+).
+> > > 1) the event names are synchronised so we don't need massive duplication
+> > 
+> > The kernel perfmon2 interface does not know anything about event names.
 > 
-Existing OProfile codes treats pentium M as i386/piii as it should more or less.
+> Well, it sounded like Will was proposing extra event directories.
 
-> I looked over the code this afternoon to refresh my memory how it actual 
-> work (as opposed to how I thought it works).
-> 
-> ophelp uses oprofile/libop/op_cpu_type.c:op_get_cpu_type to read 
-> /dev/oprofile/cpu_type. Once ophelp obtains the cpu type the appropriate 
-> directory from /usr/share/oprofile for the events. This information is 
-> passed to oprofiled; you can see it with "opcontrol --start --verbose".
-> 
-In the quick hack I did over the week-end, I followed what John had done
-for IA-64. In other words, I also have a get_cpu() routine for i386 and
-I basically did a cut&paste of what was in nmi_int.c. As such,
-/dev/oprofile/cpu_type is preserved to avoid confusing ophelp.
+I think Will was trying to solve the register naming differences.
+I do not know how you deal with this in ophelp.
 
-> oprofile/daemon/opd_perfmon.c and opd_perfmon.h are the place that the 
-> performance monitoring hardware is set for perfmon. 
-> opd_perfmon.c:write_pmu() is currently hard coded for ia64. As you have 
-> seen, it doesn't use the libpfm to set up the performance monitoring 
-> hardware.
+> > > 2) that "start a thread on each CPU" API is fixed to be sane
+> >
+> > Please develop on this point some more.
+> 
+> The kernel interface should just let me say "I want this setup on all
+> CPUs" and do the IPIs for me.
+> 
+That's is because you are assuming a model were you always want to monitor
+all CPUs each time and measure the same thing everywhere.  This does not
+always makes sense in large configurations. You may want to only monitor
+a subset of CPUs or you may want to monitor different things on different
+CPUs at the same time, for instance because they handle different workloads
+or interrupts.
 
-Libpfm is really a helper library and is not required to use the kernel
-interface. However, there is a bit of an anomaly in libpfm at the moment.
-The library also includes the kernel header files and perfmon2 syscall stubs.
-Both would eventually be found in libc.  As such, for the time being, some
-applications may choose to link against libpfm, just for the stubs. The current
-oprofiled does not do this and has every perfmon.h definitions it needs hardcoded
-(syscalls stubs are also recreated).
+When it comes to sampling, I think you will agree with me that the kernel level 
+sampling buffer must be per-cpu. I think this is also how you manage
+it in OProfile. I think it also makes sense to process the buffer locally for
+cache affinity reasons for instance. Keep monitoring overhead minimum by exploiting
+locality. I think (correct me if I am wrong) in Oprofile you somehow merge the
+per-cpu buffers into a single buffer which is then read via read() by user level
+applications. For some measurements merging is not necessarily what is needed.
 
-> 
-> Looking over the code in the linux/arch/i386/oprofile the code for 
-> typing the processor is tied to the initialization of the performance 
-> monitoring hardware. Probably want to factor out cpu idenification code 
-> from oprofile native handling of the performance monitoring code. So the 
-> pseudo code is something like in 
-> linux/arch/i386/oprofile/init.c:oprofile_arch_init():
-> 
-> char *processor_id = identify_processer();
-> ret = op_perfmon_support(ops, processor_id);
-> if (ret < 0)
-> 	ret = op_nmi_init(ops, processor_id);
-> if (ret < 0)
-> 	ret = op_nmi_timer(ops, processor_id);
-> return ret;
-> 
-Yes that could be a possibility. That implies that there may be
-situations where perfmon does not support a processor that is
-somehow supported by OProfile. I suspect this could be the case
-for very old CPUs.
+In your model, I would have to pass a bitmap of CPUs to monitor, then internally
+the kernel would have propagate the setup via IPI and maintain a context per-cpu.
+Then upon return, it would have to pass information as to how to mmap the per-cpu
+buffers. You have a choice of doing one mmap() per buffer or to do
+a single large mmap() covering the possibly discountiguous physical pages 
+backing each per-cpu buffer. In either case, it would make sense to ensure
+that the thread processing each buffer runs on the CPU where the samples
+have been collected to minimize cache traffic which is very important on NUMA
+machines. Typically on those machines, every effort is made to keep all memory
+accesses local, I do not see why this would not also apply to profiling.
+
+Note that in the new perfmon code base, you do not have to create one thread
+per monitored CPU. All you need to do is to ensure that the thread runs on
+the CPU it needs to access when issuing perfmon2 calls causing actual PMU 
+HW accesses. A single thread can very well control lots of context bound to
+different threads or CPU.
+
+But again, I am always open to discussions/proposals on this.
 
 -- 
 -Stephane
