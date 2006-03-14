@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Mon, 13 Mar 2006 22:53:42 +0000
-Subject: RE: accessed/dirty bit handler tuning
-Message-Id: <200603132253.k2DMrfg26844@unix-os.sc.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Tue, 14 Mar 2006 10:12:31 +0000
+Subject: Re: accessed/dirty bit handler tuning
+Message-Id: <4416970F.902@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44157CF1.5060902@bull.net>
 In-Reply-To: <44157CF1.5060902@bull.net>
@@ -10,50 +10,69 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan Menyhart wrote on Monday, March 13, 2006 6:09 AM
-> I think we can do some accessed/dirty bit handler tuning. E.g.
-> in my patch (based on the Christoph's one entitled "Fix race in the
-> accessed/dirty bit handlers"), I think we gain a bit by:
-> 
-> ...
-> - not testing the result of "cmpxchg" (we'll re-read the PTE and
->   compare it anyway)
+Chen, Kenneth W wrote:
 
+> Hmm, I think another alternative is to rip out all the itc insertion
+> code and let the hardware page walker do the "dirty" job.  Because it
+> is known and architected to be atomic-read-and-insert and is also
+> known to honor ptc.g while atomic-read-and-insert is in-flight (i.e.,
+> won't insert tlb entry).
 
-It occurs on me that you can do even more: you don't even need the
-2nd load, move itc opportunistically before cmpxchg, then use data
-returned from cmpxchg and compare it to the first read.
+Form the "semantical point of view", I can agree with you.
 
-Oh, well, I suppose Tony has enough versions to jog around ;-)
+Yet in my sequence:
 
-- Ken
+(p6)    cmpxchg8.acq.nta r26 = [r17],r25,ar.ccv
+(p6)    itc.d r25
+         ;;
+(p6)    srlz.d
 
+the execution of "cmpxchg" (that is not a quick & simple instruction)
+partially overlaps that of "itc" (this latter has got an acquire
+semantics, it does not depend on the completion of the former).
 
---- ./arch/ia64/kernel/ivt.S.orig	2006-03-13 15:39:36.745990157 -0800
-+++ ./arch/ia64/kernel/ivt.S	2006-03-13 15:43:56.757705722 -0800
-@@ -563,23 +563,12 @@ ENTRY(dirty_bit)
- 	or r25=_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
- 	tbit.z p7,p6 = r18,_PAGE_P_BIT		// Check present bit
- 	;;
-+(p6)	itc.d r25				// install updated PTE
- (p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only update if page is present
- 	mov r24=PAGE_SHIFT<<2
- 	;;
- (p6)	cmp.eq p6,p7=r26,r18			// Only compare if page is present
- 	;;
--(p6)	itc.d r25				// install updated PTE
--	;;
--	/*
--	 * Tell the assemblers dependency-violation checker that the above "itc" instructions
--	 * cannot possibly affect the following loads:
--	 */
--	dv_serialize_data
--
--	ld8 r18=[r17]				// read PTE again
--	;;
--	cmp.eq p6,p7=r18,r25			// is it same as the newly installed
--	;;
- (p7)	ptc.l r16,r24
- 	mov b0=r29				// restore b0
- 	mov ar.ccv=r28
+If it is the page walker that inserts the new translation, then it has
+to observe the purge requirements, too:
+E.g. in case of page size of 64 K, up to 16 L1 DTLB entries may be
+purged and all the L1D cache lines brought in via these translations
+need to be invalidated.
+It does take time.
 
+> I don't have any numbers ...  Though I've measured 5 cycles hpw insert
+> latency. It ought be faster than srlz.d.
+
+How did you measure it?
+
+I'd expect (sure, not knowing exectly how the HW works :-)) up to:
+
+	  16	max. number of L1 DTLB entries used for a page
+	* 32	L1D cache is indexed as 0...31
+	----
+	 512
+
+cycles only for purging and invalidating the old suff.
+
+I think the CPU refuses the external purge request while the hardware
+page walker is busy with this clean up activity
+(retry response on the system bus).
+
+In my sequence, it is "srlz.d" that stalls the exec. pipeline during
+this clean up activity.
+
+> It occurs on me that you can do even more: you don't even need the
+> 2nd load, move itc opportunistically before cmpxchg, then use data
+> returned from cmpxchg and compare it to the first read.
+
+You will have to have a slightly more complicated sequence:
+
+(p6)    itc.d r25
+         ;;                                // "itc" must be the last in the group
+(p6)    srlz.d                            // This is what I think is necessary
+(p6)    cmpxchg8.acq r26=[r17],r25,ar.ccv
+
+You avoid an L2 cache access by eliminating "ld" and you do not
+take advantage of the partially overlapping "cmpxchg" and "itc".
+
+Regards,
+
+Zoltan
