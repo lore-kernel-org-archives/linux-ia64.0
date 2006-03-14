@@ -1,45 +1,52 @@
 From: Khalid Aziz <khalid_aziz@hp.com>
-Date: Tue, 14 Mar 2006 16:00:15 +0000
+Date: Tue, 14 Mar 2006 16:08:04 +0000
 Subject: Re: [PATCH] kexec for ia64
-Message-Id: <1142352015.18421.3.camel@lyra.fc.hp.com>
+Message-Id: <1142352485.18421.11.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1142271576.10787.15.camel@lyra.fc.hp.com>
-	 <20060313224404.1133fc28.akpm@osdl.org>
-In-Reply-To: <20060313224404.1133fc28.akpm@osdl.org>
+	 <1142318909.2545.4.camel@linux-znh>
+In-Reply-To: <1142318909.2545.4.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
+To: Zou Nan hai <nanhai.zou@intel.com>
 Cc: Fastboot mailing list <fastboot@lists.osdl.org>, Linux ia64 <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
 
-On Mon, 2006-03-13 at 22:44 -0800, Andrew Morton wrote:
-> Khalid Aziz <khalid_aziz@hp.com> wrote:
-> > +	int cpu;
-> > +
-> > +	for_each_online_cpu(cpu) {
-> > +		if (cpu != smp_processor_id())
-> > +			cpu_down(cpu);
-> > +	}
-> > +#else
-> > +	smp_call_function(kexec_stop_this_cpu, (void *)image->start, 0, 0);
-> > +#endif
-> > +#endif
+On Tue, 2006-03-14 at 14:48 +0800, Zou Nan hai wrote:
+> 3. Is the set ar.k0 code necessary? ar.k0 is already holding the right
+> value.
+
+Purely defensive coding to ensure new kernel does not fall on its
+face :)
+
 > 
-> Why is different code needed for hotplug cpu?
+> 4. Is the VHPT disable code necessary? kernel will soon goes into
+> Physical mode and the new kernel will reset VHPT walker.
 
-Hi Andrew,
+Again, playing it safe. We do not want VHPT walker waking up at this
+point. Instead of assuming code will not do anything that could cause
+VHPT walker to wake up, it is better to just disable it. This way, if
+any code makes erroneous references to a virtual address which causes
+VHPT walker to make a TLB entry, it will simply get a page fault and we
+can catch that. It is much harder to debug if VHPT walker silently makes
+a TLB entry for an unexpected virtual address reference and then things
+go wrong further down the line.
 
-It is preferable to use cpu_down() to shoot down a cpu, but this
-function is available only with CONFIG_HOTPLUG_CPU. If
-CONFIG_HOTPLUG_CPU is not enabled, only other way to shut down slave
-CPUs in a state where they would come back up when the new kernel boots
-up and sends them IPI is to hold them in a fake rendezvous which is what
-the function kexec_stop_this_cpu() does. So the choices are either to
-keep both ways of shutting down CPUs or go with kexec_stop_this_cpu()
-for all cases.
+> 
+> 5. Is the PCI disable code too complex?
 
-Thanks for the comments. I will move declarations to header files as you
-suggested.
+I have simplified it as much as I can. Suggestions to simplify further
+would be appreciated.
+> 
+> The overall concern is I am afraid the code is too much than
+> necessary. 
+> 
+
+After testing this kexec code for over 10,000 iterations of kexec'ing, I
+have found not shutting devices down results in many corner cases that
+have been fairly hard to debug. Adding all this code to shut down as
+much of the hardware as possible has resulted in much more reliable
+kexec code.
 
 -- 
 Khalid
