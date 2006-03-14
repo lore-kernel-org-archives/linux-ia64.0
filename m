@@ -1,28 +1,37 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 24 Mar 2006 21:46:09 +0000
-Subject: RE: unlock_buffer() and clear_bit()
-Message-Id: <200603242145.k2OLjog18835@unix-os.sc.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 14 Mar 2006 23:59:49 +0000
+Subject: Re: some new unaligned access while booting ia64 (HP rx2620)
+Message-Id: <200603141659.49535.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44240DB3.3040502@bull.net>
-In-Reply-To: <44240DB3.3040502@bull.net>
+References: <200602021946.k12Jk446028921@agluck-lia64.sc.intel.com>
+In-Reply-To: <200602021946.k12Jk446028921@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, "Moore, Robert" <robert.moore@intel.com>, Thomas Renninger <trenn@suse.de>
 
-Zoltan Menyhart wrote on Friday, March 24, 2006 7:18 AM
-> I wonder if "unlock_buffer()" works correctly on ia64...
+On Thursday 02 February 2006 12:46, Luck, Tony wrote:
+> Booting a snapshot of Linus' tree this morning I saw a few (new?)
+> kernel unaligned access warnings:
 > 
-> As far As I can see, nothing makes it sure that data modifications
-> issued inside the critical section be globally visible before the
-> "BH_Lock" bit gets cleared.
+> ACPI: Subsystem revision 20060127
+> ACPI: Interpreter enabled
+> ACPI: Using IOSAPIC for interrupt routing
+> ACPI: PCI Root Bridge [PCI0] (0000:00)
+> kernel unaligned access to 0xe00000407ec5a204, ip=0xa0000001003af8c0
+> kernel unaligned access to 0xe00000407ec5a23c, ip=0xa0000001003af8c0
+> kernel unaligned access to 0xe00000407ec5a28c, ip=0xa0000001003af8c0
+> kernel unaligned access to 0xe00000407ec5a1fc, ip=0xa0000001003ae6c1
+> kernel unaligned access to 0xe00000407ec5a204, ip=0xa0000001003ae6d1
+> ACPI: PCI Interrupt Routing Table [\_SB_.SBA0.PCI0._PRT]
+> ACPI: PCI Root Bridge [PCI1] (0000:20)
 
+Did we ever resolve this?  Are we just waiting for new ACPI bits
+to trickle into -mm and mainline?
 
-Are you saying the memory ordering in unlock_buffer() is x86 centric
-that relies on arch specific write ordering? (on x86, write to memory
-implies a release semantics w.r.t. read proceed it).  It's better to
-bring this up on LKML.  If your concern is true, then it is a bug in
-the generic code that lacks smp_mb__before_clear_bit.
+I'd like to see the patch for just this issue, because it affects
+SLES10, and Novell might balk at a complete ACPI CA update, but
+might take just the individual patch.
 
-- Ken
-
+Bjorn
