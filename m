@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 14 Mar 2006 21:45:35 +0000
-Subject: Re: [PATCH] (-mm) drivers/pci/msi: explicit declaration of
-Message-Id: <20060314134535.72eb7243.akpm@osdl.org>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Tue, 14 Mar 2006 21:57:36 +0000
+Subject: Re: [PATCH] (-mm) drivers/pci/msi: explicit declaration of msi_register
+Message-Id: <20060314215736.GV13973@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44172F0E.6070708@ce.jp.nec.com>
 In-Reply-To: <44172F0E.6070708@ce.jp.nec.com>
@@ -9,42 +9,43 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Jun'ichi Nomura <j-nomura@ce.jp.nec.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, gregkh@suse.de, maule@sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Greg KH <gregkh@suse.de>, maule@sgi.com, Andrew Morton <akpm@osdl.org>
 
-"Jun'ichi Nomura" <j-nomura@ce.jp.nec.com> wrote:
->
-> Declare msi_register() in msi.h.
+On Tue, Mar 14, 2006 at 04:01:02PM -0500, Jun'ichi Nomura wrote:
+> Hello,
 > 
-> The patch is especially necessary for ia64 on which most of files
-> emit compiler warnings like below:
->   include2/asm/msi.h: In function `ia64_msi_init':
->   include2/asm/msi.h:23: warning: implicit declaration of function `msi_register'
->   In file included from include2/asm/machvec.h:408,
+> In 2.6.16-rc6-mm1, I've seen tons of compiler warnings on ia64:
+> 
+> include2/asm/msi.h: In function `ia64_msi_init':
+> include2/asm/msi.h:23: warning: implicit declaration of function `msi_register'
+> In file included from include2/asm/machvec.h:408,
 >                  from include2/asm/io.h:70,
 >                  from include2/asm/smp.h:20,
 >                  from /build/rc6/source/include/linux/smp.h:22,
-
-I wonder why I didn't get that.  Need a better ia64 config I guess.
-
-> Signed-off-by: Jun'ichi Nomura <j-nomura@ce.jp.nec.com>
 > 
-> --- linux-2.6.16-rc6-mm1.orig/include/asm-ia64/msi.h	2006-03-14 13:54:11.000000000 -0500
-> +++ linux-2.6.16-rc6-mm1/include/asm-ia64/msi.h	2006-03-14 14:05:26.000000000 -0500
-> @@ -15,6 +15,7 @@ static inline void set_intr_gate (int nr
->  #define MSI_TARGET_CPU_SHIFT	4
->  
->  extern struct msi_ops msi_apic_ops;
-> +extern int msi_register(struct msi_ops *);
->  
->  /* default ia64 msi init routine */
->  static inline int ia64_msi_init(void)
+> The problem is that msi_register() is used in ia64_msi_init()
+> without declaration.
+> Since ia64_msi_init() is a part of machine vector, most of files
+> hit this warning and may hide other important messages.
+>...
 
-The offending patch is gregkh-pci-msi-vector-targeting-abstractions.patch.
+To avoid any wrong impression:
 
-That patch already adds a declaration for msi_register(), in
-drivers/pci/pci.h.  We don't want to add a duplicated declaration like
-this.
+This kind of warnings isn't harmless.
 
-One option might be to create inclued/linux/msi.h, put this declaration in
-there then include <asm/msi.h>.  Possibly some other declarations should be
-moved into linux/msi.h as well.
+gcc tries to guess the prototype of the function, and if gcc guessed 
+wrong this can cause nasty and hard to debug runtime errors.
+
+> Thanks,
+>...
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
