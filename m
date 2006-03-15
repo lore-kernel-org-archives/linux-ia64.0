@@ -1,28 +1,44 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 21 Mar 2006 23:49:14 +0000
-Subject: RE: Should we always wake up the non-monarch CPUs?
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0605A043@scsmsx401.amr.corp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@soft.fujitsu.com>
+Date: Wed, 15 Mar 2006 05:45:11 +0000
+Subject: [PATCH][BUG] Ignore disabled Local SAPIC Affinity Structure in SRAT
+Message-Id: <4417A9E7.3030904@soft.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Yet, if the MCA cannot be recovered, what is the use of releasing
-> the non-monarch CPUs from the rendez-vous?
-> (It is much more easy to analyze the system state by use of some
-> "external intelligence" if the non-monarch CPUs cannot run after
-> an MCA for some considerably long time.)
-> 
-> As far as I can see in the flow chart of the MCA handling in the
-> SAL spec. (Dec. 2003, figure 4-6, page 61), it indicates that a
-> _typical_ MCA handler should wake up the non-monarch CPUs.
+Hi,
 
-A few pages earlier (p.55 figure 4-3) has a box that says "OS_MCA
-Correct error if possible; Wake up APs" with arrows coming out
-for "Corrected" and "Uncorrected" ... which is just as unclear.
+Here is a patch to fix a bug in the code for parsing SRAT.
 
-In practice it does seem pointless to wake the APs in the uncorrected
-case (just to let them run for a while until the RESET hits).
+Thanks,
+Kenji Kaneshige
 
--Tony
+
+According to the ACPI spec, the OSPM must ignore the contents of the
+Processor Local APIC/SAPIC Affinity Structure in System Resource
+Affinity Table (SRAT), if its enable flag is cleared. However, ia64
+linux refers all of the Processor Local APIC/SAPIC Affinity Structures
+in SRAT regardless of the enable flag. This is obviously against the
+ACPI spec. This patch fixes this bug.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+---
+ arch/ia64/kernel/acpi.c |    3 +++
+ 1 files changed, 3 insertions(+)
+
+Index: linux-2.6.16-rc6/arch/ia64/kernel/acpi.c
+=================================--- linux-2.6.16-rc6.orig/arch/ia64/kernel/acpi.c	2006-03-15 12:59:46.000000000 +0900
++++ linux-2.6.16-rc6/arch/ia64/kernel/acpi.c	2006-03-15 12:59:57.000000000 +0900
+@@ -437,6 +437,9 @@
+ void __init
+ acpi_numa_processor_affinity_init(struct acpi_table_processor_affinity *pa)
+ {
++	if (!pa->flags.enabled)
++		return;
++
+ 	/* record this node in proximity bitmap */
+ 	pxm_bit_set(pa->proximity_domain);
+ 
