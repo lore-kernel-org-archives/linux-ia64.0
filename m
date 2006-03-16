@@ -1,81 +1,202 @@
-From: "Jun'ichi Nomura" <j-nomura@ce.jp.nec.com>
-Date: Thu, 16 Mar 2006 15:29:29 +0000
+From: Mark Maule <maule@sgi.com>
+Date: Thu, 16 Mar 2006 18:19:34 +0000
 Subject: Re: [PATCH] (-mm) drivers/pci/msi: explicit declaration of msi_register
-Message-Id: <44198459.8070700@ce.jp.nec.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050002060900000807020008"
+Message-Id: <20060316181934.GM13666@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44172F0E.6070708@ce.jp.nec.com> <20060314134535.72eb7243.akpm@osdl.org> <44176502.9050109@ce.jp.nec.com> <20060315235544.GA6504@suse.de> 
-In-Reply-To: <20060315235544.GA6504@suse.de> 
-To: Greg KH <gregkh@suse.de>, Andrew Morton <akpm@osdl.org>, maule@sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, shaohua.li@intel.com
-
-This is a multi-part message in MIME format.
---------------050002060900000807020008
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+References: <44172F0E.6070708@ce.jp.nec.com> <20060314134535.72eb7243.akpm@osdl.org> <44176502.9050109@ce.jp.nec.com> <20060315235544.GA6504@suse.de> <44198210.6090109@ce.jp.nec.com>
+In-Reply-To: <44198210.6090109@ce.jp.nec.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Jun'ichi Nomura <j-nomura@ce.jp.nec.com>
+Cc: Greg KH <gregkh@suse.de>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, shaohua.li@intel.com
 
-Jun'ichi Nomura wrote:
+On Thu, Mar 16, 2006 at 10:19:44AM -0500, Jun'ichi Nomura wrote:
+> Greg KH wrote:
+> >No, we don't need a linux/msi.h, these are core pci things that no one
+> >else should care about.  The other arches handle this just fine, let's
+> >not mess everything up just because ia64 can't get it right :)
+> 
+> Hmm, it sounds asm/msi.h shouldn't be included from common headers. :<
+> I think the attached patch might be better. How about this?
+> 
+> Default msi_arch_init() looks sufficient for most ia64 platforms
+> except for SGI SN2, which seems to need its special version.
+> gregkh-pci-msi-vector-targeting-abstractions.patch used machvec
+> to switch the functions between platforms.
+> For that, it included asm/msi.h from asm/machvec.h and
+> caused the warnings flood.
+> The attached patch separates machvec function and the original
+> inline function. So that we don't need to include asm/msi.h from
+> common headers.
+> 
+> 
 > There is another problem that CONFIG_IA64_GENERIC still doesn't
 > build due to error in SGI SN specific code.
+> It needs additional fix.
+> 
+> Thanks,
+> -- 
+> Jun'ichi Nomura, NEC Solutions (America), Inc.
 
-The error is as followings.
+Ok, looking back at some of my original patches, it seems like the
+declaration of msi_ops got moved from pci.h to and some forward declarations
+in ia64/msi.h were removed.  This patch corrects the build problems.
 
-   CC      arch/ia64/sn/pci/msi.o
-/build/rc6/source/arch/ia64/sn/pci/msi.c: At top level:
-/build/rc6/source/arch/ia64/sn/pci/msi.c:192: error: variable `sn_msi_ops' has initializer but incomplete type
-/build/rc6/source/arch/ia64/sn/pci/msi.c:193: error: unknown field `setup' specified in initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:193: warning: excess elements in struct initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:193: warning: (near initialization for `sn_msi_ops')
-/build/rc6/source/arch/ia64/sn/pci/msi.c:194: error: unknown field `teardown' specified in initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:194: warning: excess elements in struct initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:194: warning: (near initialization for `sn_msi_ops')
-/build/rc6/source/arch/ia64/sn/pci/msi.c:196: error: unknown field `target' specified in initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:196: warning: excess elements in struct initializer
-/build/rc6/source/arch/ia64/sn/pci/msi.c:196: warning: (near initialization for `sn_msi_ops')
-/build/rc6/source/arch/ia64/sn/pci/msi.c:192: error: storage size of `sn_msi_ops' isn't known
+The reason for putting struct msi_ops in pci.h is so that msi code that
+resides outside of drivers/pci can use the declaration without having to
+reach down into drivers/pci.
 
-The code seems to define its own msi_ops but never include a
-definition of struct msi_ops.
+If there's objectins to having struct msi_ops declared in pci.h, then I guess
+we need to come up with another solution.
 
-I think this is a sign that some part of arch/ia64/sn/pci/msi.c
-should move to something like drivers/pci/msi-sgi-sn.c.
-I leave it to SGI developers, who should have a good insight on
-what the proper fix is. Mark?
+The following patch should correct the build problems on ia64.  I have not
+yet checked other platforms.
 
-If such fix doesn't come up soon, the attached patch can be
-a band-aid.
 
-Thanks,
--- 
-Jun'ichi Nomura, NEC Solutions (America), Inc.
-
---------------050002060900000807020008
-Content-Type: text/x-patch;
- name="ia64-sn-msi-build-band-aid.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ia64-sn-msi-build-band-aid.patch"
-
---- linux-2.6.16-rc6-mm1.orig/arch/ia64/sn/pci/msi.c	2006-03-14 18:13:18.000000000 -0500
-+++ linux-2.6.16-rc6-mm1/arch/ia64/sn/pci/msi.c	2006-03-16 01:51:51.000000000 -0500
-@@ -10,14 +10,15 @@
- #include <linux/pci.h>
- #include <linux/cpumask.h>
+Index: linux-2.6.16-rc6/include/asm-ia64/msi.h
+=================================--- linux-2.6.16-rc6.orig/include/asm-ia64/msi.h	2006-03-16 10:20:09.000000000 -0600
++++ linux-2.6.16-rc6/include/asm-ia64/msi.h	2006-03-16 12:18:23.615928436 -0600
+@@ -16,6 +16,10 @@
  
--#include <asm/msi.h>
--
- #include <asm/sn/addrs.h>
- #include <asm/sn/intr.h>
- #include <asm/sn/pcibus_provider_defs.h>
- #include <asm/sn/pcidev.h>
- #include <asm/sn/nodepda.h>
+ extern struct msi_ops msi_apic_ops;
  
-+#include "../../../../drivers/pci/pci.h"
-+#include "../../../../drivers/pci/msi.h"
++/* Ugly defs to avoid having to include pci.h in machvec.h */
++struct msi_ops;
++extern int msi_register(struct msi_ops *);
 +
- struct sn_msi_info {
- 	u64 pci_addr;
- 	struct sn_irq_info *sn_irq_info;
-
---------------050002060900000807020008--
+ /* default ia64 msi init routine */
+ static inline int ia64_msi_init(void)
+ {
+Index: linux-2.6.16-rc6/drivers/pci/msi.h
+=================================--- linux-2.6.16-rc6.orig/drivers/pci/msi.h	2006-03-16 10:20:07.000000000 -0600
++++ linux-2.6.16-rc6/drivers/pci/msi.h	2006-03-16 12:02:33.276296521 -0600
+@@ -83,61 +83,4 @@
+ 	struct pci_dev *dev;
+ };
+ 
+-/*
+- * MSI operation vector.  Used by the msi core code (drivers/pci/msi.c)
+- * to abstract platform-specific tasks relating to MSI address generation
+- * and resource management.
+- */
+-struct msi_ops {
+-	/**
+-	 * setup - generate an MSI bus address and data for a given vector
+-	 * @pdev: PCI device context (in)
+-	 * @vector: vector allocated by the msi core (in)
+-	 * @addr_hi: upper 32 bits of PCI bus MSI address (out)
+-	 * @addr_lo: lower 32 bits of PCI bus MSI address (out)
+-	 * @data: MSI data payload (out)
+-	 *
+-	 * Description: The setup op is used to generate a PCI bus addres and
+-	 * data which the msi core will program into the card MSI capability
+-	 * registers.  The setup routine is responsible for picking an initial
+-	 * cpu to target the MSI at.  The setup routine is responsible for
+-	 * examining pdev to determine the MSI capabilities of the card and
+-	 * generating a suitable address/data.  The setup routine is
+-	 * responsible for allocating and tracking any system resources it
+-	 * needs to route the MSI to the cpu it picks, and for associating
+-	 * those resources with the passed in vector.
+-	 *
+-	 * Returns 0 if the MSI address/data was successfully setup.
+-	 */
+-	int	(*setup)    (struct pci_dev *pdev, unsigned int vector,
+-			     u32 *addr_hi, u32 *addr_lo, u32 *data);
+-
+-	/**
+-	 * teardown - release resources allocated by setup
+-	 * @vector: vector context for resources (in)
+-	 *
+-	 * Description:  The teardown op is used to release any resources
+-	 * that were allocated in the setup routine associated with the passed
+-	 * in vector.
+-	 */
+-	void	(*teardown) (unsigned int vector);
+-
+-	/**
+-	 * target - retarget an MSI at a different cpu
+-	 * @vector: vector context for resources (in)
+-	 * @cpu:  new cpu to direct vector at (in)
+-	 * @addr_hi: new value of PCI bus upper 32 bits (in/out)
+-	 * @addr_lo: new value of PCI bus lower 32 bits (in/out)
+-	 *
+-	 * Description:  The target op is used to redirect an MSI vector
+-	 * at a different cpu.  addr_hi/addr_lo coming in are the existing
+-	 * values that the MSI core has programmed into the card.  The
+-	 * target code is responsible for freeing any resources (if any)
+-	 * associated with the old address, and generating a new PCI bus
+-	 * addr_hi/addr_lo that will redirect the vector at the indicated cpu.
+-	 */
+-	void	(*target)   (unsigned int vector, unsigned int cpu,
+-			     u32 *addr_hi, u32 *addr_lo);
+-};
+-
+ #endif /* MSI_H */
+Index: linux-2.6.16-rc6/include/linux/pci.h
+=================================--- linux-2.6.16-rc6.orig/include/linux/pci.h	2006-03-16 10:20:10.000000000 -0600
++++ linux-2.6.16-rc6/include/linux/pci.h	2006-03-16 12:03:20.646663409 -0600
+@@ -583,6 +583,63 @@
+ 	u16	entry;	/* driver uses to specify entry, OS writes */
+ };
+ 
++/*
++ * MSI operation vector.  Used by the msi core code (drivers/pci/msi.c)
++ * to abstract platform-specific tasks relating to MSI address generation
++ * and resource management.
++ */
++struct msi_ops {
++	/**
++	 * setup - generate an MSI bus address and data for a given vector
++	 * @pdev: PCI device context (in)
++	 * @vector: vector allocated by the msi core (in)
++	 * @addr_hi: upper 32 bits of PCI bus MSI address (out)
++	 * @addr_lo: lower 32 bits of PCI bus MSI address (out)
++	 * @data: MSI data payload (out)
++	 *
++	 * Description: The setup op is used to generate a PCI bus addres and
++	 * data which the msi core will program into the card MSI capability
++	 * registers.  The setup routine is responsible for picking an initial
++	 * cpu to target the MSI at.  The setup routine is responsible for
++	 * examining pdev to determine the MSI capabilities of the card and
++	 * generating a suitable address/data.  The setup routine is
++	 * responsible for allocating and tracking any system resources it
++	 * needs to route the MSI to the cpu it picks, and for associating
++	 * those resources with the passed in vector.
++	 *
++	 * Returns 0 if the MSI address/data was successfully setup.
++	 */
++	int	(*setup)    (struct pci_dev *pdev, unsigned int vector,
++			     u32 *addr_hi, u32 *addr_lo, u32 *data);
++
++	/**
++	 * teardown - release resources allocated by setup
++	 * @vector: vector context for resources (in)
++	 *
++	 * Description:  The teardown op is used to release any resources
++	 * that were allocated in the setup routine associated with the passed
++	 * in vector.
++	 */
++	void	(*teardown) (unsigned int vector);
++
++	/**
++	 * target - retarget an MSI at a different cpu
++	 * @vector: vector context for resources (in)
++	 * @cpu:  new cpu to direct vector at (in)
++	 * @addr_hi: new value of PCI bus upper 32 bits (in/out)
++	 * @addr_lo: new value of PCI bus lower 32 bits (in/out)
++	 *
++	 * Description:  The target op is used to redirect an MSI vector
++	 * at a different cpu.  addr_hi/addr_lo coming in are the existing
++	 * values that the MSI core has programmed into the card.  The
++	 * target code is responsible for freeing any resources (if any)
++	 * associated with the old address, and generating a new PCI bus
++	 * addr_hi/addr_lo that will redirect the vector at the indicated cpu.
++	 */
++	void	(*target)   (unsigned int vector, unsigned int cpu,
++			     u32 *addr_hi, u32 *addr_lo);
++};
++
+ #ifndef CONFIG_PCI_MSI
+ static inline void pci_scan_msi_device(struct pci_dev *dev) {}
+ static inline int pci_enable_msi(struct pci_dev *dev) {return -1;}
