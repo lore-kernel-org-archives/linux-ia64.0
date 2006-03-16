@@ -1,91 +1,28 @@
-From: "Moore, Robert" <robert.moore@intel.com>
-Date: Wed, 15 Mar 2006 17:14:19 +0000
-Subject: RE: some new unaligned access while booting ia64 (HP rx2620)
-Message-Id: <971FCB6690CD0E4898387DBF7552B90E04ABAD16@orsmsx403.amr.corp.intel.com>
+From: Cliff Wickman <cpw@sgi.com>
+Date: Thu, 16 Mar 2006 16:36:03 +0000
+Subject: vtune sample
+Message-Id: <20060316163603.GA8368@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200602021946.k12Jk446028921@agluck-lia64.sc.intel.com>
-In-Reply-To: <200602021946.k12Jk446028921@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Thomas Renninger <trenn@suse.de>
+To: linux-ia64@vger.kernel.org
 
-Yes, the reasons are very similar.
+Hello ia64 applications writers,
 
-Probably best just to wait for the patch to bubble through the pipeline.
+  Anyone have a C code that samples a local program with the
+  vtune driver?
 
+  I'm working on a problem in which vtune and perfmon interaction
+  causes a kernel panic.  And I'd like to create a simple test
+  case.  Just a local code accessing vtune.
 
-> -----Original Message-----
-> From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com]
-> Sent: Wednesday, March 15, 2006 8:49 AM
-> To: Moore, Robert
-> Cc: Luck, Tony; linux-acpi@vger.kernel.org;
-linux-ia64@vger.kernel.org;
-> Thomas Renninger
-> Subject: Re: some new unaligned access while booting ia64 (HP rx2620)
-> 
-> On Wednesday 15 March 2006 08:47, Moore, Robert wrote:
-> > They should be fixed in ACPICA version 20060217:
-> >
-> > Fixed a problem where several resource descriptor types could
-overrun
-> > the internal descriptor buffer due to size miscalculation:
-VendorShort,
-> > VendorLong, and Interrupt. This was noticed on IA64 machines, but
-could
-> > affect all platforms.
-> 
-> Did you determine that the buffer overrun problem that caused
-> the slab corruption was the same thing that caused the unaligned
-> access messages?
-> 
-> Can you point me to the patch?  Or possibly a place to get the
-> 20060217 ACPICA and the previous version, so I can extract the
-> patch myself?  I poked around the Intel ACPI web page, but could
-> only find the most recent ACPICA; there didn't seem to be any
-> history.
-> 
-> Bjorn
-> 
-> > > -----Original Message-----
-> > > From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com]
-> > > Sent: Tuesday, March 14, 2006 4:00 PM
-> > > To: Luck, Tony
-> > > Cc: linux-acpi@vger.kernel.org; linux-ia64@vger.kernel.org; Moore,
-> > Robert;
-> > > Thomas Renninger
-> > > Subject: Re: some new unaligned access while booting ia64 (HP
-rx2620)
-> > >
-> > > On Thursday 02 February 2006 12:46, Luck, Tony wrote:
-> > > > Booting a snapshot of Linus' tree this morning I saw a few
-(new?)
-> > > > kernel unaligned access warnings:
-> > > >
-> > > > ACPI: Subsystem revision 20060127
-> > > > ACPI: Interpreter enabled
-> > > > ACPI: Using IOSAPIC for interrupt routing
-> > > > ACPI: PCI Root Bridge [PCI0] (0000:00)
-> > > > kernel unaligned access to 0xe00000407ec5a204,
-ip=0xa0000001003af8c0
-> > > > kernel unaligned access to 0xe00000407ec5a23c,
-ip=0xa0000001003af8c0
-> > > > kernel unaligned access to 0xe00000407ec5a28c,
-ip=0xa0000001003af8c0
-> > > > kernel unaligned access to 0xe00000407ec5a1fc,
-ip=0xa0000001003ae6c1
-> > > > kernel unaligned access to 0xe00000407ec5a204,
-ip=0xa0000001003ae6d1
-> > > > ACPI: PCI Interrupt Routing Table [\_SB_.SBA0.PCI0._PRT]
-> > > > ACPI: PCI Root Bridge [PCI1] (0000:20)
-> > >
-> > > Did we ever resolve this?  Are we just waiting for new ACPI bits
-> > > to trickle into -mm and mainline?
-> > >
-> > > I'd like to see the patch for just this issue, because it affects
-> > > SLES10, and Novell might balk at a complete ACPI CA update, but
-> > > might take just the individual patch.
-> > >
-> > > Bjorn
-> >
+  Thanks.
+
+-Cliff
+
+-- 
+Cliff Wickman
+Silicon Graphics, Inc.
+cpw@sgi.com
+(651) 683-3824
