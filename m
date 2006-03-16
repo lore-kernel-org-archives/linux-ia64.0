@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 15 Mar 2006 17:37:15 +0000
-Subject: RE: accessed/dirty bit handler tuning
-Message-Id: <B14CB421AD82C944A59ED6C1CA4E068F0D8D9A@scsmsx404.amr.corp.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 16 Mar 2006 09:57:02 +0000
+Subject: Re: accessed/dirty bit handler tuning
+Message-Id: <4419366E.5090707@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44157CF1.5060902@bull.net>
 In-Reply-To: <44157CF1.5060902@bull.net>
@@ -10,23 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan Menyhart wrote on Wednesday, March 15, 2006 5:30 AM
-> This patch is based on the Christoph's one entitled "Fix race in the
-> accessed/dirty bit handlers".
-> 
-> - It adds the lacking "srlz.d"
+Chen, Kenneth W wrote:
 
-It is still not clear whether srlz.d is required or not, right?  Wording
-in SDM is vague.  Through experiment, I've verified that itc instruction
-observe full instruction latency with respect to memory operation that
-immediately follows it. It is pretty much in-line with what I think what
-the SDM is trying to say: it has implicit semi-serialization (next
-memory
-operation won't proceed until itc.d finishes).
+> It is still not clear whether srlz.d is required or not, right?  Wording
+> in SDM is vague.
 
+We have quoted several times the SDM:
 
-> - It uses some "nta"
+"The visibility of the itc instruction to generated purges (ptc.g, ptc.ga) must occur \
+before subsequent memory operations. From a software perspective, this is similar to \
+acquire semantics. Serialization is still required to observe the side-effects of the \
+translation being present."
 
-Do you have any performance data showing that nta is a win?
+What do you think the statement "Serialization is still required..." means
+if not a "srlz.d" (or "rfi") ?
 
-- Ken
+> Through experiment, I've verified that itc instruction
+> observe full instruction latency with respect to memory operation that
+> immediately follows it.
+
+Have you got a test to check it?
+Could you please give us the test program?
+
+Assuming you are right, do you think Intel guarantees that all the CPU
+models (incl. the forthcoming ones) behave like that?
+
+> It is pretty much in-line with what I think what
+> the SDM is trying to say: it has implicit semi-serialization (next
+> memory operation won't proceed until itc.d finishes).
+
+Can you please indicate where it states that?
+
+> Do you have any performance data showing that nta is a win?
+
+I have already admitted that I cannot measure the difference.
+(We do not hit very frequently these trap routines.)
+
+Let us put the question in another way:
+
+There is a sequence with "nta"-s.
+This sequence is not longer than the one w/o "nta"-s.
+According to the doc. it *may* run faster.
+Why should not we use it?
+
+Thanks,
+
+Zoltan
