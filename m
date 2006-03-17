@@ -1,146 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 17 Mar 2006 00:37:28 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Fri, 17 Mar 2006 01:04:14 +0000
 Subject: Re: [patch] mspec - special memory driver and do_no_pfn handler
-Message-Id: <20060316163728.06f49c00.akpm@osdl.org>
+Message-Id: <Pine.LNX.4.64.0603161659210.3618@g5.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq0k6auuy5n.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0k6auuy5n.fsf@jaguar.mkp.net>
+References: <yq0k6auuy5n.fsf@jaguar.mkp.net> <20060316163728.06f49c00.akpm@osdl.org>
+In-Reply-To: <20060316163728.06f49c00.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hch@lst.de, cotte@de.ibm.com, Hugh Dickins <hugh@veritas.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: Jes Sorensen <jes@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hch@lst.de, cotte@de.ibm.com, Hugh Dickins <hugh@veritas.com>
 
-Jes Sorensen <jes@sgi.com> wrote:
->
-> Hi,
+
+
+On Thu, 16 Mar 2006, Andrew Morton wrote:
 > 
-> This is an updated version of the mspec driver (special memory
-> support), formerly known as fetchop.
+> hm.  Is that a superset of ->nopage?  Should we be looking at
+> migrating over to ->nopfn, retire ->nopage?
 > 
-> With this version I have implemented a do_no_pfn() handler, similar to
-> the do_no_page() handler but for pages which are not backed by a
-> struct page.
-
-hm.  Is that a superset of ->nopage?  Should we be looking at
-migrating over to ->nopfn, retire ->nopage?
-
-<looks at the ghastly stuff in do_no_page>
-
-Maybe not...
-
-> This avoids the trick used in earlier versions where the
-> driver was allocating a dumy page returning it back to the
-> do_no_page() handler which would the free it immediately. Hopefully
-> this addresses the main concern there were with this driver in the
-> past.
+> <looks at the ghastly stuff in do_no_page>
 > 
-> The reason for taking the do_no_pfn() approch rather than
-> remap_pfn_range() is that it needs to benefit from node locality of
-> the pages on NUMA systems.
-> 
-> While the driver is currently only used on SN2 hardware, it is placed
-> in drivers/char as it should be possible and beneficial for other
-> architectures to implement and use the uncached mode.
-> 
-> Please let me know if there are any objections or comments etc. to
-> this approach. If preferred I can split out the do_no_pfn part into a
-> seperate patch.
+> Maybe not...
 
-That would probably be best.
+Yeah, absolutely _not_.
 
-> +#include <linux/config.h>
-> +#include <linux/types.h>
-> +#include <linux/kernel.h>
-> +#include <linux/module.h>
-> +#include <linux/init.h>
-> +#include <linux/errno.h>
-> +#include <linux/miscdevice.h>
-> +#include <linux/spinlock.h>
-> +#include <linux/mm.h>
-> +#include <linux/proc_fs.h>
-> +#include <linux/vmalloc.h>
-> +#include <linux/bitops.h>
-> +#include <linux/string.h>
-> +#include <linux/slab.h>
-> +#include <linux/seq_file.h>
-> +#include <linux/efi.h>
-> +#include <linux/numa.h>
-> +#include <asm/page.h>
-> +#include <asm/pal.h>
-> +#include <asm/system.h>
-> +#include <asm/pgtable.h>
-> +#include <asm/atomic.h>
-> +#include <asm/tlbflush.h>
-> +#include <asm/uncached.h>
-> +#include <asm/sn/addrs.h>
-> +#include <asm/sn/arch.h>
-> +#include <asm/sn/mspec.h>
-> +#include <asm/sn/sn_cpuid.h>
-> +#include <asm/sn/io.h>
-> +#include <asm/sn/bte.h>
-> +#include <asm/sn/shubio.h>
+If we wouldn't pass the "struct page" around, we wouldn't have anything to 
+synchronize with, and each nopage() function would have to do rmap stuff.
 
-Wow.
+That's actually how nopage() worked a long time ago (not rmap, but it was 
+up the the low-level function to do all the page table logic etc). 
+Switching to returning a structured return value and letting the generic 
+VM code handle all the locking and the races was a _huge_ improvement.
 
-> +static inline int
-> +mspec_zero_block(unsigned long addr, int len)
-> +{
-> +	int status;
-> +
-> +	if (ia64_platform_is("sn2")) {
+So yes, the modern "->nopage()" interface is less flexible, but it's less 
+flexible for a very good reason. 
 
-ia64 uses strcmp() in hotpaths to work out what sort of platform it's
-running on?  Surely someone has cached this info in a __read_mostly integer
-somewhere?
+Quite frankly, I don't think nopfn() is a good interface. It's only usable 
+for one single thing, so trying to claim that it's a generic VM op is 
+really not valid. If (and that's a big if) we need this interface, we 
+should just do it inside mm/memory.c instead of playing games as if it was 
+generic.
 
-> +static __inline__ pmd_t *
-
-`inline', please.
-
-> +mspec_get_pmd(struct mm_struct *mm, u64 address)
-
-This function has no callers.
-
-> +static int __init
-> +mspec_init(void)
-> +{
-> +	int ret;
-> +	int nid;
-> +
-> +	/*
-> +	 * The fetchop device only works on SN2 hardware, uncached and cached
-> +	 * memory drivers should both be valid on all ia64 hardware
-> +	 */
-> +	if (ia64_platform_is("sn2")) {
-> +		if (is_shub2()) {
-> +			ret = -ENOMEM;
-> +			for_each_online_node(nid) {
-> +				int actual_nid;
-> +
-> +				scratch_page[nid] = uncached_alloc_page(nid);
-> +				if (scratch_page[nid] = 0)
-> +					goto free_scratch_pages;
-> +				actual_nid = nasid_to_cnodeid(get_node_number(__pa(scratch_page[nid])));
-> +				if (actual_nid != nid)
-> +					goto free_scratch_pages;
-> +			}
-> +		}
-> +
-> +		ret = misc_register(&fetchop_miscdev);
-> +		if (ret) {
-> +			printk(KERN_ERR
-> +			       "%s: failed to register device %i\n",
-> +			       FETCHOP_ID, ret);
-> +			goto free_scratch_pages;
-> +		}
-> +	}
-> +	ret = misc_register(&cached_miscdev);
-> +	if (ret) {
-> +		printk(KERN_ERR "%s: failed to register device %i\n",
-> +		       CACHED_ID, ret);
-> +		misc_deregister(&fetchop_miscdev);
-
-You don't know that fetchop_miscdev was registered.
-
-
+		Linus
