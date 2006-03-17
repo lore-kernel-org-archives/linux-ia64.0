@@ -1,93 +1,65 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Tue, 28 Mar 2006 10:17:14 +0000
-Subject: [Patch:003/004]Unify pxm_to_node id ver.3.(for x86-64)
-Message-Id: <20060328191359.CC4C.Y-GOTO@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:21:15 +0000
+Subject: [PATCH: 005/017]Memory hotplug for new nodes v.4.(generic refresh NODE_DATA())
+Message-Id: <20060317163118.C641.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-
-This is to remove the code of pxm_to_node from x86-64 code.
+This function refresh NODE_DATA() for generic archs.
+In this case, NODE_DATA(nid) = node_data[nid].
+node_data[] is array of address of pgdat.
+So, refresh is quite simple.
 
 Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
- arch/x86_64/mm/srat.c     |   33 +--------------------------------
- include/asm-x86_64/numa.h |    1 -
- 2 files changed, 1 insertion(+), 33 deletions(-)
+ include/linux/memory_hotplug.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+)
 
-Index: pxm_ver3/arch/x86_64/mm/srat.c
-=================================--- pxm_ver3.orig/arch/x86_64/mm/srat.c	2006-03-27 12:09:14.000000000 +0900
-+++ pxm_ver3/arch/x86_64/mm/srat.c	2006-03-27 14:07:14.000000000 +0900
-@@ -22,35 +22,15 @@
- static struct acpi_table_slit *acpi_slit;
+Index: pgdat8/include/linux/memory_hotplug.h
+=================================--- pgdat8.orig/include/linux/memory_hotplug.h	2006-03-17 13:53:23.914730042 +0900
++++ pgdat8/include/linux/memory_hotplug.h	2006-03-17 13:53:27.319026876 +0900
+@@ -88,11 +88,14 @@ static inline int arch_nid_probe(u64 sta
+  */
+ extern pg_data_t * arch_alloc_nodedata(int nid);
+ extern void arch_free_nodedata(pg_data_t *pgdat);
++extern void arch_refresh_nodedata(int nid, pg_data_t *pgdat);
  
- static nodemask_t nodes_parsed __initdata;
--static nodemask_t nodes_found __initdata;
- static struct bootnode nodes[MAX_NUMNODES] __initdata;
--static u8 pxm2node[256] = { [0 ... 255] = 0xff };
+ #else /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
  
- /* Too small nodes confuse the VM badly. Usually they result
-    from BIOS bugs. */
- #define NODE_MIN_SIZE (4*1024*1024)
+ #define arch_alloc_nodedata(nid)	generic_alloc_nodedata(nid)
+ #define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
++#define arch_refresh_nodedata(nid, pgdat)	\
++				generic_refresh_nodedata(nid, pgdat)
  
--static int node_to_pxm(int n);
--
--int pxm_to_node(int pxm)
--{
--	if ((unsigned)pxm >= 256)
--		return -1;
--	/* Extend 0xff to (int)-1 */
--	return (signed char)pxm2node[pxm];
--}
--
- static __init int setup_node(int pxm)
+ #ifdef CONFIG_NUMA
+ /*
+@@ -111,6 +114,12 @@ extern void arch_free_nodedata(pg_data_t
+  */
+ #define generic_free_nodedata(pgdat)	kfree(pgdat)
+ 
++extern pg_data_t *node_data[];
++static inline void generic_refresh_nodedata(int nid, pg_data_t *pgdat)
++{
++	node_data[nid] = pgdat;
++}
++
+ #else /* !CONFIG_NUMA */
+ 
+ /* never called */
+@@ -122,6 +131,9 @@ static inline pg_data_t *generic_alloc_n
+ static inline void generic_free_nodedata(pg_data_t *pgdat)
  {
--	unsigned node = pxm2node[pxm];
--	if (node = 0xff) {
--		if (nodes_weight(nodes_found) >= MAX_NUMNODES)
--			return -1;
--		node = first_unset_node(nodes_found); 
--		node_set(node, nodes_found);
--		pxm2node[pxm] = node;
--	}
--	return pxm2node[pxm];
-+	return acpi_map_pxm_to_node(pxm);
  }
- 
- static __init int conflicting_nodes(unsigned long start, unsigned long end)
-@@ -292,17 +272,6 @@ int __init acpi_scan_nodes(unsigned long
- 	return 0;
- }
- 
--static int node_to_pxm(int n)
--{
--       int i;
--       if (pxm2node[n] = n)
--               return n;
--       for (i = 0; i < 256; i++)
--               if (pxm2node[i] = n)
--                       return i;
--       return 0;
--}
--
- int __node_distance(int a, int b)
- {
- 	int index;
-Index: pxm_ver3/include/asm-x86_64/numa.h
-=================================--- pxm_ver3.orig/include/asm-x86_64/numa.h	2006-03-27 12:09:17.000000000 +0900
-+++ pxm_ver3/include/asm-x86_64/numa.h	2006-03-27 14:05:12.000000000 +0900
-@@ -9,7 +9,6 @@ struct bootnode {
- };
- 
- extern int compute_hash_shift(struct bootnode *nodes, int numnodes);
--extern int pxm_to_node(int nid);
- 
- #define ZONE_ALIGN (1UL << (MAX_ORDER+PAGE_SHIFT))
++static inline void generic_refresh_nodedata(int nid, pg_data_t *pgdat)
++{
++}
+ #endif /* CONFIG_NUMA */
+ #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
  
 
 -- 
