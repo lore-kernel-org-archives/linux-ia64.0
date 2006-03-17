@@ -1,56 +1,106 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 12 Mar 2006 19:10:00 +0000
-Subject: [patch] cleanup dig_irq_init
-Message-Id: <200603121909.k2CJ9xg11359@unix-os.sc.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:23:04 +0000
+Subject: [PATCH: 016/017]Memory hotplug for new nodes v.4.(get node id from acpi's handle)
+Message-Id: <20060317163841.C657.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-dig_irq_init is equivalent to machvec_noop, no need to define
-another empty function.
+This is to find node id from acpi's handle of memory_device in DSDT.
+_PXM for the new node can be found by acpi_get_pxm()
+by using new memory's handle. 
+So, node id can be found by pxm_to_nid_map[].
 
+  This patch becomes simpler than v2. Because old add_memory()
+  function doesn't have node id parameter. So, kernel must 
+  find its handle by physical address via DSDT again.
+  But, v3 just give node id to add_memory() now.
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
----
+ drivers/acpi/acpi_memhotplug.c |    5 +++--
+ drivers/acpi/numa.c            |   15 +++++++++++++++
+ include/linux/acpi.h           |    6 ++++++
+ 3 files changed, 24 insertions(+), 2 deletions(-)
 
-Hack, I start to sense that I must be extremely bored and have
-too much free time ....
-
-Next target: machvec_setup() and machvec_timer_interrupt().
-Q: How many empty function does one need to implement for linux kernel?
-A: apparently many :-(
-
-
-
---- ./arch/ia64/dig/setup.c.orig	2006-03-12 11:52:28.953270185 -0800
-+++ ./arch/ia64/dig/setup.c	2006-03-12 11:53:04.583152561 -0800
-@@ -69,8 +69,3 @@ dig_setup (char **cmdline_p)
- 	screen_info.orig_video_isVGA = 1;	/* XXX fake */
- 	screen_info.orig_video_ega_bx = 3;	/* XXX fake */
+Index: pgdat8/drivers/acpi/acpi_memhotplug.c
+=================================--- pgdat8.orig/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:06:27.000000000 +0900
++++ pgdat8/drivers/acpi/acpi_memhotplug.c	2006-03-16 16:06:27.000000000 +0900
+@@ -214,7 +214,7 @@ static int acpi_memory_check_device(stru
+ 
+ static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
+ {
+-	int result, num_enabled = 0;
++	int result, num_enabled = 0, node;
+ 	struct acpi_memory_info *info;
+ 
+ 	ACPI_FUNCTION_TRACE("acpi_memory_enable_device");
+@@ -227,6 +227,7 @@ static int acpi_memory_enable_device(str
+ 		return result;
+ 	}
+ 
++	node = acpi_get_node(mem_device->handle);
+ 	/*
+ 	 * Tell the VM there is more memory here...
+ 	 * Note: Assume that this function returns zero on success
+@@ -244,7 +245,7 @@ static int acpi_memory_enable_device(str
+ 			continue;
+ 		}
+ 
+-		result = add_memory(info->start_addr, info->length);
++		result = add_memory(node, info->start_addr, info->length);
+ 		if (result)
+ 			continue;
+ 		info->enabled = 1;
+Index: pgdat8/drivers/acpi/numa.c
+=================================--- pgdat8.orig/drivers/acpi/numa.c	2006-03-16 16:04:55.000000000 +0900
++++ pgdat8/drivers/acpi/numa.c	2006-03-16 16:06:27.000000000 +0900
+@@ -258,3 +258,18 @@ int acpi_get_pxm(acpi_handle h)
  }
--
--void __init
--dig_irq_init (void)
--{
--}
---- ./include/asm-ia64/machvec_dig.h.orig	2006-03-12 11:51:07.238427436 -0800
-+++ ./include/asm-ia64/machvec_dig.h	2006-03-12 11:58:19.316547143 -0800
-@@ -2,7 +2,6 @@
- #define _ASM_IA64_MACHVEC_DIG_h
  
- extern ia64_mv_setup_t dig_setup;
--extern ia64_mv_irq_init_t dig_irq_init;
+ EXPORT_SYMBOL(acpi_get_pxm);
++
++int acpi_get_node(acpi_handle *handle)
++{
++	int pxm, node = -1;
++
++	ACPI_FUNCTION_TRACE("acpi_get_node");
++
++	pxm = acpi_get_pxm(handle);
++	if (pxm >= 0)
++		node = acpi_map_pxm_to_node(pxm);
++
++	return_VALUE(node);
++}
++
++EXPORT_SYMBOL(acpi_get_node);
+Index: pgdat8/include/linux/acpi.h
+=================================--- pgdat8.orig/include/linux/acpi.h	2006-03-16 16:04:55.000000000 +0900
++++ pgdat8/include/linux/acpi.h	2006-03-16 16:06:27.000000000 +0900
+@@ -529,12 +529,18 @@ static inline void acpi_set_cstate_limit
  
- /*
-  * This stuff has dual use!
-@@ -13,6 +12,5 @@ extern ia64_mv_irq_init_t dig_irq_init;
-  */
- #define platform_name		"dig"
- #define platform_setup		dig_setup
--#define platform_irq_init	dig_irq_init
+ #ifdef CONFIG_ACPI_NUMA
+ int acpi_get_pxm(acpi_handle handle);
++int acpi_get_node(acpi_handle *handle);
+ #else
+ static inline int acpi_get_pxm(acpi_handle handle)
+ {
+ 	return 0;
+ }
++static inline int acpi_get_node(acpi_handle *handle)
++{
++	return 0;
++}
+ #endif
++extern int acpi_paddr_to_node(u64 start_addr, u64 size);
  
- #endif /* _ASM_IA64_MACHVEC_DIG_h */
+ extern int pnpacpi_disabled;
+ 
+
+-- 
+Yasunori Goto 
+
 
