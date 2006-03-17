@@ -1,141 +1,121 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 08 Mar 2006 13:41:10 +0000
-Subject: [PATCH: 001/017](RFC) Memory hotplug for new nodes v.3. (Generic code of pgdat alloc)
-Message-Id: <20060308212442.0024.Y-GOTO@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:21:30 +0000
+Subject: [PATCH: 007/017]Memory hotplug for new nodes v.4.(refresh NODE_DATA() for ia64)
+Message-Id: <20060317163229.C645.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Joel Schopp <jschopp@austin.ibm.com>, Dave Hansen <haveblue@us.ibm.com>
-Cc: Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
+Cc: Andi Kleen <ak@suse.de>, "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-This patch adds node-hot-add support to add_memory().
+ This is to refresh node_data[] array for ia64.
+As I mentioned previous patches,
+ia64 has copies of information of pgdat address array on each node
+as per node data.
 
-node hotadd uses this sequence.
-1. allocate pgdat.
-2. refresh NODE_DATA()
-3. call free_area_init_node() to initialize
-4. create sysfs entry
-5. add memory (old add_memory())
-6. set node online
-7. run kswapd for new node.
-(8). update zonelist after pages are onlined. (This is in other patch due to
-   update phase is difference.)
+At v2, this function used stop_machine_run() to update them.
+(I wished that they were copied safety as much as possible.)
+But, in this patch, this arrays are just copied simply, and
+set node_online_map bit after completion of pgdat initialization.
 
-Note:
-  To make common function as much as possible, 
-  there is 2 changes from v2.
-    - The old add_memory(), which is defiend by each archs,
-      is renamed to arch_add_memory(). New add_memory becomes
-      caller of arch dependent function as a common code.
-  
-    - This patch changes add_memory()'s interface
-        From: add_memory(start, end)
-        TO  : add_memory(nid, start, end).
-      It was cause of similar code that finding node id from
-      physical address is inside of old add_memory() on each arch. 
-      
-      In addition, acpi memory hotplug driver can find node id easier.
-      In v2, it must walk DSDT'S _CRS by matching physical address to
-      get the handle of its memory device, then get _PXM and node id.
-      Because input is just physical address. 
-      However, in v3, the acpi driver can use handle to get _PXM and node id
-      for the new memory device. It can pass just node id to add_memory().
+So, kernel must touch NODE_DATA() macro after checking 
+node_online_map(). (Current code has already done it.)
+This is more simple way for just hot-add.....
+
+Note : It will be problem when hot-remove will occur,
+       because, even if online_map bit is set, kernel may
+       touch NODE_DATA() due to race condition. :-(
 
 
-Fix interface of arch_add_memory() is in next patche.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Signed-off-by: Yasunori Goto     <y-goto@jp.fujitsu.com>
-Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+ arch/ia64/Kconfig           |    4 ++++
+ arch/ia64/mm/discontig.c    |   24 +++++++++++++++++++-----
+ include/asm-ia64/nodedata.h |   12 ++++++++++++
+ 3 files changed, 35 insertions(+), 5 deletions(-)
 
-Index: pgdat7/mm/memory_hotplug.c
-=================================--- pgdat7.orig/mm/memory_hotplug.c	2006-03-08 20:33:44.000000000 +0900
-+++ pgdat7/mm/memory_hotplug.c	2006-03-08 20:35:48.000000000 +0900
-@@ -135,3 +135,71 @@ int online_pages(unsigned long pfn, unsi
+Index: pgdat8/arch/ia64/mm/discontig.c
+=================================--- pgdat8.orig/arch/ia64/mm/discontig.c	2006-03-17 15:43:50.000000000 +0900
++++ pgdat8/arch/ia64/mm/discontig.c	2006-03-17 15:44:08.000000000 +0900
+@@ -308,6 +308,17 @@ static void __init reserve_pernode_space
+ 	}
+ }
  
- 	return 0;
++static void __meminit scatter_node_data(void)
++{
++	pg_data_t **dst;
++	int node;
++
++	for_each_online_node(node){
++		dst = LOCAL_DATA_ADDR(pgdat_list[node])->pg_data_ptrs;
++		memcpy(dst, pgdat_list, sizeof(pgdat_list));
++	}
++}
++
+ /**
+  * initialize_pernode_data - fixup per-cpu & per-node pointers
+  *
+@@ -320,11 +331,8 @@ static void __init initialize_pernode_da
+ {
+ 	int cpu, node;
+ 
+-	/* Copy the pg_data_t list to each node and init the node field */
+-	for_each_online_node(node) {
+-		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+-		       sizeof(pgdat_list));
+-	}
++	scatter_node_data();
++
+ #ifdef CONFIG_SMP
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+@@ -719,3 +727,9 @@ void __init paging_init(void)
+ 
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
  }
 +
-+static pg_data_t *hotadd_new_pgdat(int nid, u64 start)
++void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
 +{
-+	struct pglist_data *pgdat;
-+	unsigned long zones_size[MAX_NR_ZONES] = {0};
-+	unsigned long zholes_size[MAX_NR_ZONES] = {0};
-+	unsigned long start_pfn = start >> PAGE_SHIFT;
-+
-+	pgdat = arch_alloc_nodedata(nid);
-+	if (!pgdat)
-+		return NULL;
-+
-+	arch_refresh_nodedata(nid, pgdat);
-+
-+	/* we can use NODE_DATA(nid) from here */
-+
-+	/* init node's zones as empty zones, we don't have any present pages.*/
-+	free_area_init_node(nid, pgdat, zones_size, start_pfn, zholes_size);
-+
-+	/*
-+         * register this node to sysfs.
-+         * this is depends on topology. So each arch has its own.
-+         */
-+	arch_register_node(nid);
-+
-+	return pgdat;
++	pgdat_list[update_node] = update_pgdat;
++	scatter_node_data();
 +}
-+
-+void rollback_node_hotadd(int nid, pg_data_t *pgdat)
-+{
-+	arch_refresh_nodedata(nid, NULL);
-+	arch_free_nodedata(pgdat);
-+	return;
-+}
-+
-+int add_memory(int nid, u64 start, u64 end)
-+{
-+	pg_data_t *pgdat = NULL;
-+	int new_pgdat = 0;
-+	int ret;
-+
-+	if (!node_online(nid)) {
-+		pgdat = hotadd_new_pgdat(nid, start);
-+		if (!pgdat)
-+			return -ENOMEM;
-+		new_pgdat = 1;
-+		ret = kswapd_run(nid);
-+		if (ret)
-+			goto error;
-+	}
-+	/* call arch's memory hotadd */
-+	ret = arch_add_memory(nid, start, end);
-+
-+	if (!ret < 0)
-+		goto error;
-+
-+	/* we online node here. we have no error path from here. */
-+	node_set_online(nid);
-+
-+	return ret;
-+error:
-+	/* rollback pgdat allocation and others */
-+	if (new_pgdat)
-+		rollback_node_hotadd(nid, pgdat);
-+
-+	return ret;
-+}
-+
-Index: pgdat7/include/linux/memory_hotplug.h
-=================================--- pgdat7.orig/include/linux/memory_hotplug.h	2006-03-08 20:35:02.000000000 +0900
-+++ pgdat7/include/linux/memory_hotplug.h	2006-03-08 20:35:48.000000000 +0900
-@@ -59,7 +59,8 @@ extern int add_one_highpage(struct page 
- /* need some defines for these for archs that don't support it */
- extern void online_page(struct page *page);
- /* VM interface that may be used by firmware interface */
--extern int add_memory(u64 start, u64 size);
-+extern int add_memory(int nid, u64 start, u64 size);
-+extern int arch_add_memory(int nid, u64 start, u64 size);
- extern int remove_memory(u64 start, u64 size);
- extern int online_pages(unsigned long, unsigned long);
+Index: pgdat8/arch/ia64/Kconfig
+=================================--- pgdat8.orig/arch/ia64/Kconfig	2006-03-17 15:40:25.000000000 +0900
++++ pgdat8/arch/ia64/Kconfig	2006-03-17 15:43:50.000000000 +0900
+@@ -365,6 +365,10 @@ config HAVE_ARCH_EARLY_PFN_TO_NID
+ 	def_bool y
+ 	depends on NEED_MULTIPLE_NODES
  
++config HAVE_ARCH_NODEDATA_EXTENSION
++	def_bool y
++	depends on NUMA
++
+ config IA32_SUPPORT
+ 	bool "Support for Linux/x86 binaries"
+ 	help
+Index: pgdat8/include/asm-ia64/nodedata.h
+=================================--- pgdat8.orig/include/asm-ia64/nodedata.h	2006-03-17 15:40:25.000000000 +0900
++++ pgdat8/include/asm-ia64/nodedata.h	2006-03-17 15:43:50.000000000 +0900
+@@ -47,6 +47,18 @@ struct ia64_node_data {
+  */
+ #define NODE_DATA(nid)		(local_node_data->pg_data_ptrs[nid])
+ 
++/*
++ * LOCAL_DATA_ADDR - This is to calculate the address of other node's
++ *		     "local_node_data" at hot-plug phase. The local_node_data
++ *		     is pointed by per_cpu_page. Kernel usually use it for
++ *		     just executing cpu. However, when new node is hot-added,
++ *		     the addresses of local data for other nodes are necessary
++ *		     to update all of them.
++ */
++#define LOCAL_DATA_ADDR(pgdat)  			\
++	((struct ia64_node_data *)((u64)(pgdat) + 	\
++				   L1_CACHE_ALIGN(sizeof(struct pglist_data))))
++
+ #endif /* CONFIG_NUMA */
+ 
+ #endif /* _ASM_IA64_NODEDATA_H */
 
 -- 
 Yasunori Goto 
