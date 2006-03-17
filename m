@@ -1,100 +1,33 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 17 Mar 2006 08:20:33 +0000
-Subject: [PATCH: 002/017]Memory hotplug for new nodes v.4.(change name old add_memory() to arch_add_memory())
-Message-Id: <20060317162757.C63B.Y-GOTO@jp.fujitsu.com>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Fri, 17 Mar 2006 17:12:18 +0000
+Subject: Re: [PATCH: 002/017]Memory hotplug for new nodes v.4.(change name
+Message-Id: <1142615538.10906.67.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060317162757.C63B.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060317162757.C63B.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: Yasunori Goto <y-goto@jp.fujitsu.com>
+Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-This patch changes name of old add_memory() to arch_add_memory.
-and use node id to get pgdat for the node at NODE_DATA().
+On Fri, 2006-03-17 at 17:20 +0900, Yasunori Goto wrote:
+> This patch changes name of old add_memory() to arch_add_memory.
+> and use node id to get pgdat for the node at NODE_DATA().
+> 
+> Note: Powerpc's old add_memory() is defined as __devinit. However,
+>       add_memory() is usually called only after bootup. 
+>       I suppose it may be redundant. But, I'm not sure about powerpc.
+>       So, I keep it. (But, __meminit is better than __devinit at least.)
 
-Note: Powerpc's old add_memory() is defined as __devinit. However,
-      add_memory() is usually called only after bootup. 
-      I suppose it may be redundant. But, I'm not sure about powerpc.
-      So, I keep it. (But, __meminit is better than __devinit at least.)
+My thoughts when originally designing the API were that the architecture
+may be the only bit that actually knows where the memory _is_.  So, we
+shouldn't involve the generic code in figuring this out.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+You can see the result of this in the next patch because there is a new
+function introduced to hide the arch-specific node lookup.  If that was
+simply done in the already arch-specific add_memory() function, then you
+wouldn't need arch_nid_probe() and its related #ifdefs at all.
 
- arch/i386/mm/init.c   |    2 +-
- arch/ia64/mm/init.c   |    4 ++--
- arch/powerpc/mm/mem.c |    4 +---
- arch/x86_64/mm/init.c |    4 ++--
- 4 files changed, 6 insertions(+), 8 deletions(-)
-
-Index: pgdat8/arch/i386/mm/init.c
-=================================--- pgdat8.orig/arch/i386/mm/init.c	2006-03-17 12:15:27.574691472 +0900
-+++ pgdat8/arch/i386/mm/init.c	2006-03-17 12:16:06.189821080 +0900
-@@ -652,7 +652,7 @@ void __init mem_init(void)
-  * memory to the highmem for now.
-  */
- #ifndef CONFIG_NEED_MULTIPLE_NODES
--int add_memory(u64 start, u64 size)
-+int arch_add_memory(int nid, u64 start, u64 size)
- {
- 	struct pglist_data *pgdata = &contig_page_data;
- 	struct zone *zone = pgdata->node_zones + MAX_NR_ZONES-1;
-Index: pgdat8/arch/ia64/mm/init.c
-=================================--- pgdat8.orig/arch/ia64/mm/init.c	2006-03-17 12:15:27.574691472 +0900
-+++ pgdat8/arch/ia64/mm/init.c	2006-03-17 12:16:06.190820928 +0900
-@@ -646,7 +646,7 @@ void online_page(struct page *page)
- 	num_physpages++;
- }
- 
--int add_memory(u64 start, u64 size)
-+int arch_add_memory(int nid, u64 start, u64 size)
- {
- 	pg_data_t *pgdat;
- 	struct zone *zone;
-@@ -654,7 +654,7 @@ int add_memory(u64 start, u64 size)
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
- 	int ret;
- 
--	pgdat = NODE_DATA(0);
-+	pgdat = NODE_DATA(nid);
- 
- 	zone = pgdat->node_zones + ZONE_NORMAL;
- 	ret = __add_pages(zone, start_pfn, nr_pages);
-Index: pgdat8/arch/powerpc/mm/mem.c
-=================================--- pgdat8.orig/arch/powerpc/mm/mem.c	2006-03-17 12:15:27.575691320 +0900
-+++ pgdat8/arch/powerpc/mm/mem.c	2006-03-17 12:16:06.190820928 +0900
-@@ -114,15 +114,13 @@ void online_page(struct page *page)
- 	num_physpages++;
- }
- 
--int __devinit add_memory(u64 start, u64 size)
-+int __meminit arch_add_memory(int nid, u64 start, u64 size)
- {
- 	struct pglist_data *pgdata;
- 	struct zone *zone;
--	int nid;
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
- 
--	nid = hot_add_scn_to_nid(start);
- 	pgdata = NODE_DATA(nid);
- 
- 	start = __va(start);
-Index: pgdat8/arch/x86_64/mm/init.c
-=================================--- pgdat8.orig/arch/x86_64/mm/init.c	2006-03-17 12:15:27.575691320 +0900
-+++ pgdat8/arch/x86_64/mm/init.c	2006-03-17 12:16:06.191820776 +0900
-@@ -493,9 +493,9 @@ void online_page(struct page *page)
- 	num_physpages++;
- }
- 
--int add_memory(u64 start, u64 size)
-+int arch_add_memory(int nid, u64 start, u64 size)
- {
--	struct pglist_data *pgdat = NODE_DATA(0);
-+	struct pglist_data *pgdat = NODE_DATA(nid);
- 	struct zone *zone = pgdat->node_zones + MAX_NR_ZONES-2;
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
-
--- 
-Yasunori Goto 
-
+-- Dave
 
