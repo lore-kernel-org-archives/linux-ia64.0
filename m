@@ -1,94 +1,93 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 12 Mar 2006 17:20:27 +0000
-Subject: [patch 6/6] move patchlist and machvec into init section
-Message-Id: <200603121720.k2CHKPg10336@unix-os.sc.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:20:12 +0000
+Subject: [PATCH: 000/017]Memory hotplug for new nodes v.4.
+Message-Id: <20060317161948.C637.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-ia64_mv is initialized based on platform detected or specified.
-However, there is one instantiation of each platform type.  We
-don't expect to switch platform vector during run time.  Move
-those platform specific type into init section since a copy is
-made into global ia64_mv at initialization.
+Hello.
 
-Also move instruction patch list into init section as well.
+I'll post newest patches for memory hotadd with pgdat allocation as V4.
+This includes some of small fixes
+  - Fix compile errors on config HOTADD /NO HOTADD, NUMA/non NUMA, etc.
+  - Add/update some comments.
+  - etc.
+
+This patches are for 2.6.16-rc6-mm1.
+I tested these patch on just Tiger4(ia64) with emulation now.
+Unfortunately, x86-64 box which I can use has been busy in this week.
+So, I couldn't make/test patch for it yet. :-(
+But, probably, remain x86-64's issue is just making arch_register_node() to 
+create sysfs file for new node like 17th patch.
+When I can use it again, I'll make and test it.
+
+Andrew-san.
+Please apply.
 
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+---------------------------------------
+
+This is memory hotadd code when new node is added.
+In this patch, pgdat is allocated when new node is comming.
+To initialize pgdat and zones, a set of patches are necessary.
+  - to allcate and initialize pgdat, zone, zonelist.
+  - to make new kswapd
+  - to initialize node_data[] array (ia64)
+  - to register sysfs file for new node.
+  - to call memory_hotplug code from acpi container driver
+    which receive ACPI's notification from firmware.
+
+Ia64 big NUMA box needs this feature. I heard that x86-64 needs this too.
+Powerpc might use some of this code.
+
+Note:
+ - kzalloc is used for pgdat allocation in this version.
+   So, even if pgdat is allocated, it will be allocated on the other node.
+   This is only to simplify patches a bit. :-P
+
+-----------------------------
+Followings are updates.
 
 
---- ./arch/ia64/kernel/vmlinux.lds.S.orig	2006-03-12 01:48:31.255471910 -0800
-+++ ./arch/ia64/kernel/vmlinux.lds.S	2006-03-12 01:53:12.983007521 -0800
-@@ -70,34 +70,9 @@ SECTIONS
- 	  __stop___ex_table = .;
- 	}
- 
--  .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
--	{
--	  __start___vtop_patchlist = .;
--	  *(.data.patch.vtop)
--	  __end___vtop_patchlist = .;
--	}
--
--  .data.patch.mckinley_e9 : AT(ADDR(.data.patch.mckinley_e9) - LOAD_OFFSET)
--	{
--	  __start___mckinley_e9_bundles = .;
--	  *(.data.patch.mckinley_e9)
--	  __end___mckinley_e9_bundles = .;
--	}
--
-   /* Global data */
-   _data = .;
- 
--#if defined(CONFIG_IA64_GENERIC)
--  /* Machine Vector */
--  . = ALIGN(16);
--  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
--	{
--	  machvec_start = .;
--	  *(.machvec)
--	  machvec_end = .;
--	}
--#endif
--
-   /* Unwind info & table: */
-   . = ALIGN(8);
-   .IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - LOAD_OFFSET)
-@@ -154,6 +129,32 @@ SECTIONS
- 	  *(.initcall7.init)
- 	  __initcall_end = .;
- 	}
-+
-+  .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
-+	{
-+	  __start___vtop_patchlist = .;
-+	  *(.data.patch.vtop)
-+	  __end___vtop_patchlist = .;
-+	}
-+
-+  .data.patch.mckinley_e9 : AT(ADDR(.data.patch.mckinley_e9) - LOAD_OFFSET)
-+	{
-+	  __start___mckinley_e9_bundles = .;
-+	  *(.data.patch.mckinley_e9)
-+	  __end___mckinley_e9_bundles = .;
-+	}
-+
-+#if defined(CONFIG_IA64_GENERIC)
-+  /* Machine Vector */
-+  . = ALIGN(16);
-+  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
-+	{
-+	  machvec_start = .;
-+	  *(.machvec)
-+	  machvec_end = .;
-+	}
-+#endif
-+
-    __con_initcall_start = .;
-   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
- 	{ *(.con_initcall.init) }
+Updates from V3 to V4.
+  - update for 2.6.16-rc6-mm1.
+  - Fix compile errors against Hotadd/NoHotadd, NUMA/NonNUMA, etc.
+  - Add/update some comments.
+  - Some functions which can be static become static.
+  - not call add_memory() for already exist memory at
+    acpi_memory_enable_device()
+
+Updates from V2 to V3.
+  - update for 2.6.16-rc5-mm3.
+  - The caller function of pgdat allcation and so on become common code.
+  - Passing node id at add_memory().
+  - build_zonelists() is called after that pages are onlined.
+  - Updating NODE_DATA() for ia64 become simple and become 
+    common code between booting and hotadd.
+    (But other consideration will be necessary for hot-remove.)
+  - kswapd is called by kthread_run().
+  - finding node id by acpi use handle of its memory device.
+
+Updates from V1 to V2.
+  - update for 2.6.16-rc5-mm2.
+  - not only ia64, This is tested on x86_64 with NUMA emulation too. :-)
+  - wait_table_size() allcation is changed.
+      - Take max size as much as possible.
+      - Change using GFP_ATOMIC. It is inside of zone_init_lock.
+        (Warining message of might_sleep() is very well.)
+  - stop_machine_run(build_zonelists) is move to outside of lock.
+  - pgdat_insert() is moved to generic code to be used by x86_64.
+  - add decision of ZONE_DMA32 or ZONE_NORMAL to x86_64's add_memory().
+  - Make a separated patch to change from __init to __meminit.
+  - Fix some typo
+
+
+-- 
+Yasunori Goto 
 
 
