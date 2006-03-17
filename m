@@ -1,48 +1,68 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 10 Mar 2006 07:20:37 +0000
-Subject: Re: [PATCH: 010/017](RFC) Memory hotplug for new nodes v.3. (allocate wait table)
-Message-Id: <20060310154910.CA79.Y-GOTO@jp.fujitsu.com>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Fri, 17 Mar 2006 20:23:01 +0000
+Subject: PATCH: Fix gnu-efi-3.0b-041222 for ia32
+Message-Id: <20060317202301.GA20807@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060309040055.21f3ec2d.akpm@osdl.org> <200603090556.06226.ak@suse.de>
-In-Reply-To: <200603090556.06226.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>, Andrew Morton <akpm@osdl.org>
-Cc: tony.luck@intel.com, jschopp@austin.ibm.com, haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: linux-ia64@vger.kernel.org
 
-> On Thursday 09 March 2006 13:00, Andrew Morton wrote:
-> > Yasunori Goto <y-goto@jp.fujitsu.com> wrote:
-> > >
-> > >  +		/* we can use kmalloc() in run time */
-> > >  +		do {
-> > >  +			table_size = zone->wait_table_size
-> > >  +					* sizeof(wait_queue_head_t);
-> > >  +			zone->wait_table = kmalloc(table_size, GFP_ATOMIC);
-> > 
-> > Again, GFP_KERNEL would be better is possible.
-
-Oops.
-This was inside of spin_lock in old my patch.
-But, it is moved out from spin_lock as a result of refactoring 
-and I didn't notice that.
-Yes. GFP_KERNEL is better.
-
-> > 
-> > Won't this place the node's wait_table into a different node's memory?
-> 
-> Yes, kmalloc_node would be better.
-
-Kmalloc_node() will not work well at here, 
-because this patch is to initialize structures for new node -itself-.
-It will work after that completion of initalize pgdat and wait_table.
-
-To use new node's memory at here, other consideration will be necessary. 
-But, I would like to use kmalloc() to simplify my patch at this time.
+I don't know where I should report gnu-efi bug. The ia32 support in
+gnu-efi-3.0b-041222 doesn't work with newer gcc and binutils. The
+problem is in the linker script. The new gcc may put functions in
+.text* sections. The newer linker handles orphaned sections
+differently. I tested this patch on both ia32 and ia64 with different
+versions of gcc and binutils by building elilo 3.6. Elilo 3.6 loads
+and run kernel correctly on ia64. It seems to work find on ia32.
 
 Thanks.
 
--- 
-Yasunori Goto 
 
-
+H.J.
+--- gnu-efi/gnuefi/elf_ia32_efi.lds.ia32	2004-12-22 07:52:28.000000000 -0800
++++ gnu-efi/gnuefi/elf_ia32_efi.lds	2006-03-17 11:47:21.000000000 -0800
+@@ -9,7 +9,11 @@ SECTIONS
+   . = ALIGN(4096);
+   .text :
+   {
+-   *(.text)
++   *(.text*)
++  }
++  .reloc :
++  {
++   *(.reloc)
+   }
+   . = ALIGN(4096);
+   .data :
+@@ -48,12 +52,9 @@ SECTIONS
+   . = ALIGN(4096);
+   .dynstr   : { *(.dynstr) }
+   . = ALIGN(4096);
+-  .ignored.reloc :
++  /DISCARD/ :
+   {
+     *(.rel.reloc)
+-  }
+-  .ignored :
+-  {
+     *(.eh_frame)
+   }
+ }
+--- gnu-efi/gnuefi/elf_ia64_efi.lds.ia32	2004-12-22 10:18:10.000000000 -0800
++++ gnu-efi/gnuefi/elf_ia64_efi.lds	2006-03-17 11:51:51.000000000 -0800
+@@ -59,13 +59,10 @@ SECTIONS
+   .dynsym   : { *(.dynsym) }
+   . = ALIGN(4096);
+   .dynstr   : { *(.dynstr) }
+-  .ignored_reloc :
++  /DISCARD/ :
+   {
+     *(.rela.plabel)
+     *(.rela.reloc)
+-  }
+-  /DISCARD/ :
+-  {
+     *(.IA_64.unwind*)
+     *(.IA64.unwind*)
+   }
