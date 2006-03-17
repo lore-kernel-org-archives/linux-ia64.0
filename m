@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 17 Mar 2006 21:52:11 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Fri, 17 Mar 2006 21:52:49 +0000
 Subject: Re: PATCH: Fix gnu-efi-3.0b-041222 for ia32
-Message-Id: <20060317215211.GA21468@lucon.org>
+Message-Id: <20060317215249.GB8980@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060317202301.GA20807@lucon.org>
 In-Reply-To: <20060317202301.GA20807@lucon.org>
@@ -21,83 +21,13 @@ On Fri, Mar 17, 2006 at 01:46:57PM -0800, H. J. Lu wrote:
 > I don't think so. linker calls fnmatch to match section names by
 > patterns.  According to my man page:
 > 
-> NAME
->        fnmatch - match filename or pathname
-> 
-> SYNOPSIS
->        #include <fnmatch.h>
-> 
->        int fnmatch(const char *pattern, const char *string, int flags);
-> 
 > DESCRIPTION
 >        The  fnmatch()  function checks whether the string argument
 > matches the
 >        pattern argument, which is a shell wildcard pattern.
 > 
 > ".text*" should work as a shell wildcard pattern.
-> 
-> > Try looking at ld --verbose output, and grepping for .text.
-> 
-> This is the updated patch to include *(.gnu.linkonce.t.*) sections.
-> 
 
-This new makes linker scripts similar to normal linker. It should
-generate the same output.
-
-
-H.J.
----
---- gnu-efi/gnuefi/elf_ia32_efi.lds.ia32	2004-12-22 07:52:28.000000000 -0800
-+++ gnu-efi/gnuefi/elf_ia32_efi.lds	2006-03-17 13:48:13.000000000 -0800
-@@ -10,6 +10,12 @@ SECTIONS
-   .text :
-   {
-    *(.text)
-+   *(.text.*)
-+   *(.gnu.linkonce.t.*)
-+  }
-+  .reloc :
-+  {
-+   *(.reloc)
-   }
-   . = ALIGN(4096);
-   .data :
-@@ -48,12 +54,9 @@ SECTIONS
-   . = ALIGN(4096);
-   .dynstr   : { *(.dynstr) }
-   . = ALIGN(4096);
--  .ignored.reloc :
-+  /DISCARD/ :
-   {
-     *(.rel.reloc)
--  }
--  .ignored :
--  {
-     *(.eh_frame)
-   }
- }
---- gnu-efi/gnuefi/elf_ia64_efi.lds.ia32	2004-12-22 10:18:10.000000000 -0800
-+++ gnu-efi/gnuefi/elf_ia64_efi.lds	2006-03-17 13:48:20.000000000 -0800
-@@ -10,6 +10,7 @@ SECTIONS
-   .text :
-   {
-    *(.text)
-+   *(.text.*)
-    *(.gnu.linkonce.t*)
-   }
-   . = ALIGN(4096);
-@@ -59,13 +60,10 @@ SECTIONS
-   .dynsym   : { *(.dynsym) }
-   . = ALIGN(4096);
-   .dynstr   : { *(.dynstr) }
--  .ignored_reloc :
-+  /DISCARD/ :
-   {
-     *(.rela.plabel)
-     *(.rela.reloc)
--  }
--  /DISCARD/ :
--  {
-     *(.IA_64.unwind*)
-     *(.IA64.unwind*)
-   }
+I believe his point is that .text* matches .textual and .texterific and
+many other sections which shouldn't be matched.  So you need to match
+.text and .text.*, not just .text*
