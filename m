@@ -1,46 +1,24 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Fri, 17 Mar 2006 13:58:06 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 17 Mar 2006 18:03:55 +0000
 Subject: Re: [patch] mspec - special memory driver and do_no_pfn handler
-Message-Id: <441AC06E.1090909@sgi.com>
+Message-Id: <20060317180355.GA8232@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq0k6auuy5n.fsf@jaguar.mkp.net> <441ABEDD.4070003@de.ibm.com>
-In-Reply-To: <441ABEDD.4070003@de.ibm.com>
+References: <yq0k6auuy5n.fsf@jaguar.mkp.net> <20060316163728.06f49c00.akpm@osdl.org> <Pine.LNX.4.64.0603161659210.3618@g5.osdl.org> <1142571490.9022.37.camel@localhost.localdomain> <441A7E34.90508@sgi.com> <441AB9A9.2000704@de.ibm.com>
+In-Reply-To: <441AB9A9.2000704@de.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: carsteno@de.ibm.com
-Cc: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Christoph Hellwig <hch@lst.de>
+Cc: Jes Sorensen <jes@sgi.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hch@lst.de, Hugh Dickins <hugh@veritas.com>
 
-Carsten Otte wrote:
+On Fri, Mar 17, 2006 at 02:29:13PM +0100, Carsten Otte wrote:
 > Jes Sorensen wrote:
->> Index: linux-2.6/include/linux/mm.h
->> =================================>> --- linux-2.6.orig/include/linux/mm.h
->> +++ linux-2.6/include/linux/mm.h
->> @@ -199,6 +199,7 @@
->>  	void (*open)(struct vm_area_struct * area);
->>  	void (*close)(struct vm_area_struct * area);
->>  	struct page * (*nopage)(struct vm_area_struct * area, unsigned long address, int *type);
->> +	long (*nopfn)(struct vm_area_struct * area, unsigned long address, int *type);
->>  	int (*populate)(struct vm_area_struct * area, unsigned long address, unsigned long len, pgprot_t prot, unsigned long pgoff, int nonblock);
->>  #ifdef CONFIG_NUMA
->>  	int (*set_policy)(struct vm_area_struct *vma, struct mempolicy *new);
-> If you use address as parameter to nopfn, it won't work with highmem
-> on 32bit systems. Alternative would be to use (unsigned long) phys. page
-> frame number.
+> > Well then the question is, would it simplify the code using no_pfn in
+> > this case? Hacking up fake struct page entries seems even more of a
+> > hack to me.
+> I second that. That's were we are with our dcss xip thing today.
+> It _is_ a hack to have a struct page that you don't need.
 
-Hi Carsten,
-
-The address comes from handle_pte_fault() passing it to do_no_pfn()
-passing it to ->nopfn(), ie. it's the faulted address, not the physical
-one.
-
-> Your work in memory.c looks like the right thing to do.
-> Afaics it will work for xip as well once I figure how to
-> do COW. Cool stuff :-).
-
-:-)
-
-Cheers,
-Jes
-
+The same is true for the SPU support.  The way it's done currently works
+which is great, but the way it's done is everything but nice.
 
