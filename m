@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 17 Mar 2006 02:09:42 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 17 Mar 2006 23:26:45 +0000
 Subject: Re: [PATCH] Add SA_PERCPU_IRQ flag support
-Message-Id: <20060317020942.GA20227@infradead.org>
+Message-Id: <20060317152645.52112021.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060317003114.GA1735@sgi.com>
 In-Reply-To: <20060317003114.GA1735@sgi.com>
@@ -9,10 +9,11 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Dimitri Sivanich <sivanich@sgi.com>
-Cc: Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Christoph Hellwig <hch@infradead.org>, Christoph Lameter <clameter@sgi.com>, Jes Sorensen <jes@sgi.com>
+Cc: torvalds@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org, clameter@sgi.com, jes@sgi.com
 
-On Thu, Mar 16, 2006 at 06:31:14PM -0600, Dimitri Sivanich wrote:
-> The generic request_irq/setup_irq code should support the SA_PERCPU_IRQ flag.
+Dimitri Sivanich <sivanich@sgi.com> wrote:
+>
+> he generic request_irq/setup_irq code should support the SA_PERCPU_IRQ flag.
 > 
 > Not sure why it was left out, but this patch adds that support.
 > 
@@ -28,7 +29,79 @@ On Thu, Mar 16, 2006 at 06:31:14PM -0600, Dimitri Sivanich wrote:
 > +	if (new->flags & SA_PERCPU_IRQ) {
 > +		desc->status |= IRQ_PER_CPU;
 > +	}
+>  	p = &desc->action;
+>  	if ((old = *p) != NULL) {
+>  		/* Can't share interrupts unless both agree to */
 
-looks good, although the braces aren't really needed for single-line
-conditionals.
+Yes, we're presently going in and needlessly taking desc->lock on every
+cpu-local interrupt.  However it only appears to affect mmtimer.c at
+present.
+
+Shouldn't we also have a check in there, to make sure that all the other
+handlers off this IRQ agree about the per-cpuness of this interrupt?
+
+Your patch broke the x86 build, btw..
+
+
+From: Dimitri Sivanich <sivanich@sgi.com>
+
+The generic request_irq/setup_irq code should support the SA_PERCPU_IRQ flag.
+
+Also, check that all handlers agree to do per-cpu IRQs.
+
+Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ kernel/irq/manage.c |   23 +++++++++++++++++++----
+ 1 files changed, 19 insertions(+), 4 deletions(-)
+
+diff -puN kernel/irq/manage.c~generic-irq-add-sa_percpu_irq-flag-support kernel/irq/manage.c
+--- 25/kernel/irq/manage.c~generic-irq-add-sa_percpu_irq-flag-support	Fri Mar 17 15:06:44 2006
++++ 25-akpm/kernel/irq/manage.c	Fri Mar 17 15:23:02 2006
+@@ -204,10 +204,14 @@ int setup_irq(unsigned int irq, struct i
+ 	p = &desc->action;
+ 	if ((old = *p) != NULL) {
+ 		/* Can't share interrupts unless both agree to */
+-		if (!(old->flags & new->flags & SA_SHIRQ)) {
+-			spin_unlock_irqrestore(&desc->lock,flags);
+-			return -EBUSY;
+-		}
++		if (!(old->flags & new->flags & SA_SHIRQ))
++			goto mismatch;
++
++#ifdef ARCH_HAS_IRQ_PER_CPU
++		/* All handlers must agree on per-cpuness */
++		if ((old->flags & IRQ_PER_CPU) != (new->flags & IRQ_PER_CPU))
++			goto mismatch;
++#endif
+ 
+ 		/* add new interrupt at end of irq queue */
+ 		do {
+@@ -219,6 +223,11 @@ int setup_irq(unsigned int irq, struct i
+ 
+ 	*p = new;
+ 
++#ifdef ARCH_HAS_IRQ_PER_CPU
++	if (new->flags & SA_PERCPU_IRQ)
++		desc->status |= IRQ_PER_CPU;
++#endif
++
+ 	if (!shared) {
+ 		desc->depth = 0;
+ 		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT |
+@@ -236,6 +245,12 @@ int setup_irq(unsigned int irq, struct i
+ 	register_handler_proc(irq, new);
+ 
+ 	return 0;
++
++mismatch:
++	spin_unlock_irqrestore(&desc->lock, flags);
++	printk(KERN_ERR "%s: irq handler mismatch\n", __FUNCTION__);
++	dump_stack();
++	return -EBUSY;
+ }
+ 
+ #ifdef CONFIG_DEBUG_SHIRQ
+_
 
