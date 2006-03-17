@@ -1,41 +1,128 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 21:28:13 +0000
-Subject: RE: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603311327050.8126@schroedinger.engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="-1700579579-988016669-1143840493=:8126"
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:22:06 +0000
+Subject: [PATCH: 009/017]Memory hotplug for new nodes v.4.(add return code init_currently_empty_zone)
+Message-Id: <20060317163404.C649.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603312123.k2VLNqg06655@unix-os.sc.intel.com>
-In-Reply-To: <200603312123.k2VLNqg06655@unix-os.sc.intel.com>
-To: davem@davemloft.net
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'Nick Piggin' <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+When add_zone() is called against empty zone (not populated zone),
+we have to initialize the zone which didn't initialize at boot time.
+But, init_currently_empty_zone() may fail due to allocation of 
+wait table. So, this patch is to catch its error code.
 
----1700579579-988016669-1143840493=:8126
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Changes against wait_table is in the next patch.
 
-On Fri, 31 Mar 2006, Chen, Kenneth W wrote:
 
-> > I think we could say that lock semantics are different from barriers. T=
-hey=20
-> > are more like acquire and release on IA64. The problem with smb_mb_*** =
-is=20
-> > that the coder *explicitly* requested a barrier operation and we do not=
-=20
-> > give it to him.
->=20
-> I was browsing sparc64 code and it defines:
->=20
-> include/asm-sparc64/bitops.h:
-> #define smp_mb__after_clear_bit()      membar_storeload_storestore()
->=20
-> With my very na=EFve knowledge of sparc64, it doesn't look like a full ba=
-rrier.
-> Maybe sparc64 is broken too ...
+Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-Dave, how does sparc64 handle this situation?
+ include/linux/mmzone.h |    3 +++
+ mm/memory_hotplug.c    |   15 +++++++++++++--
+ mm/page_alloc.c        |   11 ++++++++---
+ 3 files changed, 24 insertions(+), 5 deletions(-)
 
----1700579579-988016669-1143840493=:8126--
+Index: pgdat8/mm/page_alloc.c
+=================================--- pgdat8.orig/mm/page_alloc.c	2006-03-16 16:05:38.000000000 +0900
++++ pgdat8/mm/page_alloc.c	2006-03-16 16:44:04.000000000 +0900
+@@ -2111,8 +2111,9 @@ static __meminit void zone_pcp_init(stru
+ 		zone->name, zone->present_pages, batch);
+ }
+ 
+-static __meminit void init_currently_empty_zone(struct zone *zone,
+-		unsigned long zone_start_pfn, unsigned long size)
++__meminit int init_currently_empty_zone(struct zone *zone,
++					unsigned long zone_start_pfn,
++					unsigned long size)
+ {
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
+ 
+@@ -2124,6 +2125,8 @@ static __meminit void init_currently_emp
+ 	memmap_init(size, pgdat->node_id, zone_idx(zone), zone_start_pfn);
+ 
+ 	zone_init_free_lists(pgdat, zone, zone->spanned_pages);
++
++	return 0;
+ }
+ 
+ /*
+@@ -2138,6 +2141,7 @@ static void __init free_area_init_core(s
+ 	unsigned long j;
+ 	int nid = pgdat->node_id;
+ 	unsigned long zone_start_pfn = pgdat->node_start_pfn;
++	int ret;
+ 
+ 	pgdat_resize_init(pgdat);
+ 	pgdat->nr_zones = 0;
+@@ -2179,7 +2183,8 @@ static void __init free_area_init_core(s
+ 			continue;
+ 
+ 		zonetable_add(zone, nid, j, zone_start_pfn, size);
+-		init_currently_empty_zone(zone, zone_start_pfn, size);
++		ret = init_currently_empty_zone(zone, zone_start_pfn, size);
++		BUG_ON(ret);
+ 		zone_start_pfn += size;
+ 	}
+ }
+Index: pgdat8/mm/memory_hotplug.c
+=================================--- pgdat8.orig/mm/memory_hotplug.c	2006-03-16 16:05:38.000000000 +0900
++++ pgdat8/mm/memory_hotplug.c	2006-03-16 16:45:30.000000000 +0900
+@@ -26,16 +26,23 @@
+ 
+ extern void zonetable_add(struct zone *zone, int nid, int zid, unsigned long pfn,
+ 			  unsigned long size);
+-static void __add_zone(struct zone *zone, unsigned long phys_start_pfn)
++static int __add_zone(struct zone *zone, unsigned long phys_start_pfn)
+ {
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
+ 	int nr_pages = PAGES_PER_SECTION;
+ 	int nid = pgdat->node_id;
+ 	int zone_type;
++	int ret = 0;
+ 
+ 	zone_type = zone - pgdat->node_zones;
++	if (!populated_zone(zone)) {
++		ret = init_currently_empty_zone(zone, phys_start_pfn, nr_pages);
++		if (ret < 0)
++			return ret;
++	}
+ 	memmap_init_zone(nr_pages, nid, zone_type, phys_start_pfn);
+ 	zonetable_add(zone, nid, zone_type, phys_start_pfn, nr_pages);
++	return 0;
+ }
+ 
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+@@ -50,7 +57,11 @@ static int __add_section(struct zone *zo
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	__add_zone(zone, phys_start_pfn);
++	ret = __add_zone(zone, phys_start_pfn);
++
++	if (ret < 0)
++		return ret;
++
+ 	return register_new_memory(__pfn_to_section(phys_start_pfn));
+ }
+ 
+Index: pgdat8/include/linux/mmzone.h
+=================================--- pgdat8.orig/include/linux/mmzone.h	2006-03-16 16:05:38.000000000 +0900
++++ pgdat8/include/linux/mmzone.h	2006-03-16 16:06:27.000000000 +0900
+@@ -332,6 +332,9 @@ void wakeup_kswapd(struct zone *zone, in
+ int zone_watermark_ok(struct zone *z, int order, unsigned long mark,
+ 		int classzone_idx, int alloc_flags);
+ 
++extern int init_currently_empty_zone(struct zone *zone, unsigned long start_pfn,
++				     unsigned long size);
++
+ #ifdef CONFIG_HAVE_MEMORY_PRESENT
+ void memory_present(int nid, unsigned long start, unsigned long end);
+ #else
+
+-- 
+Yasunori Goto 
+
+
