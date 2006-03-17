@@ -1,52 +1,144 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 08 Mar 2006 13:42:11 +0000
-Subject: [PATCH: 008/017](RFC) Memory hotplug for new nodes v.3. (allocate pgdat for ia64)
-Message-Id: <20060308213020.0032.Y-GOTO@jp.fujitsu.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 17 Mar 2006 12:28:09 +0000
+Subject: [patch 1/2] do_no_pfn handler (was: Re: [patch] mspec - special memory driver and do_no_pfn handler)
+Message-Id: <yq0fylhuug6.fsf_-_@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <yq0k6auuy5n.fsf@jaguar.mkp.net>
+	<20060316163728.06f49c00.akpm@osdl.org>
+In-Reply-To: <20060316163728.06f49c00.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Dave Hansen <haveblue@us.ibm.com>, Joel Schopp <jschopp@austin.ibm.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
+Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hch@lst.de, cotte@de.ibm.com, Hugh Dickins <hugh@veritas.com>
 
-This is a patch to allocate pgdat and per node data area for ia64.
-The size for them can be calculated by compute_pernodesize().
+>>>>> "Andrew" = Andrew Morton <akpm@osdl.org> writes:
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Andrew> Jes Sorensen <jes@sgi.com> wrote:
+>>  Hi,
+>> 
+>> This is an updated version of the mspec driver (special memory
+>> support), formerly known as fetchop.
+>> 
+>> With this version I have implemented a do_no_pfn() handler, similar
+>> to the do_no_page() handler but for pages which are not backed by a
+>> struct page.
 
-Index: pgdat6/arch/ia64/mm/discontig.c
-=================================--- pgdat6.orig/arch/ia64/mm/discontig.c	2006-03-06 18:26:11.000000000 +0900
-+++ pgdat6/arch/ia64/mm/discontig.c	2006-03-06 18:26:15.000000000 +0900
-@@ -115,7 +115,7 @@ static int __init early_nr_cpus_node(int
-  * compute_pernodesize - compute size of pernode data
-  * @node: the node id.
-  */
--static unsigned long __init compute_pernodesize(int node)
-+static unsigned long __meminit compute_pernodesize(int node)
- {
- 	unsigned long pernodesize = 0, cpus;
- 
-@@ -728,6 +728,18 @@ void __init paging_init(void)
- 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
+Andrew> hm.  Is that a superset of ->nopage?  Should we be looking at
+Andrew> migrating over to ->nopfn, retire ->nopage?
+
+Andrew> <looks at the ghastly stuff in do_no_page>
+
+It wasn't designed to handle all possible cases as a do_no_page
+replacement :) My initial thought was that adding an extra op to the
+vm_operations_struct was that it wouldn't be very expensive since we
+don't allocate all that many of them.
+
+>> Please let me know if there are any objections or comments etc. to
+>> this approach. If preferred I can split out the do_no_pfn part into
+>> a seperate patch.
+
+Andrew> That would probably be best.
+
+Here goes - if Linus comes back with a suggestion for how to do it in
+a different fashion it may obsolete this patch, but at least until
+then.
+
+The cleaned up version of the actual mspec driver will be in a
+seperate mail.
+
+Cheers,
+Jes
+
+Implement do_no_pfn() for handling mapping of memory without a struct
+page backing it.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ include/linux/mm.h |    1 +
+ mm/memory.c        |   51 ++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 51 insertions(+), 1 deletion(-)
+
+Index: linux-2.6/include/linux/mm.h
+=================================--- linux-2.6.orig/include/linux/mm.h
++++ linux-2.6/include/linux/mm.h
+@@ -199,6 +199,7 @@
+ 	void (*open)(struct vm_area_struct * area);
+ 	void (*close)(struct vm_area_struct * area);
+ 	struct page * (*nopage)(struct vm_area_struct * area, unsigned long address, int *type);
++	long (*nopfn)(struct vm_area_struct * area, unsigned long address, int *type);
+ 	int (*populate)(struct vm_area_struct * area, unsigned long address, unsigned long len, pgprot_t prot, unsigned long pgoff, int nonblock);
+ #ifdef CONFIG_NUMA
+ 	int (*set_policy)(struct vm_area_struct *vma, struct mempolicy *new);
+Index: linux-2.6/mm/memory.c
+=================================--- linux-2.6.orig/mm/memory.c
++++ linux-2.6/mm/memory.c
+@@ -2148,6 +2148,51 @@
  }
  
-+pg_data_t *arch_alloc_nodedata(int nid)
+ /*
++ * do_no_pfn() tries to create a new page mapping for a page without
++ * a struct_page backing it
++ *
++ * As this is called only for pages that do not currently exist, we
++ * do not need to flush old virtual caches or the TLB.
++ *
++ * We enter with non-exclusive mmap_sem (to exclude vma changes,
++ * but allow concurrent faults), and pte mapped but not yet locked.
++ * We return with mmap_sem still held, but pte unmapped and unlocked.
++ *
++ * It is expected that the ->nopfn handler always returns the same pfn
++ * for a given virtual mapping.
++ */
++static int do_no_pfn(struct mm_struct *mm, struct vm_area_struct *vma,
++		     unsigned long address, pte_t *page_table, pmd_t *pmd,
++		     int write_access)
 +{
-+	unsigned long size = compute_pernodesize(nid);
++	spinlock_t *ptl;
++	pte_t entry;
++	long pfn;
++	int ret = VM_FAULT_MINOR;
 +
-+	return kzalloc(size, GFP_KERNEL);
++	pte_unmap(page_table);
++	BUG_ON(!(vma->vm_flags & VM_PFNMAP));
++
++	pfn = vma->vm_ops->nopfn(vma, address & PAGE_MASK, &ret);
++	if (pfn = -ENOMEM)
++		return VM_FAULT_OOM;
++	if (pfn = -EFAULT)
++		return VM_FAULT_SIGBUS;
++	if (pfn < 0)
++		return VM_FAULT_SIGBUS;
++
++	page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
++
++	entry = pfn_pte(pfn, vma->vm_page_prot);
++	if (write_access)
++		entry = maybe_mkwrite(pte_mkdirty(entry), vma);
++	set_pte_at(mm, address, page_table, entry);
++
++	pte_unmap_unlock(page_table, ptl);
++	return ret;
 +}
 +
-+void arch_free_nodedata(pg_data_t *pgdat)
-+{
-+	kfree(pgdat);
-+}
-+
- void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
- {
- 	pgdat_list[update_node] = update_pgdat;
-
--- 
-Yasunori Goto 
-
++/*
+  * Fault of a previously existing named mapping. Repopulate the pte
+  * from the encoded file_pte if possible. This enables swappable
+  * nonlinear vmas.
+@@ -2209,9 +2254,13 @@
+ 	old_entry = entry = *pte;
+ 	if (!pte_present(entry)) {
+ 		if (pte_none(entry)) {
+-			if (!vma->vm_ops || !vma->vm_ops->nopage)
++			if (!vma->vm_ops ||
++			    (!vma->vm_ops->nopage && !vma->vm_ops->nopfn))
+ 				return do_anonymous_page(mm, vma, address,
+ 					pte, pmd, write_access);
++			if (vma->vm_ops->nopfn)
++				return do_no_pfn(mm, vma, address,
++						 pte, pmd, write_access);
+ 			return do_no_page(mm, vma, address,
+ 					pte, pmd, write_access);
+ 		}
 
