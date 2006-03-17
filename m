@@ -1,94 +1,97 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 10 Mar 2006 08:04:45 +0000
-Subject: Re: [PATCH: 004/017](RFC) Memory hotplug for new nodes v.3. (generic alloc pgdat)
-Message-Id: <20060310161339.CA7B.Y-GOTO@jp.fujitsu.com>
+Date: Fri, 17 Mar 2006 08:22:28 +0000
+Subject: [PATCH: 011/017]Memory hotplug for new nodes v.4.(start kswapd)
+Message-Id: <20060317163538.C64D.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060308212719.002A.Y-GOTO@jp.fujitsu.com> <20060309040045.17dbf286.akpm@osdl.org>
-In-Reply-To: <20060309040045.17dbf286.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: tony.luck@intel.com, ak@suse.de, jschopp@austin.ibm.com, haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+
+When node is hot-added, kswapd for the node should start.
+This export kswapd start function as kswapd_run().
 
 
-> > +#ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
-> > +/*
-> > + * For supporint node-hotadd, we have to allocate new pgdat.
-> > + *
-> > + * If an arch have generic style NODE_DATA(),
-> > + * node_data[nid] = kzalloc() works well . But it depends on each arch.
-> > + *
-> > + * In general, generic_alloc_nodedata() is used.
-> > + * generic...is a local function in mm/memory_hotplug.c
-> > + *
-> > + * Now, arch_free_nodedata() is just defined for error path of node_hot_add.
-> > + *
-> > + */
-> > +extern struct pglist_data * arch_alloc_nodedata(int nid);
-> > +extern void arch_free_nodedata(pg_data_t *pgdat);
-> > +
-> > +#else /* !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-> > +#define arch_alloc_nodedata(nid)	generic_alloc_nodedata(nid)
-> > +#define arch_free_nodedata(pgdat)	generic_free_nodedata(pgdat)
-> > +
-> > +#ifdef CONFIG_NUMA
-> > +/*
-> > + * If ARCH_HAS_NODEDATA_EXTENSION=n, this func is used to allocate pgdat.
-> > + */
-> > +static inline struct pglist_data *generic_alloc_nodedata(int nid)
-> > +{
-> > +	return kzalloc(sizeof(struct pglist_data), GFP_ATOMIC);
-> > +}
-> 
-> >From an interface design point of view it's usually best to pass the
-> gfp_flags ito a function which performs memory allocation, rather than
-> assuming the worst-case like this.
-> 
-> If it's known that callers of generic_alloc_nodedata() can just never ever
-> be permitted to sleep then OK.  But GFP_KERNEL allocations are always
-> preferable.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-Ok. I'll change GFP_KERNEL for it.
+ include/linux/swap.h |    5 +++++
+ mm/vmscan.c          |   35 ++++++++++++++++++++++++++---------
+ 2 files changed, 31 insertions(+), 9 deletions(-)
 
-> > +/*
-> > + * This definition is just for error path in node hotadd.
-> > + * For node hotremove, we have to replace this.
-> > + */
-> > +static inline void generic_free_nodedata(struct pglist_data *pgdat)
-> > +{
-> > +	kfree(pgdat);
-> > +}
-> > +
-> > +#else /* !CONFIG_NUMA */
-> > +/* never called */
-> > +static inline struct pglist_data *generic_alloc_nodedata(int nid)
-> > +{
-> > +	BUG();
-> > +	return NULL;
-> > +}
-> > +static inline void generic_free_nodedata(struct pglist_data *pgdat)
-> > +{
-> > +}
-> > +#endif /* CONFIG_NUMA */
-> > +#endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
-> > +
-> 
-> Should the patch provide stubs for generic_alloc_nodedata() and
-> generic_alloc_nodedata() if !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION?
-> 
-> (If all callers are also inside #ifdef CONFIG_HAVE_ARCH_NODEDATA_EXTENSION
-> then the answer would be "no").
-
-No. 
-They are stubs for !CONFIG_HAVE_ARCH_NODEDATA_EXTENSION.
-They are inside of !CONFIG case. Not for special archtectures.
-I intend that if an architecture needs some kind of extension, 
-it should define CONFIG_HAVE_ARCH..... and arch_alloc_nodedata(nid).
-
-Did I make mistake comment for #ifdef?
-
-Bye.
+Index: pgdat8/mm/vmscan.c
+=================================--- pgdat8.orig/mm/vmscan.c	2006-03-16 16:05:38.000000000 +0900
++++ pgdat8/mm/vmscan.c	2006-03-16 16:06:27.000000000 +0900
+@@ -35,6 +35,7 @@
+ #include <linux/notifier.h>
+ #include <linux/rwsem.h>
+ #include <linux/delay.h>
++#include <linux/kthread.h>
+ 
+ #include <asm/tlbflush.h>
+ #include <asm/div64.h>
+@@ -1843,20 +1844,36 @@ static int __devinit cpu_callback(struct
+ }
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
++/*
++ * This kswapd start function will be called by init and node-hot-add.
++ * On node-hot-add, kswapd will moved to proper cpus if cpus are hot-added.
++ */
++int kswapd_run(int nid)
++{
++	pg_data_t *pgdat = NODE_DATA(nid);
++	int ret = 0;
++
++	if (pgdat->kswapd)
++		return 0;
++
++	pgdat->kswapd = kthread_run(kswapd, pgdat, "kswapd%d", nid);
++	if (pgdat->kswapd = ERR_PTR(-ENOMEM)) {
++		/* failure at boot is fatal */
++		BUG_ON(system_state = SYSTEM_BOOTING);
++		printk("faled to run kswapd on node %d\n",nid);
++		ret = -1;
++	}
++	return ret;
++}
++
+ static int __init kswapd_init(void)
+ {
+-	pg_data_t *pgdat;
++	int nid;
+ 
+ 	swap_setup();
+-	for_each_online_pgdat(pgdat) {
+-		pid_t pid;
++	for_each_online_node(nid)
++ 		kswapd_run(nid);
+ 
+-		pid = kernel_thread(kswapd, pgdat, CLONE_KERNEL);
+-		BUG_ON(pid < 0);
+-		read_lock(&tasklist_lock);
+-		pgdat->kswapd = find_task_by_pid(pid);
+-		read_unlock(&tasklist_lock);
+-	}
+ 	total_memory = nr_free_pagecache_pages();
+ 	hotcpu_notifier(cpu_callback, 0);
+ 	return 0;
+Index: pgdat8/include/linux/swap.h
+=================================--- pgdat8.orig/include/linux/swap.h	2006-03-16 16:05:38.000000000 +0900
++++ pgdat8/include/linux/swap.h	2006-03-16 16:06:27.000000000 +0900
+@@ -208,6 +208,11 @@ static inline int migrate_pages(struct l
+ #define fail_migrate_page NULL
+ #endif
+ 
++#ifdef CONFIG_MEMORY_HOTPLUG
++/* start new kswapd for new node */
++extern int kswapd_run(int nid);
++#endif
++
+ #ifdef CONFIG_MMU
+ /* linux/mm/shmem.c */
+ extern int shmem_unuse(swp_entry_t entry, struct page *page);
 
 -- 
 Yasunori Goto 
