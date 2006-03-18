@@ -1,97 +1,35 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 17 Mar 2006 23:54:45 +0000
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Sat, 18 Mar 2006 14:56:22 +0000
 Subject: Re: [PATCH 2.6.15] ia64: use i386 dmi_scan.c
-Message-Id: <20060317155445.602f07b9.akpm@osdl.org>
+Message-Id: <20060318145621.GA29862@humbolt.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060104221627.GA26064@lists.us.dell.com>
-	<20060106172140.GB19605@lists.us.dell.com>
-	<20060106223932.GB9230@lists.us.dell.com>
-In-Reply-To: <20060106223932.GB9230@lists.us.dell.com>
+References: <20060104221627.GA26064@lists.us.dell.com> <20060106172140.GB19605@lists.us.dell.com> <20060106223932.GB9230@lists.us.dell.com> <20060317155445.602f07b9.akpm@osdl.org>
+In-Reply-To: <20060317155445.602f07b9.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matt Domsch <Matt_Domsch@dell.com>
+To: Andrew Morton <akpm@osdl.org>
 Cc: linux-ia64@vger.kernel.org, ak@suse.de, openipmi-developer@lists.sourceforge.net, matthew.e.tolentino@intel.com, linux-kernel@vger.kernel.org
 
-Matt Domsch <Matt_Domsch@dell.com> wrote:
->
-> +dmi_scan-y			+= ../../i386/kernel/dmi_scan.o
->
+On Fri, Mar 17, 2006 at 03:54:45PM -0800, Andrew Morton wrote:
+> It could be that Andi's changes break the ia64 dmi impementation - I don't
+> know.  I guess it's OK if ia64 is not doing a scan "early".
 
-There's a patch in Andi's queue
-(ftp://ftp.firstfloor.org/pub/ak/x86_64/quilt-current/patches/feature/dmi-early)
-which adds
+It's not done "early", because at this point it's only needed for
+drivers.  On i386 it's done "early" to catch some chipsets
+(coincidentally, Dell).
 
-#include <asm/dmi.h>
-
-into arch/i386/kernel/dmi_scan.c.
-
-hence with both your patch and Andi's patch applied, ia64 won't compile due
-to missing asm/dmi.h.
-
-I've been reverting Andi's patch due to this, but it seems reasonable that
-dmi_scan.c be able to include asm/dmi.h..
-
-So to get these thing to play together properly we'll need an
-include/asm-ia64/dmi.h which does the stuff which is in the two dmi.h's
-which Andi's patch creates.
-
-Is that something you could take a look at, please?
-
-You'll need a kernel to patch, so I'll include this in next -mm:
-
---- /dev/null	Thu Apr 11 07:25:15 2002
-+++ 25-akpm/include/asm-ia64/dmi.h	Fri Mar 17 15:49:50 2006
-@@ -0,0 +1,6 @@
-+#ifndef _ASM_DMI_H
-+#define _ASM_DMI_H 1
-+
-+#include <asm/io.h>
-+
-+#endif
-diff -puN arch/i386/kernel/dmi_scan.c~ia64-use-i386-dmi_scanc-fix arch/i386/kernel/dmi_scan.c
---- 25/arch/i386/kernel/dmi_scan.c~ia64-use-i386-dmi_scanc-fix	Fri Mar 17 15:49:37 2006
-+++ 25-akpm/arch/i386/kernel/dmi_scan.c	Fri Mar 17 15:49:37 2006
-@@ -224,7 +224,7 @@ void __init dmi_scan_machine(void)
-                 * needed during early boot.  This also means we can
-                 * iounmap the space when we're done with it.
- 		*/
--		p = ioremap((unsigned long)efi.smbios, 0x10000);
-+		p = dmi_ioremap((unsigned long)efi.smbios, 0x10000);
- 		if (p = NULL)
- 			goto out;
- 
-@@ -235,11 +235,11 @@ void __init dmi_scan_machine(void)
- 	}
- 	else {
- 		/*
--		 * no iounmap() for that ioremap(); it would be a no-op, but it's
--		 * so early in setup that sucker gets confused into doing what
--		 * it shouldn't if we actually call it.
-+		 * no iounmap() for that ioremap(); it would be a no-op, but
-+		 * it's so early in setup that sucker gets confused into doing
-+		 * what it shouldn't if we actually call it.
- 		 */
--		p = ioremap(0xF0000, 0x10000);
-+		p = dmi_ioremap(0xF0000, 0x10000);
- 		if (p = NULL)
- 			goto out;
- 
-_
+> The above might not compile, but I'll make sure that it does so before
+> releasing next -mm.
+> 
+> So.  Bottom line: please test the ia64 dmi patches in next -mm, send any
+> needed fixups, thanks.
 
 
-I assume that those ioremap->dmi_ioremap conversions are appropriate.
+Built 2.6.16-rc6-mm2 on ia64 Itanium2 (Dell PowerEdge 7250, aka Intel
+Tiger4).  Compiled clean, loaded clean, works as expected.  Thanks!
 
-It could be that Andi's changes break the ia64 dmi impementation - I don't
-know.  I guess it's OK if ia64 is not doing a scan "early".
+I haven't tried same on x86_64 yet, will get to that ASAP.
 
-The above might not compile, but I'll make sure that it does so before
-releasing next -mm.
-
-So.  Bottom line: please test the ia64 dmi patches in next -mm, send any
-needed fixups, thanks.
-
-
-We should move this code into drivers/ or something - #including other
-architecture's stuff like this is awful.
-
+Thanks,
+Matt
