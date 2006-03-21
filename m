@@ -1,78 +1,42 @@
-From: Mark Maule <maule@sgi.com>
-Date: Tue, 21 Mar 2006 14:34:44 +0000
-Subject: [PATCH 0/3] msi abstractions and support for altix
-Message-Id: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
+From: "David S. Miller" <davem@davemloft.net>
+Date: Tue, 21 Mar 2006 21:53:59 +0000
+Subject: Re: [PATCH 0/3] msi abstractions and support for altix
+Message-Id: <20060321.135359.72797865.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
-In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+References: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: j-nomura@ce.jp.nec.com, Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
+To: maule@sgi.com
+Cc: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, j-nomura@ce.jp.nec.com, tony.luck@intel.com, gregkh@suse.de
 
-Resend #6:  resubmit against 2.6.16 base
+From: Mark Maule <maule@sgi.com>
+Date: Tue, 21 Mar 2006 08:34:44 -0600 (CST)
 
-Patch set to abstract portions of the MSI core so that it can be used on
-architectures which don't use standard interrupt controllers.
+> Mark
+> 
+> 1/3 msi-ops.patch
+> 	Add an msi_arch_init() hook which can be used to perform platform
+> 	specific setup prior to msi use.
+> 
+> 	Define a set of msi ops to implement the platform-specific tasks:
+> 
+> 	    setup - set up plumbing to get a vector directed at a default
+> 		cpu, and return the corresponding MSI bus address and data.
+> 	    teardown - inverse of msi_setup
+> 	    target - retarget a vector to a given cpu
+> 
+> 	Define the routine msi_register() called from msi_arch_init()
+> 	to set the desired ops.
+> 
+> 	Move a bunch of apic-specific code out of the msi core .h/.c and
+> 	into a new msi-apic.c file.
 
-Changes from Resend #5
+Mark, thanks for doing this work.  The better abstracted out the
+so-called generic MSI support code is, the better.  Several platforms
+will benefit from this, such as PPC and Sparc64, both of which
+cannot take advantage of MSI support in their PCI controllers because
+of how x86 centric the current MSI support layer is.
 
-+ Move altix msi ops down into drivers/pci/msi-altix.c
-+ Simplify ia64 platform_msi_init machvec
-
-Changes from Resend #4
-
-+ Fix an x86_64 build problem
-+ Fix an ia64 CONFIG_IA64_GENERIC build problem
-+ Fix a bug in the new ia64 reserve_irq_vector()
-+ Restore dev->irq if msi_ops->setup fails
-+ Redo msi-altix.patch so it applies on 2.6.16-rc1
-
-Changes from Resend #3 
-
-+ Move external declarations of msi_apic_ops out of routines, and up earlier
-  in the respective .h files.
-+ Add comments to the msi_ops structure declaration
-
-Changes from Resend #2
-
-+ Cleanup the ia64 platform_msi_init macro so it works on non-altix ia64
-
-Changes from initial version
-
-+ Change uintXX_t to uXX
-+ Change _callouts to _ops
-+ Renamed the _generic routines to _apic and moved them to a new file
-  msi-apic.c
-+ Have each msi_arch_init() routine call msi_register() with the desired
-  msi ops for that platform.
-+ Moved msi_address, msi_data, and related defs out of msi.h and into
-  msi-apic.c, replaced by shifts/masks.
-+ Rolled msi-arch-init.patch and msi-callouts.patch into a single msi-ops.patch
-
-Mark
-
-1/3 msi-ops.patch
-	Add an msi_arch_init() hook which can be used to perform platform
-	specific setup prior to msi use.
-
-	Define a set of msi ops to implement the platform-specific tasks:
-
-	    setup - set up plumbing to get a vector directed at a default
-		cpu, and return the corresponding MSI bus address and data.
-	    teardown - inverse of msi_setup
-	    target - retarget a vector to a given cpu
-
-	Define the routine msi_register() called from msi_arch_init()
-	to set the desired ops.
-
-	Move a bunch of apic-specific code out of the msi core .h/.c and
-	into a new msi-apic.c file.
-
-2/3 ia64-per-platform-device-vector.patch
-	For the ia64 arch, allow per-platform definitions of
-	IA64_FIRST_DEVICE_VECTOR and IA64_LAST_DEVICE_VECTOR.
-	
-3/3 msi-altix.patch 
-	Altix specific callouts to implement MSI.
+Thanks again.
