@@ -1,37 +1,54 @@
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 22 Mar 2006 13:17:55 +0000
-Subject: Re: [PATCH: 003/017]Memory hotplug for new nodes v.4.(get node id at probe memory)
-Message-Id: <200603221417.55462.ak@suse.de>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 21 Mar 2006 17:44:07 +0000
+Subject: [PATCH] ia64: sn_check_intr: use ia64_get_irr()
+Message-Id: <200603211044.07101.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060317162835.C63D.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060317162835.C63D.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-On Friday 17 March 2006 09:20, Yasunori Goto wrote:
-> When CONFIG_NUMA && CONFIG_ARCH_MEMORY_PROBE, nid should be defined
-> before calling add_memory(nid, start, size).
+Use the recently-added ia64_get_irr() rather than duplicating the code.
 
-Seems a bit weird to have the node number assignment somewhere
-hidden in memory hotadd. It would be probably cleaner to have
-a separate step for this.
+I don't have hardware to test this.
 
-> +#if defined(CONFIG_NUMA) && defined(CONFIG_ARCH_MEMORY_PROBE)
-> +extern int arch_nid_probe(u64 start);
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Instead of adding such ugly ifdefs better just add stubs to all the
-architectures that support memory hotplug. There are not that many
-anyways.
-
--Andi
-
-> +#else
-> +static inline int arch_nid_probe(u64 start)
-> +{
-> +	return 0;
-> +}
-> +#endif
-> +
+Index: work-mm4/arch/ia64/sn/kernel/irq.c
+=================================--- work-mm4.orig/arch/ia64/sn/kernel/irq.c	2006-02-22 09:55:49.000000000 -0700
++++ work-mm4/arch/ia64/sn/kernel/irq.c	2006-02-22 10:12:09.000000000 -0700
+@@ -376,9 +376,6 @@
+ static void sn_check_intr(int irq, struct sn_irq_info *sn_irq_info)
+ {
+ 	u64 regval;
+-	int irr_reg_num;
+-	int irr_bit;
+-	u64 irr_reg;
+ 	struct pcidev_info *pcidev_info;
+ 	struct pcibus_info *pcibus_info;
+ 
+@@ -399,23 +396,7 @@
+ 	    pdi_pcibus_info;
+ 	regval = pcireg_intr_status_get(pcibus_info);
+ 
+-	irr_reg_num = irq_to_vector(irq) / 64;
+-	irr_bit = irq_to_vector(irq) % 64;
+-	switch (irr_reg_num) {
+-	case 0:
+-		irr_reg = ia64_getreg(_IA64_REG_CR_IRR0);
+-		break;
+-	case 1:
+-		irr_reg = ia64_getreg(_IA64_REG_CR_IRR1);
+-		break;
+-	case 2:
+-		irr_reg = ia64_getreg(_IA64_REG_CR_IRR2);
+-		break;
+-	case 3:
+-		irr_reg = ia64_getreg(_IA64_REG_CR_IRR3);
+-		break;
+-	}
+-	if (!test_bit(irr_bit, &irr_reg)) {
++	if (!ia64_get_irr(irq_to_vector(irq))) {
+ 		if (!test_bit(irq, pda->sn_in_service_ivecs)) {
+ 			regval &= 0xff;
+ 			if (sn_irq_info->irq_int_bit & regval &
