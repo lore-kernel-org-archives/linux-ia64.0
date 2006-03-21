@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Sat, 11 Mar 2006 00:34:05 +0000
+Date: Tue, 21 Mar 2006 18:55:36 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200603110034.k2B0Y5F7018851@agluck-lia64.sc.intel.com>
+Message-Id: <200603211855.k2LItaIp005043@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -16,96 +16,89 @@ please pull from:
 
 	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This will update the files shown below.
+This will update the files shown below.  These are the patches that have been
+cooking in -mm.
 
 Thanks!
 
 -Tony
 
- arch/ia64/kernel/ivt.S |   15 +++++++++------
- 1 files changed, 9 insertions(+), 6 deletions(-)
+ arch/ia64/Kconfig                   |   19 ++
+ arch/ia64/configs/tiger_defconfig   |    2 
+ arch/ia64/kernel/acpi.c             |   14 +
+ arch/ia64/kernel/entry.S            |   14 -
+ arch/ia64/kernel/iosapic.c          |   10 -
+ arch/ia64/kernel/irq.c              |   13 +
+ arch/ia64/kernel/mca.c              |   90 ++++++---
+ arch/ia64/kernel/perfmon.c          |    5 
+ arch/ia64/kernel/signal.c           |  101 -----------
+ arch/ia64/kernel/smpboot.c          |  114 +++++++++++-
+ arch/ia64/kernel/time.c             |    9 
+ arch/ia64/kernel/topology.c         |    2 
+ arch/ia64/mm/contig.c               |    4 
+ arch/ia64/mm/discontig.c            |    9 
+ arch/ia64/sn/kernel/Makefile        |    3 
+ arch/ia64/sn/kernel/pio_phys.S      |   71 +++++++
+ arch/ia64/sn/kernel/setup.c         |    6 
+ arch/ia64/sn/kernel/sn2/sn2_smp.c   |   23 ++
+ arch/ia64/sn/kernel/xpc_channel.c   |  102 ++++++-----
+ arch/ia64/sn/kernel/xpc_main.c      |    1 
+ arch/ia64/sn/kernel/xpc_partition.c |   28 ++-
+ arch/ia64/sn/pci/tioce_provider.c   |  326 +++++++++++++++++++++++++++++++++---
+ drivers/char/snsc.h                 |    5 
+ drivers/char/snsc_event.c           |   32 ++-
+ drivers/sn/ioc4.c                   |   41 +---
+ include/asm-ia64/intel_intrin.h     |  134 +-------------
+ include/asm-ia64/machvec.h          |   13 +
+ include/asm-ia64/machvec_sn2.h      |    4 
+ include/asm-ia64/mca.h              |    2 
+ include/asm-ia64/mutex.h            |   93 +++++++++-
+ include/asm-ia64/processor.h        |    3 
+ include/asm-ia64/signal.h           |    2 
+ include/asm-ia64/sn/addrs.h         |    8 
+ include/asm-ia64/sn/rw_mmr.h        |   56 ------
+ include/asm-ia64/sn/tioce.h         |   36 +++
+ include/asm-ia64/sn/xpc.h           |   22 --
+ include/asm-ia64/system.h           |    7 
+ include/asm-ia64/thread_info.h      |   12 -
+ 38 files changed, 955 insertions(+), 481 deletions(-)
 
-Christoph Lameter:
-      [IA64] Fix race in the accessed/dirty bit handlers
+Aaron Young:
+      [IA64-SGI] Handle SC env. powerdown events
 
-diff-tree d8117ce5a679ff1f48df247da30fb62c16d562c5 (from 2ec5e3a867d63d04932e11c6097f63760d9be3fe)
-Author: Christoph Lameter <clameter@engr.sgi.com>
-Date:   Tue Mar 7 19:05:32 2006 -0800
+Ashok Raj:
+      [IA64] support for cpu0 removal
+      [IA64] Fix UP build with BSP removal support.
 
-    [IA64] Fix race in the accessed/dirty bit handlers
-    
-    A pte may be zapped by the swapper, exiting process, unmapping or page
-    migration while the accessed or dirty bit handers are about to run. In that
-    case the accessed bit or dirty is set on an zeroed pte which leads the VM to
-    conclude that this is a swap pte. This may lead to
-    
-    - Messages from the vm like
-    
-    swap_free: Bad swap file entry 4000000000000000
-    
-    - Processes being aborted
-    
-    swap_dup: Bad swap file entry 4000000000000000
-    VM: killing process ....
-    
-    Page migration is particular suitable for the creation of this race since
-    it needs to remove and restore page table entries.
-    
-    The fix here is to check for the present bit and simply not update
-    the pte if the page is not present anymore. If the page is not present
-    then the fault handler should run next which will take care of the problem
-    by bringing the page back and then mark the page dirty or move it onto the
-    active list.
-    
-    Signed-off-by: Christoph Lameter <clameter@sgi.com>
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
+Brent Casavant:
+      [IA64] hooks to wait for mmio writes to drain when migrating processes
 
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index 9f80569..dcd906f 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -561,11 +561,12 @@ ENTRY(dirty_bit)
- 	;;					// avoid RAW on r18
- 	mov ar.ccv=r18				// set compare value for cmpxchg
- 	or r25=_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
-+	tbit.z p7,p6 = r18,_PAGE_P_BIT		// Check present bit
- 	;;
--	cmpxchg8.acq r26=[r17],r25,ar.ccv
-+(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only update if page is present
- 	mov r24=PAGE_SHIFT<<2
- 	;;
--	cmp.eq p6,p7=r26,r18
-+(p6)	cmp.eq p6,p7=r26,r18			// Only compare if page is present
- 	;;
- (p6)	itc.d r25				// install updated PTE
- 	;;
-@@ -626,11 +627,12 @@ ENTRY(iaccess_bit)
- 	;;
- 	mov ar.ccv=r18				// set compare value for cmpxchg
- 	or r25=_PAGE_A,r18			// set the accessed bit
-+	tbit.z p7,p6 = r18,_PAGE_P_BIT	 	// Check present bit
- 	;;
--	cmpxchg8.acq r26=[r17],r25,ar.ccv
-+(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only if page present
- 	mov r24=PAGE_SHIFT<<2
- 	;;
--	cmp.eq p6,p7=r26,r18
-+(p6)	cmp.eq p6,p7=r26,r18			// Only if page present
- 	;;
- (p6)	itc.i r25				// install updated PTE
- 	;;
-@@ -680,11 +682,12 @@ ENTRY(daccess_bit)
- 	;;					// avoid RAW on r18
- 	mov ar.ccv=r18				// set compare value for cmpxchg
- 	or r25=_PAGE_A,r18			// set the dirty bit
-+	tbit.z p7,p6 = r18,_PAGE_P_BIT		// Check present bit
- 	;;
--	cmpxchg8.acq r26=[r17],r25,ar.ccv
-+(p6)	cmpxchg8.acq r26=[r17],r25,ar.ccv	// Only if page is present
- 	mov r24=PAGE_SHIFT<<2
- 	;;
--	cmp.eq p6,p7=r26,r18
-+(p6)	cmp.eq p6,p7=r26,r18			// Only if page is present
- 	;;
- (p6)	itc.d r25				// install updated PTE
- 	/*
+Chen, Kenneth W:
+      [IA64] implement ia64 specific mutex primitives
+      [IA64] map ia64_hint definition to intel compiler intrinsic
+      [IA64] clean up asm/intel_intrin.h
+      [IA64] add __builtin_trap definition for icc build
+      [IA64] use icc defined constant
+
+Jack Steiner:
+      [IA64-SGI] - Eliminate SN pio_phys_xxx macros. Move to assembly
+
+Jes Sorensen:
+      [IA64-SGI] sem2mutex ioc4.c
+      [IA64-SGI] SN2-XP reduce kmalloc wrapper inlining
+
+Keith Owens:
+      [IA64] Delete MCA/INIT sigdelayed code
+      [IA64] MCA: print messages in MCA handler
+      [IA64] MCA: update MCA comm field for user space tasks
+      [IA64] MCA: remove obsolete ifdef
+
+Mark Maule:
+      [IA64-SGI] driver bugfixes and hardware workarounds for CE1.0 asic
+
+Tony Luck:
+      Pull bsp-removal into release branch
+      Pull delete-sigdelayed into release branch
+      Pull sn2-mmio-writes into release branch
+      Pull mca-cleanup into release branch
+
