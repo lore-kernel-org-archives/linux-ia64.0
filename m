@@ -1,71 +1,78 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@free.fr>
-Date: Fri, 31 Mar 2006 22:57:51 +0000
-Subject: Re: accessed/dirty bit handler tuning
-Message-Id: <442DB3EF.7020801@free.fr>
+From: Mark Maule <maule@sgi.com>
+Date: Tue, 21 Mar 2006 14:34:44 +0000
+Subject: [PATCH 0/3] msi abstractions and support for altix
+Message-Id: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44157CF1.5060902@bull.net>
-In-Reply-To: <44157CF1.5060902@bull.net>
+References: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
+In-Reply-To: <20051222171616.8240.37671.12506@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: j-nomura@ce.jp.nec.com, Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
-Chen, Kenneth W wrote:
+Resend #6:  resubmit against 2.6.16 base
 
-> You are correct.  I forgot that nested_dtlb_miss doesn't actually do the check.
-> I rather prefer not to add anything in the fast path to detect an exceedingly
-> rare race event (only if ia64 architect screwed up so bad that made itc.d have
-> 10,000 cycle latency and at the same time does a splendid job at job at ptc.g
-> which completes in zero cycle along with other thousands of other instructions).
-> 
-> In that event, as I said, it's actually better to simple purge the entry, write
-> the dirty bit into in-memory page table entry and let the hardware page walker
-> insert the new entry.
+Patch set to abstract portions of the MSI core so that it can be used on
+architectures which don't use standard interrupt controllers.
 
-My first guess is:
-- keep the fast path as it is (we are in virtual mode)
-- after a nested DTLB fault, we do not return return to the fast path in physical
-   but to the "completed" dirty bit fault handler
+Changes from Resend #5
 
-I guess it is more efficient than to let the hardware page walker
-insert the new entry (we already have it in a register).
++ Move altix msi ops down into drivers/pci/msi-altix.c
++ Simplify ia64 platform_msi_init machvec
 
-I'll have to think it over. I'm not sure we can write anything after the
-nested DTLB fault. The next example:
+Changes from Resend #4
 
-cpu0:                          cpu1:                   cpu2:
-dirty bit fault:
-attempts to read the PTE
-nested DTLB fault:
-walks page table
-back to dirty bit handler:
-(keeps the physical address
-of the PTE in r17)
-                                free_pgtables:
-                                ptc.g dirty bit fault address
-                                free the data page
-                                ptc.g PTE page address
-                                free the PTE page
-                                                        page_alloc:
-                                                        re-uses the old PTE page
-(still keeps the physical address
-of the PTE whose page has gone)
-ld
-or
-cmpxchg
++ Fix an x86_64 build problem
++ Fix an ia64 CONFIG_IA64_GENERIC build problem
++ Fix a bug in the new ia64 reserve_irq_vector()
++ Restore dev->irq if msi_ops->setup fails
++ Redo msi-altix.patch so it applies on 2.6.16-rc1
 
-Probably, there is no way to make sure the physical address of the PTE
-remains valid => we have to switch back to virtual mode for the "completed"
-dirty bit fault handler.
+Changes from Resend #3 
 
- > Can you do some stress test experiments and let us know how many time ptc.l
- > was actually executed in vhpt_miss/tlb_miss/dirty/access
- > handler? Thanks.
++ Move external declarations of msi_apic_ops out of routines, and up earlier
+  in the respective .h files.
++ Add comments to the msi_ops structure declaration
 
-Well, to instrument the kernel may take some time...
-What stress test program do you think of?
+Changes from Resend #2
 
-Zoltan
++ Cleanup the ia64 platform_msi_init macro so it works on non-altix ia64
 
+Changes from initial version
 
++ Change uintXX_t to uXX
++ Change _callouts to _ops
++ Renamed the _generic routines to _apic and moved them to a new file
+  msi-apic.c
++ Have each msi_arch_init() routine call msi_register() with the desired
+  msi ops for that platform.
++ Moved msi_address, msi_data, and related defs out of msi.h and into
+  msi-apic.c, replaced by shifts/masks.
++ Rolled msi-arch-init.patch and msi-callouts.patch into a single msi-ops.patch
 
+Mark
+
+1/3 msi-ops.patch
+	Add an msi_arch_init() hook which can be used to perform platform
+	specific setup prior to msi use.
+
+	Define a set of msi ops to implement the platform-specific tasks:
+
+	    setup - set up plumbing to get a vector directed at a default
+		cpu, and return the corresponding MSI bus address and data.
+	    teardown - inverse of msi_setup
+	    target - retarget a vector to a given cpu
+
+	Define the routine msi_register() called from msi_arch_init()
+	to set the desired ops.
+
+	Move a bunch of apic-specific code out of the msi core .h/.c and
+	into a new msi-apic.c file.
+
+2/3 ia64-per-platform-device-vector.patch
+	For the ia64 arch, allow per-platform definitions of
+	IA64_FIRST_DEVICE_VECTOR and IA64_LAST_DEVICE_VECTOR.
+	
+3/3 msi-altix.patch 
+	Altix specific callouts to implement MSI.
