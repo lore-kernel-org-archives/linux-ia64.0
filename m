@@ -1,52 +1,41 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Sat, 18 Mar 2006 01:26:53 +0000
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Tue, 21 Mar 2006 18:00:12 +0000
 Subject: Re: [PATCH: 002/017]Memory hotplug for new nodes v.4.(change name
-Message-Id: <20060318102653.57c6a2af.kamezawa.hiroyu@jp.fujitsu.com>
+Message-Id: <1142964013.10906.158.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060317162757.C63B.Y-GOTO@jp.fujitsu.com>
-	<1142615538.10906.67.camel@localhost.localdomain>
-In-Reply-To: <1142615538.10906.67.camel@localhost.localdomain>
+	 <1142615538.10906.67.camel@localhost.localdomain>
+	 <20060318102653.57c6a2af.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20060318102653.57c6a2af.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Cc: y-goto@jp.fujitsu.com, akpm@osdl.org, tony.luck@intel.com, ak@suse.de, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org
 
-Hi,
-On Fri, 17 Mar 2006 09:12:18 -0800
-Dave Hansen <haveblue@us.ibm.com> wrote:
+On Sat, 2006-03-18 at 10:26 +0900, KAMEZAWA Hiroyuki wrote:
+> If *determine node* function is moved to arch specific parts,
+> memory hot add need more and more codes to determine  paddr -> nid in arch
+> specific codes. Then, we have to add new paddr->nid function even if new nid is
+> passed by firmware. We *lose* useful information of nid from firmware if 
+> add_memory() has just 2 args, (start, end).  
 
-> On Fri, 2006-03-17 at 17:20 +0900, Yasunori Goto wrote:
-> > This patch changes name of old add_memory() to arch_add_memory.
-> > and use node id to get pgdat for the node at NODE_DATA().
-> > 
-> > Note: Powerpc's old add_memory() is defined as __devinit. However,
-> >       add_memory() is usually called only after bootup. 
-> >       I suppose it may be redundant. But, I'm not sure about powerpc.
-> >       So, I keep it. (But, __meminit is better than __devinit at least.)
-> 
-> My thoughts when originally designing the API were that the architecture
-> may be the only bit that actually knows where the memory _is_.  So, we
-> shouldn't involve the generic code in figuring this out.
-> 
-> You can see the result of this in the next patch because there is a new
-> function introduced to hide the arch-specific node lookup.  If that was
-> simply done in the already arch-specific add_memory() function, then you
-> wouldn't need arch_nid_probe() and its related #ifdefs at all.
-> 
-If *determine node* function is moved to arch specific parts,
-memory hot add need more and more codes to determine  paddr -> nid in arch
-specific codes. Then, we have to add new paddr->nid function even if new nid is
-passed by firmware. We *lose* useful information of nid from firmware if 
-add_memory() has just 2 args, (start, end). 
+What I'm saying is that I'd like add_memory() to be just that, for
+adding memory.
 
-Considering ACPI, ia64/x86_64 can share codes and it depends on ACPI , not on arch. 
+At some point in the process, you need to export the NUMA node layout to
+the rest of the system, to say which pages go in which node.  I'm just
+saying that you should do that _before_ add_memory().
 
+add_memory() should support adding memory to more than one node.  If any
+hypervisor or hardware happens to have memory added in one contiguous
+chunk, it can not simply call add_memory().  _That_ firmware would be
+forced to do the NUMA parsing and figure out how many times to call
+add_memory().  
 
-It's trade-off between add special tiny #ifdef for probe
-(not-firmware-supported memory hotplug) and add many codes for firmware-supported
-memory hotplug function. Again, we *lose* information of nid from firmware 
-if add_memory() has just 2 args (start, end). This is bad thing.
+Let me reiterate: the process of telling the system which pages are in
+which node should be separate from telling the system that there *are*
+currently pages there now.
 
--- Kame
+-- Dave
 
