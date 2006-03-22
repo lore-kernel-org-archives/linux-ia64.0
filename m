@@ -1,766 +1,98 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 30 Mar 2006 21:02:12 +0000
-Subject: Bit operations with the ability to specify a synchronization mode
-Message-Id: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 22 Mar 2006 09:44:06 +0000
+Subject: [PATCH 1/4] PCIERR-IA64 : interfaces for synchronous I/O error detection
+Message-Id: <44211C66.3040000@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-The following patchset implements the ability to specify a
-synchronization mode for bit operations.
+This patch is 1/4 of PCIERR implementation for IA64.
 
-I.e. instead of set_bit(x,y) we can do set_bit(x,y, mode).
+This part enable us to switch IA64-specific PCIERR by config.
 
-The following modes are supported:
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
-MODE_NON_ATOMIC
-	Use non atomic version.
-	F.e. set_bit(x,y, MODE_NON_ATOMIC) = __set_bit(x,y)
+-----
 
-MODE_ATOMIC
-	The operation is atomic but there is no guarantee how this
-	operation is ordered respective to other memory operations.
+  arch/ia64/Kconfig            |   10 ++++++++++
+  arch/ia64/lib/Makefile       |    1 +
+  arch/ia64/lib/pcierr_check.c |   23 +++++++++++++++++++++++
+  include/asm-ia64/pci.h       |    8 ++++++++
+  4 files changed, 42 insertions(+)
 
-MODE_ACQUIRE
-	An atomic operation that is guaranteed to occur before
-	all subsequent memory accesses
+Index: linux-2.6.16_WORK/arch/ia64/Kconfig
+=================================--- linux-2.6.16_WORK.orig/arch/ia64/Kconfig	2006-03-22 14:27:04.000000000 +0900
++++ linux-2.6.16_WORK/arch/ia64/Kconfig	2006-03-22 14:41:02.000000000 +0900
+@@ -410,6 +410,16 @@
+  	bool
+  	default PCI
 
-MODE_RELEASE
-	An atomic operation that is guaranteed to occur after
-	all previos memory acceses.
++config PCIERR_CHECK
++	bool "Support pcierr interfaces for IO error detection."
++	depends on PCI
++	help
++	  Saying Y provides pcierr infrastructure for "RAS-aware" drivers
++	  to detect and recover some IO errors, which strongly required by
++	  some of very-high-reliable systems.
++
++	  If you don't know what to do here, say N.
++
+  source "drivers/pci/Kconfig"
 
-MODE_BARRIER
-	An atomic operation that is guaranteed to occur between
-	previous and later memory operations.
+  source "drivers/pci/hotplug/Kconfig"
+Index: linux-2.6.16_WORK/arch/ia64/lib/Makefile
+=================================--- linux-2.6.16_WORK.orig/arch/ia64/lib/Makefile	2006-03-22 14:27:04.000000000 +0900
++++ linux-2.6.16_WORK/arch/ia64/lib/Makefile	2006-03-22 14:41:02.000000000 +0900
+@@ -15,6 +15,7 @@
+  lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+  lib-$(CONFIG_PERFMON)	+= carta_random.o
+  lib-$(CONFIG_MD_RAID5)	+= xor.o
++lib-$(CONFIG_PCIERR_CHECK) += pcierr_check.o
 
-For architectures that have no support for bitops with modes we
-fall back to some combination of memory barriers and atomic ops.
+  AFLAGS___divdi3.o	  AFLAGS___udivdi3.o	= -DUNSIGNED
+Index: linux-2.6.16_WORK/include/asm-ia64/pci.h
+=================================--- linux-2.6.16_WORK.orig/include/asm-ia64/pci.h	2006-03-22 14:27:04.000000000 +0900
++++ linux-2.6.16_WORK/include/asm-ia64/pci.h	2006-03-22 14:41:02.000000000 +0900
+@@ -171,4 +171,12 @@
 
-This patchset defines architecture support for only IA64.
-Others could be done in a similar fashion.
+  #define pcibios_scan_all_fns(a, b)	0
 
-Note that the current semantics for bitops IA64 are broken. Both
-smp_mb__after/before_clear_bit are now set to full memory barriers
-to compensate which may affect performance.
-
-The kernel core code would need to be fixed to add the proper
-synchronization modes to restore prior performance (with then
-correct locking semantics). If kernel code wants to use synchronization
-modes then an
-
-#include <asm/bitops_mode.h>
-
-needs to be added.
-
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.16-mm2/include/asm-ia64/bitops.h
-=================================--- linux-2.6.16-mm2.orig/include/asm-ia64/bitops.h	2006-03-19 21:53:29.000000000 -0800
-+++ linux-2.6.16-mm2/include/asm-ia64/bitops.h	2006-03-30 12:50:15.000000000 -0800
-@@ -11,6 +11,7 @@
- 
- #include <linux/compiler.h>
- #include <linux/types.h>
-+#include <asm/bitops_mode.h>
- #include <asm/bitops.h>
- #include <asm/intrinsics.h>
- 
-@@ -19,8 +20,6 @@
-  * @nr: the bit to set
-  * @addr: the address to start counting from
-  *
-- * This function is atomic and may not be reordered.  See __set_bit()
-- * if you do not require the atomic guarantees.
-  * Note that @nr may be almost arbitrarily large; this function is not
-  * restricted to acting on a single-word quantity.
-  *
-@@ -34,244 +33,106 @@
- static __inline__ void
- set_bit (int nr, volatile void *addr)
- {
--	__u32 bit, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	bit = 1 << (nr & 31);
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old | bit;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	set_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
- /**
-  * __set_bit - Set a bit in memory
-  * @nr: the bit to set
-  * @addr: the address to start counting from
-- *
-- * Unlike set_bit(), this function is non-atomic and may be reordered.
-- * If it's called on the same region of memory simultaneously, the effect
-- * may be that only one operation succeeds.
-  */
- static __inline__ void
- __set_bit (int nr, volatile void *addr)
- {
--	*((__u32 *) addr + (nr >> 5)) |= (1 << (nr & 31));
-+	set_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
--/*
-- * clear_bit() has "acquire" semantics.
-- */
- #define smp_mb__before_clear_bit()	smp_mb()
--#define smp_mb__after_clear_bit()	do { /* skip */; } while (0)
-+#define smp_mb__after_clear_bit()	smp_mb()
- 
- /**
-  * clear_bit - Clears a bit in memory
-  * @nr: Bit to clear
-  * @addr: Address to start counting from
-- *
-- * clear_bit() is atomic and may not be reordered.  However, it does
-- * not contain a memory barrier, so if it is used for locking purposes,
-- * you should call smp_mb__before_clear_bit() and/or smp_mb__after_clear_bit()
-- * in order to ensure changes are visible on other processors.
-  */
- static __inline__ void
- clear_bit (int nr, volatile void *addr)
- {
--	__u32 mask, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	mask = ~(1 << (nr & 31));
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old & mask;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	clear_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
--/**
-- * __clear_bit - Clears a bit in memory (non-atomic version)
-- */
- static __inline__ void
- __clear_bit (int nr, volatile void *addr)
- {
--	volatile __u32 *p = (__u32 *) addr + (nr >> 5);
--	__u32 m = 1 << (nr & 31);
--	*p &= ~m;
-+	clear_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
- /**
-  * change_bit - Toggle a bit in memory
-  * @nr: Bit to clear
-  * @addr: Address to start counting from
-- *
-- * change_bit() is atomic and may not be reordered.
-- * Note that @nr may be almost arbitrarily large; this function is not
-- * restricted to acting on a single-word quantity.
-  */
- static __inline__ void
- change_bit (int nr, volatile void *addr)
- {
--	__u32 bit, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	bit = (1 << (nr & 31));
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old ^ bit;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	change_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
--/**
-- * __change_bit - Toggle a bit in memory
-- * @nr: the bit to set
-- * @addr: the address to start counting from
-- *
-- * Unlike change_bit(), this function is non-atomic and may be reordered.
-- * If it's called on the same region of memory simultaneously, the effect
-- * may be that only one operation succeeds.
-- */
- static __inline__ void
- __change_bit (int nr, volatile void *addr)
- {
--	*((__u32 *) addr + (nr >> 5)) ^= (1 << (nr & 31));
-+	change_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
- /**
-  * test_and_set_bit - Set a bit and return its old value
-  * @nr: Bit to set
-  * @addr: Address to count from
-- *
-- * This operation is atomic and cannot be reordered.  
-- * It also implies a memory barrier.
-  */
- static __inline__ int
- test_and_set_bit (int nr, volatile void *addr)
- {
--	__u32 bit, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	bit = 1 << (nr & 31);
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old | bit;
--	} while (cmpxchg_acq(m, old, new) != old);
--	return (old & bit) != 0;
-+	return test_and_set_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
--/**
-- * __test_and_set_bit - Set a bit and return its old value
-- * @nr: Bit to set
-- * @addr: Address to count from
-- *
-- * This operation is non-atomic and can be reordered.  
-- * If two examples of this operation race, one can appear to succeed
-- * but actually fail.  You must protect multiple accesses with a lock.
-- */
- static __inline__ int
- __test_and_set_bit (int nr, volatile void *addr)
- {
--	__u32 *p = (__u32 *) addr + (nr >> 5);
--	__u32 m = 1 << (nr & 31);
--	int oldbitset = (*p & m) != 0;
--
--	*p |= m;
--	return oldbitset;
-+	return test_and_set_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
- /**
-  * test_and_clear_bit - Clear a bit and return its old value
-  * @nr: Bit to set
-  * @addr: Address to count from
-- *
-- * This operation is atomic and cannot be reordered.  
-- * It also implies a memory barrier.
-  */
- static __inline__ int
- test_and_clear_bit (int nr, volatile void *addr)
- {
--	__u32 mask, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	mask = ~(1 << (nr & 31));
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old & mask;
--	} while (cmpxchg_acq(m, old, new) != old);
--	return (old & ~mask) != 0;
-+	return test_and_clear_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
--/**
-- * __test_and_clear_bit - Clear a bit and return its old value
-- * @nr: Bit to set
-- * @addr: Address to count from
-- *
-- * This operation is non-atomic and can be reordered.  
-- * If two examples of this operation race, one can appear to succeed
-- * but actually fail.  You must protect multiple accesses with a lock.
-- */
- static __inline__ int
- __test_and_clear_bit(int nr, volatile void * addr)
- {
--	__u32 *p = (__u32 *) addr + (nr >> 5);
--	__u32 m = 1 << (nr & 31);
--	int oldbitset = *p & m;
--
--	*p &= ~m;
--	return oldbitset;
-+	return test_and_clear_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
- /**
-  * test_and_change_bit - Change a bit and return its old value
-  * @nr: Bit to set
-  * @addr: Address to count from
-- *
-- * This operation is atomic and cannot be reordered.  
-- * It also implies a memory barrier.
-  */
- static __inline__ int
- test_and_change_bit (int nr, volatile void *addr)
- {
--	__u32 bit, old, new;
--	volatile __u32 *m;
--	CMPXCHG_BUGCHECK_DECL
--
--	m = (volatile __u32 *) addr + (nr >> 5);
--	bit = (1 << (nr & 31));
--	do {
--		CMPXCHG_BUGCHECK(m);
--		old = *m;
--		new = old ^ bit;
--	} while (cmpxchg_acq(m, old, new) != old);
--	return (old & bit) != 0;
-+	return test_and_change_bit_mode(nr, addr, MODE_ATOMIC);
- }
- 
--/*
-- * WARNING: non atomic version.
-- */
- static __inline__ int
- __test_and_change_bit (int nr, void *addr)
- {
--	__u32 old, bit = (1 << (nr & 31));
--	__u32 *m = (__u32 *) addr + (nr >> 5);
--
--	old = *m;
--	*m = old ^ bit;
--	return (old & bit) != 0;
-+	return test_and_change_bit_mode(nr, addr, MODE_NON_ATOMIC);
- }
- 
- static __inline__ int
-Index: linux-2.6.16-mm2/include/asm-ia64/bitops_mode.h
++#ifdef CONFIG_PCIERR_CHECK
++/* Enable ia64 pcierr - See arch/ia64/lib/pcierr_check.c */
++#define HAVE_ARCH_PCIERR_CHECK
++typedef struct {
++	int dummy;
++} iocookie;
++#endif /* CONFIG_PCIERR_CHECK  */
++
+  #endif /* _ASM_IA64_PCI_H */
+Index: linux-2.6.16_WORK/arch/ia64/lib/pcierr_check.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16-mm2/include/asm-ia64/bitops_mode.h	2006-03-30 12:50:15.000000000 -0800
-@@ -0,0 +1,201 @@
-+#ifndef _ASM_IA64_BITOPS_MODE_H
-+#define _ASM_IA64_BITOPS_MODE_H
-+
++++ linux-2.6.16_WORK/arch/ia64/lib/pcierr_check.c	2006-03-22 14:41:02.000000000 +0900
+@@ -0,0 +1,23 @@
 +/*
-+ * Copyright (C) 2006 Silicon Graphics, Incorporated
-+ *	Christoph Lameter <christoph@lameter.com>
-+ *
-+ * Bit operations with the ability to specify the synchronization mode
++ * File:    pcierr_check.c
++ * Purpose: Implement the IA64 specific pcierr interfaces for RAS-drivers
 + */
 +
-+#include <linux/compiler.h>
-+#include <linux/types.h>
-+#include <asm/intrinsics.h>
++#include <linux/pci.h>
 +
-+#define MODE_NON_ATOMIC 0
-+#define MODE_ATOMIC 1
-+#define MODE_ACQUIRE 2
-+#define MODE_RELEASE 3
-+#define MODE_BARRIER 4
++void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
++int  pcierr_read(iocookie *cookie);
 +
-+static __inline__ __u32 cmpxchg_mode(volatile __u32 *m, __u32 old, __u32 new, int mode)
++void pcierr_clear(iocookie *cookie, struct pci_dev *dev)
 +{
-+	switch (mode) {
-+	case MODE_ATOMIC :
-+	case MODE_ACQUIRE :
-+		return cmpxchg_acq(m, old, new);
-+
-+	case MODE_RELEASE :
-+		return cmpxchg_rel(m, old, new);
-+
-+	case MODE_BARRIER :
-+		cmpxchg_rel(m, old, new);
-+		return *m;	/* Volatile load = acquire */
-+	}
++	/* register device etc. */
 +}
 +
-+
-+/**
-+ * set_bit_mode - set a bit in memory
-+ *
-+ * The address must be (at least) "long" aligned.
-+ * Note that there are driver (e.g., eepro100) which use these operations to
-+ * operate on hw-defined data-structures, so we can't easily change these
-+ * operations to force a bigger alignment.
-+ *
-+ * bit 0 is the LSB of addr; bit 32 is the LSB of (addr+1).
-+ */
-+static __inline__ void
-+set_bit_mode (int nr, volatile void *addr, int mode)
++int pcierr_read(iocookie *cookie)
 +{
-+	__u32 bit, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	bit = 1 << (nr & 31);
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		*m |= bit;
-+		return;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old | bit;
-+	} while (cmpxchg_mode(m, old, new, mode) != old);
++	/* check error etc. */
++	return 0;
 +}
 +
-+/**
-+ * clear_bit_mode - Clears a bit in memory
-+ */
-+static __inline__ void
-+clear_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	__u32 mask, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	mask = ~(1 << (nr & 31));
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		*m &= ~mask;
-+		return;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old & mask;
-+	} while (cmpxchg_mode(m, old, new, mode) != old);
-+}
-+
-+/**
-+ * change_bit_mode - Toggle a bit in memory
-+ */
-+static __inline__ void
-+change_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	__u32 bit, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	bit = (1 << (nr & 31));
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		*m ^= bit;
-+		return;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old ^ bit;
-+	} while (cmpxchg_acq(m, old, new) != old);
-+}
-+
-+/**
-+ * test_and_set_bit_mode - Set a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_set_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	__u32 bit, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	bit = 1 << (nr & 31);
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		int oldbitset = *m & bit;
-+		*m |= bit;
-+		return oldbitset;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old | bit;
-+	} while (cmpxchg_acq(m, old, new) != old);
-+	return (old & bit) != 0;
-+}
-+
-+/**
-+ * test_and_clear_bit_mode - Clear a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_clear_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	__u32 mask, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	mask = ~(1 << (nr & 31));
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		int oldbitset = *m & mask;
-+		*m &= ~mask;
-+		return oldbitset;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old & mask;
-+	} while (cmpxchg_acq(m, old, new) != old);
-+	return (old & ~mask) != 0;
-+}
-+
-+/**
-+ * test_and_change_bit_mode - Change a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_change_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	__u32 bit, old, new;
-+	volatile __u32 *m;
-+	CMPXCHG_BUGCHECK_DECL
-+
-+	m = (volatile __u32 *) addr + (nr >> 5);
-+	bit = (1 << (nr & 31));
-+
-+	if (mode = MODE_NON_ATOMIC) {
-+		old = *m;
-+		*m = old ^ bit;
-+		return (old & bit) != 0;
-+	}
-+
-+	do {
-+		CMPXCHG_BUGCHECK(m);
-+		old = *m;
-+		new = old ^ bit;
-+	} while (cmpxchg_acq(m, old, new) != old);
-+	return (old & bit) != 0;
-+}
-+
-+#endif /* _ASM_IA64_BITOPS_MODE_H */
-Index: linux-2.6.16-mm2/include/asm-generic/bitops_mode.h
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16-mm2/include/asm-generic/bitops_mode.h	2006-03-30 12:50:15.000000000 -0800
-@@ -0,0 +1,220 @@
-+#ifndef _ASM_IA64_BITOPS_MODE_H
-+#define _ASM_IA64_BITOPS_MODE_H
-+
-+/*
-+ * Copyright (C) 2006 Silicon Graphics, Incorporated
-+ *	Christoph Lameter <christoph@lameter.com>
-+ *
-+ * Fallback logic for bit operations with synchronization mode
-+ */
-+
-+#include <linux/compiler.h>
-+#include <linux/types.h>
-+#include <asm/intrinsics.h>
-+
-+#define MODE_NON_ATOMIC 0
-+#define MODE_ATOMIC 1
-+#define MODE_ACQUIRE 2
-+#define MODE_RELEASE 3
-+#define MODE_BARRIER 4
-+
-+/**
-+ * set_bit_mode - Set a bit in memory
-+ *
-+ * The address must be (at least) "long" aligned.
-+ * Note that there are driver (e.g., eepro100) which use these operations to
-+ * operate on hw-defined data-structures, so we can't easily change these
-+ * operations to force a bigger alignment.
-+ *
-+ * bit 0 is the LSB of addr; bit 32 is the LSB of (addr+1).
-+ */
-+static __inline__ void
-+set_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		__set_bit(nr,addr);
-+		return;
-+
-+	case MODE_ATOMIC:
-+		set_bit(nr,addr);
-+		return;
-+
-+	case MODE_ACQUIRE:
-+		set_bit(nr,addr);
-+		smp_mb();
-+		return;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		set_bit(nr,addr);
-+		return;
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		set_bit(nr,addr);
-+		smb_mb();
-+		return;
-+	}
-+}
-+
-+/**
-+ * clear_bit_mode - Clears a bit in memory
-+ */
-+static __inline__ void
-+clear_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		__clear_bit(nr,addr);
-+		return;
-+
-+	case MODE_ATOMIC:
-+		clear_bit(nr,addr);
-+		return;
-+
-+	case MODE_ACQUIRE:
-+		clear_bit(nr,addr);
-+		smp_mb();
-+		return;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		clear_bit(nr,addr);
-+		return;
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		clear_bit(nr,addr);
-+		smb_mb();
-+		return;
-+	}
-+}
-+
-+/**
-+ * change_bit_mode - Toggle a bit in memory
-+ */
-+static __inline__ void
-+change_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		__change_bit(nr,addr);
-+		return;
-+
-+	case MODE_ATOMIC:
-+		change_bit(nr,addr);
-+		return;
-+
-+	case MODE_ACQUIRE:
-+		change_bit(nr,addr);
-+		smp_mb();
-+		return;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		change_bit(nr,addr);
-+		return;
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		change_bit(nr,addr);
-+		smb_mb();
-+		return;
-+	}
-+}
-+
-+/**
-+ * test_and_set_bit_mode - Set a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_set_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	int x;
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		return __test_and_set_bit(nr,addr);
-+
-+	case MODE_ATOMIC:
-+	 	return test_and_set_bit(nr,addr);
-+
-+	case MODE_ACQUIRE:
-+		x = test_and_set_bit(nr,addr);
-+		smp_mb();
-+		return x;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		return test_and_set_bit(nr,addr);
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		x = test_and_set_bit(nr,addr);
-+		smb_mb();
-+		return x;
-+	}
-+}
-+
-+/**
-+ * test_and_clear_bit - Clear a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_clear_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	int x;
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		return __test_and_clear_bit(nr,addr);
-+
-+	case MODE_ATOMIC:
-+	 	return test_and_clear_bit(nr,addr);
-+
-+	case MODE_ACQUIRE:
-+		x = test_and_clear_bit(nr,addr);
-+		smp_mb();
-+		return x;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		return test_and_clear_bit(nr,addr);
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		x = test_and_set_bit(nr,addr);
-+		smb_mb();
-+		return x;
-+	}
-+}
-+
-+/**
-+ * test_and_change_bit - Change a bit and return its old value
-+ */
-+static __inline__ int
-+test_and_change_bit_mode (int nr, volatile void *addr, int mode)
-+{
-+	int x;
-+	switch (mode) {
-+	case MODE_NON_ATOMIC:
-+		return __test_and_change_bit(nr,addr);
-+
-+	case MODE_ATOMIC:
-+	 	return test_and_change_bit(nr,addr);
-+
-+	case MODE_ACQUIRE:
-+		x = test_and_change_bit(nr,addr);
-+		smp_mb();
-+		return x;
-+
-+	case MODE_RELEASE:
-+		smb_mb();
-+		return test_and_change_bit(nr,addr);
-+
-+	case MODE_BARRIER:
-+		smb_mb();
-+		x = test_and_change_bit(nr,addr);
-+		smb_mb();
-+		return x;
-+	}
-+}
-+
-+#endif /* _ASM_IA64_BITOPS_MODE_H */
++EXPORT_SYMBOL(pcierr_read);
++EXPORT_SYMBOL(pcierr_clear);
+
