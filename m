@@ -1,100 +1,52 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 22 Mar 2006 08:38:51 +0000
-Subject: [PATCH] PCIERR : interfaces for synchronous I/O error detection on
-Message-Id: <44210D1B.7010806@jp.fujitsu.com>
+From: Greg KH <greg@kroah.com>
+Date: Wed, 22 Mar 2006 21:01:57 +0000
+Subject: Re: [PATCH] PCIERR : interfaces for synchronous I/O error detection on driver
+Message-Id: <20060322210157.GH12335@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <44210D1B.7010806@jp.fujitsu.com>
+In-Reply-To: <44210D1B.7010806@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-Cc: Greg KH <greg@kroah.com>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-This patch proposes new interfaces, that known by few as iochk_*,
-for synchronous I/O error detection on PCI drivers.
+On Wed, Mar 22, 2006 at 05:38:51PM +0900, Hidetoshi Seto wrote:
+> This patch proposes new interfaces, that known by few as iochk_*,
+> for synchronous I/O error detection on PCI drivers.
 
-At 2.6.16-rc1, Linux kernel accepts and provides "PCI-bus error event
-callbacks" that enable RAS-aware drivers to notice errors asynchronously,
-and to join following kernel-initiated PCI-bus error recovery.
-This callbacks work well on PPC64 where it was designed to fit.
+Please include the linux-pci mailing list in further discussion of PCI
+specific things.
 
-However, some difficulty still remains to cover all possible error
-situations even if we use callbacks. It will not help keeping data
-integrity, passing no broken data to drivers and user lands, preventing
-applications from going crazy or sudden death.
+> Index: linux-2.6.16_WORK/include/linux/pci.h
+> =================================> --- linux-2.6.16_WORK.orig/include/linux/pci.h	2006-03-22 
+> 14:27:04.000000000 +0900
 
-I suppose that proposed interfaces will solve most of remaining issues.
-It would be FAQ that what is the difference between this interfaces and
-the callback. Following list would help you:
+Your patch is linewrapped :(
 
-** Feature 1: Asynchronous error event callbacks:
-  - written by Linas Vepstas
-  - patch was already accepted (2.6.16-rc1)
-  - designed for "Error Recovery":
-    Interface for asynchronous error recovery (such as bus reset)
-    on other context after an serious error occurrences.
-    This will be effective if system needs complex taking-time recovery,
-    ex. re-enabling erroneous PCI-bus.
-  - It will be useful if the arch supports bus-isolating and can continue
-    running after such isolation, limiting a part of its services.
-  - i.e. this feature improves Serviceability.
-  - drivers can use this feature by constructing struct pci_error_handlers
-    with its callbacks and register it in struct pci_driver of itself.
+> +++ linux-2.6.16_WORK/include/linux/pci.h	2006-03-22 
+> 14:41:01.000000000 +0900
+> @@ -696,6 +696,21 @@
+>  #endif /* HAVE_ARCH_PCI_RESOURCE_TO_USER */
+> 
+> 
+> +/* PCIERR_CHECK provides additional interfaces for drivers to detect
+> + * some IO errors, to support drivers can handle errors properly.
+> + * Some archs requiring high-reliability would implement these.
+> + */
+> +#ifdef HAVE_ARCH_PCIERR_CHECK
+> +/* type of iocookie is arch dependent */
+> +extern void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
+> +extern int pcierr_read(iocookie *cookie);
+> +#else
+> +typedef int iocookie;
+> +static inline void pcierr_clear(iocookie *cookie, struct pci_dev *dev) {}
+> +static inline int pcierr_read(iocookie *cookie) { return 0; }
+> +#endif
 
-** Feature 2: Synchronous error detect interfaces:
-  - written by Hidetoshi Seto
-  - patch is not accepted yet.
-  - designed for "Error Detection":
-    Interface for synchronous error detection on same context
-    and prevent system from data pollution on any error occurrences.
-    This will be effective if system doesn't require complex recovery,
-    ex. retrying I/O after trivial soft error, or re-issuing I/O if it
-    gets poisoned data (forwarded error from PCI-Express).
-  - It will be useful if arch chooses panic on bus errors not to pass
-    any broken data to un-reliable drivers.
-  - i.e. this feature improves Availability by keeping data integrity.
-  - drivers can use this feature by clipping its I/O by *_clear/read call
-    and checking the return value after all.
+We need to see the code that implements this before we can accept a
+header file change.
 
-Following patch adds definition of interfaces described as Feature 2.
-(They were renamed from iochk_* to pcierr_*, and located in pci.h.)
-There are no more patch for generic part. The core implementation is
-architecture dependent. You will get proper error status only on arch
-where supports and implements this feature. Or you will get always 0,
-means "no errors".
+thanks,
 
-Thanks,
-H.Seto
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
------
-
-  include/linux/pci.h |   15 +++++++++++++++
-  1 files changed, 15 insertions(+)
-
-Index: linux-2.6.16_WORK/include/linux/pci.h
-=================================--- linux-2.6.16_WORK.orig/include/linux/pci.h	2006-03-22 14:27:04.000000000 +0900
-+++ linux-2.6.16_WORK/include/linux/pci.h	2006-03-22 14:41:01.000000000 +0900
-@@ -696,6 +696,21 @@
-  #endif /* HAVE_ARCH_PCI_RESOURCE_TO_USER */
-
-
-+/* PCIERR_CHECK provides additional interfaces for drivers to detect
-+ * some IO errors, to support drivers can handle errors properly.
-+ * Some archs requiring high-reliability would implement these.
-+ */
-+#ifdef HAVE_ARCH_PCIERR_CHECK
-+/* type of iocookie is arch dependent */
-+extern void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
-+extern int pcierr_read(iocookie *cookie);
-+#else
-+typedef int iocookie;
-+static inline void pcierr_clear(iocookie *cookie, struct pci_dev *dev) {}
-+static inline int pcierr_read(iocookie *cookie) { return 0; }
-+#endif
-+
-+
-  /*
-   *  The world is not perfect and supplies us with broken PCI devices.
-   *  For at least a part of these bugs we need a work-around, so both
-
+greg k-h
