@@ -1,32 +1,45 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 29 Mar 2006 01:44:40 +0000
-Subject: Re: Add full memory fence for test_and_*_bit operation
-Message-Id: <20060329014440.GE26920@esmail.cup.hp.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 22 Mar 2006 23:32:53 +0000
+Subject: perfmon2 context: thread_struct vs. task_struct?
+Message-Id: <20060322233253.GB26602@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603290048.k2T0mmg32601@unix-os.sc.intel.com>
-In-Reply-To: <200603290048.k2T0mmg32601@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org
 
-On Tue, Mar 28, 2006 at 04:49:24PM -0800, Chen, Kenneth W wrote:
-> OK, semi-big-hammer to enforce full memory fence on ia64 for
-> test_and_set_bit
-> test_and_clear_bit
-> test_and_change_bit
-> 
-> It's sad we don't have something like:
-> 
-> test_and_set_bit_used_like_a_lock
-...
+Hello,
 
-Normally the arch specific (e.g. __set_bit or __raw_readl) provide
-different semantics than the "portable" versions (e.g set_bit and readl).
-Can folks who know what they are doing can use arch specific versions
-at the expense of portability?
+The perfmon2 subsystem maintains a structure per-thread
+that contains the save-area for the performance counters
+and related software state. The save area is used on
+context-switch. There can only be one context per thread.
+The context is dynamically allocated as such it does not
+consume memory in each thread. It is dyanmically attached
+to the thread to monitor.
 
-I expect the driver to compile and work correctly on all arches,
-it will just be a bit more of a PITA to maintain.
+In the current implementation, the context (pfm_context)
+pointer is implemented in the thread_struct on the basis
+that this is somewhat related to machine state.
 
-grant
+Historically, the perfmon subsystem only existed on IA-64
+which made the thread_struct (an arch-specific structure)
+the obvious place to put this.
+
+Nowadays, perfmon2 supports most major architectures. It
+may make sense to move the void *pfm_context pointer from 
+the thread_struct into the task_struct. This would save
+some indirections, make it readily available to other
+archiectures when it is ported.
+
+I admit I am not quite clear as to what goes where between
+thread_struct and task_struct.
+
+Would it make sense  to move the pointer to the perfmon2
+context into the task_struct?
+
+Thanks.
+
+-- 
+-Stephane
