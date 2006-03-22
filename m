@@ -1,91 +1,100 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 07 Mar 2006 17:24:29 +0000
-Subject: Re: [patch] optimize flush_tlb_range on large numa box
-Message-Id: <20060307172428.GA2500@sgi.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 22 Mar 2006 08:38:51 +0000
+Subject: [PATCH] PCIERR : interfaces for synchronous I/O error detection on
+Message-Id: <44210D1B.7010806@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603062212.k26MCsg16120@unix-os.sc.intel.com>
-In-Reply-To: <200603062212.k26MCsg16120@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Greg KH <greg@kroah.com>
 
-On Mon, Mar 06, 2006 at 02:12:54PM -0800, Chen, Kenneth W wrote:
-> It was reported from a field customer that global spin lock ptcg_lock
-> is giving a lot of grief on munmap performance running on a large numa
-> machine.  What appears to be a problem coming from flush_tlb_range(),
-> which currently unconditionally calls platform_global_tlb_purge().
-> For some of the numa machines in existence today, this function is
-> mapped into ia64_global_tlb_purge(), which holds ptcg_lock spin lock
-> while executing ptc.ga instruction.
-> 
-> Here is a patch that attempt to avoid global tlb purge whenever
-> possible.  It will use local tlb purge as much as possible. Though the
-> conditions to use local tlb purge is pretty restrictive.  One of the
-> side effect of having flush tlb range instruction on ia64 is that
-> kernel don't get a chance to clear out cpu_vm_mask.  On ia64, this mask
-> is sticky and it will accumulate if process bounces around.  Thus
-> diminishing the possible use of ptc.l.  Thoughts?
+This patch proposes new interfaces, that known by few as iochk_*,
+for synchronous I/O error detection on PCI drivers.
 
-Patch looks good to me. 
+At 2.6.16-rc1, Linux kernel accepts and provides "PCI-bus error event
+callbacks" that enable RAS-aware drivers to notice errors asynchronously,
+and to join following kernel-initiated PCI-bus error recovery.
+This callbacks work well on PPC64 where it was designed to fit.
 
-There is some minor cleanup that can be done in the SN 
-platform_global_tlb_purge function to take advantage of this patch. 
-I'll do that later in a followup patch - the changes are NOT required for
-your patch to be accepted.
+However, some difficulty still remains to cover all possible error
+situations even if we use callbacks. It will not help keeping data
+integrity, passing no broken data to drivers and user lands, preventing
+applications from going crazy or sudden death.
 
-I think clearing cpu_vm_mask is a good idea. I experimented with
-doing that by calling flush_tlb_mm() from the SN platform_global_tlb_purge
-function & got a big benefit. However, our workloads are atypical & I'm 
-not sure the same algorithm is appropriate for all workloads. Additional 
-measurements are needed.
+I suppose that proposed interfaces will solve most of remaining issues.
+It would be FAQ that what is the difference between this interfaces and
+the callback. Following list would help you:
+
+** Feature 1: Asynchronous error event callbacks:
+  - written by Linas Vepstas
+  - patch was already accepted (2.6.16-rc1)
+  - designed for "Error Recovery":
+    Interface for asynchronous error recovery (such as bus reset)
+    on other context after an serious error occurrences.
+    This will be effective if system needs complex taking-time recovery,
+    ex. re-enabling erroneous PCI-bus.
+  - It will be useful if the arch supports bus-isolating and can continue
+    running after such isolation, limiting a part of its services.
+  - i.e. this feature improves Serviceability.
+  - drivers can use this feature by constructing struct pci_error_handlers
+    with its callbacks and register it in struct pci_driver of itself.
+
+** Feature 2: Synchronous error detect interfaces:
+  - written by Hidetoshi Seto
+  - patch is not accepted yet.
+  - designed for "Error Detection":
+    Interface for synchronous error detection on same context
+    and prevent system from data pollution on any error occurrences.
+    This will be effective if system doesn't require complex recovery,
+    ex. retrying I/O after trivial soft error, or re-issuing I/O if it
+    gets poisoned data (forwarded error from PCI-Express).
+  - It will be useful if arch chooses panic on bus errors not to pass
+    any broken data to un-reliable drivers.
+  - i.e. this feature improves Availability by keeping data integrity.
+  - drivers can use this feature by clipping its I/O by *_clear/read call
+    and checking the return value after all.
+
+Following patch adds definition of interfaces described as Feature 2.
+(They were renamed from iochk_* to pcierr_*, and located in pci.h.)
+There are no more patch for generic part. The core implementation is
+architecture dependent. You will get proper error status only on arch
+where supports and implements this feature. Or you will get always 0,
+means "no errors".
+
+Thanks,
+H.Seto
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+-----
+
+  include/linux/pci.h |   15 +++++++++++++++
+  1 files changed, 15 insertions(+)
+
+Index: linux-2.6.16_WORK/include/linux/pci.h
+=================================--- linux-2.6.16_WORK.orig/include/linux/pci.h	2006-03-22 14:27:04.000000000 +0900
++++ linux-2.6.16_WORK/include/linux/pci.h	2006-03-22 14:41:01.000000000 +0900
+@@ -696,6 +696,21 @@
+  #endif /* HAVE_ARCH_PCI_RESOURCE_TO_USER */
 
 
-	Acked-by: Jack Steiner <steiner@sgi.com>
-
-
-> 
-> 
-> 
-> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-> 
-> --- ./arch/ia64/mm/tlb.c.orig	2006-03-05 12:21:27.400110815 -0800
-> +++ ./arch/ia64/mm/tlb.c	2006-03-05 12:23:04.725304935 -0800
-> @@ -156,17 +156,19 @@ flush_tlb_range (struct vm_area_struct *
->  		nbits = purge.max_bits;
->  	start &= ~((1UL << nbits) - 1);
->  
-> -# ifdef CONFIG_SMP
-> -	platform_global_tlb_purge(mm, start, end, nbits);
-> -# else
->  	preempt_disable();
-> +#ifdef CONFIG_SMP
-> +	if (mm != current->active_mm || cpus_weight(mm->cpu_vm_mask) != 1) {
-> +		platform_global_tlb_purge(mm, start, end, nbits);
-> +		preempt_enable();
-> +		return;
-> +	}
-> +#endif
->  	do {
->  		ia64_ptcl(start, (nbits<<2));
->  		start += (1UL << nbits);
->  	} while (start < end);
->  	preempt_enable();
-> -# endif
-> -
->  	ia64_srlz_i();			/* srlz.i implies srlz.d */
->  }
->  EXPORT_SYMBOL(flush_tlb_range);
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
++/* PCIERR_CHECK provides additional interfaces for drivers to detect
++ * some IO errors, to support drivers can handle errors properly.
++ * Some archs requiring high-reliability would implement these.
++ */
++#ifdef HAVE_ARCH_PCIERR_CHECK
++/* type of iocookie is arch dependent */
++extern void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
++extern int pcierr_read(iocookie *cookie);
++#else
++typedef int iocookie;
++static inline void pcierr_clear(iocookie *cookie, struct pci_dev *dev) {}
++static inline int pcierr_read(iocookie *cookie) { return 0; }
++#endif
++
++
+  /*
+   *  The world is not perfect and supplies us with broken PCI devices.
+   *  For at least a part of these bugs we need a work-around, so both
 
