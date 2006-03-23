@@ -1,36 +1,57 @@
 From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 09 Mar 2006 12:01:09 +0000
-Subject: Re: [PATCH: 013/017](RFC) Memory hotplug for new nodes v.3.
-Message-Id: <20060309040109.4f9c7d5c.akpm@osdl.org>
+Date: Thu, 23 Mar 2006 23:51:18 +0000
+Subject: Re: [PATCH] DMI: move dmi_scan.c from arch/i386 to
+Message-Id: <20060323155118.17028026.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060308213446.003C.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060308213446.003C.Y-GOTO@jp.fujitsu.com>
+References: <200603231337.53657.bjorn.helgaas@hp.com>
+	<200603232141.09924.ak@suse.de>
+	<200603231408.49675.bjorn.helgaas@hp.com>
+In-Reply-To: <200603231408.49675.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: tony.luck@intel.com, ak@suse.de, jschopp@austin.ibm.com, haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: ak@suse.de, linux-kernel@vger.kernel.org, davej@codemonkey.org.uk, hpa@zytor.com, alan@lxorguk.ukuu.org.uk, tony.luck@intel.com, linux-ia64@vger.kernel.org, discuss@x86-64.org, pazke@donpac.ru, Matt_Domsch@dell.com
 
-Yasunori Goto <y-goto@jp.fujitsu.com> wrote:
+Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
 >
-> Index: pgdat6/include/linux/bootmem.h
->  =================================>  --- pgdat6.orig/include/linux/bootmem.h	2006-03-06 18:25:37.000000000 +0900
->  +++ pgdat6/include/linux/bootmem.h	2006-03-06 21:08:05.000000000 +0900
->  @@ -88,8 +88,8 @@ static inline void *alloc_remap(int nid,
->   }
->   #endif
->   
->  -extern unsigned long __initdata nr_kernel_pages;
->  -extern unsigned long __initdata nr_all_pages;
->  +extern unsigned long __meminitdata nr_kernel_pages;
->  +extern unsigned long __meminitdata nr_all_pages;
+> On Thursday 23 March 2006 13:41, Andi Kleen wrote:
+> > On Thursday 23 March 2006 21:37, Bjorn Helgaas wrote:
+> > > dmi_scan.c is arch-independent and is used by i386, x86_64, and ia64.
+> > > Currently all three arches compile it from arch/i386, which means that
+> > > ia64 and x86_64 depend on things in arch/i386 that they wouldn't
+> > > otherwise care about.
+> > > 
+> > > This is simply "mv arch/i386/kernel/dmi_scan.c drivers/firmware/"
+> > > (removing trailing whitespace) and the associated Makefile changes.
+> > > All three architectures already set CONFIG_DMI in their top-level
+> > > Kconfig files.
+> > > 
+> > > Built and booted on ia64 and i386.
+> > 
+> > This conflicts with at least three patches in my upcomming x86-64 patchkit.
 
-Declaring the section for externs like this isn't very useful really.  I
-don't think there's any way in which the compiler can check it and the
-linker will look at the definition, not at the declarations.  And if we add
-these, we just need to keep the declarations updated for cosmetic reasons
-as you've discovered.
+akpm:/usr/src/25> grep -l arch/i386/kernel/dmi_scan.c patches/*.patch
+patches/dmi-only-ioremap-stuff-we-actually-need.patch
+patches/efi-fixes.patch
+patches/efi-keep-physical-table-addresses-in-efi-structure.patch
+patches/ia64-use-i386-dmi_scanc.patch
+patches/x86_64-mm-dmi-early.patch
+patches/x86_64-mm-dmi-year.patch
 
-So I'd recommend you simply remove the __initdata tags here and leave it at
-that.
 
+> > Since it doesn't fix anything I would request that such cleanup patches be
+> > delayed.
+> 
+> Sure, that's fine with me.  Do you want to let me know when your
+> patches are in?  Or maybe it would be easier for you to incorporate
+> my patch into your patchkit.  I just don't know how to tell when
+> the cleanup window is open.
+> 
+
+I'm reluctant to attempt to merge the efi patches until ia64, acpi and
+x86_64 have merged.  Only ia64 has merged at this time.  acpi might need to
+be bypassed, dunno.
+
+I'd expect things to be settled down in a couple of weeks.  Patches which
+move files around are hard.
