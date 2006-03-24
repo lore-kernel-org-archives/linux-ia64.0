@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 21 Mar 2006 18:55:36 +0000
+Date: Fri, 24 Mar 2006 22:57:15 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200603211855.k2LItaIp005043@agluck-lia64.sc.intel.com>
+Message-Id: <200603242257.k2OMvFfx019705@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -16,89 +16,83 @@ please pull from:
 
 	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This will update the files shown below.  These are the patches that have been
-cooking in -mm.
+This will update the files shown below.
 
 Thanks!
 
 -Tony
 
- arch/ia64/Kconfig                   |   19 ++
- arch/ia64/configs/tiger_defconfig   |    2 
- arch/ia64/kernel/acpi.c             |   14 +
- arch/ia64/kernel/entry.S            |   14 -
- arch/ia64/kernel/iosapic.c          |   10 -
- arch/ia64/kernel/irq.c              |   13 +
- arch/ia64/kernel/mca.c              |   90 ++++++---
- arch/ia64/kernel/perfmon.c          |    5 
- arch/ia64/kernel/signal.c           |  101 -----------
- arch/ia64/kernel/smpboot.c          |  114 +++++++++++-
- arch/ia64/kernel/time.c             |    9 
- arch/ia64/kernel/topology.c         |    2 
- arch/ia64/mm/contig.c               |    4 
- arch/ia64/mm/discontig.c            |    9 
- arch/ia64/sn/kernel/Makefile        |    3 
- arch/ia64/sn/kernel/pio_phys.S      |   71 +++++++
- arch/ia64/sn/kernel/setup.c         |    6 
- arch/ia64/sn/kernel/sn2/sn2_smp.c   |   23 ++
- arch/ia64/sn/kernel/xpc_channel.c   |  102 ++++++-----
- arch/ia64/sn/kernel/xpc_main.c      |    1 
- arch/ia64/sn/kernel/xpc_partition.c |   28 ++-
- arch/ia64/sn/pci/tioce_provider.c   |  326 +++++++++++++++++++++++++++++++++---
- drivers/char/snsc.h                 |    5 
- drivers/char/snsc_event.c           |   32 ++-
- drivers/sn/ioc4.c                   |   41 +---
- include/asm-ia64/intel_intrin.h     |  134 +-------------
- include/asm-ia64/machvec.h          |   13 +
- include/asm-ia64/machvec_sn2.h      |    4 
- include/asm-ia64/mca.h              |    2 
- include/asm-ia64/mutex.h            |   93 +++++++++-
- include/asm-ia64/processor.h        |    3 
- include/asm-ia64/signal.h           |    2 
- include/asm-ia64/sn/addrs.h         |    8 
- include/asm-ia64/sn/rw_mmr.h        |   56 ------
- include/asm-ia64/sn/tioce.h         |   36 +++
- include/asm-ia64/sn/xpc.h           |   22 --
- include/asm-ia64/system.h           |    7 
- include/asm-ia64/thread_info.h      |   12 -
- 38 files changed, 955 insertions(+), 481 deletions(-)
+ arch/ia64/Kconfig                       |    9 ++
+ arch/ia64/configs/gensparse_defconfig   |    1 
+ arch/ia64/configs/sn2_defconfig         |    1 
+ arch/ia64/defconfig                     |    1 
+ arch/ia64/dig/setup.c                   |    5 -
+ arch/ia64/kernel/acpi.c                 |   35 +++++++++-
+ arch/ia64/kernel/ivt.S                  |    1 
+ arch/ia64/kernel/machvec.c              |   19 ++++-
+ arch/ia64/kernel/mca.c                  |  110 ++++++++++++++++++++++----------
+ arch/ia64/kernel/mca_drv.c              |   22 ++++--
+ arch/ia64/kernel/mca_drv.h              |    7 ++
+ arch/ia64/kernel/mca_drv_asm.S          |   13 +--
+ arch/ia64/kernel/numa.c                 |    2 
+ arch/ia64/kernel/patch.c                |    8 +-
+ arch/ia64/kernel/setup.c                |   60 ++++++-----------
+ arch/ia64/kernel/smpboot.c              |  109 +------------------------------
+ arch/ia64/kernel/vmlinux.lds.S          |   60 ++++++++++-------
+ arch/ia64/mm/contig.c                   |    8 +-
+ arch/ia64/mm/discontig.c                |    2 
+ arch/ia64/mm/hugetlbpage.c              |    7 --
+ arch/ia64/mm/init.c                     |   16 ++--
+ arch/ia64/sn/kernel/io_init.c           |   29 ++++++++
+ arch/ia64/sn/kernel/irq.c               |   21 ------
+ arch/ia64/sn/kernel/tiocx.c             |   10 ++
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |   17 ++++
+ include/asm-ia64/acpi.h                 |    4 +
+ include/asm-ia64/asmmacro.h             |   11 +++
+ include/asm-ia64/machvec_dig.h          |    2 
+ include/asm-ia64/numa.h                 |    2 
+ include/asm-ia64/numnodes.h             |   13 ++-
+ include/asm-ia64/page.h                 |    2 
+ include/asm-ia64/pal.h                  |    3 
+ include/asm-ia64/processor.h            |    1 
+ include/asm-ia64/sn/l1.h                |    3 
+ include/asm-ia64/sn/pcibr_provider.h    |    1 
+ include/asm-ia64/sn/pcidev.h            |    1 
+ include/asm-ia64/sn/sn_feature_sets.h   |    3 
+ include/asm-ia64/sn/sn_sal.h            |   24 ++++--
+ 38 files changed, 349 insertions(+), 294 deletions(-)
 
-Aaron Young:
-      [IA64-SGI] Handle SC env. powerdown events
-
-Ashok Raj:
-      [IA64] support for cpu0 removal
-      [IA64] Fix UP build with BSP removal support.
-
-Brent Casavant:
-      [IA64] hooks to wait for mmio writes to drain when migrating processes
+Bjorn Helgaas:
+      [IA64] sn_check_intr: use ia64_get_irr()
 
 Chen, Kenneth W:
-      [IA64] implement ia64 specific mutex primitives
-      [IA64] map ia64_hint definition to intel compiler intrinsic
-      [IA64] clean up asm/intel_intrin.h
-      [IA64] add __builtin_trap definition for icc build
-      [IA64] use icc defined constant
+      [IA64] fix ia64 is_hugepage_only_range
+      [IA64] add __init declaration to mca functions
+      [IA64] add init declaration to cpu initialization functions
+      [IA64] add init declaration to memory initialization functions
+      [IA64] add init declaration - gate page functions
+      [IA64] add init declaration - nolwsys
+      [IA64] move patchlist and machvec into init section
+      [IA64] cleanup dig_irq_init
+
+Fenghua Yu:
+      [IA64] New IA64 core/thread detection patch
+
+Horms:
+      IA64: Use early_parm to handle mvec_name and nomca
 
 Jack Steiner:
-      [IA64-SGI] - Eliminate SN pio_phys_xxx macros. Move to assembly
+      [IA64] Increase max node count on SN platforms
+      [IA64] Increase max node count on SN platforms
+      [IA64] Increase max node count on SN platforms
+      [IA64] Increase max node count on SN platforms
 
-Jes Sorensen:
-      [IA64-SGI] sem2mutex ioc4.c
-      [IA64-SGI] SN2-XP reduce kmalloc wrapper inlining
+Kenji Kaneshige:
+      [IA64] Ignore disabled Local SAPIC Affinity Structure in SRAT
 
-Keith Owens:
-      [IA64] Delete MCA/INIT sigdelayed code
-      [IA64] MCA: print messages in MCA handler
-      [IA64] MCA: update MCA comm field for user space tasks
-      [IA64] MCA: remove obsolete ifdef
+Prarit Bhargava:
+      [IA64] Tollhouse HP: IA64 arch changes
 
-Mark Maule:
-      [IA64-SGI] driver bugfixes and hardware workarounds for CE1.0 asic
-
-Tony Luck:
-      Pull bsp-removal into release branch
-      Pull delete-sigdelayed into release branch
-      Pull sn2-mmio-writes into release branch
-      Pull mca-cleanup into release branch
+Russ Anderson:
+      [IA64] MCA recovery: kernel context recovery table
 
