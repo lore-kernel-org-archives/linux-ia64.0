@@ -1,41 +1,226 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Fri, 03 Mar 2006 22:42:26 +0000
-Subject: [patch] mca recovery return value when no bus check
-Message-Id: <200603032242.k23MgQrO1552614@efs.americas.sgi.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 24 Mar 2006 07:51:07 +0000
+Subject: [PATCH 5/6] PCIERR : interfaces for synchronous I/O error detection
+Message-Id: <4423A4EB.2030804@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com>
+In-Reply-To: <20060322210157.GH12335@kroah.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Greg KH <greg@kroah.com>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
 
-[patch] mca recovery return value when no bus check.
+This patch is 4/4 of PCIERR implementation for IA64.
 
-When there is no bus check, the return code should be failure, not success.
+This part defines ia64_mca_barrier.
+This barrier makes sure that the passed value is poisoned or not.
+It can say that this will work as light-version of PAL_MC_DRAIN.
+Please refer the comment in patch to get more detail.
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
----
- arch/ia64/kernel/mca_drv.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
+-----
+  arch/ia64/kernel/mca.c     |    4 +
+  arch/ia64/kernel/mca_asm.S |   30 +++++++++++++
+  include/asm-ia64/io.h      |   98 +++++++++++++++++++++++++++++++++++++++++++++
+  3 files changed, 132 insertions(+)
 
-Index: test/arch/ia64/kernel/mca_drv.c
-=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2006-03-02 20:02:28.000000000 -0600
-+++ test/arch/ia64/kernel/mca_drv.c	2006-03-02 21:40:56.915601996 -0600
-@@ -567,10 +567,15 @@ recover_from_processor_error(int platfor
- 		return 0;
- 
- 	/*
--	 * If there is no bus error, record is weird but we need not to recover.
-+	 * The cache check and bus check bits have four possible states
-+	 *   cc bc
-+	 *    0  0	Weird record, not recovered
-+	 *    1  0	Cache error, not recovered
-+	 *    0  1	I/O error, attempt recovery
-+	 *    1  1	Memory error, attempt recovery
- 	 */
- 	if (psp->bc = 0 || pbci = NULL)
--		return 1;
-+		return 0;
- 
- 	/*
- 	 * Sorry, we cannot handle so many.
+Index: linux-2.6.16_WORK/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.16_WORK.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.16_WORK/arch/ia64/kernel/mca.c
+@@ -103,6 +103,10 @@
+  /* In mca_asm.S */
+  extern void			ia64_os_init_dispatch_monarch (void);
+  extern void			ia64_os_init_dispatch_slave (void);
++#ifdef CONFIG_PCIERR_CHECK
++extern void			ia64_mca_barrier (unsigned long value);
++EXPORT_SYMBOL(ia64_mca_barrier);
++#endif
+
+  static int monarch_cpu = -1;
+
+Index: linux-2.6.16_WORK/arch/ia64/kernel/mca_asm.S
+=================================--- linux-2.6.16_WORK.orig/arch/ia64/kernel/mca_asm.S
++++ linux-2.6.16_WORK/arch/ia64/kernel/mca_asm.S
+@@ -19,6 +19,9 @@
+  // 12/08/05 Keith Owens <kaos@sgi.com>
+  //		   Use per cpu MCA/INIT stacks for all data.
+  //
++// 06/03/22 Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
++//		   Added ia64_mca_barrier.
++//
+  #include <linux/config.h>
+  #include <linux/threads.h>
+
+@@ -39,6 +42,7 @@
+  	.global ia64_os_mca_dispatch
+  	.global ia64_os_init_dispatch_monarch
+  	.global ia64_os_init_dispatch_slave
++	.global ia64_mca_barrier
+
+  	.text
+  	.align 16
+@@ -413,6 +417,32 @@
+
+  //EndMain//////////////////////////////////////////////////////////////////////
+
++//StartMain////////////////////////////////////////////////////////////////////
++
++//
++// ia64_mca_barrier:
++//
++// Some chipset may poison the data read, instead of signaling a BERR.
++// The consummation of poisoned data triggers a MCA, which tells us the
++// polluted address.
++// Note that the read operation by itself does not consume the bad data,
++// so we have to do something with it before it is too late.
++//
++// Calling this function forces a consumption of the passed value since
++// the compiler will have to copy it from whatever register it was in to
++// an "out" register to pass to the function.
++// To avoid possible optimization by compiler, and to make doubly sure,
++// this assenbly clearly consumes the value by moving it to r8.
++//
++// In this way, the value is guaranteed secure, not poisoned, and sanity.
++//
++
++ia64_mca_barrier:
++	mov	r8=r32
++	br.ret.sptk.many rp
++
++//EndMain//////////////////////////////////////////////////////////////////////
++
+  // common defines for the stubs
+  #define	ms		r4
+  #define	regs		r5
+Index: linux-2.6.16_WORK/include/asm-ia64/io.h
+=================================--- linux-2.6.16_WORK.orig/include/asm-ia64/io.h
++++ linux-2.6.16_WORK/include/asm-ia64/io.h
+@@ -165,6 +165,51 @@
+   * during optimization, which is why we use "volatile" pointers.
+   */
+
++#ifdef CONFIG_PCIERR_CHECK
++
++extern void ia64_mca_barrier(unsigned long value);
++
++static inline unsigned int
++___ia64_inb (unsigned long port)
++{
++	volatile unsigned char *addr = __ia64_mk_io_addr(port);
++	unsigned char ret;
++
++	ret = *addr;
++	__ia64_mf_a();
++	ia64_mca_barrier(ret);
++
++	return ret;
++}
++
++static inline unsigned int
++___ia64_inw (unsigned long port)
++{
++	volatile unsigned short *addr = __ia64_mk_io_addr(port);
++	unsigned short ret;
++
++	ret = *addr;
++	__ia64_mf_a();
++	ia64_mca_barrier(ret);
++
++	return ret;
++}
++
++static inline unsigned int
++___ia64_inl (unsigned long port)
++{
++	volatile unsigned int *addr = __ia64_mk_io_addr(port);
++	unsigned int ret;
++
++	ret = *addr;
++	__ia64_mf_a();
++	ia64_mca_barrier(ret);
++
++	return ret;
++}
++
++#else /* CONFIG_PCIERR_CHECK */
++
+  static inline unsigned int
+  ___ia64_inb (unsigned long port)
+  {
+@@ -198,6 +243,8 @@
+  	return ret;
+  }
+
++#endif /* CONFIG_PCIERR_CHECK */
++
+  static inline void
+  ___ia64_outb (unsigned char val, unsigned long port)
+  {
+@@ -314,6 +361,55 @@
+   * a good idea).  Writes are ok though for all existing ia64 platforms (and
+   * hopefully it'll stay that way).
+   */
++
++#ifdef CONFIG_PCIERR_CHECK
++
++static inline unsigned char
++___ia64_readb (const volatile void __iomem *addr)
++{
++	unsigned char val;
++
++	val = *(volatile unsigned char __force *)addr;
++	ia64_mca_barrier(val);
++
++	return val;
++}
++
++static inline unsigned short
++___ia64_readw (const volatile void __iomem *addr)
++{
++	unsigned short val;
++
++	val = *(volatile unsigned short __force *)addr;
++	ia64_mca_barrier(val);
++
++	return val;
++}
++
++static inline unsigned int
++___ia64_readl (const volatile void __iomem *addr)
++{
++	unsigned int val;
++
++	val = *(volatile unsigned int __force *) addr;
++	ia64_mca_barrier(val);
++
++	return val;
++}
++
++static inline unsigned long
++___ia64_readq (const volatile void __iomem *addr)
++{
++	unsigned long val;
++
++	val = *(volatile unsigned long __force *) addr;
++	ia64_mca_barrier(val);
++
++	return val;
++}
++
++#else /* CONFIG_PCIERR_CHECK */
++
+  static inline unsigned char
+  ___ia64_readb (const volatile void __iomem *addr)
+  {
+@@ -338,6 +434,8 @@
+  	return *(volatile unsigned long __force *) addr;
+  }
+
++#endif /* CONFIG_PCIERR_CHECK */
++
+  static inline void
+  __writeb (unsigned char val, volatile void __iomem *addr)
+  {
+
