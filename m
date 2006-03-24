@@ -1,142 +1,46 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Tue, 28 Mar 2006 10:17:44 +0000
-Subject: [Patch:004/004]Unify pxm_to_node id ver.3. (for i386)
-Message-Id: <20060328191440.CC50.Y-GOTO@jp.fujitsu.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 24 Mar 2006 09:34:27 +0000
+Subject: gnu-efi-3.0c is available
+Message-Id: <20060324093427.GC28939@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
+To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, nigel.croxon@hp.com
 
+Hello,
 
-This is to remove the code of pxm_to_nid_map from i386 code.
-And, some of changing Kconfig and dummy function for compile.
+I have released a new version of the GNU-EFI package.
+This package is used to build EFI applications on Linux
+for both IA-32 and IA-64 architectures.
 
-Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+This is a maintenance release with no new features just
+updates to support the latest GNU compilers:
 
- arch/i386/Kconfig       |    6 ++++++
- arch/i386/kernel/srat.c |   19 ++-----------------
- drivers/acpi/Kconfig    |    2 +-
- include/linux/acpi.h    |    8 ++++++++
- 4 files changed, 17 insertions(+), 18 deletions(-)
+	- updated linker scripts to support latest gcc sections.
+	  Provided by H.J. Lu from Intel. Special thanks to Jim Wilson
+	  for his help.
 
-Index: pxm_ver3/arch/i386/kernel/srat.c
-=================================--- pxm_ver3.orig/arch/i386/kernel/srat.c	2006-01-05 15:43:10.000000000 +0900
-+++ pxm_ver3/arch/i386/kernel/srat.c	2006-03-27 14:08:19.000000000 +0900
-@@ -39,7 +39,6 @@
- #define NODE_ARRAY_OFFSET(x)	((x) % 8)	/* 8 bits/char */
- #define BMAP_SET(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] |= 1 << NODE_ARRAY_OFFSET(bit))
- #define BMAP_TEST(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] & (1 << NODE_ARRAY_OFFSET(bit)))
--#define MAX_PXM_DOMAINS		256	/* 1 byte and no promises about values */
- /* bitmap length; _PXM is at most 255 */
- #define PXM_BITMAP_LEN (MAX_PXM_DOMAINS / 8) 
- static u8 pxm_bitmap[PXM_BITMAP_LEN];	/* bitmap of proximity domains */
-@@ -213,19 +212,11 @@ static __init void node_read_chunk(int n
- 		node_end_pfn[nid] = memory_chunk->end_pfn;
- }
- 
--static u8 pxm_to_nid_map[MAX_PXM_DOMAINS];/* _PXM to logical node ID map */
--
--int pxm_to_node(int pxm)
--{
--	return pxm_to_nid_map[pxm];
--}
--
- /* Parse the ACPI Static Resource Affinity Table */
- static int __init acpi20_parse_srat(struct acpi_table_srat *sratp)
- {
- 	u8 *start, *end, *p;
- 	int i, j, nid;
--	u8 nid_to_pxm_map[MAX_NUMNODES];/* logical node ID to _PXM map */
- 
- 	start = (u8 *)(&(sratp->reserved) + 1);	/* skip header */
- 	p = start;
-@@ -235,10 +226,6 @@ static int __init acpi20_parse_srat(stru
- 	memset(node_memory_chunk, 0, sizeof(node_memory_chunk));
- 	memset(zholes_size, 0, sizeof(zholes_size));
- 
--	/* -1 in these maps means not available */
--	memset(pxm_to_nid_map, -1, sizeof(pxm_to_nid_map));
--	memset(nid_to_pxm_map, -1, sizeof(nid_to_pxm_map));
--
- 	num_memory_chunks = 0;
- 	while (p < end) {
- 		switch (*p) {
-@@ -278,9 +265,7 @@ static int __init acpi20_parse_srat(stru
- 	nodes_clear(node_online_map);
- 	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
- 		if (BMAP_TEST(pxm_bitmap, i)) {
--			nid = num_online_nodes();
--			pxm_to_nid_map[i] = nid;
--			nid_to_pxm_map[nid] = i;
-+			int nid = acpi_map_pxm_to_node(i);
- 			node_set_online(nid);
- 		}
- 	}
-@@ -288,7 +273,7 @@ static int __init acpi20_parse_srat(stru
- 
- 	/* set cnode id in memory chunk structure */
- 	for (i = 0; i < num_memory_chunks; i++)
--		node_memory_chunk[i].nid = pxm_to_nid_map[node_memory_chunk[i].pxm];
-+		node_memory_chunk[i].nid = pxm_to_node(node_memory_chunk[i].pxm);
- 
- 	printk("pxm bitmap: ");
- 	for (i = 0; i < sizeof(pxm_bitmap); i++) {
-Index: pxm_ver3/arch/i386/Kconfig
-=================================--- pxm_ver3.orig/arch/i386/Kconfig	2006-03-27 12:09:13.000000000 +0900
-+++ pxm_ver3/arch/i386/Kconfig	2006-03-27 14:08:19.000000000 +0900
-@@ -144,6 +144,12 @@ config ACPI_SRAT
- 	bool
- 	default y
- 	depends on NUMA && (X86_SUMMIT || X86_GENERICARCH)
-+	select ACPI_NUMA
-+
-+config HAVE_ARCH_PARSE_SRAT
-+       bool
-+       default y
-+       depends on ACPI_SRAT
- 
- config X86_SUMMIT_NUMA
- 	bool
-Index: pxm_ver3/drivers/acpi/Kconfig
-=================================--- pxm_ver3.orig/drivers/acpi/Kconfig	2006-03-27 12:09:14.000000000 +0900
-+++ pxm_ver3/drivers/acpi/Kconfig	2006-03-27 14:08:19.000000000 +0900
-@@ -162,7 +162,7 @@ config ACPI_THERMAL
- config ACPI_NUMA
- 	bool "NUMA support"
- 	depends on NUMA
--	depends on (IA64 || X86_64)
-+	depends on (X86_32 || IA64 || X86_64)
- 	default y if IA64_GENERIC || IA64_SGI_SN2
- 
- config ACPI_ASUS
-Index: pxm_ver3/include/linux/acpi.h
-=================================--- pxm_ver3.orig/include/linux/acpi.h	2006-03-27 13:56:46.000000000 +0900
-+++ pxm_ver3/include/linux/acpi.h	2006-03-27 14:08:19.000000000 +0900
-@@ -409,10 +409,18 @@ void acpi_table_print_madt_entry (acpi_t
- void acpi_table_print_srat_entry (acpi_table_entry_header *srat);
- 
- /* the following four functions are architecture-dependent */
-+#ifdef CONFIG_HAVE_ARCH_PARSE_SRAT
-+#define NR_NODE_MEMBLKS MAX_NUMNODES
-+#define acpi_numa_slit_init(slit) do {} while (0)
-+#define acpi_numa_processor_affinity_init(pa) do {} while (0)
-+#define acpi_numa_memory_affinity_init(ma) do {} while (0)
-+#define acpi_numa_arch_fixup() do {} while (0)
-+#else
- void acpi_numa_slit_init (struct acpi_table_slit *slit);
- void acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa);
- void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
- void acpi_numa_arch_fixup(void);
-+#endif
- 
- #ifdef CONFIG_ACPI_HOTPLUG_CPU
- /* Arch dependent functions for cpu hotplug support */
+	- updated library to compile cleanly with gcc4.1.
+	  Provided by Raymund Will from SuSE
+
+I have tested the package on Linux/ia64 with Debian gcc-4.0.3
+and binutils 2.16.91. With this, you can build a working elilo3.6.
+
+It compiles on Debian/i386 with gcc 4.0.3 and binutils 2.6.91.
+I dot have the setup to test i386 efi
+binaries.
+
+You can grab the package at:
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-3.0c.tar.gz
+	MD5SUM: 823e5f04d1c0a7b88831f91fbf12d470
+
+This is the last gnu-efi release that I manage. I am handing over
+the maintenance of the package to Nigel Croxon from HP. Please forward
+any new questions to him from now on. He is copied on this announcement.
+
+Thanks.
 
 -- 
-Yasunori Goto 
-
-
+-Stephane
