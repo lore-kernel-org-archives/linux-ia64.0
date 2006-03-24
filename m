@@ -1,111 +1,45 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 24 Mar 2006 07:47:25 +0000
-Subject: [PATCH 1/6] PCIERR : interfaces for synchronous I/O error detection
-Message-Id: <4423A40D.3080906@jp.fujitsu.com>
+From: linas@austin.ibm.com (Linas Vepstas)
+Date: Fri, 24 Mar 2006 23:43:06 +0000
+Subject: Re: [PATCH 1/6] PCIERR : interfaces for synchronous I/O error detection on driver
+Message-Id: <20060324234306.GC21895@austin.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com>
-In-Reply-To: <20060322210157.GH12335@kroah.com>
+References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com> <4423A40D.3080906@jp.fujitsu.com>
+In-Reply-To: <4423A40D.3080906@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Greg KH <greg@kroah.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
 
-There are 6 patches:
-  1: New interface's proposal, generic code in pci.h.
-  2: [1/4]IA64 specific implementation. (config)
-  3: [2/4]IA64 specific implementation. (base)
-  4: [3/4]IA64 specific implementation. (mcadrv)
-  5: [4/4]IA64 specific implementation. (poison)
-  6: Sample driver (Fusion MPT)
+On Fri, Mar 24, 2006 at 04:47:25PM +0900, Hidetoshi Seto wrote:
+> 
+> At 2.6.16-rc1, Linux kernel accepts and provides "PCI-bus error event
+> callbacks" that enable RAS-aware drivers to notice errors asynchronously,
+> and to join following kernel-initiated PCI-bus error recovery.
+> This callbacks work well on PPC64 where it was designed to fit.
+> 
+> However, some difficulty still remains to cover all possible error
+> situations even if we use callbacks. It will not help keeping data
+> integrity, passing no broken data to drivers and user lands, preventing
+> applications from going crazy or sudden death.
 
-Following is abstract and 1st patch:
+This is not true.  Although there are some subtle issues, (which
+I invite you to describe), the goal of the current design is to 
+insure data integrity, and make sure that neither the driver nor 
+the userland gets corrupted data. There shouldn't be any "crazy
+or sudden death" if the device drivers are any good.
 
-This patch proposes new interfaces, that known by few as iochk_*,
-for synchronous I/O error detection on PCI drivers.
+Of course, this depends on the hardware implementation. If
+your PCI bus sends corrupt data up to the driver ... all bets 
+are off. The design is predicated on the assumption that the
+hardware sends either good data or no data, ad that the latter
+is associated with a bus state indicating an error has ocurred.
 
-At 2.6.16-rc1, Linux kernel accepts and provides "PCI-bus error event
-callbacks" that enable RAS-aware drivers to notice errors asynchronously,
-and to join following kernel-initiated PCI-bus error recovery.
-This callbacks work well on PPC64 where it was designed to fit.
+>  - It will be useful if arch chooses panic on bus errors not to pass
+>    any broken data to un-reliable drivers.
 
-However, some difficulty still remains to cover all possible error
-situations even if we use callbacks. It will not help keeping data
-integrity, passing no broken data to drivers and user lands, preventing
-applications from going crazy or sudden death.
+I assume you meant "if arch chooses NOT to panic on bus errors ..."
 
-I suppose that proposed interfaces will solve most of remaining issues.
-It would be FAQ that what is the difference between this interfaces and
-the callback. Following list would help you:
+I'll review the rest of the patch via sepaate email
 
-** Feature 1: Asynchronous error event callbacks:
-  - written by Linas Vepstas
-  - patch was already accepted (2.6.16-rc1)
-  - designed for "Error Recovery":
-    Interface for asynchronous error recovery (such as bus reset)
-    on other context after an serious error occurrences.
-    This will be effective if system needs complex taking-time recovery,
-    ex. re-enabling erroneous PCI-bus.
-  - It will be useful if the arch supports bus-isolating and can continue
-    running after such isolation, limiting a part of its services.
-  - i.e. this feature improves Serviceability.
-  - drivers can use this feature by constructing struct pci_error_handlers
-    with its callbacks and register it in struct pci_driver of itself.
-
-** Feature 2: Synchronous error detect interfaces:
-  - written by Hidetoshi Seto
-  - patch is not accepted yet.
-  - designed for "Error Detection":
-    Interface for synchronous error detection on same context
-    and prevent system from data pollution on any error occurrences.
-    This will be effective if system doesn't require complex recovery,
-    ex. retrying I/O after trivial soft error, or re-issuing I/O if it
-    gets poisoned data (forwarded error from PCI-Express).
-  - It will be useful if arch chooses panic on bus errors not to pass
-    any broken data to un-reliable drivers.
-  - i.e. this feature improves Availability by keeping data integrity.
-  - drivers can use this feature by clipping its I/O by *_clear/read call
-    and checking the return value after all.
-
-Following patch adds definition of interfaces described as Feature 2.
-(They were renamed from iochk_* to pcierr_*, and located in pci.h.)
-There are no more patch for generic part. The core implementation is
-architecture dependent. You will get proper error status only on arch
-where supports and implements this feature. Or you will get always 0,
-means "no errors".
-
-Thanks,
-H.Seto
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
------
-  include/linux/pci.h |   15 +++++++++++++++
-  1 files changed, 15 insertions(+)
-
-Index: linux-2.6.16_WORK/include/linux/pci.h
-=================================--- linux-2.6.16_WORK.orig/include/linux/pci.h
-+++ linux-2.6.16_WORK/include/linux/pci.h
-@@ -696,6 +696,21 @@
-  #endif /* HAVE_ARCH_PCI_RESOURCE_TO_USER */
-
-
-+/* PCIERR_CHECK provides additional interfaces for drivers to detect
-+ * some IO errors, to support drivers can handle errors properly.
-+ * Some archs requiring high-reliability would implement these.
-+ */
-+#ifdef HAVE_ARCH_PCIERR_CHECK
-+/* type of iocookie is arch dependent */
-+extern void pcierr_clear(iocookie *cookie, struct pci_dev *dev);
-+extern int pcierr_read(iocookie *cookie);
-+#else
-+typedef int iocookie;
-+static inline void pcierr_clear(iocookie *cookie, struct pci_dev *dev) {}
-+static inline int pcierr_read(iocookie *cookie) { return 0; }
-+#endif
-+
-+
-  /*
-   *  The world is not perfect and supplies us with broken PCI devices.
-   *  For at least a part of these bugs we need a work-around, so both
-
+--linas
