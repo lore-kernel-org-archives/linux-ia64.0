@@ -1,70 +1,152 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 13 Mar 2006 23:58:48 +0000
-Subject: Re: [Perfctr-devel] 2.6.16-rc5 perfmon2 new code base + libpfm with Montecito support
-Message-Id: <20060313235848.GI32683@frankl.hpl.hp.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Tue, 28 Mar 2006 10:16:56 +0000
+Subject: [Patch:001/004]Unify pxm_to_node id ver.3.(generic code)
+Message-Id: <20060328191250.CC48.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060308155311.GD13168@frankl.hpl.hp.com> <4415BC45.1010601@nc.rr.com> <20060313185500.GB32683@frankl.hpl.hp.com> <4415C4E9.5070702@nc.rr.com> <20060313210127.GA13453@totally.trollied.org> <20060313210354.GG32683@frankl.hpl.hp.com> <20060313232057.GA16582@totally.trollied.org>
-In-Reply-To: <20060313232057.GA16582@totally.trollied.org>
+References: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Levon <levon@movementarian.org>
-Cc: William Cohen <wcohen@nc.rr.com>, oprofile-list <oprofile-list@lists.sourceforge.net>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
-John,
+This is new generic code for pxm_to_node_map and CONFIG_NR_NODES.
 
-On Mon, Mar 13, 2006 at 11:20:57PM +0000, John Levon wrote:
-> On Mon, Mar 13, 2006 at 01:03:54PM -0800, Stephane Eranian wrote:
-> 
-> > > 1) the event names are synchronised so we don't need massive duplication
-> > 
-> > The kernel perfmon2 interface does not know anything about event names.
-> 
-> Well, it sounded like Will was proposing extra event directories.
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
-I think Will was trying to solve the register naming differences.
-I do not know how you deal with this in ophelp.
+ drivers/acpi/numa.c      |   48 +++++++++++++++++++++++++++++++++++++++++++++++
+ include/acpi/acpi_numa.h |   23 ++++++++++++++++++++++
+ include/linux/acpi.h     |    1 
+ mm/Kconfig               |   12 +++++++++++
+ 4 files changed, 84 insertions(+)
 
-> > > 2) that "start a thread on each CPU" API is fixed to be sane
-> >
-> > Please develop on this point some more.
-> 
-> The kernel interface should just let me say "I want this setup on all
-> CPUs" and do the IPIs for me.
-> 
-That's is because you are assuming a model were you always want to monitor
-all CPUs each time and measure the same thing everywhere.  This does not
-always makes sense in large configurations. You may want to only monitor
-a subset of CPUs or you may want to monitor different things on different
-CPUs at the same time, for instance because they handle different workloads
-or interrupts.
-
-When it comes to sampling, I think you will agree with me that the kernel level 
-sampling buffer must be per-cpu. I think this is also how you manage
-it in OProfile. I think it also makes sense to process the buffer locally for
-cache affinity reasons for instance. Keep monitoring overhead minimum by exploiting
-locality. I think (correct me if I am wrong) in Oprofile you somehow merge the
-per-cpu buffers into a single buffer which is then read via read() by user level
-applications. For some measurements merging is not necessarily what is needed.
-
-In your model, I would have to pass a bitmap of CPUs to monitor, then internally
-the kernel would have propagate the setup via IPI and maintain a context per-cpu.
-Then upon return, it would have to pass information as to how to mmap the per-cpu
-buffers. You have a choice of doing one mmap() per buffer or to do
-a single large mmap() covering the possibly discountiguous physical pages 
-backing each per-cpu buffer. In either case, it would make sense to ensure
-that the thread processing each buffer runs on the CPU where the samples
-have been collected to minimize cache traffic which is very important on NUMA
-machines. Typically on those machines, every effort is made to keep all memory
-accesses local, I do not see why this would not also apply to profiling.
-
-Note that in the new perfmon code base, you do not have to create one thread
-per monitored CPU. All you need to do is to ensure that the thread runs on
-the CPU it needs to access when issuing perfmon2 calls causing actual PMU 
-HW accesses. A single thread can very well control lots of context bound to
-different threads or CPU.
-
-But again, I am always open to discussions/proposals on this.
+Index: pxm_ver3/drivers/acpi/numa.c
+=================================--- pxm_ver3.orig/drivers/acpi/numa.c	2006-03-28 14:10:02.867761158 +0900
++++ pxm_ver3/drivers/acpi/numa.c	2006-03-28 14:13:30.926352359 +0900
+@@ -36,12 +36,60 @@
+ #define _COMPONENT	ACPI_NUMA
+ ACPI_MODULE_NAME("numa")
+ 
++static nodemask_t nodes_found_map = NODE_MASK_NONE;
++#define PXM_INVAL	-1
++#define NID_INVAL	-1
++
++/* maps to convert between proximity domain and logical node ID */
++int __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS]
++				= { [0 ... MAX_PXM_DOMAINS - 1] = NID_INVAL };
++int __cpuinitdata node_to_pxm_map[MAX_NUMNODES]
++				= { [0 ... MAX_NUMNODES - 1] = PXM_INVAL };
++
+ extern int __init acpi_table_parse_madt_family(enum acpi_table_id id,
+ 					       unsigned long madt_size,
+ 					       int entry_id,
+ 					       acpi_madt_entry_handler handler,
+ 					       unsigned int max_entries);
+ 
++int __cpuinit pxm_to_node(int pxm)
++{
++	if (pxm < 0)
++		return NID_INVAL;
++	return pxm_to_node_map[pxm];
++}
++
++int __cpuinit node_to_pxm(int node)
++{
++	if (node < 0)
++		return PXM_INVAL;
++	return node_to_pxm_map[node];
++}
++
++int __cpuinit acpi_map_pxm_to_node(int pxm)
++{
++	int node = pxm_to_node_map[pxm];
++
++	if (node < 0){
++		if (nodes_weight(nodes_found_map) >= MAX_NUMNODES)
++			return NID_INVAL;
++		node = first_unset_node(nodes_found_map);
++		pxm_to_node_map[pxm] = node;
++		node_to_pxm_map[node] = pxm;
++		node_set(node, nodes_found_map);
++	}
++
++	return node;
++}
++
++void __cpuinit acpi_unmap_pxm_to_node(int node)
++{
++	int pxm = node_to_pxm_map[node];
++	pxm_to_node_map[pxm] = NID_INVAL;
++	node_to_pxm_map[node] = PXM_INVAL;
++	node_clear(node, nodes_found_map);
++}
++
+ void __init acpi_table_print_srat_entry(acpi_table_entry_header * header)
+ {
+ 
+Index: pxm_ver3/include/acpi/acpi_numa.h
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ pxm_ver3/include/acpi/acpi_numa.h	2006-03-28 14:13:30.927328921 +0900
+@@ -0,0 +1,23 @@
++#ifndef __ACPI_NUMA_H
++#define __ACPI_NUMA_H
++
++#ifdef CONFIG_ACPI_NUMA
++#include <linux/kernel.h>
++
++/* Proximity bitmap length */
++#ifdef CONFIG_NR_NODES_CHANGABLE
++#define MAX_PXM_DOMAINS CONFIG_NR_NODES
++#else
++#define MAX_PXM_DOMAINS (256)
++#endif
++
++extern int __cpuinitdata pxm_to_node_map[MAX_PXM_DOMAINS];
++extern int __cpuinitdata node_to_pxm_map[MAX_NUMNODES];
++
++extern int __cpuinit pxm_to_node(int);
++extern int __cpuinit node_to_pxm(int);
++extern int __cpuinit acpi_map_pxm_to_node(int);
++extern void __cpuinit acpi_unmap_pxm_to_node(int);
++
++#endif				/* CONFIG_ACPI_NUMA */
++#endif				/* __ACP_NUMA_H */
+Index: pxm_ver3/include/linux/acpi.h
+=================================--- pxm_ver3.orig/include/linux/acpi.h	2006-03-28 14:10:02.867761158 +0900
++++ pxm_ver3/include/linux/acpi.h	2006-03-28 14:24:38.740797303 +0900
+@@ -38,6 +38,7 @@
+ #include <acpi/acpi.h>
+ #include <acpi/acpi_bus.h>
+ #include <acpi/acpi_drivers.h>
++#include <acpi/acpi_numa.h>
+ #include <asm/acpi.h>
+ 
+ 
+Index: pxm_ver3/mm/Kconfig
+=================================--- pxm_ver3.orig/mm/Kconfig	2006-03-28 14:24:38.009352000 +0900
++++ pxm_ver3/mm/Kconfig	2006-03-28 14:24:53.320875250 +0900
+@@ -91,6 +91,18 @@ config HAVE_MEMORY_PRESENT
+ 	depends on ARCH_HAVE_MEMORY_PRESENT || SPARSEMEM
+ 
+ #
++# NR_NODES is to configure NODES_SHIFT
++#
++config NR_NODES
++	int "Maximum number of NODEs (256-1024)"
++	range 256 1024
++	depends on NEED_MULTIPLE_NODES && NR_NODES_CHANGABLE
++	default "256"
++	help
++	  This option specifies the maximum number of nodes in your SSI system.
++	  If in doubt, use the default.
++
++#
+ # SPARSEMEM_EXTREME (which is the default) does some bootmem
+ # allocations when memory_present() is called.  If this can not
+ # be done on your architecture, select this option.  However,
 
 -- 
--Stephane
+Yasunori Goto 
+
+
