@@ -1,155 +1,142 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 12 Mar 2006 17:04:54 +0000
-Subject: [patch 3/6] add init declaration to memory initialization functions
-Message-Id: <200603121704.k2CH4qg10206@unix-os.sc.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Tue, 28 Mar 2006 10:17:44 +0000
+Subject: [Patch:004/004]Unify pxm_to_node id ver.3. (for i386)
+Message-Id: <20060328191440.CC50.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-
-Add init declaration to variables/functions used for memory
-initialization.  I don't think they would clash with memory
-hotplug.  If they do, please yell.
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+This is to remove the code of pxm_to_nid_map from i386 code.
+And, some of changing Kconfig and dummy function for compile.
 
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
---- ./arch/ia64/kernel/setup.c.orig	2006-03-12 00:25:16.844400279 -0800
-+++ ./arch/ia64/kernel/setup.c	2006-03-12 00:25:52.983071711 -0800
-@@ -131,8 +131,8 @@ EXPORT_SYMBOL(ia64_max_iommu_merge_mask)
- /*
-  * We use a special marker for the end of memory and it uses the extra (+1) slot
-  */
--struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1];
--int num_rsvd_regions;
-+struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1] __initdata;
-+static int num_rsvd_regions __initdata;
- 
- 
- /*
-@@ -141,7 +141,7 @@ int num_rsvd_regions;
-  * caller-specified function is called with the memory ranges that remain after filtering.
-  * This routine does not assume the incoming segments are sorted.
-  */
--int
-+int __init
- filter_rsvd_memory (unsigned long start, unsigned long end, void *arg)
- {
- 	unsigned long range_start, range_end, prev_start;
-@@ -177,7 +177,7 @@ filter_rsvd_memory (unsigned long start,
- 	return 0;
+ arch/i386/Kconfig       |    6 ++++++
+ arch/i386/kernel/srat.c |   19 ++-----------------
+ drivers/acpi/Kconfig    |    2 +-
+ include/linux/acpi.h    |    8 ++++++++
+ 4 files changed, 17 insertions(+), 18 deletions(-)
+
+Index: pxm_ver3/arch/i386/kernel/srat.c
+=================================--- pxm_ver3.orig/arch/i386/kernel/srat.c	2006-01-05 15:43:10.000000000 +0900
++++ pxm_ver3/arch/i386/kernel/srat.c	2006-03-27 14:08:19.000000000 +0900
+@@ -39,7 +39,6 @@
+ #define NODE_ARRAY_OFFSET(x)	((x) % 8)	/* 8 bits/char */
+ #define BMAP_SET(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] |= 1 << NODE_ARRAY_OFFSET(bit))
+ #define BMAP_TEST(bmap, bit)	((bmap)[NODE_ARRAY_INDEX(bit)] & (1 << NODE_ARRAY_OFFSET(bit)))
+-#define MAX_PXM_DOMAINS		256	/* 1 byte and no promises about values */
+ /* bitmap length; _PXM is at most 255 */
+ #define PXM_BITMAP_LEN (MAX_PXM_DOMAINS / 8) 
+ static u8 pxm_bitmap[PXM_BITMAP_LEN];	/* bitmap of proximity domains */
+@@ -213,19 +212,11 @@ static __init void node_read_chunk(int n
+ 		node_end_pfn[nid] = memory_chunk->end_pfn;
  }
  
--static void
-+static void __init
- sort_regions (struct rsvd_region *rsvd_region, int max)
+-static u8 pxm_to_nid_map[MAX_PXM_DOMAINS];/* _PXM to logical node ID map */
+-
+-int pxm_to_node(int pxm)
+-{
+-	return pxm_to_nid_map[pxm];
+-}
+-
+ /* Parse the ACPI Static Resource Affinity Table */
+ static int __init acpi20_parse_srat(struct acpi_table_srat *sratp)
  {
- 	int j;
-@@ -218,7 +218,7 @@ __initcall(register_memory);
-  * initrd, etc.  There are currently %IA64_MAX_RSVD_REGIONS defined,
-  * see include/asm-ia64/meminit.h if you need to define more.
-  */
--void
-+void __init
- reserve_memory (void)
- {
- 	int n = 0;
-@@ -270,7 +270,7 @@ reserve_memory (void)
-  * Grab the initrd start and end from the boot parameter struct given us by
-  * the boot loader.
-  */
--void
-+void __init
- find_initrd (void)
- {
- #ifdef CONFIG_BLK_DEV_INITRD
---- ./arch/ia64/mm/init.c.orig	2006-03-12 00:25:16.848306529 -0800
-+++ ./arch/ia64/mm/init.c	2006-03-12 00:23:05.937175000 -0800
-@@ -206,7 +206,7 @@ free_initmem (void)
- 	       (__init_end - __init_begin) >> 10);
- }
+ 	u8 *start, *end, *p;
+ 	int i, j, nid;
+-	u8 nid_to_pxm_map[MAX_NUMNODES];/* logical node ID to _PXM map */
  
--void
-+void __init
- free_initrd_mem (unsigned long start, unsigned long end)
- {
- 	struct page *page;
-@@ -261,7 +261,7 @@ free_initrd_mem (unsigned long start, un
- /*
-  * This installs a clean page in the kernel's page table.
-  */
--struct page *
-+static struct page * __init
- put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
- {
- 	pgd_t *pgd;
-@@ -411,7 +411,7 @@ ia64_mmu_init (void *my_cpu_data)
+ 	start = (u8 *)(&(sratp->reserved) + 1);	/* skip header */
+ 	p = start;
+@@ -235,10 +226,6 @@ static int __init acpi20_parse_srat(stru
+ 	memset(node_memory_chunk, 0, sizeof(node_memory_chunk));
+ 	memset(zholes_size, 0, sizeof(zholes_size));
  
- #ifdef CONFIG_VIRTUAL_MEM_MAP
+-	/* -1 in these maps means not available */
+-	memset(pxm_to_nid_map, -1, sizeof(pxm_to_nid_map));
+-	memset(nid_to_pxm_map, -1, sizeof(nid_to_pxm_map));
+-
+ 	num_memory_chunks = 0;
+ 	while (p < end) {
+ 		switch (*p) {
+@@ -278,9 +265,7 @@ static int __init acpi20_parse_srat(stru
+ 	nodes_clear(node_online_map);
+ 	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
+ 		if (BMAP_TEST(pxm_bitmap, i)) {
+-			nid = num_online_nodes();
+-			pxm_to_nid_map[i] = nid;
+-			nid_to_pxm_map[nid] = i;
++			int nid = acpi_map_pxm_to_node(i);
+ 			node_set_online(nid);
+ 		}
+ 	}
+@@ -288,7 +273,7 @@ static int __init acpi20_parse_srat(stru
  
--int
-+int __init
- create_mem_map_page_table (u64 start, u64 end, void *arg)
- {
- 	unsigned long address, start_page, end_page;
-@@ -519,7 +519,7 @@ ia64_pfn_valid (unsigned long pfn)
- }
- EXPORT_SYMBOL(ia64_pfn_valid);
+ 	/* set cnode id in memory chunk structure */
+ 	for (i = 0; i < num_memory_chunks; i++)
+-		node_memory_chunk[i].nid = pxm_to_nid_map[node_memory_chunk[i].pxm];
++		node_memory_chunk[i].nid = pxm_to_node(node_memory_chunk[i].pxm);
  
--int
-+int __init
- find_largest_hole (u64 start, u64 end, void *arg)
- {
- 	u64 *max_gap = arg;
-@@ -535,7 +535,7 @@ find_largest_hole (u64 start, u64 end, v
- }
- #endif /* CONFIG_VIRTUAL_MEM_MAP */
+ 	printk("pxm bitmap: ");
+ 	for (i = 0; i < sizeof(pxm_bitmap); i++) {
+Index: pxm_ver3/arch/i386/Kconfig
+=================================--- pxm_ver3.orig/arch/i386/Kconfig	2006-03-27 12:09:13.000000000 +0900
++++ pxm_ver3/arch/i386/Kconfig	2006-03-27 14:08:19.000000000 +0900
+@@ -144,6 +144,12 @@ config ACPI_SRAT
+ 	bool
+ 	default y
+ 	depends on NUMA && (X86_SUMMIT || X86_GENERICARCH)
++	select ACPI_NUMA
++
++config HAVE_ARCH_PARSE_SRAT
++       bool
++       default y
++       depends on ACPI_SRAT
  
--static int
-+static int __init
- count_reserved_pages (u64 start, u64 end, void *arg)
- {
- 	unsigned long num_reserved = 0;
-@@ -567,7 +567,7 @@ nolwsys_setup (char *s)
+ config X86_SUMMIT_NUMA
+ 	bool
+Index: pxm_ver3/drivers/acpi/Kconfig
+=================================--- pxm_ver3.orig/drivers/acpi/Kconfig	2006-03-27 12:09:14.000000000 +0900
++++ pxm_ver3/drivers/acpi/Kconfig	2006-03-27 14:08:19.000000000 +0900
+@@ -162,7 +162,7 @@ config ACPI_THERMAL
+ config ACPI_NUMA
+ 	bool "NUMA support"
+ 	depends on NUMA
+-	depends on (IA64 || X86_64)
++	depends on (X86_32 || IA64 || X86_64)
+ 	default y if IA64_GENERIC || IA64_SGI_SN2
  
- __setup("nolwsys", nolwsys_setup);
+ config ACPI_ASUS
+Index: pxm_ver3/include/linux/acpi.h
+=================================--- pxm_ver3.orig/include/linux/acpi.h	2006-03-27 13:56:46.000000000 +0900
++++ pxm_ver3/include/linux/acpi.h	2006-03-27 14:08:19.000000000 +0900
+@@ -409,10 +409,18 @@ void acpi_table_print_madt_entry (acpi_t
+ void acpi_table_print_srat_entry (acpi_table_entry_header *srat);
  
--void
-+void __init
- mem_init (void)
- {
- 	long reserved_pages, codesize, datasize, initsize;
---- ./arch/ia64/mm/contig.c.orig	2006-01-02 19:21:10.000000000 -0800
-+++ ./arch/ia64/mm/contig.c	2006-03-12 00:25:52.983071711 -0800
-@@ -97,7 +97,7 @@ find_max_pfn (unsigned long start, unsig
-  * Find a place to put the bootmap and return its starting address in
-  * bootmap_start.  This address must be page-aligned.
-  */
--int
-+static int __init
- find_bootmap_location (unsigned long start, unsigned long end, void *arg)
- {
- 	unsigned long needed = *(unsigned long *)arg;
-@@ -141,7 +141,7 @@ find_bootmap_location (unsigned long sta
-  * Walk the EFI memory map and find usable memory for the system, taking
-  * into account reserved areas.
-  */
--void
-+void __init
- find_memory (void)
- {
- 	unsigned long bootmap_size;
-@@ -226,7 +226,7 @@ count_dma_pages (u64 start, u64 end, voi
-  * Set up the page tables.
-  */
+ /* the following four functions are architecture-dependent */
++#ifdef CONFIG_HAVE_ARCH_PARSE_SRAT
++#define NR_NODE_MEMBLKS MAX_NUMNODES
++#define acpi_numa_slit_init(slit) do {} while (0)
++#define acpi_numa_processor_affinity_init(pa) do {} while (0)
++#define acpi_numa_memory_affinity_init(ma) do {} while (0)
++#define acpi_numa_arch_fixup() do {} while (0)
++#else
+ void acpi_numa_slit_init (struct acpi_table_slit *slit);
+ void acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa);
+ void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
+ void acpi_numa_arch_fixup(void);
++#endif
  
--void
-+void __init
- paging_init (void)
- {
- 	unsigned long max_dma;
+ #ifdef CONFIG_ACPI_HOTPLUG_CPU
+ /* Arch dependent functions for cpu hotplug support */
 
+-- 
+Yasunori Goto 
 
 
