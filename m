@@ -1,41 +1,53 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 08 Mar 2006 21:22:21 +0000
-Subject: Re: 2.6.16-rc5 perfmon2 new code base + libpfm with Montecito support
-Message-Id: <20060308212221.GB14435@frankl.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 28 Mar 2006 03:59:02 +0000
+Subject: Fix unlock_buffer() to work the same way as bit_unlock()
+Message-Id: <Pine.LNX.4.64.0603271953150.7469@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060308155311.GD13168@frankl.hpl.hp.com> <440F4130.5040703@redhat.com>
-In-Reply-To: <440F4130.5040703@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Cohen <wcohen@redhat.com>
-Cc: linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, perfctr-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: nickpiggin@yahoo.com.au, Zoltan.Menyhart@free.fr, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Will,
+Currently unlock_buffer() contains a smb_mb__after_clear_bit() which is 
+weird because bit_spin_unlock() uses smb_mb__before_clear_bit():
 
-On Wed, Mar 08, 2006 at 03:40:16PM -0500, William Cohen wrote:
-> >
-> >I have released another version of the perfmon new base package.
-> >This release is relative to 2.6.16-rc5
-> 
-> Hello Stephane,
-> 
-> Is there any thoughts on how perfmon2 is going to work with xen enabled 
-> kernels or processors that support virtualization?
-> 
+From include/linux/bit_spinlock.h:
 
-AFAIK, there is currently no Xen support for PMU on any platforms. By "support"
-I mean suport for guests using the PMU. As such, I do not think this works.
-I am planning on looking at this next because this is becoming a pressing matter
-and not just on IA-64.
+static inline void bit_spin_unlock(int bitnum, unsigned long *addr)
+{
+        smp_mb__before_clear_bit();
+        clear_bit(bitnum, addr);
+        preempt_enable();
+        __release(bitlock);
+}
 
-My first goal is to ensure that a guest using perfmon2 works once it is virtualized.
-That implies that the Xen VMM does save/restore PMU state on guest switch. That's a bare
-minimum.
+For most architectures there is no difference because both
+smp_mb__after_clear_bit() and smp_mb__before_clear_bit() are both
+memory barriers and clear_buffer_locked() is an atomic operation.
+However, they differ under IA64.
 
-As for HW virutlization support, I think it helps a little bit but there still needs to
-be some additional code in the VMM to make this work correctly. This is also something
-I want to look at.
+Note that this potential race has never been seen under IA64. It was 
+discovered by inspection by Zoltan Menyhart <Zoltan.Menyhart@free.fr>. 
 
--- 
--Stephane
+Regardless if this is a true race or not, I think the unlock sequence 
+needs to be the same for bit locks and unlock_buffer(). Maybe 
+unlock_buffer and lock_buffer better use bit spinlock operations?
+
+Change unlock_buffer() to work the same way as bit_spin_unlock.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6/fs/buffer.c
+=================================--- linux-2.6.orig/fs/buffer.c	2006-03-27 14:09:54.000000000 -0800
++++ linux-2.6/fs/buffer.c	2006-03-27 19:40:32.000000000 -0800
+@@ -78,8 +78,8 @@ EXPORT_SYMBOL(__lock_buffer);
+ 
+ void fastcall unlock_buffer(struct buffer_head *bh)
+ {
++	smp_mb__before_clear_bit();
+ 	clear_buffer_locked(bh);
+-	smp_mb__after_clear_bit();
+ 	wake_up_bit(&bh->b_state, BH_Lock);
+ }
+ 
