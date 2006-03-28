@@ -1,99 +1,96 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 12 Mar 2006 17:00:13 +0000
-Subject: [patch 2/6] add init declaration to cpu initialization functions
-Message-Id: <200603121700.k2CH0Bg10078@unix-os.sc.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Tue, 28 Mar 2006 10:17:14 +0000
+Subject: [Patch:003/004]Unify pxm_to_node id ver.3.(for x86-64)
+Message-Id: <20060328191359.CC4C.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20060328183058.CC46.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, ACPI-ML <linux-acpi@vger.kernel.org>, linux-ia64@vger.kernel.org, x86-64 Discuss <discuss@x86-64.org>
 
-Add init declaration to cpu initialization functions.
 
+This is to remove the code of pxm_to_node from x86-64 code.
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
 
---- ./arch/ia64/kernel/setup.c.orig	2006-03-12 01:23:18.000000000 -0800
-+++ ./arch/ia64/kernel/setup.c	2006-03-12 09:02:44.095973075 -0800
-@@ -362,7 +362,7 @@ mark_bsp_online (void)
+ arch/x86_64/mm/srat.c     |   33 +--------------------------------
+ include/asm-x86_64/numa.h |    1 -
+ 2 files changed, 1 insertion(+), 33 deletions(-)
+
+Index: pxm_ver3/arch/x86_64/mm/srat.c
+=================================--- pxm_ver3.orig/arch/x86_64/mm/srat.c	2006-03-27 12:09:14.000000000 +0900
++++ pxm_ver3/arch/x86_64/mm/srat.c	2006-03-27 14:07:14.000000000 +0900
+@@ -22,35 +22,15 @@
+ static struct acpi_table_slit *acpi_slit;
+ 
+ static nodemask_t nodes_parsed __initdata;
+-static nodemask_t nodes_found __initdata;
+ static struct bootnode nodes[MAX_NUMNODES] __initdata;
+-static u8 pxm2node[256] = { [0 ... 255] = 0xff };
+ 
+ /* Too small nodes confuse the VM badly. Usually they result
+    from BIOS bugs. */
+ #define NODE_MIN_SIZE (4*1024*1024)
+ 
+-static int node_to_pxm(int n);
+-
+-int pxm_to_node(int pxm)
+-{
+-	if ((unsigned)pxm >= 256)
+-		return -1;
+-	/* Extend 0xff to (int)-1 */
+-	return (signed char)pxm2node[pxm];
+-}
+-
+ static __init int setup_node(int pxm)
+ {
+-	unsigned node = pxm2node[pxm];
+-	if (node = 0xff) {
+-		if (nodes_weight(nodes_found) >= MAX_NUMNODES)
+-			return -1;
+-		node = first_unset_node(nodes_found); 
+-		node_set(node, nodes_found);
+-		pxm2node[pxm] = node;
+-	}
+-	return pxm2node[pxm];
++	return acpi_map_pxm_to_node(pxm);
  }
  
- #ifdef CONFIG_SMP
--static void
-+static void __init
- check_for_logical_procs (void)
+ static __init int conflicting_nodes(unsigned long start, unsigned long end)
+@@ -292,17 +272,6 @@ int __init acpi_scan_nodes(unsigned long
+ 	return 0;
+ }
+ 
+-static int node_to_pxm(int n)
+-{
+-       int i;
+-       if (pxm2node[n] = n)
+-               return n;
+-       for (i = 0; i < 256; i++)
+-               if (pxm2node[i] = n)
+-                       return i;
+-       return 0;
+-}
+-
+ int __node_distance(int a, int b)
  {
- 	pal_logical_to_physical_t info;
-@@ -623,7 +623,7 @@ struct seq_operations cpuinfo_op = {
- 	.show =		show_cpuinfo
+ 	int index;
+Index: pxm_ver3/include/asm-x86_64/numa.h
+=================================--- pxm_ver3.orig/include/asm-x86_64/numa.h	2006-03-27 12:09:17.000000000 +0900
++++ pxm_ver3/include/asm-x86_64/numa.h	2006-03-27 14:05:12.000000000 +0900
+@@ -9,7 +9,6 @@ struct bootnode {
  };
  
--void
-+static void __cpuinit
- identify_cpu (struct cpuinfo_ia64 *c)
- {
- 	union {
-@@ -700,7 +700,7 @@ setup_per_cpu_areas (void)
-  * In addition, the minimum of the i-cache stride sizes is calculated for
-  * "flush_icache_range()".
-  */
--static void
-+static void __cpuinit
- get_max_cacheline_size (void)
- {
- 	unsigned long line_size, max = 1;
-@@ -763,10 +763,10 @@ get_max_cacheline_size (void)
-  * cpu_init() initializes state that is per-CPU.  This function acts
-  * as a 'CPU state barrier', nothing should get across.
-  */
--void
-+void __cpuinit
- cpu_init (void)
- {
--	extern void __devinit ia64_mmu_init (void *);
-+	extern void __cpuinit ia64_mmu_init (void *);
- 	unsigned long num_phys_stacked;
- 	pal_vm_info_2_u_t vmi;
- 	unsigned int max_ctx;
-@@ -894,7 +894,7 @@ void sched_cacheflush(void)
- 	ia64_sal_cache_flush(3);
- }
+ extern int compute_hash_shift(struct bootnode *nodes, int numnodes);
+-extern int pxm_to_node(int nid);
  
--void
-+void __init
- check_bugs (void)
- {
- 	ia64_patch_mckinley_e9((unsigned long) __start___mckinley_e9_bundles,
---- ./arch/ia64/mm/contig.c.orig	2006-01-02 19:21:10.000000000 -0800
-+++ ./arch/ia64/mm/contig.c	2006-03-12 09:02:33.840113826 -0800
-@@ -176,7 +176,7 @@ find_memory (void)
-  *
-  * Allocate and setup per-cpu data areas.
-  */
--void *
-+void * __cpuinit
- per_cpu_init (void)
- {
- 	void *cpu_data;
---- ./arch/ia64/mm/discontig.c.orig	2006-01-02 19:21:10.000000000 -0800
-+++ ./arch/ia64/mm/discontig.c	2006-03-12 09:02:33.841090388 -0800
-@@ -525,7 +525,7 @@ void __init find_memory(void)
-  * find_pernode_space() does most of this already, we just need to set
-  * local_per_cpu_offset
-  */
--void *per_cpu_init(void)
-+void __cpuinit *per_cpu_init(void)
- {
- 	int cpu;
+ #define ZONE_ALIGN (1UL << (MAX_ORDER+PAGE_SHIFT))
  
---- ./include/asm-ia64/processor.h.orig	2006-03-12 01:23:21.000000000 -0800
-+++ ./include/asm-ia64/processor.h	2006-03-12 09:02:33.841090388 -0800
-@@ -180,7 +180,6 @@ DECLARE_PER_CPU(struct cpuinfo_ia64, cpu
- #define local_cpu_data		(&__ia64_per_cpu_var(cpu_info))
- #define cpu_data(cpu)		(&per_cpu(cpu_info, cpu))
- 
--extern void identify_cpu (struct cpuinfo_ia64 *);
- extern void print_cpu_info (struct cpuinfo_ia64 *);
- 
- typedef struct {
+
+-- 
+Yasunori Goto 
+
 
