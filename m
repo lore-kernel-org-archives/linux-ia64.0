@@ -1,46 +1,15 @@
 From: Mark Maule <maule@sgi.com>
-Date: Tue, 21 Mar 2006 19:38:42 +0000
-Subject: Re: [PATCH 1/3] msi vector targeting abstractions
-Message-Id: <20060321193842.GF22524@sgi.com>
+Date: Wed, 29 Mar 2006 02:31:11 +0000
+Subject: [PATCH 1/3] msi vector targeting abstractions
+Message-Id: <20060329023111.13892.94826.67421@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com> <20060321143449.9913.55794.57267@lnx-maule.americas.sgi.com> <442029EA.9020900@ce.jp.nec.com> <jebqvzhhxr.fsf@sykes.suse.de> <20060321191414.GE22524@sgi.com> <442052C0.8050304@ce.jp.nec.com>
-In-Reply-To: <442052C0.8050304@ce.jp.nec.com>
+References: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jun'ichi Nomura <j-nomura@ce.jp.nec.com>
-Cc: Andreas Schwab <schwab@suse.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, gregkh@suse.de, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz
-
-On Tue, Mar 21, 2006 at 02:23:44PM -0500, Jun'ichi Nomura wrote:
-> Hi,
-> 
-> Mark Maule wrote:
-> >@@ -386,5 +390,8 @@
-> > #ifndef platform_readq_relaxed
-> > # define platform_readq_relaxed	__ia64_readq_relaxed
-> > #endif
-> >+#ifndef platform_msi_init
-> >+# define platform_msi_init	((ia64_mv_msi_init_t*)NULL)
-> >+#endif
-> 
-> You may also need to change the sn specific header below.
-> 
-> >@@ -115,6 +116,11 @@
-> > #define platform_dma_sync_sg_for_device	sn_dma_sync_sg_for_device
-> > #define platform_dma_mapping_error		sn_dma_mapping_error
-> > #define platform_dma_supported		sn_dma_supported
-> >+#ifdef CONFIG_PCI_MSI
-> >+#define platform_msi_init		sn_msi_init
-> >+#else
-> >+#define platform_msi_init		NULL
-> >+#endif
-> 
-> Thanks,
-> -- 
-> Jun'ichi Nomura, NEC Solutions (America), Inc.
-
-Right - patch attached:
-
+To: linuxppc64-dev@ozlabs.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: j-nomura@ce.jp.nec.com, Tony Luck <tony.luck@intel.com>, gregkh@suse.de, Mark Maule <maule@sgi.com>
 
 Abstract portions of the MSI core for platforms that do not use standard
 APIC interrupt controllers.  This is implemented through a new arch-specific
@@ -49,9 +18,9 @@ basis.
 
 Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: linux-2.6.16/drivers/pci/msi.c
-=================================--- linux-2.6.16.orig/drivers/pci/msi.c	2006-03-21 11:13:59.726139722 -0600
-+++ linux-2.6.16/drivers/pci/msi.c	2006-03-21 11:14:06.210856320 -0600
+Index: linux-2.6/drivers/pci/msi.c
+=================================--- linux-2.6.orig/drivers/pci/msi.c	2006-03-27 11:11:04.000000000 -0600
++++ linux-2.6/drivers/pci/msi.c	2006-03-27 13:32:56.192398615 -0600
 @@ -23,8 +23,6 @@
  #include "pci.h"
  #include "msi.h"
@@ -87,7 +56,7 @@ Index: linux-2.6.16/drivers/pci/msi.c
  	unsigned int dest_cpu = first_cpu(cpu_mask);
  
 @@ -108,28 +115,36 @@
-    		if (!(pos = pci_find_capability(entry->dev, PCI_CAP_ID_MSI)))
+ 		if (!pos)
  			return;
  
 +		pci_read_config_dword(entry->dev, msi_upper_address_reg(pos),
@@ -118,9 +87,6 @@ Index: linux-2.6.16/drivers/pci/msi.c
 +				PCI_MSIX_ENTRY_UPPER_ADDR_OFFSET;
 +		int offset_lo +			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE +
 +				PCI_MSIX_ENTRY_LOWER_ADDR_OFFSET;
-+
-+		address_hi = readl(entry->mask_base + offset_hi);
-+		address_lo = readl(entry->mask_base + offset_lo);
  
 -		address.lo_address.value = readl(entry->mask_base + offset);
 -		address.lo_address.value &= MSI_ADDRESS_DEST_ID_MASK;
@@ -128,6 +94,9 @@ Index: linux-2.6.16/drivers/pci/msi.c
 -									MSI_TARGET_CPU_SHIFT);
 -		entry->msi_attrib.current_cpu = cpu_physical_id(dest_cpu);
 -		writel(address.lo_address.value, entry->mask_base + offset);
++		address_hi = readl(entry->mask_base + offset_hi);
++		address_lo = readl(entry->mask_base + offset_lo);
++
 +		msi_ops->target(vector, dest_cpu, &address_hi, &address_lo);
 +
 +		writel(address_hi, entry->mask_base + offset_hi);
@@ -166,11 +135,12 @@ Index: linux-2.6.16/drivers/pci/msi.c
  static int msi_free_vector(struct pci_dev* dev, int vector, int reassign);
  static int assign_msi_vector(void)
  {
-@@ -369,6 +360,20 @@
+@@ -369,13 +360,29 @@
  		return status;
  	}
  
-+	if ((status = msi_arch_init()) < 0) {
++	status = msi_arch_init();
++	if (status < 0) {
 +		pci_msi_enable = 0;
 +		printk(KERN_WARNING
 +		       "PCI: MSI arch init failed.  MSI disabled.\n");
@@ -184,10 +154,19 @@ Index: linux-2.6.16/drivers/pci/msi.c
 +		return status;
 +	}
 +
- 	if ((status = msi_cache_init()) < 0) {
++	last_alloc_vector = assign_irq_vector(AUTO_ASSIGN);
+ 	status = msi_cache_init();
+ 	if (status < 0) {
  		pci_msi_enable = 0;
  		printk(KERN_WARNING "PCI: MSI cache init failed\n");
-@@ -514,9 +519,11 @@
+ 		return status;
+ 	}
+-	last_alloc_vector = assign_irq_vector(AUTO_ASSIGN);
++
+ 	if (last_alloc_vector < 0) {
+ 		pci_msi_enable = 0;
+ 		printk(KERN_WARNING "PCI: No interrupt vectors available for MSI\n");
+@@ -515,9 +522,11 @@
   **/
  static int msi_capability_init(struct pci_dev *dev)
  {
@@ -201,7 +180,7 @@ Index: linux-2.6.16/drivers/pci/msi.c
  	int pos, vector;
  	u16 control;
  
-@@ -543,23 +550,27 @@
+@@ -546,23 +555,27 @@
  		entry->mask_base = (void __iomem *)(long)msi_mask_bits_reg(pos,
  				is_64bit_address(control));
  	}
@@ -241,25 +220,7 @@ Index: linux-2.6.16/drivers/pci/msi.c
  	if (entry->msi_attrib.maskbit) {
  		unsigned int maskbits, temp;
  		/* All MSIs are unmasked by default, Mask them all */
-@@ -594,13 +605,15 @@
- 				struct msix_entry *entries, int nvec)
- {
- 	struct msi_desc *head = NULL, *tail = NULL, *entry = NULL;
--	struct msg_address address;
--	struct msg_data data;
-+	u32 address_hi;
-+	u32 address_lo;
-+	u32 data;
- 	int vector, pos, i, j, nr_entries, temp = 0;
- 	u32 phys_addr, table_offset;
-  	u16 control;
- 	u8 bir;
- 	void __iomem *base;
-+	int status;
- 
-    	pos = pci_find_capability(dev, PCI_CAP_ID_MSIX);
- 	/* Request & Map MSI-X table region */
-@@ -647,18 +660,20 @@
+@@ -652,18 +665,20 @@
  		/* Replace with MSI-X handler */
  		irq_handler_init(PCI_CAP_ID_MSIX, vector, 1);
  		/* Configure MSI-X capability structure */
@@ -287,7 +248,7 @@ Index: linux-2.6.16/drivers/pci/msi.c
  			base + j * PCI_MSIX_ENTRY_SIZE +
  			PCI_MSIX_ENTRY_DATA_OFFSET);
  		attach_msi_entry(entry, vector);
-@@ -793,6 +808,8 @@
+@@ -809,6 +824,8 @@
  	void __iomem *base;
  	unsigned long flags;
  
@@ -296,9 +257,9 @@ Index: linux-2.6.16/drivers/pci/msi.c
  	spin_lock_irqsave(&msi_lock, flags);
  	entry = msi_desc[vector];
  	if (!entry || entry->dev != dev) {
-Index: linux-2.6.16/include/asm-i386/msi.h
-=================================--- linux-2.6.16.orig/include/asm-i386/msi.h	2006-03-21 11:13:59.727116189 -0600
-+++ linux-2.6.16/include/asm-i386/msi.h	2006-03-21 11:14:06.213785721 -0600
+Index: linux-2.6/include/asm-i386/msi.h
+=================================--- linux-2.6.orig/include/asm-i386/msi.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-i386/msi.h	2006-03-27 13:22:19.533603545 -0600
 @@ -12,4 +12,12 @@
  #define LAST_DEVICE_VECTOR		232
  #define MSI_TARGET_CPU_SHIFT	12
@@ -312,9 +273,9 @@ Index: linux-2.6.16/include/asm-i386/msi.h
 +}
 +
  #endif /* ASM_MSI_H */
-Index: linux-2.6.16/include/asm-x86_64/msi.h
-=================================--- linux-2.6.16.orig/include/asm-x86_64/msi.h	2006-03-21 11:13:59.728092656 -0600
-+++ linux-2.6.16/include/asm-x86_64/msi.h	2006-03-21 11:14:06.214762188 -0600
+Index: linux-2.6/include/asm-x86_64/msi.h
+=================================--- linux-2.6.orig/include/asm-x86_64/msi.h	2006-03-27 11:11:07.000000000 -0600
++++ linux-2.6/include/asm-x86_64/msi.h	2006-03-27 13:22:19.536532943 -0600
 @@ -13,4 +13,12 @@
  #define LAST_DEVICE_VECTOR		232
  #define MSI_TARGET_CPU_SHIFT	12
@@ -328,10 +289,10 @@ Index: linux-2.6.16/include/asm-x86_64/msi.h
 +}
 +
  #endif /* ASM_MSI_H */
-Index: linux-2.6.16/include/asm-ia64/machvec.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/machvec.h	2006-03-21 11:13:59.728092656 -0600
-+++ linux-2.6.16/include/asm-ia64/machvec.h	2006-03-21 11:14:57.089663570 -0600
-@@ -74,6 +74,7 @@
+Index: linux-2.6/include/asm-ia64/machvec.h
+=================================--- linux-2.6.orig/include/asm-ia64/machvec.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/machvec.h	2006-03-27 13:27:36.669263094 -0600
+@@ -76,6 +76,7 @@
  typedef unsigned short ia64_mv_readw_relaxed_t (const volatile void __iomem *);
  typedef unsigned int ia64_mv_readl_relaxed_t (const volatile void __iomem *);
  typedef unsigned long ia64_mv_readq_relaxed_t (const volatile void __iomem *);
@@ -339,54 +300,46 @@ Index: linux-2.6.16/include/asm-ia64/machvec.h
  
  static inline void
  machvec_noop (void)
-@@ -146,6 +147,7 @@
- #  define platform_readw_relaxed        ia64_mv.readw_relaxed
+@@ -154,6 +155,7 @@
  #  define platform_readl_relaxed        ia64_mv.readl_relaxed
  #  define platform_readq_relaxed        ia64_mv.readq_relaxed
-+#  define platform_msi_init	ia64_mv.msi_init
+ #  define platform_migrate		ia64_mv.migrate
++#  define platform_msi_init		ia64_mv.msi_init
  # endif
  
  /* __attribute__((__aligned__(16))) is required to make size of the
-@@ -194,6 +196,7 @@
- 	ia64_mv_readw_relaxed_t *readw_relaxed;
+@@ -203,6 +205,7 @@
  	ia64_mv_readl_relaxed_t *readl_relaxed;
  	ia64_mv_readq_relaxed_t *readq_relaxed;
+ 	ia64_mv_migrate_t *migrate;
 +	ia64_mv_msi_init_t *msi_init;
  } __attribute__((__aligned__(16))); /* align attrib? see above comment */
  
  #define MACHVEC_INIT(name)			\
-@@ -238,6 +241,7 @@
- 	platform_readw_relaxed,			\
+@@ -248,6 +251,7 @@
  	platform_readl_relaxed,			\
  	platform_readq_relaxed,			\
+ 	platform_migrate,			\
 +	platform_msi_init,			\
  }
  
  extern struct ia64_machine_vector ia64_mv;
-@@ -386,5 +390,8 @@
- #ifndef platform_readq_relaxed
- # define platform_readq_relaxed	__ia64_readq_relaxed
+@@ -399,5 +403,8 @@
+ #ifndef platform_migrate
+ # define platform_migrate machvec_noop_task
  #endif
 +#ifndef platform_msi_init
 +# define platform_msi_init	((ia64_mv_msi_init_t*)NULL)
 +#endif
  
  #endif /* _ASM_IA64_MACHVEC_H */
-Index: linux-2.6.16/include/asm-ia64/machvec_sn2.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/machvec_sn2.h	2006-03-21 11:13:59.728092656 -0600
-+++ linux-2.6.16/include/asm-ia64/machvec_sn2.h	2006-03-21 13:26:22.138073104 -0600
-@@ -66,6 +66,7 @@
- extern ia64_mv_dma_sync_sg_for_device	sn_dma_sync_sg_for_device;
- extern ia64_mv_dma_mapping_error	sn_dma_mapping_error;
- extern ia64_mv_dma_supported		sn_dma_supported;
-+extern ia64_mv_msi_init_t		sn_msi_init;
- 
- /*
-  * This stuff has dual use!
-@@ -115,6 +116,11 @@
- #define platform_dma_sync_sg_for_device	sn_dma_sync_sg_for_device
+Index: linux-2.6/include/asm-ia64/machvec_sn2.h
+=================================--- linux-2.6.orig/include/asm-ia64/machvec_sn2.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/machvec_sn2.h	2006-03-27 13:29:15.149771095 -0600
+@@ -117,6 +117,11 @@
  #define platform_dma_mapping_error		sn_dma_mapping_error
  #define platform_dma_supported		sn_dma_supported
+ #define platform_migrate		sn_migrate
 +#ifdef CONFIG_PCI_MSI
 +#define platform_msi_init		sn_msi_init
 +#else
@@ -395,9 +348,9 @@ Index: linux-2.6.16/include/asm-ia64/machvec_sn2.h
  
  #include <asm/sn/io.h>
  
-Index: linux-2.6.16/include/asm-ia64/msi.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/msi.h	2006-03-21 11:13:59.729069123 -0600
-+++ linux-2.6.16/include/asm-ia64/msi.h	2006-03-21 11:14:06.217691588 -0600
+Index: linux-2.6/include/asm-ia64/msi.h
+=================================--- linux-2.6.orig/include/asm-ia64/msi.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/msi.h	2006-03-27 13:22:19.540438807 -0600
 @@ -14,4 +14,16 @@
  #define ack_APIC_irq		ia64_eoi
  #define MSI_TARGET_CPU_SHIFT	4
@@ -415,9 +368,9 @@ Index: linux-2.6.16/include/asm-ia64/msi.h
 +}
 +
  #endif /* ASM_MSI_H */
-Index: linux-2.6.16/drivers/pci/Makefile
-=================================--- linux-2.6.16.orig/drivers/pci/Makefile	2006-03-21 11:13:59.726139722 -0600
-+++ linux-2.6.16/drivers/pci/Makefile	2006-03-21 11:14:06.217691588 -0600
+Index: linux-2.6/drivers/pci/Makefile
+=================================--- linux-2.6.orig/drivers/pci/Makefile	2006-03-27 11:11:03.000000000 -0600
++++ linux-2.6/drivers/pci/Makefile	2006-03-27 13:22:19.540438807 -0600
 @@ -26,7 +26,11 @@
  obj-$(CONFIG_PPC64) += setup-bus.o
  obj-$(CONFIG_MIPS) += setup-bus.o setup-irq.o
@@ -431,9 +384,9 @@ Index: linux-2.6.16/drivers/pci/Makefile
  
  #
  # ACPI Related PCI FW Functions
-Index: linux-2.6.16/drivers/pci/msi-apic.c
+Index: linux-2.6/drivers/pci/msi-apic.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16/drivers/pci/msi-apic.c	2006-03-21 11:14:06.220620989 -0600
++++ linux-2.6/drivers/pci/msi-apic.c	2006-03-27 13:22:19.541415273 -0600
 @@ -0,0 +1,100 @@
 +/*
 + * MSI hooks for standard x86 apic
@@ -535,9 +488,9 @@ Index: linux-2.6.16/drivers/pci/msi-apic.c
 +	.teardown = msi_teardown_apic,
 +	.target = msi_target_apic,
 +};
-Index: linux-2.6.16/drivers/pci/msi.h
-=================================--- linux-2.6.16.orig/drivers/pci/msi.h	2006-03-21 11:13:59.727116189 -0600
-+++ linux-2.6.16/drivers/pci/msi.h	2006-03-21 11:14:06.223550390 -0600
+Index: linux-2.6/drivers/pci/msi.h
+=================================--- linux-2.6.orig/drivers/pci/msi.h	2006-03-27 11:11:04.000000000 -0600
++++ linux-2.6/drivers/pci/msi.h	2006-03-27 13:22:19.542391739 -0600
 @@ -6,6 +6,68 @@
  #ifndef MSI_H
  #define MSI_H
@@ -684,9 +637,9 @@ Index: linux-2.6.16/drivers/pci/msi.h
  	}msi_attrib;
  
  	struct {
-Index: linux-2.6.16/drivers/pci/msi-altix.c
+Index: linux-2.6/drivers/pci/msi-altix.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.16/drivers/pci/msi-altix.c	2006-03-21 11:14:06.229409191 -0600
++++ linux-2.6/drivers/pci/msi-altix.c	2006-03-27 13:22:19.543368205 -0600
 @@ -0,0 +1,18 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
