@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 29 Mar 2006 18:03:14 +0000
+Date: Wed, 29 Mar 2006 18:03:30 +0000
 Subject: Re: gate.S and recent toolchains
-Message-Id: <442ACBE2.4090605@sgi.com>
+Message-Id: <442ACBF2.4020503@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB0DE.1040409@sgi.com>
 In-Reply-To: <442AB0DE.1040409@sgi.com>
@@ -10,26 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth W wrote:
-> Russ Anderson wrote on Wednesday, March 29, 2006 8:51 AM
->>> Basically I am unable to build a kernel from Linus' git tree on one
->>> system since Monday morning, whereas it boots fine if I build it on an
->>> older system. I tried installing an older toolchain on this box but it
->>> still didn't seem to make a difference. The system boots, calls init and
->>> I most often get the message "INIT: 2.85 booting", then a hang. In some
->>> instances I don't even get the INIT message.
->> It builds and boots on all the machines I have tried,
->> including the same build and boot machines Jes uses.
->> Jes can't get it to work, I can't get it to fail.
+H. J. Lu wrote:
+> On Wed, Mar 29, 2006 at 06:07:58PM +0200, Jes Sorensen wrote:
+>> The specific toolchain I am using is gcc-4.1.0 based, but I tried
+>> 3.3.4 (with binutils 2.15) and it failed as well. However 4.0.2 on
+>> another system seems to do fine (admittedly it had binutils 2.14.90.x).
+>>
 > 
-> Russ, do you reference __mca_table at run time?  It looks like so.  It's
-> problematic that __mca_table is in __init section.  Though I doubt that
-> was the reason Jes ran into.
+> Can you try the current Linux binutils 2.16.91.0.7 at
+> 
+> http://www.kernel.org/pub/linux/devel/binutils/
 
-Hi Ken,
+Will do first thing in the morning.
 
-I actually noticed that earlier and tried moving it around, but it made
-no difference. I forgot it again in the noise.
-
-Cheers,
+Thanks,
 Jes
+
