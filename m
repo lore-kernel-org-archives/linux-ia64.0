@@ -1,10 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Tue, 21 Mar 2006 14:34:59 +0000
+Date: Wed, 29 Mar 2006 02:31:21 +0000
 Subject: [PATCH 3/3] altix:  msi support
-Message-Id: <20060321143459.9913.95627.97758@lnx-maule.americas.sgi.com>
+Message-Id: <20060329023121.13892.96308.71863@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
-In-Reply-To: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
+References: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,10 +16,10 @@ code as well as adding some extensions to the altix PCI provider abstaction.
 
 Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: linux-2.6.16/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/kernel/io_init.c	2006-03-20 15:06:57.714084166 -0600
-+++ linux-2.6.16/arch/ia64/sn/kernel/io_init.c	2006-03-20 22:18:39.159006426 -0600
-@@ -56,7 +56,7 @@
+Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-03-27 19:03:17.206816884 -0600
+@@ -58,7 +58,7 @@
   */
  
  static dma_addr_t
@@ -28,9 +28,23 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/io_init.c
  {
  	return 0;
  }
-Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/kernel/irq.c	2006-03-20 22:06:25.118460888 -0600
-+++ linux-2.6.16/arch/ia64/sn/kernel/irq.c	2006-03-20 22:18:39.160959362 -0600
+@@ -457,13 +457,6 @@
+ 		pcidev_info->pdi_sn_irq_info = NULL;
+ 		kfree(sn_irq_info);
+ 	}
+-
+-	/*
+-	 * MSI currently not supported on altix.  Remove this when
+-	 * the MSI abstraction patches are integrated into the kernel
+-	 * (sometime after 2.6.16 releases)
+-	 */
+-	dev->no_msi = 1;
+ }
+ 
+ /*
+Index: linux-2.6/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/irq.c	2006-03-27 14:28:49.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/irq.c	2006-03-27 14:33:46.977089283 -0600
 @@ -26,11 +26,11 @@
  
  int sn_force_interrupt_flag = 1;
@@ -85,6 +99,14 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
 +	new_irq_info = kmalloc(sizeof(struct sn_irq_info), GFP_ATOMIC);
 +	if (new_irq_info = NULL)
 +		return NULL;
++
++	memcpy(new_irq_info, sn_irq_info, sizeof(struct sn_irq_info));
++
++	bridge = (u64) new_irq_info->irq_bridge;
++	if (!bridge) {
++		kfree(new_irq_info);
++		return NULL; /* irq is not a device interrupt */
++	}
  
 -	list_for_each_entry_safe(sn_irq_info, sn_irq_info_safe,
 -				 sn_irq_lh[irq], list) {
@@ -104,13 +126,29 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
 -			kfree(new_irq_info);
 -			break; /* irq is not a device interrupt */
 -		}
-+	memcpy(new_irq_info, sn_irq_info, sizeof(struct sn_irq_info));
++	local_nasid = NASID_GET(bridge);
  
 -		local_nasid = NASID_GET(bridge);
-+	bridge = (u64) new_irq_info->irq_bridge;
-+	if (!bridge) {
++	if (local_nasid & 1)
++		local_widget = TIO_SWIN_WIDGETNUM(bridge);
++	else
++		local_widget = SWIN_WIDGETNUM(bridge);
++
++	vector = sn_irq_info->irq_irq;
++	/* Free the old PROM new_irq_info structure */
++	sn_intr_free(local_nasid, local_widget, new_irq_info);
++	/* Update kernels new_irq_info with new target info */
++	unregister_intr_pda(new_irq_info);
++
++	/* allocate a new PROM new_irq_info struct */
++	status = sn_intr_alloc(local_nasid, local_widget,
++			       new_irq_info, vector,
++			       nasid, slice);
++
++	/* SAL call failed */
++	if (status) {
 +		kfree(new_irq_info);
-+		return NULL; /* irq is not a device interrupt */
++		return NULL;
 +	}
  
 -		if (local_nasid & 1)
@@ -134,45 +172,13 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
 -			kfree(new_irq_info);
 -			break;
 -		}
-+	local_nasid = NASID_GET(bridge);
-+
-+	if (local_nasid & 1)
-+		local_widget = TIO_SWIN_WIDGETNUM(bridge);
-+	else
-+		local_widget = SWIN_WIDGETNUM(bridge);
-+
-+	vector = sn_irq_info->irq_irq;
-+	/* Free the old PROM new_irq_info structure */
-+	sn_intr_free(local_nasid, local_widget, new_irq_info);
-+	/* Update kernels new_irq_info with new target info */
-+	unregister_intr_pda(new_irq_info);
-+
-+	/* allocate a new PROM new_irq_info struct */
-+	status = sn_intr_alloc(local_nasid, local_widget,
-+			       new_irq_info, vector,
-+			       nasid, slice);
-+
-+	/* SAL call failed */
-+	if (status) {
-+		kfree(new_irq_info);
-+		return NULL;
-+	}
-+
 +	cpuphys = nasid_slice_to_cpuid(nasid, slice);
 +	new_irq_info->irq_cpuid = cpuphys;
 +	register_intr_pda(new_irq_info);
-+
-+	pci_provider = sn_pci_provider[new_irq_info->irq_bridge_type];
  
 -		new_irq_info->irq_cpuid = cpuid;
 -		register_intr_pda(new_irq_info);
-+	/*
-+	 * If this represents a line interrupt, target it.  If it's
-+	 * an msi (irq_int_bit < 0), it's already targeted.
-+	 */
-+	if (new_irq_info->irq_int_bit >= 0 &&
-+	    pci_provider && pci_provider->target_interrupt)
-+		(pci_provider->target_interrupt)(new_irq_info);
++	pci_provider = sn_pci_provider[new_irq_info->irq_bridge_type];
  
 -		pci_provider = sn_pci_provider[new_irq_info->irq_bridge_type];
 -		if (pci_provider && pci_provider->target_interrupt)
@@ -182,6 +188,14 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
 -		list_replace_rcu(&sn_irq_info->list, &new_irq_info->list);
 -		spin_unlock(&sn_irq_info_lock);
 -		call_rcu(&sn_irq_info->rcu, sn_irq_info_free);
++	/*
++	 * If this represents a line interrupt, target it.  If it's
++	 * an msi (irq_int_bit < 0), it's already targeted.
++	 */
++	if (new_irq_info->irq_int_bit >= 0 &&
++	    pci_provider && pci_provider->target_interrupt)
++		(pci_provider->target_interrupt)(new_irq_info);
++
 +	spin_lock(&sn_irq_info_lock);
 +	list_replace_rcu(&sn_irq_info->list, &new_irq_info->list);
 +	spin_unlock(&sn_irq_info_lock);
@@ -211,9 +225,9 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
  }
  
  struct hw_interrupt_type irq_type_sn = {
-Index: linux-2.6.16/arch/ia64/sn/pci/pci_dma.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/pci/pci_dma.c	2006-03-20 15:06:57.715060633 -0600
-+++ linux-2.6.16/arch/ia64/sn/pci/pci_dma.c	2006-03-20 22:18:39.188300475 -0600
+Index: linux-2.6/arch/ia64/sn/pci/pci_dma.c
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/pci_dma.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/pci/pci_dma.c	2006-03-27 14:33:46.980018681 -0600
 @@ -11,7 +11,7 @@
  
  #include <linux/module.h>
@@ -252,9 +266,9 @@ Index: linux-2.6.16/arch/ia64/sn/pci/pci_dma.c
  
  		if (!sg->dma_address) {
  			printk(KERN_ERR "%s: out of ATEs\n", __FUNCTION__);
-Index: linux-2.6.16/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-03-20 15:06:57.715060633 -0600
-+++ linux-2.6.16/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-03-20 22:18:39.200994563 -0600
+Index: linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_dma.c
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2006-03-27 14:33:46.983924544 -0600
 @@ -41,7 +41,7 @@
  
  static dma_addr_t
@@ -416,9 +430,9 @@ Index: linux-2.6.16/arch/ia64/sn/pci/pcibr/pcibr_dma.c
  	}
  
  	return dma_handle;
-Index: linux-2.6.16/arch/ia64/sn/pci/tioca_provider.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/pci/tioca_provider.c	2006-03-20 15:06:57.716037100 -0600
-+++ linux-2.6.16/arch/ia64/sn/pci/tioca_provider.c	2006-03-20 22:18:39.206853373 -0600
+Index: linux-2.6/arch/ia64/sn/pci/tioca_provider.c
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/tioca_provider.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/pci/tioca_provider.c	2006-03-27 14:33:46.983924544 -0600
 @@ -515,11 +515,17 @@
   * use the GART mapped mode.
   */
@@ -438,10 +452,10 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioca_provider.c
  	 * If card is 64 or 48 bit addresable, use a direct mapping.  32
  	 * bit direct is so restrictive w.r.t. where the memory resides that
  	 * we don't use it even though CA has some support.
-Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/pci/tioce_provider.c	2006-03-20 15:06:57.716037100 -0600
-+++ linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c	2006-03-20 22:18:39.212712182 -0600
-@@ -52,7 +52,8 @@
+Index: linux-2.6/arch/ia64/sn/pci/tioce_provider.c
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/tioce_provider.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/pci/tioce_provider.c	2006-03-27 14:38:54.049198769 -0600
+@@ -170,7 +170,8 @@
  	(ATE_PAGE((start)+(len)-1, pagesize) - ATE_PAGE(start, pagesize) + 1)
  
  #define ATE_VALID(ate)	((ate) & (1UL << 63))
@@ -451,7 +465,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  
  /*
   * Flavors of ate-based mapping supported by tioce_alloc_map()
-@@ -78,15 +79,17 @@
+@@ -196,15 +197,17 @@
   *
   * 63    - must be 1 to indicate d64 mode to CE hardware
   * 62    - barrier bit ... controlled with tioce_dma_barrier()
@@ -471,7 +485,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  
  	return bus_addr;
  }
-@@ -143,7 +146,7 @@
+@@ -261,7 +264,7 @@
   */
  static u64
  tioce_alloc_map(struct tioce_kernel *ce_kern, int type, int port,
@@ -480,15 +494,15 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  {
  	int i;
  	int j;
-@@ -152,6 +155,7 @@
+@@ -270,6 +273,7 @@
  	int entries;
  	int nates;
- 	int pagesize;
+ 	u64 pagesize;
 +	int msi_capable, msi_wanted;
  	u64 *ate_shadow;
  	u64 *ate_reg;
  	u64 addr;
-@@ -173,6 +177,7 @@
+@@ -291,6 +295,7 @@
  		ate_reg = ce_mmr->ce_ure_ate3240;
  		pagesize = ce_kern->ce_ate3240_pagesize;
  		bus_base = TIOCE_M32_MIN;
@@ -496,7 +510,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  		break;
  	case TIOCE_ATE_M40:
  		first = 0;
-@@ -181,6 +186,7 @@
+@@ -299,6 +304,7 @@
  		ate_reg = ce_mmr->ce_ure_ate40;
  		pagesize = MB(64);
  		bus_base = TIOCE_M40_MIN;
@@ -504,7 +518,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  		break;
  	case TIOCE_ATE_M40S:
  		/*
-@@ -193,11 +199,16 @@
+@@ -311,11 +317,16 @@
  		ate_reg = ce_mmr->ce_ure_ate3240;
  		pagesize = GB(16);
  		bus_base = TIOCE_M40S_MIN;
@@ -521,16 +535,16 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  	nates = ATE_NPAGES(ct_addr, len, pagesize);
  	if (nates > entries)
  		return 0;
-@@ -226,7 +237,7 @@
+@@ -344,7 +355,7 @@
  	for (j = 0; j < nates; j++) {
  		u64 ate;
  
 -		ate = ATE_MAKE(addr, pagesize);
 +		ate = ATE_MAKE(addr, pagesize, msi_wanted);
  		ate_shadow[i + j] = ate;
- 		writeq(ate, &ate_reg[i + j]);
+ 		tioce_mmr_storei(ce_kern, &ate_reg[i + j], ate);
  		addr += pagesize;
-@@ -253,7 +264,7 @@
+@@ -371,7 +382,7 @@
   * Map @paddr into 32-bit bus space of the CE associated with @pcidev_info.
   */
  static u64
@@ -539,7 +553,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  {
  	int dma_ok;
  	int port;
-@@ -263,6 +274,9 @@
+@@ -381,6 +392,9 @@
  	u64 ct_lower;
  	dma_addr_t bus_addr;
  
@@ -549,7 +563,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  	ct_upper = ct_addr & ~0x3fffffffUL;
  	ct_lower = ct_addr & 0x3fffffffUL;
  
-@@ -387,7 +401,7 @@
+@@ -507,7 +521,7 @@
   */
  static u64
  tioce_do_dma_map(struct pci_dev *pdev, u64 paddr, size_t byte_count,
@@ -558,7 +572,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  {
  	unsigned long flags;
  	u64 ct_addr;
-@@ -403,15 +417,18 @@
+@@ -523,15 +537,18 @@
  	if (dma_mask < 0x7fffffffUL)
  		return 0;
  
@@ -581,7 +595,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  	}
  
  	pcidev_to_tioce(pdev, NULL, &ce_kern, &port);
-@@ -454,18 +471,22 @@
+@@ -574,18 +591,22 @@
  
  		if (byte_count > MB(64)) {
  			mapaddr = tioce_alloc_map(ce_kern, TIOCE_ATE_M40S,
@@ -606,7 +620,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  		}
  	}
  
-@@ -473,7 +494,7 @@
+@@ -593,7 +614,7 @@
  	 * 32-bit direct is the next mode to try
  	 */
  	if (!mapaddr && dma_mask >= 0xffffffffUL)
@@ -615,7 +629,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  
  	/*
  	 * Last resort, try 32-bit ATE-based map.
-@@ -481,12 +502,12 @@
+@@ -601,7 +622,7 @@
  	if (!mapaddr)
  		mapaddr  		    tioce_alloc_map(ce_kern, TIOCE_ATE_M32, -1, ct_addr,
 -				    byte_count);
@@ -623,13 +637,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  
  	spin_unlock_irqrestore(&ce_kern->ce_lock, flags);
  
- dma_map_done:
--	if (mapaddr & barrier)
-+	if (mapaddr && barrier)
- 		mapaddr = tioce_dma_barrier(mapaddr, 1);
- 
- 	return mapaddr;
-@@ -502,9 +523,9 @@
+@@ -622,9 +643,9 @@
   * in the address.
   */
  static u64
@@ -641,7 +649,7 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  }
  
  /**
-@@ -516,9 +537,9 @@
+@@ -636,9 +657,9 @@
   * Simply call tioce_do_dma_map() to create a map with the barrier bit set
   * in the address.
   */ static u64
@@ -653,9 +661,18 @@ Index: linux-2.6.16/arch/ia64/sn/pci/tioce_provider.c
  }
  
  /**
-Index: linux-2.6.16/include/asm-ia64/sn/intr.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/sn/intr.h	2006-03-20 15:06:57.717013566 -0600
-+++ linux-2.6.16/include/asm-ia64/sn/intr.h	2006-03-20 22:18:39.226382739 -0600
+@@ -696,7 +717,7 @@
+ 	while (ate_index <= last_ate) {
+ 		u64 ate;
+ 
+-		ate = ATE_MAKE(0xdeadbeef, ps);
++		ate = ATE_MAKE(0xdeadbeef, ps, 0);
+ 		ce_kern->ce_ate3240_shadow[ate_index] = ate;
+ 		tioce_mmr_storei(ce_kern, &ce_mmr->ce_ure_ate3240[ate_index],
+ 				 ate);
+Index: linux-2.6/include/asm-ia64/sn/intr.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/intr.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/sn/intr.h	2006-03-27 14:33:46.994665669 -0600
 @@ -10,6 +10,7 @@
  #define _ASM_IA64_SN_INTR_H
  
@@ -685,9 +702,9 @@ Index: linux-2.6.16/include/asm-ia64/sn/intr.h
  
  #define CPU_VECTOR_TO_IRQ(cpuid,vector) (vector)
  
-Index: linux-2.6.16/include/asm-ia64/sn/pcibr_provider.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/sn/pcibr_provider.h	2006-03-20 15:06:57.717013566 -0600
-+++ linux-2.6.16/include/asm-ia64/sn/pcibr_provider.h	2006-03-20 22:18:39.228335675 -0600
+Index: linux-2.6/include/asm-ia64/sn/pcibr_provider.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/pcibr_provider.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/sn/pcibr_provider.h	2006-03-27 14:33:46.994665669 -0600
 @@ -55,6 +55,7 @@
  #define PCI32_ATE_V                     (0x1 << 0)
  #define PCI32_ATE_CO                    (0x1 << 1)
@@ -707,9 +724,9 @@ Index: linux-2.6.16/include/asm-ia64/sn/pcibr_provider.h
  extern void pcibr_dma_unmap(struct pci_dev *, dma_addr_t, int);
  
  /*
-Index: linux-2.6.16/include/asm-ia64/sn/pcibus_provider_defs.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2006-03-20 15:06:57.717013566 -0600
-+++ linux-2.6.16/include/asm-ia64/sn/pcibus_provider_defs.h	2006-03-20 22:18:39.231265080 -0600
+Index: linux-2.6/include/asm-ia64/sn/pcibus_provider_defs.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/sn/pcibus_provider_defs.h	2006-03-27 14:33:46.995642134 -0600
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -746,9 +763,9 @@ Index: linux-2.6.16/include/asm-ia64/sn/pcibus_provider_defs.h
 +
  extern struct sn_pcibus_provider *sn_pci_provider[];
  #endif				/* _ASM_IA64_SN_PCI_PCIBUS_PROVIDER_H */
-Index: linux-2.6.16/include/asm-ia64/sn/tiocp.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/sn/tiocp.h	2006-03-20 15:06:57.717990033 -0600
-+++ linux-2.6.16/include/asm-ia64/sn/tiocp.h	2006-03-20 22:18:39.234194485 -0600
+Index: linux-2.6/include/asm-ia64/sn/tiocp.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/tiocp.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/sn/tiocp.h	2006-03-27 14:33:46.995642134 -0600
 @@ -3,13 +3,14 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -765,9 +782,9 @@ Index: linux-2.6.16/include/asm-ia64/sn/tiocp.h
  
  
  /*****************************************************************************
-Index: linux-2.6.16/drivers/pci/msi-altix.c
-=================================--- linux-2.6.16.orig/drivers/pci/msi-altix.c	2006-03-20 22:01:01.802923681 -0600
-+++ linux-2.6.16/drivers/pci/msi-altix.c	2006-03-20 22:20:19.426676136 -0600
+Index: linux-2.6/drivers/pci/msi-altix.c
+=================================--- linux-2.6.orig/drivers/pci/msi-altix.c	2006-03-27 13:22:19.000000000 -0600
++++ linux-2.6/drivers/pci/msi-altix.c	2006-03-27 14:33:47.003453861 -0600
 @@ -6,13 +6,205 @@
   * Copyright (C) 2006 Silicon Graphics, Inc.  All Rights Reserved.
   */
