@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Wed, 29 Mar 2006 17:31:23 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 29 Mar 2006 18:03:14 +0000
 Subject: Re: gate.S and recent toolchains
-Message-Id: <200603291731.k2THVNjF2006521@efs.americas.sgi.com>
+Message-Id: <442ACBE2.4090605@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB0DE.1040409@sgi.com>
 In-Reply-To: <442AB0DE.1040409@sgi.com>
@@ -11,60 +11,25 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Chen, Kenneth W wrote:
-> Russ Anderson wrote on Wednesday, March 29, 2006 9:23 AM
-> > Chen, Kenneth W wrote:
-> > > 
-> > > Russ, do you reference __mca_table at run time?  It looks like so.  It's
-> > > problematic that __mca_table is in __init section.  Though I doubt that
-> > > was the reason Jes ran into.
-> > 
-> > It was right next to __ex_table in the original patch.
-> > Yes, it is referenced at run time and should not be in 
-> > the __init section.
+> Russ Anderson wrote on Wednesday, March 29, 2006 8:51 AM
+>>> Basically I am unable to build a kernel from Linus' git tree on one
+>>> system since Monday morning, whereas it boots fine if I build it on an
+>>> older system. I tried installing an older toolchain on this box but it
+>>> still didn't seem to make a difference. The system boots, calls init and
+>>> I most often get the message "INIT: 2.85 booting", then a hang. In some
+>>> instances I don't even get the INIT message.
+>> It builds and boots on all the machines I have tried,
+>> including the same build and boot machines Jes uses.
+>> Jes can't get it to work, I can't get it to fail.
 > 
-> I guess it's a merge error then :-P
+> Russ, do you reference __mca_table at run time?  It looks like so.  It's
+> problematic that __mca_table is in __init section.  Though I doubt that
+> was the reason Jes ran into.
 
-This patch moves __mca_table out of the __init section.
+Hi Ken,
 
-Jes, can you give this a try?
+I actually noticed that earlier and tried moving it around, but it made
+no difference. I forgot it again in the noise.
 
------------------------------------------------------
- arch/ia64/kernel/vmlinux.lds.S |   18 +++++++++---------
- 1 files changed, 9 insertions(+), 9 deletions(-)
-
-Index: linux-2.6-linus/arch/ia64/kernel/vmlinux.lds.S
-=================================--- linux-2.6-linus.orig/arch/ia64/kernel/vmlinux.lds.S	2006-03-28 09:03:23.000000000 -0600
-+++ linux-2.6-linus/arch/ia64/kernel/vmlinux.lds.S	2006-03-29 11:24:56.943922578 -0600
-@@ -70,6 +70,15 @@ SECTIONS
- 	  __stop___ex_table = .;
- 	}
- 
-+  /* MCA table */
-+  . = ALIGN(16);
-+  __mca_table : AT(ADDR(__mca_table) - LOAD_OFFSET)
-+	{
-+	  __start___mca_table = .;
-+	  *(__mca_table)
-+	  __stop___mca_table = .;
-+	}
-+
-   /* Global data */
-   _data = .;
- 
-@@ -128,15 +137,6 @@ SECTIONS
- 	  *(.initcall6.init)
- 	  *(.initcall7.init)
- 	  __initcall_end = .;
--	}
--
--  /* MCA table */
--  . = ALIGN(16);
--  __mca_table : AT(ADDR(__mca_table) - LOAD_OFFSET)
--	{
--	  __start___mca_table = .;
--	  *(__mca_table)
--	  __stop___mca_table = .;
- 	}
- 
-   .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
-
+Cheers,
+Jes
