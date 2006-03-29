@@ -1,129 +1,105 @@
 From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Wed, 29 Mar 2006 10:57:17 +0000
+Date: Wed, 29 Mar 2006 12:16:38 +0000
 Subject: Re: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <442A680D.5050705@bull.net>
+Message-Id: <442A7AA6.7080206@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603281853.k2SIrGg28290@unix-os.sc.intel.com> <4429ADBC.50507@free.fr> <Pine.LNX.4.64.0603281537500.15037@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0603281537500.15037@schroedinger.engr.sgi.com>
+References: <200603290139.k2T1d1g00702@unix-os.sc.intel.com>
+In-Reply-To: <200603290139.k2T1d1g00702@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: 'Christoph Lameter' <clameter@sgi.com>, 'Nick Piggin' <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Tue, 28 Mar 2006, Zoltan Menyhart wrote:
-> 
-> 
->>Why not to use separate bit operations for different purposes?
->>
->>- e.g. "test_and_set_bit_N_acquire()" for lock acquisition
->>- "test_and_set_bit()", "clear_bit()" as they are today
->>- "release_N_clear_bit()"...
->>
-> 
-> 
-> That would force IA64 specifics onto all other architectures.
-> 
-> Could we simply define these smb_mb__*_clear_bit to be noops
-> and then make the atomic bit ops to have full barriers? That would satisfy 
-> Nick's objections.
-
-I do not want to force IA64 specifics...
-I think the lock - unlock are as they are because of some historical reasons.
-IA64 only helps me to see what is really necessary for the lock
-implementation and what is just a heritage of the PCs.
-
-I try to summarize my thoughts about the locks in an architecture
-independent way. If we can agree upon how it should work, then we can
-enter into the details later :-)
-
-1. lock():
-
-The lock acquisition semantics guarantees that the lock is acquired by
-its new owner and the new ownership is made globally visible prior to all
-subsequent orderable instructions (issued by the new owner) becoming
-visible to the others.
-
-Example:
-
-  |
-  v
-  |
-store_X ----------+
-  |               |
-  v               |
-  |               |
-==== lock ==+===  |               |   ^ ^
-  v               v   ^ ^
-  |                   | |
-load_Y ---------------+ |
-store_Z ----------------+
-  |
-  v
-  |
-
-Note that "store_X" is not guaranteed to be globally performed before
-the lock.
+Part 2.
+There are a couple of different ways of using / implementing bit-op-s.
+I try to summarize them:
 
 
-2. unlock():
+1. "Stand alone" bit operations:
 
-The lock release semantics guarantees that all previous orderable
-instructions (issued by the lock owner) are made globally visible prior
-to make visible to the others the lock becoming free.
+By "stand alone" I mean that a modification to a bit field member is
+independent of any other operation before / after the bit operation
+in question. There is no ordering with respect to the other operations.
 
-
-Example:
-
-  |
-  v
-  |
-store_A ----------+
-  |               |
-  v               v   ^
-  |               v   |
-==== unlock ====+=  |                   |
-  v                   |
-  |                   |
-load_B ---------------+
-  |
-  v
-  |
-
-Note that "load_B" can be globally performed before the unlock.
+They do not provide any SMP synch. semantics, there is no need to
+implement them as some atomic operations.
 
 
-The mutual exclusion means:
+2. Atomic bit operations:
 
-- "store_A" is before unlocking
-- unlocking is before locking by the next owner
-- locking is before "load_Y" or "store_Z"
+As Linux turned to SMP safe, a couple of bit operations have been
+re-implemented by use of some atomic operations.
+An early implementation on PCs determined the basic semantics of
+these operations, including their fencing behavior.
 
-therefore "store_A" is before "load_Y" or "store_Z".
+atomic_ops.txt:
 
-No relation is defined between "store_X" and any other operation,
-nor is between "load_B" and any other operation.
+"      obj->dead = 1;
+      if (test_and_set_bit(0, &obj->flags))
+              /* ... */;
+      obj->killed = 1;
+
+   The implementation of test_and_set_bit() must guarentee that
+   "obj->dead = 1;" is visible to cpus before the atomic memory operation
+   done by test_and_set_bit() becomes visible.  Likewise, the atomic
+   memory operation done by test_and_set_bit() must become visible before
+   "obj->killed = 1;" is visible."
+
+I am not convenienced that this is a good sync. strategy.
+Unfortunately, the acquisition / release semantics were not defined
+in Linux via some architecture independent and explicit way.
+People simply abused the fact that the bidirectional fencing is
+implicitly provided by some architectures for free.
+
+Theoretically, the code fragments like above have to be cleared up
+to use explicit ordering primitives. The description in atomic_ops.txt
+should state that this is not the way to do... (see the Fencing bit
+operations below).
+There can be ~20 "test_and_set_bit()" here or there.
 
 
-Can we agree that locking and unlocking mean no more than what I
-described, especially, they do not imply bidirectional fencing?
+The atomic bit operation with requirements to order the preceding /
+following operations are mainly used for locking(-like) purposes:
 
 
-Should someone need a bidirectional fencing, s/he would have to
-use some additional shync. methods.
+3. Fencing bit operations:
+
+Should someone still insist on using the atomic bit operations as today,
+s/he should change to use e.g.:
+
+   obj->dead = 1;
+   if (test_and_set_bit_N_fence(0, &obj->flags))
+         /* ... */;
+   obj->killed = 1;
 
 
-In order to separate the theory (how is should work) and the practice
-(how is should be implemented), I put the bit-op stuff in another
-mail.
+4. Bit-lock operations:
+
+I summarized the ordering requirements here:
+http://marc.theaimsgroup.com/?l=linux-ia64&m4362989421046&w=2
+
+In order to let the architectures implement these bit-lock
+operations efficiently, the usage has to indicate the _minimal_
+required ordering semantics, e.g.:
+
+     test_and_set_bit_N_acquire()
+or   ordered_test_and_set_bit(acquire, ...)
+     release_N_clear_bit()
+etc.
+
+The style like:
+
+	do_some_ordering_before()
+	bit_op()
+	do_some_ordering_after()
+
+is quite correct, however, the compiler is not sufficiently
+intelligent to let the architecture dependent part to merge e.g. into
+a single machine instruction (if it exists).
 
 
-Thanks.
+Regards,
 
-Zoltan
-
-
-
-
+Zoltan 
 
