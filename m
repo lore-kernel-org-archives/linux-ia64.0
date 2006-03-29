@@ -1,7 +1,7 @@
 From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Wed, 29 Mar 2006 16:51:14 +0000
+Date: Wed, 29 Mar 2006 16:59:07 +0000
 Subject: Re: gate.S and recent toolchains
-Message-Id: <200603291651.k2TGpExi2006639@efs.americas.sgi.com>
+Message-Id: <200603291659.k2TGx7dM1996881@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB0DE.1040409@sgi.com>
 In-Reply-To: <442AB0DE.1040409@sgi.com>
@@ -10,7 +10,7 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jes Sorensen wrote:
+Russ Anderson wrote:
 > 
 > Hi,
 > 
@@ -22,12 +22,11 @@ Jes Sorensen wrote:
 > older system. I tried installing an older toolchain on this box but it
 > still didn't seem to make a difference. The system boots, calls init and
 > I most often get the message "INIT: 2.85 booting", then a hang. In some
+
+My kernel says "INIT: version 2.86 booting" and works.
+
 > instances I don't even get the INIT message.
-
-It builds and boots on all the machines I have tried,
-including the same build and boot machines Jes uses.
-Jes can't get it to work, I can't get it to fail.
-
+> 
 > What sparked it was Russ Anderson's patch which added a few lines to
 > include/asm-ia64/asmmacros.h, git id
 > d2a28ad9fa7bf16761d070d8a3338375e1574b32
