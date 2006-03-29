@@ -1,8 +1,10 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Wed, 29 Mar 2006 16:33:33 +0000
+From: Prarit Bhargava <prarit@redhat.com>
+Date: Wed, 29 Mar 2006 16:34:56 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <442AB6DD.4020800@sgi.com>
+Message-Id: <442AB730.2040704@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <442AB6DD.4020800@sgi.com>
+In-Reply-To: <442AB6DD.4020800@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -21,6 +23,8 @@ Prarit Bhargava wrote:
 > I saw an error spit out while the RPM install was assembling the initrd. =
 
 >  I'll look into it.
+>=20
+
 
 Looks like upstream 2.6.16-1 doesn't boot either.
 
@@ -28,7 +32,6 @@ Adding linux-ia64 to the list ...
 
 P.
 
->=20
 > P.
 >=20
 
