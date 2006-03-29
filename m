@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 29 Mar 2006 00:12:42 +0000
+Date: Wed, 29 Mar 2006 00:27:43 +0000
 Subject: RE: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <200603290012.k2T0C6g32166@unix-os.sc.intel.com>
+Message-Id: <200603290027.k2T0R7g32314@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 In-Reply-To: <Pine.LNX.4.64.0603281537500.15037@schroedinger.engr.sgi.com>
 References: <Pine.LNX.4.64.0603271953150.7469@schroedinger.engr.sgi.com>
@@ -13,33 +13,31 @@ To: 'Christoph Lameter' <clameter@sgi.com>, 'Nick Piggin' <nickpiggin@yahoo.com.
 Cc: Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
 Christoph Lameter wrote on Tuesday, March 28, 2006 3:48 PM
-> On Tue, 28 Mar 2006, Zoltan Menyhart wrote:
-> 
-> > Why not to use separate bit operations for different purposes?
-> > 
-> > - e.g. "test_and_set_bit_N_acquire()" for lock acquisition
-> > - "test_and_set_bit()", "clear_bit()" as they are today
-> > - "release_N_clear_bit()"...
-> > 
-> 
-> That would force IA64 specifics onto all other architectures.
-> 
 > Could we simply define these smb_mb__*_clear_bit to be noops
 > and then make the atomic bit ops to have full barriers? That would satisfy 
 > Nick's objections.
-> 
-> --- linux-2.6.16.orig/include/asm-ia64/bitops.h	2006-03-19 21:53:29.000000000 -0800
-> +++ linux-2.6.16/include/asm-ia64/bitops.h	2006-03-28 15:45:08.000000000 -0800
-> @@ -45,6 +45,7 @@
->  		old = *m;
->  		new = old | bit;
->  	} while (cmpxchg_acq(m, old, new) != old);
-> +	smb_mb();
->  }
 
-There are better way to do it.  The pointer is already cast as volatile,
-so old = *m has acq semantics built-in, we can just change cmpxchg_acq to
-cmpxchg_rel, then effectively it is a full memory barrier without doing the
-expensive smp_mb().
+Oh, it also penalize all other 1,055 call site of clear_bit(), though I don't
+know how many actually needs memory barrier.  I suspect some need "lock"
+barrier, some need "unlock" barrier, and of course some needs full fence.
+
+Why not make unlock_buffer use test_and_clear_bit()?  Utilizing it's implied
+full memory fence and throw away the return value?  OK, OK, this is obscured.
+Then introduce clear_bit_memory_fence API or some sort.
 
 - Ken
+
+
+diff -Nurp linux-2.6.16/fs/buffer.c linux-2.6.16.ken/fs/buffer.c
+--- linux-2.6.16/fs/buffer.c	2006-03-19 21:53:29.000000000 -0800
++++ linux-2.6.16.ken/fs/buffer.c	2006-03-28 17:20:02.000000000 -0800
+@@ -78,8 +78,7 @@ EXPORT_SYMBOL(__lock_buffer);
+ 
+ void fastcall unlock_buffer(struct buffer_head *bh)
+ {
+-	clear_buffer_locked(bh);
+-	smp_mb__after_clear_bit();
++	test_clear_buffer_locked(bh);
+ 	wake_up_bit(&bh->b_state, BH_Lock);
+ }
+ 
