@@ -1,26 +1,30 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 29 Mar 2006 20:58:40 +0000
+From: =?iso-8859-1?b?yW1lcmlj?= Maschino <emeric.maschino@jouy.inra.fr>
+Date: Wed, 29 Mar 2006 21:36:33 +0000
 Subject: RE: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F06176548@scsmsx401.amr.corp.intel.com>
+Message-Id: <1143668193.442afde10c6a6@www.jouy.inra.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-> Tiger still boots with my release tree (just has seven patches that
-> haven't been sent to Linus yet, including Russ' fix for my merge
-> goof that created item "3" above).  I haven't pulled in from Linus
->in about three days, so I'm about 458 commits behind the bleeding
-> edge.  So a "git bisect" between Linus head and the point where I last
-> merged (commit 64bc0430) might yield the problem (for Ken's tiger
-> boot issue).
+This is my turn to fill in the report: yesterday's Rawhide kernel
+2.6.16-1.2097_FC6 (based on 2.6.16-git9, git10 and git 13) and today's Rawh=
+ide
+kernel 2.6.16-1.2102_FC6 (based on 2.6.16-git14, 2.6.16-git15) don't boot o=
+n hp
+workstation zx6000.
 
-Just started the bisection ... and the current tip of Linus' git
-tree (f3cab8a0) booted just fine on tiger!  There are 85 commits
-in there since git-17 was cut, but a quick glance at gitk doesn't
-show any obvious fixes or reverts that might affect ia64.
+   =C9meric
 
--Tony
+> So far we have reports on:
+>
+> (1) 2.6.16.1 doesn't boot on altix
+> (2) 2.6.16-git17 doesn't boot on tiger4
+> (3) Jes's strange .section causing some hangs.
+>
+> Hmm, I don't know what's going on ....
+>
+> - Ken
