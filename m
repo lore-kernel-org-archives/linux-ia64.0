@@ -1,122 +1,40 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 29 Mar 2006 00:47:15 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 29 Mar 2006 01:39:37 +0000
 Subject: RE: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <Pine.LNX.4.64.0603281644270.16702@schroedinger.engr.sgi.com>
+Message-Id: <200603290139.k2T1d1g00702@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603290027.k2T0R7g32314@unix-os.sc.intel.com>
-In-Reply-To: <200603290027.k2T0R7g32314@unix-os.sc.intel.com>
+In-Reply-To: <Pine.LNX.4.64.0603281644270.16702@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0603271953150.7469@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603271953150.7469@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+To: 'Christoph Lameter' <clameter@sgi.com>
 Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, 28 Mar 2006, Chen, Kenneth W wrote:
+Christoph Lameter wrote on Tuesday, March 28, 2006 4:47 PM
+> > Why not make unlock_buffer use test_and_clear_bit()?  Utilizing it's implied
+> > full memory fence and throw away the return value?  OK, OK, this is obscured.
+> > Then introduce clear_bit_memory_fence API or some sort.
+> 
+> Only for IA64's sake? Better clean up the bitops as you suggested earlier. 
+> The open ended acquires there leaves a weird feeling.
+> 
+> Something like this? (builds fine not tested yet)
 
-> Why not make unlock_buffer use test_and_clear_bit()?  Utilizing it's implied
-> full memory fence and throw away the return value?  OK, OK, this is obscured.
-> Then introduce clear_bit_memory_fence API or some sort.
+It's warm and fuzzy feeling with changes in set_bit(), clear_bit(), and
+change_bit().  The API never meant to have implied memory fence in them.
+Though the usage might be assuming one way or the other because of x86
+semantics.
 
-Only for IA64's sake? Better clean up the bitops as you suggested earlier. 
-The open ended acquires there leaves a weird feeling.
+How many of these things are used as (1) simple atomic op, (2) lock,
+(3) unlock, and (4) full fence?
 
-Something like this? (builds fine not tested yet)
+clear_bit  - 1,070 hits
+Set_bit    - 1,450 hits
+Change_bit -     8 hits
 
+The effect of changing them to full memory fence could be wide spread. Though
+I don't have any numbers yet to say how much it will matter for performance.
 
-
-Fix up the bitops for ia64.
-
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.16/include/asm-ia64/bitops.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/bitops.h	2006-03-19 21:53:29.000000000 -0800
-+++ linux-2.6.16/include/asm-ia64/bitops.h	2006-03-28 16:35:51.000000000 -0800
-@@ -38,13 +38,14 @@ set_bit (int nr, volatile void *addr)
- 	volatile __u32 *m;
- 	CMPXCHG_BUGCHECK_DECL
- 
-+	/* Volatile load = acq */
- 	m = (volatile __u32 *) addr + (nr >> 5);
- 	bit = 1 << (nr & 31);
- 	do {
- 		CMPXCHG_BUGCHECK(m);
- 		old = *m;
- 		new = old | bit;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	} while (cmpxchg_rel(m, old, new) != old);
- }
- 
- /**
-@@ -65,7 +66,7 @@ __set_bit (int nr, volatile void *addr)
- /*
-  * clear_bit() has "acquire" semantics.
-  */
--#define smp_mb__before_clear_bit()	smp_mb()
-+#define smp_mb__before_clear_bit()	do { /* skip */; } while (0)
- #define smp_mb__after_clear_bit()	do { /* skip */; } while (0)
- 
- /**
-@@ -85,13 +86,14 @@ clear_bit (int nr, volatile void *addr)
- 	volatile __u32 *m;
- 	CMPXCHG_BUGCHECK_DECL
- 
-+	/* Volatile load = acq */
- 	m = (volatile __u32 *) addr + (nr >> 5);
- 	mask = ~(1 << (nr & 31));
- 	do {
- 		CMPXCHG_BUGCHECK(m);
- 		old = *m;
- 		new = old & mask;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	} while (cmpxchg_rel(m, old, new) != old);
- }
- 
- /**
-@@ -121,13 +123,14 @@ change_bit (int nr, volatile void *addr)
- 	volatile __u32 *m;
- 	CMPXCHG_BUGCHECK_DECL
- 
-+	/* Volatile load = acq */
- 	m = (volatile __u32 *) addr + (nr >> 5);
- 	bit = (1 << (nr & 31));
- 	do {
- 		CMPXCHG_BUGCHECK(m);
- 		old = *m;
- 		new = old ^ bit;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	} while (cmpxchg_rel(m, old, new) != old);
- }
- 
- /**
-@@ -160,13 +163,14 @@ test_and_set_bit (int nr, volatile void 
- 	volatile __u32 *m;
- 	CMPXCHG_BUGCHECK_DECL
- 
-+	/* Volatile load = acq */
- 	m = (volatile __u32 *) addr + (nr >> 5);
- 	bit = 1 << (nr & 31);
- 	do {
- 		CMPXCHG_BUGCHECK(m);
- 		old = *m;
- 		new = old | bit;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	} while (cmpxchg_rel(m, old, new) != old);
- 	return (old & bit) != 0;
- }
- 
-@@ -205,13 +209,14 @@ test_and_clear_bit (int nr, volatile voi
- 	volatile __u32 *m;
- 	CMPXCHG_BUGCHECK_DECL
- 
-+	/* Volatile load = acq */
- 	m = (volatile __u32 *) addr + (nr >> 5);
- 	mask = ~(1 << (nr & 31));
- 	do {
- 		CMPXCHG_BUGCHECK(m);
- 		old = *m;
- 		new = old & mask;
--	} while (cmpxchg_acq(m, old, new) != old);
-+	} while (cmpxchg_rel(m, old, new) != old);
- 	return (old & ~mask) != 0;
- }
- 
+- Ken
