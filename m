@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 29 Mar 2006 19:55:13 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 29 Mar 2006 20:13:30 +0000
 Subject: RE: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <200603291954.k2TJsSg10937@unix-os.sc.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F061764B7@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,38 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Prarit Bhargava wrote on Wednesday, March 29, 2006 10:55 AM
-> > Just tried upstream 2.6.16.1 on my Intel tiger4 machine.  It boots OK.
-> > What kind of problem do you have?  Where does it hang?
-> > 
-> 
-> I'm trying to get a hold of Emeric to find out what system he's using :)
-> 
-> But it looks like it is hanging on Altix's at
-> 
-> Calling initcall 0xa0000001006ad230: bictcp_register+0x0/0x40()
-> TCP bic registered
-> Calling initcall 0xa0000001006b1160: xfrm_user_init+0x0/0xe0()
-> Initializing IPsec netlink socket
-> Calling initcall 0xa0000001006ade70: af_unix_init+0x0/0x120()
-> NET: Registered protocol family 1
-> Calling initcall 0xa0000001006adfc0: packet_init+0x0/0x100()
-> NET: Registered protocol family 17
-> Calling initcall 0xa0000001006a9670: acpi_poweroff_init+0x0/0x100()
-> Calling initcall 0xa0000001006af2d0: seqgen_init+0x0/0x40()
-> Calling initcall 0xa0000001006b18d0: early_uart_console_switch+0x0/0x120()
-> Calling initcall 0xa0000001006a8e10: net_random_reseed+0x0/0x100()
-> Freeing unused kernel memory: 400kB freed
+> I also tried yesterday's snapshot 2.6.16-git17 on my tiger4, it doesn't
+> boot :-(
+>
+> So far we have reports on:
+>
+> (1) 2.6.16.1 doesn't boot on altix
+> (2) 2.6.16-git17 doesn't boot on tiger4
+> (3) Jes's strange .section causing some hangs.
 
-I also tried yesterday's snapshot 2.6.16-git17 on my tiger4, it doesn't
-boot :-(
+Tiger still boots with my release tree (just has seven patches that
+haven't been sent to Linus yet, including Russ' fix for my merge
+goof that created item "3" above).  I haven't pulled in from Linus
+in about three days, so I'm about 458 commits behind the bleeding
+edge.  So a "git bisect" between Linus head and the point where I last
+merged (commit 64bc0430) might yield the problem (for Ken's tiger
+boot issue).
 
-So far we have reports on:
+-Tony
 
-(1) 2.6.16.1 doesn't boot on altix
-(2) 2.6.16-git17 doesn't boot on tiger4
-(3) Jes's strange .section causing some hangs.
+Here's what's in release/test that hasn't gone to Linus yet:
 
-Hmm, I don't know what's going on ....
+ arch/ia64/kernel/iosapic.c          |  279 +++++++++++++++++++++---------------
+ arch/ia64/kernel/vmlinux.lds.S      |   18 +-
+ arch/ia64/mm/init.c                 |    8 -
+ arch/ia64/mm/tlb.c                  |   12 -
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |    8 -
+ 5 files changed, 198 insertions(+), 127 deletions(-)
 
-- Ken
+Chen, Kenneth W:
+      [IA64] optimize flush_tlb_range on large numa box
+
+Dean Roe:
+      [IA64-SGI] fix for-loop in sn_hwperf_geoid_to_cnode()
+
+hawkes@sgi.com:
+      [IA64-SGI] sn_hwperf use of num_online_cpus()
+
+Russ Anderson:
+      [IA64] Move __mca_table out of the __init section
+
+Satoru Takeuchi:
+      [IA64] correct some messages and fixes some minor things
+      [IA64] simplify some condition checks in iosapic_check_gsi_range
+
+Zhang, Yanmin:
+      [IA64] lazy_mmu_prot_update needs to be aware of huge pages
