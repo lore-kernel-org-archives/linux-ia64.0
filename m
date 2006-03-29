@@ -1,10 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Tue, 21 Mar 2006 14:34:54 +0000
+Date: Wed, 29 Mar 2006 02:31:16 +0000
 Subject: [PATCH 2/3] per-platform IA64_{FIRST,LAST}_DEVICE_VECTOR definitions
-Message-Id: <20060321143454.9913.84757.48922@lnx-maule.americas.sgi.com>
+Message-Id: <20060329023116.13892.44760.92317@lnx-maule.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
-In-Reply-To: <20060321143444.9913.48372.11324@lnx-maule.americas.sgi.com>
+References: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
+In-Reply-To: <20060329023105.13892.52299.24895@lnx-maule.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,9 +20,18 @@ in-use when that weren't allocated through assign_irq_vector().
 
 Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: linux-2.6.16/arch/ia64/kernel/irq_ia64.c
-=================================--- linux-2.6.16.orig/arch/ia64/kernel/irq_ia64.c	2006-03-20 15:06:59.260807181 -0600
-+++ linux-2.6.16/arch/ia64/kernel/irq_ia64.c	2006-03-20 22:06:24.719085314 -0600
+Abstract IA64_FIRST_DEVICE_VECTOR/IA64_LAST_DEVICE_VECTOR since SN platforms
+use a subset of the IA64 range.  Implement this by making the above macros
+global variables which the platform can override in it setup code.
+
+Also add a reserve_irq_vector() routine used by SN to mark a vector's as
+in-use when that weren't allocated through assign_irq_vector().
+
+Signed-off-by: Mark Maule <maule@sgi.com>
+
+Index: linux-2.6/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/irq_ia64.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/kernel/irq_ia64.c	2006-03-27 14:28:49.921546952 -0600
 @@ -46,6 +46,10 @@
  
  #define IRQ_DEBUG	0
@@ -63,9 +72,9 @@ Index: linux-2.6.16/arch/ia64/kernel/irq_ia64.c
  #ifdef CONFIG_SMP
  #	define IS_RESCHEDULE(vec)	(vec = IA64_IPI_RESCHEDULE)
  #else
-Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6.16.orig/arch/ia64/sn/kernel/irq.c	2006-03-20 15:06:59.260807181 -0600
-+++ linux-2.6.16/arch/ia64/sn/kernel/irq.c	2006-03-21 07:17:34.074494614 -0600
+Index: linux-2.6/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/irq.c	2006-03-27 11:10:59.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/irq.c	2006-03-27 14:28:49.925452815 -0600
 @@ -202,6 +202,9 @@
  	int i;
  	irq_desc_t *base_desc = irq_desc;
@@ -96,9 +105,9 @@ Index: linux-2.6.16/arch/ia64/sn/kernel/irq.c
  }
  
  static inline void
-Index: linux-2.6.16/include/asm-ia64/hw_irq.h
-=================================--- linux-2.6.16.orig/include/asm-ia64/hw_irq.h	2006-03-20 15:06:59.260807181 -0600
-+++ linux-2.6.16/include/asm-ia64/hw_irq.h	2006-03-20 22:06:25.161425498 -0600
+Index: linux-2.6/include/asm-ia64/hw_irq.h
+=================================--- linux-2.6.orig/include/asm-ia64/hw_irq.h	2006-03-27 11:11:06.000000000 -0600
++++ linux-2.6/include/asm-ia64/hw_irq.h	2006-03-27 14:28:49.931311610 -0600
 @@ -47,9 +47,19 @@
  #define IA64_CMC_VECTOR			0x1f	/* corrected machine-check interrupt vector */
  /*
@@ -129,9 +138,9 @@ Index: linux-2.6.16/include/asm-ia64/hw_irq.h
  extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
  extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
  
-Index: linux-2.6.16/drivers/pci/msi.c
-=================================--- linux-2.6.16.orig/drivers/pci/msi.c	2006-03-20 22:01:01.802923681 -0600
-+++ linux-2.6.16/drivers/pci/msi.c	2006-03-20 22:06:25.218060665 -0600
+Index: linux-2.6/drivers/pci/msi.c
+=================================--- linux-2.6.orig/drivers/pci/msi.c	2006-03-27 13:44:28.000000000 -0600
++++ linux-2.6/drivers/pci/msi.c	2006-03-27 14:29:51.071737801 -0600
 @@ -35,7 +35,7 @@
  
  #ifndef CONFIG_X86_IO_APIC
@@ -141,15 +150,14 @@ Index: linux-2.6.16/drivers/pci/msi.c
  #endif
  
  static struct msi_ops *msi_ops;
-@@ -379,6 +379,11 @@
- 		printk(KERN_WARNING "PCI: MSI cache init failed\n");
+@@ -383,6 +383,10 @@
  		return status;
  	}
-+
+ 
 +#ifndef CONFIG_X86_IO_APIC
 +	irq_vector[0] = FIRST_DEVICE_VECTOR;
 +#endif
 +
- 	last_alloc_vector = assign_irq_vector(AUTO_ASSIGN);
  	if (last_alloc_vector < 0) {
  		pci_msi_enable = 0;
+ 		printk(KERN_WARNING "PCI: No interrupt vectors available for MSI\n");
