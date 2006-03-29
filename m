@@ -1,7 +1,7 @@
 From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Wed, 29 Mar 2006 13:37:34 +0000
+Date: Wed, 29 Mar 2006 17:01:44 +0000
 Subject: Re: accessed/dirty bit handler tuning
-Message-Id: <442A8D9E.4040409@bull.net>
+Message-Id: <442ABD78.50104@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44157CF1.5060902@bull.net>
 In-Reply-To: <44157CF1.5060902@bull.net>
@@ -10,34 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth W wrote:
+Ken,
 
-> Oh my gosh, my worst nightmare becomes the reality, :-( It is unacceptable
-> to have srlz.d in vhpt_miss.
+Can you please tell me why are the pud - pmd pointers are re-checked
+in "vhpt_miss" ?
 
-Can you please explain why it is a nightmare?
-How much time do you think will be wasted?
+	ld8 r26=[r17]				// read *pmd again
+#ifdef CONFIG_PGTABLE_4
+	ld8 r19=[r28]				// read *pud again
+#endif
+...
+	cmp.ne.or.andcm p6,p7=r26,r20		// did *pmd change
+#ifdef CONFIG_PGTABLE_4
+	cmp.ne.or.andcm p6,p7=r19,r29		// did *pud change
+#endif
 
->  Couple of alternatives:
->
-> (1) strip off all ptc.g related instructions in vhpt and just let the hpw
->     walker do the job.  Kernel can take double faults, but after all, with
->     what people do to ia64 kernel, this might be the best solution.
+As far as I know, pud, pmd, pte pages can go away only via:
 
-I do not really see why it would be more efficient to let the walker do
-the inserting job, once we are in the "vhpt_miss" handler.
+	free_pgtables()
+		free_pgd_range()
+			free_pud_range()
+				free_pmd_range()
+					free_pte_range()
 
-If we suffer from the delay, why could the walker avoid this overhead?
+If a 0xa000... stuff goes away => BUG.
+For the user mode pages:
 
-Have you got a prototype for this reduced "vhpt_miss" handler ?
+"free_pgtables()" is called only from:
 
-> (2) add 20 cycles of delay in front of ptc.g
+- "exit_mmap()": we simply cannot have the chance to have a vhpt miss
+- "unmap_region()" calls "unmap_vmas()" before "free_pgtables()":
+   again, we cannot fault in that region
 
-I do not think any delay like this could be safe.
-
-> (3) dynamically patch out srlz.d for McK/Madison/Montecito processor.
-
-Is it specified anywhere what CPU models do / do not require this "srlz.d"?
+Have I missed something?
 
 Thanks,
 
