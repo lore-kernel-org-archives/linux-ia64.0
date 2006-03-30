@@ -1,49 +1,55 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Thu, 30 Mar 2006 01:34:02 +0000
+Date: Thu, 30 Mar 2006 01:36:25 +0000
 Subject: Re: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <442B358A.4060805@yahoo.com.au>
+Message-Id: <442B3619.8070502@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603290645.k2T6jbg03728@unix-os.sc.intel.com>
-In-Reply-To: <200603290645.k2T6jbg03728@unix-os.sc.intel.com>
+References: <200603290649.k2T6ntg03758@unix-os.sc.intel.com>
+In-Reply-To: <200603290649.k2T6ntg03758@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: Christoph Lameter <clameter@sgi.com>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, Zoltan.Menyhart@free.fr, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
 Chen, Kenneth W wrote:
 
->Nick Piggin wrote on Tuesday, March 28, 2006 6:36 PM
+>Nick Piggin wrote on Tuesday, March 28, 2006 12:11 AM
 >
->>Hmm, not sure. Maybe a few new bitops with _lock / _unlock postfixes?
->>For page lock and buffer lock we'd just need test_and_set_bit_lock,
->>clear_bit_unlock, smp_mb__after_clear_bit_unlock.
+>>OK, that's fair enough and I guess you do need a barrier there.
+>>However, should the mb__after barrier still remain? The comment
+>>in wake_up_bit suggests yes, and there is similar code in
+>>unlock_page.
 >>
->>I don't know, _for_lock might be a better name. But it's getting long.
->>
 >
->I think kernel needs all 4 variants:
+>Question on unlock_page:
 >
->clear_bit
->clear_bit_lock
->clear_bit_unlock
->clear_bit_fence
+>void fastcall unlock_page(struct page *page)
+>{
+>        smp_mb__before_clear_bit();
+>        if (!TestClearPageLocked(page))
+>                BUG();
+>        smp_mb__after_clear_bit();
+>        wake_up_page(page, PG_locked);
+>}
 >
->And the variant need to permutated on all other bit ops ...  I think it
->would be indeed a better API and be more explicit about the ordering.
+>Assuming test_and_clear_bit() on all arch does what the API is
+>called for with full memory fence around the atomic op, why do
+>you need smp_mb__before_clear_bit and smp_mb__after_clear_bit?
+>Aren't they redundant?
 >
 >
 
-We could just introduce them as required, though? clear_bit_fence shouldn't
-be required for ia64 any longer, if you change bitops to be full barriers,
-right?
+Yep. I pointed this out earlier.
 
-And for now, let's just not let people open critical sections unless doing
-a test_and_set, nor close them unless doing a plain clear?
+I'd say it may have initially just been a ClearPageLocked, and
+was changed for debugging reasons.
 
-It seems that memory ordering model seems to be almost too much for people
-to cope with already, so would it be reasonable to require some performance
-justification before adding more?
+We could instead change it to
+
+BUG_ON(!PageLocked(page);
+ClearPageLocked(page); /* this does clear_bit_for_unlock */
+smp_mb__after_clear_bit_unlock();
+wake_up_page
 
 --
 
