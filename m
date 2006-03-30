@@ -1,73 +1,90 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 29 Mar 2006 22:59:21 +0000
-Subject: RE: accessed/dirty bit handler tuning
-Message-Id: <200603292258.k2TMwbg12513@unix-os.sc.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 30 Mar 2006 15:13:15 +0000
+Subject: Re: accessed/dirty bit handler tuning
+Message-Id: <442BF58B.7080100@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080900060105020700010605"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44157CF1.5060902@bull.net>
 In-Reply-To: <44157CF1.5060902@bull.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan Menyhart wrote on Wednesday, March 29, 2006 9:02 AM
-> Can you please tell me why are the pud - pmd pointers are re-checked
-> in "vhpt_miss" ?
+This is a multi-part message in MIME format.
+--------------080900060105020700010605
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii; format=flowed
 
-This code has been there for over five years, and was written by a
-prominent ia64 pioneer. I trusted it with my whole heart that it is
-there for a good reason.
+Please have a look at this patch that applies after the yours.
+I hope I have not forgotten anything.
 
+Some notes:
 
-> As far as I know, pud, pmd, pte pages can go away only via:
-> 
-> 	free_pgtables()
-> 		free_pgd_range()
-> 			free_pud_range()
-> 				free_pmd_range()
-> 					free_pte_range()
-> 
-> If a 0xa000... stuff goes away => BUG.
-> For the user mode pages:
-> 
-> "free_pgtables()" is called only from:
-> 
-> - "exit_mmap()": we simply cannot have the chance to have a vhpt miss
-> - "unmap_region()" calls "unmap_vmas()" before "free_pgtables()":
->    again, we cannot fault in that region
-> 
-> Have I missed something?
+I do not add ".nta"-s because:
+- there is no atomic operation as in the dirty bit handler
+- we re-read the probably unmodified data - the L1D cache can help
 
-OK, let's see what happens without re-read pud/pmd:
+".bias" is out question
 
-cpu0                            cpu1                  cpu2
-Vhpt miss:
-  walk page table
-                                free_pgtables
-                                ptc.g fault address
-                                ptc.g hash address
-                                                      pud_alloc/pmd_alloc
-                                                      new page instantiation
-  itc.d faulting address
-  itc.d hash address
-  read pte
-  kill tlb for fault addr
-  rfi
+Thanks,
 
-Touch fault addr
-Walker install the tlb
-with staled vhpt tlb
--> using someone else's page
- -> data corruption
-   -> poor kernel engineer
-      scratch his head with
-      straight 7 days of debug
-      with no clue what the
-      hack is going on ....
+Zoltan
 
-It's a far fetched scenario, but ....
+--------------080900060105020700010605
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ name="ivt.diff"
+Content-Disposition: inline;
+ filename="ivt.diff"
 
-I suppose we can close the race with killing hash address tlb along with
-the faulting address tlb.
+--- save/arch/ia64/kernel/ivt.S	2006-03-30 16:19:18.000000000 +0200
++++ linux-2.6.16/arch/ia64/kernel/ivt.S	2006-03-30 17:03:56.000000000 +0200
+@@ -197,11 +197,12 @@ ENTRY(vhpt_miss)
+ 	;;
+ #ifdef CONFIG_SMP
+ 	/*
+-	 * Tell the assemblers dependency-violation checker that the above "itc" instructions
+-	 * cannot possibly affect the following loads:
++	 * We make sure the visibility of itc.* to generated purges (like ptc.ga)
++	 * before we re-read the *pgd ... PTE.
++	 * Having itc.i-d a new translation, there is no need for srlz.i, the rfi below
++	 * will do the serialization.
+ 	 */
+-	dv_serialize_data
+-
++(p7)	srlz.d
+ 	/*
+ 	 * Re-check pagetable entry.  If they changed, we may have received a ptc.g
+ 	 * between reading the pagetable and the "itc".  If so, flush the entry we
+@@ -266,11 +267,11 @@ ENTRY(itlb_miss)
+ 	;;
+ #ifdef CONFIG_SMP
+ 	/*
+-	 * Tell the assemblers dependency-violation checker that the above "itc" instructions
+-	 * cannot possibly affect the following loads:
++	 * We make sure the visibility of itc.i to generated purges (like ptc.ga)
++	 * before we re-read the PTE.
++	 * There is no need for srlz.i, the rfi below will do the serialization.
+ 	 */
+-	dv_serialize_data
+-
++	srlz.d
+ 	ld8 r19=[r17]				// read *pte again and see if same
+ 	mov r20=PAGE_SHIFT<<2			// setup page size for purge
+ 	;;
+@@ -310,11 +311,10 @@ dtlb_fault:
+ 	;;
+ #ifdef CONFIG_SMP
+ 	/*
+-	 * Tell the assemblers dependency-violation checker that the above "itc" instructions
+-	 * cannot possibly affect the following loads:
++	 * We make sure the visibility of itc.d to generated purges (like ptc.ga)
++	 * before we re-read the PTE.
+ 	 */
+-	dv_serialize_data
+-
++	srlz.d
+ 	ld8 r19=[r17]				// read *pte again and see if same
+ 	mov r20=PAGE_SHIFT<<2			// setup page size for purge
+ 	;;
 
-- Ken
+--------------080900060105020700010605--
