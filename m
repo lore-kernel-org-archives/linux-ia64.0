@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 30 Mar 2006 08:57:04 +0000
+Date: Thu, 30 Mar 2006 09:04:25 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <yq0y7ysux7j.fsf@jaguar.mkp.net>
+Message-Id: <yq0u09guwva.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,29 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Tony" = Luck, Tony <tony.luck@intel.com> writes:
+>>>>> "Jack" = Jack Steiner <steiner@sgi.com> writes:
 
->> I also tried yesterday's snapshot 2.6.16-git17 on my tiger4, it
->> doesn't boot :-(
->> 
->> So far we have reports on:
->> 
->> (1) 2.6.16.1 doesn't boot on altix (2) 2.6.16-git17 doesn't boot on
->> tiger4 (3) Jes's strange .section causing some hangs.
+Jack> 	...  Virtual mem_map starts at 0xa0007fffd5f2c000 Built 1
+Jack> zonelists Kernel command line: root=/dev/hda2 init=/bin/bash
+Jack> console=ttyS0 PID hash table entries: 1024 (order: 10, 32768
+Jack> bytes) Console: colour dummy device 80x25
 
-Tony> Tiger still boots with my release tree (just has seven patches
-Tony> that haven't been sent to Linus yet, including Russ' fix for my
-Tony> merge goof that created item "3" above).  I haven't pulled in
-Tony> from Linus in about three days, so I'm about 458 commits behind
-Tony> the bleeding edge.  So a "git bisect" between Linus head and the
-Tony> point where I last merged (commit 64bc0430) might yield the
-Tony> problem (for Ken's tiger boot issue).
+Jack> The failure is an MCA caused by a cache hit on a memory
+Jack> reference to an uncached address. The simulator detects this
+Jack> error & stops.
 
-Tony,
+Hi Jack,
 
-Please note that if I compile the kernel on a box with an old
-installation and old toolchain the kernel boots, same source tree
-built on a system with a new installation and it doesn't boot.
+Sorry about the missing symbol table, was a bit late.
+
+I am not sure it's the same thing, as my kernel gets a lot further and
+normally spawns init before exploding.
+
+Jack> The code that took the failure was memcopy (or equiv). I
+Jack> recognized the code from the prefetchs and ld/st sequence. The
+Jack> data appears to be an ACPI table that is being copied into
+Jack> kernel memory. The current reference is using uncached addresses
+Jack> but 15M instructions in the past, the table was referenced
+Jack> cached.
+
+Jack> Does this ring any bells with anyone?  This failure may occur
+Jack> only in our simulator environment, so don't spent any time on
+Jack> this unless it sounds familar.
+
+Jack> As soon as I get a symbol table, I'll know a lot more about the
+Jack> failure.
+
+I put one up on attica for you ~jes/System.map-jack
+
+It seems the kernel explodes in __copy_user in your case.
 
 Cheers,
 Jes
