@@ -1,7 +1,7 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Thu, 30 Mar 2006 15:42:00 +0000
+From: "David Mosberger-Tang" <David.Mosberger@acm.org>
+Date: Thu, 30 Mar 2006 15:43:43 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <442BFC48.3050902@sgi.com>
+Message-Id: <ed5aea430603300743t72736efay5c83fa29fe2f4a86@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,24 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello all,
+On 3/30/06, Jack Steiner <steiner@sgi.com> wrote:
 
-> ---
->  arch/ia64/kernel/gate.lds.S |    1 +
->  include/asm-ia64/asmmacro.h |    4 ++++
->  2 files changed, 5 insertions(+)
-> 
+> Is this problem unique to SN systems
 
-I applied this patch and compiled using gcc-4.1.0-3.
+No, the same will happen on all other systems (that I know of).
 
-I now see hundreds of warnings like:
+> The BIOS reports that most
+> memory ranges support both CACHED & UNCACHED references. I _think_
+> this is correct.
 
-WARNING: drivers/atm/he.o - Section mismatch: reference to 
-.init.text:he_start from .text after 'he_init_one' (at offset 0x81a2)
-WARNING: drivers/block/cpqarray.o - Section mismatch: reference to 
-.init.text:cpqarray_init_one from .data.rel.local between 
-'cpqarray_pci_driver' (at offset 0x20) and 'smart1_access'
+That's correct.  The map shows the ways the page *can* be mapped, not
+the way it *should* be mapped.
 
-Just an FYI,
+It's strange that ACPI would prefer to use WC when WB mapping is
+possible.  They definitely need to pick one way and stick with it
+though.  As you say, mapping the same page with different cacheability
+is a no-no (and at least in theory, it should cause an MCA even on
+real hardware).
 
-P.
+  --david
+
+--
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
