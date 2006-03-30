@@ -1,7 +1,7 @@
-From: "David Mosberger-Tang" <David.Mosberger@acm.org>
-Date: Thu, 30 Mar 2006 15:53:56 +0000
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Thu, 30 Mar 2006 16:34:55 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <ed5aea430603300753u3ae9509cua9993fdf5c995ce5@mail.gmail.com>
+Message-Id: <20060330163455.GA8654@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,18 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 3/30/06, Jack Steiner <steiner@sgi.com> wrote:
-> On Thu, Mar 30, 2006 at 08:43:43AM -0700, David Mosberger-Tang wrote:
-> > (and at least in theory, it should cause an MCA even on
-> > real hardware).
->
-> It does, at least on our chipset. If the chipset detects a simultaneous
-> UC & C reference, it generates a BUS error. It is surprising how
-> quickly this MCA occurs when we break the rules.
+On Thu, Mar 30, 2006 at 10:42:00AM -0500, Prarit Bhargava wrote:
+> Hello all,
+> 
+> >---
+> > arch/ia64/kernel/gate.lds.S |    1 +
+> > include/asm-ia64/asmmacro.h |    4 ++++
+> > 2 files changed, 5 insertions(+)
+> >
+> 
+> I applied this patch and compiled using gcc-4.1.0-3.
+> 
+> I now see hundreds of warnings like:
+> 
+> WARNING: drivers/atm/he.o - Section mismatch: reference to 
+> .init.text:he_start from .text after 'he_init_one' (at offset 0x81a2)
+> WARNING: drivers/block/cpqarray.o - Section mismatch: reference to 
+> .init.text:cpqarray_init_one from .data.rel.local between 
+> 'cpqarray_pci_driver' (at offset 0x20) and 'smart1_access'
+> 
 
-That's good.  While MCAs are a pain, it's a lot better than having to
-track down data corruption due to (in-)coherency.
+Where did they come from?
 
- --david
---
-Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+
+H.J.
