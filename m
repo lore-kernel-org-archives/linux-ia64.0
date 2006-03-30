@@ -1,31 +1,51 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 30 Mar 2006 18:17:38 +0000
-Subject: RE: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <Pine.LNX.4.64.0603301016330.32317@schroedinger.engr.sgi.com>
+Date: Thu, 30 Mar 2006 19:11:15 +0000
+Subject: Re: Fix unlock_buffer() to work the same way as bit_unlock()
+Message-Id: <Pine.LNX.4.64.0603301107480.370@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <65953E8166311641A685BDF71D865826A23E13@cacexc12.americas.cpqcorp.net>
-In-Reply-To: <65953E8166311641A685BDF71D865826A23E13@cacexc12.americas.cpqcorp.net>
+References: <65953E8166311641A685BDF71D865826A23D40@cacexc12.americas.cpqcorp.net>
+ <Pine.LNX.4.64.0603291529160.26011@schroedinger.engr.sgi.com>
+ <442B9A2A.7000306@bull.net> <442B9D18.4050903@yahoo.com.au>
+In-Reply-To: <442B9D18.4050903@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Boehm, Hans" <hans.boehm@hp.com>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, Nick Piggin <nickpiggin@yahoo.com.au>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 30 Mar 2006, Boehm, Hans wrote:
+On Thu, 30 Mar 2006, Nick Piggin wrote:
 
-> > The compiler will select that at compile time. One has the 
-> > option of also generating run time seletion by specifying a 
-> > variable instead of a constant when callig these functions.
-> I would view the latter as a disadvantage, since I can't think of a case
-> in which you wouldn't want it reported as an error instead, at least if
-> you care about performance.  If you know of one, I'd be very interested.
+> Zoltan Menyhart wrote:
+> 
+> > However, I do not think your implementation would be efficient due to
+> > selecting the ordering mode at run time:
+> > 
+> > > +    switch (mode) {
+> > > +    case MODE_NONE :
+> > > +    case MODE_ACQUIRE :
+> > > +        return cmpxchg_acq(m, old, new);
+> > > +    case MODE_FENCE :
+> > > +        smp_mb();
+> > > +        /* Fall through */
+> > > +    case MODE_RELEASE :
+> > > +        return cmpxchg_rel(m, old, new);
+> > 
+> 
+> BTW. Isn't MODE_FENCE wrong? Seems like a read or write could be moved
+> above cmpxchg_rel?
 
-In that case: We could check that a constant is passed at compile time.
+Hmmm.... We should call this MODE_BARRIER I guess...
  
-> The first form does have the advantage that it's possible to build up
-> more complicated primitives from simpler ones without repeating the
-> definition four times.
+> I think you need rel+acq rather than acq+rel (if I'm right, then the
+> same goes for your earlier bitops patches, btw).
 
-What is the first form? The advantage of passing a parameter is more 
-compact code and less definitions.
+The question is what does fence imply for the order of the atomic 
+operation. Will the operation be performed before or after the barrier? 
+Or do we need barriers on both sides?
+
+If so then we may simulate that with a release and then do a acquire load 
+afterwards
+
+	 cmpxchg_rel(m, old, new);
+	 return *m;	/* m volatile so it has acquire semantics */
 
