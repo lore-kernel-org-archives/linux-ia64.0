@@ -1,55 +1,49 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Thu, 30 Mar 2006 01:36:25 +0000
+Date: Thu, 30 Mar 2006 01:56:57 +0000
 Subject: Re: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <442B3619.8070502@yahoo.com.au>
+Message-Id: <442B3AE9.7090102@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603290649.k2T6ntg03758@unix-os.sc.intel.com>
-In-Reply-To: <200603290649.k2T6ntg03758@unix-os.sc.intel.com>
+References: <200603290139.k2T1d1g00702@unix-os.sc.intel.com> <442A7AA6.7080206@bull.net>
+In-Reply-To: <442A7AA6.7080206@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, Zoltan.Menyhart@free.fr, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'Christoph Lameter' <clameter@sgi.com>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Chen, Kenneth W wrote:
+Zoltan Menyhart wrote:
 
->Nick Piggin wrote on Tuesday, March 28, 2006 12:11 AM
 >
->>OK, that's fair enough and I guess you do need a barrier there.
->>However, should the mb__after barrier still remain? The comment
->>in wake_up_bit suggests yes, and there is similar code in
->>unlock_page.
->>
+> 4. Bit-lock operations:
 >
->Question on unlock_page:
+> I summarized the ordering requirements here:
+> http://marc.theaimsgroup.com/?l=linux-ia64&m4362989421046&w=2
 >
->void fastcall unlock_page(struct page *page)
->{
->        smp_mb__before_clear_bit();
->        if (!TestClearPageLocked(page))
->                BUG();
->        smp_mb__after_clear_bit();
->        wake_up_page(page, PG_locked);
->}
+> In order to let the architectures implement these bit-lock
+> operations efficiently, the usage has to indicate the _minimal_
+> required ordering semantics, e.g.:
 >
->Assuming test_and_clear_bit() on all arch does what the API is
->called for with full memory fence around the atomic op, why do
->you need smp_mb__before_clear_bit and smp_mb__after_clear_bit?
->Aren't they redundant?
->
+>     test_and_set_bit_N_acquire()
+> or   ordered_test_and_set_bit(acquire, ...)
+>     release_N_clear_bit()
+> etc.
 >
 
-Yep. I pointed this out earlier.
+The problem is simply that we don't expose acquire or release
+ordering operations to AI kernel code (outside of locking, which
+is a great wrapper). The reason is to avoid proliferation of all
+these semantics.
 
-I'd say it may have initially just been a ClearPageLocked, and
-was changed for debugging reasons.
+If you do this then the powerpc guys will say they want all
+their weird crap in there too. If you remove seperate read
+and write barriers, then x86 and sparc64 folks will get upset
+etc etc.
 
-We could instead change it to
-
-BUG_ON(!PageLocked(page);
-ClearPageLocked(page); /* this does clear_bit_for_unlock */
-smp_mb__after_clear_bit_unlock();
-wake_up_page
+Changing semantics would probably require some fairly hefty
+discussions. Can you first fix ia64, then (perhaps) introduce
+lock semantics for the couple of bitops that can use it, then
+can we see some performance justification for proposed
+changes to the API?
 
 --
 
