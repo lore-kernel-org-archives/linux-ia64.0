@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 30 Mar 2006 17:10:31 +0000
-Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <20060330171031.GA8366@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 30 Mar 2006 18:23:41 +0000
+Subject: RE: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F061AA7F3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,94 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Mar 30, 2006 at 09:53:39AM -0700, Bjorn Helgaas wrote:
-> On Thursday 30 March 2006 08:16, Jack Steiner wrote:
-> > acpi_os_map_memory() has changed the order of checking the EFI attributes on
-> > pages being mapped. In 2.6.15, if the EFI map indicates that an address
-> > supports both cached & uncached references, acpi_os_map_memory() would map
-> > it as cached.
+> I applied this patch and compiled using gcc-4.1.0-3.
 > 
-> > OLD:
-> >         acpi_os_map_memory
-> >                 if (EFI_MEMORY_WB & efi_mem_attributes(phys)) {
-> >                         *virt = (void __iomem *)phys_to_virt(phys);
-> >                 } else {
-> >                         *virt = ioremap(phys, size);
-> >                 }
-> > 
-> > NEW
-> >         acpi_os_map_memory() unconditionally calls ioremap() to do the
-> >         mapping
-> > 
-> >         ioremap
-> >                 if (efi_mem_attribute_range(offset, size, EFI_MEMORY_UC))
-> >                          return __ioremap(offset, size);
-> > 
-> >                 if (efi_mem_attribute_range(offset, size, EFI_MEMORY_WB))
-> >                          return phys_to_virt(offset);
+> I now see hundreds of warnings like:
 > 
-> I debated whether to check for UC or WB first, and I think I got it
-> wrong.  My reasoning for UC first was that it was a smaller change
-> for the typical case CSR mapping case, because ioremap() used to
-> *always* return UC mappings.
-> 
-> But efi_memmap_init() collects full granules of WB memory, without
-> regard for whether they also support UC.  So if ioremap() needs to
-> work for main memory (which is slightly strange in itself, but seems
-> to be the precedent), it needs to prefer WB mappings when possible.
-> 
-> > Earlier in the boot, the ACPI tables are unconditionally references as cached:
-> > 
-> >         char *__acpi_map_table(unsigned long phys_addr, unsigned long size)
-> >         {
-> >                 return __va(phys_addr);
-> >         }
-> 
-> This seems suspicious to me.  But we look at some of these ACPI tables
-> prior to calling efi_memmap_init(), so it might not be safe to use
-> ioremap() yet.  It's conceivable that a platform could place ACPI
-> tables in UC-only ROM, and this would blow up.  But I guess we
-> haven't tripped over that yet.
-> 
-> Does the patch below solve your immediate problem?
+> WARNING: drivers/atm/he.o - Section mismatch: reference to 
+> .init.text:he_start from .text after 'he_init_one' (at offset 0x81a2)
+> WARNING: drivers/block/cpqarray.o - Section mismatch: reference to 
+> .init.text:cpqarray_init_one from .data.rel.local between 
+> 'cpqarray_pci_driver' (at offset 0x20) and 'smart1_access'
 
-Looks good. 
+Just tried with vanilla gcc 4.1.0, and I don't see these
+warnings.
 
+BTW, these messages presumably come from scripts/mod/modpost.c
 
-> 
-> 
-> [IA64] ioremap() should prefer WB over UC
-> 
-> efi_memmap_init() collects full granules of WB memory, without
-> regard for whether they also support UC.  So in order for ioremap()
-> to work for main memory, it must prefer WB mappings when possible.
-> 
-> Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-> 
-> Index: work-mm5/arch/ia64/mm/ioremap.c
-> =================================> --- work-mm5.orig/arch/ia64/mm/ioremap.c	2006-03-23 10:22:40.000000000 -0700
-> +++ work-mm5/arch/ia64/mm/ioremap.c	2006-03-30 09:36:57.000000000 -0700
-> @@ -21,12 +21,12 @@
->  void __iomem *
->  ioremap (unsigned long offset, unsigned long size)
->  {
-> -	if (efi_mem_attribute_range(offset, size, EFI_MEMORY_UC))
-> -		return __ioremap(offset, size);
-> -
->  	if (efi_mem_attribute_range(offset, size, EFI_MEMORY_WB))
->  		return phys_to_virt(offset);
->  
-> +	if (efi_mem_attribute_range(offset, size, EFI_MEMORY_UC))
-> +		return __ioremap(offset, size);
-> +
->  	/*
->  	 * Someday this should check ACPI resources so we
->  	 * can do the right thing for hot-plugged regions.
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+-Tony
