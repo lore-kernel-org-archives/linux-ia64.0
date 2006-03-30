@@ -1,7 +1,7 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Mon, 27 Mar 2006 00:16:56 +0000
-Subject: Re: git pull on ia64 linux tree
-Message-Id: <20060327091656.0bb2f2ee.kamezawa.hiroyu@jp.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 30 Mar 2006 18:42:52 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200603301842.k2UIgquM013762@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -10,26 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 26 Mar 2006 11:01:21 -0800
-"Chen, Kenneth W" <kenneth.w.chen@intel.com> wrote:
+Hi Linus,
 
-> Luck, Tony wrote on Friday, March 24, 2006 3:02 PM
-> Tony, please queue the following two patches in your next update.  They still
-> apply cleanly on Linus' git-tree as of this morning.  Thanks.
->
-> [patch] optimize flush_tlb_range on large numa box
-> http://marc.theaimsgroup.com/?t4168341600005&r=1&w=2
-> 
+please pull from:
 
-I love this patch :) Our performance validation team found ia64_global_tlb_purge()
-performance problem in do_wp_page()/ia64_global_tlb_purge(), copy-on-write.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-When they does fork() at the rate of 4-500 fork/sec, 40% of cpu time was spent in 
-copy-on-write's ia64_global_tlb_purge. By this, customer's shell-script cannot scale
-enough. (we asked them to reduce fork()..)
+This will update the files shown below.
 
-(Because they have already removed their test enironment, I can't ask them to try
- this patch. sorry.)
+Thanks!
 
-Thanks,
---Kame
+-Tony
+
+ arch/ia64/kernel/gate.lds.S         |    1 
+ arch/ia64/kernel/iosapic.c          |  279 +++++++++++++++++++++---------------
+ arch/ia64/kernel/vmlinux.lds.S      |   18 +-
+ arch/ia64/mm/init.c                 |    8 -
+ arch/ia64/mm/ioremap.c              |    6 
+ arch/ia64/mm/tlb.c                  |   12 -
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |    8 -
+ include/asm-ia64/asmmacro.h         |    4 
+ 8 files changed, 206 insertions(+), 130 deletions(-)
+
+Bjorn Helgaas:
+      [IA64] ioremap() should prefer WB over UC
+
+Chen, Kenneth W:
+      [IA64] optimize flush_tlb_range on large numa box
+
+Dean Roe:
+      [IA64-SGI] fix for-loop in sn_hwperf_geoid_to_cnode()
+
+hawkes@sgi.com:
+      [IA64-SGI] sn_hwperf use of num_online_cpus()
+
+Jes Sorensen:
+      [IA64] Add __mca_table to the DISCARD list in gate.lds
+
+Russ Anderson:
+      [IA64] Move __mca_table out of the __init section
+
+Satoru Takeuchi:
+      [IA64] correct some messages and fixes some minor things
+      [IA64] simplify some condition checks in iosapic_check_gsi_range
+
+Zhang, Yanmin:
+      [IA64] lazy_mmu_prot_update needs to be aware of huge pages
