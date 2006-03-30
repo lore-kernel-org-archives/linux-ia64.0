@@ -1,7 +1,7 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Thu, 30 Mar 2006 18:23:44 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 30 Mar 2006 18:54:26 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <442C2230.7030306@sgi.com>
+Message-Id: <20060330185426.GE4839@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,24 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Prarit Bhargava wrote:
->>
->> Which program generated them?
->>
+On Thu, Mar 30, 2006 at 09:16:11AM -0600, Jack Steiner wrote:
+...
+> The most recent kernel has changed this behavior so that the address will be
+> referenced as uncached.
+...
+> NEW
+>         acpi_os_map_memory() unconditionally calls ioremap() to do the
+>         mapping
 > 
-> [root@altix2 ~]# gcc --version
-> gcc (GCC) 4.1.0 20060304 (Red Hat 4.1.0-3)
-> 
+>         ioremap
+>                 if (efi_mem_attribute_range(offset, size, EFI_MEMORY_UC))
+>                          return __ioremap(offset, size);
 
-Humph.  I can't get this to happen again :/.  Oh well ... if anyone else 
-sees this issue please let me know.
+Could this be related to the issue of ioremap() vs ioremap_nocache()
+that Mathew Wilcox proposed a patch for?
 
-P.
+	http://lkml.org/lkml/2006/3/30/251
 
-> P.
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
+grant
