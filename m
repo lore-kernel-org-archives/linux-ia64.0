@@ -1,79 +1,91 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 30 Mar 2006 13:24:19 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 30 Mar 2006 15:16:11 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <yq07j6cuku4.fsf@jaguar.mkp.net>
+Message-Id: <20060330151611.GB3360@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jes" =3D Jes Sorensen <jes@sgi.com> writes:
+> I don't know if this helps or not.
+> 
+> I ran Jes's kernel on the simulator. Unfortunately, he sent me a stripped
+> kernel so I have no symbol table.
+> 
+> The kernel blows up right after printing:
+> 
+> 	...
+> 	Virtual mem_map starts at 0xa0007fffd5f2c000
+> 	Built 1 zonelists
+> 	Kernel command line: root=/dev/hda2 init=/bin/bash console=ttyS0
+> 	PID hash table entries: 1024 (order: 10, 32768 bytes)
+> 	Console: colour dummy device 80x25
+> 
+> The failure is an MCA caused by a cache hit on a memory reference to an
+> uncached address. The simulator detects this error & stops.
+> 
+> The code that took the failure was memcopy (or equiv). I recognized the
+> code from the prefetchs and ld/st sequence. The data appears to be
+> an ACPI table that is being copied into kernel memory. The current
+> reference is using uncached addresses but 15M instructions in the past, the
+> table was referenced cached.
+ 
+I found the problem that is causing the cache/uncached collision. This is
+most likely NOT what is causing the problem you are currently chasing, but
+it is a problem never-the-less.
 
-Jes> Tracked it down further. If I take the gate.o file from a working
-Jes> kernel and copy it into the broken tree and run make again, the
-Jes> resulting kernel boots.
+(Background: I noticed that recent IA64 kernels are making references to the
+same address using both cached & uncached addresses. The kernel fails to
+boot on the simulator because it detects a cache-hit on an uncached
+reference. Mixing cached & uncached references is not supported).
 
-Jes> I compared the code between a working and a broken gate.o with
-Jes> objdump and it's identical. However the good file is 3552 bytes
-Jes> whereas the broken one is 3648.
 
-Looks like something goes wrong with some linking references due to
-this. I ran objdump on the two kernels I get when replacing gate.o and
-the diff is as attached below. Not sure if this is an ia64 specific
-bug or we're just 'lucky'.
+acpi_os_map_memory() has changed the order of checking the EFI attributes on
+pages being mapped. In 2.6.15, if the EFI map indicates that an address
+supports both cached & uncached references, acpi_os_map_memory() would map
+it as cached.
 
-Cheers,
-Jes
+The most recent kernel has changed this behavior so that the address will be
+referenced as uncached.
 
---- ../good/vmlinux.s	2006-03-30 15:13:11.000000000 +0200
-+++ ../broken/vmlinux.s	2006-03-30 15:11:57.000000000 +0200
-@@ -4981,8 +4981,8 @@
- a00000010000bd96:	30 01 44 44 08 40 	            mov.m r19=3Dar.bsp
- a00000010000bd9c:	01 00 40 00       	            mov f10=F0
- a00000010000bda0:	05 00 00 00 01 00 	[MLX]       nop.m 0x0
--a00000010000bda6:	00 00 00 00 20 c0 	            movl r14=3D0xa00000000001=
-0640;;
--a00000010000bdac:	01 24 30 68=20
-+a00000010000bda6:	00 00 00 00 00 c0 	            movl r14=3D0x10080;;
-+a00000010000bdac:	01 20 04 60=20
- a00000010000bdb0:	08 00 00 32 2a 04 	[MMI]       mov.m ar25=3Dr0
- a00000010000bdb6:	00 00 80 54 08 e0 	            mov.m ar.ccv=3Dr0
- a00000010000bdbc:	e0 08 00 07       	            mov b7=3Dr14
-@@ -8192,8 +8192,8 @@
- a00000010000fe06:	00 01 00 00 20 c0 	            movl r14=3D0xa00000010000=
-bc60
- a00000010000fe0c:	01 06 e0 6d=20
- a00000010000fe10:	05 00 00 00 01 00 	[MLX]       nop.m 0x0
--a00000010000fe16:	00 00 00 00 20 80 	            movl r28=3D0xa00000000001=
-0620;;
--a00000010000fe1c:	03 22 30 68=20
-+a00000010000fe16:	00 00 00 00 00 80 	            movl r28=3D0x10060;;
-+a00000010000fe1c:	03 26 00 60=20
- a00000010000fe20:	01 10 00 20 00 21 	[MII]       mov r2=3Dr16
- a00000010000fe26:	00 21 42 0c 42 e0 	            adds r16=836,r16
- a00000010000fe2c:	03 00 cc 00       	            mov r31=3Dpr;;
-@@ -1563052,7 +1563052,7 @@
- a00000010091856c:	03 73 ff 00       	            data8 0x1fee607fe
- a000000100918570:	73 ec 02 f0 05 44 	[MBB] (p35) mov pmd[r120]=3Dr0
- a000000100918576:	ee 02 f0 06 46 e8 	            data8 0x1181bc00bb9
--a00000010091857c:	02 f0 03 4c       	            br.ctop.sptk.few.clr a000=
-0000ff957570 <__kernel_sigtramp+0xff946e50>;;
-+a00000010091857c:	02 f0 03 4c       	            br.ctop.sptk.few.clr a000=
-0000ff957570 <__end_gate_brl_fsys_bubble_down_patchlist+0xff957064>;;
- a000000100918580:	e4 02 f0 01 36 e6 	[MLX] (p23) mov r0=3D-2090116
- a000000100918586:	02 f0 02 38 e1 02 	            data8 0x1be0edc605
- a00000010091858c:	e3 76 f0 0d=20
-@@ -1563061,7 +1563061,7 @@
- a00000010091859c:	03 73 ff 00       	            data8 0x1fee607fe
- a0000001009185a0:	73 ec 00 f0 05 44 	[MBB] (p35) mov pmd[r120]=3Dr0
- a0000001009185a6:	ee 00 f0 06 46 e8 	            data8 0x1181bc003b9
--a0000001009185ac:	00 f0 03 4c       	            br.ctop.sptk.few.clr a000=
-0000ff9575a0 <__kernel_sigtramp+0xff946e80>;;
-+a0000001009185ac:	00 f0 03 4c       	            br.ctop.sptk.few.clr a000=
-0000ff9575a0 <__end_gate_brl_fsys_bubble_down_patchlist+0xff957094>;;
- a0000001009185b0:	e4 00 f0 01 36 e6 	[MLX] (p07) mov r0=3D-2090116
- a0000001009185b6:	00 f0 02 38 e1 00 	            data8 0x1cdf2edc601
- a0000001009185bc:	e3 76 f9 e6=20
+
+OLD:
+        acpi_os_map_memory
+                if (EFI_MEMORY_WB & efi_mem_attributes(phys)) {
+                        *virt = (void __iomem *)phys_to_virt(phys);
+                } else {
+                        *virt = ioremap(phys, size);
+                }
+
+NEW
+        acpi_os_map_memory() unconditionally calls ioremap() to do the
+        mapping
+
+        ioremap
+                if (efi_mem_attribute_range(offset, size, EFI_MEMORY_UC))
+                         return __ioremap(offset, size);
+
+                if (efi_mem_attribute_range(offset, size, EFI_MEMORY_WB))
+                         return phys_to_virt(offset);
+
+
+Earlier in the boot, the ACPI tables are unconditionally references as cached:
+
+        char *__acpi_map_table(unsigned long phys_addr, unsigned long size)
+        {
+                return __va(phys_addr);
+        }
+
+
+
+I suspect there was a reason for this change. I'll add Bjorn to the cc
+list. 
+
+Is this problem unique to SN systems. The BIOS reports that most
+memory ranges support both CACHED & UNCACHED references. I _think_
+this is correct.
+
+
