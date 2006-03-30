@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 30 Mar 2006 18:28:07 +0000
-Subject: RE: show_mem() for ia64 discontig takes a really long time on large systems.
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F061AA80C@scsmsx401.amr.corp.intel.com>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Thu, 30 Mar 2006 18:34:23 +0000
+Subject: RE: show_mem() for ia64 discontig takes a really long time on
+Message-Id: <1143743663.9731.87.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
 In-Reply-To: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
@@ -10,13 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Since we only deal with blocks of memory in IA64_GRANULE_SIZE
-pieces (16M or 64M) that would seem to be the natural skip
-amount.
+One other random idea...
 
-Oh, but that is probably still too slow. Jack said he has 180GB
-holes ... 180GB/16M = 11520 useless probes and TLB misses.  We'd
-be better of to brute force seach the efi_memmap for the next
-address when we get a miss.
+We could call memory_present() and populate the sparsemem tables, but
+only _use_ sparsemem in show_mem().  Not for normal pfn_to_page() or
+pfn_valid().
 
--Tony
+-- Dave
+
