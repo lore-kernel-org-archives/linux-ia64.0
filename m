@@ -1,49 +1,64 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Thu, 30 Mar 2006 01:56:57 +0000
+Date: Thu, 30 Mar 2006 01:57:59 +0000
 Subject: Re: Fix unlock_buffer() to work the same way as bit_unlock()
-Message-Id: <442B3AE9.7090102@yahoo.com.au>
+Message-Id: <442B3B27.3030802@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603290139.k2T1d1g00702@unix-os.sc.intel.com> <442A7AA6.7080206@bull.net>
-In-Reply-To: <442A7AA6.7080206@bull.net>
+References: <Pine.LNX.4.64.0603271953150.7469@schroedinger.engr.sgi.com> <442AA13B.3050104@bull.net>
+In-Reply-To: <442AA13B.3050104@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'Christoph Lameter' <clameter@sgi.com>, Zoltan Menyhart <Zoltan.Menyhart@free.fr>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, Zoltan.Menyhart@free.fr, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, William Lee Irwin III <wli@holomorphy.com>
 
 Zoltan Menyhart wrote:
 
+> Christoph Lameter wrote:
 >
-> 4. Bit-lock operations:
+>> [...]
+>>  void fastcall unlock_buffer(struct buffer_head *bh)
+>>  {
+>> +    smp_mb__before_clear_bit();
+>>      clear_buffer_locked(bh);
+>> -    smp_mb__after_clear_bit();
+>>      wake_up_bit(&bh->b_state, BH_Lock);
+>>  }
 >
-> I summarized the ordering requirements here:
-> http://marc.theaimsgroup.com/?l=linux-ia64&m4362989421046&w=2
 >
-> In order to let the architectures implement these bit-lock
-> operations efficiently, the usage has to indicate the _minimal_
-> required ordering semantics, e.g.:
+> The sequence:
 >
->     test_and_set_bit_N_acquire()
-> or   ordered_test_and_set_bit(acquire, ...)
->     release_N_clear_bit()
-> etc.
+>     smp_mb__before_clear_bit();
+>     clear_buffer_locked(bh);
+>
+> is correct (yet not efficient for all architectures).
 >
 
-The problem is simply that we don't expose acquire or release
-ordering operations to AI kernel code (outside of locking, which
-is a great wrapper). The reason is to avoid proliferation of all
-these semantics.
+Yes, this is explicitly documented in the wake_up_bit interface. I
+don't really think it needs to be changed, does it? Bill did most
+of this work I think, so I've cc'ed him.
 
-If you do this then the powerpc guys will say they want all
-their weird crap in there too. If you remove seperate read
-and write barriers, then x86 and sparc64 folks will get upset
-etc etc.
+> We have got here two unrelated operations: ending a critical section
+> and waking up the eventual waiters. What we need is a barrier between
+> these two unrelated operations.
+> It is not "smp_mb__after_clear_bit()" but a simple "smp_mb()".
+> The correct code is:
+>
+> void fastcall unlock_buffer(struct buffer_head *bh)
+> {
+>   smp_mb__before_clear_bit();
+>   clear_buffer_locked(bh);
+>   smp_mb();
+>   wake_up_bit(&bh->b_state, BH_Lock);
+> }
+>
 
-Changing semantics would probably require some fairly hefty
-discussions. Can you first fix ia64, then (perhaps) introduce
-lock semantics for the couple of bitops that can use it, then
-can we see some performance justification for proposed
-changes to the API?
+If you were going to do that, I'd prefer my suggestion.
+
+clear_buffer_locked(); /* clear_bit_unlock */
+smp_mb__after_clear_bit_unlock();
+wake_up_bit()
+
+Nick
 
 --
 
