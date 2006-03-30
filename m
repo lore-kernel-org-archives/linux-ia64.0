@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Thu, 30 Mar 2006 16:45:54 +0000
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Thu, 30 Mar 2006 16:52:00 +0000
 Subject: Re: [Fedora-ia64-list] kernel 2.6.16-1.2097_FC6 unbootable on Itanium
-Message-Id: <20060330164554.GA8741@lucon.org>
+Message-Id: <442C0CB0.3030103@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <442AB6DD.4020800@sgi.com>
 In-Reply-To: <442AB6DD.4020800@sgi.com>
@@ -10,16 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Mar 30, 2006 at 11:38:32AM -0500, Prarit Bhargava wrote:
 > 
-> >
-> >Where did they come from?
-> >
-> 
-> During the 'make compressed' phase ...
+> Which program generated them?
 > 
 
-Which program generated them?
+[root@altix2 ~]# gcc --version
+gcc (GCC) 4.1.0 20060304 (Red Hat 4.1.0-3)
 
-
-H.J.
+P.
