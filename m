@@ -1,75 +1,49 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 22 Mar 2006 06:06:52 +0000
-Subject: Re: [PATCH: 002/017]Memory hotplug for new nodes v.4.(change name old add_memory() to arch_add_memor
-Message-Id: <20060322120649.E48C.Y-GOTO@jp.fujitsu.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 31 Mar 2006 15:38:22 +0000
+Subject: [patch] avoid unaligned access when accessing poll stack
+Message-Id: <yq0sloytyj5.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1142989698.10906.224.camel@localhost.localdomain> <20060322103839.3b3d2a66.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20060322103839.3b3d2a66.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
-Cc: akpm@osdl.org, tony.luck@intel.com, ak@suse.de, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Andrew Morton <akpm@osdl.org>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-> On Tue, 21 Mar 2006 17:08:18 -0800
-> Dave Hansen <haveblue@us.ibm.com> wrote:
-> > If I missed it before, please refresh my memory.  But, if we're
-> > providing arch_nid_probe(addr), then why don't we just call it inside of
-> > add_memory() on the start address, instead of in the generic code?
-> > 
-> I think just *probe* needs it. The firmware which supports memory-hotplug, ACPI, 
-> i386/x86_64/ia64, can tell node number as pxm.(proximity domain)
-> 
-> add_memory() can pass address of paddr as args, but can't pass *pxm*. 
-> 
-> We already maintain pxm <-> nid map. But paddr <-> nid map isn't now.
-> If add_memory() doesn't has nid as args, we have to maintain
-> (1) pxm <-> nid map.
-> (2) paddr <-> nid map.
-> Becasue pfn_to_nid() is maintained by SPARSEMEM itself now, *new* paddr<->nid map
-> is redundant, I think. And I think the firmware already has the map before calling
-> add_memory(). 
+Hi,
 
-In ACPI's case, kernel has to do 3 steps to get node id from physicall 
-address.
-  1) parse DSDT to get device handle of ACPI for new memory.
-     This step can be described 3 detail steps.
-      1-1) search memory device in DSDT.
-      1-2) get _CRS of its memory device to see physicall address.
-      1-3) compare 1-2)'s address with required paddr.
-           (its memory device might be for other memory.)
-           If it is for new memory, then goto step 2),
-           else goto 1-1) again.
-  2) get pxm against its device handle.
-     It is just calling acpi_get_pxm().
-  3) get node from pxm. If pxm is new one, new node id is assigned.
+Patch 70674f95c0a2ea694d5c39f4e514f538a09be36f
+  [PATCH] Optimize select/poll by putting small data sets on the stack
+resulted in the poll stack being 4-byte aligned on 64-bit
+architectures, causing misaligned accesses to elements in the array.
 
-Step 1) is a bit complicated.
-But, when notify of memory hot-add event reaches via ACPI,
-its handle is already obtained. So, step 2) and 3) are enough to
-get node id. If node id can be passed at add_memory(), that is all.
-If not, kernel losts memory device handle information or node id once
-at calling add_memory(), and search memory device handle again by step 1).
+This patch fixes it by declaring the stack in terms of 'long' instead
+of 'char'.
 
+Cheers,
+Jes
 
+Force alignment of poll stack to long to avoid unaligned access on 64
+bit architectures.
 
-In addition, if paddr to node id translation is called in add_memory(),
-then its code for -each arch- will be like followings.
-This will be close from ugly "copy and paste" again....... :-(
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ fs/select.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+Index: linux-2.6/fs/select.c
+=================================--- linux-2.6.orig/fs/select.c
++++ linux-2.6/fs/select.c
+@@ -639,8 +639,10 @@
+  	struct poll_list *walk;
+ 	struct fdtable *fdt;
+ 	int max_fdset;
+-	/* Allocate small arguments on the stack to save memory and be faster */
+-	char stack_pps[POLL_STACK_ALLOC];
++	/* Allocate small arguments on the stack to save memory and be 
++	   faster - use long to make sure the buffer is aligned properly
++	   on 64 bit archs to avoid unaligned access */
++	long stack_pps[POLL_STACK_ALLOC/sizeof(long)];
+ 	struct poll_list *stack_pp = NULL;
  
-add_memory(paddr)
-{
-	nid = paddr_to_node_id(paddr)
-	if (!node_online(nid)) {
-		pgdat = hotadd_new_pgdat(nid, start);
-		if (!pgdat)
-			return -ENOMEM;
-	}
-              :
-
-Bye.
-
--- 
-Yasunori Goto 
-
-
+ 	/* Do a sanity check on nfds ... */
