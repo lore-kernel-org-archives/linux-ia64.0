@@ -1,41 +1,43 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 01:40:22 +0000
-Subject: Re: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603301738190.2758@schroedinger.engr.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 31 Mar 2006 02:35:38 +0000
+Subject: RE: Synchronizing Bit operations V2
+Message-Id: <200603310234.k2V2Ysg28086@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060331013346.913.qmail@science.horizon.com>
-In-Reply-To: <20060331013346.913.qmail@science.horizon.com>
+In-Reply-To: <Pine.LNX.4.64.0603301736580.2758@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux@horizon.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: 'Christoph Lameter' <clameter@sgi.com>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 30 Mar 2006, linux@horizon.com wrote:
-
-> The only conceivable reason for passing the mode as a separate parameter is
-> - To change the mode dynamically at run time.
-> - To share common code when the sequence is long and mostly shared
->   between the various modes (as in open(2) or ll_rw_block()).
-
-There is usually quite complex code involved although the code generated 
-is minimal.
-
-> On the downside, it's more typing and uglier than a series of
+Christoph Lameter wrote on Thursday, March 30, 2006 5:38 PM
+> > Christoph Lameter wrote on Thursday, March 30, 2006 5:13 PM
+> > > Then there will no barrier since clear_bit only has acquire semantics.
+> > > This is a  bug in bit operations since smb_mb__before_clear_bit does
+> > > not work as documentted.
+> > 
+> > Well, please make up your mind with:
+> > 
+> > Option (1):
+> > 
+> > #define clear_bit                     clear_bit_mode(..., RELEASE)
+> > #define Smp_mb__before_clear_bit      do { } while (0)
+> > #define Smp_mb__after_clear_bit       smp_mb()
+> > 
+> > Or option (2):
+> > 
+> > #define clear_bit                     clear_bit_mode(..., ACQUIRE)
+> > #define Smp_mb__before_clear_bit      smp_mb()
+> > #define Smp_mb__after_clear_bit       do { } while (0)
+> > 
+> > I'm fine with either one.
 > 
-> frob_bit_nonatomic()
-> 	(probably temporarily or permanently aliased to frob_bit())
-> frob_bit_atomic()
-> frob_bit_acquire()
-> frob_bit_release()
-> frob_bit_barrier()
-> 
-> functions, and those also prevent you from doing something silly like
-> frob_bit(x, y, O_DIRECT).  Also, the MODE_ prefix might be wanted by
-> something else.
+> Neither one is correct because there will always be one combination of 
+> clear_bit with these macros that does not generate the required memory 
+> barrier.
 
-Ok. We could change the MODE_ prefix but the problem with not passing this 
-as a parameter that there are numerous functions derived from bit ops that 
-are then also needed in lots of different flavors. Passing a parameter 
-cuts down the number of variations dramatically.
+Can you give an example?  Which combination?
 
+- Ken
