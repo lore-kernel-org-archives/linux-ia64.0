@@ -1,49 +1,63 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 03:28:02 +0000
-Subject: Re: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603301921550.3145@schroedinger.engr.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 31 Mar 2006 03:37:55 +0000
+Subject: RE: Synchronizing Bit operations V2
+Message-Id: <200603310337.k2V3bBg28685@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com>
- <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
- <442C7B51.1060203@yahoo.com.au>
-In-Reply-To: <442C7B51.1060203@yahoo.com.au>
+In-Reply-To: <Pine.LNX.4.64.0603301914490.3145@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: 'Christoph Lameter' <clameter@sgi.com>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 31 Mar 2006, Nick Piggin wrote:
-
-> This has acquire and release, instead of the generic kernel
-> memory barriers rmb and wmb. As such, I don't think it would
-> get merged.
-
-Right. From the earlier conversation I had the impression that this is 
-what you wanted.
- 
-> > Note that the current semantics for bitops IA64 are broken. Both
-> > smp_mb__after/before_clear_bit are now set to full memory barriers
-> > to compensate which may affect performance.
+Christoph Lameter wrote on Thursday, March 30, 2006 7:21 PM
+> > > What of it? Release semantics are not a full fence or memory barrier.
+> > 
+> > The API did not require a full fence.  It is defined as a one way fence.
 > 
-> I think you should fight the fights you can win and get a 90%
-> solution ;) at any rate you do need to fix the existing routines
-> unless you plan to audit all callers...
+> Well that explains our misunderstanding.
 > 
-> First, fix up ia64 in 2.6-head, this means fixing test_and_set_bit
-> and friends, smp_mb__*_clear_bit, and all the atomic operations that
-> both modify and return a value.
+> The issue with all these hacky macros is that they all have their own 
+> semantics and do not work in a consistent way. More reason to make that 
+> explicit.
 > 
-> Then add test_and_set_bit_lock / clear_bit_unlock, and apply them
-> to a couple of critical places like page lock and buffer lock.
+> Where may I find that definition?
 > 
-> Is this being planned?
+> Documentation/atomic_ops.txt implies a complete barrier and gives
+> an example of the use of these macros in order to obtain release 
+> semantics. AFAIK that does not mean that this is the intended complete 
+> behavior of a "memory barrier":
+> 
+> 
+> 
+> 
+> If a caller requires memory barrier semantics around an atomic_t
+> operation which does not return a value, a set of interfaces are
+> defined which accomplish this:
+> 
+>         void smp_mb__before_atomic_dec(void);
+>         void smp_mb__after_atomic_dec(void);
+>         void smp_mb__before_atomic_inc(void);
+>         void smp_mb__after_atomic_dec(void);
+> 
+> For example, smp_mb__before_atomic_dec() can be used like so:
+> 
+>         obj->dead = 1;
+>         smp_mb__before_atomic_dec();
+>         atomic_dec(&obj->ref_count);
+> 
+> It makes sure that all memory operations preceeding the atomic_dec()
+> call are strongly ordered with respect to the atomic counter
+> operation.  In the above example, it guarentees that the assignment of
+> "1" to obj->dead will be globally visible to other cpus before the
+> atomic counter decrement.
 
-That sounds like a long and tedious route to draw out the pain for a 
-couple of years and add loads of additional macro definitions all over the 
-header files. I'd really like a solution that allows a gradual 
-simplification of the macros and that has clear semantics.
+It means we need an complete overhaul of smp_mb__before/after_*.  The name
+and its implied memory order semantics is not consistent and it leads to all
+kinds of confusion and probably improper usage.
 
-So far it seems that I have not even been able to find the definitions for 
-the proper behavior of memory barriers.
+I'm all for making atomic bit op to have explicit ordering mode in them.
 
+- Ken
