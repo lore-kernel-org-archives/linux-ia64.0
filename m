@@ -1,46 +1,25 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 01:13:07 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 31 Mar 2006 01:13:35 +0000
 Subject: RE: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603301709440.2553@schroedinger.engr.sgi.com>
+Message-Id: <200603310112.k2V1Cpg27150@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603310103.k2V13cg27083@unix-os.sc.intel.com>
-In-Reply-To: <200603310103.k2V13cg27083@unix-os.sc.intel.com>
+In-Reply-To: <Pine.LNX.4.64.0603301707300.2553@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+To: 'Christoph Lameter' <clameter@sgi.com>
 Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 30 Mar 2006, Chen, Kenneth W wrote:
+Christoph Lameter wrote on Thursday, March 30, 2006 5:09 PM
+> In general yes the caller should not be thinking about clear_bit having 
+> any memory ordering at all. However for IA64 arch specific code the bit 
+> operations must have a certain ordering semantic and it would be best that 
+> these are also consistent. clear_bit is not a lock operation and may 
+> f.e. be used for locking something.
 
-> > Arch specific code should make this explicit too and not rely on implied 
-> > semantics. Otherwise one has to memorize that functions have to work with 
-> > different semantics in arch code and core code which makes the source 
-> > code difficult to maintain.
-> 
-> I don't know whether we are talking about the same thing: I propose for 
-> ia64: 
->clear_bit to have release semantic,
+OK, fine.  Then please don't change smp_mb__after_clear_bit() for ia64.
+i.e., leave it alone as noop.
 
-Inconsistent with other bit operations.
-
->smp_mb__before_clear_bit will be a noop,
-
-Then there will no barrier since clear_bit only has acquire semantics. This is a 
-bug in bit operations since smb_mb__before_clear_bit does not work as 
-documentted.
-
->smp_mb_after_clear_bit will be a smp_mb().
-
-Ok.
-
-> Caller are still required to use smp_mb__before_clear_bit if it requires, on
-> ia64, that function will simply be a noop.
-
-Well ultimately I wish we could move away from these 
-smb_mb__before/after_xx macros and use explicit synchronization ordering 
-instead.
-
-If there is agreement on this patch then we can use explicit ordering in 
-core kernel code and slowly get rid of smb_mb__xxx.
-
+- Ken
