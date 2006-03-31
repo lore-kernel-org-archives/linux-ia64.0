@@ -1,37 +1,36 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 17:46:56 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Fri, 31 Mar 2006 17:48:37 +0000
 Subject: Re: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603310946120.6628@schroedinger.engr.sgi.com>
+Message-Id: <200603311948.38218.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com>
- <p73vetu921a.fsf@verdi.suse.de> <Pine.GHP.4.58.0603310808190.28478@tomil.hpl.hp.com>
- <200603311837.34477.ak@suse.de>
-In-Reply-To: <200603311837.34477.ak@suse.de>
+References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com> <p73vetu921a.fsf@verdi.suse.de> <Pine.LNX.4.64.0603310943480.6628@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603310943480.6628@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Hans Boehm <Hans.Boehm@hp.com>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 31 Mar 2006, Andi Kleen wrote:
-
-> On Friday 31 March 2006 18:22, Hans Boehm wrote:
+On Friday 31 March 2006 19:45, Christoph Lameter wrote:
+> On Fri, 31 Mar 2006, Andi Kleen wrote:
 > 
-> > My impression is that approach (1) tends not to stick, since it involves
-> > a substantial performance hit on architectures on which the fence is
-> > not implicitly included in atomic operations.  Those include Itanium and
-> > PowerPC.
+> > Christoph Lameter <clameter@sgi.com> writes:
+> > > MODE_BARRIER
+> > > 	An atomic operation that is guaranteed to occur between
+> > > 	previous and later memory operations.
+> > I think it's a bad idea to create such an complicated interface.
+> > The chances that an average kernel coder will get these right are
+> > quite small. And it will be 100% untested outside IA64 I guess
+> > and thus likely be always slightly buggy as kernel code continues
+> > to change.
 > 
-> At least the PPC people are eating the overhead because back when they
-> didn't they had a long string of subtle powerpc only bugs caused by that
+> Powerpc can do similar things AFAIK. Not sure what other arches have 
+> finer grained control over barriers but it could cover a lot of special 
+> cases for other processors as well.
 
-PPC has barriers for both smb_mb_before/after cases. IMHO we should do the 
-same for ia64 and not fuzz around.
+Yes, but I don't think the goal of a portable atomic operations API
+in Linux is it to cover everybody's special case in every possible 
+combination. The goal is to have an abstraction that will lead to 
+portable code. I don't think your proposal will do this.
 
-> It's a stability/maintainability vs performance issue. I doubt the 
-> performance advantage would be worth the additional work. I guess
-> with the engineering time you would need to spend getting all this right
-> you could do much more fruitful optimizations.
-
-Agreed.
-
+-Andi
