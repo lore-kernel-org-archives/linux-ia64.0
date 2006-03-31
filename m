@@ -1,46 +1,44 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 31 Mar 2006 17:56:23 +0000
-Subject: Re: Synchronizing Bit operations V2
-Message-Id: <Pine.LNX.4.64.0603310952540.6825@schroedinger.engr.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 31 Mar 2006 18:57:08 +0000
+Subject: RE: Synchronizing Bit operations V2
+Message-Id: <200603311856.k2VIuPg04814@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com>
- <p73vetu921a.fsf@verdi.suse.de> <Pine.LNX.4.64.0603310943480.6628@schroedinger.engr.sgi.com>
- <200603311948.38218.ak@suse.de>
-In-Reply-To: <200603311948.38218.ak@suse.de>
+In-Reply-To: <442CDB98.80803@yahoo.com.au>
+References: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: 'Nick Piggin' <nickpiggin@yahoo.com.au>
+Cc: 'Christoph Lameter' <clameter@sgi.com>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 31 Mar 2006, Andi Kleen wrote:
+Nick Piggin wrote on Thursday, March 30, 2006 11:35 PM
+> > >The memory ordering that above combination should produce is a
+> > >Linux style smp_mb before the clear_bit. Not a release.
+> > 
+> > Whoever designed the smp_mb_before/after_* clearly understand the
+> > difference between a bidirectional smp_mb() and a one-way memory
+> > ordering.  If smp_mb_before/after are equivalent to smp_mb, what's
+> > the point of introducing another interface?
+> > 
+> They are not. They provide equivalent barrier when performed
+> before/after a clear_bit, there is a big difference.
 
-> > Powerpc can do similar things AFAIK. Not sure what other arches have 
-> > finer grained control over barriers but it could cover a lot of special 
-> > cases for other processors as well.
-> 
-> Yes, but I don't think the goal of a portable atomic operations API
-> in Linux is it to cover everybody's special case in every possible 
-> combination. The goal is to have an abstraction that will lead to 
-> portable code. I don't think your proposal will do this.
+The usage so far that I can see for
 
-AFAIK The goal of a bitmap operations API (we are not talking about atomic 
-operations here) is to make bitmap operations as efficient as possible and 
-as simple as possible. We already have multiple special cases for each 
-bitmap operation
+  smp_mb__before_clear_bit()
+  clear_bit
 
-I.e.
+is to close a critical section with clear_bit.  I will be hard impressed
+to see a usage that allows stuff follows clear_bit to pass clear_bit, but
+not to pass the smp_mb_before_xxx.
 
-clear_bit()
-__clear_bit()
+<end of critical section>
+  smp_mb_before_clear_bit
+  clear_bit
+<begin other code>
 
-and some people talk abouit
-
-clear_bit_lock()
-clear_bit_unlock()
-
-What I am prosing is to do one clear_bit_mode function that can take a 
-parameter customizing its synchronization behavior.
-
-clear_bit_mode(bit,addr,mode)
-
+But if you stand on the ground of smp_mb_before_xxx protects clear_bit
+from occurring before the "end of critical section", then smp_mb_before
+is such a brain dead interface and it is another good reason for having
+an explicit ordering mode built into the clear_bit. 
