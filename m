@@ -1,30 +1,35 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Date: Fri, 31 Mar 2006 06:10:37 +0000
-Subject: Re: Synchronizing Bit operations V2
-Message-Id: <20060331061037.GD14724@sorel.sous-sol.org>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 31 Mar 2006 06:15:28 +0000
+Subject: RE: Synchronizing Bit operations V2
+Message-Id: <200603310614.k2V6Ehg30012@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com> <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com> <ed5aea430603301642t283174f6wa0587089920ca3a8@mail.gmail.com>
-In-Reply-To: <ed5aea430603301642t283174f6wa0587089920ca3a8@mail.gmail.com>
+In-Reply-To: <442C99A1.6060901@yahoo.com.au>
+References: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Mosberger-Tang <David.Mosberger@acm.org>
-Cc: Christoph Lameter <clameter@sgi.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: 'Nick Piggin' <nickpiggin@yahoo.com.au>
+Cc: 'Christoph Lameter' <clameter@sgi.com>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-* David Mosberger-Tang (David.Mosberger@acm.org) wrote:
-> I have to agree with Hans and I'd much prefer making the mode part of
-> the operation's
-> name and not a parameter.  Besides being The Right Thing, it saves a
-> lot of typing.
-> For example:
+Nick Piggin wrote on Thursday, March 30, 2006 6:53 PM
+> >>smp_mb__before_clear_bit()
+> >>clear_bit(...)(
+> > 
+> > Sorry, you totally lost me.  It could me I'm extremely slow today.  For
+> > option (1), on ia64, clear_bit has release semantic already.  The comb
+> > of __before_clear_bit + clear_bit provides the required ordering.  Did
+> > I miss something?  By the way, we are talking about detail implementation
+> > on one specific architecture.  Not some generic concept that clear_bit
+> > has no ordering stuff in there.
+> > 
 > 
-> +       set_bit_mode(nr, addr, MODE_ATOMIC);
-> 
-> would simply become
-> 
-> +       set_bit_atomic(nr, addr);
+> The memory ordering that above combination should produce is a
+> Linux style smp_mb before the clear_bit. Not a release.
 
-That's the approach Xen took as well.
+Whoever designed the smp_mb_before/after_* clearly understand the
+difference between a bidirectional smp_mb() and a one-way memory
+ordering.  If smp_mb_before/after are equivalent to smp_mb, what's
+the point of introducing another interface?
 
-thanks,
--chris
+- Ken
