@@ -1,27 +1,50 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Tue, 21 Mar 2006 04:11:53 +0000
-Subject: Re: [PATCH: 017/017]Memory hotplug for new nodes v.4.(arch_register_node() for ia64)
-Message-Id: <20060321130425.E477.Y-GOTO@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 31 Mar 2006 19:31:05 +0000
+Subject: Fix ia64 bitops: Full barrier on smp_mb__after_clear_bit()
+Message-Id: <Pine.LNX.4.64.0603311124380.7426@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060320183634.7E9C.Y-GOTO@jp.fujitsu.com> <1142872744.10906.125.camel@localhost.localdomain>
-In-Reply-To: <1142872744.10906.125.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
-Cc: Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Andi Kleen <ak@suse.de>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-> On Mon, 2006-03-20 at 18:57 +0900, Yasunori Goto wrote:
-> > Current i386's code treats "parent node" in arch_register_node(). 
-> > But, IA64 doesn't need it.
-> 
-> I'm not sure I understand.  What do you mean by "treats"?
+The Linux kernel works based on barriers and not on acquire and release 
+semantics. We cannot expect an acquire or release of clear_bit() to 
+provide the synchronization behavior expected by core kernel developers. 
 
-Oops. My English may be wrong. :-(
-I mean that i386 seems trying to make relationship of parent and child
-among each node.
+Not having the proper barriers may introduce subtle breakage.
+So change IA64 to provide full barriers for smp_mb__after_clear_bit.
 
--- 
-Yasunori Goto 
+This is also the way that powerpc (which faces similar issues) implements 
+these macros.
 
 
+include/asm-powerpc/bitops.h:
+
+/*
+ * clear_bit doesn't imply a memory barrier
+ */
+#define smp_mb__before_clear_bit()      smp_mb()
+#define smp_mb__after_clear_bit()       smp_mb()
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.16-mm2/include/asm-ia64/bitops.h
+=================================--- linux-2.6.16-mm2.orig/include/asm-ia64/bitops.h	2006-03-30 21:21:04.000000000 -0800
++++ linux-2.6.16-mm2/include/asm-ia64/bitops.h	2006-03-31 11:17:53.000000000 -0800
+@@ -63,10 +63,13 @@ __set_bit (int nr, volatile void *addr)
+ }
+ 
+ /*
+- * clear_bit() has "acquire" semantics.
++ * The current linux locking paradigm is oriented towards
++ * barriers. We cannot utilize acquire or relase behaviors
++ * to synchronize but must implement full barriers in order
++ * to avoid potential subtle breakage.
+  */
+ #define smp_mb__before_clear_bit()	smp_mb()
+-#define smp_mb__after_clear_bit()	do { /* skip */; } while (0)
++#define smp_mb__after_clear_bit()	smp_mb()
+ 
+ /**
+  * clear_bit - Clears a bit in memory
