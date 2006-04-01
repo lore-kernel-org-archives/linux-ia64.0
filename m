@@ -1,54 +1,28 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Tue, 18 Apr 2006 22:02:17 +0000
-Subject: [patch] SN SAL call to inject memory errors
-Message-Id: <200604182202.k3IM2HjH175182@efs.americas.sgi.com>
+From: "David Mosberger-Tang" <David.Mosberger@acm.org>
+Date: Sat, 01 Apr 2006 03:40:44 +0000
+Subject: power consumption trivia
+Message-Id: <ed5aea430603311940l7d07e1e2rb9eb7363566e1279@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[patch] SN SAL call to inject memory errors
+In case you ever wondered how much power your Itanium machine draws, here are
+measurements for 2 "random" machines, measured with a P4400 Kill A
+Watt^{TM} meter:
 
-The SGI Altix SAL provides an interface for modifying 
-the ECC on memory to create memory errors.  The SAL call
-can be used to inject memory errors for testing MCA recovery
-code.
+                                                                      
+         plugged in:  booted:   make -j4:
+   HP zx2000 (1x900MHz McKinley):                                  10W
+    210W      250W
+   SGI Prism (2x1.6GHz Madison, 2x ATI X2 graphics):        20W    
+377W      385W
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+I won't vouch for the accuracy of the P4400, but at least it some numbers... ;-)
 
----
- include/asm-ia64/sn/sn_sal.h |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
+Enjoy,
 
-Index: test/include/asm-ia64/sn/sn_sal.h
-=================================--- test.orig/include/asm-ia64/sn/sn_sal.h	2006-04-18 16:17:24.662610451 -0500
-+++ test/include/asm-ia64/sn/sn_sal.h	2006-04-18 16:29:09.176872976 -0500
-@@ -85,6 +85,7 @@
- 
- #define  SN_SAL_GET_PROM_FEATURE_SET		   0x02000065
- #define  SN_SAL_SET_OS_FEATURE_SET		   0x02000066
-+#define  SN_SAL_INJECT_ERROR			   0x02000067
- 
- /*
-  * Service-specific constants
-@@ -1138,4 +1139,16 @@ ia64_sn_set_os_feature(int feature)
- 	return rv.status;
- }
- 
-+static inline int
-+sn_inject_error(u64 paddr, u64 *data, u64 *ecc)
-+{
-+	struct ia64_sal_retval ret_stuff;
-+	unsigned long irq_flags;
-+
-+	local_irq_save(irq_flags);
-+	ia64_sal_oemcall_nolock(&ret_stuff, SN_SAL_INJECT_ERROR, paddr, (u64)data,
-+				(u64)ecc, 0, 0, 0, 0);
-+	local_irq_restore(irq_flags);
-+	return ret_stuff.status;
-+}
- #endif /* _ASM_IA64_SN_SN_SAL_H */
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+  --david
+--
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
