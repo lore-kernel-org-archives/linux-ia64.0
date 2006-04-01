@@ -1,46 +1,35 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 28 Apr 2006 17:22:25 +0000
-Subject: RE: [rfc] dynamic 3-level / 4-level page table
-Message-Id: <4t153d$rpmen@azsmga001.ch.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sat, 01 Apr 2006 01:11:15 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200604010111.k311BFdT010927@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4sur0l$s99mf@fmsmga001.fm.intel.com>
-In-Reply-To: <4sur0l$s99mf@fmsmga001.fm.intel.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote on Friday, April 28, 2006 8:34 AM
-> On Thu, Apr 27, 2006 at 07:09:17PM -0700, Chen, Kenneth W wrote:
-> > --- ./arch/ia64/kernel/ivt.S.orig	2006-04-27 19:21:55.000000000 -0700
-> > +++ ./arch/ia64/kernel/ivt.S	2006-04-27 19:46:44.000000000 -0700
-> > @@ -142,16 +142,16 @@ ENTRY(vhpt_miss)
-> >  (p7)	dep r17=r18,r17,3,(PAGE_SHIFT-6)	// r17=pgd_offset for region[0-4]
-> >  	cmp.eq p7,p6=0,r21			// unused address bits all zeroes?
-> >  #ifdef CONFIG_PGTABLE_4
-> > -	shr.u r28=r22,PUD_SHIFT			// shift pud index into position
-> > +	extr.u r28=r22,PUD_SHIFT,11		// get pud index
-> 
-> How well does this work with different page sizes?
+Hi Linus,
 
-Thanks!  I should've use PTRS_PER_PTD_SHIFT for that constant "11". I forgot
-to put that in.
+please pull from:
 
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-> > +
-> > +#ifdef CONFIG_PGTABLE_4
-> > +int pgtbl3;
-> > +static __init int setup_pgtbl3(char *s)
-> > +{
-> > +	pgtbl3 = 1;
-> > +	return 0;
-> > +}
-> > +early_param("pgtbl3", setup_pgtbl3);
-> > +#endif
-> 
-> What about taking out CONFIG_PGTABLE_*, having the default be 3, and have the
-> boot option enable 4 levels?  I haven't given this much though yet, but my
-> first reaction was that would be the correct way to go.
+This will update the files shown below.
 
-OK, if there isn't any objections from other people, I will go ahead and do
-it that way.
+Thanks!
+
+-Tony
+
+ arch/ia64/kernel/palinfo.c  |    8 
+ arch/ia64/kernel/time.c     |    2 
+ arch/ia64/kernel/topology.c |  367 ++++++++++++++++++++++++++++++++++++++++++++
+ include/asm-ia64/pal.h      |   34 +++-
+ 4 files changed, 403 insertions(+), 8 deletions(-)
+
+Tony Luck:
+      [IA64] Avoid "u64 foo : 32;" for gcc3 vs. gcc4 compatibility
+
+Zhang, Yanmin:
+      [IA64] Export cpu cache info by sysfs
