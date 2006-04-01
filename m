@@ -1,76 +1,26 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Date: Sat, 01 Apr 2006 02:35:38 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Sat, 01 Apr 2006 02:44:09 +0000
 Subject: Re: [patch] avoid unaligned access when accessing poll stack
-Message-Id: <20060401023538.GB3157@gaz.sfgoth.com>
+Message-Id: <200604010444.09747.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq0sloytyj5.fsf@jaguar.mkp.net> <200603311800.19364.ak@suse.de> <yq0odzmtwni.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0odzmtwni.fsf@jaguar.mkp.net>
+References: <yq0sloytyj5.fsf@jaguar.mkp.net> <yq0odzmtwni.fsf@jaguar.mkp.net> <20060401023538.GB3157@gaz.sfgoth.com>
+In-Reply-To: <20060401023538.GB3157@gaz.sfgoth.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Andi Kleen <ak@suse.de>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+Cc: Jes Sorensen <jes@sgi.com>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Jes Sorensen wrote:
-> I assume you mean select().
-> 
-> Updated patch attached.
+On Saturday 01 April 2006 04:35, Mitchell Blank Jr wrote:
 
-This fixes a few problems introduced by this patch.
+>   * I also changed "size" to be unsigned since that makes more sense and
+>     is less prone to overflow bugs.  I'm also a little scared by the
+>     "kmalloc(6 * size)" since that type of call is a classic multiply-overflow
+>     security hole (hence libc's calloc() API).  However "size" is constrained
+>     by fdt->max_fdset so I think it isn't exploitable.  The kernel doesn't
+>     have an overflow-safe API for kmalloc'ing arrays, does it?
 
-  * Fixes two warnings caused by mixing "char *" and "long *" pointers
+kcalloc. But it's slow since it memsets.
 
-  * If SELECT_STACK_ALLOC is not a multiple of sizeof(long) then stack_fds[]
-    would be less than SELECT_STACK_ALLOC bytes and could overflow later in
-    the function.  Fixed by simply rearranging the test later to work on
-    sizeof(stack_fds)
+-Andi
 
-    Currently SELECT_STACK_ALLOC is 256 so this doesn't happen, but it's
-    nasty to have things like this hidden in the code.  What if later
-    someone decides to change SELECT_STACK_ALLOC to 300?
-
-  * I also changed "size" to be unsigned since that makes more sense and
-    is less prone to overflow bugs.  I'm also a little scared by the
-    "kmalloc(6 * size)" since that type of call is a classic multiply-overflow
-    security hole (hence libc's calloc() API).  However "size" is constrained
-    by fdt->max_fdset so I think it isn't exploitable.  The kernel doesn't
-    have an overflow-safe API for kmalloc'ing arrays, does it?
-
-Patch is vs current git HEAD.  Only compile/boot tested.
-
-Signed-off-by: Mitchell Blank Jr <mitch@sfgoth.com>
-
-diff --git a/fs/select.c b/fs/select.c
-index 071660f..bd9c7db 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -311,7 +311,8 @@ static int core_sys_select(int n, fd_set
- {
- 	fd_set_bits fds;
- 	char *bits;
--	int ret, size, max_fdset;
-+	int ret, max_fdset;
-+	unsigned int size;
- 	struct fdtable *fdt;
- 	/* Allocate small arguments on the stack to save memory and be faster */
- 	long stack_fds[SELECT_STACK_ALLOC/sizeof(long)];
-@@ -335,8 +336,8 @@ static int core_sys_select(int n, fd_set
- 	 */
- 	ret = -ENOMEM;
- 	size = FDS_BYTES(n);
--	if (6*size < SELECT_STACK_ALLOC)
--		bits = stack_fds;
-+	if (size < sizeof(stack_fds) / 6)
-+		bits = (char *) stack_fds;
- 	else
- 		bits = kmalloc(6 * size, GFP_KERNEL);
- 	if (!bits)
-@@ -373,7 +374,7 @@ static int core_sys_select(int n, fd_set
- 		ret = -EFAULT;
- 
- out:
--	if (bits != stack_fds)
-+	if (bits != (char *) stack_fds)
- 		kfree(bits);
- out_nofds:
- 	return ret;
