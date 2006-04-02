@@ -1,50 +1,84 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Sat, 01 Apr 2006 02:56:55 +0000
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Date: Sun, 02 Apr 2006 07:54:04 +0000
 Subject: Re: Synchronizing Bit operations V2
-Message-Id: <442DEBF7.1090806@yahoo.com.au>
+Message-Id: <20060402075403.GA19149@flint.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com> <Pine.LNX.4.64.0603301615540.2023@schroedinger.engr.sgi.com> <442C7B51.1060203@yahoo.com.au> <Pine.LNX.4.64.0603301921550.3145@schroedinger.engr.sgi.com> <442CAC11.4070803@yahoo.com.au> <Pine.LNX.4.64.0603310939570.6628@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0603310939570.6628@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.64.0603301300430.1014@schroedinger.engr.sgi.com> <p73vetu921a.fsf@verdi.suse.de> <Pine.LNX.4.64.0603310943480.6628@schroedinger.engr.sgi.com> <200603311948.38218.ak@suse.de> <Pine.LNX.4.64.0603310952540.6825@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0603310952540.6825@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@SGI.com>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Andi Kleen <ak@suse.de>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, "Boehm, Hans" <hans.boehm@hp.com>, "Grundler, Grant G" <grant.grundler@hp.com>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Fri, 31 Mar 2006, Nick Piggin wrote:
+On Fri, Mar 31, 2006 at 09:56:23AM -0800, Christoph Lameter wrote:
+> On Fri, 31 Mar 2006, Andi Kleen wrote:
+> 
+> > > Powerpc can do similar things AFAIK. Not sure what other arches have 
+> > > finer grained control over barriers but it could cover a lot of special 
+> > > cases for other processors as well.
+> > 
+> > Yes, but I don't think the goal of a portable atomic operations API
+> > in Linux is it to cover everybody's special case in every possible 
+> > combination. The goal is to have an abstraction that will lead to 
+> > portable code. I don't think your proposal will do this.
+> 
+> AFAIK The goal of a bitmap operations API (we are not talking about atomic 
+> operations here) is to make bitmap operations as efficient as possible and 
+> as simple as possible.
 
->>You acknowledge that you have to fix ia64 to match current semantics
->>first, right?
-> 
-> 
-> Right. I believe I have done so by making both smb_mb_* full barriers.
+If we are not talking about atomic operations...
 
-All bitop and atomic test_and_set, inc_return, etc etc (ie. everything
-that modifies the operand and returns something) needs to be a full
-barrier before and after too.
+> We already have multiple special cases for each 
+> bitmap operation
+> 
+> I.e.
+> 
+> clear_bit()
 
->>Now people seem to be worried about the performance impact that will
->>have, so I simply suggest that adding two or three new macros for the
->>important cases to give you a 90% solution.
-> 
-> 
-> We could transition some key locations of core code to use _mode bitops
-> if there are performance problems.
-> 
-> 
->>I think Documentation/atomic_ops.txt isn't bad. smp_mb__* really
->>is a smp_mb, which can be optimised sometimes.
-> 
-> 
-> Ok. Then we are on the same page and the solution I presented may be 
-> acceptable. I have a new rev here that changes the naming a bit but I 
-> think we are okay right?
+why do you then bring up the atomic bitop operation here?
 
-Not sure, to be honest. I think it is probably something which needs
-input from all the other arch people, and Linus, if you intend to use
-it to introduce new types of barriers.
+> __clear_bit()
+
+this is the non-atomic bitop operation.
+
+> and some people talk abouit
+> 
+> clear_bit_lock()
+> clear_bit_unlock()
+
+Neither of these exist in the kernel.
+
+> What I am prosing is to do one clear_bit_mode function that can take a 
+> parameter customizing its synchronization behavior.
+> 
+> clear_bit_mode(bit,addr,mode)
+
+Which means for architectures which implement bitops out of line (due
+to their size) that you end up making those architectures even more
+inefficient because they now have to decode the "mode" parameter which
+will take several compares and branches.
+
+The only way around that would be for such architectures to do:
+
+#define clear_bit_mode(bit,addr,mode)	clear_bit_mode_##mode(bit,addr)
+
+and then we're back to the named function approach.
+
+Incidentally, you say that the named function approach is not extensible.
+Do you have a limit on the number of functions you can have in your
+kernel?  If not, I don't see where such a statement would come from -
+you obviously can extend "clear_bit_atomic" and "clear_bit_nonatomic"
+by adding eg, "clear_bit_barrier".  And if you really want to multiplex
+them through one function, you can do:
+
+#define clear_bit_atomic(bit,addr)	clear_bit_mode(bit,addr,MODE_ATOMIC)
+#define clear_bit_nonatomic(bit,addr)	clear_bit_mode(bit,addr,MODE_NONATOMIC)
+#define clear_bit_barrier(bit,addr)	clear_bit_mode(bit,addr,MODE_BARRIER)
+
+etc.
 
 -- 
-SUSE Labs, Novell Inc.
-Send instant messages to your online friends http://au.messenger.yahoo.com 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 Serial core
