@@ -1,122 +1,191 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Fri, 14 Apr 2006 00:52:33 +0000
-Subject: Re: [PATCH 6/8] IA64 various hugepage size - introduce prctl
-Message-Id: <1144975953.5817.102.camel@linux-znh>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 03 Apr 2006 05:26:12 +0000
+Subject: [patch 2.6.16-git] Pass more data to the MCA/INIT notify_die hooks
+Message-Id: <22273.1144041972@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1144974367.5817.39.camel@linux-znh>
-	 <1144974667.5817.51.camel@linux-znh>  <1144974881.5817.59.camel@linux-znh>
-	 <1144975292.5817.74.camel@linux-znh>  <1144975523.5817.84.camel@linux-znh>
-	 <1144975746.5817.94.camel@linux-znh>
-In-Reply-To: <1144975746.5817.94.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Linux-IA64 <linux-ia64@vger.kernel.org>, Tony <tony.luck@intel.com>, Kenneth W <kenneth.w.chen@intel.com>
+To: linux-ia64@vger.kernel.org
 
-Introduce 2 prctl option to set/get hugepage size.
+The MCA/INIT handlers maintain important state in the SAL to OS (sos)
+area and in the monarch_cpu flag.  Kernel debuggers (such as KDB) need
+this data, and may need to adjust the monarch_cpu field so make the
+data available to the notify_die hooks.  Define two more events for
+calling the functions on the notify_die chain.
+
+Signed-off-by: Keith Owens <kaos@sgi.com>
+
+---
+
+Patch is against aegl git test tree, as of April 2.
+
+This patch is part of a long term project to provide a standard set of
+kernel hooks which can be used by any debugger, not just by KDB.
+
+ arch/ia64/kernel/mca.c    |   33 +++++++++++++++++++++------------
+ include/asm-ia64/kdebug.h |    2 ++
+ include/asm-ia64/mca.h    |    5 +++++
+ 3 files changed, 28 insertions(+), 12 deletions(-)
 
 
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-
-diff -Nraup a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
---- a/arch/ia64/mm/hugetlbpage.c	2006-04-13 08:41:37.000000000 +0800
-+++ b/arch/ia64/mm/hugetlbpage.c	2006-04-13 08:34:57.000000000 +0800
-@@ -194,3 +194,25 @@ int is_valid_hpage_size(unsigned long lo
-         return 1;
- }
+Index: linux-2.6-ia64/arch/ia64/kernel/mca.c
+=================================--- linux-2.6-ia64.orig/arch/ia64/kernel/mca.c	2006-04-03 11:38:01.000000000 +1000
++++ linux-2.6-ia64/arch/ia64/kernel/mca.c	2006-04-03 12:16:42.011119879 +1000
+@@ -581,10 +581,12 @@ ia64_mca_rendez_int_handler(int rendez_i
+ {
+ 	unsigned long flags;
+ 	int cpu = smp_processor_id();
++	struct ia64_mca_notify_die nd +		{ .sos = NULL, .monarch_cpu = &monarch_cpu };
  
-+int set_hugepagesize(struct task_struct *task,unsigned long size)
-+{
-+	struct mm_struct *mm = task->mm;
-+	struct vm_area_struct *vma;
-+	unsigned int shift;
-+	if (!is_valid_hpage_size(size))
-+		return -EINVAL;
-+	shift = __ffs(size);
-+	if (shift = mm->hugepage_shift)
-+		return 0;
-+	down_write(&mm->mmap_sem);
-+	for (vma = mm->mmap; vma ; vma = vma->vm_next) {
-+		if (vma->vm_flags & VM_HUGETLB) {
-+			up_write(&mm->mmap_sem);
-+			return -EPERM;
-+		}
-+	}
-+	mm->hugepage_shift = shift;
-+	activate_mm(mm, mm);
-+	up_write(&mm->mmap_sem);
-+	return 0;
-+}
-diff -Nraup a/include/asm-ia64/page.h b/include/asm-ia64/page.h
---- a/include/asm-ia64/page.h	2006-04-13 08:41:37.000000000 +0800
-+++ b/include/asm-ia64/page.h	2006-04-13 08:30:21.000000000 +0800
-@@ -166,6 +166,8 @@ typedef union ia64_va {
- 	 (REGION_NUMBER(addr) = RGN_HPAGE ||	\
- 	  REGION_NUMBER((addr)+(len)-1) = RGN_HPAGE)
- extern unsigned int init_hpage_shift;
-+struct task_struct;
-+extern int set_hugepagesize(struct task_struct *,unsigned long);
- #endif
+ 	/* Mask all interrupts */
+ 	local_irq_save(flags);
+-	if (notify_die(DIE_MCA_RENDZVOUS_ENTER, "MCA", regs, 0, 0, 0)
++	if (notify_die(DIE_MCA_RENDZVOUS_ENTER, "MCA", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
  
- static __inline__ int
-diff -Nraup a/include/asm-ia64/processor.h b/include/asm-ia64/processor.h
---- a/include/asm-ia64/processor.h	2006-04-13 08:41:37.000000000 +0800
-+++ b/include/asm-ia64/processor.h	2006-04-13 08:30:13.000000000 +0800
-@@ -211,6 +211,14 @@ typedef struct {
- 		 (int __user *) (addr));							\
- })
+@@ -594,7 +596,7 @@ ia64_mca_rendez_int_handler(int rendez_i
+ 	 */
+ 	ia64_sal_mc_rendez();
  
-+#ifdef CONFIG_HUGETLB_PAGE
-+#define	GET_HUGEPAGESIZE(task,addr) \
-+({	put_user((1UL<<(task)->mm->hugepage_shift), \
-+		(unsigned long __user *)(addr)); \
-+})
-+#define SET_HUGEPAGESIZE(task,size) set_hugepagesize(task,size)
-+#endif
+-	if (notify_die(DIE_MCA_RENDZVOUS_PROCESS, "MCA", regs, 0, 0, 0)
++	if (notify_die(DIE_MCA_RENDZVOUS_PROCESS, "MCA", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 
+@@ -602,7 +604,7 @@ ia64_mca_rendez_int_handler(int rendez_i
+ 	while (monarch_cpu != -1)
+ 	       cpu_relax();	/* spin until monarch leaves */
+ 
+-	if (notify_die(DIE_MCA_RENDZVOUS_LEAVE, "MCA", regs, 0, 0, 0)
++	if (notify_die(DIE_MCA_RENDZVOUS_LEAVE, "MCA", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 
+@@ -1023,6 +1025,8 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 		&sos->proc_state_param;
+ 	int recover, cpu = smp_processor_id();
+ 	task_t *previous_current;
++	struct ia64_mca_notify_die nd +		{ .sos = sos, .monarch_cpu = &monarch_cpu };
+ 
+ 	oops_in_progress = 1;	/* FIXME: make printk NMI/MCA/INIT safe */
+ 	console_loglevel = 15;	/* make sure printks make it to console */
+@@ -1031,7 +1035,7 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 
+ 	previous_current = ia64_mca_modify_original_stack(regs, sw, sos, "MCA");
+ 	monarch_cpu = cpu;
+-	if (notify_die(DIE_MCA_MONARCH_ENTER, "MCA", regs, 0, 0, 0)
++	if (notify_die(DIE_MCA_MONARCH_ENTER, "MCA", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 	ia64_wait_for_slaves(cpu);
+@@ -1043,7 +1047,7 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 	 * spinning in SAL does not work.
+ 	 */
+ 	ia64_mca_wakeup_all();
+-	if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, 0, 0, 0)
++	if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 
+@@ -1064,7 +1068,7 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
+ 		sos->os_status = IA64_MCA_CORRECTED;
+ 	}
+-	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, 0, 0, recover)
++	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, (long)&nd, 0, recover)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 
+@@ -1351,10 +1355,14 @@ ia64_init_handler(struct pt_regs *regs, 
+ 	static atomic_t monarchs;
+ 	task_t *previous_current;
+ 	int cpu = smp_processor_id();
++	struct ia64_mca_notify_die nd +		{ .sos = sos, .monarch_cpu = &monarch_cpu };
+ 
+ 	oops_in_progress = 1;	/* FIXME: make printk NMI/MCA/INIT safe */
+ 	console_loglevel = 15;	/* make sure printks make it to console */
+ 
++	(void) notify_die(DIE_INIT_ENTER, "INIT", regs, (long)&nd, 0, 0);
 +
- #ifdef CONFIG_IA32_SUPPORT
- struct desc_struct {
- 	unsigned int a, b;
-diff -Nraup a/include/linux/prctl.h b/include/linux/prctl.h
---- a/include/linux/prctl.h	2006-03-20 13:53:29.000000000 +0800
-+++ b/include/linux/prctl.h	2006-04-13 08:43:37.000000000 +0800
-@@ -52,4 +52,8 @@
- #define PR_SET_NAME    15		/* Set process name */
- #define PR_GET_NAME    16		/* Get process name */
+ 	printk(KERN_INFO "Entered OS INIT handler. PSP=%lx cpu=%d monarch=%ld\n",
+ 		sos->proc_state_param, cpu, sos->monarch);
+ 	salinfo_log_wakeup(SAL_INFO_TYPE_INIT, NULL, 0, 0);
+@@ -1390,15 +1398,15 @@ ia64_init_handler(struct pt_regs *regs, 
+ 		ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_INIT;
+ 		while (monarch_cpu = -1)
+ 		       cpu_relax();	/* spin until monarch enters */
+-		if (notify_die(DIE_INIT_SLAVE_ENTER, "INIT", regs, 0, 0, 0)
++		if (notify_die(DIE_INIT_SLAVE_ENTER, "INIT", regs, (long)&nd, 0, 0)
+ 				= NOTIFY_STOP)
+ 			ia64_mca_spin(__FUNCTION__);
+-		if (notify_die(DIE_INIT_SLAVE_PROCESS, "INIT", regs, 0, 0, 0)
++		if (notify_die(DIE_INIT_SLAVE_PROCESS, "INIT", regs, (long)&nd, 0, 0)
+ 				= NOTIFY_STOP)
+ 			ia64_mca_spin(__FUNCTION__);
+ 		while (monarch_cpu != -1)
+ 		       cpu_relax();	/* spin until monarch leaves */
+-		if (notify_die(DIE_INIT_SLAVE_LEAVE, "INIT", regs, 0, 0, 0)
++		if (notify_die(DIE_INIT_SLAVE_LEAVE, "INIT", regs, (long)&nd, 0, 0)
+ 				= NOTIFY_STOP)
+ 			ia64_mca_spin(__FUNCTION__);
+ 		printk("Slave on cpu %d returning to normal service.\n", cpu);
+@@ -1409,7 +1417,7 @@ ia64_init_handler(struct pt_regs *regs, 
+ 	}
  
-+/* Get/set task huge page size (if meaningful) */
-+#define PR_SET_HUGEPAGE_SIZE	17
-+#define PR_GET_HUGEPAGE_SIZE	18
-+
- #endif /* _LINUX_PRCTL_H */
-diff -Nraup a/kernel/sys.c b/kernel/sys.c
---- a/kernel/sys.c	2006-04-13 08:41:37.000000000 +0800
-+++ b/kernel/sys.c	2006-04-13 08:47:41.000000000 +0800
-@@ -57,6 +57,12 @@
- #ifndef GET_FPEXC_CTL
- # define GET_FPEXC_CTL(a,b)	(-EINVAL)
- #endif
-+#ifndef GET_HUGEPAGESIZE
-+# define GET_HUGEPAGESIZE(a,b)  (-EINVAL)
-+#endif
-+#ifndef SET_HUGEPAGESIZE
-+# define SET_HUGEPAGESIZE(a,b)  (-EINVAL)
-+#endif
+ 	monarch_cpu = cpu;
+-	if (notify_die(DIE_INIT_MONARCH_ENTER, "INIT", regs, 0, 0, 0)
++	if (notify_die(DIE_INIT_MONARCH_ENTER, "INIT", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
  
- /*
-  * this is where the system-wide overflow UID and GID are defined, for
-@@ -2057,6 +2063,12 @@ asmlinkage long sys_prctl(int option, un
- 				return -EFAULT;
- 			return 0;
+@@ -1426,10 +1434,10 @@ ia64_init_handler(struct pt_regs *regs, 
+ 	 * to default_monarch_init_process() above and just print all the
+ 	 * tasks.
+ 	 */
+-	if (notify_die(DIE_INIT_MONARCH_PROCESS, "INIT", regs, 0, 0, 0)
++	if (notify_die(DIE_INIT_MONARCH_PROCESS, "INIT", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+-	if (notify_die(DIE_INIT_MONARCH_LEAVE, "INIT", regs, 0, 0, 0)
++	if (notify_die(DIE_INIT_MONARCH_LEAVE, "INIT", regs, (long)&nd, 0, 0)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__FUNCTION__);
+ 	printk("\nINIT dump complete.  Monarch on cpu %d returning to normal service.\n", cpu);
+@@ -1631,6 +1639,7 @@ ia64_mca_init(void)
+ 			printk(KERN_INFO "Increasing MCA rendezvous timeout from "
+ 				"%ld to %ld milliseconds\n", timeout, isrv.v0);
+ 			timeout = isrv.v0;
++			(void) notify_die(DIE_MCA_NEW_TIMEOUT, "MCA", NULL, timeout, 0, 0);
+ 			continue;
  		}
-+		case PR_SET_HUGEPAGE_SIZE:
-+			error = SET_HUGEPAGESIZE(current, arg2);
-+			break;
-+		case PR_GET_HUGEPAGE_SIZE:
-+			error = GET_HUGEPAGESIZE(current, arg2);
-+			break;
- 		default:
- 			error = -EINVAL;
- 			break;
+ 		printk(KERN_ERR "Failed to register rendezvous interrupt "
+Index: linux-2.6-ia64/include/asm-ia64/mca.h
+=================================--- linux-2.6-ia64.orig/include/asm-ia64/mca.h	2006-04-03 11:38:19.000000000 +1000
++++ linux-2.6-ia64/include/asm-ia64/mca.h	2006-04-03 11:44:32.603770231 +1000
+@@ -148,6 +148,11 @@ extern int  ia64_reg_MCA_extension(int (
+ extern void ia64_unreg_MCA_extension(void);
+ extern u64 ia64_get_rnat(u64 *);
+ 
++struct ia64_mca_notify_die {
++	struct ia64_sal_os_state *sos;
++	int *monarch_cpu;
++};
++
+ #else	/* __ASSEMBLY__ */
+ 
+ #define IA64_MCA_CORRECTED	0x0	/* Error has been corrected by OS_MCA */
+Index: linux-2.6-ia64/include/asm-ia64/kdebug.h
+=================================--- linux-2.6-ia64.orig/include/asm-ia64/kdebug.h	2006-04-03 12:13:59.000000000 +1000
++++ linux-2.6-ia64/include/asm-ia64/kdebug.h	2006-04-03 12:14:12.014069993 +1000
+@@ -58,6 +58,8 @@ enum die_val {
+ 	DIE_MCA_RENDZVOUS_ENTER,
+ 	DIE_MCA_RENDZVOUS_PROCESS,
+ 	DIE_MCA_RENDZVOUS_LEAVE,
++	DIE_MCA_NEW_TIMEOUT,
++	DIE_INIT_ENTER,
+ 	DIE_INIT_MONARCH_ENTER,
+ 	DIE_INIT_MONARCH_PROCESS,
+ 	DIE_INIT_MONARCH_LEAVE,
 
