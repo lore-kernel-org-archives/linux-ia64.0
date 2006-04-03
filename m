@@ -1,39 +1,95 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 14 Apr 2006 18:22:48 +0000
-Subject: RE: Setup an IA64 specific reclaim distance
-Message-Id: <4t16i2$m876o@orsmga001.jf.intel.com>
+From: xb <xavier.bru@bull.net>
+Date: Mon, 03 Apr 2006 11:39:47 +0000
+Subject: 2.6.16 not booting due to ACPI  revision 20060127
+Message-Id: <44310983.3070000@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080703050500010007070403"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-John Hawkes wrote on Friday, April 14, 2006 11:04 AM
-> From: "Christoph Lameter" <clameter@sgi.com>
-> > Would it not be much simpler to use the SLIT table to estimate the
-> > migration costs?
-> 
-> The current algorithm is very empirical:  for a given pair of CPUs, dirty the
-> L2 cache, migrate the task to the 2nd CPU, then measure how long it takes to
-> redirty the data.  The SLIT can give you some metric of "distance" between two
-> CPUs or two nodes, but the scheduler is looking for something it deems
-> directly related to the effects of migrating a cache-hot task.
-> 
-> Again, my problem with the migration_cost is that it is expensive to
-> calculate, and that the calculation takes pains to be accurate to within
-> 10-20%, and yet it makes assumptions (e.g., that the migration cost between
-> cpu0 and cpu1 is the same as between cpu0 and cpu31) that make its usefulness
-> questionable.
+This is a multi-part message in MIME format.
+--------------080703050500010007070403
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 
-That looks like a design flaw in the migration_cost measurement.  I remember
-it previously iterates over all cpu and make boot time measurement unbearable
-(something like 30 minutes on a moderately sized numa system).  The solution
-was to cache one pair of measurement and not to do the rest assuming they are
-the same.  That logic appears to be implemented incorrectly if it behaves like
-what you've said above.
+Hi all,
 
-It is fixable, I suppose.  I will look into it.
+We have platforms that do not boot in 2.6.16, but boot OK with 2.6.15 
+(loop in ACPI code).
+After some investigations, I found this is due to pci buses that are 
+described in the configuration, but not available in limited configurations.
+These buses have a _STA method, but no _INI method.
+With 2.6.15, the _STA method is run, and as the bus is not present, the 
+bus and all devices behind it are ignored.
+With 2.6.16, as no _INI method is provided for the bus, _STA method is 
+not run, and then we loop when executing methods for devices behind the 
+not present bus.
 
-- Ken
+Having a look to ACPI specification, I could find nowhere the 
+restriction that _STA method is called only when an _INI method is 
+provided for the device:
+
+"6.5.1 _INI (Init)
+...
+If the _STA method indicates that the device is present, OSPM will 
+evaluate the _INI for the device (if the _INI method exists) and will 
+examine each of the children of the device for _INI methods. If the _STA 
+method indicates that the device is not present, OSPM will not run the 
+_INI and will not examine the children of the device for _INI methods. "
+
+
+traces -----------------------------------------------
+
+
+ Device PC11
+000060e4:  02 . .  Name _HID
+000060e9:  03 . . .  PNP0A03  PCI Bus  0x030ad041
+000060ee:  02 . .  Name _UID
+000060f3:  03 . . .  0x0b
+000060f5:  02 . .  Name _ADR
+000060fa:  03 . . .  0x00
+000060fc:  02 ---- 'PCI bus number setup by the BIOS'  Method _BBN
+00006102:  03 . . .  0x00
+00006103:  03 . . .  Return
+00006104:  04 . . . .  path: \_SB_.CSFF.IO15.B1__
+00006117:  02 ---- 'Dynamic_Statu'  Method _STA
+0000611d:  03 . . .  0x00
+0000611e:  03 . . .  If
+00006120:  04 . . . .  LEqual
+00006121:  05 . . . . .  path: \_SB_.CSFF.IO11.HUBD
+00006134:  05 . . . . .  0x00
+00006136:  04 . . . .  Return
+00006137:  05 . . . . .  0x0f
+00006139:  03 . . .  Return
+0000613a:  04 . . . .  0x00
+0000613c:  02 ---- 'Current Resource Setting'  Method _CRS
+00006142:  03 . . .  0x00
+00006143:  03 . . .  Return
+00006144:  04 . . . .  path: \_SB_.HLRS
+0000614e:  03 . . .  0x01
+00006150:  03 . . .  0x01
+00006152:  02
+
+
+--------------080703050500010007070403
+Content-Transfer-Encoding: 7bit
+Content-Type: text/x-vcard; charset=utf-8;
+ name="xavier.bru.vcf"
+Content-Disposition: attachment;
+ filename="xavier.bru.vcf"
+
+begin:vcard
+fn:Xavier Bru
+n:Bru;Xavier
+adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
+email;internet:Xavier.Bru@bull.net
+title:BULL/DT/Open Software/linux/ia64
+tel;work:+33 (0)4 76 29 77 45
+tel;fax:+33 (0)4 76 29 77 70 
+x-mozilla-html:TRUE
+url:http://www.bull.com
+version:2.1
+end:vcard
+
+
+--------------080703050500010007070403--
