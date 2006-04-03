@@ -1,90 +1,129 @@
 From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Fri, 28 Apr 2006 07:53:19 +0000
-Subject: Re: Read *pgd again in vhpt_miss handler
-Message-Id: <4451C9EF.9060807@bull.net>
+Date: Mon, 03 Apr 2006 08:46:06 +0000
+Subject: Re: accessed/dirty bit handler tuning
+Message-Id: <4430E0CE.40102@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <444F79CA.7060804@bull.net>
-In-Reply-To: <444F79CA.7060804@bull.net>
+References: <44157CF1.5060902@bull.net>
+In-Reply-To: <44157CF1.5060902@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Thu, 27 Apr 2006, Zoltan Menyhart wrote:
+Chen, Kenneth W wrote:
+
+> You are correct.  I forgot that nested_dtlb_miss doesn't actually do the check.
+> I rather prefer not to add anything in the fast path to detect an exceedingly
+> rare race event (only if ia64 architect screwed up so bad that made itc.d have
+> 10,000 cycle latency and at the same time does a splendid job at job at ptc.g
+> which completes in zero cycle along with other thousands of other instructions).
 > 
-> 
->>I wanted to use the mm semaphore => no need to walk again the
->>pgd ... pte chain.
-> 
-> 
-> The pgd ... pte chain does not change even without mmap until 
-> the usage of the memory area ceases.
+> In that event, as I said, it's actually better to simple purge the entry, write
+> the dirty bit into in-memory page table entry and let the hardware page walker
+> insert the new entry.
 
-It is about about un-mapping a zone while another thread faults
-on an address belonging to the same zone.
+The problem common to both the VHPT miss and the nested DTLB handler is
+that we have to walk the
 
-We have got a
+    rx = IA64_KR_PT_BASE -> pgd[i] -> pud[j] -> pmd[k] -> pte[l]
 
-	rx = ... -> pgd[i] -> pud[j] -> pmd[k] -> pte[l]
+chain without any locking.
 
-chain to walk in the VHPT miss handler.
+IA64_KR_PT_BASE remains valid, the PGD page remains in its place until exit
+(of the last thread in a multi-threaded application).
 
-Having reached somewhere in this chain walking, we have got
-the ph. address of the next page in the chain in a register.
+Assume we have picked up a valid PUD pointer from pgd[i].
+Today, nothing makes sure that the PUD page remains valid by the time when
+we dereference the PUD pointer.
+The same can be said about the other steps in the chain.
 
-Before we can fetch the next item in the chain, "unpredictable
-long" time can pass.
+I agree, the probability that it happens is very very low.
+Yet we do not program for the statistics but for the security.
 
-In the mean time:
-- "free_pgtables()" kills the page we are about to touch.
-- Someone re-uses the same page for something else.
+Someone wants more chance to hit this bug? Here it is:
 
-As we are still keeping the same ph. address, we fetch an item
-from a page that is no more ours.
+Assume we have picked up a valid PUD / PMD / PTE pointer.
+A local MCA happens that is corrected by the PAL / SAL => CMCI (later).
+As the recovery can take no matter how much time, another CPU has got
+plenty of time to unmap a region, set free a PUD / PMD / PTE page
+whose physical address is in a register of our CPU.
 
-Even if this security window is small, it does exist.
+We are insensitive to the ptc.g of the hash address, issued by the CPU
+tearing down the mapping.
 
-The probability to hit this bug grows higher on a NUMA machine
-with lots of CPUs.
+We may be obliged to pronounce the 4 letter dirty word: lock.
 
-I can accept that the VHPT miss handler cannot protected by
-some locks, it is the other end that should use some "careful
-un-mapping" in order to avoid race conditions.
+> Can you do some stress test experiments and let us know how many time ptc.l
+> was actually executed in vhpt_miss/tlb_miss/dirty/access
+> handler? Thanks.
 
-Here is what I'm working on:
+Did you think of locking, too? Do you want to estimate the loss of the
+performance?
 
-PTE, PMD and PUD page usage perfectly fits into the RCU approach:
+Using the page-table-lock is out of question:
+- can be split (looking up "struct page"-es not a good idea)
+- scales badly
+- we do not want to exclude page faults (which only add pages)
+- we do not want to exclude the swapper (that takes away "leaf" pages only)
 
-1. The VHPT miss handler is protected by "rcu_read_lock_bh()".
-   There is not a single instruction added, the required semantics
-   is provided by the fact that the interrupts are off.
+I can think of taking the mm semaphore for read:
+- can be taken for read almost all the time
+- scales well
+- requires 2 atomic operation, say 4 memory accesses:
+  it doubles the original number of memory accesses needed to walk
+  the PGD ... PTE chain
 
-2. "free_pgtables()" keeps working as today for the non multi-
-   threaded applications.
+Unless ... the P*D[] pointers become virtual addresses.
+(Either the virtual addresses themselves are stored in the tables or we
+keep the physical ones and we or 0xe000... to them.)
 
-3. "free_pgtables()" and its subroutines do not actually free
-   the PTE, PMD and PUD pages for multi-threaded applications.
-   These pages will set free via an "call_rcu_bh()"-activated
-   service.
+This idea is based on the following:
+If we have got a virtual address and we manages to access the memory via
+this virtual address => the virtual address was valid during the access.
+Whoever tears down the mapping clears first the pointer then purges the
+translation enabling to access the pointer. We can catch it by the usual
+technique.
 
-(Perhaps, the weaker protection "rcu_read_lock()" - "call_rcu()"
-will be enough...)
+Here is my first guess for the VHPT miss handler (sanity checks, e.g.
+"presence", and other minor calculations are left for the reader):
 
-Please note that:
-- The life span of the PTE, PMD and PUD pages is rather long:
-  they are freed when the usage of the memory area ceases,
-  provided no other map (using the same PTE, PMD and PUD pages)
-  is valid.
-- The number of the PTE, PMD and PUD pages is much more smaller
-  that that of the leaf pages.
-Therefore freeing them is not really performance critical.
-As the "call_rcu_bh()"-activated freeing service will do a batch
-processing, these is a chance that freeing the PTE, PMD and PUD
-pages in this way be more efficient then the "pte_free()"... etc.
-services of today are.
+// This is the fast path
+- Do not switch off the data translation
+- IA64_KR_PT_BASE holds the virtual address of the PGD page
+- Set the return address for all nested faults
+  (always re-run the complete sequence in case of fault)
+- Set a predicate to indicate that we try to read pgd[i]
+  (or bx = @dedicated-nested-fault-handler)
+- Read pgd[i] - may fault, see below
+- Set a predicate to indicate that we try to read pud[j]
+- Read pud[j] - may fault, see below
+- Set a predicate to indicate that we try to read pmd[k]
+- Read pmd[k] - may fault, see below
+- Insert the translation for the PTE page + srlz.d
+- Re-read pmd[k] - may fault...
+- If it does not match => purge the translation + re-start
+- Set a predicate to indicate that we try to read pte[l]
+- Read pte[l] - may fault despite the fact that the PTE page just
+                has been mapped "by hand"
+- Insert the new translation + srlz.*
+- Re-read pte[l] - may fault...
+- If it does not match => purge the translation + re-start
 
-Regards,
+As we use virtual addresses => the nested fault handler has to insert
+an identity mapped translation for the PGD, PUD or PMD page, or the
+translation - as today - for the PTE page (it will be used by the HW
+walker, too).
+
+The fast path of this proposal includes the same number of loads, itc-s
+and srlz-s as the current version (with the missing srlz.d added).
+
+The drawback of this latter approach is that it requires 5 TLB entries
+to be able to "progress forward". The architecture does not guarantee
+that many. However, the ia64 CPUs in production (and the foreseen ones)
+have got 128 TLB entries...
+(We may check at boot time if they are available.
+If not we may fall back...)
+
 
 Zoltan
 
