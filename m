@@ -1,49 +1,81 @@
-From: xb <xavier.bru@bull.net>
-Date: Mon, 03 Apr 2006 14:34:04 +0000
-Subject: Re: 2.6.16 not booting due to ACPI  revision 20060127
-Message-Id: <4431325C.1040508@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------080805080306000801090105"
+From: "Brown, Len" <len.brown@intel.com>
+Date: Mon, 03 Apr 2006 17:14:04 +0000
+Subject: RE: 2.6.16 not booting due to ACPI  revision 20060127
+Message-Id: <CFF307C98FEABE47A452B27C06B85BB616BDD9@hdsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44310983.3070000@bull.net>
 In-Reply-To: <44310983.3070000@bull.net>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: xb <xavier.bru@bull.net>, linux-ia64@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080805080306000801090105
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 
-xb wrote:
+>We have platforms that do not boot in 2.6.16, but boot OK with 2.6.15=20
+>(loop in ACPI code).
 
-> Hi all,
+Sounds like it wouldn't have booted any of the 2.6.16 pre-release
+candidates either...
+
+>After some investigations, I found this is due to pci buses that are=20
+>described in the configuration, but not available in limited=20
+>configurations.
+
+>These buses have a _STA method, but no _INI method.
+>With 2.6.15, the _STA method is run, and as the bus is not=20
+>present, the bus and all devices behind it are ignored.
+
+The non-present busses should still be ignored in 2.6.16,
+independent of the STA/INI optimization.
+
+>With 2.6.16, as no _INI method is provided for the bus, _STA method is=20
+>not run, and then we loop when executing methods for devices=20
+>behind the not present bus.
+
+Need to find out what methods are looping on non-existent
+devices, and why STA didn't prevent that.  This is probably
+independent of the STA/INI optimization in 20060127.
+
+It sounds like either
+1. we're not evaluating _STA someplace in the bus enumeration code
+   when we should be, and perhaps this was masked in 2.6.15 when
+   we blindly evaluated STA everywhere.
+
+   I'll venture that is the issue here -- the STA/INI optimization
+   has unmasked a Linux bug.  Note that the patch to
+   again blindly execute STA everwhere would simply re-mask the bug,
+   rather than fixing it directly.
+or
+
+2. _STA on this box is somehow special and has side effects.
+
+
+Please open a bugzilla here:
+http://bugzilla.kernel.org/enter_bug.cgi?product=ACPI
+
+and attach the output from acpidump
+acpidump is available in the latest pmtools here:
+http://ftp.kernel.org/pub/linux/kernel/people/lenb/acpi/utils/
+
+
+>Having a look to ACPI specification, I could find nowhere the=20
+>restriction that _STA method is called only when an _INI method is=20
+>provided for the device:
 >
-> We have platforms that do not boot in 2.6.16, but boot OK with 2.6.15 
-> (loop in ACPI code).
-> After some investigations, I found this is due to pci buses that are 
-> described in the configuration, but not available in limited 
-> configurations.
-> These buses have a _STA method, but no _INI method.
-> With 2.6.15, the _STA method is run, and as the bus is not present, 
-> the bus and all devices behind it are ignored.
-> With 2.6.16, as no _INI method is provided for the bus, _STA method is 
-> not run, and then we loop when executing methods for devices behind 
-> the not present bus.
->
-> Having a look to ACPI specification, I could find nowhere the 
-> restriction that _STA method is called only when an _INI method is 
-> provided for the device:
->
-> "6.5.1 _INI (Init)
-> ...
-> If the _STA method indicates that the device is present, OSPM will 
-> evaluate the _INI for the device (if the _INI method exists) and will 
-> examine each of the children of the device for _INI methods. If the 
-> _STA method indicates that the device is not present, OSPM will not 
-> run the _INI and will not examine the children of the device for _INI 
-> methods. "
->
->
+>"6.5.1 _INI (Init)
+>...
+>If the _STA method indicates that the device is present, OSPM will=20
+>evaluate the _INI for the device (if the _INI method exists) and will=20
+>examine each of the children of the device for _INI methods.=20
+>If the _STA=20
+>method indicates that the device is not present, OSPM will not run the=20
+>_INI and will not examine the children of the device for _INI=20
+>methods. "
+
+That is true, but it is also true that the ACPI spec doesn't say
+how how many times STA will be evaluated, if at all.
+
 > traces -----------------------------------------------
 >
 >
@@ -76,71 +108,9 @@ xb wrote:
 > 00006150:  03 . . .  0x01
 > 00006152:  02
 >
-I checked that the following patch fixes the problem:
 
---- linux-2.6.16-old/drivers/acpi/namespace/nsinit.c    2006-03-31 
-18:26:23.000000000 +0200
-+++ linux-2.6.16-new/drivers/acpi/namespace/nsinit.c    2006-04-03 
-14:57:28.000000000 +0200
-@@ -362,19 +362,6 @@ acpi_ns_init_one_device(acpi_handle obj_
-     info->device_count++;
- 
-     /*
--     * Check if the _INI method exists for this device -
--     * if _INI does not exist, there is no need to run _STA
--     * No _INI means device requires no initialization
--     */
--    status = acpi_ns_search_node(*ACPI_CAST_PTR(u32, METHOD_NAME__INI),
--                     device_node, ACPI_TYPE_METHOD, &ini_node);
--    if (ACPI_FAILURE(status)) {
--        /* No _INI method found - move on to next device */
--
--        return_ACPI_STATUS(AE_OK);
--    }
--
--    /*
-      * Run _STA to determine if we can run _INI on the device -
-      * the device must be present before _INI can be run.
-      * However, _STA is not required - assume device present if no _STA
-@@ -405,6 +392,17 @@ acpi_ns_init_one_device(acpi_handle obj_
-     }
- 
-     /*
-+     * Check if the _INI method exists for this device -
-+     * No _INI means device requires no initialization
-+     */
-+    status = acpi_ns_search_node(*ACPI_CAST_PTR(u32, METHOD_NAME__INI),
-+                     device_node, ACPI_TYPE_METHOD, &ini_node);
-+    if (ACPI_FAILURE(status)) {
-+        /* No _INI method found - move on to next device */
-+        return_ACPI_STATUS(AE_OK);
-+    }
-+
-+    /*
-      * The device is present and _INI exists. Run the _INI method.
-      * (We already have the _INI node from above)
-      */
+Does this trace show the access to the bus that does not exist?
+Where is the loop?
 
-
---------------080805080306000801090105
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-vcard; charset=utf-8;
- name="xavier.bru.vcf"
-Content-Disposition: attachment;
- filename="xavier.bru.vcf"
-
-begin:vcard
-fn:Xavier Bru
-n:Bru;Xavier
-adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
-email;internet:Xavier.Bru@bull.net
-title:BULL/DT/Open Software/linux/ia64
-tel;work:+33 (0)4 76 29 77 45
-tel;fax:+33 (0)4 76 29 77 70 
-x-mozilla-html:TRUE
-url:http://www.bull.com
-version:2.1
-end:vcard
-
-
---------------080805080306000801090105--
+thanks,
+-Len
