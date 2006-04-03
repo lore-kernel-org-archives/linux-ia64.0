@@ -1,47 +1,29 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Mon, 03 Apr 2006 17:23:51 +0000
-Subject: Re: accessed/dirty bit handler tuning
-Message-Id: <44315A27.2070101@bull.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 03 Apr 2006 17:50:22 +0000
+Subject: RE: accessed/dirty bit handler tuning
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F061E0E9B@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44157CF1.5060902@bull.net>
 In-Reply-To: <44157CF1.5060902@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger-Tang wrote:
-> On 4/3/06, Zoltan Menyhart <Zoltan.Menyhart@bull.net> wrote:
->=20
->=20
->>The problem is that the most frequently used trap handler contains
->>the unsafe walk of the
->>
->>        rx =3D IA64_KR_PT_BASE -> pgd[i] -> pud[j] -> pmd[k] -> pte[l]
->>
->>chain...
->=20
->=20
-> Please, everybody step back a minute.  Hint: consider that x86 does
-> the page-table walk in hardware...
+> I guess the TLB load is auto-locked, too.
+No, the whole multi-level TLB walk is not locked.
 
-Telling the truth: I'm not an x86 expert :-)=20
-What I could dig up in 5 minutes is:
+> Anyway, what can we conclude from this for the ia64 architecture?
 
-IA-32 Intel=AE Architecture Software Developer=92s Manual Volume 3A:
-7.1.2.1 Automatic Locking
+We can conclude that the generic Linux code that makes changes
+to the page table tree has been written to take some care to
+make changes in a "safe" way given that other processors may be
+simltaneously walking the page tables.  Thus the pointer from the
+higher level table to the lower level table is cleared, and we issue
+the purge before we free the lower level table.
 
-"When updating page-directory and page-table entries:
-When updating page-directory and page-table entries, the processor uses
-locked cycles to set the accessed and dirty flag in the page-directory
-and page-table entries."
+However, there have been changes to that code, and in particular
+ia64 did re-instate quicklists ... so a re-audit to make sure that
+none of the assumptions have been broken wouldn't be a bad idea.
 
-I guess the TLB load is auto-locked, too.
-
-Anyway, what can we conclude from this for the ia64 architecture?
-
-Can you _prove_ that walking that chain of pointers is safe?
-
-Thanks,
-
-Zoltan
+-Tony
