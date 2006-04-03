@@ -1,845 +1,123 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 03 Apr 2006 21:59:27 +0000
-Subject: Re: [PATCH] DMI: move dmi_scan.c from arch/i386 to drivers/firmware/
-Message-Id: <200604031559.27152.bjorn.helgaas@hp.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Mon, 03 Apr 2006 04:54:49 +0000
+Subject: Re: [PATCH 1/6] PCIERR : interfaces for synchronous I/O error detection
+Message-Id: <4430AA99.4090208@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200603231337.53657.bjorn.helgaas@hp.com> <200603231408.49675.bjorn.helgaas@hp.com> <20060323155118.17028026.akpm@osdl.org>
-In-Reply-To: <20060323155118.17028026.akpm@osdl.org>
+References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com> <4423A40D.3080906@jp.fujitsu.com> <20060324234306.GC21895@austin.ibm.com> <44274FF0.406@jp.fujitsu.com> <20060331220117.GB23872@austin.ibm.com>
+In-Reply-To: <20060331220117.GB23872@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: ak@suse.de, linux-kernel@vger.kernel.org, davej@codemonkey.org.uk, hpa@zytor.com, alan@lxorguk.ukuu.org.uk, tony.luck@intel.com, linux-ia64@vger.kernel.org, discuss@x86-64.org, pazke@donpac.ru, Matt_Domsch@dell.com
+To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Greg KH <greg@kroah.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
 
-On Thursday 23 March 2006 16:51, Andrew Morton wrote:
-> Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
-> > On Thursday 23 March 2006 13:41, Andi Kleen wrote:
-> > > On Thursday 23 March 2006 21:37, Bjorn Helgaas wrote:
-> > > > dmi_scan.c is arch-independent and is used by i386, x86_64, and ia64.
-> > > > Currently all three arches compile it from arch/i386, which means that
-> > > > ia64 and x86_64 depend on things in arch/i386 that they wouldn't
-> > > > otherwise care about.
-> > > > 
-> > > > This is simply "mv arch/i386/kernel/dmi_scan.c drivers/firmware/"
-> > > > (removing trailing whitespace) and the associated Makefile changes.
-> > > > All three architectures already set CONFIG_DMI in their top-level
-> > > > Kconfig files.
-> > > > 
-> > > > Built and booted on ia64 and i386.
-> > > 
-> > > This conflicts with at least three patches in my upcomming x86-64 patchkit.
+Linas Vepstas wrote:
+> On Mon, Mar 27, 2006 at 11:37:36AM +0900, Hidetoshi Seto wrote:
+>>  - State check would be architecture dependent routine work.
 > 
-> akpm:/usr/src/25> grep -l arch/i386/kernel/dmi_scan.c patches/*.patch
-> patches/dmi-only-ioremap-stuff-we-actually-need.patch
-> patches/efi-fixes.patch
-> patches/efi-keep-physical-table-addresses-in-efi-structure.patch
-> patches/ia64-use-i386-dmi_scanc.patch
-> patches/x86_64-mm-dmi-early.patch
-> patches/x86_64-mm-dmi-year.patch
+> I read through your patches.  You are proposing a very different
+> way of handling PCI errors than the pci_error_handlers API.
+> It seems to be much more invasive, and I don't understand why
+> its needed or how its better.  Let me be specific:
+> 
+> In the mpt code you have a function called pciras_readl()
+> that tries to perform an error-free read by retrying the read:
+> 
+>   do {
+>     pcierr_clear(&cookie, ioc->pcidev);
+>     val = ioread32(addr);
+>     status = pcierr_read(&cookie);
+>   } while(status && (--retries > 0));
+> 
+> Why not create special arch/ia_64 readl routine to do this?
+> In that case, other device drivers would get the benefit of
+> the retry-on-error type read.
+> 
+> Now, you probably shouldn't put this into the default readl
+> routine, since some devices do peculiar things if the same
+> register is read repeatedly.
 
-All the patches listed above are in Linus' tree.  So here's an updated
-patch:
+My first proposal of readX_check() about 2 years ago was
+already rejected by Linus. I think there were some problem
+that let this style slip from linux ... :
 
+  - To Make drivers to be more RAS-aware, rewriting large
+    portion of the codes to be able to respond to errors would
+    be inevitable anyway.
+    It would be better to have generic interfaces wrap
+    arch-specific codes because such error status check would
+    require some kind of synchronization with arch-specific
+    hardware or firmware etc.
+    Even if dividing normal-drivers and RAS-hardened-drivers
+    is inevitable, still it is better than having many
+    arch-specific drivers.
 
+  - Since such synchronized error check could be heavy time
+    consumer, it would be better the ratio of actual I/O to
+    error check is N:1, i.e. an error check can examine more
+    than one I/O.
+    Of course it is ideal if one check can examine all I/O,
+    however it is always possible that using a broken data
+    from earlier read brings the device or whole system to
+    fatal situation. Therefore, it would be realistic that
+    splitting driver's code to some possible stages and putting
+    an error check for each stage.
 
-[PATCH] DMI: move dmi_scan.c from arch/i386 to drivers/firmware/
+It is possible to define more interfaces such as readX_check()
+and/or readX_retry_on_error(), however they will be just
+wrappers of actual readX and pcierr_clear/read(), what everyone
+can imagine easily.
 
-dmi_scan.c is arch-independent and is used by i386, x86_64, and ia64.
-Currently all three arches compile it from arch/i386, which means that
-ia64 and x86_64 depend on things in arch/i386 that they wouldn't
-otherwise care about.
+What style of check is convenient is depend on the device and
+driver. Maybe sample mpt driver could be optimized.
+I guess that readX_check() style will convenient on many cases,
+but not all cases. That was maybe what Linus said.
 
-This is simply "mv arch/i386/kernel/dmi_scan.c drivers/firmware/"
-(removing trailing whitespace) and the associated Makefile changes.
-All three architectures already set CONFIG_DMI in their top-level
-Kconfig files.
+> Next, I notice that if the repeated read fails, then
+> 
+>    schedule_work(&mptbase_rstTask);
+> 
+> is called. This seems to be exactly the kind of action
+> that the pci_error_handlers API was meant to provide:
+> if there is a pci read error that cannot be trivially
+> recovered, then the error_detected() &c. routines would
+> be called. The mpt device driver would then initiate
+> a mptbase_rstTask upon one of these callbacks.
+> 
+> Thus, in the ia64 code, if a repeated readl fails,
+> then the ia64 reset task calls the device drivers
+> error_detected() routine, followed by the drivers's 
+> link_reset() routine, followed by the resume() routine.
+> 
+> For the mpt, it would probably be resume() that was
+> a wrapper around mptbase_rstTask(). Wouldn't this 
+> work just as well? 
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Yes, this part can be exactly replaced by callback API,
+because the reset can be performed asynchronously.
+Why this is here is simply ia64 have not implement it yet.
 
-Index: work-mm5/arch/i386/kernel/dmi_scan.c
-=================================--- work-mm5.orig/arch/i386/kernel/dmi_scan.c	2006-04-03 15:04:30.000000000 -0600
-+++ /dev/null	1970-01-01 00:00:00.000000000 +0000
-@@ -1,358 +0,0 @@
--#include <linux/types.h>
--#include <linux/string.h>
--#include <linux/init.h>
--#include <linux/module.h>
--#include <linux/dmi.h>
--#include <linux/efi.h>
--#include <linux/bootmem.h>
--#include <linux/slab.h>
--#include <asm/dmi.h>
--
--static char * __init dmi_string(struct dmi_header *dm, u8 s)
--{
--	u8 *bp = ((u8 *) dm) + dm->length;
--	char *str = "";
--
--	if (s) {
--		s--;
--		while (s > 0 && *bp) {
--			bp += strlen(bp) + 1;
--			s--;
--		}
--
--		if (*bp != 0) {
--			str = dmi_alloc(strlen(bp) + 1);
--			if (str != NULL)
--				strcpy(str, bp);
--			else
--				printk(KERN_ERR "dmi_string: out of memory.\n");
--		}
-- 	}
--
--	return str;
--}
--
--/*
-- *	We have to be cautious here. We have seen BIOSes with DMI pointers
-- *	pointing to completely the wrong place for example
-- */
--static int __init dmi_table(u32 base, int len, int num,
--			    void (*decode)(struct dmi_header *))
--{
--	u8 *buf, *data;
--	int i = 0;
--		
--	buf = dmi_ioremap(base, len);
--	if (buf = NULL)
--		return -1;
--
--	data = buf;
--
--	/*
-- 	 *	Stop when we see all the items the table claimed to have
-- 	 *	OR we run off the end of the table (also happens)
-- 	 */
--	while ((i < num) && (data - buf + sizeof(struct dmi_header)) <= len) {
--		struct dmi_header *dm = (struct dmi_header *)data;
--		/*
--		 *  We want to know the total length (formated area and strings)
--		 *  before decoding to make sure we won't run off the table in
--		 *  dmi_decode or dmi_string
--		 */
--		data += dm->length;
--		while ((data - buf < len - 1) && (data[0] || data[1]))
--			data++;
--		if (data - buf < len - 1)
--			decode(dm);
--		data += 2;
--		i++;
--	}
--	dmi_iounmap(buf, len);
--	return 0;
--}
--
--static int __init dmi_checksum(u8 *buf)
--{
--	u8 sum = 0;
--	int a;
--	
--	for (a = 0; a < 15; a++)
--		sum += buf[a];
--
--	return sum = 0;
--}
--
--static char *dmi_ident[DMI_STRING_MAX];
--static LIST_HEAD(dmi_devices);
--
--/*
-- *	Save a DMI string
-- */
--static void __init dmi_save_ident(struct dmi_header *dm, int slot, int string)
--{
--	char *p, *d = (char*) dm;
--
--	if (dmi_ident[slot])
--		return;
--
--	p = dmi_string(dm, d[string]);
--	if (p = NULL)
--		return;
--
--	dmi_ident[slot] = p;
--}
--
--static void __init dmi_save_devices(struct dmi_header *dm)
--{
--	int i, count = (dm->length - sizeof(struct dmi_header)) / 2;
--	struct dmi_device *dev;
--
--	for (i = 0; i < count; i++) {
--		char *d = (char *)(dm + 1) + (i * 2);
--
--		/* Skip disabled device */
--		if ((*d & 0x80) = 0)
--			continue;
--
--		dev = dmi_alloc(sizeof(*dev));
--		if (!dev) {
--			printk(KERN_ERR "dmi_save_devices: out of memory.\n");
--			break;
--		}
--
--		dev->type = *d++ & 0x7f;
--		dev->name = dmi_string(dm, *d);
--		dev->device_data = NULL;
--
--		list_add(&dev->list, &dmi_devices);
--	}
--}
--
--static void __init dmi_save_ipmi_device(struct dmi_header *dm)
--{
--	struct dmi_device *dev;
--	void * data;
--
--	data = dmi_alloc(dm->length);
--	if (data = NULL) {
--		printk(KERN_ERR "dmi_save_ipmi_device: out of memory.\n");
--		return;
--	}
--
--	memcpy(data, dm, dm->length);
--
--	dev = dmi_alloc(sizeof(*dev));
--	if (!dev) {
--		printk(KERN_ERR "dmi_save_ipmi_device: out of memory.\n");
--		return;
--	}
--
--	dev->type = DMI_DEV_TYPE_IPMI;
--	dev->name = "IPMI controller";
--	dev->device_data = data;
--
--	list_add(&dev->list, &dmi_devices);
--}
--
--/*
-- *	Process a DMI table entry. Right now all we care about are the BIOS
-- *	and machine entries. For 2.5 we should pull the smbus controller info
-- *	out of here.
-- */
--static void __init dmi_decode(struct dmi_header *dm)
--{
--	switch(dm->type) {
--	case 0:		/* BIOS Information */
--		dmi_save_ident(dm, DMI_BIOS_VENDOR, 4);
--		dmi_save_ident(dm, DMI_BIOS_VERSION, 5);
--		dmi_save_ident(dm, DMI_BIOS_DATE, 8);
--		break;
--	case 1:		/* System Information */
--		dmi_save_ident(dm, DMI_SYS_VENDOR, 4);
--		dmi_save_ident(dm, DMI_PRODUCT_NAME, 5);
--		dmi_save_ident(dm, DMI_PRODUCT_VERSION, 6);
--		dmi_save_ident(dm, DMI_PRODUCT_SERIAL, 7);
--		break;
--	case 2:		/* Base Board Information */
--		dmi_save_ident(dm, DMI_BOARD_VENDOR, 4);
--		dmi_save_ident(dm, DMI_BOARD_NAME, 5);
--		dmi_save_ident(dm, DMI_BOARD_VERSION, 6);
--		break;
--	case 10:	/* Onboard Devices Information */
--		dmi_save_devices(dm);
--		break;
--	case 38:	/* IPMI Device Information */
--		dmi_save_ipmi_device(dm);
--	}
--}
--
--static int __init dmi_present(char __iomem *p)
--{
--	u8 buf[15];
--	memcpy_fromio(buf, p, 15);
--	if ((memcmp(buf, "_DMI_", 5) = 0) && dmi_checksum(buf)) {
--		u16 num = (buf[13] << 8) | buf[12];
--		u16 len = (buf[7] << 8) | buf[6];
--		u32 base = (buf[11] << 24) | (buf[10] << 16) |
--			(buf[9] << 8) | buf[8];
--
--		/*
--		 * DMI version 0.0 means that the real version is taken from
--		 * the SMBIOS version, which we don't know at this point.
--		 */
--		if (buf[14] != 0)
--			printk(KERN_INFO "DMI %d.%d present.\n",
--			       buf[14] >> 4, buf[14] & 0xF);
--		else
--			printk(KERN_INFO "DMI present.\n");
--		if (dmi_table(base,len, num, dmi_decode) = 0)
--			return 0;
--	}
--	return 1;
--}
--
--void __init dmi_scan_machine(void)
--{
--	char __iomem *p, *q;
--	int rc;
--
--	if (efi_enabled) {
--		if (efi.smbios = EFI_INVALID_TABLE_ADDR)
--			goto out;
--
--               /* This is called as a core_initcall() because it isn't
--                * needed during early boot.  This also means we can
--                * iounmap the space when we're done with it.
--		*/
--		p = dmi_ioremap(efi.smbios, 32);
--		if (p = NULL)
--			goto out;
--
--		rc = dmi_present(p + 0x10); /* offset of _DMI_ string */
--		dmi_iounmap(p, 32);
--		if (!rc)
--			return;
--	}
--	else {
--		/*
--		 * no iounmap() for that ioremap(); it would be a no-op, but
--		 * it's so early in setup that sucker gets confused into doing
--		 * what it shouldn't if we actually call it.
--		 */
--		p = dmi_ioremap(0xF0000, 0x10000);
--		if (p = NULL)
--			goto out;
--
--		for (q = p; q < p + 0x10000; q += 16) {
--			rc = dmi_present(q);
--			if (!rc)
--				return;
--		}
--	}
-- out:	printk(KERN_INFO "DMI not present or invalid.\n");
--}
--
--/**
-- *	dmi_check_system - check system DMI data
-- *	@list: array of dmi_system_id structures to match against
-- *
-- *	Walk the blacklist table running matching functions until someone
-- *	returns non zero or we hit the end. Callback function is called for
-- *	each successfull match. Returns the number of matches.
-- */
--int dmi_check_system(struct dmi_system_id *list)
--{
--	int i, count = 0;
--	struct dmi_system_id *d = list;
--
--	while (d->ident) {
--		for (i = 0; i < ARRAY_SIZE(d->matches); i++) {
--			int s = d->matches[i].slot;
--			if (s = DMI_NONE)
--				continue;
--			if (dmi_ident[s] && strstr(dmi_ident[s], d->matches[i].substr))
--				continue;
--			/* No match */
--			goto fail;
--		}
--		count++;
--		if (d->callback && d->callback(d))
--			break;
--fail:		d++;
--	}
--
--	return count;
--}
--EXPORT_SYMBOL(dmi_check_system);
--
--/**
-- *	dmi_get_system_info - return DMI data value
-- *	@field: data index (see enum dmi_filed)
-- *
-- *	Returns one DMI data value, can be used to perform
-- *	complex DMI data checks.
-- */
--char *dmi_get_system_info(int field)
--{
--	return dmi_ident[field];
--}
--EXPORT_SYMBOL(dmi_get_system_info);
--
--/**
-- *	dmi_find_device - find onboard device by type/name
-- *	@type: device type or %DMI_DEV_TYPE_ANY to match all device types
-- *	@desc: device name string or %NULL to match all
-- *	@from: previous device found in search, or %NULL for new search.
-- *
-- *	Iterates through the list of known onboard devices. If a device is
-- *	found with a matching @vendor and @device, a pointer to its device
-- *	structure is returned.  Otherwise, %NULL is returned.
-- *	A new search is initiated by passing %NULL to the @from argument.
-- *	If @from is not %NULL, searches continue from next device.
-- */
--struct dmi_device * dmi_find_device(int type, const char *name,
--				    struct dmi_device *from)
--{
--	struct list_head *d, *head = from ? &from->list : &dmi_devices;
--
--	for(d = head->next; d != &dmi_devices; d = d->next) {
--		struct dmi_device *dev = list_entry(d, struct dmi_device, list);
--
--		if (((type = DMI_DEV_TYPE_ANY) || (dev->type = type)) &&
--		    ((name = NULL) || (strcmp(dev->name, name) = 0)))
--			return dev;
--	}
--
--	return NULL;
--}
--EXPORT_SYMBOL(dmi_find_device);
--
--/**
-- *	dmi_get_year - Return year of a DMI date
-- *	@field:	data index (like dmi_get_system_info)
-- *
-- *	Returns -1 when the field doesn't exist. 0 when it is broken.
-- */
--int dmi_get_year(int field)
--{
--	int year;
--	char *s = dmi_get_system_info(field);
--
--	if (!s)
--		return -1;
--	if (*s = '\0')
--		return 0;
--	s = strrchr(s, '/');
--	if (!s)
--		return 0;
--
--	s += 1;
--	year = simple_strtoul(s, NULL, 0);
--	if (year && year < 100) {	/* 2-digit year */
--		year += 1900;
--		if (year < 1996)	/* no dates < spec 1.0 */
--			year += 100;
--	}
--
--	return year;
--}
-Index: work-mm5/drivers/firmware/dmi_scan.c
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ work-mm5/drivers/firmware/dmi_scan.c	2006-04-03 15:10:16.000000000 -0600
-@@ -0,0 +1,358 @@
-+#include <linux/types.h>
-+#include <linux/string.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/dmi.h>
-+#include <linux/efi.h>
-+#include <linux/bootmem.h>
-+#include <linux/slab.h>
-+#include <asm/dmi.h>
-+
-+static char * __init dmi_string(struct dmi_header *dm, u8 s)
-+{
-+	u8 *bp = ((u8 *) dm) + dm->length;
-+	char *str = "";
-+
-+	if (s) {
-+		s--;
-+		while (s > 0 && *bp) {
-+			bp += strlen(bp) + 1;
-+			s--;
-+		}
-+
-+		if (*bp != 0) {
-+			str = dmi_alloc(strlen(bp) + 1);
-+			if (str != NULL)
-+				strcpy(str, bp);
-+			else
-+				printk(KERN_ERR "dmi_string: out of memory.\n");
-+		}
-+	}
-+
-+	return str;
-+}
-+
-+/*
-+ *	We have to be cautious here. We have seen BIOSes with DMI pointers
-+ *	pointing to completely the wrong place for example
-+ */
-+static int __init dmi_table(u32 base, int len, int num,
-+			    void (*decode)(struct dmi_header *))
-+{
-+	u8 *buf, *data;
-+	int i = 0;
-+
-+	buf = dmi_ioremap(base, len);
-+	if (buf = NULL)
-+		return -1;
-+
-+	data = buf;
-+
-+	/*
-+	 *	Stop when we see all the items the table claimed to have
-+	 *	OR we run off the end of the table (also happens)
-+	 */
-+	while ((i < num) && (data - buf + sizeof(struct dmi_header)) <= len) {
-+		struct dmi_header *dm = (struct dmi_header *)data;
-+		/*
-+		 *  We want to know the total length (formated area and strings)
-+		 *  before decoding to make sure we won't run off the table in
-+		 *  dmi_decode or dmi_string
-+		 */
-+		data += dm->length;
-+		while ((data - buf < len - 1) && (data[0] || data[1]))
-+			data++;
-+		if (data - buf < len - 1)
-+			decode(dm);
-+		data += 2;
-+		i++;
-+	}
-+	dmi_iounmap(buf, len);
-+	return 0;
-+}
-+
-+static int __init dmi_checksum(u8 *buf)
-+{
-+	u8 sum = 0;
-+	int a;
-+
-+	for (a = 0; a < 15; a++)
-+		sum += buf[a];
-+
-+	return sum = 0;
-+}
-+
-+static char *dmi_ident[DMI_STRING_MAX];
-+static LIST_HEAD(dmi_devices);
-+
-+/*
-+ *	Save a DMI string
-+ */
-+static void __init dmi_save_ident(struct dmi_header *dm, int slot, int string)
-+{
-+	char *p, *d = (char*) dm;
-+
-+	if (dmi_ident[slot])
-+		return;
-+
-+	p = dmi_string(dm, d[string]);
-+	if (p = NULL)
-+		return;
-+
-+	dmi_ident[slot] = p;
-+}
-+
-+static void __init dmi_save_devices(struct dmi_header *dm)
-+{
-+	int i, count = (dm->length - sizeof(struct dmi_header)) / 2;
-+	struct dmi_device *dev;
-+
-+	for (i = 0; i < count; i++) {
-+		char *d = (char *)(dm + 1) + (i * 2);
-+
-+		/* Skip disabled device */
-+		if ((*d & 0x80) = 0)
-+			continue;
-+
-+		dev = dmi_alloc(sizeof(*dev));
-+		if (!dev) {
-+			printk(KERN_ERR "dmi_save_devices: out of memory.\n");
-+			break;
-+		}
-+
-+		dev->type = *d++ & 0x7f;
-+		dev->name = dmi_string(dm, *d);
-+		dev->device_data = NULL;
-+
-+		list_add(&dev->list, &dmi_devices);
-+	}
-+}
-+
-+static void __init dmi_save_ipmi_device(struct dmi_header *dm)
-+{
-+	struct dmi_device *dev;
-+	void * data;
-+
-+	data = dmi_alloc(dm->length);
-+	if (data = NULL) {
-+		printk(KERN_ERR "dmi_save_ipmi_device: out of memory.\n");
-+		return;
-+	}
-+
-+	memcpy(data, dm, dm->length);
-+
-+	dev = dmi_alloc(sizeof(*dev));
-+	if (!dev) {
-+		printk(KERN_ERR "dmi_save_ipmi_device: out of memory.\n");
-+		return;
-+	}
-+
-+	dev->type = DMI_DEV_TYPE_IPMI;
-+	dev->name = "IPMI controller";
-+	dev->device_data = data;
-+
-+	list_add(&dev->list, &dmi_devices);
-+}
-+
-+/*
-+ *	Process a DMI table entry. Right now all we care about are the BIOS
-+ *	and machine entries. For 2.5 we should pull the smbus controller info
-+ *	out of here.
-+ */
-+static void __init dmi_decode(struct dmi_header *dm)
-+{
-+	switch(dm->type) {
-+	case 0:		/* BIOS Information */
-+		dmi_save_ident(dm, DMI_BIOS_VENDOR, 4);
-+		dmi_save_ident(dm, DMI_BIOS_VERSION, 5);
-+		dmi_save_ident(dm, DMI_BIOS_DATE, 8);
-+		break;
-+	case 1:		/* System Information */
-+		dmi_save_ident(dm, DMI_SYS_VENDOR, 4);
-+		dmi_save_ident(dm, DMI_PRODUCT_NAME, 5);
-+		dmi_save_ident(dm, DMI_PRODUCT_VERSION, 6);
-+		dmi_save_ident(dm, DMI_PRODUCT_SERIAL, 7);
-+		break;
-+	case 2:		/* Base Board Information */
-+		dmi_save_ident(dm, DMI_BOARD_VENDOR, 4);
-+		dmi_save_ident(dm, DMI_BOARD_NAME, 5);
-+		dmi_save_ident(dm, DMI_BOARD_VERSION, 6);
-+		break;
-+	case 10:	/* Onboard Devices Information */
-+		dmi_save_devices(dm);
-+		break;
-+	case 38:	/* IPMI Device Information */
-+		dmi_save_ipmi_device(dm);
-+	}
-+}
-+
-+static int __init dmi_present(char __iomem *p)
-+{
-+	u8 buf[15];
-+	memcpy_fromio(buf, p, 15);
-+	if ((memcmp(buf, "_DMI_", 5) = 0) && dmi_checksum(buf)) {
-+		u16 num = (buf[13] << 8) | buf[12];
-+		u16 len = (buf[7] << 8) | buf[6];
-+		u32 base = (buf[11] << 24) | (buf[10] << 16) |
-+			(buf[9] << 8) | buf[8];
-+
-+		/*
-+		 * DMI version 0.0 means that the real version is taken from
-+		 * the SMBIOS version, which we don't know at this point.
-+		 */
-+		if (buf[14] != 0)
-+			printk(KERN_INFO "DMI %d.%d present.\n",
-+			       buf[14] >> 4, buf[14] & 0xF);
-+		else
-+			printk(KERN_INFO "DMI present.\n");
-+		if (dmi_table(base,len, num, dmi_decode) = 0)
-+			return 0;
-+	}
-+	return 1;
-+}
-+
-+void __init dmi_scan_machine(void)
-+{
-+	char __iomem *p, *q;
-+	int rc;
-+
-+	if (efi_enabled) {
-+		if (efi.smbios = EFI_INVALID_TABLE_ADDR)
-+			goto out;
-+
-+               /* This is called as a core_initcall() because it isn't
-+                * needed during early boot.  This also means we can
-+                * iounmap the space when we're done with it.
-+		*/
-+		p = dmi_ioremap(efi.smbios, 32);
-+		if (p = NULL)
-+			goto out;
-+
-+		rc = dmi_present(p + 0x10); /* offset of _DMI_ string */
-+		dmi_iounmap(p, 32);
-+		if (!rc)
-+			return;
-+	}
-+	else {
-+		/*
-+		 * no iounmap() for that ioremap(); it would be a no-op, but
-+		 * it's so early in setup that sucker gets confused into doing
-+		 * what it shouldn't if we actually call it.
-+		 */
-+		p = dmi_ioremap(0xF0000, 0x10000);
-+		if (p = NULL)
-+			goto out;
-+
-+		for (q = p; q < p + 0x10000; q += 16) {
-+			rc = dmi_present(q);
-+			if (!rc)
-+				return;
-+		}
-+	}
-+ out:	printk(KERN_INFO "DMI not present or invalid.\n");
-+}
-+
-+/**
-+ *	dmi_check_system - check system DMI data
-+ *	@list: array of dmi_system_id structures to match against
-+ *
-+ *	Walk the blacklist table running matching functions until someone
-+ *	returns non zero or we hit the end. Callback function is called for
-+ *	each successfull match. Returns the number of matches.
-+ */
-+int dmi_check_system(struct dmi_system_id *list)
-+{
-+	int i, count = 0;
-+	struct dmi_system_id *d = list;
-+
-+	while (d->ident) {
-+		for (i = 0; i < ARRAY_SIZE(d->matches); i++) {
-+			int s = d->matches[i].slot;
-+			if (s = DMI_NONE)
-+				continue;
-+			if (dmi_ident[s] && strstr(dmi_ident[s], d->matches[i].substr))
-+				continue;
-+			/* No match */
-+			goto fail;
-+		}
-+		count++;
-+		if (d->callback && d->callback(d))
-+			break;
-+fail:		d++;
-+	}
-+
-+	return count;
-+}
-+EXPORT_SYMBOL(dmi_check_system);
-+
-+/**
-+ *	dmi_get_system_info - return DMI data value
-+ *	@field: data index (see enum dmi_filed)
-+ *
-+ *	Returns one DMI data value, can be used to perform
-+ *	complex DMI data checks.
-+ */
-+char *dmi_get_system_info(int field)
-+{
-+	return dmi_ident[field];
-+}
-+EXPORT_SYMBOL(dmi_get_system_info);
-+
-+/**
-+ *	dmi_find_device - find onboard device by type/name
-+ *	@type: device type or %DMI_DEV_TYPE_ANY to match all device types
-+ *	@desc: device name string or %NULL to match all
-+ *	@from: previous device found in search, or %NULL for new search.
-+ *
-+ *	Iterates through the list of known onboard devices. If a device is
-+ *	found with a matching @vendor and @device, a pointer to its device
-+ *	structure is returned.  Otherwise, %NULL is returned.
-+ *	A new search is initiated by passing %NULL to the @from argument.
-+ *	If @from is not %NULL, searches continue from next device.
-+ */
-+struct dmi_device * dmi_find_device(int type, const char *name,
-+				    struct dmi_device *from)
-+{
-+	struct list_head *d, *head = from ? &from->list : &dmi_devices;
-+
-+	for(d = head->next; d != &dmi_devices; d = d->next) {
-+		struct dmi_device *dev = list_entry(d, struct dmi_device, list);
-+
-+		if (((type = DMI_DEV_TYPE_ANY) || (dev->type = type)) &&
-+		    ((name = NULL) || (strcmp(dev->name, name) = 0)))
-+			return dev;
-+	}
-+
-+	return NULL;
-+}
-+EXPORT_SYMBOL(dmi_find_device);
-+
-+/**
-+ *	dmi_get_year - Return year of a DMI date
-+ *	@field:	data index (like dmi_get_system_info)
-+ *
-+ *	Returns -1 when the field doesn't exist. 0 when it is broken.
-+ */
-+int dmi_get_year(int field)
-+{
-+	int year;
-+	char *s = dmi_get_system_info(field);
-+
-+	if (!s)
-+		return -1;
-+	if (*s = '\0')
-+		return 0;
-+	s = strrchr(s, '/');
-+	if (!s)
-+		return 0;
-+
-+	s += 1;
-+	year = simple_strtoul(s, NULL, 0);
-+	if (year && year < 100) {	/* 2-digit year */
-+		year += 1900;
-+		if (year < 1996)	/* no dates < spec 1.0 */
-+			year += 100;
-+	}
-+
-+	return year;
-+}
-Index: work-mm5/arch/i386/kernel/Makefile
-=================================--- work-mm5.orig/arch/i386/kernel/Makefile	2006-04-03 15:04:30.000000000 -0600
-+++ work-mm5/arch/i386/kernel/Makefile	2006-04-03 15:11:27.000000000 -0600
-@@ -6,7 +6,7 @@
- 
- obj-y	:= process.o semaphore.o signal.o entry.o traps.o irq.o \
- 		ptrace.o time.o ioport.o ldt.o setup.o i8259.o sys_i386.o \
--		pci-dma.o i386_ksyms.o i387.o dmi_scan.o bootflag.o \
-+		pci-dma.o i386_ksyms.o i387.o bootflag.o \
- 		quirks.o i8237.o topology.o alternative.o i8253.o tsc.o
- 
- obj-y				+= cpu/
-Index: work-mm5/arch/ia64/kernel/Makefile
-=================================--- work-mm5.orig/arch/ia64/kernel/Makefile	2006-04-03 15:04:30.000000000 -0600
-+++ work-mm5/arch/ia64/kernel/Makefile	2006-04-03 15:11:27.000000000 -0600
-@@ -7,7 +7,7 @@
- obj-y := acpi.o entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64.o	\
- 	 irq_lsapic.o ivt.o machvec.o pal.o patch.o process.o perfmon.o ptrace.o sal.o		\
- 	 salinfo.o semaphore.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o \
--	 unwind.o mca.o mca_asm.o topology.o dmi_scan.o
-+	 unwind.o mca.o mca_asm.o topology.o
- 
- obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
- obj-$(CONFIG_IA64_GENERIC)	+= acpi-ext.o
-@@ -30,7 +30,6 @@
- obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
- obj-$(CONFIG_IA64_UNCACHED_ALLOCATOR)	+= uncached.o
- mca_recovery-y			+= mca_drv.o mca_drv_asm.o
--dmi_scan-y			+= ../../i386/kernel/dmi_scan.o
- 
- # The gate DSO image is built using a special linker script.
- targets += gate.so gate-syms.o
-Index: work-mm5/arch/x86_64/kernel/Makefile
-=================================--- work-mm5.orig/arch/x86_64/kernel/Makefile	2006-04-03 15:04:31.000000000 -0600
-+++ work-mm5/arch/x86_64/kernel/Makefile	2006-04-03 15:11:27.000000000 -0600
-@@ -8,7 +8,7 @@
- 		ptrace.o time.o ioport.o ldt.o setup.o i8259.o sys_x86_64.o \
- 		x8664_ksyms.o i387.o syscall.o vsyscall.o \
- 		setup64.o bootflag.o e820.o reboot.o quirks.o i8237.o \
--		dmi_scan.o pci-dma.o pci-nommu.o
-+		pci-dma.o pci-nommu.o
- 
- obj-$(CONFIG_X86_MCE)         += mce.o
- obj-$(CONFIG_X86_MCE_INTEL)	+= mce_intel.o
-@@ -50,5 +50,3 @@
- quirks-y			+= ../../i386/kernel/quirks.o
- i8237-y				+= ../../i386/kernel/i8237.o
- msr-$(subst m,y,$(CONFIG_X86_MSR))  += ../../i386/kernel/msr.o
--dmi_scan-y			+= ../../i386/kernel/dmi_scan.o
--
-Index: work-mm5/drivers/firmware/Makefile
-=================================--- work-mm5.orig/drivers/firmware/Makefile	2006-04-03 15:03:32.000000000 -0600
-+++ work-mm5/drivers/firmware/Makefile	2006-04-03 15:11:27.000000000 -0600
-@@ -1,7 +1,8 @@
- #
- # Makefile for the linux kernel.
- #
--obj-$(CONFIG_EDD)             	+= edd.o
-+obj-$(CONFIG_DMI)		+= dmi_scan.o
-+obj-$(CONFIG_EDD)		+= edd.o
- obj-$(CONFIG_EFI_VARS)		+= efivars.o
- obj-$(CONFIG_EFI_PCDP)		+= pcdp.o
- obj-$(CONFIG_DELL_RBU)          += dell_rbu.o
+To make callback APIs work on ia64, at least it is required
+that ia64 system can continue after a bus error.
+This sensitive arch can catch a bus error synchronously
+by its arch-specific way, but at this time there is no way
+to forward the error to drivers and to know which driver can
+deal the error, so it chooses system reset.
+
+If I disable all such sensitive thing and make callback APIs
+to work on ia64, drivers still need synchronous error check for
+each I/O to prevent user data from pollution by error, but the
+coverage of errors will be limited to only what mpt can detect.
+No one care about pollution by non-aware drivers in this situation.
+
+Now I'm watching the problems to be solved before the asynchronous
+reset. Maybe my next work after this will be implement of ia64's
+callback API...
+
+If you have any better idea than this pcierr_* (and its possible
+wrapper, ex. readX_check()) to keep or get high data integrity,
+please tell me.
+
+Thanks,
+H.Seto
+
