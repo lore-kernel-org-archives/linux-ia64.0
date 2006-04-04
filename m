@@ -1,28 +1,28 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Tue, 04 Apr 2006 14:03:01 +0000
-Subject: [PATCH] eliminate compiler warning for xpc_channel.c
-Message-Id: <44327C95.mailxM9N11TC7P@aqua.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 04 Apr 2006 14:23:32 +0000
+Subject: RE: [PATCH] eliminate compiler warning for xpc_channel.c
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0622396D@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <44327C95.mailxM9N11TC7P@aqua.americas.sgi.com>
+In-Reply-To: <44327C95.mailxM9N11TC7P@aqua.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Placate a compiler warning that 'msg' may be used uninitialized in
-function xpc_initiate_allocate().
+> Placate a compiler warning that 'msg' may be used uninitialized in
+> function xpc_initiate_allocate().
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+Which version of which compiler ... at first glance the code looks
+trivially OK (&msg is passed to xpc_allocate_msg() before it is used).
+On closer inspection I assume that the compiler must have inlined
+xpc_allocate_msg() in order to detect this, and there are four "return"
+statements in there that can return w/o doing the initialization. So
+the warning is real, and we are not just "placating" the compiler.
 
-
-Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2006-04-03 08:26:22.000000000 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2006-04-04 08:25:51.691831163 -0500
-@@ -1831,7 +1831,7 @@
- {
- 	struct xpc_partition *part = &xpc_partitions[partid];
- 	enum xpc_retval ret = xpcUnknownReason;
 -	struct xpc_msg *msg;
 +	struct xpc_msg *msg = msg;
- 
- 
- 	DBUG_ON(partid <= 0 || partid >= XP_MAX_PARTITIONS);
+
+Did you mean to say "*msg = NULL"?
+
+-Tony
