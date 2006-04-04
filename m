@@ -1,222 +1,262 @@
-From: "Moore, Robert" <robert.moore@intel.com>
-Date: Tue, 04 Apr 2006 22:57:26 +0000
-Subject: RE: 2.6.16 not booting due to ACPI  revision 20060127
-Message-Id: <971FCB6690CD0E4898387DBF7552B90E04E7C019@orsmsx403.amr.corp.intel.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 04 Apr 2006 18:13:50 +0000
+Subject: Re: [Fastboot] [PATCH] kexec on ia64
+Message-Id: <m1r74d43a9.fsf@ebiederm.dsl.xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44310983.3070000@bull.net>
-In-Reply-To: <44310983.3070000@bull.net>
+References: <1144102818.8279.6.camel@localhost.localdomain>
+In-Reply-To: <1144102818.8279.6.camel@localhost.localdomain> (Khalid Aziz's
+ message of "Mon, 03 Apr 2006 16:20:18 -0600")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: xb <xavier.bru@bull.net>, "Brown, Len" <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, linux-acpi@vger.kernel.org, "Therien, Guy" <guy.therien@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Khalid Aziz <khalid_aziz@hp.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, Fastboot mailing list <fastboot@lists.osdl.org>, Linux ia64 <linux-ia64@vger.kernel.org>
+
+Khalid Aziz <khalid_aziz@hp.com> writes:
+
+> Add kexec support on ia64.
+
+This looks like a starting place but this patch needs some
+more work.
+
+> Signed-off-by: Khalid Aziz <khalid.aziz@hp.com>
+> ---
+>
+> diff -urNp linux-2.6.16/arch/ia64/hp/common/sba_iommu.c
+> linux-2.6.16-kexec/arch/ia64/hp/common/sba_iommu.c
+> --- linux-2.6.16/arch/ia64/hp/common/sba_iommu.c 2006-03-19 22:53:29.000000000
+> -0700
+> +++ linux-2.6.16-kexec/arch/ia64/hp/common/sba_iommu.c 2006-03-27
+> 15:42:47.000000000 -0700
+> @@ -1624,6 +1624,28 @@ ioc_iova_init(struct ioc *ioc)
+>  	READ_REG(ioc->ioc_hpa + IOC_IBASE);
+>  }
+>  
+> +#ifdef CONFIG_KEXEC
+> +void
+> +ioc_iova_disable(void)
+> +{
+> +	struct ioc *ioc;
+> +
+> +	ioc = ioc_list;
+> +
+> +	while (ioc != NULL) {
+> +		/* Disable IOVA translation */
+> + WRITE_REG(ioc->ibase & 0xfffffffffffffffe, ioc->ioc_hpa + IOC_IBASE);
+> +		READ_REG(ioc->ioc_hpa + IOC_IBASE);
+> +
+> +		/* Clear I/O TLB of any possible entries */
+> + WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) + iovp_shift),
+> ioc->ioc_hpa + IOC_PCOM);
+> +		READ_REG(ioc->ioc_hpa + IOC_PCOM);
+> +
+> +		ioc = ioc->next;
+> +	}
+> +}
+> +#endif
+> +
+>  static void __init
+>  ioc_resource_init(struct ioc *ioc)
+>  {
+> diff -urNp linux-2.6.16/arch/ia64/Kconfig linux-2.6.16-kexec/arch/ia64/Kconfig
+> --- linux-2.6.16/arch/ia64/Kconfig	2006-03-19 22:53:29.000000000 -0700
+> +++ linux-2.6.16-kexec/arch/ia64/Kconfig 2006-03-27 15:42:47.000000000 -0700
+> @@ -376,6 +376,23 @@ config IA64_PALINFO
+>  config SGI_SN
+>  	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
+>  
+> +config KEXEC
+> +	bool "kexec system call (EXPERIMENTAL)"
+> +	depends on EXPERIMENTAL
+> +	help
+> +	  kexec is a system call that implements the ability to shutdown your
+> +	  current kernel, and to start another kernel.  It is like a reboot
+> +	  but it is indepedent of the system firmware.   And like a reboot
+> +	  you can start any kernel with it, not just Linux.
+> +
+> +	  The name comes from the similiarity to the exec system call.
+> +
+> +	  It is an ongoing process to be certain the hardware in a machine
+> +	  is properly shutdown, so do not be surprised if this code does not
+> +	  initially work for you.  It may help to enable device hotplugging
+> +	  support.  As of this writing the exact hardware interface is
+> +	  strongly in flux, so no good recommendation can be made.
+> +
+>  source "drivers/firmware/Kconfig"
+>  
+>  source "fs/Kconfig.binfmt"
+> diff -urNp linux-2.6.16/arch/ia64/kernel/crash.c
+> linux-2.6.16-kexec/arch/ia64/kernel/crash.c
+> --- linux-2.6.16/arch/ia64/kernel/crash.c 1969-12-31 17:00:00.000000000 -0700
+> +++ linux-2.6.16-kexec/arch/ia64/kernel/crash.c 2006-03-27 15:49:44.000000000
+> -0700
+> @@ -0,0 +1,43 @@
+> +/*
+> + * arch/ia64/kernel/crash.c
+> + *
+> + * Architecture specific (ia64) functions for kexec based crash dumps.
+> + *
+> + * Created by: Khalid Aziz <khalid.aziz@hp.com>
+> + *
+> + * Copyright (C) 2005 Hewlett-Packard Development Company, L.P.
+> + *
+> + */
+> +#include <linux/init.h>
+> +#include <linux/types.h>
+> +#include <linux/kernel.h>
+> +#include <linux/smp.h>
+> +#include <linux/irq.h>
+> +#include <linux/reboot.h>
+> +#include <linux/kexec.h>
+> +#include <linux/irq.h>
+> +#include <linux/delay.h>
+> +#include <linux/elf.h>
+> +#include <linux/elfcore.h>
+> +#include <linux/device.h>
+> +
+> +void
+> +machine_crash_shutdown(struct pt_regs *pt)
+> +{
+> +	/* This function is only called after the system
+> +	 * has paniced or is otherwise in a critical state.
+> +	 * The minimum amount of code to allow a kexec'd kernel
+> +	 * to run successfully needs to happen here.
+> +	 *
+> +	 * In practice this means shooting down the other cpus in
+> +	 * an SMP system.
+> +	 */
+> +	if (in_interrupt()) {
+> +		terminate_irqs();
+> +		ia64_eoi();
+> +	}
+> +	system_state = SYSTEM_RESTART;
+> +	device_shutdown();
+> +	system_state = SYSTEM_BOOTING;
+> +	machine_shutdown();
+> +}
+
+machine_crash_shutdown must not call device_shutdown.  That has
+been shown to way exceed the minimum necessary to shutdown a system.
+I would prefer this to be a noop stub that doesn't work at all than
+something like this that does way too much, and makes people think
+the code will work.
+
+As for terminate_irqs on x86 we do that on bootup not in the middle
+of a crash shutdown.  The apics and xapics are close enough you
+should be able to do the same on ia64.
+
+You display remarkable faith in a kernel that has paniced.
+
+> +#ifdef CONFIG_PCI
+> +void machine_shutdown(void)
+> +{
+> +	struct pci_dev *dev;
+> +	irq_desc_t *idesc;
+> +	cpumask_t mask = CPU_MASK_NONE;
+> +
+> +	/* Disable all PCI devices */
+> +	list_for_each_entry(dev, &pci_devices, global_list) {
+> +		if (!(dev->is_enabled))
+> +			continue;
+> +		idesc = irq_descp(dev->irq);
+> +		if (!idesc)
+> +			continue;
+> +		cpu_set(0, mask);
+> +		disable_irq_nosync(dev->irq);
+> +		idesc->handler->end(dev->irq);
+> +		idesc->handler->set_affinity(dev->irq, mask);
+> +		idesc->action = NULL;
+> +		pci_disable_device(dev);
+> +		pci_set_power_state(dev, 0);
+> +	}
+> +}
+> +#endif
+
+This is peculiar but almost sane.  We don't do this on x86,
+because devices are peculiar enough that no generic sequence works.
+What you have above belongs in the shutdown methods of the pci
+devices.  There is no way to get this right in the general case.
+
+some of the irq disable logic may in fact be sane.
+
+Unless there is a good reason not to machine_shutdown needs
+to be called from machine_restart.  So the code is routinely
+used and tested.
+
+Having machine_shutdown only build when you have PCI present
+and then not making KEXEC depend on PCI is wrong.
+
+The #ifdef needs to move inside machine_shutdown.
+
+> +
+> +/*
+> + * Do not allocate memory (or fail in any way) in machine_kexec().
+> + * We are past the point of no return, committed to rebooting now. 
+> + */
+> +void machine_kexec(struct kimage *image)
+> +{
+> +	unsigned long indirection_page;
+> +	relocate_new_kernel_t rnk;
+> +	unsigned long pta, impl_va_bits;
+> +	void *pal_addr = efi_get_pal_addr();
+> + unsigned long code_addr = (unsigned
+> long)page_address(image->control_code_page);
+> +
+> +#ifdef CONFIG_HOTPLUG_CPU
+> +	int cpu;
+> +
+> +	for_each_online_cpu(cpu) {
+> +		if (cpu != smp_processor_id())
+> +			cpu_down(cpu);
+> +	}
+> +#elif CONFIG_SMP
+> +	smp_call_function(kexec_stop_this_cpu, (void *)image->start, 0, 0);
+> +#endif
+
+This CPU and HOTPUG_CPU stuff belongs in machine shutdown.
+
+> +
+> +	ia64_set_itv(1<<16);
+> +	/* Interrupts aren't acceptable while we reboot */
+> +	local_irq_disable();
+> +
+> +	/* set kr0 to the appropriate address */
+> +	set_io_base();
+> +
+> +	/* Disable VHPT */
+> +	impl_va_bits = ffz(~(local_cpu_data->unimpl_va_mask | (7UL << 61)));
+> +	pta = POW2(61) - POW2(vmlpt_bits);
+> +	ia64_set_pta(pta | (0 << 8) | (vmlpt_bits << 2) | 0);
+> +
+> +#ifdef CONFIG_IA64_HP_ZX1
+> +	ioc_iova_disable();
+> +#endif
+
+This also looks like it needs to be part of machine_shutdown.
+I have no confidence in ioc_iova_disable when the machine is crashing.
+Basically anything that touches a pointer is likely to be bad.
+
+> +	/* now execute the control code.
+> +	 * We will start by executing the control code linked into the 
+> + * kernel as opposed to the code we copied in control code buffer * page. When
+> this code switches to physical mode, we will start
+> +	 * executing the code in control code buffer page. Reason for
+> +	 * doing this is we start code execution in virtual address space.
+> +	 * If we were to try to execute the newly copied code in virtual
+> +	 * address space, we will need to make an ITLB entry to avoid ITLB 
+> +	 * miss. By executing the code linked into kernel, we take advantage
+> +	 * of the ITLB entry already in place for kernel and avoid making
+> +	 * a new entry.
+> +	 */
+> +	indirection_page = image->head & PAGE_MASK;
+> +
+> +	rnk = (relocate_new_kernel_t)&code_addr;
+> +	(*rnk)(indirection_page, image->start, ia64_boot_param,
+> +		     GRANULEROUNDDOWN((unsigned long) pal_addr));
+> +	BUG();
+> +	for (;;)
+> +		;
+> +}
 
 
-I believe that we must run _STA in order to determine whether the device is=
- present or not and whether to continue initialization of the device childr=
-en.
-
-Thus, the patch given is essentially correct.
-
-
-
-
------Original Message-----
-From: xb [mailto:xavier.bru@bull.net]=20
-Sent: Tuesday, April 04, 2006 1:24 AM
-To: Brown, Len; Moore, Robert; Luck, Tony; linux-acpi@vger.kernel.org; Ther=
-ien, Guy
-Cc: linux-ia64@vger.kernel.org
-Subject: Re: 2.6.16 not booting due to ACPI revision 20060127
-
-Hi Robert and len,
-
-Thanks for answering my mail.
-I think that the problem is that we execute methods on the hot plug control=
-er for an unexisting bus.=20
-There is a method that loops on a particular field:
-
-000065f3:=A0 04 -------- Method WSOB
-000065f9:=A0 05 . . . . .=A0 0x00
-000065fa:=A0 05 . . . . .=A0 While
-000065fc:=A0 06 . . . . . .=A0 SOBO
-00006600:=A0 06 . . . . . .=A0 Noop
-
-I put, attached a partial trace of the called methods, and a dump of the DS=
-DT.
-Thanks again.
-
-Brown, Len wrote:=20
-We have platforms that do not boot in 2.6.16, but boot OK with 2.6.15=20
-(loop in ACPI code).
-   =20
-
-Sounds like it wouldn't have booted any of the 2.6.16 pre-release
-candidates either...
-
- =20
-Yes.
-
-After some investigations, I found this is due to pci buses that are=20
-described in the configuration, but not available in limited=20
-configurations.
-   =20
-
- =20
-These buses have a _STA method, but no _INI method.
-With 2.6.15, the _STA method is run, and as the bus is not=20
-present, the bus and all devices behind it are ignored.
-   =20
-
-The non-present busses should still be ignored in 2.6.16,
-independent of the STA/INI optimization.
-
- =20
-How can this be done if we do not run the STA method ?
-
-With 2.6.16, as no _INI method is provided for the bus, _STA method is=20
-not run, and then we loop when executing methods for devices=20
-behind the not present bus.
-   =20
-
-Need to find out what methods are looping on non-existent
-devices, and why STA didn't prevent that.  This is probably
-independent of the STA/INI optimization in 20060127.
-
- =20
-As described earlier, we loop in WSOB method for hotplug controler for unex=
-isting bus...
-
-It sounds like either
-1. we're not evaluating _STA someplace in the bus enumeration code
-   when we should be, and perhaps this was masked in 2.6.15 when
-   we blindly evaluated STA everywhere.
-
-   I'll venture that is the issue here -- the STA/INI optimization
-   has unmasked a Linux bug.  Note that the patch to
-   again blindly execute STA everwhere would simply re-mask the bug,
-   rather than fixing it directly.
-or
-
-2. _STA on this box is somehow special and has side effects.
-
- =20
-
-Please open a bugzilla here:
-http://bugzilla.kernel.org/enter_bug.cgi?product=ACPI
-
-and attach the output from acpidump
-acpidump is available in the latest pmtools here:
-http://ftp.kernel.org/pub/linux/kernel/people/lenb/acpi/utils/
-
-
- =20
-OK, I will do that.
-
-Having a look to ACPI specification, I could find nowhere the=20
-restriction that _STA method is called only when an _INI method is=20
-provided for the device:
-
-"6.5.1 _INI (Init)
-...
-If the _STA method indicates that the device is present, OSPM will=20
-evaluate the _INI for the device (if the _INI method exists) and will=20
-examine each of the children of the device for _INI methods.=20
-If the _STA=20
-method indicates that the device is not present, OSPM will not run the=20
-_INI and will not examine the children of the device for _INI=20
-methods. "
-   =20
-
-That is true, but it is also true that the ACPI spec doesn't say
-how how many times STA will be evaluated, if at all.
-
- =20
-traces -----------------------------------------------
-
-
-Device PC11
-000060e4:  02 . .  Name _HID
-000060e9:  03 . . .  PNP0A03  PCI Bus  0x030ad041
-000060ee:  02 . .  Name _UID
-000060f3:  03 . . .  0x0b
-000060f5:  02 . .  Name _ADR
-000060fa:  03 . . .  0x00
-000060fc:  02 ---- 'PCI bus number setup by the BIOS'  Method _BBN
-00006102:  03 . . .  0x00
-00006103:  03 . . .  Return
-00006104:  04 . . . .  path: \_SB_.CSFF.IO15.B1__
-00006117:  02 ---- 'Dynamic_Statu'  Method _STA
-0000611d:  03 . . .  0x00
-0000611e:  03 . . .  If
-00006120:  04 . . . .  LEqual
-00006121:  05 . . . . .  path: \_SB_.CSFF.IO11.HUBD
-00006134:  05 . . . . .  0x00
-00006136:  04 . . . .  Return
-00006137:  05 . . . . .  0x0f
-00006139:  03 . . .  Return
-0000613a:  04 . . . .  0x00
-0000613c:  02 ---- 'Current Resource Setting'  Method _CRS
-00006142:  03 . . .  0x00
-00006143:  03 . . .  Return
-00006144:  04 . . . .  path: \_SB_.HLRS
-0000614e:  03 . . .  0x01
-00006150:  03 . . .  0x01
-00006152:  02
-
-   =20
-
-Does this trace show the access to the bus that does not exist?
-Where is the loop?
- =20
-Yes (see traces).
-
-
-thanks,
--Len
-
- =20
-Moore, Robert wrote:=20
-We changed the device initialization sequence to improve boot
-performance by not executing _STA unless an _INI is actually present.
-
-The change to selectively run _STA was made in 20051216, from the
-release notes:
-
-"Implemented an optimization to the initialization sequence that can
-improve boot time. During ACPI device initialization, the _STA method is
-now run if and only if the _INI method exists. The _STA method is used
-to determine if the device is present; An _INI can only be run if _STA
-returns present, but it is a waste of time to run the _STA method if the
-_INI does not exist."
-
- =20
-Our BIOS provides description for the maximum configuration, then I think i=
-t relies on the fact we run _STA method on the bus before accessing devices=
- on that bus...
-
-
-It is my understanding of the ACPI spec that there is no requirement
-that _STA be run, ever. There is only a requirement that _INI be run if
-the device is present and _INI exists.
-=20
-Therefore, the optimization above was implemented because we were only
-running _STA to determine whether or not to run _INI. If there is no
-_INI present, it is pointless to run the _STA.
-
-
- =20
-Having a look to ACPI specification, I could find nowhere the=20
-restriction that _STA method is called only when an _INI method is=20
-provided for the device:
-
-     =20
-
-Yes, there is no restriction on when or if _STA can be run. However, I
-do not think that there a *requirement* to run _STA, only _INI.
-
-I don't understand why running _STA fixes the problem. Exactly what or
-who is depending on _STA to be run?
-
-Bob
- =20
+Eric
