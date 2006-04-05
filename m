@@ -1,54 +1,53 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 05 Apr 2006 15:43:19 +0000
-Subject: 2.6.17-rc1 perfmon2 new code base + libpfm available
-Message-Id: <20060405154319.GD6232@frankl.hpl.hp.com>
+From: William Cohen <wcohen@redhat.com>
+Date: Wed, 05 Apr 2006 18:39:18 +0000
+Subject: Re: 2.6.17-rc1 perfmon2 new code base + libpfm available
+Message-Id: <44340ED6.2060208@redhat.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------000508030400010306050906"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+References: <20060405154319.GD6232@frankl.hpl.hp.com>
+In-Reply-To: <20060405154319.GD6232@frankl.hpl.hp.com>
+To: eranian@hpl.hp.com
+Cc: perfmon@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net, perfctr-devel@lists.sourceforge.net
+
+This is a multi-part message in MIME format.
+--------------000508030400010306050906
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: perfmon@napali.hpl.hp.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net, perfctr-devel@lists.sourceforge.net
 
-Hello,
+Stephane Eranian wrote:
 
-I have released another version of the perfmon new code base package.
-This release is relative to 2.6.17-rc1
+> The new version of the library, libpfm, includes the following changes:
+> 
+> 	- updated to match 2.6.17-rc1 new system call numbers
+> 
+> 	- modified pfmlib.h to use 64-bit integer for generic PMC register
+> 	  (submitted by Kevin Corry from IBM)
 
-There were, once again, new system calls added. As such a new libpfm is
-necessary.
+Hi Stephane,
 
-This new kernel patch includes several changes:
+There isn't an perfmon_x86_64.h file anymore. Shouldn't the Makefile 
+eliminate that? The stock "make install" fails because that file doesn't 
+exist. I think the attached patch fixes this problem.
 
-	- Merged i386 and x86_64 perfmon.c architecture specific codes
+-Will
 
-	- Merged PMU description modules for em64t and p4.
+--------------000508030400010306050906
+Content-Type: text/x-patch;
+ name="x86_64_merge.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x86_64_merge.diff"
 
-	- support for automatic loading of PMU description modules if
-	  CONFIG_KMOD=y. Make sure you run make modules_install
+--- libpfm-3.2-060405/include/Makefile.orig	2006-04-05 14:09:32.000000000 -0400
++++ libpfm-3.2-060405/include/Makefile	2006-04-05 14:35:09.000000000 -0400
+@@ -40,7 +40,6 @@
+ 
+ ifeq ($(CONFIG_PFMLIB_ARCH_X86_64),y)
+ HEADERS += perfmon/pfmlib_os_x86_64.h   \
+-	   perfmon/perfmon_x86_64.h     \
+ 	   perfmon/pfmlib_comp_x86_64.h
+ endif
+ 
 
-	- MIPS patches are back and are applied onto the mainline kernel
-
-This release uses the new/mod patch breakdown for all architectures.
-To apply, you can simply do:
-	cat ../perfmon-new-base-060405/*.diff | patch -p1 
-
-The new version of the library, libpfm, includes the following changes:
-
-	- updated to match 2.6.17-rc1 new system call numbers
-
-	- modified pfmlib.h to use 64-bit integer for generic PMC register
-	  (submitted by Kevin Corry from IBM)
-
-I have finally created a minimal home page for the project. So now
-you can access the latest news and files from:
-
-	http://perfmon2.sf.net
-
-I received notification from SF.net, that the libpfm package has been installed
-into our CVS repository. It should become visible fairly quickly now. Once this
-happens, I will update the tree to include this new version of the library.
-
-Enjoy,
-
--- 
--Stephane
+--------------000508030400010306050906--
