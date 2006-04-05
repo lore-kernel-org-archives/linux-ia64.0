@@ -1,43 +1,29 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Wed, 05 Apr 2006 01:13:36 +0000
-Subject: RE: [Fastboot] [PATCH] kexec on ia64
-Message-Id: <08B1877B2880CE42811294894F33AD5C053A85@pdsmsx411.ccr.corp.intel.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 05 Apr 2006 01:27:33 +0000
+Subject: Re: [Fastboot] [PATCH] kexec on ia64
+Message-Id: <20060405102733.eabc00fe.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1100551268.26287.35.camel@lyra.fc.hp.com>
-In-Reply-To: <1100551268.26287.35.camel@lyra.fc.hp.com>
+References: <08B1877B2880CE42811294894F33AD5C053A85@pdsmsx411.ccr.corp.intel.com>
+In-Reply-To: <08B1877B2880CE42811294894F33AD5C053A85@pdsmsx411.ccr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Zou, Nanhai" <nanhai.zou@intel.com>
 Cc: ebiederm@xmission.com, khalid_aziz@hp.com, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org, linux-ia64@vger.kernel.org
 
-Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiBGcm9tOiBLQU1FWkFXQSBIaXJveXVraSBb
-bWFpbHRvOmthbWV6YXdhLmhpcm95dUBqcC5mdWppdHN1LmNvbV0KPiBTZW50OiAyMDA2xOo01MI1
-yNUgOToxMwo+IFRvOiBab3UsIE5hbmhhaQo+IENjOiBlYmllZGVybUB4bWlzc2lvbi5jb207IGto
-YWxpZF9heml6QGhwLmNvbTsKPiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBmYXN0Ym9v
-dEBsaXN0cy5vc2RsLm9yZzsKPiBsaW51eC1pYTY0QHZnZXIua2VybmVsLm9yZwo+IFN1YmplY3Q6
-IFJlOiBbRmFzdGJvb3RdIFtQQVRDSF0ga2V4ZWMgb24gaWE2NAo+IAo+IE9uIFdlZCwgNSBBcHIg
-MjAwNiAwODozNjowNyArMDgwMAo+ICJab3UsIE5hbmhhaSIgPG5hbmhhaS56b3VAaW50ZWwuY29t
-PiB3cm90ZToKPiAKPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+ID4gRnJvbTog
-bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmcKPiA+ID4gW21haWx0bzpsaW51eC1pYTY0
-LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEVyaWMgVy4gQmllZGVybWFuCj4g
-PiA+IFNlbnQ6IDIwMDbE6jTUwjXI1SAyOjE0Cj4gPiA+IFRvOiBLaGFsaWQgQXppego+ID4gPiBD
-YzogTEtNTDsgRmFzdGJvb3QgbWFpbGluZyBsaXN0OyBMaW51eCBpYTY0Cj4gPiA+IFN1YmplY3Q6
-IFJlOiBbRmFzdGJvb3RdIFtQQVRDSF0ga2V4ZWMgb24gaWE2NAo+ID4gPgo+ID4gPiBLaGFsaWQg
-QXppeiA8a2hhbGlkX2F6aXpAaHAuY29tPiB3cml0ZXM6Cj4gPiA+Cj4gPiA+ID4gQWRkIGtleGVj
-IHN1cHBvcnQgb24gaWE2NC4KPiA+ID4KPiA+ID4gVGhpcyBsb29rcyBsaWtlIGEgc3RhcnRpbmcg
-cGxhY2UgYnV0IHRoaXMgcGF0Y2ggbmVlZHMgc29tZQo+ID4gPiBtb3JlIHdvcmsuCj4gPiA+Cj4g
-PiBFcmljLAo+ID4gCUtoYWxpZCBpcyBhbHNvIG1lcmdpbmcgbXkgaWE2NCBrZHVtcCBwYXRjaCBw
-b3N0ZWQgaW4KPiBodHRwOi8vbGttbC5vcmcvbGttbC8yMDA2LzMvMTQvNDYuCj4gPiAJSG9wZWZ1
-bGx5IHRob3NlIGlzc3VlcyB5b3UgcG9pbnRlZCBvdXQgd2lsbCBiZSBzb2x2ZWQgb25jZSB0aGUg
-a2R1bXAgcGF0Y2gKPiBpcyBtZXJnZWQuCj4gPgo+IEhpLCBJIGhhdmUgYSBxdWVzdGlvbiBhYm91
-dCBrZXhlYy9rZHVtcC4KPiAKPiBIb3cgZG9lcyBrZHVtcCBrbm93IG1lbW9yeSBsYXlvdXQgKG9m
-IG9sZCBrZXJuZWwpIG5vdyA/Cj4gCj4gSSdtIHdvcmtpbmcgZm9yIG1lbW9yeSBob3RwbHVnLiBX
-aGVuIG1lbW9yeSBpcyBob3QtYWRkZWQsIG1lbW9yeSBsYXlvdXQKPiBjaGFuZ2VzLgo+IEJ1dCBJ
-IHRoaW5rIHRoZXJlIGlzIG5vIGNvZGUgdG8gbWFuYWdlIG1lbW9yeSBsYXlvdXQgaW5mb3JtYXRp
-b24gb2YgYWRkZWQgbWVtb3J5Lgo+IAogSXQgcmVhZHMgbWVtb3J5IGxheW91dCBmcm9tIC9wcm9j
-L2lvbWVtLi4uLAogSWYgbWVtb3J5IGlzIGhvdHBsdWdlZCwgSSB0aGluayB3ZSBuZWVkIGEgcmVs
-b2FkIG9mIGtkdW1wLgoKCj4gVGhhbmtzLAo+IC0gS2FtZQotClRvIHVuc3Vic2NyaWJlIGZyb20g
-dGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUg
-Ym9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9y
-ZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+On Wed, 5 Apr 2006 09:13:36 +0800
+"Zou, Nanhai" <nanhai.zou@intel.com> wrote:
+> > I'm working for memory hotplug. When memory is hot-added, memory layout
+> > changes.
+> > But I think there is no code to manage memory layout information of added memory.
+> > 
+>  It reads memory layout from /proc/iomem...,
+>  If memory is hotpluged, I think we need a reload of kdump.
+> 
+If /proc/iomem is updated at hotplug event (this is not updated now),
+is there no problem ?
+
+calling insert_resource like  efi_initialize_iomem_resources() is good ?
+
+-Kame
+
