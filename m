@@ -1,7 +1,7 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 05 Apr 2006 11:24:15 +0000
+From: Paul Nasrat <pnasrat@redhat.com>
+Date: Wed, 05 Apr 2006 12:08:48 +0000
 Subject: Re: [ANNOUNCE]: IA64 ISOs based on Fedora Core 5
-Message-Id: <1144236255.6227.30.camel@pmac.infradead.org>
+Message-Id: <1144238928.12268.31.camel@enki.eridu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44332325.8050207@sgi.com>
 In-Reply-To: <44332325.8050207@sgi.com>
@@ -10,36 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2006-04-05 at 06:54 -0400, Prarit Bhargava wrote:
-> > To be honest, I'm not convinced that weekly ISO builds are particularly
-> > useful -- we don't do that for rawhide on other architectures either.
-> > It's probably better just to encourage people to use rsync to keep up
-> > with rawhide, rather than downloading it all over again each week.
+On Wed, 2006-04-05 at 06:52 -0400, Prarit Bhargava wrote:
+> Paul Nasrat wrote:
+> > On Tue, 2006-04-04 at 21:53 -0400, Prarit Bhargava wrote:
+> > 
+> >>Hello,
+> >>
+> >>A set of CD ISOs and a DVD ISO based on the March 20, 2006 image of the
+> >>ia64 Fedora development branch (also known as rawhide) are available from
+> >>
+> >>		http://oss.sgi.com/projects/fedora
+> > 
+> > 
+> > http://oss.sgi.com/projects/fedora-ia64/download - 404
 > 
-> Unfortunately, it seems I have users who are unwilling to use yum, etc., 
-> in the short term.  They would prefer weekly snapshots.
+> Yep, that doesn't exist. 'fedora', not 'fedora-ia64'
 
-They actually want to _reinstall_ weekly? Or do a full 'upgrade' weekly?
+That's the Download link on the page here:
 
-Even so, they could quite happily do that from a normal rawhide mirror
-like everyone else does, rather than using ISO images. That just seems
-like a gratuitous waste of bandwidth to me -- for rawhide even more so
-than for the actual releases.
+http://oss.sgi.com/projects/fedora/ 
 
-> Yep -- I replaced fedora-release with the FC5 version in the images.  I 
-> didn't mention it because I didn't think it was that important :).
+    <P>
+    The ISOs and a mirror of Fedora Core IA64 development branch can be
+    accessed via ftp by clicking on the <a href="http://oss.sgi.com/projects/fedora-ia64/download">
+    Download</a> link on the left hand side of this page.
 
-The _real_ FC5 version -- doesn't that mean the updates repo is
-configured to point at a non-existent directory? 
+Can you get that updated with the ftp uri.
 
-> > Aside from the updates, the next task is building Extras and Livna for
-> > IA64, of course...
-> 
-> Whaddya think I'm working on? :)
-
-:)
-
-
--- 
-dwmw2
+Paul
 
