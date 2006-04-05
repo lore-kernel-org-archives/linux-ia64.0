@@ -1,117 +1,82 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 04 Apr 2006 04:20:49 +0000
+From: Khalid Aziz <khalid_aziz@hp.com>
+Date: Wed, 05 Apr 2006 16:11:27 +0000
 Subject: Re: [PATCH] kexec on ia64
-Message-Id: <20060403212049.480ad388.akpm@osdl.org>
+Message-Id: <1144253487.16025.21.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1144102818.8279.6.camel@localhost.localdomain>
-In-Reply-To: <1144102818.8279.6.camel@localhost.localdomain>
+	 <20060403212049.480ad388.akpm@osdl.org>
+In-Reply-To: <20060403212049.480ad388.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Khalid Aziz <khalid_aziz@hp.com>
-Cc: linux-kernel@vger.kernel.org, fastboot@lists.osdl.org, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, Fastboot mailing list <fastboot@lists.osdl.org>, Linux ia64 <linux-ia64@vger.kernel.org>
 
-Khalid Aziz <khalid_aziz@hp.com> wrote:
->
-> Add kexec support on ia64.
+On Mon, 2006-04-03 at 21:20 -0700, Andrew Morton wrote:
+> Khalid Aziz <khalid_aziz@hp.com> wrote:
+> >
+> > Add kexec support on ia64.
+> > 
 > 
+> Neat.  How well does it work?
 
-Neat.  How well does it work?
+Works well on my test machines - HP rx2600 and HP cx2600. Hopefully
+others can test it on other machines.
 
-> +#ifdef CONFIG_PCI
-> +void machine_shutdown(void)
-> +{
-> +	struct pci_dev *dev;
-> +	irq_desc_t *idesc;
-> +	cpumask_t mask = CPU_MASK_NONE;
-> +
-> +	/* Disable all PCI devices */
-> +	list_for_each_entry(dev, &pci_devices, global_list) {
-> +		if (!(dev->is_enabled))
-> +			continue;
-> +		idesc = irq_descp(dev->irq);
-> +		if (!idesc)
-> +			continue;
-> +		cpu_set(0, mask);
-> +		disable_irq_nosync(dev->irq);
-> +		idesc->handler->end(dev->irq);
-> +		idesc->handler->set_affinity(dev->irq, mask);
-> +		idesc->action = NULL;
-> +		pci_disable_device(dev);
-> +		pci_set_power_state(dev, 0);
-> +	}
-> +}
-> +#endif
+> > +/*
+> > + * Terminate any outstanding interrupts
+> > + */
+> > +void terminate_irqs(void)
+> > +{
+> > +	struct irqaction * action;
+> > +	irq_desc_t *idesc;
+> > +	int i;
+> > +
+> > +	for (i=0; i<NR_IRQS; i++) {
+> 
+> 	for (i = 0; i < NR_IRQS; i++) {
+> 
+> > +		idesc = irq_descp(i);
+> > +		action = idesc->action;
+> > +		if (!action)
+> > +			continue;
+> > +		if (idesc->handler->end)
+> > +			idesc->handler->end(i);
+> > +	}
+> > +}
+> 
+> Could we have a bit more description of what this function does, and why we
+> need it?
+> 
+> Should other kexec-using architectures be using this?  If not, why does
+> ia64 need it?
+> 
+> Thanks.
 
-Ahem.
+This funtion terminates any outstanding interrupts. I found it to be
+necessary for devices that use level interrupt. If a device, using level
+interrupt, asserted its interrupt as kernel goes into panic, nobody
+acknowledges its interrupt. As a result, this interrupt stays asserted
+as the new kernel comes up. All drivers in their initialization routine
+should clear any pending interrupts, but most do not. As a result, when
+driver attempts to use the interrupt, it is unable to since the
+interrupt was already asserted and any new interrupts from the device
+simply cause interrupt line to continue to be asserted. terminate_irqs()
+tries to acknowledge any pending interrupts so the interrupts will be
+usable when the new kernel comes up. This is not specific to ia64 and I
+would think this problem would show up on other architectures as well. I
+happened to find it on ia64 because HP rx2600 uses level interrupts for
+SCSI controller.
 
-  /* Do NOT directly access these two variables, unless you are arch specific pci
-   * code, or pci core code. */
-  extern struct list_head pci_root_buses;	/* list of all known PCI buses */
-  extern struct list_head pci_devices;	/* list of all devices */
+--
+Khalid
+ 
+==================================
+Khalid Aziz                       Open Source and Linux Organization
+(970)898-9214                                        Hewlett-Packard
+khalid.aziz@hp.com                                  Fort Collins, CO
 
-I think it would be kinder to the API to use pci_find_device(PCI_ANY_ID,
-PCI_ANY_ID, ...) here.
+"The Linux kernel is subject to relentless development" 
+                                - Alessandro Rubini
 
-> +/*
-> + * Do not allocate memory (or fail in any way) in machine_kexec().
-> + * We are past the point of no return, committed to rebooting now. 
-> + */
-> +void machine_kexec(struct kimage *image)
-> +{
-> +	unsigned long indirection_page;
-> +	relocate_new_kernel_t rnk;
-> +	unsigned long pta, impl_va_bits;
-> +	void *pal_addr = efi_get_pal_addr();
-> +	unsigned long code_addr = (unsigned long)page_address(image->control_code_page);
-> +
-> +#ifdef CONFIG_HOTPLUG_CPU
-> +	int cpu;
-> +
-> +	for_each_online_cpu(cpu) {
-> +		if (cpu != smp_processor_id())
-> +			cpu_down(cpu);
-> +	}
-> +#elif CONFIG_SMP
 
-This will generate a CPP warning if CONFIG_SMP is not defined.
-
-	#elif defined(CONFIG_SMP)
-
-would be preferred.
-
-> --- linux-2.6.16/kernel/irq/manage.c	2006-03-19 22:53:29.000000000 -0700
-> +++ linux-2.6.16-kexec/kernel/irq/manage.c	2006-03-27 17:02:08.000000000 -0700
-> @@ -377,3 +377,22 @@ int request_irq(unsigned int irq,
->  
->  EXPORT_SYMBOL(request_irq);
->  
-> +/*
-> + * Terminate any outstanding interrupts
-> + */
-> +void terminate_irqs(void)
-> +{
-> +	struct irqaction * action;
-> +	irq_desc_t *idesc;
-> +	int i;
-> +
-> +	for (i=0; i<NR_IRQS; i++) {
-
-	for (i = 0; i < NR_IRQS; i++) {
-
-> +		idesc = irq_descp(i);
-> +		action = idesc->action;
-> +		if (!action)
-> +			continue;
-> +		if (idesc->handler->end)
-> +			idesc->handler->end(i);
-> +	}
-> +}
-
-Could we have a bit more description of what this function does, and why we
-need it?
-
-Should other kexec-using architectures be using this?  If not, why does
-ia64 need it?
-
-Thanks.
