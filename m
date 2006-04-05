@@ -1,60 +1,61 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Fri, 28 Apr 2006 07:45:51 +0000
-Subject: Re: [patch] update sn2 defconfig
-Message-Id: <yq0mze6qh1s.fsf@jaguar.mkp.net>
+From: Axel Thimm <Axel.Thimm@ATrpms.net>
+Date: Wed, 05 Apr 2006 16:35:21 +0000
+Subject: Re: : IA64 ISOs based on Fedora Core 5
+Message-Id: <20060405163521.GS30438@neu.nirvana>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="ctZH5Gqgrl5HoVnD"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq07j5bs50k.fsf@jaguar.mkp.net>
-In-Reply-To: <yq07j5bs50k.fsf@jaguar.mkp.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Tony" = Luck, Tony <tony.luck@intel.com> writes:
 
->> > Shouldn't we have this at 10 so we get the most exposure
->> possible.
->> 
->> I'd be fine with that, I just stuck with the default.
+--ctZH5Gqgrl5HoVnD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Tony> I took this patch as-is ... if you wanto bump this to 10, send
-Tony> another patch.
+On Wed, Apr 05, 2006 at 10:44:45AM +0100, David Woodhouse wrote:
+> On Tue, 2006-04-04 at 22:25 -0400, Paul Nasrat wrote:
+> > I assume for the weekly snapshots of rawhide that you'll be putting
+> > unique (eg date based) names on the isos so they can be readily
+> > identified, else you're going to run into trouble tracking issues
+> > across media sets.=20
+>=20
+> To be honest, I'm not convinced that weekly ISO builds are particularly
+> useful -- we don't do that for rawhide on other architectures either.
+> It's probably better just to encourage people to use rsync to keep up
+> with rawhide, rather than downloading it all over again each week.
+>=20
+> >  Do these isos correspond with FC5 or a random snapshot?
+>=20
+> Rawhide for about a week leading up to March 20th was identical to FC5
+> in all but the 'fedora-release' package.=20
+>=20
+> If making an IA64 'FC5' I'd be inclined to replace the fedora-release
+> package too. In fact, you almost certainly want to do that anyway, since
+> you'll be publishing the errata, and fedora-release contains the yum
+> configuration.
 
-Hi Tony,
+That might be helpful:
 
-No problem, here you go, an update to the update ;) Hand edited, but I
-don't see why it shouldn't work ... famous last words!
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=3D187250
 
-Cheers,
-Jes
+> Aside from the updates, the next task is building Extras and Livna for
+> IA64, of course...
 
-An update to the update :) Set node shift to 10 on SN2 and disable
-mutex debugging.
+and who's going to do ATrpms? ;)
+--=20
+Axel.Thimm at ATrpms.net
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
+--ctZH5Gqgrl5HoVnD
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
----
- arch/ia64/configs/sn2_defconfig |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2.2 (GNU/Linux)
 
-Index: linux-2.6/arch/ia64/configs/sn2_defconfig
-=================================--- linux-2.6.orig/arch/ia64/configs/sn2_defconfig
-+++ linux-2.6/arch/ia64/configs/sn2_defconfig
-@@ -134,7 +134,7 @@
- CONFIG_ARCH_SPARSEMEM_ENABLE=y
- CONFIG_ARCH_DISCONTIGMEM_DEFAULT=y
- CONFIG_NUMA=y
--CONFIG_NODES_SHIFT=8
-+CONFIG_NODES_SHIFT
- CONFIG_VIRTUAL_MEM_MAP=y
- CONFIG_HOLES_IN_ZONE=y
- CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID=y
-@@ -1159,7 +1159,7 @@
- # CONFIG_SCHEDSTATS is not set
- # CONFIG_DEBUG_SLAB is not set
- CONFIG_DEBUG_PREEMPT=y
--CONFIG_DEBUG_MUTEXES=y
-+# CONFIG_DEBUG_MUTEXES is not set
- # CONFIG_DEBUG_SPINLOCK is not set
- # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
- # CONFIG_DEBUG_KOBJECT is not set
+iD8DBQFEM/HJQBVS1GOamfERAhmqAJ4sDIcAHvOMR7XFVBqPaYDk8d+e3gCeIDAT
+ctPqfuCXSTKADZGFnAMYB3s=
+=aKNc
+-----END PGP SIGNATURE-----
+
+--ctZH5Gqgrl5HoVnD--
