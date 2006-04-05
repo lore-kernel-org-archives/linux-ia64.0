@@ -1,7 +1,7 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Wed, 05 Apr 2006 10:52:33 +0000
+Date: Wed, 05 Apr 2006 10:54:26 +0000
 Subject: Re: [ANNOUNCE]: IA64 ISOs based on Fedora Core 5
-Message-Id: <4433A171.4050200@sgi.com>
+Message-Id: <4433A1E2.5060308@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44332325.8050207@sgi.com>
 In-Reply-To: <44332325.8050207@sgi.com>
@@ -10,39 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Paul Nasrat wrote:
-> On Tue, 2006-04-04 at 21:53 -0400, Prarit Bhargava wrote:
+David Woodhouse wrote:
+> On Tue, 2006-04-04 at 22:25 -0400, Paul Nasrat wrote:
 > 
->>Hello,
->>
->>A set of CD ISOs and a DVD ISO based on the March 20, 2006 image of the
->>ia64 Fedora development branch (also known as rawhide) are available from
->>
->>		http://oss.sgi.com/projects/fedora
+>>I assume for the weekly snapshots of rawhide that you'll be putting
+>>unique (eg date based) names on the isos so they can be readily
+>>identified, else you're going to run into trouble tracking issues
+>>across media sets. 
 > 
 > 
-> http://oss.sgi.com/projects/fedora-ia64/download - 404
-
-Yep, that doesn't exist. 'fedora', not 'fedora-ia64'
-
-> 
-> http://oss.sgi.com/projects/fedora/download/ - 403
+> To be honest, I'm not convinced that weekly ISO builds are particularly
+> useful -- we don't do that for rawhide on other architectures either.
+> It's probably better just to encourage people to use rsync to keep up
+> with rawhide, rather than downloading it all over again each week.
 > 
 
-Odd .. that seems to work for me (off of my home connection).  I'll 
-check into it ...
-
+Unfortunately, it seems I have users who are unwilling to use yum, etc., 
+in the short term.  They would prefer weekly snapshots.
+> 
+>> Do these isos correspond with FC5 or a random snapshot?
 > 
 > 
-> 
-> I assume for the weekly snapshots of rawhide that you'll be putting
-> unique (eg date based) names on the isos so they can be readily
-> identified, else you're going to run into trouble tracking issues across
-> media sets.  Do these isos correspond with FC5 or a random snapshot?
+> Rawhide for about a week leading up to March 20th was identical to FC5
+> in all but the 'fedora-release' package. 
 > 
 
-My plan was to take a weekly snapshot of rawhide and give it a 
-date-based name to avoid the problem(s) you bring up.
+Yep -- I replaced fedora-release with the FC5 version in the images.  I 
+didn't mention it because I didn't think it was that important :).
+
+> Aside from the updates, the next task is building Extras and Livna for
+> IA64, of course...
+> 
+
+Whaddya think I'm working on? :)
 
 P.
-
