@@ -1,43 +1,41 @@
 From: Russell King <rmk+lkml@arm.linux.org.uk>
-Date: Thu, 06 Apr 2006 10:16:05 +0000
+Date: Thu, 06 Apr 2006 10:21:54 +0000
 Subject: Re: 2.6.17-rc1-mm1
-Message-Id: <20060406101604.GA28056@flint.arm.linux.org.uk>
+Message-Id: <20060406102154.GB28056@flint.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060404014504.564bf45a.akpm@osdl.org> <20060404233851.GA6411@agluck-lia64.sc.intel.com> <1144202706.3197.11.camel@linux-znh> <200604051015.34217.bjorn.helgaas@hp.com> <20060405211757.GA8536@agluck-lia64.sc.intel.com>
-In-Reply-To: <20060405211757.GA8536@agluck-lia64.sc.intel.com>
+References: <20060404014504.564bf45a.akpm@osdl.org> <200604051015.34217.bjorn.helgaas@hp.com> <20060405211757.GA8536@agluck-lia64.sc.intel.com> <200604051601.08776.bjorn.helgaas@hp.com>
+In-Reply-To: <200604051601.08776.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Zou Nan hai <nanhai.zou@intel.com>, Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Zou Nan hai <nanhai.zou@intel.com>, Andrew Morton <akpm@osdl.org>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-On Wed, Apr 05, 2006 at 02:17:57PM -0700, Luck, Tony wrote:
-> On Wed, Apr 05, 2006 at 10:15:34AM -0600, Bjorn Helgaas wrote:
-> > Huh.  Intel firmware used to just not mention the VGA framebuffer
-> > (0xa0000-0xc0000) at all in the EFI memory map.  I think that was
-> > clearly a bug.  So maybe they fixed that by marking it WB (and
-> > hopefully UC as well).
-> 
-> Nope ... not fixed (at least not in the f/w that I'm running). The
-> VGA buffer is still simply not mentioned in the EFI memory map.
-> 
-> The problem looks to come from this code in vgacon.c:
-> 
-> 	vga_vram_base = VGA_MAP_MEM(vga_vram_base);
-> 	vga_vram_end = VGA_MAP_MEM(vga_vram_end);
-> 	vga_vram_size = vga_vram_end - vga_vram_base;
+On Wed, Apr 05, 2006 at 04:01:08PM -0600, Bjorn Helgaas wrote:
+> [PATCH] vgacon: make VGA_MAP_MEM take size, remove extra use
 
-Wouldn't it be better to do:
+Ah, seems to be what I just suggested...
 
-	vga_vram_size = vga_vram_end - vga_vram_base;
-	vga_vram_base = VGA_IOREMAP(vga_vram_base, vga_vram_size);
-	vga_vram_end = vga_vram_base + vga_vram_size;
+> @@ -1020,14 +1019,14 @@
+>  	char *charmap;
+>  	
+>  	if (vga_video_type != VIDEO_TYPE_EGAM) {
+> -		charmap = (char *) VGA_MAP_MEM(colourmap);
+> +		charmap = (char *) VGA_MAP_MEM(colourmap, 0);
 
-and for compatibility:
+Don't like this though - can't we pass a real size here rather than zero?
+There seems to be several clues as to the maximum size:
 
-#define VGA_IOREMAP(base,size)	VGA_MAP_MEM(base)
+#define cmapsz 8192
 
-?
+        if (!vga_font_is_default)
+                charmap += 4 * cmapsz;
+
+                        charmap += 2 * cmapsz;
+                                for (i = 0; i < cmapsz; i++)
+                                        vga_writeb(arg[i], charmap + i);
+
+so that's about 7 * cmapsz - call that 8 for completeness, which is 64K.
 
 -- 
 Russell King
