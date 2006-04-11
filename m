@@ -1,34 +1,38 @@
-From: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
-Date: Thu, 20 Apr 2006 09:49:41 +0000
-Subject: [PATCH 1/2] eliminate compile time warnings
-Message-Id: <87ejzs37be.wl%takeuchi_satoru@jp.fujitsu.com>
+From: "Nan Holda" <nan@gelato.org>
+Date: Tue, 11 Apr 2006 16:35:29 +0000
+Subject: =?us-ascii?Q?Technical_Program_Set_for_Gelato_ICE:_ItaniumR_Conference_&_?=
+Message-Id: <000201c65d85$f4efaf20$378c7e82@nan>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a trivial patch to remove following compile time warning:
+The Gelato Federation (www.gelato.org) is proud to announce the technical
+program for the Gelato ICE: ItaniumR Conference & Expo to be held on April
+23-26, 2006 in San Jose, California, USA. International Itanium architecture
+experts are scheduled to deliver 65+ presentations focusing on LinuxR on the
+IntelR ItaniumR architecture, including keynotes by Jerry Huck (HP), James
+Reinders (Intel Corporation), Don Soltis (Intel Corporation), and William
+Worley (Secure64 and ItaniumR Solutions Alliance). The full program is
+available online at http://www.gelato.org/pdf/apr2006/gelatoICE_agenda.pdf
 
-(snip)
-arch/ia64/ia32/../../../fs/binfmt_elf.c:508: warning: 'randomize_stack_top' defined but not used
-(snip)
+For conference location and other details, visit:
+http://www.gelato.org/meeting
 
-Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Nan
 
----
- arch/ia64/ia32/binfmt_elf32.c |    3 +++
- 1 files changed, 3 insertions(+)
+Nan Holda
+GELATO Federation
+Advancing Linux Itanium
+1308 W. Main St.
+Urbana, IL 61801-2307
+tel: 217.265.0947
+fax: 217.333.5579
+www.gelato.org
 
-Index: linux-2.6.17-rc2/arch/ia64/ia32/binfmt_elf32.c
-=================================--- linux-2.6.17-rc2.orig/arch/ia64/ia32/binfmt_elf32.c	2006-03-20 14:53:29.000000000 +0900
-+++ linux-2.6.17-rc2/arch/ia64/ia32/binfmt_elf32.c	2006-04-20 11:35:36.000000000 +0900
-@@ -35,6 +35,9 @@ extern void ia64_elf32_init (struct pt_r
- 
- static void elf32_set_personality (void);
- 
-+static unsigned long __attribute ((unused))
-+randomize_stack_top(unsigned long stack_top);
-+
- #define setup_arg_pages(bprm,tos,exec)		ia32_setup_arg_pages(bprm,exec)
- #define elf_map				elf32_map
+"Whether you believe you can do a thing or not, you are right."
+-Henry Ford
+
+
+
