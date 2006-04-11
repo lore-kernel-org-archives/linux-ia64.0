@@ -1,18 +1,20 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 04 Apr 2006 15:35:45 +0000
-Subject: RE: [PATCH] eliminate compiler warning for xpc_channel.c
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F06223A9C@scsmsx401.amr.corp.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Tue, 11 Apr 2006 01:39:24 +0000
+Subject: booting with `mem=' on an Altix (or other NUMA machine)
+Message-Id: <17467.2252.70039.423224@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44327C95.mailxM9N11TC7P@aqua.americas.sgi.com>
-In-Reply-To: <44327C95.mailxM9N11TC7P@aqua.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Do you want a new patch, or are you comfortable with switching the
-> 'msg' to a 'NULL'?
 
-I'll switch it to NULL.
+Looks like booting with mem=xxx doesn't work very well on a NUMA
+machine ... one sees, `ernel panic - not syncing: pernode space for
+node 1 could not be allocated!'
 
--Tony
+It is intended that the mem= command line work?  It would have to be
+quite a bit more complex if so, to spread the memory across online nodes.
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
