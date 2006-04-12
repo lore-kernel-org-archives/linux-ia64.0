@@ -1,69 +1,72 @@
-From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
-Date: Wed, 12 Apr 2006 16:38:03 +0000
-Subject: [PATCH 2.6.17-rc1-mm2] pg_uncached-is-ia64-only-fix
-Message-Id: <1144859883.5229.6.camel@localhost.localdomain>
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 12 Apr 2006 20:20:04 +0000
+Subject: Re: [PATCH 2.6.17-rc1-mm2] pg_uncached-is-ia64-only-fix
+Message-Id: <20060412132004.121fb014.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1144859883.5229.6.camel@localhost.localdomain>
+In-Reply-To: <1144859883.5229.6.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In 2.6.17-rc1-mm2, the patch 'pg_uncached-is-ia64-only.patch'
-moves the ia64-only PG_uncached flag to the high order 32-bits
-of the page flags, and reduces FLAGS_RESERVED to 24.  This 
-latter change interacts with SPARSEMEM to push the nodes out
-of the flags word.  ia64 actually needs all 32 high order
-reserved bits to hold up to 1024 nodes in the flags along with
-zone info and SPARSEMEM section index.  
+Lee Schermerhorn <Lee.Schermerhorn@hp.com> wrote:
+>
+> This patch restores the 64-bit system FLAGS_RESERVED to 32 and
+>  moves the PG_uncached bit back down into the high order byte of
+>  the low order flags word.
 
-For some reason that I have not investigated [this may be a bug
-or a feature], pushing the node field out of the flags word
-increases the size of the mm/page_alloc.o data region by ~32MB.  
+Yes, that's what the persent version of that patch does (I made it bit 31,
+so 64-bit-only flags can work their way downwards).
 
-before patch:size mm/page_alloc.o
-   text    data     bss     dec     hex filename
-  39506   10264   65548  115318   1c276 mm/page_alloc.o
+It's a bit sad that we're using all 32 of the high-order bits.  We might
+need to revisit that later, if flags get tighter.
 
-after patch: size mm/page_alloc.o
-   text    data     bss     dec     hex filename
-  39650 33556504  65548 33661702  201a306 mm/page_alloc.o
 
-So, 32MB is chump change on ia64 systems, but an unnecessary
-waste.  The stated reason for the change was to "make room for
-another flag on 32-bit machines."  32-bit machines themselves
-reserve some bits of the page flags for zone and node info--
-currently 9 bits.  So, we can use the upper ~8 bits of the low
-order flags word for 64-bit only page flags.
 
-This patch restores the 64-bit system FLAGS_RESERVED to 32 and
-moves the PG_uncached bit back down into the high order byte of
-the low order flags word.
+From: Andrew Morton <akpm@osdl.org>
 
-Signed-off-by:  Lee Schermerhorn <lee.schermerhorn@hp.com>
+As Nick points out, only ia64 uses PG_uncached.  So we can push it up into the
+higher bits of the lower half of page->flags and make room for another flag on
+32-bit machines.
 
-Index: linux-2.6.17-rc1-mm2/include/linux/mmzone.h
-=================================--- linux-2.6.17-rc1-mm2.orig/include/linux/mmzone.h	2006-04-12 12:07:22.000000000 -0400
-+++ linux-2.6.17-rc1-mm2/include/linux/mmzone.h	2006-04-12 12:09:26.000000000 -0400
-@@ -457,7 +457,7 @@ extern struct zone *next_zone(struct zon
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: Jesse Barnes <jbarnes@sgi.com>
+Cc: Jes Sorensen <jes@trained-monkey.org>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: Andy Whitcroft <apw@shadowen.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+diff -puN include/linux/page-flags.h~pg_uncached-is-ia64-only include/linux/page-flags.h
+--- devel/include/linux/page-flags.h~pg_uncached-is-ia64-only	2006-04-09 23:08:43.000000000 -0700
++++ devel-akpm/include/linux/page-flags.h	2006-04-09 23:09:13.000000000 -0700
+@@ -7,6 +7,8 @@
+ 
+ #include <linux/percpu.h>
+ #include <linux/cache.h>
++#include <linux/types.h>
++
+ #include <asm/pgtable.h>
+ 
  /*
-  * with 64 bit flags field, there's plenty of room.
-  */
--#define FLAGS_RESERVED		24
-+#define FLAGS_RESERVED		32
- 
- #else
- 
-Index: linux-2.6.17-rc1-mm2/include/linux/page-flags.h
-=================================--- linux-2.6.17-rc1-mm2.orig/include/linux/page-flags.h	2006-04-12 12:07:22.000000000 -0400
-+++ linux-2.6.17-rc1-mm2/include/linux/page-flags.h	2006-04-12 12:10:57.000000000 -0400
-@@ -90,7 +90,7 @@
+@@ -88,7 +90,17 @@
  #define PG_nosave_free		18	/* Free, should not be written */
+ #define PG_buddy		19	/* Page is free, on buddy lists */
  
- #if (BITS_PER_LONG > 32)
--#define PG_uncached		32	/* Page has been mapped as uncached */
-+#define PG_uncached		24	/* Page has been mapped as uncached */
- #endif
+-#define PG_uncached		20	/* Page has been mapped as uncached */
++
++#if (BITS_PER_LONG > 32)
++/*
++ * 64-bit-only flags build down from bit 31
++ *
++ * 32 bit  -------------------------------| FIELDS |       FLAGS         |
++ * 64 bit  |           FIELDS             | ??????         FLAGS         |
++ *         63                            32                              0
++ */
++#define PG_uncached		31	/* Page has been mapped as uncached */
++#endif
  
  /*
-
+  * Global page accounting.  One instance per CPU.  Only unsigned longs are
 
