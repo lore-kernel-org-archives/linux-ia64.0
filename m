@@ -1,123 +1,112 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Mon, 03 Apr 2006 04:54:49 +0000
-Subject: Re: [PATCH 1/6] PCIERR : interfaces for synchronous I/O error detection
-Message-Id: <4430AA99.4090208@jp.fujitsu.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 12 Apr 2006 07:18:55 +0000
+Subject: Re: show_mem() for ia64 discontig takes a really long time on large systems.
+Message-Id: <20060412071854.GA7931@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44210D1B.7010806@jp.fujitsu.com> <20060322210157.GH12335@kroah.com> <4423A40D.3080906@jp.fujitsu.com> <20060324234306.GC21895@austin.ibm.com> <44274FF0.406@jp.fujitsu.com> <20060331220117.GB23872@austin.ibm.com>
-In-Reply-To: <20060331220117.GB23872@austin.ibm.com>
+References: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
+In-Reply-To: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linas Vepstas <linas@austin.ibm.com>
-Cc: Greg KH <greg@kroah.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: linux-ia64@vger.kernel.org
 
-Linas Vepstas wrote:
-> On Mon, Mar 27, 2006 at 11:37:36AM +0900, Hidetoshi Seto wrote:
->>  - State check would be architecture dependent routine work.
+On Thu, Mar 30, 2006 at 09:48:18AM -0800, Chen, Kenneth W wrote:
+> Jack Steiner wrote on Thursday, March 30, 2006 9:29 AM
+> > > Time is wasted trying to fill the TLB entry for the vmem_map.  When it
+> > > fails, we show_mem() advances to the next page which repeats the sequence.
+> > > Jack had thrown out a couple suggestions.  One was essentially what
+> > > you proposed below.  The other was advance i to point the next page
+> > > of pfns.  He frowned when saying the second, but I don't recall exactly
+> > > why he frowned.
+> > 
+> > Advancing to the next page will be considerably faster but I wonder if
+> > it is fast enough.
+> > 
+...
+> > My gut feeling is that is not good enough. 
 > 
-> I read through your patches.  You are proposing a very different
-> way of handling PCI errors than the pci_error_handlers API.
-> It seems to be much more invasive, and I don't understand why
-> its needed or how its better.  Let me be specific:
-> 
-> In the mpt code you have a function called pciras_readl()
-> that tries to perform an error-free read by retrying the read:
-> 
->   do {
->     pcierr_clear(&cookie, ioc->pcidev);
->     val = ioread32(addr);
->     status = pcierr_read(&cookie);
->   } while(status && (--retries > 0));
-> 
-> Why not create special arch/ia_64 readl routine to do this?
-> In that case, other device drivers would get the benefit of
-> the retry-on-error type read.
-> 
-> Now, you probably shouldn't put this into the default readl
-> routine, since some devices do peculiar things if the same
-> register is read repeatedly.
+> What about the earlier proposal of advancing at pmd and pud granule by
+> walking the page table?  There it can walk at 32MB/64GB step.
 
-My first proposal of readX_check() about 2 years ago was
-already rejected by Linus. I think there were some problem
-that let this style slip from linux ... :
-
-  - To Make drivers to be more RAS-aware, rewriting large
-    portion of the codes to be able to respond to errors would
-    be inevitable anyway.
-    It would be better to have generic interfaces wrap
-    arch-specific codes because such error status check would
-    require some kind of synchronization with arch-specific
-    hardware or firmware etc.
-    Even if dividing normal-drivers and RAS-hardened-drivers
-    is inevitable, still it is better than having many
-    arch-specific drivers.
-
-  - Since such synchronized error check could be heavy time
-    consumer, it would be better the ratio of actual I/O to
-    error check is N:1, i.e. an error check can examine more
-    than one I/O.
-    Of course it is ideal if one check can examine all I/O,
-    however it is always possible that using a broken data
-    from earlier read brings the device or whole system to
-    fatal situation. Therefore, it would be realistic that
-    splitting driver's code to some possible stages and putting
-    an error check for each stage.
-
-It is possible to define more interfaces such as readX_check()
-and/or readX_retry_on_error(), however they will be just
-wrappers of actual readX and pcierr_clear/read(), what everyone
-can imagine easily.
-
-What style of check is convenient is depend on the device and
-driver. Maybe sample mpt driver could be optimized.
-I guess that readX_check() style will convenient on many cases,
-but not all cases. That was maybe what Linus said.
-
-> Next, I notice that if the repeated read fails, then
-> 
->    schedule_work(&mptbase_rstTask);
-> 
-> is called. This seems to be exactly the kind of action
-> that the pci_error_handlers API was meant to provide:
-> if there is a pci read error that cannot be trivially
-> recovered, then the error_detected() &c. routines would
-> be called. The mpt device driver would then initiate
-> a mptbase_rstTask upon one of these callbacks.
-> 
-> Thus, in the ia64 code, if a repeated readl fails,
-> then the ia64 reset task calls the device drivers
-> error_detected() routine, followed by the drivers's 
-> link_reset() routine, followed by the resume() routine.
-> 
-> For the mpt, it would probably be resume() that was
-> a wrapper around mptbase_rstTask(). Wouldn't this 
-> work just as well? 
-
-Yes, this part can be exactly replaced by callback API,
-because the reset can be performed asynchronously.
-Why this is here is simply ia64 have not implement it yet.
-
-To make callback APIs work on ia64, at least it is required
-that ia64 system can continue after a bus error.
-This sensitive arch can catch a bus error synchronously
-by its arch-specific way, but at this time there is no way
-to forward the error to drivers and to know which driver can
-deal the error, so it chooses system reset.
-
-If I disable all such sensitive thing and make callback APIs
-to work on ia64, drivers still need synchronous error check for
-each I/O to prevent user data from pollution by error, but the
-coverage of errors will be limited to only what mpt can detect.
-No one care about pollution by non-aware drivers in this situation.
-
-Now I'm watching the problems to be solved before the asynchronous
-reset. Maybe my next work after this will be implement of ia64's
-callback API...
-
-If you have any better idea than this pcierr_* (and its possible
-wrapper, ex. readX_check()) to keep or get high data integrity,
-please tell me.
+Does the attached seem like the right direction?  I have tested it on
+the simulator and it seems _much_ faster, but that is the simulator.
+I have time reserved on the machine where the problem was first observed
+later today to test it on actual hardware.
 
 Thanks,
-H.Seto
+Robin
 
+
+Index: linux-2.6/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2006-04-11 16:06:54.243967238 -0500
++++ linux-2.6/arch/ia64/mm/discontig.c	2006-04-12 02:16:46.111406150 -0500
+@@ -567,8 +567,68 @@ void show_mem(void)
+ 			struct page *page;
+ 			if (pfn_valid(pgdat->node_start_pfn + i))
+ 				page = pfn_to_page(pgdat->node_start_pfn + i);
+-			else
++			else {
++				/* At the beginning of a hole. Search for the end. */
++				unsigned long end_address, next_page_offset;
++				unsigned long stop_address;
++
++				end_address = (unsigned long) &vmem_map[pgdat->node_start_pfn + i];
++				end_address = PAGE_ALIGN(end_address);
++
++				stop_address = (unsigned long) &vmem_map[
++					pgdat->node_start_pfn + pgdat->node_spanned_pages];
++
++				/* walk vmem_map page tables until valid pfn found */
++				do {
++					pgd_t *pgd;
++					pud_t *pud;
++					pmd_t *pmd;
++					pte_t *pte;
++
++					pgd = pgd_offset_k(end_address);
++					if (pgd_none(*pgd)) {
++						end_address += PTRS_PER_PUD *
++							       PTRS_PER_PMD *
++							       PTRS_PER_PTE *
++							       PAGE_SIZE;
++						continue;
++					}
++
++					pud = pud_offset(pgd, end_address);
++					if (pud_none(*pud)) {
++						end_address += PTRS_PER_PMD *
++							       PTRS_PER_PTE *
++							       PAGE_SIZE;
++						continue;
++					}
++
++					pmd = pmd_offset(pud, end_address);
++					if (pmd_none(*pmd)) {
++						end_address += PTRS_PER_PTE *
++							       PAGE_SIZE;
++						continue;
++					}
++
++					pte = pte_offset_kernel(pmd, end_address);
++retry_pte:
++					if (pte_none(*pte)) {
++						end_address += PAGE_SIZE;
++						pte++;
++						if ((end_address < stop_address) &&
++						    (end_address != ALIGN(end_address, 1UL << PMD_SHIFT)))
++							goto retry_pte;
++						continue;
++					}
++					/* Found next valid vmem_map page */
++					break;
++				} while (end_address < stop_address);
++
++				end_address = end_address - (unsigned long) vmem_map;
++				next_page_offset = ALIGN(end_address, sizeof(struct page));
++				i = next_page_offset / sizeof(struct page) - pgdat->node_start_pfn;
++
+ 				continue;
++			}
+ 			if (PageReserved(page))
+ 				reserved++;
+ 			else if (PageSwapCache(page))
