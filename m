@@ -1,47 +1,37 @@
-From: "Bob Picco" <bob.picco@hp.com>
-Date: Thu, 13 Apr 2006 16:15:10 +0000
-Subject: Re: show_mem() for ia64 discontig takes a really long time on large systems.
-Message-Id: <20060413161510.GI23742@localhost>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 14 Apr 2006 01:23:53 +0000
+Subject: Setup an IA64 specific reclaim distance
+Message-Id: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
-In-Reply-To: <20060328184315.GA8162@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote:	[Thu Apr 13 2006, 12:02:52PM EDT]
-> On Wed, Apr 12, 2006 at 01:36:40PM -0400, Bob Picco wrote:
-> > Looks great and will work for VIRTUAL_MEM_MAP.  It's too bad SPARSEMEM
-> > can't be used because this probably wouldn't be an issue.  
-> > 
-> > I think this will break SPARSEMEM. Perhaps it's time to create a new
-> > module with VIRTUAL_MEM_MAP specific code in it. Say like vmemmap.c.
-> > Lots of code in init.c and this new code could reside in this new
-> > module. Just a thought.  You'll need a compile time optimized out feature for 
-> > SPARSEMEM but for VIRTUAL_MEM_MAP a function call could be called.
-> 
-> Bob,
-> 
-> I forgot to address this concern.  I do nothing with SPARSEMEM and am
-> not really sure where to dive in.  What ia64 boxes use SPARSEMEM?
-> If I simply skip the doing anything to i in the SPARSEMEM case, would
-> that be sufficient?  Essentially:
-> 
->                        else {
-> #ifdef CONFIG_SPARSEMEM
->                                 i = find_next_valid_pfn_for_pgdat(pgdat, i) - 1;
-> #endif
->                                 continue;
->                         }
-> 
-> Only done with the function definition above.
-> 
-> Thanks,
-> Robin
-Robin,
+RECLAIM_DISTANCE is checked on bootup against the SLIT table distances.
+Zone reclaim is important for system that have higher latencies but not for
+systems that have multiple nodes on one motherboard and therefore low latencies.
 
-Sorry just saw this. We had a 16 hour imap server outage.  I posted to your 
-patch about this issue.
+We found that on motherboard latencies are typically 1 to 1.4 of local memory
+access speed whereas multinode systems which benefit from zone reclaim have
+usually more than 1.5 times the latency of a local access.
 
-bob
+Set the reclaim distance for IA64 to 1.5 times.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.17-rc1-mm2/include/asm-ia64/topology.h
+=================================--- linux-2.6.17-rc1-mm2.orig/include/asm-ia64/topology.h	2006-04-02 20:22:10.000000000 -0700
++++ linux-2.6.17-rc1-mm2/include/asm-ia64/topology.h	2006-04-13 17:49:18.000000000 -0700
+@@ -23,6 +23,11 @@
+ #define PENALTY_FOR_NODE_WITH_CPUS 255
+ 
+ /*
++ * Distance above which we begin to use zone reclaim
++ */
++#define RECLAIM_DISTANCE 15
++
++/*
+  * Returns the number of the node containing CPU 'cpu'
+  */
+ #define cpu_to_node(cpu) (int)(cpu_to_node_map[cpu])
