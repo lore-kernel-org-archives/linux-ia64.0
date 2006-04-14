@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 14 Apr 2006 17:43:14 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 14 Apr 2006 17:44:37 +0000
 Subject: RE: Setup an IA64 specific reclaim distance
-Message-Id: <Pine.LNX.4.64.0604141041310.18724@schroedinger.engr.sgi.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F063B58F3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
@@ -10,18 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 14 Apr 2006, Luck, Tony wrote:
+> No.  The migration_cost is an empirical runtime calculation that estimates the
+> relative cost of migrating a task within each level of sched domain.  And even
+> that is sometimes grossly inaccurate because only two arbitrary CPUs are
+> chosen for this calculation within one sched domain at each level, thus
+> assuming that the migration_cost is the same between any and all two CPUs in
+> that sched domain, and that all the sched domains for a given level exhibit
+> equivalent migration_cost behavior.
 
-> Ah, but looking at the code, I think I was mistaken ... it seems
-> to only know about distances between scheduler domains ... which
-> may or may not match with all the node information.  But it might
-> still be worth looking at to see whether it can be used, or can
-> be easily extended to be used.  A measured value is often better
-> than a static define that doesn't apply to all systems.
+Sounds like this code needs to see if there is a SLIT table, and if there is
+use it to decide which cpus to use, rather than picking arbitrarily.
 
-RECLAIM_DISTANCE is compared against the largest node_distance() in the 
-system in order to make the decision if zone_reclaim should be enabled for 
-a system.
-
-node_distance() uses the SLIT talbe and is a dynamic value provided by 
-each system.
+-Tony
