@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 14 Apr 2006 17:44:37 +0000
+Date: Fri, 14 Apr 2006 17:54:33 +0000
 Subject: RE: Setup an IA64 specific reclaim distance
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F063B58F3@scsmsx401.amr.corp.intel.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F063B5924@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0604131823410.16211@schroedinger.engr.sgi.com>
@@ -10,15 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> No.  The migration_cost is an empirical runtime calculation that estimates the
-> relative cost of migrating a task within each level of sched domain.  And even
-> that is sometimes grossly inaccurate because only two arbitrary CPUs are
-> chosen for this calculation within one sched domain at each level, thus
-> assuming that the migration_cost is the same between any and all two CPUs in
-> that sched domain, and that all the sched domains for a given level exhibit
-> equivalent migration_cost behavior.
+> RECLAIM_DISTANCE is compared against the largest node_distance() in the 
+> system in order to make the decision if zone_reclaim should be enabled for 
+> a system.
+>
+> node_distance() uses the SLIT talbe and is a dynamic value provided by 
+> each system.
 
-Sounds like this code needs to see if there is a SLIT table, and if there is
-use it to decide which cpus to use, rather than picking arbitrarily.
+So node_distance is a reasonably meaningful number (providing that the
+SLIT table is a accurate representation of reality ... about which we
+are at the mercy of the f/w writers).
+
+But I'm still trying to see why RECLAIM_DISTANCE would be different for
+ia64 systems from other architectures.  If 15 is the right number for
+ia64, why is 20 the right number for powerpc?  What if I have a 4-node
+NUMA system with a NUMA factor of 1.6?  SLIT = 
+
+10 16 16 16
+16 10 16 16
+16 16 10 16
+16 16 16 10
+
+Should I not use zone reclaim on this system?  But with factor=1.5
+it would be OK?
 
 -Tony
