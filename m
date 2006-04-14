@@ -1,191 +1,208 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 03 Apr 2006 05:26:12 +0000
-Subject: [patch 2.6.16-git] Pass more data to the MCA/INIT notify_die hooks
-Message-Id: <22273.1144041972@kao2.melbourne.sgi.com>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Fri, 14 Apr 2006 00:57:41 +0000
+Subject: Re: [PATCH 7/8] IA64 various hugepage size - Add proc control to
+Message-Id: <1144976261.5817.114.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1144974367.5817.39.camel@linux-znh>
+	 <1144974667.5817.51.camel@linux-znh>  <1144974881.5817.59.camel@linux-znh>
+	 <1144975292.5817.74.camel@linux-znh>  <1144975523.5817.84.camel@linux-znh>
+	 <1144975746.5817.94.camel@linux-znh>  <1144975953.5817.102.camel@linux-znh>
+In-Reply-To: <1144975953.5817.102.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Linux-IA64 <linux-ia64@vger.kernel.org>, Tony <tony.luck@intel.com>, Kenneth W <kenneth.w.chen@intel.com>
 
-The MCA/INIT handlers maintain important state in the SAL to OS (sos)
-area and in the monarch_cpu flag.  Kernel debuggers (such as KDB) need
-this data, and may need to adjust the monarch_cpu field so make the
-data available to the notify_die hooks.  Define two more events for
-calling the functions on the notify_die chain.
+Add proc control to reserve and free various sized hugepages
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+cat /proc/hugetlb/hugepages will show huge pages information
 
----
+echo "size nr" > /proc/hugetlb/hugepages will modify the page number for size.
 
-Patch is against aegl git test tree, as of April 2.
+e.g 
+echo "64k 1000" > /proc/hugetlb/hugepages will allocate 1000 pages of 64k page.
 
-This patch is part of a long term project to provide a standard set of
-kernel hooks which can be used by any debugger, not just by KDB.
+echo "64k 0" > /proc/hugetlb/hugepages will free all the 64k pages
 
- arch/ia64/kernel/mca.c    |   33 +++++++++++++++++++++------------
- include/asm-ia64/kdebug.h |    2 ++
- include/asm-ia64/mca.h    |    5 +++++
- 3 files changed, 28 insertions(+), 12 deletions(-)
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
 
-Index: linux-2.6-ia64/arch/ia64/kernel/mca.c
-=================================--- linux-2.6-ia64.orig/arch/ia64/kernel/mca.c	2006-04-03 11:38:01.000000000 +1000
-+++ linux-2.6-ia64/arch/ia64/kernel/mca.c	2006-04-03 12:16:42.011119879 +1000
-@@ -581,10 +581,12 @@ ia64_mca_rendez_int_handler(int rendez_i
+diff -Nraup a/mm/hugetlb.c b/mm/hugetlb.c
+--- a/mm/hugetlb.c	2006-04-13 08:36:16.000000000 +0800
++++ b/mm/hugetlb.c	2006-04-13 08:31:38.000000000 +0800
+@@ -15,6 +15,9 @@
+ #include <linux/cpuset.h>
+ #include <linux/mutex.h>
+ 
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
++
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+ 
+@@ -259,38 +262,6 @@ void hugetlb_truncate_reservation(struct
+ 	spin_unlock(&hugetlb_lock);
+ }
+ 
+-static int __init hugetlb_init(void)
+-{
+-	unsigned long i, j;
+-
+-#ifndef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
+-	if (HPAGE_SHIFT(0) = 0)
+-		return 0;
+-#endif
+-
+-	for (i = 0; i < MAX_NUMNODES; ++i)
+-		for (j = 0; j < MAX_ORDER; ++j)
+-			INIT_LIST_HEAD(&hugepage_freelists[i][j]);
+-
+-	for (i = 0; i < max_huge_pages; ++i) {
+-		if (!alloc_fresh_huge_page(HUGETLB_INIT_PAGE_ORDER))
+-			break;
+-	}
+-	max_huge_pages = free_huge_pages[HUGETLB_INIT_PAGE_ORDER] nr_huge_pages[HUGETLB_INIT_PAGE_ORDER] = i;
+-	printk("Total HugeTLB memory allocated, %ld\n", 
+-		free_huge_pages[HUGETLB_INIT_PAGE_ORDER]);
+-	return 0;
+-}
+-module_init(hugetlb_init);
+-
+-static int __init hugetlb_setup(char *s)
+-{
+-	if (sscanf(s, "%lu", &max_huge_pages) <= 0)
+-		max_huge_pages = 0;
+-	return 1;
+-}
+-__setup("hugepages=", hugetlb_setup);
+-
+ #ifdef CONFIG_SYSCTL
+ static void update_and_free_page(struct page *page, int order)
  {
- 	unsigned long flags;
- 	int cpu = smp_processor_id();
-+	struct ia64_mca_notify_die nd +		{ .sos = NULL, .monarch_cpu = &monarch_cpu };
- 
- 	/* Mask all interrupts */
- 	local_irq_save(flags);
--	if (notify_die(DIE_MCA_RENDZVOUS_ENTER, "MCA", regs, 0, 0, 0)
-+	if (notify_die(DIE_MCA_RENDZVOUS_ENTER, "MCA", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -594,7 +596,7 @@ ia64_mca_rendez_int_handler(int rendez_i
- 	 */
- 	ia64_sal_mc_rendez();
- 
--	if (notify_die(DIE_MCA_RENDZVOUS_PROCESS, "MCA", regs, 0, 0, 0)
-+	if (notify_die(DIE_MCA_RENDZVOUS_PROCESS, "MCA", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -602,7 +604,7 @@ ia64_mca_rendez_int_handler(int rendez_i
- 	while (monarch_cpu != -1)
- 	       cpu_relax();	/* spin until monarch leaves */
- 
--	if (notify_die(DIE_MCA_RENDZVOUS_LEAVE, "MCA", regs, 0, 0, 0)
-+	if (notify_die(DIE_MCA_RENDZVOUS_LEAVE, "MCA", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -1023,6 +1025,8 @@ ia64_mca_handler(struct pt_regs *regs, s
- 		&sos->proc_state_param;
- 	int recover, cpu = smp_processor_id();
- 	task_t *previous_current;
-+	struct ia64_mca_notify_die nd +		{ .sos = sos, .monarch_cpu = &monarch_cpu };
- 
- 	oops_in_progress = 1;	/* FIXME: make printk NMI/MCA/INIT safe */
- 	console_loglevel = 15;	/* make sure printks make it to console */
-@@ -1031,7 +1035,7 @@ ia64_mca_handler(struct pt_regs *regs, s
- 
- 	previous_current = ia64_mca_modify_original_stack(regs, sw, sos, "MCA");
- 	monarch_cpu = cpu;
--	if (notify_die(DIE_MCA_MONARCH_ENTER, "MCA", regs, 0, 0, 0)
-+	if (notify_die(DIE_MCA_MONARCH_ENTER, "MCA", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 	ia64_wait_for_slaves(cpu);
-@@ -1043,7 +1047,7 @@ ia64_mca_handler(struct pt_regs *regs, s
- 	 * spinning in SAL does not work.
- 	 */
- 	ia64_mca_wakeup_all();
--	if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, 0, 0, 0)
-+	if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -1064,7 +1068,7 @@ ia64_mca_handler(struct pt_regs *regs, s
- 		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
- 		sos->os_status = IA64_MCA_CORRECTED;
- 	}
--	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, 0, 0, recover)
-+	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, (long)&nd, 0, recover)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -1351,10 +1355,14 @@ ia64_init_handler(struct pt_regs *regs, 
- 	static atomic_t monarchs;
- 	task_t *previous_current;
- 	int cpu = smp_processor_id();
-+	struct ia64_mca_notify_die nd +		{ .sos = sos, .monarch_cpu = &monarch_cpu };
- 
- 	oops_in_progress = 1;	/* FIXME: make printk NMI/MCA/INIT safe */
- 	console_loglevel = 15;	/* make sure printks make it to console */
- 
-+	(void) notify_die(DIE_INIT_ENTER, "INIT", regs, (long)&nd, 0, 0);
+@@ -364,8 +335,120 @@ int hugetlb_sysctl_handler(struct ctl_ta
+ 		HUGETLB_INIT_PAGE_ORDER);
+ 	return 0;
+ }
++#ifdef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
++static char *
++bitvector_process(char *p, unsigned long vector)
++{
++	int i,j;
++	const char *units[]={ "", "K", "M", "G", "T" };
 +
- 	printk(KERN_INFO "Entered OS INIT handler. PSP=%lx cpu=%d monarch=%ld\n",
- 		sos->proc_state_param, cpu, sos->monarch);
- 	salinfo_log_wakeup(SAL_INFO_TYPE_INIT, NULL, 0, 0);
-@@ -1390,15 +1398,15 @@ ia64_init_handler(struct pt_regs *regs, 
- 		ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_INIT;
- 		while (monarch_cpu = -1)
- 		       cpu_relax();	/* spin until monarch enters */
--		if (notify_die(DIE_INIT_SLAVE_ENTER, "INIT", regs, 0, 0, 0)
-+		if (notify_die(DIE_INIT_SLAVE_ENTER, "INIT", regs, (long)&nd, 0, 0)
- 				= NOTIFY_STOP)
- 			ia64_mca_spin(__FUNCTION__);
--		if (notify_die(DIE_INIT_SLAVE_PROCESS, "INIT", regs, 0, 0, 0)
-+		if (notify_die(DIE_INIT_SLAVE_PROCESS, "INIT", regs, (long)&nd, 0, 0)
- 				= NOTIFY_STOP)
- 			ia64_mca_spin(__FUNCTION__);
- 		while (monarch_cpu != -1)
- 		       cpu_relax();	/* spin until monarch leaves */
--		if (notify_die(DIE_INIT_SLAVE_LEAVE, "INIT", regs, 0, 0, 0)
-+		if (notify_die(DIE_INIT_SLAVE_LEAVE, "INIT", regs, (long)&nd, 0, 0)
- 				= NOTIFY_STOP)
- 			ia64_mca_spin(__FUNCTION__);
- 		printk("Slave on cpu %d returning to normal service.\n", cpu);
-@@ -1409,7 +1417,7 @@ ia64_init_handler(struct pt_regs *regs, 
- 	}
- 
- 	monarch_cpu = cpu;
--	if (notify_die(DIE_INIT_MONARCH_ENTER, "INIT", regs, 0, 0, 0)
-+	if (notify_die(DIE_INIT_MONARCH_ENTER, "INIT", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 
-@@ -1426,10 +1434,10 @@ ia64_init_handler(struct pt_regs *regs, 
- 	 * to default_monarch_init_process() above and just print all the
- 	 * tasks.
- 	 */
--	if (notify_die(DIE_INIT_MONARCH_PROCESS, "INIT", regs, 0, 0, 0)
-+	if (notify_die(DIE_INIT_MONARCH_PROCESS, "INIT", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
--	if (notify_die(DIE_INIT_MONARCH_LEAVE, "INIT", regs, 0, 0, 0)
-+	if (notify_die(DIE_INIT_MONARCH_LEAVE, "INIT", regs, (long)&nd, 0, 0)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
- 	printk("\nINIT dump complete.  Monarch on cpu %d returning to normal service.\n", cpu);
-@@ -1631,6 +1639,7 @@ ia64_mca_init(void)
- 			printk(KERN_INFO "Increasing MCA rendezvous timeout from "
- 				"%ld to %ld milliseconds\n", timeout, isrv.v0);
- 			timeout = isrv.v0;
-+			(void) notify_die(DIE_MCA_NEW_TIMEOUT, "MCA", NULL, timeout, 0, 0);
- 			continue;
- 		}
- 		printk(KERN_ERR "Failed to register rendezvous interrupt "
-Index: linux-2.6-ia64/include/asm-ia64/mca.h
-=================================--- linux-2.6-ia64.orig/include/asm-ia64/mca.h	2006-04-03 11:38:19.000000000 +1000
-+++ linux-2.6-ia64/include/asm-ia64/mca.h	2006-04-03 11:44:32.603770231 +1000
-@@ -148,6 +148,11 @@ extern int  ia64_reg_MCA_extension(int (
- extern void ia64_unreg_MCA_extension(void);
- extern u64 ia64_get_rnat(u64 *);
- 
-+struct ia64_mca_notify_die {
-+	struct ia64_sal_os_state *sos;
-+	int *monarch_cpu;
++	for (i=0, j=0; i < 64; i++ , j=i/10) {
++		if (vector & 0x1) {
++			p += sprintf(p, "%d%s ", 1 << (i-j*10), units[j]);
++		}
++		vector >>= 1;
++	}
++	return p;
++}
++
++static int proc_hugetlb_pagesizes_show(struct seq_file *s, void *p)
++{
++	int order;
++	char buf[32];
++	for (order = 0; order < MAX_ORDER; order++) {
++		if (!is_valid_hpage_size(1UL<<(order+PAGE_SHIFT)))
++			continue;
++		bitvector_process(buf, (1UL<<(order+PAGE_SHIFT)));
++		seq_printf(s, "%s\t%ld\t%ld\t%ld\n",
++				buf, nr_huge_pages[order],
++				free_huge_pages[order],
++				reserved_huge_pages[order]);
++	}
++
++	return 0;
++}
++
++static ssize_t proc_hugetlb_pagesizes_write(struct file *file,
++	const char __user *buffer, size_t length, loff_t *ppos)
++{
++	char buf[64];
++	unsigned long nr, order;
++	unsigned long long size;
++	char *rest;
++	if (!buffer || length >= sizeof(buf))
++		return -EINVAL;
++	if (copy_from_user(buf, buffer, length))
++		return -EFAULT;
++	buf[length] = 0;
++
++	size = memparse(buf, &rest);
++	order = __ffs(size) - PAGE_SHIFT;
++	if (order >= MAX_ORDER || !is_valid_hpage_size(size))
++		return -EINVAL;
++	if (sscanf(rest, "%ld", &nr) != 1)
++		return -EINVAL;
++	set_max_huge_pages(nr, order);
++	return length;
++}
++
++static int proc_hugetlb_pagesizes_open(struct inode *inode, struct file
+*file)
++{
++	return single_open(file, proc_hugetlb_pagesizes_show, NULL);
++}
++
++static struct file_operations proc_hugetlb_pagesizes_operations = {
++        .open           = proc_hugetlb_pagesizes_open,
++        .read           = seq_read,
++        .write          = proc_hugetlb_pagesizes_write,
++        .llseek         = seq_lseek,
++        .release        = single_release,
 +};
-+
- #else	/* __ASSEMBLY__ */
++#endif /* ARCH_HAS_VARIABLE_HUGEPAGE_SIZE */
+ #endif /* CONFIG_SYSCTL */
  
- #define IA64_MCA_CORRECTED	0x0	/* Error has been corrected by OS_MCA */
-Index: linux-2.6-ia64/include/asm-ia64/kdebug.h
-=================================--- linux-2.6-ia64.orig/include/asm-ia64/kdebug.h	2006-04-03 12:13:59.000000000 +1000
-+++ linux-2.6-ia64/include/asm-ia64/kdebug.h	2006-04-03 12:14:12.014069993 +1000
-@@ -58,6 +58,8 @@ enum die_val {
- 	DIE_MCA_RENDZVOUS_ENTER,
- 	DIE_MCA_RENDZVOUS_PROCESS,
- 	DIE_MCA_RENDZVOUS_LEAVE,
-+	DIE_MCA_NEW_TIMEOUT,
-+	DIE_INIT_ENTER,
- 	DIE_INIT_MONARCH_ENTER,
- 	DIE_INIT_MONARCH_PROCESS,
- 	DIE_INIT_MONARCH_LEAVE,
++static int __init hugetlb_init(void)
++{
++	unsigned long i, j;
++	struct proc_dir_entry *pde;
++
++#ifndef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
++	if (HPAGE_SHIFT(0) = 0)
++		return 0;
++#endif
++
++	for (i = 0; i < MAX_NUMNODES; ++i)
++		for (j = 0; j < MAX_ORDER; ++j)
++			INIT_LIST_HEAD(&hugepage_freelists[i][j]);
++
++	for (i = 0; i < max_huge_pages; ++i) {
++		if (!alloc_fresh_huge_page(HUGETLB_INIT_PAGE_ORDER))
++			break;
++	}
++	max_huge_pages = free_huge_pages[HUGETLB_INIT_PAGE_ORDER] nr_huge_pages[HUGETLB_INIT_PAGE_ORDER] = i;
++	printk("Total HugeTLB memory allocated, %ld\n",
++		free_huge_pages[HUGETLB_INIT_PAGE_ORDER]);
++
++#ifdef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
++        if (!proc_mkdir("hugetlb", NULL))
++		return 1;
++        pde = create_proc_entry("hugetlb/hugepages", 0, NULL);
++        if (!pde)
++                return 1;
++        pde->proc_fops = &proc_hugetlb_pagesizes_operations;
++#endif
++	return 0;
++}
++module_init(hugetlb_init);
++
++static int __init hugetlb_setup(char *s)
++{
++	if (sscanf(s, "%lu", &max_huge_pages) <= 0)
++		max_huge_pages = 0;
++	return 1;
++}
++__setup("hugepages=", hugetlb_setup);
++
++
+ int hugetlb_report_meminfo(char *buf)
+ {
+ 	return sprintf(buf,
+
+
+
 
