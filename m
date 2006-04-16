@@ -1,88 +1,34 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Sun, 16 Apr 2006 03:53:00 +0000
+From: Paul Mackerras <paulus@samba.org>
+Date: Sun, 16 Apr 2006 06:35:09 +0000
 Subject: Re: [PATCH 00/05] robust per_cpu allocation for modules
-Message-Id: <Pine.LNX.4.58.0604152323560.16853@gandalf.stny.rr.com>
+Message-Id: <17473.58781.901412.135671@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1145049535.1336.128.camel@localhost.localdomain>
- <4440855A.7040203@yahoo.com.au> <Pine.LNX.4.58.0604151609340.11302@gandalf.stny.rr.com>
- <4441B02D.4000405@yahoo.com.au>
-In-Reply-To: <4441B02D.4000405@yahoo.com.au>
+In-Reply-To: <1145049535.1336.128.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, paulus@samba.org, linux390@de.ibm.com, davem@davemloft.net
+To: Steven Rostedt <rostedt@goodmis.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>, linux-mips@linux-mips.org, David Mosberger-Tang <davidm@hpl.hp.com>, linux-ia64@vger.kernel.org, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, spyro@f2s.com, Joe Taylor <joe@tensilica.com>, linuxppc-dev@ozlabs.org, benedict.gaster@superh.com, bjornw@axis.com, Ingo Molnar <mingo@elte.hu>, grundler@parisc-linux.org, starvik@axis.com, Linus Torvalds <torvalds@osdl.org>, Thomas Gleixner <tglx@linutronix.de>, rth@twiddle.net, chris@zankel.net, tony.luck@intel.com, Andi Kleen <ak@suse.de>, ralf@linux-mips.org, Marc Gauthier <marc@tensilica.com>, lethal@linux-sh.org, schwidefsky@de.ibm.com, linux390@de.ibm.com, davem@davemloft.net, parisc-linux@parisc-linux.org
 
+Steven Rostedt writes:
 
-On Sun, 16 Apr 2006, Nick Piggin wrote:
+> The data in .data.percpu_offset holds is referenced by the per_cpu
+> variable name which points to the __per_cpu_offset array.  For modules,
+> it will point to the per_cpu_offset array of the module.
+> 
+> Example:
+> 
+>  DEFINE_PER_CPU(int, myint);
+> 
+>  would now create a variable called per_cpu_offset__myint in
+> the .data.percpu_offset section.  This variable will point to the (if
+> defined in the kernel) __per_cpu_offset[] array.  If this was a module
+> variable, it would point to the module per_cpu_offset[] array which is
+> created when the modules is loaded.
 
-> Steven Rostedt wrote:
-> >
-> > It's not just about saving memory, but also to make it more robust. But
-> > that's another story.
->
-> But making it slower isn't going to be popular.
+This sounds like you have an extra memory reference each time a
+per-cpu variable is accessed.  Have you tried to measure the
+performance impact of that?  If so, how much performance does it lose?
 
-You're right and I've been thinking of modifications to fix that.
-These patches were to shake up ideas.
-
->
-> Why is your module using so much per-cpu memory, anyway?
-
-Wasn't my module anyway. The problem appeared in the -rt patch set, when
-tracing was turned on.  Some module was affected, and grew it's per_cpu
-size by quite a bit. In fact we had to increase PERCPU_ENOUGH_ROOM by up
-to something like 300K.
-
->
-> >
-> > Since both the offset array, and the variables are mainly read only (only
-> > written on boot up), added the fact that the added variables are in their
-> > own section.  Couldn't something be done to help pre load this in a local
-> > cache, or something similar?
->
-> It it would still add to the dependent loads on the critical path, so
-> it now prevents the compiler/programmer/oooe engine from speculatively
-> loading the __per_cpu_offset.
->
-> And it does increase cache footprint of per-cpu accesses, which are
-> supposed to be really light and substitute for [NR_CPUS] arrays.
->
-> I don't think it would have been hard for the original author to make
-> it robust... just not both fast and robust. PERCPU_ENOUGH_ROOM seems
-> like an ugly hack at first glance, but I'm fairly sure it was a result
-> of design choices.
->
-
-Yeah, and I discovered the reasons for those choices as I worked on this.
-I've put a little more thought into this and still think there's a
-solution to not slow things down.
-
-Since the per_cpu_offset section is still smaller than the
-PERCPU_ENOUGH_ROOM and robust, I could still copy it into a per cpu memory
-field, and even add the __per_cpu_offset to it.  This would still save
-quite a bit of space.
-
-So now I'm asking for advice on some ideas that can be a work around to
-keep the robustness and speed.
-
-Is there a way (for archs that support it) to allocate memory in a per cpu
-manner. So each CPU would have its own variable table in the memory that
-is best of it.  Then have a field (like the pda in x86_64) to point to
-this section, and use the linker offsets to index and find the per_cpu
-variables.
-
-So this solution still has one more redirection than the current solution
-(per_cpu_offset__##var -> __per_cpu_offset -> actual_var where as the
-current solution is __per_cpu_offset -> actual_var), but all the loads
-would be done from memory that would only be specified for a particular
-CPU.
-
-The generic case would still be the same as the patches I already sent,
-but the archs that can support it, can have something like the above.
-
-Would something like that be acceptible?
-
-Thanks,
-
--- Steve
+Paul.
