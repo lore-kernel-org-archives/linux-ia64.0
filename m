@@ -1,70 +1,37 @@
 From: Ravikiran G Thirumalai <kiran@scalex86.org>
-Date: Mon, 17 Apr 2006 20:06:06 +0000
+Date: Mon, 17 Apr 2006 22:02:38 +0000
 Subject: Re: [PATCH 00/05] robust per_cpu allocation for modules
-Message-Id: <20060417200606.GA3945@localhost.localdomain>
+Message-Id: <20060417220238.GD3945@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1145049535.1336.128.camel@localhost.localdomain> <17473.60411.690686.714791@cargo.ozlabs.ibm.com> <1145194804.27407.103.camel@localhost.localdomain> <200604161734.20256.arnd@arndb.de>
-In-Reply-To: <200604161734.20256.arnd@arndb.de>
+References: <1145049535.1336.128.camel@localhost.localdomain> <4440855A.7040203@yahoo.com.au> <Pine.LNX.4.64.0604170953390.29732@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0604170953390.29732@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, rusty@rustcorp.com.au, Christoph Lameter <clameter@engr.sgi.com>, dipankar@in.ibm.com
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Steven Rostedt <rostedt@goodmis.org>, LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, paulus@samba.org, linux390@de.ibm.com, davem@davemloft.net
 
-On Sun, Apr 16, 2006 at 05:34:18PM +0200, Arnd Bergmann wrote:
-> On Sunday 16 April 2006 15:40, Steven Rostedt wrote:
-> > I'll think more about this, but maybe someone else has some crazy ideas
-> > that can find a solution to this that is both fast and robust.
+On Mon, Apr 17, 2006 at 09:55:02AM -0700, Christoph Lameter wrote:
+> On Sat, 15 Apr 2006, Nick Piggin wrote:
 > 
-> Ok, you asked for a crazy idea, you're going to get it ;-)
+> > If I'm following you correctly, this adds another dependent load
+> > to a per-CPU data access, and from memory that isn't node-affine.
 > 
-> You could take a fixed range from the vmalloc area (e.g. 1MB per cpu)
-> and use that to remap pages on demand when you need per cpu data.
-> 
-> #define PER_CPU_BASE 0xe000000000000000UL /* arch dependant */
-> #define PER_CPU_SHIFT 0x100000UL
-> #define __per_cpu_offset(__cpu) (PER_CPU_BASE + PER_CPU_STRIDE * (__cpu))
-> #define per_cpu(var, cpu) (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset(cpu)))
-> #define __get_cpu_var(var) per_cpu(var, smp_processor_id())
-> 
-> This is a lot like the current sparc64 implementation already is.
-> 
-> The tricky part here is the remapping of pages. You'd need to 
-> alloc_pages_node() new pages whenever the already reserved space is
-> not enough for the module you want to load and then map_vm_area()
-> them into the space reserved for them.
-> 
-> Advantages of this solution are:
-> - no dependant load access for per_cpu()
-> - might be flexible enough to implement a faster per_cpu_ptr()
-> - can be combined with ia64-style per-cpu remapping
+> I am also concerned about that. Kiran has a patch to avoid allocpercpu
+> having to go through one level of indirection that I guess would no 
+> longer work with this scheme.
 
-An implemenation similar to one you are mentioning was already proposed
-sometime back.
-http://lwn.net/Articles/119532/
-The design was also meant to not restrict/limit per-cpu memory being
-allocated from modules.  Maybe it was too early then, and maybe now is the 
-right time, going by the interest in this thread :).  IMHO, a new solution
-should fix both static and dynamic per-cpu allocators, 
-- Avoid possibility of false sharing for dynamically allocated per-CPU data
-(with current alloc percpu) 
-- work early enough -- if alloc_percpu can work early enough, (we can use
-that for counters like slab cachep stats which is currently racy; using 
-atomic_t for them would be bad for performance)
+The alloc_percpu reimplementation would work regardless of changes to
+static per-cpu areas.  But, any extra indirection as was proposed initially
+is bad IMHO. 
 
-An extra dereference in Steven's original proposal is bad, (I had done some
-measurements earlier).  My implementation had one less reference compared to
-static per-cpu allocators, but the performance of both were the same as
-the __per_cpu_offset table is always cache hot.
-
+>  
+> > If so, I think people with SMP and NUMA kernels would care more
+> > about performance and scalability than the few k of memory this
+> > saves.
 > 
-> Disadvantages are:
-> - you can't use huge tlbs for mapping per cpu data like the
->   regular linear mapping -> may be slower on some archs
+> Right.
 
-Yep, we waste a few tlb entries then, which is a bit of concern, but then we
-might be able to use hugetlbs for blocks of per-cpu data and minimize the 
-impact.
+Me too :)
 
-Thanks,
 Kiran
