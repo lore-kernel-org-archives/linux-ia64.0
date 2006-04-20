@@ -1,88 +1,64 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Fri, 14 Apr 2006 00:41:32 +0000
-Subject: Re: [PATCH 3/8] IA64 various hugepage size - Add a mount option to
-Message-Id: <1144975292.5817.74.camel@linux-znh>
+From: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Date: Thu, 20 Apr 2006 09:49:48 +0000
+Subject: [PATCH 2/2] eliminate compile time warnings
+Message-Id: <87d5fc37b7.wl%takeuchi_satoru@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1144974367.5817.39.camel@linux-znh>
-	 <1144974667.5817.51.camel@linux-znh>  <1144974881.5817.59.camel@linux-znh>
-In-Reply-To: <1144974881.5817.59.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Linux-IA64 <linux-ia64@vger.kernel.org>, Tony <tony.luck@intel.com>, Kenneth W <kenneth.w.chen@intel.com>
+To: linux-ia64@vger.kernel.org
 
-Add a mount option page_size= to hugetlbfs.
-The s_blocksize_bits in hugetlb super block will indicate the huge page size which attached 
-to this fs.
+This patch removes following compile time warnings:
 
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+(snip)
+drivers/pci/pci-sysfs.c: In function `pci_read_legacy_io':
+drivers/pci/pci-sysfs.c:257: warning: implicit declaration of function `ia64_pci_legacy_read'
+drivers/pci/pci-sysfs.c: In function `pci_write_legacy_io':
+drivers/pci/pci-sysfs.c:280: warning: implicit declaration of function `ia64_pci_legacy_write'
+(snip)
 
-diff -Nraup a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
---- a/fs/hugetlbfs/inode.c	2006-04-11 08:51:59.000000000 +0800
-+++ b/fs/hugetlbfs/inode.c	2006-04-11 10:55:49.000000000 +0800
-@@ -63,6 +63,14 @@ static int hugetlbfs_file_mmap(struct fi
- 	loff_t len, vma_len;
- 	int ret;
+It also fixes wrong definition of ia64_pci_legacy_write (type of `bus' is not
+`pci_dev', but `pci_bus').
+
+Signed-Off-By: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+
+---
+ arch/ia64/pci/pci.c        |    3 +--
+ include/asm-ia64/machvec.h |    2 ++
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.17-rc2/arch/ia64/pci/pci.c
+=================================--- linux-2.6.17-rc2.orig/arch/ia64/pci/pci.c	2006-03-20 14:53:29.000000000 +0900
++++ linux-2.6.17-rc2/arch/ia64/pci/pci.c	2006-04-20 12:24:02.000000000 +0900
+@@ -31,7 +31,6 @@
+ #include <asm/irq.h>
+ #include <asm/hw_irq.h>
  
-+#ifdef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
-+        struct super_block *sb = inode->i_sb;
-+        unsigned long hpage_shift = sb->s_blocksize_bits;
-+
-+        if (hpage_shift != vma->vm_mm->hugepage_shift)
-+                return -EINVAL;
-+#endif
-+
- 	if (vma->vm_pgoff & (HPAGE_SIZE / PAGE_SIZE - 1))
- 		return -EINVAL;
+-
+ /*
+  * Low-level SAL-based PCI configuration access functions. Note that SAL
+  * calls are already serialized (via sal_lock), so we don't need another
+@@ -707,7 +706,7 @@ int ia64_pci_legacy_read(struct pci_bus 
+  *
+  * Simply writes @size bytes of @val to @port.
+  */
+-int ia64_pci_legacy_write(struct pci_dev *bus, u16 port, u32 val, u8 size)
++int ia64_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
+ {
+ 	int ret = size;
  
-@@ -632,7 +640,17 @@ hugetlbfs_parse_options(char *options, s
- 			size &= HPAGE_MASK;
- 			pconfig->nr_blocks = (size >> HPAGE_SHIFT);
- 			value = rest;
--		} else if (!strcmp(opt,"nr_inodes")) {
-+		}
-+#ifdef ARCH_HAS_VARIABLE_HUGEPAGE_SIZE
-+                else if (!strcmp(opt, "page_size")) {
-+                        unsigned long long size = memparse(value, &rest);
-+                        if (!is_valid_hpage_size(size))
-+                                return -EINVAL;
-+                        pconfig->page_shift = __ffs(size);
-+                        value = rest;
-+                }
-+#endif
-+		else if (!strcmp(opt,"nr_inodes")) {
- 			pconfig->nr_inodes = memparse(value, &rest);
- 			value = rest;
- 		} else
-@@ -658,6 +676,7 @@ hugetlbfs_fill_super(struct super_block 
- 	config.uid = current->fsuid;
- 	config.gid = current->fsgid;
- 	config.mode = 0755;
-+	config.page_shift = HPAGE_SHIFT;
- 	ret = hugetlbfs_parse_options(data, &config);
- 
- 	if (ret)
-@@ -673,8 +692,8 @@ hugetlbfs_fill_super(struct super_block 
- 	sbinfo->max_inodes = config.nr_inodes;
- 	sbinfo->free_inodes = config.nr_inodes;
- 	sb->s_maxbytes = MAX_LFS_FILESIZE;
--	sb->s_blocksize = HPAGE_SIZE;
--	sb->s_blocksize_bits = HPAGE_SHIFT;
-+	sb->s_blocksize = 1UL << config.page_shift;
-+	sb->s_blocksize_bits = config.page_shift;
- 	sb->s_magic = HUGETLBFS_MAGIC;
- 	sb->s_op = &hugetlbfs_ops;
- 	sb->s_time_gran = 1;
-diff -Nraup a/include/linux/hugetlb.h b/include/linux/hugetlb.h
---- a/include/linux/hugetlb.h	2006-04-11 08:52:00.000000000 +0800
-+++ b/include/linux/hugetlb.h	2006-04-11 10:51:41.000000000 +0800
-@@ -124,6 +124,7 @@ struct hugetlbfs_config {
- 	uid_t   uid;
- 	gid_t   gid;
- 	umode_t mode;
-+	int     page_shift;
- 	long	nr_blocks;
- 	long	nr_inodes;
- };
-
+Index: linux-2.6.17-rc2/include/asm-ia64/machvec.h
+=================================--- linux-2.6.17-rc2.orig/include/asm-ia64/machvec.h	2006-04-20 08:44:11.000000000 +0900
++++ linux-2.6.17-rc2/include/asm-ia64/machvec.h	2006-04-20 12:24:02.000000000 +0900
+@@ -347,9 +347,11 @@ extern ia64_mv_dma_supported		swiotlb_dm
+ #endif
+ #ifndef platform_pci_legacy_read
+ # define platform_pci_legacy_read	ia64_pci_legacy_read
++extern int ia64_pci_legacy_read(struct pci_bus *bus, u16 port, u32 *val, u8 size);
+ #endif
+ #ifndef platform_pci_legacy_write
+ # define platform_pci_legacy_write	ia64_pci_legacy_write
++extern int ia64_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size);
+ #endif
+ #ifndef platform_inb
+ # define platform_inb		__ia64_inb
