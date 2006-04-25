@@ -1,183 +1,61 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Thu, 27 Apr 2006 15:07:08 +0000
-Subject: Re: [patch] Add mca recovery failure messages
-Message-Id: <200604271507.k3RF793E299867@efs.americas.sgi.com>
+From: Cliff Wickman <cpw@sgi.com>
+Date: Tue, 25 Apr 2006 15:47:48 +0000
+Subject: [PATCH 1/1] ia64: enable dumps to capture second page of kernel stack
+Message-Id: <20060425154748.GA29493@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200604262006.k3QK6AA5287600@efs.americas.sgi.com>
-In-Reply-To: <200604262006.k3QK6AA5287600@efs.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens wrote:
-> Russ Anderson (on Wed, 26 Apr 2006 15:06:10 -0500 (CDT)) wrote:
-> >When the mca recovery code encounters a condition that makes
-> >the MCA non-recoverable, print the reason it could not recover.
-> >This will make it easier to identify why the recovery code did
-> >not recover.
-> >
-> >+int
-> >+fatal_mca(const char *fmt, ...)
-> >+{
-> >+	va_list args;
-> 
-> Make fatal_mca() static.
 
-Done.
+In SLES10 (2.6.16) crash dumping (in my experience, LKCD) is unable to
+capture the second page of the 2-page task/stack allocation.
+This is particularly troublesome for dump analysis, as the stack traceback
+cannot be done.
+  (A similar convention is probably needed throughout the kernel to make
+   kernel multi-page allocations detectable for dumping)
 
-The updated patch.
+Multi-page kernel allocations are represented by the single page structure
+associated with the first page of the allocation.  The page structures
+associated with the other pages are unintialized.
+
+If the dumper is selecting only kernel pages it has no way to identify
+any but the first page of the allocation.
+
+The fix is to make the task/stack allocation a compound page.
+
+Diffed against 2.6.16
+
+Signed-off-by: Cliff Wickman <cpw@sgi.com>
+---
 
 ---
- arch/ia64/kernel/mca_drv.c |   54 ++++++++++++++++++++++++++++++---------------
- 1 file changed, 36 insertions(+), 18 deletions(-)
+ include/asm-ia64/thread_info.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: test/arch/ia64/kernel/mca_drv.c
-=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2006-04-20 09:01:10.880579074 -0500
-+++ test/arch/ia64/kernel/mca_drv.c	2006-04-27 09:34:44.015310509 -0500
-@@ -62,6 +62,11 @@ typedef enum {
- 	ISOLATE_NONE
- } isolate_status_t;
+Index: linux/include/asm-ia64/thread_info.h
+=================================--- linux.orig/include/asm-ia64/thread_info.h
++++ linux/include/asm-ia64/thread_info.h
+@@ -74,7 +74,7 @@ struct thread_info {
+ #define end_of_stack(p) (unsigned long *)((void *)(p) + IA64_RBS_OFFSET)
  
-+typedef enum {
-+	MCA_NOT_RECOVERED = 0,
-+	MCA_RECOVERED	  = 1
-+} recovery_status_t;
-+
- /*
-  *  This pool keeps pointers to the section part of SAL error record
-  */
-@@ -71,6 +76,18 @@ static struct {
- 	int	     max_idx; /* Maximum index of section pointer list pool */
- } slidx_pool;
+ #define __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
+-#define alloc_task_struct()	((task_t *)__get_free_pages(GFP_KERNEL, KERNEL_STACK_SIZE_ORDER))
++#define alloc_task_struct()	((task_t *)__get_free_pages(GFP_KERNEL | __GFP_COMP, KERNEL_STACK_SIZE_ORDER))
+ #define free_task_struct(tsk)	free_pages((unsigned long) (tsk), KERNEL_STACK_SIZE_ORDER)
  
-+static int
-+fatal_mca(const char *fmt, ...)
-+{
-+	va_list args;
-+
-+	va_start(args, fmt);
-+	vprintk(fmt, args);
-+	va_end(args);
-+
-+	return MCA_NOT_RECOVERED;
-+}
-+
- /**
-  * mca_page_isolate - isolate a poisoned page in order not to use it later
-  * @paddr:	poisoned memory location
-@@ -424,7 +441,7 @@ recover_from_read_error(slidx_table_t *s
- 
- 	/* Is target address valid? */
- 	if (!pbci->tv)
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: target address not valid\n");
- 
- 	/*
- 	 * cpu read or memory-mapped io read
-@@ -442,7 +459,7 @@ recover_from_read_error(slidx_table_t *s
- 
- 	/* Is minstate valid? */
- 	if (!peidx_bottom(peidx) || !(peidx_bottom(peidx)->valid.minstate))
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: minstate not valid\n");
- 	psr1 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_ipsr);
- 	psr2 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_xpsr);
- 
-@@ -476,12 +493,13 @@ recover_from_read_error(slidx_table_t *s
- 			psr2->bn  = 1;
- 			psr2->i  = 0;
- 
--			return 1;
-+			return MCA_RECOVERED;
- 		}
- 
- 	}
- 
--	return 0;
-+	return fatal_mca(KERN_ALERT "MCA: kernel context not recovered,"
-+			  " iip 0x%lx\n", pmsa->pmsa_iip);
- }
- 
- /**
-@@ -567,13 +585,13 @@ recover_from_processor_error(int platfor
- 	 * The machine check is corrected.
- 	 */
- 	if (psp->cm = 1)
--		return 1;
-+		return MCA_RECOVERED;
- 
- 	/*
- 	 * The error was not contained.  Software must be reset.
- 	 */
- 	if (psp->us || psp->ci = 0)
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: error not contained\n");
- 
- 	/*
- 	 * The cache check and bus check bits have four possible states
-@@ -584,20 +602,22 @@ recover_from_processor_error(int platfor
- 	 *    1  1	Memory error, attempt recovery
- 	 */
- 	if (psp->bc = 0 || pbci = NULL)
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: No bus check\n");
- 
- 	/*
- 	 * Sorry, we cannot handle so many.
- 	 */
- 	if (peidx_bus_check_num(peidx) > 1)
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: Too many bus checks\n");
- 	/*
- 	 * Well, here is only one bus error.
- 	 */
--	if (pbci->ib || pbci->cc)
--		return 0;
-+	if (pbci->ib)
-+		return fatal_mca(KERN_ALERT "MCA: Internal Bus error\n");
-+	if (pbci->cc)
-+		return fatal_mca(KERN_ALERT "MCA: Cache-cache error\n");
- 	if (pbci->eb && pbci->bsi > 0)
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: External bus check fatal status\n");
- 
- 	/*
- 	 * This is a local MCA and estimated as recoverble external bus error.
-@@ -609,7 +629,7 @@ recover_from_processor_error(int platfor
- 	/*
- 	 * On account of strange SAL error record, we cannot recover.
- 	 */
--	return 0;
-+	return fatal_mca(KERN_ALERT "MCA: Strange SAL record\n");
- }
- 
- /**
-@@ -638,12 +658,10 @@ mca_try_to_recover(void *rec, struct ia6
- 
- 	 /* Now, OS can recover when there is one processor error section */
- 	if (n_proc_err > 1)
--		return 0;
--	else if (n_proc_err = 0) {
-+		return fatal_mca(KERN_ALERT "MCA: Too Many Errors\n");
-+	else if (n_proc_err = 0)
- 		/* Weird SAL record ... We need not to recover */
--
--		return 1;
--	}
-+		return fatal_mca(KERN_ALERT "MCA: Weird SAL record\n");
- 
- 	/* Make index of processor error section */
- 	mca_make_peidx((sal_log_processor_info_t*)
-@@ -654,7 +672,7 @@ mca_try_to_recover(void *rec, struct ia6
- 
- 	/* Check whether MCA is global or not */
- 	if (is_mca_global(&peidx, &pbci, sos))
--		return 0;
-+		return fatal_mca(KERN_ALERT "MCA: global MCA\n");
- 	
- 	/* Try to recover a processor error */
- 	return recover_from_processor_error(platform_err, &slidx, &peidx,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+ #endif /* !__ASSEMBLY */
+
+---------
+
+Nick,
+
+  You had copied me on a reply on this subject earlier:
+    Date: Sat, 22 Apr 2006 13:56:12 +1000
+    From: Nick Piggin <nickpiggin@yahoo.com.au>
+    Yeah, we're moving toward compound pages for all these types of things
+    (including nommu). So making those pages compound pages should be the
+    right thing to do.
+
+  Still agree?
