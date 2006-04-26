@@ -1,64 +1,43 @@
-From: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
-Date: Thu, 20 Apr 2006 09:49:48 +0000
-Subject: [PATCH 2/2] eliminate compile time warnings
-Message-Id: <87d5fc37b7.wl%takeuchi_satoru@jp.fujitsu.com>
+From: Mike Habeck <habeck@sgi.com>
+Date: Wed, 26 Apr 2006 17:05:50 +0000
+Subject: [PATCH] fix SGI Altix tioce_reserve_m32() bug
+Message-Id: <20060426170550.10184.26271.95617@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch removes following compile time warnings:
 
-(snip)
-drivers/pci/pci-sysfs.c: In function `pci_read_legacy_io':
-drivers/pci/pci-sysfs.c:257: warning: implicit declaration of function `ia64_pci_legacy_read'
-drivers/pci/pci-sysfs.c: In function `pci_write_legacy_io':
-drivers/pci/pci-sysfs.c:280: warning: implicit declaration of function `ia64_pci_legacy_write'
-(snip)
+The following patch fixes a bug in the SGI Altix tioce_reserve_m32()
+code.  The bug was that we could walking past the end of the CE ASIC
+32/40bit PMU ATE Buffer, resulting in a PIO Reply Error.
 
-It also fixes wrong definition of ia64_pci_legacy_write (type of `bus' is not
-`pci_dev', but `pci_bus').
+This patch is based off the aegl/linux-2.6.git tree
 
-Signed-Off-By: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Signed-off-by: Mike Habeck <habeck@sgi.com>
 
----
- arch/ia64/pci/pci.c        |    3 +--
- include/asm-ia64/machvec.h |    2 ++
- 2 files changed, 3 insertions(+), 2 deletions(-)
 
-Index: linux-2.6.17-rc2/arch/ia64/pci/pci.c
-=================================--- linux-2.6.17-rc2.orig/arch/ia64/pci/pci.c	2006-03-20 14:53:29.000000000 +0900
-+++ linux-2.6.17-rc2/arch/ia64/pci/pci.c	2006-04-20 12:24:02.000000000 +0900
-@@ -31,7 +31,6 @@
- #include <asm/irq.h>
- #include <asm/hw_irq.h>
+Index: ce_dev/arch/ia64/sn/pci/tioce_provider.c
+=================================--- ce_dev.orig/arch/ia64/sn/pci/tioce_provider.c	2006-04-25 16:30:54.000000000 -0500
++++ ce_dev/arch/ia64/sn/pci/tioce_provider.c	2006-04-25 16:59:39.305931828 -0500
+@@ -682,9 +682,6 @@
+ 	int ate_index, last_ate, ps;
+ 	struct tioce *ce_mmr;
  
+-	if (!TIOCE_M32_ADDR(base))
+-		return;
 -
- /*
-  * Low-level SAL-based PCI configuration access functions. Note that SAL
-  * calls are already serialized (via sal_lock), so we don't need another
-@@ -707,7 +706,7 @@ int ia64_pci_legacy_read(struct pci_bus 
-  *
-  * Simply writes @size bytes of @val to @port.
-  */
--int ia64_pci_legacy_write(struct pci_dev *bus, u16 port, u32 val, u8 size)
-+int ia64_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
- {
- 	int ret = size;
+ 	ce_mmr = (struct tioce *)ce_kern->ce_common->ce_pcibus.bs_base;
+ 	ps = ce_kern->ce_ate3240_pagesize;
+ 	ate_index = ATE_PAGE(base, ps);
+@@ -692,6 +689,9 @@
  
-Index: linux-2.6.17-rc2/include/asm-ia64/machvec.h
-=================================--- linux-2.6.17-rc2.orig/include/asm-ia64/machvec.h	2006-04-20 08:44:11.000000000 +0900
-+++ linux-2.6.17-rc2/include/asm-ia64/machvec.h	2006-04-20 12:24:02.000000000 +0900
-@@ -347,9 +347,11 @@ extern ia64_mv_dma_supported		swiotlb_dm
- #endif
- #ifndef platform_pci_legacy_read
- # define platform_pci_legacy_read	ia64_pci_legacy_read
-+extern int ia64_pci_legacy_read(struct pci_bus *bus, u16 port, u32 *val, u8 size);
- #endif
- #ifndef platform_pci_legacy_write
- # define platform_pci_legacy_write	ia64_pci_legacy_write
-+extern int ia64_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size);
- #endif
- #ifndef platform_inb
- # define platform_inb		__ia64_inb
+ 	if (ate_index < 64)
+ 		ate_index = 64;
++
++	if (last_ate >= TIOCE_NUM_M3240_ATES)
++		last_ate = TIOCE_NUM_M3240_ATES - 1;
+ 
+ 	while (ate_index <= last_ate) {
+ 		u64 ate;
