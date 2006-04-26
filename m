@@ -1,55 +1,58 @@
-From: "Randy.Dunlap" <rdunlap@xenotime.net>
-Date: Fri, 14 Apr 2006 03:12:31 +0000
-Subject: Re: [PATCH 8/8] IA64 various hugepage size - Modify kernel document
-Message-Id: <20060413201231.24b8ae7e.rdunlap@xenotime.net>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 26 Apr 2006 14:56:36 +0000
+Subject: beta of pfmon-3.2 available
+Message-Id: <20060426145636.GA6819@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1144974367.5817.39.camel@linux-znh>
-	<1144974667.5817.51.camel@linux-znh>
-	<1144974881.5817.59.camel@linux-znh>
-	<1144975292.5817.74.camel@linux-znh>
-	<1144975523.5817.84.camel@linux-znh>
-	<1144975746.5817.94.camel@linux-znh>
-	<1144975953.5817.102.camel@linux-znh>
-	<1144976261.5817.114.camel@linux-znh>
-	<1144976418.5817.122.camel@linux-znh>
-In-Reply-To: <1144976418.5817.122.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zou Nan hai <nanhai.zou@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com, kenneth.w.chen@intel.com
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net
 
-On 14 Apr 2006 09:00:18 +0800 Zou Nan hai wrote:
+Hello,
 
-> Modify the kernel document about hugetlb
-> 
-> Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-> 
-> diff -Nraup a/Documentation/vm/hugetlbpage.txt b/Documentation/vm/hugetlbpage.txt
-> --- a/Documentation/vm/hugetlbpage.txt	2006-03-20 13:53:29.000000000 +0800
-> +++ b/Documentation/vm/hugetlbpage.txt	2006-04-12 06:13:50.000000000 +0800
-> @@ -68,9 +68,12 @@ If the user applications are going to re
->  call, then it is required that system administrator mount a file system of
->  type hugetlbfs:
->  
-> -	mount none /mnt/huge -t hugetlbfs <uid=value> <gid=value> <mode=value>
-> +	mount none /mnt/huge -t hugetlbfs -o <uid=value> <gid=value> <mode=value>
->  		 <size=value> <nr_inodes=value>
->  
-> +on IA64 there is another mount option page_size=value which could
-> +mount a hugetlbfs with given huge page size;
-> +
+I have finally released the first beta version of pfmon-3.2.
+This version is a major update of version 3.0 released
+2 years ago. They are many new features which I hope you'll find
+useful.
 
-Typos.  How about:
-On IA64 there is another mount option (page_size=value) which can be
-used to mount a hugetlbfs with the given huge page size.
+Here are some of the new features:
 
+	- support for perfmon v2.0 AND perfmon v2.2
+	- support for all Itanium processors including Montecito
+	- support for AMD X86-64 processors
+	- support for Intel Pentium M/P6 processors
+	- support for event sets and multiplexing (with perfmon v2.2)
+	- instruction-based histrogram sampling module format
+	- Data-EAR sampling module formats (Itanium only)
+	- ability to exclude idle task for system-wide measurements
+	- include or exclude interrupted triggered kernel execution for system
+	  wide measurements (Itanium and perfmon v2.2 only )
+	- support for rum/sum in monitored binaries (Itanium and perfmon v2.2 only)
+	- support for cpu sets
+	- man page for generic options
 
->  This command mounts a (pseudo) filesystem of type hugetlbfs on the directory
->  /mnt/huge.  Any files created on /mnt/huge uses hugepages.  The uid and gid
->  options sets the owner and group of the root of the file system.  By default
+For non Itanium processors, the perfmon v2.2 patch must be applied to the kernel.
+You need 2.6.17-rc1 or higher.
 
+The Montecito support is currently missing some of the multi-threading features
+as well as the cache MESI options for selected events.
 
+You need libpfm-3.2-060421 or newer to compile pfmon. Similarly you may
+want to use libunwind and libiberty to enable certain features. Make sure
+you look at the README.
 
----
-~Randy
+Full documentation including processors specific features is online at our
+project's web site.
+
+The tarball can be downloaded from our web site at:
+	
+		http://perfmon2.sf.net
+
+Please test pfmon in your configuration and report any problems to the
+perfmon mailing list.
+
+Enjoy,
+
+--
+-Stephane
