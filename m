@@ -1,75 +1,83 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 26 Apr 2006 09:12:48 +0000
+From: "Jesper Juhl" <jesper.juhl@gmail.com>
+Date: Wed, 26 Apr 2006 10:27:54 +0000
 Subject: Re: [PATCH] change gen_pool allocator to not touch managed memory
-Message-Id: <444F3990.5030100@sgi.com>
+Message-Id: <9a8748490604260327pe936e87yc9105868cc14557a@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <444D1A7E.mailx85W11DZZU@aqua.americas.sgi.com> <20060424181626.09966912.akpm@osdl.org> <20060425155051.GA19248@sgi.com>
+References: <444D1A7E.mailx85W11DZZU@aqua.americas.sgi.com>
+	 <20060424181626.09966912.akpm@osdl.org>
+	 <20060425155051.GA19248@sgi.com>
 In-Reply-To: <20060425155051.GA19248@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Dean Nelson <dcn@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, tony.luck@intel.com, avolkov@varma-el.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, tony.luck@intel.com, jes@sgi.com, avolkov@varma-el.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Dean Nelson wrote:
->>> Both Andrey Volkov and Jes Sorensen have expressed a desire that the
->>> gen_pool allocator not write to the memory being managed. See the
->>> following:
->>>
->>>   http://marc.theaimsgroup.com/?l=linux-kernel&m3518602713125&w=2
->>>   http://marc.theaimsgroup.com/?l=linux-kernel&m3533568827916&w=2
->> hm, fair enough.
->>
->> The patch is fairly large+intrusive.  I trust it's been broadly tested?
-> 
-> Yes, it was thoroughly tested. I even pulled the bitmap manipulation code
-> into a user app with which I could pre-set bits of a bitmap in order to
-> test boundary conditions with various contiguous bit lengths.
+On 4/25/06, Dean Nelson <dcn@sgi.com> wrote:
+> The following patch modifies the gen_pool allocator (lib/genalloc.c) to
+> utilize a bitmap scheme instead of the buddy scheme. The purpose of this
+> change is to eliminate the touching of the actual memory being allocated.
+>
+> Since the change modifies the interface, a change to the uncached
+> allocator (arch/ia64/kernel/uncached.c) is also required.
+>
+[snip]
 
-I haven't been directly involved in this work, but I am very confident
-in Dean's work in this.
-
-Just a few minor nits below:
+A few small comments below.
 
 > -unsigned long gen_pool_alloc(struct gen_pool *poolp, int size)
 > +int gen_pool_add(struct gen_pool *pool, unsigned long addr, size_t size,
-> +		 int nid)
+> +                int nid)
 >  {
-> -	int j, i, s, max_chunk_size;
-> -	unsigned long a, flags;
-> -	struct gen_pool_link *h = poolp->h;
-> +	struct gen_pool_chunk *chunk;
-> +	int nbits = size >> pool->min_alloc_order;
-> +	int nbytes = sizeof(struct gen_pool_chunk) +
-> +				(nbits + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
+> -       int j, i, s, max_chunk_size;
+> -       unsigned long a, flags;
+> -       struct gen_pool_link *h = poolp->h;
+> +       struct gen_pool_chunk *chunk;
+> +       int nbits = size >> pool->min_alloc_order;
+> +       int nbytes = sizeof(struct gen_pool_chunk) +
+> +                               (nbits + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
 > +
-> +	if (nbytes > PAGE_SIZE) {
-> +		chunk = vmalloc_node(nbytes, nid);
-> +	} else {
-> +		chunk = kmalloc_node(nbytes, GFP_KERNEL, nid);
-> +	}
+> +       if (nbytes > PAGE_SIZE) {
+> +               chunk = vmalloc_node(nbytes, nid);
+> +       } else {
+> +               chunk = kmalloc_node(nbytes, GFP_KERNEL, nid);
+> +       }
 
-Any patch that adds vmalloc() calls to code always makes the little
-hairs on the back of my neck stand up. Any chance we could get away with
-alloc_pages_node() for this?
+No curly braces when not needed is usually prefered.
 
->  	ia64_pal_mc_drain();
-> -	status = smp_call_function(uncached_ipi_mc_drain, NULL, 0, 1);
-> -	if (status)
-> -		printk(KERN_WARNING "smp_call_function failed for "
-> -		       "uncached_ipi_mc_drain! (%i)\n", status);
-> +	(void) smp_call_function(uncached_ipi_mc_drain, NULL, 0, 1);
+       if (nbytes > PAGE_SIZE)
+               chunk = vmalloc_node(nbytes, nid);
+       else
+               chunk = kmalloc_node(nbytes, GFP_KERNEL, nid);
 
-This thing could in theory fail so having the error check there seems
-the right thing to me. In either case, please don't (void) the function
-return (this is a style issue, I know).
 
-> Index: linux-2.6/arch/ia64/sn/kernel/sn2/cache.c
-> =================================> --- linux-2.6.orig/arch/ia64/sn/kernel/sn2/cache.c	2006-04-24 12:25:36.234717101 -0500
-> +++ linux-2.6/arch/ia64/sn/kernel/sn2/cache.c	2006-04-24 12:27:56.012899026 -0500
+> +static int
+> +uncached_add_chunk(struct gen_pool *pool, int nid)
 
-This part we should maybe do in a seperate patch? It seems valid on it's
-own?
+Why not
 
-Cheers,
-Jes
+ +static int uncached_add_chunk(struct gen_pool *pool, int nid)
+
+There's room for it on one line and other functions in that file use
+just one line (more grep'able)...
+
+
+>  void
+> -uncached_free_page(unsigned long maddr)
+> +uncached_free_page(unsigned long uc_addr)
+
+Move this to a single line perhaps?
+
+ +void uncached_free_page(unsigned long uc_addr)
+
+
+> +static int __init
+> +uncached_init(void)
+
+One line ?
+
+
+--
+Jesper Juhl <jesper.juhl@gmail.com>
+Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please      http://www.expita.com/nomime.html
