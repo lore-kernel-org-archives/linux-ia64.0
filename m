@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 27 Apr 2006 12:10:53 +0000
-Subject: Re: [patch] update sn2 defconfig
-Message-Id: <4450B4CD.4060203@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 27 Apr 2006 23:51:18 +0000
+Subject: RE: [patch] update sn2 defconfig
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0658F43D@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <yq07j5bs50k.fsf@jaguar.mkp.net>
 In-Reply-To: <yq07j5bs50k.fsf@jaguar.mkp.net>
@@ -10,23 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote:
-> On Thu, Apr 27, 2006 at 06:10:35AM -0400, Jes Sorensen wrote:
->> +CONFIG_NODES_SHIFT=8
-> 
-> Jack/Jes,
-> 
-> Shouldn't we have this at 10 so we get the most exposure possible.
+> > Shouldn't we have this at 10 so we get the most exposure possible.
+>
+> I'd be fine with that, I just stuck with the default.
 
-I'd be fine with that, I just stuck with the default.
+I took this patch as-is ... if you wanto bump this to 10, send
+another patch.
 
->> -# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
->> +CONFIG_INFINIBAND_IPOIB_DEBUG=y
-> 
-> Why turn on debugging for everyone?
+>>> -# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
+>>> +CONFIG_INFINIBAND_IPOIB_DEBUG=y
+>> 
+>> Why turn on debugging for everyone?
+>
+> I didn't do anything there, It was the Infinibug stuff that turned it
+> on itself.
 
-I didn't do anything there, It was the Infinibug stuff that turned it
-on itself.
+I tried to turn it off, and it came right back on again. This
+is "default y" in drivers/infiniband/ulp/ipoib/Kconfig, but also
 
-Cheers,
-Jes
+ bool "... " if EMBEDDED
+
+EMBEDDED is "n" ... so I've no idea.
+
+-Tony
