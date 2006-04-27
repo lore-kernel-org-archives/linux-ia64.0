@@ -1,29 +1,60 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 26 Apr 2006 15:53:53 +0000
-Subject: Re: I/O read, write implementation questions
-Message-Id: <20060426105259.L18889@chenjesu.americas.sgi.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 27 Apr 2006 22:08:58 +0000
+Subject: [PATCH] - Pass OS logical cpu number to the SN prom (bios)
+Message-Id: <20060427220857.GA14901@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <444E2EA6.8000604@bull.net>
-In-Reply-To: <444E2EA6.8000604@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 26 Apr 2006, Brent Casavant wrote:
+Pass the OS logical cpu number to the PROM. This allows PROM to 
+log the OS logical cpu number in error records viewed thru POD.
+This signifinantly simplifies diagnosis of hardware errors on 
+large systems.
 
-> Note that wmb() is not sufficient for writes, at least on SGI Altix.
-> wmb() ensures that the write has issued from the processor, however
-> it does not ensure that the I/O device itself has seen the write.
-> The mmiowb() is the appropriate call to ensure that the write has
-> been seen.
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-Oh, and lest I confuse anyone, wmb() is sufficient for writes to RAM.
-It's only I/O writes for which it is insufficient.
 
-Brent
 
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+Index: linux/arch/ia64/sn/kernel/setup.c
+=================================--- linux.orig/arch/ia64/sn/kernel/setup.c	2006-04-22 08:50:14.567000831 -0500
++++ linux/arch/ia64/sn/kernel/setup.c	2006-04-27 17:02:24.646672915 -0500
+@@ -597,6 +597,12 @@ void __init sn_cpu_init(void)
+ 	sn_hub_info->as_shift = sn_hub_info->nasid_shift - 2;
+ 
+ 	/*
++	 * Don't check status. The SAL call is not supported on all PROMs
++	 * but a failure is harmless.
++	 */
++	(void) ia64_sn_set_cpu_number(smp_processor_id());
++
++	/*
+ 	 * The boot cpu makes this call again after platform initialization is
+ 	 * complete.
+ 	 */
+Index: linux/include/asm-ia64/sn/sn_sal.h
+=================================--- linux.orig/include/asm-ia64/sn/sn_sal.h	2006-04-22 08:50:19.858482442 -0500
++++ linux/include/asm-ia64/sn/sn_sal.h	2006-04-27 17:02:24.654672135 -0500
+@@ -85,6 +85,7 @@
+ 
+ #define  SN_SAL_GET_PROM_FEATURE_SET		   0x02000065
+ #define  SN_SAL_SET_OS_FEATURE_SET		   0x02000066
++#define  SN_SAL_SET_CPU_NUMBER			   0x02000068
+ 
+ /*
+  * Service-specific constants
+@@ -1140,4 +1141,13 @@ ia64_sn_set_os_feature(int feature)
+ 	return rv.status;
+ }
+ 
++static inline int
++ia64_sn_set_cpu_number(int cpu)
++{
++	struct ia64_sal_retval rv;
++
++	SAL_CALL_NOLOCK(rv, SN_SAL_SET_CPU_NUMBER, cpu, 0, 0, 0, 0, 0, 0);
++	return rv.status;
++}
++
+ #endif /* _ASM_IA64_SN_SN_SAL_H */
