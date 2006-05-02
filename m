@@ -1,53 +1,33 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 05 May 2006 19:06:46 +0000
-Subject: RE: Small hugetlbpage.c fix
-Message-Id: <4sur0l$vetgo@fmsmga001.fm.intel.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 02 May 2006 05:25:46 +0000
+Subject: [RFC 0/3] IA64 Long Format VHPT support
+Message-Id: <20060502052546.8990.33000.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <445B125F.3040405@bull.net>
-In-Reply-To: <445B125F.3040405@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-mm@kvack.org, Ian Wienand <ianw@gelato.unsw.edu.au>
 
-Zoltan Menyhart wrote on Friday, May 05, 2006 1:53 AM
-> --- linux-2.6.16.9-save/arch/ia64/mm/hugetlbpage.c	2006-04-21 09:58:55.000000000 +0200
-> +++ linux-2.6.16.9/arch/ia64/mm/hugetlbpage.c	2006-05-05 10:35:14.000000000 +0200
-> @@ -125,9 +125,9 @@
->  
->  	addr = htlbpage_to_page(addr);
->  	end  = htlbpage_to_page(end);
-> -	if (is_hugepage_only_range(tlb->mm, floor, HPAGE_SIZE))
-> +	if (is_hugepage_only_range((*tlb)->mm, floor, HPAGE_SIZE))
->  		floor = htlbpage_to_page(floor);
-> -	if (is_hugepage_only_range(tlb->mm, ceiling, HPAGE_SIZE))
-> +	if (is_hugepage_only_range((*tlb)->mm, ceiling, HPAGE_SIZE))
->  		ceiling = htlbpage_to_page(ceiling);
->  
->  	free_pgd_range(tlb, addr, end, floor, ceiling);
+Hi,
 
+Following from this message are patches to enable the Long Format VHPT
+on IA64, which I am posting in the hope of community review.  They are
+against 2.6.17-rc3, and work for machines I have access to.  These
+patches have long been a chicken-egg problem, but I believe that there
+are now multiple people interested in using LVHPT for dynamic page
+size support in some form.
 
-Sorry, I have to nak this one, for multiple reasons:
+There are two papers which reference this work
 
-(1) A proper fix is already in the latest git tree.
-(2) usage of is_hugepage_only_range() in function hugetlb_free_pgd_range
-    is wrong here.  Because in 2.6.16, is_hugepage_only_range on ia64 is
-    defined to be within, where in here the real intent is to scale floor
-    and ceiling addresses if they falls into hugetlb virtual address range.
-    A proper fix should be:
+Itanium Page Tables and TLB
+Matthew Chapman, Ian Wienand, Gernot Heiser
+http://citeseer.ist.psu.edu/chapman03itanium.html
 
-	-	if (is_hugepage_only_range(tlb->mm, floor, HPAGE_SIZE))
-	+	if (REGION_NUMBER(floor) = RGN_HPAGE)
-	 		floor = htlbpage_to_page(floor);
-	-	if (is_hugepage_only_range(tlb->mm, ceiling, HPAGE_SIZE))
-	+	if (REGION_NUMBER(ceiling) = RGN_HPAGE)
-	 		ceiling = htlbpage_to_page(ceiling);
+Itanium - A System Implementor's Tale
+Charles Gray, Matthew Chapman, Peter Chubb, David Mosberger-Tang, Gernot Heiser
+http://www.usenix.org/events/usenix05/tech/general/gray/gray_html/index.html
 
-	we get away from this bug because such scenario is not possible on
-      ia64 because we have a virtual address hole at the end of each region
-      used by the short format vhpt hash address.
-(3) lastly, the first argument is not used on ia64.  If the fix is for
-    cosmetic reason, that's fine by me.  But I object on the ground of
-    correctness for the two reasons given above.
+Any comments are welcomed.
 
-- Ken
+-i
