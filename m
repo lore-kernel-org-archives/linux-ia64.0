@@ -1,43 +1,30 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Tue, 23 May 2006 18:29:10 +0000
-Subject: Re: [1/5] follow_page: do not put_page if FOLL_GET not specified.
-Message-Id: <1148408951.10561.10.camel@lappy>
+From: "Bob Picco" <bob.picco@hp.com>
+Date: Wed, 03 May 2006 13:38:06 +0000
+Subject: strcpy returns NULL pointer and not destination pointer
+Message-Id: <20060503133806.GC19859@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
-	 <20060523174349.10156.22044.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20060523174349.10156.22044.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: akpm@osdl.org, Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+To: linux-ia64@vger.kernel.org
 
-On Tue, 2006-05-23 at 10:43 -0700, Christoph Lameter wrote:
-> follow: no put_page() if FOLL_GET not specified.
-> 
-> Seems that one of the side effects of the dirty pages patch in
-> 2.6.17-rc4-mm3 is that follow_pages does a page_put if FOLL_GET is
-> not set in the flags passed to it. This breaks sys_move_pages()
-> page status determination.
-> 
-> Only put_page if we did a get_page() before.
-> 
-> Signed-off-by: Christoph Lameter <clameter@sgi.com>
-Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Hi Ken:
 
-However, Andrew dropped the patches from -mm. I'll do a new series that
-incorporates the suggestions from Hugh.
+I'm assuming you can speak to this because your email address is in
+memcpy_mck.S.
 
-> Index: linux-2.6.17-rc4-mm3/mm/memory.c
-> =================================> --- linux-2.6.17-rc4-mm3.orig/mm/memory.c	2006-05-22 18:03:32.280767264 -0700
-> +++ linux-2.6.17-rc4-mm3/mm/memory.c	2006-05-23 10:01:48.917295988 -0700
-> @@ -964,7 +964,7 @@ struct page *follow_page(struct vm_area_
->  			set_page_dirty(page);
->  		mark_page_accessed(page);
->  	}
-> -	if (!(flags & FOLL_GET))
-> +	if (!(flags & FOLL_GET) && (flags & FOLL_TOUCH))
->  		put_page(page);
->  	goto out;
->  
+The removal of -ffreestanding compiler flag in 2.6.17-rcX (commit id
+6edfba1b33c701108717f4e036320fc39abe1912) causes strcpy calls 
+with a known size for the source string to be replaced with memcpy which
+is faster.  ia64 memcpy has return values which are unlike stdlibc and
+the other arch memcpy routines examined by me in the kernel.  The ia64 return
+values are 0 for success and number of bytes copied for failure. Thus any
+instance of pointer = strcpy(dest, "some string") has zero assigned to
+pointer.  I detected this when testing kgdb on 2.6.17-rc3.  
 
+The implementation in memcpy_mck.S doesn't leave a single scratch
+register or predicate. I didn't pursue very long for a solution.
+
+thanks,
+
+bob
