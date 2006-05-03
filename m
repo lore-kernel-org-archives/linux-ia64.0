@@ -1,56 +1,25 @@
-From: Jens Axboe <axboe@suse.de>
-Date: Wed, 24 May 2006 20:33:17 +0000
-Subject: Re: [5/5] move_pages: 32bit support (i386,x86_64 and ia64)
-Message-Id: <20060524203317.GA15418@suse.de>
+From: Christoph Lameter <christoph@engr.sgi.com>
+Date: Wed, 03 May 2006 23:54:20 +0000
+Subject: Re: RFC: RCU protected page table walking
+Message-Id: <Pine.LNX.4.64.0605031649400.32117@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com> <20060523174410.10156.43268.sendpatchset@schroedinger.engr.sgi.com> <20060524133253.23fe19a2.akpm@osdl.org>
-In-Reply-To: <20060524133253.23fe19a2.akpm@osdl.org>
+References: <4458CCDC.5060607@bull.net> <200605031846.51657.ak@suse.de>
+ <Pine.LNX.4.64.0605031847190.15463@blonde.wat.veritas.com>
+In-Reply-To: <Pine.LNX.4.64.0605031847190.15463@blonde.wat.veritas.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Christoph Lameter <clameter@sgi.com>, hugh@veritas.com, linux-ia64@vger.kernel.org, a.p.zijlstra@chello.nl, lee.schermerhorn@hp.com, nickpiggin@yahoo.com.au, linux-mm@kvack.org, ak@suse.de, kamezawa.hiroyu@jp.fujitsu.com
+To: kenneth.w.chen@intel.com
+Cc: Hugh Dickins <hugh@veritas.com>, Andi Kleen <ak@suse.de>, Zoltan Menyhart <Zoltan.Menyhart@bull.net>, linux-mm@kvack.org, Zoltan.Menyhart@free.fr, linux-i64@vger.kernel.org
 
-On Wed, May 24 2006, Andrew Morton wrote:
-> Christoph Lameter <clameter@sgi.com> wrote:
-> >
-> > sys_move_pages() support for 32bit (i386 plus ia64 and x86_64 compat layers)
-> > 
-> > Add support for move_pages() on i386 and also add the
-> > compat functions necessary to run 32 bit binaries on x86_64 and ia64.
-> > 
-> > Add compat_sys_move_pages to both the x86_64 and the ia64 32bit binary
-> > layer. Note that both are not up to date so I added the missing pieces.
-> > Not sure if this is done the right way.
-> > 
-> > This probably needs some fixups:
-> > 
-> > 1. What about sys_vmsplice on x86_64?
-> > 
-> > 2. There is a whole range of syscalls missing for ia64 that I basically
-> >    interpolated from elsewhere.
-> 
-> I dropped the ia64 bits - looks like that's all on death row anyway.
-> 
-> The omission of sys_vmsplice() from the x86 syscall table does appear to
-> be, umm, a glaring omission.  Jens, what's up?
+On Wed, 3 May 2006, Hugh Dickins wrote:
 
-Uhm yes...
+> Those architectures (including i386 and x86_64) which #define their
+> __pte_free_tlb etc. to tlb_remove_page are safe as is.  But Zoltan's
+> ia64 #defines it to pte_free, which looks like it may free_page before
+> the TLB flush.  But it is surprising if it has actually been unsafe
 
-[PATCH] Add vmsplice syscall to x86 table
+Sorry but I am in .au right now with spotty high latency connectivity. 
+But the people on linux-ia64 should know. Ken?
 
-Signed-off-by: Jens Axboe <axboe@suse.de>
-
-diff --git a/arch/i386/kernel/syscall_table.S b/arch/i386/kernel/syscall_table.S
-index f48bef1..af56987 100644
---- a/arch/i386/kernel/syscall_table.S
-+++ b/arch/i386/kernel/syscall_table.S
-@@ -315,3 +315,4 @@ ENTRY(sys_call_table)
- 	.long sys_splice
- 	.long sys_sync_file_range
- 	.long sys_tee			/* 315 */
-+	.long sys_vmsplice
-
--- 
-Jens Axboe
-
+Why was linux-ia64 not cced??
