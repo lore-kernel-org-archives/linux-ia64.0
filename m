@@ -1,33 +1,24 @@
-From: Muli Ben-Yehuda <muli@il.ibm.com>
-Date: Sun, 07 May 2006 08:47:56 +0000
-Subject: Re: [PATCH 1/3] swiotlb: SWIOTLB Cleanup.
-Message-Id: <20060507084756.GE6015@rhun.haifa.ibm.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Fri, 05 May 2006 08:52:47 +0000
+Subject: Small hugetlbpage.c fix
+Message-Id: <445B125F.3040405@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060504205822.GC14361@us.ibm.com>
-In-Reply-To: <20060504205822.GC14361@us.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jon Mason <jdmason@us.ibm.com>
-Cc: linux-kernel@vger.kernel.org, ak@suse.de, tony.luck@intel.com, linux-ia64@vger.kernel.org, mulix@mulix.org
+To: linux-ia64@vger.kernel.org
 
-On Thu, May 04, 2006 at 03:58:23PM -0500, Jon Mason wrote:
-
-> SWIOTLB Cleanup.  Mostly a comment and white space clean-up.
-> However, some compiler cache optimizations (via the static and
-> __read_mostly keywords) were added, and
-> swiotlb_init_with_default_size was renamed swiotlb_init (as that
-> functional was redundant)
-> 
-> This patch has been tested individually and cumulatively on x86_64 and
-> cross-compile tested on IA64.  Since I have no IA64 hardware, any
-> testing on that platform would be appreciated.
-
-Looks good.
-
-> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-
-Acked-by: Muli Ben-Yehuda <muli@il.ibm.com>
-
-Cheers,
-Muli
+--- linux-2.6.16.9-save/arch/ia64/mm/hugetlbpage.c	2006-04-21 09:58:55.000000000 +0200
++++ linux-2.6.16.9/arch/ia64/mm/hugetlbpage.c	2006-05-05 10:35:14.000000000 +0200
+@@ -125,9 +125,9 @@
+ 
+ 	addr = htlbpage_to_page(addr);
+ 	end  = htlbpage_to_page(end);
+-	if (is_hugepage_only_range(tlb->mm, floor, HPAGE_SIZE))
++	if (is_hugepage_only_range((*tlb)->mm, floor, HPAGE_SIZE))
+ 		floor = htlbpage_to_page(floor);
+-	if (is_hugepage_only_range(tlb->mm, ceiling, HPAGE_SIZE))
++	if (is_hugepage_only_range((*tlb)->mm, ceiling, HPAGE_SIZE))
+ 		ceiling = htlbpage_to_page(ceiling);
+ 
+ 	free_pgd_range(tlb, addr, end, floor, ceiling);
