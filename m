@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 05 May 2006 18:45:06 +0000
+Date: Fri, 05 May 2006 19:06:46 +0000
 Subject: RE: Small hugetlbpage.c fix
-Message-Id: <4sur0l$vejv1@fmsmga001.fm.intel.com>
+Message-Id: <4sur0l$vetgo@fmsmga001.fm.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <445B125F.3040405@bull.net>
 In-Reply-To: <445B125F.3040405@bull.net>
@@ -27,16 +27,27 @@ Zoltan Menyhart wrote on Friday, May 05, 2006 1:53 AM
 >  	free_pgd_range(tlb, addr, end, floor, ceiling);
 
 
-Luck, Tony wrote on Friday, May 05, 2006 9:44 AM
-> Greg, Chris:
-> 
-> 2.6.17-rcN has moved on and changed this in other ways, but
-> this patch looks like a candidate for the stable series.
-> What's there looks like it should kick a warning, if not a
-> full blown error from the compiler for getting the type wrong.
+Sorry, I have to nak this one, for multiple reasons:
 
+(1) A proper fix is already in the latest git tree.
+(2) usage of is_hugepage_only_range() in function hugetlb_free_pgd_range
+    is wrong here.  Because in 2.6.16, is_hugepage_only_range on ia64 is
+    defined to be within, where in here the real intent is to scale floor
+    and ceiling addresses if they falls into hugetlb virtual address range.
+    A proper fix should be:
 
-What's the big fuss about it?  The first argument is not even used in
-is_hugepage_only_range() for ia64.  Plus the fix is a broken fix anyway.
+	-	if (is_hugepage_only_range(tlb->mm, floor, HPAGE_SIZE))
+	+	if (REGION_NUMBER(floor) = RGN_HPAGE)
+	 		floor = htlbpage_to_page(floor);
+	-	if (is_hugepage_only_range(tlb->mm, ceiling, HPAGE_SIZE))
+	+	if (REGION_NUMBER(ceiling) = RGN_HPAGE)
+	 		ceiling = htlbpage_to_page(ceiling);
+
+	we get away from this bug because such scenario is not possible on
+      ia64 because we have a virtual address hole at the end of each region
+      used by the short format vhpt hash address.
+(3) lastly, the first argument is not used on ia64.  If the fix is for
+    cosmetic reason, that's fine by me.  But I object on the ground of
+    correctness for the two reasons given above.
 
 - Ken
