@@ -1,150 +1,281 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 23 May 2006 17:43:54 +0000
-Subject: [2/5] extract common code to have_task_perm()
-Message-Id: <20060523174354.10156.85086.sendpatchset@schroedinger.engr.sgi.com>
+From: Jon Mason <jdmason@us.ibm.com>
+Date: Tue, 09 May 2006 23:58:28 +0000
+Subject: [PATCH 2/5] mm: bootmem code cleanup
+Message-Id: <20060509235828.GF22385@us.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Christoph Lameter <clameter@sgi.com>
+To: linux-kernel@vger.kernel.org
+Cc: ak@suse.de, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, mulix@mulix.org
 
-Extract have_task_perm()
+Per Muli's comment on the initial series of patches.
+Clean-up to remove 80 char/line wrapping and make code more uniform.
 
-Various kernel function check if they are allowed to do something to another
-task. The ones that I have found are
+This patch has been tested individually and cumulatively on x86_64 and
+cross-compile tested on IA64.  Since I have no IA64 hardware, any
+testing on that platform would be appreciated
 
-1. The check for kill permissions
+Thanks,
+Jon
 
-2. sys_migrate_pages() checking if a process is allowed to
-   migrate the pages of another process.
+Signed-off-by: Jon Mason <jdmason@us.ibm.com>
 
-3. sys_move_pages() checking if a process is allowed to
-   migrate individual pages that are part of another process.
-
-Extract the common code in these checks to form a new function
-in kernel/signal.c have_task_perm(task, capability). The check
-is successful if
-
-1. The current process has the indicated capability
-
-2. The current effective userid is equal to the suid or uid
-   of the target process.
-
-3. The current userid is equal to the suid or uid of the
-   target process.
-
-Note that there are similar checks for uid/gid/euid that are
-stored in a variety of structures in the kernel. Maybe those may also
-be extracted by a similar function that would not take a task parameter
-but an explicit specification of permission ids?
-
-ptrace() has a variation on the have_task_perm() check in may_attach().
-ptrace checks for uid equal to euid, suid, uid or gid equal to
-egid sgid,gid. So one may not be able to kill a process explicyly
-but be able to ptrace() (and then PTRACE_KILL it) if one is a member
-of the same group? Weird.
-
-Plus ptrace does not support eid comparision. So explicit rights
-for ptracing cannot be set via the super user bit.
-
-Maybe we could consolidate all these checks and make them work in
-a coherent way? I dont think I am deep enough into this issue to
-takle that though.
-
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.17-rc4-mm3/mm/mempolicy.c
-=================================--- linux-2.6.17-rc4-mm3.orig/mm/mempolicy.c	2006-05-22 18:03:32.283696770 -0700
-+++ linux-2.6.17-rc4-mm3/mm/mempolicy.c	2006-05-23 08:55:24.371254745 -0700
-@@ -926,15 +926,7 @@ asmlinkage long sys_migrate_pages(pid_t 
- 	if (!mm)
- 		return -EINVAL;
+diff -r 1d9d729a821b -r 235bc05ff8b1 include/linux/bootmem.h
+--- a/include/linux/bootmem.h	Mon May  8 15:18:59 2006
++++ b/include/linux/bootmem.h	Mon May  8 16:17:49 2006
+@@ -41,11 +41,16 @@
+ 	struct list_head list;
+ } bootmem_data_t;
  
--	/*
--	 * Check if this process has the right to modify the specified
--	 * process. The right exists if the process has administrative
--	 * capabilities, superuser privileges or the same
--	 * userid as the target process.
--	 */
--	if ((current->euid != task->suid) && (current->euid != task->uid) &&
--	    (current->uid != task->suid) && (current->uid != task->uid) &&
--	    !capable(CAP_SYS_NICE)) {
-+	if (!have_task_perm(task, CAP_SYS_NICE)) {
- 		err = -EPERM;
- 		goto out;
- 	}
-Index: linux-2.6.17-rc4-mm3/mm/migrate.c
-=================================--- linux-2.6.17-rc4-mm3.orig/mm/migrate.c	2006-05-22 18:03:32.286626275 -0700
-+++ linux-2.6.17-rc4-mm3/mm/migrate.c	2006-05-23 08:55:24.372231247 -0700
-@@ -781,15 +781,7 @@ asmlinkage long sys_move_pages(int pid, 
- 	if (!mm)
- 		return -EINVAL;
+-extern unsigned long __init bootmem_bootmap_pages (unsigned long);
+-extern unsigned long __init init_bootmem (unsigned long addr, unsigned long memend);
+-extern void __init free_bootmem (unsigned long addr, unsigned long size);
+-extern void * __init __alloc_bootmem (unsigned long size, unsigned long align, unsigned long goal);
+-extern void * __init __alloc_bootmem_nopanic (unsigned long size, unsigned long align, unsigned long goal);
++extern unsigned long __init bootmem_bootmap_pages(unsigned long);
++extern unsigned long __init init_bootmem(unsigned long addr,
++					 unsigned long memend);
++extern void __init free_bootmem(unsigned long addr, unsigned long size);
++extern void * __init __alloc_bootmem(unsigned long size,
++				     unsigned long align,
++				     unsigned long goal);
++extern void * __init __alloc_bootmem_nopanic(unsigned long size,
++					     unsigned long align,
++					     unsigned long goal);
+ extern void * __init __alloc_bootmem_low(unsigned long size,
+ 					 unsigned long align,
+ 					 unsigned long goal);
+@@ -54,8 +59,10 @@
+ 					      unsigned long align,
+ 					      unsigned long goal);
+ extern void * __init __alloc_bootmem_core(struct bootmem_data *bdata,
+-		unsigned long size, unsigned long align, unsigned long goal,
+-		unsigned long limit);
++					  unsigned long size,
++					  unsigned long align,
++					  unsigned long goal,
++					  unsigned long limit);
+ #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
+ extern void __init reserve_bootmem (unsigned long addr, unsigned long size);
+ #define alloc_bootmem(x) \
+@@ -67,12 +74,22 @@
+ #define alloc_bootmem_low_pages(x) \
+ 	__alloc_bootmem_low((x), PAGE_SIZE, 0)
+ #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
+-extern unsigned long __init free_all_bootmem (void);
+-extern void * __init __alloc_bootmem_node (pg_data_t *pgdat, unsigned long size, unsigned long align, unsigned long goal);
+-extern unsigned long __init init_bootmem_node (pg_data_t *pgdat, unsigned long freepfn, unsigned long startpfn, unsigned long endpfn);
+-extern void __init reserve_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size);
+-extern void __init free_bootmem_node (pg_data_t *pgdat, unsigned long addr, unsigned long size);
+-extern unsigned long __init free_all_bootmem_node (pg_data_t *pgdat);
++extern unsigned long __init free_all_bootmem(void);
++extern void * __init __alloc_bootmem_node(pg_data_t *pgdat,
++					  unsigned long size,
++					  unsigned long align,
++					  unsigned long goal);
++extern unsigned long __init init_bootmem_node(pg_data_t *pgdat,
++					      unsigned long freepfn,
++					      unsigned long startpfn,
++					      unsigned long endpfn);
++extern void __init reserve_bootmem_node(pg_data_t *pgdat,
++					unsigned long physaddr,
++					unsigned long size);
++extern void __init free_bootmem_node(pg_data_t *pgdat,
++				     unsigned long addr,
++				     unsigned long size);
++extern unsigned long __init free_all_bootmem_node(pg_data_t *pgdat);
+ #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
+ #define alloc_bootmem_node(pgdat, x) \
+ 	__alloc_bootmem_node((pgdat), (x), SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))
+diff -r 1d9d729a821b -r 235bc05ff8b1 mm/bootmem.c
+--- a/mm/bootmem.c	Mon May  8 15:18:59 2006
++++ b/mm/bootmem.c	Mon May  8 16:17:49 2006
+@@ -43,7 +43,7 @@
+ #endif
  
--	/*
--	 * Check if this process has the right to modify the specified
--	 * process. The right exists if the process has administrative
--	 * capabilities, superuser privileges or the same
--	 * userid as the target process.
--	 */
--	if ((current->euid != task->suid) && (current->euid != task->uid) &&
--	    (current->uid != task->suid) && (current->uid != task->uid) &&
--	    !capable(CAP_SYS_NICE)) {
-+	if (!have_task_perm(task, CAP_SYS_NICE)) {
- 		err = -EPERM;
- 		goto out2;
- 	}
-Index: linux-2.6.17-rc4-mm3/kernel/signal.c
-=================================--- linux-2.6.17-rc4-mm3.orig/kernel/signal.c	2006-05-22 18:03:32.211435632 -0700
-+++ linux-2.6.17-rc4-mm3/kernel/signal.c	2006-05-23 09:11:44.323266538 -0700
-@@ -567,6 +567,25 @@ static int rm_from_queue(unsigned long m
+ /* return the number of _pages_ that will be allocated for the boot bitmap */
+-unsigned long __init bootmem_bootmap_pages (unsigned long pages)
++unsigned long __init bootmem_bootmap_pages(unsigned long pages)
+ {
+ 	unsigned long mapsize;
+ 
+@@ -78,8 +78,8 @@
+ /*
+  * Called once to set up the allocator itself.
+  */
+-static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
+-	unsigned long mapstart, unsigned long start, unsigned long end)
++static unsigned long __init init_bootmem_core(pg_data_t *pgdat,
++		unsigned long mapstart, unsigned long start, unsigned long end)
+ {
+ 	bootmem_data_t *bdata = pgdat->bdata;
+ 	unsigned long mapsize = ((end - start)+7)/8;
+@@ -104,7 +104,8 @@
+  * might be used for boot-time allocations - or it might get added
+  * to the free page pool later on.
+  */
+-static void __init reserve_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
++static void __init reserve_bootmem_core(bootmem_data_t *bdata,
++		unsigned long addr, unsigned long size)
+ {
+ 	unsigned long i;
+ 	/*
+@@ -129,7 +130,8 @@
+ 		}
  }
  
- /*
-+ * Check if this process has the rights to do something
-+ * with another process.
-+ *
-+ * The right exists if either
-+ * 1. The current process has the indicated capability
-+ * 2. The current effective user id is the user or superuser
-+ * 	id of the other process.
-+ * 3. The current user id is the user or superuser id of the other process.
-+ */
-+int have_task_perm(struct task_struct *t, int capability)
-+{
-+	if (capable(capability))
-+		return 1;
-+
-+	return (current->euid = t->suid || current->euid = t->uid ||
-+		  current->uid = t->suid || current->uid = t->uid);
-+}
-+
-+/*
-  * Bad permissions for sending the signal
+-static void __init free_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
++static void __init free_bootmem_core(bootmem_data_t *bdata, unsigned long addr,
++		unsigned long size)
+ {
+ 	unsigned long i;
+ 	unsigned long start;
+@@ -172,9 +174,9 @@
+  *
+  * NOTE:  This function is _not_ reentrant.
   */
- static int check_kill_permission(int sig, struct siginfo *info,
-@@ -579,9 +598,7 @@ static int check_kill_permission(int sig
- 	if ((info = SEND_SIG_NOINFO || (!is_si_special(info) && SI_FROMUSER(info)))
- 	    && ((sig != SIGCONT) ||
- 		(current->signal->session != t->signal->session))
--	    && (current->euid ^ t->suid) && (current->euid ^ t->uid)
--	    && (current->uid ^ t->suid) && (current->uid ^ t->uid)
--	    && !capable(CAP_KILL))
-+	    && !have_task_perm(t, CAP_KILL))
- 		return error;
+-void * __init
+-__alloc_bootmem_core(struct bootmem_data *bdata, unsigned long size,
+-	      unsigned long align, unsigned long goal, unsigned long limit)
++void * __init __alloc_bootmem_core(struct bootmem_data *bdata,
++		unsigned long size, unsigned long align, unsigned long goal,
++		unsigned long limit)
+ {
+ 	unsigned long offset, remaining_size, areasize, preferred;
+ 	unsigned long i, start = 0, incr, eidx, end_pfn = bdata->node_low_pfn;
+@@ -347,7 +349,9 @@
+ 	 */
+ 	page = virt_to_page(bdata->node_bootmem_map);
+ 	count = 0;
+-	for (i = 0; i < ((bdata->node_low_pfn-(bdata->node_boot_start >> PAGE_SHIFT))/8 + PAGE_SIZE-1)/PAGE_SIZE; i++,page++) {
++	for (i = 0; i < ((bdata->node_low_pfn -
++			  (bdata->node_boot_start >> PAGE_SHIFT)) / 8 +
++			 PAGE_SIZE - 1) / PAGE_SIZE; i++, page++) {
+ 		count++;
+ 		__free_pages_bootmem(page, 0);
+ 	}
+@@ -357,27 +361,30 @@
+ 	return total;
+ }
  
- 	error = security_task_kill(t, info, sig);
-Index: linux-2.6.17-rc4-mm3/include/linux/signal.h
-=================================--- linux-2.6.17-rc4-mm3.orig/include/linux/signal.h	2006-05-22 18:03:31.841341429 -0700
-+++ linux-2.6.17-rc4-mm3/include/linux/signal.h	2006-05-23 08:55:24.393714292 -0700
-@@ -267,6 +267,8 @@ extern int sigprocmask(int, sigset_t *, 
- struct pt_regs;
- extern int get_signal_to_deliver(siginfo_t *info, struct k_sigaction *return_ka, struct pt_regs *regs, void *cookie);
+-unsigned long __init init_bootmem_node (pg_data_t *pgdat, unsigned long freepfn, unsigned long startpfn, unsigned long endpfn)
++unsigned long __init init_bootmem_node(pg_data_t *pgdat, unsigned long freepfn,
++		unsigned long startpfn, unsigned long endpfn)
+ {
+ 	return(init_bootmem_core(pgdat, freepfn, startpfn, endpfn));
+ }
  
-+extern int have_task_perm(struct task_struct *, int);
-+
- #endif /* __KERNEL__ */
+-void __init reserve_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size)
++void __init reserve_bootmem_node(pg_data_t *pgdat, unsigned long physaddr,
++		unsigned long size)
+ {
+ 	reserve_bootmem_core(pgdat->bdata, physaddr, size);
+ }
  
- #endif /* _LINUX_SIGNAL_H */
+-void __init free_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size)
++void __init free_bootmem_node(pg_data_t *pgdat, unsigned long physaddr,
++	unsigned long size)
+ {
+ 	free_bootmem_core(pgdat->bdata, physaddr, size);
+ }
+ 
+-unsigned long __init free_all_bootmem_node (pg_data_t *pgdat)
++unsigned long __init free_all_bootmem_node(pg_data_t *pgdat)
+ {
+ 	return(free_all_bootmem_core(pgdat));
+ }
+ 
+-unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
++unsigned long __init init_bootmem(unsigned long start, unsigned long pages)
+ {
+ 	max_low_pfn = pages;
+ 	min_low_pfn = start;
+@@ -385,34 +392,36 @@
+ }
+ 
+ #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
+-void __init reserve_bootmem (unsigned long addr, unsigned long size)
++void __init reserve_bootmem(unsigned long addr, unsigned long size)
+ {
+ 	reserve_bootmem_core(NODE_DATA(0)->bdata, addr, size);
+ }
+ #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
+ 
+-void __init free_bootmem (unsigned long addr, unsigned long size)
++void __init free_bootmem(unsigned long addr, unsigned long size)
+ {
+ 	free_bootmem_core(NODE_DATA(0)->bdata, addr, size);
+ }
+ 
+-unsigned long __init free_all_bootmem (void)
++unsigned long __init free_all_bootmem(void)
+ {
+ 	return(free_all_bootmem_core(NODE_DATA(0)));
+ }
+ 
+-void * __init __alloc_bootmem_nopanic(unsigned long size, unsigned long align, unsigned long goal)
++void * __init __alloc_bootmem_nopanic(unsigned long size, unsigned long align,
++		unsigned long goal)
+ {
+ 	bootmem_data_t *bdata;
+ 	void *ptr;
+ 
+ 	list_for_each_entry(bdata, &bdata_list, list)
+ 		if ((ptr = __alloc_bootmem_core(bdata, size, align, goal, 0)))
+-			return(ptr);
++			return ptr;
+ 	return NULL;
+ }
+ 
+-void * __init __alloc_bootmem(unsigned long size, unsigned long align, unsigned long goal)
++void * __init __alloc_bootmem(unsigned long size, unsigned long align,
++		unsigned long goal)
+ {
+ 	void *mem = __alloc_bootmem_nopanic(size,align,goal);
+ 	if (mem)
+@@ -426,21 +435,22 @@
+ }
+ 
+ 
+-void * __init __alloc_bootmem_node(pg_data_t *pgdat, unsigned long size, unsigned long align,
+-				   unsigned long goal)
++void * __init __alloc_bootmem_node(pg_data_t *pgdat, unsigned long size,
++		unsigned long align, unsigned long goal)
+ {
+ 	void *ptr;
+ 
+ 	ptr = __alloc_bootmem_core(pgdat->bdata, size, align, goal, 0);
+ 	if (ptr)
+-		return (ptr);
++		return ptr;
+ 
+ 	return __alloc_bootmem(size, align, goal);
+ }
+ 
+ #define LOW32LIMIT 0xffffffff
+ 
+-void * __init __alloc_bootmem_low(unsigned long size, unsigned long align, unsigned long goal)
++void * __init __alloc_bootmem_low(unsigned long size, unsigned long align,
++		unsigned long goal)
+ {
+ 	bootmem_data_t *bdata;
+ 	void *ptr;
+@@ -448,7 +458,7 @@
+ 	list_for_each_entry(bdata, &bdata_list, list)
+ 		if ((ptr = __alloc_bootmem_core(bdata, size,
+ 						 align, goal, LOW32LIMIT)))
+-			return(ptr);
++			return ptr;
+ 
+ 	/*
+ 	 * Whoops, we cannot satisfy the allocation request.
+@@ -459,7 +469,7 @@
+ }
+ 
+ void * __init __alloc_bootmem_low_node(pg_data_t *pgdat, unsigned long size,
+-				       unsigned long align, unsigned long goal)
++		unsigned long align, unsigned long goal)
+ {
+ 	return __alloc_bootmem_core(pgdat->bdata, size, align, goal, LOW32LIMIT);
+ }
