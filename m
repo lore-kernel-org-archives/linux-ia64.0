@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 08 May 2006 14:51:41 +0000
-Subject: Re: [IA64] rework memory attribute aliasing
-Message-Id: <200605080851.41136.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 09 May 2006 23:02:08 +0000
+Subject: RE: [IA64] rework memory attribute aliasing
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0673C7E6@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200605051719.50884.bjorn.helgaas@hp.com>
 In-Reply-To: <200605051719.50884.bjorn.helgaas@hp.com>
@@ -10,16 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sunday 07 May 2006 20:42, KAMEZAWA Hiroyuki wrote:
-> At memory hotplug, efi information cannot be updated. In -mm kernel,
-> hot added memory is registed to /proc/iomem (iomem_resouce).
-> 
-> Can't we able to write kern_mem_attribute() by using kernel/resouce.c ?
-> (add new flag if needed..)
-> 
-> Now,  efi_initialize_iomem_resources() already registers efi information to 
-> iomem_resource.
+> This closes a couple holes in our attribute aliasing avoidance scheme:
 
-I didn't address hot-plug memory at all.  You're right that something
-should be done in that area.  I don't know enough about memory hotplug
-to do anything useful myself, though.
+Looks good ... and adds some Documentation too: double bonus points :-)
+
+Fixes the X issue on Intel Tiger platform, and your MCA with
+Obsidian II problem: earns free replay :-)
+
+If we were at -rc2, I'd just slide this right into Linus ... but we are
+a bit close to 2.6.17, so I'm polling for regression testing.  I don't
+want to find out that this breaks some other platform.
+
+-Tony
