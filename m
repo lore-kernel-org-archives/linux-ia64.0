@@ -1,73 +1,84 @@
-From: <whsacc@aol.com>
-Date: Tue, 09 May 2006 08:58:09 +0000
-Subject: =?koi8-r?B?IE1heSBiZSwgeW91J2xsIGJl?=
-Message-Id: <166013750.20051017224058@aol.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----------80D633A5BC"
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Tue, 09 May 2006 12:08:47 +0000
+Subject: [PATCH] avoid creating empty node take 2 [1/2] move reserve_memory
+Message-Id: <20060509210847.05c263d0.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <009a01c4555a$27c737c1$8f18e51b@iuf>
-In-Reply-To: <009a01c4555a$27c737c1$8f18e51b@iuf>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-------------80D633A5BC
-Content-Type: text/plain; charset=koi8-r
-Content-Transfer-Encoding: 8bit
+Hi, this patch is to delete empty node. (take2)
 
-Hello, your e-mail address linux-ia64@vger.kernel.org ,  has been taken from the open sources. My name is Alex Brewster. I am the main manager of Web Click Company. 
-We are engaged in software developing and design. The main office of our Company is located in Lithuania. 
-We are searching for employees to work in our company worldwide. If you wish to have additional income from 4000 to 10 000 dollars a month, 
-working from your house this offer is for you. The choice of vacancies is huge (designers, managers, auditors, financiers). 
-We will offer you the best conditions to work. 
-Also if you own a company or if you are managing director of the company we offer you to cooperation with us.  
+Changelog V1->V2
+- Add comments about I/O only nodes. ACPI 3.0.
+- much simpler than V1.
+- reworked against 2.6.17-rc3
 
+=
+When SRAT table includes cpu entries which is not available or includes memory
+entries which doesn't has available memory, pxm_flag for it is set.
+(in arch/ia64/kernel/acpi.c, acpi_numa_arch_fixup().)
+As a result, empty node is created.
 
- Please do not reply to this letter. Send your contact data and your CV  to this e-mail: a8n48sX6s21@yahoo.com -  it is our temproary e-mail. 
+Our NUMA machine's sysfs will always show 8 nodes even if it is booted up with
+only one node, whose SRAT describes all possible cpus and memory.
+This is not good for a machine which supports SRAT with Hot-Add information.
 
+Note: SRAT's enable bit just says "you can read this entry." not means 
+"memory is available/"
 
+We have to check a pxm is assigned to available resources.
 
-
-
-
-linux-ia64@vger.kernel.org sorry for possible disturbance
-
-------------------------------------------------------------
-This email is not sent unsolicited and is in compliance with the
-federal CAN-SPAM act.  Your email address was provided to us as
-either a reciprocal user of website promotion system(s), or as an
-email initially sent by you or your company to which this response
-is being provided.
---------------------------------------------------------------
+[1/2] -- just move reserve_memory() .
+[2/2] -- empty node fix.
 
 
-
-Dd08AuJv
-
-this mailing conforms to all federal laws.  please reply
-back with "stop mailings" in subject line linux-ia64@vger.kernel.org to 
-stop mailings.  per can-spam you must allow up to 7
-business days for your email deletion.
+-Kame
 
 
+reserve_memory() is called in find_memory(), both in contig.c and in
+discontig.c. After reserve_memory(), the kernel setup code can use 
+EFI memory map information.
+By moving this before parsing acpi SRAT information, we can use EFI
+information in acpi NUMA setup.
+This patch is against 2.6.17-rc3.
 
-6vZdRQ
+Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-
-Zh
-0IsdOGmK
-0PFo1itN
-
-zNqaz
-RLaO8sT
-
-EdlXVV5
-
-
-y
-
-o4w
-H24NEG8r
-
-
-------------80D633A5BC--
-
+Index: linux-2.6.17-rc3/arch/ia64/mm/contig.c
+=================================--- linux-2.6.17-rc3.orig/arch/ia64/mm/contig.c	2006-05-09 16:29:34.000000000 +0900
++++ linux-2.6.17-rc3/arch/ia64/mm/contig.c	2006-05-09 16:31:02.000000000 +0900
+@@ -146,8 +146,6 @@
+ {
+ 	unsigned long bootmap_size;
+ 
+-	reserve_memory();
+-
+ 	/* first find highest page frame number */
+ 	max_pfn = 0;
+ 	efi_memmap_walk(find_max_pfn, &max_pfn);
+Index: linux-2.6.17-rc3/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.17-rc3.orig/arch/ia64/mm/discontig.c	2006-05-09 16:29:34.000000000 +0900
++++ linux-2.6.17-rc3/arch/ia64/mm/discontig.c	2006-05-09 16:31:02.000000000 +0900
+@@ -438,8 +438,6 @@
+ {
+ 	int node;
+ 
+-	reserve_memory();
+-
+ 	if (num_online_nodes() = 0) {
+ 		printk(KERN_ERR "node info missing!\n");
+ 		node_set_online(0);
+Index: linux-2.6.17-rc3/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.17-rc3.orig/arch/ia64/kernel/setup.c	2006-05-09 16:29:34.000000000 +0900
++++ linux-2.6.17-rc3/arch/ia64/kernel/setup.c	2006-05-09 16:31:31.000000000 +0900
+@@ -419,6 +419,7 @@
+ 	if (early_console_setup(*cmdline_p) = 0)
+ 		mark_bsp_online();
+ 
++	reserve_memory();
+ #ifdef CONFIG_ACPI
+ 	/* Initialize the ACPI boot-time table parser */
+ 	acpi_table_init();
 
