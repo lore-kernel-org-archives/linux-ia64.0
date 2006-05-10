@@ -1,281 +1,598 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Date: Tue, 09 May 2006 23:58:28 +0000
-Subject: [PATCH 2/5] mm: bootmem code cleanup
-Message-Id: <20060509235828.GF22385@us.ibm.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 10 May 2006 03:42:22 +0000
+Subject: [RFC 3/6] LVHPT - ivt.S long format support
+Message-Id: <20060510034222.17792.56505.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060510034206.17792.82504.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
+In-Reply-To: <20060510034206.17792.82504.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: ak@suse.de, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, mulix@mulix.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
+Cc: linux-mm@kvack.org, Ian Wienand <ianw@gelato.unsw.edu.au>
 
-Per Muli's comment on the initial series of patches.
-Clean-up to remove 80 char/line wrapping and make code more uniform.
+LVHPT ivt long format support
 
-This patch has been tested individually and cumulatively on x86_64 and
-cross-compile tested on IA64.  Since I have no IA64 hardware, any
-testing on that platform would be appreciated
+Add templates for long format VHPT support, to be merged into ivt.S
 
-Thanks,
-Jon
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
 
-diff -r 1d9d729a821b -r 235bc05ff8b1 include/linux/bootmem.h
---- a/include/linux/bootmem.h	Mon May  8 15:18:59 2006
-+++ b/include/linux/bootmem.h	Mon May  8 16:17:49 2006
-@@ -41,11 +41,16 @@
- 	struct list_head list;
- } bootmem_data_t;
- 
--extern unsigned long __init bootmem_bootmap_pages (unsigned long);
--extern unsigned long __init init_bootmem (unsigned long addr, unsigned long memend);
--extern void __init free_bootmem (unsigned long addr, unsigned long size);
--extern void * __init __alloc_bootmem (unsigned long size, unsigned long align, unsigned long goal);
--extern void * __init __alloc_bootmem_nopanic (unsigned long size, unsigned long align, unsigned long goal);
-+extern unsigned long __init bootmem_bootmap_pages(unsigned long);
-+extern unsigned long __init init_bootmem(unsigned long addr,
-+					 unsigned long memend);
-+extern void __init free_bootmem(unsigned long addr, unsigned long size);
-+extern void * __init __alloc_bootmem(unsigned long size,
-+				     unsigned long align,
-+				     unsigned long goal);
-+extern void * __init __alloc_bootmem_nopanic(unsigned long size,
-+					     unsigned long align,
-+					     unsigned long goal);
- extern void * __init __alloc_bootmem_low(unsigned long size,
- 					 unsigned long align,
- 					 unsigned long goal);
-@@ -54,8 +59,10 @@
- 					      unsigned long align,
- 					      unsigned long goal);
- extern void * __init __alloc_bootmem_core(struct bootmem_data *bdata,
--		unsigned long size, unsigned long align, unsigned long goal,
--		unsigned long limit);
-+					  unsigned long size,
-+					  unsigned long align,
-+					  unsigned long goal,
-+					  unsigned long limit);
- #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
- extern void __init reserve_bootmem (unsigned long addr, unsigned long size);
- #define alloc_bootmem(x) \
-@@ -67,12 +74,22 @@
- #define alloc_bootmem_low_pages(x) \
- 	__alloc_bootmem_low((x), PAGE_SIZE, 0)
- #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
--extern unsigned long __init free_all_bootmem (void);
--extern void * __init __alloc_bootmem_node (pg_data_t *pgdat, unsigned long size, unsigned long align, unsigned long goal);
--extern unsigned long __init init_bootmem_node (pg_data_t *pgdat, unsigned long freepfn, unsigned long startpfn, unsigned long endpfn);
--extern void __init reserve_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size);
--extern void __init free_bootmem_node (pg_data_t *pgdat, unsigned long addr, unsigned long size);
--extern unsigned long __init free_all_bootmem_node (pg_data_t *pgdat);
-+extern unsigned long __init free_all_bootmem(void);
-+extern void * __init __alloc_bootmem_node(pg_data_t *pgdat,
-+					  unsigned long size,
-+					  unsigned long align,
-+					  unsigned long goal);
-+extern unsigned long __init init_bootmem_node(pg_data_t *pgdat,
-+					      unsigned long freepfn,
-+					      unsigned long startpfn,
-+					      unsigned long endpfn);
-+extern void __init reserve_bootmem_node(pg_data_t *pgdat,
-+					unsigned long physaddr,
-+					unsigned long size);
-+extern void __init free_bootmem_node(pg_data_t *pgdat,
-+				     unsigned long addr,
-+				     unsigned long size);
-+extern unsigned long __init free_all_bootmem_node(pg_data_t *pgdat);
- #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
- #define alloc_bootmem_node(pgdat, x) \
- 	__alloc_bootmem_node((pgdat), (x), SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))
-diff -r 1d9d729a821b -r 235bc05ff8b1 mm/bootmem.c
---- a/mm/bootmem.c	Mon May  8 15:18:59 2006
-+++ b/mm/bootmem.c	Mon May  8 16:17:49 2006
-@@ -43,7 +43,7 @@
- #endif
- 
- /* return the number of _pages_ that will be allocated for the boot bitmap */
--unsigned long __init bootmem_bootmap_pages (unsigned long pages)
-+unsigned long __init bootmem_bootmap_pages(unsigned long pages)
- {
- 	unsigned long mapsize;
- 
-@@ -78,8 +78,8 @@
- /*
-  * Called once to set up the allocator itself.
-  */
--static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
--	unsigned long mapstart, unsigned long start, unsigned long end)
-+static unsigned long __init init_bootmem_core(pg_data_t *pgdat,
-+		unsigned long mapstart, unsigned long start, unsigned long end)
- {
- 	bootmem_data_t *bdata = pgdat->bdata;
- 	unsigned long mapsize = ((end - start)+7)/8;
-@@ -104,7 +104,8 @@
-  * might be used for boot-time allocations - or it might get added
-  * to the free page pool later on.
-  */
--static void __init reserve_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
-+static void __init reserve_bootmem_core(bootmem_data_t *bdata,
-+		unsigned long addr, unsigned long size)
- {
- 	unsigned long i;
- 	/*
-@@ -129,7 +130,8 @@
- 		}
- }
- 
--static void __init free_bootmem_core(bootmem_data_t *bdata, unsigned long addr, unsigned long size)
-+static void __init free_bootmem_core(bootmem_data_t *bdata, unsigned long addr,
-+		unsigned long size)
- {
- 	unsigned long i;
- 	unsigned long start;
-@@ -172,9 +174,9 @@
-  *
-  * NOTE:  This function is _not_ reentrant.
-  */
--void * __init
--__alloc_bootmem_core(struct bootmem_data *bdata, unsigned long size,
--	      unsigned long align, unsigned long goal, unsigned long limit)
-+void * __init __alloc_bootmem_core(struct bootmem_data *bdata,
-+		unsigned long size, unsigned long align, unsigned long goal,
-+		unsigned long limit)
- {
- 	unsigned long offset, remaining_size, areasize, preferred;
- 	unsigned long i, start = 0, incr, eidx, end_pfn = bdata->node_low_pfn;
-@@ -347,7 +349,9 @@
- 	 */
- 	page = virt_to_page(bdata->node_bootmem_map);
- 	count = 0;
--	for (i = 0; i < ((bdata->node_low_pfn-(bdata->node_boot_start >> PAGE_SHIFT))/8 + PAGE_SIZE-1)/PAGE_SIZE; i++,page++) {
-+	for (i = 0; i < ((bdata->node_low_pfn -
-+			  (bdata->node_boot_start >> PAGE_SHIFT)) / 8 +
-+			 PAGE_SIZE - 1) / PAGE_SIZE; i++, page++) {
- 		count++;
- 		__free_pages_bootmem(page, 0);
- 	}
-@@ -357,27 +361,30 @@
- 	return total;
- }
- 
--unsigned long __init init_bootmem_node (pg_data_t *pgdat, unsigned long freepfn, unsigned long startpfn, unsigned long endpfn)
-+unsigned long __init init_bootmem_node(pg_data_t *pgdat, unsigned long freepfn,
-+		unsigned long startpfn, unsigned long endpfn)
- {
- 	return(init_bootmem_core(pgdat, freepfn, startpfn, endpfn));
- }
- 
--void __init reserve_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size)
-+void __init reserve_bootmem_node(pg_data_t *pgdat, unsigned long physaddr,
-+		unsigned long size)
- {
- 	reserve_bootmem_core(pgdat->bdata, physaddr, size);
- }
- 
--void __init free_bootmem_node (pg_data_t *pgdat, unsigned long physaddr, unsigned long size)
-+void __init free_bootmem_node(pg_data_t *pgdat, unsigned long physaddr,
-+	unsigned long size)
- {
- 	free_bootmem_core(pgdat->bdata, physaddr, size);
- }
- 
--unsigned long __init free_all_bootmem_node (pg_data_t *pgdat)
-+unsigned long __init free_all_bootmem_node(pg_data_t *pgdat)
- {
- 	return(free_all_bootmem_core(pgdat));
- }
- 
--unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
-+unsigned long __init init_bootmem(unsigned long start, unsigned long pages)
- {
- 	max_low_pfn = pages;
- 	min_low_pfn = start;
-@@ -385,34 +392,36 @@
- }
- 
- #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
--void __init reserve_bootmem (unsigned long addr, unsigned long size)
-+void __init reserve_bootmem(unsigned long addr, unsigned long size)
- {
- 	reserve_bootmem_core(NODE_DATA(0)->bdata, addr, size);
- }
- #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
- 
--void __init free_bootmem (unsigned long addr, unsigned long size)
-+void __init free_bootmem(unsigned long addr, unsigned long size)
- {
- 	free_bootmem_core(NODE_DATA(0)->bdata, addr, size);
- }
- 
--unsigned long __init free_all_bootmem (void)
-+unsigned long __init free_all_bootmem(void)
- {
- 	return(free_all_bootmem_core(NODE_DATA(0)));
- }
- 
--void * __init __alloc_bootmem_nopanic(unsigned long size, unsigned long align, unsigned long goal)
-+void * __init __alloc_bootmem_nopanic(unsigned long size, unsigned long align,
-+		unsigned long goal)
- {
- 	bootmem_data_t *bdata;
- 	void *ptr;
- 
- 	list_for_each_entry(bdata, &bdata_list, list)
- 		if ((ptr = __alloc_bootmem_core(bdata, size, align, goal, 0)))
--			return(ptr);
-+			return ptr;
- 	return NULL;
- }
- 
--void * __init __alloc_bootmem(unsigned long size, unsigned long align, unsigned long goal)
-+void * __init __alloc_bootmem(unsigned long size, unsigned long align,
-+		unsigned long goal)
- {
- 	void *mem = __alloc_bootmem_nopanic(size,align,goal);
- 	if (mem)
-@@ -426,21 +435,22 @@
- }
- 
- 
--void * __init __alloc_bootmem_node(pg_data_t *pgdat, unsigned long size, unsigned long align,
--				   unsigned long goal)
-+void * __init __alloc_bootmem_node(pg_data_t *pgdat, unsigned long size,
-+		unsigned long align, unsigned long goal)
- {
- 	void *ptr;
- 
- 	ptr = __alloc_bootmem_core(pgdat->bdata, size, align, goal, 0);
- 	if (ptr)
--		return (ptr);
-+		return ptr;
- 
- 	return __alloc_bootmem(size, align, goal);
- }
- 
- #define LOW32LIMIT 0xffffffff
- 
--void * __init __alloc_bootmem_low(unsigned long size, unsigned long align, unsigned long goal)
-+void * __init __alloc_bootmem_low(unsigned long size, unsigned long align,
-+		unsigned long goal)
- {
- 	bootmem_data_t *bdata;
- 	void *ptr;
-@@ -448,7 +458,7 @@
- 	list_for_each_entry(bdata, &bdata_list, list)
- 		if ((ptr = __alloc_bootmem_core(bdata, size,
- 						 align, goal, LOW32LIMIT)))
--			return(ptr);
-+			return ptr;
- 
- 	/*
- 	 * Whoops, we cannot satisfy the allocation request.
-@@ -459,7 +469,7 @@
- }
- 
- void * __init __alloc_bootmem_low_node(pg_data_t *pgdat, unsigned long size,
--				       unsigned long align, unsigned long goal)
-+		unsigned long align, unsigned long goal)
- {
- 	return __alloc_bootmem_core(pgdat->bdata, size, align, goal, LOW32LIMIT);
- }
+---
+
+ Kconfig              |   10 +
+ kernel/Makefile      |    9=20
+ kernel/ivt-lfvhpt.in |  466 ++++++++++++++++++++++++++++++++++++++++++++++=
++++++
+ 3 files changed, 484 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/kernel/Makefile
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.17-rc3-lvhpt-v2-fresh.orig/arch/ia64/=
+kernel/Makefile	2006-05-05 10:09:38.000000000 +1000
++++ linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/kernel/Makefile	2006-05-05 10=
+:12:36.000000000 +1000
+@@ -62,5 +62,12 @@
+=20
+ # The real ivt.S needs to be built
+ AFLAGS_ivt.o +=3D -I$(srctree)/arch/ia64/kernel
+-$(obj)/ivt.S: $(src)/ivt.S.in $(src)/ivt-sfvhpt.in
++
++ifeq ($(CONFIG_IA64_LONG_FORMAT_VHPT),)
++fault_handler_in =3D ivt-sfvhpt.in
++else
++fault_handler_in =3D ivt-lfvhpt.in
++endif
++
++$(obj)/ivt.S: $(src)/ivt.S.in $(src)/$(fault_handler_in)
+ 	$(srctree)/arch/ia64/scripts/merge.py $@ $^
+Index: linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/kernel/ivt-lfvhpt.in
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/kernel/ivt-lfvhpt.in	2006-05-=
+05 10:12:36.000000000 +1000
+@@ -0,0 +1,466 @@
++/*
++ * Long Format VHPT fault handlers
++ *
++ * Copyright (C) 2006; see ivt.S for original authors
++ * These bits by
++ *  Matthew Chapman <matthewc@cse.unsw.edu.au>
++ *  Darren Williams <darren.williams@nicta.com.au>
++ *  Ian Wienand <ianw@gelato.unsw.edu.au>
++ *
++ * This file is to be processed and inserted into the actual ivt.S
++ *
++ * Any variable $name in ivt.S will be replaced with what is between
++ *__begin_name__ and __end_name__ in this file.
++ *
++ */
++
++//vhpt_miss
++__begin_vhpt_miss_handler__
++// This fault can not happen with long format VHPT
++	FAULT(0)
++__end_vhpt_miss_handler__
++
++// itlb_miss
++__begin_itlb_miss_handler__
++        mov r16=3Dcr.ifa                          // get virtual address
++        mov r29=B0                              // save b0
++        mov r31=3Dpr                              // save predicates
++	;;
++.itlb_fault:
++	// walk the page table to satisfy this miss
++	rsm psr.dt                              // switch to using physical data =
+addressing
++        mov r19=3DIA64_KR(PT_BASE)                // get the page table ba=
+se address
++        shl r21=3Dr16,3                           // shift bit 60 into sig=
+n bit
++        mov r18=3Dcr.itir
++        ;;
++        shr.u r17=3Dr16,61                      // get the region number i=
+nto ppte
++        extr.u r18=3Dr18,2,6                      // get the faulting page=
+ size
++        ;;
++        cmp.eq p6,p7=3D5,r17                  // is faulting address in re=
+gion 5?
++        add r22=3D-PAGE_SHIFT,r18                 // adjustment for hugetl=
+b address
++        add r18=3DPGDIR_SHIFT-PAGE_SHIFT,r18
++        ;;
++        shr.u r22=3Dr16,r22
++        shr.u r18=3Dr16,r18
++(p7)	dep r17=3Dr17,r19,(PAGE_SHIFT-3),3    // put region number bits in pl=
+ace
++
++        srlz.d
++        LOAD_PHYSICAL(p6, r19, swapper_pg_dir) // region 5 is rooted at sw=
+apper_pg_dir
++
++        .pred.rel "mutex", p6, p7
++(p6)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
++(p7)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
++	;;
++(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)      // ppte=3Dpgd_offset for regi=
+on 5
++(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)-3  // ppte=3Dpgd_offset for region=
+[0-4]
++	cmp.eq p7,p6=3D0,r21                    // unused address bits all zeroes?
++#ifdef CONFIG_PGTABLE_4
++        shr.u r18=3Dr22,PUD_SHIFT                 // shift pud index into =
+position
++#else
++        shr.u r18=3Dr22,PMD_SHIFT                 // shift pmd index into =
+position
++#endif
++        ;;
++        ld8 r17=3D[r17]                       // get *pgd (may be 0)
++        ;;
++(p7)	cmp.eq p6,p7=3Dr17,r0                 // was pgd_present(*pgd) =3D NU=
+LL?
++        dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)    // ppte=3Dp[u|m]d_offset(pgd=
+,addr)
++        ;;
++#ifdef CONFIG_PGTABLE_4
++(p7)	ld8 r17=3D[r17]                       // get *pud (may be 0)
++        shr.u r18=3Dr22,PMD_SHIFT                 // shift pmd index into =
+position
++        ;;
++(p7)   cmp.eq.or.andcm p6,p7=3Dr17,r0        // was pud_present(*pud) =3D =
+NULL?
++        dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)    // ppte=3Dpmd_offset(pud,add=
+r)
++        ;;
++#endif
++(p7)	ld8 r17=3D[r17]                       // get *pmd (may be 0)
++        shr.u r19=3Dr22,PAGE_SHIFT                // shift pte index into =
+position
++        ;;
++(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0        // was pmd_present(*pmd) =3D NU=
+LL?
++	dep r17=3Dr19,r17,3,(PAGE_SHIFT-3)    // ppte=3Dpte_offset(pmd,addr)
++	;;
++(p7)    ld8 r18=3D[r17]
++        ;;
++(p7)    tbit.z p6,p0=3Dr18,_PAGE_P_BIT           /* page present bit clear=
+ed? */
++(p6)    br.cond.spnt page_fault
++	// insert vhpt mapping
++        mov r22=3Dcr.iha
++        mov r26=3Dcr.itir
++        ;;
++        tpa r22=3Dr22         /* make hash address physical */
++        ttag r25=3Dr16
++        ;;
++        add r24=16,r22
++        ;;
++        st8 [r22]=3Dr18,8      /* fill out VHPT entry */
++        st8 [r24]=3Dr25,8
++        ;;
++        st8 [r22]=3Dr26,8
++        st8 [r24]=3Dr17
++	//insert actual translation
++	;;
++	itc.i r18
++        ;;
++#ifdef CONFIG_SMP
++        /*
++         * Tell the assemblers dependency-violation checker that the above=
+ "itc" instructions
++         * cannot possibly affect the following loads:
++         */
++        dv_serialize_data
++
++        ld8 r19=3D[r17]                           // read *pte again and s=
+ee if same
++        mov r20=3DPAGE_SHIFT<<2                   // setup page size for p=
+urge
++        ;;
++        cmp.ne p7,p0=3Dr18,r19
++        ;;
++(p7)	dep r25=3D-1,r0,63,1      /* set tag-invalid bit */
++	;;
++(p7)	st8 [r22]=3Dr25         /* hpte already points to tag (see above) */
++(p7)    ptc.l r16,r20
++#endif
++        mov pr=3Dr31,-1
++        rfi
++__end_itlb_miss_handler__
++
++// dtlb_miss
++__begin_dtlb_miss_handler__
++        mov r16=3Dcr.ifa                          // get virtual address
++        mov r29=B0                              // save b0
++        mov r31=3Dpr                              // save predicates
++	;;
++.dtlb_fault:
++	// walk the page table to satisfy this miss
++	rsm psr.dt                              // switch to using physical data =
+addressing
++        mov r19=3DIA64_KR(PT_BASE)                // get the page table ba=
+se address
++        shl r21=3Dr16,3                           // shift bit 60 into sig=
+n bit
++        mov r18=3Dcr.itir
++        ;;
++        shr.u r17=3Dr16,61                      // get the region number i=
+nto ppte
++        extr.u r18=3Dr18,2,6                      // get the faulting page=
+ size
++        ;;
++        cmp.eq p6,p7=3D5,r17                  // is faulting address in re=
+gion 5?
++        add r22=3D-PAGE_SHIFT,r18                 // adjustment for hugetl=
+b address
++        add r18=3DPGDIR_SHIFT-PAGE_SHIFT,r18
++        ;;
++        shr.u r22=3Dr16,r22
++        shr.u r18=3Dr16,r18
++(p7)   dep r17=3Dr17,r19,(PAGE_SHIFT-3),3    // put region number bits in =
+place
++
++        srlz.d
++        LOAD_PHYSICAL(p6, r19, swapper_pg_dir) // region 5 is rooted at sw=
+apper_pg_dir
++
++        .pred.rel "mutex", p6, p7
++(p6)   shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
++(p7)   shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
++        ;;
++(p6)   dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)      // ppte=3Dpgd_offset for re=
+gion 5
++(p7)   dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)-3  // ppte=3Dpgd_offset for regi=
+on[0-4]
++        cmp.eq p7,p6=3D0,r21                    // unused address bits all=
+ zeroes?
++#ifdef CONFIG_PGTABLE_4
++        shr.u r18=3Dr22,PUD_SHIFT                 // shift pud index into =
+position
++#else
++        shr.u r18=3Dr22,PMD_SHIFT                 // shift pmd index into =
+position
++#endif
++        ;;
++        ld8 r17=3D[r17]                       // get *pgd (may be 0)
++        ;;
++(p7)   cmp.eq p6,p7=3Dr17,r0                 // was pgd_present(*pgd) =3D =
+NULL?
++        dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)    // ppte=3Dp[u|m]d_offset(pgd=
+,addr)
++        ;;
++#ifdef CONFIG_PGTABLE_4
++(p7)   ld8 r17=3D[r17]                       // get *pud (may be 0)
++        shr.u r18=3Dr22,PMD_SHIFT                 // shift pmd index into =
+position
++        ;;
++(p7)   cmp.eq.or.andcm p6,p7=3Dr17,r0        // was pud_present(*pud) =3D =
+NULL?
++        dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)    // ppte=3Dpmd_offset(pud,add=
+r)
++        ;;
++#endif
++(p7)   ld8 r17=3D[r17]                       // get *pmd (may be 0)
++        shr.u r19=3Dr22,PAGE_SHIFT                // shift pte index into =
+position
++        ;;
++(p7)   cmp.eq.or.andcm p6,p7=3Dr17,r0        // was pmd_present(*pmd) =3D =
+NULL?
++       dep r17=3Dr19,r17,3,(PAGE_SHIFT-3)    // ppte=3Dpte_offset(pmd,addr)
++	;;
++(p7)    ld8 r18=3D[r17]
++        ;;
++(p7)    tbit.z p6,p0=3Dr18,_PAGE_P_BIT           /* page present bit clear=
+ed? */
++(p6)    br.cond.spnt page_fault
++// insert vhpt mapping
++        mov r22=3Dcr.iha
++        mov r26=3Dcr.itir
++        ;;
++        tpa r22=3Dr22         /* make hash address physical */
++        ttag r25=3Dr16
++        ;;
++        add r24=16,r22
++        ;;
++        st8 [r22]=3Dr18,8      /* fill out VHPT entry */
++        st8 [r24]=3Dr25,8
++        ;;
++        st8 [r22]=3Dr26,8
++        st8 [r24]=3Dr17
++//insert actual translation
++	;;
++	itc.d r18
++        ;;
++#ifdef CONFIG_SMP
++        /*
++         * Tell the assemblers dependency-violation checker that the above=
+ "itc" instructions
++         * cannot possibly affect the following loads:
++         */
++        dv_serialize_data
++
++        ld8 r19=3D[r17]                           // read *pte again and s=
+ee if same
++        mov r20=3DPAGE_SHIFT<<2                   // setup page size for p=
+urge
++        ;;
++        cmp.ne p7,p0=3Dr18,r19
++        ;;
++(p7)	dep r25=3D-1,r0,63,1      /* set tag-invalid bit */
++	;;
++(p7)	st8 [r22]=3Dr25         /* hpte already points to tag (see above) */
++(p7)    ptc.l r16,r20
++#endif
++        mov pr=3Dr31,-1
++        rfi
++__end_dtlb_miss_handler__
++
++// nested_dtlb_miss
++__begin_nested_dtlb_miss_handler__
++// This fault can not happen with long format VHPT
++	FAULT(5)
++__end_nested_dtlb_miss_handler__
++
++// dirty bit
++__begin_dirty_bit_handler__
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++	mov r29=B0				// save b0 for nested fault (XXX)
++	mov r31=3Dpr				// save pr
++	/*
++	 * we try to find the address via the VHPT, if not fall back to
++	 * dtlb_fault.
++	 */
++	;;
++        thash r28=3Dr16
++        rsm psr.dt
++        ;;
++        tpa r22=3Dr28           			// make hash address physical
++        ttag r25=3Dr16
++        ;;
++        srlz.d
++        add r24=16,r22
++        add r17$,r22
++        ;;
++        ld8 r26=3D[r24]           		// load tag
++        ld8 r17=3D[r17]
++        ;;
++        cmp.ne p6,p7=3Dr26, r25   		// verify tag
++        ;;
++(p7)    ld8 r18=3D[r17]
++        ;;
++(p6)    mov cr.iha=3Dr28          		// set cr.iha only if we are going to =
+take
++(p6)    br.cond.spnt .dtlb_fault 		// the failfn fault - it depends on it.
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT		// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only update if page is present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only compare if page is present
++	;;
++(p6)    st8 [r22]=3Dr18,16			// update VHPT
++(p6)	itc.d r25				// install updated PTE
++	;;
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	dep r25=3D-1,r0,63,1      		// set tag-invalid bit
++	;;
++(p7)	st8 [r22]=3Dr25         			// hpte already points to tag (see above)
++(p7)	ptc.l r16,r24
++	mov b0=3Dr29				// restore b0
++	mov ar.ccv=3Dr28
++#else
++	;;
++	or r18=3D_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
++	mov b0=3Dr29				// restore b0
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++(p0)	st8 [r22]=3Dr18,16			// update VHPT (p0 set from dtlb_fault)
++	itc.d r18				// install updated PTE
++#endif
++	mov pr=3Dr31,-1				// restore pr
++	rfi
++__end_dirty_bit_handler__
++
++// iaccess bit
++__begin_iaccess_bit_handler__
++	// Like dirty bit handler, except for instruction access
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++	mov r29=B0
++	mov r31=3Dpr				// save predicates
++	;;
++	/*
++	 * we try to find the address via the VHPT, if not fall back to
++	 * dtlb_fault.
++	 */
++        thash r28=3Dr16
++        rsm psr.dt
++        ;;
++        tpa r22=3Dr28           			// make hash address physical
++        ttag r25=3Dr16
++        ;;
++        srlz.d
++        add r24=16,r22
++        add r17$,r22
++        ;;
++        ld8 r26=3D[r24]           		// load tag
++        ld8 r17=3D[r17]
++        ;;
++        cmp.ne p6,p7=3Dr26, r25   		// verify tag
++        ;;
++(p7)    ld8 r18=3D[r17]
++        ;;
++(p6)    mov cr.iha=3Dr28          		// set cr.iha only if we are going to =
+take
++(p6)    br.cond.spnt .itlb_fault 		// the failfn fault - it depends on it.
++#ifdef CONFIG_ITANIUM
++	/*
++	 * Erratum 10 (IFA may contain incorrect address) has "NoFix" status.
++	 */
++	mov r17=3Dcr.ipsr
++	;;
++	mov r18=3Dcr.iip
++	tbit.z p6,p0=3Dr17,IA64_PSR_IS_BIT	// IA64 instruction set?
++	;;
++(p6)	mov r16=3Dr18				// if so, use cr.iip instead of cr.ifa
++#endif /* CONFIG_ITANIUM */
++	;;
++	mov b0=3Dr29				// restore b0
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_A,r18			// set the accessed bit
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT	 	// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only if page present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page present
++	;;
++(p6)	st8 [r22]=3Dr18,16			// update VHPT
++(p6)	itc.i r25				// install updated PTE
++	;;
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	dep r25=3D-1,r0,63,1      		// set tag-invalid bit
++	;;
++(p7)	st8 [r22]=3Dr25         			// hpte already points to tag (see above)
++(p7)	ptc.l r16,r24
++	mov b0=3Dr29				// restore b0
++	mov ar.ccv=3Dr28
++#else /* !CONFIG_SMP */
++	;;
++	or r18=3D_PAGE_A,r18			// set the accessed bit
++	mov b0=3Dr29				// restore b0
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++(p0)	st8 [r22]=3Dr18,16			// update VHPT (p0 from itlb_miss)
++	itc.i r18				// install updated PTE
++#endif /* !CONFIG_SMP */
++	mov pr=3Dr31,-1
++	rfi
++__end_iaccess_bit_handler__
++
++// daccess bit
++__begin_daccess_bit_handler__
++	// Like dirty bit handler, except for data access
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++	mov r29=B0
++	mov r31=3Dpr				// save predicates
++	;;
++	/*
++	 * we try to find the address via the VHPT, if not fall back to
++	 * dtlb_fault.
++	 */
++	;;
++        thash r28=3Dr16
++        rsm psr.dt
++        ;;
++        tpa r22=3Dr28           			// make hash address physical
++        ttag r25=3Dr16
++        ;;
++        srlz.d
++        add r24=16,r22
++        add r17$,r22
++        ;;
++        ld8 r26=3D[r24]           		// load tag
++        ld8 r17=3D[r17]
++        ;;
++        cmp.ne p6,p7=3Dr26, r25   		// verify tag
++        ;;
++(p7)    ld8 r18=3D[r17]
++        ;;
++(p6)    mov cr.iha=3Dr28          		// set cr.iha only if we are going to =
+take
++(p6)    br.cond.spnt .dtlb_fault 		// the failfn fault - it depends on it.
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_A,r18			// set the accessed bit
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT	 	// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only if page present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page present
++	;;
++(p6)	st8 [r22]=3Dr18,16			// update VHPT
++(p6)	itc.d r25				// install updated PTE
++	;;
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	dep r25=3D-1,r0,63,1      		// set tag-invalid bit
++	;;
++(p7)	st8 [r22]=3Dr25         			// hpte already points to tag (see above)
++(p7)	ptc.l r16,r24
++	mov b0=3Dr29				// restore b0
++	mov ar.ccv=3Dr28
++#else /* !CONFIG_SMP */
++	;;
++	or r18=3D_PAGE_A,r18			// set the accessed bit
++	mov b0=3Dr29				// restore b0
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++(p0)	st8 [r22]=3Dr18,16			// update VHPT (p0 from itlb_miss)
++	itc.i r18				// install updated PTE
++#endif /* !CONFIG_SMP */
++	mov pr=3Dr31,-1
++	rfi
++__end_daccess_bit_handler__
+Index: linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/Kconfig
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.17-rc3-lvhpt-v2-fresh.orig/arch/ia64/=
+Kconfig	2006-05-05 10:02:39.000000000 +1000
++++ linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/Kconfig	2006-05-05 10:12:36.0=
+00000000 +1000
+@@ -374,6 +374,16 @@
+ 	def_bool y
+ 	depends on NEED_MULTIPLE_NODES
+=20
++config IA64_LONG_FORMAT_VHPT
++ 	bool "Long format VHPT"
++ 	depends on !DISABLE_VHPT
++ 	help
++ 	  The long format VHPT is an alternative hashed page table.
++	  It is more TLB friendly, but less cache friendly.  By its
++	  self this may have a negative, neutral, or positive impact
++	  on performance, depending on your workloads.  If you're
++	  unsure, answer N and keep the default short-format VHPT.
++
+ config IA32_SUPPORT
+ 	bool "Support for Linux/x86 binaries"
+ 	help
