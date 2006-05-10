@@ -1,140 +1,35 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Wed, 10 May 2006 03:42:28 +0000
-Subject: [RFC 4/6] LVHPT - find architectured page size help
-Message-Id: <20060510034228.17792.30130.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
+From: Russ Anderson <rja@efs.americas.sgi.com>
+Date: Wed, 10 May 2006 16:09:01 +0000
+Subject: [patch] Remove SN SAL error handling feature bit that is no longer needed
+Message-Id: <200605101609.k4AG92Kn492660@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060510034206.17792.82504.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
-In-Reply-To: <20060510034206.17792.82504.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-Cc: linux-mm@kvack.org, Ian Wienand <ianw@gelato.unsw.edu.au>
 
-Find biggest page
+[patch] Remove SN SAL error handling feature bit that is no longer needed
 
-Split out a handy function for finding the largest page the
-architecture can map over a region.
+Due to improvements in linux & SAL MCA handling, the 
+SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV error handling features bit 
+is no longer needed.  
 
-Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
+
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
 ---
+ include/asm-ia64/sn/sn_sal.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- arch/ia64/mm/tlb.c     |   43 +++++++++++++++++++++++--------------------
- include/asm-ia64/tlb.h |   25 +++++++++++++++++++++++++
- 2 files changed, 48 insertions(+), 20 deletions(-)
-
-Index: linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/mm/tlb.c
-=================================--- linux-2.6.17-rc3-lvhpt-v2-fresh.orig/arch/ia64/mm/tlb.c	2006-05-03 17:11:43.000000000 +1000
-+++ linux-2.6.17-rc3-lvhpt-v2-fresh/arch/ia64/mm/tlb.c	2006-05-10 09:13:08.000000000 +1000
-@@ -26,11 +26,10 @@
- #include <asm/pal.h>
- #include <asm/tlbflush.h>
- #include <asm/dma.h>
-+#include <asm/pgtable.h>
-+#include <asm/tlb.h>
+Index: test/include/asm-ia64/sn/sn_sal.h
+=================================--- test.orig/include/asm-ia64/sn/sn_sal.h	2006-05-10 09:40:49.811364437 -0500
++++ test/include/asm-ia64/sn/sn_sal.h	2006-05-10 09:44:47.407988569 -0500
+@@ -346,7 +346,7 @@ ia64_sn_plat_set_error_handling_features
+ 	ret_stuff.v1 = 0;
+ 	ret_stuff.v2 = 0;
+ 	SAL_CALL_REENTRANT(ret_stuff, SN_SAL_SET_ERROR_HANDLING_FEATURES,
+-		(SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV | SAL_ERR_FEAT_LOG_SBES),
++		SAL_ERR_FEAT_LOG_SBES,
+ 		0, 0, 0, 0, 0, 0);
  
--static struct {
--	unsigned long mask;	/* mask of supported purge page-sizes */
--	unsigned long max_bits;	/* log2 of largest supported purge page-size */
--} purge;
-+struct ia64_page_sizes_t ia64_page_sizes;
- 
- struct ia64_ctx ia64_ctx = {
- 	.lock =		SPIN_LOCK_UNLOCKED,
-@@ -138,7 +137,6 @@
- 		 unsigned long end)
- {
- 	struct mm_struct *mm = vma->vm_mm;
--	unsigned long size = end - start;
- 	unsigned long nbits;
- 
- #ifndef CONFIG_SMP
-@@ -148,12 +146,7 @@
- 	}
- #endif
- 
--	nbits = ia64_fls(size + 0xfff);
--	while (unlikely (((1UL << nbits) & purge.mask) = 0) &&
--			(nbits < purge.max_bits))
--		++nbits;
--	if (nbits > purge.max_bits)
--		nbits = purge.max_bits;
-+	nbits = find_largest_page_size(end-start);
- 	start &= ~((1UL << nbits) - 1);
- 
- 	preempt_disable();
-@@ -173,19 +166,29 @@
- }
- EXPORT_SYMBOL(flush_tlb_range);
- 
-+/*
-+ * We need this data early in the boot, so it gets called from
-+ * setup_arch()
-+ */
-+void __devinit
-+ia64_tlb_early_init (void)
-+{
-+        long status;
-+        unsigned long tr_pgbits;
-+
-+	/* Setup valid page sizes for find_largest_page() */
-+        if ((status = ia64_pal_vm_page_size(&tr_pgbits, &ia64_page_sizes.mask)) != 0) {
-+                printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
-+                       "defaulting to architected purge page-sizes.\n", status);
-+                ia64_page_sizes.mask = 0x115557000UL;
-+        }
-+        ia64_page_sizes.max_bits = ia64_fls(ia64_page_sizes.mask);
-+}
-+
- void __devinit
- ia64_tlb_init (void)
- {
- 	ia64_ptce_info_t ptce_info;
--	unsigned long tr_pgbits;
--	long status;
--
--	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) != 0) {
--		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
--		       "defaulting to architected purge page-sizes.\n", status);
--		purge.mask = 0x115557000UL;
--	}
--	purge.max_bits = ia64_fls(purge.mask);
- 
- 	ia64_get_ptce(&ptce_info);
- 	local_cpu_data->ptce_base = ptce_info.base;
-Index: linux-2.6.17-rc3-lvhpt-v2-fresh/include/asm-ia64/tlb.h
-=================================--- linux-2.6.17-rc3-lvhpt-v2-fresh.orig/include/asm-ia64/tlb.h	2006-05-03 17:11:43.000000000 +1000
-+++ linux-2.6.17-rc3-lvhpt-v2-fresh/include/asm-ia64/tlb.h	2006-05-10 09:04:39.000000000 +1000
-@@ -200,6 +200,31 @@
- 	tlb->end_addr = address + PAGE_SIZE;
- }
- 
-+/*
-+ * Find an architecture suitable page size based big enough to map
-+ * input size.  Return the number of bits; i.e. (1 << nbits) is the
-+ * page size in bytes.
-+ */
-+struct ia64_page_sizes_t {
-+	unsigned long mask;	/* mask of supported page-sizes */
-+	unsigned long max_bits;	/* log2 of largest supported page-size */
-+};
-+
-+ /* initalised in ia64_tlb_init() from EFI */
-+extern struct ia64_page_sizes_t ia64_page_sizes;
-+
-+static inline unsigned long
-+find_largest_page_size(unsigned long size)
-+{
-+	int nbits = ia64_fls(size + 0xfff);
-+	while (unlikely (((1UL << nbits) & ia64_page_sizes.mask) = 0) &&
-+			(nbits < ia64_page_sizes.max_bits))
-+		++nbits;
-+	if (nbits > ia64_page_sizes.max_bits)
-+		nbits = ia64_page_sizes.max_bits;
-+	return nbits;
-+}
-+
- #define tlb_migrate_finish(mm)	platform_tlb_migrate_finish(mm)
- 
- #define tlb_start_vma(tlb, vma)			do { } while (0)
+ 	return ret_stuff.status;
