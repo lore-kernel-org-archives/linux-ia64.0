@@ -1,36 +1,63 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 23 May 2006 17:44:05 +0000
-Subject: [4/5] move_pages: x86_64 support
-Message-Id: <20060523174405.10156.45361.sendpatchset@schroedinger.engr.sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 12 May 2006 15:15:37 +0000
+Subject: 2.6.17-rc4 new perfmon code base + libpfm available
+Message-Id: <20060512151537.GA26310@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Christoph Lameter <clameter@sgi.com>
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net, linux-kernel@vger.kernel.org
 
-sys_move_pages support for x86_64
+Hello,
 
-Only compile-tested.
+I have released another version of the perfmon new code base package.
+This release is relative to 2.6.17-rc4
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+There were, once again, new system calls added. As such a new libpfm is
+necessary.
 
-Index: linux-2.6.17-rc4-mm1/include/asm-x86_64/unistd.h
-=================================--- linux-2.6.17-rc4-mm1.orig/include/asm-x86_64/unistd.h	2006-05-21 00:18:04.000000000 +1000
-+++ linux-2.6.17-rc4-mm1/include/asm-x86_64/unistd.h	2006-05-21 00:19:33.000000000 +1000
-@@ -617,10 +617,12 @@
- __SYSCALL(__NR_sync_file_range, sys_sync_file_range)
- #define __NR_vmsplice		278
- __SYSCALL(__NR_vmsplice, sys_vmsplice)
-+#define __NR_move_pages		279
-+__SYSCALL(__NR_move_pages, sys_move_pages)
- 
- #ifdef __KERNEL__
- 
--#define __NR_syscall_max __NR_vmsplice
-+#define __NR_syscall_max __NR_move_pages
- 
- #ifndef __NO_STUBS
- 
+This new kernel patch includes a few changes:
+
+	- Merged P6 and Pentium M processors PMU description tables.
+	  perfmon_pm.c is mergde into perfmon_p6.c
+
+	- change system call number for all architectures.
+
+This release uses the new/mod patch breakdown for all architectures.
+To apply, you can simply do:
+	cat ../perfmon-new-base-060512/*.diff | patch -p1 
+
+The new version of the library, libpfm, includes the following changes:
+
+	- updated to match 2.6.17-rc4 new system call numbers
+
+	- enhancement to MIPS support (Phil Mucci)
+
+	- modified internal get_event_code() to get_event_code_counter()
+	  to accomodate PMU where an event code depends on the counter where
+	  it is programmed.
+
+	- enhanced P6 CPU detection
+
+	- preliminary support for the IA-32 architected PMU as described
+	  in the latest version of the IA-32 architecture manuals. You need
+	  a Core Duo/Solo processor for this to work. Note that the architected
+	  PMU for those models only gives access to a subset of the features.
+
+I do not have a Core Duo machine myself so I could not actually test this code.
+I would appreciate if somebody could test the libpfm examples on such machine and
+report back to me. I am glad to see that IA-32 finally has the beginning of an
+architected PMU.
+
+You can grab the new packages at our web site: http://perfmon2.sf.net
+
+It looks like SF.net is close to fixing the CVS outage. When that happens I will be
+able to populate the repository for both libpfm and pfmon.
+
+I will post a clear text patch to lkml shortly.
+
+Enjoy,
+
+-- 
+-Stephane
