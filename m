@@ -1,7 +1,7 @@
 From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Sun, 14 May 2006 22:03:46 +0000
+Date: Sun, 14 May 2006 22:05:07 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64-2.patch added to -mm tree
-Message-Id: <4467A942.1000206@zytor.com>
+Message-Id: <4467A993.1000000@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147633985.2551.14.camel@shinybook.infradead.org>
 In-Reply-To: <1147633985.2551.14.camel@shinybook.infradead.org>
