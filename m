@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Sun, 14 May 2006 21:15:55 +0000
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sun, 14 May 2006 21:35:56 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64.patch added to -mm tree
-Message-Id: <20060514211555.GA25945@infradead.org>
+Message-Id: <1147642556.2729.6.camel@shinybook.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147632661.2551.5.camel@shinybook.infradead.org>
 In-Reply-To: <1147632661.2551.5.camel@shinybook.infradead.org>
@@ -10,27 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, May 14, 2006 at 07:51:00PM +0100, David Woodhouse wrote:
-> On Sun, 2006-05-14 at 10:54 -0700, akpm@osdl.org wrote:
-> > diff -puN include/asm/gcc_intrin.h~git-hdrcleanup-vs-git-klibc-on-ia64
-> > include/asm/gcc_intrin.h
-> > ---
-> > 25/include/asm/gcc_intrin.h~git-hdrcleanup-vs-git-klibc-on-ia64     Mon May 15 01:33:00 2006
-> > +++ 25-akpm/include/asm/gcc_intrin.h    Mon May 15 01:33:00 2006
-> > @@ -24,7 +24,9 @@
-> >  extern void ia64_bad_param_for_setreg (void);
-> >  extern void ia64_bad_param_for_getreg (void);
-> >  
-> > +#ifdef __KERNEL__
-> >  register unsigned long ia64_r13 asm ("r13") __attribute_used__;
-> > +#endif 
-> 
-> There's more than just that in asm-ia64/intrinsics.h that shouldn't be
-> visible to userspace. In fact I'm not entirely sure how much of
-> intrinsics.h _does_ make sense for userspace at all.
-> 
-> What does asm-ia64/byteorder.h include it for?
+On Sun, 2006-05-14 at 22:15 +0100, Christoph Hellwig wrote:
+> Using byte swizzling instrincts I supposed.  On the other hand asm/byteorder.h
+> really shouldn't be user-exposed to start with. 
 
-Using byte swizzling instrincts I supposed.  On the other hand asm/byteorder.h
-really shouldn't be user-exposed to start with.
+A whole bunch of things include byteorder.h 
+
+On Sun, 2006-05-14 at 22:17 +0100, Christoph Hellwig wrote:
+> elf.h shouldn't be exported to userspace at all.  there's a separate incarnation
+> of elf.h in userland, so anyone importing the kernel one is plain stupid.
+> 
+> similarly no one should be using page.h, there is nothing in there userspace
+> should ever look at
+
+ucontext.h includes elf.h for elf_gregset_t. 
+elf.h includes page.h (probably for PAGE_SIZE).
+
+Yes, they do want cleaning up -- but I want the first set of stuff in
+the hdrcleanup git tree to be _entirely_ simple and uncontentious. We
+can get on to the more interesting stuff later.
+
+-- 
+dwmw2
 
