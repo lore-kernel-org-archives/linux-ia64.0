@@ -1,46 +1,22 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sun, 14 May 2006 21:13:40 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sun, 14 May 2006 21:17:03 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64-2.patch added to -mm tree
-Message-Id: <je64k8nwcb.fsf@sykes.suse.de>
+Message-Id: <20060514211703.GB25945@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147633985.2551.14.camel@shinybook.infradead.org>
 In-Reply-To: <1147633985.2551.14.camel@shinybook.infradead.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Woodhouse <dwmw2@infradead.org> writes:
+On Sun, May 14, 2006 at 08:13:05PM +0100, David Woodhouse wrote:
+> In the long term I think we want to drop page.h and elf.h from the list
+> of files which are exported to userspace altogether.
 
-> On Sun, 2006-05-14 at 11:01 -0700, akpm@osdl.org wrote:
->>=20
->> diff -puN include/asm-ia64/page.h~git-hdrcleanup-vs-git-klibc-on-ia64-2 =
-include/asm-ia64/page.h
->> --- 25/include/asm-ia64/page.h~git-hdrcleanup-vs-git-klibc-on-ia64-2    =
-Mon May 15 01:48:22 2006
->> +++ 25-akpm/include/asm-ia64/page.h     Mon May 15 01:49:38 2006
->> @@ -36,7 +36,11 @@
->>  #elif defined(CONFIG_IA64_PAGE_SIZE_64KB)
->>  # define PAGE_SHIFT    16
->>  #else
->> +#ifdef __KERNEL__
->>  # error Unsupported page size!
->> +#else
->> +#define PAGE_SHIFT     12
->> +#endif
->>  #endif
->> =20
->>  #define PAGE_SIZE              (__IA64_UL_CONST(1) << PAGE_SHIFT)
->
-> Hm, same applies here as to the last one. The __KERNEL__ ifdef applies
-> to the whole crap around PAGE_SHIFT _and_ PAGE_SIZE, at least.=20
+elf.h shouldn't be exported to userspace at all.  there's a separate incarnation
+of elf.h in userland, so anyone importing the kernel one is plain stupid.
 
-Userspace should be using getpagesize() anyway.
+similarly no one should be using page.h, there is nothing in there userspace
+should ever look at
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
