@@ -1,7 +1,7 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 14 May 2006 21:35:56 +0000
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Sun, 14 May 2006 22:02:21 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64.patch added to -mm tree
-Message-Id: <1147642556.2729.6.camel@shinybook.infradead.org>
+Message-Id: <4467A8ED.3090807@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147632661.2551.5.camel@shinybook.infradead.org>
 In-Reply-To: <1147632661.2551.5.camel@shinybook.infradead.org>
@@ -10,26 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 2006-05-14 at 22:15 +0100, Christoph Hellwig wrote:
-> Using byte swizzling instrincts I supposed.  On the other hand asm/byteorder.h
-> really shouldn't be user-exposed to start with. 
-
-A whole bunch of things include byteorder.h 
-
-On Sun, 2006-05-14 at 22:17 +0100, Christoph Hellwig wrote:
-> elf.h shouldn't be exported to userspace at all.  there's a separate incarnation
-> of elf.h in userland, so anyone importing the kernel one is plain stupid.
+Christoph Hellwig wrote:
 > 
-> similarly no one should be using page.h, there is nothing in there userspace
-> should ever look at
+> Using byte swizzling instrincts I supposed.  On the other hand asm/byteorder.h
+> really shouldn't be user-exposed to start with.
 
-ucontext.h includes elf.h for elf_gregset_t. 
-elf.h includes page.h (probably for PAGE_SIZE).
+asm/byteorder.h is at least useful for klibc; it can, of course, be 
+completely done in klibc itself as long as bi-endian platforms have 
+appropriate intrinsic defines.
 
-Yes, they do want cleaning up -- but I want the first set of stuff in
-the hdrcleanup git tree to be _entirely_ simple and uncontentious. We
-can get on to the more interesting stuff later.
+klibc (ab)uses the __le16_to_cpu() et al macros; the reason for that is 
+just to cut down on the amount of architecture-specific code that has to 
+be written for klibc itself.
 
--- 
-dwmw2
+	-hpa
 
