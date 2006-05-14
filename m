@@ -1,7 +1,7 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Sun, 14 May 2006 22:05:07 +0000
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sun, 14 May 2006 22:11:28 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64-2.patch added to -mm tree
-Message-Id: <4467A993.1000000@zytor.com>
+Message-Id: <1147644688.2729.13.camel@shinybook.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147633985.2551.14.camel@shinybook.infradead.org>
 In-Reply-To: <1147633985.2551.14.camel@shinybook.infradead.org>
@@ -10,19 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Sun, May 14, 2006 at 08:13:05PM +0100, David Woodhouse wrote:
->> In the long term I think we want to drop page.h and elf.h from the list
->> of files which are exported to userspace altogether.
-> 
-> elf.h shouldn't be exported to userspace at all.  there's a separate incarnation
-> of elf.h in userland, so anyone importing the kernel one is plain stupid.
-> 
+On Sun, 2006-05-14 at 15:03 -0700, H. Peter Anvin wrote:
+> Keep in mind that userland isn't necessarily glibc.  In particular,
+> for klibc it would be a pain in the arse to have two largely identical
+> copies of the same header file in the kernel tree.
 
-Keep in mind that userland isn't necessarily glibc.  In particular, for 
-klibc it would be a pain in the arse to have two largely identical 
-copies of the same header file in the kernel tree.
+You can still use the copy from the kernel tree even if we don't
+actually copy it out in 'make headers_install'.
 
-Data duplication is NOT a good thing.
+But yes, this is one of the reasons I haven't touched elf.h (yet).
 
-	-hpa
+-- 
+dwmw2
+
