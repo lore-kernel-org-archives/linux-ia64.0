@@ -1,7 +1,7 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Sun, 14 May 2006 21:37:42 +0000
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Sun, 14 May 2006 22:03:46 +0000
 Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64-2.patch added to -mm tree
-Message-Id: <1147642663.2729.8.camel@shinybook.infradead.org>
+Message-Id: <4467A942.1000206@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1147633985.2551.14.camel@shinybook.infradead.org>
 In-Reply-To: <1147633985.2551.14.camel@shinybook.infradead.org>
@@ -10,18 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 2006-05-14 at 23:13 +0200, Andreas Schwab wrote:
-> > Hm, same applies here as to the last one. The __KERNEL__ ifdef applies
-> > to the whole crap around PAGE_SHIFT _and_ PAGE_SIZE, at least. 
+Christoph Hellwig wrote:
+> On Sun, May 14, 2006 at 08:13:05PM +0100, David Woodhouse wrote:
+>> In the long term I think we want to drop page.h and elf.h from the list
+>> of files which are exported to userspace altogether.
 > 
-> Userspace should be using getpagesize() anyway.
+> elf.h shouldn't be exported to userspace at all.  there's a separate incarnation
+> of elf.h in userland, so anyone importing the kernel one is plain stupid.
+> 
 
-Yes. That's why I say all the PAGE_SIZE crap should be in #ifdef
-__KERNEL__. 
+Keep in mind that userland isn't necessarily glibc.  In particular, for 
+klibc it would be a pain in the arse to have two largely identical 
+copies of the same header file in the kernel tree.
 
-I also suspect a lot of the _rest_ of that file shouldn't be visible
-either. What's in there that we actually _need_ to export?
+Data duplication is NOT a good thing.
 
--- 
-dwmw2
-
+	-hpa
