@@ -1,26 +1,41 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 12 May 2006 19:18:40 +0000
-Subject: RE: [IA64] rework memory attribute aliasing
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F067AEFB4@scsmsx401.amr.corp.intel.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Sun, 14 May 2006 19:13:05 +0000
+Subject: Re: + git-hdrcleanup-vs-git-klibc-on-ia64-2.patch added to -mm tree
+Message-Id: <1147633985.2551.14.camel@shinybook.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200605051719.50884.bjorn.helgaas@hp.com>
-In-Reply-To: <200605051719.50884.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> If we were at -rc2, I'd just slide this right into Linus ... but we are
-> a bit close to 2.6.17, so I'm polling for regression testing.  I don't
-> want to find out that this breaks some other platform.
+On Sun, 2006-05-14 at 11:01 -0700, akpm@osdl.org wrote:
+> 
+> diff -puN include/asm-ia64/page.h~git-hdrcleanup-vs-git-klibc-on-ia64-2 include/asm-ia64/page.h
+> --- 25/include/asm-ia64/page.h~git-hdrcleanup-vs-git-klibc-on-ia64-2    Mon May 15 01:48:22 2006
+> +++ 25-akpm/include/asm-ia64/page.h     Mon May 15 01:49:38 2006
+> @@ -36,7 +36,11 @@
+>  #elif defined(CONFIG_IA64_PAGE_SIZE_64KB)
+>  # define PAGE_SHIFT    16
+>  #else
+> +#ifdef __KERNEL__
+>  # error Unsupported page size!
+> +#else
+> +#define PAGE_SHIFT     12
+> +#endif
+>  #endif
+>  
+>  #define PAGE_SIZE              (__IA64_UL_CONST(1) << PAGE_SHIFT)
 
-Silence ...
+Hm, same applies here as to the last one. The __KERNEL__ ifdef applies
+to the whole crap around PAGE_SHIFT _and_ PAGE_SIZE, at least. 
 
-Well Andrew picked it up for -mm ... so I'm adding it to -test (meaning
-that Andrew will drop his copy next time he pulls from me).
+In the long term I think we want to drop page.h and elf.h from the list
+of files which are exported to userspace altogether. Either way, it's
+complicated so I was leaving them until later, after the first round of
+_simple_ cleanups was in. This failure is purely due to the removal of
+config.h, which is automatically included in kernel builds but evidently
+not klibc...
 
-I also threw in the latest kexec to the -test tree ... it works for
-me (on tiger).  Still needs some cleanup, but we can work with incremental
-patches to fix specific issues from this point on.
+-- 
+dwmw2
 
--Tony
