@@ -1,96 +1,36 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Wed, 17 May 2006 09:57:37 +0000
-Subject: [RFC PATCH 03/09] robust VM per_cpu generic header
-Message-Id: <Pine.LNX.4.58.0605170557050.8408@gandalf.stny.rr.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Mon, 15 May 2006 14:14:07 +0000
+Subject: libpf+pfmon CVS available
+Message-Id: <20060515141407.GC8933@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
-In-Reply-To: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net
 
-This patch adds the VM per_cpu to the generic per_cpu.h header.
+Hello,
 
-If __ARCH_HAS_VM_PERCPU is defined, it is expected that the arch
-also defined the following:
+As promised, SF.net restarted CVS support over the week-end. I was
+able to update the CVS tree for libpfm to include all the releases
+since 3.2-060405. It now includes up to 3.2-060512 + the latest
+updates.
 
-PERCPU_START - start of VM area that per_cpu variables will be stored.
-PERCPU_SIZE - size of the VM area for each CPU.  So the total size
-		would be PERCPU_SIZE * NR_CPU
+I have also added pfmon to the CVS repository. The tree currently
+includes release 3.2-060426.
 
-If __ARCH_HAS_VM_PERCPU is not defined, it falls back to the old
-percpu hack.
+The infomation to use to checkout:
 
-Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+	pfmon modulename: pfmon
+	libpfm modulename: libpfm
 
-Index: linux-2.6.16-test/include/asm-generic/percpu.h
-=================================--- linux-2.6.16-test.orig/include/asm-generic/percpu.h	2006-05-17 04:32:27.000000000 -0400
-+++ linux-2.6.16-test/include/asm-generic/percpu.h	2006-05-17 04:57:21.000000000 -0400
-@@ -5,25 +5,52 @@
- #define __GENERIC_PER_CPU
- #ifdef CONFIG_SMP
+Careful, as the CVS site name has changed as part of SF.net upgrade.
+Make sure you follow the instructions at:
+	http://sourceforge.net/cvs/?group_id4822
 
--extern unsigned long __per_cpu_offset[NR_CPUS];
--
- /* Separate out the type, so (int[3], foo) works. */
- #define DEFINE_PER_CPU(type, name) \
-     __attribute__((__section__(".data.percpu"))) __typeof__(type) per_cpu__##name
+Thanks for your patience.
 
-+#ifdef __ARCH_HAS_VM_PERCPU
-+
-+#include <asm/sections.h>
-+
-+/*
-+ * This is included in linux/percpu.h and if PERCPU_ENOUGH_ROOM is already
-+ * defined, it wont overwrite it.
-+ * This allows kernel/module.c to be the same for both archs with VM
-+ * per_cpu and without.
-+ */
-+#define PERCPU_ENOUGH_ROOM PERCPU_SIZE
-+
-+#define __PERCPU_OFFSET_ADDRESS(i) ((PERCPU_START+PERCPU_SIZE*(i)) - \
-+			(unsigned long)__per_cpu_start)
-+
-+extern void setup_per_cpu_areas (void);
-+extern int percpu_modcopy(void *pcpudst, void *src, unsigned long size);
-+
-+#else /* !__ARCH_HAS_VM_PERCPU */
-+
-+extern unsigned long __per_cpu_offset[NR_CPUS];
-+
-+#define __PERCPU_OFFSET_ADDRESS(i) __per_cpu_offset[i]
-+
-+/* A macro to avoid #include hell... */
-+#define percpu_modcopy(pcpudst, src, size)				\
-+({									\
-+	unsigned int __i;						\
-+	for (__i = 0; __i < NR_CPUS; __i++)				\
-+		if (cpu_possible(__i))					\
-+			memcpy((pcpudst)+__PERCPU_OFFSET_ADDRESS(__i),	\
-+			       (src), (size));				\
-+	0;								\
-+})
-+
-+#endif /* __ARCH_HAS_VM_PERCPU */
-+
- /* var is in discarded region: offset to particular copy we want */
--#define per_cpu(var, cpu) (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
-+#define per_cpu(var, cpu) (*RELOC_HIDE(&per_cpu__##var, \
-+					__PERCPU_OFFSET_ADDRESS(cpu)))
- #define __get_cpu_var(var) per_cpu(var, smp_processor_id())
+Enjoy,
 
--/* A macro to avoid #include hell... */
--#define percpu_modcopy(pcpudst, src, size)			\
--do {								\
--	unsigned int __i;					\
--	for (__i = 0; __i < NR_CPUS; __i++)			\
--		if (cpu_possible(__i))				\
--			memcpy((pcpudst)+__per_cpu_offset[__i],	\
--			       (src), (size));			\
--} while (0)
- #else /* ! SMP */
-
- #define DEFINE_PER_CPU(type, name) \
-
+-- 
+-Stephane
