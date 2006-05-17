@@ -1,48 +1,36 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Date: Wed, 03 May 2006 22:26:58 +0000
-Subject: Fwd: [PATCH] ia64: remove asm-ia64/bitops.h self-inclusion
-Message-Id: <20060503222657.GB12091@us.ibm.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Wed, 17 May 2006 09:59:28 +0000
+Subject: [RFC PATCH 05/09] robust VM per_cpu module
+Message-Id: <Pine.LNX.4.58.0605170558370.8408@gandalf.stny.rr.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
+In-Reply-To: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
 
-Sorry, forgot to include the proper people.
+This patch performs a check on the return value of percpu_modcopy
+for the module load.
 
------ Forwarded message from Jon Mason <jdmason@us.ibm.com> -----
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
 
-User-Agent: Mutt/1.5.11
-From: Jon Mason <jdmason@us.ibm.com>
-To: linux-kernel@vger.kernel.org
-Date: 	Tue, 2 May 2006 16:42:28 -0500
-Subject: [PATCH] ia64: remove asm-ia64/bitops.h self-inclusion
+Index: linux-2.6.16-test/kernel/module.c
+=================================--- linux-2.6.16-test.orig/kernel/module.c	2006-05-17 04:32:28.000000000 -0400
++++ linux-2.6.16-test/kernel/module.c	2006-05-17 04:57:53.000000000 -0400
+@@ -1819,8 +1819,11 @@ static struct module *load_module(void _
+ 	sort_extable(extable, extable + mod->num_exentries);
 
-asm-ia64/bitops.h includes itself.  The #ifndef _ASM_IA64_BITOPS_H
-prevents this from being an issue, but it should still be removed.
+ 	/* Finally, copy percpu area over. */
+-	percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
+-		       sechdrs[pcpuindex].sh_size);
++	err = percpu_modcopy(mod->percpu, (void *)sechdrs[pcpuindex].sh_addr,
++			     sechdrs[pcpuindex].sh_size);
++
++	if (err < 0)
++		goto cleanup;
 
-Cross-compile tested.
+ 	add_kallsyms(mod, sechdrs, symindex, strindex, secstrings);
 
-Thanks,
-Jon
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-
-diff -r 62dc1eb0c5e2 include/asm-ia64/bitops.h
---- a/include/asm-ia64/bitops.h	Wed Apr 26 16:12:39 2006
-+++ b/include/asm-ia64/bitops.h	Tue May  2 16:27:46 2006
-@@ -11,7 +11,6 @@
- 
- #include <linux/compiler.h>
- #include <linux/types.h>
--#include <asm/bitops.h>
- #include <asm/intrinsics.h>
- 
- /**
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
------ End forwarded message -----
