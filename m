@@ -1,36 +1,30 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 15 May 2006 14:14:07 +0000
-Subject: libpf+pfmon CVS available
-Message-Id: <20060515141407.GC8933@frankl.hpl.hp.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Wed, 17 May 2006 10:01:57 +0000
+Subject: [RFC PATCH 09/09] robust VM per_cpu i386 Kconfig update
+Message-Id: <Pine.LNX.4.58.0605170601330.8408@gandalf.stny.rr.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
+In-Reply-To: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: perfmon@napali.hpl.hp.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
 
-Hello,
+This patch forces the CONFIG_HAS_VM_PERCU to be defined for i386.
 
-As promised, SF.net restarted CVS support over the week-end. I was
-able to update the CVS tree for libpfm to include all the releases
-since 3.2-060405. It now includes up to 3.2-060512 + the latest
-updates.
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
 
-I have also added pfmon to the CVS repository. The tree currently
-includes release 3.2-060426.
+Index: linux-2.6.16-test/arch/i386/Kconfig
+=================================--- linux-2.6.16-test.orig/arch/i386/Kconfig	2006-05-17 04:32:27.000000000 -0400
++++ linux-2.6.16-test/arch/i386/Kconfig	2006-05-17 05:00:10.000000000 -0400
+@@ -1116,3 +1116,7 @@ config X86_TRAMPOLINE
+ config KTIME_SCALAR
+ 	bool
+ 	default y
++
++config HAS_VM_PERCPU
++	bool
++	default y
+\ No newline at end of file
 
-The infomation to use to checkout:
-
-	pfmon modulename: pfmon
-	libpfm modulename: libpfm
-
-Careful, as the CVS site name has changed as part of SF.net upgrade.
-Make sure you follow the instructions at:
-	http://sourceforge.net/cvs/?group_id4822
-
-Thanks for your patience.
-
-Enjoy,
-
--- 
--Stephane
