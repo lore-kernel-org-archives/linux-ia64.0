@@ -1,13 +1,13 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 05 May 2006 20:04:40 +0000
+Date: Wed, 17 May 2006 21:16:28 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200605052004.k45K4et7005237@agluck-lia64.sc.intel.com>
+Message-Id: <200605172116.k4HLGSqg008551@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Hi Linus,
@@ -22,102 +22,109 @@ Thanks!
 
 -Tony
 
- arch/ia64/lib/memcpy_mck.S |    9 ++++++---
- include/asm-ia64/bitops.h  |    1 -
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ arch/ia64/configs/sn2_defconfig |    4 ++--
+ arch/ia64/kernel/iosapic.c      |    4 ++--
+ arch/ia64/kernel/irq.c          |    1 -
+ 3 files changed, 4 insertions(+), 5 deletions(-)
 
 Chen, Kenneth W:
-      [IA64] strcpy returns NULL pointer and not destination pointer
+      [IA64] fix broken irq affinity
+      [IA64] one-line cleanup on set_irq_affinity_info
 
-Jon Mason:
-      [IA64] remove asm-ia64/bitops.h self-inclusion
+Jes Sorensen:
+      [IA64] sn2 defconfig
 
-diff-tree 913ed41eb5c948d2f8b5deffd29c2638eceef3d7 (from 3e6e155646706f1ef9=
-f791a4402d145f112a3f8d)
-Author: Jon Mason <jdmason@us.ibm.com>
-Date:   Wed May 3 17:26:58 2006 -0500
-
-    [IA64] remove asm-ia64/bitops.h self-inclusion
-   =20
-    asm-ia64/bitops.h includes itself.  The #ifndef _ASM_IA64_BITOPS_H
-    prevents this from being an issue, but it should still be removed.
-   =20
-    Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-diff --git a/include/asm-ia64/bitops.h b/include/asm-ia64/bitops.h
-index 90921e1..6cc517e 100644
---- a/include/asm-ia64/bitops.h
-+++ b/include/asm-ia64/bitops.h
-@@ -11,7 +11,6 @@ #define _ASM_IA64_BITOPS_H
-=20
- #include <linux/compiler.h>
- #include <linux/types.h>
--#include <asm/bitops.h>
- #include <asm/intrinsics.h>
-=20
- /**
-
-diff-tree 3e6e155646706f1ef9f791a4402d145f112a3f8d (from d98550e334715b2d9e=
-45f8f0f4e1608720108640)
+diff-tree 4c31ce8fea9760961a2d1b1d6c84b7590c17ae38 (from 41503def5d83bada6a2fd792e636ccc28a285f38)
 Author: Chen, Kenneth W <kenneth.w.chen@intel.com>
-Date:   Wed May 3 11:53:43 2006 -0700
+Date:   Tue May 16 16:34:57 2006 -0700
 
-    [IA64] strcpy returns NULL pointer and not destination pointer
-   =20
-    Bob Picco noted that 6edfba1b33c701108717f4e036320fc39abe1912
-    dropped the -ffreestanding compiler flag from the top level
-    Makefile, which allows the compiler to substitute memcpy() in
-    places where strcpy() is used with a known size source string.
-    But the ia64 memcpy() returns 0 for success, and "bytes copied"
-    for failure.
-   =20
-    Fix to return the address of the destination string (like
-    stdlibc version, and other architectures).  There are no
-    places where ia64 specific code makes use of the non-standard
-    return value.
-   =20
+    [IA64] one-line cleanup on set_irq_affinity_info
+    
+    Calls to set_irq_info in set_irq_affinity_info() is redundant because
+    irq_affinity mask was set just one line immediately above it.  Remove
+    that duplicate call.
+    
     Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
     Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-diff --git a/arch/ia64/lib/memcpy_mck.S b/arch/ia64/lib/memcpy_mck.S
-index 46c9331..9e534d5 100644
---- a/arch/ia64/lib/memcpy_mck.S
-+++ b/arch/ia64/lib/memcpy_mck.S
-@@ -6,7 +6,9 @@
-  *	in1:	source address
-  *	in2:	number of bytes to copy
-  * Output:
-- * 	0 if success, or number of byte NOT copied if error occurred.
-+ *	for memcpy:    return dest
-+ * 	for copy_user: return 0 if success,
-+ *		       or number of byte NOT copied if error occurred.
-  *
-  * Copyright (C) 2002 Intel Corp.
-  * Copyright (C) 2002 Ken Chen <kenneth.w.chen@intel.com>
-@@ -73,6 +75,7 @@ GLOBAL_ENTRY(memcpy)
- 	and	r28=3D0x7,in0
- 	and	r29=3D0x7,in1
- 	mov	f6=F0
-+	mov	retval=3Din0
- 	br.cond.sptk .common_code
- 	;;
- END(memcpy)
-@@ -84,7 +87,7 @@ GLOBAL_ENTRY(__copy_user)
- 	mov	f6=F1
- 	mov	saved_in0=3Din0	// save dest pointer
- 	mov	saved_in1=3Din1	// save src pointer
--	mov	saved_in2=3Din2	// save len
-+	mov	retval=3Dr0	// initialize return value
- 	;;
- .common_code:
- 	cmp.gt	p15,p0=3D8,in2	// check for small size
-@@ -92,7 +95,7 @@ GLOBAL_ENTRY(__copy_user)
- 	cmp.ne	p14,p0=3D0,r29	// check src alignment
- 	add	src0=3D0,in1
- 	sub	r30=3D8,r28	// for .align_dest
--	mov	retval=3Dr0	// initialize return value
-+	mov	saved_in2=3Din2	// save len
- 	;;
- 	add	dst0=3D0,in0
- 	add	dst1=3D1,in0	// dest odd index
+diff --git a/arch/ia64/kernel/irq.c b/arch/ia64/kernel/irq.c
+index 5ce908e..9c72ea3 100644
+--- a/arch/ia64/kernel/irq.c
++++ b/arch/ia64/kernel/irq.c
+@@ -101,7 +101,6 @@ void set_irq_affinity_info (unsigned int
+ 
+ 	if (irq < NR_IRQS) {
+ 		irq_affinity[irq] = mask;
+-		set_irq_info(irq, mask);
+ 		irq_redir[irq] = (char) (redir & 0xff);
+ 	}
+ }
+
+diff-tree 41503def5d83bada6a2fd792e636ccc28a285f38 (from 1101ece44e00cfe31a2fd9d3222d05f927b00ef8)
+Author: Chen, Kenneth W <kenneth.w.chen@intel.com>
+Date:   Tue May 16 16:29:00 2006 -0700
+
+    [IA64] fix broken irq affinity
+    
+    When CONFIG_PCI_MSI is set, move_irq() is an empty function, causing
+    grief when sys admin tries to bind interrupt to CPU.
+    
+    Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index 7956eb9..d58c1c5 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -416,7 +416,7 @@ iosapic_end_level_irq (unsigned int irq)
+ 	ia64_vector vec = irq_to_vector(irq);
+ 	struct iosapic_rte_info *rte;
+ 
+-	move_irq(irq);
++	move_native_irq(irq);
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
+ 		iosapic_eoi(rte->addr, vec);
+ }
+@@ -458,7 +458,7 @@ iosapic_ack_edge_irq (unsigned int irq)
+ {
+ 	irq_desc_t *idesc = irq_descp(irq);
+ 
+-	move_irq(irq);
++	move_native_irq(irq);
+ 	/*
+ 	 * Once we have recorded IRQ_PENDING already, we can mask the
+ 	 * interrupt for real. This prevents IRQ storms from unhandled
+
+diff-tree 1101ece44e00cfe31a2fd9d3222d05f927b00ef8 (from c4694c76ce28dd7e415b4f3014d8c6e580b5f3d2)
+Author: Jes Sorensen <jes@sgi.com>
+Date:   Mon May 15 05:07:54 2006 -0400
+
+    [IA64] sn2 defconfig
+    
+    Set node shift to 10 on SN2 and disable mutex debugging.
+    
+    Signed-off-by: Jes Sorensen <jes@sgi.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/configs/sn2_defconfig b/arch/ia64/configs/sn2_defconfig
+index f6a8853..9ea3539 100644
+--- a/arch/ia64/configs/sn2_defconfig
++++ b/arch/ia64/configs/sn2_defconfig
+@@ -134,7 +134,7 @@ CONFIG_ARCH_FLATMEM_ENABLE=y
+ CONFIG_ARCH_SPARSEMEM_ENABLE=y
+ CONFIG_ARCH_DISCONTIGMEM_DEFAULT=y
+ CONFIG_NUMA=y
+-CONFIG_NODES_SHIFT=8
++CONFIG_NODES_SHIFT
+ CONFIG_VIRTUAL_MEM_MAP=y
+ CONFIG_HOLES_IN_ZONE=y
+ CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID=y
+@@ -1159,7 +1159,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_SCHEDSTATS is not set
+ # CONFIG_DEBUG_SLAB is not set
+ CONFIG_DEBUG_PREEMPT=y
+-CONFIG_DEBUG_MUTEXES=y
++# CONFIG_DEBUG_MUTEXES is not set
+ # CONFIG_DEBUG_SPINLOCK is not set
+ # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
+ # CONFIG_DEBUG_KOBJECT is not set
