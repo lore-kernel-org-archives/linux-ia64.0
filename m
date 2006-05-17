@@ -1,58 +1,30 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Thu, 27 Apr 2006 20:10:59 +0000
-Subject: [PATCH resend] IOC4 config option ordering
-Message-Id: <20060427150402.M46549@chenjesu.americas.sgi.com>
+From: Andi Kleen <ak@suse.de>
+Date: Wed, 17 May 2006 09:17:04 +0000
+Subject: Re: [RFC PATCH 01/09] robust VM per_cpu core
+Message-Id: <200605171117.06060.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com> <Pine.LNX.4.58.0605170555190.8408@gandalf.stny.rr.com>
+In-Reply-To: <Pine.LNX.4.58.0605170555190.8408@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
 
-SERIAL_SGI_IOC4 and BLK_DEV_SGIIOC4 depend upon SGI_IOC4, and
-SERIAL_SGI_IOC3 depends upon SGI_IOC3.  Currently the definitions
-are out of order in the config sequence.
 
-Fix by including drivers/sn/Kconfig immediately after SGI_SN,
-upon which SGI_IOC4 and SGI_IOC3 depend.
+> As well as the following three functions:
+>
+> pud_t *pud_boot_alloc(struct mm_struct *mm, pgd_t *pgd, unsigned long addr,
+>                      int cpu);
+> pmd_t *pmd_boot_alloc(struct mm_struct *mm, pud_t *pud, unsigned long addr,
+>                      int cpu);
+> pte_t *pte_boot_alloc(struct mm_struct *mm, pmd_t *pmd, unsigned long addr,
+>                      int cpu);
 
-Signed-off-by: Brent Casavant <bcasavan@sgi.com>
----
-Tony,
+I'm not sure you can just put them like this into generic code. Some 
+architectures are doing strange things with them.
 
-I saw no objection to this patch.  Could you pick up this patch and push
-upstream at your convenience.  If you'd prefer, I could instead send it
-directly to lkml.
+And we already have boot_ioremap on some architectures. Why is that not 
+enough? 
 
-Thanks,
-Brent
-
- arch/ia64/Kconfig |    2 ++
- drivers/Kconfig   |    2 --
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 9f40eef..0f3076a 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -413,6 +413,8 @@ config IA64_PALINFO
- config SGI_SN
- 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
- 
-+source "drivers/sn/Kconfig"
-+
- source "drivers/firmware/Kconfig"
- 
- source "fs/Kconfig.binfmt"
-diff --git a/drivers/Kconfig b/drivers/Kconfig
-index 5c91d6a..aeb5ab2 100644
---- a/drivers/Kconfig
-+++ b/drivers/Kconfig
-@@ -68,8 +68,6 @@ source "drivers/leds/Kconfig"
- 
- source "drivers/infiniband/Kconfig"
- 
--source "drivers/sn/Kconfig"
--
- source "drivers/edac/Kconfig"
- 
- source "drivers/rtc/Kconfig"
+-Andi
