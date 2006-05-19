@@ -1,33 +1,41 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Tue, 02 May 2006 05:25:46 +0000
-Subject: [RFC 0/3] IA64 Long Format VHPT support
-Message-Id: <20060502052546.8990.33000.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
+From: "Nan Holda" <nan@gelato.org>
+Date: Fri, 19 May 2006 15:37:26 +0000
+Subject: Presentations and Projects Abound at Gelato ICE: Itanium Conference & Expo
+Message-Id: <009001c67b5a$21c1a610$378c7e82@nan>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-Cc: linux-mm@kvack.org, Ian Wienand <ianw@gelato.unsw.edu.au>
 
-Hi,
+Please post if you think your subscribers would be interested.
 
-Following from this message are patches to enable the Long Format VHPT
-on IA64, which I am posting in the hope of community review.  They are
-against 2.6.17-rc3, and work for machines I have access to.  These
-patches have long been a chicken-egg problem, but I believe that there
-are now multiple people interested in using LVHPT for dynamic page
-size support in some form.
+Scientists, developers, and engineers convened from all around the globe for
+the April 2006 Gelato ICE: Itanium(r) Conference & Expo, the only event
+dedicated to advancing the Linux on the Itanium architecture. 
 
-There are two papers which reference this work
+Over 65 presentations and 75 cutting-edge projects were showcased.
+Presentations and posters from the conference can be found at
+http://www.gelato.org/community/events.php#ICE06apr.
 
-Itanium Page Tables and TLB
-Matthew Chapman, Ian Wienand, Gernot Heiser
-http://citeseer.ist.psu.edu/chapman03itanium.html
+The April 2006 Gelato ICE offered the backdrop for Intel to demonstrate its
+continued commitment to the Itanium processor by announcing several new beta
+opportunities: a new parallel programming model, Intel(r) Thread Checker,
+and Intel(r) VTune(tm) Performance Analyzer for Linux. See
+http://www.gelato.org/about/news_view.php?idg for more details.
 
-Itanium - A System Implementor's Tale
-Charles Gray, Matthew Chapman, Peter Chubb, David Mosberger-Tang, Gernot Heiser
-http://www.usenix.org/events/usenix05/tech/general/gray/gray_html/index.html
+The next Gelato ICE is scheduled for October 1-4, 2006, in Singapore.
+Details upcoming at http://www.gelato.org/meeting.
 
-Any comments are welcomed.
+Nan Holda
+GELATO Federation
+Advancing Linux Itanium
+1308 W. Main St.
+Urbana, IL 61801-2307
+tel: 217.265.0947
+fax: 217.333.5579
+www.gelato.org
 
--i
+"Whether you believe you can do a thing or not, you are right."
+-Henry Ford
+
