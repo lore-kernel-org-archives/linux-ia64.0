@@ -1,61 +1,50 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Date: Tue, 09 May 2006 23:59:46 +0000
-Subject: [PATCH 3/5] mm: create __alloc_bootmem_low_nopanic
-Message-Id: <20060509235946.GG22385@us.ibm.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Mon, 22 May 2006 13:40:40 +0000
+Subject: 2.6.17-rc4 new perfmon code base, libpfm, and pfmon releases
+Message-Id: <20060522134039.GF30750@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: ak@suse.de, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, mulix@mulix.org
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net, linux-kernel@vger.kernel.org
 
-Per Andi Kleen's suggestion in the review of our Calgary IOMMU code, I
-tried to use the alloc_bootmem_nopanic when allocing bootmem.
-Unfortunately, it needs low mem for our translation tables, so we needed
-a new function to do this.
+Hello,
 
-I have updated swiotlb to take advantage of this new function in the
-patch following this one.
+I have released another version of the perfmon new code base package.
+This release is still relative to 2.6.17-rc4. This is a cumulative
+patch, you don't need the previous patch.
 
-This patch has been tested individually and cumulatively on x86_64 and
-cross-compile tested on IA64.  Since I have no IA64 hardware, any
-testing on that platform would be appreciated.
+This patch introduces two new major features requested by users:
 
-Thanks,
-Jon
+	- support for IA-32 architected PMU as described by the latest
+	  IA-32 architecture manuals. You need at least a Core Duo/Solo
+	  processors or newer for this to work.
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+	- a kernel level interface (kapi) to allow kernel code to call
+	  perfmon2 for counting and sampling. Only system-wide measurements
+	  are supported. Read comments at the top of perfmon_kapi.c
 
-diff -r 235bc05ff8b1 -r 9459ba92585b include/linux/bootmem.h
---- a/include/linux/bootmem.h	Mon May  8 16:17:49 2006
-+++ b/include/linux/bootmem.h	Mon May  8 16:30:29 2006
-@@ -54,6 +54,9 @@
- extern void * __init __alloc_bootmem_low(unsigned long size,
- 					 unsigned long align,
- 					 unsigned long goal);
-+extern void * __init __alloc_bootmem_low_nopanic(unsigned long size,
-+						 unsigned long align,
-+						 unsigned long goal);
- extern void * __init __alloc_bootmem_low_node(pg_data_t *pgdat,
- 					      unsigned long size,
- 					      unsigned long align,
-diff -r 235bc05ff8b1 -r 9459ba92585b mm/bootmem.c
---- a/mm/bootmem.c	Mon May  8 16:17:49 2006
-+++ b/mm/bootmem.c	Mon May  8 16:30:29 2006
-@@ -473,3 +473,16 @@
- {
- 	return __alloc_bootmem_core(pgdat->bdata, size, align, goal, LOW32LIMIT);
- }
-+
-+void * __init __alloc_bootmem_low_nopanic(unsigned long size,
-+		unsigned long align, unsigned long goal)
-+{
-+	bootmem_data_t *bdata;
-+	void *ptr;
-+
-+	list_for_each_entry(bdata, &bdata_list, list)
-+		if ((ptr = __alloc_bootmem_core(bdata, size, align, goal,
-+						LOW32LIMIT)))
-+			return ptr;
-+	return NULL;
-+}
+	- PMD write checkers routines for PMU description tables
+
+I have also released a new version of the user library libpfm: libpfm-3.2-060522.
+It includes bug fixes for the architected IA-32 PMU support.
+
+Finally, I have released a new version of the pfmon tool. This new version
+includes:
+	- support for IA-32 architected PMU (includes Core Duo/Solo processors)
+	- bug fixes in the i386 P6/PM support
+
+This version of pfmon-3.2 requires libpfm-3.2-060522.
+
+You can grab the new packages at our web site:
+
+	 http://perfmon2.sf.net
+
+The libpfm and pfmon source code is also available in our CVS repository
+accessible from our home page.
+
+Enjoy,
+
+-- 
+-Stephane
