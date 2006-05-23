@@ -1,62 +1,150 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Wed, 17 May 2006 10:00:09 +0000
-Subject: [RFC PATCH 06/09] robust VM per_cpu i386 bootmem
-Message-Id: <Pine.LNX.4.58.0605170559410.8408@gandalf.stny.rr.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 23 May 2006 17:43:54 +0000
+Subject: [2/5] extract common code to have_task_perm()
+Message-Id: <20060523174354.10156.85086.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
-In-Reply-To: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
+References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
+To: akpm@osdl.org
+Cc: Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Christoph Lameter <clameter@sgi.com>
 
-This patch was to get my VM percpu working on my laptop.  This patch
-still needs work to handle NUMA and other types of X86 architectures.
+Extract have_task_perm()
 
-Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+Various kernel function check if they are allowed to do something to another
+task. The ones that I have found are
 
-Index: linux-2.6.16-test/arch/i386/mm/init.c
-=================================--- linux-2.6.16-test.orig/arch/i386/mm/init.c	2006-05-17 04:32:28.000000000 -0400
-+++ linux-2.6.16-test/arch/i386/mm/init.c	2006-05-17 04:58:37.000000000 -0400
-@@ -772,3 +772,39 @@ void free_initrd_mem(unsigned long start
+1. The check for kill permissions
+
+2. sys_migrate_pages() checking if a process is allowed to
+   migrate the pages of another process.
+
+3. sys_move_pages() checking if a process is allowed to
+   migrate individual pages that are part of another process.
+
+Extract the common code in these checks to form a new function
+in kernel/signal.c have_task_perm(task, capability). The check
+is successful if
+
+1. The current process has the indicated capability
+
+2. The current effective userid is equal to the suid or uid
+   of the target process.
+
+3. The current userid is equal to the suid or uid of the
+   target process.
+
+Note that there are similar checks for uid/gid/euid that are
+stored in a variety of structures in the kernel. Maybe those may also
+be extracted by a similar function that would not take a task parameter
+but an explicit specification of permission ids?
+
+ptrace() has a variation on the have_task_perm() check in may_attach().
+ptrace checks for uid equal to euid, suid, uid or gid equal to
+egid sgid,gid. So one may not be able to kill a process explicyly
+but be able to ptrace() (and then PTRACE_KILL it) if one is a member
+of the same group? Weird.
+
+Plus ptrace does not support eid comparision. So explicit rights
+for ptracing cannot be set via the super user bit.
+
+Maybe we could consolidate all these checks and make them work in
+a coherent way? I dont think I am deep enough into this issue to
+takle that though.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.17-rc4-mm3/mm/mempolicy.c
+=================================--- linux-2.6.17-rc4-mm3.orig/mm/mempolicy.c	2006-05-22 18:03:32.283696770 -0700
++++ linux-2.6.17-rc4-mm3/mm/mempolicy.c	2006-05-23 08:55:24.371254745 -0700
+@@ -926,15 +926,7 @@ asmlinkage long sys_migrate_pages(pid_t 
+ 	if (!mm)
+ 		return -EINVAL;
+ 
+-	/*
+-	 * Check if this process has the right to modify the specified
+-	 * process. The right exists if the process has administrative
+-	 * capabilities, superuser privileges or the same
+-	 * userid as the target process.
+-	 */
+-	if ((current->euid != task->suid) && (current->euid != task->uid) &&
+-	    (current->uid != task->suid) && (current->uid != task->uid) &&
+-	    !capable(CAP_SYS_NICE)) {
++	if (!have_task_perm(task, CAP_SYS_NICE)) {
+ 		err = -EPERM;
+ 		goto out;
  	}
+Index: linux-2.6.17-rc4-mm3/mm/migrate.c
+=================================--- linux-2.6.17-rc4-mm3.orig/mm/migrate.c	2006-05-22 18:03:32.286626275 -0700
++++ linux-2.6.17-rc4-mm3/mm/migrate.c	2006-05-23 08:55:24.372231247 -0700
+@@ -781,15 +781,7 @@ asmlinkage long sys_move_pages(int pid, 
+ 	if (!mm)
+ 		return -EINVAL;
+ 
+-	/*
+-	 * Check if this process has the right to modify the specified
+-	 * process. The right exists if the process has administrative
+-	 * capabilities, superuser privileges or the same
+-	 * userid as the target process.
+-	 */
+-	if ((current->euid != task->suid) && (current->euid != task->uid) &&
+-	    (current->uid != task->suid) && (current->uid != task->uid) &&
+-	    !capable(CAP_SYS_NICE)) {
++	if (!have_task_perm(task, CAP_SYS_NICE)) {
+ 		err = -EPERM;
+ 		goto out2;
+ 	}
+Index: linux-2.6.17-rc4-mm3/kernel/signal.c
+=================================--- linux-2.6.17-rc4-mm3.orig/kernel/signal.c	2006-05-22 18:03:32.211435632 -0700
++++ linux-2.6.17-rc4-mm3/kernel/signal.c	2006-05-23 09:11:44.323266538 -0700
+@@ -567,6 +567,25 @@ static int rm_from_queue(unsigned long m
  }
- #endif
+ 
+ /*
++ * Check if this process has the rights to do something
++ * with another process.
++ *
++ * The right exists if either
++ * 1. The current process has the indicated capability
++ * 2. The current effective user id is the user or superuser
++ * 	id of the other process.
++ * 3. The current user id is the user or superuser id of the other process.
++ */
++int have_task_perm(struct task_struct *t, int capability)
++{
++	if (capable(capability))
++		return 1;
++
++	return (current->euid = t->suid || current->euid = t->uid ||
++		  current->uid = t->suid || current->uid = t->uid);
++}
 +
 +/*
-+ * The following three functions are to impement per_cpu variables
-+ * into VM.  per_cpu variables are initialized very early on startup
-+ * and before memory management. So the per_cpu initialization needs
-+ * a way to allocate pages using bootmem.
-+ */
-+pud_t __init *pud_boot_alloc(struct mm_struct *mm, pgd_t *pgd,
-+			     unsigned long addr, int cpu)
-+{
-+	return (pud_t*)pgd;
-+}
+  * Bad permissions for sending the signal
+  */
+ static int check_kill_permission(int sig, struct siginfo *info,
+@@ -579,9 +598,7 @@ static int check_kill_permission(int sig
+ 	if ((info = SEND_SIG_NOINFO || (!is_si_special(info) && SI_FROMUSER(info)))
+ 	    && ((sig != SIGCONT) ||
+ 		(current->signal->session != t->signal->session))
+-	    && (current->euid ^ t->suid) && (current->euid ^ t->uid)
+-	    && (current->uid ^ t->suid) && (current->uid ^ t->uid)
+-	    && !capable(CAP_KILL))
++	    && !have_task_perm(t, CAP_KILL))
+ 		return error;
+ 
+ 	error = security_task_kill(t, info, sig);
+Index: linux-2.6.17-rc4-mm3/include/linux/signal.h
+=================================--- linux-2.6.17-rc4-mm3.orig/include/linux/signal.h	2006-05-22 18:03:31.841341429 -0700
++++ linux-2.6.17-rc4-mm3/include/linux/signal.h	2006-05-23 08:55:24.393714292 -0700
+@@ -267,6 +267,8 @@ extern int sigprocmask(int, sigset_t *, 
+ struct pt_regs;
+ extern int get_signal_to_deliver(siginfo_t *info, struct k_sigaction *return_ka, struct pt_regs *regs, void *cookie);
+ 
++extern int have_task_perm(struct task_struct *, int);
 +
-+pmd_t __init *pmd_boot_alloc(struct mm_struct *mm, pud_t *pud,
-+			     unsigned long addr, int cpu)
-+{
-+	return pmd_offset(pud, addr);
-+}
-+
-+/* FIXME - handle NUMA handling with the CPU parameter */
-+pte_t __init *pte_boot_alloc(struct mm_struct *mm, pmd_t *pmd,
-+			     unsigned long addr, int cpu)
-+{
-+	pte_t *pte;
-+
-+	if (pmd_none(*pmd)) {
-+		pte = alloc_bootmem_pages(PAGE_SIZE);
-+		if (!pte)
-+			return NULL;
-+		mm->nr_ptes++;
-+		set_pmd(pmd, __pmd(__pa(pte) | _PAGE_TABLE));
-+	} else
-+		pte = pte_offset_kernel(pmd, addr);
-+
-+	return pte;
-+}
-
+ #endif /* __KERNEL__ */
+ 
+ #endif /* _LINUX_SIGNAL_H */
