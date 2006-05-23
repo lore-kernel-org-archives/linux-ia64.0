@@ -1,26 +1,35 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 04 May 2006 16:58:04 +0000
-Subject: RE: [RFC 2/3] LVHPT - Setup LVHPT
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F06680039@scsmsx401.amr.corp.intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 23 May 2006 21:40:01 +0000
+Subject: update_mmu_cache vs. lazy_mmu_prot_update
+Message-Id: <Pine.LNX.4.64.0605231433001.11697@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060502052557.8990.87273.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
-In-Reply-To: <20060502052557.8990.87273.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
+References: <000001c67eae$3e29bd90$e734030a@amr.corp.intel.com>
+In-Reply-To: <000001c67eae$3e29bd90$e734030a@amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ian Wienand <ianw@gelato.unsw.edu.au>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-mm@kvack.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: 'Hugh Dickins' <hugh@veritas.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, David Howells <dhowells@redhat.com>, Rohit Seth <rohitseth@google.com>, linux-mm@kvack.org, agl@us.ibm.com, linux-ia64@vger.kernel.org
 
-> Being relatively inexperienced, all this dynamic patching (SMP, page
-> table, this) scares me in that what is executing diverges from what
-> appears to be in source code, making difficult things even more
-> difficult to debug.  Is there consensus that a long term goal should
-> be that short and long formats should be dynamically selectable?
+On Tue, 23 May 2006, Chen, Kenneth W wrote:
 
-I wouldn't rule anything out until I see what can be done, and how
-maintainable the code to do it is.  Perhaps someone will come up with
-the ultimate in dynamic selection and use long format for some processes,
-and short format for others (and thus get around the objections that
-some workloads perform less well with long format).
+> > Except that, instead of agreeing it should be renamed, I say it should
+> > be deleted entirely.  It seems to represent that ia64 has an empty
+> > update_mmu_cache, and someone decided to add a new interface instead
+> > of giving ia64 that work to do in its update_mmu_cache.
+> 
+> My memory recollects that it was done just like what you suggested:
+> overloading update_mmu_cache for ia64, but it was vetoed by several mm
+> experts.  And as a result a new function was introduced.
 
--Tony
+lazy_mmu_prot_update is always called after update_mmu_cache except
+when we change permissions (hugetlb_change_protection() and 
+change_pte_range()). 
+
+So if we conflate those two then arches may have to be updated to avoid 
+flushing the mmu if we only modified protections.
+
+I think update_mmu_cache() should be dropped in page_wrprotect_one() in 
+order to be consistent scheme. And avoiding mmu flushes will increase the 
+performance of page_wrprotect_one.. lazy_mmu_prot_update must be there 
+since we are changing permissions.
