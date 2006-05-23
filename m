@@ -1,40 +1,35 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Tue, 02 May 2006 08:28:08 +0000
-Subject: Re: [rfc] dynamic 3-level / 4-level page table
-Message-Id: <44571818.8000209@bull.net>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 23 May 2006 17:43:49 +0000
+Subject: [1/5] follow_page: do not put_page if FOLL_GET not specified.
+Message-Id: <20060523174349.10156.22044.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4sur0l$s99mf@fmsmga001.fm.intel.com>
-In-Reply-To: <4sur0l$s99mf@fmsmga001.fm.intel.com>
+References: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20060523174344.10156.66845.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, Christoph Lameter <clameter@sgi.com>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-Chen, Kenneth W wrote:
-...
-> @@ -216,21 +216,11 @@ ENTRY(vhpt_miss)
->  	 * r18 = *pte
->  	 */
->  	ld8 r25=[r21]				// read *pte again
-> -	ld8 r26=[r17]				// read *pmd again
-> -#ifdef CONFIG_PGTABLE_4
-> -	ld8 r19=[r28]				// read *pud again
-> -#endif
-> -	cmp.ne p6,p7=r0,r0
->  	;;
-> -	cmp.ne.or.andcm p6,p7=r26,r20		// did *pmd change
-> -#ifdef CONFIG_PGTABLE_4
-> -	cmp.ne.or.andcm p6,p7=r19,r29		// did *pud change
-> -#endif
-...
-You explained me a month ago why pud...pmd pointers are re-checked
-in "vhpt_miss".
+follow: no put_page() if FOLL_GET not specified.
 
-Later I pointed out that *pgd has to be re-read and compared, too.
+Seems that one of the side effects of the dirty pages patch in
+2.6.17-rc4-mm3 is that follow_pages does a page_put if FOLL_GET is
+not set in the flags passed to it. This breaks sys_move_pages()
+page status determination.
 
-Could you please explain why you think it is not necessary any
-more to re-check them?
+Only put_page if we did a get_page() before.
 
-Thanks,
-
-Zoltan
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Index: linux-2.6.17-rc4-mm3/mm/memory.c
+=================================--- linux-2.6.17-rc4-mm3.orig/mm/memory.c	2006-05-22 18:03:32.280767264 -0700
++++ linux-2.6.17-rc4-mm3/mm/memory.c	2006-05-23 10:01:48.917295988 -0700
+@@ -964,7 +964,7 @@ struct page *follow_page(struct vm_area_
+ 			set_page_dirty(page);
+ 		mark_page_accessed(page);
+ 	}
+-	if (!(flags & FOLL_GET))
++	if (!(flags & FOLL_GET) && (flags & FOLL_TOUCH))
+ 		put_page(page);
+ 	goto out;
+ 
