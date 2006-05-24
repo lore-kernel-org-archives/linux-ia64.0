@@ -1,35 +1,54 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 23 May 2006 21:40:01 +0000
-Subject: update_mmu_cache vs. lazy_mmu_prot_update
-Message-Id: <Pine.LNX.4.64.0605231433001.11697@schroedinger.engr.sgi.com>
+From: Hugh Dickins <hugh@veritas.com>
+Date: Wed, 24 May 2006 14:12:10 +0000
+Subject: Re: update_mmu_cache vs. lazy_mmu_prot_update
+Message-Id: <Pine.LNX.4.64.0605241453340.12355@blonde.wat.veritas.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <000001c67eae$3e29bd90$e734030a@amr.corp.intel.com>
-In-Reply-To: <000001c67eae$3e29bd90$e734030a@amr.corp.intel.com>
+ <Pine.LNX.4.64.0605231433001.11697@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0605231433001.11697@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: 'Hugh Dickins' <hugh@veritas.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, David Howells <dhowells@redhat.com>, Rohit Seth <rohitseth@google.com>, linux-mm@kvack.org, agl@us.ibm.com, linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, David Howells <dhowells@redhat.com>, Rohit Seth <rohitseth@google.com>, linux-mm@kvack.org, agl@us.ibm.com, linux-ia64@vger.kernel.org
 
-On Tue, 23 May 2006, Chen, Kenneth W wrote:
-
-> > Except that, instead of agreeing it should be renamed, I say it should
-> > be deleted entirely.  It seems to represent that ia64 has an empty
-> > update_mmu_cache, and someone decided to add a new interface instead
-> > of giving ia64 that work to do in its update_mmu_cache.
+On Tue, 23 May 2006, Christoph Lameter wrote:
+> On Tue, 23 May 2006, Chen, Kenneth W wrote:
 > 
-> My memory recollects that it was done just like what you suggested:
-> overloading update_mmu_cache for ia64, but it was vetoed by several mm
-> experts.  And as a result a new function was introduced.
+> > My memory recollects that it was done just like what you suggested:
+> > overloading update_mmu_cache for ia64, but it was vetoed by several mm
+> > experts.  And as a result a new function was introduced.
+> 
+> lazy_mmu_prot_update is always called after update_mmu_cache except
+> when we change permissions (hugetlb_change_protection() and 
+> change_pte_range()). 
+> 
+> So if we conflate those two then arches may have to be updated to avoid 
+> flushing the mmu if we only modified protections.
 
-lazy_mmu_prot_update is always called after update_mmu_cache except
-when we change permissions (hugetlb_change_protection() and 
-change_pte_range()). 
+Ah, I missed those two lone usages of lazy_mmu_prot_update, thanks.
+That makes sense, and fits with Ken's recollection: to have added
+update_mmu_cache in those two places would have slowed down the
+other architectures.
 
-So if we conflate those two then arches may have to be updated to avoid 
-flushing the mmu if we only modified protections.
+> I think update_mmu_cache() should be dropped in page_wrprotect_one() in 
+> order to be consistent scheme. And avoiding mmu flushes will increase the 
+> performance of page_wrprotect_one.. lazy_mmu_prot_update must be there 
+> since we are changing permissions.
 
-I think update_mmu_cache() should be dropped in page_wrprotect_one() in 
-order to be consistent scheme. And avoiding mmu flushes will increase the 
-performance of page_wrprotect_one.. lazy_mmu_prot_update must be there 
-since we are changing permissions.
+Agreed.
+
+I'd still like to rename lazy_mmu_prot_update, and refactor it, but
+that can be a later unrelated cleanup.  What makes sense to me is to
+call it update_mmu_cache_prot, and #define the ia64 update_mmu_cache
+to that: so we can unclutter common code from most of the
+lazy_mmu_prot_update lines, leaving just those two significant
+instances of update_mmu_cache_prot that you highlight.
+
+And of the two instances of update_mmu_cache in mm/fremap.c:
+it seems to me that the first, in install_page, ought to have a
+lazy_mmu_prot_update (and will get it automatically by the #define
+I suggest); whereas the second, in install_file_pte, ought not to
+have an update_mmu_cache since it's installing a !present entry.
+
+Hugh
