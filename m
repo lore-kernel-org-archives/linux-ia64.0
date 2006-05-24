@@ -1,25 +1,33 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 24 May 2006 19:01:39 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 24 May 2006 19:18:27 +0000
 Subject: RE: [5/5] move_pages: 32bit support (i386,x86_64 and ia64)
-Message-Id: <Pine.LNX.4.64.0605241159110.17801@schroedinger.engr.sgi.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0693FCE7@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0693FC5B@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F0693FC5B@scsmsx401.amr.corp.intel.com>
+References: <20060523174410.10156.43268.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20060523174410.10156.43268.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
+To: Christoph Lameter <clameter@sgi.com>
 Cc: akpm@osdl.org, Hugh Dickins <hugh@veritas.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <a.p.zijlstra@chello.nl>, Lee Schermerhorn <lee.schermerhorn@hp.com>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-On Wed, 24 May 2006, Luck, Tony wrote:
+> If it does not work then remove it now.
+It still works ... it just isn't complete as most of the syscalls
+added in the past 18 months haven't been included.
 
-> Any thoughts on the timeline for this?  Is Dec 31, 2006 too soon?
-> (or not soon enough!?).
+> Are there any users left?
+I've no idea.  Two OSDs have been shipping the Intel s/w emulator for
+a while now, one installs it by default.  So the number of users is
+probably diminishing.  When people upgrade to Montecito, s/w emulation
+is the only option, which will further reduce the user population.
 
-If it does not work then remove it now. Are there any users left?
+> I vaguely remember some BIOS code having to be executed in ia32 mode in 
+> order to make some device drives work?
+> If that is the case then we cannot drop ia32 support at all.
+The kernel doesn't handle BIOS code execution ... so the value of
+CONFIG_IA32_SUPPORT makes no difference to this.
 
-I vaguely remember some BIOS code having to be executed in ia32 mode in 
-order to make some device drives work?
+-Tony
 
-If that is the case then we cannot drop ia32 support at all.
-
+If this thread continues, I'll drop all the innocent bystanders from
+the Cc: list and just leave linux-ia64 from future replies.
