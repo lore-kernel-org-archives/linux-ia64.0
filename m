@@ -1,27 +1,40 @@
-From: Kyle McMartin <kyle@mcmartin.ca>
-Date: Thu, 25 May 2006 01:07:05 +0000
+From: Matt Taggart <taggart@debian.org>
+Date: Thu, 25 May 2006 01:32:44 +0000
 Subject: Re: dropping CONFIG_IA32_SUPPORT from ia64
-Message-Id: <20060525010705.GA7024@skunkworks.cabal.ca>
+Message-Id: <20060525013244.C2F5937F81@carmen.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200605241438.34303.bjorn.helgaas@hp.com>
-In-Reply-To: <200605241438.34303.bjorn.helgaas@hp.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0693FC5B@scsmsx401.amr.corp.intel.com> <200605241438.34303.bjorn.helgaas@hp.com>
+In-Reply-To: <200605241438.34303.bjorn.helgaas@hp.com> 
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-mm@kvack.org, debian-ia64@lists.debian.org
 
-On Wed, May 24, 2006 at 02:23:18PM -0700, Luck, Tony wrote:
+
+Bjorn Helgaas writes...
+
+> If we remove CONFIG_IA32_SUPPORT, every ia64 box will require
+> the Intel emulator (or QEMU or some other ill-defined solution)
+> in order to run ia32 code, even though every processor in the
+> field today supports ia32 in hardware.
 > 
-> The alternative to dropping support for CONFIG_IA32_SUPPORT is
-> to find someone to maintain it ... right now it doesn't get much
-> of my time, so it is a ticking quagmire of untested code.
->
+> It doesn't feel right to me to remove functionality from machines
+> in the field and offer only a proprietary alternative.
 
-I'll give it some love. I've got an old BigSur proto and a rx5670 running
-Debian so it shouldn't be very hard to keep an i386 chroot tested.
+Debian is looking at implementing "multiarch", a way to have libraries
+for multiple binary targets install in the same system root.
 
-That and I already pay attention to syscall additions when I update
-the parisc syscall table. 
+  http://wiki.debian.org/multiarch
 
-Cheers,
-	Kyle
+After amd64 systems, ia64 can benefit the most from multiarch. It would
+be a shame to see this not happen.
+
+I also agree with Bjorn that the propriatary tool shouldn't be the only
+way. To the Intel people on the lists that work on this, what is Intel's
+position on open sourcing this technology?
+
+Thanks,
+
+-- 
+Matt Taggart
+taggart@debian.org
