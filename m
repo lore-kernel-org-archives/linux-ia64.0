@@ -1,39 +1,30 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Fri, 26 May 2006 18:28:14 +0000
-Subject: [PATCH] fix update_mmu_cache in fremap.c
-Message-Id: <Pine.LNX.4.64.0605261926350.24818@blonde.wat.veritas.com>
+From: David Miller <davem@davemloft.net>
+Date: Fri, 26 May 2006 20:10:59 +0000
+Subject: Re: [PATCH] fix update_mmu_cache in fremap.c
+Message-Id: <20060526.131059.27783433.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.64.0605261926350.24818@blonde.wat.veritas.com>
+In-Reply-To: <Pine.LNX.4.64.0605261926350.24818@blonde.wat.veritas.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: hugh@veritas.com
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-There are two calls to update_mmu_cache in fremap.c, both defective.
-The one in install_page needs to be accompanied by lazy_mmu_prot_update
-(some other cleanup time, move that into ia64 update_mmu_cache itself); and
-the one in install_file_pte should be removed since the pte is not present.
+From: Hugh Dickins <hugh@veritas.com>
+Date: Fri, 26 May 2006 19:28:14 +0100 (BST)
 
-Signed-off-by: Hugh Dickins <hugh@veritas.com>
----
- mm/fremap.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> There are two calls to update_mmu_cache in fremap.c, both defective.
+> The one in install_page needs to be accompanied by lazy_mmu_prot_update
+> (some other cleanup time, move that into ia64 update_mmu_cache itself); and
+> the one in install_file_pte should be removed since the pte is not present.
+> 
+> Signed-off-by: Hugh Dickins <hugh@veritas.com>
 
---- 2.6.17-rc5/mm/fremap.c	2006-01-03 03:21:10.000000000 +0000
-+++ linux/mm/fremap.c	2006-05-26 17:55:29.000000000 +0100
-@@ -83,6 +83,7 @@ int install_page(struct mm_struct *mm, s
- 	page_add_file_rmap(page);
- 	pte_val = *pte;
- 	update_mmu_cache(vma, addr, pte_val);
-+	lazy_mmu_prot_update(pte_val);
- 	err = 0;
- unlock:
- 	pte_unmap_unlock(pte, ptl);
-@@ -114,7 +115,6 @@ int install_file_pte(struct mm_struct *m
- 
- 	set_pte_at(mm, addr, pte, pgoff_to_pte(pgoff));
- 	pte_val = *pte;
--	update_mmu_cache(vma, addr, pte_val);
- 	pte_unmap_unlock(pte, ptl);
- 	err = 0;
- out:
+Where did that rule come from?  We should call update_mmu_cache() even
+if the PTE was not present before, look at the fault path in
+mm/memory.c, it does this too.
+
+This is where we install hash table entries for newly installed
+mappings on sparc64 and powerpc, so this update_mmu_cache() call
+is important even for not-previously-present mappings.
