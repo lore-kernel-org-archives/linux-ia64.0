@@ -1,7 +1,7 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 26 May 2006 09:02:10 +0000
-Subject: [RFC][PATCH] ia64 node hotplug -- cpu - node relationship fix [1/2]
-Message-Id: <20060526180210.ec88165c.kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 26 May 2006 09:05:37 +0000
+Subject: [RFC][PATCH] ia64 node hotplug -- cpu - node relationship fix [2/2]
+Message-Id: <20060526180537.84480f0d.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060526175622.13057d7e.kamezawa.hiroyu@jp.fujitsu.com>
 In-Reply-To: <20060526175622.13057d7e.kamezawa.hiroyu@jp.fujitsu.com>
@@ -11,155 +11,99 @@ Content-Transfer-Encoding: 7bit
 To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Cc: linux-kernel@vger.kernel.org, y-goto@jp.fujitsu.com, linux-ia64@vger.kernel.org, ashok.raj@intel.com, steiner@sgi.com, tony.luck@intel.com
 
-Remove empty node -- a node which containes no cpu, no memory (and no I/O).
+At node hotplug, cpu can be added before memory depends on evaluation order of
+firmware(ACPI) information.
 
-When empty node is onlined, it allocates NODE_DATA(). This causes 
-for_each_online_node() walks through unused NODE_DATA.
+Current ia64's cpu hotplug make an assumption at binding cpu to node.
+       /*
+        * Assuming that the container driver would have set the proximity
+        * domain and would have initialized pxm_to_node(pxm_id) && pxm_flag
+        */
+If nid is invalid here, cpu is bound to node 0.
+So, all cpus on the new node goes to node 0 if cpu is evaluated before memory.
 
-Because an empty node has no memory, its NODE_DATA is allocated off-node.
-Now, Node-hot-add is introduced to -mm. It can alloc NODE_DATA dynamically.
-But if empty node exists, node-hotplug cannot allocate new NODE_DATA in local
-memory  on-node(*)
+We have node hotplug in -mm now. The container doesn't fixes pxm<->nid
+conversion but acpi_map_pxm_to_nid() does it. cpu hotplug should call
+acpi_map_pxm_to_nid() to map cpu to new nid. This patch makes cpu hotplug
+to call acpi_map_pxm_to_nid().
 
-I think it's good chance to remove empty node, which came from mishandling of
-pxm in SRAT.
+This fix will map cpus to the correct node.
 
-TBD: I/O only node detections scheme should be fixed. Does anyone have a
-     suggestion ?
-
-(*) Allocating NODE_DATA in local memory at node-hotplug is on my TBD list.
-    not posted yet.
+As a side effect, this shows another problem. node_to_cpu_mask[] should be
+updated correctly. This patch also fixes it.
 
 Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
+ arch/ia64/kernel/acpi.c     |   10 +++++-----
+ arch/ia64/kernel/numa.c     |   15 ++++++++++++---
+ include/asm-ia64/topology.h |    1 +
+ 3 files changed, 18 insertions(+), 8 deletions(-)
 
-Index: linux-2.6.17-rc4-mm3/arch/ia64/kernel/setup.c
-=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/kernel/setup.c	2006-05-25 18:48:15.000000000 +0900
-+++ linux-2.6.17-rc4-mm3/arch/ia64/kernel/setup.c	2006-05-25 18:50:20.000000000 +0900
-@@ -418,7 +418,7 @@
+Index: linux-2.6.17-rc4-mm3/arch/ia64/kernel/numa.c
+=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/kernel/numa.c	2006-05-26 16:37:50.000000000 +0900
++++ linux-2.6.17-rc4-mm3/arch/ia64/kernel/numa.c	2006-05-26 17:08:14.000000000 +0900
+@@ -30,6 +30,17 @@
  
- 	if (early_console_setup(*cmdline_p) = 0)
- 		mark_bsp_online();
--
-+	reserve_memory();
- #ifdef CONFIG_ACPI
- 	/* Initialize the ACPI boot-time table parser */
- 	acpi_table_init();
-Index: linux-2.6.17-rc4-mm3/arch/ia64/mm/contig.c
-=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/mm/contig.c	2006-05-25 18:48:15.000000000 +0900
-+++ linux-2.6.17-rc4-mm3/arch/ia64/mm/contig.c	2006-05-25 18:49:24.000000000 +0900
-@@ -146,8 +146,6 @@
- {
- 	unsigned long bootmap_size;
+ cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
  
--	reserve_memory();
--
- 	/* first find highest page frame number */
- 	max_pfn = 0;
- 	efi_memmap_walk(find_max_pfn, &max_pfn);
-Index: linux-2.6.17-rc4-mm3/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/mm/discontig.c	2006-05-25 18:48:15.000000000 +0900
-+++ linux-2.6.17-rc4-mm3/arch/ia64/mm/discontig.c	2006-05-25 18:49:40.000000000 +0900
-@@ -443,8 +443,6 @@
- {
- 	int node;
- 
--	reserve_memory();
--
- 	if (num_online_nodes() = 0) {
- 		printk(KERN_ERR "node info missing!\n");
- 		node_set_online(0);
-Index: linux-2.6.17-rc4-mm3/arch/ia64/kernel/acpi.c
-=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/kernel/acpi.c	2006-05-25 18:48:15.000000000 +0900
-+++ linux-2.6.17-rc4-mm3/arch/ia64/kernel/acpi.c	2006-05-26 16:38:35.000000000 +0900
-@@ -515,6 +515,43 @@
- 	num_node_memblks++;
- }
- 
-+/* online node if node has valid memory */
-+static
-+int find_valid_memory_range(unsigned long start, unsigned long end, void *arg)
++/* called by cpu hotplug. */
++void __cpuinit arch_update_cpu_to_node(int cpu, int newnode)
 +{
-+	int i;
-+	struct node_memblk_s *p;
-+	start = __pa(start);
-+	end = __pa(end);
-+	for (i = 0; i < num_node_memblks; ++i) {
-+		p = &node_memblk[i];
-+		if (end < p->start_paddr)
-+			continue;
-+		if (p->start_paddr + p->size <= start)
-+			continue;
-+		node_set_online(p->nid);
-+	}
-+	return 0;
++	int oldnode = cpu_to_node(cpu);
++	cpu_to_node_map[cpu] = (newnode >= 0)? newnode : 0;
++	cpu_clear(cpu, node_to_cpu_mask[oldnode]);
++	if (newnode >= 0)
++		cpu_set(cpu, node_to_cpu_mask[newnode]);
 +}
 +
-+static void
-+acpi_online_node_fixup(void)
-+{
-+	int i, cpu;
-+	/* online node if a node has available cpus */
-+	for (i = 0; i < srat_num_cpus; ++i)
-+		for (cpu = 0; cpu < available_cpus; ++cpu)
-+			if (smp_boot_data.cpu_phys_id[cpu] =
-+				node_cpuid[i].phys_id) {
-+				node_set_online(node_cpuid[i].nid);
-+				break;
-+			}
-+	/* memory */
-+	efi_memmap_walk(find_valid_memory_range, NULL);
 +
-+	/* TBD: check I/O devices which have valid nid. and online it*/
-+}
-+
- void __init acpi_numa_arch_fixup(void)
- {
- 	int i, j, node_from, node_to;
-@@ -526,22 +563,28 @@
- 		return;
+ /**
+  * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
+  *
+@@ -50,8 +61,6 @@
+ 				node = node_cpuid[i].nid;
+ 				break;
+ 			}
+-		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+-		if (node >= 0)
+-			cpu_set(cpu, node_to_cpu_mask[node]);
++		arch_update_cpu_to_node(cpu, node);
  	}
+ }
+Index: linux-2.6.17-rc4-mm3/arch/ia64/kernel/acpi.c
+=================================--- linux-2.6.17-rc4-mm3.orig/arch/ia64/kernel/acpi.c	2006-05-26 16:38:35.000000000 +0900
++++ linux-2.6.17-rc4-mm3/arch/ia64/kernel/acpi.c	2006-05-26 17:05:35.000000000 +0900
+@@ -812,16 +812,16 @@
+ {
+ #ifdef CONFIG_ACPI_NUMA
+ 	int pxm_id;
++	int nid;
+ 
+ 	pxm_id = acpi_get_pxm(handle);
++	nid = acpi_map_pxm_to_node(pxm_id);
  
 -	/*
--	 * MCD - This can probably be dropped now.  No need for pxm ID to node ID
--	 * mapping with sparse node numbering iff MAX_PXM_DOMAINS <= MAX_NUMNODES.
+-	 * Assuming that the container driver would have set the proximity
+-	 * domain and would have initialized pxm_to_node(pxm_id) && pxm_flag
 -	 */
- 	nodes_clear(node_online_map);
-+	/* MAP pxm to nid */
- 	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
- 		if (pxm_bit_test(i)) {
--			int nid = acpi_map_pxm_to_node(i);
--			node_set_online(nid);
-+			/* this makes pxm <-> nid mapping */
-+			acpi_map_pxm_to_node(i);
- 		}
- 	}
-+	/* convert pxm information to nid information */
+-	node_cpuid[cpu].nid = (pxm_id < 0) ? 0 : pxm_to_node(pxm_id);
++	node_cpuid[cpu].nid = nid;
  
--	/* set logical node id in memory chunk structure */
- 	for (i = 0; i < num_node_memblks; i++)
- 		node_memblk[i].nid = pxm_to_node(node_memblk[i].nid);
- 
-+	for (i = 0; i < srat_num_cpus; i++)
-+		node_cpuid[i].nid = pxm_to_node(node_cpuid[i].nid);
+ 	node_cpuid[cpu].phys_id = physid;
 +
-+	/*
-+         * confirm node is online or not.
-+         * onlined node will have their own NODE_DATA
-+	 */
-+	acpi_online_node_fixup();
-+
- 	/* assign memory bank numbers for each chunk on each node */
- 	for_each_online_node(i) {
- 		int bank;
-@@ -552,9 +595,6 @@
- 				node_memblk[j].bank = bank++;
- 	}
++	arch_update_cpu_to_node(cpu, nid);
+ #endif
+ 	return (0);
+ }
+Index: linux-2.6.17-rc4-mm3/include/asm-ia64/topology.h
+=================================--- linux-2.6.17-rc4-mm3.orig/include/asm-ia64/topology.h	2006-05-26 16:37:50.000000000 +0900
++++ linux-2.6.17-rc4-mm3/include/asm-ia64/topology.h	2006-05-26 17:05:35.000000000 +0900
+@@ -54,6 +54,7 @@
+  */
+ #define pcibus_to_node(bus) PCI_CONTROLLER(bus)->node
  
--	/* set logical node id in cpu structure */
--	for (i = 0; i < srat_num_cpus; i++)
--		node_cpuid[i].nid = pxm_to_node(node_cpuid[i].nid);
++void arch_update_cpu_to_node(int cpu, int nid);
+ void build_cpu_to_node_map(void);
  
- 	printk(KERN_INFO "Number of logical nodes in system = %d\n",
- 	       num_online_nodes());
+ #define SD_CPU_INIT (struct sched_domain) {		\
 
