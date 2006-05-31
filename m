@@ -1,42 +1,50 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Wed, 17 May 2006 10:01:01 +0000
-Subject: [RFC PATCH 07/09] robust VM per_cpu i386 VM area
-Message-Id: <Pine.LNX.4.58.0605170600250.8408@gandalf.stny.rr.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 31 May 2006 20:25:17 +0000
+Subject: q-tools-0.3 with Montecito support available
+Message-Id: <20060531202517.GA28861@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
-In-Reply-To: <Pine.LNX.4.58.0605170547490.8408@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Paul Mackerras <paulus@samba.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Andi Kleen <ak@suse.de>, Martin Mares <mj@atrey.karlin.mff.cuni.cz>, bjornw@axis.com, schwidefsky@de.ibm.com, benedict.gaster@superh.com, lethal@linux-sh.org, Chris Zankel <chris@zankel.net>, Marc Gauthier <marc@tensilica.com>, Joe Taylor <joe@tensilica.com>, David Mosberger-Tang <davidm@hpl.hp.com>, rth@twiddle.net, spyro@f2s.com, starvik@axis.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, ralf@linux-mips.org, linux-mips@linux-mips.org, grundler@parisc-linux.org, parisc-linux@parisc-linux.org, linuxppc-dev@ozlabs.org, linux390@de.ibm.com, davem@davemloft.net, arnd@arndb.de, kenneth.w.chen@intel.com, sam@ravnborg.org, clameter@sgi.com, kiran@scalex86.org
+To: linux-ia64@vger.kernel.org
 
-This patch allocates the percpu VM area using the fix addresses.
-It defines currently 1 meg per cpu.
+Hello,
 
-Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+I have finally released version 0.3 of David's q-tools
+monitoring tool for Linux/ia64.
 
-Index: linux-2.6.16-test/include/asm-i386/fixmap.h
-=================================--- linux-2.6.16-test.orig/include/asm-i386/fixmap.h	2006-05-17 04:32:27.000000000 -0400
-+++ linux-2.6.16-test/include/asm-i386/fixmap.h	2006-05-17 04:59:34.000000000 -0400
-@@ -32,6 +32,10 @@
- #include <asm/kmap_types.h>
- #endif
+New features:
+	- support for Dual-Core Itanium 2 (Montecito) processor
 
-+/* One meg per cpu of VM space */
-+#define PERCPU_PAGES 256
-+#define PERCPU_SIZE (PERCPU_PAGES << PAGE_SHIFT)
-+
- /*
-  * Here we define all the compile-time 'special' virtual
-  * addresses. The point is to have a constant address at
-@@ -83,6 +87,8 @@ enum fixed_addresses {
- #ifdef CONFIG_PCI_MMCONFIG
- 	FIX_PCIE_MCFG,
- #endif
-+	FIX_PERCPU_BEGIN,
-+	FIX_PERCPU_END = FIX_PERCPU_BEGIN+(PERCPU_PAGES*NR_CPUS)-1,
- 	__end_of_permanent_fixed_addresses,
- 	/* temporary boot-time mappings, used before ioremap() is functional */
- #define NR_FIX_BTMAPS	16
+This tool works only on Itanium 2 and follow-on processor. It does not
+work on the first generation Itanium (Merced) processor.
 
+Requirements:
+
+	- you need libpfm-3.2-060512 or newer to compile. On Debian you
+	  need to grab libpfm3 from unstable. Otherwise, you can get a
+	  copy at:
+			http://perfmon2.sf.net
+
+	- to run on Montecito, you need Montecito support in the kernel.
+	  The mainline kernel, 2.6.16 and higher, has the required support.
+	  SLES10 is known to have support. As for RHEL4, I think you would
+	  need U5 (to be verified). You can check whether you have support
+	  by looking at /proc/perfmon and the PMU model line. If it does not
+	  say Montecito, this will not work.
+
+	- On non-Montecito, the tool works all kernel 2.6.5 or higher.
+
+	- this version works also with perfmon v2.2 (aka new code base) for
+	  all Itanium processors, including Montecito. As this point, v2.2
+	  requires a kernel patch which you can get at the web site mentioned
+	  above.
+
+You can grab the latest version of q-tools at:
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/q-tools-0.3.tar.gz
+	MD5SUM: 3f9e5230fe258c2baa288d9c70fc73b2
+
+Enjoy,
+
+-- 
+-Stephane
