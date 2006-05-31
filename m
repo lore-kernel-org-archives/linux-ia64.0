@@ -1,140 +1,106 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Wed, 31 May 2006 13:58:08 +0000
-Subject: [PATCH] - SN topology fix for large systems
-Message-Id: <20060531135808.GA5918@sgi.com>
+From: John Keller <jpk@sgi.com>
+Date: Wed, 31 May 2006 21:23:40 +0000
+Subject: [PATCH 2/2] - Altix: Add initial ACPI support
+Message-Id: <20060531212340.32077.7712.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, gregkh@suse.de, John Keller <jpk@sgi.com>, pcihpd-discuss@lists.sourceforge.net
 
-There is an SN bug in sn_hwperf.c that affects systems with 1024n or 1024p.
-The bug manifests itself 2 ways: IO interrupts are not always 
-targeted to the nearest node, and 2) the "cat /proc/sgi_sn/sn_topology"
-commands fails with "cannot allocate memory". 
+This is part 2 of a two patch set.
+The patches are dependent on each other.
 
-The code is using the wrong macros for validating node numbers.
+First phase in introducing ACPI support to SN.
+In this phase, when running with an ACPI capable PROM,
+the DSDT will define the root busses and all SN nodes
+(SGIHUB, SGITIO). An acpi bus driver will be registered
+for the node devices, with the acpi_pci_root_driver being
+used for the root busses.
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
+Bus to resource ampping will no longer need to be done via
+platform specific 'fisxup' code, but by a call to
+pcibios_fixup_device_resources().
+
+To maintain backward compatibility with non-ACPI capable PROMs,
+none of the current 'fixup' code has been deleted.
 
 
-Index: linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2006-05-31 08:37:44.097288260 -0500
-+++ linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2006-05-31 08:55:48.427238545 -0500
-@@ -51,6 +51,8 @@ static nasid_t sn_hwperf_master_nasid = 
- static int sn_hwperf_init(void);
- static DECLARE_MUTEX(sn_hwperf_init_mutex);
+Signed-off-by: John Keller <jpk@sgi.com>
+
+
+Index: acpi-support/drivers/pci/hotplug/sgi_hotplug.c
+=================================--- acpi-support.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-05-31 15:17:42.166108287 -0500
++++ acpi-support/drivers/pci/hotplug/sgi_hotplug.c	2006-05-31 15:17:51.045242163 -0500
+@@ -205,21 +205,6 @@ static struct hotplug_slot * sn_hp_destr
+ 	return bss_hotplug_slot;
+ }
  
-+#define cnode_possible(n)	((n) < num_cnodes)
-+
- static int sn_hwperf_enum_objects(int *nobj, struct sn_hwperf_object_info **ret)
+-static void sn_bus_alloc_data(struct pci_dev *dev)
+-{
+-	struct pci_bus *subordinate_bus;
+-	struct pci_dev *child;
+-
+-	sn_pci_fixup_slot(dev);
+-
+-	/* Recursively sets up the sn_irq_info structs */
+-	if (dev->subordinate) {
+-		subordinate_bus = dev->subordinate;
+-		list_for_each_entry(child, &subordinate_bus->devices, bus_list)
+-			sn_bus_alloc_data(child);
+-	}
+-}
+-
+ static void sn_bus_free_data(struct pci_dev *dev)
  {
- 	int e;
-@@ -127,14 +129,14 @@ static int sn_hwperf_geoid_to_cnode(char
- 		}
+ 	struct pci_bus *subordinate_bus;
+@@ -337,6 +322,11 @@ static int sn_slot_disable(struct hotplu
+ 	return rc;
+ }
+ 
++/*
++ * Power up and configure the slot via a SAL call to PROM.
++ * Scan slot (and any children), do any platform specific fixup,
++ * and find device driver.
++ */
+ static int enable_slot(struct hotplug_slot *bss_hotplug_slot)
+ {
+ 	struct slot *slot = bss_hotplug_slot->private;
+@@ -367,9 +357,6 @@ static int enable_slot(struct hotplug_sl
+ 		return -ENODEV;
  	}
  
--	return node_possible(cnode) ? cnode : -1;
-+	return cnode_possible(cnode) ? cnode : -1;
- }
- 
- static int sn_hwperf_obj_to_cnode(struct sn_hwperf_object_info * obj)
- {
- 	if (!SN_HWPERF_IS_NODE(obj) && !SN_HWPERF_IS_IONODE(obj))
- 		BUG();
--	if (!obj->sn_hwp_this_part)
-+	if (SN_HWPERF_FOREIGN(obj))
- 		return -1;
- 	return sn_hwperf_geoid_to_cnode(obj->location);
- }
-@@ -199,12 +201,12 @@ static void print_pci_topology(struct se
- 
- static inline int sn_hwperf_has_cpus(cnodeid_t node)
- {
--	return node_online(node) && nr_cpus_node(node);
-+	return node < MAX_NUMNODES && node_online(node) && nr_cpus_node(node);
- }
- 
- static inline int sn_hwperf_has_mem(cnodeid_t node)
- {
--	return node_online(node) && NODE_DATA(node)->node_present_pages;
-+	return node < MAX_NUMNODES && node_online(node) && NODE_DATA(node)->node_present_pages;
- }
- 
- static struct sn_hwperf_object_info *
-@@ -237,7 +239,7 @@ static int sn_hwperf_get_nearest_node_ob
- 	int found_mem = 0;
- 	int found_cpu = 0;
- 
--	if (!node_possible(node))
-+	if (!cnode_possible(node))
- 		return -EINVAL;
- 
- 	if (sn_hwperf_has_cpus(node)) {
-@@ -442,7 +444,7 @@ static int sn_topology_show(struct seq_f
- 	seq_printf(s, "%s %d %s %s asic %s", slabname, ordinal, obj->location,
- 		obj->sn_hwp_this_part ? "local" : "shared", obj->name);
- 
--	if (!SN_HWPERF_IS_NODE(obj) && !SN_HWPERF_IS_IONODE(obj))
-+	if (ordinal < 0 || (!SN_HWPERF_IS_NODE(obj) && !SN_HWPERF_IS_IONODE(obj)))
- 		seq_putc(s, '\n');
- 	else {
- 		cnodeid_t near_mem = -1;
-@@ -468,22 +470,24 @@ static int sn_topology_show(struct seq_f
- 		/*
- 		 * CPUs on this node, if any
- 		 */
--		cpumask = node_to_cpumask(ordinal);
--		for_each_online_cpu(i) {
--			if (cpu_isset(i, cpumask)) {
--				slice = 'a' + cpuid_to_slice(i);
--				c = cpu_data(i);
--				seq_printf(s, "cpu %d %s%c local"
--					" freq %luMHz, arch ia64",
--					i, obj->location, slice,
--					c->proc_freq / 1000000);
--				for_each_online_cpu(j) {
--					seq_printf(s, j ? ":%d" : ", dist %d",
--						node_distance(
--						    cpu_to_node(i),
--						    cpu_to_node(j)));
-+		if (!SN_HWPERF_IS_IONODE(obj)) {
-+			cpumask = node_to_cpumask(ordinal);
-+			for_each_online_cpu(i) {
-+				if (cpu_isset(i, cpumask)) {
-+					slice = 'a' + cpuid_to_slice(i);
-+					c = cpu_data(i);
-+					seq_printf(s, "cpu %d %s%c local"
-+						" freq %luMHz, arch ia64",
-+						i, obj->location, slice,
-+						c->proc_freq / 1000000);
-+					for_each_online_cpu(j) {
-+						seq_printf(s, j ? ":%d" : ", dist %d",
-+							node_distance(
-+						    	cpu_to_node(i),
-+						    	cpu_to_node(j)));
-+					}
-+					seq_putc(s, '\n');
- 				}
--				seq_putc(s, '\n');
+-	sn_pci_controller_fixup(pci_domain_nr(slot->pci_bus),
+-				slot->pci_bus->number,
+-				slot->pci_bus);
+ 	/*
+ 	 * Map SN resources for all functions on the card
+ 	 * to the Linux PCI interface and tell the drivers
+@@ -380,6 +367,13 @@ static int enable_slot(struct hotplug_sl
+ 				   PCI_DEVFN(slot->device_num + 1,
+ 					     PCI_FUNC(func)));
+ 		if (dev) {
++			/* Need to do slot fixup on PPB before fixup of children
++			 * (PPB's pcidev_info needs to be in pcidev_info list
++			 * before child's SN_PCIDEV_INFO() call to setup
++			 * pdi_host_pcidev_info).
++			 */
++			pcibios_fixup_device_resources(dev);
++			sn_pci_fixup_slot(dev);
+ 			if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) {
+ 				unsigned char sec_bus;
+ 				pci_read_config_byte(dev, PCI_SECONDARY_BUS,
+@@ -387,12 +381,8 @@ static int enable_slot(struct hotplug_sl
+ 				new_bus = pci_add_new_bus(dev->bus, dev,
+ 							  sec_bus);
+ 				pci_scan_child_bus(new_bus);
+-				sn_pci_controller_fixup(pci_domain_nr(new_bus),
+-							new_bus->number,
+-							new_bus);
+ 				new_ppb = 1;
  			}
+-			sn_bus_alloc_data(dev);
+ 			pci_dev_put(dev);
  		}
  	}
-@@ -523,7 +527,7 @@ static int sn_topology_show(struct seq_f
- 			if (obj->sn_hwp_this_part && p->sn_hwp_this_part)
- 				/* both ends local to this partition */
- 				seq_puts(s, " local");
--			else if (!obj->sn_hwp_this_part && !p->sn_hwp_this_part)
-+			else if (SN_HWPERF_FOREIGN(p))
- 				/* both ends of the link in foreign partiton */
- 				seq_puts(s, " foreign");
- 			else
-@@ -776,7 +780,7 @@ sn_hwperf_ioctl(struct inode *in, struct
- 
- 	case SN_HWPERF_GET_NODE_NASID:
- 		if (a.sz != sizeof(u64) ||
--		   (node = a.arg) < 0 || !node_possible(node)) {
-+		   (node = a.arg) < 0 || !cnode_possible(node)) {
- 			r = -EINVAL;
- 			goto error;
- 		}
