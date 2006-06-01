@@ -1,57 +1,32 @@
-From: "Bob Picco" <bob.picco@hp.com>
-Date: Wed, 28 Jun 2006 16:54:55 +0000
-Subject: [PATCH] align high endpoint of VIRTUAL_MEM_MAP
-Message-Id: <20060628165455.GA31441@localhost>
+From: Mathias <ma-ju@gmx.net>
+Date: Thu, 01 Jun 2006 12:53:18 +0000
+Subject: How do I install SKI/NUE compiler on IA32 Debian
+Message-Id: <447EE33E.6020502@gmx.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hello,
 
-Tony,
+my name is Mathias J. I should like to install the ORC (open research
+compiler for IA64 orc-2.1-bin.tar.gz on IA32 Debian(Sarge) machine.
+For this reason, i had download the packages:
 
-Assure that vmem_map's high endpoint is MAX_ORDER aligned. Not doing so violates
-the buddy allocator algorithm. Also anyone using mem=XXX on boot line and 
-not aligned to MAX_ORDER requires this patch in order to satisfy buddy 
-allocator. vmem_map always starts at pfn 0. The potentially large MAX_ORDER
-on ia64 (due to hugetlbfs) requires that the end of vmem_map be aligned
-to MAX_ORDER_NR_PAGES.
+libski-dev_0.981-7_i386.deb
+libski_0.981-7_i386.deb
+ski-linux-rootfs_2.0-1_all.deb
+nue-fs_1.2-1_i386.deb
+ski_0.981-7_i386.deb
 
-This was boot tested for: FLATMEM, FLATMEM+VIRTUAL_MEM_MAP, 
-DISCONTIGMEM+VIRTUAL_MEM_MAP and SPARSEMEM.
+but I'm a linux newbie and i don't know, how i can installing the HP
+IA64 linux simulator. Which .deb packeges the ORC require for the
+installation?
+Please tell me, which packages i must installing and the correct
+installation order.
 
-bob
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
+Thank you very much!
+Mathias J.
 
- arch/ia64/mm/contig.c    |    3 ++-
- arch/ia64/mm/discontig.c |    3 ++-
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-Index: linux-2.6.17/arch/ia64/mm/contig.c
-=================================--- linux-2.6.17.orig/arch/ia64/mm/contig.c	2006-06-19 19:20:11.000000000 -0400
-+++ linux-2.6.17/arch/ia64/mm/contig.c	2006-06-19 19:20:12.000000000 -0400
-@@ -283,7 +283,8 @@ paging_init (void)
- 
- 		/* allocate virtual_mem_map */
- 
--		map_size = PAGE_ALIGN(max_low_pfn * sizeof(struct page));
-+		map_size = PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
-+			sizeof(struct page));
- 		vmalloc_end -= map_size;
- 		vmem_map = (struct page *) vmalloc_end;
- 		efi_memmap_walk(create_mem_map_page_table, NULL);
-Index: linux-2.6.17/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.17.orig/arch/ia64/mm/discontig.c	2006-06-19 19:20:11.000000000 -0400
-+++ linux-2.6.17/arch/ia64/mm/discontig.c	2006-06-19 19:20:12.000000000 -0400
-@@ -675,7 +675,8 @@ void __init paging_init(void)
- 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
--	vmalloc_end -= PAGE_ALIGN(max_low_pfn * sizeof(struct page));
-+	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
-+		sizeof(struct page));
- 	vmem_map = (struct page *) vmalloc_end;
- 	efi_memmap_walk(create_mem_map_page_table, NULL);
- 	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
