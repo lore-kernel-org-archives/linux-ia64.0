@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Thu, 01 Jun 2006 03:30:58 +0000
-Subject: Re: Montecito processor family
-Message-Id: <1149132658.12367.75.camel@lappy>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 01 Jun 2006 16:32:39 +0000
+Subject: RE: Montecito processor family
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F06A38223@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42ADD890.1010406@free.fr>
 In-Reply-To: <42ADD890.1010406@free.fr>
@@ -10,20 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2006-05-31 at 22:06 -0500, Russ Anderson wrote:
-> It would be nice to have a "model name" text description,
-> for people that don't know the meaning of 32.  There are
-> people that need to use the right flavor of CPU that know
-> the English name.  It's easier to have the code print the
-> text name than teach them the cryptic numbers.
+> Why not have "model name" with the text name, like on ia32?
+> 
+> vendor_id       : GenuineIntel
+> cpu family      : 15
+> model           : 4
+> model name      : Intel(R) Pentium(R) 4 CPU 2.80GHz
+> stepping        : 1
 
-  I second this.  It shouldn't be as hard as it currently is to
-determine what processor is installed in the system.  The common names
-are well enough advertised, even if unofficial.  The family/model
-numbers don't mean much to most people.  Thanks,
+This sounds like an excellent plan.  We can even use the new
+(in SDM2.2 p. 2:345) PAL_BRAND_INFO call to get the right
+(Intel marketting/legal approved) string.  For older systems
+that don't implement PAL_BRAND_INFO we could have some fallback
+code that decodes family/model to Merced/McKinley/Madison.
 
-	Alex
-
--- 
-Alex Williamson                             HP Open Source & Linux Org.
-
+-Tony
