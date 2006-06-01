@@ -1,76 +1,68 @@
-From: William Cohen <wcohen@redhat.com>
-Date: Mon, 26 Jun 2006 17:10:53 +0000
-Subject: Re: [Perfctr-devel] [perfmon] 2.6.17.1 new perfmon code base, libpfm,
-Message-Id: <44A0151D.5090400@redhat.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 01 Jun 2006 00:03:27 +0000
+Subject: RE: Montecito processor family
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F069FFB56@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060621142447.GA29389@frankl.hpl.hp.com> <449C598B.7070803@redhat.com> <20060623212354.GA1102@frankl.hpl.hp.com>
-In-Reply-To: <20060623212354.GA1102@frankl.hpl.hp.com>
+References: <42ADD890.1010406@free.fr>
+In-Reply-To: <42ADD890.1010406@free.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: eranian@hpl.hp.com
-Cc: linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
-Stephane Eranian wrote:
-> Will,
-> 
-> On Fri, Jun 23, 2006 at 05:13:47PM -0400, William Cohen wrote:
-> 
->>Hi Stephane,
->>
->>Some quick questions about the current perfmon code.
->>
->>
->>The athlon has very similar hw to the amd64 and there is now 32-bit
->>x86-64 support. Wouldn't it make sense to move perfmon_amd.c to i386
->>and have it work in the same way as perfmon_p4.c does currently for p4
->>and em64t?
->>
-> 
-> Does Athlon have 4 counters as well. I don't have the HW so I cannot really
-> test. I suspect they are similar. If you have HW and you can test, I don't
-> have a problem.
+Digging up this from the distant past (November, 2005): 
 
-I have an Athlon machine in the office that I can test this change out 
-on and send you a diff.
+> > I see that nothing has happend to Montecito's family name
+> > in both Linus' and Tony's tree since then.
+> > 
+> > Is adding 'Itanium 2' for case 0x20 enough or do we need
+> > something different?
 
->>Could the 32-bit and 64-bit code be combined in a manner similar to
->>oprofile and avoid duplication between perfmon_em64t_pebs.c and
->>perfmon_p4_pebs.c?  pfm_{p4|em64}_ds_area and
->>pfm_{p4|em64t}_pebs_sample_entry have differences due to the upgrade
->>from 32 to 64 bit values.
->>
-> 
-> You have several issues here:
-> 	- the 64-bit version has 8 more reigsters int the PEBS entry
-> 	- the PEBS entry uses 32 or 64 bitfields depending on data model
-> 	- the ds_area uses 32 or 64 bits depending on the data model except for the threshold value
-> 
-> Now remember that on on EM64T we also support 32-bit (i386) binaries. 
-> With an EM64T kernel you would have the 64-bit PEBS format. With the same UUID if would satisfy
-> a i386 binary and this is wrong because they would not match the definition of the PEBS entry.
-> We need to keep the PEBS 32 and 64-bit format UUIDs different. At the source code level, you would
-> need to ifdef __x86_64__ and __i386__ to switch struct definition and UUID. That's doable but is
-> this clean?
+Printing "Itanium 2" hides information since that is the
+same string as we use for family 0x1f.  So this would make
+it hard/impossible for a script reading /proc/cpuinfo to tell
+whether the cpu was McKinley/Madison or Montecito.
 
-Certainly given the differences in the pebs elements there will need to 
-unique names for each. It was just a thought to factor out the similar code.
+> > Intel people may want to decide what it should be, according to
+> > their marketing/branding plan ;)
 
-There is support to handle amd64 hardware running on 32-bit kernel. Has 
-someone verified that the em64t processor generate 32-bit compatible 
-entries when running in 32-bit mode? Or does it always write out 64-bit 
-style PEBS entries?
+It seems that the branding people focus most of their time and
+energy on processor implementations, rather than on families of
+processors.  So there isn't a clear answer from them on just what
+they'd like 0x20 to be tranlated to.  One did suggest:
 
->>Why isn't Intel family 0xf model 3 not supported?
->>	Model 1,2, 4, and 5 are supported.
->>	Model 3 Pentium4 isn't that different is it?
-> 
-> 
-> I have not looked at this. I don't have a lot of P4 HW. I think that
-> all family 15 uses the same PMU. Could someone confirm this?
+family   : Dual-core Intel(r) Itanium(r) 2 processor 9000 series
 
-A NC State University professor mentioned that the ommission of model 3 
-was a problem because his machine were model 3. I suggested the addition 
-of case for model 3 processors to get him going on that.
+But that rather seriously overflows the "char family[32]" buffer into
+which it would need to be copied, doesn't fit into the style of
+earlier family names as used by Linux and might be outdated if
+we are still using family 0x20 for processors with more than two
+cores.
 
--Will
+> I'm sure they're having trouble getting that patch through Intel legal ;-)
+Marketing is a much tougher sell than legal :-)
+ 
+> Maybe we could put in a patch temporarily that calls it "Montecito",
+> then Intel can patch it to whatever the official marketing name is
+> upon release?
+
+"Montecito" would be a poor choice.  Next processor in the series is
+"Montvale", and it will also have family 0x20.
+
+> IIRC the field once was "McKinley" for Itanium2 but later replaced with
+> "Itanium 2".  So this sounds ok.  But probably as no real application
+> depends on or relies on the field, I think we can display '32' as it
+> is until the 'official' name is given.
+
+32 is good ... it even makes us more like arch/i386/kernel/cpu/proc.c
+which makes no attempt to interpret the number, just prints it in decimal.
+As a bonus, no patch is needed, nor will any future changes be needed
+as new family numbers are assigned!
+
+The only remaining question is whether we should drop the translation
+of 0x7 to "Itanium" and 0x1f to "Itanium 2", and just unconditionally
+print the family as a decimal number.  This would make it all symetrical
+(but sadly requires strong evidence that there are no applications that
+depend on the old string values for the "family" field in /proc/cpuinfo).
+
+-Tony
