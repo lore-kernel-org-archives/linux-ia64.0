@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Sat, 03 Jun 2006 18:43:17 +0000
-Subject: RE: Montecito processor family
-Message-Id: <617E1C2C70743745A92448908E030B2A3981@scsmsx411.amr.corp.intel.com>
+From: "David Mosberger-Tang" <David.Mosberger@acm.org>
+Date: Sat, 03 Jun 2006 19:23:34 +0000
+Subject: Re: Montecito processor family
+Message-Id: <ed5aea430606031223t455778aaubb2d2ee33978ca80@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42ADD890.1010406@free.fr>
 In-Reply-To: <42ADD890.1010406@free.fr>
@@ -10,27 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> That seems like a good reason for family and model to be
-> numbers straight from the hardware.  Applications can key
-> off the numbers.  Then the text "model name" string could 
-> change without breaking applications.
-> 
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 4
-> model name      : Intel(R) Pentium(R) 4 CPU 2.80GHz
-> stepping        : 1
+On 6/3/06, Luck, Tony <tony.luck@intel.com> wrote:
 
-Using PAL_BRAND_INFO on Montecito I end up with this:
+> model name : Intel(r) Itanium(r) 2 Processor 1.6GHz with 24M L3 Cache for 533MHz Platforms
 
-vendor     : GenuineIntel
-arch       : IA-64
-family     : 32
-model      : 0
-model name : Intel(r) Itanium(r) 2 Processor 1.6GHz with 24M L3 Cache for 533MHz Platforms
+Presumably this would be the same string that's used in the processor
+manuals?  If so, that would be really helpful to have.
 
-Which is stylistically pretty similar (though somewhat more verbose
-... PAL_BRAND_INFO allows for up to 127 characters + NUL so it could
-get even chattier, but at least there is an upper bound).
-
--Tony
+  --david
+-- 
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
