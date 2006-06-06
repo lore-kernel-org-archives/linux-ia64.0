@@ -1,53 +1,32 @@
-From: Greg Edwards <edwardsg@sgi.com>
-Date: Fri, 23 Jun 2006 20:45:25 +0000
-Subject: [PATCH] missed ia64 fadt_descriptor_rev2 reference
-Message-Id: <20060623204525.GA29658@sgi.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Tue, 06 Jun 2006 16:36:27 +0000
+Subject: [PATCH] sanity check reserved region usage
+Message-Id: <1149611787.5864.40.camel@lappy>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I've hit a compile error in current git due to a missed
-fadt_descriptor_rev2 -> fadt_descriptor conversion in
-arch/ia64/kernel/acpi.c:
 
-  CC      arch/ia64/kernel/acpi.o
-arch/ia64/kernel/acpi.c: In function ‘acpi_parse_fadt’:
-arch/ia64/kernel/acpi.c:632: error: dereferencing pointer to incomplete type
-arch/ia64/kernel/acpi.c:635: error: dereferencing pointer to incomplete type
-arch/ia64/kernel/acpi.c:638: error: dereferencing pointer to incomplete type
-make[1]: *** [arch/ia64/kernel/acpi.o] Error 1
-make: *** [arch/ia64/kernel] Error 2
+   One more trivial, stand-alone patch from the Xen/ia64 review.  Sanity
+check usage of the reserved region numbers.  Thanks,
 
-that came in with this changeset:
+	Alex
 
-http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;hy3c2388cae3fd023b3b5166354931752d42353c
-
-Signed-off-by: Greg Edwards <edwardsg@sgi.com>
-
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 ---
- arch/ia64/kernel/acpi.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: git-linus/arch/ia64/kernel/acpi.c
-=================================--- git-linus.orig/arch/ia64/kernel/acpi.c	2006-06-23 13:58:59.000000000 -0500
-+++ git-linus/arch/ia64/kernel/acpi.c	2006-06-23 15:21:41.588064728 -0500
-@@ -618,7 +618,7 @@ EXPORT_SYMBOL(acpi_unregister_gsi);
- static int __init acpi_parse_fadt(unsigned long phys_addr, unsigned long size)
- {
- 	struct acpi_table_header *fadt_header;
--	struct fadt_descriptor_rev2 *fadt;
-+	struct fadt_descriptor *fadt;
+diff -r d349717b8dc8 arch/ia64/kernel/setup.c
+--- a/arch/ia64/kernel/setup.c	Tue Jun 06 01:00:10 2006 +0000
++++ b/arch/ia64/kernel/setup.c	Tue Jun 06 10:34:18 2006 -0600
+@@ -260,6 +260,7 @@ reserve_memory (void)
+ 	n++;
  
- 	if (!phys_addr || !size)
- 		return -EINVAL;
-@@ -627,7 +627,7 @@ static int __init acpi_parse_fadt(unsign
- 	if (fadt_header->revision != 3)
- 		return -ENODEV;	/* Only deal with ACPI 2.0 FADT */
+ 	num_rsvd_regions = n;
++	BUG_ON(IA64_MAX_RSVD_REGIONS + 1 < n);
  
--	fadt = (struct fadt_descriptor_rev2 *)fadt_header;
-+	fadt = (struct fadt_descriptor *)fadt_header;
- 
- 	if (!(fadt->iapc_boot_arch & BAF_8042_KEYBOARD_CONTROLLER))
- 		acpi_kbd_controller_present = 0;
+ 	sort_regions(rsvd_region, num_rsvd_regions);
+ }
+
+
