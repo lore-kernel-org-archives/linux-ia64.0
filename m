@@ -1,40 +1,120 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 28 Jun 2006 19:03:40 +0000
-Subject: git pull on ia64 linux tree
-Message-Id: <200606281903.k5SJ3e2K013688@agluck-lia64.sc.intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sat, 10 Jun 2006 05:30:37 +0000
+Subject: light weight counters: race free through local_t?
+Message-Id: <Pine.LNX.4.64.0606092212200.4875@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
-In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org, ak@suse.de
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Linus,
+One way of making the light weight counters race free for x86_64 and
+i386 is to use local_t. With that those two platforms are fine.
 
-please pull from:
+However, the others fall back to atomic operations.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+Maybe we could deal with that on per platform basis? Some platforms may 
+want to switch the local_t implementation away from atomics to regular 
+integers if preemption is not configured. Most commercial Linux distros 
+ship with preempt off. So this would preserve the speed of light weight 
+counters, while holding off the worst races. But it still could allow
+interrupts while the counter is being incremented and so it would not 
+be race free. This would no longer allow the use of local_t for 
+refcounts but I think those uses are not that performance critical
+and we may just switch to atomic. Maybe I am just off in fantasyland.
 
-This will update the files shown below.
+Andi?
 
-Thanks!
+Another thing to investigate (at least on ia64) is how significant the 
+impact of a fetchadd instruction is if none of the results are used. Maybe 
+it is tolerable and we can stay with the existing implementation.
 
--Tony
+On IA64 we we would trade an interrupt disable/ load / add / store /interrupt 
+enable against one fetchadd instruction with this patch. How bad/good a 
+trade is that?
 
- arch/ia64/configs/tiger_defconfig |    2 +-
- arch/ia64/kernel/palinfo.c        |    2 +-
- arch/ia64/sn/kernel/setup.c       |   12 +++++++++---
- arch/ia64/sn/pci/tioca_provider.c |    2 +-
- include/asm-ia64/sn/sn_sal.h      |   10 ++++++++++
- 5 files changed, 22 insertions(+), 6 deletions(-)
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Aaron Young:
-      [IA64-SGI] fix prom revision checks in SN kernel
-
-Jack Steiner:
-      [IA64-SGI] - Pass OS logical cpu number to the SN prom (bios)
-
-Tony Luck:
-      [IA64] palinfo.c: s/register_cpu_notifier/register_hotcpu_notifier/
-      [IA64] tiger_defconfig s/NR_CPUS=4/NR_CPUS/
+Index: linux-2.6.17-rc6-mm1/mm/page_alloc.c
+=================================--- linux-2.6.17-rc6-mm1.orig/mm/page_alloc.c	2006-06-09 17:51:18.789713315 -0700
++++ linux-2.6.17-rc6-mm1/mm/page_alloc.c	2006-06-09 22:06:09.491210492 -0700
+@@ -1583,7 +1583,7 @@ static void show_node(struct zone *zone)
+ #endif
+ 
+ #ifdef CONFIG_VM_EVENT_COUNTERS
+-DEFINE_PER_CPU(struct vm_event_state, vm_event_states) = {{0}};
++DEFINE_PER_CPU(struct vm_event_state, vm_event_states) = {{LOCAL_INIT(0)}};
+ 
+ static void sum_vm_events(unsigned long *ret, cpumask_t *cpumask)
+ {
+@@ -1603,7 +1603,7 @@ static void sum_vm_events(unsigned long 
+ 
+ 
+ 		for (i=0; i< NR_VM_EVENT_ITEMS; i++)
+-			ret[i] += this->event[i];
++			ret[i] += local_read(&this->event[i]);
+ 	}
+ }
+ 
+@@ -2881,7 +2881,7 @@ static void vm_events_fold_cpu(int cpu)
+ 
+ 	for (i = 0; i < NR_VM_EVENT_ITEMS; i++) {
+ 		count_vm_events(i, fold_state->event[i]);
+-		fold_state->event[i] = 0;
++		local_set(fold_state->event[i], 0);
+ 	}
+ }
+ 
+Index: linux-2.6.17-rc6-mm1/include/linux/page-flags.h
+=================================--- linux-2.6.17-rc6-mm1.orig/include/linux/page-flags.h	2006-06-09 22:06:18.001424043 -0700
++++ linux-2.6.17-rc6-mm1/include/linux/page-flags.h	2006-06-09 22:29:48.581945624 -0700
+@@ -8,7 +8,7 @@
+ #include <linux/percpu.h>
+ #include <linux/cache.h>
+ #include <linux/types.h>
+-
++#include <asm/local.h>
+ #include <asm/pgtable.h>
+ 
+ /*
+@@ -108,10 +108,6 @@
+ /*
+  * Light weight per cpu counter implementation.
+  *
+- * Note that these can race. We do not bother to enable preemption
+- * or care about interrupt races. All we care about is to have some
+- * approximate count of events.
+- *
+  * Counters should only be incremented and no critical kernel component
+  * should rely on the counter values.
+  *
+@@ -134,24 +130,24 @@ enum vm_event_item { PGPGIN, PGPGOUT, PS
+ };
+ 
+ struct vm_event_state {
+-	unsigned long event[NR_VM_EVENT_ITEMS];
++	local_t event[NR_VM_EVENT_ITEMS];
+ };
+ 
+ DECLARE_PER_CPU(struct vm_event_state, vm_event_states);
+ 
+ static inline unsigned long get_cpu_vm_events(enum vm_event_item item)
+ {
+-	return __get_cpu_var(vm_event_states).event[item];
++	cpu_local_read(vm_event_states.event[item]);
+ }
+ 
+ static inline void count_vm_event(enum vm_event_item item)
+ {
+-	__get_cpu_var(vm_event_states).event[item]++;
++	cpu_local_inc(vm_event_states.event[item]);
+ }
+ 
+ static inline void count_vm_events(enum vm_event_item item, long delta)
+ {
+-	__get_cpu_var(vm_event_states).event[item] += delta;
++	cpu_local_add(delta, vm_event_states.event[item]);
+ }
+ 
+ extern void all_vm_events(unsigned long *);
