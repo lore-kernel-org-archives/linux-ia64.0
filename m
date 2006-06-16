@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 15 Jun 2006 21:21:41 +0000
+Date: Fri, 16 Jun 2006 00:48:38 +0000
 Subject: RE: [RFC][PATCH]fix search_extable() to find correct entry
-Message-Id: <000101c690c1$b4444a20$e434030a@amr.corp.intel.com>
+Message-Id: <001101c690de$9ba88590$e434030a@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44916017.5050006@sdl.hitachi.co.jp>
 In-Reply-To: <44916017.5050006@sdl.hitachi.co.jp>
@@ -19,23 +19,43 @@ Masami Hiramatsu wrote on Thursday, June 15, 2006 6:27 AM
 > fails to find the corresponding entry.
 > You can check it by dumping __ex_table section of vmlinux.
 
-
-Are you sure about the exception table being wrong?  A quick look on my
-system indicates that the compiler only generate bundle address, there
-is no inter-bundle address in the exception table.
-
-I can explain the data in continuation address. Since there is no exception
-code that starts at inter-bundle address, it should always be bundle aligned,
-i.e., slot will always be zero.
-
-But the tag address in the table is also bundle aligned, which I will look
-a bit more.
+Chen, Kenneth W wrote on Thursday, June 15, 2006 2:22 PM
+> But the tag address in the table is also bundle aligned, which I will
+> look a bit more.
 
 
-# gcc -v
-Reading specs from /usr/lib/gcc/ia64-redhat-linux/3.4.5/specs
-Configured with: ../configure --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --enable-shared --enable-threads=posix
---disable-checking --with-system-zlib --enable-__cxa_atexit --disable-libunwind-exceptions --enable-java-awt=gtk
---host=ia64-redhat-linux
-Thread model: posix
-gcc version 3.4.5 20051201 (Red Hat 3.4.5-2)
+I've double checked (triple checked with sample test code below).  It's a
+false alarm. Everyone should rest assure that exception table and compiler
+do match and generates correct code.  There is no bug AFAICT.
+
+
+Test code:
+
+#include <linux/config.h>
+#include <asm/asmmacro.h>
+
+GLOBAL_ENTRY(ken)
+        EX(eh0, ld1 r32 = [r0])
+        EX(eh1, ld1 r33 = [r0])
+        nop 0
+        ;;
+[eh0:] br.ret.sptk b0
+[eh1:] br.ret.sptk b0
+
+END(ken)
+
+
+Exception table entry for eh0 and eh1:
+
+0xa0000001004bc828   ffff7518 ffff7524 ffff7511 ffff751d
+
+
+objdump of test code:
+
+a0000001004b3d40:    ld1 r32=[r0]
+a0000001004b3d46:    ld1 r33=[r0]
+a0000001004b3d4c:    nop.i 0x0;;
+a0000001004b3d50:    br.ret.sptk.few b0
+a0000001004b3d56:    br.ret.sptk.few b0
+a0000001004b3d5c:    nop.b 0x0;;
+
