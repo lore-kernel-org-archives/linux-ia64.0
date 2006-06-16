@@ -1,45 +1,80 @@
-From: Nigel Cunningham <ncunningham@linuxmail.org>
-Date: Tue, 27 Jun 2006 12:06:56 +0000
-Subject: Re: Announce: kdb v4.4 is available for kernel 2.6.17
-Message-Id: <200606272207.00932.ncunningham@linuxmail.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart2068402.ck6OzIOpQ9"
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 16 Jun 2006 09:48:03 +0000
+Subject: Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
+Message-Id: <yq0ejxp2zzg.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16552.1151408715@ocs3.ocs.com.au>
-In-Reply-To: <16552.1151408715@ocs3.ocs.com.au>
-To: Keith Owens <kaos@sgi.com>
-Cc: kdb@oss.sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+References: <200606140942.31150.ak@suse.de>
+	<12c511ca0606151144i140c21e5w90dd948af9b536a4@mail.gmail.com>
+	<200606160822.23898.ak@suse.de>
+In-Reply-To: <200606160822.23898.ak@suse.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andi Kleen <ak@suse.de>
+Cc: Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
---nextPart2068402.ck6OzIOpQ9
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+>>>>> "Andi" = Andi Kleen <ak@suse.de> writes:
 
-Hi.
+Andi> On Thursday 15 June 2006 20:44, Tony Luck wrote:
+>> Another alternative would be to provide a mechanism for a process
+>> to bind to the current cpu (whatever cpu that happens to be).  Then
+>> the kernel gets to make the smart placement decisions, and
+>> processes that want to be bound somewhere (but don't really care
+>> exactly where) have a way to meet their need.  Perhaps a cpumask of
+>> all zeroes to a sched_setaffinity call could be overloaded for
+>> this?
 
-On Tuesday 27 June 2006 21:45, Keith Owens wrote:
-> SGI is now supporting KDB for x86_64.  Thanks go to Jack Vogel for
-> looking after the x86_64 patch in the past.
+Andi> I tried something like this a few years ago and it just didn't
+Andi> work (or rather ran usually slower) The scheduler would select a
+Andi> home node at startup and then try to move the process there.
 
-Yay! Thank you!
+Andi> The problem is that not using a CPU costs you much more than
+Andi> whatever overhead you get from using non local memory.
 
-Nigel
-=2D-=20
-Nigel, Michelle and Alisdair Cunningham
-5 Mitchell Street
-Cobden 3266
-Victoria, Australia
+It all depends on your application and the type of system you are
+running on. What you say applies to smaller cpu counts. However once
+we see the upcoming larger count multi-core cpus become commonly
+available, this is likely to change and become more like what is seen
+today on larger NUMA systems.
 
---nextPart2068402.ck6OzIOpQ9
-Content-Type: application/pgp-signature
+In the scientific application space, there are two very common
+groupings of jobs. One is simply a large threaded application with a
+lot of intercommunication, often via MPI. In many cases one ends up
+running a job on just a subset of the system, in which case you want
+to see threads placed on the same node(s) to minimize internode
+communication. It is desirable to either force the other tasks on the
+system (system daemons etc) onto other node(s) to reduce noise and
+there could also be space to run another parallel job on the remaining
+node(s).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.1 (GNU/Linux)
+The other common case is to have jobs which spawn off a number of
+threads that work together in groups (via OpenMP). In this case you
+would like to have all your OpenMP threads placed on the same node for
+similar reasons.
 
-iD8DBQBEoR9kN0y+n1M3mo0RAkIGAJ9CDffsC9Ak5LUKown1ngWcuT1EfwCfbhiP
-9GlOYdgw597nmvbJ6whqV3U=
-=pP80
------END PGP SIGNATURE-----
+Not getting this right can result in significant loss of performance
+for jobs which are highly memory bound or rely heavily on
+intercommunication and synchronization.
 
---nextPart2068402.ck6OzIOpQ9--
+Andi> So by default filling the CPUs must be the highest priority and
+Andi> memory policy cannot interfere with that.
+
+I really don't think this approach is going to solve the problem. As
+Tony also points out, tasks will eventually migrate. The user needs to
+tell the kernel where it wants to run the tasks rather than the kernel
+telling the task where it is located. Only the application (or
+developer/user) knows how the threads are expected to behave, doing
+this automatically is almost never going to be optimal. Obviously the
+user needs visibility of the topology of the machine to do so but that
+should be available on any NUMA system through /proc or /sys.
+
+In the scientific space the jobs are often run repeatedly with new
+data sets every time, so it is worthwhile to spend the effort up front
+to get the placement right. One-off runs are obviously something else
+and there your method is going to be more beneficial.
+
+IMHO, what we really need is a more advanced way for user applications
+to hint at the kernel how to place it's threads.
+
+Cheers,
+Jes
