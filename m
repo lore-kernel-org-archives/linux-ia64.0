@@ -1,61 +1,79 @@
-From: Andi Kleen <ak@suse.de>
-Date: Fri, 16 Jun 2006 10:09:25 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 16 Jun 2006 11:02:09 +0000
 Subject: Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
-Message-Id: <200606161209.25266.ak@suse.de>
+Message-Id: <44928FB1.5070107@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606140942.31150.ak@suse.de> <200606160822.23898.ak@suse.de> <yq0ejxp2zzg.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0ejxp2zzg.fsf@jaguar.mkp.net>
+References: <200606140942.31150.ak@suse.de> <200606160822.23898.ak@suse.de> <yq0ejxp2zzg.fsf@jaguar.mkp.net> <200606161209.25266.ak@suse.de>
+In-Reply-To: <200606161209.25266.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
+To: Andi Kleen <ak@suse.de>
 Cc: Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
-
-> It all depends on your application and the type of system you are
-> running on. What you say applies to smaller cpu counts. However once
-> we see the upcoming larger count multi-core cpus become commonly
-> available, this is likely to change and become more like what is seen
-> today on larger NUMA systems.
-
-Maybe. Maybe not. 
-
+Andi Kleen wrote:
+>> In the scientific application space, there are two very common
+>> groupings of jobs.
 > 
-> In the scientific application space, there are two very common
-> groupings of jobs.
+> The scientific users just use pinned CPUs and seem to be happy with that.
+> They also have cheap slav^wgrade students to spend lots of time on
+> manual tuning.  I'm not concerned about them. 
 
-The scientific users just use pinned CPUs and seem to be happy with that.
-They also have cheap slav^wgrade students to spend lots of time on
-manual tuning.  I'm not concerned about them. 
+Do they? There's a lot of scientific sites out there which are not
+universities or research organizations. They do not have free slave
+labour at hand. A lot of users fall into this category, especially the
+users with larger systems or large clusters (be it ia64, x86_64 or PPC).
 
-If you already use CPU affinity you should already know where you are and don't 
-need this call at all.
+> If you already use CPU affinity you should already know where you are and don't 
+> need this call at all.
 
-So this clearly isn't targetted for them. 
+Except that whats currently available isn't sufficient to do what is
+needed.
 
-Interesting is getting the best performance from general purpose applications 
-without any special tuning. For them I'm trying to improve things.
+> So this clearly isn't targetted for them. 
+>
+> Interesting is getting the best performance from general purpose applications 
+> without any special tuning. For them I'm trying to improve things.
 
-Number one applications currently are databases and JVMs. I hope with 
-Wolfam's malloc work it will be useful for more applications too. 
+Well I am interested in getting the best performance for some of the
+same applications, without having to modify them. The current affinity
+support simply isn't sufficient for that. Placement has to be targetted
+at launch time since thread implementations can change the layout etc.
 
-> Andi> So by default filling the CPUs must be the highest priority and
-> Andi> memory policy cannot interfere with that.
+> Number one applications currently are databases and JVMs. I hope with 
+> Wolfam's malloc work it will be useful for more applications too. 
+
+If you want this to work for general purpose applications, then how is
+this new syscall going to help? If you expect application vendors to
+code for it, that means few users will benefit.
+
+>> I really don't think this approach is going to solve the problem. As
+>> Tony also points out, tasks will eventually migrate.
 > 
-> I really don't think this approach is going to solve the problem. As
-> Tony also points out, tasks will eventually migrate.
+> Currently we don't solve this problem with the standard heuristics.
+> It can be solved with manual tuning (mempolicy, explicit CPU affinity)
+> but if you're doing that you're already out side the primary use 
+> case of vgetcpu().
 
-Currently we don't solve this problem with the standard heuristics.
-It can be solved with manual tuning (mempolicy, explicit CPU affinity)
-but if you're doing that you're already out side the primary use 
-case of vgetcpu().
+This is another area where the kernel could do better by possibly using
+the cpumask to determine where it will allocate memory.
 
-vgetcpu() is only trying to be a incremental improvement of the current
-simple default local policy.
+> vgetcpu() is only trying to be a incremental improvement of the current
+> simple default local policy.
 
-> The user needs to 
+As Tony rightfully pointed out, tasks do migrate. By making this guess
+initially and then expecting the application to run for a long time,
+you will end up with it having zero or possibly a negative effect.
 
-Scientific users do that, but other users normally not. I doubt that
-is going to change.
+>> The user needs to 
+> 
+> Scientific users do that, but other users normally not. I doubt that
+> is going to change.
 
--Andi
+I just use scientific users since thats where I have the most recent
+detailed data from. Databases could well benefit from what I mentioned,
+though the serious ones would want to look into using affinity support
+explicitly in their code.
+
+Cheers,
+Jes
