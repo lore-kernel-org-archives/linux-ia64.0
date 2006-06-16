@@ -1,47 +1,46 @@
 From: Chase Venters <chase.venters@clientec.com>
-Date: Fri, 16 Jun 2006 21:04:36 +0000
+Date: Fri, 16 Jun 2006 21:12:05 +0000
 Subject: Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
-Message-Id: <Pine.LNX.4.64.0606161601590.23743@turbotaz.ourhouse>
+Message-Id: <Pine.LNX.4.64.0606161607240.23743@turbotaz.ourhouse>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606140942.31150.ak@suse.de> <200606161209.25266.ak@suse.de>
- <44928FB1.5070107@sgi.com> <200606161317.19296.ak@suse.de> <44929CE6.4@sgi.com>
- <4492A5E4.9050702@bull.net> <4492A6E6.3090805@sgi.com> <4492A8A1.5000101@bull.net>
-In-Reply-To: <4492A8A1.5000101@bull.net>
+References: <200606140942.31150.ak@suse.de> <44929CE6.4@sgi.com>
+ <4492A5E4.9050702@bull.net> <200606161656.40930.ak@suse.de> <4492CEC0.2080102@bull.net>
+In-Reply-To: <4492CEC0.2080102@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: Jes Sorensen <jes@sgi.com>, Andi Kleen <ak@suse.de>, Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
+Cc: Andi Kleen <ak@suse.de>, Jes Sorensen <jes@sgi.com>, Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
 On Fri, 16 Jun 2006, Zoltan Menyhart wrote:
 
-> Jes Sorensen wrote:
->>  Zoltan Menyhart wrote:
->> 
->> > Just to make sure I understand it correctly...
->> > Assuming I have allocated per CPU data (numa control, etc.) pointed at 
->> > by:
->>
->>
->>  I think you misunderstood - vgetcpu is for userland usage, not within
->>  the kernel.
->>
->>  Cheers,
->>  Jes
->> 
-> I did understand it as a user land stuff.
-> This is why I want to map the current task structure into the user space.
-> In user code, we could see the actual value of the 
-> "current->thread_info.cpu".
-> My "#define current ((struct task_struct *) 0x...)" is not the same as
-> the kernel's one.
-
-I think it's probably best to leave most of the stuff in task_struct 
-private (ie, mapped in kernel only).
-
-> Thanks,
+> Andi Kleen wrote:
 >
-> Zoltan
+>>  That is not how user space TLS works. It usually has a base a register.
+>
+> Can you please give me a real life (simplified) example?
+>
+>>  This means it cannot be cache colored (because you would need a static
+>>  offset) and you couldn't share task_structs on a page.
+>
+> I do not see the problem. Can you explain please?
+> E.g. the scheduler pulls a task instead of the current one. The CPU
+> will see "current->thread_info.cpu"-s of all the tasks at the same
+> offset anyway.
+
+Memory maps have to fall on page boundaries for lots of various reasons. 
+Assuming a 16-word cache line, you've got plenty of spots you could align 
+task_struct to within a page. (That number of spots is actually 
+constrained by either sizeof(task_struct) or the number of colors).
+
+The bottom line is that task_struct won't always be on a page boundary. If 
+it's not on a page boundary in the physical page frames, it's not going to 
+be on a page boundary in virtual memory either.
+
+(Note also that if two task_structs shared a page, you'd have an 
+information leak. I'm not sure with sizeof(task_struct) and cache 
+alignment if task_structs are small enough for sharing, though. Definitely 
+on hugepages.)
 
 Thanks,
 Chase
