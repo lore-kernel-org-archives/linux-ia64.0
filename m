@@ -1,80 +1,61 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Fri, 16 Jun 2006 09:48:03 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Fri, 16 Jun 2006 10:09:25 +0000
 Subject: Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
-Message-Id: <yq0ejxp2zzg.fsf@jaguar.mkp.net>
+Message-Id: <200606161209.25266.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606140942.31150.ak@suse.de>
-	<12c511ca0606151144i140c21e5w90dd948af9b536a4@mail.gmail.com>
-	<200606160822.23898.ak@suse.de>
-In-Reply-To: <200606160822.23898.ak@suse.de>
+References: <200606140942.31150.ak@suse.de> <200606160822.23898.ak@suse.de> <yq0ejxp2zzg.fsf@jaguar.mkp.net>
+In-Reply-To: <yq0ejxp2zzg.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
+To: Jes Sorensen <jes@sgi.com>
 Cc: Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
->>>>> "Andi" = Andi Kleen <ak@suse.de> writes:
 
-Andi> On Thursday 15 June 2006 20:44, Tony Luck wrote:
->> Another alternative would be to provide a mechanism for a process
->> to bind to the current cpu (whatever cpu that happens to be).  Then
->> the kernel gets to make the smart placement decisions, and
->> processes that want to be bound somewhere (but don't really care
->> exactly where) have a way to meet their need.  Perhaps a cpumask of
->> all zeroes to a sched_setaffinity call could be overloaded for
->> this?
+> It all depends on your application and the type of system you are
+> running on. What you say applies to smaller cpu counts. However once
+> we see the upcoming larger count multi-core cpus become commonly
+> available, this is likely to change and become more like what is seen
+> today on larger NUMA systems.
 
-Andi> I tried something like this a few years ago and it just didn't
-Andi> work (or rather ran usually slower) The scheduler would select a
-Andi> home node at startup and then try to move the process there.
+Maybe. Maybe not. 
 
-Andi> The problem is that not using a CPU costs you much more than
-Andi> whatever overhead you get from using non local memory.
+> 
+> In the scientific application space, there are two very common
+> groupings of jobs.
 
-It all depends on your application and the type of system you are
-running on. What you say applies to smaller cpu counts. However once
-we see the upcoming larger count multi-core cpus become commonly
-available, this is likely to change and become more like what is seen
-today on larger NUMA systems.
+The scientific users just use pinned CPUs and seem to be happy with that.
+They also have cheap slav^wgrade students to spend lots of time on
+manual tuning.  I'm not concerned about them. 
 
-In the scientific application space, there are two very common
-groupings of jobs. One is simply a large threaded application with a
-lot of intercommunication, often via MPI. In many cases one ends up
-running a job on just a subset of the system, in which case you want
-to see threads placed on the same node(s) to minimize internode
-communication. It is desirable to either force the other tasks on the
-system (system daemons etc) onto other node(s) to reduce noise and
-there could also be space to run another parallel job on the remaining
-node(s).
+If you already use CPU affinity you should already know where you are and don't 
+need this call at all.
 
-The other common case is to have jobs which spawn off a number of
-threads that work together in groups (via OpenMP). In this case you
-would like to have all your OpenMP threads placed on the same node for
-similar reasons.
+So this clearly isn't targetted for them. 
 
-Not getting this right can result in significant loss of performance
-for jobs which are highly memory bound or rely heavily on
-intercommunication and synchronization.
+Interesting is getting the best performance from general purpose applications 
+without any special tuning. For them I'm trying to improve things.
 
-Andi> So by default filling the CPUs must be the highest priority and
-Andi> memory policy cannot interfere with that.
+Number one applications currently are databases and JVMs. I hope with 
+Wolfam's malloc work it will be useful for more applications too. 
 
-I really don't think this approach is going to solve the problem. As
-Tony also points out, tasks will eventually migrate. The user needs to
-tell the kernel where it wants to run the tasks rather than the kernel
-telling the task where it is located. Only the application (or
-developer/user) knows how the threads are expected to behave, doing
-this automatically is almost never going to be optimal. Obviously the
-user needs visibility of the topology of the machine to do so but that
-should be available on any NUMA system through /proc or /sys.
+> Andi> So by default filling the CPUs must be the highest priority and
+> Andi> memory policy cannot interfere with that.
+> 
+> I really don't think this approach is going to solve the problem. As
+> Tony also points out, tasks will eventually migrate.
 
-In the scientific space the jobs are often run repeatedly with new
-data sets every time, so it is worthwhile to spend the effort up front
-to get the placement right. One-off runs are obviously something else
-and there your method is going to be more beneficial.
+Currently we don't solve this problem with the standard heuristics.
+It can be solved with manual tuning (mempolicy, explicit CPU affinity)
+but if you're doing that you're already out side the primary use 
+case of vgetcpu().
 
-IMHO, what we really need is a more advanced way for user applications
-to hint at the kernel how to place it's threads.
+vgetcpu() is only trying to be a incremental improvement of the current
+simple default local policy.
 
-Cheers,
-Jes
+> The user needs to 
+
+Scientific users do that, but other users normally not. I doubt that
+is going to change.
+
+-Andi
