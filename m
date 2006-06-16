@@ -1,23 +1,47 @@
-From: Jakub Jelinek <jakub@redhat.com>
-Date: Fri, 16 Jun 2006 16:33:15 +0000
+From: Chase Venters <chase.venters@clientec.com>
+Date: Fri, 16 Jun 2006 21:04:36 +0000
 Subject: Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
-Message-Id: <20060616163315.GO3823@sunsite.mff.cuni.cz>
+Message-Id: <Pine.LNX.4.64.0606161601590.23743@turbotaz.ourhouse>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606140942.31150.ak@suse.de> <200606161737.06132.ak@suse.de> <20060616155804.GN3823@sunsite.mff.cuni.cz> <200606161824.52620.ak@suse.de>
-In-Reply-To: <200606161824.52620.ak@suse.de>
+References: <200606140942.31150.ak@suse.de> <200606161209.25266.ak@suse.de>
+ <44928FB1.5070107@sgi.com> <200606161317.19296.ak@suse.de> <44929CE6.4@sgi.com>
+ <4492A5E4.9050702@bull.net> <4492A6E6.3090805@sgi.com> <4492A8A1.5000101@bull.net>
+In-Reply-To: <4492A8A1.5000101@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Zoltan Menyhart <Zoltan.Menyhart@bull.net>, Jes Sorensen <jes@sgi.com>, Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
+To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Cc: Jes Sorensen <jes@sgi.com>, Andi Kleen <ak@suse.de>, Tony Luck <tony.luck@intel.com>, discuss@x86-64.org, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
-On Fri, Jun 16, 2006 at 06:24:52PM +0200, Andi Kleen wrote:
-> I wonder why it happened on x86-64 though - i thought there were no negative
-> offsets on x86-64 TLS.
+On Fri, 16 Jun 2006, Zoltan Menyhart wrote:
 
-It uses negative offsets for __thread vars and positive are reserved for
-implementation (i.e. glibc).  But as %fs in 64-bit programs is just
-msr 0xc0000100 base addition, with no segment limit, neither Xen nor VMWare
-can play limit tricks with it.
+> Jes Sorensen wrote:
+>>  Zoltan Menyhart wrote:
+>> 
+>> > Just to make sure I understand it correctly...
+>> > Assuming I have allocated per CPU data (numa control, etc.) pointed at 
+>> > by:
+>>
+>>
+>>  I think you misunderstood - vgetcpu is for userland usage, not within
+>>  the kernel.
+>>
+>>  Cheers,
+>>  Jes
+>> 
+> I did understand it as a user land stuff.
+> This is why I want to map the current task structure into the user space.
+> In user code, we could see the actual value of the 
+> "current->thread_info.cpu".
+> My "#define current ((struct task_struct *) 0x...)" is not the same as
+> the kernel's one.
 
-	Jakub
+I think it's probably best to leave most of the stuff in task_struct 
+private (ie, mapped in kernel only).
+
+> Thanks,
+>
+> Zoltan
+
+Thanks,
+Chase
