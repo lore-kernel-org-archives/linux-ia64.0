@@ -1,98 +1,94 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 01 Jun 2006 06:35:47 +0000
-Subject: Re: Problems with MSI-X on ia64
-Message-Id: <20060601063547.GA5531@esmail.cup.hp.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Mon, 19 Jun 2006 20:40:12 +0000
+Subject: perfmon2 vector argument question
+Message-Id: <20060619204012.GE26378@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <D4CFB69C345C394284E4B78B876C1CF10B848090@cceexc23.americas.cpqcorp.net> <20060217075829.GB22451@esmail.cup.hp.com>
-In-Reply-To: <20060217075829.GB22451@esmail.cup.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <gregkh@suse.de>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, perfmon@napali.hpl.hp.com
 
-On Thu, Feb 16, 2006 at 11:58:29PM -0800, Grant Grundler wrote:
-> Log Entry:
-...
-> 	Second part of this patch deals with "useless" code.
-> 	We walk through the steps to find the phys_addr and then
-> 	don't use the result. I suspect the intent was to zero
-> 	out the respective MSI-X entry but I'm not sure at the moment.
-> 	Delete the code inside the #if 0/#endif if it's really
-> 	not needed.
+Hello,
 
-The code is really not needed.
-Roland Dreier/Greg KH removed the release_mem_region() calls that
-were the only consumers of phys_addr:
-	http://www.ussg.iu.edu/hypermail/linux/kernel/0503.0/1540.html
+The current perfmon2 API allows applications to pass vectors of arguments to
+certain calls, in particular to the 3 functions to read/write PMU registers. 
+This approach was chosen because it is very flexible and allows applications
+to modify either multiple or a single register in one call. It is extensible
+because there is no implicit knowledge of the actual number of registers supported
+by the underlying hardware.
 
-patch below deletes the "dead" code.
+Before entering the actual system call, the argument vector must be copied
+into a kernel buffer. This is required by convention for security and also
+fault reasons. The famous copy_from_user() and copy_to_user() are invoked.
+This must be done before interrupts are masked.
 
-thanks,
-grant
+Vectors can have different sizes depending on the measurement, the PMU model.
+Yet, the vector must be copied into a kernel-level buffer. Today, we allocate
+the kernel-memory on demand based on the size of the vector. We use
+kmalloc/kfree. Of course, to avoid any abuse, we limit the size of the
+allocated region via a perfmon2 tunable in sysfs. By default, it is set
+to a page.
 
-Signed-off-by: Grant Grundler <iod00d@hp.com>
+This implementation has worked fairly well, yet it costs some performance
+because kmalloc/kfree are expensive (especially kfree). Also it may seem
+overkill to malloc a page for small vectors.
 
+I have run some experiments lately and they verified that kmalloc/kfree and
+copy to/from user account for a very large portion of the cost of calls with
+multiple registers (I tried with 4). For the copies it is hard to avoid
+them. One thing we could do is to try and reduce the size of the structs.
+Today, both struct pfarg_pmd and struct pfarg_pmc have reserved fields
+for future extensions so that we can extend without breaking the ABI.
+It may be possible to reduce those a little bit.
 
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -1008,33 +1008,8 @@ static int msi_free_vector(struct pci_de
- 				entry_nr * PCI_MSIX_ENTRY_SIZE +
- 				PCI_MSIX_ENTRY_VECTOR_CTRL_OFFSET);
- 
--		if (head = vector) {
--			/*
--			 * Detect last MSI-X vector to be released.
--			 * Release the MSI-X memory-mapped table.
--			 */
--#if 0
--			int pos, nr_entries;
--			unsigned long phys_addr;
--			u32 table_offset;
--			u16 control;
--			u8 bir;
--
--   			pos = pci_find_capability(dev, PCI_CAP_ID_MSIX);
--			pci_read_config_word(dev, msi_control_reg(pos),
--				&control);
--			nr_entries = multi_msix_capable(control);
--			pci_read_config_dword(dev, msix_table_offset_reg(pos),
--				&table_offset);
--			bir = (u8)(table_offset & PCI_MSIX_FLAGS_BIRMASK);
--			table_offset &= ~PCI_MSIX_FLAGS_BIRMASK;
--			phys_addr = pci_resource_start(dev, bir) + table_offset;
--/*
-- * FIXME!  and what did you want to do with phys_addr?
-- */
--#endif
-+		if (head = vector)
- 			iounmap(base);
--		}
- 	}
- 
- 	return 0;
-@@ -1300,24 +1275,6 @@ void msi_remove_pci_irq_vectors(struct p
- 		}
- 		msi_free_vector(dev, vector, 0);
- 		if (warning) {
--			/* Force to release the MSI-X memory-mapped table */
--#if 0
--			unsigned long phys_addr;
--			u32 table_offset;
--			u16 control;
--			u8 bir;
--
--			pci_read_config_word(dev, msi_control_reg(pos),
--				&control);
--			pci_read_config_dword(dev, msix_table_offset_reg(pos),
--				&table_offset);
--			bir = (u8)(table_offset & PCI_MSIX_FLAGS_BIRMASK);
--			table_offset &= ~PCI_MSIX_FLAGS_BIRMASK;
--			phys_addr = pci_resource_start(dev, bir) + table_offset;
--/*
-- * FIXME! and what did you want to do with phys_addr?
-- */
--#endif
- 			iounmap(base);
- 			printk(KERN_WARNING "PCI: %s: msi_remove_pci_irq_vectors() "
- 			       "called without free_irq() on all MSI-X vectors\n",
+There are several ways to amortize or eliminate the kmalloc/kfree. First of
+all, it is important to understand that multiple threads may call into a 
+particular context at any time. All they need is access to the file descriptor.
+
+An alternative that I have explored is to start from the hypothesis that
+most vectors are small. If they are small enough, we could avoid the
+kmalloc/kfree by using a buffer allocated on the stack. One could say
+if the vector is less than 8 elements, then use the stack buffer. If not, then
+go down the expensive path of kmalloc/kfree. I tried this experiment and got
+over 20% improvement for pfm_read_pmds(). I chose 8 as the threshold. The
+downside of this approach is that kernel stack space is limited and we should
+avoid allocating large buffers on it. The pfarg_pmd struct is about 176 bytes
+whereas pfarg_pmc_t is about 48 bytes. With 8 elements we reach 1408 bytes and
+this is true for all architectures including i386 where default kernel stack
+is 2 pages (8kB). Of course, the stack buffer could be adjusted per object
+type and per-architecture. The downside is that if you need to use kmalloc
+the stack space is still consumed.
+
+It is important to note that we cannot use a kernel buffer of one element and simply
+loop over the vector. Because the copy_from/copy_to must be done without locks nor
+interrupt masked. So one  would have to copy, lock, do the perfmon call, unlock, copy
+and loop for the next element.
+
+Another approach that was suggested to me is to allocate on demand but not kfree
+systematically when the call terminates. In other words, we amortize the cost
+of the allocation by keeping the buffer around for the next caller. To make
+this work, we would have to decompose the spin_lock_irq*() into spin_*lock()
+and local_irq_*able() to avoid a race condition. For the first caller the
+buffer would be allocated to fit the size (up to a certain limit like today).
+When the call terminates, the buffer is kept via a pointer in the perfmon
+context. The next caller, would check the pointer and size, if the buffer
+is big enough, copy_user could proceed directly, otherwise a new buffer would
+be allocated. That would also work assuming it is OKAY to copy_user with some locks
+held. I can see one issue with this approach as some malicious user could create
+lots of contexts and make one call for each to max out the argument vector limit for
+each. If you have 1024 descriptors and the limit is 1 page/context, it could allocate
+1024 kernel pages (non-pageable) for nothing. Today, we do not have a global tuneable
+for the argument vector size limit. Adding one would be costly because multiple threads
+could potentially contend for it and therefore we would need yet another lock.
+
+I do not see another approach at this point.
+
+Does someone have something else to propose?
+
+If not, what is your opinion of the two approaches above?
+
+Thanks.
+
+-- 
+-Stephane
