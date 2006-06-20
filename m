@@ -1,29 +1,70 @@
-From: Andi Kleen <ak@suse.de>
-Date: Mon, 19 Jun 2006 08:54:29 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 20 Jun 2006 08:28:36 +0000
 Subject: Re: [discuss] Re: FOR REVIEW: New x86-64 vsyscall vgetcpu()
-Message-Id: <200606191054.29543.ak@suse.de>
+Message-Id: <4497B1B4.3020307@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606140942.31150.ak@suse.de> <200606170855.49123.ak@suse.de> <44966383.1030006@bull.net>
-In-Reply-To: <44966383.1030006@bull.net>
+References: <200606140942.31150.ak@suse.de> <200606161317.19296.ak@suse.de> <44929CE6.4@sgi.com> <200606161654.15881.ak@suse.de>
+In-Reply-To: <200606161654.15881.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: discuss@x86-64.org, Chase Venters <chase.venters@clientec.com>, Brent Casavant <bcasavan@sgi.com>, Jes Sorensen <jes@sgi.com>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Cc: discuss@x86-64.org, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, libc-alpha@sourceware.org, vojtech@suse.cz, linux-ia64@vger.kernel.org
 
+Andi Kleen wrote:
+>> I really don't see the benefit here. malloc already gets pages handed
+>> down from the kernel which are node local due to them being assigned at
+>> a first touch basis. I am not sure about glibc's malloc internals, but
+>> rather rely on a vgetcpu() call, all it really needs to do is to keep
+>> a thread local pool which will automatically get it's thing locally
+>> through first touch usage.
+> 
+> That would add too much overhead on small systems. It's better to be 
+> able to share the pools. vgetcpu allows that.
 
-> Probably I have not explained it correctly:
-> - The "information page" (that includes the current CPU no.) is not a
->   per CPU page
+How do you expect to be able to share the pools? Or are you saying you
+just one page per numa node? Having a page per thread is not noticable
+and for databases, which was your primary target usergroup, I think it's
+fair to see it won't even be visible as noise.
 
-If it isn't then you can't figure out the current CPU/node for a thread.
+>>> Basically it is just for extending the existing already used proven etc.
+>>> default local policy to sub pages. Also there might be other uses
+>>> of it too (like per CPU data), although I expect most use of that
+>>> in user space can be already done using TLS.
+>> The thread libraries already have their own thread local area which
+>> should be allocated on the thread's own node if done right, which I
+>> assume it is.
+> 
+> - The heap for small allocations is shared (although this can be tuned) 
+> - When another thread does free() you need special handling to keep
+> the item in the correct free lists
+> This is one of the tricky bits in the new kernel NUMA slab allocator
+> too.
 
-Anyways I think we're talking past each other. Your approach might
-even work on ia64 (at least if you're willing to add a lot of cost
-to the context switch). You presumably could implement vgetcpu()
-internally with an approach like this (although with IA64's fast 
-EPC calls it seems a bit pointless) 
+It should be pretty easy to make the allocator aware of the per thread
+regions based on the address.
 
-It just won't work on x86. 
+>> If you migrate your app elsewhere, you should migrate the pages with it,
+>> or not expect things to run with the local effect.
+> 
+> That's too costly to do by default and you have no guarantee that it will amortize.
 
--Andi
+But if you don't migrate the pages with it, the numa aware allocation is
+wasted anyway, whether you do it on a first-touch basis or using
+vgetcpu.
+
+>> I don't really see the point in solving something half way when it can
+>> be done better. Maybe the "serious" databases should open up and let us
+>> know what the problem is they are hitting.
+> 
+> I see no indication of anything better so far from you. You only offered
+> static configuration instead which while in some cases is better
+> doesn't work in the general case.
+
+Static configuration? I never said anything about that, I said that libc
+should offer a memory pool per thread and have it created when it's
+first touched by the thread. That solves exactly what you have described
+so far unless is something else you also expect to benefit from
+vgetcpu().
+
+Jes
