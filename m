@@ -1,31 +1,25 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 29 Jun 2006 12:52:27 +0000
-Subject: Re: [PATCH] kprobe invalidate icache of jump buffer
-Message-Id: <yq0zmfwgm44.fsf@jaguar.mkp.net>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 21 Jun 2006 03:17:07 +0000
+Subject: [RFC 0/3] Page table shuffling
+Message-Id: <20060621031707.22750.57782.sendpatchset@wagner.orchestra.cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44A39D6E.1050302@intel.com>
-In-Reply-To: <44A39D6E.1050302@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Mao" = bibo, mao <bibo.mao@intel.com> writes:
+Hi,
 
-Mao> Hi, Kprobe inserts breakpoint instruction in probepoint and then
-Mao> jump to jmp buffer, the jump buffer icache must be consistent
-Mao> with dcache. Here is the patch invalidates jump buffer icache
-Mao> area. Without this patch, in some machines there will be fault
-Mao> when jumping to jmp buffer where icache content is inconsistent
-Mao> with dcache.
+Prompted by kexec [1], I decided to revive a simplified version of
+this patch.  This should make no functional changes, but should make
+it slightly easier for fresh eyes to navigate the IA64 VM layer.
 
-Mao> This patch has been tested in my IA32, x86_64 and IA64 box, but
-Mao> is not tested in SPARC64 and powerpc architecture. It is based on
-Mao> kernel 2.6.17 version.  Signed-off-by: bibo,mao
-Mao> <bibo.mao@intel.com> Thanks bibo,mao diff -Nruap
+Against 2.6.17 and tested on the simulator (with a slight fix [2]) and
+ZX1.
 
-Your patch seems to have been mangled by your mail client. Please also
-make it comply with Documentation/CodingStyle
+Thanks,
 
-Cheers,
-Jes
+-i
+
+[1] http://www.gelato.unsw.edu.au/archives/linux-ia64/0606/18542.html
+[2] http://www.gelato.unsw.edu.au/archives/linux-ia64/0606/18550.html
