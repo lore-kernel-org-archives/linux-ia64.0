@@ -1,7 +1,7 @@
-From: Horms <horms@verge.net.au>
-Date: Thu, 22 Jun 2006 03:28:09 +0000
-Subject: Re: patches added to release/test trees
-Message-Id: <20060622032809.DCA7F3409A@koto.vergenet.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 22 Jun 2006 17:34:06 +0000
+Subject: RE: patches added to release/test trees
+Message-Id: <617E1C2C70743745A92448908E030B2A22F4A6@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
 In-Reply-To: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
@@ -10,29 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In article <200606212319.k5LNJw7e014316@agluck-lia64.sc.intel.com> you wrote:
-> 
-> Horms and Ian.  Thanks for all the kexec patches you've posted.  I'll
-> be folding them in on top of the current kexec stuff soon.  There
-> still seem to be a lot of open issues on this, and hardly any reports
-> of any testing going on.  At this pace kexec/kdump will be sitting in
-> "test" (and -mm) for at least another release cycle.
+> May 16.  The Makefile is for 2.6.17-rc5.  Is there a propogation delay
+> on your git updates before they hit git.kernel.org?
 
-Hi Tony,
+Yes, there is a delay.  I update to a backend system at kernel.org which
+regularly rsyncs the data to the two front-end systems: {www1,www2}.kernel.org
+The delay varies depending on load on the systems, and the overall internet
+weather.  It can be as short as a couple of minutes.  When it goes above
+a couple of hours it indicates there is a problem.  The updates to the
+two front-end systems are independent ... you can force access to one
+or the other by using the www1, www2 names to see whether one managed to
+get the update.
 
-thanks for the feedback. I understand that kexec/kdump is quite
-green/flakey and having it sit in test as you suggest is quite
-approtiate in my oppinion too. Hopefully its quality can improve over
-time.
+> BTW, is there any reason that the aegl git tree has no tags?
 
-As for the patches that I have sent, let me know if you need any of them
-rediffed or reworked. I'm more than happy to do that kind of leg work,
-as some of the patches conflict in minor ways, and some of them are
-against the kdump patch before it went into your tree, and thus may need
-some minor merging.
+I haven't thought of any useful way to use tags.  But perhaps it's
+becuase I mostly think of my GIT trees as conduits to Linus/Andrew.
+If you have suggestions on how I can make my trees more useful to
+you by tagging things, then let me know.
 
-Thanks
-
--- 
-Horms                                           http://www.vergenet.net/~horms/
-
+-Tony
