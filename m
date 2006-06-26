@@ -1,44 +1,122 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 14 Jun 2006 23:30:36 +0000
-Subject: RE: [Fastboot] Ia64 kdump patch
-Message-Id: <617E1C2C70743745A92448908E030B2A174653@scsmsx411.amr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Mon, 26 Jun 2006 07:47:05 +0000
+Subject: Re: [Fastboot] Ia64 kdump patch
+Message-Id: <20060626074703.GA19272@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060608083516.GH28607@verge.net.au>
 In-Reply-To: <20060608083516.GH28607@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I'm very excited to be able to play with the new version of this patch,
-> but the version you posted seems to included include all the kexec patch
-> that went into Tony Luck's tree. Here is a rediff relative to the
-> existing kexec patch (no other changes).
+On Fri, Jun 09, 2006 at 06:47:59AM +0800, Zou Nan hai wrote:
+> On Thu, 2006-06-08 at 16:35, Horms wrote:
+> > On Thu, Jun 08, 2006 at 06:48:23AM +0800, Zou Nan hai wrote:
+> > > The ia64 kdump patch is in 2 parts.
+> > > 
+> > > the kexec-kdump-ia64-2.6.16.patch should apply on top of the previous 
+> > > kexec patch by Khalid in Tony's test tree.
+> > > 
+> > > the kexec-tools-kdump-ia64.patch should apply to kexec-tools-1.101
+> > > with kexec-tools-1.101-kdump.patch
+> > > 
+> > > 
+> > > To test it.
+> > > Build first SMP kernel with KEXEC and KDUMP enabled.
+> > > 
+> > > Boot it with kernel parameter "crashkernel=XXX@YYY"
+> > > means reserver XXX from YYY for crashdumping.
+> > > Build an UP kernel with KEXEC KDUMP VMCORE enabled.
+> > > load this kernel as a crashdumping kernel
+> > > kexec -p vmlinux.gz --initrd=initrd --append="...."
+> > > 
+> > > trigger a crash,
+> > > maybe "echo c > /proc/sysrq-trigger"
+> > > after the crash kernel boots,
+> > > cp /proc/vmcore core
+> > > 
+> > > gdb first_kernel_vmlinux core
+> > > 
+> > > please test and review.
+> > > 
+> > > Signed-off-by: Khalid Aziz <khalid_aziz@hp.com>
+> > > Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+> > 
+> > Hi,
+> > 
+> > I'm very excited to be able to play with the new version of this patch,
+> > but the version you posted seems to included include all the kexec patch
+> > that went into Tony Luck's tree. Here is a rediff relative to the
+> > existing kexec patch (no other changes).
+> > 
+> > The code does seem to be working for me. The main difficulty so far
+> > seems to have been finding an appropriate place and size and place for
+> > the reserved area. 128M@256M seems to work for me, offering enough
+> > memory and not lie on a resource boundry for me.
+> > 
+> > Lastly, is it possible for you to comment on what areas of concern
+> > you have with regards to kdump/kexec on ia64. I am looking to port this
+> > code to xen, as my colleague Magnus Damm and I have already done so for i386
+> > (complete) and x86_64 (almost complete).
+> > 
+> > http://lists.xensource.com/archives/html/xen-devel/2006-05/msg01272.html
+> > 
+> > Signed-Off-By: Horms <horms@verge.net.au>
+> > 
+> 
+>  Thanks for testing and review.
+>  
+>  There is still a lot of work to do for ia64 Kdump to be a very useful
+> and robust feature.
+> 
+>  Major issues.
+>  1. Full percpu dumping on INIT. 
+>     You may notices I only send an IPI to user CPUs and dump part of
+> registers for crashing CPU.Just stop other CPUs, not dumping their
+> status. This is only a temp hack.
+>  On other platforms they did this by an NMI, on IA64 we should use INIT
+> to acknowledge other CPUs. And I know on some platform there is a
+> trigger on panel can trigger INIT. We could use that to dump at the time
+> of deadlock. But currently INIT is used by MCA, we need to find a way to
+> coordinate with MAC on INIT.
+> 
+>  2. unwind section is missing in vmcore.
+>     When you do a readelf on vmcore, you may notice there is no unwind
+> sections. We should add this percpu stack unwind sections to help dump
+> filter tools to analize the core dump.
+> 
+>  3. kdump path at crash time. 
+>     Currently I still have to do a irq->end on each level triggered irq,
+> without that the MPT fusion driver can not restart. We should fix this,
+> at least do that in a way of not touching any memory in previous kernel.
+> 
+>  4. Other than this, we need port the dump filter to IA64.
+> 
+> There are still some minor issues.
+> e.g
+>   When I get a crash when X is active, the new kernel will startup in a
+> blank screen(network is still working). I have indeed do a brute force
+> VGA reset on in purgatory code. But that seems to only shutdown the VGA
+> but not reinit it if X is running.
+> 
+>   Current kexec can't not run on a kexec'd kernel, that is because the
+> memory region of EFI memmap is not reserverd in /proc/iomem, I will sent
+> a patch to reserve that region later.
+> 
+> There should be other issues and gaps need to find out.
 
-I applied this on top of the existing patch in my test tree.  The
-first few kexec's went just fine, but when I tried to switch from
-a kernel based on arch/ia64/configs/tiger_defconfig to a kernel
-based on arch/ia64/defconfig, the system failed to boot (probably
-because of problems with the mpt/fusion driver).  Last few messages
-on the console were:
+Thanks for that list, it is very useful to me. I hope that I can
+find some time to help with some of those problems.
 
-Fusion MPT base driver 3.03.09
-Copyright (c) 1999-2005 LSI Logic Corporation
-Fusion MPT SPI Host driver 3.03.09
-GSI 28 (level, low) -> CPU 1 (0xc018) vector 49
-ACPI: PCI Interrupt 0000:06:02.0[A] -> GSI 28 (level, low) -> IRQ 49
-mptbase: Initiating ioc0 bringup
-mptbase: ioc0: ERROR - Doorbell ACK timeout (countI99), IntStatus=80000000!
-mptbase: ioc0: ERROR - Doorbell ACK timeout (countI99), IntStatus=80000000!
-mptbase: ioc0: ERROR - Diagnostic reset FAILED! (142h)
-mptbase: ioc0 NOT READY WARNING!
-mptbase: WARNING - ioc0 did not initialize properly! (-1)
-mptspi: probe of 0000:06:02.0 failed with error -1
-GSI 29 (level, low) -> CPU 2 (0xc218) vector 50
-ACPI: PCI Interrupt 0000:06:02.1[B] -> GSI 29 (level, low) -> IRQ 50
-mptbase: Initiating ioc1 bringup
+One thing that I am puzzling over is why you shutdown the PCI devices
+as part of machine_crash_shutdown(). As I am trying to port your code
+to xen this is quite a problem for me, as I'm not sure that Xen
+actually knows enough about PCI to do this. Its it a problem relating
+to bringing the devices back online after a reboot? Is it the MPT fusion
+problem you mention above?
 
-I reset the system, and the generic kernel booted just fine. kexec
-from the generic kernel to the tiger_defconfig kernel also worked OK.
+-- 
+Horms                                           
+H: http://www.vergenet.net/~horms/          W: http://www.valinux.co.jp/en/
 
--Tony
