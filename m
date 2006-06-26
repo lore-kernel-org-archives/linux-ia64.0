@@ -1,63 +1,39 @@
-From: William Cohen <wcohen@redhat.com>
-Date: Fri, 23 Jun 2006 21:13:47 +0000
-Subject: Re: [perfmon] 2.6.17.1 new perfmon code base, libpfm, pfmon available
-Message-Id: <449C598B.7070803@redhat.com>
+From: Chuck Ebbert <76306.1226@compuserve.com>
+Date: Mon, 26 Jun 2006 17:33:03 +0000
+Subject: Re: 2.6.17.1 new perfmon code base, libpfm, pfmon available
+Message-Id: <200606261336_MC3-1-C384-7981@compuserve.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060621142447.GA29389@frankl.hpl.hp.com>
 In-Reply-To: <20060621142447.GA29389@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: eranian@hpl.hp.com
-Cc: perfmon@napali.hpl.hp.com, oprofile-list@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net
+To: Stephane Eranian <eranian@hpl.hp.com>
+Cc: oprofile-list <oprofile-list@lists.sourceforge.net>, perfmon <perfmon@napali.hpl.hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, perfctr-devel <perfctr-devel@lists.sourceforge.net>, linux-kernel <linux-kernel@vger.kernel.org>
 
-Hi Stephane,
+> Also a new version of pfmon, pfmon-3.2-060621, to take advantage of the update in libpfm:
+> 
+>       - support for 32-bit mode AMD64 processors
+>       - updated event name parsing to prepare for separate
+>         event unit mask management (Kevin Corry)
+>       - fix the detection of unavailable PMC registers. it was causing crashes
+>         when used with sampling.
+> 
+> Note that I have tested 32-bit compiled libpfm,pfmon running on an 64-bit AMD
+> perfmon kernel. I have not tested on a 32-bit AMD linux kernel because I don't
+> have such setup. I would appreciate any feedback on this.
 
-Some quick questions about the current perfmon code.
+32-bit works great.  Unfortunately, pfmon is far too limited for serious kernel
+monitoring AFAICT.  E.g. you can't select edge counting instead of cycle
+counting.  So you can count how many clock cycles were spent with interrupts
+disabled but you can't count how many times they were disabled.  That's too bad
+because using pfmon is so easy compared to writing a program.
 
+And is someone working on kernel profiling tools that use the perfmon2
+infrastructure on i386?  I'd like to see kernel-based profiling that lets
+you use something like the existing 'readprofile' to retrieve results.  This
+would be a lot better than the current timer-based profiling.
 
-The athlon has very similar hw to the amd64 and there is now 32-bit
-x86-64 support. Wouldn't it make sense to move perfmon_amd.c to i386
-and have it work in the same way as perfmon_p4.c does currently for p4
-and em64t?
-
-Could the 32-bit and 64-bit code be combined in a manner similar to
-oprofile and avoid duplication between perfmon_em64t_pebs.c and
-perfmon_p4_pebs.c?  pfm_{p4|em64}_ds_area and
-pfm_{p4|em64t}_pebs_sample_entry have differences due to the upgrade
-from 32 to 64 bit values.
-
-Why isn't Intel family 0xf model 3 not supported?
-	Model 1,2, 4, and 5 are supported.
-	Model 3 Pentium4 isn't that different is it?
-
-Why the following patch in the code and array using this constant in
-sys_pfm_write_pmcs and sys_pfm_write_pmds? The the p4/em64t certainly
-has more registers than that.
-
---- linux-2.6.17.1.old/include/asm-i386/perfmon.h	2006-06-21 
-05:19:04.000000000 -0700
-+++ linux-2.6.17.1/include/asm-i386/perfmon.h	2006-06-21 
-04:22:51.000000000 -0700
-@@ -18,6 +18,14 @@
-
-  #ifdef __KERNEL__
-
-+#ifdef CONFIG_4KSTACKS
-+#define PFM_ARCH_PMD_ARG	2
-+#define PFM_ARCH_PMC_ARG	2
-+#else
-+#define PFM_ARCH_PMD_ARG	4
-+#define PFM_ARCH_PMC_ARG	4
-+#endif
-+
-  #include <asm/desc.h>
-  #include <asm/apic.h>
-
-
-What is the purpose of PFM_MAX_XTRA_PMCS and PFM_MAX_XTRA_PMDS? Are
-they used for anything other than increasing the size of PFM_MAX_PMCS
-and PFM_MAX_PMDS?
-
-
--Will
+-- 
+Chuck
+ "You can't read a newspaper if you can't read."  --George W. Bush
