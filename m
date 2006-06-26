@@ -1,7 +1,7 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 26 Jun 2006 08:59:51 +0000
-Subject: Re: patches added to release/test trees
-Message-Id: <20060626085951.19BBE34039@koto.vergenet.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 26 Jun 2006 17:23:19 +0000
+Subject: RE: patches added to release/test trees
+Message-Id: <617E1C2C70743745A92448908E030B2A27EED0@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
 In-Reply-To: <200601270107.k0R17838011430@agluck-lia64.sc.intel.com>
@@ -10,17 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In article <617E1C2C70743745A92448908E030B2A22FFE9@scsmsx411.amr.corp.intel.com> you wrote:
->> Could you push the refs/tags from your tree as well?  Many of the git
->> trees on kernel.org have copies of Linus's tags, which makes it a bit
->> easier to cross reference.
-> 
-> I linked his tags directory to my tree ... lets see how that works.
+> > I linked his tags directory to my tree ... lets see how that works.
+>
+> I noticed (to my surprise) a bunch of tags show up while using gitweb 
+> this morning. So I guess its working, at least to some extent.
 
-I noticed (to my surprise) a bunch of tags show up while using gitweb 
-this morning. So I guess its working, at least to some extent.
+The only bit that I'm worried about is what will happen when
+Linus adds a new tag.  Until I do a pull&push to catch up, I'll
+have a "bogus" tag (pointing to an object that I don't have).
+Whether this is an annoyance, or a major problem, remains to
+be seen.
 
--- 
-Horms                                           
-H: http://www.vergenet.net/~horms/          W: http://www.valinux.co.jp/en/
+The 2.6.17 tag is now 8 days old, so if Linus sticks to the 2-week
+merge window, we'll find out in ~6days when 2.6.18-rc1 comes out.
 
+-Tony
