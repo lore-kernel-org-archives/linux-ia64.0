@@ -1,57 +1,231 @@
-From: John Keller <jpk@sgi.com>
-Date: Mon, 05 Jun 2006 20:23:33 +0000
-Subject: Re: [PATCH 1/2] - Altix: Add initial ACPI support
-Message-Id: <200606052023.k55KNYBL171766@fcbayern.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 27 Jun 2006 11:45:15 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.17
+Message-Id: <16552.1151408715@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060531233408.GA21244@suse.de>
-In-Reply-To: <20060531233408.GA21244@suse.de> from "Greg KH" at May 31, 2006 04:34:08 PM
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <gregkh@suse.de>
-Cc: linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-> 
-> On Wed, May 31, 2006 at 04:23:20PM -0500, John Keller wrote:
-> > Index: acpi-support/arch/ia64/pci/pci.c
-> > =================================> > --- acpi-support.orig/arch/ia64/pci/pci.c	2006-05-31 12:37:50.539921986 -0500
-> > +++ acpi-support/arch/ia64/pci/pci.c	2006-05-31 14:10:50.889146925 -0500
-> > @@ -470,10 +470,11 @@ pcibios_fixup_resources(struct pci_dev *
-> >  	}
-> >  }
-> >  
-> > -static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
-> > +void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
-> >  {
-> >  	pcibios_fixup_resources(dev, 0, PCI_BRIDGE_RESOURCES);
-> >  }
-> > +EXPORT_SYMBOL(pcibios_fixup_device_resources);
-> 
-> EXPORT_SYMBOL_GPL() perhaps?
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Sure, no problem.
+KDB (Linux Kernel Debugger) has been updated for kernel 2.6.17.
+
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
+
+Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
+subscriber only.  If you reply to this mail, you may wish to trim
+kdb@oss.sgi.com from the cc: list.
+
+Current versions are :-
+
+  kdb-v4.4-2.6.17-common-1.bz2
+  kdb-v4.4-2.6.17-i386-1.bz2
+  kdb-v4.4-2.6.17-x86_64-1.bz2
+  kdb-v4.4-2.6.17-ia64-1.bz2
+
+SGI is now supporting KDB for x86_64.  Thanks go to Jack Vogel for
+looking after the x86_64 patch in the past.
+
+Changelog extract since kdb-v4.4-2.6.16-common-1.
+
+2006-06-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-common-1.
+
+2006-05-31 Keith Owens  <kaos@sgi.com>
+
+	* Break spinlocks for keyboard entry.  Hopefully a temporary hack while
+	  I track down why keyboard entry to KDB is hanging.
+	* kdb v4.4-2.6.17-rc5-common-2.
+
+2006-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc5-common-1.
+
+2006-05-15 Keith Owens  <kaos@sgi.com>
+
+	* Refresh bfd related files from binutils 2.16.91.0.2.
+	* kdb v4.4-2.6.17-rc4-common-2.
+
+2006-05-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc4-common-1.
+
+2006-04-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc3-common-1.
+
+2006-04-22 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc2-common-1.
+
+2006-04-11 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc1-common-1.
+
+2006-04-05 Keith Owens  <kaos@sgi.com>
+
+	* More fixes for the timing race with KDB_ENTER_SLAVE.
+	* kdb v4.4-2.6.16-common-5.
+
+2006-03-30 Keith Owens  <kaos@sgi.com>
+
+	* Some code was testing KDB_IS_RUNNING() twice, which left it open to
+	  races.  Cache the result instead.
+	* kdb v4.4-2.6.16-common-4.
+
+2006-03-30 Keith Owens  <kaos@sgi.com>
+
+	* Change CONFIG_LKCD to CONFIG_LKCD_DUMP.
+	* kdb v4.4-2.6.16-common-3.
+
+2006-03-22 Keith Owens  <kaos@sgi.com>
+
+	* Add some more xpc flags.  Dean Nelson, SGI.
+	* Replace open coded counter references with atomic_read().
+	* Pass early_uart_console to early_uart_setup().  Francois
+	  Wellenreiter, Bull.
+	* Replace open code with for_each_online_cpu().
+	* If cpus do not come into kdb after a few seconds then let
+	  architectures send a more forceful interrupt.
+	* Close a timing race with KDB_ENTER_SLAVE.
+	* kdb v4.4-2.6.16-common-2.
 
 
-> 
-> > --- acpi-support.orig/include/linux/pci.h	2006-05-31 12:37:50.647911309 -0500
-> > +++ acpi-support/include/linux/pci.h	2006-05-31 14:10:50.989137400 -0500
-> > @@ -397,6 +397,7 @@ extern struct bus_type pci_bus_type;
-> >  extern struct list_head pci_root_buses;	/* list of all known PCI buses */
-> >  extern struct list_head pci_devices;	/* list of all devices */
-> >  
-> > +void __devinit pcibios_fixup_device_resources(struct pci_dev *);
-> 
-> Don't put __devinit on a function prototype.  It does nothing.
+Changelog extract since kdb-v4.4-2.6.16-i386-1.
 
-Sorry, my mistake.
+2006-06-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-i386-1.
+
+2006-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc5-i386-1.
+
+2006-05-15 Keith Owens  <kaos@sgi.com>
+
+	* Refresh bfd related files from binutils 2.16.91.0.2.
+	* kdb v4.4-2.6.17-rc4-i386-2.
+
+2006-05-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc4-i386-1.
+
+2006-04-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc3-i386-1.
+
+2006-04-22 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc2-i386-1.
+
+2006-04-11 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc1-i386-1.
+
+2006-03-30 Keith Owens  <kaos@sgi.com>
+
+	* Change CONFIG_LKCD to CONFIG_LKCD_DUMP.
+	* kdb v4.4-2.6.16-i386-3.
+
+2006-03-24 Keith Owens  <kaos@sgi.com>
+
+	* Define a dummy kdba_wait_for_cpus().
+	* kdb v4.4-2.6.16-i386-2.
+
+2006-03-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.16-i386-1.
 
 
-John
-----
+Changelog extract since kdb-v4.4-2.6.16-x86_64-1.
 
-> 
-> thanks,
-> 
-> greg k-h
-> 
+2006-06-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-x86_64-1.
+
+2006-05-31 Keith Owens  <kaos@sgi.com>
+
+	* Define arch/x86_64/kdb/kdb_cmds.
+	* kdb v4.4-2.6.17-rc5-x86_64-2.
+
+2006-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc5-x86_64-1.
+
+2006-05-15 Keith Owens  <kaos@sgi.com>
+
+	* Refresh bfd related files from binutils 2.16.91.0.2.
+	* kdb v4.4-2.6.17-rc4-x86_64-2.
+
+2006-05-12 Keith Owens <kaos@sgi.com>
+
+	* kdb v4.4-2.6-17-rc4-x86_64-1.
+
+2006-04-22 Keith Owens <kaos@sgi.com>
+
+	* kdb v4.4-2.6-17-rc2-x86_64-1.
+
+2006-04-13 Keith Owens <kaos@sgi.com>
+
+	* Remove trailing white space.
+	* kdb v4.4-2.6-17-rc1-x86_64-1.
+
+
+Changelog extract since kdb v4.4-2.6.16-ia64-1.
+
+2006-06-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-ia64-1.
+
+2006-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc5-ia64-1.
+
+2006-05-15 Keith Owens  <kaos@sgi.com>
+
+	* Refresh bfd related files from binutils 2.16.91.0.2.
+	* kdb v4.4-2.6.17-rc4-ia64-2.
+
+2006-05-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc4-ia64-1.
+
+2006-04-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc3-ia64-1.
+
+2006-04-22 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc2-ia64-1.
+
+2006-04-11 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.17-rc1-ia64-1.
+
+2006-03-30 Keith Owens  <kaos@sgi.com>
+
+	* Change CONFIG_LKCD to CONFIG_LKCD_DUMP.
+	* kdb v4.4-2.6.16-ia64-3.
+
+2006-03-24 Keith Owens  <kaos@sgi.com>
+
+	* Use INIT to interrupt cpus that do not respond to a normal kdb IPI.
+	* Remove KDBA_MCA_TRACE from arch/ia64/kernel/mca.c.
+	* kdb v4.4-2.6.16-ia64-2.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFEoRpLi4UHNye0ZOoRAhG1AJ0XUg1rd8KAStkeCUOoHV+ycUM2MACgjwiu
+imsfNOlUoNZDgqwhsrzBjDA=KMkV
+-----END PGP SIGNATURE-----
 
