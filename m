@@ -1,30 +1,35 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Wed, 28 Jun 2006 11:08:33 +0000
-Subject: Re: [PATCH] fix prom revision checks in SN kernel
-Message-Id: <44A26331.9030907@redhat.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Tue, 27 Jun 2006 08:06:46 +0000
+Subject: ia64 breakage in current -git
+Message-Id: <20060627010646.21ff5687.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200606271946.MAA19328@google.engr.sgi.com>
-In-Reply-To: <200606271946.MAA19328@google.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
->
->
-> Greg, I cannot recall where you queue your patches -- would you mind 
-> fwd'ing a link?
->
-Oops.  Sorry everyone -- this looks like it was resolved on linux-ia64 
-(I just checked the marc archive)...
 
-Sorry 'bout that,
+fyi, Linus's current tree is bust on ia64 - you get a lot of link-time
+warnings about missing __udivdi3 and things.
 
-P.
+The below will get things going again.
 
-> Thanks,
->
-> P.
->>   
->
+diff -puN Makefile~revert-ignore-makes-built-in-rules-variables Makefile
+--- a/Makefile~revert-ignore-makes-built-in-rules-variables
++++ a/Makefile
+@@ -276,9 +276,9 @@ MAKEFLAGS += --include-dir=$(srctree)
+ # We need some generic definitions
+ include  $(srctree)/scripts/Kbuild.include
+ 
+-# Do not use make's built-in rules and variables
+-# This increases performance and avoid hard-to-debug behavour
+-MAKEFLAGS += -rR
++# For maximum performance (+ possibly random breakage, uncomment
++# the following)
++#MAKEFLAGS += -rR
+ 
+ # Make variables (CC, etc...)
+ 
+_
+
