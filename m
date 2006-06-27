@@ -1,29 +1,57 @@
-From: Horms <horms@verge.net.au>
-Date: Tue, 27 Jun 2006 07:25:26 +0000
-Subject: Re: [PATCH] ia64, kexec: shutting down the PCI devices does not seem to be neccessary
-Message-Id: <20060627072524.GA26185@verge.net.au>
+From: Aaron Young <ayoung@google.engr.sgi.com>
+Date: Tue, 27 Jun 2006 19:46:36 +0000
+Subject: [PATCH] fix prom revision checks in SN kernel
+Message-Id: <200606271946.MAA19328@google.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060627071600.GA25965@verge.net.au>
-In-Reply-To: <20060627071600.GA25965@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Jun 27, 2006 at 04:16:02PM +0900, Horms wrote:
-> As suggested by Nanhai Zou, it seems that the pci shutdown code in kdump
-> is not neccessary. I tested the patch on a Tiger2 box, and it seems
-> to work fine.
 
-I should point out that this patch (inadvertantly) removes the irq-end
-magic that you were doing in order to make the MPT Fusion function after
-reboot. However, that device came up just fine with this patch applied.
-I wonder if a recent fix to MPT is helping us.
 
-http://kernel.org/git/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dcomm=
-it;h=9Bf0a28c9a24e2cee5deecf89d118254374c75ba
+The following patch fixes a few spots in the SN kernel
+that check a fixed prom revision number to determine prom
+feature support. These checks are only valid on shub1 systems.
+They are invalid on shub2 systems which have a different prom
+with different revision numbers.
 
---=20
-Horms                                          =20
-H: http://www.vergenet.net/~horms/          W: http://www.valinux.co.jp/en/
+Signed-off-by: Aaron Young <ayoung@sgi.com>
 
+
+Index: linux/arch/ia64/sn/kernel/setup.c
+=================================--- linux.orig/arch/ia64/sn/kernel/setup.c	2006-04-11 00:33:26.000000000 -0500
++++ linux/arch/ia64/sn/kernel/setup.c	2006-06-26 14:33:33.674551229 -0500
+@@ -458,7 +458,7 @@
+ 	 * support here so we don't have to listen to failed keyboard probe
+ 	 * messages.
+ 	 */
+-	if (version <= 0x0209 && acpi_kbd_controller_present) {
++	if (is_shub1() && version <= 0x0209 && acpi_kbd_controller_present) {
+ 		printk(KERN_INFO "Disabling legacy keyboard support as prom "
+ 		       "is too old and doesn't provide FADT\n");
+ 		acpi_kbd_controller_present = 0;
+Index: linux/arch/ia64/sn/pci/tioca_provider.c
+=================================--- linux.orig/arch/ia64/sn/pci/tioca_provider.c	2006-04-11 00:33:26.000000000 -0500
++++ linux/arch/ia64/sn/pci/tioca_provider.c	2006-06-26 14:52:26.166211993 -0500
+@@ -589,7 +589,7 @@
+ 
+ 	/* sanity check prom rev */
+ 
+-	if (sn_sal_rev() < 0x0406) {
++	if (is_shub1() && sn_sal_rev() < 0x0406) {
+ 		printk
+ 		    (KERN_ERR "%s:  SGI prom rev 4.06 or greater required "
+ 		     "for tioca support\n", __FUNCTION__);
+Index: linux/drivers/pci/hotplug/sgi_hotplug.c
+=================================--- linux.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-04-11 00:33:26.000000000 -0500
++++ linux/drivers/pci/hotplug/sgi_hotplug.c	2006-06-26 14:53:15.693480748 -0500
+@@ -553,7 +553,7 @@
+ 	int rc;
+ 	int registered = 0;
+ 
+-	if (sn_sal_rev() < SGI_HOTPLUG_PROM_REV) {
++	if (is_shub1() && sn_sal_rev() < SGI_HOTPLUG_PROM_REV) {
+ 		printk(KERN_ERR "%s: PROM version must be greater than 4.30\n",
+ 		       __FUNCTION__);
+ 		return -EPERM;
