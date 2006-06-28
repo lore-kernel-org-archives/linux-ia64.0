@@ -1,46 +1,93 @@
-From: "Albert Cahalan" <acahalan@gmail.com>
-Date: Thu, 29 Jun 2006 14:09:54 +0000
-Subject: Re: [PATCH] ia64: change usermode HZ to 250
-Message-Id: <787b0d920606290709k255c6c24k6d3dd502d85bd1ca@mail.gmail.com>
+From: Horms <horms@verge.net.au>
+Date: Wed, 28 Jun 2006 11:00:54 +0000
+Subject: [PATCH] ia64, kexec: allow base of crashkernel to be auto-discovered
+Message-Id: <20060628110052.GA11751@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060627220139.3168.69409.sendpatchset@tomahawk.engr.sgi.com>
-In-Reply-To: <20060627220139.3168.69409.sendpatchset@tomahawk.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, alan@lxorguk.ukuu.org.uk, arjan@infradead.org, hawkes@sgi.com, jdaiker@osdl.org, jes@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tony.luck@gmail.com, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
 
-> Fixing param.h to have #define HZ sysconf(_SC_CLK_TCK) sounds
-> like a plausible solution, many incorrect uses will be fixed
-> automagically by the next rebuild.  But some more obscure usages
-> of HZ may not compile (which is good, then they can be fixed
-> properly) or worse may compile, but not do the right thing.
+The crashkernel command line parameter accepts a size and base address for
+the memory region that is reserved to be used as the memory space for a
+crash kernel. At this time, on some architectures, notably i386 and x86_64,
+the base address of the crash kernel needs to be modified at compile time
+to match the base address passed to crashkernel. However, on ia64 the
+crash kernel does not need to be relocated at compile time, thus
+there the base address of the crashkernel region does not need to be fixed.
 
-This makes compiles fail on one of the non-glibc libraries,
-either uClibc or dietlibc, which does not provide sysconf.
+This patch allows the base address of crashkernel to be determined at boot
+time if the base address passed on the command line is 0. Otherwise
+the specified base address will be used, as is currently the case.
 
-The order in which procps tries things is:
+The advantage is that the region layout may vary from machine to machine,
+and finding a place for the crashkernel is a manual process. This eliminates
+that manual work, and I expect will make life slightly easier for distros.
 
-1. walk off the end of environ to get the ELF notes
-2. /proc/uptime to /proc/stat ratio
-3. HZ
-4. lame guess based on endianness and word size
+I would like to note that currently it will try and place the crashkernel
+region inside the first "System RAM" region that has space. I am not
+sure if there should be a lower or upper bond on the crashkernel base address,
+but it will be trivial to add to the arguments passed to allocate_region()
+if necessary.
 
-I do not want sysconf. It is is an unreliable piece of shit
-that gives me poor guesses instead of returning appropriate
-error codes. It does this swell job while being damn slow.
-I can do no worse with my own random guess.
+Signed-Off-By: Horms <horms@verge.net.au>
 
-(on my TODO list: count CPUs myself, because glibc often
-thinks there are zero -- and this is not an error code)
+ arch/ia64/kernel/efi.c |   37 +++++++++++++++++++++++++++++++++----
+ 1 file changed, 33 insertions(+), 4 deletions(-)
 
-> The ultimate safe solution might be:
->
-> #define HZ Fix your program to use sysconf(_SC_CLK_TCK)! \
->       (and BTW, you should not include kernel headers)
->
-> Which is highly likely to cause a compile failure (but should
-> at least provide a clue to the user on what they should do).
-
-This breaks perfectly fine code, except that it will be yet one more
-thing for people to patch out when making headers for userspace.
+cd35b17e0c556befff3255651c36410d0f2b97aa
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 5c657e6..724ff18 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -1041,6 +1041,38 @@ efi_memmap_init(unsigned long *s, unsign
+ 	*e = (u64)++k;
+ }
+ 
++#ifdef CONFIG_KEXEC
++/* If 0 is specified on the command line as the start address,
++ * then to insert crashk in the first "System RAM" resource where it fits.
++ * Otherwise, try and insert it at the specified base address */
++static void
++insert_crashk_resource(struct resource *res)
++{
++	unsigned long size = crashk_res.end;
++
++	if (crashk_res.start) {
++		insert_resource(res, &crashk_res);
++		return;
++	}
++
++	if (strcmp(res->name, "System RAM"))
++		return;
++
++	/* XXX: I'm not sure what max should be, for now it is ~0, but
++	 * there probably is a limit that is lower than that -- Horms */
++	if (!allocate_resource(res, &crashk_res, size, 0, ~0, PAGE_SIZE,
++			       NULL, NULL))
++		return;
++
++	/* Restore crashk_res */
++	crashk_res.end = size;
++	crashk_res.start = 0;
++}
++#else /* !CONFIG_KEXEC */
++static void
++insert_crashk_resource(struct resource *res) { }
++#endif /* CONFIG_KEXEC */
++
+ void
+ efi_initialize_iomem_resources(struct resource *code_resource,
+ 			       struct resource *data_resource)
+@@ -1124,10 +1156,7 @@ efi_initialize_iomem_resources(struct re
+ 			 */
+ 			insert_resource(res, code_resource);
+ 			insert_resource(res, data_resource);
+-#ifdef CONFIG_KEXEC
+-			if (crashk_res.end > crashk_res.start)
+-				insert_resource(res, &crashk_res);
+-#endif
++			insert_crashk_resource(res);
+ 		}
+ 	}
+ }
