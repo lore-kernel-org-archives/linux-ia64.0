@@ -1,36 +1,27 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 28 Jun 2006 14:46:09 +0000
-Subject: RE: [PATCH] ia64: change usermode HZ to 250
-Message-Id: <Pine.LNX.4.64.0606280742570.19387@schroedinger.engr.sgi.com>
+From: "John Hawkes" <hawkes@sgi.com>
+Date: Wed, 28 Jun 2006 15:43:46 +0000
+Subject: Re: [PATCH] ia64: change usermode HZ to 250
+Message-Id: <005e01c69ac9$a55e1bf0$6f00a8c0@comcast.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A27F855@scsmsx411.amr.corp.intel.com>
-  <1151484210.3153.10.camel@laptopd505.fenrus.org> 
- <1151491677.15166.13.camel@localhost.localdomain> <1151490843.3153.28.camel@laptopd505.fenrus.org>
-In-Reply-To: <1151490843.3153.28.camel@laptopd505.fenrus.org>
+References: <20060627220139.3168.69409.sendpatchset@tomahawk.engr.sgi.com> <1151483994.3153.5.camel@laptopd505.fenrus.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Arjan van de Ven <arjan@infradead.org>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, "Luck, Tony" <tony.luck@intel.com>, hawkes@sgi.com, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dan Higgins <djh@sgi.com>, Jeremy Higdon <jeremy@sgi.com>
+Cc: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dan Higgins <djh@sgi.com>, Jeremy Higdon <jeremy@sgi.com>
 
-On Wed, 28 Jun 2006, Arjan van de Ven wrote:
+From: "Arjan van de Ven" <arjan@infradead.org>
+...
+> ok why not define the userspace HZ to
+>
+> #define HZ sysconf(_SC_CLK_TCK)
 
-> On Wed, 2006-06-28 at 11:47 +0100, Alan Cox wrote:
-> > Ar Mer, 2006-06-28 am 10:43 +0200, ysgrifennodd Arjan van de Ven:
-> > > I would hope not; it's a pretty big regression for the telco space
-> > > (which really wants 1 or 2 msec delays) so I hope/assume all the
-> > > enterprise distributions (which ia64 specially cares about) stick to the
-> > > old 1024 value...
-> > 
-> > 250 is also really bad for multimedia people. They would much rather
-> > have 300 than 250 as it divides nicely by 50 and by 60 for frame rates.
-> 
-> yup I know; I proposed that back when this was discussed but lost that
-> argument ;(
+That did occur to me.  It obviously does get the correct value.  The downside
+is that one of those crufty apps that thinks it is using "HZ" as a constant
+will instead be invoking a more costly syscall.  Should we care about the
+resulting performance impact?
 
-Maybe try again? I think we were not aware of that issue when the patch 
-was submitted. And we had trouble following arguments in the flood of 
-messages that followed.
+I vote for Arjan's solution.
 
-You could also simply add a HZ choice of 300.
+John Hawkes
 
