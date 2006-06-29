@@ -1,7 +1,7 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Thu, 29 Jun 2006 10:55:13 +0000
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Thu, 29 Jun 2006 11:34:59 +0000
 Subject: Re: [PATCH] ia64: change usermode HZ to 250
-Message-Id: <1151578513.3122.22.camel@laptopd505.fenrus.org>
+Message-Id: <1151580899.23785.7.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <617E1C2C70743745A92448908E030B2A27FC5F@scsmsx411.amr.corp.intel.com>
 	 <yq04py4i9p7.fsf@jaguar.mkp.net>
@@ -11,32 +11,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Jes Sorensen <jes@sgi.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, "Luck, Tony" <tony.luck@intel.com>, John Daiker <jdaiker@osdl.org>, John Hawkes <hawkes@sgi.com>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dan Higgins <djh@sgi.com>, Jeremy Higdon <jeremy@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, John Daiker <jdaiker@osdl.org>, John Hawkes <hawkes@sgi.com>, Arjan van de Ven <arjan@infradead.org>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dan Higgins <djh@sgi.com>, Jeremy Higdon <jeremy@sgi.com>
 
-On Thu, 2006-06-29 at 12:48 +0200, Jes Sorensen wrote:
-> Alan Cox wrote:
-> > Ar Iau, 2006-06-29 am 05:37 -0400, ysgrifennodd Jes Sorensen:
-> >> You have my vote for that one. Anything else is just going to cause
-> >> those broken userapps to continue doing the wrong thing. We should
-> >> really do this on all archs though.
-> > 
+Ar Iau, 2006-06-29 am 12:48 +0200, ysgrifennodd Jes Sorensen:
 > > No need, all current mainstream architectures expose a constant user HZ.
 > 
-Hi,
-
 > But you are still going to have the issue where someone installs their
-> own kernel and apps will break because of this?
+> own kernel and apps will break because of this? Getting the distros to
+> stop publishing a constant HZ is probably the right solution, but more
+> difficult :(
 
-to answer that question with one word: no.
+Read what I said - "all current mainstream architectures expose a
+constant user HZ".
 
-read what Alan said: the HZ exposed to userspace is *constant*. For
-example, the i386 user visible HZ is 100, even if the kernel runs at a
-HZ of 250 or 1000.... Just when a HZ value gets exposed to userspace,
-it's transformed into a HZ0 based value.
+The HZ used by the kernel is independant of the HZ seen for /proc etc
 
-And that's not a distribution thing, that's the kernel.org kernel
-honoring the stable-userspace-interface contract, and common sense..
 
-Greetings,
-   Arjan van de Ven
 
