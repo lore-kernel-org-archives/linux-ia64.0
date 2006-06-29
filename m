@@ -1,32 +1,46 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 29 Jun 2006 12:56:05 +0000
+From: "Albert Cahalan" <acahalan@gmail.com>
+Date: Thu, 29 Jun 2006 14:09:54 +0000
 Subject: Re: [PATCH] ia64: change usermode HZ to 250
-Message-Id: <yq0veqkgly2.fsf@jaguar.mkp.net>
+Message-Id: <787b0d920606290709k255c6c24k6d3dd502d85bd1ca@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A27FC5F@scsmsx411.amr.corp.intel.com>
-	<yq04py4i9p7.fsf@jaguar.mkp.net>
-	<1151578928.23785.0.camel@localhost.localdomain>
-	<44A3AFFB.2000203@sgi.com>
-	<1151578513.3122.22.camel@laptopd505.fenrus.org>
-In-Reply-To: <1151578513.3122.22.camel@laptopd505.fenrus.org>
+References: <20060627220139.3168.69409.sendpatchset@tomahawk.engr.sgi.com>
+In-Reply-To: <20060627220139.3168.69409.sendpatchset@tomahawk.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arjan van de Ven <arjan@infradead.org>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, "Luck, Tony" <tony.luck@intel.com>, John Daiker <jdaiker@osdl.org>, John Hawkes <hawkes@sgi.com>, Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jack Steiner <steiner@sgi.com>, Dan Higgins <djh@sgi.com>, Jeremy Higdon <jeremy@sgi.com>
+To: akpm@osdl.org, alan@lxorguk.ukuu.org.uk, arjan@infradead.org, hawkes@sgi.com, jdaiker@osdl.org, jes@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tony.luck@gmail.com, tony.luck@intel.com
 
->>>>> "Arjan" = Arjan van de Ven <arjan@infradead.org> writes:
+> Fixing param.h to have #define HZ sysconf(_SC_CLK_TCK) sounds
+> like a plausible solution, many incorrect uses will be fixed
+> automagically by the next rebuild.  But some more obscure usages
+> of HZ may not compile (which is good, then they can be fixed
+> properly) or worse may compile, but not do the right thing.
 
-Arjan> read what Alan said: the HZ exposed to userspace is
-Arjan> *constant*. For example, the i386 user visible HZ is 100, even
-Arjan> if the kernel runs at a HZ of 250 or 1000.... Just when a HZ
-Arjan> value gets exposed to userspace, it's transformed into a HZ0
-Arjan> based value.
+This makes compiles fail on one of the non-glibc libraries,
+either uClibc or dietlibc, which does not provide sysconf.
 
-Arjan> And that's not a distribution thing, that's the kernel.org
-Arjan> kernel honoring the stable-userspace-interface contract, and
-Arjan> common sense..
+The order in which procps tries things is:
 
-See what you mean, thanks.
+1. walk off the end of environ to get the ELF notes
+2. /proc/uptime to /proc/stat ratio
+3. HZ
+4. lame guess based on endianness and word size
 
-Jes
+I do not want sysconf. It is is an unreliable piece of shit
+that gives me poor guesses instead of returning appropriate
+error codes. It does this swell job while being damn slow.
+I can do no worse with my own random guess.
+
+(on my TODO list: count CPUs myself, because glibc often
+thinks there are zero -- and this is not an error code)
+
+> The ultimate safe solution might be:
+>
+> #define HZ Fix your program to use sysconf(_SC_CLK_TCK)! \
+>       (and BTW, you should not include kernel headers)
+>
+> Which is highly likely to cause a compile failure (but should
+> at least provide a clue to the user on what they should do).
+
+This breaks perfectly fine code, except that it will be yet one more
+thing for people to patch out when making headers for userspace.
