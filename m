@@ -1,7 +1,7 @@
-From: "David Mosberger-Tang" <David.Mosberger@acm.org>
-Date: Thu, 29 Jun 2006 18:42:27 +0000
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Fri, 30 Jun 2006 22:43:32 +0000
 Subject: Re: ia64 breakage in current -git
-Message-Id: <ed5aea430606291142o4e2aea99s70e7db0348306725@mail.gmail.com>
+Message-Id: <20060630224332.GA29587@mars.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060627010646.21ff5687.akpm@osdl.org>
 In-Reply-To: <20060627010646.21ff5687.akpm@osdl.org>
@@ -10,54 +10,83 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The problem seems to come from the use of $(*F) in Makefile.lib:
+On Thu, Jun 29, 2006 at 12:42:27PM -0600, David Mosberger-Tang wrote:
+> The problem seems to come from the use of $(*F) in Makefile.lib:
+> 
+>  _a_flags       = $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
+> 
+> If I use $(@F) instead of $(*F).o, the build works fine.
+Except that we do not always have targets named *.o.
 
-  _a_flags       = $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
+Following is my fix. I have test-compiled a ia64 kernel and checked
+the output using some debug statements.
 
-If I use $(@F) instead of $(*F).o, the build works fine.
+On top of linus- latest.
+It would be good if you could try building your kernel with this fix
+just to make sure I did not brake anything (it is past midnight here).
 
-Using $(*F) seems wrong to me, since it expands to the stem, which in
-the case of an explicit rule is the target-name minus any recognized
-suffixes or the empty string if the target doesn't have a recognized
-suffix.  I assume with -r, the old-fashioned suffix-rules are disabled
-and hence $(*F) always yields the empty string for explicit rules.
+	Sam
 
-Does this make sense?
-
-  --david
-
-On 6/27/06, Andrew Morton <akpm@osdl.org> wrote:
->
->
-> fyi, Linus's current tree is bust on ia64 - you get a lot of link-time
-> warnings about missing __udivdi3 and things.
->
-> The below will get things going again.
->
-> diff -puN Makefile~revert-ignore-makes-built-in-rules-variables Makefile
-> --- a/Makefile~revert-ignore-makes-built-in-rules-variables
-> +++ a/Makefile
-> @@ -276,9 +276,9 @@ MAKEFLAGS += --include-dir=$(srctree)
->  # We need some generic definitions
->  include  $(srctree)/scripts/Kbuild.include
->
-> -# Do not use make's built-in rules and variables
-> -# This increases performance and avoid hard-to-debug behavour
-> -MAKEFLAGS += -rR
-> +# For maximum performance (+ possibly random breakage, uncomment
-> +# the following)
-> +#MAKEFLAGS += -rR
->
->  # Make variables (CC, etc...)
->
-> _
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
--- 
-Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+index 53e53a2..e8e7d27 100644
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -117,7 +117,7 @@ quiet_modtag := $(empty)   $(empty)
+ $(obj-m)              : quiet_modtag := [M]
+ 
+ # Default for not multi-part modules
+-modname = $(*F)
++modname = $(basetarget)
+ 
+ $(multi-objs-m)         : modname = $(modname-multi)
+ $(multi-objs-m:.o=.i)   : modname = $(modname-multi)
+diff --git a/scripts/Makefile.host b/scripts/Makefile.host
+index 2b066d1..18ecd4d 100644
+--- a/scripts/Makefile.host
++++ b/scripts/Makefile.host
+@@ -80,8 +80,10 @@ obj-dirs += $(host-objdirs)
+ #####
+ # Handle options to gcc. Support building with separate output directory
+ 
+-_hostc_flags   = $(HOSTCFLAGS)   $(HOST_EXTRACFLAGS)   $(HOSTCFLAGS_$(*F).o)
+-_hostcxx_flags = $(HOSTCXXFLAGS) $(HOST_EXTRACXXFLAGS) $(HOSTCXXFLAGS_$(*F).o)
++_hostc_flags   = $(HOSTCFLAGS)   $(HOST_EXTRACFLAGS)   \
++                 $(HOSTCFLAGS_$(basetarget).o)
++_hostcxx_flags = $(HOSTCXXFLAGS) $(HOST_EXTRACXXFLAGS) \
++                 $(HOSTCXXFLAGS_$(basetarget).o)
+ 
+ ifeq ($(KBUILD_SRC),)
+ __hostc_flags	= $(_hostc_flags)
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index 2cb4935..fc498fe 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -82,12 +82,12 @@ # Note: It's possible that one object ge
+ #       than one module. In that case KBUILD_MODNAME will be set to foo_bar,
+ #       where foo and bar are the name of the modules.
+ name-fix = $(subst $(comma),_,$(subst -,_,$1))
+-basename_flags = -D"KBUILD_BASENAME=KBUILD_STR($(call name-fix,$(*F)))"
++basename_flags = -D"KBUILD_BASENAME=KBUILD_STR($(call name-fix,$(basetarget)))"
+ modname_flags  = $(if $(filter 1,$(words $(modname))),\
+                  -D"KBUILD_MODNAME=KBUILD_STR($(call name-fix,$(modname)))")
+ 
+-_c_flags       = $(CFLAGS) $(EXTRA_CFLAGS) $(CFLAGS_$(*F).o)
+-_a_flags       = $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
++_c_flags       = $(CFLAGS) $(EXTRA_CFLAGS) $(CFLAGS_$(basetarget).o)
++_a_flags       = $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_$(basetarget).o)
+ _cpp_flags     = $(CPPFLAGS) $(EXTRA_CPPFLAGS) $(CPPFLAGS_$(@F))
+ 
+ # If building the kernel in a separate objtree expand all occurrences
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index 576cce5..e83613e 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -72,7 +72,7 @@ # Declare generated files as targets for
+ # Step 5), compile all *.mod.c files
+ 
+ # modname is set to make c_flags define KBUILD_MODNAME
+-modname = $(*F)
++modname = $(basetarget)
+ 
+ quiet_cmd_cc_o_c = CC      $@
+       cmd_cc_o_c = $(CC) $(c_flags) $(CFLAGS_MODULE)	\
