@@ -1,7 +1,7 @@
 From: Sam Ravnborg <sam@ravnborg.org>
-Date: Fri, 30 Jun 2006 22:43:32 +0000
+Date: Fri, 30 Jun 2006 22:48:43 +0000
 Subject: Re: ia64 breakage in current -git
-Message-Id: <20060630224332.GA29587@mars.ravnborg.org>
+Message-Id: <20060630224843.GA31631@mars.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060627010646.21ff5687.akpm@osdl.org>
 In-Reply-To: <20060627010646.21ff5687.akpm@osdl.org>
@@ -10,25 +10,64 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jun 29, 2006 at 12:42:27PM -0600, David Mosberger-Tang wrote:
-> The problem seems to come from the use of $(*F) in Makefile.lib:
-> 
->  _a_flags       = $(AFLAGS) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
-> 
-> If I use $(@F) instead of $(*F).o, the build works fine.
-Except that we do not always have targets named *.o.
-
-Following is my fix. I have test-compiled a ia64 kernel and checked
-the output using some debug statements.
-
-On top of linus- latest.
-It would be good if you could try building your kernel with this fix
-just to make sure I did not brake anything (it is past midnight here).
+Crap.
+Ignore the last patch I sent - it was the old one which is buggy.
+The following is the right one (did I say it was past midnight...)
 
 	Sam
 
+diff --git a/Makefile b/Makefile
+index e9560c6..c4ea9cd 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1352,7 +1352,7 @@ quiet_cmd_rmfiles = $(if $(wildcard $(rm
+ 
+ a_flags = -Wp,-MD,$(depfile) $(AFLAGS) $(AFLAGS_KERNEL) \
+ 	  $(NOSTDINC_FLAGS) $(CPPFLAGS) \
+-	  $(modkern_aflags) $(EXTRA_AFLAGS) $(AFLAGS_$(*F).o)
++	  $(modkern_aflags) $(EXTRA_AFLAGS) $(AFLAGS_$(notdir $@))
+ 
+ quiet_cmd_as_o_S = AS      $@
+ cmd_as_o_S       = $(CC) $(a_flags) -c -o $@ $<
+diff --git a/arch/um/scripts/Makefile.rules b/arch/um/scripts/Makefile.rules
+index 1347dc6..813077f 100644
+--- a/arch/um/scripts/Makefile.rules
++++ b/arch/um/scripts/Makefile.rules
+@@ -8,7 +8,7 @@ USER_OBJS += $(filter %_user.o,$(obj-y) 
+ USER_OBJS := $(foreach file,$(USER_OBJS),$(obj)/$(file))
+ 
+ $(USER_OBJS:.o=.%): \
+-	c_flags = -Wp,-MD,$(depfile) $(USER_CFLAGS) $(CFLAGS_$(*F).o)
++	c_flags = -Wp,-MD,$(depfile) $(USER_CFLAGS) $(CFLAGS_$(basetarget).o)
+ $(USER_OBJS) : CHECKFLAGS := -D__linux__ -Dlinux -D__STDC__ \
+ 	-Dunix -D__unix__ -D__$(SUBARCH)__
+ 
+@@ -17,7 +17,7 @@ # using it directly.
+ UNPROFILE_OBJS := $(foreach file,$(UNPROFILE_OBJS),$(obj)/$(file))
+ 
+ $(UNPROFILE_OBJS:.o=.%): \
+-	c_flags = -Wp,-MD,$(depfile) $(call unprofile,$(USER_CFLAGS)) $(CFLAGS_$(*F).o)
++	c_flags = -Wp,-MD,$(depfile) $(call unprofile,$(USER_CFLAGS)) $(CFLAGS_$(basetarget).o)
+ $(UNPROFILE_OBJS) : CHECKFLAGS := -D__linux__ -Dlinux -D__STDC__ \
+ 	-Dunix -D__unix__ -D__$(SUBARCH)__
+ 
+diff --git a/scripts/Kbuild.include b/scripts/Kbuild.include
+index b0d067b..2180c88 100644
+--- a/scripts/Kbuild.include
++++ b/scripts/Kbuild.include
+@@ -13,6 +13,10 @@ # contain a comma
+ depfile = $(subst $(comma),_,$(@D)/.$(@F).d)
+ 
+ ###
++# filename of target with directory and extension stripped
++basetarget = $(basename $(notdir $@))
++
++###
+ # Escape single quote for use in echo statements
+ escsq = $(subst $(squote),'\$(squote)',$1)
+ 
 diff --git a/scripts/Makefile.build b/scripts/Makefile.build
-index 53e53a2..e8e7d27 100644
+index 02a7eea..3cb445c 100644
 --- a/scripts/Makefile.build
 +++ b/scripts/Makefile.build
 @@ -117,7 +117,7 @@ quiet_modtag := $(empty)   $(empty)
@@ -78,7 +117,7 @@ index 2cb4935..fc498fe 100644
  
  # If building the kernel in a separate objtree expand all occurrences
 diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
-index 576cce5..e83613e 100644
+index 576cce5..a495502 100644
 --- a/scripts/Makefile.modpost
 +++ b/scripts/Makefile.modpost
 @@ -72,7 +72,7 @@ # Declare generated files as targets for
@@ -86,7 +125,7 @@ index 576cce5..e83613e 100644
  
  # modname is set to make c_flags define KBUILD_MODNAME
 -modname = $(*F)
-+modname = $(basetarget)
++modname = $(notdir $(@:.mod.o=))
  
  quiet_cmd_cc_o_c = CC      $@
        cmd_cc_o_c = $(CC) $(c_flags) $(CFLAGS_MODULE)	\
