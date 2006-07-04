@@ -1,44 +1,71 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Fri, 28 Jul 2006 14:01:55 +0000
-Subject: [PATCH 2/2] Fix IA64 components
-Message-Id: <20060728140155.9149.7093.sendpatchset@prarit.boston.redhat.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Tue, 04 Jul 2006 05:51:04 +0000
+Subject: [Patch:BUG] oversight of copy pgdat array on each node for ia64's memory hotplug.
+Message-Id: <20060704143906.8350.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
-In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
-Cc: Prarit Bhargava <prarit@sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Linux Kernel ML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Patch to fix export issue with RAID5 + IA64.
+Hello.
 
-	-removes dead CONFIG options
+I found a bug in memory hot-add code for ia64.
 
-This patch should be committed by the IA64 maintainer.
+IA64's code has copies of pgdat's array on each node to reduce memory
+access over crossing node. This array is used by NODE_DATA() macro.
+When new node is hot-added, this pgdat's array should be updated and
+copied on new node too.
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+However, I used for_each_online_node() in scatter_node_data() to copy
+it. This meant its array is not copied on new node.
+Because initialization of structures for new node was halfway,
+so online_node_map couldn't be set at this time.
 
-diff -urNp linux-2.6.17.ia64.orig/arch/ia64/kernel/ia64_ksyms.c linux-2.6.17.ia64/arch/ia64/kernel/ia64_ksyms.c
---- linux-2.6.17.ia64.orig/arch/ia64/kernel/ia64_ksyms.c	2006-07-27 09:20:01.000000000 -0400
-+++ linux-2.6.17.ia64/arch/ia64/kernel/ia64_ksyms.c	2006-07-27 14:51:42.000000000 -0400
-@@ -67,7 +68,7 @@ EXPORT_SYMBOL(__udivdi3);
- EXPORT_SYMBOL(__moddi3);
- EXPORT_SYMBOL(__umoddi3);
+To copy arrays on new node, I changed it to check value of
+pgdat_list[] which is source array of copies.
+I tested this patch with my Memory Hotadd emulation on Tiger4.
+This patch is for 2.6.17-git20.
+
+Please apply.
+
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+---
+
+ arch/ia64/mm/discontig.c |   17 +++++++++++++----
+ 1 files changed, 13 insertions(+), 4 deletions(-)
+
+Index: pgdattest1/arch/ia64/mm/discontig.c
+=================================--- pgdattest1.orig/arch/ia64/mm/discontig.c	2006-07-03 15:41:30.000000000 +0900
++++ pgdattest1/arch/ia64/mm/discontig.c	2006-07-03 15:44:48.000000000 +0900
+@@ -313,10 +313,19 @@ static void __meminit scatter_node_data(
+ 	pg_data_t **dst;
+ 	int node;
  
--#if defined(CONFIG_MD_RAID5) || defined(CONFIG_MD_RAID5_MODULE)
-+#ifdef CONFIG_MD_RAID5_IA64
- extern void xor_ia64_2(void);
- extern void xor_ia64_3(void);
- extern void xor_ia64_4(void);
-diff -urNp linux-2.6.17.ia64.orig/arch/ia64/lib/Makefile linux-2.6.17.ia64/arch/ia64/lib/Makefile
---- linux-2.6.17.ia64.orig/arch/ia64/lib/Makefile	2006-07-27 09:20:01.000000000 -0400
-+++ linux-2.6.17.ia64/arch/ia64/lib/Makefile	2006-07-27 14:51:19.000000000 -0400
-@@ -14,7 +14,7 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
- lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
- lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
- lib-$(CONFIG_PERFMON)	+= carta_random.o
--lib-$(CONFIG_MD_RAID5)	+= xor.o
-+lib-$(CONFIG_MD_RAID5_IA64)	+= xor.o
+-	for_each_online_node(node) {
+-		dst = LOCAL_DATA_ADDR(pgdat_list[node])->pg_data_ptrs;
+-		memcpy(dst, pgdat_list, sizeof(pgdat_list));
+-	}
++	/*
++	 * for_each_online_map() can't be used at here.
++	 * node_online_map is not set for hot-added node at this time,
++	 * because here is halfway of initilization of new node's structure.
++	 * If for_each_online_node() is used, new node's pg_data_ptrs will
++	 * be not initialized. Insted of using it, pgdat_list[] is checked.
++	 */
++	for_each_node(node)
++		if (pgdat_list[node]){
++			dst = LOCAL_DATA_ADDR(pgdat_list[node])->pg_data_ptrs;
++			memcpy(dst, pgdat_list, sizeof(pgdat_list));
++		}
++
+ }
  
- AFLAGS___divdi3.o	 AFLAGS___udivdi3.o	= -DUNSIGNED
+ /**
+
+-- 
+Yasunori Goto 
+
+
