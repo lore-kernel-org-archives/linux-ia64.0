@@ -1,23 +1,20 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 05 Jul 2006 23:48:37 +0000
-Subject: NUMA but not SMP
-Message-Id: <617E1C2C70743745A92448908E030B2A30031D@scsmsx411.amr.corp.intel.com>
+From: Peter Chubb <peterc@chubb.wattle.id.au>
+Date: Thu, 06 Jul 2006 00:23:18 +0000
+Subject: Re: NUMA but not SMP
+Message-Id: <87veqbzimh.wl%peterc@chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <617E1C2C70743745A92448908E030B2A30031D@scsmsx411.amr.corp.intel.com>
+In-Reply-To: <617E1C2C70743745A92448908E030B2A30031D@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-IA64 allows NUMA to be set without SMP ... in fact you
-end up with this when trying to build a "generic UP" kernel
-since CONFIG_IA64_GENERIC selects NUMA, and won't let you
-unselect it.
+>>>>> "Tony" = Tony Luck <Luck> writes:
 
-Suddenly this is a problem.  Generic UP kernel fails to build
-with an "Undefined: __inc_zone_state", which shows up because
-the __inc_zone_state function is defined inside some #if SMP
-code, but used inside some #if NUMA code in mm/vmstat.c
+Tony> What does NUMA && !SMP mean?  Should selecting NUMA force SMP?
 
-What does NUMA && !SMP mean?  Should selecting NUMA force SMP?
 
--Tony
+I can imagine meanings for this combination.. e.g. booting a machine with
+multiple memory nodes, but only one processor.  But whether this is
+useful is a different matter.  Maybe NUMA should select SMP, as you suggest.
