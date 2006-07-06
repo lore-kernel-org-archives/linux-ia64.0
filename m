@@ -1,39 +1,38 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Fri, 28 Jul 2006 14:01:50 +0000
-Subject: [PATCH 1/2] Fix RAID5 components
-Message-Id: <20060728140150.9149.72072.sendpatchset@prarit.boston.redhat.com>
+From: Greg Banks <gnb@melbourne.sgi.com>
+Date: Thu, 06 Jul 2006 05:13:39 +0000
+Subject: [PATCH] ia64: export node_to_cpu_mask
+Message-Id: <1152162819.18333.357.camel@hole.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
-In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
-Cc: Prarit Bhargava <prarit@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-Patch to fix export issue with RAID5 + IA64.
+ia64: Export node_to_cpu_mask so that modules (e.g. sunrpc) can use
+the node_to_cpumask() macro.
 
-	-adds new MD_RAID5_IA64 option (default to "y")
-	 that builds IA64 RAID5 components.
+Signed-off-by: Greg Banks <gnb@melbourne.sgi.com>
+---
 
-This patch should be committed by the MD maintainers.
+ arch/ia64/kernel/numa.c |    1 +
+ 1 files changed, 1 insertion(+)
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
-
-diff -urNp linux-2.6.17.ia64.orig/drivers/md/Kconfig linux-2.6.17.ia64/drivers/md/Kconfig
---- linux-2.6.17.ia64.orig/drivers/md/Kconfig	2006-07-27 09:20:03.000000000 -0400
-+++ linux-2.6.17.ia64/drivers/md/Kconfig	2006-07-27 14:55:15.000000000 -0400
-@@ -135,6 +135,13 @@ config MD_RAID456
+Index: linus-git/arch/ia64/kernel/numa.c
+=================================--- linus-git.orig/arch/ia64/kernel/numa.c	2006-07-05 15:53:15.390566417 +1000
++++ linus-git/arch/ia64/kernel/numa.c	2006-07-06 14:48:01.587159303 +1000
+@@ -28,6 +28,7 @@ u16 cpu_to_node_map[NR_CPUS] __cacheline
+ EXPORT_SYMBOL(cpu_to_node_map);
  
- 	  If unsure, say Y.
+ cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
++EXPORT_SYMBOL_GPL(node_to_cpu_mask);
  
-+config MD_RAID5_IA64
-+	bool "RAID 5 support for IA64"
-+	depends on MD_RAID456 && IA64
-+	default y
-+	---help---
-+	Say "Y" if you plan on using RAID5 in IA64
-+
- config MD_RAID5_RESHAPE
- 	bool "Support adding drives to a raid-5 array (experimental)"
- 	depends on MD_RAID456 && EXPERIMENTAL
+ /**
+  * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
+
+
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
+
+
