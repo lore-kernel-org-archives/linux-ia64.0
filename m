@@ -1,29 +1,48 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Wed, 26 Jul 2006 21:08:44 +0000
-Subject: RE: [Patch] Don't alloc empty frame in ia64_switch_mode_phys
-Message-Id: <1153948124.3286.76.camel@linux-znh>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 13 Jul 2006 17:00:38 +0000
+Subject: [PATCH] ia64: race flushing icache in COW path
+Message-Id: <200607131700.k6DH0c5t001038@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1153870600.3286.72.camel@linux-znh>
-In-Reply-To: <1153870600.3286.72.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: torvalds@osdl.org, akpm@osdl.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On Wed, 2006-07-26 at 23:33, Chen, Kenneth W wrote:
-> Zou Nan hai wrote on Tuesday, July 25, 2006 4:37 PM
-> > I think ia64_switch_mode_phys and ia64_switch_mode_virt 
-> > does not need to alloc an empty frame. 
-> > An empty frame is required by loadrs but flushrs 
-> > does not need that.
-> 
-> This patch would make your previous "Do not assume output registers
-> be reservered" unnecessary, isn't it?  It will automatically solve
-> the problem you are trying to fix in previous patch.
-> 
-  Yes, any individual of the 2 patches will fix the issue. 
-  However I still like to fix the "assume output registers to be
-preserved issue" in pal.S, because that dose not follow software runtime
-convention.
+From: Anil Keshavamurthy <anil.s.keshavamurthy@intel.com>
 
-  Zou Nan hai
+There is a race condition that showed up in a threaded JIT environment. The
+situation is that a process with a JIT code page forks, so the page is marked
+read-only, then some threads are created in the child.  One of the threads
+attempts to add a new code block to the JIT page, so a copy-on-write fault is
+taken, and the kernel allocates a new page, copies the data, installs the new
+pte, and then calls lazy_mmu_prot_update() to flush caches to make sure that
+the icache and dcache are in sync.  Unfortunately, the other thread runs right
+after the new pte is installed, but before the caches have been flushed. It
+tries to execute some old JIT code that was already in this page, but it sees
+some garbage in the i-cache from the previous users of the new physical page.
+
+Fix: we must make the caches consistent before installing the pte. This is
+an ia64 only fix because lazy_mmu_prot_update() is a no-op on all other
+architectures.
+
+Signed-off-by: Anil Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+---
+
+diff --git a/mm/memory.c b/mm/memory.c
+index dc0d82c..de8bc85 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -1549,9 +1549,9 @@ gotten:
+ 		flush_cache_page(vma, address, pte_pfn(orig_pte));
+ 		entry = mk_pte(new_page, vma->vm_page_prot);
+ 		entry = maybe_mkwrite(pte_mkdirty(entry), vma);
++		lazy_mmu_prot_update(entry);
+ 		ptep_establish(vma, address, page_table, entry);
+ 		update_mmu_cache(vma, address, entry);
+-		lazy_mmu_prot_update(entry);
+ 		lru_cache_add_active(new_page);
+ 		page_add_new_anon_rmap(new_page, vma, address);
+ 
