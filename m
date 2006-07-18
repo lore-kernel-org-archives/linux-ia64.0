@@ -1,36 +1,48 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 18 Jul 2006 00:23:41 +0000
+From: Chuck Ebbert <76306.1226@compuserve.com>
+Date: Tue, 18 Jul 2006 01:22:17 +0000
 Subject: Re: [PATCH] panic_on_oops: remove ssleep()
-Message-Id: <20060717172341.6d49f109.akpm@osdl.org>
+Message-Id: <200607172126_MC3-1-C544-E35A@compuserve.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <31687.FP.7244@verge.net.au>
-	<200607180027.51986.ak@suse.de>
-	<20060717231056.GC12463@verge.net.au>
-In-Reply-To: <20060717231056.GC12463@verge.net.au>
+In-Reply-To: <31687.FP.7244@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Horms <horms@verge.net.au>
-Cc: ak@suse.de, rmk@arm.linux.org.uk, tony.luck@intel.com, paulus@samba.org, anton@samba.org, chris@zankel.net, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, discuss@x86-64.org, linux-kernel@vger.kernel.org
+Cc: linuxppc-dev <linuxppc-dev@ozlabs.org>, Chris Zankel <chris@zankel.net>, Russell King <rmk@arm.linux.org.uk>, Tony Luck <tony.luck@intel.com>, Paul Mackerras <paulus@samba.org>, Anton Blanchard <anton@samba.org>, Andi Kleen <ak@suse.de>, Andrew Morton <akpm@osdl.org>, linux-ia64 <linux-ia64@vger.kernel.org>, discuss@x86-64.org, linux-kernel <linux-kernel@vger.kernel.org>
 
-On Mon, 17 Jul 2006 19:10:59 -0400
-Horms <horms@verge.net.au> wrote:
+In-Reply-To: <31687.FP.7244@verge.net.au>
 
-> On Tue, Jul 18, 2006 at 12:27:51AM +0200, Andi Kleen wrote:
-> > On Monday 17 July 2006 18:17, Horms wrote:
-> > ...
-> > Keeping the delay might be actually useful so that you can see the panic
-> > before system reboots when reboot on panic is enabled. I would just use a loop
-> > of mdelays(1) with touch_nmi_watchdog/touch_softirq_watchdog()s
-> > inbetween.
+On Mon, 17 Jul 2006 12:17:20 -0400, Horms wrote:
+
+> This patch is part of an effort to unify the panic_on_oops behaviour
+> across all architectures that implement it.
 > 
-> Ok, I will look into making that happen. I agree that the pause is
-> quite useful.
+> It was pointed out to me by Andi Kleen that if an oops has occured
+> in interrupt context, then calling sleep() in the oops path will only cause
+> a panic, and that it would be really better for it not to be in the path at
+> all. 
 
-It's kind-of already implemented, via pause_on_oops.  Perhaps doing
-something like 
+i386 already checks in_interrupt() and panics immediately:
 
-	if (panic_on_oops)
-		pause_on_oops = max(pause_on_oops, 5*HZ);
+--- a/arch/i386/kernel/traps.c
++++ b/arch/i386/kernel/traps.c
+@@ -442,11 +442,9 @@ #endif
+==>    if (in_interrupt())
+==>            panic("Fatal exception in interrupt");
+ 
+-       if (panic_on_oops) {
+-               printk(KERN_EMERG "Fatal exception: panic in 5 seconds\n");
+-               ssleep(5);
+-               panic("Fatal exception");
+-       }
++       if (panic_on_oops)
++               panic("Fatal exception: panic_on_oops");
++
+        oops_exit();
+        do_exit(SIGSEGV);
+ }
 
-would be sufficient.
+-- 
+Chuck
+And did we tell you the name of the game, boy, we call it Riding the Gravy Train.
