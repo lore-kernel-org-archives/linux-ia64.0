@@ -1,72 +1,60 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 11 Jul 2006 15:37:11 +0000
-Subject: Re: [PATCH] remove empty node at boot time
-Message-Id: <200607110937.11720.bjorn.helgaas@hp.com>
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Wed, 19 Jul 2006 22:30:53 +0000
+Subject: [PATCH] sgiioc4: Always share IRQ
+Message-Id: <20060719172618.N56117@pkunk.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060601200436.6bf7c4e5.kamezawa.hiroyu@jp.fujitsu.com> <200607101103.03849.bjorn.helgaas@hp.com> <20060711155538.e15a7a29.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20060711155538.e15a7a29.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org, akpm@osdl.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org, Jeremy Higdon <jeremy@sgi.com>, Jes Sorensen <jes@sgi.com>, tony.luck@intel.com
 
-On Tuesday 11 July 2006 00:55, KAMEZAWA Hiroyuki wrote:
-> On Mon, 10 Jul 2006 11:03:03 -0600
-> Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
-> 
-> > On Sunday 09 July 2006 23:19, KAMEZAWA Hiroyuki wrote:
-> > > Could you try this patch ? (against 2.6.18-rc1)
-> > 
-> > Your patch does fix it.  But I'm worried about removing
-> > empty nodes at boot-time.  I want to support the following
-> > scenario:
-> > 
-> >   node 0: 1 enabled CPU, 3 disabled CPUs, no local memory
-> >   node 1: 4 disabled CPUs, no local memory
-> >   node 2: no CPUs, big interleaved memory across nodes 0 & 1
-> > 
-> > At run-time, I'd like to be able to enable any or all of the
-> > 7 disabled CPUs.  If you remove the "empty" node 1 at boot-time,
-> > it sounds like I won't be able to enable its CPUs later.
-> > 
-> 
-> Hmm.. in my understanding, all structures for *possible* cpus are allocated
-> at boot time. Then, only problem seems that a cpu is tied to 
-> not-exisiting-node at boot time.
-> (see arch/ia64/kernel/numa.c, build_cpu_to_node_map())
-> 
-> ==
-> void __init build_cpu_to_node_map(void)
-> {
->         int cpu, i, node;
-> 
->         for(node=0; node < MAX_NUMNODES; node++)
->                 cpus_clear(node_to_cpu_mask[node]);
-> 
->         for(cpu = 0; cpu < NR_CPUS; ++cpu) {
->                 node = -1;
->                 for (i = 0; i < NR_CPUS; ++i)
->                         if (cpu_physical_id(cpu) = node_cpuid[i].phys_id) {
->                                 node = node_cpuid[i].nid;
->                                 break;
->                         }
->                 cpu_to_node_map[cpu] = (node >= 0) ? node : 0; 
->                 if (node >= 0)
->                         cpu_set(cpu, node_to_cpu_mask[node]);
->         }
-> }
-> ==> 
-> Then what we have to do here are
-> 1. remap cpu to the first existing node at hot-add event
-> or
-> 2. implement node-hot-add triggered by cpu-hot-add.
->    Because we already have implemented node-hot-add triggered by memory-hotadd
->    we can do it by small effort.
+The SGI IOC4 IDE device always shares an interrupt with other devices
+which are part of IOC4.  As such, IDEPCI_SHARE_IRQ should always be
+enabled when BLK_DEV_SGIIOC4 is enabled.
 
-I haven't paid much attention to the memory/cpu/node hotplug stuff,
-but (2) sounds reasonable.
-
-> I think above will work for your environment.
-> do you have any idea other than "don't remove empty node at boot time" ?
-> or reserve empty node is the best way ?
+Signed-off-by: Brent Casavant <bcasavan@sgi.com>
+---
+ arch/ia64/configs/sn2_defconfig |    2 +-
+ arch/ia64/defconfig             |    2 +-
+ drivers/ide/Kconfig             |    1 +
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+---
+diff --git a/arch/ia64/configs/sn2_defconfig b/arch/ia64/configs/sn2_defconfig
+index 9ea3539..0f14a82 100644
+--- a/arch/ia64/configs/sn2_defconfig
++++ b/arch/ia64/configs/sn2_defconfig
+@@ -363,7 +363,7 @@ # IDE chipset support/bugfixes
+ #
+ CONFIG_IDE_GENERIC=y
+ CONFIG_BLK_DEV_IDEPCI=y
+-# CONFIG_IDEPCI_SHARE_IRQ is not set
++CONFIG_IDEPCI_SHARE_IRQ=y
+ # CONFIG_BLK_DEV_OFFBOARD is not set
+ # CONFIG_BLK_DEV_GENERIC is not set
+ # CONFIG_BLK_DEV_OPTI621 is not set
+diff --git a/arch/ia64/defconfig b/arch/ia64/defconfig
+index 6cba55d..9001b3f 100644
+--- a/arch/ia64/defconfig
++++ b/arch/ia64/defconfig
+@@ -366,7 +366,7 @@ #
+ # CONFIG_IDE_GENERIC is not set
+ # CONFIG_BLK_DEV_IDEPNP is not set
+ CONFIG_BLK_DEV_IDEPCI=y
+-# CONFIG_IDEPCI_SHARE_IRQ is not set
++CONFIG_IDEPCI_SHARE_IRQ=y
+ # CONFIG_BLK_DEV_OFFBOARD is not set
+ CONFIG_BLK_DEV_GENERIC=y
+ # CONFIG_BLK_DEV_OPTI621 is not set
+diff --git a/drivers/ide/Kconfig b/drivers/ide/Kconfig
+index d1266fe..556958e 100644
+--- a/drivers/ide/Kconfig
++++ b/drivers/ide/Kconfig
+@@ -682,6 +682,7 @@ config BLK_DEV_SVWKS
+ config BLK_DEV_SGIIOC4
+ 	tristate "Silicon Graphics IOC4 chipset ATA/ATAPI support"
+ 	depends on (IA64_SGI_SN2 || IA64_GENERIC) && SGI_IOC4
++	select IDEPCI_SHARE_IRQ
+ 	help
+ 	  This driver adds PIO & MultiMode DMA-2 support for the SGI IOC4
+ 	  chipset, which has one channel and can support two devices.
