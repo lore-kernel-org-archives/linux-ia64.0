@@ -1,13 +1,15 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 19 Jul 2006 22:30:53 +0000
+Date: Fri, 21 Jul 2006 15:39:36 +0000
 Subject: [PATCH] sgiioc4: Always share IRQ
-Message-Id: <20060719172618.N56117@pkunk.americas.sgi.com>
+Message-Id: <20060721103558.F65223@pkunk.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060719172618.N56117@pkunk.americas.sgi.com>
+In-Reply-To: <20060719172618.N56117@pkunk.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org, Jeremy Higdon <jeremy@sgi.com>, Jes Sorensen <jes@sgi.com>, tony.luck@intel.com
+To: linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+Cc: linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org
 
 The SGI IOC4 IDE device always shares an interrupt with other devices
 which are part of IOC4.  As such, IDEPCI_SHARE_IRQ should always be
@@ -15,6 +17,8 @@ enabled when BLK_DEV_SGIIOC4 is enabled.
 
 Signed-off-by: Brent Casavant <bcasavan@sgi.com>
 ---
+Resending for inclusion in -mm.
+
  arch/ia64/configs/sn2_defconfig |    2 +-
  arch/ia64/defconfig             |    2 +-
  drivers/ide/Kconfig             |    1 +
