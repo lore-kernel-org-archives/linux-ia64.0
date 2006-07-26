@@ -1,40 +1,29 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Tue, 25 Jul 2006 23:36:40 +0000
-Subject: [Patch] Don't alloc empty frame in ia64_switch_mode_phys
-Message-Id: <1153870600.3286.72.camel@linux-znh>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 26 Jul 2006 15:33:35 +0000
+Subject: RE: [Patch] Don't alloc empty frame in ia64_switch_mode_phys
+Message-Id: <000001c6b0c8$e0f3a710$6154e984@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1153870600.3286.72.camel@linux-znh>
+In-Reply-To: <1153870600.3286.72.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Zou Nan hai wrote on Tuesday, July 25, 2006 4:37 PM
+> I think ia64_switch_mode_phys and ia64_switch_mode_virt 
+> does not need to alloc an empty frame. 
+> An empty frame is required by loadrs but flushrs 
+> does not need that.
 
-I think ia64_switch_mode_phys and ia64_switch_mode_virt 
-does not need to alloc an empty frame. 
-An empty frame is required by loadrs but flushrs 
-does not need that.
+This patch would make your previous "Do not assume output registers
+be reservered" unnecessary, isn't it?  It will automatically solve
+the problem you are trying to fix in previous patch.
 
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-
---- linux-2.6.18-rc2/arch/ia64/kernel/head.S	2006-07-26 11:30:08.000000000 +0800
-+++ linux-2.6.18-rc2-fix/arch/ia64/kernel/head.S	2006-07-26 12:26:00.000000000 +0800
-@@ -853,7 +853,6 @@ END(__ia64_init_fpu)
-  */
- GLOBAL_ENTRY(ia64_switch_mode_phys)
-  {
--	alloc r2=ar.pfs,0,0,0,0
- 	rsm psr.i | psr.ic		// disable interrupts and interrupt collection
- 	mov r15=ip
-  }
-@@ -902,7 +901,6 @@ END(ia64_switch_mode_phys)
-  */
- GLOBAL_ENTRY(ia64_switch_mode_virt)
-  {
--	alloc r2=ar.pfs,0,0,0,0
- 	rsm psr.i | psr.ic		// disable interrupts and interrupt collection
- 	mov r15=ip
-  }
+The real issue to me is that ia64_switch_mode_phys() creates a zero
+stack frame before turning off interrupt.  If the zero frame alloc
+instruction is removed, the current register stack frame ought to be
+safe because they should be preserved by the interrupt return path.
 
 
-
-
+- Ken
