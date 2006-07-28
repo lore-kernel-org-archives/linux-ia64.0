@@ -1,89 +1,44 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Tue, 25 Jul 2006 23:26:51 +0000
-Subject: [Patch] Do not assume output registers be reservered.
-Message-Id: <1153870011.3286.62.camel@linux-znh>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Fri, 28 Jul 2006 14:01:55 +0000
+Subject: [PATCH 2/2] Fix IA64 components
+Message-Id: <20060728140155.9149.7093.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
+In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
+Cc: Prarit Bhargava <prarit@sgi.com>
 
-We found an issue in pal.S.
+Patch to fix export issue with RAID5 + IA64.
 
-According to the software runtime SPEC,=20
-The caller's output registers do not need to be preserved for=20
-caller. The callee may reuse input registers for any other=20
-purpose within the procedure.
+	-removes dead CONFIG options
 
-in ia64_pal_call_phys_stacked,
+This patch should be committed by the IA64 maintainer.
 
-input registers are copied to output registers before call=20
-into ia64_switch_mode_phys, then used to call into PAL. This=20
-assumes output registers are preserved in ia64_switch_mode_phys,
-which may not be true.
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
 
-In this particular case, ia64_switch_mode_phys alloc a null frame=20
-, and mask off psr.i.
-If an interrupt comes at this small window,=20
-or an MCA comes inside the procedure, output registers=20
-maybe changed,=20
-then the pal call may got some staled input registers.
-=20
-This patch moves the copies from input to output=20
-after ia64_switch_mode_phys to follow the software=20
-runtime convention.
-
-It  also removed some unused labels in=20
-ia64_pal_call_phys_stacked.
-
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-
---- linux-2.6.18-rc2/arch/ia64/kernel/pal.S	2006-07-26 11:59:06.000000000 +=
-0800
-+++ linux-2.6.18-rc2-fix/arch/ia64/kernel/pal.S	2006-07-26 12:04:18.0000000=
-00 +0800
-@@ -217,12 +217,7 @@ GLOBAL_ENTRY(ia64_pal_call_phys_stacked)
- 	.body
- 	;;
- 	ld8 loc2 =3D [loc2]		// loc2 <- entry point
--	mov out0 =3D in0		// first argument
--	mov out1 =3D in1		// copy arg2
--	mov out2 =3D in2		// copy arg3
--	mov out3 =3D in3		// copy arg3
--	;;
--	mov loc3 =3D psr		// save psr
-+	mov loc3 =3D psr			// save psr
- 	;;
- 	mov loc4=3Dar.rsc			// save RSE configuration
- 	dep.z loc2=3Dloc2,0,61		// convert pal entry point to physical
-@@ -236,18 +231,23 @@ GLOBAL_ENTRY(ia64_pal_call_phys_stacked)
- 	;;
- 	andcm r16=3Dloc3,r16		// removes bits to clear from psr
- 	br.call.sptk.many rp=3Dia64_switch_mode_phys
--.ret6:
-+
-+	mov out0 =3D in0			// first argument
-+	mov out1 =3D in1			// copy arg2
-+	mov out2 =3D in2			// copy arg3
-+	mov out3 =3D in3			// copy arg3
- 	mov loc5 =3D r19
- 	mov loc6 =3D r20
-+
- 	br.call.sptk.many rp=B7		// now make the call
--.ret7:
-+
- 	mov ar.rsc=3D0			// put RSE in enforced lazy, LE mode
- 	mov r16=3Dloc3			// r16=3D original psr
- 	mov r19=3Dloc5
- 	mov r20=3Dloc6
- 	br.call.sptk.many rp=3Dia64_switch_mode_virt	// return to virtual mode
-=20
--.ret8:	mov psr.l  =3D loc3		// restore init PSR
-+	mov psr.l  =3D loc3		// restore init PSR
- 	mov ar.pfs =3D loc1
- 	mov rp =3D loc0
- 	;;
-
-
-
-
+diff -urNp linux-2.6.17.ia64.orig/arch/ia64/kernel/ia64_ksyms.c linux-2.6.17.ia64/arch/ia64/kernel/ia64_ksyms.c
+--- linux-2.6.17.ia64.orig/arch/ia64/kernel/ia64_ksyms.c	2006-07-27 09:20:01.000000000 -0400
++++ linux-2.6.17.ia64/arch/ia64/kernel/ia64_ksyms.c	2006-07-27 14:51:42.000000000 -0400
+@@ -67,7 +68,7 @@ EXPORT_SYMBOL(__udivdi3);
+ EXPORT_SYMBOL(__moddi3);
+ EXPORT_SYMBOL(__umoddi3);
+ 
+-#if defined(CONFIG_MD_RAID5) || defined(CONFIG_MD_RAID5_MODULE)
++#ifdef CONFIG_MD_RAID5_IA64
+ extern void xor_ia64_2(void);
+ extern void xor_ia64_3(void);
+ extern void xor_ia64_4(void);
+diff -urNp linux-2.6.17.ia64.orig/arch/ia64/lib/Makefile linux-2.6.17.ia64/arch/ia64/lib/Makefile
+--- linux-2.6.17.ia64.orig/arch/ia64/lib/Makefile	2006-07-27 09:20:01.000000000 -0400
++++ linux-2.6.17.ia64/arch/ia64/lib/Makefile	2006-07-27 14:51:19.000000000 -0400
+@@ -14,7 +14,7 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+ lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+-lib-$(CONFIG_MD_RAID5)	+= xor.o
++lib-$(CONFIG_MD_RAID5_IA64)	+= xor.o
+ 
+ AFLAGS___divdi3.o	 AFLAGS___udivdi3.o	= -DUNSIGNED
