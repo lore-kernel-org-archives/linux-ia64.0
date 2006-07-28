@@ -1,40 +1,39 @@
-From: Horms <horms@verge.net.au>
-Date: Fri, 07 Jul 2006 04:13:20 +0000
-Subject: [PATCH] ia64, kexec: tidy up declaration of relocate_new_kernel_t
-Message-Id: <20060707041318.GA32296@verge.net.au>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Fri, 28 Jul 2006 14:01:50 +0000
+Subject: [PATCH 1/2] Fix RAID5 components
+Message-Id: <20060728140150.9149.72072.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
+In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
+Cc: Prarit Bhargava <prarit@sgi.com>
 
-This brings the style of the declearation of relocate_new_kernel_t into line
-with other architectures (x86_64 and i386). In aprticular, the parameters
-now have names, and the function is asmlinkage NORET_TYPE.
+Patch to fix export issue with RAID5 + IA64.
 
-Signed-off-by: Horms <horms@verge.net.au>
----
- arch/ia64/kernel/machine_kexec.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+	-adds new MD_RAID5_IA64 option (default to "y")
+	 that builds IA64 RAID5 components.
 
-diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
-index f30aa87..302a9f4 100644
---- a/arch/ia64/kernel/machine_kexec.c
-+++ b/arch/ia64/kernel/machine_kexec.c
-@@ -26,8 +26,11 @@ #include <asm/tlbflush.h>
- #include <asm/delay.h>
- #include <asm/meminit.h>
+This patch should be committed by the MD maintainers.
+
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+
+diff -urNp linux-2.6.17.ia64.orig/drivers/md/Kconfig linux-2.6.17.ia64/drivers/md/Kconfig
+--- linux-2.6.17.ia64.orig/drivers/md/Kconfig	2006-07-27 09:20:03.000000000 -0400
++++ linux-2.6.17.ia64/drivers/md/Kconfig	2006-07-27 14:55:15.000000000 -0400
+@@ -135,6 +135,13 @@ config MD_RAID456
  
--typedef void (*relocate_new_kernel_t)(unsigned long, unsigned long,
--		struct ia64_boot_param *, unsigned long);
-+typedef asmlinkage NORET_TYPE void (*relocate_new_kernel_t)(
-+					unsigned long indirection_page,
-+					unsigned long start_address,
-+					struct ia64_boot_param *boot_param,
-+					unsigned long pal_addr) ATTRIB_NORET;
+ 	  If unsure, say Y.
  
- /*
-  * Do what every setup is needed on image and the
--- 
-1.4.1.rc1.g1ef9
-
++config MD_RAID5_IA64
++	bool "RAID 5 support for IA64"
++	depends on MD_RAID456 && IA64
++	default y
++	---help---
++	Say "Y" if you plan on using RAID5 in IA64
++
+ config MD_RAID5_RESHAPE
+ 	bool "Support adding drives to a raid-5 array (experimental)"
+ 	depends on MD_RAID456 && EXPERIMENTAL
