@@ -1,25 +1,65 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 31 Jul 2006 09:22:38 +0000
+From: Prarit Bhargava <prarit@redhat.com>
+Date: Mon, 31 Jul 2006 13:12:11 +0000
 Subject: Re: [PATCH 0/2] Fix RAID5 + IA64 compile
-Message-Id: <yq01ws29li9.fsf@jaguar.mkp.net>
+Message-Id: <44CE01AB.8040205@redhat.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070003020101040909080400"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
-In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com> <yq01ws29li9.fsf@jaguar.mkp.net>
+In-Reply-To: <yq01ws29li9.fsf@jaguar.mkp.net>
+To: Jes Sorensen <jes@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-raid@vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------070003020101040909080400
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Prarit Bhargava <prarit@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
 
->>>>> "Prarit" = Prarit Bhargava <prarit@sgi.com> writes:
+Resubmitting ... please note this patch is ia64 ONLY.
 
-Prarit> Patchset to fix RAID5 on ia64.  Removes dead CONFIG options
-Prarit> and introduces a new CONFIG option.
 
-Prarit,
+CONFIG_MD_RAID5 became CONFIG_MD_RAID456 in drivers/md/Kconfig.  Make 
+the same
+change in arch/ia64
 
-Looking through that patch, why introduce a new CONFIG_ option when it
-can all be deducted from CONFIG_MDRAID456 and CONFIG_ia64?
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Signed-off-by: Aron Griffis <aron@hp.com>
 
-Cheers,
-Jes
+
+--------------070003020101040909080400
+Content-Type: text/plain;
+ name="xor.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="xor.diff"
+
+CONFIG_MD_RAID5 became CONFIG_MD_RAID456 in drivers/md/Kconfig.  Make the same
+change in arch/ia64
+
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Signed-off-by: Aron Griffis <aron@hp.com>
+
+--- linux-2.6.17.ia64.orig/arch/ia64/kernel/ia64_ksyms.c	2006-07-27 15:21:47.000000000 -0400
++++ linux-2.6.17.ia64/arch/ia64/kernel/ia64_ksyms.c	2006-07-31 09:02:06.000000000 -0400
+@@ -68,7 +68,7 @@ EXPORT_SYMBOL(__udivdi3);
+ EXPORT_SYMBOL(__moddi3);
+ EXPORT_SYMBOL(__umoddi3);
+ 
+-#if defined(CONFIG_MD_RAID5) || defined(CONFIG_MD_RAID5_MODULE)
++#if defined(CONFIG_MD_RAID456) || defined(CONFIG_MD_RAID456_MODULE)
+ extern void xor_ia64_2(void);
+ extern void xor_ia64_3(void);
+ extern void xor_ia64_4(void);
+--- linux-2.6.17.ia64.orig/arch/ia64/lib/Makefile	2006-07-27 09:20:01.000000000 -0400
++++ linux-2.6.17.ia64/arch/ia64/lib/Makefile	2006-07-31 09:02:41.000000000 -0400
+@@ -14,7 +14,7 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+ lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+-lib-$(CONFIG_MD_RAID5)	+= xor.o
++lib-$(CONFIG_MD_RAID456)	+= xor.o
+ 
+ AFLAGS___divdi3.o	=
+ AFLAGS___udivdi3.o	= -DUNSIGNED
+
+--------------070003020101040909080400--
