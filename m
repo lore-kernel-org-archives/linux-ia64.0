@@ -1,17 +1,25 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Fri, 28 Jul 2006 14:01:45 +0000
-Subject: [PATCH 0/2] Fix RAID5 + IA64 compile
-Message-Id: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Mon, 31 Jul 2006 09:22:38 +0000
+Subject: Re: [PATCH 0/2] Fix RAID5 + IA64 compile
+Message-Id: <yq01ws29li9.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
+In-Reply-To: <20060728140145.9149.43458.sendpatchset@prarit.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
-Cc: Prarit Bhargava <prarit@sgi.com>
+To: Prarit Bhargava <prarit@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
 
-Patchset to fix RAID5 on ia64.  Removes dead CONFIG options and
-introduces a new CONFIG option.
+>>>>> "Prarit" = Prarit Bhargava <prarit@sgi.com> writes:
 
-Patch is against 2.6.17 + 2.6.18-rc2-git5
+Prarit> Patchset to fix RAID5 on ia64.  Removes dead CONFIG options
+Prarit> and introduces a new CONFIG option.
 
-Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Prarit,
+
+Looking through that patch, why introduce a new CONFIG_ option when it
+can all be deducted from CONFIG_MDRAID456 and CONFIG_ia64?
+
+Cheers,
+Jes
