@@ -1,7 +1,7 @@
 From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Fri, 04 Aug 2006 02:06:20 +0000
+Date: Fri, 04 Aug 2006 02:08:08 +0000
 Subject: RE: [Fastboot] Ia64 kdump patch
-Message-Id: <08B1877B2880CE42811294894F33AD5C053B96@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <08B1877B2880CE42811294894F33AD5C053B97@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060608083516.GH28607@verge.net.au>
 In-Reply-To: <20060608083516.GH28607@verge.net.au>
@@ -65,13 +65,12 @@ om
 > to specify there? The one i built? Or, a reqular kernel that
 > proves to work?
 >=20
- It is possible to use the same kernel as the crash dumping kernel,=20
- You should reserve a certain amount of RAM for it by pass a crashkernel=3D=
-xxxM@yyyM kernel parameter means " reserved xxxM from yyyM for crash dumpin=
-g kernel",=20
-Here you should align yyy to 64M.
- Then you will see the "Crash kernel" region in /proc/iomem after first ker=
-nel boots.
+> Thanks,
+>   - jay
+ Forget to mention,
+ If you are using same kernel as first and crash kernel, you'd better pass =
+an additional=20
+ "maxcpus=3D1" kernel parameter to the second kernel.
 
 Thanks
 Zou Nan hai
