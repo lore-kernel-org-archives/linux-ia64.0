@@ -1,28 +1,37 @@
-From: "Sanjay Bhandari" <sbhandari@dataupia.com>
-Date: Fri, 04 Aug 2006 01:44:03 +0000
-Subject: question: TLB sharing between child processes
-Message-Id: <AB3F23D36A977945B3F991A27D4CB64F02D1D3E4@ms09.mse4.exchange.ms>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Sun, 06 Aug 2006 22:54:51 +0000
+Subject: Re: question: TLB sharing between child processes
+Message-Id: <873bc9a30k.wl%peterc@gelato.unsw.edu.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <AB3F23D36A977945B3F991A27D4CB64F02D1D3E4@ms09.mse4.exchange.ms>
+In-Reply-To: <AB3F23D36A977945B3F991A27D4CB64F02D1D3E4@ms09.mse4.exchange.ms>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-(If this is the wrong forum for this question, a pointer to the right
-one will be appreciated)
+>>>>> "Sanjay" = Sanjay Bhandari <sbhandari@dataupia.com> writes:
+
+Sanjay> (If this is the wrong forum for this question, a pointer to
+Sanjay> the right one will be appreciated)
  
-What can I expect in terms of TLB and cache sharing between different
-processes when they are all non-exec'ed children of the same parent
-(i.e. fork but no exec)?
+Sanjay> What can I expect in terms of TLB and cache sharing between
+Sanjay> different processes when they are all non-exec'ed children of
+Sanjay> the same parent (i.e. fork but no exec)?
 
-The architecture is IA64. 
+There is no TLB sharing in standard Linux.  Matt Chapman had a patch
+that enabled TLB sharing for memory regions with the same protections
+and virtual address in different address spaces; benchmarking showed a
+very large reduction in ITLB misses, but lesser reduction in DTLB
+misses (COW means that data areas are not actually shared).  Overall,
+ITLB misses weren't a big enough factor in the workloads we had
+to make a real difference.  If you had a workload that had a large
+shared memory region mapped into the same address in multiple
+processes, the tradeoffs may differ.
 
-I am trying to get some insight into the context switch overhead for
-this scenario. My understanding is that the processes will COW share the
-physical pages - but have been unable to get a clear read on how things
-fare with the TLB and caches. If the virtual addresses in each process
-point to the same physical addresses, do they share the TLB and cache
-entries - or do they have to allocate separate ones (given that the
-entries are tagged with ASN etc.)?
+Itanium caches are physically mapped, so they are always shared.
 
-Any pointers will be much appreciated.
+--
+Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
+http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
+
