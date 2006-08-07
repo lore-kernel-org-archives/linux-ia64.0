@@ -1,200 +1,190 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 07 Jul 2006 23:26:31 +0000
-Subject: Re: [PATCH] remove empty node at boot time
-Message-Id: <200607071726.31646.bjorn.helgaas@hp.com>
+From: Robin Holt <holt@sgi.com>
+Date: Mon, 07 Aug 2006 15:46:08 +0000
+Subject: Silent data corruption caused by XPC.
+Message-Id: <20060807154608.GC15674@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060601200436.6bf7c4e5.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20060601200436.6bf7c4e5.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+To: linux-ia64@vger.kernel.org
 
-On Thursday 01 June 2006 05:04, KAMEZAWA Hiroyuki wrote:
-> Remove empty node -- a node which containes no cpu, no memory (and no I/O).
-> for ia64.
-> 
-> This patch online nodes which has available resouces and avoid onlining 
-> nodes which has only possible resouces.
+Jack Steiner identified a problem where XPC can cause a silent
+data corruption.  On module load, the placement may cause the
+xpc_remote_copy_buffer to span two physical pages.  DMA transfers are
+done to the start virtual address translated to physical.
 
-This patch breaks my HP rx8640 box.  I suppose we have some unusual
-SRAT configuration.  I'll debug it more next week.  If there's something
-in particular I should look for, let me know.
+This patch changes the buffer from a statically allocated buffer to a
+kmalloc'd buffer.  Dean Nelson reviewed this before posting.  I have
+tested it in the configuration that was showing the memory corruption
+and verified it works.  I also added DBUG_ON statements to help catch
+this if a similar situation is encountered.
 
-Comparing old (working) with new (broken), I see:
+Signed-off-by: Robin Holt <holt@sgi.com>
+Signed-off-by: Dean Nelson <dcn@sgi.com>
+Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-- Number of logical nodes in system = 3
-+ Number of logical nodes in system = 1
 
-This box has two cells.  Each cell has four CPUs and some local memory.
-There is also an interleaved region that uses memory from both cells.
-I think firmware presents this as a logical node for each cell, plus
-one for the interleaved region.
-
-This box is configured with minimal local memory on each cell (8MB).
-That's less than a granule, so we should discard it, leaving two nodes
-with CPUs but no memory, and a third node with all the interleaved
-memory but no CPUs.
-
-It looks like this patch throws away two of the nodes, so I'm guessing
-we discarded the nodes with CPUs and no memory.
-
-> SRAT describes possible resources, cpu and memory.  It also shows proximity
-> domain, pxm. Each numa node is created according to pxm.
-> 
-> Current ia64 SRAT parser onlining node when new pxm is found. But sometimes
-> pxm just includes 'possible' resources, doesn't includes available resources.
-> Such pxms will create an empty node.
-> 
-> When an empty node is onlined, it allocates a pgdat for an empty node.
-> 
-> Now, fundamental codes for node-hot-plug are ready in -mm. We can add
-> cpu and memory dynamically to the created new node. (memory-less-node hotplug is
-> not ready. But I don't know whether there are demands for it now.)
-> Then, we can remove empty nodes, which just includes possible resource.
-> 
-> And, I'm now considering allocating new pgdat on-node. Empty nodes are
-> obstacles to do that.
-> 
-> TBD: I/O only node detections scheme should be fixed (if necessary).
->      Does anyone have a suggestion ?
-> 
-> Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-> 
-> 
-> Index: linux-2.6.17-rc5-mm2/arch/ia64/kernel/setup.c
-> =================================> --- linux-2.6.17-rc5-mm2.orig/arch/ia64/kernel/setup.c	2006-06-01 18:34:08.000000000 +0900
-> +++ linux-2.6.17-rc5-mm2/arch/ia64/kernel/setup.c	2006-06-01 19:09:19.000000000 +0900
-> @@ -418,7 +418,7 @@
->  
->  	if (early_console_setup(*cmdline_p) = 0)
->  		mark_bsp_online();
-> -
-> +	reserve_memory();
->  #ifdef CONFIG_ACPI
->  	/* Initialize the ACPI boot-time table parser */
->  	acpi_table_init();
-> Index: linux-2.6.17-rc5-mm2/arch/ia64/mm/contig.c
-> =================================> --- linux-2.6.17-rc5-mm2.orig/arch/ia64/mm/contig.c	2006-06-01 18:32:18.000000000 +0900
-> +++ linux-2.6.17-rc5-mm2/arch/ia64/mm/contig.c	2006-06-01 19:09:19.000000000 +0900
-> @@ -146,8 +146,6 @@
->  {
->  	unsigned long bootmap_size;
->  
-> -	reserve_memory();
-> -
->  	/* first find highest page frame number */
->  	max_pfn = 0;
->  	efi_memmap_walk(find_max_pfn, &max_pfn);
-> Index: linux-2.6.17-rc5-mm2/arch/ia64/mm/discontig.c
-> =================================> --- linux-2.6.17-rc5-mm2.orig/arch/ia64/mm/discontig.c	2006-06-01 18:34:08.000000000 +0900
-> +++ linux-2.6.17-rc5-mm2/arch/ia64/mm/discontig.c	2006-06-01 19:09:19.000000000 +0900
-> @@ -443,8 +443,6 @@
->  {
->  	int node;
->  
-> -	reserve_memory();
-> -
->  	if (num_online_nodes() = 0) {
->  		printk(KERN_ERR "node info missing!\n");
->  		node_set_online(0);
-> Index: linux-2.6.17-rc5-mm2/arch/ia64/kernel/acpi.c
-> =================================> --- linux-2.6.17-rc5-mm2.orig/arch/ia64/kernel/acpi.c	2006-06-01 18:34:08.000000000 +0900
-> +++ linux-2.6.17-rc5-mm2/arch/ia64/kernel/acpi.c	2006-06-01 19:09:19.000000000 +0900
-> @@ -515,6 +515,43 @@
->  	num_node_memblks++;
->  }
->  
-> +/* online node if node has valid memory */
-> +static
-> +int find_valid_memory_range(unsigned long start, unsigned long end, void *arg)
-> +{
-> +	int i;
-> +	struct node_memblk_s *p;
-> +	start = __pa(start);
-> +	end = __pa(end);
-> +	for (i = 0; i < num_node_memblks; ++i) {
-> +		p = &node_memblk[i];
-> +		if (end < p->start_paddr)
-> +			continue;
-> +		if (p->start_paddr + p->size <= start)
-> +			continue;
-> +		node_set_online(p->nid);
-> +	}
-> +	return 0;
-> +}
-> +
-> +static void
-> +acpi_online_node_fixup(void)
-> +{
-> +	int i, cpu;
-> +	/* online node if a node has available cpus */
-> +	for (i = 0; i < srat_num_cpus; ++i)
-> +		for (cpu = 0; cpu < available_cpus; ++cpu)
-> +			if (smp_boot_data.cpu_phys_id[cpu] =
-> +				node_cpuid[i].phys_id) {
-> +				node_set_online(node_cpuid[i].nid);
-> +				break;
-> +			}
-> +	/* memory */
-> +	efi_memmap_walk(find_valid_memory_range, NULL);
-> +
-> +	/* TBD: check I/O devices which have valid nid. and online it*/
-> +}
-> +
->  void __init acpi_numa_arch_fixup(void)
->  {
->  	int i, j, node_from, node_to;
-> @@ -526,22 +563,28 @@
->  		return;
->  	}
->  
-> -	/*
-> -	 * MCD - This can probably be dropped now.  No need for pxm ID to node ID
-> -	 * mapping with sparse node numbering iff MAX_PXM_DOMAINS <= MAX_NUMNODES.
-> -	 */
->  	nodes_clear(node_online_map);
-> +	/* MAP pxm to nid */
->  	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
->  		if (pxm_bit_test(i)) {
-> -			int nid = acpi_map_pxm_to_node(i);
-> -			node_set_online(nid);
-> +			/* this makes pxm <-> nid mapping */
-> +			acpi_map_pxm_to_node(i);
->  		}
->  	}
-> +	/* convert pxm information to nid information */
->  
-> -	/* set logical node id in memory chunk structure */
->  	for (i = 0; i < num_node_memblks; i++)
->  		node_memblk[i].nid = pxm_to_node(node_memblk[i].nid);
->  
-> +	for (i = 0; i < srat_num_cpus; i++)
-> +		node_cpuid[i].nid = pxm_to_node(node_cpuid[i].nid);
-> +
-> +	/*
-> +         * confirm node is online or not.
-> +         * onlined node will have their own NODE_DATA
-> +	 */
-> +	acpi_online_node_fixup();
-> +
->  	/* assign memory bank numbers for each chunk on each node */
->  	for_each_online_node(i) {
->  		int bank;
-> @@ -552,9 +595,6 @@
->  				node_memblk[j].bank = bank++;
->  	}
->  
-> -	/* set logical node id in cpu structure */
-> -	for (i = 0; i < srat_num_cpus; i++)
-> -		node_cpuid[i].nid = pxm_to_node(node_cpuid[i].nid);
->  
->  	printk(KERN_INFO "Number of logical nodes in system = %d\n",
->  	       num_online_nodes());
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2006-05-03 19:37:42.430685318 -0500
++++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2006-08-07 10:38:54.827204041 -0500
+@@ -255,6 +255,7 @@ xpc_pull_remote_cachelines(struct xpc_pa
+ 	DBUG_ON((u64) src != L1_CACHE_ALIGN((u64) src));
+ 	DBUG_ON((u64) dst != L1_CACHE_ALIGN((u64) dst));
+ 	DBUG_ON(cnt != L1_CACHE_ALIGN(cnt));
++	DBUG_ON((ia64_tpa(dst) + cnt) != ia64_tpa(&((char *) dst)[cnt]));
+ 
+ 	if (part->act_state = XPC_P_DEACTIVATING) {
+ 		return part->reason;
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_partition.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_partition.c	2006-05-03 19:37:42.434684918 -0500
++++ linux-2.6/arch/ia64/sn/kernel/xpc_partition.c	2006-08-07 10:38:54.835205009 -0500
+@@ -71,13 +71,9 @@ struct xpc_partition xpc_partitions[XP_M
+  * Generic buffer used to store a local copy of portions of a remote
+  * partition's reserved page (either its header and part_nasids mask,
+  * or its vars).
+- *
+- * xpc_discovery runs only once and is a seperate thread that is
+- * very likely going to be processing in parallel with receiving
+- * interrupts.
+  */
+-char ____cacheline_aligned xpc_remote_copy_buffer[XPC_RP_HEADER_SIZE +
+-							XP_NASID_MASK_BYTES];
++char *xpc_remote_copy_buffer;
++void *xpc_remote_copy_buffer_base;
+ 
+ 
+ /*
+@@ -125,6 +121,9 @@ xpc_get_rsvd_page_pa(int nasid)
+ 			}
+ 		}
+ 
++		DBUG_ON((ia64_tpa(buf) + buf_len) !+					ia64_tpa(&((char *) buf)[buf_len]));
++
+ 		bte_res = xp_bte_copy(rp_pa, ia64_tpa(buf), buf_len,
+ 					(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 		if (bte_res != BTE_SUCCESS) {
+@@ -424,6 +423,9 @@ xpc_check_remote_hb(void)
+ 			continue;
+ 		}
+ 
++		DBUG_ON((ia64_tpa(remote_vars) + XPC_RP_VARS_SIZE) !+			ia64_tpa(&((char *) remote_vars)[XPC_RP_VARS_SIZE]));
++
+ 		/* pull the remote_hb cache line */
+ 		bres = xp_bte_copy(part->remote_vars_pa,
+ 					ia64_tpa((u64) remote_vars),
+@@ -475,9 +477,11 @@ xpc_get_remote_rp(int nasid, u64 *discov
+ 		return xpcNoRsvdPageAddr;
+ 	}
+ 
++	DBUG_ON((ia64_tpa(remote_rp + XPC_RP_HEADER_SIZE + xp_nasid_mask_bytes) !+		ia64_tpa(&((char *) remote_rp)[XPC_RP_HEADER_SIZE + xp_nasid_mask_bytes])));
+ 
+-	/* pull over the reserved page header and part_nasids mask */
+ 
++	/* pull over the reserved page header and part_nasids mask */
+ 	bres = xp_bte_copy(*remote_rp_pa, ia64_tpa((u64) remote_rp),
+ 				XPC_RP_HEADER_SIZE + xp_nasid_mask_bytes,
+ 				(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+@@ -533,9 +537,11 @@ xpc_get_remote_vars(u64 remote_vars_pa, 
+ 		return xpcVarsNotSet;
+ 	}
+ 
++	DBUG_ON((ia64_tpa(remote_vars) + XPC_RP_VARS_SIZE) !+		ia64_tpa(&((char *) remote_vars)[XPC_RP_VARS_SIZE]));
+ 
+-	/* pull over the cross partition variables */
+ 
++	/* pull over the cross partition variables */
+ 	bres = xp_bte_copy(remote_vars_pa, ia64_tpa((u64) remote_vars),
+ 				XPC_RP_VARS_SIZE,
+ 				(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+@@ -1219,6 +1225,9 @@ xpc_initiate_partid_to_nasids(partid_t p
+ 
+ 	part_nasid_pa = (u64) XPC_RP_PART_NASIDS(part->remote_rp_pa);
+ 
++	DBUG_ON((ia64_tpa(nasid_mask) + xp_nasid_mask_bytes) !+			ia64_tpa(&((char *) nasid_mask)[xp_nasid_mask_bytes]));
++
+ 	bte_res = xp_bte_copy(part_nasid_pa, ia64_tpa((u64) nasid_mask),
+ 			xp_nasid_mask_bytes, (BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_main.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_main.c	2006-05-03 19:37:42.434684918 -0500
++++ linux-2.6/arch/ia64/sn/kernel/xpc_main.c	2006-08-07 10:38:54.839205493 -0500
+@@ -1053,6 +1053,8 @@ xpc_do_exit(enum xpc_retval reason)
+ 	if (xpc_sysctl) {
+ 		unregister_sysctl_table(xpc_sysctl);
+ 	}
++
++	kfree(xpc_remote_copy_buffer_base);
+ }
+ 
+ 
+@@ -1213,24 +1215,19 @@ xpc_init(void)
+ 	partid_t partid;
+ 	struct xpc_partition *part;
+ 	pid_t pid;
++	size_t buf_size;
+ 
+ 
+ 	if (!ia64_platform_is("sn2")) {
+ 		return -ENODEV;
+ 	}
+ 
+-	/*
+-	 * xpc_remote_copy_buffer is used as a temporary buffer for bte_copy'ng
+-	 * various portions of a partition's reserved page. Its size is based
+-	 * on the size of the reserved page header and part_nasids mask. So we
+-	 * need to ensure that the other items will fit as well.
+-	 */
+-	if (XPC_RP_VARS_SIZE > XPC_RP_HEADER_SIZE + XP_NASID_MASK_BYTES) {
+-		dev_err(xpc_part, "xpc_remote_copy_buffer is not big enough\n");
+-		return -EPERM;
+-	}
+-	DBUG_ON((u64) xpc_remote_copy_buffer !-				L1_CACHE_ALIGN((u64) xpc_remote_copy_buffer));
++
++	buf_size = max(XPC_RP_VARS_SIZE, XPC_RP_HEADER_SIZE + XP_NASID_MASK_BYTES);
++	xpc_remote_copy_buffer = xpc_kmalloc_cacheline_aligned(buf_size, GFP_KERNEL,
++						&xpc_remote_copy_buffer_base);
++	if (xpc_remote_copy_buffer = NULL)
++		return -ENOMEM;
+ 
+ 	snprintf(xpc_part->bus_id, BUS_ID_SIZE, "part");
+ 	snprintf(xpc_chan->bus_id, BUS_ID_SIZE, "chan");
+@@ -1294,6 +1291,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+@@ -1312,6 +1311,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+@@ -1363,6 +1364,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+Index: linux-2.6/include/asm-ia64/sn/xpc.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/xpc.h	2006-05-03 19:37:46.650263229 -0500
++++ linux-2.6/include/asm-ia64/sn/xpc.h	2006-08-07 10:38:55.011226303 -0500
+@@ -684,7 +684,8 @@ extern struct xpc_vars *xpc_vars;
+ extern struct xpc_rsvd_page *xpc_rsvd_page;
+ extern struct xpc_vars_part *xpc_vars_part;
+ extern struct xpc_partition xpc_partitions[XP_MAX_PARTITIONS + 1];
+-extern char xpc_remote_copy_buffer[];
++extern char *xpc_remote_copy_buffer;
++extern void *xpc_remote_copy_buffer_base;
+ extern struct xpc_rsvd_page *xpc_rsvd_page_init(void);
+ extern void xpc_allow_IPI_ops(void);
+ extern void xpc_restrict_IPI_ops(void);
