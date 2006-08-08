@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 08 Aug 2006 17:44:24 +0000
+From: "Yu, Fenghua" <fenghua.yu@intel.com>
+Date: Tue, 08 Aug 2006 18:52:41 +0000
 Subject: RE: Silent data corruption caused by XPC V2.
-Message-Id: <617E1C2C70743745A92448908E030B2A57D867@scsmsx411.amr.corp.intel.com>
+Message-Id: <A29F7A5700A7EA4380E08C1F68C3B6D8B256CF@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060807174933.GB24663@lnx-holt.americas.sgi.com>
 In-Reply-To: <20060807174933.GB24663@lnx-holt.americas.sgi.com>
@@ -10,19 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-+	/* ensure that the physically mapped memory is contiguous */
-+	DBUG_ON(REGION_NUMBER(vdst) != RGN_KERNEL &&
-+		REGION_NUMBER(vdst) != RGN_UNCACHED &&
-+		PAGE_SIZE - (vdst & ~PAGE_MASK) < len);
- 
-I thought that part of the point of this patch was that
-by using kmalloc() for the buffer, you actually guaranteed
-that the whole thing is contiguous (since kmalloc will give
-you an order(N) page for requests greater than a page.
 
-This test is a bit convoluted, but looks it will ping you
-whenever a transfer crosses a page boundary, regardless of
-whether the pages are contiguous or not.  Certainly the
-comment seems tenuously connected to the code.
+Seems the following part is missed in your patch:
 
--Tony
+--- arch/ia64/sn/kernel/xpc_main.c      2006-02-13 12:35:03.000000000
+-0800
++++ arch/ia64/sn/kernel/xpc_main.c.new   2006-08-08 11:47:03.000000000
+-0700
+@@ -1374,6 +1374,7 @@ xpc_init(void)
+                complete(&xpc_discovery_exited);
+
+                xpc_do_exit(xpcUnloading);
++               kfree(xpc_remote_copy_buffer_base);
+                return -EBUSY;
+        }
+
+Thanks.
+
+-Fenghua
