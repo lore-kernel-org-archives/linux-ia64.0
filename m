@@ -1,166 +1,56 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Tue, 29 Aug 2006 20:19:39 +0000
-Subject: [RFC][PATCH 07/10] mips generic PAGE_SIZE
-Message-Id: <20060829201939.7BD99A84@localhost.localdomain>
+From: Al Stone <ahs3@fc.hp.com>
+Date: Sat, 12 Aug 2006 17:08:12 +0000
+Subject: [PATCH] minor reformatting to vmlinux.lds.S
+Message-Id: <1155402492.2009.17.camel@deimos>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060829201934.47E63D1F@localhost.localdomain>
-In-Reply-To: <20060829201934.47E63D1F@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: linux-ia64@vger.kernel.org, rdunlap@xenotime.net, lethal@linux-sh.org, Dave Hansen <haveblue@us.ibm.com>
+To: linux-ia64@vger.kernel.org
+
+Minor reformatting to vmlinux.lds.S to make it 80-column usable,
+in accordance with Linux coding style.
 
 
-This is the mips portion to convert it over to the generic PAGE_SIZE
-framework.
-
-* remove mips-specific Kconfig menu
-* add mips default of 4k pages to mm/Kconfig
-* replace mips Kconfig menu with plain bool variables to preserve
-  dependencies on specific CPUs.  Add to mm/Kconfig
+Signed-off-by: Al Stone <ahs3@fc.hp.com>
 
 
-Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
----
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 5b0d5f6..b3b2e38 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -184,7 +184,9 @@ #endif
+ 	  *(.data.gate)
+ 	  __stop_gate_section = .;
+ 	}
+-  . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose kernel data */
++  . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose
++  				 * kernel data
++				 */
+ 
+   .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
+         { *(.data.read_mostly) }
+@@ -202,7 +204,9 @@ #endif
+ 		*(.data.percpu)
+ 		__per_cpu_end = .;
+ 	}
+-  . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits into percpu page size */
++  . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits
++  						 * into percpu page size
++						 */
+ 
+   data : { } :data
+   .data : AT(ADDR(.data) - LOAD_OFFSET)
 
- threadalloc-dave/include/asm-mips/page.h |   23 ----------------
- threadalloc-dave/arch/mips/Kconfig       |   43 +++++--------------------------
- threadalloc-dave/mm/Kconfig              |    7 ++---
- 3 files changed, 13 insertions(+), 60 deletions(-)
 
-diff -puN include/asm-mips/page.h~mips include/asm-mips/page.h
---- threadalloc/include/asm-mips/page.h~mips	2006-08-29 13:14:48.000000000 -0700
-+++ threadalloc-dave/include/asm-mips/page.h	2006-08-29 13:14:55.000000000 -0700
-@@ -9,6 +9,7 @@
- #ifndef _ASM_PAGE_H
- #define _ASM_PAGE_H
- 
-+#include <asm-generic/page.h>
- 
- #ifdef __KERNEL__
- 
-@@ -16,25 +17,6 @@
- 
- #endif
- 
--/*
-- * PAGE_SHIFT determines the page size
-- */
--#ifdef CONFIG_PAGE_SIZE_4KB
--#define PAGE_SHIFT	12
--#endif
--#ifdef CONFIG_PAGE_SIZE_8KB
--#define PAGE_SHIFT	13
--#endif
--#ifdef CONFIG_PAGE_SIZE_16KB
--#define PAGE_SHIFT	14
--#endif
--#ifdef CONFIG_PAGE_SIZE_64KB
--#define PAGE_SHIFT	16
--#endif
--#define PAGE_SIZE	(1UL << PAGE_SHIFT)
--#define PAGE_MASK       (~((1 << PAGE_SHIFT) - 1))
--
--
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
- 
-@@ -130,9 +112,6 @@ typedef struct { unsigned long pgprot; }
- 
- #endif /* !__ASSEMBLY__ */
- 
--/* to align the pointer to the (next) page boundary */
--#define PAGE_ALIGN(addr)	(((addr) + PAGE_SIZE - 1) & PAGE_MASK)
--
- #define __pa(x)			((unsigned long) (x) - PAGE_OFFSET)
- #define __va(x)			((void *)((unsigned long) (x) + PAGE_OFFSET))
- 
-diff -puN arch/mips/Kconfig~mips arch/mips/Kconfig
---- threadalloc/arch/mips/Kconfig~mips	2006-08-29 13:14:48.000000000 -0700
-+++ threadalloc-dave/arch/mips/Kconfig	2006-08-29 13:14:55.000000000 -0700
-@@ -1432,47 +1432,20 @@ config 64BIT
- 
- endchoice
- 
--choice
--	prompt "Kernel page size"
--	default PAGE_SIZE_4KB
--
--config PAGE_SIZE_4KB
--	bool "4kB"
--	help
--	 This option select the standard 4kB Linux page size.  On some
--	 R3000-family processors this is the only available page size.  Using
--	 4kB page size will minimize memory consumption and is therefore
--	 recommended for low memory systems.
--
--config PAGE_SIZE_8KB
--	bool "8kB"
-+config MIPS_PAGE_SIZE_8KB
-+	def_bool y
- 	depends on EXPERIMENTAL && CPU_R8000
--	help
--	  Using 8kB page size will result in higher performance kernel at
--	  the price of higher memory consumption.  This option is available
--	  only on the R8000 processor.  Not that at the time of this writing
--	  this option is still high experimental; there are also issues with
--	  compatibility of user applications.
- 
--config PAGE_SIZE_16KB
--	bool "16kB"
-+config MIPS_PAGE_SIZE_16KB
-+	def_bool y
- 	depends on !CPU_R3000 && !CPU_TX39XX
--	help
--	  Using 16kB page size will result in higher performance kernel at
--	  the price of higher memory consumption.  This option is available on
--	  all non-R3000 family processors.  Note that you will need a suitable
--	  Linux distribution to support this.
- 
--config PAGE_SIZE_64KB
--	bool "64kB"
-+config MIPS_PAGE_SIZE_64KB
-+	def_bool y
- 	depends on EXPERIMENTAL && !CPU_R3000 && !CPU_TX39XX
--	help
--	  Using 64kB page size will result in higher performance kernel at
--	  the price of higher memory consumption.  This option is available on
--	  all non-R3000 family processor.  Not that at the time of this
--	  writing this option is still high experimental.
- 
--endchoice
-+config ARCH_GENERIC_PAGE_SIZE
-+	def_bool y
- 
- config BOARD_SCACHE
- 	bool
-diff -puN mm/Kconfig~mips mm/Kconfig
---- threadalloc/mm/Kconfig~mips	2006-08-29 13:14:54.000000000 -0700
-+++ threadalloc-dave/mm/Kconfig	2006-08-29 13:14:55.000000000 -0700
-@@ -5,6 +5,7 @@ config ARCH_HAVE_GET_ORDER
- choice
- 	prompt "Kernel Page Size"
- 	depends on ARCH_GENERIC_PAGE_SIZE
-+	default PAGE_SIZE_4KB if MIPS
- 	default PAGE_SIZE_8KB if SPARC64
- 	default PAGE_SIZE_16KB if IA64
- config PAGE_SIZE_4KB
-@@ -26,13 +27,13 @@ config PAGE_SIZE_4KB
- 	  architecture.
- config PAGE_SIZE_8KB
- 	bool "8KB"
--	depends on IA64 || SPARC64
-+	depends on IA64 || SPARC64 || MIPS_PAGE_SIZE_8KB
- config PAGE_SIZE_16KB
- 	bool "16KB"
--	depends on IA64
-+	depends on IA64 || MIPS_PAGE_SIZE_16KB
- config PAGE_SIZE_64KB
- 	bool "64KB"
--	depends on (IA64 && !ITANIUM) || SPARC64
-+	depends on (IA64 && !ITANIUM) || SPARC64 || MIPS_PAGE_SIZE_64KB
- config PAGE_SIZE_512KB
- 	bool "512KB"
- 	depends on SPARC64
-_
+
+-- 
+Ciao,
+al
+----------------------------------------------------------------------
+Al Stone                                      Alter Ego:
+Open Source and Linux R&D                     Debian Developer
+Hewlett-Packard Company                       http://www.debian.org
+E-mail: ahs3@fc.hp.com                        ahs3@debian.org
+----------------------------------------------------------------------
+
