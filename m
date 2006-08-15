@@ -1,7 +1,7 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Tue, 15 Aug 2006 19:46:35 +0000
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Tue, 15 Aug 2006 22:36:57 +0000
 Subject: Re: IA64 Kexec-Kdump kernel patch
-Message-Id: <20060815124634.A1065@unix-os.sc.intel.com>
+Message-Id: <1155681417.2585.70.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1155538073.2585.44.camel@linux-znh>
 In-Reply-To: <1155538073.2585.44.camel@linux-znh>
@@ -10,20 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Aug 14, 2006 at 05:24:57PM -0400, Bob Montgomery wrote:
-> On Mon, 2006-08-14 at 14:47 +0800, Zou Nan hai wrote:
-> > This patch is the kexec-kdump patch re-based to 2.6.18-rc4 kernel.
+On Wed, 2006-08-16 at 03:15, Jay Lan wrote:
+> Zou Nan hai wrote:
+> > On Tue, 2006-08-15 at 09:56, Jay Lan wrote:
+> > 
+> >>Bob Montgomery wrote:
+> >>
+> >>>On Mon, 2006-08-14 at 14:47 +0800, Zou Nan hai wrote:
+> >>>
+> >>>
+> >>>>This patch is the kexec-kdump patch re-based to 2.6.18-rc4 kernel.
+> >>>
+> >>>
+> > 
+> > 
+> WARNING: can't access
+> exec of init () failed!!!: No such file or directory
 > 
-> Contrary to expectations, my experience with this patch on a 2.6.18-rc4
-> kernel is that kexec -l, kexec -e is now working without my adding any
-> delays to mptscsih, and the kexec -p, echo c >/proc/sysrq-trigger case
-> hangs.
 > 
-> # cat /proc/cmdline
-> BOOT_IMAGE=scsi0:/EFI/debian/boot/vmlinuz-2.6.18-rc4-bobm root=/dev/sda4
-> raid=noautodetect crashkernel8M@256M panic=1 ro
+  Did you pass the correct kernel parameter to --append?
+  It seems that root filesystem was not able to be mounted.
 
-Can you change crashkernelQ2M@256 and try
-kexec -p, echo c > /proc/sysrq-trigger case.
+> Regards,
+>   - jay
 
-
+  Thanks
+  Zou Nan hai
