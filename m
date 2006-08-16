@@ -1,7 +1,7 @@
 From: Jay Lan <jlan@sgi.com>
-Date: Wed, 16 Aug 2006 22:34:52 +0000
+Date: Wed, 16 Aug 2006 22:46:08 +0000
 Subject: Re: IA64 Kexec-Kdump kernel patch
-Message-Id: <44E39D8C.2060005@sgi.com>
+Message-Id: <44E3A030.60702@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1155538073.2585.44.camel@linux-znh>
 In-Reply-To: <1155538073.2585.44.camel@linux-znh>
@@ -10,39 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zou Nan hai wrote:
-> On Wed, 2006-08-16 at 03:15, Jay Lan wrote:
+Bob Montgomery wrote:
+> On Wed, 2006-08-16 at 06:40 +0800, Zou Nan hai wrote:
 > 
->>Zou Nan hai wrote:
+>>On Wed, 2006-08-16 at 01:39, Bob Montgomery wrote:
 >>
+>>>On Tue, 2006-08-15 at 08:47 +0800, Zou Nan hai wrote:
 > 
->   Did you pass the correct kernel parameter to --append?
->   It seems that root filesystem was not able to be mounted.
 > 
+>>  If you are not seeing "I am in purgatory" in console, that probably
+>>means crash kernel segments and purgatory code was copied into some
+>>wrong physical address.
+>>
+>>  Can you check the crashkernel="..." parameter
+>>  Thanks
+> 
+> 
+> Today, we have had success by changing the configuration of our kernels
+> from zx1 to tiger.  Now we'll try to figure out what it is about the zx1
+> config parameters that causes the crash_kexec path to break.
 
-I finally was able to boot up the crash dump kernel.
-Unfortunately the 'cp vmcore /var/tmp' crashed due to
-out of memory. :(
+I had problem with the zx1 defconfig on my zx6000 also. Since i recalled
+Horms said he was successful with tiger config so i switched. :)
 
-The memory on the regular kernel showed:
-[root@holism tmp]# free
-              total       used       free     shared    buffers     cached
-Mem:        805312     443520     361792          0      36288     295936
--/+ buffers/cache:     111296     694016
-Swap:      6143968          0    6143968
+- jay
 
-and the memory on the crash dump kernel showed:
-[root@holism tmp]# free
-              total       used       free     shared    buffers     cached
-Mem:         47776      45952       1824          0       1056      11856
--/+ buffers/cache:      33040      14736
-Swap:      6143968      54720    6089248
-
-
-It came down from 805312 k  to 47776 k with only 1824 free.
-How much memory do i need to do a 'cp /proc/vmcore /var/tmp'?
-
-Thanks,
-  - jay
-
+> 
+> Bob Montgomery
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
