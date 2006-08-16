@@ -1,7 +1,7 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Tue, 15 Aug 2006 22:40:20 +0000
+From: Bob Montgomery <bob.montgomery@hp.com>
+Date: Wed, 16 Aug 2006 18:25:40 +0000
 Subject: Re: IA64 Kexec-Kdump kernel patch
-Message-Id: <1155681620.2585.74.camel@linux-znh>
+Message-Id: <1155752740.26951.239.camel@amd.troyhebe>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1155538073.2585.44.camel@linux-znh>
 In-Reply-To: <1155538073.2585.44.camel@linux-znh>
@@ -10,25 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2006-08-16 at 01:39, Bob Montgomery wrote:
-> On Tue, 2006-08-15 at 08:47 +0800, Zou Nan hai wrote:
-> > > ...
-> >   Jay,  
-> >         Thanks very much, please try the following updated patch which
-> > simplify the device_shootdown code.
-> > 
+On Wed, 2006-08-16 at 06:40 +0800, Zou Nan hai wrote:
+> On Wed, 2006-08-16 at 01:39, Bob Montgomery wrote:
+> > On Tue, 2006-08-15 at 08:47 +0800, Zou Nan hai wrote:
+
 > 
-> My system continues to hang with the new patch.  I can get a printk just
-> before jumping to the new code in machine_kexec.  We're going to try
-> hooking up the ITP now.
+>   If you are not seeing "I am in purgatory" in console, that probably
+> means crash kernel segments and purgatory code was copied into some
+> wrong physical address.
 > 
-> Bob Montgomery
+>   Can you check the crashkernel="..." parameter
+>   Thanks
 
-  If you are not seeing "I am in purgatory" in console, that probably
-means crash kernel segments and purgatory code was copied into some
-wrong physical address.
+Today, we have had success by changing the configuration of our kernels
+from zx1 to tiger.  Now we'll try to figure out what it is about the zx1
+config parameters that causes the crash_kexec path to break.
 
-  Can you check the crashkernel="..." parameter
-  Thanks
+Bob Montgomery
 
-Zou Nan hai
