@@ -1,87 +1,99 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 21 Aug 2006 15:42:44 +0000
-Subject: 2.6.17.9 new perfmon code base, libpfm, and pfmon packages
-Message-Id: <20060821154244.GH28105@frankl.hpl.hp.com>
+From: horms@tabatha.lab.ultramonkey.org
+Date: Thu, 17 Aug 2006 07:07:24 +0000
+Subject: [patch 5/5] kdump: simplify device_shootdown
+Message-Id: <20060817071455.591468000@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: perfmon@napali.hpl.hp.com
-Cc: oprofile-list@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
-Hello,
+> Archived-At: http://permalink.gmane.org/gmane.linux.ports.ia64/14683
+>
+> On Tue, 2006-08-15 at 09:56, Jay Lan wrote:
+> > Bob Montgomery wrote:
+> > > On Mon, 2006-08-14 at 14:47 +0800, Zou Nan hai wrote:
+> > >
+> > >>This patch is the kexec-kdump patch re-based to 2.6.18-rc4 kernel.
+> > >
+> > >
+> 
+> > ...
+>   Jay,
+>         Thanks very much, please try the following updated patch which
+> simplify the device_shootdown code.
+> 
+> 
+>   Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
-I have released another version of the perfmon new code base package.
-This version of the kernel patch is relative to 2.6.17.9. This version
-has taken more time than usual due some vacation and also massive rewriting
-of the context switch code and various other changes in the generic kernel.
+Incremental version of the patch posted by Zou Nan hai
 
-The kernel patch includes:
-	- completely rewritten PMU context switch code (perfmon_ctxsw.c). The
-	  new code takes advantage of the TIF mechanism in switch_to() for i386 and
-	  x86_64. Given that support for TIF in switch_to() is not yet in
-	  2.6.17.9, you need a prepatch that is included in the kernel package.
-	  Now have only one kernel hook (pfm_ctxsw()) for context switch.
+Cc: Zou Nan hai <nanhai.zou@intel.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-	- Fix P6 single enable bit (now more efficient to start/stop)
+Index: linux-2.6-ia64/arch/ia64/kernel/crash.c
+=================================--- linux-2.6-ia64.orig/arch/ia64/kernel/crash.c	2006-08-17 11:51:44.000000000 +0900
++++ linux-2.6-ia64/arch/ia64/kernel/crash.c	2006-08-17 11:52:06.000000000 +0900
+@@ -47,13 +47,9 @@
+ 	int irq;
+ 	for (irq = 0; irq < NR_IRQS; irq++) {
+ 		idesc = irq_desc + irq;
+-		if (!idesc || !idesc->action)
+-			continue;
+-		disable_irq_nosync(irq);
+-		idesc->chip->end(irq);
+-		idesc->chip->shutdown(irq);
++		if (idesc)
++			kdump_disable_irq(irq);
+ 	}
+-
+ #ifdef CONFIG_IA64_HP_ZX1
+ 	ioc_iova_disable();
+ #endif
+Index: linux-2.6-ia64/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6-ia64.orig/arch/ia64/kernel/iosapic.c	2006-08-17 11:51:44.000000000 +0900
++++ linux-2.6-ia64/arch/ia64/kernel/iosapic.c	2006-08-17 11:52:06.000000000 +0900
+@@ -288,6 +288,24 @@
+ 	/* do nothing... */
+ }
+ 
++#ifdef CONFIG_CRASH_DUMP
++void
++kdump_disable_irq(unsigned int irq)
++{
++	u32 low32;
++	ia64_vector vec = irq_to_vector(irq);
++	struct iosapic_rte_info *rte;
++
++	low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
++	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes,
++			rte_list) {
++			iosapic_write(rte->addr,
++					IOSAPIC_RTE_LOW(rte->rte_index), low32);
++			iosapic_eoi(rte->addr, vec);
++	}
++}
++#endif
++
+ static void
+ mask_irq (unsigned int irq)
+ {
+Index: linux-2.6-ia64/include/asm-ia64/kexec.h
+=================================--- linux-2.6-ia64.orig/include/asm-ia64/kexec.h	2006-08-17 11:51:45.000000000 +0900
++++ linux-2.6-ia64/include/asm-ia64/kexec.h	2006-08-17 11:52:06.000000000 +0900
+@@ -34,5 +34,7 @@
+ extern struct resource efi_memmap_res;
+ extern struct resource boot_param_res;
+ extern void kdump_smp_send_stop(void);
++extern void kdump_disable_irq(unsigned int irq);
+ extern void crash_save_this_cpu(void);
++
+ #endif /* _ASM_IA64_KEXEC_H */
 
-	- simplified the way we determine which thread is active for P4 with HT
+--
 
-	- renamed all AMD related code to amd64 (from x86_64 or amd)
-
-	- lots of coding style cleanups
-
-	- MIPS irq update by Phil Mucci
-
-I have also released a new libpfm, libpfm-3.2-060821, which includes:
-
-	- preliminary support for P4 32 and 64 bit mode by Kevin Corry from IBM
-
-	- rewritten AMD event table to expose unit masks and allow masks to be
-	  combined. Some event names have therefore changed!
-
-	- new pfmsetup example to help automate kernel interface testing by
-	  Kevin Corry from IBM
-
-	- new showevtinfo example to list events and their description
-
-	- remove useless pfm_print_event_info*() calls from library
-	- added pfm_get_event_mask_code()
-	- updated man pages for pfm_dispatch_events()
-	- new man pages for all unit mask related interface calls
-	- move all perfmon system calls number definitions to perfmon.h
-	- made PFM_PLM* description more generic.
-	- renamed all AMD file to amd64* from gen_x86_64*
-	- added support for Pentium II (Chuck Ebbert)
-
-This version of the library works with 2.6.17.1 and 2.6.17.9
-
-Also a new version of pfmon, pfmon-3.2-060821, to take advantage of the
-update in libpfm:
-
-	- preliminary support for P4 32 and 64 bits by Kevin Corry from IBM.
-	  Do not get too excited and it does not count anything just yet!
-
-	- renamed all AMd related file/struct to amd64
-	- all help message reformatted to 80 columns by Kevin Corry from IBM
-
-	- added internal routine to show event info
-	- added support to display event and unit masks names in results
-	  
-	- fix the detection of unavailable PMC registers. it was causing crashes
-	  when used with sampling.
-
-	- fix P6 edge/inv filter bug whereby 2nd event was not setup properly
-
-You can get a more detailed log of changes the the CVS tree.
-
-You can grab the new packages at our web site:
-
-	 http://perfmon2.sf.net
-
-Enjoy,
-
-PS: I will post an kernel patch and a diffstat on the perfmon mailing list.
 -- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
--Stephane
