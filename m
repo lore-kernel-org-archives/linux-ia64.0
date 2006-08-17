@@ -1,7 +1,7 @@
 From: Jay Lan <jlan@sgi.com>
-Date: Wed, 16 Aug 2006 22:46:08 +0000
+Date: Thu, 17 Aug 2006 00:34:56 +0000
 Subject: Re: IA64 Kexec-Kdump kernel patch
-Message-Id: <44E3A030.60702@sgi.com>
+Message-Id: <44E3B9B0.5050103@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1155538073.2585.44.camel@linux-znh>
 In-Reply-To: <1155538073.2585.44.camel@linux-znh>
@@ -10,36 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bob Montgomery wrote:
-> On Wed, 2006-08-16 at 06:40 +0800, Zou Nan hai wrote:
+Jay Lan wrote:
+> Zou Nan hai wrote:
 > 
->>On Wed, 2006-08-16 at 01:39, Bob Montgomery wrote:
+>> On Wed, 2006-08-16 at 03:15, Jay Lan wrote:
 >>
->>>On Tue, 2006-08-15 at 08:47 +0800, Zou Nan hai wrote:
-> 
-> 
->>  If you are not seeing "I am in purgatory" in console, that probably
->>means crash kernel segments and purgatory code was copied into some
->>wrong physical address.
+>>> Zou Nan hai wrote:
+>>>
 >>
->>  Can you check the crashkernel="..." parameter
->>  Thanks
+>>   Did you pass the correct kernel parameter to --append?
+>>   It seems that root filesystem was not able to be mounted.
+>>
 > 
-> 
-> Today, we have had success by changing the configuration of our kernels
-> from zx1 to tiger.  Now we'll try to figure out what it is about the zx1
-> config parameters that causes the crash_kexec path to break.
+> I finally was able to boot up the crash dump kernel.
+> Unfortunately the 'cp vmcore /var/tmp' crashed due to
+> out of memory. :(
 
-I had problem with the zx1 defconfig on my zx6000 also. Since i recalled
-Horms said he was successful with tiger config so i switched. :)
+Incresing boot parameter from 128M@256M to 256M@256M
+fixed the problem. :)
+
+Thanks you, Nanhai!
 
 - jay
 
 > 
-> Bob Montgomery
 > 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
