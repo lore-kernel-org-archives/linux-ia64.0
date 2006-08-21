@@ -1,64 +1,87 @@
-From: Al Stone <ahs3@fc.hp.com>
-Date: Fri, 11 Aug 2006 16:31:44 +0000
-Subject: [PATCH] 80-column reformatting for flush.S
-Message-Id: <1155313904.19157.37.camel@deimos>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Mon, 21 Aug 2006 15:42:44 +0000
+Subject: 2.6.17.9 new perfmon code base, libpfm, and pfmon packages
+Message-Id: <20060821154244.GH28105@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: perfmon@napali.hpl.hp.com
+Cc: oprofile-list@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfctr-devel@lists.sourceforge.net
 
-Minor reformatting so that flush.S can be used with 80-column
-displays, in accordance with Linux coding style.  No instructions
-were changed.
+Hello,
 
-Signed-off-by: Al Stone <ahs3@fc.hp.com>
+I have released another version of the perfmon new code base package.
+This version of the kernel patch is relative to 2.6.17.9. This version
+has taken more time than usual due some vacation and also massive rewriting
+of the context switch code and various other changes in the generic kernel.
 
+The kernel patch includes:
+	- completely rewritten PMU context switch code (perfmon_ctxsw.c). The
+	  new code takes advantage of the TIF mechanism in switch_to() for i386 and
+	  x86_64. Given that support for TIF in switch_to() is not yet in
+	  2.6.17.9, you need a prepatch that is included in the kernel package.
+	  Now have only one kernel hook (pfm_ctxsw()) for context switch.
 
-diff --git a/arch/ia64/lib/flush.S b/arch/ia64/lib/flush.S
-index 2a0d27f..0e36a7b 100644
---- a/arch/ia64/lib/flush.S
-+++ b/arch/ia64/lib/flush.S
-@@ -15,8 +15,9 @@ #include <asm/asmmacro.h>
- 	 *
- 	 *	Make i-cache(s) coherent with d-caches.
- 	 *
--	 *	Must deal with range from start to end-1 but nothing else (need to
--	 *	be careful not to touch addresses that may be unmapped).
-+	 *	Must deal with range from start to end-1 but nothing else
-+	 *	(need to be careful not to touch addresses that may be 
-+	 *	unmapped).
- 	 *
- 	 *	Note: "in0" and "in1" are preserved for debugging purposes.
- 	 */
-@@ -37,7 +38,8 @@ GLOBAL_ENTRY(flush_icache_range)
- 	;;
- 	sub	r8=r22,r23		// number of strides - 1
- 	shl	r24=r23,r20		// r24: addresses for "fc.i" -					//	"start" rounded down to stride boundary
-+					//	"start" rounded down to stride
-+					//	boundary
- 	.save	ar.lc,r3
- 	mov	r3=ar.lc		// save ar.lc
- 	;;
-@@ -49,7 +51,8 @@ GLOBAL_ENTRY(flush_icache_range)
- 	 * 32 byte aligned loop, even number of (actually 2) bundles
- 	 */
- .Loop:	fc.i	r24			// issuable on M0 only
--	add	r24=r21,r24		// we flush "stride size" bytes per iteration
-+	add	r24=r21,r24		// we flush "stride size" bytes per
-+					//   iteration
- 	nop.i	0
- 	br.cloop.sptk.few .Loop
- 	;;
+	- Fix P6 single enable bit (now more efficient to start/stop)
 
+	- simplified the way we determine which thread is active for P4 with HT
 
+	- renamed all AMD related code to amd64 (from x86_64 or amd)
+
+	- lots of coding style cleanups
+
+	- MIPS irq update by Phil Mucci
+
+I have also released a new libpfm, libpfm-3.2-060821, which includes:
+
+	- preliminary support for P4 32 and 64 bit mode by Kevin Corry from IBM
+
+	- rewritten AMD event table to expose unit masks and allow masks to be
+	  combined. Some event names have therefore changed!
+
+	- new pfmsetup example to help automate kernel interface testing by
+	  Kevin Corry from IBM
+
+	- new showevtinfo example to list events and their description
+
+	- remove useless pfm_print_event_info*() calls from library
+	- added pfm_get_event_mask_code()
+	- updated man pages for pfm_dispatch_events()
+	- new man pages for all unit mask related interface calls
+	- move all perfmon system calls number definitions to perfmon.h
+	- made PFM_PLM* description more generic.
+	- renamed all AMD file to amd64* from gen_x86_64*
+	- added support for Pentium II (Chuck Ebbert)
+
+This version of the library works with 2.6.17.1 and 2.6.17.9
+
+Also a new version of pfmon, pfmon-3.2-060821, to take advantage of the
+update in libpfm:
+
+	- preliminary support for P4 32 and 64 bits by Kevin Corry from IBM.
+	  Do not get too excited and it does not count anything just yet!
+
+	- renamed all AMd related file/struct to amd64
+	- all help message reformatted to 80 columns by Kevin Corry from IBM
+
+	- added internal routine to show event info
+	- added support to display event and unit masks names in results
+	  
+	- fix the detection of unavailable PMC registers. it was causing crashes
+	  when used with sampling.
+
+	- fix P6 edge/inv filter bug whereby 2nd event was not setup properly
+
+You can get a more detailed log of changes the the CVS tree.
+
+You can grab the new packages at our web site:
+
+	 http://perfmon2.sf.net
+
+Enjoy,
+
+PS: I will post an kernel patch and a diffstat on the perfmon mailing list.
 -- 
-Ciao,
-al
-----------------------------------------------------------------------
-Al Stone                                      Alter Ego:
-Open Source and Linux R&D                     Debian Developer
-Hewlett-Packard Company                       http://www.debian.org
-E-mail: ahs3@fc.hp.com                        ahs3@debian.org
-----------------------------------------------------------------------
 
+-Stephane
