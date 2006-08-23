@@ -1,8 +1,10 @@
-From: "Britney Morrison" <depcomercial@1000empresas.com>
-Date: Wed, 23 Aug 2006 13:03:48 +0000
+From: "Noreen Mccall" <dmin@000domains.com>
+Date: Wed, 23 Aug 2006 14:54:33 +0000
 Subject: re:Hi
-Message-Id: <200608231639.k7NGdhTK003155@zeus1.kernel.org>
+Message-Id: <200608231642.k7NGgJON005337@zeus1.kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200608231639.k7NGdhTK003155@zeus1.kernel.org>
+In-Reply-To: <200608231639.k7NGdhTK003155@zeus1.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
