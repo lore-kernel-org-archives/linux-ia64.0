@@ -1,7 +1,7 @@
-From: Horms <horms@verge.net.au>
-Date: Thu, 24 Aug 2006 02:36:09 +0000
-Subject: Re: [PATCH] 80-column reformatting for fsys.S
-Message-Id: <20060824023609.635E434040@koto.vergenet.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 24 Aug 2006 16:09:44 +0000
+Subject: RE: [PATCH] 80-column reformatting for fsys.S
+Message-Id: <617E1C2C70743745A92448908E030B2A6E96E8@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1156288081.7332.15.camel@fcboson.fc.hp.com>
 In-Reply-To: <1156288081.7332.15.camel@fcboson.fc.hp.com>
@@ -10,21 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 23 Aug 2006 20:17:04 -0600, Al Stone wrote:
-> On Thu, 2006-08-24 at 10:18 +0900, linux-ia64 wrote:
->> On Tue, 22 Aug 2006 17:08:01 -0600, Al Stone wrote:
->> > Simple reformatting to clean up fsys.S and make it comply with
->> > Linux CodingStyle.
->> 
->> Could you convert the C++ comments to C comments while you are at it?
-> 
+> > Could you convert the C++ comments to C comments while you are at it?
+>
 > Good idea.  I'll try to make a second pass on the ones I've done,
 > and make it a point to do it in the future.
 
-Great
+I'm not so sure that this is such a great idea ... using C comments will
+trim another 2 or three characters off the space you have available
+on each line (depending on whether you like /*comment*/ or /* comment */)
+so you will either need to be more terse in order to fit, or have more
+comments run onto two lines, neither of which sound like an improvememt
+to maintainability).
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+The 80-column rule has considerable merit (I like to have two code
+windows side-by-side, and my employer has shown no signs of wanting
+to shell out for a 24+" monitor for me :-( ... but I'm really not
+so sure why people are so anti-c++ comments {BTW, I don't see this
+prohibition in Documentation/CodingStyle ... is this just another
+unwritten rule that everyone knows about?)
 
+-Tony
