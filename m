@@ -1,159 +1,47 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Tue, 29 Aug 2006 20:19:36 +0000
-Subject: [RFC][PATCH 03/10] actual generic PAGE_SIZE infrastructure
-Message-Id: <20060829201936.2C7D5100@localhost.localdomain>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Tue, 29 Aug 2006 16:13:46 +0000
+Subject: idle notifier question
+Message-Id: <20060829161346.GL22011@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060829201934.47E63D1F@localhost.localdomain>
-In-Reply-To: <20060829201934.47E63D1F@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: linux-ia64@vger.kernel.org, rdunlap@xenotime.net, lethal@linux-sh.org, Dave Hansen <haveblue@us.ibm.com>
+To: linux-ia64@vger.kernel.org
 
+Hello,
 
-* Add _ALIGN_UP() which we'll use now and _ALIGN_DOWN(), just for
-  parity.
-* Define ASM_CONST() macro to help using constants in both assembly
-  and C code.  Several architectures have some form of this, and
-  they will be consolidated around this one.
-* Actually create PAGE_SHIFT and PAGE_SIZE macros
-* For now, require that architectures enable GENERIC_PAGE_SIZE in
-  order to get this new code.  This option will be removed by the
-  last patch in the series, and makes the series bisect-safe.
-* Note that this moves the compiler.h define outside of the
-  #ifdef __KERNEL__, but that's OK because it has its own.
+In the context of perfmon (and the effort to merge it with mainline),
+I am looking at adding support for notification on idle. Basically,
+you can register a call back when entering the idle() loop and another
+callback when you leave. The callback is surrounding the lowest level
+of the idle loop, typically where you go low-power. The callback
+covers interrupts that get you out of idle.
 
-Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
----
+Why is this useful for perfmon?
 
- threadalloc-dave/include/linux/align.h      |    7 ++++
- threadalloc-dave/include/asm-generic/page.h |   31 +++++++++++++++++++--
- threadalloc-dave/mm/Kconfig                 |   41 ++++++++++++++++++++++++++++
- 3 files changed, 75 insertions(+), 4 deletions(-)
+When measuring in system-wide, it is interesting to exclude the useless
+execution inside the idle loop. Originally, this meant not counting during
+the cycle-burning idle loop. However we are interested in measuring any
+interrupt triggered execution in the context of the idle loop.
+These days, there is no cycle burning loop anymore but rather the CPU goes
+into low power mode. That has an impact on the performance counters.
+Depending on the architecture, the PMU may be fully stopped, sometimes only
+certain counters are stopped (based on the event they measure), sometimes there
+are firmware bugs. In order to provide a uniform interface across all platforms,
+we could leverage the idle notification mechanism to explicitely start/stop
+monitoring when going in the lowest-level of the idle loop (i.e., low-power).
 
-diff -puN include/linux/align.h~generic-PAGE_SIZE-infrastructure include/linux/align.h
---- threadalloc/include/linux/align.h~generic-PAGE_SIZE-infrastructure	2006-08-29 13:14:50.000000000 -0700
-+++ threadalloc-dave/include/linux/align.h	2006-08-29 13:14:51.000000000 -0700
-@@ -6,12 +6,17 @@
-  * dependencies, and can be used safely from any other header.
-  */
- 
-+/* align addr on a size boundary - adjust address up/down if needed */
-+#define _ALIGN_UP(addr,size)    (((addr)+((size)-1))&(~((size)-1)))
-+#define _ALIGN_DOWN(addr,size)  ((addr)&(~((size)-1)))
-+
- /*
-  * ALIGN is special.  There's a linkage.h as well that
-  * has a quite different meaning.
-  */
- #ifndef __ASSEMBLY__
--#define ALIGN(x,a) (((x)+(a)-1)&~((a)-1))
-+/* align addr on a size boundary - adjust address up if needed */
-+#define ALIGN(addr,size)     _ALIGN_UP(addr,size)
- #endif
- 
- #endif /* _LINUX_ALIGN_H */
-diff -puN include/asm-generic/page.h~generic-PAGE_SIZE-infrastructure include/asm-generic/page.h
---- threadalloc/include/asm-generic/page.h~generic-PAGE_SIZE-infrastructure	2006-08-29 13:14:50.000000000 -0700
-+++ threadalloc-dave/include/asm-generic/page.h	2006-08-29 13:14:51.000000000 -0700
-@@ -1,11 +1,36 @@
- #ifndef _ASM_GENERIC_PAGE_H
- #define _ASM_GENERIC_PAGE_H
- 
-+#include <linux/compiler.h>
-+#include <linux/align.h>
-+
- #ifdef __KERNEL__
--#ifndef __ASSEMBLY__
- 
--#include <linux/compiler.h>
-+#ifdef __ASSEMBLY__
-+#define ASM_CONST(x) x
-+#else
-+#define __ASM_CONST(x) x##UL
-+#define ASM_CONST(x) __ASM_CONST(x)
-+#endif
-+
-+#ifdef CONFIG_ARCH_GENERIC_PAGE_SIZE
-+
-+#define PAGE_SHIFT      CONFIG_PAGE_SHIFT
-+#define PAGE_SIZE       (ASM_CONST(1) << PAGE_SHIFT)
-+
-+/*
-+ * Subtle: (1 << PAGE_SHIFT) is an int, not an unsigned long. So if we
-+ * assign PAGE_MASK to a larger type it gets extended the way we want
-+ * (i.e. with 1s in the high bits)
-+ */
-+#define PAGE_MASK      (~((1 << PAGE_SHIFT) - 1))
- 
-+/* to align the pointer to the (next) page boundary */
-+#define PAGE_ALIGN(addr)        ALIGN(addr, PAGE_SIZE)
-+
-+#endif /* CONFIG_ARCH_GENERIC_PAGE_SIZE */
-+
-+#ifndef __ASSEMBLY__
- #ifndef CONFIG_ARCH_HAVE_GET_ORDER
- /* Pure 2^n version of get_order */
- static __inline__ __attribute_const__ int get_order(unsigned long size)
-@@ -22,7 +47,7 @@ static __inline__ __attribute_const__ in
- }
- 
- #endif	/* CONFIG_ARCH_HAVE_GET_ORDER */
--#endif /*  __ASSEMBLY__ */
-+#endif  /* __ASSEMBLY__ */
- #endif	/* __KERNEL__ */
- 
- #endif	/* _ASM_GENERIC_PAGE_H */
-diff -puN mm/Kconfig~generic-PAGE_SIZE-infrastructure mm/Kconfig
---- threadalloc/mm/Kconfig~generic-PAGE_SIZE-infrastructure	2006-08-29 13:14:50.000000000 -0700
-+++ threadalloc-dave/mm/Kconfig	2006-08-29 13:14:51.000000000 -0700
-@@ -2,6 +2,47 @@ config ARCH_HAVE_GET_ORDER
- 	def_bool y
- 	depends on IA64 || PPC32 || XTENSA
- 
-+choice
-+	prompt "Kernel Page Size"
-+	depends on ARCH_GENERIC_PAGE_SIZE
-+config PAGE_SIZE_4KB
-+	bool "4KB"
-+	help
-+	  This lets you select the page size of the kernel.  For best
-+	  performance, a page size of larger than 4k is recommended.  For best
-+	  32-bit compatibility on 64-bit architectures, a page size of 4KB
-+	  should be selected (although most binaries work perfectly fine with
-+	  a larger page size).
-+
-+	  4KB                For best 32-bit compatibility
-+	  8KB-64KB           Better performace
-+	  above 64KB	     For kernel hackers only
-+
-+	  If you don't know what to do, choose 4KB, or simply leave this
-+	  option alone.  A sane default has already been selected for your
-+	  architecture.
-+config PAGE_SIZE_8KB
-+	bool "8KB"
-+config PAGE_SIZE_16KB
-+	bool "16KB"
-+config PAGE_SIZE_64KB
-+	bool "64KB"
-+config PAGE_SIZE_512KB
-+	bool "512KB"
-+config PAGE_SIZE_4MB
-+	bool "4MB"
-+endchoice
-+
-+config PAGE_SHIFT
-+	int
-+	depends on ARCH_GENERIC_PAGE_SIZE
-+	default "13" if PAGE_SIZE_8KB
-+	default "14" if PAGE_SIZE_16KB
-+	default "16" if PAGE_SIZE_64KB
-+	default "19" if PAGE_SIZE_512KB
-+	default "22" if PAGE_SIZE_4MB
-+	default "12"
-+
- config SELECT_MEMORY_MODEL
- 	def_bool y
- 	depends on EXPERIMENTAL || ARCH_SELECT_MEMORY_MODEL
-_
+This callback notification for idle already exists on x86-64. I am
+working on adding it to i386. I would need to add it to IA-64 as well.
+
+Looking at cpu_idle(), I see there is already some callback mechanism,
+with the mark_idle function pointer. It seems to be used only for the
+SGI machines. The way it is currently setup, the entry callback is
+invoked only when a task is blocking. I am not sure of the intent
+here. I am wondering if the existing callback could also work
+with the idle notification scheme.
+
+Any idea?
+
+-- 
+-Stephane
