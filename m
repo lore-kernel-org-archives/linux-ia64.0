@@ -1,63 +1,224 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Wed, 30 Aug 2006 01:54:46 +0000
-Subject: RE: [Fastboot] IA64 Kdump patch V3
-Message-Id: <08B1877B2880CE42811294894F33AD5C053BD7@pdsmsx411.ccr.corp.intel.com>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Tue, 29 Aug 2006 20:19:38 +0000
+Subject: [RFC][PATCH 06/10] sparc64 generic PAGE_SIZE
+Message-Id: <20060829201938.8E1B700A@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44F4E94E.8090700@sgi.com>
-In-Reply-To: <44F4E94E.8090700@sgi.com>
+References: <20060829201934.47E63D1F@localhost.localdomain>
+In-Reply-To: <20060829201934.47E63D1F@localhost.localdomain>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-mm@kvack.org
+Cc: linux-ia64@vger.kernel.org, rdunlap@xenotime.net, lethal@linux-sh.org, Dave Hansen <haveblue@us.ibm.com>
 
-Cgo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4gRnJvbTogSmF5IExhbiBbbWFpbHRvOmps
-YW5Ac2dpLmNvbV0KPiBTZW50OiAyMDA2xOo41MIzMMjVIDk6NDYKPiBUbzogWm91LCBOYW5oYWkK
-PiBDYzogTGludXgtSUE2NDsgZmFzdGJvb3Q7IEx1Y2ssIFRvbnk7IERhdmUgQW5kZXJzb247IEVy
-aWMgVy4gQmllZGVybWFuOyBIb3Jtcwo+IFN1YmplY3Q6IFJlOiBbRmFzdGJvb3RdIElBNjQgS2R1
-bXAgcGF0Y2ggVjMKPiAKPiBab3UsIE5hbmhhaSB3cm90ZToKPiA+Pi0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tCj4gPj5Gcm9tOiBKYXkgTGFuIFttYWlsdG86amxhbkBzZ2kuY29tXQo+ID4+U2Vu
-dDogMjAwNsTqONTCMzDI1SA5OjI3Cj4gPj5UbzogWm91LCBOYW5oYWkKPiA+PkNjOiBMaW51eC1J
-QTY0OyBmYXN0Ym9vdDsgTHVjaywgVG9ueTsgRGF2ZSBBbmRlcnNvbjsgRXJpYyBXLiBCaWVkZXJt
-YW47IEhvcm1zCj4gPj5TdWJqZWN0OiBSZTogW0Zhc3Rib290XSBJQTY0IEtkdW1wIHBhdGNoIFYz
-Cj4gPj4KPiA+PkpheSBMYW4gd3JvdGU6Cj4gPj4KPiA+Pj5IaSBOYW5oYWksCj4gPj4+Cj4gPj4+
-VGhlcmUgaXMgYSBwcm9ibGVtIGluIHNuMi4gVGhlIHNuMiBkb2VzIG5vdCBoYXZlIGFueSBtZW1v
-cnkgd2l0aAo+ID4+PmEgcHJlZGljdGlibGUgb2Zmc2V0LiBJdCBpcyBub3QgcG9zc2libGUgdG8g
-c3BlY2lmeSBhIG1lbW9yeSBsb2NhdGlvbgo+ID4+PmF0IGJvb3QuCj4gPj4+Cj4gPj4+SSBtb2Rp
-ZmllZCB0aGUgZWZpX2luaXRpYWxpemVfaW9tZW1fcmVzb3VyY2VzKCkgcm91dGluZSBpbgo+ID4+
-PmFyY2gvaWE2NC9rZXJuZWwvZWZpLmMgdG8gY2FsY3VsYXRlIGNyYXNoa19yZXMuc3RhcnQgYW5k
-IC5lbmQgb24gdGhlCj4gPj4+Zmx5IGFuZCB1c2VzIHRoZSAiQSIgb2YgY3Jhc2hrZXJuZWw9QUBC
-IGFzIHNpemUgdG8gZmluZCBhIHJlZ2lvbgo+ID4+PnRoYXQgZml0cy4KPiA+Pj4KPiA+Pj5NYXli
-ZSB3ZSBzaG91bGQgc2VwYXJhdGUgQSBhbmQgQiBhcyB0d28gb3B0aW9ucz8KPiA+Pgo+ID4+VGhl
-ICJCIiBwYXJ0IG9mIHRoZSBjcmFzaGtlcm5lbCBib290IG9wdGlvbiBpcyBtZWFuaW5nbGVzcyB0
-byBzbjIKPiA+Pm1hY2hpbmUgYW5kIGNhbiBiZSB2ZXJ5IGNvbmZ1c2luZyB0byBzbjIgdXNlcnMu
-Cj4gPj4KPiA+Cj4gPgo+ID4gIEhpLCBKYXkKPiA+IAlJdCBpcyBwb3NzaWJsZSB0byBoYXZlIG9u
-bHkgQSBvcHRpb24gYW5kIGxldCBrZXJuZWwgZGV0ZXJtaW5lIHRoZSBCIGFkZHJlc3MKPiBhdCBz
-dGFydHVwIHRpbWUuIEhvcm1zIGhhcyBwYXRjaCB0byBkbyB0aGF0LCBJIHdpbGwgbWVyZ2UgaXQu
-Cj4gPgo+IFRoYXQgd291bGQgYmUgZ3JlYXQhCj4gCj4gPgo+ID4+Pkkgbm93IGhhdmUgbWVtb3J5
-IHJlc2VydmVkLCBidXQga2VybmFsIGhhbmdlZCB3aGVuIGV4ZWN1dGluZyAna2V4ZWMnCj4gPj4+
-Y29tbWFuZC4gVGhlcmUgbXVzdCBiZSBzaW1pbGFyIGlzc3VlcyBpbiBrZXhlYy4KPiA+Pgo+ID4+
-T24gZnVydGhlciBkZWJ1Z2dpbmcsIHRoZSBrZXhlYyBkdW1wZWQgY29yZSBpbnN0ZWFkIGF0IHRo
-aXMgc3RhdGVtZW50Ogo+ID4+KyAgICAgICAgZWxmX3JlbF9zZXRfc3ltYm9sKCZpbmZvLT5yaGRy
-LCAiX19ib290X3BhcmFtX2Jhc2UiLAo+ID4+KyAgICAgICAgICAgICAgICAgICAgICAgICZib290
-X3BhcmFtX2Jhc2UsIHNpemVvZihsb25nKSk7Cj4gPj4KPiA+Pm9mIGVsZl9pYTY0X2xvYWQoKSBp
-biBrZXhlYy9hcmNoL2lhNjQva2V4ZWMtZWxmLWlhNjQuYy4KPiA+Pgo+ID4+RXhhbWluZyB0aGUg
-bWVtb3J5IGkgZm91bmQgIl9fYm9vdF9wYXJhbV9iYXNlIiBpbmRlZWQgbm90IHByZXNlbnQgaW4K
-PiA+PnRoZSBzeW1ib2wgdGFibGUuCj4gPj4KPiA+Pkl0IHNlZW1zIHRoYXQgcHVyZ2F0b3J5L2Fy
-Y2gvaWE2NC9lbnRyeS5TIGRvZXMgbm90IGhhdmUgYSBsaW5lCj4gPj4rREVDTEFSRV9EQVRBQihf
-X19fYm9vdF9wYXJhbV9iYXNlKS4KPiA+PklzIGl0IG5vdCBuZWVkZWQgaW4gb3RoZXIgaWE2NCBt
-YWNoaW5lcz8gSG93IGRvZXMgaXQgd29yayBpbiBIUAo+ID4+bWFjaGluZXM/Cj4gPgo+ID4gICBU
-aGVyZSBpcyBhIERFQ0xBUkVfREFUQTgoX19ib290X3BhcmFtX2Jhc2UpIGluCj4gcHVyZ2F0b3J5
-L2FyY2gvaWE2NC9lbnRyeS5TCj4gPiAgIEFyZSB5b3UgdXNpbmcga2V4ZWMtdG9vbHMta2R1bXAx
-MCBwYXRjaD8KPiAKPiBZZXMsIGkgYXBwbHkgdGhlIGtleGVjLXRvb2xzLWtkdW1wMTAgcGF0Y2gg
-YW5kIHRoZSAicmVzZXJ2ZSBlZmkgbWVtbWFwCj4gYW5kIGJvb3QgcGFyYW0iIHBhdGNoIGZyb20g
-eW91LiBPbmx5IHRoZXNlIHR3by4gRGlkIGkgbWlzcyBhbnk/Cj4gCiBUaGVuIHRoZXJlIHNob3Vs
-ZCBiZSBhIGxpbmUgCkRFQ0xBUkVfREFUQTgoX19ib290X3BhcmFtX2Jhc2UpIGluIHB1cmdhdG9y
-eS9hcmNoL2lhNjQvZW50cnkuUy4uLgoKIElmIGl0IGlzIGhhbmcgaW4ga2VybmVsLCBtYXliZSB0
-aGVyZSBpcyBzb21ldGhpbmcgd3Jvbmcgd2l0aCB0aGUgcGh5c2ljYWwgZGVzdGluYXRpb24gYWRk
-cmVzcyBvZiByZXNlcnZlZCByZWdpb24sIGhhdmUgeW91IGNoZWNrZWQgdGhlIC9wcm9jL2lvbWVt
-PwoKVGhhbmtzClpvdSBOYW4gaGFpCgo+IFRoYW5rcywKPiAgIC0gamF5Cj4gCj4gCj4gPgo+ID4g
-IFRoYW5rcwo+ID4gIFpvdSBOYW4gaGFpCj4gPgo+ID4+VGhhbmtzLAo+ID4+ICAtIGpheQo+ID4+
-Ci0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2Ny
-aWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdl
-ci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5v
-cmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
+
+This is the sparc64 portion to convert it over to the generic PAGE_SIZE
+framework.
+
+* Change all references to CONFIG_SPARC64_PAGE_SIZE_*KB to
+  CONFIG_PAGE_SIZE_* and update the defconfig.
+* remove sparc64-specific Kconfig menu
+* add sparc64 default of 8k pages to mm/Kconfig
+* remove generic support for 4k pages
+* add support for 8k, 64k, 512k, and 4MB pages
+
+Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
+---
+
+ threadalloc-dave/include/asm-sparc64/page.h |   19 ----------------
+ threadalloc-dave/include/asm-sparc64/mmu.h  |    8 +++----
+ threadalloc-dave/arch/sparc64/Kconfig       |   32 +++-------------------------
+ threadalloc-dave/arch/sparc64/defconfig     |    8 +++----
+ threadalloc-dave/arch/sparc64/mm/tsb.c      |    8 +++----
+ threadalloc-dave/mm/Kconfig                 |    8 +++++--
+ 6 files changed, 23 insertions(+), 60 deletions(-)
+
+diff -puN include/asm-sparc64/page.h~sparc64 include/asm-sparc64/page.h
+--- threadalloc/include/asm-sparc64/page.h~sparc64	2006-08-29 13:14:48.000000000 -0700
++++ threadalloc-dave/include/asm-sparc64/page.h	2006-08-29 13:14:54.000000000 -0700
+@@ -4,21 +4,7 @@
+ #define _SPARC64_PAGE_H
+ 
+ #include <asm/const.h>
+-
+-#if defined(CONFIG_SPARC64_PAGE_SIZE_8KB)
+-#define PAGE_SHIFT   13
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_64KB)
+-#define PAGE_SHIFT   16
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_512KB)
+-#define PAGE_SHIFT   19
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_4MB)
+-#define PAGE_SHIFT   22
+-#else
+-#error No page size specified in kernel configuration
+-#endif
+-
+-#define PAGE_SIZE    (_AC(1,UL) << PAGE_SHIFT)
+-#define PAGE_MASK    (~(PAGE_SIZE-1))
++#include <asm-generic/page.h>
+ 
+ /* Flushing for D-cache alias handling is only needed if
+  * the page size is smaller than 16K.
+@@ -114,9 +100,6 @@ typedef unsigned long pgprot_t;
+ 
+ #endif /* !(__ASSEMBLY__) */
+ 
+-/* to align the pointer to the (next) page boundary */
+-#define PAGE_ALIGN(addr)	(((addr)+PAGE_SIZE-1)&PAGE_MASK)
+-
+ /* We used to stick this into a hard-coded global register (%g4)
+  * but that does not make sense anymore.
+  */
+diff -puN include/asm-sparc64/mmu.h~sparc64 include/asm-sparc64/mmu.h
+--- threadalloc/include/asm-sparc64/mmu.h~sparc64	2006-08-29 13:14:48.000000000 -0700
++++ threadalloc-dave/include/asm-sparc64/mmu.h	2006-08-29 13:14:54.000000000 -0700
+@@ -30,13 +30,13 @@
+ #define CTX_PGSZ_MASK		((CTX_PGSZ_BITS << CTX_PGSZ0_SHIFT) | \
+ 				 (CTX_PGSZ_BITS << CTX_PGSZ1_SHIFT))
+ 
+-#if defined(CONFIG_SPARC64_PAGE_SIZE_8KB)
++#if defined(CONFIG_PAGE_SIZE_8KB)
+ #define CTX_PGSZ_BASE	CTX_PGSZ_8KB
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_64KB)
++#elif defined(CONFIG_PAGE_SIZE_64KB)
+ #define CTX_PGSZ_BASE	CTX_PGSZ_64KB
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_512KB)
++#elif defined(CONFIG_PAGE_SIZE_512KB)
+ #define CTX_PGSZ_BASE	CTX_PGSZ_512KB
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_4MB)
++#elif defined(CONFIG_PAGE_SIZE_4MB)
+ #define CTX_PGSZ_BASE	CTX_PGSZ_4MB
+ #else
+ #error No page size specified in kernel configuration
+diff -puN arch/sparc64/Kconfig~sparc64 arch/sparc64/Kconfig
+--- threadalloc/arch/sparc64/Kconfig~sparc64	2006-08-29 13:14:48.000000000 -0700
++++ threadalloc-dave/arch/sparc64/Kconfig	2006-08-29 13:14:54.000000000 -0700
+@@ -34,32 +34,8 @@ config ARCH_MAY_HAVE_PC_FDC
+ 	bool
+ 	default y
+ 
+-choice
+-	prompt "Kernel page size"
+-	default SPARC64_PAGE_SIZE_8KB
+-
+-config SPARC64_PAGE_SIZE_8KB
+-	bool "8KB"
+-	help
+-	  This lets you select the page size of the kernel.
+-
+-	  8KB and 64KB work quite well, since Sparc ELF sections
+-	  provide for up to 64KB alignment.
+-
+-	  Therefore, 512KB and 4MB are for expert hackers only.
+-
+-	  If you don't know what to do, choose 8KB.
+-
+-config SPARC64_PAGE_SIZE_64KB
+-	bool "64KB"
+-
+-config SPARC64_PAGE_SIZE_512KB
+-	bool "512KB"
+-
+-config SPARC64_PAGE_SIZE_4MB
+-	bool "4MB"
+-
+-endchoice
++config ARCH_GENERIC_PAGE_SIZE
++	def_bool y
+ 
+ config SECCOMP
+ 	bool "Enable seccomp to safely compute untrusted bytecode"
+@@ -187,11 +163,11 @@ config HUGETLB_PAGE_SIZE_4MB
+ 	bool "4MB"
+ 
+ config HUGETLB_PAGE_SIZE_512K
+-	depends on !SPARC64_PAGE_SIZE_4MB && !SPARC64_PAGE_SIZE_512KB
++	depends on !PAGE_SIZE_4MB && !PAGE_SIZE_512KB
+ 	bool "512K"
+ 
+ config HUGETLB_PAGE_SIZE_64K
+-	depends on !SPARC64_PAGE_SIZE_4MB && !SPARC64_PAGE_SIZE_512KB && !SPARC64_PAGE_SIZE_64KB
++	depends on !PAGE_SIZE_4MB && !PAGE_SIZE_512KB && !PAGE_SIZE_64KB
+ 	bool "64K"
+ 
+ endchoice
+diff -puN arch/sparc64/defconfig~sparc64 arch/sparc64/defconfig
+--- threadalloc/arch/sparc64/defconfig~sparc64	2006-08-29 13:14:48.000000000 -0700
++++ threadalloc-dave/arch/sparc64/defconfig	2006-08-29 13:14:54.000000000 -0700
+@@ -9,10 +9,10 @@ CONFIG_64BIT=y
+ CONFIG_MMU=y
+ CONFIG_TIME_INTERPOLATION=y
+ CONFIG_ARCH_MAY_HAVE_PC_FDC=y
+-CONFIG_SPARC64_PAGE_SIZE_8KB=y
+-# CONFIG_SPARC64_PAGE_SIZE_64KB is not set
+-# CONFIG_SPARC64_PAGE_SIZE_512KB is not set
+-# CONFIG_SPARC64_PAGE_SIZE_4MB is not set
++CONFIG_PAGE_SIZE_8KB=y
++# CONFIG_PAGE_SIZE_64KB is not set
++# CONFIG_PAGE_SIZE_512KB is not set
++# CONFIG_PAGE_SIZE_4MB is not set
+ CONFIG_SECCOMP=y
+ # CONFIG_HZ_100 is not set
+ CONFIG_HZ_250=y
+diff -puN arch/sparc64/mm/tsb.c~sparc64 arch/sparc64/mm/tsb.c
+--- threadalloc/arch/sparc64/mm/tsb.c~sparc64	2006-08-29 13:14:48.000000000 -0700
++++ threadalloc-dave/arch/sparc64/mm/tsb.c	2006-08-29 13:14:54.000000000 -0700
+@@ -90,16 +90,16 @@ void flush_tsb_user(struct mmu_gather *m
+ 	spin_unlock_irqrestore(&mm->context.lock, flags);
+ }
+ 
+-#if defined(CONFIG_SPARC64_PAGE_SIZE_8KB)
++#if defined(CONFIG_PAGE_SIZE_8KB)
+ #define HV_PGSZ_IDX_BASE	HV_PGSZ_IDX_8K
+ #define HV_PGSZ_MASK_BASE	HV_PGSZ_MASK_8K
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_64KB)
++#elif defined(CONFIG_PAGE_SIZE_64KB)
+ #define HV_PGSZ_IDX_BASE	HV_PGSZ_IDX_64K
+ #define HV_PGSZ_MASK_BASE	HV_PGSZ_MASK_64K
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_512KB)
++#elif defined(CONFIG_PAGE_SIZE_512KB)
+ #define HV_PGSZ_IDX_BASE	HV_PGSZ_IDX_512K
+ #define HV_PGSZ_MASK_BASE	HV_PGSZ_MASK_512K
+-#elif defined(CONFIG_SPARC64_PAGE_SIZE_4MB)
++#elif defined(CONFIG_PAGE_SIZE_4MB)
+ #define HV_PGSZ_IDX_BASE	HV_PGSZ_IDX_4MB
+ #define HV_PGSZ_MASK_BASE	HV_PGSZ_MASK_4MB
+ #else
+diff -puN mm/Kconfig~sparc64 mm/Kconfig
+--- threadalloc/mm/Kconfig~sparc64	2006-08-29 13:14:53.000000000 -0700
++++ threadalloc-dave/mm/Kconfig	2006-08-29 13:14:54.000000000 -0700
+@@ -5,9 +5,11 @@ config ARCH_HAVE_GET_ORDER
+ choice
+ 	prompt "Kernel Page Size"
+ 	depends on ARCH_GENERIC_PAGE_SIZE
++	default PAGE_SIZE_8KB if SPARC64
+ 	default PAGE_SIZE_16KB if IA64
+ config PAGE_SIZE_4KB
+ 	bool "4KB"
++	depends on !SPARC64
+ 	help
+ 	  This lets you select the page size of the kernel.  For best
+ 	  performance, a page size of larger than 4k is recommended.  For best
+@@ -24,17 +26,19 @@ config PAGE_SIZE_4KB
+ 	  architecture.
+ config PAGE_SIZE_8KB
+ 	bool "8KB"
+-	depends on IA64
++	depends on IA64 || SPARC64
+ config PAGE_SIZE_16KB
+ 	bool "16KB"
+ 	depends on IA64
+ config PAGE_SIZE_64KB
+ 	bool "64KB"
+-	depends on (IA64 && !ITANIUM)
++	depends on (IA64 && !ITANIUM) || SPARC64
+ config PAGE_SIZE_512KB
+ 	bool "512KB"
++	depends on SPARC64
+ config PAGE_SIZE_4MB
+ 	bool "4MB"
++	depends on SPARC64
+ endchoice
+ 
+ config PAGE_SHIFT
+_
