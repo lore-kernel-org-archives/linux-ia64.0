@@ -1,7 +1,7 @@
 From: Kirill Korotaev <dev@sw.ru>
-Date: Tue, 29 Aug 2006 12:24:21 +0000
+Date: Tue, 29 Aug 2006 12:24:41 +0000
 Subject: Re: [stable] [PATCH] Linux 2.6.17.11 - fix compilation error on IA64
-Message-Id: <44F431F5.7020703@sw.ru>
+Message-Id: <44F43209.6040603@sw.ru>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <617E1C2C70743745A92448908E030B2A72869D@scsmsx411.amr.corp.intel.com> <20060829013137.GA27869@kroah.com>
 In-Reply-To: <20060829013137.GA27869@kroah.com>
@@ -25,7 +25,7 @@ Greg KH wrote:
 > 
 > I thought this was a fix for a prior -stable patch that did not affect
 > mainline.  Or was this thought wrong?
-it should be passed to Linus.
+both patches should be passed to Linus.
 Probably it is my fault, since I thought that patches which got into -stable
 automatically go into Linus tree.
 
