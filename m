@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 04 Aug 2006 18:20:02 +0000
+Date: Tue, 29 Aug 2006 17:39:42 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200608041820.k74IK2Yt018599@agluck-lia64.sc.intel.com>
+Message-Id: <200608291739.k7THdgBa010717@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -12,240 +12,404 @@ To: linux-ia64@vger.kernel.org
 
 Hi Linus,
 
-I missed one patch that I meant to include in the batch yesterday.
-
-Please pull (again) from:
+please pull from:
 
 	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This will update the file shown below.
+This will update the files shown below.
 
 Thanks!
 
 -Tony
 
- arch/ia64/kernel/uncached.c |   86 +++++++++++++++++++++++++++++---------------
- 1 files changed, 57 insertions(+), 29 deletions(-)
+ arch/ia64/Kconfig                   |    4 ++--
+ arch/ia64/kernel/topology.c         |    6 ++----
+ arch/ia64/sn/kernel/xpc_channel.c   |    4 ++--
+ arch/ia64/sn/kernel/xpc_main.c      |   28 ++++++++++++++++------------
+ arch/ia64/sn/kernel/xpc_partition.c |   24 ++++++++----------------
+ include/asm-ia64/sn/sn_sal.h        |    6 ------
+ include/asm-ia64/sn/xp.h            |   22 ++++++++++++++++++----
+ include/asm-ia64/sn/xpc.h           |    4 +++-
+ 8 files changed, 51 insertions(+), 47 deletions(-)
+
+Christoph Lameter:
+      [IA64] Increase default nodes shift to 10, nr_cpus to 1024
 
 Dean Nelson:
-      [IA64] make uncached allocator more node aware
+      [IA64-SGI] Silent data corruption caused by XPC V2.
 
-commit eca7994f60eb6550d9e9b36d3b641a5a0e18a7c1
-Author: Dean Nelson <dcn@sgi.com>
-Date:   Wed Jun 28 13:50:09 2006 -0500
+Paul Jackson:
+      [IA64] panic if topology_init kzalloc fails
 
-    [IA64] make uncached allocator more node aware
+Russ Anderson:
+      [IA64] remove redundant local_irq_save() calls from sn_sal.h
+
+== Full git whatchanged -p output showing diffs =
+commit c57d68caeed7bc335e6d35c951a9abae733a580b
+Author: Christoph Lameter <clameter@sgi.com>
+Date:   Tue Aug 22 19:43:27 2006 -0700
+
+    [IA64] Increase default nodes shift to 10, nr_cpus to 1024
     
-    The uncached allocator has a function, uncached_get_new_chunk(), that needs
-    to be serialized on a per node basis. It also has a global variable,
-    allocated_granules, which should be defined on a per node basis and protected
-    by that serialization. Additionally, all error returns from functions called
-    (like ia64_pal_mc_drain()) should be handled appropriately.
+    Change both the NODES_SHIFT and the NR_CPUS so that even big machines
+    can boot all nodes and processors with a generic kernel.
     
-    Signed-off-by: Dean Nelson <dcn@sgi.com>
-    Acked-by: Jes Sorenson <jes@sgi.com>
+    Signed-off-by: Christoph Lameter <clameter@sgi.com>
     Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-diff --git a/arch/ia64/kernel/uncached.c b/arch/ia64/kernel/uncached.c
-index 5f03b9e..4c73a67 100644
---- a/arch/ia64/kernel/uncached.c
-+++ b/arch/ia64/kernel/uncached.c
-@@ -32,32 +32,38 @@ #include <asm/sn/arch.h>
- 
- extern void __init efi_memmap_walk_uc(efi_freemem_callback_t, void *);
- 
--#define MAX_UNCACHED_GRANULES	5
--static int allocated_granules;
-+struct uncached_pool {
-+	struct gen_pool *pool;
-+	struct mutex add_chunk_mutex;	/* serialize adding a converted chunk */
-+	int nchunks_added;		/* #of converted chunks added to pool */
-+	atomic_t status;		/* smp called function's return status*/
-+};
-+
-+#define MAX_CONVERTED_CHUNKS_PER_NODE	2
- 
--struct gen_pool *uncached_pool[MAX_NUMNODES];
-+struct uncached_pool uncached_pools[MAX_NUMNODES];
- 
- 
- static void uncached_ipi_visibility(void *data)
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 47de9ee..674de89 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -258,7 +258,7 @@ config NR_CPUS
+ 	int "Maximum number of CPUs (2-1024)"
+ 	range 2 1024
+ 	depends on SMP
+-	default "64"
++	default "1024"
+ 	help
+ 	  You should set this to the number of CPUs in your system, but
+ 	  keep in mind that a kernel compiled for, e.g., 2 CPUs will boot but
+@@ -354,7 +354,7 @@ config NUMA
+ config NODES_SHIFT
+ 	int "Max num nodes shift(3-10)"
+ 	range 3 10
+-	default "8"
++	default "10"
+ 	depends on NEED_MULTIPLE_NODES
+ 	help
+ 	  This option specifies the maximum number of nodes in your SSI system.
+
+commit 986e12fa74c837d7fe5bdfe80666e2e2d46711bd
+Author: Russ Anderson <rja@efs.americas.sgi.com>
+Date:   Thu Aug 24 11:08:52 2006 -0500
+
+    [IA64] remove redundant local_irq_save() calls from sn_sal.h
+    
+    sn_change_memprotect() does a local_irq_save() then calls
+    ia64_sal_oemcall_nolock() which calls SAL_CALL_NOLOCK()
+    which also does a local_irq_save().
+    
+    This patch removes the redundant local_irq_save() and local_irq_restore()
+    calls in sn_change_memprotect() and sn_inject_error().
+    
+    Signed-off-by: Russ Anderson <rja@sgi.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/include/asm-ia64/sn/sn_sal.h b/include/asm-ia64/sn/sn_sal.h
+index bd4452b..ba826b3 100644
+--- a/include/asm-ia64/sn/sn_sal.h
++++ b/include/asm-ia64/sn/sn_sal.h
+@@ -706,12 +706,9 @@ static inline int
+ sn_change_memprotect(u64 paddr, u64 len, u64 perms, u64 *nasid_array)
  {
- 	int status;
-+	struct uncached_pool *uc_pool = (struct uncached_pool *)data;
+ 	struct ia64_sal_retval ret_stuff;
+-	unsigned long irq_flags;
  
- 	status = ia64_pal_prefetch_visibility(PAL_VISIBILITY_PHYSICAL);
- 	if ((status != PAL_VISIBILITY_OK) &&
- 	    (status != PAL_VISIBILITY_OK_REMOTE_NEEDED))
--		printk(KERN_DEBUG "pal_prefetch_visibility() returns %i on "
--		       "CPU %i\n", status, raw_smp_processor_id());
-+		atomic_inc(&uc_pool->status);
+-	local_irq_save(irq_flags);
+ 	ia64_sal_oemcall_nolock(&ret_stuff, SN_SAL_MEMPROTECT, paddr, len,
+ 				(u64)nasid_array, perms, 0, 0, 0);
+-	local_irq_restore(irq_flags);
+ 	return ret_stuff.status;
+ }
+ #define SN_MEMPROT_ACCESS_CLASS_0		0x14a080
+@@ -1143,12 +1140,9 @@ static inline int
+ sn_inject_error(u64 paddr, u64 *data, u64 *ecc)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+-	unsigned long irq_flags;
+ 
+-	local_irq_save(irq_flags);
+ 	ia64_sal_oemcall_nolock(&ret_stuff, SN_SAL_INJECT_ERROR, paddr, (u64)data,
+ 				(u64)ecc, 0, 0, 0, 0);
+-	local_irq_restore(irq_flags);
+ 	return ret_stuff.status;
  }
  
+
+commit a813213d73bb29d6986c3e93669a9cd5f7984364
+Author: Paul Jackson <pj@sgi.com>
+Date:   Mon Aug 14 22:45:49 2006 -0700
+
+    [IA64] panic if topology_init kzalloc fails
+    
+    There really is no sense trying to continue if the kzalloc of sysfs_cpus[]
+    fails in ia64 topology_init.  The code calling into here doesn't check
+    errors very well, and one ends up with a nonobvious boot failure that
+    wastes peoples time debugging.
+    
+    See for example the lkml thread at:
+      http://lkml.org/lkml/2006/3/2/215
+    
+    Since the system is totally dead when this kzalloc fails, not having yet
+    even booted, might as well announce one's death boldly and plainly.
+    
+    Signed-off-by: Paul Jackson <pj@sgi.com>
+    Signed-off-by: Andrew Morton <akpm@osdl.org>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index d24fa39..f648c61 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -67,10 +67,8 @@ #ifdef CONFIG_NUMA
+ #endif
  
- static void uncached_ipi_mc_drain(void *data)
- {
- 	int status;
-+	struct uncached_pool *uc_pool = (struct uncached_pool *)data;
- 
- 	status = ia64_pal_mc_drain();
--	if (status)
--		printk(KERN_WARNING "ia64_pal_mc_drain() failed with %i on "
--		       "CPU %i\n", status, raw_smp_processor_id());
-+	if (status != PAL_STATUS_SUCCESS)
-+		atomic_inc(&uc_pool->status);
- }
- 
- 
-@@ -70,21 +76,34 @@ static void uncached_ipi_mc_drain(void *
-  * This is accomplished by first allocating a granule of cached memory pages
-  * and then converting them to uncached memory pages.
-  */
--static int uncached_add_chunk(struct gen_pool *pool, int nid)
-+static int uncached_add_chunk(struct uncached_pool *uc_pool, int nid)
- {
- 	struct page *page;
--	int status, i;
-+	int status, i, nchunks_added = uc_pool->nchunks_added;
- 	unsigned long c_addr, uc_addr;
- 
--	if (allocated_granules >= MAX_UNCACHED_GRANULES)
-+	if (mutex_lock_interruptible(&uc_pool->add_chunk_mutex) != 0)
-+		return -1;	/* interrupted by a signal */
-+
-+	if (uc_pool->nchunks_added > nchunks_added) {
-+		/* someone added a new chunk while we were waiting */
-+		mutex_unlock(&uc_pool->add_chunk_mutex);
-+		return 0;
-+	}
-+
-+	if (uc_pool->nchunks_added >= MAX_CONVERTED_CHUNKS_PER_NODE) {
-+		mutex_unlock(&uc_pool->add_chunk_mutex);
- 		return -1;
-+	}
- 
- 	/* attempt to allocate a granule's worth of cached memory pages */
- 
- 	page = alloc_pages_node(nid, GFP_KERNEL | __GFP_ZERO,
- 				IA64_GRANULE_SHIFT-PAGE_SHIFT);
--	if (!page)
-+	if (!page) {
-+		mutex_unlock(&uc_pool->add_chunk_mutex);
- 		return -1;
-+	}
- 
- 	/* convert the memory pages from cached to uncached */
- 
-@@ -102,11 +121,14 @@ static int uncached_add_chunk(struct gen
- 	flush_tlb_kernel_range(uc_addr, uc_adddr + IA64_GRANULE_SIZE);
- 
- 	status = ia64_pal_prefetch_visibility(PAL_VISIBILITY_PHYSICAL);
--	if (!status) {
--		status = smp_call_function(uncached_ipi_visibility, NULL, 0, 1);
--		if (status)
-+	if (status = PAL_VISIBILITY_OK_REMOTE_NEEDED) {
-+		atomic_set(&uc_pool->status, 0);
-+		status = smp_call_function(uncached_ipi_visibility, uc_pool,
-+					   0, 1);
-+		if (status || atomic_read(&uc_pool->status))
- 			goto failed;
+ 	sysfs_cpus = kzalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
+-	if (!sysfs_cpus) {
+-		err = -ENOMEM;
+-		goto out;
 -	}
-+	} else if (status != PAL_VISIBILITY_OK)
-+		goto failed;
++	if (!sysfs_cpus)
++		panic("kzalloc in topology_init failed - NR_CPUS too big?");
  
- 	preempt_disable();
- 
-@@ -120,20 +142,24 @@ static int uncached_add_chunk(struct gen
- 
- 	preempt_enable();
- 
--	ia64_pal_mc_drain();
--	status = smp_call_function(uncached_ipi_mc_drain, NULL, 0, 1);
--	if (status)
-+	status = ia64_pal_mc_drain();
-+	if (status != PAL_STATUS_SUCCESS)
-+		goto failed;
-+	atomic_set(&uc_pool->status, 0);
-+	status = smp_call_function(uncached_ipi_mc_drain, uc_pool, 0, 1);
-+	if (status || atomic_read(&uc_pool->status))
- 		goto failed;
- 
- 	/*
- 	 * The chunk of memory pages has been converted to uncached so now we
- 	 * can add it to the pool.
- 	 */
--	status = gen_pool_add(pool, uc_addr, IA64_GRANULE_SIZE, nid);
-+	status = gen_pool_add(uc_pool->pool, uc_addr, IA64_GRANULE_SIZE, nid);
- 	if (status)
- 		goto failed;
- 
--	allocated_granules++;
-+	uc_pool->nchunks_added++;
-+	mutex_unlock(&uc_pool->add_chunk_mutex);
- 	return 0;
- 
- 	/* failed to convert or add the chunk so give it back to the kernel */
-@@ -142,6 +168,7 @@ failed:
- 		ClearPageUncached(&page[i]);
- 
- 	free_pages(c_addr, IA64_GRANULE_SHIFT-PAGE_SHIFT);
-+	mutex_unlock(&uc_pool->add_chunk_mutex);
- 	return -1;
- }
- 
-@@ -158,7 +185,7 @@ failed:
- unsigned long uncached_alloc_page(int starting_nid)
- {
- 	unsigned long uc_addr;
--	struct gen_pool *pool;
-+	struct uncached_pool *uc_pool;
- 	int nid;
- 
- 	if (unlikely(starting_nid >= MAX_NUMNODES))
-@@ -171,14 +198,14 @@ unsigned long uncached_alloc_page(int st
- 	do {
- 		if (!node_online(nid))
- 			continue;
--		pool = uncached_pool[nid];
--		if (pool = NULL)
-+		uc_pool = &uncached_pools[nid];
-+		if (uc_pool->pool = NULL)
- 			continue;
- 		do {
--			uc_addr = gen_pool_alloc(pool, PAGE_SIZE);
-+			uc_addr = gen_pool_alloc(uc_pool->pool, PAGE_SIZE);
- 			if (uc_addr != 0)
- 				return uc_addr;
--		} while (uncached_add_chunk(pool, nid) = 0);
-+		} while (uncached_add_chunk(uc_pool, nid) = 0);
- 
- 	} while ((nid = (nid + 1) % MAX_NUMNODES) != starting_nid);
- 
-@@ -197,7 +224,7 @@ EXPORT_SYMBOL(uncached_alloc_page);
- void uncached_free_page(unsigned long uc_addr)
- {
- 	int nid = paddr_to_nid(uc_addr - __IA64_UNCACHED_OFFSET);
--	struct gen_pool *pool = uncached_pool[nid];
-+	struct gen_pool *pool = uncached_pools[nid].pool;
- 
- 	if (unlikely(pool = NULL))
- 		return;
-@@ -224,7 +251,7 @@ static int __init uncached_build_memmap(
- 					unsigned long uc_end, void *arg)
- {
- 	int nid = paddr_to_nid(uc_start - __IA64_UNCACHED_OFFSET);
--	struct gen_pool *pool = uncached_pool[nid];
-+	struct gen_pool *pool = uncached_pools[nid].pool;
- 	size_t size = uc_end - uc_start;
- 
- 	touch_softlockup_watchdog();
-@@ -242,7 +269,8 @@ static int __init uncached_init(void)
- 	int nid;
- 
- 	for_each_online_node(nid) {
--		uncached_pool[nid] = gen_pool_create(PAGE_SHIFT, nid);
-+		uncached_pools[nid].pool = gen_pool_create(PAGE_SHIFT, nid);
-+		mutex_init(&uncached_pools[nid].add_chunk_mutex);
+ 	for_each_present_cpu(i) {
+ 		if((err = arch_register_cpu(i)))
+
+commit 7682a4c624e0011b5f3e8dd3021dc54961260d97
+Author: Dean Nelson <dcn@sgi.com>
+Date:   Tue Aug 8 15:03:29 2006 -0500
+
+    [IA64-SGI] Silent data corruption caused by XPC V2.
+    
+    Jack Steiner identified a problem where XPC can cause a silent
+    data corruption.  On module load, the placement may cause the
+    xpc_remote_copy_buffer to span two physical pages.  DMA transfers are
+    done to the start virtual address translated to physical.
+    
+    This patch changes the buffer from a statically allocated buffer to a
+    kmalloc'd buffer.  Dean Nelson reviewed this before posting.  I have
+    tested it in the configuration that was showing the memory corruption
+    and verified it works.  I also added a BUG_ON statement to help catch
+    this if a similar situation is encountered.
+    
+    Signed-off-by: Robin Holt <holt@sgi.com>
+    Signed-off-by: Dean Nelson <dcn@sgi.com>
+    Signed-off-by: Jack Steiner <steiner@sgi.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/sn/kernel/xpc_channel.c b/arch/ia64/sn/kernel/xpc_channel.c
+index c2f69f7..1f35408 100644
+--- a/arch/ia64/sn/kernel/xpc_channel.c
++++ b/arch/ia64/sn/kernel/xpc_channel.c
+@@ -279,8 +279,8 @@ xpc_pull_remote_cachelines(struct xpc_pa
+ 		return part->reason;
  	}
  
- 	efi_memmap_walk_uc(uncached_build_memmap, NULL);
+-	bte_ret = xp_bte_copy((u64) src, (u64) ia64_tpa((u64) dst),
+-				(u64) cnt, (BTE_NORMAL | BTE_WACQUIRE), NULL);
++	bte_ret = xp_bte_copy((u64) src, (u64) dst, (u64) cnt,
++					(BTE_NORMAL | BTE_WACQUIRE), NULL);
+ 	if (bte_ret = BTE_SUCCESS) {
+ 		return xpcSuccess;
+ 	}
+diff --git a/arch/ia64/sn/kernel/xpc_main.c b/arch/ia64/sn/kernel/xpc_main.c
+index 5e8e59e..4d026f9 100644
+--- a/arch/ia64/sn/kernel/xpc_main.c
++++ b/arch/ia64/sn/kernel/xpc_main.c
+@@ -1052,6 +1052,8 @@ xpc_do_exit(enum xpc_retval reason)
+ 	if (xpc_sysctl) {
+ 		unregister_sysctl_table(xpc_sysctl);
+ 	}
++
++	kfree(xpc_remote_copy_buffer_base);
+ }
+ 
+ 
+@@ -1212,24 +1214,20 @@ xpc_init(void)
+ 	partid_t partid;
+ 	struct xpc_partition *part;
+ 	pid_t pid;
++	size_t buf_size;
+ 
+ 
+ 	if (!ia64_platform_is("sn2")) {
+ 		return -ENODEV;
+ 	}
+ 
+-	/*
+-	 * xpc_remote_copy_buffer is used as a temporary buffer for bte_copy'ng
+-	 * various portions of a partition's reserved page. Its size is based
+-	 * on the size of the reserved page header and part_nasids mask. So we
+-	 * need to ensure that the other items will fit as well.
+-	 */
+-	if (XPC_RP_VARS_SIZE > XPC_RP_HEADER_SIZE + XP_NASID_MASK_BYTES) {
+-		dev_err(xpc_part, "xpc_remote_copy_buffer is not big enough\n");
+-		return -EPERM;
+-	}
+-	DBUG_ON((u64) xpc_remote_copy_buffer !-				L1_CACHE_ALIGN((u64) xpc_remote_copy_buffer));
++
++	buf_size = max(XPC_RP_VARS_SIZE,
++				XPC_RP_HEADER_SIZE + XP_NASID_MASK_BYTES);
++	xpc_remote_copy_buffer = xpc_kmalloc_cacheline_aligned(buf_size,
++				     GFP_KERNEL, &xpc_remote_copy_buffer_base);
++	if (xpc_remote_copy_buffer = NULL)
++		return -ENOMEM;
+ 
+ 	snprintf(xpc_part->bus_id, BUS_ID_SIZE, "part");
+ 	snprintf(xpc_chan->bus_id, BUS_ID_SIZE, "chan");
+@@ -1293,6 +1291,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+@@ -1311,6 +1311,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+@@ -1362,6 +1364,8 @@ xpc_init(void)
+ 		if (xpc_sysctl) {
+ 			unregister_sysctl_table(xpc_sysctl);
+ 		}
++
++		kfree(xpc_remote_copy_buffer_base);
+ 		return -EBUSY;
+ 	}
+ 
+diff --git a/arch/ia64/sn/kernel/xpc_partition.c b/arch/ia64/sn/kernel/xpc_partition.c
+index 2a89cfc..57c723f 100644
+--- a/arch/ia64/sn/kernel/xpc_partition.c
++++ b/arch/ia64/sn/kernel/xpc_partition.c
+@@ -71,19 +71,15 @@ struct xpc_partition xpc_partitions[XP_M
+  * Generic buffer used to store a local copy of portions of a remote
+  * partition's reserved page (either its header and part_nasids mask,
+  * or its vars).
+- *
+- * xpc_discovery runs only once and is a seperate thread that is
+- * very likely going to be processing in parallel with receiving
+- * interrupts.
+  */
+-char ____cacheline_aligned xpc_remote_copy_buffer[XPC_RP_HEADER_SIZE +
+-							XP_NASID_MASK_BYTES];
++char *xpc_remote_copy_buffer;
++void *xpc_remote_copy_buffer_base;
+ 
+ 
+ /*
+  * Guarantee that the kmalloc'd memory is cacheline aligned.
+  */
+-static void *
++void *
+ xpc_kmalloc_cacheline_aligned(size_t size, gfp_t flags, void **base)
+ {
+ 	/* see if kmalloc will give us cachline aligned memory by default */
+@@ -148,7 +144,7 @@ xpc_get_rsvd_page_pa(int nasid)
+ 			}
+ 		}
+ 
+-		bte_res = xp_bte_copy(rp_pa, ia64_tpa(buf), buf_len,
++		bte_res = xp_bte_copy(rp_pa, buf, buf_len,
+ 					(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 		if (bte_res != BTE_SUCCESS) {
+ 			dev_dbg(xpc_part, "xp_bte_copy failed %i\n", bte_res);
+@@ -447,7 +443,7 @@ xpc_check_remote_hb(void)
+ 
+ 		/* pull the remote_hb cache line */
+ 		bres = xp_bte_copy(part->remote_vars_pa,
+-					ia64_tpa((u64) remote_vars),
++					(u64) remote_vars,
+ 					XPC_RP_VARS_SIZE,
+ 					(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 		if (bres != BTE_SUCCESS) {
+@@ -498,8 +494,7 @@ xpc_get_remote_rp(int nasid, u64 *discov
+ 
+ 
+ 	/* pull over the reserved page header and part_nasids mask */
+-
+-	bres = xp_bte_copy(*remote_rp_pa, ia64_tpa((u64) remote_rp),
++	bres = xp_bte_copy(*remote_rp_pa, (u64) remote_rp,
+ 				XPC_RP_HEADER_SIZE + xp_nasid_mask_bytes,
+ 				(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 	if (bres != BTE_SUCCESS) {
+@@ -554,11 +549,8 @@ xpc_get_remote_vars(u64 remote_vars_pa, 
+ 		return xpcVarsNotSet;
+ 	}
+ 
+-
+ 	/* pull over the cross partition variables */
+-
+-	bres = xp_bte_copy(remote_vars_pa, ia64_tpa((u64) remote_vars),
+-				XPC_RP_VARS_SIZE,
++	bres = xp_bte_copy(remote_vars_pa, (u64) remote_vars, XPC_RP_VARS_SIZE,
+ 				(BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 	if (bres != BTE_SUCCESS) {
+ 		return xpc_map_bte_errors(bres);
+@@ -1239,7 +1231,7 @@ xpc_initiate_partid_to_nasids(partid_t p
+ 
+ 	part_nasid_pa = (u64) XPC_RP_PART_NASIDS(part->remote_rp_pa);
+ 
+-	bte_res = xp_bte_copy(part_nasid_pa, ia64_tpa((u64) nasid_mask),
++	bte_res = xp_bte_copy(part_nasid_pa, (u64) nasid_mask,
+ 			xp_nasid_mask_bytes, (BTE_NOTIFY | BTE_WACQUIRE), NULL);
+ 
+ 	return xpc_map_bte_errors(bte_res);
+diff --git a/include/asm-ia64/sn/xp.h b/include/asm-ia64/sn/xp.h
+index 9bd2f9b..6f807e0 100644
+--- a/include/asm-ia64/sn/xp.h
++++ b/include/asm-ia64/sn/xp.h
+@@ -60,23 +60,37 @@ #define XP_NASID_MASK_WORDS	((XP_MAX_PHY
+  * the bte_copy() once in the hope that the failure was due to a temporary
+  * aberration (i.e., the link going down temporarily).
+  *
+- * See bte_copy for definition of the input parameters.
++ * 	src - physical address of the source of the transfer.
++ *	vdst - virtual address of the destination of the transfer.
++ *	len - number of bytes to transfer from source to destination.
++ *	mode - see bte_copy() for definition.
++ *	notification - see bte_copy() for definition.
+  *
+  * Note: xp_bte_copy() should never be called while holding a spinlock.
+  */
+ static inline bte_result_t
+-xp_bte_copy(u64 src, u64 dest, u64 len, u64 mode, void *notification)
++xp_bte_copy(u64 src, u64 vdst, u64 len, u64 mode, void *notification)
+ {
+ 	bte_result_t ret;
++	u64 pdst = ia64_tpa(vdst);
+ 
+ 
+-	ret = bte_copy(src, dest, len, mode, notification);
++	/*
++	 * Ensure that the physically mapped memory is contiguous.
++	 *
++	 * We do this by ensuring that the memory is from region 7 only.
++	 * If the need should arise to use memory from one of the other
++	 * regions, then modify the BUG_ON() statement to ensure that the
++	 * memory from that region is always physically contiguous.
++	 */
++	BUG_ON(REGION_NUMBER(vdst) != RGN_KERNEL);
+ 
++	ret = bte_copy(src, pdst, len, mode, notification);
+ 	if (ret != BTE_SUCCESS) {
+ 		if (!in_interrupt()) {
+ 			cond_resched();
+ 		}
+-		ret = bte_copy(src, dest, len, mode, notification);
++		ret = bte_copy(src, pdst, len, mode, notification);
+ 	}
+ 
+ 	return ret;
+diff --git a/include/asm-ia64/sn/xpc.h b/include/asm-ia64/sn/xpc.h
+index b72af59..35e1386 100644
+--- a/include/asm-ia64/sn/xpc.h
++++ b/include/asm-ia64/sn/xpc.h
+@@ -683,7 +683,9 @@ extern struct xpc_vars *xpc_vars;
+ extern struct xpc_rsvd_page *xpc_rsvd_page;
+ extern struct xpc_vars_part *xpc_vars_part;
+ extern struct xpc_partition xpc_partitions[XP_MAX_PARTITIONS + 1];
+-extern char xpc_remote_copy_buffer[];
++extern char *xpc_remote_copy_buffer;
++extern void *xpc_remote_copy_buffer_base;
++extern void *xpc_kmalloc_cacheline_aligned(size_t, gfp_t, void **);
+ extern struct xpc_rsvd_page *xpc_rsvd_page_init(void);
+ extern void xpc_allow_IPI_ops(void);
+ extern void xpc_restrict_IPI_ops(void);
