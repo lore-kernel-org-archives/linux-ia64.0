@@ -1,83 +1,48 @@
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Mon, 14 Aug 2006 06:53:10 +0000
-Subject: IA64 Kdump Patch, reserve efi memmap and boot param region
-Message-Id: <1155538390.2585.51.camel@linux-znh>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Tue, 29 Aug 2006 20:19:34 +0000
+Subject: [RFC][PATCH 00/10] generic PAGE_SIZE infrastructure (v3)
+Message-Id: <20060829201934.47E63D1F@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: linux-ia64@vger.kernel.org, rdunlap@xenotime.net, lethal@linux-sh.org, Dave Hansen <haveblue@us.ibm.com>
 
+Changes from last version
+- included get_order() code to make it safe to include
+  generic/page.h everywhere (using ARCH_HAS_GET_ORDER)
+- updated mm/Kconfig text to make it more fitting for ia64
+- added patch to consolidate _ALIGN with kernel.h's ALIGN()
+  The assembly one has been left alone, but I guess we could
+  put it here.  However, the meaning of the two is quite different.
 
-This patch is against kexec-tools-1.101 with kdump10 patch.
+---
 
-This patch reserve efi memmap and boot param area for the first kernel
-so that they will not be overlapped.
+All architectures currently explicitly define their page size.  In some
+cases (ppc, parisc, ia64, sparc64, mips) this size is somewhat
+configurable.
 
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+There several reimplementations of ways to make sure that PAGE_SIZE
+is usable in assembly code, yet still somewhat type safe for use in
+C code (as a UL type).  These are all very similar.  There are also a
+number of macros based off of PAGE_SIZE/SHIFT which are duplicated
+across architectures.
 
-diff -Nraup kexec-tools-1.101/kexec/arch/ia64/kexec-ia64.c kexec-tools-1.101-ia64-kdump/kexec/arch/ia64/kexec-ia64.c
---- kexec-tools-1.101/kexec/arch/ia64/kexec-ia64.c	2006-08-15 06:08:39.000000000 +0800
-+++ kexec-tools-1.101-ia64-kdump/kexec/arch/ia64/kexec-ia64.c	2006-08-15 09:45:20.000000000 +0800
-@@ -36,6 +36,38 @@
- 
- static struct memory_range memory_range[MAX_MEMORY_RANGES];
- 
-+/* Reserve range for EFI memmap and Boot parameter */
-+static int split_range(int range, unsigned long start, unsigned long end)
-+{
-+	unsigned long ram_end = memory_range[range - 1].end;
-+	unsigned int type = memory_range[range - 1].type;
-+	int i;
-+	//align end and start to page size of EFI
-+	start = start & ~((1UL<<12) - 1);
-+	end = (end + (1UL<<12) - 1)& ~((1UL<<12) - 1);
-+	for (i = 0; i < range; i++) 
-+		if(memory_range[i].start <= start && memory_range[i].end >=end)
-+			break;
-+	if (i >= range)
-+		return range;
-+	range = i;
-+	if (memory_range[range].start < start) {
-+		memory_range[range].end = start;
-+		range++;
-+	}
-+	memory_range[range].start = start;
-+	memory_range[range].end = end;
-+	memory_range[range].type = RANGE_RESERVED;
-+	range++;
-+	if (end < ram_end) {
-+		memory_range[range].start = end;
-+		memory_range[range].end = ram_end;
-+		memory_range[range].type = type;
-+		range++;
-+	}
-+	return range;
-+}
-+
- /* Return a sorted list of available memory ranges. */
- int get_memory_ranges(struct memory_range **range, int *ranges,
- 				unsigned long kexec_flags)
-@@ -85,6 +117,12 @@ int get_memory_ranges(struct memory_rang
- 					mem_max = end;
- 			}
- 			continue;
-+		} else if (memcmp(str, "Boot parameter\n", 14) = 0) {
-+			memory_ranges = split_range(memory_ranges, start, end);
-+			continue;
-+		} else if (memcmp(str, "EFI Memory Map\n", 14) = 0) {
-+			memory_ranges = split_range(memory_ranges, start, end);
-+			continue;
- 		} else
- 			continue;
- 		/*
-@@ -125,7 +163,7 @@ int arch_process_options(int argc, char 
- {
- 	static const struct option options[] = {
- 		KEXEC_ARCH_OPTIONS
--		{ 0, 			0, NULL, 0 },
-+		{ 0, 0, NULL, 0 },
- 	};
- 	static const char short_options[] = KEXEC_ARCH_OPT_STR;
- 	int opt;
+This patch unifies all of those definitions.  It defines PAGE_SIZE in
+a single header which gets its definitions from Kconfig.  The new
+Kconfig options mirror what used to be done with #ifdefs and
+arch-specific Kconfig options.  The new Kconfig menu eliminates
+the need for parisc, ia64, and sparc64 to have their own "choice"
+menus for selecting page size.  The help text has been adapted from
+these three architectures, but is now more generic.
+
+Why am I doing this?  The OpenVZ beancounter patch hooks into the
+alloc_thread_info() path, but only in two architectures.  It is silly
+to patch each and every architecture when they all just do the same
+thing.  This is the first step to have a single place in which to
+do alloc_thread_info().  Oh, and this series removes about 300 lines
+of code.
+
+ 46 files changed, 178 insertions(+), 514 deletions(-)
 
