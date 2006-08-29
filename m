@@ -1,47 +1,50 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 01 Aug 2006 23:27:02 +0000
-Subject: Fix build for SKI simulator
-Message-Id: <17615.58182.343793.999423@berry.ken.nicta.com.au>
+From: Kyle McMartin <kyle@debian.org>
+Date: Tue, 29 Aug 2006 16:02:53 +0000
+Subject: Fwd: Unable to compile 2.6.17.11 IA64 kernel
+Message-Id: <20060829160253.GB19766@athena.road.mcmartin.ca>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi Christian,
 
-Hi folks,
-	The recent chanegs to the SCSI command structure mean that the
-simscsi driver doesn't build any more.  Here's the patch to fix it.
+I've CC-ed your patch to the stable kernel maintainers. Hopefully
+it will get merged for the next stable release.
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+Cheers,
+	Kyle M.
 
-diff --git a/arch/ia64/hp/sim/simscsi.c b/arch/ia64/hp/sim/simscsi.c
-index a3fe975..8a4f0d0 100644
---- a/arch/ia64/hp/sim/simscsi.c
-+++ b/arch/ia64/hp/sim/simscsi.c
-@@ -151,7 +151,7 @@ static void
- simscsi_sg_readwrite (struct scsi_cmnd *sc, int mode, unsigned long offset)
- {
- 	int list_len = sc->use_sg;
--	struct scatterlist *sl = (struct scatterlist *)sc->buffer;
-+	struct scatterlist *sl = (struct scatterlist *)sc->request_buffer;
- 	struct disk_stat stat;
- 	struct disk_req req;
+----- Forwarded message from Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net> -----
+
+Sender: linux-ia64-owner@vger.kernel.org
+From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
+Subject: Unable to compile 2.6.17.11 IA64 kernel
+Message-ID: <44EEF7AC.5090804@bull.net>
+To: linux-ia64 <linux-ia64@vger.kernel.org>
+Date:	Fri, 25 Aug 2006 15:14:20 +0200
+
+include/asm/mman.h: Assembler messages:
+include/asm/mman.h:13: Error: Unknown opcode `int ia64_map_check_rgn(unsigned long addr,unsigned
+long len,'
+include/asm/mman.h:14: Error: Unknown opcode `unsigned long flags)'
+make[1]: *** [arch/ia64/kernel/entry.o] Error 1
+make: *** [arch/ia64/kernel] Error 2
+
+--- linux-2.6.17.11.ref/include/asm-ia64/mman.h	2006-08-23 23:16:33.000000000 +0200
++++ linux-2.6.17.11/include/asm-ia64/mman.h	2006-08-25 14:52:49.000000000 +0200
+@@ -9,9 +9,11 @@
+  */
  
-@@ -244,7 +244,7 @@ static void simscsi_fillresult(struct sc
+ #ifdef __KERNEL__
++#if !defined(__ASSEMBLY__)
+ #define arch_mmap_check	ia64_map_check_rgn
+ int ia64_map_check_rgn(unsigned long addr, unsigned long len,
+ 		unsigned long flags);
++#endif /* !__ASSEMBLY__ */
+ #endif
  
- 	if (scatterlen = 0)
- 		memcpy(sc->request_buffer, buf, len);
--	else for (slp = (struct scatterlist *)sc->buffer; scatterlen-- > 0 && len > 0; slp++) {
-+	else for (slp = (struct scatterlist *)sc->request_buffer; scatterlen-- > 0 && len > 0; slp++) {
- 		unsigned thislen = min(len, slp->length);
- 
- 		memcpy(page_address(slp->page) + slp->offset, buf, thislen);
+ #include <asm-generic/mman.h>
 
-
-
-
---
-Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
-http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
-
+----- End forwarded message -----
