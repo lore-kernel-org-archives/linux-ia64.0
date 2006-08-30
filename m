@@ -1,45 +1,31 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Tue, 29 Aug 2006 21:13:29 +0000
-Subject: RE: [RFC][PATCH 10/10] convert the "easy" architectures to generic
-Message-Id: <1156886009.5408.183.camel@localhost.localdomain>
+From: Paul Mundt <lethal@linux-sh.org>
+Date: Wed, 30 Aug 2006 10:05:18 +0000
+Subject: Re: [RFC][PATCH 10/10] convert the "easy" architectures to generic PAGE_SIZE
+Message-Id: <20060830100518.GA10629@localhost.internal.ocgnet.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A728D28@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A728D28@scsmsx411.amr.corp.intel.com>
+References: <20060829201934.47E63D1F@localhost.localdomain> <20060829201941.38D6254C@localhost.localdomain>
+In-Reply-To: <20060829201941.38D6254C@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-mm@kvack.org, linux-ia64@vger.kernel.org, rdunlap@xenotime.net, lethal@linux-sh.org
+To: Dave Hansen <haveblue@us.ibm.com>
+Cc: linux-mm@kvack.org, linux-ia64@vger.kernel.org, rdunlap@xenotime.net
 
-On Tue, 2006-08-29 at 14:06 -0700, Luck, Tony wrote:
-> > Note that, as promised, this removes ARCH_GENERIC_PAGE_SIZE
-> > introduced by the first patch in this series.  It is no longer
-> > needed as _all_ architectures now use this infrastructure.
-> 
-> Either I goofed when applying these patches, or you missed one
-> in mm/Kconfig.  The version I ended up with had the "Kernel Page Size"
-> choice still "depends on ARCH_GENERIC_PAGE_SIZE" ... so make
-> menuconfig didn't let me choose the page size.
-
-Yeah, during all of my repatching, I managed to forget to rip that out.
-Thanks for finding that.  Just killing that depends line, or applying
-this should fix it.
-
--- Dave
-
- threadalloc-dave/mm/Kconfig |    1 -
- 1 files changed, 1 deletion(-)
-
-diff -puN mm/Kconfig~fix-mm-Kconfig mm/Kconfig
---- threadalloc/mm/Kconfig~fix-mm-Kconfig	2006-08-29 14:11:25.000000000 -0700
-+++ threadalloc-dave/mm/Kconfig	2006-08-29 14:11:26.000000000 -0700
-@@ -4,7 +4,6 @@ config ARCH_HAVE_GET_ORDER
- 
- choice
- 	prompt "Kernel Page Size"
--	depends on ARCH_GENERIC_PAGE_SIZE
- 	default PAGE_SIZE_4KB if MIPS || PARISC
- 	default PAGE_SIZE_8KB if SPARC64
- 	default PAGE_SIZE_16KB if IA64
-_
-
+On Tue, Aug 29, 2006 at 01:19:41PM -0700, Dave Hansen wrote:
+> diff -puN include/asm-sh/page.h~arch-generic-PAGE_SIZE-give-every-arch-PAGE_SHIFT include/asm-sh/page.h
+> --- threadalloc/include/asm-sh/page.h~arch-generic-PAGE_SIZE-give-every-arch-PAGE_SHIFT	2006-08-29 13:14:48.000000000 -0700
+> +++ threadalloc-dave/include/asm-sh/page.h	2006-08-29 13:14:58.000000000 -0700
+> @@ -13,12 +13,7 @@
+>     [ P4 control   ]		0xE0000000
+>   */
+>  
+> -
+> -/* PAGE_SHIFT determines the page size */
+> -#define PAGE_SHIFT	12
+> -#define PAGE_SIZE	(1UL << PAGE_SHIFT)
+> -#define PAGE_MASK	(~(PAGE_SIZE-1))
+> -#define PTE_MASK	PAGE_MASK
+> +#include <asm-generic/page.h>
+>  
+Overzealous deletion? Please leave PTE_MASK there, we use it for
+_PAGE_CHG_MASK in pgtable.h.
