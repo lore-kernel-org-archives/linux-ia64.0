@@ -1,81 +1,63 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Wed, 30 Aug 2006 01:45:49 +0000
-Subject: Re: [Fastboot] IA64 Kdump patch V3
-Message-Id: <44F4EDCD.1040004@sgi.com>
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Wed, 30 Aug 2006 01:54:46 +0000
+Subject: RE: [Fastboot] IA64 Kdump patch V3
+Message-Id: <08B1877B2880CE42811294894F33AD5C053BD7@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <44F4E94E.8090700@sgi.com>
 In-Reply-To: <44F4E94E.8090700@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-Zou, Nanhai wrote:
->>-----Original Message-----
->>From: Jay Lan [mailto:jlan@sgi.com]
->>Sent: 2006年8月30日 9:27
->>To: Zou, Nanhai
->>Cc: Linux-IA64; fastboot; Luck, Tony; Dave Anderson; Eric W. Biederman; Horms
->>Subject: Re: [Fastboot] IA64 Kdump patch V3
->>
->>Jay Lan wrote:
->>
->>>Hi Nanhai,
->>>
->>>There is a problem in sn2. The sn2 does not have any memory with
->>>a predictible offset. It is not possible to specify a memory location
->>>at boot.
->>>
->>>I modified the efi_initialize_iomem_resources() routine in
->>>arch/ia64/kernel/efi.c to calculate crashk_res.start and .end on the
->>>fly and uses the "A" of crashkernel=A@B as size to find a region
->>>that fits.
->>>
->>>Maybe we should separate A and B as two options?
->>
->>The "B" part of the crashkernel boot option is meaningless to sn2
->>machine and can be very confusing to sn2 users.
->>
-> 
-> 
->  Hi, Jay
-> 	It is possible to have only A option and let kernel determine the B address at startup time. Horms has patch to do that, I will merge it.
-> 
-That would be great!
-
-> 
->>>I now have memory reserved, but kernal hanged when executing 'kexec'
->>>command. There must be similar issues in kexec.
->>
->>On further debugging, the kexec dumped core instead at this statement:
->>+        elf_rel_set_symbol(&info->rhdr, "__boot_param_base",
->>+                        &boot_param_base, sizeof(long));
->>
->>of elf_ia64_load() in kexec/arch/ia64/kexec-elf-ia64.c.
->>
->>Examing the memory i found "__boot_param_base" indeed not present in
->>the symbol table.
->>
->>It seems that purgatory/arch/ia64/entry.S does not have a line
->>+DECLARE_DATAB(____boot_param_base).
->>Is it not needed in other ia64 machines? How does it work in HP
->>machines?
-> 
->   There is a DECLARE_DATA8(__boot_param_base) in purgatory/arch/ia64/entry.S
->   Are you using kexec-tools-kdump10 patch?
-
-Yes, i apply the kexec-tools-kdump10 patch and the "reserve efi memmap
-and boot param" patch from you. Only these two. Did i miss any?
-
-Thanks,
-  - jay
-
-
->  
->  Thanks
->  Zou Nan hai
-> 
->>Thanks,
->>  - jay
->>
-
+Cgo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4gRnJvbTogSmF5IExhbiBbbWFpbHRvOmps
+YW5Ac2dpLmNvbV0KPiBTZW50OiAyMDA2xOo41MIzMMjVIDk6NDYKPiBUbzogWm91LCBOYW5oYWkK
+PiBDYzogTGludXgtSUE2NDsgZmFzdGJvb3Q7IEx1Y2ssIFRvbnk7IERhdmUgQW5kZXJzb247IEVy
+aWMgVy4gQmllZGVybWFuOyBIb3Jtcwo+IFN1YmplY3Q6IFJlOiBbRmFzdGJvb3RdIElBNjQgS2R1
+bXAgcGF0Y2ggVjMKPiAKPiBab3UsIE5hbmhhaSB3cm90ZToKPiA+Pi0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tCj4gPj5Gcm9tOiBKYXkgTGFuIFttYWlsdG86amxhbkBzZ2kuY29tXQo+ID4+U2Vu
+dDogMjAwNsTqONTCMzDI1SA5OjI3Cj4gPj5UbzogWm91LCBOYW5oYWkKPiA+PkNjOiBMaW51eC1J
+QTY0OyBmYXN0Ym9vdDsgTHVjaywgVG9ueTsgRGF2ZSBBbmRlcnNvbjsgRXJpYyBXLiBCaWVkZXJt
+YW47IEhvcm1zCj4gPj5TdWJqZWN0OiBSZTogW0Zhc3Rib290XSBJQTY0IEtkdW1wIHBhdGNoIFYz
+Cj4gPj4KPiA+PkpheSBMYW4gd3JvdGU6Cj4gPj4KPiA+Pj5IaSBOYW5oYWksCj4gPj4+Cj4gPj4+
+VGhlcmUgaXMgYSBwcm9ibGVtIGluIHNuMi4gVGhlIHNuMiBkb2VzIG5vdCBoYXZlIGFueSBtZW1v
+cnkgd2l0aAo+ID4+PmEgcHJlZGljdGlibGUgb2Zmc2V0LiBJdCBpcyBub3QgcG9zc2libGUgdG8g
+c3BlY2lmeSBhIG1lbW9yeSBsb2NhdGlvbgo+ID4+PmF0IGJvb3QuCj4gPj4+Cj4gPj4+SSBtb2Rp
+ZmllZCB0aGUgZWZpX2luaXRpYWxpemVfaW9tZW1fcmVzb3VyY2VzKCkgcm91dGluZSBpbgo+ID4+
+PmFyY2gvaWE2NC9rZXJuZWwvZWZpLmMgdG8gY2FsY3VsYXRlIGNyYXNoa19yZXMuc3RhcnQgYW5k
+IC5lbmQgb24gdGhlCj4gPj4+Zmx5IGFuZCB1c2VzIHRoZSAiQSIgb2YgY3Jhc2hrZXJuZWw9QUBC
+IGFzIHNpemUgdG8gZmluZCBhIHJlZ2lvbgo+ID4+PnRoYXQgZml0cy4KPiA+Pj4KPiA+Pj5NYXli
+ZSB3ZSBzaG91bGQgc2VwYXJhdGUgQSBhbmQgQiBhcyB0d28gb3B0aW9ucz8KPiA+Pgo+ID4+VGhl
+ICJCIiBwYXJ0IG9mIHRoZSBjcmFzaGtlcm5lbCBib290IG9wdGlvbiBpcyBtZWFuaW5nbGVzcyB0
+byBzbjIKPiA+Pm1hY2hpbmUgYW5kIGNhbiBiZSB2ZXJ5IGNvbmZ1c2luZyB0byBzbjIgdXNlcnMu
+Cj4gPj4KPiA+Cj4gPgo+ID4gIEhpLCBKYXkKPiA+IAlJdCBpcyBwb3NzaWJsZSB0byBoYXZlIG9u
+bHkgQSBvcHRpb24gYW5kIGxldCBrZXJuZWwgZGV0ZXJtaW5lIHRoZSBCIGFkZHJlc3MKPiBhdCBz
+dGFydHVwIHRpbWUuIEhvcm1zIGhhcyBwYXRjaCB0byBkbyB0aGF0LCBJIHdpbGwgbWVyZ2UgaXQu
+Cj4gPgo+IFRoYXQgd291bGQgYmUgZ3JlYXQhCj4gCj4gPgo+ID4+Pkkgbm93IGhhdmUgbWVtb3J5
+IHJlc2VydmVkLCBidXQga2VybmFsIGhhbmdlZCB3aGVuIGV4ZWN1dGluZyAna2V4ZWMnCj4gPj4+
+Y29tbWFuZC4gVGhlcmUgbXVzdCBiZSBzaW1pbGFyIGlzc3VlcyBpbiBrZXhlYy4KPiA+Pgo+ID4+
+T24gZnVydGhlciBkZWJ1Z2dpbmcsIHRoZSBrZXhlYyBkdW1wZWQgY29yZSBpbnN0ZWFkIGF0IHRo
+aXMgc3RhdGVtZW50Ogo+ID4+KyAgICAgICAgZWxmX3JlbF9zZXRfc3ltYm9sKCZpbmZvLT5yaGRy
+LCAiX19ib290X3BhcmFtX2Jhc2UiLAo+ID4+KyAgICAgICAgICAgICAgICAgICAgICAgICZib290
+X3BhcmFtX2Jhc2UsIHNpemVvZihsb25nKSk7Cj4gPj4KPiA+Pm9mIGVsZl9pYTY0X2xvYWQoKSBp
+biBrZXhlYy9hcmNoL2lhNjQva2V4ZWMtZWxmLWlhNjQuYy4KPiA+Pgo+ID4+RXhhbWluZyB0aGUg
+bWVtb3J5IGkgZm91bmQgIl9fYm9vdF9wYXJhbV9iYXNlIiBpbmRlZWQgbm90IHByZXNlbnQgaW4K
+PiA+PnRoZSBzeW1ib2wgdGFibGUuCj4gPj4KPiA+Pkl0IHNlZW1zIHRoYXQgcHVyZ2F0b3J5L2Fy
+Y2gvaWE2NC9lbnRyeS5TIGRvZXMgbm90IGhhdmUgYSBsaW5lCj4gPj4rREVDTEFSRV9EQVRBQihf
+X19fYm9vdF9wYXJhbV9iYXNlKS4KPiA+PklzIGl0IG5vdCBuZWVkZWQgaW4gb3RoZXIgaWE2NCBt
+YWNoaW5lcz8gSG93IGRvZXMgaXQgd29yayBpbiBIUAo+ID4+bWFjaGluZXM/Cj4gPgo+ID4gICBU
+aGVyZSBpcyBhIERFQ0xBUkVfREFUQTgoX19ib290X3BhcmFtX2Jhc2UpIGluCj4gcHVyZ2F0b3J5
+L2FyY2gvaWE2NC9lbnRyeS5TCj4gPiAgIEFyZSB5b3UgdXNpbmcga2V4ZWMtdG9vbHMta2R1bXAx
+MCBwYXRjaD8KPiAKPiBZZXMsIGkgYXBwbHkgdGhlIGtleGVjLXRvb2xzLWtkdW1wMTAgcGF0Y2gg
+YW5kIHRoZSAicmVzZXJ2ZSBlZmkgbWVtbWFwCj4gYW5kIGJvb3QgcGFyYW0iIHBhdGNoIGZyb20g
+eW91LiBPbmx5IHRoZXNlIHR3by4gRGlkIGkgbWlzcyBhbnk/Cj4gCiBUaGVuIHRoZXJlIHNob3Vs
+ZCBiZSBhIGxpbmUgCkRFQ0xBUkVfREFUQTgoX19ib290X3BhcmFtX2Jhc2UpIGluIHB1cmdhdG9y
+eS9hcmNoL2lhNjQvZW50cnkuUy4uLgoKIElmIGl0IGlzIGhhbmcgaW4ga2VybmVsLCBtYXliZSB0
+aGVyZSBpcyBzb21ldGhpbmcgd3Jvbmcgd2l0aCB0aGUgcGh5c2ljYWwgZGVzdGluYXRpb24gYWRk
+cmVzcyBvZiByZXNlcnZlZCByZWdpb24sIGhhdmUgeW91IGNoZWNrZWQgdGhlIC9wcm9jL2lvbWVt
+PwoKVGhhbmtzClpvdSBOYW4gaGFpCgo+IFRoYW5rcywKPiAgIC0gamF5Cj4gCj4gCj4gPgo+ID4g
+IFRoYW5rcwo+ID4gIFpvdSBOYW4gaGFpCj4gPgo+ID4+VGhhbmtzLAo+ID4+ICAtIGpheQo+ID4+
+Ci0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2Ny
+aWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdl
+ci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5v
+cmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
