@@ -1,7 +1,7 @@
 From: Horms <horms@verge.net.au>
-Date: Wed, 30 Aug 2006 08:27:08 +0000
+Date: Wed, 30 Aug 2006 08:27:13 +0000
 Subject: Re: IA64 kexec/kdump 2.6.18-rc5 patch
-Message-Id: <20060830082705.GA21261@verge.net.au>
+Message-Id: <20060830082712.GA21244@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1156837594.2598.15.camel@linux-znh>
 In-Reply-To: <1156837594.2598.15.camel@linux-znh>
@@ -30,201 +30,152 @@ On 30 Aug 2006 06:03:23 +0800, Zou Nan hai wrote:
 > of how IOMMU works on HP platform.
 > I am looking for an HP machine with IOMMU to test. 
 
-Below are some minor cleanups against your latest patch.
-In particular the bogus kernel/irq/manage.c fragment is eliminated.
+Hi,
+
+Below is an incremental version of your patch relative to the
+the V3 version that you posted about 10 days ago.
+
+The entire series for Tony Luck's ia64-test and 2.6.18-rc5 can be found at:
+http://www.vergenet.net/~horms/patches/ia64-kexec/kernel/
 
 -- 
 Horms
   H: http://www.vergenet.net/~horms/
   W: http://www.valinux.co.jp/en/
 
-IA64: kexec whitespace and 80 column fixes
+IA64: kexec/kdump 2.6.18-rc5 patch
 
-Signed-OFf-By: Simon Horman <horms@verge.net.au>
+> Archived-At: <http://permalink.gmane.org/gmane.linux.ports.ia64/14761>
+> 
+> Hi,
+> 	Below is the IA64 kexec/kdump patch against 2.6.18-rc5.
+> 
+> Fixes and enhancements in this patch include:
+> 
+> 1. Fix I/D cache coherence problem.
+>    Kdump sometimes hit an I/D cache coherence issue on platform with
+>    separate I/D cache.  Although there is fc.i instruction in
+>    relocate_kernel.S.  purgatory code and the second kernel code is copy
+>    into reserved region at kexec_load when running "kexec -p".  There
+>    need and an icache_flush when segments is copied into its destination.
+> 2. Change elf_prstatus to an per_cpu value to save stack size at crash
+> path according 
+>    to Bob Montgomery's suggestion.
+> 3. put AP to a loop of hint.pause instead of call pal_halt_light.
+> 
+> 
+> Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
- arch/ia64/hp/common/sba_iommu.c  |    6 ++++--
- arch/ia64/kernel/crash.c         |    6 +++---
- arch/ia64/kernel/efi.c           |    6 ++++--
- arch/ia64/kernel/iosapic.c       |    5 ++---
- arch/ia64/kernel/machine_kexec.c |   20 ++++++++++++--------
- arch/ia64/kernel/smp.c           |    2 +-
- include/linux/kexec.h            |    1 -
- kernel/irq/manage.c              |    1 +
- 8 files changed, 27 insertions(+), 20 deletions(-)
+Incremental version of the above patch
 
-Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c	2006-08-30 16:48:14.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2006-08-30 16:58:02.000000000 +0900
-@@ -57,9 +57,10 @@
- 	/* Pre-load control code buffer to minimize work in kexec path */
- 	control_code_buffer = page_address(image->control_code_page);
- 	memcpy((void *)control_code_buffer, (const void *)func[0],
--			relocate_new_kernel_size);
-+	       relocate_new_kernel_size);
- 	flush_icache_range((unsigned long)control_code_buffer,
--			(unsigned long)control_code_buffer + relocate_new_kernel_size);
-+   			   (unsigned long)control_code_buffer +
-+   			   relocate_new_kernel_size);
- 	ia64_kimage = image;
+CC: Zou Nan hai <nanhai.zou@intel.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+ arch/ia64/kernel/crash.c |   18 +++++++++++-------
+ arch/ia64/kernel/smp.c   |    3 ++-
+ include/asm-ia64/kexec.h |    5 +++++
+ include/linux/kexec.h    |    5 +++++
+ kernel/kexec.c           |    1 +
+ 5 files changed, 24 insertions(+), 8 deletions(-)
+
+Index: linux-2.6/arch/ia64/kernel/crash.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/crash.c	2006-08-30 16:47:25.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/crash.c	2006-08-30 16:47:38.000000000 +0900
+@@ -72,16 +72,20 @@
  
- 	return 0;
-@@ -81,14 +82,16 @@
- 		}
- 	}
- #elif defined(CONFIG_SMP)
--	smp_call_function(kexec_stop_this_cpu, (void *)ia64_kimage->start, 0, 0);
-+	smp_call_function(kexec_stop_this_cpu, (void *)ia64_kimage->start,
-+			  0, 0);
- #endif
- #ifdef CONFIG_PCI
- 	{
- 		struct pci_dev *dev = NULL;
- 		irq_desc_t *idesc;
- 		/* Disable all PCI devices */
--		while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
-+		while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev))
-+		       != NULL) {
- 			if (!(dev->is_enabled))
- 				continue;
- 			idesc = irq_desc + dev->irq;
-@@ -112,12 +115,13 @@
-  * We are past the point of no return, committed to rebooting now.
-  */
- extern void *efi_get_pal_addr(void);
--static void ia64_machine_kexec(struct unw_frame_info *info, void *arg) 
-+static void ia64_machine_kexec(struct unw_frame_info *info, void *arg)
- {
- 	struct kimage *image = arg;
- 	relocate_new_kernel_t rnk;
- 	void *pal_addr = efi_get_pal_addr();
--	unsigned long code_addr = (unsigned long)page_address(image->control_code_page);
-+	unsigned long code_addr = (unsigned long)
-+				  page_address(image->control_code_page);
- 	if (image->type = KEXEC_TYPE_CRASH) {
- 		crash_save_this_cpu();
- 		current->thread.ksp = (__u64)info->sw - 16;
-@@ -128,9 +132,9 @@
- 	local_irq_disable();
- 	rnk = (relocate_new_kernel_t)&code_addr;
- 	(*rnk)(image->head, image->start, ia64_boot_param,
--		     GRANULEROUNDDOWN((unsigned long) pal_addr));
-+	       GRANULEROUNDDOWN((unsigned long) pal_addr));
- 	BUG();
--} 
-+}
+ extern void ia64_dump_cpu_regs(void *);
  
- void machine_kexec(struct kimage *image)
++static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
++
+ void
+ crash_save_this_cpu()
  {
-Index: linux-2.6/arch/ia64/kernel/smp.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/smp.c	2006-08-30 16:48:15.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/smp.c	2006-08-30 16:52:21.000000000 +0900
-@@ -127,7 +127,7 @@
+ 	void *buf;
+-	struct elf_prstatus prstatus;
+-	int cpu = smp_processor_id();
+ 	unsigned long cfm, sof, sol;
+-	elf_greg_t *dst = (elf_greg_t *)&prstatus.pr_reg;
+-	memset(&prstatus, 0, sizeof(prstatus));
+-	prstatus.pr_pid = current->pid;
++
++	int cpu = smp_processor_id();
++	struct elf_prstatus *prstatus = &per_cpu(elf_prstatus, cpu);
++
++	elf_greg_t *dst = (elf_greg_t *)&(prstatus->pr_reg);
++	memset(prstatus, 0, sizeof(*prstatus));
++	prstatus->pr_pid = current->pid;
+ 
+ 	ia64_dump_cpu_regs(dst);
+         cfm = dst[43];
+@@ -93,8 +97,8 @@
+         buf = (u64 *) per_cpu_ptr(crash_notes, cpu);
+ 	if (!buf)
+ 		return;
+-	buf = append_elf_note(buf, "CORE", NT_PRSTATUS, &prstatus,
+-		sizeof(prstatus));
++	buf = append_elf_note(buf, "CORE", NT_PRSTATUS, prstatus,
++		sizeof(*prstatus));
+ 	final_note(buf);
  }
  
- #ifdef CONFIG_CRASH_DUMP
--static void 
-+static void
- kdump_cpu_freeze(struct unw_frame_info *info, void *arg)
- {
+Index: linux-2.6/arch/ia64/kernel/smp.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/smp.c	2006-08-30 16:47:25.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/smp.c	2006-08-30 16:47:38.000000000 +0900
+@@ -133,7 +133,8 @@
  	local_irq_disable();
+ 	crash_save_this_cpu();
+ 	current->thread.ksp = (__u64)info->sw - 16;
+-	cpu_halt();
++	for (;;)
++                ia64_hint(ia64_hint_pause);
+ }
+ #endif
+ 
+Index: linux-2.6/include/asm-ia64/kexec.h
+=================================--- linux-2.6.orig/include/asm-ia64/kexec.h	2006-08-30 16:47:25.000000000 +0900
++++ linux-2.6/include/asm-ia64/kexec.h	2006-08-30 16:47:38.000000000 +0900
+@@ -20,6 +20,11 @@
+ #define vmlpt_bits	(impl_va_bits - PAGE_SHIFT + pte_bits)
+ #define POW2(n)		(1ULL << (n))
+ 
++#define kexec_flush_icache_page(page) do { \
++                unsigned long page_addr = (unsigned long)page_address(page); \
++                flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
++        } while(0)
++
+ DECLARE_PER_CPU(u64, ia64_mca_pal_base);
+ const extern unsigned int relocate_new_kernel_size;
+ volatile extern long kexec_rendez;
 Index: linux-2.6/include/linux/kexec.h
-=================================--- linux-2.6.orig/include/linux/kexec.h	2006-08-30 16:48:33.000000000 +0900
-+++ linux-2.6/include/linux/kexec.h	2006-08-30 16:49:48.000000000 +0900
-@@ -135,7 +135,6 @@
+=================================--- linux-2.6.orig/include/linux/kexec.h	2006-08-30 16:45:50.000000000 +0900
++++ linux-2.6/include/linux/kexec.h	2006-08-30 16:47:38.000000000 +0900
+@@ -108,6 +108,10 @@
+ extern struct kimage *kexec_image;
+ extern struct kimage *kexec_crash_image;
+ 
++#ifndef kexec_flush_icache_page
++#define kexec_flush_icache_page(page)
++#endif
++
+ #define KEXEC_ON_CRASH  0x00000001
+ #define KEXEC_ARCH_MASK 0xffff0000
+ 
+@@ -131,6 +135,7 @@
  typedef u32 note_buf_t[MAX_NOTE_BYTES/4];
  extern note_buf_t *crash_notes;
  
--
++
  #else /* !CONFIG_KEXEC */
  struct pt_regs;
  struct task_struct;
-Index: linux-2.6/arch/ia64/hp/common/sba_iommu.c
-=================================--- linux-2.6.orig/arch/ia64/hp/common/sba_iommu.c	2006-08-30 16:53:08.000000000 +0900
-+++ linux-2.6/arch/ia64/hp/common/sba_iommu.c	2006-08-30 16:54:21.000000000 +0900
-@@ -1633,11 +1633,13 @@
- 
- 	while (ioc != NULL) {
- 		/* Disable IOVA translation */
--		WRITE_REG(ioc->ibase & 0xfffffffffffffffe, ioc->ioc_hpa + IOC_IBASE);
-+		WRITE_REG(ioc->ibase & 0xfffffffffffffffe,
-+			  ioc->ioc_hpa + IOC_IBASE);
- 		READ_REG(ioc->ioc_hpa + IOC_IBASE);
- 
- 		/* Clear I/O TLB of any possible entries */
--		WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) + iovp_shift), ioc->ioc_hpa + IOC_PCOM);
-+		WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) +
-+					iovp_shift), ioc->ioc_hpa + IOC_PCOM);
- 		READ_REG(ioc->ioc_hpa + IOC_PCOM);
- 
- 		ioc = ioc->next;
-Index: linux-2.6/arch/ia64/kernel/crash.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/crash.c	2006-08-30 16:53:08.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/crash.c	2006-08-30 16:55:28.000000000 +0900
-@@ -24,7 +24,7 @@
- #include <asm/uaccess.h>
- 
- size_t copy_oldmem_page(unsigned long pfn, char *buf,
--                               size_t csize, unsigned long offset, int userbuf)
-+			size_t csize, unsigned long offset, int userbuf)
- {
-         void  *vaddr;
- 
-@@ -50,7 +50,7 @@
- 
- static inline Elf64_Word
- *append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
--		size_t data_len)
-+ 		 size_t data_len)
- {
- 	struct elf_note *note = (struct elf_note *)buf;
- 	note->n_namesz = strlen(name) + 1;
-@@ -92,7 +92,7 @@
-         sol = (cfm >> 7) & 0x7f;
-         sof = cfm & 0x7f;
-         dst[46] = (unsigned long)ia64_rse_skip_regs((unsigned long *)dst[46],
--                        sof - sol);
-+				    		    sof - sol);
- 
-         buf = (u64 *) per_cpu_ptr(crash_notes, cpu);
- 	if (!buf)
-Index: linux-2.6/arch/ia64/kernel/efi.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/efi.c	2006-08-30 16:53:08.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/efi.c	2006-08-30 16:55:55.000000000 +0900
-@@ -432,9 +432,11 @@
+Index: linux-2.6/kernel/kexec.c
+=================================--- linux-2.6.orig/kernel/kexec.c	2006-08-30 16:45:50.000000000 +0900
++++ linux-2.6/kernel/kexec.c	2006-08-30 16:47:38.000000000 +0900
+@@ -851,6 +851,7 @@
+ 			memset(ptr + uchunk, 0, mchunk - uchunk);
  		}
- 	}
- 	if (min_addr != 0UL)
--		printk(KERN_INFO "Ignoring memory below %luMB\n", min_addr >> 20);
-+		printk(KERN_INFO "Ignoring memory below %luMB\n",
-+		       min_addr >> 20);
- 	if (max_addr != ~0UL)
--		printk(KERN_INFO "Ignoring memory above %luMB\n", max_addr >> 20);
-+		printk(KERN_INFO "Ignoring memory above %luMB\n",
-+		       max_addr >> 20);
- 
- 	efi.systab = __va(ia64_boot_param->efi_systab);
- 
-Index: linux-2.6/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/iosapic.c	2006-08-30 16:53:08.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/iosapic.c	2006-08-30 16:56:45.000000000 +0900
-@@ -298,10 +298,9 @@
- 	for (info = iosapic_intr_info; info <
- 			iosapic_intr_info + IA64_NUM_VECTORS; ++info) {
- 		low32 = info->low32 |= IOSAPIC_MASK;
--		list_for_each_entry(rte, &info->rtes,
--				rte_list) {
-+		list_for_each_entry(rte, &info->rtes, rte_list) {
- 			iosapic_write(rte->addr,
--					IOSAPIC_RTE_LOW(rte->rte_index), low32);
-+				      IOSAPIC_RTE_LOW(rte->rte_index), low32);
- 		}
- 	}
- }
-Index: linux-2.6/kernel/irq/manage.c
-=================================--- linux-2.6.orig/kernel/irq/manage.c	2006-08-30 16:53:08.000000000 +0900
-+++ linux-2.6/kernel/irq/manage.c	2006-08-30 17:00:10.000000000 +0900
-@@ -475,3 +475,4 @@
- 	return retval;
- }
- EXPORT_SYMBOL(request_irq);
-+
+ 		result = copy_from_user(ptr, buf, uchunk);
++		kexec_flush_icache_page(page);
+ 		kunmap(page);
+ 		if (result) {
+ 			result = (result < 0) ? result : -EIO;
