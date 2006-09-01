@@ -1,100 +1,234 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 28 Sep 2006 19:15:14 +0000
-Subject: Re: EFI returning incorrect value?
-Message-Id: <200609281315.15253.bjorn.helgaas@hp.com>
+From: Horms <horms@verge.net.au>
+Date: Fri, 01 Sep 2006 02:24:51 +0000
+Subject: Re: IA64 kexec/kdump 2.6.18-rc5 patch
+Message-Id: <20060901022449.GA30838@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <004001c6e18c$972938d0$7401a8c0@Maelstrom>
-In-Reply-To: <004001c6e18c$972938d0$7401a8c0@Maelstrom>
+References: <1156837594.2598.15.camel@linux-znh>
+In-Reply-To: <1156837594.2598.15.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 28 September 2006 10:33, JWM wrote:
->     My problem is that I'm trying make sure that buffers on a PCI device get
-> written to with write combining enabled.
-
-Please keep linux-ia64 copied, so other people can benefit from this
-discussion.
-
->     I used  memmap at the EFI prompt and it shows the regions where the 
-> device memory is as available (which are).
+On Wed, Aug 30, 2006 at 05:27:08PM +0900, Horms wrote:
+> On 30 Aug 2006 06:03:23 +0800, Zou Nan hai wrote:
+> > On Wed, 2006-08-30 at 03:38, Bjorn Helgaas wrote:
+> >> On Tuesday 29 August 2006 01:46, Zou Nan hai wrote:
+> >> > +#ifdef CONFIG_KEXEC
+> >> > +void
+> >> > +ioc_iova_disable(void)
+> >> > +{
+> >> 
+> >> Ugh.  If you really need this functionality (which I have to say
+> >> looks
+> >> like a band-aid), it probably should be a platform vector.  And
+> >> should
+> >> be split into a separate patch.
+> >> 
+> > Hi Bjorn,
+> >        The ioc_iova_disable code comes from Aziz in HP, I have almost
+> >        no idea
+> > of how IOMMU works on HP platform.
+> > I am looking for an HP machine with IOMMU to test. 
 > 
->  0xCBE00000 - 0xCBEFFFFF
+> Below are some minor cleanups against your latest patch.
+> In particular the bogus kernel/irq/manage.c fragment is eliminated.
 
-This MMIO region isn't described at all in the EFI memory map, so
-the kernel has no idea what attributes are supported.  That's why
-efi_range_is_wc() returns 0 for this range.
+Jes Sorensen pointed out to me that the kernel/irq/manage.c fragment of
+the previous version of this patch introduces a bogus blank line - and
+nothing else. This new version rectifies that problem.
 
-Your firmware people will likely respond that this MMIO region is
-described via ACPI.  But Linux isn't smart enough yet to use ACPI
-for this purpose.
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-I assume you're trying to map this region in the kernel, so a driver
-can access it.  Normally you would use ioremap() or ioremap_nocache()
-or maybe even pci_iomap() for this purpose.  But there's currently
-no good way to ask for a write-combining mapping.
+IA64: kexec whitespace and 80 column fixes
 
-Some people have suggested an ioremap_wc(), but I guess the idea
-hasn't achieved critical mass yet.
+Signed-OFf-By: Simon Horman <horms@verge.net.au>
 
->     The ia64 ioremap doesn't seem to do the vma mappings that other 
-> platforms do.
+ arch/ia64/hp/common/sba_iommu.c  |    6 ++++--
+ arch/ia64/kernel/crash.c         |    6 +++---
+ arch/ia64/kernel/efi.c           |    6 ++++--
+ arch/ia64/kernel/iosapic.c       |    5 ++---
+ arch/ia64/kernel/machine_kexec.c |   20 ++++++++++++--------
+ arch/ia64/kernel/smp.c           |    2 +-
+ include/linux/kexec.h            |    1 -
+ 7 files changed, 26 insertions(+), 20 deletions(-)
 
-Right.  On ia64, ioremap() uses kernel identity mappings for which
-there are no page tables.  If we did implement ioremap_wc(), we 
-would have to do it with page tables so there would be a place to
-set the WC attribute.
-
-> After googleing the problem I've found one set of messages  
-> indicating that the last person that did this had to roll their own 
-> remap_area_pages and supporting routines.
->     Is that the way to go or is it just that I don't understand something 
-> about the platform?
-
-I think the high-speed interconnect folks are interested in this,
-and as far as I know, they have had to roll their own stuff so far
-(I haven't actually seen it).
-
-I would think lots of people would be interested in this, so if you
-came up with an ioremap_wc() implementation that is generically
-useful, you might be able to make it fly.
-
-> BS_data   0000000000000000-0000000000000FFF 0000000000000001 0000000000000008
-> available 0000000000001000-000000000008AFFF 000000000000008A 0000000000000008
-> BS_data   000000000008B000-000000000009FFFF 0000000000000015 0000000000000008
-> RT_code   00000000000C0000-00000000000DFFFF 0000000000000020 8000000000000001
-> RT_code   00000000000E0000-00000000000FFFFF 0000000000000020 8000000000000008
-> available 0000000000100000-0000000077FFFFFF 0000000000077F00 0000000000000008
-> RT_data   0000000078000000-000000007BFFFFFF 0000000000004000 8000000000000001
-> available 000000007C000000-000000007E9ABFFF 00000000000029AC 0000000000000008
-> RT_data   000000007E9AC000-000000007E9B1FFF 0000000000000006 8000000000000008
-> RT_code   000000007E9B2000-000000007EDC5FFF 0000000000000414 8000000000000008
-> RT_data   000000007EDC6000-000000007EF2DFFF 0000000000000168 8000000000000008
-> RT_data   000000007EF2E000-000000007EF37FFF 000000000000000A 8000000000000008
-> RT_data   000000007EF38000-000000007EFFFFFF 00000000000000C8 8000000000000008
-> PAL_code  000000007F000000-000000007F2FFFFF 0000000000000300 8000000000000008
-> available 000000007F300000-000000007FDF8FFF 0000000000000AF9 0000000000000008
-> BS_data   000000007FDF9000-000000007FE07FFF 000000000000000F 0000000000000008
-> RT_code   000000007FE08000-000000007FE0FFFF 0000000000000008 8000000000000008
-> BS_data   000000007FE10000-000000007FE15FFF 0000000000000006 0000000000000008
-> RT_code   000000007FE16000-000000007FFFFFFF 00000000000001EA 8000000000000008
-> RT_data   00000000FF000000-00000000FFFFFFFF 0000000000001000 8000000000000001
-> available 0000000100000000-000000047744DFFF 000000000037744E 0000000000000008
-> BS_data   000000047744E000-000000047B7FDFFF 00000000000043B0 0000000000000008
-> RT_data   000000047B7FE000-000000047F7FFFFF 0000000000004002 8000000000000008
-> BS_data   000000047F800000-000000047F800FFF 0000000000000001 0000000000000008
-> available 000000047F801000-000000047F8C5FFF 00000000000000C5 0000000000000008
-> BS_data   000000047F8C6000-000000047F8C7FFF 0000000000000002 0000000000000008
-> available 000000047F8C8000-000000047F8C9FFF 0000000000000002 0000000000000008
-> BS_data   000000047F8CA000-000000047F9F9FFF 0000000000000130 0000000000000008
-> available 000000047F9FA000-000000047F9FAFFF 0000000000000001 0000000000000008
-> BS_data   000000047F9FB000-000000047F9FDFFF 0000000000000003 0000000000000008
-> available 000000047F9FE000-000000047FD27FFF 000000000000032A 0000000000000008
-> RT_code   000000047FD28000-000000047FD91FFF 000000000000006A 8000000000000008
-> BS_code   000000047FD92000-000000047FDFDFFF 000000000000006C 0000000000000008
-> available 000000047FDFE000-000000047FE2DFFF 0000000000000030 0000000000000008
-> RT_code   000000047FE2E000-000000047FE7DFFF 0000000000000050 8000000000000008
-> available 000000047FE7E000-000000047FFB5FFF 0000000000000138 0000000000000008
-> RT_data   000000047FFB6000-000000047FFFFFFF 000000000000004A 8000000000000008
-> MemPortIO 00000FFFFC000000-00000FFFFFFFFFFF 0000000000004000 8000000000000001
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index aa4ef60..178e800 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -1633,11 +1633,13 @@ ioc_iova_disable(void)
+ 
+ 	while (ioc != NULL) {
+ 		/* Disable IOVA translation */
+-		WRITE_REG(ioc->ibase & 0xfffffffffffffffe, ioc->ioc_hpa + IOC_IBASE);
++		WRITE_REG(ioc->ibase & 0xfffffffffffffffe,
++			  ioc->ioc_hpa + IOC_IBASE);
+ 		READ_REG(ioc->ioc_hpa + IOC_IBASE);
+ 
+ 		/* Clear I/O TLB of any possible entries */
+-		WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) + iovp_shift), ioc->ioc_hpa + IOC_PCOM);
++		WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) +
++					iovp_shift), ioc->ioc_hpa + IOC_PCOM);
+ 		READ_REG(ioc->ioc_hpa + IOC_PCOM);
+ 
+ 		ioc = ioc->next;
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index aa63c47..ae9d4ce 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -24,7 +24,7 @@ #include <linux/device.h>
+ #include <asm/uaccess.h>
+ 
+ size_t copy_oldmem_page(unsigned long pfn, char *buf,
+-                               size_t csize, unsigned long offset, int userbuf)
++			size_t csize, unsigned long offset, int userbuf)
+ {
+         void  *vaddr;
+ 
+@@ -50,7 +50,7 @@ #endif
+ 
+ static inline Elf64_Word
+ *append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
+-		size_t data_len)
++ 		 size_t data_len)
+ {
+ 	struct elf_note *note = (struct elf_note *)buf;
+ 	note->n_namesz = strlen(name) + 1;
+@@ -92,7 +92,7 @@ crash_save_this_cpu()
+         sol = (cfm >> 7) & 0x7f;
+         sof = cfm & 0x7f;
+         dst[46] = (unsigned long)ia64_rse_skip_regs((unsigned long *)dst[46],
+-                        sof - sol);
++				    		    sof - sol);
+ 
+         buf = (u64 *) per_cpu_ptr(crash_notes, cpu);
+ 	if (!buf)
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 6935452..ae4a115 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -432,9 +432,11 @@ efi_init (void)
+ 		}
+ 	}
+ 	if (min_addr != 0UL)
+-		printk(KERN_INFO "Ignoring memory below %luMB\n", min_addr >> 20);
++		printk(KERN_INFO "Ignoring memory below %luMB\n",
++		       min_addr >> 20);
+ 	if (max_addr != ~0UL)
+-		printk(KERN_INFO "Ignoring memory above %luMB\n", max_addr >> 20);
++		printk(KERN_INFO "Ignoring memory above %luMB\n",
++		       max_addr >> 20);
+ 
+ 	efi.systab = __va(ia64_boot_param->efi_systab);
+ 
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index 9e9367a..9a3d0bf 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -298,10 +298,9 @@ kdump_disable_iosapic(void)
+ 	for (info = iosapic_intr_info; info <
+ 			iosapic_intr_info + IA64_NUM_VECTORS; ++info) {
+ 		low32 = info->low32 |= IOSAPIC_MASK;
+-		list_for_each_entry(rte, &info->rtes,
+-				rte_list) {
++		list_for_each_entry(rte, &info->rtes, rte_list) {
+ 			iosapic_write(rte->addr,
+-					IOSAPIC_RTE_LOW(rte->rte_index), low32);
++				      IOSAPIC_RTE_LOW(rte->rte_index), low32);
+ 		}
+ 	}
+ }
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index 9deff9a..65b084f 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -57,9 +57,10 @@ int machine_kexec_prepare(struct kimage 
+ 	/* Pre-load control code buffer to minimize work in kexec path */
+ 	control_code_buffer = page_address(image->control_code_page);
+ 	memcpy((void *)control_code_buffer, (const void *)func[0],
+-			relocate_new_kernel_size);
++	       relocate_new_kernel_size);
+ 	flush_icache_range((unsigned long)control_code_buffer,
+-			(unsigned long)control_code_buffer + relocate_new_kernel_size);
++   			   (unsigned long)control_code_buffer +
++   			   relocate_new_kernel_size);
+ 	ia64_kimage = image;
+ 
+ 	return 0;
+@@ -81,14 +82,16 @@ #ifdef CONFIG_HOTPLUG_CPU
+ 		}
+ 	}
+ #elif defined(CONFIG_SMP)
+-	smp_call_function(kexec_stop_this_cpu, (void *)ia64_kimage->start, 0, 0);
++	smp_call_function(kexec_stop_this_cpu, (void *)ia64_kimage->start,
++			  0, 0);
+ #endif
+ #ifdef CONFIG_PCI
+ 	{
+ 		struct pci_dev *dev = NULL;
+ 		irq_desc_t *idesc;
+ 		/* Disable all PCI devices */
+-		while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
++		while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev))
++		       != NULL) {
+ 			if (!(dev->is_enabled))
+ 				continue;
+ 			idesc = irq_desc + dev->irq;
+@@ -112,12 +115,13 @@ #endif
+  * We are past the point of no return, committed to rebooting now.
+  */
+ extern void *efi_get_pal_addr(void);
+-static void ia64_machine_kexec(struct unw_frame_info *info, void *arg) 
++static void ia64_machine_kexec(struct unw_frame_info *info, void *arg)
+ {
+ 	struct kimage *image = arg;
+ 	relocate_new_kernel_t rnk;
+ 	void *pal_addr = efi_get_pal_addr();
+-	unsigned long code_addr = (unsigned long)page_address(image->control_code_page);
++	unsigned long code_addr = (unsigned long)
++				  page_address(image->control_code_page);
+ 	if (image->type = KEXEC_TYPE_CRASH) {
+ 		crash_save_this_cpu();
+ 		current->thread.ksp = (__u64)info->sw - 16;
+@@ -128,9 +132,9 @@ static void ia64_machine_kexec(struct un
+ 	local_irq_disable();
+ 	rnk = (relocate_new_kernel_t)&code_addr;
+ 	(*rnk)(image->head, image->start, ia64_boot_param,
+-		     GRANULEROUNDDOWN((unsigned long) pal_addr));
++	       GRANULEROUNDDOWN((unsigned long) pal_addr));
+ 	BUG();
+-} 
++}
+ 
+ void machine_kexec(struct kimage *image)
+ {
+diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+index 154903d..0a4a763 100644
+--- a/arch/ia64/kernel/smp.c
++++ b/arch/ia64/kernel/smp.c
+@@ -127,7 +127,7 @@ stop_this_cpu (void)
+ }
+ 
+ #ifdef CONFIG_CRASH_DUMP
+-static void 
++static void
+ kdump_cpu_freeze(struct unw_frame_info *info, void *arg)
+ {
+ 	local_irq_disable();
+diff --git a/include/linux/kexec.h b/include/linux/kexec.h
+index 75fbb7e..c790e08 100644
+--- a/include/linux/kexec.h
++++ b/include/linux/kexec.h
+@@ -135,7 +135,6 @@ extern struct resource crashk_res;
+ typedef u32 note_buf_t[MAX_NOTE_BYTES/4];
+ extern note_buf_t *crash_notes;
+ 
+-
+ #else /* !CONFIG_KEXEC */
+ struct pt_regs;
+ struct task_struct;
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
