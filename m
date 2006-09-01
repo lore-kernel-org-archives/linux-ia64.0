@@ -1,59 +1,150 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 21 Sep 2006 05:54:34 +0000
-Subject: RE: Kexec/Kdump: kdump_disable_iosapic needs CONFIG_IOSAPIC
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AC5@pdsmsx411.ccr.corp.intel.com>
+From: John Keller <jpk@sgi.com>
+Date: Fri, 01 Sep 2006 16:02:22 +0000
+Subject: [PATCH 3/3] - Altix: Initial ACPI support - ROM shadowing.
+Message-Id: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060920024544.420966000@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20060920024544.420966000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, ayoung@sgi.com, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>, pcihpd-discuss@lists.sourceforge.net
 
-Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiBGcm9tOiBIb3JtcyBbbWFpbHRvOmhvcm1z
-QHZlcmdlLm5ldC5hdV0KPiBTZW50OiAyMDA2xOo51MIyMcjVIDEzOjA2Cj4gVG86IFpvdSwgTmFu
-aGFpCj4gQ2M6IEx1Y2ssIFRvbnk7IExpbnV4LUlBNjQ7IGZhc3Rib290Cj4gU3ViamVjdDogUmU6
-IEtleGVjL0tkdW1wOiBrZHVtcF9kaXNhYmxlX2lvc2FwaWMgbmVlZHMgQ09ORklHX0lPU0FQSUMK
-PiAKPiBPbiBUaHUsIFNlcCAyMSwgMjAwNiBhdCAxMTowOTo1N0FNICswODAwLCBab3UsIE5hbmhh
-aSB3cm90ZToKPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+ID4gRnJvbTogbGlu
-dXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmcKPiA+ID4gW21haWx0bzpsaW51eC1pYTY0LW93
-bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEhvcm1zCj4gPiA+IFNlbnQ6IDIwMDbE
-6jnUwjIwyNUgMTA6NDMKPiA+ID4gVG86IFpvdSwgTmFuaGFpCj4gPiA+IENjOiBMdWNrLCBUb255
-OyBMaW51eC1JQTY0OyBmYXN0Ym9vdAo+ID4gPiBTdWJqZWN0OiBLZXhlYy9LZHVtcDoga2R1bXBf
-ZGlzYWJsZV9pb3NhcGljIG5lZWRzIENPTkZJR19JT1NBUElDCj4gPiA+Cj4gPiA+IGtkdW1wX2Rp
-c2FibGVfaW9zYXBpYygpIGRvZXNuJ3QgZXhpc3Qgd2l0aG91dCBDT05GSUdfSU9TQVBJQywKPiA+
-ID4gY2FsbGluZyBpdCBuZWVkcyB0byBiZSBnYXVyZGVkIGJ5IGEgY29ycmVzcG9uZGluZyAjaWZk
-ZWYKPiA+ID4KPiA+ID4gVGhpcyBwYXRjaCBoYXMgYmVlbiB1cGRhdGVkIGZvciBJQTY0IEtleGVj
-L0tkdW1wIHBhdGNoIGZvciAyLjYuMTgtcmM2LAo+ID4gPiBodHRwOi8vcGVybWFsaW5rLmdtYW5l
-Lm9yZy9nbWFuZS5saW51eC5wb3J0cy5pYTY0LzE0OTg4Cj4gPiA+Cj4gPiA+IFNpZ25lZC1PZmYt
-Qnk6IFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVyZ2UubmV0LmF1Pgo+ID4gPgo+ID4gPiBkaWZmIC0t
-Z2l0IGEvYXJjaC9pYTY0L2tlcm5lbC9jcmFzaC5jIGIvYXJjaC9pYTY0L2tlcm5lbC9jcmFzaC5j
-Cj4gPiA+IGluZGV4IGNjYzg5OGMuLmIzZjQ5MTUgMTAwNjQ0Cj4gPiA+IC0tLSBhL2FyY2gvaWE2
-NC9rZXJuZWwvY3Jhc2guYwo+ID4gPiArKysgYi9hcmNoL2lhNjQva2VybmVsL2NyYXNoLmMKPiA+
-ID4gQEAgLTEyMSw3ICsxMjEsOSBAQCBtYWNoaW5lX2NyYXNoX3NodXRkb3duKHN0cnVjdCBwdF9y
-ZWdzICpwCj4gPiA+ICAJICogSW4gcHJhY3RpY2UgdGhpcyBtZWFucyBzaG9vdGluZyBkb3duIHRo
-ZSBvdGhlciBjcHVzIGluCj4gPiA+ICAJICogYW4gU01QIHN5c3RlbS4KPiA+ID4gIAkgKi8KPiA+
-ID4gKyNpZmRlZiBDT05GSUdfSU9TQVBJQwo+ID4gPiAgCWtleGVjX2Rpc2FibGVfaW9zYXBpYygp
-Owo+ID4gPiArI2VuZGlmCj4gPiA+ICAjaWZkZWYgQ09ORklHX1NNUAo+ID4gPiAgCWtkdW1wX3Nt
-cF9zZW5kX3N0b3AoKTsKPiA+ID4gIAlpZiAoa2R1bXBfd2FpdF9jcHVfZnJlZXplKCkgJiYga2R1
-bXBfb25faW5pdCkgCXsKPiA+ID4gQEAgLTEzNSw3ICsxMzcsOSBAQCBzdGF0aWMgdm9pZAo+ID4g
-PiAgbWFjaGluZV9rZHVtcF9vbl9pbml0KHZvaWQpCj4gPiA+ICB7Cj4gPiA+ICAJbG9jYWxfaXJx
-X2Rpc2FibGUoKTsKPiA+ID4gKyNpZmRlZiBDT05GSUdfSU9TQVBJQwo+ID4gPiAgCWtleGVjX2Rp
-c2FibGVfaW9zYXBpYygpOwo+ID4gPiArI2VuZGlmCj4gPiA+ICAJbWFjaGluZV9rZXhlYyhpYTY0
-X2tpbWFnZSk7Cj4gPiA+ICB9Cj4gPiA+Cj4gPiA+Cj4gPiAgQ09ORklHX0lPU0FQSUMgaXMgb25s
-eSBkaXNhYmxlZCB3aGVuIGNvbmZpZ3VyZSBrZXJuZWwgZm9yIHNpbXVsYXRvci4KPiA+ICBTbyBJ
-IHRoaW5rIHdlIGRvIG5vdCBuZWVkIHRoaXMgI2lmZGVmIHVubGVzcyB3ZSBhcmUgdXNpbmcga2V4
-ZWMva2R1bXAgb24KPiBhIHNpbXVsYXRvci4KPiAKPiBJJ20gbm90IHN1cmUgdGhhdCBJIHVuZGVy
-c3RhbmQgeW91ciBhcmd1bWVudC4KPiAKPiBJZiB5b3UgYXJlIGNvbXBpbGluZyBmb3IgdGhlIHNp
-bXVsYXRvciwgYW5kIHlvdSBoYXZlIENPTkZJR19LRVhFQyBlbmFibGVkLAo+IHRoZW4gdGhlIGJ1
-aWxkIHdpbGwgZmFpbC4gSSB0aGluayB0aGF0IGlzIGEgcHJvYmxlbS4gSW5zdGVhZCBvZgo+IG15
-IHBhdGNoLCBzaG91bGQgQ09ORklHX0tFWEVDIGRlcGVuZCBvbiBDT05GSUdfSU9TQVBJQz8KPiAK
-ICAJSSB0aGluayBwdXQgI2lmZGVmIGluIEMgc291cmNlIGlzIG5vdCBnb29kLiBXZSBzaG91bGQg
-dHJ5IHRvIGF2b2lkIHRoYXQgaWYgd2UgY2FuLgoJSSB3aWxsIG1ha2UgQ09ORklHX0tFWEVDIGFu
-ZCBDT05GSUdfQ1JBU0hfRFVNUCBkZXBlbmRzIG9uICFDT05GSUdfSFBfU0lNIGluIEtjb25maWcu
-ClRoYW5rcwpab3UgTmFuIGhhaQoKPiAtLQo+IEhvcm1zCj4gICBIOiBodHRwOi8vd3d3LnZlcmdl
-bmV0Lm5ldC9+aG9ybXMvCj4gICBXOiBodHRwOi8vd3d3LnZhbGludXguY28uanAvZW4vCi0KVG8g
-dW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxp
-bnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
-ZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
-b3Jkb21vLWluZm8uaHRtbA==
+Support a shadowed ROM when running with an ACPI capable PROM.
+
+Define a new dev.resource flag IORESOURCE_ROM_BIOS_COPY to
+describe the case of a BIOS shadowed ROM, which can then
+be used to avoid pci_map_rom() making an unneeded call to
+pci_enable_rom().
+
+
+Signed-off-by: John Keller <jpk@sgi.com>
+
+ arch/ia64/sn/kernel/io_acpi_init.c |   33 +++++++++++++++++++++++++++++++++
+ arch/ia64/sn/kernel/io_common.c    |    5 +++--
+ arch/ia64/sn/kernel/io_init.c      |    3 +++
+ drivers/pci/rom.c                  |    9 ++++++---
+ include/linux/ioport.h             |    1 +
+ 5 files changed, 46 insertions(+), 5 deletions(-)
+
+
+Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-08-31 16:07:39.070573026 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-08-31 16:09:00.764554984 -0500
+@@ -286,9 +286,10 @@ void sn_pci_fixup_slot(struct pci_dev *d
+ 	list_add_tail(&pcidev_info->pdi_list,
+ 		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
+ 
+-	if (!SN_ACPI_BASE_SUPPORT())
++	if (SN_ACPI_BASE_SUPPORT())
++		sn_acpi_slot_fixup(dev, pcidev_info);
++	else
+ 		sn_more_slot_fixup(dev, pcidev_info);
+-
+ 	/*
+ 	 * Using the PROMs values for the PCI host bus, get the Linux
+  	 * PCI host_pci_dev struct and set up host bus linkages
+Index: linux-2.6/drivers/pci/rom.c
+=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-08-31 16:07:39.074573515 -0500
++++ linux-2.6/drivers/pci/rom.c	2006-08-31 16:09:00.764554984 -0500
+@@ -77,7 +77,8 @@ void __iomem *pci_map_rom(struct pci_dev
+ 		start = (loff_t)0xC0000;
+ 		*size = 0x20000; /* cover C000:0 through E000:0 */
+ 	} else {
+-		if (res->flags & IORESOURCE_ROM_COPY) {
++		if (res->flags &
++			(IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY)) {
+ 			*size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
+ 			return (void __iomem *)(unsigned long)
+ 				pci_resource_start(pdev, PCI_ROM_RESOURCE);
+@@ -161,7 +162,8 @@ void __iomem *pci_map_rom_copy(struct pc
+ 	if (!rom)
+ 		return NULL;
+ 
+-	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW))
++	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW |
++			  IORESOURCE_ROM_BIOS_COPY))
+ 		return rom;
+ 
+ 	res->start = (unsigned long)kmalloc(*size, GFP_KERNEL);
+@@ -187,7 +189,7 @@ void pci_unmap_rom(struct pci_dev *pdev,
+ {
+ 	struct resource *res = &pdev->resource[PCI_ROM_RESOURCE];
+ 
+-	if (res->flags & IORESOURCE_ROM_COPY)
++	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY))
+ 		return;
+ 
+ 	iounmap(rom);
+@@ -211,6 +213,7 @@ void pci_remove_rom(struct pci_dev *pdev
+ 		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->rom_attr);
+ 	if (!(res->flags & (IORESOURCE_ROM_ENABLE |
+ 			    IORESOURCE_ROM_SHADOW |
++			    IORESOURCE_ROM_BIOS_COPY |
+ 			    IORESOURCE_ROM_COPY)))
+ 		pci_disable_rom(pdev);
+ }
+Index: linux-2.6/include/linux/ioport.h
+=================================--- linux-2.6.orig/include/linux/ioport.h	2006-08-31 16:07:39.074573515 -0500
++++ linux-2.6/include/linux/ioport.h	2006-08-31 16:09:00.768555473 -0500
+@@ -89,6 +89,7 @@ struct resource_list {
+ #define IORESOURCE_ROM_ENABLE		(1<<0)	/* ROM is enabled, same as PCI_ROM_ADDRESS_ENABLE */
+ #define IORESOURCE_ROM_SHADOW		(1<<1)	/* ROM is copy at C000:0 */
+ #define IORESOURCE_ROM_COPY		(1<<2)	/* ROM is alloc'd copy, resource field overlaid */
++#define IORESOURCE_ROM_BIOS_COPY	(1<<3)	/* ROM is BIOS copy, resource field overlaid */
+ 
+ /* PC/ISA/whatever - the normal PC address spaces: IO and memory */
+ extern struct resource ioport_resource;
+Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-08-31 16:07:39.074573515 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-08-31 16:09:00.768555473 -0500
+@@ -169,6 +169,39 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
+ 	}
+ }
+ 
++/*
++ * sn_acpi_slot_fixup - Perform any SN specific slot fixup.
++ *			At present there does not appear to be
++ *			any generic way to handle a ROM image
++ *			that has been shadowed by the PROM, so
++ *			we pass a pointer to it	within the
++ *			pcidev_info structure.
++ */
++
++void
++sn_acpi_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
++{
++	void __iomem *addr;
++	size_t size;
++
++	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
++		/*
++		 * A valid ROM image exists and has been shadowed by the
++		 * PROM. Setup the pci_dev ROM resource to point to
++		 * the shadowed copy.
++		 */
++		size = dev->resource[PCI_ROM_RESOURCE].end -
++				dev->resource[PCI_ROM_RESOURCE].start;
++		addr +		     ioremap(pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE],
++			     size);
++		dev->resource[PCI_ROM_RESOURCE].start = (unsigned long) addr;
++		dev->resource[PCI_ROM_RESOURCE].end +						(unsigned long) addr + size;
++		dev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_BIOS_COPY;
++	}
++}
++
+ static struct acpi_driver acpi_sn_hubdev_driver = {
+ 	.name = "SGI HUBDEV Driver",
+ 	.ids = "SGIHUB,SGITIO",
+Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-08-30 13:01:01.000000000 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-08-31 16:27:50.643626522 -0500
+@@ -210,6 +210,9 @@ sn_more_slot_fixup(struct pci_dev *dev, 
+ 			dev->resource[idx].parent = &ioport_resource;
+ 		else
+ 			dev->resource[idx].parent = &iomem_resource;
++		/* If ROM, mark as shadowed in PROM */
++		if (idx = PCI_ROM_RESOURCE)
++			dev->resource[idx].flags |= IORESOURCE_ROM_BIOS_COPY;
+ 	}
+ 	/* Create a pci_window in the pci_controller struct for
+ 	 * each device resource.
