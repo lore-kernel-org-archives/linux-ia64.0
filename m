@@ -1,35 +1,36 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 25 Sep 2006 19:17:20 +0000
-Subject: Re: IA64 without ZONE_DMA?
-Message-Id: <yq0zmcnbvsv.fsf@jaguar.mkp.net>
+From: John Keller <jpk@sgi.com>
+Date: Fri, 01 Sep 2006 16:01:20 +0000
+Subject: [PATCH 0/3] - Altix: Add initial ACPI IO support
+Message-Id: <20060901160120.30625.14877.92881@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0609221622170.10232@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0609221622170.10232@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, ayoung@sgi.com, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>, pcihpd-discuss@lists.sourceforge.net
 
->>>>> "Christoph" = Christoph Lameter <clameter@sgi.com> writes:
+Patch set to add initial ACPI IO support to Altix.
 
-Christoph> On Sat, 23 Sep 2006, Jes Sorensen wrote:
->> If you want to take this path, are you then planning to move the <
->> 4GB memory into ZONE_DMA32? We need a way to allocate memory within
->> the 4GB zone for 32 bit DMA devices, especially on systems without
->> an IOMMU. In fact, it's attractive to be able to get memory in the
->> 4GB zone when possible even if a device supports DAC as it reduces
->> the number of bus transactions since it can be done with a single
->> address cycle instead of a dual.
+1/3 acpi-base-support.patch
+      When booting with an ACPI capable PROM, the
+      DSDT will now define the system nodes and root
+      PCI busses. An Altix specific ACPI driver will be
+      registered for the node devices, while the
+      standard acpi_pci_root_driver can now scan
+      the PCI busses, eliminating the need for the current
+      fixup code to manually initiate the scan. Multiple SAL
+      calls are no longer needed, as platform specific info
+      is now passed via the ACPI vendor resource descriptor
+      (though all the old fixup code still remains due
+      to backward compatability requirements).
 
-Christoph> IA64 has no ZONE_DMA32. ZONE_DMA has a 4GB boundary for
-Christoph> some architectures on IA64. The new page allocator call
-Christoph> alloc_pages_range() would be able to allocate pages below
-Christoph> the 4GB without having a ZONE_DMA (if necessary for 32 bit
-Christoph> devices without proper IOMMU support).
+      A new platform vector for bus_fixup is created.
+      The size of io_space[] is increased to support large
+      IO configurations.
 
-I know the current code might not do whats really the right thing, but
-I wanted to make sure we didn't prevent it in the future. If
-alloc_pages_range() can do the job then that should be fine.
+2/3 acpi-hotplug.patch
+      Make necessary changes to hotplug code now that
+      bus fixup is done via platform vector.
 
-Cheers,
-Jes
+3/3 acpi-rom-shadow.patch
+      Provide support for PROM shadowing of a ROM image.
