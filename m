@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 04 Sep 2006 07:43:35 +0000
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Mon, 04 Sep 2006 07:45:05 +0000
 Subject: Re: NODE_DATA without CONFIG_NUMA
-Message-Id: <yq0ac5ghyag.fsf@jaguar.mkp.net>
+Message-Id: <20060904164505.d75fac21.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060904062323.GA9293@verge.net.au>
 In-Reply-To: <20060904062323.GA9293@verge.net.au>
@@ -10,22 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Horms" = Horms  <horms@verge.net.au> writes:
+On Mon, 4 Sep 2006 16:06:06 +0900
+Horms <horms@verge.net.au> wrote:
 
-Horms> Hi, I'm trying to build a non-NUMA (HP_SIM) config, and I am
-Horms> running into trouble because there are serveral places where
-Horms> NODE_DATA is used. It seems to me that this makes little sense
-Horms> as NODE_DATA needs the node_data element of struct
-Horms> cpuinfo_ia64, which doesn't exist without CONFIG_NUMA.
+> Sure, 
+> 
+> here is a config that exhibits the problem.
+> Though now you come to mention it, perhaps the config is invalid.
+> 
 
-Horms> Is CONFIG_NUMA mandatory or is this just an oversight?
+it looks you selects CONFIG_DISCONTIGMEM and doesn't do CONFIG_NUMA.
+interesting but ...
 
-I haven't looked at the details, given you don't say where it breaks,
-but it would make sense to me that a non-NUMA system is treated as a
-single node system, eg. NODE_DATA(0) ought to be valid.
+DISCONTIGMEM uses plural pg_data_t. This is represented by
+CONFIG_NEED_MULTIPLE_NODES. 
+So all codes which handles pgdats should depend on CONFIG_NEED_MULTIPLE_NODES.
 
-Cheers,
-Jes
+But several pieces of codes uses CONFIG_NUMA instead of CONFIG_NEED_MULTIPLE_NODES.
+
+for now, selecting CONFIG_FLATMEM is safe, I think.
+
+-Kame
+
 
 -- 
-VGER BF report: U 0.501786
+VGER BF report: U 0.775508
