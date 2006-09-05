@@ -1,40 +1,32 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Thu, 14 Sep 2006 21:34:34 +0000
-Subject: [PATCH] Kprobes - fixup the pagefault exception caused by probehandlers
-Message-Id: <20060914143433.B30207@unix-os.sc.intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 05 Sep 2006 18:56:51 +0000
+Subject: SGI SN: Do not request DMA memory for BTE
+Message-Id: <Pine.LNX.4.64.0609051156220.4442@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux IA64 <linux-ia64@vger.kernel.org>
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Systemtap <systemtap@sources.redhat.com>
+To: linux-ia64@vger.kernel.org
 
-If the user-specified kprobe handler causes the page fault
-when accessing user space address, fixup this fault since
-do_page_fault() should not continue as the kprobe handler are
-run with preemption disabled.
+The GFP_DMA option usually does nothing on SN2 since all of memory is in thei
+DMA zone and the BTE has always been capable of addressing all of memory.
+So there is no need to get memory from a restricted range of memory (which
+is what GFP_DMA is for).
 
-Please apply.
+Remove useless __GFP_DMA option.
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
----
- arch/ia64/kernel/kprobes.c |    6 ++++++
- 1 file changed, 6 insertions(+)
-
-Index: 2.6.18-rc6-git2/arch/ia64/kernel/kprobes.c
-=================================--- 2.6.18-rc6-git2.orig/arch/ia64/kernel/kprobes.c
-+++ 2.6.18-rc6-git2/arch/ia64/kernel/kprobes.c
-@@ -768,6 +768,12 @@ static int __kprobes kprobes_fault_handl
- 		 */
- 		if (cur->fault_handler && cur->fault_handler(cur, regs, trapnr))
- 			return 1;
-+		/*
-+		 * In case the user-specified fault handler returned
-+		 * zero, try to fix up.
-+		 */
-+		if (ia64_done_with_exception(regs))
-+			return 1;
+Index: linux-2.6.18-rc5/arch/ia64/sn/kernel/bte.c
+=================================--- linux-2.6.18-rc5.orig/arch/ia64/sn/kernel/bte.c	2006-08-27 20:41:48.000000000 -0700
++++ linux-2.6.18-rc5/arch/ia64/sn/kernel/bte.c	2006-09-05 11:53:24.222878124 -0700
+@@ -277,8 +277,7 @@ bte_result_t bte_unaligned_copy(u64 src,
+ 	}
  
- 		/*
- 		 * In case the user-specified fault handler returned
+ 	/* temporary buffer used during unaligned transfers */
+-	bteBlock_unaligned = kmalloc(len + 3 * L1_CACHE_BYTES,
+-				     GFP_KERNEL | GFP_DMA);
++	bteBlock_unaligned = kmalloc(len + 3 * L1_CACHE_BYTES, GFP_KERNEL);
+ 	if (bteBlock_unaligned = NULL) {
+ 		return BTEFAIL_NOTAVAIL;
+ 	}
