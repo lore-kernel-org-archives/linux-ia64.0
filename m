@@ -1,40 +1,40 @@
-From: Greg KH <greg@kroah.com>
-Date: Wed, 06 Sep 2006 19:25:11 +0000
-Subject: Re: [stable] [PATCH] IA64,sparc: local DoS with corrupted ELFs
-Message-Id: <20060906192511.GA14579@kroah.com>
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Wed, 06 Sep 2006 20:20:59 +0000
+Subject: Re: [PATCH] IA64,sparc: local DoS with corrupted ELFs
+Message-Id: <Pine.LNX.4.64.0609061314430.27779@g5.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44FC193C.4080205@openvz.org> <Pine.LNX.4.64.0609061120430.27779@g5.osdl.org> <20060906182733.GJ2558@parisc-linux.org> <20060906184509.GA15942@kroah.com> <20060906191215.GK2558@parisc-linux.org>
-In-Reply-To: <20060906191215.GK2558@parisc-linux.org>
+References: <44FC193C.4080205@openvz.org>
+In-Reply-To: <44FC193C.4080205@openvz.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Linus Torvalds <torvalds@osdl.org>, Kirill Korotaev <dev@openvz.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Fernando Vazquez <fernando@oss.ntt.co.jp>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, stable@kernel.org, "David S. Miller" <davem@davemloft.net>, devel@openvz.org, xemul@openvz.org
+To: Kirill Korotaev <dev@openvz.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Fernando Vazquez <fernando@oss.ntt.co.jp>, "David S. Miller" <davem@davemloft.net>, tony.luck@intel.com, linux-ia64@vger.kernel.org, stable@kernel.org, xemul@openvz.org, devel@openvz.org
 
-On Wed, Sep 06, 2006 at 01:12:16PM -0600, Matthew Wilcox wrote:
-> On Wed, Sep 06, 2006 at 11:45:09AM -0700, Greg KH wrote:
-> > On Wed, Sep 06, 2006 at 12:27:33PM -0600, Matthew Wilcox wrote:
-> > > On Wed, Sep 06, 2006 at 11:24:05AM -0700, Linus Torvalds wrote:
-> > > > If MIPS and parisc don't matter for the stable tree (very possible - there 
-> > > > are no big commercial distributions for them), then dammit, neither should 
-> > > > ia64 and sparc (there are no big commercial distros for them either). 
-> > > 
-> > > Erm, RHEL and SLES both support ia64.
-> > 
-> > Yes, but the -stable developers don't build for those arches, that's why
-> > it was missed here.
+
+
+On Mon, 4 Sep 2006, Kirill Korotaev wrote:
 > 
-> What's the easiest way to get coverage here?  Sending a parisc
-> workstation or server to someone?  Giving accounts to some/all of the
-> stable team?  Finding someone who cares about parisc to join the stable
-> team?
+> +#ifdef __KERNEL__
+> +#define arch_mmap_check	ia64_mmap_check
+> +#ifndef __ASSEMBLY__
+> +int ia64_mmap_check(unsigned long addr, unsigned long len,
+> +		unsigned long flags);
+> +#endif
+> +#endif
 
-How about: Someone from that arch trying out the -stable release
-canidates to make sure it doesn't break anything on their arches /
-favorite machine?
+Btw, is there some reason for the __ASSEMBLY__ check?
 
-And no, I really don't want a parisc machine here :)
+I'm not seeing any kernel users that could care, a quick
 
-thanks,
+	git grep 'mman\.h' -- '*.[sS]'
 
-greg k-h
+doesn't trigger anything, and the other header files that include this 
+seem to all either be mman.h themselves, or have things like structure 
+declarations etc that wouldn't work for any non-C source anyway.
+
+But maybe I missed some.
+
+I'd rather not have more of those '#ifndef __ASSEMBLY__' than necessary.
+
+		Linus
