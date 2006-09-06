@@ -1,26 +1,29 @@
-From: Arjan van de Ven <arjan@infradead.org>
-Date: Wed, 06 Sep 2006 19:06:19 +0000
-Subject: Re: [PATCH] IA64,sparc: local DoS with corrupted ELFs
-Message-Id: <1157569579.29093.51.camel@laptopd505.fenrus.org>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 06 Sep 2006 19:12:16 +0000
+Subject: Re: [stable] [PATCH] IA64,sparc: local DoS with corrupted ELFs
+Message-Id: <20060906191215.GK2558@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44FC193C.4080205@openvz.org>
-	 <Pine.LNX.4.64.0609061120430.27779@g5.osdl.org>
-	 <20060906182733.GJ2558@parisc-linux.org>
-In-Reply-To: <20060906182733.GJ2558@parisc-linux.org>
+References: <44FC193C.4080205@openvz.org> <Pine.LNX.4.64.0609061120430.27779@g5.osdl.org> <20060906182733.GJ2558@parisc-linux.org> <20060906184509.GA15942@kroah.com>
+In-Reply-To: <20060906184509.GA15942@kroah.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Linus Torvalds <torvalds@osdl.org>, Kirill Korotaev <dev@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Fernando Vazquez <fernando@oss.ntt.co.jp>, "David S. Miller" <davem@davemloft.net>, tony.luck@intel.com, linux-ia64@vger.kernel.org, stable@kernel.org, xemul@openvz.org, devel@openvz.org
+To: Greg KH <greg@kroah.com>
+Cc: Linus Torvalds <torvalds@osdl.org>, Kirill Korotaev <dev@openvz.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Fernando Vazquez <fernando@oss.ntt.co.jp>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, stable@kernel.org, "David S. Miller" <davem@davemloft.net>, devel@openvz.org, xemul@openvz.org
 
-On Wed, 2006-09-06 at 12:27 -0600, Matthew Wilcox wrote:
-> On Wed, Sep 06, 2006 at 11:24:05AM -0700, Linus Torvalds wrote:
-> > If MIPS and parisc don't matter for the stable tree (very possible - there 
-> > are no big commercial distributions for them), then dammit, neither should 
-> > ia64 and sparc (there are no big commercial distros for them either). 
+On Wed, Sep 06, 2006 at 11:45:09AM -0700, Greg KH wrote:
+> On Wed, Sep 06, 2006 at 12:27:33PM -0600, Matthew Wilcox wrote:
+> > On Wed, Sep 06, 2006 at 11:24:05AM -0700, Linus Torvalds wrote:
+> > > If MIPS and parisc don't matter for the stable tree (very possible - there 
+> > > are no big commercial distributions for them), then dammit, neither should 
+> > > ia64 and sparc (there are no big commercial distros for them either). 
+> > 
+> > Erm, RHEL and SLES both support ia64.
 > 
-> Erm, RHEL and SLES both support ia64.
+> Yes, but the -stable developers don't build for those arches, that's why
+> it was missed here.
 
-but neither use -stable.
-
-
+What's the easiest way to get coverage here?  Sending a parisc
+workstation or server to someone?  Giving accounts to some/all of the
+stable team?  Finding someone who cares about parisc to join the stable
+team?
