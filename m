@@ -1,12 +1,16 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 05 Sep 2006 08:53:19 +0000
+Date: Fri, 08 Sep 2006 09:15:29 +0000
 Subject: [PATCH] CMC/CPE: Reverse the order of fetching log and checking poll
-Message-Id: <44FD3AFF.7050005@jp.fujitsu.com>
+Message-Id: <450134B1.6070503@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <44FD3AFF.7050005@jp.fujitsu.com>
+In-Reply-To: <44FD3AFF.7050005@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+(Last patch was based on wrong/old kernel. This is repost.)
 
 This patch reverses the order of fetching log from SAL and
 checking poll threshold. This will fix following trivial issues:
@@ -31,10 +35,10 @@ Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
   arch/ia64/kernel/mca.c |   18 ++++++++++--------
   1 files changed, 10 insertions(+), 8 deletions(-)
 
-Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
-=================================--- linux-2.6.17-rc6.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6.17-rc6/arch/ia64/kernel/mca.c
-@@ -345,9 +345,6 @@
+Index: linux-2.6.18-rc6/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.18-rc6.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.18-rc6/arch/ia64/kernel/mca.c
+@@ -344,9 +344,6 @@
   	/* SAL spec states this should run w/ interrupts enabled */
   	local_irq_enable();
 
@@ -44,7 +48,7 @@ Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
   	spin_lock(&cpe_history_lock);
   	if (!cpe_poll_enabled && cpe_vector >= 0) {
 
-@@ -376,7 +373,7 @@
+@@ -375,7 +372,7 @@
   			mod_timer(&cpe_poll_timer, jiffies + MIN_CPE_POLL_INTERVAL);
 
   			/* lock already released, get out now */
@@ -53,7 +57,7 @@ Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
   		} else {
   			cpe_history[index++] = now;
   			if (index = CPE_HISTORY_LENGTH)
-@@ -384,6 +381,10 @@
+@@ -383,6 +380,10 @@
   		}
   	}
   	spin_unlock(&cpe_history_lock);
@@ -64,7 +68,7 @@ Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
   	return IRQ_HANDLED;
   }
 
-@@ -1107,9 +1108,6 @@
+@@ -1106,9 +1107,6 @@
   	/* SAL spec states this should run w/ interrupts enabled */
   	local_irq_enable();
 
@@ -74,7 +78,7 @@ Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
   	spin_lock(&cmc_history_lock);
   	if (!cmc_polling_enabled) {
   		int i, count = 1; /* we know 1 happened now */
-@@ -1142,7 +1140,7 @@
+@@ -1141,7 +1139,7 @@
   			mod_timer(&cmc_poll_timer, jiffies + CMC_POLL_INTERVAL);
 
   			/* lock already released, get out now */
@@ -83,7 +87,7 @@ Index: linux-2.6.17-rc6/arch/ia64/kernel/mca.c
   		} else {
   			cmc_history[index++] = now;
   			if (index = CMC_HISTORY_LENGTH)
-@@ -1150,6 +1148,10 @@
+@@ -1149,6 +1147,10 @@
   		}
   	}
   	spin_unlock(&cmc_history_lock);
