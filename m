@@ -1,37 +1,36 @@
-From: Kirill Korotaev <dev@sw.ru>
-Date: Fri, 08 Sep 2006 15:15:41 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Fri, 08 Sep 2006 15:35:03 +0000
 Subject: Re: [PATCH] IA64,sparc: local DoS with corrupted ELFs
-Message-Id: <4501891D.5090607@sw.ru>
+Message-Id: <Pine.LNX.4.64.0609080831530.27779@g5.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44FC193C.4080205@openvz.org> <Pine.LNX.4.64.0609061120430.27779@g5.osdl.org> <44FFF1A0.2060907@openvz.org> <Pine.LNX.4.64.0609070816170.27779@g5.osdl.org>
-In-Reply-To: <Pine.LNX.4.64.0609070816170.27779@g5.osdl.org>
+References: <44FC193C.4080205@openvz.org> <Pine.LNX.4.64.0609061120430.27779@g5.osdl.org>
+ <44FFF1A0.2060907@openvz.org> <Pine.LNX.4.64.0609070816170.27779@g5.osdl.org>
+ <4501891D.5090607@sw.ru>
+In-Reply-To: <4501891D.5090607@sw.ru>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>
+To: Kirill Korotaev <dev@sw.ru>
 Cc: Kirill Korotaev <dev@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Fernando Vazquez <fernando@oss.ntt.co.jp>, "David S. Miller" <davem@davemloft.net>, tony.luck@intel.com, linux-ia64@vger.kernel.org, stable@kernel.org, xemul@openvz.org, devel@openvz.org
 
-Linus Torvalds wrote:
 
->>Does the patch below looks better?
+
+On Fri, 8 Sep 2006, Kirill Korotaev wrote:
 > 
+> I even checked the email myself and the only difference between "good"
+> patches and mine is that mine has "format=flowed" in
+> Content-Type: text/plain; charset=us-ascii; format=flowed
 > 
-> Yes. 
-> 
-> Apart from the whitespace corruption, that is.
-> 
-> I don't know how to get mozilla to not screw up whitespace.
+> It looks like some mailers replace TABs with spaces when format=flowed
+> is specified. So are you sure that the problem is in mozilla?
 
-What is funny is that mozilla doesn't screw up whitespaces.
-2 people checked that patch from the email applies to the kernel.
+Hey, what do you know? Good call. I can actually just "S"ave the message 
+to a file, and it is a perfectly fine patch. But when I view it in my mail 
+reader, your "format=flowed" means that it _shows_ it as being corrupted 
+(ie word wrapping and missing spaces at the beginning of lines).
 
-I even checked the email myself and the only difference between "good"
-patches and mine is that mine has "format=flowed" in
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Will apply, thanks. It would be better if your mailer didn't lie about the 
+format though (treating the text as "flowed" definitely isn't right, and 
+some mail gateways might actually find it meaningful, for all I know).
 
-It looks like some mailers replace TABs with spaces when format=flowed
-is specified. So are you sure that the problem is in mozilla?
-
-Thanks,
-Kirill
-
+		Linus
