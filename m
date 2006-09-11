@@ -1,101 +1,67 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 08 Sep 2006 09:15:29 +0000
-Subject: [PATCH] CMC/CPE: Reverse the order of fetching log and checking poll
-Message-Id: <450134B1.6070503@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 11 Sep 2006 22:27:34 +0000
+Subject: [PATCH 1/6] Deal with cases of ZONE_DMA meaning the first zone
+Message-Id: <20060911222734.4849.55947.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <44FD3AFF.7050005@jp.fujitsu.com>
-In-Reply-To: <44FD3AFF.7050005@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-(Last patch was based on wrong/old kernel. This is repost.)
+Optional DMA zone: Replace uses of ZONE_DMA as the first zone
 
-This patch reverses the order of fetching log from SAL and
-checking poll threshold. This will fix following trivial issues:
+In two places in the VM we use ZONE_DMA to refer to the first zone.
+If ZONE_DMA is optional then other zones may be first. So simply
+replace ZONE_DMA with zone 0.
 
-- If SAL_GET_SATE_INFO is unbelievably slow (due to huge system
-   or just its silly implementation) and if it takes more than
-   1/5 sec, CMCI/CPEI will never switch to CMCP/CPEP.
-- Assuming terrible flood of interrupt (continuous corrected
-   errors let all CPUs enter to handler at once and bind them
-   in it), CPUs will be serialized by IA64_LOG_LOCK(*).
-   Now we check the poll threshold after the lock and log fetch,
-   so we need to call SAL_GET_STATE_INFO (num_online_cpus() + 4)
-   times in the worst case.
-   if we can check the threshold before the lock, we can shut up
-   interrupts quickly without waiting preceding log fetches, and
-   the number of times will be reduced to (num_online_cpus()) in
-   the same situation.
+This also fixes ZONETABLE_PGSHIFT. If we have only a single zone then
+ZONES_PGSHIFT may become 0 because there is no need anymore to encode the
+zone number related to a pgdat. However, we still need a zonetable to index
+all the zones for each node if this is a NUMA system. Therefore define
+ZONETABLE_SHIFT unconditionally as the offset of the ZONE field in page flags.
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
----
-  arch/ia64/kernel/mca.c |   18 ++++++++++--------
-  1 files changed, 10 insertions(+), 8 deletions(-)
-
-Index: linux-2.6.18-rc6/arch/ia64/kernel/mca.c
-=================================--- linux-2.6.18-rc6.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6.18-rc6/arch/ia64/kernel/mca.c
-@@ -344,9 +344,6 @@
-  	/* SAL spec states this should run w/ interrupts enabled */
-  	local_irq_enable();
-
--	/* Get the CPE error record and log it */
--	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
--
-  	spin_lock(&cpe_history_lock);
-  	if (!cpe_poll_enabled && cpe_vector >= 0) {
-
-@@ -375,7 +372,7 @@
-  			mod_timer(&cpe_poll_timer, jiffies + MIN_CPE_POLL_INTERVAL);
-
-  			/* lock already released, get out now */
--			return IRQ_HANDLED;
-+			goto out;
-  		} else {
-  			cpe_history[index++] = now;
-  			if (index = CPE_HISTORY_LENGTH)
-@@ -383,6 +380,10 @@
-  		}
-  	}
-  	spin_unlock(&cpe_history_lock);
-+out:
-+	/* Get the CPE error record and log it */
-+	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-+
-  	return IRQ_HANDLED;
-  }
-
-@@ -1106,9 +1107,6 @@
-  	/* SAL spec states this should run w/ interrupts enabled */
-  	local_irq_enable();
-
--	/* Get the CMC error record and log it */
--	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CMC);
--
-  	spin_lock(&cmc_history_lock);
-  	if (!cmc_polling_enabled) {
-  		int i, count = 1; /* we know 1 happened now */
-@@ -1141,7 +1139,7 @@
-  			mod_timer(&cmc_poll_timer, jiffies + CMC_POLL_INTERVAL);
-
-  			/* lock already released, get out now */
--			return IRQ_HANDLED;
-+			goto out;
-  		} else {
-  			cmc_history[index++] = now;
-  			if (index = CMC_HISTORY_LENGTH)
-@@ -1149,6 +1147,10 @@
-  		}
-  	}
-  	spin_unlock(&cmc_history_lock);
-+out:
-+	/* Get the CMC error record and log it */
-+	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CMC);
-+
-  	return IRQ_HANDLED;
-  }
-
-
+Index: linux-2.6.18-rc6-mm1/include/linux/mm.h
+=================================--- linux-2.6.18-rc6-mm1.orig/include/linux/mm.h	2006-09-11 15:42:30.576324881 -0500
++++ linux-2.6.18-rc6-mm1/include/linux/mm.h	2006-09-11 15:57:17.451691199 -0500
+@@ -476,7 +476,7 @@
+ #else
+ #define ZONETABLE_SHIFT		(SECTIONS_SHIFT + ZONES_SHIFT)
+ #endif
+-#define ZONETABLE_PGSHIFT	ZONES_PGSHIFT
++#define ZONETABLE_PGSHIFT	ZONES_PGOFF
+ 
+ #if SECTIONS_WIDTH+NODES_WIDTH+ZONES_WIDTH > FLAGS_RESERVED
+ #error SECTIONS_WIDTH+NODES_WIDTH+ZONES_WIDTH > FLAGS_RESERVED
+Index: linux-2.6.18-rc6-mm1/mm/mempolicy.c
+=================================--- linux-2.6.18-rc6-mm1.orig/mm/mempolicy.c	2006-09-11 15:42:30.591951213 -0500
++++ linux-2.6.18-rc6-mm1/mm/mempolicy.c	2006-09-11 15:57:17.466340884 -0500
+@@ -105,7 +105,7 @@
+ 
+ /* Highest zone. An specific allocation for a zone below that is not
+    policied. */
+-enum zone_type policy_zone = ZONE_DMA;
++enum zone_type policy_zone = 0;
+ 
+ struct mempolicy default_policy = {
+ 	.refcnt = ATOMIC_INIT(1), /* never free it */
+Index: linux-2.6.18-rc6-mm1/mm/page_alloc.c
+=================================--- linux-2.6.18-rc6-mm1.orig/mm/page_alloc.c	2006-09-11 15:42:30.000000000 -0500
++++ linux-2.6.18-rc6-mm1/mm/page_alloc.c	2006-09-11 16:44:51.877934885 -0500
+@@ -2486,11 +2486,11 @@
+ 				"  %s zone: %lu pages exceeds realsize %lu\n",
+ 				zone_names[j], memmap_pages, realsize);
+ 
+-		/* Account for reserved DMA pages */
+-		if (j = ZONE_DMA && realsize > dma_reserve) {
++		/* Account for reserved pages */
++		if (j = 0 && realsize > dma_reserve) {
+ 			realsize -= dma_reserve;
+-			printk(KERN_DEBUG "  DMA zone: %lu pages reserved\n",
+-								dma_reserve);
++			printk(KERN_DEBUG "  %s zone: %lu pages reserved\n",
++					zone_names[0], dma_reserve);
+ 		}
+ 
+ 		if (!is_highmem_idx(j))
