@@ -1,34 +1,92 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 20 Sep 2006 02:43:02 +0000
-Subject: Kexec/Kdump: tidy up crashkernel comment
-Message-Id: <20060920024545.049720000@tabatha.lab.ultramonkey.org>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 11 Sep 2006 22:27:50 +0000
+Subject: [PATCH 4/6] Optional ZONE_DMA for i386
+Message-Id: <20060911222750.4849.19066.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Signed-Off-By: Simon Horman <horms@verge.net.au>
-Index: linux-2.6/arch/ia64/kernel/setup.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2006-09-20 10:59:32.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/setup.c	2006-09-20 11:01:00.000000000 +0900
-@@ -258,10 +258,9 @@
- #ifdef CONFIG_KEXEC
- 	/* crashkernel=size@offset specifies the size to reserve for a crash
- 	 * kernel. If offset is 0, then it is determined automatically.
--	 * By reserving this memory we guarantee that linux
--	 * never set's it up as a DMA target.
--	 * Useful for holding code to do something appropriate
--	 * after a kernel panic.
-+	 * By reserving this memory we guarantee that linux never sets it
-+	 * up as a DMA target. Useful for holding code to do something
-+	 * appropriate after a kernel panic.
- 	 */
- 	{
- 		char *from = strstr(saved_command_line, "crashkernel=");
+i386: Optional ZONE_DMA
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+ZONE_DMA depends on GENERIC_ISA_DMA. We allow the user to configure
+GENERIC_ISA_DMA. If it is switched off then ISA_DMA_API is also
+switched off which will deselect all drivers that depend on ISA
+functionality.
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.18-rc6-mm1/arch/i386/Kconfig
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/Kconfig	2006-09-08 06:42:11.697455315 -0500
++++ linux-2.6.18-rc6-mm1/arch/i386/Kconfig	2006-09-11 15:41:55.911259588 -0500
+@@ -41,10 +41,6 @@
+ config SBUS
+ 	bool
+ 
+-config GENERIC_ISA_DMA
+-	bool
+-	default y
+-
+ config GENERIC_IOMAP
+ 	bool
+ 	default y
+@@ -346,6 +342,15 @@
+           XFree86 to initialize some video cards via BIOS. Disabling this
+           option saves about 6k.
+ 
++config GENERIC_ISA_DMA
++	bool "ISA DMA zone (to support ISA legacy DMA)"
++	default y
++	help
++	  If DMA for ISA boards needs to be supported then this option
++	  needs to be enabled. An additional DMA zone for <16MB memory
++	  will be created and memory below 16MB will be used for those
++	  devices.
++
+ config TOSHIBA
+ 	tristate "Toshiba Laptop support"
+ 	---help---
+@@ -1071,6 +1076,7 @@
+ 
+ config ISA_DMA_API
+ 	bool
++	depends on GENERIC_ISA_DMA
+ 	default y
+ 
+ config ISA
+Index: linux-2.6.18-rc6-mm1/arch/i386/kernel/Makefile
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/kernel/Makefile	2006-09-08 06:42:11.780470103 -0500
++++ linux-2.6.18-rc6-mm1/arch/i386/kernel/Makefile	2006-09-11 15:41:55.950325419 -0500
+@@ -7,8 +7,9 @@
+ obj-y	:= process.o signal.o entry.o traps.o irq.o \
+ 		ptrace.o time.o ioport.o ldt.o setup.o i8259.o sys_i386.o \
+ 		pci-dma.o i386_ksyms.o i387.o bootflag.o \
+-		quirks.o i8237.o topology.o alternative.o i8253.o tsc.o
++		quirks.o topology.o alternative.o i8253.o tsc.o
+ 
++obj-$(CONFIG_GENERIC_ISA_DMA)	+= i8237.o
+ obj-$(CONFIG_STACKTRACE)	+= stacktrace.o
+ obj-y				+= cpu/
+ obj-y				+= acpi/
+Index: linux-2.6.18-rc6-mm1/arch/i386/kernel/setup.c
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/kernel/setup.c	2006-09-08 06:42:12.269769024 -0500
++++ linux-2.6.18-rc6-mm1/arch/i386/kernel/setup.c	2006-09-11 15:41:55.982554730 -0500
+@@ -1075,13 +1075,17 @@
+ {
+ #ifdef CONFIG_HIGHMEM
+ 	unsigned long max_zone_pfns[MAX_NR_ZONES] = {
++#ifdef CONFIG_ZONE_DMA
+ 			virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT,
++#endif
+ 			max_low_pfn,
+ 			highend_pfn};
+ 	add_active_range(0, 0, highend_pfn);
+ #else
+ 	unsigned long max_zone_pfns[MAX_NR_ZONES] = {
++#ifdef CONFIG_ZONE_DMA
+ 			virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT,
++#endif
+ 			max_low_pfn};
+ 	add_active_range(0, 0, max_low_pfn);
+ #endif
