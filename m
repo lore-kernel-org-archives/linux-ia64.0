@@ -1,59 +1,79 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 14 Sep 2006 12:24:04 +0000
-Subject: BUG: warning at arch/ia64/kernel/iosapic.c:917/iosapic_unregister_intr()
-Message-Id: <jewt86bpqz.fsf@sykes.suse.de>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 11 Sep 2006 22:28:00 +0000
+Subject: [PATCH 6/6] Optional ZONE_DMA for ia64
+Message-Id: <20060911222800.4849.83154.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Has anyone else seen this?  When shutting down 2.6.18-rc6-git3 on an Intel
-Tiger I'm always getting this BUG:
+ZONE_DMA less operation for IA64 SGI platform
 
-ACPI: PCI interrupt for device 0000:01:00.0 disabled
-GSI 18 (level, low) -> CPU 5 (0xc318) vector 53 unregistered
-interrupt handlers still exist onIRQ 53
-BUG: warning at arch/ia64/kernel/iosapic.c:917/iosapic_unregister_intr()
+Disable ZONE_DMA for SGI SN2. All memory is addressable by all
+devices and we do not need any special memory pool.
 
-Call Trace:
- [<a000000100014400>] show_stack+0x40/0xa0
-                                sp=E0000003ff897b40 bsp=E0000003ff891360
- [<a000000100014490>] dump_stack+0x30/0x60
-                                sp=E0000003ff897d10 bsp=E0000003ff891348
- [<a00000010004fac0>] iosapic_unregister_intr+0x700/0x760
-                                sp=E0000003ff897d10 bsp=E0000003ff8912f8
- [<a00000010000bc00>] acpi_unregister_gsi+0x20/0x40
-                                sp=E0000003ff897d10 bsp=E0000003ff8912d8
- [<a000000100356380>] acpi_pci_irq_disable+0x140/0x160
-                                sp=E0000003ff897d10 bsp=E0000003ff8912a8
- [<a00000010041d160>] pcibios_disable_device+0x20/0x40
-                                sp=E0000003ff897d20 bsp=E0000003ff891288
- [<a0000001002ca3f0>] pci_disable_device+0x170/0x1a0
-                                sp=E0000003ff897d20 bsp=E0000003ff891250
- [<a0000002046bf610>] e1000_suspend+0x870/0x8e0 [e1000]
-                                sp=E0000003ff897d30 bsp=E0000003ff8911e8
- [<a0000002046bf6b0>] e1000_shutdown+0x30/0x60 [e1000]
-                                sp=E0000003ff897d30 bsp=E0000003ff8911c8
- [<a0000001002cd8c0>] pci_device_shutdown+0x80/0xc0
-                                sp=E0000003ff897d30 bsp=E0000003ff8911a8
- [<a0000001003c8780>] device_shutdown+0x100/0x1c0
-                                sp=E0000003ff897d30 bsp=E0000003ff891188
- [<a0000001000aea40>] kernel_shutdown_prepare+0x60/0x80
-                                sp=E0000003ff897d30 bsp=E0000003ff891168
- [<a0000001000aea80>] kernel_power_off+0x20/0x80
-                                sp=E0000003ff897d30 bsp=E0000003ff891150
- [<a0000001000aef90>] sys_reboot+0x2d0/0x480
-                                sp=E0000003ff897d30 bsp=E0000003ff8910d8
- [<a00000010000c8c0>] ia64_ret_from_syscall+0x0/0x20
-                                sp=E0000003ff897e30 bsp=E0000003ff8910d8
- [<a000000000010620>] __kernel_syscall_via_break+0x0/0x20
-                                sp=E0000003ff898000 bsp=E0000003ff8910d8
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Index: linux-2.6.18-rc6-mm1/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/mm/discontig.c	2006-09-11 16:42:07.206714114 -0500
++++ linux-2.6.18-rc6-mm1/arch/ia64/mm/discontig.c	2006-09-11 16:51:50.094129334 -0500
+@@ -37,7 +37,9 @@
+ 	unsigned long pernode_size;
+ 	struct bootmem_data bootmem_data;
+ 	unsigned long num_physpages;
++#ifdef CONFIG_ZONE_DMA
+ 	unsigned long num_dma_physpages;
++#endif
+ 	unsigned long min_pfn;
+ 	unsigned long max_pfn;
+ };
+@@ -656,9 +658,11 @@
+ 
+ 	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
+ 	mem_data[node].num_physpages += len >> PAGE_SHIFT;
++#ifdef CONFIG_ZONE_DMA
+ 	if (start <= __pa(MAX_DMA_ADDRESS))
+ 		mem_data[node].num_dma_physpages + 			(min(end, __pa(MAX_DMA_ADDRESS)) - start) >>PAGE_SHIFT;
++#endif
+ 	start = GRANULEROUNDDOWN(start);
+ 	start = ORDERROUNDDOWN(start);
+ 	end = GRANULEROUNDUP(end);
+@@ -709,7 +713,9 @@
+ 			max_pfn = mem_data[node].max_pfn;
+ 	}
+ 
++#ifdef CONFIG_ZONE_DMA
+ 	max_zone_pfns[ZONE_DMA] = max_dma;
++#endif
+ 	max_zone_pfns[ZONE_NORMAL] = max_pfn;
+ 	free_area_init_nodes(max_zone_pfns);
+ 
+Index: linux-2.6.18-rc6-mm1/arch/ia64/mm/contig.c
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/mm/contig.c	2006-09-11 16:42:07.215503923 -0500
++++ linux-2.6.18-rc6-mm1/arch/ia64/mm/contig.c	2006-09-11 16:51:50.104872434 -0500
+@@ -231,8 +231,10 @@
+ 	num_physpages = 0;
+ 	efi_memmap_walk(count_pages, &num_physpages);
+ 
++#ifdef CONFIG_ZONE_DMA
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 	max_zone_pfns[ZONE_DMA] = max_dma;
++#endif
+ 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+Index: linux-2.6.18-rc6-mm1/arch/ia64/Kconfig
+=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/Kconfig	2006-09-11 16:44:55.649739769 -0500
++++ linux-2.6.18-rc6-mm1/arch/ia64/Kconfig	2006-09-11 16:51:50.114638888 -0500
+@@ -23,8 +23,8 @@
+ 	default y
+ 
+ config ZONE_DMA
+-	bool
+-	default y
++	def_bool y
++	depends on !IA64_SGI_SN2
+ 
+ config MMU
+ 	bool
