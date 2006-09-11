@@ -1,69 +1,89 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Fri, 08 Sep 2006 01:20:01 +0000
-Subject: RE: [Fastboot] [PATCH]IA64 kexec/kdump patch for INIT
-Message-Id: <08B1877B2880CE42811294894F33AD5C053BFA@pdsmsx411.ccr.corp.intel.com>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Mon, 11 Sep 2006 06:12:13 +0000
+Subject: Re: [Fastboot] [PATCH]IA64 kexec/kdump patch for INIT
+Message-Id: <1157955133.2594.16.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <82C6D21B8B7A9Cindou.takao@jp.fujitsu.com>
 In-Reply-To: <82C6D21B8B7A9Cindou.takao@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Takao Indoh
-> Sent: 2006=C4=EA9=D4=C27=C8=D5 22:49
-> To: Yu, Luming
-> Cc: fastboot@lists.osdl.org; Keith Owens; linux-ia64@vger.kernel.org
-> Subject: RE: [Fastboot] [PATCH]IA64 kexec/kdump patch for INIT
->=20
-> On Thu, 7 Sep 2006 21:01:17 +0800, "Yu, Luming" wrote:
->=20
-> >>>Did  saved Os gp in SAL OS state  somehow get overridden before
-> >>>ia64_set_kernel_registers prior to invocation of ia64_init_handler?
-> >>>
-> >>>I assume the following code (in ia64_set_kernel_registers )
-> >>should restore
-> >>>correct GP value.
-> >>>
-> >>>ia64_set_kernel_registers:
-> >>>	...
-> >>>        ;;
-> >>>        ld8 r1=3D[temp4]          // OS GP from SAL OS state
-> >>
-> >>Yes, but this gp value is physical address.
-> >>In the next line, gp is changed to virtual address.
-> >>
-> >>DATA_PA_TO_VA(r1,temp1)
-> >>
-> >>This macro just sets region7 bit, so gp value becomes region7 address.
+On Mon, 2006-09-11 at 14:56, Keith Owens wrote:
+> Takao Indoh (on Thu, 07 Sep 2006 23:48:51 +0900) wrote:
+> >On Thu, 7 Sep 2006 21:01:17 +0800, "Yu, Luming" wrote:
 > >
-> >Ok, could you please confirm what is the value of r1 before
-> >DATA_PA_TO_VA(r1, temp1)?
-> >I guess we need to set r1 =3D __gp in ia64_set_kernel_registers.
-> >If not,  this is a bug.  Am I right?
->=20
-> In the ia64_mca_init, the value of ia64_tpa(ia64_getreg(_IA64_REG_GP)
-> is registered as gp value. When cpu comes into the above code, r1 is set
-> to this value, I think. Therefore, r1 has physical address of __gp
-> before DATA_PA_TO_VA(r1, temp1). How do you think?
->=20
-> I think you are right, I also think r1 has to be set to __gp before
-> calling ia64_init_handler.
->=20
-  Yes, I agree GP should be set to __gp before calling into ia64_init_handl=
-er, not only the region issue.
-  E.g. If an OS_INIT happen in the context of a module, the GP value could =
-be point to the modules GP.
+> >>>>Did  saved Os gp in SAL OS state  somehow get overridden before 
+> >>>>ia64_set_kernel_registers prior to invocation of
+> ia64_init_handler?
+> >>>>
+> >>>>I assume the following code (in ia64_set_kernel_registers ) 
+> >>>should restore 
+> >>>>correct GP value.
+> >>>>
+> >>>>ia64_set_kernel_registers:
+> >>>>    ...
+> >>>>        ;;
+> >>>>        ld8 r1=[temp4]          // OS GP from SAL OS state
+> >>>
+> >>>Yes, but this gp value is physical address.
+> >>>In the next line, gp is changed to virtual address.
+> >>>
+> >>>DATA_PA_TO_VA(r1,temp1)
+> >>>
+> >>>This macro just sets region7 bit, so gp value becomes region7
+> address.
+> >>
+> >>Ok, could you please confirm what is the value of r1 before
+> >>DATA_PA_TO_VA(r1, temp1)?
+> >>I guess we need to set r1 = __gp in ia64_set_kernel_registers.
+> >>If not,  this is a bug.  Am I right?
+> >
+> >In the ia64_mca_init, the value of ia64_tpa(ia64_getreg(_IA64_REG_GP)
+> >is registered as gp value. When cpu comes into the above code, r1 is
+> set
+> >to this value, I think. Therefore, r1 has physical address of __gp
+> >before DATA_PA_TO_VA(r1, temp1). How do you think?
+> >
+> >I think you are right, I also think r1 has to be set to __gp before 
+> >calling ia64_init_handler.
+> 
+> It already is set in mca_asm.S.  Remember that ia64_init_handler is by
+> definition part of the kernel, it cannot be a module.  Therefore
+> before
+> entering ia64_init_handler, r1 must be set to what the kernel expects
+> to be in r1.  The standard kernel's r1 is a region 7 address, not a
+> region 5 address.  The kernel (including __gp) is compiled as region 5
+> but relocated to region 7 during kernel load.
+> 
+> Is the kexec kernel running in region 5?  That may be where the
+> confusion is coming from.
+> 
+Hi Keith,
+	For 2.6 kernel, I think GP is a region 5 address when inside kernel.
+The entire kernel image is resided in region 5 without relocate to
+region 7. 
+	Another issue I can see from calculate GP from physical address passed
+from OS_INIT is,
+	I am not quite sure though, if OS_INIT is happened during a module
+execution, or happened when system is in user space, what GP value will
+be passed from SAL/PAL? If the gp value is the physical address of the
+modules 's gp, we can't set GP value according to that, because
+ia64_init_handler is inside kernel.
+	
+	Kexec kernel used in kdump is usually exactly the same kernel with the
+host kernel, except they are located in different physical address
+ranges. The first kernel will never touch the RAM belongs to the crash
+kernel at run time. The crash kernel will not touch the RAM belongs to
+the first kernel unless you read it via /proc/vmcore.
 
-  Thanks
-  Zou Nan hai
+Thanks 	
+Zou Nan hai 
 
-> Regards,
-> Takao Indoh
->=20
 > -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64"
+> in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
