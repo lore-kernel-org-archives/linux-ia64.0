@@ -1,7 +1,7 @@
 From: Andi Kleen <ak@suse.de>
-Date: Tue, 12 Sep 2006 06:40:22 +0000
+Date: Tue, 12 Sep 2006 11:11:23 +0000
 Subject: Re: [PATCH 5/6] Optional ZONE_DMA for x86_64
-Message-Id: <200609120840.22808.ak@suse.de>
+Message-Id: <200609121311.23879.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060911222755.4849.17749.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20060911222755.4849.17749.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,39 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday 12 September 2006 00:27, Christoph Lameter wrote:
-> x86_64: optional ZONE_DMA/ZONE_DMA32
+On Tuesday 12 September 2006 13:40, Matthew Wilcox wrote:
+> On Tue, Sep 12, 2006 at 08:40:22AM +0200, Andi Kleen wrote:
+> > I think I would prefer to not make GFP_DMA32 optional.
+> > Adding a 4GB limit CONFIG to a 64bit kernel just seems somewhat
+> > dumb.
 >
-> Allow the use to specify CONFIG_ZONE_DMA32 and CONFIG_ZONE_DMA (via
-> CONFIG_GENERIC_ISA_DMA).
->
-> If CONFIG_ZONE_DMA is off then devices requiring ISA DMA can no
-> longer be selected.
->
-> There are no drivers depending on CONFIG_ZONE_DMA32. If CONFIG_ZONE_DMA32
-> is not set then the system assumes that DMA devices are capable of
-> doing DMA to all of memory (which is mostly the case since most
-> x86_64 motherboards only allow a max of 4GB of memory and advanced
-> systems have DMA subsystems that handle I/O properly).
+> Hmm?  I would think that the majority of x86-64 users have <4GB.
 
-Pretty much all have this problem (or do you know of a system with no
-USB controller?) 
+Yes still it feels dumb, especially for something which you're unlikely
+to benchmark a difference of.
 
-I think I would prefer to not make GFP_DMA32 optional.
-Adding a 4GB limit CONFIG to a 64bit kernel just seems somewhat
-dumb.
+> I bought an ASUS P5RD1-VM motherboard a few months ago which
+> has 2 DIMM slots.  Look at their list of 'hot' motherboards:
+> http://usa.asus.com/products2.aspx?l1=3&l2 I don't see a single one
+> with more than 4 slots.  2GB DIMMs are hovering around the $400 mark;
+> I'm not convinced that your average user is spending $1200 on RAM at
+> this point.
 
-Also what happens when someone still sets GFP_DMA? 
-iirc the SCSI stack tended to do that for some structures.
-Will it fail?
-
-Making GFP_DMA optional would be an interesting
-experiment (I think it will break the floppies but other than that 
-a modern system might be fine). But it would be better
-to warn the user stronger against it (most likely it will still
-break a lot of older addin cards) and tell them about
-the floppy.
-
-BTW we still call it x86-64, not x64.
+4GB of RAM already gives you memory above the 32bit mark because
+the PCI hole needs some below 4GB. The RAM below it is moved up.
+So you need >4GB support even on the lowend boards when you
+plug in 2x 2GB.
 
 -Andi
