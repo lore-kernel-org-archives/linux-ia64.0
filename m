@@ -1,7 +1,7 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Tue, 12 Sep 2006 02:40:29 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Tue, 12 Sep 2006 07:22:53 +0000
 Subject: Re: [PATCH 3/6] Optional ZONE_DMA in the VM
-Message-Id: <45061E1D.4060407@yahoo.com.au>
+Message-Id: <200609120922.54307.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,23 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
 
->On Tue, 12 Sep 2006, Nick Piggin wrote:
->
->
->>I can't see from your patches, but what happens if someone asks
->>for a GFP_DMA page or dma slab allocation when there is no ZONE_DMA?
->>
->
->The page/slab allocator will simply ignore the flag and return 
->ZONE_NORMAL memory. See gfp_zone().
->
+> So I totally agree, GFP_DMA allocations really ought to fail in this
+> situation and we should fixup the users instead.
 
-That's wrong, I think? It should return NULL surely? (and possibly do
-a printk telling the user they should enable ZONE_DMA config, although
-some users have valid fallback strategies).
+It's just impossible to fix them without having a bounce buffer.
+The only way would be to not use the hardware. I guess 
+we can find out how many people still use floppies and other
+such hardware by having it for some time in -mm*.
 
---
+But I reserve the right that if this thing becomes a FAQ - e.g. 
+various people set the option wrong and break their systems
+to rip it out again. I'm not interested at all in patches that increase
+the bogus bug report rate. 
 
-Send instant messages to your online friends http://au.messenger.yahoo.com 
+-Andi
+
