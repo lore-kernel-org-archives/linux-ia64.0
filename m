@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Tue, 12 Sep 2006 16:51:39 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 12 Sep 2006 20:10:13 +0000
 Subject: Re: Does 2.6.17.11 kernel work on HP zx6000?
-Message-Id: <20060912165139.GA8313@lucon.org>
+Message-Id: <200609121410.13657.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060908232224.GA27087@lucon.org>
 In-Reply-To: <20060908232224.GA27087@lucon.org>
@@ -10,31 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Sep 12, 2006 at 10:10:02AM -0600, Bjorn Helgaas wrote:
-> On Friday 08 September 2006 17:22, H. J. Lu wrote:
-> > Does 2.6.17.11 kernel work on HP zx6000? After uncompressing
-> > kernel and loading initrd, kernel stops.
+On Tuesday 12 September 2006 10:51, H. J. Lu wrote:
+> > My guess is that there's something wrong with your console.  Maybe
+> > the kernel thinks you have a VGA console and you're looking at
+> > serial, or vice versa.  EFI can use multiple console devices, but
+> > the kernel generally only uses one.
 > 
-> 2.6.17.11 has an ia64 build problem.  After I fixed that with
-> this patch:
->   http://www.gelato.unsw.edu.au/archives/linux-ia64/0608/18861.html
+> That could be my problem. 2.6.9 works fine. How can I get it to
+> work?
 
-I used a similar patch.
+Serial port naming changed in 2.6.10.  Documentation/ia64/serial.txt
+has more details.
 
-> 
-> I built a defconfig kernel and booted it on an rx2600 (basically
-> the same box as a zx6000).  The log is below.
-> 
-> My guess is that there's something wrong with your console.  Maybe
-> the kernel thinks you have a VGA console and you're looking at
-> serial, or vice versa.  EFI can use multiple console devices, but
-> the kernel generally only uses one.
-> 
+> I can hook up a serial console. What is the serial setting?
 
-That could be my problem. 2.6.9 works fine. How can I get it to
-work?
+If you have VGA, that is generally used by default.
 
-I can hook up a serial console. What is the serial setting?
+IIRC, the zx6000 has these serial ports:
 
+    ttyS0  built-in, labelled serial A
+    ttyS1  built-in, labelled serial B
+    ttyS2  optional on MP card, UPS port
+    ttyS3  optional on MP card, console port
 
-H.J.
+So use "console=ttyS0" or "console=ttyS3" depending on which
+port you choose.
+
+If you're using a LAN connection to the MP, you still need
+to use "console=ttyS3" to select the MP console UART, which
+the MP splices into the LAN connection.
