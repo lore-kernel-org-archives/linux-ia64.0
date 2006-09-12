@@ -1,14 +1,20 @@
 From: Martin Bligh <mbligh@google.com>
-Date: Tue, 12 Sep 2006 17:40:00 +0000
+Date: Tue, 12 Sep 2006 17:47:37 +0000
 Subject: Re: [PATCH 0/8] Optional ZONE_DMA V1
-Message-Id: <4506F0F0.8080905@google.com>
+Message-Id: <4506F2B9.5020600@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060911222729.4849.69497.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20060911222729.4849.69497.sendpatchset@schroedinger.engr.sgi.com>
+References: <20060911222729.4849.69497.sendpatchset@schroedinger.engr.sgi.com> <20060912133457.GC10689@sgi.com> <Pine.LNX.4.64.0609121032310.11278@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0609121032310.11278@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Jack Steiner <steiner@sgi.com>, Linux Memory Management <linux-mm@kvack.org>, Nick Piggin <nickpiggin@yahoo.com.au>, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Marcelo Tosatti <marcelo@kvack.org>, Arjan van de Ven <arjan@infradead.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Andi Kleen <ak@suse.de>
+
+Resending. Your outbound email address is invalid
+(Christoph Lameter <christoph@engr.sgi.com>), as is
+the address for linux-mm
+
 
 Christoph Lameter wrote:
 > On Tue, 12 Sep 2006, Jack Steiner wrote:
@@ -33,7 +39,7 @@ Christoph Lameter wrote:
 > This is wrong. All memory should be in ZONE_NORMAL since we have no DMA 
 > restrictions on Altix.
 
-PPC64 works the same way, I believe. All memory is DMA'able, therefore 
+PPC64 works the same way, I believe. All memory is DMA'able, therefore
 it all fits in ZONE_DMA.
 
 The real problem is that there's no consistent definition of what the
@@ -54,3 +60,4 @@ But I suspect this level of change will cause too many people to squeak
 loudly.
 
 M.
+
