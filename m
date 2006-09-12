@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 12 Sep 2006 21:25:34 +0000
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Tue, 12 Sep 2006 22:56:07 +0000
 Subject: Re: IA64 kexec/kdump 2.6.18-rc5 patch
-Message-Id: <20060912212534.GA27705@sgi.com>
+Message-Id: <1158101767.2591.16.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1156837594.2598.15.camel@linux-znh>
 In-Reply-To: <1156837594.2598.15.camel@linux-znh>
@@ -10,24 +10,64 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Sep 12, 2006 at 01:23:54PM -0700, Luck, Tony wrote:
-> > Hmmm. I may have answered at least part of my question. It appears that the boot cpu
-> > cannot exit back to the SAL slave loop since it was never in the slave loop to start with.
-> >
-> > This will take some thought..... More later.
+On Wed, 2006-09-13 at 01:13, Jack Steiner wrote:
+> > Hi,
+> > 	Below is the IA64 kexec/kdump patch against 2.6.18-rc5.
+> > 
+> ...
+> > 3. put AP to a loop of hint.pause instead of call pal_halt_light.
+> > diff -Nraup linux-2.6.18-rc5/arch/ia64/kernel/smp.c linux-2.6.18-rc5-kdump/arch/ia64/kernel/smp.c
+> > --- linux-2.6.18-rc5/arch/ia64/kernel/smp.c	2006-06-18 09:49:35.000000000 +0800
+> > +++ linux-2.6.18-rc5-kdump/arch/ia64/kernel/smp.c	2006-08-30 10:36:01.000000000 +0800
+> ...
+> > +void
+> > +kexec_stop_this_cpu (void *func)
+> > +{
+> > +	unsigned long pta, impl_va_bits, pal_base;
+> > +
+> > +	/*
+> > +	 * Remove this CPU by putting it into fake SAL rendezvous
+> > +	 */
+> > +	cpu_clear(smp_processor_id(), cpu_online_map);
+> > +	max_xtp();
+> > +	ia64_eoi();
+> > +
+> > +	/* Disable VHPT */
+> > +	impl_va_bits = ffz(~(local_cpu_data->unimpl_va_mask | (7UL << 61)));
+> > +	pta = POW2(61) - POW2(vmlpt_bits);
+> > +	ia64_set_pta(pta | (0 << 8) | (vmlpt_bits << 2) | 0);
+> > +
+> > +	local_irq_disable();
+> > +	pal_base = __get_cpu_var(ia64_mca_pal_base);
+> > +	kexec_fake_sal_rendez(func, ap_wakeup_vector, pal_base);
+> > +}
+> > +#endif
 > 
-> Yes.  cpu0 is a special case as there is no way to return it to SAL.
-> Linux hotplug code has a hack where we borrow the return details from
-> some other cpu in the case that someone wants to take cpu0 offline.
-> Will this work for Altix?  Would we have to be careful to get the
-> return details from some other cpu on the same node?
+> What was the reason for introducing the kexec_fake_sal_rendez() function instead of
+> actually returning to the real SAL slave loop. The HOTPLUG_CPU code in play_dead()
+> in arch/ia64/kernel/process.c is very similar to what is needed.
 > 
-> -Tony
 
-Interesting idea. We might be able to make this work. It looks like we
-need to make some changes to our BIOS to make this work but it looks
-possible.
+  the fake_sal_rendez code is from Aziz to be used at time of kexec -l
+if CONFIG_HOTPLUG_CPU is not defined. They are not executed at the time
+of crash dump.
 
-I'll investigate this some more.....
+> 
+> I'm sure the problem is platform specific, but on the SN platform, the other cpus must be
+> sent back to the real SAL slave loops. Otherwise, targeting of IO interrupts
+> will not work correctly in the new kexec'd kernel. 
+> 
+> IO interrupts are distributed across cpus that are not in the SAL slave loop. If 
+> cpus are idled in the OS instead of SAL, interrrupts are incorrected targeted
+> to cpus that cannot respond.
+> 
+> 
+  At the time of crash, neither fake nor real SAL rendez state are
+entered. I just put all the other cpus into cpu_relax loop to simplify
+the code. Does it work on SN2 if you call ia64_jump_to_sal at
+kdump_cpu_freeze? 
 
--- jack
+Thanks
+Zou Nan hai
+> 
+> -- jack
