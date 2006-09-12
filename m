@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 12 Sep 2006 09:12:26 +0000
+From: Christoph Lameter <christoph@engr.sgi.com>
+Date: Tue, 12 Sep 2006 18:05:53 +0000
 Subject: Re: [PATCH 3/6] Optional ZONE_DMA in the VM
-Message-Id: <450679FA.7040704@sgi.com>
+Message-Id: <Pine.LNX.4.64.0609121102170.11481@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,30 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Andi Kleen wrote:
->> So I totally agree, GFP_DMA allocations really ought to fail in this
->> situation and we should fixup the users instead.
-> 
-> It's just impossible to fix them without having a bounce buffer.
-> The only way would be to not use the hardware. I guess 
-> we can find out how many people still use floppies and other
-> such hardware by having it for some time in -mm*.
+On Tue, 12 Sep 2006, Nick Piggin wrote:
 
-Actually I was somehow unclear in my mail. You are right about the 24bit
-zone, but there is also the issue of the 32bit zone to deal with, which
-is what I had in mind. This is still common, even if things like ISA and
-floppies are history.
+> Christoph Lameter wrote:
+> > On Tue, 12 Sep 2006, Nick Piggin wrote:
+> > > I can't see from your patches, but what happens if someone asks
+> > > for a GFP_DMA page or dma slab allocation when there is no ZONE_DMA?
+> > The page/slab allocator will simply ignore the flag and return ZONE_NORMAL
+> > memory. See gfp_zone().
+> That's wrong, I think? It should return NULL surely? (and possibly do
+> a printk telling the user they should enable ZONE_DMA config, although
+> some users have valid fallback strategies).
 
-> But I reserve the right that if this thing becomes a FAQ - e.g. 
-> various people set the option wrong and break their systems
-> to rip it out again. I'm not interested at all in patches that increase
-> the bogus bug report rate. 
+Ignoring GFP_DMA is consistent with how GFP_DMA32 and GFP_HIGHMEM ar 
+treated.
 
-Nod, I am worried if we get to a state with random bug reports or 32bit
-cards not working because of this. You may be able to explain it to
-users one at a time, but I really don't feel like spending my time doing
-that :)
+There are subsystems that sporadically set GFP_DMA and the earlier 
+patchset was so full of #ifdefs because it attempted to cover all cases.
 
-Cheers,
-Jes
+ZONE_DMA must be enabled if a device drivers relies on ISA DMA or 
+GENERIC DMA. Otherwise we do not allow the selection of the driver.
+
+We could add a BUG in gfp_zone which will give us all locations.
+
+
+
 
