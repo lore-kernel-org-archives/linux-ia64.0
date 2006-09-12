@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 12 Sep 2006 08:30:11 +0000
+Date: Tue, 12 Sep 2006 09:12:26 +0000
 Subject: Re: [PATCH 3/6] Optional ZONE_DMA in the VM
-Message-Id: <yq0r6yhfpws.fsf@jaguar.mkp.net>
+Message-Id: <450679FA.7040704@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20060911222744.4849.26386.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,31 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Nick" = Nick Piggin <nickpiggin@yahoo.com.au> writes:
+Andi Kleen wrote:
+>> So I totally agree, GFP_DMA allocations really ought to fail in this
+>> situation and we should fixup the users instead.
+> 
+> It's just impossible to fix them without having a bounce buffer.
+> The only way would be to not use the hardware. I guess 
+> we can find out how many people still use floppies and other
+> such hardware by having it for some time in -mm*.
 
-Nick> Christoph Lameter wrote:
->> On Tue, 12 Sep 2006, Nick Piggin wrote:
->>> I can't see from your patches, but what happens if someone asks
->>> for a GFP_DMA page or dma slab allocation when there is no
->>> ZONE_DMA?
->>> 
->>  The page/slab allocator will simply ignore the flag and return
->> ZONE_NORMAL memory. See gfp_zone().
+Actually I was somehow unclear in my mail. You are right about the 24bit
+zone, but there is also the issue of the 32bit zone to deal with, which
+is what I had in mind. This is still common, even if things like ISA and
+floppies are history.
 
-Nick> That's wrong, I think? It should return NULL surely? (and
-Nick> possibly do a printk telling the user they should enable
-Nick> ZONE_DMA config, although some users have valid fallback
-Nick> strategies).
+> But I reserve the right that if this thing becomes a FAQ - e.g. 
+> various people set the option wrong and break their systems
+> to rip it out again. I'm not interested at all in patches that increase
+> the bogus bug report rate. 
 
-That was what hit my mind first as well when I saw these patches. The
-other issue is what about 64 bit machines that are trying to allocate
-32 bit addresses because they are either out of IOMMU slots or needs
-to allocate bounce buffers for swiotlb support?  Silently trying to
-feed a device a 64 bit address could have some 'interesting' side
-effects.
-
-So I totally agree, GFP_DMA allocations really ought to fail in this
-situation and we should fixup the users instead.
+Nod, I am worried if we get to a state with random bug reports or 32bit
+cards not working because of this. You may be able to explain it to
+users one at a time, but I really don't feel like spending my time doing
+that :)
 
 Cheers,
 Jes
+
