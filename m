@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 11 Sep 2006 16:18:08 +0000
+From: Takao Indoh <indou.takao@jp.fujitsu.com>
+Date: Wed, 13 Sep 2006 02:27:59 +0000
 Subject: Re: [Fastboot] [PATCH]IA64 kexec/kdump patch for INIT
-Message-Id: <20060911161808.GA542@intel.com>
+Message-Id: <A8C6D6DC3AF448indou.takao@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <82C6D21B8B7A9Cindou.takao@jp.fujitsu.com>
 In-Reply-To: <82C6D21B8B7A9Cindou.takao@jp.fujitsu.com>
@@ -10,33 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Sep 11, 2006 at 02:12:13PM +0800, Zou Nan hai wrote:
-> On Mon, 2006-09-11 at 14:56, Keith Owens wrote:
-> > entering ia64_init_handler, r1 must be set to what the kernel expects
-> > to be in r1.  The standard kernel's r1 is a region 7 address, not a
-> > region 5 address.  The kernel (including __gp) is compiled as region 5
-> > but relocated to region 7 during kernel load.
-> > 
-> > Is the kexec kernel running in region 5?  That may be where the
-> > confusion is coming from.
-> > 
-> Hi Keith,
-> 	For 2.6 kernel, I think GP is a region 5 address when inside kernel.
-> The entire kernel image is resided in region 5 without relocate to
-> region 7. 
+On 11 Sep 2006 14:12:13 +0800, Zou Nan hai wrote:
 
-Nanhai is right here.  The kernel is linked at region 5
-addresses and mapped into physical memory by ITR[0]/DTR[0]
+>	I am not quite sure though, if OS_INIT is happened during a module
+>execution, or happened when system is in user space, what GP value will
+>be passed from SAL/PAL? If the gp value is the physical address of the
+>modules 's gp, we can't set GP value according to that, because
+>ia64_init_handler is inside kernel.
 
-Code in head.S that initializes r1 before we call any C code
-is a simple "movl gp=__gp".  Disassembling vmlinux, I see that
-became: "movl r1=0xa000000100b6ea80".  Peeking with a debugger
-at the running kernel I see a region 5 address in r1.
+When OS_INIT handler is called from SAL, gp register is always
+set to the value which is specified by ia64_sal_set_vectors,
+I think.
 
-Perhaps you are remembering the tricks that we play with the
-address of "init_task" ... that has truly schizophrenic
-existance between region5 and region7 (and our preferred access
-address has changed from region7 to region5 as the years have
-gone by to make list_structs inside init_task work correctly).
+Regards,
+Takao Indoh
 
--Tony
