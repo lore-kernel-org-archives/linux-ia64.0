@@ -1,33 +1,42 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 13 Sep 2006 09:52:46 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 13 Sep 2006 17:23:10 +0000
 Subject: Re: [PATCH 0/8] Optional ZONE_DMA V1
-Message-Id: <4507D4EE.4060501@sgi.com>
+Message-Id: <Pine.LNX.4.64.0609131015360.17927@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060911222729.4849.69497.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20060911222729.4849.69497.sendpatchset@schroedinger.engr.sgi.com>
+ <1158046205.2992.1.camel@laptopd505.fenrus.org>
+ <Pine.LNX.4.64.0609121024290.11188@schroedinger.engr.sgi.com>
+ <yq0d5a0fbcj.fsf@jaguar.mkp.net> <Pine.LNX.4.64.0609130109030.15792@schroedinger.engr.sgi.com>
+ <4507D4EE.4060501@sgi.com>
+In-Reply-To: <4507D4EE.4060501@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: Arjan van de Ven <arjan@infradead.org>, linux-mm@kvack.org, Nick Piggin <nickpiggin@yahoo.com.au>, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Marcelo Tosatti <marcelo@kvack.org>, Martin Bligh <mbligh@google.com>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Andi Kleen <ak@suse.de>
 
-Christoph Lameter wrote:
-> On Wed, 13 Sep 2006, Jes Sorensen wrote:
+On Wed, 13 Sep 2006, Jes Sorensen wrote:
+
+> > There was the floppy driver and one type of USB stick that I noticed 
+> > during the work on the project. But other drivers may depend also depend 
+> > indirectly on DMA functionality and may also be disabled.
 > 
->>>>>>> "Christoph" = Christoph Lameter <clameter@sgi.com> writes:
->> Christoph> It is true for a large range of hardware. My x86 x64
->> Christoph> systems do not need the DMA zone and I have been running
->> Christoph> them for awhile in this mode. Some drivers are not
->> Christoph> available as a result of not having ZONE_DMA.
->>
->> Any idea which ones?
-> 
-> There was the floppy driver and one type of USB stick that I noticed 
-> during the work on the project. But other drivers may depend also depend 
-> indirectly on DMA functionality and may also be disabled.
+> Ok, USB should ring alarm bells, floppy I think is less relevant these
+> days :)
 
-Ok, USB should ring alarm bells, floppy I think is less relevant these
-days :)
+If you want all drivers then you must of course have ZONE_DMA. 
+Distributions that want to cover all drivers will have it on by default 
+and ZONE_DMA is available by default.
 
-Cheers,
-Jes
+However, if you want to create a lean and mean kernel then you can switch 
+ZONE_DMA off and if there is just one zone left then the VM can 
+optimized much better because loops are avoided and some macros 
+become constant etc etc.
+
+Some architectures never need ZONE_DMA because all hardware supports DMA 
+to all of memory. SGI Altix is one example. Carrying an additional 
+useless zone around unecessarily bloats the kernel both in term of code 
+and data. Data is a particular issue since zones contain per cpu elements. 
+For a 1k cpu 1k node configuration this saves around 1 million per cpu 
+structures (one zone per node with 1k per cpu pagesets).
 
