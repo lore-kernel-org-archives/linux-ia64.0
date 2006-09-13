@@ -1,74 +1,93 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 14 Sep 2006 11:10:30 +0000
-Subject: Re: [patch] trim output of show_mem()
-Message-Id: <yq0r6yeemah.fsf@jaguar.mkp.net>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Wed, 13 Sep 2006 04:55:25 +0000
+Subject: [PATCH]Make gp value point to Region 5 in mca handler
+Message-Id: <1158123325.2591.46.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq0zmd3esi7.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0zmd3esi7.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Robin" = Robin Holt <holt@sgi.com> writes:
+MCA dispatch code take physical address of GP passed from SAL, 
+then call DATA_PA_TO_VA twice on GP before call into C code.
+The first time is in ia64_set_kernel_register, the second time is in
+VIRTUAL_MODE_ENTER.
+The gp is changed to a virtual address in region 7 because DATA_PA_TO_VA
+is implemented 
+by dep instruction. 
 
->> This patch goes on top of the patch I posted earlier today. It
->> trims the number of lines of memory information output per node
->> down from 5 lines to one line per node. Kinda helps if you have
->> 1024 live nodes in
+However when notify blocks were called from MCA handler code, 
+because notify blocks are supported by callback function pointers, 
+gp value value was switched to region 5 again. 
 
-Robin> That is a great improvement!
 
-:-)
+The patch set gp register to kernel gp of region 5 at entry of MCA
+dispatch.
 
-Robin> Note, I changed the one tab to a space and abbreviated.  This
-Robin> puts things into an 80 column display.  How would you feel
-Robin> about putting the two printks together?
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
-Looks good to me, Tony will you take this one instead?
-
-Tested and all ;)
-
-Cheers,
-Jes
-
-Cut the number of lines of memory info output per node from five
-to one line.
-
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-
----
- arch/ia64/mm/discontig.c |    9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
-
-Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c
-+++ linux-2.6/arch/ia64/mm/discontig.c
-@@ -551,12 +551,12 @@ void show_mem(void)
- 	show_free_areas();
- 	printk(KERN_INFO "Free swap:       %6ldkB\n",
- 	       nr_swap_pages<<(PAGE_SHIFT-10));
-+	printk(KERN_INFO "Node memory in pages:\n");
- 	for_each_online_pgdat(pgdat) {
- 		unsigned long present;
- 		unsigned long flags;
- 		int shared = 0, cached = 0, reserved = 0;
+diff -Nraup linux-2.6.18-rc6/arch/ia64/kernel/mca_asm.S linux-2.6.18-rc6-fix/arch/ia64/kernel/mca_asm.S
+--- linux-2.6.18-rc6/arch/ia64/kernel/mca_asm.S	2006-09-13 10:21:06.000000000 +0800
++++ linux-2.6.18-rc6-fix/arch/ia64/kernel/mca_asm.S	2006-09-13 10:29:11.000000000 +0800
+@@ -270,7 +270,7 @@ done_tlb_purge_and_reload:
+ 	mov r7=r2
  
--		printk(KERN_INFO "Node ID: %d\n", pgdat->node_id);
- 		pgdat_resize_lock(pgdat, &flags);
- 		present = pgdat->node_present_pages;
- 		for(i = 0; i < pgdat->node_spanned_pages; i++) {
-@@ -580,10 +580,9 @@ void show_mem(void)
- 		total_reserved += reserved;
- 		total_cached += cached;
- 		total_shared += shared;
--		printk(KERN_INFO "\t%ld pages of RAM\n", present);
--		printk(KERN_INFO "\t%d reserved pages\n", reserved);
--		printk(KERN_INFO "\t%d pages shared\n", shared);
--		printk(KERN_INFO "\t%d pages swap cached\n", cached);
-+		printk(KERN_INFO "Node %4d:  RAM: %11ld, rsvd: %8d, "
-+		       "shrd: %10d, swpd: %10d\n", pgdat->node_id,
-+		       present, reserved, shared, cached);
- 	}
- 	printk(KERN_INFO "%ld pages of RAM\n", total_present);
- 	printk(KERN_INFO "%d reserved pages\n", total_reserved);
+         // Enter virtual mode from physical mode
+-	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_begin, r4)
++	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_begin, r4, __gp)
+ 
+ 	// This code returns to SAL via SOS r2, in general SAL has no unwind
+ 	// data.  To get a clean termination when backtracing the C MCA/INIT
+@@ -364,7 +364,7 @@ ia64_os_init_dispatch:
+ 	mov r7=r2
+ 
+         // Enter virtual mode from physical mode
+-	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_init_virtual_begin, r4)
++	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_init_virtual_begin, r4, __gp)
+ 
+ 	// This code returns to SAL via SOS r2, in general SAL has no unwind
+ 	// data.  To get a clean termination when backtracing the C MCA/INIT
+@@ -1025,18 +1025,13 @@ ia64_old_stack:
+ 
+ ia64_set_kernel_registers:
+ 	add temp3=MCA_SP_OFFSET, r3
+-	add temp4=MCA_SOS_OFFSET+SOS(OS_GP), r3
+ 	mov b0=r2		// save return address
+ 	GET_IA64_MCA_DATA(temp1)
+ 	;;
+-	add temp4=temp4, temp1	// &struct ia64_sal_os_state.os_gp
+ 	add r12=temp1, temp3	// kernel stack pointer on MCA/INIT stack
+ 	add r13=temp1, r3	// set current to start of MCA/INIT stack
+ 	add r20=temp1, r3	// physical start of MCA/INIT stack
+ 	;;
+-	ld8 r1=[temp4]		// OS GP from SAL OS state
+-	;;
+-	DATA_PA_TO_VA(r1,temp1)
+ 	DATA_PA_TO_VA(r12,temp2)
+ 	DATA_PA_TO_VA(r13,temp3)
+ 	;;
+diff -Nraup linux-2.6.18-rc6/include/asm-ia64/mca_asm.h linux-2.6.18-rc6-fix/include/asm-ia64/mca_asm.h
+--- linux-2.6.18-rc6/include/asm-ia64/mca_asm.h	2006-06-18 09:49:35.000000000 +0800
++++ linux-2.6.18-rc6-fix/include/asm-ia64/mca_asm.h	2006-09-13 10:34:11.000000000 +0800
+@@ -156,7 +156,7 @@
+  *	7.	Do an rfi to move ipsr to psr and iip to ip.
+  */
+ 
+-#define VIRTUAL_MODE_ENTER(temp1, temp2, start_addr, old_psr)	\
++#define VIRTUAL_MODE_ENTER(temp1, temp2, start_addr, old_psr, gp_addr)	\
+ 	mov	temp2 = psr;					\
+ 	;;							\
+ 	mov	old_psr = temp2;				\
+@@ -197,9 +197,9 @@
+ 	movl	temp2 = start_addr;				\
+ 	;;							\
+ 	mov	cr.iip = temp2;					\
++	movl	gp = gp_addr					\
+ 	;;							\
+ 	DATA_PA_TO_VA(sp, temp1);				\
+-	DATA_PA_TO_VA(gp, temp2);				\
+ 	srlz.i;							\
+ 	;;							\
+ 	nop	1;						\
+
+
