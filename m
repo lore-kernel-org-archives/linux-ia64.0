@@ -1,81 +1,60 @@
-From: Horms <horms@verge.net.au>
-Date: Fri, 29 Sep 2006 05:37:52 +0000
-Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-Message-Id: <20060929053751.GB26519@verge.net.au>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 13 Sep 2006 14:44:00 +0000
+Subject: [patch] trim output of show_mem()
+Message-Id: <yq0zmd3esi7.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200609271152.12393.Tristan.Gingold@bull.net>
-In-Reply-To: <200609271152.12393.Tristan.Gingold@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Sep 29, 2006 at 01:13:17PM +0800, Zou, Nanhai wrote:
-> > -----Original Message-----
-> > From: linux-ia64-owner@vger.kernel.org
-> > [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Horms
-> > Sent: 2006年9月29日 11:03
-> > To: Zou, Nanhai
-> > Cc: Magnus Damm; Tristan Gingold; Linux-IA64;
-> > xen-ia64-devel@lists.xensource.com
-> > Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-> > 
-> > On Fri, Sep 29, 2006 at 10:21:33AM +0800, Zou, Nanhai wrote:
-> > > > -----Original Message-----
-> > > > From: Magnus Damm [mailto:magnus.damm@gmail.com]
-> > > > Sent: 2006年9月28日 20:34
-> > > > To: Tristan Gingold
-> > > > Cc: Horms; Zou, Nanhai; Linux-IA64; xen-ia64-devel@lists.xensource.com
-> > > > Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-> > > >
-> > > > On 9/28/06, Tristan Gingold <Tristan.Gingold@bull.net> wrote:
-> > > > > Le Jeudi 28 Septembre 2006 03:27, Horms a écrit :
-> > > > > > On Wed, Sep 27, 2006 at 11:52:12AM +0200, Tristan Gingold wrote:
-> > > > > > > Linux and xen call efi in real mode if set_virtual_address_map fails.
-> > > > > > > You may add an option in both xen and linux to force calling efi in
-> > real
-> > > > > > > mode. This should be really simple and you will be able to make progress.
-> > > > > >
-> > > > > > Great, I will test this out and see how it goes.
-> > > > > >
-> > > > > > > The only possible drawback is performance.
-> > > > > >
-> > > > > > What kind of performance issues would you expect?
-> > > > > Making EFI calls in physical mode is slower: Linux must switch from and
-> > to
-> > > > > virtual mode.
-> > > > >
-> > > > > However EFI calls are very unfrequent so the impact should be almost nul.
-> > > >
-> > > > This makes me wonder - is it really worth having two code paths in that
-> > case?
-> > > >
-> > > > / magnus
-> > >
-> > > I am still not quiet clear about the particular issue on Xen.
-> > >
-> > > For native IA64,
-> > > I put an empty efi.set_virtual_address_map() in purgatory code, So
-> > > when the second kernel boots, it will still call to
-> > > set_virtual_address_map() as if it successes.  I guess you can modify
-> > > the empty function in purgatory to return an error.  So the second
-> > > kernel will call EFI in physical mode.
-> > 
-> > I'm not 100% sure what the issue with xen->linux and linux->xen is
-> > either. However my theory is that it relates to the fact that in linux
-> > PAGE_OFFSET is 0xe000..., while in Xen it is 0xf000..., and thus any
-> > addressing setup using efi.set_virtual_address_map() in one would seem
-> > to be invalid in the other.
-> > 
->  That is why I suggest you to return error in the set_virtual_address_map() in purgatory code. That will force the second kernel to use EFI physical call.
+Hi,
 
-Sure. I think that is a pretty good idea. Except that we
-need to make sure that set_virtual_address_map() isn't called
-by the original code (well at least not a real working version),
-as once it is called real mode EFI calls can no longer be made.
+This patch goes on top of the patch I posted earlier today. It trims
+the number of lines of memory information output per node down from 5
+lines to one line per node. Kinda helps if you have 1024 live nodes in
+a system and you are dumping to the console :)
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+Cheers,
+Jes
 
+Cut the number of lines of memory info output per node from five
+to one line.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ arch/ia64/mm/discontig.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+Index: linux-2.6/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c
++++ linux-2.6/arch/ia64/mm/discontig.c
+@@ -551,12 +551,13 @@ void show_mem(void)
+ 	show_free_areas();
+ 	printk(KERN_INFO "Free swap:       %6ldkB\n",
+ 	       nr_swap_pages<<(PAGE_SHIFT-10));
++	printk(KERN_INFO "Node memory in pages:\n");
+ 	for_each_online_pgdat(pgdat) {
+ 		unsigned long present;
+ 		unsigned long flags;
+ 		int shared = 0, cached = 0, reserved = 0;
+ 
+-		printk(KERN_INFO "Node ID: %d\n", pgdat->node_id);
++		printk(KERN_INFO "Node %d:", pgdat->node_id);
+ 		pgdat_resize_lock(pgdat, &flags);
+ 		present = pgdat->node_present_pages;
+ 		for(i = 0; i < pgdat->node_spanned_pages; i++) {
+@@ -580,10 +581,8 @@ void show_mem(void)
+ 		total_reserved += reserved;
+ 		total_cached += cached;
+ 		total_shared += shared;
+-		printk(KERN_INFO "\t%ld pages of RAM\n", present);
+-		printk(KERN_INFO "\t%d reserved pages\n", reserved);
+-		printk(KERN_INFO "\t%d pages shared\n", shared);
+-		printk(KERN_INFO "\t%d pages swap cached\n", cached);
++		printk("\tRAM: %ld, reserved: %d, shared: %d, "
++		       "swap cached: %d\n", present, reserved, shared, cached);
+ 	}
+ 	printk(KERN_INFO "%ld pages of RAM\n", total_present);
+ 	printk(KERN_INFO "%d reserved pages\n", total_reserved);
