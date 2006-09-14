@@ -1,262 +1,59 @@
-From: Horms <horms@verge.net.au>
-Date: Thu, 21 Sep 2006 11:33:08 +0000
-Subject: Re: [Fastboot] [Patch] kexec-tools: --noio option to disable I/O in purgatory	code.
-Message-Id: <20060921113307.GK18110@verge.net.au>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 14 Sep 2006 12:24:04 +0000
+Subject: BUG: warning at arch/ia64/kernel/iosapic.c:917/iosapic_unregister_intr()
+Message-Id: <jewt86bpqz.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 21, 2006 at 01:06:08PM +0800, Zou Nan hai wrote:
-> SN platform support PIO in a different way to generic IA64 platform. It
-> does not support most of the legacy I/O ports.
-> 
-> Give an --noio option to kexec-tools to disable I/O in purgatory code.
-> 
-> This patch also removed an unused io.h in kexec-tools.
-> 
-> Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+Has anyone else seen this?  When shutting down 2.6.18-rc6-git3 on an Intel
+Tiger I'm always getting this BUG:
 
-I have merged the following into kexec-tools-test.
+ACPI: PCI interrupt for device 0000:01:00.0 disabled
+GSI 18 (level, low) -> CPU 5 (0xc318) vector 53 unregistered
+interrupt handlers still exist onIRQ 53
+BUG: warning at arch/ia64/kernel/iosapic.c:917/iosapic_unregister_intr()
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+Call Trace:
+ [<a000000100014400>] show_stack+0x40/0xa0
+                                sp=E0000003ff897b40 bsp=E0000003ff891360
+ [<a000000100014490>] dump_stack+0x30/0x60
+                                sp=E0000003ff897d10 bsp=E0000003ff891348
+ [<a00000010004fac0>] iosapic_unregister_intr+0x700/0x760
+                                sp=E0000003ff897d10 bsp=E0000003ff8912f8
+ [<a00000010000bc00>] acpi_unregister_gsi+0x20/0x40
+                                sp=E0000003ff897d10 bsp=E0000003ff8912d8
+ [<a000000100356380>] acpi_pci_irq_disable+0x140/0x160
+                                sp=E0000003ff897d10 bsp=E0000003ff8912a8
+ [<a00000010041d160>] pcibios_disable_device+0x20/0x40
+                                sp=E0000003ff897d20 bsp=E0000003ff891288
+ [<a0000001002ca3f0>] pci_disable_device+0x170/0x1a0
+                                sp=E0000003ff897d20 bsp=E0000003ff891250
+ [<a0000002046bf610>] e1000_suspend+0x870/0x8e0 [e1000]
+                                sp=E0000003ff897d30 bsp=E0000003ff8911e8
+ [<a0000002046bf6b0>] e1000_shutdown+0x30/0x60 [e1000]
+                                sp=E0000003ff897d30 bsp=E0000003ff8911c8
+ [<a0000001002cd8c0>] pci_device_shutdown+0x80/0xc0
+                                sp=E0000003ff897d30 bsp=E0000003ff8911a8
+ [<a0000001003c8780>] device_shutdown+0x100/0x1c0
+                                sp=E0000003ff897d30 bsp=E0000003ff891188
+ [<a0000001000aea40>] kernel_shutdown_prepare+0x60/0x80
+                                sp=E0000003ff897d30 bsp=E0000003ff891168
+ [<a0000001000aea80>] kernel_power_off+0x20/0x80
+                                sp=E0000003ff897d30 bsp=E0000003ff891150
+ [<a0000001000aef90>] sys_reboot+0x2d0/0x480
+                                sp=E0000003ff897d30 bsp=E0000003ff8910d8
+ [<a00000010000c8c0>] ia64_ret_from_syscall+0x0/0x20
+                                sp=E0000003ff897e30 bsp=E0000003ff8910d8
+ [<a000000000010620>] __kernel_syscall_via_break+0x0/0x20
+                                sp=E0000003ff898000 bsp=E0000003ff8910d8
 
-From: Zou Nan hai <nanhai.zou@intel.com>
-Date: 21 Sep 2006 13:06:08 +0800
-Subject: kexec-tools: --noio option to disable I/O in purgatory	code.
+Andreas.
 
-SN platform support PIO in a different way to generic IA64 platform. It
-does not support most of the legacy I/O ports.
-
-Give an --noio option to kexec-tools to disable I/O in purgatory code.
-
-This patch also removed an unused io.h in kexec-tools.
-
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-
-Edited to consistently use tabs instead of spaces for intentation,
-remove one instance of trailing whitespace, and fix indentation
-of noio line in options[].
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-diff -Nraup kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c
-kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c
---- kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-20 15:30:40.000000000 +0800
-+++ kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-21 15:12:20.000000000 +0800
-@@ -116,16 +116,19 @@ int elf_ia64_load(int argc, char **argv,
- 	unsigned long command_line_base, ramdisk_base;
- 	unsigned long efi_memmap_base, efi_memmap_size;
- 	unsigned long boot_param_base;
-+	unsigned long noio=0;
- 	int result;
- 	int opt;
- 	char *efi_memmap_buf, *boot_param;
- #define OPT_APPEND	(OPT_ARCH_MAX+0)
- #define OPT_RAMDISK	(OPT_ARCH_MAX+1)
-+#define OPT_NOIO	(OPT_ARCH_MAX+2)
- 	static const struct option options[] = {
- 		KEXEC_ARCH_OPTIONS
- 		{"command-line", 1, 0, OPT_APPEND},
- 		{"append",       1, 0, OPT_APPEND},
- 		{"initrd",       1, 0, OPT_RAMDISK},
-+		{"noio",         1, 0, OPT_NOIO},
- 		{0, 0, 0, 0},
- 	};
- 
-@@ -148,6 +151,9 @@ int elf_ia64_load(int argc, char **argv,
- 		case OPT_RAMDISK:
- 			ramdisk = optarg;
- 			break;
-+		case OPT_NOIO:	/* disable PIO and MMIO in purgatory code*/
-+			noio = 1;
-+			break;
- 		}
- 	}
- 	command_line_len = 0;
-@@ -196,6 +202,10 @@ int elf_ia64_load(int argc, char **argv,
- 	boot_param = xmalloc(4096);
-         boot_param_base = add_buffer(info, boot_param, 4096, 4096, 4096, 0,
-                         max_addr, -1);
-+
-+	elf_rel_set_symbol(&info->rhdr, "__noio",
-+			   &noio, sizeof(long));
-+
-         elf_rel_set_symbol(&info->rhdr, "__boot_param_base",
-                         &boot_param_base, sizeof(long));
- 
-diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/entry.S
-kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S
---- kexec-tools-1.101/purgatory/arch/ia64/entry.S	2006-09-20 15:30:40.000000000 +0800
-+++ kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S	2006-09-21 15:11:36.000000000 +0800
-@@ -68,3 +68,4 @@ DECLARE_DATA8(__loaded_segments)
- DECLARE_DATA8(__loaded_segments_num)
- 
- DECLARE_DATA8(__gp_value)
-+DECLARE_DATA8(__noio)
-diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h
-kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h
---- kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h	2006-09-20 15:29:29.000000000 +0800
-+++ kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h	1970-01-01 08:00:00.000000000 +0800
-@@ -1,25 +0,0 @@
--#ifndef ARCH_IO_H
--#define ARCH_IO_H
--
--#include <stdint.h>
--/* Helper functions for directly doing I/O */
--
--extern inline uint8_t inb(void *port)
--{
--	volatile unsigned char *addr = (unsigned char *)port;
--	uint8_t result;
--
--	result = *addr;
--	asm volatile ("mf.a"::: "memory");
--	return result;
--}
--
--extern inline void outb (uint8_t value, void *port)
--{
--	volatile unsigned char *addr = (unsigned char *)port;
--
--	*addr = value;
--	asm volatile ("mf.a"::: "memory");
--}
--
--#endif /* ARCH_IO_H */
-diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/io.h
-kexec-tools-1.101-fix/purgatory/arch/ia64/io.h
---- kexec-tools-1.101/purgatory/arch/ia64/io.h	2006-09-20 15:29:29.000000000 +0800
-+++ kexec-tools-1.101-fix/purgatory/arch/ia64/io.h	2006-09-21 15:11:19.000000000 +0800
-@@ -3,7 +3,7 @@
- #define UNCACHED(x) (void *)((x)|(1UL<<63))
- #define MF()	asm volatile ("mf.a" ::: "memory")
- #define IO_SPACE_ENCODING(p)     ((((p) >> 2) << 12) | (p & 0xfff))
--
-+extern long __noio;
- static inline void *io_addr (unsigned long port)
- {
-         unsigned long offset;
-@@ -16,28 +16,34 @@ static inline void *io_addr (unsigned lo
- static inline unsigned int inb (unsigned long port)
- {
-         volatile unsigned char *addr = io_addr(port);
--        unsigned char ret;
--        ret = *addr;
--        MF();
-+	unsigned char ret = 0;
-+	if (!__noio) {
-+		ret = *addr;
-+		MF();
-+	}
-         return ret;
- }
- 
- static inline unsigned int inw (unsigned long port)
- {
-         volatile unsigned short *addr = io_addr(port);
--        unsigned short ret;
-+	unsigned short ret = 0;
- 
--        ret = *addr;
--	MF();
-+	if (!__noio) {
-+		ret = *addr;
-+		MF();
-+	}
-         return ret;
- }
- 
--static inline unsigned int ia64_inl (unsigned long port)
-+static inline unsigned int inl (unsigned long port)
- {
--        volatile unsigned int *addr = __ia64_mk_io_addr(port);
--        unsigned int ret;
--        ret = *addr;
--	MF();
-+	volatile unsigned int *addr = io_addr(port);
-+	unsigned int ret ;
-+	if (!__noio) {
-+		ret = *addr;
-+		MF();
-+	}
-         return ret;
- }
- 
-@@ -45,50 +51,58 @@ static inline void outb (unsigned char v
- {
-         volatile unsigned char *addr = io_addr(port);
- 
--        *addr = val;
--	MF();
-+	if (!__noio) {
-+		*addr = val;
-+		MF();
-+	}
- }
- 
- static inline void outw (unsigned short val, unsigned long port)
- {
-         volatile unsigned short *addr = io_addr(port);
- 
--        *addr = val;
--	MF();
-+	if (!__noio) {
-+		*addr = val;
-+		MF();
-+	}
- }
- 
- static inline void outl (unsigned int val, unsigned long port)
- {
-         volatile unsigned int *addr = io_addr(port);
- 
--        *addr = val;
--	MF();
-+	if (!__noio) {
-+		*addr = val;
-+		MF();
-+	}
- }
- 
--
- static inline unsigned char readb(const volatile void  *addr)
- {
--        return *(volatile unsigned char *) addr;
-+	return __noio ? 0 :*(volatile unsigned char *) addr;
- }
- static inline unsigned short readw(const volatile void  *addr)
- {
--        return *(volatile unsigned short *) addr;
-+	return __noio ? 0 :*(volatile unsigned short *) addr;
- }
- static inline unsigned int readl(const volatile void  *addr)
- {
--        return *(volatile unsigned int *) addr;
-+	return __noio ? 0 :*(volatile unsigned int *) addr;
- }
- 
- static inline void writeb(unsigned char b, volatile void  *addr)
- {
--        *(volatile unsigned char *) addr = b;
-+	if (!__noio)
-+		*(volatile unsigned char *) addr = b;
- }
- static inline void writew(unsigned short b, volatile void  *addr)
- {
--        *(volatile unsigned short *) addr = b;
-+	if (!__noio)
-+		*(volatile unsigned short *) addr = b;
- }
- static inline void writel(unsigned int b, volatile void  *addr)
- {
--        *(volatile unsigned int *) addr = b;
-+	if (!__noio)
-+		*(volatile unsigned int *) addr = b;
- }
- #endif
-
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
