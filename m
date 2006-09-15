@@ -1,152 +1,53 @@
-From: John Keller <jpk@sgi.com>
-Date: Fri, 22 Sep 2006 14:51:43 +0000
-Subject: [PATCH 3/3] - Altix: Initial ACPI support - ROM shadowing.
-Message-Id: <20060922145143.12442.70075.sendpatchset@attica.americas.sgi.com>
+From: Horms <horms@verge.net.au>
+Date: Fri, 15 Sep 2006 09:25:22 +0000
+Subject: ia64 kexec: xen -> linux
+Message-Id: <20060915092521.GA27714@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
-In-Reply-To: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-Support a shadowed ROM when running with an ACPI capable PROM.
+Hi,
 
-Define a new dev.resource flag IORESOURCE_ROM_BIOS_COPY to
-describe the case of a BIOS shadowed ROM, which can then
-be used to avoid pci_map_rom() making an unneeded call to
-pci_enable_rom().
+as some of you may be aware I am working on porting kexec
+to xen/ia64. I have made a reasoble ammount of progress to this end.
+I'll try and get a new patch set on xen-devel some time next week.
+However I have a problem that I need some ideas on how to solve.
 
+At the moment when kexecing from xen to linux the boot halts on a call
+to efi_gettimeofday(), or more specifically efi.get_time. I'm assuming
+that this is more or less the first efi runtime call that is made, and
+that it is halting because of a discrepancy in the virtual mapping set
+up by efi.set_virtual_address_map().
 
-Signed-off-by: John Keller <jpk@sgi.com>
+The problem as I see it is that linux uses a page_offset that covers the
+most significant 3 bits, wherase xen uses the first 4. The unfortunate
+thing is that efi.set_virtual_address_map() can only be called once,
+and I don't think its possible to change the mappings at all once
+its been called.
 
- arch/ia64/sn/kernel/io_acpi_init.c |   33 +++++++++++++++++++++++++++++++++
- arch/ia64/sn/kernel/io_common.c    |    5 +++--
- arch/ia64/sn/kernel/io_init.c      |    3 +++
- drivers/pci/rom.c                  |    9 ++++++---
- include/linux/ioport.h             |    1 +
- 5 files changed, 46 insertions(+), 5 deletions(-)
+One idea that I had was to make sure that the efi calls are always made
+in real mode, and never call efi.set_virtual_address_map() at all - efi
+calls have to be made using virtual addressing after
+efi.set_virtual_address_map() is called. But can this work?
 
+Another idea from my colleague Magnus was to map the efi runtime calls
+into some area of memory that is agreed upon by both Linux and Xen (and
+any other kexec-able OS/hypervisor). This seems to be tedious at best.
 
-Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-09-22 08:13:28.039809797 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-09-22 08:14:36.792373640 -0500
-@@ -286,9 +286,10 @@ void sn_pci_fixup_slot(struct pci_dev *d
- 	list_add_tail(&pcidev_info->pdi_list,
- 		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
- 
--	if (!SN_ACPI_BASE_SUPPORT())
-+	if (SN_ACPI_BASE_SUPPORT())
-+		sn_acpi_slot_fixup(dev, pcidev_info);
-+	else
- 		sn_more_slot_fixup(dev, pcidev_info);
--
- 	/*
- 	 * Using the PROMs values for the PCI host bus, get the Linux
-  	 * PCI host_pci_dev struct and set up host bus linkages
-Index: linux-2.6/drivers/pci/rom.c
-=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-09-21 17:09:09.167729932 -0500
-+++ linux-2.6/drivers/pci/rom.c	2006-09-22 08:14:36.800374635 -0500
-@@ -77,7 +77,8 @@ void __iomem *pci_map_rom(struct pci_dev
- 		start = (loff_t)0xC0000;
- 		*size = 0x20000; /* cover C000:0 through E000:0 */
- 	} else {
--		if (res->flags & IORESOURCE_ROM_COPY) {
-+		if (res->flags &
-+			(IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY)) {
- 			*size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
- 			return (void __iomem *)(unsigned long)
- 				pci_resource_start(pdev, PCI_ROM_RESOURCE);
-@@ -161,7 +162,8 @@ void __iomem *pci_map_rom_copy(struct pc
- 	if (!rom)
- 		return NULL;
- 
--	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW))
-+	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW |
-+			  IORESOURCE_ROM_BIOS_COPY))
- 		return rom;
- 
- 	res->start = (unsigned long)kmalloc(*size, GFP_KERNEL);
-@@ -187,7 +189,7 @@ void pci_unmap_rom(struct pci_dev *pdev,
- {
- 	struct resource *res = &pdev->resource[PCI_ROM_RESOURCE];
- 
--	if (res->flags & IORESOURCE_ROM_COPY)
-+	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY))
- 		return;
- 
- 	iounmap(rom);
-@@ -211,6 +213,7 @@ void pci_remove_rom(struct pci_dev *pdev
- 		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->rom_attr);
- 	if (!(res->flags & (IORESOURCE_ROM_ENABLE |
- 			    IORESOURCE_ROM_SHADOW |
-+			    IORESOURCE_ROM_BIOS_COPY |
- 			    IORESOURCE_ROM_COPY)))
- 		pci_disable_rom(pdev);
- }
-Index: linux-2.6/include/linux/ioport.h
-=================================--- linux-2.6.orig/include/linux/ioport.h	2006-09-21 17:09:09.167729932 -0500
-+++ linux-2.6/include/linux/ioport.h	2006-09-22 08:14:36.808375629 -0500
-@@ -89,6 +89,7 @@ struct resource_list {
- #define IORESOURCE_ROM_ENABLE		(1<<0)	/* ROM is enabled, same as PCI_ROM_ADDRESS_ENABLE */
- #define IORESOURCE_ROM_SHADOW		(1<<1)	/* ROM is copy at C000:0 */
- #define IORESOURCE_ROM_COPY		(1<<2)	/* ROM is alloc'd copy, resource field overlaid */
-+#define IORESOURCE_ROM_BIOS_COPY	(1<<3)	/* ROM is BIOS copy, resource field overlaid */
- 
- /* PC/ISA/whatever - the normal PC address spaces: IO and memory */
- extern struct resource ioport_resource;
-Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-09-22 08:13:28.039809797 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-09-22 08:14:36.808375629 -0500
-@@ -169,6 +169,39 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
- 	}
- }
- 
-+/*
-+ * sn_acpi_slot_fixup - Perform any SN specific slot fixup.
-+ *			At present there does not appear to be
-+ *			any generic way to handle a ROM image
-+ *			that has been shadowed by the PROM, so
-+ *			we pass a pointer to it	within the
-+ *			pcidev_info structure.
-+ */
-+
-+void
-+sn_acpi_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
-+{
-+	void __iomem *addr;
-+	size_t size;
-+
-+	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
-+		/*
-+		 * A valid ROM image exists and has been shadowed by the
-+		 * PROM. Setup the pci_dev ROM resource to point to
-+		 * the shadowed copy.
-+		 */
-+		size = dev->resource[PCI_ROM_RESOURCE].end -
-+				dev->resource[PCI_ROM_RESOURCE].start;
-+		addr +		     ioremap(pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE],
-+			     size);
-+		dev->resource[PCI_ROM_RESOURCE].start = (unsigned long) addr;
-+		dev->resource[PCI_ROM_RESOURCE].end +						(unsigned long) addr + size;
-+		dev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_BIOS_COPY;
-+	}
-+}
-+
- static struct acpi_driver acpi_sn_hubdev_driver = {
- 	.name = "SGI HUBDEV Driver",
- 	.ids = "SGIHUB,SGITIO",
-Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-09-22 08:13:28.027808294 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-09-22 08:14:36.808375629 -0500
-@@ -210,6 +210,9 @@ sn_more_slot_fixup(struct pci_dev *dev, 
- 			dev->resource[idx].parent = &ioport_resource;
- 		else
- 			dev->resource[idx].parent = &iomem_resource;
-+		/* If ROM, mark as shadowed in PROM */
-+		if (idx = PCI_ROM_RESOURCE)
-+			dev->resource[idx].flags |= IORESOURCE_ROM_BIOS_COPY;
- 	}
- 	/* Create a pci_window in the pci_controller struct for
- 	 * each device resource.
+And a last idea was to replace the efi table with our own calls, much
+the same way that xen provideds a virtualised efi table to its domains.
+However I'm really not sure if this is possible, as it seems that at
+best such functions would be a mechanism to implement the real-mode
+approach.
+
+I'd really appreciate some input on whether or not the problem that
+I think I am seeing is plausible. And if so, is there a decent way
+around it?
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
