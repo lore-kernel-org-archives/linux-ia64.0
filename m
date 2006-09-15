@@ -1,33 +1,48 @@
 From: Takao Indoh <indou.takao@jp.fujitsu.com>
-Date: Fri, 15 Sep 2006 05:34:16 +0000
+Date: Fri, 15 Sep 2006 05:58:59 +0000
 Subject: Re: [Fastboot] [Patch] IA64 Kexec/Kdump patch for 2.6.18-rc6
-Message-Id: <BAC6D88895D68Findou.takao@jp.fujitsu.com>
+Message-Id: <BBC6D88C09AE8Findou.takao@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <BAC6D88895D68Findou.takao@jp.fujitsu.com>
+In-Reply-To: <BAC6D88895D68Findou.takao@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hello Nan hai,
+Hi,
 
-Thanks for updating INIT patch!
+If /proc/sys/kernel/kdump_on_init is 1, oops occurs during reboot.
+(It means normal reboot of 1st kernel, not 2nd kernel reboot)
 
-I have one question. When one cpu sends IPI and other cpus receive INIT
-interrupt, which cpus become monarch? Is there possibility that all cpus
-which receive INIT become slave cpu? If so, these cpus must wait until
-monarch cpu comes.=20
+reboot[11616]: NaT consumption 2216203124768 [1]
+Unable to handle kernel paging request at virtual address 0000020400000020
+reboot[11616]: Oops 11012296146944 [2]
+Unable to handle kernel paging request at virtual address 00000a0400000000
+Recursive die() failure, output suppressed
+INIT: no more processes left in this runlevel
 
-        if (!sos->monarch) {
-                ia64_mc_info.imi_rendez_checkin[cpu] =3D IA64_MCA_RENDEZ_CH=
-ECKIN_INIT;
-                while (monarch_cpu =3D -1)
-                       cpu_relax();     /* spin until monarch enters */
 
-It means these cpus enter infinite loop because the remaining one cpu
-never comes to ia64_init_handler.
+The cause is that kdump_init_notifier is called from notify_die in the
+machine_restart.
+
+void
+machine_restart (char *restart_cmd)
+{
+	(void) notify_die(DIE_MACHINE_RESTART, restart_cmd, NULL, 0, 0, 0);
+	(*efi.reset_system)(EFI_RESET_WARM, 0, 0, NULL);
+}
+
+This problem is fixed by adding the following code to the top of
+kdump_init_notifier.
+
+	if ((val !=3DDIE_INIT_MONARCH_ENTER) && (val !=3D DIE_INIT_SLAVE_ENTER))
+		return NOTIFY_DONE;
 
 Regards,
 Takao Indoh
+
+
 
 
 On 15 Sep 2006 10:55:49 +0800, Zou Nan hai wrote:
