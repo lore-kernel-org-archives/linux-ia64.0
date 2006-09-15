@@ -1,48 +1,105 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 15 Sep 2006 06:08:37 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 15 Sep 2006 09:45:59 +0000
 Subject: Re: [RFC - Patch] Condense output of show_free_areas()
-Message-Id: <20060914230837.e8c53801.akpm@osdl.org>
+Message-Id: <450A7657.8030108@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------090001090600040703070702"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq0mz92efsd.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0mz92efsd.fsf@jaguar.mkp.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
+References: <yq0mz92efsd.fsf@jaguar.mkp.net> <20060914230837.e8c53801.akpm@osdl.org>
+In-Reply-To: <20060914230837.e8c53801.akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
 Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On 14 Sep 2006 09:30:58 -0400
-Jes Sorensen <jes@sgi.com> wrote:
+This is a multi-part message in MIME format.
+--------------090001090600040703070702
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> On larger systems, the amount of output dumped on the console when you
-> do SysRq-M is beyond insane. This patch is trying to reduce it
-> somewhat as even with the smaller NUMA systems that have hit the
-> desktop this seems to be a fair thing to do.
+Andrew Morton wrote:
+> On 14 Sep 2006 09:30:58 -0400 Jes Sorensen <jes@sgi.com> wrote:
+>> While this is a bigger problem on large NUMA systems, it is also
+>> applicable to smaller desktop sized and mid range NUMA systems.
 > 
-> The philosophy I have taken is as follows:
->  1) If a zone is empty, don't tell, we don't need yet another line
->     telling us so. The information is available since one can look up
->     the fact how many zones were initialized in the first place.
->  2) Put as much information on a line is possible, if it can be done
->     in one line, rahter than two, then do it in one. I tried to format
->     the temperature stuff for easy reading.
-> 
-> Comments?
-> 
-> Cheers,
-> Jes
-> 
-> Change show_free_areas() to not print lines for empty zones. If no zone
-> output is printed, the zone is empty. This reduces the number of lines
-> dumped to the console in sysrq on a large system by several thousand
-> lines.
-> 
-> Change the zone temperature printouts to use one line per CPU instead
-> of two lines (one hot, one cold). On a 1024 CPU, 1024 node system, this
-> reduces the console output by over a million lines of output.
-> 
-> While this is a bigger problem on large NUMA systems, it is also
-> applicable to smaller desktop sized and mid range NUMA systems.
+> Could you please send us an example of the new output for review,
+> and for me to include in the changelog?  Thanks.
 
-Could you please send us an example of the new output for review,
-and for me to include in the changelog?  Thanks.
+Whoops, should have thought of that. Note the output is formatted for
+80 columns, so it may look a little dodgy in 72 columns - attached it
+instead.
+
+Sorry it's a bit large, but needed to show the difference, but feel free
+to clip out the middle CPUs or something. This is from a 4-node 8-cpu
+box.
+
+Cheers,
+Jes
+
+
+--------------090001090600040703070702
+Content-Type: text/plain;
+ name="format-compare.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="format-compare.txt"
+
+Old format:
+
+Mem-info:
+Node 0 DMA per-cpu:
+cpu 0 hot: high 42, batch 7 used:24
+cpu 0 cold: high 14, batch 3 used:1
+cpu 1 hot: high 42, batch 7 used:34
+cpu 1 cold: high 14, batch 3 used:0
+cpu 2 hot: high 42, batch 7 used:0
+cpu 2 cold: high 14, batch 3 used:0
+cpu 3 hot: high 42, batch 7 used:0
+cpu 3 cold: high 14, batch 3 used:0
+cpu 4 hot: high 42, batch 7 used:0
+cpu 4 cold: high 14, batch 3 used:0
+cpu 5 hot: high 42, batch 7 used:0
+cpu 5 cold: high 14, batch 3 used:0
+cpu 6 hot: high 42, batch 7 used:0
+cpu 6 cold: high 14, batch 3 used:0
+cpu 7 hot: high 42, batch 7 used:0
+cpu 7 cold: high 14, batch 3 used:0
+Node 0 DMA32 per-cpu: empty
+Node 0 Normal per-cpu: empty
+Node 0 HighMem per-cpu: empty
+Node 1 DMA per-cpu:
+[snip]
+Free pages:     5410688kB (0kB HighMem)
+Active:9536 inactive:4261 dirty:6 writeback:0 unstable:0 free:338168 slab:1931 mapped:1900 pagetables:208
+Node 0 DMA free:1676304kB min:3264kB low:4080kB high:4896kB active:128048kB inactive:61568kB present:1970880kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+Node 0 DMA32 free:0kB min:0kB low:0kB high:0kB active:0kB inactive:0kB present:0kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+Node 0 Normal free:0kB min:0kB low:0kB high:0kB active:0kB inactive:0kB present:0kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+Node 0 HighMem free:0kB min:512kB low:512kB high:512kB active:0kB inactive:0kB present:0kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+Node 1 DMA free:1951728kB min:3280kB low:4096kB high:4912kB active:5632kB inactive:1504kB present:1982464kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+....
+
+New format:
+
+Mem-info:
+Node 0 DMA per-cpu:
+CPU    0: Hot: hi:   42, btch:   7 usd:  41   Cold: hi:   14, btch:   3 usd:   2
+CPU    1: Hot: hi:   42, btch:   7 usd:  40   Cold: hi:   14, btch:   3 usd:   1
+CPU    2: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+CPU    3: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+CPU    4: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+CPU    5: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+CPU    6: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+CPU    7: Hot: hi:   42, btch:   7 usd:   0   Cold: hi:   14, btch:   3 usd:   0
+Node 1 DMA per-cpu:
+[snip]
+Free pages:     5411088kB (0kB HighMem)
+Active:9558 inactive:4233 dirty:6 writeback:0 unstable:0 free:338193 slab:1942 mapped:1918 pagetables:208
+Node 0 DMA free:1677648kB min:3264kB low:4080kB high:4896kB active:129296kB inactive:58864kB present:1970880kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+Node 1 DMA free:1948448kB min:3280kB low:4096kB high:4912kB active:6864kB inactive:3536kB present:1982464kB pages_scanned:0 all_unreclaimable? no
+lowmem_reserve[]: 0 0 0 0
+
+--------------090001090600040703070702--
