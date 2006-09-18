@@ -1,37 +1,57 @@
-From: <eiichiro.oiwa.nm@hitachi.com>
-Date: Thu, 28 Sep 2006 05:03:22 +0000
-Subject: Re[2]: [PATCH 2.6.18] IA64: Add pci_fixup_video into IA64 kernel
-Message-Id: <XNM1$9$0$4$$3$3$7$A$9002687U451b578f@hitachi.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Mon, 18 Sep 2006 21:18:28 +0000
+Subject: [patch] ar.fpsr not set on MCA/INIT kernel entry
+Message-Id: <200609182118.k8ILISN85963198@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <XNM1$9$0$4$$3$3$7$A$9002684U451a5f21@hitachi.com> 
-    <1159359135.11049.341.camel@localhost.localdomain>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Cc: Jesse Barnes <jesse.barnes@intel.com>, akpm@osdl.org, tony.luck@intel.com, greg@kroah.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: linux-ia64@vger.kernel.org
 
->Ar Mer, 2006-09-27 am 20:23 +0900, ysgrifennodd
->eiichiro.oiwa.nm@hitachi.com:
->> I moved pci_fixup_video to generic location (driver/pci/quirks.c).
->> I tested generic fixup_video on x86, x86_64 and IA64, and confirmed
->> we can read Video BIOS from the sysfs rom with embedded VGA.
->
->Lots of embedded systems don't have a PCI bios in the usual sense, and
->cannot run the x86 code in the ROM firmware either. That doesn't appear
->to be a big problem when setting PCI_ROM_SHADOW but those platforms may
->not all be able to access the shadow rom if one exists.
->
->Can you fix the comment in drivers/pci/rom.c to reflect the changes.
->
->Otherwise looks good.
->
->Alan
->
-
-Thank you for some good advise.
-I changed this subject to appropriate one:
-[PATCH 2.6.18] PCI: Turn pci_fixup_video into generic for embedded VGA
-
-Thanks,
-Eiichiro
+W3BhdGNoXSBhci5mcHNyIG5vdCBzZXQgb24gTUNBL0lOSVQga2VybmVsIGVudHJ5CgpXaGVuIGVu
+dGVyaW5nIHRoZSBrZXJuZWwgZHVlIHRvIGFuIE1DQSBvciBJTklULCBhci5mcHNyIChhcjQwKQp3
+YXMgbm90IGdldHRpbmcgc2V0IHRvIHRoZSBrZXJuZWwgZGVmYXVsdCB2YWx1ZSAocmVtYWluaW5n
+CmF0IHRoZSB1c2VyIHZhbHVlKS4gIFRoZSBlZmZlY3QgZGVwZW5kcyBvbiB0aGUgdXNlciBzZXR0
+aW5nIApvZiBhci5mcHNyLiAgSW4gdGhlIHRlc3QgY2FzZSwgdGhlIGVmZmVjdCB3YXMgYWRkcmVz
+c2VzIApwcmludGluZyB3aXRoIHN0cmFuZ2UgaGV4IHZhbHVlcy4gIAoKU2V0dGluZyBhci5mcHNy
+IGluIGlhNjRfc2V0X2tlcm5lbF9yZWdpc3RlcnMgc2V0cyBpdCBmb3IgYm90aAp0aGUgTUNBIGFu
+ZCBJTklUIHBhdGhzLiAgVGhlIHVzZXIgdmFsdWUgb2YgYXIuZnBzciBpcyBjb3JyZWN0bHkgCnNh
+dmVkIChpbiBpYTY0X3N0YXRlX3NhdmUpIGFuZCByZXN0b3JlZCAoaW4gaWE2NF9zdGF0ZV9yZXN0
+b3JlKS4KCkJlbG93IGlzIGFuIGV4YW1wbGUgb2Ygb3V0cHV0IHdpdGggdmVyeSBzdHJhbmdlIGhl
+eCB2YWx1ZXMuCkFueW9uZSBrbm93IHRoZSB2YWx1ZSBvZiBoZXggJ2cnPyAgOi0pCgotLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkVudGVyZWQg
+T1MgSU5JVCBoYW5kbGVyLiBQU1D/ZjJnMTlnIGNwdREgbW9uYXJjaD0xCkRlbGF5aW5nIGZvciA1
+IHNlY29uZHMuLi4KQWxsIE9TIElOSVQgc2xhdmVzIGhhdmUgcmVhY2hlZCByZW5kZXp2b3VzClBy
+b2Nlc3NlcyBpbnRlcnJ1cHRlZCBieSBJTklUIC0gMCAoY3B1IDE0IHRhc2sgMHhkZmZmZzU1Zzdh
+NGM2Z0EpIDAgKGNwdSAxNiB0YXNrIDB4ZGZmZmc1NWc3YTRkNmdBKSAwIChjcHUgMjEgdGFzayAw
+eGRmZmZnMjVmZzNlNWVnQSkKCgpCYWNrdHJhY2Ugb2YgcGlkIDEgKGluaXQpCgpDYWxsIFRyYWNl
+OgogWzw5ZmZmZmZmZ2ZnNzMyOEE+XSBzY2hlZHVsZSsweDE5ZmcvMHgxYzdnCiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgc3DfZmZnNDVmZzNlZGU4QWEgYnNw32ZmZzQ1ZmczZWQ3Z0Ew
+CiBbPDlmZmZmZmZnZmc3MzNnQTA+XSBzY2hlZHVsZV90aW1lb3V0KzB4Z2cvMHgxN2cKICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICBzcN9mZmc0NWZnM2VkZThBZCBic3DfZmZnNDVmZzNl
+ZDdnQTAKIFs8OWZmZmZmZmdmZzE4NWdBcD5dIGRvX3NlbGVjdCsweDM1Zy8weDgzZwogICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIHNw32ZmZzQ1ZmczZWRlOEFkIGJzcN9mZmc0NWZnM2Vk
+N2dBZAogWzw5ZmZmZmZmZ2ZnMTg2OEE+XSBzeXNfc2VsZWN0KzB4NWdnLzB4OWRnCiAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgc3DfZmZnNDVmZzNlZGU4QSBbPDlmZmZmZmZnZmZmZ2E4
+QT5dIGlhNjRfcmV0X2Zyb21fc3lzY2FsbCsweDAvMHgxZwogICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHNw32ZmZzQ1ZmczZWRlOEEwIGJzcN9mZmc0NWZnM2VkN2dBbgogWzw5ZmZmZmZm
+ZmZmZmdlZ0FQPl0gX19rZXJuZWxfc3lzY2FsbF92aWFfYnJlYWsrMHgwLzB4MWcKICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICBzcN9mZmc0NWZnM2VkZWdBIGJzcN9mZmc0NWZnM2VkN2dB
+bgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0KClNpZ25lZC1vZmYtYnk6IFJ1c3MgQW5kZXJzb24gKHJqYUBzZ2kuY29tKQoKCi0t
+LQogYXJjaC9pYTY0L2tlcm5lbC9tY2FfYXNtLlMgfCAgICAyICsrCiAxIGZpbGUgY2hhbmdlZCwg
+MiBpbnNlcnRpb25zKCspCgpJbmRleDogdGVzdC9hcmNoL2lhNjQva2VybmVsL21jYV9hc20uUwo9
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0tLS0gdGVzdC5vcmlnL2FyY2gvaWE2NC9r
+ZXJuZWwvbWNhX2FzbS5TCTIwMDYtMDktMTggMTY6MTA6MDYuMDU4MDYyOTkwIC0wNTAwCisrKyB0
+ZXN0L2FyY2gvaWE2NC9rZXJuZWwvbWNhX2FzbS5TCTIwMDYtMDktMTggMTY6MTA6MjkuNjI4OTcx
+ODg4IC0wNTAwCkBAIC0xMDYzLDcgKzEwNjMsOSBAQCBpYTY0X3NldF9rZXJuZWxfcmVnaXN0ZXJz
+OgogCTs7CiAJbW92IElBNjRfS1IoQ1VSUkVOVF9TVEFDSyk9cjE2CiAJb3IgcjIxPXIyMCxyMjEJ
+CQkJLy8gY29uc3RydWN0IFBBIHwgcGFnZSBwcm9wZXJ0aWVzCisJbW92bCByMTc9RlBTUl9ERUZB
+VUxUCiAJOzsKKwltb3YubSBhci5mcHNyPXIxNwkJCS8vIHNldCBhci5mcHNyIHRvIGtlcm5lbCBk
+ZWZhdWx0IHZhbHVlCiAJbW92IGNyLml0aXI9cjE4CiAJbW92IGNyLmlmYT1yMTMKIAltb3YgcjIw
+PUlBNjRfVFJfQ1VSUkVOVF9TVEFDSwotLSAKUnVzcyBBbmRlcnNvbiwgT1MgUkFTL1BhcnRpdGlv
+bmluZyBQcm9qZWN0IExlYWQgIApTR0kgLSBTaWxpY29uIEdyYXBoaWNzIEluYyAgICAgICAgICBy
+amFAc2dpLmNvbQotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5l
+ICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
+b3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdl
+ci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
