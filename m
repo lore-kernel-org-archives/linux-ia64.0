@@ -1,57 +1,34 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 18 Sep 2006 21:18:28 +0000
-Subject: [patch] ar.fpsr not set on MCA/INIT kernel entry
-Message-Id: <200609182118.k8ILISN85963198@clink.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 18 Sep 2006 22:30:01 +0000
+Subject: Re: [patch] ar.fpsr not set on MCA/INIT kernel entry
+Message-Id: <25493.1158618601@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200609182118.k8ILISN85963198@clink.americas.sgi.com>
+In-Reply-To: <200609182118.k8ILISN85963198@clink.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-W3BhdGNoXSBhci5mcHNyIG5vdCBzZXQgb24gTUNBL0lOSVQga2VybmVsIGVudHJ5CgpXaGVuIGVu
-dGVyaW5nIHRoZSBrZXJuZWwgZHVlIHRvIGFuIE1DQSBvciBJTklULCBhci5mcHNyIChhcjQwKQp3
-YXMgbm90IGdldHRpbmcgc2V0IHRvIHRoZSBrZXJuZWwgZGVmYXVsdCB2YWx1ZSAocmVtYWluaW5n
-CmF0IHRoZSB1c2VyIHZhbHVlKS4gIFRoZSBlZmZlY3QgZGVwZW5kcyBvbiB0aGUgdXNlciBzZXR0
-aW5nIApvZiBhci5mcHNyLiAgSW4gdGhlIHRlc3QgY2FzZSwgdGhlIGVmZmVjdCB3YXMgYWRkcmVz
-c2VzIApwcmludGluZyB3aXRoIHN0cmFuZ2UgaGV4IHZhbHVlcy4gIAoKU2V0dGluZyBhci5mcHNy
-IGluIGlhNjRfc2V0X2tlcm5lbF9yZWdpc3RlcnMgc2V0cyBpdCBmb3IgYm90aAp0aGUgTUNBIGFu
-ZCBJTklUIHBhdGhzLiAgVGhlIHVzZXIgdmFsdWUgb2YgYXIuZnBzciBpcyBjb3JyZWN0bHkgCnNh
-dmVkIChpbiBpYTY0X3N0YXRlX3NhdmUpIGFuZCByZXN0b3JlZCAoaW4gaWE2NF9zdGF0ZV9yZXN0
-b3JlKS4KCkJlbG93IGlzIGFuIGV4YW1wbGUgb2Ygb3V0cHV0IHdpdGggdmVyeSBzdHJhbmdlIGhl
-eCB2YWx1ZXMuCkFueW9uZSBrbm93IHRoZSB2YWx1ZSBvZiBoZXggJ2cnPyAgOi0pCgotLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkVudGVyZWQg
-T1MgSU5JVCBoYW5kbGVyLiBQU1D/ZjJnMTlnIGNwdREgbW9uYXJjaD0xCkRlbGF5aW5nIGZvciA1
-IHNlY29uZHMuLi4KQWxsIE9TIElOSVQgc2xhdmVzIGhhdmUgcmVhY2hlZCByZW5kZXp2b3VzClBy
-b2Nlc3NlcyBpbnRlcnJ1cHRlZCBieSBJTklUIC0gMCAoY3B1IDE0IHRhc2sgMHhkZmZmZzU1Zzdh
-NGM2Z0EpIDAgKGNwdSAxNiB0YXNrIDB4ZGZmZmc1NWc3YTRkNmdBKSAwIChjcHUgMjEgdGFzayAw
-eGRmZmZnMjVmZzNlNWVnQSkKCgpCYWNrdHJhY2Ugb2YgcGlkIDEgKGluaXQpCgpDYWxsIFRyYWNl
-OgogWzw5ZmZmZmZmZ2ZnNzMyOEE+XSBzY2hlZHVsZSsweDE5ZmcvMHgxYzdnCiAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgc3DfZmZnNDVmZzNlZGU4QWEgYnNw32ZmZzQ1ZmczZWQ3Z0Ew
-CiBbPDlmZmZmZmZnZmc3MzNnQTA+XSBzY2hlZHVsZV90aW1lb3V0KzB4Z2cvMHgxN2cKICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICBzcN9mZmc0NWZnM2VkZThBZCBic3DfZmZnNDVmZzNl
-ZDdnQTAKIFs8OWZmZmZmZmdmZzE4NWdBcD5dIGRvX3NlbGVjdCsweDM1Zy8weDgzZwogICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgIHNw32ZmZzQ1ZmczZWRlOEFkIGJzcN9mZmc0NWZnM2Vk
-N2dBZAogWzw5ZmZmZmZmZ2ZnMTg2OEE+XSBzeXNfc2VsZWN0KzB4NWdnLzB4OWRnCiAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgc3DfZmZnNDVmZzNlZGU4QSBbPDlmZmZmZmZnZmZmZ2E4
-QT5dIGlhNjRfcmV0X2Zyb21fc3lzY2FsbCsweDAvMHgxZwogICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHNw32ZmZzQ1ZmczZWRlOEEwIGJzcN9mZmc0NWZnM2VkN2dBbgogWzw5ZmZmZmZm
-ZmZmZmdlZ0FQPl0gX19rZXJuZWxfc3lzY2FsbF92aWFfYnJlYWsrMHgwLzB4MWcKICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICBzcN9mZmc0NWZnM2VkZWdBIGJzcN9mZmc0NWZnM2VkN2dB
-bgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0KClNpZ25lZC1vZmYtYnk6IFJ1c3MgQW5kZXJzb24gKHJqYUBzZ2kuY29tKQoKCi0t
-LQogYXJjaC9pYTY0L2tlcm5lbC9tY2FfYXNtLlMgfCAgICAyICsrCiAxIGZpbGUgY2hhbmdlZCwg
-MiBpbnNlcnRpb25zKCspCgpJbmRleDogdGVzdC9hcmNoL2lhNjQva2VybmVsL21jYV9hc20uUwo9
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0tLS0gdGVzdC5vcmlnL2FyY2gvaWE2NC9r
-ZXJuZWwvbWNhX2FzbS5TCTIwMDYtMDktMTggMTY6MTA6MDYuMDU4MDYyOTkwIC0wNTAwCisrKyB0
-ZXN0L2FyY2gvaWE2NC9rZXJuZWwvbWNhX2FzbS5TCTIwMDYtMDktMTggMTY6MTA6MjkuNjI4OTcx
-ODg4IC0wNTAwCkBAIC0xMDYzLDcgKzEwNjMsOSBAQCBpYTY0X3NldF9rZXJuZWxfcmVnaXN0ZXJz
-OgogCTs7CiAJbW92IElBNjRfS1IoQ1VSUkVOVF9TVEFDSyk9cjE2CiAJb3IgcjIxPXIyMCxyMjEJ
-CQkJLy8gY29uc3RydWN0IFBBIHwgcGFnZSBwcm9wZXJ0aWVzCisJbW92bCByMTc9RlBTUl9ERUZB
-VUxUCiAJOzsKKwltb3YubSBhci5mcHNyPXIxNwkJCS8vIHNldCBhci5mcHNyIHRvIGtlcm5lbCBk
-ZWZhdWx0IHZhbHVlCiAJbW92IGNyLml0aXI9cjE4CiAJbW92IGNyLmlmYT1yMTMKIAltb3YgcjIw
-PUlBNjRfVFJfQ1VSUkVOVF9TVEFDSwotLSAKUnVzcyBBbmRlcnNvbiwgT1MgUkFTL1BhcnRpdGlv
-bmluZyBQcm9qZWN0IExlYWQgIApTR0kgLSBTaWxpY29uIEdyYXBoaWNzIEluYyAgICAgICAgICBy
-amFAc2dpLmNvbQotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5l
-ICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
-b3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdl
-ci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+Russ Anderson (on Mon, 18 Sep 2006 16:18:28 -0500 (CDT)) wrote:
+>[patch] ar.fpsr not set on MCA/INIT kernel entry
+>Index: test/arch/ia64/kernel/mca_asm.S
+>=================================>--- test.orig/arch/ia64/kernel/mca_asm.S	2006-09-18 16:10:06.058062990 -0500
+>+++ test/arch/ia64/kernel/mca_asm.S	2006-09-18 16:10:29.628971888 -0500
+>@@ -1063,7 +1063,9 @@ ia64_set_kernel_registers:
+> 	;;
+> 	mov IA64_KR(CURRENT_STACK)=r16
+> 	or r21=r20,r21				// construct PA | page properties
+>+	movl r17=FPSR_DEFAULT
+> 	;;
+>+	mov.m ar.fpsr=r17			// set ar.fpsr to kernel default value
+> 	mov cr.itir=r18
+> 	mov cr.ifa=r13
+> 	mov r20=IA64_TR_CURRENT_STACK
+
+Any particular reason to place those instructions in the middle of the
+code that wires IA64_TR_CURRENT_STACK?  I tried to keep the tr code as
+standard as possible, to make it easier to change in future.  This code
+is not performance sensitive, readability counts more than a couple of
+unused slots here.
+
