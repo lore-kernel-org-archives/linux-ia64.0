@@ -1,7 +1,7 @@
-From: Don Zickus <dzickus@redhat.com>
-Date: Fri, 15 Sep 2006 14:09:06 +0000
+From: Gerald Pfeifer <gp@suse.de>
+Date: Tue, 19 Sep 2006 10:13:15 +0000
 Subject: Re: [Fastboot] [Patch] IA64 Kexec/Kdump patch for 2.6.18-rc6
-Message-Id: <20060915140906.GD3512@redhat.com>
+Message-Id: <Pine.LNX.4.64.0609191211250.27984@enan.fvgr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <BAC6D88895D68Findou.takao@jp.fujitsu.com>
 In-Reply-To: <BAC6D88895D68Findou.takao@jp.fujitsu.com>
@@ -10,23 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Sep 15, 2006 at 10:55:49AM +0800, Zou Nan hai wrote:
+On Fri, 15 Sep 2006, Keith Owens wrote:
+> I am back from vacation and am now working on a common 'crash stop'
+> synchronization interface that can be used by all the debug[*] tools,
+> instead of everybody inventing their own and tripping over each other.
+> Obviously it is based on the KDB patch, but it will be generic enough
+> that anybody can use it.
 > 
-> Hi,
->    Here is a new version of IA64 Kexec/Kdump patch.
->    Update since last patch.
-> 
->    1. Ignore offset in crashkernel=size@offset kernel parameter. kernel
-> will find crashkernel region according to size at boot time. However
-> crashkernel parameter format is not changed to keep compatibility with
-> other archs
+> [*] Using the term 'debug' generically here.  It can be a debugger like
+>     kdb, kgdb, nlkd or a crash dump tool like lkcd, crash or kexec.
+>     They all have the same synchronization requirements, stop all cpus
+>     using NMI/INIT where necessary and save the state of all the cpus
+>     for later diagnosis.
 
-Just for conversation purposes:
+Will this allow to have LKCD and kexec/kdump enabled in the same kernel,
+selectable by the user at boot time (via a kernel command-line option,
+for example)?
 
-Having offset determined at boot-time seems convienant and more scalable.
-Is there a reason why we can't apply this to all archs?  Is it because we
-lose some flexibility?
+That would be nice to have for a transition period from LKCD towards
+kexec/kdump while the later matures.
 
-Cheers,
-Don
-
+Gerald
