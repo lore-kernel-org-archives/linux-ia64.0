@@ -1,44 +1,51 @@
-From: Kirill Korotaev <dev@sw.ru>
-Date: Mon, 04 Sep 2006 10:30:57 +0000
-Subject: Re: [stable] [PATCH] Linux 2.6.17.11 - fix compilation error on	IA64
-Message-Id: <44FC0061.1000007@sw.ru>
+From: Horms <horms@verge.net.au>
+Date: Wed, 20 Sep 2006 02:43:01 +0000
+Subject: Kexec/Kdump: honour non-zero crashkernel offset.
+Message-Id: <20060920024544.733881000@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A72869D@scsmsx411.amr.corp.intel.com>	 <20060829013137.GA27869@kroah.com> <44F431F5.7020703@sw.ru>	 <20060829160841.GB9078@suse.de> <1157364634.3162.8.camel@sebastian.intellilink.co.jp>
-In-Reply-To: <1157364634.3162.8.camel@sebastian.intellilink.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: =?windows-1251?Q?Fernando_Luis_V=E1zquez_Cao?= <fernando@oss.ntt.co.jp>
-Cc: Greg KH <gregkh@suse.de>, Greg KH <greg@kroah.com>, "Luck, Tony" <tony.luck@intel.com>, akpm@osdl.org, dev@openvz.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davem@davemloft.net, stable@kernel.org, kamezawa.hiroyu@jp.fujitsu.com, xemul@openvz.org
+To: linux-ia64@vger.kernel.org
 
-Fernando,
+There seems to be a value in both allowing the kernel to determine
+the base offset of the crashkernel automatically and allowing
+users's to sepcify it.
 
-I planned to send it today. You will be on CC
+The old behaviour on ia64, which is still the current behaviour on
+most architectures is for the user to always specify the address.
+Recently ia64 was changed so that it is always automatically determined.
 
-Thanks,
-Kirill
+With this patch the kernel automatically determines the offset if
+the supplied value is 0, otherwise it uses the value provided.
 
-> On Tue, 2006-08-29 at 09:08 -0700, Greg KH wrote:
-> 
->>On Tue, Aug 29, 2006 at 04:24:21PM +0400, Kirill Korotaev wrote:
->>
->>>Probably it is my fault, since I thought that patches which got into -stable
->>>automatically go into Linus tree.
->>
->>No they do not.  Usually it's the requirement that they be in his tree
->>first, but I didn't think it was necessary this time due to my
->>misunderstanding about the fix.
-> 
-> 2.6.18-rc6 has just been released and neither my patch nor the original
-> patch to which it is a fix seem to have been included. Does this mean
-> they will not be sent to Linux before the final release of 2.6.18?
-> 
-> Regards,
-> 
-> Fernando
-> 
-> 
+This should probably be backed by a documentation change.
 
+Signed-Off-By: Simon Horman <horms@verge.net.au>
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2006-09-20 10:56:28.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/setup.c	2006-09-20 10:58:06.000000000 +0900
+@@ -257,7 +257,7 @@
+ 
+ #ifdef CONFIG_KEXEC
+ 	/* crashkernel=size@offset specifies the size to reserve for a crash
+-	 * kernel.(offset is ingored for keep compatibility with other archs)
++	 * kernel. If offset is 0, then it is determined automatically.
+ 	 * By reserving this memory we guarantee that linux
+ 	 * never set's it up as a DMA target.
+ 	 * Useful for holding code to do something appropriate
+@@ -268,7 +268,7 @@
+ 		unsigned long base, size;
+ 		if (from) {
+ 			size = memparse(from + 12, &from);
+-			if (size) {
++			if (size && !base) {
+ 				sort_regions(rsvd_region, n);
+ 				base = kdump_find_rsvd_region(size,
+ 				rsvd_region, n);
 
 -- 
-VGER BF report: H 0
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
