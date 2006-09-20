@@ -1,58 +1,46 @@
-From: "bibo,mao" <bibo.mao@intel.com>
-Date: Tue, 26 Sep 2006 11:48:10 +0000
-Subject: Re: [BUGFIX][PATCH] cpu to node relationship fixup take2 [2/2] map
-Message-Id: <4519137A.2050008@intel.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 20 Sep 2006 19:53:47 +0000
+Subject: [PATCH] export cpu_sibling_map
+Message-Id: <20060920195347.GD27323@frankl.hpl.hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="bCsyhTFzCvuiizWE"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060922152702.4b01c192.kamezawa.hiroyu@jp.fujitsu.com>	<45190D99.20605@intel.com> <20060926203925.ee98a4ae.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20060926203925.ee98a4ae.kamezawa.hiroyu@jp.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: tony.luck@intel.com, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, y-goto@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
 
-yes, the hot-fix works for me now :)
 
-thanks
-bibo,mao
+--bCsyhTFzCvuiizWE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-KAMEZAWA Hiroyuki wrote:
-> 
-> Uh... sorry. How about this hot-fix ?
-> 
-> -Kame
-> ====> 
-> 
-> Non-NUMA case should be handled...
-> 
-> Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-> 
-> Index: linux-2.6.18/arch/ia64/kernel/topology.c
-> =================================> --- linux-2.6.18.orig/arch/ia64/kernel/topology.c	2006-09-26 20:31:25.000000000 +0900
-> +++ linux-2.6.18/arch/ia64/kernel/topology.c	2006-09-26 20:34:03.000000000 +0900
-> @@ -36,10 +36,8 @@
->  	 */
->  	if (!can_cpei_retarget() && is_cpu_cpei_target(num))
->  		sysfs_cpus[num].cpu.no_control = 1;
-> -#ifdef CONFIG_NUMA
->  	map_cpu_to_node(num, node_cpuid[num].nid);
->  #endif
-> -#endif
->  
->  	return register_cpu(&sysfs_cpus[num].cpu, num);
->  }
-> Index: linux-2.6.18/include/asm-ia64/numa.h
-> =================================> --- linux-2.6.18.orig/include/asm-ia64/numa.h	2006-09-26 20:31:25.000000000 +0900
-> +++ linux-2.6.18/include/asm-ia64/numa.h	2006-09-26 20:33:49.000000000 +0900
-> @@ -69,6 +69,8 @@
->  
->  
->  #else /* !CONFIG_NUMA */
-> +#define map_cpu_to_node(cpu, nid)	do{}while(0)
-> +#define unmap_cpu_from_node(cpu, nid)	do{}while(0)
->  
->  #define paddr_to_nid(addr)	0
->  
-> 
-> 
-> 
+Hello Tony,
+
+For Montecito PMU support, I need to determine, in a kernel module, whether
+or not threads are enabled. The only reliable way of doing this is to
+compute the bit-weight of cpu_sibling_map[]. This symbol is exported on
+x86 systems, but not on IA-64 so far. This patch exports the symbol.
+
+Changelog:
+	- export cpu_sibling_map[] to kernel modules
+
+signed-off-by: stephane eranian <eranian@hpl.hp.com>
+
+-- 
+-Stephane
+
+--bCsyhTFzCvuiizWE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="smp_sibling_map.diff"
+
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -139,6 +139,7 @@ EXPORT_SYMBOL(cpu_possible_map);
+ 
+ cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
+ cpumask_t cpu_sibling_map[NR_CPUS] __cacheline_aligned;
++EXPORT_SYMBOL(cpu_sibling_map);
+ int smp_num_siblings = 1;
+ int smp_num_cpucores = 1;
+ 
+
+--bCsyhTFzCvuiizWE--
