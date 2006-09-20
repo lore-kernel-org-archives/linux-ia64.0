@@ -1,37 +1,48 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 15 Sep 2006 05:02:33 +0000
-Subject: Re: [PATCH]Make gp value point to Region 5 in mca handler
-Message-Id: <31039.1158296553@kao2.melbourne.sgi.com>
+From: Horms <horms@verge.net.au>
+Date: Wed, 20 Sep 2006 02:42:59 +0000
+Subject: Kexec/Kdump: kdump_disable_iosapic needs CONFIG_IOSAPIC
+Message-Id: <20060920024544.420966000@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1158123325.2591.46.camel@linux-znh>
-In-Reply-To: <1158123325.2591.46.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zou Nan hai (on 14 Sep 2006 08:25:15 +0800) wrote:
->On Wed, 2006-09-13 at 17:54, Keith Owens wrote:
->> Zou Nan hai (on 13 Sep 2006 12:55:25 +0800) wrote:
->> >The patch set gp register to kernel gp of region 5 at entry of MCA
->> >dispatch.
->> >
->> >Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
->> 
->> The idea is right, but there is no need to pass __gp to
->> VIRTUAL_MODE_ENTER.  There will never be a case of VIRTUAL_MODE_ENTER
->> followed by entry to a module, so just hard code 'movl r1 = __gp' into
->> VIRTUAL_MODE_ENTER and drop it from the parameter list.
->
-> OK, I felt a little weird to put hard code in a macro.., but I think it
->does not matter much since the macro is only used 2 times.
->
-> the updated patch 
->
-> Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+kdump_disable_iosapic() doesn't exist without CONFIG_IOSAPIC,
+calling it needs to be gaurded by a corresponding #ifdef
 
-Acked-by: Keith Owens <kaos@sgi.com>
+This patch has been updated for IA64 Kexec/Kdump patch for 2.6.18-rc6,
+http://permalink.gmane.org/gmane.linux.ports.ia64/14988
 
-BTW, your patch deleted the only use of IA64_SAL_OS_STATE_OS_GP_OFFSET
-so that field can also be deleted from arch/ia64/kernel/asm-offsets.c.
+Signed-Off-By: Simon Horman <horms@verge.net.au>
+
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index ccc898c..b3f4915 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -121,7 +121,9 @@ machine_crash_shutdown(struct pt_regs *p
+ 	 * In practice this means shooting down the other cpus in
+ 	 * an SMP system.
+ 	 */
++#ifdef CONFIG_IOSAPIC
+ 	kexec_disable_iosapic();
++#endif
+ #ifdef CONFIG_SMP
+ 	kdump_smp_send_stop();
+ 	if (kdump_wait_cpu_freeze() && kdump_on_init) 	{
+@@ -135,7 +137,9 @@ static void 
+ machine_kdump_on_init(void)
+ {
+ 	local_irq_disable();
++#ifdef CONFIG_IOSAPIC
+ 	kexec_disable_iosapic();
++#endif
+ 	machine_kexec(ia64_kimage);
+ }
+ 
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
