@@ -1,100 +1,292 @@
-From: John Keller <jpk@sgi.com>
-Date: Fri, 22 Sep 2006 14:51:32 +0000
-Subject: [PATCH 2/3] - Altix: Add initial ACPI IO support
-Message-Id: <20060922145132.12421.5738.sendpatchset@attica.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 20 Sep 2006 05:37:43 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.18
+Message-Id: <9583.1158730663@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
-In-Reply-To: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-SN ACPI hotplug support.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-A few minor changes to the way slot/device fixup is done.
+Shiver me timbers, lads.
 
-No need to be calling sn_pci_controller_fixup(), as
-a root bus cannot be hotplugged.
+KDB (Linux Kernel Debugger) has been updated for kernel 2.6.18.
 
-Signed-off-by: John Keller <jpk@sgi.com>
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
 
- sgi_hotplug.c |   34 ++++++++++++----------------------
- 1 file changed, 12 insertions(+), 22 deletions(-)
+Note:  Due to a spam attack, the kdb@oss.sgi.com mailing list is now
+subscriber only.  If you reply to this mail, you may wish to trim
+kdb@oss.sgi.com from the cc: list.
+
+Current versions are :-
+
+  kdb-v4.4-2.6.18-common-1.bz2
+  kdb-v4.4-2.6.18-i386-1.bz2
+  kdb-v4.4-2.6.18-x86_64-1.bz2
+  kdb-v4.4-2.6.18-ia64-1.bz2
+
+Changelog extract since kdb-v4.4-2.6.17-common-1.
+
+2006-09-20 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-common-1.
+
+2006-09-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc7-common-1.
+
+2006-08-29 Keith Owens  <kaos@sgi.com>
+
+	* Rewrite all backtrace code.
+	* kdb v4.4-2.6.18-rc5-common-2.
+
+2006-08-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc5-common-1.
+
+2006-08-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc4-common-1.
+
+2006-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc3-common-1.
+
+2006-07-18 Keith Owens  <kaos@sgi.com>
+
+	* 8250.c locking has been fixed so there is no need to break spinlocks
+	  for keyboard entry.
+	* kdb v4.4-2.6.18-rc2-common-2.
+
+2006-07-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc2-common-1.
+
+2006-07-12 Keith Owens  <kaos@sgi.com>
+
+	* Remove dead KDB_REASON codes.
+	* The main kdb() function is now always entered with interrupts
+	  disabled, so there is no need to disable bottom halves.
+	* sparse cleanups.
+	* kdb v4.4-2.6.18-rc1-common-2.
+
+2006-07-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc1-common-1.
+
+2006-07-04 Keith Owens  <kaos@sgi.com>
+
+	* Add KDB_REASON_CPU_UP and callbacks for cpus coming online.
+	* Relegate KDB_REASON_SILENT to KDB internal use only.
+	* Backout the v4.4-2.6.15-common-3 change that made KDB_REASON_SILENT
+	  wait for cpus, the Dell Xeon problem has been fixed.
+	* notify_die() is not called for KDB_REASON_SILENT nor
+	  KDB_REASON_CPU_UP, these events do not stay in KDB.
+	* Export kdb_current_task for kdbm_x86.  SuSE patch
+	  kdb-missing-export.diff
+	* Scale kdb_wait_for_cpus_secs by the number of online cpus.
+	* Delete kdb_enablehwfault, architectures now do their own setup.
+	* Delete kdba_enable_mce, architectures now do their own setup.
+	* Delete kdba_enable_lbr, kdba_disable_lbr, kdba_print_lbr,
+	  page_fault_mca.  Only ever implemented on x86, difficult to maintain
+	  and rarely used in the field.
+	* Replace #ifdef KDB_HAVE_LONGJMP with #ifdef kdba_setjmp.
+	* kdb v4.4-2.6.17-common-2.
 
 
-Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
-=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-09-21 17:09:13.296239297 -0500
-+++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-09-22 08:13:51.738773450 -0500
-@@ -205,21 +205,6 @@ static struct hotplug_slot * sn_hp_destr
- 	return bss_hotplug_slot;
- }
- 
--static void sn_bus_alloc_data(struct pci_dev *dev)
--{
--	struct pci_bus *subordinate_bus;
--	struct pci_dev *child;
--
--	sn_pci_fixup_slot(dev);
--
--	/* Recursively sets up the sn_irq_info structs */
--	if (dev->subordinate) {
--		subordinate_bus = dev->subordinate;
--		list_for_each_entry(child, &subordinate_bus->devices, bus_list)
--			sn_bus_alloc_data(child);
--	}
--}
--
- static void sn_bus_free_data(struct pci_dev *dev)
- {
- 	struct pci_bus *subordinate_bus;
-@@ -337,6 +322,11 @@ static int sn_slot_disable(struct hotplu
- 	return rc;
- }
- 
-+/*
-+ * Power up and configure the slot via a SAL call to PROM.
-+ * Scan slot (and any children), do any platform specific fixup,
-+ * and find device driver.
-+ */
- static int enable_slot(struct hotplug_slot *bss_hotplug_slot)
- {
- 	struct slot *slot = bss_hotplug_slot->private;
-@@ -367,9 +357,6 @@ static int enable_slot(struct hotplug_sl
- 		return -ENODEV;
- 	}
- 
--	sn_pci_controller_fixup(pci_domain_nr(slot->pci_bus),
--				slot->pci_bus->number,
--				slot->pci_bus);
- 	/*
- 	 * Map SN resources for all functions on the card
- 	 * to the Linux PCI interface and tell the drivers
-@@ -380,6 +367,13 @@ static int enable_slot(struct hotplug_sl
- 				   PCI_DEVFN(slot->device_num + 1,
- 					     PCI_FUNC(func)));
- 		if (dev) {
-+			/* Need to do slot fixup on PPB before fixup of children
-+			 * (PPB's pcidev_info needs to be in pcidev_info list
-+			 * before child's SN_PCIDEV_INFO() call to setup
-+			 * pdi_host_pcidev_info).
-+			 */
-+			pcibios_fixup_device_resources(dev);
-+			sn_pci_fixup_slot(dev);
- 			if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) {
- 				unsigned char sec_bus;
- 				pci_read_config_byte(dev, PCI_SECONDARY_BUS,
-@@ -387,12 +381,8 @@ static int enable_slot(struct hotplug_sl
- 				new_bus = pci_add_new_bus(dev->bus, dev,
- 							  sec_bus);
- 				pci_scan_child_bus(new_bus);
--				sn_pci_controller_fixup(pci_domain_nr(new_bus),
--							new_bus->number,
--							new_bus);
- 				new_ppb = 1;
- 			}
--			sn_bus_alloc_data(dev);
- 			pci_dev_put(dev);
- 		}
- 	}
+Changelog extract since kdb-v4.4-2.6.17-i386-1.
+
+2006-09-20 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-i386-1.
+
+2006-09-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc7-i386-1.
+
+2006-08-30 Keith Owens  <kaos@sgi.com>
+
+	* Add warning for problems when following alternate stacks.
+	* kdb v4.4-2.6.18-rc5-i386-3.
+
+2006-08-29 Keith Owens  <kaos@sgi.com>
+
+	* Rewrite all backtrace code.
+	* kdb v4.4-2.6.18-rc5-i386-2.
+
+2006-08-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc5-i386-1.
+
+2006-08-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc4-i386-1.
+
+2006-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc3-i386-1.
+
+2006-07-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc2-i386-1.
+
+2006-07-12 Keith Owens  <kaos@sgi.com>
+
+	* Remove dead KDB_REASON codes.
+	* sparse cleanups.
+	* kdb v4.4-2.6.18-rc1-i386-2.
+
+2006-07-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc1-i386-1.
+
+2006-07-04 Keith Owens  <kaos@sgi.com>
+
+	* Make KDB rendezvous on i386 a two stage approach.
+	* Clean up generation of KDB interrupt code.
+	* Move smp_kdb_stop() and smp_kdb_interrupt() to kdbasupport.c.
+	* Move setting of interrupt traps to kdbasupport.c.
+	* Remove KDB hooks from arch/i386/kernel smp.c, smpboot.c, i8259.c,
+	  io_apic.c.
+	* Add KDB_REASON_CPU_UP support.
+	* Move per cpu setup to kdba_cpu_up().
+	* Rework support for 4K stacks to make backtrace more accurate.
+	* Add BTSP option to get the full backtrace, including kdb routines.
+	* Delete kdba_enable_mce, architectures now do their own setup.
+	* Delete kdba_enable_lbr, kdba_disable_lbr, kdba_print_lbr,
+	  page_fault_mca.  Only ever implemented on x86, difficult to maintain
+	  and rarely used in the field.
+	* Replace #ifdef KDB_HAVE_LONGJMP with #ifdef kdba_setjmp.
+	* kdb v4.4-2.6.17-i386-2.
+
+
+Changelog extract since kdb-v4.4-2.6.17-x86_64-1.
+
+2006-09-20 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-x86_64-1.
+
+2006-09-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc7-x86_64-1.
+
+2006-08-30 Keith Owens  <kaos@sgi.com>
+
+	* Do not print debugstackptr in cpu_pda, it will be deleted soon.
+	* Add KDB_ENTER().
+	* Add warning for problems when following alternate stacks.
+	* kdb v4.4-2.6.18-rc5-x86_64-3.
+
+2006-08-29 Keith Owens  <kaos@sgi.com>
+
+	* Rewrite all backtrace code.
+	* Add pt_regs and cpu_pda commands.
+	* Include patch to define orig_ist, to be removed once that patch is in
+	  the community tree.
+	* kdb v4.4-2.6.18-rc5-x86_64-2.
+
+2006-08-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc5-x86_64-1.
+
+2006-08-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc4-x86_64-1.
+
+2006-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc3-x86_64-1.
+
+2006-07-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc2-x86_64-1.
+
+2006-07-12 Keith Owens  <kaos@sgi.com>
+
+	* sparse cleanups
+	* kdb v4.4-2.6.18-rc1-x86_64-2.
+
+2006-07-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc1-x86_64-1.
+
+2006-07-04 Keith Owens  <kaos@sgi.com>
+
+	* Make KDB rendezvous on x86_64 a two stage approach.
+	* Move smp_kdb_stop() and smp_kdb_interrupt() to kdbasupport.c.
+	* Move setting of interrupt traps to kdbasupport.c.
+	* Add KDB_REASON_CPU_UP support.
+	* Move per cpu setup to kdba_cpu_up().
+	* Delete kdba_enable_mce, architectures now do their own setup.
+	* Delete kdba_enable_lbr, kdba_disable_lbr, kdba_print_lbr,
+	  page_fault_mca.  Only ever implemented on x86, difficult to maintain
+	  and rarely used in the field.
+	* Replace #ifdef KDB_HAVE_LONGJMP with #ifdef kdba_setjmp.
+	* kdb v4.4-2.6.17-x86_64-2.
+
+
+Changelog extract since kdb v4.4-2.6.17-ia64-1.
+
+2006-09-20 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-ia64-1.
+
+2006-09-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc7-ia64-1.
+
+2006-08-29 Keith Owens  <kaos@sgi.com>
+
+	* Rewrite all backtrace code.
+	* kdb v4.4-2.6.18-rc5-ia64-2.
+
+2006-08-28 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc5-ia64-1.
+
+2006-08-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc4-ia64-1.
+
+2006-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc3-ia64-1.
+
+2006-07-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc2-ia64-1.
+
+2006-07-12 Keith Owens  <kaos@sgi.com>
+
+	* Remove dead KDB_REASON codes.
+	* sparse cleanups.
+	* kdb v4.4-2.6.18-rc1-ia64-2.
+
+2006-07-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.18-rc1-ia64-1.
+
+2006-07-04 Keith Owens  <kaos@sgi.com>
+
+	* Delete kdba_enable_lbr, kdba_disable_lbr, kdba_print_lbr,
+	  page_fault_mca.  Only ever implemented on x86, difficult to maintain
+	  and rarely used in the field.
+	* Replace #ifdef KDB_HAVE_LONGJMP with #ifdef kdba_setjmp.
+	* kdb v4.4-2.6.17-ia64-2.
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.2 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFFENOmi4UHNye0ZOoRAie6AJ4qUi/SOPxkZpNmx5R2KaiiMajlPACeJ3Kq
+jVB5YpQzXhIPGxsGhAlvl24=TEzl
+-----END PGP SIGNATURE-----
+
