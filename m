@@ -1,67 +1,59 @@
 From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 21 Sep 2006 03:09:57 +0000
+Date: Thu, 21 Sep 2006 05:54:34 +0000
 Subject: RE: Kexec/Kdump: kdump_disable_iosapic needs CONFIG_IOSAPIC
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AC1@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AC5@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060920024544.420966000@tabatha.lab.ultramonkey.org>
 In-Reply-To: <20060920024544.420966000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Horms
-> Sent: 2006=C4=EA9=D4=C220=C8=D5 10:43
-> To: Zou, Nanhai
-> Cc: Luck, Tony; Linux-IA64; fastboot
-> Subject: Kexec/Kdump: kdump_disable_iosapic needs CONFIG_IOSAPIC
->=20
-> kdump_disable_iosapic() doesn't exist without CONFIG_IOSAPIC,
-> calling it needs to be gaurded by a corresponding #ifdef
->=20
-> This patch has been updated for IA64 Kexec/Kdump patch for 2.6.18-rc6,
-> http://permalink.gmane.org/gmane.linux.ports.ia64/14988
->=20
-> Signed-Off-By: Simon Horman <horms@verge.net.au>
->=20
-> diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-> index ccc898c..b3f4915 100644
-> --- a/arch/ia64/kernel/crash.c
-> +++ b/arch/ia64/kernel/crash.c
-> @@ -121,7 +121,9 @@ machine_crash_shutdown(struct pt_regs *p
->  	 * In practice this means shooting down the other cpus in
->  	 * an SMP system.
->  	 */
-> +#ifdef CONFIG_IOSAPIC
->  	kexec_disable_iosapic();
-> +#endif
->  #ifdef CONFIG_SMP
->  	kdump_smp_send_stop();
->  	if (kdump_wait_cpu_freeze() && kdump_on_init) 	{
-> @@ -135,7 +137,9 @@ static void
->  machine_kdump_on_init(void)
->  {
->  	local_irq_disable();
-> +#ifdef CONFIG_IOSAPIC
->  	kexec_disable_iosapic();
-> +#endif
->  	machine_kexec(ia64_kimage);
->  }
->=20
->=20
- CONFIG_IOSAPIC is only disabled when configure kernel for simulator.=20
- So I think we do not need this #ifdef unless we are using kexec/kdump on a=
- simulator.
- Thanks
- Zou Nan hai
-> --
-> Horms
->   H: http://www.vergenet.net/~horms/
->   W: http://www.valinux.co.jp/en/
->=20
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiBGcm9tOiBIb3JtcyBbbWFpbHRvOmhvcm1z
+QHZlcmdlLm5ldC5hdV0KPiBTZW50OiAyMDA2xOo51MIyMcjVIDEzOjA2Cj4gVG86IFpvdSwgTmFu
+aGFpCj4gQ2M6IEx1Y2ssIFRvbnk7IExpbnV4LUlBNjQ7IGZhc3Rib290Cj4gU3ViamVjdDogUmU6
+IEtleGVjL0tkdW1wOiBrZHVtcF9kaXNhYmxlX2lvc2FwaWMgbmVlZHMgQ09ORklHX0lPU0FQSUMK
+PiAKPiBPbiBUaHUsIFNlcCAyMSwgMjAwNiBhdCAxMTowOTo1N0FNICswODAwLCBab3UsIE5hbmhh
+aSB3cm90ZToKPiA+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+ID4gRnJvbTogbGlu
+dXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmcKPiA+ID4gW21haWx0bzpsaW51eC1pYTY0LW93
+bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIEhvcm1zCj4gPiA+IFNlbnQ6IDIwMDbE
+6jnUwjIwyNUgMTA6NDMKPiA+ID4gVG86IFpvdSwgTmFuaGFpCj4gPiA+IENjOiBMdWNrLCBUb255
+OyBMaW51eC1JQTY0OyBmYXN0Ym9vdAo+ID4gPiBTdWJqZWN0OiBLZXhlYy9LZHVtcDoga2R1bXBf
+ZGlzYWJsZV9pb3NhcGljIG5lZWRzIENPTkZJR19JT1NBUElDCj4gPiA+Cj4gPiA+IGtkdW1wX2Rp
+c2FibGVfaW9zYXBpYygpIGRvZXNuJ3QgZXhpc3Qgd2l0aG91dCBDT05GSUdfSU9TQVBJQywKPiA+
+ID4gY2FsbGluZyBpdCBuZWVkcyB0byBiZSBnYXVyZGVkIGJ5IGEgY29ycmVzcG9uZGluZyAjaWZk
+ZWYKPiA+ID4KPiA+ID4gVGhpcyBwYXRjaCBoYXMgYmVlbiB1cGRhdGVkIGZvciBJQTY0IEtleGVj
+L0tkdW1wIHBhdGNoIGZvciAyLjYuMTgtcmM2LAo+ID4gPiBodHRwOi8vcGVybWFsaW5rLmdtYW5l
+Lm9yZy9nbWFuZS5saW51eC5wb3J0cy5pYTY0LzE0OTg4Cj4gPiA+Cj4gPiA+IFNpZ25lZC1PZmYt
+Qnk6IFNpbW9uIEhvcm1hbiA8aG9ybXNAdmVyZ2UubmV0LmF1Pgo+ID4gPgo+ID4gPiBkaWZmIC0t
+Z2l0IGEvYXJjaC9pYTY0L2tlcm5lbC9jcmFzaC5jIGIvYXJjaC9pYTY0L2tlcm5lbC9jcmFzaC5j
+Cj4gPiA+IGluZGV4IGNjYzg5OGMuLmIzZjQ5MTUgMTAwNjQ0Cj4gPiA+IC0tLSBhL2FyY2gvaWE2
+NC9rZXJuZWwvY3Jhc2guYwo+ID4gPiArKysgYi9hcmNoL2lhNjQva2VybmVsL2NyYXNoLmMKPiA+
+ID4gQEAgLTEyMSw3ICsxMjEsOSBAQCBtYWNoaW5lX2NyYXNoX3NodXRkb3duKHN0cnVjdCBwdF9y
+ZWdzICpwCj4gPiA+ICAJICogSW4gcHJhY3RpY2UgdGhpcyBtZWFucyBzaG9vdGluZyBkb3duIHRo
+ZSBvdGhlciBjcHVzIGluCj4gPiA+ICAJICogYW4gU01QIHN5c3RlbS4KPiA+ID4gIAkgKi8KPiA+
+ID4gKyNpZmRlZiBDT05GSUdfSU9TQVBJQwo+ID4gPiAgCWtleGVjX2Rpc2FibGVfaW9zYXBpYygp
+Owo+ID4gPiArI2VuZGlmCj4gPiA+ICAjaWZkZWYgQ09ORklHX1NNUAo+ID4gPiAgCWtkdW1wX3Nt
+cF9zZW5kX3N0b3AoKTsKPiA+ID4gIAlpZiAoa2R1bXBfd2FpdF9jcHVfZnJlZXplKCkgJiYga2R1
+bXBfb25faW5pdCkgCXsKPiA+ID4gQEAgLTEzNSw3ICsxMzcsOSBAQCBzdGF0aWMgdm9pZAo+ID4g
+PiAgbWFjaGluZV9rZHVtcF9vbl9pbml0KHZvaWQpCj4gPiA+ICB7Cj4gPiA+ICAJbG9jYWxfaXJx
+X2Rpc2FibGUoKTsKPiA+ID4gKyNpZmRlZiBDT05GSUdfSU9TQVBJQwo+ID4gPiAgCWtleGVjX2Rp
+c2FibGVfaW9zYXBpYygpOwo+ID4gPiArI2VuZGlmCj4gPiA+ICAJbWFjaGluZV9rZXhlYyhpYTY0
+X2tpbWFnZSk7Cj4gPiA+ICB9Cj4gPiA+Cj4gPiA+Cj4gPiAgQ09ORklHX0lPU0FQSUMgaXMgb25s
+eSBkaXNhYmxlZCB3aGVuIGNvbmZpZ3VyZSBrZXJuZWwgZm9yIHNpbXVsYXRvci4KPiA+ICBTbyBJ
+IHRoaW5rIHdlIGRvIG5vdCBuZWVkIHRoaXMgI2lmZGVmIHVubGVzcyB3ZSBhcmUgdXNpbmcga2V4
+ZWMva2R1bXAgb24KPiBhIHNpbXVsYXRvci4KPiAKPiBJJ20gbm90IHN1cmUgdGhhdCBJIHVuZGVy
+c3RhbmQgeW91ciBhcmd1bWVudC4KPiAKPiBJZiB5b3UgYXJlIGNvbXBpbGluZyBmb3IgdGhlIHNp
+bXVsYXRvciwgYW5kIHlvdSBoYXZlIENPTkZJR19LRVhFQyBlbmFibGVkLAo+IHRoZW4gdGhlIGJ1
+aWxkIHdpbGwgZmFpbC4gSSB0aGluayB0aGF0IGlzIGEgcHJvYmxlbS4gSW5zdGVhZCBvZgo+IG15
+IHBhdGNoLCBzaG91bGQgQ09ORklHX0tFWEVDIGRlcGVuZCBvbiBDT05GSUdfSU9TQVBJQz8KPiAK
+ICAJSSB0aGluayBwdXQgI2lmZGVmIGluIEMgc291cmNlIGlzIG5vdCBnb29kLiBXZSBzaG91bGQg
+dHJ5IHRvIGF2b2lkIHRoYXQgaWYgd2UgY2FuLgoJSSB3aWxsIG1ha2UgQ09ORklHX0tFWEVDIGFu
+ZCBDT05GSUdfQ1JBU0hfRFVNUCBkZXBlbmRzIG9uICFDT05GSUdfSFBfU0lNIGluIEtjb25maWcu
+ClRoYW5rcwpab3UgTmFuIGhhaQoKPiAtLQo+IEhvcm1zCj4gICBIOiBodHRwOi8vd3d3LnZlcmdl
+bmV0Lm5ldC9+aG9ybXMvCj4gICBXOiBodHRwOi8vd3d3LnZhbGludXguY28uanAvZW4vCi0KVG8g
+dW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxp
+bnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJu
+ZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFq
+b3Jkb21vLWluZm8uaHRtbA==
