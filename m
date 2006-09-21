@@ -1,92 +1,262 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 11 Sep 2006 22:27:50 +0000
-Subject: [PATCH 4/6] Optional ZONE_DMA for i386
-Message-Id: <20060911222750.4849.19066.sendpatchset@schroedinger.engr.sgi.com>
+From: Horms <horms@verge.net.au>
+Date: Thu, 21 Sep 2006 11:33:08 +0000
+Subject: Re: [Fastboot] [Patch] kexec-tools: --noio option to disable I/O in purgatory	code.
+Message-Id: <20060921113307.GK18110@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-i386: Optional ZONE_DMA
+On Thu, Sep 21, 2006 at 01:06:08PM +0800, Zou Nan hai wrote:
+> SN platform support PIO in a different way to generic IA64 platform. It
+> does not support most of the legacy I/O ports.
+> 
+> Give an --noio option to kexec-tools to disable I/O in purgatory code.
+> 
+> This patch also removed an unused io.h in kexec-tools.
+> 
+> Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
-ZONE_DMA depends on GENERIC_ISA_DMA. We allow the user to configure
-GENERIC_ISA_DMA. If it is switched off then ISA_DMA_API is also
-switched off which will deselect all drivers that depend on ISA
-functionality.
+I have merged the following into kexec-tools-test.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-Index: linux-2.6.18-rc6-mm1/arch/i386/Kconfig
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/Kconfig	2006-09-08 06:42:11.697455315 -0500
-+++ linux-2.6.18-rc6-mm1/arch/i386/Kconfig	2006-09-11 15:41:55.911259588 -0500
-@@ -41,10 +41,6 @@
- config SBUS
- 	bool
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: 21 Sep 2006 13:06:08 +0800
+Subject: kexec-tools: --noio option to disable I/O in purgatory	code.
+
+SN platform support PIO in a different way to generic IA64 platform. It
+does not support most of the legacy I/O ports.
+
+Give an --noio option to kexec-tools to disable I/O in purgatory code.
+
+This patch also removed an unused io.h in kexec-tools.
+
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+
+Edited to consistently use tabs instead of spaces for intentation,
+remove one instance of trailing whitespace, and fix indentation
+of noio line in options[].
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+diff -Nraup kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c
+kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c
+--- kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-20 15:30:40.000000000 +0800
++++ kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-21 15:12:20.000000000 +0800
+@@ -116,16 +116,19 @@ int elf_ia64_load(int argc, char **argv,
+ 	unsigned long command_line_base, ramdisk_base;
+ 	unsigned long efi_memmap_base, efi_memmap_size;
+ 	unsigned long boot_param_base;
++	unsigned long noio=0;
+ 	int result;
+ 	int opt;
+ 	char *efi_memmap_buf, *boot_param;
+ #define OPT_APPEND	(OPT_ARCH_MAX+0)
+ #define OPT_RAMDISK	(OPT_ARCH_MAX+1)
++#define OPT_NOIO	(OPT_ARCH_MAX+2)
+ 	static const struct option options[] = {
+ 		KEXEC_ARCH_OPTIONS
+ 		{"command-line", 1, 0, OPT_APPEND},
+ 		{"append",       1, 0, OPT_APPEND},
+ 		{"initrd",       1, 0, OPT_RAMDISK},
++		{"noio",         1, 0, OPT_NOIO},
+ 		{0, 0, 0, 0},
+ 	};
  
--config GENERIC_ISA_DMA
--	bool
--	default y
--
- config GENERIC_IOMAP
- 	bool
- 	default y
-@@ -346,6 +342,15 @@
-           XFree86 to initialize some video cards via BIOS. Disabling this
-           option saves about 6k.
- 
-+config GENERIC_ISA_DMA
-+	bool "ISA DMA zone (to support ISA legacy DMA)"
-+	default y
-+	help
-+	  If DMA for ISA boards needs to be supported then this option
-+	  needs to be enabled. An additional DMA zone for <16MB memory
-+	  will be created and memory below 16MB will be used for those
-+	  devices.
+@@ -148,6 +151,9 @@ int elf_ia64_load(int argc, char **argv,
+ 		case OPT_RAMDISK:
+ 			ramdisk = optarg;
+ 			break;
++		case OPT_NOIO:	/* disable PIO and MMIO in purgatory code*/
++			noio = 1;
++			break;
+ 		}
+ 	}
+ 	command_line_len = 0;
+@@ -196,6 +202,10 @@ int elf_ia64_load(int argc, char **argv,
+ 	boot_param = xmalloc(4096);
+         boot_param_base = add_buffer(info, boot_param, 4096, 4096, 4096, 0,
+                         max_addr, -1);
 +
- config TOSHIBA
- 	tristate "Toshiba Laptop support"
- 	---help---
-@@ -1071,6 +1076,7 @@
++	elf_rel_set_symbol(&info->rhdr, "__noio",
++			   &noio, sizeof(long));
++
+         elf_rel_set_symbol(&info->rhdr, "__boot_param_base",
+                         &boot_param_base, sizeof(long));
  
- config ISA_DMA_API
- 	bool
-+	depends on GENERIC_ISA_DMA
- 	default y
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/entry.S
+kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S
+--- kexec-tools-1.101/purgatory/arch/ia64/entry.S	2006-09-20 15:30:40.000000000 +0800
++++ kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S	2006-09-21 15:11:36.000000000 +0800
+@@ -68,3 +68,4 @@ DECLARE_DATA8(__loaded_segments)
+ DECLARE_DATA8(__loaded_segments_num)
  
- config ISA
-Index: linux-2.6.18-rc6-mm1/arch/i386/kernel/Makefile
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/kernel/Makefile	2006-09-08 06:42:11.780470103 -0500
-+++ linux-2.6.18-rc6-mm1/arch/i386/kernel/Makefile	2006-09-11 15:41:55.950325419 -0500
-@@ -7,8 +7,9 @@
- obj-y	:= process.o signal.o entry.o traps.o irq.o \
- 		ptrace.o time.o ioport.o ldt.o setup.o i8259.o sys_i386.o \
- 		pci-dma.o i386_ksyms.o i387.o bootflag.o \
--		quirks.o i8237.o topology.o alternative.o i8253.o tsc.o
-+		quirks.o topology.o alternative.o i8253.o tsc.o
- 
-+obj-$(CONFIG_GENERIC_ISA_DMA)	+= i8237.o
- obj-$(CONFIG_STACKTRACE)	+= stacktrace.o
- obj-y				+= cpu/
- obj-y				+= acpi/
-Index: linux-2.6.18-rc6-mm1/arch/i386/kernel/setup.c
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/i386/kernel/setup.c	2006-09-08 06:42:12.269769024 -0500
-+++ linux-2.6.18-rc6-mm1/arch/i386/kernel/setup.c	2006-09-11 15:41:55.982554730 -0500
-@@ -1075,13 +1075,17 @@
+ DECLARE_DATA8(__gp_value)
++DECLARE_DATA8(__noio)
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h
+kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h
+--- kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h	2006-09-20 15:29:29.000000000 +0800
++++ kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h	1970-01-01 08:00:00.000000000 +0800
+@@ -1,25 +0,0 @@
+-#ifndef ARCH_IO_H
+-#define ARCH_IO_H
+-
+-#include <stdint.h>
+-/* Helper functions for directly doing I/O */
+-
+-extern inline uint8_t inb(void *port)
+-{
+-	volatile unsigned char *addr = (unsigned char *)port;
+-	uint8_t result;
+-
+-	result = *addr;
+-	asm volatile ("mf.a"::: "memory");
+-	return result;
+-}
+-
+-extern inline void outb (uint8_t value, void *port)
+-{
+-	volatile unsigned char *addr = (unsigned char *)port;
+-
+-	*addr = value;
+-	asm volatile ("mf.a"::: "memory");
+-}
+-
+-#endif /* ARCH_IO_H */
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/io.h
+kexec-tools-1.101-fix/purgatory/arch/ia64/io.h
+--- kexec-tools-1.101/purgatory/arch/ia64/io.h	2006-09-20 15:29:29.000000000 +0800
++++ kexec-tools-1.101-fix/purgatory/arch/ia64/io.h	2006-09-21 15:11:19.000000000 +0800
+@@ -3,7 +3,7 @@
+ #define UNCACHED(x) (void *)((x)|(1UL<<63))
+ #define MF()	asm volatile ("mf.a" ::: "memory")
+ #define IO_SPACE_ENCODING(p)     ((((p) >> 2) << 12) | (p & 0xfff))
+-
++extern long __noio;
+ static inline void *io_addr (unsigned long port)
  {
- #ifdef CONFIG_HIGHMEM
- 	unsigned long max_zone_pfns[MAX_NR_ZONES] = {
-+#ifdef CONFIG_ZONE_DMA
- 			virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT,
-+#endif
- 			max_low_pfn,
- 			highend_pfn};
- 	add_active_range(0, 0, highend_pfn);
- #else
- 	unsigned long max_zone_pfns[MAX_NR_ZONES] = {
-+#ifdef CONFIG_ZONE_DMA
- 			virt_to_phys((char *)MAX_DMA_ADDRESS) >> PAGE_SHIFT,
-+#endif
- 			max_low_pfn};
- 	add_active_range(0, 0, max_low_pfn);
+         unsigned long offset;
+@@ -16,28 +16,34 @@ static inline void *io_addr (unsigned lo
+ static inline unsigned int inb (unsigned long port)
+ {
+         volatile unsigned char *addr = io_addr(port);
+-        unsigned char ret;
+-        ret = *addr;
+-        MF();
++	unsigned char ret = 0;
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
+ }
+ 
+ static inline unsigned int inw (unsigned long port)
+ {
+         volatile unsigned short *addr = io_addr(port);
+-        unsigned short ret;
++	unsigned short ret = 0;
+ 
+-        ret = *addr;
+-	MF();
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
+ }
+ 
+-static inline unsigned int ia64_inl (unsigned long port)
++static inline unsigned int inl (unsigned long port)
+ {
+-        volatile unsigned int *addr = __ia64_mk_io_addr(port);
+-        unsigned int ret;
+-        ret = *addr;
+-	MF();
++	volatile unsigned int *addr = io_addr(port);
++	unsigned int ret ;
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
+ }
+ 
+@@ -45,50 +51,58 @@ static inline void outb (unsigned char v
+ {
+         volatile unsigned char *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+ static inline void outw (unsigned short val, unsigned long port)
+ {
+         volatile unsigned short *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+ static inline void outl (unsigned int val, unsigned long port)
+ {
+         volatile unsigned int *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+-
+ static inline unsigned char readb(const volatile void  *addr)
+ {
+-        return *(volatile unsigned char *) addr;
++	return __noio ? 0 :*(volatile unsigned char *) addr;
+ }
+ static inline unsigned short readw(const volatile void  *addr)
+ {
+-        return *(volatile unsigned short *) addr;
++	return __noio ? 0 :*(volatile unsigned short *) addr;
+ }
+ static inline unsigned int readl(const volatile void  *addr)
+ {
+-        return *(volatile unsigned int *) addr;
++	return __noio ? 0 :*(volatile unsigned int *) addr;
+ }
+ 
+ static inline void writeb(unsigned char b, volatile void  *addr)
+ {
+-        *(volatile unsigned char *) addr = b;
++	if (!__noio)
++		*(volatile unsigned char *) addr = b;
+ }
+ static inline void writew(unsigned short b, volatile void  *addr)
+ {
+-        *(volatile unsigned short *) addr = b;
++	if (!__noio)
++		*(volatile unsigned short *) addr = b;
+ }
+ static inline void writel(unsigned int b, volatile void  *addr)
+ {
+-        *(volatile unsigned int *) addr = b;
++	if (!__noio)
++		*(volatile unsigned int *) addr = b;
+ }
  #endif
+
