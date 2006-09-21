@@ -1,47 +1,246 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 26 Sep 2006 19:47:48 +0000
-Subject: [patch] PAL calls need physical mode, stacked
-Message-Id: <200609261947.k8QJlmLL8824932@clink.americas.sgi.com>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Thu, 21 Sep 2006 05:06:08 +0000
+Subject: [Patch] kexec-tools: --noio option to disable I/O in purgatory
+Message-Id: <1158815168.2718.24.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[patch] PAL calls need physical mode, stacked
+SN platform support PIO in a different way to generic IA64 platform. It
+does not support most of the legacy I/O ports.
 
-PAL_CACHE_READ and PAL_CACHE_WRITE need to be called in physical
-mode with stacked registers.
+Give an --noio option to kexec-tools to disable I/O in purgatory code.
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+This patch also removed an unused io.h in kexec-tools.
 
----
- include/asm-ia64/pal.h |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
-Index: test/include/asm-ia64/pal.h
-=================================--- test.orig/include/asm-ia64/pal.h	2006-09-08 14:51:13.000000000 -0500
-+++ test/include/asm-ia64/pal.h	2006-09-26 14:30:53.130648604 -0500
-@@ -963,7 +963,8 @@ static inline s64
- ia64_pal_cache_read (pal_cache_line_id_u_t line_id, u64 physical_addr)
+diff -Nraup kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c
+kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c
+--- kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-20
+15:30:40.000000000 +0800
++++ kexec-tools-1.101-fix/kexec/arch/ia64/kexec-elf-ia64.c	2006-09-21
+15:12:20.000000000 +0800
+@@ -116,16 +116,19 @@ int elf_ia64_load(int argc, char **argv,
+ 	unsigned long command_line_base, ramdisk_base;
+ 	unsigned long efi_memmap_base, efi_memmap_size;
+ 	unsigned long boot_param_base;
++	unsigned long noio=0;
+ 	int result;
+ 	int opt;
+ 	char *efi_memmap_buf, *boot_param;
+ #define OPT_APPEND	(OPT_ARCH_MAX+0)
+ #define OPT_RAMDISK	(OPT_ARCH_MAX+1)
++#define OPT_NOIO	(OPT_ARCH_MAX+2)
+ 	static const struct option options[] = {
+ 		KEXEC_ARCH_OPTIONS
+ 		{"command-line", 1, 0, OPT_APPEND},
+ 		{"append",       1, 0, OPT_APPEND},
+ 		{"initrd",       1, 0, OPT_RAMDISK},
++		{"noio",       1, 0, OPT_NOIO},
+ 		{0, 0, 0, 0},
+ 	};
+ 
+@@ -148,6 +151,9 @@ int elf_ia64_load(int argc, char **argv,
+ 		case OPT_RAMDISK:
+ 			ramdisk = optarg;
+ 			break;
++		case OPT_NOIO:	/* disable PIO and MMIO in purgatory code*/
++			noio = 1;
++			break;	
+ 		}
+ 	}
+ 	command_line_len = 0;
+@@ -196,6 +202,10 @@ int elf_ia64_load(int argc, char **argv,
+ 	boot_param = xmalloc(4096);
+         boot_param_base = add_buffer(info, boot_param, 4096, 4096,
+4096, 0,
+                         max_addr, -1);
++
++        elf_rel_set_symbol(&info->rhdr, "__noio",
++                        &noio, sizeof(long));
++
+         elf_rel_set_symbol(&info->rhdr, "__boot_param_base",
+                         &boot_param_base, sizeof(long));
+ 
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/entry.S
+kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S
+--- kexec-tools-1.101/purgatory/arch/ia64/entry.S	2006-09-20
+15:30:40.000000000 +0800
++++ kexec-tools-1.101-fix/purgatory/arch/ia64/entry.S	2006-09-21
+15:11:36.000000000 +0800
+@@ -68,3 +68,4 @@ DECLARE_DATA8(__loaded_segments)
+ DECLARE_DATA8(__loaded_segments_num)
+ 
+ DECLARE_DATA8(__gp_value)
++DECLARE_DATA8(__noio)
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h
+kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h
+--- kexec-tools-1.101/purgatory/arch/ia64/include/arch/io.h	2006-09-20
+15:29:29.000000000 +0800
++++
+kexec-tools-1.101-fix/purgatory/arch/ia64/include/arch/io.h	1970-01-01
+08:00:00.000000000 +0800
+@@ -1,25 +0,0 @@
+-#ifndef ARCH_IO_H
+-#define ARCH_IO_H
+-
+-#include <stdint.h>
+-/* Helper functions for directly doing I/O */
+-
+-extern inline uint8_t inb(void *port)
+-{
+-	volatile unsigned char *addr = (unsigned char *)port;
+-	uint8_t result;
+-
+-	result = *addr;
+-	asm volatile ("mf.a"::: "memory");
+-	return result;
+-}
+-
+-extern inline void outb (uint8_t value, void *port)
+-{
+-	volatile unsigned char *addr = (unsigned char *)port;
+-
+-	*addr = value;
+-	asm volatile ("mf.a"::: "memory");
+-}
+-
+-#endif /* ARCH_IO_H */
+diff -Nraup kexec-tools-1.101/purgatory/arch/ia64/io.h
+kexec-tools-1.101-fix/purgatory/arch/ia64/io.h
+--- kexec-tools-1.101/purgatory/arch/ia64/io.h	2006-09-20
+15:29:29.000000000 +0800
++++ kexec-tools-1.101-fix/purgatory/arch/ia64/io.h	2006-09-21
+15:11:19.000000000 +0800
+@@ -3,7 +3,7 @@
+ #define UNCACHED(x) (void *)((x)|(1UL<<63))
+ #define MF()	asm volatile ("mf.a" ::: "memory")
+ #define IO_SPACE_ENCODING(p)     ((((p) >> 2) << 12) | (p & 0xfff))
+-
++extern long __noio;
+ static inline void *io_addr (unsigned long port)
  {
- 	struct ia64_pal_retval iprv;
--	PAL_CALL(iprv, PAL_CACHE_READ, line_id.pclid_data, physical_addr, 0);
-+	PAL_CALL_PHYS_STK(iprv, PAL_CACHE_READ, line_id.pclid_data,
-+				physical_addr, 0);
- 	return iprv.status;
+         unsigned long offset;
+@@ -16,28 +16,34 @@ static inline void *io_addr (unsigned lo
+ static inline unsigned int inb (unsigned long port)
+ {
+         volatile unsigned char *addr = io_addr(port);
+-        unsigned char ret;
+-        ret = *addr;
+-        MF();
++        unsigned char ret = 0;
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
  }
  
-@@ -985,7 +986,8 @@ static inline s64
- ia64_pal_cache_write (pal_cache_line_id_u_t line_id, u64 physical_addr, u64 data)
+ static inline unsigned int inw (unsigned long port)
  {
- 	struct ia64_pal_retval iprv;
--	PAL_CALL(iprv, PAL_CACHE_WRITE, line_id.pclid_data, physical_addr, data);
-+	PAL_CALL_PHYS_STK(iprv, PAL_CACHE_WRITE, line_id.pclid_data,
-+				physical_addr, data);
- 	return iprv.status;
+         volatile unsigned short *addr = io_addr(port);
+-        unsigned short ret;
++        unsigned short ret = 0;
+ 
+-        ret = *addr;
+-	MF();
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
  }
  
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+-static inline unsigned int ia64_inl (unsigned long port)
++static inline unsigned int inl (unsigned long port)
+ {
+-        volatile unsigned int *addr = __ia64_mk_io_addr(port);
+-        unsigned int ret;
+-        ret = *addr;
+-	MF();
++        volatile unsigned int *addr = io_addr(port);
++        unsigned int ret ;
++	if (!__noio) {
++		ret = *addr;
++		MF();
++	}
+         return ret;
+ }
+ 
+@@ -45,50 +51,58 @@ static inline void outb (unsigned char v
+ {
+         volatile unsigned char *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+ static inline void outw (unsigned short val, unsigned long port)
+ {
+         volatile unsigned short *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+ static inline void outl (unsigned int val, unsigned long port)
+ {
+         volatile unsigned int *addr = io_addr(port);
+ 
+-        *addr = val;
+-	MF();
++	if (!__noio) {
++		*addr = val;
++		MF();
++	}
+ }
+ 
+-
+ static inline unsigned char readb(const volatile void  *addr)
+ {
+-        return *(volatile unsigned char *) addr;
++        return __noio ? 0 :*(volatile unsigned char *) addr;
+ }
+ static inline unsigned short readw(const volatile void  *addr)
+ {
+-        return *(volatile unsigned short *) addr;
++        return __noio ? 0 :*(volatile unsigned short *) addr;
+ }
+ static inline unsigned int readl(const volatile void  *addr)
+ {
+-        return *(volatile unsigned int *) addr;
++        return __noio ? 0 :*(volatile unsigned int *) addr;
+ }
+ 
+ static inline void writeb(unsigned char b, volatile void  *addr)
+ {
+-        *(volatile unsigned char *) addr = b;
++	if (!__noio)
++		*(volatile unsigned char *) addr = b;
+ }
+ static inline void writew(unsigned short b, volatile void  *addr)
+ {
+-        *(volatile unsigned short *) addr = b;
++	if (!__noio)
++		*(volatile unsigned short *) addr = b;
+ }
+ static inline void writel(unsigned int b, volatile void  *addr)
+ {
+-        *(volatile unsigned int *) addr = b;
++	if (!__noio)
++		*(volatile unsigned int *) addr = b;
+ }
+ #endif
+
+
