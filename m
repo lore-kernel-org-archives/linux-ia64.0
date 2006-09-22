@@ -1,13 +1,15 @@
 From: John Keller <jpk@sgi.com>
-Date: Fri, 01 Sep 2006 16:02:22 +0000
+Date: Fri, 22 Sep 2006 14:51:43 +0000
 Subject: [PATCH 3/3] - Altix: Initial ACPI support - ROM shadowing.
-Message-Id: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
+Message-Id: <20060922145143.12442.70075.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
+In-Reply-To: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, ayoung@sgi.com, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>, pcihpd-discuss@lists.sourceforge.net
+To: akpm@osdl.org
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
 
 Support a shadowed ROM when running with an ACPI capable PROM.
 
@@ -28,8 +30,8 @@ Signed-off-by: John Keller <jpk@sgi.com>
 
 
 Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-08-31 16:07:39.070573026 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-08-31 16:09:00.764554984 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-09-22 08:13:28.039809797 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-09-22 08:14:36.792373640 -0500
 @@ -286,9 +286,10 @@ void sn_pci_fixup_slot(struct pci_dev *d
  	list_add_tail(&pcidev_info->pdi_list,
  		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
@@ -44,8 +46,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
  	 * Using the PROMs values for the PCI host bus, get the Linux
   	 * PCI host_pci_dev struct and set up host bus linkages
 Index: linux-2.6/drivers/pci/rom.c
-=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-08-31 16:07:39.074573515 -0500
-+++ linux-2.6/drivers/pci/rom.c	2006-08-31 16:09:00.764554984 -0500
+=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-09-21 17:09:09.167729932 -0500
++++ linux-2.6/drivers/pci/rom.c	2006-09-22 08:14:36.800374635 -0500
 @@ -77,7 +77,8 @@ void __iomem *pci_map_rom(struct pci_dev
  		start = (loff_t)0xC0000;
  		*size = 0x20000; /* cover C000:0 through E000:0 */
@@ -84,8 +86,8 @@ Index: linux-2.6/drivers/pci/rom.c
  		pci_disable_rom(pdev);
  }
 Index: linux-2.6/include/linux/ioport.h
-=================================--- linux-2.6.orig/include/linux/ioport.h	2006-08-31 16:07:39.074573515 -0500
-+++ linux-2.6/include/linux/ioport.h	2006-08-31 16:09:00.768555473 -0500
+=================================--- linux-2.6.orig/include/linux/ioport.h	2006-09-21 17:09:09.167729932 -0500
++++ linux-2.6/include/linux/ioport.h	2006-09-22 08:14:36.808375629 -0500
 @@ -89,6 +89,7 @@ struct resource_list {
  #define IORESOURCE_ROM_ENABLE		(1<<0)	/* ROM is enabled, same as PCI_ROM_ADDRESS_ENABLE */
  #define IORESOURCE_ROM_SHADOW		(1<<1)	/* ROM is copy at C000:0 */
@@ -95,8 +97,8 @@ Index: linux-2.6/include/linux/ioport.h
  /* PC/ISA/whatever - the normal PC address spaces: IO and memory */
  extern struct resource ioport_resource;
 Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-08-31 16:07:39.074573515 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-08-31 16:09:00.768555473 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-09-22 08:13:28.039809797 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-09-22 08:14:36.808375629 -0500
 @@ -169,6 +169,39 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
  	}
  }
@@ -136,8 +138,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
  	.name = "SGI HUBDEV Driver",
  	.ids = "SGIHUB,SGITIO",
 Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-08-30 13:01:01.000000000 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-08-31 16:27:50.643626522 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-09-22 08:13:28.027808294 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-09-22 08:14:36.808375629 -0500
 @@ -210,6 +210,9 @@ sn_more_slot_fixup(struct pci_dev *dev, 
  			dev->resource[idx].parent = &ioport_resource;
  		else
