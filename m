@@ -1,73 +1,120 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 22 Sep 2006 06:24:47 +0000
-Subject: [BUGFIX][PATCH] cpu to node relationship fixup take2 [1/2]
-Message-Id: <20060922152447.42a83860.kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 22 Sep 2006 06:27:02 +0000
+Subject: [BUGFIX][PATCH] cpu to node relationship fixup take2 [2/2] map cpu
+Message-Id: <20060922152702.4b01c192.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060922152447.42a83860.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20060922152447.42a83860.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "tony.luck@intel.com" <tony.luck@intel.com>
 Cc: Andrew Morton <akpm@osdl.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, GOTO <y-goto@jp.fujitsu.com>
 
-I rewrote the whoe patch..
+Assume that a cpu is *physically* offlined at boot time...
 
-Problem description:
-We have additional_cpus= option for allocating possible_cpus. But nid for
-possible cpus are not fixed at boot time. cpus which is offlined at boot 
-or cpus which is not on SRAT is not tied to its node.
-This will cause panic at cpu onlining.
+Because smpboot.c::smp_boot_cpu_map() canoot find cpu's sapicid,
+numa.c::build_cpu_to_node_map() cannot build cpu<->node map for
+offlined cpu.
 
-Changelog V1 -> V2
-- divded patch into 2 pathces.
-- move cpu_to_node relationship fixup before cpu onlining.
+For such cpus, cpu_to_node map should be fixed at cpu-hot-add.
+This mapping should be done before cpu onlining.
 
-Tested on ia64/NUMA system, which has *physical* node-hot-add function.
-
-Future work:  node-hot-add by cpu-hot-add.
-
--Kame
-
-=
-In usual, pxm_to_nid() mapping is fixed at boot time by SRAT.
-
-But, unfortunatelly, some system (my system!) do not include
-full SRAT table for possible cpus. (Then, I use additiona_cpus= option.)
-
-For such possible cpus, pxm<->nid should be fixed at hot-add.
-We now have acpi_map_pxm_to_node() which is also used at boot. It's suitable
-here.
+This patch also handles cpu hotremove case.
 
 Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
- arch/ia64/kernel/acpi.c |   13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
 
-Index: linux-2.6.18/arch/ia64/kernel/acpi.c
-=================================--- linux-2.6.18.orig/arch/ia64/kernel/acpi.c	2006-09-22 13:39:12.000000000 +0900
-+++ linux-2.6.18/arch/ia64/kernel/acpi.c	2006-09-22 14:24:48.000000000 +0900
-@@ -771,16 +771,19 @@
- {
- #ifdef CONFIG_ACPI_NUMA
- 	int pxm_id;
-+	int nid;
+ arch/ia64/kernel/numa.c     |   34 +++++++++++++++++++++++++++++++---
+ arch/ia64/kernel/topology.c |    6 +++++-
+ include/asm-ia64/numa.h     |    4 ++++
+ 3 files changed, 40 insertions(+), 4 deletions(-)
+
+Index: linux-2.6.18/arch/ia64/kernel/numa.c
+=================================--- linux-2.6.18.orig/arch/ia64/kernel/numa.c	2006-09-22 14:22:44.000000000 +0900
++++ linux-2.6.18/arch/ia64/kernel/numa.c	2006-09-22 14:44:46.000000000 +0900
+@@ -29,6 +29,36 @@
  
- 	pxm_id = acpi_get_pxm(handle);
--
- 	/*
--	 * Assuming that the container driver would have set the proximity
--	 * domain and would have initialized pxm_to_node(pxm_id) && pxm_flag
-+	 * We don't have cpu-only-node hotadd. But if the system equips
-+	 * SRAT table, pxm is already found and node is ready.
-+  	 * So, just pxm_to_nid(pxm) is OK.
-+	 * This code here is for the system which doesn't have full SRAT
-+  	 * table for possible cpus.
- 	 */
--	node_cpuid[cpu].nid = (pxm_id < 0) ? 0 : pxm_to_node(pxm_id);
--
-+	nid = acpi_map_pxm_to_node(pxm_id);
- 	node_cpuid[cpu].phys_id = physid;
-+	node_cpuid[cpu].nid = nid;
- #endif
- 	return (0);
+ cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
+ 
++void __cpuinit map_cpu_to_node(int cpu, int nid)
++{
++	int oldnid;
++	if (nid < 0) { /* just initialize by zero */
++		cpu_to_node_map[cpu] = 0;
++		return;
++	}
++	/* sanity check first */
++	oldnid = cpu_to_node_map[cpu];
++	if (cpu_isset(cpu, node_to_cpu_mask[oldnid])) {
++		return; /* nothing to do */
++	}
++	/* we don't have cpu-driven node hot add yet...
++	   In usual case, node is created from SRAT at boot time. */
++	if (!node_online(nid))
++		nid = first_online_node;
++	cpu_to_node_map[cpu] = nid;
++	cpu_set(cpu, node_to_cpu_mask[nid]);
++	return;
++}
++
++void __cpuinit unmap_cpu_from_node(int cpu, int nid)
++{
++	WARN_ON(!cpu_isset(cpu, node_to_cpu_mask[nid]));
++	WARN_ON(cpu_to_node_map[cpu] != nid);
++	cpu_to_node_map[cpu] = 0;
++	cpu_clear(cpu, node_to_cpu_mask[nid]);
++}
++
++
+ /**
+  * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
+  *
+@@ -49,8 +79,6 @@
+ 				node = node_cpuid[i].nid;
+ 				break;
+ 			}
+-		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+-		if (node >= 0)
+-			cpu_set(cpu, node_to_cpu_mask[node]);
++		map_cpu_to_node(cpu, node);
+ 	}
  }
+Index: linux-2.6.18/include/asm-ia64/numa.h
+=================================--- linux-2.6.18.orig/include/asm-ia64/numa.h	2006-09-22 14:22:44.000000000 +0900
++++ linux-2.6.18/include/asm-ia64/numa.h	2006-09-22 14:25:07.000000000 +0900
+@@ -64,6 +64,10 @@
+ 
+ #define local_nodeid (cpu_to_node_map[smp_processor_id()])
+ 
++extern void map_cpu_to_node(int cpu, int nid);
++extern void unmap_cpu_from_node(int cpu, int nid);
++
++
+ #else /* !CONFIG_NUMA */
+ 
+ #define paddr_to_nid(addr)	0
+Index: linux-2.6.18/arch/ia64/kernel/topology.c
+=================================--- linux-2.6.18.orig/arch/ia64/kernel/topology.c	2006-09-22 14:22:44.000000000 +0900
++++ linux-2.6.18/arch/ia64/kernel/topology.c	2006-09-22 14:25:07.000000000 +0900
+@@ -36,6 +36,9 @@
+ 	 */
+ 	if (!can_cpei_retarget() && is_cpu_cpei_target(num))
+ 		sysfs_cpus[num].cpu.no_control = 1;
++#ifdef CONFIG_NUMA
++	map_cpu_to_node(num, node_cpuid[num].nid);
++#endif
+ #endif
+ 
+ 	return register_cpu(&sysfs_cpus[num].cpu, num);
+@@ -45,7 +48,8 @@
+ 
+ void arch_unregister_cpu(int num)
+ {
+-	return unregister_cpu(&sysfs_cpus[num].cpu);
++	unregister_cpu(&sysfs_cpus[num].cpu);
++	unmap_cpu_from_node(num, cpu_to_node(num));
+ }
+ EXPORT_SYMBOL(arch_register_cpu);
+ EXPORT_SYMBOL(arch_unregister_cpu);
 
