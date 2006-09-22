@@ -1,13 +1,15 @@
 From: John Keller <jpk@sgi.com>
-Date: Fri, 01 Sep 2006 16:02:08 +0000
+Date: Fri, 22 Sep 2006 14:51:32 +0000
 Subject: [PATCH 2/3] - Altix: Add initial ACPI IO support
-Message-Id: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
+Message-Id: <20060922145132.12421.5738.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
+In-Reply-To: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, ayoung@sgi.com, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>, pcihpd-discuss@lists.sourceforge.net
+To: akpm@osdl.org
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
 
 SN ACPI hotplug support.
 
@@ -23,8 +25,8 @@ Signed-off-by: John Keller <jpk@sgi.com>
 
 
 Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
-=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-08-31 13:48:37.041468566 -0500
-+++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-08-31 14:27:13.326389685 -0500
+=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-09-21 17:09:13.296239297 -0500
++++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-09-22 08:13:51.738773450 -0500
 @@ -205,21 +205,6 @@ static struct hotplug_slot * sn_hp_destr
  	return bss_hotplug_slot;
  }
