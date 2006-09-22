@@ -1,32 +1,25 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Wed, 27 Sep 2006 11:48:33 +0000
-Subject: Re: [PATCH 2.6.18] IA64: Add pci_fixup_video into IA64 kernel for
-Message-Id: <1159359135.11049.341.camel@localhost.localdomain>
+From: Greg KH <greg@kroah.com>
+Date: Fri, 22 Sep 2006 18:06:03 +0000
+Subject: Re: [Pcihpd-discuss] [PATCH 0/3] - Altix: Add initial ACPI IO support
+Message-Id: <20060922180603.GA14921@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <XNM1$9$0$4$$3$3$7$A$9002684U451a5f21@hitachi.com>
-In-Reply-To: <XNM1$9$0$4$$3$3$7$A$9002684U451a5f21@hitachi.com>
+References: <20060922145109.12407.58547.sendpatchset@attica.americas.sgi.com>
+In-Reply-To: <20060922145109.12407.58547.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: eiichiro.oiwa.nm@hitachi.com
-Cc: Jesse Barnes <jesse.barnes@intel.com>, akpm@osdl.org, tony.luck@intel.com, greg@kroah.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: John Keller <jpk@sgi.com>
+Cc: akpm@osdl.org, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com
 
-Ar Mer, 2006-09-27 am 20:23 +0900, ysgrifennodd
-eiichiro.oiwa.nm@hitachi.com:
-> I moved pci_fixup_video to generic location (driver/pci/quirks.c).
-> I tested generic fixup_video on x86, x86_64 and IA64, and confirmed
-> we can read Video BIOS from the sysfs rom with embedded VGA.
+On Fri, Sep 22, 2006 at 09:51:09AM -0500, John Keller wrote:
+> Andrew,
+>  This patchset was sent out more than a few weeks ago and
+> there have been no comments or discussion on it.
+> Can you (or Greg, if that is more appropriate) take this
+> set of patches?
 
-Lots of embedded systems don't have a PCI bios in the usual sense, and
-cannot run the x86 code in the ROM firmware either. That doesn't appear
-to be a big problem when setting PCI_ROM_SHADOW but those platforms may
-not all be able to access the shadow rom if one exists.
+I'll take it, care to actually send it to me?
 
-Can you fix the comment in drivers/pci/rom.c to reflect the changes.
+thanks,
 
-Otherwise looks good.
-
-Alan
-
-
-
+greg k-h
