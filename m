@@ -1,120 +1,42 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 22 Sep 2006 06:27:02 +0000
-Subject: [BUGFIX][PATCH] cpu to node relationship fixup take2 [2/2] map cpu
-Message-Id: <20060922152702.4b01c192.kamezawa.hiroyu@jp.fujitsu.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Sat, 23 Sep 2006 00:06:04 +0000
+Subject: Re: [BUGFIX][PATCH] cpu to node relationship fixup take2 [1/2]
+Message-Id: <20060922170604.745d662a.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060922152447.42a83860.kamezawa.hiroyu@jp.fujitsu.com>
 In-Reply-To: <20060922152447.42a83860.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "tony.luck@intel.com" <tony.luck@intel.com>
-Cc: Andrew Morton <akpm@osdl.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, GOTO <y-goto@jp.fujitsu.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: "tony.luck@intel.com" <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, GOTO <y-goto@jp.fujitsu.com>
 
-Assume that a cpu is *physically* offlined at boot time...
+On Fri, 22 Sep 2006 15:24:47 +0900
+KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
 
-Because smpboot.c::smp_boot_cpu_map() canoot find cpu's sapicid,
-numa.c::build_cpu_to_node_map() cannot build cpu<->node map for
-offlined cpu.
+> I rewrote the whoe patch..
+> 
 
-For such cpus, cpu_to_node map should be fixed at cpu-hot-add.
-This mapping should be done before cpu onlining.
+Well I don't recall ever having seen a "cpu to node relationship fixup
+take1" and I have generally lost the plot regarding these fixes.
 
-This patch also handles cpu hotremove case.
+What I have now is:
 
-Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+cpu-to-node-relationship-fixup-take2.patch
+cpu-to-node-relationship-fixup-map-cpu-to-node.patch
 
+I shall send those patches in reply to this email.  Please confirm that
+these are correct, sufficient, complete, etc.
 
- arch/ia64/kernel/numa.c     |   34 +++++++++++++++++++++++++++++++---
- arch/ia64/kernel/topology.c |    6 +++++-
- include/asm-ia64/numa.h     |    4 ++++
- 3 files changed, 40 insertions(+), 4 deletions(-)
+Do you believe these are needed in 2.6.18.x?
 
-Index: linux-2.6.18/arch/ia64/kernel/numa.c
-=================================--- linux-2.6.18.orig/arch/ia64/kernel/numa.c	2006-09-22 14:22:44.000000000 +0900
-+++ linux-2.6.18/arch/ia64/kernel/numa.c	2006-09-22 14:44:46.000000000 +0900
-@@ -29,6 +29,36 @@
- 
- cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
- 
-+void __cpuinit map_cpu_to_node(int cpu, int nid)
-+{
-+	int oldnid;
-+	if (nid < 0) { /* just initialize by zero */
-+		cpu_to_node_map[cpu] = 0;
-+		return;
-+	}
-+	/* sanity check first */
-+	oldnid = cpu_to_node_map[cpu];
-+	if (cpu_isset(cpu, node_to_cpu_mask[oldnid])) {
-+		return; /* nothing to do */
-+	}
-+	/* we don't have cpu-driven node hot add yet...
-+	   In usual case, node is created from SRAT at boot time. */
-+	if (!node_online(nid))
-+		nid = first_online_node;
-+	cpu_to_node_map[cpu] = nid;
-+	cpu_set(cpu, node_to_cpu_mask[nid]);
-+	return;
-+}
-+
-+void __cpuinit unmap_cpu_from_node(int cpu, int nid)
-+{
-+	WARN_ON(!cpu_isset(cpu, node_to_cpu_mask[nid]));
-+	WARN_ON(cpu_to_node_map[cpu] != nid);
-+	cpu_to_node_map[cpu] = 0;
-+	cpu_clear(cpu, node_to_cpu_mask[nid]);
-+}
-+
-+
- /**
-  * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
-  *
-@@ -49,8 +79,6 @@
- 				node = node_cpuid[i].nid;
- 				break;
- 			}
--		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
--		if (node >= 0)
--			cpu_set(cpu, node_to_cpu_mask[node]);
-+		map_cpu_to_node(cpu, node);
- 	}
- }
-Index: linux-2.6.18/include/asm-ia64/numa.h
-=================================--- linux-2.6.18.orig/include/asm-ia64/numa.h	2006-09-22 14:22:44.000000000 +0900
-+++ linux-2.6.18/include/asm-ia64/numa.h	2006-09-22 14:25:07.000000000 +0900
-@@ -64,6 +64,10 @@
- 
- #define local_nodeid (cpu_to_node_map[smp_processor_id()])
- 
-+extern void map_cpu_to_node(int cpu, int nid);
-+extern void unmap_cpu_from_node(int cpu, int nid);
-+
-+
- #else /* !CONFIG_NUMA */
- 
- #define paddr_to_nid(addr)	0
-Index: linux-2.6.18/arch/ia64/kernel/topology.c
-=================================--- linux-2.6.18.orig/arch/ia64/kernel/topology.c	2006-09-22 14:22:44.000000000 +0900
-+++ linux-2.6.18/arch/ia64/kernel/topology.c	2006-09-22 14:25:07.000000000 +0900
-@@ -36,6 +36,9 @@
- 	 */
- 	if (!can_cpei_retarget() && is_cpu_cpei_target(num))
- 		sysfs_cpus[num].cpu.no_control = 1;
-+#ifdef CONFIG_NUMA
-+	map_cpu_to_node(num, node_cpuid[num].nid);
-+#endif
- #endif
- 
- 	return register_cpu(&sysfs_cpus[num].cpu, num);
-@@ -45,7 +48,8 @@
- 
- void arch_unregister_cpu(int num)
- {
--	return unregister_cpu(&sysfs_cpus[num].cpu);
-+	unregister_cpu(&sysfs_cpus[num].cpu);
-+	unmap_cpu_from_node(num, cpu_to_node(num));
- }
- EXPORT_SYMBOL(arch_register_cpu);
- EXPORT_SYMBOL(arch_unregister_cpu);
+Please follow the guidelines in
+http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt a little more
+closely, especially regarding Subject:s
+
+Please bear in mind that I'm sitting on thousands of patches from hundreds
+of developers, that I process sometimes hundreds of patches per day and I
+am very easily confused.  Retaining consistent and well-thought out
+Subject:s and referring to previous patches via their precise Subject:s
+really helps, thanks.
 
