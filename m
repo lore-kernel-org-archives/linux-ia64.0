@@ -1,13 +1,14 @@
 From: <eiichiro.oiwa.nm@hitachi.com>
-Date: Tue, 26 Sep 2006 07:35:54 +0000
+Date: Tue, 26 Sep 2006 07:42:50 +0000
 Subject: [PATCH 2.6.18] IA64: Add pci_fixup_video into IA64 kernel for
-Message-Id: <XNM1$9$0$4$$3$3$7$A$9002680U4518d84f@hitachi.com>
+Message-Id: <XNM1$9$0$4$$3$3$7$A$9002681U4518d9f9@hitachi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200609260605.k8Q65dAc005670@fire-2.osdl.org>
+References: <XNM1$9$0$4$$3$3$7$A$9002680U4518d84f@hitachi.com>
+In-Reply-To: <XNM1$9$0$4$$3$3$7$A$9002680U4518d84f@hitachi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, tony.luck@intel.ocm, greg@kroah.com, linux-ia64@vger.kernel.org
+To: akpm@osdl.org, tony.luck@intel.com, greg@kroah.com, linux-ia64@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 
 To be compatible with Xorg's handling of PCI, we need pci_fixup_video on IA64
