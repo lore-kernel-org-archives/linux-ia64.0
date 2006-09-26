@@ -1,33 +1,30 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 04 Sep 2006 17:39:43 +0000
-Subject: Re: NODE_DATA without CONFIG_NUMA
-Message-Id: <Pine.LNX.4.64.0609041037230.29229@schroedinger.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 26 Sep 2006 19:54:30 +0000
+Subject: KDB blindly reads keyboard port
+Message-Id: <200609261354.30722.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060904062323.GA9293@verge.net.au>
-In-Reply-To: <20060904062323.GA9293@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Keith Owens <kaos@sgi.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Mon, 4 Sep 2006, Jes Sorensen wrote:
+get_kbd_char() in arch/ia64/kdb/kdba_io.c does "inb(KBD_STATUS_REG)".
 
-> Christoph Lameter wrote:
-> > On Mon, 4 Sep 2006, Jes Sorensen wrote:
-> > 
-> > > I haven't looked at the details, given you don't say where it breaks,
-> > > but it would make sense to me that a non-NUMA system is treated as a
-> > > single node system, eg. NODE_DATA(0) ought to be valid.
-> > 
-> > NODE_DATA should always be available. The problem is likely due to DISCONTIG
-> > being associatiated tightly with NUMA.
-> 
-> But DISCONTIG will probably go away at some point, so maybe it's time to
-> disentangle that?
+But we don't know whether there's even an i8042 keyboard controller
+present.  On HP ia64 boxes, there is no i8042, and trying to read
+from it can cause an MCA.
 
-I think we should fix the bug.
+This depends on the specific platform and how it is configured.  I
+observed this MCA while booting the SLES10 install kernel on an
+HP rx7620 in "default" acpiconfig mode.  The supported acpiconfig
+mode on this box is "single-pci-domain", which also puts some
+legacy ports into "soft-fail" mode, where the read will just return
+0xff instead of causing an MCA.  But I think it's wrong to blindly
+poke around in I/O port space.
 
-Disentangle is good but we cannot get rid of DISCONTIG since SPARSEMEM so 
-far does not match DISCONTIG performance since it does not support 
-virtual mem_map. See the recent discussion in regards to virt_to_page().
+i8042_pnp_init() uses PNPACPI to figure out whether the i8042
+device is present.  That's probably too heavy-weight for what
+you want to do in KDB, though.
 
+Bjorn
