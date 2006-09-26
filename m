@@ -1,55 +1,96 @@
-From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
-Date: Fri, 25 Aug 2006 13:14:20 +0000
-Subject: Unable to compile 2.6.17.11 IA64 kernel
-Message-Id: <44EEF7AC.5090804@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------020209000304090003000404"
+From: <eiichiro.oiwa.nm@hitachi.com>
+Date: Tue, 26 Sep 2006 07:35:54 +0000
+Subject: [PATCH 2.6.18] IA64: Add pci_fixup_video into IA64 kernel for
+Message-Id: <XNM1$9$0$4$$3$3$7$A$9002680U4518d84f@hitachi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------020209000304090003000404
+References: <200609260605.k8Q65dAc005670@fire-2.osdl.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=us-ascii
+To: akpm@osdl.org, tony.luck@intel.ocm, greg@kroah.com, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-include/asm/mman.h: Assembler messages:
-include/asm/mman.h:13: Error: Unknown opcode `int ia64_map_check_rgn(unsigned long addr,unsigned
-long len,'
-include/asm/mman.h:14: Error: Unknown opcode `unsigned long flags)'
-make[1]: *** [arch/ia64/kernel/entry.o] Error 1
-make: *** [arch/ia64/kernel] Error 2
+To be compatible with Xorg's handling of PCI, we need pci_fixup_video on IA64
+platform like x86 platform. There are also machines, which have VGA embedded
+into main board, among IA64 platform. Embedded VGA generally don't have PCI ROM,
+and there are VGA ROM image in System BIOS. Therefore, these machines need
+pci_fixup_video for the sysfs rom. pci_fixup_video already exists in x86 Linux
+kernel. However since this function doesn't exist in IA64 kernel, we could not
+run X server on IA64 box has embedded-VGA.
 
--- 
-+===========+=======================+==================================+
-|  |\/\/\/| |                       |                                  |
-|  |      | |Christian Cotte-Barrot |org.  :BULL/                      |
-|  | (~)(o) |Bull S.A.              |office:FREC/B1-401                |
-| C      _) |1, rue de Provence     |mailto:                           |
-|  | ,___|  |B.P. 208               |   Christian.Cotte-Barrot@bull.net|
-|  |   /    |38432 ECHIROLLES CEDEX |phone :+33 (0)476297725 (229 7725)|
-| /----\    |FRANCE                 |fax   :+33 (0)476297518 (229 7518)|
-+===========+=======================+==================================+
+I tested pci_fixup_video on IA64 box has embedded-VGA. I confirmed we can read
+VGA BIOS from the sysfs rom regardless of embedded-VGA.
 
---------------020209000304090003000404
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain;
- name="kernelorg-mman.h.patch"
-Content-Disposition: inline;
- filename="kernelorg-mman.h.patch"
+Signed-off-by: Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>
+---
 
---- linux-2.6.17.11.ref/include/asm-ia64/mman.h	2006-08-23 23:16:33.000000000 +0200
-+++ linux-2.6.17.11/include/asm-ia64/mman.h	2006-08-25 14:52:49.000000000 +0200
-@@ -9,9 +9,11 @@
-  */
- 
- #ifdef __KERNEL__
-+#if !defined(__ASSEMBLY__)
- #define arch_mmap_check	ia64_map_check_rgn
- int ia64_map_check_rgn(unsigned long addr, unsigned long len,
- 		unsigned long flags);
-+#endif /* !__ASSEMBLY__ */
- #endif
- 
- #include <asm-generic/mman.h>
+diff -dupNr linux-2.6.18.orig/arch/ia64/pci/Makefile linux-2.6.18/arch/ia64/pci/Makefile
+--- linux-2.6.18.orig/arch/ia64/pci/Makefile	2006-09-20 12:42:06.000000000 +0900
++++ linux-2.6.18/arch/ia64/pci/Makefile	2006-09-25 18:36:50.000000000 +0900
+@@ -1,4 +1,4 @@
+ #
+ # Makefile for the ia64-specific parts of the pci bus
+ #
+-obj-y		:= pci.o
++obj-y		:= pci.o fixup.o
+diff -dupNr linux-2.6.18.orig/arch/ia64/pci/fixup.c linux-2.6.18/arch/ia64/pci/fixup.c
+--- linux-2.6.18.orig/arch/ia64/pci/fixup.c	1970-01-01 09:00:00.000000000 +0900
++++ linux-2.6.18/arch/ia64/pci/fixup.c	2006-09-25 18:35:12.000000000 +0900
+@@ -0,0 +1,56 @@
++/*
++ * Exceptions for specific devices. Usually work-arounds for fatal design flaws.
++ *
++ * Derived from fixup.c of i386 tree.
++ */
++
++#include <linux/delay.h>
++#include <linux/dmi.h>
++#include <linux/pci.h>
++#include <linux/init.h>
++
++
++/*
++ * Fixup to mark boot BIOS video selected by BIOS before it changes
++ *
++ * From information provided by "Jon Smirl" <jonsmirl@gmail.com>
++ *
++ * The standard boot ROM sequence for an x86 machine uses the BIOS
++ * to select an initial video card for boot display. This boot video
++ * card will have it's BIOS copied to C0000 in system RAM.
++ * IORESOURCE_ROM_SHADOW is used to associate the boot video
++ * card with this copy. On laptops this copy has to be used since
++ * the main ROM may be compressed or combined with another image.
++ * See pci_map_rom() for use of this flag. IORESOURCE_ROM_SHADOW
++ * is marked here since the boot video device will be the only enabled
++ * video device at this point.
++ */
++
++static void __devinit pci_fixup_video(struct pci_dev *pdev)
++{
++	struct pci_dev *bridge;
++	struct pci_bus *bus;
++	u16 config;
++
++	if ((pdev->class >> 8) != PCI_CLASS_DISPLAY_VGA)
++		return;
++
++	/* Is VGA routed to us? */
++	bus = pdev->bus;
++	while (bus) {
++		bridge = bus->self;
++		if (bridge) {
++			pci_read_config_word(bridge, PCI_BRIDGE_CONTROL,
++						&config);
++			if (!(config & PCI_BRIDGE_CTL_VGA))
++				return;
++		}
++		bus = bus->parent;
++	}
++	pci_read_config_word(pdev, PCI_COMMAND, &config);
++	if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
++		pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
++		printk(KERN_DEBUG "Boot video device is %s\n", pci_name(pdev));
++	}
++}
++DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, pci_fixup_video);
 
---------------020209000304090003000404--
