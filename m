@@ -1,79 +1,47 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 11 Sep 2006 22:28:00 +0000
-Subject: [PATCH 6/6] Optional ZONE_DMA for ia64
-Message-Id: <20060911222800.4849.83154.sendpatchset@schroedinger.engr.sgi.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 26 Sep 2006 19:47:48 +0000
+Subject: [patch] PAL calls need physical mode, stacked
+Message-Id: <200609261947.k8QJlmLL8824932@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ZONE_DMA less operation for IA64 SGI platform
+[patch] PAL calls need physical mode, stacked
 
-Disable ZONE_DMA for SGI SN2. All memory is addressable by all
-devices and we do not need any special memory pool.
+PAL_CACHE_READ and PAL_CACHE_WRITE need to be called in physical
+mode with stacked registers.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
-Index: linux-2.6.18-rc6-mm1/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/mm/discontig.c	2006-09-11 16:42:07.206714114 -0500
-+++ linux-2.6.18-rc6-mm1/arch/ia64/mm/discontig.c	2006-09-11 16:51:50.094129334 -0500
-@@ -37,7 +37,9 @@
- 	unsigned long pernode_size;
- 	struct bootmem_data bootmem_data;
- 	unsigned long num_physpages;
-+#ifdef CONFIG_ZONE_DMA
- 	unsigned long num_dma_physpages;
-+#endif
- 	unsigned long min_pfn;
- 	unsigned long max_pfn;
- };
-@@ -656,9 +658,11 @@
+---
+ include/asm-ia64/pal.h |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+Index: test/include/asm-ia64/pal.h
+=================================--- test.orig/include/asm-ia64/pal.h	2006-09-08 14:51:13.000000000 -0500
++++ test/include/asm-ia64/pal.h	2006-09-26 14:30:53.130648604 -0500
+@@ -963,7 +963,8 @@ static inline s64
+ ia64_pal_cache_read (pal_cache_line_id_u_t line_id, u64 physical_addr)
+ {
+ 	struct ia64_pal_retval iprv;
+-	PAL_CALL(iprv, PAL_CACHE_READ, line_id.pclid_data, physical_addr, 0);
++	PAL_CALL_PHYS_STK(iprv, PAL_CACHE_READ, line_id.pclid_data,
++				physical_addr, 0);
+ 	return iprv.status;
+ }
  
- 	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
- 	mem_data[node].num_physpages += len >> PAGE_SHIFT;
-+#ifdef CONFIG_ZONE_DMA
- 	if (start <= __pa(MAX_DMA_ADDRESS))
- 		mem_data[node].num_dma_physpages + 			(min(end, __pa(MAX_DMA_ADDRESS)) - start) >>PAGE_SHIFT;
-+#endif
- 	start = GRANULEROUNDDOWN(start);
- 	start = ORDERROUNDDOWN(start);
- 	end = GRANULEROUNDUP(end);
-@@ -709,7 +713,9 @@
- 			max_pfn = mem_data[node].max_pfn;
- 	}
+@@ -985,7 +986,8 @@ static inline s64
+ ia64_pal_cache_write (pal_cache_line_id_u_t line_id, u64 physical_addr, u64 data)
+ {
+ 	struct ia64_pal_retval iprv;
+-	PAL_CALL(iprv, PAL_CACHE_WRITE, line_id.pclid_data, physical_addr, data);
++	PAL_CALL_PHYS_STK(iprv, PAL_CACHE_WRITE, line_id.pclid_data,
++				physical_addr, data);
+ 	return iprv.status;
+ }
  
-+#ifdef CONFIG_ZONE_DMA
- 	max_zone_pfns[ZONE_DMA] = max_dma;
-+#endif
- 	max_zone_pfns[ZONE_NORMAL] = max_pfn;
- 	free_area_init_nodes(max_zone_pfns);
- 
-Index: linux-2.6.18-rc6-mm1/arch/ia64/mm/contig.c
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/mm/contig.c	2006-09-11 16:42:07.215503923 -0500
-+++ linux-2.6.18-rc6-mm1/arch/ia64/mm/contig.c	2006-09-11 16:51:50.104872434 -0500
-@@ -231,8 +231,10 @@
- 	num_physpages = 0;
- 	efi_memmap_walk(count_pages, &num_physpages);
- 
-+#ifdef CONFIG_ZONE_DMA
- 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
- 	max_zone_pfns[ZONE_DMA] = max_dma;
-+#endif
- 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
-Index: linux-2.6.18-rc6-mm1/arch/ia64/Kconfig
-=================================--- linux-2.6.18-rc6-mm1.orig/arch/ia64/Kconfig	2006-09-11 16:44:55.649739769 -0500
-+++ linux-2.6.18-rc6-mm1/arch/ia64/Kconfig	2006-09-11 16:51:50.114638888 -0500
-@@ -23,8 +23,8 @@
- 	default y
- 
- config ZONE_DMA
--	bool
--	default y
-+	def_bool y
-+	depends on !IA64_SGI_SN2
- 
- config MMU
- 	bool
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
