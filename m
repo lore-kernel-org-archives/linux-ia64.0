@@ -1,20 +1,32 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 27 Sep 2006 11:57:08 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 27 Sep 2006 22:11:00 +0000
 Subject: Re: KDB blindly reads keyboard port
-Message-Id: <20060927115707.GQ5017@parisc-linux.org>
+Message-Id: <200609271611.00701.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200609261354.30722.bjorn.helgaas@hp.com> <5239.1159325150@kao2.melbourne.sgi.com>
+References: <5239.1159325150@kao2.melbourne.sgi.com>
 In-Reply-To: <5239.1159325150@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Keith Owens <kaos@sgi.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Sep 27, 2006 at 12:45:50PM +1000, Keith Owens wrote:
+On Tuesday 26 September 2006 20:45, Keith Owens wrote:
 > No support for legacy I/O ports could be a bigger problem than just
-> KDB.  To fix just KDB, apply this patch over kdb-v4.4-2.6.18-common-1 and add
-> 'kdb_skip_keyboard' to the boot command line on the offending hardware.
+> KDB.
 
-Why can't you use acpi_kbd_controller_present instead of introducing a
-new option?
+On Itanium (and I suppose on x86), ACPI theoretically tells us enough
+that we don't need to assume any legacy resources.  Of course, Linux
+doesn't listen to everything ACPI is trying to tell it.  But that's
+a Linux deficiency we should remedy.
+
+> To fix just KDB, apply this patch over kdb-v4.4-2.6.18-common-1 and
+> add 'kdb_skip_keyboard' to the boot command line on the offending
+> hardware. 
+
+This doesn't feel like the right solution.  Since firmware tells us
+whether the device is present, I think we should rely on that.  If
+you want to use the device before ACPI is initialized, *then* you
+should pass a "kdb_use_keyboard" sort of flag.
+
+Bjorn
