@@ -1,58 +1,70 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Fri, 29 Sep 2006 02:21:33 +0000
-Subject: RE: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086ACF@pdsmsx411.ccr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Fri, 29 Sep 2006 03:03:23 +0000
+Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+Message-Id: <20060929030321.GQ29346@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200609271152.12393.Tristan.Gingold@bull.net>
 In-Reply-To: <200609271152.12393.Tristan.Gingold@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: Magnus Damm [mailto:magnus.damm@gmail.com]
-> Sent: 2006=C4=EA9=D4=C228=C8=D5 20:34
-> To: Tristan Gingold
-> Cc: Horms; Zou, Nanhai; Linux-IA64; xen-ia64-devel@lists.xensource.com
-> Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
->=20
-> On 9/28/06, Tristan Gingold <Tristan.Gingold@bull.net> wrote:
-> > Le Jeudi 28 Septembre 2006 03:27, Horms a =A8=A6crit :
-> > > On Wed, Sep 27, 2006 at 11:52:12AM +0200, Tristan Gingold wrote:
-> > > > Linux and xen call efi in real mode if set_virtual_address_map fail=
-s.
-> > > > You may add an option in both xen and linux to force calling efi in=
- real
-> > > > mode. This should be really simple and you will be able to make pro=
-gress.
+On Fri, Sep 29, 2006 at 10:21:33AM +0800, Zou, Nanhai wrote:
+> > -----Original Message-----
+> > From: Magnus Damm [mailto:magnus.damm@gmail.com]
+> > Sent: 2006年9月28日 20:34
+> > To: Tristan Gingold
+> > Cc: Horms; Zou, Nanhai; Linux-IA64; xen-ia64-devel@lists.xensource.com
+> > Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+> > 
+> > On 9/28/06, Tristan Gingold <Tristan.Gingold@bull.net> wrote:
+> > > Le Jeudi 28 Septembre 2006 03:27, Horms a écrit :
+> > > > On Wed, Sep 27, 2006 at 11:52:12AM +0200, Tristan Gingold wrote:
+> > > > > Linux and xen call efi in real mode if set_virtual_address_map fails.
+> > > > > You may add an option in both xen and linux to force calling efi in real
+> > > > > mode. This should be really simple and you will be able to make progress.
+> > > >
+> > > > Great, I will test this out and see how it goes.
+> > > >
+> > > > > The only possible drawback is performance.
+> > > >
+> > > > What kind of performance issues would you expect?
+> > > Making EFI calls in physical mode is slower: Linux must switch from and to
+> > > virtual mode.
 > > >
-> > > Great, I will test this out and see how it goes.
-> > >
-> > > > The only possible drawback is performance.
-> > >
-> > > What kind of performance issues would you expect?
-> > Making EFI calls in physical mode is slower: Linux must switch from and=
- to
-> > virtual mode.
-> >
-> > However EFI calls are very unfrequent so the impact should be almost nu=
-l.
->=20
-> This makes me wonder - is it really worth having two code paths in that c=
-ase?
->=20
-> / magnus
+> > > However EFI calls are very unfrequent so the impact should be almost nul.
+> > 
+> > This makes me wonder - is it really worth having two code paths in that case?
+> > 
+> > / magnus
+> 
+> I am still not quiet clear about the particular issue on Xen.
+> 
+> For native IA64,
+> I put an empty efi.set_virtual_address_map() in purgatory code, So
+> when the second kernel boots, it will still call to
+> set_virtual_address_map() as if it successes.  I guess you can modify
+> the empty function in purgatory to return an error.  So the second
+> kernel will call EFI in physical mode.
 
-I am still not quiet clear about the particular issue on Xen.
+I'm not 100% sure what the issue with xen->linux and linux->xen is
+either. However my theory is that it relates to the fact that in linux
+PAGE_OFFSET is 0xe000..., while in Xen it is 0xf000..., and thus any
+addressing setup using efi.set_virtual_address_map() in one would seem
+to be invalid in the other.
 
-For native IA64,
-I put an empty efi.set_virtual_address_map() in purgatory code,=20
-So when the second kernel boots, it will still call to set_virtual_address_=
-map() as if it successes.=20
-I guess you can modify the empty function in purgatory to return an error.
-So the second kernel will call EFI in physical mode.
+In any case, the problem that I am seeing is that while linux->linux and
+xen->xen (UP only for now) can be made to work, both xen->linux and
+linux->xen halt when making an EFI call fairly early on in boot.
 
-Thanks
-Zou Nan hai=20
+More specifically, it halts on a call to efi_gettimeofday()
+which is backed by efi.get_time. Other than the call to 
+efi.set_virtual_address_map() I'm assuming that this is 
+more or less the first efi runtime call that is made.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
