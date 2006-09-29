@@ -1,101 +1,61 @@
-From: Horms <horms@verge.net.au>
-Date: Fri, 29 Sep 2006 03:48:19 +0000
-Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-Message-Id: <20060929034818.GR29346@verge.net.au>
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Fri, 29 Sep 2006 05:13:17 +0000
+Subject: RE: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AD2@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200609271152.12393.Tristan.Gingold@bull.net>
 In-Reply-To: <200609271152.12393.Tristan.Gingold@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-On Wed, Sep 27, 2006 at 11:52:12AM +0200, Tristan Gingold wrote:
-> Linux and xen call efi in real mode if set_virtual_address_map fails.
-> You may add an option in both xen and linux to force calling efi in real =
-mode.
-> This should be really simple and you will be able to make progress.
-
-I took a stab at forcing the call to stay in real mode,=20
-by simply replacing the call to set_virtual_address_map with
-a return. This should both prevent the mapping from occuring,
-and force the kernel to use the real mode variants of the calls.
-
-Unfortunately, the boot fails with the following log.
-A bit of investigation has found that is it dying in
-
-   SAL_CALL()
-   called by: ia64_sal_cache_flush()
-   called by: ia64_sal_cache_flush()
-   called by: ia64_sal_init()
-
-Well, when I say dying in, its probably more accurate to say,
-never returning from.
-
-The trace below is with 2.6.18. I had identical results with a recent
-checkout of ia64-test. I can post my config if needed.
-
-I'm a bit of a loss to know why this is occuring. Though
-I do wonder if SAL (and in this case indrectly PAL) calls are
-are running into trouble by runing in real mode without
-set_virtual_address_map() having being called.
-
-I tried poking around a bit, but to no avail.
-Any ideas on where to poke around?
-
---=20
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
-Linux version 2.6.18-kexec-dirty (horms@tabatha.lab.ultramonkey.org)
-(gcc version 3.4.5) #2 SMP Fri Sep 29 12:38:35 JST 2006 EFI v1.10 by INTEL:=
- SALsystab=3D0x7fe54980 ACPI=3D0x7ff99000 ACPI
-2.0=3D0x7ff98000 MPS=3D0x7ff97000 SMBIOS=3D0xf0000
-Forcing EFI calls to stay in physical mode
-booting generic kernel on platform dig
-Early serial console at I/O port 0x2f8 (options '115200')
-Initial ramdisk at: 0xe00000007aecd000 (10463216 bytes)
-SAL 3.20: Intel Corp                       SR870BH2                        =
- version 3.0
-SAL Platform features: BusLock
-SAL: AP wakeup using external interrupt vector 0xf0
-swapper[0]: General Exception: IA-64 Reserved Register/Field fault (data ac=
-cess) 2199023255600 [1]
-Modules linked in:
-
-Pid: 0, CPU 0, comm:              swapper
-psr : 00001210084a2010 ifs : 8000000000000183 ip  : [<000000007fe21dc1>]
-Not tainted
-ip is at 0x7fe21dc1
-unat: 0000000000000000 pfs : 0000000000000818 rsc : 0000000000000003
-rnat: 0000000000000000 bsps: 0000000000000000 pr  : 80000000aff55d2b
-ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c8a70033f
-csd : 0930ffff00090000 ssd : 0930ffff00090000
-b0  : 000000007fe21ca0 b6  : 000000007fe08010 b7  : a000000100205420
-f6  : 0fffafffffffff0000000 f7  : 0ffdef000000000000000
-f8  : 10002f000000000000000 f9  : 100038000000000000000
-f10 : 0fffeeffffffff1000000 f11 : 1003e0000000000000000
-r1  : e000000080095280 r2  : 0000000000000000 r3  : e00000007fe59340
-r8  : fffffffffffffffe r9  : 000000000000000f r10 : 0000000000000000
-r11 : 0000000000000000 r12 : a00000010057fc30 r13 : a000000100578000
-r14 : 000000007fe20300 r15 : 00000000000004d5 r16 : 0000000000000000
-r17 : 00001010084a2010 r18 : 000000000007e000 r19 : 80000000aff54cab
-r20 : 00000000000006c2 r21 : 0000000000000000 r22 : 0000000000000000
-r23 : 0000000000000609 r24 : 00000000003ffc00 r25 : 0000000000000008
-r26 : 0000000000000000 r27 : 00000010084a2010 r28 : 000000000000003f
-r29 : 0000000000000000 r30 : 0000000000000001 r31 : 0000000000000000
-
-Call Trace:
- [<a0000001000124f0>] show_stack+0x50/0xa0
-                                sp=A00000010057f640 bsp=A000000100579368
- <4>kernel unaligned access to 0xffffffffffff45c3, ip=3D0xa0000001000d9451
-kernel unaligned access to 0xffffffffffff45c3, ip=3D0xa0000001000d9470
-irq 239, desc: a0000001005b1c80, depth: 1, count: 0, unhandled: 0
-->handle_irq():  a00000010050dcd0, __stop___param+0x3550/0x15880
-->chip(): a000000100612f88, no_irq_chip+0x0/0x80
-->action(): 0000000000000000
-  IRQ_DISABLED set
-Unexpected irq vector 0xef on CPU 0!
-
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdl
+ci5rZXJuZWwub3JnCj4gW21haWx0bzpsaW51eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZ10g
+T24gQmVoYWxmIE9mIEhvcm1zCj4gU2VudDogMjAwNsTqOdTCMjnI1SAxMTowMwo+IFRvOiBab3Us
+IE5hbmhhaQo+IENjOiBNYWdudXMgRGFtbTsgVHJpc3RhbiBHaW5nb2xkOyBMaW51eC1JQTY0Owo+
+IHhlbi1pYTY0LWRldmVsQGxpc3RzLnhlbnNvdXJjZS5jb20KPiBTdWJqZWN0OiBSZTogW1hlbi1p
+YTY0LWRldmVsXSBSZTogaWE2NCBrZXhlYzogeGVuIC0+IGxpbnV4Cj4gCj4gT24gRnJpLCBTZXAg
+MjksIDIwMDYgYXQgMTA6MjE6MzNBTSArMDgwMCwgWm91LCBOYW5oYWkgd3JvdGU6Cj4gPiA+IC0t
+LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4gPiA+IEZyb206IE1hZ251cyBEYW1tIFttYWlsdG86
+bWFnbnVzLmRhbW1AZ21haWwuY29tXQo+ID4gPiBTZW50OiAyMDA2xOo51MIyOMjVIDIwOjM0Cj4g
+PiA+IFRvOiBUcmlzdGFuIEdpbmdvbGQKPiA+ID4gQ2M6IEhvcm1zOyBab3UsIE5hbmhhaTsgTGlu
+dXgtSUE2NDsgeGVuLWlhNjQtZGV2ZWxAbGlzdHMueGVuc291cmNlLmNvbQo+ID4gPiBTdWJqZWN0
+OiBSZTogW1hlbi1pYTY0LWRldmVsXSBSZTogaWE2NCBrZXhlYzogeGVuIC0+IGxpbnV4Cj4gPiA+
+Cj4gPiA+IE9uIDkvMjgvMDYsIFRyaXN0YW4gR2luZ29sZCA8VHJpc3Rhbi5HaW5nb2xkQGJ1bGwu
+bmV0PiB3cm90ZToKPiA+ID4gPiBMZSBKZXVkaSAyOCBTZXB0ZW1icmUgMjAwNiAwMzoyNywgSG9y
+bXMgYSCopmNyaXQgOgo+ID4gPiA+ID4gT24gV2VkLCBTZXAgMjcsIDIwMDYgYXQgMTE6NTI6MTJB
+TSArMDIwMCwgVHJpc3RhbiBHaW5nb2xkIHdyb3RlOgo+ID4gPiA+ID4gPiBMaW51eCBhbmQgeGVu
+IGNhbGwgZWZpIGluIHJlYWwgbW9kZSBpZiBzZXRfdmlydHVhbF9hZGRyZXNzX21hcCBmYWlscy4K
+PiA+ID4gPiA+ID4gWW91IG1heSBhZGQgYW4gb3B0aW9uIGluIGJvdGggeGVuIGFuZCBsaW51eCB0
+byBmb3JjZSBjYWxsaW5nIGVmaSBpbgo+IHJlYWwKPiA+ID4gPiA+ID4gbW9kZS4gVGhpcyBzaG91
+bGQgYmUgcmVhbGx5IHNpbXBsZSBhbmQgeW91IHdpbGwgYmUgYWJsZSB0byBtYWtlIHByb2dyZXNz
+Lgo+ID4gPiA+ID4KPiA+ID4gPiA+IEdyZWF0LCBJIHdpbGwgdGVzdCB0aGlzIG91dCBhbmQgc2Vl
+IGhvdyBpdCBnb2VzLgo+ID4gPiA+ID4KPiA+ID4gPiA+ID4gVGhlIG9ubHkgcG9zc2libGUgZHJh
+d2JhY2sgaXMgcGVyZm9ybWFuY2UuCj4gPiA+ID4gPgo+ID4gPiA+ID4gV2hhdCBraW5kIG9mIHBl
+cmZvcm1hbmNlIGlzc3VlcyB3b3VsZCB5b3UgZXhwZWN0Pwo+ID4gPiA+IE1ha2luZyBFRkkgY2Fs
+bHMgaW4gcGh5c2ljYWwgbW9kZSBpcyBzbG93ZXI6IExpbnV4IG11c3Qgc3dpdGNoIGZyb20gYW5k
+Cj4gdG8KPiA+ID4gPiB2aXJ0dWFsIG1vZGUuCj4gPiA+ID4KPiA+ID4gPiBIb3dldmVyIEVGSSBj
+YWxscyBhcmUgdmVyeSB1bmZyZXF1ZW50IHNvIHRoZSBpbXBhY3Qgc2hvdWxkIGJlIGFsbW9zdCBu
+dWwuCj4gPiA+Cj4gPiA+IFRoaXMgbWFrZXMgbWUgd29uZGVyIC0gaXMgaXQgcmVhbGx5IHdvcnRo
+IGhhdmluZyB0d28gY29kZSBwYXRocyBpbiB0aGF0Cj4gY2FzZT8KPiA+ID4KPiA+ID4gLyBtYWdu
+dXMKPiA+Cj4gPiBJIGFtIHN0aWxsIG5vdCBxdWlldCBjbGVhciBhYm91dCB0aGUgcGFydGljdWxh
+ciBpc3N1ZSBvbiBYZW4uCj4gPgo+ID4gRm9yIG5hdGl2ZSBJQTY0LAo+ID4gSSBwdXQgYW4gZW1w
+dHkgZWZpLnNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkgaW4gcHVyZ2F0b3J5IGNvZGUsIFNvCj4g
+PiB3aGVuIHRoZSBzZWNvbmQga2VybmVsIGJvb3RzLCBpdCB3aWxsIHN0aWxsIGNhbGwgdG8KPiA+
+IHNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkgYXMgaWYgaXQgc3VjY2Vzc2VzLiAgSSBndWVzcyB5
+b3UgY2FuIG1vZGlmeQo+ID4gdGhlIGVtcHR5IGZ1bmN0aW9uIGluIHB1cmdhdG9yeSB0byByZXR1
+cm4gYW4gZXJyb3IuICBTbyB0aGUgc2Vjb25kCj4gPiBrZXJuZWwgd2lsbCBjYWxsIEVGSSBpbiBw
+aHlzaWNhbCBtb2RlLgo+IAo+IEknbSBub3QgMTAwJSBzdXJlIHdoYXQgdGhlIGlzc3VlIHdpdGgg
+eGVuLT5saW51eCBhbmQgbGludXgtPnhlbiBpcwo+IGVpdGhlci4gSG93ZXZlciBteSB0aGVvcnkg
+aXMgdGhhdCBpdCByZWxhdGVzIHRvIHRoZSBmYWN0IHRoYXQgaW4gbGludXgKPiBQQUdFX09GRlNF
+VCBpcyAweGUwMDAuLi4sIHdoaWxlIGluIFhlbiBpdCBpcyAweGYwMDAuLi4sIGFuZCB0aHVzIGFu
+eQo+IGFkZHJlc3Npbmcgc2V0dXAgdXNpbmcgZWZpLnNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkg
+aW4gb25lIHdvdWxkIHNlZW0KPiB0byBiZSBpbnZhbGlkIGluIHRoZSBvdGhlci4KPiAKIFRoYXQg
+aXMgd2h5IEkgc3VnZ2VzdCB5b3UgdG8gcmV0dXJuIGVycm9yIGluIHRoZSBzZXRfdmlydHVhbF9h
+ZGRyZXNzX21hcCgpIGluIHB1cmdhdG9yeSBjb2RlLiBUaGF0IHdpbGwgZm9yY2UgdGhlIHNlY29u
+ZCBrZXJuZWwgdG8gdXNlIEVGSSBwaHlzaWNhbCBjYWxsLgoKWm91IE5hbiBoYWkKLQpUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
+aWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
+cmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRv
+bW8taW5mby5odG1s
