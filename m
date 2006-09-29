@@ -1,30 +1,31 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 29 Sep 2006 16:57:41 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 29 Sep 2006 18:01:10 +0000
 Subject: Re: KDB blindly reads keyboard port
-Message-Id: <200609291057.41529.bjorn.helgaas@hp.com>
+Message-Id: <20060929180110.GA4021@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <14425.1159496284@kao2.melbourne.sgi.com>
-In-Reply-To: <14425.1159496284@kao2.melbourne.sgi.com>
+References: <14425.1159496284@kao2.melbourne.sgi.com> <200609291057.41529.bjorn.helgaas@hp.com>
+In-Reply-To: <200609291057.41529.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keith Owens <kaos@sgi.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Keith Owens <kaos@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thursday 28 September 2006 20:18, Keith Owens wrote:
-> I have never been a big fan of ACPI, having seen too many broken ACPI
-> tables.  But if that is what you want ...
+On Fri, Sep 29, 2006 at 10:57:41AM -0600, Bjorn Helgaas wrote:
+>   acpi_parse_fadt: acpi_kbd_controller_present 0
 
-There's always broken firmware, but I think on the whole, it's better
-than just assuming that tomorrow's system will be the same as yesterday's.
-I think a big reason for broken tables is the fact that ignore many of
-them, so the breakage is never discovered.
+The logic in the kernel seems backwards here though.  We start
+by assuming there is a keyboard, then when parsing the FADT
+we reset this assumption if the BAF_8042_KEYBOARD_CONTROLLER
+bit isn't set.  Which in turn forced SGI to include some
+workaround code for their older PROM (which doesn't provide
+the FADT table).
 
-> Bjorn, could you apply my previous patch anyway, boot your problem
-> system with kdb_skip_keyboard, drop into KDB and
-> 'md4c1 acpi_kbd_controller_present'.  That will quickly confirm if acpi
-> is detecting the absence of the keyboard on your system.
+There's also a risk that if some code might get added that
+runs before we parse FADT that could be confused into thinking
+that the keyboard is present.
 
-My system says:
+Wouldn't it be simpler/better to assume there is no keyboard until
+we find positive evidence that there is one?
 
-  acpi_parse_fadt: acpi_kbd_controller_present 0
+-Tony
