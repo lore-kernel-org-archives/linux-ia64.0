@@ -1,61 +1,81 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Fri, 29 Sep 2006 05:13:17 +0000
-Subject: RE: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AD2@pdsmsx411.ccr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Fri, 29 Sep 2006 05:37:52 +0000
+Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+Message-Id: <20060929053751.GB26519@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200609271152.12393.Tristan.Gingold@bull.net>
 In-Reply-To: <200609271152.12393.Tristan.Gingold@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 To: linux-ia64@vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdl
-ci5rZXJuZWwub3JnCj4gW21haWx0bzpsaW51eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZ10g
-T24gQmVoYWxmIE9mIEhvcm1zCj4gU2VudDogMjAwNsTqOdTCMjnI1SAxMTowMwo+IFRvOiBab3Us
-IE5hbmhhaQo+IENjOiBNYWdudXMgRGFtbTsgVHJpc3RhbiBHaW5nb2xkOyBMaW51eC1JQTY0Owo+
-IHhlbi1pYTY0LWRldmVsQGxpc3RzLnhlbnNvdXJjZS5jb20KPiBTdWJqZWN0OiBSZTogW1hlbi1p
-YTY0LWRldmVsXSBSZTogaWE2NCBrZXhlYzogeGVuIC0+IGxpbnV4Cj4gCj4gT24gRnJpLCBTZXAg
-MjksIDIwMDYgYXQgMTA6MjE6MzNBTSArMDgwMCwgWm91LCBOYW5oYWkgd3JvdGU6Cj4gPiA+IC0t
-LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4gPiA+IEZyb206IE1hZ251cyBEYW1tIFttYWlsdG86
-bWFnbnVzLmRhbW1AZ21haWwuY29tXQo+ID4gPiBTZW50OiAyMDA2xOo51MIyOMjVIDIwOjM0Cj4g
-PiA+IFRvOiBUcmlzdGFuIEdpbmdvbGQKPiA+ID4gQ2M6IEhvcm1zOyBab3UsIE5hbmhhaTsgTGlu
-dXgtSUE2NDsgeGVuLWlhNjQtZGV2ZWxAbGlzdHMueGVuc291cmNlLmNvbQo+ID4gPiBTdWJqZWN0
-OiBSZTogW1hlbi1pYTY0LWRldmVsXSBSZTogaWE2NCBrZXhlYzogeGVuIC0+IGxpbnV4Cj4gPiA+
-Cj4gPiA+IE9uIDkvMjgvMDYsIFRyaXN0YW4gR2luZ29sZCA8VHJpc3Rhbi5HaW5nb2xkQGJ1bGwu
-bmV0PiB3cm90ZToKPiA+ID4gPiBMZSBKZXVkaSAyOCBTZXB0ZW1icmUgMjAwNiAwMzoyNywgSG9y
-bXMgYSCopmNyaXQgOgo+ID4gPiA+ID4gT24gV2VkLCBTZXAgMjcsIDIwMDYgYXQgMTE6NTI6MTJB
-TSArMDIwMCwgVHJpc3RhbiBHaW5nb2xkIHdyb3RlOgo+ID4gPiA+ID4gPiBMaW51eCBhbmQgeGVu
-IGNhbGwgZWZpIGluIHJlYWwgbW9kZSBpZiBzZXRfdmlydHVhbF9hZGRyZXNzX21hcCBmYWlscy4K
-PiA+ID4gPiA+ID4gWW91IG1heSBhZGQgYW4gb3B0aW9uIGluIGJvdGggeGVuIGFuZCBsaW51eCB0
-byBmb3JjZSBjYWxsaW5nIGVmaSBpbgo+IHJlYWwKPiA+ID4gPiA+ID4gbW9kZS4gVGhpcyBzaG91
-bGQgYmUgcmVhbGx5IHNpbXBsZSBhbmQgeW91IHdpbGwgYmUgYWJsZSB0byBtYWtlIHByb2dyZXNz
-Lgo+ID4gPiA+ID4KPiA+ID4gPiA+IEdyZWF0LCBJIHdpbGwgdGVzdCB0aGlzIG91dCBhbmQgc2Vl
-IGhvdyBpdCBnb2VzLgo+ID4gPiA+ID4KPiA+ID4gPiA+ID4gVGhlIG9ubHkgcG9zc2libGUgZHJh
-d2JhY2sgaXMgcGVyZm9ybWFuY2UuCj4gPiA+ID4gPgo+ID4gPiA+ID4gV2hhdCBraW5kIG9mIHBl
-cmZvcm1hbmNlIGlzc3VlcyB3b3VsZCB5b3UgZXhwZWN0Pwo+ID4gPiA+IE1ha2luZyBFRkkgY2Fs
-bHMgaW4gcGh5c2ljYWwgbW9kZSBpcyBzbG93ZXI6IExpbnV4IG11c3Qgc3dpdGNoIGZyb20gYW5k
-Cj4gdG8KPiA+ID4gPiB2aXJ0dWFsIG1vZGUuCj4gPiA+ID4KPiA+ID4gPiBIb3dldmVyIEVGSSBj
-YWxscyBhcmUgdmVyeSB1bmZyZXF1ZW50IHNvIHRoZSBpbXBhY3Qgc2hvdWxkIGJlIGFsbW9zdCBu
-dWwuCj4gPiA+Cj4gPiA+IFRoaXMgbWFrZXMgbWUgd29uZGVyIC0gaXMgaXQgcmVhbGx5IHdvcnRo
-IGhhdmluZyB0d28gY29kZSBwYXRocyBpbiB0aGF0Cj4gY2FzZT8KPiA+ID4KPiA+ID4gLyBtYWdu
-dXMKPiA+Cj4gPiBJIGFtIHN0aWxsIG5vdCBxdWlldCBjbGVhciBhYm91dCB0aGUgcGFydGljdWxh
-ciBpc3N1ZSBvbiBYZW4uCj4gPgo+ID4gRm9yIG5hdGl2ZSBJQTY0LAo+ID4gSSBwdXQgYW4gZW1w
-dHkgZWZpLnNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkgaW4gcHVyZ2F0b3J5IGNvZGUsIFNvCj4g
-PiB3aGVuIHRoZSBzZWNvbmQga2VybmVsIGJvb3RzLCBpdCB3aWxsIHN0aWxsIGNhbGwgdG8KPiA+
-IHNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkgYXMgaWYgaXQgc3VjY2Vzc2VzLiAgSSBndWVzcyB5
-b3UgY2FuIG1vZGlmeQo+ID4gdGhlIGVtcHR5IGZ1bmN0aW9uIGluIHB1cmdhdG9yeSB0byByZXR1
-cm4gYW4gZXJyb3IuICBTbyB0aGUgc2Vjb25kCj4gPiBrZXJuZWwgd2lsbCBjYWxsIEVGSSBpbiBw
-aHlzaWNhbCBtb2RlLgo+IAo+IEknbSBub3QgMTAwJSBzdXJlIHdoYXQgdGhlIGlzc3VlIHdpdGgg
-eGVuLT5saW51eCBhbmQgbGludXgtPnhlbiBpcwo+IGVpdGhlci4gSG93ZXZlciBteSB0aGVvcnkg
-aXMgdGhhdCBpdCByZWxhdGVzIHRvIHRoZSBmYWN0IHRoYXQgaW4gbGludXgKPiBQQUdFX09GRlNF
-VCBpcyAweGUwMDAuLi4sIHdoaWxlIGluIFhlbiBpdCBpcyAweGYwMDAuLi4sIGFuZCB0aHVzIGFu
-eQo+IGFkZHJlc3Npbmcgc2V0dXAgdXNpbmcgZWZpLnNldF92aXJ0dWFsX2FkZHJlc3NfbWFwKCkg
-aW4gb25lIHdvdWxkIHNlZW0KPiB0byBiZSBpbnZhbGlkIGluIHRoZSBvdGhlci4KPiAKIFRoYXQg
-aXMgd2h5IEkgc3VnZ2VzdCB5b3UgdG8gcmV0dXJuIGVycm9yIGluIHRoZSBzZXRfdmlydHVhbF9h
-ZGRyZXNzX21hcCgpIGluIHB1cmdhdG9yeSBjb2RlLiBUaGF0IHdpbGwgZm9yY2UgdGhlIHNlY29u
-ZCBrZXJuZWwgdG8gdXNlIEVGSSBwaHlzaWNhbCBjYWxsLgoKWm91IE5hbiBoYWkKLQpUbyB1bnN1
-YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
-aWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
-cmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRv
-bW8taW5mby5odG1s
+On Fri, Sep 29, 2006 at 01:13:17PM +0800, Zou, Nanhai wrote:
+> > -----Original Message-----
+> > From: linux-ia64-owner@vger.kernel.org
+> > [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Horms
+> > Sent: 2006年9月29日 11:03
+> > To: Zou, Nanhai
+> > Cc: Magnus Damm; Tristan Gingold; Linux-IA64;
+> > xen-ia64-devel@lists.xensource.com
+> > Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+> > 
+> > On Fri, Sep 29, 2006 at 10:21:33AM +0800, Zou, Nanhai wrote:
+> > > > -----Original Message-----
+> > > > From: Magnus Damm [mailto:magnus.damm@gmail.com]
+> > > > Sent: 2006年9月28日 20:34
+> > > > To: Tristan Gingold
+> > > > Cc: Horms; Zou, Nanhai; Linux-IA64; xen-ia64-devel@lists.xensource.com
+> > > > Subject: Re: [Xen-ia64-devel] Re: ia64 kexec: xen -> linux
+> > > >
+> > > > On 9/28/06, Tristan Gingold <Tristan.Gingold@bull.net> wrote:
+> > > > > Le Jeudi 28 Septembre 2006 03:27, Horms a écrit :
+> > > > > > On Wed, Sep 27, 2006 at 11:52:12AM +0200, Tristan Gingold wrote:
+> > > > > > > Linux and xen call efi in real mode if set_virtual_address_map fails.
+> > > > > > > You may add an option in both xen and linux to force calling efi in
+> > real
+> > > > > > > mode. This should be really simple and you will be able to make progress.
+> > > > > >
+> > > > > > Great, I will test this out and see how it goes.
+> > > > > >
+> > > > > > > The only possible drawback is performance.
+> > > > > >
+> > > > > > What kind of performance issues would you expect?
+> > > > > Making EFI calls in physical mode is slower: Linux must switch from and
+> > to
+> > > > > virtual mode.
+> > > > >
+> > > > > However EFI calls are very unfrequent so the impact should be almost nul.
+> > > >
+> > > > This makes me wonder - is it really worth having two code paths in that
+> > case?
+> > > >
+> > > > / magnus
+> > >
+> > > I am still not quiet clear about the particular issue on Xen.
+> > >
+> > > For native IA64,
+> > > I put an empty efi.set_virtual_address_map() in purgatory code, So
+> > > when the second kernel boots, it will still call to
+> > > set_virtual_address_map() as if it successes.  I guess you can modify
+> > > the empty function in purgatory to return an error.  So the second
+> > > kernel will call EFI in physical mode.
+> > 
+> > I'm not 100% sure what the issue with xen->linux and linux->xen is
+> > either. However my theory is that it relates to the fact that in linux
+> > PAGE_OFFSET is 0xe000..., while in Xen it is 0xf000..., and thus any
+> > addressing setup using efi.set_virtual_address_map() in one would seem
+> > to be invalid in the other.
+> > 
+>  That is why I suggest you to return error in the set_virtual_address_map() in purgatory code. That will force the second kernel to use EFI physical call.
+
+Sure. I think that is a pretty good idea. Except that we
+need to make sure that set_virtual_address_map() isn't called
+by the original code (well at least not a real working version),
+as once it is called real mode EFI calls can no longer be made.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
