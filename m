@@ -1,47 +1,62 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Fri, 29 Sep 2006 21:46:23 +0000
-Subject: kexec/kdump and the ia64 test tree
-Message-Id: <200609292146.k8TLkNex005603@agluck-lia64.sc.intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 29 Sep 2006 22:26:46 +0000
+Subject: Re: kexec/kdump and the ia64 test tree
+Message-Id: <20060929152646.2e3dbbbb.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200609292146.k8TLkNex005603@agluck-lia64.sc.intel.com>
+In-Reply-To: <200609292146.k8TLkNex005603@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-The kexec/kdump patch in my test tree is very stale, plus it is time
-for some git maintenance on the test tree (to clean away all the
-"Auto-update from upstream" commits that my workflow generates). So
-I'm planning on resetting my "test" branch to Linus-latest + kdump/kexec
-(so git pull/fetch will barf on my test tree, you'll need to re-clone).
+On Fri, 29 Sep 2006 14:46:23 -0700
+Tony Luck <tony.luck@intel.com> wrote:
 
-Below I've include what I believe to be the latest version of the
-patch produced by:
+> The kexec/kdump patch in my test tree is very stale, plus it is time
+> for some git maintenance on the test tree (to clean away all the
+> "Auto-update from upstream" commits that my workflow generates). So
+> I'm planning on resetting my "test" branch to Linus-latest + kdump/kexec
+> (so git pull/fetch will barf on my test tree, you'll need to re-clone).
+>=20
+> Below I've include what I believe to be the latest version of the
+> patch produced by:
+>=20
+> 1) Take 2.6.18
+> 2) Apply Nan Hai patch for 2.6.18 (posted Sept 20th)
+> 3) Pull in Linus-latest (c972398b ...) and resolve conflicts in smp.h, sy=
+sctl.h
+> 4) Apply Nan hai's "Fix OS_INIT" patch that fixed Indou-san's deadlock is=
+sue (Sept 28th)
+> 5) Fix a few warnings:
+> 	arch/ia64/kernel/iosapic.c:
+> 		`vec' may be used before set in kexec_disable_iosapic() ... I'm
+> 		not totally confident that I fixed this right. Please look closely
+> 		at what I did.
+> 	arch/ia64/kernel/smp.c:
+> 		Trivial fixes to stop compiler complaining that kdump_smp_send_stop()
+> 		and kdump_smp_send_init() definitions were not prototypes.
+> 6) Lots of white-space cleanup (mostly multiple spaces that should be tab=
+s, but I
+>    also threw the whole kdump_find_rsvd_region() in arch/ia64/kernel/efi.=
+c through
+>    scripts/Lindent as it was only using two-spaces for indentation.)
+>=20
+> Let me know if I've goofed up the patch during this process.
+>=20
+> I'm planning to reset my test tree on Monday (Oct 2nd).
+>=20
 
-1) Take 2.6.18
-2) Apply Nan Hai patch for 2.6.18 (posted Sept 20th)
-3) Pull in Linus-latest (c972398b ...) and resolve conflicts in smp.h, sysc=
-tl.h
-4) Apply Nan hai's "Fix OS_INIT" patch that fixed Indou-san's deadlock issu=
-e (Sept 28th)
-5) Fix a few warnings:
-	arch/ia64/kernel/iosapic.c:
-		`vec' may be used before set in kexec_disable_iosapic() ... I'm
-		not totally confident that I fixed this right. Please look closely
-		at what I did.
-	arch/ia64/kernel/smp.c:
-		Trivial fixes to stop compiler complaining that kdump_smp_send_stop()
-		and kdump_smp_send_init() definitions were not prototypes.
-6) Lots of white-space cleanup (mostly multiple spaces that should be tabs,=
- but I
-   also threw the whole kdump_find_rsvd_region() in arch/ia64/kernel/efi.c =
-through
-   scripts/Lindent as it was only using two-spaces for indentation.)
+Thanks Tony.
 
-Let me know if I've goofed up the patch during this process.
+Rebuilding of the git tree is a non-issue for me - everyone does it all the
+time and I just do `git-branch -D' and all is happy.
 
-I'm planning to reset my test tree on Monday (Oct 2nd).
+kexec and kdump are discussed on the fastboot list, which I've cc'ed here. =
 
--Tony
+IIRC there were concerns about earlier versions of this code.
+
+
 
 diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
 index 0b7f701..27b913a 100644
@@ -1416,3 +1431,4 @@ index 50087ec..9b7ceda 100644
  		kunmap(page);
  		if (result) {
  			result =3D (result < 0) ? result : -EIO;
+
