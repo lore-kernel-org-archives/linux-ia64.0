@@ -1,38 +1,47 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Sat, 07 Oct 2006 08:43:23 +0000
-Subject: Re: Compile errors for allmodconfig
-Message-Id: <20061007084323.GW2563@parisc-linux.org>
+From: Andrew Morton <akpm@osdl.org>
+Date: Sun, 01 Oct 2006 07:15:11 +0000
+Subject: Re: [PATCH 1/3] - Altix: Add initial ACPI IO support
+Message-Id: <20061001001511.ae77d6b1.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061006234259.GB14909@shell0.pdx.osdl.net>
-In-Reply-To: <20061006234259.GB14909@shell0.pdx.osdl.net>
+References: <20060922145123.12414.81897.sendpatchset@attica.americas.sgi.com>
+In-Reply-To: <20060922145123.12414.81897.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: John Keller <jpk@sgi.com>
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com
 
-On Fri, Oct 06, 2006 at 04:42:59PM -0700, Judith Lebzelter wrote:
-> I am trying to get the alllmodconfig to build without errors for ia64 and=
- it is not=20
-> happening because of a few drivers:
->=20
-> WARNING: "check_signature" [drivers/scsi/fdomain.ko] undefined!
+On Fri, 22 Sep 2006 09:51:23 -0500
+John Keller <jpk@sgi.com> wrote:
 
-Hi Judith,
+> First phase in introducing ACPI support to SN.
 
-I've been looking at allmodconfig for parisc too, and have a fix for
-this one.  It's these two commits:
+This:
 
-http://git.parisc-linux.org/?p=3Dlinux-2.6.git;a=3Dcommitdiff;ht190f56ed272=
-ef407020bce63d63d6858277699
-http://git.parisc-linux.org/?p=3Dlinux-2.6.git;a=3Dcommitdiff;hO55d0a1ac479=
-409fdd14de162e6496b9c9e585c
+--- gregkh-2.6.orig/include/linux/pci.h
++++ gregkh-2.6/include/linux/pci.h
+@@ -405,6 +405,7 @@ extern struct bus_type pci_bus_type;
+ extern struct list_head pci_root_buses;        /* list of all known PCI buses */
+ extern struct list_head pci_devices;   /* list of all devices */
+ 
++void pcibios_fixup_device_resources(struct pci_dev *);
+ void pcibios_fixup_bus(struct pci_bus *);
+ int __must_check pcibios_enable_device(struct pci_dev *, int mask);
+ char *pcibios_setup (char *str);
 
-I sent them to Linus on Thursday, and he's ignored them so far.  If there
-were some demand from other people, perhaps he'd look at them again ;-)
+breaks a bunch of architectures.
 
-> WARNING: "pci_get_legacy_ide_irq" [drivers/ide/pci/amd74xx.ko] undefined!
+For example alpha has
 
-I fixed this on parisc with this patch:
+void __init
+pcibios_fixup_device_resources(struct pci_dev *dev, struct pci_bus *bus)
 
-http://git.parisc-linux.org/?p=3Dlinux-2.6.git;a=3Dcommitdiff;h=F3120945566=
-19aed849862089938c14aa6a5b84b
+box:/usr/src/linux-2.6.18> grep -rl pcibios_fixup_device_resources .
+./arch/alpha/kernel/pci.c
+./arch/ia64/pci/pci.c
+./arch/mips/pci/pci.c
+./arch/powerpc/kernel/pci_64.c
+./arch/powerpc/platforms/pseries/pci_dlpar.c
+./include/asm-powerpc/pci.h
+
+It needs work...
