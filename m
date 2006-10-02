@@ -1,31 +1,35 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 12 Oct 2006 19:18:13 +0000
-Subject: [PATCH 1/4] Fix alignment of __condata_*
-Message-Id: <20061012191813.21498.394.sendpatchset@schroedinger.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 02 Oct 2006 16:42:25 +0000
+Subject: [patch] ia64: note requirement for 8250_pnp, now that 8250_acpi is gone
+Message-Id: <200610021042.25632.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Fix alignment for CONFIG_IA64_SGI
+We removed 8250_acpi in 2.6.17.  If we don't have PNPACPI turned on,
+we won't find any ACPI serial devices, so mention this requirement in
+the troubleshooting part of the documentation.
 
-The _con.... variables happened to be placed on a 4 byte
-boundary in some compiles for CONFIG_IA64_SGI. Wasted some time
-chasing ghosts in functions that were never executed but modifications
-to these function would oops the system. Make sure that
-this does not happen again.
+CONFIG_PNPACPI is already turned on in all the relevant defconfigs.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Index: linux-2.6.19-rc1-mm1/arch/ia64/kernel/vmlinux.lds.S
-=================================--- linux-2.6.19-rc1-mm1.orig/arch/ia64/kernel/vmlinux.lds.S	2006-10-04 21:57:05.000000000 -0500
-+++ linux-2.6.19-rc1-mm1/arch/ia64/kernel/vmlinux.lds.S	2006-10-10 21:45:30.768864235 -0500
-@@ -163,6 +163,7 @@ SECTIONS
- 	}
- #endif
+Index: mm2/Documentation/ia64/serial.txt
+=================================--- mm2.orig/Documentation/ia64/serial.txt	2006-06-17 19:49:35.000000000 -0600
++++ mm2/Documentation/ia64/serial.txt	2006-06-29 10:46:08.000000000 -0600
+@@ -124,6 +124,13 @@
  
-+  . = ALIGN(16);
-    __con_initcall_start = .;
-   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
- 	{ *(.con_initcall.init) }
+ 	- Add entry to /etc/securetty for console tty.
+ 
++    No ACPI serial devices found in 2.6.17 or later:
++
++	- Turn on CONFIG_PNP and CONFIG_PNPACPI.  Prior to 2.6.17, ACPI
++	  serial devices were discovered by 8250_acpi.  In 2.6.17,
++	  8250_acpi was replaced by the combination of 8250_pnp and
++	  CONFIG_PNPACPI.
++
+ 
+ 
+ [1] http://www.dig64.org/specifications/DIG64_PCDPv20.pdf
