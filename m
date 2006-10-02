@@ -1,83 +1,81 @@
-From: Troy Heber <troy.heber@hp.com>
-Date: Wed, 25 Oct 2006 20:46:15 +0000
-Subject: [PATCH] move SAL_CACHE_FLUSH check later in boot
-Message-Id: <20061025204615.GA23281@pc.troyhebe>
+From: Horms <horms@verge.net.au>
+Date: Mon, 02 Oct 2006 04:11:52 +0000
+Subject: [patch 2/3] [IA64] kexec/kdump: Make sure vec is initialised in kexec_disable_iosapic()
+Message-Id: <20061002041150.GC3034@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The check to see if the firmware drops interrupts during a
-SAL_CACHE_FLUSH is done to early in the boot. SAL_CACHE_FLUSH expects
-to be able to make PAL calls in virtual mode, on some cell based
-machines a fault occurs causing a MCA. This patch moves the check
-after mmu_context_init so the TLB and VHPT are properly setup.
+> Date: Fri, 29 Sep 2006 14:46:23 -0700
+> From: Tony Luck <tony.luck@intel.com>
+> Message-Id: <200609292146.k8TLkNex005603@agluck-lia64.sc.intel.com>
+> To: linux-ia64@vger.kernel.org
+> Subject: kexec/kdump and the ia64 test tree
+> Cc: akpm@osdl.org, horms@verge.net.au
+>
+> The kexec/kdump patch in my test tree is very stale, plus it is time
+> for some git maintenance on the test tree (to clean away all the
+> "Auto-update from upstream" commits that my workflow generates). So
+> I'm planning on resetting my "test" branch to Linus-latest + kdump/kexec
+> (so git pull/fetch will barf on my test tree, you'll need to re-clone).
+>
+> Below I've include what I believe to be the latest version of the
+> patch produced by:
+>
+> 1) Take 2.6.18
+> 2) Apply Nan Hai patch for 2.6.18 (posted Sept 20th)
+> 3) Pull in Linus-latest (c972398b ...) and resolve conflicts in smp.h, sysctl.h
+> 4) Apply Nan hai's "Fix OS_INIT" patch that fixed Indou-san's deadlock issue
+> +(Sept 28th)
+> 5) Fix a few warnings:
+>         arch/ia64/kernel/iosapic.c:
+>                 `vec' may be used before set in kexec_disable_iosapic() ... I'm
+>                 not totally confident that I fixed this right. Please look
+> +closely
+>                 at what I did.
+>         arch/ia64/kernel/smp.c:
+>                 Trivial fixes to stop compiler complaining that
+> +kdump_smp_send_stop()
+>                 and kdump_smp_send_init() definitions were not prototypes.
+> 6) Lots of white-space cleanup (mostly multiple spaces that should be tabs, but
+> +I
+>    also threw the whole kdump_find_rsvd_region() in arch/ia64/kernel/efi.c
+> +through
+>    scripts/Lindent as it was only using two-spaces for indentation.)
+>
+> Let me know if I've goofed up the patch during this process.
+>
+> I'm planning to reset my test tree on Monday (Oct 2nd).
+>
+> -Tony
 
-Signed-off-by Troy Heber <troy.heber@hp.com>
----
-diff --git a/arch/ia64/kernel/sal.c b/arch/ia64/kernel/sal.c
-index 642fdc7..20bad78 100644
---- a/arch/ia64/kernel/sal.c
-+++ b/arch/ia64/kernel/sal.c
-@@ -223,12 +223,13 @@ #endif
-  */
- static int sal_cache_flush_drops_interrupts;
- 
--static void __init
-+void __init
- check_sal_cache_flush (void)
+This is the portion of the above patch that ensures that vec is
+initialised in kexec_disable_iosapic(). But is this fix correct?
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Zou Nan hai <nanhai.zou@intel.com>
+Signed-Off-By: Simon Horman <horms@verge.net.au>
+
+ arch/ia64/kernel/iosapic.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+721cb78a82e98f515e932c299aa444c6d37a687f
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index c7a465d..00cf506 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -295,9 +295,10 @@ kexec_disable_iosapic(void)
  {
- 	unsigned long flags;
- 	int cpu;
--	u64 vector;
-+	u64 vector, cache_type = 3;
-+	struct ia64_sal_retval isrv;
- 
- 	cpu = get_cpu();
- 	local_irq_save(flags);
-@@ -243,7 +244,10 @@ check_sal_cache_flush (void)
- 	while (!ia64_get_irr(IA64_TIMER_VECTOR))
- 		cpu_relax();
- 
--	ia64_sal_cache_flush(3);
-+	SAL_CALL(isrv, SAL_CACHE_FLUSH, cache_type, 0, 0, 0, 0, 0, 0);
+ 	struct iosapic_intr_info *info;
+ 	struct iosapic_rte_info *rte;
+-	u8 vec;
++	ia64_vector vec = 0;
 +
-+	if (isrv.status)
-+		printk(KERN_ERR "SAL_CAL_FLUSH failed with %ld\n", isrv.status);
- 
- 	if (ia64_get_irr(IA64_TIMER_VECTOR)) {
- 		vector = ia64_get_ivr();
-@@ -331,7 +335,6 @@ #endif
- 		p += SAL_DESC_SIZE(*p);
- 	}
- 
--	check_sal_cache_flush();
- }
- 
- int
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 28751be..cc55845 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -494,6 +494,8 @@ #endif
- 	cpu_init();	/* initialize the bootstrap CPU */
- 	mmu_context_init();	/* initialize context_id bitmap */
- 
-+	check_sal_cache_flush();
-+
- #ifdef CONFIG_ACPI
- 	acpi_boot_init();
- #endif
-diff --git a/include/asm-ia64/sal.h b/include/asm-ia64/sal.h
-index 0b210ab..d000689 100644
---- a/include/asm-ia64/sal.h
-+++ b/include/asm-ia64/sal.h
-@@ -659,6 +659,7 @@ ia64_sal_freq_base (unsigned long which,
- }
- 
- extern s64 ia64_sal_cache_flush (u64 cache_type);
-+extern void __init check_sal_cache_flush (void);
- 
- /* Initialize all the processor and platform level instruction and data caches */
- static inline s64
+ 	for (info = iosapic_intr_info; info <
+-			iosapic_intr_info + IA64_NUM_VECTORS; ++info) {
++			iosapic_intr_info + IA64_NUM_VECTORS; ++info, ++vec) {
+ 		list_for_each_entry(rte, &info->rtes,
+ 				rte_list) {
+ 			iosapic_write(rte->addr,
