@@ -1,32 +1,110 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 27 Oct 2006 00:25:11 +0000
-Subject: Re: [patch] MCA recovery: Montecito support
-Message-Id: <454151E7.8010102@jp.fujitsu.com>
+From: John Keller <jpk@sgi.com>
+Date: Tue, 03 Oct 2006 14:56:50 +0000
+Subject: [PATCH 2/3] - Altix: Add initial ACPI IO support
+Message-Id: <20061003145650.14047.22841.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200610201555.k9KFtnvu20317790@clink.americas.sgi.com>
-In-Reply-To: <200610201555.k9KFtnvu20317790@clink.americas.sgi.com>
+References: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
+In-Reply-To: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
 
-All right. Thank you, Russ.
+SN ACPI hotplug support.
 
-- H.Seto
+A few minor changes to the way slot/device fixup is done.
 
-Acked-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+No need to be calling sn_pci_controller_fixup(), as
+a root bus cannot be hotplugged.
 
-Russ Anderson wrote:
-> It's worth noting that this change does not effect the selection of
-> which process to kill.  It only effects which physical memory
-> address gets marked as bad.  
-> 
-> In my test case, a correctable error is injected (an ends up in the
-> bus check target identifier) then a memory uncorrectable is injected
-> and consumed, triggering the MCA.  The test program is correctly 
-> terminated, but the current code uses the bus check target identifier
-> and marks the address of the correctable error as bad.  The real bad
-> memory goes back on the free list, and promptly gets reused, triggering
-> another MCA.  The cycle repeats until the kernel happens to get
-> the memory.  Kernel memory error, end of ballgame.
+Signed-off-by: John Keller <jpk@sgi.com>
 
+---
+
+ drivers/pci/hotplug/sgi_hotplug.c |   35 ++++++++++------------------
+ 1 file changed, 13 insertions(+), 22 deletions(-)
+
+
+Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
+=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-10-02 14:16:22.106965281 -0500
++++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-10-03 08:36:46.537029248 -0500
+@@ -205,21 +205,6 @@ static struct hotplug_slot * sn_hp_destr
+ 	return bss_hotplug_slot;
+ }
+ 
+-static void sn_bus_alloc_data(struct pci_dev *dev)
+-{
+-	struct pci_bus *subordinate_bus;
+-	struct pci_dev *child;
+-
+-	sn_pci_fixup_slot(dev);
+-
+-	/* Recursively sets up the sn_irq_info structs */
+-	if (dev->subordinate) {
+-		subordinate_bus = dev->subordinate;
+-		list_for_each_entry(child, &subordinate_bus->devices, bus_list)
+-			sn_bus_alloc_data(child);
+-	}
+-}
+-
+ static void sn_bus_free_data(struct pci_dev *dev)
+ {
+ 	struct pci_bus *subordinate_bus;
+@@ -337,6 +322,11 @@ static int sn_slot_disable(struct hotplu
+ 	return rc;
+ }
+ 
++/*
++ * Power up and configure the slot via a SAL call to PROM.
++ * Scan slot (and any children), do any platform specific fixup,
++ * and find device driver.
++ */
+ static int enable_slot(struct hotplug_slot *bss_hotplug_slot)
+ {
+ 	struct slot *slot = bss_hotplug_slot->private;
+@@ -345,6 +335,7 @@ static int enable_slot(struct hotplug_sl
+ 	int func, num_funcs;
+ 	int new_ppb = 0;
+ 	int rc;
++	void pcibios_fixup_device_resources(struct pci_dev *);
+ 
+ 	/* Serialize the Linux PCI infrastructure */
+ 	mutex_lock(&sn_hotplug_mutex);
+@@ -367,9 +358,6 @@ static int enable_slot(struct hotplug_sl
+ 		return -ENODEV;
+ 	}
+ 
+-	sn_pci_controller_fixup(pci_domain_nr(slot->pci_bus),
+-				slot->pci_bus->number,
+-				slot->pci_bus);
+ 	/*
+ 	 * Map SN resources for all functions on the card
+ 	 * to the Linux PCI interface and tell the drivers
+@@ -380,6 +368,13 @@ static int enable_slot(struct hotplug_sl
+ 				   PCI_DEVFN(slot->device_num + 1,
+ 					     PCI_FUNC(func)));
+ 		if (dev) {
++			/* Need to do slot fixup on PPB before fixup of children
++			 * (PPB's pcidev_info needs to be in pcidev_info list
++			 * before child's SN_PCIDEV_INFO() call to setup
++			 * pdi_host_pcidev_info).
++			 */
++			pcibios_fixup_device_resources(dev);
++			sn_pci_fixup_slot(dev);
+ 			if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) {
+ 				unsigned char sec_bus;
+ 				pci_read_config_byte(dev, PCI_SECONDARY_BUS,
+@@ -387,12 +382,8 @@ static int enable_slot(struct hotplug_sl
+ 				new_bus = pci_add_new_bus(dev->bus, dev,
+ 							  sec_bus);
+ 				pci_scan_child_bus(new_bus);
+-				sn_pci_controller_fixup(pci_domain_nr(new_bus),
+-							new_bus->number,
+-							new_bus);
+ 				new_ppb = 1;
+ 			}
+-			sn_bus_alloc_data(dev);
+ 			pci_dev_put(dev);
+ 		}
+ 	}
