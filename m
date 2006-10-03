@@ -1,62 +1,154 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Tue, 31 Oct 2006 18:08:40 +0000
-Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
-Message-Id: <45479128.7050100@sgi.com>
+From: John Keller <jpk@sgi.com>
+Date: Tue, 03 Oct 2006 14:57:00 +0000
+Subject: [PATCH 3/3] - Altix: Initial ACPI support - ROM shadowing.
+Message-Id: <20061003145700.14058.1080.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4546623D.5000105@engr.sgi.com>
-In-Reply-To: <4546623D.5000105@engr.sgi.com>
+References: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
+In-Reply-To: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
 
-Zou, Nanhai wrote:
+Support a shadowed ROM when running with an ACPI capable PROM.
 
->> We do not rely on machine crash on CPU 0 any more. If the
->> crashing CPU is not cpu 0 and the cpu 0 not being returned to
->> the slave loop, this case is handled by our PROM now.
->>
->> However, if somebody tries to boot up a production kernel using '-le'
->> option _after_ the kexec'ed kernel is up running, the third kernel
->> would not boot unless we boot up the second kernel with cpu 0. I
->> posted a question on "if running 'kexec -le' on a kexec'ed kdump
->> kernel is legal" earlier and Vivek responded saying the scenario
->> is not guranteed to work. So, i think we are fine here.
-> 
->   Ok, so with this patch and the PROM fix, on a SN system,
->   1. Kdump -> 2nd kernel works.
->   2. Kdump -> 2nd kernel -> Kexec to third kernel will not work.
->   3. Kexec -> 2nd Kernel -> Kexec -> 3rd kernel works?
->   4. Kexec -> 2nd Kernel -> Kdump -> 3rd kernel works?
-> 
->   I think if scenario 1, 3 and 4 works it will be ok. Scenario 2 is not so useful I guess.
-> 
-
-The '-l' option caused a seg fault of kexec:
-
-[root@pogo1 boot]# /home/jlan/kexec -l
-/boot/efi/efi/redhat/vmlinuz-2.6.18-kdump
---initrd=/boot/efi/efi/redhat/initrd-2.6.18-kdump
---append="root=/dev/sdb6 rhgb irqpoll ro quite"
-Done with process_options
-kernel: 0x2000000000328010 kernel_size: 3503fec
-memory_range: crashk, idx=5, start018000000, end028000000
-memory_range: Boot, idx=7, start07a280010, end07a280061
-memory_range: MemoryMap, idx=9, start07a3f0010, end07a3f0611
-build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT509848
-build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014120
-ready to load. type=0,
-build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT509848
-build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014f30
-elf_exec_load
-Invalid memory segment 0x4000000 - 0x498bfff
-Segmentation fault
-[root@pogo1 boot]#
-
-It is on my list but my priority is to make sure kdump work (on
-sysrq-c, INIT, MCA) and to ensure /proc/vmcore contains correct
-and needed information for SN.
+Define a new dev.resource flag IORESOURCE_ROM_BIOS_COPY to
+describe the case of a BIOS shadowed ROM, which can then
+be used to avoid pci_map_rom() making an unneeded call to
+pci_enable_rom().
 
 
-Thanks,
- - jay
+Signed-off-by: John Keller <jpk@sgi.com>
+
+---
+
+ arch/ia64/sn/kernel/io_acpi_init.c |   33 +++++++++++++++++++++++++++
+ arch/ia64/sn/kernel/io_common.c    |    5 ++--
+ arch/ia64/sn/kernel/io_init.c      |    3 ++
+ drivers/pci/rom.c                  |    9 ++++---
+ include/linux/ioport.h             |    1 
+ 5 files changed, 46 insertions(+), 5 deletions(-)
+
+
+Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-10-02 14:26:53.712813469 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-10-02 14:27:35.173944595 -0500
+@@ -286,9 +286,10 @@ void sn_pci_fixup_slot(struct pci_dev *d
+ 	list_add_tail(&pcidev_info->pdi_list,
+ 		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
+ 
+-	if (!SN_ACPI_BASE_SUPPORT())
++	if (SN_ACPI_BASE_SUPPORT())
++		sn_acpi_slot_fixup(dev, pcidev_info);
++	else
+ 		sn_more_slot_fixup(dev, pcidev_info);
+-
+ 	/*
+ 	 * Using the PROMs values for the PCI host bus, get the Linux
+  	 * PCI host_pci_dev struct and set up host bus linkages
+Index: linux-2.6/drivers/pci/rom.c
+=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-10-02 14:16:22.114966261 -0500
++++ linux-2.6/drivers/pci/rom.c	2006-10-02 14:27:35.173944595 -0500
+@@ -77,7 +77,8 @@ void __iomem *pci_map_rom(struct pci_dev
+ 		start = (loff_t)0xC0000;
+ 		*size = 0x20000; /* cover C000:0 through E000:0 */
+ 	} else {
+-		if (res->flags & IORESOURCE_ROM_COPY) {
++		if (res->flags &
++			(IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY)) {
+ 			*size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
+ 			return (void __iomem *)(unsigned long)
+ 				pci_resource_start(pdev, PCI_ROM_RESOURCE);
+@@ -161,7 +162,8 @@ void __iomem *pci_map_rom_copy(struct pc
+ 	if (!rom)
+ 		return NULL;
+ 
+-	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW))
++	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW |
++			  IORESOURCE_ROM_BIOS_COPY))
+ 		return rom;
+ 
+ 	res->start = (unsigned long)kmalloc(*size, GFP_KERNEL);
+@@ -187,7 +189,7 @@ void pci_unmap_rom(struct pci_dev *pdev,
+ {
+ 	struct resource *res = &pdev->resource[PCI_ROM_RESOURCE];
+ 
+-	if (res->flags & IORESOURCE_ROM_COPY)
++	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY))
+ 		return;
+ 
+ 	iounmap(rom);
+@@ -211,6 +213,7 @@ void pci_remove_rom(struct pci_dev *pdev
+ 		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->rom_attr);
+ 	if (!(res->flags & (IORESOURCE_ROM_ENABLE |
+ 			    IORESOURCE_ROM_SHADOW |
++			    IORESOURCE_ROM_BIOS_COPY |
+ 			    IORESOURCE_ROM_COPY)))
+ 		pci_disable_rom(pdev);
+ }
+Index: linux-2.6/include/linux/ioport.h
+=================================--- linux-2.6.orig/include/linux/ioport.h	2006-10-02 14:16:24.479255982 -0500
++++ linux-2.6/include/linux/ioport.h	2006-10-02 14:27:35.173944595 -0500
+@@ -89,6 +89,7 @@ struct resource_list {
+ #define IORESOURCE_ROM_ENABLE		(1<<0)	/* ROM is enabled, same as PCI_ROM_ADDRESS_ENABLE */
+ #define IORESOURCE_ROM_SHADOW		(1<<1)	/* ROM is copy at C000:0 */
+ #define IORESOURCE_ROM_COPY		(1<<2)	/* ROM is alloc'd copy, resource field overlaid */
++#define IORESOURCE_ROM_BIOS_COPY	(1<<3)	/* ROM is BIOS copy, resource field overlaid */
+ 
+ /* PC/ISA/whatever - the normal PC address spaces: IO and memory */
+ extern struct resource ioport_resource;
+Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-02 14:26:53.712813469 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-02 14:27:35.173944595 -0500
+@@ -169,6 +169,39 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
+ 	}
+ }
+ 
++/*
++ * sn_acpi_slot_fixup - Perform any SN specific slot fixup.
++ *			At present there does not appear to be
++ *			any generic way to handle a ROM image
++ *			that has been shadowed by the PROM, so
++ *			we pass a pointer to it	within the
++ *			pcidev_info structure.
++ */
++
++void
++sn_acpi_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
++{
++	void __iomem *addr;
++	size_t size;
++
++	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
++		/*
++		 * A valid ROM image exists and has been shadowed by the
++		 * PROM. Setup the pci_dev ROM resource to point to
++		 * the shadowed copy.
++		 */
++		size = dev->resource[PCI_ROM_RESOURCE].end -
++				dev->resource[PCI_ROM_RESOURCE].start;
++		addr +		     ioremap(pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE],
++			     size);
++		dev->resource[PCI_ROM_RESOURCE].start = (unsigned long) addr;
++		dev->resource[PCI_ROM_RESOURCE].end +						(unsigned long) addr + size;
++		dev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_BIOS_COPY;
++	}
++}
++
+ static struct acpi_driver acpi_sn_hubdev_driver = {
+ 	.name = "SGI HUBDEV Driver",
+ 	.ids = "SGIHUB,SGITIO",
+Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-10-02 14:26:53.696811489 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-10-02 14:27:35.173944595 -0500
+@@ -210,6 +210,9 @@ sn_more_slot_fixup(struct pci_dev *dev, 
+ 			dev->resource[idx].parent = &ioport_resource;
+ 		else
+ 			dev->resource[idx].parent = &iomem_resource;
++		/* If ROM, mark as shadowed in PROM */
++		if (idx = PCI_ROM_RESOURCE)
++			dev->resource[idx].flags |= IORESOURCE_ROM_BIOS_COPY;
+ 	}
+ 	/* Create a pci_window in the pci_controller struct for
+ 	 * each device resource.
