@@ -1,7 +1,7 @@
 From: John Keller <jpk@sgi.com>
-Date: Tue, 03 Oct 2006 14:56:50 +0000
-Subject: [PATCH 2/3] - Altix: Add initial ACPI IO support
-Message-Id: <20061003145650.14047.22841.sendpatchset@attica.americas.sgi.com>
+Date: Wed, 04 Oct 2006 21:49:35 +0000
+Subject: [PATCH 2/3] - Altix: Add initial ACPI IO support (hotplug)
+Message-Id: <20061004214935.5845.10418.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
 In-Reply-To: <20060901160208.31826.69050.77712@attica.americas.sgi.com>
@@ -9,7 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: akpm@osdl.org
-Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, greg@kroah.com, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, John Keller <jpk@sgi.com>
 
 SN ACPI hotplug support.
 
@@ -22,13 +22,16 @@ Signed-off-by: John Keller <jpk@sgi.com>
 
 ---
 
+Resend #2 - resync with TOT
+
+
  drivers/pci/hotplug/sgi_hotplug.c |   35 ++++++++++------------------
  1 file changed, 13 insertions(+), 22 deletions(-)
 
 
 Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
-=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-10-02 14:16:22.106965281 -0500
-+++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-10-03 08:36:46.537029248 -0500
+=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-10-04 16:15:11.450849220 -0500
++++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-10-04 16:15:23.752319075 -0500
 @@ -205,21 +205,6 @@ static struct hotplug_slot * sn_hp_destr
  	return bss_hotplug_slot;
  }
