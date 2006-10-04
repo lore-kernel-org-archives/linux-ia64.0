@@ -1,7 +1,7 @@
 From: John Keller <jpk@sgi.com>
-Date: Tue, 03 Oct 2006 14:56:24 +0000
+Date: Wed, 04 Oct 2006 21:49:25 +0000
 Subject: [PATCH 1/3] - Altix: Add initial ACPI IO support
-Message-Id: <20061003145624.14012.9084.sendpatchset@attica.americas.sgi.com>
+Message-Id: <20061004214925.3193.26724.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20060901160152.31478.22595.16303@attica.americas.sgi.com>
 In-Reply-To: <20060901160152.31478.22595.16303@attica.americas.sgi.com>
@@ -9,7 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: akpm@osdl.org
-Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, ayoung@sgi.com, John Keller <jpk@sgi.com>
+Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, greg@kroah.com, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, John Keller <jpk@sgi.com>
 
 First phase in introducing ACPI support to SN.
 In this phase, when running with an ACPI capable PROM,
@@ -41,25 +41,7 @@ Signed-off-by: John Keller <jpk@sgi.com>
 
 ---
 
-> This:
-> 
-> --- gregkh-2.6.orig/include/linux/pci.h
-> +++ gregkh-2.6/include/linux/pci.h
-> @@ -405,6 +405,7 @@ extern struct bus_type pci_bus_type;
->  extern struct list_head pci_root_buses;        /* list of all known PCI buses */
->  extern struct list_head pci_devices;   /* list of all devices */
->  
-> +void pcibios_fixup_device_resources(struct pci_dev *);
->  void pcibios_fixup_bus(struct pci_bus *);
->  int __must_check pcibios_enable_device(struct pci_dev *, int mask);
-> 
-> breaks a bunch of architectures.
-> 
-
-
-Resend #1: Remove pcibios_fixup_device_resources() declaration
-           from include/linux/pci.h, and move to ia64/sn specific
-           file.
+Resend #2 - resync with TOT
 
 
  arch/ia64/pci/pci.c                     |    4 
@@ -81,9 +63,10 @@ Resend #1: Remove pcibios_fixup_device_resources() declaration
  include/asm-ia64/sn/sn_sal.h            |    1 
  17 files changed, 990 insertions(+), 582 deletions(-)
 
+
 Index: linux-2.6/arch/ia64/pci/pci.c
-=================================--- linux-2.6.orig/arch/ia64/pci/pci.c	2006-10-02 14:16:19.626661344 -0500
-+++ linux-2.6/arch/ia64/pci/pci.c	2006-10-02 14:26:53.696811489 -0500
+=================================--- linux-2.6.orig/arch/ia64/pci/pci.c	2006-10-04 16:15:13.823132665 -0500
++++ linux-2.6/arch/ia64/pci/pci.c	2006-10-04 16:15:17.239540873 -0500
 @@ -469,10 +469,11 @@ pcibios_fixup_resources(struct pci_dev *
  	}
  }
@@ -106,8 +89,8 @@ Index: linux-2.6/arch/ia64/pci/pci.c
  	return;
  }
 Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-10-02 14:16:19.630661835 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-10-03 08:35:21.414535980 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-10-04 16:15:17.243541351 -0500
 @@ -3,103 +3,28 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -847,8 +830,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
 -EXPORT_SYMBOL(sn_bus_free_sysdata);
 -EXPORT_SYMBOL(sn_generate_path);
 Index: linux-2.6/arch/ia64/sn/kernel/iomv.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/iomv.c	2006-10-02 14:16:19.630661835 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/iomv.c	2006-10-02 14:26:53.700811984 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/iomv.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/kernel/iomv.c	2006-10-04 16:15:17.243541351 -0500
 @@ -3,10 +3,11 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -888,8 +871,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/iomv.c
  		/* but the simulator uses them... */
  		unsigned long addr;
 Index: linux-2.6/arch/ia64/sn/kernel/setup.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2006-10-02 14:16:19.630661835 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/setup.c	2006-10-02 14:26:53.700811984 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/kernel/setup.c	2006-10-04 16:15:17.243541351 -0500
 @@ -389,6 +389,14 @@ void __init sn_setup(char **cmdline_p)
  	ia64_sn_plat_set_error_handling_features();	// obsolete
  	ia64_sn_set_os_feature(OSF_MCA_SLV_TO_OS_INIT_SLV);
@@ -923,8 +906,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/setup.c
  		/* usable vga ... make tty0 the preferred default console */
  		if (!strstr(*cmdline_p, "console="))
 Index: linux-2.6/arch/ia64/sn/kernel/tiocx.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/tiocx.c	2006-10-02 14:16:19.634662325 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/tiocx.c	2006-10-02 14:26:53.700811984 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/tiocx.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/kernel/tiocx.c	2006-10-04 16:15:17.243541351 -0500
 @@ -552,7 +552,7 @@ static void __exit tiocx_exit(void)
  	bus_unregister(&tiocx_bus_type);
  }
@@ -935,8 +918,8 @@ Index: linux-2.6/arch/ia64/sn/kernel/tiocx.c
  
  /************************************************************************
 Index: linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================--- linux-2.6.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-10-02 14:16:19.638662815 -0500
-+++ linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-10-02 14:26:53.700811984 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2006-10-04 16:15:17.247541829 -0500
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -976,9 +959,9 @@ Index: linux-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c
  }
  
 Index: linux-2.6/include/asm-ia64/machvec.h
-=================================--- linux-2.6.orig/include/asm-ia64/machvec.h	2006-10-02 14:16:23.691159409 -0500
-+++ linux-2.6/include/asm-ia64/machvec.h	2006-10-02 14:26:53.704812479 -0500
-@@ -35,6 +35,7 @@ typedef int ia64_mv_pci_legacy_read_t (s
+=================================--- linux-2.6.orig/include/asm-ia64/machvec.h	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/include/asm-ia64/machvec.h	2006-10-04 16:15:17.247541829 -0500
+@@ -36,6 +36,7 @@ typedef int ia64_mv_pci_legacy_read_t (s
  typedef int ia64_mv_pci_legacy_write_t (struct pci_bus *, u16 port, u32 val,
  					u8 size);
  typedef void ia64_mv_migrate_t(struct task_struct * task);
@@ -986,7 +969,7 @@ Index: linux-2.6/include/asm-ia64/machvec.h
  
  /* DMA-mapping interface: */
  typedef void ia64_mv_dma_init (void);
-@@ -92,6 +93,11 @@ machvec_noop_task (struct task_struct *t
+@@ -95,6 +96,11 @@ machvec_noop_task (struct task_struct *t
  {
  }
  
@@ -998,33 +981,33 @@ Index: linux-2.6/include/asm-ia64/machvec.h
  extern void machvec_setup (char **);
  extern void machvec_timer_interrupt (int, void *, struct pt_regs *);
  extern void machvec_dma_sync_single (struct device *, dma_addr_t, size_t, int);
-@@ -155,6 +161,7 @@ extern void machvec_tlb_migrate_finish (
- #  define platform_readq_relaxed        ia64_mv.readq_relaxed
+@@ -159,6 +165,7 @@ extern void machvec_tlb_migrate_finish (
  #  define platform_migrate		ia64_mv.migrate
- #  define platform_msi_init		ia64_mv.msi_init
+ #  define platform_setup_msi_irq	ia64_mv.setup_msi_irq
+ #  define platform_teardown_msi_irq	ia64_mv.teardown_msi_irq
 +#  define platform_pci_fixup_bus	ia64_mv.pci_fixup_bus
  # endif
  
  /* __attribute__((__aligned__(16))) is required to make size of the
-@@ -205,6 +212,7 @@ struct ia64_machine_vector {
- 	ia64_mv_readq_relaxed_t *readq_relaxed;
+@@ -210,6 +217,7 @@ struct ia64_machine_vector {
  	ia64_mv_migrate_t *migrate;
- 	ia64_mv_msi_init_t *msi_init;
+ 	ia64_mv_setup_msi_irq_t *setup_msi_irq;
+ 	ia64_mv_teardown_msi_irq_t *teardown_msi_irq;
 +	ia64_mv_pci_fixup_bus_t *pci_fixup_bus;
  } __attribute__((__aligned__(16))); /* align attrib? see above comment */
  
  #define MACHVEC_INIT(name)			\
-@@ -251,6 +259,7 @@ struct ia64_machine_vector {
- 	platform_readq_relaxed,			\
+@@ -257,6 +265,7 @@ struct ia64_machine_vector {
  	platform_migrate,			\
- 	platform_msi_init,			\
+ 	platform_setup_msi_irq,			\
+ 	platform_teardown_msi_irq,		\
 +	platform_pci_fixup_bus,			\
  }
  
  extern struct ia64_machine_vector ia64_mv;
-@@ -407,5 +416,8 @@ extern int ia64_pci_legacy_write(struct 
- #ifndef platform_msi_init
- # define platform_msi_init	((ia64_mv_msi_init_t*)NULL)
+@@ -416,5 +425,8 @@ extern int ia64_pci_legacy_write(struct 
+ #ifndef platform_teardown_msi_irq
+ # define platform_teardown_msi_irq	((ia64_mv_teardown_msi_irq_t*)NULL)
  #endif
 +#ifndef platform_pci_fixup_bus
 +# define platform_pci_fixup_bus	machvec_noop_bus
@@ -1032,19 +1015,19 @@ Index: linux-2.6/include/asm-ia64/machvec.h
  
  #endif /* _ASM_IA64_MACHVEC_H */
 Index: linux-2.6/include/asm-ia64/machvec_sn2.h
-=================================--- linux-2.6.orig/include/asm-ia64/machvec_sn2.h	2006-10-02 14:16:23.691159409 -0500
-+++ linux-2.6/include/asm-ia64/machvec_sn2.h	2006-10-02 14:26:53.704812479 -0500
-@@ -68,6 +68,7 @@ extern ia64_mv_dma_mapping_error	sn_dma_
- extern ia64_mv_dma_supported		sn_dma_supported;
+=================================--- linux-2.6.orig/include/asm-ia64/machvec_sn2.h	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/include/asm-ia64/machvec_sn2.h	2006-10-04 16:15:17.247541829 -0500
+@@ -69,6 +69,7 @@ extern ia64_mv_dma_supported		sn_dma_sup
  extern ia64_mv_migrate_t		sn_migrate;
- extern ia64_mv_msi_init_t		sn_msi_init;
+ extern ia64_mv_setup_msi_irq_t		sn_setup_msi_irq;
+ extern ia64_mv_teardown_msi_irq_t	sn_teardown_msi_irq;
 +extern ia64_mv_pci_fixup_bus_t		sn_pci_fixup_bus;
  
  
  /*
-@@ -124,6 +125,7 @@ extern ia64_mv_msi_init_t		sn_msi_init;
- #else
- #define platform_msi_init		((ia64_mv_msi_init_t*)NULL)
+@@ -127,6 +128,7 @@ extern ia64_mv_teardown_msi_irq_t	sn_tea
+ #define platform_setup_msi_irq		((ia64_mv_setup_msi_irq_t*)NULL)
+ #define platform_teardown_msi_irq	((ia64_mv_teardown_msi_irq_t*)NULL)
  #endif
 +#define platform_pci_fixup_bus		sn_pci_fixup_bus
  
@@ -1052,7 +1035,7 @@ Index: linux-2.6/include/asm-ia64/machvec_sn2.h
  
 Index: linux-2.6/include/asm-ia64/sn/acpi.h
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6/include/asm-ia64/sn/acpi.h	2006-10-02 14:26:53.704812479 -0500
++++ linux-2.6/include/asm-ia64/sn/acpi.h	2006-10-04 16:15:17.247541829 -0500
 @@ -0,0 +1,16 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -1071,8 +1054,8 @@ Index: linux-2.6/include/asm-ia64/sn/acpi.h
 +
 +#endif /* _ASM_IA64_SN_ACPI_H */
 Index: linux-2.6/include/asm-ia64/sn/sn_feature_sets.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_feature_sets.h	2006-10-02 14:16:23.719162840 -0500
-+++ linux-2.6/include/asm-ia64/sn/sn_feature_sets.h	2006-10-02 14:26:53.704812479 -0500
+=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_feature_sets.h	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/include/asm-ia64/sn/sn_feature_sets.h	2006-10-04 16:15:17.251542307 -0500
 @@ -44,8 +44,14 @@ extern int sn_prom_feature_available(int
   * Once enabled, a feature cannot be disabled.
   *
@@ -1089,8 +1072,8 @@ Index: linux-2.6/include/asm-ia64/sn/sn_feature_sets.h
  
  #endif /* _ASM_IA64_SN_FEATURE_SETS_H */
 Index: linux-2.6/include/asm-ia64/sn/sn_sal.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2006-10-02 14:16:23.719162840 -0500
-+++ linux-2.6/include/asm-ia64/sn/sn_sal.h	2006-10-02 14:26:53.708812974 -0500
+=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/include/asm-ia64/sn/sn_sal.h	2006-10-04 16:15:17.251542307 -0500
 @@ -77,6 +77,7 @@
  #define  SN_SAL_IOIF_GET_WIDGET_DMAFLUSH_LIST	   0x02000058	// deprecated
  #define  SN_SAL_IOIF_GET_DEVICE_DMAFLUSH_LIST	   0x0200005a
@@ -1100,8 +1083,8 @@ Index: linux-2.6/include/asm-ia64/sn/sn_sal.h
  #define SN_SAL_BTE_RECOVER			   0x02000061
  #define SN_SAL_RESERVED_DO_NOT_USE		   0x02000062
 Index: linux-2.6/include/asm-ia64/sn/pcidev.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/pcidev.h	2006-10-02 14:16:23.715162350 -0500
-+++ linux-2.6/include/asm-ia64/sn/pcidev.h	2006-10-02 14:26:53.708812974 -0500
+=================================--- linux-2.6.orig/include/asm-ia64/sn/pcidev.h	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/include/asm-ia64/sn/pcidev.h	2006-10-04 16:15:17.251542307 -0500
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -1161,8 +1144,8 @@ Index: linux-2.6/include/asm-ia64/sn/pcidev.h
  extern void sn_bus_free_sysdata(void);
  extern void sn_generate_path(struct pci_bus *pci_bus, char *address);
 Index: linux-2.6/include/asm-ia64/io.h
-=================================--- linux-2.6.orig/include/asm-ia64/io.h	2006-10-02 14:16:23.687158918 -0500
-+++ linux-2.6/include/asm-ia64/io.h	2006-10-02 14:26:53.708812974 -0500
+=================================--- linux-2.6.orig/include/asm-ia64/io.h	2006-10-04 16:15:13.831133621 -0500
++++ linux-2.6/include/asm-ia64/io.h	2006-10-04 16:15:17.251542307 -0500
 @@ -32,7 +32,7 @@
   */
  #define IO_SPACE_LIMIT		0xffffffffffffffffUL
@@ -1173,8 +1156,8 @@ Index: linux-2.6/include/asm-ia64/io.h
  #define IO_SPACE_BITS			24
  #define IO_SPACE_SIZE			(1UL << IO_SPACE_BITS)
 Index: linux-2.6/arch/ia64/sn/pci/tioce_provider.c
-=================================--- linux-2.6.orig/arch/ia64/sn/pci/tioce_provider.c	2006-10-02 14:16:19.638662815 -0500
-+++ linux-2.6/arch/ia64/sn/pci/tioce_provider.c	2006-10-02 14:26:53.708812974 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/pci/tioce_provider.c	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/pci/tioce_provider.c	2006-10-04 16:15:17.251542307 -0500
 @@ -15,7 +15,6 @@
  #include <asm/sn/pcidev.h>
  #include <asm/sn/pcibus_provider_defs.h>
@@ -1215,8 +1198,8 @@ Index: linux-2.6/arch/ia64/sn/pci/tioce_provider.c
  }
  
 Index: linux-2.6/arch/ia64/sn/kernel/Makefile
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/Makefile	2006-10-02 14:16:19.626661344 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/Makefile	2006-10-02 14:26:53.712813469 -0500
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/Makefile	2006-10-04 16:15:13.827133143 -0500
++++ linux-2.6/arch/ia64/sn/kernel/Makefile	2006-10-04 16:15:17.251542307 -0500
 @@ -4,13 +4,14 @@
  # License.  See the file "COPYING" in the main directory of this archive
  # for more details.
@@ -1236,7 +1219,7 @@ Index: linux-2.6/arch/ia64/sn/kernel/Makefile
  obj-$(CONFIG_SGI_TIOCX)		+= tiocx.o
 Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-03 08:35:21.414535980 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-04 16:15:17.255542785 -0500
 @@ -0,0 +1,198 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -1436,7 +1419,7 @@ Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
 +}
 Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-10-03 08:35:21.414535980 -0500
++++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-10-04 16:15:17.255542785 -0500
 @@ -0,0 +1,612 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
