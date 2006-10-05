@@ -1,20 +1,17 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 05 Oct 2006 00:36:33 +0000
-Subject: Re: [Pcihpd-discuss] [PATCH 1/3] - Altix: Add initial ACPI IO
-Message-Id: <20061004173633.c193eafd.akpm@osdl.org>
+From: John Keller <jpk@sgi.com>
+Date: Thu, 05 Oct 2006 13:10:45 +0000
+Subject: Re: [Pcihpd-discuss] [PATCH 1/3] - Altix: Add initial ACPI IO support
+Message-Id: <200610051310.k95DAkd3130344@fcbayern.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061004214925.3193.26724.sendpatchset@attica.americas.sgi.com>
-	<20061004225649.GB14395@kroah.com>
-In-Reply-To: <20061004225649.GB14395@kroah.com>
+References: <20061004225649.GB14395@kroah.com>
+In-Reply-To: <20061004225649.GB14395@kroah.com> from "Greg KH" at Oct 04, 2006 03:56:49 PM
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Greg KH <greg@kroah.com>
-Cc: John Keller <jpk@sgi.com>, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
+Cc: John Keller <jpk@sgi.com>, akpm@osdl.org, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
 
-On Wed, 4 Oct 2006 15:56:49 -0700
-Greg KH <greg@kroah.com> wrote:
-
+> 
 > On Wed, Oct 04, 2006 at 04:49:25PM -0500, John Keller wrote:
 > > First phase in introducing ACPI support to SN.
 > > In this phase, when running with an ACPI capable PROM,
@@ -31,11 +28,27 @@ Greg KH <greg@kroah.com> wrote:
 > How do these three patches differ from the ones I added to my tree
 > yesterday?
 
-A bunch of other stuff got merged out of order this morning and broke your
-tree.  I asked John for a rediff.  Check your inbox ;)
+There are some merge conflicts cleaned up for [Patch 1/3]
+in files:
 
+include/asm-ia64/machvec.h
+include/asm-ia64/machvec_sn2.h
+
+
+Patches 2/3 and 3/3 are unchanged.
+
+
+> 
 > > Resend #2 - resync with TOT
 > 
 > "TOT"?
 
-tip-of-tree.
+Top of tree - Linus' latest.
+
+
+> 
+> thanks,
+> 
+> greg k-h
+> 
+
