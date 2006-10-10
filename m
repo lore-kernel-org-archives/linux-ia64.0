@@ -1,46 +1,170 @@
-From: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
-Date: Fri, 27 Oct 2006 10:49:54 +0000
-Subject: [BUGFIX] [PATH 2/2] cpu-hotplug: Releasing `workqueue_mutex' properly on CPU hot-remove
-Message-Id: <87lkn2vxrh.wl%takeuchi_satoru@jp.fujitsu.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 10 Oct 2006 14:01:19 +0000
+Subject: [PATCH 1/4] Use pci_generic_prep_mwi on ia64
+Message-Id: <1160488882440-git-send-email-matthew@wil.cx>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
-Cc: Andrew Morton <akpm@osdl.org>, Rusty Russell <rusty@rustycorp.com.au>, Srivatsa Vaddagiri <vatsa@in.ibm.com>, Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+To: linux-ia64@vger.kernel.org
 
-Releasing `workqueue_mutex' properly on CPU hot-remove.
+From: linux-ia64@vger.kernel.org
 
-_cpu_down() acquires `workqueue_mutex' on its process, but doen't release it
-if __cpu_disable() fails.
+The pci_generic_prep_mwi() code does everything that pcibios_prep_mwi()
+does on ia64.  All we need to do is be sure that pci_cache_line_size
+is set appropriately, and we can delete pcibios_prep_mwi().
 
-Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Using SMP_CACHE_BYTES as the default was wrong on uniprocessor machines
+as it is only 8 bytes.  The default in the generic code of L1_CACHE_BYTES
+is at least as good.
 
-Index: linux-2.6.19-rc3/kernel/cpu.c
-=================================--- linux-2.6.19-rc3.orig/kernel/cpu.c	2006-10-24 14:01:39.000000000 +0900
-+++ linux-2.6.19-rc3/kernel/cpu.c	2006-10-27 19:38:14.000000000 +0900
-@@ -150,18 +150,18 @@
- 	p = __stop_machine_run(take_cpu_down, NULL, cpu);
- 	mutex_unlock(&cpu_bitmask_lock);
+Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+---
+ arch/ia64/pci/pci.c    |   71 ++++++++++++++----------------------------------
+ include/asm-ia64/pci.h |   21 +++++++-------
+ 2 files changed, 30 insertions(+), 62 deletions(-)
+
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index b30be7c..4f77472 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -738,75 +738,44 @@ int ia64_pci_legacy_write(struct pci_bus
+ 	return ret;
+ }
  
--	if (IS_ERR(p)) {
-+	if (IS_ERR(p) || cpu_online(cpu)) {
- 		/* CPU didn't die: tell everyone.  Can't complain. */
- 		if (raw_notifier_call_chain(&cpu_chain, CPU_DOWN_FAILED,
- 				(void *)(long)cpu) = NOTIFY_BAD)
- 			BUG();
- 
--		err = PTR_ERR(p);
--		goto out_allowed;
--	}
++/* It's defined in drivers/pci/pci.c */
++extern u8 pci_cache_line_size;
++
+ /**
+- * pci_cacheline_size - determine cacheline size for PCI devices
+- * @dev: void
++ * set_pci_cacheline_size - determine cacheline size for PCI devices
+  *
+  * We want to use the line-size of the outer-most cache.  We assume
+  * that this line-size is the same for all CPUs.
+  *
+  * Code mostly taken from arch/ia64/kernel/palinfo.c:cache_info().
+- *
+- * RETURNS: An appropriate -ERRNO error value on eror, or zero for success.
+  */
+-static unsigned long
+-pci_cacheline_size (void)
++static void __init set_pci_cacheline_size(void)
+ {
+ 	u64 levels, unique_caches;
+ 	s64 status;
+ 	pal_cache_config_info_t cci;
+-	static u8 cacheline_size;
 -
--	if (cpu_online(cpu))
-+		if (IS_ERR(p)) {
-+			err = PTR_ERR(p);
-+			goto out_allowed;
-+		}
- 		goto out_thread;
-+	}
+-	if (cacheline_size)
+-		return cacheline_size;
  
- 	/* Wait for it to sleep (leaving idle task). */
- 	while (!idle_cpu(cpu))
+ 	status = ia64_pal_cache_summary(&levels, &unique_caches);
+ 	if (status != 0) {
+-		printk(KERN_ERR "%s: ia64_pal_cache_summary() failed (status=%ld)\n",
+-		       __FUNCTION__, status);
+-		return SMP_CACHE_BYTES;
++		printk(KERN_ERR "%s: ia64_pal_cache_summary() failed "
++			"(status=%ld)\n", __FUNCTION__, status);
++		return;
+ 	}
+ 
+-	status = ia64_pal_cache_config_info(levels - 1, /* cache_type (data_or_unified)= */ 2,
+-					    &cci);
++	status = ia64_pal_cache_config_info(levels - 1,
++				/* cache_type (data_or_unified)= */ 2, &cci);
+ 	if (status != 0) {
+-		printk(KERN_ERR "%s: ia64_pal_cache_config_info() failed (status=%ld)\n",
+-		       __FUNCTION__, status);
+-		return SMP_CACHE_BYTES;
++		printk(KERN_ERR "%s: ia64_pal_cache_config_info() failed "
++			"(status=%ld)\n", __FUNCTION__, status);
++		return;
+ 	}
+-	cacheline_size = 1 << cci.pcci_line_size;
+-	return cacheline_size;
++	pci_cache_line_size = (1 << cci.pcci_line_size) / 4;
+ }
+ 
+-/**
+- * pcibios_prep_mwi - helper function for drivers/pci/pci.c:pci_set_mwi()
+- * @dev: the PCI device for which MWI is enabled
+- *
+- * For ia64, we can get the cacheline sizes from PAL.
+- *
+- * RETURNS: An appropriate -ERRNO error value on eror, or zero for success.
+- */
+-int
+-pcibios_prep_mwi (struct pci_dev *dev)
+-{
+-	unsigned long desired_linesize, current_linesize;
+-	int rc = 0;
+-	u8 pci_linesize;
+-
+-	desired_linesize = pci_cacheline_size();
+-
+-	pci_read_config_byte(dev, PCI_CACHE_LINE_SIZE, &pci_linesize);
+-	current_linesize = 4 * pci_linesize;
+-	if (desired_linesize != current_linesize) {
+-		printk(KERN_WARNING "PCI: slot %s has incorrect PCI cache line size of %lu bytes,",
+-		       pci_name(dev), current_linesize);
+-		if (current_linesize > desired_linesize) {
+-			printk(" expected %lu bytes instead\n", desired_linesize);
+-			rc = -EINVAL;
+-		} else {
+-			printk(" correcting to %lu\n", desired_linesize);
+-			pci_write_config_byte(dev, PCI_CACHE_LINE_SIZE, desired_linesize / 4);
+-		}
+-	}
+-	return rc;
++static int __init pcibios_init(void)
++{
++	set_pci_cacheline_size();
++	return 0;
+ }
++
++subsys_initcall(pcibios_init);
+diff --git a/include/asm-ia64/pci.h b/include/asm-ia64/pci.h
+index ef616fd..825eb7d 100644
+--- a/include/asm-ia64/pci.h
++++ b/include/asm-ia64/pci.h
+@@ -26,16 +26,18 @@ void pcibios_config_init(void);
+ struct pci_dev;
+ 
+ /*
+- * PCI_DMA_BUS_IS_PHYS should be set to 1 if there is _necessarily_ a direct correspondence
+- * between device bus addresses and CPU physical addresses.  Platforms with a hardware I/O
+- * MMU _must_ turn this off to suppress the bounce buffer handling code in the block and
+- * network device layers.  Platforms with separate bus address spaces _must_ turn this off
+- * and provide a device DMA mapping implementation that takes care of the necessary
++ * PCI_DMA_BUS_IS_PHYS should be set to 1 if there is _necessarily_ a direct
++ * correspondence between device bus addresses and CPU physical addresses.
++ * Platforms with a hardware I/O MMU _must_ turn this off to suppress the
++ * bounce buffer handling code in the block and network device layers.
++ * Platforms with separate bus address spaces _must_ turn this off and provide
++ * a device DMA mapping implementation that takes care of the necessary
+  * address translation.
+  *
+- * For now, the ia64 platforms which may have separate/multiple bus address spaces all
+- * have I/O MMUs which support the merging of physically discontiguous buffers, so we can
+- * use that as the sole factor to determine the setting of PCI_DMA_BUS_IS_PHYS.
++ * For now, the ia64 platforms which may have separate/multiple bus address
++ * spaces all have I/O MMUs which support the merging of physically
++ * discontiguous buffers, so we can use that as the sole factor to determine
++ * the setting of PCI_DMA_BUS_IS_PHYS.
+  */
+ extern unsigned long ia64_max_iommu_merge_mask;
+ #define PCI_DMA_BUS_IS_PHYS	(ia64_max_iommu_merge_mask = ~0UL)
+@@ -52,9 +54,6 @@ pcibios_penalize_isa_irq (int irq, int a
+ 	/* We don't do dynamic PCI IRQ allocation */
+ }
+ 
+-#define HAVE_ARCH_PCI_MWI 1
+-extern int pcibios_prep_mwi (struct pci_dev *);
+-
+ #include <asm-generic/pci-dma-compat.h>
+ 
+ /* pci_unmap_{single,page} is not a nop, thus... */
+-- 
+1.4.1.1
+
