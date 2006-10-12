@@ -1,35 +1,31 @@
-From: dann frazier <dannf@debian.org>
-Date: Mon, 23 Oct 2006 19:10:24 +0000
-Subject: Re: ia64 userspace kernel headers
-Message-Id: <20061023191024.GD764@colo>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 12 Oct 2006 19:18:13 +0000
+Subject: [PATCH 1/4] Fix alignment of __condata_*
+Message-Id: <20061012191813.21498.394.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, Oct 21, 2006 at 12:34:24AM -0400, Jeff Bailey wrote:
-> Heya Dann!  I'm hoping you can help me with this, or punt me to the
-> right person.
-> 
-> The exported userspace headers from 2.6.18 and 2.6.19-rc1 cause the
-> klibc build to fail at:
-> 
-> gcc_intrin.h:register unsigned long ia64_r13 asm ("r13")
-> __attribute_used__;
-> 
-> because __attribute_used__ isn't defined.  linux/compiler-gcc4.h isn't
-> part of the exported set (and isn't actually included directly by this
-> header, which I suspect it should be).  I'm not clear that
-> asm/intrinsics.h is generally expected to be needed, and if so how much.
-> I'm hoping you know the headers well enough to know if that define and
-> the following section of gcc_intrin.h can be just marked #ifdef
-> __KERNEL__ to solve the problem.
+Fix alignment for CONFIG_IA64_SGI
 
-hey Jeff,
-  I don't have much knowledge in this area, I'll have to defer you to
-the linux-ia64 list (cc'd)
+The _con.... variables happened to be placed on a 4 byte
+boundary in some compiles for CONFIG_IA64_SGI. Wasted some time
+chasing ghosts in functions that were never executed but modifications
+to these function would oops the system. Make sure that
+this does not happen again.
 
--- 
-dann frazier
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
+Index: linux-2.6.19-rc1-mm1/arch/ia64/kernel/vmlinux.lds.S
+=================================--- linux-2.6.19-rc1-mm1.orig/arch/ia64/kernel/vmlinux.lds.S	2006-10-04 21:57:05.000000000 -0500
++++ linux-2.6.19-rc1-mm1/arch/ia64/kernel/vmlinux.lds.S	2006-10-10 21:45:30.768864235 -0500
+@@ -163,6 +163,7 @@ SECTIONS
+ 	}
+ #endif
+ 
++  . = ALIGN(16);
+    __con_initcall_start = .;
+   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
+ 	{ *(.con_initcall.init) }
