@@ -1,77 +1,144 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 23 Oct 2006 08:48:41 +0000
-Subject: [patch 1/5] move ia64_sal_retval and ia64_sal_handler above __SAL_CALL
-Message-Id: <20061023090334.049412560@tabatha.lab.ultramonkey.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 12 Oct 2006 22:21:17 +0000
+Subject: [patch 2/2] ia64: reformat pal.S to fit in 80 columns, fix typos
+Message-Id: <200610121621.17610.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This moves the definition of ia64_sal_retval and ia64_sal_handler above 
-__SAL_CALL in preparation for a typed function, which returns
-ia64_sal_retval and takes a ia64_sal_handler as one of its argument
-and is called by __SAL_CALL.
+Reformat to fit in 80 columns.  Fix a couple typos.  Remove
+a couple unused labels.
 
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
- include/asm-ia64/sal.h |   32 ++++++++++++++++----------------
- 1 file changed, 16 insertions(+), 16 deletions(-)
-
-Index: kexec-ia64-2.6/include/asm-ia64/sal.h
-=================================--- kexec-ia64-2.6.orig/include/asm-ia64/sal.h	2006-10-05 12:33:37.000000000 +0900
-+++ kexec-ia64-2.6/include/asm-ia64/sal.h	2006-10-05 12:33:41.000000000 +0900
-@@ -45,6 +45,22 @@
+Index: work-1/arch/ia64/kernel/pal.S
+=================================--- work-1.orig/arch/ia64/kernel/pal.S	2006-10-12 10:18:31.000000000 -0600
++++ work-1/arch/ia64/kernel/pal.S	2006-10-12 16:21:54.000000000 -0600
+@@ -21,11 +21,12 @@
+ 	.text
  
- extern spinlock_t sal_lock;
+ /*
+- * Set the PAL entry point address.  This could be written in C code, but we do it here
+- * to keep it all in one module (besides, it's so trivial that it's
++ * Set the PAL entry point address.  This could be written in C code, but we
++ * do it here to keep it all in one module (besides, it's so trivial that it's
+  * not a big deal).
+  *
+- * in0		Address of the PAL entry point (text address, NOT a function descriptor).
++ * in0		Address of the PAL entry point (text address, NOT a function
++ *		descriptor).
+  */
+ GLOBAL_ENTRY(ia64_pal_handler_init)
+ 	alloc r3=ar.pfs,1,0,0,0
+@@ -36,9 +37,9 @@
+ END(ia64_pal_handler_init)
  
-+struct ia64_sal_retval {
-+	/*
-+	 * A zero status value indicates call completed without error.
-+	 * A negative status value indicates reason of call failure.
-+	 * A positive status value indicates success but an
-+	 * informational value should be printed (e.g., "reboot for
-+	 * change to take effect").
-+	 */
-+	s64 status;
-+	u64 v0;
-+	u64 v1;
-+	u64 v2;
-+};
-+
-+typedef struct ia64_sal_retval (*ia64_sal_handler) (u64, ...);
-+
- /* SAL spec _requires_ eight args for each call. */
- #define __SAL_CALL(result,a0,a1,a2,a3,a4,a5,a6,a7)	\
- 	result = (*ia64_sal)(a0,a1,a2,a3,a4,a5,a6,a7)
-@@ -95,22 +111,6 @@
+ /*
+- * Default PAL call handler.  This needs to be coded in assembly because it uses
+- * the static calling convention, i.e., the RSE may not be used and calls are
+- * done via "br.cond" (not "br.call").
++ * Default PAL call handler.  This needs to be coded in assembly because it
++ * uses the static calling convention, i.e., the RSE may not be used and
++ * calls are done via "br.cond" (not "br.call").
+  */
+ GLOBAL_ENTRY(ia64_pal_default_handler)
+ 	mov r8=-1
+@@ -91,8 +92,8 @@
+  * Make a PAL call using the stacked registers calling convention.
+  *
+  * Inputs:
+- * 	in0         Index of PAL service
+- * 	in2 - in3   Remaning PAL arguments
++ *	in0         Index of PAL service
++ *	in2 - in3   Remaining PAL arguments
+  */
+ GLOBAL_ENTRY(ia64_pal_call_stacked)
+ 	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(4)
+@@ -126,18 +127,18 @@
+  * Make a physical mode PAL call using the static registers calling convention.
+  *
+  * Inputs:
+- * 	in0         Index of PAL service
+- * 	in2 - in3   Remaning PAL arguments
++ *	in0         Index of PAL service
++ *	in2 - in3   Remaining PAL arguments
+  *
+  * PSR_LP, PSR_TB, PSR_ID, PSR_DA are never set by the kernel.
+  * So we don't need to clear them.
+  */
+-#define PAL_PSR_BITS_TO_CLEAR							\
+-	(IA64_PSR_I | IA64_PSR_IT | IA64_PSR_DT  | IA64_PSR_DB | IA64_PSR_RT |	\
+-	 IA64_PSR_DD | IA64_PSR_SS | IA64_PSR_RI | IA64_PSR_ED |		\
++#define PAL_PSR_BITS_TO_CLEAR						      \
++	(IA64_PSR_I | IA64_PSR_IT | IA64_PSR_DT  | IA64_PSR_DB | IA64_PSR_RT |\
++	 IA64_PSR_DD | IA64_PSR_SS | IA64_PSR_RI | IA64_PSR_ED |	      \
+ 	 IA64_PSR_DFL | IA64_PSR_DFH)
  
- #define SAL_UPDATE_PAL			0x01000020
+-#define PAL_PSR_BITS_TO_SET							\
++#define PAL_PSR_BITS_TO_SET						      \
+ 	(IA64_PSR_BN)
  
--struct ia64_sal_retval {
--	/*
--	 * A zero status value indicates call completed without error.
--	 * A negative status value indicates reason of call failure.
--	 * A positive status value indicates success but an
--	 * informational value should be printed (e.g., "reboot for
--	 * change to take effect").
--	 */
--	s64 status;
--	u64 v0;
--	u64 v1;
--	u64 v2;
--};
--
--typedef struct ia64_sal_retval (*ia64_sal_handler) (u64, ...);
--
- enum {
- 	SAL_FREQ_BASE_PLATFORM = 0,
- 	SAL_FREQ_BASE_INTERVAL_TIMER = 1,
-
---
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+ 
+@@ -173,7 +174,7 @@
+ 	;;
+ 	andcm r16=loc3,r16		// removes bits to clear from psr
+ 	br.call.sptk.many rp=ia64_switch_mode_phys
+-.ret1:	mov rp = r8			// install return address (physical)
++	mov rp = r8			// install return address (physical)
+ 	mov loc5 = r19
+ 	mov loc6 = r20
+ 	br.cond.sptk.many b7
+@@ -183,7 +184,6 @@
+ 	mov r19=loc5
+ 	mov r20=loc6
+ 	br.call.sptk.many rp=ia64_switch_mode_virt // return to virtual mode
+-.ret2:
+ 	mov psr.l = loc3		// restore init PSR
+ 
+ 	mov ar.pfs = loc1
+@@ -198,8 +198,8 @@
+  * Make a PAL call using the stacked registers in physical mode.
+  *
+  * Inputs:
+- * 	in0         Index of PAL service
+- * 	in2 - in3   Remaning PAL arguments
++ *	in0         Index of PAL service
++ *	in2 - in3   Remaining PAL arguments
+  */
+ GLOBAL_ENTRY(ia64_pal_call_phys_stacked)
+ 	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(5)
+@@ -207,7 +207,7 @@
+ 	movl	loc2 = pal_entry_point
+ 1:	{
+ 	  mov r28  = in0		// copy procedure index
+-	  mov loc0 = rp		// save rp
++	  mov loc0 = rp			// save rp
+ 	}
+ 	.body
+ 	;;
+@@ -240,7 +240,7 @@
+ 	mov r16=loc3			// r16= original psr
+ 	mov r19=loc5
+ 	mov r20=loc6
+-	br.call.sptk.many rp=ia64_switch_mode_virt	// return to virtual mode
++	br.call.sptk.many rp=ia64_switch_mode_virt // return to virtual mode
+ 
+ 	mov psr.l  = loc3		// restore init PSR
+ 	mov ar.pfs = loc1
+@@ -252,10 +252,11 @@
+ END(ia64_pal_call_phys_stacked)
+ 
+ /*
+- * Save scratch fp scratch regs which aren't saved in pt_regs already (fp10-fp15).
++ * Save scratch fp scratch regs which aren't saved in pt_regs already
++ * (fp10-fp15).
+  *
+- * NOTE: We need to do this since firmware (SAL and PAL) may use any of the scratch
+- * regs fp-low partition.
++ * NOTE: We need to do this since firmware (SAL and PAL) may use any of the
++ * scratch regs fp-low partition.
+  *
+  * Inputs:
+  *      in0	Address of stack storage for fp regs
