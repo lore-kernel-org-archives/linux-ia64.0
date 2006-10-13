@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 13 Oct 2006 00:26:15 +0000
-Subject: RE: [PATCH 4/4] vmm: Use a static memory map
-Message-Id: <Pine.LNX.4.64.0610121725040.22717@schroedinger.engr.sgi.com>
+Date: Fri, 13 Oct 2006 00:29:35 +0000
+Subject: Re: [PATCH 4/4] vmm: Use a static memory map
+Message-Id: <Pine.LNX.4.64.0610121727560.22717@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061012191828.21498.95831.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20061012191828.21498.95831.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,18 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 12 Oct 2006, Chen, Kenneth W wrote:
+On Thu, 12 Oct 2006, Luck, Tony wrote:
 
-> I like the concept a lot.
-
-Thanks.
-
-> > - This patch will enable later patches to move the virtual memory map into
-> >   another region with a larger page size. Larger page sizes will reduce
-> >   TLB pressure.
+> > So, the size of the virtual memory map is always less than 8 Terabyte.
 > 
-> I like that even more, which region are you going to move it to?
+> 32 TB for 4K pagesize using current physical address space limit and
+> existing Linux sizeof(struct page)
 
-I thought about region 7 and I think I could use some help with the ivt
-asssembly ... Will post the RFC in a minute.
+Ok. Well in that unlikely case we can probably sacrifice more?
 
+> > I think its reasonable to take these 8 Terabyte away from the 128 Terabyte
+> > that we currently reserve for support for VMALLOC space.
+> 
+> Does it still sound as good to take 32/128 TB?  What if the physical
+> address space gets another 4 bits ... even with a 16K pagesize you'd
+> need the whole 128TB.
+
+The limits discussed here are for 3 level page tables. All of this gets 
+much bigger with 4 level page tables.
