@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 13 Oct 2006 00:29:35 +0000
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 13 Oct 2006 00:56:40 +0000
 Subject: Re: [PATCH 4/4] vmm: Use a static memory map
-Message-Id: <Pine.LNX.4.64.0610121727560.22717@schroedinger.engr.sgi.com>
+Message-Id: <20061013095640.c181bb9c.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061012191828.21498.95831.sendpatchset@schroedinger.engr.sgi.com>
 In-Reply-To: <20061012191828.21498.95831.sendpatchset@schroedinger.engr.sgi.com>
@@ -10,21 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 12 Oct 2006, Luck, Tony wrote:
+On Thu, 12 Oct 2006 12:18:28 -0700 (PDT)
+Christoph Lameter <clameter@sgi.com> wrote:
 
-> > So, the size of the virtual memory map is always less than 8 Terabyte.
-> 
-> 32 TB for 4K pagesize using current physical address space limit and
-> existing Linux sizeof(struct page)
+> - The plan is to further generalize the virtual mem map support
+>   in the Linux kernel. With this patch the virtual memory map
+>   is more independent from VMALLOC.
+This purpose is great. I like this patch.
 
-Ok. Well in that unlikely case we can probably sacrifice more?
+> +#define VIRTUAL_MEM_MAP_SIZE   (1UL << (IA64_MAX_PHYS_BITS - PAGE_SHIFT +\
+> +					STRUCT_PAGE_ORDER))
 
-> > I think its reasonable to take these 8 Terabyte away from the 128 Terabyte
-> > that we currently reserve for support for VMALLOC space.
-> 
-> Does it still sound as good to take 32/128 TB?  What if the physical
-> address space gets another 4 bits ... even with a 16K pagesize you'd
-> need the whole 128TB.
+I'm not sure but Is this size of virtual-memory able to be mapped by any configs ?
 
-The limits discussed here are for 3 level page tables. All of this gets 
-much bigger with 4 level page tables.
+
+>  #else
+> -# define VMALLOC_END		(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
+> +#define VIRTUAL_MEM_MAP_SIZE 0
+>  #endif
+>  
+> +#define VMALLOC_START  (VIRTUAL_MEM_MAP + VIRTUAL_MEM_MAP_SIZE)
+> +#define VMALLOC_END    (RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
+> +
+And, (1UL << (4*PAGE_SHIFT-9)) - VIRTUAL_MEM_MAP_SIZE is real VMALLOC size. 
+I think.
+
+-Kame
+
+
