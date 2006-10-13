@@ -1,157 +1,162 @@
-From: John Keller <jpk@sgi.com>
-Date: Wed, 04 Oct 2006 21:49:52 +0000
-Subject: [PATCH 3/3] - Altix: Initial ACPI support - ROM shadowing.
-Message-Id: <20061004214952.6035.80916.sendpatchset@attica.americas.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 13 Oct 2006 17:08:13 +0000
+Subject: Patch [2/2] relax per-cpu TLB requirement to DTC
+Message-Id: <000201c6eeea$2b134940$ff0da8c0@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
-In-Reply-To: <20060901160222.32120.99445.48436@attica.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, greg@kroah.com, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, John Keller <jpk@sgi.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Support a shadowed ROM when running with an ACPI capable PROM.
+Instead of pinning per-cpu TLB into a DTR, use DTC.  This will free up
+one TLB entry for application, or even kernel if access pattern to
+per-cpu data area has high temporal locality.
 
-Define a new dev.resource flag IORESOURCE_ROM_BIOS_COPY to
-describe the case of a BIOS shadowed ROM, which can then
-be used to avoid pci_map_rom() making an unneeded call to
-pci_enable_rom().
+Since per-cpu is mapped at the top of region 7 address, we just need to
+add special case in alt_dtlb_miss.  The physical address of per-cpu data
+is already conveniently stored in IA64_KR(PER_CPU_DATA).  Latency for
+alt_dtlb_miss is not affected as we can hide all the latency.  It was
+measured that alt_dtlb_miss handler has 23 cycles latency before and
+after the patch.
 
-
-Signed-off-by: John Keller <jpk@sgi.com>
-
----
-
- Resend #2 - resync with TOT.
-
-
- arch/ia64/sn/kernel/io_acpi_init.c |   33 +++++++++++++++++++++++++++
- arch/ia64/sn/kernel/io_common.c    |    5 ++--
- arch/ia64/sn/kernel/io_init.c      |    3 ++
- drivers/pci/rom.c                  |    9 ++++---
- include/linux/ioport.h             |    1 
- 5 files changed, 46 insertions(+), 5 deletions(-)
+The performance effect is massive for applications that put lots of tlb
+pressure on CPU.  Workload environment like database online transaction
+processing or application uses tera-byte of memory would benefit the most.
+Measurement with industry standard database benchmark shown an upward
+of 1.6% gain.  While smaller workloads like cpu, java also showing small
+improvement.=20
 
 
-Index: linux-2.6/arch/ia64/sn/kernel/io_common.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_common.c	2006-10-04 16:15:17.255542785 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_common.c	2006-10-04 16:15:31.645262234 -0500
-@@ -286,9 +286,10 @@ void sn_pci_fixup_slot(struct pci_dev *d
- 	list_add_tail(&pcidev_info->pdi_list,
- 		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
- 
--	if (!SN_ACPI_BASE_SUPPORT())
-+	if (SN_ACPI_BASE_SUPPORT())
-+		sn_acpi_slot_fixup(dev, pcidev_info);
-+	else
- 		sn_more_slot_fixup(dev, pcidev_info);
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+
+--- ./include/asm-ia64/kregs.h.orig	2006-10-10 19:51:20.000000000 -0700
++++ ./include/asm-ia64/kregs.h	2006-10-13 10:43:09.000000000 -0700
+@@ -29,8 +29,7 @@
+  */
+ #define IA64_TR_KERNEL		0	/* itr0, dtr0: maps kernel image (code & data) */
+ #define IA64_TR_PALCODE		1	/* itr1: maps PALcode as required by EFI */
+-#define IA64_TR_PERCPU_DATA	1	/* dtr1: percpu data */
+-#define IA64_TR_CURRENT_STACK	2	/* dtr2: maps kernel's memory- & register-=
+stacks */
++#define IA64_TR_CURRENT_STACK	1	/* dtr1: maps kernel's memory- & register-=
+stacks */
+=20
+ /* Processor status register bits: */
+ #define IA64_PSR_BE_BIT		1
+--- ./arch/ia64/kernel/ivt.S.orig	2006-10-10 19:51:10.000000000 -0700
++++ ./arch/ia64/kernel/ivt.S	2006-10-13 10:43:09.000000000 -0700
+@@ -374,6 +374,7 @@ ENTRY(alt_dtlb_miss)
+ 	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
+ 	mov r21=3Dcr.ipsr
+ 	mov r31=3Dpr
++	mov r24=3DPERCPU_ADDR
+ 	;;
+ #ifdef CONFIG_DISABLE_VHPT
+ 	shr.u r22=3Dr16,61			// get the region number into r21
+@@ -386,22 +387,30 @@ ENTRY(alt_dtlb_miss)
+ (p8)	mov r29=B0				// save b0
+ (p8)	br.cond.dptk dtlb_fault
+ #endif
++	cmp.ge p10,p11=3Dr16,r24			// access to per_cpu_data?
++	tbit.z p12,p0=3Dr16,61			// access to region 6?
++	mov r25=3DPERCPU_PAGE_SHIFT << 2
++	mov r26=3DPERCPU_PAGE_SIZE
++	nop.m 0
++	nop.b 0
++	;;
++(p10)	mov r19=3DIA64_KR(PER_CPU_DATA)
++(p11)	and r19=3Dr19,r16				// clear non-ppn fields
+ 	extr.u r23=3Dr21,IA64_PSR_CPL0_BIT,2	// extract psr.cpl
+ 	and r22=3DIA64_ISR_CODE_MASK,r20		// get the isr.code field
+ 	tbit.nz p6,p7=3Dr20,IA64_ISR_SP_BIT	// is speculation bit on?
+-	shr.u r18=3Dr16,57			// move address bit 61 to bit 4
+-	and r19=3Dr19,r16				// clear ed, reserved bits, and PTE control bits
+ 	tbit.nz p9,p0=3Dr20,IA64_ISR_NA_BIT	// is non-access bit on?
+ 	;;
+-	andcm r18=3D0x10,r18	// bit 4=3D~address-bit(61)
++(p10)	sub r19=3Dr19,r26
++(p10)	mov cr.itir=3Dr25
+ 	cmp.ne p8,p0=3Dr0,r23
+ (p9)	cmp.eq.or.andcm p6,p7=3DIA64_ISR_CODE_LFETCH,r22	// check isr.code fi=
+eld
++(p12)	dep r17=3D-1,r17,4,1			// set ma=3DUC for region 6 addr
+ (p8)	br.cond.spnt page_fault
+=20
+ 	dep r21=3D-1,r21,IA64_PSR_ED_BIT,1
+-	or r19=3Dr19,r17		// insert PTE control bits into r19
+ 	;;
+-	or r19=3Dr19,r18		// set bit 4 (uncached) if the access was to region 6
++	or r19=3Dr19,r17		// insert PTE control bits into r19
+ (p6)	mov cr.ipsr=3Dr21
+ 	;;
+ (p7)	itc.d r19		// insert the TLB entry
+--- ./arch/ia64/kernel/mca_asm.S.orig	2006-10-10 19:51:10.000000000 -0700
++++ ./arch/ia64/kernel/mca_asm.S	2006-10-13 10:43:09.000000000 -0700
+@@ -101,14 +101,6 @@ ia64_do_tlb_purge:
+ 	;;
+ 	srlz.d
+ 	;;
+-	// 2. Purge DTR for PERCPU data.
+-	movl r16=3DPERCPU_ADDR
+-	mov r18=3DPERCPU_PAGE_SHIFT<<2
+-	;;
+-	ptr.d r16,r18
+-	;;
+-	srlz.d
+-	;;
+ 	// 3. Purge ITR for PAL code.
+ 	GET_THIS_PADDR(r2, ia64_mca_pal_base)
+ 	;;
+@@ -196,22 +188,6 @@ ia64_reload_tr:
+ 	srlz.i
+ 	srlz.d
+ 	;;
+-	// 2. Reload DTR register for PERCPU data.
+-	GET_THIS_PADDR(r2, ia64_mca_per_cpu_pte)
+-	;;
+-	movl r16=3DPERCPU_ADDR		// vaddr
+-	movl r18=3DPERCPU_PAGE_SHIFT<<2
+-	;;
+-	mov cr.itir=3Dr18
+-	mov cr.ifa=3Dr16
+-	;;
+-	ld8 r18=3D[r2]			// load per-CPU PTE
+-	mov r16=3DIA64_TR_PERCPU_DATA;
+-	;;
+-	itr.d dtr[r16]=3Dr18
+-	;;
+-	srlz.d
+-	;;
+ 	// 3. Reload ITR for PAL code.
+ 	GET_THIS_PADDR(r2, ia64_mca_pal_pte)
+ 	;;
+--- ./arch/ia64/mm/init.c.orig	2006-10-10 19:51:10.000000000 -0700
++++ ./arch/ia64/mm/init.c	2006-10-13 10:43:09.000000000 -0700
+@@ -337,7 +337,7 @@ setup_gate (void)
+ void __devinit
+ ia64_mmu_init (void *my_cpu_data)
+ {
+-	unsigned long psr, pta, impl_va_bits;
++	unsigned long pta, impl_va_bits;
+ 	extern void __devinit tlb_init (void);
+=20
+ #ifdef CONFIG_DISABLE_VHPT
+@@ -346,15 +346,6 @@ ia64_mmu_init (void *my_cpu_data)
+ #	define VHPT_ENABLE_BIT	1
+ #endif
+=20
+-	/* Pin mapping for percpu area into TLB */
+-	psr =3D ia64_clear_ic();
+-	ia64_itr(0x2, IA64_TR_PERCPU_DATA, PERCPU_ADDR,
+-		 pte_val(pfn_pte(__pa(my_cpu_data) >> PAGE_SHIFT, PAGE_KERNEL)),
+-		 PERCPU_PAGE_SHIFT);
+-
+-	ia64_set_psr(psr);
+-	ia64_srlz_i();
 -
  	/*
- 	 * Using the PROMs values for the PCI host bus, get the Linux
-  	 * PCI host_pci_dev struct and set up host bus linkages
-Index: linux-2.6/drivers/pci/rom.c
-=================================--- linux-2.6.orig/drivers/pci/rom.c	2006-10-04 16:15:07.542382237 -0500
-+++ linux-2.6/drivers/pci/rom.c	2006-10-04 16:15:31.645262234 -0500
-@@ -77,7 +77,8 @@ void __iomem *pci_map_rom(struct pci_dev
- 		start = (loff_t)0xC0000;
- 		*size = 0x20000; /* cover C000:0 through E000:0 */
- 	} else {
--		if (res->flags & IORESOURCE_ROM_COPY) {
-+		if (res->flags &
-+			(IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY)) {
- 			*size = pci_resource_len(pdev, PCI_ROM_RESOURCE);
- 			return (void __iomem *)(unsigned long)
- 				pci_resource_start(pdev, PCI_ROM_RESOURCE);
-@@ -161,7 +162,8 @@ void __iomem *pci_map_rom_copy(struct pc
- 	if (!rom)
- 		return NULL;
- 
--	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW))
-+	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_SHADOW |
-+			  IORESOURCE_ROM_BIOS_COPY))
- 		return rom;
- 
- 	res->start = (unsigned long)kmalloc(*size, GFP_KERNEL);
-@@ -187,7 +189,7 @@ void pci_unmap_rom(struct pci_dev *pdev,
- {
- 	struct resource *res = &pdev->resource[PCI_ROM_RESOURCE];
- 
--	if (res->flags & IORESOURCE_ROM_COPY)
-+	if (res->flags & (IORESOURCE_ROM_COPY | IORESOURCE_ROM_BIOS_COPY))
- 		return;
- 
- 	iounmap(rom);
-@@ -211,6 +213,7 @@ void pci_remove_rom(struct pci_dev *pdev
- 		sysfs_remove_bin_file(&pdev->dev.kobj, pdev->rom_attr);
- 	if (!(res->flags & (IORESOURCE_ROM_ENABLE |
- 			    IORESOURCE_ROM_SHADOW |
-+			    IORESOURCE_ROM_BIOS_COPY |
- 			    IORESOURCE_ROM_COPY)))
- 		pci_disable_rom(pdev);
- }
-Index: linux-2.6/include/linux/ioport.h
-=================================--- linux-2.6.orig/include/linux/ioport.h	2006-10-04 16:15:07.542382237 -0500
-+++ linux-2.6/include/linux/ioport.h	2006-10-04 16:15:31.645262234 -0500
-@@ -89,6 +89,7 @@ struct resource_list {
- #define IORESOURCE_ROM_ENABLE		(1<<0)	/* ROM is enabled, same as PCI_ROM_ADDRESS_ENABLE */
- #define IORESOURCE_ROM_SHADOW		(1<<1)	/* ROM is copy at C000:0 */
- #define IORESOURCE_ROM_COPY		(1<<2)	/* ROM is alloc'd copy, resource field overlaid */
-+#define IORESOURCE_ROM_BIOS_COPY	(1<<3)	/* ROM is BIOS copy, resource field overlaid */
- 
- /* PC/ISA/whatever - the normal PC address spaces: IO and memory */
- extern struct resource ioport_resource;
-Index: linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-04 16:15:17.255542785 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_acpi_init.c	2006-10-04 16:15:31.645262234 -0500
-@@ -169,6 +169,39 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
- 	}
- }
- 
-+/*
-+ * sn_acpi_slot_fixup - Perform any SN specific slot fixup.
-+ *			At present there does not appear to be
-+ *			any generic way to handle a ROM image
-+ *			that has been shadowed by the PROM, so
-+ *			we pass a pointer to it	within the
-+ *			pcidev_info structure.
-+ */
-+
-+void
-+sn_acpi_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
-+{
-+	void __iomem *addr;
-+	size_t size;
-+
-+	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
-+		/*
-+		 * A valid ROM image exists and has been shadowed by the
-+		 * PROM. Setup the pci_dev ROM resource to point to
-+		 * the shadowed copy.
-+		 */
-+		size = dev->resource[PCI_ROM_RESOURCE].end -
-+				dev->resource[PCI_ROM_RESOURCE].start;
-+		addr +		     ioremap(pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE],
-+			     size);
-+		dev->resource[PCI_ROM_RESOURCE].start = (unsigned long) addr;
-+		dev->resource[PCI_ROM_RESOURCE].end +						(unsigned long) addr + size;
-+		dev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_BIOS_COPY;
-+	}
-+}
-+
- static struct acpi_driver acpi_sn_hubdev_driver = {
- 	.name = "SGI HUBDEV Driver",
- 	.ids = "SGIHUB,SGITIO",
-Index: linux-2.6/arch/ia64/sn/kernel/io_init.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/io_init.c	2006-10-04 16:15:17.243541351 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/io_init.c	2006-10-04 16:15:31.645262234 -0500
-@@ -210,6 +210,9 @@ sn_more_slot_fixup(struct pci_dev *dev, 
- 			dev->resource[idx].parent = &ioport_resource;
- 		else
- 			dev->resource[idx].parent = &iomem_resource;
-+		/* If ROM, mark as shadowed in PROM */
-+		if (idx = PCI_ROM_RESOURCE)
-+			dev->resource[idx].flags |= IORESOURCE_ROM_BIOS_COPY;
- 	}
- 	/* Create a pci_window in the pci_controller struct for
- 	 * each device resource.
+ 	 * Check if the virtually mapped linear page table (VMLPT) overlaps with =
+a mapped
+ 	 * address space.  The IA-64 architecture guarantees that at least 50 bit=
+s of
