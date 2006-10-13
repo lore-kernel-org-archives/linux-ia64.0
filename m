@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 13 Oct 2006 00:55:48 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 13 Oct 2006 01:12:21 +0000
 Subject: RE: [RFC] Variable Kernel Page size support
-Message-Id: <000601c6ee62$52b70690$db34030a@amr.corp.intel.com>
+Message-Id: <Pine.LNX.4.64.0610121810160.23030@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0610121730050.22778@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0610121730050.22778@schroedinger.engr.sgi.com>
@@ -10,7 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth wrote on Thursday, October 12, 2006 5:51 PM
+On Thu, 12 Oct 2006, Chen, Kenneth W wrote:
+
 > > If set then a lookup is performed using the region7_pgdir table.
 > > That table is segmented into 8 section for the varying page
 > > sizes supported.
@@ -19,7 +20,10 @@ Chen, Kenneth wrote on Thursday, October 12, 2006 5:51 PM
 > extract page size directly from the virtual address? Chop off bit 54 - 60,
 > that's the physical address, whola.  I don't see why it can't be done.
 
-For a very large contiguous virtual address space, I guess there is no way
-to get around page table indirection.  Oh well.  Never mind.
+Yes we are chopping off the page size from the virtual address. But we 
+need a page table to get to the physical address. That is what 
+region7_pgdir is for. And it has different sections because that enables 
+concurrent use of various page sizes in region 7. If pages with multiple 
+page sizes would be in the same page table then we would have strange 
+page number overlap scenarios to deal with.
 
-- Ken
