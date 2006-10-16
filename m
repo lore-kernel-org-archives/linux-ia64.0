@@ -1,25 +1,43 @@
 From: Jay Lan <jlan@engr.sgi.com>
-Date: Mon, 16 Oct 2006 20:59:42 +0000
-Subject: A regression in IA64 kexec/kdump patch for 2.6.18?
-Message-Id: <4533F2BE.3070300@engr.sgi.com>
+Date: Mon, 16 Oct 2006 21:21:34 +0000
+Subject: Re: A regression in IA64 kexec/kdump patch for 2.6.18?
+Message-Id: <4533F7DE.4030400@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4533F2BE.3070300@engr.sgi.com>
+In-Reply-To: <4533F2BE.3070300@engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-SSByYW4gaW50byBhIHByb2JsZW0gbm90IHNlZW4gaW4ga2V4ZWMvZGt1bXAgMi42LjE3cmM1IGlh
-NjQgcGF0Y2guClRoZSBzeXN0ZW0gb24gdGVzdCB3YXMgYW4gQWx0aXguCgpUaGUgc3lzdGVtIHdh
-cyBib290ZWQgdXAgZmluZTsgaG93ZXZlciwgYWZ0ZXIgbG9hZGluZyAna2V4ZWMgLXAnCmFuZCAi
-ZWNobyBjID4vcHJvYy9zeXNycS10cmlnZ2XFlSIsIHRoZSBjcmFzaGR1bXAga2VybmVsIHdvdWxk
-IHRyeQp0byBib290IHVwIGFuZCByZXN0YXJ0ZWQgdGhlIHN5c3RlbSBuZWFyIHRoZSBlbmQgb2Yg
-aW5pdCgpLgoKVGhlIGV4dHJhb2RpbmFyeSBtZXNzYWdlIG9ic2VydmVkIG9uIHRoZSBjb25zb2xl
-IHdhcwogICAgV2FybmluZzogdW5hYmxlIHRvIG9wZW4gYW4gaW5pdGlhbCBjb25zb2xlCgpidXQg
-dGhlIGFjdHVhbCByZWJvb3Qgc2VlbXMgdG8gYmUgaW52b2tlZCBpbiBydW5uaW5nIC9zYmluL2lu
-aXQ6CiAgICBydW5faW5pdF9wcm9jZXNzKCIvc2Jpbi9pbml0Iik7CgpUaGUgcHJvYmxlbSBpcyAx
-MDAlIHJlcHJvZHVjaWJsZS4gSSBoYXZlIGRpc2FibGVkIGFsbCBjcHVzIGV4Y2VwdApjcHUwIGlu
-IG15IHRlc3RpbmcuCgpJcyB0aGlzIGEga25vd24gcHJvYmxlbT8gQW55b25lIGVsc2UgcnVucyBp
-bnRvIHRoaXM/CgpUaGFua3MsCiAtIGpheQotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0
-OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBh
-IG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZv
-IGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+Jay Lan wrote:
+> I ran into a problem not seen in kexec/dkump 2.6.17rc5 ia64 patch.
+> The system on test was an Altix.
+>=20
+> The system was booted up fine; however, after loading 'kexec -p'
+> and "echo c >/proc/sysrq-trigge=C5=95", the crashdump kernel would try
+> to boot up and restarted the system near the end of init().
+>=20
+> The extraodinary message observed on the console was
+>     Warning: unable to open an initial console
+
+It failed in do_filp_open(AT_FDCWD, "/dev/console", O_RDWR, 0)
+with error -2.
+
+However, it was fine booting up as the 1st kernel.
+
+- jay
+
+
+>=20
+> but the actual reboot seems to be invoked in running /sbin/init:
+>     run_init_process("/sbin/init");
+>=20
+> The problem is 100% reproducible. I have disabled all cpus except
+> cpu0 in my testing.
+>=20
+> Is this a known problem? Anyone else runs into this?
+>=20
+> Thanks,
+>  - jay
+
