@@ -1,42 +1,25 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 25 Oct 2006 07:12:50 +0000
-Subject: Re: [patch 3/5] Dont map PAL memory if physicall calls are going to be made
-Message-Id: <20061025071249.GA13979@verge.net.au>
+From: Jay Lan <jlan@engr.sgi.com>
+Date: Mon, 16 Oct 2006 20:59:42 +0000
+Subject: A regression in IA64 kexec/kdump patch for 2.6.18?
+Message-Id: <4533F2BE.3070300@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061023090334.467483535@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20061023090334.467483535@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-On Tue, Oct 24, 2006 at 02:47:38PM -0500, Jack Steiner wrote:
-> On Mon, Oct 23, 2006 at 05:48:43PM +0900, Horms wrote:
-> > There seems to be no reason to map the PAL code into memory if
-> > physical calls are going to be made.
-> 
-> 
-> If you don't map PAL, I assume that all PAL calls are going to be made in
-> physical addressing mode. However, I don't see any code that actually forces
-> PAL calls to be made in physical addressing mode. 
-
-I was thinking that making the SAL calls physical would do this,
-but perhaps it is not sufficient.
-
-http://marc.theaimsgroup.com/?l=linux-ia64&m6159434527220&w=2
-http://marc.theaimsgroup.com/?l=linux-ia64&m6159434413928&w=2
-
-> Is that your intent? 
-> Don't you also need to save the PAL start address as a physical address.
-> See the call to ia64_pal_handler_init().
-> 
-> In addition, it looks like slave cpus still call efi_map_pal_code()
-> to map PAL - see start_secondary().
-
-Thanks, I will look into that code and get back to you.
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+SSByYW4gaW50byBhIHByb2JsZW0gbm90IHNlZW4gaW4ga2V4ZWMvZGt1bXAgMi42LjE3cmM1IGlh
+NjQgcGF0Y2guClRoZSBzeXN0ZW0gb24gdGVzdCB3YXMgYW4gQWx0aXguCgpUaGUgc3lzdGVtIHdh
+cyBib290ZWQgdXAgZmluZTsgaG93ZXZlciwgYWZ0ZXIgbG9hZGluZyAna2V4ZWMgLXAnCmFuZCAi
+ZWNobyBjID4vcHJvYy9zeXNycS10cmlnZ2XFlSIsIHRoZSBjcmFzaGR1bXAga2VybmVsIHdvdWxk
+IHRyeQp0byBib290IHVwIGFuZCByZXN0YXJ0ZWQgdGhlIHN5c3RlbSBuZWFyIHRoZSBlbmQgb2Yg
+aW5pdCgpLgoKVGhlIGV4dHJhb2RpbmFyeSBtZXNzYWdlIG9ic2VydmVkIG9uIHRoZSBjb25zb2xl
+IHdhcwogICAgV2FybmluZzogdW5hYmxlIHRvIG9wZW4gYW4gaW5pdGlhbCBjb25zb2xlCgpidXQg
+dGhlIGFjdHVhbCByZWJvb3Qgc2VlbXMgdG8gYmUgaW52b2tlZCBpbiBydW5uaW5nIC9zYmluL2lu
+aXQ6CiAgICBydW5faW5pdF9wcm9jZXNzKCIvc2Jpbi9pbml0Iik7CgpUaGUgcHJvYmxlbSBpcyAx
+MDAlIHJlcHJvZHVjaWJsZS4gSSBoYXZlIGRpc2FibGVkIGFsbCBjcHVzIGV4Y2VwdApjcHUwIGlu
+IG15IHRlc3RpbmcuCgpJcyB0aGlzIGEga25vd24gcHJvYmxlbT8gQW55b25lIGVsc2UgcnVucyBp
+bnRvIHRoaXM/CgpUaGFua3MsCiAtIGpheQotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0
+OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBh
+IG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZv
+IGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
