@@ -1,54 +1,72 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Wed, 25 Oct 2006 19:18:27 +0000
-Subject: [patch] Add dp bit to cache and bus check structs
-Message-Id: <200610251918.k9PJIR5R21666745@clink.americas.sgi.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Mon, 16 Oct 2006 21:17:43 +0000
+Subject: [PATCH] - Count resched interrupts
+Message-Id: <20061016211743.GA24855@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[patch] Add dp bit to cache and bus check structs
 
-Rev 2.2 of Volume 2 of "Intel Itanium Architecture Software Developer's
-Manual" (January 2006) adds a dp bit to the cache_check and bus_check
-fields (pages 2:401-2:404).  This patch gets the structs back in sync 
-with the spec.
+Count the number of "resched" interrupts that each cpu receives.
+
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
-
----
- include/asm-ia64/pal.h |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-Index: test/include/asm-ia64/pal.h
-=================================--- test.orig/include/asm-ia64/pal.h	2006-10-18 17:17:52.000000000 -0500
-+++ test/include/asm-ia64/pal.h	2006-10-25 11:47:15.056564673 -0500
-@@ -487,10 +487,12 @@ typedef struct pal_cache_check_info_s {
- 						 * error occurred
- 						 */
- 			wiv		: 1,	/* Way field valid */
--			reserved2	: 10,
-+			reserved2	: 1,
-+			dp		: 1,	/* Data poisoned on MBE */
-+			reserved3	: 8,
+Index: linux/arch/ia64/kernel/irq_ia64.c
+=================================--- linux.orig/arch/ia64/kernel/irq_ia64.c	2006-10-16 13:22:45.076625369 -0500
++++ linux/arch/ia64/kernel/irq_ia64.c	2006-10-16 13:56:14.262158773 -0500
+@@ -180,7 +180,9 @@ ia64_handle_irq (ia64_vector vector, str
+ 	saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
+ 	ia64_srlz_d();
+ 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
+-		if (!IS_RESCHEDULE(vector)) {
++		if (unlikely(IS_RESCHEDULE(vector)))
++			 kstat_this_cpu.irqs[vector]++;
++		else {
+ 			ia64_setreg(_IA64_REG_CR_TPR, vector);
+ 			ia64_srlz_d();
  
- 			index		: 20,	/* Cache line index */
--			reserved3	: 2,
-+			reserved4	: 2,
+@@ -225,7 +227,9 @@ void ia64_process_pending_intr(void)
+ 	  * Perform normal interrupt style processing
+ 	  */
+ 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
+-		if (!IS_RESCHEDULE(vector)) {
++		if (unlikely(IS_RESCHEDULE(vector)))
++			 kstat_this_cpu.irqs[vector]++;
++		else {
+ 			struct pt_regs *old_regs = set_irq_regs(NULL);
  
- 			is		: 1,	/* instruction set (1 = ia32) */
- 			iv		: 1,	/* instruction set field valid */
-@@ -557,7 +559,7 @@ typedef struct pal_bus_check_info_s {
- 			type		: 8,	/* Bus xaction type*/
- 			sev		: 5,	/* Bus error severity*/
- 			hier		: 2,	/* Bus hierarchy level */
--			reserved1	: 1,
-+			dp		: 1,	/* Data poisoned on MBE */
- 			bsi		: 8,	/* Bus error status
- 						 * info
- 						 */
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+ 			ia64_setreg(_IA64_REG_CR_TPR, vector);
+@@ -258,11 +262,22 @@ void ia64_process_pending_intr(void)
+ #ifdef CONFIG_SMP
+ extern irqreturn_t handle_IPI (int irq, void *dev_id);
+ 
++static irqreturn_t dummy_handler (int irq, void *dev_id)
++{
++	BUG();
++}
++
+ static struct irqaction ipi_irqaction = {
+ 	.handler =	handle_IPI,
+ 	.flags =	IRQF_DISABLED,
+ 	.name =		"IPI"
+ };
++
++static struct irqaction resched_irqaction = {
++	.handler =	dummy_handler,
++	.flags =	SA_INTERRUPT,
++	.name =		"resched"
++};
+ #endif
+ 
+ void
+@@ -287,6 +302,7 @@ init_IRQ (void)
+ 	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
+ #ifdef CONFIG_SMP
+ 	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
++	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
+ #endif
+ #ifdef CONFIG_PERFMON
+ 	pfm_init_percpu();
