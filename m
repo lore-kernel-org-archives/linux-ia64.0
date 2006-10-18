@@ -1,73 +1,96 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 23 Oct 2006 08:48:44 +0000
-Subject: [patch 4/5] Choose physical or virtual SAL calls as appropriate
-Message-Id: <20061023090334.718085353@tabatha.lab.ultramonkey.org>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 18 Oct 2006 05:36:49 +0000
+Subject: [patch 2.6.19-rc2] Correct definition of handle_IPI
+Message-Id: <8916.1161149809@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061006023253.031582000@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20061006023253.031582000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The key thing about this patch is that it will make physical
-SAL calls when physical EFI calls are being made (that is the
-EFI code hasn't been mapped), and virtual calls otherwise.
+The declaration of handle_IPI in arch/ia64/kernel/smp.c was changed but
+not the definition of this function.  Remove struct pt_regs from
+handle_IPI().
 
-The implientation is somewhat simple, but obviously there are many
-ways to solve this problem. I am more than happy to change things
-around on request.
+The declaration of handle_IPI should really be in a header file instead
+of a .c file, but which one?  Adding
 
-Signed-Off-By: Simon Horman <horma@verge.net.au>
+  extern irqreturn_t handle_IPI(int irq, void *dev_id);
 
- arch/ia64/kernel/efi.c |    1 +
- include/asm-ia64/sal.h |    6 ++++--
- include/linux/efi.h    |    1 +
- 3 files changed, 6 insertions(+), 2 deletions(-)
+to include/asm-ia64/smp.h is the obvious place but that leads to
+include hell.  Using irqreturn_t requires linux/interrupt.h which
+leads to a recursive mess.  sched.h includes smp.h quit early, adding
+interrupt.h to smp.h uses data from sched.h before most of sched.h is
+expanded.
 
-Index: kexec-ia64-2.6/include/linux/efi.h
-=================================--- kexec-ia64-2.6.orig/include/linux/efi.h	2006-10-05 14:53:30.000000000 +0900
-+++ kexec-ia64-2.6/include/linux/efi.h	2006-10-05 14:53:33.000000000 +0900
-@@ -265,6 +265,7 @@
- 	efi_get_next_high_mono_count_t *get_next_high_mono_count;
- 	efi_reset_system_t *reset_system;
- 	efi_set_virtual_address_map_t *set_virtual_address_map;
-+	unsigned mapped;
- } efi;
- 
- static inline int
-Index: kexec-ia64-2.6/arch/ia64/kernel/efi.c
-=================================--- kexec-ia64-2.6.orig/arch/ia64/kernel/efi.c	2006-10-05 14:53:30.000000000 +0900
-+++ kexec-ia64-2.6/arch/ia64/kernel/efi.c	2006-10-05 14:54:20.000000000 +0900
-@@ -600,6 +600,7 @@
- 	efi.set_variable = virt_set_variable;
- 	efi.get_next_high_mono_count = virt_get_next_high_mono_count;
- 	efi.reset_system = virt_reset_system;
-+	efi.mapped = 1;
- 
- 	efi_map_pal_code();
+  CC      arch/ia64/kernel/asm-offsets.s
+In file included from linux/include/linux/hardirq.h:5,
+                 from linux/include/linux/interrupt.h:11,
+                 from include/asm-ia64/smp.h:17,
+                 from linux/include/linux/smp.h:18,
+                 from linux/include/linux/sched.h:65,
+                 from linux/arch/ia64/kernel/asm-offsets.c:9:
+linux/include/linux/smp_lock.h: In function reacquire_kernel_lock:
+linux/include/linux/smp_lock.h:35: error: dereferencing pointer to incomplete type
+In file included from linux/include/linux/slab.h:14,
+                 from linux/include/linux/percpu.h:5,
+                 from linux/include/asm-generic/irq_regs.h:15,
+                 from include/asm-ia64/irq_regs.h:1,
+                 from linux/include/linux/irq.h:24,
+                 from include/asm-ia64/hardirq.h:11,
+                 from linux/include/linux/hardirq.h:7,
+                 from linux/include/linux/interrupt.h:11,
+                 from include/asm-ia64/smp.h:17,
+                 from linux/include/linux/smp.h:18,
+                 from linux/include/linux/sched.h:65,
+                 from linux/arch/ia64/kernel/asm-offsets.c:9:
+linux/include/linux/gfp.h: In function alloc_pages_node:
+linux/include/linux/gfp.h:131: warning: implicit declaration of function raw_smp_processor_id
+In file included from linux/include/linux/irq.h:185,
+                 from include/asm-ia64/hardirq.h:11,
+                 from linux/include/linux/hardirq.h:7,
+                 from linux/include/linux/interrupt.h:11,
+                 from include/asm-ia64/smp.h:17,
+                 from linux/include/linux/smp.h:18,
+                 from linux/include/linux/sched.h:65,
+                 from linux/arch/ia64/kernel/asm-offsets.c:9:
+include/asm-ia64/hw_irq.h: In function ia64_resend_irq:
+include/asm-ia64/hw_irq.h:102: warning: implicit declaration of function smp_processor_id
+make[2]: *** [arch/ia64/kernel/asm-offsets.s] Error 1
+
+Signed-off-by: Keith Owens <kaos@sgi.com>
+
+---
+
+Sorry for any duplicates.  Cut and paste of color gcc messages into
+exmh generates MIME8 messages which then get rejected by vger's
+bogofilter.
+
+ arch/ia64/kernel/smp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux/arch/ia64/kernel/smp.c
+=================================--- linux.orig/arch/ia64/kernel/smp.c
++++ linux/arch/ia64/kernel/smp.c
+@@ -108,7 +108,7 @@ cpu_die(void)
  }
-Index: kexec-ia64-2.6/include/asm-ia64/sal.h
-=================================--- kexec-ia64-2.6.orig/include/asm-ia64/sal.h	2006-10-05 14:53:30.000000000 +0900
-+++ kexec-ia64-2.6/include/asm-ia64/sal.h	2006-10-05 14:53:33.000000000 +0900
-@@ -64,8 +64,10 @@
- /* SAL spec _requires_ eight args for each call. */
- struct ia64_sal_retval sal_call_phys(ia64_sal_handler ia64_sal, ...);
  
--#define __SAL_CALL(result,a0,a1,a2,a3,a4,a5,a6,a7)	\
--	result = sal_call_phys(ia64_sal,a0,a1,a2,a3,a4,a5,a6,a7);
-+#define __SAL_CALL(result,a0,a1,a2,a3,a4,a5,a6,a7)			\
-+	result = efi.mapped ? 						\
-+		 (*ia64_sal)(a0,a1,a2,a3,a4,a5,a6,a7) :			\
-+		 sal_call_phys(ia64_sal,a0,a1,a2,a3,a4,a5,a6,a7);
- 
- # define SAL_CALL(result,args...) do {				\
- 	unsigned long __ia64_sc_flags;				\
+ irqreturn_t
+-handle_IPI (int irq, void *dev_id, struct pt_regs *regs)
++handle_IPI (int irq, void *dev_id)
+ {
+ 	int this_cpu = get_cpu();
+ 	unsigned long *pending_ipis = &__ia64_per_cpu_var(ipi_operation);
 
---
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+
+
+
+--k9I8DriA003673.1161159233/omx2.sgi.com--
+
+
+
+
+------- End of Forwarded Message
+
 
