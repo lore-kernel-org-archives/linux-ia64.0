@@ -1,51 +1,21 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 19 Oct 2006 16:39:55 +0000
+Date: Thu, 19 Oct 2006 16:43:51 +0000
 Subject: Re: [RFC] virtual memmap for sparsemem [1/2] arch independent part
-Message-Id: <Pine.LNX.4.64.0610190932310.8072@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.64.0610190942050.8072@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061019172140.5a29962c.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20061019172140.5a29962c.kamezawa.hiroyu@jp.fujitsu.com>
+ <453796BC.8050600@shadowen.org>
+In-Reply-To: <453796BC.8050600@shadowen.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: Linux-MM <linux-mm@kvack.org>, linux-ia64@vger.kernel.org
+To: Andy Whitcroft <apw@shadowen.org>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Linux-MM <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, Dave Hansen <haveblue@us.ibm.com>
 
-On Thu, 19 Oct 2006, KAMEZAWA Hiroyuki wrote:
+On Thu, 19 Oct 2006, Andy Whitcroft wrote:
 
-> For make patches simple, pfn_valid() uses sparsemem's logic. 
+> This is a good thing too as one of the main issues we've had with the
+> VIRTUAL_MEMMAP stuff is this need to pfn_valid each and every
+> conversion.  Of course the same change could be applied there just as well.
 
-Hmm... pfn_valid is much less costly if you use ia64's scheme. You can 
-simply probe without having to walk tables.
-
-> This patch maps sparsemem's *sparse* memmap into contiguous virtual address range
-> starting from virt_memmap_start.
-
-Could you make that a static address instead of a variable? Also we 
-already have vmem_map (ia64 specific) and mem_map. The logic here is the 
-same as FLATMEM. Why not use the definitions for FLATMEM?
- 
-> * memmap is allocated per SECTION_SIZE, so there will be some of RESERVED pages.
-> * no holes in MAX_ORDER range. so HOLE_IN_ZONE=n here.
-
-Good. Had a patch here to do the same but I do not have time to get to 
-it. Surely wish that this will become the default config and that we can 
-get rid of at least some of the memory models.
-
-> +#ifdef CONFIG_VMEMMAP_SPARSEMEM
-> +extern struct page *virt_memmap_start;
-
-extern struct page[] would be better performance wise. Use the definitions 
-for FLATMEM?
-
-> +		if (pte_none(*pte))
-> +			set_pte(pte, pfn_pte(__pa(map) >> PAGE_SHIFT, PAGE_KERNEL));
-
-Would it be possible to add support for larger page sizes? On x86_64 we 
-probably would like to use 2MB pages and it may be good to have 
-configurable page size on ia64.
-
-The virtual memmap has the potential of becoming the default for x86_64 
-and many other platforms that already map memory. There is no performance 
-difference between FLATMEM and this virtual memmap approach if there are 
-already mappings in play.
+Well it should have been done instead of adding this strange hole logic.
