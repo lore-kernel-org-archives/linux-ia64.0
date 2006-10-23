@@ -1,63 +1,77 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 26 Oct 2006 18:22:32 +0000
-Subject: [PATCH] ia64 sparse cleanups
-Message-Id: <20061026182232.GF5591@parisc-linux.org>
+From: Horms <horms@verge.net.au>
+Date: Mon, 23 Oct 2006 08:48:41 +0000
+Subject: [patch 1/5] move ia64_sal_retval and ia64_sal_handler above __SAL_CALL
+Message-Id: <20061023090334.049412560@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+This moves the definition of ia64_sal_retval and ia64_sal_handler above 
+__SAL_CALL in preparation for a typed function, which returns
+ia64_sal_retval and takes a ia64_sal_handler as one of its argument
+and is called by __SAL_CALL.
 
-0/NULL confusion and some missing UL on constants.
+Signed-Off-By: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+ include/asm-ia64/sal.h |   32 ++++++++++++++++----------------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 51217d6..898a07d 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -851,7 +851,7 @@ static void ia64_get_bsp_cfm(struct unw_
- 			return;
- 		}
- 	} while (unw_unwind(info) >= 0);
--	lp->bsp = 0;
-+	lp->bsp = NULL;
- 	lp->cfm = 0;
- 	return;
- }
-diff --git a/arch/ia64/kernel/perfmon_montecito.h b/arch/ia64/kernel/perfmon_montecito.h
-index cd06ac6..7f8da4c 100644
---- a/arch/ia64/kernel/perfmon_montecito.h
-+++ b/arch/ia64/kernel/perfmon_montecito.h
-@@ -45,16 +45,16 @@ static pfm_reg_desc_t pfm_mont_pmc_desc[
- /* pmc29 */ { PFM_REG_NOTIMPL, },
- /* pmc30 */ { PFM_REG_NOTIMPL, },
- /* pmc31 */ { PFM_REG_NOTIMPL, },
--/* pmc32 */ { PFM_REG_CONFIG,  0, 0x30f01ffffffffff, 0x30f01ffffffffff, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
--/* pmc33 */ { PFM_REG_CONFIG,  0, 0x0,  0x1ffffffffff, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
--/* pmc34 */ { PFM_REG_CONFIG,  0, 0xf01ffffffffff, 0xf01ffffffffff, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
--/* pmc35 */ { PFM_REG_CONFIG,  0, 0x0,  0x1ffffffffff, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
-+/* pmc32 */ { PFM_REG_CONFIG,  0, 0x30f01ffffffffffUL, 0x30f01ffffffffffUL, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
-+/* pmc33 */ { PFM_REG_CONFIG,  0, 0x0,  0x1ffffffffffUL, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
-+/* pmc34 */ { PFM_REG_CONFIG,  0, 0xf01ffffffffffUL, 0xf01ffffffffffUL, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
-+/* pmc35 */ { PFM_REG_CONFIG,  0, 0x0,  0x1ffffffffffUL, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
- /* pmc36 */ { PFM_REG_CONFIG,  0, 0xfffffff0, 0xf, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
- /* pmc37 */ { PFM_REG_MONITOR, 4, 0x0, 0x3fff, NULL, pfm_mont_pmc_check, {RDEP_MONT_IEAR, 0, 0, 0}, {0, 0, 0, 0}},
- /* pmc38 */ { PFM_REG_CONFIG,  0, 0xdb6, 0x2492, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
- /* pmc39 */ { PFM_REG_MONITOR, 6, 0x0, 0xffcf, NULL, pfm_mont_pmc_check, {RDEP_MONT_ETB,0, 0, 0}, {0,0, 0, 0}},
- /* pmc40 */ { PFM_REG_MONITOR, 6, 0x2000000, 0xf01cf, NULL, pfm_mont_pmc_check, {RDEP_MONT_DEAR,0, 0, 0}, {0,0, 0, 0}},
--/* pmc41 */ { PFM_REG_CONFIG,  0, 0x00002078fefefefe, 0x1e00018181818, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
-+/* pmc41 */ { PFM_REG_CONFIG,  0, 0x00002078fefefefeUL, 0x1e00018181818UL, NULL, pfm_mont_pmc_check, {0,0, 0, 0}, {0,0, 0, 0}},
- /* pmc42 */ { PFM_REG_MONITOR, 6, 0x0, 0x7ff4f, NULL, pfm_mont_pmc_check, {RDEP_MONT_ETB,0, 0, 0}, {0,0, 0, 0}},
- 	    { PFM_REG_END    , 0, 0x0, -1, NULL, NULL, {0,}, {0,}}, /* end marker */
- };
-@@ -185,7 +185,7 @@ pfm_mont_pmc_check(struct task_struct *t
- 	DPRINT(("cnum=%u val=0x%lx, using_dbreg=%d loaded=%d\n", cnum, tmpval, ctx->ctx_fl_using_dbreg, is_loaded));
+Index: kexec-ia64-2.6/include/asm-ia64/sal.h
+=================================--- kexec-ia64-2.6.orig/include/asm-ia64/sal.h	2006-10-05 12:33:37.000000000 +0900
++++ kexec-ia64-2.6/include/asm-ia64/sal.h	2006-10-05 12:33:41.000000000 +0900
+@@ -45,6 +45,22 @@
  
- 	if (cnum = 41 && is_loaded 
--	    && (tmpval & 0x1e00000000000) && (tmpval & 0x18181818UL) != 0x18181818UL && ctx->ctx_fl_using_dbreg = 0) {
-+	    && (tmpval & 0x1e00000000000UL) && (tmpval & 0x18181818UL) != 0x18181818UL && ctx->ctx_fl_using_dbreg = 0) {
+ extern spinlock_t sal_lock;
  
- 		DPRINT(("pmc[%d]=0x%lx has active pmc41 settings, clearing dbr\n", cnum, tmpval));
++struct ia64_sal_retval {
++	/*
++	 * A zero status value indicates call completed without error.
++	 * A negative status value indicates reason of call failure.
++	 * A positive status value indicates success but an
++	 * informational value should be printed (e.g., "reboot for
++	 * change to take effect").
++	 */
++	s64 status;
++	u64 v0;
++	u64 v1;
++	u64 v2;
++};
++
++typedef struct ia64_sal_retval (*ia64_sal_handler) (u64, ...);
++
+ /* SAL spec _requires_ eight args for each call. */
+ #define __SAL_CALL(result,a0,a1,a2,a3,a4,a5,a6,a7)	\
+ 	result = (*ia64_sal)(a0,a1,a2,a3,a4,a5,a6,a7)
+@@ -95,22 +111,6 @@
  
+ #define SAL_UPDATE_PAL			0x01000020
+ 
+-struct ia64_sal_retval {
+-	/*
+-	 * A zero status value indicates call completed without error.
+-	 * A negative status value indicates reason of call failure.
+-	 * A positive status value indicates success but an
+-	 * informational value should be printed (e.g., "reboot for
+-	 * change to take effect").
+-	 */
+-	s64 status;
+-	u64 v0;
+-	u64 v1;
+-	u64 v2;
+-};
+-
+-typedef struct ia64_sal_retval (*ia64_sal_handler) (u64, ...);
+-
+ enum {
+ 	SAL_FREQ_BASE_PLATFORM = 0,
+ 	SAL_FREQ_BASE_INTERVAL_TIMER = 1,
+
+--
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
