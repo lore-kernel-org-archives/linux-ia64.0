@@ -1,8 +1,10 @@
 From: Horms <horms@verge.net.au>
-Date: Fri, 06 Oct 2006 02:07:44 +0000
+Date: Mon, 23 Oct 2006 08:48:44 +0000
 Subject: [patch 4/5] Choose physical or virtual SAL calls as appropriate
-Message-Id: <20061006023253.031582000@tabatha.lab.ultramonkey.org>
+Message-Id: <20061023090334.718085353@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20061006023253.031582000@tabatha.lab.ultramonkey.org>
+In-Reply-To: <20061006023253.031582000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,6 +19,12 @@ ways to solve this problem. I am more than happy to change things
 around on request.
 
 Signed-Off-By: Simon Horman <horma@verge.net.au>
+
+ arch/ia64/kernel/efi.c |    1 +
+ include/asm-ia64/sal.h |    6 ++++--
+ include/linux/efi.h    |    1 +
+ 3 files changed, 6 insertions(+), 2 deletions(-)
+
 Index: kexec-ia64-2.6/include/linux/efi.h
 =================================--- kexec-ia64-2.6.orig/include/linux/efi.h	2006-10-05 14:53:30.000000000 +0900
 +++ kexec-ia64-2.6/include/linux/efi.h	2006-10-05 14:53:33.000000000 +0900
