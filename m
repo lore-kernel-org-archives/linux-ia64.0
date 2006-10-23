@@ -1,56 +1,44 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 13 Oct 2006 18:03:33 +0000
-Subject: Re: [RFC] Variable Kernel Page size support
-Message-Id: <Pine.LNX.4.64.0610131051070.25828@schroedinger.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 23 Oct 2006 21:31:05 +0000
+Subject: ia64 acpi-cpufreq driver
+Message-Id: <200610231531.05346.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0610121730050.22778@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0610121730050.22778@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 13 Oct 2006, Robin Holt wrote:
+arch/ia64/kernel/cpufreq/acpi-cpufreq.c currently makes direct
+calls to PAL_SET_PSTATE.
 
-> How do you handle speculation issues this raises.  Right now, we can
-> ensure that speculation only occurs on a granule boundary.  mspec converts
-> granules to uncached.  With this patch, we would have to allocate a chunk,
-> determine the size of page table backing that chunk, if it does not span
-> the entire, free it and ask for a larger chunk.  Alternatively, we would
-> need to allocate a series of granule size chunks until none were found,
-> then double that size and repeat.
+Section 8.4.4.1 (_PCT) of the 3.0 ACPI spec says:
 
-The memory mapped via a vkp is reserved for a certain purpose. 
-There will be only cached accesses. No mspec data will be there. I do not 
-understand how any of the above scenarios could occur.
+  OSPM performs processor performance transitions by writing
+  the performance state-specific control value to a Performance
+  Control Register (PERF_CTRL).
 
-If you are concerned about multiple TLBs referring to the same physical 
-address: The same is true for the current vmemmap page sized 
-implementation. Addresses mapped via region 7 may have both a 16MB direct 
-mapping via region7 and a 16k page sized one via region 5.
+According to one of our architecture guys, this means we really
+ought to have an OpRegion driver that encapsulates the PAL_SET_PSTATE
+call.
 
-> Have you shown a benefit from this work yet?  In my and IIRC Jack's
-> experience, nearly every place in the kernel that I have seen operating
-> on vmem_map and struct page * that is performance critical have adequate
-> TLB pressure to cause TLB replacement for the vmem_map.  With your patch,
-> how much extra work is the kernel going to need to do when replacing an
-> entry which will essentially end up being used once?
+I guess _PCT would return an acpi_generic_address in the FFixedHW
+address space, and we would use acpi_hw_low_level_read() and
+acpi_hw_low_level_write() to do the accesses (those functions
+would need to be extended to support additional OpRegions, or
+maybe I'm looking in the wrong place).
 
-The effort is to walk the page table for each TLB miss in region 7 for 
-custom page sizes. This is going to be rare given a large enough page 
-size. For example with a vmem_map size of 16Meg one will have a single TLB 
-entry for the vmemmap section for each node. It will be exceedingly rare 
-to have that replaced.
+This sort of makes sense to me, because it would mean this part
+of acpi-cpufreq wouldn't need to be ia64-specific.  On x86, I
+suppose _PCT would return a ACPI_ADR_SPACE_SYSTEM_IO address,
+and acpi_processor_set_performance() could use acpi_hw_low_level_write()
+instead of its own acpi_processor_write_port().
 
-> If you want vmem_map to have variable page sizes, how about specifying the
-> min and max at something crazy like base page size for ia64.  Then you
-> could still make the code generic and get it into the mainline kernel
-> and not affect ia64.
+But I haven't seen anything resembling an ACPI FFH OpRegion
+driver for Linux, or even a spec (e.g., a definition of what
+the FFH address space contains) that would allow such a driver
+to be written.
 
-Sorry but i386 and x86_64 (and many other processors) do not support 
-variable page sizes. They will only support 2 or 3 fixed page sizes. So 
-this cannot be genericed at all. We already  have a simulation of variable 
-page sizes with sparsemem. That requires lots of lookups for each 
-elementary address conversion in the VM.
+Any hints on what the future might hold in this area?
 
-We are simply using the supported page sizes of IA64 here.
+Bjorn
