@@ -1,8 +1,10 @@
 From: Horms <horms@verge.net.au>
-Date: Fri, 06 Oct 2006 02:07:45 +0000
+Date: Mon, 23 Oct 2006 08:48:45 +0000
 Subject: [patch 5/5] Add phys_efi command line option
-Message-Id: <20061006023253.291524000@tabatha.lab.ultramonkey.org>
+Message-Id: <20061023090334.909686577@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20061006023253.291524000@tabatha.lab.ultramonkey.org>
+In-Reply-To: <20061006023253.291524000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,9 +20,14 @@ versa, which have 0xe000... and 0xf000... as their page offset respecively.
 However, I am still working on verifying this.
 
 Signed-Off-By: Simon Horman <horms@verge.net.au>
+
+ Documentation/kernel-parameters.txt |    4 ++++
+ arch/ia64/kernel/efi.c              |    9 ++++++++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
 Index: kexec-ia64-2.6/arch/ia64/kernel/efi.c
-=================================--- kexec-ia64-2.6.orig/arch/ia64/kernel/efi.c	2006-10-05 14:54:20.000000000 +0900
-+++ kexec-ia64-2.6/arch/ia64/kernel/efi.c	2006-10-05 15:47:52.000000000 +0900
+=================================--- kexec-ia64-2.6.orig/arch/ia64/kernel/efi.c	2006-10-20 12:58:00.000000000 +0900
++++ kexec-ia64-2.6/arch/ia64/kernel/efi.c	2006-10-20 12:58:00.000000000 +0900
 @@ -414,6 +414,7 @@
  	u64 efi_desc_size;
  	char *cp, vendor[100] = "unknown";
@@ -52,8 +59,8 @@ Index: kexec-ia64-2.6/arch/ia64/kernel/efi.c
  
  void
 Index: kexec-ia64-2.6/Documentation/kernel-parameters.txt
-=================================--- kexec-ia64-2.6.orig/Documentation/kernel-parameters.txt	2006-10-05 15:15:17.000000000 +0900
-+++ kexec-ia64-2.6/Documentation/kernel-parameters.txt	2006-10-05 15:16:58.000000000 +0900
+=================================--- kexec-ia64-2.6.orig/Documentation/kernel-parameters.txt	2006-10-20 12:57:20.000000000 +0900
++++ kexec-ia64-2.6/Documentation/kernel-parameters.txt	2006-10-20 12:58:00.000000000 +0900
 @@ -1266,6 +1266,10 @@
  	pg.		[PARIDE]
  			See Documentation/paride.txt.
