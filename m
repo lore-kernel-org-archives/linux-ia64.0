@@ -1,34 +1,38 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 18 Oct 2006 00:30:11 +0000
-Subject: RE: [Patch] remove some rsm psr.dt in ivt.S
-Message-Id: <000001c6f24c$92b109b0$ff0da8c0@amr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Mon, 23 Oct 2006 08:48:40 +0000
+Subject: [patch 0/5] Physical mode SAL calls
+Message-Id: <20061023084840.730815639@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1161123027.2592.63.camel@linux-znh>
-In-Reply-To: <1161123027.2592.63.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zou Nan hai wrote on Tuesday, October 17, 2006 3:10 PM
-> The rsm psr.dt in page_not_present, key_permission, iaccess_rights and
-> daccess_right are not necessary. 
-> Since there is no data access between those points to page_fault, and
-> page_fault will enable psr.dt at the beginning.
-> 
-> @@ -1221,10 +1219,8 @@ END(page_not_present)
->  ENTRY(key_permission)
->  	DBG_FAULT(21)
->  	mov r16=cr.ifa
-> -	rsm psr.dt
->  	mov r31=pr
->  	;;
-> -	srlz.d
->  	br.sptk.many page_fault
->  END(key_permission)
+Hi,
 
+I am reposting this series of patches, as some of the posts that made up
+the original series seem to have never made the list.
 
-You can get rid of that stop bit too.  Same for two other instances.
-And your changelog mentioned daccess_right, but patch missed that hunk.
+Currently the EFI code will fallback to physical mode if it
+can't map itself into virtual memory. However, if this occurs
+SAL calls fail, because the kernel runs them in virtual mode regardless.
+This fails because sometimes the PAL calls actually call EFI code
+internally, expecting it to be maped into a virtial area of memory,
+which it isn't.
 
-- Ken
+This series of patches also addes a kernel command line option
+to force EFI (and SAL) to stay in physical mode. This is primarily
+for testing that physical mode calls work with this patchset.
+
+But I believe that physical mode EFI calls will be needed
+to successfully kexec between kernels (or hypervisors) that
+have a different PAGE_OFFSET (e.g. linux and xen), as
+the EFI code can only be mapped zero or one times. That is,
+if linux maps it, xen won't be able to run, and vice versa.
+But by staying with physical mode calls the problem goes away.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
