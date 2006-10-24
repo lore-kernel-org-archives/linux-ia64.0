@@ -1,7 +1,7 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Date: Tue, 24 Oct 2006 23:09:08 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 24 Oct 2006 23:27:55 +0000
 Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <20061024230908.GB13022@mellanox.co.il>
+Message-Id: <20061024232755.GA26521@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <adafyddcysw.fsf@cisco.com> <20061024192210.GE2043@havoc.gtf.org> <20061024214724.GS25210@parisc-linux.org> <adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org>
 In-Reply-To: <20061024223631.GT25210@parisc-linux.org>
@@ -9,11 +9,9 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Matthew Wilcox <matthew@wil.cx>
-Cc: Roland Dreier <rdreier@cisco.com>, linux-ia64@vger.kernel.org, Jeff Garzik <jeff@garzik.org>, linux-kernel@vger.kernel.org, openib-general@openib.org, linux-pci@atrey.karlin.mff.cuni.cz
+Cc: Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jeff@garzik.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
 
-Quoting r. Matthew Wilcox <matthew@wil.cx>:
-> Subject: Re: Ordering between PCI config space writes and MMIO reads?
-> 
+On Tue, Oct 24, 2006 at 04:36:32PM -0600, Matthew Wilcox wrote:
 > On Tue, Oct 24, 2006 at 02:51:30PM -0700, Roland Dreier wrote:
 > >  > I think the right way to fix this is to ensure mmio write ordering in
 > >  > the pci_write_config_*() implementations.  Like this.
@@ -24,23 +22,28 @@ Quoting r. Matthew Wilcox <matthew@wil.cx>:
 > > John, can you confirm that this patch fixes the issue for you?
 > 
 > Hang on.  I wasn't thinking clearly.  mmiowb() only ensures the write
-> has got as far as the shub.  There's no way to fix this in the pci core
+> has got as far as the shub.  
+
+I think mmiowb() should work on SN hardware. mmiowb() delays until shub
+reports that all previously issued PIO writes have completed. 
+
+The processor "mf.a" guarantees "platform acceptance" which on SN means
+that shub has accepted the write - not that it has actually completed (or
+even forwarded anywhere by shub). That makes "mf.a" more-or-less useless
+on SN. However, shub has an additional MMR register (PIO_WRITE_COUNT) that
+counts actual outstanding PIOs.  mmiob() delays until that count goes to
+zero.
+
+I'll check if there is any additional reordering that can occur AFTER the
+PIO_WRITE_COUNT goes to zero.  If so, it would be at bus level - not in
+shub or routers.
+
+
+> There's no way to fix this in the pci core
 > -- any PCI-PCI bridge can reorder the two.
 > 
 > This is only really a problem for setup (when we program the BARs), so
 > it seems silly to enforce an ordering at any other time.  Reluctantly, I
 > must disagree with Jeff -- drivers need to fix this.
 
-This can be true for any bridge.
-Most arches, however, simply block until config write completes - this is why
-driver doesn't issue any MMIO writes - and this is what we are looking for here
-- a way to block the CPU until split completion for config write arrives.
-
-By the way, e.g. the PCI Express spec says:
-"Read Requests and I/O or Configuration Write Requests are permitted to be
-blocked by or to pass other Read Requests and I/O or Configuration Write Requests."
-so it is not clear that doing a config read will always flush all config writes
-as you want.
-
--- 
-MST
+-- jack
