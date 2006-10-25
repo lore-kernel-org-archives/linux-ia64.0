@@ -1,49 +1,112 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 24 Oct 2006 23:27:55 +0000
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Wed, 25 Oct 2006 06:30:22 +0000
 Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <20061024232755.GA26521@sgi.com>
+Message-Id: <20061025063022.GC12319@colo.lackof.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <adafyddcysw.fsf@cisco.com> <20061024192210.GE2043@havoc.gtf.org> <20061024214724.GS25210@parisc-linux.org> <adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org>
-In-Reply-To: <20061024223631.GT25210@parisc-linux.org>
+References: <adafyddcysw.fsf@cisco.com>
+In-Reply-To: <adafyddcysw.fsf@cisco.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jeff@garzik.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
+To: Roland Dreier <rdreier@cisco.com>
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
 
-On Tue, Oct 24, 2006 at 04:36:32PM -0600, Matthew Wilcox wrote:
-> On Tue, Oct 24, 2006 at 02:51:30PM -0700, Roland Dreier wrote:
-> >  > I think the right way to fix this is to ensure mmio write ordering in
-> >  > the pci_write_config_*() implementations.  Like this.
-> > 
-> > I'm happy to fix this in the PCI core and not force drivers to worry
-> > about this.
-> > 
-> > John, can you confirm that this patch fixes the issue for you?
+On Tue, Oct 24, 2006 at 12:13:19PM -0700, Roland Dreier wrote:
+> John Partridge found an interesting bug involving mthca (Mellanox
+> InfiniBand HCA driver) on IA64/Altix systems.  Basically, during
+> initialization, mthca does:
 > 
-> Hang on.  I wasn't thinking clearly.  mmiowb() only ensures the write
-> has got as far as the shub.  
-
-I think mmiowb() should work on SN hardware. mmiowb() delays until shub
-reports that all previously issued PIO writes have completed. 
-
-The processor "mf.a" guarantees "platform acceptance" which on SN means
-that shub has accepted the write - not that it has actually completed (or
-even forwarded anywhere by shub). That makes "mf.a" more-or-less useless
-on SN. However, shub has an additional MMR register (PIO_WRITE_COUNT) that
-counts actual outstanding PIOs.  mmiob() delays until that count goes to
-zero.
-
-I'll check if there is any additional reordering that can occur AFTER the
-PIO_WRITE_COUNT goes to zero.  If so, it would be at bus level - not in
-shub or routers.
-
-
-> There's no way to fix this in the pci core
-> -- any PCI-PCI bridge can reorder the two.
+>     - do some config writes, including enabling BARs
+>     - then start a firmware command
+>       - read an MMIO register from a BAR (to check if FW is busy)
 > 
-> This is only really a problem for setup (when we program the BARs), so
-> it seems silly to enforce an ordering at any other time.  Reluctantly, I
-> must disagree with Jeff -- drivers need to fix this.
+> However, John found that the Altix PCI-X bridge was allowing the MMIO
+> read to start before the config write was done (which is allowed by
+> the PCI spec).
 
--- jack
+Can someone provide a quote of the PCI Local bus spec that allows this?
+(Or at least a reference to a spec version and section number)
+
+>   The PCI trace looked like:
+> 
+> 23454:    Config Write     REG = 01 TYPE = 1    BE = 0000  Req = (0,0,0)  Tag = 1  Bus = 1 Device = 0 Function = 0     WAIT = 2
+> 23462:    Memory Rd DW     A = 00280698  BE = 0000  Req = (0,0,0)  Tag = 0      WAIT = 2
+> 23470:    Split compl.     Lower A = 00  Req = (0,0,0)  Tag = 0  Comp = (0,2,0)     WAIT = 1   (Error completion)
+> 23476:    Split compl.     Lower A = 00  Req = (0,0,0)  Tag = 1  Comp = (0,2,0)     WAIT = 1   (Normal completion of WRITE)
+> 
+> and that "Error completion" leads to a crash.
+> 
+> John proposed the following patch to fix this, which looks good to
+> me.  However, I have a couple of questions about this situation:
+> 
+>  1) Is this something that should be fixed in the driver?  The PCI
+>     spec allows MMIO cycles to start before an earlier config cycle
+>     completed, but do we want to expose this fact to drivers?
+
+I would prefer we did not.
+
+>     Would
+>     it be better for ia64 to use some sort of barrier to make sure
+>     pci_write_config_xxx() is strongly ordered with MMIO?
+
+That would be my preference.
+
+>  2) Is this issue lurking in other drivers?
+> 
+> Thanks,
+>   Roland
+> 
+> commit 424b50b6360b325ce642ece687756a600c25d28a
+> Author: John Partridge <johnip@sgi.com>
+> Date:   Tue Oct 24 11:54:16 2006 -0700
+> 
+>     IB/mthca: Make sure all PCI config writes reach device before doing MMIO
+>     
+>     During initialization, mthca writes some PCI config space registers
+>     and then does an MMIO read from one of the BARs it just enabled.  This
+>     MMIO read sometimes failed and caused a crash on SGI Altix machines,
+>     because the PCI-X host bridge (legitimately, according to the PCI
+>     spec) allowed the MMIO read to start before the config write completed.
+
+Because of this past discussion with jesse barnes, I'm leary of
+any kind of writes traveling through SN2 fabric. The issue is
+described pretty well here:
+	http://www.usenetlinux.com/archive/topic.php/t-49141.html
+
+I don't know that this is the same (or similar) problem.
+
+>     To fix this, add a config read after all config writes to make sure
+>     they are all done before starting the MMIO read.
+>     
+>     Signed-off-by: John Partridge <johnip@sgi.com>
+>     Signed-off-by: Roland Dreier <rolandd@cisco.com>
+> 
+> diff --git a/drivers/infiniband/hw/mthca/mthca_reset.c b/drivers/infiniband/hw/mthca/mthca_reset.c
+> index 91934f2..578dc7c 100644
+> --- a/drivers/infiniband/hw/mthca/mthca_reset.c
+> +++ b/drivers/infiniband/hw/mthca/mthca_reset.c
+> @@ -281,6 +281,20 @@ good:
+>  		goto out;
+>  	}
+>  
+> +	/*
+> +	 * Perform a "flush" of the PCI config writes here by reading
+> +	 * the PCI_COMMAND register.  This is needed to make sure that
+> +	 * we don't try to touch other PCI BARs before the config
+> +	 * writes are done -- otherwise an MMIO cycle could start
+> +	 * before the config writes are done and reach the HCA before
+> +	 * the BAR is actually enabled.
+> +	 */
+
+If this code is accepted, the comment should provide a specific reference
+(PCI Version + section) to the PCI spec that allows the out-of-order.
+
+I agree with jgarzik that the drivers already expect config cycles
+to be ordered with respect to MMIO cycles.
+
+I'm looking at arch/ia64/pci/pci.c.
+Wouldn't it be reasonable to include memory barriers around calls
+to SAL config space access functions?
+
+thanks,
+grant
