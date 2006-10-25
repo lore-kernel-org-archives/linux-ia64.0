@@ -1,43 +1,18 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 25 Oct 2006 09:49:53 +0000
-Subject: [patch] don't double >> PAGE_SHIFT pointer for /dev/kmem access
-Message-Id: <yq0ods07mim.fsf@jaguar.mkp.net>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 25 Oct 2006 15:33:30 +0000
+Subject: Re: [patch] don't double >> PAGE_SHIFT pointer for /dev/kmem access
+Message-Id: <200610250933.31104.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <yq0ods07mim.fsf@jaguar.mkp.net>
+In-Reply-To: <yq0ods07mim.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Wednesday 25 October 2006 03:49, Jes Sorensen wrote:
+> This one has been around for a while, but it's a pretty serious bug,
+> so if you would push it upstream quickly that would be great. Thanks
+> to Bjorn for spotting it.
 
-This one has been around for a while, but it's a pretty serious bug,
-so if you would push it upstream quickly that would be great. Thanks
-to Bjorn for spotting it.
-
-Cheers,
-Jes
-
-
-Don't PAGE_SHIFT pointer before handing it to virt_to_page() in
-xlate_dev_kmem_ptr() as it results in a double shift.
-
-Spotted by Bjorn 'Eagleeye' Helgaas.
-
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-
----
- include/asm-ia64/uaccess.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: linux-2.6/include/asm-ia64/uaccess.h
-=================================--- linux-2.6.orig/include/asm-ia64/uaccess.h
-+++ linux-2.6/include/asm-ia64/uaccess.h
-@@ -389,7 +389,7 @@ xlate_dev_kmem_ptr (char * p)
- 	struct page *page;
- 	char * ptr;
- 
--	page = virt_to_page((unsigned long)p >> PAGE_SHIFT);
-+	page = virt_to_page((unsigned long)p);
- 	if (PageUncached(page))
- 		ptr = (char *)__pa(p) + __IA64_UNCACHED_OFFSET;
- 	else
+Bob Montgomery actually noticed it, so I can't take any credit for this :-)
