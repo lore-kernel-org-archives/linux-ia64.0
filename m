@@ -1,49 +1,73 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 25 Oct 2006 14:18:59 +0000
-Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <20061025141859.GC5591@parisc-linux.org>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Date: Wed, 25 Oct 2006 17:15:54 +0000
+Subject: Re: [openib-general] Ordering between PCI config space writes and MMIO reads?
+Message-Id: <20061025171554.GM4054@obsidianresearch.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <adafyddcysw.fsf@cisco.com> <20061025063022.GC12319@colo.lackof.org>
-In-Reply-To: <20061025063022.GC12319@colo.lackof.org>
+References: <adafyddcysw.fsf@cisco.com> <20061025063022.GC12319@colo.lackof.org> <20061025141859.GC5591@parisc-linux.org>
+In-Reply-To: <20061025141859.GC5591@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <grundler@parisc-linux.org>
-Cc: Roland Dreier <rdreier@cisco.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Grant Grundler <grundler@parisc-linux.org>, linux-ia64@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, linux-kernel@vger.kernel.org, openib-general@openib.org, linux-pci@atrey.karlin.mff.cuni.cz
 
-On Wed, Oct 25, 2006 at 12:30:22AM -0600, Grant Grundler wrote:
-> Can someone provide a quote of the PCI Local bus spec that allows this?
-> (Or at least a reference to a spec version and section number)
+On Wed, Oct 25, 2006 at 08:18:59AM -0600, Matthew Wilcox wrote:
 
-PCI-PCI bridges are allowed to do it.  If you look in table E-1 of PCI
-2.3, or table 8-3 of PCI-X 2.0, you'll see that a Posted Memory Write
-can pass a Delayed Write Request (or in PCI-X, a Memory Write can pass a
-Split Write Request).
+> PCI-PCI bridges are allowed to do it.  If you look in table E-1 of PCI
+> 2.3, or table 8-3 of PCI-X 2.0, you'll see that a Posted Memory Write
+> can pass a Delayed Write Request (or in PCI-X, a Memory Write can pass a
+> Split Write Request).
 
-So mmiowb() will solve the problem for Altix, but leave everybody else
-vulnerable.  I actually don't see a way of forcing the config write to
-complete before a memory write -- everything is allowed to pass a config
-write, even a config read.  I initially thought "But only a crack monkey
-would implement a system where a config read could pass a config write",
-but the spec explains that:
+Carefull here.. Only MMIO writes are of the posted variety. Non posted
+transactions (config write, IO write, all reads) are not ever allowed
+to pass a posted write, but they can be re-ordered.
 
-  In most PCI-X implementations, Split Requests are managed in separate
-  buffers from Split Completions, so Split Requests naturally pass Split
-  Completions. However, no deadlocks occur if Split Completions block
-  Split Requests.
+Table 8-3 shows that Split Write vs Split Read are all Y/N
+meaning they could be re-ordered with respect to each other.
 
-So all this code that checks to see if a write had an effect is unsafe.
-I'm a little perturbed by this.  It means the only way to reliably
-distinguish between a write that hasn't taken effect yet and a bit (say,
-MWI) the device hasn't implemented is to do a memory access to the
-device.  Which is hard when you're trying to program the BARs.
+The problem with mthca is exactly this, although the operations were
+issued in-order by the bridges the end device (mthca) is free to
+complete them in any order, and it choose to complete the MMIO read
+before the config write.
 
-I suppose this hasn't bitten us before in, what, 7 years of PCI-X, so
-it can't be *that* common a thing for bridges to do.  And we would have
-noticed the BAR sizing code going wrong (as it does config write
-followed immediately by config read), so maybe implementations aren't as
-crackful as the PCI spec seems to permit them to be.
+>   In most PCI-X implementations, Split Requests are managed in separate
+>   buffers from Split Completions, so Split Requests naturally pass Split
+>   Completions. However, no deadlocks occur if Split Completions block
+>   Split Requests.
 
-I find it really hard to believe the PCI committee have done something
-this stupid.  There must be another rule somewhere that I'm missing.
+Again, this is only for posted writes. All these rules are designed to
+prevent the bus from deadlocking due to buffer starvation under
+certain situations. [Basically split completions and posted writes are
+given a seperate queue that can advance if the request queue is
+stalled. Otherwise you can deadlock a bridge]
 
+> So all this code that checks to see if a write had an effect is unsafe.
+> I'm a little perturbed by this.  It means the only way to reliably
+
+MMIO based code that does this is correct and reliable.. PIO code that
+does this is only safe if the platform is waiting for the PIO write
+completion before starting the PIO read.
+
+PCI-X (pg 80) says this about non-posted transaction ordering requirements:
+  As in convention PCI, if a requester requires one non-posted
+  transaction to complete before another, it must not initiate the
+  second transaction until the first one compeltes.
+
+IMHO, all sane hardware implementations of config ops and PIO should
+block the host bridge until the completion is generated by the end
+device..I'm sure that most x86 platforms do this. (For instance I've
+observed this kind of behavior with a Hyper Transport probe on
+Opterons)
+
+This is more than just worrying about ordering, it is about how to
+engage a platform specific way to know that the completion has been
+generated. The person who suggested polling the PIO_OUTSTANDING
+register on SN2 seems to have the right idea (if that counts all
+pending non-posted operations, not just PIO ones) :|
+
+The risk of re-ordering is probably not so much in the bridges since
+that would be a fairly strange thing to do - but it is very likely in
+end-devices. This is especially true if the accesses are to different
+internal resources!
+
+Jason
