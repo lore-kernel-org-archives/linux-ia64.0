@@ -1,24 +1,43 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 26 Oct 2006 16:15:24 +0000
-Subject: Re: [ANNOUNCE] salinfo 1.2 is available
-Message-Id: <200610261015.24972.bjorn.helgaas@hp.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 25 Oct 2006 09:49:53 +0000
+Subject: [patch] don't double >> PAGE_SHIFT pointer for /dev/kmem access
+Message-Id: <yq0ods07mim.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <27564.1161835689@kao2.melbourne.sgi.com>
-In-Reply-To: <27564.1161835689@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 25 October 2006 22:08, Keith Owens wrote:
-> Temporary location: ftp://ftp.ocs.com.au/salinfo-1.2.tar.bz2
-> Bjorn will copy that to kernel.org later.
+Hi,
 
-I copied it there:
+This one has been around for a while, but it's a pretty serious bug,
+so if you would push it upstream quickly that would be great. Thanks
+to Bjorn for spotting it.
 
-  ftp://ftp.kernel.org/pub/linux/kernel/people/helgaas/salinfo-1.2.tar.bz2
+Cheers,
+Jes
 
-BTW, the kernel.org archive system is set up to accept .gz
-files.  It then generates .bz files and signatures and all
-that good stuff automagically.  So I had to uncompress and
-recompress as gzip.
+
+Don't PAGE_SHIFT pointer before handing it to virt_to_page() in
+xlate_dev_kmem_ptr() as it results in a double shift.
+
+Spotted by Bjorn 'Eagleeye' Helgaas.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ include/asm-ia64/uaccess.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6/include/asm-ia64/uaccess.h
+=================================--- linux-2.6.orig/include/asm-ia64/uaccess.h
++++ linux-2.6/include/asm-ia64/uaccess.h
+@@ -389,7 +389,7 @@ xlate_dev_kmem_ptr (char * p)
+ 	struct page *page;
+ 	char * ptr;
+ 
+-	page = virt_to_page((unsigned long)p >> PAGE_SHIFT);
++	page = virt_to_page((unsigned long)p);
+ 	if (PageUncached(page))
+ 		ptr = (char *)__pa(p) + __IA64_UNCACHED_OFFSET;
+ 	else
