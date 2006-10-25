@@ -1,7 +1,7 @@
 From: Zou Nan hai <nanhai.zou@intel.com>
-Date: Wed, 25 Oct 2006 04:40:25 +0000
-Subject: [Patch] IA64 Kdump don't clear vector in kexec_disable_iosapic
-Message-Id: <1161751225.2592.20.camel@linux-znh>
+Date: Wed, 25 Oct 2006 04:25:59 +0000
+Subject: [Patch] IA64 Kdump Fix fc.i offset in relocate_kernel.S
+Message-Id: <1161750359.2592.3.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,26 +10,24 @@ To: linux-ia64@vger.kernel.org
 
 
 Hi Tony,
-	This patch is from Naoaki-san.
-	Mask IOSAPIC will make the following EOI write to IOSAPIC fail because
-IOSAPIC will not be able to find RTE entry.
-        However move EOI write before IOSAPIC mask will leave a small
-racy windows between them for interrupts. So mask IOSAPIC but leave the
-vector field.
-
-	The patch is against your test tree.
+	This patch is against your test tree.
+	There is 8 byte wrong offset in icache flush instruction in
+relocate_kernel.S. Which may cause normal
+Kexec(not kdump) fail on Montecito Box.
 
 Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-       
---- linux-2.6/arch/ia64/kernel/iosapic.c	2006-10-25 14:37:30.000000000 +0800
-+++ b/arch/ia64/kernel/iosapic.c	2006-10-25 14:41:34.000000000 +0800
-@@ -303,7 +303,7 @@ kexec_disable_iosapic(void)
- 				rte_list) {
- 			iosapic_write(rte->addr,
- 					IOSAPIC_RTE_LOW(rte->rte_index),
--					IOSAPIC_MASK);
-+					IOSAPIC_MASK|vec);
- 			iosapic_eoi(rte->addr, vec);
- 		}
- 	}
+
+--- linux-2.6/arch/ia64/kernel/relocate_kernel.S	2006-10-25 14:37:30.000000000 +0800
++++ b/arch/ia64/kernel/relocate_kernel.S	2006-10-25 14:45:59.000000000 +0800
+@@ -166,8 +166,9 @@ GLOBAL_ENTRY(relocate_new_kernel)
+ 	mov ar.lc=r14;;
+ 1:
+ 	ld8 r14=[r18], 8;;
+-	st8 [r17]=r14, 8;;
++	st8 [r17]=r14;;
+ 	fc.i r17
++	add r17=8, r17
+ 	br.ctop.sptk.few 1b
+ 	br.sptk.few .loop
+ 	;;
 
