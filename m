@@ -1,31 +1,49 @@
-From: Roland Dreier <rdreier@cisco.com>
-Date: Wed, 25 Oct 2006 14:15:16 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 25 Oct 2006 14:18:59 +0000
 Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <aday7r4a3d7.fsf@cisco.com>
+Message-Id: <20061025141859.GC5591@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061024214724.GS25210@parisc-linux.org>
-	<adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org>
-	<20061024.154347.77057163.davem@davemloft.net>
-In-Reply-To: <20061024.154347.77057163.davem@davemloft.net> (David Miller's message of "Tue, 24 Oct 2006 15:43:47 -0700 (PDT)")
+References: <adafyddcysw.fsf@cisco.com> <20061025063022.GC12319@colo.lackof.org>
+In-Reply-To: <20061025063022.GC12319@colo.lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>
-Cc: matthew@wil.cx, jeff@garzik.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, johnip@sgi.com
+To: Grant Grundler <grundler@parisc-linux.org>
+Cc: Roland Dreier <rdreier@cisco.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
 
- > One thing is that we definitely don't want to fix this by,
- > for example, reading back the PCI_COMMAND register or something
- > like that.  That causes two problems:
- > 
- > 1) Some PCI config writes shut the device down and make it
- >    no respond to some kinds of PCI config transactions.
- >    One example is putting the device into D3 or similar
- >    power state, another is performing a device reset.
+On Wed, Oct 25, 2006 at 12:30:22AM -0600, Grant Grundler wrote:
+> Can someone provide a quote of the PCI Local bus spec that allows this?
+> (Or at least a reference to a spec version and section number)
 
-Hmm... it seems there is no other guaranteed way to make sure a config
-write has really completed except doing a config read.  And only the
-driver knows what the config access it's doing means.  So the
-conclusion we seem to be forced into is that drivers need to include
-these reads in the cases where they are needed.
+PCI-PCI bridges are allowed to do it.  If you look in table E-1 of PCI
+2.3, or table 8-3 of PCI-X 2.0, you'll see that a Posted Memory Write
+can pass a Delayed Write Request (or in PCI-X, a Memory Write can pass a
+Split Write Request).
 
- - R.
+So mmiowb() will solve the problem for Altix, but leave everybody else
+vulnerable.  I actually don't see a way of forcing the config write to
+complete before a memory write -- everything is allowed to pass a config
+write, even a config read.  I initially thought "But only a crack monkey
+would implement a system where a config read could pass a config write",
+but the spec explains that:
+
+  In most PCI-X implementations, Split Requests are managed in separate
+  buffers from Split Completions, so Split Requests naturally pass Split
+  Completions. However, no deadlocks occur if Split Completions block
+  Split Requests.
+
+So all this code that checks to see if a write had an effect is unsafe.
+I'm a little perturbed by this.  It means the only way to reliably
+distinguish between a write that hasn't taken effect yet and a bit (say,
+MWI) the device hasn't implemented is to do a memory access to the
+device.  Which is hard when you're trying to program the BARs.
+
+I suppose this hasn't bitten us before in, what, 7 years of PCI-X, so
+it can't be *that* common a thing for bridges to do.  And we would have
+noticed the BAR sizing code going wrong (as it does config write
+followed immediately by config read), so maybe implementations aren't as
+crackful as the PCI spec seems to permit them to be.
+
+I find it really hard to believe the PCI committee have done something
+this stupid.  There must be another rule somewhere that I'm missing.
+
