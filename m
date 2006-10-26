@@ -1,57 +1,41 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 12 Oct 2006 19:18:23 +0000
-Subject: [PATCH 3/4] vmm: Use proper macros
-Message-Id: <20061012191823.21498.52344.sendpatchset@schroedinger.engr.sgi.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 26 Oct 2006 16:53:17 +0000
+Subject: [patch] Add se bit to Processor State Parameter structure
+Message-Id: <200610261653.k9QGrHKf21926673@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-IA64: Use proper macros for vmem_map calculations
+[patch] Add se bit to Processor State Parameter structure
 
-There are some expressions in init.c that manually do what pfn_to_page
-and virt_to_page do.
+Rev 2.2 of Volume 2 of "Intel Itanium Architecture Software Developer's
+Manual" (January 2006) adds a se bit to the Processor State Parameter
+fields (pages 2:299).  This patch gets the structs back in sync
+with the spec.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Index: linux-2.6.18-mm3/arch/ia64/mm/init.c
-=================================--- linux-2.6.18-mm3.orig/arch/ia64/mm/init.c	2006-10-06 18:21:12.881827880 -0700
-+++ linux-2.6.18-mm3/arch/ia64/mm/init.c	2006-10-06 18:30:37.376338346 -0700
-@@ -421,11 +421,11 @@ int vmemmap_find_next_valid_pfn(int node
- 	unsigned long stop_address;
- 	pg_data_t *pgdat = NODE_DATA(node);
+Signed-off-by: Russ Anderson (rja@sgi.com)
+
+---
+ include/asm-ia64/pal.h |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+Index: test/include/asm-ia64/pal.h
+=================================--- test.orig/include/asm-ia64/pal.h	2006-10-25 11:47:15.000000000 -0500
++++ test/include/asm-ia64/pal.h	2006-10-26 11:38:52.097984744 -0500
+@@ -456,7 +456,9 @@ typedef struct pal_process_state_info_s 
+ 						 * by the processor
+ 						 */
  
--	end_address = (unsigned long) &vmem_map[pgdat->node_start_pfn + i];
-+	end_address = (unsigned long)pfn_to_page(pgdat->node_start_pfn + i);
- 	end_address = PAGE_ALIGN(end_address);
- 
--	stop_address = (unsigned long) &vmem_map[
--		pgdat->node_start_pfn + pgdat->node_spanned_pages];
-+	stop_address = (unsigned long)pfn_to_page(pgdat->node_start_pfn +
-+			pgdat->node_spanned_pages);
- 
- 	do {
- 		pgd_t *pgd;
-@@ -482,8 +482,8 @@ create_mem_map_page_table (u64 start, u6
- 	pmd_t *pmd;
- 	pte_t *pte;
- 
--	map_start = vmem_map + (__pa(start) >> PAGE_SHIFT);
--	map_end   = vmem_map + (__pa(end) >> PAGE_SHIFT);
-+	map_start = virt_to_page(start);
-+	map_end   = virt_to_page(end);
- 
- 	start_page = (unsigned long) map_start & PAGE_MASK;
- 	end_page = PAGE_ALIGN((unsigned long) map_end);
-@@ -524,8 +524,8 @@ virtual_memmap_init (u64 start, u64 end,
- 	struct page *map_start, *map_end;
- 
- 	args = (struct memmap_init_callback_data *) arg;
--	map_start = vmem_map + (__pa(start) >> PAGE_SHIFT);
--	map_end   = vmem_map + (__pa(end) >> PAGE_SHIFT);
-+	map_start = virt_to_page(start);
-+	map_end   = virt_to_page(end);
- 
- 	if (map_start < args->start)
- 		map_start = args->start;
+-			reserved2	: 11,
++			se		: 1,	/* Shared error.  MCA in a
++						   shared structure */
++			reserved2	: 10,
+ 			cc		: 1,	/* Cache check */
+ 			tc		: 1,	/* TLB check */
+ 			bc		: 1,	/* Bus check */
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
