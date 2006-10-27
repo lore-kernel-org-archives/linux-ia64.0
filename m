@@ -1,128 +1,100 @@
 From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Fri, 27 Oct 2006 01:40:59 +0000
+Date: Fri, 27 Oct 2006 02:30:10 +0000
 Subject: RE: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AFE@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086AFF@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061026075951.GA30910@verge.net.au>
 In-Reply-To: <20061026075951.GA30910@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-
-> -----Original Message-----
-> From: Mel Gorman [mailto:mel@csn.ul.ie]
-> Sent: 2006=C4=EA10=D4=C226=C8=D5 21:27
-> To: Horms
-> Cc: linux-ia64@vger.kernel.org; Linus Torvalds; Bob Picco; Andrew Morton;=
- Dave
-> Hansen; Andy Whitcroft; Andi Kleen; Benjamin Herrenschmidt; Paul Mackerra=
-s;
-> Keith Mannthey; Luck, Tony; KAMEZAWA Hiroyuki; Yasunori Goto; Zou, Nanhai;
-> Khalid Aziz
-> Subject: Re: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
->=20
-> From mel@csn.ul.ie Thu Oct 26 14:10:39 2006
-> Date: Thu, 26 Oct 2006 14:10:39 +0100 (IST)
-> From: Mel Gorman <mel@csn.ul.ie>
-> To: Andy Whitcroft <apw@shadowen.org>
-> Subject: Re: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
->=20
-> On Thu, 26 Oct 2006, Horms wrote:
->=20
-> > Hi,
-> >
-> > After doing a bit of research it seems that ia64 kdump is broken
-> > by 05e0caad3b7bd0d0fbeff980bca22f186241a501, which appeared between
-> > 2.6.18 and 2.6.19-rc3. I can be more specific about the version if
-> > need be, but here is the commit log from Linus' tree.
-> >
->=20
-> Ok, Andy Whitcroft and I both took a few kicks at this problem to see what
-> the story was. My current understanding (given to me by Andy) with kdump =
-is
-> this
->=20
-> 1. Normal kernel boots and leaves a kdump hole in memory somewhere
-> 2. In the kdump hole, a crash dump kernel is loaded
-> 3. Things run happily for a while until something goes wrong. kexec is
->     called on the kernel image in the kdump hole
-> 4. kdump kernel starts and creates an image
->=20
-> Grand so far.
->=20
-> Now, with arch-independent zone-sizing, an architecture states where "rea=
-l"
-> memory is and memmap is initialised in those ranges.
->=20
-> The maps of the two kernels look like this
->=20
-> Normal Kernel
-> > early_node_map[7] active PFN ranges
-> >    0:     1025 ->     4096
-> >    0:     4567 ->    16384
-> >    0:    32768 ->   125911
-> >    0:   126514 ->   127540
-> >    0:   127541 ->   128557
-> >    0:   128576 ->   130688
-> >    0:   130984 ->   130998
->=20
-> Crash kernel
-> > early_node_map[7] active PFN ranges
-> >    0:    16855 ->    16856
-> >    0:    16857 ->    32096
-> >    0:    32752 ->    32753
-> >    0:    32754 ->    32755
-> >    0:    32756 ->    32757
-> >    0:    32758 ->    32761
-> >    0:    32762 ->    32768
->=20
-> So, there is clearly a hole there between 16384 -> 32768 for the kdump ho=
-le
-> in the normal kernel. I expect the kernel image and __init sections are
-> located at PFN 16384.
->=20
-> The problem is that the crash kernel is reporting that memory starts at
-> 16855, a gap of 471 page frames! memmap will not be initialised here beca=
-use
-> it "doesn't exist" even though the memmap will be allocated because of
-> MAX_ORDER-alignment issues
->=20
-> The first fault looks like this
->=20
-> > page:a0007ffffff23598 flags:0x0000000000000000 mapping:0000000000000000
-> > mapcount:1 count:0
->=20
-> Based on the value of virtual mem_map, that is at PFN 16629 or about 245
-> page frames into the kernel image. In the stack trace, you see
-> free_initmem() is being called. i.e. the __init section appears in a memo=
-ry
-> hole where memmap was never initialised.
->=20
-> I haven't looked at how kdump works yet, but you are either supplying a f=
-ake
-> EFI map that omits the kernel image or else you only read a portion of the
-> EFI when booting a crash kernel and start reading after the kernel image
-> ends. If the EFI covers the kernel image, you'll see an entry like this in
-> the early_node_map
->=20
-> 0: 16384 -> 16855
->=20
-> and that bad_page() will disappear.
->=20
-> We'll start kicking at the kdump patches now, but maybe a kdump expert can
-> tell offhand why the crash kernel's EFI map does not cover the kernel ima=
-ge.
->=20
-
-EFI memmap is changed in purgatory code.
-I mark old EFI memmap entry with attribute EFI_LOADER_DATA as EFI_CONVENTIO=
-NAL_MEMORY, then mark the range of crash kernel image as EFI_LOADER_DATA. D=
-uring this some EFI memmap range may be split, but the entire layout is not=
- changed.
-
-I am building 2.6.19-rc3 to see if I can reproduce the issue.
-
-Thanks
-Zou Nan hai
+Cgo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4gRnJvbTogbGludXgtaWE2NC1vd25lckB2
+Z2VyLmtlcm5lbC5vcmcKPiBbbWFpbHRvOmxpbnV4LWlhNjQtb3duZXJAdmdlci5rZXJuZWwub3Jn
+XSBPbiBCZWhhbGYgT2YgWm91LCBOYW5oYWkKPiBTZW50OiAyMDA2xOoxMNTCMjfI1SA5OjQxCj4g
+VG86IE1lbCBHb3JtYW47IEhvcm1zCj4gQ2M6IGxpbnV4LWlhNjRAdmdlci5rZXJuZWwub3JnOyBM
+aW51cyBUb3J2YWxkczsgQm9iIFBpY2NvOyBBbmRyZXcgTW9ydG9uOyBEYXZlCj4gSGFuc2VuOyBB
+bmR5IFdoaXRjcm9mdDsgQW5kaSBLbGVlbjsgQmVuamFtaW4gSGVycmVuc2NobWlkdDsgUGF1bCBN
+YWNrZXJyYXM7Cj4gS2VpdGggTWFubnRoZXk7IEx1Y2ssIFRvbnk7IEtBTUVaQVdBIEhpcm95dWtp
+OyBZYXN1bm9yaSBHb3RvOyBLaGFsaWQgQXppego+IFN1YmplY3Q6IFJFOiAwNWUwY2FhZDNiN2Jk
+MGQwZmJlZmY5ODBiY2EyMmYxODYyNDFhNTAxIGJyZWFrcyBpYTY0IGtkdW1wCj4gCj4gCj4gPiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+ID4gRnJvbTogTWVsIEdvcm1hbiBbbWFpbHRvOm1l
+bEBjc24udWwuaWVdCj4gPiBTZW50OiAyMDA2xOoxMNTCMjbI1SAyMToyNwo+ID4gVG86IEhvcm1z
+Cj4gPiBDYzogbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmc7IExpbnVzIFRvcnZhbGRzOyBCb2Ig
+UGljY287IEFuZHJldyBNb3J0b247Cj4gRGF2ZQo+ID4gSGFuc2VuOyBBbmR5IFdoaXRjcm9mdDsg
+QW5kaSBLbGVlbjsgQmVuamFtaW4gSGVycmVuc2NobWlkdDsgUGF1bCBNYWNrZXJyYXM7Cj4gPiBL
+ZWl0aCBNYW5udGhleTsgTHVjaywgVG9ueTsgS0FNRVpBV0EgSGlyb3l1a2k7IFlhc3Vub3JpIEdv
+dG87IFpvdSwgTmFuaGFpOwo+ID4gS2hhbGlkIEF6aXoKPiA+IFN1YmplY3Q6IFJlOiAwNWUwY2Fh
+ZDNiN2JkMGQwZmJlZmY5ODBiY2EyMmYxODYyNDFhNTAxIGJyZWFrcyBpYTY0IGtkdW1wCj4gPgo+
+ID4gRnJvbSBtZWxAY3NuLnVsLmllIFRodSBPY3QgMjYgMTQ6MTA6MzkgMjAwNgo+ID4gRGF0ZTog
+VGh1LCAyNiBPY3QgMjAwNiAxNDoxMDozOSArMDEwMCAoSVNUKQo+ID4gRnJvbTogTWVsIEdvcm1h
+biA8bWVsQGNzbi51bC5pZT4KPiA+IFRvOiBBbmR5IFdoaXRjcm9mdCA8YXB3QHNoYWRvd2VuLm9y
+Zz4KPiA+IFN1YmplY3Q6IFJlOiAwNWUwY2FhZDNiN2JkMGQwZmJlZmY5ODBiY2EyMmYxODYyNDFh
+NTAxIGJyZWFrcyBpYTY0IGtkdW1wCj4gPgo+ID4gT24gVGh1LCAyNiBPY3QgMjAwNiwgSG9ybXMg
+d3JvdGU6Cj4gPgo+ID4gPiBIaSwKPiA+ID4KPiA+ID4gQWZ0ZXIgZG9pbmcgYSBiaXQgb2YgcmVz
+ZWFyY2ggaXQgc2VlbXMgdGhhdCBpYTY0IGtkdW1wIGlzIGJyb2tlbgo+ID4gPiBieSAwNWUwY2Fh
+ZDNiN2JkMGQwZmJlZmY5ODBiY2EyMmYxODYyNDFhNTAxLCB3aGljaCBhcHBlYXJlZCBiZXR3ZWVu
+Cj4gPiA+IDIuNi4xOCBhbmQgMi42LjE5LXJjMy4gSSBjYW4gYmUgbW9yZSBzcGVjaWZpYyBhYm91
+dCB0aGUgdmVyc2lvbiBpZgo+ID4gPiBuZWVkIGJlLCBidXQgaGVyZSBpcyB0aGUgY29tbWl0IGxv
+ZyBmcm9tIExpbnVzJyB0cmVlLgo+ID4gPgo+ID4KPiA+IE9rLCBBbmR5IFdoaXRjcm9mdCBhbmQg
+SSBib3RoIHRvb2sgYSBmZXcga2lja3MgYXQgdGhpcyBwcm9ibGVtIHRvIHNlZSB3aGF0Cj4gPiB0
+aGUgc3Rvcnkgd2FzLiBNeSBjdXJyZW50IHVuZGVyc3RhbmRpbmcgKGdpdmVuIHRvIG1lIGJ5IEFu
+ZHkpIHdpdGgga2R1bXAgaXMKPiA+IHRoaXMKPiA+Cj4gPiAxLiBOb3JtYWwga2VybmVsIGJvb3Rz
+IGFuZCBsZWF2ZXMgYSBrZHVtcCBob2xlIGluIG1lbW9yeSBzb21ld2hlcmUKPiA+IDIuIEluIHRo
+ZSBrZHVtcCBob2xlLCBhIGNyYXNoIGR1bXAga2VybmVsIGlzIGxvYWRlZAo+ID4gMy4gVGhpbmdz
+IHJ1biBoYXBwaWx5IGZvciBhIHdoaWxlIHVudGlsIHNvbWV0aGluZyBnb2VzIHdyb25nLiBrZXhl
+YyBpcwo+ID4gICAgIGNhbGxlZCBvbiB0aGUga2VybmVsIGltYWdlIGluIHRoZSBrZHVtcCBob2xl
+Cj4gPiA0LiBrZHVtcCBrZXJuZWwgc3RhcnRzIGFuZCBjcmVhdGVzIGFuIGltYWdlCj4gPgo+ID4g
+R3JhbmQgc28gZmFyLgo+ID4KPiA+IE5vdywgd2l0aCBhcmNoLWluZGVwZW5kZW50IHpvbmUtc2l6
+aW5nLCBhbiBhcmNoaXRlY3R1cmUgc3RhdGVzIHdoZXJlICJyZWFsIgo+ID4gbWVtb3J5IGlzIGFu
+ZCBtZW1tYXAgaXMgaW5pdGlhbGlzZWQgaW4gdGhvc2UgcmFuZ2VzLgo+ID4KPiA+IFRoZSBtYXBz
+IG9mIHRoZSB0d28ga2VybmVscyBsb29rIGxpa2UgdGhpcwo+ID4KPiA+IE5vcm1hbCBLZXJuZWwK
+PiA+ID4gZWFybHlfbm9kZV9tYXBbN10gYWN0aXZlIFBGTiByYW5nZXMKPiA+ID4gICAgMDogICAg
+IDEwMjUgLT4gICAgIDQwOTYKPiA+ID4gICAgMDogICAgIDQ1NjcgLT4gICAgMTYzODQKPiA+ID4g
+ICAgMDogICAgMzI3NjggLT4gICAxMjU5MTEKPiA+ID4gICAgMDogICAxMjY1MTQgLT4gICAxMjc1
+NDAKPiA+ID4gICAgMDogICAxMjc1NDEgLT4gICAxMjg1NTcKPiA+ID4gICAgMDogICAxMjg1NzYg
+LT4gICAxMzA2ODgKPiA+ID4gICAgMDogICAxMzA5ODQgLT4gICAxMzA5OTgKPiA+Cj4gPiBDcmFz
+aCBrZXJuZWwKPiA+ID4gZWFybHlfbm9kZV9tYXBbN10gYWN0aXZlIFBGTiByYW5nZXMKPiA+ID4g
+ICAgMDogICAgMTY4NTUgLT4gICAgMTY4NTYKPiA+ID4gICAgMDogICAgMTY4NTcgLT4gICAgMzIw
+OTYKPiA+ID4gICAgMDogICAgMzI3NTIgLT4gICAgMzI3NTMKPiA+ID4gICAgMDogICAgMzI3NTQg
+LT4gICAgMzI3NTUKPiA+ID4gICAgMDogICAgMzI3NTYgLT4gICAgMzI3NTcKPiA+ID4gICAgMDog
+ICAgMzI3NTggLT4gICAgMzI3NjEKPiA+ID4gICAgMDogICAgMzI3NjIgLT4gICAgMzI3NjgKPiA+
+Cj4gPiBTbywgdGhlcmUgaXMgY2xlYXJseSBhIGhvbGUgdGhlcmUgYmV0d2VlbiAxNjM4NCAtPiAz
+Mjc2OCBmb3IgdGhlIGtkdW1wIGhvbGUKPiA+IGluIHRoZSBub3JtYWwga2VybmVsLiBJIGV4cGVj
+dCB0aGUga2VybmVsIGltYWdlIGFuZCBfX2luaXQgc2VjdGlvbnMgYXJlCj4gPiBsb2NhdGVkIGF0
+IFBGTiAxNjM4NC4KPiA+Cj4gPiBUaGUgcHJvYmxlbSBpcyB0aGF0IHRoZSBjcmFzaCBrZXJuZWwg
+aXMgcmVwb3J0aW5nIHRoYXQgbWVtb3J5IHN0YXJ0cyBhdAo+ID4gMTY4NTUsIGEgZ2FwIG9mIDQ3
+MSBwYWdlIGZyYW1lcyEgbWVtbWFwIHdpbGwgbm90IGJlIGluaXRpYWxpc2VkIGhlcmUgYmVjYXVz
+ZQo+ID4gaXQgImRvZXNuJ3QgZXhpc3QiIGV2ZW4gdGhvdWdoIHRoZSBtZW1tYXAgd2lsbCBiZSBh
+bGxvY2F0ZWQgYmVjYXVzZSBvZgo+ID4gTUFYX09SREVSLWFsaWdubWVudCBpc3N1ZXMKPiA+Cj4g
+PiBUaGUgZmlyc3QgZmF1bHQgbG9va3MgbGlrZSB0aGlzCj4gPgo+ID4gPiBwYWdlOmEwMDA3ZmZm
+ZmZmMjM1OTggZmxhZ3M6MHgwMDAwMDAwMDAwMDAwMDAwIG1hcHBpbmc6MDAwMDAwMDAwMDAwMDAw
+MAo+ID4gPiBtYXBjb3VudDoxIGNvdW50OjAKPiA+Cj4gPiBCYXNlZCBvbiB0aGUgdmFsdWUgb2Yg
+dmlydHVhbCBtZW1fbWFwLCB0aGF0IGlzIGF0IFBGTiAxNjYyOSBvciBhYm91dCAyNDUKPiA+IHBh
+Z2UgZnJhbWVzIGludG8gdGhlIGtlcm5lbCBpbWFnZS4gSW4gdGhlIHN0YWNrIHRyYWNlLCB5b3Ug
+c2VlCj4gPiBmcmVlX2luaXRtZW0oKSBpcyBiZWluZyBjYWxsZWQuIGkuZS4gdGhlIF9faW5pdCBz
+ZWN0aW9uIGFwcGVhcnMgaW4gYSBtZW1vcnkKPiA+IGhvbGUgd2hlcmUgbWVtbWFwIHdhcyBuZXZl
+ciBpbml0aWFsaXNlZC4KPiA+Cj4gPiBJIGhhdmVuJ3QgbG9va2VkIGF0IGhvdyBrZHVtcCB3b3Jr
+cyB5ZXQsIGJ1dCB5b3UgYXJlIGVpdGhlciBzdXBwbHlpbmcgYSBmYWtlCj4gPiBFRkkgbWFwIHRo
+YXQgb21pdHMgdGhlIGtlcm5lbCBpbWFnZSBvciBlbHNlIHlvdSBvbmx5IHJlYWQgYSBwb3J0aW9u
+IG9mIHRoZQo+ID4gRUZJIHdoZW4gYm9vdGluZyBhIGNyYXNoIGtlcm5lbCBhbmQgc3RhcnQgcmVh
+ZGluZyBhZnRlciB0aGUga2VybmVsIGltYWdlCj4gPiBlbmRzLiBJZiB0aGUgRUZJIGNvdmVycyB0
+aGUga2VybmVsIGltYWdlLCB5b3UnbGwgc2VlIGFuIGVudHJ5IGxpa2UgdGhpcyBpbgo+ID4gdGhl
+IGVhcmx5X25vZGVfbWFwCj4gPgo+ID4gMDogMTYzODQgLT4gMTY4NTUKPiA+Cj4gPiBhbmQgdGhh
+dCBiYWRfcGFnZSgpIHdpbGwgZGlzYXBwZWFyLgo+ID4KPiA+IFdlJ2xsIHN0YXJ0IGtpY2tpbmcg
+YXQgdGhlIGtkdW1wIHBhdGNoZXMgbm93LCBidXQgbWF5YmUgYSBrZHVtcCBleHBlcnQgY2FuCj4g
+PiB0ZWxsIG9mZmhhbmQgd2h5IHRoZSBjcmFzaCBrZXJuZWwncyBFRkkgbWFwIGRvZXMgbm90IGNv
+dmVyIHRoZSBrZXJuZWwgaW1hZ2UuCj4gPgo+IAo+IEVGSSBtZW1tYXAgaXMgY2hhbmdlZCBpbiBw
+dXJnYXRvcnkgY29kZS4KPiBJIG1hcmsgb2xkIEVGSSBtZW1tYXAgZW50cnkgd2l0aCBhdHRyaWJ1
+dGUgRUZJX0xPQURFUl9EQVRBIGFzCj4gRUZJX0NPTlZFTlRJT05BTF9NRU1PUlksIHRoZW4gbWFy
+ayB0aGUgcmFuZ2Ugb2YgY3Jhc2gga2VybmVsIGltYWdlIGFzCj4gRUZJX0xPQURFUl9EQVRBLiBE
+dXJpbmcgdGhpcyBzb21lIEVGSSBtZW1tYXAgcmFuZ2UgbWF5IGJlIHNwbGl0LCBidXQgdGhlIGVu
+dGlyZQo+IGxheW91dCBpcyBub3QgY2hhbmdlZC4KPiAKPiBJIGFtIGJ1aWxkaW5nIDIuNi4xOS1y
+YzMgdG8gc2VlIGlmIEkgY2FuIHJlcHJvZHVjZSB0aGUgaXNzdWUuCj4gCj4gVGhhbmtzCj4gWm91
+IE5hbiBoYWkKPiAtCgoKSGkgTmVpbCwKIEkgY2FuJ3QgcmVwcm9kdWNlIHRoZSBpc3N1ZSB3aXRo
+IDIuNi4xOS1yYzMKIElzIHRoZXJlIGFueSBzcGVjaWFsIGNvbmZpZyBvcHRpb24gdG8gcmVwcm9k
+dWNlIGl0PwoKVGhhbmtzClpvdSBOYW4gaGFpCi0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxp
+c3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9m
+IGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGlu
+Zm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
