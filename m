@@ -1,7 +1,7 @@
 From: Horms <horms@verge.net.au>
-Date: Mon, 30 Oct 2006 09:15:26 +0000
+Date: Mon, 30 Oct 2006 09:25:59 +0000
 Subject: Re: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
-Message-Id: <20061030091524.GC21894@verge.net.au>
+Message-Id: <20061030092557.GA17295@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061026075951.GA30910@verge.net.au>
 In-Reply-To: <20061026075951.GA30910@verge.net.au>
@@ -12,46 +12,37 @@ To: linux-ia64@vger.kernel.org
 
 On Mon, Oct 30, 2006 at 06:11:26PM +0900, Horms wrote:
 > On Fri, Oct 27, 2006 at 10:15:16AM +0100, Andy Whitcroft wrote:
-> > Hi,
-> >=20
-> > Mel and I spent a bit more time thinking about this.  If the efi map is
-> > being modified such that the kernel area becomes loader data that may
-> > well move up the start of conventional memory as far as the running
-> > kernel is concerned.
-> >=20
-> > [Apologies in advance if Zou is not an appropriate name.]
-> >=20
-> > It would be helpful both to have a dump of the efi map and the start
-> > address of the kernel from the affected machine (Horms) and if possible
-> > the efi map and start address of the kernel from your working test
-> > platform (Zou).  Also, if we could get the boot logs from a conventional
-> > kernel and the kexec kernel from the working test platform (Zou).
 >=20
-> Below is a log of 05e0caad3b7bd0d0fbeff980bca22f186241a501 + kexec.
-> It shows the initial successful boot and kdump with oopses. I enabled
-> EFI_DEBUG which prints out the efi map. And just before that
-> I added some code to print out the value of _start. If this is not
-> what you need please let me know.
+> > A logical next step might be to bodge things such that we offer up the
+> > kernel image as an active range and see if that sorts out the alignment
+> > issue we are seeing, this will allow us to be certain it is the kernel
+> > image in this area.  Something like the following inserted into
+> > register_memory() might work:
+> >=20
+> > 	add_active_range(0, code_resource.start >> PAGE_SHIFT,
+> > 			    data_resource.end >> PAGE_SHIFT);
+> >=20
+> > Not sure this is the right thing as a fix, but would help confirm the
+> > theory.
 >=20
-> I can also produce logs for 05e0caad3b7bd0d0fbeff980bca22f186241a501
-> without kexec, or with 05e0caad3b7bd0d0fbeff980bca22f186241a501 reversed
-> if you like.
+> I will poke around with that. Though it will probably be tomorrow.
 
-Sorry, I forgot the log, here it is. I should mention that curiously
-it seems to print out the EFI map twice when kexecing the crash kernel.
-I am not sure why this is.
+Hi,
+
+I did try adding that line to the end of register_memory(),
+however it didn't seem to alter the behaviour that I am seeing.
+The log is below, including the EFI map, in case it is useful.
 
 --=20
 Horms
   H: http://www.vergenet.net/~horms/
   W: http://www.valinux.co.jp/en/
 
-Starting: Network Boot/Pci(4|1|0)/Mac(000E0C9FA3AE)
 ELILO
 Uncompressing Linux... done
 Loading initrd people/horms/initramfs_data.cpio.gz...done
 Linux version 2.6.18-kexec-g05e0caad-dirty (horms@tabatha.lab.ultramonkey.o=
-rg) (gcc version 3.4.5) #33 SMP Mon Oct 30 17:50:37 JST 2006
+rg) (gcc version 3.4.5) #35 SMP Mon Oct 30 18:20:00 JST 2006
 EFI v1.10 by INTEL: SALsystab=3D0x7fe54980 ACPI=3D0x7ff99000 ACPI 2.0=3D0x7=
 ff98000 MPS=3D0x7ff97000 SMBIOS=3D0xf0000
 Kernel Start Address: _start=000000070300000b
@@ -79,81 +70,77 @@ mem10: type=3D7, attr=3D0xb, range=3D[0x0000000004759000-0x000000000ffc0000=
 ) (184MB)
 mem11: type=3D4, attr=3D0xb, range=3D[0x000000000ffc0000-0x0000000010000000=
 ) (0MB)
-mem12: type=3D7, attr=3D0xb, range=3D[0x0000000010000000-0x000000007af5e000=
+mem12: type=3D7, attr=3D0xb, range=3D[0x0000000010000000-0x000000007af60000=
 ) (1711MB)
-mem13: type=3D2, attr=3D0xb, range=3D[0x000000007af5e000-0x000000007af64000=
-) (0MB)
-mem14: type=3D7, attr=3D0xb, range=3D[0x000000007af64000-0x000000007af65000=
-) (0MB)
-mem15: type=3D2, attr=3D0xb, range=3D[0x000000007af65000-0x000000007c8d2000=
+mem13: type=3D2, attr=3D0xb, range=3D[0x000000007af60000-0x000000007c8d2000=
 ) (25MB)
-mem16: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
+mem14: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
 ) (0MB)
-mem17: type=3D2, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
+mem15: type=3D2, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
 ) (0MB)
-mem18: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
+mem16: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
 ) (0MB)
-mem19: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
+mem17: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
 ) (4MB)
-mem20: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
+mem18: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
 ) (0MB)
-mem21: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
+mem19: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
 ) (0MB)
-mem22: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
+mem20: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
 ) (0MB)
-mem23: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
+mem21: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
 ) (0MB)
-mem24: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
+mem22: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
 ) (1MB)
-mem25: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
+mem23: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
 ) (0MB)
-mem26: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
+mem24: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
 ) (0MB)
-mem27: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
+mem25: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
 ) (0MB)
-mem28: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
+mem26: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
 ) (0MB)
-mem29: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
+mem27: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
 ) (0MB)
-mem30: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
+mem28: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
 ) (3MB)
-mem31: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
+mem29: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
 ) (3MB)
-mem32: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
+mem30: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
 ) (0MB)
-mem33: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
+mem31: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
 ) (1MB)
-mem34: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
+mem32: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
 00000007d900000) (0MB)
-mem35: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
+mem33: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
 ) (32MB)
-mem36: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
+mem34: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
 ) (0MB)
-mem37: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
+mem35: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
 00000007fe00000) (4MB)
-mem38: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
+mem36: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
 0000007fe48000) (0MB)
-mem39: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
+mem37: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
 00000007fea0000) (0MB)
-mem40: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
+mem38: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
 ) (0MB)
-mem41: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
+mem39: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
 00000007ff46000) (0MB)
-mem42: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
+mem40: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
 000000080000000) (0MB)
-mem43: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
+mem41: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
  (16MB)
-mem44: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
+mem42: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
 000000100000000) (16MB)
-mem45: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
+mem43: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
 000ffffc000000) (64MB)
-mem46: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
+mem44: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
 00100000000000) (64MB)
 CPU 0: mapping PAL code [0x7fe00000-0x7fe48000) into [0xe00000007f000000-0x=
 e000000080000000)
 booting generic kernel on platform dig
 Early serial console at I/O port 0x2f8 (options '115200')
-Initial ramdisk at: 0xe00000007af65000 (9839740 bytes)
+Initial ramdisk at: 0xe00000007af66000 (9838372 bytes)
 SAL 3.20: Intel Corp                       SR870BH2                        =
  version 3.0
 SAL Platform features: BusLock
@@ -174,19 +161,19 @@ Zone PFN ranges:
 early_node_map[7] active PFN ranges
     0:     1025 ->     4096
     0:     4567 ->    16384
-    0:    32768 ->   125911
+    0:    32768 ->   125912
     0:   126514 ->   127540
     0:   127541 ->   128557
     0:   128576 ->   130688
     0:   130984 ->   130998
 SMP: Allowing 2 CPUs, 0 hotplug CPUs
-Built 1 zonelists.  Total pages: 112199
+Built 1 zonelists.  Total pages: 112200
 Kernel command line: BOOT_IMAGE=3Dnet0:ia64/people/horms/vmlinux.gz  maxcpu=
 s=3D1 console=3Duart,io,0x2f8,115200 crashkernel%6M@256M ro
 PID hash table entries: 4096 (order: 12, 32768 bytes)
 Console: colour VGA+ 80x25
 Placing software IO TLB between 0x6764000 - 0xa764000
-Memory: 1655792k/1795184k available (3297k code, 418752k reserved, 2286k da=
+Memory: 1655808k/1795200k available (3297k code, 418736k reserved, 2286k da=
 ta, 640k init)
 McKinley Errata 9 workaround not needed; disabling it
 Dentry cache hash table entries: 262144 (order: 7, 2097152 bytes)
@@ -253,7 +240,7 @@ SysRq : Trigger a crashdump
 CPU 0: mapping PAL code [0x7fe00000-0x7fe48000) into [0xe00000007f000000-0x=
 e000000080000000)
 Linux version 2.6.18-kexec-g05e0caad-dirty (horms@tabatha.lab.ultramonkey.o=
-rg) (gcc version 3.4.5) #33 SMP Mon Oct 30 17:50:37 JST 2006
+rg) (gcc version 3.4.5) #35 SMP Mon Oct 30 18:20:00 JST 2006
 Ignoring memory below 256MB
 Ignoring memory above 512MB
 EFI v1.10 by INTEL: SALsystab=3D0x7fe54980 ACPI=3D0x7ff99000 ACPI 2.0=3D0x7=
@@ -293,75 +280,71 @@ mem15: type=3D7, attr=3D0xb, range=3D[0x0000000010760000-0x000000001ffe4000=
 ) (248MB)
 mem16: type=3D8, attr=3D0xb, range=3D[0x000000001ffe4000-0x000000001ffe5000=
 ) (0MB)
-mem17: type=3D7, attr=3D0xb, range=3D[0x000000001ffe5000-0x000000007af5e000=
+mem17: type=3D7, attr=3D0xb, range=3D[0x000000001ffe5000-0x000000007af60000=
 ) (1455MB)
-mem18: type=3D7, attr=3D0xb, range=3D[0x000000007af5e000-0x000000007af64000=
-) (0MB)
-mem19: type=3D7, attr=3D0xb, range=3D[0x000000007af64000-0x000000007af65000=
-) (0MB)
-mem20: type=3D7, attr=3D0xb, range=3D[0x000000007af65000-0x000000007c8d2000=
+mem18: type=3D7, attr=3D0xb, range=3D[0x000000007af60000-0x000000007c8d2000=
 ) (25MB)
-mem21: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
+mem19: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
 ) (0MB)
-mem22: type=3D7, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
+mem20: type=3D7, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
 ) (0MB)
-mem23: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
+mem21: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
 ) (0MB)
-mem24: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
+mem22: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
 ) (4MB)
-mem25: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
+mem23: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
 ) (0MB)
-mem26: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
+mem24: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
 ) (0MB)
-mem27: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
+mem25: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
 ) (0MB)
-mem28: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
+mem26: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
 ) (0MB)
-mem29: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
+mem27: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
 ) (1MB)
-mem30: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
+mem28: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
 ) (0MB)
-mem31: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
+mem29: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
 ) (0MB)
-mem32: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
+mem30: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
 ) (0MB)
-mem33: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
+mem31: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
 ) (0MB)
-mem34: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
+mem32: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
 ) (0MB)
-mem35: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
+mem33: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
 ) (3MB)
-mem36: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
+mem34: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
 ) (3MB)
-mem37: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
+mem35: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
 ) (0MB)
-mem38: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
+mem36: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
 ) (1MB)
-mem39: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
+mem37: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
 00000007d900000) (0MB)
-mem40: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
+mem38: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
 ) (32MB)
-mem41: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
+mem39: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
 ) (0MB)
-mem42: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
+mem40: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
 00000007fe00000) (4MB)
-mem43: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
+mem41: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
 0000007fe48000) (0MB)
-mem44: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
+mem42: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
 00000007fea0000) (0MB)
-mem45: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
+mem43: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
 ) (0MB)
-mem46: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
+mem44: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
 00000007ff46000) (0MB)
-mem47: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
+mem45: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
 000000080000000) (0MB)
-mem48: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
+mem46: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
  (16MB)
-mem49: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
+mem47: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
 000000100000000) (16MB)
-mem50: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
+mem48: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
 000ffffc000000) (64MB)
-mem51: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
+mem49: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
 00100000000000) (64MB)
 CPU 0: mapping PAL code [0x7fe00000-0x7fe48000) into [0xe00000007f000000-0x=
 e000000080000000)
@@ -404,7 +387,7 @@ This may significantly impact system performance
 PID hash table entries: 1024 (order: 10, 8192 bytes)
 Console: colour VGA+ 80x25
 Linux version 2.6.18-kexec-g05e0caad-dirty (horms@tabatha.lab.ultramonkey.o=
-rg) (gcc version 3.4.5) #33 SMP Mon Oct 30 17:50:37 JST 2006
+rg) (gcc version 3.4.5) #35 SMP Mon Oct 30 18:20:00 JST 2006
 Ignoring memory below 256MB
 Ignoring memory above 512MB
 EFI v1.10 by INTEL: SALsystab=3D0x7fe54980 ACPI=3D0x7ff99000 ACPI 2.0=3D0x7=
@@ -444,75 +427,71 @@ mem15: type=3D7, attr=3D0xb, range=3D[0x0000000010760000-0x000000001ffe4000=
 ) (248MB)
 mem16: type=3D8, attr=3D0xb, range=3D[0x000000001ffe4000-0x000000001ffe5000=
 ) (0MB)
-mem17: type=3D7, attr=3D0xb, range=3D[0x000000001ffe5000-0x000000007af5e000=
+mem17: type=3D7, attr=3D0xb, range=3D[0x000000001ffe5000-0x000000007af60000=
 ) (1455MB)
-mem18: type=3D7, attr=3D0xb, range=3D[0x000000007af5e000-0x000000007af64000=
-) (0MB)
-mem19: type=3D7, attr=3D0xb, range=3D[0x000000007af64000-0x000000007af65000=
-) (0MB)
-mem20: type=3D7, attr=3D0xb, range=3D[0x000000007af65000-0x000000007c8d2000=
+mem18: type=3D7, attr=3D0xb, range=3D[0x000000007af60000-0x000000007c8d2000=
 ) (25MB)
-mem21: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
+mem19: type=3D1, attr=3D0xb, range=3D[0x000000007c8d2000-0x000000007c92e000=
 ) (0MB)
-mem22: type=3D7, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
+mem20: type=3D7, attr=3D0xb, range=3D[0x000000007c92e000-0x000000007c938000=
 ) (0MB)
-mem23: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
+mem21: type=3D1, attr=3D0xb, range=3D[0x000000007c938000-0x000000007c97e000=
 ) (0MB)
-mem24: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
+mem22: type=3D7, attr=3D0xb, range=3D[0x000000007c97e000-0x000000007ce16000=
 ) (4MB)
-mem25: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
+mem23: type=3D4, attr=3D0xb, range=3D[0x000000007ce16000-0x000000007ce1c000=
 ) (0MB)
-mem26: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
+mem24: type=3D7, attr=3D0xb, range=3D[0x000000007ce1c000-0x000000007ce20000=
 ) (0MB)
-mem27: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
+mem25: type=3D4, attr=3D0xb, range=3D[0x000000007ce20000-0x000000007ce22000=
 ) (0MB)
-mem28: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
+mem26: type=3D7, attr=3D0xb, range=3D[0x000000007ce22000-0x000000007ce2a000=
 ) (0MB)
-mem29: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
+mem27: type=3D4, attr=3D0xb, range=3D[0x000000007ce2a000-0x000000007d001000=
 ) (1MB)
-mem30: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
+mem28: type=3D7, attr=3D0xb, range=3D[0x000000007d001000-0x000000007d002000=
 ) (0MB)
-mem31: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
+mem29: type=3D4, attr=3D0xb, range=3D[0x000000007d002000-0x000000007d004000=
 ) (0MB)
-mem32: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
+mem30: type=3D7, attr=3D0xb, range=3D[0x000000007d004000-0x000000007d026000=
 ) (0MB)
-mem33: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
+mem31: type=3D4, attr=3D0xb, range=3D[0x000000007d026000-0x000000007d068000=
 ) (0MB)
-mem34: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
+mem32: type=3D7, attr=3D0xb, range=3D[0x000000007d068000-0x000000007d069000=
 ) (0MB)
-mem35: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
+mem33: type=3D4, attr=3D0xb, range=3D[0x000000007d069000-0x000000007d37e000=
 ) (3MB)
-mem36: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
+mem34: type=3D7, attr=3D0xb, range=3D[0x000000007d37e000-0x000000007d700000=
 ) (3MB)
-mem37: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
+mem35: type=3D3, attr=3D0xb, range=3D[0x000000007d700000-0x000000007d77e000=
 ) (0MB)
-mem38: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
+mem36: type=3D7, attr=3D0xb, range=3D[0x000000007d77e000-0x000000007d8b4000=
 ) (1MB)
-mem39: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
+mem37: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007d8b4000-0x0=
 00000007d900000) (0MB)
-mem40: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
+mem38: type=3D3, attr=3D0xb, range=3D[0x000000007d900000-0x000000007f980000=
 ) (32MB)
-mem41: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
+mem39: type=3D7, attr=3D0xb, range=3D[0x000000007f980000-0x000000007fa00000=
 ) (0MB)
-mem42: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
+mem40: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fa00000-0x0=
 00000007fe00000) (4MB)
-mem43: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
+mem41: type=13, attr=3D0x8000000000000009, range=3D[0x000000007fe00000-0x00=
 0000007fe48000) (0MB)
-mem44: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
+mem42: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007fe48000-0x0=
 00000007fea0000) (0MB)
-mem45: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
+mem43: type=3D7, attr=3D0xb, range=3D[0x000000007fea0000-0x000000007feda000=
 ) (0MB)
-mem46: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
+mem44: type=3D5, attr=3D0x8000000000000009, range=3D[0x000000007feda000-0x0=
 00000007ff46000) (0MB)
-mem47: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
+mem45: type=3D6, attr=3D0x8000000000000009, range=3D[0x000000007ff46000-0x0=
 000000080000000) (0MB)
-mem48: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
+mem46: type=11, attr=3D0x1, range=3D[0x00000000fe000000-0x00000000ff000000)=
  (16MB)
-mem49: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
+mem47: type=3D6, attr=3D0x8000000000000001, range=3D[0x00000000ff000000-0x0=
 000000100000000) (16MB)
-mem50: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
+mem48: type=11, attr=3D0x8000000000000001, range=3D[0x00000ffff8000000-0x00=
 000ffffc000000) (64MB)
-mem51: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
+mem49: type=12, attr=3D0x8000000000000001, range=3D[0x00000ffffc000000-0x00=
 00100000000000) (64MB)
 CPU 0: mapping PAL code [0x7fe00000-0x7fe48000) into [0xe00000007f000000-0x=
 e000000080000000)
@@ -1806,4 +1785,3 @@ Starting pid 948, console /dev/console: '/bin/sh'
 BusyBox v1.2.1 (2006.09.23-05:46+0000) Built-in shell (ash)
 Enter 'help' for a list of built-in commands.
 
-/ #=20
