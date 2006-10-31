@@ -1,81 +1,62 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Tue, 31 Oct 2006 09:11:03 +0000
-Subject: RE: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086B07@pdsmsx411.ccr.corp.intel.com>
+From: Jay Lan <jlan@sgi.com>
+Date: Tue, 31 Oct 2006 18:08:40 +0000
+Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
+Message-Id: <45479128.7050100@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4546623D.5000105@engr.sgi.com>
 In-Reply-To: <4546623D.5000105@engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEpheSBMYW4gW21haWx0bzpqbGFu
-QHNnaS5jb21dCj4gU2VudDogMjAwNsTqMTDUwjMxyNUgMTc6MDAKPiBUbzogWm91LCBOYW5oYWkK
-PiBDYzogZmFzdGJvb3Q7IExpbnV4LUlBNjQ7IEphY2sgU3RlaW5lcjsgTHVjaywgVG9ueQo+IFN1
-YmplY3Q6IFJlOiBbUEFUQ0hdc2VuZCBzbGF2ZSBjcHVzIHRvIFNBTCBzbGF2ZSBsb29wIG9uIGNy
-YXNoIChJQTY0KQo+IAo+IFpvdSwgTmFuaGFpIHdyb3RlOgo+ID4+IC0tLS0tT3JpZ2luYWwgTWVz
-c2FnZS0tLS0tCj4gPj4gRnJvbTogSmF5IExhbiBbbWFpbHRvOmpsYW5Ac2dpLmNvbV0KPiA+PiBT
-ZW50OiAyMDA2xOoxMNTCMzHI1SAxMDo1Mwo+ID4+IFRvOiBab3UsIE5hbmhhaQo+ID4+IENjOiBm
-YXN0Ym9vdDsgTGludXgtSUE2NDsgSmFjayBTdGVpbmVyOyBMdWNrLCBUb255Cj4gPj4gU3ViamVj
-dDogUmU6IFtQQVRDSF1zZW5kIHNsYXZlIGNwdXMgdG8gU0FMIHNsYXZlIGxvb3Agb24gY3Jhc2gg
-KElBNjQpCj4gPj4KPiA+PiBab3UsIE5hbmhhaSB3cm90ZToKPiA+Pj4+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tCj4gPj4+PiBGcm9tOiBKYXkgTGFuIFttYWlsdG86amxhbkBlbmdyLnNnaS5j
-b21dCj4gPj4+PiBTZW50OiAyMDA2QSKoujEwT15BXjMxRWBPfiA0OjM2Cj4gPj4+PiBUbzogZmFz
-dGJvb3QKPiA+Pj4+IENjOiBMaW51eC1JQTY0OyBab3UsIE5hbmhhaTsgSmFjayBTdGVpbmVyOyBM
-dWNrLCBUb255Cj4gPj4+PiBTdWJqZWN0OiBbUEFUQ0hdc2VuZCBzbGF2ZSBjcHVzIHRvIFNBTCBz
-bGF2ZSBsb29wIG9uIGNyYXNoIChJQTY0KQo+ID4+Pj4KPiA+Pj4+IFRoaXMgcGF0Y2ggaXMgdG8g
-Zml4IGEgcHJvYmxlbSBvZiBpbnRlcnJ1cHRzIGJlaW5nIHNlbnQgdG8gY3B1cwo+ID4+Pj4gdGhh
-dCBjYW4gbm90IHJlc3BvbmQuCj4gPj4+Pgo+ID4+Pj4gVGhpcyBwYXRjaCB3b3VsZCByZXR1cm4g
-c2xhdmUgY3B1cyB0byBTQUwgc2xhdmUgbG9vcCwgYXQgdGltZSBvZgo+ID4+Pj4gY3Jhc2gsIGV4
-Y2VwdCBjcHUwLiBUaGUgY3B1MCBpcyBhIHNwZWNpYWwgY2FzZSBhcyB0aGVyZSBpcyBubyB3YXkK
-PiA+Pj4+IHRvIHJldHVybiBpdCB0byBTQUwsIHNvIGNwdTAgaXMgYmV0dGVyIGhhbmRsZWQgaW4g
-ZmlybXdhcmUuCj4gPj4+Pgo+ID4+Pj4gU2lnbmVkLW9mZi1ieTogSmF5IExhbiA8amxhbkBzZ2ku
-Y29tPgo+ID4+Pj4KPiA+Pj4KPiA+Pj4gRG9lcyB0aGlzIGZpeCB0aGUgSS9PIGludGVycnVwdCBy
-ZWRpcmVjdCBpc3N1ZSBvbiBTTj8KPiA+PiBUaGlzIGZpeGVzIHRoZSBpbnRlcnJ1cHRzIGJlaW5n
-IHNlbnQgdG8gY3B1cyBub3QgaW4gdGhlCj4gPj4gc2xhdmUgbG9vcCB0aGF0IGNhdXNlZCBoYW5n
-IG9uIFNOLiBXaGVuIG9uZSBib290cyB1cCB0aGUKPiA+PiBrZXhlYydlZCBrZXJuZWwgd2l0aCAn
-bWF4Y3B1cz0xJywgYWxsIGlkbGUgY3B1cyBuZWVkcyB0bwo+ID4+IGJlIHNlbnQgYmFjay4gSWYg
-dGhleSBhcmUgbm90IHJldHVybmVkIHRvIHRoZSBTQUwgc2xhdmUKPiA+PiBsb29wIGFuZCBqdXN0
-IGxvb3BpbmcgaW4gY3B1X3JlbGF4KCksIHRoZXkgYXJlIGNvbnNpZGVyZWQKPiA+PiBhbGl2ZSwg
-YnV0IGludGVycnVwdHMgd291bGQgYmUgbG9zdCBhbmQgc3lzdGVtIGhhbmcuCj4gPj4KPiA+Cj4g
-PiAgQnV0IHRoaXMgd2lsbCByZWx5IG9uIG1hY2hpbmUgY3Jhc2ggb24gQ1BVIDA/Cj4gCj4gV2Ug
-ZG8gbm90IHJlbHkgb24gbWFjaGluZSBjcmFzaCBvbiBDUFUgMCBhbnkgbW9yZS4gSWYgdGhlCj4g
-Y3Jhc2hpbmcgQ1BVIGlzIG5vdCBjcHUgMCBhbmQgdGhlIGNwdSAwIG5vdCBiZWluZyByZXR1cm5l
-ZCB0bwo+IHRoZSBzbGF2ZSBsb29wLCB0aGlzIGNhc2UgaXMgaGFuZGxlZCBieSBvdXIgUFJPTSBu
-b3cuCj4gCj4gSG93ZXZlciwgaWYgc29tZWJvZHkgdHJpZXMgdG8gYm9vdCB1cCBhIHByb2R1Y3Rp
-b24ga2VybmVsIHVzaW5nICctbGUnCj4gb3B0aW9uIF9hZnRlcl8gdGhlIGtleGVjJ2VkIGtlcm5l
-bCBpcyB1cCBydW5uaW5nLCB0aGUgdGhpcmQga2VybmVsCj4gd291bGQgbm90IGJvb3QgdW5sZXNz
-IHdlIGJvb3QgdXAgdGhlIHNlY29uZCBrZXJuZWwgd2l0aCBjcHUgMC4gSQo+IHBvc3RlZCBhIHF1
-ZXN0aW9uIG9uICJpZiBydW5uaW5nICdrZXhlYyAtbGUnIG9uIGEga2V4ZWMnZWQga2R1bXAKPiBr
-ZXJuZWwgaXMgbGVnYWwiIGVhcmxpZXIgYW5kIFZpdmVrIHJlc3BvbmRlZCBzYXlpbmcgdGhlIHNj
-ZW5hcmlvCj4gaXMgbm90IGd1cmFudGVlZCB0byB3b3JrLiBTbywgaSB0aGluayB3ZSBhcmUgZmlu
-ZSBoZXJlLgoKICBPaywgc28gd2l0aCB0aGlzIHBhdGNoIGFuZCB0aGUgUFJPTSBmaXgsIG9uIGEg
-U04gc3lzdGVtLAogIDEuIEtkdW1wIC0+IDJuZCBrZXJuZWwgd29ya3MuCiAgMi4gS2R1bXAgLT4g
-Mm5kIGtlcm5lbCAtPiBLZXhlYyB0byB0aGlyZCBrZXJuZWwgd2lsbCBub3Qgd29yay4KICAzLiBL
-ZXhlYyAtPiAybmQgS2VybmVsIC0+IEtleGVjIC0+IDNyZCBrZXJuZWwgd29ya3M/CiAgNC4gS2V4
-ZWMgLT4gMm5kIEtlcm5lbCAtPiBLZHVtcCAtPiAzcmQga2VybmVsIHdvcmtzPwoKICBJIHRoaW5r
-IGlmIHNjZW5hcmlvIDEsIDMgYW5kIDQgd29ya3MgaXQgd2lsbCBiZSBvay4gU2NlbmFyaW8gMiBp
-cyBub3Qgc28gdXNlZnVsIEkgZ3Vlc3MuCgo+IAo+IAo+ID4gIEN1cnJlbnQgS2R1bXAgd2lsbCBi
-b290IHRvIHNlY29uZCBrZXJuZWwgb24gdGhlIGNyYXNoaW5nIENQVS4KPiA+ICBTbyBpZiBtYWNo
-aW5lIGNyYXNoIGFuZCBib290IG9uIENQVSBOLCBDUFUgMCB3aWxsIHN0aWxsIG5vdCBiZSBhYmxl
-IHRvIHJlZGlyZWN0Cj4gaW50ZXJydXB0LCByaWdodD8KPiAKPiBZZXMsIGFuZCB0aGlzIGNhc2Ug
-aXMgaGFuZGxlZCBpbiBvdXIgUFJPTS4KPiAKPiA+Cj4gPj4gVGhpcyBpcyBkaWZmZXJlbnQgZnJv
-bSB0aGUga2V4ZWMgJy0tbm9pbycgb3B0aW9uIHlvdSBhZGRlZAo+ID4+IHRvIGtleGVjLXRvb2xz
-LiBXZSBzdGlsbCBuZWVkIHRoYXQgZml4Lgo+ID4+Cj4gPgo+ID4KPiA+ICBEb2VzIC0tbm9pbyBw
-YXRjaCB3b3JrcyBvbiBTTj8gSSByZW1lbWJlciB5b3UgaGF2ZSBtZW50aW9uZWQgdGhlcmUgaXMg
-c3RpbGwKPiBzb21lIGlzc3VlIHdoZW4geW91IHRlc3RpbmcgLS1ub2lvIG9wdGlvbiBvbiBTTiBz
-eXN0ZW0/Cj4gCj4gV2UgbmVlZCB0aGUgLS1ub2lvIG9wdGlvbiB0byBoYXZlIGtleGVjLWtkdW1w
-IHdvcmtpbmcgb24gU04uIFRoZSBwcm9ibGVtCj4gd2FzIHRoZSBwYXRjaCB5b3UgcG9zdGVkLiBJ
-dCB3YXMgZGlmZmVyZW50IGZyb20gdGhlIHN1Z2dlc3Rpb24geW91Cj4gZ2F2ZSBtZSB3aGVuIHdl
-IGZpcnN0IGVuY291bnRlcmVkIHRoZSBwcm9ibGVtLiBJZiB3ZSwgYXMgeW91IGZpcnN0Cj4gc3Vn
-Z2VzdGVkLCBub29wIGFsbCBpbmxpbmUgZnVuY3Rpb24gZGVmaW5lZCBpbiBwdXJnYXRvcnkvYXJj
-aC9pYTY0L2lvLmgsCj4gdGhlbiBpdCB3b3Jrcy4KPiAKPiBJcyB0aGVyZSBhbnkgaXNzdWUgaWYg
-dGhlIG5vaW8gcGF0Y2ggaXMgY2hhbmdlZCB0byB5b3VyIG9yaWdpbmFsCj4gc3VnZ2VzdGlvbj8K
-PiAKICAtLW5vaW8gcGF0Y2ggc2hvdWxkIGJlIHRoZSBzYW1lIHRvIG15IG9yaWdpbmFsIHN1Z2d1
-ZXN0aW9uLi4uLCBpdCBieXBhc3MgYWxsIFBJTyBhbmQgTU1JTyBpbiBwdXJnYXRvcnkgd2l0aCAt
-LW5vaW8gb3B0aW9uLiBJIG5lZWQgdG8gaGF2ZSBhIGNoZWNrIHRob3VnaC4KCiAgVGhhbmtzCiAg
-Wm91IE5hbiBoYWkKLQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
-ZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1h
-am9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
-ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
+Zou, Nanhai wrote:
+
+>> We do not rely on machine crash on CPU 0 any more. If the
+>> crashing CPU is not cpu 0 and the cpu 0 not being returned to
+>> the slave loop, this case is handled by our PROM now.
+>>
+>> However, if somebody tries to boot up a production kernel using '-le'
+>> option _after_ the kexec'ed kernel is up running, the third kernel
+>> would not boot unless we boot up the second kernel with cpu 0. I
+>> posted a question on "if running 'kexec -le' on a kexec'ed kdump
+>> kernel is legal" earlier and Vivek responded saying the scenario
+>> is not guranteed to work. So, i think we are fine here.
+> 
+>   Ok, so with this patch and the PROM fix, on a SN system,
+>   1. Kdump -> 2nd kernel works.
+>   2. Kdump -> 2nd kernel -> Kexec to third kernel will not work.
+>   3. Kexec -> 2nd Kernel -> Kexec -> 3rd kernel works?
+>   4. Kexec -> 2nd Kernel -> Kdump -> 3rd kernel works?
+> 
+>   I think if scenario 1, 3 and 4 works it will be ok. Scenario 2 is not so useful I guess.
+> 
+
+The '-l' option caused a seg fault of kexec:
+
+[root@pogo1 boot]# /home/jlan/kexec -l
+/boot/efi/efi/redhat/vmlinuz-2.6.18-kdump
+--initrd=/boot/efi/efi/redhat/initrd-2.6.18-kdump
+--append="root=/dev/sdb6 rhgb irqpoll ro quite"
+Done with process_options
+kernel: 0x2000000000328010 kernel_size: 3503fec
+memory_range: crashk, idx=5, start018000000, end028000000
+memory_range: Boot, idx=7, start07a280010, end07a280061
+memory_range: MemoryMap, idx=9, start07a3f0010, end07a3f0611
+build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT509848
+build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014120
+ready to load. type=0,
+build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT509848
+build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014f30
+elf_exec_load
+Invalid memory segment 0x4000000 - 0x498bfff
+Segmentation fault
+[root@pogo1 boot]#
+
+It is on my list but my priority is to make sure kdump work (on
+sysrq-c, INIT, MCA) and to ensure /proc/vmcore contains correct
+and needed information for SN.
+
+
+Thanks,
+ - jay
