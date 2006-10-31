@@ -1,108 +1,81 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Tue, 31 Oct 2006 08:59:49 +0000
-Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
-Message-Id: <45471085.3040408@sgi.com>
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Tue, 31 Oct 2006 09:11:03 +0000
+Subject: RE: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086B07@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4546623D.5000105@engr.sgi.com>
 In-Reply-To: <4546623D.5000105@engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-Zou, Nanhai wrote:
->> -----Original Message-----
->> From: Jay Lan [mailto:jlan@sgi.com]
->> Sent: 2006=C4=EA10=D4=C231=C8=D5 10:53
->> To: Zou, Nanhai
->> Cc: fastboot; Linux-IA64; Jack Steiner; Luck, Tony
->> Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
->>
->> Zou, Nanhai wrote:
->>>> -----Original Message-----
->>>> From: Jay Lan [mailto:jlan@engr.sgi.com]
->>>> Sent: 2006A"=A8=BA10O^A^31E`O~ 4:36
->>>> To: fastboot
->>>> Cc: Linux-IA64; Zou, Nanhai; Jack Steiner; Luck, Tony
->>>> Subject: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
->>>>
->>>> This patch is to fix a problem of interrupts being sent to cpus
->>>> that can not respond.
->>>>
->>>> This patch would return slave cpus to SAL slave loop, at time of
->>>> crash, except cpu0. The cpu0 is a special case as there is no way
->>>> to return it to SAL, so cpu0 is better handled in firmware.
->>>>
->>>> Signed-off-by: Jay Lan <jlan@sgi.com>
->>>>
->>>
->>> Does this fix the I/O interrupt redirect issue on SN?
->> This fixes the interrupts being sent to cpus not in the
->> slave loop that caused hang on SN. When one boots up the
->> kexec'ed kernel with 'maxcpus=3D1', all idle cpus needs to
->> be sent back. If they are not returned to the SAL slave
->> loop and just looping in cpu_relax(), they are considered
->> alive, but interrupts would be lost and system hang.
->>
->=20
->  But this will rely on machine crash on CPU 0?
-
-We do not rely on machine crash on CPU 0 any more. If the
-crashing CPU is not cpu 0 and the cpu 0 not being returned to
-the slave loop, this case is handled by our PROM now.
-
-However, if somebody tries to boot up a production kernel using '-le'
-option _after_ the kexec'ed kernel is up running, the third kernel
-would not boot unless we boot up the second kernel with cpu 0. I
-posted a question on "if running 'kexec -le' on a kexec'ed kdump
-kernel is legal" earlier and Vivek responded saying the scenario
-is not guranteed to work. So, i think we are fine here.
-
-
->  Current Kdump will boot to second kernel on the crashing CPU.=20
->  So if machine crash and boot on CPU N, CPU 0 will still not be able to r=
-edirect interrupt, right? =20
-
-Yes, and this case is handled in our PROM.
-
->=20
->> This is different from the kexec '--noio' option you added
->> to kexec-tools. We still need that fix.
->>
->=20
->=20
->  Does --noio patch works on SN? I remember you have mentioned there is st=
-ill some issue when you testing --noio option on SN system?
-
-We need the --noio option to have kexec-kdump working on SN. The problem
-was the patch you posted. It was different from the suggestion you
-gave me when we first encountered the problem. If we, as you first
-suggested, noop all inline function defined in purgatory/arch/ia64/io.h,
-then it works.
-
-Is there any issue if the noio patch is changed to your original
-suggestion?
-
-Thanks,
- - jay
-
-
->=20
->>> However this patch will make Kdump depends on cpu hotplug code, so you =
-may
->> add the dependency in Kconfig.
->>
->> I thought Kahalid Aziz's patch covered this?
->> http://lists.osdl.org/mailman/htdig/fastboot/2006-October/004548.html
->>
->=20
->> Thanks,
->>  - jay
->>
->>> Thanks
->>> Zou Nan hai
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEpheSBMYW4gW21haWx0bzpqbGFu
+QHNnaS5jb21dCj4gU2VudDogMjAwNsTqMTDUwjMxyNUgMTc6MDAKPiBUbzogWm91LCBOYW5oYWkK
+PiBDYzogZmFzdGJvb3Q7IExpbnV4LUlBNjQ7IEphY2sgU3RlaW5lcjsgTHVjaywgVG9ueQo+IFN1
+YmplY3Q6IFJlOiBbUEFUQ0hdc2VuZCBzbGF2ZSBjcHVzIHRvIFNBTCBzbGF2ZSBsb29wIG9uIGNy
+YXNoIChJQTY0KQo+IAo+IFpvdSwgTmFuaGFpIHdyb3RlOgo+ID4+IC0tLS0tT3JpZ2luYWwgTWVz
+c2FnZS0tLS0tCj4gPj4gRnJvbTogSmF5IExhbiBbbWFpbHRvOmpsYW5Ac2dpLmNvbV0KPiA+PiBT
+ZW50OiAyMDA2xOoxMNTCMzHI1SAxMDo1Mwo+ID4+IFRvOiBab3UsIE5hbmhhaQo+ID4+IENjOiBm
+YXN0Ym9vdDsgTGludXgtSUE2NDsgSmFjayBTdGVpbmVyOyBMdWNrLCBUb255Cj4gPj4gU3ViamVj
+dDogUmU6IFtQQVRDSF1zZW5kIHNsYXZlIGNwdXMgdG8gU0FMIHNsYXZlIGxvb3Agb24gY3Jhc2gg
+KElBNjQpCj4gPj4KPiA+PiBab3UsIE5hbmhhaSB3cm90ZToKPiA+Pj4+IC0tLS0tT3JpZ2luYWwg
+TWVzc2FnZS0tLS0tCj4gPj4+PiBGcm9tOiBKYXkgTGFuIFttYWlsdG86amxhbkBlbmdyLnNnaS5j
+b21dCj4gPj4+PiBTZW50OiAyMDA2QSKoujEwT15BXjMxRWBPfiA0OjM2Cj4gPj4+PiBUbzogZmFz
+dGJvb3QKPiA+Pj4+IENjOiBMaW51eC1JQTY0OyBab3UsIE5hbmhhaTsgSmFjayBTdGVpbmVyOyBM
+dWNrLCBUb255Cj4gPj4+PiBTdWJqZWN0OiBbUEFUQ0hdc2VuZCBzbGF2ZSBjcHVzIHRvIFNBTCBz
+bGF2ZSBsb29wIG9uIGNyYXNoIChJQTY0KQo+ID4+Pj4KPiA+Pj4+IFRoaXMgcGF0Y2ggaXMgdG8g
+Zml4IGEgcHJvYmxlbSBvZiBpbnRlcnJ1cHRzIGJlaW5nIHNlbnQgdG8gY3B1cwo+ID4+Pj4gdGhh
+dCBjYW4gbm90IHJlc3BvbmQuCj4gPj4+Pgo+ID4+Pj4gVGhpcyBwYXRjaCB3b3VsZCByZXR1cm4g
+c2xhdmUgY3B1cyB0byBTQUwgc2xhdmUgbG9vcCwgYXQgdGltZSBvZgo+ID4+Pj4gY3Jhc2gsIGV4
+Y2VwdCBjcHUwLiBUaGUgY3B1MCBpcyBhIHNwZWNpYWwgY2FzZSBhcyB0aGVyZSBpcyBubyB3YXkK
+PiA+Pj4+IHRvIHJldHVybiBpdCB0byBTQUwsIHNvIGNwdTAgaXMgYmV0dGVyIGhhbmRsZWQgaW4g
+ZmlybXdhcmUuCj4gPj4+Pgo+ID4+Pj4gU2lnbmVkLW9mZi1ieTogSmF5IExhbiA8amxhbkBzZ2ku
+Y29tPgo+ID4+Pj4KPiA+Pj4KPiA+Pj4gRG9lcyB0aGlzIGZpeCB0aGUgSS9PIGludGVycnVwdCBy
+ZWRpcmVjdCBpc3N1ZSBvbiBTTj8KPiA+PiBUaGlzIGZpeGVzIHRoZSBpbnRlcnJ1cHRzIGJlaW5n
+IHNlbnQgdG8gY3B1cyBub3QgaW4gdGhlCj4gPj4gc2xhdmUgbG9vcCB0aGF0IGNhdXNlZCBoYW5n
+IG9uIFNOLiBXaGVuIG9uZSBib290cyB1cCB0aGUKPiA+PiBrZXhlYydlZCBrZXJuZWwgd2l0aCAn
+bWF4Y3B1cz0xJywgYWxsIGlkbGUgY3B1cyBuZWVkcyB0bwo+ID4+IGJlIHNlbnQgYmFjay4gSWYg
+dGhleSBhcmUgbm90IHJldHVybmVkIHRvIHRoZSBTQUwgc2xhdmUKPiA+PiBsb29wIGFuZCBqdXN0
+IGxvb3BpbmcgaW4gY3B1X3JlbGF4KCksIHRoZXkgYXJlIGNvbnNpZGVyZWQKPiA+PiBhbGl2ZSwg
+YnV0IGludGVycnVwdHMgd291bGQgYmUgbG9zdCBhbmQgc3lzdGVtIGhhbmcuCj4gPj4KPiA+Cj4g
+PiAgQnV0IHRoaXMgd2lsbCByZWx5IG9uIG1hY2hpbmUgY3Jhc2ggb24gQ1BVIDA/Cj4gCj4gV2Ug
+ZG8gbm90IHJlbHkgb24gbWFjaGluZSBjcmFzaCBvbiBDUFUgMCBhbnkgbW9yZS4gSWYgdGhlCj4g
+Y3Jhc2hpbmcgQ1BVIGlzIG5vdCBjcHUgMCBhbmQgdGhlIGNwdSAwIG5vdCBiZWluZyByZXR1cm5l
+ZCB0bwo+IHRoZSBzbGF2ZSBsb29wLCB0aGlzIGNhc2UgaXMgaGFuZGxlZCBieSBvdXIgUFJPTSBu
+b3cuCj4gCj4gSG93ZXZlciwgaWYgc29tZWJvZHkgdHJpZXMgdG8gYm9vdCB1cCBhIHByb2R1Y3Rp
+b24ga2VybmVsIHVzaW5nICctbGUnCj4gb3B0aW9uIF9hZnRlcl8gdGhlIGtleGVjJ2VkIGtlcm5l
+bCBpcyB1cCBydW5uaW5nLCB0aGUgdGhpcmQga2VybmVsCj4gd291bGQgbm90IGJvb3QgdW5sZXNz
+IHdlIGJvb3QgdXAgdGhlIHNlY29uZCBrZXJuZWwgd2l0aCBjcHUgMC4gSQo+IHBvc3RlZCBhIHF1
+ZXN0aW9uIG9uICJpZiBydW5uaW5nICdrZXhlYyAtbGUnIG9uIGEga2V4ZWMnZWQga2R1bXAKPiBr
+ZXJuZWwgaXMgbGVnYWwiIGVhcmxpZXIgYW5kIFZpdmVrIHJlc3BvbmRlZCBzYXlpbmcgdGhlIHNj
+ZW5hcmlvCj4gaXMgbm90IGd1cmFudGVlZCB0byB3b3JrLiBTbywgaSB0aGluayB3ZSBhcmUgZmlu
+ZSBoZXJlLgoKICBPaywgc28gd2l0aCB0aGlzIHBhdGNoIGFuZCB0aGUgUFJPTSBmaXgsIG9uIGEg
+U04gc3lzdGVtLAogIDEuIEtkdW1wIC0+IDJuZCBrZXJuZWwgd29ya3MuCiAgMi4gS2R1bXAgLT4g
+Mm5kIGtlcm5lbCAtPiBLZXhlYyB0byB0aGlyZCBrZXJuZWwgd2lsbCBub3Qgd29yay4KICAzLiBL
+ZXhlYyAtPiAybmQgS2VybmVsIC0+IEtleGVjIC0+IDNyZCBrZXJuZWwgd29ya3M/CiAgNC4gS2V4
+ZWMgLT4gMm5kIEtlcm5lbCAtPiBLZHVtcCAtPiAzcmQga2VybmVsIHdvcmtzPwoKICBJIHRoaW5r
+IGlmIHNjZW5hcmlvIDEsIDMgYW5kIDQgd29ya3MgaXQgd2lsbCBiZSBvay4gU2NlbmFyaW8gMiBp
+cyBub3Qgc28gdXNlZnVsIEkgZ3Vlc3MuCgo+IAo+IAo+ID4gIEN1cnJlbnQgS2R1bXAgd2lsbCBi
+b290IHRvIHNlY29uZCBrZXJuZWwgb24gdGhlIGNyYXNoaW5nIENQVS4KPiA+ICBTbyBpZiBtYWNo
+aW5lIGNyYXNoIGFuZCBib290IG9uIENQVSBOLCBDUFUgMCB3aWxsIHN0aWxsIG5vdCBiZSBhYmxl
+IHRvIHJlZGlyZWN0Cj4gaW50ZXJydXB0LCByaWdodD8KPiAKPiBZZXMsIGFuZCB0aGlzIGNhc2Ug
+aXMgaGFuZGxlZCBpbiBvdXIgUFJPTS4KPiAKPiA+Cj4gPj4gVGhpcyBpcyBkaWZmZXJlbnQgZnJv
+bSB0aGUga2V4ZWMgJy0tbm9pbycgb3B0aW9uIHlvdSBhZGRlZAo+ID4+IHRvIGtleGVjLXRvb2xz
+LiBXZSBzdGlsbCBuZWVkIHRoYXQgZml4Lgo+ID4+Cj4gPgo+ID4KPiA+ICBEb2VzIC0tbm9pbyBw
+YXRjaCB3b3JrcyBvbiBTTj8gSSByZW1lbWJlciB5b3UgaGF2ZSBtZW50aW9uZWQgdGhlcmUgaXMg
+c3RpbGwKPiBzb21lIGlzc3VlIHdoZW4geW91IHRlc3RpbmcgLS1ub2lvIG9wdGlvbiBvbiBTTiBz
+eXN0ZW0/Cj4gCj4gV2UgbmVlZCB0aGUgLS1ub2lvIG9wdGlvbiB0byBoYXZlIGtleGVjLWtkdW1w
+IHdvcmtpbmcgb24gU04uIFRoZSBwcm9ibGVtCj4gd2FzIHRoZSBwYXRjaCB5b3UgcG9zdGVkLiBJ
+dCB3YXMgZGlmZmVyZW50IGZyb20gdGhlIHN1Z2dlc3Rpb24geW91Cj4gZ2F2ZSBtZSB3aGVuIHdl
+IGZpcnN0IGVuY291bnRlcmVkIHRoZSBwcm9ibGVtLiBJZiB3ZSwgYXMgeW91IGZpcnN0Cj4gc3Vn
+Z2VzdGVkLCBub29wIGFsbCBpbmxpbmUgZnVuY3Rpb24gZGVmaW5lZCBpbiBwdXJnYXRvcnkvYXJj
+aC9pYTY0L2lvLmgsCj4gdGhlbiBpdCB3b3Jrcy4KPiAKPiBJcyB0aGVyZSBhbnkgaXNzdWUgaWYg
+dGhlIG5vaW8gcGF0Y2ggaXMgY2hhbmdlZCB0byB5b3VyIG9yaWdpbmFsCj4gc3VnZ2VzdGlvbj8K
+PiAKICAtLW5vaW8gcGF0Y2ggc2hvdWxkIGJlIHRoZSBzYW1lIHRvIG15IG9yaWdpbmFsIHN1Z2d1
+ZXN0aW9uLi4uLCBpdCBieXBhc3MgYWxsIFBJTyBhbmQgTU1JTyBpbiBwdXJnYXRvcnkgd2l0aCAt
+LW5vaW8gb3B0aW9uLiBJIG5lZWQgdG8gaGF2ZSBhIGNoZWNrIHRob3VnaC4KCiAgVGhhbmtzCiAg
+Wm91IE5hbiBoYWkKLQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGlu
+ZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1h
+am9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
+ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
