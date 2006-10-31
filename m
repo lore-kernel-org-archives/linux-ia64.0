@@ -1,70 +1,65 @@
-From: "Michael S. Tsirkin" <mst@mellanox.co.il>
-Date: Wed, 25 Oct 2006 18:22:52 +0000
+From: Roland Dreier <rdreier@cisco.com>
+Date: Tue, 31 Oct 2006 19:02:49 +0000
 Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <20061025182252.GA13967@mellanox.co.il>
+Message-Id: <adad588tijq.fsf@cisco.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <adafyddcysw.fsf@cisco.com> <20061025063022.GC12319@colo.lackof.org> <20061025141859.GC5591@parisc-linux.org>
-In-Reply-To: <20061025141859.GC5591@parisc-linux.org>
+References: <20061024214724.GS25210@parisc-linux.org>
+	<adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org>
+	<20061024.154347.77057163.davem@davemloft.net>
+	<aday7r4a3d7.fsf@cisco.com>
+In-Reply-To: <aday7r4a3d7.fsf@cisco.com> (Roland Dreier's message of "Wed, 25 Oct 2006 07:15:16 -0700")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Grant Grundler <grundler@parisc-linux.org>, linux-ia64@vger.kernel.org, Roland Dreier <rdreier@cisco.com>, linux-kernel@vger.kernel.org, openib-general@openib.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: linux-kernel@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, matthew@wil.cx, jeff@garzik.org, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, openib-general@openib.org, johnip@sgi.com
 
-Quoting r. Matthew Wilcox <matthew@wil.cx>:
-> Subject: Re: Ordering between PCI config space writes and MMIO reads?
-> 
-> On Wed, Oct 25, 2006 at 12:30:22AM -0600, Grant Grundler wrote:
-> > Can someone provide a quote of the PCI Local bus spec that allows this?
-> > (Or at least a reference to a spec version and section number)
-> 
-> PCI-PCI bridges are allowed to do it.  If you look in table E-1 of PCI
-> 2.3, or table 8-3 of PCI-X 2.0, you'll see that a Posted Memory Write
-> can pass a Delayed Write Request (or in PCI-X, a Memory Write can pass a
-> Split Write Request).
-> 
-> So mmiowb() will solve the problem for Altix, but leave everybody else
-> vulnerable.  I actually don't see a way of forcing the config write to
-> complete before a memory write -- everything is allowed to pass a config
-> write, even a config read.  I initially thought "But only a crack monkey
-> would implement a system where a config read could pass a config write",
-> but the spec explains that:
-> 
->   In most PCI-X implementations, Split Requests are managed in separate
->   buffers from Split Completions, so Split Requests naturally pass Split
->   Completions. However, no deadlocks occur if Split Completions block
->   Split Requests.
-> 
-> So all this code that checks to see if a write had an effect is unsafe.
-> I'm a little perturbed by this.  It means the only way to reliably
-> distinguish between a write that hasn't taken effect yet and a bit (say,
-> MWI) the device hasn't implemented is to do a memory access to the
-> device.  Which is hard when you're trying to program the BARs.
-> 
-> I suppose this hasn't bitten us before in, what, 7 years of PCI-X, so
-> it can't be *that* common a thing for bridges to do.  And we would have
-> noticed the BAR sizing code going wrong (as it does config write
-> followed immediately by config read), so maybe implementations aren't as
-> crackful as the PCI spec seems to permit them to be.
-> 
-> I find it really hard to believe the PCI committee have done something
-> this stupid.  There must be another rule somewhere that I'm missing.
+The discussion fizzled out without really reaching a definitive
+answer, so I'm going to apply the original patch (below), since I
+pretty much convinced myself that only the driver doing the config
+access has enough information to fix this reliably.
 
-I think typically CPUs stall until a non-posted operation completes.
-And since config writes are non posted,
+ - R.
 
-pci_config_write_...
-write ....
+Author: John Partridge <johnip@sgi.com>
+Date:   Tue Oct 31 11:00:04 2006 -0800
 
-does not *start* the write until config write has completed.
-So there's only a single outstanding config operation and that's why
-there's never any re-ordering, without any need for flushes.
+    IB/mthca: Make sure all PCI config writes reach device before doing MMIO
+    
+    During initialization, mthca writes some PCI config space registers
+    and then does an MMIO read from one of the BARs it just enabled.  This
+    MMIO read sometimes failed and caused a crash on SGI Altix machines,
+    because the PCI-X host bridge (legitimately, according to the PCI
+    spec) allowed the MMIO read to start before the config write completed.
+    
+    To fix this, add a config read after all config writes to make sure
+    they are all done before starting the MMIO read.
+    
+    Signed-off-by: John Partridge <johnip@sgi.com>
+    Signed-off-by: Roland Dreier <rolandd@cisco.com>
 
-Your Altix system seems the weird one here in that CPU actually
-treats config writes as posted and does not wait for their completion.
-I wander whether you can do a bus lock or something and force
-waiting till the completion.
-This would be much cleaner than trying to fix all drivers.
-
--- 
-MST
+diff --git a/drivers/infiniband/hw/mthca/mthca_reset.c b/drivers/infiniband/hw/mthca/mthca_reset.c
+index 91934f2..578dc7c 100644
+--- a/drivers/infiniband/hw/mthca/mthca_reset.c
++++ b/drivers/infiniband/hw/mthca/mthca_reset.c
+@@ -281,6 +281,20 @@ good:
+ 		goto out;
+ 	}
+ 
++	/*
++	 * Perform a "flush" of the PCI config writes here by reading
++	 * the PCI_COMMAND register.  This is needed to make sure that
++	 * we don't try to touch other PCI BARs before the config
++	 * writes are done -- otherwise an MMIO cycle could start
++	 * before the config writes are done and reach the HCA before
++	 * the BAR is actually enabled.
++	 */
++	if (pci_read_config_dword(mdev->pdev, PCI_COMMAND, hca_header)) {
++		err = -ENODEV;
++		mthca_err(mdev, "Couldn't access HCA memory after restoring, "
++			  "aborting.\n");
++	}
++
+ out:
+ 	if (bridge)
+ 		pci_dev_put(bridge);
