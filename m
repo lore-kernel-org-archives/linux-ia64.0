@@ -1,42 +1,27 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Nov 2006 19:46:27 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 01 Nov 2006 22:24:54 +0000
 Subject: Re: cross-compiling ia64 kernels?
-Message-Id: <Pine.LNX.4.64.0611011145020.14406@schroedinger.engr.sgi.com>
+Message-Id: <je4ptibya1.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <617E1C2C70743745A92448908E030B2AB91DF8@scsmsx411.amr.corp.intel.com>
 In-Reply-To: <617E1C2C70743745A92448908E030B2AB91DF8@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, 1 Nov 2006, Christoph Lameter wrote:
+Christoph Lameter <clameter@sgi.com> writes:
 
-> Ok. It builds now.  One has to edit gcc-3.4.2-glibc-2.3.3.dat to have
+> Building a cross compiler seems to be a waste of time. It just plainly=20
+> never works right without spending a week or so fixing broken stuff all=20
+> over the place.
 
-And it failed again:
+Why you are trying to compile all this old stuff in the first place?
 
-mv -f 
-/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/build-glibc-headers/sysd-syscallsT 
-/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/build-glibc-headers/sysd-syscalls
-make[1]: Failed to remake makefile 
-`/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/build-glibc-headers/config.make'.
-make[1]: Leaving directory 
-`/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/glibc-2.3.3'
-make[1]: Entering directory 
-`/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/glibc-2.3.3'
-autoconf  sysdeps/ia64/elf/configure.in > sysdeps/ia64/elf/configure.new
-autoconf: Undefined macros:
-***BUG in Autoconf--please report*** AC_FD_MSG
-make[1]: Failed to remake makefile 
-`/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/build-glibc-headers/config.make'.
-make[1]: `sysdeps/gnu/errlist.c' is up to date.
-make[1]: Leaving directory 
-`/home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3.4.2-glibc-2.3.3/glibc-2.3.3'
-make: *** [sysdeps/gnu/errlist.c] Error 2
+Andreas.
 
-Building a cross compiler seems to be a waste of time. It just plainly 
-never works right without spending a week or so fixing broken stuff all 
-over the place.
-
-
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
