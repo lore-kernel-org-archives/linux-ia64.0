@@ -1,59 +1,38 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Fri, 03 Nov 2006 03:08:35 +0000
-Subject: Re: [Fastboot] ia64: What the stack trace of a slave cpu kdump should save?
-Message-Id: <28187.1162523315@kao2.melbourne.sgi.com>
+Date: Wed, 01 Nov 2006 05:46:43 +0000
+Subject: Re: KDB errors from kdba_mca_init on HP rx8620 running SLES9 SP3
+Message-Id: <1618.1162360003@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jay Lan (on Thu, 02 Nov 2006 10:48:51 -0800) wrote:
->Hi,
+Alan Tyson (on Tue, 31 Oct 2006 18:45:54 +0000) wrote:
+>Hi Keith,
 >
->I have a vmcore created by NMI on an SN. The gdb backtrace
->showed the slave cpu as below:
+>When running SLES9 SP3, which has KDB compiled in, it is not possible to
+>enter into KDB or LKCD when a TC (transfer control) command is issued. 
+>TC results in the OS init handler running and calling kdba_mca_init() 
+>which gives the following error:
 >
-># gdb vmlinux vmcore-nmi-10
->GNU gdb 6.4
->Copyright 2005 Free Software Foundation, Inc.
->GDB is free software, covered by the GNU General Public License, and you are
->welcome to change it and/or distribute copies of it under certain
->conditions.
->Type "show copying" to see the conditions.
->There is absolutely no warranty for GDB.  Type "show warranty" for details.
->This GDB was configured as "ia64-suse-linux"...Using host libthread_db
->library "/lib/libthread_db.so.1".
+> kdba_mca_init: not enough data in pal_min_state_area for kdb backtrace, cpu 3
 >
->#0  crash_save_this_cpu () at arch/ia64/kernel/crash.c:57
+>This error results in the following some time later on:
+> kdba_release_init_slave_stack: INIT slave tripped on cpu 0 when not in 
+> kdb,should never happen
 >
->warning: Source file is more recent than executable.
->57              memcpy(buf, name, note->n_namesz);
->(gdb) bt
->#0  crash_save_this_cpu () at arch/ia64/kernel/crash.c:57
->#1  0xa00000010005f580 in kdump_cpu_freeze (info=<value optimized out>,
->    arg=0x1) at arch/ia64/kernel/crash.c:166
->#2  0xa00000010000c9f0 in unw_init_running () at include/linux/bitmap.h:237
->#3  0xa00000010005ef70 in kdump_init_notifier (self=0xa000000100b47d78,
->    val=<value optimized out>, data=0xe000003007157b70)
->    at arch/ia64/kernel/crash.c:217
->#4  0xa0000001000cf0d0 in notifier_call_chain (nl=0xe000003014bcb3f8,
->val=13,
->    v=0xe000003007157b70) at kernel/sys.c:144
->#5  0xa0000001000cf170 in atomic_notifier_call_chain
->(nh=0xe000003014bcb3f0,
->    val=21, v=0xe000003007157b70) at kernel/sys.c:229
->#6  0xa000000100048480 in ia64_init_handler (regs=0xe000003007157e40,
->    sw=<value optimized out>, sos=<value optimized out>)
->    at include/asm/kdebug.h:88
->#7  0xa0000001000493a0 in ia64_os_init_virtual_begin ()
->    at include/asm/kdebug.h:88
->(gdb)
+>The reason for the initial error is that kdba_mca_init() expects that 
+>the floating point registers were saved by SAL when in fact they were 
+>not.  The SAL spec states that it is not necessary to store them and, 
+>in the interests of NMRAM real estate, the HP rx7620 and rx8620 systems 
+>do not.
 >
->It is the stack _after_ NMI is triggered. Is this supposed to be?
->What do you see on other (ie not SN) ia64 platforms?
+>What would be the down-side of ignoring the valid.fr bit?  I notice that
+>cr and minstate bits seem to have been ignored in previous changes.  
 
-This is standard for INIT on any IA64 box, it is not SN specific.  IA64
-MCA/INIT run on separate stacks and tasks.  Read Documentation/ia64/mca.txt
-and arch/ia64/kernel/mca.c::ia64_mca_modify_original_stack
+If the salinfo record does not contain the floating point registers
+then the corresponding fields in struct pt_regs that is built by KDB
+will be populated with garbage.  It should not affect backtrace, gcc
+never stores addresses in the floating point registers.
 
