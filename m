@@ -1,33 +1,26 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 01 Nov 2006 19:15:14 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 01 Nov 2006 19:35:28 +0000
 Subject: Re: cross-compiling ia64 kernels?
-Message-Id: <jeirhzashp.fsf@sykes.suse.de>
+Message-Id: <Pine.LNX.4.64.0611011117160.14406@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <617E1C2C70743745A92448908E030B2AB91DF8@scsmsx411.amr.corp.intel.com>
 In-Reply-To: <617E1C2C70743745A92448908E030B2AB91DF8@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter <clameter@sgi.com> writes:
+On Wed, 1 Nov 2006, Andreas Schwab wrote:
 
-> Frankly, I have no idea where the cross script gets its kernel from. I=20
-> guessed that it was somehow related to the current running kernel version=
-?=20
-> Or does the cross script have the version hardcoded somewhere? Could not =
+> Read the build log.
 
-> find it.
+Ok. It builds now.  One has to edit gcc-3.4.2-glibc-2.3.3.dat to have
 
-Read the build log.
+BINUTILS_DIR=binutils-2.15
+GCC_DIR=gcc-3.4.2
+GLIBC_DIR=glibc-2.3.3
+LINUX_DIR=linux-2.6.18
+^^^^^^^^^^^^^^^^^^^^^^^
+GLIBCTHREADS_FILENAME=glibc-linuxthreads-2.3.3
 
-> /home/christoph/explore/crosstool-0.42/build/ia64-unknown-linux-gnu/gcc-3=
-.4.2-glibc-2.3.3/linux-2.6.8
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+This looks like its pretty old software. Wonder if that will be worth it.
