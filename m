@@ -1,211 +1,78 @@
-From: John Keller <jpk@sgi.com>
-Date: Thu, 30 Nov 2006 23:04:10 +0000
-Subject: Re: [PATCH 3/3] - Add support for acpi_load_table/acpi_unload_table_id
-Message-Id: <20061130230410.23614.55659.74300@attica.americas.sgi.com>
+From: "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+Date: Wed, 01 Nov 2006 18:30:21 +0000
+Subject: RE: ia64 acpi-cpufreq driver
+Message-Id: <EB12A50964762B4D8111D55B764A8454D03557@scsmsx413.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061115152742.6195.89282.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20061115152742.6195.89282.sendpatchset@attica.americas.sgi.com>
+References: <200610231531.05346.bjorn.helgaas@hp.com>
+In-Reply-To: <200610231531.05346.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org
-Cc: akpm@osdl.org, len.brown@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, gregkh@suse.de, linux-kernel@vger.kernel.org, ayoung@sgi.com, jes@sgi.com, John Keller <jpk@sgi.com>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org
 
-
- This patch makes acpi_load_table() available
- for use by removing it from the #ifdef ACPI_FUTURE_USAGE.
-
- It also adds a new routine used to unload an ACPI table
- of a given type and "id" - acpi_unload_table_id().
- The implementation of this new routine was almost a direct
- copy of existing routine acpi_unload_table() - only difference
- being that it only removes a specific table id instead of
- ALL tables of a given type.
- The SN hotplug driver (sgi_hotplug.c) now uses both of these
- interfaces to dynamically load and unload SSDT ACPI tables.
-
-Signed-off-by: Aaron Young <ayoung@sgi.com>
-
----
-
-Andrew,
-  Can you take this update and replace the current version in
-  your -mm tree:
-   add-support-for-acpi_load_table-acpi_unload_table_id.patch
-
-Len,
-  What do we need to do to resolve any licensing issues related to
-  these changes?
-
-Thanks.
-
-
-Resend #2
-   Code has been improved to no longer use ACPI "internal" routines
-   (such as acpi_ns_get_next_node()). To this end, a new public interface
-   to obtain the owner_id for a handle was added (acpi_get_id()). It is
-   very similar to existing routine acpi_get_type().
-
-Resend #1
-   Original send of this patch was outdated and did not have
-   acpi_ut_acquire_mutex() and acpi_ut_release_mutex() calls
-   in acpi_unload_table_id().
-
-
- drivers/acpi/namespace/nsxfobj.c |   44 +++++++++++++++++++++++
- drivers/acpi/tables/tbxface.c    |   54 ++++++++++++++++++++++++++++-
- include/acpi/acpixf.h            |    7 ++-
- 3 files changed, 102 insertions(+), 3 deletions(-)
-
-Index: release/drivers/acpi/tables/tbxface.c
-=================================--- release.orig/drivers/acpi/tables/tbxface.c	2006-11-29 14:14:23.532910707 -0600
-+++ release/drivers/acpi/tables/tbxface.c	2006-11-29 14:15:04.173937975 -0600
-@@ -123,7 +123,6 @@ acpi_status acpi_load_tables(void)
  
- ACPI_EXPORT_SYMBOL(acpi_load_tables)
- 
--#ifdef ACPI_FUTURE_USAGE
- /*******************************************************************************
-  *
-  * FUNCTION:    acpi_load_table
-@@ -221,6 +220,59 @@ ACPI_EXPORT_SYMBOL(acpi_load_table)
- 
- /*******************************************************************************
-  *
-+ * FUNCTION:    acpi_unload_table_id
-+ *
-+ * PARAMETERS:  table_type    - Type of table to be unloaded
-+ *              id            - Owner ID of the table to be removed.
-+ *
-+ * RETURN:      Status
-+ *
-+ * DESCRIPTION: This routine is used to force the unload of a table (by id)
-+ *
-+ ******************************************************************************/
-+acpi_status acpi_unload_table_id(acpi_table_type table_type, acpi_owner_id id)
-+{
-+	struct acpi_table_desc *table_desc;
-+	acpi_status status;
-+
-+	ACPI_FUNCTION_TRACE(acpi_unload_table);
-+
-+	/* Parameter validation */
-+	if (table_type > ACPI_TABLE_ID_MAX)
-+		return_ACPI_STATUS(AE_BAD_PARAMETER);
-+
-+	/* Find table from the requested type list */
-+	table_desc = acpi_gbl_table_lists[table_type].next;
-+	while (table_desc && table_desc->owner_id != id)
-+		table_desc = table_desc->next;
-+
-+	if (!table_desc)
-+		return_ACPI_STATUS(AE_NOT_EXIST);
-+
-+	/*
-+	 * Delete all namespace objects owned by this table. Note that these
-+	 * objects can appear anywhere in the namespace by virtue of the AML
-+	 * "Scope" operator. Thus, we need to track ownership by an ID, not
-+	 * simply a position within the hierarchy
-+	 */
-+	acpi_ns_delete_namespace_by_owner(table_desc->owner_id);
-+
-+	status = acpi_ut_acquire_mutex(ACPI_MTX_TABLES);
-+	if (ACPI_FAILURE(status))
-+		return_ACPI_STATUS(status);
-+
-+	(void)acpi_tb_uninstall_table(table_desc);
-+
-+	(void)acpi_ut_release_mutex(ACPI_MTX_TABLES);
-+
-+	return_ACPI_STATUS(AE_OK);
-+}
-+
-+ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
-+
-+#ifdef ACPI_FUTURE_USAGE
-+/*******************************************************************************
-+ *
-  * FUNCTION:    acpi_unload_table
-  *
-  * PARAMETERS:  table_type    - Type of table to be unloaded
-Index: release/include/acpi/acpixf.h
-=================================--- release.orig/include/acpi/acpixf.h	2006-11-29 14:14:23.556913676 -0600
-+++ release/include/acpi/acpixf.h	2006-11-29 14:18:55.966606388 -0600
-@@ -97,11 +97,12 @@ acpi_find_root_pointer(u32 flags, struct
- 
- acpi_status acpi_load_tables(void);
- 
--#ifdef ACPI_FUTURE_USAGE
- acpi_status acpi_load_table(struct acpi_table_header *table_ptr);
- 
--acpi_status acpi_unload_table(acpi_table_type table_type);
-+acpi_status acpi_unload_table_id(acpi_table_type table_type, acpi_owner_id id);
- 
-+#ifdef ACPI_FUTURE_USAGE
-+acpi_status acpi_unload_table(acpi_table_type table_type);
- acpi_status
- acpi_get_table_header(acpi_table_type table_type,
- 		      u32 instance, struct acpi_table_header *out_table_header);
-@@ -180,6 +181,8 @@ acpi_get_next_object(acpi_object_type ty
- 
- acpi_status acpi_get_type(acpi_handle object, acpi_object_type * out_type);
- 
-+acpi_status acpi_get_id(acpi_handle object, acpi_owner_id * out_type);
-+
- acpi_status acpi_get_parent(acpi_handle object, acpi_handle * out_handle);
- 
- /*
-Index: release/drivers/acpi/namespace/nsxfobj.c
-=================================--- release.orig/drivers/acpi/namespace/nsxfobj.c	2006-11-29 14:18:31.000000000 -0600
-+++ release/drivers/acpi/namespace/nsxfobj.c	2006-11-29 14:19:18.709418875 -0600
-@@ -50,6 +50,50 @@ ACPI_MODULE_NAME("nsxfobj")
- 
- /*******************************************************************************
-  *
-+ * FUNCTION:    acpi_get_id
-+ *
-+ * PARAMETERS:  Handle          - Handle of object whose id is desired
-+ *              ret_id          - Where the id will be placed
-+ *
-+ * RETURN:      Status
-+ *
-+ * DESCRIPTION: This routine returns the owner id associated with a handle
-+ *
-+ ******************************************************************************/
-+acpi_status acpi_get_id(acpi_handle handle, acpi_owner_id * ret_id)
-+{
-+	struct acpi_namespace_node *node;
-+	acpi_status status;
-+
-+	/* Parameter Validation */
-+
-+	if (!ret_id) {
-+		return (AE_BAD_PARAMETER);
-+	}
-+
-+	status = acpi_ut_acquire_mutex(ACPI_MTX_NAMESPACE);
-+	if (ACPI_FAILURE(status)) {
-+		return (status);
-+	}
-+
-+	/* Convert and validate the handle */
-+
-+	node = acpi_ns_map_handle_to_node(handle);
-+	if (!node) {
-+		(void)acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
-+		return (AE_BAD_PARAMETER);
-+	}
-+
-+	*ret_id = node->owner_id;
-+
-+	status = acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
-+	return (status);
-+}
-+
-+ACPI_EXPORT_SYMBOL(acpi_get_id)
-+
-+/*******************************************************************************
-+ *
-  * FUNCTION:    acpi_get_type
-  *
-  * PARAMETERS:  Handle          - Handle of object whose type is desired
+
+>-----Original Message-----
+>From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com] 
+>Sent: Thursday, October 26, 2006 8:30 AM
+>To: Pallipadi, Venkatesh
+>Cc: linux-acpi@vger.kernel.org; linux-ia64@vger.kernel.org
+>Subject: Re: ia64 acpi-cpufreq driver
+>> I think having 
+>> separate code, even if there is some amount of duplication 
+>is there, is
+>> better in this case. The reasons:
+>> - i386 acpi-cpufreq code has support for both IO port and FFH. Please
+>> refer to arch/i386/kernel/cpu/cpufreq/acpi-cpufreq.c in 
+>2.6.19-rc2-mm2,
+>> which is a lot different from current git.
+>> - FFH in i386 works in a different way from IPF. Specifically,
+>> PERF_STATUS is just a register read, and hardware 
+>performance feedback
+>> is by using different APERF/MPERF MSR. But, in IPF it is done through
+>> passing a different type parameter to same PAL_GET_PSTATE 
+>calls (will be
+>> adding this to IPF driver soon).
+>
+>Well, of course FFH would be *implemented* differently on x86
+>than ia64!  But the layout of the FFH address space, which
+>essentially determines the semantics of FFH, should be the
+>same for all architectures (though somebody seems to have
+>forgotten to specify that layout).
+>
+
+What I meant is, way FFH address space is defined and used is not
+totally 
+same across i386 and ia64. Specifically, FFH is only used in definition
+of 
+_PCT status and control objects and a FFH driver can be useful there.
+But,
+Hardware feedback of current/average frequency over a period of time 
+(which does not have FFH object in ACPI) can also use some interface 
+which overlap with interface that FFH driver is using. In the sense that
+There is no clear distinction on the scope of this FFH driver.
+Also i386 uses FFH for both C-states and P-states where as IA64 uses it
+only for P-states today.
+
+All this issues can be resolved once we have a definition of this FFH
+scope.
+I guess we need to revisit once we have the FFH related documentation
+for IA64
+(which should happen soon).
+
+But, having seen the undue complications we are having in i386 world
+with 
+different drivers (SYSTEM_IO and FFH drivers) and stuff my feeling at
+this
+point is, it will just add more overhead due to abstraction than the
+commonality in code that it is going to bring. I mean, all the cpufreq
+and
+ACPI code are already getting shared across architectures today. So,
+only 
+thing this new abstraction is going to make common across archs is
+registering and deregistering with ACPI and cpufreq.
+
+
+Thanks,
+Venki
