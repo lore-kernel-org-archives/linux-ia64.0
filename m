@@ -1,87 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 14 Nov 2006 08:31:42 +0000
-Subject: Re: [PATCH] Incorrect MSI interrupt type name
-Message-Id: <m1slgml98x.fsf@ebiederm.dsl.xmission.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 02 Nov 2006 00:36:58 +0000
+Subject: RE: [patch] More Itanium PAL spec updates
+Message-Id: <617E1C2C70743745A92448908E030B2ABC8815@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1163488977.4311.52.camel@ymzhang-perf.sh.intel.com>
-	<20061113234315.767f7516.akpm@osdl.org>
-In-Reply-To: <20061113234315.767f7516.akpm@osdl.org> (Andrew Morton's message
-	of "Mon, 13 Nov 2006 23:43:15 -0800")
+References: <200610302243.k9UMhnr723897048@clink.americas.sgi.com>
+In-Reply-To: <200610302243.k9UMhnr723897048@clink.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>, Ingo Molnar <mingo@elte.hu>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> writes:
++#define PAL_MEMORY_BUFFER	277	/* Provide cacheable memory for PAL */
 
-> On Tue, 14 Nov 2006 15:22:57 +0800
-> "Zhang, Yanmin" <yanmin_zhang@linux.intel.com> wrote:
->
->> /proc/interrupts shows "<NULL>" for MSI interrupt type name on
->> my ia64 machine.
->>=20
->> Below patch against 2.6.19-rc5-mm1 fixes it.
->>=20
->> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
->>=20
->> ---
->>=20
->> --- linux-2.6.19-rc5-mm1/arch/ia64/kernel/msi_ia64.c 2006-11-14
-> 14:16:12.000000000 +0800
->> +++ linux-2.6.19-rc5-mm1_fix/arch/ia64/kernel/msi_ia64.c 2006-11-14
-> 15:08:37.000000000 +0800
->> @@ -115,7 +115,7 @@ static int ia64_msi_retrigger_irq(unsign
->>   * Generic ops used on most IA64 platforms.
->>   */
->>  static struct irq_chip ia64_msi_chip =3D {
->> -	.name		=3D "PCI-MSI",
->> +	.typename	=3D "PCI-MSI",
->>  	.mask		=3D mask_msi_irq,
->>  	.unmask		=3D unmask_msi_irq,
->>  	.ack		=3D ia64_ack_msi_irq,
->
-> I think the bug is that ia64 is printing ->typename, whereas it should be
-> printing ->name:
-
-Looks right.   The basic issue is that the msi code is fully
-genirq converted.  While the rest of the ia64 code has yet to
-be updated.
-
-But since irq_chip_set_defaults sets name and typename to be
-the same I believe this patch is safe.
-
-Eric
+This call looks like a new headache for kexec :-(  While there are
+hooks to relocate the buffer, I can't see a way to just take back
+the buffer ... which makes life hard when kexec'ing from one kernel
+to a possibly entirely unrelated OS.  It might be a whole lot better
+if the OS didn't touch this (SAL or EFI could set up the buffer?)
 
 
->  arch/ia64/kernel/iosapic.c |    2 +-
->  arch/ia64/kernel/irq.c     |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
->
-> diff -puN arch/ia64/kernel/iosapic.c~ia64-irqs-use-name-not-typename
-> arch/ia64/kernel/iosapic.c
-> --- a/arch/ia64/kernel/iosapic.c~ia64-irqs-use-name-not-typename
-> +++ a/arch/ia64/kernel/iosapic.c
-> @@ -664,7 +664,7 @@ register_intr (unsigned int gsi, int vec
->  			printk(KERN_WARNING
->  			       "%s: changing vector %d from %s to %s\n",
->  			       __FUNCTION__, vector,
-> -			       idesc->chip->typename, irq_type->typename);
-> +			       idesc->chip->name, irq_type->name);
->  		idesc->chip =3D irq_type;
->  	}
->  	return 0;
-> diff -puN arch/ia64/kernel/irq.c~ia64-irqs-use-name-not-typename
-> arch/ia64/kernel/irq.c
-> --- a/arch/ia64/kernel/irq.c~ia64-irqs-use-name-not-typename
-> +++ a/arch/ia64/kernel/irq.c
-> @@ -76,7 +76,7 @@ int show_interrupts(struct seq_file *p,=20
->  			seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
->  		}
->  #endif
-> -		seq_printf(p, " %14s", irq_desc[i].chip->typename);
-> +		seq_printf(p, " %14s", irq_desc[i].chip->name);
->  		seq_printf(p, "  %s", action->name);
-> =20
->  		for (action=ACtion->next; action; action =3D action->next)
-> _
+
++		     "Max Purges                     : %d\n"
+ 		     "Size of RR.rid                 : %d\n",
+ 		     vm_info_1.pal_vm_info_1_s.phys_add_size,
+ 		     vm_info_2.pal_vm_info_2_s.impl_va_msb+1,
+ 		     vm_info_1.pal_vm_info_1_s.max_pkr+1,
+ 		     vm_info_1.pal_vm_info_1_s.key_size,
+ 		     vm_info_1.pal_vm_info_1_s.hash_tag_id,
++		     vm_info_2.pal_vm_info_2_s.max_purges?
++				vm_info_2.pal_vm_info_2_s.max_purges : 1,
+
+max_purges = 65535 means "unlimited".  Should we be helpful here and
+print an explicit "unlimited" ... or rely on users having read SDM page
+2:451?
+
+-Tony
