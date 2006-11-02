@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 02 Nov 2006 07:32:24 +0000
-Subject: Re: [PATCH]IA64 trap code 16 bytes atomic copy on montecito, take 2
-Message-Id: <23211.1162452744@kao2.melbourne.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 02 Nov 2006 07:38:36 +0000
+Subject: RE: [PATCH]IA64 trap code 16 bytes atomic copy on montecito, take 2
+Message-Id: <000001c6fe51$ead6ce70$bf80030a@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <454961EE.4070608@intel.com>
 In-Reply-To: <454961EE.4070608@intel.com>
@@ -10,35 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"bibo,mao" (on Thu, 02 Nov 2006 15:27:34 +0800) wrote:
->Keith Owens wrote:
->> Keith Owens (on Thu, 02 Nov 2006 18:22:58 +1100) wrote:
->>> /me kicks himself for mixing up src and dest.
->>>
->>> extern ld16_st16(dest, src);
->>>
->>> ENTRY(ld16_st16)
->>> 	ld16 r15=[r32]		// src
->>> 	;;
->>> 	st16 [r33]=r15		// dest
->>> 	br.ret.sptk.many rp
->>> EXIT(ld16_st16)
->> 
->> Third time lucky, then it's time for some sleep.
->Thanks:), I do not whether ar.csd should be saved/restore across
->this function.
+Mao, Bibo wrote on Wednesday, November 01, 2006 7:12 PM
+>  On IA64 kprobe can not insert trap code on slot 1 because
+> opcode of slot 1 crosses over two consecutive 8-bytes. On
+> montecito machine 16 bytes atomic operation is avaiable.
+> This patch adds ia64_ld16/ia64_st16 instrins in gcc header
+> file, implements atomic instr bundle updating by cpu feature.
 
-ar.csd is defined to be a scratch register.  So its contents do not
-need to be saved.
+Let me take a giant step back and ask you a question:
 
->> extern ld16_st16(dest, src);
->> 
->> ENTRY(ld16_st16)
->> 	ld16 r15=[r33]		// src
->> 	;;
->> 	st16 [r32]=r15		// dest
->> 	br.ret.sptk.many rp
->> EXIT(ld16_st16)
->
->
+Have you explored all possible avenue of inserting a probe with
+only 8-byte write to slot 1 instruction?  I think it is doable.
 
+- Ken
