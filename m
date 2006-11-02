@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Thu, 02 Nov 2006 07:22:58 +0000
+Date: Thu, 02 Nov 2006 07:25:15 +0000
 Subject: Re: [PATCH]IA64 trap code 16 bytes atomic copy on montecito, take 2
-Message-Id: <22830.1162452178@kao2.melbourne.sgi.com>
+Message-Id: <22990.1162452315@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <454961EE.4070608@intel.com>
 In-Reply-To: <454961EE.4070608@intel.com>
@@ -10,27 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens (on Thu, 02 Nov 2006 18:17:57 +1100) wrote:
->This should do the job.  No prologue or alloc because it is a leaf
->function, which means no in0/in1, use r32/r33 instead.
+Keith Owens (on Thu, 02 Nov 2006 18:22:58 +1100) wrote:
+>/me kicks himself for mixing up src and dest.
 >
->extern ld16_st16(src, dest);
+>extern ld16_st16(dest, src);
 >
 >ENTRY(ld16_st16)
->	ld16 r15=[r33]		// dest
+>	ld16 r15=[r32]		// src
 >	;;
->	st16 [r32]=r15		// src
+>	st16 [r33]=r15		// dest
 >	br.ret.sptk.many rp
 >EXIT(ld16_st16)
 
-/me kicks himself for mixing up src and dest.
+Third time lucky, then it's time for some sleep.
 
 extern ld16_st16(dest, src);
 
 ENTRY(ld16_st16)
-	ld16 r15=[r32]		// src
+	ld16 r15=[r33]		// src
 	;;
-	st16 [r33]=r15		// dest
+	st16 [r32]=r15		// dest
 	br.ret.sptk.many rp
 EXIT(ld16_st16)
 
