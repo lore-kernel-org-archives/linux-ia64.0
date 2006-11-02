@@ -1,58 +1,52 @@
-From: John Partridge <johnip@sgi.com>
-Date: Thu, 02 Nov 2006 01:08:37 +0000
+From: Jeremy Higdon <jeremy@sgi.com>
+Date: Thu, 02 Nov 2006 03:05:11 +0000
 Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <45494515.8050304@sgi.com>
+Message-Id: <20061102030511.GS150820@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061031204717.GG26964@parisc-linux.org>	<ada4ptkt8y2.fsf@cisco.com>	<4548CAE7.8010300@sgi.com> <20061101.150418.26278280.davem@davemloft.net>
-In-Reply-To: <20061101.150418.26278280.davem@davemloft.net>
+References: <adafyddcysw.fsf@cisco.com> <20061024192210.GE2043@havoc.gtf.org> <20061024214724.GS25210@parisc-linux.org> <adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org> <20061024232755.GA26521@sgi.com>
+In-Reply-To: <20061024232755.GA26521@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>
-Cc: rdreier@cisco.com, matthew@wil.cx, jmodem@AbominableFirebug.com, mst@mellanox.co.il, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeff@garzik.org, openib-general@openib.org, linux-pci@atrey.karlin.mff.cuni.cz
+To: Jack Steiner <steiner@sgi.com>
+Cc: Matthew Wilcox <matthew@wil.cx>, Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jeff@garzik.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
 
-David Miller wrote:
-> From: John Partridge <johnip@sgi.com>
-> Date: Wed, 01 Nov 2006 10:27:19 -0600
+On Tue, Oct 24, 2006 at 06:27:55PM -0500, Jack Steiner wrote:
+> On Tue, Oct 24, 2006 at 04:36:32PM -0600, Matthew Wilcox wrote:
+> > On Tue, Oct 24, 2006 at 02:51:30PM -0700, Roland Dreier wrote:
+> > >  > I think the right way to fix this is to ensure mmio write ordering in
+> > >  > the pci_write_config_*() implementations.  Like this.
+> > > 
+> > > I'm happy to fix this in the PCI core and not force drivers to worry
+> > > about this.
+> > > 
+> > > John, can you confirm that this patch fixes the issue for you?
+> > 
+> > Hang on.  I wasn't thinking clearly.  mmiowb() only ensures the write
+> > has got as far as the shub.  
 > 
+> I think mmiowb() should work on SN hardware. mmiowb() delays until shub
+> reports that all previously issued PIO writes have completed. 
 > 
->>Sorry, but I find this change a bit puzzling. The problem is
->>particular to the PPB on the HCA and not Altix. I can't see anywhere
->>that a PCI Config Write is required to block until completion, it is
->>the driver and the HCA ,not the Altix hardware that requires the
->>Config Write to have completed before we leave mthca_reset()
->>Changing pci_write_config_xxx() will change the behavior for ALL
->>drivers and the possibility of breaking something else. The fix was
->>very low risk in mthca_reset(), changing the PCI code to fix this is
->>much more onerous.
+> The processor "mf.a" guarantees "platform acceptance" which on SN means
+> that shub has accepted the write - not that it has actually completed (or
+> even forwarded anywhere by shub). That makes "mf.a" more-or-less useless
+> on SN. However, shub has an additional MMR register (PIO_WRITE_COUNT) that
+> counts actual outstanding PIOs.  mmiob() delays until that count goes to
+> zero.
 > 
-> 
-> The issue is that something as simple as:
-> 
-> 	val = pci_read_config(REG);
-> 	val |= bit;
-> 	pci_write_config(REG, val);
-> 	newval = pci_read_config(REG);
-> 	BUG_ON(!(newval & bit));
-> 
-> is not guarenteed by PCI (aparently).
-> 
-> I see no valid reason why every PCI device driver should
-> be troubled with this lunacy and the ordering should thus
-> be ensured by the PCI layer.
-> 
-> It just so happens to take care of the original driver
-> issue too :-)
+> I'll check if there is any additional reordering that can occur AFTER the
+> PIO_WRITE_COUNT goes to zero.  If so, it would be at bus level - not in
+> shub or routers.
 
-Yeah, Matthew has convinced me of that now.
+As I understand it, the mmiowb on the shub waits only for the PIO write
+to be accepted by the destination node (shub or tio) that the I/O device
+is attached to, thus guaranteeing that no reordering will happen within
+the NL.
 
-Thanks
+If the PPB can reorder the write, then mmiowb is not sufficient.  You'd
+have to do a readback from a chip register (assuming you can trust the
+PPB not to reorder reads and writes), or some other work around I haven't
+thought of.
 
-
--- 
-John Partridge
-
-Silicon Graphics Inc
-Tel:	651-683-3428
-Vnet:	233-3428
-E-Mail:	johnip@sgi.com
+jeremy
