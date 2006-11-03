@@ -1,33 +1,41 @@
-From: "Karthik Gopalakrishnan" <karthik.g.krishnan@gmail.com>
-Date: Thu, 09 Nov 2006 14:27:19 +0000
-Subject: Re: elilo.efi causing Kernel Panic
-Message-Id: <5e0a1fd80611090615j7dd609degeb9003faf1081b79@mail.gmail.com>
+From: Jay Lan <jlan@sgi.com>
+Date: Fri, 03 Nov 2006 17:42:23 +0000
+Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
+Message-Id: <454B7F7F.2050802@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061109124221.GL16952@parisc-linux.org>
-In-Reply-To: <20061109124221.GL16952@parisc-linux.org>
+References: <4546623D.5000105@engr.sgi.com>
+In-Reply-To: <4546623D.5000105@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yup. elilo-3.6 has fixed the bug.
+Zou, Nanhai wrote:
+>   --noio patch should be the same to my original sugguestion..., it bypass all PIO and MMIO in purgatory with --noio option. I need to have a check though.
 
-Regards,
-Karthik
+Hi Nanhai,
 
-On 11/9/06, Karthik Gopalakrishnan <karthik.g.krishnan@gmail.com> wrote:
-> Will do. Thanks again. :-)
->
-> Regards,
-> Karthik
->
-> On 11/9/06, Matthew Wilcox <matthew@wil.cx> wrote:
-> > On Thu, Nov 09, 2006 at 06:40:59PM +0530, Karthik Gopalakrishnan wrote:
-> > > When I booted from the original elilo.efi binary, the console log was
-> > > a bit different. I have listed it below. My efi binary seems to have
-> > > detected some RAM Disk when this one doesn't. Hope this helps.
-> >
-> > Yep, this is a known bug in some versions of elilo.  3.6 should have
-> > this fixed ... if not, let us know.
-> >
->
+I finally got a chance to look at this further.
+
+Your patch touched four files:
+    kexec/arch/ia64/kexec-elf-ia64.c
+    purgatory/arch/ia64/entry.S
+    purgatory/arch/ia64/include/arch/io.h
+    purgatory/arch/ia64/io.h
+
+I replaced both of the io.h with my version and it still
+failed. So, it should be the way --noio option being handled
+that made the difference.
+
+I did have debug messages showing that "noio" option was
+processed in elf_rel_set_symbol() in my testing. Does
+kernel code need to know about this option? Somehow
+this change makes kernel fail in init().
+
+Thanks,
+ - jay
+
+
+> 
+>   Thanks
+>   Zou Nan hai
