@@ -1,146 +1,117 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Date: Fri, 03 Nov 2006 09:27:24 +0000
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Fri, 03 Nov 2006 10:06:45 +0000
 Subject: RE: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
-Message-Id: <Pine.LNX.4.64.0611030916230.9787@skynet.skynet.ie>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="29444707-455934317-1162546044=:9787"
+Message-Id: <1162548405.3378.8.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061026075951.GA30910@verge.net.au>
 In-Reply-To: <20061026075951.GA30910@verge.net.au>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Fri, 2006-11-03 at 17:27, Mel Gorman wrote:
+> On Fri, 3 Nov 2006, Zou, Nanhai wrote:
+> 
+> > Hi,
+> > 	This patch should fix the issue.
+> >
+> 
+> It would appear to fix the issue for IA64 but you are blotting over the 
+> issue that the map is reporting a one page hole. On arches with really 
+> adjacent regions that are getting merged, the regions will appear to 
+> overlap by one page. What can happen is something like this
+> 
+> PFN ranges for nodes
+> Node 1: 0 -> 1000
+> Node 0: 1000 -> 2000
+> 
+Hi,
+ But the patch Andy and you are commenting is not my patch...., It was
+in the previous thread. 
+My patch was in the attachment.....
 
---29444707-455934317-1162546044=:9787
-Content-Type: TEXT/PLAIN; charset=X-UNKNOWN; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+ Sorry for using outlook to send that patch as attachment, my Linux box
+was not accessable at the time when I was posting the patch.
+ I post the patch again, and copy the discription from my previous mail.
 
-On Fri, 3 Nov 2006, Zou, Nanhai wrote:
+When ia64 kernel is configured as discontinuous memory model, 
+active_pages are added through efi_memmap_walk(filter_rsvd_memory, count_node_pages). 
+filter_rsvd_memory  will filter out all regions in rsvd_regions include 
+- boot param
+- mem map
+- initrd
+- command line
+- **** kernel code and data ***
+- kernel map built from efi memmap
+- crash kernel reserved region
+So the kernel code and data is excluded even without kdump support,
+check /proc/iomem and dmesg for early_node_data can verify that.
+But magically, the first kernel boots happily without any complain...,
+I guess that is related to the init value in memmap. 
 
-> Hi,
-> =09This patch should fix the issue.
->
+This patch use another filter to add_acvitive_pages, only exclude crash kernel reserved region if CONFIG_KEXEC is on.
 
-It would appear to fix the issue for IA64 but you are blotting over the=20
-issue that the map is reporting a one page hole. On arches with really=20
-adjacent regions that are getting merged, the regions will appear to=20
-overlap by one page. What can happen is something like this
+Thanks
+Zou Nan hai
+--- a/arch/ia64/mm/discontig.c	2006-11-02 20:09:47.000000000 -0500
++++ b/arch/ia64/mm/discontig.c	2006-11-02 19:57:27.000000000 -0500
+@@ -21,6 +21,7 @@
+ #include <linux/acpi.h>
+ #include <linux/efi.h>
+ #include <linux/nodemask.h>
++#include <linux/kexec.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/meminit.h>
+@@ -653,8 +654,6 @@ void call_pernode_memory(unsigned long s
+ static __init int count_node_pages(unsigned long start, unsigned long len, int node)
+ {
+ 	unsigned long end = start + len;
+-
+-	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
+ 	mem_data[node].num_physpages += len >> PAGE_SHIFT;
+ 	if (start <= __pa(MAX_DMA_ADDRESS))
+ 		mem_data[node].num_dma_physpages +@@ -669,7 +668,31 @@ static __init int count_node_pages(unsig
+ 
+ 	return 0;
+ }
++static __init int add_active_range_wrapper(unsigned long start, 
++		unsigned long len, int node)
++{
++	unsigned long end = start + len;
++	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
++	return 0;
++}
+ 
++static int __init
++filter_pernode_memory (unsigned long start, unsigned long end, void *arg)
++{
++	void (*func)(unsigned long, unsigned long, int);
++	func = arg;
++
++#ifdef CONFIG_KEXEC
++	if (start > crashk_res.start && start < crashk_res.end)
++		start = max(start, crashk_res.end);
++	if (end > crashk_res.start && end < crashk_res.end)
++		end = min(end, crashk_res.start);
++#endif
++	if (start < end)
++		call_pernode_memory(__pa(start), end - start, func);
++
++	return 0;
++}
+ /**
+  * paging_init - setup page tables
+  *
+@@ -689,6 +712,7 @@ void __init paging_init(void)
+ 	arch_sparse_init();
+ 
+ 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
++	efi_memmap_walk(filter_pernode_memory, add_active_range_wrapper);
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ 	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
 
-PFN ranges for nodes
-Node 1: 0 -> 1000
-Node 0: 1000 -> 2000
 
-If your fix was applied, the end effect would be that the nodes appear to=
-=20
-overlap. The last page on node 1 would end up on the free lists of node 0=
-=20
-because the memmap for that page will be incorrectly initialised twice.=20
-While it wouldn't be very noticeable, it's still buggy.
 
-The right fix is to fix the map. Alternatively, change=20
-add_active_range(nid, start_pfn, end_pfn) to add_active-range(nid,=20
-start_pfn, end_pfn+1) in the arch-specific code if you know it's the right=
-=20
-thing to do.
-
-> Thanks
-> Zou Nan hai
->
->> -----Original Message-----
->> From: Mel Gorman [mailto:mel@csn.ul.ie]
->> Sent: 2006=C4=EA11=D4=C23=C8=D5 0:27
->> To: Horms
->> Cc: Andy Whitcroft; Zou, Nanhai; linux-ia64@vger.kernel.org; Bob Picco; =
-Andrew
->> Morton; Dave Hansen; Andi Kleen; Benjamin Herrenschmidt; Paul Mackerras;=
- Keith
->> Mannthey; Luck, Tony; KAMEZAWA Hiroyuki; Yasunori Goto; Khalid Aziz
->> Subject: Re: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
->>
->> On Thu, 2 Nov 2006, Horms wrote:
->>
->>> On Wed, Nov 01, 2006 at 09:38:38AM +0000, Mel Gorman wrote:
->>>>
->>>> Plan C
->>>>
->>>> Call add_active_ranges() for the the PFN ranges initmem reside in.
->>>> Look at free_initmem() to see how to get the virtual address of the
->>>> range is found and make the appropriate conversion. A variation is to
->>>> call add_active_ranges() for the PFN range the whole kernel resides in
->>>> if you have that information for the crash kernel.
->>>
->>> I've made a version of this approach that seems to work.
->>> I had to update add_active_range so that it merges
->>> ranges that are not overlapping, but do create a continous range.
->>> Is this a correct thing to do?
->>>
->>
->> It's a bit unlikely it's the correct fix. As you can see, the
->> add_active_range() is already able to merge contiguous ranges. If the
->> calls imply there is a one page hole, then there is a one page hole. If
->> the caller is wrong and there isn't a one-page hole, then fix the caller
->> walking the map. Power for example currently merges large numbers of
->> adjacent regions that are registered separetly.
->>
->>
->>> --
->>> Horms
->>>  H: http://www.vergenet.net/~horms/
->>>  W: http://www.valinux.co.jp/en/
->>>
->>> Index: linux-2.6/mm/page_alloc.c
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>> --- linux-2.6.orig/mm/page_alloc.c=092006-11-02 16:17:17.000000000 +090=
-0
->>> +++ linux-2.6/mm/page_alloc.c=092006-11-02 16:17:22.000000000 +0900
->>> @@ -2407,7 +2407,7 @@
->>> =09=09=09return;
->>>
->>> =09=09/* Merge forward if suitable */
->>> -=09=09if (start_pfn <=3D early_node_map[i].end_pfn &&
->>> +=09=09if (start_pfn <=3D early_node_map[i].end_pfn + 1 &&
->>> =09=09=09=09end_pfn > early_node_map[i].end_pfn) {
->>> =09=09=09early_node_map[i].end_pfn =3D end_pfn;
->>> =09=09=09return;
->>> @@ -2415,7 +2415,7 @@
->>>
->>> =09=09/* Merge backward if suitable */
->>> =09=09if (start_pfn < early_node_map[i].end_pfn &&
->>> -=09=09=09=09end_pfn >=3D early_node_map[i].start_pfn) {
->>> +=09=09=09=09end_pfn + 1 >=3D early_node_map[i].start_pfn) {
->>> =09=09=09early_node_map[i].start_pfn =3D start_pfn;
->>> =09=09=09return;
->>> =09=09}
->>> Index: linux-2.6/arch/ia64/mm/discontig.c
->>> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
->>> --- linux-2.6.orig/arch/ia64/mm/discontig.c=092006-11-02
->> 16:17:59.000000000 +0900
->>> +++ linux-2.6/arch/ia64/mm/discontig.c=092006-11-02 16:18:03.000000000
->> +0900
->>> @@ -689,6 +689,8 @@
->>> =09arch_sparse_init();
->>>
->>> =09efi_memmap_walk(filter_rsvd_memory, count_node_pages);
->>> +=09add_active_range(0, ia64_tpa(_text) >> PAGE_SHIFT,
->>> +=09                 (ia64_tpa(_end) -1 ) >> PAGE_SHIFT);
->>>
->>> #ifdef CONFIG_VIRTUAL_MEM_MAP
->>> =09vmalloc_end -=3D PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
->>>
->>
->> --
->> Mel Gorman
->> Part-time Phd Student                          Linux Technology Center
->> University of Limerick                         IBM Dublin Software Lab
->
-
---=20
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
---29444707-455934317-1162546044=:9787--
