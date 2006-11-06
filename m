@@ -1,7 +1,7 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Fri, 03 Nov 2006 10:23:42 +0000
+From: Horms <horms@verge.net.au>
+Date: Mon, 06 Nov 2006 03:18:00 +0000
 Subject: Re: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
-Message-Id: <454B18AE.3070603@shadowen.org>
+Message-Id: <20061106031759.GA30503@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061026075951.GA30910@verge.net.au>
 In-Reply-To: <20061026075951.GA30910@verge.net.au>
@@ -10,62 +10,71 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zou, Nanhai wrote:
+On Fri, Nov 03, 2006 at 06:06:45PM +0800, Zou Nan hai wrote:
+> On Fri, 2006-11-03 at 17:27, Mel Gorman wrote:
+> > On Fri, 3 Nov 2006, Zou, Nanhai wrote:
+> > 
+> > > Hi,
+> > > 	This patch should fix the issue.
+> > >
+> > 
+> > It would appear to fix the issue for IA64 but you are blotting over the 
+> > issue that the map is reporting a one page hole. On arches with really 
+> > adjacent regions that are getting merged, the regions will appear to 
+> > overlap by one page. What can happen is something like this
+> > 
+> > PFN ranges for nodes
+> > Node 1: 0 -> 1000
+> > Node 0: 1000 -> 2000
+> > 
 > Hi,
-> 	This patch should fix the issue.
+>  But the patch Andy and you are commenting is not my patch...., It was
+> in the previous thread. 
+> My patch was in the attachment.....
 > 
+>  Sorry for using outlook to send that patch as attachment, my Linux box
+> was not accessable at the time when I was posting the patch.
+>  I post the patch again, and copy the discription from my previous mail.
+> 
+> When ia64 kernel is configured as discontinuous memory model, 
+> active_pages are added through efi_memmap_walk(filter_rsvd_memory, count_node_pages). 
+> filter_rsvd_memory  will filter out all regions in rsvd_regions include 
+> - boot param
+> - mem map
+> - initrd
+> - command line
+> - **** kernel code and data ***
+> - kernel map built from efi memmap
+> - crash kernel reserved region
+> So the kernel code and data is excluded even without kdump support,
+> check /proc/iomem and dmesg for early_node_data can verify that.
+> But magically, the first kernel boots happily without any complain...,
+> I guess that is related to the init value in memmap. 
+> 
+> This patch use another filter to add_acvitive_pages, only exclude crash kernel reserved region if CONFIG_KEXEC is on.
 
-This patch affects the semantics of the generic code.  To change it
-would mean changing all the other architectures to use the new semantics.
+Hi Nan hai,
 
-add_active_ranges(nid, start, end) is defined to add the range below to
-node nid:
+I can confirm that your patch does indeed resolve the problem that I am
+seeint, and it seems to produce PFN ranges that are correct. Though I
+must admit I don't entirely follow how skipping the crash-kernel range
+in the first kernel effects things in the second kernel.
 
-	start <= pfn < end
+Also, I am wondering if the following patch, which just 
+has filter_rsvd_memory() skip the region matching crashk_res
+achives the same as your patch. It does seem to work.
 
-The change in this patch makes it:
 
-	start <= pfn <= end
-
-This will incorrectly add pages to regions registered by all other
-architectures.  This implies one of two things:
-
-1) the EFI map is actually defining regions start <= pfn <= end, and
-these should be registered as add_active_region(nid, start, end + 1), or
-
-2) the kexec EFI map is being incorrectly filled in using start <= pfn
-<= end form.
-
-Looking at (1), it seems that the EFI map actually defines the region
-using (start, num_pages) tuples.  These are converted in walk() to
-(start, end) where end = start + num_pages.  This implies to me that the
-callback is recieving (start, end) where the valid region is start <pfn < end, which is compatible with the add_active_region
-implementation.  A quick look at the contig and discontig
-implementations they preserve this through.
-
->>> Index: linux-2.6/arch/ia64/mm/discontig.c
->>> =================================>>> --- linux-2.6.orig/arch/ia64/mm/discontig.c	2006-11-02
->> 16:17:59.000000000 +0900
->>> +++ linux-2.6/arch/ia64/mm/discontig.c	2006-11-02 16:18:03.000000000
->> +0900
->>> @@ -689,6 +689,8 @@
->>> 	arch_sparse_init();
->>>
->>> 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
->>> +	add_active_range(0, ia64_tpa(_text) >> PAGE_SHIFT,
->>> +	                 (ia64_tpa(_end) -1 ) >> PAGE_SHIFT);
-
-Ok, this is wrong in the sense that you should be adjusting the end up
-to the page following the end of the region.  You are rounding the end
-down making it start <= pfn <= end.  It should be something like this:
-
-	add_active_range(0, ia64_tpa(_text) >> PAGE_SHIFT,
-		(ia64_tpa(_end) + PAGE_SIZE - 1) >> PAGE_SHIFT);
-
-Does this change on its own fix things?
-
->>>
->>> #ifdef CONFIG_VIRTUAL_MEM_MAP
->>> 	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
-
--apw
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2006-11-06 11:30:56.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/setup.c	2006-11-06 12:07:08.000000000 +0900
+@@ -163,6 +163,9 @@
+ 	func = arg;
+ 
+ 	for (i = 0; i < num_rsvd_regions; ++i) {
++		if (rsvd_region[i].start = crashk_res.start &&
++		    rsvd_region[i].end = crashk_res.end)
++			continue;
+ 		range_start = max(start, prev_start);
+ 		range_end   = min(end, rsvd_region[i].start);
+ 
