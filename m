@@ -1,130 +1,140 @@
-From: Auke Kok <auke-jan.h.kok@intel.com>
-Date: Thu, 09 Nov 2006 02:07:09 +0000
-Subject: Re: e1000: include <net/ip6_checksum.h> for IA64
-Message-Id: <45528D4D.4020908@intel.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 07 Nov 2006 10:31:54 +0000
+Subject: Re: [PATCH 0/1] mspec driver: compile error
+Message-Id: <4550609A.7010908@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080705060107010202010701"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <000201c70396$7c049000$ff0da8c0@amr.corp.intel.com>
-In-Reply-To: <000201c70396$7c049000$ff0da8c0@amr.corp.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, 'Jeff Garzik' <jgarzik@pobox.com>, 'Andrew Morton' <akpm@osdl.org>, 'NetDev' <netdev@vger.kernel.org>, 'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+References: <1162881017.13700.105.camel@sebastian.intellilink.co.jp>
+In-Reply-To: <1162881017.13700.105.camel@sebastian.intellilink.co.jp>
+To: =?ISO-8859-1?Q?Fernando_Luis_V=E1zquez_Cao?= <fernando@oss.ntt.co.jp>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, bjorn_helgaas@hp.com, Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, Robin Holt <holt@sgi.com>, Dean Nelson <dcn@sgi.com>, Hugh Dickins <hugh@veritas.com>, Linus Torvalds <torvalds@osdl.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@gmail.com>
 
-Chen, Kenneth W wrote:
-> Chen, Kenneth wrote on Wednesday, November 08, 2006 4:10 PM
->> Auke Kok wrote on Wednesday, November 08, 2006 9:49 AM
->>> Of course, someone really should come up with an asm version for ia64 of the
->>> missing function ;)
->> Sure, absolutely.  Here is an implementation for ia64.  Tested heavily. Tony, please > merge.
+This is a multi-part message in MIME format.
+--------------080705060107010202010701
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Applauded-by: Auke Kok <auke-jan.h.kok@intel.com> ;)
+Fernando Luis V=E1zquez Cao wrote:
+> Hi Jes,
+>=20
+> After selecting CONFIG_MSPEC as a module I stumbled onto the compile
+> error below.
+[snip]
+> I'll be replying to this message with a patch that implements this. I
+> would appreciate your review and comments.
+
+Hi Fernando,
+
+As I also mentioned in my reply to Peter Chubb, this is the wrong fix
+for this problem as the driver should operate in cached and uncached
+mode on non SN2 systems.
+
+Here is the correct fix. I have test it on SN2 and made sure it builds
+for DIG, but I can't easily test it. However I see no reason why it
+should cause problems.
+
+This is ending up as an attachment since it ended up in the IMAP only
+mailbox. Somehow I am willing to bet Thunderbug will do something stupid
+to it, like base64 encode it.
 
 Cheers,
+Jes
 
-Auke
+PS: When you post fixes for an IA64 specific driver like this, please
+    always remember to CC the ia64 list and the ia64 maintainer on it!
 
-> 
-> 
-> Hmm.  Forgot about the signed-off line.  Here it is:
-> 
-> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com> 
-> 
-> 
-> 
-> [patch] implement csum_ipv6_magic for ia64. The asm version is 3.4 times faster than
->         the generic version.
-> 
-> --- ./arch/ia64/lib/ip_fast_csum.S.orig	2006-11-08 12:26:28.000000000 -0800
-> +++ ./arch/ia64/lib/ip_fast_csum.S	2006-11-08 16:39:24.000000000 -0800
-> @@ -8,8 +8,8 @@
->   *      in0: address of buffer to checksum (char *)
->   *      in1: length of the buffer (int)
->   *
-> - * Copyright (C) 2002 Intel Corp.
-> - * Copyright (C) 2002 Ken Chen <kenneth.w.chen@intel.com>
-> + * Copyright (C) 2002, 2006 Intel Corp.
-> + * Copyright (C) 2002, 2006 Ken Chen <kenneth.w.chen@intel.com>
->   */
->  
->  #include <asm/asmmacro.h>
-> @@ -25,6 +25,9 @@
->  
->  #define in0	r32
->  #define in1	r33
-> +#define in2	r34
-> +#define in3	r35
-> +#define in4	r36
->  #define ret0	r8
->  
->  GLOBAL_ENTRY(ip_fast_csum)
-> @@ -88,3 +91,51 @@ GLOBAL_ENTRY(ip_fast_csum)
->  	mov	b0=r34
->  	br.ret.sptk.many b0
->  END(ip_fast_csum)
-> +
-> +GLOBAL_ENTRY(csum_ipv6_magic)
-> +	ld4	r20=[in0],4
-> +	ld4	r21=[in1],4
-> +	dep	r15=in2,in3,16,16
-> +	;;
-> +	ld4	r22=[in0],4
-> +	ld4	r23=[in1],4
-> +	mux1	r15=r15,@rev
-> +	;;
-> +	ld4	r24=[in0],4
-> +	ld4	r25=[in1],4
-> +	shr.u	r15=r15,32
-> +	add	r16=r20,r21
-> +	add	r17=r22,r23
-> +	;;
-> +	ld4	r26=[in0],4
-> +	ld4	r27=[in1],4
-> +	add	r18=r24,r25
-> +	add	r8=r16,r17
-> +	;;
-> +	add	r19=r26,r27
-> +	add	r8=r8,r18
-> +	;;
-> +	add	r8=r8,r19
-> +	add	r15=r15,in4
-> +	;;
-> +	add	r8=r8,r15
-> +	;;
-> +	shr.u	r10=r8,16	// now fold sum into short
-> +	zxt2	r11=r8
-> +	;;
-> +	add	r8=r10,r11
-> +	;;
-> +	shr.u	r10=r8,16	// yeah, keep it rolling
-> +	zxt2	r11=r8
-> +	;;
-> +	add	r8=r10,r11
-> +	;;
-> +	shr.u	r10=r8,16	// three times lucky
-> +	zxt2	r11=r8
-> +	;;
-> +	add	r8=r10,r11
-> +	mov	r9=0xffff
-> +	;;
-> +	andcm	r8=r9,r8
-> +	br.ret.sptk.many b0
-> +END(csum_ipv6_magic)
-> --- ./include/asm-ia64/checksum.h.orig	2006-11-08 16:52:16.000000000 -0800
-> +++ ./include/asm-ia64/checksum.h	2006-11-08 17:01:09.000000000 -0800
-> @@ -73,4 +73,10 @@ csum_fold (unsigned int sum)
->  	return ~sum;
->  }
->  
-> +#define _HAVE_ARCH_IPV6_CSUM	1
-> +struct in6_addr;
-> +extern unsigned short int csum_ipv6_magic(struct in6_addr *saddr,
-> +	struct in6_addr *daddr, __u32 len, unsigned short proto,
-> +	unsigned int csum);
-> +
->  #endif /* _ASM_IA64_CHECKSUM_H */
-> -
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--------------080705060107010202010701
+Content-Type: text/plain;
+ name="mspec-dig-build.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mspec-dig-build.diff"
 
+Fix MSPEC driver to build for non SN2 enabled configs as the driver
+should work in cached and uncached modes (no fetchop) on these systems.
+In addition make MSPEC select IA64_UNCACHED_ALLOCATOR, which is required
+for it.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ drivers/char/Kconfig        |    1 +
+ drivers/char/mspec.c        |    8 +++++++-
+ include/asm-ia64/sn/addrs.h |    6 +++++-
+ 3 files changed, 13 insertions(+), 2 deletions(-)
+
+Index: linux-2.6/drivers/char/Kconfig
+===================================================================
+--- linux-2.6.orig/drivers/char/Kconfig
++++ linux-2.6/drivers/char/Kconfig
+@@ -412,6 +412,7 @@ config SGI_MBCS
+ config MSPEC
+ 	tristate "Memory special operations driver"
+ 	depends on IA64
++	select IA64_UNCACHED_ALLOCATOR
+ 	help
+ 	  If you have an ia64 and you want to enable memory special
+ 	  operations support (formerly known as fetchop), say Y here,
+Index: linux-2.6/drivers/char/mspec.c
+===================================================================
+--- linux-2.6.orig/drivers/char/mspec.c
++++ linux-2.6/drivers/char/mspec.c
+@@ -72,7 +72,11 @@ enum {
+ 	MSPEC_UNCACHED
+ };
+ 
++#ifdef CONFIG_SGI_SN
+ static int is_sn2;
++#else
++#define is_sn2		0
++#endif
+ 
+ /*
+  * One of these structures is allocated when an mspec region is mmaped. The
+@@ -211,7 +215,7 @@ mspec_nopfn(struct vm_area_struct *vma, 
+ 	if (vdata->type == MSPEC_FETCHOP)
+ 		paddr = TO_AMO(maddr);
+ 	else
+-		paddr = __pa(TO_CAC(maddr));
++		paddr = maddr & ~__IA64_UNCACHED_OFFSET;
+ 
+ 	pfn = paddr >> PAGE_SHIFT;
+ 
+@@ -335,6 +339,7 @@ mspec_init(void)
+ 	 * The fetchop device only works on SN2 hardware, uncached and cached
+ 	 * memory drivers should both be valid on all ia64 hardware
+ 	 */
++#ifdef CONFIG_SGI_SN
+ 	if (ia64_platform_is("sn2")) {
+ 		is_sn2 = 1;
+ 		if (is_shub2()) {
+@@ -363,6 +368,7 @@ mspec_init(void)
+ 			goto free_scratch_pages;
+ 		}
+ 	}
++#endif
+ 	ret = misc_register(&cached_miscdev);
+ 	if (ret) {
+ 		printk(KERN_ERR "%s: failed to register device %i\n",
+Index: linux-2.6/include/asm-ia64/sn/addrs.h
+===================================================================
+--- linux-2.6.orig/include/asm-ia64/sn/addrs.h
++++ linux-2.6/include/asm-ia64/sn/addrs.h
+@@ -136,9 +136,13 @@
+  */
+ #define TO_PHYS(x)		(TO_PHYS_MASK & (x))
+ #define TO_CAC(x)		(CAC_BASE     | TO_PHYS(x))
++#ifdef CONFIG_SGI_SN
+ #define TO_AMO(x)		(AMO_BASE     | TO_PHYS(x))
+ #define TO_GET(x)		(GET_BASE     | TO_PHYS(x))
+-
++#else
++#define TO_AMO(x)		({ BUG(); x; })
++#define TO_GET(x)		({ BUG(); x; })
++#endif
+ 
+ /*
+  * Covert from processor physical address to II/TIO physical address:
+
+--------------080705060107010202010701--
