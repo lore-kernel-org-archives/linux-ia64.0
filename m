@@ -1,52 +1,54 @@
-From: Jeremy Higdon <jeremy@sgi.com>
-Date: Thu, 02 Nov 2006 03:05:11 +0000
-Subject: Re: Ordering between PCI config space writes and MMIO reads?
-Message-Id: <20061102030511.GS150820@sgi.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 08 Nov 2006 06:52:59 +0000
+Subject: Re: [BUG] [2.6.19-rc4-mm2] can't compile
+Message-Id: <20061107225259.0eff22d2.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <adafyddcysw.fsf@cisco.com> <20061024192210.GE2043@havoc.gtf.org> <20061024214724.GS25210@parisc-linux.org> <adar6wxbcwt.fsf@cisco.com> <20061024223631.GT25210@parisc-linux.org> <20061024232755.GA26521@sgi.com>
-In-Reply-To: <20061024232755.GA26521@sgi.com>
+References: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20061108150141.b792fbdb.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jack Steiner <steiner@sgi.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, Roland Dreier <rdreier@cisco.com>, Jeff Garzik <jeff@garzik.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, openib-general@openib.org, John Partridge <johnip@sgi.com>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: tglx@linutronix.de, LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org, linux-ia64@vger.kernel.org, Auke Kok <auke-jan.h.kok@intel.com>, Jeff Garzik <jeff@garzik.org>
 
-On Tue, Oct 24, 2006 at 06:27:55PM -0500, Jack Steiner wrote:
-> On Tue, Oct 24, 2006 at 04:36:32PM -0600, Matthew Wilcox wrote:
-> > On Tue, Oct 24, 2006 at 02:51:30PM -0700, Roland Dreier wrote:
-> > >  > I think the right way to fix this is to ensure mmio write ordering in
-> > >  > the pci_write_config_*() implementations.  Like this.
-> > > 
-> > > I'm happy to fix this in the PCI core and not force drivers to worry
-> > > about this.
-> > > 
-> > > John, can you confirm that this patch fixes the issue for you?
-> > 
-> > Hang on.  I wasn't thinking clearly.  mmiowb() only ensures the write
-> > has got as far as the shub.  
+On Wed, 8 Nov 2006 15:01:41 +0900
+KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+
 > 
-> I think mmiowb() should work on SN hardware. mmiowb() delays until shub
-> reports that all previously issued PIO writes have completed. 
+> While compiling 2.6.19-rc4-mm2 on ia64, I met this compile error.
+> =
+>   CC [M]  drivers/acpi/processor_idle.o
+> drivers/acpi/processor_idle.c:43:22: asm/apic.h: No such file or directory
+> drivers/acpi/processor_idle.c: In function `acpi_processor_power_seq_show':
+> drivers/acpi/processor_idle.c:1202: warning: long long unsigned int format, u64 arg (arg 5)
+> =
 > 
-> The processor "mf.a" guarantees "platform acceptance" which on SN means
-> that shub has accepted the write - not that it has actually completed (or
-> even forwarded anywhere by shub). That makes "mf.a" more-or-less useless
-> on SN. However, shub has an additional MMR register (PIO_WRITE_COUNT) that
-> counts actual outstanding PIOs.  mmiob() delays until that count goes to
-> zero.
-> 
-> I'll check if there is any additional reordering that can occur AFTER the
-> PIO_WRITE_COUNT goes to zero.  If so, it would be at bus level - not in
-> shub or routers.
+> This is because of acpi-include-apic-h.patch, maybe.
+> ia64 doesn't have asm/acpi.h
 
-As I understand it, the mmiowb on the shub waits only for the PIO write
-to be accepted by the destination node (shub or tio) that the I/O device
-is attached to, thus guaranteeing that no reordering will happen within
-the NL.
+That got fixed (by ugly means).
 
-If the PPB can reorder the write, then mmiowb is not sufficient.  You'd
-have to do a readback from a chip register (assuming you can trust the
-PPB not to reorder reads and writes), or some other work around I haven't
-thought of.
+> my .config is attached.
 
-jeremy
+But rc5-mm1 remains broken with that .config:
+
+arch/ia64/pci/pci.c: In function `pci_acpi_scan_root':
+arch/ia64/pci/pci.c:354: warning: implicit declaration of function `pxm_to_node'
+...
+arch/ia64/pci/built-in.o(.text+0xe92): In function `pci_acpi_scan_root':
+: undefined reference to `pxm_to_node'
+
+This bug exists in mainline.
+
+
+
+
+Also,
+
+drivers/built-in.o(.text+0xd9a72): In function `e1000_xmit_frame':
+: undefined reference to `csum_ipv6_magic'
+
+I don't know how this got broken.  ia64 seems to be the only architecture
+which doesn't have an implementation of csum_ipv6_magic().  This bug
+appears to be introduced by git-netdev-all.patch.
+
