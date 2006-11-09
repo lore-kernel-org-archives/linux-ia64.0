@@ -1,22 +1,27 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 09 Nov 2006 00:10:06 +0000
+Date: Thu, 09 Nov 2006 00:32:03 +0000
 Subject: RE: e1000: include <net/ip6_checksum.h> for IA64
-Message-Id: <000001c70393$69ec5400$ff0da8c0@amr.corp.intel.com>
+Message-Id: <000201c70396$7c049000$ff0da8c0@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <45521873.20402@intel.com>
+References: <000001c70393$69ec5400$ff0da8c0@amr.corp.intel.com>
+In-Reply-To: <000001c70393$69ec5400$ff0da8c0@amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, Jeff Garzik <jgarzik@pobox.com>
-Cc: Andrew Morton <akpm@osdl.org>, NetDev <netdev@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: "Kok, Auke-jan H" <auke-jan.h.kok@intel.com>, 'Jeff Garzik' <jgarzik@pobox.com>
+Cc: 'Andrew Morton' <akpm@osdl.org>, 'NetDev' <netdev@vger.kernel.org>, 'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>, "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-Auke Kok wrote on Wednesday, November 08, 2006 9:49 AM
-> Of course, someone really should come up with an asm version for ia64 of the
-> missing function ;)
+Chen, Kenneth wrote on Wednesday, November 08, 2006 4:10 PM
+> Auke Kok wrote on Wednesday, November 08, 2006 9:49 AM
+> > Of course, someone really should come up with an asm version for ia64 of the
+> > missing function ;)
+> 
+> Sure, absolutely.  Here is an implementation for ia64.  Tested heavily. Tony, please > merge.
 
-Sure, absolutely.  Here is an implementation for ia64.  Tested heavily. Tony, please merge.
 
-- Ken
+Hmm.  Forgot about the signed-off line.  Here it is:
+
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com> 
 
 
 
