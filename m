@@ -1,48 +1,70 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Wed, 08 Nov 2006 02:01:04 +0000
-Subject: RE: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086B13@pdsmsx411.ccr.corp.intel.com>
+From: Jay Lan <jlan@sgi.com>
+Date: Fri, 10 Nov 2006 19:23:28 +0000
+Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
+Message-Id: <4554D1B0.9090306@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4546623D.5000105@engr.sgi.com>
 In-Reply-To: <4546623D.5000105@engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: Jay Lan [mailto:jlan@sgi.com]
-> Sent: 2006=C4=EA11=D4=C24=C8=D5 1:42
-> To: Zou, Nanhai
-> Cc: fastboot; Linux-IA64; Jack Steiner; Luck, Tony
-> Subject: Re: [PATCH]send slave cpus to SAL slave loop on crash (IA64)
->=20
-> Zou, Nanhai wrote:
-> >   --noio patch should be the same to my original sugguestion..., it byp=
-ass
-> all PIO and MMIO in purgatory with --noio option. I need to have a check =
-though.
->=20
-> Hi Nanhai,
->=20
-> I finally got a chance to look at this further.
->=20
-> Your patch touched four files:
->     kexec/arch/ia64/kexec-elf-ia64.c
->     purgatory/arch/ia64/entry.S
->     purgatory/arch/ia64/include/arch/io.h
->     purgatory/arch/ia64/io.h
->=20
-> I replaced both of the io.h with my version and it still
-> failed. So, it should be the way --noio option being handled
-> that made the difference.
->=20
-> I did have debug messages showing that "noio" option was
-> processed in elf_rel_set_symbol() in my testing. Does
-> kernel code need to know about this option? Somehow
-> this change makes kernel fail in init().
->=20
-  No, kernel does not need to know this. Kexec-tools pass this option to pu=
-rgatory code by relocating at kexec load time.
+Zou, Nanhai wrote:
+>>>  But this will rely on machine crash on CPU 0?
+>> We do not rely on machine crash on CPU 0 any more. If the
+>> crashing CPU is not cpu 0 and the cpu 0 not being returned to
+>> the slave loop, this case is handled by our PROM now.
+>>
+>> However, if somebody tries to boot up a production kernel using '-le'
+>> option _after_ the kexec'ed kernel is up running, the third kernel
+>> would not boot unless we boot up the second kernel with cpu 0. I
+>> posted a question on "if running 'kexec -le' on a kexec'ed kdump
+>> kernel is legal" earlier and Vivek responded saying the scenario
+>> is not guranteed to work. So, i think we are fine here.
+> 
+>   Ok, so with this patch and the PROM fix, on a SN system,
+>   1. Kdump -> 2nd kernel works.
+>   2. Kdump -> 2nd kernel -> Kexec to third kernel will not work.
+>   3. Kexec -> 2nd Kernel -> Kexec -> 3rd kernel works?
+>   4. Kexec -> 2nd Kernel -> Kdump -> 3rd kernel works?
+> 
+>   I think if scenario 1, 3 and 4 works it will be ok. Scenario 2 is not so useful I guess.
 
- Zou Nan hai
+Hi Nanhai,
+
+Where do we stand as to this patch's concern? Did you include this yet?
+
+As to Scenario 3 and 4, 'kexec -l' failed on "Inivalid memory segment"
+on SN Altix systems, and i have not had time to dig into it. This patch
+is pretty much doing what you suggested "calling ia64_jump_to_sal"
+to send the cpus to slave loop.
+
+We can include cpu 0 also by calling fix_b0_for)bsp() to set up b0
+for cpu 0 in ia64_mca_init(), if so desired. What do you think?
+
+Regards,
+ - jay
+
+
+[root@pogo1 boot]# /home/jlan/kexec-noio -l /boot/vmlinuz-2.6.18-kdump
+--noio -
+-initrd=/boot/initrd-2.6.18-kdump --append="root=/dev/sdb6 irqpoll ro
+console=t
+tySG0"
+Done with process_options
+kernel: 0x2000000000328010 kernel_size: 3502601
+memory_range: crashk, idx=5, start018000000, end028000000
+memory_range: Boot, idx=7, start07a280010, end07a280061
+memory_range: MemoryMap, idx=9, start07a3f0010, end07a3f0611
+build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT506776
+build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014120
+ready to load. type=0,
+build_mem_shdrs: ei_class=2, e_shnumF, e_shoffT506776
+build_mem_shdrs: sizeof(e_shdr)r, e_shdr=0x6000000000014f30
+elf_exec_load
+Invalid memory segment 0x4000000 - 0x4997fff
+Segmentation fault
+[root@pogo1 boot]#
+
+> 
