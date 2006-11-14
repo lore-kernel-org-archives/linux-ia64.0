@@ -1,111 +1,102 @@
-From: John Keller <jpk@sgi.com>
-Date: Mon, 27 Nov 2006 15:44:41 +0000
-Subject: [PATCH] SN: Correctly update smp_affinty mask
-Message-Id: <200611271544.kARFig0F279329@fcbayern.americas.sgi.com>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Tue, 14 Nov 2006 09:08:10 +0000
+Subject: [PATCH] some irq_chip variables initiate end to point to NULL
+Message-Id: <1163495289.4311.68.camel@ymzhang-perf.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+
+I got an oops when booting 2.6.19-rc5-mm1 on my ia64 machine.
+
+Below is the log.
+
+Oops 11012296146944 [1]
+Modules linked in: binfmt_misc dm_mirror dm_multipath dm_mod thermal proces=
+sor f
+an container button sg eepro100 e100 mii
+
+Pid: 0, CPU 0, comm:              swapper
+psr : 0000121008022038 ifs : 800000000000040b ip  : [<a0000001000e1411>]   =
+ Not
+tainted
+ip is at __do_IRQ+0x371/0x3e0
+unat: 0000000000000000 pfs : 000000000000040b rsc : 0000000000000003
+rnat: 656960155aa56aa5 bsps: a00000010058b890 pr  : 656960155aa55a65
+ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001000e1390 b6  : a0000001005beac0 b7  : e00000007f01aa00
+f6  : 000000000000000000000 f7  : 0ffe69090000000000000
+f8  : 1000a9090000000000000 f9  : 0ffff8000000000000000
+f10 : 1000a908ffffff6f70000 f11 : 1003e0000000000000909
+r1  : a000000100fbbff0 r2  : 0000000000010002 r3  : 0000000000010001
+r8  : fffffffffffbffff r9  : a000000100bd8060 r10 : a000000100dd83b8
+r11 : fffffffffffeffff r12 : a000000100bcbbb0 r13 : a000000100bc4000
+r14 : 0000000000010000 r15 : 0000000000010000 r16 : a000000100c01aa8
+r17 : a000000100d2c350 r18 : 0000000000000000 r19 : a000000100d2c300
+r20 : a000000100c01a88 r21 : 0000000080010100 r22 : a000000100c01ac0
+r23 : a0000001000108e0 r24 : e000000477980004 r25 : 0000000000000000
+r26 : 0000000000000000 r27 : e00000000913400c r28 : e0000004799ee51c
+r29 : e0000004778b87f0 r30 : a000000100d2c300 r31 : a00000010005c7e0
+
+Call Trace:
+ [<a000000100014600>] show_stack+0x40/0xa0
+                                sp=A000000100bcb760 bsp=A000000100bc4f40
+ [<a000000100014f00>] show_regs+0x840/0x880
+                                sp=A000000100bcb930 bsp=A000000100bc4ee8
+ [<a000000100037fb0>] die+0x250/0x320
+                                sp=A000000100bcb930 bsp=A000000100bc4ea0
+ [<a00000010005e5f0>] ia64_do_page_fault+0x8d0/0xa20
+                                sp=A000000100bcb950 bsp=A000000100bc4e50
+ [<a00000010000caa0>] ia64_leave_kernel+0x0/0x290
+                                sp=A000000100bcb9e0 bsp=A000000100bc4e50
+ [<a0000001000e1410>] __do_IRQ+0x370/0x3e0
+                                sp=A000000100bcbbb0 bsp=A000000100bc4df0
+ [<a000000100011f50>] ia64_handle_irq+0x170/0x220
+                                sp=A000000100bcbbb0 bsp=A000000100bc4dc0
+ [<a00000010000caa0>] ia64_leave_kernel+0x0/0x290
+                                sp=A000000100bcbbb0 bsp=A000000100bc4dc0
+ [<a000000100012390>] ia64_pal_call_static+0x90/0xc0
+                                sp=A000000100bcbd80 bsp=A000000100bc4d78
+ [<a000000100015630>] default_idle+0x90/0x160
+                                sp=A000000100bcbd80 bsp=A000000100bc4d58
+ [<a000000100014290>] cpu_idle+0x1f0/0x440
+                                sp=A000000100bcbe20 bsp=A000000100bc4d18
+ [<a000000100009980>] rest_init+0xc0/0xe0
+                                sp=A000000100bcbe20 bsp=A000000100bc4d00
+ [<a0000001009f8ea0>] start_kernel+0x6a0/0x6c0
+                                sp=A000000100bcbe20 bsp=A000000100bc4ca0
+ [<a0000001000089f0>] __end_ivt_text+0x6d0/0x6f0
+                                sp=A000000100bcbe30 bsp=A000000100bc4c00
+ <0>Kernel panic - not syncing: Aiee, killing interrupt handler!
 
 
-On Altix systems, the /proc/irq/nn/smp_affinity mask is not being setup
-at device iniitalization, or updated after an interrupt redirection.
-This patch resolves those issues.
+The root cause is that some irq_chip variables, especially ia64_msi_chip,
+initiate their memeber end to point to NULL. __do_IRQ doesn't check
+if irq_chip->end is null and just calls it after processing the interrupt.
 
-Signed-off-by: John Keller <jpk@sgi.com>
+As irq_chip->end is called at many places, so I fix it by reinitiating
+irq_chip->end to dummy_irq_chip.end, e.g., a noop function.
+
+Below patch against 2.6.19-rc5-mm1 fixes it.
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
 ---
 
- arch/ia64/sn/kernel/irq.c    |   18 +++++++++++++++---
- arch/ia64/sn/kernel/msi_sn.c |    4 ----
- 2 files changed, 15 insertions(+), 7 deletions(-)
-
-Tony,
- Can you take this into your tree?
-It was first posted a few weeks ago, and there have been no
-comments.
-
-Thanks
-John
-
-
-
-Index: release/arch/ia64/sn/kernel/irq.c
-=================================--- release.orig/arch/ia64/sn/kernel/irq.c	2006-11-06 11:57:34.412002910 -0600
-+++ release/arch/ia64/sn/kernel/irq.c	2006-11-06 13:49:19.331005432 -0600
-@@ -117,7 +117,10 @@ struct sn_irq_info *sn_retarget_vector(s
- 				       nasid_t nasid, int slice)
- {
- 	int vector;
-+	int cpuid;
-+#ifdef CONFIG_SMP
- 	int cpuphys;
-+#endif
- 	int64_t bridge;
- 	int local_widget, status;
- 	nasid_t local_nasid;
-@@ -146,7 +149,6 @@ struct sn_irq_info *sn_retarget_vector(s
- 	vector = sn_irq_info->irq_irq;
- 	/* Free the old PROM new_irq_info structure */
- 	sn_intr_free(local_nasid, local_widget, new_irq_info);
--	/* Update kernels new_irq_info with new target info */
- 	unregister_intr_pda(new_irq_info);
- 
- 	/* allocate a new PROM new_irq_info struct */
-@@ -160,8 +162,10 @@ struct sn_irq_info *sn_retarget_vector(s
- 		return NULL;
- 	}
- 
--	cpuphys = nasid_slice_to_cpuid(nasid, slice);
--	new_irq_info->irq_cpuid = cpuphys;
-+	/* Update kernels new_irq_info with new target info */
-+	cpuid = nasid_slice_to_cpuid(new_irq_info->irq_nasid,
-+				     new_irq_info->irq_slice);
-+	new_irq_info->irq_cpuid = cpuid;
- 	register_intr_pda(new_irq_info);
- 
- 	pci_provider = sn_pci_provider[new_irq_info->irq_bridge_type];
-@@ -180,6 +184,7 @@ struct sn_irq_info *sn_retarget_vector(s
- 	call_rcu(&sn_irq_info->rcu, sn_irq_info_free);
- 
- #ifdef CONFIG_SMP
-+	cpuphys = cpu_physical_id(cpuid);
- 	set_irq_affinity_info((vector & 0xff), cpuphys, 0);
- #endif
- 
-@@ -299,6 +304,9 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	nasid_t nasid = sn_irq_info->irq_nasid;
- 	int slice = sn_irq_info->irq_slice;
- 	int cpu = nasid_slice_to_cpuid(nasid, slice);
-+#ifdef CONFIG_SMP
-+	int cpuphys;
-+#endif
- 
- 	pci_dev_get(pci_dev);
- 	sn_irq_info->irq_cpuid = cpu;
-@@ -311,6 +319,10 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	spin_unlock(&sn_irq_info_lock);
- 
- 	register_intr_pda(sn_irq_info);
-+#ifdef CONFIG_SMP
-+	cpuphys = cpu_physical_id(cpu);
-+	set_irq_affinity_info(sn_irq_info->irq_irq, cpuphys, 0);
-+#endif
+--- linux-2.6.19-rc5-mm1/kernel/irq/chip.c	2006-11-14 14:16:16.000000000 +0=
+800
++++ linux-2.6.19-rc5-mm1_fix/kernel/irq/chip.c	2006-11-14 14:14:25.00000000=
+0 +0800
+@@ -233,6 +233,8 @@ void irq_chip_set_defaults(struct irq_ch
+ 		chip->shutdown =3D chip->disable;
+ 	if (!chip->name)
+ 		chip->name =3D chip->typename;
++	if (!chip->end)
++		chip->end =3D dummy_irq_chip.end;
  }
- 
- void sn_irq_unfixup(struct pci_dev *pci_dev)
-Index: release/arch/ia64/sn/kernel/msi_sn.c
-=================================--- release.orig/arch/ia64/sn/kernel/msi_sn.c	2006-11-06 11:57:34.412002910 -0600
-+++ release/arch/ia64/sn/kernel/msi_sn.c	2006-11-06 11:58:56.045980248 -0600
-@@ -136,10 +136,6 @@ int sn_setup_msi_irq(unsigned int irq, s
- 	 */
- 	msg.data = 0x100 + irq;
- 
--#ifdef CONFIG_SMP
--	set_irq_affinity_info(irq, sn_irq_info->irq_cpuid, 0);
--#endif
--
- 	write_msi_msg(irq, &msg);
- 	set_irq_chip_and_handler(irq, &sn_msi_chip, handle_edge_irq);
+=20
+ static inline void mask_ack_irq(struct irq_desc *desc, int irq)
+
