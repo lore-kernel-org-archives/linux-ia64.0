@@ -1,166 +1,109 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Date: Fri, 10 Nov 2006 11:47:22 +0000
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Tue, 14 Nov 2006 01:38:45 +0000
 Subject: RE: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
-Message-Id: <Pine.LNX.4.64.0611101143410.27174@skynet.skynet.ie>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="29444707-925057346-1163159242=:27174"
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086B21@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20061026075951.GA30910@verge.net.au>
 In-Reply-To: <20061026075951.GA30910@verge.net.au>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
---29444707-925057346-1163159242=:27174
-Content-Type: TEXT/PLAIN; charset=gb2312; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-
-On Fri, 10 Nov 2006, Zou, Nanhai wrote:
-
->> -----Original Message-----
->> From: linux-ia64-owner@vger.kernel.org
->> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Zou Nan hai
->> Sent: 2006=C4=EA11=D4=C23=C8=D5 18:07
->> To: Mel Gorman
->> Cc: Horms; Andy Whitcroft; Linux-IA64; Bob Picco; Andrew Morton; Dave Ha=
-nsen;
->> Andi Kleen; Benjamin Herrenschmidt; Paul Mackerras; Keith Mannthey; Luck=
-, Tony;
->> KAMEZAWA Hiroyuki; Yasunori Goto; Khalid Aziz
->> Subject: RE: 05e0caad3b7bd0d0fbeff980bca22f186241a501 breaks ia64 kdump
->>
->> On Fri, 2006-11-03 at 17:27, Mel Gorman wrote:
->>> On Fri, 3 Nov 2006, Zou, Nanhai wrote:
->>>
->>>> Hi,
->>>> =09This patch should fix the issue.
->>>>
->>>
->>> It would appear to fix the issue for IA64 but you are blotting over the
->>> issue that the map is reporting a one page hole. On arches with really
->>> adjacent regions that are getting merged, the regions will appear to
->>> overlap by one page. What can happen is something like this
->>>
->>> PFN ranges for nodes
->>> Node 1: 0 -> 1000
->>> Node 0: 1000 -> 2000
->>>
->> Hi,
->>  But the patch Andy and you are commenting is not my patch...., It was
->> in the previous thread.
->> My patch was in the attachment.....
->>
->>  Sorry for using outlook to send that patch as attachment, my Linux box
->> was not accessable at the time when I was posting the patch.
->>  I post the patch again, and copy the discription from my previous mail.
->>
->> When ia64 kernel is configured as discontinuous memory model,
->> active_pages are added through efi_memmap_walk(filter_rsvd_memory,
->> count_node_pages).
->> filter_rsvd_memory  will filter out all regions in rsvd_regions include
->> - boot param
->> - mem map
->> - initrd
->> - command line
->> - **** kernel code and data ***
->> - kernel map built from efi memmap
->> - crash kernel reserved region
->> So the kernel code and data is excluded even without kdump support,
->> check /proc/iomem and dmesg for early_node_data can verify that.
->> But magically, the first kernel boots happily without any complain...,
->> I guess that is related to the init value in memmap.
->>
->> This patch use another filter to add_acvitive_pages, only exclude crash =
-kernel
->> reserved region if CONFIG_KEXEC is on.
->>
->> Thanks
->> Zou Nan hai
->> --- a/arch/ia64/mm/discontig.c=092006-11-02 20:09:47.000000000 -0500
->> +++ b/arch/ia64/mm/discontig.c=092006-11-02 19:57:27.000000000 -0500
->> @@ -21,6 +21,7 @@
->>  #include <linux/acpi.h>
->>  #include <linux/efi.h>
->>  #include <linux/nodemask.h>
->> +#include <linux/kexec.h>
->>  #include <asm/pgalloc.h>
->>  #include <asm/tlb.h>
->>  #include <asm/meminit.h>
->> @@ -653,8 +654,6 @@ void call_pernode_memory(unsigned long s
->>  static __init int count_node_pages(unsigned long start, unsigned long l=
-en,
->> int node)
->>  {
->>  =09unsigned long end =3D start + len;
->> -
->> -=09add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
->>  =09mem_data[node].num_physpages +=3D len >> PAGE_SHIFT;
->>  =09if (start <=3D __pa(MAX_DMA_ADDRESS))
->>  =09=09mem_data[node].num_dma_physpages +=3D
->> @@ -669,7 +668,31 @@ static __init int count_node_pages(unsig
->>
->>  =09return 0;
->>  }
->> +static __init int add_active_range_wrapper(unsigned long start,
->> +=09=09unsigned long len, int node)
->> +{
->> +=09unsigned long end =3D start + len;
->> +=09add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
->> +=09return 0;
->> +}
->>
-
-The function name doesn't really tell the reader what it's meant to be=20
-doing. Something like register_active_ranges() might be a bit better.
-
->> +static int __init
->> +filter_pernode_memory (unsigned long start, unsigned long end, void *ar=
-g)
->> +{
->> +=09void (*func)(unsigned long, unsigned long, int);
->> +=09func =3D arg;
->> +
->> +#ifdef CONFIG_KEXEC
->> +=09if (start > crashk_res.start && start < crashk_res.end)
->> +=09=09start =3D max(start, crashk_res.end);
->> +=09if (end > crashk_res.start && end < crashk_res.end)
->> +=09=09end =3D min(end, crashk_res.start);
-
-
-These two checks appear to deliberatly avoid registering the kernel image=
-=20
-as an active range. Was that your intention? If so, will you not hit the=20
-same problem with initmem?
-
->> +#endif
->> +=09if (start < end)
->> +=09=09call_pernode_memory(__pa(start), end - start, func);
->> +
->> +=09return 0;
->> +}
->>  /**
->>   * paging_init - setup page tables
->>   *
->> @@ -689,6 +712,7 @@ void __init paging_init(void)
->>  =09arch_sparse_init();
->>
->>  =09efi_memmap_walk(filter_rsvd_memory, count_node_pages);
->> +=09efi_memmap_walk(filter_pernode_memory, add_active_range_wrapper);
->>
->>  #ifdef CONFIG_VIRTUAL_MEM_MAP
->>  =09vmalloc_end -=3D PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
->>
->>
->>
-> Hi Mel,
-> =09What is your option on this?
-> Thanks
-> Zou Nan hai
->
-
---=20
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
---29444707-925057346-1163159242=:27174--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdl
+ci5rZXJuZWwub3JnCj4gW21haWx0bzpsaW51eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZ10g
+T24gQmVoYWxmIE9mIE1lbCBHb3JtYW4KPiBTZW50OiAyMDA2xOoxMdTCMTDI1SAxOTo0Nwo+IFRv
+OiBab3UsIE5hbmhhaQo+IENjOiBIb3JtczsgQW5keSBXaGl0Y3JvZnQ7IExpbnV4LUlBNjQ7IEJv
+YiBQaWNjbzsgQW5kcmV3IE1vcnRvbjsgRGF2ZSBIYW5zZW47Cj4gQW5kaSBLbGVlbjsgQmVuamFt
+aW4gSGVycmVuc2NobWlkdDsgUGF1bCBNYWNrZXJyYXM7IEtlaXRoIE1hbm50aGV5OyBMdWNrLCBU
+b255Owo+IEtBTUVaQVdBIEhpcm95dWtpOyBZYXN1bm9yaSBHb3RvOyBLaGFsaWQgQXppego+IFN1
+YmplY3Q6IFJFOiAwNWUwY2FhZDNiN2JkMGQwZmJlZmY5ODBiY2EyMmYxODYyNDFhNTAxIGJyZWFr
+cyBpYTY0IGtkdW1wCj4gCj4gT24gRnJpLCAxMCBOb3YgMjAwNiwgWm91LCBOYW5oYWkgd3JvdGU6
+Cj4gCj4gPj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiA+PiBGcm9tOiBsaW51eC1pYTY0
+LW93bmVyQHZnZXIua2VybmVsLm9yZwo+ID4+IFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBab3UgTmFuIGhhaQo+ID4+IFNlbnQ6IDIwMDbE6jEx
+1MIzyNUgMTg6MDcKPiA+PiBUbzogTWVsIEdvcm1hbgo+ID4+IENjOiBIb3JtczsgQW5keSBXaGl0
+Y3JvZnQ7IExpbnV4LUlBNjQ7IEJvYiBQaWNjbzsgQW5kcmV3IE1vcnRvbjsgRGF2ZQo+IEhhbnNl
+bjsKPiA+PiBBbmRpIEtsZWVuOyBCZW5qYW1pbiBIZXJyZW5zY2htaWR0OyBQYXVsIE1hY2tlcnJh
+czsgS2VpdGggTWFubnRoZXk7IEx1Y2ssCj4gVG9ueTsKPiA+PiBLQU1FWkFXQSBIaXJveXVraTsg
+WWFzdW5vcmkgR290bzsgS2hhbGlkIEF6aXoKPiA+PiBTdWJqZWN0OiBSRTogMDVlMGNhYWQzYjdi
+ZDBkMGZiZWZmOTgwYmNhMjJmMTg2MjQxYTUwMSBicmVha3MgaWE2NCBrZHVtcAo+ID4+Cj4gPj4g
+T24gRnJpLCAyMDA2LTExLTAzIGF0IDE3OjI3LCBNZWwgR29ybWFuIHdyb3RlOgo+ID4+PiBPbiBG
+cmksIDMgTm92IDIwMDYsIFpvdSwgTmFuaGFpIHdyb3RlOgo+ID4+Pgo+ID4+Pj4gSGksCj4gPj4+
+PiAJVGhpcyBwYXRjaCBzaG91bGQgZml4IHRoZSBpc3N1ZS4KPiA+Pj4+Cj4gPj4+Cj4gPj4+IEl0
+IHdvdWxkIGFwcGVhciB0byBmaXggdGhlIGlzc3VlIGZvciBJQTY0IGJ1dCB5b3UgYXJlIGJsb3R0
+aW5nIG92ZXIgdGhlCj4gPj4+IGlzc3VlIHRoYXQgdGhlIG1hcCBpcyByZXBvcnRpbmcgYSBvbmUg
+cGFnZSBob2xlLiBPbiBhcmNoZXMgd2l0aCByZWFsbHkKPiA+Pj4gYWRqYWNlbnQgcmVnaW9ucyB0
+aGF0IGFyZSBnZXR0aW5nIG1lcmdlZCwgdGhlIHJlZ2lvbnMgd2lsbCBhcHBlYXIgdG8KPiA+Pj4g
+b3ZlcmxhcCBieSBvbmUgcGFnZS4gV2hhdCBjYW4gaGFwcGVuIGlzIHNvbWV0aGluZyBsaWtlIHRo
+aXMKPiA+Pj4KPiA+Pj4gUEZOIHJhbmdlcyBmb3Igbm9kZXMKPiA+Pj4gTm9kZSAxOiAwIC0+IDEw
+MDAKPiA+Pj4gTm9kZSAwOiAxMDAwIC0+IDIwMDAKPiA+Pj4KPiA+PiBIaSwKPiA+PiAgQnV0IHRo
+ZSBwYXRjaCBBbmR5IGFuZCB5b3UgYXJlIGNvbW1lbnRpbmcgaXMgbm90IG15IHBhdGNoLi4uLiwg
+SXQgd2FzCj4gPj4gaW4gdGhlIHByZXZpb3VzIHRocmVhZC4KPiA+PiBNeSBwYXRjaCB3YXMgaW4g
+dGhlIGF0dGFjaG1lbnQuLi4uLgo+ID4+Cj4gPj4gIFNvcnJ5IGZvciB1c2luZyBvdXRsb29rIHRv
+IHNlbmQgdGhhdCBwYXRjaCBhcyBhdHRhY2htZW50LCBteSBMaW51eCBib3gKPiA+PiB3YXMgbm90
+IGFjY2Vzc2FibGUgYXQgdGhlIHRpbWUgd2hlbiBJIHdhcyBwb3N0aW5nIHRoZSBwYXRjaC4KPiA+
+PiAgSSBwb3N0IHRoZSBwYXRjaCBhZ2FpbiwgYW5kIGNvcHkgdGhlIGRpc2NyaXB0aW9uIGZyb20g
+bXkgcHJldmlvdXMgbWFpbC4KPiA+Pgo+ID4+IFdoZW4gaWE2NCBrZXJuZWwgaXMgY29uZmlndXJl
+ZCBhcyBkaXNjb250aW51b3VzIG1lbW9yeSBtb2RlbCwKPiA+PiBhY3RpdmVfcGFnZXMgYXJlIGFk
+ZGVkIHRocm91Z2ggZWZpX21lbW1hcF93YWxrKGZpbHRlcl9yc3ZkX21lbW9yeSwKPiA+PiBjb3Vu
+dF9ub2RlX3BhZ2VzKS4KPiA+PiBmaWx0ZXJfcnN2ZF9tZW1vcnkgIHdpbGwgZmlsdGVyIG91dCBh
+bGwgcmVnaW9ucyBpbiByc3ZkX3JlZ2lvbnMgaW5jbHVkZQo+ID4+IC0gYm9vdCBwYXJhbQo+ID4+
+IC0gbWVtIG1hcAo+ID4+IC0gaW5pdHJkCj4gPj4gLSBjb21tYW5kIGxpbmUKPiA+PiAtICoqKiog
+a2VybmVsIGNvZGUgYW5kIGRhdGEgKioqCj4gPj4gLSBrZXJuZWwgbWFwIGJ1aWx0IGZyb20gZWZp
+IG1lbW1hcAo+ID4+IC0gY3Jhc2gga2VybmVsIHJlc2VydmVkIHJlZ2lvbgo+ID4+IFNvIHRoZSBr
+ZXJuZWwgY29kZSBhbmQgZGF0YSBpcyBleGNsdWRlZCBldmVuIHdpdGhvdXQga2R1bXAgc3VwcG9y
+dCwKPiA+PiBjaGVjayAvcHJvYy9pb21lbSBhbmQgZG1lc2cgZm9yIGVhcmx5X25vZGVfZGF0YSBj
+YW4gdmVyaWZ5IHRoYXQuCj4gPj4gQnV0IG1hZ2ljYWxseSwgdGhlIGZpcnN0IGtlcm5lbCBib290
+cyBoYXBwaWx5IHdpdGhvdXQgYW55IGNvbXBsYWluLi4uLAo+ID4+IEkgZ3Vlc3MgdGhhdCBpcyBy
+ZWxhdGVkIHRvIHRoZSBpbml0IHZhbHVlIGluIG1lbW1hcC4KPiA+Pgo+ID4+IFRoaXMgcGF0Y2gg
+dXNlIGFub3RoZXIgZmlsdGVyIHRvIGFkZF9hY3ZpdGl2ZV9wYWdlcywgb25seSBleGNsdWRlIGNy
+YXNoCj4ga2VybmVsCj4gPj4gcmVzZXJ2ZWQgcmVnaW9uIGlmIENPTkZJR19LRVhFQyBpcyBvbi4K
+PiA+Pgo+ID4+IFRoYW5rcwo+ID4+IFpvdSBOYW4gaGFpCj4gPj4gLS0tIGEvYXJjaC9pYTY0L21t
+L2Rpc2NvbnRpZy5jCTIwMDYtMTEtMDIgMjA6MDk6NDcuMDAwMDAwMDAwIC0wNTAwCj4gPj4gKysr
+IGIvYXJjaC9pYTY0L21tL2Rpc2NvbnRpZy5jCTIwMDYtMTEtMDIgMTk6NTc6MjcuMDAwMDAwMDAw
+IC0wNTAwCj4gPj4gQEAgLTIxLDYgKzIxLDcgQEAKPiA+PiAgI2luY2x1ZGUgPGxpbnV4L2FjcGku
+aD4KPiA+PiAgI2luY2x1ZGUgPGxpbnV4L2VmaS5oPgo+ID4+ICAjaW5jbHVkZSA8bGludXgvbm9k
+ZW1hc2suaD4KPiA+PiArI2luY2x1ZGUgPGxpbnV4L2tleGVjLmg+Cj4gPj4gICNpbmNsdWRlIDxh
+c20vcGdhbGxvYy5oPgo+ID4+ICAjaW5jbHVkZSA8YXNtL3RsYi5oPgo+ID4+ICAjaW5jbHVkZSA8
+YXNtL21lbWluaXQuaD4KPiA+PiBAQCAtNjUzLDggKzY1NCw2IEBAIHZvaWQgY2FsbF9wZXJub2Rl
+X21lbW9yeSh1bnNpZ25lZCBsb25nIHMKPiA+PiAgc3RhdGljIF9faW5pdCBpbnQgY291bnRfbm9k
+ZV9wYWdlcyh1bnNpZ25lZCBsb25nIHN0YXJ0LCB1bnNpZ25lZCBsb25nIGxlbiwKPiA+PiBpbnQg
+bm9kZSkKPiA+PiAgewo+ID4+ICAJdW5zaWduZWQgbG9uZyBlbmQgPSBzdGFydCArIGxlbjsKPiA+
+PiAtCj4gPj4gLQlhZGRfYWN0aXZlX3JhbmdlKG5vZGUsIHN0YXJ0ID4+IFBBR0VfU0hJRlQsIGVu
+ZCA+PiBQQUdFX1NISUZUKTsKPiA+PiAgCW1lbV9kYXRhW25vZGVdLm51bV9waHlzcGFnZXMgKz0g
+bGVuID4+IFBBR0VfU0hJRlQ7Cj4gPj4gIAlpZiAoc3RhcnQgPD0gX19wYShNQVhfRE1BX0FERFJF
+U1MpKQo+ID4+ICAJCW1lbV9kYXRhW25vZGVdLm51bV9kbWFfcGh5c3BhZ2VzICs+ID4+IEBAIC02
+NjksNyArNjY4LDMxIEBAIHN0YXRpYyBfX2luaXQgaW50IGNvdW50X25vZGVfcGFnZXModW5zaWcK
+PiA+Pgo+ID4+ICAJcmV0dXJuIDA7Cj4gPj4gIH0KPiA+PiArc3RhdGljIF9faW5pdCBpbnQgYWRk
+X2FjdGl2ZV9yYW5nZV93cmFwcGVyKHVuc2lnbmVkIGxvbmcgc3RhcnQsCj4gPj4gKwkJdW5zaWdu
+ZWQgbG9uZyBsZW4sIGludCBub2RlKQo+ID4+ICt7Cj4gPj4gKwl1bnNpZ25lZCBsb25nIGVuZCA9
+IHN0YXJ0ICsgbGVuOwo+ID4+ICsJYWRkX2FjdGl2ZV9yYW5nZShub2RlLCBzdGFydCA+PiBQQUdF
+X1NISUZULCBlbmQgPj4gUEFHRV9TSElGVCk7Cj4gPj4gKwlyZXR1cm4gMDsKPiA+PiArfQo+ID4+
+Cj4gCj4gVGhlIGZ1bmN0aW9uIG5hbWUgZG9lc24ndCByZWFsbHkgdGVsbCB0aGUgcmVhZGVyIHdo
+YXQgaXQncyBtZWFudCB0byBiZQo+IGRvaW5nLiBTb21ldGhpbmcgbGlrZSByZWdpc3Rlcl9hY3Rp
+dmVfcmFuZ2VzKCkgbWlnaHQgYmUgYSBiaXQgYmV0dGVyLgo+IAogT2suCj4gPj4gK3N0YXRpYyBp
+bnQgX19pbml0Cj4gPj4gK2ZpbHRlcl9wZXJub2RlX21lbW9yeSAodW5zaWduZWQgbG9uZyBzdGFy
+dCwgdW5zaWduZWQgbG9uZyBlbmQsIHZvaWQgKmFyZykKPiA+PiArewo+ID4+ICsJdm9pZCAoKmZ1
+bmMpKHVuc2lnbmVkIGxvbmcsIHVuc2lnbmVkIGxvbmcsIGludCk7Cj4gPj4gKwlmdW5jID0gYXJn
+Owo+ID4+ICsKPiA+PiArI2lmZGVmIENPTkZJR19LRVhFQwo+ID4+ICsJaWYgKHN0YXJ0ID4gY3Jh
+c2hrX3Jlcy5zdGFydCAmJiBzdGFydCA8IGNyYXNoa19yZXMuZW5kKQo+ID4+ICsJCXN0YXJ0ID0g
+bWF4KHN0YXJ0LCBjcmFzaGtfcmVzLmVuZCk7Cj4gPj4gKwlpZiAoZW5kID4gY3Jhc2hrX3Jlcy5z
+dGFydCAmJiBlbmQgPCBjcmFzaGtfcmVzLmVuZCkKPiA+PiArCQllbmQgPSBtaW4oZW5kLCBjcmFz
+aGtfcmVzLnN0YXJ0KTsKPiAKPiAKPiBUaGVzZSB0d28gY2hlY2tzIGFwcGVhciB0byBkZWxpYmVy
+YXRseSBhdm9pZCByZWdpc3RlcmluZyB0aGUga2VybmVsIGltYWdlCj4gYXMgYW4gYWN0aXZlIHJh
+bmdlLiBXYXMgdGhhdCB5b3VyIGludGVudGlvbj8gSWYgc28sIHdpbGwgeW91IG5vdCBoaXQgdGhl
+Cj4gc2FtZSBwcm9ibGVtIHdpdGggaW5pdG1lbT8KPiAKICBObywgdGhlIGNyYXNoa19yZXMuc3Rh
+cnQgfiBjcmFzaGtfcmVzLmVuZCBpcyB0aGUgaG9sZSByZXNlcnZlZCBmb3IgMm5kIGtlcm5lbC4g
+VGhlIGtlcm5lbCBoaW1zZWxmIGRvZXMgbm90IHRvIHNldHVwIG1lbW1hcCBmb3IgdGhpcyBhcmVh
+LCB0aGUgMm5kIGtlcm5lbCB3aWxsIGhhbmRsZSBpdC4gCkFzIEkgaGF2ZSBtZW50aW9uZWQsIHRo
+aXMgYnVnIGFsc28gZXhpc3QgZXZlbiB3aXRob3V0IGtkdW1wIHBhdGNoLiBZb3Ugd2lsbCBzZWUg
+Zmlyc3Qga2VybmVscyBjb2RlIGFuZCBkYXRhIGlzIG5vdCBjb3ZlcmVkIGJ5IGFkZF9hY3RpdmVf
+cmFuZ2UgaWYgRElTQ09OVElHTUVNIG1vZGVsIGlzIGNob29zZW4uCgpUaGFua3MKWm91IE5hbiBo
+YWkKCj4gPj4gKyNlbmRpZgo+ID4+ICsJaWYgKHN0YXJ0IDwgZW5kKQo+ID4+ICsJCWNhbGxfcGVy
+bm9kZV9tZW1vcnkoX19wYShzdGFydCksIGVuZCAtIHN0YXJ0LCBmdW5jKTsKPiA+PiArCj4gPj4g
+KwlyZXR1cm4gMDsKPiA+PiArfQo+ID4+ICAvKioKPiA+PiAgICogcGFnaW5nX2luaXQgLSBzZXR1
+cCBwYWdlIHRhYmxlcwo+ID4+ICAgKgotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBz
+ZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1l
+c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0
+ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
