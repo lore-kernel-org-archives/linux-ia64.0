@@ -1,86 +1,174 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Tue, 14 Nov 2006 01:11:44 +0000
-Subject: RE: 'kexec -l' problem at IA64 SN
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086B1F@pdsmsx411.ccr.corp.intel.com>
+From: "bibo,mao" <bibo.mao@intel.com>
+Date: Tue, 14 Nov 2006 01:47:04 +0000
+Subject: [PATCH] ia64 enable trap code on slot 1
+Message-Id: <45592018.3040203@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <45591464.5050206@sgi.com>
-In-Reply-To: <45591464.5050206@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Jay Lan
-> Sent: 2006=C4=EA11=D4=C214=C8=D5 8:57
-> To: fastboot
-> Cc: Linux-IA64
-> Subject: 'kexec -l' problem at IA64 SN
->=20
-> Hi,
->=20
-> I finally got time to work on 'kexec -l' problem at SGI box.
-> The 'kexec -l' always failed on "Invalid memory segment".
-> I am using these patches:
->   kexec-tools-1.101-kdump10.patch
->   kexec-tools-1.101-ia64-kdump10-efi-boot.patch
->   clone-ia64_boot_param-kdump10.patch
->   fix-paddr-vmcore-ELF
->   kexec-ia64-reset-vga (a special workaround from Nanhai to
->                         handle vga i/o issue)
-> Note that 'kexec -p' worked fine for me.
->=20
-> It would try to add memory segment 0x4000000 - 0x4997fff,
-> but failed in valid_memory_range() check.
->=20
-> It was the first segment it tried to load.
->=20
-> The kexec_info struct showed:
-> (gdb) p *(struct kexec_info *)0x607fffffffa0b338
-> $2 =3D {segment =3D 0x0, nr_segments =3D 0, entry =3D 0x0, rhdr =3D {ei_c=
-lass =3D 0,
->     ei_data =3D 0, e_type =3D 0, e_machine =3D 0, e_version =3D 0, e_flag=
-s =3D 0,
->     e_phnum =3D 0, e_shnum =3D 0, e_shstrndx =3D 0, e_entry =3D 0, e_phof=
-f =3D 0,
->     e_shoff =3D 0, e_notenum =3D 0, e_phdr =3D 0x0, e_shdr =3D 0x0, e_not=
-e =3D 0x0,
->     rel_addr =3D 0, rel_size =3D 0}, backup_start =3D 0, kexec_flags =3D =
-0}
->=20
->=20
-> and, the mem_phdr struct showed:
-> (gdb) p *(struct mem_phdr *) 0x6000000000014e20
-> $4 =3D {p_paddr =3D 67108864, p_vaddr =3D 11529215050363437056,
->   p_filesz =3D 10000768, p_memsz =3D 10000768, p_offset =3D 65536,
->   p_data =3D 0x2000000000338010 "\004\200", p_type =3D 1, p_flags =3D 7,
->   p_align =3D 65536}
-> (gdb)
->=20
-> The 'base' variable in elf_exec_load() at the time of calling
-> add_segment() was 0.
->=20
-> Where did it go wrong? The phdr->p_paddr? The base? It was off
-> by 0x3000000000. It needs adjustment, but where in the code and
-> which value?
->=20
-> The 'kexec -p' worked fine.
->=20
-> Thanks,
->  - jay
->=20
->=20
->=20
 Hi,
- Kexec -l is still using the entry value of vmlinux while kexec -p can  flo=
-at it's loading address according to /proc/iomem.
+ Because slot 1 of one instr bundle crosses border of two
+consecutive 8-bytes, kprobe on slot 1 is disabled. This
+patch enables kprobe on slot1, it only replaces higher 8-bytes
+trap major code and immediate sum, and remains lower
+8-bytes the same.
+ For those instructions which must execute regardless qp bits,
+kprobe on slot 1 is still disabled.
+ 
+(sorry if you receive duplicates, my original was not sent to
+ linux-ia64 mailing list)
 
-I will provide a patch to kexec-tools later to fix it.
-Thanks
-Zou Nan hai
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: bibo,mao <bibo.mao@intel.com>
+
+thanks
+bibo,mao
+
+-----------------------------------------------------
+arch/ia64/kernel/jprobes.S |    3 +-
+arch/ia64/kernel/kprobes.c |   51 ++++++++++++++++++---
+include/asm-ia64/break.h   |    4 +--
+include/asm-ia64/kprobes.h |    1
+4 files changed, 42 insertions(+), 17 deletions(-)
+
+diff --git a/arch/ia64/kernel/jprobes.S b/arch/ia64/kernel/jprobes.S
+index 5cd6226..6216302 100644
+--- a/arch/ia64/kernel/jprobes.S
++++ b/arch/ia64/kernel/jprobes.S
+@@ -45,13 +45,14 @@
+  * to the correct location.
+  */
+ #include <asm/asmmacro.h>
++#include <asm-ia64/break.h>
+ 
+ 	/*
+ 	 * void jprobe_break(void)
+ 	 */
+ 	.section .kprobes.text, "ax"
+ ENTRY(jprobe_break)
+-	break.m 0x80300
++	break.m __IA64_BREAK_JPROBE
+ END(jprobe_break)
+ 
+ 	/*
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 61f90b4..97c7763 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -88,6 +88,7 @@ static void __kprobes update_kprobe_inst
+ {
+ 	p->ainsn.inst_flag = 0;
+ 	p->ainsn.target_br_reg = 0;
++	p->ainsn.slot = slot;
+ 
+ 	/* Check for Break instruction
+ 	 * Bits 37:40 Major opcode to be zero
+@@ -364,12 +365,6 @@ static int __kprobes valid_kprobe_addr(i
+ 		return -EINVAL;
+ 	}
+ 
+-	if (slot = 1 && bundle_encoding[template][1] != L) {
+-		printk(KERN_WARNING "Inserting kprobes on slot #1 "
+-		       "is not supported\n");
+-		return -EINVAL;
+-	}
+-
+ 	return 0;
+ }
+ 
+@@ -527,23 +522,49 @@ int __kprobes arch_prepare_kprobe(struct
+ 
+ void __kprobes arch_arm_kprobe(struct kprobe *p)
+ {
+-	unsigned long addr = (unsigned long)p->addr;
+-	unsigned long arm_addr = addr & ~0xFULL;
++	unsigned long arm_addr;
++	bundle_t *src, *dest;
++
++	arm_addr = ((unsigned long)p->addr) & ~0xFUL;
++	dest = &((kprobe_opcode_t *)arm_addr)->bundle;
++	src = &p->opcode.bundle;
+ 
+ 	flush_icache_range((unsigned long)p->ainsn.insn,
+ 			(unsigned long)p->ainsn.insn + sizeof(kprobe_opcode_t));
+-	memcpy((char *)arm_addr, &p->opcode, sizeof(kprobe_opcode_t));
++	switch (p->ainsn.slot) {
++		case 0:
++			dest->quad0.slot0 = src->quad0.slot0;
++			break;
++		case 1:
++			dest->quad1.slot1_p1 = src->quad1.slot1_p1;
++			break;
++		case 2:
++			dest->quad1.slot2 = src->quad1.slot2;
++			break;
++	}
+ 	flush_icache_range(arm_addr, arm_addr + sizeof(kprobe_opcode_t));
+ }
+ 
+ void __kprobes arch_disarm_kprobe(struct kprobe *p)
+ {
+-	unsigned long addr = (unsigned long)p->addr;
+-	unsigned long arm_addr = addr & ~0xFULL;
++	unsigned long arm_addr;
++	bundle_t *src, *dest;
+ 
++	arm_addr = ((unsigned long)p->addr) & ~0xFUL;
++	dest = &((kprobe_opcode_t *)arm_addr)->bundle;
+ 	/* p->ainsn.insn contains the original unaltered kprobe_opcode_t */
+-	memcpy((char *) arm_addr, (char *) p->ainsn.insn,
+-					 sizeof(kprobe_opcode_t));
++	src = &p->ainsn.insn->bundle;
++	switch (p->ainsn.slot) {
++		case 0:
++			dest->quad0.slot0 = src->quad0.slot0;
++			break;
++		case 1:
++			dest->quad1.slot1_p1 = src->quad1.slot1_p1;
++			break;
++		case 2:
++			dest->quad1.slot2 = src->quad1.slot2;
++			break;
++	}
+ 	flush_icache_range(arm_addr, arm_addr + sizeof(kprobe_opcode_t));
+ }
+ 
+@@ -876,7 +897,9 @@ int __kprobes kprobe_exceptions_notify(s
+ 	switch(val) {
+ 	case DIE_BREAK:
+ 		/* err is break number from ia64_bad_break() */
+-		if (args->err = 0x80200 || args->err = 0x80300 || args->err = 0)
++		if ((args->err >> 12) = (__IA64_BREAK_KPROBE >> 12)
++			|| args->err = __IA64_BREAK_JPROBE
++			|| args->err = 0)
+ 			if (pre_kprobes_handler(args))
+ 				ret = NOTIFY_STOP;
+ 		break;
+diff --git a/include/asm-ia64/break.h b/include/asm-ia64/break.h
+index 8167828..875c1d2 100644
+--- a/include/asm-ia64/break.h
++++ b/include/asm-ia64/break.h
+@@ -12,8 +12,8 @@ #define _ASM_IA64_BREAK_H
+  * OS-specific debug break numbers:
+  */
+ #define __IA64_BREAK_KDB		0x80100
+-#define __IA64_BREAK_KPROBE		0x80200
+-#define __IA64_BREAK_JPROBE		0x80300
++#define __IA64_BREAK_KPROBE		0x81000
++#define __IA64_BREAK_JPROBE		0x82000
+ 
+ /*
+  * OS-specific break numbers:
+diff --git a/include/asm-ia64/kprobes.h b/include/asm-ia64/kprobes.h
+index 1b45b71..828ae00 100644
+--- a/include/asm-ia64/kprobes.h
++++ b/include/asm-ia64/kprobes.h
+@@ -115,6 +115,7 @@ struct arch_specific_insn {
+  #define INST_FLAG_BREAK_INST			4
+  	unsigned long inst_flag;
+  	unsigned short target_br_reg;
++	unsigned short slot;
+ };
+ 
+ extern int kprobe_exceptions_notify(struct notifier_block *self,
