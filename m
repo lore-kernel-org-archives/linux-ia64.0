@@ -1,124 +1,80 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Fri, 10 Nov 2006 23:59:59 +0000
-Subject: [PATCH 2/2] IA64 kdump: MCA notify_die events
-Message-Id: <455512AF.30603@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------030200040505020602070109"
+From: John Keller <jpk@sgi.com>
+Date: Wed, 15 Nov 2006 15:23:07 +0000
+Subject: [PATCH 0/3] - Altix: Add ACPI SSDT PCI device support
+Message-Id: <20061115152307.5960.97479.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------030200040505020602070109
-Content-Type: text/plain; charset=ISO-8859-1
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: linux-acpi@vger.kernel.org
+Cc: akpm@osdl.org, len.brown@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, gregkh@suse.de, linux-kernel@vger.kernel.org, ayoung@sgi.com, jes@sgi.com, John Keller <jpk@sgi.com>
 
-Add DIE_MCA_MONARCH_LEAVE and DIE_MCA_RENDZVOUS_LEAVE
-events handling in kdump_init_notifier().
+This patch set adds SN/Altix kernel support for
+ACPI SSDT tables. SSDTs are built by an ACPI capable PROM
+and describe all devices on each slot, including devices
+on secondary buses. On hotplug enable/disable the SSDTs
+are dynamically created/freed, and added/removed from the
+namespace. SN platform specific device info that was
+previously passed via SAL call is now passed via the Vendor
+resource.
 
-We let ia64_mca_handler() and ia64_mca_rendez_int_handler()
-to perform the MCA handling. The slave cpus will be sent to the
-SAL slave loop on the DIE_MCA_RENDZVOUS_LEAVE event, and the
-monarch will start the kdump kernel on the DIE_MCA_MONARCH_LEAVE
-event.
+Patch[1/3]
+ Add SN platform support for running with an ACPI
+ capable PROM that defines PCI devices in SSDT
+ tables. There is a SSDT table for every occupied
+ slot on a root bus, containing info for every
+ PPB and/or device on the bus. The SSDTs will be
+ dynamically loaded/unloaded on a hotplug enable/disable.
 
-I initially created a machine_kdump_on_mca() but decided
-to simply use machine_kdump_on_init() in the case of
-DIE_MCA_MONARCH_LEAVE since no special handling is needed.
-
-
-signed-Off-By:  Jay Lan <jlan@sgi.com>
-
-
-
-
-
-
---------------030200040505020602070109
-Content-Type: text/plain;
- name="MCA-event-notifier"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="MCA-event-notifier"
-
-Index: linux/arch/ia64/kernel/crash.c
-===================================================================
---- linux.orig/arch/ia64/kernel/crash.c	2006-11-10 14:48:53.033147572 -0800
-+++ linux/arch/ia64/kernel/crash.c	2006-11-10 14:50:24.014240287 -0800
-@@ -24,6 +24,7 @@
- int kdump_status[NR_CPUS];
- atomic_t kdump_cpu_freezed;
- int kdump_on_init = 1;
-+extern int kdump_in_progress;
- 
- ssize_t
- copy_oldmem_page(unsigned long pfn, char *buf,
-@@ -165,12 +166,16 @@ kdump_init_notifier(struct notifier_bloc
- 	if (!kdump_on_init)
- 		return NOTIFY_DONE;
- 
--	if (val != DIE_INIT_MONARCH_ENTER && val != DIE_INIT_SLAVE_ENTER)
-+	if (val != DIE_INIT_MONARCH_ENTER &&
-+	    val != DIE_INIT_SLAVE_ENTER &&
-+	    val != DIE_MCA_RENDZVOUS_LEAVE &&
-+	    val != DIE_MCA_MONARCH_LEAVE)
- 		return NOTIFY_DONE;
- 
- 	nd = (struct ia64_mca_notify_die *)args->err;
- 	/* Reason code 1 means machine check rendezous*/
--	if (nd->sos->rv_rc == 1)
-+	if ((val==DIE_INIT_MONARCH_ENTER || val==DIE_INIT_SLAVE_ENTER) &&
-+	    nd->sos->rv_rc == 1)
- 		return NOTIFY_DONE;
- 
- 	if (kdump_sending_init)
-@@ -183,6 +188,15 @@ kdump_init_notifier(struct notifier_bloc
- 		case DIE_INIT_SLAVE_ENTER:
- 			unw_init_running(kdump_cpu_freeze, NULL);
- 			break;
-+		case DIE_MCA_RENDZVOUS_LEAVE:
-+			if (kdump_in_progress)
-+				unw_init_running(kdump_cpu_freeze, NULL);
-+			break;
-+		case DIE_MCA_MONARCH_LEAVE:
-+			/* die_register->signr indicate if MCA is recoverable */
-+			if (!args->signr)
-+				machine_kdump_on_init();
-+			break;
- 	}
- 	return NOTIFY_DONE;
- }
-Index: linux/arch/ia64/kernel/mca.c
-===================================================================
---- linux.orig/arch/ia64/kernel/mca.c	2006-11-10 14:48:41.773012428 -0800
-+++ linux/arch/ia64/kernel/mca.c	2006-11-10 15:17:22.018866761 -0800
-@@ -92,6 +92,11 @@
- # define IA64_MCA_DEBUG(fmt...)
- #endif
- 
-+#ifdef CONFIG_KEXEC
-+/* Used by arch/ia64/kernel/crash.c */
-+int kdump_in_progress;
-+#endif
-+
- /* Used by mca_asm.S */
- u32				ia64_mca_serialize;
- DEFINE_PER_CPU(u64, ia64_mca_data); /* == __per_cpu_mca[smp_processor_id()] */
-@@ -1066,6 +1071,15 @@ ia64_mca_handler(struct pt_regs *regs, s
- 		rh->severity = sal_log_severity_corrected;
- 		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
- 		sos->os_status = IA64_MCA_CORRECTED;
-+#ifdef CONFIG_KEXEC
-+	} else {
-+		kdump_in_progress = 1;
-+		/* In the case of (!recover), notify_die(DIE_MCA_MONARCH_LEAVE)
-+		   will not return. A dump kernel will be booted. Need to set
-+		   nonarch_cpu here to get slave cpus out of looping in OS.
-+		 */
-+		monarch_cpu = -1;
-+#endif
- 	}
- 	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, (long)&nd, 0, recover)
- 			== NOTIFY_STOP)
+ Platform specific information that is currently
+ passed via a SAL call, will now be passed via the
+ Vendor resource in the ACPI Device object defined
+ in a SSDT.
 
 
---------------030200040505020602070109--
+Patch[2/3]
+ Support for dynamic loading and unloading of ACPI
+ SSDT tables upon slot hotplugs and unplugs.
+
+ On SN platforms, we now represent every
+ populated root bus slot with a single ACPI
+ SSDT table containing info for every
+ device and PPB attached to the slot. These SSDTs
+ are generated by the prom at initial boot
+ and hotplug time. The info in these SSDT tables is
+ used by the SN kernel IO "fixup" code (which is called
+ at boot and hotplug time).
+
+ On hotplugs (i.e. enable_slot()), if running with
+ an ACPI capable prom, attempt to obtain a new ACPI
+ SSDT table for the slot being hotplugged. If successful,
+ add the table to the ACPI namespace (acpi_load_table())
+ and then walk the new devices and add them to the ACPI
+ infastructure (acpi_bus_add()).
+
+ On hot unplugs (i.e. disable_slot()), if running with
+ an ACPI capable prom, attempt to remove the SSDT table
+ associated with the slot from the ACPI namespace
+ (acpi_unload_table_id()) and infastructure (acpi_bus_trim()).
+
+
+Patch[3/3]
+ This patch makes acpi_load_table() available
+ for use by removing it from the #ifdef ACPI_FUTURE_USAGE.
+
+ It also adds a new routine used to unload an ACPI table
+ of a given type and "id" - acpi_unload_table_id().
+ The implementation of this new routine was almost a direct
+ copy of existing routine acpi_unload_table() - only difference
+ being that it only removes a specific table id instead of
+ ALL tables of a given type.
+ The SN hotplug driver (sgi_hotplug.c) now uses both of these
+ interfaces to dynamically load and unload SSDT ACPI tables.
+
+ Also, a few other ACPI routines now used by the SN hotplug
+ driver are exported (since the driver can be a loadable module):
+
+ acpi_ns_map_handle_to_node
+ acpi_ns_convert_entry_to_handle
+ acpi_ns_get_next_node
+
