@@ -1,102 +1,46 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 27 Nov 2006 14:37:05 +0000
-Subject: 2.6.19-rc6-git10 new perfmon code base + libpfm + pfmon
-Message-Id: <20061127143705.GC24980@frankl.hpl.hp.com>
+From: Jay Lan <jlan@sgi.com>
+Date: Wed, 15 Nov 2006 21:22:55 +0000
+Subject: [PATCH] kexec-tools: bug fix to --noio option
+Message-Id: <455B852F.4050502@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080101070300060805040104"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------080101070300060805040104
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: perfmon@napali.hpl.hp.com
-Cc: linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net, linux-kernel@vger.kernel.org
 
-Hello,
+This patch is to fix a "--noio option" patch posted on 9/20/2006 by
+Nanhai that disables I/O in purgatory code.
 
-I have released another version of the perfmon new code base package.
-This version of the kernel patch is relative to 2.6.19-rc6-git10.
-
-This is a major update because it completes the changes requested 
-during the code review on LKML. As a consequence, the kernel interface
-is NOT backward compatible with previous v2.2 versions. This release has
-the v2.3 version number. Backward compatibility with v2.0 is maintained
-on Itanium processors.
-
-The kernel patch is split between infrastructure work and perfmon2 proper.
-The infrastructure contains the following changes which will be integrated
-into mainline before perfmon2 is. Those changes should appear in 2.6.20.
-They are provided in the base.diff file.
-
-The infrastructure changes include:
-	- x86_64: fix idle_notifier to cover all interrupts entry/exit for idle thread
-	- i386  : add idle notifier (copy of x86_64 notifier)
-	- ia64  : idle notifier (copy of x86_64 notifier)
-	- i386  : add X86_FEATURE_ceforge.net, linux-kernel@vger.kernel.orgq,X86_FEATURE_PEBS to cpufeature.h
-	- x86_64:  add X86_FEATURE_BTS,X86_FEATURE_PEBS to cpufeature.h
-	- i386  : add PMU related MSR definitions to msr.h
-	- x86_64: NMI watchdog uses PERFCTR1 to allow PEBS on Intel Core (requires PERFCTR0)
-	- all   : remove unused carta_random32.h
+The "--noio" option should specify zero argument to avoid eating out
+the next option.
 
 
-The perfmon2 kernel changes the release to v2.3 and includes the following changes:
-	- updated to 2.6.19-rc6-git10 
-	- sampling format identified with clear text string, not UUID anymore
-	- pfm_create_context() returns file descriptor
-	- sampling format name passed as argument
-	- struct pfarg_ctx_t simplified
-	- using random32() instead of carta_random32() (now obsolete)
-	- in struct pfarg_pmd, reg_random_seed is obsolete
-	- added support for Intel Core processors (Core 2 Duo)
-	- unified PEBS support between P4 and Intel Core
-	- fix bugs with munmap() of sampling buffer
-	- changed sysfs to handle new naming for sampling formats
-	- change rsvd_mask logic in PMU description modules
-	- make idle notifier registration lazy (only when needed)
-	- rewritten NMI integration using die_notifier()
-	- NMI watchdog support and auto-detection for AMD K8, Intel Core
-	- fix potential issues with locking/irq masking using LockDep checker
-	- cleaned MIPS PMU description table setup
-	- various MIPS bugs fixes (Phil Mucci, Manoj Ekbote)
-	- various PowerPC updates  include PPC32 description table (Phil Mucci)
+Signed-off-by: Jay Lan <jlan@sgi.com>
 
-Due to problems with the git10 tree, the MIPS kernel does not compile regardless of
-perfmon2. A new patch will be generated once this problem is removed.
 
-I have also released a new libpfm, libpfm-3.2-061127, with lots of
-changes. Here are some of the most important ones:
+--------------080101070300060805040104
+Content-Type: text/plain;
+ name="noio-fix"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="noio-fix"
 
-	- added support for Intel Core (Core 2 Duo)
-	- updated all example, header files to perfmon v2.3
-	- updated man pages
-	- Intel Core PEBS example
-	- fixed rtop on 32-bit platforms
-	- various MIPS updates (Phil Mucci)
-	- big-endian support for MIPS
-	- various Makefile improvements
+Index: kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c
+===================================================================
+--- kexec-tools-1.101.orig/kexec/arch/ia64/kexec-elf-ia64.c	2006-11-15 13:05:25.000000000 -0800
++++ kexec-tools-1.101/kexec/arch/ia64/kexec-elf-ia64.c	2006-11-15 13:06:23.941960199 -0800
+@@ -128,7 +128,7 @@ int elf_ia64_load(int argc, char **argv,
+ 		{"command-line", 1, 0, OPT_APPEND},
+ 		{"append",       1, 0, OPT_APPEND},
+ 		{"initrd",       1, 0, OPT_RAMDISK},
+-		{"noio",       1, 0, OPT_NOIO},
++		{"noio",         0, 0, OPT_NOIO},
+ 		{0, 0, 0, 0},
+ 	};
+ 
 
-Also a new version of pfmon, pfmon-3.2-061127, with a lot
-of changes as well:
-	- updated to perfmon v2.3 interface
-	- support for Intel Core processors (Core 2 Duo)
-	- support for Intel Core PEBS as a sampling format
-	- complete rewrite of system-wide  core loops to avoid race conditions with signals
-	- added --print-interval to print intermediate deltas in system-wide mode
-	- better handling of perfmon errors
-	- corrected Montecito checks for L2D_CANCEL events
-	- factorized 'detailed' sampling format for all arch
-	- inst-hist default formats for all arch
-	- corrected sampling buffer auto-sizing based on resource limit constraints
-	- updated online documentation
-	
-This version of pfmon requires libpfm-3.2-061127.
-
-You can get a more detailed log of changes the the CVS tree.
-
-You can grab the new packages at our web site:
-
-	 http://perfmon2.sf.net
-
-Enjoy,
-
-PS: I will post a kernel patch to LKML and a diffstat on the perfmon mailing list.
--- 
-
--Stephane
+--------------080101070300060805040104--
