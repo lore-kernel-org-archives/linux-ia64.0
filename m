@@ -1,27 +1,29 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 15 Nov 2006 18:07:23 +0000
-Subject: RE: cross compile for host=ia32 and target=ia64
-Message-Id: <617E1C2C70743745A92448908E030B2ACBF584@scsmsx411.amr.corp.intel.com>
+From: "sudhnesh adapawar" <sudhnesh@gmail.com>
+Date: Thu, 16 Nov 2006 07:19:24 +0000
+Subject: How does the ski simulator resolves the dependency on shared libraries?
+Message-Id: <9b33a9230611152307x6580a290n652ee50d9a5bda0c@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <53f38ab60611142325n7e92e99dtbb4b7811eef7a5fe@mail.gmail.com>
-In-Reply-To: <53f38ab60611142325n7e92e99dtbb4b7811eef7a5fe@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kernelnewbies@nl.linux.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> I have downloaded the HP ski simulator and I want to run it on my ia32 machine.
-> For this I need to cross compile the kernel.
-> Though I tried the cross ciimpilation but did not succeed.
->
-> Can anyone please tell me from where can I get the pre-build binaries
-> and clear steps to cross compile for host=ia32 and target=ia64?
+Hey all,
+          How does the ski simulator resolves the dependency on shared
+libraries?
+              For e.g: I tried 'ls' command on xski but i failed to run it :
+[root@basemant /]# xski ls vmlinux simscsi=/var/ski-disks/sd
+ls - No such file or directory
+ls - No such file or directory
+xski: Could not open ls for reading
+[root@basemant /]# which ls
+alias ls='ls --color=tty'
+       /bin/ls
+[root@basemant /]# xski /bin/ls vmlinux simscsi=/var/ski-disks/sd
+/bin/ls - wrong architecture (3)
+xski: Could not open /bin/ls for reading
+[root@basemant /]#
 
-This question was asked a couple of weeks ago (check the archives
-of this mailing list for the topic "cross compiling ia64 kernels"
-at either http://www.gelato.unsw.edu.au/archives/linux-ia64 or
-at marc.theaimsgroup.com).  I don't recall that anyone provided
-a pointer to pre-built binaries of the compiler, but there were some
-pointers to websites on how to build it yourself).
+Please kindly reply !
 
--Tony
+- Sudhnesh
