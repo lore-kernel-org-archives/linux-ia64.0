@@ -1,169 +1,52 @@
-From: John Keller <jpk@sgi.com>
-Date: Wed, 15 Nov 2006 16:40:06 +0000
-Subject: [PATCH 3/3: Resend
-Message-Id: <20061115164006.1640.3310.sendpatchset@attica.americas.sgi.com>
+From: akpm@osdl.org
+Date: Thu, 16 Nov 2006 08:42:58 +0000
+Subject: [patch 1/4] ia64 irqs: use `name' not `typename'
+Message-Id: <200611160842.kAG8gwAw017740@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org
-Cc: akpm@osdl.org, len.brown@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, gregkh@suse.de, linux-kernel@vger.kernel.org, ayoung@sgi.com, jes@sgi.com, John Keller <jpk@sgi.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
+From: Andrew Morton <akpm@osdl.org>
 
- This patch makes acpi_load_table() available
- for use by removing it from the #ifdef ACPI_FUTURE_USAGE.
+`typename' is going away and is usually uninitialised anwyay.
 
- It also adds a new routine used to unload an ACPI table
- of a given type and "id" - acpi_unload_table_id().
- The implementation of this new routine was almost a direct
- copy of existing routine acpi_unload_table() - only difference
- being that it only removes a specific table id instead of
- ALL tables of a given type.
- The SN hotplug driver (sgi_hotplug.c) now uses both of these
- interfaces to dynamically load and unload SSDT ACPI tables.
-
- Also, a few other ACPI routines now used by the SN hotplug
- driver are exported (since the driver can be a loadable module):
-
- acpi_ns_map_handle_to_node
- acpi_ns_convert_entry_to_handle
- acpi_ns_get_next_node
-
-Signed-off-by: Aaron Young <ayoung@sgi.com>
-
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
-Resend #1
-    Original send of this patch was outdated and did not have
-    acpi_ut_acquire_mutex() and acpi_ut_release_mutex() calls
-    in acpi_unload_table_id().
+ arch/ia64/kernel/iosapic.c |    2 +-
+ arch/ia64/kernel/irq.c     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
- drivers/acpi/namespace/nsutils.c |    4 ++
- drivers/acpi/namespace/nswalk.c  |    2 +
- drivers/acpi/tables/tbxface.c    |   54 ++++++++++++++++++++++++++++-
- include/acpi/acpixf.h            |    5 +-
- 4 files changed, 62 insertions(+), 3 deletions(-)
-
-
-Index: linux-2.6/drivers/acpi/namespace/nsutils.c
-=================================--- linux-2.6.orig/drivers/acpi/namespace/nsutils.c	2006-11-15 08:18:27.587345652 -0600
-+++ linux-2.6/drivers/acpi/namespace/nsutils.c	2006-11-15 08:33:26.129843027 -0600
-@@ -701,6 +701,8 @@ struct acpi_namespace_node *acpi_ns_map_
- 	return (ACPI_CAST_PTR(struct acpi_namespace_node, handle));
- }
- 
-+ACPI_EXPORT_SYMBOL(acpi_ns_map_handle_to_node)
-+
- /*******************************************************************************
-  *
-  * FUNCTION:    acpi_ns_convert_entry_to_handle
-@@ -737,6 +739,8 @@ acpi_handle acpi_ns_convert_entry_to_han
- ------------------------------------------------------*/
- }
- 
-+ACPI_EXPORT_SYMBOL(acpi_ns_convert_entry_to_handle)
-+
- /*******************************************************************************
-  *
-  * FUNCTION:    acpi_ns_terminate
-Index: linux-2.6/drivers/acpi/namespace/nswalk.c
-=================================--- linux-2.6.orig/drivers/acpi/namespace/nswalk.c	2006-11-15 08:18:27.587345652 -0600
-+++ linux-2.6/drivers/acpi/namespace/nswalk.c	2006-11-15 08:33:26.141845016 -0600
-@@ -119,6 +119,8 @@ struct acpi_namespace_node *acpi_ns_get_
- 	return (NULL);
- }
- 
-+ACPI_EXPORT_SYMBOL(acpi_ns_get_next_node)
-+
- /*******************************************************************************
-  *
-  * FUNCTION:    acpi_ns_walk_namespace
-Index: linux-2.6/drivers/acpi/tables/tbxface.c
-=================================--- linux-2.6.orig/drivers/acpi/tables/tbxface.c	2006-11-15 08:18:27.635354917 -0600
-+++ linux-2.6/drivers/acpi/tables/tbxface.c	2006-11-15 09:54:54.715023969 -0600
-@@ -123,7 +123,6 @@ acpi_status acpi_load_tables(void)
- 
- ACPI_EXPORT_SYMBOL(acpi_load_tables)
- 
--#ifdef ACPI_FUTURE_USAGE
- /*******************************************************************************
-  *
-  * FUNCTION:    acpi_load_table
-@@ -221,6 +220,59 @@ ACPI_EXPORT_SYMBOL(acpi_load_table)
- 
- /*******************************************************************************
-  *
-+ * FUNCTION:    acpi_unload_table_id
-+ *
-+ * PARAMETERS:  table_type    - Type of table to be unloaded
-+ *              id            - Owner ID of the table to be removed.
-+ *
-+ * RETURN:      Status
-+ *
-+ * DESCRIPTION: This routine is used to force the unload of a table (by id)
-+ *
-+ ******************************************************************************/
-+acpi_status acpi_unload_table_id(acpi_table_type table_type, acpi_owner_id id)
-+{
-+	struct acpi_table_desc *table_desc;
-+	acpi_status status;
-+
-+	ACPI_FUNCTION_TRACE(acpi_unload_table);
-+
-+	/* Parameter validation */
-+	if (table_type > ACPI_TABLE_ID_MAX)
-+		return_ACPI_STATUS(AE_BAD_PARAMETER);
-+
-+	/* Find table from the requested type list */
-+	table_desc = acpi_gbl_table_lists[table_type].next;
-+	while (table_desc && table_desc->owner_id != id)
-+		table_desc = table_desc->next;
-+
-+	if (!table_desc)
-+		return_ACPI_STATUS(AE_NOT_EXIST);
-+
-+	/*
-+	 * Delete all namespace objects owned by this table. Note that these
-+	 * objects can appear anywhere in the namespace by virtue of the AML
-+	 * "Scope" operator. Thus, we need to track ownership by an ID, not
-+	 * simply a position within the hierarchy
-+	 */
-+	acpi_ns_delete_namespace_by_owner(table_desc->owner_id);
-+
-+	status = acpi_ut_acquire_mutex(ACPI_MTX_TABLES);
-+	if (ACPI_FAILURE(status))
-+		return_ACPI_STATUS(status);
-+
-+	(void)acpi_tb_uninstall_table(table_desc);
-+
-+	(void)acpi_ut_release_mutex(ACPI_MTX_TABLES);
-+
-+	return_ACPI_STATUS(AE_OK);
-+}
-+
-+ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
-+
-+#ifdef ACPI_FUTURE_USAGE
-+/*******************************************************************************
-+ *
-  * FUNCTION:    acpi_unload_table
-  *
-  * PARAMETERS:  table_type    - Type of table to be unloaded
-Index: linux-2.6/include/acpi/acpixf.h
-=================================--- linux-2.6.orig/include/acpi/acpixf.h	2006-11-15 08:18:33.708526941 -0600
-+++ linux-2.6/include/acpi/acpixf.h	2006-11-15 08:33:26.197854296 -0600
-@@ -97,11 +97,12 @@ acpi_find_root_pointer(u32 flags, struct
- 
- acpi_status acpi_load_tables(void);
- 
--#ifdef ACPI_FUTURE_USAGE
- acpi_status acpi_load_table(struct acpi_table_header *table_ptr);
- 
--acpi_status acpi_unload_table(acpi_table_type table_type);
-+acpi_status acpi_unload_table_id(acpi_table_type table_type, acpi_owner_id id);
- 
-+#ifdef ACPI_FUTURE_USAGE
-+acpi_status acpi_unload_table(acpi_table_type table_type);
- acpi_status
- acpi_get_table_header(acpi_table_type table_type,
- 		      u32 instance, struct acpi_table_header *out_table_header);
+diff -puN arch/ia64/kernel/iosapic.c~ia64-irqs-use-name-not-typename arch/i=
+a64/kernel/iosapic.c
+--- a/arch/ia64/kernel/iosapic.c~ia64-irqs-use-name-not-typename
++++ a/arch/ia64/kernel/iosapic.c
+@@ -664,7 +664,7 @@ register_intr (unsigned int gsi, int vec
+ 			printk(KERN_WARNING
+ 			       "%s: changing vector %d from %s to %s\n",
+ 			       __FUNCTION__, vector,
+-			       idesc->chip->typename, irq_type->typename);
++			       idesc->chip->name, irq_type->name);
+ 		idesc->chip =3D irq_type;
+ 	}
+ 	return 0;
+diff -puN arch/ia64/kernel/irq.c~ia64-irqs-use-name-not-typename arch/ia64/=
+kernel/irq.c
+--- a/arch/ia64/kernel/irq.c~ia64-irqs-use-name-not-typename
++++ a/arch/ia64/kernel/irq.c
+@@ -76,7 +76,7 @@ int show_interrupts(struct seq_file *p,=20
+ 			seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
+ 		}
+ #endif
+-		seq_printf(p, " %14s", irq_desc[i].chip->typename);
++		seq_printf(p, " %14s", irq_desc[i].chip->name);
+ 		seq_printf(p, "  %s", action->name);
+=20
+ 		for (action=ACtion->next; action; action =3D action->next)
+_
