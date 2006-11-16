@@ -1,7 +1,7 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Fri, 03 Nov 2006 00:10:23 +0000
-Subject: alloc_bootmem can corrupt memory
-Message-Id: <87mz798k5s.peterc%peterc@gelato.unsw.edu.au>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Thu, 16 Nov 2006 20:40:53 +0000
+Subject: [PATCH] Fix DISCONTIGMEM without VIRTUAL_MEM_MAP
+Message-Id: <20061116204052.GP19143@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,89 +9,44 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
+make allnoconfig currently fails to build because it selects DISCONTIGMEM
+without VIRTUAL_MEM_MAP.  I see no particular reason this combination
+ought to fail, so I fixed it by:
 
+ - Including memory_model.h in all circumstances, except when both
+   DISCONTIGMEM and VIRTUAL_MEM_MAP are enabled.
+ - Defining ia64_pfn_valid() to 1 unless VIRTUAL_MEM_MAP is enabled
 
-Hi,
-	During bootup, the EFI memory map is scanned and converted to
-an in-kernel representation.  The memory for that in-kernel
-representation is allocated directly out of the EFI memory map using a
-fairly arcane alogrithm.  But the allocation algorithm doesn't take
-into account any reserved regions.  Which means that for some memory
-layouts, it can allocate memory that overlaps an already reserved
-region.
+Signed-off-by: Matthew Wilcox <matthew@wil.cx>
 
-For example, assume an EFI memory map like this:
-
-0-1MB WB EFI_BOOT_SERVICES_DATA
-1-2MB WB EFI_PAL_CODE
-2-1025MB WB EFI_CONVENTIONAL_MEMORY
-
-and assume the kernel is loaded at 64M, and there is a 64M granule
-size.
-
-arch/ia64/kernel/efi.c:find_memmap_space() will find memory at the 64M
-granule boundary.  This is already used by the kernel.  So the
-rsvd_space[] array might look like:
-
-rsvd[0] 10ac48->10acc0
-rsvd[1] 10acc0->10ad10
-rsvd[2] 10ad10->10ad58
-rsvd[3] 4000000->4738dc8
-rsvd[4] 4000000->4000030
-
-The last entry is for the kernel copy of the EFI map.  It has already
-corrupted the VHPT miss handler.  Then alloc_bootmem starts allocating
-after the highest reserved space.
-
-Maybe a patch something like this is needed (minus the debugging
-output) (yes there are cleaner ways to do this, and I can do them if
-the general approach is acceptable).
-
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index bb8770a..f8ae8d0 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -894,6 +895,16 @@ find_memmap_space (void)
- 		as = max(contig_low, md->phys_addr);
- 		ae = min(contig_high, efi_md_end(md));
+diff --git a/include/asm-ia64/page.h b/include/asm-ia64/page.h
+index 947cb72..485759b 100644
+--- a/include/asm-ia64/page.h
++++ b/include/asm-ia64/page.h
+@@ -101,7 +101,7 @@ #define virt_addr_valid(kaddr)	pfn_valid
  
-+		{
-+			int i;
-+			for (i = 0; i < num_rsvd_regions; i++) {
-+				if (rsvd_region[i].end < as)
-+					continue;
-+				if (rsvd_region[i].start <= as && rsvd_region[i].end >= as + space_needed)
-+					as = rsvd_region[i].end;
-+			}
-+		}
-+
- 		/* keep within max_addr= command line arg */
- 		ae = min(ae, max_addr);
- 		if (ae <= as)
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index c4caa80..288f367 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -248,6 +248,7 @@ #ifdef CONFIG_BLK_DEV_INITRD
- 		n++;
- 	}
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ extern int ia64_pfn_valid (unsigned long pfn);
+-#elif defined(CONFIG_FLATMEM)
++#else
+ # define ia64_pfn_valid(pfn) 1
  #endif
-+	num_rsvd_regions = n;
  
- 	efi_memmap_init(&rsvd_region[n].start, &rsvd_region[n].end);
- 	n++;
-@@ -261,6 +262,14 @@ #endif
- 	BUG_ON(IA64_MAX_RSVD_REGIONS + 1 < n);
+@@ -110,12 +110,11 @@ extern struct page *vmem_map;
+ #ifdef CONFIG_DISCONTIGMEM
+ # define page_to_pfn(page)	((unsigned long) (page - vmem_map))
+ # define pfn_to_page(pfn)	(vmem_map + (pfn))
++#else
++# include <asm-generic/memory_model.h>
+ #endif
+-#endif
+-
+-#if defined(CONFIG_FLATMEM) || defined(CONFIG_SPARSEMEM)
+-/* FLATMEM always configures mem_map (mem_map = vmem_map if necessary) */
+-#include <asm-generic/memory_model.h>
++#else
++# include <asm-generic/memory_model.h>
+ #endif
  
- 	sort_regions(rsvd_region, num_rsvd_regions);
-+	{
-+		int i;
-+		for (i = 0; i < num_rsvd_regions; i++)
-+			printk("rsvd[%d] %lx->%lx\n",
-+				i,
-+				rsvd_region[i].start,
-+				rsvd_region[i].end);
-+	}
- }
- 
- /**
+ #ifdef CONFIG_FLATMEM
+
