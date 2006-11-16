@@ -1,36 +1,60 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 27 Nov 2006 21:32:05 +0000
-Subject: Re: what is the purpose of "CONFIG_DMA_IS_DMA32"?
-Message-Id: <Pine.LNX.4.64.0611271330390.3406@schroedinger.engr.sgi.com>
+From: akpm@osdl.org
+Date: Thu, 16 Nov 2006 08:43:07 +0000
+Subject: [patch 3/4] ia64: use generic_handle_irq()
+Message-Id: <200611160843.kAG8h7pb017746@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0611271314280.3419@localhost.localdomain>
-In-Reply-To: <Pine.LNX.4.64.0611271314280.3419@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Mon, 27 Nov 2006, Robert P. J. Day wrote:
+From: Ingo Molnar <mingo@elte.hu>
 
-> 
->   perhaps a silly question, but:
-> 
-> $ grep -r "DMA_IS_DMA32" *
-> arch/ia64/defconfig:CONFIG_DMA_IS_DMA32=y
-> arch/ia64/configs/sim_defconfig:CONFIG_DMA_IS_DMA32=y
-> arch/ia64/configs/zx1_defconfig:CONFIG_DMA_IS_DMA32=y
-> arch/ia64/configs/tiger_defconfig:CONFIG_DMA_IS_DMA32=y
-> arch/ia64/configs/bigsur_defconfig:CONFIG_DMA_IS_DMA32=y
-> arch/ia64/configs/gensparse_defconfig:CONFIG_DMA_IS_DMA32=y
-> $
-> 
-> what is the purpose of a configuration symbol that is set but never
-> involved in a conditional check?
-> 
->   i'm guessing that used to be a config setting in the ia64/Kconfig
-> file that has since vanished.
+Use generic_handle_irq() to handle mixed-type irq handling.
 
-Correct that config setting was eliminated in the 2.6.19 development 
-cycle. Refreshing the config files would be advisable.
-5A
+[akm@osdl.org: add missing conversion]
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ arch/ia64/kernel/irq.c      |    2 +-
+ arch/ia64/kernel/irq_ia64.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff -puN arch/ia64/kernel/irq.c~ia64-use-generic_handle_irq arch/ia64/kernel/irq.c
+--- a/arch/ia64/kernel/irq.c~ia64-use-generic_handle_irq
++++ a/arch/ia64/kernel/irq.c
+@@ -197,7 +197,7 @@ void fixup_irqs(void)
+ 			struct pt_regs *old_regs = set_irq_regs(NULL);
+ 
+ 			vectors_in_migration[irq]=0;
+-			__do_IRQ(irq);
++			generic_handle_irq(irq);
+ 			set_irq_regs(old_regs);
+ 		}
+ 	}
+diff -puN arch/ia64/kernel/irq_ia64.c~ia64-use-generic_handle_irq arch/ia64/kernel/irq_ia64.c
+--- a/arch/ia64/kernel/irq_ia64.c~ia64-use-generic_handle_irq
++++ a/arch/ia64/kernel/irq_ia64.c
+@@ -186,7 +186,7 @@ ia64_handle_irq (ia64_vector vector, str
+ 			ia64_setreg(_IA64_REG_CR_TPR, vector);
+ 			ia64_srlz_d();
+ 
+-			__do_IRQ(local_vector_to_irq(vector));
++			generic_handle_irq(local_vector_to_irq(vector));
+ 
+ 			/*
+ 			 * Disable interrupts and send EOI:
+@@ -242,7 +242,7 @@ void ia64_process_pending_intr(void)
+ 			 * Probably could shared code.
+ 			 */
+ 			vectors_in_migration[local_vector_to_irq(vector)]=0;
+-			__do_IRQ(local_vector_to_irq(vector));
++			generic_handle_irq(local_vector_to_irq(vector));
+ 			set_irq_regs(old_regs);
+ 
+ 			/*
+_
