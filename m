@@ -1,31 +1,61 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 03 Nov 2006 01:55:49 +0000
-Subject: RE: [PATCH]IA64 trap code 16 bytes atomic copy on montecito, take 2
-Message-Id: <000201c6feeb$2fc4e3c0$ff0da8c0@amr.corp.intel.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Date: Tue, 21 Nov 2006 11:37:08 +0000
+Subject: Re: [RFC] virtual memmap for sparsemem [1/2] arch independent part
+Message-Id: <20061121113708.GB8122@osiris.boeblingen.de.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <454961EE.4070608@intel.com>
-In-Reply-To: <454961EE.4070608@intel.com>
+References: <20061019172140.5a29962c.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20061019172140.5a29962c.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: Linux-MM <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, Martin Schwidefsky <schwidefsky@de.ibm.com>
 
-Keshavamurthy, Anil wrote on Thursday, November 02, 2006 5:32 PM
-> > > But I can't see how you plan to *remove* the breakpoint and restore the
-> > > original instruction.
+On Thu, Oct 19, 2006 at 05:21:40PM +0900, KAMEZAWA Hiroyuki wrote:
+> This is a patch for virtual memmap on sparsemem against 2.6.19-rc2.
+> booted well on my Tiger4.
 > 
-> Restoring the break is very simple, just restore back the
-> upper 23 bits in the upper 8 byte boundary( since we have not
-> touched the bits 0:17 which is present in the lower 8 byte boundary)
+> In this time, this is just a RFC. comments on patch and advises for benchmarking
+> is welcome. (memory hotplug case is not well handled yet.)
+> 
+> ia64's SPARSEMEM uses SPARSEMEM_EXTREME. This requires 2-level table lookup by
+> software for page_to_pfn()/pfn_to_page(). virtual memmap can remove that costs.
+> But will consume more TLBs.
+> 
+> For make patches simple, pfn_valid() uses sparsemem's logic. 
+> 
+> - Kame
+> =
+> This patch maps sparsemem's *sparse* memmap into contiguous virtual address range
+> starting from virt_memmap_start.
+> 
+> By this, pfn_to_page, page_to_pfn can be implemented as 
+> #define pfn_to_page(pfn)		(virt_memmap_start + (pfn))
+> #define page_to_pfn(pg)			(pg - virt_memmap_start)
+> 
+> 
+> Difference from ia64's VIRTUAL_MEMMAP are
+> * pfn_valid() uses sparsemem's logic.
+> * memmap is allocated per SECTION_SIZE, so there will be some of RESERVED pages.
+> * no holes in MAX_ORDER range. so HOLE_IN_ZONE=n here.
+> 
+> Todo
+> - fix vmalloc() case in memory hotadd. (maybe __get_vm_area() can be used.)
 
+Better late than never, but here is a reply as well :)
 
-Sure. If you go with that route, make sure it is documented that kprobe will
-fire only if the original instruction gets executed.
+Is this supposed to replace ia64's vmem_map?
+I'm asking because on s390 we need a vmem_map too, but don't want to be
+limited by the sparsemem restrictions (especially SECTION_SIZE that is).
+In addition we have a shared memory device driver (dcss) with which it
+is possible to attach some shared memory. Because of that it is
+necessary to be able to add some additional struct pages on-the-fly.
+This is not very different to memory hotplug; I think it's even easier,
+since all we need are some initialized struct pages.
 
-A quick grep of kprobes.[ch] shows that the probe instruction always fire
-independent of what the original "qp" field is. Above will change probing
-behavior.  The former make a lot of sense that one should get a kprobe
-trap only When probing instruction gets executed. The latter can equally
-argue that unconditional trap in the execution stream has its beauty. I
-suppose the jury is all in the hands of usage model.
+Currently I have a working prototype that does all that but still needs
+a lot of cleanup and some error handling. It is (of course) heavily
+inspired by ia64's vmem_map implementation.
 
+I'd love to go for a generic implementation, but if that is based on
+sparsemem it doesn't make too much sense on s390.
