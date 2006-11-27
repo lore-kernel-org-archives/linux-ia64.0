@@ -1,37 +1,42 @@
-From: "sudhnesh adapawar" <sudhnesh@gmail.com>
-Date: Sun, 26 Nov 2006 05:49:20 +0000
-Subject: How to boot 2.6 kernel using hp ski simulator ???
-Message-Id: <9b33a9230611252149m4da2634akbd355f026759ac70@mail.gmail.com>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 27 Nov 2006 08:48:45 +0000
+Subject: Re: How to boot 2.6 kernel using hp ski simulator ???
+Message-Id: <87ejrpjmvm.wl%peterc@chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <9b33a9230611252149m4da2634akbd355f026759ac70@mail.gmail.com>
+In-Reply-To: <9b33a9230611252149m4da2634akbd355f026759ac70@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: lia64-sim@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernelnewbies@nl.linux.org
+To: sudhnesh adapawar <sudhnesh@gmail.com>
+Cc: lia64-sim@napali.hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernelnewbies@nl.linux.org
 
-Hey all !
-          I wanted to boot 2.6 kernel configured for ia64 architecture
-on ia32 archi using hp ski simulator ! But I failed to do so ! I
-followed the following steps:
-1) I used 'make ARCH=ia64 menuconfig' to configure and followed the
-steps to get kernel image of version 2.6 ! I also selected the generic
-type as Ski-simulator and also selected the HP-ski drivers something
-simscsi,etc.etc.
-2)  After this I gave the following command for the ski installed in
-my OS kernel version 2.6 :
-  $ ski bootloader vmlinux simscsi=/var/ski-disks/sd
-3) Then gave run to start the process.The screen with the output as
-"loading vmlinux" was displayed and the process halted....no working
-further !
-Querries:
- 1) I am not getting what is happenning for 2.6 configured with ia64....???
-......But I also downloaded the bootloader and vmlinux for 2.4 from Hp
-ski simulator home site and tried with the above 2 steps and the 2.4
-kernel was booted successfully....I dont know whether this kernel
-image is configured for ia64 but whatever it worked !
-2) Does ski supports for 2.6 kernel configured with ia64 archi as done
-in above  step    no : 2) ??
-3) How can we use sda i.e simulated filesystem....like can we mount it
-?? Or whenever the kernel is booted using ski command the filesystem
-it uses is sda ???
-        Thank You....
-       Please kindly Reply !
+
+Please check out http://www.gelato.unsw.edu.au/IA64wiki/SkiSimulator
+for lots of info on Ski.
+
+It works fine with Linux 2.6; and hugepage work too.
+
+> 1) I used 'make ARCH=ia64 menuconfig' to configure and followed the
+> steps to get kernel image of version 2.6 ! I also selected the generic
+> type as Ski-simulator and also selected the HP-ski drivers something
+> simscsi,etc.etc.
+
+I suggest you start with
+	make sim_defconfig
+
+Your symptoms look like a misconigured or misbuilt vmlinux.  The sim_defconfig
+
+If you're running on IA32, then you need something like:
+	make CROSS_COMPILE=ia64-linux-gnu ARCH=ia64 boot 
+to build kernel and bootloader.
+
+You need to get or build yourself a disk image.  Instructions for
+building at http://www.gelato.unsw.edu.au/IA64wiki/skidiskimage 
+
+
+
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
