@@ -1,12 +1,15 @@
 From: John Keller <jpk@sgi.com>
-Date: Mon, 06 Nov 2006 20:10:50 +0000
+Date: Mon, 27 Nov 2006 15:44:41 +0000
 Subject: [PATCH] SN: Correctly update smp_affinty mask
-Message-Id: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
+Message-Id: <200611271544.kARFig0F279329@fcbayern.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
+In-Reply-To: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
 
 On Altix systems, the /proc/irq/nn/smp_affinity mask is not being setup
 at device iniitalization, or updated after an interrupt redirection.
@@ -18,6 +21,15 @@ Signed-off-by: John Keller <jpk@sgi.com>
  arch/ia64/sn/kernel/irq.c    |   18 +++++++++++++++---
  arch/ia64/sn/kernel/msi_sn.c |    4 ----
  2 files changed, 15 insertions(+), 7 deletions(-)
+
+Tony,
+ Can you take this into your tree?
+It was first posted a few weeks ago, and there have been no
+comments.
+
+Thanks
+John
+
 
 
 Index: release/arch/ia64/sn/kernel/irq.c
@@ -97,4 +109,3 @@ Index: release/arch/ia64/sn/kernel/msi_sn.c
 -
  	write_msi_msg(irq, &msg);
  	set_irq_chip_and_handler(irq, &sn_msi_chip, handle_edge_irq);
- 
