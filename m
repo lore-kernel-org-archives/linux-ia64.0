@@ -1,42 +1,102 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 16 Nov 2006 16:58:25 +0000
-Subject: Re: [PATCH] ia64 add idle loop entry/exit notifier
-Message-Id: <20061116165825.GH18162@frankl.hpl.hp.com>
+Date: Mon, 27 Nov 2006 14:37:05 +0000
+Subject: 2.6.19-rc6-git10 new perfmon code base + libpfm + pfmon
+Message-Id: <20061127143705.GC24980@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061115222334.GE17238@frankl.hpl.hp.com>
-In-Reply-To: <20061115222334.GE17238@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, oprofile-list@lists.sourceforge.net, linux-kernel@vger.kernel.org
 
-Ken,
+Hello,
 
-On Wed, Nov 15, 2006 at 06:07:19PM -0800, Chen, Kenneth W wrote:
-> Stephane Eranian wrote on Wednesday, November 15, 2006 2:24 PM
-> > Here is a patch which adds an idle notifier to IA-64. It clones
-> > the one in X86-64. You can register a callback via the notifier
-> > and you get called when:
-> > 	- entering the lowest level of the idle loop
-> > 	- exiting the lowest level of the idle loop, either normally
-> > 	  or to process an interrupt
-> > 
-> > Basically, you can monitor useful vs. useless work accomplished
-> > by the idle thread on each processor.
-> 
-> Is idle notifier a light weight callback thingy?  I happen to work
+I have released another version of the perfmon new code base package.
+This version of the kernel patch is relative to 2.6.19-rc6-git10.
 
-Well, it uses the notifier interface. I have not changed this part.
+This is a major update because it completes the changes requested 
+during the code review on LKML. As a consequence, the kernel interface
+is NOT backward compatible with previous v2.2 versions. This release has
+the v2.3 version number. Backward compatibility with v2.0 is maintained
+on Itanium processors.
 
-> on an application environment that cycles CPUs into gazillion nano
-> second sleep due to tons of sleep / wake up activity from thousands
-> of processes. I'm just checking and hope this notifier chain isn't
-> going to add significant overhead when cycling through busy/idle.
-> 
-I would suggest you measure the overhead when no callback
-is registered. The patch is such that there will systematically be a
-callback registered for SGI machines. But if you are cycling busy/idle,
-I would think that you biggest cost if coming out of PAL_HALT.
+The kernel patch is split between infrastructure work and perfmon2 proper.
+The infrastructure contains the following changes which will be integrated
+into mainline before perfmon2 is. Those changes should appear in 2.6.20.
+They are provided in the base.diff file.
 
+The infrastructure changes include:
+	- x86_64: fix idle_notifier to cover all interrupts entry/exit for idle thread
+	- i386  : add idle notifier (copy of x86_64 notifier)
+	- ia64  : idle notifier (copy of x86_64 notifier)
+	- i386  : add X86_FEATURE_ceforge.net, linux-kernel@vger.kernel.orgq,X86_FEATURE_PEBS to cpufeature.h
+	- x86_64:  add X86_FEATURE_BTS,X86_FEATURE_PEBS to cpufeature.h
+	- i386  : add PMU related MSR definitions to msr.h
+	- x86_64: NMI watchdog uses PERFCTR1 to allow PEBS on Intel Core (requires PERFCTR0)
+	- all   : remove unused carta_random32.h
+
+
+The perfmon2 kernel changes the release to v2.3 and includes the following changes:
+	- updated to 2.6.19-rc6-git10 
+	- sampling format identified with clear text string, not UUID anymore
+	- pfm_create_context() returns file descriptor
+	- sampling format name passed as argument
+	- struct pfarg_ctx_t simplified
+	- using random32() instead of carta_random32() (now obsolete)
+	- in struct pfarg_pmd, reg_random_seed is obsolete
+	- added support for Intel Core processors (Core 2 Duo)
+	- unified PEBS support between P4 and Intel Core
+	- fix bugs with munmap() of sampling buffer
+	- changed sysfs to handle new naming for sampling formats
+	- change rsvd_mask logic in PMU description modules
+	- make idle notifier registration lazy (only when needed)
+	- rewritten NMI integration using die_notifier()
+	- NMI watchdog support and auto-detection for AMD K8, Intel Core
+	- fix potential issues with locking/irq masking using LockDep checker
+	- cleaned MIPS PMU description table setup
+	- various MIPS bugs fixes (Phil Mucci, Manoj Ekbote)
+	- various PowerPC updates  include PPC32 description table (Phil Mucci)
+
+Due to problems with the git10 tree, the MIPS kernel does not compile regardless of
+perfmon2. A new patch will be generated once this problem is removed.
+
+I have also released a new libpfm, libpfm-3.2-061127, with lots of
+changes. Here are some of the most important ones:
+
+	- added support for Intel Core (Core 2 Duo)
+	- updated all example, header files to perfmon v2.3
+	- updated man pages
+	- Intel Core PEBS example
+	- fixed rtop on 32-bit platforms
+	- various MIPS updates (Phil Mucci)
+	- big-endian support for MIPS
+	- various Makefile improvements
+
+Also a new version of pfmon, pfmon-3.2-061127, with a lot
+of changes as well:
+	- updated to perfmon v2.3 interface
+	- support for Intel Core processors (Core 2 Duo)
+	- support for Intel Core PEBS as a sampling format
+	- complete rewrite of system-wide  core loops to avoid race conditions with signals
+	- added --print-interval to print intermediate deltas in system-wide mode
+	- better handling of perfmon errors
+	- corrected Montecito checks for L2D_CANCEL events
+	- factorized 'detailed' sampling format for all arch
+	- inst-hist default formats for all arch
+	- corrected sampling buffer auto-sizing based on resource limit constraints
+	- updated online documentation
+	
+This version of pfmon requires libpfm-3.2-061127.
+
+You can get a more detailed log of changes the the CVS tree.
+
+You can grab the new packages at our web site:
+
+	 http://perfmon2.sf.net
+
+Enjoy,
+
+PS: I will post a kernel patch to LKML and a diffstat on the perfmon mailing list.
 -- 
+
 -Stephane
