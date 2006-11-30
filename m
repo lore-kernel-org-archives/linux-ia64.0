@@ -1,8 +1,10 @@
 From: John Keller <jpk@sgi.com>
-Date: Wed, 15 Nov 2006 15:26:31 +0000
-Subject: [PATCH 2/3] - Altix: Add ACPI SSDT PCI device support (hotplug)
-Message-Id: <20061115152631.6131.63679.sendpatchset@attica.americas.sgi.com>
+Date: Thu, 30 Nov 2006 23:02:39 +0000
+Subject: Re: [PATCH 2/3] - Altix: Add ACPI SSDT PCI device support (hotplug)
+Message-Id: <20061130230239.23551.1547.98421@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20061115152631.6131.63679.sendpatchset@attica.americas.sgi.com>
+In-Reply-To: <20061115152631.6131.63679.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -37,6 +39,21 @@ Signed-off-by:  Aaron Young <ayoung@sgi.com>
 
 ---
 
+Andrew,
+  Can you take this update and replace the current version in
+  your -mm tree:
+   altix-add-acpi-ssdt-pci-device-support-hotplug.patch
+
+Thanks.
+
+
+Resend #1
+ A bug was fixed where the sgi hotplug driver was removing
+ the slot's SSDT table from the ACPI namespace a bit too early in
+ disable_slot(). Also, we now call acpi_bus_start() subsequent
+ to acpi_bus_add().
+
+
  Note: This patch is dependent on a previous set of SN ACPI
        patches.
 
@@ -45,24 +62,23 @@ Signed-off-by:  Aaron Young <ayoung@sgi.com>
         altix-initial-acpi-support-rom-shadowing.patch
 
 
-drivers/pci/hotplug/sgi_hotplug.c |  145 ++++++++++++++++++++++++++--
- 1 file changed, 138 insertions(+), 7 deletions(-)
+ drivers/pci/hotplug/sgi_hotplug.c |  155 ++++++++++++++++++++++++++--
+ 1 file changed, 148 insertions(+), 7 deletions(-)
 
 
-Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
-=================================--- linux-2.6.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-10-23 08:56:53.772616307 -0500
-+++ linux-2.6/drivers/pci/hotplug/sgi_hotplug.c	2006-10-23 09:16:51.289186573 -0500
-@@ -28,6 +28,9 @@
+Index: release/drivers/pci/hotplug/sgi_hotplug.c
+=================================--- release.orig/drivers/pci/hotplug/sgi_hotplug.c	2006-11-28 11:17:27.429699131 -0600
++++ release/drivers/pci/hotplug/sgi_hotplug.c	2006-11-29 14:19:58.814378288 -0600
+@@ -28,6 +28,8 @@
  #include <asm/sn/sn_feature_sets.h>
  #include <asm/sn/sn_sal.h>
  #include <asm/sn/types.h>
 +#include <linux/acpi.h>
-+#include <acpi/acnamesp.h>
 +#include <asm/sn/acpi.h>
  
  #include "../pci.h"
  
-@@ -35,14 +38,17 @@ MODULE_LICENSE("GPL");
+@@ -35,14 +37,17 @@ MODULE_LICENSE("GPL");
  MODULE_AUTHOR("SGI (prarit@sgi.com, dickie@sgi.com, habeck@sgi.com)");
  MODULE_DESCRIPTION("SGI Altix Hot Plug PCI Controller Driver");
  
@@ -82,7 +98,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  #define SN_SLOT_NAME_SIZE		33	/* size of name string */
  
  /* internal list head */
-@@ -227,7 +233,7 @@ static void sn_bus_free_data(struct pci_
+@@ -227,7 +232,7 @@ static void sn_bus_free_data(struct pci_
  }
  
  static int sn_slot_enable(struct hotplug_slot *bss_hotplug_slot,
@@ -91,7 +107,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  {
  	struct slot *slot = bss_hotplug_slot->private;
  	struct pcibus_info *pcibus_info;
-@@ -240,7 +246,8 @@ static int sn_slot_enable(struct hotplug
+@@ -240,7 +245,8 @@ static int sn_slot_enable(struct hotplug
  	 * Power-on and initialize the slot in the SN
  	 * PCI infrastructure.
  	 */
@@ -101,7 +117,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  
  	if (rc = PCI_SLOT_ALREADY_UP) {
  		dev_dbg(slot->pci_bus->self, "is already active\n");
-@@ -335,6 +342,7 @@ static int enable_slot(struct hotplug_sl
+@@ -335,6 +341,7 @@ static int enable_slot(struct hotplug_sl
  	int func, num_funcs;
  	int new_ppb = 0;
  	int rc;
@@ -109,7 +125,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  	void pcibios_fixup_device_resources(struct pci_dev *);
  
  	/* Serialize the Linux PCI infrastructure */
-@@ -342,14 +350,29 @@ static int enable_slot(struct hotplug_sl
+@@ -342,14 +349,29 @@ static int enable_slot(struct hotplug_sl
  
  	/*
  	 * Power-on and initialize the slot in the SN
@@ -141,7 +157,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  	num_funcs = pci_scan_slot(slot->pci_bus,
  				  PCI_DEVFN(slot->device_num + 1, 0));
  	if (!num_funcs) {
-@@ -374,7 +397,10 @@ static int enable_slot(struct hotplug_sl
+@@ -374,7 +396,10 @@ static int enable_slot(struct hotplug_sl
  			 * pdi_host_pcidev_info).
  			 */
  			pcibios_fixup_device_resources(dev);
@@ -153,7 +169,7 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  			if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) {
  				unsigned char sec_bus;
  				pci_read_config_byte(dev, PCI_SECONDARY_BUS,
-@@ -388,6 +414,59 @@ static int enable_slot(struct hotplug_sl
+@@ -388,6 +413,63 @@ static int enable_slot(struct hotplug_sl
  		}
  	}
  
@@ -161,12 +177,11 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
 +	 * Add the slot's devices to the ACPI infrastructure */
 +	if (SN_ACPI_BASE_SUPPORT() && ssdt) {
 +		unsigned long adr;
-+		struct acpi_namespace_node *cnode = NULL;
-+		struct acpi_namespace_node *rootbus_node;
-+		struct acpi_device *device;
 +		struct acpi_device *pdevice;
-+		acpi_handle handle;
++		struct acpi_device *device;
 +		acpi_handle phandle;
++		acpi_handle chandle = NULL;
++		acpi_handle rethandle;
 +		acpi_status ret;
 +
 +		phandle = PCI_CONTROLLER(slot->pci_bus)->acpi_handle;
@@ -177,26 +192,29 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
 +			pdevice = NULL;
 +		}
 +
-+		/* Get the rootbus node pointer */
-+		rootbus_node = acpi_ns_map_handle_to_node(phandle);
-+
 +		/*
 +		 * Walk the rootbus node's immediate children looking for
 +		 * the slot's device node(s). There can be more than
 +		 * one for multifunction devices.
 +		 */
-+		while ((cnode = acpi_ns_get_next_node(ACPI_TYPE_DEVICE,
-+						      rootbus_node,
-+						      cnode))) {
++		for (;;) {
++			rethandle = NULL;
++			ret = acpi_get_next_object(ACPI_TYPE_DEVICE,
++						   phandle, chandle,
++						   &rethandle);
 +
-+			handle = acpi_ns_convert_entry_to_handle(cnode);
++			if (ret = AE_NOT_FOUND || rethandle = NULL)
++				break;
 +
-+			ret = acpi_evaluate_integer(handle, METHOD_NAME__ADR,
++			chandle = rethandle;
++
++			ret = acpi_evaluate_integer(chandle, METHOD_NAME__ADR,
 +						    NULL, &adr);
 +
 +			if (ACPI_SUCCESS(ret) &&
 +			    (adr>>16) = (slot->device_num + 1)) {
-+				ret = acpi_bus_add(&device, pdevice, handle,
++
++				ret = acpi_bus_add(&device, pdevice, chandle,
 +						   ACPI_BUS_TYPE_DEVICE);
 +				if (ACPI_FAILURE(ret)) {
 +					printk(KERN_ERR "%s: acpi_bus_add "
@@ -205,6 +223,8 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
 +					       ret, (int)(adr>>16),
 +					       (int)(adr&0xffff));
 +					/* try to continue on */
++				} else {
++					acpi_bus_start(device);
 +				}
 +			}
 +		}
@@ -213,62 +233,83 @@ Index: linux-2.6/drivers/pci/hotplug/sgi_hotplug.c
  	/* Call the driver for the new device */
  	pci_bus_add_devices(slot->pci_bus);
  	/* Call the drivers for the new devices subordinate to PPB */
-@@ -422,6 +501,58 @@ static int disable_slot(struct hotplug_s
+@@ -412,6 +494,7 @@ static int disable_slot(struct hotplug_s
+ 	struct pci_dev *dev;
+ 	int func;
+ 	int rc;
++	acpi_owner_id ssdt_id = 0;
+ 
+ 	/* Acquire update access to the bus */
+ 	mutex_lock(&sn_hotplug_mutex);
+@@ -422,6 +505,52 @@ static int disable_slot(struct hotplug_s
  	if (rc)
  		goto leaving;
  
-+	/* Remove the SSDT for the slot from the ACPI namespace */
++	/* free the ACPI resources for the slot */
 +	if (SN_ACPI_BASE_SUPPORT() &&
 +            PCI_CONTROLLER(slot->pci_bus)->acpi_handle) {
 +		unsigned long adr;
 +		struct acpi_device *device;
-+		struct acpi_namespace_node *cnode = NULL;
-+		struct acpi_namespace_node *rootbus_node;
-+		acpi_handle child_handle;
 +		acpi_handle phandle;
++		acpi_handle chandle = NULL;
++		acpi_handle rethandle;
 +		acpi_status ret;
-+		acpi_owner_id ssdt_id = 0;
 +
 +		/* Get the rootbus node pointer */
 +		phandle = PCI_CONTROLLER(slot->pci_bus)->acpi_handle;
-+		rootbus_node = acpi_ns_map_handle_to_node(phandle);
 +
 +		/*
 +		 * Walk the rootbus node's immediate children looking for
 +		 * the slot's device node(s). There can be more than
 +		 * one for multifunction devices.
 +		 */
-+		while ((cnode = acpi_ns_get_next_node(ACPI_TYPE_DEVICE,
-+						      rootbus_node,
-+						      cnode))) {
++		for (;;) {
++			rethandle = NULL;
++			ret = acpi_get_next_object(ACPI_TYPE_DEVICE,
++						   phandle, chandle,
++						   &rethandle);
 +
-+			child_handle = acpi_ns_convert_entry_to_handle(cnode);
-+			ret = acpi_evaluate_integer(child_handle,
++			if (ret = AE_NOT_FOUND || rethandle = NULL)
++				break;
++
++			chandle = rethandle;
++
++			ret = acpi_evaluate_integer(chandle,
 +						    METHOD_NAME__ADR,
 +						    NULL, &adr);
 +			if (ACPI_SUCCESS(ret) &&
 +			    (adr>>16) = (slot->device_num + 1)) {
 +				/* retain the owner id */
-+				ssdt_id = cnode->owner_id;
++				acpi_get_id(chandle, &ssdt_id);
 +
-+				ret = acpi_bus_get_device(child_handle,
++				ret = acpi_bus_get_device(chandle,
 +							  &device);
 +				if (ACPI_SUCCESS(ret))
 +					acpi_bus_trim(device, 1);
 +			}
 +		}
 +
-+		if (ssdt_id) {
-+			ret = acpi_unload_table_id(ACPI_TABLE_ID_SSDT, ssdt_id);
-+			if (ACPI_FAILURE(ret)) {
-+				printk(KERN_ERR "%s: acpi_unload_table_id "
-+				       "failed (0x%x) for id %d\n",
-+				       __FUNCTION__, ret, ssdt_id);
-+				/* try to continue on */
-+			}
-+		}
 +	}
 +
  	/* Free the SN resources assigned to the Linux device.*/
  	for (func = 0; func < 8;  func++) {
  		dev = pci_get_slot(slot->pci_bus,
+@@ -434,6 +563,18 @@ static int disable_slot(struct hotplug_s
+ 		}
+ 	}
+ 
++	/* Remove the SSDT for the slot from the ACPI namespace */
++	if (SN_ACPI_BASE_SUPPORT() && ssdt_id) {
++		acpi_status ret;
++		ret = acpi_unload_table_id(ACPI_TABLE_ID_SSDT, ssdt_id);
++		if (ACPI_FAILURE(ret)) {
++			printk(KERN_ERR "%s: acpi_unload_table_id "
++			       "failed (0x%x) for id %d\n",
++			       __FUNCTION__, ret, ssdt_id);
++			/* try to continue on */
++		}
++	}
++
+ 	/* free the collected sysdata pointers */
+ 	sn_bus_free_sysdata();
+ 
