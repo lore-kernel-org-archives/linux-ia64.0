@@ -1,61 +1,54 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 29 Nov 2006 21:21:55 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 30 Nov 2006 10:47:09 +0000
 Subject: Re: ia64 ORDERROUNDDOWN issue
-Message-Id: <20061129132155.f617dcfb.akpm@osdl.org>
+Message-Id: <456EB6AD.6000406@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2AD89B2A@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2AD89B2A@scsmsx411.amr.corp.intel.com>
+References: <456D9FD2.2070906@bull.net>
+In-Reply-To: <456D9FD2.2070906@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: xb <xavier.bru@bull.net>, linux-ia64@vger.kernel.org, linux-mm@kvack.org
+To: linux-ia64@vger.kernel.org
 
+>> Do we need a "max_order" variable that could be adjusted to some lower
+>> value that MAX_ORDER if we find the memory topology doesn't fit inside
+>> the lines?  
+>
+> (Your email talks about nodes, but I am asuming that we're actually dealing
+> with per-zone concepts here)
 
-(add linux-mm)
+...and ...
 
-On Wed, 29 Nov 2006 10:34:24 -0800
-"Luck, Tony" <tony.luck@intel.com> wrote:
+> But I wonder if a better approach would be to teach ia64 to just throw away
+> the last 1 ..  MAX_ORDER-1 pages from the oddball zone?
 
-> > After some investigations I stated that count_node_pages() was computing 
-> > mem_data[1].min_pfn = 0, and mem_data[1].max_pfn = 20000 for node 1, 
-> > thus conflicting with the 0-2GB DMA memory range on node 0.
-> > This is due to the line:
-> >    start = ORDERROUNDDOWN(start);
-> 
-> There is an assumption here that the memory space on a node doesn't
-> cross a MAX_ORDER boundary ... and I'm not really sure where to go
-> with that.  Your patch papers over the problem for your specific case,
-> but as you point out it will just re-appear for someone who picks
-> a bigger MAX_ORDER.
-> 
-> Having nodes that are smaller than MAX_ORDER will cause confusion in
-> the allocator (if all the memory belonging to two nodes is in a
-> single MAX_ORDER page, the buddy allocator will give all the memory
-> to one node, and none to the other (won't it?).
-> 
-> > This should at least be checked in the count_node_pages() function.
-> 
-> Yes, a check should be made ... but count_node_pages() doesn't have
-> all the information if needs to do this (it just gets the start/size
-> for the memory on the node ... and it needs to check whether the
-> rounddown of the start address (or the roundup of the end address)
-> would cause conflicts with memory belonging to other nodes.
-> 
-> Do we need a "max_order" variable that could be adjusted to some lower
-> value that MAX_ORDER if we find the memory topology doesn't fit inside
-> the lines?  
-> 
+Assume we've got a machine with a memory configuration:
 
-(Your email talks about nodes, but I am asuming that we're actually dealing
-with per-zone concepts here)
+Node 0:		0 ... 4 Gbyte - 1
+Node 1:		4 Gbyte ... 16 Gbyte - 1
 
-We could of course do that, although it looks like your runtime max_order
-should be per-zone and not global.  And making it a runtime thing would
-cause more code to be emitted for alloc_pages() and alloc_pages_node(), so
-we'd at least have to move their checks into .c.
+Assume MAX_ORDER is 8 Gbytes (a single binary, for all of our machines,
+for maintenance reasons).
 
-But I wonder if a better approach would be to teach ia64 to just throw away
-the last 1 ..  MAX_ORDER-1 pages from the oddball zone?
+An allocation of 8 Gbytes should have its chance.
+Therefore the global MAX_ORDER should not be diminished dynamically.
+Surely we do not want to throw away 4 Gbytes of memory.
 
+The kernel should support that both of the nodes have starting address at 0.
+Therefore the "node_bootmem_map"-s of both of the nodes include the address
+range 0 ... 4 Gbyte in the example above.
+The "node_bootmem_map" of node 1 just happens to contain 0-s in the range
+of 0 ... 4 Gbyte.
 
+A not-in-use level of the buddy allocator
+(the 8 Gbyte level on node 0 in the example above)
+does not cost too much, I think there is no use to add complexity to the
+allocator code.
+
+Thanks,
+
+Zoltan Menyhart
+
+P.S. I guess it is not an ia64-only issue.
+
+ 
