@@ -1,31 +1,36 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 20 Dec 2006 10:59:50 +0000
-Subject: Re: [patch 3/3] IA64: virt_to_page() can be called with NULL arg
-Message-Id: <458917A6.3060509@sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 01 Dec 2006 16:30:35 +0000
+Subject: [PATCH] fix uninitialized string in get_model_name()
+Message-Id: <20061201163035.GE31914@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200612192104.kBJL4iBg010376@shell0.pdx.osdl.net>
-In-Reply-To: <200612192104.kBJL4iBg010376@shell0.pdx.osdl.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Kirill Korotaev wrote:
-> Jes,
-> 
->> Well you suggested a patch which just hides the problem. I suggest you
->> change it to have the BUG_ON().
-> IMHO you are wrong.
-> the suggested patch *fixes* one particular place, which can be triggered on
-> mainstream IA64 by a standard user and is actually a *SECURITY* bug which
-> can be potentially exploited (when OOM killer is enabled).
-> It doesn't hide anything, It just doesn't help to catch other places.
+Hello,
 
-Hi Kirill,
+If ia64_pal_get_brand_info() fails in get_model_name() we may be copying
+an invalid string.
 
-See my response to Andrew, you are indeed right.
+changelog:
+	- initialize brand[] in get_model_name()
 
-I'll go back and hide in my corner in shame :-(
+signed-off-by: stephane eranian <eranian@hpl.hp.com>
 
-Cheers,
-Jes
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 2fd4b7d..cc82f6a 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -616,6 +616,8 @@ get_model_name(__u8 family, __u8 model)
+ {
+ 	char brand[128];
+ 
++	memset(brand, 0, sizeof(brand));
++
+ 	if (ia64_pal_get_brand_info(brand)) {
+ 		if (family = 0x7)
+ 			memcpy(brand, "Merced", 7);
+-- 
+
+-Stephane
