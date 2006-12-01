@@ -1,60 +1,40 @@
-From: Horms <horms@verge.net.au>
-Date: Tue, 12 Dec 2006 09:08:10 +0000
-Subject: Re: Kexec/Kdump: honour non-zero crashkernel offset
-Message-Id: <20061212090808.GB9443@verge.net.au>
+From: Jes Sorensen <jes@sgi.com>
+Date: Fri, 01 Dec 2006 16:36:19 +0000
+Subject: Re: [PATCH] Add support for type argument in PAL_GET_PSTATE
+Message-Id: <yq0bqmnvaik.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20060920024544.733881000@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20060920024544.733881000@tabatha.lab.ultramonkey.org>
+References: <20061101103500.A16140@unix-os.sc.intel.com>
+In-Reply-To: <20061101103500.A16140@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-[IA64] Kexec/Kdump: honour non-zero crashkernel offset.
+>>>>> "Venkatesh" =3D Venkatesh Pallipadi <venkatesh.pallipadi@intel.com> w=
+rites:
 
-There seems to be a value in both allowing the kernel to determine
-the base offset of the crashkernel automatically and allowing
-users's to sepcify it.
+Venkatesh> PAL_GET_PSTATE accepts a type argument to return different
+Venkatesh> kinds of frequency information.  Refer: Intel
+Venkatesh> Itanium=81=AEArchitecture Software Developer's Manual -
+Venkatesh> Volume 2: System Architecture, Revision 2.2
+Venkatesh> (http://developer.intel.com/design/itanium/manuals/245318.htm)
 
-The old behaviour on ia64, which is still the current behaviour on
-most architectures is for the user to always specify the address.
-Recently ia64 was changed so that it is always automatically determined.
+....
 
-With this patch the kernel automatically determines the offset if
-the supplied value is 0, otherwise it uses the value provided.
+Venkatesh> @@ -79,6 +79,11 @@
+Venkatesh>  #define PAL_GET_PSTATE		262	/* get the current P-state */
+Venkatesh>  #define PAL_SET_PSTATE		263	/* set the P-state */
+Venkatesh> =20
+Venkatesh> +#define PAL_GET_PSTATE_TYPE_LASTSET	(0)
+Venkatesh> +#define PAL_GET_PSTATE_TYPE_AVGANDRESET	(1)
+Venkatesh> +#define PAL_GET_PSTATE_TYPE_AVGNORESET	(2)
+Venkatesh> +#define PAL_GET_PSTATE_TYPE_INSTANT	(3)
+Venkatesh> +
 
-This should probably be backed by a documentation change.
+Hi Venkatesh,
 
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+Please respect the previous formatting of the file and not add
+pointless parenthesises around the constants like that.
 
-Index: linux-2.6/arch/ia64/kernel/setup.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2006-10-23 17:34:24.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/setup.c	2006-10-23 17:34:56.000000000 +0900
-@@ -257,7 +257,7 @@
- 
- #ifdef CONFIG_KEXEC
- 	/* crashkernel=size@offset specifies the size to reserve for a crash
--	 * kernel.(offset is ingored for keep compatibility with other archs)
-+	 * kernel. If offset is 0, then it is determined automatically.
- 	 * By reserving this memory we guarantee that linux never set's it
- 	 * up as a DMA target.Useful for holding code to do something
- 	 * appropriate after a kernel panic.
-@@ -267,10 +267,16 @@
- 		unsigned long base, size;
- 		if (from) {
- 			size = memparse(from + 12, &from);
-+			if (*from = '@')
-+				base = memparse(from+1, &from);
-+			else
-+				base = 0;
- 			if (size) {
--				sort_regions(rsvd_region, n);
--				base = kdump_find_rsvd_region(size,
--				rsvd_region, n);
-+				if (!base) {
-+					sort_regions(rsvd_region, n);
-+					base = kdump_find_rsvd_region(size,
-+							      	rsvd_region, n);
-+					}
- 				if (base != ~0UL) {
- 					rsvd_region[n].start  						(unsigned long)__va(base);
+Cheers,
+Jes
