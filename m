@@ -1,29 +1,74 @@
-From: Horms <horms@verge.net.au>
-Date: Thu, 16 Nov 2006 06:23:41 +0000
-Subject: Re: [Fastboot] [PATCH] kexec-tools: bug fix to --noio option
-Message-Id: <20061116062340.GC23146@verge.net.au>
+From: Jay Lan <jlan@sgi.com>
+Date: Fri, 01 Dec 2006 23:55:27 +0000
+Subject: IA64: kexec seg fault at xrealloc
+Message-Id: <4570C0EF.2090609@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Nov 15, 2006 at 01:22:55PM -0800, Jay Lan wrote:
-> This patch is to fix a "--noio option" patch posted on 9/20/2006 by
-> Nanhai that disables I/O in purgatory code.
-> 
-> The "--noio" option should specify zero argument to avoid eating out
-> the next option.
-> 
-> 
-> Signed-off-by: Jay Lan <jlan@sgi.com>
+The kexec seg faulted when i ran test at an 56p SN machine.
+It was successful on a 2p SN.
 
-Thanks. 
 
-I have applied this patch to kexec-tools-testing
+(gdb) bt
+#0  0x200000000016a900 in _int_realloc () from /lib/libc.so.6.1
+#1  0x200000000016e020 in realloc () from /lib/libc.so.6.1
+#2  0x40000000000020c0 in xrealloc (ptr=0x600000000002ada0, size0)
+    at kexec/kexec.c:70
+#3  0x40000000000042a0 in add_segment (info=0x60000ffffe2c3718,
+    buf=0x600000000002ae30, bufsz288, base 6963621888, memsz384)
+    at kexec/kexec.c:310
+#4  0x40000000000047f0 in add_buffer (info=0x60000ffffe2c3718,
+    buf=0x600000000002ae30, bufsz288, memsz384, buf_align@96,
+    buf_min=0, buf_max446744073709551615, buf_end=-1) at
+kexec/kexec.c:345
+#5  0x400000000001aa20 in load_crashdump_segments (info=0x60000ffffe2c3718,
+    ehdr=0x60000ffffe2c3578, max_addr446744073709551615, min_base=0,
+    cmdline=0x60000ffffe2c35e8) at kexec/arch/ia64/crashdump-ia64.c:328
+#6  0x4000000000016970 in elf_ia64_load (argc=6, argv=0x60000ffffe2c3af8,
+    buf=0x2000000000324010 "\177ELF\002\001\001", len939392,
+    info=0x60000ffffe2c3718) at kexec/arch/ia64/kexec-elf-ia64.c:203
+#7  0x4000000000006a00 in my_load (type=0x0, fileind=5, argc=6,
+    argv=0x60000ffffe2c3af8, kexec_flags=1) at kexec/kexec.c:617
+#8  0x4000000000008220 in main (argc=6, argv=0x60000ffffe2c3af8)
+    at kexec/kexec.c:859
+(gdb)
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+The add_segment() contains code as below:
 
+add_segment()
+{
+        ...
+        last = base + memsz -1;
+        if (!valid_memory_range(base, last)) {
+                die("Invalid memory segment %p - %p\n",
+                        (void *)base, (void *)last);
+        }
+
+        size = (info->nr_segments + 1) * sizeof(info->segment[0]);
+        info->segment = xrealloc(info->segment, size); <=== seg fault
+        info->segment[info->nr_segments].buf   = buf;
+        info->segment[info->nr_segments].bufsz = bufsz;
+        info->segment[info->nr_segments].mem   = (void *)base;
+        info->segment[info->nr_segments].memsz = memsz;
+
+        info->nr_segments++;
+        ...
+}
+
+The seg fault happened on nr_segment=4. At the end of nr_segment=3
+info->segment was set to 2ada0 in the statement
+        info->segment = xrealloc(info->segment, size);
+And the subsequent call to xrealloc() on nr_segment=4, it died.
+
+On the 2p machine that was successful, the info->segment was set to
+29310 at the end of nr_segment=3. It went all the way to 30b10 at
+the end of 9th segment. So, the value 2ada0 seems still in the bound.
+
+Can anyone more familiar with xrealloc and kexec tell me what might
+cause the seg fault?
+
+Thanks,
+ - jay
