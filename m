@@ -1,7 +1,7 @@
 From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 05 Dec 2006 01:27:02 +0000
-Subject: Fix link-time breakage
-Message-Id: <17780.51942.167690.885206@croc.chubb.wattle.id.au>
+Date: Tue, 05 Dec 2006 01:25:31 +0000
+Subject: Fix pci.c kernel compilation breakage.
+Message-Id: <17780.51851.142909.300507@croc.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,29 +10,29 @@ To: linux-ia64@vger.kernel.org
 
 
 
+The recent change to convert the is_enabled flag in the PCI device to an
+atomic count broke the IA64 compilation.
 
-Hi,
-	I'm seeing:
- `acpiphp_glue_exit' referenced in section `.init.text' of
-drivers/built-in.o: defined in discarded section `.exit.text' of
-drivers/built-in.o
-
-when trying to compile an IA64 kernel with PCI hotplug enabled.
-
-I suggest this patch:
+As pcibios_disable_device is only ever called if the reference count
+is zero, convert the if to a BUG_ON.
 
 Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+---
+ arch/ia64/pci/pci.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: linux-2.6-import/drivers/pci/hotplug/acpiphp_glue.c
-=================================--- linux-2.6-import.orig/drivers/pci/hotplug/acpiphp_glue.c	2006-12-05 12:14:46.891069194 +1100
-+++ linux-2.6-import/drivers/pci/hotplug/acpiphp_glue.c	2006-12-05 12:14:51.887039743 +1100
-@@ -1682,7 +1682,7 @@ int __init acpiphp_glue_init(void)
-  *
-  * This function frees all data allocated in acpiphp_glue_init()
-  */
--void __exit acpiphp_glue_exit(void)
-+void  acpiphp_glue_exit(void)
+Index: linux-2.6-import/arch/ia64/pci/pci.c
+=================================--- linux-2.6-import.orig/arch/ia64/pci/pci.c	2006-12-05 11:22:00.273987854 +1100
++++ linux-2.6-import/arch/ia64/pci/pci.c	2006-12-05 11:58:12.832925655 +1100
+@@ -564,8 +564,8 @@ pcibios_enable_device (struct pci_dev *d
+ void
+ pcibios_disable_device (struct pci_dev *dev)
  {
- 	acpi_pci_unregister_driver(&acpi_pci_hp_driver);
+-	if (dev->is_enabled)
+-		acpi_pci_irq_disable(dev);
++	BUG_ON(atomic_read(&dev->enable_cnt));
++	acpi_pci_irq_disable(dev);
  }
+ 
+ void
 
