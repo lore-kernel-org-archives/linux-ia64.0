@@ -1,31 +1,19 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 20 Dec 2006 09:56:21 +0000
-Subject: Re: [patch 1/3] ia64: enable CONFIG_DEBUG_SPINLOCK_SLEEP
-Message-Id: <458908C5.3060908@sgi.com>
+From: "Karthik Gopalakrishnan" <karthik.g.krishnan@gmail.com>
+Date: Tue, 05 Dec 2006 13:32:51 +0000
+Subject: ia64 Kernel Configuration HowTo
+Message-Id: <5e0a1fd80612050520qe3ad6e1t78298582eed49b5c@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200612192104.kBJL4gfn010370@shell0.pdx.osdl.net>
-In-Reply-To: <200612192104.kBJL4gfn010370@shell0.pdx.osdl.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Andrew Morton wrote:
-> Make it a pointy stick and I can improve on that.
+Hi Folks.
 
-Aye! aye! sir!
+    When I do a 'make config' before building the Kernel, I am faced
+with tons of options. Some I understand. Some, I have no clue to even
+make an educated guess. Could you please point me to a document that
+explains what each of the options there stand for.
 
-> I've been thinking that we could do with a CONFIG_RC_KERNEL or something
-> which gets turned on up until -rc4 or so, then gets turned off.  So we can
-> make the devel kernels more debugging-friendly.
-> 
-> The main problem would be remembering to turn the dang thing off and on at
-> the right times.
-
-I like that idea! I wonder if we could somehow do this with some script
-magic? but we may also want to be able to offer it as a config option
-that people can force off if they want to (with some flashy neon signs
-telling them they are entering rogue territory).
-
-Cheers,
-Jes
+Thanks & Regards,
+Karthik
