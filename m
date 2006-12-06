@@ -1,8 +1,10 @@
-From: Lucas <Teresa@iwon.com>
-Date: Wed, 06 Dec 2006 13:38:34 +0000
+From: Kerri <Xavier@ninja.dk>
+Date: Wed, 06 Dec 2006 13:40:22 +0000
 Subject: job in Australia
-Message-Id: <0494CC8D.4664925@iwon.com>
+Message-Id: <481A20F7.1890244@ninja.dk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <0494CC8D.4664925@iwon.com>
+In-Reply-To: <0494CC8D.4664925@iwon.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
