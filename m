@@ -1,7 +1,7 @@
-From: Kerri <Xavier@ninja.dk>
-Date: Wed, 06 Dec 2006 13:40:22 +0000
+From: Tanya <Erika@voila.fr>
+Date: Wed, 06 Dec 2006 15:59:31 +0000
 Subject: job in Australia
-Message-Id: <481A20F7.1890244@ninja.dk>
+Message-Id: <B36AA465.3562197@voila.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <0494CC8D.4664925@iwon.com>
 In-Reply-To: <0494CC8D.4664925@iwon.com>
