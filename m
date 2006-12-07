@@ -1,31 +1,32 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Mon, 04 Dec 2006 23:17:24 +0000
-Subject: Re: Mapping IIP value to Kernel Symbols
-Message-Id: <87ejrfntdn.wl%peterc@chubb.wattle.id.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 07 Dec 2006 00:10:53 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200612070010.kB70ArLG005600@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5e0a1fd80612010600q37908483n83de1ddf1d89255f@mail.gmail.com>
-In-Reply-To: <5e0a1fd80612010600q37908483n83de1ddf1d89255f@mail.gmail.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Karthik" = Karthik Gopalakrishnan <karthik.g.krishnan@gmail.com> writes:
+Hi Linus,
 
-Karthik> Hi All.  I have a value of IIP that I recovered from an
-Karthik> MCA. I want to figure out which instruction in the Kernel
-Karthik> resulted in the MCA. 
+please pull from:
 
-I find the simplest way is usually to use gdb.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
- gdb vmlinux
- gdb> x/i 0xaddress
+Mirroring at kernel.org is slow today ... perhaps better to use:
+	master.kernel.org:/home/ftp/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-You can also do
- gdb> list *0xaddress
-to find the line iff the kernel was compiled with debugging info and
-you have the source available.
+Just one build breakage patch here ... rest of 2.6.20 patches coming soon.
 
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
+Thanks!
+
+-Tony
+
+ arch/ia64/pci/pci.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+Peter Chubb:
+      [IA64] Fix pci.c kernel compilation breakage.
