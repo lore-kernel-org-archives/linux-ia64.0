@@ -1,33 +1,23 @@
-From: Horms <horms@verge.net.au>
-Date: Tue, 12 Dec 2006 09:06:13 +0000
-Subject: [PATCH] [IA64] kexec/kdump: tidy up declaration of relocate_new_kernel_t
-Message-Id: <20061212090611.GA9443@verge.net.au>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Sat, 09 Dec 2006 00:16:24 +0000
+Subject: [PATCH 4/5] Itanium MC Error Injection Tool: Makefile changes
+Message-Id: <20061208161624.A1104@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-* Make NORET_TYPE and ATTRIB_NORET in line with the
-  declaration for other architectures
-* Add parameter names
+This patch has Makefile changes.
 
-Signed-Off-By: Simon Horman <horms@verge.net.au>
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-Index: kexec-ia64-2.6/arch/ia64/kernel/machine_kexec.c
-=================================--- kexec-ia64-2.6.orig/arch/ia64/kernel/machine_kexec.c	2006-09-25 13:01:00.000000000 +0900
-+++ kexec-ia64-2.6/arch/ia64/kernel/machine_kexec.c	2006-09-28 11:00:15.000000000 +0900
-@@ -19,8 +19,11 @@
- #include <asm/delay.h>
- #include <asm/meminit.h>
+--- a/arch/ia64/kernel/Makefile	2006-12-05 18:10:23.000000000 -0800
++++ b/arch/ia64/kernel/Makefile	2006-12-05 18:10:55.000000000 -0800
+@@ -32,6 +32,7 @@ obj-$(CONFIG_IA64_UNCACHED_ALLOCATOR)	+ obj-$(CONFIG_AUDIT)		+= audit.o
+ obj-$(CONFIG_PCI_MSI)		+= msi_ia64.o
+ mca_recovery-y			+= mca_drv.o mca_drv_asm.o
++obj-$(CONFIG_IA64_MC_ERR_INJECT)+= err_inject.o
  
--typedef void (*relocate_new_kernel_t)(unsigned long, unsigned long,
--		struct ia64_boot_param *, unsigned long);
-+typedef NORET_TYPE void (*relocate_new_kernel_t)(
-+					unsigned long indirection_page,
-+					unsigned long start_address,
-+					struct ia64_boot_param *boot_param,
-+					unsigned long pal_addr) ATTRIB_NORET;
- 
- struct kimage *ia64_kimage;
- 
+ obj-$(CONFIG_IA64_ESI)		+= esi.o
+ ifneq ($(CONFIG_IA64_ESI),)
