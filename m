@@ -1,64 +1,45 @@
-From: =?iso-8859-1?q?Aur=E9lien_Croc?= <aurelien@ap2c.org>
-Date: Sat, 02 Dec 2006 19:58:26 +0000
-Subject: AGPGART troubles with Linux 2.6.17-2 -- Itanium 1
-Message-Id: <200612022058.28603.aurelien@ap2c.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart19424977.tQPHFDnCo1"
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Sat, 09 Dec 2006 00:06:01 +0000
+Subject: [PATCH 1/5] Itanium MC Error Injection Tool: Kernel configuration
+Message-Id: <20061208160601.A1098@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---nextPart19424977.tQPHFDnCo1
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+This patch has kenrel configuration changes for the MC Error Injection
+Tool.
 
-Hi,=20
-
-With the Nouveau developers (http://nouveau.freedesktop.org) we tried to us=
-e=20
-the nouveau driver under a HP i2000 Itanium 1 workstation. Unfortunately, t=
-he=20
-machine crashed due to some troubles with the agpgart module.
-
-At first, the AGP has a strange version (0.2) and next, nouveau doesn't fin=
-d=20
-the real maximum bus speed (0x whereas 4x should be found.)
-
-We have forced the use of 1x in the nouveau driver but the kernel crashes..
-This does not appears when the AGP is not used by the driver.
-
-Some of the dmesg messages:
-agpgart: Found an AGP 0.2 compliant device at 0000:04:14.1.
-agpgart: Xorg tried to set rate=3Dx0. Setting to x1 mode.
-agpgart: Putting AGP V2 device at 0000:03:00.0 into 1x mode
-agpgart: Putting AGP V2 device at 0000:04:14.1 into 1x mode
-[drm] allocated 0xe8000000
-[drm] DMA command buffer is 1024KiB at 0xe8000000(VRAM)
-[drm] FIFO size is 32KiB
-[drm] allocated 0x80000000
-[drm] allocated 0x81000000
-[drm] allocated 0xe8100000
-[drm] allocated 0xea100000
-[drm] allocated 0xea110000
-
-Regards,=20
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
 
-=2D-=20
-M. Aur=E9lien Croc
-Projet AP=B2C - http://www.ap2c.org
-Clef Publique : http://www.ap2c.org/aurelien.gpg
-
---nextPart19424977.tQPHFDnCo1
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQBFcdrkLIExy65AhZ0RAvpGAJ9kjjkeUeVJrhb5PA4Tu91dS5XcKwCePZIA
-0m5AupXz9bqQ8ITmO/ULvbY=
-=Bik7
------END PGP SIGNATURE-----
-
---nextPart19424977.tQPHFDnCo1--
+--- a/arch/ia64/Kconfig	2006-12-05 18:10:23.000000000 -0800
++++ b/arch/ia64/Kconfig	2006-12-05 18:10:55.000000000 -0800
+@@ -421,6 +421,16 @@ config IA64_PALINFO
+ 	  To use this option, you have to ensure that the "/proc file system
+ 	  support" (CONFIG_PROC_FS) is enabled, too.
+ 
++config IA64_MC_ERR_INJECT
++	tristate "MC error injection support"
++	help
++	  Selets whether support for MC error injection. By enabling the
++	  support, kernel provide sysfs interface for user application to
++	  call MC error injection PAL procedure to inject various errors.
++	  This is a useful tool for MCA testing.
++
++	  If you're unsure, do not select this option.
++
+ config SGI_SN
+ 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
+ 
+--- a/arch/ia64/defconfig	2006-12-05 18:10:23.000000000 -0800
++++ b/arch/ia64/defconfig	2006-12-05 18:10:55.000000000 -0800
+@@ -144,6 +144,7 @@ CONFIG_COMPAT=y
+ CONFIG_IA64_MCA_RECOVERY=y
+ CONFIG_PERFMON=y
+ CONFIG_IA64_PALINFO=y
++# CONFIG_MC_ERR_INJECT is not set
+ CONFIG_SGI_SN=y
+ 
+ #
