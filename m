@@ -1,660 +1,310 @@
-From: xb <xavier.bru@bull.net>
-Date: Tue, 12 Dec 2006 17:26:09 +0000
-Subject: 2.6.18.4: flush_workqueue calls mutex_lock in interrupt environment
-Message-Id: <457EE631.7080006@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------060200070702050303050606"
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Sat, 09 Dec 2006 00:15:16 +0000
+Subject: [PATCH 3/5] Itanium MC Error Injection Tool: Driver sysfs interface
+Message-Id: <20061208161516.A1102@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060200070702050303050606
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+This kernel driver patch provides sysfs interface for user application to
+call pal_mc_error_inject() procedure.
 
-Hi all,
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-Running some IO stress tests on a 8*ways IA64 platform, we got:
-    BUG: warning at kernel/mutex.c:132/__mutex_lock_common()  message
-followed by:
-    Unable to handle kernel paging request at virtual address 
-0000000000200200
-oops corresponding to anon_vma_unlink() calling list_del() on a 
-poisonned list.
-
-Having a look to the stack, we see that flush_workqueue() calls 
-mutex_lock() with softirqs disabled.
-Can we suppose that the Oops that follows is due to the previous warning ?
-Thanks in advance for your help.
-
-Xavier
-
-    <4>BUG: warning at kernel/mutex.c:132/__mutex_lock_common()
-    <4>
-    <4>Call Trace:
-    <4> [<a000000100010f60>] show_stack+0x80/0xa0
-    <4>                                sp=a00000010070f960 
-bsp=a0000001007017c8
-    <4> [<a000000100010fb0>] dump_stack+0x30/0x60
-    <4>                                sp=a00000010070fb30 
-bsp=a0000001007017b0
-    <4>    r32 : a000000100577b00 r33 : 0000000000000793 r34 : 
-0000000000000084
-    <4> [<a000000100577b00>] __mutex_lock_slowpath+0x640/0x6c0
-    <4>                                sp=a00000010070fb30 
-bsp=a000000100701738
-    <4>    r32 : a0000001007a1ae8 r33 : 0000000000004000 r34 : 
-e000000105890000
-    <4>    r35 : a000000100700000 r36 : 0000000000000287 r37 : 
-0000000000000000
-    <4>    r38 : e000000105890000 r39 : 0000001008026018 r40 : 
-a000000100065410
-    <4>    r41 : 000000000000040d r42 : a000000100af93f0 r43 : 
-0000000000000002
-    <4>    r44 : a000000100577ba0 r45 : 0000000000000205 r46 : 
-a000000100065330
-    <4> [<a000000100577ba0>] mutex_lock+0x20/0x40
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701718
-    <4>    r32 : a0000001007a1ae8 r33 : a0000001000a25b0 r34 : 
-0000000000000287
-    <4>    r35 : 000000000000040c
-    <4> [<a0000001000a25b0>] flush_workqueue+0xb0/0x1a0
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007016f0
-    <4>    r32 : e000000107386780 r33 : a00000010018c060 r34 : 
-a00000010018c0c0
-    <4>    r35 : 0000000000000309 r36 : e00000275e781488
-    <4> [<a00000010018c0c0>] __put_ioctx+0xc0/0x240
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007016c0
-    <4>    r32 : e00000275e781380 r33 : e00000275e781388 r34 : 
-0000000000000200
-    <4>    r35 : a00000010018d470 r36 : 000000000000050e r37 : 
-a00000010018d410
-    <4> [<a00000010018d470>] aio_complete+0x2f0/0x420
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701670
-    <4>    r32 : 0000000000000001 r33 : 0000000000004000 r34 : 
-0000000000000001
-    <4>    r35 : e00000275e781380 r36 : 0000000000000001 r37 : 
-e00000275e7813a8
-    <4>    r38 : e000002081f8fe28 r39 : a00000010019cc80 r40 : 
-000000000000050d
-    <4>    r41 : a000000100149110
-    <4> [<a00000010019cc80>] finished_one_bio+0x200/0x2a0
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701620
-    <4>    r32 : e00000042f62a980 r33 : 0000000000004000 r34 : 
-e00000042f62aca0
-    <4>    r35 : e00000042f62ac9c r36 : e00000042f62acc8 r37 : 
-e00000042f62a990
-    <4>    r38 : e00000042f62acb8 r39 : a00000010019d1c0 r40 : 
-000000000000058c
-    <4>    r41 : e000000521d94300
-    <4> [<a00000010019d1c0>] dio_bio_complete+0x1c0/0x200
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007015c0
-    <4>    r32 : e00000042f62a980 r33 : e000000521d94300 r34 : 
-000000000000000a
-    <4>    r35 : ffffffffffff0030 r36 : e00000042f62a990 r37 : 
-a000000100083eb0
-    <4>    r38 : e0000005b56cdfd0 r39 : 0000000000000001 r40 : 
-a00000010019d260
-    <4>    r41 : 0000000000000206 r42 : a000000100af93f0
-    <4> [<a00000010019d260>] dio_bio_end_aio+0x60/0x80
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007015a0
-    <4>    r32 : e000000521d94300 r33 : a00000010014acd0 r34 : 
-000000000000038b
-    <4>    r35 : 0000000000004000
-    <4> [<a00000010014acd0>] bio_endio+0x110/0x1c0
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701568
-    <4>    r32 : e000000521d94300 r33 : 0000000000004000 r34 : 
-0000000000000000
-    <4>    r35 : e000000521d94330 r36 : a0000001002770e0 r37 : 
-0000000000000997
-    <4>    r38 : a000000100af93f0
-    <4> [<a0000001002770e0>] __end_that_request_first+0x180/0xba0
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007014d0
-    <4>    r32 : e000000109abbff8 r33 : 0000000000004000 r34 : 
-0000000000004000
-    <4>    r35 : e000002002038000 r36 : e0000006500b0c80 r37 : 
-0000000000000000
-    <4>    r38 : 0000000000000000 r39 : e000000521d94300 r40 : 
-0000000000034000
-    <4>    r41 : e000000109abc050 r42 : e000000109abc098 r43 : 
-0000000000000000
-    <4>    r44 : 0000000000000000 r45 : e000000109abc018 r46 : 
-a00000010068fea0
-    <4>    r47 : a000000100277b90 r48 : 0000000000000309 r49 : 
-0000000000000183
-    <4>    r50 : 10a282c802d59567
-    <4> [<a000000100277b90>] end_that_request_chunk+0x30/0x60
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007014a0
-    <4>    r32 : e000000109abbff8 r33 : 0000000000000001 r34 : 
-0000000000038000
-    <4>    r35 : a0000002073c0c70 r36 : 000000000000048c r37 : 
-e000002002038000
-    <4> [<a0000002073c0c70>] scsi_end_request+0x50/0x300 [scsi_mod]
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701458
-    <4>    r32 : e0000001084b7800 r33 : 0000000000000001 r34 : 
-e000000109abbff8
-    <4>    r35 : 0000000000000001 r36 : e000000109abc018 r37 : 
-e00000010b064590
-    <4>    r38 : a0000002073c1240 r39 : 0000000000000793 r40 : 
-a0000002073d17f8
-    <4> [<a0000002073c1240>] scsi_io_completion+0x200/0x8a0 [scsi_mod]
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007013d8
-    <4>    r32 : e0000001084b7800 r33 : 0000000000038000 r34 : 
-a0000002073f2fb8
-    <4>    r35 : e000000109abbff8 r36 : 0000000000000000 r37 : 
-e000000109abc018
-    <4>    r38 : 0000000000000000 r39 : e00000010b064590 r40 : 
-0000000000038000
-    <4>    r41 : 0000000000000001 r42 : 0000000000000000 r43 : 
-a0000002074729b0
-    <4>    r44 : 0000000000000692 r45 : a0000002073d17f8 r46 : 
-10a282c800c1a567
-    <4> [<a0000002074729b0>] sd_rw_intr+0x330/0x860 [sd_mod]
-    <4>                                sp=a00000010070fb70 
-bsp=a000000100701370
-    <4>    r32 : e0000001084b7800 r33 : 0000000000000000 r34 : 
-a0000002073f2fb8
-    <4>    r35 : e0000001084b78b8 r36 : 0000000000038000 r37 : 
-0000000000061c4a
-    <4>    r38 : 0000000000038000 r39 : e0000001084b7970 r40 : 
-0000000000000000
-    <4>    r41 : a0000002073b3ac0 r42 : 000000000000030a r43 : 
-a000000207476118
-    <4>    r44 : 10a282c800c12567
-    <4> [<a0000002073b3ac0>] scsi_finish_command+0x100/0x1c0 [scsi_mod]
-    <4>                                sp=a00000010070fb90 
-bsp=a000000100701340
-    <4>    r32 : e0000001084b7800 r33 : e000000102652300 r34 : 
-e00000010593ea80
-    <4>    r35 : a0000002073c2910 r36 : 000000000000030a r37 : 
-a0000002073d17f8
-    <4> [<a0000002073c2910>] scsi_softirq_done+0x230/0x300 [scsi_mod]
-    <4>                                sp=a00000010070fb90 
-bsp=a000000100701310
-    <4>    r32 : e0000001084b7800 r33 : 0000000000002002 r34 : 
-0000000000004650
-    <4>    r35 : a000000100277d20 r36 : 0000000000000184 r37 : 
-a0000002073d17f8
-    <4> [<a000000100277d20>] blk_done_softirq+0x160/0x1c0
-    <4>                                sp=a00000010070fba0 
-bsp=a0000001007012f8
-    <4>    r32 : a000000100083e00 r33 : 0000000000000994 r34 : 
-a000000100af93f0
-    <4> [<a000000100083e00>] __do_softirq+0x200/0x240
-    <4>                                sp=a00000010070fbb0 
-bsp=a000000100701260
-    <4>    r32 : a00000010070fbc0 r33 : 0000000000000031 r34 : 
-0000000000000031
-    <4>    r35 : 000000000001869f r36 : a000000100af93f0 r37 : 
-0000000000000031
-    <4>    r38 : 0000000000017e3e r39 : a000000100050c30 r40 : 
-0000000000000000
-    <4>    r41 : a0000001007432d0 r42 : ffffffffffff5a58 r43 : 
-a0000001009140c0
-    <4>    r44 : 0000000000000001 r45 : 000000000000000a r46 : 
-ffffffffffff0030
-    <4>    r47 : 0000000000000000 r48 : a000000100083eb0 r49 : 
-000000000000060c
-    <4>    r50 : a000000100af93f0
-    <4> [<a000000100083eb0>] do_softirq+0x70/0xc0
-    <4>                                sp=a00000010070fbb0 
-bsp=a000000100701200
-    <4>    r32 : 0000000000000000 r33 : a000000100744f3c r34 : 
-a000000100695608
-    <4>    r35 : fffffffffffeffff r36 : a000000100050c00 r37 : 
-a000000100740034
-    <4>    r38 : a000000100010260 r39 : 0000000000000389 r40 : 
-0000001008022018
-    <4>    r41 : a000000100084210 r42 : 0000000000000183 r43 : 
-0000000000000610
-    <4> [<a000000100084210>] irq_exit+0x70/0xa0
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011e0
-    <4>    r32 : a0000001000102d0 r33 : 0000000000000389 r34 : 
-0000000000000001
-    <4> [<a0000001000102d0>] ia64_handle_irq+0x110/0x140
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011a8
-    <4>    r32 : 0000000000000000 r33 : a00000010070fbc0 r34 : 
-0000000000000000
-    <4>    r35 : 00000000000000fd r36 : a00000010000b780 r37 : 
-0000000000000002
-    <4>    r38 : 0000000000000000
-    <4> [<a00000010000b780>] ia64_leave_kernel+0x0/0x280
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011a8
-    <4> [<a000000100011aa0>] default_idle+0x80/0x1c0
-    <4>                                sp=a00000010070fd80 
-bsp=a000000100701138
-    <4>    r32 : a00000010070fdb0 r33 : a00000010090c530 r34 : 
-a00000010070fe28
-    <4>    r35 : a00000010070fe20 r36 : a00000010070fe18 r37 : 
-a00000010070fe10
-    <4>    r38 : a0000001000120f0 r39 : 000000000000060d r40 : 
-e000000004ec1600
-    <4>    r41 : a00000010070fdb0 r42 : a000000100700000 r43 : 
-0000000000000000
-    <4>    r44 : e0000001062fe840 r45 : 8000000000000000
-    <4> [<a0000001000120f0>] cpu_idle+0x190/0x320
-    <4>                                sp=a00000010070fe20 
-bsp=a0000001007010d8
-    <4>    r32 : 0000000000000000 r33 : ffffffffffff0000 r34 : 
-a00000010090c530
-    <4>    r35 : a00000010090d210 r36 : a00000010090c510 r37 : 
-a00000010090d378
-    <4>    r38 : ffffffffffff0028 r39 : 0000000000000008 r40 : 
-a000000100008e30
-    <4>    r41 : 0000000000000186 r42 : a000000100af93f0 r43 : 
-10a282c800c055ab
-    <4> [<a000000100008e30>] rest_init+0x70/0xa0
-    <4>                                sp=a00000010070fe20 
-bsp=a0000001007010c0
-    <4>    r32 : a0000001006a1230 r33 : 0000000000000611 r34 : 
-a0000001006a1200
-    <4> [<a0000001006a1230>] start_kernel+0x6b0/0x7c0
-    <4>                                sp=a00000010070fe20 
-bsp=a000000100701060
-    <4>    r32 : 0000000004007f20 r33 : 0000000000003e62 r34 : 
-00000027fefa8d50
-    <4>    r35 : 0000000000000998 r36 : 10a282c800c09563 r37 : 
-000000007f958000
-    <4>    r38 : 0000000000000001 r39 : 000000007f7c7970 r40 : 
-a00000010090d6b0
-    <4>    r41 : a000000100008270 r42 : 0000000000000998 r43 : 
-a000000100af93f0
-    <4> [<a000000100008270>] __end_ivt_text+0x350/0x370
-    <4>                                sp=a00000010070fe30 
-bsp=a000000100700fc0
-    <4>    r32 : 00000027ff8c1310 r33 : 00000027ff9f6ef0 r34 : 
-00000027fecfc010
-    <4>    r35 : 0000000000000000 r36 : 00000027fefec7a8 r37 : 
-000000007f734be8
-    <4>    r38 : 8000000000000001 r39 : 00000027ff9f6af0 r40 : 
-00000027ff9f7330
-    <4>    r41 : 00000027ff9f7348 r42 : 00000027ff9f7310 r43 : 
-0000000000000001
-    <4>    r44 : 00000027fefd33b0 r45 : 00000027ff9f7318 r46 : 
-00000027fefec9d8
-    <4>    r47 : 00000027ff9f5ca0 r48 : 00000027fefa7060 r49 : 
-0000000000000206
-    <4>    r50 : 00000027ff1d3000
-    <1>Unable to handle kernel paging request at virtual address 
-0000000000200200
-    <4>swapper[0]: Oops 11003706212352 [1]
-    <4>Modules linked in: nfs sg scsi_dump nfsd exportfs lockd dlm cman 
-eip ep rms elan4 elan3 sunrpc elan qsnet ide_cd dm_mod sr_mod cdrom 
-thermal processor fan button usb_storage uhci_hcd ehci_hcd e100 e1000 
-ext3 jbd lpfc scsi_transport_fc sd_mod ahci libat aic7xxx mptsas 
-scsi_transport_sas mptspi scsi_transport_spi mptscsih scsi_mod mptbase
-    <4>
-    <4>Pid: 0, CPU 0, comm:              swapper
-    <4>psr : 0000121008026018 ifs : 8000000000000287 ip  : 
-[<a00000010010d841>]    Not tainted
-    <4>ip is at anon_vma_unlink+0x61/0x100
-    <4>unat: 0000000000000000 pfs : 0000000000000287 rsc : 0000000000000003
-    <4>rnat: 000000007fb885e0 bsps: 000000007f800010 pr  : 10a282c9a6da966b
-    <4>ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c8a70033f
-    <4>csd : 0000000000000000 ssd : 0000000000000000
-    <4>b0  : a00000010010d810 b6  : a000000100106800 b7  : a0000001003be260
-    <4>f6  : 000000000000000000000 f7  : 0ffdc8000000000000000
-    <4>f8  : 100008000000000000000 f9  : 100038000000000000000
-    <4>f10 : 0fffbfffffffff0000000 f11 : 1003e0000000000000000
-    <4>r1  : a000000100af93f0 r2  : 0000000000200200 r3  : e0000027d99b35b8
-    <4>r8  : 0000000000100100 r9  : 0000000000100100 r10 : e000002002cbe400
-    <4>r11 : 0000000000000000 r12 : a00000010070fa80 r13 : a000000100700000
-    <4>r14 : 0000000000000000 r15 : e0000027d99b3558 r16 : 0000000000200200
-    <4>r17 : 0000000000100108 r18 : e0000027d99b35c0 r19 : e0000027fef0a068
-    <4>r20 : e0000020031913a0 r21 : e000002003191398 r22 : e0000020031913a8
-    <4>r23 : e000000004b001a0 r24 : 00000000000000ff r25 : e000000004b001b0
-    <4>r26 : ffffffffffffffff r27 : 0000000000000000 r28 : a00000010090d370
-    <4>r29 : ffffffffffff01a0 r30 : 0000000000000000 r31 : e0000027fef0a060
-    <4>
-    <4>Call Trace:
-    <4> [<a000000100010f60>] show_stack+0x80/0xa0
-    <4>                                sp=a00000010070f610 
-bsp=a0000001007019a8
-    <4> [<a000000100011870>] show_regs+0x890/0x8c0
-    <4>                                sp=a00000010070f7e0 
-bsp=a000000100701960
-    <4>    r32 : a00000010070fa08 r33 : a00000010070f7f0 r34 : 
-a00000010070f900
-    <4>    r35 : a00000010070f938 r36 : a00000010070f950 r37 : 
-a00000010070f910
-    <4>    r38 : a000000100037b20 r39 : 0000000000000510 r40 : 
-a00000010070f810
-    <4> [<a000000100037b20>] die+0x1a0/0x4c0
-    <4>                                sp=a00000010070f800 
-bsp=a000000100701910
-    <4>    r32 : a000000100638728 r33 : a00000010070f8c0 r34 : 
-00000a0200000000
-    <4>    r35 : 0000000000000000 r36 : a000000100796ae0 r37 : 
-a000000100796ad8
-    <4>    r38 : a000000100796adc r39 : a00000010005bd70 r40 : 
-0000000000000691
-    <4>    r41 : a000000100af93f0
-    <4> [<a00000010005bd70>] ia64_do_page_fault+0x8f0/0x9a0
-    <4>                                sp=a00000010070f820 
-bsp=a0000001007018a8
-    <4>    r32 : 000000000000ffff r33 : 00000a0200000000 r34 : 
-a00000010070f8c0
-    <4>    r35 : 0000121008026018 r36 : a000000100900338 r37 : 
-a00000010070f908
-    <4>    r38 : a00000010070f900 r39 : 0000000000000000 r40 : 
-000000000000000b
-    <4>    r41 : 0000000000030001 r42 : a00000010000b780 r43 : 
-0000000000000003
-    <4>    r44 : 0000000000000000
-    <4> [<a00000010000b780>] ia64_leave_kernel+0x0/0x280
-    <4>                                sp=a00000010070f8b0 
-bsp=a0000001007018a8
-    <4> [<a00000010010d840>] anon_vma_unlink+0x60/0x100
-    <4>                                sp=a00000010070fa80 
-bsp=a000000100701870
-    <4>    r32 : e0000027d99b3550 r33 : e0000027fef0a060 r34 : 
-a0000001000fab50
-    <4>    r35 : 0000000000000713 r36 : 000000000000050f r37 : 
-e0000027fef0a060
-    <4>    r38 : 10a282c982e5565b
-    <4> [<a0000001000fab50>] free_pgtables+0x70/0x300
-    <4>                                sp=a00000010070fa80 
-bsp=a000000100701800
-    <4>    r32 : a00000010070fb40 r33 : e0000027d99b3550 r34 : 
-2000000001ba0000
-    <4>    r35 : 600fffff7fff0000 r36 : e000002002cbe3f0 r37 : 
-2000000001780000
-    <4>    r38 : 2000000001ba0000 r39 : e000002003191300 r40 : 
-0000000000400000
-    <4>    r41 : 0000000020000000 r42 : a0000001001076e0 r43 : 
-0000000000000612
-    <4>    r44 : e0000027d99bba78 r45 : 10a282c9a6da96ab
-    <4> [<a0000001001076e0>] unmap_region+0x240/0x540
-    <4>                                sp=a00000010070fa80 
-bsp=a000000100701798
-    <4>    r32 : e000002003191300 r33 : e0000027d99b3550 r34 : 
-e0000027d99bba00
-    <4>    r35 : 2000000001ba0000 r36 : 2000000001bb0000 r37 : 
-a00000010070fb40
-    <4>    r38 : e00000014808a350 r39 : a00000010070fb48 r40 : 
-a000000100108140
-    <4>    r41 : 0000000000000692 r42 : a000000100af93f0 r43 : 
-10a282c9a6daa9ab
-    <4> [<a000000100108140>] do_munmap+0x360/0x560
-    <4>                                sp=a00000010070fb40 
-bsp=a000000100701730
-    <4>    r32 : e000002003191300 r33 : 2000000001ba0000 r34 : 
-2000000001bb0000
-    <4>    r35 : e0000027d99b3550 r36 : e0000020031913b8 r37 : 
-e0000020031913c0
-    <4>    r38 : 0000000000002000 r39 : a00000010068d288 r40 : 
-a000000100106800
-    <4>    r41 : a00000010018bb60 r42 : 000000000000040b r43 : 
-a000000100af93f0
-    <4>    r44 : 10a282c982e9596b
-    <4> [<a00000010018bb60>] aio_free_ring+0x160/0x1a0
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007016f0
-    <4>    r32 : e00000275e781380 r33 : e00000275e781388 r34 : 
-e00000275e7813f0
-    <4>    r35 : e00000275e7813f8 r36 : e00000275e7813e8 r37 : 
-a00000010018c0d0
-    <4>    r38 : 0000000000000309 r39 : 0000000000000287
-    <4> [<a00000010018c0d0>] __put_ioctx+0xd0/0x240
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007016c0
-    <4>    r32 : e00000275e781380 r33 : e00000275e781388 r34 : 
-0000000000000200
-    <4>    r35 : a00000010018d470 r36 : 000000000000050e r37 : 
-a00000010018d410
-    <4> [<a00000010018d470>] aio_complete+0x2f0/0x420
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701670
-    <4>    r32 : 0000000000000001 r33 : 0000000000004000 r34 : 
-0000000000000001
-    <4>    r35 : e00000275e781380 r36 : 0000000000000001 r37 : 
-e00000275e7813a8
-    <4>    r38 : e000002081f8fe28 r39 : a00000010019cc80 r40 : 
-000000000000050d
-    <4>    r41 : a000000100149110
-    <4> [<a00000010019cc80>] finished_one_bio+0x200/0x2a0
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701620
-    <4>    r32 : e00000042f62a980 r33 : 0000000000004000 r34 : 
-e00000042f62aca0
-    <4>    r35 : e00000042f62ac9c r36 : e00000042f62acc8 r37 : 
-e00000042f62a990
-    <4>    r38 : e00000042f62acb8 r39 : a00000010019d1c0 r40 : 
-000000000000058c
-    <4>    r41 : e000000521d94300
-    <4> [<a00000010019d1c0>] dio_bio_complete+0x1c0/0x200
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007015c0
-    <4>    r32 : e00000042f62a980 r33 : e000000521d94300 r34 : 
-000000000000000a
-    <4>    r35 : ffffffffffff0030 r36 : e00000042f62a990 r37 : 
-a000000100083eb0
-    <4>    r38 : e0000005b56cdfd0 r39 : 0000000000000001 r40 : 
-a00000010019d260
-    <4>    r41 : 0000000000000206 r42 : a000000100af93f0
-    <4> [<a00000010019d260>] dio_bio_end_aio+0x60/0x80
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007015a0
-    <4>    r32 : e000000521d94300 r33 : a00000010014acd0 r34 : 
-000000000000038b
-    <4>    r35 : 0000000000004000
-    <4> [<a00000010014acd0>] bio_endio+0x110/0x1c0
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701568
-    <4>    r32 : e000000521d94300 r33 : 0000000000004000 r34 : 
-0000000000000000
-    <4>    r35 : e000000521d94330 r36 : a0000001002770e0 r37 : 
-0000000000000997
-    <4>    r38 : a000000100af93f0
-    <4> [<a0000001002770e0>] __end_that_request_first+0x180/0xba0
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007014d0
-    <4>    r32 : e000000109abbff8 r33 : 0000000000004000 r34 : 
-0000000000004000
-    <4>    r35 : e000002002038000 r36 : e0000006500b0c80 r37 : 
-0000000000000000
-    <4>    r38 : 0000000000000000 r39 : e000000521d94300 r40 : 
-0000000000034000
-    <4>    r41 : e000000109abc050 r42 : e000000109abc098 r43 : 
-0000000000000000
-    <4>    r44 : 0000000000000000 r45 : e000000109abc018 r46 : 
-a00000010068fea0
-    <4>    r47 : a000000100277b90 r48 : 0000000000000309 r49 : 
-0000000000000183
-    <4>    r50 : 10a282c802d59567
-    <4> [<a000000100277b90>] end_that_request_chunk+0x30/0x60
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007014a0
-    <4>    r32 : e000000109abbff8 r33 : 0000000000000001 r34 : 
-0000000000038000
-    <4>    r35 : a0000002073c0c70 r36 : 000000000000048c r37 : 
-e000002002038000
-    <4> [<a0000002073c0c70>] scsi_end_request+0x50/0x300 [scsi_mod]
-    <4>                                sp=a00000010070fb60 
-bsp=a000000100701458
-    <4>    r32 : e0000001084b7800 r33 : 0000000000000001 r34 : 
-e000000109abbff8
-    <4>    r35 : 0000000000000001 r36 : e000000109abc018 r37 : 
-e00000010b064590
-    <4>    r38 : a0000002073c1240 r39 : 0000000000000793 r40 : 
-a0000002073d17f8
-    <4> [<a0000002073c1240>] scsi_io_completion+0x200/0x8a0 [scsi_mod]
-    <4>                                sp=a00000010070fb60 
-bsp=a0000001007013d8
-    <4>    r32 : e0000001084b7800 r33 : 0000000000038000 r34 : 
-a0000002073f2fb8
-    <4>    r35 : e000000109abbff8 r36 : 0000000000000000 r37 : 
-e000000109abc018
-    <4>    r38 : 0000000000000000 r39 : e00000010b064590 r40 : 
-0000000000038000
-    <4>    r41 : 0000000000000001 r42 : 0000000000000000 r43 : 
-a0000002074729b0
-    <4>    r44 : 0000000000000692 r45 : a0000002073d17f8 r46 : 
-10a282c800c1a567
-    <4> [<a0000002074729b0>] sd_rw_intr+0x330/0x860 [sd_mod]
-    <4>                                sp=a00000010070fb70 
-bsp=a000000100701370
-    <4>    r32 : e0000001084b7800 r33 : 0000000000000000 r34 : 
-a0000002073f2fb8
-    <4>    r35 : e0000001084b78b8 r36 : 0000000000038000 r37 : 
-0000000000061c4a
-    <4>    r38 : 0000000000038000 r39 : e0000001084b7970 r40 : 
-0000000000000000
-    <4>    r41 : a0000002073b3ac0 r42 : 000000000000030a r43 : 
-a000000207476118
-    <4>    r44 : 10a282c800c12567
-    <4> [<a0000002073b3ac0>] scsi_finish_command+0x100/0x1c0 [scsi_mod]
-    <4>                                sp=a00000010070fb90 
-bsp=a000000100701340
-    <4>    r32 : e0000001084b7800 r33 : e000000102652300 r34 : 
-e00000010593ea80
-    <4>    r35 : a0000002073c2910 r36 : 000000000000030a r37 : 
-a0000002073d17f8
-    <4> [<a0000002073c2910>] scsi_softirq_done+0x230/0x300 [scsi_mod]
-    <4>                                sp=a00000010070fb90 
-bsp=a000000100701310
-    <4>    r32 : e0000001084b7800 r33 : 0000000000002002 r34 : 
-0000000000004650
-    <4>    r35 : a000000100277d20 r36 : 0000000000000184 r37 : 
-a0000002073d17f8
-    <4> [<a000000100277d20>] blk_done_softirq+0x160/0x1c0
-    <4>                                sp=a00000010070fba0 
-bsp=a0000001007012f8
-    <4>    r32 : a000000100083e00 r33 : 0000000000000994 r34 : 
-a000000100af93f0
-    <4> [<a000000100083e00>] __do_softirq+0x200/0x240
-    <4>                                sp=a00000010070fbb0 
-bsp=a000000100701260
-    <4>    r32 : a00000010070fbc0 r33 : 0000000000000031 r34 : 
-0000000000000031
-    <4>    r35 : 000000000001869f r36 : a000000100af93f0 r37 : 
-0000000000000031
-    <4>    r38 : 0000000000017e3e r39 : a000000100050c30 r40 : 
-0000000000000000
-    <4>    r41 : a0000001007432d0 r42 : ffffffffffff5a58 r43 : 
-a0000001009140c0
-    <4>    r44 : 0000000000000001 r45 : 000000000000000a r46 : 
-ffffffffffff0030
-    <4>    r47 : 0000000000000000 r48 : a000000100083eb0 r49 : 
-000000000000060c
-    <4>    r50 : a000000100af93f0
-    <4> [<a000000100083eb0>] do_softirq+0x70/0xc0
-    <4>                                sp=a00000010070fbb0 
-bsp=a000000100701200
-    <4>    r32 : 0000000000000000 r33 : a000000100744f3c r34 : 
-a000000100695608
-    <4>    r35 : fffffffffffeffff r36 : a000000100050c00 r37 : 
-a000000100740034
-    <4>    r38 : a000000100010260 r39 : 0000000000000389 r40 : 
-0000001008022018
-    <4>    r41 : a000000100084210 r42 : 0000000000000183 r43 : 
-0000000000000610
-    <4> [<a000000100084210>] irq_exit+0x70/0xa0
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011e0
-    <4>    r32 : a0000001000102d0 r33 : 0000000000000389 r34 : 
-0000000000000001
-    <4> [<a0000001000102d0>] ia64_handle_irq+0x110/0x140
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011a8
-    <4>    r32 : 0000000000000000 r33 : a00000010070fbc0 r34 : 
-0000000000000000
-    <4>    r35 : 00000000000000fd r36 : a00000010000b780 r37 : 
-0000000000000002
-    <4>    r38 : 0000000000000000
-    <4> [<a00000010000b780>] ia64_leave_kernel+0x0/0x280
-    <4>                                sp=a00000010070fbb0 
-bsp=a0000001007011a8
-    <4> [<a000000100011aa0>] default_idle+0x80/0x1c0
-    <4>                                sp=a00000010070fd80 
-bsp=a000000100701138
-    <4>    r32 : a00000010070fdb0 r33 : a00000010090c530 r34 : 
-a00000010070fe28
-    <4>    r35 : a00000010070fe20 r36 : a00000010070fe18 r37 : 
-a00000010070fe10
-    <4>    r38 : a0000001000120f0 r39 : 000000000000060d r40 : 
-e000000004ec1600
-    <4>    r41 : a00000010070fdb0 r42 : a000000100700000 r43 : 
-0000000000000000
-    <4>    r44 : e0000001062fe840 r45 : 8000000000000000
-    <4> [<a0000001000120f0>] cpu_idle+0x190/0x320
-    <4>                                sp=a00000010070fe20 
-bsp=a0000001007010d8
-    <4>    r32 : 0000000000000000 r33 : ffffffffffff0000 r34 : 
-a00000010090c530
-    <4>    r35 : a00000010090d210 r36 : a00000010090c510 r37 : 
-a00000010090d378
-    <4>    r38 : ffffffffffff0028 r39 : 0000000000000008 r40 : 
-a000000100008e30
-    <4>    r41 : 0000000000000186 r42 : a000000100af93f0 r43 : 
-10a282c800c055ab
-    <4> [<a000000100008e30>] rest_init+0x70/0xa0
-    <4>                                sp=a00000010070fe20 
-bsp=a0000001007010c0
-    <4>    r32 : a0000001006a1230 r33 : 0000000000000611 r34 : 
-a0000001006a1200
-    <4> [<a0000001006a1230>] start_kernel+0x6b0/0x7c0
-    <4>                                sp=a00000010070fe20 
-bsp=a000000100701060
-    <4>    r32 : 0000000004007f20 r33 : 0000000000003e62 r34 : 
-00000027fefa8d50
-    <4>    r35 : 0000000000000998 r36 : 10a282c800c09563 r37 : 
-000000007f958000
-    <4>    r38 : 0000000000000001 r39 : 000000007f7c7970 r40 : 
-a00000010090d6b0
-    <4>    r41 : a000000100008270 r42 : 0000000000000998 r43 : 
-a000000100af93f0
-    <4> [<a000000100008270>] __end_ivt_text+0x350/0x370
-    <4>                                sp=a00000010070fe30 
-bsp=a000000100700fc0
-    <4>    r32 : 00000027ff8c1310 r33 : 00000027ff9f6ef0 r34 : 
-00000027fecfc010
-    <4>    r35 : 0000000000000000 r36 : 00000027fefec7a8 r37 : 
-000000007f734be8
-    <4>    r38 : 8000000000000001 r39 : 00000027ff9f6af0 r40 : 
-00000027ff9f7330
-    <4>    r41 : 00000027ff9f7348 r42 : 00000027ff9f7310 r43 : 
-0000000000000001
-    <4>    r44 : 00000027fefd33b0 r45 : 00000027ff9f7318 r46 : 
-00000027fefec9d8
-    <4>    r47 : 00000027ff9f5ca0 r48 : 00000027fefa7060 r49 : 
-0000000000000206
-    <4>    r50 : 00000027ff1d3000
-
---------------060200070702050303050606
-Content-Transfer-Encoding: 7bit
-Content-Type: text/x-vcard; charset=utf-8;
- name="xavier.bru.vcf"
-Content-Disposition: attachment;
- filename="xavier.bru.vcf"
-
-begin:vcard
-fn:Xavier Bru
-n:Bru;Xavier
-adr:;;1 rue de Provence, BP 208;38432 Echirolles Cedex;;;France
-email;internet:Xavier.Bru@bull.net
-title:BULL/DT/Open Software/linux/ia64
-tel;work:+33 (0)4 76 29 77 45
-tel;fax:+33 (0)4 76 29 77 70 
-x-mozilla-html:TRUE
-url:http://www.bull.com
-version:2.1
-end:vcard
-
-
---------------060200070702050303050606--
+--- a/arch/ia64/kernel/err_inject.c	1969-12-31 16:00:00.000000000 -0800
++++ b/arch/ia64/kernel/err_inject.c	2006-12-08 16:11:47.000000000 -0800
+@@ -0,0 +1,293 @@
++/*
++ * err_inject.c -
++ *	1.) Inject errors to a processor.
++ *	2.) Query error injection capabilities.
++ * This driver along with user space code can be acting as an error
++ * injection tool.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
++ * NON INFRINGEMENT.  See the GNU General Public License for more
++ * details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ * Written by: Fenghua Yu <fenghua.yu@intel.com>, Intel Corporation
++ * Copyright (C) 2006, Intel Corp.  All rights reserved.
++ *
++ */
++#include <linux/sysdev.h>
++#include <linux/init.h>
++#include <linux/mm.h>
++#include <linux/cpu.h>
++#include <linux/module.h>
++
++#define ERR_INJ_DEBUG
++
++#define ERR_DATA_BUFFER_SIZE 3 		// Three 8-byte;
++
++#define define_one_ro(name) 						\
++static SYSDEV_ATTR(name, 0444, show_##name, NULL)
++
++#define define_one_rw(name) 						\
++static SYSDEV_ATTR(name, 0644, show_##name, store_##name)
++
++static u64 call_start[NR_CPUS];
++static u64 phys_addr[NR_CPUS];
++static u64 err_type_info[NR_CPUS];
++static u64 err_struct_info[NR_CPUS];
++static struct {
++	u64 data1;
++	u64 data2;
++	u64 data3;
++} __attribute__((__aligned__(16))) err_data_buffer[NR_CPUS];
++static s64 status[NR_CPUS];
++static u64 capabilities[NR_CPUS];
++static u64 resources[NR_CPUS];
++
++#define show(name) 							\
++static ssize_t 								\
++show_##name(struct sys_device *dev, char *buf)				\
++{									\
++	u32 cpu=DEv->id;						\
++	return sprintf(buf, "%lx\n", name[cpu]);			\
++}
++
++#define store(name)							\
++static ssize_t 								\
++store_##name(struct sys_device *dev, const char *buf, size_t size)	\
++{									\
++	unsigned int cpu=DEv->id;					\
++	name[cpu] =3D simple_strtoull(buf, NULL, 16);			\
++	return size;							\
++}
++
++show(call_start)
++
++/* It's user's responsibility to call the PAL procedure on a specific
++ * processor. The cpu number in driver is only used for storing data.
++ */
++static ssize_t
++store_call_start(struct sys_device *dev, const char *buf, size_t size)
++{
++	unsigned int cpu=DEv->id;
++	unsigned long call_start =3D simple_strtoull(buf, NULL, 16);
++
++#ifdef ERR_INJ_DEBUG
++	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
++	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
++	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
++	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
++			  err_data_buffer[cpu].data1,
++			  err_data_buffer[cpu].data2,
++			  err_data_buffer[cpu].data3);
++#endif
++	switch (call_start) {
++	    case 0: /* Do nothing. */
++		break;
++	    case 1: /* Call pal_mc_error_inject in physical mode. */
++		status[cpu]=3Dia64_pal_mc_error_inject_phys(err_type_info[cpu],
++					err_struct_info[cpu],
++					ia64_tpa(&err_data_buffer[cpu]),
++					&capabilities[cpu],
++			 		&resources[cpu]);
++		break;
++	    case 2: /* Call pal_mc_error_inject in virtual mode. */
++		status[cpu]=3Dia64_pal_mc_error_inject_virt(err_type_info[cpu],
++					err_struct_info[cpu],
++					ia64_tpa(&err_data_buffer[cpu]),
++					&capabilities[cpu],
++			 		&resources[cpu]);
++		break;
++	    default:
++		status[cpu] =3D -EINVAL;
++		break;
++	}
++
++#ifdef ERR_INJ_DEBUG
++	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
++	printk(KERN_DEBUG "capapbilities=3D%lx,\n", capabilities[cpu]);
++	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
++#endif
++	return size;
++}
++
++show(err_type_info)
++store(err_type_info)
++
++static ssize_t
++show_virtual_to_phys(struct sys_device *dev, char *buf)
++{
++	unsigned int cpu=DEv->id;
++	return sprintf(buf, "%lx\n", phys_addr[cpu]);
++}
++
++static ssize_t
++store_virtual_to_phys(struct sys_device *dev, const char *buf, size_t size)
++{
++	unsigned int cpu=DEv->id;
++	u64 virt_addr=3Dsimple_strtoull(buf, NULL, 16);
++	int ret;
++
++        ret =3D get_user_pages(current, current->mm, virt_addr,
++                        1, VM_READ, 0, NULL, NULL);
++	if (ret<=3D0) {
++#ifdef ERR_INJ_DEBUG
++		printk("Virtual address %lx is not existing.\n",virt_addr);
++#endif
++		return -EINVAL;
++	}
++
++	phys_addr[cpu] =3D ia64_tpa(virt_addr);
++	return size;
++}
++
++show(err_struct_info)
++store(err_struct_info)
++
++static ssize_t
++show_err_data_buffer(struct sys_device *dev, char *buf)
++{
++	unsigned int cpu=DEv->id;
++
++	return sprintf(buf, "%lx, %lx, %lx\n",
++			err_data_buffer[cpu].data1,
++			err_data_buffer[cpu].data2,
++			err_data_buffer[cpu].data3);
++}
++
++static ssize_t
++store_err_data_buffer(struct sys_device *dev, const char *buf, size_t size)
++{
++	unsigned int cpu=DEv->id;
++	int ret;
++
++#ifdef ERR_INJ_DEBUG
++	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
++		 err_data_buffer[cpu].data1,
++		 err_data_buffer[cpu].data2,
++		 err_data_buffer[cpu].data3,
++		 cpu);
++#endif
++	ret=3Dsscanf(buf, "%lx, %lx, %lx",
++			&err_data_buffer[cpu].data1,
++			&err_data_buffer[cpu].data2,
++			&err_data_buffer[cpu].data3);
++	if (ret!=3DERR_DATA_BUFFER_SIZE)
++		return -EINVAL;
++
++	return size;
++}
++
++show(status)
++show(capabilities)
++show(resources)
++
++define_one_rw(call_start);
++define_one_rw(err_type_info);
++define_one_rw(err_struct_info);
++define_one_rw(err_data_buffer);
++define_one_rw(virtual_to_phys);
++define_one_ro(status);
++define_one_ro(capabilities);
++define_one_ro(resources);
++
++static struct attribute *default_attrs[] =3D {
++	&attr_call_start.attr,
++	&attr_virtual_to_phys.attr,
++	&attr_err_type_info.attr,
++	&attr_err_struct_info.attr,
++	&attr_err_data_buffer.attr,
++	&attr_status.attr,
++	&attr_capabilities.attr,
++	&attr_resources.attr,
++	NULL
++};
++
++static struct attribute_group err_inject_attr_group =3D {
++	.attrs =3D default_attrs,
++	.name =3D "err_inject"
++};
++/* Add/Remove err_inject interface for CPU device */
++static int __cpuinit err_inject_add_dev(struct sys_device * sys_dev)
++{
++	return sysfs_create_group(&sys_dev->kobj, &err_inject_attr_group);
++}
++
++static int __cpuinit err_inject_remove_dev(struct sys_device * sys_dev)
++{
++	sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
++	return 0;
++}
++static int __cpuinit err_inject_cpu_callback(struct notifier_block *nfb,
++		unsigned long action, void *hcpu)
++{
++	unsigned int cpu =3D (unsigned long)hcpu;
++	struct sys_device *sys_dev;
++
++	sys_dev =3D get_cpu_sysdev(cpu);
++	switch (action) {
++	case CPU_ONLINE:
++		err_inject_add_dev(sys_dev);
++		break;
++	case CPU_DEAD:
++		err_inject_remove_dev(sys_dev);
++		break;
++	}
++
++	return NOTIFY_OK;
++}
++
++static struct notifier_block __cpuinitdata err_inject_cpu_notifier +{
++	.notifier_call =3D err_inject_cpu_callback,
++};
++
++static int __init
++err_inject_init(void)
++{
++	int i;
++
++#ifdef ERR_INJ_DEBUG
++	printk(KERN_INFO "Enter error injection driver.\n");
++#endif
++	for_each_online_cpu(i) {
++		err_inject_cpu_callback(&err_inject_cpu_notifier, CPU_ONLINE,
++				(void *)(long)i);
++	}
++
++	register_hotcpu_notifier(&err_inject_cpu_notifier);
++
++	return 0;
++}
++
++static void __exit
++err_inject_exit(void)
++{
++	int i;
++	struct sys_device *sys_dev;
++
++#ifdef ERR_INJ_DEBUG
++	printk(KERN_INFO "Exit error injection driver.\n");
++#endif
++	for_each_online_cpu(i) {
++		sys_dev =3D get_cpu_sysdev(i);
++		sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
++	}
++	unregister_hotcpu_notifier(&err_inject_cpu_notifier);
++}
++
++module_init(err_inject_init);
++module_exit(err_inject_exit);
++
++MODULE_AUTHOR("Fenghua Yu <fenghua.yu@intel.com>");
++MODULE_DESCRIPTION("MC error injection kenrel sysfs interface");
++MODULE_LICENSE("GPL");
