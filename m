@@ -1,310 +1,36 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Date: Sat, 09 Dec 2006 00:15:16 +0000
-Subject: [PATCH 3/5] Itanium MC Error Injection Tool: Driver sysfs interface
-Message-Id: <20061208161516.A1102@unix-os.sc.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 11 Dec 2006 23:58:18 +0000
+Subject: ia64 CONFIG_KEXEC ^ CONFIG_CRASH_DUMP
+Message-Id: <617E1C2C70743745A92448908E030B2AE65E20@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This kernel driver patch provides sysfs interface for user application to
-call pal_mc_error_inject() procedure.
+The kexec/crash_dump patches for ia64 have gone into Linus'
+tree ... but there are some loose ends to tidy up.  One of them
+is what is supposed to happen if I configure CONFIG_KEXEC=y with
+CONFIG_CRASH_DUMP=n or CONFIG_KEXEC=n with CONFIG_CRASH_DUMP=y.
 
-Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+The current result is build errors unless both are 'n' or both
+are 'y'.  Looking at Documentation/kdump/kdump.txt it looks like
+the original intent was that CONFIG_KEXEC=y be used for the normal
+kernel that you run all the time, and CONFIG_CRASH_DUMP=y be used
+for the kernel that you transfer to when bad stuff has happened to
+actually dump memory.
 
---- a/arch/ia64/kernel/err_inject.c	1969-12-31 16:00:00.000000000 -0800
-+++ b/arch/ia64/kernel/err_inject.c	2006-12-08 16:11:47.000000000 -0800
-@@ -0,0 +1,293 @@
-+/*
-+ * err_inject.c -
-+ *	1.) Inject errors to a processor.
-+ *	2.) Query error injection capabilities.
-+ * This driver along with user space code can be acting as an error
-+ * injection tool.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE, GOOD TITLE or
-+ * NON INFRINGEMENT.  See the GNU General Public License for more
-+ * details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ *
-+ * Written by: Fenghua Yu <fenghua.yu@intel.com>, Intel Corporation
-+ * Copyright (C) 2006, Intel Corp.  All rights reserved.
-+ *
-+ */
-+#include <linux/sysdev.h>
-+#include <linux/init.h>
-+#include <linux/mm.h>
-+#include <linux/cpu.h>
-+#include <linux/module.h>
-+
-+#define ERR_INJ_DEBUG
-+
-+#define ERR_DATA_BUFFER_SIZE 3 		// Three 8-byte;
-+
-+#define define_one_ro(name) 						\
-+static SYSDEV_ATTR(name, 0444, show_##name, NULL)
-+
-+#define define_one_rw(name) 						\
-+static SYSDEV_ATTR(name, 0644, show_##name, store_##name)
-+
-+static u64 call_start[NR_CPUS];
-+static u64 phys_addr[NR_CPUS];
-+static u64 err_type_info[NR_CPUS];
-+static u64 err_struct_info[NR_CPUS];
-+static struct {
-+	u64 data1;
-+	u64 data2;
-+	u64 data3;
-+} __attribute__((__aligned__(16))) err_data_buffer[NR_CPUS];
-+static s64 status[NR_CPUS];
-+static u64 capabilities[NR_CPUS];
-+static u64 resources[NR_CPUS];
-+
-+#define show(name) 							\
-+static ssize_t 								\
-+show_##name(struct sys_device *dev, char *buf)				\
-+{									\
-+	u32 cpu=DEv->id;						\
-+	return sprintf(buf, "%lx\n", name[cpu]);			\
-+}
-+
-+#define store(name)							\
-+static ssize_t 								\
-+store_##name(struct sys_device *dev, const char *buf, size_t size)	\
-+{									\
-+	unsigned int cpu=DEv->id;					\
-+	name[cpu] =3D simple_strtoull(buf, NULL, 16);			\
-+	return size;							\
-+}
-+
-+show(call_start)
-+
-+/* It's user's responsibility to call the PAL procedure on a specific
-+ * processor. The cpu number in driver is only used for storing data.
-+ */
-+static ssize_t
-+store_call_start(struct sys_device *dev, const char *buf, size_t size)
-+{
-+	unsigned int cpu=DEv->id;
-+	unsigned long call_start =3D simple_strtoull(buf, NULL, 16);
-+
-+#ifdef ERR_INJ_DEBUG
-+	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
-+	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
-+	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
-+	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
-+			  err_data_buffer[cpu].data1,
-+			  err_data_buffer[cpu].data2,
-+			  err_data_buffer[cpu].data3);
-+#endif
-+	switch (call_start) {
-+	    case 0: /* Do nothing. */
-+		break;
-+	    case 1: /* Call pal_mc_error_inject in physical mode. */
-+		status[cpu]=3Dia64_pal_mc_error_inject_phys(err_type_info[cpu],
-+					err_struct_info[cpu],
-+					ia64_tpa(&err_data_buffer[cpu]),
-+					&capabilities[cpu],
-+			 		&resources[cpu]);
-+		break;
-+	    case 2: /* Call pal_mc_error_inject in virtual mode. */
-+		status[cpu]=3Dia64_pal_mc_error_inject_virt(err_type_info[cpu],
-+					err_struct_info[cpu],
-+					ia64_tpa(&err_data_buffer[cpu]),
-+					&capabilities[cpu],
-+			 		&resources[cpu]);
-+		break;
-+	    default:
-+		status[cpu] =3D -EINVAL;
-+		break;
-+	}
-+
-+#ifdef ERR_INJ_DEBUG
-+	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
-+	printk(KERN_DEBUG "capapbilities=3D%lx,\n", capabilities[cpu]);
-+	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
-+#endif
-+	return size;
-+}
-+
-+show(err_type_info)
-+store(err_type_info)
-+
-+static ssize_t
-+show_virtual_to_phys(struct sys_device *dev, char *buf)
-+{
-+	unsigned int cpu=DEv->id;
-+	return sprintf(buf, "%lx\n", phys_addr[cpu]);
-+}
-+
-+static ssize_t
-+store_virtual_to_phys(struct sys_device *dev, const char *buf, size_t size)
-+{
-+	unsigned int cpu=DEv->id;
-+	u64 virt_addr=3Dsimple_strtoull(buf, NULL, 16);
-+	int ret;
-+
-+        ret =3D get_user_pages(current, current->mm, virt_addr,
-+                        1, VM_READ, 0, NULL, NULL);
-+	if (ret<=3D0) {
-+#ifdef ERR_INJ_DEBUG
-+		printk("Virtual address %lx is not existing.\n",virt_addr);
-+#endif
-+		return -EINVAL;
-+	}
-+
-+	phys_addr[cpu] =3D ia64_tpa(virt_addr);
-+	return size;
-+}
-+
-+show(err_struct_info)
-+store(err_struct_info)
-+
-+static ssize_t
-+show_err_data_buffer(struct sys_device *dev, char *buf)
-+{
-+	unsigned int cpu=DEv->id;
-+
-+	return sprintf(buf, "%lx, %lx, %lx\n",
-+			err_data_buffer[cpu].data1,
-+			err_data_buffer[cpu].data2,
-+			err_data_buffer[cpu].data3);
-+}
-+
-+static ssize_t
-+store_err_data_buffer(struct sys_device *dev, const char *buf, size_t size)
-+{
-+	unsigned int cpu=DEv->id;
-+	int ret;
-+
-+#ifdef ERR_INJ_DEBUG
-+	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
-+		 err_data_buffer[cpu].data1,
-+		 err_data_buffer[cpu].data2,
-+		 err_data_buffer[cpu].data3,
-+		 cpu);
-+#endif
-+	ret=3Dsscanf(buf, "%lx, %lx, %lx",
-+			&err_data_buffer[cpu].data1,
-+			&err_data_buffer[cpu].data2,
-+			&err_data_buffer[cpu].data3);
-+	if (ret!=3DERR_DATA_BUFFER_SIZE)
-+		return -EINVAL;
-+
-+	return size;
-+}
-+
-+show(status)
-+show(capabilities)
-+show(resources)
-+
-+define_one_rw(call_start);
-+define_one_rw(err_type_info);
-+define_one_rw(err_struct_info);
-+define_one_rw(err_data_buffer);
-+define_one_rw(virtual_to_phys);
-+define_one_ro(status);
-+define_one_ro(capabilities);
-+define_one_ro(resources);
-+
-+static struct attribute *default_attrs[] =3D {
-+	&attr_call_start.attr,
-+	&attr_virtual_to_phys.attr,
-+	&attr_err_type_info.attr,
-+	&attr_err_struct_info.attr,
-+	&attr_err_data_buffer.attr,
-+	&attr_status.attr,
-+	&attr_capabilities.attr,
-+	&attr_resources.attr,
-+	NULL
-+};
-+
-+static struct attribute_group err_inject_attr_group =3D {
-+	.attrs =3D default_attrs,
-+	.name =3D "err_inject"
-+};
-+/* Add/Remove err_inject interface for CPU device */
-+static int __cpuinit err_inject_add_dev(struct sys_device * sys_dev)
-+{
-+	return sysfs_create_group(&sys_dev->kobj, &err_inject_attr_group);
-+}
-+
-+static int __cpuinit err_inject_remove_dev(struct sys_device * sys_dev)
-+{
-+	sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
-+	return 0;
-+}
-+static int __cpuinit err_inject_cpu_callback(struct notifier_block *nfb,
-+		unsigned long action, void *hcpu)
-+{
-+	unsigned int cpu =3D (unsigned long)hcpu;
-+	struct sys_device *sys_dev;
-+
-+	sys_dev =3D get_cpu_sysdev(cpu);
-+	switch (action) {
-+	case CPU_ONLINE:
-+		err_inject_add_dev(sys_dev);
-+		break;
-+	case CPU_DEAD:
-+		err_inject_remove_dev(sys_dev);
-+		break;
-+	}
-+
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block __cpuinitdata err_inject_cpu_notifier +{
-+	.notifier_call =3D err_inject_cpu_callback,
-+};
-+
-+static int __init
-+err_inject_init(void)
-+{
-+	int i;
-+
-+#ifdef ERR_INJ_DEBUG
-+	printk(KERN_INFO "Enter error injection driver.\n");
-+#endif
-+	for_each_online_cpu(i) {
-+		err_inject_cpu_callback(&err_inject_cpu_notifier, CPU_ONLINE,
-+				(void *)(long)i);
-+	}
-+
-+	register_hotcpu_notifier(&err_inject_cpu_notifier);
-+
-+	return 0;
-+}
-+
-+static void __exit
-+err_inject_exit(void)
-+{
-+	int i;
-+	struct sys_device *sys_dev;
-+
-+#ifdef ERR_INJ_DEBUG
-+	printk(KERN_INFO "Exit error injection driver.\n");
-+#endif
-+	for_each_online_cpu(i) {
-+		sys_dev =3D get_cpu_sysdev(i);
-+		sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
-+	}
-+	unregister_hotcpu_notifier(&err_inject_cpu_notifier);
-+}
-+
-+module_init(err_inject_init);
-+module_exit(err_inject_exit);
-+
-+MODULE_AUTHOR("Fenghua Yu <fenghua.yu@intel.com>");
-+MODULE_DESCRIPTION("MC error injection kenrel sysfs interface");
-+MODULE_LICENSE("GPL");
+But on ia64 I don't think that we need such a distinction.  We don't
+need to link the crashdump kernel at a special address, so it can
+be the same binary as our normal kernel.
+
+I did take a quick look at untangling KEXEC/CRASH_DUMP ... but
+there seem to be a few places where the ia64 port assumes that
+both are either set or not set.
+
+Perhaps the path of least resistance would be to just fix
+arch/ia64/Kconfig to only offer a single "kexec + crashdump"
+option that sets both CONFIG options?  Or are there other
+benefits/reasons to keep separate options?
+
+-Tony
