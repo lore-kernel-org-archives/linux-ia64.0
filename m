@@ -1,84 +1,60 @@
 From: Horms <horms@verge.net.au>
-Date: Wed, 13 Dec 2006 03:45:38 +0000
-Subject: Re: [Fastboot] IA64: kexec seg fault at xrealloc
-Message-Id: <20061213034536.GK22902@verge.net.au>
+Date: Tue, 12 Dec 2006 09:08:10 +0000
+Subject: Re: Kexec/Kdump: honour non-zero crashkernel offset
+Message-Id: <20061212090808.GB9443@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061204110510.fde8bcdb.akiyama.nobuyuk@jp.fujitsu.com>
-In-Reply-To: <20061204110510.fde8bcdb.akiyama.nobuyuk@jp.fujitsu.com>
+References: <20060920024544.733881000@tabatha.lab.ultramonkey.org>
+In-Reply-To: <20060920024544.733881000@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Dec 04, 2006 at 02:48:33PM +0800, Zou Nan hai wrote:
-> On Mon, 2006-12-04 at 10:05, Akiyama, Nobuyuki wrote:
-> > Hi Jay,
-> > 
-> > The attacked patch fixes the problem.
-> > Please try.
-> > 
-> > diff -Nurp kexec-tools-1.101.org/kexec/arch/ia64/crashdump-ia64.c
-> > kexec-tools-1.101/kexec/arch/ia64/crashdump-ia64.c
-> > --- kexec-tools-1.101.org/kexec/arch/ia64/crashdump-ia64.c     
-> > 2006-11-09 19:40:52.000000000 +0900
-> > +++ kexec-tools-1.101/kexec/arch/ia64/crashdump-ia64.c  2006-11-13
-> > 19:17:15.000000000 +0900
-> > @@ -316,9 +316,13 @@ int load_crashdump_segments(struct kexec
-> >         int nr_ranges;
-> >         size_t size;
-> >         void *tmp;
-> > +       long int nr_cpus = 0;
-> > +       if ((nr_cpus = sysconf(_SC_NPROCESSORS_CONF)) < 0)
-> > +               return -1;
-> >         if (info->kexec_flags & KEXEC_ON_CRASH ) {
-> >                 if (get_crash_memory_ranges(&mem_range, &nr_ranges) =
-> > 0) {
-> >                         size =  sizeof(Elf64_Ehdr) +
-> > +                               (nr_cpus + 1) * sizeof(Elf64_Phdr) +
-> >                                 (nr_ranges + 1) * sizeof(Elf64_Phdr);
-> >                         size = (size + EFI_PAGE_SIZE - 1) &
-> > ~(EFI_PAGE_SIZE - 1);
-> >                         tmp = xmalloc(size);
-> > 
-> 
->  Hi, 
-> 	Thanks for finding the is bug, I missed percpu notes segments in size
-> calculation here. However I think we should also include the nr_ranges
-> in calculation.
-> 
-> 	--- a/kexec/arch/ia64/crashdump-ia64.c	2006-12-04 04:19:42.000000000 -0500
-> +++ b/kexec/arch/ia64/crashdump-ia64.c	2006-12-04 04:21:23.000000000 -0500
-> @@ -313,13 +313,15 @@ int load_crashdump_segments(struct kexec
->  {
->  	//struct memory_range *mem_range, *memmap_p;
->  	struct memory_range *mem_range;
-> -	int nr_ranges;
-> +	int nr_ranges, nr_cpus;
->  	size_t size;
->  	void *tmp;
-> +        if ((nr_cpus = sysconf(_SC_NPROCESSORS_CONF)) < 0)
-> +		return -1;
->  	if (info->kexec_flags & KEXEC_ON_CRASH ) {
->  		if (get_crash_memory_ranges(&mem_range, &nr_ranges) = 0) {
->  			size =  sizeof(Elf64_Ehdr) +
-> -				(nr_ranges + 1) * sizeof(Elf64_Phdr);
-> +				(nr_ranges + nr_cpus + 1) * sizeof(Elf64_Phdr);
->  			size = (size + EFI_PAGE_SIZE - 1) & ~(EFI_PAGE_SIZE - 1);
->  			tmp = xmalloc(size);
->  			memset(tmp, 0, size);
+[IA64] Kexec/Kdump: honour non-zero crashkernel offset.
 
-Hi,
+There seems to be a value in both allowing the kernel to determine
+the base offset of the crashkernel automatically and allowing
+users's to sepcify it.
 
-that patch looks correct to me. However, I believe that the problem is
-already resolved in kexec-tools-testing by using the generic /proc/iomem
-handling code that was introduced in changesets
-c80198e78ce26783e092645b9ac8587e1374f22f and
-f038d30bff8510a1df1e72af08db1766581d1f2c.
+The old behaviour on ia64, which is still the current behaviour on
+most architectures is for the user to always specify the address.
+Recently ia64 was changed so that it is always automatically determined.
 
-Could someone please test this?
+With this patch the kernel automatically determines the offset if
+the supplied value is 0, otherwise it uses the value provided.
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+This should probably be backed by a documentation change.
 
+Signed-Off-By: Simon Horman <horms@verge.net.au>
+
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2006-10-23 17:34:24.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/setup.c	2006-10-23 17:34:56.000000000 +0900
+@@ -257,7 +257,7 @@
+ 
+ #ifdef CONFIG_KEXEC
+ 	/* crashkernel=size@offset specifies the size to reserve for a crash
+-	 * kernel.(offset is ingored for keep compatibility with other archs)
++	 * kernel. If offset is 0, then it is determined automatically.
+ 	 * By reserving this memory we guarantee that linux never set's it
+ 	 * up as a DMA target.Useful for holding code to do something
+ 	 * appropriate after a kernel panic.
+@@ -267,10 +267,16 @@
+ 		unsigned long base, size;
+ 		if (from) {
+ 			size = memparse(from + 12, &from);
++			if (*from = '@')
++				base = memparse(from+1, &from);
++			else
++				base = 0;
+ 			if (size) {
+-				sort_regions(rsvd_region, n);
+-				base = kdump_find_rsvd_region(size,
+-				rsvd_region, n);
++				if (!base) {
++					sort_regions(rsvd_region, n);
++					base = kdump_find_rsvd_region(size,
++							      	rsvd_region, n);
++					}
+ 				if (base != ~0UL) {
+ 					rsvd_region[n].start  						(unsigned long)__va(base);
