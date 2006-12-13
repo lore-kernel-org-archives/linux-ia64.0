@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 07 Dec 2006 23:35:22 +0000
-Subject: RE: git pull on ia64 linux tree
-Message-Id: <617E1C2C70743745A92448908E030B2AE35502@scsmsx411.amr.corp.intel.com>
+Date: Wed, 13 Dec 2006 02:04:00 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200612130204.kBD240VH010983@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -10,34 +10,58 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Biggest part of this is the kexec/kdump changes (which include a teeny generic
-> change to add an icache flush option to kernel/kexec.c).
+Hi Linus,
 
-There are a few more patches in the queue that I'll be piling together
-for another pull ... but I wanted to get the kexec/kdump monster out
-of the way (it needs a little more love and attention ... there are
-build errors if you configure KEXEC=y, KDUMP=n ... I took a first stab
-at just fixing arch/ia64/kernel/Makefile to move crash.o into a KDUMP
-dependent line of its own, which helped some, but left me with a couple
-of undefined symbols at link time.  Chasing them led into generic files :-(
+please pull from:
 
-Stuff I know I've not dealt with yet (but plan to)
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-kprobes: fix to allow probes on slot 1 + qp bits on special instructions
-FP exception logging overhead
-XPC deadlock
-remove some rsm psr.dt in ivt.S
+This will update the files shown below.
 
-Less certain stuff ...
-
-Ken's patch to not use a DTR for percpu area will need a little adjustment
-to fit with kexec (I think).
-
-SGIs patches for asymmetric systems (different cpu models) are still worrying
-me about how far this stuff may go ... the first two patches look fine, but
-I get the feeling that we'll be peeling more layers here.
-
-Other stuff isn't technically lost, but is piled into corners of my
-not-so-efficient patch tracking system ... gentle reminders appreciated.
+Thanks!
 
 -Tony
+
+ arch/ia64/hp/sim/simserial.c      |    2 
+ arch/ia64/kernel/Makefile         |    1 
+ arch/ia64/kernel/crash.c          |   22 ---
+ arch/ia64/kernel/crash_dump.c     |   48 ++++++++
+ arch/ia64/kernel/jprobes.S        |    3 
+ arch/ia64/kernel/kprobes.c        |  226 ++++++++++++++++++++++++++------------
+ arch/ia64/kernel/machine_kexec.c  |    7 -
+ arch/ia64/kernel/mca.c            |    2 
+ arch/ia64/kernel/setup.c          |   33 ++++-
+ arch/ia64/kernel/smp.c            |    4 
+ arch/ia64/kernel/traps.c          |   50 ++++++--
+ arch/ia64/mm/contig.c             |    9 +
+ arch/ia64/mm/init.c               |    9 -
+ arch/ia64/sn/kernel/setup.c       |   12 +-
+ arch/ia64/sn/kernel/xpc_channel.c |   15 +-
+ arch/ia64/sn/kernel/xpc_main.c    |   64 +++++++---
+ include/asm-ia64/break.h          |    4 
+ include/asm-ia64/kprobes.h        |    1 
+ include/asm-ia64/sn/xpc.h         |    2 
+ 19 files changed, 362 insertions(+), 152 deletions(-)
+
+bibo,mao:
+      [IA64] kprobe clears qp bits for special instructions
+
+Dean Nelson:
+      [IA64] fix possible XPC deadlock when disconnecting
+
+Horms:
+      [IA64] CONFIG_KEXEC/CONFIG_CRASH_DUMP permutations
+      [IA64] Kexec/Kdump: honour non-zero crashkernel offset.
+      [IA64] kexec/kdump: tidy up declaration of relocate_new_kernel_t
+
+Jack Steiner:
+      [IA64] - Reduce overhead of FP exception logging messages
+
+Jay Lan:
+      [IA64] Do not call SN_SAL_SET_CPU_NUMBER twice on cpu 0
+
+Tony Luck:
+      [IA64] s/termios/ktermios/ in simserial.c
+      [IA64] fix arch/ia64/mm/contig.c:235: warning: unused variable `nid'
+      [IA64] Take defensive stance on ia64_pal_get_brand_info()
+      [IA64] enable trap code on slot 1
