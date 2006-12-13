@@ -1,119 +1,96 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Thu, 14 Dec 2006 22:01:41 +0000
-Subject: [patch] Proper handling of TLB errors from duplicate itr.d dropins
-Message-Id: <200612142201.kBEM1fL267221699@clink.americas.sgi.com>
+From: Horms <horms@verge.net.au>
+Date: Wed, 13 Dec 2006 03:10:53 +0000
+Subject: [PATCH] [IA64] kexec/kdump: Pass in physical addresses to purgatory
+Message-Id: <20061213031051.GI22902@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[patch] Proper handling of TLB errors from duplicate itr.d dropins
+*** Kernel portion of this patch, kexec-tools portion to follow ***
 
-Jack Steiner noticed that duplicate TLB DTC entries do not cause a
-linux panic.  See discussion:
+Currently the purgatory code for ia64 has the PAGE_OFFSET hardcoded,
+and uses this to perform the equivalent of __pa() on some of the
+data contained inside ia64_boot_param.
 
-http://www.gelato.unsw.edu.au/archives/linux-ia64/0307/6108.html
+This is problematic if the kernel (or hypervisor or whatever)
+is running with a PAGE_OFFSET different to that which kexec-tools
+was compiled with. (purgatory is supplied by kexec-tools).
 
-The current TLB recovery code is recovering from the duplicate itr.d
-dropins, masking the underlying problem.  This change modifies
-the MCA recovery code to look for the TLB check signature of the 
-duplicate TLB entry and panic in that case.
+In order to address this problem, the code below makes
+the __pa() translations in the kernel before going into pugatory.
+Only the translations that are needed have been made to keep
+things simple. But more could be added.
 
+This does solve a real problem when running the xen port of ia64,
+as xen has a different PAGE_OFFSET to Linux.
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+There is also a kexec-tools portion of this patch, which I will
+post as a reply to this patch.
 
----
- arch/ia64/kernel/mca.c     |    8 ++------
- arch/ia64/kernel/mca_drv.c |   33 +++++++++++++++++++++++++++++++++
- include/asm-ia64/pal.h     |    1 +
- 3 files changed, 36 insertions(+), 6 deletions(-)
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Index: test/arch/ia64/kernel/mca.c
-=================================--- test.orig/arch/ia64/kernel/mca.c	2006-12-13 09:39:56.471871015 -0600
-+++ test/arch/ia64/kernel/mca.c	2006-12-13 16:10:03.233439784 -0600
-@@ -1192,8 +1192,6 @@ void
- ia64_mca_handler(struct pt_regs *regs, struct switch_stack *sw,
- 		 struct ia64_sal_os_state *sos)
- {
--	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
--		&sos->proc_state_param;
- 	int recover, cpu = smp_processor_id();
- 	struct task_struct *previous_current;
- 	struct ia64_mca_notify_die nd @@ -1223,10 +1221,8 @@ ia64_mca_handler(struct pt_regs *regs, s
- 	/* Get the MCA error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_MCA);
+Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c	2006-12-13 10:03:43.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2006-12-13 10:17:03.000000000 +0900
+@@ -14,13 +14,14 @@
+ #include <linux/kexec.h>
+ #include <linux/cpu.h>
+ #include <linux/irq.h>
++#include <linux/efi.h>
+ #include <asm/mmu_context.h>
+ #include <asm/setup.h>
+ #include <asm/delay.h>
+ #include <asm/meminit.h>
  
--	/* TLB error is only exist in this SAL error record */
--	recover = (psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc))
--	/* other error recovery */
--	   || (ia64_mca_ucmc_extension
-+	/* MCA error recovery */
-+	recover = (ia64_mca_ucmc_extension
- 		&& ia64_mca_ucmc_extension(
- 			IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA),
- 			sos));
-Index: test/arch/ia64/kernel/mca_drv.c
-=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2006-12-13 09:39:56.471871015 -0600
-+++ test/arch/ia64/kernel/mca_drv.c	2006-12-13 17:14:00.054326684 -0600
-@@ -607,6 +607,33 @@ recover_from_platform_error(slidx_table_
- 	return status;
+ typedef void (*relocate_new_kernel_t)(unsigned long, unsigned long,
+-		struct ia64_boot_param *, unsigned long);
++		unsigned long, unsigned long);
+ 
+ struct kimage *ia64_kimage;
+ 
+@@ -77,6 +78,23 @@
  }
  
-+/*
-+ * recover_from_tlb_check
-+ * @peidx:	pointer of index of processor error section
-+ *
-+ * Return value:
-+ *	1 on Success / 0 on Failure
+ /*
++ * boot_param is used inside purgatory and purgatory runs
++ * in physical mode, so translate the addresses that purgatory
++ * accesses from virtual to physical.
 + */
-+static int
-+recover_from_tlb_check(peidx_table_t *peidx)
++static unsigned machine_kexec_prepare_boot_param (void)
 +{
-+	sal_log_mod_error_info_t *smei;
-+	pal_tlb_check_info_t *ptci;
++	efi_system_table_t *systab;
 +
-+	smei = (sal_log_mod_error_info_t *)peidx_tlb_check(peidx, 0);
-+	ptci = (pal_tlb_check_info_t *)&(smei->check_info);
++	systab = (efi_system_table_t *)__va(ia64_boot_param->efi_systab);
++	systab->runtime->set_virtual_address_map +				__pa(systab->runtime->set_virtual_address_map);
++	systab->runtime = (efi_runtime_services_t *)__pa(systab->runtime);
 +
-+	/*
-+	 * Look for signature of a duplicate TLB DTC entry, which is
-+	 * a SW bug and always fatal.
-+	 */
-+	if (ptci->op = PAL_TLB_CHECK_OP_PURGE
-+	    && !(ptci->itr || ptci->dtc || ptci->itc))
-+		return fatal_mca("Duplicate TLB entry");
-+
-+	return mca_recovered("TLB check recovered");
++	return __pa(ia64_boot_param);
 +}
 +
- /**
-  * recover_from_processor_error
-  * @platform:	whether there are some platform error section or not
-@@ -650,6 +677,12 @@ recover_from_processor_error(int platfor
- 	 */
- 	if (psp->us || psp->ci = 0)
- 		return fatal_mca("error not contained");
-+
-+	/*
-+	 * Look for recoverable TLB check
-+	 */
-+	if (psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc))
-+		return recover_from_tlb_check(peidx);
++/*
+  * Do not allocate memory (or fail in any way) in machine_kexec().
+  * We are past the point of no return, committed to rebooting now.
+  */
+@@ -121,7 +139,7 @@
+ 	}
+ 	platform_kernel_launch_event();
+ 	rnk = (relocate_new_kernel_t)&code_addr;
+-	(*rnk)(image->head, image->start, ia64_boot_param,
++	(*rnk)(image->head, image->start, machine_kexec_prepare_boot_param(),
+ 		     GRANULEROUNDDOWN((unsigned long) pal_addr));
+ 	BUG();
+ }
+Index: linux-2.6/arch/ia64/kernel/relocate_kernel.S
+=================================--- linux-2.6.orig/arch/ia64/kernel/relocate_kernel.S	2006-12-13 10:03:40.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/relocate_kernel.S	2006-12-13 10:04:17.000000000 +0900
+@@ -57,7 +57,7 @@
+ 1:
+ 	//physical mode code begin
+ 	mov b6=in1
+-	dep r28=0,in2,61,3	//to physical address
++	mov r28=in2
  
- 	/*
- 	 * The cache check and bus check bits have four possible states
-Index: test/include/asm-ia64/pal.h
-=================================--- test.orig/include/asm-ia64/pal.h	2006-12-13 09:39:56.523877398 -0600
-+++ test/include/asm-ia64/pal.h	2006-12-13 16:10:03.333452074 -0600
-@@ -373,6 +373,7 @@ typedef u64					pal_mc_info_index_t;
- 							 * dependent
- 							 */
- 
-+#define PAL_TLB_CHECK_OP_PURGE			8
- 
- typedef struct pal_process_state_info_s {
- 	u64		reserved1	: 2,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+ 	// purge all TC entries
+ #define O(member)       IA64_CPUINFO_##member##_OFFSET
