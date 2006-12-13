@@ -1,30 +1,38 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Mon, 18 Dec 2006 19:23:29 +0000
-Subject: RE: [PATCH] IA64: alignment bug in ldscript
-Message-Id: <000001c722d9$ffb63f90$e834030a@amr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Wed, 13 Dec 2006 02:00:40 +0000
+Subject: Re: [patch 3/5] Dont map PAL memory if physicall calls are going to be made
+Message-Id: <20061213020039.GC22902@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <458683CF.8030606@openvz.org>
-References: <458683CF.8030606@openvz.org>
-In-Reply-To: <458683CF.8030606@openvz.org>
+References: <20061023090334.467483535@tabatha.lab.ultramonkey.org>
+In-Reply-To: <20061023090334.467483535@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Kirill Korotaev' <dev@openvz.org>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Alexey Kuznetsov <alexey@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, devel@openvz.org
+To: linux-ia64@vger.kernel.org
 
-Kirill Korotaev wrote on Monday, December 18, 2006 4:05 AM
-> [IA64] bug in ldscript (mainstream)
+On Tue, Oct 24, 2006 at 02:47:38PM -0500, Jack Steiner wrote:
+> On Mon, Oct 23, 2006 at 05:48:43PM +0900, Horms wrote:
+> > There seems to be no reason to map the PAL code into memory if
+> > physical calls are going to be made.
 > 
-> Occasionally, in mainstream number of fsys entries is even.
+> 
+> If you don't map PAL, I assume that all PAL calls are going to be made in
+> physical addressing mode. However, I don't see any code that actually forces
+> PAL calls to be made in physical addressing mode. Is that your intent? 
+> Don't you also need to save the PAL start address as a physical address.
+> See the call to ia64_pal_handler_init().
 
-Is it a typo on "fsys entries is even"?
+Thanks. On furtuther investigation I think that this patch is bogus.
+I will remove it from the series.
 
-If not, then this change log is misleading. It is the instruction
-patch list of FSYS_RETURN that can potentially cause other data
-structures to be out of alignment. And number of FSYS_RETURN call
-site will not necessarily match number of fsys entry.
+> In addition, it looks like slave cpus still call efi_map_pal_code()
+> to map PAL - see start_secondary().
 
+Just for the record, that itself is easy enough to get around by
+checking for efi.mapped in efi_map_pal_code() or start_secondary().
 
-> In OpenVZ it is odd and we get misaligned kernel image,
-> which does not boot.
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-Otherwise, the patch looks fine to me.
