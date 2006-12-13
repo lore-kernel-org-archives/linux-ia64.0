@@ -1,12 +1,23 @@
 From: Horms <horms@verge.net.au>
-Date: Wed, 13 Dec 2006 03:12:14 +0000
-Subject: [PATCH] kexec-tools: ia64: Pass in physical addresses to purgatory
-Message-Id: <20061213031212.GJ22902@verge.net.au>
+Date: Wed, 13 Dec 2006 03:29:37 +0000
+Subject: Re: [PATCH] kexec-tools: ia64: Pass in physical addresses to purgatory
+Message-Id: <20061213032936.GA977@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20061213031212.GJ22902@verge.net.au>
+In-Reply-To: <20061213031212.GJ22902@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Sorry, the previous version of this patch was against my development tree.
+Here is a version that should apply to the current kexec-tools-testing
+tree.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
 *** kexec-tools portion of this patch, kernel portion posted separately *** 
 
@@ -31,10 +42,9 @@ post separately.
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
-
 Index: kexec-tools-unstable/purgatory/arch/ia64/purgatory-ia64.c
-=================================--- kexec-tools-unstable.orig/purgatory/arch/ia64/purgatory-ia64.c	2006-12-13 09:58:56.000000000 +0900
-+++ kexec-tools-unstable/purgatory/arch/ia64/purgatory-ia64.c	2006-12-13 10:13:15.000000000 +0900
+=================================--- kexec-tools-unstable.orig/purgatory/arch/ia64/purgatory-ia64.c	2006-12-13 12:24:02.000000000 +0900
++++ kexec-tools-unstable/purgatory/arch/ia64/purgatory-ia64.c	2006-12-13 12:26:40.000000000 +0900
 @@ -21,8 +21,6 @@
  #include <string.h>
  #include "purgatory-ia64.h"
@@ -53,10 +63,10 @@ Index: kexec-tools-unstable/purgatory/arch/ia64/purgatory-ia64.c
 -	return addr - PAGE_OFFSET;
 -}
 -
- /* Merge ranges 
-  * assumes that mergable ranges are consicutive and ordered */
  void
-@@ -309,9 +302,9 @@
+ patch_efi_memmap(struct kexec_boot_params *params,
+ 		struct ia64_boot_param *boot_param)
+@@ -267,9 +260,9 @@
  	memcpy(command_line + command_line_len,
  		__dummy_efi_function, len);
  	systab = (efi_system_table_t *)new_boot_param->efi_systab;
