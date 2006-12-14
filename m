@@ -1,47 +1,58 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 13 Dec 2006 18:28:16 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 14 Dec 2006 09:24:23 +0000
 Subject: Re: test_and_set_bit implementation
-Message-Id: <Pine.LNX.4.64.0612131024510.19913@schroedinger.engr.sgi.com>
+Message-Id: <45811847.1000504@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <457EC42C.90002@bull.net>
 In-Reply-To: <457EC42C.90002@bull.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, 13 Dec 2006, Zoltan Menyhart wrote:
+Matthew Wilcox wrote:
+> On Wed, Dec 13, 2006 at 11:02:48AM +0100, Zoltan Menyhart wrote:
+>=20
+>>I like this code with the following slight modifications:
+>>- let's keep "m" as pointer to volatile
+>=20
+> Why?  What benefit is there to doing an ld4.acq instead of a plain ld4?
 
-> How much is the probability that the bit is not set?
+It is not about the ld4.acq, but the volatile storage class (=3D don't
+assume it wont be changed by someone else, do reload it each time).
 
-Depends on the load on the system. Typically very much near 100%
+Not using the volatile key word allows the compiler to optimize
+out the actual load in loops like:
 
-> Adding a test can cost only a few cycles, say max 4.
+	while (test_and_set_bit(bitnum, addr))
+		;
 
-But it reduces the performance of the commonly taken code path.
 
-> For an atomic operation, you need to go out and snoop.
-> 
-> Let's have a look at e.g. the "bit_spin_lock()":
-> 
-> static inline void bit_spin_lock(int bitnum, unsigned long *addr)
-> {
->        preempt_disable();
->        while (test_and_set_bit(bitnum, addr)) {
->                while (test_bit(bitnum, addr)) {
->                        preempt_enable();
->                        cpu_relax();
->                        preempt_disable();
->                }
->        }
->        __acquire(bitlock);
-> }
-> 
-> By executing the atomic operation unconditionally, you kill
-> the cache line all the other waiting processors looping at.
+>>- let's keep on using "__u32" types
+>=20
+> Why be so ugly?
 
-But note also that we optimize the common case, the case that the test and 
-set bit are successful. Only if it was not successful will we do non 
-atomic loads. This is done to avoid cachelines bouncing while the lock is 
-contended.
+- It has been like that for a while, I got used to it :-)
+- grep-ing for "__u32" gives less false positives that grep-ing for "u32"
+=20
+>>- return the old bit
+>=20
+> I don't understand what you mean here.
+
+In your code:
+...
+    while (!(old & bit)) {
+...
+            return 1;
+...
+    }
+    return 0;
+
+You return the inverse of the old bit, while the orig. code says:
+
+" * test_and_set_bit - Set a bit and return its old value"
+
+Thanks.
+
+Zolt=E1n Menyh=E1rt
 
