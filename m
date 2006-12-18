@@ -1,31 +1,30 @@
-From: Kirill Korotaev <dev@openvz.org>
-Date: Mon, 18 Dec 2006 12:04:31 +0000
-Subject: [PATCH] IA64: alignment bug in ldscript
-Message-Id: <458683CF.8030606@openvz.org>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Mon, 18 Dec 2006 19:23:29 +0000
+Subject: RE: [PATCH] IA64: alignment bug in ldscript
+Message-Id: <000001c722d9$ffb63f90$e834030a@amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <458683CF.8030606@openvz.org>
+References: <458683CF.8030606@openvz.org>
+In-Reply-To: <458683CF.8030606@openvz.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Alexey Kuznetsov <alexey@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, devel@openvz.org
+To: 'Kirill Korotaev' <dev@openvz.org>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Alexey Kuznetsov <alexey@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, devel@openvz.org
 
-[IA64] bug in ldscript (mainstream)
+Kirill Korotaev wrote on Monday, December 18, 2006 4:05 AM
+> [IA64] bug in ldscript (mainstream)
+> 
+> Occasionally, in mainstream number of fsys entries is even.
 
-Occasionally, in mainstream number of fsys entries is even.
-In OpenVZ it is odd and we get misaligned kernel image,
-which does not boot.
+Is it a typo on "fsys entries is even"?
 
-Signed-Off-By: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Signed-Off-By: Kirill Korotaev <dev@openvz.org>
+If not, then this change log is misleading. It is the instruction
+patch list of FSYS_RETURN that can potentially cause other data
+structures to be out of alignment. And number of FSYS_RETURN call
+site will not necessarily match number of fsys entry.
 
-diff -urp ../linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S
---- ../linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S	2006-12-08 13:34:19.000000000 +0300
-+++ linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S	2006-12-13 02:51:03.000000000 +0300
-@@ -163,6 +163,7 @@ SECTIONS
- 	}
- #endif
- 
-+  . = ALIGN(8);
-    __con_initcall_start = .;
-   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
- 	{ *(.con_initcall.init) }
 
+> In OpenVZ it is odd and we get misaligned kernel image,
+> which does not boot.
+
+Otherwise, the patch looks fine to me.
