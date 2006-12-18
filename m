@@ -1,33 +1,35 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Date: Fri, 08 Dec 2006 23:48:28 +0000
-Subject: [PATCH 0/5] Itanium MC Error Injection Tool: Introduction
-Message-Id: <20061208154828.A1096@unix-os.sc.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Mon, 18 Dec 2006 03:08:20 +0000
+Subject: [PATCH] [IA64] kexec: Remove inline declaration of efi_get_pal_addr()
+Message-Id: <20061218030818.GC19618@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Itanium Machine Check (MC) error inject tool is used to inject MC errors
-from Linux. The tool is a test bed for Itanium MC work flow including
-hardware correctable error handling, OS recoverable error handling, MC
-event logging, etc. The tool includes two parts: a kernel driver and a
-user application sample.
+Remove the Remove inline declaration of efi_get_pal_addr() as it is
+declared in linux/efi.h.
+		       
+Signed-Off-By: Simon Horman <horms@verge.net.au>
 
-The driver provides pal_mc_error_inject() interface to inject error and
-query error injection capabilities.
+Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c	2006-12-18 11:14:44.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2006-12-18 11:22:35.000000000 +0900
+@@ -14,6 +14,7 @@
+ #include <linux/kexec.h>
+ #include <linux/cpu.h>
+ #include <linux/irq.h>
++#include <linux/efi.h>
+ #include <asm/mmu_context.h>
+ #include <asm/setup.h>
+ #include <asm/delay.h>
+@@ -83,7 +84,6 @@
+  * Do not allocate memory (or fail in any way) in machine_kexec().
+  * We are past the point of no return, committed to rebooting now.
+  */
+-extern void *efi_get_pal_addr(void);
+ static void ia64_machine_kexec(struct unw_frame_info *info, void *arg)
+ {
+ 	struct kimage *image = arg;
 
-The application sample provides a combination of various errors and calls
-the drivers interface (sysfs interface) to inject errors or query error
-injection capabilities. The sample application can be re-written, modified,
-or integrated into other applications as long as GPL permitted.
-
-Thanks.
-
--Fenghua
-
-[PATCH 1/5] Itanium MC Error Injection Tool: Kernel configuration
-[PATCH 2/5] Itanium MC Error Injection Tool: Doc and sample application
-[PATCH 3/5] Itanium MC Error Injection Tool: Driver sysfs interface
-[PATCH 4/5] Itanium MC Error Injection Tool: Makefile changes
-[PATCH 5/5] Itanium MC Error Injection Tool: pal_mc_error_inject() interface
