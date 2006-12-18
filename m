@@ -1,35 +1,31 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 11 Dec 2006 21:36:04 +0000
-Subject: RE: [PATCH 2/5] Itanium MC Error Injection Tool: Doc and sample application
-Message-Id: <617E1C2C70743745A92448908E030B2AE65CC0@scsmsx411.amr.corp.intel.com>
+From: Kirill Korotaev <dev@openvz.org>
+Date: Mon, 18 Dec 2006 12:04:31 +0000
+Subject: [PATCH] IA64: alignment bug in ldscript
+Message-Id: <458683CF.8030606@openvz.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061208161422.A1100@unix-os.sc.intel.com>
-In-Reply-To: <20061208161422.A1100@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Alexey Kuznetsov <alexey@openvz.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, devel@openvz.org
 
-> > Is it better to move above definitions to file include/asm-ia64/pal.h?
-> > 
-> I'm trying to have the kernel driver as simple as possible and
-> leave the complexity to application.
+[IA64] bug in ldscript (mainstream)
 
-I agree with Fenghua here ... currently this driver leaves all
-interpretation of what the values mean to the user application.
-The interfaces in /sys are a very thin layer to give access to
-the PAL_MC_ERROR_INJECT call ... so the kernel doesn't need any
-of this information in asm/pal.h  ...  if it were just a couple
-of small structures perhaps I'd let it slide, but there are pages
-of bit definitions in the SDM, lots more than I'd care to have
-cluttering up what is already a very busy header file.
+Occasionally, in mainstream number of fsys entries is even.
+In OpenVZ it is odd and we get misaligned kernel image,
+which does not boot.
 
-Besides, putting this information here would just encourage
-people to include kernel header files in user applications :-)
+Signed-Off-By: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Signed-Off-By: Kirill Korotaev <dev@openvz.org>
 
-When someone comes up with a better suggestion for where to keep
-the user side than Documentation/ia64/err_inject.txt, we should
-definitely split out these structure definitions into an err_inject.h
-to make it easy for you all to write fabulous injection tools.
+diff -urp ../linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S
+--- ../linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S	2006-12-08 13:34:19.000000000 +0300
++++ linux-2.6.18-vz/arch/ia64/kernel/vmlinux.lds.S	2006-12-13 02:51:03.000000000 +0300
+@@ -163,6 +163,7 @@ SECTIONS
+ 	}
+ #endif
+ 
++  . = ALIGN(8);
+    __con_initcall_start = .;
+   .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
+ 	{ *(.con_initcall.init) }
 
--Tony
