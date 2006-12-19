@@ -1,42 +1,118 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 13 Dec 2006 02:05:59 +0000
-Subject: Re: [patch 0/5] Physical mode SAL calls
-Message-Id: <20061213020558.GD22902@verge.net.au>
+From: akpm@osdl.org
+Date: Tue, 19 Dec 2006 21:04:42 +0000
+Subject: [patch 1/3] ia64: enable CONFIG_DEBUG_SPINLOCK_SLEEP
+Message-Id: <200612192104.kBJL4gfn010370@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061023084840.730815639@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20061023084840.730815639@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Oct 23, 2006 at 10:15:58AM -0500, Jack Steiner wrote:
-> SN systems support additional vendor-specific SAL calls. Some
-> of these pass kernel addresses to SAL for input or output buffers.
-> At a minimum, these buffer addresses need to be converted to 
-> physical addresses if SAL is run in physical mode.
+From: Andrew Morton <akpm@osdl.org>
 
-That is sounds quite problematic in terms of not mapping EFI.
+Some trivial bugs are coming from ia64 developers.  Try to help them.
 
-Appart from fixing up broken code paths, the main motivation for this
-patch is to allow kexecing between different operating systems (e.g.
-from xen to linux and vice versa) which have different base addresses.
-In a nutshell, get arround the fact that you can't remap EFI on the
-second boot by never mapping it at all.
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Do you think it is at all possible for this kind of approach to work on
-SN systems? If not, the next best idea that I have is to somehow
-virtualise the EFI, and have all kexeable systems (linux, xen, ...)
-agree to use that. But that idea is farily complex, and I'm not
-even sure it can work.
+ arch/ia64/configs/bigsur_defconfig    |    2 +-
+ arch/ia64/configs/gensparse_defconfig |    2 +-
+ arch/ia64/configs/sim_defconfig       |    2 +-
+ arch/ia64/configs/sn2_defconfig       |    2 +-
+ arch/ia64/configs/tiger_defconfig     |    4 ++--
+ arch/ia64/configs/zx1_defconfig       |    2 +-
+ arch/ia64/defconfig                   |    2 +-
+ 7 files changed, 8 insertions(+), 8 deletions(-)
 
-> In addition, I think there may be additional problems with our SAL
-> if we try to run only in physical mode. I'll take a look.....
-
-Thanks
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+diff -puN arch/ia64/configs/bigsur_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/bigsur_defconfig
+--- a/arch/ia64/configs/bigsur_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/bigsur_defconfig
+@@ -1305,7 +1305,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ CONFIG_DEBUG_PREEMPT=y
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ # CONFIG_DEBUG_INFO is not set
+ # CONFIG_DEBUG_FS is not set
+diff -puN arch/ia64/configs/sim_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/sim_defconfig
+--- a/arch/ia64/configs/sim_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/sim_defconfig
+@@ -694,7 +694,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ CONFIG_DEBUG_PREEMPT=y
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ CONFIG_DEBUG_INFO=y
+ # CONFIG_DEBUG_FS is not set
+diff -puN arch/ia64/configs/sn2_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/sn2_defconfig
+--- a/arch/ia64/configs/sn2_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/sn2_defconfig
+@@ -1284,7 +1284,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+ # CONFIG_DEBUG_MUTEXES is not set
+ # CONFIG_DEBUG_RWSEMS is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_LOCKING_API_SELFTESTS is not set
+ # CONFIG_DEBUG_KOBJECT is not set
+ CONFIG_DEBUG_INFO=y
+diff -puN arch/ia64/configs/tiger_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/tiger_defconfig
+--- a/arch/ia64/configs/tiger_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/tiger_defconfig
+@@ -1,4 +1,4 @@
+-#
++;#
+ # Automatically generated make config: don't edit
+ # Linux kernel version: 2.6.16-rc5
+ # Mon Feb 27 15:49:18 2006
+@@ -1190,7 +1190,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_DEBUG_SLAB is not set
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ # CONFIG_DEBUG_INFO is not set
+ # CONFIG_DEBUG_FS is not set
+diff -puN arch/ia64/configs/zx1_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/zx1_defconfig
+--- a/arch/ia64/configs/zx1_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/zx1_defconfig
+@@ -1359,7 +1359,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_DEBUG_SLAB is not set
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ # CONFIG_DEBUG_INFO is not set
+ # CONFIG_DEBUG_FS is not set
+diff -puN arch/ia64/configs/gensparse_defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/configs/gensparse_defconfig
+--- a/arch/ia64/configs/gensparse_defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/configs/gensparse_defconfig
+@@ -1339,7 +1339,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_DEBUG_SLAB is not set
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ # CONFIG_DEBUG_INFO is not set
+ # CONFIG_DEBUG_FS is not set
+diff -puN arch/ia64/defconfig~ia64-enable-config_debug_spinlock_sleep arch/ia64/defconfig
+--- a/arch/ia64/defconfig~ia64-enable-config_debug_spinlock_sleep
++++ a/arch/ia64/defconfig
+@@ -1339,7 +1339,7 @@ CONFIG_DETECT_SOFTLOCKUP=y
+ # CONFIG_DEBUG_SLAB is not set
+ CONFIG_DEBUG_MUTEXES=y
+ # CONFIG_DEBUG_SPINLOCK is not set
+-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
++CONFIG_DEBUG_SPINLOCK_SLEEP=y
+ # CONFIG_DEBUG_KOBJECT is not set
+ # CONFIG_DEBUG_INFO is not set
+ # CONFIG_DEBUG_FS is not set
+_
