@@ -1,37 +1,59 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 13 Dec 2006 21:58:00 +0000
-Subject: git pull on ia64 linux tree
-Message-Id: <200612132158.kBDLw0gU015248@agluck-lia64.sc.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 19 Dec 2006 17:05:40 +0000
+Subject: [patch] Cache error recovery
+Message-Id: <200612191705.kBJH5e0s69613196@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
-In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+[patch] Cache error recovery
 
-Quick fix for lots of warnings and build errors in infiniband.
+Similar to memory error recovery, when a cache error is consumed
+by a user process terminate the user instead of crashing the system.
 
-please pull from:
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+---
+ arch/ia64/kernel/mca_drv.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-or more likely to work ... git1.kernel.org seems to have given up tracking
-altogether, git2.kernel.org is running way behind master.kernel.org
-
-	master.kernel.org:/home/ftp/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- include/asm-ia64/pci.h         |    3 ---
- include/asm-ia64/scatterlist.h |    3 +++
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-Tony Luck:
-      [IA64] Move sg_dma_{len,address} from pci.h to scatterlist.h
+Index: test/arch/ia64/kernel/mca_drv.c
+=================================--- test.orig/arch/ia64/kernel/mca_drv.c	2006-12-19 10:28:36.000000000 -0600
++++ test/arch/ia64/kernel/mca_drv.c	2006-12-19 10:33:32.393195202 -0600
+@@ -602,6 +602,8 @@ recover_from_platform_error(slidx_table_
+ 		default:
+ 			break;
+ 		}
++	} else if (psp->cc && !psp->bc) { /* Cache error */
++		status = recover_from_read_error(slidx, peidx, pbci, sos);
+ 	}
+ 
+ 	return status;
+@@ -688,11 +690,11 @@ recover_from_processor_error(int platfor
+ 	 * The cache check and bus check bits have four possible states
+ 	 *   cc bc
+ 	 *    0  0	Weird record, not recovered
+-	 *    1  0	Cache error, not recovered
++	 *    1  0	Cache error, attempt recovered
+ 	 *    0  1	I/O error, attempt recovery
+ 	 *    1  1	Memory error, attempt recovery
+ 	 */
+-	if (psp->bc = 0 || pbci = NULL)
++	if (psp->cc = 0 && (psp->bc = 0 || pbci = NULL))
+ 		return fatal_mca("No bus check");
+ 
+ 	/*
+@@ -705,8 +707,6 @@ recover_from_processor_error(int platfor
+ 	 */
+ 	if (pbci->ib)
+ 		return fatal_mca("Internal Bus error");
+-	if (pbci->cc)
+-		return fatal_mca("Cache-cache error");
+ 	if (pbci->eb && pbci->bsi > 0)
+ 		return fatal_mca("External bus check fatal status");
+ 
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
