@@ -1,111 +1,19 @@
-From: John Keller <jpk@sgi.com>
-Date: Thu, 07 Dec 2006 16:49:33 +0000
-Subject: Re: [PATCH] SN: Correctly update smp_affinty mask
-Message-Id: <20061207164933.18081.31010.70238@attica.americas.sgi.com>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Tue, 19 Dec 2006 11:10:59 +0000
+Subject: swiotlb_sync_sg() issue?
+Message-Id: <4587D6D3.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20061106201050.27405.45838.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Altix systems, the /proc/irq/nn/smp_affinity mask is not being setup
-at device iniitalization, or updated after an interrupt redirection.
-This patch resolves those issues.
+Due to its apparent obviousness, I'm afraid I'm missing something, but isn't it
+incorrect that lib/swiotlb.c:swiotlb_sync_sg() calls sync_single() with
+sg->dma_address simply cast to void* rather than going through phys_to_virt()?
 
-Signed-off-by: John Keller <jpk@sgi.com>
----
+Also, for ia64, isn't mark_clean() violating its own comment, i.e. to mark only
+*complete* pages? And then, for completeness, isn't swiotlb_sync_sg() missing
+the call to mark_clean()?
 
-Tony,
- Can you take this into your tree?
-It was first posted a month ago, and there have been no
-comments. I'd like to get this into 2.6.20.
-
-Thanks,
-John
-
-
- arch/ia64/sn/kernel/irq.c    |   18 +++++++++++++++---
- arch/ia64/sn/kernel/msi_sn.c |    4 ----
- 2 files changed, 15 insertions(+), 7 deletions(-)
-
-
-Index: release/arch/ia64/sn/kernel/irq.c
-=================================--- release.orig/arch/ia64/sn/kernel/irq.c	2006-11-06 11:57:34.412002910 -0600
-+++ release/arch/ia64/sn/kernel/irq.c	2006-11-06 13:49:19.331005432 -0600
-@@ -117,7 +117,10 @@ struct sn_irq_info *sn_retarget_vector(s
- 				       nasid_t nasid, int slice)
- {
- 	int vector;
-+	int cpuid;
-+#ifdef CONFIG_SMP
- 	int cpuphys;
-+#endif
- 	int64_t bridge;
- 	int local_widget, status;
- 	nasid_t local_nasid;
-@@ -146,7 +149,6 @@ struct sn_irq_info *sn_retarget_vector(s
- 	vector = sn_irq_info->irq_irq;
- 	/* Free the old PROM new_irq_info structure */
- 	sn_intr_free(local_nasid, local_widget, new_irq_info);
--	/* Update kernels new_irq_info with new target info */
- 	unregister_intr_pda(new_irq_info);
- 
- 	/* allocate a new PROM new_irq_info struct */
-@@ -160,8 +162,10 @@ struct sn_irq_info *sn_retarget_vector(s
- 		return NULL;
- 	}
- 
--	cpuphys = nasid_slice_to_cpuid(nasid, slice);
--	new_irq_info->irq_cpuid = cpuphys;
-+	/* Update kernels new_irq_info with new target info */
-+	cpuid = nasid_slice_to_cpuid(new_irq_info->irq_nasid,
-+				     new_irq_info->irq_slice);
-+	new_irq_info->irq_cpuid = cpuid;
- 	register_intr_pda(new_irq_info);
- 
- 	pci_provider = sn_pci_provider[new_irq_info->irq_bridge_type];
-@@ -180,6 +184,7 @@ struct sn_irq_info *sn_retarget_vector(s
- 	call_rcu(&sn_irq_info->rcu, sn_irq_info_free);
- 
- #ifdef CONFIG_SMP
-+	cpuphys = cpu_physical_id(cpuid);
- 	set_irq_affinity_info((vector & 0xff), cpuphys, 0);
- #endif
- 
-@@ -299,6 +304,9 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	nasid_t nasid = sn_irq_info->irq_nasid;
- 	int slice = sn_irq_info->irq_slice;
- 	int cpu = nasid_slice_to_cpuid(nasid, slice);
-+#ifdef CONFIG_SMP
-+	int cpuphys;
-+#endif
- 
- 	pci_dev_get(pci_dev);
- 	sn_irq_info->irq_cpuid = cpu;
-@@ -311,6 +319,10 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	spin_unlock(&sn_irq_info_lock);
- 
- 	register_intr_pda(sn_irq_info);
-+#ifdef CONFIG_SMP
-+	cpuphys = cpu_physical_id(cpu);
-+	set_irq_affinity_info(sn_irq_info->irq_irq, cpuphys, 0);
-+#endif
- }
- 
- void sn_irq_unfixup(struct pci_dev *pci_dev)
-Index: release/arch/ia64/sn/kernel/msi_sn.c
-=================================--- release.orig/arch/ia64/sn/kernel/msi_sn.c	2006-11-06 11:57:34.412002910 -0600
-+++ release/arch/ia64/sn/kernel/msi_sn.c	2006-11-06 11:58:56.045980248 -0600
-@@ -136,10 +136,6 @@ int sn_setup_msi_irq(unsigned int irq, s
- 	 */
- 	msg.data = 0x100 + irq;
- 
--#ifdef CONFIG_SMP
--	set_irq_affinity_info(irq, sn_irq_info->irq_cpuid, 0);
--#endif
--
- 	write_msi_msg(irq, &msg);
- 	set_irq_chip_and_handler(irq, &sn_msi_chip, handle_edge_irq);
- 
+Thanks, Jan
