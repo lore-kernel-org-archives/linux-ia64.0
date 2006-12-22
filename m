@@ -1,33 +1,85 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 13 Dec 2006 01:28:15 +0000
-Subject: Re: [Fastboot] [PATCH] Do not call SN_SAL_SET_CPU_NUMBER twice on cpu 0
-Message-Id: <20061213012812.GA22902@verge.net.au>
+From: John Keller <jpk@sgi.com>
+Date: Fri, 22 Dec 2006 17:50:04 +0000
+Subject: [PATCH 1/1] - Altix: ACPI _PRT support
+Message-Id: <20061222175004.1603.74655.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-acpi@vger.kernel.org
+Cc: ayoung@agi.com, jes@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-On Mon, Dec 11, 2006 at 03:39:23PM -0800, Jay Lan wrote:
-> This is an SN specific patch.
-> 
-> Architectually, cpu_init is always called twice on cpu 0
-> and thus resulted in two SN_SAL_SET_CPU_NUMBER calls.
-> 
-> This was harmless in production kernel; however, it can
-> cause problem on booting up a crashdump kernel at Altix.
-> 
-> Here is the patch that detects the second sn_cpu_init
-> call and skips the second call to SN_SAL_SET_CPU_NUMBER.
-> 
-> Signed-Off-By: Jay Lan <jlan@sgi.com>
+Provide ACPI _PRT support for SN Altix systems.
 
-That looks fine to me.
+The SN Altix platform does not conform to the 
+IOSAPIC IRQ routing model, so a new acpi_irq_model
+(ACPI_IRQ_MODEL_PLATFORM) has been defined. The SN
+platform specific code sets acpi_irq_model to
+this new value, and keys off of it in acpi_register_gsi()
+to avoid the iosapic code path.
 
-Acked: Simon Horman <horms@verge.net.au>
+Signed-off-by: John Keller <jpk@sgi.com>
+---
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+To avoid future regression/backward compatibilty issues
+when _PRT support is added to our PROM, we'd like to
+see this pushed into 2.6.20, if at all possible.
 
+
+ arch/ia64/kernel/acpi.c            |    3 +++
+ arch/ia64/sn/kernel/io_acpi_init.c |    3 +++
+ drivers/acpi/bus.c                 |    3 +++
+ include/linux/acpi.h               |    1 +
+ 4 files changed, 10 insertions(+)
+
+
+Index: linux/arch/ia64/kernel/acpi.c
+=================================--- linux.orig/arch/ia64/kernel/acpi.c	2006-10-24 02:38:54.000000000 -0500
++++ linux/arch/ia64/kernel/acpi.c	2006-12-22 10:54:36.930343639 -0600
+@@ -590,6 +590,9 @@ void __init acpi_numa_arch_fixup(void)
+  */
+ int acpi_register_gsi(u32 gsi, int triggering, int polarity)
+ {
++	if (acpi_irq_model = ACPI_IRQ_MODEL_PLATFORM)
++		return gsi;
++
+ 	if (has_8259 && gsi < 16)
+ 		return isa_irq_to_vector(gsi);
+ 
+Index: linux/arch/ia64/sn/kernel/io_acpi_init.c
+=================================--- linux.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-12-21 00:51:59.000000000 -0600
++++ linux/arch/ia64/sn/kernel/io_acpi_init.c	2006-12-22 10:53:45.504213484 -0600
+@@ -223,6 +223,9 @@ sn_io_acpi_init(void)
+ 	u64 result;
+ 	s64 status;
+ 
++	/* SN Altix does not follow the IOSAPIC IRQ routing model */
++	acpi_irq_model = ACPI_IRQ_MODEL_PLATFORM;
++
+ 	acpi_bus_register_driver(&acpi_sn_hubdev_driver);
+ 	status = sal_ioif_init(&result);
+ 	if (status || result)
+Index: linux/drivers/acpi/bus.c
+=================================--- linux.orig/drivers/acpi/bus.c	2006-08-28 20:40:10.000000000 -0500
++++ linux/drivers/acpi/bus.c	2006-12-22 10:52:32.155474439 -0600
+@@ -561,6 +561,9 @@ static int __init acpi_bus_init_irq(void
+ 	case ACPI_IRQ_MODEL_IOSAPIC:
+ 		message = "IOSAPIC";
+ 		break;
++	case ACPI_IRQ_MODEL_PLATFORM:
++		message = "platform specific model";
++		break;
+ 	default:
+ 		printk(KERN_WARNING PREFIX "Unknown interrupt routing model\n");
+ 		return -ENODEV;
+Index: linux/include/linux/acpi.h
+=================================--- linux.orig/include/linux/acpi.h	2006-10-24 02:38:54.000000000 -0500
++++ linux/include/linux/acpi.h	2006-12-22 10:52:53.337997675 -0600
+@@ -47,6 +47,7 @@ enum acpi_irq_model_id {
+ 	ACPI_IRQ_MODEL_PIC = 0,
+ 	ACPI_IRQ_MODEL_IOAPIC,
+ 	ACPI_IRQ_MODEL_IOSAPIC,
++	ACPI_IRQ_MODEL_PLATFORM,
+ 	ACPI_IRQ_MODEL_COUNT
+ };
+ 
