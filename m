@@ -1,38 +1,37 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 05 Dec 2006 01:25:31 +0000
-Subject: Fix pci.c kernel compilation breakage.
-Message-Id: <17780.51851.142909.300507@croc.chubb.wattle.id.au>
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Fri, 29 Dec 2006 17:55:16 +0000
+Subject: man clone on ia64 incomplete/wrong
+Message-Id: <20061229175516.GA32589@colo.lackof.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi,
 
+Helge Deller recently posted a Linux Test Project test failure
+on the parisc-linux mailing list:
+http://lists.parisc-linux.org/pipermail/parisc-linux/2006-December/031030.html
 
-The recent change to convert the is_enabled flag in the PCI device to an
-atomic count broke the IA64 compilation.
+I took the code snippet he posted and tried to compile/run that
+on x86 (no problems) and ia64 (undefined reference to `clone').
+This is a "known problem". Email thread from 2003:
+http://marc.theaimsgroup.com/?l=linux-ia64&m5778639326638&w=2
 
-As pcibios_disable_device is only ever called if the reference count
-is zero, convert the if to a BUG_ON.
+The LTP test case was fixed but not the clone man page.
+When I was surprised by the link error,  first thing I did was
+"man clone" and got the impression there was a bug in ia64 user
+space support.  But Helge spared me the digging around and pointed
+me at the clone2 code in the original test case.
+Anyone working for Intel/HP/Hitachi/SGI/et al care enough to fix
+the man page as well?
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
----
- arch/ia64/pci/pci.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This would be a good "student" or "intern" task if someone is
+looking to contribute to linux without having to know too much.
 
-Index: linux-2.6-import/arch/ia64/pci/pci.c
-=================================--- linux-2.6-import.orig/arch/ia64/pci/pci.c	2006-12-05 11:22:00.273987854 +1100
-+++ linux-2.6-import/arch/ia64/pci/pci.c	2006-12-05 11:58:12.832925655 +1100
-@@ -564,8 +564,8 @@ pcibios_enable_device (struct pci_dev *d
- void
- pcibios_disable_device (struct pci_dev *dev)
- {
--	if (dev->is_enabled)
--		acpi_pci_irq_disable(dev);
-+	BUG_ON(atomic_read(&dev->enable_cnt));
-+	acpi_pci_irq_disable(dev);
- }
- 
- void
+Basically just need to add a reference to "clone2" and indicate
+which architectures do not support clone(2).
 
+thanks,
+grant
