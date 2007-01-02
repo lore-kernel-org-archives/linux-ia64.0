@@ -1,89 +1,163 @@
-From: Aron Griffis <aron@hp.com>
-Date: Wed, 31 Jan 2007 01:00:43 +0000
-Subject: [PATCH] use snprintf() on features
-Message-Id: <20070131010042.GC20942@fc.hp.com>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Tue, 02 Jan 2007 16:19:40 +0000
+Subject: [PATCH 2/4] make swiotlb use bus_to_virt/virt_to_bus
+Message-Id: <459A942C.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, patches@x86-64.org
+Cc: Muli Ben-Yehuda <muli@il.ibm.com>, linux-kernel@vger.kernel.org
 
-Some patches have turned up on xen-devel recently to convert strcpy()
-to safer alternatives and so forth.  While reviewing those patches
-I noticed that the features string building could be cleaned up.
+Convert all phys_to_virt/virt_to_phys uses to bus_to_virt/virt_to_bus, as
+is what is meant and what is needed in (at least) some virtualized
+environments like Xen.
 
-This patch uses snprintf() instead of strcpy() and direct character
-pointer manipulation.  It makes the features string building safe and
-gets rid of the special case for features output in show_cpuinfo()
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
+Acked-by: Muli Ben-Yehuda <muli@il.ibm.com>
 
-Additionally I removed the (int) cast of ARRAY_SIZE, which seems to
-serve no purpose.
-
-Tested by cat /proc/cpuinfo on Montecito
-
-Signed-off-by: Aron Griffis <aron@hp.com>
-
- setup.c |   33 +++++++++++++++------------------
- 1 file changed, 15 insertions(+), 18 deletions(-)
-
-diff -r 32ea132ddbfb arch/ia64/kernel/setup.c
---- a/arch/ia64/kernel/setup.c	Tue Jan 30 08:46:17 2007 -0800
-+++ b/arch/ia64/kernel/setup.c	Tue Jan 30 18:11:07 2007 -0500
-@@ -569,34 +569,31 @@ show_cpuinfo (struct seq_file *m, void *
- 		{ 1UL << 1, "spontaneous deferral"},
- 		{ 1UL << 2, "16-byte atomic ops" }
- 	};
--	char features[128], *cp, sep;
-+	char features[128], *cp, *sep;
- 	struct cpuinfo_ia64 *c = v;
- 	unsigned long mask;
- 	unsigned long proc_freq;
--	int i;
-+	int i, size;
+Index: 2.6.20-rc3-swiotlb-bugs/lib/swiotlb.c
+=================================--- 2.6.20-rc3-swiotlb-bugs.orig/lib/swiotlb.c	2007-01-02 12:31:52.000000000 +0100
++++ 2.6.20-rc3-swiotlb-bugs/lib/swiotlb.c	2007-01-02 16:50:42.000000000 +0100
+@@ -36,7 +36,7 @@
+ 	                   ( (val) & ( (align) - 1)))
  
- 	mask = c->features;
+ #define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
+-#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
++#define SG_ENT_PHYS_ADDRESS(sg)	virt_to_bus(SG_ENT_VIRT_ADDRESS(sg))
  
- 	/* build the feature string: */
--	memcpy(features, " standard", 10);
-+	memcpy(features, "standard", 9);
- 	cp = features;
--	sep = 0;
--	for (i = 0; i < (int) ARRAY_SIZE(feature_bits); ++i) {
-+	size = sizeof(features);
-+	sep = "";
-+	for (i = 0; i < ARRAY_SIZE(feature_bits) && size > 1; ++i) {
- 		if (mask & feature_bits[i].mask) {
--			if (sep)
--				*cp++ = sep;
--			sep = ',';
--			*cp++ = ' ';
--			strcpy(cp, feature_bits[i].feature_name);
--			cp += strlen(feature_bits[i].feature_name);
-+			cp += snprintf(cp, size, "%s%s", sep, 
-+				       feature_bits[i].feature_name),
-+			sep = ", ";
- 			mask &= ~feature_bits[i].mask;
- 		}
--	}
--	if (mask) {
--		/* print unknown features as a hex value: */
--		if (sep)
--			*cp++ = sep;
--		sprintf(cp, " 0x%lx", mask);
-+		size = sizeof(features) - (cp - features);
-+	}
-+	if (mask && size > 1) {
-+		/* print unknown features as a hex value */
-+		snprintf(cp, size, "%s0x%lx", sep, mask);
+ /*
+  * Maximum allowable number of contiguous slabs to map,
+@@ -163,7 +163,7 @@ swiotlb_init_with_default_size (size_t d
+ 	 */
+ 	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
+ 	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
+-	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
++	       virt_to_bus(io_tlb_start), virt_to_bus(io_tlb_end));
+ }
+ 
+ void
+@@ -244,7 +244,7 @@ swiotlb_late_init_with_default_size (siz
+ 
+ 	printk(KERN_INFO "Placing %ldMB software IO TLB between 0x%lx - "
+ 	       "0x%lx\n", (io_tlb_nslabs * (1 << IO_TLB_SHIFT)) >> 20,
+-	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
++	       virt_to_bus(io_tlb_start), virt_to_bus(io_tlb_end));
+ 
+ 	return 0;
+ 
+@@ -445,7 +445,7 @@ swiotlb_alloc_coherent(struct device *hw
+ 	flags |= GFP_DMA;
+ 
+ 	ret = (void *)__get_free_pages(flags, order);
+-	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
++	if (ret && address_needs_mapping(hwdev, virt_to_bus(ret))) {
+ 		/*
+ 		 * The allocated memory isn't reachable by the device.
+ 		 * Fall back on swiotlb_map_single().
+@@ -465,11 +465,11 @@ swiotlb_alloc_coherent(struct device *hw
+ 		if (swiotlb_dma_mapping_error(handle))
+ 			return NULL;
+ 
+-		ret = phys_to_virt(handle);
++		ret = bus_to_virt(handle);
  	}
  
- 	proc_freq = cpufreq_quick_get(cpunum);
-@@ -612,7 +609,7 @@ show_cpuinfo (struct seq_file *m, void *
- 		   "model name : %s\n"
- 		   "revision   : %u\n"
- 		   "archrev    : %u\n"
--		   "features   :%s\n"	/* don't change this---it _is_ right! */
-+		   "features   : %s\n"
- 		   "cpu number : %lu\n"
- 		   "cpu regs   : %u\n"
- 		   "cpu MHz    : %lu.%06lu\n"
+ 	memset(ret, 0, size);
+-	dev_addr = virt_to_phys(ret);
++	dev_addr = virt_to_bus(ret);
+ 
+ 	/* Confirm address can be DMA'd by device */
+ 	if (address_needs_mapping(hwdev, dev_addr)) {
+@@ -525,7 +525,7 @@ swiotlb_full(struct device *dev, size_t 
+ dma_addr_t
+ swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
+ {
+-	unsigned long dev_addr = virt_to_phys(ptr);
++	unsigned long dev_addr = virt_to_bus(ptr);
+ 	void *map;
+ 
+ 	BUG_ON(dir = DMA_NONE);
+@@ -546,7 +546,7 @@ swiotlb_map_single(struct device *hwdev,
+ 		map = io_tlb_overflow_buffer;
+ 	}
+ 
+-	dev_addr = virt_to_phys(map);
++	dev_addr = virt_to_bus(map);
+ 
+ 	/*
+ 	 * Ensure that the address returned is DMA'ble
+@@ -569,7 +569,7 @@ void
+ swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
+ 		     int dir)
+ {
+-	char *dma_addr = phys_to_virt(dev_addr);
++	char *dma_addr = bus_to_virt(dev_addr);
+ 
+ 	BUG_ON(dir = DMA_NONE);
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+@@ -592,7 +592,7 @@ static inline void
+ swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
+ 		    size_t size, int dir, int target)
+ {
+-	char *dma_addr = phys_to_virt(dev_addr);
++	char *dma_addr = bus_to_virt(dev_addr);
+ 
+ 	BUG_ON(dir = DMA_NONE);
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+@@ -623,7 +623,7 @@ swiotlb_sync_single_range(struct device 
+ 			  unsigned long offset, size_t size,
+ 			  int dir, int target)
+ {
+-	char *dma_addr = phys_to_virt(dev_addr) + offset;
++	char *dma_addr = bus_to_virt(dev_addr) + offset;
+ 
+ 	BUG_ON(dir = DMA_NONE);
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+@@ -676,7 +676,7 @@ swiotlb_map_sg(struct device *hwdev, str
+ 
+ 	for (i = 0; i < nelems; i++, sg++) {
+ 		addr = SG_ENT_VIRT_ADDRESS(sg);
+-		dev_addr = virt_to_phys(addr);
++		dev_addr = virt_to_bus(addr);
+ 		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
+ 			void *map = map_single(hwdev, addr, sg->length, dir);
+ 			if (!map) {
+@@ -709,7 +709,8 @@ swiotlb_unmap_sg(struct device *hwdev, s
+ 
+ 	for (i = 0; i < nelems; i++, sg++)
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
++			unmap_single(hwdev, bus_to_virt(sg->dma_address),
++				     sg->dma_length, dir);
+ 		else if (dir = DMA_FROM_DEVICE)
+ 			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
+ }
+@@ -731,7 +732,7 @@ swiotlb_sync_sg(struct device *hwdev, st
+ 
+ 	for (i = 0; i < nelems; i++, sg++)
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, phys_to_virt(sg->dma_address),
++			sync_single(hwdev, bus_to_virt(sg->dma_address),
+ 				    sg->dma_length, dir, target);
+ 		else if (dir = DMA_FROM_DEVICE)
+ 			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
+@@ -754,7 +755,7 @@ swiotlb_sync_sg_for_device(struct device
+ int
+ swiotlb_dma_mapping_error(dma_addr_t dma_addr)
+ {
+-	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
++	return (dma_addr = virt_to_bus(io_tlb_overflow_buffer));
+ }
+ 
+ /*
+@@ -766,7 +767,7 @@ swiotlb_dma_mapping_error(dma_addr_t dma
+ int
+ swiotlb_dma_supported (struct device *hwdev, u64 mask)
+ {
+-	return virt_to_phys(io_tlb_end - 1) <= mask;
++	return virt_to_bus(io_tlb_end - 1) <= mask;
+ }
+ 
+ EXPORT_SYMBOL(swiotlb_init);
+
