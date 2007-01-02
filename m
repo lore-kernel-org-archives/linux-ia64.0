@@ -1,98 +1,27 @@
-From: Len Brown <lenb@kernel.org>
-Date: Thu, 04 Jan 2007 17:19:12 +0000
-Subject: Re: [PATCH 1/1] - Altix: ACPI _PRT support
-Message-Id: <200701041219.12225.lenb@kernel.org>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Tue, 02 Jan 2007 16:22:27 +0000
+Subject: [PATCH] ia64: missing exports hwsw_sync_...
+Message-Id: <459A94D3.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061222175004.1603.74655.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20061222175004.1603.74655.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Keller <jpk@sgi.com>
-Cc: linux-acpi@vger.kernel.org, ayoung@agi.com, jes@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-Applied.
+This patch adds missing exports to allow several drivers to be built as
+module with CONFIG_IA64_HP_ZX1_SWIOTLB.
 
-thanks,
--Len
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
-On Friday 22 December 2006 12:50, John Keller wrote:
-> Provide ACPI _PRT support for SN Altix systems.
-> 
-> The SN Altix platform does not conform to the 
-> IOSAPIC IRQ routing model, so a new acpi_irq_model
-> (ACPI_IRQ_MODEL_PLATFORM) has been defined. The SN
-> platform specific code sets acpi_irq_model to
-> this new value, and keys off of it in acpi_register_gsi()
-> to avoid the iosapic code path.
-> 
-> Signed-off-by: John Keller <jpk@sgi.com>
-> ---
-> 
-> To avoid future regression/backward compatibilty issues
-> when _PRT support is added to our PROM, we'd like to
-> see this pushed into 2.6.20, if at all possible.
-> 
-> 
->  arch/ia64/kernel/acpi.c            |    3 +++
->  arch/ia64/sn/kernel/io_acpi_init.c |    3 +++
->  drivers/acpi/bus.c                 |    3 +++
->  include/linux/acpi.h               |    1 +
->  4 files changed, 10 insertions(+)
-> 
-> 
-> Index: linux/arch/ia64/kernel/acpi.c
-> =================================> --- linux.orig/arch/ia64/kernel/acpi.c	2006-10-24 02:38:54.000000000 -0500
-> +++ linux/arch/ia64/kernel/acpi.c	2006-12-22 10:54:36.930343639 -0600
-> @@ -590,6 +590,9 @@ void __init acpi_numa_arch_fixup(void)
->   */
->  int acpi_register_gsi(u32 gsi, int triggering, int polarity)
->  {
-> +	if (acpi_irq_model = ACPI_IRQ_MODEL_PLATFORM)
-> +		return gsi;
-> +
->  	if (has_8259 && gsi < 16)
->  		return isa_irq_to_vector(gsi);
->  
-> Index: linux/arch/ia64/sn/kernel/io_acpi_init.c
-> =================================> --- linux.orig/arch/ia64/sn/kernel/io_acpi_init.c	2006-12-21 00:51:59.000000000 -0600
-> +++ linux/arch/ia64/sn/kernel/io_acpi_init.c	2006-12-22 10:53:45.504213484 -0600
-> @@ -223,6 +223,9 @@ sn_io_acpi_init(void)
->  	u64 result;
->  	s64 status;
->  
-> +	/* SN Altix does not follow the IOSAPIC IRQ routing model */
-> +	acpi_irq_model = ACPI_IRQ_MODEL_PLATFORM;
-> +
->  	acpi_bus_register_driver(&acpi_sn_hubdev_driver);
->  	status = sal_ioif_init(&result);
->  	if (status || result)
-> Index: linux/drivers/acpi/bus.c
-> =================================> --- linux.orig/drivers/acpi/bus.c	2006-08-28 20:40:10.000000000 -0500
-> +++ linux/drivers/acpi/bus.c	2006-12-22 10:52:32.155474439 -0600
-> @@ -561,6 +561,9 @@ static int __init acpi_bus_init_irq(void
->  	case ACPI_IRQ_MODEL_IOSAPIC:
->  		message = "IOSAPIC";
->  		break;
-> +	case ACPI_IRQ_MODEL_PLATFORM:
-> +		message = "platform specific model";
-> +		break;
->  	default:
->  		printk(KERN_WARNING PREFIX "Unknown interrupt routing model\n");
->  		return -ENODEV;
-> Index: linux/include/linux/acpi.h
-> =================================> --- linux.orig/include/linux/acpi.h	2006-10-24 02:38:54.000000000 -0500
-> +++ linux/include/linux/acpi.h	2006-12-22 10:52:53.337997675 -0600
-> @@ -47,6 +47,7 @@ enum acpi_irq_model_id {
->  	ACPI_IRQ_MODEL_PIC = 0,
->  	ACPI_IRQ_MODEL_IOAPIC,
->  	ACPI_IRQ_MODEL_IOSAPIC,
-> +	ACPI_IRQ_MODEL_PLATFORM,
->  	ACPI_IRQ_MODEL_COUNT
->  };
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+--- linux-2.6.20-rc3/arch/ia64/hp/common/hwsw_iommu.c	2006-11-29 22:57:37.000000000 +0100
++++ 2.6.20-rc3-ia64-zx1-swiotlb/arch/ia64/hp/common/hwsw_iommu.c	2007-01-02 08:24:22.000000000 +0100
+@@ -192,3 +192,7 @@ EXPORT_SYMBOL(hwsw_unmap_sg);
+ EXPORT_SYMBOL(hwsw_dma_supported);
+ EXPORT_SYMBOL(hwsw_alloc_coherent);
+ EXPORT_SYMBOL(hwsw_free_coherent);
++EXPORT_SYMBOL(hwsw_sync_single_for_cpu);
++EXPORT_SYMBOL(hwsw_sync_single_for_device);
++EXPORT_SYMBOL(hwsw_sync_sg_for_cpu);
++EXPORT_SYMBOL(hwsw_sync_sg_for_device);
+
