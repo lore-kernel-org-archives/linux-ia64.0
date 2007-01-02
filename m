@@ -1,755 +1,178 @@
-From: Len Brown <lenb@kernel.org>
-Date: Sat, 27 Jan 2007 07:03:15 +0000
-Subject: [PATCH 2/3] Altix: ACPI SSDT PCI device support
-Message-Id: <200701270203.15772.lenb@kernel.org>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Tue, 02 Jan 2007 16:18:29 +0000
+Subject: [PATCH 1/4] swiotlb bug fixes
+Message-Id: <459A93E5.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061115152454.6047.64973.sendpatchset@attica.americas.sgi.com> <200701270155.18596.lenb@kernel.org> <200701270157.43631.lenb@kernel.org>
-In-Reply-To: <200701270157.43631.lenb@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: John Keller <jpk@sgi.com>, linux-acpi@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, gregkh@suse.de, linux-kernel@vger.kernel.org, ayoung@sgi.com, jes@sgi.com, "Starikovskiy, Alexey" <alexey.y.starikovskiy@linux.intel.com>
+To: linux-ia64@vger.kernel.org, patches@x86-64.org
+Cc: Muli Ben-Yehuda <muli@il.ibm.com>, linux-kernel@vger.kernel.org
 
-From: John Keller <jpk@sgi.com>
+This patch fixes
+- marking I-cache clean of pages DMAed to now only done for IA64
+- broken multiple inclusion in include/asm-x86_64/swiotlb.h
+- missing phys-to-virt translation in swiotlb_sync_sg()
+- missing call to mark_clean in swiotlb_sync_sg()
+- a (perhaps only theoretical) issue in swiotlb_dma_supported() when
+  io_tlb_end is exactly at the end of memory
 
-Add SN platform support for running with an ACPI
-capable PROM that defines PCI devices in SSDT
-tables. There is a SSDT table for every occupied
-slot on a root bus, containing info for every
-PPB and/or device on the bus. The SSDTs will be
-dynamically loaded/unloaded at hotplug enable/disable.
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
-Platform specific information that is currently
-passed via a SAL call, will now be passed via the
-Vendor resource in the ACPI Device object(s) defined
-in each SSDT.
-
-Signed-off-by: John Keller <jpk@sgi.com>
-Cc: Greg KH <greg@kroah.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
-Signed-off-by: Len Brown <len.brown@intel.com>
----
-
- arch/ia64/sn/kernel/io_acpi_init.c      |  314 +++++++++++++++++++++++++++++---
- arch/ia64/sn/kernel/io_common.c         |   83 +-------
- arch/ia64/sn/kernel/io_init.c           |   54 ++++-
- arch/ia64/sn/pci/pcibr/pcibr_provider.c |    6
- include/asm-ia64/sn/acpi.h              |    5
- include/asm-ia64/sn/pcibr_provider.h    |    2
- include/asm-ia64/sn/pcidev.h            |    8
- 7 files changed, 368 insertions(+), 104 deletions(-)
-
-Index: acpi/arch/ia64/sn/kernel/io_acpi_init.c
-=================================--- acpi.orig/arch/ia64/sn/kernel/io_acpi_init.c
-+++ acpi/arch/ia64/sn/kernel/io_acpi_init.c
-@@ -13,6 +13,7 @@
- #include <asm/sn/sn_sal.h>
- #include "xtalk/hubdev.h"
- #include <linux/acpi.h>
-+#include <acpi/acnamesp.h>
- 
- 
- /*
-@@ -31,6 +32,12 @@ struct acpi_vendor_uuid sn_uuid = {
- 		    0xa2, 0x7c, 0x08, 0x00, 0x69, 0x13, 0xea, 0x51 },
- };
- 
-+struct sn_pcidev_match {
-+	u8 bus;
-+	unsigned int devfn;
-+	acpi_handle handle;
-+};
-+
- /*
-  * Perform the early IO init in PROM.
-  */
-@@ -119,9 +126,11 @@ sn_get_bussoft_ptr(struct pci_bus *bus)
- 	status = acpi_get_vendor_resource(handle, METHOD_NAME__CRS,
- 					  &sn_uuid, &buffer);
- 	if (ACPI_FAILURE(status)) {
--		printk(KERN_ERR "get_acpi_pcibus_ptr: "
--		       "get_acpi_bussoft_info() failed: %d\n",
--		       status);
-+		printk(KERN_ERR "%s: "
-+		       "acpi_get_vendor_resource() failed (0x%x) for: ",
-+		       __FUNCTION__, status);
-+		acpi_ns_print_node_pathname(handle, NULL);
-+		printk("\n");
- 		return NULL;
- 	}
- 	resource = buffer.pointer;
-@@ -130,8 +139,8 @@ sn_get_bussoft_ptr(struct pci_bus *bus)
- 	if ((vendor->byte_length - sizeof(struct acpi_vendor_uuid)) ! 	     sizeof(struct pcibus_bussoft *)) {
- 		printk(KERN_ERR
--		       "get_acpi_bussoft_ptr: Invalid vendor data "
--		       "length %d\n", vendor->byte_length);
-+		       "%s: Invalid vendor data length %d\n",
-+			__FUNCTION__, vendor->byte_length);
- 		kfree(buffer.pointer);
- 		return NULL;
- 	}
-@@ -143,34 +152,254 @@ sn_get_bussoft_ptr(struct pci_bus *bus)
+--- linux-2.6.20-rc3/arch/ia64/mm/init.c	2007-01-02 16:04:52.000000000 +0100
++++ 2.6.20-rc3-swiotlb-bugs/arch/ia64/mm/init.c	2006-12-20 12:02:01.000000000 +0100
+@@ -128,6 +128,25 @@ lazy_mmu_prot_update (pte_t pte)
+ 	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
  }
  
- /*
-- * sn_acpi_bus_fixup
-+ * sn_extract_device_info - Extract the pcidev_info and the sn_irq_info
-+ *			    pointers from the vendor resource using the
-+ *			    provided acpi handle, and copy the structures
-+ *			    into the argument buffers.
-  */
--void
--sn_acpi_bus_fixup(struct pci_bus *bus)
-+static int
-+sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
-+		    struct sn_irq_info **sn_irq_info)
- {
--	struct pci_dev *pci_dev = NULL;
--	struct pcibus_bussoft *prom_bussoft_ptr;
--	extern void sn_common_bus_fixup(struct pci_bus *,
--					struct pcibus_bussoft *);
-+	u64 addr;
-+	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
-+	struct sn_irq_info *irq_info, *irq_info_prom;
-+	struct pcidev_info *pcidev_ptr, *pcidev_prom_ptr;
-+	struct acpi_resource *resource;
-+	int ret = 0;
-+	acpi_status status;
-+	struct acpi_resource_vendor_typed *vendor;
- 
--	if (!bus->parent) {	/* If root bus */
--		prom_bussoft_ptr = sn_get_bussoft_ptr(bus);
--		if (prom_bussoft_ptr = NULL) {
-+	/*
-+	 * The pointer to this device's pcidev_info structure in
-+	 * the PROM, is in the vendor resource.
-+	 */
-+	status = acpi_get_vendor_resource(handle, METHOD_NAME__CRS,
-+					  &sn_uuid, &buffer);
-+	if (ACPI_FAILURE(status)) {
-+		printk(KERN_ERR
-+		       "%s: acpi_get_vendor_resource() failed (0x%x) for: ",
-+		        __FUNCTION__, status);
-+		acpi_ns_print_node_pathname(handle, NULL);
-+		printk("\n");
-+		return 1;
-+	}
-+
-+	resource = buffer.pointer;
-+	vendor = &resource->data.vendor_typed;
-+	if ((vendor->byte_length - sizeof(struct acpi_vendor_uuid)) !+	    sizeof(struct pci_devdev_info *)) {
-+		printk(KERN_ERR
-+		       "%s: Invalid vendor data length: %d for: ",
-+		        __FUNCTION__, vendor->byte_length);
-+		acpi_ns_print_node_pathname(handle, NULL);
-+		printk("\n");
-+		ret = 1;
-+		goto exit;
-+	}
-+
-+	pcidev_ptr = kzalloc(sizeof(struct pcidev_info), GFP_KERNEL);
-+	if (!pcidev_ptr)
-+		panic("%s: Unable to alloc memory for pcidev_info", __FUNCTION__);
-+
-+	memcpy(&addr, vendor->byte_data, sizeof(struct pcidev_info *));
-+	pcidev_prom_ptr = __va(addr);
-+	memcpy(pcidev_ptr, pcidev_prom_ptr, sizeof(struct pcidev_info));
-+
-+	/* Get the IRQ info */
-+	irq_info = kzalloc(sizeof(struct sn_irq_info), GFP_KERNEL);
-+	if (!irq_info)
-+		 panic("%s: Unable to alloc memory for sn_irq_info", __FUNCTION__);
-+
-+	if (pcidev_ptr->pdi_sn_irq_info) {
-+		irq_info_prom = __va(pcidev_ptr->pdi_sn_irq_info);
-+		memcpy(irq_info, irq_info_prom, sizeof(struct sn_irq_info));
-+	}
-+
-+	*pcidev_info = pcidev_ptr;
-+	*sn_irq_info = irq_info;
-+
-+exit:
-+	kfree(buffer.pointer);
-+	return ret;
-+}
-+
-+static unsigned int
-+get_host_devfn(acpi_handle device_handle, acpi_handle rootbus_handle)
-+{
-+	unsigned long adr;
-+	acpi_handle child;
-+	unsigned int devfn;
-+	int function;
-+	acpi_handle parent;
-+	int slot;
-+	acpi_status status;
-+
-+	/*
-+	 * Do an upward search to find the root bus device, and
-+	 * obtain the host devfn from the previous child device.
-+	 */
-+	child = device_handle;
-+	while (child) {
-+		status = acpi_get_parent(child, &parent);
-+		if (ACPI_FAILURE(status)) {
-+			printk(KERN_ERR "%s: acpi_get_parent() failed "
-+			       "(0x%x) for: ", __FUNCTION__, status);
-+			acpi_ns_print_node_pathname(child, NULL);
-+			printk("\n");
-+			panic("%s: Unable to find host devfn\n", __FUNCTION__);
-+		}
-+		if (parent = rootbus_handle)
-+			break;
-+		child = parent;
-+	}
-+	if (!child) {
-+		printk(KERN_ERR "%s: Unable to find root bus for: ",
-+		       __FUNCTION__);
-+		acpi_ns_print_node_pathname(device_handle, NULL);
-+		printk("\n");
-+		BUG();
-+	}
-+
-+	status = acpi_evaluate_integer(child, METHOD_NAME__ADR, NULL, &adr);
-+	if (ACPI_FAILURE(status)) {
-+		printk(KERN_ERR "%s: Unable to get _ADR (0x%x) for: ",
-+		       __FUNCTION__, status);
-+		acpi_ns_print_node_pathname(child, NULL);
-+		printk("\n");
-+		panic("%s: Unable to find host devfn\n", __FUNCTION__);
-+	}
-+
-+	slot = (adr >> 16) & 0xffff;
-+       	function = adr & 0xffff;
-+	devfn = PCI_DEVFN(slot, function);
-+	return devfn;
-+}
-+
 +/*
-+ * find_matching_device - Callback routine to find the ACPI device
-+ *			  that matches up with our pci_dev device.
-+ *			  Matching is done on bus number and devfn.
-+ *			  To find the bus number for a particular
-+ *			  ACPI device, we must look at the _BBN method
-+ *			  of its parent.
-+ */
-+static acpi_status
-+find_matching_device(acpi_handle handle, u32 lvl, void *context, void **rv)
-+{
-+	unsigned long bbn = -1;
-+	unsigned long adr;
-+	acpi_handle parent = NULL;
-+	acpi_status status;
-+	unsigned int devfn;
-+	int function;
-+	int slot;
-+	struct sn_pcidev_match *info = context;
-+
-+        status = acpi_evaluate_integer(handle, METHOD_NAME__ADR, NULL,
-+                                       &adr);
-+        if (ACPI_SUCCESS(status)) {
-+		status = acpi_get_parent(handle, &parent);
-+		if (ACPI_FAILURE(status)) {
- 			printk(KERN_ERR
--			       "sn_pci_fixup_bus: 0x%04x:0x%02x Unable to "
--			       "obtain prom_bussoft_ptr\n",
--			       pci_domain_nr(bus), bus->number);
--			return;
-+			       "%s: acpi_get_parent() failed (0x%x) for: ",
-+		       		__FUNCTION__, status);
-+			acpi_ns_print_node_pathname(handle, NULL);
-+			printk("\n");
-+			return AE_OK;
-+		}
-+		status = acpi_evaluate_integer(parent, METHOD_NAME__BBN,
-+					       NULL, &bbn);
-+		if (ACPI_FAILURE(status)) {
-+			printk(KERN_ERR
-+			  "%s: Failed to find _BBN in parent of: ",
-+		       		__FUNCTION__);
-+			acpi_ns_print_node_pathname(handle, NULL);
-+			printk("\n");
-+			return AE_OK;
-+		}
-+
-+                slot = (adr >> 16) & 0xffff;
-+                function = adr & 0xffff;
-+                devfn = PCI_DEVFN(slot, function);
-+                if ((info->devfn = devfn) && (info->bus = bbn)) {
-+			/* We have a match! */
-+			info->handle = handle;
-+			return 1;
- 		}
--		sn_common_bus_fixup(bus, prom_bussoft_ptr);
- 	}
--	list_for_each_entry(pci_dev, &bus->devices, bus_list) {
--		sn_pci_fixup_slot(pci_dev);
-+	return AE_OK;
-+}
-+
-+/*
-+ * sn_acpi_get_pcidev_info - Search ACPI namespace for the acpi
-+ *			     device matching the specified pci_dev,
-+ *			     and return the pcidev info and irq info.
-+ */
-+int
-+sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
-+			struct sn_irq_info **sn_irq_info)
-+{
-+	unsigned int host_devfn;
-+	struct sn_pcidev_match pcidev_match;
-+	acpi_handle rootbus_handle;
-+	unsigned long segment;
-+	acpi_status status;
-+
-+	rootbus_handle = PCI_CONTROLLER(dev)->acpi_handle;
-+        status = acpi_evaluate_integer(rootbus_handle, METHOD_NAME__SEG, NULL,
-+                                       &segment);
-+        if (ACPI_SUCCESS(status)) {
-+		if (segment != pci_domain_nr(dev)) {
-+			printk(KERN_ERR
-+			       "%s: Segment number mismatch, 0x%lx vs 0x%x for: ",
-+			       __FUNCTION__, segment, pci_domain_nr(dev));
-+			acpi_ns_print_node_pathname(rootbus_handle, NULL);
-+			printk("\n");
-+			return 1;
-+		}
-+	} else {
-+		printk(KERN_ERR "%s: Unable to get __SEG from: ",
-+		       __FUNCTION__);
-+		acpi_ns_print_node_pathname(rootbus_handle, NULL);
-+		printk("\n");
-+		return 1;
- 	}
-+
-+	/*
-+	 * We want to search all devices in this segment/domain
-+	 * of the ACPI namespace for the matching ACPI device,
-+	 * which holds the pcidev_info pointer in its vendor resource.
-+	 */
-+	pcidev_match.bus = dev->bus->number;
-+	pcidev_match.devfn = dev->devfn;
-+	pcidev_match.handle = NULL;
-+
-+	acpi_walk_namespace(ACPI_TYPE_DEVICE, rootbus_handle, ACPI_UINT32_MAX,
-+			    find_matching_device, &pcidev_match, NULL);
-+
-+	if (!pcidev_match.handle) {
-+		printk(KERN_ERR
-+		       "%s: Could not find matching ACPI device for %s.\n",
-+		       __FUNCTION__, pci_name(dev));
-+		return 1;
-+	}
-+
-+	if (sn_extract_device_info(pcidev_match.handle, pcidev_info, sn_irq_info))
-+		return 1;
-+
-+	/* Build up the pcidev_info.pdi_slot_host_handle */
-+	host_devfn = get_host_devfn(pcidev_match.handle, rootbus_handle);
-+	(*pcidev_info)->pdi_slot_host_handle +			((unsigned long) pci_domain_nr(dev) << 40) |
-+					/* bus = 0 */
-+					host_devfn;
-+	return 0;
- }
- 
- /*
-- * sn_acpi_slot_fixup - Perform any SN specific slot fixup.
-+ * sn_acpi_slot_fixup - Obtain the pcidev_info and sn_irq_info.
-+ *			Perform any SN specific slot fixup.
-  *			At present there does not appear to be
-  *			any generic way to handle a ROM image
-  *			that has been shadowed by the PROM, so
-@@ -179,11 +408,18 @@ sn_acpi_bus_fixup(struct pci_bus *bus)
-  */
- 
- void
--sn_acpi_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
-+sn_acpi_slot_fixup(struct pci_dev *dev)
- {
- 	void __iomem *addr;
-+	struct pcidev_info *pcidev_info = NULL;
-+	struct sn_irq_info *sn_irq_info = NULL;
- 	size_t size;
- 
-+	if (sn_acpi_get_pcidev_info(dev, &pcidev_info, &sn_irq_info)) {
-+		panic("%s:  Failure obtaining pcidev_info for %s\n",
-+		      __FUNCTION__, pci_name(dev));
-+	}
-+
- 	if (pcidev_info->pdi_pio_mapped_addr[PCI_ROM_RESOURCE]) {
- 		/*
- 		 * A valid ROM image exists and has been shadowed by the
-@@ -200,8 +436,11 @@ sn_acpi_slot_fixup(struct pci_dev *dev, 
- 						(unsigned long) addr + size;
- 		dev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_BIOS_COPY;
- 	}
-+	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
- }
- 
-+EXPORT_SYMBOL(sn_acpi_slot_fixup);
-+
- static struct acpi_driver acpi_sn_hubdev_driver = {
- 	.name = "SGI HUBDEV Driver",
- 	.ids = "SGIHUB,SGITIO",
-@@ -212,6 +451,33 @@ static struct acpi_driver acpi_sn_hubdev
- 
- 
- /*
-+ * sn_acpi_bus_fixup -  Perform SN specific setup of software structs
-+ *			(pcibus_bussoft, pcidev_info) and hardware
-+ *			registers, for the specified bus and devices under it.
++ * Since DMA is i-cache coherent, any (complete) pages that were written via
++ * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
++ * flush them when they get mapped into an executable vm-area.
 + */
 +void
-+sn_acpi_bus_fixup(struct pci_bus *bus)
++dma_mark_clean(void *addr, size_t size)
 +{
-+	struct pci_dev *pci_dev = NULL;
-+	struct pcibus_bussoft *prom_bussoft_ptr;
++	unsigned long pg_addr, end;
 +
-+	if (!bus->parent) {	/* If root bus */
-+		prom_bussoft_ptr = sn_get_bussoft_ptr(bus);
-+		if (prom_bussoft_ptr = NULL) {
-+			printk(KERN_ERR
-+			       "%s: 0x%04x:0x%02x Unable to "
-+			       "obtain prom_bussoft_ptr\n",
-+			       __FUNCTION__, pci_domain_nr(bus), bus->number);
-+			return;
-+		}
-+		sn_common_bus_fixup(bus, prom_bussoft_ptr);
-+	}
-+	list_for_each_entry(pci_dev, &bus->devices, bus_list) {
-+		sn_acpi_slot_fixup(pci_dev);
++	pg_addr = PAGE_ALIGN((unsigned long) addr);
++	end = (unsigned long) addr + size;
++	while (pg_addr + PAGE_SIZE <= end) {
++		struct page *page = virt_to_page(pg_addr);
++		set_bit(PG_arch_1, &page->flags);
++		pg_addr += PAGE_SIZE;
 +	}
 +}
 +
-+/*
-  * sn_io_acpi_init - PROM has ACPI support for IO, defining at a minimum the
-  *		     nodes and root buses in the DSDT. As a result, bus scanning
-  *		     will be initiated by the Linux ACPI code.
-Index: acpi/arch/ia64/sn/kernel/io_common.c
-=================================--- acpi.orig/arch/ia64/sn/kernel/io_common.c
-+++ acpi/arch/ia64/sn/kernel/io_common.c
-@@ -26,14 +26,10 @@
- #include <linux/acpi.h>
- #include <asm/sn/sn2/sn_hwperf.h>
- #include <asm/sn/acpi.h>
-+#include "acpi/acglobal.h"
+ inline void
+ ia64_set_rbs_bot (void)
+ {
+--- linux-2.6.20-rc3/include/asm-ia64/dma.h	2006-11-29 22:57:37.000000000 +0100
++++ 2.6.20-rc3-swiotlb-bugs/include/asm-ia64/dma.h	2006-12-20 12:02:01.000000000 +0100
+@@ -19,4 +19,6 @@ extern unsigned long MAX_DMA_ADDRESS;
  
- extern void sn_init_cpei_timer(void);
- extern void register_sn_procfs(void);
--extern void sn_acpi_bus_fixup(struct pci_bus *);
--extern void sn_bus_fixup(struct pci_bus *);
--extern void sn_acpi_slot_fixup(struct pci_dev *, struct pcidev_info *);
--extern void sn_more_slot_fixup(struct pci_dev *, struct pcidev_info *);
--extern void sn_legacy_pci_window_fixup(struct pci_controller *, u64, u64);
- extern void sn_io_acpi_init(void);
- extern void sn_io_init(void);
+ #define free_dma(x)
  
-@@ -48,16 +44,10 @@ struct sysdata_el {
++void dma_mark_clean(void *addr, size_t size);
++
+ #endif /* _ASM_IA64_DMA_H */
+--- linux-2.6.20-rc3/include/asm-x86_64/swiotlb.h	2006-11-29 22:57:37.000000000 +0100
++++ 2.6.20-rc3-swiotlb-bugs/include/asm-x86_64/swiotlb.h	2007-01-02 16:12:20.000000000 +0100
+@@ -1,6 +1,5 @@
+ #ifndef _ASM_SWIOTLB_H
+-#define _ASM_SWTIOLB_H 1
+-
++#define _ASM_SWIOTLB_H 1
  
- int sn_ioif_inited;		/* SN I/O infrastructure initialized? */
+ #include <asm/dma-mapping.h>
  
--struct sn_pcibus_provider *sn_pci_provider[PCIIO_ASIC_MAX_TYPES];	/* indexed by asic type */
-+int sn_acpi_rev;		/* SN ACPI revision */
-+EXPORT_SYMBOL_GPL(sn_acpi_rev);
+@@ -52,4 +51,6 @@ extern int swiotlb;
  
--int sn_acpi_base_support(void)
--{
--	struct acpi_table_header *header;
--	(void)acpi_get_table_by_index(ACPI_TABLE_INDEX_DSDT, &header);
--	if (header && header->oem_revision >= 0x20101)
--		return 1;
--	return 0;
--}
-+struct sn_pcibus_provider *sn_pci_provider[PCIIO_ASIC_MAX_TYPES];	/* indexed by asic type */
+ extern void pci_swiotlb_init(void);
  
- /*
-  * Hooks and struct for unsupported pci providers
-@@ -108,25 +98,6 @@ sal_get_device_dmaflush_list(u64 nasid, 
+-#endif /* _ASM_SWTIOLB_H */
++static inline void dma_mark_clean(void *addr, size_t size) {}
++
++#endif /* _ASM_SWIOTLB_H */
+--- linux-2.6.20-rc3/lib/swiotlb.c	2006-11-29 22:57:37.000000000 +0100
++++ 2.6.20-rc3-swiotlb-bugs/lib/swiotlb.c	2007-01-02 12:31:52.000000000 +0100
+@@ -558,25 +558,6 @@ swiotlb_map_single(struct device *hwdev,
  }
  
  /*
-- * Retrieve the pci device information given the bus and device|function number.
+- * Since DMA is i-cache coherent, any (complete) pages that were written via
+- * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+- * flush them when they get mapped into an executable vm-area.
 - */
--static inline u64
--sal_get_pcidev_info(u64 segment, u64 bus_number, u64 devfn, u64 pci_dev,
--		    u64 sn_irq_info)
+-static void
+-mark_clean(void *addr, size_t size)
 -{
--	struct ia64_sal_retval ret_stuff;
--	ret_stuff.status = 0;
--	ret_stuff.v0 = 0;
+-	unsigned long pg_addr, end;
 -
--	SAL_CALL_NOLOCK(ret_stuff,
--			(u64) SN_SAL_IOIF_GET_PCIDEV_INFO,
--			(u64) segment, (u64) bus_number, (u64) devfn,
--			(u64) pci_dev,
--			sn_irq_info, 0, 0);
--	return ret_stuff.v0;
+-	pg_addr = PAGE_ALIGN((unsigned long) addr);
+-	end = (unsigned long) addr + size;
+-	while (pg_addr + PAGE_SIZE <= end) {
+-		struct page *page = virt_to_page(pg_addr);
+-		set_bit(PG_arch_1, &page->flags);
+-		pg_addr += PAGE_SIZE;
+-	}
 -}
 -
 -/*
-  * sn_pcidev_info_get() - Retrieve the pcidev_info struct for the specified
-  *			  device.
-  */
-@@ -258,47 +229,22 @@ void sn_pci_unfixup_slot(struct pci_dev 
+  * Unmap a single streaming mode DMA translation.  The dma_addr and size must
+  * match what was provided for in a previous swiotlb_map_single call.  All
+  * other usages are undefined.
+@@ -594,7 +575,7 @@ swiotlb_unmap_single(struct device *hwde
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+ 		unmap_single(hwdev, dma_addr, size, dir);
+ 	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++		dma_mark_clean(dma_addr, size);
  }
  
  /*
-- * sn_pci_fixup_slot() - This routine sets up a slot's resources consistent
-- *			 with the Linux PCI abstraction layer. Resources
-- *			 acquired from our PCI provider include PIO maps
-- *			 to BAR space and interrupt objects.
-+ * sn_pci_fixup_slot()
-  */
--void sn_pci_fixup_slot(struct pci_dev *dev)
-+void sn_pci_fixup_slot(struct pci_dev *dev, struct pcidev_info *pcidev_info,
-+		       struct sn_irq_info *sn_irq_info)
- {
- 	int segment = pci_domain_nr(dev->bus);
--	int status = 0;
- 	struct pcibus_bussoft *bs;
-  	struct pci_bus *host_pci_bus;
-  	struct pci_dev *host_pci_dev;
--	struct pcidev_info *pcidev_info;
-- 	struct sn_irq_info *sn_irq_info;
-  	unsigned int bus_no, devfn;
- 
- 	pci_dev_get(dev); /* for the sysdata pointer */
--	pcidev_info = kzalloc(sizeof(struct pcidev_info), GFP_KERNEL);
--	if (!pcidev_info)
--		BUG();		/* Cannot afford to run out of memory */
--
--	sn_irq_info = kzalloc(sizeof(struct sn_irq_info), GFP_KERNEL);
--	if (!sn_irq_info)
--		BUG();		/* Cannot afford to run out of memory */
--
--	/* Call to retrieve pci device information needed by kernel. */
--	status = sal_get_pcidev_info((u64) segment, (u64) dev->bus->number,
--				     dev->devfn,
--				     (u64) __pa(pcidev_info),
--				     (u64) __pa(sn_irq_info));
--	if (status)
--		BUG(); /* Cannot get platform pci device information */
- 
- 	/* Add pcidev_info to list in pci_controller.platform_data */
- 	list_add_tail(&pcidev_info->pdi_list,
- 		      &(SN_PLATFORM_DATA(dev->bus)->pcidev_info));
--
--	if (SN_ACPI_BASE_SUPPORT())
--		sn_acpi_slot_fixup(dev, pcidev_info);
--	else
--		sn_more_slot_fixup(dev, pcidev_info);
- 	/*
- 	 * Using the PROMs values for the PCI host bus, get the Linux
-  	 * PCI host_pci_dev struct and set up host bus linkages
-@@ -498,11 +444,6 @@ void sn_generate_path(struct pci_bus *pc
- 			sprintf(address, "%s^%d", address, geo_slot(geoid));
+@@ -617,7 +598,7 @@ swiotlb_sync_single(struct device *hwdev
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+ 		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++		dma_mark_clean(dma_addr, size);
  }
  
--/*
-- * sn_pci_fixup_bus() - Perform SN specific setup of software structs
-- *			(pcibus_bussoft, pcidev_info) and hardware
-- *			registers, for the specified bus and devices under it.
-- */
- void __devinit
- sn_pci_fixup_bus(struct pci_bus *bus)
- {
-@@ -528,6 +469,15 @@ sn_io_early_init(void)
- 	if (!ia64_platform_is("sn2") || IS_RUNNING_ON_FAKE_PROM())
- 		return 0;
- 
-+	/* we set the acpi revision to that of the DSDT table OEM rev. */
-+	{
-+		struct acpi_table_header *header = NULL;
-+
-+		acpi_get_table_by_index(ACPI_TABLE_INDEX_DSDT, &header);
-+		BUG_ON(header = NULL);
-+		sn_acpi_rev = header->oem_revision;
-+	}
-+
- 	/*
- 	 * prime sn_pci_provider[].  Individial provider init routines will
- 	 * override their respective default entries.
-@@ -618,7 +568,6 @@ sn_io_late_init(void)
- 
- fs_initcall(sn_io_late_init);
- 
--EXPORT_SYMBOL(sn_pci_fixup_slot);
- EXPORT_SYMBOL(sn_pci_unfixup_slot);
- EXPORT_SYMBOL(sn_bus_store_sysdata);
- EXPORT_SYMBOL(sn_bus_free_sysdata);
-Index: acpi/arch/ia64/sn/kernel/io_init.c
-=================================--- acpi.orig/arch/ia64/sn/kernel/io_init.c
-+++ acpi/arch/ia64/sn/kernel/io_init.c
-@@ -56,6 +56,25 @@ static inline u64 sal_get_pcibus_info(u6
- 	return ret_stuff.v0;
- }
- 
-+/*
-+ * Retrieve the pci device information given the bus and device|function number.
-+ */
-+static inline u64
-+sal_get_pcidev_info(u64 segment, u64 bus_number, u64 devfn, u64 pci_dev,
-+		    u64 sn_irq_info)
-+{
-+	struct ia64_sal_retval ret_stuff;
-+	ret_stuff.status = 0;
-+	ret_stuff.v0 = 0;
-+
-+	SAL_CALL_NOLOCK(ret_stuff,
-+			(u64) SN_SAL_IOIF_GET_PCIDEV_INFO,
-+			(u64) segment, (u64) bus_number, (u64) devfn,
-+			(u64) pci_dev,
-+			sn_irq_info, 0, 0);
-+	return ret_stuff.v0;
-+}
-+
- 
- /*
-  * sn_fixup_ionodes() - This routine initializes the HUB data structure for
-@@ -172,18 +191,40 @@ sn_pci_window_fixup(struct pci_dev *dev,
- }
- 
- /*
-- * sn_more_slot_fixup() - We are not running with an ACPI capable PROM,
-+ * sn_io_slot_fixup() -   We are not running with an ACPI capable PROM,
-  *			  and need to convert the pci_dev->resource
-  *			  'start' and 'end' addresses to mapped addresses,
-  *			  and setup the pci_controller->window array entries.
-  */
  void
--sn_more_slot_fixup(struct pci_dev *dev, struct pcidev_info *pcidev_info)
-+sn_io_slot_fixup(struct pci_dev *dev)
- {
- 	unsigned int count = 0;
- 	int idx;
- 	s64 pci_addrs[PCI_ROM_RESOURCE + 1];
- 	unsigned long addr, end, size, start;
-+	struct pcidev_info *pcidev_info;
-+	struct sn_irq_info *sn_irq_info;
-+	int status;
-+
-+	pcidev_info = kzalloc(sizeof(struct pcidev_info), GFP_KERNEL);
-+	if (!pcidev_info)
-+		panic("%s: Unable to alloc memory for pcidev_info", __FUNCTION__);
-+
-+	sn_irq_info = kzalloc(sizeof(struct sn_irq_info), GFP_KERNEL);
-+	if (!sn_irq_info)
-+		panic("%s: Unable to alloc memory for sn_irq_info", __FUNCTION__);
-+
-+	/* Call to retrieve pci device information needed by kernel. */
-+	status = sal_get_pcidev_info((u64) pci_domain_nr(dev),
-+		(u64) dev->bus->number,
-+		dev->devfn,
-+		(u64) __pa(pcidev_info),
-+		(u64) __pa(sn_irq_info));
-+
-+	if (status)
-+		BUG(); /* Cannot get platform pci device information */
-+
- 
- 	/* Copy over PIO Mapped Addresses */
- 	for (idx = 0; idx <= PCI_ROM_RESOURCE; idx++) {
-@@ -219,8 +260,12 @@ sn_more_slot_fixup(struct pci_dev *dev, 
- 	 */
- 	if (count > 0)
- 		sn_pci_window_fixup(dev, count, pci_addrs);
-+
-+	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
+@@ -648,7 +629,7 @@ swiotlb_sync_single_range(struct device 
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+ 		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+-		mark_clean(dma_addr, size);
++		dma_mark_clean(dma_addr, size);
  }
  
-+EXPORT_SYMBOL(sn_io_slot_fixup);
-+
+ void
+@@ -698,7 +679,6 @@ swiotlb_map_sg(struct device *hwdev, str
+ 		dev_addr = virt_to_phys(addr);
+ 		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
+ 			void *map = map_single(hwdev, addr, sg->length, dir);
+-			sg->dma_address = virt_to_bus(map);
+ 			if (!map) {
+ 				/* Don't panic here, we expect map_sg users
+ 				   to do proper error handling. */
+@@ -707,6 +687,7 @@ swiotlb_map_sg(struct device *hwdev, str
+ 				sg[0].dma_length = 0;
+ 				return 0;
+ 			}
++			sg->dma_address = virt_to_bus(map);
+ 		} else
+ 			sg->dma_address = dev_addr;
+ 		sg->dma_length = sg->length;
+@@ -730,7 +711,7 @@ swiotlb_unmap_sg(struct device *hwdev, s
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+ 			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
+ 		else if (dir = DMA_FROM_DEVICE)
+-			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
++			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
+ }
+ 
  /*
-  * sn_pci_controller_fixup() - This routine sets up a bus's resources
-  *			       consistent with the Linux PCI abstraction layer.
-@@ -272,9 +317,6 @@ sn_bus_fixup(struct pci_bus *bus)
- {
- 	struct pci_dev *pci_dev = NULL;
- 	struct pcibus_bussoft *prom_bussoft_ptr;
--	extern void sn_common_bus_fixup(struct pci_bus *,
--					struct pcibus_bussoft *);
--
+@@ -750,8 +731,10 @@ swiotlb_sync_sg(struct device *hwdev, st
  
- 	if (!bus->parent) {  /* If root bus */
- 		prom_bussoft_ptr = PCI_CONTROLLER(bus)->platform_data;
-@@ -291,7 +333,7 @@ sn_bus_fixup(struct pci_bus *bus)
- 					   prom_bussoft_ptr->bs_legacy_mem);
-         }
-         list_for_each_entry(pci_dev, &bus->devices, bus_list) {
--                sn_pci_fixup_slot(pci_dev);
-+                sn_io_slot_fixup(pci_dev);
-         }
- 
+ 	for (i = 0; i < nelems; i++, sg++)
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+-			sync_single(hwdev, (void *) sg->dma_address,
++			sync_single(hwdev, phys_to_virt(sg->dma_address),
+ 				    sg->dma_length, dir, target);
++		else if (dir = DMA_FROM_DEVICE)
++			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
  }
-Index: acpi/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================--- acpi.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-+++ acpi/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-@@ -20,7 +20,8 @@
- #include "xtalk/hubdev.h"
  
+ void
+@@ -783,7 +766,7 @@ swiotlb_dma_mapping_error(dma_addr_t dma
  int
--sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp)
-+sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp,
-+                      char **ssdt)
+ swiotlb_dma_supported (struct device *hwdev, u64 mask)
  {
- 	struct ia64_sal_retval ret_stuff;
- 	u64 busnum;
-@@ -32,7 +33,8 @@ sal_pcibr_slot_enable(struct pcibus_info
- 	segment = soft->pbi_buscommon.bs_persist_segment;
- 	busnum = soft->pbi_buscommon.bs_persist_busnum;
- 	SAL_CALL_NOLOCK(ret_stuff, (u64) SN_SAL_IOIF_SLOT_ENABLE, segment,
--			busnum, (u64) device, (u64) resp, 0, 0, 0);
-+			busnum, (u64) device, (u64) resp, (u64)ia64_tpa(ssdt),
-+			0, 0);
- 
- 	return (int)ret_stuff.v0;
+-	return (virt_to_phys (io_tlb_end) - 1) <= mask;
++	return virt_to_phys(io_tlb_end - 1) <= mask;
  }
-Index: acpi/include/asm-ia64/sn/acpi.h
-=================================--- acpi.orig/include/asm-ia64/sn/acpi.h
-+++ acpi/include/asm-ia64/sn/acpi.h
-@@ -11,8 +11,7 @@
  
- #include "acpi/acglobal.h"
- 
--#define SN_ACPI_BASE_SUPPORT()   sn_acpi_base_support()
--
--extern int sn_acpi_base_support(void);
-+extern int sn_acpi_rev;
-+#define SN_ACPI_BASE_SUPPORT()   (sn_acpi_rev >= 0x20101)
- 
- #endif /* _ASM_IA64_SN_ACPI_H */
-Index: acpi/include/asm-ia64/sn/pcibr_provider.h
-=================================--- acpi.orig/include/asm-ia64/sn/pcibr_provider.h
-+++ acpi/include/asm-ia64/sn/pcibr_provider.h
-@@ -142,7 +142,7 @@ extern int 		pcibr_ate_alloc(struct pcib
- extern void 		pcibr_ate_free(struct pcibus_info *, int);
- extern void 		ate_write(struct pcibus_info *, int, int, u64);
- extern int sal_pcibr_slot_enable(struct pcibus_info *soft, int device,
--				 void *resp);
-+				 void *resp, char **ssdt);
- extern int sal_pcibr_slot_disable(struct pcibus_info *soft, int device,
- 				  int action, void *resp);
- extern u16 sn_ioboard_to_pci_bus(struct pci_bus *pci_bus);
-Index: acpi/include/asm-ia64/sn/pcidev.h
-=================================--- acpi.orig/include/asm-ia64/sn/pcidev.h
-+++ acpi/include/asm-ia64/sn/pcidev.h
-@@ -70,10 +70,16 @@ extern void sn_irq_fixup(struct pci_dev 
- 			 struct sn_irq_info *sn_irq_info);
- extern void sn_irq_unfixup(struct pci_dev *pci_dev);
- extern struct pcidev_info * sn_pcidev_info_get(struct pci_dev *);
-+extern void sn_bus_fixup(struct pci_bus *);
-+extern void sn_acpi_bus_fixup(struct pci_bus *);
-+extern void sn_common_bus_fixup(struct pci_bus *, struct pcibus_bussoft *);
- extern void sn_bus_store_sysdata(struct pci_dev *dev);
- extern void sn_bus_free_sysdata(void);
- extern void sn_generate_path(struct pci_bus *pci_bus, char *address);
--extern void sn_pci_fixup_slot(struct pci_dev *dev);
-+extern void sn_io_slot_fixup(struct pci_dev *);
-+extern void sn_acpi_slot_fixup(struct pci_dev *);
-+extern void sn_pci_fixup_slot(struct pci_dev *dev, struct pcidev_info *,
-+			      struct sn_irq_info *);
- extern void sn_pci_unfixup_slot(struct pci_dev *dev);
- extern void sn_irq_lh_init(void);
- #endif				/* _ASM_IA64_SN_PCI_PCIDEV_H */
+ EXPORT_SYMBOL(swiotlb_init);
+
