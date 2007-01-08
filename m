@@ -1,43 +1,32 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Thu, 18 Jan 2007 23:43:55 +0000
-Subject: Re: atomic_cmpxchg and 64-bit values
-Message-Id: <20070118173919.B15966@pkunk.americas.sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 08 Jan 2007 23:10:38 +0000
+Subject: Re: + make-initkmem_list3-non-init-data-to-fix-modpost-warning.patch
+Message-Id: <Pine.LNX.4.64.0701081504380.11170@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070117144850.U8085@pkunk.americas.sgi.com>
-In-Reply-To: <20070117144850.U8085@pkunk.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 18 Jan 2007, Christoph Lameter wrote:
+On Mon, 8 Jan 2007, akpm@osdl.org wrote:
 
-> On Wed, 17 Jan 2007, Andreas Schwab wrote:
+> Subject: make initkmem_list3 non init data to fix modpost warning
+> From: Vivek Goyal <vgoyal@in.ibm.com>
 > 
-> > Brent Casavant <bcasavan@sgi.com> writes:
-> > 
-> > > Is there some particular reason we need the cast to int on the
-> > > return path for atomic_cmpxchg()?  It looks to me as if this
-> > > macro would work equally well with an atomic_t or an atomic64_t.
-> > 
-> > No, this is won't work, atomic_cmpxchg is strictly only defined for
-> > atomic_t.  See commit 4a6dae6d382e9edf3ff440b819e554ed706359bc.
+> o MODPOST generates warning for i386 if kernel is compiled with
+>   CONFIG_RELOCATABLE=y
 > 
-> Use cmpxchg instead of atomic_cmpxchg.
+> WARNING: vmlinux - Section mismatch: reference to .init.data:initkmem_list3 from .text between 'set_up_list3s' (at offset 0xc01536d9) and 's_start'
+> 
+> o I don't know the code well but looks like this is a bug.  initkmem_list3
+>   is of type __initdata, and it is accessed by non init functions.
 
-There was a better solution anyway.  I was trying to stash a pointer
-in the atomic as an ownership token, and that of course was fraught with
-peril as you need an atomic_t or atomic64_t, depending on platform.
+Well yes but the non-init function called has special behavior during 
+bootstrap. initkmem_lists3 is not used after bootstrap. Everything would
+be fine if we could suppress the warning.
 
-In the end I decided to use a non-pointer unique token rather than
-deal with the 32/64-bit hassle, which also sidestepped the whole
-question about the (int) cast.
+> o Somebody who knows this code well needs to review and ack.
 
-Thanks you both for the responses though.
-
-Brent
-
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+On a IA64 system (allows up to 1024 node nodes) this will be wasting 212 
+kbyte. Some IA64 boxes only have 1 Gigabyte of memory. So we may end up
+wasting 1/5th of all available memory.
