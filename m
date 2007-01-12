@@ -1,8 +1,10 @@
 From: Horms <horms@verge.net.au>
-Date: Fri, 12 Jan 2007 06:06:19 +0000
-Subject: [PATCH] Kdump documentation update for 2.6.20: kexec-tools update
-Message-Id: <20070112060618.GA17379@verge.net.au>
+Date: Fri, 12 Jan 2007 06:07:25 +0000
+Subject: [PATCH] Kdump documentation update for 2.6.20: ia64 portion
+Message-Id: <20070112060724.GC17379@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070112060618.GA17379@verge.net.au>
+In-Reply-To: <20070112060618.GA17379@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,9 +13,11 @@ Cc: Mohan Kumar M <mohan@in.ibm.com>, Andrew Morton <akpm@osdl.org>, Nanhai Zou 
 
 Hi,
 
-Mohan Kumar suggested making kexec-tools-testing.tar.gz a link
-to the latest version. I have done this and this patch updates the
-documentation accordingly.
+this patch fills in the portions for ia64 kexec.
+
+I'm actually not sure what options are required for the dump-capture
+kernel, but "init 1 irqpoll maxcpus=1" has been working fine for me.
+Or more to the point, I'm not sure if irqpoll is needed or not.
 
 This patch requires the documentation patch update that Vivek Goyal has
 been circulating, and I believe is currently in mm. Feel free to fold it
@@ -22,34 +26,61 @@ into that change if it makes things easier for anyone.
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
 Index: linux-2.6/Documentation/kdump/kdump.txt
-=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 14:37:18.000000000 +0900
-+++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 14:56:42.000000000 +0900
-@@ -61,7 +61,12 @@
+=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 14:37:46.000000000 +0900
++++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 14:46:53.000000000 +0900
+@@ -17,7 +17,7 @@
+ memory image to a dump file on the local disk, or across the network to
+ a remote system.
  
- 2) Download the kexec-tools user-space package from the following URL:
+-Kdump and kexec are currently supported on the x86, x86_64, ppc64 and IA64
++Kdump and kexec are currently supported on the x86, x86_64, ppc64 and ia64
+ architectures.
  
--http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing-20061214.tar.gz
-+http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing.tar.gz
+ When the system kernel boots, it reserves a small section of memory for
+@@ -227,7 +227,11 @@
+ 
+ Dump-capture kernel config options (Arch Dependent, ia64)
+ ----------------------------------------------------------
+-(To be filled)
 +
-+This is a symlink to the latest version, which at the time of writing is
-+20061214, the only release of kexec-tools-testing so far. As other versions
-+are made released, the older onese will remain available at
-+http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/
++- No specific options are required to create a dump-capture kernel
++  for ia64 other than those specified in the arch idependent section
++  above. This means that it is possible to use the system kernel
++  as a dump-capture kernel if desired.
  
- Note: Latest kexec-tools-testing git tree is available at
  
-@@ -71,11 +76,11 @@
+ Boot into System Kernel
+@@ -264,7 +268,8 @@
+ For ppc64:
+ 	- Use vmlinux
+ For ia64:
+-	(To be filled)
++	- Use vmlinux
++
  
- 3) Unpack the tarball with the tar command, as follows:
+ If you are using a uncompressed vmlinux image then use following command
+ to load dump-capture kernel.
+@@ -280,18 +285,19 @@
+    --initrd=<initrd-for-dump-capture-kernel> \
+    --append="root=<root-dev> <arch-specific-options>"
  
--   tar xvpzf kexec-tools-testing-20061214.tar.gz
-+   tar xvpzf kexec-tools-testing.tar.gz
++Please note, that --args-linux does not need to be specified for ia64.
++It is planned to make this a no-op on that architecture, but for now
++it should be omitted
++
+ Following are the arch specific command line options to be used while
+ loading dump-capture kernel.
  
--4) Change to the kexec-tools-1.101 directory, as follows:
-+4) Change to the kexec-tools directory, as follows:
+-For i386 and x86_64:
++For i386, x86_64 and ia64:
+ 	"init 1 irqpoll maxcpus=1"
  
--   cd kexec-tools-testing-20061214
-+   cd kexec-tools-testing-VERSION
+ For ppc64:
+ 	"init 1 maxcpus=1 noirqdistrib"
  
- 5) Configure the package, as follows:
+-For IA64
+-	(To be filled)
+-
+ 
+ Notes on loading the dump-capture kernel:
  
