@@ -1,93 +1,134 @@
-From: "JWM" <jwm@systemfabricworks.com>
-Date: Thu, 25 Jan 2007 21:51:44 +0000
-Subject: Re: Spinlock bug??
-Message-Id: <002201c740cb$01966240$7401a8c0@Maelstrom>
+From: Jay Lan <jlan@sgi.com>
+Date: Fri, 12 Jan 2007 19:46:39 +0000
+Subject: Re: [Fastboot] [PATCH] Kdump documentation update for 2.6.20: ia64
+Message-Id: <45A7E59F.7020207@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <003e01c73fd8$6a46f730$7401a8c0@Maelstrom>
-In-Reply-To: <003e01c73fd8$6a46f730$7401a8c0@Maelstrom>
+References: <20070112060724.GC17379@verge.net.au>	<10EA09EFD8728347A513008B6B0DA77A086BAA@pdsmsx411.ccr.corp.intel.com> <20070112090043.GA27340@verge.net.au>
+In-Reply-To: <20070112090043.GA27340@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Horms <horms@verge.net.au>
+Cc: "Zou, Nanhai" <nanhai.zou@intel.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org
 
-    Thanks
-    When I saw that code you pasted in it became clear. The potential switch 
-in CPU's is protected by bumping the usage on the task structure. I haven't 
-looked at the exit code, but I would think that should protect this from 
-exiting processes wouldn't you?
-    ....JW
------ Original Message ----- 
-From: "Christoph Lameter" <clameter@sgi.com>
-To: "JWM" <jwm@systemfabricworks.com>
-Cc: <linux-ia64@vger.kernel.org>; <pj@sgi.com>
-Sent: Thursday, January 25, 2007 11:39 AM
-Subject: Re: Spinlock bug??
-
-
-> On Wed, 24 Jan 2007, JWM wrote:
->
->>    Hi all;
->>    I'm working on a Bull - 8 way ia64 system running a RedHat variant of
->> 2.6.17.
->>    I keep getting a spin lock bug and dump , attached.
->>    It appears that cpuset_set_cpus_affinity is taking doing a task_lock 
->> on the
->> task structure and only releaseing it after the cpu has changed. That
->> naturally causes the spin_bug function to get upset.
->>    The lock doesn't appear to be required since set_cpus_allowed makes 
->> sure
->> that things are serialized pretty well.
->>    Am I missing something here or is this lock not required.
->
-> Try a newer kernel. That piece was reworked and cpuset_set_cpus_affinity
-> no longer exists in recent kernels. 2.6.20-rc6 has:
->
-> long sched_setaffinity(pid_t pid, cpumask_t new_mask)
-> {
->        cpumask_t cpus_allowed;
->        struct task_struct *p;
->        int retval;
->
->        lock_cpu_hotplug();
->        read_lock(&tasklist_lock);
->
->        p = find_process_by_pid(pid);
->        if (!p) {
->                read_unlock(&tasklist_lock);
->                unlock_cpu_hotplug();
->                return -ESRCH;
->        }
->
->        /*
->         * It is not safe to call set_cpus_allowed with the
->         * tasklist_lock held.  We will bump the task_struct's
->         * usage count and then drop tasklist_lock.
->         */
->        get_task_struct(p);
->        read_unlock(&tasklist_lock);
->
->        retval = -EPERM;
->        if ((current->euid != p->euid) && (current->euid != p->uid) &&
->                        !capable(CAP_SYS_NICE))
->                goto out_unlock;
->
->        retval = security_task_setscheduler(p, 0, NULL);
->        if (retval)
->                goto out_unlock;
->
->        cpus_allowed = cpuset_cpus_allowed(p);
->        cpus_and(new_mask, new_mask, cpus_allowed);
->        retval = set_cpus_allowed(p, new_mask);
->
-> out_unlock:
->        put_task_struct(p);
->        unlock_cpu_hotplug();
->        return retval;
-> }
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Horms wrote:
+> Hi,
 > 
+> this patch fills in the portions for ia64 kexec.
+> 
+> I'm actually not sure what options are required for the dump-capture
+> kernel, but "init 1 irqpoll maxcpus=1" has been working fine for me.
+> Or more to the point, I'm not sure if irqpoll is needed or not.
+> 
+> This patch requires the documentation patch update that Vivek Goyal has
+> been circulating, and I believe is currently in mm. Feel free to fold it
+> into that change if it makes things easier for anyone.
+> 
+> Take II
+> 
+> Nanhai,
+> 
+> I have noted that vmlinux.gz may also be used. And added a note about the
+> kernel being able to automatically place the crashkernel region.
+> Furthermore, I added a note that if manually specified, the region should
+> be 64Mb aligned to avoid wastage. I notice that the auto placement code
+> uses 64Mb. But is this strictly neccessary for all page sizes?
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> Index: linux-2.6/Documentation/kdump/kdump.txt
+> =================================> --- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 17:45:19.000000000 +0900
+> +++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 17:59:42.000000000 +0900
+> @@ -17,7 +17,7 @@
+>  memory image to a dump file on the local disk, or across the network to
+>  a remote system.
+>  
+> -Kdump and kexec are currently supported on the x86, x86_64, ppc64 and IA64
+> +Kdump and kexec are currently supported on the x86, x86_64, ppc64 and ia64
+>  architectures.
+>  
+>  When the system kernel boots, it reserves a small section of memory for
+> @@ -229,7 +229,23 @@
+>  
+>  Dump-capture kernel config options (Arch Dependent, ia64)
+>  ----------------------------------------------------------
+> -(To be filled)
+> +
+> +- No specific options are required to create a dump-capture kernel
+> +  for ia64, other than those specified in the arch idependent section
+> +  above. This means that it is possible to use the system kernel
+> +  as a dump-capture kernel if desired.
+> +  
+> +  The crashkernel region can be automatically placed by the system
+> +  kernel at run time. This is done by specifying the base address as 0,
+> +  or omitting it all together.
+
+In my testing, i found the base address was ignored. Whatever value
+specified was fine. Not necessary to be 0. But i guess it is fine to
+give people a guideline telling them to specify 0.
+
+Cheers,
+ - jay
+
+
+> +
+> +  crashkernel%6M@0
+> +  or
+> +  crashkernel%6M
+> +
+> +  If the start address is specified, not that the start address of the
+> +  kernel will be alligned to 64Mb, so any if the start address is not then
+> +  any space below the alignment point will be wasted.
+>  
+>  
+>  Boot into System Kernel
+> @@ -248,6 +264,10 @@
+>  
+>     On ppc64, use "crashkernel8M@32M".
+>  
+> +   On ia64, 256M@256M is a generous value that typically works.
+> +   The region may be automatically placed on ia64, see the
+> +   dump-capture kernel config option notes above.
+> +
+>  Load the Dump-capture Kernel
+>  ==============
+>  
+> @@ -266,7 +286,8 @@
+>  For ppc64:
+>  	- Use vmlinux
+>  For ia64:
+> -	(To be filled)
+> +	- Use vmlinux or vmlinuz.gz
+> +
+>  
+>  If you are using a uncompressed vmlinux image then use following command
+>  to load dump-capture kernel.
+> @@ -282,18 +303,19 @@
+>     --initrd=<initrd-for-dump-capture-kernel> \
+>     --append="root=<root-dev> <arch-specific-options>"
+>  
+> +Please note, that --args-linux does not need to be specified for ia64.
+> +It is planned to make this a no-op on that architecture, but for now
+> +it should be omitted
+> +
+>  Following are the arch specific command line options to be used while
+>  loading dump-capture kernel.
+>  
+> -For i386 and x86_64:
+> +For i386, x86_64 and ia64:
+>  	"init 1 irqpoll maxcpus=1"
+>  
+>  For ppc64:
+>  	"init 1 maxcpus=1 noirqdistrib"
+>  
+> -For IA64
+> -	(To be filled)
+> -
+>  
+>  Notes on loading the dump-capture kernel:
+>  
+> _______________________________________________
+> fastboot mailing list
+> fastboot@lists.osdl.org
+> https://lists.osdl.org/mailman/listinfo/fastboot
 
