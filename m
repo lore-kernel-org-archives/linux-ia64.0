@@ -1,36 +1,55 @@
-From: Aron Griffis <aron@hp.com>
-Date: Wed, 31 Jan 2007 18:48:31 +0000
-Subject: git tree 6 weeks old?
-Message-Id: <20070131184830.GD20942@fc.hp.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Md/poaVZ8hnGTzuv"
+From: Horms <horms@verge.net.au>
+Date: Fri, 12 Jan 2007 06:06:19 +0000
+Subject: [PATCH] Kdump documentation update for 2.6.20: kexec-tools update
+Message-Id: <20070112060618.GA17379@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Vivek Goyal <vgoyal@in.ibm.com>
+Cc: Mohan Kumar M <mohan@in.ibm.com>, Andrew Morton <akpm@osdl.org>, Nanhai Zou <nanhai.zou@intel.com>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org, linux-ia64@vger.kernel.org
 
+Hi,
 
---Md/poaVZ8hnGTzuv
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
+Mohan Kumar suggested making kexec-tools-testing.tar.gz a link
+to the latest version. I have done this and this patch updates the
+documentation accordingly.
 
-Hi Tony,
+This patch requires the documentation patch update that Vivek Goyal has
+been circulating, and I believe is currently in mm. Feel free to fold it
+into that change if it makes things easier for anyone.
 
-It looks like the linux-ia64 git tree on kernel.org is 6 weeks old.
-Will it be updated with recent patches soon, or am I missing
-something?
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Thanks,
-Aron
-
---Md/poaVZ8hnGTzuv
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.5 (GNU/Linux)
-
-iD8DBQFFwOR+JrHF4yAQTrARAvLpAKDDCezOXvYG3w8okvZgddf0eRZhyACfaH9F
-sbYd9fOneq2qAqMSlbvtR0o=
-=k+mn
------END PGP SIGNATURE-----
-
---Md/poaVZ8hnGTzuv--
+Index: linux-2.6/Documentation/kdump/kdump.txt
+=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 14:37:18.000000000 +0900
++++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 14:56:42.000000000 +0900
+@@ -61,7 +61,12 @@
+ 
+ 2) Download the kexec-tools user-space package from the following URL:
+ 
+-http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing-20061214.tar.gz
++http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/kexec-tools-testing.tar.gz
++
++This is a symlink to the latest version, which at the time of writing is
++20061214, the only release of kexec-tools-testing so far. As other versions
++are made released, the older onese will remain available at
++http://www.kernel.org/pub/linux/kernel/people/horms/kexec-tools/
+ 
+ Note: Latest kexec-tools-testing git tree is available at
+ 
+@@ -71,11 +76,11 @@
+ 
+ 3) Unpack the tarball with the tar command, as follows:
+ 
+-   tar xvpzf kexec-tools-testing-20061214.tar.gz
++   tar xvpzf kexec-tools-testing.tar.gz
+ 
+-4) Change to the kexec-tools-1.101 directory, as follows:
++4) Change to the kexec-tools directory, as follows:
+ 
+-   cd kexec-tools-testing-20061214
++   cd kexec-tools-testing-VERSION
+ 
+ 5) Configure the package, as follows:
+ 
