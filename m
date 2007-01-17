@@ -1,78 +1,112 @@
-From: Horms <horms@verge.net.au>
-Date: Sat, 13 Jan 2007 04:03:45 +0000
-Subject: Re: [Fastboot] [PATCH] Kdump documentation update for 2.6.20: ia64 portion
-Message-Id: <20070113040343.GA6227@verge.net.au>
+From: "Bob Picco" <bob.picco@hp.com>
+Date: Wed, 17 Jan 2007 13:19:04 +0000
+Subject: [PATCH] clean up sparsemem memory_present calls for ia64 and x86_64
+Message-Id: <20070117131904.GB27728@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070112060724.GC17379@verge.net.au> <10EA09EFD8728347A513008B6B0DA77A086BAA@pdsmsx411.ccr.corp.intel.com> <20070112090043.GA27340@verge.net.au> <45A7E59F.7020207@sgi.com>
-In-Reply-To: <45A7E59F.7020207@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jay Lan <jlan@sgi.com>
-Cc: "Zou, Nanhai" <nanhai.zou@intel.com>, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org
+To: akpm@osdl.org
+Cc: mel@csn.ul.ie, apw@shadowen.org, tony.luck@intel.com, ak@muc.de, bob.picco@hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Jan 12, 2007 at 11:46:39AM -0800, Jay Lan wrote:
-> Horms wrote:
-> > Hi,
-> > 
-> > this patch fills in the portions for ia64 kexec.
-> > 
-> > I'm actually not sure what options are required for the dump-capture
-> > kernel, but "init 1 irqpoll maxcpus=1" has been working fine for me.
-> > Or more to the point, I'm not sure if irqpoll is needed or not.
-> > 
-> > This patch requires the documentation patch update that Vivek Goyal has
-> > been circulating, and I believe is currently in mm. Feel free to fold it
-> > into that change if it makes things easier for anyone.
-> > 
-> > Take II
-> > 
-> > Nanhai,
-> > 
-> > I have noted that vmlinux.gz may also be used. And added a note about the
-> > kernel being able to automatically place the crashkernel region.
-> > Furthermore, I added a note that if manually specified, the region should
-> > be 64Mb aligned to avoid wastage. I notice that the auto placement code
-> > uses 64Mb. But is this strictly neccessary for all page sizes?
-> > 
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > 
-> > Index: linux-2.6/Documentation/kdump/kdump.txt
-> > =================================> > --- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 17:45:19.000000000 +0900
-> > +++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 17:59:42.000000000 +0900
-> > @@ -17,7 +17,7 @@
-> >  memory image to a dump file on the local disk, or across the network to
-> >  a remote system.
-> >  
-> > -Kdump and kexec are currently supported on the x86, x86_64, ppc64 and IA64
-> > +Kdump and kexec are currently supported on the x86, x86_64, ppc64 and ia64
-> >  architectures.
-> >  
-> >  When the system kernel boots, it reserves a small section of memory for
-> > @@ -229,7 +229,23 @@
-> >  
-> >  Dump-capture kernel config options (Arch Dependent, ia64)
-> >  ----------------------------------------------------------
-> > -(To be filled)
-> > +
-> > +- No specific options are required to create a dump-capture kernel
-> > +  for ia64, other than those specified in the arch idependent section
-> > +  above. This means that it is possible to use the system kernel
-> > +  as a dump-capture kernel if desired.
-> > +  
-> > +  The crashkernel region can be automatically placed by the system
-> > +  kernel at run time. This is done by specifying the base address as 0,
-> > +  or omitting it all together.
-> 
-> In my testing, i found the base address was ignored. Whatever value
-> specified was fine. Not necessary to be 0. But i guess it is fine to
-> give people a guideline telling them to specify 0.
 
-I submitted a patch to honour non-zero base addresses,
-I'm pretty sure it is in there now.
+Eliminate arch specific memory_present calls for ia64 NUMA and x86_64 NUMA by
+utilizing sparse_memory_present_with_active_regions. It was boot tested
+for both arches.
+ 
+Acked-by: Mel Gorman <mel@csn.ul.ie>
+Signed-off-by: Bob Picco <bob.picco@hp.com>
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+ arch/ia64/mm/discontig.c |   36 +++---------------------------------
+ arch/x86_64/mm/numa.c    |   17 ++---------------
+ 2 files changed, 5 insertions(+), 48 deletions(-)
 
+Index: linux-2.6.20-rc4/arch/ia64/mm/discontig.c
+=================================--- linux-2.6.20-rc4.orig/arch/ia64/mm/discontig.c	2007-01-11 12:11:54.000000000 -0500
++++ linux-2.6.20-rc4/arch/ia64/mm/discontig.c	2007-01-11 12:12:38.000000000 -0500
+@@ -412,37 +412,6 @@ static void __init memory_less_nodes(voi
+ 	return;
+ }
+ 
+-#ifdef CONFIG_SPARSEMEM
+-/**
+- * register_sparse_mem - notify SPARSEMEM that this memory range exists.
+- * @start: physical start of range
+- * @end: physical end of range
+- * @arg: unused
+- *
+- * Simply calls SPARSEMEM to register memory section(s).
+- */
+-static int __init register_sparse_mem(unsigned long start, unsigned long end,
+-	void *arg)
+-{
+-	int nid;
+-
+-	start = __pa(start) >> PAGE_SHIFT;
+-	end = __pa(end) >> PAGE_SHIFT;
+-	nid = early_pfn_to_nid(start);
+-	memory_present(nid, start, end);
+-
+-	return 0;
+-}
+-
+-static void __init arch_sparse_init(void)
+-{
+-	efi_memmap_walk(register_sparse_mem, NULL);
+-	sparse_init();
+-}
+-#else
+-#define arch_sparse_init() do {} while (0)
+-#endif
+-
+ /**
+  * find_memory - walk the EFI memory map and setup the bootmem allocator
+  *
+@@ -688,10 +657,11 @@ void __init paging_init(void)
+ 
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 
+-	arch_sparse_init();
+-
+ 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
+ 
++	sparse_memory_present_with_active_regions(MAX_NUMNODES);
++	sparse_init();
++
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ 	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
+ 		sizeof(struct page));
+Index: linux-2.6.20-rc4/arch/x86_64/mm/numa.c
+=================================--- linux-2.6.20-rc4.orig/arch/x86_64/mm/numa.c	2007-01-11 12:11:08.000000000 -0500
++++ linux-2.6.20-rc4/arch/x86_64/mm/numa.c	2007-01-11 12:11:57.000000000 -0500
+@@ -321,20 +321,6 @@ unsigned long __init numa_free_all_bootm
+ 	return pages;
+ } 
+ 
+-#ifdef CONFIG_SPARSEMEM
+-static void __init arch_sparse_init(void)
+-{
+-	int i;
+-
+-	for_each_online_node(i)
+-		memory_present(i, node_start_pfn(i), node_end_pfn(i));
+-
+-	sparse_init();
+-}
+-#else
+-#define arch_sparse_init() do {} while (0)
+-#endif
+-
+ void __init paging_init(void)
+ { 
+ 	int i;
+@@ -344,7 +330,8 @@ void __init paging_init(void)
+ 	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
+ 	max_zone_pfns[ZONE_NORMAL] = end_pfn;
+ 
+-	arch_sparse_init();
++	sparse_memory_present_with_active_regions(MAX_NUMNODES);
++	sparse_init();
+ 
+ 	for_each_online_node(i) {
+ 		setup_node_zones(i); 
