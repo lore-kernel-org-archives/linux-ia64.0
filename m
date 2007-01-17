@@ -1,36 +1,28 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 17 Jan 2007 20:57:05 +0000
-Subject: atomic_cmpxchg and 64-bit values
-Message-Id: <20070117144850.U8085@pkunk.americas.sgi.com>
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 17 Jan 2007 21:36:19 +0000
+Subject: Re: atomic_cmpxchg and 64-bit values
+Message-Id: <je4pqps5d8.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070117144850.U8085@pkunk.americas.sgi.com>
+In-Reply-To: <20070117144850.U8085@pkunk.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hello,
+Brent Casavant <bcasavan@sgi.com> writes:
 
-I have what I hope is an easy to answer question.
+> Is there some particular reason we need the cast to int on the
+> return path for atomic_cmpxchg()?  It looks to me as if this
+> macro would work equally well with an atomic_t or an atomic64_t.
 
-The IA64 atomic_cmpxchg macro reads as follows (line continuation inserted):
+No, this is won't work, atomic_cmpxchg is strictly only defined for
+atomic_t.  See commit 4a6dae6d382e9edf3ff440b819e554ed706359bc.
 
-	#define atomic_cmpxchg(v, old, new) \
-		((int)cmpxchg(&((v)->counter), old, new))
+Andreas.
 
-Note that there's an integer cast on the return from cmpxchg().
-This seems strange considering that the entire compxchg() code
-path takes care to make sure that correctly-sized data types are
-used throughout, including the return path.  The atomic_xchg()
-macro
-
-Is there some particular reason we need the cast to int on the
-return path for atomic_cmpxchg()?  It looks to me as if this
-macro would work equally well with an atomic_t or an atomic64_t.
-
-Thanks,
-Brent
-
--- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
