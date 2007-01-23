@@ -1,41 +1,35 @@
-From: Len Brown <lenb@kernel.org>
-Date: Fri, 26 Jan 2007 05:38:53 +0000
-Subject: [PATCH] IA64: fix ACPI Kconfig issues
-Message-Id: <200701260038.53310.lenb@kernel.org>
+From: Alexey Dobriyan <adobriyan@openvz.org>
+Date: Tue, 23 Jan 2007 15:57:53 +0000
+Subject: [PATCH 2/2] ia64: wire up pselect, ppoll
+Message-Id: <20070123160408.GB11114@localhost.sw.ru>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A0109E59A@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A0109E59A@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-All IA64 systems except IA64_HP_SIM include ACPI and PCI.
-So prevent IA64 Kconfigs that try to do irritating things like building
-PCI without building ACPI.
+[PATCH] ia64: wire up pselect, ppoll
 
-Signed-off-by: Len Brown <len.brown@intel.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index fcacfe2..4b35c93 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -11,6 +11,8 @@ menu "Processor type and features"
- 
- config IA64
- 	bool
-+	select PCI if (!IA64_HP_SIM)
-+	select ACPI if (!IA64_HP_SIM)
- 	default y
- 	help
- 	  The Itanium Processor Family is Intel's 64-bit successor to
-@@ -84,8 +86,6 @@ choice
- 
- config IA64_GENERIC
- 	bool "generic"
--	select ACPI
--	select PCI
- 	select NUMA
- 	select ACPI_NUMA
- 	help
+Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
+---
+
+ arch/ia64/kernel/entry.S |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1575,8 +1575,8 @@ sys_call_table:
+ 	data8 sys_readlinkat
+ 	data8 sys_fchmodat
+ 	data8 sys_faccessat
+-	data8 sys_ni_syscall			// reserved for pselect
+-	data8 sys_ni_syscall			// 1295 reserved for ppoll
++	data8 sys_pselect6
++	data8 sys_ppoll
+ 	data8 sys_unshare
+ 	data8 sys_splice
+ 	data8 sys_set_robust_list
+
