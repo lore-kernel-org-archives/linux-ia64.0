@@ -1,54 +1,87 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 31 Jan 2007 03:05:56 +0000
-Subject: Re: [PATCH] kexec: Avoid migration of already disabled irqs (ia64)
-Message-Id: <20070131030553.GH14822@verge.net.au>
+From: John Keller <jpk@sgi.com>
+Date: Fri, 26 Jan 2007 22:40:04 +0000
+Subject: [PATCH 1/1] -  increase acpi owner_id max
+Message-Id: <20070126224004.21202.43805.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070130081951.9477.53996.sendpatchset@localhost>
-In-Reply-To: <20070130081951.9477.53996.sendpatchset@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-acpi@vger.kernel.org
+Cc: ayoung@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-On Tue, Jan 30, 2007 at 05:19:51PM +0900, Magnus Damm wrote:
-> kexec: Avoid migration of already disabled irqs (ia64)
-> 
-> This patch fixes up ia64 kexec support for HP rx2620 hardware. It does this 
-> by skipping migration of already disabled irqs. This is most likely a problem
-> on other ia64 platforms as well, but I've only tested this on one machine
-> so far.
-> 
-> The full story is that handle_bad_irq() gets invoked before starting the new 
-> kernel without this patch. This seems to happen when fixup_irqs() calls 
-> generic_handle_irq() on already migrated (and disabled) irqs. So by avoiding
-> migration of disabled irqs we stay away of handle_bad_irq().
-> 
-> Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
+To support systems with large IO configurations,
+this patch increases the number of available ACPI
+owner ids to 1023.
 
-Although I was not seing this problem on my Tiger2, your change
-doesn't seem to break kexec on that patform :)
+On SN platforms, we represent every populated root
+bus slot with an ACPI SSDT table containing info
+for every device and PPB attached to the slot.
+Each SSDT requires a unique ACPI owner id.
 
-Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: John Keller <jpk@sgi.com>
+---
 
-> ---
-> 
->  Tested using kexec-tools-testing 7792798a79b78a5d566f70c9f00237d050b01350
->  on HP rx2620 hardware.
-> 
->  Applies on top of 2.6.20-rc6.
-> 
->  arch/ia64/kernel/irq.c |    3 +++
->  1 file changed, 3 insertions(+)
-> 
-> --- 0001/arch/ia64/kernel/irq.c
-> +++ 0004/arch/ia64/kernel/irq.c	2007-01-30 12:35:10.000000000 +0900
-> @@ -122,6 +122,9 @@ static void migrate_irqs(void)
->  	for (irq=0; irq < NR_IRQS; irq++) {
->  		desc = irq_desc + irq;
->  
-> +		if (desc->status = IRQ_DISABLED)
-> +			continue;
-> +
->  		/*
->  		 * No handling for now.
->  		 * TBD: Implement a disable function so we can now
+ drivers/acpi/utilities/utmisc.c |    6 +++---
+ include/acpi/acconfig.h         |    4 ++--
+ include/acpi/aclocal.h          |    4 ++--
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+
+Index: linux/drivers/acpi/utilities/utmisc.c
+=================================--- linux.orig/drivers/acpi/utilities/utmisc.c	2007-01-25 11:27:25.509259412 -0600
++++ linux/drivers/acpi/utilities/utmisc.c	2007-01-26 13:16:09.551081284 -0600
+@@ -147,7 +147,7 @@ acpi_status acpi_ut_allocate_owner_id(ac
+ 				/*
+ 				 * Construct encoded ID from the index and bit position
+ 				 *
+-				 * Note: Last [j].k (bit 255) is never used and is marked
++				 * Note: Last [j].k (bit 1023) is never used and is marked
+ 				 * permanently allocated (prevents +1 overflow)
+ 				 */
+ 				*owner_id @@ -175,7 +175,7 @@ acpi_status acpi_ut_allocate_owner_id(ac
+ 	 */
+ 	status = AE_OWNER_ID_LIMIT;
+ 	ACPI_ERROR((AE_INFO,
+-		    "Could not allocate new OwnerId (255 max), AE_OWNER_ID_LIMIT"));
++		    "Could not allocate new OwnerId (1023 max), AE_OWNER_ID_LIMIT"));
+ 
+       exit:
+ 	(void)acpi_ut_release_mutex(ACPI_MTX_CACHES);
+@@ -192,7 +192,7 @@ acpi_status acpi_ut_allocate_owner_id(ac
+  *              control method or unloading a table. Either way, we would
+  *              ignore any error anyway.
+  *
+- * DESCRIPTION: Release a table or method owner ID.  Valid IDs are 1 - 255
++ * DESCRIPTION: Release a table or method owner ID.  Valid IDs are 1 - 1023
+  *
+  ******************************************************************************/
+ 
+Index: linux/include/acpi/acconfig.h
+=================================--- linux.orig/include/acpi/acconfig.h	2007-01-25 11:27:25.577267818 -0600
++++ linux/include/acpi/acconfig.h	2007-01-26 13:17:14.111002597 -0600
+@@ -111,9 +111,9 @@
+ 
+ #define ACPI_SYSMEM_REGION_WINDOW_SIZE  4096
+ 
+-/* owner_id tracking. 8 entries allows for 255 owner_ids */
++/* owner_id tracking. 32 entries allow for 1023 owner_ids */
+ 
+-#define ACPI_NUM_OWNERID_MASKS          8
++#define ACPI_NUM_OWNERID_MASKS		32
+ 
+ /******************************************************************************
+  *
+Index: linux/include/acpi/aclocal.h
+=================================--- linux.orig/include/acpi/aclocal.h	2007-01-25 11:27:25.585268807 -0600
++++ linux/include/acpi/aclocal.h	2007-01-26 13:20:06.148115848 -0600
+@@ -122,8 +122,8 @@ static char *acpi_gbl_mutex_names[ACPI_N
+ 
+ /* Owner IDs are used to track namespace nodes for selective deletion */
+ 
+-typedef u8 acpi_owner_id;
+-#define ACPI_OWNER_ID_MAX               0xFF
++typedef u16 acpi_owner_id;
++#define ACPI_OWNER_ID_MAX               0x3FF
+ 
+ /* This Thread ID means that the mutex is not in use (unlocked) */
+ 
