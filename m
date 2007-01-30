@@ -1,123 +1,45 @@
-From: Horms <horms@verge.net.au>
-Date: Sat, 13 Jan 2007 04:05:41 +0000
-Subject: Re: [PATCH] Kdump documentation update for 2.6.20: ia64 portion
-Message-Id: <20070113040541.GB6227@verge.net.au>
+From: Magnus Damm <magnus@valinux.co.jp>
+Date: Tue, 30 Jan 2007 08:19:51 +0000
+Subject: [PATCH] kexec: Avoid migration of already disabled irqs (ia64)
+Message-Id: <20070130081951.9477.53996.sendpatchset@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070112060724.GC17379@verge.net.au> <10EA09EFD8728347A513008B6B0DA77A086BAA@pdsmsx411.ccr.corp.intel.com> <20070112090043.GA27340@verge.net.au> <je1wm0h6vh.fsf@sykes.suse.de>
-In-Reply-To: <je1wm0h6vh.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andreas Schwab <schwab@suse.de>
-Cc: "Zou, Nanhai" <nanhai.zou@intel.com>, Vivek Goyal <vgoyal@in.ibm.com>, Mohan Kumar M <mohan@in.ibm.com>, Andrew Morton <akpm@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi,
+kexec: Avoid migration of already disabled irqs (ia64)
 
-this patch fills in the portions for ia64 kexec.
+This patch fixes up ia64 kexec support for HP rx2620 hardware. It does this 
+by skipping migration of already disabled irqs. This is most likely a problem
+on other ia64 platforms as well, but I've only tested this on one machine
+so far.
 
-I'm actually not sure what options are required for the dump-capture
-kernel, but "init 1 irqpoll maxcpus=1" has been working fine for me.
-Or more to the point, I'm not sure if irqpoll is needed or not.
+The full story is that handle_bad_irq() gets invoked before starting the new 
+kernel without this patch. This seems to happen when fixup_irqs() calls 
+generic_handle_irq() on already migrated (and disabled) irqs. So by avoiding
+migration of disabled irqs we stay away of handle_bad_irq().
 
-This patch requires the documentation patch update that Vivek Goyal has
-been circulating, and I believe is currently in mm. Feel free to fold it
-into that change if it makes things easier for anyone.
+Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
+---
 
-Take II
+ Tested using kexec-tools-testing 7792798a79b78a5d566f70c9f00237d050b01350
+ on HP rx2620 hardware.
 
-Nanhai,
+ Applies on top of 2.6.20-rc6.
 
-I have noted that vmlinux.gz may also be used. And added a note about the
-kernel being able to automatically place the crashkernel region.
-Furthermore, I added a note that if manually specified, the region should
-be 64Mb aligned to avoid wastage. I notice that the auto placement code
-uses 64Mb. But is this strictly neccessary for all page sizes?
+ arch/ia64/kernel/irq.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-Take III
-
-Fixed some typos, thaniks to Andreas Schwab
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-Index: linux-2.6/Documentation/kdump/kdump.txt
-=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt	2007-01-12 17:45:19.000000000 +0900
-+++ linux-2.6/Documentation/kdump/kdump.txt	2007-01-12 17:59:42.000000000 +0900
-@@ -17,7 +17,7 @@
- memory image to a dump file on the local disk, or across the network to
- a remote system.
+--- 0001/arch/ia64/kernel/irq.c
++++ 0004/arch/ia64/kernel/irq.c	2007-01-30 12:35:10.000000000 +0900
+@@ -122,6 +122,9 @@ static void migrate_irqs(void)
+ 	for (irq=0; irq < NR_IRQS; irq++) {
+ 		desc = irq_desc + irq;
  
--Kdump and kexec are currently supported on the x86, x86_64, ppc64 and IA64
-+Kdump and kexec are currently supported on the x86, x86_64, ppc64 and ia64
- architectures.
- 
- When the system kernel boots, it reserves a small section of memory for
-@@ -229,7 +229,23 @@
- 
- Dump-capture kernel config options (Arch Dependent, ia64)
- ----------------------------------------------------------
--(To be filled)
++		if (desc->status = IRQ_DISABLED)
++			continue;
 +
-+- No specific options are required to create a dump-capture kernel
-+  for ia64, other than those specified in the arch idependent section
-+  above. This means that it is possible to use the system kernel
-+  as a dump-capture kernel if desired.
-+  
-+  The crashkernel region can be automatically placed by the system
-+  kernel at run time. This is done by specifying the base address as 0,
-+  or omitting it all together.
-+
-+  crashkernel%6M@0
-+  or
-+  crashkernel%6M
-+
-+  If the start address is specified, note that the start address of the
-+  kernel will be aligned to 64Mb, so if the start address is not then
-+  any space below the alignment point will be wasted.
- 
- 
- Boot into System Kernel
-@@ -248,6 +264,10 @@
- 
-    On ppc64, use "crashkernel8M@32M".
- 
-+   On ia64, 256M@256M is a generous value that typically works.
-+   The region may be automatically placed on ia64, see the
-+   dump-capture kernel config option notes above.
-+
- Load the Dump-capture Kernel
- ==============
- 
-@@ -266,7 +286,8 @@
- For ppc64:
- 	- Use vmlinux
- For ia64:
--	(To be filled)
-+	- Use vmlinux or vmlinuz.gz
-+
- 
- If you are using a uncompressed vmlinux image then use following command
- to load dump-capture kernel.
-@@ -282,18 +303,19 @@
-    --initrd=<initrd-for-dump-capture-kernel> \
-    --append="root=<root-dev> <arch-specific-options>"
- 
-+Please note, that --args-linux does not need to be specified for ia64.
-+It is planned to make this a no-op on that architecture, but for now
-+it should be omitted
-+
- Following are the arch specific command line options to be used while
- loading dump-capture kernel.
- 
--For i386 and x86_64:
-+For i386, x86_64 and ia64:
- 	"init 1 irqpoll maxcpus=1"
- 
- For ppc64:
- 	"init 1 maxcpus=1 noirqdistrib"
- 
--For IA64
--	(To be filled)
--
- 
- Notes on loading the dump-capture kernel:
- 
+ 		/*
+ 		 * No handling for now.
+ 		 * TBD: Implement a disable function so we can now
