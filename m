@@ -1,41 +1,100 @@
-From: Len Brown <lenb@kernel.org>
-Date: Sat, 27 Jan 2007 06:55:17 +0000
-Subject: Re: [PATCH 1/3] - Altix: ACPI SSDT PCI device support
-Message-Id: <200701270155.18596.lenb@kernel.org>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Tue, 30 Jan 2007 20:16:00 +0000
+Subject: [PATCH] EFI x86: pass firmware call parameters on the stack
+Message-Id: <20070130201600.GA10526@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20061115152454.6047.64973.sendpatchset@attica.americas.sgi.com> <20070126171048.5f0bf293.akpm@osdl.org>
-In-Reply-To: <20070126171048.5f0bf293.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: John Keller <jpk@sgi.com>, linux-acpi@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, gregkh@suse.de, linux-kernel@vger.kernel.org, ayoung@sgi.com, jes@sgi.com, "Starikovskiy, Alexey" <alexey.y.starikovskiy@linux.intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Friday 26 January 2007 20:10, Andrew Morton wrote:
-> On Wed, 15 Nov 2006 09:24:54 -0600
-> John Keller <jpk@sgi.com> wrote:
-> 
-> > Add SN platform support for running with an ACPI
-> > capable PROM that defines PCI devices in SSDT
-> > tables. There is a SSDT table for every occupied
-> > slot on a root bus, containing info for every
-> > PPB and/or device on the bus. The SSDTs will be
-> > dynamically loaded/unloaded at hotplug enable/disable.
-> 
-> An additional 600kb of diff has just popped up in the ACPI tree, so none of
-> this patch applies any more.  I'll need to drop it again, sorry.
-> 
-> It's been over two months - I'm not sure why things are so difficult for
-> this patchset.
+FYI, this was sent to lkml.  I haven't reviewed yet.
+-Matt
 
-it is because
-1. this didn't make it into 2.6.20 before -rc1, and Linus prohibits adding features thereafter
-2. these patches simultaneously depend on ACPI, hotplug, and IA64 platform dependent code,
-    so it isn't always clear who owns them.  However, if Greg and Tony Ack them,
-    I'll be happy to carry them upstream with the ACPI tree.
+----- Forwarded message from Fr?d?ric Riss <frederic.riss@gmail.com> -----
 
-I'll reply to this note with a shim patch to help these apply, and a  pair of refreshed SGI patches
-that apply on top of the ACPI tree.  Build tested vs sn2_defconfig , but SGI will have to test it on hardware.
+Subject: [PATCH] EFI x86: pass firmware call parameters on the stack
+From: Fr?d?ric Riss <frederic.riss@gmail.com>
+To: linux-kernel@vger.kernel.org
+Cc: artiom.myaskouvskey@intel.com, bjorn.helgaas@hp.com, akpm@osdl.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Date: 	Tue, 30 Jan 2007 20:01:18 +0100
 
-thanks,
--Len
+
+When calling into an EFI firmware, the parameters need to be passed on
+the stack. The recent change to use -mregparm=3 breaks x86 EFI support.
+This patch is needed to allow the new Intel-based Macs to suspend to ram
+when run in EFI mode (efi.get_time is called during the suspend phase).
+
+Signed-off-by: Frederic Riss <frederic.riss@gmail.com>
+
+---
+
+[As I couldn't find an official maintainer for the linux/efi.h file and
+the file header is quite old, I'm Cc:ing the last 2 commiters.]
+
+This patch fixes the issue for x86, but the file is also used by IA64. I
+would have used asmlinkage to force arguments on the stack, but it has a
+special meaning on IA64, thus I used a raw regparm(0) GCC attribute.
+This attribute is documented only for x86, I hope it has no side effect
+on other archs.
+
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index df1c918..1db5321 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -157,25 +157,35 @@ typedef struct {
+ 	unsigned long reset_system;
+ } efi_runtime_services_t;
+ 
+-typedef efi_status_t efi_get_time_t (efi_time_t *tm, efi_time_cap_t *tc);
+-typedef efi_status_t efi_set_time_t (efi_time_t *tm);
++typedef efi_status_t efi_get_time_t (efi_time_t *tm, efi_time_cap_t *tc)
++			__attribute__((regparm(0)));
++typedef efi_status_t efi_set_time_t (efi_time_t *tm)
++			__attribute__((regparm(0)));
+ typedef efi_status_t efi_get_wakeup_time_t (efi_bool_t *enabled, efi_bool_t *pending,
+-					    efi_time_t *tm);
+-typedef efi_status_t efi_set_wakeup_time_t (efi_bool_t enabled, efi_time_t *tm);
++					    efi_time_t *tm)
++			__attribute__((regparm(0)));
++typedef efi_status_t efi_set_wakeup_time_t (efi_bool_t enabled, efi_time_t *tm)
++			__attribute__((regparm(0)));
+ typedef efi_status_t efi_get_variable_t (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,
+-					 unsigned long *data_size, void *data);
++					 unsigned long *data_size, void *data)
++			__attribute__((regparm(0)));
+ typedef efi_status_t efi_get_next_variable_t (unsigned long *name_size, efi_char16_t *name,
+-					      efi_guid_t *vendor);
++					      efi_guid_t *vendor)
++			__attribute__((regparm(0)));
+ typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor, 
+ 					 unsigned long attr, unsigned long data_size, 
+-					 void *data);
+-typedef efi_status_t efi_get_next_high_mono_count_t (u32 *count);
++					 void *data)
++			__attribute__((regparm(0)));
++typedef efi_status_t efi_get_next_high_mono_count_t (u32 *count)
++			__attribute__((regparm(0)));
+ typedef void efi_reset_system_t (int reset_type, efi_status_t status,
+-				 unsigned long data_size, efi_char16_t *data);
++				 unsigned long data_size, efi_char16_t *data)
++			__attribute__((regparm(0)));
+ typedef efi_status_t efi_set_virtual_address_map_t (unsigned long memory_map_size,
+ 						unsigned long descriptor_size,
+ 						u32 descriptor_version,
+-						efi_memory_desc_t *virtual_map);
++						efi_memory_desc_t *virtual_map)
++			__attribute__((regparm(0)));
+ 
+ /*
+  *  EFI Configuration Table and GUID definitions
+
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+----- End forwarded message -----
