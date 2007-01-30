@@ -1,224 +1,178 @@
 From: "bibo,mao" <bibo.mao@intel.com>
-Date: Wed, 31 Jan 2007 09:50:31 +0000
-Subject: [Patch] ia64 enable singlestep on system call
-Message-Id: <45C06667.9080904@intel.com>
+Date: Tue, 30 Jan 2007 03:02:19 +0000
+Subject: [Resend] ia64 find thread for user rbs address
+Message-Id: <45BEB53B.9060506@intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------000607080709000404050409"
+Content-Type: multipart/mixed; boundary="------------050701070603080605070009"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Roland McGrath <roland@redhat.com>, "Keshavamurthy, Anil S" <anil.s.keshavamurthy@intel.com>
 
 This is a multi-part message in MIME format.
---------------000607080709000404050409
+--------------050701070603080605070009
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
 hi,
- As is pointed out in 
-http://www.gelato.org/community/view_linear.php?id=1_1036&from=authors&value=Ian%20Wienand#1_1039,
-if single step on break instruction, the break fault has higher
-priority than the single-step trap. When the break fault handler
-is entered, it advances the IP by 1 instruction so break instruction
-single-stepping is skipped, actually it is next instruction which
-is single stepped.
+  I encountered one problem when running ptrace test case which
+is in the attachment, the situation is this: traced process's
+syscall parameter needs to be accessed, but for sys_clone system
+call with clone_flag (CLONE_VFORK | CLONE_VM | SIGCHLD) parameter.
+This syscall's parameter accessing result is wrong.
 
- This patch modifies this, it adds TIF_SINGLESTEP bit for thread
-flags, and generate a fake sigtrap when single stepping break
-instruction. Test case in attachment can verify this. Any comments
-is welcome.
-
-Signed-off-by: bibo, mao <bibo.mao@intel.com>
+  The reason is that vforked child process mm point is the same,
+but tgid is different. Without this patch find_thread_for_addr
+will return vforked process if vforked process is also stopped,
+but not the thread which calls vfork syscall.
 
 thanks
-bibo,mao 
+bibo,mao
 
---------------------------------------------------------
- arch/ia64/kernel/ptrace.c      |   12 ++++++------
- include/asm-ia64/thread_info.h |    4 +++-
- 2 files changed, 9 insertions(+), 7 deletions(-)
+------------------------------------------------------------------
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index aa705e4..2131db4 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -607,7 +607,7 @@ find_thread_for_addr (struct task_struct
+ 	 */
+  	list_for_each_safe(this, next, &current->children) {
+ 		p = list_entry(this, struct task_struct, sibling);
+-		if (p->mm != mm)
++		if (p->tgid != child->tgid)
+ 			continue;
+ 		if (thread_matches(p, addr)) {
+ 			child = p;
 
-diff -Nrup -X /root/dontdiff 2.6.20-rc6.org/arch/ia64/kernel/ptrace.c 2.6.20-rc6/arch/ia64/kernel/ptrace.c
---- 2.6.20-rc6.org/arch/ia64/kernel/ptrace.c	2006-09-25 15:20:42.000000000 +0800
-+++ 2.6.20-rc6/arch/ia64/kernel/ptrace.c	2007-01-31 18:04:45.000000000 +0800
-@@ -1405,6 +1405,7 @@ ptrace_disable (struct task_struct *chil
- 	struct ia64_psr *child_psr = ia64_psr(task_pt_regs(child));
- 
- 	/* make sure the single step/taken-branch trap bits are not set: */
-+	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
- 	child_psr->ss = 0;
- 	child_psr->tb = 0;
- }
-@@ -1525,6 +1526,7 @@ sys_ptrace (long request, pid_t pid, uns
- 		 * Make sure the single step/taken-branch trap bits
- 		 * are not set:
- 		 */
-+		clear_tsk_thread_flag(child, TIF_SINGLESTEP);
- 		ia64_psr(pt)->ss = 0;
- 		ia64_psr(pt)->tb = 0;
- 
-@@ -1556,6 +1558,7 @@ sys_ptrace (long request, pid_t pid, uns
- 			goto out_tsk;
- 
- 		clear_tsk_thread_flag(child, TIF_SYSCALL_TRACE);
-+		set_tsk_thread_flag(child, TIF_SINGLESTEP);
- 		if (request == PTRACE_SINGLESTEP) {
- 			ia64_psr(pt)->ss = 1;
- 		} else {
-@@ -1595,13 +1598,9 @@ sys_ptrace (long request, pid_t pid, uns
- }
- 
- 
--void
-+static void
- syscall_trace (void)
- {
--	if (!test_thread_flag(TIF_SYSCALL_TRACE))
--		return;
--	if (!(current->ptrace & PT_PTRACED))
--		return;
- 	/*
- 	 * The 0x80 provides a way for the tracing parent to
- 	 * distinguish between a syscall stop and SIGTRAP delivery.
-@@ -1664,7 +1663,8 @@ syscall_trace_leave (long arg0, long arg
- 		audit_syscall_exit(success, result);
- 	}
- 
--	if (test_thread_flag(TIF_SYSCALL_TRACE)
-+	if ((test_thread_flag(TIF_SYSCALL_TRACE)
-+	    || test_thread_flag(TIF_SINGLESTEP))
- 	    && (current->ptrace & PT_PTRACED))
- 		syscall_trace();
- }
-diff -Nrup -X /root/dontdiff 2.6.20-rc6.org/include/asm-ia64/thread_info.h 2.6.20-rc6/include/asm-ia64/thread_info.h
---- 2.6.20-rc6.org/include/asm-ia64/thread_info.h	2007-01-30 17:57:16.000000000 +0800
-+++ 2.6.20-rc6/include/asm-ia64/thread_info.h	2007-01-31 18:01:48.000000000 +0800
-@@ -84,6 +84,7 @@ struct thread_info {
- #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
- #define TIF_SYSCALL_TRACE	3	/* syscall trace active */
- #define TIF_SYSCALL_AUDIT	4	/* syscall auditing active */
-+#define TIF_SINGLESTEP		5	/* restore singlestep on return to user mode */
- #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
- #define TIF_MEMDIE		17
- #define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
-@@ -92,7 +93,8 @@ struct thread_info {
- 
- #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
- #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
--#define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
-+#define _TIF_SINGLESTEP		(1 << TIF_SINGLESTEP)
-+#define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP)
- #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
- #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
- #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
-
---------------000607080709000404050409
+--------------050701070603080605070009
 Content-Type: text/plain;
- name="singlestep.c"
+ name="vfork.c"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="singlestep.c"
+ filename="vfork.c"
 
-#include <errno.h>
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <sched.h>
+#include <asm/rse.h>
 //#include <asm/ptrace.h>
 #include <asm/ptrace_offsets.h>
 
-char *prog_name;
+#define PTRACE_EVENT_FORK 1
+#define PTRACE_EVENT_VFORK 2
+#define PTRACE_EVENT_CLONE 3
+#define PTRACE_EVENT_EXEC 4
+#define PTRACE_EVENT_VFORK_DONE 5
+#define PTRACE_EVENT_EXIT 6
+#define PTRACE_SETOPTIONS 0x4200
+#define PTRACE_GETEVENTMSG 0x4201
+#define PTRACE_O_TRACESYSGOOD 0x00000001
+#define PTRACE_O_TRACEFORK 0x00000002
+#define PTRACE_O_TRACEVFORK 0x00000004
+#define PTRACE_O_TRACECLONE 0x00000008
+#define PTRACE_O_TRACEEXEC 0x00000010
+#define PTRACE_O_TRACEVFORKDONE 0x00000020
+#define PTRACE_O_TRACEEXIT 0x00000040
+#define PALL PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE \
+	| PTRACE_O_TRACEEXEC | PTRACE_O_TRACEVFORKDONE | PTRACE_O_TRACEEXIT
 
-/* this is entry address in kernel gate page for break syscall 
- * this macro need be changed with kernel
- */
-#define __kernel_syscall_via_break 0xa000000000010620UL
-
-/* here is syscall_via_break code in kernel side, break instruction
- * is the first slot of the bundle
- * GLOBAL_ENTRY(__kernel_syscall_via_break)
- * { .mib
- *       break 0x100000
- *       nop.i 0
- *       br.ret.sptk.many b6
- *}
-*/
-static int singlestep_slot1, singlestep_slot2;
-void print_instruction (int child_pid, int state)
+void fetch_clone_flags(pid_t pid, unsigned long* clone_flags)
 {
-	long ip, slot;
-	unsigned long psr;
+	struct pt_all_user_regs ptregs;
+	unsigned long bsp, cfm, sof, sol;
+	unsigned long addr;
+	long ret;
 
-	ip = ptrace (PTRACE_PEEKUSER, child_pid, PT_CR_IIP, 0);
-	psr = ptrace(PTRACE_PEEKUSER, child_pid, PT_CR_IPSR, 0);
-	slot = (psr >> 41) & 0x3;
-	if (ip == __kernel_syscall_via_break) {
-		if (slot == 1)
-			singlestep_slot1++;
-		else if (slot == 2)
-			singlestep_slot2++;
+	ret = ptrace(PTRACE_GETREGS, pid, 0, (unsigned long)&ptregs);
+	bsp = ptrace (PTRACE_PEEKUSER, pid, PT_AR_BSP, 0);
+	cfm = ptrace (PTRACE_PEEKUSER, pid, PT_CFM, 0);
+	sof = (cfm >> 0) & 0x7f;
+	sol = (cfm >> 7) & 0x7f;
+	bsp = (unsigned long) ia64_rse_skip_regs((void *) bsp, -sof + sol);
+	addr= (unsigned long) ia64_rse_skip_regs((void *) bsp, 0);
+	ret = ptrace (PTRACE_PEEKTEXT, pid, addr, (unsigned long) clone_flags);
+	*clone_flags = ret;
+}
+
+/* Wrapper function for waitpid which handles EINTR.  */
+static int my_waitpid (int pid, int *status, int flags)
+{
+  int ret;
+  int old_status = status ? *status : 0;
+  do {
+      ret = waitpid (pid, status, flags);
+    }
+  while (ret == -1 && errno == EINTR);
+
+  if (ret == 0 && status != 0) 
+      *status = old_status;
+
+  return ret;
+}
+
+int main() {
+	unsigned long pid, npid ;
+	int status, event,ret, child_status;
+	char *stack ;
+	unsigned long clone_flags;
+
+	pid = fork();
+	if(pid == 0)
+	{
+		ptrace(PTRACE_TRACEME,0,NULL,NULL) ;
+		kill (getpid (), SIGSTOP);
+		if (vfork() == 0){
+			execve("/bin/true",NULL,NULL) ;
+		}
+		exit(0) ;
+	}
+
+	ret =  my_waitpid(pid, &status, 0);
+	if (!WIFSTOPPED(status)) {
+		perror("waitpid failed unexpected tstatus \n");
+		return -1;
+	}
+	if (ptrace(PTRACE_SETOPTIONS,pid,NULL,PALL) < 0) {
+		perror("PTRACE_SETOPTIONS not supported\n");
+		return -1;
+	}
+	if (ptrace(PTRACE_CONT,pid,0,0) < 0) {
+		perror("PTRACE_CONT \n");
+		return -1;
+	}
+	if ( my_waitpid(pid,&status,0) < 0) {
+		perror("wait4 failed");
+		return -1;
+	}
+	event = (status >> 16) & 0xffff ;
+	if (event == PTRACE_EVENT_FORK 
+	    || event == PTRACE_EVENT_VFORK
+	    || event == PTRACE_EVENT_CLONE) {
+		if (ptrace(PTRACE_GETEVENTMSG,pid,NULL,&npid) < 0) {
+			perror("PTRACE_GETEVENTMSG\n");
+			return -1;
+		}
+		sleep(1);
+		fetch_clone_flags(pid, &clone_flags);
+		if (clone_flags == (CLONE_VFORK | CLONE_VM | SIGCHLD))
+			printf("PTRACE_PEEKUSER succeed\n");	
+		else
+			printf("PTRACE_PEEKUSER failed\n");	
+		if (my_waitpid(npid,&child_status,0) < 0) {
+			perror("waitpid \n"); 
+			return -1;
+		}
+		ptrace (PTRACE_KILL, npid, 0, 0);
+		ptrace (PTRACE_KILL, pid, 0, 0); 
+		//ptrace(PTRACE_CONT, npid, 0, WSTOPSIG(child_status));
+		//ptrace(PTRACE_CONT, pid, 0, WSTOPSIG(status));
+		my_waitpid(-1,&status,0);
 	} 
+	return 0 ;
 }
 
-int main (int argc, char **argv, char **envp)
-{
-	int status, pid, child_pid, state = 1, arg = 1;
-	int ret;
-
-	singlestep_slot1 = singlestep_slot2 = 0;
-	prog_name = argv[0];
-
-	child_pid = fork ();
-	if (child_pid == 0)
-	{
-		ptrace (PTRACE_TRACEME, 0, 0, 0);
-		execve (argv[arg], argv + arg, envp);
-		printf ("%s: execve failed (errno=%d)\n", prog_name, errno);
-		exit(-2);
-	}
-
-	while (1)
-	{
-		pid = wait4 (-1, &status, 0, 0);
-		if (pid == -1)
-		{
-			if (errno == EINTR)
-				continue;
-
-			printf ("%s: wait4() failed (errno=%d)\n", prog_name, errno);
-		}
-		if (WIFSIGNALED (status) || WIFEXITED (status)
-				|| (WIFSTOPPED (status) && WSTOPSIG (status) != SIGTRAP))
-		{
-			if (WIFEXITED (status))
-			{
-				printf ("%s: exit status %d\n", prog_name, WEXITSTATUS (status));
-				break;
-			}
-			else if (WIFSIGNALED (status))
-			{
-				printf ("%s: terminated by signal %d\n",
-						prog_name, WTERMSIG (status));
-			}
-			else {
-				printf ("%s: got signal %d\n", prog_name, WSTOPSIG (status));
-			}
-		}
-		print_instruction (child_pid, state);
-		ptrace (PTRACE_SINGLESTEP, child_pid, 0, 0);
-	}
-	if (WEXITSTATUS (status) == 0) {
-		if (singlestep_slot1 == 0)
-			printf("single step on syscall failed\n");
-		else {
-			printf("single step on syscall succeed\n");
-			printf("single step on break bundle slot 0: %d slot 1: %d \n",
-					singlestep_slot1, singlestep_slot2);
-		}
-	}
-	return 0;
-}
-
---------------000607080709000404050409--
+--------------050701070603080605070009--
