@@ -1,28 +1,36 @@
-From: "Karthik Gopalakrishnan" <karthik.g.krishnan@gmail.com>
-Date: Tue, 02 Jan 2007 18:54:37 +0000
-Subject: Re: Kernel Build failing due to "trying to assign nonexistent symbol"
-Message-Id: <5e0a1fd80701021054p92b18cas85fd2ba75834b415@mail.gmail.com>
+From: Aron Griffis <aron@hp.com>
+Date: Wed, 31 Jan 2007 18:48:31 +0000
+Subject: git tree 6 weeks old?
+Message-Id: <20070131184830.GD20942@fc.hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Md/poaVZ8hnGTzuv"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5e0a1fd80701020523j1b699377pce0c4d86723967a9@mail.gmail.com>
-In-Reply-To: <5e0a1fd80701020523j1b699377pce0c4d86723967a9@mail.gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 1/2/07, Matthew Wilcox <matthew@wil.cx> wrote:
-> On Tue, Jan 02, 2007 at 06:53:37PM +0530, Karthik Gopalakrishnan wrote:
-> >    I have added a few new files in the console directory to try to
-> > support a new console device. I am trying to get them to compile. I
-> > have made the necessary   obj-${CONFIG_FUNC_FOO}  += foo_file.o
-> > change to the Makefile in the "/drivers/video/console/" directory. I
-> > have also set CONFIG_FUNC_FOO=y in the .config file. However, when I
-> > try to build the kernel, I get the following message.
->
-> You need to add a Kconfig stanza for FUNC_FOO.  Look in
-> drivers/video/console/Kconfig for examples.
->
-Oh my... Blunder on my part. Thanks.
 
-Regards,
-Karthik
+--Md/poaVZ8hnGTzuv
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+
+Hi Tony,
+
+It looks like the linux-ia64 git tree on kernel.org is 6 weeks old.
+Will it be updated with recent patches soon, or am I missing
+something?
+
+Thanks,
+Aron
+
+--Md/poaVZ8hnGTzuv
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFFwOR+JrHF4yAQTrARAvLpAKDDCezOXvYG3w8okvZgddf0eRZhyACfaH9F
+sbYd9fOneq2qAqMSlbvtR0o=
+=k+mn
+-----END PGP SIGNATURE-----
+
+--Md/poaVZ8hnGTzuv--
