@@ -1,44 +1,29 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 01 Feb 2007 02:43:31 +0000
-Subject: RE: [PATCH] IA64 kexec-tools: efi_memmap overflow on large systems
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BCA@pdsmsx411.ccr.corp.intel.com>
+From: "Tony Luck" <tony.luck@intel.com>
+Date: Thu, 01 Feb 2007 17:17:06 +0000
+Subject: Re: git tree 6 weeks old?
+Message-Id: <12c511ca0702010917r3a53cdc3ve433fd27dd4c6967@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <45C1484E.3020300@sgi.com>
-In-Reply-To: <45C1484E.3020300@sgi.com>
+References: <20070131184830.GD20942@fc.hp.com>
+In-Reply-To: <20070131184830.GD20942@fc.hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> -----Original Message-----
-> From: Jay Lan [mailto:jlan@sgi.com]
-> Sent: 2007=C4=EA2=D4=C21=C8=D5 9:54
-> To: fastboot
-> Cc: Linux-IA64; Zou, Nanhai
-> Subject: [PATCH] IA64 kexec-tools: efi_memmap overflow on large systems
->=20
-> This patch fixes a efi_memmap overflow problem on large system.
-> Currently the kexec allocates statically 16k buffer to contain
-> efi_memmap. It can hold about 333 entries. It causes data
-> corruption on large system.
->=20
-> This patch would let kexec allocate the efi_memmap at run time using
-> the actual size allocated in the production kernel.
->=20
->=20
-> Signed-off-by: Jay Lan <jlan@sgi.com>
+On 1/31/07, Aron Griffis <aron@hp.com> wrote:
+> It looks like the linux-ia64 git tree on kernel.org is 6 weeks old.
+> Will it be updated with recent patches soon, or am I missing
+> something?
 
 
-Another hardcode limit needs to be eliminated, the CRASH_MAX_MEMORY_RANGE i=
-n crashdump-ia64.c.=20
-Since SN systems may scale to hundreds of nodes, each node may contain up t=
-o 12 DIMMs.
+Replying again as my message from yesterday afternoon hasn't shown up on
+the list.
 
-I guess the current 1024 limit is not enough for those super computers.
+Yes I'm behind ... but yes the tree will be updated with the excellent
+patches that you've all been providing, and I'll be doing so soon.  I don't
+want to dump all this backlog into -rc7 though.  If anyone has patches
+that absolutely positively must go in before 2.6.20-final happens, then
+let me know.  Otherwise I'll be batching them all in when the floodgates
+are opened for the next cycle.
 
-So we need to count crash memory ranges from /proc/iomem and allocated cras=
-h_memory_range dynamically.
-
-Thanks
-Zou Nan hai=20
-  =20
+-Tony
