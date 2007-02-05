@@ -1,79 +1,80 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 08 Feb 2007 01:25:36 +0000
-Subject: RE: [PATCH] Hook up getcpu system call for IA64
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BDF@pdsmsx411.ccr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Mon, 05 Feb 2007 01:59:03 +0000
+Subject: Zero size /proc/vmcore on ia64
+Message-Id: <20070205015901.GA31446@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070206000757.GA32026@linux-os.sc.intel.com>
-In-Reply-To: <20070206000757.GA32026@linux-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi, 
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Luck, Tony
-> Sent: 2007=C4=EA2=D4=C28=C8=D5 2:00
-> To: Ken Chen; Yu, Fenghua
-> Cc: linux-ia64@vger.kernel.org
-> Subject: RE: [PATCH] Hook up getcpu system call for IA64
->=20
-> > Andi Kleen used to lecture me every so often why it is important to
-> > have fast vgetcpu on x86-64 (I don't think ia64 is excluded from
-> > that).  His lecture is also all over the lkml mailing list.
->=20
-> I dug though that thread ... it isn't ever explicitly stated, but
-> it does appear that the intent is that a NUMA aware application
-> would use a malloc() library that called getcpu() on every memory
-> allocation.  If that is the usage model, then I'll agree that
-> getcpu() does need to be fast.
->=20
-> One possible way to achieve that on ia64 would be to make use of the
-> fact that the ar.k* registers are readable by applications, and
-> specifically ar.k3 contains a per-cpu value (physical address of the
-> kernel percpu area).  *IF* (and that is a BIG IF) we were to guarantee
-> to maintain ar.k3 as a per-cpu unique value, then we could implement
-> a very fast (even faster than fsys.S) getcpu() as:
->=20
-> #define __NR_getcpu                     1304
->=20
-> int
-> getcpu(unsigned *cpup, unsigned *nodep, void *cachep)
-> {
-> 	static unsigned cpu =3D ~0, node =3D ~0;
-> 	static unsigned long save_ar_k3;
-> 	unsigned long ar_k3;
->=20
-> 	asm volatile ("mov %0=3Dar.k3" : "=3Dr" (ar_k3));
-> 	if (cpu =3D ~0 || ar_k3 !=3D save_ar_k3) {
-> 		if (syscall(__NR_getcpu, &cpu, &node, 0) =3D -1)
-> 			return -1;
-> 		save_ar_k3 =3D ar_k3;
-> 	}
-> 	*cpup =3D cpu;
-> 	*nodep =3D node;
->=20
-> 	return 0;
-> }
->=20
->=20
-> Too ugly for words?  Or worth serious consideration?
->=20
-> -Tony
+I have been poking around this problem a bit over the past week,
+and I thought it would be a good idea to get it out in the open.
 
-I think it is possible to pin ar.k3 to processor id, then change the raw_sm=
-p_processor_id() implementation.
-This should be better than current raw_smp_processor_id() implementation.
+At some stage /proc/vmcore (in a crash-kernel) went from being
+something useful, to being zero size. 
 
-Then we could implement sys_getcpu in fsys.S
-That could not be very complex, only thing we need to care is exception han=
-dle in fsys code.
+I initially thought this was because saved_max_pfn was not being 
+set correctly. And indeed it is not set for discontig memory.
+But the trivial fix below has not been sufficient to resolve the problem :(
 
-Thanks
-Zou Nan hai
+The problem seems to be along the lines of:
+  * kexec-tool sets up a segment to contain the elf header.
+  * This segment happens to be almost at the end of the crashkernel area
+    of memory that is visible to the crash kernel.
+  * However, when purgatory munges the EFI map, this segment
+    is marked as EFI_UNUSABLE_MEMORY.
+  * As a result of this it is not in a range covered by efi_memmap_walk()
+  * And thus it is outside the range of memory covered by a valid PFN
+    (remember its at the end of memory, it turns out that the
+     max PFN covers memory up until just before the header)
+  * The header can't be read by the vmcore setup code
+  * And vmcore is uninitialised
 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+     read_from_oldmem: error: pfn (32761) > saved_max_pfn (31744)
+     Kdump: vmcore not initialized
+
+     The saved_max_pfn error above is produced by debuging code
+     that I added to read_from_oldmem().
+     It also uses the patch below, otherwise saved_max_pfn is 0.
+
+For reference:
+  I am using today's linus tree (2.6.20)
+  The problem seems to have been around since at least 2.6.19-rc6
+  I have a Tiger2 system using disctontig memory
+  The problem also seems to manifest when using contig memory
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
+Set saved_max_pfn when discontig memory is in use.
+
+This sets up saved_max_pfn when disctontig memory is in use.
+This mirrors the code for contig memory.
+
+This patch does not entirely solve the problem of making vmcore work,
+however it does appear to be neccessary. Please consider applying.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 96722cb..999cefd 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -506,6 +509,12 @@ void __init find_memory(void)
+ 	max_pfn = max_low_pfn;
+ 
+ 	find_initrd();
++
++#ifdef CONFIG_CRASH_DUMP
++	/* If we are doing a crash dump, we still need to know the real mem
++	 * size before original memory map is reset. */
++        saved_max_pfn = max_pfn;
++#endif
+ }
+ 
+ #ifdef CONFIG_SMP
