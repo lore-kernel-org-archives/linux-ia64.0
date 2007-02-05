@@ -1,120 +1,58 @@
-From: akpm@linux-foundation.org
-Date: Tue, 06 Feb 2007 00:20:04 +0000
-Subject: [patch 10/13] ia64: register memory ranges in a consistent manner
-Message-Id: <200702060021.l160L7hT004210@shell0.pdx.osdl.net>
+From: Horms <horms@verge.net.au>
+Date: Mon, 05 Feb 2007 01:18:00 +0000
+Subject: [PATCH] [IA64] kexec: Move machine_shutdown from machine_kexec.c to process.c
+Message-Id: <20070205011758.GD31046@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: "Bob Picco" <bob.picco@hp.com>
+This moves the ia64 implementation of machine_shutdown() from
+machine_kexec.c to process.c, which is in keeping with the implelmentation
+on other architectures, and seems like a much more appropriate home for it.
 
-While pursuing and unrelated issue with 64Mb granules I noticed a problem
-related to inconsistent use of add_active_range.  There doesn't appear any
-reason to me why FLATMEM versus DISCONTIG_MEM should register memory to
-add_active_range with different code.  So I've changed the code into a
-common implementation.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-The other subtle issue fixed by this patch was calling add_active_range in
-count_node_pages before granule aligning is performed.  We were lucky with
-16MB granules but not so with 64MB granules.  count_node_pages has reserved
-regions filtered out and as a consequence linked kernel text and data
-aren't covered by calls to count_node_pages.  So linked kernel regions
-wasn't reported to add_active_regions.  This resulted in free_initmem
-causing numerous bad_page reports.  This won't occur with this patch
-because now all known memory regions are reported by
-register_active_ranges.
-
-Acked-by: Mel Gorman <mel@csn.ul.ie>
-Signed-off-by: Bob Picco <bob.picco@hp.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Acked-by: Simon Horman <horms@verge.net.au>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- arch/ia64/mm/discontig.c   |    4 +++-
- arch/ia64/mm/init.c        |   19 +++++++++++++++++--
- include/asm-ia64/meminit.h |    3 ++-
- 3 files changed, 22 insertions(+), 4 deletions(-)
-
-diff -puN arch/ia64/mm/discontig.c~ia64-register-memory-ranges-in-a-consistent-manner arch/ia64/mm/discontig.c
---- a/arch/ia64/mm/discontig.c~ia64-register-memory-ranges-in-a-consistent-manner
-+++ a/arch/ia64/mm/discontig.c
-@@ -473,6 +473,9 @@ void __init find_memory(void)
- 			node_clear(node, memory_less_mask);
- 			mem_data[node].min_pfn = ~0UL;
- 		}
-+
-+	efi_memmap_walk(register_active_ranges, NULL);
-+
- 	/*
- 	 * Initialize the boot memory maps in reverse order since that's
- 	 * what the bootmem allocator expects
-@@ -654,7 +657,6 @@ static __init int count_node_pages(unsig
+Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c	2006-12-18 12:56:04.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2006-12-18 12:56:52.000000000 +0900
+@@ -69,17 +69,6 @@
  {
- 	unsigned long end = start + len;
- 
--	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
- 	mem_data[node].num_physpages += len >> PAGE_SHIFT;
- 	if (start <= __pa(MAX_DMA_ADDRESS))
- 		mem_data[node].num_dma_physpages +diff -puN arch/ia64/mm/init.c~ia64-register-memory-ranges-in-a-consistent-manner arch/ia64/mm/init.c
---- a/arch/ia64/mm/init.c~ia64-register-memory-ranges-in-a-consistent-manner
-+++ a/arch/ia64/mm/init.c
-@@ -19,6 +19,7 @@
- #include <linux/swap.h>
- #include <linux/proc_fs.h>
- #include <linux/bitops.h>
-+#include <linux/kexec.h>
- 
- #include <asm/a.out.h>
- #include <asm/dma.h>
-@@ -614,13 +615,27 @@ find_largest_hole (u64 start, u64 end, v
- 	return 0;
  }
  
-+#endif /* CONFIG_VIRTUAL_MEM_MAP */
-+
- int __init
- register_active_ranges(u64 start, u64 end, void *arg)
- {
--	add_active_range(0, __pa(start) >> PAGE_SHIFT, __pa(end) >> PAGE_SHIFT);
-+	int nid = paddr_to_nid(__pa(start));
-+
-+	if (nid < 0)
-+		nid = 0;
-+#ifdef CONFIG_KEXEC
-+	if (start > crashk_res.start && start < crashk_res.end)
-+		start = crashk_res.end;
-+	if (end > crashk_res.start && end < crashk_res.end)
-+		end = crashk_res.start;
-+#endif
-+
-+	if (start < end)
-+		add_active_range(nid, __pa(start) >> PAGE_SHIFT,
-+			__pa(end) >> PAGE_SHIFT);
- 	return 0;
+-void machine_shutdown(void)
+-{
+-	int cpu;
+-
+-	for_each_online_cpu(cpu) {
+-		if (cpu != smp_processor_id())
+-			cpu_down(cpu);
+-	}
+-	kexec_disable_iosapic();
+-}
+-
+ /*
+  * boot_param is used inside purgatory and purgatory runs
+  * in physical mode, so translate the addresses that purgatory
+Index: linux-2.6/arch/ia64/kernel/process.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/process.c	2006-12-18 12:56:10.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/process.c	2006-12-18 12:56:18.000000000 +0900
+@@ -797,6 +797,17 @@
+ 		ia64_pal_halt(min_power_state);
  }
--#endif /* CONFIG_VIRTUAL_MEM_MAP */
  
- static int __init
- count_reserved_pages (u64 start, u64 end, void *arg)
-diff -puN include/asm-ia64/meminit.h~ia64-register-memory-ranges-in-a-consistent-manner include/asm-ia64/meminit.h
---- a/include/asm-ia64/meminit.h~ia64-register-memory-ranges-in-a-consistent-manner
-+++ a/include/asm-ia64/meminit.h
-@@ -51,12 +51,13 @@ extern void efi_memmap_init(unsigned lon
- 
- #define IGNORE_PFN0	1	/* XXX fix me: ignore pfn 0 until TLB miss handler is updated... */
- 
-+extern int register_active_ranges(u64 start, u64 end, void *arg);
++void machine_shutdown(void)
++{
++	int cpu;
 +
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- # define LARGE_GAP	0x40000000 /* Use virtual mem map if hole is > than this */
-   extern unsigned long vmalloc_end;
-   extern struct page *vmem_map;
-   extern int find_largest_hole (u64 start, u64 end, void *arg);
--  extern int register_active_ranges (u64 start, u64 end, void *arg);
-   extern int create_mem_map_page_table (u64 start, u64 end, void *arg);
-   extern int vmemmap_find_next_valid_pfn(int, int);
- #else
-_
++	for_each_online_cpu(cpu) {
++		if (cpu != smp_processor_id())
++			cpu_down(cpu);
++	}
++	kexec_disable_iosapic();
++}
++
+ void
+ machine_restart (char *restart_cmd)
+ {
