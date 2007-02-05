@@ -1,41 +1,31 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Mon, 05 Feb 2007 01:02:59 +0000
-Subject: RE: [Fastboot] [PATCH] kexec: Fix CONFIG_SMP=n compilation (ia64)
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BD4@pdsmsx411.ccr.corp.intel.com>
+From: "Magnus Damm" <magnus.damm@gmail.com>
+Date: Mon, 05 Feb 2007 06:41:37 +0000
+Subject: Re: [Fastboot] [PATCH] kexec: Fix CONFIG_SMP=n compilation (ia64)
+Message-Id: <aec7e5c30702042241s102a4ff3t475e0d3a22199da8@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070201131347.3807.87075.sendpatchset@localhost>
+	 <20070201163320.eb4fa2c7.akpm@osdl.org>
+	 <aec7e5c30702011838g6e9edd23sc782321aacb07297@mail.gmail.com>
+	 <aec7e5c30702020353h31fe9287nbf63612819a8c08f@mail.gmail.com>
+	 <20070203032753.GE3709@verge.net.au>
 In-Reply-To: <20070203032753.GE3709@verge.net.au>
-References: <20070202035714.GE16554@verge.net.au>
-In-Reply-To: <20070202035714.GE16554@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Horms <horms@verge.net.au>, Magnus Damm <magnus.damm@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus@valinux.co.jp>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Horms <horms@verge.net.au>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus@valinux.co.jp>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, nanhai.zou@intel.com, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: Horms [mailto:horms@verge.net.au]
-> Sent: 2007=C4=EA2=D4=C23=C8=D5 11:28
-> To: Magnus Damm
-> Cc: Andrew Morton; Magnus Damm; Luck, Tony; linux-ia64@vger.kernel.org; Z=
-ou,
-> Nanhai; fastboot@lists.osdl.org; linux-kernel@vger.kernel.org
-> Subject: Re: [Fastboot] [PATCH] kexec: Fix CONFIG_SMP=3Dn compilation (ia=
-64)
->=20
+On 2/3/07, Horms <horms@verge.net.au> wrote:
 > On Fri, Feb 02, 2007 at 08:53:00PM +0900, Magnus Damm wrote:
 > > On 2/2/07, Magnus Damm <magnus.damm@gmail.com> wrote:
 > > > On 2/2/07, Andrew Morton <akpm@linux-foundation.org> wrote:
 > > > > Magnus Damm <magnus@valinux.co.jp> wrote:
 > > > >
-> > > > > kexec: Fix CONFIG_SMP=3Dn compilation (ia64)
+> > > > > kexec: Fix CONFIG_SMP=n compilation (ia64)
 > > > > >
-> > > > > This patch makes it possible to compile kexec for ia64 without SMP
-> support.
+> > > > > This patch makes it possible to compile kexec for ia64 without SMP support.
 > > > > > --- 0002/arch/ia64/kernel/machine_kexec.c
-> > > > > +++ work/arch/ia64/kernel/machine_kexec.c     2007-02-01
-> 12:35:46.000000000 +0900
+> > > > > +++ work/arch/ia64/kernel/machine_kexec.c     2007-02-01 12:35:46.000000000 +0900
 > > > > > @@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
 > > > > >
 > > > > >  void machine_shutdown(void)
@@ -44,7 +34,7 @@ ou,
 > > > > >       int cpu;
 > > > > >
 > > > > >       for_each_online_cpu(cpu) {
-> > > > >               if (cpu !=3D smp_processor_id())
+> > > > >               if (cpu != smp_processor_id())
 > > > > >                       cpu_down(cpu);
 > > > > >       }
 > > > > > +#endif
@@ -57,22 +47,22 @@ ou,
 > >
 > > I would be happy to resend a new updated version of the patch, but I
 > > wonder if it may be better to fail miserably during the build than
-> > fail silently in the case of CONFIG_SMP=3Dy but CONFIG_HOTPLUG_CPU=3Dn.
->=20
+> > fail silently in the case of CONFIG_SMP=y but CONFIG_HOTPLUG_CPU=n.
+>
 > There used to be alternate code for the CONFIG_SMP +
 > !CONFIG_HOTPLUG_CPU, but this was removed because it was determined to
 > be flakey and not maintainable (I can dig up the threads if you want).
 > I think that this means that if we have CONFIG_KEXEC and CONFIG_SMP then
 > CONFIG_HOTPLUG_CPU is required. I think this is expressable in Kconfig
 > somehow.
->=20
 
+My mistake, the following lines from linux-2.6.20/arch/ia64/Kconfig
+seem to handle this case already:
 
-Yes, CONFIG_HOTPLUG_CPU is required by Kexec.
-But CONFIG_HOTPLUG_CPU is not required by Kdump except SN platform.
+config KEXEC
+	bool "kexec system call (EXPERIMENTAL)"
+	depends on EXPERIMENTAL && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
 
-Zou Nan hai
-> --
-> Horms
->   H: http://www.vergenet.net/~horms/
->   W: http://www.valinux.co.jp/en/
+I'll send an updated patch in a short while. Thanks!
+
+/ magnus
