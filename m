@@ -1,97 +1,36 @@
-From: akpm@linux-foundation.org
-Date: Tue, 06 Feb 2007 00:20:09 +0000
-Subject: [patch 13/13] kexec: Fix CONFIG_SMP=n compilation V2 (ia64)
-Message-Id: <200702060021.l160LC1X004222@shell0.pdx.osdl.net>
+From: Horms <horms@verge.net.au>
+Date: Mon, 05 Feb 2007 01:17:22 +0000
+Subject: [PATCH] [IA64] kexec: Minor enhancement to includes in crash.c
+Message-Id: <20070205011717.GB31046@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Magnus Damm <magnus@valinux.co.jp>
+linux/uaccess.h was being included, but it seems that 
+really the following includes are needed.
 
-Kexec support for 2.6.20 on ia64 does not build properly using a config
-made up by CONFIG_SMP=n and CONFIG_HOTPLUG_CPU=n:
+asm/page.h: for __va() and PAGE_SHIFT
+asm/uaccess.h: for copy_to_user()
 
-  CC      arch/ia64/kernel/machine_kexec.o
-arch/ia64/kernel/machine_kexec.c: In function `machine_shutdown':
-arch/ia64/kernel/machine_kexec.c:77: warning: implicit declaration of function `cpu_down'
-  AS      arch/ia64/kernel/relocate_kernel.o
-  CC      arch/ia64/kernel/crash.o
-arch/ia64/kernel/crash.c: In function `kdump_cpu_freeze':
-arch/ia64/kernel/crash.c:139: warning: implicit declaration of function `ia64_jump_to_sal'
-arch/ia64/kernel/crash.c:139: error: `sal_boot_rendez_state' undeclared (first use in this function)
-arch/ia64/kernel/crash.c:139: error: (Each undeclared identifier is reported only once
-arch/ia64/kernel/crash.c:139: error: for each function it appears in.)
-arch/ia64/kernel/crash.c: At top level:
-arch/ia64/kernel/crash.c:84: warning: 'kdump_wait_cpu_freeze' defined but not used
-make[1]: *** [arch/ia64/kernel/crash.o] Error 1
-make: *** [arch/ia64/kernel] Error 2
+I guess that linux/uaccess.h pulls in both asm/page.h and asm/uaccess.h.
+I notices this while backporting the code to xen's linux-2.6.16.33,
+which does not have linux/uaccess.h. I'm posting it as I think it is a
+correct, though somewhat cosmetic fix.
 
-Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
-Acked-by: Simon Horman <horms@verge.net.au>
-Acked-by: Jay Lan <jlan@sgi.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Cc: <stable@kernel.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
- arch/ia64/kernel/crash.c         |   11 +++++++----
- arch/ia64/kernel/machine_kexec.c |    2 ++
- 2 files changed, 9 insertions(+), 4 deletions(-)
-
-diff -puN arch/ia64/kernel/crash.c~kexec-fix-config_smp=n-compilation-v2-ia64 arch/ia64/kernel/crash.c
---- a/arch/ia64/kernel/crash.c~kexec-fix-config_smp=n-compilation-v2-ia64
-+++ a/arch/ia64/kernel/crash.c
-@@ -79,6 +79,7 @@ crash_save_this_cpu()
- 	final_note(buf);
- }
+Index: linux-2.6/arch/ia64/kernel/crash_dump.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/crash_dump.c	2006-12-20 10:49:17.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/crash_dump.c	2006-12-20 10:49:20.000000000 +0900
+@@ -9,7 +9,8 @@
+ #include <linux/errno.h>
+ #include <linux/types.h>
  
-+#ifdef CONFIG_SMP
- static int
- kdump_wait_cpu_freeze(void)
- {
-@@ -91,6 +92,7 @@ kdump_wait_cpu_freeze(void)
- 	}
- 	return 1;
- }
-+#endif
+-#include <linux/uaccess.h>
++#include <asm/page.h>
++#include <asm/uaccess.h>
  
- void
- machine_crash_shutdown(struct pt_regs *pt)
-@@ -132,11 +134,12 @@ kdump_cpu_freeze(struct unw_frame_info *
- 	atomic_inc(&kdump_cpu_freezed);
- 	kdump_status[cpuid] = 1;
- 	mb();
--	if (cpuid = 0) {
--		for (;;)
--			cpu_relax();
--	} else
-+#ifdef CONFIG_HOTPLUG_CPU
-+	if (cpuid != 0)
- 		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
-+#endif
-+	for (;;)
-+		cpu_relax();
- }
- 
- static int
-diff -puN arch/ia64/kernel/machine_kexec.c~kexec-fix-config_smp=n-compilation-v2-ia64 arch/ia64/kernel/machine_kexec.c
---- a/arch/ia64/kernel/machine_kexec.c~kexec-fix-config_smp=n-compilation-v2-ia64
-+++ a/arch/ia64/kernel/machine_kexec.c
-@@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
- 
- void machine_shutdown(void)
- {
-+#ifdef CONFIG_HOTPLUG_CPU
- 	int cpu;
- 
- 	for_each_online_cpu(cpu) {
- 		if (cpu != smp_processor_id())
- 			cpu_down(cpu);
- 	}
-+#endif
- 	kexec_disable_iosapic();
- }
- 
-_
+ /**
+  * copy_oldmem_page - copy one page from "oldmem"
