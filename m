@@ -1,30 +1,120 @@
-From: John Keller <jpk@sgi.com>
-Date: Wed, 28 Feb 2007 19:45:17 +0000
-Subject: [PATCH 1/1] - platform_kernel_launch_event is noop on generic kernel
-Message-Id: <20070228194517.25635.98535.sendpatchset@attica.americas.sgi.com>
+From: akpm@linux-foundation.org
+Date: Tue, 06 Feb 2007 00:20:04 +0000
+Subject: [patch 10/13] ia64: register memory ranges in a consistent manner
+Message-Id: <200702060021.l160L7hT004210@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: fastboot@lists.osdl.org
-Cc: jlan@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-Add a missing #define for the platform_kernel_launch_event.
-Without this fix, a call to platform_kernel_launch_event()
-becomes a noop on generic kernels. SN systems require this
-fix to successfully kdump/kexec from certain hardware errors.
+From: "Bob Picco" <bob.picco@hp.com>
 
-Signed-off-by: John Keller <jpk@sgi.com>
+While pursuing and unrelated issue with 64Mb granules I noticed a problem
+related to inconsistent use of add_active_range.  There doesn't appear any
+reason to me why FLATMEM versus DISCONTIG_MEM should register memory to
+add_active_range with different code.  So I've changed the code into a
+common implementation.
+
+The other subtle issue fixed by this patch was calling add_active_range in
+count_node_pages before granule aligning is performed.  We were lucky with
+16MB granules but not so with 64MB granules.  count_node_pages has reserved
+regions filtered out and as a consequence linked kernel text and data
+aren't covered by calls to count_node_pages.  So linked kernel regions
+wasn't reported to add_active_regions.  This resulted in free_initmem
+causing numerous bad_page reports.  This won't occur with this patch
+because now all known memory regions are reported by
+register_active_ranges.
+
+Acked-by: Mel Gorman <mel@csn.ul.ie>
+Signed-off-by: Bob Picco <bob.picco@hp.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
-Index: linux-2.6/include/asm-ia64/machvec.h
-=================================--- linux-2.6.orig/include/asm-ia64/machvec.h	2007-02-28 08:39:45.764537727 -0600
-+++ linux-2.6/include/asm-ia64/machvec.h	2007-02-28 08:40:01.254467899 -0600
-@@ -168,6 +168,7 @@ extern void machvec_tlb_migrate_finish (
- #  define platform_setup_msi_irq	ia64_mv.setup_msi_irq
- #  define platform_teardown_msi_irq	ia64_mv.teardown_msi_irq
- #  define platform_pci_fixup_bus	ia64_mv.pci_fixup_bus
-+#  define platform_kernel_launch_event	ia64_mv.kernel_launch_event
- # endif
+ arch/ia64/mm/discontig.c   |    4 +++-
+ arch/ia64/mm/init.c        |   19 +++++++++++++++++--
+ include/asm-ia64/meminit.h |    3 ++-
+ 3 files changed, 22 insertions(+), 4 deletions(-)
+
+diff -puN arch/ia64/mm/discontig.c~ia64-register-memory-ranges-in-a-consistent-manner arch/ia64/mm/discontig.c
+--- a/arch/ia64/mm/discontig.c~ia64-register-memory-ranges-in-a-consistent-manner
++++ a/arch/ia64/mm/discontig.c
+@@ -473,6 +473,9 @@ void __init find_memory(void)
+ 			node_clear(node, memory_less_mask);
+ 			mem_data[node].min_pfn = ~0UL;
+ 		}
++
++	efi_memmap_walk(register_active_ranges, NULL);
++
+ 	/*
+ 	 * Initialize the boot memory maps in reverse order since that's
+ 	 * what the bootmem allocator expects
+@@ -654,7 +657,6 @@ static __init int count_node_pages(unsig
+ {
+ 	unsigned long end = start + len;
  
- /* __attribute__((__aligned__(16))) is required to make size of the
+-	add_active_range(node, start >> PAGE_SHIFT, end >> PAGE_SHIFT);
+ 	mem_data[node].num_physpages += len >> PAGE_SHIFT;
+ 	if (start <= __pa(MAX_DMA_ADDRESS))
+ 		mem_data[node].num_dma_physpages +diff -puN arch/ia64/mm/init.c~ia64-register-memory-ranges-in-a-consistent-manner arch/ia64/mm/init.c
+--- a/arch/ia64/mm/init.c~ia64-register-memory-ranges-in-a-consistent-manner
++++ a/arch/ia64/mm/init.c
+@@ -19,6 +19,7 @@
+ #include <linux/swap.h>
+ #include <linux/proc_fs.h>
+ #include <linux/bitops.h>
++#include <linux/kexec.h>
+ 
+ #include <asm/a.out.h>
+ #include <asm/dma.h>
+@@ -614,13 +615,27 @@ find_largest_hole (u64 start, u64 end, v
+ 	return 0;
+ }
+ 
++#endif /* CONFIG_VIRTUAL_MEM_MAP */
++
+ int __init
+ register_active_ranges(u64 start, u64 end, void *arg)
+ {
+-	add_active_range(0, __pa(start) >> PAGE_SHIFT, __pa(end) >> PAGE_SHIFT);
++	int nid = paddr_to_nid(__pa(start));
++
++	if (nid < 0)
++		nid = 0;
++#ifdef CONFIG_KEXEC
++	if (start > crashk_res.start && start < crashk_res.end)
++		start = crashk_res.end;
++	if (end > crashk_res.start && end < crashk_res.end)
++		end = crashk_res.start;
++#endif
++
++	if (start < end)
++		add_active_range(nid, __pa(start) >> PAGE_SHIFT,
++			__pa(end) >> PAGE_SHIFT);
+ 	return 0;
+ }
+-#endif /* CONFIG_VIRTUAL_MEM_MAP */
+ 
+ static int __init
+ count_reserved_pages (u64 start, u64 end, void *arg)
+diff -puN include/asm-ia64/meminit.h~ia64-register-memory-ranges-in-a-consistent-manner include/asm-ia64/meminit.h
+--- a/include/asm-ia64/meminit.h~ia64-register-memory-ranges-in-a-consistent-manner
++++ a/include/asm-ia64/meminit.h
+@@ -51,12 +51,13 @@ extern void efi_memmap_init(unsigned lon
+ 
+ #define IGNORE_PFN0	1	/* XXX fix me: ignore pfn 0 until TLB miss handler is updated... */
+ 
++extern int register_active_ranges(u64 start, u64 end, void *arg);
++
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ # define LARGE_GAP	0x40000000 /* Use virtual mem map if hole is > than this */
+   extern unsigned long vmalloc_end;
+   extern struct page *vmem_map;
+   extern int find_largest_hole (u64 start, u64 end, void *arg);
+-  extern int register_active_ranges (u64 start, u64 end, void *arg);
+   extern int create_mem_map_page_table (u64 start, u64 end, void *arg);
+   extern int vmemmap_find_next_valid_pfn(int, int);
+ #else
+_
