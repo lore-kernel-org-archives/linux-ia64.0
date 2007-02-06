@@ -1,31 +1,48 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 08 Feb 2007 23:59:00 +0000
-Subject: Re: [RFC Patch]Use ar.kr2 for smp_processor_id
-Message-Id: <20719.1170979140@kao2.melbourne.sgi.com>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Tue, 06 Feb 2007 00:07:57 +0000
+Subject: [PATCH] Hook up getcpu system call for IA64
+Message-Id: <20070206000757.GA32026@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1170905324.3230.7.camel@linux-znh>
-In-Reply-To: <1170905324.3230.7.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zou Nan hai (on 08 Feb 2007 15:14:54 +0800) wrote:
->  I think using a static value to cache getcpu will heavily bounced on
->that cache line contain the static value if multi cpus calls getcpu very
->frequently. 
+getcpu system call returns cpu# and node# on which this system call and its caller are running. This patch hooks up its implementation on IA64.
 
-AFAICT, Tony's suggestion[*] is all in user space, e.g. glibc.  Each
-application will get its own thread local copy of the static variable,
-there is no globally shared static value so no cache line bouncing.
+Thanks.
 
->  then implement current_thread_info()->cpu in fsys call should be
->better?
+-Fenghua
 
-Maybe.  Implement it, time it and see which is faster.
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-[*] http://marc.theaimsgroup.com/?l=linux-ia64&m7087180232044&w=2
 
-BTW Tony, in that code there is no need to initialise cpu to ~0 nor to
-test for that value.  On the first call it is guaranteed that ar.k3 !save_ar_k3.
-
+diff -Nurp linux-2.6.git.orig/arch/ia64/kernel/entry.S linux-2.6.git/arch/ia64/kernel/entry.S
+--- linux-2.6.git.orig/arch/ia64/kernel/entry.S	2007-01-26 16:41:32.000000000 -0800
++++ linux-2.6.git/arch/ia64/kernel/entry.S	2007-02-02 16:13:10.000000000 -0800
+@@ -1610,5 +1610,7 @@ sys_call_table:
+ 	data8 sys_sync_file_range		// 1300
+ 	data8 sys_tee
+ 	data8 sys_vmsplice
++	data8 sys_ni_syscall			// reserved for move_pages
++	data8 sys_getcpu
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+diff -Nurp linux-2.6.git.orig/include/asm-ia64/unistd.h linux-2.6.git/include/asm-ia64/unistd.h
+--- linux-2.6.git.orig/include/asm-ia64/unistd.h	2006-11-29 12:26:15.000000000 -0800
++++ linux-2.6.git/include/asm-ia64/unistd.h	2007-02-02 15:05:27.000000000 -0800
+@@ -291,11 +291,13 @@
+ #define __NR_sync_file_range		1300
+ #define __NR_tee			1301
+ #define __NR_vmsplice			1302
++/* 1303 reserved for move_pages */
++#define __NR_getcpu			1304
+ 
+ #ifdef __KERNEL__
+ 
+ 
+-#define NR_syscalls			279 /* length of syscall table */
++#define NR_syscalls			281 /* length of syscall table */
+ 
+ #define __ARCH_WANT_SYS_RT_SIGACTION
+ 
