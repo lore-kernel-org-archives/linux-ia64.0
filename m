@@ -1,140 +1,124 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Thu, 15 Feb 2007 18:11:39 +0000
-Subject: [PATCH] fault injection: split up stacktrace filter Kconfig option
-Message-Id: <20070215181139.GA3811@APFDCB5C>
+From: akpm@linux-foundation.org
+Date: Tue, 06 Feb 2007 00:20:04 +0000
+Subject: [patch 09/13] show_mem() for IA64 sparsemem NUMA
+Message-Id: <200702060021.l160L7n2004207@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There is no prompt for CONFIG_STACKTRACE, so
-FAULT_INJECTION cannot be selected without LOCKDEP enabled.
-(found by Paolo 'Blaisorblade' Giarrusso)
+From: George Beshers <gbeshers@sgi.com>
 
-In order to fix such broken Kconfig dependency,
-this patch splits up the stacktrace filter support for
-fault injection by new Kconfig option, which enables
-to use fault injection on the architecture which doesn't have
-general stacktrace support.
+On the ia64 architecture only this patch upgrades show_mem() for sparse
+memory to be the same as it was for discontig memory.  It has been shown to
+work on NUMA and flatmem architectures.
 
-Cc: "Paolo 'Blaisorblade' Giarrusso" <blaisorblade@yahoo.it>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-
+Signed-off-by: George Beshers <gbeshers@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- lib/Kconfig.debug  |   10 ++++++++--
- lib/fault-inject.c |   41 +++++++++++++++++++++--------------------
- 2 files changed, 29 insertions(+), 22 deletions(-)
 
-Index: 2.6-git.orig/lib/Kconfig.debug
-=================================--- 2.6-git.orig.orig/lib/Kconfig.debug
-+++ 2.6-git.orig/lib/Kconfig.debug
-@@ -400,8 +400,6 @@ config LKDTM
- config FAULT_INJECTION
- 	bool "Fault-injection framework"
- 	depends on DEBUG_KERNEL
--	depends on STACKTRACE
--	select FRAME_POINTER
- 	help
- 	  Provide fault-injection framework.
- 	  For more details, see Documentation/fault-injection/.
-@@ -429,3 +427,11 @@ config FAULT_INJECTION_DEBUG_FS
- 	depends on FAULT_INJECTION && SYSFS && DEBUG_FS
- 	help
- 	  Enable configuration of fault-injection capabilities via debugfs.
-+
-+config FAULT_INJECTION_STACKTRACE_FILTER
-+	bool "stacktrace filter for fault-injection capabilities"
-+	depends on FAULT_INJECTION_DEBUG_FS && STACKTRACE_SUPPORT
-+	select STACKTRACE
-+	select FRAME_POINTER
-+	help
-+	  Provide stacktrace filter for fault-injection capabilities
-Index: 2.6-git.orig/lib/fault-inject.c
-=================================--- 2.6-git.orig.orig/lib/fault-inject.c
-+++ 2.6-git.orig/lib/fault-inject.c
-@@ -55,7 +55,7 @@ static bool fail_task(struct fault_attr 
+ arch/ia64/mm/contig.c |   74 +++++++++++++++++++++++++---------------
+ 1 file changed, 48 insertions(+), 26 deletions(-)
+
+diff -puN arch/ia64/mm/contig.c~show_mem-for-ia64-sparsemem-numa arch/ia64/mm/contig.c
+--- a/arch/ia64/mm/contig.c~show_mem-for-ia64-sparsemem-numa
++++ a/arch/ia64/mm/contig.c
+@@ -30,47 +30,69 @@ static unsigned long max_gap;
+ #endif
  
- #define MAX_STACK_TRACE_DEPTH 32
- 
--#if defined(CONFIG_STACKTRACE)
-+#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
- 
- static bool fail_stacktrace(struct fault_attr *attr)
+ /**
+- * show_mem - display a memory statistics summary
++ * show_mem - give short summary of memory stats
+  *
+- * Just walks the pages in the system and describes where they're allocated.
++ * Shows a simple page count of reserved and used pages in the system.
++ * For discontig machines, it does this on a per-pgdat basis.
+  */
+-void
+-show_mem (void)
++void show_mem(void)
  {
-@@ -90,17 +90,10 @@ static bool fail_stacktrace(struct fault
+-	int i, total = 0, reserved = 0;
+-	int shared = 0, cached = 0;
++	int i, total_reserved = 0;
++	int total_shared = 0, total_cached = 0;
++	unsigned long total_present = 0;
++	pg_data_t *pgdat;
  
- static inline bool fail_stacktrace(struct fault_attr *attr)
- {
--	static bool firsttime = true;
+ 	printk(KERN_INFO "Mem-info:\n");
+ 	show_free_areas();
 -
--	if (firsttime) {
--		printk(KERN_WARNING
--		"This architecture does not implement save_stack_trace()\n");
--		firsttime = false;
--	}
--	return false;
-+	return true;
+ 	printk(KERN_INFO "Free swap:       %6ldkB\n",
+ 	       nr_swap_pages<<(PAGE_SHIFT-10));
+-	i = max_mapnr;
+-	for (i = 0; i < max_mapnr; i++) {
+-		if (!pfn_valid(i)) {
++	printk(KERN_INFO "Node memory in pages:\n");
++	for_each_online_pgdat(pgdat) {
++		unsigned long present;
++		unsigned long flags;
++		int shared = 0, cached = 0, reserved = 0;
++
++		pgdat_resize_lock(pgdat, &flags);
++		present = pgdat->node_present_pages;
++		for(i = 0; i < pgdat->node_spanned_pages; i++) {
++			struct page *page;
++			if (pfn_valid(pgdat->node_start_pfn + i))
++				page = pfn_to_page(pgdat->node_start_pfn + i);
++			else {
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-			if (max_gap < LARGE_GAP)
+-				continue;
+-			i = vmemmap_find_next_valid_pfn(0, i) - 1;
++				if (max_gap < LARGE_GAP)
++					continue;
+ #endif
+-			continue;
++				i = vmemmap_find_next_valid_pfn(pgdat->node_id,
++					 i) - 1;
++				continue;
++			}
++			if (PageReserved(page))
++				reserved++;
++			else if (PageSwapCache(page))
++				cached++;
++			else if (page_count(page))
++				shared += page_count(page)-1;
+ 		}
+-		total++;
+-		if (PageReserved(mem_map+i))
+-			reserved++;
+-		else if (PageSwapCache(mem_map+i))
+-			cached++;
+-		else if (page_count(mem_map + i))
+-			shared += page_count(mem_map + i) - 1;
++		pgdat_resize_unlock(pgdat, &flags);
++		total_present += present;
++		total_reserved += reserved;
++		total_cached += cached;
++		total_shared += shared;
++		printk(KERN_INFO "Node %4d:  RAM: %11ld, rsvd: %8d, "
++		       "shrd: %10d, swpd: %10d\n", pgdat->node_id,
++		       present, reserved, shared, cached);
+ 	}
+-	printk(KERN_INFO "%d pages of RAM\n", total);
+-	printk(KERN_INFO "%d reserved pages\n", reserved);
+-	printk(KERN_INFO "%d pages shared\n", shared);
+-	printk(KERN_INFO "%d pages swap cached\n", cached);
+-	printk(KERN_INFO "%ld pages in page table cache\n",
++	printk(KERN_INFO "%ld pages of RAM\n", total_present);
++	printk(KERN_INFO "%d reserved pages\n", total_reserved);
++	printk(KERN_INFO "%d pages shared\n", total_shared);
++	printk(KERN_INFO "%d pages swap cached\n", total_cached);
++	printk(KERN_INFO "Total of %ld pages in page table cache\n",
+ 	       pgtable_quicklist_total_size());
++	printk(KERN_INFO "%d free buffer pages\n", nr_free_buffer_pages());
  }
  
--#endif
-+#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
- 
- /*
-  * This code is stolen from failmalloc-1.0
-@@ -217,6 +210,8 @@ void cleanup_fault_attr_dentries(struct 
- 	debugfs_remove(attr->dentries.task_filter_file);
- 	attr->dentries.task_filter_file = NULL;
- 
-+#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
 +
- 	debugfs_remove(attr->dentries.stacktrace_depth_file);
- 	attr->dentries.stacktrace_depth_file = NULL;
+ /* physical address where the bootmem map is located */
+ unsigned long bootmap_start;
  
-@@ -232,6 +227,8 @@ void cleanup_fault_attr_dentries(struct 
- 	debugfs_remove(attr->dentries.reject_end_file);
- 	attr->dentries.reject_end_file = NULL;
- 
-+#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
-+
- 	if (attr->dentries.dir)
- 		WARN_ON(!simple_empty(attr->dentries.dir));
- 
-@@ -269,6 +266,13 @@ int init_fault_attr_dentries(struct faul
- 	attr->dentries.task_filter_file = debugfs_create_bool("task-filter",
- 						mode, dir, &attr->task_filter);
- 
-+	if (!attr->dentries.probability_file || !attr->dentries.interval_file ||
-+	    !attr->dentries.times_file || !attr->dentries.space_file ||
-+	    !attr->dentries.verbose_file || !attr->dentries.task_filter_file)
-+		goto fail;
-+
-+#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
-+
- 	attr->dentries.stacktrace_depth_file  		debugfs_create_ul_MAX_STACK_TRACE_DEPTH(
- 			"stacktrace-depth", mode, dir, &attr->stacktrace_depth);
-@@ -285,18 +289,15 @@ int init_fault_attr_dentries(struct faul
- 	attr->dentries.reject_end_file  		debugfs_create_ul("reject-end", mode, dir, &attr->reject_end);
- 
--
--	if (!attr->dentries.probability_file || !attr->dentries.interval_file
--	    || !attr->dentries.times_file || !attr->dentries.space_file
--	    || !attr->dentries.verbose_file || !attr->dentries.task_filter_file
--	    || !attr->dentries.stacktrace_depth_file
--	    || !attr->dentries.require_start_file
--	    || !attr->dentries.require_end_file
--	    || !attr->dentries.reject_start_file
--	    || !attr->dentries.reject_end_file
--	    )
-+	if (!attr->dentries.stacktrace_depth_file ||
-+	    !attr->dentries.require_start_file ||
-+	    !attr->dentries.require_end_file ||
-+	    !attr->dentries.reject_start_file ||
-+	    !attr->dentries.reject_end_file)
- 		goto fail;
- 
-+#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
-+
- 	return 0;
- fail:
- 	cleanup_fault_attr_dentries(attr);
+_
