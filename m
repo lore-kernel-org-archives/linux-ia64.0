@@ -1,43 +1,43 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 14 Feb 2007 07:17:47 +0000
-Subject: [PATCH] [IA64] kexec: declare ia64_mca_pal_base in mca.h rather than kexec.h
-Message-Id: <20070214071745.GA17011@verge.net.au>
+From: Horms <horms@verge.net.au>
+Date: Tue, 06 Feb 2007 03:14:45 +0000
+Subject: Re: [PATCH] [IA64]: add newline to PAL-code warning message
+Message-Id: <20070206031445.GA12585@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-* Kexec adds some code to arch/ia64/kernel/smp.c which needs ia64_mca_pal_base,
-  so the kexec patch (actually the kdump patch) declares this
-  per-cpu variable in include/asm-ia64/kexec.h.
-    
-* ia64_mca_pal_base is defined in arch/ia64/kernel/mca.c, so it
-  seems to me that it would make a lot more sense to declare it in
-  include/asm-ia64/mca.h.
+On Mon, Feb 05, 2007 at 01:18:16PM +0100, Gerald Pfeifer wrote:
+> On Mon, 5 Feb 2007, Horms wrote:
+> > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > -	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found",
+> > +	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found\n",
+>                                                                     ^^
+> 
+> This is usually referred to as newline, not return.  Return, or
+> carriage return, would be '\r' instead of '\n'.
+
+Thanks, updated accordingly.
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
+[IA64]: Add newline to PAL-code warning message
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Index: linux-2.6/include/asm-ia64/kexec.h
-=================================--- linux-2.6.orig/include/asm-ia64/kexec.h	2006-12-19 13:08:21.000000000 +0900
-+++ linux-2.6/include/asm-ia64/kexec.h	2006-12-19 13:08:29.000000000 +0900
-@@ -22,7 +22,6 @@
-         } while(0)
- 
- extern struct kimage *ia64_kimage;
--DECLARE_PER_CPU(u64, ia64_mca_pal_base);
- const extern unsigned int relocate_new_kernel_size;
- extern void relocate_new_kernel(unsigned long, unsigned long,
- 		struct ia64_boot_param *, unsigned long);
-Index: linux-2.6/include/asm-ia64/mca.h
-=================================--- linux-2.6.orig/include/asm-ia64/mca.h	2006-12-19 13:08:21.000000000 +0900
-+++ linux-2.6/include/asm-ia64/mca.h	2006-12-19 13:08:37.000000000 +0900
-@@ -156,6 +156,8 @@
- 	int *monarch_cpu;
- };
- 
-+DECLARE_PER_CPU(u64, ia64_mca_pal_base);
-+
- #else	/* __ASSEMBLY__ */
- 
- #define IA64_MCA_CORRECTED	0x0	/* Error has been corrected by OS_MCA */
+Index: linux-2.6/arch/ia64/kernel/efi.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/efi.c	2007-01-31 16:54:43.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/efi.c	2007-01-31 16:54:46.000000000 +0900
+@@ -380,7 +380,7 @@
+ #endif
+ 		return __va(md->phys_addr);
+ 	}
+-	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found",
++	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found\n",
+ 	       __FUNCTION__);
+ 	return NULL;
+ }
