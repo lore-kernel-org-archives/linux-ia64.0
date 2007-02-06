@@ -1,42 +1,80 @@
-From: Vignesh Babu BM <vignesh.babu@wipro.com>
-Date: Fri, 16 Feb 2007 12:15:55 +0000
-Subject: [KJ][PATCH] is_power_of_2 in ia64mm
-Message-Id: <1171627435.6127.0.camel@wriver-t81fb058.linuxcoe>
+From: akpm@linux-foundation.org
+Date: Tue, 06 Feb 2007 00:20:08 +0000
+Subject: [patch 11/13] ia64: clean up sparsemem memory_present call
+Message-Id: <200702060021.l160LBN4004216@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kernel Janitors List <kernel-janitors@lists.osdl.org>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Replacing (n & (n-1)) in the context of power of 2 checks
-with is_power_of_2
+From: "Bob Picco" <bob.picco@hp.com>
 
+Eliminate arch specific memory_present call ia64 NUMA by utilizing
+sparse_memory_present_with_active_regions.
 
-diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
-index 0c7e94e..0ccc70e 100644
---- a/arch/ia64/mm/hugetlbpage.c
-+++ b/arch/ia64/mm/hugetlbpage.c
-@@ -16,6 +16,7 @@
- #include <linux/smp_lock.h>
- #include <linux/slab.h>
- #include <linux/sysctl.h>
-+#include <linux/log2.h>
- #include <asm/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
-@@ -175,7 +176,7 @@ static int __init hugetlb_setup_sz(char *str)
- 		tr_pages = 0x15557000UL;
+Acked-by: Mel Gorman <mel@csn.ul.ie>
+Signed-off-by: Bob Picco <bob.picco@hp.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/mm/discontig.c |   36 +++---------------------------------
+ 1 file changed, 3 insertions(+), 33 deletions(-)
+
+diff -puN arch/ia64/mm/discontig.c~ia64-clean-up-sparsemem-memory_present-calls arch/ia64/mm/discontig.c
+--- a/arch/ia64/mm/discontig.c~ia64-clean-up-sparsemem-memory_present-calls
++++ a/arch/ia64/mm/discontig.c
+@@ -412,37 +412,6 @@ static void __init memory_less_nodes(voi
+ 	return;
+ }
  
- 	size = memparse(str, &str);
--	if (*str || (size & (size-1)) || !(tr_pages & size) ||
-+	if (*str || !is_power_of_2(size) || !(tr_pages & size) ||
- 		size <= PAGE_SIZE ||
- 		size >= (1UL << PAGE_SHIFT << MAX_ORDER)) {
- 		printk(KERN_WARNING "Invalid huge page size specified\n");
-
--- 
-Regards,  
-Vignesh Babu BM  
-_____________________________________________________________  
-"Why is it that every time I'm with you, makes me believe in magic?"
+-#ifdef CONFIG_SPARSEMEM
+-/**
+- * register_sparse_mem - notify SPARSEMEM that this memory range exists.
+- * @start: physical start of range
+- * @end: physical end of range
+- * @arg: unused
+- *
+- * Simply calls SPARSEMEM to register memory section(s).
+- */
+-static int __init register_sparse_mem(unsigned long start, unsigned long end,
+-	void *arg)
+-{
+-	int nid;
+-
+-	start = __pa(start) >> PAGE_SHIFT;
+-	end = __pa(end) >> PAGE_SHIFT;
+-	nid = early_pfn_to_nid(start);
+-	memory_present(nid, start, end);
+-
+-	return 0;
+-}
+-
+-static void __init arch_sparse_init(void)
+-{
+-	efi_memmap_walk(register_sparse_mem, NULL);
+-	sparse_init();
+-}
+-#else
+-#define arch_sparse_init() do {} while (0)
+-#endif
+-
+ /**
+  * find_memory - walk the EFI memory map and setup the bootmem allocator
+  *
+@@ -688,10 +657,11 @@ void __init paging_init(void)
+ 
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 
+-	arch_sparse_init();
+-
+ 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
+ 
++	sparse_memory_present_with_active_regions(MAX_NUMNODES);
++	sparse_init();
++
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ 	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
+ 		sizeof(struct page));
+_
