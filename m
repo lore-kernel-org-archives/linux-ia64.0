@@ -1,7 +1,7 @@
-From: "Ken Chen" <kenchen@google.com>
-Date: Tue, 06 Feb 2007 21:21:46 +0000
-Subject: Re: [PATCH] Hook up getcpu system call for IA64
-Message-Id: <b040c32a0702061321y1ed7a10dgc9ee31dee408e574@mail.gmail.com>
+From: "Yu, Fenghua" <fenghua.yu@intel.com>
+Date: Tue, 06 Feb 2007 21:32:02 +0000
+Subject: RE: [PATCH] Hook up getcpu system call for IA64
+Message-Id: <A29F7A5700A7EA4380E08C1F68C3B6D80219F472@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070206000757.GA32026@linux-os.sc.intel.com>
 In-Reply-To: <20070206000757.GA32026@linux-os.sc.intel.com>
@@ -10,12 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Fenghua Yu wrote on Feb 5, 2007 4:07 PM
-> getcpu system call returns cpu# and node# on which this system call
-> and its caller are running. This patch hooks up its implementation on
-> IA64.
 
-I know it's trivial to wire up sys_getcpu, but please take this seriously,
-it should be implemented as assembly fsys call.
+>I know it's trivial to wire up sys_getcpu, but please take this
+seriously,
+>it should be implemented as assembly fsys call.
 
-- Ken
+Ken,
+
+Could you please explain why fsys call? Sys_getcpu takes about 600cycles
+on 1.6GHz Montecito. Do we need to save these cycles?
+
+Thanks.
+
+-Fenghua
