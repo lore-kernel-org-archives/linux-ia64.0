@@ -1,50 +1,67 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Thu, 08 Feb 2007 03:27:35 +0000
-Subject: Re: [PATCH] [IA64] Include kexec.h in arch/ia64/kernel/process.c
-Message-Id: <20070207192735.2d06e984.randy.dunlap@oracle.com>
+From: Bernhard Walle <bwalle@suse.de>
+Date: Tue, 06 Feb 2007 11:40:50 +0000
+Subject: [PATCH] Fix NULL-pointer dereference in ia64_machine_kexec()
+Message-Id: <20070206114050.GA3648@strauss.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070207064935.GB726@verge.net.au>
-	<617E1C2C70743745A92448908E030B2A0117C67C@scsmsx411.amr.corp.intel.com>
-	<20070208021900.GB17585@verge.net.au>
-In-Reply-To: <20070208021900.GB17585@verge.net.au>
+References: <eparjg$nhq$1@sea.gmane.org> <yq0odolq8zg.fsf@jaguar.mkp.net> <20070127131514.GA30463@strauss.suse.de> <45BBD6F5.6040801@sgi.com>
+In-Reply-To: <45BBD6F5.6040801@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Horms <horms@verge.net.au>
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org, "Zou, Nanhai" <nanhai.zou@intel.com>, Khalid Aziz <khalid_aziz@hp.com>, Adrian Bunk <trivial@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus.damm@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org
 
-On Thu, 8 Feb 2007 11:19:03 +0900 Horms wrote:
+[I got no response after my corrected patch, so I try it again.
+I request it to appear in -mm tree. Patch is against 2.6.20-rc6-mm3.]
 
-> On Wed, Feb 07, 2007 at 09:07:40AM -0800, Luck, Tony wrote:
-> > > kexec.h is needed by arch/ia64/kernel/process.c so for the
-> > > declaration of kexec_disable_iosapic() which is used in
-> > > machine_shutdown().
-> > 
-> > > +#include <asm/kexec.h>
-> > 
-> > I merged this into your earlier change (moving machine_shutdown() into
-> > process.c).  Linus pulled it last night.
-> 
-> Thanks
-> 
-> > I also added a "#ifdef CONFIG_KEXEC" around the call to
-> > kexec_disable_iosapic() (because I first noticed that this was
-> > undefined when building non-KEXEC kernels).  But perhaps it might have
-> > been better to #define an empty stub for this function inside kexec.h
-> > for the #ifndef CONFIG_KEXEC case?
-> 
-> Good catch :)
+This patch fixes a NULL-pointer dereference in ia64_machine_kexec().
 
-uh, every one of Andrew's commit emails now contains the line
-at the end of my mail sig...  Try it sometimes^W often.
+The variable ia64_kimage is set in machine_kexec_prepare() which is
+called from sys_kexec_load(). If kdump wasn't configured before,
+ia64_kimage is NULL.  machine_kdump_on_init() passes ia64_kimage() to
+machine_kexec() which assumes a valid value.
 
+The patch also adds a few sanity checks for the image to simplify
+debugging of similar problems in future.
 
-> I think that #define in the process.c vs an empty stub inside
-> asm/kexec.h is really a style issue. I'm quite ok with things
-> the way they are. But If you are more comfortable with the stub
-> approach, I have no objections.
-
+Signed-off-by: Bernhard Walle <bwalle@suse.de>
 
 ---
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+ arch/ia64/kernel/crash.c         |    5 +++++
+ arch/ia64/kernel/machine_kexec.c |    2 ++
+ 2 files changed, 7 insertions(+)
+
+Index: b/arch/ia64/kernel/crash.c
+=================================--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -116,6 +116,11 @@ machine_crash_shutdown(struct pt_regs *p
+ static void
+ machine_kdump_on_init(void)
+ {
++	if (!ia64_kimage) {
++		printk(KERN_NOTICE "machine_kdump_on_init(): "
++				"kdump not configured\n");
++		return;
++	}
+ 	local_irq_disable();
+ 	kexec_disable_iosapic();
+ 	machine_kexec(ia64_kimage);
+Index: b/arch/ia64/kernel/machine_kexec.c
+=================================--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -93,6 +93,7 @@ static void ia64_machine_kexec(struct un
+ 	unsigned long vector;
+ 	int ii;
+ 
++	BUG_ON(!image);
+ 	if (image->type = KEXEC_TYPE_CRASH) {
+ 		crash_save_this_cpu();
+ 		current->thread.ksp = (__u64)info->sw - 16;
+@@ -131,6 +132,7 @@ static void ia64_machine_kexec(struct un
+ 
+ void machine_kexec(struct kimage *image)
+ {
++	BUG_ON(!image);
+ 	unw_init_running(ia64_machine_kexec, image);
+ 	for(;;);
+ }
