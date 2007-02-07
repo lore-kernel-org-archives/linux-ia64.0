@@ -1,22 +1,27 @@
-From: Gerald Pfeifer <gp@suse.de>
-Date: Mon, 05 Feb 2007 12:18:16 +0000
-Subject: Re: [PATCH] [IA64]: add return to PAL-code warning message
-Message-Id: <Pine.LNX.4.64.0702051224380.12094@bvqn.fhfr.qr>
+From: Horms <horms@verge.net.au>
+Date: Wed, 07 Feb 2007 06:49:36 +0000
+Subject: [PATCH] [IA64] Include kexec.h in arch/ia64/kernel/process.c
+Message-Id: <20070207064935.GB726@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070205011737.GC31046@verge.net.au>
-In-Reply-To: <20070205011737.GC31046@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org
+Cc: Zou Nan hai <nanhai.zou@intel.com>, Khalid Aziz <khalid_aziz@hp.com>, Adrian Bunk <trivial@kernel.org>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus.damm@gmail.com>
 
-On Mon, 5 Feb 2007, Horms wrote:
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> -	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found",
-> +	printk(KERN_WARNING "%s: no PAL-code memory-descriptor found\n",
-                                                                    ^^
+kexec.h is needed by arch/ia64/kernel/process.c so for the
+declaration of kexec_disable_iosapic() which is used in machine_shutdown().
 
-This is usually referred to as newline, not return.  Return, or
-carriage return, would be '\r' instead of '\n'.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Gerald
+Index: linux-2.6/arch/ia64/kernel/process.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/process.c	2007-02-07 12:43:09.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/process.c	2007-02-07 12:43:16.000000000 +0900
+@@ -41,6 +41,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unwind.h>
+ #include <asm/user.h>
++#include <asm/kexec.h>
+ 
+ #include "entry.h"
+ 
