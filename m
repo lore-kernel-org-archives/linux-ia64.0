@@ -1,63 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 14 Feb 2007 07:15:02 +0000
-Subject: [PATCH] [IA64] kexec: grammatical fixes for crash.c
-Message-Id: <20070214071502.GA16615@verge.net.au>
+From: Horms <horms@verge.net.au>
+Date: Wed, 07 Feb 2007 06:49:25 +0000
+Subject: [PATCH] [IA64] whitespace fixes for include/asm-ia64/sal.h
+Message-Id: <20070207064924.GA726@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Adrian Bunk <trivial@kernel.org>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus.damm@gmail.com>
 
-Grammatical fixes for crash.c
+* Make use of spaces and tabs consistent
+* Make long line < 80col
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
- arch/ia64/kernel/crash.c |   13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+Index: linux-2.6/include/asm-ia64/sal.h
+=================================--- linux-2.6.orig/include/asm-ia64/sal.h	2007-02-07 11:53:12.000000000 +0900
++++ linux-2.6/include/asm-ia64/sal.h	2007-02-07 12:46:57.000000000 +0900
+@@ -860,12 +867,13 @@
+  */
+ struct sal_to_os_boot {
+ 	u64 rr[8];		/* Region Registers */
+-	u64	br[6];		/* br0: return addr into SAL boot rendez routine */
++	u64 br[6];		/* br0:
++				 * return addr into SAL boot rendez routine */
+ 	u64 gr1;		/* SAL:GP */
+ 	u64 gr12;		/* SAL:SP */
+ 	u64 gr13;		/* SAL: Task Pointer */
+ 	u64 fpsr;
+-	u64	pfs;
++	u64 pfs;
+ 	u64 rnat;
+ 	u64 unat;
+ 	u64 bspstore;
 
-Index: linux-2.6/arch/ia64/kernel/crash.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/crash.c	2006-12-20 11:03:10.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/crash.c	2006-12-21 10:07:54.000000000 +0900
-@@ -21,9 +21,9 @@
- #include <asm/mca.h>
- 
- int kdump_status[NR_CPUS];
--atomic_t kdump_cpu_freezed;
-+static atomic_t kdump_cpu_frozen;
- atomic_t kdump_in_progress;
--int kdump_on_init = 1;
-+static int kdump_on_init = 1;
- 
- static inline Elf64_Word
- *append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
-@@ -85,7 +85,7 @@
- 	int cpu_num = num_online_cpus() - 1;
- 	int timeout = 1000;
- 	while(timeout-- > 0) {
--		if (atomic_read(&kdump_cpu_freezed) = cpu_num)
-+		if (atomic_read(&kdump_cpu_frozen) = cpu_num)
- 			return 0;
- 		udelay(1000);
- 	}
-@@ -106,10 +106,9 @@
- 	kexec_disable_iosapic();
- #ifdef CONFIG_SMP
- 	kdump_smp_send_stop();
--	if (kdump_wait_cpu_freeze() && kdump_on_init) 	{
--		//not all cpu response to IPI, send INIT to freeze them
-+	/* Not all CPUs respond to IPI, so use INIT to freeze them */
-+	if (kdump_wait_cpu_freeze() && kdump_on_init)
- 		kdump_smp_send_init();
--	}
- #endif
- }
- 
-@@ -129,7 +128,7 @@
- 	cpuid = smp_processor_id();
- 	crash_save_this_cpu();
- 	current->thread.ksp = (__u64)info->sw - 16;
--	atomic_inc(&kdump_cpu_freezed);
-+	atomic_inc(&kdump_cpu_frozen);
- 	kdump_status[cpuid] = 1;
- 	mb();
- 	if (cpuid = 0) {
