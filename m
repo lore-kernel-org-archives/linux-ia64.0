@@ -1,21 +1,31 @@
 From: Horms <horms@verge.net.au>
-Date: Wed, 07 Feb 2007 06:19:06 +0000
-Subject: [PATCH 1/2] [IA64] physical mode SAL calls
-Message-Id: <20070207061904.GA29959@verge.net.au>
+Date: Thu, 08 Feb 2007 01:42:22 +0000
+Subject: Re: [PATCH 1/2] [IA64] physical mode SAL calls
+Message-Id: <20070208014219.GG10404@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070207061904.GA29959@verge.net.au>
+In-Reply-To: <20070207061904.GA29959@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Wed, Feb 07, 2007 at 03:19:06PM +0900, Horms wrote:
+> Hi,
+>=20
+> I am resending this patch, which is a consolidated version of 3 or 4
+> patches sent late last year. It includes a few minor fixes, and
+> I have removed the portion which caused the pal code not to be mapped.
+>=20
+> I have been using this code successfully for a number of months on
+> my Tiger box.
 
-I am resending this patch, which is a consolidated version of 3 or 4
-patches sent late last year. It includes a few minor fixes, and
-I have removed the portion which caused the pal code not to be mapped.
+This is an update on the version I sent yesterday. I miss-diffed, sorry.
 
-I have been using this code successfully for a number of months on
-my Tiger box.
+  * Remove arch/ia64/kernel/machine_kexec.c chunk as this
+      is part of a separate change that alters the
+      arguments that are passed to kexec's relocate_kernel()
+  * Add missing arch/ia64/kernel/sal.c chunk
 
 --=20
 Simon Horman (Horms)
@@ -43,14 +53,15 @@ of if EFI is physical or virtual, actually works.
 
 Signed-Off-By: Simon Horman <horms@verge.net.au>
 
- arch/ia64/kernel/Makefile        |    2=20
- arch/ia64/kernel/efi.c           |    1=20
- arch/ia64/kernel/machine_kexec.c |    3 -
- arch/ia64/kernel/sal_stub.S      |   92 ++++++++++++++++++++++++++++++++++=
+
+ arch/ia64/kernel/Makefile   |    2=20
+ arch/ia64/kernel/efi.c      |    1=20
+ arch/ia64/kernel/sal.c      |   24 +++++++++++
+ arch/ia64/kernel/sal_stub.S |   92 +++++++++++++++++++++++++++++++++++++++=
 ++++
- include/asm-ia64/sal.h           |   56 +++++++++++++++--------
- include/linux/efi.h              |    1=20
- 6 files changed, 135 insertions(+), 20 deletions(-)
+ include/asm-ia64/sal.h      |   56 +++++++++++++++++---------
+ include/linux/efi.h         |    1=20
+ 6 files changed, 157 insertions(+), 19 deletions(-)
 
 Index: linux-2.6/include/asm-ia64/sal.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
@@ -270,18 +281,37 @@ Index: linux-2.6/arch/ia64/kernel/efi.c
  }
 =20
  /*
-Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
+Index: linux-2.6/arch/ia64/kernel/sal.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c=
-	2007-02-07 13:25:16.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2007-02-07 13:26:26.00000000=
-0 +0900
-@@ -79,7 +79,8 @@
- 	efi_system_table_t *systab;
-=20
- 	systab =3D (efi_system_table_t *)__va(ia64_boot_param->efi_systab);
--	systab->runtime->set_virtual_address_map +	if (efi.mapped)
-+		systab->runtime->set_virtual_address_map  				__pa(systab->runtime->set_=
-virtual_address_map);
- 	systab->runtime =3D (efi_runtime_services_t *)__pa(systab->runtime);
-=20
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/kernel/sal.c	2007-02-0=
+7 13:25:16.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/sal.c	2007-02-07 13:27:54.000000000 +0900
+@@ -373,3 +373,27 @@ ia64_sal_oemcall_reentrant(struct ia64_sal_retval *isr=
+vp, u64 oemfunc,
+ 	return 0;
+ }
+ EXPORT_SYMBOL(ia64_sal_oemcall_reentrant);
++
++/* In practice this seems to be needed for at least SAL_GET_STATE_INFO
++ * in Xen. Tested on a Tiger 2 box */
++struct ia64_sal_retval sal_call_phys(ia64_sal_handler ia64_sal,
++				    unsigned long a0, unsigned long a1,
++				    unsigned long a2, unsigned long a3,
++				    unsigned long a4, unsigned long a5,
++				    unsigned long a6, unsigned long a7)
++{
++       switch (a0) {
++       case SAL_GET_STATE_INFO:
++	       a3 =3D __pa(a3);
++	       break;
++       case SAL_MC_SET_PARAMS:
++	       if (a2 =3D 0x2) /* It is a memory address */
++		       a3 =3D __pa(a3);
++	       break;
++       case SAL_UPDATE_PAL:
++	       a1 =3D __pa(a1);
++	       a2 =3D __pa(a2);
++	       break;
++       }
++       return __sal_call_phys(ia64_sal, a0, a1, a2, a3, a4, a5, a6, a7);
++}
