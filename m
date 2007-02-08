@@ -1,80 +1,92 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 05 Feb 2007 01:59:03 +0000
-Subject: Zero size /proc/vmcore on ia64
-Message-Id: <20070205015901.GA31446@verge.net.au>
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Thu, 08 Feb 2007 02:07:48 +0000
+Subject: RE: Zero size /proc/vmcore on ia64
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BE0@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070205015901.GA31446@verge.net.au>
+In-Reply-To: <20070205015901.GA31446@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-Hi, 
-
-I have been poking around this problem a bit over the past week,
-and I thought it would be a good idea to get it out in the open.
-
-At some stage /proc/vmcore (in a crash-kernel) went from being
-something useful, to being zero size. 
-
-I initially thought this was because saved_max_pfn was not being 
-set correctly. And indeed it is not set for discontig memory.
-But the trivial fix below has not been sufficient to resolve the problem :(
-
-The problem seems to be along the lines of:
-  * kexec-tool sets up a segment to contain the elf header.
-  * This segment happens to be almost at the end of the crashkernel area
-    of memory that is visible to the crash kernel.
-  * However, when purgatory munges the EFI map, this segment
-    is marked as EFI_UNUSABLE_MEMORY.
-  * As a result of this it is not in a range covered by efi_memmap_walk()
-  * And thus it is outside the range of memory covered by a valid PFN
-    (remember its at the end of memory, it turns out that the
-     max PFN covers memory up until just before the header)
-  * The header can't be read by the vmcore setup code
-  * And vmcore is uninitialised
-
-     read_from_oldmem: error: pfn (32761) > saved_max_pfn (31744)
-     Kdump: vmcore not initialized
-
-     The saved_max_pfn error above is produced by debuging code
-     that I added to read_from_oldmem().
-     It also uses the patch below, otherwise saved_max_pfn is 0.
-
-For reference:
-  I am using today's linus tree (2.6.20)
-  The problem seems to have been around since at least 2.6.19-rc6
-  I have a Tiger2 system using disctontig memory
-  The problem also seems to manifest when using contig memory
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
-Set saved_max_pfn when discontig memory is in use.
-
-This sets up saved_max_pfn when disctontig memory is in use.
-This mirrors the code for contig memory.
-
-This patch does not entirely solve the problem of making vmcore work,
-however it does appear to be neccessary. Please consider applying.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 96722cb..999cefd 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -506,6 +509,12 @@ void __init find_memory(void)
- 	max_pfn = max_low_pfn;
- 
- 	find_initrd();
-+
-+#ifdef CONFIG_CRASH_DUMP
-+	/* If we are doing a crash dump, we still need to know the real mem
-+	 * size before original memory map is reset. */
-+        saved_max_pfn = max_pfn;
-+#endif
- }
- 
- #ifdef CONFIG_SMP
+Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiBGcm9tOiBsaW51eC1pYTY0LW93bmVyQHZn
+ZXIua2VybmVsLm9yZwo+IFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmdd
+IE9uIEJlaGFsZiBPZiBab3UsIE5hbmhhaQo+IFNlbnQ6IDIwMDfE6jLUwjbI1SA5OjA5Cj4gVG86
+IEhvcm1zOyBmYXN0Ym9vdEBsaXN0cy5vc2RsLm9yZzsgbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5v
+cmcKPiBDYzogS2hhbGlkIEF6aXo7IE1lbCBHb3JtYW47IEJvYiBQaWNjbzsgTWFnbnVzIERhbW0K
+PiBTdWJqZWN0OiBSRTogWmVybyBzaXplIC9wcm9jL3ZtY29yZSBvbiBpYTY0Cj4gCj4gCj4gVGhp
+cyBzZWVtcyB0byBiZSBhIGNvcm5lciBjYXNlIHdoaWNoIHB1cmdhdG9yeSBlZmktbWVtbWFwIGNv
+ZGUgZG9lcyBub3QgaGFuZGxlCj4gY29ycmVjdGx5Lgo+IAo+IENhbiB5b3UgcHJpbnQgdGhlIG1l
+bW9yeSByYW5nZXMgbGF5b3V0IGluZm9ybWF0aW9uIG9mIGZpcnN0IGFuZCBzZWNvbmQga2VybmVs
+Pwo+IGUuZywgdGhlIGVmaSBtZW1tYXAsIHRoZSBjcmFzaCBub3RlcyBtZW1vcnkgYWRkcmVzcy4K
+PiAKPiBUaGFua3MKPiBab3UgTmFuIGhhaQo+IAo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0KPiA+IEZyb206IEhvcm1zIFttYWlsdG86aG9ybXNAdmVyZ2UubmV0LmF1XQo+ID4gU2VudDog
+MjAwN8TqMtTCNcjVIDk6NTkKPiA+IFRvOiBmYXN0Ym9vdEBsaXN0cy5vc2RsLm9yZzsgbGludXgt
+aWE2NEB2Z2VyLmtlcm5lbC5vcmcKPiA+IENjOiBab3UsIE5hbmhhaTsgS2hhbGlkIEF6aXo7IE1l
+bCBHb3JtYW47IEJvYiBQaWNjbzsgTWFnbnVzIERhbW0KPiA+IFN1YmplY3Q6IFplcm8gc2l6ZSAv
+cHJvYy92bWNvcmUgb24gaWE2NAo+ID4KPiA+IEhpLAo+ID4KPiA+IEkgaGF2ZSBiZWVuIHBva2lu
+ZyBhcm91bmQgdGhpcyBwcm9ibGVtIGEgYml0IG92ZXIgdGhlIHBhc3Qgd2VlaywKPiA+IGFuZCBJ
+IHRob3VnaHQgaXQgd291bGQgYmUgYSBnb29kIGlkZWEgdG8gZ2V0IGl0IG91dCBpbiB0aGUgb3Bl
+bi4KPiA+Cj4gPiBBdCBzb21lIHN0YWdlIC9wcm9jL3ZtY29yZSAoaW4gYSBjcmFzaC1rZXJuZWwp
+IHdlbnQgZnJvbSBiZWluZwo+ID4gc29tZXRoaW5nIHVzZWZ1bCwgdG8gYmVpbmcgemVybyBzaXpl
+Lgo+ID4KPiA+IEkgaW5pdGlhbGx5IHRob3VnaHQgdGhpcyB3YXMgYmVjYXVzZSBzYXZlZF9tYXhf
+cGZuIHdhcyBub3QgYmVpbmcKPiA+IHNldCBjb3JyZWN0bHkuIEFuZCBpbmRlZWQgaXQgaXMgbm90
+IHNldCBmb3IgZGlzY29udGlnIG1lbW9yeS4KPiA+IEJ1dCB0aGUgdHJpdmlhbCBmaXggYmVsb3cg
+aGFzIG5vdCBiZWVuIHN1ZmZpY2llbnQgdG8gcmVzb2x2ZSB0aGUgcHJvYmxlbSA6KAo+ID4KPiA+
+IFRoZSBwcm9ibGVtIHNlZW1zIHRvIGJlIGFsb25nIHRoZSBsaW5lcyBvZjoKPiA+ICAgKiBrZXhl
+Yy10b29sIHNldHMgdXAgYSBzZWdtZW50IHRvIGNvbnRhaW4gdGhlIGVsZiBoZWFkZXIuCj4gPiAg
+ICogVGhpcyBzZWdtZW50IGhhcHBlbnMgdG8gYmUgYWxtb3N0IGF0IHRoZSBlbmQgb2YgdGhlIGNy
+YXNoa2VybmVsIGFyZWEKPiA+ICAgICBvZiBtZW1vcnkgdGhhdCBpcyB2aXNpYmxlIHRvIHRoZSBj
+cmFzaCBrZXJuZWwuCj4gPiAgICogSG93ZXZlciwgd2hlbiBwdXJnYXRvcnkgbXVuZ2VzIHRoZSBF
+RkkgbWFwLCB0aGlzIHNlZ21lbnQKPiA+ICAgICBpcyBtYXJrZWQgYXMgRUZJX1VOVVNBQkxFX01F
+TU9SWS4KPiA+ICAgKiBBcyBhIHJlc3VsdCBvZiB0aGlzIGl0IGlzIG5vdCBpbiBhIHJhbmdlIGNv
+dmVyZWQgYnkgZWZpX21lbW1hcF93YWxrKCkKPiA+ICAgKiBBbmQgdGh1cyBpdCBpcyBvdXRzaWRl
+IHRoZSByYW5nZSBvZiBtZW1vcnkgY292ZXJlZCBieSBhIHZhbGlkIFBGTgo+ID4gICAgIChyZW1l
+bWJlciBpdHMgYXQgdGhlIGVuZCBvZiBtZW1vcnksIGl0IHR1cm5zIG91dCB0aGF0IHRoZQo+ID4g
+ICAgICBtYXggUEZOIGNvdmVycyBtZW1vcnkgdXAgdW50aWwganVzdCBiZWZvcmUgdGhlIGhlYWRl
+cikKPiA+ICAgKiBUaGUgaGVhZGVyIGNhbid0IGJlIHJlYWQgYnkgdGhlIHZtY29yZSBzZXR1cCBj
+b2RlCj4gPiAgICogQW5kIHZtY29yZSBpcyB1bmluaXRpYWxpc2VkCj4gPgo+ID4gICAgICByZWFk
+X2Zyb21fb2xkbWVtOiBlcnJvcjogcGZuICgzMjc2MSkgPiBzYXZlZF9tYXhfcGZuICgzMTc0NCkK
+PiA+ICAgICAgS2R1bXA6IHZtY29yZSBub3QgaW5pdGlhbGl6ZWQKPiA+Cj4gPiAgICAgIFRoZSBz
+YXZlZF9tYXhfcGZuIGVycm9yIGFib3ZlIGlzIHByb2R1Y2VkIGJ5IGRlYnVnaW5nIGNvZGUKPiA+
+ICAgICAgdGhhdCBJIGFkZGVkIHRvIHJlYWRfZnJvbV9vbGRtZW0oKS4KPiA+ICAgICAgSXQgYWxz
+byB1c2VzIHRoZSBwYXRjaCBiZWxvdywgb3RoZXJ3aXNlIHNhdmVkX21heF9wZm4gaXMgMC4KPiA+
+Cj4gPiBGb3IgcmVmZXJlbmNlOgo+ID4gICBJIGFtIHVzaW5nIHRvZGF5J3MgbGludXMgdHJlZSAo
+Mi42LjIwKQo+ID4gICBUaGUgcHJvYmxlbSBzZWVtcyB0byBoYXZlIGJlZW4gYXJvdW5kIHNpbmNl
+IGF0IGxlYXN0IDIuNi4xOS1yYzYKPiA+ICAgSSBoYXZlIGEgVGlnZXIyIHN5c3RlbSB1c2luZyBk
+aXNjdG9udGlnIG1lbW9yeQo+ID4gICBUaGUgcHJvYmxlbSBhbHNvIHNlZW1zIHRvIG1hbmlmZXN0
+IHdoZW4gdXNpbmcgY29udGlnIG1lbW9yeQo+ID4KPiA+IC0tCj4gPiBIb3Jtcwo+ID4gICBIOiBo
+dHRwOi8vd3d3LnZlcmdlbmV0Lm5ldC9+aG9ybXMvCj4gPiAgIFc6IGh0dHA6Ly93d3cudmFsaW51
+eC5jby5qcC9lbi8KPiA+Cj4gPiBTZXQgc2F2ZWRfbWF4X3BmbiB3aGVuIGRpc2NvbnRpZyBtZW1v
+cnkgaXMgaW4gdXNlLgo+ID4KPiA+IFRoaXMgc2V0cyB1cCBzYXZlZF9tYXhfcGZuIHdoZW4gZGlz
+Y3RvbnRpZyBtZW1vcnkgaXMgaW4gdXNlLgo+ID4gVGhpcyBtaXJyb3JzIHRoZSBjb2RlIGZvciBj
+b250aWcgbWVtb3J5Lgo+ID4KPiA+IFRoaXMgcGF0Y2ggZG9lcyBub3QgZW50aXJlbHkgc29sdmUg
+dGhlIHByb2JsZW0gb2YgbWFraW5nIHZtY29yZSB3b3JrLAo+ID4gaG93ZXZlciBpdCBkb2VzIGFw
+cGVhciB0byBiZSBuZWNjZXNzYXJ5LiBQbGVhc2UgY29uc2lkZXIgYXBwbHlpbmcuCj4gPgo+ID4g
+U2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+Cj4gPgo+ID4g
+ZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9tbS9kaXNjb250aWcuYyBiL2FyY2gvaWE2NC9tbS9kaXNj
+b250aWcuYwo+ID4gaW5kZXggOTY3MjJjYi4uOTk5Y2VmZCAxMDA2NDQKPiA+IC0tLSBhL2FyY2gv
+aWE2NC9tbS9kaXNjb250aWcuYwo+ID4gKysrIGIvYXJjaC9pYTY0L21tL2Rpc2NvbnRpZy5jCj4g
+PiBAQCAtNTA2LDYgKzUwOSwxMiBAQCB2b2lkIF9faW5pdCBmaW5kX21lbW9yeSh2b2lkKQo+ID4g
+IAltYXhfcGZuID0gbWF4X2xvd19wZm47Cj4gPgo+ID4gIAlmaW5kX2luaXRyZCgpOwo+ID4gKwo+
+ID4gKyNpZmRlZiBDT05GSUdfQ1JBU0hfRFVNUAo+ID4gKwkvKiBJZiB3ZSBhcmUgZG9pbmcgYSBj
+cmFzaCBkdW1wLCB3ZSBzdGlsbCBuZWVkIHRvIGtub3cgdGhlIHJlYWwgbWVtCj4gPiArCSAqIHNp
+emUgYmVmb3JlIG9yaWdpbmFsIG1lbW9yeSBtYXAgaXMgcmVzZXQuICovCj4gPiArICAgICAgICBz
+YXZlZF9tYXhfcGZuID0gbWF4X3BmbjsKPiA+ICsjZW5kaWYKPiA+ICB9Cj4gPgo+ID4gICNpZmRl
+ZiBDT05GSUdfU01QCgoKSGkgVml2ZWssCglJIGhhdmUgYSBxdWVzdGlvbiBhYm91dCB3aHkgc2F2
+ZWRfbWF4X3BmbiBjaGVjayBpbiB2bWNvcmUuYyBpcyBuZWVkZWQuCkhlcmUgaXMgYSB0eXBpY2Fs
+IG1lbW9yeSBsYXlvdXQgb2YgSUE2NCBtYWNoaW5lLgoKLS0tLS0gPT0+bWF4X3BmbiBmb3IgZmly
+c3Qga2VybmVsCgkgdGhlIGZpcnN0IGtlcm5lbAotLS0tLSA9PT5tYXhfcGZuIGZvciBjcmFzaCBk
+dW1wIGtlcm5lbAp0aGUgY3Jhc2ggZHVtcCBrZXJuZWwKLS0tLS0JCnRoZSBmaXJzdCBrZXJuZWwK
+LS0tLS0gCgpXaGVuIGNyYXNoIGR1bXAga2VybmVsIHRyaWVzIHRvIGFjY2VzcyBtZW1vcnkgb2Yg
+Zmlyc3Qga2VybmVsIGFib3ZlIHNhdmVkX21heF9wZm4gb2YgaGltLCByZWFkX2Zyb21fb2xkbWVt
+IHdpbGwgcmVmdXNlIHRoYXQgcmVhZC4KClRoYXQgcmVzdWx0IGFuIGVtcHR5IHZtY29yZSBmaWxl
+LiBjaGFuZ2Ugc2F2ZWRfbWF4X3BmbiB0byB1bnNpZ25lZCBsb25nKC0xKSB3aWxsIGZpeCB0aGlz
+IGlzc3VlLgoKSG93ZXZlciBzaW5jZSBtZW1vcnkgcmFuZ2VzIGluIHZtY29yZSBpcyBwcmUgZGVm
+aW5lZCBmcm9tIC9wcm9jL2lvbWVtIG9mIGZpcnN0IGtlcm5lbCwgd2h5IGRvIHdlIHN0aWxsIG5l
+ZWQgdG8gYWRkIGFuIGV4dHJhIGNoZWNrIGluIHZtY29yZS5jCgpUaGFua3MKWm91IE5hbiBoYWkK
+LQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3Jp
+YmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2Vy
+Lmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9y
+Zy9tYWpvcmRvbW8taW5mby5odG1s
