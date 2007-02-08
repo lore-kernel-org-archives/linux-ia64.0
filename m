@@ -1,85 +1,80 @@
-From: Richard Knutsson <ricknu-0@student.ltu.se>
-Date: Fri, 16 Feb 2007 17:36:57 +0000
-Subject: Re: [KJ] [PATCH] is_power_of_2 in ia64mm
-Message-Id: <45D5EBB9.4080903@student.ltu.se>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Thu, 08 Feb 2007 03:28:44 +0000
+Subject: [RFC Patch]Use ar.kr2 for smp_processor_id
+Message-Id: <1170905324.3230.7.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1171627435.6127.0.camel@wriver-t81fb058.linuxcoe> <45D5C789.1090607@student.ltu.se> <jeire2nnik.fsf@sykes.suse.de> <45D5D47F.3000303@student.ltu.se> <je3b56nlds.fsf@sykes.suse.de> <45D5DE6F.6030604@student.ltu.se> <Pine.LNX.4.64.0702161202270.32716@CPE00045a9c397f-CM001225dbafb6>
-In-Reply-To: <Pine.LNX.4.64.0702161202270.32716@CPE00045a9c397f-CM001225dbafb6>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Robert P. J. Day" <rpjday@mindspring.com>
-Cc: Andreas Schwab <schwab@suse.de>, linux-mm@kvack.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, Kernel Janitors List <kernel-janitors@lists.osdl.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Robert P. J. Day wrote:
-> i'm not clear on what the possible problem is here:
->
-> On Fri, 16 Feb 2007, Richard Knutsson wrote:
->
->   
->> Andreas Schwab wrote:
->>     
->>> Richard Knutsson <ricknu-0@student.ltu.se> writes:
->>>
->>>       
->>>> Andreas Schwab wrote:
->>>>
->>>>         
->>>>> Richard Knutsson <ricknu-0@student.ltu.se> writes:
->>>>>
->>>>>
->>>>>           
->>>>>> Vignesh Babu BM wrote:
->>>>>>
->>>>>>             
->>>>>>> @@ -175,7 +176,7 @@ static int __init hugetlb_setup_sz(char *str)
->>>>>>>  		tr_pages = 0x15557000UL;
->>>>>>>   	size = memparse(str, &str);
->>>>>>> -	if (*str || (size & (size-1)) || !(tr_pages & size) ||
->>>>>>> +	if (*str || !is_power_of_2(size) || !(tr_pages & size) ||
->>>>>>>  		size <= PAGE_SIZE ||
->>>>>>>  		size >= (1UL << PAGE_SHIFT << MAX_ORDER)) {
->>>>>>>  		printk(KERN_WARNING "Invalid huge page size specified\n");
->>>>>>>
->>>>>>>               
->>>>>> As we talked about before; is this really correct? !is_power_of_2(0) =
->>>>>> true while (0 & (0-1)) = 0.
->>>>>>
->>>>>>             
->>>>> size = 0 is also covered by the next two conditions, so the overall value
->>>>> does not change.
->>>>>
->>>>>           
->>>> Yes, but is it meant to state that 'size' is not a power of two?
->>>>
->>>>         
->>> What else can it mean?
->>>       
->> What about !one_or_less_bit()? It has not been implemented (yet?)
->> but been discussed.
->>     
->
-> but whether or not it's been implemented doesn't change whether or not
-> the code above can be simplified.  given what's being tested, and the
-> error message about whether a page size is valid, it seems fairly
-> clear that this is a power of two test.  what's the problem?
->   
-Fsck, I can't see that. But if that is what's intended, well then...
+Pin ar.kr2 of each CPU, so that smp_processor_id can use it.
+This will save some memory foot-print when smp_procerror_id() 
+is called.
 
-(5 min later)
-Ok, now I think I see it. Sorry for the noise..
->   
->> It ended by concluding that is_power_of_2() should be fixed up first
->> and then we can see about it.
->>     
->
-> there's nothing about is_power_of_2() that needs "fixing".  it's
-> correct as it's currently implemented.
->   
-Oh, I didn't mean that is_power_of_2() need to be fixed, I meant 
-fixing/replacing the kernel with is_power_of_2().
+This is also useful for implement sys_getcpu in fast path.
+
+I have simply tested the patch by boot on a 16p system then try 
+offline and online some CPUs through /sys/.
+ 
+
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
 
 
-Todays lesson: don't try to code while you have a cold...
-Richard Knutsson
+diff -Nraup linux-2.6.20/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+--- linux-2.6.20/arch/ia64/kernel/setup.c	2007-02-04 13:44:54.000000000 -0500
++++ b/arch/ia64/kernel/setup.c	2007-02-07 23:30:03.000000000 -0500
+@@ -458,6 +458,9 @@ early_param("elfcorehdr", parse_elfcoreh
+ void __init
+ setup_arch (char **cmdline_p)
+ {
++	/* setup SMP processor id */
++	ia64_set_kr(IA64_KR_CPU_ID, (current_thread_info()->cpu));
++
+ 	unw_init();
+ 
+ 	ia64_patch_vtop((u64) __start___vtop_patchlist, (u64) __end___vtop_patchlist);
+diff -Nraup linux-2.6.20/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+--- linux-2.6.20/arch/ia64/kernel/smpboot.c	2007-02-04 13:44:54.000000000 -0500
++++ b/arch/ia64/kernel/smpboot.c	2007-02-07 23:29:44.000000000 -0500
+@@ -445,8 +445,12 @@ smp_callin (void)
+ int __devinit
+ start_secondary (void *unused)
+ {
++	/* setup SMP processor id */
++	ia64_set_kr(IA64_KR_CPU_ID, (current_thread_info()->cpu));
++	
+ 	/* Early console may use I/O ports */
+ 	ia64_set_kr(IA64_KR_IO_BASE, __pa(ia64_iobase));
++
+ 	Dprintk("start_secondary: starting CPU 0x%x\n", hard_smp_processor_id());
+ 	efi_map_pal_code();
+ 	cpu_init();
+diff -Nraup linux-2.6.20/include/asm-ia64/kregs.h b/include/asm-ia64/kregs.h
+--- linux-2.6.20/include/asm-ia64/kregs.h	2007-02-04 13:44:54.000000000 -0500
++++ b/include/asm-ia64/kregs.h	2007-02-07 23:28:21.000000000 -0500
+@@ -14,6 +14,7 @@
+  */
+ #define IA64_KR_IO_BASE		0	/* ar.k0: legacy I/O base address */
+ #define IA64_KR_TSSD		1	/* ar.k1: IVE uses this as the TSSD */
++#define IA64_KR_CPU_ID		2	/* ar.k2: Processor ID */
+ #define IA64_KR_PER_CPU_DATA	3	/* ar.k3: physical per-CPU base */
+ #define IA64_KR_CURRENT_STACK	4	/* ar.k4: what's mapped in IA64_TR_CURRENT_STACK */
+ #define IA64_KR_FPU_OWNER	5	/* ar.k5: fpu-owner (UP only, at the moment) */
+diff -Nraup linux-2.6.20/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
+--- linux-2.6.20/include/asm-ia64/smp.h	2007-02-04 13:44:54.000000000 -0500
++++ b/include/asm-ia64/smp.h	2007-02-08 00:53:58.000000000 -0500
+@@ -45,7 +45,7 @@ ia64_get_lid (void)
+ #define SMP_IRQ_REDIRECTION	(1 << 0)
+ #define SMP_IPI_REDIRECTION	(1 << 1)
+ 
+-#define raw_smp_processor_id() (current_thread_info()->cpu)
++#define raw_smp_processor_id() (ia64_get_kr(IA64_KR_CPU_ID))
+ 
+ extern struct smp_boot_data {
+ 	int cpu_count;
 
+
+
+
+  
