@@ -1,92 +1,61 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 08 Feb 2007 02:07:48 +0000
-Subject: RE: Zero size /proc/vmcore on ia64
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BE0@pdsmsx411.ccr.corp.intel.com>
+From: Horms <horms@verge.net.au>
+Date: Thu, 08 Feb 2007 03:06:53 +0000
+Subject: Re: Zero size /proc/vmcore on ia64
+Message-Id: <20070208030651.GA29670@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070205015901.GA31446@verge.net.au>
 In-Reply-To: <20070205015901.GA31446@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Cj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0KPiBGcm9tOiBsaW51eC1pYTY0LW93bmVyQHZn
-ZXIua2VybmVsLm9yZwo+IFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmdd
-IE9uIEJlaGFsZiBPZiBab3UsIE5hbmhhaQo+IFNlbnQ6IDIwMDfE6jLUwjbI1SA5OjA5Cj4gVG86
-IEhvcm1zOyBmYXN0Ym9vdEBsaXN0cy5vc2RsLm9yZzsgbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5v
-cmcKPiBDYzogS2hhbGlkIEF6aXo7IE1lbCBHb3JtYW47IEJvYiBQaWNjbzsgTWFnbnVzIERhbW0K
-PiBTdWJqZWN0OiBSRTogWmVybyBzaXplIC9wcm9jL3ZtY29yZSBvbiBpYTY0Cj4gCj4gCj4gVGhp
-cyBzZWVtcyB0byBiZSBhIGNvcm5lciBjYXNlIHdoaWNoIHB1cmdhdG9yeSBlZmktbWVtbWFwIGNv
-ZGUgZG9lcyBub3QgaGFuZGxlCj4gY29ycmVjdGx5Lgo+IAo+IENhbiB5b3UgcHJpbnQgdGhlIG1l
-bW9yeSByYW5nZXMgbGF5b3V0IGluZm9ybWF0aW9uIG9mIGZpcnN0IGFuZCBzZWNvbmQga2VybmVs
-Pwo+IGUuZywgdGhlIGVmaSBtZW1tYXAsIHRoZSBjcmFzaCBub3RlcyBtZW1vcnkgYWRkcmVzcy4K
-PiAKPiBUaGFua3MKPiBab3UgTmFuIGhhaQo+IAo+ID4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
-LS0KPiA+IEZyb206IEhvcm1zIFttYWlsdG86aG9ybXNAdmVyZ2UubmV0LmF1XQo+ID4gU2VudDog
-MjAwN8TqMtTCNcjVIDk6NTkKPiA+IFRvOiBmYXN0Ym9vdEBsaXN0cy5vc2RsLm9yZzsgbGludXgt
-aWE2NEB2Z2VyLmtlcm5lbC5vcmcKPiA+IENjOiBab3UsIE5hbmhhaTsgS2hhbGlkIEF6aXo7IE1l
-bCBHb3JtYW47IEJvYiBQaWNjbzsgTWFnbnVzIERhbW0KPiA+IFN1YmplY3Q6IFplcm8gc2l6ZSAv
-cHJvYy92bWNvcmUgb24gaWE2NAo+ID4KPiA+IEhpLAo+ID4KPiA+IEkgaGF2ZSBiZWVuIHBva2lu
-ZyBhcm91bmQgdGhpcyBwcm9ibGVtIGEgYml0IG92ZXIgdGhlIHBhc3Qgd2VlaywKPiA+IGFuZCBJ
-IHRob3VnaHQgaXQgd291bGQgYmUgYSBnb29kIGlkZWEgdG8gZ2V0IGl0IG91dCBpbiB0aGUgb3Bl
-bi4KPiA+Cj4gPiBBdCBzb21lIHN0YWdlIC9wcm9jL3ZtY29yZSAoaW4gYSBjcmFzaC1rZXJuZWwp
-IHdlbnQgZnJvbSBiZWluZwo+ID4gc29tZXRoaW5nIHVzZWZ1bCwgdG8gYmVpbmcgemVybyBzaXpl
-Lgo+ID4KPiA+IEkgaW5pdGlhbGx5IHRob3VnaHQgdGhpcyB3YXMgYmVjYXVzZSBzYXZlZF9tYXhf
-cGZuIHdhcyBub3QgYmVpbmcKPiA+IHNldCBjb3JyZWN0bHkuIEFuZCBpbmRlZWQgaXQgaXMgbm90
-IHNldCBmb3IgZGlzY29udGlnIG1lbW9yeS4KPiA+IEJ1dCB0aGUgdHJpdmlhbCBmaXggYmVsb3cg
-aGFzIG5vdCBiZWVuIHN1ZmZpY2llbnQgdG8gcmVzb2x2ZSB0aGUgcHJvYmxlbSA6KAo+ID4KPiA+
-IFRoZSBwcm9ibGVtIHNlZW1zIHRvIGJlIGFsb25nIHRoZSBsaW5lcyBvZjoKPiA+ICAgKiBrZXhl
-Yy10b29sIHNldHMgdXAgYSBzZWdtZW50IHRvIGNvbnRhaW4gdGhlIGVsZiBoZWFkZXIuCj4gPiAg
-ICogVGhpcyBzZWdtZW50IGhhcHBlbnMgdG8gYmUgYWxtb3N0IGF0IHRoZSBlbmQgb2YgdGhlIGNy
-YXNoa2VybmVsIGFyZWEKPiA+ICAgICBvZiBtZW1vcnkgdGhhdCBpcyB2aXNpYmxlIHRvIHRoZSBj
-cmFzaCBrZXJuZWwuCj4gPiAgICogSG93ZXZlciwgd2hlbiBwdXJnYXRvcnkgbXVuZ2VzIHRoZSBF
-RkkgbWFwLCB0aGlzIHNlZ21lbnQKPiA+ICAgICBpcyBtYXJrZWQgYXMgRUZJX1VOVVNBQkxFX01F
-TU9SWS4KPiA+ICAgKiBBcyBhIHJlc3VsdCBvZiB0aGlzIGl0IGlzIG5vdCBpbiBhIHJhbmdlIGNv
-dmVyZWQgYnkgZWZpX21lbW1hcF93YWxrKCkKPiA+ICAgKiBBbmQgdGh1cyBpdCBpcyBvdXRzaWRl
-IHRoZSByYW5nZSBvZiBtZW1vcnkgY292ZXJlZCBieSBhIHZhbGlkIFBGTgo+ID4gICAgIChyZW1l
-bWJlciBpdHMgYXQgdGhlIGVuZCBvZiBtZW1vcnksIGl0IHR1cm5zIG91dCB0aGF0IHRoZQo+ID4g
-ICAgICBtYXggUEZOIGNvdmVycyBtZW1vcnkgdXAgdW50aWwganVzdCBiZWZvcmUgdGhlIGhlYWRl
-cikKPiA+ICAgKiBUaGUgaGVhZGVyIGNhbid0IGJlIHJlYWQgYnkgdGhlIHZtY29yZSBzZXR1cCBj
-b2RlCj4gPiAgICogQW5kIHZtY29yZSBpcyB1bmluaXRpYWxpc2VkCj4gPgo+ID4gICAgICByZWFk
-X2Zyb21fb2xkbWVtOiBlcnJvcjogcGZuICgzMjc2MSkgPiBzYXZlZF9tYXhfcGZuICgzMTc0NCkK
-PiA+ICAgICAgS2R1bXA6IHZtY29yZSBub3QgaW5pdGlhbGl6ZWQKPiA+Cj4gPiAgICAgIFRoZSBz
-YXZlZF9tYXhfcGZuIGVycm9yIGFib3ZlIGlzIHByb2R1Y2VkIGJ5IGRlYnVnaW5nIGNvZGUKPiA+
-ICAgICAgdGhhdCBJIGFkZGVkIHRvIHJlYWRfZnJvbV9vbGRtZW0oKS4KPiA+ICAgICAgSXQgYWxz
-byB1c2VzIHRoZSBwYXRjaCBiZWxvdywgb3RoZXJ3aXNlIHNhdmVkX21heF9wZm4gaXMgMC4KPiA+
-Cj4gPiBGb3IgcmVmZXJlbmNlOgo+ID4gICBJIGFtIHVzaW5nIHRvZGF5J3MgbGludXMgdHJlZSAo
-Mi42LjIwKQo+ID4gICBUaGUgcHJvYmxlbSBzZWVtcyB0byBoYXZlIGJlZW4gYXJvdW5kIHNpbmNl
-IGF0IGxlYXN0IDIuNi4xOS1yYzYKPiA+ICAgSSBoYXZlIGEgVGlnZXIyIHN5c3RlbSB1c2luZyBk
-aXNjdG9udGlnIG1lbW9yeQo+ID4gICBUaGUgcHJvYmxlbSBhbHNvIHNlZW1zIHRvIG1hbmlmZXN0
-IHdoZW4gdXNpbmcgY29udGlnIG1lbW9yeQo+ID4KPiA+IC0tCj4gPiBIb3Jtcwo+ID4gICBIOiBo
-dHRwOi8vd3d3LnZlcmdlbmV0Lm5ldC9+aG9ybXMvCj4gPiAgIFc6IGh0dHA6Ly93d3cudmFsaW51
-eC5jby5qcC9lbi8KPiA+Cj4gPiBTZXQgc2F2ZWRfbWF4X3BmbiB3aGVuIGRpc2NvbnRpZyBtZW1v
-cnkgaXMgaW4gdXNlLgo+ID4KPiA+IFRoaXMgc2V0cyB1cCBzYXZlZF9tYXhfcGZuIHdoZW4gZGlz
-Y3RvbnRpZyBtZW1vcnkgaXMgaW4gdXNlLgo+ID4gVGhpcyBtaXJyb3JzIHRoZSBjb2RlIGZvciBj
-b250aWcgbWVtb3J5Lgo+ID4KPiA+IFRoaXMgcGF0Y2ggZG9lcyBub3QgZW50aXJlbHkgc29sdmUg
-dGhlIHByb2JsZW0gb2YgbWFraW5nIHZtY29yZSB3b3JrLAo+ID4gaG93ZXZlciBpdCBkb2VzIGFw
-cGVhciB0byBiZSBuZWNjZXNzYXJ5LiBQbGVhc2UgY29uc2lkZXIgYXBwbHlpbmcuCj4gPgo+ID4g
-U2lnbmVkLW9mZi1ieTogU2ltb24gSG9ybWFuIDxob3Jtc0B2ZXJnZS5uZXQuYXU+Cj4gPgo+ID4g
-ZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9tbS9kaXNjb250aWcuYyBiL2FyY2gvaWE2NC9tbS9kaXNj
-b250aWcuYwo+ID4gaW5kZXggOTY3MjJjYi4uOTk5Y2VmZCAxMDA2NDQKPiA+IC0tLSBhL2FyY2gv
-aWE2NC9tbS9kaXNjb250aWcuYwo+ID4gKysrIGIvYXJjaC9pYTY0L21tL2Rpc2NvbnRpZy5jCj4g
-PiBAQCAtNTA2LDYgKzUwOSwxMiBAQCB2b2lkIF9faW5pdCBmaW5kX21lbW9yeSh2b2lkKQo+ID4g
-IAltYXhfcGZuID0gbWF4X2xvd19wZm47Cj4gPgo+ID4gIAlmaW5kX2luaXRyZCgpOwo+ID4gKwo+
-ID4gKyNpZmRlZiBDT05GSUdfQ1JBU0hfRFVNUAo+ID4gKwkvKiBJZiB3ZSBhcmUgZG9pbmcgYSBj
-cmFzaCBkdW1wLCB3ZSBzdGlsbCBuZWVkIHRvIGtub3cgdGhlIHJlYWwgbWVtCj4gPiArCSAqIHNp
-emUgYmVmb3JlIG9yaWdpbmFsIG1lbW9yeSBtYXAgaXMgcmVzZXQuICovCj4gPiArICAgICAgICBz
-YXZlZF9tYXhfcGZuID0gbWF4X3BmbjsKPiA+ICsjZW5kaWYKPiA+ICB9Cj4gPgo+ID4gICNpZmRl
-ZiBDT05GSUdfU01QCgoKSGkgVml2ZWssCglJIGhhdmUgYSBxdWVzdGlvbiBhYm91dCB3aHkgc2F2
-ZWRfbWF4X3BmbiBjaGVjayBpbiB2bWNvcmUuYyBpcyBuZWVkZWQuCkhlcmUgaXMgYSB0eXBpY2Fs
-IG1lbW9yeSBsYXlvdXQgb2YgSUE2NCBtYWNoaW5lLgoKLS0tLS0gPT0+bWF4X3BmbiBmb3IgZmly
-c3Qga2VybmVsCgkgdGhlIGZpcnN0IGtlcm5lbAotLS0tLSA9PT5tYXhfcGZuIGZvciBjcmFzaCBk
-dW1wIGtlcm5lbAp0aGUgY3Jhc2ggZHVtcCBrZXJuZWwKLS0tLS0JCnRoZSBmaXJzdCBrZXJuZWwK
-LS0tLS0gCgpXaGVuIGNyYXNoIGR1bXAga2VybmVsIHRyaWVzIHRvIGFjY2VzcyBtZW1vcnkgb2Yg
-Zmlyc3Qga2VybmVsIGFib3ZlIHNhdmVkX21heF9wZm4gb2YgaGltLCByZWFkX2Zyb21fb2xkbWVt
-IHdpbGwgcmVmdXNlIHRoYXQgcmVhZC4KClRoYXQgcmVzdWx0IGFuIGVtcHR5IHZtY29yZSBmaWxl
-LiBjaGFuZ2Ugc2F2ZWRfbWF4X3BmbiB0byB1bnNpZ25lZCBsb25nKC0xKSB3aWxsIGZpeCB0aGlz
-IGlzc3VlLgoKSG93ZXZlciBzaW5jZSBtZW1vcnkgcmFuZ2VzIGluIHZtY29yZSBpcyBwcmUgZGVm
-aW5lZCBmcm9tIC9wcm9jL2lvbWVtIG9mIGZpcnN0IGtlcm5lbCwgd2h5IGRvIHdlIHN0aWxsIG5l
-ZWQgdG8gYWRkIGFuIGV4dHJhIGNoZWNrIGluIHZtY29yZS5jCgpUaGFua3MKWm91IE5hbiBoYWkK
-LQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3Jp
-YmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2Vy
-Lmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9y
-Zy9tYWpvcmRvbW8taW5mby5odG1s
+On Thu, Feb 08, 2007 at 10:07:48AM +0800, Zou, Nanhai wrote:
+> 
+> Hi Vivek,
+> 	I have a question about why saved_max_pfn check in vmcore.c is needed.
+> Here is a typical memory layout of IA64 machine.
+> 
+> ----- ==>max_pfn for first kernel
+> 	 the first kernel
+> ----- ==>max_pfn for crash dump kernel
+> the crash dump kernel
+> -----	
+> the first kernel
+> ----- 
+> 
+> When crash dump kernel tries to access memory of first kernel above
+> saved_max_pfn of him, read_from_oldmem will refuse that read.
+> 
+> That result an empty vmcore file. change saved_max_pfn to unsigned
+> long(-1) will fix this issue.
+> 
+> However since memory ranges in vmcore is pre defined from /proc/iomem
+> of first kernel, why do we still need to add an extra check in
+> vmcore.c
+
+Hi Nan-hai,
+
+sorry that I did not get back to you about the information you requested
+about my system, I guess you have managed to reproduce the problem none
+the less.
+
+I can confirm that removing the max_pfn check in vmcore.c does
+indeed give /proc/vmcore a non-zero (and presumably correct) size.
+
+I wonder if the problem is that saved_max_pfn is being incorectly
+calculated on ia64. That it is being set to the max_pfn of the
+crash kernel (i.e. in the crashkernel=X@Y area), rather than
+the max_pfn of the physical memory of the system, which seems
+more sensible as the purpose of vmcore is to read memory
+outside of the crashkernel=X@Y area.
+
+You may be right that we can just remove the check all together,
+though perhaps it is there for the case where the range information
+in the vmcode are corrupted. Then again, should we care about this?
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
+
