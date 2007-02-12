@@ -1,24 +1,39 @@
-From: "Akinobu Mita" <akinobu.mita@gmail.com>
-Date: Fri, 16 Feb 2007 17:30:53 +0000
-Subject: Re: fault-injection framework on ia64
-Message-Id: <961aa3350702160930i63e1e64vd57130c1f05eb7f9@mail.gmail.com>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Mon, 12 Feb 2007 06:12:01 +0000
+Subject: [PATCH] pci_get_legacy_ide_irq should return
+Message-Id: <1171260721.2978.4.camel@ymzhang>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070215041554.8e9c92aa.akpm@linux-foundation.org>
-In-Reply-To: <20070215041554.8e9c92aa.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> But if STACKTRACE depends on STACKTRACE_SUPPORT, which isn't defined on ia64,
-> kconfig should disable FAULT_INJECTION altogether with my patch (as it did
-> before it). I don't think that FAULT_INJECTION could be enabled before my
-> patch, right?
->
-> _BUT_ probably STACKTRACE_SUPPORT should be defined, with default n and no
-> prompt, on ia64, or Kconfig gets confused (it should output a warning,
-> like 'undefined symbol STACKTRACE_SUPPORT'). We on UML used to get warning
-> when INPUT was used but not defined. Hmmm....
+Function pci_get_legacy_ide_irq is incorrect on ia64. It should return
+irq vector instead of GSI. The fixed number 14 and 15 are just GSI.
 
-Really? I intentionaly removed the STACKTRACE_SUPPORT in x86_64 Kconfig, then
-I did make menuconfig. But I didn't get such warning.
+Below patch against kernel 2.6.20 fixes it.
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
+---
+
+diff -Nraup linux-2.6.20/include/asm-ia64/pci.h linux-2.6.20_fix/include/asm-ia64/pci.h
+--- linux-2.6.20/include/asm-ia64/pci.h	2007-02-08 02:13:44.000000000 -0500
++++ linux-2.6.20_fix/include/asm-ia64/pci.h	2007-02-11 16:39:08.000000000 -0500
+@@ -9,6 +9,7 @@
+ 
+ #include <asm/io.h>
+ #include <asm/scatterlist.h>
++#include <asm/hw_irq.h>
+ 
+ /*
+  * Can be used to override the logic in pci_scan_bus for skipping already-configured bus
+@@ -170,7 +171,7 @@ pcibios_select_root(struct pci_dev *pdev
+ #define HAVE_ARCH_PCI_GET_LEGACY_IDE_IRQ
+ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+ {
+-	return channel ? 15 : 14;
++	return channel ? isa_irq_to_vector(15) : isa_irq_to_vector(14);
+ }
+ 
+ #endif /* _ASM_IA64_PCI_H */
