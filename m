@@ -1,105 +1,66 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Mon, 05 Feb 2007 18:14:37 +0000
-Subject: Re: [PATCH] kexec: Fix CONFIG_SMP=n compilation V2 (ia64)
-Message-Id: <45C7740D.70509@sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Tue, 13 Feb 2007 18:48:39 +0000
+Subject: 2.6.20 new perfmon code base + libpfm + pfmon
+Message-Id: <20070213184839.GC10031@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070205064342.21398.97736.sendpatchset@localhost>
-In-Reply-To: <20070205064342.21398.97736.sendpatchset@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Magnus Damm <magnus@valinux.co.jp>
-Cc: akpm@linux-foundation.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, nanhai.zou@intel.com, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org, horms@verge.net.au, magnus.damm@gmail.com
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net, eranian@hpl.hp.com, perfctr-devel@lists.sourceforge.net
 
-Magnus Damm wrote:
-> kexec: Fix CONFIG_SMP=n compilation V2 (ia64)
-> 
-> Kexec support for 2.6.20 on ia64 does not build properly using a config
-> made up by CONFIG_SMP=n and CONFIG_HOTPLUG_CPU=n:
-> 
->   CC      arch/ia64/kernel/machine_kexec.o
-> arch/ia64/kernel/machine_kexec.c: In function `machine_shutdown':
-> arch/ia64/kernel/machine_kexec.c:77: warning: implicit declaration of function `cpu_down'
->   AS      arch/ia64/kernel/relocate_kernel.o
->   CC      arch/ia64/kernel/crash.o
-> arch/ia64/kernel/crash.c: In function `kdump_cpu_freeze':
-> arch/ia64/kernel/crash.c:139: warning: implicit declaration of function `ia64_jump_to_sal'
-> arch/ia64/kernel/crash.c:139: error: `sal_boot_rendez_state' undeclared (first use in this function)
-> arch/ia64/kernel/crash.c:139: error: (Each undeclared identifier is reported only once
-> arch/ia64/kernel/crash.c:139: error: for each function it appears in.)
-> arch/ia64/kernel/crash.c: At top level:
-> arch/ia64/kernel/crash.c:84: warning: 'kdump_wait_cpu_freeze' defined but not used
-> make[1]: *** [arch/ia64/kernel/crash.o] Error 1
-> make: *** [arch/ia64/kernel] Error 2
-> 
-> Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
-> ---
+Hello,
 
-Looks good to me also.
+I have released another version of the perfmon new code base package.
+This version of the kernel patch is relative to 2.6.20.
 
-Acked-by: Jay Lan <jlan@sgi.com>
+This  new kernel patch includes the following new features and
+bug fixes:
+	- first cut at supporting Oprofile on i386 and x86-64 architectures
+	- several internal interfaces simplfications
+	- various MIPS updates (Phil Mucci/Manoj Ekbote)
+	- varous PPC32 updates (Phil Mucci)
+	- fix bug in set switching with a single set
+	- fix bug in pfm_restart() for per-thread mode with blocking notification
 
-> machine_kexec.c
->  Applies on top of 2.6.20.
-> 
->  arch/ia64/kernel/crash.c         |   11 +++++++----
->  arch/ia64/kernel/machine_kexec.c |    2 ++
->  2 files changed, 9 insertions(+), 4 deletions(-)
-> 
-> --- 0002/arch/ia64/kernel/crash.c
-> +++ work/arch/ia64/kernel/crash.c	2007-02-02 20:31:18.000000000 +0900
-> @@ -79,6 +79,7 @@ crash_save_this_cpu()
->  	final_note(buf);
->  }
->  
-> +#ifdef CONFIG_SMP
->  static int
->  kdump_wait_cpu_freeze(void)
->  {
-> @@ -91,6 +92,7 @@ kdump_wait_cpu_freeze(void)
->  	}
->  	return 1;
->  }
-> +#endif
->  
->  void
->  machine_crash_shutdown(struct pt_regs *pt)
-> @@ -132,11 +134,12 @@ kdump_cpu_freeze(struct unw_frame_info *
->  	atomic_inc(&kdump_cpu_freezed);
->  	kdump_status[cpuid] = 1;
->  	mb();
-> -	if (cpuid = 0) {
-> -		for (;;)
-> -			cpu_relax();
-> -	} else
-> +#ifdef CONFIG_HOTPLUG_CPU
-> +	if (cpuid != 0)
->  		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
-> +#endif
-> +	for (;;)
-> +		cpu_relax();
->  }
->  
->  static int
-> --- 0002/arch/ia64/kernel/machine_kexec.c
-> +++ work/arch/ia64/kernel/machine_kexec.c	2007-02-02 20:56:24.000000000 +0900
-> @@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
->  
->  void machine_shutdown(void)
->  {
-> +#ifdef CONFIG_HOTPLUG_CPU
->  	int cpu;
->  
->  	for_each_online_cpu(cpu) {
->  		if (cpu != smp_processor_id())
->  			cpu_down(cpu);
->  	}
-> +#endif
->  	kexec_disable_iosapic();
->  }
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Unfortunately, this release does not build for PowerPC due to a problem with the
+TIF_* flags. Perfmon adds 2 new flags which make the TIF now use more than 16 bits which
+causes problem with some assembly instructions in entry_64.S. Hopefully,
+this will be fixed in the next release.
 
+To make Oprofile work, you need a modified user level Oprofile package. I have made
+a first pass at modifying 0.9.2 to work on Perfmon 2.3 (and v2.0 for IA-64) for
+the following processors: AMD Opteron, P6, Core Duo, Core 2 Duo, P4. The modified
+package is available as Alpha at:
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/oprof-perfmon2-070122.diff
+
+I have also released a new libpfm, libpfm-3.2-070206, with lots of
+changes. Here are some of the most important ones:
+	- Full Intel Core 2 Duo event table (Thanks to Dan Terpstra for his help)
+	- Full event table for P6 and Pentium M (Dan Terpstra)
+	- various MIPS updates (Phil Mucci)
+	- improved Montecito event->counter assignment routine
+   	- rewritten P6 event->counter assignment routine
+   	- extended detect_unavail_pmcs() code to handle pmds
+   	- extended whichpmu.c example to show implement vs.  available registers
+	- possiblity to force a libpfm PMU different from host PMU
+   	- several bug fixes to library and examples
+
+Also a new version of pfmon, pfmon-3.2-070206, with a few changes:
+	- rewritten the automatic sampling buffer sizing based on
+     	  the resource limits (rlimits) and perfmon global settings
+   	- Intel Core 2 Duo event listing now shows if event supports PEBS
+   	- fixed important memory leak that showed up when monitoring across fork/pthread
+	
+You can get the packages and more detailed changelogs our the web site:
+
+	 http://perfmon2.sf.net (go to Project Files)
+
+Enjoy,
+
+PS: home page not yet updated due to a problem connecting via ssh to SF.net today.
+
+-- 
+
+-Stephane
