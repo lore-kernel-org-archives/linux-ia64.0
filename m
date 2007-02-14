@@ -1,7 +1,7 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Tue, 13 Feb 2007 17:25:34 +0000
+From: "Magnus Damm" <magnus.damm@gmail.com>
+Date: Wed, 14 Feb 2007 08:27:36 +0000
 Subject: Re: Zero size /proc/vmcore on ia64
-Message-Id: <20070213172534.GB21980@strauss.suse.de>
+Message-Id: <aec7e5c30702140027i3a763414sc551839a822866de@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070205015901.GA31446@verge.net.au>
 In-Reply-To: <20070205015901.GA31446@verge.net.au>
@@ -10,18 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+Vivek, everyone,
 
-* Zou Nan hai <nanhai.zou@intel.com> [2007-02-08 05:21]:
->
-> 	This is reasonable.
-> 	So please apply the following patch to make saved_max_pfn point to
-> max_pfn of entire system.
+On 2/8/07, Vivek Goyal <vgoyal@in.ibm.com> wrote:
+> I think we should not remove this check because even to parse the info
+> passed in ELF headers, you need to first read the ELF headers from crashed
+> kernel's memory. So if some programming error has passed wrong location of
+> ELF headers (elfcoreheader= invalid location) then we might try reading the
+> elf header from a non-existing physical page frame.
 
-So, as the patch works here also and it's necessary to make kdump
-working, I suggest including it mainline.
+Are you saying that the ELF header is located in the memory space of
+the first kernel?
 
+The way I read the code the ELF header is put into the reserved memory
+space for the secondary kernel. At least on ia64 that is true, and I
+think the same goes for i386.
 
-Regards,
-Bernhard
+And the fact that the ELF header is put in to the secondary kernel
+brings me memory setup problems on ia64.
 
+Basically the ELF header is marked as EFI_UNUSABLE_MEMORY by the EFI
+mangling code in purgatory. The secondary kernel detects this while
+parsing the EFI tables and refuses to use/map the other memory present
+in the same 16M granule. And in my case the initramfs happens to be
+located in the same granule... boom! No good. =)
+
+So I'm wondering about the reason why we put the ELF header in the
+secondary kernel. Can't we just put it in the first kernel and be done
+with it? We still point it out using the kernel command line, don't
+we?
+
+Thanks,
+
+/ magnus
