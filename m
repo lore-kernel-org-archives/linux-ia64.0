@@ -1,171 +1,43 @@
-From: akpm@linux-foundation.org
-Date: Tue, 06 Feb 2007 00:20:01 +0000
-Subject: [patch 04/13] ia64: make swiotlb use bus_to_virt/virt_to_bus
-Message-Id: <200702060021.l160L4B5004190@shell0.pdx.osdl.net>
+From: Simon Horman <horms@verge.net.au>
+Date: Wed, 14 Feb 2007 07:17:47 +0000
+Subject: [PATCH] [IA64] kexec: declare ia64_mca_pal_base in mca.h rather than kexec.h
+Message-Id: <20070214071745.GA17011@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: "Jan Beulich" <jbeulich@novell.com>
+* Kexec adds some code to arch/ia64/kernel/smp.c which needs ia64_mca_pal_base,
+  so the kexec patch (actually the kdump patch) declares this
+  per-cpu variable in include/asm-ia64/kexec.h.
+    
+* ia64_mca_pal_base is defined in arch/ia64/kernel/mca.c, so it
+  seems to me that it would make a lot more sense to declare it in
+  include/asm-ia64/mca.h.
 
-Convert all phys_to_virt/virt_to_phys uses to bus_to_virt/virt_to_bus, as is
-what is meant and what is needed in (at least) some virtualized environments
-like Xen.
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
-Acked-by: Muli Ben-Yehuda <muli@il.ibm.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Cc: Andi Kleen <ak@suse.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- lib/swiotlb.c |   33 +++++++++++++++++----------------
- 1 file changed, 17 insertions(+), 16 deletions(-)
-
-diff -puN lib/swiotlb.c~ia64-make-swiotlb-use-bus_to_virt-virt_to_bus lib/swiotlb.c
---- a/lib/swiotlb.c~ia64-make-swiotlb-use-bus_to_virt-virt_to_bus
-+++ a/lib/swiotlb.c
-@@ -36,7 +36,7 @@
- 	                   ( (val) & ( (align) - 1)))
+Index: linux-2.6/include/asm-ia64/kexec.h
+=================================--- linux-2.6.orig/include/asm-ia64/kexec.h	2006-12-19 13:08:21.000000000 +0900
++++ linux-2.6/include/asm-ia64/kexec.h	2006-12-19 13:08:29.000000000 +0900
+@@ -22,7 +22,6 @@
+         } while(0)
  
- #define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
--#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
-+#define SG_ENT_PHYS_ADDRESS(sg)	virt_to_bus(SG_ENT_VIRT_ADDRESS(sg))
+ extern struct kimage *ia64_kimage;
+-DECLARE_PER_CPU(u64, ia64_mca_pal_base);
+ const extern unsigned int relocate_new_kernel_size;
+ extern void relocate_new_kernel(unsigned long, unsigned long,
+ 		struct ia64_boot_param *, unsigned long);
+Index: linux-2.6/include/asm-ia64/mca.h
+=================================--- linux-2.6.orig/include/asm-ia64/mca.h	2006-12-19 13:08:21.000000000 +0900
++++ linux-2.6/include/asm-ia64/mca.h	2006-12-19 13:08:37.000000000 +0900
+@@ -156,6 +156,8 @@
+ 	int *monarch_cpu;
+ };
  
- /*
-  * Maximum allowable number of contiguous slabs to map,
-@@ -163,7 +163,7 @@ swiotlb_init_with_default_size (size_t d
- 	 */
- 	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
- 	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
--	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
-+	       virt_to_bus(io_tlb_start), virt_to_bus(io_tlb_end));
- }
++DECLARE_PER_CPU(u64, ia64_mca_pal_base);
++
+ #else	/* __ASSEMBLY__ */
  
- void
-@@ -244,7 +244,7 @@ swiotlb_late_init_with_default_size (siz
- 
- 	printk(KERN_INFO "Placing %ldMB software IO TLB between 0x%lx - "
- 	       "0x%lx\n", (io_tlb_nslabs * (1 << IO_TLB_SHIFT)) >> 20,
--	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
-+	       virt_to_bus(io_tlb_start), virt_to_bus(io_tlb_end));
- 
- 	return 0;
- 
-@@ -445,7 +445,7 @@ swiotlb_alloc_coherent(struct device *hw
- 	flags |= GFP_DMA;
- 
- 	ret = (void *)__get_free_pages(flags, order);
--	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
-+	if (ret && address_needs_mapping(hwdev, virt_to_bus(ret))) {
- 		/*
- 		 * The allocated memory isn't reachable by the device.
- 		 * Fall back on swiotlb_map_single().
-@@ -465,11 +465,11 @@ swiotlb_alloc_coherent(struct device *hw
- 		if (swiotlb_dma_mapping_error(handle))
- 			return NULL;
- 
--		ret = phys_to_virt(handle);
-+		ret = bus_to_virt(handle);
- 	}
- 
- 	memset(ret, 0, size);
--	dev_addr = virt_to_phys(ret);
-+	dev_addr = virt_to_bus(ret);
- 
- 	/* Confirm address can be DMA'd by device */
- 	if (address_needs_mapping(hwdev, dev_addr)) {
-@@ -525,7 +525,7 @@ swiotlb_full(struct device *dev, size_t 
- dma_addr_t
- swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
- {
--	unsigned long dev_addr = virt_to_phys(ptr);
-+	unsigned long dev_addr = virt_to_bus(ptr);
- 	void *map;
- 
- 	BUG_ON(dir = DMA_NONE);
-@@ -546,7 +546,7 @@ swiotlb_map_single(struct device *hwdev,
- 		map = io_tlb_overflow_buffer;
- 	}
- 
--	dev_addr = virt_to_phys(map);
-+	dev_addr = virt_to_bus(map);
- 
- 	/*
- 	 * Ensure that the address returned is DMA'ble
-@@ -569,7 +569,7 @@ void
- swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
- 		     int dir)
- {
--	char *dma_addr = phys_to_virt(dev_addr);
-+	char *dma_addr = bus_to_virt(dev_addr);
- 
- 	BUG_ON(dir = DMA_NONE);
- 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-@@ -592,7 +592,7 @@ static inline void
- swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
- 		    size_t size, int dir, int target)
- {
--	char *dma_addr = phys_to_virt(dev_addr);
-+	char *dma_addr = bus_to_virt(dev_addr);
- 
- 	BUG_ON(dir = DMA_NONE);
- 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-@@ -623,7 +623,7 @@ swiotlb_sync_single_range(struct device 
- 			  unsigned long offset, size_t size,
- 			  int dir, int target)
- {
--	char *dma_addr = phys_to_virt(dev_addr) + offset;
-+	char *dma_addr = bus_to_virt(dev_addr) + offset;
- 
- 	BUG_ON(dir = DMA_NONE);
- 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-@@ -676,7 +676,7 @@ swiotlb_map_sg(struct device *hwdev, str
- 
- 	for (i = 0; i < nelems; i++, sg++) {
- 		addr = SG_ENT_VIRT_ADDRESS(sg);
--		dev_addr = virt_to_phys(addr);
-+		dev_addr = virt_to_bus(addr);
- 		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
- 			void *map = map_single(hwdev, addr, sg->length, dir);
- 			if (!map) {
-@@ -709,7 +709,8 @@ swiotlb_unmap_sg(struct device *hwdev, s
- 
- 	for (i = 0; i < nelems; i++, sg++)
- 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
-+			unmap_single(hwdev, bus_to_virt(sg->dma_address),
-+				     sg->dma_length, dir);
- 		else if (dir = DMA_FROM_DEVICE)
- 			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
- }
-@@ -731,7 +732,7 @@ swiotlb_sync_sg(struct device *hwdev, st
- 
- 	for (i = 0; i < nelems; i++, sg++)
- 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			sync_single(hwdev, phys_to_virt(sg->dma_address),
-+			sync_single(hwdev, bus_to_virt(sg->dma_address),
- 				    sg->dma_length, dir, target);
- 		else if (dir = DMA_FROM_DEVICE)
- 			dma_mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
-@@ -754,7 +755,7 @@ swiotlb_sync_sg_for_device(struct device
- int
- swiotlb_dma_mapping_error(dma_addr_t dma_addr)
- {
--	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
-+	return (dma_addr = virt_to_bus(io_tlb_overflow_buffer));
- }
- 
- /*
-@@ -766,7 +767,7 @@ swiotlb_dma_mapping_error(dma_addr_t dma
- int
- swiotlb_dma_supported (struct device *hwdev, u64 mask)
- {
--	return virt_to_phys(io_tlb_end - 1) <= mask;
-+	return virt_to_bus(io_tlb_end - 1) <= mask;
- }
- 
- EXPORT_SYMBOL(swiotlb_init);
-_
+ #define IA64_MCA_CORRECTED	0x0	/* Error has been corrected by OS_MCA */
