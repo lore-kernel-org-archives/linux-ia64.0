@@ -1,68 +1,155 @@
-From: "Magnus Damm" <magnus.damm@gmail.com>
-Date: Mon, 05 Feb 2007 06:41:37 +0000
-Subject: Re: [Fastboot] [PATCH] kexec: Fix CONFIG_SMP=n compilation (ia64)
-Message-Id: <aec7e5c30702042241s102a4ff3t475e0d3a22199da8@mail.gmail.com>
+From: Magnus Damm <magnus@valinux.co.jp>
+Date: Thu, 15 Feb 2007 13:52:35 +0000
+Subject: [PATCH] kexec: Use EFI_LOADER_DATA for ELF core header (ia64)
+Message-Id: <20070215135235.24373.87951.sendpatchset@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070201131347.3807.87075.sendpatchset@localhost>
-	 <20070201163320.eb4fa2c7.akpm@osdl.org>
-	 <aec7e5c30702011838g6e9edd23sc782321aacb07297@mail.gmail.com>
-	 <aec7e5c30702020353h31fe9287nbf63612819a8c08f@mail.gmail.com>
-	 <20070203032753.GE3709@verge.net.au>
-In-Reply-To: <20070203032753.GE3709@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Horms <horms@verge.net.au>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Magnus Damm <magnus@valinux.co.jp>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, nanhai.zou@intel.com, fastboot@lists.osdl.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 2/3/07, Horms <horms@verge.net.au> wrote:
-> On Fri, Feb 02, 2007 at 08:53:00PM +0900, Magnus Damm wrote:
-> > On 2/2/07, Magnus Damm <magnus.damm@gmail.com> wrote:
-> > > On 2/2/07, Andrew Morton <akpm@linux-foundation.org> wrote:
-> > > > Magnus Damm <magnus@valinux.co.jp> wrote:
-> > > >
-> > > > > kexec: Fix CONFIG_SMP=n compilation (ia64)
-> > > > >
-> > > > > This patch makes it possible to compile kexec for ia64 without SMP support.
-> > > > > --- 0002/arch/ia64/kernel/machine_kexec.c
-> > > > > +++ work/arch/ia64/kernel/machine_kexec.c     2007-02-01 12:35:46.000000000 +0900
-> > > > > @@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
-> > > > >
-> > > > >  void machine_shutdown(void)
-> > > > >  {
-> > > > > +#ifdef CONFIG_SMP
-> > > > >       int cpu;
-> > > > >
-> > > > >       for_each_online_cpu(cpu) {
-> > > > >               if (cpu != smp_processor_id())
-> > > > >                       cpu_down(cpu);
-> > > > >       }
-> > > > > +#endif
-> > > > >       kexec_disable_iosapic();
-> > > > >  }
-> > > >
-> > > > hm.  I suspect this one should have been #ifndef CONFIG_HOTPLUG_CPU?
-> >
-> > Re-reading this I assume you mean #ifdef CONFIG_HOTPLUG_CPU.
-> >
-> > I would be happy to resend a new updated version of the patch, but I
-> > wonder if it may be better to fail miserably during the build than
-> > fail silently in the case of CONFIG_SMP=y but CONFIG_HOTPLUG_CPU=n.
->
-> There used to be alternate code for the CONFIG_SMP +
-> !CONFIG_HOTPLUG_CPU, but this was removed because it was determined to
-> be flakey and not maintainable (I can dig up the threads if you want).
-> I think that this means that if we have CONFIG_KEXEC and CONFIG_SMP then
-> CONFIG_HOTPLUG_CPU is required. I think this is expressable in Kconfig
-> somehow.
+kexec: Use EFI_LOADER_DATA for ELF core header (ia64)
 
-My mistake, the following lines from linux-2.6.20/arch/ia64/Kconfig
-seem to handle this case already:
+The address where the ELF core header is stored is passed to the secondary 
+kernel as a kernel command line option. The memory area for this header is 
+also marked as a separate EFI memory descriptor on ia64.
 
-config KEXEC
-	bool "kexec system call (EXPERIMENTAL)"
-	depends on EXPERIMENTAL && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
+The separate EFI memory descriptor is at the moment of the type
+EFI_UNUSABLE_MEMORY. With such a type the secondary kernel skips over the
+entire memory granule (config option, 16M or 64M) when detecting memory. 
+If we are lucky we will just lose some memory, but if we happen to have data
+in the same granule (such as an initramfs image), then this data will never
+get mapped and the kernel bombs out when trying to access it.
 
-I'll send an updated patch in a short while. Thanks!
+So this is an attempt to fix this by changing the EFI memory descriptor
+type into EFI_LOADER_DATA. This type is the same type used for the kernel 
+data and for initramfs. In the secondary kernel we then handle the ELF core 
+header data the same way as we handle the initramfs image.
 
-/ magnus
+This patch contains the kernel changes to make this happen. Pretty
+straightforward, we reserve the area in reserve_memory(). The address
+for the area comes from the kernel command line and the size comes
+from the specialized EFI parsing function vmcore_find_descriptor_size().
+
+The kexec-tools-testing code for this can be found here:
+http://lists.osdl.org/pipermail/fastboot/2007-February/005983.html
+
+Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
+---
+
+ Applies to linux-2.6.20-git10.
+
+ arch/ia64/kernel/efi.c     |   30 ++++++++++++++++++++++++++++++
+ arch/ia64/kernel/setup.c   |   30 ++++++++++++++++++++++++++++++
+ include/asm-ia64/meminit.h |    8 +++++++-
+ 3 files changed, 67 insertions(+), 1 deletion(-)
+
+--- 0002/arch/ia64/kernel/efi.c
++++ work/arch/ia64/kernel/efi.c	2007-02-15 21:40:29.000000000 +0900
+@@ -1177,3 +1177,33 @@ kdump_find_rsvd_region (unsigned long si
+   return ~0UL;
+ }
+ #endif
++
++#ifdef CONFIG_PROC_VMCORE
++/* locate the size find a the descriptor at a certain address */
++unsigned long
++vmcore_find_descriptor_size (unsigned long address)
++{
++	void *efi_map_start, *efi_map_end, *p;
++	efi_memory_desc_t *md;
++	u64 efi_desc_size;
++	unsigned long ret = 0;
++
++	efi_map_start = __va(ia64_boot_param->efi_memmap);
++	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
++	efi_desc_size = ia64_boot_param->efi_memdesc_size;
++
++	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
++		md = p;
++		if (efi_wb(md) && md->type = EFI_LOADER_DATA 
++		    && md->phys_addr = address) {
++			ret = efi_md_size(md);
++			break;
++		}
++	}
++
++	if (ret = 0)
++		printk(KERN_WARNING "Cannot locate EFI vmcore descriptor\n");
++
++	return ret;
++}
++#endif
+--- 0002/arch/ia64/kernel/setup.c
++++ work/arch/ia64/kernel/setup.c	2007-02-15 22:11:41.000000000 +0900
+@@ -251,6 +251,12 @@ reserve_memory (void)
+ 	}
+ #endif
+ 
++#ifdef CONFIG_PROC_VMCORE
++	if (reserve_elfcorehdr(&rsvd_region[n].start, 
++			       &rsvd_region[n].end) = 0)
++		n++;
++#endif
++
+ 	efi_memmap_init(&rsvd_region[n].start, &rsvd_region[n].end);
+ 	n++;
+ 
+@@ -453,6 +459,30 @@ static int __init parse_elfcorehdr(char 
+ 	return 0;
+ }
+ early_param("elfcorehdr", parse_elfcorehdr);
++
++int __init reserve_elfcorehdr(unsigned long *start, unsigned long *end)
++{
++	unsigned long length;
++
++	/* We get the address using the kernel command line,
++	 * but the size is extracted from the EFI tables.
++	 * Both address and size are required for reservation
++	 * to work properly.
++	 */
++
++	if (elfcorehdr_addr >= ELFCORE_ADDR_MAX)
++		return -EINVAL;
++
++	if ((length = vmcore_find_descriptor_size(elfcorehdr_addr)) = 0) {
++		elfcorehdr_addr = ELFCORE_ADDR_MAX;
++		return -EINVAL;
++	}
++
++	*start = (unsigned long)__va(elfcorehdr_addr);
++	*end = *start + length;
++	return 0;
++}
++
+ #endif /* CONFIG_PROC_VMCORE */
+ 
+ void __init
+--- 0002/include/asm-ia64/meminit.h
++++ work/include/asm-ia64/meminit.h	2007-02-15 21:40:29.000000000 +0900
+@@ -17,10 +17,11 @@
+  * 	- kernel code & data
+  * 	- crash dumping code reserved region
+  * 	- Kernel memory map built from EFI memory map
++ * 	- ELF core header
+  *
+  * More could be added if necessary
+  */
+-#define IA64_MAX_RSVD_REGIONS 7
++#define IA64_MAX_RSVD_REGIONS 8
+ 
+ struct rsvd_region {
+ 	unsigned long start;	/* virtual address of beginning of element */
+@@ -36,6 +37,11 @@ extern void find_initrd (void);
+ extern int filter_rsvd_memory (unsigned long start, unsigned long end, void *arg);
+ extern void efi_memmap_init(unsigned long *, unsigned long *);
+ 
++#ifdef CONFIG_PROC_VMCORE
++extern unsigned long vmcore_find_descriptor_size (unsigned long address);
++extern int reserve_elfcorehdr(unsigned long *start, unsigned long *end);
++#endif
++
+ /*
+  * For rounding an address to the next IA64_GRANULE_SIZE or order
+  */
