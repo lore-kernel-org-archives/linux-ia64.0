@@ -1,77 +1,96 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 14 Feb 2007 23:03:46 +0000
-Subject: Re: [perfmon] 2.6.20 new perfmon code base + libpfm + pfmon
-Message-Id: <20070214230346.GC12109@frankl.hpl.hp.com>
+Date: Thu, 15 Feb 2007 09:00:45 +0000
+Subject: Re: 2.6.20 new perfmon code base + libpfm + pfmon
+Message-Id: <20070215090045.GA12544@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070213184839.GC10031@frankl.hpl.hp.com> <45D23042.1020802@redhat.com> <45D3415B.7080104@redhat.com>
-In-Reply-To: <45D3415B.7080104@redhat.com>
+References: <20070213184839.GC10031@frankl.hpl.hp.com> <20070213140533.a5ca27ad.akpm@linux-foundation.org> <p737iulhcfb.fsf@bingen.suse.de>
+In-Reply-To: <p737iulhcfb.fsf@bingen.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Cohen <wcohen@redhat.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, perfmon@napali.hpl.hp.com, oprofile-list@lists.sourceforge.net, perfctr-devel@lists.sourceforge.net
+To: Andi Kleen <andi@firstfloor.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, perfctr-devel@lists.sourceforge.net, perfmon@napali.hpl.hp.com, linux-kernel@vger.kernel.org, oprofile-list@lists.sourceforge.net
 
-Will,
+Andi,
 
-On Wed, Feb 14, 2007 at 12:05:31PM -0500, William Cohen wrote:
-
-> >The oprofile patch should be made against the oprofile cvs rather than 
-> >the 0.9.2 tarball. There are some files that the patch touches that are 
-> >created by the autogen.sh.
-> >
-> >The oprofile patch doesn't build if things are configured without the 
-> >"--enable-perfmon2".
-> >
-> >gcc -W -Wall -fno-common -Wdeclaration-after-statement 
-> >-fno-omit-frame-pointer -g -O2   -o oprofiled  init.o oprofiled.o 
-> >opd_stats.o opd_sfile.o opd_kernel.o opd_trans.o opd_cookie.o 
-> >opd_events.o opd_mangling.o opd_perfmon.o opd_perfmon_22.o 
-> >opd_perfmon_compat.o opd_anon.o liblegacy/liblegacy.a ../libabi/libabi.a 
-> >../libdb/libodb.a ../libop/libop.a ../libutil/libutil.a -lpopt -liberty 
-> >-ldl
-> >opd_perfmon.o: In function `perfmon_init':
-> >/home/wcohen/research/profiling/oprofile/oprofile-0.9.2-perfmon2/daemon/opd_perfmon.c:384: 
-> >undefined reference to `do_perfmon_init'
-> >collect2: ld returned 1 exit status
-> >
-> >-Will
+On Wed, Feb 14, 2007 at 12:20:56AM +0100, Andi Kleen wrote:
+> Andrew Morton <akpm@linux-foundation.org> writes:
 > 
-> Hi Stephane,
+> > > On Tue, 13 Feb 2007 10:48:39 -0800 Stephane Eranian <eranian@hpl.hp.com> wrote:
+> > > I have released another version of the perfmon new code base package.
+> > 
+> > Can we have a bug push to get this merged up please?
 > 
-> I tweaked the oprofile patch a bit so that it applies to the oprofile cvs 
-> repository and builds with and without being configured with 
-> --enable-perfmon2. The patch is attached.
+> Yes, there certainly seems to be user interest in this.
 > 
-> Things that will need to be done to the patch:
+> I've been merging the x86 specific infrastructure Stephane sent.
+> So hopefully the basics are there already.
 > 
-> -handle case where perfmon pmd/pmc registers are unavailable
-> 	Is the method being used going to work for systemwide perfmon?
-> 		create a thread local context then collect unavail regs.
+Yes, almost everything is in there now. Tony Luck told me he has integrated
+the idle notifier for IA-64. I saw that the i386 version of the notifier
+was recently integrated as well. So I think that for 2.6.21 we'll have
+everything we need for i386, x86-64 and ia64. On MIPS and PowerPC,
+a few things are still missing but they should be fixed soon.
 
-As of now, there is enforced mutual exclusions between per-thread and system-wide.
-The unavailable support is used to make the application aware that the whole PMU may
-not be available, for whatever reason. For instance, today this is used when the NMI
-watchdog is active. The unavailable mask will report that one counter is not available.
+On x86-64 and i386, the one last thing I would need that you do not already
+have is in the NMI handler for the architectural perfmon to switch PERFCTR0
+to PERFCTR1. This would allow certain events to be measured while the NMI
+watchdog is active. This is needed on Intel Core-based processors where
+certain events can ONLY be measured by PERFCTR0. The CPU_CLK_UNHALTED event
+used by the watchdog can be measured by any counter.
 
-This will be generalized once we add a finer grain PMU register allocator underneath
-perfmon (to be used by perfmon and NMI for instance). The way I envision this is that
-you create the context, query what is available, assign event -> counters, load
-context onto thread or CPU. That call could fail if some of the registers used became
-unavailable in which case, you need to go through the procedure again.
+I have attached the x86-64 patch for this. I can submit the i386 version
+as well.
 
-> 	What happens if another thread using a register that is marked
-> 		available in the current thread?
-> -handle naming differences between oprofile events and perfmon2
+> The big open question was still the review of the syscall interface.
+> Probably needs some determined reviewers.
+> 
+Not a problem.
 
-This is handled in the code already today. Because I did not want to change
-the event description table nor the higher level event -> counter logic of OProfile,
-the mapping from Oprofile counter -> Perfmon PMC/PMD is done AFTER. With such setup,
-it is hard to deal with unavailable registers detection once in perfmon code. I think
-querying the unavailable register needs to happen BEFORE event-> counter assignment.
-But that means that we need to provide a converter from Perfmon PMD -> OProfile
-counters which is something i have not yet done.
+> I did a review of some of the basic low level code some time ago;
+> there were some issues but I believe they are probably all resolved
+> by now (but I haven't verified that recently) 
+> 
+Yes, all the changes and fixes you and Andrew had requested have been made.
 
-Thanks for the patch.
 
--- 
--Stephane
+changelog:
+	- for architectural perfmon support, switch from PERFCTR0 to PERFCTR1.
+	  this does free PERFCTR0 which is the only counter supported for certain
+	  events on Intel Core-based processors.
+
+signed-off-by: stephane eranian <eranian@hpl.hp.com>
+
+diff --exclude=.git -urp linux-2.6.20.base/arch/x86_64/kernel/nmi.c linux-2.6.20/arch/x86_64/kernel/nmi.c
+--- linux-2.6.20.base/arch/x86_64/kernel/nmi.c	2007-02-05 00:31:52.000000000 -0800
++++ linux-2.6.20/arch/x86_64/kernel/nmi.c	2007-02-09 09:44:29.000000000 -0800
+@@ -275,7 +275,7 @@ int __init check_nmi_watchdog (void)
+ 		 * 32nd bit should be 1, for 33.. to be 1.
+ 		 * Find the appropriate nmi_hz
+ 		 */
+-	 	if (wd->perfctr_msr = MSR_ARCH_PERFMON_PERFCTR0 &&
++	 	if (wd->perfctr_msr = MSR_ARCH_PERFMON_PERFCTR1 &&
+ 			((u64)cpu_khz * 1000) > 0x7fffffffULL) {
+ 			nmi_hz = ((u64)cpu_khz * 1000) / 0x7fffffffUL + 1;
+ 		}
+@@ -615,8 +615,8 @@ static int setup_intel_arch_watchdog(voi
+ 	    (ebx & ARCH_PERFMON_UNHALTED_CORE_CYCLES_PRESENT))
+ 		goto fail;
+ 
+-	perfctr_msr = MSR_ARCH_PERFMON_PERFCTR0;
+-	evntsel_msr = MSR_ARCH_PERFMON_EVENTSEL0;
++	perfctr_msr = MSR_ARCH_PERFMON_PERFCTR1;
++	evntsel_msr = MSR_ARCH_PERFMON_EVENTSEL1;
+ 
+ 	if (!reserve_perfctr_nmi(perfctr_msr))
+ 		goto fail;
+@@ -855,7 +855,7 @@ int __kprobes nmi_watchdog_tick(struct p
+ 				dummy &= ~P4_CCCR_OVF;
+ 	 			wrmsrl(wd->cccr_msr, dummy);
+ 	 			apic_write(APIC_LVTPC, APIC_DM_NMI);
+-	 		} else if (wd->perfctr_msr = MSR_ARCH_PERFMON_PERFCTR0) {
++	 		} else if (wd->perfctr_msr = MSR_ARCH_PERFMON_PERFCTR1) {
+ 				/*
+ 				 * ArchPerfom/Core Duo needs to re-unmask
+ 				 * the apic vector
+
