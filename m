@@ -1,70 +1,101 @@
 From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Thu, 15 Feb 2007 02:06:12 +0000
+Date: Thu, 15 Feb 2007 02:17:49 +0000
 Subject: RE: Zero size /proc/vmcore on ia64
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BEF@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086BF0@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070205015901.GA31446@verge.net.au>
 In-Reply-To: <20070205015901.GA31446@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEhvcm1zIFttYWlsdG86aG9ybXNA
-dmVyZ2UubmV0LmF1XQo+IFNlbnQ6IDIwMDfE6jLUwjE0yNUgMTg6MTMKPiBUbzogWm91LCBOYW5o
-YWkKPiBDYzogTWFnbnVzIERhbW07IHZnb3lhbEBpbi5pYm0uY29tOyBmYXN0Ym9vdEBsaXN0cy5v
-c2RsLm9yZzsKPiBsaW51eC1pYTY0QHZnZXIua2VybmVsLm9yZwo+IFN1YmplY3Q6IFJlOiBaZXJv
-IHNpemUgL3Byb2Mvdm1jb3JlIG9uIGlhNjQKPiAKPiBPbiBXZWQsIEZlYiAxNCwgMjAwNyBhdCAw
-NTo1Nzo1OFBNICswODAwLCBab3UsIE5hbmhhaSB3cm90ZToKPiA+ID4gLS0tLS1PcmlnaW5hbCBN
-ZXNzYWdlLS0tLS0KPiA+ID4gRnJvbTogTWFnbnVzIERhbW0gW21haWx0bzptYWdudXMuZGFtbUBn
-bWFpbC5jb21dCj4gPiA+IFNlbnQ6IDIwMDfE6jLUwjE0yNUgMTY6MjgKPiA+ID4gVG86IHZnb3lh
-bEBpbi5pYm0uY29tCj4gPiA+IENjOiBIb3JtczsgWm91LCBOYW5oYWk7IGZhc3Rib290QGxpc3Rz
-Lm9zZGwub3JnOwo+IGxpbnV4LWlhNjRAdmdlci5rZXJuZWwub3JnCj4gPiA+IFN1YmplY3Q6IFJl
-OiBaZXJvIHNpemUgL3Byb2Mvdm1jb3JlIG9uIGlhNjQKPiA+ID4KPiA+ID4gVml2ZWssIGV2ZXJ5
-b25lLAo+ID4gPgo+ID4gPiBPbiAyLzgvMDcsIFZpdmVrIEdveWFsIDx2Z295YWxAaW4uaWJtLmNv
-bT4gd3JvdGU6Cj4gPiA+ID4gSSB0aGluayB3ZSBzaG91bGQgbm90IHJlbW92ZSB0aGlzIGNoZWNr
-IGJlY2F1c2UgZXZlbiB0byBwYXJzZSB0aGUgaW5mbwo+ID4gPiA+IHBhc3NlZCBpbiBFTEYgaGVh
-ZGVycywgeW91IG5lZWQgdG8gZmlyc3QgcmVhZCB0aGUgRUxGIGhlYWRlcnMgZnJvbSBjcmFzaGVk
-Cj4gPiA+ID4ga2VybmVsJ3MgbWVtb3J5LiBTbyBpZiBzb21lIHByb2dyYW1taW5nIGVycm9yIGhh
-cyBwYXNzZWQgd3JvbmcgbG9jYXRpb24KPiBvZgo+ID4gPiA+IEVMRiBoZWFkZXJzIChlbGZjb3Jl
-aGVhZGVyPSBpbnZhbGlkIGxvY2F0aW9uKSB0aGVuIHdlIG1pZ2h0IHRyeSByZWFkaW5nCj4gdGhl
-Cj4gPiA+ID4gZWxmIGhlYWRlciBmcm9tIGEgbm9uLWV4aXN0aW5nIHBoeXNpY2FsIHBhZ2UgZnJh
-bWUuCj4gPiA+Cj4gPiA+IEFyZSB5b3Ugc2F5aW5nIHRoYXQgdGhlIEVMRiBoZWFkZXIgaXMgbG9j
-YXRlZCBpbiB0aGUgbWVtb3J5IHNwYWNlIG9mCj4gPiA+IHRoZSBmaXJzdCBrZXJuZWw/Cj4gPiA+
-Cj4gPiA+IFRoZSB3YXkgSSByZWFkIHRoZSBjb2RlIHRoZSBFTEYgaGVhZGVyIGlzIHB1dCBpbnRv
-IHRoZSByZXNlcnZlZCBtZW1vcnkKPiA+ID4gc3BhY2UgZm9yIHRoZSBzZWNvbmRhcnkga2VybmVs
-LiBBdCBsZWFzdCBvbiBpYTY0IHRoYXQgaXMgdHJ1ZSwgYW5kIEkKPiA+ID4gdGhpbmsgdGhlIHNh
-bWUgZ29lcyBmb3IgaTM4Ni4KPiA+ID4KPiA+ID4gQW5kIHRoZSBmYWN0IHRoYXQgdGhlIEVMRiBo
-ZWFkZXIgaXMgcHV0IGluIHRvIHRoZSBzZWNvbmRhcnkga2VybmVsCj4gPiA+IGJyaW5ncyBtZSBt
-ZW1vcnkgc2V0dXAgcHJvYmxlbXMgb24gaWE2NC4KPiA+ID4KPiA+ID4gQmFzaWNhbGx5IHRoZSBF
-TEYgaGVhZGVyIGlzIG1hcmtlZCBhcyBFRklfVU5VU0FCTEVfTUVNT1JZIGJ5IHRoZSBFRkkKPiA+
-ID4gbWFuZ2xpbmcgY29kZSBpbiBwdXJnYXRvcnkuIFRoZSBzZWNvbmRhcnkga2VybmVsIGRldGVj
-dHMgdGhpcyB3aGlsZQo+ID4gPiBwYXJzaW5nIHRoZSBFRkkgdGFibGVzIGFuZCByZWZ1c2VzIHRv
-IHVzZS9tYXAgdGhlIG90aGVyIG1lbW9yeSBwcmVzZW50Cj4gPiA+IGluIHRoZSBzYW1lIDE2TSBn
-cmFudWxlLiBBbmQgaW4gbXkgY2FzZSB0aGUgaW5pdHJhbWZzIGhhcHBlbnMgdG8gYmUKPiA+ID4g
-bG9jYXRlZCBpbiB0aGUgc2FtZSBncmFudWxlLi4uIGJvb20hIE5vIGdvb2QuID0pCj4gPiA+Cj4g
-PiA+IFNvIEknbSB3b25kZXJpbmcgYWJvdXQgdGhlIHJlYXNvbiB3aHkgd2UgcHV0IHRoZSBFTEYg
-aGVhZGVyIGluIHRoZQo+ID4gPiBzZWNvbmRhcnkga2VybmVsLiBDYW4ndCB3ZSBqdXN0IHB1dCBp
-dCBpbiB0aGUgZmlyc3Qga2VybmVsIGFuZCBiZSBkb25lCj4gPiA+IHdpdGggaXQ/IFdlIHN0aWxs
-IHBvaW50IGl0IG91dCB1c2luZyB0aGUga2VybmVsIGNvbW1hbmQgbGluZSwgZG9uJ3QKPiA+ID4g
-d2U/Cj4gPgo+ID4gICBNeSBmaXJzdCBkZXNpZ24gaXMgdGhhdCBwdXR0aW5nIGRhdGEgaW4gc2Vj
-b25kIGtlcm5lbCBpcyBlYXN5IGFuZAo+ID4gc2FmZXIuIFdlIGNvdWxkIHB1dCBpdCBpbiB0aGUg
-Zmlyc3Qga2VybmVsIGlmIHdlIHByb3ZpZGUgYW4gaW50ZXJmYWNlCj4gPiB0byByZXNlcnZlIHRo
-aXMgYXJlYSBhdCB0aGUgdGltZSBvZiBrZXhlYyAtcCBzbyB0aGF0IG5vYm9keSB3aWxsIHRvdWNo
-Cj4gPiBpdCBldmVuIGF0IHRoZSB0aW1lIG9mIGNyYXNoLgo+ID4KPiA+ICAgQWxpZ24gdGhhdCBi
-dWZmZXIgdG8gMTZNIHdpbGwgc29sdmUgdGhlIGlzc3VlIGJ1dCB0aGF0IHNlZW1zIHRvIGJlIGEK
-PiA+IHdhc3RlIG9mIHRoZSB1c2VmdWwgbWVtb3J5PyAgQW5vdGhlciB3YXkgaXMgYXBwZW5kIHRo
-aXMgZWxmIGhlYWRlciB0bwo+ID4gY29tbWFuZCBsaW5lIGluIHB1cmdhdG9yeSwgbGlrZSB3ZSBh
-cHBlbmQgdGhlIHVtbXkgZWZpIGZ1bmN0aW9uLCBtYXliZQo+ID4gdGhpcyBpcyB0b28gaGFja3k/
-Cj4gCj4gSSB0aGluayB0aGF0IHRoZSBkdW1teSBlZmkgZnVuY3Rpb24gaXMgYWxyZWFkeSB3YXkg
-dG8gaGFja3kuCiAgWWVzIGl0IGlzLiBIb3dldmVyIHRoZSBiZW5lZml0IG9mIGl0IGlzIHRoYXQg
-eW91IGNhbiBrZXhlYyB0byBhbiBvbGQga2VybmVsIGV2ZW4gYSAyLjQgYmFzZWQga2VybmVsLgoK
-PiBJJ2QgbGlrZSB0byB3b3JrIG91dCBhIChnb29kKSB3YXkgdG8gZ2V0IHJpZCBvZiBpdC4KPiBG
-b3Igc3RhcnRlcnMgdGhlIFBBR0VfT0ZGU0VUIGlzIGhhcmRjb2RlZCBhdCBrZXhlYy10b29scyBj
-b21waWxlIHRpbWUgLQo+IHdoaWNoIGJyZWFrcyB4ZW4gYXMgaXQgaGFzIGEgZGlmZmVyZW50IFBB
-R0VfT0ZGU0VULgo+IAo+IC0tCj4gSG9ybXMKPiAgIEg6IGh0dHA6Ly93d3cudmVyZ2VuZXQubmV0
-L35ob3Jtcy8KPiAgIFc6IGh0dHA6Ly93d3cudmFsaW51eC5jby5qcC9lbi8KLQpUbyB1bnN1YnNj
-cmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2
-NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcK
-TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
-aW5mby5odG1s
+> -----Original Message-----
+> From: linux-ia64-owner@vger.kernel.org
+> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Magnus Damm
+> Sent: 2007=C4=EA2=D4=C214=C8=D5 19:47
+> To: Zou, Nanhai
+> Cc: vgoyal@in.ibm.com; Horms; fastboot@lists.osdl.org;
+> linux-ia64@vger.kernel.org
+> Subject: Re: Zero size /proc/vmcore on ia64
+>=20
+> On 2/14/07, Zou, Nanhai <nanhai.zou@intel.com> wrote:
+> > > From: Magnus Damm [mailto:magnus.damm@gmail.com]
+> > > On 2/8/07, Vivek Goyal <vgoyal@in.ibm.com> wrote:
+> > > > I think we should not remove this check because even to parse the i=
+nfo
+> > > > passed in ELF headers, you need to first read the ELF headers from =
+crashed
+> > > > kernel's memory. So if some programming error has passed wrong loca=
+tion
+> of
+> > > > ELF headers (elfcoreheader=3D invalid location) then we might try r=
+eading
+> the
+> > > > elf header from a non-existing physical page frame.
+> > >
+> > > Are you saying that the ELF header is located in the memory space of
+> > > the first kernel?
+> > >
+> > > The way I read the code the ELF header is put into the reserved memory
+> > > space for the secondary kernel. At least on ia64 that is true, and I
+> > > think the same goes for i386.
+> > >
+> > > And the fact that the ELF header is put in to the secondary kernel
+> > > brings me memory setup problems on ia64.
+> > >
+> > > Basically the ELF header is marked as EFI_UNUSABLE_MEMORY by the EFI
+> > > mangling code in purgatory. The secondary kernel detects this while
+> > > parsing the EFI tables and refuses to use/map the other memory present
+> > > in the same 16M granule. And in my case the initramfs happens to be
+> > > located in the same granule... boom! No good. =3D)
+> > >
+> > > So I'm wondering about the reason why we put the ELF header in the
+> > > secondary kernel. Can't we just put it in the first kernel and be done
+> > > with it? We still point it out using the kernel command line, don't
+> > > we?
+> >
+> >   My first design is that putting data in second kernel is easy and saf=
+er.
+> We could put it in the first kernel if we provide an interface to reserve=
+ this
+> area at the time of kexec -p so that nobody will touch it even at the tim=
+e of
+> crash.
+>=20
+> Maybe that's a good idea. But that would make ia64 a special case and
+> I'd like to avoid that as  long as possible.
+>=20
+> >   Align that buffer to 16M will solve the issue but that seems to be a =
+waste
+> of the useful memory?
+>=20
+> Right. We could require one granule per segment or something, but at
+> load time we don't really know if the secondary kernel is using 16M or
+> 64M granules. A safe bet would be to always use 64M, but that would
+> require us to use quite a lot of memory for the secondary kernel.
+>=20
+> >   Another way is append this elf header to command line in purgatory, l=
+ike
+> we append the ummy efi function, maybe this is too hacky?
+>=20
+> Hm. I think that sounds a bit too hackish. =3D)
+>=20
+> What about the option of marking the ELF headers as EFI_LOADER_DATA
+> and let the secondary kernel allocate new space and copy the data
+> early during boot?
+>=20
+  Ah yes, I think vmcore.c has already done this, parse and store elf core =
+header structure at kernel init, so mark that area as EFI_CONVENTIONAL_MEMO=
+RY should be safe.=20
+  This can be done by remove the reserved =3D 1 setting in crashdump-ia64.c
+
+  Thanks
+  Zou Nan hai=20
+> Thanks!
+>=20
+> / magnus
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
