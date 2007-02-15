@@ -1,106 +1,140 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 14 Feb 2007 02:38:07 +0000
-Subject: [PATCH] [IA64] Point saved_max_pfn to the max_pfn of the entire system
-Message-Id: <20070214023806.GC24549@verge.net.au>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Date: Thu, 15 Feb 2007 18:11:39 +0000
+Subject: [PATCH] fault injection: split up stacktrace filter Kconfig option
+Message-Id: <20070215181139.GA3811@APFDCB5C>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 13, 2007 at 06:25:34PM +0100, Bernhard Walle wrote:
-> Hello,
-> 
-> * Zou Nan hai <nanhai.zou@intel.com> [2007-02-08 05:21]:
-> >
-> > 	This is reasonable.
-> > 	So please apply the following patch to make saved_max_pfn point to
-> > max_pfn of entire system.
-> 
-> So, as the patch works here also and it's necessary to make kdump
-> working, I suggest including it mainline.
+There is no prompt for CONFIG_STACKTRACE, so
+FAULT_INJECTION cannot be selected without LOCKDEP enabled.
+(found by Paolo 'Blaisorblade' Giarrusso)
 
-Agreed, below is a version of the patch for Linus' tree as of this morning.
+In order to fix such broken Kconfig dependency,
+this patch splits up the stacktrace filter support for
+fault injection by new Kconfig option, which enables
+to use fault injection on the architecture which doesn't have
+general stacktrace support.
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+Cc: "Paolo 'Blaisorblade' Giarrusso" <blaisorblade@yahoo.it>
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
 
-[IA64] Point saved_max_pfn to the max_pfn of the entire system
+---
+ lib/Kconfig.debug  |   10 ++++++++--
+ lib/fault-inject.c |   41 +++++++++++++++++++++--------------------
+ 2 files changed, 29 insertions(+), 22 deletions(-)
 
-	Please apply the following patch to make saved_max_pfn point to
-max_pfn of entire system.
-
-Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
-
-Without this patch is so that vmcore is zero length on ia64.
-This is because saved_max_pfn was wrongly being set to the
-max_pfn of the crash kernel's address space, rather than the 
-max_pfg on the physical memory of the machine - the whole purpose of
-vmcore is to access physical memory that is not part of the
-crash kernel's addresss space.
-
-Updated for recent changes in Linus' tree.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-
- arch/ia64/kernel/efi.c   |    6 ++++++
- arch/ia64/mm/contig.c    |    5 -----
- arch/ia64/mm/discontig.c |    6 ------
- 3 files changed, 6 insertions(+), 11 deletions(-)
-
-Index: linux-2.6/arch/ia64/kernel/efi.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/efi.c	2007-02-14 11:15:11.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/efi.c	2007-02-14 11:15:47.000000000 +0900
-@@ -21,6 +21,7 @@
-  *	Skip non-WB memory and ignore empty memory ranges.
-  */
- #include <linux/module.h>
-+#include <linux/bootmem.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/types.h>
-@@ -1009,6 +1010,11 @@
- 		} else
- 			ae = efi_md_end(md);
+Index: 2.6-git.orig/lib/Kconfig.debug
+=================================--- 2.6-git.orig.orig/lib/Kconfig.debug
++++ 2.6-git.orig/lib/Kconfig.debug
+@@ -400,8 +400,6 @@ config LKDTM
+ config FAULT_INJECTION
+ 	bool "Fault-injection framework"
+ 	depends on DEBUG_KERNEL
+-	depends on STACKTRACE
+-	select FRAME_POINTER
+ 	help
+ 	  Provide fault-injection framework.
+ 	  For more details, see Documentation/fault-injection/.
+@@ -429,3 +427,11 @@ config FAULT_INJECTION_DEBUG_FS
+ 	depends on FAULT_INJECTION && SYSFS && DEBUG_FS
+ 	help
+ 	  Enable configuration of fault-injection capabilities via debugfs.
++
++config FAULT_INJECTION_STACKTRACE_FILTER
++	bool "stacktrace filter for fault-injection capabilities"
++	depends on FAULT_INJECTION_DEBUG_FS && STACKTRACE_SUPPORT
++	select STACKTRACE
++	select FRAME_POINTER
++	help
++	  Provide stacktrace filter for fault-injection capabilities
+Index: 2.6-git.orig/lib/fault-inject.c
+=================================--- 2.6-git.orig.orig/lib/fault-inject.c
++++ 2.6-git.orig/lib/fault-inject.c
+@@ -55,7 +55,7 @@ static bool fail_task(struct fault_attr 
  
-+#ifdef CONFIG_CRASH_DUMP
-+		/* saved_max_pfn should ignore max_addr= command line arg */
-+		if (saved_max_pfn < (ae >> PAGE_SHIFT))
-+			saved_max_pfn = (ae >> PAGE_SHIFT);
-+#endif
- 		/* keep within max_addr= and min_addr= command line arg */
- 		as = max(as, min_addr);
- 		ae = min(ae, max_addr);
-Index: linux-2.6/arch/ia64/mm/contig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/contig.c	2007-02-14 10:58:21.000000000 +0900
-+++ linux-2.6/arch/ia64/mm/contig.c	2007-02-14 11:15:11.000000000 +0900
-@@ -197,11 +197,6 @@
+ #define MAX_STACK_TRACE_DEPTH 32
  
- 	find_initrd();
+-#if defined(CONFIG_STACKTRACE)
++#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
  
--#ifdef CONFIG_CRASH_DUMP
--	/* If we are doing a crash dump, we still need to know the real mem
--	 * size before original memory map is reset. */
--	saved_max_pfn = max_pfn;
--#endif
- }
+ static bool fail_stacktrace(struct fault_attr *attr)
+ {
+@@ -90,17 +90,10 @@ static bool fail_stacktrace(struct fault
  
- #ifdef CONFIG_SMP
-Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2007-02-14 10:58:21.000000000 +0900
-+++ linux-2.6/arch/ia64/mm/discontig.c	2007-02-14 11:15:11.000000000 +0900
-@@ -480,12 +480,6 @@
- 	max_pfn = max_low_pfn;
- 
- 	find_initrd();
+ static inline bool fail_stacktrace(struct fault_attr *attr)
+ {
+-	static bool firsttime = true;
 -
--#ifdef CONFIG_CRASH_DUMP
--	/* If we are doing a crash dump, we still need to know the real mem
--	 * size before original memory map is reset. */
--        saved_max_pfn = max_pfn;
--#endif
+-	if (firsttime) {
+-		printk(KERN_WARNING
+-		"This architecture does not implement save_stack_trace()\n");
+-		firsttime = false;
+-	}
+-	return false;
++	return true;
  }
  
- #ifdef CONFIG_SMP
+-#endif
++#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
+ 
+ /*
+  * This code is stolen from failmalloc-1.0
+@@ -217,6 +210,8 @@ void cleanup_fault_attr_dentries(struct 
+ 	debugfs_remove(attr->dentries.task_filter_file);
+ 	attr->dentries.task_filter_file = NULL;
+ 
++#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
++
+ 	debugfs_remove(attr->dentries.stacktrace_depth_file);
+ 	attr->dentries.stacktrace_depth_file = NULL;
+ 
+@@ -232,6 +227,8 @@ void cleanup_fault_attr_dentries(struct 
+ 	debugfs_remove(attr->dentries.reject_end_file);
+ 	attr->dentries.reject_end_file = NULL;
+ 
++#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
++
+ 	if (attr->dentries.dir)
+ 		WARN_ON(!simple_empty(attr->dentries.dir));
+ 
+@@ -269,6 +266,13 @@ int init_fault_attr_dentries(struct faul
+ 	attr->dentries.task_filter_file = debugfs_create_bool("task-filter",
+ 						mode, dir, &attr->task_filter);
+ 
++	if (!attr->dentries.probability_file || !attr->dentries.interval_file ||
++	    !attr->dentries.times_file || !attr->dentries.space_file ||
++	    !attr->dentries.verbose_file || !attr->dentries.task_filter_file)
++		goto fail;
++
++#ifdef CONFIG_FAULT_INJECTION_STACKTRACE_FILTER
++
+ 	attr->dentries.stacktrace_depth_file  		debugfs_create_ul_MAX_STACK_TRACE_DEPTH(
+ 			"stacktrace-depth", mode, dir, &attr->stacktrace_depth);
+@@ -285,18 +289,15 @@ int init_fault_attr_dentries(struct faul
+ 	attr->dentries.reject_end_file  		debugfs_create_ul("reject-end", mode, dir, &attr->reject_end);
+ 
+-
+-	if (!attr->dentries.probability_file || !attr->dentries.interval_file
+-	    || !attr->dentries.times_file || !attr->dentries.space_file
+-	    || !attr->dentries.verbose_file || !attr->dentries.task_filter_file
+-	    || !attr->dentries.stacktrace_depth_file
+-	    || !attr->dentries.require_start_file
+-	    || !attr->dentries.require_end_file
+-	    || !attr->dentries.reject_start_file
+-	    || !attr->dentries.reject_end_file
+-	    )
++	if (!attr->dentries.stacktrace_depth_file ||
++	    !attr->dentries.require_start_file ||
++	    !attr->dentries.require_end_file ||
++	    !attr->dentries.reject_start_file ||
++	    !attr->dentries.reject_end_file)
+ 		goto fail;
+ 
++#endif /* CONFIG_FAULT_INJECTION_STACKTRACE_FILTER */
++
+ 	return 0;
+ fail:
+ 	cleanup_fault_attr_dentries(attr);
