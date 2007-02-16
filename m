@@ -1,43 +1,43 @@
-From: John Keller <jpk@sgi.com>
-Date: Wed, 28 Feb 2007 23:47:27 +0000
-Subject: [PATCH 1/1] - Altix: reinitialize acpi tables
-Message-Id: <20070228234727.11369.38394.sendpatchset@attica.americas.sgi.com>
+From: Blaisorblade <blaisorblade@yahoo.it>
+Date: Fri, 16 Feb 2007 18:38:16 +0000
+Subject: Kconfig bug (was: Re: fault-injection framework on ia64)
+Message-Id: <200702161938.17340.blaisorblade@yahoo.it>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org
-Cc: ayoung@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-To provide compatibilty with SN kernels that do and do not
-have ACPI IO support, the SN PROM must build different
-versions of some ACPI tables based on which kernel is booting.
-As such, the tables may have to change at kernel boot time.
-By default, prior to kernel boot, the PROM builds an empty
-DSDT (header only) and no SSDTs. If an ACPI capable kernel
-boots, the kernel will notify the PROM, at platform setup time,
-and the PROM will build full DSDT and SSDT tables.
+On Friday 16 February 2007 18:30, Akinobu Mita wrote:
+> > But if STACKTRACE depends on STACKTRACE_SUPPORT, which isn't defined on
+> > ia64, kconfig should disable FAULT_INJECTION altogether with my patch (as
+> > it did before it). I don't think that FAULT_INJECTION could be enabled
+> > before my patch, right?
+> >
+> > _BUT_ probably STACKTRACE_SUPPORT should be defined, with default n and
+> > no prompt, on ia64, or Kconfig gets confused (it should output a warning,
+> > like 'undefined symbol STACKTRACE_SUPPORT'). We on UML used to get
+> > warning when INPUT was used but not defined. Hmmm....
+>
+> Really? I intentionaly removed the STACKTRACE_SUPPORT in x86_64 Kconfig,
+> then I did make menuconfig. But I didn't get such warning.
+Well, I got that warning, and I don't get it on STACKTRACE_SUPPORT. Strange. 
+But it was time ago...
 
-With the latest changes to acpi_table_init(), the table lengths
-are saved, and when our PROM changes them, the changes are not seen,
-and the kernel will crash on boot. Because of issues with kexec support,
-we are not able to create the tables prior to acpi_table_init().
-As a result, we are making a second call to acpi_table_init() to
-process the rebuilt DSDT and SSDTs.
+However, more important, if I remove STACKTRACE_SUPPORT, or if I make 
+it 'default n', FAULT_INJECTION can still be enabled, even if it selects 
+STACKTRACE which has a failed dependency (tested on UML). Which is a Kconfig 
+bug - if A selects B and B depends on C, no dependency of A on C is deduced. 
+Right Roman?
 
-Signed-off-by: John Keller <jpk@sgi.com>
----
+This Kconfig bug explains how your bug could surface.
 
-
-Index: release/arch/ia64/sn/kernel/setup.c
-=================================--- release.orig/arch/ia64/sn/kernel/setup.c	2007-02-28 11:02:34.558139870 -0600
-+++ release/arch/ia64/sn/kernel/setup.c	2007-02-28 11:02:39.362737953 -0600
-@@ -397,6 +397,8 @@ void __init sn_setup(char **cmdline_p)
- 	ia64_sn_set_os_feature(OSF_PCISEGMENT_ENABLE);
- 	ia64_sn_set_os_feature(OSF_ACPI_ENABLE);
- 
-+	/* Load the new DSDT and SSDT tables into the global table list. */
-+ 	acpi_table_init();
- 
- #if defined(CONFIG_VT) && defined(CONFIG_VGA_CONSOLE)
- 	/*
+This also means that my patch cannot to go -stable because it would cause 
+problems on IA64 and any arch without STACKTRACE_SUPPORT.
+See if yours can, Akinobu.
+-- 
+Inform me of my mistakes, so I can add them to my list!
+Paolo Giarrusso, aka Blaisorblade
+http://www.user-mode-linux.org/~blaisorblade
+Chiacchiera con i tuoi amici in tempo reale! 
+ http://it.yahoo.com/mail_it/foot/*http://it.messenger.yahoo.com 
