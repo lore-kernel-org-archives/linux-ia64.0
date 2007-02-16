@@ -1,51 +1,46 @@
-From: Len Brown <lenb@kernel.org>
-Date: Sat, 17 Feb 2007 03:04:38 +0000
-Subject: Re: [PATCH 1/1] -  acpi_boot_init() making bad check on return code
-Message-Id: <200702162204.38607.lenb@kernel.org>
+From: Richard Knutsson <ricknu-0@student.ltu.se>
+Date: Fri, 16 Feb 2007 15:02:33 +0000
+Subject: Re: [KJ] [PATCH] is_power_of_2 in ia64mm
+Message-Id: <45D5C789.1090607@student.ltu.se>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070216210727.7407.93052.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20070216210727.7407.93052.sendpatchset@attica.americas.sgi.com>
+References: <1171627435.6127.0.camel@wriver-t81fb058.linuxcoe>
+In-Reply-To: <1171627435.6127.0.camel@wriver-t81fb058.linuxcoe>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Keller <jpk@sgi.com>
-Cc: linux-acpi@vger.kernel.org, ayoung@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Vignesh Babu BM <vignesh.babu@wipro.com>
+Cc: Kernel Janitors List <kernel-janitors@lists.osdl.org>, linux-mm@kvack.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Applied.
+Vignesh Babu BM wrote:
+> Replacing (n & (n-1)) in the context of power of 2 checks
+> with is_power_of_2
+>
+>
+> diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
+> index 0c7e94e..0ccc70e 100644
+> --- a/arch/ia64/mm/hugetlbpage.c
+> +++ b/arch/ia64/mm/hugetlbpage.c
+> @@ -16,6 +16,7 @@
+>  #include <linux/smp_lock.h>
+>  #include <linux/slab.h>
+>  #include <linux/sysctl.h>
+> +#include <linux/log2.h>
+>  #include <asm/mman.h>
+>  #include <asm/pgalloc.h>
+>  #include <asm/tlb.h>
+> @@ -175,7 +176,7 @@ static int __init hugetlb_setup_sz(char *str)
+>  		tr_pages = 0x15557000UL;
+>  
+>  	size = memparse(str, &str);
+> -	if (*str || (size & (size-1)) || !(tr_pages & size) ||
+> +	if (*str || !is_power_of_2(size) || !(tr_pages & size) ||
+>  		size <= PAGE_SIZE ||
+>  		size >= (1UL << PAGE_SHIFT << MAX_ORDER)) {
+>  		printk(KERN_WARNING "Invalid huge page size specified\n");
+>
+>   
+As we talked about before; is this really correct? !is_power_of_2(0) = 
+true while (0 & (0-1)) = 0.
 
-thanks,
--Len
-On Friday 16 February 2007 16:07, John Keller wrote:
-> acpi_boot_init() is making a bad check on the return
-> status from acpi_table_parse(). acpi_table_parse() now
-> returns zero on success, one on failure.
-> 
-> Signed-off-by: Aaron Young <ayoung@sgi.com>
-> ---
-> 
-> Index: release/arch/ia64/kernel/acpi.c
-> =================================> --- release.orig/arch/ia64/kernel/acpi.c	2007-02-16 08:58:10.000000000 -0600
-> +++ release/arch/ia64/kernel/acpi.c	2007-02-16 09:03:16.893360100 -0600
-> @@ -651,7 +651,7 @@ int __init acpi_boot_init(void)
->  	 * information -- the successor to MPS tables.
->  	 */
->  
-> -	if (acpi_table_parse(ACPI_SIG_MADT, acpi_parse_madt) < 1) {
-> +	if (acpi_table_parse(ACPI_SIG_MADT, acpi_parse_madt)) {
->  		printk(KERN_ERR PREFIX "Can't find MADT\n");
->  		goto skip_madt;
->  	}
-> @@ -702,7 +702,7 @@ int __init acpi_boot_init(void)
->  	 * gets interrupts such as power and sleep buttons.  If it's not
->  	 * on a Legacy interrupt, it needs to be setup.
->  	 */
-> -	if (acpi_table_parse(ACPI_SIG_FADT, acpi_parse_fadt) < 1)
-> +	if (acpi_table_parse(ACPI_SIG_FADT, acpi_parse_fadt))
->  		printk(KERN_ERR PREFIX "Can't find FADT\n");
->  
->  #ifdef CONFIG_SMP
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Richard Knutsson
+
