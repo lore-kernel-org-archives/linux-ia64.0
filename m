@@ -1,21 +1,32 @@
-From: Robin Holt <holt@sgi.com>
-Date: Sat, 03 Feb 2007 00:09:01 +0000
-Subject: Re: git tree 6 weeks old?
-Message-Id: <20070203000901.GA14202@lnx-holt.americas.sgi.com>
+From: Olaf Hering <olaf@aepfle.de>
+Date: Fri, 16 Feb 2007 22:06:54 +0000
+Subject: [PATCH] Remove stack hard limit on ia64
+Message-Id: <20070216220654.GA11135@aepfle.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070131184830.GD20942@fc.hp.com>
-In-Reply-To: <20070131184830.GD20942@fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-> want to dump all this backlog into -rc7 though.  If anyone has patches
-> that absolutely positively must go in before 2.6.20-final happens, then
-> let me know.  Otherwise I'll be batching them all in when the floodgates
+From: schwab@suse.de
 
-Is there any way you could give us the list of patches you currently
-have batched so we can look through them to see if any should go?
+Un-Breaks pthreads, since Oct 2003.
 
-Thanks,
-Robin
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+
+---
+ include/asm-ia64/resource.h |    1 -
+ 1 file changed, 1 deletion(-)
+
+Index: linux-2.6/include/asm-ia64/resource.h
+=================================--- linux-2.6.orig/include/asm-ia64/resource.h
++++ linux-2.6/include/asm-ia64/resource.h
+@@ -2,7 +2,6 @@
+ #define _ASM_IA64_RESOURCE_H
+ 
+ #include <asm/ustack.h>
+-#define _STK_LIM_MAX	DEFAULT_USER_STACK_SIZE
+ #include <asm-generic/resource.h>
+ 
+ #endif /* _ASM_IA64_RESOURCE_H */
