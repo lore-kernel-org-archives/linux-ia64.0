@@ -1,27 +1,42 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 05 Feb 2007 02:05:29 +0000
-Subject: [PATCH] [IA64] kexec: typo in the saved_max_pfn description in contig.c
-Message-Id: <20070205020527.GB31446@verge.net.au>
+From: Vignesh Babu BM <vignesh.babu@wipro.com>
+Date: Fri, 16 Feb 2007 12:15:55 +0000
+Subject: [KJ][PATCH] is_power_of_2 in ia64mm
+Message-Id: <1171627435.6127.0.camel@wriver-t81fb058.linuxcoe>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Kernel Janitors List <kernel-janitors@lists.osdl.org>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
-Fix a typo in the saved_max_pfn description in contig.c
+Replacing (n & (n-1)) in the context of power of 2 checks
+with is_power_of_2
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
 
-diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 1e79551..ec8657b 100644
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -177,7 +177,7 @@ find_memory (void)
+diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
+index 0c7e94e..0ccc70e 100644
+--- a/arch/ia64/mm/hugetlbpage.c
++++ b/arch/ia64/mm/hugetlbpage.c
+@@ -16,6 +16,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
++#include <linux/log2.h>
+ #include <asm/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+@@ -175,7 +176,7 @@ static int __init hugetlb_setup_sz(char *str)
+ 		tr_pages = 0x15557000UL;
  
- #ifdef CONFIG_CRASH_DUMP
- 	/* If we are doing a crash dump, we still need to know the real mem
--	 * size before original memory map is * reset. */
-+	 * size before original memory map is reset. */
- 	saved_max_pfn = max_pfn;
- #endif
- }
+ 	size = memparse(str, &str);
+-	if (*str || (size & (size-1)) || !(tr_pages & size) ||
++	if (*str || !is_power_of_2(size) || !(tr_pages & size) ||
+ 		size <= PAGE_SIZE ||
+ 		size >= (1UL << PAGE_SHIFT << MAX_ORDER)) {
+ 		printk(KERN_WARNING "Invalid huge page size specified\n");
+
+-- 
+Regards,  
+Vignesh Babu BM  
+_____________________________________________________________  
+"Why is it that every time I'm with you, makes me believe in magic?"
