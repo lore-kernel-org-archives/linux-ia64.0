@@ -1,68 +1,44 @@
-From: akpm@linux-foundation.org
-Date: Tue, 06 Feb 2007 00:20:03 +0000
-Subject: [patch 08/13] ia64: Enable SWIOTLB only when needed
-Message-Id: <200702060021.l160L6kF004204@shell0.pdx.osdl.net>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Date: Tue, 20 Feb 2007 17:35:16 +0000
+Subject: [PATCH 2.6.20-mm2] always build arch/ia64/lib/xor.o
+Message-Id: <1171992916.5253.41.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: "Jan Beulich" <jbeulich@novell.com>
+Always build ia64 xor.o because multiple config options now 
+depend on it.
 
-Don't force CONFIG_SWIOTLB on when not actually needed (i.e. HP_ZX1 and
-SGI_SN2).
+Necessary to build .20-mm* on ia64 when, e.g., CONFIG_ASYNC_TX_DMA
+is defined.  Don't know if '_ASYNC_TX_DMA makes sense on ia64.
+If not, maybe Kconfig should preclude it.
 
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Cc: Andi Kleen <ak@suse.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+Could have defined a Kconfig option that defaults to true
+if MD_RAID456 || ASYNC_TX_DMA to control building of xor.o,
+but xor.o is only 848 bytes and this IS ia64...
 
- arch/ia64/Kconfig |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Signed-off-by:  Lee Schermerhorn <lee.schermerhorn@hp.com>
 
-diff -puN arch/ia64/Kconfig~ia64-enable-swiotlb-only-when-needed arch/ia64/Kconfig
---- a/arch/ia64/Kconfig~ia64-enable-swiotlb-only-when-needed
-+++ a/arch/ia64/Kconfig
-@@ -28,7 +28,6 @@ config MMU
+ arch/ia64/lib/Makefile |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+Index: Linux/arch/ia64/lib/Makefile
+=================================--- Linux.orig/arch/ia64/lib/Makefile	2007-02-04 13:44:54.000000000 -0500
++++ Linux/arch/ia64/lib/Makefile	2007-02-16 16:33:10.000000000 -0500
+@@ -9,12 +9,11 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ 	checksum.o clear_page.o csum_partial_copy.o			\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+-	memset.o strlen.o
++	memset.o strlen.o xor.o
  
- config SWIOTLB
-        bool
--       default y
+ lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+ lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+-lib-$(CONFIG_MD_RAID456)	+= xor.o
  
- config RWSEM_XCHGADD_ALGORITHM
- 	bool
-@@ -88,6 +87,7 @@ config IA64_GENERIC
- 	select PCI
- 	select NUMA
- 	select ACPI_NUMA
-+	select SWIOTLB
- 	help
- 	  This selects the system type of your hardware.  A "generic" kernel
- 	  will run on any supported IA-64 system.  However, if you configure
-@@ -104,6 +104,7 @@ config IA64_GENERIC
- 
- config IA64_DIG
- 	bool "DIG-compliant"
-+	select SWIOTLB
- 
- config IA64_HP_ZX1
- 	bool "HP-zx1/sx1000"
-@@ -113,6 +114,7 @@ config IA64_HP_ZX1
- 
- config IA64_HP_ZX1_SWIOTLB
- 	bool "HP-zx1/sx1000 with software I/O TLB"
-+	select SWIOTLB
- 	help
- 	  Build a kernel that runs on HP zx1 and sx1000 systems even when they
- 	  have broken PCI devices which cannot DMA to full 32 bits.  Apart
-@@ -131,6 +133,7 @@ config IA64_SGI_SN2
- 
- config IA64_HP_SIM
- 	bool "Ski-simulator"
-+	select SWIOTLB
- 
- endchoice
- 
-_
+ AFLAGS___divdi3.o	 AFLAGS___udivdi3.o	= -DUNSIGNED
+
+
