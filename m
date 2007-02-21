@@ -1,36 +1,80 @@
-From: Horms <horms@verge.net.au>
-Date: Mon, 05 Feb 2007 01:17:22 +0000
-Subject: [PATCH] [IA64] kexec: Minor enhancement to includes in crash.c
-Message-Id: <20070205011717.GB31046@verge.net.au>
+From: Alexey Dobriyan <adobriyan@openvz.org>
+Date: Wed, 21 Feb 2007 15:18:06 +0000
+Subject: [PATCH] Sync compat getdents on ia64 and parisc
+Message-Id: <20070221151806.GA11151@localhost.sw.ru>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-linux/uaccess.h was being included, but it seems that 
-really the following includes are needed.
+From: Alexandr Andreev <aandreev@openvz.org>
 
-asm/page.h: for __va() and PAGE_SHIFT
-asm/uaccess.h: for copy_to_user()
+Add VERIFY_WRITE check in the beginning like compat_sys_getdents()
+[EINVAL vs EFAULT on ia64.
+ EFAULT on parisc if put_user() fails. --adobriyan]
 
-I guess that linux/uaccess.h pulls in both asm/page.h and asm/uaccess.h.
-I notices this while backporting the code to xen's linux-2.6.16.33,
-which does not have linux/uaccess.h. I'm posting it as I think it is a
-correct, though somewhat cosmetic fix.
+Can arch maintainers look if compat_sys_getdents() is OK for them?
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Alexandr Andreev <aandreev@openvz.org>
+Signed-off-by: Alexey Dobriyan <adobriyan@openvz.org>
+---
 
-Index: linux-2.6/arch/ia64/kernel/crash_dump.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/crash_dump.c	2006-12-20 10:49:17.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/crash_dump.c	2006-12-20 10:49:20.000000000 +0900
-@@ -9,7 +9,8 @@
- #include <linux/errno.h>
- #include <linux/types.h>
+ arch/ia64/ia32/sys_ia32.c         |   10 +++++++---
+ arch/parisc/kernel/sys_parisc32.c |   10 ++++++++--
+ 2 files changed, 15 insertions(+), 5 deletions(-)
+
+--- a/arch/ia64/ia32/sys_ia32.c
++++ b/arch/ia64/ia32/sys_ia32.c
+@@ -1267,6 +1267,10 @@ sys32_getdents (unsigned int fd, struct 
+ 	struct getdents32_callback buf;
+ 	int error;
  
--#include <linux/uaccess.h>
-+#include <asm/page.h>
-+#include <asm/uaccess.h>
++	error = -EFAULT;
++	if (!access_ok(VERIFY_WRITE, dirent, count))
++		goto out;
++
+ 	error = -EBADF;
+ 	file = fget(fd);
+ 	if (!file)
+@@ -1283,10 +1287,10 @@ sys32_getdents (unsigned int fd, struct 
+ 	error = buf.error;
+ 	lastdirent = buf.previous;
+ 	if (lastdirent) {
+-		error = -EINVAL;
+ 		if (put_user(file->f_pos, &lastdirent->d_off))
+-			goto out_putf;
+-		error = count - buf.count;
++			error = -EFAULT;
++		else
++			error = count - buf.count;
+ 	}
  
- /**
-  * copy_oldmem_page - copy one page from "oldmem"
+ out_putf:
+--- a/arch/parisc/kernel/sys_parisc32.c
++++ b/arch/parisc/kernel/sys_parisc32.c
+@@ -350,6 +350,10 @@ sys32_getdents (unsigned int fd, void __
+ 	struct getdents32_callback buf;
+ 	int error;
+ 
++	error = -EFAULT;
++	if (!access_ok(VERIFY_WRITE, dirent, count))
++		goto out;
++
+ 	error = -EBADF;
+ 	file = fget(fd);
+ 	if (!file)
+@@ -366,8 +370,10 @@ sys32_getdents (unsigned int fd, void __
+ 	error = buf.error;
+ 	lastdirent = buf.previous;
+ 	if (lastdirent) {
+-		put_user(file->f_pos, &lastdirent->d_off);
+-		error = count - buf.count;
++		if (put_user(file->f_pos, &lastdirent->d_off))
++			error = -EFAULT;
++		else
++			error = count - buf.count;
+ 	}
+ 
+ out_putf:
+
