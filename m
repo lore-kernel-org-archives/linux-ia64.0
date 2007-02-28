@@ -1,30 +1,30 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Mon, 05 Feb 2007 14:21:10 +0000
-Subject: [ANNOUNCE]: F7 Test1 IA64 ISOs available
-Message-Id: <45C73D56.8070604@redhat.com>
+From: John Keller <jpk@sgi.com>
+Date: Wed, 28 Feb 2007 19:45:17 +0000
+Subject: [PATCH 1/1] - platform_kernel_launch_event is noop on generic kernel
+Message-Id: <20070228194517.25635.98535.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: fastboot@lists.osdl.org
+Cc: jlan@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-A set of CD ISOs and a DVD ISO based on the Fedora 7 test2 ISOS of the
-ia64 Fedora development branch (also known as rawhide) are available from:
+Add a missing #define for the platform_kernel_launch_event.
+Without this fix, a call to platform_kernel_launch_event()
+becomes a noop on generic kernels. SN systems require this
+fix to successfully kdump/kexec from certain hardware errors.
 
-    http://oss.sgi.com/projects/fedora
+Signed-off-by: John Keller <jpk@sgi.com>
+---
 
-87dd4ea05c4e2bec8df58670df3d7861  F7test1-ia64-disc1.iso
-9e8e7bda56b3e17bf908112b7dd3ac4c  F7test1-ia64-disc2.iso
-bfa54b96bd1b260c676758b1607df5b2  F7test1-ia64-disc3.iso
-24f88e3ebe9a3a277e412a5f5b091d87  F7test1-ia64-disc4.iso
-ac556a8518d6cc53c7f0d3d380edce84  F7test1-ia64-disc5.iso
-543d171ccee6595f5491fc0fde2b1043  F7test1-ia64-DVD.iso
-
-(Click on Download on left-hand side, and then the F7-test1 directory)
-
-Please remember that F7 ia64 is _unsupported_ by Fedora.  You can file 
-bugs,
-but be sure to file them against the devel branch of Fedora Core.  Also,
-add "fedora-ia64" to the "blocks" field of the BZ.
-
-P.
+Index: linux-2.6/include/asm-ia64/machvec.h
+=================================--- linux-2.6.orig/include/asm-ia64/machvec.h	2007-02-28 08:39:45.764537727 -0600
++++ linux-2.6/include/asm-ia64/machvec.h	2007-02-28 08:40:01.254467899 -0600
+@@ -168,6 +168,7 @@ extern void machvec_tlb_migrate_finish (
+ #  define platform_setup_msi_irq	ia64_mv.setup_msi_irq
+ #  define platform_teardown_msi_irq	ia64_mv.teardown_msi_irq
+ #  define platform_pci_fixup_bus	ia64_mv.pci_fixup_bus
++#  define platform_kernel_launch_event	ia64_mv.kernel_launch_event
+ # endif
+ 
+ /* __attribute__((__aligned__(16))) is required to make size of the
