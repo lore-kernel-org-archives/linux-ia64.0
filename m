@@ -1,47 +1,45 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 01 Mar 2007 00:27:58 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Mon, 05 Mar 2007 17:25:16 +0000
 Subject: Re: debug registers and fork
-Message-Id: <20070301002758.GF23543@frankl.hpl.hp.com>
+Message-Id: <200703051825.16473.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070228212510.1E213180067@magilla.sf.frob.com> <Pine.LNX.4.44L0.0702281847330.24215-100000@netrider.rowland.org>
-In-Reply-To: <Pine.LNX.4.44L0.0702281847330.24215-100000@netrider.rowland.org>
+References: <20070226235154.GB19630@frankl.hpl.hp.com>
+In-Reply-To: <20070226235154.GB19630@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alan Stern <stern@rowland.harvard.edu>
-Cc: Roland McGrath <roland@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, ak@suse.de, tony.luck@intel.com, William Cohen <wcohen@redhat.com>
+To: eranian@hpl.hp.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@linux-foundation.org, tony.luck@intel.com
 
-Alan,
+On Tuesday 27 February 2007 00:51, Stephane Eranian wrote:
+> Hello,
+> 
+> I have come across an issue with a monitoring using the
+> hardware debug registers on ia64/i386/x86-64.
+> 
+> It seems that the way debug registers are inherited across fork
+> differs between ia-64 and i386/x86-64. On ia-64, the debug registers
+> are NEVER inherited in the child. The copy_thread() routine clears
+> the necessary thread flags to avoid reloading the debug registers in
+> the child.
+> 
+> Now, on x86-64, it appears that the TIF_DEBUG flag is inherited via
+> setup_thread_stack(). By virtue of dup_task_struct() the debug registers
+> get copied into the child task on fork. So the child has active breakpoints,
+> unless I am mistaken somewhere.
+> 
+> Given the way the ptrace() interface works, I would tend to
+> think that the ia-64 way is the correct one. Any comment?
 
-On Wed, Feb 28, 2007 at 07:01:17PM -0500, Alan Stern wrote:
-> On Wed, 28 Feb 2007, Roland McGrath wrote:
-> 
-> > It is true that debug registers are inherited by fork and clone.
-> > I am 99% sure that this was never specifically intended, but it
-> > has been this way for a long time (since 2.4 at least).  It's an
-> > implicit consequence of the do_fork implementation style, which
-> > does a blind copy of the whole task_struct and then explicitly
-> > reinitializes some individual fields.  I suppose this has some
-> > benefit or other, but it is very prone to new pieces of state
-> > getting implicitly copied without the person adding that new state
-> > ever consciously deciding what its inheritance semantics should be.
-> > 
-> > Alan Stern is working on a revamp of the x86 debug register
-> > support.  This is a fine opportunity to clean this area up and
-> > decide positively what the semantics ought to be.
-> 
-> Absolutely.  Right now I just have a placeholder function with a note
-> about checking for CLONE_PTRACE.  The cleanest solution, far and away,
-> would be to have the child process inherit no breakpoints and no debug
-> register values.
-> 
-I agree and that is how we have it on IA-64. With debugging, there is
-always another process involved and no matter what I think it needs to 
-be aware of the new child. I don't think autoamtic inheritance is good.
-It should always be trigger by the controlling process (e.g., debugger).
-There is enough support in ptrace to catch the fork/vfork/pthread_create
-and decide what to do.  This is how I have coded perfmon so that hardware
-performance counters are never automatically inherited.
+IA64 is probably correct, but changing this might break existing programs.
+Would that be worth the change? What advantage would you have from it.
 
--- 
--Stephane
+> Furthermore, on i386/x86-64, when switching out from a task with TIF_DEBUG
+> enabled to another which does not, it seems we do not clear the debug
+> registers (at least dr7) so they become inactive.
+
+You mean they leak? Perhaps they should be cleared.
+
+-Andi
+
+ 
