@@ -1,41 +1,24 @@
-From: eiichiro.oiwa.nm@hitachi.com
-Date: Mon, 19 Mar 2007 03:12:55 +0000
-Subject: Re: [PATCH 2.6.18] PCI: Turn pci_fixup_video into generic for
-Message-Id: <XNM1$9$0$4$$3$3$7$A$9002870U45fdffb3@hitachi.com>
+From: Horms <horms@verge.net.au>
+Date: Tue, 06 Mar 2007 01:56:55 +0000
+Subject: Crash Dump Region
+Message-Id: <20070306015655.GA27129@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <XNM1$9$0$4$$3$3$7$A$9002686U451b55cd@hitachi.com> 
-    <200609280936.02098.jesse.barnes@intel.com> 
-    <200703161120.46123.bjorn.helgaas@hp.com> 
-    <200703161142.39854.jesse.barnes@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jesse.barnes@intel.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, akpm@osdl.org, tony.luck@intel.com, greg@kroah.com, Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
->On Friday, March 16, 2007 10:20 am Bjorn Helgaas wrote:
->> Are there really ia64 machines where we need to use the option ROM
->> copy at 0xC0000?  If so, is this documented somewhere?  I couldn't
->> find any mention in DIG64, EFI, or internal HP architecture specs.
->>
->> If we do need to use it, ia64 has a bit of a problem because on some
->> boxes, the 0xC0000 memory supports only cacheable access, the VGA
->> frame buffer at 0xA0000 supports only uncacheable access, and the
->> usual ia64 ioremap mapping is a 16MB page that covers both.
->
->Apparently Eichiro's machine needs it, and of course there are i386 and 
->x86_64 machines that need it to, so it makes sense that it be generic.
->
->Jesse
->
+Hi,
 
-Yes, our machine need it.
+I am currently looking over the code that places the crashdump
+region into /proc/iomem, and the code that determines its base
+address if it is not passed on the kernel comamnd. It seems to me that 
+the current code allows the crashkernel to be placed incide a
+/proc/iomem region of any type. Is this behaviour correct?
+If not, should it be restricted to "System RAM" regions?
 
->> Are there really ia64 machines where we need to use the option ROM
->> copy at 0xC0000?  If so, is this documented somewhere?  I couldn't
->> find any mention in DIG64, EFI, or internal HP architecture specs.
-
-"System Abstraction Layer Specification" describes it in section 2.6.
-
-Eiichiro
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
