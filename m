@@ -1,67 +1,199 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Date: Wed, 07 Mar 2007 08:55:18 +0000
-Subject: Re: [parisc-linux] [PATCH 2/2] Make pcibios_add_platform_entries()
-Message-Id: <1173257718.5101.16.camel@concordia.ozlabs.ibm.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-BgsAG7SQX+bolLlRm7kx"
+From: Horms <horms@verge.net.au>
+Date: Tue, 06 Mar 2007 07:28:52 +0000
+Subject: [patch 3/3] IA64: verify the base address of crashkernel
+Message-Id: <20070306073756.245032985@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070306150725.68D97DDF36@ozlabs.org>
-	 <1173204301.3379.33.camel@mulgrave.il.steeleye.com>
-In-Reply-To: <1173204301.3379.33.camel@mulgrave.il.steeleye.com>
-To: James Bottomley <James.Bottomley@SteelEye.com>
-Cc: Greg Kroah-Hartman <greg@kroah.com>, linux-mips@linux-mips.org, dev-etrax@axis.com, linux-ia64@vger.kernel.org, discuss@x86-64.org, chris@zankel.net, dhowells@redhat.com, linuxppc-dev@ozlabs.org, linux-m68k@vger.kernel.org, ink@jurassic.park.msu.ru, gerg@uclinux.org, sparclinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, linux-pci@atrey.karlin.mff.cuni.cz, parisc-linux@parisc-linux.org, kernel@wantstofly.org, rth@twiddle.net
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
+When the crashkernel command line argument is supplied, it may optionally
+include the base address at which to locate the region. If this is omitted
+then the kernel attempts to locate an appropriate base address and in 
+the course of this checks to make sure it is placed in a region that
+is writable.
 
---=-BgsAG7SQX+bolLlRm7kx
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+If, however, the base address is supplied on the command line this check is
+not made. This patch adds validation code to:
 
-On Tue, 2007-03-06 at 12:05 -0600, James Bottomley wrote:
-> On Tue, 2007-03-06 at 16:06 +0100, Michael Ellerman wrote:
-> >  int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
-> > @@ -644,10 +644,13 @@ int __must_check pci_create_sysfs_dev_fi
-> >  		}
-> >  	}
-> >  	/* add platform-specific attributes */
-> > -	pcibios_add_platform_entries(pdev);
-> > +	if (pcibios_add_platform_entries(pdev))
-> > +		goto err_rom_attr;
-> > =20
-> >  	return 0;
-> > =20
-> > +err_rom_attr:
-> > +	sysfs_remove_bin_file(&pdev->dev.kobj, rom_attr);
->=20
-> This file is only created if the rom resource has a non-zero length.  If
-> you unconditionally call sysfs_remove_bin_file() it's going to spit
-> scary warnings and dump traces in this error leg if the rom resource
-> doesn't exist.
+* Warn is the base address is not aligned (to 64Mb)
+* Invalidate the crashkernel region if it does not lie with in
+  an appropriate EFI region
+* Invalidate the crash kernel region if it clashes with a reserved region
+  (this was kind of handled already by virtue of the way the resource
+   is inserted into /proc/iomem)
 
-Ah crud, don't write patches during meetings. I'll send a fixed version.
+It also defined CRASHDUMP_ALIGN rather than just hardcoding it
+to 64Mb as needed (previously only in kdump_find_kdump_find_rsvd_region())
 
-cheers
+The code came out to be a little longer than I had expected.
+It could be made more compact, likely at the expense of some readability.
+But as its in __init, its not really a big deal IMHO.
 
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
+An alternative approach would to be add checks at the time the
+region is inserted to /proc/iomem. I'm not sure how well this would
+work, but I am happy to investigate.
 
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
+ arch/ia64/kernel/efi.c   |   84 ++++++++++++++++++++++++++++++++++++++++++++--
+ arch/ia64/kernel/setup.c |   10 ++++-
+ include/asm-ia64/kexec.h |    2 +
+ 3 files changed, 91 insertions(+), 5 deletions(-)
 
---=-BgsAG7SQX+bolLlRm7kx
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Index: linux-2.6/arch/ia64/kernel/efi.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/efi.c	2007-03-06 16:25:46.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/efi.c	2007-03-06 16:26:41.000000000 +0900
+@@ -1150,6 +1150,85 @@
+ }
+ 
+ #ifdef CONFIG_KEXEC
++
++#define CRASHDUMP_ALIGNMENT (1 << _PAGE_SIZE_64M)
++static int __init
++kdump_region_verify_efi (unsigned long base, unsigned long size)
++{
++	void *efi_map_start, *efi_map_end, *p;
++	efi_memory_desc_t *md;
++	unsigned long efi_desc_size;
++
++	efi_map_start = __va(ia64_boot_param->efi_memmap);
++	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
++	efi_desc_size = ia64_boot_param->efi_memdesc_size;
++
++	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
++		md = p;
++		if (base < md->phys_addr || base + size > efi_md_end(md))
++			continue;
++		if (is_memory_available(md))
++			return 1;
++		printk(KERN_WARNING "Kdump: crashkernel region 0x%lx-0x%lx is "
++		       "inside the unusable efi region 0x%lx-0x%lx\n", base,
++		       base + size - 1, md->phys_addr, efi_md_end(md) - 1);
++		return 0;
++	}
++
++	printk(KERN_WARNING "Kdump: crashkernel region 0x%lx-0x%lx does not "
++	       "fit in any efi region\n", base, base + size - 1);
++	return 0;
++}
++
++
++/* find a block of memory aligned to 64M exclude reserved regions
++   rsvd_regions are sorted
++ */
++static int __init
++kdump_region_verify_rsvd_region (unsigned long base, unsigned long size,
++	       			 struct rsvd_region *rsvd_regions, int n)
++{
++	int i;
++
++	for (i = 0; i < n; i++) {
++		if (__pa(rsvd_regions[i].start) < base ||
++		    __pa(rsvd_regions[i].end) >= base + size - 1)
++			continue;
++		printk(KERN_WARNING "Kdump: crashkernel region 0x%lx-0x%lx "
++		       "clashes with reserved region 0x%lx-0x%lx\n", base,
++		       base + size - 1, __pa(rsvd_regions[i].start),
++		       __pa(rsvd_regions[i].end));
++		return 0;
++	}
++	return 0;
++}
++
++
++/* find a block of memory aligned to 64M exclude reserved regions
++   rsvd_regions are sorted
++ */
++int __init
++kdump_region_verify (unsigned long base, unsigned long size,
++		     struct rsvd_region *rsvd_regions, int n)
++{
++	/* This isn't considered to be a failure condition,
++	 * but it isn't desireable either, so log it */
++	if (ALIGN(base, CRASHDUMP_ALIGNMENT) != base)
++		printk(KERN_WARNING "Kdump: warning: crashkernel region "
++		       "0x%lx-0x%lx is not aligned to 0x%x\n",
++		       base, base + size - 1, CRASHDUMP_ALIGNMENT);
++
++	if (!kdump_region_verify_efi(base, size))
++		return 0;
++
++	if (!kdump_region_verify_rsvd_region(base, size, rsvd_regions, n))
++		return 0;
++
++	printk(KERN_INFO "Kdump: crashkernel region verified\n");
++		return 1;
++	return 1;
++}
++
+ /* find a block of memory aligned to 64M exclude reserved regions
+    rsvd_regions are sorted
+  */
+@@ -1159,7 +1238,6 @@
+ {
+   int i;
+   u64 start, end;
+-  u64 alignment = 1UL << _PAGE_SIZE_64M;
+   void *efi_map_start, *efi_map_end, *p;
+   efi_memory_desc_t *md;
+   u64 efi_desc_size;
+@@ -1172,13 +1250,13 @@
+ 	  md = p;
+ 	  if (!efi_wb(md))
+ 		  continue;
+-	  start = ALIGN(md->phys_addr, alignment);
++	  start = ALIGN(md->phys_addr, CRASHDUMP_ALIGNMENT);
+ 	  end = efi_md_end(md);
+ 	  for (i = 0; i < n; i++) {
+ 		if (__pa(r[i].start) >= start && __pa(r[i].end) < end) {
+ 			if (__pa(r[i].start) > start + size)
+ 				return start;
+-			start = ALIGN(__pa(r[i].end), alignment);
++			start = ALIGN(__pa(r[i].end), CRASHDUMP_ALIGNMENT);
+ 			if (i < n-1 && __pa(r[i+1].start) < start + size)
+ 				continue;
+ 			else
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2007-03-06 16:25:40.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/setup.c	2007-03-06 16:27:44.000000000 +0900
+@@ -271,11 +271,17 @@
+ 			else
+ 				base = 0;
+ 			if (size) {
++				sort_regions(rsvd_region, n);
+ 				if (!base) {
+-					sort_regions(rsvd_region, n);
+ 					base = kdump_find_rsvd_region(size,
+ 							      	rsvd_region, n);
+-					}
++				}
++				else {
++					if (!kdump_region_verify(base, size,
++								 rsvd_region,
++								 n))
++						base = ~0UL;
++				}
+ 				if (base != ~0UL) {
+ 					rsvd_region[n].start  						(unsigned long)__va(base);
+Index: linux-2.6/include/asm-ia64/kexec.h
+=================================--- linux-2.6.orig/include/asm-ia64/kexec.h	2007-03-06 16:25:40.000000000 +0900
++++ linux-2.6/include/asm-ia64/kexec.h	2007-03-06 16:26:41.000000000 +0900
+@@ -37,6 +37,8 @@
+ extern void kexec_disable_iosapic(void);
+ extern void crash_save_this_cpu(void);
+ struct rsvd_region;
++extern int kdump_region_verify(unsigned long base,
++		unsigned long size, struct rsvd_region *rsvd_regions, int n);
+ extern unsigned long kdump_find_rsvd_region(unsigned long size,
+ 		struct rsvd_region *rsvd_regions, int n);
+ extern void kdump_cpu_freeze(struct unw_frame_info *info, void *arg);
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.3 (GNU/Linux)
+--
 
-iD8DBQBF7n32dSjSd0sB4dIRAn5sAKDLKRSrFBG7U5Cd40rDmTlteEGzOgCgsZhx
-xnxBaUCAjUOpUDo/Iyyq50o=
-=Lg0a
------END PGP SIGNATURE-----
-
---=-BgsAG7SQX+bolLlRm7kx--
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
