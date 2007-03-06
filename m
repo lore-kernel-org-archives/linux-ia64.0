@@ -1,99 +1,49 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Tue, 06 Mar 2007 18:07:32 +0000
-Subject: [PATCH] saved_max_pfn too small on a specific machine
-Message-Id: <20070306180732.GA3151@strauss.suse.de>
+From: akpm@linux-foundation.org
+Date: Tue, 06 Mar 2007 10:34:23 +0000
+Subject: [patch 3/6] always build arch/ia64/lib/xor.o
+Message-Id: <200703061034.l26AYNgO019346@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
 
-I has a problem with the patch "Make saved_max_pfn point to max_pfn of
-entire system":
+Always build ia64 xor.o because multiple config options now depend on it.
 
-On a HP rx8640 system with following memory map, the saved_max_pfn was wrong,
-i.e. there was memory in /proc/iomem marked as "System RAM" but above
-saved_max_pfn. This patch fixes the problem.
+Necessary to build .20-mm* on ia64 when, e.g., CONFIG_ASYNC_TX_DMA is
+defined.  Don't know if '_ASYNC_TX_DMA makes sense on ia64.  If not, maybe
+Kconfig should preclude it.
 
-If you have a better solution, please give me some hints. Thanks!
+Could have defined a Kconfig option that defaults to true if MD_RAID456 ||
+ASYNC_TX_DMA to control building of xor.o, but xor.o is only 848 bytes and
+this IS ia64...
 
-Memory map:
-
-mem00: type=7, attr=0x8, range=[0x0000000000000000-0x0000000004000000) (64MB)
-mem01: type=2, attr=0x8, range=[0x0000000004000000-0x0000000004c92000) (12MB)
-mem02: type=7, attr=0x8, range=[0x0000000004c92000-0x000000003fffc000) (947MB)
-mem03: type=6, attr=0x8000000000000008, range=[0x000000003fffc000-0x000000003fffe000) (0MB)
-mem04: type=0, attr=0x8000000000000008, range=[0x000000003fffe000-0x0000000040000000) (0MB)
-mem05: type, attr=0x8000000000000001, range=[0x00000000fed00000-0x00000000fed80000) (0MB)
-mem06: type, attr=0x8000000000000001, range=[0x00000000fee00000-0x00000000fef00000) (1MB)
-mem07: type, attr=0x8000000000000001, range=[0x00000000ff000000-0x0000000100000000) (16MB)
-mem08: type=7, attr=0x8, range=[0x0000000100000000-0x0000000400000000) (12288MB)
-mem09: type=7, attr=0x8, range=[0x0000004040000000-0x0000004100000000) (3072MB)
-mem10: type=7, attr=0x8, range=[0x0000078400000000-0x00000787fa96a000) (16297MB)
-mem11: type=2, attr=0x8, range=[0x00000787fa96a000-0x00000787fada0000) (4MB)
-mem12: type=7, attr=0x8, range=[0x00000787fada0000-0x00000787fada1000) (0MB)
-mem13: type=1, attr=0x8, range=[0x00000787fada1000-0x00000787fae00000) (0MB)
-mem14: type=7, attr=0x8, range=[0x00000787fae00000-0x00000787fb39e000) (5MB)
-mem15: type=4, attr=0x8, range=[0x00000787fb39e000-0x00000787fb3a0000) (0MB)
-mem16: type=7, attr=0x8, range=[0x00000787fb3a0000-0x00000787fb3a2000) (0MB)
-mem17: type=4, attr=0x8, range=[0x00000787fb3a2000-0x00000787fb3a8000) (0MB)
-mem18: type=7, attr=0x8, range=[0x00000787fb3a8000-0x00000787fb3aa000) (0MB)
-mem19: type=4, attr=0x8, range=[0x00000787fb3aa000-0x00000787fb800000) (4MB)
-mem20: type=7, attr=0x8, range=[0x00000787fb800000-0x00000787fbb3c000) (3MB)
-mem21: type=3, attr=0x8, range=[0x00000787fbb3c000-0x00000787fbba2000) (0MB)
-mem22: type=5, attr=0x8000000000000008, range=[0x00000787fbba2000-0x00000787fbc80000) (0MB)
-mem23: type=7, attr=0x8, range=[0x00000787fbc80000-0x00000787fbde8000) (1MB)
-mem24: type=6, attr=0x8000000000000008, range=[0x00000787fbde8000-0x00000787fbe00000) (0MB)
-mem25: type, attr=0x8000000000000008, range=[0x00000787fc000000-0x00000787fc400000) (4MB)
-mem26: type=5, attr=0x8000000000000008, range=[0x00000787fc400000-0x00000787fd640000) (18MB)
-mem27: type=0, attr=0x8000000000000008, range=[0x00000787fd640000-0x00000787ffc20000) (37MB)
-mem28: type=5, attr=0x8000000000000008, range=[0x00000787ffc20000-0x0000078800000000) (3MB)
-mem29: type, attr=0x3, range=[0x00000f0100000000-0x00000f017ee00000) (2030MB)
-mem30: type, attr=0x3, range=[0x00000f0180000000-0x00000f01fee00000) (2030MB)
-mem31: type, attr=0x3, range=[0x00000f1100000000-0x00000f117ee00000) (2030MB)
-mem32: type, attr=0x3, range=[0x00000f2100000000-0x00000f217ee00000) (2030MB)
-mem33: type, attr=0x3, range=[0x00000f3100000000-0x00000f317ee00000) (2030MB)
-mem34: type, attr=0x3, range=[0x00000f4100000000-0x00000f417ee00000) (2030MB)
-mem35: type, attr=0x3, range=[0x00000f5100000000-0x00000f517ee00000) (2030MB)
-mem36: type, attr=0x3, range=[0x00000f6100000000-0x00000f617ee00000) (2030MB)
-mem37: type, attr=0x3, range=[0x00000f7100000000-0x00000f717ee00000) (2030MB)
-mem38: type, attr=0x8000000000000001, range=[0x00000f8100000000-0x00000f8104000000) (64MB)
-mem39: type, attr=0x1, range=[0x00000f8110000000-0x00000f8110001000) (0MB)
-mem40: type, attr=0x1, range=[0x00000f8110002000-0x00000f8110003000) (0MB)
-mem41: type, attr=0x1, range=[0x00000f8110004000-0x00000f8110005000) (0MB)
-mem42: type, attr=0x1, range=[0x00000f8110008000-0x00000f8110009000) (0MB)
-mem43: type, attr=0x1, range=[0x00000f811000c000-0x00000f811000d000) (0MB)
-mem44: type, attr=0x1, range=[0x00000f8110010000-0x00000f8110011000) (0MB)
-mem45: type, attr=0x1, range=[0x00000f8110014000-0x00000f8110015000) (0MB)
-mem46: type, attr=0x1, range=[0x00000f8110018000-0x00000f8110019000) (0MB)
-mem47: type, attr=0x1, range=[0x00000f811001c000-0x00000f811001d000) (0MB)
-mem48: type, attr=0x1, range=[0x00000f8120000000-0x00000f8120008000) (0MB)
-mem49: type, attr=0x8000000000000001, range=[0x00000ffc00000000-0x00000ffc70800000) (1800MB)
-mem50: type, attr=0x1, range=[0x00000ffc70800000-0x00000ffdf0800000) (6144MB)
-mem51: type, attr=0x8000000000000001, range=[0x00000ffff6000000-0x00000ffff6800000) (8MB)
-mem52: type, attr=0x8000000000000001, range=[0x00000ffffc000000-0x00000ffffc800000) (8MB)
-
-
-Signed-off-by: Bernhard Walle <bwalle@suse.de>
-
+Signed-off-by:  Lee Schermerhorn <lee.schermerhorn@hp.com>
+Cc: Bob Picco <bob.picco@hp.com>
+Cc: Eric Whitney <eric.whitney@hp.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/kernel/efi.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Index: linux-2.6.16-SLES10_SP1_BRANCH/arch/ia64/kernel/efi.c
-=================================--- linux-2.6.16-SLES10_SP1_BRANCH.orig/arch/ia64/kernel/efi.c
-+++ linux-2.6.16-SLES10_SP1_BRANCH/arch/ia64/kernel/efi.c
-@@ -959,8 +959,8 @@ efi_memmap_init(unsigned long *s, unsign
+ arch/ia64/lib/Makefile |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff -puN arch/ia64/lib/Makefile~always-build-arch-ia64-lib-xoro arch/ia64/lib/Makefile
+--- a/arch/ia64/lib/Makefile~always-build-arch-ia64-lib-xoro
++++ a/arch/ia64/lib/Makefile
+@@ -9,12 +9,11 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ 	checksum.o clear_page.o csum_partial_copy.o			\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+-	memset.o strlen.o
++	memset.o strlen.o xor.o
  
- #ifdef CONFIG_CRASH_DUMP
- 		/* saved_max_pfn should ignore max_addr= command line arg */ 
--		if (saved_max_pfn < (ae >> PAGE_SHIFT))
--			saved_max_pfn = (ae >> PAGE_SHIFT);
-+		if (saved_max_pfn < (efi_md_end(md) >> PAGE_SHIFT))
-+			saved_max_pfn = (efi_md_end(md) >> PAGE_SHIFT);
- #endif
- 		/* keep within max_addr= and min_addr= command line arg */
- 		as = max(as, min_addr);
-
+ lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+ lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+-lib-$(CONFIG_MD_RAID456)	+= xor.o
+ 
+ AFLAGS___divdi3.o	 AFLAGS___udivdi3.o	= -DUNSIGNED
+_
