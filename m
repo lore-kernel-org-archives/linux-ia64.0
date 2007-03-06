@@ -1,102 +1,97 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 22 Mar 2007 23:15:45 +0000
-Subject: Re: [PATCH] Fix irqpoll on IA64 (timer interrupt != 0)
-Message-Id: <20070322161545.c8ad3b7a.akpm@linux-foundation.org>
+From: Michael Ellerman <michael@ellerman.id.au>
+Date: Tue, 06 Mar 2007 15:06:49 +0000
+Subject: [PATCH 2/2] Make pcibios_add_platform_entries() return errors
+Message-Id: <20070306150725.68D97DDF36@ozlabs.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070320150027.GA18143@strauss.suse.de>
-	<20070322140922.a59bea5c.akpm@linux-foundation.org>
-	<20070322230407.GA3333@sykes.suse.de>
-In-Reply-To: <20070322230407.GA3333@sykes.suse.de>
+In-Reply-To: <1173193568.89821.610708199943.qpush@concordia>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bernhard Walle <bwalle@suse.de>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>
+To: Greg Kroah-Hartman <greg@kroah.com>
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, linuxppc-dev@ozlabs.org, dev-etrax@axis.com, ink@jurassic.park.msu.ru, rth@twiddle.net, kernel@wantstofly.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, gerg@uclinux.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, sparclinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, discuss@x86-64.org, chris@zankel.net, dhowells@redhat.com
 
-On Fri, 23 Mar 2007 00:04:07 +0100
-Bernhard Walle <bwalle@suse.de> wrote:
+Currently pcibios_add_platform_entries() returns void, but could fail,
+so instead have it return an int and propagate errors up to
+pci_create_sysfs_dev_files().
 
-> * Andrew Morton <akpm@linux-foundation.org> [2007-03-22 22:09]:
-> > On Tue, 20 Mar 2007 16:00:27 +0100
-> > Bernhard Walle <bwalle@suse.de> wrote:
-> > 
-> > > On IA64, the timer interrupt is not (always?) zero as it is on x86 platforms.
-> > > Also, the timer interrupt is CPU-local. Two things need to be changed to make
-> > > the irqpoll option make also working on IA64:
-> > > 
-> > >   o Call note_interrupt() also on CPU-local interrupts in __do_IRQ().
-> > >   o Set a variable timer_irq to the value of the timer interrupt
-> > >     after the timer interrupt has been registered and assigned.
-> > > 
-> > > That requires changes in Linux-generic files. The default of timer_irq is 0, so
-> > > the patch doesn't break i386/x86_64. However, other platforms also may also
-> > > have a timer interrupt non-equal to zero, so they can also use the new
-> > > set_timer_interrupt() function.
-> > 
-> > Couple of things..
-> > 
-> > I think the term 'timer_interrupt' is a bit generic-sounding.  Would it be
-> > better to call it irqpoll_interrupt?  After all, some architecture might
-> > want to use, umm, the keyboard interrupt to trigger IRQ polling ;)  
-> 
-> Well, the documentation of irqpoll says that it's called on the timer
-> interrupt. But maybe also the documentation should be changed. :)
-> 
-> > Also, the code presently passes the magic IRQ number into the generic IRQ
-> > code.  I wonder if we'd get a more pleasing result if we were to make the
-> > generic IRQ code call _out_ to the architecture:
-> 
-> I think I have a third solution. There's already IRQF_TIMER, and
-> that's used and defined in a few architectures already (like Sh), so
-> why not simply use that here. Maybe we should introduce IRQF_IRQPOLL,
-> but the concept would be the same. If we don't take care of shared
-> interrupt handlers (and I think sharing the timer interrupt is a
-> _very_ bad idea, are there architectures that do this?), the could
-> would look like this (+ the change in __do_IRQ).
-> 
-> What's your opinion on this approach? Of course, we would have to make
-> sure that IRQF_TIMER is defined on _every_ architectures, but that
-> would give us the chance to find out each architecture that also has a
-> timer interrupt != 0.
-> 
-> 
-> Index: mainline-msi-init/arch/ia64/kernel/time.c
-> =================================> --- mainline-msi-init.orig/arch/ia64/kernel/time.c
-> +++ mainline-msi-init/arch/ia64/kernel/time.c
-> @@ -235,7 +235,7 @@ ia64_init_itm (void)
->  
->  static struct irqaction timer_irqaction = {
->  	.handler =	timer_interrupt,
-> -	.flags =	IRQF_DISABLED,
-> +	.flags =	IRQF_DISABLED | IRQF_TIMER,
->  	.name =		"timer"
->  };
->  
-> Index: mainline-msi-init/arch/x86_64/kernel/time.c
-> =================================> --- mainline-msi-init.orig/arch/x86_64/kernel/time.c
-> +++ mainline-msi-init/arch/x86_64/kernel/time.c
-> @@ -320,7 +320,7 @@ void __init stop_timer_interrupt(void)
->  }
->  
->  static struct irqaction irq0 = {
-> -	timer_interrupt, IRQF_DISABLED, CPU_MASK_NONE, "timer", NULL, NULL
-> +	timer_interrupt, IRQF_DISABLED | IRQF_TIMER, CPU_MASK_NONE, "timer", NULL, NULL
->  };
->  
->  void __init time_init(void)
-> Index: mainline-msi-init/kernel/irq/spurious.c
-> =================================> --- mainline-msi-init.orig/kernel/irq/spurious.c
-> +++ mainline-msi-init/kernel/irq/spurious.c
-> @@ -146,7 +146,7 @@ void note_interrupt(unsigned int irq, st
->  
->  	if (unlikely(irqfixup)) {
->  		/* Don't punish working computers */
-> -		if ((irqfixup = 2 && irq = 0) || action_ret = IRQ_NONE) {
-> +		if ((irqfixup = 2 && (desc->action->flags & IRQF_TIMER)) || action_ret = IRQ_NONE) {
->  			int ok = misrouted_irq(irq);
->  			if (action_ret = IRQ_NONE)
->  				desc->irqs_unhandled -= ok;
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+---
+ arch/powerpc/kernel/pci_32.c |    4 ++--
+ arch/powerpc/kernel/pci_64.c |    4 ++--
+ drivers/pci/pci-sysfs.c      |    9 ++++++---
+ include/linux/pci.h          |    2 +-
+ 4 files changed, 11 insertions(+), 8 deletions(-)
 
-Seems sane.
-
-Or we could add a new flag specifically for this purpose: IRQF_IRQPOLL_IRQ?
+Index: msi-new/arch/powerpc/kernel/pci_32.c
+=================================--- msi-new.orig/arch/powerpc/kernel/pci_32.c
++++ msi-new/arch/powerpc/kernel/pci_32.c
+@@ -1037,10 +1037,10 @@ void pcibios_make_OF_bus_map(void)
+ #endif /* CONFIG_PPC_OF */
+ 
+ /* Add sysfs properties */
+-void pcibios_add_platform_entries(struct pci_dev *pdev)
++int pcibios_add_platform_entries(struct pci_dev *pdev)
+ {
+ #ifdef CONFIG_PPC_OF
+-	device_create_file(&pdev->dev, &dev_attr_devspec);
++	return device_create_file(&pdev->dev, &dev_attr_devspec);
+ #endif /* CONFIG_PPC_OF */
+ }
+ 
+Index: msi-new/arch/powerpc/kernel/pci_64.c
+=================================--- msi-new.orig/arch/powerpc/kernel/pci_64.c
++++ msi-new/arch/powerpc/kernel/pci_64.c
+@@ -863,9 +863,9 @@ static ssize_t pci_show_devspec(struct d
+ }
+ static DEVICE_ATTR(devspec, S_IRUGO, pci_show_devspec, NULL);
+ 
+-void pcibios_add_platform_entries(struct pci_dev *pdev)
++int pcibios_add_platform_entries(struct pci_dev *pdev)
+ {
+-	device_create_file(&pdev->dev, &dev_attr_devspec);
++	return device_create_file(&pdev->dev, &dev_attr_devspec);
+ }
+ 
+ #define ISA_SPACE_MASK 0x1
+Index: msi-new/drivers/pci/pci-sysfs.c
+=================================--- msi-new.orig/drivers/pci/pci-sysfs.c
++++ msi-new/drivers/pci/pci-sysfs.c
+@@ -600,9 +600,9 @@ static struct bin_attribute pcie_config_
+ 	.write = pci_write_config,
+ };
+ 
+-void __attribute__ ((weak)) pcibios_add_platform_entries(struct pci_dev *dev)
++int __attribute__ ((weak)) pcibios_add_platform_entries(struct pci_dev *dev)
+ {
+-	return;
++	return 0;
+ }
+ 
+ int __must_check pci_create_sysfs_dev_files (struct pci_dev *pdev)
+@@ -644,10 +644,13 @@ int __must_check pci_create_sysfs_dev_fi
+ 		}
+ 	}
+ 	/* add platform-specific attributes */
+-	pcibios_add_platform_entries(pdev);
++	if (pcibios_add_platform_entries(pdev))
++		goto err_rom_attr;
+ 
+ 	return 0;
+ 
++err_rom_attr:
++	sysfs_remove_bin_file(&pdev->dev.kobj, rom_attr);
+ err_rom:
+ 	kfree(rom_attr);
+ err_bin_file:
+Index: msi-new/include/linux/pci.h
+=================================--- msi-new.orig/include/linux/pci.h
++++ msi-new/include/linux/pci.h
+@@ -857,7 +857,7 @@ extern int pci_pci_problems;
+ extern unsigned long pci_cardbus_io_size;
+ extern unsigned long pci_cardbus_mem_size;
+ 
+-extern void pcibios_add_platform_entries(struct pci_dev *dev);
++extern int pcibios_add_platform_entries(struct pci_dev *dev);
+ 
+ #endif /* __KERNEL__ */
+ #endif /* LINUX_PCI_H */
