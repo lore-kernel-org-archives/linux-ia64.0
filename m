@@ -1,37 +1,49 @@
-From: "Zou, Nanhai" <nanhai.zou@intel.com>
-Date: Tue, 06 Mar 2007 02:18:59 +0000
-Subject: RE: Crash Dump Region
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A086C02@pdsmsx411.ccr.corp.intel.com>
+From: Zou Nan hai <nanhai.zou@intel.com>
+Date: Tue, 06 Mar 2007 02:32:09 +0000
+Subject: Re: Crash Dump Region
+Message-Id: <1173148329.20006.6088.camel@linux-znh>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070306015655.GA27129@verge.net.au>
 In-Reply-To: <20070306015655.GA27129@verge.net.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IFpvdSwgTmFuaGFpCj4gU2VudDog
-MjAwN8TqM9TCNsjVIDEwOjExCj4gVG86ICdIb3JtcycKPiBDYzogTGludXgtSUE2NDsgZmFzdGJv
-b3QKPiBTdWJqZWN0OiBSRTogQ3Jhc2ggRHVtcCBSZWdpb24KPiAKPiA+IC0tLS0tT3JpZ2luYWwg
-TWVzc2FnZS0tLS0tCj4gPiBGcm9tOiBIb3JtcyBbbWFpbHRvOmhvcm1zQHZlcmdlLm5ldC5hdV0K
-PiA+IFNlbnQ6IDIwMDfE6jPUwjbI1SA5OjU3Cj4gPiBUbzogWm91LCBOYW5oYWkKPiA+IENjOiBM
-aW51eC1JQTY0OyBmYXN0Ym9vdAo+ID4gU3ViamVjdDogQ3Jhc2ggRHVtcCBSZWdpb24KPiA+Cj4g
-PiBIaSwKPiA+Cj4gPiBJIGFtIGN1cnJlbnRseSBsb29raW5nIG92ZXIgdGhlIGNvZGUgdGhhdCBw
-bGFjZXMgdGhlIGNyYXNoZHVtcAo+ID4gcmVnaW9uIGludG8gL3Byb2MvaW9tZW0sIGFuZCB0aGUg
-Y29kZSB0aGF0IGRldGVybWluZXMgaXRzIGJhc2UKPiA+IGFkZHJlc3MgaWYgaXQgaXMgbm90IHBh
-c3NlZCBvbiB0aGUga2VybmVsIGNvbWFtbmQuIEl0IHNlZW1zIHRvIG1lIHRoYXQKPiA+IHRoZSBj
-dXJyZW50IGNvZGUgYWxsb3dzIHRoZSBjcmFzaGtlcm5lbCB0byBiZSBwbGFjZWQgaW5jaWRlIGEK
-PiA+IC9wcm9jL2lvbWVtIHJlZ2lvbiBvZiBhbnkgdHlwZS4gSXMgdGhpcyBiZWhhdmlvdXIgY29y
-cmVjdD8KPiA+IElmIG5vdCwgc2hvdWxkIGl0IGJlIHJlc3RyaWN0ZWQgdG8gIlN5c3RlbSBSQU0i
-IHJlZ2lvbnM/Cj4gPgo+ICBJIG5vdCBzdXJlIGlmIEkgdW5kZXJzdGFuZCB5b3VyIHF1ZXN0aW9u
-Lgo+ICBLZXJuZWwgd2lsbCBmaW5kIGEgYmlnIGVub3VnaCByZWdpb24gaW5zaWRlIGVmaSBtZW1t
-YXAgd2l0aCBXQiBhdHRyaWJ1dGUsCj4gZXhjbHVkaW5nIGFsbCB0aGUgb3RoZXIgcmVzZXJ2ZWQg
-cmVnaW9ucy4KPiAKT2gsIAogIFlvdSBtZWFuIHdlIHNob3VsZCBjaGVjayBpc19tZW1vcnlfYXZh
-aWxhYmxlKG1kKSBpbnN0ZWFkIG9mIG9ubHkgY2hlY2sgZWZpX3diKG1kKSBpbiBrZHVtcF9maW5k
-X3JzdmRfcmVnaW9uPyAKIFllcywgSSB0aGluayB0aGF0IGlzIGJldHRlci4KIAogVGhhbmtzCiBa
-b3UgTmFuaGFpCgo+ICBab3UgTmFuaGFpLgo+IAo+ID4gLS0KPiA+IEhvcm1zCj4gPiAgIEg6IGh0
-dHA6Ly93d3cudmVyZ2VuZXQubmV0L35ob3Jtcy8KPiA+ICAgVzogaHR0cDovL3d3dy52YWxpbnV4
-LmNvLmpwL2VuLwotClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5l
-ICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFq
-b3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdl
-ci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+On Tue, 2007-03-06 at 09:56, Horms wrote:
+> Hi,
+> 
+> I am currently looking over the code that places the crashdump
+> region into /proc/iomem, and the code that determines its base
+> address if it is not passed on the kernel comamnd. It seems to me that
+> the current code allows the crashkernel to be placed incide a
+> /proc/iomem region of any type. Is this behaviour correct?
+> If not, should it be restricted to "System RAM" regions?
+> 
+> -- 
+> Horms
+>   H: http://www.vergenet.net/~horms/
+>   W: http://www.valinux.co.jp/en/
+> 
+
+Please review the patch.
+
+Thanks
+Zou Nan hai
+
+Signed-off-by: Zou Nan hai <nanhai.zou@intel.com>
+
+--- a/arch/ia64/kernel/efi.c	2007-02-27 00:42:06.000000000 -0500
++++ b/arch/ia64/kernel/efi.c	2007-03-05 22:09:40.000000000 -0500
+@@ -1154,7 +1154,7 @@ kdump_find_rsvd_region (unsigned long si
+ 
+   for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+ 	  md = p;
+-	  if (!efi_wb(md))
++	  if (!is_memory_available(md))
+ 		  continue;
+ 	  start = ALIGN(md->phys_addr, alignment);
+ 	  end = efi_md_end(md);
+
+
+
