@@ -1,39 +1,61 @@
-From: Horms <horms@verge.net.au>
-Date: Tue, 20 Mar 2007 04:29:17 +0000
-Subject: Re: [PATCH] fix an IA64 MCA kdump bug in kdump_init_notifier
-Message-Id: <20070320042916.GB3863@verge.net.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 07 Mar 2007 00:35:52 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200703070035.l270Zqnh019703@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <45FF431C.1040607@sgi.com>
-In-Reply-To: <45FF431C.1040607@sgi.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 20, 2007 at 01:53:51PM +1100, Keith Owens wrote:
-> Horms (on Tue, 20 Mar 2007 11:34:28 +0900) wrote:
-> >On Mon, Mar 19, 2007 at 07:12:44PM -0700, Jay Lan wrote:
-> >> Since DIE_INIT_SLAVE_ENTER is a non-zero value, thus "nd->sos->rv_rc
-> >> =1" is always evaluated. The kdump kernel aborted because nd->sos
-> >> is NULL in (at least some) MCA cases.
-> >
-> >I think that your fix below does correct a problem,
-> >in that "|| DIE_INIT_SLAVE_ENTER" appears to be quite bogus.
-> >But if you are worried about nd->sos being NULL, is it worth checking
-> >for that explicitly. Or will it always be non-NULL with the code below?
-> 
-> nd->sos is only (and always) defined for the MCA/INIT SAL to OS
-> handlers.  nd->sos is NULL for events such as MCA rendezvous interrupt,
-> since that event runs on the normal kernel stack.
+Hi Linus,
 
-Thanks for the clarification.
+please pull from:
 
-In that case.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-Acked-by: Simon Horman <horms@verge.net.au>
+This will update the files shown below.  The big change to swiotlb.c
+is backing out a change from Jan to make his life easier with Xen, but
+is "more than ugly" according to Christoph (and having re-read it, I
+have to agree with him).
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
+Thanks!
 
+-Tony
+
+ include/asm-ia64/swiotlb.h   |    9 --
+ arch/ia64/ia32/sys_ia32.c    |   10 +-
+ arch/ia64/kernel/efi.c       |   36 ++++++++
+ arch/ia64/kernel/perfmon.c   |   11 +-
+ arch/ia64/kernel/setup.c     |   30 +++++++
+ arch/ia64/lib/Makefile       |    3 
+ arch/ia64/mm/contig.c        |    5 -
+ arch/ia64/mm/discontig.c     |    6 -
+ include/asm-ia64/meminit.h   |    6 +
+ include/asm-ia64/resource.h  |    1 
+ include/asm-x86_64/swiotlb.h |    1 
+ lib/swiotlb.c                |  184 ++++++++-----------------------------------
+ 12 files changed, 121 insertions(+), 181 deletions(-)
+
+Alexandr Andreev:
+      [IA64] sync compat getdents
+
+Horms:
+      [IA64] point saved_max_pfn to the max_pfn of the entire system
+
+Lee Schermerhorn:
+      [IA64] always build arch/ia64/lib/xor.o
+
+Magnus Damm:
+      [IA64] kexec: Use EFI_LOADER_DATA for ELF core header
+
+Nick Piggin:
+      [IA64] permon use-after-free fix
+
+schwab@suse.de:
+      [IA64] Remove stack hard limit on ia64
+
+Tony Luck:
+      Revert "[IA64] swiotlb abstraction (e.g. for Xen)"
