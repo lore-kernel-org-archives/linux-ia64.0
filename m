@@ -1,82 +1,101 @@
-From: Horms <horms@verge.net.au>
-Date: Wed, 07 Mar 2007 03:46:29 +0000
-Subject: Re: [patch 3/3] IA64: verify the base address of crashkernel
-Message-Id: <20070307034627.GB29334@verge.net.au>
+From: "Zou, Nanhai" <nanhai.zou@intel.com>
+Date: Wed, 07 Mar 2007 04:50:12 +0000
+Subject: RE: [patch 3/3] IA64: verify the base address of crashkernel
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A086C0A@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070306073756.245032985@tabatha.lab.ultramonkey.org>
 In-Reply-To: <20070306073756.245032985@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-On Wed, Mar 07, 2007 at 10:15:20AM +0800, Zou, Nanhai wrote:
-> > -----Original Message-----
-> > From: Horms [mailto:horms@verge.net.au]
-> > Sent: 2007年3月7日 8:50
-> > To: Zou, Nanhai
-> > Cc: Linux-IA64; fastboot@lists.osdl.org; Luck, Tony; Magnus Damm
-> > Subject: Re: [patch 3/3] IA64: verify the base address of crashkernel
-> > 
-> > On Tue, Mar 06, 2007 at 04:23:37PM +0800, Zou, Nanhai wrote:
-> > >
-> > > Hi Horms,
-> > > 	I feel this is over-designed.
-> > >      I think to specify crash kernel base address in command line is only
-> > useful for debug, on platform like SN this feature is totally unusable.At the
-> > most of time, user should let kernel to decide where to reserve crashdump
-> > region.
-> > >     If a user wants to put crash kernel in command line, he should know what
-> > he is doing.
-> > 
-> > Hi Nanhai,
-> > 
-> > while I do agree that perhaps these checks are a little verbose I don't
-> > agree that they are uneccessary. Specifying the base address is entirely
-> > sane on some platforms (e.g. Tiger 2). And more to the point, it is the
-> > only method available on some architectures, and thus its seems
-> > reasonable to expect that it might work sanley on ia64. It seems to me
-> > that it is a good idea to have some checks in place, in line with the
-> > checks performed when the base address is automatically determinted to
-> > make the behaviour (more) consistent.
-> > 
-> > Ideally it would be good if there were not two code-paths relating
-> > to base address selection - auto and manual. Or more to the point, if
-> > they could share the same checks. But at this point I can't see a way to
-> > make the code do that.
-> > 
-> > I guess in the end it comes down to how easy you want it to be for users
-> > mistakes to be caught. I think that currently kexec/kdump is quite
-> > fragile and its easy to end up with a setup that doesn't work. I think
-> > that changes like this one are one small step towards making a more
-> > robust system. Ditto for the change regarding loging success or failure
-> > of inserting the crashkernel region.
-> > 
-> Hi,
-> 	I think even in the situation of manually pick address, user can check /proc/iomem to found the address, it is easy.
->      I don't see in which situation like kernel automatically determined method does not work but manually pick address would work. So I think manually pick address could only be help for debug. But I think it is good to have this feature since it only cost 2 lines of code.
->     I believe it is good to keep the kernel code simple and clean. 
-> We do not need to add more than 70 lines of code to kernel only for debug print.
-> You can add those prints to kernel whenever you want to debug something, but put those in vanilla kernel is not a good idea.
->   BTW: the code logic in your updated patch is still not correct, in kdump_region_verify_rsvd_region you do not check the partly overlap situation.
-
-I think that the manual option is also important because it maintains
-feature-compatibility with other architectures. I don't consider it
-a hack that might work purely for the purposes of debugging.
-
-With regards to 70 lines of extra code, it can probably be consolidated
-a bit - for insance I think that the ckeck contained in
-kdump_region_verify_rsvd_region() is more important than the other
-checks which I guess could be disposed of if the length of the code
-really is a problem. But in any case the new code is almost entirely in
-__init. So I don't really see that it is a big concern.
-
-As for the partly-overlaped case in kdump_region_verify_rsvd_region(). 
-I'm not entirely sure what you are getting at there. Are you talking
-about an optimisation to the check, or a correctness problem?
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+IEZyb206IEhvcm1zIFttYWlsdG86aG9ybXNA
+dmVyZ2UubmV0LmF1XQo+IFNlbnQ6IDIwMDfE6jPUwjfI1SAxMTo0Ngo+IFRvOiBab3UsIE5hbmhh
+aQo+IENjOiBMaW51eC1JQTY0OyBmYXN0Ym9vdEBsaXN0cy5vc2RsLm9yZzsgTHVjaywgVG9ueTsg
+TWFnbnVzIERhbW0KPiBTdWJqZWN0OiBSZTogW3BhdGNoIDMvM10gSUE2NDogdmVyaWZ5IHRoZSBi
+YXNlIGFkZHJlc3Mgb2YgY3Jhc2hrZXJuZWwKPiAKPiBPbiBXZWQsIE1hciAwNywgMjAwNyBhdCAx
+MDoxNToyMEFNICswODAwLCBab3UsIE5hbmhhaSB3cm90ZToKPiA+ID4gLS0tLS1PcmlnaW5hbCBN
+ZXNzYWdlLS0tLS0KPiA+ID4gRnJvbTogSG9ybXMgW21haWx0bzpob3Jtc0B2ZXJnZS5uZXQuYXVd
+Cj4gPiA+IFNlbnQ6IDIwMDfE6jPUwjfI1SA4OjUwCj4gPiA+IFRvOiBab3UsIE5hbmhhaQo+ID4g
+PiBDYzogTGludXgtSUE2NDsgZmFzdGJvb3RAbGlzdHMub3NkbC5vcmc7IEx1Y2ssIFRvbnk7IE1h
+Z251cyBEYW1tCj4gPiA+IFN1YmplY3Q6IFJlOiBbcGF0Y2ggMy8zXSBJQTY0OiB2ZXJpZnkgdGhl
+IGJhc2UgYWRkcmVzcyBvZiBjcmFzaGtlcm5lbAo+ID4gPgo+ID4gPiBPbiBUdWUsIE1hciAwNiwg
+MjAwNyBhdCAwNDoyMzozN1BNICswODAwLCBab3UsIE5hbmhhaSB3cm90ZToKPiA+ID4gPgo+ID4g
+PiA+IEhpIEhvcm1zLAo+ID4gPiA+IAlJIGZlZWwgdGhpcyBpcyBvdmVyLWRlc2lnbmVkLgo+ID4g
+PiA+ICAgICAgSSB0aGluayB0byBzcGVjaWZ5IGNyYXNoIGtlcm5lbCBiYXNlIGFkZHJlc3MgaW4g
+Y29tbWFuZCBsaW5lIGlzIG9ubHkKPiA+ID4gdXNlZnVsIGZvciBkZWJ1Zywgb24gcGxhdGZvcm0g
+bGlrZSBTTiB0aGlzIGZlYXR1cmUgaXMgdG90YWxseSB1bnVzYWJsZS5BdAo+IHRoZQo+ID4gPiBt
+b3N0IG9mIHRpbWUsIHVzZXIgc2hvdWxkIGxldCBrZXJuZWwgdG8gZGVjaWRlIHdoZXJlIHRvIHJl
+c2VydmUgY3Jhc2hkdW1wCj4gPiA+IHJlZ2lvbi4KPiA+ID4gPiAgICAgSWYgYSB1c2VyIHdhbnRz
+IHRvIHB1dCBjcmFzaCBrZXJuZWwgaW4gY29tbWFuZCBsaW5lLCBoZSBzaG91bGQga25vdwo+IHdo
+YXQKPiA+ID4gaGUgaXMgZG9pbmcuCj4gPiA+Cj4gPiA+IEhpIE5hbmhhaSwKPiA+ID4KPiA+ID4g
+d2hpbGUgSSBkbyBhZ3JlZSB0aGF0IHBlcmhhcHMgdGhlc2UgY2hlY2tzIGFyZSBhIGxpdHRsZSB2
+ZXJib3NlIEkgZG9uJ3QKPiA+ID4gYWdyZWUgdGhhdCB0aGV5IGFyZSB1bmVjY2Vzc2FyeS4gU3Bl
+Y2lmeWluZyB0aGUgYmFzZSBhZGRyZXNzIGlzIGVudGlyZWx5Cj4gPiA+IHNhbmUgb24gc29tZSBw
+bGF0Zm9ybXMgKGUuZy4gVGlnZXIgMikuIEFuZCBtb3JlIHRvIHRoZSBwb2ludCwgaXQgaXMgdGhl
+Cj4gPiA+IG9ubHkgbWV0aG9kIGF2YWlsYWJsZSBvbiBzb21lIGFyY2hpdGVjdHVyZXMsIGFuZCB0
+aHVzIGl0cyBzZWVtcwo+ID4gPiByZWFzb25hYmxlIHRvIGV4cGVjdCB0aGF0IGl0IG1pZ2h0IHdv
+cmsgc2FubGV5IG9uIGlhNjQuIEl0IHNlZW1zIHRvIG1lCj4gPiA+IHRoYXQgaXQgaXMgYSBnb29k
+IGlkZWEgdG8gaGF2ZSBzb21lIGNoZWNrcyBpbiBwbGFjZSwgaW4gbGluZSB3aXRoIHRoZQo+ID4g
+PiBjaGVja3MgcGVyZm9ybWVkIHdoZW4gdGhlIGJhc2UgYWRkcmVzcyBpcyBhdXRvbWF0aWNhbGx5
+IGRldGVybWludGVkIHRvCj4gPiA+IG1ha2UgdGhlIGJlaGF2aW91ciAobW9yZSkgY29uc2lzdGVu
+dC4KPiA+ID4KPiA+ID4gSWRlYWxseSBpdCB3b3VsZCBiZSBnb29kIGlmIHRoZXJlIHdlcmUgbm90
+IHR3byBjb2RlLXBhdGhzIHJlbGF0aW5nCj4gPiA+IHRvIGJhc2UgYWRkcmVzcyBzZWxlY3Rpb24g
+LSBhdXRvIGFuZCBtYW51YWwuIE9yIG1vcmUgdG8gdGhlIHBvaW50LCBpZgo+ID4gPiB0aGV5IGNv
+dWxkIHNoYXJlIHRoZSBzYW1lIGNoZWNrcy4gQnV0IGF0IHRoaXMgcG9pbnQgSSBjYW4ndCBzZWUg
+YSB3YXkgdG8KPiA+ID4gbWFrZSB0aGUgY29kZSBkbyB0aGF0Lgo+ID4gPgo+ID4gPiBJIGd1ZXNz
+IGluIHRoZSBlbmQgaXQgY29tZXMgZG93biB0byBob3cgZWFzeSB5b3Ugd2FudCBpdCB0byBiZSBm
+b3IgdXNlcnMKPiA+ID4gbWlzdGFrZXMgdG8gYmUgY2F1Z2h0LiBJIHRoaW5rIHRoYXQgY3VycmVu
+dGx5IGtleGVjL2tkdW1wIGlzIHF1aXRlCj4gPiA+IGZyYWdpbGUgYW5kIGl0cyBlYXN5IHRvIGVu
+ZCB1cCB3aXRoIGEgc2V0dXAgdGhhdCBkb2Vzbid0IHdvcmsuIEkgdGhpbmsKPiA+ID4gdGhhdCBj
+aGFuZ2VzIGxpa2UgdGhpcyBvbmUgYXJlIG9uZSBzbWFsbCBzdGVwIHRvd2FyZHMgbWFraW5nIGEg
+bW9yZQo+ID4gPiByb2J1c3Qgc3lzdGVtLiBEaXR0byBmb3IgdGhlIGNoYW5nZSByZWdhcmRpbmcg
+bG9naW5nIHN1Y2Nlc3Mgb3IgZmFpbHVyZQo+ID4gPiBvZiBpbnNlcnRpbmcgdGhlIGNyYXNoa2Vy
+bmVsIHJlZ2lvbi4KPiA+ID4KPiA+IEhpLAo+ID4gCUkgdGhpbmsgZXZlbiBpbiB0aGUgc2l0dWF0
+aW9uIG9mIG1hbnVhbGx5IHBpY2sgYWRkcmVzcywgdXNlciBjYW4gY2hlY2sKPiAvcHJvYy9pb21l
+bSB0byBmb3VuZCB0aGUgYWRkcmVzcywgaXQgaXMgZWFzeS4KPiA+ICAgICAgSSBkb24ndCBzZWUg
+aW4gd2hpY2ggc2l0dWF0aW9uIGxpa2Uga2VybmVsIGF1dG9tYXRpY2FsbHkgZGV0ZXJtaW5lZAo+
+IG1ldGhvZCBkb2VzIG5vdCB3b3JrIGJ1dCBtYW51YWxseSBwaWNrIGFkZHJlc3Mgd291bGQgd29y
+ay4gU28gSSB0aGluayBtYW51YWxseQo+IHBpY2sgYWRkcmVzcyBjb3VsZCBvbmx5IGJlIGhlbHAg
+Zm9yIGRlYnVnLiBCdXQgSSB0aGluayBpdCBpcyBnb29kIHRvIGhhdmUgdGhpcwo+IGZlYXR1cmUg
+c2luY2UgaXQgb25seSBjb3N0IDIgbGluZXMgb2YgY29kZS4KPiA+ICAgICBJIGJlbGlldmUgaXQg
+aXMgZ29vZCB0byBrZWVwIHRoZSBrZXJuZWwgY29kZSBzaW1wbGUgYW5kIGNsZWFuLgo+ID4gV2Ug
+ZG8gbm90IG5lZWQgdG8gYWRkIG1vcmUgdGhhbiA3MCBsaW5lcyBvZiBjb2RlIHRvIGtlcm5lbCBv
+bmx5IGZvciBkZWJ1Zwo+IHByaW50Lgo+ID4gWW91IGNhbiBhZGQgdGhvc2UgcHJpbnRzIHRvIGtl
+cm5lbCB3aGVuZXZlciB5b3Ugd2FudCB0byBkZWJ1ZyBzb21ldGhpbmcsIGJ1dAo+IHB1dCB0aG9z
+ZSBpbiB2YW5pbGxhIGtlcm5lbCBpcyBub3QgYSBnb29kIGlkZWEuCj4gPiAgIEJUVzogdGhlIGNv
+ZGUgbG9naWMgaW4geW91ciB1cGRhdGVkIHBhdGNoIGlzIHN0aWxsIG5vdCBjb3JyZWN0LCBpbgo+
+IGtkdW1wX3JlZ2lvbl92ZXJpZnlfcnN2ZF9yZWdpb24geW91IGRvIG5vdCBjaGVjayB0aGUgcGFy
+dGx5IG92ZXJsYXAgc2l0dWF0aW9uLgo+IAo+IEkgdGhpbmsgdGhhdCB0aGUgbWFudWFsIG9wdGlv
+biBpcyBhbHNvIGltcG9ydGFudCBiZWNhdXNlIGl0IG1haW50YWlucwo+IGZlYXR1cmUtY29tcGF0
+aWJpbGl0eSB3aXRoIG90aGVyIGFyY2hpdGVjdHVyZXMuIEkgZG9uJ3QgY29uc2lkZXIgaXQKPiBh
+IGhhY2sgdGhhdCBtaWdodCB3b3JrIHB1cmVseSBmb3IgdGhlIHB1cnBvc2VzIG9mIGRlYnVnZ2lu
+Zy4KPiAKICBJIGRvbid0IHVuZGVyc3RhbmQgd2h5IHdlIG5lZWQgdG8gbWFpbnRhaW4gY29tcGF0
+aWJpbGl0eSB3aXRoIG90aGVyIGFyY2hpdGVjdHVyZXMgaGVyZS4gTWFuZnVsbHkgY2hvb3NlIG1h
+eSBjb25mdXNlIHVzZXIsIFhYWEAxNk0gbWF5IHdvcmsgb24gb25lIGFyY2gsYnV0IG5vdCBvbiBh
+bm90aGVyIGFyY2guIE90aGVyIGFyY2hpdGVjdHVyZXMgbmVlZCBtYW51YWxseSBjaG9vc2UgY3Jh
+c2gga2VybmVsIHJlZ2lvbiBzaW1wbHkgYmVjYXVzZSB0aGV5IGRvIG5vdCBzdXBwb3J0IGtlcm5l
+bCBhdXRvbWF0aWNhbGx5IGNob29zZSBmZWF0dXJlLiAKCiAgSSBrZWVwIHRoZSBYWFhAWVlZIGZv
+cm1hdCB0byBqdXN0IG1ha2Uga2R1bXAgc2NyaXB0IGNvbXBhdGlibGUsIGRvIHRoYXQgZGlzdHJp
+YnV0aW9ucyBkb2VzIG5vdCBuZWVkIHRvIG1haW50YWluIGRpZmZlcmVudCBrZHVtcCBzY3JpcHRz
+IGZvciBkaWZmZXJlbnQgYXJjaGVzLiAKCj4gV2l0aCByZWdhcmRzIHRvIDcwIGxpbmVzIG9mIGV4
+dHJhIGNvZGUsIGl0IGNhbiBwcm9iYWJseSBiZSBjb25zb2xpZGF0ZWQKPiBhIGJpdCAtIGZvciBp
+bnNhbmNlIEkgdGhpbmsgdGhhdCB0aGUgY2tlY2sgY29udGFpbmVkIGluCj4ga2R1bXBfcmVnaW9u
+X3ZlcmlmeV9yc3ZkX3JlZ2lvbigpIGlzIG1vcmUgaW1wb3J0YW50IHRoYW4gdGhlIG90aGVyCj4g
+Y2hlY2tzIHdoaWNoIEkgZ3Vlc3MgY291bGQgYmUgZGlzcG9zZWQgb2YgaWYgdGhlIGxlbmd0aCBv
+ZiB0aGUgY29kZQo+IHJlYWxseSBpcyBhIHByb2JsZW0uIEJ1dCBpbiBhbnkgY2FzZSB0aGUgbmV3
+IGNvZGUgaXMgYWxtb3N0IGVudGlyZWx5IGluCj4gX19pbml0LiBTbyBJIGRvbid0IHJlYWxseSBz
+ZWUgdGhhdCBpdCBpcyBhIGJpZyBjb25jZXJuLgo+IAo+IEFzIGZvciB0aGUgcGFydGx5LW92ZXJs
+YXBlZCBjYXNlIGluIGtkdW1wX3JlZ2lvbl92ZXJpZnlfcnN2ZF9yZWdpb24oKS4KPiBJJ20gbm90
+IGVudGlyZWx5IHN1cmUgd2hhdCB5b3UgYXJlIGdldHRpbmcgYXQgdGhlcmUuIEFyZSB5b3UgdGFs
+a2luZwo+IGFib3V0IGFuIG9wdGltaXNhdGlvbiB0byB0aGUgY2hlY2ssIG9yIGEgY29ycmVjdG5l
+c3MgcHJvYmxlbT8KPiAKIChyZXNlcnZlX3JlZ2lvbi5zdGFydCA8IGJhc2UgJiYgcmVzZXJ2ZV9y
+ZWdpb24uZW5kIDwgYmFzZSArIHNpemUpCiAgb3IKIChyZXNlcnZlX3JlZ2lvbi5lbmQgPiBiYXNl
+ICYmIHJlc2VydmVfcmVnaW9uLmVuZCA+IGJhc2UgKyBzaXplKSB3aWxsIHBhc3MgdGhlIGNoZWNr
+CgogIFpvdSBOYW4gaGFpCgo+IC0tCj4gSG9ybXMKPiAgIEg6IGh0dHA6Ly93d3cudmVyZ2VuZXQu
+bmV0L35ob3Jtcy8KPiAgIFc6IGh0dHA6Ly93d3cudmFsaW51eC5jby5qcC9lbi8KLQpUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
+aWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
+cmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRv
+bW8taW5mby5odG1s
