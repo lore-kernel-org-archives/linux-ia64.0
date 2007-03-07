@@ -1,31 +1,99 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 01 Mar 2007 05:19:00 +0000
-Subject: [patch 2.6.20] Remove sparse warning from unwind code
-Message-Id: <23108.1172726340@kao2.melbourne.sgi.com>
+From: Greg KH <gregkh@suse.de>
+Date: Wed, 07 Mar 2007 17:11:56 +0000
+Subject: [patch 081/101] kexec: Fix CONFIG_SMP=n compilation V2 (ia64)
+Message-Id: <20070307171604.708827049@mini.kroah.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070307171035.150802805@mini.kroah.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@kernel.org, tony.luck@intel.com
+Cc: Justin Forbes <jmforbes@linuxtx.org>, Zwane Mwaikambo <zwane@arm.linux.org.uk>, Theodore Ts'o <tytso@mit.edu>, Randy Dunlap <rdunlap@xenotime.net>, Dave Jones <davej@redhat.com>, Chuck Wolber <chuckw@quantumlinux.com>, Chris Wedgwood <reviews@ml.cw.f00f.org>, Michael Krufky <mkrufky@linuxtv.org>, Chuck Ebbert <cebbert@redhat.com>, torvalds@linux-foundation.org, akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jlan@sgi.com, magnus@valinux.co.jp, horms@verge.net.au
 
-Running ia64 through sparse gives warnings in the unwind code.
 
-  include/asm-ia64/unwind.h:84:17: error: dubious bitfield without explicit `signed' or `unsigned'
+From: Magnus Damm <magnus@valinux.co.jp>
 
-Make the bitfield explicitly unsigned.
+Kexec support for 2.6.20 on ia64 does not build properly using a config
+made up by CONFIG_SMP=n and CONFIG_HOTPLUG_CPU=n:
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+  CC      arch/ia64/kernel/machine_kexec.o
+arch/ia64/kernel/machine_kexec.c: In function `machine_shutdown':
+arch/ia64/kernel/machine_kexec.c:77: warning: implicit declaration of function `cpu_down'
+  AS      arch/ia64/kernel/relocate_kernel.o
+  CC      arch/ia64/kernel/crash.o
+arch/ia64/kernel/crash.c: In function `kdump_cpu_freeze':
+arch/ia64/kernel/crash.c:139: warning: implicit declaration of function `ia64_jump_to_sal'
+arch/ia64/kernel/crash.c:139: error: `sal_boot_rendez_state' undeclared (first use in this function)
+arch/ia64/kernel/crash.c:139: error: (Each undeclared identifier is reported only once
+arch/ia64/kernel/crash.c:139: error: for each function it appears in.)
+arch/ia64/kernel/crash.c: At top level:
+arch/ia64/kernel/crash.c:84: warning: 'kdump_wait_cpu_freeze' defined but not used
+make[1]: *** [arch/ia64/kernel/crash.o] Error 1
+make: *** [arch/ia64/kernel] Error 2
 
-Index: linux/include/asm-ia64/unwind.h
-=================================--- linux.orig/include/asm-ia64/unwind.h	2007-02-05 05:44:54.000000000 +1100
-+++ linux/include/asm-ia64/unwind.h	2007-03-01 15:48:47.936874767 +1100
-@@ -81,7 +81,7 @@ struct unw_frame_info {
- 	struct unw_ireg {
- 		unsigned long *loc;
- 		struct unw_ireg_nat {
--			long type : 3;			/* enum unw_nat_type */
-+			unsigned long type : 3;		/* enum unw_nat_type */
- 			signed long off : 61;		/* NaT word is at loc+nat.off */
- 		} nat;
- 	} r4, r5, r6, r7;
+Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
+Acked-by: Simon Horman <horms@verge.net.au>
+Acked-by: Jay Lan <jlan@sgi.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
+---
+ arch/ia64/kernel/crash.c         |   11 +++++++----
+ arch/ia64/kernel/machine_kexec.c |    2 ++
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+--- linux-2.6.20.1.orig/arch/ia64/kernel/crash.c
++++ linux-2.6.20.1/arch/ia64/kernel/crash.c
+@@ -79,6 +79,7 @@ crash_save_this_cpu()
+ 	final_note(buf);
+ }
+ 
++#ifdef CONFIG_SMP
+ static int
+ kdump_wait_cpu_freeze(void)
+ {
+@@ -91,6 +92,7 @@ kdump_wait_cpu_freeze(void)
+ 	}
+ 	return 1;
+ }
++#endif
+ 
+ void
+ machine_crash_shutdown(struct pt_regs *pt)
+@@ -132,11 +134,12 @@ kdump_cpu_freeze(struct unw_frame_info *
+ 	atomic_inc(&kdump_cpu_freezed);
+ 	kdump_status[cpuid] = 1;
+ 	mb();
+-	if (cpuid = 0) {
+-		for (;;)
+-			cpu_relax();
+-	} else
++#ifdef CONFIG_HOTPLUG_CPU
++	if (cpuid != 0)
+ 		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
++#endif
++	for (;;)
++		cpu_relax();
+ }
+ 
+ static int
+--- linux-2.6.20.1.orig/arch/ia64/kernel/machine_kexec.c
++++ linux-2.6.20.1/arch/ia64/kernel/machine_kexec.c
+@@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
+ 
+ void machine_shutdown(void)
+ {
++#ifdef CONFIG_HOTPLUG_CPU
+ 	int cpu;
+ 
+ 	for_each_online_cpu(cpu) {
+ 		if (cpu != smp_processor_id())
+ 			cpu_down(cpu);
+ 	}
++#endif
+ 	kexec_disable_iosapic();
+ }
+ 
+
+--
