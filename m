@@ -1,190 +1,119 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 27 Mar 2007 04:45:17 +0000
-Subject: [PATCH 2/4] Remove duplicated members in iosapic_rte_info
-Message-Id: <4608A15D.6030303@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sun, 11 Mar 2007 02:09:39 +0000
+Subject: [QUICKLIST 3/6] i386: Use standard list manipulators for pgd_list
+Message-Id: <20070311020939.19905.15885.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: ak@suse.com, mpm@selenic.com, linux-ia64@vger.kernel.org, holt@sgi.com, Christoph Lameter <clameter@sgi.com>
 
-Remove duplicated members in iosapic_rte_info in iosapic.c. This patch
-has no functional changes.
+i386: Use standard list macros.
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Get rid of generating a list via page->index and page->private. Use
+page->lru instead.
 
----
- arch/ia64/kernel/iosapic.c |   60 ++++++++++++++++++---------------------------
- 1 files changed, 24 insertions(+), 36 deletions(-)
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:34.000000000 +0900
-+++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:35.000000000 +0900
-@@ -118,16 +118,22 @@
-  * These tables map IA-64 vectors to the IOSAPIC pin that generates this
-  * vector.
+Index: linux-2.6.21-rc3/arch/i386/mm/pgtable.c
+=================================--- linux-2.6.21-rc3.orig/arch/i386/mm/pgtable.c	2007-03-10 17:42:08.000000000 -0800
++++ linux-2.6.21-rc3/arch/i386/mm/pgtable.c	2007-03-10 17:44:23.000000000 -0800
+@@ -213,31 +213,12 @@ struct page *pte_alloc_one(struct mm_str
+  * -- wli
   */
-+static struct iosapic {
-+	char __iomem	*addr;		/* base address of IOSAPIC */
-+	unsigned int 	gsi_base;	/* GSI base */
-+	unsigned short 	num_rte;	/* # of RTEs on this IOSAPIC */
-+	int		rtes_inuse;	/* # of RTEs in use on this IOSAPIC */
-+#ifdef CONFIG_NUMA
-+	unsigned short	node;		/* numa node association via pxm */
-+#endif
-+} iosapic_lists[NR_IOSAPICS];
- 
- struct iosapic_rte_info {
--	struct list_head rte_list;	/* node in list of RTEs sharing the
--					 * same vector */
--	char __iomem	*addr;		/* base address of IOSAPIC */
--	unsigned int	gsi_base;	/* first GSI assigned to this
--					 * IOSAPIC */
-+	struct list_head rte_list;	/* RTEs sharing the same vector */
- 	char		rte_index;	/* IOSAPIC RTE index */
- 	int		refcnt;		/* reference counter */
- 	unsigned int	flags;		/* flags */
-+	struct iosapic	*iosapic;
- } ____cacheline_aligned;
- 
- static struct iosapic_intr_info {
-@@ -143,17 +149,6 @@
- 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
- } iosapic_intr_info[IA64_NUM_VECTORS];
- 
--static struct iosapic {
--	char __iomem	*addr;		/* base address of IOSAPIC */
--	unsigned int 	gsi_base;	/* first GSI assigned to this
--					 * IOSAPIC */
--	unsigned short 	num_rte;	/* # of RTEs on this IOSAPIC */
--	int		rtes_inuse;	/* # of RTEs in use on this IOSAPIC */
--#ifdef CONFIG_NUMA
--	unsigned short	node;		/* numa node association via pxm */
--#endif
--} iosapic_lists[NR_IOSAPICS];
+ DEFINE_SPINLOCK(pgd_lock);
+-struct page *pgd_list;
 -
- static unsigned char pcat_compat __devinitdata;	/* 8259 compatibility flag */
+-static inline void pgd_list_add(pgd_t *pgd)
+-{
+-	struct page *page = virt_to_page(pgd);
+-	page->index = (unsigned long)pgd_list;
+-	if (pgd_list)
+-		set_page_private(pgd_list, (unsigned long)&page->index);
+-	pgd_list = page;
+-	set_page_private(page, (unsigned long)&pgd_list);
+-}
+-
+-static inline void pgd_list_del(pgd_t *pgd)
+-{
+-	struct page *next, **pprev, *page = virt_to_page(pgd);
+-	next = (struct page *)page->index;
+-	pprev = (struct page **)page_private(page);
+-	*pprev = next;
+-	if (next)
+-		set_page_private(next, (unsigned long)pprev);
+-}
++LIST_HEAD(pgd_list);
  
- static int iosapic_kmalloc_ok;
-@@ -185,7 +180,7 @@
- 	for (info = iosapic_intr_info; info <
- 		     iosapic_intr_info + IA64_NUM_VECTORS; ++info)
- 		list_for_each_entry(rte, &info->rtes, rte_list)
--			if (rte->gsi_base + rte->rte_index = gsi)
-+			if (rte->iosapic->gsi_base + rte->rte_index = gsi)
- 				return info - iosapic_intr_info;
- 	return -1;
- }
-@@ -222,7 +217,7 @@
- 	struct iosapic_rte_info *rte;
- 
- 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
--		if (rte->gsi_base + rte->rte_index = gsi)
-+		if (rte->iosapic->gsi_base + rte->rte_index = gsi)
- 			return rte;
- 	return NULL;
- }
-@@ -244,7 +239,7 @@
- 		return;		/* not an IOSAPIC interrupt */
- 
- 	rte_index = rte->rte_index;
--	addr	= rte->addr;
-+	addr	= rte->iosapic->addr;
- 	pol     = iosapic_intr_info[vector].polarity;
- 	trigger = iosapic_intr_info[vector].trigger;
- 	dmode   = iosapic_intr_info[vector].dmode;
-@@ -298,10 +293,10 @@
- 			iosapic_intr_info + IA64_NUM_VECTORS; ++info, ++vec) {
- 		list_for_each_entry(rte, &info->rtes,
- 				rte_list) {
--			iosapic_write(rte->addr,
-+			iosapic_write(rte->iosapic->addr,
- 					IOSAPIC_RTE_LOW(rte->rte_index),
- 					IOSAPIC_MASK|vec);
--			iosapic_eoi(rte->addr, vec);
-+			iosapic_eoi(rte->iosapic->addr, vec);
- 		}
- 	}
- }
-@@ -324,7 +319,7 @@
- 	/* set only the mask bit */
- 	low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
- 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
--		addr = rte->addr;
-+		addr = rte->iosapic->addr;
- 		rte_index = rte->rte_index;
- 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
-@@ -347,7 +342,7 @@
- 	spin_lock_irqsave(&iosapic_lock, flags);
- 	low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
- 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
--		addr = rte->addr;
-+		addr = rte->iosapic->addr;
- 		rte_index = rte->rte_index;
- 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
-@@ -395,7 +390,7 @@
- 	iosapic_intr_info[vec].low32 = low32;
- 	iosapic_intr_info[vec].dest = dest;
- 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
--		addr = rte->addr;
-+		addr = rte->iosapic->addr;
- 		rte_index = rte->rte_index;
- 		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
- 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-@@ -423,7 +418,7 @@
- 
- 	move_native_irq(irq);
- 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
--		iosapic_eoi(rte->addr, vec);
-+		iosapic_eoi(rte->iosapic->addr, vec);
- }
- 
- #define iosapic_shutdown_level_irq	mask_irq
-@@ -615,10 +610,7 @@
+ void pgd_ctor(void *pgd)
  {
- 	irq_desc_t *idesc;
- 	struct hw_interrupt_type *irq_type;
--	int rte_index;
- 	int index;
--	unsigned long gsi_base;
--	void __iomem *iosapic_address;
- 	struct iosapic_rte_info *rte;
+ 	unsigned long flags;
++	struct page *page = virt_to_page(pgd);
  
- 	index = find_iosapic(gsi);
-@@ -628,9 +620,6 @@
- 		return -ENODEV;
- 	}
+ 	if (PTRS_PER_PMD = 1) {
+ 		memset(pgd, 0, USER_PTRS_PER_PGD*sizeof(pgd_t));
+@@ -256,7 +237,7 @@ void pgd_ctor(void *pgd)
+ 			__pa(swapper_pg_dir) >> PAGE_SHIFT,
+ 			USER_PTRS_PER_PGD, PTRS_PER_PGD - USER_PTRS_PER_PGD);
  
--	iosapic_address = iosapic_lists[index].addr;
--	gsi_base = iosapic_lists[index].gsi_base;
--
- 	rte = gsi_vector_to_rte(gsi, vector);
- 	if (!rte) {
- 		rte = iosapic_alloc_rte();
-@@ -640,10 +629,8 @@
- 			return -ENOMEM;
- 		}
+-	pgd_list_add(pgd);
++	list_add(&page->lru, &pgd_list);
+ 	spin_unlock_irqrestore(&pgd_lock, flags);
+ }
  
--		rte_index = gsi - gsi_base;
--		rte->rte_index	= rte_index;
--		rte->addr	= iosapic_address;
--		rte->gsi_base	= gsi_base;
-+		rte->iosapic	= &iosapic_lists[index];
-+		rte->rte_index	= gsi - rte->iosapic->gsi_base;
- 		rte->refcnt++;
- 		list_add_tail(&rte->rte_list, &iosapic_intr_info[vector].rtes);
- 		iosapic_intr_info[vector].count++;
-@@ -878,7 +865,8 @@
+@@ -264,10 +245,11 @@ void pgd_ctor(void *pgd)
+ void pgd_dtor(void *pgd)
+ {
+ 	unsigned long flags; /* can be called from interrupt context */
++	struct page *page = virt_to_page(pgd);
  
- 	/* Mask the interrupt */
- 	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
--	iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index), low32);
-+	iosapic_write(rte->iosapic->addr,
-+		      IOSAPIC_RTE_LOW(rte->rte_index), low32);
+ 	paravirt_release_pd(__pa(pgd) >> PAGE_SHIFT);
+ 	spin_lock_irqsave(&pgd_lock, flags);
+-	pgd_list_del(pgd);
++	list_del(&page->lru);
+ 	spin_unlock_irqrestore(&pgd_lock, flags);
+ }
  
- 	/* Remove the rte entry from the list */
- 	list_del(&rte->rte_list);
-
-
+Index: linux-2.6.21-rc3/include/asm-i386/pgtable.h
+=================================--- linux-2.6.21-rc3.orig/include/asm-i386/pgtable.h	2007-03-10 17:41:48.000000000 -0800
++++ linux-2.6.21-rc3/include/asm-i386/pgtable.h	2007-03-10 17:42:00.000000000 -0800
+@@ -39,7 +39,7 @@ extern pgd_t swapper_pg_dir[1024];
+ void check_pgt_cache(void);
+ 
+ extern spinlock_t pgd_lock;
+-extern struct page *pgd_list;
++extern struct list_head pgd_list;
+ static inline void pgtable_cache_init(void) {};
+ void paging_init(void);
+ 
+Index: linux-2.6.21-rc3/arch/i386/mm/fault.c
+=================================--- linux-2.6.21-rc3.orig/arch/i386/mm/fault.c	2007-03-10 17:48:04.000000000 -0800
++++ linux-2.6.21-rc3/arch/i386/mm/fault.c	2007-03-10 17:49:30.000000000 -0800
+@@ -608,11 +608,10 @@ void vmalloc_sync_all(void)
+ 			struct page *page;
+ 
+ 			spin_lock_irqsave(&pgd_lock, flags);
+-			for (page = pgd_list; page; page -					(struct page *)page->index)
++			list_for_each_entry(page, &pgd_list, lru)
+ 				if (!vmalloc_sync_one(page_address(page),
+ 								address)) {
+-					BUG_ON(page != pgd_list);
++					BUG();
+ 					break;
+ 				}
+ 			spin_unlock_irqrestore(&pgd_lock, flags);
+Index: linux-2.6.21-rc3/arch/i386/mm/pageattr.c
+=================================--- linux-2.6.21-rc3.orig/arch/i386/mm/pageattr.c	2007-03-10 17:49:44.000000000 -0800
++++ linux-2.6.21-rc3/arch/i386/mm/pageattr.c	2007-03-10 17:50:14.000000000 -0800
+@@ -95,7 +95,7 @@ static void set_pmd_pte(pte_t *kpte, uns
+ 		return;
+ 
+ 	spin_lock_irqsave(&pgd_lock, flags);
+-	for (page = pgd_list; page; page = (struct page *)page->index) {
++	list_for_each_entry(page, &pgd_list, lru) {
+ 		pgd_t *pgd;
+ 		pud_t *pud;
+ 		pmd_t *pmd;
