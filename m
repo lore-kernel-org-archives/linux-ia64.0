@@ -1,36 +1,86 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sun, 11 Mar 2007 03:22:13 +0000
-Subject: Re: [QUICKLIST 2/6] i386: quicklist support
-Message-Id: <20070311032213.GJ2986@holomorphy.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Mon, 12 Mar 2007 13:07:49 +0000
+Subject: FW: [PATCH] - Fix get_model_name() for mixed cpu type systems
+Message-Id: <20070312130749.GA28343@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com> <20070311020934.19905.57850.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20070311020934.19905.57850.sendpatchset@schroedinger.engr.sgi.com>
+References: <20061018212559.GA2965@sgi.com>
+In-Reply-To: <20061018212559.GA2965@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: linux-kernel@vger.kernel.org, ak@suse.com, linux-ia64@vger.kernel.org, holt@sgi.com, mpm@selenic.com
+To: linux-ia64@vger.kernel.org
 
-On Sat, Mar 10, 2007 at 06:09:34PM -0800, Christoph Lameter wrote:
-> i386: Convert to quicklists
-> Implement the i386 management of pgd and pmds using quicklists.
+If a system consists of mixed processor types, kmalloc()
+can be called before the per-cpu data page is initialized. 
+If the slab contains sufficient memory, then kmalloc() works
+ok. However, if the slabs are empty, slab calls the memory
+allocator. This requires per-cpu data (NODE_DATA()) & the
+cpu dies.
 
-I approve, though it would be nice if ptes had an interface operating
-on struct page * to use.
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-
-On Sat, Mar 10, 2007 at 06:09:34PM -0800, Christoph Lameter wrote:
-> The i386 management of page table pages currently uses page sized slabs.
-> The page state is therefore mainly determined by the slab code. However,
-> i386 also uses its own fields in the page struct to mark special pages
-> and to build a list of pgds using the ->private and ->index field (yuck!).
-> This has been finely tuned to work right with SLAB but SLUB needs more
-> control over the page struct. Currently the only way for SLUB to support
-> these slabs is through special casing PAGE_SIZE slabs.
-> If we use quicklists instead then we can avoid the mess, and also the
-> overhead of manipulating page sized objects through slab.
-
-Hey! I did quite well given the constraints under which I was operating.
+---
+Tony - looks like this patch fell thru the cracks. (Originally submitted last Oct)...
 
 
--- wli
+You are right! "BUG" is a little harsh. I changed the code to print 
+a "table overflow" message & return "Unknown".
+
+
+
+
+
+Index: linux/arch/ia64/kernel/setup.c
+=================================--- linux.orig/arch/ia64/kernel/setup.c	2006-10-18 15:49:49.000000000 -0500
++++ linux/arch/ia64/kernel/setup.c	2006-10-19 09:05:44.108673017 -0500
+@@ -643,12 +643,15 @@ struct seq_operations cpuinfo_op = {
+ 	.show =		show_cpuinfo
+ };
+ 
+-static char brandname[128];
++#define MAX_BRANDS	8
++static char brandname[MAX_BRANDS][128];
+ 
+ static char * __cpuinit
+ get_model_name(__u8 family, __u8 model)
+ {
++	static int overflow;
+ 	char brand[128];
++	int i;
+ 
+ 	if (ia64_pal_get_brand_info(brand)) {
+ 		if (family = 0x7)
+@@ -660,12 +663,17 @@ get_model_name(__u8 family, __u8 model)
+ 		} else
+ 			memcpy(brand, "Unknown", 8);
+ 	}
+-	if (brandname[0] = '\0')
+-		return strcpy(brandname, brand);
+-	else if (strcmp(brandname, brand) = 0)
+-		return brandname;
+-	else
+-		return kstrdup(brand, GFP_KERNEL);
++	for (i = 0; i < MAX_BRANDS; i++)
++		if (strcmp(brandname[i], brand) = 0)
++			return brandname[i];
++	for (i = 0; i < MAX_BRANDS; i++)
++		if (brandname[i][0] = '\0')
++			return strcpy(brandname[i], brand);
++	if (overflow++ = 0)
++		printk(KERN_ERR
++		       "%s: Table overflow. Some processor model information will be missing\n",
++		       __FUNCTION__);
++	return "Unknown";
+ }
+ 
+ static void __cpuinit
+
+----- End forwarded message -----
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
