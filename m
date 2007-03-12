@@ -1,46 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Date: Sun, 11 Mar 2007 20:59:46 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 12 Mar 2007 11:12:32 +0000
 Subject: Re: [QUICKLIST 0/6] Arch independent quicklists V1
-Message-Id: <20070311.135946.28788670.davem@davemloft.net>
+Message-Id: <Pine.LNX.4.64.0703120409150.25910@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com>
+ <20070311.135946.28788670.davem@davemloft.net>
+In-Reply-To: <20070311.135946.28788670.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: clameter@sgi.com
+To: David Miller <davem@davemloft.net>
 Cc: linux-kernel@vger.kernel.org, ak@suse.com, holt@sgi.com, linux-ia64@vger.kernel.org, mpm@selenic.com
 
-From: Christoph Lameter <clameter@sgi.com>
-Date: Sat, 10 Mar 2007 18:09:23 -0800 (PST)
+On Sun, 11 Mar 2007, David Miller wrote:
 
-> Page table pages have the characteristics that they are typically zero
-> or in a known state when they are freed. This is usually the exactly
-> same state as needed after allocation. So it makes sense to build a list
-> of freed page table pages and then consume the pages already in use
-> first. Those pages have already been initialized correctly (thus no
-> need to zero them) and are likely already cached in such a way that
-> the MMU can use them most effectively.
+> I'm going to make the radical declaration that it be perhaps often
+> better to always initialize page table chunks to all zeros on
+> allocation.
 
-I'm going to make the radical declaration that it be perhaps often
-better to always initialize page table chunks to all zeros on
-allocation.
+That is the case if most of the page is going to be used soon. If we have 
+sparse access patterns then not zeroing can avoid uselessly bringing 
+cachelines in.
 
-The reason is that every time I've monitored the allocation patterns
-of these things on SMP, the page table chunks always get released on a
-different cpu than where they were initialized.
+> The reason is that every time I've monitored the allocation patterns
+> of these things on SMP, the page table chunks always get released on a
+> different cpu than where they were initialized.
 
-It's precisely suboptimal for a workload that forks off a lot of
-very short lived jobs, watch what happens during runs of lmbench's
-lat_proc for example.
+But its even advantageous in that case for sparse allocs.
+ 
+> The allocator side just does nothing but emit L2 cache line ownership
+> transactions as the pte page is touched.  Especially on chips like
+> PowerPC where zero initialization is absurdly cheap, we can avoid all
+> of the cache line transfers if we just initialize it at allocation
+> time.
 
-The allocator side just does nothing but emit L2 cache line ownership
-transactions as the pte page is touched.  Especially on chips like
-PowerPC where zero initialization is absurdly cheap, we can avoid all
-of the cache line transfers if we just initialize it at allocation
-time.
-
-Look, I like this trick too, sparc and sparc64 were the first Linux
-platforms to implement page table caching about 8 years ago, but
-I'm wondering whether it really makes sense any more.
+We have no need to touch all the cache lines w/o initialization if we 
+alloc from the quicklist. And that is a performance benefit.
 
