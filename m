@@ -1,36 +1,55 @@
-From: "Jesper Juhl" <jesper.juhl@gmail.com>
-Date: Mon, 19 Mar 2007 18:38:45 +0000
-Subject: Re: [Fastboot] [PATCH] [REVIEW] Fix irqpoll on IA64 (timer interrupt != 0)
-Message-Id: <9a8748490703191138y7ff45fdbl538d2a941414817e@mail.gmail.com>
+From: Jay Lan <jlan@sgi.com>
+Date: Mon, 12 Mar 2007 20:35:10 +0000
+Subject: Re: [Patch] min_low_pfn and max_low_pfn calcultion fix
+Message-Id: <45F5B97E.2020607@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070319181336.GC12628@strauss.suse.de>
-	 <9a8748490703191129h396211e9q59eeea9533d00c38@mail.gmail.com>
-	 <20070319183710.GA23499@strauss.suse.de>
-In-Reply-To: <20070319183710.GA23499@strauss.suse.de>
+References: <1172619535.20006.334.camel@linux-znh>
+In-Reply-To: <1172619535.20006.334.camel@linux-znh>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesper Juhl <jesper.juhl@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, fastboot@lists.osdl.org
+To: linux-ia64@vger.kernel.org
 
-On 19/03/07, Bernhard Walle <bwalle@suse.de> wrote:
-> * Jesper Juhl <jesper.juhl@gmail.com> [2007-03-19 19:29]:
-> > >
-> > > -void
-> > > +int
-> > >  register_percpu_irq (ia64_vector vec, struct irqaction *action)
-> > >  {
-> >
-> > Each and every function example in Documentation/CodingStyle has the
-> > return type on the same line as the function name, so why not get
-> > these in-line while you are modifying them anyway?
->
-> Because all other functions in that file are coded this way. I think
-> it looks better if you don't change the style in a particular file.
-> Am I wrong?
->
-Consistency within the file certainly makes sense.
+Magnus Damm wrote:
+> On 28 Feb 2007 07:38:55 +0800, Zou Nan hai <nanhai.zou@intel.com> wrote:
+>>
+[excessive text deleted]
 
--- 
-Jesper Juhl <jesper.juhl@gmail.com>
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please      http://www.expita.com/nomime.html
+>>   So it is better to fix and clean up those issues.
+>> Calculate min_low_pfn and max_low_pfn in a consistent way.
+>>
+>> Below is the patch, please review and comments
+>>
+>> Signed-off-by:  Zou Nan hai <nanhai.zou@intel.com>
+> 
+> I've seen similar problems on a HP rx2620 box using 2.6.20. I managed
+> to resolve that problem with a patch similar to this one, but then I
+> realized that the issue I was seeing had been solved already by some
+> mm-related patch by Bob Picco that got included in 2.6.21-rc1.
+
+I tested on 2.6.21-rc3 with DEBUG_VM turned on. The vanilla 2.6.21-rc3
+without Nan-hai's patch, panicked on bugcheck on free_initmem->free_page
+as predicted. We still need this patch.
+
+However, the zero-size vmcore problem is back on SN. But that is a
+dfiffernet problem.
+
+Regards,
+ - jay
+
+
+> 
+> So, I suspect that 2.6.21-rc1 and rc2 should work just fine without this
+> patch.
+> 
+> / magnus
+> 
+> PS. Any comments on the EFI_LOADER_DATA for ELF core header would be
+> greatly appreciated, I think it is sort of related to this issue as
+> well.
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
