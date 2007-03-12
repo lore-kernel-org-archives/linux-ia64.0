@@ -1,7 +1,7 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Mon, 12 Mar 2007 20:35:10 +0000
-Subject: Re: [Patch] min_low_pfn and max_low_pfn calcultion fix
-Message-Id: <45F5B97E.2020607@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 12 Mar 2007 22:08:32 +0000
+Subject: RE: [Patch] min_low_pfn and max_low_pfn calcultion fix
+Message-Id: <617E1C2C70743745A92448908E030B2A01390760@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1172619535.20006.334.camel@linux-znh>
 In-Reply-To: <1172619535.20006.334.camel@linux-znh>
@@ -10,46 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Magnus Damm wrote:
-> On 28 Feb 2007 07:38:55 +0800, Zou Nan hai <nanhai.zou@intel.com> wrote:
->>
-[excessive text deleted]
+> I tested on 2.6.21-rc3 with DEBUG_VM turned on. The vanilla 2.6.21-rc3
+> without Nan-hai's patch, panicked on bugcheck on free_initmem->free_page
+> as predicted. We still need this patch.
 
->>   So it is better to fix and clean up those issues.
->> Calculate min_low_pfn and max_low_pfn in a consistent way.
->>
->> Below is the patch, please review and comments
->>
->> Signed-off-by:  Zou Nan hai <nanhai.zou@intel.com>
-> 
-> I've seen similar problems on a HP rx2620 box using 2.6.20. I managed
-> to resolve that problem with a patch similar to this one, but then I
-> realized that the issue I was seeing had been solved already by some
-> mm-related patch by Bob Picco that got included in 2.6.21-rc1.
+I've applied Nan hai's patch ... will push upstream in a little while.
 
-I tested on 2.6.21-rc3 with DEBUG_VM turned on. The vanilla 2.6.21-rc3
-without Nan-hai's patch, panicked on bugcheck on free_initmem->free_page
-as predicted. We still need this patch.
+> However, the zero-size vmcore problem is back on SN. But that is a
+> differnet problem.
 
-However, the zero-size vmcore problem is back on SN. But that is a
-dfiffernet problem.
+I applied a fix that was supposed to fix this after -rc3.  It is
+in Linus' tree now.  Let me know if it really is still broken.
 
-Regards,
- - jay
-
-
-> 
-> So, I suspect that 2.6.21-rc1 and rc2 should work just fine without this
-> patch.
-> 
-> / magnus
-> 
-> PS. Any comments on the EFI_LOADER_DATA for ELF core header would be
-> greatly appreciated, I think it is sort of related to this issue as
-> well.
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+-Tony
