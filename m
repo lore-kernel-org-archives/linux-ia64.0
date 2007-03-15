@@ -1,99 +1,60 @@
-From: Greg KH <gregkh@suse.de>
-Date: Wed, 07 Mar 2007 17:11:56 +0000
-Subject: [patch 081/101] kexec: Fix CONFIG_SMP=n compilation V2 (ia64)
-Message-Id: <20070307171604.708827049@mini.kroah.org>
+From: John Keller <jpk@sgi.com>
+Date: Thu, 15 Mar 2007 16:01:24 +0000
+Subject: Re: [PATCH] Fix wrong /proc/iomem on SGI Altix
+Message-Id: <200703151601.l2FG1PHm002278@fcbayern.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070307171035.150802805@mini.kroah.org>
+In-Reply-To: <20070314180746.GA22814@strauss.suse.de> from "Bernhard Walle" at Mar 14, 2007 07:07:47 PM
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@kernel.org, tony.luck@intel.com
-Cc: Justin Forbes <jmforbes@linuxtx.org>, Zwane Mwaikambo <zwane@arm.linux.org.uk>, Theodore Ts'o <tytso@mit.edu>, Randy Dunlap <rdunlap@xenotime.net>, Dave Jones <davej@redhat.com>, Chuck Wolber <chuckw@quantumlinux.com>, Chris Wedgwood <reviews@ml.cw.f00f.org>, Michael Krufky <mkrufky@linuxtv.org>, Chuck Ebbert <cebbert@redhat.com>, torvalds@linux-foundation.org, akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jlan@sgi.com, magnus@valinux.co.jp, horms@verge.net.au
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: bwalle@suse.de
+
+Looks good.
+Feel free to add.
+
+Acked-by: John Keller <jpk@sgi.com>
 
 
-From: Magnus Damm <magnus@valinux.co.jp>
+> 
+> In sn_io_slot_fixup(), the parent is re-set from the bus to
+> io(port|mem)_resource because the address is changed in a way that it's not
+> child of the bus any more.
+> 
+> However, only the root is set but not the parent/child/sibling relationship in
+> the resource tree which causes 'cat /proc/iomem' to stop after this memory
+> area. Depding on the poition in the tree the iomem may be nearly completely
+> empty.
+> 
+> Signed-off-by: Bernhard Walle <bwalle@suse.de>
+> 
+> ---
+>  arch/ia64/sn/kernel/io_init.c |   12 ++++++++++--
+>  1 file changed, 10 insertions(+), 2 deletions(-)
+> 
+> Index: b/arch/ia64/sn/kernel/io_init.c
+> =================================> --- a/arch/ia64/sn/kernel/io_init.c
+> +++ b/arch/ia64/sn/kernel/io_init.c
+> @@ -247,10 +247,18 @@ sn_io_slot_fixup(struct pci_dev *dev)
+>  		addr = ((addr << 4) >> 4) | __IA64_UNCACHED_OFFSET;
+>  		dev->resource[idx].start = addr;
+>  		dev->resource[idx].end = addr + size;
+> +
+> +		/*
+> +		 * if it's already in the device structure, remove it before
+> +		 * inserting
+> +		 */
+> +		if (dev->resource[idx].parent && dev->resource[idx].parent->child)
+> +			release_resource(&dev->resource[idx]);
+> +
+>  		if (dev->resource[idx].flags & IORESOURCE_IO)
+> -			dev->resource[idx].parent = &ioport_resource;
+> +			insert_resource(&ioport_resource, &dev->resource[idx]);
+>  		else
+> -			dev->resource[idx].parent = &iomem_resource;
+> +			insert_resource(&iomem_resource, &dev->resource[idx]);
+>  		/* If ROM, mark as shadowed in PROM */
+>  		if (idx = PCI_ROM_RESOURCE)
+>  			dev->resource[idx].flags |= IORESOURCE_ROM_BIOS_COPY;
+> -
 
-Kexec support for 2.6.20 on ia64 does not build properly using a config
-made up by CONFIG_SMP=n and CONFIG_HOTPLUG_CPU=n:
-
-  CC      arch/ia64/kernel/machine_kexec.o
-arch/ia64/kernel/machine_kexec.c: In function `machine_shutdown':
-arch/ia64/kernel/machine_kexec.c:77: warning: implicit declaration of function `cpu_down'
-  AS      arch/ia64/kernel/relocate_kernel.o
-  CC      arch/ia64/kernel/crash.o
-arch/ia64/kernel/crash.c: In function `kdump_cpu_freeze':
-arch/ia64/kernel/crash.c:139: warning: implicit declaration of function `ia64_jump_to_sal'
-arch/ia64/kernel/crash.c:139: error: `sal_boot_rendez_state' undeclared (first use in this function)
-arch/ia64/kernel/crash.c:139: error: (Each undeclared identifier is reported only once
-arch/ia64/kernel/crash.c:139: error: for each function it appears in.)
-arch/ia64/kernel/crash.c: At top level:
-arch/ia64/kernel/crash.c:84: warning: 'kdump_wait_cpu_freeze' defined but not used
-make[1]: *** [arch/ia64/kernel/crash.o] Error 1
-make: *** [arch/ia64/kernel] Error 2
-
-Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
-Acked-by: Simon Horman <horms@verge.net.au>
-Acked-by: Jay Lan <jlan@sgi.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
----
- arch/ia64/kernel/crash.c         |   11 +++++++----
- arch/ia64/kernel/machine_kexec.c |    2 ++
- 2 files changed, 9 insertions(+), 4 deletions(-)
-
---- linux-2.6.20.1.orig/arch/ia64/kernel/crash.c
-+++ linux-2.6.20.1/arch/ia64/kernel/crash.c
-@@ -79,6 +79,7 @@ crash_save_this_cpu()
- 	final_note(buf);
- }
- 
-+#ifdef CONFIG_SMP
- static int
- kdump_wait_cpu_freeze(void)
- {
-@@ -91,6 +92,7 @@ kdump_wait_cpu_freeze(void)
- 	}
- 	return 1;
- }
-+#endif
- 
- void
- machine_crash_shutdown(struct pt_regs *pt)
-@@ -132,11 +134,12 @@ kdump_cpu_freeze(struct unw_frame_info *
- 	atomic_inc(&kdump_cpu_freezed);
- 	kdump_status[cpuid] = 1;
- 	mb();
--	if (cpuid = 0) {
--		for (;;)
--			cpu_relax();
--	} else
-+#ifdef CONFIG_HOTPLUG_CPU
-+	if (cpuid != 0)
- 		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
-+#endif
-+	for (;;)
-+		cpu_relax();
- }
- 
- static int
---- linux-2.6.20.1.orig/arch/ia64/kernel/machine_kexec.c
-+++ linux-2.6.20.1/arch/ia64/kernel/machine_kexec.c
-@@ -70,12 +70,14 @@ void machine_kexec_cleanup(struct kimage
- 
- void machine_shutdown(void)
- {
-+#ifdef CONFIG_HOTPLUG_CPU
- 	int cpu;
- 
- 	for_each_online_cpu(cpu) {
- 		if (cpu != smp_processor_id())
- 			cpu_down(cpu);
- 	}
-+#endif
- 	kexec_disable_iosapic();
- }
- 
-
---
