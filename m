@@ -1,60 +1,91 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Thu, 15 Mar 2007 22:30:47 +0000
+Date: Fri, 16 Mar 2007 02:48:24 +0000
 Subject: Re: [BUGFIX][PATCH] fixing placement of register stack under ulimit
-Message-Id: <20070316073047.8c92bcd1.kamezawa.hiroyu@jp.fujitsu.com>
+Message-Id: <20070316114824.a1b3f715.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070315171743.e85b8405.kamezawa.hiroyu@jp.fujitsu.com>
-	<ed5aea430703150857i4c60dbfdrd5c871235815e5da@mail.gmail.com>
-	<20070316062047.fbdae1ed.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20070316062047.fbdae1ed.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070315171743.e85b8405.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: dmosberger@gmail.com, linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org, dmosberger@gmail.com
 
-On Fri, 16 Mar 2007 06:20:47 +0900
-KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+plz allow me to explain more.
 
-> On Thu, 15 Mar 2007 09:57:28 -0600
-> "David Mosberger-Tang" <dmosberger@gmail.com> wrote:
-> 
-> > But aren't you going to be limited to less than a page worth of
-> > register-backing store even with your patch applied because the
-> > backing store will end up overflowing the memory stack?
-> > 
-> 
-> I think pthread's stack, which is created by malloc, is also shared
-> among register-stack and memory-stack. 
-> (glibc's pthread's stack is limited by ulimit, too.)
-> 
-> So, it seems stack_size_limit = register_stack_limit + memory_stack_limit
-> is a consistent way. I'm sorry if I don't catch your point.
-> 
-BTW, what way do you recommened to fix this register-stack/memory-stack upside
-down problem ?
+"Why register-stack/memory-stack upside down is bad" is a bit complicated.
+So...this is a test and result for explaining bug. 
 
-Plan A) just handle upside-down case in page fault handler.
-	This means ulimit -s limitation will limit amount of memory-stack and
-	register stack independently.
-Plan B) handle upside-down case in page fault handler and add modify 
- 	acct_stack_growth() to be able to handle the limitation of sum
-	of separated vmas.(vma for reg stack and mem stack). 
-Plan C) don't allow this upside down as this patch. but change calculation of rbs_top.
+This is a sample code and its result on 2.6.21-rc3.
+Note: base address of memory'stack can be randomly change.
 
-Note:
-To see the problem which my patch want to fix run following code under ulimit -s.
+= sample code =
+[kamezawa@drpq ~]$ cat sample.c
+#include <stdio.h>
 
-=
-void eat_stack(int num) {
-	printf("%d\n", num);
-	eat_stack(num - 1);
+void do_print(int num)
+{
+        if (num = 0)
+                return;
+        printf("%d\n",num);
+        do_print(num - 1);
 }
 
-int main (void) {
-	eat_stack(10000);
+int main(int argc, char *argv[])
+{
+        do_print(10000);
+        return 0;
 }
-=
 
--- Kame
+= before ulimit =
+[kamezawa@drpq ~]$ uname -a
+Linux drpq 2.6.21-rc3 #3 SMP Fri Mar 16 11:57:47 JST 2007 ia64 ia64 ia64 GNU/Linux
+[kamezawa@drpq ~]$ ulimit -s
+8192
+[kamezawa@drpq ~]$ ulimit -s -H
+unlimited
+[kamezawa@drpq ~]$ ./sample
+10000
+9999
+....<snip>
+1
+[kamezawa@drpq ~]$
+= after ulimit -s 8192 =
+
+[kamezawa@drpq ~]$ ulimit -s
+8192
+[kamezawa@drpq ~]$ ulimit -s -H
+8192
+[kamezawa@drpq ~]$ ./sample  
+10000
+9999
+....<snip>
+
+9612
+9611
+9610
+9609
+9608
+Segmentation fault
+
+[kamezawa@drpq ~]$ ./sample   (when I'm lucky)
+10000
+9999
+....<snip>
+1
+[kamezawa@drpq ~]$
+==================
+This number 9608 is too short to use up all stack. The reason of this is 
+"ulimit -s + memory stack randomization + register-stack-expansion" is buggy.
+The program can only use one page for register stack if unlucky.
+My patch will fix this case.
+
+-Kame
+
+
+
+
+
+
+
 
