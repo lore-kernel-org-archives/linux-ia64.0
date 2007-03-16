@@ -1,33 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 15 Mar 2007 07:40:01 +0000
-Subject: Re: [QUICKLIST 0/6] Arch independent quicklists V1
-Message-Id: <20070315003916.8a78dd0c.akpm@linux-foundation.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 16 Mar 2007 17:20:44 +0000
+Subject: Re: [PATCH 2.6.18] PCI: Turn pci_fixup_video into generic for embedded VGA
+Message-Id: <200703161120.46123.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070312.192616.63128242.davem@davemloft.net>
-	<20070312.193211.30184040.davem@davemloft.net>
-	<20070315002249.9e531578.akpm@linux-foundation.org>
-	<20070315.003118.41650094.davem@davemloft.net>
-In-Reply-To: <20070315.003118.41650094.davem@davemloft.net>
+References: <XNM1$9$0$4$$3$3$7$A$9002686U451b55cd@hitachi.com> <200609280936.02098.jesse.barnes@intel.com>
+In-Reply-To: <200609280936.02098.jesse.barnes@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>
-Cc: paulus@samba.org, clameter@sgi.com, linux-kernel@vger.kernel.org, ak@suse.com, holt@sgi.com, linux-ia64@vger.kernel.org, mpm@selenic.com
+To: Jesse Barnes <jesse.barnes@intel.com>
+Cc: eiichiro.oiwa.nm@hitachi.com, akpm@osdl.org, tony.luck@intel.com, greg@kroah.com, Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> On Thu, 15 Mar 2007 00:31:18 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
-> From: Andrew Morton <akpm@linux-foundation.org>
-> Date: Thu, 15 Mar 2007 00:22:49 -0800
-> 
-> > So...  what would happen if sparc64 were to use neither quicklists nor
-> > slab?  Just grab these pages from the page allocator and clear them?
-> 
-> The page table allocator is heavier weight than the quicklists,
-> although obviously not as heavy weight as SLAB.
+On Thursday 28 September 2006 10:36, Jesse Barnes wrote:
+> On Wednesday, September 27, 2006 9:55 pm, eiichiro.oiwa.nm@hitachi.com 
+> wrote:
+> > pci_fixup_video turns into generic code because there are many platforms
+> > need this fixup for embedded VGA as well as x86. The Video BIOS
+> > integrates into System BIOS on a machine has embedded VGA although
+> > embedded VGA generally don't have PCI ROM. As a result, embedded VGA
+> > need the way that the sysfs rom points to the Video BIOS of System RAM
+> > (0xC0000). PCI-to-PCI Bridge Architecture specification describes the
+> > condition whether or not PCI ROM forwards VGA compatible memory address.
+> > fixup_video suits this specification. Although the Video ROM generally
+> > implements in x86 code regardless of platform, some application such as
+> > X Window System can run this code by dosemu86. Therefore,
+> > pci_fixup_video should turn into generic code.
+> ... 
+> Thanks a lot, Eiichiro, this patch has been needed for awhile.
 
-Spose so, although only in the case where we go into the buddy lists, I hope.
+Are there really ia64 machines where we need to use the option ROM
+copy at 0xC0000?  If so, is this documented somewhere?  I couldn't
+find any mention in DIG64, EFI, or internal HP architecture specs.
 
-otoh, releasing a cache-hot page into the page allocator makes it available for
-other use.
+If we do need to use it, ia64 has a bit of a problem because on some
+boxes, the 0xC0000 memory supports only cacheable access, the VGA
+frame buffer at 0xA0000 supports only uncacheable access, and the
+usual ia64 ioremap mapping is a 16MB page that covers both.
 
-It'd be nice if you could run the numbers sometime, please - if it's OK then
-we can remove code...
+Bjorn
