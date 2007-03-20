@@ -1,26 +1,53 @@
-From: Kirill Korotaev <dev@sw.ru>
-Date: Mon, 19 Mar 2007 12:50:13 +0000
-Subject: Re: [IA64] unwind did not work for processes born with CLONE_STOPPED
-Message-Id: <45FE8A5F.1080309@sw.ru>
+From: Jay Lan <jlan@sgi.com>
+Date: Tue, 20 Mar 2007 02:12:44 +0000
+Subject: [PATCH] fix an IA64 MCA kdump bug in kdump_init_notifier
+Message-Id: <45FF431C.1040607@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------020805090909020503010905"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <45FE6E34.3070207@sw.ru>
-In-Reply-To: <45FE6E34.3070207@sw.ru>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Mon, Mar 19, 2007 at 02:04:20PM +0300, Kirill Korotaev wrote:
-> 
->>[IA64] unwind did not work for processes born with CLONE_STOPPED
->>
->>Minor problem for mainstream. Big problem for CPT,
-> 
-> 
-> What is CPT?
+This is a multi-part message in MIME format.
+--------------020805090909020503010905
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-It is checkpointing/restore feature from OpenVZ.
-Sorry for confusion in the comment.
+In my original patch to support MCA in kdump, changes were made to
+kdump_init_notifier() of arch/ia64/kernel/crash.c. But one change
+was somehow incorrectly modified in 2.6.20 to as below:
 
-Kirill
+>        if ((val == DIE_INIT_MONARCH_ENTER || DIE_INIT_SLAVE_ENTER) &&
+>                 nd->sos->rv_rc == 1)
+>                return NOTIFY_DONE;
+
+Since DIE_INIT_SLAVE_ENTER is a non-zero value, thus "nd->sos->rv_rc
+==1" is always evaluated. The kdump kernel aborted because nd->sos
+is NULL in (at least some) MCA cases.
+
+This patch corrects the problem. It was created against 2.6.21-rc4.
+
+Signed-Off-By: Jay Lan <jlan@sgi.com>
+
+
+--------------020805090909020503010905
+Content-Type: text/plain;
+ name="mca-fix-in-kdump_init_notifier"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mca-fix-in-kdump_init_notifier"
+
+Index: linux/arch/ia64/kernel/crash.c
+===================================================================
+--- linux.orig/arch/ia64/kernel/crash.c	2007-03-15 17:20:01.000000000 -0700
++++ linux/arch/ia64/kernel/crash.c	2007-03-19 17:27:42.102401208 -0700
+@@ -164,7 +164,7 @@ kdump_init_notifier(struct notifier_bloc
+ 
+ 	nd = (struct ia64_mca_notify_die *)args->err;
+ 	/* Reason code 1 means machine check rendezous*/
+-	if ((val == DIE_INIT_MONARCH_ENTER || DIE_INIT_SLAVE_ENTER) &&
++	if ((val == DIE_INIT_MONARCH_ENTER || val == DIE_INIT_SLAVE_ENTER) &&
+ 		 nd->sos->rv_rc == 1)
+ 		return NOTIFY_DONE;
+ 
+
+--------------020805090909020503010905--
