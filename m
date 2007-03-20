@@ -1,91 +1,47 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Sat, 10 Mar 2007 23:25:15 +0000
-Subject: [patch] Avoid duplicate string allocations for the same cpu type
-Message-Id: <200703102325.l2ANPFal4403267@clink.americas.sgi.com>
+From: John Keller <jpk@sgi.com>
+Date: Tue, 20 Mar 2007 18:50:10 +0000
+Subject: [PATCH] - Altix: ioremap vga_console_iobase
+Message-Id: <20070320185010.4873.23012.sendpatchset@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-[patch] Avoid duplicate string allocations for the same cpu type
+When booting an SN system without specifing a console
+(i.e., no "console=" on boot line), the system will hang during
+boot at the point where /sbin/init is run.
 
-If a system has more than one cpu type, get_model_name() will 
-allocate a unique "model name" string for each cpu different than
-the boot cpu.  (See "model name" in /proc/cpuinfo for an example.)
+The problem is that vga_console_iobase is not converted to a
+virtual address before storing in io_space[0].mmio_base.
+The conversion was happening in sn_scan_pcdp(), but not in
+setup_vga_console().
 
-What compounds this is Intel's decision to give different steppings
-different model names.  Montecito C1 is 
-"Dual-Core Intel(R) Itanium(R) 2 Processor 9040" while Montecito C2 is 
-"Dual-Core Intel(R) Itanium(R) 2 Processor 9050".  That increases the
-likelyhood of having different cpu types.
-
-Model names are also getting longer, such as 
-"Intel(r) Itanium(r) 2 Processor 1.6GHz with 18M L3 Cache for 533MHz Platforms".
-Each thread is treated as a different "cpu", further compounding the problem.
-
-This patch makes get_model_name() smarter.  It allocates one string
-for each unique "model name" and returns a pointer to the appropriate
-string.  It handles up to 8 different cpu types.  Above that number 
-it reverts to the previous behavior of allocating a unque string for each
-thread.  Since all threads in a socket have the same "model name", there
-needs to be more than 8 different socket types to revert to the old behavior.
-
-Signed-off-by: Russ Anderson (rja@sgi.com)
-
+Signed-off-by: John Keller <jpk@sgi.com>
 ---
- arch/ia64/kernel/setup.c |   27 +++++++++++++++++++++------
- 1 file changed, 21 insertions(+), 6 deletions(-)
 
-Index: test/arch/ia64/kernel/setup.c
-=================================--- test.orig/arch/ia64/kernel/setup.c	2007-03-09 17:32:27.000000000 -0600
-+++ test/arch/ia64/kernel/setup.c	2007-03-10 16:06:04.313548208 -0600
-@@ -665,11 +665,14 @@ struct seq_operations cpuinfo_op = {
- };
+ arch/ia64/sn/kernel/setup.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+
+Index: linux-2.6/arch/ia64/sn/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2007-03-16 15:23:54.743044272 -0500
++++ linux-2.6/arch/ia64/sn/kernel/setup.c	2007-03-20 13:22:38.837859262 -0500
+@@ -348,8 +348,7 @@ sn_scan_pcdp(void)
+ 			continue;	/* not PCI interconnect */
  
- static char brandname[128];
-+#define BRAND_SIZE	8
-+static char * brands[BRAND_SIZE];
+ 		if (if_pci.translation & PCDP_PCI_TRANS_IOPORT)
+-			vga_console_iobase -				if_pci.ioport_tra | __IA64_UNCACHED_OFFSET;
++			vga_console_iobase = if_pci.ioport_tra;
  
- static char * __cpuinit
- get_model_name(__u8 family, __u8 model)
- {
- 	char brand[128];
-+	int i;
- 
- 	memcpy(brand, "Unknown", 8);
- 	if (ia64_pal_get_brand_info(brand)) {
-@@ -681,12 +684,24 @@ get_model_name(__u8 family, __u8 model)
- 			case 2: memcpy(brand, "Madison up to 9M cache", 23); break;
- 		}
+ 		if (if_pci.translation & PCDP_PCI_TRANS_MMIO)
+ 			vga_console_membase @@ -429,7 +428,8 @@ void __init sn_setup(char **cmdline_p)
+ 	 * 	bus containing the VGA console.
+ 	 */
+ 	if (vga_console_iobase) {
+-		io_space[0].mmio_base = vga_console_iobase;
++		io_space[0].mmio_base +			(unsigned long) ioremap(vga_console_iobase, 0);
+ 		io_space[0].sparse = 0;
  	}
--	if (brandname[0] = '\0')
--		return strcpy(brandname, brand);
--	else if (strcmp(brandname, brand) = 0)
--		return brandname;
--	else
--		return kstrdup(brand, GFP_KERNEL);
-+	/*
-+	 * kstrdup() cannot be called early in the boot process,
-+	 * so use a static buffer for the first cpu.
-+	 */
-+	if (!brands[0]) {
-+		strcpy(brandname, brand);
-+		brands[0] = brandname;
-+		return brands[0];
-+	}
-+	for (i = 0; i < BRAND_SIZE; i++) {
-+		if (!brands[i]) {
-+			brands[i] = kstrdup(brand, GFP_KERNEL);
-+			return brands[i];
-+		} else if (strcmp(brands[i], brand) = 0) {
-+			return brands[i];
-+		}
-+	}
-+	return kstrdup(brand, GFP_KERNEL);
- }
  
- static void __cpuinit
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
