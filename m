@@ -1,91 +1,155 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 16 Mar 2007 02:48:24 +0000
-Subject: Re: [BUGFIX][PATCH] fixing placement of register stack under ulimit
-Message-Id: <20070316114824.a1b3f715.kamezawa.hiroyu@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 21 Mar 2007 22:21:40 +0000
+Subject: [patch 2/5] ia64: make ioremap avoid unsupported attributes
+Message-Id: <200703211621.40717.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070315171743.e85b8405.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20070315171743.e85b8405.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org, dmosberger@gmail.com
+To: linux-ia64@vger.kernel.org
 
-plz allow me to explain more.
+Example memory map (from HP sx1000 with VGA enabled):
+    0x00000 - 0x9FFFF supports only WB (cacheable) access
+    0xA0000 - 0xBFFFF supports only UC (uncacheable) access
+    0xC0000 - 0xFFFFF supports only WB (cacheable) access
 
-"Why register-stack/memory-stack upside down is bad" is a bit complicated.
-So...this is a test and result for explaining bug. 
+pci_read_rom() indirectly uses ioremap(0xC0000) to read the shadow VGA option
+ROM.  ioremap() used to default to a 16MB or 64MB UC kernel identity mapping,
+which would cause an MCA when reading 0xC0000 since only WB is supported there.
 
-This is a sample code and its result on 2.6.21-rc3.
-Note: base address of memory'stack can be randomly change.
+X uses reads the option ROM to initialize devices.  A smaller test case is:
+  # echo 1 > /sys/bus/pci/devices/0000:aa:03.0/rom
+  # cp /sys/bus/pci/devices/0000:aa:03.0/rom x
 
-= sample code =
-[kamezawa@drpq ~]$ cat sample.c
-#include <stdio.h>
+To avoid this, we can use the same ioremap_page_range() strategy that most
+architectures use for all ioremaps.  These page table mappings come out of the
+vmalloc area.  On ia64, these are in region 5 (0xA... addresses) and typically
+use 16KB or 64KB mappings instead of 16MB or 64MB mappings.  The smaller
+mappings give more flexibility to use the correct attributes.
 
-void do_print(int num)
-{
-        if (num = 0)
-                return;
-        printf("%d\n",num);
-        do_print(num - 1);
-}
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-int main(int argc, char *argv[])
-{
-        do_print(10000);
-        return 0;
-}
-
-= before ulimit =
-[kamezawa@drpq ~]$ uname -a
-Linux drpq 2.6.21-rc3 #3 SMP Fri Mar 16 11:57:47 JST 2007 ia64 ia64 ia64 GNU/Linux
-[kamezawa@drpq ~]$ ulimit -s
-8192
-[kamezawa@drpq ~]$ ulimit -s -H
-unlimited
-[kamezawa@drpq ~]$ ./sample
-10000
-9999
-....<snip>
-1
-[kamezawa@drpq ~]$
-= after ulimit -s 8192 =
-
-[kamezawa@drpq ~]$ ulimit -s
-8192
-[kamezawa@drpq ~]$ ulimit -s -H
-8192
-[kamezawa@drpq ~]$ ./sample  
-10000
-9999
-....<snip>
-
-9612
-9611
-9610
-9609
-9608
-Segmentation fault
-
-[kamezawa@drpq ~]$ ./sample   (when I'm lucky)
-10000
-9999
-....<snip>
-1
-[kamezawa@drpq ~]$
-==================
-This number 9608 is too short to use up all stack. The reason of this is 
-"ulimit -s + memory stack randomization + register-stack-expansion" is buggy.
-The program can only use one page for register stack if unlucky.
-My patch will fix this case.
-
--Kame
-
-
-
-
-
-
-
-
+Index: work-mm10/arch/ia64/mm/ioremap.c
+=================================--- work-mm10.orig/arch/ia64/mm/ioremap.c	2007-03-20 21:03:33.000000000 -0700
++++ work-mm10/arch/ia64/mm/ioremap.c	2007-03-21 12:56:01.000000000 -0700
+@@ -1,5 +1,5 @@
+ /*
+- * (c) Copyright 2006 Hewlett-Packard Development Company, L.P.
++ * (c) Copyright 2006, 2007 Hewlett-Packard Development Company, L.P.
+  *	Bjorn Helgaas <bjorn.helgaas@hp.com>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -10,11 +10,13 @@
+ #include <linux/compiler.h>
+ #include <linux/module.h>
+ #include <linux/efi.h>
++#include <linux/io.h>
++#include <linux/vmalloc.h>
+ #include <asm/io.h>
+ #include <asm/meminit.h>
+ 
+ static inline void __iomem *
+-__ioremap (unsigned long phys_addr, unsigned long size)
++__ioremap (unsigned long phys_addr)
+ {
+ 	return (void __iomem *) (__IA64_UNCACHED_OFFSET | phys_addr);
+ }
+@@ -22,8 +24,13 @@
+ void __iomem *
+ ioremap (unsigned long phys_addr, unsigned long size)
+ {
++	void __iomem *addr;
++	struct vm_struct *area;
++	unsigned long offset;
++	pgprot_t prot;
+ 	u64 attr;
+ 	unsigned long gran_base, gran_size;
++	unsigned long page_base;
+ 
+ 	/*
+ 	 * For things in kern_memmap, we must use the same attribute
+@@ -34,7 +41,7 @@
+ 	if (attr & EFI_MEMORY_WB)
+ 		return (void __iomem *) phys_to_virt(phys_addr);
+ 	else if (attr & EFI_MEMORY_UC)
+-		return __ioremap(phys_addr, size);
++		return __ioremap(phys_addr);
+ 
+ 	/*
+ 	 * Some chipsets don't support UC access to memory.  If
+@@ -45,7 +52,42 @@
+ 	if (efi_mem_attribute(gran_base, gran_size) & EFI_MEMORY_WB)
+ 		return (void __iomem *) phys_to_virt(phys_addr);
+ 
+-	return __ioremap(phys_addr, size);
++	/*
++	 * WB is not supported for the whole granule, so we can't use
++	 * the region 7 identity mapping.  If we can safely cover the
++	 * area with kernel page table mappings, we can use those
++	 * instead.
++	 */
++	page_base = phys_addr & PAGE_MASK;
++	size = PAGE_ALIGN(phys_addr + size) - page_base;
++	if (efi_mem_attribute(page_base, size) & EFI_MEMORY_WB) {
++		prot = PAGE_KERNEL;
++
++		/*
++		 * Mappings have to be page-aligned
++		 */
++		offset = phys_addr & ~PAGE_MASK;
++		phys_addr &= PAGE_MASK;
++
++		/*
++		 * Ok, go for it..
++		 */
++		area = get_vm_area(size, VM_IOREMAP);
++		if (!area)
++			return NULL;
++
++		area->phys_addr = phys_addr;
++		addr = (void __iomem *) area->addr;
++		if (ioremap_page_range((unsigned long) addr,
++				(unsigned long) addr + size, phys_addr, prot)) {
++			vunmap((void __force *) addr);
++			return NULL;
++		}
++
++		return (void __iomem *) (offset + (char __iomem *)addr);
++	}
++
++	return __ioremap(phys_addr);
+ }
+ EXPORT_SYMBOL(ioremap);
+ 
+@@ -55,6 +97,14 @@
+ 	if (kern_mem_attribute(phys_addr, size) & EFI_MEMORY_WB)
+ 		return NULL;
+ 
+-	return __ioremap(phys_addr, size);
++	return __ioremap(phys_addr);
+ }
+ EXPORT_SYMBOL(ioremap_nocache);
++
++void
++iounmap (volatile void __iomem *addr)
++{
++	if (REGION_NUMBER(addr) = RGN_GATE)
++		vunmap((void __force *) addr);
++}
++EXPORT_SYMBOL(iounmap);
+Index: work-mm10/include/asm-ia64/io.h
+=================================--- work-mm10.orig/include/asm-ia64/io.h	2007-03-20 20:39:59.000000000 -0700
++++ work-mm10/include/asm-ia64/io.h	2007-03-20 21:03:34.000000000 -0700
+@@ -421,11 +421,7 @@
+ 
+ extern void __iomem * ioremap(unsigned long offset, unsigned long size);
+ extern void __iomem * ioremap_nocache (unsigned long offset, unsigned long size);
+-
+-static inline void
+-iounmap (volatile void __iomem *addr)
+-{
+-}
++extern void iounmap (volatile void __iomem *addr);
+ 
+ /* Use normal IO mappings for DMI */
+ #define dmi_ioremap ioremap
