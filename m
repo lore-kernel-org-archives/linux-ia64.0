@@ -1,151 +1,85 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Tue, 20 Mar 2007 14:59:35 +0000
-Subject: [PATCH] Fix irqpoll on IA64 (timer interrupt != 0)
-Message-Id: <20070320150027.GA18143@strauss.suse.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 22 Mar 2007 21:09:22 +0000
+Subject: Re: [PATCH] Fix irqpoll on IA64 (timer interrupt != 0)
+Message-Id: <20070322140922.a59bea5c.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070320150027.GA18143@strauss.suse.de>
+In-Reply-To: <20070320150027.GA18143@strauss.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>
+To: Bernhard Walle <bwalle@suse.de>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>
 
-On IA64, the timer interrupt is not (always?) zero as it is on x86 platforms.
-Also, the timer interrupt is CPU-local. Two things need to be changed to make
-the irqpoll option make also working on IA64:
+On Tue, 20 Mar 2007 16:00:27 +0100
+Bernhard Walle <bwalle@suse.de> wrote:
 
-  o Call note_interrupt() also on CPU-local interrupts in __do_IRQ().
-  o Set a variable timer_irq to the value of the timer interrupt
-    after the timer interrupt has been registered and assigned.
+> On IA64, the timer interrupt is not (always?) zero as it is on x86 platforms.
+> Also, the timer interrupt is CPU-local. Two things need to be changed to make
+> the irqpoll option make also working on IA64:
+> 
+>   o Call note_interrupt() also on CPU-local interrupts in __do_IRQ().
+>   o Set a variable timer_irq to the value of the timer interrupt
+>     after the timer interrupt has been registered and assigned.
+> 
+> That requires changes in Linux-generic files. The default of timer_irq is 0, so
+> the patch doesn't break i386/x86_64. However, other platforms also may also
+> have a timer interrupt non-equal to zero, so they can also use the new
+> set_timer_interrupt() function.
 
-That requires changes in Linux-generic files. The default of timer_irq is 0, so
-the patch doesn't break i386/x86_64. However, other platforms also may also
-have a timer interrupt non-equal to zero, so they can also use the new
-set_timer_interrupt() function.
+Couple of things..
+
+I think the term 'timer_interrupt' is a bit generic-sounding.  Would it be
+better to call it irqpoll_interrupt?  After all, some architecture might
+want to use, umm, the keyboard interrupt to trigger IRQ polling ;)  
+
+Also, the code presently passes the magic IRQ number into the generic IRQ
+code.  I wonder if we'd get a more pleasing result if we were to make the
+generic IRQ code call _out_ to the architecture:
 
 
-Signed-off-by: Bernhard Walle <bwalle@suse.de>
-Acked-by: Thomas Gleixner <tglx@linutronix.de>
-
----
- arch/ia64/kernel/irq_ia64.c |    6 +++++-
- arch/ia64/kernel/time.c     |    6 +++++-
- include/asm-ia64/hw_irq.h   |    2 +-
- include/linux/irq.h         |    3 +++
- kernel/irq/handle.c         |    2 ++
- kernel/irq/spurious.c       |    9 ++++++++-
- 6 files changed, 24 insertions(+), 4 deletions(-)
-
-Index: mainline-msi-init/arch/ia64/kernel/irq_ia64.c
-=================================--- mainline-msi-init.orig/arch/ia64/kernel/irq_ia64.c
-+++ mainline-msi-init/arch/ia64/kernel/irq_ia64.c
-@@ -280,11 +280,12 @@ static struct irqaction resched_irqactio
- };
- #endif
- 
--void
-+int
- register_percpu_irq (ia64_vector vec, struct irqaction *action)
- {
- 	irq_desc_t *desc;
- 	unsigned int irq;
-+	int first_match = -1;
- 
- 	for (irq = 0; irq < NR_IRQS; ++irq)
- 		if (irq_to_vector(irq) = vec) {
-@@ -293,7 +294,10 @@ register_percpu_irq (ia64_vector vec, st
- 			desc->chip = &irq_type_ia64_lsapic;
- 			if (action)
- 				setup_irq(irq, action);
-+			first_match = irq;
- 		}
-+
-+	return first_match;
+diff -puN kernel/irq/spurious.c~a kernel/irq/spurious.c
+--- a/kernel/irq/spurious.c~a
++++ a/kernel/irq/spurious.c
+@@ -135,6 +135,11 @@ report_bad_irq(unsigned int irq, struct 
+ 	}
  }
  
- void __init
-Index: mainline-msi-init/arch/ia64/kernel/time.c
-=================================--- mainline-msi-init.orig/arch/ia64/kernel/time.c
-+++ mainline-msi-init/arch/ia64/kernel/time.c
-@@ -247,7 +247,11 @@ void __devinit ia64_disable_timer(void)
- void __init
- time_init (void)
++bool __attribute__((weak)) arch_is_irqpoll_irq(unsigned int irq)
++{
++	return false;
++}
++
+ void note_interrupt(unsigned int irq, struct irq_desc *desc,
+ 		    irqreturn_t action_ret)
  {
--	register_percpu_irq(IA64_TIMER_VECTOR, &timer_irqaction);
-+	int timer_irq;
-+
-+	timer_irq = register_percpu_irq(IA64_TIMER_VECTOR, &timer_irqaction);
-+	set_timer_interrupt(timer_irq);
-+
- 	efi_gettimeofday(&xtime);
- 	ia64_init_itm();
- 
-Index: mainline-msi-init/include/linux/irq.h
-=================================--- mainline-msi-init.orig/include/linux/irq.h
-+++ mainline-msi-init/include/linux/irq.h
-@@ -272,6 +272,9 @@ static inline int irq_balancing_disabled
- /* Handle irq action chains: */
- extern int handle_IRQ_event(unsigned int irq, struct irqaction *action);
- 
-+/* sets the timer interrupt number for irqpoll handling (kernel/irq/spurious.c) */
-+extern void set_timer_interrupt(unsigned int irq);
-+
- /*
-  * Built-in IRQ handlers for various IRQ types,
-  * callable via desc->chip->handle_irq()
-Index: mainline-msi-init/kernel/irq/spurious.c
-=================================--- mainline-msi-init.orig/kernel/irq/spurious.c
-+++ mainline-msi-init/kernel/irq/spurious.c
-@@ -12,6 +12,7 @@
- #include <linux/interrupt.h>
- 
- static int irqfixup __read_mostly;
-+static unsigned int timer_irq __read_mostly;
- 
- /*
-  * Recovery handler for misrouted interrupts.
-@@ -146,7 +147,7 @@ void note_interrupt(unsigned int irq, st
+@@ -146,7 +151,8 @@ void note_interrupt(unsigned int irq, st
  
  	if (unlikely(irqfixup)) {
  		/* Don't punish working computers */
 -		if ((irqfixup = 2 && irq = 0) || action_ret = IRQ_NONE) {
-+		if ((irqfixup = 2 && irq = timer_irq) || action_ret = IRQ_NONE) {
++		if ((irqfixup = 2 && arch_is_irqpoll_irq(irq)) ||
++				action_ret = IRQ_NONE) {
  			int ok = misrouted_irq(irq);
  			if (action_ret = IRQ_NONE)
  				desc->irqs_unhandled -= ok;
-@@ -174,6 +175,12 @@ void note_interrupt(unsigned int irq, st
- 	desc->irqs_unhandled = 0;
- }
+diff -puN include/linux/irq.h~a include/linux/irq.h
+--- a/include/linux/irq.h~a
++++ a/include/linux/irq.h
+@@ -314,6 +314,7 @@ static inline void generic_handle_irq(un
+ /* Handling of unhandled and spurious interrupts: */
+ extern void note_interrupt(unsigned int irq, struct irq_desc *desc,
+ 			   int action_ret);
++extern bool arch_is_irqpoll_irq(unsigned int irq);
  
-+void set_timer_interrupt(unsigned int irq)
-+{
-+	timer_irq = irq;
-+}
-+EXPORT_SYMBOL_GPL(set_timer_interrupt);
-+
- int noirqdebug __read_mostly;
- 
- int noirqdebug_setup(char *str)
-Index: mainline-msi-init/include/asm-ia64/hw_irq.h
-=================================--- mainline-msi-init.orig/include/asm-ia64/hw_irq.h
-+++ mainline-msi-init/include/asm-ia64/hw_irq.h
-@@ -95,7 +95,7 @@ extern int assign_irq_vector (int irq);	
- extern void free_irq_vector (int vector);
- extern int reserve_irq_vector (int vector);
- extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
--extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
-+extern int register_percpu_irq (ia64_vector vec, struct irqaction *action);
- 
- static inline void ia64_resend_irq(unsigned int vector)
- {
-Index: mainline-msi-init/kernel/irq/handle.c
-=================================--- mainline-msi-init.orig/kernel/irq/handle.c
-+++ mainline-msi-init/kernel/irq/handle.c
-@@ -180,6 +180,8 @@ fastcall unsigned int __do_IRQ(unsigned 
- 		if (desc->chip->ack)
- 			desc->chip->ack(irq);
- 		action_ret = handle_IRQ_event(irq, desc->action);
-+		if (!noirqdebug)
-+			note_interrupt(irq, desc, action_ret);
- 		desc->chip->end(irq);
- 		return 1;
- 	}
+ /* Resending of interrupts :*/
+ void check_irq_resend(struct irq_desc *desc, unsigned int irq);
+_
+
+
+Then, ia64 can implement arch_is_irqpoll_irq() and it can do whatever it
+wants in there.
+
+The __attribute__((weak)) thing adds a little bit of overhead, but I don't
+think this is a fastpath?
+
