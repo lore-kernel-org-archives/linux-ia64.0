@@ -1,41 +1,38 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 23 Mar 2007 03:21:29 +0000
-Subject: [PATCH][2/2] double stack limit (rfc)
-Message-Id: <20070323122129.555a87fd.kamezawa.hiroyu@jp.fujitsu.com>
+From: "Tony Luck" <tony.luck@intel.com>
+Date: Fri, 23 Mar 2007 04:56:03 +0000
+Subject: Re: [PATCH][2/2] double stack limit (rfc)
+Message-Id: <12c511ca0703222156u3cc09833rec636b47ad156029@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070323122129.555a87fd.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070323122129.555a87fd.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-Cc: "tony.luck@intel.com" <tony.luck@intel.com>, "dmosberger@gmail.com" <dmosberger@gmail.com>, surinder.kumar@oracle.com, LKML <linux-kernel@vger.kernel.org>
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "dmosberger@gmail.com" <dmosberger@gmail.com>, surinder.kumar@oracle.com, LKML <linux-kernel@vger.kernel.org>
 
-Now, ia64's hard-stack-size (rlimit.max) is sum of register-stack size and
-memory-stack size. But soft-stack-size (rlimit.cur) accounitng is not sum..
-they are accounted independently. This is inconsistent.
+On 3/22/07, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com> wrote:
+> I hear some people says that "When I set stack-size-limit to 32M,
+> I want to use 32M of memory stack..." and register-stack expansion can
+> fail because stack is used up by memory-stack.
 
-I hear some people says that "When I set stack-size-limit to 32M,
-I want to use 32M of memory stack..." and register-stack expansion can
-fail because stack is used up by memory-stack.
+An interesting dilemma.  If you apply this patch though, you might
+get someone complain that they set the stack limit to 32M, but
+execution continued as the program ran all the way to 64M!
 
-This patch moves register-stack's base address to lower address.
-By this patch, meaning of hard-stack-size can be equal to soft-stack-size and
-we can avoid the case "register-backing store cannot be expanded because the
-memory stack uses the whole stack".
+Possibly you might argue that each of the memory stack and the
+RBS stack should be allowed to grow to the stacklimit ... in which
+case you'd need a more invasive patch that made separate vma
+for each of the stack and the RBS stack, and checked at fault
+time each would be allowed to grow to the stack limit.  But I'm
+not sure that I like that ... ia64 happens to split different objects
+in the stack between the RBS and the memory stack depending
+on whether they happen to be allocated by the compiler to
+stack registers (r32-r127) or to actual memory locations.  Both
+types of allocation contribute to the total "stack" size of the
+process so the existing behaivour of keeping the sum of the
+size of the RBS stack and the memory stack below the
+stack limit seems quite reasonable.  I'm willing to listen to
+opposing arguments though.
 
-How about this ?
-
-Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-
-Index: linux-2.6.21-rc4/arch/ia64/mm/init.c
-=================================--- linux-2.6.21-rc4.orig/arch/ia64/mm/init.c
-+++ linux-2.6.21-rc4/arch/ia64/mm/init.c
-@@ -152,7 +152,7 @@ inline void
- ia64_set_rbs_bot (void)
- {
- 	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
--
-+	stack_size *= 2;
- 	if (stack_size > MAX_USER_STACK_SIZE)
- 		stack_size = MAX_USER_STACK_SIZE;
- 	current->thread.rbs_bot = PAGE_ALIGN(current->mm->start_stack - stack_size);
-
+-Tony
