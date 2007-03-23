@@ -1,24 +1,41 @@
-From: James Bottomley <James.Bottomley@SteelEye.com>
-Date: Tue, 06 Mar 2007 18:01:00 +0000
-Subject: Re: [parisc-linux] [PATCH 1/2] Use a weak symbol for the empty
-Message-Id: <1173204060.3379.28.camel@mulgrave.il.steeleye.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 23 Mar 2007 03:21:29 +0000
+Subject: [PATCH][2/2] double stack limit (rfc)
+Message-Id: <20070323122129.555a87fd.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1173193568.89821.610708199943.qpush@concordia>
-In-Reply-To: <1173193568.89821.610708199943.qpush@concordia>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <michael@ellerman.id.au>
-Cc: Greg Kroah-Hartman <greg@kroah.com>, linux-mips@linux-mips.org, dev-etrax@axis.com, linux-ia64@vger.kernel.org, discuss@x86-64.org, chris@zankel.net, dhowells@redhat.com, linuxppc-dev@ozlabs.org, linux-m68k@vger.kernel.org, ink@jurassic.park.msu.ru, gerg@uclinux.org, sparclinux@vger.kernel.org, uclinux-v850@lsi.nec.co.jp, linux-pci@atrey.karlin.mff.cuni.cz, parisc-linux@parisc-linux.org, kernel@wantstofly.org, rth@twiddle.net
+To: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Cc: "tony.luck@intel.com" <tony.luck@intel.com>, "dmosberger@gmail.com" <dmosberger@gmail.com>, surinder.kumar@oracle.com, LKML <linux-kernel@vger.kernel.org>
 
-On Tue, 2007-03-06 at 16:06 +0100, Michael Ellerman wrote:
-> I'm not sure if this is going to fly, weak symbols work on the compilers I'm
-> using, but whether they work for all of the affected architectures I can't say.
-> I've cc'ed as many arch maintainers/lists as I could find.
+Now, ia64's hard-stack-size (rlimit.max) is sum of register-stack size and
+memory-stack size. But soft-stack-size (rlimit.cur) accounitng is not sum..
+they are accounted independently. This is inconsistent.
 
-Well, for your use, PCI already uses weak symbols, so it must work on
-every architecture that you want to do it on ...
+I hear some people says that "When I set stack-size-limit to 32M,
+I want to use 32M of memory stack..." and register-stack expansion can
+fail because stack is used up by memory-stack.
 
-James
+This patch moves register-stack's base address to lower address.
+By this patch, meaning of hard-stack-size can be equal to soft-stack-size and
+we can avoid the case "register-backing store cannot be expanded because the
+memory stack uses the whole stack".
 
+How about this ?
+
+Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+
+Index: linux-2.6.21-rc4/arch/ia64/mm/init.c
+=================================--- linux-2.6.21-rc4.orig/arch/ia64/mm/init.c
++++ linux-2.6.21-rc4/arch/ia64/mm/init.c
+@@ -152,7 +152,7 @@ inline void
+ ia64_set_rbs_bot (void)
+ {
+ 	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
+-
++	stack_size *= 2;
+ 	if (stack_size > MAX_USER_STACK_SIZE)
+ 		stack_size = MAX_USER_STACK_SIZE;
+ 	current->thread.rbs_bot = PAGE_ALIGN(current->mm->start_stack - stack_size);
 
