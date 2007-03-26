@@ -1,7 +1,7 @@
 From: Andreas Schwab <schwab@suse.de>
-Date: Sun, 25 Mar 2007 09:47:26 +0000
+Date: Mon, 26 Mar 2007 10:01:25 +0000
 Subject: Re: sata-vsc broken on SGI Prism
-Message-Id: <jer6rdu029.fsf@sykes.suse.de>
+Message-Id: <jevegob9xm.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je8xdnova3.fsf@sykes.suse.de>
 	<20070325012044.97dc14fc.akpm@linux-foundation.org>
@@ -21,7 +21,23 @@ Andrew Morton <akpm@linux-foundation.org> writes:
 >
 > With what kernel?
 
-Linus' latest at this point in time.
+It's still the same with 2.6.21-rc5.
+
+>> Bisection has identified this patch (together with the follow-up patch to
+>> fix the compilation failure):
+>>=20
+>> commit 7cbaa86b937b0b1fab95c159989f6a3c00bbcf78
+>> Author: Dan Wolstenholme <daniel@wolstenholme.net>
+>> Date:   Tue Jan 9 05:59:21 2007 -0500
+>>=20
+>>     [libata] sata_vsc: support PCI MSI
+>>    =20
+>>     Signed-off-by: Jeff Garzik <jeff@garzik.org>
+>>=20
+>
+> It seems that little of that patch remains present in current mainline.
+
+I'd guess the real bug is in the SN code.
 
 Andreas.
 
