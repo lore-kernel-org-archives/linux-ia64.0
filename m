@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 27 Mar 2007 20:33:50 +0000
-Subject: Re: [PATCH] - Optional method to purge the TLB on SN systems
-Message-Id: <20070327203350.GA20440@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 27 Mar 2007 22:32:16 +0000
+Subject: RE: [PATCH] - Optional method to purge the TLB on SN systems
+Message-Id: <617E1C2C70743745A92448908E030B2A0148393E@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070327193925.GA8615@sgi.com>
 In-Reply-To: <20070327193925.GA8615@sgi.com>
@@ -10,35 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 27, 2007 at 01:24:27PM -0700, Luck, Tony wrote:
-> +smp_flush_tlb_cpumask (cpumask_t xcpumask)
-> +{
-> +	unsigned short counts[NR_CPUS];
-> 
-> Even as a "short" ... that is still a lot of stack.  Possibly
-> a new place to fail when NR_CPUS gets bumped up again?
+> FWIW, slab.c has a "struct array_cache *new[NR_CPUS]" on the
+> stack.
 
-I was also somwhat concerned about that, too. At NR_CPUS24, it
-uses 2k bytes whick is big but I think ok. Even at NR_CPUS 48,
-I think is is still ok but I'm getting a little nervous. 
+I don't think so.  That line is part of the "struct ccupdate_struct"
+definition.  We only declare a pointer to one of those on the stack.
 
-FWIW, slab.c has a "struct array_cache *new[NR_CPUS]" on the
-stack.
+> Also, net/core/utils.c has "unsigned long seed[NR_CPUS]".
 
-Also, net/core/utils.c has "unsigned long seed[NR_CPUS]".
+I don't see this one either (in Linus 2.6.21-rc5). Looking at
+the history Suresh Siddha zapped it last August specifically
+because of worries about stack overflow on 1024 cpu systems.
 
-I'm only adding 1/4 as much space. Can I get away with it or
-should I allocate a node-local chunk of memory & keep a pointer to
-it in per-cpu data?
+I do see:
+kernel/sched.c: 	int ints[NR_CPUS], i;
 
+> I'm only adding 1/4 as much space. Can I get away with it or
+> should I allocate a node-local chunk of memory & keep a pointer to
+> it in per-cpu data?
 
+Debugging kernel stack overflow is no fun at all, so you might
+want to take the better-safe-than-sorry approach here.
 
-> 
-> +#define IA64_IPI_LOCAL_TLB_FLUSH	0xfc	/* SMP reschedule */
->  #define IA64_IPI_RESCHEDULE		0xfd	/* SMP reschedule */
-> 
-> Cut & pasted the comment when duping this line?
-
-Whoops :-) 
-Fixed....
-
+-Tony
