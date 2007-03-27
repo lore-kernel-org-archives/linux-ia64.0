@@ -1,48 +1,37 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 26 Mar 2007 10:01:25 +0000
+From: Jeff Garzik <jeff@garzik.org>
+Date: Tue, 27 Mar 2007 05:15:34 +0000
 Subject: Re: sata-vsc broken on SGI Prism
-Message-Id: <jevegob9xm.fsf@sykes.suse.de>
+Message-Id: <4608A876.8090104@garzik.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <je8xdnova3.fsf@sykes.suse.de>
-	<20070325012044.97dc14fc.akpm@linux-foundation.org>
-In-Reply-To: <20070325012044.97dc14fc.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Sun, 25 Mar 2007 01:20:44 -0800")
+References: <je8xdnova3.fsf@sykes.suse.de> <20070325012044.97dc14fc.akpm@linux-foundation.org>
+In-Reply-To: <20070325012044.97dc14fc.akpm@linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jeff@garzik.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>, Andreas Schwab <schwab@suse.de>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> writes:
-
+Andrew Morton wrote:
 > On Sat, 24 Mar 2007 10:17:24 +0100 Andreas Schwab <schwab@suse.de> wrote:
->
->> I'm getting this panic when loading sata-vsc on a SGI Prism:
->
-> With what kernel?
-
-It's still the same with 2.6.21-rc5.
-
->> Bisection has identified this patch (together with the follow-up patch to
->> fix the compilation failure):
->>=20
 >> commit 7cbaa86b937b0b1fab95c159989f6a3c00bbcf78
 >> Author: Dan Wolstenholme <daniel@wolstenholme.net>
 >> Date:   Tue Jan 9 05:59:21 2007 -0500
->>=20
+>>
 >>     [libata] sata_vsc: support PCI MSI
->>    =20
+>>     
 >>     Signed-off-by: Jeff Garzik <jeff@garzik.org>
->>=20
->
+>>
+> 
 > It seems that little of that patch remains present in current mainline.
 
-I'd guess the real bug is in the SN code.
 
-Andreas.
+An unfortunately illusion of further changes.  The "turn MSI on" stuff 
+is still here, but Tejun's cleanups made some of that housekeeping code 
+go away.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+But, as Andreas was guessing, the problem here is the platform's MSI 
+support, with this as an unfortunate symptom.
+
+	Jeff
+
+
