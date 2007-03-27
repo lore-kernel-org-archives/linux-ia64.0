@@ -1,62 +1,41 @@
-From: mel@skynet.ie (Mel Gorman)
-Date: Wed, 14 Mar 2007 19:49:41 +0000
-Subject: Re: [QUICKLIST 4/6] x86_64: Single Quicklist
-Message-Id: <20070314194941.GA21862@skynet.ie>
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 27 Mar 2007 13:29:54 +0000
+Subject: [PATCH] - Speed up boot - skip unnecessary clock calibration
+Message-Id: <20070327132953.GA14401@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070311020923.19905.49260.sendpatchset@schroedinger.engr.sgi.com> <20070311020944.19905.87599.sendpatchset@schroedinger.engr.sgi.com> <200703110854.05799.ak@suse.de> <Pine.LNX.4.64.0703110939140.24216@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0703110939140.24216@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, ak@suse.com, linux-ia64@vger.kernel.org, holt@sgi.com, mpm@selenic.com
+To: linux-ia64@vger.kernel.org
 
-On (11/03/07 09:44), Christoph Lameter didst pronounce:
-> On Sun, 11 Mar 2007, Andi Kleen wrote:
-> 
-> > This and i386 version are ok to me, although it might be better to just
-> > finish __GFP_ZERO support to do this.
-> 
-> This would not work for pgds on i386 and x86_64
-> 
-> GFP_ZERO support the way I have done it in the past would mean another set 
-> of buddy lists in the page allocator and another issue with fragmentation. 
-> So I have stayed away from it although patches exist in my archives (See 
-> my ftp.kernel.org archive).
+Skip clock calibration if cpu being brought online is exactly the same
+speed, stepping, etc., as the previous cpu. This significantly reduces
+the time to boot very large systems. 
 
-I haven't checked this in a while but when we experimented with keeping
-zero'd pages on separate lists before, the performance sucked. I haven't
-looked at it in a *long* time though.
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-> 
-> Maybe we could implemento limited GFP_ZERO support by just keeping an 
-> additional per cpu list of pages?
 
-I imagine that adding an additional per-cpu list will not be welcome.
-
-> The issue with that one is that a page
-> may grow cold on that list.
-
-And that growing cold appeared to hurt before. It could be checked out
-again though. The anti-fragmentation breaks out the buddy lists already
-and has the ability to search the per-cpu lists for pages of an
-appropriate type.
-
-I'll try and find an hour or two to hack something together to see what
-it looks like but I suspect it'll still be a performance loss. At least
-then though, we can see if quicklists are a better plan or not.
-
-> One usually want the page to be hot in the 
-> cache when it is allocated. This is different for page table pages. Page 
-> table pages are typically sparsely accessed.
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
--- 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+Index: linux/arch/ia64/kernel/smpboot.c
+=================================--- linux.orig/arch/ia64/kernel/smpboot.c	2007-03-26 15:04:29.322256475 -0500
++++ linux/arch/ia64/kernel/smpboot.c	2007-03-27 08:26:41.914042190 -0500
+@@ -424,7 +424,19 @@ smp_callin (void)
+ 	 * Get our bogomips.
+ 	 */
+ 	ia64_init_itm();
+-	calibrate_delay();
++
++	/*
++	 * Delay calibration can be skipped if new processor is identical to the
++	 * previous processor.
++	 */
++	if (local_cpu_data->itc_freq != per_cpu(cpu_info, cpuid - 1).itc_freq ||
++			local_cpu_data->proc_freq != per_cpu(cpu_info, cpuid - 1).proc_freq ||
++	    		local_cpu_data->features != per_cpu(cpu_info, cpuid - 1).features ||
++	    		local_cpu_data->revision != per_cpu(cpu_info, cpuid - 1).revision ||
++	    		local_cpu_data->family != per_cpu(cpu_info, cpuid - 1).family ||
++	    		local_cpu_data->archrev != per_cpu(cpu_info, cpuid - 1).archrev ||
++	    		local_cpu_data->model != per_cpu(cpu_info, cpuid - 1).model)
++		calibrate_delay();
+ 	local_cpu_data->loops_per_jiffy = loops_per_jiffy;
+ 
+ #ifdef CONFIG_IA32_SUPPORT
