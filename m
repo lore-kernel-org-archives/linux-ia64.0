@@ -1,159 +1,190 @@
-From: akpm@linux-foundation.org
-Date: Tue, 06 Mar 2007 10:34:26 +0000
-Subject: [patch 6/6] ia64 kexec: Use EFI_LOADER_DATA for ELF core header
-Message-Id: <200703061034.l26AYQ4V019355@shell0.pdx.osdl.net>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 27 Mar 2007 04:45:17 +0000
+Subject: [PATCH 2/4] Remove duplicated members in iosapic_rte_info
+Message-Id: <4608A15D.6030303@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Magnus Damm <magnus@valinux.co.jp>
+Remove duplicated members in iosapic_rte_info in iosapic.c. This patch
+has no functional changes.
 
-The address where the ELF core header is stored is passed to the secondary
-kernel as a kernel command line option.  The memory area for this header is
-also marked as a separate EFI memory descriptor on ia64.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-The separate EFI memory descriptor is at the moment of the type
-EFI_UNUSABLE_MEMORY.  With such a type the secondary kernel skips over the
-entire memory granule (config option, 16M or 64M) when detecting memory. 
-If we are lucky we will just lose some memory, but if we happen to have
-data in the same granule (such as an initramfs image), then this data will
-never get mapped and the kernel bombs out when trying to access it.
-
-So this is an attempt to fix this by changing the EFI memory descriptor
-type into EFI_LOADER_DATA.  This type is the same type used for the kernel
-data and for initramfs.  In the secondary kernel we then handle the ELF
-core header data the same way as we handle the initramfs image.
-
-This patch contains the kernel changes to make this happen.  Pretty
-straightforward, we reserve the area in reserve_memory().  The address for
-the area comes from the kernel command line and the size comes from the
-specialized EFI parsing function vmcore_find_descriptor_size().
-
-The kexec-tools-testing code for this can be found here:
-http://lists.osdl.org/pipermail/fastboot/2007-February/005983.html
-
-Signed-off-by: Magnus Damm <magnus@valinux.co.jp>
-Cc: Simon Horman <horms@verge.net.au>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Cc: Vivek Goyal <vgoyal@in.ibm.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
+ arch/ia64/kernel/iosapic.c |   60 ++++++++++++++++++---------------------------
+ 1 files changed, 24 insertions(+), 36 deletions(-)
 
- arch/ia64/kernel/efi.c     |   30 ++++++++++++++++++++++++++++++
- arch/ia64/kernel/setup.c   |   30 ++++++++++++++++++++++++++++++
- include/asm-ia64/meminit.h |    6 +++++-
- 3 files changed, 65 insertions(+), 1 deletion(-)
-
-diff -puN arch/ia64/kernel/efi.c~ia64-kexec-use-efi_loader_data-for-elf-core-header arch/ia64/kernel/efi.c
---- a/arch/ia64/kernel/efi.c~ia64-kexec-use-efi_loader_data-for-elf-core-header
-+++ a/arch/ia64/kernel/efi.c
-@@ -1183,3 +1183,33 @@ kdump_find_rsvd_region (unsigned long si
-   return ~0UL;
- }
- #endif
-+
-+#ifdef CONFIG_PROC_VMCORE
-+/* locate the size find a the descriptor at a certain address */
-+unsigned long
-+vmcore_find_descriptor_size (unsigned long address)
-+{
-+	void *efi_map_start, *efi_map_end, *p;
-+	efi_memory_desc_t *md;
-+	u64 efi_desc_size;
-+	unsigned long ret = 0;
-+
-+	efi_map_start = __va(ia64_boot_param->efi_memmap);
-+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-+
-+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-+		md = p;
-+		if (efi_wb(md) && md->type = EFI_LOADER_DATA
-+		    && md->phys_addr = address) {
-+			ret = efi_md_size(md);
-+			break;
-+		}
-+	}
-+
-+	if (ret = 0)
-+		printk(KERN_WARNING "Cannot locate EFI vmcore descriptor\n");
-+
-+	return ret;
-+}
+Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:34.000000000 +0900
++++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:35.000000000 +0900
+@@ -118,16 +118,22 @@
+  * These tables map IA-64 vectors to the IOSAPIC pin that generates this
+  * vector.
+  */
++static struct iosapic {
++	char __iomem	*addr;		/* base address of IOSAPIC */
++	unsigned int 	gsi_base;	/* GSI base */
++	unsigned short 	num_rte;	/* # of RTEs on this IOSAPIC */
++	int		rtes_inuse;	/* # of RTEs in use on this IOSAPIC */
++#ifdef CONFIG_NUMA
++	unsigned short	node;		/* numa node association via pxm */
 +#endif
-diff -puN arch/ia64/kernel/setup.c~ia64-kexec-use-efi_loader_data-for-elf-core-header arch/ia64/kernel/setup.c
---- a/arch/ia64/kernel/setup.c~ia64-kexec-use-efi_loader_data-for-elf-core-header
-+++ a/arch/ia64/kernel/setup.c
-@@ -250,6 +250,12 @@ reserve_memory (void)
++} iosapic_lists[NR_IOSAPICS];
+ 
+ struct iosapic_rte_info {
+-	struct list_head rte_list;	/* node in list of RTEs sharing the
+-					 * same vector */
+-	char __iomem	*addr;		/* base address of IOSAPIC */
+-	unsigned int	gsi_base;	/* first GSI assigned to this
+-					 * IOSAPIC */
++	struct list_head rte_list;	/* RTEs sharing the same vector */
+ 	char		rte_index;	/* IOSAPIC RTE index */
+ 	int		refcnt;		/* reference counter */
+ 	unsigned int	flags;		/* flags */
++	struct iosapic	*iosapic;
+ } ____cacheline_aligned;
+ 
+ static struct iosapic_intr_info {
+@@ -143,17 +149,6 @@
+ 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
+ } iosapic_intr_info[IA64_NUM_VECTORS];
+ 
+-static struct iosapic {
+-	char __iomem	*addr;		/* base address of IOSAPIC */
+-	unsigned int 	gsi_base;	/* first GSI assigned to this
+-					 * IOSAPIC */
+-	unsigned short 	num_rte;	/* # of RTEs on this IOSAPIC */
+-	int		rtes_inuse;	/* # of RTEs in use on this IOSAPIC */
+-#ifdef CONFIG_NUMA
+-	unsigned short	node;		/* numa node association via pxm */
+-#endif
+-} iosapic_lists[NR_IOSAPICS];
+-
+ static unsigned char pcat_compat __devinitdata;	/* 8259 compatibility flag */
+ 
+ static int iosapic_kmalloc_ok;
+@@ -185,7 +180,7 @@
+ 	for (info = iosapic_intr_info; info <
+ 		     iosapic_intr_info + IA64_NUM_VECTORS; ++info)
+ 		list_for_each_entry(rte, &info->rtes, rte_list)
+-			if (rte->gsi_base + rte->rte_index = gsi)
++			if (rte->iosapic->gsi_base + rte->rte_index = gsi)
+ 				return info - iosapic_intr_info;
+ 	return -1;
+ }
+@@ -222,7 +217,7 @@
+ 	struct iosapic_rte_info *rte;
+ 
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
+-		if (rte->gsi_base + rte->rte_index = gsi)
++		if (rte->iosapic->gsi_base + rte->rte_index = gsi)
+ 			return rte;
+ 	return NULL;
+ }
+@@ -244,7 +239,7 @@
+ 		return;		/* not an IOSAPIC interrupt */
+ 
+ 	rte_index = rte->rte_index;
+-	addr	= rte->addr;
++	addr	= rte->iosapic->addr;
+ 	pol     = iosapic_intr_info[vector].polarity;
+ 	trigger = iosapic_intr_info[vector].trigger;
+ 	dmode   = iosapic_intr_info[vector].dmode;
+@@ -298,10 +293,10 @@
+ 			iosapic_intr_info + IA64_NUM_VECTORS; ++info, ++vec) {
+ 		list_for_each_entry(rte, &info->rtes,
+ 				rte_list) {
+-			iosapic_write(rte->addr,
++			iosapic_write(rte->iosapic->addr,
+ 					IOSAPIC_RTE_LOW(rte->rte_index),
+ 					IOSAPIC_MASK|vec);
+-			iosapic_eoi(rte->addr, vec);
++			iosapic_eoi(rte->iosapic->addr, vec);
+ 		}
  	}
- #endif
- 
-+#ifdef CONFIG_PROC_VMCORE
-+	if (reserve_elfcorehdr(&rsvd_region[n].start,
-+			       &rsvd_region[n].end) = 0)
-+		n++;
-+#endif
-+
- 	efi_memmap_init(&rsvd_region[n].start, &rsvd_region[n].end);
- 	n++;
- 
-@@ -452,6 +458,30 @@ static int __init parse_elfcorehdr(char 
- 	return 0;
  }
- early_param("elfcorehdr", parse_elfcorehdr);
-+
-+int __init reserve_elfcorehdr(unsigned long *start, unsigned long *end)
-+{
-+	unsigned long length;
-+
-+	/* We get the address using the kernel command line,
-+	 * but the size is extracted from the EFI tables.
-+	 * Both address and size are required for reservation
-+	 * to work properly.
-+	 */
-+
-+	if (elfcorehdr_addr >= ELFCORE_ADDR_MAX)
-+		return -EINVAL;
-+
-+	if ((length = vmcore_find_descriptor_size(elfcorehdr_addr)) = 0) {
-+		elfcorehdr_addr = ELFCORE_ADDR_MAX;
-+		return -EINVAL;
-+	}
-+
-+	*start = (unsigned long)__va(elfcorehdr_addr);
-+	*end = *start + length;
-+	return 0;
-+}
-+
- #endif /* CONFIG_PROC_VMCORE */
+@@ -324,7 +319,7 @@
+ 	/* set only the mask bit */
+ 	low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->addr;
++		addr = rte->iosapic->addr;
+ 		rte_index = rte->rte_index;
+ 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+ 	}
+@@ -347,7 +342,7 @@
+ 	spin_lock_irqsave(&iosapic_lock, flags);
+ 	low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->addr;
++		addr = rte->iosapic->addr;
+ 		rte_index = rte->rte_index;
+ 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+ 	}
+@@ -395,7 +390,7 @@
+ 	iosapic_intr_info[vec].low32 = low32;
+ 	iosapic_intr_info[vec].dest = dest;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->addr;
++		addr = rte->iosapic->addr;
+ 		rte_index = rte->rte_index;
+ 		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+ 		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+@@ -423,7 +418,7 @@
  
- void __init
-diff -puN include/asm-ia64/meminit.h~ia64-kexec-use-efi_loader_data-for-elf-core-header include/asm-ia64/meminit.h
---- a/include/asm-ia64/meminit.h~ia64-kexec-use-efi_loader_data-for-elf-core-header
-+++ a/include/asm-ia64/meminit.h
-@@ -17,10 +17,11 @@
-  * 	- kernel code & data
-  * 	- crash dumping code reserved region
-  * 	- Kernel memory map built from EFI memory map
-+ * 	- ELF core header
-  *
-  * More could be added if necessary
-  */
--#define IA64_MAX_RSVD_REGIONS 7
-+#define IA64_MAX_RSVD_REGIONS 8
+ 	move_native_irq(irq);
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
+-		iosapic_eoi(rte->addr, vec);
++		iosapic_eoi(rte->iosapic->addr, vec);
+ }
  
- struct rsvd_region {
- 	unsigned long start;	/* virtual address of beginning of element */
-@@ -36,6 +37,9 @@ extern void find_initrd (void);
- extern int filter_rsvd_memory (unsigned long start, unsigned long end, void *arg);
- extern void efi_memmap_init(unsigned long *, unsigned long *);
+ #define iosapic_shutdown_level_irq	mask_irq
+@@ -615,10 +610,7 @@
+ {
+ 	irq_desc_t *idesc;
+ 	struct hw_interrupt_type *irq_type;
+-	int rte_index;
+ 	int index;
+-	unsigned long gsi_base;
+-	void __iomem *iosapic_address;
+ 	struct iosapic_rte_info *rte;
  
-+extern unsigned long vmcore_find_descriptor_size(unsigned long address);
-+extern int reserve_elfcorehdr(unsigned long *start, unsigned long *end);
-+
- /*
-  * For rounding an address to the next IA64_GRANULE_SIZE or order
-  */
-_
+ 	index = find_iosapic(gsi);
+@@ -628,9 +620,6 @@
+ 		return -ENODEV;
+ 	}
+ 
+-	iosapic_address = iosapic_lists[index].addr;
+-	gsi_base = iosapic_lists[index].gsi_base;
+-
+ 	rte = gsi_vector_to_rte(gsi, vector);
+ 	if (!rte) {
+ 		rte = iosapic_alloc_rte();
+@@ -640,10 +629,8 @@
+ 			return -ENOMEM;
+ 		}
+ 
+-		rte_index = gsi - gsi_base;
+-		rte->rte_index	= rte_index;
+-		rte->addr	= iosapic_address;
+-		rte->gsi_base	= gsi_base;
++		rte->iosapic	= &iosapic_lists[index];
++		rte->rte_index	= gsi - rte->iosapic->gsi_base;
+ 		rte->refcnt++;
+ 		list_add_tail(&rte->rte_list, &iosapic_intr_info[vector].rtes);
+ 		iosapic_intr_info[vector].count++;
+@@ -878,7 +865,8 @@
+ 
+ 	/* Mask the interrupt */
+ 	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
+-	iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index), low32);
++	iosapic_write(rte->iosapic->addr,
++		      IOSAPIC_RTE_LOW(rte->rte_index), low32);
+ 
+ 	/* Remove the rte entry from the list */
+ 	list_del(&rte->rte_list);
+
+
