@@ -1,8 +1,10 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 21 Mar 2007 22:21:33 +0000
+Date: Fri, 30 Mar 2007 16:33:11 +0000
 Subject: [patch 1/5] ia64: rename ioremap variables to match i386
-Message-Id: <200703211621.33943.bjorn.helgaas@hp.com>
+Message-Id: <200703301033.11492.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200703211621.33943.bjorn.helgaas@hp.com>
+In-Reply-To: <200703211621.33943.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
