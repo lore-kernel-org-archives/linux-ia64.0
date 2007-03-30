@@ -1,8 +1,10 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 21 Mar 2007 22:21:49 +0000
+Date: Fri, 30 Mar 2007 16:34:44 +0000
 Subject: [patch 3/5] ia64: allow WB /sys/.../legacy_mem mmaps
-Message-Id: <200703211621.49988.bjorn.helgaas@hp.com>
+Message-Id: <200703301034.44253.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200703211621.49988.bjorn.helgaas@hp.com>
+In-Reply-To: <200703211621.49988.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
