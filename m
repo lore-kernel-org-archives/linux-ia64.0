@@ -1,12 +1,39 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 27 Mar 2007 04:47:39 +0000
-Subject: [PATCH 4/4] Cleanup lock order in iosapic_register_intr
-Message-Id: <4608A1EB.3000701@jp.fujitsu.com>
+Date: Fri, 30 Mar 2007 17:01:30 +0000
+Subject: Re: [PATCH 4/4] Cleanup lock order in iosapic_register_intr
+Message-Id: <460D426A.6000708@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4608A1EB.3000701@jp.fujitsu.com>
+In-Reply-To: <4608A1EB.3000701@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Hi,
+
+I found a bug in this patch.
+
+>  
+>  	/* If vector is running out, we try to find a sharable vector */
+>  	vector = assign_irq_vector(AUTO_ASSIGN);
+>  	if (vector < 0) {
+>  		vector = iosapic_find_sharable_vector(trigger, polarity);
+>    		if (vector < 0)
+> -			return -ENOSPC;
+> +			goto unlock_iosapic_lock;
+>  	}
+>  
+>  	spin_lock_irqsave(&irq_desc[vector].lock, flags);
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This linue must be
+        spin_lock(&irq_desc[vector].lock, flags);
+
+I'm sorry about that. Here is a fixed one.
+
+Thanks,
+Kenji Kaneshige
+
 
 Cleanup order of irq_desc.lock and iosapic_lock in
 iosapic_register_intr() and iosapic_unregister_intr().
@@ -14,12 +41,12 @@ iosapic_register_intr() and iosapic_unregister_intr().
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
 ---
- arch/ia64/kernel/iosapic.c |   48 +++++++++++++++++----------------------------
- 1 files changed, 19 insertions(+), 29 deletions(-)
+ arch/ia64/kernel/iosapic.c |   50 ++++++++++++++++++---------------------------
+ 1 files changed, 20 insertions(+), 30 deletions(-)
 
 Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:35.000000000 +0900
-+++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-03-26 09:38:36.000000000 +0900
+=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-03-31 01:17:47.000000000 +0900
++++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-03-31 01:18:33.000000000 +0900
 @@ -502,7 +502,7 @@
  static int iosapic_find_sharable_vector (unsigned long trigger,
  					 unsigned long pol)
@@ -63,10 +90,9 @@ Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
  		vector = iosapic_find_sharable_vector(trigger, polarity);
    		if (vector < 0)
 -			return -ENOSPC;
-+			goto unlock_iosapic_lock;
- 	}
- 
- 	spin_lock_irqsave(&irq_desc[vector].lock, flags);
+-	}
+-
+-	spin_lock_irqsave(&irq_desc[vector].lock, flags);
 -	spin_lock(&iosapic_lock);
 -	if (gsi_to_vector(gsi) > 0) {
 -		if (list_empty(&iosapic_intr_info[vector].rtes))
@@ -74,8 +100,10 @@ Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
 -		spin_unlock(&iosapic_lock);
 -		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
 -		goto again;
--	}
--
++			goto unlock_iosapic_lock;
+ 	}
+ 
++	spin_lock(&irq_desc[vector].lock);
  	dest = get_target_cpu(gsi, vector);
  	err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
  			    polarity, trigger);
@@ -147,5 +175,4 @@ Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
  }
  
  /*
-
 
