@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 20 Mar 2007 22:11:20 +0000
+Date: Fri, 30 Mar 2007 02:30:24 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <200703202211.l2KMBKoe032435@agluck-lia64.sc.intel.com>
+Message-Id: <200703300230.l2U2UOHe010532@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -22,27 +22,20 @@ Thanks!
 
 -Tony
 
- arch/ia64/kernel/crash.c      |    2 +-
- arch/ia64/kernel/setup.c      |   22 +++++++++++++++-------
- arch/ia64/mm/contig.c         |   30 ++++++------------------------
- arch/ia64/mm/discontig.c      |    4 +---
- arch/ia64/mm/init.c           |   16 ++++++++++++++++
- arch/ia64/sn/kernel/io_init.c |   12 ++++++++++--
- arch/ia64/sn/kernel/setup.c   |    6 +++---
- include/asm-ia64/meminit.h    |    1 +
- 8 files changed, 53 insertions(+), 40 deletions(-)
-
-Bernhard Walle (1):
-      [IA64] Fix wrong /proc/iomem on SGI Altix
+ arch/ia64/kernel/msi_ia64.c |    2 +-
+ arch/ia64/kernel/smpboot.c  |   17 ++++++++++++++++-
+ arch/ia64/mm/init.c         |    2 +-
+ arch/ia64/pci/pci.c         |    1 -
+ 4 files changed, 18 insertions(+), 4 deletions(-)
 
 Jack Steiner (1):
-      [IA64] Fix get_model_name() for mixed cpu type systems
+      [IA64] Speed up boot - skip unnecessary clock calibration
 
-Jay Lan (1):
-      [IA64] Fix typo/thinko in crash.c
+KAMEZAWA Hiroyuki (1):
+      [IA64] bugfix stack layout upside-down
 
-John Keller (1):
-      [IA64] Altix: ioremap vga_console_iobase
+Kenji Kaneshige (1):
+      [IA64] Fix possible invalid memory access in ia64_setup_msi_irq()
 
-Zou Nan hai (1):
-      [IA64] min_low_pfn and max_low_pfn calculation fix
+Tony Luck (1):
+      [IA64] Fix arch/ia64/pci/pci.c:571: warning: `return' with a value
