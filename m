@@ -1,8 +1,10 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 21 Mar 2007 22:22:05 +0000
+Date: Fri, 30 Mar 2007 16:35:43 +0000
 Subject: [patch 4/5] ia64: fail mmaps that span areas with incompatible attributes
-Message-Id: <200703211622.05198.bjorn.helgaas@hp.com>
+Message-Id: <200703301035.43391.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200703211622.05198.bjorn.helgaas@hp.com>
+In-Reply-To: <200703211622.05198.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
