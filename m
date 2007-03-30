@@ -1,8 +1,10 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 21 Mar 2007 22:21:40 +0000
+Date: Fri, 30 Mar 2007 16:34:05 +0000
 Subject: [patch 2/5] ia64: make ioremap avoid unsupported attributes
-Message-Id: <200703211621.40717.bjorn.helgaas@hp.com>
+Message-Id: <200703301034.05723.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200703211621.40717.bjorn.helgaas@hp.com>
+In-Reply-To: <200703211621.40717.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -31,7 +33,7 @@ Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
 Index: work-mm10/arch/ia64/mm/ioremap.c
 =================================--- work-mm10.orig/arch/ia64/mm/ioremap.c	2007-03-20 21:03:33.000000000 -0700
-+++ work-mm10/arch/ia64/mm/ioremap.c	2007-03-21 12:56:01.000000000 -0700
++++ work-mm10/arch/ia64/mm/ioremap.c	2007-03-30 09:19:44.000000000 -0700
 @@ -1,5 +1,5 @@
  /*
 - * (c) Copyright 2006 Hewlett-Packard Development Company, L.P.
@@ -134,7 +136,7 @@ Index: work-mm10/arch/ia64/mm/ioremap.c
 +iounmap (volatile void __iomem *addr)
 +{
 +	if (REGION_NUMBER(addr) = RGN_GATE)
-+		vunmap((void __force *) addr);
++		vunmap((void *) ((unsigned long) addr & PAGE_MASK));
 +}
 +EXPORT_SYMBOL(iounmap);
 Index: work-mm10/include/asm-ia64/io.h
