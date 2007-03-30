@@ -1,25 +1,21 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 30 Mar 2007 16:31:08 +0000
-Subject: [patch 0/5] ia64 memory attribute fixes (revision 2)
-Message-Id: <200703301031.09029.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 30 Mar 2007 17:33:25 +0000
+Subject: RE: [patch 0/5] ia64 memory attribute fixes (revision 2)
+Message-Id: <617E1C2C70743745A92448908E030B2A014BEDD7@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200703301031.09029.bjorn.helgaas@hp.com>
+In-Reply-To: <200703301031.09029.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This series fixes a few memory mapping issues on ia64.
+> This series fixes a few memory mapping issues on ia64.
+>
+> Changes from the first posting:
+>  - page-align address for vunmap in patch 2
 
-Changes from the first posting:
-  - page-align address for vunmap in patch 2
-  - cc: akpm
+Looks good ... it's in my test tree now, so it will get
+into -mm next time akpm does a build.
 
-Outline:
-
-  1  rename ioremap variables to match i386 (no functional change)
-  2  use page table mappings in ioremap to avoid unsupported attributes
-  3  allow WB mmap of /sys/.../legacy_mem
-  4  fail mmaps that span areas with incompatible attributes
-  5  update documentation & add tests
-
-These are independent except that 2 depends on 1.
+-Tony
