@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 22 Mar 2007 17:39:22 +0000
-Subject: Re: [patch 5/5] ia64: update memory attribute aliasing documentation & test cases
-Message-Id: <200703221139.23110.bjorn.helgaas@hp.com>
+Date: Fri, 30 Mar 2007 16:39:42 +0000
+Subject: [patch 5/5] ia64: update memory attribute aliasing documentation & test cases
+Message-Id: <200703301039.42979.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200703211622.26630.bjorn.helgaas@hp.com>
 In-Reply-To: <200703211622.26630.bjorn.helgaas@hp.com>
@@ -9,15 +9,6 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-
-> > +	Failing all of the above, we have to all back to a UC mapping.
-> 
-> s/all back/fall back/
-
-Thanks, corrected version below.
-
-
-ia64: update memory attribute aliasing documentation & test cases
 
 Updates documentation and adds some test cases.
 
