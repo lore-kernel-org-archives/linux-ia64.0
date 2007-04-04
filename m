@@ -1,83 +1,67 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 12 Apr 2007 19:15:40 +0000
-Subject: [patch] EFI: warn only for pre-1.00 system tables
-Message-Id: <200704121315.40754.bjorn.helgaas@hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 04 Apr 2007 23:06:30 +0000
+Subject: [PATCH 3/4] IA64: SPARSE_VIRTUAL 16K page size support
+Message-Id: <20070404230629.20292.89714.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070404230619.20292.4475.sendpatchset@schroedinger.engr.sgi.com>
+In-Reply-To: <20070404230619.20292.4475.sendpatchset@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Martin Bligh <mbligh@google.com>, linux-mm@kvack.org, Christoph Lameter <clameter@sgi.com>, Dave Hansen <hansendc@us.ibm.com>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Andi Kleen <ak@suse.de>
 
-We used to warn unless the EFI system table major revision was exactly 1.
-But EFI 2.00 firmware is starting to appear, and the 2.00 changes don't
-affect anything in Linux.
+[IA64] Sparse virtual implementation
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Equip IA64 sparsemem with a virtual memmap. This is similar to the existing
+CONFIG_VMEMMAP functionality for discontig. It uses a page size mapping.
 
-Index: w/include/linux/efi.h
-=================================--- w.orig/include/linux/efi.h	2007-04-12 13:07:13.000000000 -0600
-+++ w/include/linux/efi.h	2007-04-12 13:07:15.000000000 -0600
-@@ -213,7 +213,6 @@
- } efi_config_table_t;
+This is provided as a minimally intrusive solution. We split the
+128TB VMALLOC area into two 64TB areas and use one for the virtual memmap.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.21-rc5-mm2/arch/ia64/Kconfig
+=================================--- linux-2.6.21-rc5-mm2.orig/arch/ia64/Kconfig	2007-04-02 16:15:29.000000000 -0700
++++ linux-2.6.21-rc5-mm2/arch/ia64/Kconfig	2007-04-02 16:15:50.000000000 -0700
+@@ -350,6 +350,10 @@ config ARCH_SPARSEMEM_ENABLE
+ 	def_bool y
+ 	depends on ARCH_DISCONTIGMEM_ENABLE
  
- #define EFI_SYSTEM_TABLE_SIGNATURE ((u64)0x5453595320494249ULL)
--#define EFI_SYSTEM_TABLE_REVISION  ((1 << 16) | 00)
- 
- typedef struct {
- 	efi_table_hdr_t hdr;
-Index: w/arch/i386/kernel/efi.c
-=================================--- w.orig/arch/i386/kernel/efi.c	2007-04-12 13:07:13.000000000 -0600
-+++ w/arch/i386/kernel/efi.c	2007-04-12 13:07:15.000000000 -0600
-@@ -349,14 +349,12 @@
- 		printk(KERN_ERR PFX "Woah! Couldn't map the EFI system table.\n");
- 	if (efi.systab->hdr.signature != EFI_SYSTEM_TABLE_SIGNATURE)
- 		printk(KERN_ERR PFX "Woah! EFI system table signature incorrect\n");
--	if ((efi.systab->hdr.revision ^ EFI_SYSTEM_TABLE_REVISION) >> 16 != 0)
--		printk(KERN_ERR PFX
--		       "Warning: EFI system table major version mismatch: "
--		       "got %d.%02d, expected %d.%02d\n",
-+	if ((efi.systab->hdr.revision >> 16) = 0)
-+		printk(KERN_ERR PFX "Warning: EFI system table version "
-+		       "%d.%02d, expected 1.00 or greater\n",
- 		       efi.systab->hdr.revision >> 16,
--		       efi.systab->hdr.revision & 0xffff,
--		       EFI_SYSTEM_TABLE_REVISION >> 16,
--		       EFI_SYSTEM_TABLE_REVISION & 0xffff);
-+		       efi.systab->hdr.revision & 0xffff);
++config SPARSE_VIRTUAL
++	def_bool y
++	depends on ARCH_SPARSEMEM_ENABLE
 +
- 	/*
- 	 * Grab some details from the system table
- 	 */
-Index: w/arch/ia64/kernel/efi.c
-=================================--- w.orig/arch/ia64/kernel/efi.c	2007-04-12 13:07:13.000000000 -0600
-+++ w/arch/ia64/kernel/efi.c	2007-04-12 13:07:15.000000000 -0600
-@@ -448,11 +448,11 @@
- 		panic("Woah! Can't find EFI system table.\n");
- 	if (efi.systab->hdr.signature != EFI_SYSTEM_TABLE_SIGNATURE)
- 		panic("Woah! EFI system table signature incorrect\n");
--	if ((efi.systab->hdr.revision ^ EFI_SYSTEM_TABLE_REVISION) >> 16 != 0)
--		printk(KERN_WARNING "Warning: EFI system table major version mismatch: "
--		       "got %d.%02d, expected %d.%02d\n",
--		       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff,
--		       EFI_SYSTEM_TABLE_REVISION >> 16, EFI_SYSTEM_TABLE_REVISION & 0xffff);
-+	if ((efi.systab->hdr.revision >> 16) = 0)
-+		printk(KERN_WARNING "Warning: EFI system table version "
-+		       "%d.%02d, expected 1.00 or greater\n",
-+		       efi.systab->hdr.revision >> 16,
-+		       efi.systab->hdr.revision & 0xffff);
+ config ARCH_DISCONTIGMEM_DEFAULT
+ 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB)
+ 	depends on ARCH_DISCONTIGMEM_ENABLE
+Index: linux-2.6.21-rc5-mm2/include/asm-ia64/page.h
+=================================--- linux-2.6.21-rc5-mm2.orig/include/asm-ia64/page.h	2007-04-02 16:15:29.000000000 -0700
++++ linux-2.6.21-rc5-mm2/include/asm-ia64/page.h	2007-04-02 16:15:50.000000000 -0700
+@@ -106,6 +106,9 @@ extern int ia64_pfn_valid (unsigned long
+ # define ia64_pfn_valid(pfn) 1
+ #endif
  
- 	config_tables = __va(efi.systab->tables);
++#define vmemmap ((struct page *)(RGN_BASE(RGN_GATE) + \
++				(1UL << (4*PAGE_SHIFT - 10))))
++
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ extern struct page *vmem_map;
+ #ifdef CONFIG_DISCONTIGMEM
+Index: linux-2.6.21-rc5-mm2/include/asm-ia64/pgtable.h
+=================================--- linux-2.6.21-rc5-mm2.orig/include/asm-ia64/pgtable.h	2007-04-02 16:15:29.000000000 -0700
++++ linux-2.6.21-rc5-mm2/include/asm-ia64/pgtable.h	2007-04-02 16:15:50.000000000 -0700
+@@ -236,8 +236,13 @@ ia64_phys_addr_valid (unsigned long addr
+ # define VMALLOC_END		vmalloc_end
+   extern unsigned long vmalloc_end;
+ #else
++#if defined(CONFIG_SPARSEMEM) && defined(CONFIG_SPARSE_VIRTUAL)
++/* SPARSE_VIRTUAL uses half of vmalloc... */
++# define VMALLOC_END		(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 10)))
++#else
+ # define VMALLOC_END		(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
+ #endif
++#endif
  
-Index: w/arch/ia64/hp/sim/boot/fw-emu.c
-=================================--- w.orig/arch/ia64/hp/sim/boot/fw-emu.c	2007-04-12 13:07:13.000000000 -0600
-+++ w/arch/ia64/hp/sim/boot/fw-emu.c	2007-04-12 13:07:15.000000000 -0600
-@@ -287,7 +287,7 @@
- 
- 	memset(efi_systab, 0, sizeof(efi_systab));
- 	efi_systab->hdr.signature = EFI_SYSTEM_TABLE_SIGNATURE;
--	efi_systab->hdr.revision  = EFI_SYSTEM_TABLE_REVISION;
-+	efi_systab->hdr.revision  = ((1 << 16) | 00);
- 	efi_systab->hdr.headersize = sizeof(efi_systab->hdr);
- 	efi_systab->fw_vendor = __pa("H\0e\0w\0l\0e\0t\0t\0-\0P\0a\0c\0k\0a\0r\0d\0\0");
- 	efi_systab->fw_revision = 1;
+ /* fs/proc/kcore.c */
+ #define	kc_vaddr_to_offset(v) ((v) - RGN_BASE(RGN_GATE))
