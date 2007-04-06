@@ -1,37 +1,24 @@
-From: Venki Pallipadi <venkatesh.pallipadi@intel.com>
-Date: Fri, 06 Apr 2007 17:04:49 +0000
-Subject: [PATCH] ia64: Fix CPU freq displayed in /proc/cpuinfo
-Message-Id: <20070406170449.GA21441@linux-os.sc.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 06 Apr 2007 17:29:03 +0000
+Subject: RE: [PATCH] ia64: Fix CPU freq displayed in /proc/cpuinfo
+Message-Id: <617E1C2C70743745A92448908E030B2A01535C08@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070406170449.GA21441@linux-os.sc.intel.com>
+In-Reply-To: <20070406170449.GA21441@linux-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-
-My patch: git commit=95235ca2c20ac0b31a8eb39e2d599bcc3e9c9a10 introduced a =
-bug
-in IA64 cpuinfo output.
-
-Patch changed the proc_freq from 1HZ resolution to 1KHz resolution, but left
-format string unchanged at " %lu.%06lu". Below is the fix.
-
-Thanks to Bjorn for catching this.
-
-Signed-off-by: Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
-
-Index: new/arch/ia64/kernel/setup.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- new.orig/arch/ia64/kernel/setup.c	2007-04-02 09=
-:42:37.000000000 -0700
-+++ new/arch/ia64/kernel/setup.c	2007-04-06 08:31:23.000000000 -0700
-@@ -639,7 +639,7 @@
- 		   "features   : %s\n"
- 		   "cpu number : %lu\n"
- 		   "cpu regs   : %u\n"
--		   "cpu MHz    : %lu.%06lu\n"
 +		   "cpu MHz    : %lu.%03lu\n"
  		   "itc MHz    : %lu.%06lu\n"
- 		   "BogoMIPS   : %lu.%02lu\n",
- 		   cpunum, c->vendor, c->family, c->model,
+
+
+Why did you cut the precision of cpu MHz back to 1Khz?  Is the
+extra precision not-warranted, or is this just to be more like
+other architectures?
+
+Should we do the same for itc MHz to treat both evenly?
+
+-Tony
