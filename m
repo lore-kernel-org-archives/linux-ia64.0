@@ -1,29 +1,42 @@
-From: Mike Habeck <habeck@sgi.com>
-Date: Fri, 06 Apr 2007 18:53:59 +0000
-Subject: Re: [PATCH] SGI Altix : fix pcibr_dmamap_ate32() bug
-Message-Id: <46169747.BC2CB260@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 10 Apr 2007 20:58:56 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <200704102103.l3AL3j0N010393@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070406170439.24071.57637.75833@attica.americas.sgi.com>
-In-Reply-To: <20070406170439.24071.57637.75833@attica.americas.sgi.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" wrote:
-> 
-> Can you explain this part of the patch?
-> 
-> -#define PCI32_ATE_CO                    (0x1 << 1)
-> -#define PCI32_ATE_PREC                  (0x1 << 2)
-> +#define PCI32_ATE_CO                    (0x1 << 1)     /* PIC ASIC ONLY */
-> +#define PCI32_ATE_PIO                   (0x1 << 1)     /* TIOCP ASIC ONLY */
-> 
-> Why is PCI32_ATE_PIO now the same value as PCI_ATE_CO?
+Hi Linus,
 
-The ATE (Address Translation Entry for 32bit PCI mappings) Attribute 
-bits are different for our PIC Bridge ASIC and our TIOCP Bridge ASIC.  
-On our PIC Bridge ASIC bit#1 is the `Coherent Translation' attribute, 
-but on our TIOCP Bridge ASIC bit#1 is the `PIO' attribute
+please pull from:
 
--mike
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/kernel/msi_ia64.c          |    4 ++--
+ arch/ia64/kernel/setup.c             |    2 +-
+ arch/ia64/sn/kernel/bte_error.c      |    6 +++---
+ arch/ia64/sn/pci/pcibr/pcibr_dma.c   |    8 ++++++--
+ include/asm-ia64/sn/pcibr_provider.h |    5 +++--
+ 5 files changed, 15 insertions(+), 10 deletions(-)
+
+Ishimatsu Yasuaki (1):
+      [IA64] Fix wrong assumption about irq and vector in msi_ia64.c
+
+Mike Habeck (1):
+      [IA64] SGI Altix : fix pcibr_dmamap_ate32() bug
+
+Russ Anderson (1):
+      [IA64] BTE error timer fix
+
+Venki Pallipadi (1):
+      [IA64] Fix CPU freq displayed in /proc/cpuinfo
