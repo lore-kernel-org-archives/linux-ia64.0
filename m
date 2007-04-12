@@ -1,33 +1,20 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 23 Apr 2007 20:31:04 +0000
-Subject: RE: [PATCH] i386: fix stack alignment for signal handlers (ia64)
-Message-Id: <617E1C2C70743745A92448908E030B2A0162D9A1@scsmsx411.amr.corp.intel.com>
+From: Andi Kleen <ak@suse.de>
+Date: Thu, 12 Apr 2007 20:37:20 +0000
+Subject: Re: [KJ][PATCH 03/03]ROUND_UP|DOWN macro cleanup in arch/ia64,x86_64
+Message-Id: <200704122237.20779.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A0162D7DA@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A0162D7DA@scsmsx411.amr.corp.intel.com>
+References: <20070412203205.GC9353@arun.site>
+In-Reply-To: <20070412203205.GC9353@arun.site>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Milind Arun Choudhary <milindchoudhary@gmail.com>
+Cc: kernel-janitors@lists.osdl.org, linux-ia64@vger.kernel.org, discuss@x86-64.org, linux-kernel@vger.kernel.org, akpm@linux-foundation.org, tony.luck@intel.com
 
-Markus,
+On Thursday 12 April 2007 22:32:05 Milind Arun Choudhary wrote:
+> ROUND_UP macro cleanup in arch/x86_64
+> ALIGN, ALIGN_DOWN  where ever appropriate.
 
-Thanks for the test program.
+Sorry, but I prefer round_up/round_down in x86-64 code.
 
-Before fix:
-$ ./test_sigframe_alignment
-in main      : sp = 0xbffffad0
-in test      : sp = 0xbffffac0
-in sighandler: sp = 0xbffff7ac
-All done.
-
-With fix applied:
-$ ./test_sigframe_alignment
-in main      : sp = 0xbffffad0
-in test      : sp = 0xbffffac0
-in sighandler: sp = 0xbffff7a0
-All done.
-
-Which looks correct.  Thanks for the fix, I'll push it in soon.
-
--Tony
+-Andi
