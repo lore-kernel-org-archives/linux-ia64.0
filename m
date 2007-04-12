@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 12 Apr 2007 18:38:44 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 12 Apr 2007 18:39:01 +0000
 Subject: Re: [PATCH] - Increase max SSI size
-Message-Id: <Pine.LNX.4.64.0704121136520.28159@schroedinger.engr.sgi.com>
+Message-Id: <20070412183901.GA15854@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070412175819.GA9723@sgi.com>
 In-Reply-To: <20070412175819.GA9723@sgi.com>
@@ -10,14 +10,51 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 12 Apr 2007, Jack Steiner wrote:
+Increase the maximum SSI size for IA64 to 4096p. No changes are being
+made to the default configuration sizes (for now).
 
-> -	sysfs_cpus = kzalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
-> +	sysfs_cpus = vmalloc(sizeof(struct ia64_cpu) * NR_CPUS);
-> +	memset(sysfs_cpus, 0, sizeof(sizeof(struct ia64_cpu) * NR_CPUS));
->  	if (!sysfs_cpus)
->  		panic("kzalloc in topology_init failed - NR_CPUS too big?");
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-Consider using nr_cpu_ids instead of NR_CPUS. This will allocate a smaller 
-array on systems that support just a handful of processors.
+---
+With bug fix that Tony found....
 
+
+
+Index: linux/arch/ia64/Kconfig
+=================================--- linux.orig/arch/ia64/Kconfig	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/Kconfig	2007-04-12 07:41:44.619991642 -0500
+@@ -267,8 +267,8 @@ config SMP
+ 	  If you don't know what to do here, say N.
+ 
+ config NR_CPUS
+-	int "Maximum number of CPUs (2-1024)"
+-	range 2 1024
++	int "Maximum number of CPUs (2-4096)"
++	range 2 4096
+ 	depends on SMP
+ 	default "1024"
+ 	help
+Index: linux/arch/ia64/kernel/topology.c
+=================================--- linux.orig/arch/ia64/kernel/topology.c	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/kernel/topology.c	2007-04-12 13:37:05.855795475 -0500
+@@ -21,6 +21,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+ #include <linux/notifier.h>
++#include <linux/vmalloc.h>
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+ #include <asm/cpu.h>
+@@ -68,10 +69,11 @@ static int __init topology_init(void)
+ 	}
+ #endif
+ 
+-	sysfs_cpus = kzalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
++	sysfs_cpus = vmalloc(sizeof(struct ia64_cpu) * NR_CPUS);
+ 	if (!sysfs_cpus)
+ 		panic("kzalloc in topology_init failed - NR_CPUS too big?");
+ 
++	memset(sysfs_cpus, 0, sizeof(sizeof(struct ia64_cpu) * NR_CPUS));
+ 	for_each_present_cpu(i) {
+ 		if((err = arch_register_cpu(i)))
+ 			goto out;
