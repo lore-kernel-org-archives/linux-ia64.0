@@ -1,64 +1,51 @@
-From: Rohit Seth <rohitseth@google.com>
-Date: Sat, 28 Apr 2007 18:30:40 +0000
-Subject: RE: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <200704281830.l3SIUqOo004230@smtp.corp.google.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 12 Apr 2007 17:58:20 +0000
+Subject: [PATCH] - Increase max SSI size
+Message-Id: <20070412175819.GA9723@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <4632E3B0.6050101@yahoo.com.au>
-References: <20070426001615.GA8908@ldl.fc.hp.com>
-In-Reply-To: <20070426001615.GA8908@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Nick Piggin' <nickpiggin@yahoo.com.au>, 'Hugh Dickins' <hugh@veritas.com>
-Cc: 'Mike Stroyan' <mike.stroyan@hp.com>, 'Andrew Morton' <akpm@linux-foundation.org>, "'Luck, Tony'" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi Nick, 
+Increase the maximum SSI size for IA64 to 4096p. No changes are being
+made to the default configuration sizes (for now).
 
------Original Message-----
-From: Nick Piggin [mailto:nickpiggin@yahoo.com.au] 
-Sent: Friday, April 27, 2007 11:03 PM
-To: Hugh Dickins
-Cc: rohitseth@google.com; Mike Stroyan; Andrew Morton; Luck, Tony;
-linux-ia64@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-Hugh Dickins wrote:
-> On Sat, 28 Apr 2007, Nick Piggin wrote:
-> 
->>OIC, you need a virtual address to evict the icache, so you can't 
->>flush at flush_dcache time? Or does ia64 have an instruction to flush 
->>the whole icache? (it would be worth testing, to see how much 
->>performance suffers).
-> 
-> 
-> I'm puzzled by that remark: the ia64 flush_icache_range always has a 
-> virtual address, it uses the kernel virtual address; it takes no 
-> interest in whether there's a user virtual address.
 
->I _think_ what it is doing is actually flushing dcache lines dirtied 
->via the kernel virtual address (yes, I think flush_icache
-> in lazy_mmu_prot_update is actually just flushing the dcache, but 
->I could be wrong? [*]).
-
-It is invalidating any entries (containing same physical address) in both I
-and D caches.  Any dirty lines in D cache are written back to memory before
-getting invalidated (ofcourse).
-
-> There are supposedly no icache lines at that point[**]:
-
-For this bug to trigger there has to be a (stale) entry in icache containing
-the old contents of a page that just got updated by kernel as explicit
-copying of data (DMAs are coherent on ia64, meaning if a device were to
-write to memory then architecture guarnatees that both I and D caches are
-invalidated).
-
-> the bug fix at the start of this thread 
->is due to icache lines becoming present before the flush.
-
-For this mail thread, the old contents were not flushed out of icache when
-the old mapping was removed.  And they were still present when the free page
-got mapped again.
-
-Cheers,
--rohit
-
+Index: linux/arch/ia64/Kconfig
+=================================--- linux.orig/arch/ia64/Kconfig	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/Kconfig	2007-04-12 07:41:44.619991642 -0500
+@@ -267,8 +267,8 @@ config SMP
+ 	  If you don't know what to do here, say N.
+ 
+ config NR_CPUS
+-	int "Maximum number of CPUs (2-1024)"
+-	range 2 1024
++	int "Maximum number of CPUs (2-4096)"
++	range 2 4096
+ 	depends on SMP
+ 	default "1024"
+ 	help
+Index: linux/arch/ia64/kernel/topology.c
+=================================--- linux.orig/arch/ia64/kernel/topology.c	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/kernel/topology.c	2007-04-12 08:08:30.526370615 -0500
+@@ -21,6 +21,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+ #include <linux/notifier.h>
++#include <linux/vmalloc.h>
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+ #include <asm/cpu.h>
+@@ -68,7 +69,8 @@ static int __init topology_init(void)
+ 	}
+ #endif
+ 
+-	sysfs_cpus = kzalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
++	sysfs_cpus = vmalloc(sizeof(struct ia64_cpu) * NR_CPUS);
++	memset(sysfs_cpus, 0, sizeof(sizeof(struct ia64_cpu) * NR_CPUS));
+ 	if (!sysfs_cpus)
+ 		panic("kzalloc in topology_init failed - NR_CPUS too big?");
+ 
