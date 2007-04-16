@@ -1,8 +1,10 @@
 From: Simon Horman <horms@verge.net.au>
-Date: Mon, 16 Apr 2007 07:41:06 +0000
-Subject: [PATCH] kexec/kdump: Use generic elf code on ia64
-Message-Id: <20070416074103.GA27981@verge.net.au>
+Date: Mon, 16 Apr 2007 08:21:06 +0000
+Subject: Re: [PATCH] kexec/kdump: Use generic elf code on ia64
+Message-Id: <20070416082104.GA13376@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070416074103.GA27981@verge.net.au>
+In-Reply-To: <20070416074103.GA27981@verge.net.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -31,16 +33,20 @@ little tricky.
 Signed-off-by: Simon Horman <horms@verge.net.au>
 
 --- 
-This patch applies on top of the note size calculation patch
-that can be found in mm and at
-http://lists.linux-foundation.org/pipermail/fastboot/2007-April/006792.html
+* This patch applies on top of the note size calculation patch
+  that can be found in mm and at
+  http://lists.linux-foundation.org/pipermail/fastboot/2007-April/006792.html
 
-Porting this patch to not require that one is quite trivial.
-I can supply a port or a thread containing both patches if it helps.
+  Porting this patch to not require that one is quite trivial.
+  I can supply a port or a thread containing both patches if it helps.
+
+* Update
+  Diff against include/asm-ia64/kexec.h instead of include/asm/kexec.h
+  Ooops!
 
  arch/ia64/kernel/crash.c         |   46 ++------------------------------------
  arch/ia64/kernel/machine_kexec.c |    2 -
- include/asm/kexec.h              |    7 ++++-
+ include/asm-ia64/kexec.h              |    7 ++++-
  include/linux/kexec.h            |    5 ++++
  kernel/kexec.c                   |    2 -
  5 files changed, 16 insertions(+), 46 deletions(-)
@@ -119,8 +125,8 @@ Index: linux-2.6/arch/ia64/kernel/crash.c
  	atomic_inc(&kdump_cpu_frozen);
  	kdump_status[cpuid] = 1;
 Index: linux-2.6/include/asm/kexec.h
-=================================--- linux-2.6.orig/include/asm/kexec.h	2007-04-16 16:13:57.000000000 +0900
-+++ linux-2.6/include/asm/kexec.h	2007-04-16 16:14:52.000000000 +0900
+=================================--- linux-2.6.orig/include/asm-ia64/kexec.h	2007-04-16 16:13:57.000000000 +0900
++++ linux-2.6/include/asm-ia64/kexec.h	2007-04-16 16:14:52.000000000 +0900
 @@ -19,6 +19,9 @@
                  flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
          } while(0)
