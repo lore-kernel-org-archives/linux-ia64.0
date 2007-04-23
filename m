@@ -1,35 +1,24 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 23 Apr 2007 17:36:00 +0000
+From: Russ Anderson <rja@sgi.com>
+Date: Mon, 23 Apr 2007 19:03:29 +0000
 Subject: Re: [PATCH] ia64 sn xpc: Convert to use kthread API.
-Message-Id: <m1r6qbvvr3.fsf@ebiederm.dsl.xmission.com>
+Message-Id: <200704231903.l3NJ3T1959588867@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <m1slawn9eb.fsf@ebiederm.dsl.xmission.com>
-	<1176969574439-git-send-email-ebiederm@xmission.com>
-	<20070422203647.GC23015@infradead.org> <462CE8D5.8040300@sgi.com>
-In-Reply-To: <462CE8D5.8040300@sgi.com> (Jes Sorensen's message of "Mon, 23
-	Apr 2007 19:11:49 +0200")
+In-Reply-To: <462CE8D5.8040300@sgi.com> from "Jes Sorensen" at Apr 23, 2007 07:11:49 PM
+References: <462CE8D5.8040300@sgi.com>
+In-Reply-To: <462CE8D5.8040300@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Jes Sorensen <jes@sgi.com>
-Cc: Christoph Hellwig <hch@infradead.org>, "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org, Oleg Nesterov <oleg@tv-sign.ru>, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, rja@sgi.com, holt@sgi.com, dcn@sgi.com, linux-ia64@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>, "Eric W. Biederman" <ebiederm@xmission.com>, "<Andrew Morton" <akpm@osdl.org>, containers@lists.osdl.org, Oleg Nesterov <oleg@tv-sign.ru>, linux-kernel@vger.kernel.org, Jes Sorensen <jes@sgi.com>, Tony Luck <tony.luck@intel.com>, rja@sgi.com, holt@sgi.com, dcn@sgi.com, linux-ia64@vger.kernel.org
 
-Jes Sorensen <jes@sgi.com> writes:
-
->
-> Like with the previous patch from Eric, I'm CC'ing the correct people
-> for this patch (forwarded it in a seperate email). CC'ing irrelevant
-> lists such as containers@ and not linux-ia64@ makes it somewhat
-> difficult to get proper reviews of these things.
-
-containers is actually relevant because everything not being converted
-to a kthread API is actually show stopper issue for the development of
-the pid namespace because of the usage of pids by kernel_thread, and
-the apparent impossibility to fix daemonize to sort this out.
-
-Now I do agree linux-ia64 is also relevant.
-
+Jes Sorensen wrote:
+> 
 > Russ/Dean/Robin - could one of you provide some feedback to this one
 > please.
 
-Eric
+Dean's on vacation for a couple days and will test it when he gets back.
+
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
