@@ -1,70 +1,68 @@
-From: Milind Arun Choudhary <milindchoudhary@gmail.com>
-Date: Sun, 15 Apr 2007 17:33:23 +0000
-Subject: [KJ][PATCH]SPIN_LOCK_UNLOCKED macro cleanup in arch/ia64
-Message-Id: <20070415172123.GA9296@arun.site>
+From: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+Date: Fri, 27 Apr 2007 06:46:36 +0000
+Subject: [PATCH 2/2] unify iosapic regs definition
+Message-Id: <873b2ms4ab.wl%takeuchi_satoru@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kernel Janitors <kernel-janitors@lists.osdl.org>, IA64 <linux-ia64@vger.kernel.org>
-Cc: Andrw Morton <akpm@linux-foundation.org>, LKML <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-SPIN_LOCK_UNLOCKED macro cleanup, use __SPIN_LOCK_UNLOCKED instead.
+Unify iosapic regs definition.
 
-Signed-off-by: Milind Arun Choudhary <milindchoudhary@gmail.com>
+Append unified prefix `IOSAPIC_REG_' to IOSAPIC registers. It has no
+functional change.
 
----
- kernel/traps.c  |    6 +++---
- kernel/unwind.c |    2 +-
- mm/tlb.c        |    6 +++---
- 3 files changed, 7 insertions(+), 7 deletions(-)
+Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
 
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 765cbe5..cd5189f 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -59,9 +59,9 @@ die (const char *str, struct pt_regs *regs, long err)
- 		u32 lock_owner;
- 		int lock_owner_depth;
- 	} die = {
--		.lock =			SPIN_LOCK_UNLOCKED,
--		.lock_owner =		-1,
--		.lock_owner_depth =	0
-+		.lock =	__SPIN_LOCK_UNLOCKED(die.lock),
-+		.lock_owner = -1,
-+		.lock_owner_depth = 0
- 	};
- 	static int die_counter;
- 	int cpu = get_cpu();
-diff --git a/arch/ia64/kernel/unwind.c b/arch/ia64/kernel/unwind.c
-index 93d5a3b..e3be21c 100644
---- a/arch/ia64/kernel/unwind.c
-+++ b/arch/ia64/kernel/unwind.c
-@@ -145,7 +145,7 @@ static struct {
- # endif
- } unw = {
- 	.tables = &unw.kernel_table,
--	.lock = SPIN_LOCK_UNLOCKED,
-+	.lock = __SPIN_LOCK_UNLOCKED(unw.lock),
- 	.save_order = {
- 		UNW_REG_RP, UNW_REG_PFS, UNW_REG_PSP, UNW_REG_PR,
- 		UNW_REG_UNAT, UNW_REG_LC, UNW_REG_FPSR, UNW_REG_PRI_UNAT_GR
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index ffad762..fa4e6d4 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -32,9 +32,9 @@ static struct {
- } purge;
+Index: linux-2.6.21/include/asm-ia64/iosapic.h
+=================================--- linux-2.6.21.orig/include/asm-ia64/iosapic.h	2007-04-27 14:30:00.000000000 +0900
++++ linux-2.6.21/include/asm-ia64/iosapic.h	2007-04-27 15:03:19.000000000 +0900
+@@ -2,10 +2,10 @@
+ #define __ASM_IA64_IOSAPIC_H
  
- struct ia64_ctx ia64_ctx = {
--	.lock =		SPIN_LOCK_UNLOCKED,
--	.next =		1,
--	.max_ctx =	~0U
-+	.lock =	__SPIN_LOCK_UNLOCKED(ia64_ctx.lock),
-+	.next =	1,
-+	.max_ctx = ~0U
- };
+ #define	IOSAPIC_REG_SELECT	0x0
+-#define	IOSAPIC_WINDOW		0x10
+-#define	IOSAPIC_EOI		0x40
++#define	IOSAPIC_REG_WINDOW	0x10
++#define	IOSAPIC_REG_EOI		0x40
  
- DEFINE_PER_CPU(u8, ia64_need_tlb_flush);
--- 
-Milind Arun Choudhary
+-#define	IOSAPIC_VERSION		0x1
++#define	IOSAPIC_REG_VERSION	0x1
+ 
+ /*
+  * Redirection table entry
+@@ -55,18 +55,18 @@
+ static inline unsigned int iosapic_read(char __iomem *iosapic, unsigned int reg)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+-	return readl(iosapic + IOSAPIC_WINDOW);
++	return readl(iosapic + IOSAPIC_REG_WINDOW);
+ }
+ 
+ static inline void iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+-	writel(val, iosapic + IOSAPIC_WINDOW);
++	writel(val, iosapic + IOSAPIC_REG_WINDOW);
+ }
+ 
+ static inline void iosapic_eoi(char __iomem *iosapic, u32 vector)
+ {
+-	writel(vector, iosapic + IOSAPIC_EOI);
++	writel(vector, iosapic + IOSAPIC_REG_EOI);
+ }
+ 
+ extern void __init iosapic_system_init (int pcat_compat);
+Index: linux-2.6.21/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-04-26 12:08:32.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-04-27 15:08:14.000000000 +0900
+@@ -520,7 +520,7 @@
+ 	 *	unsigned int reserved2 : 8;
+ 	 * }
+ 	 */
+-	return iosapic_read(addr, IOSAPIC_VERSION);
++	return iosapic_read(addr, IOSAPIC_REG_VERSION);
+ }
+ 
+ static int iosapic_find_sharable_vector (unsigned long trigger,
