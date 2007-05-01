@@ -1,65 +1,57 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Tue, 01 May 2007 11:39:50 +0000
+Date: Tue, 01 May 2007 11:43:29 +0000
 Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <46372706.5030609@yahoo.com.au>
+Message-Id: <463727E1.3090203@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200704281757.l3SHvUrs026921@smtp.corp.google.com>
-In-Reply-To: <200704281757.l3SHvUrs026921@smtp.corp.google.com>
+References: <200704281805.l3SI5JQx030827@smtp.corp.google.com>
+In-Reply-To: <200704281805.l3SI5JQx030827@smtp.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Rohit Seth <rohitseth@google.com>
-Cc: 'Mike Stroyan' <mike.stroyan@hp.com>, 'Andrew Morton' <akpm@linux-foundation.org>, 'Hugh Dickins' <hugh@veritas.com>, "'Luck, Tony'" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: 'Hugh Dickins' <hugh@veritas.com>, 'Mike Stroyan' <mike.stroyan@hp.com>, 'Andrew Morton' <akpm@linux-foundation.org>, "'Luck, Tony'" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
 Rohit Seth wrote:
 >  
 > 
 > -----Original Message-----
-> From: Nick Piggin [mailto:nickpiggin@yahoo.com.au] 
-> Sent: Friday, April 27, 2007 7:00 PM
-> To: rohitseth@google.com
-> Cc: Mike Stroyan; Andrew Morton; Hugh Dickins; Luck, Tony;
+> From: Hugh Dickins [mailto:hugh@veritas.com] 
+> Sent: Friday, April 27, 2007 10:20 PM
+> To: Nick Piggin
+> Cc: rohitseth@google.com; Mike Stroyan; Andrew Morton; Luck, Tony;
 > linux-ia64@vger.kernel.org; linux-kernel@vger.kernel.org
 > Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
 > 
-> Rohit Seth wrote:
+> On Sat, 28 Apr 2007, Nick Piggin wrote:
 > 
->>
->>>You mean by user space? If so, then it is user space responsibility to 
->>>do the appropriate operations (like flush icache in this case).
-> 
-> 
->>No, I mean places that set PG_arch_1. flush_dcache_page. This can happen 
->>for mapped pages in write, splice, install_arg_page looks questionable,
-> 
-> direct IO...
+>>OIC, you need a virtual address to evict the icache, so you can't 
+>>flush at flush_dcache time? Or does ia64 have an instruction to flush 
+>>the whole icache? (it would be worth testing, to see how much 
+>>performance suffers).
 > 
 > 
-> If a user is requesting kernel to do (for example) write on a page that is
-> already mapped with execute and write permissions then it should be treated
-> as if the user space is doing modifications to that page.  There is no
-> change in protections so lazy_prot_mmu_update shouldn't be called even
-> though PG_arch_1 is (I think) set.  Does it answer your concern?
+> IIRC, there is a PAL call to flush the whole cache (but that is quite a
+> heavy call).  Though you really don't need to be doing this.
+> 
+> 
+>>I'm puzzled by that remark: the ia64 flush_icache_range always has a 
+>>virtual address, it uses the kernel virtual address; it takes 
+>>no interest in whether there's a user virtual address.
+> 
+> 
+> Caches on Itanium are physical.  So, it doesn't matter what virtual address
+> you use to flush a cache line, cache line containing specific physical
+> memory will be flushed. 
 
-I'm not sure that I would agree. For direct modifications of memory via
-a passed in user virtual address, perhaps. For operations on pagecache,
-we may not even have a handle to issue the flush cache instruction on (ie.
-a user virtual address), let alone know whether anyone else is mapping
-the page.
+Really? I was under the vague impression that L1 i/d caches were virtual
+and required this flushing... but I guess so long as the ISA says that
+fc/fc.i flushes all caches corresponding to the physical address of the
+provided virtual address, then that's what matters.
 
->>What if you were to say remove all the PG_arch_1 code, and do 
->>something really simple like flush icache in 
->>flush_dcache_page? Would performance suffer horribly?
-> 
-> 
-> On Itanium, I think it will have some performance penalty (horrible or not I
-> don't know) as you will be invalidating the caches more often.  And they
-> alsways look for last 0.1% performance that they can get.
+> For the cases where you have virtual caches,
+> update_mmu_cache is the API to use.
 
-Sure, but if we _only_ flushed when page_mapcount was raised, then we
-should have most of the benefits of lazy flushing, and the main places
-were we do extra flushes are those where aliases could potentially occur
-under the old scheme.
+But it happens after the pte is installed.
 
 -- 
 SUSE Labs, Novell Inc.
