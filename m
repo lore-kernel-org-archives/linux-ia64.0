@@ -1,46 +1,48 @@
 From: Rohit Seth <rohitseth@google.com>
-Date: Wed, 02 May 2007 00:36:20 +0000
+Date: Wed, 02 May 2007 00:36:27 +0000
 Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <1178066180.19466.68.camel@galaxy.corp.google.com>
+Message-Id: <1178066187.19466.69.camel@galaxy.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200704281817.l3SIHu0P001764@smtp.corp.google.com>
-	 <46372A12.9080802@yahoo.com.au>
-In-Reply-To: <46372A12.9080802@yahoo.com.au>
+References: <200704281830.l3SIUqOo004230@smtp.corp.google.com>
+	 <463728EB.8030308@yahoo.com.au>
+In-Reply-To: <463728EB.8030308@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Nick Piggin <nickpiggin@yahoo.com.au>
 Cc: 'Hugh Dickins' <hugh@veritas.com>, 'Mike Stroyan' <mike.stroyan@hp.com>, 'Andrew Morton' <akpm@linux-foundation.org>, "'Luck, Tony'" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, 2007-05-01 at 21:52 +1000, Nick Piggin wrote:
+On Tue, 2007-05-01 at 21:47 +1000, Nick Piggin wrote:
 > Rohit Seth wrote:
+> >
+> > 
+> > It is invalidating any entries (containing same physical address) in both I
+> > and D caches.  Any dirty lines in D cache are written back to memory before
+> > getting invalidated (ofcourse).
 > 
-> >>and 
-> >>it's only interested when it's executable i.e. "lazy_mmu_prot_update"
-> >>is a name concealing some overdesign.
+> OK. (should it be issuing both fc and fc.i to be robust in case a
+> new implementation doesn't flush the dcache with fc.i?)
+> 
+
+For the Itanium case specifically, you only want to invalidate a stale
+icache line.  Once that is done, next time icache will pick the correct
+updated contents.
+
+> 
+> >>There are supposedly no icache lines at that point[**]:
 > > 
 > > 
-> > You are right that ia64 is only interested in whne the execute permissions
-> > kick in (and FWIW ia64 used to use update_mmu_cache API to do what it is now
-> > doing lazy_mmu_prot_update).  Though the idea was to design an API that any
-> > arch can use to know when ever there is change in protections on a mapping.
+> > For this bug to trigger there has to be a (stale) entry in icache containing
+> > the old contents of a page that just got updated by kernel as explicit
+> > copying of data (DMAs are coherent on ia64, meaning if a device were to
+> > write to memory then architecture guarnatees that both I and D caches are
+> > invalidated).
 > 
-> What I think what we should do is audit flush_icache_page coverage, and
-> convert ia64 to use that (because it needs this to happen _before_ the
-> pte is set).
-> 
+> So if we have a dirty dcache line for a given physical address,
+> it will _always_ be the case that a subsequent icache load will
+> find that dirty data?
 
-That doesn't address the underlying requirement that arch specific code
-should be told of change in protections.  For ia64, you are right that
-it equates to flushing icache in some cases, but this API is more
-generic.
-
-> All we should need to do is add a pte argument to flush_icache,
-
-I'm sure this is doable.  Though it is more of design issue of whether
-that is the right way to do it.  I understand this extra API is
-difficult at this time because of one single consumer.
+yes for ia64.
 
 -rohit
-
 
