@@ -1,34 +1,45 @@
-From: Simon Arlott <simon@fire.lp0.eu>
-Date: Fri, 11 May 2007 19:55:12 +0000
-Subject: Re: [PATCH] spelling fixes: arch/ia64/
-Message-Id: <4644CA20.2060606@simon.arlott.org.uk>
+From: john stultz <johnstul@us.ibm.com>
+Date: Wed, 02 May 2007 17:50:01 +0000
+Subject: Re: [PATCH 1/3] ia64: convert to use clocksource code
+Message-Id: <1178128202.6183.1.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4644C6FD.6010004@simon.arlott.org.uk>
-In-Reply-To: <4644C6FD.6010004@simon.arlott.org.uk>
+References: <20070426202632.23343.54944.sendpatchset@rambler.zko.hp.com>
+	 <1177622301.6031.16.camel@localhost.localdomain>  <4631F26D.7080404@hp.com>
+In-Reply-To: <4631F26D.7080404@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Simon Arlott <simon@fire.lp0.eu>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, trivial@kernel.org
+To: Peter Keilty <peter.keilty@hp.com>
+Cc: linux-ia64@vger.kernel.org, Eric Whitney <eric.whitney@hp.com>, linux-kernel@vger.kernel.org
 
-On 11/05/07 20:41, Simon Arlott wrote:
-> diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-> index a06667c..bf7e7b5 100644
-> --- a/arch/ia64/kernel/time.c
-> +++ b/arch/ia64/kernel/time.c
-> @@ -216,7 +216,7 @@ ia64_init_itm (void)
-> #ifdef CONFIG_SMP
->         /* On IA64 in an SMP configuration ITCs are never accurately 
-> synchronized.
->          * Jitter compensation requires a cmpxchg which may limit
-> -         * the scalability of the syscalls for retrieving time.
-> +         * the scalibility of the syscalls for retrieving time.
->          * The ITC synchronization is usually successful to within a few
->          * ITC ticks but this is not a sure thing. If you need to improve
->          * timer performance in SMP situations then boot the kernel with 
-> the
+On Fri, 2007-04-27 at 08:54 -0400, Peter Keilty wrote:
+> john stultz wrote:
+> >On Thu, 2007-04-26 at 16:26 -0400, Peter Keilty wrote:
+> >>From: Peter Keilty <peter.keilty@hp.com>
+> >>
+> >>Initial ia64 conversion to the generic timekeeping/clocksource code.
+> >>
+> >>Signed-off-by: Peter Keilty <peter.keilty@hp.com>
+> >>Signed-off-by: John Stultz <johnstul@us.ibm.com>
+> >>    
+> >	Thanks so much for pushing this on! I suspect this patch needs to be
+> >updated a touch, as I'm not sure if it still compiles in light of recent
+> >changes...
+> >
+> You are correct, you need patch 3/3 for it to compile and run.
+> I did a patch to the orginal patch, thought that was correct thing to do.
+> But I can make a new patch 1 from the orginal of ours and my #3.
+> I would also make an update to the #2 patch from #3 for ntp correct change.
+> That would be just 2 patches then, the enable_ia64 and remove_interpolater.
+> What do you think?
 
-I thought I'd reverted that mistake... it was correct already :/
+Yep. That sounds like the right path to me. Its a good idea to make sure
+your patch set compiles each step of the way, so later folks can
+properly bisect through it looking for other issues.
 
--- 
-Simon Arlott
+thanks
+-john
+
+
+
+
