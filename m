@@ -1,103 +1,76 @@
-From: John Keller <jpk@sgi.com>
-Date: Thu, 03 May 2007 21:19:28 +0000
-Subject: Re: [PATCH] - SN: validate smp_affinity mask on intr redirect
-Message-Id: <200705032119.l43LJTo0037721@fcbayern.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 07 May 2007 16:54:56 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <617E1C2C70743745A92448908E030B2A016DA2B4@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20070503134248.e9b58a32.akpm@linux-foundation.org> from "Andrew Morton" at May 03, 2007 01:42:48 PM
-References: <20070503125602.12552.4152.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20070503125602.12552.4152.sendpatchset@attica.americas.sgi.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: John Keller <jpk@sgi.com>, linux-ia64@vger.kernel.org, steiner@sgi.com, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-I'll rework as per your suggestions.
+[Repost ... this seems to have been eaten by the internet, it
+didn't show up on the mailing list either].
 
-Thanks,
-John
+Hi Linus,
 
+please pull from:
 
-> 
-> On Thu, 03 May 2007 07:56:02 -0500
-> John Keller <jpk@sgi.com> wrote:
-> 
-> > On SN, only allow one bit to be set in the smp_affinty mask
-> > when redirecting an interrupt. Currently setting multiple
-> > bits is allowed, but only the first bit is used in
-> > determining the CPU to redirect to. This has caused confusion
-> > among some customers.
-> > 
-> > ...
-> >
-> > +
-> > +int is_affinity_mask_valid(cpumask_t cpumask)
-> > +{
-> > +	if (ia64_platform_is("sn2")) {
-> > +		/* Only allow one CPU to be specified in the smp_affinity mask */
-> > +		if (cpus_weight(cpumask) != 1)
-> > +			return 0;
-> > +	}
-> > +	return 1;
-> > +}
-> 
-> A bool returning true or false would be appropriate, given this function's
-> clearly-boolean name.
-> 
-> > +#ifndef ARCH_HAS_IRQ_AFFINITY_VALIDATION
-> > +#define is_irq_affinity_mask_valid(cpumask)         1
-> > +#endif
-> 
-> The ARCH_HAS_FOO things have never been popular.  There are a couple of
-> alternatives going around:
-> 
-> a) use __attribute__((weak)) and provide a one-line default
->    implementation in kernel/irq/proc.c.  This has a small runtime cost.
-> 
-> b) In include/asm-ia64/irq.h, do
-> 
->    #define is_affinity_mask_valid is_affinity_mask_valid
-> 
->    and in kernel/irq/proc.c do
-> 
->    #ifndef is_affinity_mask_valid
->    #define is_affinity_mask_valid() 1
->    #endif
-> 
->    This has minimal runtime cost, but is a bit tricksy.
-> 
->    It has the advantage that it doesn't introduce some new identifier
->    which needs to be maintained.
-> 
-> >  extern int irq_set_affinity(unsigned int irq, cpumask_t cpumask);
-> >  extern int irq_can_set_affinity(unsigned int irq);
-> >  
-> > Index: linux-2.6/include/asm-ia64/irq.h
-> > =================================> > --- linux-2.6.orig/include/asm-ia64/irq.h	2007-05-01 15:47:01.660643076 -0500
-> > +++ linux-2.6/include/asm-ia64/irq.h	2007-05-01 15:48:42.729254805 -0500
-> > @@ -11,6 +11,8 @@
-> >   * 02/29/00     D.Mosberger	moved most things into hw_irq.h
-> >   */
-> >  
-> > +#include <linux/cpumask.h>
-> > +
-> 
-> This is the sort of inclusion which tends to make things blow up.  I trust
-> this was carefully compile-tested.
-> 
-> With a) above, the is_affinity_mask_valid() declaration would be in a
-> different header.  With b), no additional include will be needed.
-> 
-> >  #define NR_IRQS		256
-> >  #define NR_IRQ_VECTORS	NR_IRQS
-> >  
-> > @@ -30,4 +32,7 @@ extern void disable_irq_nosync (unsigned
-> >  extern void enable_irq (unsigned int);
-> >  extern void set_irq_affinity_info (unsigned int irq, int dest, int redir);
-> >  
-> > +#define ARCH_HAS_IRQ_AFFINITY_VALIDATION
-> > +extern int is_affinity_mask_valid(cpumask_t cpumask);
-> > +
-> 
-> 
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
+release
 
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ Documentation/ia64/aliasing-test.c |  247 ++++++++
+ Documentation/ia64/aliasing.txt    |   71 +-
+ Documentation/ia64/err_inject.txt  | 1070
+++++++++++++++++++++++++++++++++++++-
+ arch/ia64/Kconfig                  |   10 
+ arch/ia64/defconfig                |    1 
+ arch/ia64/kernel/Makefile          |    1 
+ arch/ia64/kernel/efi.c             |   46 +
+ arch/ia64/kernel/entry.S           |    7 
+ arch/ia64/kernel/err_inject.c      |  293 ++++++++++
+ arch/ia64/kernel/ivt.S             |   19 
+ arch/ia64/kernel/mca_asm.S         |   24 
+ arch/ia64/kernel/patch.c           |   20 
+ arch/ia64/kernel/setup.c           |    7 
+ arch/ia64/kernel/vmlinux.lds.S     |    7 
+ arch/ia64/mm/init.c                |   11 
+ arch/ia64/mm/ioremap.c             |   86 ++
+ arch/ia64/pci/pci.c                |    2 
+ include/asm-ia64/asmmacro.h        |   10 
+ include/asm-ia64/io.h              |    6 
+ include/asm-ia64/kregs.h           |    3 
+ include/asm-ia64/pal.h             |   33 +
+ include/asm-ia64/patch.h           |    1 
+ include/asm-ia64/processor.h       |    1 
+ include/asm-ia64/sections.h        |    1 
+ 24 files changed, 1866 insertions(+), 111 deletions(-)
+
+Bjorn Helgaas (5):
+      [IA64] rename ioremap variables to match i386
+      [IA64] make ioremap avoid unsupported attributes
+      [IA64] allow WB /sys/.../legacy_mem mmaps
+      [IA64] fail mmaps that span areas with incompatible attributes
+      [IA64] update memory attribute aliasing documentation & test cases
+
+Fenghua Yu (5):
+      [IA64] Itanium MC Error Injection Tool: Kernel configuration
+      [IA64] Itanium MC Error Injection Tool: Doc and sample application
+      [IA64] Itanium MC Error Injection Tool: Driver sysfs interface
+      [IA64] Itanium MC Error Injection Tool: Makefile changes
+      [IA64] Itanium MC Error Injection Tool: pal_mc_error_inject()
+interface
+
+Kenneth W Chen (2):
+      [IA64] remove per-cpu ia64_phys_stacked_size_p8
+      [IA64] relax per-cpu TLB requirement to DTC
+
+Tony Luck (1):
+      [IA64] Fix example error injection program
