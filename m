@@ -1,38 +1,17 @@
-From: John Keller <jpk@sgi.com>
-Date: Tue, 08 May 2007 15:23:15 +0000
-Subject: [PATCH Resend] - SN: validate smp_affinity mask on intr redirect
-Message-Id: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 08 May 2007 18:03:20 +0000
+Subject: RE: [PATCH Resend] - SN: validate smp_affinity mask on intr redirect
+Message-Id: <617E1C2C70743745A92448908E030B2A01719A90@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
+References: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
+In-Reply-To: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: akpm@osdl.org, steiner@sgi.com, linux-ia64@vger.kernel.org, John Keller <jpk@sgi.com>
+To: John Keller <jpk@sgi.com>, linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, steiner@sgi.com, linux-ia64@vger.kernel.org
 
-On SN, only allow one bit to be set in the smp_affinty mask
-when redirecting an interrupt. Currently setting multiple
-bits is allowed, but only the first bit is used in
-determining the CPU to redirect to. This has caused confusion
-among some customers.
-
-Signed-off-by: John Keller <jpk@sgi.com>
----
-
-Patch reworked as per Andrew's option "b".
-
-
- arch/ia64/kernel/irq.c |   11 +++++++++++
- include/asm-ia64/irq.h |    2 ++
- kernel/irq/proc.c      |    7 +++++++
- 3 files changed, 20 insertions(+)
-
-
-Index: linux-2.6/kernel/irq/proc.c
-=================================--- linux-2.6.orig/kernel/irq/proc.c	2007-05-02 09:03:14.440820500 -0500
-+++ linux-2.6/kernel/irq/proc.c	2007-05-03 16:00:46.746068614 -0500
-@@ -27,6 +27,10 @@ static int irq_affinity_read_proc(char *
- 	return len;
- }
  
 +#ifndef is_affinity_mask_valid
 +#define is_affinity_mask_valid() 1
@@ -47,38 +26,29 @@ Index: linux-2.6/kernel/irq/proc.c
  
 +	if (!is_affinity_mask_valid(new_value))
 +		return -EINVAL;
-+
- 	/*
- 	 * Do not allow disabling IRQs completely - it's a too easy
- 	 * way to make the system unusable accidentally :-) At least
-Index: linux-2.6/arch/ia64/kernel/irq.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/irq.c	2007-05-02 09:03:14.504828433 -0500
-+++ linux-2.6/arch/ia64/kernel/irq.c	2007-05-03 16:15:47.604740039 -0500
-@@ -104,6 +104,17 @@ void set_irq_affinity_info (unsigned int
- 		irq_redir[irq] = (char) (redir & 0xff);
- 	}
- }
-+
-+bool is_affinity_mask_valid(cpumask_t cpumask)
-+{
-+	if (ia64_platform_is("sn2")) {
-+		/* Only allow one CPU to be specified in the smp_affinity mask */
-+		if (cpus_weight(cpumask) != 1)
-+			return false;
-+	}
-+	return true;
-+}
-+
- #endif /* CONFIG_SMP */
- 
- #ifdef CONFIG_HOTPLUG_CPU
-Index: linux-2.6/include/asm-ia64/irq.h
-=================================--- linux-2.6.orig/include/asm-ia64/irq.h	2007-05-02 09:03:14.640845292 -0500
-+++ linux-2.6/include/asm-ia64/irq.h	2007-05-03 16:02:31.934991908 -0500
-@@ -30,4 +30,6 @@ extern void disable_irq_nosync (unsigned
- extern void enable_irq (unsigned int);
- extern void set_irq_affinity_info (unsigned int irq, int dest, int redir);
- 
-+#define is_affinity_mask_valid is_affinity_mask_valid
-+
- #endif /* _ASM_IA64_IRQ_H */
+
+This results in a warning:
+kernel/irq/proc.c:49: warning: implicit declaration of function `is_affinity_mask_valid'
+
+I can't put a declaration for is_affinity_mask_valid into
+include/asm-ia64/irq.h because that results in errors in
+files that include this, but don't have a definition for
+cpumask_t.
+
+I could add the declaration as a #else clause to that
+#ifndef in kernel/irq/proc.c, but that would no doubt
+result is complaints from the style police that function
+prototypes belong in header files, not in ".c" files.
+
+Last option is to move the #if to linux/irq.h:
+
+#ifndef is_affinity_mask_valid
+#define is_affinity_mask_valid 1
+#else
+extern bool is_affinity_mask_valid(cpumask_t cpumask);
+#endif
+
+But that seems to spoil the whole tricksiness factor and
+doesn't really look any better that using ARCH_HAS_IRQ_AFFINITY_MASK_CHECK
+
+-Tony
