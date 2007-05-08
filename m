@@ -1,52 +1,31 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 08 May 2007 19:19:45 +0000
-Subject: Re: [PATCH Resend] - SN: validate smp_affinity mask on intr
-Message-Id: <20070508121945.3e8d29c1.akpm@linux-foundation.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 08 May 2007 20:14:26 +0000
+Subject: RE: [PATCH Resend] - SN: validate smp_affinity mask on intr redirect
+Message-Id: <617E1C2C70743745A92448908E030B2A01719BB8@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <20070508121945.3e8d29c1.akpm@linux-foundation.org>
 References: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
-	<617E1C2C70743745A92448908E030B2A01719A90@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A01719A90@scsmsx411.amr.corp.intel.com>
+In-Reply-To: <20070508152315.26329.8428.64771@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Cc: John Keller <jpk@sgi.com>, linux-kernel@vger.kernel.org, steiner@sgi.com, linux-ia64@vger.kernel.org
 
-On Tue, 8 May 2007 11:03:20 -0700
-"Luck, Tony" <tony.luck@intel.com> wrote:
+> It had a dopey little bug:
+>
+> -#define is_affinity_mask_valid() 1
+> +#define is_affinity_mask_valid(val) 1
 
-> +#ifndef is_affinity_mask_valid
-> +#define is_affinity_mask_valid() 1
-> +#endif
-> +
->  int no_irq_affinity;
->  static int irq_affinity_write_proc(struct file *file, const char __user *buffer,
->  				   unsigned long count, void *data)
-> @@ -42,6 +46,9 @@ static int irq_affinity_write_proc(struc
->  	if (err)
->  		return err;
->  
-> +	if (!is_affinity_mask_valid(new_value))
-> +		return -EINVAL;
-> 
-> This results in a warning:
-> kernel/irq/proc.c:49: warning: implicit declaration of function `is_affinity_mask_valid'
-> 
+That would fix warnings on non-ia64 systems (which is
+a step in the right direction).  But on ia64 I have
+the
 
-It had a dopey little bug:
+#define is_affinity_mask_valid is_affinity_mask_valid
 
+in play at that point, so I have a real function call
+which doesn't have an in-scope declaration, so I get:
 
-diff -puN kernel/irq/proc.c~sn-validate-smp_affinity-mask-on-intr-redirect-fix kernel/irq/proc.c
---- a/kernel/irq/proc.c~sn-validate-smp_affinity-mask-on-intr-redirect-fix
-+++ a/kernel/irq/proc.c
-@@ -28,7 +28,7 @@ static int irq_affinity_read_proc(char *
- }
- 
- #ifndef is_affinity_mask_valid
--#define is_affinity_mask_valid() 1
-+#define is_affinity_mask_valid(val) 1
- #endif
- 
- int no_irq_affinity;
-_
+kernel/irq/proc.c:49: warning: implicit declaration of function `is_affinity_mask_valid'
 
+-Tony
