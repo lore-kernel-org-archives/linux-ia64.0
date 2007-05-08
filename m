@@ -1,37 +1,73 @@
-From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 09 May 2007 07:55:00 +0000
-Subject: [PATCH 7/12]  Check if irq is sharable
-Message-Id: <46417E54.7050008@jp.fujitsu.com>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 08 May 2007 09:31:16 +0000
+Subject: [patch 2/3] Use per-cpu elf_prstatus
+Message-Id: <20070508093329.088911844@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070508093114.767199973@tabatha.lab.ultramonkey.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: fastboot@lists.osdl.org, kexec@lists.infradead.org, linux-ia64@vger.kernel.org
+Cc: Nanhai Zou <nanhai.zou@intel.com>, Vivek Goyal <vgoyal@in.ibm.com>, Tony Luck <tony.luck@intel.com>
 
-Need to check if irq is sharable amoung handlers when searching
-sharable IOSAPIC irq.
+Use a pre-allocated per-cpu variable for saving the cpu registers, as per
+the IA64 specific code. This is in order to reduce possible stack
+contention at crash-time as per the inline comment.
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+A following patch will update ia64 to use crash_save_cpu() rather
+than its own re-implementation of the routine.
 
----
- arch/ia64/kernel/iosapic.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-04-05 22:18:12.000000000 +0900
-+++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-04-05 22:18:14.000000000 +0900
-@@ -503,8 +503,9 @@
- 	for (i = 0; i <= NR_IRQS; i++) {
- 		info = &iosapic_intr_info[i];
- 		if (info->trigger = trigger && info->polarity = pol &&
--		    (info->dmode = IOSAPIC_FIXED || info->dmode =
--		     IOSAPIC_LOWEST_PRIORITY)) {
-+		    (info->dmode = IOSAPIC_FIXED ||
-+		     info->dmode = IOSAPIC_LOWEST_PRIORITY) &&
-+		    can_request_irq(i, IRQF_SHARED)) {
- 			if (min_count = -1 || info->count < min_count) {
- 				irq = i;
- 				min_count = info->count;
+--- 
+ linux-2.6/kernel/kexec.c |   20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
+Index: linux-2.6/kernel/kexec.c
+=================================--- linux-2.6.orig/kernel/kexec.c	2007-05-08 18:08:50.000000000 +0900
++++ linux-2.6/kernel/kexec.c	2007-05-08 18:22:45.000000000 +0900
+@@ -1097,9 +1097,18 @@ static void final_note(u32 *buf)
+ 	memcpy(buf, &note, sizeof(note));
+ }
+ 
++/*
++ * There is some concern that on architectures where struct elf_prstatus is
++ * large, such as IA64, having elf_prstatus on the stack in
++ * crash_save_cpu() could cause problems given that this function
++ * is run after a kernel crash has occured. To aleviate this problem
++ * a pre-allocated per-cpu value is used instead.
++ */
++static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
++
+ void crash_save_cpu(struct pt_regs *regs, int cpu)
+ {
+-	struct elf_prstatus prstatus;
++	struct elf_prstatus *prstatus;
+ 	u32 *buf;
+ 
+ 	if ((cpu < 0) || (cpu >= NR_CPUS))
+@@ -1115,11 +1124,12 @@ void crash_save_cpu(struct pt_regs *regs
+ 	buf = (u32*)per_cpu_ptr(crash_notes, cpu);
+ 	if (!buf)
+ 		return;
+-	memset(&prstatus, 0, sizeof(prstatus));
+-	prstatus.pr_pid = current->pid;
+-	kexec_elf_core_copy_regs(&prstatus.pr_reg, regs);
++	prstatus = &per_cpu(elf_prstatus, cpu);
++	memset(prstatus, 0, sizeof(struct elf_prstatus));
++	prstatus->pr_pid = current->pid;
++	kexec_elf_core_copy_regs(&(prstatus->pr_reg), regs);
+ 	buf = append_elf_note(buf, KEXEC_CORE_NOTE_NAME, NT_PRSTATUS,
+-		      	      &prstatus, sizeof(prstatus));
++			      prstatus, sizeof(struct elf_prstatus));
+ 	final_note(buf);
+ }
+ 
+
+-- 
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
