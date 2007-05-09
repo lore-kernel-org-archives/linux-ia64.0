@@ -1,112 +1,62 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 09 May 2007 22:53:51 +0000
-Subject: Warnings about dev_dbg in SN2 code
-Message-Id: <617E1C2C70743745A92448908E030B2A01748CAC@scsmsx411.amr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C7928C.E9843951"
+From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
+Date: Wed, 09 May 2007 07:57:08 +0000
+Subject: [PATCH 11/12] Enable percpu vector domain for IA64_GENERIC
+Message-Id: <46417ED4.4080009@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-------_=_NextPart_001_01C7928C.E9843951
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Add per-CPU vector domain support for IA64_GENERIC. It is enabled by
+adding the "vector=percpu" boot option.
 
-Mainline is now checking the arguments to dev_dbg() ... and
-it warns about a bunch of items in sn2 code.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-The attached patch shuts things up ... could someone from
-SGI check that it is ok please?
+---
+ arch/ia64/kernel/irq_ia64.c |   26 ++++++++++++++++++++++++++
+ 1 files changed, 26 insertions(+)
 
--Tony
+Index: linux-2.6.21/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:13:39.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:14:11.000000000 +0900
+@@ -227,10 +227,36 @@
+ 	}
+ }
 
-------_=_NextPart_001_01C7928C.E9843951
-Content-Type: application/octet-stream; name="sn2warn.patch"
-Content-Transfer-Encoding: base64
-Content-Description: sn2warn.patch
-Content-Disposition: attachment; filename="sn2warn.patch"
++#if defined(CONFIG_IA64_GENERIC)
++static enum vector_domain_type {
++	VECTOR_DOMAIN_NONE,
++	VECTOR_DOMAIN_PERCPU
++} vector_domain_type = VECTOR_DOMAIN_NONE;
++
++static cpumask_t vector_allocation_domain(int cpu)
++{
++	if (vector_domain_type = VECTOR_DOMAIN_PERCPU)
++		return cpumask_of_cpu(cpu);
++	return CPU_MASK_ALL;
++}
++
++static int __init parse_vector_domain(char *arg)
++{
++	if (!arg)
++		return -EINVAL;
++	if (!strcmp(arg, "percpu")) {
++		vector_domain_type = VECTOR_DOMAIN_PERCPU;
++		no_int_routing = 1;
++	}
++	return 1;
++}
++early_param("vector", parse_vector_domain);
++#else
+ static cpumask_t vector_allocation_domain(int cpu)
+ {
+ 	return CPU_MASK_ALL;
+ }
++#endif
 
-ZGlmZiAtcnUgbGludXgvYXJjaC9pYTY0L3NuL2tlcm5lbC9pb19jb21tb24uYyBzbjItc21wL2Fy
-Y2gvaWE2NC9zbi9rZXJuZWwvaW9fY29tbW9uLmMKLS0tIGxpbnV4L2FyY2gvaWE2NC9zbi9rZXJu
-ZWwvaW9fY29tbW9uLmMJMjAwNy0wNS0wOSAxNDoyMDo1OS4wMDAwMDAwMDAgLTA3MDAKKysrIHNu
-Mi1zbXAvYXJjaC9pYTY0L3NuL2tlcm5lbC9pb19jb21tb24uYwkyMDA3LTA1LTA5IDE1OjI5OjI3
-LjAwMDAwMDAwMCAtMDcwMApAQCAtMzY0LDcgKzM2NCw3IEBACiAKIAllbGVtZW50ID0ga3phbGxv
-YyhzaXplb2Yoc3RydWN0IHN5c2RhdGFfZWwpLCBHRlBfS0VSTkVMKTsKIAlpZiAoIWVsZW1lbnQp
-IHsKLQkJZGV2X2RiZyhkZXYsICIlczogb3V0IG9mIG1lbW9yeSFcbiIsIF9fRlVOQ1RJT05fXyk7
-CisJCWRldl9kYmcoJmRldi0+ZGV2LCAiJXM6IG91dCBvZiBtZW1vcnkhXG4iLCBfX0ZVTkNUSU9O
-X18pOwogCQlyZXR1cm47CiAJfQogCWVsZW1lbnQtPnN5c2RhdGEgPSBTTl9QQ0lERVZfSU5GTyhk
-ZXYpOwpkaWZmIC1ydSBsaW51eC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMgc24y
-LXNtcC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMKLS0tIGxpbnV4L2RyaXZlcnMv
-cGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYwkyMDA3LTA1LTA5IDE0OjIwOjU5LjAwMDAwMDAwMCAt
-MDcwMAorKysgc24yLXNtcC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMJMjAwNy0w
-NS0wOSAxNTo0MDowMy4wMDAwMDAwMDAgLTA3MDAKQEAgLTI0OSwxOSArMjQ5LDE5IEBACiAKIAog
-CWlmIChyYyA9PSBQQ0lfU0xPVF9BTFJFQURZX1VQKSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1
-cy0+c2VsZiwgImlzIGFscmVhZHkgYWN0aXZlXG4iKTsKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1
-cy0+c2VsZi0+ZGV2LCAiaXMgYWxyZWFkeSBhY3RpdmVcbiIpOwogCQlyZXR1cm4gMTsgLyogcmV0
-dXJuIDEgdG8gdXNlciAqLwogCX0KIAogCWlmIChyYyA9PSBQQ0lfTDFfRVJSKSB7Ci0JCWRldl9k
-Ymcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+
-ZGV2LAogCQkJIkwxIGZhaWx1cmUgJWQgd2l0aCBtZXNzYWdlOiAlcyIsCiAJCQlyZXNwLnJlc3Bf
-c3ViX2Vycm5vLCByZXNwLnJlc3BfbDFfbXNnKTsKIAkJcmV0dXJuIC1FUEVSTTsKIAl9CiAKIAlp
-ZiAocmMpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxmLAorCQlkZXZfZGJnKCZzbG90
-LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiaW5zZXJ0IGZhaWxlZCB3aXRoIGVycm9yICVkIHN1
-Yi1lcnJvciAlZFxuIiwKIAkJCXJjLCByZXNwLnJlc3Bfc3ViX2Vycm5vKTsKIAkJcmV0dXJuIC1F
-SU87CkBAIC0yODcsMjUgKzI4NywyNSBAQAogCiAJaWYgKChhY3Rpb24gPT0gUENJX1JFUV9TTE9U
-X0VMSUdJQkxFKSAmJgogCSAgICAocmMgPT0gUENJX1NMT1RfQUxSRUFEWV9ET1dOKSkgewotCQlk
-ZXZfZGJnKHNsb3QtPnBjaV9idXMtPnNlbGYsICJTbG90ICVzIGFscmVhZHkgaW5hY3RpdmVcbiIp
-OworCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsICJTbG90ICVzIGFscmVhZHkg
-aW5hY3RpdmVcbiIsIHNsb3QtPnBoeXNpY2FsX3BhdGgpOwogCQlyZXR1cm4gMTsgLyogcmV0dXJu
-IDEgdG8gdXNlciAqLwogCX0KIAogCWlmICgoYWN0aW9uID09IFBDSV9SRVFfU0xPVF9FTElHSUJM
-RSkgJiYgKHJjID09IFBDSV9FTVBUWV8zM01IWikpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVz
-LT5zZWxmLAorCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiQ2Fubm90
-IHJlbW92ZSBsYXN0IDMzTUh6IGNhcmRcbiIpOwogCQlyZXR1cm4gLUVQRVJNOwogCX0KIAogCWlm
-ICgoYWN0aW9uID09IFBDSV9SRVFfU0xPVF9FTElHSUJMRSkgJiYgKHJjID09IFBDSV9MMV9FUlIp
-KSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNp
-X2J1cy0+c2VsZi0+ZGV2LAogCQkJIkwxIGZhaWx1cmUgJWQgd2l0aCBtZXNzYWdlIFxuJXNcbiIs
-CiAJCQlyZXNwLnJlc3Bfc3ViX2Vycm5vLCByZXNwLnJlc3BfbDFfbXNnKTsKIAkJcmV0dXJuIC1F
-UEVSTTsKIAl9CiAKIAlpZiAoKGFjdGlvbiA9PSBQQ0lfUkVRX1NMT1RfRUxJR0lCTEUpICYmIHJj
-KSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNp
-X2J1cy0+c2VsZi0+ZGV2LAogCQkJInJlbW92ZSBmYWlsZWQgd2l0aCBlcnJvciAlZCBzdWItZXJy
-b3IgJWRcbiIsCiAJCQlyYywgcmVzcC5yZXNwX3N1Yl9lcnJubyk7CiAJCXJldHVybiAtRUlPOwpA
-QCAtMzE3LDEyICszMTcsMTIgQEAKIAlpZiAoKGFjdGlvbiA9PSBQQ0lfUkVRX1NMT1RfRElTQUJM
-RSkgJiYgIXJjKSB7CiAJCXBjaWJ1c19pbmZvID0gU05fUENJQlVTX0JVU1NPRlRfSU5GTyhzbG90
-LT5wY2lfYnVzKTsKIAkJcGNpYnVzX2luZm8tPnBiaV9lbmFibGVkX2RldmljZXMgJj0gfigxIDw8
-IGRldmljZV9udW0pOwotCQlkZXZfZGJnKHNsb3QtPnBjaV9idXMtPnNlbGYsICJyZW1vdmUgc3Vj
-Y2Vzc2Z1bFxuIik7CisJCWRldl9kYmcoJnNsb3QtPnBjaV9idXMtPnNlbGYtPmRldiwgInJlbW92
-ZSBzdWNjZXNzZnVsXG4iKTsKIAkJcmV0dXJuIDA7CiAJfQogCiAJaWYgKChhY3Rpb24gPT0gUENJ
-X1JFUV9TTE9UX0RJU0FCTEUpICYmIHJjKSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2Vs
-ZiwicmVtb3ZlIGZhaWxlZCByYyA9ICVkXG4iLCByYyk7CisJCWRldl9kYmcoJnNsb3QtPnBjaV9i
-dXMtPnNlbGYtPmRldiwicmVtb3ZlIGZhaWxlZCByYyA9ICVkXG4iLCByYyk7CiAJfQogCiAJcmV0
-dXJuIHJjOwpAQCAtMzc1LDcgKzM3NSw3IEBACiAJbnVtX2Z1bmNzID0gcGNpX3NjYW5fc2xvdChz
-bG90LT5wY2lfYnVzLAogCQkJCSAgUENJX0RFVkZOKHNsb3QtPmRldmljZV9udW0gKyAxLCAwKSk7
-CiAJaWYgKCFudW1fZnVuY3MpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxmLCAibm8g
-ZGV2aWNlIGluIHNsb3RcbiIpOworCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYs
-ICJubyBkZXZpY2UgaW4gc2xvdFxuIik7CiAJCW11dGV4X3VubG9jaygmc25faG90cGx1Z19tdXRl
-eCk7CiAJCXJldHVybiAtRU5PREVWOwogCX0KQEAgLTQyNyw3ICs0MjcsNyBAQAogCQlwaGFuZGxl
-ID0gUENJX0NPTlRST0xMRVIoc2xvdC0+cGNpX2J1cyktPmFjcGlfaGFuZGxlOwogCiAJCWlmIChh
-Y3BpX2J1c19nZXRfZGV2aWNlKHBoYW5kbGUsICZwZGV2aWNlKSkgewotCQkJZGV2X2RiZyhzbG90
-LT5wY2lfYnVzLT5zZWxmLAorCQkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+ZGV2LAog
-CQkJCSJubyBwYXJlbnQgZGV2aWNlLCBhc3N1bWluZyBOVUxMXG4iKTsKIAkJCXBkZXZpY2UgPSBO
-VUxMOwogCQl9CkBAIC00NzksMTAgKzQ3OSwxMCBAQAogCW11dGV4X3VubG9jaygmc25faG90cGx1
-Z19tdXRleCk7CiAKIAlpZiAocmMgPT0gMCkKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxm
-LAorCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiaW5zZXJ0IG9wZXJh
-dGlvbiBzdWNjZXNzZnVsXG4iKTsKIAllbHNlCi0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2Vs
-ZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+ZGV2LAogCQkJImluc2VydCBvcGVy
-YXRpb24gZmFpbGVkIHJjID0gJWRcbiIsIHJjKTsKIAogCXJldHVybiByYzsKQEAgLTY1OSwxNiAr
-NjU5LDE2IEBACiAJCWlmIChyYykKIAkJCWdvdG8gcmVnaXN0ZXJfZXJyOwogCX0KLQlkZXZfZGJn
-KHBjaV9idXMtPnNlbGYsICJSZWdpc3RlcmVkIGJ1cyB3aXRoIGhvdHBsdWdcbiIpOworCWRldl9k
-YmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIlJlZ2lzdGVyZWQgYnVzIHdpdGggaG90cGx1Z1xuIik7
-CiAJcmV0dXJuIHJjOwogCiByZWdpc3Rlcl9lcnI6Ci0JZGV2X2RiZyhwY2lfYnVzLT5zZWxmLCAi
-YnVzIGZhaWxlZCB0byByZWdpc3RlciB3aXRoIGVyciA9ICVkXG4iLAorCWRldl9kYmcoJnBjaV9i
-dXMtPnNlbGYtPmRldiwgImJ1cyBmYWlsZWQgdG8gcmVnaXN0ZXIgd2l0aCBlcnIgPSAlZFxuIiwK
-IAkgICAgICAgIHJjKTsKIAogYWxsb2NfZXJyOgogCWlmIChyYyA9PSAtRU5PTUVNKQotCQlkZXZf
-ZGJnKHBjaV9idXMtPnNlbGYsICJNZW1vcnkgYWxsb2NhdGlvbiBlcnJvclxuIik7CisJCWRldl9k
-YmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIk1lbW9yeSBhbGxvY2F0aW9uIGVycm9yXG4iKTsKIAog
-CS8qIGRlc3Ryb3kgVEhJUyBlbGVtZW50ICovCiAJaWYgKGJzc19ob3RwbHVnX3Nsb3QpCkBAIC03
-MDEsMTAgKzcwMSwxMCBAQAogCiAJCXJjID0gc25fcGNpX2J1c192YWxpZChwY2lfYnVzKTsKIAkJ
-aWYgKHJjICE9IDEpIHsKLQkJCWRldl9kYmcocGNpX2J1cy0+c2VsZiwgIm5vdCBhIHZhbGlkIGhv
-dHBsdWcgYnVzXG4iKTsKKwkJCWRldl9kYmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIm5vdCBhIHZh
-bGlkIGhvdHBsdWcgYnVzXG4iKTsKIAkJCWNvbnRpbnVlOwogCQl9Ci0JCWRldl9kYmcocGNpX2J1
-cy0+c2VsZiwgInZhbGlkIGhvdHBsdWcgYnVzXG4iKTsKKwkJZGV2X2RiZygmcGNpX2J1cy0+c2Vs
-Zi0+ZGV2LCAidmFsaWQgaG90cGx1ZyBidXNcbiIpOwogCiAJCXJjID0gc25faG90cGx1Z19zbG90
-X3JlZ2lzdGVyKHBjaV9idXMpOwogCQlpZiAoIXJjKSB7Cg==
+ static int __reassign_irq_vector(int irq, int cpu)
+ {
 
-------_=_NextPart_001_01C7928C.E9843951--
+
