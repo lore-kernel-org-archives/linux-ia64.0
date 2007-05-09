@@ -1,35 +1,37 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 10 May 2007 10:19:46 +0000
-Subject: [request-for-test] [patch 1/3] IA64: Remove duplicate range check in call_pernode_memory()
-Message-Id: <20070510102032.803148805@tabatha.lab.ultramonkey.org>
+From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
+Date: Wed, 09 May 2007 07:55:00 +0000
+Subject: [PATCH 7/12]  Check if irq is sharable
+Message-Id: <46417E54.7050008@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Start is already verified to be less than end a few lines earlier.
+Need to check if irq is sharable amoung handlers when searching
+sharable IOSAPIC irq.
 
-From: Simon Horman <horms@verge.net.au>
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2007-05-10 17:23:34.000000000 +0900
-+++ linux-2.6/arch/ia64/mm/discontig.c	2007-05-10 17:23:53.000000000 +0900
-@@ -593,8 +593,7 @@ void call_pernode_memory(unsigned long s
- 
- 	if (!num_node_memblks) {
- 		/* No SRAT table, so assume one node (node 0) */
--		if (start < end)
--			(*func)(start, end - start, 0);
-+		(*func)(start, end - start, 0);
- 		return;
- 	}
- 
+---
+ arch/ia64/kernel/iosapic.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
--- 
+Index: linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.21-rc5.orig/arch/ia64/kernel/iosapic.c	2007-04-05 22:18:12.000000000 +0900
++++ linux-2.6.21-rc5/arch/ia64/kernel/iosapic.c	2007-04-05 22:18:14.000000000 +0900
+@@ -503,8 +503,9 @@
+ 	for (i = 0; i <= NR_IRQS; i++) {
+ 		info = &iosapic_intr_info[i];
+ 		if (info->trigger = trigger && info->polarity = pol &&
+-		    (info->dmode = IOSAPIC_FIXED || info->dmode =
+-		     IOSAPIC_LOWEST_PRIORITY)) {
++		    (info->dmode = IOSAPIC_FIXED ||
++		     info->dmode = IOSAPIC_LOWEST_PRIORITY) &&
++		    can_request_irq(i, IRQF_SHARED)) {
+ 			if (min_count = -1 || info->count < min_count) {
+ 				irq = i;
+ 				min_count = info->count;
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
 
