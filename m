@@ -1,153 +1,237 @@
 From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 09 May 2007 07:53:10 +0000
-Subject: [PATCH 4/12]  Cleanup lock order in iosapic_register_intr
-Message-Id: <46417DE6.4080603@jp.fujitsu.com>
+Date: Wed, 09 May 2007 07:52:27 +0000
+Subject: [PATCH 3/12]  Use per iosapic lock for indirect iosapic register
+Message-Id: <46417DBB.6080408@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Cleanup order of irq_desc.lock and iosapic_lock in
-iosapic_register_intr() and iosapic_unregister_intr().
+Use per-iosapic lock for indirect iosapic register access. It reduces
+lock contention.
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
 ---
- arch/ia64/kernel/iosapic.c |   50 ++++++++++++++++++---------------------------
- 1 files changed, 20 insertions(+), 30 deletions(-)
+ arch/ia64/kernel/iosapic.c |   57 ++++++++++++++++++++++-----------------------
+ include/asm-ia64/iosapic.h |    4 +--
+ 2 files changed, 31 insertions(+), 30 deletions(-)
 
 Index: linux-2.6.21/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-05-07 11:41:48.000000000 +0900
-+++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-05-07 11:44:21.000000000 +0900
-@@ -502,7 +502,7 @@
- static int iosapic_find_sharable_vector (unsigned long trigger,
- 					 unsigned long pol)
- {
--	int i, vector = -1, min_count = -1;
-+	int i, vector = -ENOSPC, min_count = -1;
- 	struct iosapic_intr_info *info;
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-05-07 11:40:27.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-05-07 11:41:48.000000000 +0900
+@@ -126,6 +126,7 @@
+ #ifdef CONFIG_NUMA
+ 	unsigned short	node;		/* numa node association via pxm */
+ #endif
++	spinlock_t	lock;		/* lock for indirect reg access */
+ } iosapic_lists[NR_IOSAPICS];
 
- 	/*
-@@ -510,7 +510,7 @@
- 	 * supported yet
- 	 */
- 	if (trigger = IOSAPIC_EDGE)
--		return -1;
-+		return -ENOSPC;
+ struct iosapic_rte_info {
+@@ -154,6 +155,16 @@
+ static int iosapic_kmalloc_ok;
+ static LIST_HEAD(free_rte_list);
 
- 	for (i = IA64_FIRST_DEVICE_VECTOR; i <= IA64_LAST_DEVICE_VECTOR; i++) {
- 		info = &iosapic_intr_info[i];
-@@ -759,7 +759,7 @@
- 	unsigned long flags;
- 	struct iosapic_rte_info *rte;
- 	u32 low32;
--again:
++static inline void
++iosapic_write(struct iosapic *iosapic, unsigned int reg, u32 val)
++{
++	unsigned long flags;
 +
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
- 	 * shared interrupt, or we lost a race to register it),
-@@ -770,36 +770,24 @@
- 	if (vector > 0) {
- 		rte = gsi_vector_to_rte(gsi, vector);
- 		rte->refcnt++;
--		spin_unlock_irqrestore(&iosapic_lock, flags);
--		return vector;
-+		goto unlock_iosapic_lock;
++	spin_lock_irqsave(&iosapic->lock, flags);
++	__iosapic_write(iosapic->addr, reg, val);
++	spin_unlock_irqrestore(&iosapic->lock, flags);
++}
++
+ /*
+  * Find an IOSAPIC associated with a GSI
+  */
+@@ -227,7 +238,6 @@
+ {
+ 	unsigned long pol, trigger, dmode;
+ 	u32 low32, high32;
+-	char __iomem *addr;
+ 	int rte_index;
+ 	char redir;
+ 	struct iosapic_rte_info *rte;
+@@ -239,7 +249,6 @@
+ 		return;		/* not an IOSAPIC interrupt */
+
+ 	rte_index = rte->rte_index;
+-	addr	= rte->iosapic->addr;
+ 	pol     = iosapic_intr_info[vector].polarity;
+ 	trigger = iosapic_intr_info[vector].trigger;
+ 	dmode   = iosapic_intr_info[vector].dmode;
+@@ -269,8 +278,8 @@
+ 	/* dest contains both id and eid */
+ 	high32 = (dest << IOSAPIC_DEST_SHIFT);
+
+-	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+-	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++	iosapic_write(rte->iosapic, IOSAPIC_RTE_HIGH(rte_index), high32);
++	iosapic_write(rte->iosapic, IOSAPIC_RTE_LOW(rte_index), low32);
+ 	iosapic_intr_info[vector].low32 = low32;
+ 	iosapic_intr_info[vector].dest = dest;
+ }
+@@ -293,7 +302,7 @@
+ 			iosapic_intr_info + IA64_NUM_VECTORS; ++info, ++vec) {
+ 		list_for_each_entry(rte, &info->rtes,
+ 				rte_list) {
+-			iosapic_write(rte->iosapic->addr,
++			iosapic_write(rte->iosapic,
+ 					IOSAPIC_RTE_LOW(rte->rte_index),
+ 					IOSAPIC_MASK|vec);
+ 			iosapic_eoi(rte->iosapic->addr, vec);
+@@ -305,8 +314,6 @@
+ static void
+ mask_irq (unsigned int irq)
+ {
+-	unsigned long flags;
+-	char __iomem *addr;
+ 	u32 low32;
+ 	int rte_index;
+ 	ia64_vector vec = irq_to_vector(irq);
+@@ -315,22 +322,17 @@
+ 	if (list_empty(&iosapic_intr_info[vec].rtes))
+ 		return;			/* not an IOSAPIC interrupt! */
+
+-	spin_lock_irqsave(&iosapic_lock, flags);
+ 	/* set only the mask bit */
+ 	low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->iosapic->addr;
+ 		rte_index = rte->rte_index;
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		iosapic_write(rte->iosapic, IOSAPIC_RTE_LOW(rte_index), low32);
  	}
 -	spin_unlock_irqrestore(&iosapic_lock, flags);
-
- 	/* If vector is running out, we try to find a sharable vector */
- 	vector = assign_irq_vector(AUTO_ASSIGN);
- 	if (vector < 0) {
- 		vector = iosapic_find_sharable_vector(trigger, polarity);
-   		if (vector < 0)
--			return -ENOSPC;
--	}
--
--	spin_lock_irqsave(&irq_desc[vector].lock, flags);
--	spin_lock(&iosapic_lock);
--	if (gsi_to_vector(gsi) > 0) {
--		if (list_empty(&iosapic_intr_info[vector].rtes))
--			free_irq_vector(vector);
--		spin_unlock(&iosapic_lock);
--		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
--		goto again;
-+			goto unlock_iosapic_lock;
- 	}
-
-+	spin_lock(&irq_desc[vector].lock);
- 	dest = get_target_cpu(gsi, vector);
- 	err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
- 			    polarity, trigger);
- 	if (err < 0) {
--		spin_unlock(&iosapic_lock);
--		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
--		return err;
-+		vector = err;
-+		goto unlock_all;
- 	}
-
- 	/*
-@@ -810,14 +798,15 @@
- 	if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
- 		mask = 0;
- 	set_rte(gsi, vector, dest, mask);
--	spin_unlock(&iosapic_lock);
--	spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
-
- 	printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
- 	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
- 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       cpu_logical_id(dest), dest, vector);
--
-+ unlock_all:
-+	spin_unlock(&irq_desc[vector].lock);
-+ unlock_iosapic_lock:
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
- 	return vector;
  }
 
-@@ -846,9 +835,7 @@
+ static void
+ unmask_irq (unsigned int irq)
+ {
+-	unsigned long flags;
+-	char __iomem *addr;
+ 	u32 low32;
+ 	int rte_index;
+ 	ia64_vector vec = irq_to_vector(irq);
+@@ -339,14 +341,11 @@
+ 	if (list_empty(&iosapic_intr_info[vec].rtes))
+ 		return;			/* not an IOSAPIC interrupt! */
+
+-	spin_lock_irqsave(&iosapic_lock, flags);
+ 	low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->iosapic->addr;
+ 		rte_index = rte->rte_index;
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		iosapic_write(rte->iosapic, IOSAPIC_RTE_LOW(rte_index), low32);
  	}
- 	vector = irq_to_vector(irq);
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
+ }
 
--	idesc = irq_desc + irq;
--	spin_lock_irqsave(&idesc->lock, flags);
--	spin_lock(&iosapic_lock);
-+	spin_lock_irqsave(&iosapic_lock, flags);
- 	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
- 		printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n",
- 		       gsi);
-@@ -859,12 +846,16 @@
- 	if (--rte->refcnt > 0)
- 		goto out;
 
-+	/* Remove the rte entry from the list */
-+	idesc = irq_desc + irq;
-+	spin_lock(&idesc->lock);
-+	list_del(&rte->rte_list);
-+	spin_unlock(&idesc->lock);
-+
+@@ -354,13 +353,12 @@
+ iosapic_set_affinity (unsigned int irq, cpumask_t mask)
+ {
+ #ifdef CONFIG_SMP
+-	unsigned long flags;
+ 	u32 high32, low32;
+ 	int dest, rte_index;
+-	char __iomem *addr;
+ 	int redir = (irq & IA64_IRQ_REDIRECTED) ? 1 : 0;
+ 	ia64_vector vec;
+ 	struct iosapic_rte_info *rte;
++	struct iosapic *iosapic;
+
+ 	irq &= (~IA64_IRQ_REDIRECTED);
+ 	vec = irq_to_vector(irq);
+@@ -378,7 +376,6 @@
+ 	/* dest contains both id and eid */
+ 	high32 = dest << IOSAPIC_DEST_SHIFT;
+
+-	spin_lock_irqsave(&iosapic_lock, flags);
+ 	low32 = iosapic_intr_info[vec].low32 & ~(7 << IOSAPIC_DELIVERY_SHIFT);
+ 	if (redir)
+ 		/* change delivery mode to lowest priority */
+@@ -390,12 +387,11 @@
+ 	iosapic_intr_info[vec].low32 = low32;
+ 	iosapic_intr_info[vec].dest = dest;
+ 	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
+-		addr = rte->iosapic->addr;
++		iosapic = rte->iosapic;
+ 		rte_index = rte->rte_index;
+-		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		iosapic_write(iosapic, IOSAPIC_RTE_HIGH(rte_index), high32);
++		iosapic_write(iosapic, IOSAPIC_RTE_LOW(rte_index), low32);
+ 	}
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
+ #endif
+ }
+
+@@ -500,7 +496,7 @@
+ 	 *	unsigned int reserved2 : 8;
+ 	 * }
+ 	 */
+-	return iosapic_read(addr, IOSAPIC_VERSION);
++	return __iosapic_read(addr, IOSAPIC_VERSION);
+ }
+
+ static int iosapic_find_sharable_vector (unsigned long trigger,
+@@ -865,8 +861,7 @@
+
  	/* Mask the interrupt */
  	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
- 	iosapic_write(rte->iosapic, IOSAPIC_RTE_LOW(rte->rte_index), low32);
+-	iosapic_write(rte->iosapic->addr,
+-		      IOSAPIC_RTE_LOW(rte->rte_index), low32);
++	iosapic_write(rte->iosapic, IOSAPIC_RTE_LOW(rte->rte_index), low32);
 
--	/* Remove the rte entry from the list */
--	list_del(&rte->rte_list);
- 	iosapic_intr_info[vector].count--;
- 	iosapic_free_rte(rte);
- 	index = find_iosapic(gsi);
-@@ -909,8 +900,7 @@
- 		free_irq_vector(vector);
- 	}
-  out:
--	spin_unlock(&iosapic_lock);
--	spin_unlock_irqrestore(&idesc->lock, flags);
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 	/* Remove the rte entry from the list */
+ 	list_del(&rte->rte_list);
+@@ -1071,9 +1066,14 @@
+ 	unsigned long flags;
+
+ 	spin_lock_irqsave(&iosapic_lock, flags);
++	index = find_iosapic(gsi_base);
++	if (index >= 0) {
++		spin_unlock_irqrestore(&iosapic_lock, flags);
++		return -EBUSY;
++	}
++
+ 	addr = ioremap(phys_addr, 0);
+ 	ver = iosapic_version(addr);
+-
+ 	if ((err = iosapic_check_gsi_range(gsi_base, ver))) {
+ 		iounmap(addr);
+ 		spin_unlock_irqrestore(&iosapic_lock, flags);
+@@ -1094,6 +1094,7 @@
+ #ifdef CONFIG_NUMA
+ 	iosapic_lists[index].node = MAX_NUMNODES;
+ #endif
++	spin_lock_init(&iosapic_lists[index].lock);
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+
+ 	if ((gsi_base = 0) && pcat_compat) {
+Index: linux-2.6.21/include/asm-ia64/iosapic.h
+=================================--- linux-2.6.21.orig/include/asm-ia64/iosapic.h	2007-04-26 12:08:32.000000000 +0900
++++ linux-2.6.21/include/asm-ia64/iosapic.h	2007-05-07 11:41:48.000000000 +0900
+@@ -53,13 +53,13 @@
+
+ #define NR_IOSAPICS			256
+
+-static inline unsigned int iosapic_read(char __iomem *iosapic, unsigned int reg)
++static inline unsigned int __iosapic_read(char __iomem *iosapic, unsigned int reg)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+ 	return readl(iosapic + IOSAPIC_WINDOW);
  }
 
- /*
+-static inline void iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++static inline void __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+ 	writel(val, iosapic + IOSAPIC_WINDOW);
 
 
