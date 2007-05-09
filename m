@@ -1,410 +1,221 @@
 From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 09 May 2007 07:51:24 +0000
-Subject: [PATCH 1/12]  Remove block structure for locking in iosapic.c
-Message-Id: <46417D7C.8020905@jp.fujitsu.com>
+Date: Wed, 09 May 2007 07:56:47 +0000
+Subject: [PATCH 10/12] Support irq migration across domain
+Message-Id: <46417EBF.9020301@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Remove unnecessary indent between spin_lock() and spin_unlock() in
-iosapic.c. This has no functional changes.
+Add support for IRQ migration across vector domain.
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
 ---
- arch/ia64/kernel/iosapic.c |  303 ++++++++++++++++++++-------------------------
- 1 files changed, 136 insertions(+), 167 deletions(-)
+ arch/ia64/kernel/iosapic.c  |   20 +++++++++++++++++---
+ arch/ia64/kernel/irq_ia64.c |   42 +++++++++++++++++++++++++++++++++++++++---
+ arch/ia64/kernel/msi_ia64.c |   20 ++++++++++++++------
+ include/asm-ia64/hw_irq.h   |    1 +
+ include/asm-ia64/iosapic.h  |    2 ++
+ 5 files changed, 73 insertions(+), 12 deletions(-)
 
 Index: linux-2.6.21/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-04-26 12:08:32.000000000 +0900
-+++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-05-07 11:38:04.000000000 +0900
-@@ -210,9 +210,7 @@
- 	 * and Linux irq numbers...
- 	 */
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		irq = _gsi_to_vector(gsi);
--	}
-+	irq = _gsi_to_vector(gsi);
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-05-08 12:12:56.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-05-08 12:13:39.000000000 +0900
+@@ -352,11 +352,13 @@
 
- 	return irq;
-@@ -323,15 +321,12 @@
- 		return;			/* not an IOSAPIC interrupt! */
+ 	irq &= (~IA64_IRQ_REDIRECTED);
 
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		/* set only the mask bit */
--		low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
--		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes,
--				    rte_list) {
--			addr = rte->addr;
--			rte_index = rte->rte_index;
--			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
--		}
-+	/* set only the mask bit */
-+	low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
-+	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+		addr = rte->addr;
-+		rte_index = rte->rte_index;
-+		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
+-	/* IRQ migration across domain is not supported yet */
+-	cpus_and(mask, mask, irq_to_domain(irq));
++	cpus_and(mask, mask, cpu_online_map);
+ 	if (cpus_empty(mask))
+ 		return;
+
++	if (reassign_irq_vector(irq, first_cpu(mask)))
++		return;
++
+ 	dest = cpu_physical_id(first_cpu(mask));
+
+ 	if (list_empty(&iosapic_intr_info[irq].rtes))
+@@ -374,6 +376,8 @@
+ 	else
+ 		/* change delivery mode to fixed */
+ 		low32 |= (IOSAPIC_FIXED << IOSAPIC_DELIVERY_SHIFT);
++	low32 &= IOSAPIC_VECTOR_MASK;
++	low32 |= irq_to_vector(irq);
+
+ 	iosapic_intr_info[irq].low32 = low32;
+ 	iosapic_intr_info[irq].dest = dest;
+@@ -402,10 +406,20 @@
+ {
+ 	ia64_vector vec = irq_to_vector(irq);
+ 	struct iosapic_rte_info *rte;
++	int do_unmask_irq = 0;
++
++	if (unlikely(irq_desc[irq].status & IRQ_MOVE_PENDING)) {
++		do_unmask_irq = 1;
++		mask_irq(irq);
++	}
+
+-	move_native_irq(irq);
+ 	list_for_each_entry(rte, &iosapic_intr_info[irq].rtes, rte_list)
+ 		iosapic_eoi(rte->iosapic->addr, vec);
++
++	if (unlikely(do_unmask_irq)) {
++		move_masked_irq(irq);
++		unmask_irq(irq);
++	}
  }
-@@ -350,14 +345,11 @@
- 		return;			/* not an IOSAPIC interrupt! */
 
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
--		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes,
--				    rte_list) {
--			addr = rte->addr;
--			rte_index = rte->rte_index;
--			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
--		}
-+	low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
-+	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+		addr = rte->addr;
-+		rte_index = rte->rte_index;
-+		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ #define iosapic_shutdown_level_irq	mask_irq
+Index: linux-2.6.21/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:12:56.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:13:39.000000000 +0900
+@@ -145,23 +145,31 @@
+ 	return ret;
  }
-@@ -392,28 +384,21 @@
- 	high32 = dest << IOSAPIC_DEST_SHIFT;
 
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		low32 = iosapic_intr_info[vec].low32 &
--			~(7 << IOSAPIC_DELIVERY_SHIFT);
-+	low32 = iosapic_intr_info[vec].low32 & ~(7 << IOSAPIC_DELIVERY_SHIFT);
-+	if (redir)
-+		/* change delivery mode to lowest priority */
-+		low32 |= (IOSAPIC_LOWEST_PRIORITY << IOSAPIC_DELIVERY_SHIFT);
-+	else
-+		/* change delivery mode to fixed */
-+		low32 |= (IOSAPIC_FIXED << IOSAPIC_DELIVERY_SHIFT);
+-static void clear_irq_vector(int irq)
++static void __clear_irq_vector(int irq)
+ {
+-	unsigned long flags;
+ 	int vector, cpu, pos;
+ 	cpumask_t mask;
++	cpumask_t domain;
 
--		if (redir)
--		        /* change delivery mode to lowest priority */
--			low32 |= (IOSAPIC_LOWEST_PRIORITY <<
--				  IOSAPIC_DELIVERY_SHIFT);
--		else
--		        /* change delivery mode to fixed */
--			low32 |= (IOSAPIC_FIXED << IOSAPIC_DELIVERY_SHIFT);
--
--		iosapic_intr_info[vec].low32 = low32;
--		iosapic_intr_info[vec].dest = dest;
--		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes,
--				    rte_list) {
--			addr = rte->addr;
--			rte_index = rte->rte_index;
--			iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index),
--				      high32);
--			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
--		}
-+	iosapic_intr_info[vec].low32 = low32;
-+	iosapic_intr_info[vec].dest = dest;
-+	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+		addr = rte->addr;
-+		rte_index = rte->rte_index;
-+		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
-+		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- #endif
-@@ -798,14 +783,12 @@
- 	 * don't touch the RTE.
- 	 */
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		vector = gsi_to_vector(gsi);
--		if (vector > 0) {
--			rte = gsi_vector_to_rte(gsi, vector);
--			rte->refcnt++;
--			spin_unlock_irqrestore(&iosapic_lock, flags);
--			return vector;
--		}
-+	vector = gsi_to_vector(gsi);
-+	if (vector > 0) {
-+		rte = gsi_vector_to_rte(gsi, vector);
-+		rte->refcnt++;
-+		spin_unlock_irqrestore(&iosapic_lock, flags);
-+		return vector;
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
-
-@@ -819,35 +802,31 @@
-
- 	spin_lock_irqsave(&irq_desc[vector].lock, flags);
- 	spin_lock(&iosapic_lock);
--	{
--		if (gsi_to_vector(gsi) > 0) {
--			if (list_empty(&iosapic_intr_info[vector].rtes))
--				free_irq_vector(vector);
--			spin_unlock(&iosapic_lock);
--			spin_unlock_irqrestore(&irq_desc[vector].lock,
--					       flags);
--			goto again;
--		}
--
--		dest = get_target_cpu(gsi, vector);
--		err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
--			      polarity, trigger);
--		if (err < 0) {
--			spin_unlock(&iosapic_lock);
--			spin_unlock_irqrestore(&irq_desc[vector].lock,
--					       flags);
--			return err;
--		}
-+	if (gsi_to_vector(gsi) > 0) {
-+		if (list_empty(&iosapic_intr_info[vector].rtes))
-+			free_irq_vector(vector);
-+		spin_unlock(&iosapic_lock);
-+		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
-+		goto again;
-+	}
-
--		/*
--		 * If the vector is shared and already unmasked for
--		 * other interrupt sources, don't mask it.
--		 */
--		low32 = iosapic_intr_info[vector].low32;
--		if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
--			mask = 0;
--		set_rte(gsi, vector, dest, mask);
-+	dest = get_target_cpu(gsi, vector);
-+	err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
-+			    polarity, trigger);
-+	if (err < 0) {
-+		spin_unlock(&iosapic_lock);
-+		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
-+		return err;
- 	}
+-	spin_lock_irqsave(&vector_lock, flags);
+ 	BUG_ON((unsigned)irq >= NR_IRQS);
+ 	BUG_ON(irq_cfg[irq].vector = IRQ_VECTOR_UNASSIGNED);
+ 	vector = irq_cfg[irq].vector;
++	domain = irq_cfg[irq].domain;
+ 	cpus_and(mask, irq_cfg[irq].domain, cpu_online_map);
+ 	for_each_cpu_mask(cpu, mask)
+ 		per_cpu(vector_irq, cpu)[vector] = VECTOR_IRQ_UNASSIGNED;
+ 	irq_cfg[irq].vector = IRQ_VECTOR_UNASSIGNED;
+ 	irq_cfg[irq].domain = CPU_MASK_NONE;
+ 	pos = vector - IA64_FIRST_DEVICE_VECTOR;
+-	cpus_andnot(vector_table[pos], vector_table[pos], irq_cfg[irq].domain);
++	cpus_andnot(vector_table[pos], vector_table[pos], domain);
++}
 +
-+	/*
-+	 * If the vector is shared and already unmasked for other
-+	 * interrupt sources, don't mask it.
-+	 */
-+	low32 = iosapic_intr_info[vector].low32;
-+	if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
-+		mask = 0;
-+	set_rte(gsi, vector, dest, mask);
- 	spin_unlock(&iosapic_lock);
- 	spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
-
-@@ -887,69 +866,64 @@
- 	idesc = irq_desc + irq;
- 	spin_lock_irqsave(&idesc->lock, flags);
- 	spin_lock(&iosapic_lock);
--	{
--		if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
--			printk(KERN_ERR
--			       "iosapic_unregister_intr(%u) unbalanced\n",
--			       gsi);
--			WARN_ON(1);
--			goto out;
--		}
-+	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
-+		printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n",
-+		       gsi);
-+		WARN_ON(1);
-+		goto out;
-+	}
-
--		if (--rte->refcnt > 0)
--			goto out;
-+	if (--rte->refcnt > 0)
-+		goto out;
-
--		/* Mask the interrupt */
--		low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
--		iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index),
--			      low32);
-+	/* Mask the interrupt */
-+	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
-+	iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index), low32);
-
--		/* Remove the rte entry from the list */
--		list_del(&rte->rte_list);
--		iosapic_intr_info[vector].count--;
--		iosapic_free_rte(rte);
--		index = find_iosapic(gsi);
--		iosapic_lists[index].rtes_inuse--;
--		WARN_ON(iosapic_lists[index].rtes_inuse < 0);
--
--		trigger	 = iosapic_intr_info[vector].trigger;
--		polarity = iosapic_intr_info[vector].polarity;
--		dest     = iosapic_intr_info[vector].dest;
--		printk(KERN_INFO
--		       "GSI %u (%s, %s) -> CPU %d (0x%04x)"
--		       " vector %d unregistered\n",
--		       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
--		       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
--		       cpu_logical_id(dest), dest, vector);
--
--		if (list_empty(&iosapic_intr_info[vector].rtes)) {
--			/* Sanity check */
--			BUG_ON(iosapic_intr_info[vector].count);
-+	/* Remove the rte entry from the list */
-+	list_del(&rte->rte_list);
-+	iosapic_intr_info[vector].count--;
-+	iosapic_free_rte(rte);
-+	index = find_iosapic(gsi);
-+	iosapic_lists[index].rtes_inuse--;
-+	WARN_ON(iosapic_lists[index].rtes_inuse < 0);
-
--			/* Clear the interrupt controller descriptor */
--			idesc->chip = &no_irq_type;
-+	trigger	 = iosapic_intr_info[vector].trigger;
-+	polarity = iosapic_intr_info[vector].polarity;
-+	dest     = iosapic_intr_info[vector].dest;
-+	printk(KERN_INFO
-+	       "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d unregistered\n",
-+	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
-+	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
-+	       cpu_logical_id(dest), dest, vector);
++static void clear_irq_vector(int irq)
++{
++	unsigned long flags;
 +
-+	if (list_empty(&iosapic_intr_info[vector].rtes)) {
-+		/* Sanity check */
-+		BUG_ON(iosapic_intr_info[vector].count);
++	spin_lock_irqsave(&vector_lock, flags);
++	__clear_irq_vector(irq);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
+ }
+
+@@ -224,6 +232,36 @@
+ 	return CPU_MASK_ALL;
+ }
+
++static int __reassign_irq_vector(int irq, int cpu)
++{
++	struct irq_cfg *cfg = &irq_cfg[irq];
++	int vector;
++	cpumask_t domain;
 +
-+		/* Clear the interrupt controller descriptor */
-+		idesc->chip = &no_irq_type;
-
- #ifdef CONFIG_SMP
--			/* Clear affinity */
--			cpus_setall(idesc->affinity);
-+		/* Clear affinity */
-+		cpus_setall(idesc->affinity);
- #endif
-
--			/* Clear the interrupt information */
--			memset(&iosapic_intr_info[vector], 0,
--			       sizeof(struct iosapic_intr_info));
--			iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
--			INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
--
--			if (idesc->action) {
--				printk(KERN_ERR
--				       "interrupt handlers still exist on"
--				       "IRQ %u\n", irq);
--				WARN_ON(1);
--			}
-+		/* Clear the interrupt information */
-+		memset(&iosapic_intr_info[vector], 0,
-+		       sizeof(struct iosapic_intr_info));
-+		iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
-+		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
-
--			/* Free the interrupt vector */
--			free_irq_vector(vector);
-+		if (idesc->action) {
-+			printk(KERN_ERR
-+			       "interrupt handlers still exist on IRQ %u\n",
-+			       irq);
-+			WARN_ON(1);
- 		}
++	if (cfg->vector = IRQ_VECTOR_UNASSIGNED || !cpu_online(cpu))
++		return -EINVAL;
++	if (cpu_isset(cpu, cfg->domain))
++		return 0;
++	domain = vector_allocation_domain(cpu);
++	vector = find_unassigned_vector(domain);
++	if (vector < 0)
++		return -ENOSPC;
++	__clear_irq_vector(irq);
++	BUG_ON(__bind_irq_vector(irq, vector, domain));
++	return 0;
++}
 +
-+		/* Free the interrupt vector */
-+		free_irq_vector(vector);
- 	}
-  out:
- 	spin_unlock(&iosapic_lock);
-@@ -1109,31 +1083,29 @@
- 	unsigned long flags;
-
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		addr = ioremap(phys_addr, 0);
--		ver = iosapic_version(addr);
--
--		if ((err = iosapic_check_gsi_range(gsi_base, ver))) {
--			iounmap(addr);
--			spin_unlock_irqrestore(&iosapic_lock, flags);
--			return err;
--		}
-+	addr = ioremap(phys_addr, 0);
-+	ver = iosapic_version(addr);
-
--		/*
--		 * The MAX_REDIR register holds the highest input pin
--		 * number (starting from 0).
--		 * We add 1 so that we can use it for number of pins (= RTEs)
--		 */
--		num_rte = ((ver >> 16) & 0xff) + 1;
-+	if ((err = iosapic_check_gsi_range(gsi_base, ver))) {
-+		iounmap(addr);
-+		spin_unlock_irqrestore(&iosapic_lock, flags);
-+		return err;
-+	}
-
--		index = iosapic_alloc();
--		iosapic_lists[index].addr = addr;
--		iosapic_lists[index].gsi_base = gsi_base;
--		iosapic_lists[index].num_rte = num_rte;
-+	/*
-+	 * The MAX_REDIR register holds the highest input pin number
-+	 * (starting from 0).  We add 1 so that we can use it for
-+	 * number of pins (= RTEs)
-+	 */
-+	num_rte = ((ver >> 16) & 0xff) + 1;
++int reassign_irq_vector(int irq, int cpu)
++{
++	unsigned long flags;
++	int ret;
 +
-+	index = iosapic_alloc();
-+	iosapic_lists[index].addr = addr;
-+	iosapic_lists[index].gsi_base = gsi_base;
-+	iosapic_lists[index].num_rte = num_rte;
- #ifdef CONFIG_NUMA
--		iosapic_lists[index].node = MAX_NUMNODES;
-+	iosapic_lists[index].node = MAX_NUMNODES;
- #endif
--	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
-
- 	if ((gsi_base = 0) && pcat_compat) {
-@@ -1158,25 +1130,22 @@
- 	unsigned long flags;
-
- 	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		index = find_iosapic(gsi_base);
--		if (index < 0) {
--			printk(KERN_WARNING "%s: No IOSAPIC for GSI base %u\n",
--			       __FUNCTION__, gsi_base);
--			goto out;
--		}
--
--		if (iosapic_lists[index].rtes_inuse) {
--			err = -EBUSY;
--			printk(KERN_WARNING
--			       "%s: IOSAPIC for GSI base %u is busy\n",
--			       __FUNCTION__, gsi_base);
--			goto out;
--		}
-+	index = find_iosapic(gsi_base);
-+	if (index < 0) {
-+		printk(KERN_WARNING "%s: No IOSAPIC for GSI base %u\n",
-+		       __FUNCTION__, gsi_base);
-+		goto out;
-+	}
-
--		iounmap(iosapic_lists[index].addr);
--		iosapic_free(index);
-+	if (iosapic_lists[index].rtes_inuse) {
-+		err = -EBUSY;
-+		printk(KERN_WARNING "%s: IOSAPIC for GSI base %u is busy\n",
-+		       __FUNCTION__, gsi_base);
-+		goto out;
- 	}
++	spin_lock_irqsave(&vector_lock, flags);
++	ret = __reassign_irq_vector(irq, cpu);
++	spin_unlock_irqrestore(&vector_lock, flags);
++	return ret;
++}
 +
-+	iounmap(iosapic_lists[index].addr);
-+	iosapic_free(index);
-  out:
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- 	return err;
+ /*
+  * Dynamic irq allocate and deallocation for MSI
+  */
+Index: linux-2.6.21/arch/ia64/kernel/msi_ia64.c
+=================================--- linux-2.6.21.orig/arch/ia64/kernel/msi_ia64.c	2007-05-08 12:12:56.000000000 +0900
++++ linux-2.6.21/arch/ia64/kernel/msi_ia64.c	2007-05-08 12:13:39.000000000 +0900
+@@ -13,6 +13,7 @@
+
+ #define MSI_DATA_VECTOR_SHIFT		0
+ #define	    MSI_DATA_VECTOR(v)		(((u8)v) << MSI_DATA_VECTOR_SHIFT)
++#define MSI_DATA_VECTOR_MASK		0xffffff00
+
+ #define MSI_DATA_DELIVERY_SHIFT		8
+ #define     MSI_DATA_DELIVERY_FIXED	(0 << MSI_DATA_DELIVERY_SHIFT)
+@@ -50,22 +51,29 @@
+ static void ia64_set_msi_irq_affinity(unsigned int irq, cpumask_t cpu_mask)
+ {
+ 	struct msi_msg msg;
+-	u32 addr;
++	u32 addr, data;
++	int cpu = first_cpu(cpu_mask);
+
+-	/* IRQ migration across domain is not supported yet */
+-	cpus_and(cpu_mask, cpu_mask, irq_to_domain(irq));
+-	if (cpus_empty(cpu_mask))
++	if (!cpu_online(cpu))
++		return;
++
++	if (reassign_irq_vector(irq, cpu))
+ 		return;
+
+ 	read_msi_msg(irq, &msg);
+
+ 	addr = msg.address_lo;
+ 	addr &= MSI_ADDR_DESTID_MASK;
+-	addr |= MSI_ADDR_DESTID_CPU(cpu_physical_id(first_cpu(cpu_mask)));
++	addr |= MSI_ADDR_DESTID_CPU(cpu_physical_id(cpu));
+ 	msg.address_lo = addr;
+
++	data = msg.data;
++	data &= MSI_DATA_VECTOR_MASK;
++	data |= MSI_DATA_VECTOR(irq_to_vector(irq));
++	msg.data = data;
++
+ 	write_msi_msg(irq, &msg);
+-	irq_desc[irq].affinity = cpu_mask;
++	irq_desc[irq].affinity = cpumask_of_cpu(cpu);
+ }
+ #endif /* CONFIG_SMP */
+
+Index: linux-2.6.21/include/asm-ia64/iosapic.h
+=================================--- linux-2.6.21.orig/include/asm-ia64/iosapic.h	2007-05-07 11:41:48.000000000 +0900
++++ linux-2.6.21/include/asm-ia64/iosapic.h	2007-05-08 12:13:39.000000000 +0900
+@@ -47,6 +47,8 @@
+ #define	IOSAPIC_MASK_SHIFT		16
+ #define	IOSAPIC_MASK			(1<<IOSAPIC_MASK_SHIFT)
+
++#define IOSAPIC_VECTOR_MASK		0xffffff00
++
+ #ifndef __ASSEMBLY__
+
+ #ifdef CONFIG_IOSAPIC
+Index: linux-2.6.21/include/asm-ia64/hw_irq.h
+=================================--- linux-2.6.21.orig/include/asm-ia64/hw_irq.h	2007-05-08 12:12:56.000000000 +0900
++++ linux-2.6.21/include/asm-ia64/hw_irq.h	2007-05-08 12:13:39.000000000 +0900
+@@ -105,6 +105,7 @@
+ extern void free_irq_vector (int vector);
+ extern int reserve_irq_vector (int vector);
+ extern void __setup_vector_irq(int cpu);
++extern int reassign_irq_vector(int irq, int cpu);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+ extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
+
 
 
