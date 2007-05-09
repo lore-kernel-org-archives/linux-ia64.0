@@ -1,85 +1,112 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 18 May 2007 18:46:23 +0000
-Subject: [PATCH 1/2] Improve unwind checking.
-Message-Id: <20070518184623.GB9217@lnx-holt.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 09 May 2007 22:53:51 +0000
+Subject: Warnings about dev_dbg in SN2 code
+Message-Id: <617E1C2C70743745A92448908E030B2A01748CAC@scsmsx411.amr.corp.intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C7928C.E9843951"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+------_=_NextPart_001_01C7928C.E9843951
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-This patch adds some sanity checks to keep register and memory stack
-pointers in the unw_frame_info structure within the tasks stack address
-range.
+Mainline is now checking the arguments to dev_dbg() ... and
+it warns about a bunch of items in sn2 code.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+The attached patch shuts things up ... could someone from
+SGI check that it is ok please?
 
+-Tony
 
-Index: linux-tot-20070517/arch/ia64/kernel/unwind.c
-=================================--- linux-tot-20070517.orig/arch/ia64/kernel/unwind.c	2007-05-18 11:23:10.772996962 -0500
-+++ linux-tot-20070517/arch/ia64/kernel/unwind.c	2007-05-18 11:23:19.450056538 -0500
-@@ -1860,7 +1860,7 @@ int
- unw_unwind (struct unw_frame_info *info)
- {
- 	unsigned long prev_ip, prev_sp, prev_bsp;
--	unsigned long ip, pr, num_regs;
-+	unsigned long ip, pr, num_regs, rp_loc, pfs_loc;
- 	STAT(unsigned long start, flags;)
- 	int retval;
- 
-@@ -1870,14 +1870,16 @@ unw_unwind (struct unw_frame_info *info)
- 	prev_sp = info->sp;
- 	prev_bsp = info->bsp;
- 
--	/* restore the ip */
--	if (!info->rp_loc) {
-+	/* validate the return IP pointer */
-+	rp_loc = (unsigned long) info->rp_loc;
-+	if ((rp_loc < info->regstk.limit) || (rp_loc > info->regstk.top)) {
- 		/* FIXME: should really be level 0 but it occurs too often. KAO */
- 		UNW_DPRINT(1, "unwind.%s: failed to locate return link (ip=0x%lx)!\n",
- 			   __FUNCTION__, info->ip);
- 		STAT(unw.stat.api.unwind_time += ia64_get_itc() - start; local_irq_restore(flags));
- 		return -1;
- 	}
-+	/* restore the ip */
- 	ip = info->ip = *info->rp_loc;
- 	if (ip < GATE_ADDR) {
- 		UNW_DPRINT(2, "unwind.%s: reached user-space (ip=0x%lx)\n", __FUNCTION__, ip);
-@@ -1885,12 +1887,14 @@ unw_unwind (struct unw_frame_info *info)
- 		return -1;
- 	}
- 
--	/* restore the cfm: */
--	if (!info->pfs_loc) {
-+	/* validate the previous stack frame pointer */
-+	pfs_loc = (unsigned long) info->pfs_loc;
-+	if ((pfs_loc < info->regstk.limit) || (pfs_loc > info->regstk.top)) {
- 		UNW_DPRINT(0, "unwind.%s: failed to locate ar.pfs!\n", __FUNCTION__);
- 		STAT(unw.stat.api.unwind_time += ia64_get_itc() - start; local_irq_restore(flags));
- 		return -1;
- 	}
-+	/* restore the cfm: */
- 	info->cfm_loc = info->pfs_loc;
- 
- 	/* restore the bsp: */
-@@ -1992,13 +1996,16 @@ init_frame_info (struct unw_frame_info *
- 	memset(info, 0, sizeof(*info));
- 
- 	rbslimit = (unsigned long) t + IA64_RBS_OFFSET;
-+	stklimit = (unsigned long) t + IA64_STK_OFFSET;
-+
- 	rbstop   = sw->ar_bspstore;
--	if (rbstop - (unsigned long) t >= IA64_STK_OFFSET)
-+	if (rbstop > stklimit || rbstop < rbslimit)
- 		rbstop = rbslimit;
- 
--	stklimit = (unsigned long) t + IA64_STK_OFFSET;
- 	if (stktop <= rbstop)
- 		stktop = rbstop;
-+	if (stktop > stklimit)
-+		stktop = stklimit;
- 
- 	info->regstk.limit = rbslimit;
- 	info->regstk.top   = rbstop;
+------_=_NextPart_001_01C7928C.E9843951
+Content-Type: application/octet-stream; name="sn2warn.patch"
+Content-Transfer-Encoding: base64
+Content-Description: sn2warn.patch
+Content-Disposition: attachment; filename="sn2warn.patch"
+
+ZGlmZiAtcnUgbGludXgvYXJjaC9pYTY0L3NuL2tlcm5lbC9pb19jb21tb24uYyBzbjItc21wL2Fy
+Y2gvaWE2NC9zbi9rZXJuZWwvaW9fY29tbW9uLmMKLS0tIGxpbnV4L2FyY2gvaWE2NC9zbi9rZXJu
+ZWwvaW9fY29tbW9uLmMJMjAwNy0wNS0wOSAxNDoyMDo1OS4wMDAwMDAwMDAgLTA3MDAKKysrIHNu
+Mi1zbXAvYXJjaC9pYTY0L3NuL2tlcm5lbC9pb19jb21tb24uYwkyMDA3LTA1LTA5IDE1OjI5OjI3
+LjAwMDAwMDAwMCAtMDcwMApAQCAtMzY0LDcgKzM2NCw3IEBACiAKIAllbGVtZW50ID0ga3phbGxv
+YyhzaXplb2Yoc3RydWN0IHN5c2RhdGFfZWwpLCBHRlBfS0VSTkVMKTsKIAlpZiAoIWVsZW1lbnQp
+IHsKLQkJZGV2X2RiZyhkZXYsICIlczogb3V0IG9mIG1lbW9yeSFcbiIsIF9fRlVOQ1RJT05fXyk7
+CisJCWRldl9kYmcoJmRldi0+ZGV2LCAiJXM6IG91dCBvZiBtZW1vcnkhXG4iLCBfX0ZVTkNUSU9O
+X18pOwogCQlyZXR1cm47CiAJfQogCWVsZW1lbnQtPnN5c2RhdGEgPSBTTl9QQ0lERVZfSU5GTyhk
+ZXYpOwpkaWZmIC1ydSBsaW51eC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMgc24y
+LXNtcC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMKLS0tIGxpbnV4L2RyaXZlcnMv
+cGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYwkyMDA3LTA1LTA5IDE0OjIwOjU5LjAwMDAwMDAwMCAt
+MDcwMAorKysgc24yLXNtcC9kcml2ZXJzL3BjaS9ob3RwbHVnL3NnaV9ob3RwbHVnLmMJMjAwNy0w
+NS0wOSAxNTo0MDowMy4wMDAwMDAwMDAgLTA3MDAKQEAgLTI0OSwxOSArMjQ5LDE5IEBACiAKIAog
+CWlmIChyYyA9PSBQQ0lfU0xPVF9BTFJFQURZX1VQKSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1
+cy0+c2VsZiwgImlzIGFscmVhZHkgYWN0aXZlXG4iKTsKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1
+cy0+c2VsZi0+ZGV2LCAiaXMgYWxyZWFkeSBhY3RpdmVcbiIpOwogCQlyZXR1cm4gMTsgLyogcmV0
+dXJuIDEgdG8gdXNlciAqLwogCX0KIAogCWlmIChyYyA9PSBQQ0lfTDFfRVJSKSB7Ci0JCWRldl9k
+Ymcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+
+ZGV2LAogCQkJIkwxIGZhaWx1cmUgJWQgd2l0aCBtZXNzYWdlOiAlcyIsCiAJCQlyZXNwLnJlc3Bf
+c3ViX2Vycm5vLCByZXNwLnJlc3BfbDFfbXNnKTsKIAkJcmV0dXJuIC1FUEVSTTsKIAl9CiAKIAlp
+ZiAocmMpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxmLAorCQlkZXZfZGJnKCZzbG90
+LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiaW5zZXJ0IGZhaWxlZCB3aXRoIGVycm9yICVkIHN1
+Yi1lcnJvciAlZFxuIiwKIAkJCXJjLCByZXNwLnJlc3Bfc3ViX2Vycm5vKTsKIAkJcmV0dXJuIC1F
+SU87CkBAIC0yODcsMjUgKzI4NywyNSBAQAogCiAJaWYgKChhY3Rpb24gPT0gUENJX1JFUV9TTE9U
+X0VMSUdJQkxFKSAmJgogCSAgICAocmMgPT0gUENJX1NMT1RfQUxSRUFEWV9ET1dOKSkgewotCQlk
+ZXZfZGJnKHNsb3QtPnBjaV9idXMtPnNlbGYsICJTbG90ICVzIGFscmVhZHkgaW5hY3RpdmVcbiIp
+OworCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsICJTbG90ICVzIGFscmVhZHkg
+aW5hY3RpdmVcbiIsIHNsb3QtPnBoeXNpY2FsX3BhdGgpOwogCQlyZXR1cm4gMTsgLyogcmV0dXJu
+IDEgdG8gdXNlciAqLwogCX0KIAogCWlmICgoYWN0aW9uID09IFBDSV9SRVFfU0xPVF9FTElHSUJM
+RSkgJiYgKHJjID09IFBDSV9FTVBUWV8zM01IWikpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVz
+LT5zZWxmLAorCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiQ2Fubm90
+IHJlbW92ZSBsYXN0IDMzTUh6IGNhcmRcbiIpOwogCQlyZXR1cm4gLUVQRVJNOwogCX0KIAogCWlm
+ICgoYWN0aW9uID09IFBDSV9SRVFfU0xPVF9FTElHSUJMRSkgJiYgKHJjID09IFBDSV9MMV9FUlIp
+KSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNp
+X2J1cy0+c2VsZi0+ZGV2LAogCQkJIkwxIGZhaWx1cmUgJWQgd2l0aCBtZXNzYWdlIFxuJXNcbiIs
+CiAJCQlyZXNwLnJlc3Bfc3ViX2Vycm5vLCByZXNwLnJlc3BfbDFfbXNnKTsKIAkJcmV0dXJuIC1F
+UEVSTTsKIAl9CiAKIAlpZiAoKGFjdGlvbiA9PSBQQ0lfUkVRX1NMT1RfRUxJR0lCTEUpICYmIHJj
+KSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2VsZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNp
+X2J1cy0+c2VsZi0+ZGV2LAogCQkJInJlbW92ZSBmYWlsZWQgd2l0aCBlcnJvciAlZCBzdWItZXJy
+b3IgJWRcbiIsCiAJCQlyYywgcmVzcC5yZXNwX3N1Yl9lcnJubyk7CiAJCXJldHVybiAtRUlPOwpA
+QCAtMzE3LDEyICszMTcsMTIgQEAKIAlpZiAoKGFjdGlvbiA9PSBQQ0lfUkVRX1NMT1RfRElTQUJM
+RSkgJiYgIXJjKSB7CiAJCXBjaWJ1c19pbmZvID0gU05fUENJQlVTX0JVU1NPRlRfSU5GTyhzbG90
+LT5wY2lfYnVzKTsKIAkJcGNpYnVzX2luZm8tPnBiaV9lbmFibGVkX2RldmljZXMgJj0gfigxIDw8
+IGRldmljZV9udW0pOwotCQlkZXZfZGJnKHNsb3QtPnBjaV9idXMtPnNlbGYsICJyZW1vdmUgc3Vj
+Y2Vzc2Z1bFxuIik7CisJCWRldl9kYmcoJnNsb3QtPnBjaV9idXMtPnNlbGYtPmRldiwgInJlbW92
+ZSBzdWNjZXNzZnVsXG4iKTsKIAkJcmV0dXJuIDA7CiAJfQogCiAJaWYgKChhY3Rpb24gPT0gUENJ
+X1JFUV9TTE9UX0RJU0FCTEUpICYmIHJjKSB7Ci0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2Vs
+ZiwicmVtb3ZlIGZhaWxlZCByYyA9ICVkXG4iLCByYyk7CisJCWRldl9kYmcoJnNsb3QtPnBjaV9i
+dXMtPnNlbGYtPmRldiwicmVtb3ZlIGZhaWxlZCByYyA9ICVkXG4iLCByYyk7CiAJfQogCiAJcmV0
+dXJuIHJjOwpAQCAtMzc1LDcgKzM3NSw3IEBACiAJbnVtX2Z1bmNzID0gcGNpX3NjYW5fc2xvdChz
+bG90LT5wY2lfYnVzLAogCQkJCSAgUENJX0RFVkZOKHNsb3QtPmRldmljZV9udW0gKyAxLCAwKSk7
+CiAJaWYgKCFudW1fZnVuY3MpIHsKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxmLCAibm8g
+ZGV2aWNlIGluIHNsb3RcbiIpOworCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYs
+ICJubyBkZXZpY2UgaW4gc2xvdFxuIik7CiAJCW11dGV4X3VubG9jaygmc25faG90cGx1Z19tdXRl
+eCk7CiAJCXJldHVybiAtRU5PREVWOwogCX0KQEAgLTQyNyw3ICs0MjcsNyBAQAogCQlwaGFuZGxl
+ID0gUENJX0NPTlRST0xMRVIoc2xvdC0+cGNpX2J1cyktPmFjcGlfaGFuZGxlOwogCiAJCWlmIChh
+Y3BpX2J1c19nZXRfZGV2aWNlKHBoYW5kbGUsICZwZGV2aWNlKSkgewotCQkJZGV2X2RiZyhzbG90
+LT5wY2lfYnVzLT5zZWxmLAorCQkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+ZGV2LAog
+CQkJCSJubyBwYXJlbnQgZGV2aWNlLCBhc3N1bWluZyBOVUxMXG4iKTsKIAkJCXBkZXZpY2UgPSBO
+VUxMOwogCQl9CkBAIC00NzksMTAgKzQ3OSwxMCBAQAogCW11dGV4X3VubG9jaygmc25faG90cGx1
+Z19tdXRleCk7CiAKIAlpZiAocmMgPT0gMCkKLQkJZGV2X2RiZyhzbG90LT5wY2lfYnVzLT5zZWxm
+LAorCQlkZXZfZGJnKCZzbG90LT5wY2lfYnVzLT5zZWxmLT5kZXYsCiAJCQkiaW5zZXJ0IG9wZXJh
+dGlvbiBzdWNjZXNzZnVsXG4iKTsKIAllbHNlCi0JCWRldl9kYmcoc2xvdC0+cGNpX2J1cy0+c2Vs
+ZiwKKwkJZGV2X2RiZygmc2xvdC0+cGNpX2J1cy0+c2VsZi0+ZGV2LAogCQkJImluc2VydCBvcGVy
+YXRpb24gZmFpbGVkIHJjID0gJWRcbiIsIHJjKTsKIAogCXJldHVybiByYzsKQEAgLTY1OSwxNiAr
+NjU5LDE2IEBACiAJCWlmIChyYykKIAkJCWdvdG8gcmVnaXN0ZXJfZXJyOwogCX0KLQlkZXZfZGJn
+KHBjaV9idXMtPnNlbGYsICJSZWdpc3RlcmVkIGJ1cyB3aXRoIGhvdHBsdWdcbiIpOworCWRldl9k
+YmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIlJlZ2lzdGVyZWQgYnVzIHdpdGggaG90cGx1Z1xuIik7
+CiAJcmV0dXJuIHJjOwogCiByZWdpc3Rlcl9lcnI6Ci0JZGV2X2RiZyhwY2lfYnVzLT5zZWxmLCAi
+YnVzIGZhaWxlZCB0byByZWdpc3RlciB3aXRoIGVyciA9ICVkXG4iLAorCWRldl9kYmcoJnBjaV9i
+dXMtPnNlbGYtPmRldiwgImJ1cyBmYWlsZWQgdG8gcmVnaXN0ZXIgd2l0aCBlcnIgPSAlZFxuIiwK
+IAkgICAgICAgIHJjKTsKIAogYWxsb2NfZXJyOgogCWlmIChyYyA9PSAtRU5PTUVNKQotCQlkZXZf
+ZGJnKHBjaV9idXMtPnNlbGYsICJNZW1vcnkgYWxsb2NhdGlvbiBlcnJvclxuIik7CisJCWRldl9k
+YmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIk1lbW9yeSBhbGxvY2F0aW9uIGVycm9yXG4iKTsKIAog
+CS8qIGRlc3Ryb3kgVEhJUyBlbGVtZW50ICovCiAJaWYgKGJzc19ob3RwbHVnX3Nsb3QpCkBAIC03
+MDEsMTAgKzcwMSwxMCBAQAogCiAJCXJjID0gc25fcGNpX2J1c192YWxpZChwY2lfYnVzKTsKIAkJ
+aWYgKHJjICE9IDEpIHsKLQkJCWRldl9kYmcocGNpX2J1cy0+c2VsZiwgIm5vdCBhIHZhbGlkIGhv
+dHBsdWcgYnVzXG4iKTsKKwkJCWRldl9kYmcoJnBjaV9idXMtPnNlbGYtPmRldiwgIm5vdCBhIHZh
+bGlkIGhvdHBsdWcgYnVzXG4iKTsKIAkJCWNvbnRpbnVlOwogCQl9Ci0JCWRldl9kYmcocGNpX2J1
+cy0+c2VsZiwgInZhbGlkIGhvdHBsdWcgYnVzXG4iKTsKKwkJZGV2X2RiZygmcGNpX2J1cy0+c2Vs
+Zi0+ZGV2LCAidmFsaWQgaG90cGx1ZyBidXNcbiIpOwogCiAJCXJjID0gc25faG90cGx1Z19zbG90
+X3JlZ2lzdGVyKHBjaV9idXMpOwogCQlpZiAoIXJjKSB7Cg==
+
+------_=_NextPart_001_01C7928C.E9843951--
