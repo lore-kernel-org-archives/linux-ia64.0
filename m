@@ -1,122 +1,96 @@
-From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 09 May 2007 07:53:45 +0000
-Subject: [PATCH 5/12]  Use dynamic irq for iosapic interrupts
-Message-Id: <46417E09.7010509@jp.fujitsu.com>
+From: akpm@linux-foundation.org
+Date: Fri, 11 May 2007 05:42:44 +0000
+Subject: [patch 1/3] SN: validate smp_affinity mask on intr redirect
+Message-Id: <200705110542.l4B5gihj007476@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use create_irq()/destroy_irq() for iosapic interrupts.
+From: John Keller <jpk@sgi.com>
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+On SN, only allow one bit to be set in the smp_affinty mask when
+redirecting an interrupt.  Currently setting multiple bits is allowed, but
+only the first bit is used in determining the CPU to redirect to.  This has
+caused confusion among some customers.
 
+[akpm@linux-foundation.org: fixes]
+Signed-off-by: John Keller <jpk@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/kernel/iosapic.c |   39 +++++++++++++++------------------------
- 1 files changed, 15 insertions(+), 24 deletions(-)
 
-Index: linux-2.6.21/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.21.orig/arch/ia64/kernel/iosapic.c	2007-05-07 11:44:21.000000000 +0900
-+++ linux-2.6.21/arch/ia64/kernel/iosapic.c	2007-05-08 12:08:05.000000000 +0900
-@@ -534,12 +534,13 @@
- static void __init
- iosapic_reassign_vector (int vector)
- {
--	int new_vector;
-+	int irq, new_vector;
+ arch/ia64/kernel/irq.c |   11 +++++++++++
+ include/asm-ia64/irq.h |    6 ++++++
+ kernel/irq/proc.c      |    7 +++++++
+ 3 files changed, 24 insertions(+)
 
- 	if (!list_empty(&iosapic_intr_info[vector].rtes)) {
--		new_vector = assign_irq_vector(AUTO_ASSIGN);
--		if (new_vector < 0)
-+		irq = create_irq();
-+		if (irq < 0)
- 			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-+		new_vector = irq_to_vector(irq);
- 		printk(KERN_INFO "Reassigning vector %d to %d\n",
- 		       vector, new_vector);
- 		memcpy(&iosapic_intr_info[new_vector], &iosapic_intr_info[vector],
-@@ -754,7 +755,7 @@
- iosapic_register_intr (unsigned int gsi,
- 		       unsigned long polarity, unsigned long trigger)
- {
--	int vector, mask = 1, err;
-+	int irq, vector, mask = 1, err;
- 	unsigned int dest;
- 	unsigned long flags;
- 	struct iosapic_rte_info *rte;
-@@ -774,12 +775,13 @@
+diff -puN arch/ia64/kernel/irq.c~sn-validate-smp_affinity-mask-on-intr-redirect arch/ia64/kernel/irq.c
+--- a/arch/ia64/kernel/irq.c~sn-validate-smp_affinity-mask-on-intr-redirect
++++ a/arch/ia64/kernel/irq.c
+@@ -104,6 +104,17 @@ void set_irq_affinity_info (unsigned int
+ 		irq_redir[irq] = (char) (redir & 0xff);
  	}
-
- 	/* If vector is running out, we try to find a sharable vector */
--	vector = assign_irq_vector(AUTO_ASSIGN);
--	if (vector < 0) {
-+	irq = create_irq();
-+	if (irq < 0) {
- 		vector = iosapic_find_sharable_vector(trigger, polarity);
-   		if (vector < 0)
- 			goto unlock_iosapic_lock;
--	}
-+	} else
-+		vector = irq_to_vector(irq);
-
- 	spin_lock(&irq_desc[vector].lock);
- 	dest = get_target_cpu(gsi, vector);
-@@ -874,30 +876,18 @@
- 	if (list_empty(&iosapic_intr_info[vector].rtes)) {
- 		/* Sanity check */
- 		BUG_ON(iosapic_intr_info[vector].count);
--
--		/* Clear the interrupt controller descriptor */
--		idesc->chip = &no_irq_type;
--
- #ifdef CONFIG_SMP
- 		/* Clear affinity */
- 		cpus_setall(idesc->affinity);
- #endif
--
- 		/* Clear the interrupt information */
- 		memset(&iosapic_intr_info[vector], 0,
- 		       sizeof(struct iosapic_intr_info));
- 		iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
- 		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
-
--		if (idesc->action) {
--			printk(KERN_ERR
--			       "interrupt handlers still exist on IRQ %u\n",
--			       irq);
--			WARN_ON(1);
--		}
--
--		/* Free the interrupt vector */
--		free_irq_vector(vector);
-+		/* Destroy IRQ */
-+		destroy_irq(irq);
- 	}
-  out:
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
-@@ -913,7 +903,7 @@
- {
- 	static const char * const name[] = {"unknown", "PMI", "INIT", "CPEI"};
- 	unsigned char delivery;
--	int vector, mask = 0;
-+	int irq, vector, mask = 0;
- 	unsigned int dest = ((id << 8) | eid) & 0xffff;
-
- 	switch (int_type) {
-@@ -927,9 +917,10 @@
- 		delivery = IOSAPIC_PMI;
- 		break;
- 	      case ACPI_INTERRUPT_INIT:
--		vector = assign_irq_vector(AUTO_ASSIGN);
--		if (vector < 0)
-+		irq = create_irq();
-+		if (irq < 0)
- 			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-+		vector = irq_to_vector(irq);
- 		delivery = IOSAPIC_INIT;
- 		break;
- 	      case ACPI_INTERRUPT_CPEI:
-
-
+ }
++
++bool is_affinity_mask_valid(cpumask_t cpumask)
++{
++	if (ia64_platform_is("sn2")) {
++		/* Only allow one CPU to be specified in the smp_affinity mask */
++		if (cpus_weight(cpumask) != 1)
++			return false;
++	}
++	return true;
++}
++
+ #endif /* CONFIG_SMP */
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+diff -puN include/asm-ia64/irq.h~sn-validate-smp_affinity-mask-on-intr-redirect include/asm-ia64/irq.h
+--- a/include/asm-ia64/irq.h~sn-validate-smp_affinity-mask-on-intr-redirect
++++ a/include/asm-ia64/irq.h
+@@ -11,6 +11,9 @@
+  * 02/29/00     D.Mosberger	moved most things into hw_irq.h
+  */
+ 
++#include <linux/types.h>
++#include <linux/cpumask.h>
++
+ #define NR_IRQS		256
+ #define NR_IRQ_VECTORS	NR_IRQS
+ 
+@@ -29,5 +32,8 @@ extern void disable_irq (unsigned int);
+ extern void disable_irq_nosync (unsigned int);
+ extern void enable_irq (unsigned int);
+ extern void set_irq_affinity_info (unsigned int irq, int dest, int redir);
++bool is_affinity_mask_valid(cpumask_t cpumask);
++
++#define is_affinity_mask_valid is_affinity_mask_valid
+ 
+ #endif /* _ASM_IA64_IRQ_H */
+diff -puN kernel/irq/proc.c~sn-validate-smp_affinity-mask-on-intr-redirect kernel/irq/proc.c
+--- a/kernel/irq/proc.c~sn-validate-smp_affinity-mask-on-intr-redirect
++++ a/kernel/irq/proc.c
+@@ -27,6 +27,10 @@ static int irq_affinity_read_proc(char *
+ 	return len;
+ }
+ 
++#ifndef is_affinity_mask_valid
++#define is_affinity_mask_valid(val) 1
++#endif
++
+ int no_irq_affinity;
+ static int irq_affinity_write_proc(struct file *file, const char __user *buffer,
+ 				   unsigned long count, void *data)
+@@ -42,6 +46,9 @@ static int irq_affinity_write_proc(struc
+ 	if (err)
+ 		return err;
+ 
++	if (!is_affinity_mask_valid(new_value))
++		return -EINVAL;
++
+ 	/*
+ 	 * Do not allow disabling IRQs completely - it's a too easy
+ 	 * way to make the system unusable accidentally :-) At least
+_
