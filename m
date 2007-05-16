@@ -1,45 +1,83 @@
-From: Mike Stroyan <mike.stroyan@hp.com>
-Date: Fri, 04 May 2007 21:32:27 +0000
-Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <20070504213227.GA2965@ldl.fc.hp.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 16 May 2007 21:40:34 +0000
+Subject: FW: Re: [PATCH] - Increase max SSI size
+Message-Id: <20070516214034.GA13527@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200704281805.l3SI5JQx030827@smtp.corp.google.com> <463727E1.3090203@yahoo.com.au>
-In-Reply-To: <463727E1.3090203@yahoo.com.au>
+References: <20070412175819.GA9723@sgi.com>
+In-Reply-To: <20070412175819.GA9723@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Rohit Seth <rohitseth@google.com>, 'Hugh Dickins' <hugh@veritas.com>, 'Mike Stroyan' <mike.stroyan@hp.com>, 'Andrew Morton' <akpm@linux-foundation.org>, "'Luck, Tony'" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-On Tue, May 01, 2007 at 09:43:29PM +1000, Nick Piggin wrote:
-> Rohit Seth wrote:
-...
-> >Caches on Itanium are physical.  So, it doesn't matter what virtual addr=
-ess
-> >you use to flush a cache line, cache line containing specific physical
-> >memory will be flushed.=20
->=20
-> Really? I was under the vague impression that L1 i/d caches were virtual
-> and required this flushing... but I guess so long as the ISA says that
-> fc/fc.i flushes all caches corresponding to the physical address of the
-> provided virtual address, then that's what matters.
+Tony,
 
-  The L1 caches on Itanium have interesting behavior.  The cache lines
-are indexed by virtual address.  But those L1 cache lines are invalidated
-whenever their corresponding L1 TLB entry is evicted or replaced.
-That means that old L1 icache lines will be invalidated by TLB changes
-even before a fc.i instruction flushed those icache lines.  That would
-help make old kernels work on pre-montecito processors without correctly
-ordered fc.i instructions.  The L1 icache was flushed by TLB inserts
-and the L2 icache was unified.
+Did this make it onto your radar?  Jack had submitted a fixed patch,
+but I have not seen it sent to Linus yet.  Jack is on vacation right now.
+If you need it resubmitted, please let me know and I will impersonate him.
 
-  fc.i is also defined to make an address coherent between data and
-instruction caches at all levels of cache.  That handles the update of
-L1 icache lines during a st,fc.i,sync.i,srlz.i sequence.
+Thanks,
+Robin
 
-  I see these details in section 6.1.1 of "Intel=AE Itanium=AE 2 Processor
-Reference Manual".  But I haven't found them in a general Itanium
-Architecture reference.
+----- Forwarded message from Jack Steiner <steiner@sgi.com> -----
 
---=20
-Mike Stroyan, mike.stroyan@hp.com
+Date:	Thu, 12 Apr 2007 13:39:01 -0500
+From: Jack Steiner <steiner@sgi.com>
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org
+Subject: Re: [PATCH] - Increase max SSI size
+
+Increase the maximum SSI size for IA64 to 4096p. No changes are being
+made to the default configuration sizes (for now).
+
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
+
+---
+With bug fix that Tony found....
+
+
+
+Index: linux/arch/ia64/Kconfig
+=================================--- linux.orig/arch/ia64/Kconfig	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/Kconfig	2007-04-12 07:41:44.619991642 -0500
+@@ -267,8 +267,8 @@ config SMP
+ 	  If you don't know what to do here, say N.
+ 
+ config NR_CPUS
+-	int "Maximum number of CPUs (2-1024)"
+-	range 2 1024
++	int "Maximum number of CPUs (2-4096)"
++	range 2 4096
+ 	depends on SMP
+ 	default "1024"
+ 	help
+Index: linux/arch/ia64/kernel/topology.c
+=================================--- linux.orig/arch/ia64/kernel/topology.c	2007-04-04 16:51:42.000000000 -0500
++++ linux/arch/ia64/kernel/topology.c	2007-04-12 13:37:05.855795475 -0500
+@@ -21,6 +21,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+ #include <linux/notifier.h>
++#include <linux/vmalloc.h>
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+ #include <asm/cpu.h>
+@@ -68,10 +69,11 @@ static int __init topology_init(void)
+ 	}
+ #endif
+ 
+-	sysfs_cpus = kzalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
++	sysfs_cpus = vmalloc(sizeof(struct ia64_cpu) * NR_CPUS);
+ 	if (!sysfs_cpus)
+ 		panic("kzalloc in topology_init failed - NR_CPUS too big?");
+ 
++	memset(sysfs_cpus, 0, sizeof(sizeof(struct ia64_cpu) * NR_CPUS));
+ 	for_each_present_cpu(i) {
+ 		if((err = arch_register_cpu(i)))
+ 			goto out;
+-
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+----- End forwarded message -----
