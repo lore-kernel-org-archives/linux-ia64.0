@@ -1,34 +1,55 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 18 May 2007 00:48:57 +0000
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 22 May 2007 01:23:40 +0000
 Subject: Re: [PATCH] fix kmalloc(0) in arch/ia64/pci/pci.c
-Message-Id: <20070518094857.572e804e.kamezawa.hiroyu@jp.fujitsu.com>
+Message-Id: <1179797021.3872.6.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070517110056.779944a2.kamezawa.hiroyu@jp.fujitsu.com>
-	<20070517121959.b1b374fa.akpm@linux-foundation.org>
-In-Reply-To: <20070517121959.b1b374fa.akpm@linux-foundation.org>
+In-Reply-To: <20070517110056.779944a2.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
 
-On Thu, 17 May 2007 12:19:59 -0700
-Andrew Morton <akpm@linux-foundation.org> wrote:
+Hi,
 
-> > +	if (!windows)
-> > +		goto out2;
-> >  	controller->window = kmalloc_node(sizeof(*controller->window) * windows,
-> >  			GFP_KERNEL, controller->node);
-> >  	if (!controller->window)
-> > 
-> 
-> This is a significant change in functionality.  Can you please explain why
-> it doesn't break things?
-> 
-Sorry for long RTT. I found no problem on my machine, but....
-I realized I misunderstood how kmalloc(0) works....sorry, please drop patch.
+Here is a patch to fix zero size kmalloc problem that was reported
+by Hiroyuki Kamezawa.
 
-I'll ask a pci guy to fix this.
+Thanks,
+Kenji Kaneshige
 
--Kame
+---
+Hiroyuki Kamezawa reported the problem that pci_acpi_scan_root() of
+ia64 might call kmalloc_node() with zero size. 
+
+Currently ia64's pci_acpi_scan_root() assumes that _CRS method of root
+bridge has at least one resource window. But, the root bridges that
+has no resource window must be taken into account.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+---
+ arch/ia64/pci/pci.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+Index: linux-2.6.22-rc1/arch/ia64/pci/pci.c
+=================================--- linux-2.6.22-rc1.orig/arch/ia64/pci/pci.c
++++ linux-2.6.22-rc1/arch/ia64/pci/pci.c
+@@ -354,10 +354,13 @@ pci_acpi_scan_root(struct acpi_device *d
+ 
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+ 			&windows);
+-	controller->window = kmalloc_node(sizeof(*controller->window) * windows,
+-			GFP_KERNEL, controller->node);
+-	if (!controller->window)
+-		goto out2;
++	if (windows) {
++		controller->window +			kmalloc_node(sizeof(*controller->window) * windows,
++				     GFP_KERNEL, controller->node);
++		if (!controller->window)
++			goto out2;
++	}
+ 
+ 	name = kmalloc(16, GFP_KERNEL);
+ 	if (!name)
+
 
