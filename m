@@ -1,44 +1,40 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Thu, 31 May 2007 20:08:40 +0000
-Subject: [PATCH] net/hp100: fix section mismatch warning
-Message-Id: <20070531200840.GB27305@uranus.ravnborg.org>
+From: Venki Pallipadi <venkatesh.pallipadi@intel.com>
+Date: Tue, 22 May 2007 22:36:57 +0000
+Subject: [PATCH] Cleanup acpi header to reuse the generic _PDC defines
+Message-Id: <20070522223656.GB14410@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A01929DD3@scsmsx411.amr.corp.intel.com> <Pine.LNX.4.64.0705302019040.5583@schroedinger.engr.sgi.com> <465EE7BB.4050605@redhat.com> <20070531200446.GA27305@uranus.ravnborg.org>
-In-Reply-To: <20070531200446.GA27305@uranus.ravnborg.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Prarit Bhargava <prarit@redhat.com>, netdev <netdev@vger.kernel.org>
-Cc: Christoph Lameter <clameter@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Randy Dunlap <randy.dunlap@oracle.com>, David Chinner <dgc@sgi.com>, Andrew Morton <akpm@linux-foundation.org>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Fix following section mismatch warning in hp100:
 
-WARNING: drivers/net/hp100.o(.init.text+0x26a): Section mismatch: reference to .exit.text: (after 'init_module')
+ia64 _PDC setup is defined similar to i386. So, cleanup the header to use
+generic _PDC defines than using specific defines in ia64.
 
-The warning says that we use a function marked __exit from a 
-function marked __init.
-This is not good on architectures where we discard __exit section
-for drivers that are built-in.
+Signed-off-by: Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>
 
-Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
----
-Comple tested only.
-
-Note: This warning does not appear with modpost in upstream kernel
-      but I would like to submit patches for the obvious bugs ASAP
-
-	Sam
-
-diff --git a/drivers/net/hp100.c b/drivers/net/hp100.c
-index 8118a67..8caa591 100644
---- a/drivers/net/hp100.c
-+++ b/drivers/net/hp100.c
-@@ -3005,7 +3005,7 @@ static int __init hp100_isa_init(void)
- 	return cards > 0 ? 0 : -ENODEV;
- }
+Index: linux-2.6.22-rc-mm/include/asm-ia64/acpi.h
+=================================--- linux-2.6.22-rc-mm.orig/include/asm-ia64/acpi.h	2007-05-22 13:46:23.000000000 -0700
++++ linux-2.6.22-rc-mm/include/asm-ia64/acpi.h	2007-05-22 13:46:59.000000000 -0700
+@@ -30,6 +30,8 @@
  
--static void __exit hp100_isa_cleanup(void)
-+static void hp100_isa_cleanup(void)
- {
- 	int i;
+ #ifdef __KERNEL__
  
++#include <acpi/pdc_intel.h>
++
+ #include <linux/init.h>
+ #include <linux/numa.h>
+ #include <asm/system.h>
+@@ -119,11 +121,6 @@
+ extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
+ #endif
+ 
+-/*
+- * Refer Intel ACPI _PDC support document for bit definitions
+- */
+-#define ACPI_PDC_EST_CAPABILITY_SMP     0x8
+-
+ #endif /*__KERNEL__*/
+ 
+ #endif /*_ASM_ACPI_H*/
