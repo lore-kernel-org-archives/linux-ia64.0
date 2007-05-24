@@ -1,33 +1,27 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Thu, 24 May 2007 18:22:10 +0000
-Subject: [PATCH] ia64-acpi section mismatch
-Message-Id: <20070524112210.307857c7.randy.dunlap@oracle.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 24 May 2007 18:30:44 +0000
+Subject: RE: [PATCH] ia64-acpi section mismatch
+Message-Id: <617E1C2C70743745A92448908E030B2A018B0DBA@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070524112210.307857c7.randy.dunlap@oracle.com>
+In-Reply-To: <20070524112210.307857c7.randy.dunlap@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Randy Dunlap <randy.dunlap@oracle.com>
+> Looks like acpi_get_sysname() can be marked __init...
 
-On 2.6.22-rc2-git5:
-WARNING: arch/ia64/kernel/built-in.o(.text+0x12): Section mismatch: reference to .init.text:acpi_find_rsdp (between 'acpi_get_sysname' and 'acpi_request_vector')
+Agreed ... in fact I checked that into my local tree about
+20 minutes ago.  Haven't pushed it out yet.
 
-Looks like acpi_get_sysname() can be marked __init...
+The "Section mismatch" whack-a-mole game is almost over.  With this
+change applied the only one I have left is:
 
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- arch/ia64/kernel/acpi.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Section mismatch: reference to .init.text:acpi_map_pxm_to_node (between 'acpi_get_node' and 'acpi_lock_ac_dir')
 
---- linux-2622-rc2g5.orig/arch/ia64/kernel/acpi.c
-+++ linux-2622-rc2g5/arch/ia64/kernel/acpi.c
-@@ -67,7 +67,7 @@ EXPORT_SYMBOL(pm_power_off);
- unsigned int acpi_cpei_override;
- unsigned int acpi_cpei_phys_cpuid;
- 
--const char *acpi_get_sysname(void)
-+const char * __init acpi_get_sysname(void)
- {
- #ifdef CONFIG_IA64_GENERIC
- 	unsigned long rsdp_phys;
+
+for which the answer *appears* to be to drop the __cpuinit attribute
+on acpi_map_pxm_to_node()
+
+-Tony
