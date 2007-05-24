@@ -1,35 +1,51 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 10 May 2007 12:49:58 +0000
-Subject: Re: [request-for-test] [patch 0/3] [IA64] Allow DISCONTIGMEM without NUMA
-Message-Id: <20070510124956.GA3746@verge.net.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 24 May 2007 20:57:40 +0000
+Subject: [PATCH] Section mismatch ... acpi_map_pxm_to_node
+Message-Id: <617E1C2C70743745A92448908E030B2A018B0FBA@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070510101945.495818588@tabatha.lab.ultramonkey.org>
-In-Reply-To: <20070510101945.495818588@tabatha.lab.ultramonkey.org>
+References: <617E1C2C70743745A92448908E030B2A018B0DBA@scsmsx411.amr.corp.intel.com>
+In-Reply-To: <617E1C2C70743745A92448908E030B2A018B0DBA@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Brown, Len" <len.brown@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org
 
-On Thu, May 10, 2007 at 12:45:48PM +0100, Christoph Hellwig wrote:
-> On Thu, May 10, 2007 at 07:19:45PM +0900, Simon Horman wrote:
-> > The following patches relate to allowing DISCONTIG memory to compile
-> > (and hopefully work) without NUMA. I've tested that they boot, but not much
-> > beyond that.
-> 
-> Why?  I though we wanted to use virtual mem_map and sparsemem for
-> holes inside a single node?
+Last of the "Section mismatch" errors from ia64 builds! acpi_map_pxm_to_node()
+is defined with attribute __cpuinit, but is called by "normal" kernel functions
+acpi_getnode() and acpi_map_cpu2node().
 
-There was a breif dicusion on linux-ia64 which I interpated as Tony
-saying it was a good idea.
+Commit f363d16fbb9374c0bd7f2757d412c287169094c9 moved the data structures on
+which this routine operates from __cpuinitdata to regular memory, so this
+routine can also move out of init space.
 
-http://thread.gmane.org/gmane.linux.ports.ia64/16325/focus327
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-With regards to sparse, the current code needs most if
-not all these fixes in order to use arch/ia64/mm/discontig.c.
-Is the idea to rework that?
+---
 
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index a2efae8..0c9f15c 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -59,7 +59,7 @@ int node_to_pxm(int node)
+ 	return node_to_pxm_map[node];
+ }
+ 
+-int __cpuinit acpi_map_pxm_to_node(int pxm)
++int acpi_map_pxm_to_node(int pxm)
+ {
+ 	int node = pxm_to_node_map[pxm];
+ 
+diff --git a/include/acpi/acpi_numa.h b/include/acpi/acpi_numa.h
+index b62cd36..e2fcee2 100644
+--- a/include/acpi/acpi_numa.h
++++ b/include/acpi/acpi_numa.h
+@@ -13,7 +13,7 @@
+ 
+ extern int pxm_to_node(int);
+ extern int node_to_pxm(int);
+-extern int __cpuinit acpi_map_pxm_to_node(int);
++extern int acpi_map_pxm_to_node(int);
+ extern void __cpuinit acpi_unmap_pxm_to_node(int);
+ 
+ #endif				/* CONFIG_ACPI_NUMA */
