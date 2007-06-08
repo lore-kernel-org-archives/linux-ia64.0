@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 08 Jun 2007 06:00:41 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 08 Jun 2007 20:52:07 +0000
 Subject: RE: [IA64] Set default page size to 64k
-Message-Id: <Pine.LNX.4.64.0706072259190.28618@schroedinger.engr.sgi.com>
+Message-Id: <617E1C2C70743745A92448908E030B2A01A49CC7@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
@@ -10,17 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 7 Jun 2007, Hans Boehm wrote:
+> SLUB can also take advantage of the larger page sizes. A kernel compile is 
+> already ~5-10% faster with 16k. This will increase the speed even more. It 
+> will also increase the effectiveness of slab reclaim because more objects 
+> can be processed with a single acquisition of the dcache or inode lock.
 
-> written data (e.g. for checkpoints or GC), and a small number of writes
-> are distributed randomly through the address space (admittedly worst
-> case) then 4 times as many bytes appear to be potentially written,
-> and hence you may have to copy or scan 4 times as many bytes.
-> I think the potential down side in cases like this is substantial,
-> though it's probably quite rare.  Fpr software DSM it's probably even
-> worse, since you are likely to introduce more false sharing.
+I just built a 64K pagesize + SLUB kernel for my build system (4 socket
+Montecito) and then used it to rebuild all my standard config kernels.
+Comparing against a set of builds with a 16K pagesize + SLAB, the results
+were a lot less impressive than implied by this and the "set SLUB as default"
+postings.  Seven out of eleven builds were faster, but only by 3-6 seconds
+(around 3% on a three minute build). Three builds were slower (by a similar
+margin).  So I'd only rate the performance change as a "possible win, probably
+doesn't hurt much" on this small system.
 
-On the other hand the transfer size and the locking becomes less. The 
-false sharing can be controlled by setting INTERNODE_CACHE_SHIFT 
-appropriately.
+News from the performance team at Intel is also pretty guarded. You've
+fixed the performance regressions we saw with earlier versions of SLUB
+for Netperf and Volanomark.  Our favourite online transaction processing
+benchmark is currently up about 1% against mainline+SLAB (though this is
+just reclaiming the loss that SLAB has incurred since RHEL5 split off).
 
+What do the big system numbers look like that have you so excited about
+SLUB?
+
+-Tony
