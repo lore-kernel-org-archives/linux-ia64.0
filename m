@@ -1,24 +1,75 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 26 Jun 2007 05:52:36 +0000
-Subject: Re: [PATCH 2/3] Remove JPROBE_ENTRY()
-Message-Id: <20070626055236.GA6841@lst.de>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 08 Jun 2007 01:05:46 +0000
+Subject: [IA64] Set default page size to 64k
+Message-Id: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <78935473b1f70c863ab0be7d6cf4bcb04922b20b.1182822366.git.michael@ellerman.id.au> <98c8ff25191ced991066092ffd4899526097da1e.1182822366.git.michael@ellerman.id.au>
-In-Reply-To: <98c8ff25191ced991066092ffd4899526097da1e.1182822366.git.michael@ellerman.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <michael@ellerman.id.au>
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Christoph Hellwig <hch@lst.de>, anil.s.keshavamurthy@intel.com, ananth@in.ibm.com
+To: linux-ia64@vger.kernel.org
 
-On Tue, Jun 26, 2007 at 11:48:51AM +1000, Michael Ellerman wrote:
-> AFAICT now that jprobe.entry is a void *, JPROBE_ENTRY doesn't do
-> anything useful - so remove it ..
-> 
-> I've left a do-nothing version so that out-of-tree jprobes code will still
-> compile without modifications.
+It seems that 16k page size causes Itanium processors to have significant
+TLB overhead when the working set is growing beyond 2M. Setting the
+page size to 64k reduces this problem.
 
-Please kill the definition.  We don't want to keep unused crap around
-just to let code compile.  And I have some plans for even deeper change
-in this area, so they'll have to change anyway.
+See the paper of the researchers at the TU Dresden on TLB issues:
+http://www.cs.utah.edu/wmpi/2006/final-version/wmpi-posters-3-Juckeland.pdf
+and my presentation
+http://ftp.kernel.org/pub/linux/kernel/people/christoph/gelato/gelato2007-tlb-tricks.pdf.
 
+SLUB can also take advantage of the larger page sizes. A kernel compile is 
+already ~5-10% faster with 16k. This will increase the speed even more. It 
+will also increase the effectiveness of slab reclaim because more objects 
+can be processed with a single acquisition of the dcache or inode lock.
+
+We at SGI have begun to see livelocks because of too much activity on various
+locks. This is simply because there are too many pages in the system which
+require frequent taking of locks. Going to 64k page size will reduce the frequency
+of taking locks by a factor of 4.
+
+IA64 systems typically have very large memory capacities. Going to 64k will increase
+the memory footprint but I think we are willling to make that sacrifice for the
+speed the larger page size brings us.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: slub/arch/ia64/Kconfig
+=================================--- slub.orig/arch/ia64/Kconfig	2007-05-31 11:44:50.000000000 -0700
++++ slub/arch/ia64/Kconfig	2007-06-07 17:39:02.000000000 -0700
+@@ -168,7 +168,7 @@ endchoice
+ 
+ choice
+ 	prompt "Kernel page size"
+-	default IA64_PAGE_SIZE_16KB
++	default IA64_PAGE_SIZE_64KB
+ 
+ config IA64_PAGE_SIZE_4KB
+ 	bool "4KB"
+Index: slub/arch/ia64/configs/sn2_defconfig
+=================================--- slub.orig/arch/ia64/configs/sn2_defconfig	2007-06-07 17:41:22.000000000 -0700
++++ slub/arch/ia64/configs/sn2_defconfig	2007-06-07 17:56:34.000000000 -0700
+@@ -110,8 +110,8 @@ CONFIG_IA64_SGI_SN2=y
+ CONFIG_MCKINLEY=y
+ # CONFIG_IA64_PAGE_SIZE_4KB is not set
+ # CONFIG_IA64_PAGE_SIZE_8KB is not set
+-CONFIG_IA64_PAGE_SIZE_16KB=y
+-# CONFIG_IA64_PAGE_SIZE_64KB is not set
++# CONFIG_IA64_PAGE_SIZE_16KB is not set
++CONFIG_IA64_PAGE_SIZE_64KB=y
+ # CONFIG_PGTABLE_3 is not set
+ CONFIG_PGTABLE_4=y
+ # CONFIG_HZ_100 is not set
+Index: slub/arch/ia64/configs/gensparse_defconfig
+=================================--- slub.orig/arch/ia64/configs/gensparse_defconfig	2007-06-07 17:56:54.000000000 -0700
++++ slub/arch/ia64/configs/gensparse_defconfig	2007-06-07 17:57:24.000000000 -0700
+@@ -101,8 +101,8 @@ CONFIG_IA64_GENERIC=y
+ CONFIG_MCKINLEY=y
+ # CONFIG_IA64_PAGE_SIZE_4KB is not set
+ # CONFIG_IA64_PAGE_SIZE_8KB is not set
+-CONFIG_IA64_PAGE_SIZE_16KB=y
+-# CONFIG_IA64_PAGE_SIZE_64KB is not set
++# CONFIG_IA64_PAGE_SIZE_16KB is not set
++CONFIG_IA64_PAGE_SIZE_64KB=y
+ CONFIG_PGTABLE_3=y
+ # CONFIG_PGTABLE_4 is not set
+ # CONFIG_HZ_100 is not set
