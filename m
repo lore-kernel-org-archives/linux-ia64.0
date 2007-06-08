@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 08 Jun 2007 02:22:15 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 08 Jun 2007 04:33:09 +0000
 Subject: RE: [IA64] Set default page size to 64k
-Message-Id: <Pine.LNX.4.64.0706071920460.26230@schroedinger.engr.sgi.com>
+Message-Id: <617E1C2C70743745A92448908E030B2A01A4962B@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
@@ -10,26 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 8 Jun 2007, Boehm, Hans wrote:
+Other cases where large page size will hurt are where
+the user application consists of a very large number of
+small processes (since the memory footprint for a small
+process will be almost quadrupled) or where small pieces
+of large files (or a large number of small files) are
+being randomly accessed (because of fragmentation in
+the page cache).
 
-> This of course causes problems for applications that try to use page
-> protection to track updates or are relying on small granularity
-> copy-on-write, or the like.  Anything that uses our garbage collector in
-> incremental mode will fit that description, though I don't believe there
-> are currently many such applications.  Checkpointing may be another
+But I've been thinking of switching over to 64K pages
+for a while.  As you say ia64 systems tend to have a
+large amount of memory ... and everyone's idea of
+"large" when talking about memory has been gradually
+increasing over the years (choice for laptops is now
+1G or 2G!).  It would seem silly to provision an ia64
+box with less than 16G of memory today.
 
-Why is that a problem? The granularity would change right?
-
-> similar issue, at least for some applications.  Software DSM
-> implementations would clearly be affected.  I would guess that the trend
-> is likely to be towards more of this in all three of those areas.
-
-Which?
-
-> I am not really arguing against this, since I don't have a good overview
-> of how many customers are likely to be affected.  I just want to make
-> sure that both sides of the issue are considered.
-
-SLES9 is available in a 64k page size version. Some customers still run 
-that one because it is faster.
-
+-Tony
