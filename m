@@ -1,68 +1,96 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Tue, 26 Jun 2007 06:25:22 +0000
-Subject: [PATCH 2.6.22-rc5] Correct unwind validation code
-Message-Id: <6071.1182839122@kao2.melbourne.sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 08 Jun 2007 01:03:49 +0000
+Subject: [IA64] Default to use the SLUB allocator
+Message-Id: <Pine.LNX.4.64.0706071802500.14474@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Both rp_loc and pfs_loc can be in the register stack area _or_ they can
-be in the memory stack area, the latter occurs when a struct pt_regs is
-pushed.  Correct the validation check on these fields to check for both
-stack areas.  Not allowing for memory stack locations means no
-backtrace past ia64_leave_kernel, or any other code that uses
-PT_REGS_UNWIND_INFO.
+Default all IA64 configurations in arch/ia64/configs to use SLUB.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+SLUB has less overhead, is particularly faster on architectures with large
+pagesizes such as IA64, has build in diagnostics that do not require a
+kernel rebuilt and has a reporting system.
 
----
- arch/ia64/kernel/unwind.c |   16 +++++++++++-----
- 1 file changed, 11 insertions(+), 5 deletions(-)
+This also will enable the use of slab defragmentation by default once that is
+merged upstream.
 
-Index: linux/arch/ia64/kernel/unwind.c
-=================================--- linux.orig/arch/ia64/kernel/unwind.c
-+++ linux/arch/ia64/kernel/unwind.c
-@@ -1856,11 +1856,19 @@ find_save_locs (struct unw_frame_info *i
- 	return 0;
- }
- 
-+static int
-+unw_valid(const struct unw_frame_info *info, unsigned long* p)
-+{
-+	unsigned long loc = (unsigned long)p;
-+	return (loc >= info->regstk.limit && loc < info->regstk.top) ||
-+	       (loc >= info->memstk.top && loc < info->memstk.limit);
-+}
-+
- int
- unw_unwind (struct unw_frame_info *info)
- {
- 	unsigned long prev_ip, prev_sp, prev_bsp;
--	unsigned long ip, pr, num_regs, rp_loc, pfs_loc;
-+	unsigned long ip, pr, num_regs;
- 	STAT(unsigned long start, flags;)
- 	int retval;
- 
-@@ -1871,8 +1879,7 @@ unw_unwind (struct unw_frame_info *info)
- 	prev_bsp = info->bsp;
- 
- 	/* validate the return IP pointer */
--	rp_loc = (unsigned long) info->rp_loc;
--	if ((rp_loc < info->regstk.limit) || (rp_loc > info->regstk.top)) {
-+	if (!unw_valid(info, info->rp_loc)) {
- 		/* FIXME: should really be level 0 but it occurs too often. KAO */
- 		UNW_DPRINT(1, "unwind.%s: failed to locate return link (ip=0x%lx)!\n",
- 			   __FUNCTION__, info->ip);
-@@ -1888,8 +1895,7 @@ unw_unwind (struct unw_frame_info *info)
- 	}
- 
- 	/* validate the previous stack frame pointer */
--	pfs_loc = (unsigned long) info->pfs_loc;
--	if ((pfs_loc < info->regstk.limit) || (pfs_loc > info->regstk.top)) {
-+	if (!unw_valid(info, info->pfs_loc)) {
- 		UNW_DPRINT(0, "unwind.%s: failed to locate ar.pfs!\n", __FUNCTION__);
- 		STAT(unw.stat.api.unwind_time += ia64_get_itc() - start; local_irq_restore(flags));
- 		return -1;
+(Sounds awfully like too much marketing here. Hopefully there are no bugs
+left...)
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: slub/arch/ia64/configs/sn2_defconfig
+=================================--- slub.orig/arch/ia64/configs/sn2_defconfig	2007-06-07 17:41:42.000000000 -0700
++++ slub/arch/ia64/configs/sn2_defconfig	2007-06-07 17:47:35.000000000 -0700
+@@ -46,7 +46,7 @@ CONFIG_BASE_FULL=y
+ CONFIG_FUTEX=y
+ CONFIG_EPOLL=y
+ CONFIG_SHMEM=y
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ CONFIG_VM_EVENT_COUNTERS=y
+ CONFIG_RT_MUTEXES=y
+ # CONFIG_TINY_SHMEM is not set
+Index: slub/arch/ia64/configs/bigsur_defconfig
+=================================--- slub.orig/arch/ia64/configs/bigsur_defconfig	2007-06-07 17:43:25.000000000 -0700
++++ slub/arch/ia64/configs/bigsur_defconfig	2007-06-07 17:43:32.000000000 -0700
+@@ -42,7 +42,7 @@ CONFIG_CC_ALIGN_FUNCTIONS=0
+ CONFIG_CC_ALIGN_LABELS=0
+ CONFIG_CC_ALIGN_LOOPS=0
+ CONFIG_CC_ALIGN_JUMPS=0
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ # CONFIG_TINY_SHMEM is not set
+ CONFIG_BASE_SMALL=0
+ # CONFIG_SLOB is not set
+Index: slub/arch/ia64/configs/gensparse_defconfig
+=================================--- slub.orig/arch/ia64/configs/gensparse_defconfig	2007-06-07 17:43:38.000000000 -0700
++++ slub/arch/ia64/configs/gensparse_defconfig	2007-06-07 17:43:46.000000000 -0700
+@@ -43,7 +43,7 @@ CONFIG_CC_ALIGN_FUNCTIONS=0
+ CONFIG_CC_ALIGN_LABELS=0
+ CONFIG_CC_ALIGN_LOOPS=0
+ CONFIG_CC_ALIGN_JUMPS=0
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ # CONFIG_TINY_SHMEM is not set
+ CONFIG_BASE_SMALL=0
+ # CONFIG_SLOB is not set
+Index: slub/arch/ia64/configs/sim_defconfig
+=================================--- slub.orig/arch/ia64/configs/sim_defconfig	2007-06-07 17:43:54.000000000 -0700
++++ slub/arch/ia64/configs/sim_defconfig	2007-06-07 17:43:59.000000000 -0700
+@@ -43,7 +43,7 @@ CONFIG_CC_ALIGN_FUNCTIONS=0
+ CONFIG_CC_ALIGN_LABELS=0
+ CONFIG_CC_ALIGN_LOOPS=0
+ CONFIG_CC_ALIGN_JUMPS=0
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ # CONFIG_TINY_SHMEM is not set
+ CONFIG_BASE_SMALL=0
+ # CONFIG_SLOB is not set
+Index: slub/arch/ia64/configs/tiger_defconfig
+=================================--- slub.orig/arch/ia64/configs/tiger_defconfig	2007-06-07 17:43:09.000000000 -0700
++++ slub/arch/ia64/configs/tiger_defconfig	2007-06-07 17:43:17.000000000 -0700
+@@ -48,7 +48,7 @@ CONFIG_BASE_FULL=y
+ CONFIG_FUTEX=y
+ CONFIG_EPOLL=y
+ CONFIG_SHMEM=y
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ CONFIG_VM_EVENT_COUNTERS=y
+ CONFIG_RT_MUTEXES=y
+ # CONFIG_TINY_SHMEM is not set
+Index: slub/arch/ia64/configs/zx1_defconfig
+=================================--- slub.orig/arch/ia64/configs/zx1_defconfig	2007-06-07 17:44:05.000000000 -0700
++++ slub/arch/ia64/configs/zx1_defconfig	2007-06-07 17:44:18.000000000 -0700
+@@ -48,7 +48,7 @@ CONFIG_BASE_FULL=y
+ CONFIG_FUTEX=y
+ CONFIG_EPOLL=y
+ CONFIG_SHMEM=y
+-CONFIG_SLAB=y
++CONFIG_SLUB=y
+ CONFIG_VM_EVENT_COUNTERS=y
+ CONFIG_RT_MUTEXES=y
+ # CONFIG_TINY_SHMEM is not set
