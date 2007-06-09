@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 08 Jun 2007 21:02:02 +0000
+Date: Sat, 09 Jun 2007 00:03:22 +0000
 Subject: RE: [IA64] Set default page size to 64k
-Message-Id: <Pine.LNX.4.64.0706081356130.3178@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.64.0706081658400.4650@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
@@ -10,20 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 8 Jun 2007, Luck, Tony wrote:
+Some numbers from Mel Gorman's test on IA64
 
-> News from the performance team at Intel is also pretty guarded. You've
-> fixed the performance regressions we saw with earlier versions of SLUB
-> for Netperf and Volanomark.  Our favourite online transaction processing
-> benchmark is currently up about 1% against mainline+SLAB (though this is
-> just reclaiming the loss that SLAB has incurred since RHEL5 split off).
-> 
-> What do the big system numbers look like that have you so excited about
-> SLUB?
+Source can be found at http://lkml.org/lkml/2007/3/9/198. This was 
+before the atomic ops et al optimizations for netperf.
 
-The numbers I got was just from observing some kernel compiles. The main 
-win for the large systems is the cutting down of memory overhead created by 
-alien caches and other structures in SLAB and the more efficient layout.
+KernBench Comparison
+--------------------
+                           2.6.21-rc2-mm2-clean       2.6.21-rc2-mm2-slub      %diff
+User   CPU time                        1084.64                   1032.93      4.77%
+System CPU time                          73.38                     63.14     13.95%
+Total  CPU time                        1158.02                   1096.07      5.35%
+Elapsed    time                         307.00                    285.62      6.96%
 
-In general slab use by HPC applications is minimal. SLUB does a better 
-job of staying out of the way since it does f.e. not require reaping.
+
