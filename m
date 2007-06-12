@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Sat, 09 Jun 2007 00:03:22 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 12 Jun 2007 16:45:52 +0000
 Subject: RE: [IA64] Set default page size to 64k
-Message-Id: <Pine.LNX.4.64.0706081658400.4650@schroedinger.engr.sgi.com>
+Message-Id: <617E1C2C70743745A92448908E030B2A01A88A6F@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
@@ -10,17 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Some numbers from Mel Gorman's test on IA64
+Raising the PAGE_SIZE to 64k does generate a couple of
+new warnings in the build:
 
-Source can be found at http://lkml.org/lkml/2007/3/9/198. This was 
-before the atomic ops et al optimizations for netperf.
+drivers/usb/core/devio.c:632: warning: comparison is always false due to limited range of data type
+fs/fat/inode.c:1227: warning: comparison is always false due to limited range of data type
 
-KernBench Comparison
---------------------
-                           2.6.21-rc2-mm2-clean       2.6.21-rc2-mm2-slub      %diff
-User   CPU time                        1084.64                   1032.93      4.77%
-System CPU time                          73.38                     63.14     13.95%
-Total  CPU time                        1158.02                   1096.07      5.35%
-Elapsed    time                         307.00                    285.62      6.96%
+Both of these are due to range comparisons of u16 data types
+with PAGE_SIZE.  They both look harmless ... we'll get an
+infinitessimal performance boost from the compiler dropping
+the code, but it is annoying to add these to the (already
+large) list of warnings to ignore.
 
+Anyone got any cute ideas on how to make these warnings
+go away?
 
+-Tony
