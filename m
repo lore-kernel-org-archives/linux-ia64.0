@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 12 Jun 2007 18:05:13 +0000
-Subject: RE: [IA64] Set default page size to 64k
-Message-Id: <Pine.LNX.4.64.0706121057010.29787@schroedinger.engr.sgi.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 13 Jun 2007 11:01:50 +0000
+Subject: Re: [IA64] Set default page size to 64k
+Message-Id: <yq0bqfk15k1.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0706071803570.14490@schroedinger.engr.sgi.com>
@@ -10,63 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 12 Jun 2007, Luck, Tony wrote:
+>>>>> "Tony" = Luck, Tony <tony.luck@intel.com> writes:
 
-> Raising the PAGE_SIZE to 64k does generate a couple of
-> new warnings in the build:
-> 
-> drivers/usb/core/devio.c:632: warning: comparison is always false due to limited range of data type
-> fs/fat/inode.c:1227: warning: comparison is always false due to limited range of data type
-> 
-> Both of these are due to range comparisons of u16 data types
-> with PAGE_SIZE.  They both look harmless ... we'll get an
-> infinitessimal performance boost from the compiler dropping
-> the code, but it is annoying to add these to the (already
-> large) list of warnings to ignore.
-> 
-> Anyone got any cute ideas on how to make these warnings
-> go away?
+Tony> But I've been thinking of switching over to 64K pages for a
+Tony> while.  As you say ia64 systems tend to have a large amount of
+Tony> memory ... and everyone's idea of "large" when talking about
+Tony> memory has been gradually increasing over the years (choice for
+Tony> laptops is now 1G or 2G!).  It would seem silly to provision an
+Tony> ia64 box with less than 16G of memory today.
 
-Talk to the powerpc guys? They also support 64k page size.
+Maybe we should ask for some benchmarks before making this change?
+IMHO 64KB seems a lot, but maybe it isn't when it comes down to it. I
+guess it depends a lot on the actual application users are trying to
+run.
 
-The obvious solution is to put an (ugly) #ifdef around it:
+I think there are still broken user apps out there that hard code the
+page size, but then thats not really our problem since we've had
+getpagesize() in glibc for eons.
 
-Index: linux-2.6/drivers/usb/core/devio.c
-=================================--- linux-2.6.orig/drivers/usb/core/devio.c	2007-06-12 10:58:57.000000000 -0700
-+++ linux-2.6/drivers/usb/core/devio.c	2007-06-12 11:02:19.000000000 -0700
-@@ -629,8 +629,14 @@ static int proc_control(struct dev_state
- 		return -EFAULT;
- 	if ((ret = check_ctrlrecip(ps, ctrl.bRequestType, ctrl.wIndex)))
- 		return ret;
-+#if PAGE_SIZE < 65536
-+	/*
-+	 * ctrl.wLength is a 16 bit value that cannot be greater
-+	 * than page size if PAGE_SIZE >= 64k.
-+	 */
- 	if (ctrl.wLength > PAGE_SIZE)
- 		return -EINVAL;
-+#endif
- 	if (!(tbuf = (unsigned char *)__get_free_page(GFP_KERNEL)))
- 		return -ENOMEM;
- 	tmo = ctrl.timeout;
-Index: linux-2.6/fs/fat/inode.c
-=================================--- linux-2.6.orig/fs/fat/inode.c	2007-06-12 10:59:53.000000000 -0700
-+++ linux-2.6/fs/fat/inode.c	2007-06-12 11:01:17.000000000 -0700
-@@ -1223,8 +1223,15 @@ int fat_fill_super(struct super_block *s
- 	logical_sector_size  		le16_to_cpu(get_unaligned((__le16 *)&b->sector_size));
- 	if (!is_power_of_2(logical_sector_size)
--	    || (logical_sector_size < 512)
--	    || (PAGE_CACHE_SIZE < logical_sector_size)) {
-+#if PAGE_SIZE < 65536
-+	/*
-+	 * Logical sector size is a 16 bit value.
-+	 * If the page size is 64k or higher then the comparison
-+	 * is always true.
-+	 */
-+	    || (PAGE_CACHE_SIZE < logical_sector_size)
-+#endif
-+	    || (logical_sector_size < 512)) {
- 		if (!silent)
- 			printk(KERN_ERR "FAT: bogus logical sector size %u\n",
- 			       logical_sector_size);
-
+Cheers,
+Jes
