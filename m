@@ -1,62 +1,39 @@
-From: Ishimatsu Yasuaki <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 09 May 2007 07:57:08 +0000
-Subject: [PATCH 11/12] Enable percpu vector domain for IA64_GENERIC
-Message-Id: <46417ED4.4080009@jp.fujitsu.com>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Date: Wed, 13 Jun 2007 17:02:04 +0000
+Subject: Help!  Need to add a flag to ia64 thread flags
+Message-Id: <1181754124.6148.37.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add per-CPU vector domain support for IA64_GENERIC. It is enabled by
-adding the "vector=percpu" boot option.
+Stephane:
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+I need to add a flag to the ia64 thread info flags to support my
+automigration work.  I was using TIF_NOTIFY_RESUME which you removed.  I
+didn't notice that happening, but even if I did, I couldn't/wouldn't
+have objected because my patches are still [maybe always?] out of tree.
 
----
- arch/ia64/kernel/irq_ia64.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+)
+Now, I've tried to add an automigration-specific flag, called
+TIF_MIGRATION_WORK--to the flags to trigger entry to do_notify_resume()
+to handle auto-migration.  However, I'm getting errors from the
+assembler in arch/ia64/kernel/fsys.S where ever the instruction:
 
-Index: linux-2.6.21/arch/ia64/kernel/irq_ia64.c
-=================================--- linux-2.6.21.orig/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:13:39.000000000 +0900
-+++ linux-2.6.21/arch/ia64/kernel/irq_ia64.c	2007-05-08 12:14:11.000000000 +0900
-@@ -227,10 +227,36 @@
- 	}
- }
+	and r?=TIF_ALLWORK_MASK,r?
 
-+#if defined(CONFIG_IA64_GENERIC)
-+static enum vector_domain_type {
-+	VECTOR_DOMAIN_NONE,
-+	VECTOR_DOMAIN_PERCPU
-+} vector_domain_type = VECTOR_DOMAIN_NONE;
-+
-+static cpumask_t vector_allocation_domain(int cpu)
-+{
-+	if (vector_domain_type = VECTOR_DOMAIN_PERCPU)
-+		return cpumask_of_cpu(cpu);
-+	return CPU_MASK_ALL;
-+}
-+
-+static int __init parse_vector_domain(char *arg)
-+{
-+	if (!arg)
-+		return -EINVAL;
-+	if (!strcmp(arg, "percpu")) {
-+		vector_domain_type = VECTOR_DOMAIN_PERCPU;
-+		no_int_routing = 1;
-+	}
-+	return 1;
-+}
-+early_param("vector", parse_vector_domain);
-+#else
- static cpumask_t vector_allocation_domain(int cpu)
- {
- 	return CPU_MASK_ALL;
- }
-+#endif
+occurs, complaining that "Operand 2 of 'and' should be an 8-bit integer
+(-128-127)".  This is worrisome to begin with, as thread information
+flags comment says that "pending work-to-be-done flags are in
+least-significant 16 bits", while the code currently only supports
+"8-bits".  What's more interesting is that I've used bit '7' for the
+TIF_MIGRATION_WORK flag.  That should fit in the range (-128 - 127),
+right?  Maybe the assembler is confused by sign extension of the signed
+8-bit int?
 
- static int __reassign_irq_vector(int irq, int cpu)
- {
+For my testing, I can probably use your 'PERFMON_WORK flag, but that's
+probably not a good long term solution.  Any ideas how to proceed longer
+term to support >7 pending work flags?
 
+Lee
 
