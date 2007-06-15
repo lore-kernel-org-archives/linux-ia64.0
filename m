@@ -1,98 +1,112 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 14 Jun 2007 02:08:53 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 15 Jun 2007 17:46:15 +0000
 Subject: Re: [PATCH] ia64: Scalability improvement of gettimeofday with jitter
-Message-Id: <4670A335.6020801@jp.fujitsu.com>
+Message-Id: <Pine.LNX.4.64.0706151040180.9132@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <466E0FA4.2040405@jp.fujitsu.com> <20070613122019.GI11999@localhost>
-In-Reply-To: <20070613122019.GI11999@localhost>
+References: <466E0FA4.2040405@jp.fujitsu.com>
+In-Reply-To: <466E0FA4.2040405@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bob Picco <bob.picco@hp.com>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 Cc: linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
 
-Bob Picco wrote:
-> I will be pushing Peter Keilty's clocksource ia64 patches within the next
-> week or so.  At that time I'll ask for inclusion into -mm. Please see:
-> http://marc.info/?t7881585500001&r=1&w=2
-> You'll notice that the time interpolator is removed.
+On Tue, 12 Jun 2007, Hidetoshi Seto wrote:
 
-I see. Your patch will replace the time interpolator to clocksource.
-This is a conversion of structure which contains data related to time.
-There will be no drastic change on logic, right?
+> 
+> [arch/ia64/kernel/time.c]
+> > #ifdef CONFIG_SMP
+> >   /* On IA64 in an SMP configuration ITCs are never accurately synchronized.
+> >    * Jitter compensation requires a cmpxchg which may limit
+> >    * the scalability of the syscalls for retrieving time.
+> >    * The ITC synchronization is usually successful to within a few
+> >    * ITC ticks but this is not a sure thing. If you need to improve
+> >    * timer performance in SMP situations then boot the kernel with the
+> >    * "nojitter" option. However, doing so may result in time fluctuating (maybe
+> >    * even going backward) if the ITC offsets between the individual CPUs
+> >    * are too large.
+> >    */
+> >   if (!nojitter) itc_interpolator.jitter = 1;
+> > #endif
+> 
+> ia64 uses jitter compensation to prevent time from going backward.
+> 
+> This jitter compensation logic which keep track of cycle value
+> recently returned is provided as generic code (and copied to
+> arch/ia64/kernel/fsys.S).
+> It seems that there is no user (setting jitter = 1) other than ia64.
 
-What I want to do is removing the cmpxchg loop.
-Your patch pointed it out that there are 2 loops in fsys.S, outer loop
-with lock.seq and inner loop with cmpxchg.
+Yes there are only two users of time interpolators. The generic 
+gettimeofday work by John Stultz will make time interpolators obsolete 
+soon. I already saw a patch to remove them.
 
-If your patch successfully removes cmpxchg from generic code, then my
-patch will be ia64 specific and be compact like following.
+> The cmpxchg is known to take long time in an SMP environment but
+> it is easy way to guarantee atomic operation.
+> I think this is acceptable while there are no better alternatives.
+> 
+> OTOH, the do-while forces retry if cmpxchg fails (no exchanges).
+> This means that if there are N threads trying to do cmpxchg at
+> same time, only 1 can out from this loop and N-1 others will be
+> trapped in the loop. This also means that a thread could loop
+> N times in worst case.
 
-Thanks,
-H.Seto
+Right.
 
----
-  arch/ia64/kernel/fsys.S |   18 ++++++++++--------
-  1 files changed, 10 insertions(+), 8 deletions(-)
+> Obviously this is a scalability issue.
+> To avoid this retry loop, I'd like to propose new logic that
+> removes do-while here.
 
-Index: linux-2.6.21/arch/ia64/kernel/fsys.S
-=================================--- linux-2.6.21.orig/arch/ia64/kernel/fsys.S
-+++ linux-2.6.21/arch/ia64/kernel/fsys.S
-@@ -224,7 +224,7 @@
-  	add r26 = IA64_CLKSRC_CYCLE_LAST_OFFSET,r20 // clksrc_cycle_last
-  	cmp.ne p6, p0 = 0, r2	// Fallback if work is scheduled
-  (p6)    br.cond.spnt.many fsys_fallback_syscall
--	;; // get lock.seq here new code, outer loop2!
-+	;;
-  .time_redo:
-  	ld4.acq r28 = [r20]	// gtod_lock.sequence, Must be first in struct
-  	ld8 r30 = [r21]		// clocksource->mmio_ptr
-@@ -242,8 +242,7 @@
-  	ld4 r23 = [r23]		// clocksource shift value
-  	ld8 r24 = [r26]		// get clksrc_cycle_last value
-  (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
--	;; // old position for lock seq, new inner loop1!
--.cmpxchg_redo:
-+	;;
-  	.pred.rel.mutex p8,p9
-  (p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
-  (p9)	ld8 r2 = [r30]		// readq(ti->address). Could also have latency issues..
-@@ -261,20 +260,23 @@
-  (p6)	sub r10 = r25,r24	// time we got was less than last_cycle
-  (p7)	mov ar.ccv = r25	// more than last_cycle. Prep for cmpxchg
-  	;;
-+(p7)	cmpxchg8.rel r3 = [r19],r2,ar.ccv
-+	;;
-+(p7)	cmp.ne p7,p0 = r25,r3	// if cmpxchg not successful, neighbor updated last_cycle
-+	;;
-+(p7)	sub r10 = r3,r24	// use new last_cycle instead
-+	;;
-  	and r10 = r10,r14	// Apply mask
-  	;;
-  	setf.sig f8 = r10
-  	nop.i 123
-  	;;
--(p7)	cmpxchg8.rel r3 = [r19],r2,ar.ccv
-  EX(.fail_efault, probe.w.fault r31, 3)	// This takes 5 cycles and we have spare time
-  	xmpy.l f8 = f8,f7	// nsec_per_cyc*(counter-last_counter)
-  (p15)	add r9 = r9,r17		// Add wall to monotonic.secs to result secs
-  	;;
-  	// End cmpxchg critical section loop1
-  (p15)	ld8 r17 = [r22],-IA64_TIMESPEC_TV_NSEC_OFFSET
--(p7)	cmp.ne p7,p0 = r25,r3	// if cmpxchg not successful redo
--(p7)	br.cond.dpnt.few .cmpxchg_redo	// inner loop1
-  	// simulate tbit.nz.or p7,p0 = r28,0
-  	and r28 = ~1,r28	// Make sequence even to force retry if odd
-  	getf.sig r2 = f8
-@@ -286,8 +288,8 @@
-  	;;		// overloaded 3 bundles!
-  	// End critical section.
-  	add r8 = r8,r2		// Add xtime.nsecs
--	cmp4.ne.or p7,p0 = r28,r10
--(p7)	br.cond.dpnt.few .time_redo	// sequence number changed, outer loop2
-+	cmp4.ne p7,p0 = r28,r10
-+(p7)	br.cond.dpnt.few .time_redo	// sequence number changed ?
-  	// Now r8=tv->tv_nsec and r9=tv->tv_sec
-  	mov r10 = r0
-  	movl r2 = 1000000000
+Booting with nojitter is the easiest way to solve this if one is willing 
+to accept slightly inaccurate clocks.
 
+> The basic idea is "use winner's cycle instead of retrying."
+> Assuming that there are N threads trying to do cmpxchg, it also
+> be assumed that they are trying to update last_cycle by its own
+> new value while all values are almost same.
+> Therefore, it will work that treating threads as a group and
+> deciding a group's return value by picking up one from the group.
+> 
+> Fortunately, cmpxchg mechanism can help this logic. Only first
+> one in group can exchange the last_cycle successfully, so this
+> "winner" gets previous last_cycle as the return value of cmpxchg.
+> The rests in group will fail to exchange since last_cycle is
+> already updated by winner, so these "loser" gets current
+> last_cycle on cmpxchg's return. This means that all thread in
+> the group can know the winner's cycle.
+> 
+>   ret = cmpxchg(&last_cycle, last, new);
+>   if (ret = last)
+>     return new; /* you win! */
+>   else
+>     return ret; /* you lose. ret is winner's new */
+
+Interesting solution. But there may be multiple updates of last happening. 
+Which of the winners is the real winner?
+
+> 
+> I had a test running gettimeofday() processes at 1.5GHz*4way box.
+> It shows followings:
+> 
+>  - x1 process:
+>     0.15us / 1 gettimeofday() call
+>     0.15us / 1 gettimeofday() call with patch
+>  - x2 process:
+>     0.31us / 1 gettimeofday() call
+>     0.24us / 1 gettimeofday() call with patch
+>  - x3 process:
+>     1.59us / 1 gettimeofday() call
+>     1.11us / 1 gettimeofday() call with patch
+>  - x4 process:
+>     2.34us / 1 gettimeofday() call
+>     1.29us / 1 gettimeofday() call with patch
+> 
+> I know that this patch could not help quite huge system since
+> such system like having 1024CPUs should have better clocksource
+> instead of doing cmpxchg. Even though this patch will work good
+> on middle-sized box (4~8way, possibly 16~64way?).
+
+Our SGI machines have their own clock that is hardware replicated to all 
+nodes.
+
+This would certainly a nice improvement for SMP machines. It certainly 
+works nicely for 2 way systems.
