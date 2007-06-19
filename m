@@ -1,61 +1,59 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Date: Tue, 26 Jun 2007 04:35:49 +0000
-Subject: Re: [PATCH 1/3] Make struct jprobe.entry a void *
-Message-Id: <1182832549.6673.12.camel@concordia.ozlabs.ibm.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-C/Og7AIUR51gZzP8MZdc"
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Date: Tue, 19 Jun 2007 08:13:42 +0000
+Subject: [RFC][PATCH take2 0/13] Support vector domain on ia64
+Message-Id: <46779036.5050602@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <78935473b1f70c863ab0be7d6cf4bcb04922b20b.1182822366.git.michael@ellerman.id.au>
-	 <20070626035946.GA20460@in.ibm.com>
-In-Reply-To: <20070626035946.GA20460@in.ibm.com>
-To: ananth@in.ibm.com
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Christoph Hellwig <hch@lst.de>, anil.s.keshavamurthy@intel.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
+
+Hi,
+
+Here is a series of patches for ia64 vector domain. By these patches, we can
+use more than 256 irqs. The patchset is based on existing x86-64 vector domain
+code. This is for 2.6.22-rc5 and I tested them on my ia64 box.
+
+Changes from previous patchset:
+
+- rebase to 2.6.22-rc5
+
+- define NR_IRQS as (NR_VECTORS + (32 * NR_CPUS))
+  NR_VECTROS equals 256
+
+- bind gsi to irq
+  If irq number is changed for each enable/disable, suspend/resume may cause
+  some problems. To avoid this problem, bind each gsi to specific irq.
+
+This patchset is just a draft, so there is following TBD, I think.
+
+  o How to migrate irq
+
+    In migration, we don't handle the vector for the pending irqs. Probably
+    we should manage it.
+
+There are following 13 patches for ia64 vector domain.
+
+  [PATCH take2 1/13]  Remove block structure for locking in iosapic.c
+  [PATCH take2 2/13]  Remove duplicated members in iosapic_rte_info
+  [PATCH take2 3/13]  Use per iosapic lock for indirect iosapic register access
+  [PATCH take2 4/13]  Cleanup lock order in iosapic_register_intr
+  [PATCH take2 5/13]  Use dynamic irq for iosapic interrupts
+  [PATCH take2 6/13]  Fix invalid irq vector assumption for iosapic
+  [PATCH take2 7/13]  Check if irq is sharable
+  [PATCH take2 8/13]  Add mapping table between irq and vector
+  [PATCH take2 9/13]  Add support for vector domain
+  [PATCH take2 10/13] Support irq migration across domain
+  [PATCH take2 11/13] Enable percpu vector domain for IA64_GENERIC
+  [PATCH take2 12/13] Enable percpu vector domain for IA64_DIG
+  [PATCH take2 13/13] Bind gsi to irq
+
+For more details, please refer to the header of each patch.
+
+Any comments or questions are welcome.
+
+Thanks.
+Yasuaki Ishimatsu
 
 
---=-C/Og7AIUR51gZzP8MZdc
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2007-06-26 at 09:29 +0530, Ananth N Mavinakayanahalli wrote:
-> On Tue, Jun 26, 2007 at 11:48:50AM +1000, Michael Ellerman wrote:
-> > ---
-> >=20
-> > It isn't obvious where kprobes patches should go, is anyone "the" maint=
-ainer?
-> > Instead I've just sent this to everyone who'd touched the code lately, =
-or
-> > might be otherwise interested.
->=20
-> There isn't a single maintainer for the kprobes infrastructure as it
-> contains quite a bit of low level arch specific code. The working model
-> currently is that the patches are sent to lkml with a cc to the
-> maintainers listed, as you've rightly done.
-
-OK, no worries. I guess that's a bit messy to put into a MAINTAINERS entry.
-
-cheers
-
---=20
-Michael Ellerman
-OzLabs, IBM Australia Development Lab
-
-wwweb: http://michael.ellerman.id.au
-phone: +61 2 6212 1183 (tie line 70 21183)
-
-We do not inherit the earth from our ancestors,
-we borrow it from our children. - S.M.A.R.T Person
-
---=-C/Og7AIUR51gZzP8MZdc
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.6 (GNU/Linux)
-
-iD8DBQBGgJeldSjSd0sB4dIRAi1JAJ41iajk775QlaOZrIZPSjZAtmQdBgCeM3Do
-rWeTXVQ4LoPg+2calMyjoQo=
-=w/5W
------END PGP SIGNATURE-----
-
---=-C/Og7AIUR51gZzP8MZdc--
 
