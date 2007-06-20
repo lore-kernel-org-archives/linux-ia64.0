@@ -1,27 +1,41 @@
-From: Robert Nagy <robert.nagy@gmail.com>
-Date: Tue, 26 Jun 2007 19:16:38 +0000
-Subject: Re: intercept trap when running a 32bit binary
-Message-Id: <20070626191638.GA9452@bsd.hu>
+From: MUNEDA Takahiro <muneda.takahiro@jp.fujitsu.com>
+Date: Wed, 20 Jun 2007 04:00:00 +0000
+Subject: [PATCH 2.6.22-rc5] remove duplicate header include line
+Message-Id: <200706201300.01923.muneda.takahiro@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070625221349.GA25054@bsd.hu>
-In-Reply-To: <20070625221349.GA25054@bsd.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Unfortunately having steam.cfg is optional and it
-does not change anything.
+Hi,
 
-On (26/06/07 12:13), Luck, Tony wrote:
-> > Here is the output http://humppa.hu/typescript
-> 
-> Nothing stands out there as totally off.  The program did open
-> and read /proc/cpuinfo shortly before it died, so it might have
-> found something that it didn't like in there (though it also read
-> it just after startup without apparent ill effects).
-> 
-> Then at the very end it failed to open "steam.cfg" ... perhaps
-> that was what it didn't like?
-> 
-> -Tony
+<linux/profile.h> is included twice. This patch removes the duplication.
+I've confirmed the binary file with/without patch is completely same.
+
+Thanks,
+MUNE
+
+Remove duplicate header include line from arch/ia64/kernel/time.c.
+
+Signed-off-by: MUNEDA Takahiro <muneda.takahiro@jp.fujitsu.com>
+
+---
+ arch/ia64/kernel/time.c |    1 -
+ 1 files changed, 1 deletion(-)
+
+Index: linux-2.6.22-rc5/arch/ia64/kernel/time.c
+=================================--- linux-2.6.22-rc5.orig/arch/ia64/kernel/time.c	2007-06-17 11:09:12.000000000 +0900
++++ linux-2.6.22-rc5/arch/ia64/kernel/time.c	2007-06-20 12:28:04.000000000 +0900
+@@ -18,7 +18,6 @@
+ #include <linux/time.h>
+ #include <linux/interrupt.h>
+ #include <linux/efi.h>
+-#include <linux/profile.h>
+ #include <linux/timex.h>
+ 
+ #include <asm/machvec.h>
+
+
+
+
