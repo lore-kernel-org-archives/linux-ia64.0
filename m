@@ -1,41 +1,49 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Thu, 07 Jun 2007 05:00:22 +0000
-Subject: Re: linux-ia64 build warning messages
-Message-Id: <87wsyg2wbd.wl%peter@chubb.wattle.id.au>
+From: Michael Ellerman <michael@ellerman.id.au>
+Date: Tue, 26 Jun 2007 01:48:50 +0000
+Subject: [PATCH 1/3] Make struct jprobe.entry a void *
+Message-Id: <78935473b1f70c863ab0be7d6cf4bcb04922b20b.1182822366.git.michael@ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A01961AFE@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <200706051455.l55Etr1N96333810@clink.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russ Anderson <rja@sgi.com>
-Cc: Luck Tony <tony.luck@intel.com>, Prarit Bhargava <prarit@redhat.com>, Christoph Lameter <clameter@sgi.com>, Randy Dunlap <randy.dunlap@oracle.com>, David Chinner <dgc@sgi.com>, Andrew Morton <akpm@linux-foundation.org>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>
+To: linux-kernel@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, Andrew Morton <akpm@osdl.org>, Christoph Hellwig <hch@lst.de>, anil.s.keshavamurthy@intel.com, ananth@in.ibm.com
 
->>>>> "Russ" = Russ Anderson <rja@sgi.com> writes:
+Currently jprobe.entry is a kprobe_opcode_t *, but that's a lie. On some
+platforms it doesn't point to an opcode at all, it points to a function
+descriptor.
 
-Russ> Tony Luck wrote:
->> > I used the sn2_defconfig in the tree :)
->> 
->> So there is something odd happening.  Russ complained that he was
->> still seeing several errors from the sn2_defconfig build too when I
->> posted the "last fix" to Len.  But I don't see them when I build.
+It's really a pointer to something that the arch code can turn into a
+function entry point. And that's what actually happens, none of the
+generic code ever looks at jprobe.entry, it's only ever dereferenced
+by arch code.
 
-Russ> An additional data point.  I have a copy of Tony's test tree
-Russ> pulled down on March 30th that builds without the warning
-Russ> messages.  The copy of Tony's test tree pulled down on May 22nd
-Russ> does have warning messages.  I'm building both with the same
-Russ> compiler (etc).  I'm fairly certain a tree I pulled down in
-Russ> April built without warnings.  I've since blown away that tree.
+So just make it a void *.
 
-Change request 85bd2fddd68e757da8e1af98f857f61a3c9ce647 introduced
-section-mismatch checking for vmlinux, which caused all these warnings
-to become visible.
+Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+---
 
-It looks as if gcc can create references from .sdata to .init.sdata
-depending on what optimisations it chooses to do.  Ideally we could
-teach gcc to put its constants in the same section they reference.
-But I'm no gcc guru.  The alternative is to get modpost to ignore such
-references, at the cost of perhaps missing a real problem somewhere.
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
+It isn't obvious where kprobes patches should go, is anyone "the" maintainer?
+Instead I've just sent this to everyone who'd touched the code lately, or
+might be otherwise interested.
+
+
+ include/linux/kprobes.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 23adf60..f4e53b7 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -116,7 +116,7 @@ struct kprobe {
+  */
+ struct jprobe {
+ 	struct kprobe kp;
+-	kprobe_opcode_t *entry;	/* probe handling code to jump to */
++	void *entry;	/* probe handling code to jump to */
+ };
+ 
+ DECLARE_PER_CPU(struct kprobe *, current_kprobe);
+-- 
+1.5.1.3.g7a33b
+
