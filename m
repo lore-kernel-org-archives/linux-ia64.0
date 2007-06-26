@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 25 Jun 2007 23:45:09 +0000
+From: "Yu, Fenghua" <fenghua.yu@intel.com>
+Date: Tue, 26 Jun 2007 00:04:01 +0000
 Subject: RE: intercept trap when running a 32bit binary
-Message-Id: <617E1C2C70743745A92448908E030B2A01C20907@scsmsx411.amr.corp.intel.com>
+Message-Id: <79E93560F4A5FD42BB769DAAF8BEF62A01E09F7C@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070625221349.GA25054@bsd.hu>
 In-Reply-To: <20070625221349.GA25054@bsd.hu>
@@ -10,18 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I guess when i enter the chroot i use h/w to execute the shell.
+>Program terminated with signal 11, Segmentation fault.
 
-If ia32-el is installed and active, then it will keep on handling the
-execution even inside the chroot.
+>#0  0x40c79b0b in global constructors keyed to date () from
+>bin/engine_i686.so
 
-> x86 gdb is installed in the chroot, but the backtrace is not quiet
-useful (for me).
-> more info:
+>#0  0x40c79b0b in global constructors keyed to date () from
+>bin/engine_i686.so
+>No symbol table info available.
+If you can build code with symbol info, you can map the failure point to
+source code and analyze the source code.
 
-Nothing useful there for me either ... though since the crash
-looks like it is happening in some constructors, it is possible
-that your program has some mistaken hard-coded assumptions that
-the pagesize is 4K.  But that is just a really wild guess.
+Thanks.
 
--Tony
+-Fenghua
