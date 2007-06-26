@@ -1,7 +1,7 @@
-From: Robert Nagy <robert.nagy@gmail.hu>
-Date: Tue, 26 Jun 2007 19:15:31 +0000
+From: Robert Nagy <robert.nagy@gmail.com>
+Date: Tue, 26 Jun 2007 19:16:38 +0000
 Subject: Re: intercept trap when running a 32bit binary
-Message-Id: <20070626191531.GA31889@bsd.hu>
+Message-Id: <20070626191638.GA9452@bsd.hu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070625221349.GA25054@bsd.hu>
 In-Reply-To: <20070625221349.GA25054@bsd.hu>
