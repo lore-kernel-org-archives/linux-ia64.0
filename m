@@ -1,47 +1,51 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 15 Jun 2007 20:03:08 +0000
-Subject: RE: [PATCH] ia64: Scalability improvement of gettimeofday with jitter compensation
-Message-Id: <617E1C2C70743745A92448908E030B2A01B3475A@scsmsx411.amr.corp.intel.com>
+Date: Wed, 27 Jun 2007 15:45:35 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <617E1C2C70743745A92448908E030B2A01C6933C@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.0706151040180.9132@schroedinger.engr.sgi.com>
-References: <466E0FA4.2040405@jp.fujitsu.com>
-In-Reply-To: <466E0FA4.2040405@jp.fujitsu.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-> >   ret = cmpxchg(&last_cycle, last, new);
-> >   if (ret = last)
-> >     return new; /* you win! */
-> >   else
-> >     return ret; /* you lose. ret is winner's new */
->
-> Interesting solution. But there may be multiple updates of last happening. 
-> Which of the winners is the real winner?
+Hi Linus,
 
-It might not matter.  Let's look at how good a guarantee an
-application can expect from gettimeofday().  First of all
-there may be arbitrary delays either before, or after the
-kernel comes up with the "current" time since the process
-could be context switched in the glibc prologue or epilogue
-for the system call.  So I think that the best that an
-application can expect is:
+please pull from:
 
- Given two calls to gettimeofday A and B, where through some
- external syncronization it is known that call B is initiated
- after A has completed, then B shall not return a time value
- lower than that returned by A.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-Now if that is the strongest ordering that an application can
-expect (and I'm not completely convinced that I'm right, other
-definitions gratefully accepted), then it would appear that
-is is just over-engineering to worry too much about calls that
-collide inside the kernel (since these don't satisfy the
-"B initiated after A completes" clause of my definition).
+This will update the files shown below.
+
+Thanks!
 
 -Tony
 
-[For some 50 year old British humour on the subject of time,
- read: http://www.hexmaster.com/goonscripts/what_time_is_it.html ]
+ arch/ia64/kernel/time.c                 |    1 -
+ arch/ia64/kernel/unwind.c               |   16 +++++++++++-----
+ arch/ia64/mm/hugetlbpage.c              |    3 ++-
+ arch/ia64/sn/kernel/xp_nofault.S        |    3 ++-
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |    7 ++++---
+ arch/ia64/sn/pci/tioca_provider.c       |    4 +++-
+ arch/ia64/sn/pci/tioce_provider.c       |    4 +++-
+ include/asm-ia64/sn/sn_sal.h            |    4 ++--
+ 8 files changed, 27 insertions(+), 15 deletions(-)
+
+Dean Nelson (1):
+      [IA64] change sh_change_coherence oemcall to use nolock
+
+Jes Sorensen (1):
+      [IA64] Make SN2 PCI code use ioremap rather than manually mangle the address
+
+Keith Owens (1):
+      [IA64] Correct unwind validation code
+
+MUNEDA Takahiro (1):
+      [IA64] remove duplicate header include line
+
+Russ Anderson (1):
+      [IA64] Force error to surface in nofault code
+
+vignesh babu (1):
+      [IA64] is_power_of_2-ia64/mm/hugetlbpage.c
