@@ -1,25 +1,26 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Mon, 11 Jun 2007 11:27:43 +0000
-Subject: ANNOUNCE: F7 for ia64
-Message-Id: <466D31AF.5030903@redhat.com>
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Date: Thu, 28 Jun 2007 08:30:31 +0000
+Subject: [PATCH 0/3] Cleanup in iosapic.c
+Message-Id: <468371A7.2060208@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A DVD ISO and exploded FTP tree based on the Fedora 7 distribution 
-are available from:
+Hi,
 
-http://oss.sgi.com/projects/fedora
+Here is a series of patches for cleaning up in iosapic.c.
+This patchset is for 2.6.22-rc6. There are following 3 patches.
 
-4fce50789fae252fe992b506e1a61947  F-7-ia64-DVD.iso
+  [PATCH 1/3]  Remove block structure for locking in iosapic.c
+  [PATCH 2/3]  Remove duplicated members in iosapic_rte_info
+  [PATCH 3/3]  Cleanup lock order in iosapic_register_intr
 
-(Click on Download on left-hand side, and then the F7 directory)
+For more details, please refer to the header of each patch.
 
-Please remember that F7 ia64 is _unsupported_ by Fedora.  You can file 
-bugs,
-but be sure to file them against the devel branch of Fedora Core.  Also,
-add "fedora-ia64" to the "blocks" field of the BZ.
+Thanks.
+Yasuaki Ishimatsu
 
-P.
+
+
