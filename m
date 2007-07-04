@@ -1,46 +1,38 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Wed, 04 Jul 2007 14:24:38 +0000
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 04 Jul 2007 16:58:06 +0000
 Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <468BADA6.9050609@bull.net>
+Message-Id: <20070705015806.6a82463f.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070426001615.GA8908@ldl.fc.hp.com>
-In-Reply-To: <20070426001615.GA8908@ldl.fc.hp.com>
+References: <468BADA6.9050609@bull.net>
+In-Reply-To: <468BADA6.9050609@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Could you please confirm that I understand correctly what is in the:
+On Wed, 04 Jul 2007 16:24:38 +0200
+Zoltan Menyhart <Zoltan.Menyhart@bull.net> wrote:
+> Machines star up whit bit 5 = 0, reading instruction pages via
+> NFS has to flush them from L2I.
+> 
+In our test, we confirmed that this can be fixed by flushing L2I just before 
+SetPageUptodate() in NFS.
 
-Dual-Core Update to the Intel Itanium 2 Processor Reference Manual...
+> 
+> I was wondering if instead of modifying do_no_page() and Co., should
+> not we make nfs_readpage() be DMA-like?
+> (No possible regression for most of the page I/O-s.)
+> I.e. it should be the responsibility of a file system to make sure it
+> supports instruction pages correctly. The base kernel should provide
+> such file systems with an architecture dependent macro...
+> 
+IMHO, for example, race in cooy-on-write  (was fixed by Tony Luck) has to be
+fixed by MemoryManagement layer.
+And only a race in do_no_page() seems to be able to be fixed by FS layer.
 
-"2.3.3.2 L2 Caches
-...
-Any coherence request to identify whether a cache line is in the processor
-will invalidate that line from the L2I cache."
-
-This makes sure that the DMAs invalidate the L2L cache.
-
-"2.7.4 Instruction Cache Coherence Optimization
-Coherence requests of the L1I and L2I caches will invalidate the line if
-it is in the cache. Montecito allows instruction requests on the system
-interface to be filtered such that they will not initiate coherence
-requests of the L1I and L2I caches. This will allow instructions to be
-cached at the L1I and L2I levels across multiple processors in a coherent
-domain. This optimization is enabled by default, but may be disabled by
-PAL_SET_PROC_FEATURES bit 5 of the Montecito feature_set (18)."
-
-Machines star up whit bit 5 = 0, reading instruction pages via
-NFS has to flush them from L2I.
-
-
-I was wondering if instead of modifying do_no_page() and Co., should
-not we make nfs_readpage() be DMA-like?
-(No possible regression for most of the page I/O-s.)
-I.e. it should be the responsibility of a file system to make sure it
-supports instruction pages correctly. The base kernel should provide
-such file systems with an architecture dependent macro...
+BTW, can we know whether a page is filled by DMA or not  ?
 
 Thanks,
+-Kame
 
-Zoltan Menyhart
