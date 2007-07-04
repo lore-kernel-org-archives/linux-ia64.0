@@ -1,7 +1,7 @@
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Mon, 02 Jul 2007 10:26:19 +0000
+Date: Wed, 04 Jul 2007 03:14:43 +0000
 Subject: Re: [RFC][PATCH take2 0/13] Support vector domain on ia64
-Message-Id: <4688D2CB.1090308@jp.fujitsu.com>
+Message-Id: <468B10A3.8030209@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <46779036.5050602@jp.fujitsu.com>
 In-Reply-To: <46779036.5050602@jp.fujitsu.com>
@@ -11,100 +11,56 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Luck, Tony wrote:
->> Here is a series of patches for ia64 vector domain. By these patches, we can
->> use more than 256 irqs. The patchset is based on existing x86-64 vector domain
->> code. This is for 2.6.22-rc5 and I tested them on my ia64 box.
+>> include/asm/hardirq.h:30:3: #error HARDIRQ_BITS is too low!
 > 
-> There are a few whitespace issues (<space><tab>) amongst these patches (I think
-> in parts 6 & 13).  Here's the summary of the broken bits:
+> This one is a direct consequence of the new definition of NR_IRQS:
+> 
+> #define NR_IRQS (NR_VECTORS + 32 * NR_CPUS))
+> 
+> With a large NR_CPUS value, this gets too big.  Do we really need to scale
+> it with the number of cpus?  I don't think this is the right thing to do.
+> While large cpu count systems may also have a large number of I/O devices,
+> the two parameters aren't strongly connected.
+> 
+> We could prevent it blowing up by doing:
+> 
+> /* NR_IRQS is limited by HARDIRQ_BITS */
+> #if (NR_VECTORS + 32 * NR_CPUS)) < 16363
+> #define NR_IRQS (NR_VECTORS + 32 * NR_CPUS))
+> #else
+> #define NR_IRQS 16383
+> #endif
 
-Sorry. I'll search the whitespace in my patchset and fix them by posting
-take3 patchset for supporting vector domain.
+I think if the number of CPUs is small, the value of NR_IRQS depends
+on the value of NR_CPUS. But, if the number of CPUs is large, this
+relation becomes weak. Because, in general machine composition, the
+number of I/O devices doesn't increase proportionally even if the
+number of CPUs increases. So, this threshold such as 16383 is too
+large. I'd like to define NR_IRQS as follows.
 
-> < +	unsigned int 	gsi_base;	/* GSI base */
-> < +	unsigned short 	num_rte;	/* # of RTEs on this IOSAPIC */
-> ---
->> +	unsigned int	gsi_base;	/* GSI base */
->> +	unsigned short	num_rte;	/* # of RTEs on this IOSAPIC */
-> 
-> < +  		if (irq < 0)
-> ---
->> +		if (irq < 0)
-> 
-> < +#define IRQ_RSVD 		(2)
-> ---
->> +#define IRQ_RSVD		(2)
-> 
-> < + 	return vector;
-> ---
->> +	return vector;
-> 
-> I also got two build errors which broke several configurations:
-> 
-> tiger-up (this is arch/ia64/configs/tiger_defconfig with CONFIG_SMP deleted)
-> 
-> arch/ia64/kernel/irq_ia64.c: In function `parse_vector_domain':
-> arch/ia64/kernel/irq_ia64.c:270: error: `no_int_routing' undeclared (first use in this function)
-> arch/ia64/kernel/irq_ia64.c:270: error: (Each undeclared identifier is reported only once
-> arch/ia64/kernel/irq_ia64.c:270: error: for each function it appears in.)
-> make[1]: *** [arch/ia64/kernel/irq_ia64.o] Error 1
-> 
-> generic-up (arch/ia64/defconfig with CONFIG_SMP deleted)
-> 
-> same error as tiger-up
-> 
-> generic-smp (arch/ia64-defconfig)
-> 
->   CC      arch/ia64/kernel/asm-offsets.s
-> In file included from include/linux/hardirq.h:7,
->                  from include/linux/interrupt.h:11,
->                  from include/asm-ia64/mca.h:16,
->                  from arch/ia64/kernel/asm-offsets.c:15:
-> include/asm/hardirq.h:30:3: #error HARDIRQ_BITS is too low!
-> make[1]: *** [arch/ia64/kernel/asm-offsets.s] Error 1
-> 
-> 
-> sn2-smp (arch/ia64/configs/sn2_defconfig)
-> 
-> same error as generic-smp
-> 
-> generic-sparse (arch/ia64/configs/gensparse_defconfig)
-> 
-> same error as generic-smp
-> 
-> allnoconfig (make allnoconfig)
-> 
-> same error as tiger-up
-> 
+#if (NR_VECTORS + 32 * NR_CPUS)) < 1024
+#define NR_IRQS (NR_VECTORS + 32 * NR_CPUS))
+#else
+#define NR_IRQS 1024
+#endif
 
-I tested tiger_defconfig only. So I didn't notice this problem.
-I confirmed that my patchset makes this problem and your following patch fixed it.
+And, I will make NR_IRQS a tunable parameter which user can define as
+boot parameter.
 
-http://www.spinics.net/lists/linux-ia64/msg03352.html
-
-Thanks tony,
-
-> 
-> Booting the arch/ia64/configs/tiger_defconfig kernel on my 4-socket Montecito tiger platform, I
-> get an almost immediate oops.  I don't have the full stack backtrace, but the highlights were:
-> 
-> die
-> ia64_do_page_fault
-> ia64_leave_kernel
-> ia64_handle_irq
-> ia64_leave_kernel
-> unlock_ipi_calllock
-> start_secondary
-> 
-> I tried both with and without the new "vector=percpu" boot option (which needs to be
-> documented in Documentation/kernel-parameters.txt), but it dies with the same
-> stack trace both ways.
-
-I have never seen these messages. I will check them.
-
-Regards,
+Thanks,
 Yasuaki Ishimatsu
 
+> 
+> But that looks rather ugly and still fails to build because of overflow of the percpu area.
+> This gets big because of include/linux/kernel_stat.h:
+> 
+> DECLARE_PERCPU(struct kernel_stat, kstat);
+> 
+> With the current allocation of percpu stuff, it looks like we can push NR_IRQS up
+> to around 7.5K, but that would leave no space for other additions to percpu space.
+> So if large systems are going to need as many as 7.5K IRQs, then we'll also need to
+> do something about kstat.
+> 
 > -Tony
 > -
 > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
