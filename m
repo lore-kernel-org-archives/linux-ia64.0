@@ -1,109 +1,78 @@
-From: Luca Tettamanti <kronos.it@gmail.com>
-Date: Tue, 31 Jul 2007 20:33:12 +0000
-Subject: Re: [PATCH] - SN: Add support for CPU disable
-Message-Id: <20070731203312.GA19588@dreamland.darkstar.lan>
+From: Prarit Bhargava <prarit@redhat.com>
+Date: Thu, 05 Jul 2007 15:39:35 +0000
+Subject: Re: [IA64] [kdump] machveg=dig on hpzx1 platforms
+Message-Id: <468D10B7.4020600@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20070731194505.24177.41215.89690@attica.americas.sgi.com>
-References: <20070731194505.24177.41215.89690@attica.americas.sgi.com>
-In-Reply-To: <20070731194505.24177.41215.89690@attica.americas.sgi.com>
+References: <20070621182441.GA21840@suse.de> <467AE260.7030906@hp.com>
+In-Reply-To: <467AE260.7030906@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Keller <jpk@sgi.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Terry Loftin <terry.loftin@hp.com>
+Cc: linux-ia64@vger.kernel.org, Bernhard Walle <bwalle@suse.de>, Khalid Aziz <khalid_aziz@hp.com>, kexec@lists.infradead.org
 
-Hi,
-I've a couple of comments on the patch:
 
-John Keller <jpk@sgi.com> ha scritto:
-> Index: linux-2.6/arch/ia64/sn/kernel/huberror.c
-> =================================> --- linux-2.6.orig/arch/ia64/sn/kernel/huberror.c       2007-07-31 09:09:55.414522005 -0500
-> +++ linux-2.6/arch/ia64/sn/kernel/huberror.c    2007-07-31 09:38:14.634045360 -0500
-> @@ -14,6 +14,7 @@
-> #include <asm/sn/addrs.h>
-> #include <asm/sn/shubio.h>
-> #include <asm/sn/geo.h>
-> +#include <asm/sn/sn_feature_sets.h>
-> #include "xtalk/xwidgetdev.h"
-> #include "xtalk/hubdev.h"
-> #include <asm/sn/bte.h>
-> @@ -185,11 +186,22 @@ void hubiio_crb_error_handler(struct hub
->  */
-> void hub_error_init(struct hubdev_info *hubdev_info)
-> {
+>
+> Here is a patch to do that.  We use this internally, but
+> I had forgotten to post it.
+>
+
+Not that it matters a huge amount, but this has been in RHEL5 for 
+sometime and does fix the "machvec=dig" nuisance.
+
+(Sorry for not replying earlier Terry -- I had a huge backlog of things 
+to get to before this ...)
+
+P.
+
+
+> -T
+>
+> ---
+> diff --git a/arch/ia64/hp/common/sba_iommu.c 
+> b/arch/ia64/hp/common/sba_iommu.c
+> --- a/arch/ia64/hp/common/sba_iommu.c
+> +++ b/arch/ia64/hp/common/sba_iommu.c
+> @@ -42,6 +42,9 @@ #include <asm/dma.h>
+>  #include <asm/system.h>        /* wmb() */
+>
+>  #include <asm/acpi-ext.h>
+> +#include <linux/crash_dump.h>
 > +
->        if (request_irq(SGI_II_ERROR, hub_eint_handler, IRQF_SHARED,
-> -                       "SN_hub_error", (void *)hubdev_info))
-> +                       "SN_hub_error", (void *)hubdev_info)) {
->                printk("hub_error_init: Failed to request_irq for 0x%p\n",
->                    hubdev_info);
-> -       return;
-> +               return;
-> +       }
-> +
-> +#ifdef CONFIG_SMP
-> +       /*
-> +        * On systems which support CPU disabling (SHub2), all error interrupts
-> +        * are targetted at the boot CPU.
-> +        */
-> +       if (is_shub2() && sn_prom_feature_available(PRF_CPU_DISABLE_SUPPORT))
-> +               set_irq_affinity_info(SGI_II_ERROR, 0, 0);
+> +extern int swiotlb_late_init_with_default_size (size_t size);
+>
+>  #define PFX "IOC: "
+>
+> @@ -2026,11 +2029,24 @@ sba_init(void)
+>      if (!ia64_platform_is("hpzx1") && 
+> !ia64_platform_is("hpzx1_swiotlb"))
+>          return 0;
+>
+> +#ifdef CONFIG_CRASH_DUMP
+> +    /* If we are booting a kdump kernel, the sba_iommu will
+> +     * cause devices that were not shutdown properly to MCA
+> +     * as soon as they are turned back on.  Our only option for
+> +     * a successful kdump kernel boot is to use the swiotlb.
+> +     */
+> +    if (elfcorehdr_addr < ELFCORE_ADDR_MAX) {
+> +        if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+> +            panic("Unable to initialize software I/O TLB:"
+> +                  " Try machvec=dig boot option");
+> +        machvec_init("dig");
+> +        return 0;
+> +    }
 > +#endif
-
-This snippet is repeated many times. You may want to use an inline
-helper (defined as no-op for !CONFIG_SMP), something like this:
-
-#ifdef CONFIG_SMP
-static inline void migrate_error_int(void)
-{
-        /*
-         * On systems which support CPU disabling (SHub2), all error interrupts
-         * are targetted at the boot CPU.
-         */
-         if (is_shub2() && sn_prom_feature_available(PRF_CPU_DISABLE_SUPPORT))
-                set_irq_affinity_info(SGI_II_ERROR, 0, 0);
-}
-#else
-static inline void migrate_error_int(void) { }
-#endif
-
-As as bonus you remove the #ifdef from the main code.
-
-> --- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c    2007-07-31 09:09:55.418522496 -0500
-> +++ linux-2.6/arch/ia64/sn/kernel/sn2/sn2_smp.c 2007-07-31 09:38:14.782063615 -0500
-> @@ -40,6 +40,7 @@
-> #include <asm/sn/shub_mmr.h>
-> #include <asm/sn/nodepda.h>
-> #include <asm/sn/rw_mmr.h>
-> +#include <asm/sn/sn_feature_sets.h>
-> 
-> DEFINE_PER_CPU(struct ptc_stats, ptcstats);
-> DECLARE_PER_CPU(struct ptc_stats, ptcstats);
-> @@ -429,6 +430,29 @@ void sn2_send_IPI(int cpuid, int vector,
->        sn_send_IPI_phys(nasid, physid, vector, delivery_mode);
-> }
-> 
-> +#ifdef CONFIG_HOTPLUG_CPU
-> +/**
-> + * sn_cpu_disable_allowed - Determine if a CPU can be disabled.
-> + * @cpu - CPU that is requested to be disabled.
-> + *
-> + * CPU disable is only allowed on SHub2 systems running with a PROM
-> + * that supports CPU disable. It is not permitted to disable the boot processor.
-> + */
-> +bool sn_cpu_disable_allowed(int cpu)
-> +{
-> +       if (is_shub2() && sn_prom_feature_available(PRF_CPU_DISABLE_SUPPORT))
-> +               if (cpu != 0)
-> +                       return true;
-> +               else
-> +                       printk("Disabling the boot processor is not allowed.\n");
 > +
-> +       else
-
-Hum, brackets around the inner if statement?
-
-Luca
--- 
-Let me make your mind, leave yourself behind
-Be not afraid
+>      acpi_bus_register_driver(&acpi_sba_ioc_driver);
+>      if (!ioc_list) {
+>  #ifdef CONFIG_IA64_GENERIC
+> -        extern int swiotlb_late_init_with_default_size (size_t size);
+> -
+>          /*
+>           * If we didn't find something sba_iommu can claim, we
+>           * need to setup the swiotlb and switch to the dig machvec.
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
