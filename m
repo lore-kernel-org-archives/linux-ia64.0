@@ -1,43 +1,30 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 30 Jul 2007 17:42:09 +0000
-Subject: Re: [PATCH] remove unused TIF_NOTIFY_RESUME (take 2)
-Message-Id: <20070730174209.GA26366@frankl.hpl.hp.com>
+From: Christian Kandeler <christian.kandeler@hob.de>
+Date: Mon, 09 Jul 2007 14:13:02 +0000
+Subject: [PATCH] Stop bit for brl instruction
+Message-Id: <200707091613.02091.christian.kandeler@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070730093034.GD25162@frankl.hpl.hp.com> <20070730102115.cac237ea.akpm@linux-foundation.org>
-In-Reply-To: <20070730102115.cac237ea.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, ak@suse.de, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
 
-Andrew,
+Hi,
 
-On Mon, Jul 30, 2007 at 10:21:15AM -0700, Andrew Morton wrote:
-> On Mon, 30 Jul 2007 02:30:34 -0700 Stephane Eranian <eranian@hpl.hp.com> wrote:
-> 
-> > This following patch removes the TIF_NOTIFY_RESUME flag for thread_info. It is unused
-> > on all but the IA-64 architecture. This is take 2 of this patch. In this version,
-> > The definition is removed but no re-numbering of the TIF flags is done to minimize
-> > the possibility of errors and reduce the size of the patch.
-> > 
-> > For IA-64, we ran out of low-order bits (first 7 bits). Adding a bit for perfmon
-> > would cause important code rescheduling changes in the kernel entry/exit path. Instead,
-> > we replace TIF_NOTIFY_RESUME with TIF_PERFMON_WORK. This way we get very close to what the
-> > new perfmon code base is doing.
-> 
-> This has been (painfully) maintained in -mm for quite a long time.  I've
-> been waiting for everyone else to merge their stuff so I can get it in
-> without disrupting them.  This has now happened.
-> 
-> I think it'd be better to merge the larger patch - it's a bit tidier and
-> more tested, OK?
-> 
-I appreciate your effort and understand your pain at maintaining this kind
-of patch. It seems that neither you or myself have received any complaints
-on this patch so far, so I am fine with you using the older version instead.
+this issue has already been discussed (see 
+http://marc.info/?t7768963900017&r=1&w=2) and I was under the 
+impression that it would be resolved in 2.6.2.22. Since it's not, I'm 
+submitting this small patch.
 
-Thanks.
+Signed-off-by: Christian Kandeler <christian.kandeler@hob.de>
 
---
--Stephane
+--- arch/ia64/kernel/gate.S.orig        2007-07-09 15:18:58.000000000 
++0200
++++ arch/ia64/kernel/gate.S     2007-07-09 15:23:03.000000000 +0200
+@@ -30,6 +30,7 @@
+        .previous
+ #define BRL_COND_FSYS_BUBBLE_DOWN(pr)			\
+ [1:](pr)brl.cond.sptk 0;				\
++	;;						\
+ 	.xdata4 ".data.patch.brl_fsys_bubble_down", 1b-.
+
+ GLOBAL_ENTRY(__kernel_syscall_via_break)
