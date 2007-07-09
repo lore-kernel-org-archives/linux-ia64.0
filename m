@@ -1,8 +1,10 @@
 From: Christian Kandeler <christian.kandeler@hob.de>
-Date: Mon, 09 Jul 2007 14:13:02 +0000
+Date: Mon, 09 Jul 2007 14:19:11 +0000
 Subject: [PATCH] Stop bit for brl instruction
-Message-Id: <200707091613.02091.christian.kandeler@hob.de>
+Message-Id: <200707091619.11608.christian.kandeler@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200707091613.02091.christian.kandeler@hob.de>
+In-Reply-To: <200707091613.02091.christian.kandeler@hob.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,7 +23,7 @@ Signed-off-by: Christian Kandeler <christian.kandeler@hob.de>
 +0200
 +++ arch/ia64/kernel/gate.S     2007-07-09 15:23:03.000000000 +0200
 @@ -30,6 +30,7 @@
-        .previous
+ 	.previous
  #define BRL_COND_FSYS_BUBBLE_DOWN(pr)			\
  [1:](pr)brl.cond.sptk 0;				\
 +	;;						\
