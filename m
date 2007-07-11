@@ -1,97 +1,52 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 11 Jul 2007 15:26:30 +0000
-Subject: [patch] silence GCC ia64 unused variable warnings
-Message-Id: <4694F6A6.3080304@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------090903050702080705040700"
+From: dcn@sgi.com (Dean Nelson)
+Date: Wed, 11 Jul 2007 15:22:16 +0000
+Subject: [PATCH] add sn_register_pmi_handler oemcall
+Message-Id: <4694F5A8.mailx6DG1UFFYX@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090903050702080705040700
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Add wrapper function to make SN_SAL_REGISTER_PMI_HANDLER ia64_sal_oemcall.
 
-Hi,
-
-Purely to keep GCC 4+ from spewing out annoying warnings that serve no
-purpose.
-
-Cheers,
-Jes
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
---------------090903050702080705040700
-Content-Type: text/plain;
- name="kill-ia64-unused-warns.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="kill-ia64-unused-warns.diff"
-
-Tell GCC to stop spewing out unncessary warnings for unused variables
-passed to functions as pointers for ia64 files.
-
-Signed-off-by: Jes Sorensen <jes@sgi.com>
-
----
- arch/ia64/kernel/process.c              |    3 ++-
- arch/ia64/mm/tlb.c                      |    2 +-
- arch/ia64/sn/kernel/tiocx.c             |    2 +-
- arch/ia64/sn/pci/pcibr/pcibr_provider.c |    2 +-
- 4 files changed, 5 insertions(+), 4 deletions(-)
-
-Index: linux-2.6-lguest/arch/ia64/kernel/process.c
-===================================================================
---- linux-2.6-lguest.orig/arch/ia64/kernel/process.c
-+++ linux-2.6-lguest/arch/ia64/kernel/process.c
-@@ -513,7 +513,8 @@ copy_thread (int nr, unsigned long clone
- static void
- do_copy_task_regs (struct task_struct *task, struct unw_frame_info *info, void *arg)
- {
--	unsigned long mask, sp, nat_bits = 0, ip, ar_rnat, urbs_end, cfm;
-+	unsigned long mask, sp, nat_bits = 0, ar_rnat, urbs_end, cfm;
-+	unsigned long uninitialized_var(ip);	/* GCC be quiet */
- 	elf_greg_t *dst = arg;
- 	struct pt_regs *pt;
- 	char nat;
-Index: linux-2.6-lguest/arch/ia64/mm/tlb.c
-===================================================================
---- linux-2.6-lguest.orig/arch/ia64/mm/tlb.c
-+++ linux-2.6-lguest/arch/ia64/mm/tlb.c
-@@ -175,7 +175,7 @@ EXPORT_SYMBOL(flush_tlb_range);
- void __devinit
- ia64_tlb_init (void)
- {
--	ia64_ptce_info_t ptce_info;
-+	ia64_ptce_info_t uninitialized_var(ptce_info); /* GCC be quiet */
- 	unsigned long tr_pgbits;
- 	long status;
+Index: linux-2.6/include/asm-ia64/sn/sn_sal.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2007-06-20 09:32:32.001968418 -0500
++++ linux-2.6/include/asm-ia64/sn/sn_sal.h	2007-06-20 09:32:39.646908636 -0500
+@@ -32,6 +32,7 @@
+ #define  SN_SAL_NO_FAULT_ZONE_VIRTUAL		   0x02000010
+ #define  SN_SAL_NO_FAULT_ZONE_PHYSICAL		   0x02000011
+ #define  SN_SAL_PRINT_ERROR			   0x02000012
++#define  SN_SAL_REGISTER_PMI_HANDLER		   0x02000014
+ #define  SN_SAL_SET_ERROR_HANDLING_FEATURES	   0x0200001a	// reentrant
+ #define  SN_SAL_GET_FIT_COMPT			   0x0200001b	// reentrant
+ #define  SN_SAL_GET_SAPIC_INFO                     0x0200001d
+@@ -680,6 +681,25 @@
+ }
  
-Index: linux-2.6-lguest/arch/ia64/sn/kernel/tiocx.c
-===================================================================
---- linux-2.6-lguest.orig/arch/ia64/sn/kernel/tiocx.c
-+++ linux-2.6-lguest/arch/ia64/sn/kernel/tiocx.c
-@@ -369,7 +369,7 @@ static void tio_corelet_reset(nasid_t na
- 
- static int is_fpga_tio(int nasid, int *bt)
- {
--	u16 ioboard_type;
-+	u16 uninitialized_var(ioboard_type);	/* GCC be quiet */
- 	s64 rc;
- 
- 	rc = ia64_sn_sysctl_ioboard_get(nasid, &ioboard_type);
-Index: linux-2.6-lguest/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-===================================================================
---- linux-2.6-lguest.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-+++ linux-2.6-lguest/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-@@ -80,7 +80,7 @@ static int sal_pcibr_error_interrupt(str
- u16 sn_ioboard_to_pci_bus(struct pci_bus *pci_bus)
- {
- 	s64 rc;
--	u16 ioboard;
-+	u16 uninitialized_var(ioboard);		/* GCC be quiet */
- 	nasid_t nasid = NASID_GET(SN_PCIBUS_BUSSOFT(pci_bus)->bs_base);
- 
- 	rc = ia64_sn_sysctl_ioboard_get(nasid, &ioboard);
-
---------------090903050702080705040700--
+ /*
++ * Register or unregister a function to handle a PMI received by a CPU.
++ * Before calling the registered handler, SAL sets r1 to the value that
++ * was passed in as the global_pointer.
++ *
++ * If the handler pointer is NULL, then the currently registered handler
++ * will be unregistered.
++ *
++ * Returns 0 on success, or a negative value if an error occurred.
++ */
++static inline int
++sn_register_pmi_handler(u64 handler, u64 global_pointer)
++{
++	struct ia64_sal_retval ret_stuff;
++	ia64_sal_oemcall(&ret_stuff, SN_SAL_REGISTER_PMI_HANDLER, handler,
++			 global_pointer, 0, 0, 0, 0, 0);
++	return ret_stuff.status;
++}
++
++/*
+  * Change or query the coherence domain for this partition. Each cpu-based
+  * nasid is represented by a bit in an array of 64-bit words:
+  *      0 = not in this partition's coherency domain
