@@ -1,51 +1,97 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 30 Jul 2007 23:31:49 +0000
-Subject: SN2 hanging in udevsettle (was: Re: Linus' tree broken?)
-Message-Id: <200707302331.l6UNVnLA138913606@clink.americas.sgi.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Wed, 11 Jul 2007 15:26:30 +0000
+Subject: [patch] silence GCC ia64 unused variable warnings
+Message-Id: <4694F6A6.3080304@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------090903050702080705040700"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Russ Anderson wrote:
-> 
-> More specificly, it hangs in /sbin/udevsettle .
+This is a multi-part message in MIME format.
+--------------090903050702080705040700
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-Using git bisect to narrow it down, it looks like
-commit 2008220879af095d00ca27eb168a55c8595fbc0b may
-be causing the hang in udevsettle on SN2. 
+Hi,
 
-A tree synced up with "cg-seek 7b4c965a0b74748269d05185a394c9dc121dd558" boots.
-With "cg-seek 2008220879af095d00ca27eb168a55c8595fbc0b" udevsettle hangs.
+Purely to keep GCC 4+ from spewing out annoying warnings that serve no
+purpose.
 
-I'll dig further into this tomorrow.
-
---------------------------------------------------------------------
-commit 2008220879af095d00ca27eb168a55c8595fbc0b
-Author: Linus Torvalds <torvalds@woody.linux-foundation.org>
-Date:   Fri Jul 20 13:28:54 2007 -0700
-
-    Revert "sys_time() speedup"
-
-    This basically reverts commit 4e44f3497d41db4c3b9051c61410dee8ae4fb49c,
-    while waiting for it to be re-done more completely.  There are cases of
-    people mixing "time()" with higher-resolution time sources, and we need
-    to take the nanosecond offsets into account.
-
-    Ingo has a patch that does that, but it's still under some discussion.
-    In the meantime, just revert back to the old simple situation of just
-    doing the whole exact timesource calculations.
-
-    But rather than using do_gettimeofday(), use the internal nanosecond
-    resolution getnstimeofday(), which at least avoids one unnecessary
-    conversion (since we really don't care about whether the fractional
-    seconds are nanoseconds or microseconds - we'll just throw them away).
-
-    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Cheers,
+Jes
 
 
+--------------090903050702080705040700
+Content-Type: text/plain;
+ name="kill-ia64-unused-warns.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="kill-ia64-unused-warns.diff"
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Tell GCC to stop spewing out unncessary warnings for unused variables
+passed to functions as pointers for ia64 files.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+
+---
+ arch/ia64/kernel/process.c              |    3 ++-
+ arch/ia64/mm/tlb.c                      |    2 +-
+ arch/ia64/sn/kernel/tiocx.c             |    2 +-
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |    2 +-
+ 4 files changed, 5 insertions(+), 4 deletions(-)
+
+Index: linux-2.6-lguest/arch/ia64/kernel/process.c
+===================================================================
+--- linux-2.6-lguest.orig/arch/ia64/kernel/process.c
++++ linux-2.6-lguest/arch/ia64/kernel/process.c
+@@ -513,7 +513,8 @@ copy_thread (int nr, unsigned long clone
+ static void
+ do_copy_task_regs (struct task_struct *task, struct unw_frame_info *info, void *arg)
+ {
+-	unsigned long mask, sp, nat_bits = 0, ip, ar_rnat, urbs_end, cfm;
++	unsigned long mask, sp, nat_bits = 0, ar_rnat, urbs_end, cfm;
++	unsigned long uninitialized_var(ip);	/* GCC be quiet */
+ 	elf_greg_t *dst = arg;
+ 	struct pt_regs *pt;
+ 	char nat;
+Index: linux-2.6-lguest/arch/ia64/mm/tlb.c
+===================================================================
+--- linux-2.6-lguest.orig/arch/ia64/mm/tlb.c
++++ linux-2.6-lguest/arch/ia64/mm/tlb.c
+@@ -175,7 +175,7 @@ EXPORT_SYMBOL(flush_tlb_range);
+ void __devinit
+ ia64_tlb_init (void)
+ {
+-	ia64_ptce_info_t ptce_info;
++	ia64_ptce_info_t uninitialized_var(ptce_info); /* GCC be quiet */
+ 	unsigned long tr_pgbits;
+ 	long status;
+ 
+Index: linux-2.6-lguest/arch/ia64/sn/kernel/tiocx.c
+===================================================================
+--- linux-2.6-lguest.orig/arch/ia64/sn/kernel/tiocx.c
++++ linux-2.6-lguest/arch/ia64/sn/kernel/tiocx.c
+@@ -369,7 +369,7 @@ static void tio_corelet_reset(nasid_t na
+ 
+ static int is_fpga_tio(int nasid, int *bt)
+ {
+-	u16 ioboard_type;
++	u16 uninitialized_var(ioboard_type);	/* GCC be quiet */
+ 	s64 rc;
+ 
+ 	rc = ia64_sn_sysctl_ioboard_get(nasid, &ioboard_type);
+Index: linux-2.6-lguest/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+===================================================================
+--- linux-2.6-lguest.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c
++++ linux-2.6-lguest/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+@@ -80,7 +80,7 @@ static int sal_pcibr_error_interrupt(str
+ u16 sn_ioboard_to_pci_bus(struct pci_bus *pci_bus)
+ {
+ 	s64 rc;
+-	u16 ioboard;
++	u16 uninitialized_var(ioboard);		/* GCC be quiet */
+ 	nasid_t nasid = NASID_GET(SN_PCIBUS_BUSSOFT(pci_bus)->bs_base);
+ 
+ 	rc = ia64_sn_sysctl_ioboard_get(nasid, &ioboard);
+
+--------------090903050702080705040700--
