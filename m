@@ -1,84 +1,106 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Mon, 30 Jul 2007 02:54:41 +0000
-Subject: [PATCH 1/2] Fix registered interrupt check
-Message-Id: <1185764081.3940.55.camel@kane-linux>
+From: Terry Loftin <terry.loftin@hp.com>
+Date: Thu, 12 Jul 2007 23:23:22 +0000
+Subject: [PATCH][IA64][kdump] use machvec=dig on hpzx1 platforms
+Message-Id: <4696B7EA.6030009@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, tony.luck@intel.com
+Cc: prarit@redhat.com, bwalle@suse.de, kexec@lists.infradead.org
 
-Fix the problem that interrupts are not initialized correctly at PCI
-hotplug or driver reloading time.
+Tony,
 
-By vector domain change, the iosapic_rte_info structure was changed to
-be on the iosapic_intr_info[irq].rtes list even after the interrupts
-are unregistered. So iosapic_intr_info[irq].rtes list must not be
-checked to see if there are registered interrupts (RTEs) on the
-irq. We must check iosapic_intr_info[irq].count counter instead.
+This is a cleaned up version of the machvec=dig patch:
+* added CONFIG_IA64_GENERIC to avoid the compile problems, and
+   test built with different config combinations
+* moved include declaration to be consistent
+* got review and sign off from Alex Williamson as well.
+* +extern int swiotlb_late_init_with_default_size (size_t size);
+   I left this because there is no applicable header file.
+   I'm no fan of extern declarations either, but I didn't want to
+   add a header just for this declaration, nor modify the machvec
+   headers just to accommodate this hack.
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Thanks!
 
+-T
+
+Patch Description:
+
+On HP zx1 machines, the 'machvec=dig' parameter is needed for the
+kdump kernel to avoid problems with the HP sba iommu.  The problem
+is that during the boot of the kdump kernel, the iommu is re-initialized,
+so in-flight DMA from improperly shutdown drivers causes an IOTLB
+miss which leads to an MCA.  With kdump, the idea is to get into the
+kdump kernel with as little code as we can, so shutting down drivers
+properly is not an option.
+
+The workaround is to add 'machvec=dig' to the kdump kernel boot
+parameters.  This makes the kdump kernel avoid using the sba iommu
+altogether, leaving the IOTLB intact.  Any ongoing DMA falls
+harmlessly outside the kdump kernel.  After the kdump kernel reboots,
+all devices will have been shutdown properly and DMA stopped.
+
+This patch pushes that functionality into the sba iommu
+initialization code, so that users won't have to find the obscure
+documentation telling them about 'machvec=dig'.
+
+This patch only affects HP platforms.  It still includes one
+extern declaration in the file, because no applicable header file
+exists.
+
+Signed-off-by: Terry Loftin <terry.loftin@hp.com>
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 ---
- arch/ia64/kernel/iosapic.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
 
-Index: linux-2.6.23-rc1/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.23-rc1.orig/arch/ia64/kernel/iosapic.c
-+++ linux-2.6.23-rc1/arch/ia64/kernel/iosapic.c
-@@ -142,7 +142,7 @@ struct iosapic_rte_info {
- static struct iosapic_intr_info {
- 	struct list_head rtes;		/* RTEs using this vector (empty =>
- 					 * not an IOSAPIC interrupt) */
--	int		count;		/* # of RTEs that shares this vector */
-+	int		count;		/* # of registered RTEs */
- 	u32		low32;		/* current value of low word of
- 					 * Redirection table entry */
- 	unsigned int	dest;		/* destination CPU physical ID */
-@@ -313,7 +313,7 @@ mask_irq (unsigned int irq)
- 	int rte_index;
- 	struct iosapic_rte_info *rte;
- 
--	if (list_empty(&iosapic_intr_info[irq].rtes))
-+	if (!iosapic_intr_info[irq].count)
- 		return;			/* not an IOSAPIC interrupt! */
- 
- 	/* set only the mask bit */
-@@ -331,7 +331,7 @@ unmask_irq (unsigned int irq)
- 	int rte_index;
- 	struct iosapic_rte_info *rte;
- 
--	if (list_empty(&iosapic_intr_info[irq].rtes))
-+	if (!iosapic_intr_info[irq].count)
- 		return;			/* not an IOSAPIC interrupt! */
- 
- 	low32 = iosapic_intr_info[irq].low32 &= ~IOSAPIC_MASK;
-@@ -363,7 +363,7 @@ iosapic_set_affinity (unsigned int irq, 
- 
- 	dest = cpu_physical_id(first_cpu(mask));
- 
--	if (list_empty(&iosapic_intr_info[irq].rtes))
-+	if (!iosapic_intr_info[irq].count)
- 		return;			/* not an IOSAPIC interrupt */
- 
- 	set_irq_affinity_info(irq, dest, redir);
-@@ -542,7 +542,7 @@ iosapic_reassign_vector (int irq)
- {
- 	int new_irq;
- 
--	if (!list_empty(&iosapic_intr_info[irq].rtes)) {
-+	if (iosapic_intr_info[irq].count) {
- 		new_irq = create_irq();
- 		if (new_irq < 0)
- 			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-@@ -677,7 +677,7 @@ get_target_cpu (unsigned int gsi, int ir
- 	 * In case of vector shared by multiple RTEs, all RTEs that
- 	 * share the vector need to use the same destination CPU.
- 	 */
--	if (!list_empty(&iosapic_intr_info[irq].rtes))
-+	if (iosapic_intr_info[irq].count)
- 		return iosapic_intr_info[irq].dest;
- 
- 	/*
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index c1dca22..6abc080 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -34,6 +34,7 @@ #include <linux/acpi.h>
+  #include <linux/efi.h>
+  #include <linux/nodemask.h>
+  #include <linux/bitops.h>         /* hweight64() */
++#include <linux/crash_dump.h>
+
+  #include <asm/delay.h>		/* ia64_get_itc() */
+  #include <asm/io.h>
+@@ -43,6 +44,8 @@ #include <asm/system.h>		/* wmb() */
+
+  #include <asm/acpi-ext.h>
+
++extern int swiotlb_late_init_with_default_size (size_t size);
++
+  #define PFX "IOC: "
+
+  /*
+@@ -2026,11 +2029,24 @@ sba_init(void)
+  	if (!ia64_platform_is("hpzx1") && !ia64_platform_is("hpzx1_swiotlb"))
+  		return 0;
+
++#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP)
++	/* If we are booting a kdump kernel, the sba_iommu will
++	 * cause devices that were not shutdown properly to MCA
++	 * as soon as they are turned back on.  Our only option for
++	 * a successful kdump kernel boot is to use the swiotlb.
++	 */
++	if (elfcorehdr_addr < ELFCORE_ADDR_MAX) {
++		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
++			panic("Unable to initialize software I/O TLB:"
++				  " Try machvec=dig boot option");
++		machvec_init("dig");
++		return 0;
++	}
++#endif
++
+  	acpi_bus_register_driver(&acpi_sba_ioc_driver);
+  	if (!ioc_list) {
+  #ifdef CONFIG_IA64_GENERIC
+-		extern int swiotlb_late_init_with_default_size (size_t size);
+-
+  		/*
+  		 * If we didn't find something sba_iommu can claim, we
+  		 * need to setup the swiotlb and switch to the dig machvec.
 
 
