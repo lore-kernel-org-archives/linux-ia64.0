@@ -1,37 +1,35 @@
-From: Mike Stroyan <mike@stroyan.net>
-Date: Thu, 05 Jul 2007 17:36:21 +0000
-Subject: Re: Fw: [PATCH] ia64: race flushing icache in do_no_page path
-Message-Id: <20070705173621.GA8320@stroyan.net>
+From: Kallol Biswas <kallol@nucleodyne.com>
+Date: Fri, 13 Jul 2007 23:54:02 +0000
+Subject: debian 40r installation issue on IA 64
+Message-Id: <426724.15340.qm@web58005.mail.re3.yahoo.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <468BADA6.9050609@bull.net> <20070705015806.6a82463f.kamezawa.hiroyu@jp.fujitsu.com> <468CB25C.2040505@bull.net>
-In-Reply-To: <468CB25C.2040505@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 05, 2007 at 10:57:00AM +0200, Zoltan Menyhart wrote:
-> KAMEZAWA Hiroyuki wrote:
-> >In our test, we confirmed that this can be fixed by flushing L2I just 
-> >before SetPageUptodate() in NFS.
-> 
-> I can agree.
-> We can be more permissive: it can be done anywhere after the new
-> data is put in place and before nfs_readpage() or nfs_readpages()
-> returns.
-> 
-> I saw your patch http://marc.info/?l=linux-mm&m8352909826277&w=2
-> that modifies e.g. mm/memory.c and not the NFS layer.
-> 
-> Have you proposed a patch against the NFS layer?
+I have been trying to install debian 40r0 on hp longs
+peak itanium server. The installation hangs trying to
+configure net....
 
-  This really doesn't look like a job for the file system layer.
-That would require all sorts of file system readpage routines to
-be modified to handle memory management details that are already
-handled by the memory.c functions.  The do_no_page code is already
-dealing with the necessary icache flushing operations.  It just
-happens to be doing it with a bad race condition for ia64.
 
--- 
-Mike Stroyan <mike@stroyan.net>
+EFI Time Services Driver v0.4
+Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports,
+IRQ sharing enabled
+00:04: ttyS0 at MMIO 0xff5e0000 (irq = 49) is a 16550A
+00:05: ttyS1 at MMIO 0xff5e2000 (irq = 50) is a 16550A
+GSI 82 (level, low) -> CPU 1 (0x0100) vector 51
+ACPI: PCI Interrupt 0000:e0:01.0[A] -> GSI 82 (level,
+low) -> IRQ 51
+0000:e0:01.0: ttyS2 at MMIO 0xf8031000 (irq = 51) is a
+16550A
+ACPI: PCI Interrupt 0000:e0:01.1[A] -> GSI 82 (level,
+low) -> IRQ 51
+0000:e0:01.1: ttyS3 at MMIO 0xf8030000 (irq = 51) is a
+16550A
+Couldn't register serial port 0000:e0:01.1: -28
+RAMDISK driver initialized: 16 RAM disks of 32768K
+size 1024 blocksize
+mice: PS/2 mouse device common for all mice
+TCP bic registered
+NET: Re                            
