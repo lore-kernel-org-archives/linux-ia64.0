@@ -1,67 +1,21 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Tue, 17 Jul 2007 12:20:10 +0000
-Subject: [PATCH take3 0/12] Support vector domain on ia64
-Message-Id: <469CB3FA.7010301@jp.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 17 Jul 2007 17:40:47 +0000
+Subject: RE: [PATCH take3 0/12] Support vector domain on ia64
+Message-Id: <617E1C2C70743745A92448908E030B2A01F27E30@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <469CB3FA.7010301@jp.fujitsu.com>
+In-Reply-To: <469CB3FA.7010301@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Getting close now.  New (I think it's new, I didn't notice it last time, but I may have
+missed it in the other build noise)  concern while compiling this version was the warning:
 
-Here is a series of patches for ia64 vector domain. By these patches, we can
-use more than NR_VECTORS(256) irqs. This is based on existing x86-64 vector
-domain code. I tested it on my ia64 box.
+  arch/ia64/kernel/iosapic.c:597: warning: 'iosapic_free_rte' defined but not used
 
-Changes from previous patchset:
+This isn't spurious, the only call to iosapic_free_rte() has been removed, but there
+is still a call to iosapic_alloc_rte() ... which means we must have a memory leak.
 
-- rebase to 2.6.22
-
-- remove unnecessary whitespaces
-
-- do the build test for all configs under arch/ia64/configs/
-
-- define NR_IRQS as follow:
-
-  Vector domain can provide the number of irqs being proportional to the
-  number of CPUs theoretically. However, the relation between them is
-  actually not linear, especially in large system. To avoid the memory
-  consumption derived from too many irqs, I define NR_IRQS as follows:
-
-  #if (NR_VECTORS + 32 * NR_CPUS) < 1024
-  #define NR_IRQS (NR_VECTORS + 32 * NR_CPUS)
-  #else
-  #define NR_IRQS 1024
-  #endif
-
-- change initial value of vector_irq to IA64_SPURIOUS_INT_VECTOR. It is
-  pointed by Tony.
-
-  http://www.gelato.unsw.edu.au/archives/linux-ia64/0707/20673.html
-
-  I marged it into [PATCH take3 8/12]
-
-- add the description of vector domain in Documentation/kernel-parameters.txt
-
-There are 12 patches for ia64 vector domain:
-
-  [PATCH take3 1/12]  Remove block structure for locking in iosapic.c
-  [PATCH take3 2/12]  Remove duplicated members in iosapic_rte_info
-  [PATCH take3 3/12]  Cleanup lock order in iosapic_register_intr
-  [PATCH take3 4/12]  Use per iosapic lock for indirect iosapic register access
-  [PATCH take3 5/12]  Use dynamic irq for iosapic interrupts
-  [PATCH take3 6/12]  Fix invalid irq vector assumption for iosapic
-  [PATCH take3 7/12]  Check if irq is sharable
-  [PATCH take3 8/12]  Add mapping table between irq and vector
-  [PATCH take3 9/12]  Add support for vector domain
-  [PATCH take3 10/12] Support irq migration across domain
-  [PATCH take3 11/12] Enable percpu vector domain for IA64_GENERIC
-  [PATCH take3 12/12] Enable percpu vector domain for IA64_DIG
-
-For more details, please refer to the header of each patch.
-
-Any comments or questions are welcome.
-
-Thanks.
-Yasuaki Ishimatsu
+-Tony
