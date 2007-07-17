@@ -1,21 +1,34 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 26 Jul 2007 06:29:09 +0000
-Subject: [PATCH 0/3] vector domain minor fixes
-Message-Id: <1185431349.3917.64.camel@kane-linux>
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Date: Tue, 17 Jul 2007 12:22:14 +0000
+Subject: [PATCH take3 7/12] Check if irq is sharable
+Message-Id: <469CB476.8040507@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Need to check if irq is sharable amoung handlers when searching
+sharable IOSAPIC irq.
 
-Here are some minor fix patches for vector domain:
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-    [PATCH 1/3] Add sanity check into __bind_irq_vector
-    [PATCH 2/3] Fix wrong assumption in acpi_gsi_to_irq
-    [PATCH 3/3] Fix wrong return value in parse_vector_domain
+ arch/ia64/kernel/iosapic.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-Thanks,
-Kenji Kaneshige
-
+Index: linux-2.6.22/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.22.orig/arch/ia64/kernel/iosapic.c	2007-07-13 16:49:24.000000000 +0900
++++ linux-2.6.22/arch/ia64/kernel/iosapic.c	2007-07-13 16:50:02.000000000 +0900
+@@ -502,8 +502,9 @@ static int iosapic_find_sharable_irq(uns
+ 	for (i = 0; i <= NR_IRQS; i++) {
+ 		info = &iosapic_intr_info[i];
+ 		if (info->trigger = trigger && info->polarity = pol &&
+-		    (info->dmode = IOSAPIC_FIXED || info->dmode =
+-		     IOSAPIC_LOWEST_PRIORITY)) {
++		    (info->dmode = IOSAPIC_FIXED ||
++		     info->dmode = IOSAPIC_LOWEST_PRIORITY) &&
++		    can_request_irq(i, IRQF_SHARED)) {
+ 			if (min_count = -1 || info->count < min_count) {
+ 				irq = i;
+ 				min_count = info->count;
