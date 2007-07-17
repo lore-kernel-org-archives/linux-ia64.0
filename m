@@ -1,119 +1,151 @@
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Tue, 17 Jul 2007 12:21:48 +0000
-Subject: [PATCH take3 5/12] Use dynamic irq for iosapic interrupts
-Message-Id: <469CB45C.4040203@jp.fujitsu.com>
+Date: Tue, 17 Jul 2007 12:20:54 +0000
+Subject: [PATCH take3 3/12] Cleanup lock order in iosapic_register_intr
+Message-Id: <469CB426.5090408@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use create_irq()/destroy_irq() for iosapic interrupts.
+Cleanup order of irq_desc.lock and iosapic_lock in
+iosapic_register_intr() and iosapic_unregister_intr().
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
- arch/ia64/kernel/iosapic.c |   39 +++++++++++++++------------------------
- 1 files changed, 15 insertions(+), 24 deletions(-)
+ arch/ia64/kernel/iosapic.c |   50 ++++++++++++++++++---------------------------
+ 1 files changed, 20 insertions(+), 30 deletions(-)
 
 Index: linux-2.6.22/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.22.orig/arch/ia64/kernel/iosapic.c	2007-07-13 16:42:24.000000000 +0900
-+++ linux-2.6.22/arch/ia64/kernel/iosapic.c	2007-07-13 16:43:44.000000000 +0900
-@@ -533,12 +533,13 @@ static int iosapic_find_sharable_vector
- static void __init
- iosapic_reassign_vector (int vector)
+=================================--- linux-2.6.22.orig/arch/ia64/kernel/iosapic.c	2007-07-17 09:11:46.000000000 +0900
++++ linux-2.6.22/arch/ia64/kernel/iosapic.c	2007-07-17 09:13:26.000000000 +0900
+@@ -505,7 +505,7 @@ iosapic_version (char __iomem *addr)
+ static int iosapic_find_sharable_vector (unsigned long trigger,
+ 					 unsigned long pol)
  {
--	int new_vector;
-+	int irq, new_vector;
+-	int i, vector = -1, min_count = -1;
++	int i, vector = -ENOSPC, min_count = -1;
+ 	struct iosapic_intr_info *info;
 
- 	if (!list_empty(&iosapic_intr_info[vector].rtes)) {
--		new_vector = assign_irq_vector(AUTO_ASSIGN);
--		if (new_vector < 0)
-+		irq = create_irq();
-+		if (irq < 0)
- 			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-+		new_vector = irq_to_vector(irq);
- 		printk(KERN_INFO "Reassigning vector %d to %d\n",
- 		       vector, new_vector);
- 		memcpy(&iosapic_intr_info[new_vector], &iosapic_intr_info[vector],
-@@ -753,7 +754,7 @@ int
- iosapic_register_intr (unsigned int gsi,
- 		       unsigned long polarity, unsigned long trigger)
- {
--	int vector, mask = 1, err;
-+	int irq, vector, mask = 1, err;
- 	unsigned int dest;
+ 	/*
+@@ -513,7 +513,7 @@ static int iosapic_find_sharable_vector
+ 	 * supported yet
+ 	 */
+ 	if (trigger = IOSAPIC_EDGE)
+-		return -1;
++		return -EINVAL;
+
+ 	for (i = IA64_FIRST_DEVICE_VECTOR; i <= IA64_LAST_DEVICE_VECTOR; i++) {
+ 		info = &iosapic_intr_info[i];
+@@ -762,7 +762,7 @@ iosapic_register_intr (unsigned int gsi,
  	unsigned long flags;
  	struct iosapic_rte_info *rte;
-@@ -773,12 +774,13 @@ iosapic_register_intr (unsigned int gsi,
+ 	u32 low32;
+-again:
++
+ 	/*
+ 	 * If this GSI has already been registered (i.e., it's a
+ 	 * shared interrupt, or we lost a race to register it),
+@@ -773,36 +773,24 @@ again:
+ 	if (vector > 0) {
+ 		rte = gsi_vector_to_rte(gsi, vector);
+ 		rte->refcnt++;
+-		spin_unlock_irqrestore(&iosapic_lock, flags);
+-		return vector;
++		goto unlock_iosapic_lock;
  	}
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
 
  	/* If vector is running out, we try to find a sharable vector */
--	vector = assign_irq_vector(AUTO_ASSIGN);
--	if (vector < 0) {
-+	irq = create_irq();
-+	if (irq < 0) {
+ 	vector = assign_irq_vector(AUTO_ASSIGN);
+ 	if (vector < 0) {
  		vector = iosapic_find_sharable_vector(trigger, polarity);
    		if (vector < 0)
- 			goto unlock_iosapic_lock;
+-			return -ENOSPC;
 -	}
-+	} else
-+		vector = irq_to_vector(irq);
+-
+-	spin_lock_irqsave(&irq_desc[vector].lock, flags);
+-	spin_lock(&iosapic_lock);
+-	if (gsi_to_vector(gsi) > 0) {
+-		if (list_empty(&iosapic_intr_info[vector].rtes))
+-			free_irq_vector(vector);
+-		spin_unlock(&iosapic_lock);
+-		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
+-		goto again;
++			goto unlock_iosapic_lock;
+ 	}
 
- 	spin_lock(&irq_desc[vector].lock);
++	spin_lock(&irq_desc[vector].lock);
  	dest = get_target_cpu(gsi, vector);
-@@ -873,30 +875,18 @@ iosapic_unregister_intr (unsigned int gs
- 	if (list_empty(&iosapic_intr_info[vector].rtes)) {
- 		/* Sanity check */
- 		BUG_ON(iosapic_intr_info[vector].count);
--
--		/* Clear the interrupt controller descriptor */
--		idesc->chip = &no_irq_type;
--
- #ifdef CONFIG_SMP
- 		/* Clear affinity */
- 		cpus_setall(idesc->affinity);
- #endif
--
- 		/* Clear the interrupt information */
- 		memset(&iosapic_intr_info[vector], 0,
- 		       sizeof(struct iosapic_intr_info));
- 		iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
- 		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
+ 	err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
+ 			    polarity, trigger);
+ 	if (err < 0) {
+-		spin_unlock(&iosapic_lock);
+-		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
+-		return err;
++		vector = err;
++		goto unlock_all;
+ 	}
 
--		if (idesc->action) {
--			printk(KERN_ERR
--			       "interrupt handlers still exist on IRQ %u\n",
--			       irq);
--			WARN_ON(1);
--		}
+ 	/*
+@@ -813,14 +801,15 @@ again:
+ 	if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
+ 		mask = 0;
+ 	set_rte(gsi, vector, dest, mask);
+-	spin_unlock(&iosapic_lock);
+-	spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
+
+ 	printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
+ 	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
+ 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
+ 	       cpu_logical_id(dest), dest, vector);
 -
--		/* Free the interrupt vector */
--		free_irq_vector(vector);
-+		/* Destroy IRQ */
-+		destroy_irq(irq);
++ unlock_all:
++	spin_unlock(&irq_desc[vector].lock);
++ unlock_iosapic_lock:
++	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 	return vector;
+ }
+
+@@ -849,9 +838,7 @@ iosapic_unregister_intr (unsigned int gs
+ 	}
+ 	vector = irq_to_vector(irq);
+
+-	idesc = irq_desc + irq;
+-	spin_lock_irqsave(&idesc->lock, flags);
+-	spin_lock(&iosapic_lock);
++	spin_lock_irqsave(&iosapic_lock, flags);
+ 	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
+ 		printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n",
+ 		       gsi);
+@@ -862,13 +849,17 @@ iosapic_unregister_intr (unsigned int gs
+ 	if (--rte->refcnt > 0)
+ 		goto out;
+
++	/* Remove the rte entry from the list */
++	idesc = irq_desc + irq;
++	spin_lock(&idesc->lock);
++	list_del(&rte->rte_list);
++	spin_unlock(&idesc->lock);
++
+ 	/* Mask the interrupt */
+ 	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
+ 	iosapic_write(rte->iosapic->addr,
+ 		      IOSAPIC_RTE_LOW(rte->rte_index), low32);
+
+-	/* Remove the rte entry from the list */
+-	list_del(&rte->rte_list);
+ 	iosapic_intr_info[vector].count--;
+ 	iosapic_free_rte(rte);
+ 	index = find_iosapic(gsi);
+@@ -913,8 +904,7 @@ iosapic_unregister_intr (unsigned int gs
+ 		free_irq_vector(vector);
  	}
   out:
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
-@@ -912,7 +902,7 @@ iosapic_register_platform_intr (u32 int_
- {
- 	static const char * const name[] = {"unknown", "PMI", "INIT", "CPEI"};
- 	unsigned char delivery;
--	int vector, mask = 0;
-+	int irq, vector, mask = 0;
- 	unsigned int dest = ((id << 8) | eid) & 0xffff;
+-	spin_unlock(&iosapic_lock);
+-	spin_unlock_irqrestore(&idesc->lock, flags);
++	spin_unlock_irqrestore(&iosapic_lock, flags);
+ }
 
- 	switch (int_type) {
-@@ -926,9 +916,10 @@ iosapic_register_platform_intr (u32 int_
- 		delivery = IOSAPIC_PMI;
- 		break;
- 	      case ACPI_INTERRUPT_INIT:
--		vector = assign_irq_vector(AUTO_ASSIGN);
--		if (vector < 0)
-+		irq = create_irq();
-+		if (irq < 0)
- 			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-+		vector = irq_to_vector(irq);
- 		delivery = IOSAPIC_INIT;
- 		break;
- 	      case ACPI_INTERRUPT_CPEI:
+ /*
