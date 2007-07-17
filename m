@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 16 Jul 2007 21:33:57 +0000
-Subject: RE: [PATCH 1/2] ia64 clocksource
-Message-Id: <617E1C2C70743745A92448908E030B2A01EDC36D@scsmsx411.amr.corp.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Tue, 17 Jul 2007 10:55:47 +0000
+Subject: Re: [PATCH 1/2] ia64 clocksource
+Message-Id: <469CA033.6080506@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070714002509.GJ2317@localhost>
 In-Reply-To: <20070714002509.GJ2317@localhost>
@@ -10,32 +10,43 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Half a dozen whines from GIT about whitespace (irrelevent
-paces followed by a <TAB>).  Here are the lines:
+Bob Picco wrote:
+> @@ -214,61 +209,56 @@ ENTRY(fsys_gettimeofday)
+  :
+>  	movl r27 = xtime
+  :
+>  .time_redo:
+> -	.pred.rel.mutex p8,p9,p10
+> -	ld4.acq r28 = [r29]	// xtime_lock.sequence. Must come first for locking purposes
+> +	ld4.acq r28 = [r20]	// gtod_lock.sequence, Must be first in struct
+  :
+>  	ld8 r8 = [r27],-IA64_TIMESPEC_TV_NSEC_OFFSET	// xtime.tv_nsec
+  :
+> -	ld4 r10 = [r29]		// xtime_lock.sequence
+> +	ld4 r10 = [r20]		// gtod_lock.sequence, old xtime_lock.sequence
+  :
+>  	cmp4.ne.or p7,p0 = r28,r10
+> -(p7)	br.cond.dpnt.few .time_redo	// sequence number changed ?
+> +(p7)	br.cond.dpnt.few .time_redo	// sequence number changed, outer loop2
 
-+        	/* Sort out mult/shift values: */
-+        	clocksource_register(&clocksource_itc);
-+#define	write_counter(V, MC) 	writel(V, MC)
-+        	hpet_mctr = (void __iomem *)&hpetp->hp_hpet->hpet_mc;
-+        	clocksource_hpet.mult = clocksource_hz2mult(hpetp->hp_tick_freq,
-+        	clocksource_register(&clocksource_hpet);
+This patch removes locking xtime_lock but the code still reads xtime.
 
-Part 2 of the patch should also delete Documentation/time_interpolators.txt
-
-Seto-san: The fsys.S changes need some close review and you've
-been looking at this code recently ... so you are declared an
-independent expert :-)  The problem that you found with out of
-order read of the xtime_lock.sequence (now gtod_lock.sequence)
-is probably alive and well in this code too (even though the read
-of ar.itc is later, there is no consumption or r28 before we do
-so).
+Since gtod_lock.sequence will not tell us whether xtime is updated
+(or going to be updated) while in this window, the result may be wrong...
 
 
-On the subject of whether to push into 2.6.23 or cook in -mm until
-2.6.24 ... I'm not sure how much benefit we'd get from the delay.
-Anyone want to stand up and be counted as running serious testing
-on -mm kernels on ia64?  I fear that the amount of extra testing
-that we'd get is really quite small.  2.6.23-rc1 is only a week away,
-and this code is very subtle in places ... I'm nervous about this.
+>  	// r29 = address of seqlock
+  :
+> -	movl r20 = time_interpolator
+> +	movl r20 = fsyscall_gtod_data // load fsyscall gettimeofday data address
+>  	;;
+> -	ld8 r20 = [r20]		// get pointer to time_interpolator structure
+> -	movl r29 = xtime_lock
+> -	ld4 r2 = [r2]		// process work pending flags
+> +	add r29 = IA64_ITC_JITTER_OFFSET,r20
 
--Tony
+It seems that the comment doesn't match to current usage.
+
+
+Thanks,
+H.Seto
