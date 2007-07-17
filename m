@@ -1,32 +1,67 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 27 Jul 2007 23:41:59 +0000
-Subject: Re: [GIT PATCH] ACPI patches for 2.6.23-rc1
-Message-Id: <jed4ydfm7s.fsf@sykes.suse.de>
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Date: Tue, 17 Jul 2007 12:20:10 +0000
+Subject: [PATCH take3 0/12] Support vector domain on ia64
+Message-Id: <469CB3FA.7010301@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200707251238.50218.lenb@kernel.org> <46A98FF9.8060801@l4x.org>
-	<1185553512.3849.46.camel@noname> <20070727230741.GD15129@stusta.de>
-In-Reply-To: <20070727230741.GD15129@stusta.de> (Adrian Bunk's message of
-	"Sat\, 28 Jul 2007 01\:07\:42 +0200")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Adrian Bunk <bunk@stusta.de>
-Cc: Thomas Renninger <trenn@suse.de>, Jan Dittmer <jdi@l4x.org>, Len Brown <lenb@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, linux-acpi@vger.kernel.org, "linux-kernel@vger.kernel.org. Sam Ravnborg" <sam@ravnborg.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Adrian Bunk <bunk@stusta.de> writes:
+Hi,
 
-> I don't have an idea how this happens, but it sounds like an alignment=20
-> issue:
->
-> sizeof(struct acpi_device_id)=20
+Here is a series of patches for ia64 vector domain. By these patches, we can
+use more than NR_VECTORS(256) irqs. This is based on existing x86-64 vector
+domain code. I tested it on my ia64 box.
 
-This is wrong.  The structure has 24 bytes (including 7(!) bytes of
-padding).
+Changes from previous patchset:
 
-Andreas.
+- rebase to 2.6.22
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+- remove unnecessary whitespaces
+
+- do the build test for all configs under arch/ia64/configs/
+
+- define NR_IRQS as follow:
+
+  Vector domain can provide the number of irqs being proportional to the
+  number of CPUs theoretically. However, the relation between them is
+  actually not linear, especially in large system. To avoid the memory
+  consumption derived from too many irqs, I define NR_IRQS as follows:
+
+  #if (NR_VECTORS + 32 * NR_CPUS) < 1024
+  #define NR_IRQS (NR_VECTORS + 32 * NR_CPUS)
+  #else
+  #define NR_IRQS 1024
+  #endif
+
+- change initial value of vector_irq to IA64_SPURIOUS_INT_VECTOR. It is
+  pointed by Tony.
+
+  http://www.gelato.unsw.edu.au/archives/linux-ia64/0707/20673.html
+
+  I marged it into [PATCH take3 8/12]
+
+- add the description of vector domain in Documentation/kernel-parameters.txt
+
+There are 12 patches for ia64 vector domain:
+
+  [PATCH take3 1/12]  Remove block structure for locking in iosapic.c
+  [PATCH take3 2/12]  Remove duplicated members in iosapic_rte_info
+  [PATCH take3 3/12]  Cleanup lock order in iosapic_register_intr
+  [PATCH take3 4/12]  Use per iosapic lock for indirect iosapic register access
+  [PATCH take3 5/12]  Use dynamic irq for iosapic interrupts
+  [PATCH take3 6/12]  Fix invalid irq vector assumption for iosapic
+  [PATCH take3 7/12]  Check if irq is sharable
+  [PATCH take3 8/12]  Add mapping table between irq and vector
+  [PATCH take3 9/12]  Add support for vector domain
+  [PATCH take3 10/12] Support irq migration across domain
+  [PATCH take3 11/12] Enable percpu vector domain for IA64_GENERIC
+  [PATCH take3 12/12] Enable percpu vector domain for IA64_DIG
+
+For more details, please refer to the header of each patch.
+
+Any comments or questions are welcome.
+
+Thanks.
+Yasuaki Ishimatsu
