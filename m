@@ -1,87 +1,57 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Fri, 13 Jul 2007 05:52:12 +0000
-Subject: Re: [PATCH 8/12]  Add mapping table between irq and vector
-Message-Id: <4697130C.8040801@jp.fujitsu.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 18 Jul 2007 14:58:55 +0000
+Subject: [PATCH 0/3] fix ia64 clocksource
+Message-Id: <469E2AAF.30705@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <46417E7C.7030402@jp.fujitsu.com>
-In-Reply-To: <46417E7C.7030402@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
-> I found why my machine sometimes crashes during boot with the
-> vector domain patch applied.  The problem is a spurious interrupt
-> that causes a wild pointer reference, and thus a crash.
-> 
-> The problem occurs because unused entries in the percpu vector_irq
-> array are filled with VECTOR_IRQ_UNASSIGNED (-1).  When a
-> spurious interrupt occurs ia64_handle_irq() calls:
-> 
->  generic_handle_irq(local_vector_to_irq(vector))
-> 
-> and the  local_vector_to_irq(vector) part return -1, which is all bad.
-> 
-> If we initialize the unused entried to IA64_SPURIOUS_INT_VECTOR
-> instead, then we get the orginal behaviour: a message is printed and
-> the vector/irq is disabled.
-> 
-> As a bonus we can delete the VECTOR_IRQ_UNASSIGNED define
-> altogether (which is all too easy to confuse with IRQ_VECTOR_UNASSIGNED).
-> 
-> So I applied this patch onto the end of your sequence (but you should
-> merge it into patch8/12).
+Hi all,
 
-Hi Tony,
+This is a set of patch for ia64 clocksource to improve performance
+of fsys_gettimeofday (and also normal gettimeofday).
 
-Thank you for your help.
+ [1/3] copy time structures into fsys_gtod_data
+ [2/3] separate data for jitter compensation
+ [3/3] remove cmpxchg loop in gettimeofday
 
-After reviewing this patch, I'll test and repost vector domain patcheset
-for 2.6.22.
+Finally, the results of my test at start:
+
+> # clocksource (Bob's) : default
+> CPU  0:  4.66 (usecs) (0 errors / 2145680 iterations)
+> CPU  1:  4.65 (usecs) (493 errors / 2148438 iterations)
+> CPU  2:  4.63 (usecs) (668 errors / 2159461 iterations)
+> CPU  3:  4.62 (usecs) (654 errors / 2163997 iterations)
+> # clocksource (Bob's) : nojitter
+> CPU  0:  0.14 (usecs) (0 errors / 70945550 iterations)
+> CPU  1:  0.14 (usecs) (470 errors / 71640889 iterations)
+> CPU  2:  0.14 (usecs) (664 errors / 70960917 iterations)
+> CPU  3:  0.14 (usecs) (571 errors / 70956121 iterations)
+> # clocksource (Bob's) : nolwsys
+> CPU  0:  2.88 (usecs) (0 errors / 3475147 iterations)
+> CPU  1:  2.88 (usecs) (0 errors / 3474881 iterations)
+> CPU  2:  2.96 (usecs) (0 errors / 3382229 iterations)
+> CPU  3:  2.97 (usecs) (0 errors / 3371004 iterations)
+
+are now refined to:
+
+> # clocksource (fixed) : default
+> CPU  0:  1.33 (usecs) (0 errors / 7507837 iterations)
+> CPU  1:  1.31 (usecs) (0 errors / 7621659 iterations)
+> CPU  2:  1.27 (usecs) (0 errors / 7865412 iterations)
+> CPU  3:  1.27 (usecs) (0 errors / 7863362 iterations)
+> # clocksource (fixed) : nojitter
+> CPU  0:  0.14 (usecs) (0 errors / 69608888 iterations)
+> CPU  1:  0.14 (usecs) (0 errors / 70277433 iterations)
+> CPU  2:  0.14 (usecs) (0 errors / 69632925 iterations)
+> CPU  3:  0.14 (usecs) (0 errors / 69606531 iterations)
+> # clocksource (fixed) : nolwsys
+> CPU  0:  1.48 (usecs) (0 errors / 6770870 iterations)
+> CPU  1:  1.48 (usecs) (0 errors / 6777897 iterations)
+> CPU  2:  1.49 (usecs) (0 errors / 6728101 iterations)
+> CPU  3:  1.49 (usecs) (0 errors / 6703961 iterations)
 
 Thanks,
-Yasuaki Ishimatsu
-
-> -Tony
-> 
-> diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-> index 91abd1b..ea19ccd 100644
-> --- a/arch/ia64/kernel/irq_ia64.c
-> +++ b/arch/ia64/kernel/irq_ia64.c
-> @@ -47,7 +47,6 @@
->  #define IRQ_DEBUG	0
->  
->  #define IRQ_VECTOR_UNASSIGNED	(0)
-> -#define VECTOR_IRQ_UNASSIGNED	(-1)
->  
->  #define IRQ_UNUSED		(0)
->  #define IRQ_USED		(1)
-> @@ -83,7 +82,7 @@ struct irq_cfg irq_cfg[NR_IRQS] __read_mostly = {
->  };
->  
->  DEFINE_PER_CPU(int[IA64_NUM_VECTORS], vector_irq) = {
-> -	[0 ... IA64_NUM_VECTORS - 1] = VECTOR_IRQ_UNASSIGNED
-> +	[0 ... IA64_NUM_VECTORS - 1] = IA64_SPURIOUS_INT_VECTOR
->  };
->  
->  static cpumask_t vector_table[IA64_MAX_DEVICE_VECTORS] = {
-> @@ -168,7 +167,7 @@ static void __clear_irq_vector(int irq)
->  	domain = irq_cfg[irq].domain;
->  	cpus_and(mask, irq_cfg[irq].domain, cpu_online_map);
->  	for_each_cpu_mask(cpu, mask)
-> -		per_cpu(vector_irq, cpu)[vector] = VECTOR_IRQ_UNASSIGNED;
-> +		per_cpu(vector_irq, cpu)[vector] = IA64_SPURIOUS_INT_VECTOR;
->  	irq_cfg[irq].vector = IRQ_VECTOR_UNASSIGNED;
->  	irq_cfg[irq].domain = CPU_MASK_NONE;
->  	irq_status[irq] = IRQ_UNUSED;
-> @@ -238,7 +237,7 @@ void __setup_vector_irq(int cpu)
->  
->  	/* Clear vector_irq */
->  	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector)
-> -		per_cpu(vector_irq, cpu)[vector] = VECTOR_IRQ_UNASSIGNED;
-> +		per_cpu(vector_irq, cpu)[vector] = IA64_SPURIOUS_INT_VECTOR;
->  	/* Mark the inuse vectors */
->  	for (irq = 0; irq < NR_IRQS; ++irq) {
->  		if (!cpu_isset(cpu, irq_cfg[irq].domain))
-> 
+H.Seto
