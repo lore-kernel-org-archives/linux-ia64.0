@@ -1,28 +1,30 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 10 Jul 2007 23:36:50 +0000
-Subject: RE: [RFC][PATCH take2 0/13] Support vector domain on ia64
-Message-Id: <617E1C2C70743745A92448908E030B2A01E2D9BC@scsmsx411.amr.corp.intel.com>
+From: Doug Chapman <doug.chapman@hp.com>
+Date: Wed, 18 Jul 2007 21:03:19 +0000
+Subject: ia64 build failure from recent diskquota patch
+Message-Id: <1184792599.3026.19.camel@deimos.americas.hpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <46779036.5050602@jp.fujitsu.com>
-In-Reply-To: <46779036.5050602@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, vtaras@openvz.org
 
-> This seems to be an intermittent problem.
+The commit: b716395e2b8e450e294537de0c91476ded2f0395 introduces a build
+failure on ia64.
 
-One more note on that ... my test system often kicks out some
+  CC      fs/quota.o
+fs/quota.c:396: error: expected specifier-qualifier-list before ‘compat_u64’
+fs/quota.c:409: error: expected specifier-qualifier-list before ‘compat_u64’
+fs/quota.c:420: error: expected specifier-qualifier-list before ‘compat_uint_t’
 
-"Unexpected irq vector 0x13 on CPU xx!"
+.... more related errors ....
 
-messages as it boots.  Looking at the logs of previous boots, I see between
-zero and two such messages in the last few dozen boots,  When the
-kernel with the vector-domain patch applied successfully booted this
-morning, this was one of the times where there were no unexpected
-interrupts.
 
-Since the crash looks like it occurred while dereferencing the "desc = irq_desq + irq"
-in generic_handle_irq(), I think this is most likely related.
+The type compat_u64 on ia64 is defined if CONFIG_COMPAT is defined
+(which is rare these days on ia64)  So, it appears we are missing
+an #ifdef CONFIG_COMPAT somewhere in fs/quota.c.  I will leave that
+up to the original author to determine where.
 
--Tony
+
+- Doug
+
+
