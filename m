@@ -1,136 +1,87 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Thu, 28 Jun 2007 08:31:13 +0000
-Subject: [PATCH 3/3]  Cleanup lock order in iosapic_register_intr
-Message-Id: <468371D1.10004@jp.fujitsu.com>
+From: Horms <horms@verge.net.au>
+Date: Thu, 19 Jul 2007 07:41:49 +0000
+Subject: Regression in serial console on ia64 after 2.6.22
+Message-Id: <20070719074147.GA23879@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Cleanup order of irq_desc.lock and iosapic_lock in
-iosapic_register_intr() and iosapic_unregister_intr().
+Hi,
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+18a8bd949d6adb311ea816125ff65050df1f3f6e appears to have caused
+a regression in the serial console for ia64. I have observed the
+problem on Intel Tiger2 and HP RX2620 when the console or early
+cons option is specified.
 
----
- arch/ia64/kernel/iosapic.c |   46 +++++++++++++++++----------------------------
- 1 files changed, 18 insertions(+), 28 deletions(-)
+For reference
 
-Index: linux-2.6.22-rc6-gk2/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.22-rc6-gk2.orig/arch/ia64/kernel/iosapic.c	2007-06-28 16:37:29.000000000 +0900
-+++ linux-2.6.22-rc6-gk2/arch/ia64/kernel/iosapic.c	2007-06-28 16:37:33.000000000 +0900
-@@ -762,7 +762,7 @@ iosapic_register_intr (unsigned int gsi,
- 	unsigned long flags;
- 	struct iosapic_rte_info *rte;
- 	u32 low32;
--again:
-+
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
- 	 * shared interrupt, or we lost a race to register it),
-@@ -773,36 +773,24 @@ again:
- 	if (vector > 0) {
- 		rte = gsi_vector_to_rte(gsi, vector);
- 		rte->refcnt++;
--		spin_unlock_irqrestore(&iosapic_lock, flags);
--		return vector;
-+		goto unlock_iosapic_lock;
- 	}
--	spin_unlock_irqrestore(&iosapic_lock, flags);
+Tiger2: console=uart,io,0x2f8,115200n8
+RX2620: console=uart,mmio,0xff5e0000,115200n8
 
- 	/* If vector is running out, we try to find a sharable vector */
- 	vector = assign_irq_vector(AUTO_ASSIGN);
- 	if (vector < 0) {
- 		vector = iosapic_find_sharable_vector(trigger, polarity);
-   		if (vector < 0)
--			return -ENOSPC;
--	}
--
--	spin_lock_irqsave(&irq_desc[vector].lock, flags);
--	spin_lock(&iosapic_lock);
--	if (gsi_to_vector(gsi) > 0) {
--		if (list_empty(&iosapic_intr_info[vector].rtes))
--			free_irq_vector(vector);
--		spin_unlock(&iosapic_lock);
--		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
--		goto again;
-+			goto unlock_iosapic_lock;
- 	}
+uart may also be uart8250, it makes no difference with regards to
+this problem. console may be earlycons, that also makes no
+difference as 18a8bd949d6adb311ea816125ff65050df1f3f6e handles
+both options the almost the same way.
 
-+	spin_lock(&irq_desc[vector].lock);
- 	dest = get_target_cpu(gsi, vector);
- 	err = register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
- 			    polarity, trigger);
- 	if (err < 0) {
--		spin_unlock(&iosapic_lock);
--		spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
--		return err;
-+		vector = err;
-+		goto unlock_all;
- 	}
+On the RX2620 a work around is to omit the console and earlycons
+parameters all together, as the code in efi_setup_pcdp_console() will
+autodetect the console and set it up correctly.
 
- 	/*
-@@ -813,14 +801,15 @@ again:
- 	if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
- 		mask = 0;
- 	set_rte(gsi, vector, dest, mask);
--	spin_unlock(&iosapic_lock);
--	spin_unlock_irqrestore(&irq_desc[vector].lock, flags);
 
- 	printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
- 	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
- 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       cpu_logical_id(dest), dest, vector);
--
-+ unlock_all:
-+	spin_unlock(&irq_desc[vector].lock);
-+ unlock_iosapic_lock:
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
- 	return vector;
- }
+I believe that the problem is as follows:
 
-@@ -849,9 +838,7 @@ iosapic_unregister_intr (unsigned int gs
- 	}
- 	vector = irq_to_vector(irq);
+After 18a8bd949d6adb311ea816125ff65050df1f3f6e, both the console
+and earlycons options are handled by early_param, using the callback
+setup_early_serial8250_console().
 
--	idesc = irq_desc + irq;
--	spin_lock_irqsave(&idesc->lock, flags);
--	spin_lock(&iosapic_lock);
-+	spin_lock_irqsave(&iosapic_lock, flags);
- 	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
- 		printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n",
- 		       gsi);
-@@ -862,13 +849,17 @@ iosapic_unregister_intr (unsigned int gs
- 	if (--rte->refcnt > 0)
- 		goto out;
+On ia64, for the hardware that I am observing this problem on
+(HP RX2620 and Intel Tiger2), I believe that I am seeing the
+following calls occur.
 
-+	/* Remove the rte entry from the list */
-+	idesc = irq_desc + irq;
-+	spin_lock(&idesc->lock);
-+	list_del(&rte->rte_list);
-+	spin_unlock(&idesc->lock);
-+
- 	/* Mask the interrupt */
- 	low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
- 	iosapic_write(rte->iosapic->addr,
- 		      IOSAPIC_RTE_LOW(rte->rte_index), low32);
+->arch/ia64/kernel/setup.c:setup_arch()
+ ->parse_early_param()
+  ->setup_early_serial8250_console()    N.B callback
+   ->early_serial8250_setup()
+    ->init_port()
+     ->serial_out()
+      ->outb()
+       ->__outb()
+        ->platform_outb()
+         ->ia64_mv.outb()
 
--	/* Remove the rte entry from the list */
--	list_del(&rte->rte_list);
- 	iosapic_intr_info[vector].count--;
- 	iosapic_free_rte(rte);
- 	index = find_iosapic(gsi);
-@@ -913,8 +904,7 @@ iosapic_unregister_intr (unsigned int gs
- 		free_irq_vector(vector);
- 	}
-  out:
--	spin_unlock(&iosapic_lock);
--	spin_unlock_irqrestore(&idesc->lock, flags);
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
- }
+However, ia64_mv may not be set until after machvec_init() is called
+by setup_arch(), which occurs after the call to parse_early_param().
 
- /*
+The reason for this ordering is that machvec_init() may be
+influenced by the machvec command line argument, which
+is also handled by early_param. A chicken an egg problem.
 
+
+A fairly simple work-around would be to call machvec_init earlier
+and have it parse the command like itself.
+
+Another solution would be to split up early_serial8250_setup()
+or setup_early_serial8250_console() somehow, such that init_port()
+is not called as part of the early_param callback, but rather later
+explicitly (probably by each architecture's setup_arch()). This is
+somewhat similar to the way that machvec is handled.
+
+I'm sure there are are other good, possibly better solutions.
+Hence this email.
+
+
+On a related note, I think that the code in efi_setup_pcdp_console()
+needs to be updated to reflect that console= and earlycons= are
+basically the same thing now.
+
+I have not investigated the effects of
+18a8bd949d6adb311ea816125ff65050df1f3f6e on
+sn_serial_console_early_setup()
+
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
