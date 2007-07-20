@@ -1,7 +1,7 @@
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Wed, 18 Jul 2007 06:47:34 +0000
+Date: Fri, 20 Jul 2007 05:37:21 +0000
 Subject: Re: [PATCH take3 0/12] Support vector domain on ia64
-Message-Id: <469DB786.1080603@jp.fujitsu.com>
+Message-Id: <46A04A11.7010505@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <469CB3FA.7010301@jp.fujitsu.com>
 In-Reply-To: <469CB3FA.7010301@jp.fujitsu.com>
@@ -10,55 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Tony,
+Hi Eric,
 
-Luck, Tony wrote:
-> Getting close now.  New (I think it's new, I didn't notice it last time, but I may have
-> missed it in the other build noise)  concern while compiling this version was the warning:
->
->   arch/ia64/kernel/iosapic.c:597: warning: 'iosapic_free_rte' defined but not used
->
-> This isn't spurious, the only call to iosapic_free_rte() has been removed, but there
-> is still a call to iosapic_alloc_rte() ... which means we must have a memory leak.
+Eric W. Biederman wrote:
+> Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com> writes:
+> 
+>> - define NR_IRQS as follow:
+>>
+>>   Vector domain can provide the number of irqs being proportional to the
+>>   number of CPUs theoretically. However, the relation between them is
+>>   actually not linear, especially in large system. To avoid the memory
+>>   consumption derived from too many irqs, I define NR_IRQS as follows:
+>>
+>>   #if (NR_VECTORS + 32 * NR_CPUS) < 1024
+>>   #define NR_IRQS (NR_VECTORS + 32 * NR_CPUS)
+>>   #else
+>>   #define NR_IRQS 1024
+>>   #endif
+> 
+> 
+> Below is my old patch to address this in a different way.
+> Basically this moves the per cpu counter of the number of
+> times an irq has happened on an individual cpu out of the
+> per cpu area.  Honestly I think this might even have better
+> cache performance.
 
-I did it on purpose (and gave the warning a miss...) and I consider
-iosapic_free_rte() is no longer needed.
+Sorry for my late reply.
 
-I decided to remain iosapic_rte_info to keep gsi-to-irq binding
-after device disable. Indeed it needs some extra memory, but it
-is only "sizeof(iosapic_rte_info) * <the number of removed devices>"
-bytes and has no memory leak becasue re-enabled devices use the
-iosapic_rte_info which they used before disabling.
+I overviewed your patch and the patch looks good to me. It can improve
+not only ia64 vector domain but also x86_64 vector domain. I'll consider
+testing the patch after rebasing it, and if it'll be OK, including your
+idea (or similar one) into my patchset.
 
-Here is a iosapic_free_rte() removal patch which remove the warning
-message and can be applied after 12/12.
+BTW, I googled to find the discussion related to your patch, but can't find
+it at all. Where did you submit it to?
 
 Thanks,
 Yasuaki Ishimatsu
-
-
-
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-
- arch/ia64/kernel/iosapic.c |    8 --------
- 1 files changed, 8 deletions(-)
-
-Index: linux-2.6.22/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.22.orig/arch/ia64/kernel/iosapic.c	2007-07-17 12:09:47.000000000 +0900
-+++ linux-2.6.22/arch/ia64/kernel/iosapic.c	2007-07-18 11:59:33.000000000 +0900
-@@ -593,14 +593,6 @@ static struct iosapic_rte_info *iosapic_
- 	return rte;
- }
-
--static void iosapic_free_rte (struct iosapic_rte_info *rte)
--{
--	if (rte->flags & RTE_PREALLOCATED)
--		list_add_tail(&rte->rte_list, &free_rte_list);
--	else
--		kfree(rte);
--}
--
- static inline int irq_is_shared (int irq)
- {
- 	return (iosapic_intr_info[irq].count > 1);
-
