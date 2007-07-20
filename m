@@ -1,33 +1,34 @@
-From: Thomas Renninger <trenn@suse.de>
-Date: Tue, 31 Jul 2007 22:27:53 +0000
-Subject: RE: regression on HP zx1 platform from ACPI autoload modulespatches
-Message-Id: <1185920873.18821.268.camel@queen.suse.de>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Fri, 20 Jul 2007 20:17:28 +0000
+Subject: Re: [IA64] Add mapping table between irq and vector
+Message-Id: <20070720131728.a7335d92.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A020E3B4F@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A020E3B4F@scsmsx411.amr.corp.intel.com>
+References: <200707201959.l6KJxHAu019185@hera.kernel.org>
+In-Reply-To: <200707201959.l6KJxHAu019185@hera.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Doug Chapman <doug.chapman@hp.com>, Tony Luck <tony.luck@gmail.com>, Michal Piotrowski <michal.k.k.piotrowski@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, 2007-07-31 at 09:54 -0700, Luck, Tony wrote:
-> > Tony, it looks like the patch has not hit Linus tree yet:
-> 
-> 
-> Huh?  I can see it in his tree via gitweb.  Here's the patch:
-> 
-> 	http://tinyurl.com/3csnu6
-> 
-> and the raw "blob" for sba_iommu.c:
-> 
-> 	http://tinyurl.com/397cy6
-> 
-> [Scroll down to line 2018 and you'll see the new code in place].
-> 
-> Something very odd is happening.
-My fault. A clean new checkout of the tree has the patch included.
-Sorry for the confusion,
+On Fri, 20 Jul 2007 19:59:17 GMT
+Linux Kernel Mailing List <linux-kernel@vger.kernel.org> wrote:
 
-   Thomas
+> +	BUG_ON(bind_irq_vector(irq, vector));
+
+It's not good practice to do assert(expression-with-side-effects).  Because
+if someone wants to create a build which has all the assertions disabled,
+the resulting binary will not work.
+
+In the present implementation our BUG_ON(expression) will evaluate
+`expression' even if CONFIG_BUG=n.  But that's totally lame and we are just
+leaving optimisation opportunities on the floor.
+
+Our objective _should_ be to make BUG_ON(expr) generate no code at all if
+CONFIG_BUG=n.
+
+So please, prefer to do
+
+	if (bind_irq_vector(irq, vector))
+		BUG();
 
