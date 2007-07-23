@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 23 Jul 2007 20:42:10 +0000
-Subject: RE: Linus' tree broken?
-Message-Id: <617E1C2C70743745A92448908E030B2A01FEC3EC@scsmsx411.amr.corp.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Mon, 23 Jul 2007 21:03:38 +0000
+Subject: Re: Linus' tree broken?
+Message-Id: <200707232103.l6NL3cBR133650413@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <46A4B026.9030307@sgi.com>
 In-Reply-To: <46A4B026.9030307@sgi.com>
@@ -10,13 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > Could be, but it sounds like there's something fishy in the current
-> > tree - Doug Chapman is having problems as well, presumably on zx1 boxes.
->
-> I am seeing the panic on HP zx1 and zx2 systems.  Currently doing a git
-> bisect to narrow it down.
+Tony Luck wrote:
+> 
+> > I heard from John Keller that he had problems too. What kind of
+> > userland are you running? I've seen hanging around udev.
+> 
+> I took 2.6.23-rc1 over to a Hitachi box running FC7 userspace.
+> It booted just fine there.
+> 
+> Maybe we broke SN2?
 
-2.6.23-rc1 booted OK on my rx2620.  On the zx2000 too (though X is currently
-behaving weirdly, I think that might be some other issue though).
+Neither Linus' tree (2.6.23-rc1) nor Tony's test tree (2.6.22) boot on the 
+three SN2 systems I tried booting on (SLES 10 roots).  Tony's test tree
+from ~3 weeks ago does boot.
 
--Tony
+The last boot message is "Starting udevd".  
+
+The cpu LEDs are toggling between 0 & 1 "Kernel: CPU idle".
+It doesn't panic.
+
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
