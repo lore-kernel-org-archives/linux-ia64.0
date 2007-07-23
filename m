@@ -1,7 +1,7 @@
-From: Len Brown <lenb@kernel.org>
-Date: Mon, 23 Jul 2007 17:47:57 +0000
+From: Jes Sorensen <jes@sgi.com>
+Date: Mon, 23 Jul 2007 20:22:48 +0000
 Subject: Re: Linus' tree broken?
-Message-Id: <200707231347.57366.lenb@kernel.org>
+Message-Id: <46A50E18.8040707@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <46A4B026.9030307@sgi.com>
 In-Reply-To: <46A4B026.9030307@sgi.com>
@@ -10,25 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Monday 23 July 2007 12:05, Luck, Tony wrote:
-> > Have anyone else had seen issues with the Linus git tree failing to
-> > boot? I'm trying a pull as of this morning and it seems to hang when
-> > it's brining up the ethernet devices.
-> >
-> > It's not locking up, just the boot scripts never continues - happens
-> > both on SLES10 and FC7 roots :(
-> >
-> > Just wanted to check before spending real time on it.
+Luck, Tony wrote:
+>> I heard from John Keller that he had problems too. What kind of
+>> userland are you running? I've seen hanging around udev.
 > 
-> Pulled Linus' tree (the -rc1 commit is at the head) and it built
-> and booted on my tiger.  Only new strange stuff in the dmesg is a
-> lot of
+> I took 2.6.23-rc1 over to a Hitachi box running FC7 userspace.
+> It booted just fine there.
 > 
-> ACPI Exception (processor_throttling-0084): AE_NOT_FOUND, Evaluating _PTC [20070126]
-> ACPI Exception (processor_throttling-0147): AE_NOT_FOUND, Evaluating _TSS [20070126]
+> Maybe we broke SN2?
 > 
-> messages (this pair of message repeats 16 times)
+> -Tony
 
-ignore those, they're harmless and going away shortly.
+Could be, but it sounds like there's something fishy in the current
+tree - Doug Chapman is having problems as well, presumably on zx1 boxes.
 
--Len
+I'm out of the office through the rest of the week, so I will look into
+it when I get back if it doesn't magically disappear before then :-)
+
+Cheers,
+Jes
+
