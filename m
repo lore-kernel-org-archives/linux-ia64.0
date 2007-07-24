@@ -1,7 +1,7 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Date: Mon, 23 Jul 2007 23:07:56 +0000
-Subject: RE: Linus' tree broken?
-Message-Id: <1185232076.7158.56.camel@dchapman.boston.redhat.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 24 Jul 2007 08:30:51 +0000
+Subject: Re: Linus' tree broken?
+Message-Id: <46A5B8BB.3000703@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <46A4B026.9030307@sgi.com>
 In-Reply-To: <46A4B026.9030307@sgi.com>
@@ -10,32 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2007-07-23 at 15:42 -0700, Luck, Tony wrote:
-> > I am hitting this on my rx2620, rx6600 and rx2600 (i.e. everywhere I
-> > have tried it) and the bisection is showing that it appears to have been
-> > broken before -rc1.
+Russ Anderson wrote:
+> Neither Linus' tree (2.6.23-rc1) nor Tony's test tree (2.6.22) boot on the 
+> three SN2 systems I tried booting on (SLES 10 roots).  Tony's test tree
+> from ~3 weeks ago does boot.
 > 
-> Are you booting a generic kernel, or a zx1_defconfig based one?  Look
-
-My config is a custom config based on the RHEL/Fedora builds.
-
-> back in the linux-ia64 archives a few days for a post titled:
+> The last boot message is "Starting udevd".  
 > 
->  "Regression in serial console on ia64 after 2.6.22"
+> The cpu LEDs are toggling between 0 & 1 "Kernel: CPU idle".
+> It doesn't panic.
 > 
-> Perhaps you are hitting this?
 
-I don't think I am seeing the same thing.  My console is OK, it just
-panics.  I had suspected that same patch mentioned in the post you point
-to as a possible culprit but backing it out did not appear to fix my
-issue.
+Yeah I see the same, I can hit return on the console and it reacts but
+doesn't get any further.
 
-Also, I am not passing any console= arg to the kernel and letting it
-automagically determine the right thing (which is still working).
+git commit 7dcca30a32aadb0520417521b0c44f42d09fe05c works for me - thats
+the 2.6.22 Sun Jul 8 marker from Linus. And I know git
+f695baf2df9e0413d3521661070103711545207a is hosed - Sun Jul 22.
 
-In fact I am not passing _any_ args to the kernel. perhaps that is the
-difference?
+Sorry just sitting waiting for a plane, don't have much time to look at
+it right now.
 
-- Doug
+Wonder if Tony's .config is much different from everyone else's? Mine is
+an SN2 specific kernel, haven't tried GENERIC yet.
 
-
+Cheers,
+Jes
