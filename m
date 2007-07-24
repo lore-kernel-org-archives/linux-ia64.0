@@ -1,16 +1,32 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Date: Tue, 24 Jul 2007 13:55:07 +0000
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 24 Jul 2007 14:28:45 +0000
 Subject: Re: panic from vector domain patch (was RE: Linus' tree broken?)
-Message-Id: <1185285307.3805.2.camel@athlon>
+Message-Id: <1185287325.4000.22.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1185239265.19353.6.camel@phobos>
 In-Reply-To: <1185239265.19353.6.camel@phobos>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2007-07-24 at 22:09 +0900, Yasuaki Ishimatsu wrote:
+Yasuaki,
+
+> > Oops, I forgot to consider assign_irq_vector(AUTO_ASSIGN) case.
+> > I'm writing bug fix patch now. Wait a moment.
+> 
+> Unfortunately, I don't have any ski simulator environment. I attached
+> the bug fix patch. Could you try this patch?
+> 
+
+I tried your patch on my ski environment, and I confirmed it fixes
+the "Out of interrupt vectors" problem reported by Peter Chubb.
+
+Thanks,
+Kenji Kaneshige
+
+
+2007-07-24 (火) の 22:09 +0900 に Yasuaki Ishimatsu さんは書きました:
 > Hi Doug,
 > 
 > Yasuaki Ishimatsu wrote:
@@ -65,13 +81,35 @@ On Tue, 2007-07-24 at 22:09 +0900, Yasuaki Ishimatsu wrote:
 > Yasuaki Ishimatsu
 > 
 > 
-
-Yasuaki,
-
-With this patch it still panics in the same way.  I am building with
-CONFIG_IA64_GENERIC and booting on an HP rx6600.  I do not have the ski
-simulator either.
-
-- Doug
-
+> 
+> This change fixes a panic when assign_irq_vector(irq) is called with
+> irq = AUTO_ASSIGN.
+> 
+> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+> 
+>  arch/ia64/kernel/irq_ia64.c |    5 ++---
+>  1 files changed, 2 insertions(+), 3 deletions(-)
+> 
+> Index: linux-2.6.23-rc1/arch/ia64/kernel/irq_ia64.c
+> =================================> --- linux-2.6.23-rc1.orig/arch/ia64/kernel/irq_ia64.c	2007-07-24 16:08:32.000000000 +0900
+> +++ linux-2.6.23-rc1/arch/ia64/kernel/irq_ia64.c	2007-07-24 16:19:46.000000000 +0900
+> @@ -212,9 +212,6 @@
+>  	vector = -ENOSPC;
+> 
+>  	spin_lock_irqsave(&vector_lock, flags);
+> -	if (irq < 0) {
+> -		goto out;
+> -	}
+>  	for_each_online_cpu(cpu) {
+>  		domain = vector_allocation_domain(cpu);
+>  		vector = find_unassigned_vector(domain);
+> @@ -223,6 +220,8 @@
+>  	}
+>  	if (vector < 0)
+>  		goto out;
+> +	if (irq = AUTO_ASSIGN)
+> +		irq = vector;
+>  	BUG_ON(__bind_irq_vector(irq, vector, domain));
+>   out:
+>  	spin_unlock_irqrestore(&vector_lock, flags);
 
