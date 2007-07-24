@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 24 Jul 2007 08:50:26 +0000
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 24 Jul 2007 23:21:11 +0000
 Subject: Re: Linus' tree broken?
-Message-Id: <46A5BD52.5070908@sgi.com>
+Message-Id: <200707242321.l6ONLBSw136203866@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <46A4B026.9030307@sgi.com>
 In-Reply-To: <46A4B026.9030307@sgi.com>
@@ -10,26 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Doug Chapman wrote:
+Russ Anderson wrote:
+> Tony Luck wrote:
+> > 
+> > Maybe we broke SN2?
 > 
-> It appears to have something to do with grabbing the kernel args.  The
-> panic happens here:
+> Neither Linus' tree (2.6.23-rc1) nor Tony's test tree (2.6.22) boot on the 
+> three SN2 systems I tried booting on (SLES 10 roots).  Tony's test tree
+> from ~3 weeks ago does boot.
 > 
-> 0xa0000001007f1511 is in setup_arch (arch/ia64/kernel/setup.c:570).
-> 565
-> 566             /* enable IA-64 Machine Check Abort Handling unless disabled
-> */
-> 567             if (!nomca)
-> 568                     ia64_mca_init();
-> 569
-> 570             platform_setup(cmdline_p);
-> 571             paging_init();
-> 572     }
+> The last boot message is "Starting udevd".  
 
-Doug,
+More specificly, it hangs in /sbin/udevsettle .
 
-I see the exact same OOPS if I compile a generic kernel instead of an
-SN2 specific one.
 
-Cheers,
-Jes
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
