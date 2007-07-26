@@ -1,29 +1,56 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Mon, 23 Jul 2007 00:57:03 +0000
-Subject: Re: [PATCH 0/3] fix ia64 clocksource
-Message-Id: <46A3FD94.90902@jp.fujitsu.com>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Date: Thu, 26 Jul 2007 13:53:27 +0000
+Subject: Re: 2.6.23-rc1-mm1:  boot hang on ia64 with memoryless nodes
+Message-Id: <1185458007.7653.1.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <469E2AAF.30705@jp.fujitsu.com>
-In-Reply-To: <469E2AAF.30705@jp.fujitsu.com>
+References: <20070711182219.234782227@sgi.com>
+	 <20070713151431.GG10067@us.ibm.com>
+	 <Pine.LNX.4.64.0707130942030.21777@schroedinger.engr.sgi.com>
+	 <1185310277.5649.90.camel@localhost>
+	 <Pine.LNX.4.64.0707241402010.4773@schroedinger.engr.sgi.com>
+	 <1185372692.5604.22.camel@localhost>  <1185378322.5604.43.camel@localhost>
+	 <1185390991.5604.87.camel@localhost>
+	 <Pine.LNX.4.64.0707251231570.8820@schroedinger.engr.sgi.com>
+	 <1185398337.5604.96.camel@localhost>
+In-Reply-To: <1185398337.5604.96.camel@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>, linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: kxr@sgi.com, Andrew Morton <akpm@linux-foundation.org>, linux-mm <linux-mm@kvack.org>, Bob Picco <bob.picco@hp.com>, Mel Gorman <mel@skynet.ie>, Eric Whitney <eric.whitney@hp.com>, Andy Whitcroft <apw@shadowen.org>
 
-Luck, Tony wrote:
->> I need to make the cleanups Tony identified. After that how would you like to
->> proceed? Combining your patch 1/3 and my 1/2 seems logical.
+On Wed, 2007-07-25 at 17:18 -0400, Lee Schermerhorn wrote: 
+> On Wed, 2007-07-25 at 12:38 -0700, Christoph Lameter wrote:
+> > (ccing Andy who did the work on the config stuff)
+> > 
+> > On Wed, 25 Jul 2007, Lee Schermerhorn wrote:
+> > 
+> > > I tried to deselect SPARSEMEM_VMEMMAP.  Kconfig's "def_bool=y" wouldn't
+> > > let me :-(.  After hacking the Kconfig and mm/sparse.c to allow that,
+> > > boot hangs with no error messages shortly after "Built N zonelists..."
+> > > message.
+> > 
+> > I get a similar hang here and see the system looping in softirq / hrtimer 
+> > code.
+> > 
+> > > Backed off to DISCONTIGMEM+VIRTUAL_MEMORY_MAP, and saw same hang as with
+> > > (SPARSMEM && !SPARSEMEM_VMEMMAP).   
+> > 
+> > So its not related to SPARSE VMEMMAP? General VMEMMAP issue on IA64?
 > 
-> I've done the cleanup, and merged Seto-san's parts 1,2,3 with your part 1, and
-> updated it all for the tip of Linus' tree.  Result is below.
-> 
-> Part 2 stayed the same, except that I also deleted Documentation/time_interpolators.txt
-> 
-> I'm going to send both to Linus later today ... so read fast and shout if
-> I botched the merge.
+> This hang is different from the one I see with SPARSE VMEMMAP -- no
+> "Unable to handle kernel paging request..." message.  Just hangs after
+> "Built N zonelists..."  and some message about "color" that I didn't
+> capture.  Next time [:-(]...
 
-No problem at all. Thanks!
+The "color" message was actually:
 
-Acked-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Console:  colour dummy device 80x25
 
-H.Seto
+So, now I'm wondering if I'm hitting the "Regression in serial
+console..." issue, and the system was actually booting--I just didn't
+see any output.  If so, the "Unable to handle kernel paging request..."
+hang might well be a problem with SPARSEMEM_VMEMMAP...
+
+Lee
+
