@@ -1,51 +1,26 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Fri, 13 Jul 2007 01:59:37 +0000
-Subject: [patch] correctly count CPU objects in the ia64/sn hwperf interface
-Message-Id: <4696DC89.2090706@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010109000801030906090506"
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 27 Jul 2007 04:36:57 +0000
+Subject: [PATCH] flush cache fixes for ia64 [0/2] intro
+Message-Id: <20070727133657.8c9c6803.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010109000801030906090506
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "nickpiggin@yahoo.com.au" <nickpiggin@yahoo.com.au>, Zoltan.Menyhart@bull.net, Christoph Lameter <clameter@sgi.com>, "kamezawa.hiroyu@jp.fujitsu.com" <kamezawa.hiroyu@jp.fujitsu.com>
 
-Hi Tony,
+This patch set is flush_cache_xxx fixes for ia64, take4.
+against 2.6.23-rc1.
 
-please accept this patch to fix a logic error in the SGI ia64/sn
-hwperf interface.
+Consists of 2 patches.
 
-Thanks
--- Mark
+1. page migration fix         ... Christoph, could you review this ?
 
+2. remove lazy_mmu_prot_update() and introduce sync_icache_dcache() 
+   If name or style is wrong, please point out.
 
---------------010109000801030906090506
-Content-Type: text/plain;
- name="sn_hwperf_cpuinfo_fix.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sn_hwperf_cpuinfo_fix.diff"
+Any comments are welcome.
 
-Correctly count CPU objects for SGI ia64/sn hwperf interface
+Thanks,
+-Kame
 
-Signed-off-by: Mark Goodwin <markgw@sgi.com>
-Signed-off-by: Jack Steiner <steiner@sgi.com>
-
---- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2007-07-03 20:48:17.000000000 +1000
-+++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2007-07-03 16:04:35.472855575 +1000
-@@ -750,9 +750,10 @@
- 			goto error;
- 		} else
- 		if ((r = sn_hwperf_enum_objects(&nobj, &objs)) == 0) {
-+			int cpuobj_index = 0;
-+
- 			memset(p, 0, a.sz);
- 			for (i = 0; i < nobj; i++) {
--				int cpuobj_index = 0;
- 				if (!SN_HWPERF_IS_NODE(objs + i))
- 					continue;
- 				node = sn_hwperf_obj_to_cnode(objs + i);
-
---------------010109000801030906090506--
