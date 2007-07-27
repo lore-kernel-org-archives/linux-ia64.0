@@ -1,65 +1,77 @@
 From: Sam Ravnborg <sam@ravnborg.org>
-Date: Fri, 27 Jul 2007 05:49:01 +0000
+Date: Fri, 27 Jul 2007 07:44:13 +0000
 Subject: Re: [PATCH] ia64: fix a few section mismatch warnings
-Message-Id: <20070727054901.GA10629@uranus.ravnborg.org>
+Message-Id: <20070727074413.GA11424@uranus.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070726210141.GA7266@uranus.ravnborg.org> <20070727011813.GQ27237@ftp.linux.org.uk> <20070727042744.GA10144@uranus.ravnborg.org> <20070727043614.GS27237@ftp.linux.org.uk>
-In-Reply-To: <20070727043614.GS27237@ftp.linux.org.uk>
+References: <20070726210141.GA7266@uranus.ravnborg.org>
+In-Reply-To: <20070726210141.GA7266@uranus.ravnborg.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@ftp.linux.org.uk>
-Cc: "Luck, Tony" <tony.luck@intel.com>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-On Fri, Jul 27, 2007 at 05:36:14AM +0100, Al Viro wrote:
-> On Fri, Jul 27, 2007 at 06:27:44AM +0200, Sam Ravnborg wrote:
-> > On Fri, Jul 27, 2007 at 02:18:13AM +0100, Al Viro wrote:
-> > > On Thu, Jul 26, 2007 at 11:01:41PM +0200, Sam Ravnborg wrote:
-> > >   
-> > > > +static void *__init_refok alloc_rte(unsigned long size)
-> > > > +{
-> > > > +	return alloc_bootmem(size);
-> > > > +}
-> > > 
-> > > That makes no sense at all.  If we ever call that after freeing initmem,
-> > > we are screwed, period.  Sounds like __init fodder.
-> > 
-> > The call site has logic to prevent this from being called after init.
-> > And the call site cannot be made __init and to limit the scope of
-> > the __init_refok a small function is used.
-> > 
-> > So unless I mis-understood something the above should be OK.
-> 
-> Then the call site must be __init_refok, AFAICS.  The point is,
-> the callers of alloc_rte() are where the analysis belongs; use of
-> __init_refok means that you assert that all calls of __init *from*
-> *it* are safe.  Otherwise it just becomes "make modpost STFU and
-> let's hope that code is really OK".
+Fix the following section mismatch warnings:
 
-The above function is suposed to be used solely from
-iosapic_alloc_rte() and not for general use.
-And instead of declaring all of iosapic_alloc_rte() as __init_refok
-then the single line doing the call to an __init function
-was factored out and marked __init.
-alloc_rte() can be used from everywhere but the naming suggest
-that this is for rte only.
+WARNING: vmlinux.o(.text+0x41902): Section mismatch: reference to .init.text:__alloc_bootmem (between 'ia64_mca_cpu_init' and 'ia64_do_tlb_purge')
+WARNING: vmlinux.o(.text+0x49222): Section mismatch: reference to .init.text:__alloc_bootmem (between 'register_intr' and 'iosapic_register_intr')
+WARNING: vmlinux.o(.text+0x62beb2): Section mismatch: reference to .init.text:__alloc_bootmem_node (between 'hubdev_init_node' and 'cnodeid_get_geoid')
 
-To make it more clear what the function was used for I could have made
-it like this:
+For ithe first warning a helper function marked __init_refok was used.
+For the last warning a missing __init annotation was added.
 
-/*
- * Call site shall make sure this isused only during early init.
- * Use __init_refok to avoid warnings from modpost.
- */ 
-static void * __init_refok alloc_rte(unsigned long size)
-{
-	return alloc_bootmen(sizeof(struct iosapic_rte_info) * size);
-}
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+---
+Updated - inspired by comments from Al Viro.
 
-Would that make the intention more clear?
-
-As for marking all of iosapic_alloc_rte() __init_refok this was not done
-because that would then not detect any new __init usage within the function.
-That could be done too obviously - it is anyway only 30 loc.
-
-	Sam
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index 91e6dc1..f4bd285 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -560,7 +560,7 @@ iosapic_reassign_vector (int irq)
+ 	}
+ }
+ 
+-static struct iosapic_rte_info *iosapic_alloc_rte (void)
++static struct iosapic_rte_info * __init_refok iosapic_alloc_rte (void)
+ {
+ 	int i;
+ 	struct iosapic_rte_info *rte;
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 4b5daa3..8b7681b 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1751,6 +1751,10 @@ format_mca_init_stack(void *mca_data, unsigned long offset,
+ }
+ 
+ /* Do per-CPU MCA-related initialization.  */
++static void * __init_refok mca_bootmem(unsigned long size)
++{
++	return alloc_bootmem(size * sizeof(struct ia64_mca_cpu));
++}
+ 
+ void __cpuinit
+ ia64_mca_cpu_init(void *cpu_data)
+@@ -1763,8 +1767,7 @@ ia64_mca_cpu_init(void *cpu_data)
+ 		int cpu;
+ 
+ 		first_time = 0;
+-		mca_data = alloc_bootmem(sizeof(struct ia64_mca_cpu)
+-					 * NR_CPUS + KERNEL_STACK_SIZE);
++		mca_data = mca_bootmem(NR_CPUS + KERNEL_STACK_SIZE);
+ 		mca_data = (void *)(((unsigned long)mca_data +
+ 					KERNEL_STACK_SIZE - 1) &
+ 				(-KERNEL_STACK_SIZE));
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 787ed64..4594770 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -391,7 +391,7 @@ void sn_bus_free_sysdata(void)
+  * hubdev_init_node() - Creates the HUB data structure and link them to it's
+  *			own NODE specific data area.
+  */
+-void hubdev_init_node(nodepda_t * npda, cnodeid_t node)
++void __init hubdev_init_node(nodepda_t * npda, cnodeid_t node)
+ {
+ 	struct hubdev_info *hubdev_info;
+ 	int size;
