@@ -1,23 +1,34 @@
-From: "Martin K. Petersen" <martin.petersen@oracle.com>
-Date: Wed, 18 Jul 2007 21:18:50 +0000
-Subject: Re: debian 40r installation issue on IA 64
-Message-Id: <yq1ps2p2yx1.fsf@sermon.lab.mkp.net>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 27 Jul 2007 04:38:43 +0000
+Subject: [PATCH] flush cache fixes for ia64 [1/2] migration fix
+Message-Id: <20070727133843.6cd3f57a.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <426724.15340.qm@web58005.mail.re3.yahoo.com>
-In-Reply-To: <426724.15340.qm@web58005.mail.re3.yahoo.com>
+References: <20070727133657.8c9c6803.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070727133657.8c9c6803.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "nickpiggin@yahoo.com.au" <nickpiggin@yahoo.com.au>, Zoltan.Menyhart@bull.net, Christoph Lameter <clameter@sgi.com>
 
->>>>> "Bjorn" = Bjorn Helgaas <bjorn.helgaas@hp.com> writes:
+In migration, a new page should be cache flushed before set_pte()
+in some archs.
 
->> I have been trying to install debian 40r0 on hp longs peak itanium
->> server. The installation hangs trying to configure net....
+Signed-Off-By: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-I ran into this yesterday.  Upgrading the MP firmware to 3.30 fixed
-the problem...
+---
+ mm/migrate.c |    1 +
+ 1 file changed, 1 insertion(+)
 
--- 
-Martin K. Petersen	Oracle Linux Engineering
+Index: linux-2.6.23-rc1.test/mm/migrate.c
+=================================--- linux-2.6.23-rc1.test.orig/mm/migrate.c
++++ linux-2.6.23-rc1.test/mm/migrate.c
+@@ -172,6 +172,7 @@ static void remove_migration_pte(struct 
+ 	pte = pte_mkold(mk_pte(new, vma->vm_page_prot));
+ 	if (is_write_migration_entry(entry))
+ 		pte = pte_mkwrite(pte);
++	flush_icache_page(vma, new);
+ 	set_pte_at(mm, addr, ptep, pte);
+ 
+ 	if (PageAnon(new))
 
