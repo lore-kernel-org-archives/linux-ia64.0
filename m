@@ -1,25 +1,24 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 13 Jul 2007 23:25:05 +0000
-Subject: RE: [RFC][PATCH] fsys_gettimeofday leaps days if it runs with nojitter
-Message-Id: <617E1C2C70743745A92448908E030B2A01EA663B@scsmsx411.amr.corp.intel.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Sat, 28 Jul 2007 06:03:19 +0000
+Subject: [PATCH] flush icache before set_pte() take 5.
+Message-Id: <20070728150319.d19f531f.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <468CA2D6.40204@jp.fujitsu.com>
-In-Reply-To: <468CA2D6.40204@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, Zoltan.Menyhart@bull.net, "nickpiggin@yahoo.com.au" <nickpiggin@yahoo.com.au>, Christoph Lameter <clameter@sgi.com>
 
-> Here are 2 pending patches I'm pushing :
->   - [PATCH] ia64: Scalability improvement of gettimeofday with
->             jitter compensation
+Appliled comments on take 4.
+patches are against 2.6.23-rc1.
 
-Bob says his (Pete's) patches will be ready soon (Sunday) so I'll wait
-for them to make sure this all fits together cleanly.  This is a definite
-2.6.23 candidate.
+Changes:
+  - changes flush_icache_page to be flush_cache_page() in remove_migration_pte().
+  - removed sync_icache_dcahe() in page reuse case of do_wp_page(). 
 
->   - [PATCH] fsys_gettimeofday leaps days if it runs with nojitter
+Considerations:
+  - I can add CONFIG_MONTECITO if necessary. But it will be confusing, I think.
 
-Applied.
+Thanks,
+-Kame
 
--Tony
