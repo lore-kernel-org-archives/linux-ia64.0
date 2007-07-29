@@ -1,12 +1,17 @@
 From: Jesper Juhl <jesper.juhl@gmail.com>
-Date: Sun, 29 Jul 2007 22:27:51 +0000
+Date: Sun, 29 Jul 2007 22:28:42 +0000
 Subject: [PATCH] ia64: Remove a few duplicate includes
-Message-Id: <200707300027.51839.jesper.juhl@gmail.com>
+Message-Id: <200707300028.42496.jesper.juhl@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200707300027.51839.jesper.juhl@gmail.com>
+In-Reply-To: <200707300027.51839.jesper.juhl@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Jes Sorensen <jes@sgi.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-altix@sgi.com, Jesper Juhl <jesper.juhl@gmail.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+
+(sorry about the duplicate mail, forgot a recipient first time)
 
 Hi,
 
@@ -15,6 +20,7 @@ This patch removes a few duplicate includes from arch/ia64/
 
 
 Please consider merging :-)
+
 
 
 Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
