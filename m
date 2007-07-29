@@ -1,46 +1,65 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 20 Jul 2007 01:51:23 +0000
-Subject: Re: [BUGFIX]{PATCH] flush icache on ia64 take2
-Message-Id: <20070720105123.e9bd9577.kamezawa.hiroyu@jp.fujitsu.com>
+From: Jesper Juhl <jesper.juhl@gmail.com>
+Date: Sun, 29 Jul 2007 22:27:51 +0000
+Subject: [PATCH] ia64: Remove a few duplicate includes
+Message-Id: <200707300027.51839.jesper.juhl@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070706112901.16bb5f8a.kamezawa.hiroyu@jp.fujitsu.com>
-	<20070719155632.7dbfb110.kamezawa.hiroyu@jp.fujitsu.com>
-	<469F5372.7010703@bull.net>
-	<20070719220118.73f40346.kamezawa.hiroyu@jp.fujitsu.com>
-	<469F71E7.4050200@bull.net>
-	<20070719235157.9715baff.kamezawa.hiroyu@jp.fujitsu.com>
-	<469F80E3.3040007@bull.net>
-In-Reply-To: <469F80E3.3040007@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, nickpiggin@yahoo.com.au, mike@stroyan.net, dmosberger@gmail.com, y-goto@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
 
-On Thu, 19 Jul 2007 17:18:59 +0200
-Zoltan Menyhart <Zoltan.Menyhart@bull.net> wrote:
+Hi,
 
-> KAMEZAWA Hiroyuki wrote:
-> 
-> > Hmm...but the current code flushes the page. just do it in "lazy" way.
-> > much difference ?
-> 
-> I agree the current code flushes the I-cache for all kinds of file
-> systems (for PTEs with the exec bit on).
-> 
-> The error is that it does it after the PTE is written.
-> 
-> In addition, I wanted to optimize it to gain a few %.
-I'm glad, too if we can do it. But it seems that we need a bit
-clever way to do that.
 
-> Apparently this idea is not much welcome.
-> 
-> I can agree that flushing the I-cache (if the architecture requires it)
-> before setting the PTE eliminates the error.
-> 
-Hm, I'll refresh and repost the patch. 
+This patch removes a few duplicate includes from arch/ia64/
 
-Thanks,
--Kame
+
+Please consider merging :-)
+
+
+Signed-off-by: Jesper Juhl <jesper.juhl@gmail.com>
+---
+
+ arch/ia64/ia32/sys_ia32.c   |    1 -
+ arch/ia64/kernel/setup.c    |    1 -
+ arch/ia64/sn/kernel/setup.c |    1 -
+ 3 files changed, 0 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
+index af10462..a3405b3 100644
+--- a/arch/ia64/ia32/sys_ia32.c
++++ b/arch/ia64/ia32/sys_ia32.c
+@@ -34,7 +34,6 @@
+ #include <linux/uio.h>
+ #include <linux/nfs_fs.h>
+ #include <linux/quota.h>
+-#include <linux/syscalls.h>
+ #include <linux/sunrpc/svc.h>
+ #include <linux/nfsd/nfsd.h>
+ #include <linux/nfsd/cache.h>
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 7cecd29..cd9a37a 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -60,7 +60,6 @@
+ #include <asm/smp.h>
+ #include <asm/system.h>
+ #include <asm/unistd.h>
+-#include <asm/system.h>
+ 
+ #if defined(CONFIG_SMP) && (IA64_CPU_SIZE > PAGE_SIZE)
+ # error "struct cpuinfo_ia64 too big!"
+diff --git a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
+index 684b1c9..1f38a3a 100644
+--- a/arch/ia64/sn/kernel/setup.c
++++ b/arch/ia64/sn/kernel/setup.c
+@@ -25,7 +25,6 @@
+ #include <linux/interrupt.h>
+ #include <linux/acpi.h>
+ #include <linux/compiler.h>
+-#include <linux/sched.h>
+ #include <linux/root_dev.h>
+ #include <linux/nodemask.h>
+ #include <linux/pm.h>
+
 
