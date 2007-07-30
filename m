@@ -1,39 +1,30 @@
-From: "Robert P. J. Day" <rpjday@mindspring.com>
-Date: Wed, 18 Jul 2007 11:33:08 +0000
-Subject: [PATCH] IA64:  Prevent people from directly including <asm/rwsem.h>.
-Message-Id: <Pine.LNX.4.64.0707180730190.14901@localhost.localdomain>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 30 Jul 2007 02:53:38 +0000
+Subject: [PATCH 0/2] vector domain related fixes
+Message-Id: <1185764018.3940.54.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi,
 
-Signed-off-by: Robert P. J. Day <rpjday@mindspring.com>
+Here are a patches related to vector domain. Those patches
+fix the following problems.
 
----
+[PATCH 1/2] Fix registered interrupt check
 
-diff --git a/include/asm-ia64/rwsem.h b/include/asm-ia64/rwsem.h
-index 2d1640c..99651d7 100644
---- a/include/asm-ia64/rwsem.h
-+++ b/include/asm-ia64/rwsem.h
-@@ -21,6 +21,10 @@
- #ifndef _ASM_IA64_RWSEM_H
- #define _ASM_IA64_RWSEM_H
+    When I was doing PCI hotplug, I encountered a problem that
+    interrupts are not initialized correctly. This problem might
+    also happen at driver reloading. The cause of this problem
+    is wrong check of registered interrupts.
 
-+#ifndef _LINUX_RWSEM_H
-+#error "Please don't include <asm/rwsem.h> directly, use <linux/rwsem.h> instead."
-+#endif
-+
- #include <linux/list.h>
- #include <linux/spinlock.h>
+[PATCH 2/2] Fix possible race in destroy_and_reserve_irq().
+
+    This patch fixes a possible race condition in destroy_and_reserve_irq().
+
+Thanks,
+Kenji Kaneshige
 
 
--- 
-====================================
-Robert P. J. Day
-Linux Consulting, Training and Annoying Kernel Pedantry
-Waterloo, Ontario, CANADA
-
-http://fsdev.net/wiki/index.php?title=Main_Page
-====================================
