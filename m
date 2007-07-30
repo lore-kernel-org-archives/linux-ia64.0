@@ -1,51 +1,65 @@
 From: Doug Chapman <doug.chapman@hp.com>
-Date: Thu, 26 Jul 2007 21:58:45 +0000
-Subject: RE: [PATCH] ia64: fix build failure on fs/quota.c
-Message-Id: <1185487125.20910.30.camel@dchapman.boston.redhat.com>
+Date: Mon, 30 Jul 2007 22:57:18 +0000
+Subject: regression on HP zx1 platform from ACPI autoload modules patches
+Message-Id: <1185836238.31298.36.camel@deimos.americas.hpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A0205DE5E@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A0205DE5E@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, vtaras@openvz.org, "H. Peter Anvin" <hpa@zytor.com>, Andi Kleen <ak@suse.de>
+To: linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, trenn@suse.de
 
-On Thu, 2007-07-26 at 14:24 -0700, Luck, Tony wrote:
-> This issue wandered off onto a long thread "build fix for x86_64" which
-> died out without a final patch.  Here's the summary:
-> 
-
-Ahh, thanks, I had not seen that thread.
+I am seeing a regression on the HP ia64 zx1 platforms when using
+a .config with CONFIG_IA64_HP_ZX1=y.  Oddly it works OK with
+CONFIG_IA64_GENERIC=y.
 
 
-> > +#if defined(CONFIG_X86_64) || (defined(CONFIG_IA64) && defined(CONFIG_COMPAT))
-> 
-> It was pointed out that x86-64 also has a CONFIG_COMPAT, so the "right"
-> #ifdef mess would be:
-> 
-> #if defined(CONFIG_COMPAT) && (defined(CONFIG_IA64) || defined(CONFIG_X86_64))
-> 
-> But this was thought too ugly.  Andi Kleen proposed making a new CONFIG
-> variable for this situation: CONFIG_COMPAT_FOR_U64_ALIGMNENT which could
-> be set in ia64 and x86-64 Kconfig files with:
-> 
-> config COMPAT_FOR_U64_ALIGMNENT
-> 	def_bool COMPAT
-> 
-> So the C-code would simply have:
-> 
-> #if defined(COMPAT_COMPAT_FOR_U64_ALIGMNENT)
-> 
-> (IIRC the syntax correctly).  Peter Anvin had some worries about future
-> issues ... but I think he agreed that this was Ok.
-> 
-> Anyone still have any objections to this?
+During bootup it panics with:
 
-No objections here.  I just tried this patch and it does fix my ia64
-build issue.  I agree it is a bit cleaner than the long #ifdef.
+Kernel panic - not syncing: Unable to find SBA IOMMU: Try a generic or DIG kernel
 
-thanks,
+I can provide the full console output if that is helpful.  Also, please let
+me know if there is any other data I can provide that would be helpful.
+
+Using git bisect I have narrowed it down to these 2 commits.  These commits
+cannot be built separately as they appear to have code that depends on each
+other.
+
+
+commit 29b71a1ca74491fab9fed09e9d835d840d042690
+Author: Thomas Renninger <trenn@suse.de>
+Date:   Mon Jul 23 14:43:51 2007 +0200
+
+    ACPI: autoload modules - Create ACPI alias interface
+    
+    Modify modpost (file2alias.c) to add acpi*:XYZ0001: alias in modules.alias
+    like:
+    grep acpi /lib/modules/2.6.22-rc4-default/modules.alias
+    alias acpi*:SNY5001:* sony_laptop
+    alias acpi*:SNY6001:* sony_laptop
+    for e.g. the sony_laptop module.
+    This module matches against all ACPI devices with a HID or CID of SNY5001
+    or SNY6001
+    
+    Export an uevent and modalias sysfs file containing the string:
+    [MODALIAS=]acpi:PNP0C0C:
+    additional CIDs are concatenated at the end.
+    
+    Signed-off-by: Thomas Renninger <trenn@suse.de>
+    Signed-off-by: Kay Sievers <kay.sievers@vrfy.org>
+    Signed-off-by: Len Brown <len.brown@intel.com>
+
+
+Author: Thomas Renninger <trenn@suse.de>
+Date:   Mon Jul 23 14:43:32 2007 +0200
+
+    ACPI: autoload modules - ACPICA modifications
+    
+    Define standardized HIDs - Rename current acpi_device_id to acpica_device_id
+    
+    Signed-off-by: Thomas Renninger <trenn@suse.de>
+    Signed-off-by: Len Brown <len.brown@intel.com>
+
+
 
 - Doug
 
