@@ -1,29 +1,28 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Tue, 31 Jul 2007 11:02:34 +0000
-Subject: Re: [PATCH] flush icache before set_pte take6. [4/4] optimization
-Message-Id: <46AF16CA.4020103@bull.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 31 Jul 2007 16:39:58 +0000
+Subject: RE: [PATCH] flush icache before set_pte take6. [3/4] add montecito brand name
+Message-Id: <617E1C2C70743745A92448908E030B2A020E3B04@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070731113543.93ffd964.kamezawa.hiroyu@jp.fujitsu.com>	<20070731114155.5785123c.kamezawa.hiroyu@jp.fujitsu.com>	<ed5aea430707302115h484620f1le51fc054436b273a@mail.gmail.com>	<46AEF518.4000002@bull.net> <20070731191749.0709c56e.kamezawa.hiroyu@jp.fujitsu.com>
-In-Reply-To: <20070731191749.0709c56e.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070731114007.b3c62cd3.kamezawa.hiroyu@jp.fujitsu.com>
+References: <20070731113543.93ffd964.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070731113543.93ffd964.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: David Mosberger-Tang <dmosberger@gmail.com>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "tony.luck@intel.com" <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Zoltan.Menyhart@bull.net, Christoph Lameter <clameter@sgi.com>
 
-KAMEZAWA Hiroyuki wrote:
++		} else if (family = 0x20)
++			memcpy(brand, "Montecito", 10);
 
-> Could we discuss this in other thread as "optimization for some cpus" and
-> push bug-fix patches first ?
-> 
-> If take5 or part of take6(patch 1,2) are not acceptable, I'll continue this
-> work on -rc2.
-> 
-> Thanks,
-> -Kame
+NAK.
 
-Sure.
+We don't really have names for the different cpu families. "Montecito"
+is definitely not the right string to apply here (Montvale will also
+have family = 0x20).  The old McKinley/Madison strings are intended
+to provide some information for old processors where PAL did not
+support PAL_BRAND_INFO.  All new cpus (from Montecito onward) will
+support this PAL call, so there should be no need to add more code to
+make names out of [family,model] tuples.
 
-Thanks,
-
-Zoltan
+-Tony
