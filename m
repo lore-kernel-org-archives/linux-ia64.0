@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 30 Jul 2007 13:53:12 +0000
+Date: Tue, 31 Jul 2007 14:34:41 +0000
 Subject: Re: panic from vector domain patch (was RE: Linus' tree broken?)
-Message-Id: <46ADED48.7030008@sgi.com>
+Message-Id: <46AF4881.504@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1185239265.19353.6.camel@phobos>
 In-Reply-To: <1185239265.19353.6.camel@phobos>
@@ -11,20 +11,27 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Doug Chapman wrote:
-> 
-> Jes,
-> 
 > FYI, booting for me just fine on a RHEL5 installed base.  What distro
 > were you booting on?
-> 
-> - Doug
-> 
 
-Hi Doug,
+Ok, I figured out which patch caused it, now to figure out whats wrong
+and how to fix it :(
 
-
-SLES10 and Fedora Core 7 - similar behavior. I wonder if something sn2
-specific might get overwritten. Haven't narrowed it down yet.
-
-Cheers,
 Jes
+
+
+jes@eye:~/src/kernel/linus/lguest/linux-2.6-lguest> git bisect 
+bad0aa366f351d044703e25c8425e508170e80d83b1 is first bad commit
+commit 0aa366f351d044703e25c8425e508170e80d83b1
+Author: Tony Luck <tony.luck@intel.com>
+Date:   Fri Jul 20 11:22:30 2007 -0700
+
+     [IA64] Convert to generic timekeeping/clocksource
+
+     This is a merge of Peter Keilty's initial patch (which was
+     revived by Bob Picco) for this with Hidetoshi Seto's fixes
+     and scaling improvements.
+
+     Acked-by: Bob Picco <bob.picco@hp.com>
+     Signed-off-by: Tony Luck <tony.luck@intel.com>
+
