@@ -1,77 +1,63 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 10 Aug 2007 22:23:52 +0000
-Subject: Re: [PATCH] flush icache before set_pte() on ia64  take9 [2/2]
-Message-Id: <20070811072352.6be17307.kamezawa.hiroyu@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 01 Aug 2007 05:48:16 +0000
+Subject: ACPI: Uninitialized spinlocks & Unable to dump stack
+Message-Id: <Pine.LNX.4.64.0707312246390.14878@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070809135311.0676a947.kamezawa.hiroyu@jp.fujitsu.com>
-	<20070809135721.08841cd7.kamezawa.hiroyu@jp.fujitsu.com>
-	<617E1C2C70743745A92448908E030B2A0224C511@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A0224C511@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davem@davemloft.net, Zoltan.Menyhart@bull.net, nickpiggin@yahoo.com.au
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Fri, 10 Aug 2007 11:17:30 -0700
-"Luck, Tony" <tony.luck@intel.com> wrote:
+With todays git I get (sn2_defconfig w/ spinlock debuggin):
 
-> 1) In arch/ia64/mm/init.c: __ia64_sync_icache_dcache()
-> 
-> -	if (!pte_exec(pte))
-> -		return;				/* not an executable page... */
-> +	BUG_ON(!pte_exec(pte));
-> 
-> In this latest version the only route to this routine is from set_pte()
-> inside the test :
-> 
-> 	if (pte_exec(pteval) && ....) {
-> 	}
-> 
-> So this BUG_ON is now redundant.
-> 
-I see.
+Uncompressing Linux... done
+Linux version 2.6.23-rc1 (clameter@schroedinger) (gcc version 4.1.2=20
+20061115 (prerelease) (Debian 4.1.1-21)) #3 SMP PREEMPT Tue Jul 31=20
+22:42:03 PDT 2007
+EFI v1.10 by INTEL: SALsystab=3D0x3002a09000 ACPI 2.0=3D0x3002a097f0
+console [sn_sal0] enabled
+ACPI: RSDP 3002A097F0, 0024 (r2    SGI)
+ACPI: XSDT 3002A0E320, 0044 (r1    SGI  XSDTSN2    10001           5C)
+ACPI: APIC 3002A09890, 008C (r1    SGI  APICSN2    10001            1)
+ACPI: SRAT 3002A09930, 0150 (r1    SGI  SRATSN2    10001            1)
+ACPI: SLIT 3002A09A90, 003C (r1    SGI  SLITSN2    10001            1)
+ACPI: FACP 3002A09B30, 00F4 (r3    SGI  FACPSN2    30001            1)
+ACPI: DSDT 3002A0D8A0, 0024 (r2    SGI  DSDTSN2    20001          9BA)
+ACPI: FACS 3002A09AE0, 0040
+Number of logical nodes in system =3D 4
+Number of memory chunks in system =3D 4
+SAL 2.9: SGI SN2 version 4.80
+SAL Platform features: ITC_Drift
+SAL: AP wakeup using external interrupt vector 0x12
+No logical to physical processor mapping available
+ACPI: Local APIC address c0000000fee00000
+ACPI: Error parsing MADT - no IOSAPIC entries
+register_intr: No IOSAPIC for GSI 52
+BUG: spinlock bad magic on CPU#0, swapper/0
+ lock: a000000100bf66d0, .magic: 00000000, .owner: <none>/-1, .owner_cpu:=20
+0
+unwind: cannot stack reg state!
 
-> 2) In include/asm-ia64/pgtable.h
-> 
-> +	if (pte_exec(pteval) &&    // flush only new executable page.
-> +	    pte_present(pteval) && // swap out ?
-> +	    pte_user(pteval) &&    // ignore kernel page
-> +	    (!pte_present(*ptep) ||// do_no_page or swap in, migration,
-> +		pte_pfn(*ptep) != pte_pfn(pteval))) // do_wp_page(), page copy
-> +		/* load_module() calles flush_icache_range() explicitly*/
-> +		__ia64_sync_icache_dcache(pteval);
-> 
-> Just above this there is a comment saying that pte_exec() only works
-> when pte_present() is true.  So we must re-order the conditions so that
-> we check that the pteval satisfies pte_present() before using either of
-> pte_exec() or pte_user() on it like this:
-> 
-> 	if (pte_present(pteval) &&
->           pte_exec(pteval) &&
->           pte_user(pteval) &&
-> 
-> I put in some crude counters to see whether we should check pte_exec() or
-> pte_user() next ... and it was very clear that the pte_exec() check gets
-> us out of the if() faster (at least during a kernel build).
-> 
-ok.
-
-I'm sorry that I'll be offlined until next Wednesday. So, I'll post above
-fix in a week or so.
+Call Trace:
+ [<a000000100013900>] show_stack+0x40/0xa0
+                                sp=A000000100b67a80 bsp=A000000100b610b8
+unwind: cannot stack reg state!
+ [<a000000100013990>] dump_stack+0x30/0x60
+                                sp=A000000100b67c50 bsp=A000000100b610a0
+unwind: cannot stack reg state!
+ [<a000000100433010>] spin_bug+0x110/0x180
+                                sp=A000000100b67c50 bsp=A000000100b61068
+unwind: cannot stack reg state!
+ [<a0000001004330d0>] _raw_spin_unlock+0x50/0x120
+                                sp=A000000100b67c50 bsp=A000000100b61038
+unwind: cannot stack reg state!
+ [<a0000001007eb560>] _spin_unlock+0x20/0xa0
+                                sp=A000000100b67c50 bsp=A000000100b61018
+unwind: cannot stack reg state!
+ [<a00000010004ec40>] iosapic_register_intr+0xb40/0xba0
+                                sp=A000000100b67c50 bsp=A000000100b60fa8
+unwind: cannot stack reg state!
+ [<a00000010000a5e0>] acpi_register_gsi+0xc0/0xe0
 
 
-> I also compared how often the old code called lazy_mmu_prot_update()
-> with how often the new code calls __ia64_sync_icache_dcache() (again
-> using kernel build as my workload) ... and the answer is about the
-> same (less than 0.2% change ... probably less than run-to-run variation).
-> 
-> 
-> So now the only remaining task is to convince myself that this
-> new version covers all the cases.
-> 
-yes. I want more eyes for review. 
-
-Thanks,
--Kame
 
