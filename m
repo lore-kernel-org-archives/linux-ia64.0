@@ -1,35 +1,37 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Wed, 01 Aug 2007 00:17:43 +0000
-Subject: Re: [PATCH] flush icache before set_pte take6. [3/4] add montecito
-Message-Id: <20070801091743.1ca10245.kamezawa.hiroyu@jp.fujitsu.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Wed, 01 Aug 2007 09:27:37 +0000
+Subject: Re: [PATCH] flush icache before set_pte take6. [4/4] optimization
+Message-Id: <46B05209.4050103@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070731114007.b3c62cd3.kamezawa.hiroyu@jp.fujitsu.com>
-	<617E1C2C70743745A92448908E030B2A020E3B04@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A020E3B04@scsmsx411.amr.corp.intel.com>
+References: <20070731113543.93ffd964.kamezawa.hiroyu@jp.fujitsu.com><20070731114155.5785123c.kamezawa.hiroyu@jp.fujitsu.com><ed5aea430707302115h484620f1le51fc054436b273a@mail.gmail.com> <20070731132932.8e21d48c.kamezawa.hiroyu@jp.fujitsu.com> <019b01c7d395$27d692b0$3e3af40f@americas.hpqcorp.net>
+In-Reply-To: <019b01c7d395$27d692b0$3e3af40f@americas.hpqcorp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Zoltan.Menyhart@bull.net, Christoph Lameter <clameter@sgi.com>
+To: Jim Hull <jim.hull@hp.com>
+Cc: 'KAMEZAWA Hiroyuki' <kamezawa.hiroyu@jp.fujitsu.com>, 'David Mosberger-Tang' <dmosberger@gmail.com>, 'LKML' <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, tony.luck@intel.com, 'Christoph Lameter' <clameter@sgi.com>
 
-On Tue, 31 Jul 2007 09:39:58 -0700
-"Luck, Tony" <tony.luck@intel.com> wrote:
+Jim Hull wrote:
+> Not just crazy, but wrong - this *can* happen on pre-Montecito.  Even though
+> L1D is write-through and L2 was mixed I/D, the L1 I-cache could contain
+> stale instrutions if there are missing flushes.
 
-> +		} else if (family = 0x20)
-> +			memcpy(brand, "Montecito", 10);
-> 
-> NAK.
-> 
-> We don't really have names for the different cpu families. "Montecito"
-> is definitely not the right string to apply here (Montvale will also
-> have family = 0x20).  The old McKinley/Madison strings are intended
-> to provide some information for old processors where PAL did not
-> support PAL_BRAND_INFO.  All new cpus (from Montecito onward) will
-> support this PAL call, so there should be no need to add more code to
-> make names out of [family,model] tuples.
-> 
+I cannot agree with you.
 
-Ok, please ignore patch [3/4] and [4/4]. 
+In order to consider an L1 I-cache entry as valid, a corresponding
+virtual -> physic address translation should be valid in one of the L1 ITLBs.
 
--Kame
+"See 6.1.1. Instruction TLBS" of the I2 Proc. Ref. Man. for SW Dev. & Opt.
 
+You cannot have a valid L1 ITLB entry unless you have a corresponding valid
+L2 ITLB entry.
+
+When you remove a PTE (or switch off the exec bit) and you flush the L2 ITLB
+matching the old translation (and you kill the corresponding L1 ITLBs),
+you do invalidate the corresponding L1 I-cache entries.
+
+Therefore CPU models without split L2 caches are safe.
+
+Thanks,
+
+Zoltan
