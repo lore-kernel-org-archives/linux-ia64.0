@@ -1,76 +1,28 @@
-From: "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
-Date: Wed, 15 Aug 2007 02:25:35 +0000
-Subject: RE: [PATCH] Fix processor_get_freq
-Message-Id: <653FFBB4508B9042B5D43DC9E18836F501450D7A@scsmsx415.amr.corp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 01 Aug 2007 01:43:43 +0000
+Subject: Re: "Add support for vector domain" breaks boot on x355
+Message-Id: <1185932623.3920.5.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1187041786.6306.53.camel@lappy>
-In-Reply-To: <1187041786.6306.53.camel@lappy>
+References: <20070731221356.GA31324@us.ibm.com>
+In-Reply-To: <20070731221356.GA31324@us.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Nishanth Aravamudan <nacc@us.ibm.com>
+Cc: isimatu.yasuaki@jp.fujitsu.com, tony.luck@intel.com, torvalds@linux-foundation.org, ryhodges@us.ibm.com, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 
+2007-07-31 (火) の 15:13 -0700 に Nishanth Aravamudan さんは書きました:
+> The following commit (4994be1b3fe9120c88022ff5c0c33f6312b17adb) broke
+> Linus' Tree between 2.6.22-git15 and 2.6.22-git16 on a 2-node 8-way x455
+> (Madison procs). Thanks to Ryan Hodges for bisecting down to this
+> commit.
 
-Ack.
+Thank you for reporting.
+
+I think this problem might be fixed by the commit
+6ffbc82351c62eeeeaeb9e817ddf93049353493d. Could you try that?
 
 Thanks,
-Venki 
+Kenji Kaneshige
 
->-----Original Message-----
->From: linux-ia64-owner@vger.kernel.org 
->[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Alex Williamson
->Sent: Monday, August 13, 2007 2:50 PM
->To: Pallipadi, Venkatesh
->Cc: linux-ia64
->Subject: [PATCH] Fix processor_get_freq
->
->
->   The core cpufreq code doesn't appear to understand returning -EAGAIN
->for the get() function of the cpufreq_driver.  If 
->PAL_GET_PSTATE returns
->-1, such as when running on Xen, scaling_cur_freq is happy to return
->4294967285 kHz (ie. (unsigned)-11).  The other drivers appear to return
->0 for a failure, and doing so gives me the max frequency from
->scaling_cur_frequency and "<unknown>" from cpuinfo_cur_frequency.  I
->believe that's the desired behavior.  Thanks,
->
->	Alex
->
->Signed-off-by: Alex Williamson <alex.williamson@hp.com>
->---
->
->diff -r 1559df81a153 arch/ia64/kernel/cpufreq/acpi-cpufreq.c
->--- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c	Mon Aug 13 
->05:00:33 2007 +0000
->+++ b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c	Mon Aug 13 
->15:41:29 2007 -0600
->@@ -113,10 +113,8 @@ processor_get_freq (
-> 
-> 	saved_mask = current->cpus_allowed;
-> 	set_cpus_allowed(current, cpumask_of_cpu(cpu));
->-	if (smp_processor_id() != cpu) {
->-		ret = -EAGAIN;
->+	if (smp_processor_id() != cpu)
-> 		goto migrate_end;
->-	}
-> 
-> 	/* processor_get_pstate gets the instantaneous frequency */
-> 	ret = processor_get_pstate(&value);
->@@ -125,7 +123,7 @@ processor_get_freq (
-> 		set_cpus_allowed(current, saved_mask);
-> 		printk(KERN_WARNING "get performance failed 
->with error %d\n",
-> 		       ret);
->-		ret = -EAGAIN;
->+		ret = 0;
-> 		goto migrate_end;
-> 	}
-> 	clock_freq = extract_clock(data, value, cpu);
->
->
->-
->To unsubscribe from this list: send the line "unsubscribe 
->linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+
