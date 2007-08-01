@@ -1,85 +1,35 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 07 Aug 2007 10:21:44 +0000
-Subject: Re: [patch] Clean up CPE handler registration
-Message-Id: <1186482104.3918.39.camel@kane-linux>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 01 Aug 2007 00:17:43 +0000
+Subject: Re: [PATCH] flush icache before set_pte take6. [3/4] add montecito
+Message-Id: <20070801091743.1ca10245.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200708031932.l73JWbcR143006281@clink.americas.sgi.com>
-In-Reply-To: <200708031932.l73JWbcR143006281@clink.americas.sgi.com>
+References: <20070731114007.b3c62cd3.kamezawa.hiroyu@jp.fujitsu.com>
+	<617E1C2C70743745A92448908E030B2A020E3B04@scsmsx411.amr.corp.intel.com>
+In-Reply-To: <617E1C2C70743745A92448908E030B2A020E3B04@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Zoltan.Menyhart@bull.net, Christoph Lameter <clameter@sgi.com>
 
-Hi,
+On Tue, 31 Jul 2007 09:39:58 -0700
+"Luck, Tony" <tony.luck@intel.com> wrote:
 
-I tested this patch on dig kernel and confirm the system boots
-fine and CPE is also fine.
+> +		} else if (family = 0x20)
+> +			memcpy(brand, "Montecito", 10);
+> 
+> NAK.
+> 
+> We don't really have names for the different cpu families. "Montecito"
+> is definitely not the right string to apply here (Montvale will also
+> have family = 0x20).  The old McKinley/Madison strings are intended
+> to provide some information for old processors where PAL did not
+> support PAL_BRAND_INFO.  All new cpus (from Montecito onward) will
+> support this PAL call, so there should be no need to add more code to
+> make names out of [family,model] tuples.
+> 
 
-Thanks,
-Kenji Kaneshige
+Ok, please ignore patch [3/4] and [4/4]. 
 
-
-2007-08-03 (金) の 14:32 -0500 に Russ Anderson さんは書きました:
-> [patch] Clean up CPE handler registration
-> 
-> Use local_vector_to_irq() instead of looping through all NR_IRQS.
-> This avoids registering the CPE handler on multiple irqs.  Only 
-> register if the irq is valid.  If no valid irq is found, print an
-> error message and set up polling.
-> 
-> This patch applies on top of Kenji Kaneshige's 
-> "Implement platform_irq_to_vector() for SN" patch.
-> 
-> 
-> Signed-off-by: Russ Anderson <rja@sgi.com>
-> 
-> ---
->  arch/ia64/kernel/mca.c |   34 +++++++++++++++++++---------------
->  1 file changed, 19 insertions(+), 15 deletions(-)
-> 
-> Index: test/arch/ia64/kernel/mca.c
-> =================================> --- test.orig/arch/ia64/kernel/mca.c	2007-08-02 17:53:11.189258072 -0500
-> +++ test/arch/ia64/kernel/mca.c	2007-08-03 13:55:19.481016222 -0500
-> @@ -2018,22 +2018,26 @@ ia64_mca_late_init(void)
->  
->  		if (cpe_vector >= 0) {
->  			/* If platform supports CPEI, enable the irq. */
-> -			cpe_poll_enabled = 0;
-> -			for (irq = 0; irq < NR_IRQS; ++irq)
-> -				if (irq_to_vector(irq) = cpe_vector) {
-> -					desc = irq_desc + irq;
-> -					desc->status |= IRQ_PER_CPU;
-> -					setup_irq(irq, &mca_cpe_irqaction);
-> -					ia64_cpe_irq = irq;
-> -				}
-> -			ia64_mca_register_cpev(cpe_vector);
-> -			IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n", __FUNCTION__);
-> -		} else {
-> -			/* If platform doesn't support CPEI, get the timer going. */
-> -			if (cpe_poll_enabled) {
-> -				ia64_mca_cpe_poll(0UL);
-> -				IA64_MCA_DEBUG("%s: CPEP setup and enabled.\n", __FUNCTION__);
-> +			irq = local_vector_to_irq(cpe_vector);
-> +			if (irq > 0) {
-> +				cpe_poll_enabled = 0;
-> +				desc = irq_desc + irq;
-> +				desc->status |= IRQ_PER_CPU;
-> +				setup_irq(irq, &mca_cpe_irqaction);
-> +				ia64_cpe_irq = irq;
-> +				ia64_mca_register_cpev(cpe_vector);
-> +				IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n",
-> +					__FUNCTION__);
-> +				return 0;
->  			}
-> +			printk(KERN_ERR "%s: Failed to find irq for CPE "
-> +					"interrupt handler, vector %d\n",
-> +					__FUNCTION__, cpe_vector);
-> +		}
-> +		/* If platform doesn't support CPEI, get the timer going. */
-> +		if (cpe_poll_enabled) {
-> +			ia64_mca_cpe_poll(0UL);
-> +			IA64_MCA_DEBUG("%s: CPEP setup and enabled.\n", __FUNCTION__);
->  		}
->  	}
->  #endif
+-Kame
 
