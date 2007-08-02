@@ -1,38 +1,34 @@
-From: Mike Habeck <habeck@sgi.com>
-Date: Mon, 13 Aug 2007 22:13:08 +0000
-Subject: [PATCH] SGI Altix : fix a force_interrupt bug on altix
-Message-Id: <20070813221307.6811.23995.29924@attica.americas.sgi.com>
+From: Horms <horms@verge.net.au>
+Date: Thu, 02 Aug 2007 02:09:47 +0000
+Subject: Re: [2/2] 2.6.23-rc1: known regressions
+Message-Id: <20070802020947.GD19198@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <46A477AF.4000309@googlemail.com> <46A47936.1090606@googlemail.com>
+In-Reply-To: <46A47936.1090606@googlemail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Michal Piotrowski <michal.k.k.piotrowski@gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, LKML <linux-kernel@vger.kernel.org>, linux-scsi@vger.kernel.org, James Bottomley <James.Bottomley@steeleye.com>, James Smart <James.Smart@emulex.com>, Adrian Bunk <bunk@stusta.de>, Jeremy Fitzhardinge <jeremy@goop.org>, Tilman Schmidt <tilman@imap.cc>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, sparclinux@vger.kernel.org, David Miller <davem@davemloft.net>, Roland McGrath <roland@redhat.com>
 
+> IA64
+> 
+> Subject         : Regression in serial console on ia64 after 2.6.22
+> References      : http://marc.info/?l=linux-ia64&m8483645914066&w=2
+> Last known good : ?
+> Submitter       : Horms <horms@verge.net.au>
+> Caused-By       : Yinghai Lu <Yinghai.Lu@Sun.COM>
+>                   commit 18a8bd949d6adb311ea816125ff65050df1f3f6e
+> Handled-By      : ?
+> Status          : unknown
 
-If the interrupt has been disabled, don't call the force_interrupt provider.
-Doing so can result in an infinite runaway interrupt loop.
+This was fixed by ensuring that machvex is set up before the
+serial console
 
-Signed-off-by: Mike Habeck <habeck@sgi.com>
+a07ee86205808d36973440e68c7277f9ed63b87f in Linus' tree
 
----
+-- 
+Horms
+  H: http://www.vergenet.net/~horms/
+  W: http://www.valinux.co.jp/en/
 
-This patch is based off the aegl/linux-2.6.git tree.
-
- arch/ia64/sn/kernel/irq.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-Index: linux-2.6/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/irq.c	2007-08-13 13:26:56.000000000 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/irq.c	2007-08-13 15:28:39.102454968 -0500
-@@ -398,7 +398,10 @@ sn_call_force_intr_provider(struct sn_ir
- 	struct sn_pcibus_provider *pci_provider;
- 
- 	pci_provider = sn_pci_provider[sn_irq_info->irq_bridge_type];
--	if (pci_provider && pci_provider->force_interrupt)
-+
-+	/* Don't force an interrupt if the irq has been disabled */
-+	if (!(irq_desc[sn_irq_info->irq_irq].status & IRQ_DISABLED) &&
-+	    pci_provider && pci_provider->force_interrupt)
- 		(*pci_provider->force_interrupt)(sn_irq_info);
- }
- 
