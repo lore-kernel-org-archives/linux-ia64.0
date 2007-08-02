@@ -1,39 +1,55 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Wed, 29 Aug 2007 08:01:55 +0000
-Subject: Re: [PATCH] ptrace RSE bug
-Message-Id: <20070829080155.0A9FD4D04CD@magilla.localdomain>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Thu, 02 Aug 2007 04:30:46 +0000
+Subject: [RFC][PATCH 2/2] Implement platform_irq_to_vector() for SN
+Message-Id: <1186029046.3875.17.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
-In-Reply-To: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Perhaps I'm misunderstanding what you mean, but isn't this what is dealt
-> with in ia64_poke: if you try and update a process's user RBS via
-> ptrace, it writes to the kernel RBS instead?  How do you manage to make
-> the user RBS newer - are you somehow updating it via shared memory?  (In
-> which case I would say don't do that ;))
+Implement platform_irq_to_vector() for SN platform.
 
-This is a step on the path to getting rid of the ia64_poke kludges in
-ptrace.  It has been under discussion for a long time (years now).  When
-this is in place, ia64's special code for PTRACE_PEEKDATA et al will go
-away and enable other desired cleanups in that code.  This also fixes the
-longstanding problem that debuggers cannot reliably use /proc/pid/mem to
-read all memory on ia64 (as they do on all other machines).  Because they
-do not get true data for user RBS regions, debuggers now special-case ia64
-and stick to using ptrace for memory access, crippling the performance of
-some debugger uses (especially gdb's gcore) compared to Linux on other machines.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-> IMHO copying the RBS back and forth seems like an awfully expensive
-> workaround for something that would better be handled at the time that
-> you actually need to write to the RBS.
+---
+ arch/ia64/sn/kernel/irq.c      |    5 +++++
+ include/asm-ia64/machvec_sn2.h |    2 ++
+ 2 files changed, 7 insertions(+)
 
-Been there, done that, that's how it is now and those who did it in the
-first place agreed it was a bad can of worms and this is the new plan.
+Index: linux-2.6.23-rc1/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6.23-rc1.orig/arch/ia64/sn/kernel/irq.c
++++ linux-2.6.23-rc1/arch/ia64/sn/kernel/irq.c
+@@ -256,6 +256,11 @@ struct irq_chip irq_type_sn = {
+ 	.set_affinity	= sn_set_affinity_irq
+ };
+ 
++ia64_vector sn_irq_to_vector(int irq)
++{
++	return (ia64_vector)irq;
++}
++
+ unsigned int sn_local_vector_to_irq(u8 vector)
+ {
+ 	return (CPU_VECTOR_TO_IRQ(smp_processor_id(), vector));
+Index: linux-2.6.23-rc1/include/asm-ia64/machvec_sn2.h
+=================================--- linux-2.6.23-rc1.orig/include/asm-ia64/machvec_sn2.h
++++ linux-2.6.23-rc1/include/asm-ia64/machvec_sn2.h
+@@ -35,6 +35,7 @@ extern ia64_mv_send_ipi_t sn2_send_IPI;
+ extern ia64_mv_timer_interrupt_t sn_timer_interrupt;
+ extern ia64_mv_global_tlb_purge_t sn2_global_tlb_purge;
+ extern ia64_mv_tlb_migrate_finish_t	sn_tlb_migrate_finish;
++extern ia64_mv_irq_to_vector sn_irq_to_vector;
+ extern ia64_mv_local_vector_to_irq sn_local_vector_to_irq;
+ extern ia64_mv_pci_get_legacy_mem_t sn_pci_get_legacy_mem;
+ extern ia64_mv_pci_legacy_read_t sn_pci_legacy_read;
+@@ -104,6 +105,7 @@ extern ia64_mv_pci_fixup_bus_t		sn_pci_f
+ #define platform_readw_relaxed		__sn_readw_relaxed
+ #define platform_readl_relaxed		__sn_readl_relaxed
+ #define platform_readq_relaxed		__sn_readq_relaxed
++#define platform_irq_to_vector		sn_irq_to_vector
+ #define platform_local_vector_to_irq	sn_local_vector_to_irq
+ #define platform_pci_get_legacy_mem	sn_pci_get_legacy_mem
+ #define platform_pci_legacy_read	sn_pci_legacy_read
 
 
-
-Thanks,
-Roland
