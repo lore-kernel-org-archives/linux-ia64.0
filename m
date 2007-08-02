@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 02 Aug 2007 05:38:39 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 02 Aug 2007 07:09:56 +0000
 Subject: RE: ia64 mmu_gather question
-Message-Id: <617E1C2C70743745A92448908E030B2A0211ADDF@scsmsx411.amr.corp.intel.com>
+Message-Id: <1186038596.5495.588.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1186026055.5495.585.camel@localhost.localdomain>
 In-Reply-To: <1186026055.5495.585.camel@localhost.localdomain>
@@ -10,27 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Answers to select questions (that I can do off the top of my head).
+On Wed, 2007-08-01 at 22:38 -0700, Luck, Tony wrote:
+> No locking.  But we do have race detection.  After we chase the
+> PGD>PUD>PMD>PTE
+> pointers we insert the TLB entry.  Then we retrace the pointer chain
+> and
+> make sure that the pte we find is still the same.  If it isn't, then
+> we
+> purge the entry we just inserted and go for a full page fault.
+> 
+> Time to tell bed-time stories to my daughter.  More tomorrow (if
+> someone
+> else doesn't fill in the rest of the answers before I get back to
+> this).
 
-> In addition, however, I do have a question. I haven't tracked every bit
-> of MM code in ia64 land yet and I'm wondering how are the page table
-> translations faulted in ? via a SW miss handler ? Or some HW handler ?
+Ok, that's what I think I understood from the asm. However, what
+prevents the very unlikely race where you insert a stale pgtable
+mapping entry, and before you backtrack and remove it, another
+CPU accesses the stale PTE ?
 
-The page tables translations are inserted in s/w (by the VHPT miss handler
-in arch/ia64/kernel/ivt.S).  Essentially the first TLB miss in a PMD range
-will end up here and will insert both the page mapping that we actually
-want, plus the mapping for the page table (so that a subsequent TLB miss on
-this address, or another address in the PMD range) can be serviced by the
-h/w VHPT walker (for as long as the page table mapping survives in the
-TLB).
+I'm tempted, while at working on the mmu_gather, to add a generic
+mechanism for putting the page table quicklist pages in there too.
+Though that would only help for archs that 1) have the problem
+(typically are SW loaded in a way or another) and 2) use an IPI for SMP
+flush (not ppc64 for example).
 
-> Is there some locking ?
-No locking.  But we do have race detection.  After we chase the PGD>PUD>PMD>PTE
-pointers we insert the TLB entry.  Then we retrace the pointer chain and
-make sure that the pte we find is still the same.  If it isn't, then we
-purge the entry we just inserted and go for a full page fault.
+Cheers,
+Ben.
 
-Time to tell bed-time stories to my daughter.  More tomorrow (if someone
-else doesn't fill in the rest of the answers before I get back to this).
-
--Tony
