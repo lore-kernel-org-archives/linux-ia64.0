@@ -1,37 +1,41 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Tue, 28 Aug 2007 19:05:10 +0000
-Subject: Re: [PATCH 4/4] add SGI Altix cross partition memory (XPMEM) driver
-Message-Id: <20070828190510.GA3256@infradead.org>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Thu, 02 Aug 2007 04:27:51 +0000
+Subject: [RFC][PATCH 0/2] SN platform needs platform_irq_to_vector?
+Message-Id: <1186028871.3875.12.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070827155622.GA25589@sgi.com> <20070827164112.GF25589@sgi.com> <20070828180235.GB32585@infradead.org> <20070828190043.GB7140@lnx-holt.americas.sgi.com>
-In-Reply-To: <20070828190043.GB7140@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Robin Holt <holt@sgi.com>
-Cc: Christoph Hellwig <hch@infradead.org>, Dean Nelson <dcn@sgi.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, akpm@linux-foundation.org, jes@sgi.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 28, 2007 at 02:00:43PM -0500, Robin Holt wrote:
-> The ioctl is sort of historical.  IIRC, in ProPack 3 (RHEL4 based 2.4
-> kernel), we added system calls.  When the community started making noise
-> about system calls being bad, we went to a device special file with a
-> read/write (couldn't get the needed performance from the ioctl() interface
-> which used to acquire the BKL).  Now that the community fixed the ioctl
-> issues, we went to using an ioctl, but are completely open to change.
->=20
-> If you want to introduce system calls, we would expect to need, IIRC, 8.
-> We also pondered an xpmem filesystem today.  It really felt wrong,
-> but we could pursue that as an alternative.
+Hi Jes-san, Russ-san, Christoph-san and SN platform developers,
 
-The problem is not ioctls per s=E6, but the kind of operation you
-export.
+I glanced over the SN code, and I found SN platform doesn't have SN
+specific irq_to_vector() function, though it has SN specific
+local_vector_to_irq() function. I guess it was OK because maybe SN
+platform depends on irq = vector and old generic irq_to_vector() was
+just returning the same value as irq.
 
-> What is the correct direction to go with this?  get_user_pages() does
-> currently require the task_struct.  Are you proposing we develop a way
-> to fault pages without the task_struct of the owning process/thread group?
+The irq_to_vector() function, however, has been changed by vector
+domain support, and currently it can return the different value from
+irq, even when VECTOR_DOMAIN_PERCPU is not enabled. This can happen
+when an interrupt thorough I/O SAPIC is unregistered and another
+interupt is registered. So if my guess (SN platform depends on irq =
+vector) is true, something problem might happen on SN platform when
+PCI hotplugging or driver reloading.
 
-Stop trying to mess with vmas and get_user_pages on processes entirely.
-The only region of virtual memory a driver can deal with is the one it
-got a mmap request for, or when using get_user_pages the one it's got
-a read/write request for.  You're doing a worse variant of the rdma page
-pinning scheme we're rejected countless times.
+If it is true that SN platform depends on irq = vector, we need to
+implement SN specific irq_to_vector() that returns the same value as
+irq, I think. I made sample patches to implement platform specific
+irq_to_vector() as follows. Note that [PATCH 2/2] is not tested yet
+because I don't have any SN platform unfortunately.
+
+    [PATCH 1/2] Add base support for platform_irq_to_vector()
+    [PATCH 2/2] Implement platform_irq_to_vector() for SN
+
+Could you give me comments?
+
+Thanks,
+Kenji Kaneshige
+
+
