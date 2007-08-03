@@ -1,7 +1,7 @@
-From: John Keller <jpk@sgi.com>
-Date: Thu, 02 Aug 2007 19:32:55 +0000
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Fri, 03 Aug 2007 05:22:40 +0000
 Subject: Re: [RFC][PATCH 0/2] SN platform needs platform_irq_to_vector?
-Message-Id: <200708021932.l72JWuAi449202@fcbayern.americas.sgi.com>
+Message-Id: <1186118560.3985.56.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1186028871.3875.12.camel@kane-linux>
 In-Reply-To: <1186028871.3875.12.camel@kane-linux>
@@ -10,100 +10,108 @@ Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+2007-08-02 (木) の 09:50 -0500 に Russ Anderson さんは書きました: 
+> There seems to be an issue with this for CPEs.  The net result is
+> when there is a correctable error, the interrupt does not get handled
+> resulting in this message:
 > 
-> Hi,
+> -----------------------------------------------------------------
+> irq 30, desc: a000000100c37000, depth: 1, count: 0, unhandled: 0
+> ->handle_irq():  a0000001009a6a50, __end_rodata+0x5010/0x225c0
+> ->chip(): a000000100dfee80, irq_type_sn+0x0/0x80
+> ->action(): 0000000000000000
+>   IRQ_DISABLED set
+> Unexpected irq vector 0x1e on CPU 0!
+> -----------------------------------------------------------------
 > 
-> This is FYI.
+> The CPE handler should be on irq 0x1e (30).  See IA64_CPE_VECTOR .
+> In ia64_mca_late_init() the line
 > 
-> If VECTOR_DOMAIN_PERCPU is NOT enabled:
+>            if (irq_to_vector(irq) = cpe_vector) {
 > 
+> is never true, so setup_irq(irq, &mca_cpe_irqaction); never gets called.
+> 
+
+Could you please check if [PATCH 2/2] is applied on your kernel again?
+
+With [PATCH 2/2], irq_to_vector(irq) just returns the same value as
+vector. So the line
+
+	for (irq = 0; irq < NR_IRQS; ++irq)
+		if (irq_to_vector(irq) = cpe_vector) {
+
+should be true if cpe_vector is within 0 to NR_IRQ-1.
+
+I'm sorry but the important thing was missing in my "FYI".
+I said like folows:
+
 > The "irq = vector" is always true in the following cases:
->     - reserve_irq_vector(), which is used only by SN
->     - create_irq() used on the system that has NO I/O SAPIC
-
-Could you say a bit more about this case. I see create_irq()
-calling find_unassigned_vector() and find_unassigned_irq().
-How is "irq = vector" guaranteed to be always true in this case?
-
-John
-
-
-
->     - assign_irq_vector() with AUTO_ASSIGN specified
+>     ...
 >     - Vectors outside FIRST_DEVICE_VECTOR to LAST_DEVICE_VECTOR
-> 
-> The "irq = vector" is not always true in the folliwng cases:
->     - create_irq() used on the system that has I/O SAPICs.
->     - assign_irq_vector() with the value other than AUTO_ASSIGN
->       specified on the system has I/O SAPICs.
-> 
-> And it is not ensured that those are true even in the future.
-> 
-> Yasuaki, could you check if it is correct?
-> 
-> Thanks,
-> Kenji Kaneshige
-> 
-> 
-> 
-> 2007-08-02 (木) の 08:26 -0500 に John Keller さんは書きました:
-> > Yes, we'll take a look at it.
-> > 
-> > John
-> > 
-> > 
-> > > 
-> > > Hi Kenji-san
-> > > 
-> > > I believe we need this property, but I am not 100% sure, so I am
-> > > going to forward your patch to our team who maintain the IRQ code
-> > > for Altix.
-> > > 
-> > > Mike, Aaron or John, would one of you have time to take a look at
-> > > this?
-> > > 
-> > > Thanks,
-> > > Jes
-> > > 
-> > > 
-> > > Kenji Kaneshige wrote:
-> > > > Hi Jes-san, Russ-san, Christoph-san and SN platform developers,
-> > > > 
-> > > > I glanced over the SN code, and I found SN platform doesn't have SN
-> > > > specific irq_to_vector() function, though it has SN specific
-> > > > local_vector_to_irq() function. I guess it was OK because maybe SN
-> > > > platform depends on irq = vector and old generic irq_to_vector() was
-> > > > just returning the same value as irq.
-> > > > 
-> > > > The irq_to_vector() function, however, has been changed by vector
-> > > > domain support, and currently it can return the different value from
-> > > > irq, even when VECTOR_DOMAIN_PERCPU is not enabled. This can happen
-> > > > when an interrupt thorough I/O SAPIC is unregistered and another
-> > > > interupt is registered. So if my guess (SN platform depends on irq =
-> > > > vector) is true, something problem might happen on SN platform when
-> > > > PCI hotplugging or driver reloading.
-> > > > 
-> > > > If it is true that SN platform depends on irq = vector, we need to
-> > > > implement SN specific irq_to_vector() that returns the same value as
-> > > > irq, I think. I made sample patches to implement platform specific
-> > > > irq_to_vector() as follows. Note that [PATCH 2/2] is not tested yet
-> > > > because I don't have any SN platform unfortunately.
-> > > > 
-> > > >     [PATCH 1/2] Add base support for platform_irq_to_vector()
-> > > >     [PATCH 2/2] Implement platform_irq_to_vector() for SN
-> > > > 
-> > > > Could you give me comments?
-> > > > 
-> > > > Thanks,
-> > > > Kenji Kaneshige
-> > > > 
-> > > 
-> > > 
-> > 
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+
+But if the irq is not initialized by __bind_irq_vector() through
+bind_irq_vector() or register_percpu_irq(), irq_to_vector(irq) returns 
+IRQ_VECTOR_UNASSIGNED, which is zero.
+
+So if [PATCH 2/2] was not applied, irq_to_vector(IA64_CPE_VECTOR)
+may returns zero and "irq_to_vector(irq) = cpe_vector" would never
+be true.
+
+BTW, as you pointed out in the other mail, sn_irq_to_vector() will
+truncate any IRQ > 255. Because of this, "if (irq_to_vector(irq) = 
+cpe_vector)" check will true several times. But I don't know if
+this is the cause of CPE problem, becasue CPE is still fine on my
+dig64 kernel even when the following debug patch applied.
+
+Thanks,
+Kenji Kaneshige
+
+
+---
+ arch/ia64/kernel/irq.c    |    6 ++++--
+ include/asm-ia64/hw_irq.h |    6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+Index: linux-2.6.23-rc1/arch/ia64/kernel/irq.c
+=================================--- linux-2.6.23-rc1.orig/arch/ia64/kernel/irq.c
++++ linux-2.6.23-rc1/arch/ia64/kernel/irq.c
+@@ -35,12 +35,14 @@ void ack_bad_irq(unsigned int irq)
+ #ifdef CONFIG_IA64_GENERIC
+ ia64_vector __ia64_irq_to_vector(int irq)
+ {
+-	return irq_cfg[irq].vector;
++	return (ia64_vector)irq;
++	//return irq_cfg[irq].vector;
+ }
+ 
+ unsigned int __ia64_local_vector_to_irq (ia64_vector vec)
+ {
+-	return __get_cpu_var(vector_irq)[vec];
++	return (unsigned int)vec;
++	//return __get_cpu_var(vector_irq)[vec];
+ }
+ #endif
+ 
+Index: linux-2.6.23-rc1/include/asm-ia64/hw_irq.h
+=================================--- linux-2.6.23-rc1.orig/include/asm-ia64/hw_irq.h
++++ linux-2.6.23-rc1/include/asm-ia64/hw_irq.h
+@@ -126,13 +126,15 @@ extern irq_desc_t irq_desc[NR_IRQS];
+ #ifndef CONFIG_IA64_GENERIC
+ static inline ia64_vector __ia64_irq_to_vector(int irq)
+ {
+-	return irq_cfg[irq].vector;
++	return (ia64_vector)irq;
++	//return irq_cfg[irq].vector;
+ }
+ 
+ static inline unsigned int
+ __ia64_local_vector_to_irq (ia64_vector vec)
+ {
+-	return __get_cpu_var(vector_irq)[vec];
++	return (unsigned int)vec;
++	//return __get_cpu_var(vector_irq)[vec];
+ }
+ #endif
+ 
+
 
