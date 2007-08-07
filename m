@@ -1,200 +1,127 @@
-From: Peter Chubb <peterc@chubb.wattle.id.au>
-Date: Tue, 21 Aug 2007 03:51:45 +0000
-Subject: Re: Enable early console for Ski simulator
-Message-Id: <87tzqtk0j2.wl%peterc@chubb.wattle.id.au>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Tue, 07 Aug 2007 08:24:58 +0000
+Subject: [BUGFIX][PATCH] flush icache before set_pte() in ia64 take7, [0/2]
+Message-Id: <20070807172458.59931ef2.kamezawa.hiroyu@jp.fujitsu.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87tzr0kr5g.wl%peterc@chubb.wattle.id.au>
-In-Reply-To: <87tzr0kr5g.wl%peterc@chubb.wattle.id.au>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, "tony.luck@intel.com" <tony.luck@intel.com>, "Zoltan.Menyhart@bull.net" <Zoltan.Menyhart@bull.net>, "kamezawa.hiroyu@jp.fujitsu.com" <kamezawa.hiroyu@jp.fujitsu.com>
+
+This is a multi-part message in MIME format.
+
+--Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
 
+This patch set is for fixing SIGILL trouble in NFS by adding
+sync_icache_dcache() before set_pte(). (see patches for detail)
+Tested with my NUMA box and works well.
 
-This patch cleans up the `enable early console for SKI' patch, and
-1. potentially allows the gensparse_defconfig to work again.
-   (there are other problems running a generic kernel on Ski)
-2. fixes the `console registered twice' problem. 
-3. Cleans up the code by moving the `extern hpsim_cons' declaration to
-   a new asm/hpsim.h file.
+Chanves V6 -> V7
+- dropped add-on patches for cpu family handling.
 
+For this post, I wrote an easy test for this SIGILL/NFS problem.
+Please verify.
 
-Thanks to Jes for comments.
+This is my result.
+==
+Distro: RHEL5.
+CPU: Montecito 1.4GHz, 4 sockets, 8core.
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+NFS + Montecito + 2.6.23-rc2
+23 SIGILLS in 1000 trial
 
- arch/ia64/hp/sim/hpsim_console.c |   15 ++++++++++++++-
- arch/ia64/hp/sim/hpsim_setup.c   |    9 ++-------
- arch/ia64/kernel/setup.c         |    8 ++------
- include/asm-ia64/hpsim.h         |   10 ++++++++++
- 4 files changed, 28 insertions(+), 14 deletions(-)
+ext3 + Montecito + 2.6.23-rc2
+0 erros in 1000 trial
 
-Index: linux-2.6-git/arch/ia64/hp/sim/hpsim_console.c
-=================================--- linux-2.6-git.orig/arch/ia64/hp/sim/hpsim_console.c	2007-08-21 13:04:47.000000000 +1000
-+++ linux-2.6-git/arch/ia64/hp/sim/hpsim_console.c	2007-08-21 13:04:52.000000000 +1000
-@@ -14,28 +14,29 @@
- #include <linux/tty.h>
- #include <linux/kdev_t.h>
- #include <linux/console.h>
- 
- #include <asm/delay.h>
- #include <asm/irq.h>
- #include <asm/pal.h>
- #include <asm/machvec.h>
- #include <asm/pgtable.h>
- #include <asm/sal.h>
-+#include <asm/hpsim.h>
- 
- #include "hpsim_ssc.h"
- 
- static int simcons_init (struct console *, char *);
- static void simcons_write (struct console *, const char *, unsigned);
- static struct tty_driver *simcons_console_device (struct console *, int *);
- 
--struct console hpsim_cons = {
-+static struct console hpsim_cons = {
- 	.name =		"simcons",
- 	.write =	simcons_write,
- 	.device =	simcons_console_device,
- 	.setup =	simcons_init,
- 	.flags =	CON_PRINTBUFFER,
- 	.index =	-1,
- };
- 
- static int
- simcons_init (struct console *cons, char *options)
-@@ -55,10 +56,22 @@ simcons_write (struct console *cons, con
- 		  ia64_ssc('\r', 0, 0, 0, SSC_PUTCHAR);
- 	}
- }
- 
- static struct tty_driver *simcons_console_device (struct console *c, int *index)
- {
- 	extern struct tty_driver *hp_simserial_driver;
- 	*index = c->index;
- 	return hp_simserial_driver;
- }
-+
-+int simcons_register(void)
-+{
-+	if (!ia64_platform_is("hpsim"))
-+		return 1;
-+
-+	if (hpsim_cons.flags & CON_ENABLED)
-+		return 1;
-+
-+	register_console(&hpsim_cons);
-+	return 0;
-+}
-Index: linux-2.6-git/arch/ia64/hp/sim/hpsim_setup.c
-=================================--- linux-2.6-git.orig/arch/ia64/hp/sim/hpsim_setup.c	2007-08-21 13:04:47.000000000 +1000
-+++ linux-2.6-git/arch/ia64/hp/sim/hpsim_setup.c	2007-08-21 13:04:52.000000000 +1000
-@@ -14,38 +14,33 @@
- #include <linux/root_dev.h>
- #include <linux/string.h>
- #include <linux/types.h>
- 
- #include <asm/delay.h>
- #include <asm/irq.h>
- #include <asm/pal.h>
- #include <asm/machvec.h>
- #include <asm/pgtable.h>
- #include <asm/sal.h>
-+#include <asm/hpsim.h>
- 
- #include "hpsim_ssc.h"
- 
- void
- ia64_ssc_connect_irq (long intr, long irq)
- {
- 	ia64_ssc(intr, irq, 0, 0, SSC_CONNECT_INTERRUPT);
- }
- 
- void
- ia64_ctl_trace (long on)
- {
- 	ia64_ssc(on, 0, 0, 0, SSC_CTL_TRACE);
- }
- 
- void __init
- hpsim_setup (char **cmdline_p)
- {
- 	ROOT_DEV = Root_SDA1;		/* default to first SCSI drive */
- 
--#ifdef CONFIG_HP_SIMSERIAL_CONSOLE
--	{
--		extern struct console hpsim_cons;
--		if (ia64_platform_is("hpsim"))
--			register_console(&hpsim_cons);
--	}
--#endif
-+	simcons_register();
- }
-Index: linux-2.6-git/include/asm-ia64/hpsim.h
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6-git/include/asm-ia64/hpsim.h	2007-08-21 13:04:52.000000000 +1000
-@@ -0,0 +1,10 @@
-+#ifndef _ASMIA64_HPSIM_H
-+#define _ASMIA64_HPSIM_H
-+
-+#ifndef CONFIG_HP_SIMSERIAL_CONSOLE
-+static inline int simcons_register(void) { return 1; }
-+#else
-+int simcons_register(void);
-+#endif
-+
-+#endif
-Index: linux-2.6-git/arch/ia64/kernel/setup.c
-=================================--- linux-2.6-git.orig/arch/ia64/kernel/setup.c	2007-08-21 13:13:46.000000000 +1000
-+++ linux-2.6-git/arch/ia64/kernel/setup.c	2007-08-21 13:15:19.000000000 +1000
-@@ -53,20 +53,21 @@
- #include <asm/page.h>
- #include <asm/patch.h>
- #include <asm/pgtable.h>
- #include <asm/processor.h>
- #include <asm/sal.h>
- #include <asm/sections.h>
- #include <asm/setup.h>
- #include <asm/smp.h>
- #include <asm/system.h>
- #include <asm/unistd.h>
-+#include <asm/hpsim.h>
- 
- #if defined(CONFIG_SMP) && (IA64_CPU_SIZE > PAGE_SIZE)
- # error "struct cpuinfo_ia64 too big!"
- #endif
- 
- #ifdef CONFIG_SMP
- unsigned long __per_cpu_offset[NR_CPUS];
- EXPORT_SYMBOL(__per_cpu_offset);
- #endif
- 
-@@ -382,27 +383,22 @@ early_console_setup (char *cmdline)
- 	{
- 		extern int sn_serial_console_early_setup(void);
- 		if (!sn_serial_console_early_setup())
- 			earlycons++;
- 	}
- #endif
- #ifdef CONFIG_EFI_PCDP
- 	if (!efi_setup_pcdp_console(cmdline))
- 		earlycons++;
- #endif
--#ifdef CONFIG_HP_SIMSERIAL_CONSOLE
--	{
--		extern struct console hpsim_cons;
--		register_console(&hpsim_cons);
-+	if (!simcons_register())
- 		earlycons++;
--	}
--#endif
- 
- 	return (earlycons) ? 0 : -1;
- }
- 
- static inline void
- mark_bsp_online (void)
- {
- #ifdef CONFIG_SMP
- 	/* If we register an early console, allow CPU 0 to printk */
- 	cpu_set(smp_processor_id(), cpu_online_map);
+NFS + Itanium2(model2 revision2) + 2.6.23-rc2
+0 errors in 1000 trial
+
+NFS + Montecito + 2.6.23-rc2 + patch.
+0 errors in 1000 trial
+==
+
+Thanks,
+-Kame
+
+--Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI
+Content-Type: application/x-gtar;
+ name="nfstest.tgz"
+Content-Disposition: attachment;
+ filename="nfstest.tgz"
+Content-Transfer-Encoding: base64
+
+H4sIAAgxuEYAA+3Wb28TRx4A4Lz1foppyrUO5I+dOPZdUzghSNvogKsKlaprkbW1J2SLY1vrTQil
+fPebtQM4OTikE6Gt7vm9yD47OzszOzO/ccaHsyrOqq2VK4xWil6vd35tn1+359fzWGm3urvd1k5r
+p7O70mpv9zrtlbB7lYN6FSezKi9DWHmaH8df82f5u+q97/mfNMbn638/fxoPi1G8ij7qBe52u+9c
+/53d7vn6p3Xf2Unr3+m00/q3rmIwl+P/fP3v3Ln5ZDDI7nx17/bXD8PNsPEky0ejL0K9KaZ5VcVy
+nGWjvHwS+/EsDjYHX4RBGfMq9pcKp6Ossbn11vKldhaNbg7CcnNZ41rzzp21kP7Oh7AWNibLnb/t
+nbAxmlZHqbdhlg1GMR9/kTXK47BxuKg8Wa58obHs957tP168yv/FNF9NH+/J/3a32zvP/3Z7p9Op
+87/V68j/jxGfFuPB6GQYw5ezalhMNo9uZW+KzrPsYuGseDLOR5fKquGo+PlS2eAozl/N4tk8k08n
+xXApNZv1/dpedt5J//ikimf9Ksyv6ST69tE33+3fvtu///2j/R/6Bw8OHh3cvnfwr/3v9rLs02H6
+sRrHcP/2D/1FtYeNdjfL5l1cL0/Gs+aCqbe17EXWGExP+rNY1c3ns6d7WWM0GT8JqcbNcL1Z+/pa
+qprK+/07337fT738s/lZXXXtddnD/UfNYrgeXhfPP7BuNT9Mgymq583WepgVv8bJYfN1f2tLL2xd
+D8/yogqHkzLUu64K17eyxsXvH00GT1PPtetXLj48GV96vDSb6fbl+QSkFSpGo/5RPh6OYtksxlVd
+NJ+Hw2mZbg+bacFiWa6H1YcHXx/cuxfKOIjFaRyGTz5ZrRuOZ0XVbC/arN8/zovxvKHU4WA9DI5S
+ztSTe/rj43m79aNiabxVSPhxaXkev5nzy8WLxgZ7i1bSzM3SquTVpGjOO2g/TsNIsz3fds3FeNcv
+feN/TtWliUpfnia9WaSWW3uhCF/O+0m6cWMtpPE30rCKx+lp/RGvm1r8ojU/q7+leLweHnxfd11v
+r7Sq8zfqtl+mwY1inM7n630r9u5hLPX7yyTN9nKn8xkoY3WS0qhVL8oHy/9X5//y7+sHa/w8/tv5
+3+l0et105i/O/1anlf4XbLV3t3e2nf8fI04no7xK//eHOvfO9rK3HtLZi/rp87R9n6edexZuhDYz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
+MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzO/zS+zlSuM8eGsirNq
+67v923fv719NH60U3U5npdXupei+uZ7H7nZnpd3q7nZb273ebis9b3V22iuhdTXDuRgnsyovQ/gY
+Xf0R4+HB1wf37oUyTsvJ8GQQyzAZh/uTcRUHRTXZevDVwyxrb4bB5HhajGKojopZmMUq/Pw8/OU4
+fxpDPhpl25thOsoHMXxe76VpXlWxHH8e8vFwUdJPu2xzdvR53XbNbGczlCfjsPQsy5ZuQuokH/6S
+liYOQzUJfw2D6UmYPU/3x6F5EE5mcbi5lh0chueTk3CUn8YwyssnafCfhslhXXm2nkYU81lMX/as
+LKqYZSGEpdGlNjduXSh4/epmlj2af+ZRHI1CMT6dPI2z0E4bNVRlkY9m8w9LMzYpq9nitViWkzK9
+t/GP/Dheab5+6HiV//PZnw3KYlqlBfiwfdQ53tvdfWf+d3Z2X+V/p7e7nZ5vd3Z35P/HiE8/2fq5
+GG/VCTiMg5RFMWwUKd1PxtXNessvl853+c1Wlj07qs+CH8O1eb2w8aQKrfB4LwwnWSMOjiahHW6F
+rXSiDLZS0m6dHm8Ny8m0P8gHR3FWJ+I8Nrcu5OPr8jJWN6/9PWsUh3UX6S5sjOOig+oojrNGYzGQ
+a/PLjfrnctHr6n5dsJo1DoussfiExQg36jqLKncn47h6PvBsmG6ybPFgnseLBsKi5exPlcj/Y7zK
+/0EZ8yr258doP57FweZ09KH6WOR/b3Httc+v22/yf7t1nv+tTmt+TnR77Y+d/0/Tyf1r/ix/V733
+Pf+TRsr/k1k5PwOmsRxl2WQax81vbj+4e29/PazeuLW0Iwara+G338KwiGF1kI/HkyrUtcOFKntZ
+Ni2LdCos2girp5NRXtXnRV14tvfTOFW5XKMYLjXSrO/X3lLvRX3zfNHCteJma+/8IGpeK8KX4W91
+rIUXWePiWz9Vb/6Znr/auFbcuFH/X32x3sv5w997PYQQQoiPEf8GI6L1KQBwEgA=
+
+--Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI--
+
