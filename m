@@ -1,127 +1,42 @@
 From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Tue, 07 Aug 2007 08:24:58 +0000
-Subject: [BUGFIX][PATCH] flush icache before set_pte() in ia64 take7, [0/2]
-Message-Id: <20070807172458.59931ef2.kamezawa.hiroyu@jp.fujitsu.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI"
+Date: Tue, 07 Aug 2007 08:26:48 +0000
+Subject: [BUGFIX][PATCH] flush icache before set_pte() in ia64 take7, [1/2]
+Message-Id: <20070807172648.4590c3dd.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, "tony.luck@intel.com" <tony.luck@intel.com>, "Zoltan.Menyhart@bull.net" <Zoltan.Menyhart@bull.net>, "kamezawa.hiroyu@jp.fujitsu.com" <kamezawa.hiroyu@jp.fujitsu.com>
-
-This is a multi-part message in MIME format.
-
---Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI
-Content-Type: text/plain; charset=US-ASCII
+References: <20070807172458.59931ef2.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20070807172458.59931ef2.kamezawa.hiroyu@jp.fujitsu.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "tony.luck@intel.com" <tony.luck@intel.com>, "Zoltan.Menyhart@bull.net" <Zoltan.Menyhart@bull.net>
 
-This patch set is for fixing SIGILL trouble in NFS by adding
-sync_icache_dcache() before set_pte(). (see patches for detail)
-Tested with my NUMA box and works well.
+In migration, a new page should be cache flushed before set_pte()
+in some archs which have virtually-tagged cache..
 
-Chanves V6 -> V7
-- dropped add-on patches for cpu family handling.
+V6 -> V7:
+   * adjusted against .2.6.23-rc2.
 
-For this post, I wrote an easy test for this SIGILL/NFS problem.
-Please verify.
+V5 -> V6:
+   * no changes (added new patches to the patch set)
+V4 -> V5:
+   * changed flush_icache_page to flush_cache_page.
 
-This is my result.
-==
-Distro: RHEL5.
-CPU: Montecito 1.4GHz, 4 sockets, 8core.
+Signed-off-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-NFS + Montecito + 2.6.23-rc2
-23 SIGILLS in 1000 trial
+---
+ mm/migrate.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-ext3 + Montecito + 2.6.23-rc2
-0 erros in 1000 trial
-
-NFS + Itanium2(model2 revision2) + 2.6.23-rc2
-0 errors in 1000 trial
-
-NFS + Montecito + 2.6.23-rc2 + patch.
-0 errors in 1000 trial
-==
-
-Thanks,
--Kame
-
---Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI
-Content-Type: application/x-gtar;
- name="nfstest.tgz"
-Content-Disposition: attachment;
- filename="nfstest.tgz"
-Content-Transfer-Encoding: base64
-
-H4sIAAgxuEYAA+3Wb28TRx4A4Lz1foppyrUO5I+dOPZdUzghSNvogKsKlaprkbW1J2SLY1vrTQil
-fPebtQM4OTikE6Gt7vm9yD47OzszOzO/ccaHsyrOqq2VK4xWil6vd35tn1+359fzWGm3urvd1k5r
-p7O70mpv9zrtlbB7lYN6FSezKi9DWHmaH8df82f5u+q97/mfNMbn638/fxoPi1G8ij7qBe52u+9c
-/53d7vn6p3Xf2Unr3+m00/q3rmIwl+P/fP3v3Ln5ZDDI7nx17/bXD8PNsPEky0ejL0K9KaZ5VcVy
-nGWjvHwS+/EsDjYHX4RBGfMq9pcKp6Ossbn11vKldhaNbg7CcnNZ41rzzp21kP7Oh7AWNibLnb/t
-nbAxmlZHqbdhlg1GMR9/kTXK47BxuKg8Wa58obHs957tP168yv/FNF9NH+/J/3a32zvP/3Z7p9Op
-87/V68j/jxGfFuPB6GQYw5ezalhMNo9uZW+KzrPsYuGseDLOR5fKquGo+PlS2eAozl/N4tk8k08n
-xXApNZv1/dpedt5J//ikimf9Ksyv6ST69tE33+3fvtu///2j/R/6Bw8OHh3cvnfwr/3v9rLs02H6
-sRrHcP/2D/1FtYeNdjfL5l1cL0/Gs+aCqbe17EXWGExP+rNY1c3ns6d7WWM0GT8JqcbNcL1Z+/pa
-qprK+/07337fT738s/lZXXXtddnD/UfNYrgeXhfPP7BuNT9Mgymq583WepgVv8bJYfN1f2tLL2xd
-D8/yogqHkzLUu64K17eyxsXvH00GT1PPtetXLj48GV96vDSb6fbl+QSkFSpGo/5RPh6OYtksxlVd
-NJ+Hw2mZbg+bacFiWa6H1YcHXx/cuxfKOIjFaRyGTz5ZrRuOZ0XVbC/arN8/zovxvKHU4WA9DI5S
-ztSTe/rj43m79aNiabxVSPhxaXkev5nzy8WLxgZ7i1bSzM3SquTVpGjOO2g/TsNIsz3fds3FeNcv
-feN/TtWliUpfnia9WaSWW3uhCF/O+0m6cWMtpPE30rCKx+lp/RGvm1r8ojU/q7+leLweHnxfd11v
-r7Sq8zfqtl+mwY1inM7n630r9u5hLPX7yyTN9nKn8xkoY3WS0qhVL8oHy/9X5//y7+sHa/w8/tv5
-3+l0et105i/O/1anlf4XbLV3t3e2nf8fI04no7xK//eHOvfO9rK3HtLZi/rp87R9n6edexZuhDYz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMz
-MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzO/zS+zlSuM8eGsirNq
-67v923fv719NH60U3U5npdXupei+uZ7H7nZnpd3q7nZb273ebis9b3V22iuhdTXDuRgnsyovQ/gY
-Xf0R4+HB1wf37oUyTsvJ8GQQyzAZh/uTcRUHRTXZevDVwyxrb4bB5HhajGKojopZmMUq/Pw8/OU4
-fxpDPhpl25thOsoHMXxe76VpXlWxHH8e8vFwUdJPu2xzdvR53XbNbGczlCfjsPQsy5ZuQuokH/6S
-liYOQzUJfw2D6UmYPU/3x6F5EE5mcbi5lh0chueTk3CUn8YwyssnafCfhslhXXm2nkYU81lMX/as
-LKqYZSGEpdGlNjduXSh4/epmlj2af+ZRHI1CMT6dPI2z0E4bNVRlkY9m8w9LMzYpq9nitViWkzK9
-t/GP/Dheab5+6HiV//PZnw3KYlqlBfiwfdQ53tvdfWf+d3Z2X+V/p7e7nZ5vd3Z35P/HiE8/2fq5
-GG/VCTiMg5RFMWwUKd1PxtXNessvl853+c1Wlj07qs+CH8O1eb2w8aQKrfB4LwwnWSMOjiahHW6F
-rXSiDLZS0m6dHm8Ny8m0P8gHR3FWJ+I8Nrcu5OPr8jJWN6/9PWsUh3UX6S5sjOOig+oojrNGYzGQ
-a/PLjfrnctHr6n5dsJo1DoussfiExQg36jqLKncn47h6PvBsmG6ybPFgnseLBsKi5exPlcj/Y7zK
-/0EZ8yr258doP57FweZ09KH6WOR/b3Httc+v22/yf7t1nv+tTmt+TnR77Y+d/0/Tyf1r/ix/V733
-Pf+TRsr/k1k5PwOmsRxl2WQax81vbj+4e29/PazeuLW0Iwara+G338KwiGF1kI/HkyrUtcOFKntZ
-Ni2LdCos2girp5NRXtXnRV14tvfTOFW5XKMYLjXSrO/X3lLvRX3zfNHCteJma+/8IGpeK8KX4W91
-rIUXWePiWz9Vb/6Znr/auFbcuFH/X32x3sv5w997PYQQQoiPEf8GI6L1KQBwEgA=
-
---Multipart=_Tue__7_Aug_2007_17_24_58_+0900_pcJYkuCVtbCZzNkI--
+Index: linux-2.6.23-rc2.test/mm/migrate.c
+=================================--- linux-2.6.23-rc2.test.orig/mm/migrate.c
++++ linux-2.6.23-rc2.test/mm/migrate.c
+@@ -171,6 +171,7 @@ static void remove_migration_pte(struct 
+ 	pte = pte_mkold(mk_pte(new, vma->vm_page_prot));
+ 	if (is_write_migration_entry(entry))
+ 		pte = pte_mkwrite(pte);
++	flush_cache_page(vma, addr, pte_pfn(pte));
+ 	set_pte_at(mm, addr, ptep, pte);
+ 
+ 	if (PageAnon(new))
 
