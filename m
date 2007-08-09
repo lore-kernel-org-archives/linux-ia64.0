@@ -1,40 +1,59 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 28 Aug 2007 19:42:45 +0000
-Subject: Re: [PATCH] SLUB use cmpxchg_local
-Message-Id: <Pine.LNX.4.64.0708281240260.16473@schroedinger.engr.sgi.com>
+From: "David Mosberger-Tang" <dmosberger@gmail.com>
+Date: Thu, 09 Aug 2007 06:30:09 +0000
+Subject: need NOTES in vmlinux.lds.S
+Message-Id: <ed5aea430708082330o7277cb2el89c7b89f120c9643@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_125990_11882518.1186641009080"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070827202203.GB5653@Krystal> <Pine.LNX.4.64.0708271324001.5884@schroedinger.engr.sgi.com>
- <20070827203913.GA7416@Krystal> <Pine.LNX.4.64.0708271401070.6435@schroedinger.engr.sgi.com>
- <20070827211003.GA10627@Krystal> <Pine.LNX.4.64.0708271421130.6566@schroedinger.engr.sgi.com>
- <20070827213845.GB9748@Krystal> <Pine.LNX.4.64.0708271510020.8783@schroedinger.engr.sgi.com>
- <20070827222715.GA16982@Krystal> <Pine.LNX.4.64.0708271811200.10344@schroedinger.engr.sgi.com>
- <20070828120756.GD12241@Krystal>
-In-Reply-To: <20070828120756.GD12241@Krystal>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+------=_Part_125990_11882518.1186641009080
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
-Cc: Peter Zijlstra <peterz@infradead.org>, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, mingo@redhat.com, linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-On Tue, 28 Aug 2007, Mathieu Desnoyers wrote:
+Without the attached patch, the current GIT trees fail to build for me
+with error:
 
-> Ok, I just had a look at ia64 instruction set, and I fear that cmpxchg
-> must always come with the acquire or release semantic. Is there any
-> cmpxchg equivalent on ia64 that would be acquire and release semantic
-> free ? This implicit memory ordering in the instruction seems to be
-> responsible for the slowdown.
+ ld: .tmp_vmlinux1: section `.text' can't be allocated in segment 0
+ ld: final link failed: Bad value
 
-No. There is no cmpxchg used in the patches that I tested. The slowdown 
-seem to come from the need to serialize at barriers. Adding an interrupt
-enable/disable in the middle of the hot path creates another serialization 
-point.
+This is with binutils v2.17.50.20070804 and is apparently due to the
+recent --build-id changes (see
+http://www.uwsg.indiana.edu/hypermail/linux/kernel/0707.2/3490.html).
 
-> If such primitive does not exist, then we should think about an irq
-> disable fallback for this local atomic operation. However, I would
-> prefer to let the cmpxchg_local primitive be bound to the "slow"
-> cmpxchg_acq and create something like _cmpxchg_local that would be
-> interrupt-safe, but not reentrant wrt NMIs.
+I may not have picked the best possible place to stick the NOTES macro
+(according to Roland, it should only be a few read-only bytes that are
+hardly ever read), but at least the kernel builds again and it even
+seems to boot (on my zx2000, anyhow). ;-)
 
-Ummm... That is what I did. See the included patch that you quoted. The 
-measurements show that such a fallback is not preserving the performance 
-on IA64.
+Thanks to HJ Lu for his help in tracking down this bug.
+
+  --david
+--
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+
+------=_Part_125990_11882518.1186641009080
+Content-Type: text/plain; name=notes.diff; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_f54vdver
+Content-Disposition: attachment; filename="notes.diff"
+
+W0lBNjRdIEFkZCBOT1RFUyB0byBsaW5rZXIgc2NyaXB0IHN1Y2ggdGhhdCB0aGUga2VybmVsIGNh
+biBiZSBidWlsdCB3aXRoCiAgICAgICByZWNlbnQgdmVyc2lvbnMgb2YgYmludXRpbHMuICBXaXRo
+b3V0IHRoaXMgcGF0Y2gsIGZpbmFsIGxpbmsgZmFpbHMKICAgICAgIHdpdGggdGhpcyBlcnJvcjoK
+CiAgICAgICAgbGQ6IC50bXBfdm1saW51eDE6IHNlY3Rpb24gYC50ZXh0JyBjYW4ndCBiZSBhbGxv
+Y2F0ZWQgaW4gc2VnbWVudCAwCiAgICAgICAgbGQ6IGZpbmFsIGxpbmsgZmFpbGVkOiBCYWQgdmFs
+dWUKCiAgICAgICBUaGlzIGVycm9yIGlzIGR1ZSB0byB0aGUgZmFjdCB0aGF0IHRoZSAtLWJ1aWxk
+LWlkIG9wdGlvbiBpcyB1c2VkCiAgICAgICB3aXRoIG5ld2VyIGxpbmtlcnMgdG8gaW5jbHVkZSBh
+IC5ub3RlcyBzZWN0aW9uIG9uIHRoZSBrZXJuZWwsIGJ1dAogICAgICAgd2l0aG91dCB0aGUgTk9U
+RVMgbWFjcm8sIHRoYXQgc2VjdGlvbiB3b24ndCBiZSBpbmNsdWRlZCBpbiB0aGUga2VybmVsCiAg
+ICAgICB3aGljaCB0aGVuIGxlYWRzIHRvIHRoZSBhYm92ZSBlcnJvciBtZXNzYWdlLgoKU2lnbmVk
+LW9mZi1ieTogRGF2aWQgTW9zYmVyZ2VyLVRhbmcgPGRtb3NiZXJnZXJAZ21haWwuY29tPgoKZGlm
+ZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvdm1saW51eC5sZHMuUyBiL2FyY2gvaWE2NC9rZXJu
+ZWwvdm1saW51eC5sZHMuUwppbmRleCA4M2U4MDY3Li43MWViNTUwIDEwMDY0NAotLS0gYS9hcmNo
+L2lhNjQva2VybmVsL3ZtbGludXgubGRzLlMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC92bWxpbnV4
+Lmxkcy5TCkBAIC02Miw2ICs2Miw4IEBAIFNFQ1RJT05TCiAKICAgLyogUmVhZC1vbmx5IGRhdGEg
+Ki8KIAorICBOT1RFUworCiAgIC8qIEV4Y2VwdGlvbiB0YWJsZSAqLwogICAuID0gQUxJR04oMTYp
+OwogICBfX2V4X3RhYmxlIDogQVQoQUREUihfX2V4X3RhYmxlKSAtIExPQURfT0ZGU0VUKQo=
+------=_Part_125990_11882518.1186641009080--
