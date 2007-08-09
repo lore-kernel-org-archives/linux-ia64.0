@@ -1,34 +1,53 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 23 Aug 2007 08:45:27 +0000
-Subject: Re: [PATCH 2/3] dma: override "dma_flags_set_dmaflush" for sn-ia64
-Message-Id: <46CD4927.2080505@sgi.com>
+From: "David Mosberger-Tang" <dmosberger@gmail.com>
+Date: Thu, 09 Aug 2007 18:02:08 +0000
+Subject: mmap broken?
+Message-Id: <ed5aea430708091102q26cc5a39uf67210652e7354c2@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_132691_4327736.1186682528115"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070818002746.GU1813@sgi.com>	 <200708220903.23702.jbarnes@virtuousgeek.org>	 <1187801095.3410.49.camel@localhost.localdomain>	 <200708220951.05101.jbarnes@virtuousgeek.org>	 <1187802272.3410.58.camel@localhost.localdomain> <46CC6C4B.1030202@sgi.com> <1187806205.3410.66.camel@localhost.localdomain>
-In-Reply-To: <1187806205.3410.66.camel@localhost.localdomain>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+------=_Part_132691_4327736.1186682528115
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, akepner@sgi.com, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
+Content-Disposition: inline
 
-James Bottomley wrote:
-> Hmm, didn't see the email ... but I'm probably not cc'd on all the
-> thread.  However ... it isn't that you couldn't do it ... it's that you
-> don't want to do it because it's faster to violate the spec ... like all
-> those nice ATA devices that lie about having a cache and then let you
-> power down with uncommitted data still in it ... they work much faster
-> for HDIO tests ... and who ever switches their box off?
+There is a libunwind test-case that used to work fine but fails with
+recent kernels (e.g., 2.6.23-rc2).  The problem is exhibited by the
+attached test program.  It attempts to map the page right after the
+register-backing-store area with a no-access page.  The mmap call
+succeeds, but the kernel incorrectly maps the no-access page not at
+the desired location, but at the next page.  If I specify MAP_FIXED,
+the mmap() call succeeds, but I don't think MAP_FIXED should be
+necessary here.  Anybody can think of any patches that would explain
+this change of behavior?
 
-James,
+  --david
+-- 
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
 
-I didn't do it, I don't know who did it, but sure we can try and track
-them down and line them up outside .....
+------=_Part_132691_4327736.1186682528115
+Content-Type: text/x-csrc; name=test-mmap.c; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_f55k05ad
+Content-Disposition: attachment; filename="test-mmap.c"
 
-Point is that this is how the chips were done and they are out there in
-numbers. It makes things a *lot* faster to violate the spec in such a
-system, yes it sucks, but thats how things are. It wouldn't be the first
-time someone violated the PCI spec in their implementation and I am
-pretty sure it won't be the last.
-
-Cheers,
-Jes
+I2luY2x1ZGUgPGlhNjRpbnRyaW4uaD4KI2luY2x1ZGUgPGZjbnRsLmg+CiNpbmNsdWRlIDxzdGRp
+bnQuaD4KI2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHVu
+aXN0ZC5oPgoKI2luY2x1ZGUgPHN5cy9tbWFuLmg+Cgp1aW50cHRyX3QKZ2V0X2JzcCAodm9pZCkK
+ewojaWZkZWYgX19JTlRFTF9DT01QSUxFUgogIHJldHVybiBfX2dldFJlZyAoX0lBNjRfUkVHX0FS
+X0JTUCk7CiNlbHNlCiAgcmV0dXJuICh1aW50cHRyX3QpIF9fYnVpbHRpbl9pYTY0X2JzcCAoKTsK
+I2VuZGlmCn0KCmludAptYWluIChpbnQgYXJnYywgY2hhciAqKmFyZ3YpCnsKCXVpbnRwdHJfdCBn
+dWFyZF9wYWdlX2FkZHIsIGJzcCA9IGdldF9ic3AgKCk7CglzaXplX3QgcGFnZV9zaXplID0gZ2V0
+cGFnZXNpemUgKCk7CgljaGFyIGJ1Zls4MTkyXTsKCXNzaXplX3QgbnJlYWQ7Cgl2b2lkICpyZXQ7
+CglpbnQgZmQ7CgoJZ3VhcmRfcGFnZV9hZGRyID0gKGJzcCArIHBhZ2Vfc2l6ZSAtIDEpICYgLXBh
+Z2Vfc2l6ZTsKCXByaW50ZigiZ3VhcmRfcGFnZV9hZGRyID0gMHglbHhcbiIsICh1bnNpZ25lZCBs
+b25nKSBndWFyZF9wYWdlX2FkZHIpOwoJcmV0ID0gbW1hcCgodm9pZCAqKSBndWFyZF9wYWdlX2Fk
+ZHIsIHBhZ2Vfc2l6ZSwgUFJPVF9OT05FLAoJCSAgIE1BUF9TSEFSRUQgfCBNQVBfQU5PTllNT1VT
+LCAtMSwgMCk7CglpZiAocmV0ICE9ICh2b2lkICopIGd1YXJkX3BhZ2VfYWRkcikgewoJCWZwcmlu
+dGYoc3RkZXJyLCAibW1hcCgpIHJldHVybmVkICVwLCBleHBlY3RlZCAweCVseFxuIiwKCQkJcmV0
+LCBndWFyZF9wYWdlX2FkZHIpOwoJCWlmIChyZXQgPT0gTUFQX0ZBSUxFRCkKCQkJcGVycm9yICgi
+bW1hcCIpOwoJfQoJZmQgPSBvcGVuKCIvcHJvYy9zZWxmL21hcHMiLCBPX1JET05MWSk7CglucmVh
+ZCA9IHJlYWQoZmQsIGJ1Ziwgc2l6ZW9mKGJ1ZikpOwoJd3JpdGUoMSwgYnVmLCBucmVhZCk7Cgly
+ZXR1cm4gMDsKfQo=
+------=_Part_132691_4327736.1186682528115--
