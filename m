@@ -1,28 +1,40 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 13 Aug 2007 23:41:11 +0000
-Subject: RE: [PATCH] [429/2many] MAINTAINERS - SGI SN-IA64 (Altix) SERIAL CONSOLE DRIVER
-Message-Id: <617E1C2C70743745A92448908E030B2A0229F782@scsmsx411.amr.corp.intel.com>
+From: "David Mosberger-Tang" <dmosberger@gmail.com>
+Date: Thu, 09 Aug 2007 22:54:27 +0000
+Subject: trivial boot_head.S
+Message-Id: <ed5aea430708091554h452fc0d7t2e47bfaeec5bf02d@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_135400_2080533.1186700067869"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <46bffbb8.4fakUMLGtqE0GdFV%joe@perches.com>
-In-Reply-To: <46bffbb8.4fakUMLGtqE0GdFV%joe@perches.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+------=_Part_135400_2080533.1186700067869
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: joe@perches.com, torvalds@linux-foundation.org, pfg@sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@linux-foundation.org
+Content-Disposition: inline
 
+Attached is a trivial patch that makes stack-unwinding stop at the
+last frame of the bootloader.
 
-@@ -4084,6 +4084,7 @@ P:	Pat Gefre
- M:	pfg@sgi.com
- L:	linux-ia64@vger.kernel.org
- S:	Supported
-+F:	Documentation/ia64/serial.txt
- 
- SGI VISUAL WORKSTATION 320 AND 540
- P:	Andrey Panin
+  --david
+-- 
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
 
+------=_Part_135400_2080533.1186700067869
+Content-Type: text/plain; name=boot_head.diff; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_f55ukenp
+Content-Disposition: attachment; filename="boot_head.diff"
 
-Huh?  Perhaps this should be:
-
-+F:	drivers/serial/sn_console.c
-
--Tony
+W0lBNjRdIEFkZCBhIGR1bW15IG5vcCBhdCB0aGUgZW5kIG9mIF9zdGFydCgpIHRvIG1haW50YWlu
+IHRoZSBpbnZhcmlhbnQgdGhhdAogICAgICAgdGhlIHJldHVybi1wb2ludGVyIChycCkgYWx3YXlz
+IHBvaW50IHRvIHRoZSBjYWxsaW5nIGZ1bmN0aW9uLiAgVGhpcwogICAgICAgbWFrZXMgdW53aW5k
+aW5nIHN0b3AgYXQgdGhlIGxhc3QgZnJhbWUsIGFzIGl0IHNob3VsZC4KClNpZ25lZC1vZmYtYnk6
+IERhdmlkIE1vc2Jlcmdlci1UYW5nIDxkbW9zYmVyZ2VyQGdtYWlsLmNvbT4KCmRpZmYgLS1naXQg
+YS9hcmNoL2lhNjQvaHAvc2ltL2Jvb3QvYm9vdF9oZWFkLlMgYi9hcmNoL2lhNjQvaHAvc2ltL2Jv
+b3QvYm9vdF9oZWFkLlMKaW5kZXggYTliZDcxYS4uODgwODU2NSAxMDA2NDQKLS0tIGEvYXJjaC9p
+YTY0L2hwL3NpbS9ib290L2Jvb3RfaGVhZC5TCisrKyBiL2FyY2gvaWE2NC9ocC9zaW0vYm9vdC9i
+b290X2hlYWQuUwpAQCAtMjYsNiArMjYsNyBAQCBHTE9CQUxfRU5UUlkoX3N0YXJ0KQogCW1vdmwg
+c3AgPSBzdGFja19tZW0rMTYzODQtMTYKIAlic3cuMQogCWJyLmNhbGwuc3B0ay5tYW55IHJwPXN0
+YXJ0X2Jvb3Rsb2FkZXIKKzA6CW5vcCAwCQkgIC8qIGR1bW15IG5vcCB0byBtYWtlIHVud2luZGlu
+ZyB3b3JrICovCiBFTkQoX3N0YXJ0KQogCiAvKgo=
+------=_Part_135400_2080533.1186700067869--
