@@ -1,31 +1,50 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Mon, 27 Aug 2007 16:02:48 +0000
-Subject: [PATCH 3/4] add new lock ordering rule to mm/filemap.c
-Message-Id: <20070827160247.GD25589@sgi.com>
+From: "David Mosberger-Tang" <dmosberger@gmail.com>
+Date: Fri, 10 Aug 2007 01:58:52 +0000
+Subject: get back PT_IA_64_UNWIND program header
+Message-Id: <ed5aea430708091858s352ed254p22cb7a7ae70209@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_136580_191254.1186711132453"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070827155622.GA25589@sgi.com>
-In-Reply-To: <20070827155622.GA25589@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+------=_Part_136580_191254.1186711132453
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, jes@sgi.com
+Content-Disposition: inline
 
-This patch adds a lock ordering rule to avoid a potential deadlock when
-multiple mmap_sems need to be locked.
+I noticed that Ski was unable to do a stacktrace on the kernel.  Turns
+out that's because the PT_IA_64_UNWIND program-header is missing.
+Perhaps this is due to a change in binutils, but in any case, it seems
+like we should be explicit about the unwind header, so this patch is
+probably a good idea no matter what.  Note that the patch assumes that
+the earlier patch to add a PT_NOTE header has been applied already.
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+Regards,
 
-Index: linux-2.6/mm/filemap.c
-=================================--- linux-2.6.orig/mm/filemap.c	2007-08-09 19:18:15.000000000 -0500
-+++ linux-2.6/mm/filemap.c	2007-08-27 09:13:47.435717670 -0500
-@@ -78,6 +78,9 @@
-  *  ->i_mutex			(generic_file_buffered_write)
-  *    ->mmap_sem		(fault_in_pages_readable->do_page_fault)
-  *
-+ *    When taking multiple mmap_sems, one should lock the lowest-addressed
-+ *    one first proceeding on up to the highest-addressed one.
-+ *
-  *  ->i_mutex
-  *    ->i_alloc_sem             (various)
-  *
+  --david
+-- 
+Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+
+------=_Part_136580_191254.1186711132453
+Content-Type: text/plain; name=pt_unwind.diff; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_f56154u5
+Content-Disposition: attachment; filename="pt_unwind.diff"
+
+W0lBNjRdIEV4cGxpY2l0bHkgcHV0IHRoZSB1bndpbmQgc2VjdGlvbiBpbnRvIGl0cyBvd24gcHJv
+Z3JhbS1oZWFkZXIuICBUaGlzCiAgICAgICB1c2VkIHRvIGJlIHVubmVjZXNzYXJ5IChwcm9iYWJs
+eSBiZWNhdXNlIGJpbnV0aWxzIGRpZCBpdCBmb3IgdXMpLCBidXQKICAgICAgIHdpdGggY3VycmVu
+dCBiaW51dGlscyAoZS5nLiwgdjIuMTcuNTAuMjAwNzA4MDQpIHdlIHdvbid0IGdldAogICAgICAg
+dGhlIFBUX0lBXzY0X1VOV0lORCBoZWFkZXIgd2l0aG91dCB0aGlzIHBhdGNoIHdoaWNoIHdpbGwg
+YnJlYWsKICAgICAgIHVud2luZGluZyBpbiBhIGRlYnVnZ2VyIGFuZCBzaW11bGF0b3JzIHN1Y2gg
+YXMgU2tpLgoKU2lnbmVkLW9mZi1ieTogRGF2aWQgTW9zYmVyZ2VyLVRhbmcgPGRtb3NiZXJnZXJA
+Z21haWwuY29tPgoKLS0tIGFyY2gvaWE2NC9rZXJuZWwvdm1saW51eC5sZHMuU34JMjAwNy0wOC0w
+OSAxMTozODoyOC4wMDAwMDAwMDAgLTA2MDAKKysrIGFyY2gvaWE2NC9rZXJuZWwvdm1saW51eC5s
+ZHMuUwkyMDA3LTA4LTA5IDE5OjQwOjA4LjAwMDAwMDAwMCAtMDYwMApAQCAtMjEsNiArMjEsNyBA
+QAogICBwZXJjcHUgUFRfTE9BRDsKICAgZGF0YSAgIFBUX0xPQUQ7CiAgIG5vdGUgICBQVF9OT1RF
+OworICB1bndpbmQgMHg3MDAwMDAwMTsgLyogUFRfSUFfNjRfVU5XSU5ELCBidXQgbGQgZG9lc24n
+dCBtYXRjaCB0aGUgbmFtZSAqLwogfQogU0VDVElPTlMKIHsKQEAgLTEwMyw3ICsxMDQsOCBAQAog
+CSAgX19zdGFydF91bndpbmQgPSAuOwogCSAgKiguSUFfNjQudW53aW5kKikKIAkgIF9fZW5kX3Vu
+d2luZCA9IC47Ci0JfQorCX0gOmNvZGUgOnVud2luZAorICBjb2RlX2NvbnRpbnVlczIgOiB7fSA6
+IGNvZGUKIAogICBST0RBVEEKIAo=
+------=_Part_136580_191254.1186711132453--
