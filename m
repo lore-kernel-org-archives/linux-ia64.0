@@ -1,65 +1,42 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Aug 2007 20:56:54 +0000
-Subject: [PATCH] ITC: Reduce rating for ITC clock if ITCs are drifty
-Message-Id: <Pine.LNX.4.64.0708011352030.848@schroedinger.engr.sgi.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Fri, 10 Aug 2007 01:06:59 +0000
+Subject: [RFC 0/3] SGI Altix cross partition memory (XPMEM)
+Message-Id: <20070810010659.GA25427@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, jes@sgi.com
 
-From 497cb18db5c53eeb7e07b44d2e7ed8fff35d102f Mon Sep 17 00:00:00 2001
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 1 Aug 2007 13:49:45 -0700
-Subject: [PATCH] ITC: Reduce rating for ITC clock if ITCs are drifty
 
-Make sure to reduce the rating of the ITC clock if ITCs are drifty. If they
-are drifting then we have not synchronized the ITC values, nor are we doing
-the jitter compensation (useless since drift may increase the differentials
-arbitrarily).
+    Terminology
 
-Without this patch it is possible that the ITC clock becomes selected as 
-the system clock on systems with drifty ITCs which will result in 
-nanosleep hanging.
+The term 'partition', adopted by the SGI hardware designers and which
+perculated up into the software, is used in reference to a single SSI
+when multiple SSIs are running on a single Altix. An Altix running
+multiple SSIs is said to be 'partitioned', whereas one that is running
+only a single SSI is said to be 'unpartitioned'.
 
-One can still select the itc clock manually on such systems via
+The term '[a]cross partition' refers to a functionality that spans between
+two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
 
-clocksource=itc
+    Introduction
 
-(Produces nice hangs on SGI Altix.)
+This feature provides cross partition access to user memory (XPMEM) when
+running multiple partitions on a single SGI Altix. XPMEM, like XPNET,
+utilizes XPC to communicate between the partitions.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
----
- arch/ia64/kernel/time.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
+XPMEM allows a user process to identify portion(s) of its address space
+that other user processes can attach (i.e. map) into their own address
+spaces. These processes can be running on the same or a different
+partition from the one whose memory they are attaching.
 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 6c0e9e2..98cfc90 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -240,7 +240,21 @@ ia64_init_itm (void)
- 		if (!nojitter)
- 			itc_jitter_data.itc_jitter = 1;
- #endif
--	}
-+	} else
-+		/*
-+		 * ITC is drifty and we have not synchronized the ITCs in smpboot.c.
-+		 * ITC values may fluctuate significantly between processors.
-+		 * Clock should not be used for hrtimers. Mark itc as only
-+		 * useful for boot and testing.
-+		 *
-+		 * Note that jitter compensation is off! There is no point of
-+		 * synchronizing ITCs since they may be large differentials
-+		 * that change over time.
-+		 *
-+		 * The only way to fix this would be to repeatedly sync the
-+		 * ITCs. Until that time we have to avoid ITC.
-+		 */
-+		clocksource_itc.rating = 50;
- 
- 	/* Setup the CPU local timer tick */
- 	ia64_cpu_local_tick();
--- 
-1.5.2.4
+    Known Issues
+
+XPMEM is not currently using the kthread API (which is also true for XPC)
+because it was in the process of being changed to require a kthread_stop()
+be done for every kthread_create() and the kthread_stop() couldn't be called
+for a thread that had already exited. In talking with Eric Biederman, there
+was some thought of creating a kthread_orphan() which would eliminate the
+need for a call to kthread_stop() being required.
 
