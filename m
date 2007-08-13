@@ -1,40 +1,27 @@
-From: Al Stone <ahs3@ahs3.net>
-Date: Mon, 13 Aug 2007 04:27:18 +0000
-Subject: Ski -- the ia64 CPU simulator -- is now open source
-Message-Id: <46BFDDA6.7070005@ahs3.net>
+From: joe@perches.com
+Date: Mon, 13 Aug 2007 06:29:10 +0000
+Subject: [PATCH] [235/2many] MAINTAINERS - IA64 (Itanium) PLATFORM
+Message-Id: <46bffa36.aUiLcDMm3snOLBwG%joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: torvalds@linux-foundation.org, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@linux-foundation.org
 
-Greetings.
+Add file pattern to MAINTAINER entry
 
-After much hullabaloo, and a bit of pounding on the code, the Ski ia64
-instruction set simulator is now available as open source, thanks to the
-efforts of the folks at HP.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-For those that have never heard of Ski, it was originally written by the
-Hewlett-Packard Company.  It simulates the IA-64 architecture as defined
-by the Intel Itanium 2 architecture manuals.  This is not a full
-platform simulator; i.e., no system chipset or PCI bus simulation is
-done.  However, Ski supports the full instruction set of the
-architecture, including privileged instructions and associated
-semantics.
-
-While the Ski binaries have been available from HP for quite some time,
-this is the first time that the source has been made available.
-
-You can find Ski at http://ski.sourceforge.net
-
-As always, patches and corrections are welcome...
-
--- 
-Ciao,
-al
-----------------------------------------------------------------------
-Al Stone                                      Alter Ego:
-E-mail: ahs3@ahs3.net                         Debian Developer
-  -or-                                         http://www.debian.org
-E-mail: ahstone@comcast.net                   ahs3@debian.org
-----------------------------------------------------------------------
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 802960b..f68199b 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2237,6 +2237,8 @@ L:	linux-ia64@vger.kernel.org
+ W:	http://www.ia64-linux.org/
+ T:	git kernel.org:/pub/scm/linux/kernel/git/aegl/linux-2.6.git
+ S:	Maintained
++F:	arch/ia64/
++F:	include/asm-ia64/*
+ 
+ SN-IA64 (Itanium) SUB-PLATFORM
+ P:	Jes Sorensen
