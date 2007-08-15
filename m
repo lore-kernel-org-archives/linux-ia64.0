@@ -1,48 +1,120 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Thu, 23 Aug 2007 21:21:33 +0000
-Subject: Re: [BUG] 2.6.23-rc3-mm1 Kernel panic - not syncing: DMA: Memory
-Message-Id: <20070823142133.9359a1ce.akpm@linux-foundation.org>
+From: Andy Whitcroft <apw@shadowen.org>
+Date: Wed, 15 Aug 2007 14:50:58 +0000
+Subject: [PATCH] ia64: default the NUMA node distance when there is no ACPI SLIT
+Message-Id: <b6b031e56608ee8acf4c84cb1f413403@pinky>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A023B2FD5@scsmsx411.amr.corp.intel.com>
-	<20070823091556.GA18456@skynet.ie>
-	<20070823221005.0D76.Y-GOTO@jp.fujitsu.com>
-	<617E1C2C70743745A92448908E030B2A023EB020@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A023EB020@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Yasunori Goto <y-goto@jp.fujitsu.com>, Mel Gorman <mel@skynet.ie>, Jeremy Higdon <jeremy@sgi.com>, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, Balbir Singh <balbir@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org
-
-On Thu, 23 Aug 2007 10:22:26 -0700
-"Luck, Tony" <tony.luck@intel.com> wrote:
-
-> > __get_free_pages() of swiotlb_alloc_coherent() fails in rc3-mm1.
-> > But, it doesn't fail on rc2-mm2, and kernel can boot up.
-> 
-> That looks to be part of the problem here ... failing an order=3
-> allocation during boot on a system that just a few lines earlier
-> in the boot log reported "Memory: 37474000k/37680640k available"
-> looks bad ... but perhaps having *more* memory is part of your problem.
-> You may have run low on GFP_DMA memory because some allocation
-> scaled by memory size has chewed up a lot of your memory.  To check
-> this try booting with a "mem=4G" parameter and see if that helps
-> you.
-> 
-> But it is also bad that the swiotlb() code failed to handle this.
-> Can you check whether the problem is related to the size of the
-> allocation being just over 256K (a magic number for swiotlb since
-> IO_TLB_SEGSIZE is 128 times a slab size of 2k).  Try changing
-> lib/swiotlb.c to set IO_TLB_SEGSIZE to 256 instead.
-> 
-
-Others are reporting machines which fail int he memory allcoator much
-earlier, and which claim to have four CPUs and 16 nodes.  So something is
-very wonky in the rc3-mm1 page allocator.
-
-I guess suspicion has to be directed at the memoryless-nodes patches, but
-until that's cleared up I don't think there's much to be gained from
-chasing this iommu problem, now that you've worked out that it's a bogus
-memory allocation failure (thanks).
+To: Tony Luck <tony.luck@intel.com>
+Cc: Andy Whitcroft <apw@shadowen.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
 
+If during boot no ACPI 2.0 SLIT table is found we do not initialise
+the NUMA node distance table, leaving all node distances as 0.
+This causes IA-64 to fail the regression tests for libnuma.  Also,
+when we have a bad formatted table we will set all node distances
+to 10.  Both of these forms lose all NUMA information by indicating
+all nodes are as close as the "local node", and are inconsistant
+in their values.
+
+When an architecture does not offer NUMA topology support the default
+node_distance is a distance of LOCAL_DISTANCE (10) to the local node
+and REMOTE_DISTANCE (20) to all others.  It seems more correct to
+follow this model when the SLIT information is missing or corrupt.
+
+This patch updates the SLIT failure paths to fill in the NUMA node
+distance table with this default.
+
+Signed-off-by: Andy Whitcroft <apw@shadowen.org>
+---
+ arch/ia64/kernel/acpi.c |   62 ++++++++++++++++++++++++++++++++++------------
+ 1 files changed, 46 insertions(+), 16 deletions(-)
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 3d45d24..3cd3e5b 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -445,7 +445,6 @@ void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
+ 		printk(KERN_ERR
+ 		       "ACPI 2.0 SLIT: size mismatch: %d expected, %d actual\n",
+ 		       len, slit->header.length);
+-		memset(numa_slit, 10, sizeof(numa_slit));
+ 		return;
+ 	}
+ 	slit_table = slit;
+@@ -507,9 +506,50 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	num_node_memblks++;
+ }
+ 
++void __init acpi_numa_distance_from_slit(void)
++{
++	int i, j;
++	int node_from;
++	int node_to;
++	int nodes = slit_table->locality_count;
++
++	printk(KERN_INFO "Building NUMA distance from ACPI 2.0 SLIT\n");
++
++	for (i = 0; i < nodes; i++) {
++		if (!pxm_bit_test(i))
++			continue;
++		node_from = pxm_to_node(i);
++		for (j = 0; j < nodes; j++) {
++			if (!pxm_bit_test(j))
++				continue;
++			node_to = pxm_to_node(j);
++			node_distance(node_from, node_to) +					  slit_table->entry[i * nodes + j];
++		}
++	}
++}
++
++void __init acpi_numa_distance_default(void)
++{
++	int i, j;
++	int node_from;
++	int node_to;
++
++	printk(KERN_INFO "No SLIT table, defaulting NUMA distance\n");
++
++	for_each_online_node(i) {
++		node_from = pxm_to_node(i);
++		for_each_online_node(j) {
++			node_to = pxm_to_node(j);
++			node_distance(node_from, node_to) = (i = j)?
++				LOCAL_DISTANCE : REMOTE_DISTANCE;
++		}
++	}
++}
++
+ void __init acpi_numa_arch_fixup(void)
+ {
+-	int i, j, node_from, node_to;
++	int i, j;
+ 
+ 	/* If there's no SRAT, fix the phys_id and mark node 0 online */
+ 	if (srat_num_cpus = 0) {
+@@ -553,21 +593,11 @@ void __init acpi_numa_arch_fixup(void)
+ 	printk(KERN_INFO "Number of memory chunks in system = %d\n",
+ 	       num_node_memblks);
+ 
+-	if (!slit_table)
+-		return;
+ 	memset(numa_slit, -1, sizeof(numa_slit));
+-	for (i = 0; i < slit_table->locality_count; i++) {
+-		if (!pxm_bit_test(i))
+-			continue;
+-		node_from = pxm_to_node(i);
+-		for (j = 0; j < slit_table->locality_count; j++) {
+-			if (!pxm_bit_test(j))
+-				continue;
+-			node_to = pxm_to_node(j);
+-			node_distance(node_from, node_to) -			    slit_table->entry[i * slit_table->locality_count + j];
+-		}
+-	}
++	if (slit_table)
++		acpi_numa_distance_from_slit();
++	else
++		acpi_numa_distance_default();
+ 
+ #ifdef SLIT_DEBUG
+ 	printk("ACPI 2.0 SLIT locality table:\n");
