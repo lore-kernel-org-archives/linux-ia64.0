@@ -1,7 +1,7 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Tue, 14 Aug 2007 21:36:28 +0000
+From: "Natalie Protasevich" <protasnb@gmail.com>
+Date: Wed, 15 Aug 2007 19:12:18 +0000
 Subject: Re: BINIT and physical address
-Message-Id: <20070814213628.GA825@suse.de>
+Message-Id: <32209efe0708151212m2e5b7ba3w56940dc88f2aac9e@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <32209efe0708131042p68748b3el85d3ec4d76864244@mail.gmail.com>
 In-Reply-To: <32209efe0708131042p68748b3el85d3ec4d76864244@mail.gmail.com>
@@ -10,37 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-* Luck, Tony <tony.luck@intel.com> [2007-08-14 23:10]:
+On 8/14/07, Luck, Tony <tony.luck@intel.com> wrote:
+> > Some help is needed with debugging of a hang.
+> > A system hits BINIT once in a while and the processors are all
+> > spinning on the address 0x00100002C00 and if the HT is off the address
+> > becomes 0x0020000A80. This is a physical address captured on the bus
+> > by analyser. How can this address be decoded to find out what are the
+> > processors are spinning on?
+>
+> Natalie,
+>
+> The Linux kernel is typically loaded at physical address 0x400000 (64MB)
+> in one continuous block.  If that address doesn't exist on your platform
+> then elilo will get some other 64MB aligned address instead.  You may be
+> able to tell what is the state on you machine by looking at the TLB 'TR'
+> registers:
+> $ cat /proc/pal/cpu0/tr_info
+>
+> Look at the mappings for ITR0 and DTR0 ... they map the kernel. I
+> say 'may' because some older systems didn't report TR maps
+> correctly.
+>
+> Kernel modules loaded after boot will be all over the place.  You
+> can easily find the virtual addresses in use with:
+> $ cat /proc/modules
 > But there isn't a user-mode accessible way to convert them to
-> physical addresses.
+> physical addresses.  You could write a small loadable driver to
+> do this.  It is unlikely that all the modules would end up with
+> exactly the same physical addresses from one boot to the next,
+> so you'll need to capture this information before the BINIT hits.
+>
+> You should also check whether the memory addresses in question
+> were available for Linux to use.
+> $ cat /proc/iomem
+>
+> Unless the addresses are marked as "System RAM" they wouldn't
+> have been used by Linux ... so if you are spinning there, it
+> is because they are part of firmware (PAL, SAL, EFI).
+>
+> -Tony
+>
+Thanks Tony and Bernhard, this was exactly what I was looking for. It
+is not identity mapped and I suppose can get regions and ranges in
+translation registers etc. Then after getting the modules mapping it's
+a matter of running ITP...
 
-Well, there is a way (indirectly).
-
-Because there's /dev/mem, any userspace program can expose the page tables of
-the kernel.  If you have debugging information of the kernel available, you can
-use the crash utility (http://people.redhat.com/~anderson/) which is normally
-used to analyse dump files in the running system.
-
-    $ crash -s
-    crash> vtop 0xa00000020b520000
-    VIRTUAL           PHYSICAL        
-    a00000020b520000  a3078494000     
-
-    PAGE DIRECTORY: a000000100708000
-       PGD: a000000100708000 => 30030ac000
-       PUD: e0000030030ac000 => 3006d54000
-       PMD: e000003006d54828 => 63003f44000
-       PTE: e000063003f46a40 => 100a3078494661
-      PAGE: a3078494000
-
-         PTE         PHYSICAL    FLAGS
-    100a3078494661  a3078494000  (P|MA_WB|PL_0|AR_RWX|A|D|ED)
-
-          PAGE        PHYSICAL      MAPPING       INDEX CNT FLAGS
-    a0007ffb2ffcc018 a3078494000      -------       -----   0 500000000000000
-
-Of course it may be easier to use a simple kernel module. ;-)
-
-
-Thanks,
-   Bernhard
+--Natalie
