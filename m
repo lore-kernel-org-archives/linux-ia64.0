@@ -1,30 +1,33 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Thu, 09 Aug 2007 18:52:13 +0000
-Subject: RE: need NOTES in vmlinux.lds.S
-Message-Id: <1186685533.12828.3.camel@chaos>
+From: Jes Sorensen <jes@sgi.com>
+Date: Mon, 20 Aug 2007 08:24:53 +0000
+Subject: Re: [PATCH 2/3] dma: override "dma_flags_set_dmaflush" for sn-ia64
+Message-Id: <46C94FD5.6000006@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ed5aea430708082330o7277cb2el89c7b89f120c9643@mail.gmail.com>
-In-Reply-To: <ed5aea430708082330o7277cb2el89c7b89f120c9643@mail.gmail.com>
+References: <20070818002746.GU1813@sgi.com>
+In-Reply-To: <20070818002746.GU1813@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akepner@sgi.com
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
 
-On Thu, 2007-08-09 at 11:04 -0700, Luck, Tony wrote:
-> > Sure, that sounds reasonable.  Updated patch attached.
-> > 
-> > I tried this patch with Linus' 2.6.23-rc2 tree and the resulting
-> > kernel boots fine, though there are some scary-looking error messages:
+akepner@sgi.com wrote:
+> Define ARCH_DOES_POSTED_DMA, and override the dma_flags_set_dmaflush 
+> function. Also define dma_flags_get_direction, dma_flags_get_dmaflush 
+> to retrieve the direction and "dmaflush attribute" from flags 
+> passed to the sn_dma_map_* functions.
 > 
-> These come from some debug code added by Thomas ... adding him to
-> this thread so he can see the trace that his code generated ...
-> 
-> WARNING: at /data/sc/linux-2.6/kernel/irq/resend.c:70 check_irq_resend()
 
-I know. I'm working on a fix for that. The warning message is harmless
-and was added to debug the ne2k-pci breakage which was caused by the
-delayed irq disable.
+Hi Arthur,
 
-	tglx
+I'm a little concerned about changing the API for the dma_ foo
+functions, which are defined cross platform. If you want to change
+that, I think it will require updating the documentation explaining
+it.
 
+Regarding ARCH_DOES_POSTED_DMA, is that sufficient as a #define or
+does it have to be run-time tested? (does it do anything at this
+stage). I ask since not all ia64 platforms do posted DMA.
 
+Cheers,
+Jes
