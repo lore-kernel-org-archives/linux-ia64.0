@@ -1,33 +1,30 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 20 Aug 2007 16:11:28 +0000
-Subject: perfmon2 kernel: git tree up and running
-Message-Id: <20070820161128.GB10272@frankl.hpl.hp.com>
+Date: Tue, 21 Aug 2007 09:21:46 +0000
+Subject: Re: [perfmon] perfmon2 kernel: git tree up and running
+Message-Id: <20070821092146.GB11173@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070820131605.GE8667@frankl.hpl.hp.com>
-In-Reply-To: <20070820131605.GE8667@frankl.hpl.hp.com>
+References: <20070820131605.GE8667@frankl.hpl.hp.com> <16D5B9AB904B0B46B22A27002EE3A8C8C9712C@scsmsx415.amr.corp.intel.com> <46C9D90B.3040001@redhat.com>
+In-Reply-To: <46C9D90B.3040001@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, rientjes@google.com, akpm@linux-foundation.org, ak@suse.de
+To: perfmon@napali.hpl.hp.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@linux-foundation.org, ak@suse.de
 
-Hello,
+Hello All,
 
-I am happy to announce that we now have a GIT tree for the perfmon2
-kernel. This way you will all be able to track closely the latest
-perfmon2 changes. We will also be able to better track the main
-kernel changes.
+I have found the source of the problem for the tree not showing
+up at http://git.kernel.org. The tree top dir needs to have the
+.git suffix. I fixed that now and you can now browse the code online.
 
-You can get your copy of the tree by doing:
+I am sorry about the inconvenience but I was not aware of the
+restriction.
 
-        git clone git://git.kernel.org/pub/scm/linux/kernel/git/eranian/linux-2.6
+Anyway, to get a of copy of the perfmon2 kernel tree:
 
-As of today, you have 2.6.23-rc3 + the latest perfmon changes from 2.6.22.
+	git clone git://git.kernel.org/pub/scm/linux/kernel/git/eranian/linux-2.6.git
 
-The tree also includes modifications to the Intel Core processors support
-to allow more than one counter to be used when PEBS is active.
-
-Enjoy,
+Thanks.
 
 --
 -Stephane
