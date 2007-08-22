@@ -1,42 +1,38 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Fri, 10 Aug 2007 01:06:59 +0000
-Subject: [RFC 0/3] SGI Altix cross partition memory (XPMEM)
-Message-Id: <20070810010659.GA25427@sgi.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 22 Aug 2007 10:53:30 +0000
+Subject: [PATCH 2/2] Clear pending interrupts at CPU boot up time
+Message-Id: <1187780010.3798.73.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, jes@sgi.com
+To: linux-ia64@vger.kernel.org
 
+The pending interrupts can be remaining at boot up time on some
+platform. This will cause spurious interrupts when interrupt is
+enabled for the first time. This patch clears IVR at the CPU
+initialization to eliminate such spurious interrupts.
 
-    Terminology
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-The term 'partition', adopted by the SGI hardware designers and which
-perculated up into the software, is used in reference to a single SSI
-when multiple SSIs are running on a single Altix. An Altix running
-multiple SSIs is said to be 'partitioned', whereas one that is running
-only a single SSI is said to be 'unpartitioned'.
+---
+ arch/ia64/kernel/setup.c |    5 +++++
+ 1 files changed, 5 insertions(+)
 
-The term '[a]cross partition' refers to a functionality that spans between
-two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
+Index: linux-2.6.23-rc3/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.23-rc3.orig/arch/ia64/kernel/setup.c
++++ linux-2.6.23-rc3/arch/ia64/kernel/setup.c
+@@ -953,6 +953,11 @@ cpu_init (void)
+ 
+ 	/* clear TPR & XTP to enable all interrupt classes: */
+ 	ia64_setreg(_IA64_REG_CR_TPR, 0);
++
++	/* Clear any pending interrupts left by SAL/EFI */
++	while (ia64_get_ivr() != IA64_SPURIOUS_INT_VECTOR)
++		ia64_eoi();
++
+ #ifdef CONFIG_SMP
+ 	normal_xtp();
+ #endif
 
-    Introduction
-
-This feature provides cross partition access to user memory (XPMEM) when
-running multiple partitions on a single SGI Altix. XPMEM, like XPNET,
-utilizes XPC to communicate between the partitions.
-
-XPMEM allows a user process to identify portion(s) of its address space
-that other user processes can attach (i.e. map) into their own address
-spaces. These processes can be running on the same or a different
-partition from the one whose memory they are attaching.
-
-    Known Issues
-
-XPMEM is not currently using the kthread API (which is also true for XPC)
-because it was in the process of being changed to require a kthread_stop()
-be done for every kthread_create() and the kthread_stop() couldn't be called
-for a thread that had already exited. In talking with Eric Biederman, there
-was some thought of creating a kthread_orphan() which would eliminate the
-need for a call to kthread_stop() being required.
 
