@@ -1,44 +1,50 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Date: Wed, 22 Aug 2007 17:17:11 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Wed, 22 Aug 2007 18:10:05 +0000
 Subject: Re: [PATCH 2/3] dma: override "dma_flags_set_dmaflush" for sn-ia64
-Message-Id: <200708221017.11805.jbarnes@virtuousgeek.org>
+Message-Id: <1187806205.3410.66.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070818002746.GU1813@sgi.com> <200708220951.05101.jbarnes@virtuousgeek.org> <1187802272.3410.58.camel@localhost.localdomain>
-In-Reply-To: <1187802272.3410.58.camel@localhost.localdomain>
+References: <20070818002746.GU1813@sgi.com>
+	 <200708220903.23702.jbarnes@virtuousgeek.org>
+	 <1187801095.3410.49.camel@localhost.localdomain>
+	 <200708220951.05101.jbarnes@virtuousgeek.org>
+	 <1187802272.3410.58.camel@localhost.localdomain> <46CC6C4B.1030202@sgi.com>
+In-Reply-To: <46CC6C4B.1030202@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@hansenpartnership.com>
-Cc: Jes Sorensen <jes@sgi.com>, akepner@sgi.com, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
+To: Jes Sorensen <jes@sgi.com>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, akepner@sgi.com, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
 
-On Wednesday, August 22, 2007 10:04:32 am James Bottomley wrote:
-> The spec isn't ambiguous ... it says if the device and bridge agree on
-> relaxed ordering, then it *may* be observed in the transaction.  If
-> there's a disagreement or neither wishes to support relaxed ordering
-> then the transaction *must* be strict.
+On Wed, 2007-08-22 at 19:03 +0200, Jes Sorensen wrote:
+> James Bottomley wrote:
+> > I really don't think a work around for a PCI spec violation belongs in
+> > the generic DMA code, do you?  The correct fix for this should be to set
+> > the device hints to strict ordering, which presumably altix respects?
+> > In which case, it sounds like what needs exposing are access to the PCI
+> > device hints.  I believe both PCI-X and PCIe have these hints as
+> > optional specifiers in the bridges, so it should be in a current Rev of
+> > the PCI spec.  Or are you proposing adding an additional PCI API that
+> > allows transaction flushes to be inserted into the stream for devices
+> > and bridges that have already negotiated relaxed ordering? ... in which
+> > case we need to take this to the PCI list.
+> 
+> James,
+> 
+> I don't believe it respects those hints - I agree, it's a pita, but
+> thats the state of the situation. Even if it did, it would make
+> performance suck as Jesse also pointed out.
+> 
+> As I pointed out in my email to Willy is that the NUMA fabric is routed,
+> there's not one path through the system, which is what makes this
+> happen.
 
-Arg, don't make me dig out my spec, I don't have it handy...
+Hmm, didn't see the email ... but I'm probably not cc'd on all the
+thread.  However ... it isn't that you couldn't do it ... it's that you
+don't want to do it because it's faster to violate the spec ... like all
+those nice ATA devices that lie about having a cache and then let you
+power down with uncommitted data still in it ... they work much faster
+for HDIO tests ... and who ever switches their box off?
 
-> I really don't think a work around for a PCI spec violation belongs in
-> the generic DMA code, do you?  The correct fix for this should be to set
-> the device hints to strict ordering, which presumably altix respects?
-
-Well, the Altix hw by itself won't honor device hints (I'm not even sure if 
-there are devices that honor order hints like you outline above).  However, 
-Altix could track per-device ordering as long as arch code was called from 
-such a hook.
-
-> In which case, it sounds like what needs exposing are access to the PCI
-> device hints.  I believe both PCI-X and PCIe have these hints as
-> optional specifiers in the bridges, so it should be in a current Rev of
-> the PCI spec.  Or are you proposing adding an additional PCI API that
-> allows transaction flushes to be inserted into the stream for devices
-> and bridges that have already negotiated relaxed ordering? ... in which
-> case we need to take this to the PCI list.
-
-I think it would have to be the latter, since otherwise it would be hard to 
-setup just completion queue requests to be ordered.
-
-Jesse
+James
 
 
