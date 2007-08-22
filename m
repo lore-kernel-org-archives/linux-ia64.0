@@ -1,84 +1,61 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Fri, 31 Aug 2007 18:46:39 +0000
-Subject: RE: git pull on ia64 linux tree
-Message-Id: <1188585999.6479.3.camel@localhost.localdomain>
+From: Nick Piggin <npiggin@suse.de>
+Date: Wed, 22 Aug 2007 04:57:14 +0000
+Subject: wmb vs mmiowb
+Message-Id: <20070822045714.GD26374@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
-In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jesse Barnes <jesse.barnes@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org
 
-On Fri, 2007-08-31 at 01:37 -0700, Linus Torvalds wrote:
-> 
-> On Thu, 30 Aug 2007, Linus Torvalds wrote:
-> > 
-> > So there are two cases:
-> > 
-> >  - either the code is already only used on ia64, and nobody else will 
-> >    care.
-> > 
-> >    In this case, the patch is pointless.
-> > 
-> >  - or it's used by others, and others *will* care, and (judging by the 
-> >    probably intent of the bogus initializer) they may then die a horrible 
-> >    death.
-> > 
-> >    In this case, the patch is actively evil, and should not have come in 
-> >    through an ia64 merge.
-> > 
-> > In other words, either it's pointless, or it's really really bad. Please 
-> > explain to me why I should pull this, especially this late in the -rc 
-> > game?
-> 
-> Having looked closer, it looks like the magic actually disables some 
-> broken code from happening on other architectures.
-> 
-> However, why was it done in that illogical manner?
-> 
-> It would appear that what you actually wanted to happen in that commit was 
-> to make sure that the clocksource didn't get registered. If so, the 
-> logical patch would be something like the appended instead, which would 
-> disable the code that registers it the _obvious_ way, instead of 
-> initializing a variable to a bad pointer and then relying on the bad 
-> pointer to disable the code.
-> 
-> So can somebody explain to me why it was done in that really odd way? 
+Hi,
 
-Sorry, that's me.  I just got smacked earlier for #ifdef's in code, so I
-figured by initializing hpet_clocksource to a junk value it wouldn't get
-initialized, and kept the #ifdefs outside functions. I'll agree it is
-more obfuscated, and yours is much more straight forward.
+I'm ignorant when it comes to IO access, so I hope this isn't rubbish (if
+it is, I would appreciate being corrected).
 
-Apologies, apparently I'm still learning the balance.
--john
+It took me more than a glance to see what the difference is supposed to be
+between wmb() and mmiowb(). I think especially because mmiowb isn't really
+like a write barrier.
 
-> ---
->  drivers/char/hpet.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
-> index 77bf4aa..7ecffc9 100644
-> --- a/drivers/char/hpet.c
-> +++ b/drivers/char/hpet.c
-> @@ -909,6 +909,8 @@ int hpet_alloc(struct hpet_data *hdp)
-> 
->  	hpetp->hp_delta = hpet_calibrate(hpetp);
-> 
-> +/* This clocksource driver currently only works on ia64 */
-> +#ifdef CONFIG_IA64
->  	if (!hpet_clocksource) {
->  		hpet_mctr = (void __iomem *)&hpetp->hp_hpet->hpet_mc;
->  		CLKSRC_FSYS_MMIO_SET(clocksource_hpet.fsys_mmio, hpet_mctr);
-> @@ -918,6 +920,7 @@ int hpet_alloc(struct hpet_data *hdp)
->  		hpetp->hp_clocksource = &clocksource_hpet;
->  		hpet_clocksource = &clocksource_hpet;
->  	}
-> +#endif
-> 
->  	return 0;
->  }
+wmb is supposed to order all writes coming out of a single CPU, so that's
+pretty simple.
 
+The problem is that writes coming from different CPUs can be seen by the
+device in a different order from which they were written if coming from
+different CPUs, even if the order of writes is guaranteed (eg. by a
+spinlock) and issued in the right order WRT the locking (ie.  using wmb()).
+And this can happen because the writes can get posted away and reordered by
+the IO fabric (I think). mmiowb ensures the writes are seen by the device
+in the correct order.
 
+It doesn't seem like this primary function of mmiowb has anything to do
+with a write barrier that we are used to (it may have a seconary semantic
+of a wmb as well, but let's ignore that for now). A write barrier will
+never provide you with those semantics (writes from 2 CPUs seen in the
+same order by a 3rd party). If anything, I think it is closer to being
+a read barrier issued on behalf of the target device.  But even that I
+think is not much better, because the target is not participating in the
+synchronisation that the CPUs are, so the "read barrier request" could
+still arrive at the device out of order WRT the other CPU's writes.
+
+It really seems like it is some completely different concept from a
+barrier. And it shows, on the platform where it really matters (sn2), where
+the thing actually spins.
+
+I don't know exactly how it should be categorised. On one hand, it is
+kind of like a critical section, and would work beautifully if we could
+just hide it inside spin_lock_io/spin_unlock_io. On the other hand, it
+seems like it is often used separately from locks, where it looks decidedly
+less like a critical section or release barrier. How can such uses be
+correct if they are worried about multi-CPU ordering but don't have
+anything to synchronize the CPUs? Or are they cleverly enforcing CPU
+ordering some other way? (in which case, maybe an acquire/release API
+really would make sense?).
+
+I don't really have a big point, except that I would like to know whether
+I'm on the right track, and wish the thing could have a better name/api.
+
+Thanks,
+Nick
 
