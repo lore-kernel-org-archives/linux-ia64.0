@@ -1,58 +1,26 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Wed, 22 Aug 2007 18:13:04 +0000
+From: akepner@sgi.com
+Date: Wed, 22 Aug 2007 18:44:24 +0000
 Subject: Re: [PATCH 2/3] dma: override "dma_flags_set_dmaflush" for sn-ia64
-Message-Id: <1187806384.3410.70.camel@localhost.localdomain>
+Message-Id: <20070822184424.GT5592@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070818002746.GU1813@sgi.com>
-	 <200708220951.05101.jbarnes@virtuousgeek.org>
-	 <1187802272.3410.58.camel@localhost.localdomain>
-	 <200708221017.11805.jbarnes@virtuousgeek.org>
-In-Reply-To: <200708221017.11805.jbarnes@virtuousgeek.org>
+References: <20070818002746.GU1813@sgi.com> <200708220951.05101.jbarnes@virtuousgeek.org> <1187802272.3410.58.camel@localhost.localdomain> <200708221017.11805.jbarnes@virtuousgeek.org> <1187806384.3410.70.camel@localhost.localdomain>
+In-Reply-To: <1187806384.3410.70.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
-Cc: Jes Sorensen <jes@sgi.com>, akepner@sgi.com, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>, Jes Sorensen <jes@sgi.com>, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
 
-On Wed, 2007-08-22 at 10:17 -0700, Jesse Barnes wrote:
-> On Wednesday, August 22, 2007 10:04:32 am James Bottomley wrote:
-> > The spec isn't ambiguous ... it says if the device and bridge agree on
-> > relaxed ordering, then it *may* be observed in the transaction.  If
-> > there's a disagreement or neither wishes to support relaxed ordering
-> > then the transaction *must* be strict.
+On Wed, Aug 22, 2007 at 01:13:04PM -0500, James Bottomley wrote:
+> ......
+> OK ... I think this is definitely a PCI specific API ... and probably a
+> generic one for requesting order flushes in devices that have negotiated
+> relaxed ordering.  Do you want to start a new thread on linux-pci and cc
+> me?
 > 
-> Arg, don't make me dig out my spec, I don't have it handy...
 
-Well ... I don't have one either.  However, Grant Grundler did a
-presentation to OLS about relaxed ordering, and I went over it pretty
-thoroughly with him a while ago.  The bottom line is that the default is
-always strict unless both the bridge and the device agree otherwise.
+I'll do this.
 
-> > I really don't think a work around for a PCI spec violation belongs in
-> > the generic DMA code, do you?  The correct fix for this should be to set
-> > the device hints to strict ordering, which presumably altix respects?
-> 
-> Well, the Altix hw by itself won't honor device hints (I'm not even sure if 
-> there are devices that honor order hints like you outline above).  However, 
-> Altix could track per-device ordering as long as arch code was called from 
-> such a hook.
-> 
-> > In which case, it sounds like what needs exposing are access to the PCI
-> > device hints.  I believe both PCI-X and PCIe have these hints as
-> > optional specifiers in the bridges, so it should be in a current Rev of
-> > the PCI spec.  Or are you proposing adding an additional PCI API that
-> > allows transaction flushes to be inserted into the stream for devices
-> > and bridges that have already negotiated relaxed ordering? ... in which
-> > case we need to take this to the PCI list.
-> 
-> I think it would have to be the latter, since otherwise it would be hard to 
-> setup just completion queue requests to be ordered.
-
-OK ... I think this is definitely a PCI specific API ... and probably a
-generic one for requesting order flushes in devices that have negotiated
-relaxed ordering.  Do you want to start a new thread on linux-pci and cc
-me?
-
-James
-
+-- 
+Arthur
 
