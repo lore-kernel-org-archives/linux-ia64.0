@@ -1,35 +1,27 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Wed, 22 Aug 2007 07:39:36 +0000
+Date: Wed, 22 Aug 2007 07:44:32 +0000
 Subject: Re: [PATCH 2/3] dma: override "dma_flags_set_dmaflush" for sn-ia64
-Message-Id: <46CBE838.4000302@sgi.com>
+Message-Id: <46CBE960.4090702@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070818002746.GU1813@sgi.com> <46C94FD5.6000006@sgi.com>	 <20070821193522.GD5592@sgi.com>	 <20070821130515.6e745b17.randy.dunlap@oracle.com>	 <1187729729.18410.48.camel@localhost.localdomain>	 <20070822003450.GM5592@sgi.com> <1187745249.18410.67.camel@localhost.localdomain>
-In-Reply-To: <1187745249.18410.67.camel@localhost.localdomain>
+References: <20070818002746.GU1813@sgi.com> <46C94FD5.6000006@sgi.com> <20070821193522.GD5592@sgi.com> <20070821201631.GF9163@parisc-linux.org>
+In-Reply-To: <20070821201631.GF9163@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: akepner@sgi.com, Randy Dunlap <randy.dunlap@oracle.com>, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: akepner@sgi.com, linux-kernel <linux-kernel@vger.kernel.org>, rdreier@cisco.com, linux-ia64 <linux-ia64@vger.kernel.org>
 
-James Bottomley wrote:
-> On Tue, 2007-08-21 at 17:34 -0700, akepner@sgi.com wrote:
->> The term "posted DMA" is used to describe this behavior in the Altix 
->> Device Driver Writer's Guide, but it may be confusing things here. 
->> Maybe a better term will suggest itself if I can clarify....
-> 
-> OK, but posted DMA has a pretty specific meaning in terms of PCI, hence
-> the confusion.
+Matthew Wilcox wrote:
+> So, let me try to understand ... your hardware allows writes from the
+> device to pass other writes from the device?  Doesn't that violate the
+> PCI spec?  I'm thinking about this (page 43 of PCI 2.3):
 
-Maybe it would be more better to refer to this as 'out of order DMA'?
+Hi Matthew,
 
->> On Altix, DMA from a device isn't guaranteed to arrive in host memory 
->> in the order it was sent from the device. This reordering can happen 
->> in the NUMA interconnect (it's specifically not a PCI reordering.)
-> 
-> This is mmiowb and read_relaxed() again, isn't it?
-
-I believe it's the same problem, except this time it's when exposing
-structures to userland.
+Yes I believe this behavior on sn2 is 'bending' the PCI spec a bit. The
+problem is that the NUMA fabric is a routed network in itself so there
+can be multiple paths between the device and the physical memory it DMAs
+to/from.
 
 Cheers,
 Jes
