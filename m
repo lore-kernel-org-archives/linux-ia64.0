@@ -1,53 +1,72 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Thu, 23 Aug 2007 02:57:56 +0000
+From: Nick Piggin <npiggin@suse.de>
+Date: Thu, 23 Aug 2007 03:54:48 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
+Message-Id: <20070823035448.GG18788@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
 	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
 	<200708221202.12403.jesse.barnes@intel.com>
 	<20070823022043.GB18788@wotan.suse.de>
-In-Reply-To: <20070823022043.GB18788@wotan.suse.de>
+	<alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
+In-Reply-To: <alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <npiggin@suse.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Cc: linux-ia64@vger.kernel.org, Jesse Barnes <jesse.barnes@intel.com>, linuxppc-dev@ozlabs.org
 
-
-
-On Thu, 23 Aug 2007, Nick Piggin wrote:
->
-> > Irix actually had an io_unlock() routine that did this 
-> > implicitly, but iirc that was shot down for Linux...
+On Wed, Aug 22, 2007 at 07:57:56PM -0700, Linus Torvalds wrote:
 > 
-> Why was it shot down? Seems like a pretty good idea to me ;)
+> 
+> On Thu, 23 Aug 2007, Nick Piggin wrote:
+> >
+> > > Irix actually had an io_unlock() routine that did this 
+> > > implicitly, but iirc that was shot down for Linux...
+> > 
+> > Why was it shot down? Seems like a pretty good idea to me ;)
+> 
+> It's horrible. We'd need it for *every* single spinlock type. We have lots 
+> of them. 
+> 
+> So the choice is between:
+> 
+>  - sane:
+> 
+> 	mmiowb()
+> 
+>    followed by any of the existing "spin_unlock()" variants (plain, 
+>    _irq(), _bh(), _irqrestore())
+> 
+>  - insane: multiply our current set of unlock primitives by two, by making 
+>    "io" versions for them all:
+> 
+> 	spin_unlock_io[_irq|_irqrestore|_bh]()
+> 
+> but there's actually an EVEN WORSE problem with the stupid Irix approach, 
+> namely that it requires that the unlocker be aware of the exact details of 
+> what happens inside the lock. If the locking is done at an outer layer, 
+> that's not at all obvious!
 
-It's horrible. We'd need it for *every* single spinlock type. We have lots 
-of them. 
+OK, but we'd have some kind of functions that are called not to
+serialise the CPUs, but to serialise the IO. It would be up to
+the calling code to already provide CPU synchronisation.
 
-So the choice is between:
+serialize_io(); / unserialize_io(); / a nicer name
 
- - sane:
+If we could pass in some kind of relevant resoure (eg. the IO
+memory or device or something), then we might even be able to
+put debug checks there to ensure two CPUs are never inside the
+same critical IO section at once.
 
-	mmiowb()
+ 
+> In other words, Irix (once again) made a horrible and idiotic choice. 
 
-   followed by any of the existing "spin_unlock()" variants (plain, 
-   _irq(), _bh(), _irqrestore())
+We could make a better one. I don't think mmiowb is really insane, but
+I'd worry it being confused with a regular type of barrier and that CPU
+synchronisation needs to be provided for it to work or make sense.
+ 
 
- - insane: multiply our current set of unlock primitives by two, by making 
-   "io" versions for them all:
+> Big surprise. Irix was probably the flakiest and worst of all the 
+> commercial proprietary unixes. No taste.
 
-	spin_unlock_io[_irq|_irqrestore|_bh]()
-
-but there's actually an EVEN WORSE problem with the stupid Irix approach, 
-namely that it requires that the unlocker be aware of the exact details of 
-what happens inside the lock. If the locking is done at an outer layer, 
-that's not at all obvious!
-
-In other words, Irix (once again) made a horrible and idiotic choice. 
-
-Big surprise. Irix was probably the flakiest and worst of all the 
-commercial proprietary unixes. No taste.
-
-		Linus
+Is it? I've never used it ;)
