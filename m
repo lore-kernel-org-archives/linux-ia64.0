@@ -1,56 +1,35 @@
-From: Nick Piggin <npiggin@suse.de>
-Date: Thu, 23 Aug 2007 04:20:38 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 23 Aug 2007 07:25:51 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <20070823042038.GI18788@wotan.suse.de>
+Message-Id: <1187853952.5972.2.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
-	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
-	<200708221202.12403.jesse.barnes@intel.com>
-	<20070823022043.GB18788@wotan.suse.de>
-	<alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
-In-Reply-To: <alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
+In-Reply-To: <20070822045714.GD26374@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, Jesse Barnes <jesse.barnes@intel.com>, linuxppc-dev@ozlabs.org
+To: Nick Piggin <npiggin@suse.de>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, linux-ia64@vger.kernel.org, Jesse Barnes <jesse.barnes@intel.com>, linuxppc-dev@ozlabs.org
 
-On Wed, Aug 22, 2007 at 07:57:56PM -0700, Linus Torvalds wrote:
-> 
-> 
-> On Thu, 23 Aug 2007, Nick Piggin wrote:
-> >
-> > > Irix actually had an io_unlock() routine that did this 
-> > > implicitly, but iirc that was shot down for Linux...
-> > 
-> > Why was it shot down? Seems like a pretty good idea to me ;)
-> 
-> It's horrible. We'd need it for *every* single spinlock type. We have lots 
-> of them. 
-> 
-> So the choice is between:
-> 
->  - sane:
-> 
-> 	mmiowb()
-> 
->    followed by any of the existing "spin_unlock()" variants (plain, 
->    _irq(), _bh(), _irqrestore())
-> 
->  - insane: multiply our current set of unlock primitives by two, by making 
->    "io" versions for them all:
-> 
-> 	spin_unlock_io[_irq|_irqrestore|_bh]()
-> 
-> but there's actually an EVEN WORSE problem with the stupid Irix approach, 
-> namely that it requires that the unlocker be aware of the exact details of 
-> what happens inside the lock. If the locking is done at an outer layer, 
-> that's not at all obvious!
+On Wed, 2007-08-22 at 06:57 +0200, Nick Piggin wrote:
 
-Also, FWIW, there are some advantages of deferring the mmiowb thingy
-until the point of unlock. The disadvantage is that the caller may not
-know if the inner layer performed ios that require the mmiowb, but
-the advantage of waiting until unlock is that the wait is deferred
-for as long as possible, and will hopefully be a shorter one when
-performed later.
+> It doesn't seem like this primary function of mmiowb has anything to do
+> with a write barrier that we are used to (it may have a seconary semantic
+> of a wmb as well, but let's ignore that for now). A write barrier will
+> never provide you with those semantics (writes from 2 CPUs seen in the
+> same order by a 3rd party). If anything, I think it is closer to being
+> a read barrier issued on behalf of the target device.  But even that I
+> think is not much better, because the target is not participating in the
+> synchronisation that the CPUs are, so the "read barrier request" could
+> still arrive at the device out of order WRT the other CPU's writes.
+> 
+> It really seems like it is some completely different concept from a
+> barrier. And it shows, on the platform where it really matters (sn2), where
+> the thing actually spins.
+
+The way mmiowb was actually defined to me by the ia64 folks who came up
+with it is essentially to order an MMIO write with a spin_unlock.
+
+Ben.
+
 
