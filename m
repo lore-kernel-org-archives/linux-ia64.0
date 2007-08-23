@@ -1,7 +1,7 @@
 From: Nick Piggin <npiggin@suse.de>
-Date: Thu, 23 Aug 2007 03:54:48 +0000
+Date: Thu, 23 Aug 2007 04:20:38 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <20070823035448.GG18788@wotan.suse.de>
+Message-Id: <20070823042038.GI18788@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
 	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
@@ -47,26 +47,10 @@ On Wed, Aug 22, 2007 at 07:57:56PM -0700, Linus Torvalds wrote:
 > what happens inside the lock. If the locking is done at an outer layer, 
 > that's not at all obvious!
 
-OK, but we'd have some kind of functions that are called not to
-serialise the CPUs, but to serialise the IO. It would be up to
-the calling code to already provide CPU synchronisation.
+Also, FWIW, there are some advantages of deferring the mmiowb thingy
+until the point of unlock. The disadvantage is that the caller may not
+know if the inner layer performed ios that require the mmiowb, but
+the advantage of waiting until unlock is that the wait is deferred
+for as long as possible, and will hopefully be a shorter one when
+performed later.
 
-serialize_io(); / unserialize_io(); / a nicer name
-
-If we could pass in some kind of relevant resoure (eg. the IO
-memory or device or something), then we might even be able to
-put debug checks there to ensure two CPUs are never inside the
-same critical IO section at once.
-
- 
-> In other words, Irix (once again) made a horrible and idiotic choice. 
-
-We could make a better one. I don't think mmiowb is really insane, but
-I'd worry it being confused with a regular type of barrier and that CPU
-synchronisation needs to be provided for it to work or make sense.
- 
-
-> Big surprise. Irix was probably the flakiest and worst of all the 
-> commercial proprietary unixes. No taste.
-
-Is it? I've never used it ;)
