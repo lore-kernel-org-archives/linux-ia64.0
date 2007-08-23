@@ -1,40 +1,37 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Thu, 23 Aug 2007 16:27:42 +0000
+From: Jesse Barnes <jesse.barnes@intel.com>
+Date: Thu, 23 Aug 2007 16:56:16 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <1187886462.5972.17.camel@localhost.localdomain>
+Message-Id: <200708230956.17049.jesse.barnes@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
 	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
-	<200708221202.12403.jesse.barnes@intel.com>
-	<20070823022043.GB18788@wotan.suse.de>
-	<alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
-	<20070823042038.GI18788@wotan.suse.de>
-	<alpine.LFD.0.999.0708230915000.30176@woody.linux-foundation.org>
-In-Reply-To: <alpine.LFD.0.999.0708230915000.30176@woody.linux-foundation.org>
+	<1187854035.5972.4.camel@localhost.localdomain>
+In-Reply-To: <1187854035.5972.4.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Nick Piggin <npiggin@suse.de>, linux-ia64@vger.kernel.org, Jesse Barnes <jesse.barnes@intel.com>, linuxppc-dev@ozlabs.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Nick Piggin <npiggin@suse.de>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linuxppc-dev@ozlabs.org
 
-On Thu, 2007-08-23 at 09:16 -0700, Linus Torvalds wrote:
-> 
-> On Thu, 23 Aug 2007, Nick Piggin wrote:
-> > 
-> > Also, FWIW, there are some advantages of deferring the mmiowb thingy
-> > until the point of unlock.
-> 
-> And that is exactly what ppc64 does.
-> 
-> But you're missing a big point: for 99.9% of all hardware, mmiowb() is a 
-> total no-op. So when you talk about "advantages", you're not talking about 
-> any *real* advantage, are you?
+On Thursday, August 23, 2007 12:27 am Benjamin Herrenschmidt wrote:
+> > Of course, the normal memory barrier would usually be a
+> > "spin_unlock()" or something like that, not a "wmb()". In fact, I
+> > don't think the powerpc implementation (as an example of this) will
+> > actually synchronize with anything *but* a spin_unlock().
+>
+> We are even more sneaky in the sense that we set a per-cpu flag on
+> any MMIO write and do the sync automatically in spin_unlock() :-)
 
-I wonder whether it might be worth removing mmiowb and having all archs
-that matter do like ppc64 though... It's just yet another confusing
-barrier that most driver writers get wrong..
+Yeah, that's a reasonable thing to do, and in fact I think there's code 
+to do something similar when a task is switched out (this keeps user 
+level drivers from having do mmiowb() type things).
 
-Cheers,
-Ben.
+FWIW, I think I had an earlier version of the patch that used the name 
+pioflush() or something similar, the only confusing thing about that 
+name is that the primitive doesn't actually force I/Os down to the 
+device level, just to the closest bridge.
 
+It'll be interesting to see if upcoming x86 designs share this problem 
+(e.g. large HT or CSI topologies).
 
+Jesse
