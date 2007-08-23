@@ -1,73 +1,53 @@
-From: Nick Piggin <npiggin@suse.de>
-Date: Thu, 23 Aug 2007 02:20:43 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 23 Aug 2007 02:57:56 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <20070823022043.GB18788@wotan.suse.de>
+Message-Id: <alpine.LFD.0.999.0708221953360.30176@woody.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
 	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
 	<200708221202.12403.jesse.barnes@intel.com>
-In-Reply-To: <200708221202.12403.jesse.barnes@intel.com>
+	<20070823022043.GB18788@wotan.suse.de>
+In-Reply-To: <20070823022043.GB18788@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jesse.barnes@intel.com>
-Cc: linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linuxppc-dev@ozlabs.org
+To: Nick Piggin <npiggin@suse.de>
+Cc: linux-ia64@vger.kernel.org, Jesse Barnes <jesse.barnes@intel.com>, linuxppc-dev@ozlabs.org
 
-On Wed, Aug 22, 2007 at 12:02:11PM -0700, Jesse Barnes wrote:
-> On Wednesday, August 22, 2007 11:07 am Linus Torvalds wrote:
-> > > It really seems like it is some completely different concept from a
-> > > barrier. And it shows, on the platform where it really matters
-> > > (sn2), where the thing actually spins.
-> >
-> > I agree that it probably isn't a "write barrier" per se. Think of it
-> > as a "tie two subsystems together" thing.
+
+
+On Thu, 23 Aug 2007, Nick Piggin wrote:
+>
+> > Irix actually had an io_unlock() routine that did this 
+> > implicitly, but iirc that was shot down for Linux...
 > 
-> Right, maybe it's not the best name, but as long as you separate your 
-> memory access types, you can think of it as a real write barrier, just 
-> for mmio accesses (well uncached access really).
+> Why was it shot down? Seems like a pretty good idea to me ;)
 
-If we have the following situation (all vars start at 0)
-CPU0			CPU1			CPU2
-spin_lock(&lock);				~
-A = 1;						~
-wmb();						~
-B = 2;						~
-spin_unlock(&lock);				X = B;
-			spin_lock(&lock);	rmb();
-			A = 10;			Y = A;
-			wmb();			~
-			B = 11;			~
-			spin_unlock(&lock);	~
+It's horrible. We'd need it for *every* single spinlock type. We have lots 
+of them. 
 
-(I use the '~' just to show CPU2 is not specifically temporally
-related to CPU0 or CPU1).
+So the choice is between:
 
-Then CPU2 could have X=11 and Y=1, according to the Linux abstract
-memory consistency model, couldn't it? I think so, and I think this
-is what your mmiowb is trying to protect. In the above situation,
-CPU2 would just use the spinlock -- I don't think we have a simple
-primitive that CPU0 and 1 can call to prevent this reordering at
-CPU2. An IO device obviously can't use a spinlock :).
+ - sane:
 
+	mmiowb()
 
-> > (And it doesn't just matter on sn2. It also matters on powerpc64,
-> > although I think they just set a flag and do the *real* sync in the
-> > spin_unlock() path).
-> 
-> Yeah, they keep threatening to use this instead, but I'm not sure how 
-> easy it would be.  Also they may have more devices/drivers to worry 
-> about than sn2, so maybe changing over would mean too much driver 
-> debugging (well auditing really since it's not that hard to know where 
-> to put them).  Irix actually had an io_unlock() routine that did this 
-> implicitly, but iirc that was shot down for Linux...
+   followed by any of the existing "spin_unlock()" variants (plain, 
+   _irq(), _bh(), _irqrestore())
 
-Why was it shot down? Seems like a pretty good idea to me ;)
+ - insane: multiply our current set of unlock primitives by two, by making 
+   "io" versions for them all:
 
-I'm clueless when it comes to drivers, but I see a lot of mmiowb()
-that are not paired with spin_unlock. How are these obvious? (ie.
-what is the pattern?) It looks like some might be lockless FIFOs (or
-maybe I'm just not aware of where the locks are). Can you just quickly
-illustrate the problem being solved?
+	spin_unlock_io[_irq|_irqrestore|_bh]()
 
-Thanks,
-Nick
+but there's actually an EVEN WORSE problem with the stupid Irix approach, 
+namely that it requires that the unlocker be aware of the exact details of 
+what happens inside the lock. If the locking is done at an outer layer, 
+that's not at all obvious!
+
+In other words, Irix (once again) made a horrible and idiotic choice. 
+
+Big surprise. Irix was probably the flakiest and worst of all the 
+commercial proprietary unixes. No taste.
+
+		Linus
