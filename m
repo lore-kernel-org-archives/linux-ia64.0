@@ -1,20 +1,49 @@
-From: "Tony Luck" <tony.luck@intel.com>
-Date: Fri, 03 Aug 2007 03:22:05 +0000
-Subject: Re: ia64 mmu_gather question
-Message-Id: <12c511ca0708022022v1d700b12t9146e28e270cd4d0@mail.gmail.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Fri, 24 Aug 2007 06:53:25 +0000
+Subject: [PATCH] Fix find_next_best_node (Re: [BUG] 2.6.23-rc3-mm1 Kernel panic - not syncing: DMA: Memory wo
+Message-Id: <20070824153945.3C75.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1186026055.5495.585.camel@localhost.localdomain>
-In-Reply-To: <1186026055.5495.585.camel@localhost.localdomain>
+References: <617E1C2C70743745A92448908E030B2A023EB020@scsmsx411.amr.corp.intel.com> <20070823142133.9359a1ce.akpm@linux-foundation.org>
+In-Reply-To: <20070823142133.9359a1ce.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@skynet.ie>, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Jeremy Higdon <jeremy@sgi.com>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, Balbir Singh <balbir@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org
 
-> Yup, I know. Your TLB miss rate gets lower as you fault in the page
-> table pages, though it's still higher than a full tree walker. How big
-> is the TLB btw ?
 
-# of TLB entries is model specific ... most Itanium cpus so far have been around
-128 entries give or take a few.
+I found find_next_best_node() was wrong.
+I confirmed boot up by the following patch.
+Mel-san, Kamalesh-san, could you try this?
 
--Tony
+Bye.
+---
+
+Fix decision of memoryless node in find_next_best_node().
+This can be cause of SW-IOMMU's allocation failure.
+
+This patch is for 2.6.23-rc3-mm1.
+
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+---
+ mm/page_alloc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: current/mm/page_alloc.c
+=================================--- current.orig/mm/page_alloc.c	2007-08-24 16:03:17.000000000 +0900
++++ current/mm/page_alloc.c	2007-08-24 16:04:06.000000000 +0900
+@@ -2136,7 +2136,7 @@ static int find_next_best_node(int node,
+ 		 * Note:  N_HIGH_MEMORY state not guaranteed to be
+ 		 *        populated yet.
+ 		 */
+-		if (pgdat->node_present_pages)
++		if (!pgdat->node_present_pages)
+ 			continue;
+ 
+ 		/* Don't want a node to appear more than once */
+
+-- 
+Yasunori Goto 
+
+
