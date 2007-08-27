@@ -1,45 +1,46 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 28 Aug 2007 08:44:27 +0000
-Subject: Re: [RFC PATCH] clean up use of ia64 scripts
-Message-Id: <8217.1188290667@kao2.melbourne.sgi.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Mon, 27 Aug 2007 15:59:33 +0000
+Subject: [PATCH 1/4] export __put_task_struct for XPMEM
+Message-Id: <20070827155933.GB25589@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3877989d0708280030s850780jbb26b88f639b033e@mail.gmail.com>
-In-Reply-To: <3877989d0708280030s850780jbb26b88f639b033e@mail.gmail.com>
+References: <20070827155622.GA25589@sgi.com>
+In-Reply-To: <20070827155622.GA25589@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, jes@sgi.com
 
-"Luming Yu" (on Tue, 28 Aug 2007 15:30:50 +0800) wrote:
->Hello list,
->
->Ia64 seems to be the only one that use arch specific scripts to check
->tool chain bugs that create the dependency on ia64 tool chain which
->make the command:
->make ARCH=ia64 oldconfig  fail if ia64 cross tool chain is __not__
->installed or OBJDUMP and CC is __not__ set with cross tool path on a
->non-ia64 box.  Given the current state of art of tool chain, I don't
->know if these check are still useful. Please consider to remove it.
->
->Thanks,
->Luming
->
->clean up use of ia64 scripts
->
->Signed-off-by: Yu Luming <luming.yu@intel.com>
->
->---
-> Makefile |   11 -----------
-> 1 file changed, 11 deletions(-)
->
->diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
->index 21033ed..aaabf0e 100644
->--- a/arch/ia64/Makefile
->+++ b/arch/ia64/Makefile
->@@ -28,17 +28,6 @@ cflags-y     := -pipe $(EXTRA) -ffixed-r13 -
->                   -falign-functions2 -frename-registers
->-fno-optimize-sibling-calls
-> CFLAGS_KERNEL  := -mconstant-gp
+This patch exports __put_task_struct as it is needed by XPMEM.
 
-Your patch is text wrapped.
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
+---
+
+One struct file_operations registered by XPMEM, xpmem_open(), calls
+'get_task_struct(current->group_leader)' and another, xpmem_flush(), calls
+'put_task_struct(tg->group_leader)'. The reason for this is given in the
+comment block that appears in xpmem_open().
+
+	/*
+	 * Increment 'usage' and 'mm->mm_users' for the current task's thread
+	 * group leader. This ensures that both its task_struct and mm_struct
+	 * will still be around when our thread group exits. (The Linux kernel
+	 * normally tears down the mm_struct prior to calling a module's
+	 * 'flush' function.) Since all XPMEM thread groups must go through
+	 * this path, this extra reference to mm_users also allows us to
+	 * directly inc/dec mm_users in xpmem_ensure_valid_PFNs() and avoid
+	 * mmput() which has a scaling issue with the mmlist_lock.
+	 */
+
+Index: linux-2.6/kernel/fork.c
+=================================--- linux-2.6.orig/kernel/fork.c	2007-08-09 07:07:55.426611601 -0500
++++ linux-2.6/kernel/fork.c	2007-08-09 07:15:43.246391700 -0500
+@@ -127,6 +127,7 @@
+ 	if (!profile_handoff_task(tsk))
+ 		free_task(tsk);
+ }
++EXPORT_SYMBOL_GPL(__put_task_struct);
+ 
+ void __init fork_init(unsigned long mempages)
+ {
