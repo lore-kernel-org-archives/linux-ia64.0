@@ -1,42 +1,37 @@
 From: Dean Nelson <dcn@sgi.com>
-Date: Mon, 27 Aug 2007 15:56:22 +0000
-Subject: [PATCH 0/4] SGI Altix cross partition memory (XPMEM)
-Message-Id: <20070827155622.GA25589@sgi.com>
+Date: Mon, 27 Aug 2007 16:01:32 +0000
+Subject: [PATCH 2/4] export zap_page_range for XPMEM
+Message-Id: <20070827160132.GC25589@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20070827155622.GA25589@sgi.com>
+In-Reply-To: <20070827155622.GA25589@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, akpm@linux-foundation.org
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, jes@sgi.com
+To: akpm@linux-foundation.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, tony.luck@intel.com, jes@sgi.com
 
+This patch exports zap_page_range as it is needed by XPMEM.
 
-    Terminology
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
-The term 'partition', adopted by the SGI hardware designers and which
-perculated up into the software, is used in reference to a single SSI
-when multiple SSIs are running on a single Altix. An Altix running
-multiple SSIs is said to be 'partitioned', whereas one that is running
-only a single SSI is said to be 'unpartitioned'.
+---
 
-The term '[a]cross partition' refers to a functionality that spans between
-two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
+XPMEM would have used sys_madvise() except that madvise_dontneed()
+madvise_dontneed() returns an -EINVAL if VM_PFNMAP is set, which is
+always true for the pages XPMEM imports from other partitions and is
+also true for uncached pages allocated locally via the mspec allocator.
+XPMEM needs zap_page_range() functionality for these types of pages as
+well as 'normal' pages.
 
-    Introduction
-
-This feature provides cross partition access to user memory (XPMEM) when
-running multiple partitions on a single SGI Altix. XPMEM, like XPNET,
-utilizes XPC to communicate between the partitions.
-
-XPMEM allows a user process to identify portion(s) of its address space
-that other user processes can attach (i.e. map) into their own address
-spaces. These processes can be running on the same or a different
-partition from the one whose memory they are attaching.
-
-    Known Issues
-
-XPMEM is not currently using the kthread API (which is also true for XPC)
-because it was in the process of being changed to require a kthread_stop()
-be done for every kthread_create() and the kthread_stop() couldn't be called
-for a thread that had already exited. In talking with Eric Biederman, there
-was some thought of creating a kthread_orphan() which would eliminate the
-need for a call to kthread_stop() being required.
+Index: linux-2.6/mm/memory.c
+=================================--- linux-2.6.orig/mm/memory.c	2007-08-09 07:07:55.762651612 -0500
++++ linux-2.6/mm/memory.c	2007-08-09 07:15:43.226389312 -0500
+@@ -894,6 +894,7 @@
+ 		tlb_finish_mmu(tlb, address, end);
+ 	return end;
+ }
++EXPORT_SYMBOL_GPL(zap_page_range);
+ 
+ /*
+  * Do a quick page-table lookup for a single page.
