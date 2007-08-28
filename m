@@ -1,25 +1,27 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 24 Aug 2007 18:08:33 +0000
-Subject: Re: [PATCH] Fix find_next_best_node (Re: [BUG] 2.6.23-rc3-mm1 Kernel
-Message-Id: <Pine.LNX.4.64.0708241107330.22511@schroedinger.engr.sgi.com>
+From: Adam Litke <agl@us.ibm.com>
+Date: Tue, 28 Aug 2007 22:41:40 +0000
+Subject: Re: [PATCH] Fix find_next_best_node (Re: [BUG] 2.6.23-rc3-mm1
+Message-Id: <1188340900.15336.84.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <617E1C2C70743745A92448908E030B2A023EB020@scsmsx411.amr.corp.intel.com>
-  <20070823142133.9359a1ce.akpm@linux-foundation.org> 
- <20070824153945.3C75.Y-GOTO@jp.fujitsu.com>  <20070824145233.GA26374@skynet.ie>
- <1187970572.5869.10.camel@localhost>  <Pine.LNX.4.64.0708240957010.20501@schroedinger.engr.sgi.com>
- <1187978585.5869.34.camel@localhost>
-In-Reply-To: <1187978585.5869.34.camel@localhost>
+	 <20070823142133.9359a1ce.akpm@linux-foundation.org>
+	 <20070824153945.3C75.Y-GOTO@jp.fujitsu.com>
+In-Reply-To: <20070824153945.3C75.Y-GOTO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
-Cc: Mel Gorman <mel@skynet.ie>, Yasunori Goto <y-goto@jp.fujitsu.com>, Andrew Morton <akpm@linux-foundation.org>, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, Jeremy Higdon <jeremy@sgi.com>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, Balbir Singh <balbir@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org
+To: Yasunori Goto <y-goto@jp.fujitsu.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Mel Gorman <mel@skynet.ie>, Kamalesh Babulal <kamalesh@linux.vnet.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, Jeremy Higdon <jeremy@sgi.com>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, Balbir Singh <balbir@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org
 
-On Fri, 24 Aug 2007, Lee Schermerhorn wrote:
+On Fri, 2007-08-24 at 15:53 +0900, Yasunori Goto wrote:
+> I found find_next_best_node() was wrong.
+> I confirmed boot up by the following patch.
+> Mel-san, Kamalesh-san, could you try this?
 
-> PATCH Diffs between "Fix generic usage of node_online_map" V1 & V2
+FYI: This patch also allows the alloc-instantiate-race testcase in
+libhugetlbfs to pass again :)
 
-Ahh. Yes. I remember some of that.
-
-Acked-by: Christoph Lameter <clameter@sgi.com>
+-- 
+Adam Litke - (agl at us.ibm.com)
+IBM Linux Technology Center
 
