@@ -1,7 +1,7 @@
-From: Nick Piggin <npiggin@suse.de>
-Date: Wed, 29 Aug 2007 00:59:04 +0000
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Wed, 29 Aug 2007 18:53:53 +0000
 Subject: Re: wmb vs mmiowb
-Message-Id: <20070829005904.GB25335@wotan.suse.de>
+Message-Id: <20070829125651.L13320@pkunk.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070822045714.GD26374@wotan.suse.de>
 	<alpine.LFD.0.999.0708221049560.30176@woody.linux-foundation.org>
@@ -13,71 +13,103 @@ References: <20070822045714.GD26374@wotan.suse.de>
 	<1187886462.5972.17.camel@localhost.localdomain>
 	<20070824030904.GC6989@wotan.suse.de>
 	<20070828151737.P5403@pkunk.americas.sgi.com>
-In-Reply-To: <20070828151737.P5403@pkunk.americas.sgi.com>
+	<20070829005904.GB25335@wotan.suse.de>
+In-Reply-To: <20070829005904.GB25335@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Brent Casavant <bcasavan@sgi.com>
+To: Nick Piggin <npiggin@suse.de>
 Cc: linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org
 
-On Tue, Aug 28, 2007 at 03:56:28PM -0500, Brent Casavant wrote:
-> On Fri, 24 Aug 2007, Nick Piggin wrote:
+On Wed, 29 Aug 2007, Nick Piggin wrote:
+
+> On Tue, Aug 28, 2007 at 03:56:28PM -0500, Brent Casavant wrote:
+
+> > The simplistic method to solve this is a lock around the section
+> > issuing IOs, thereby ensuring serialization of access to the IO
+> > device.  However, as SN2 does not enforce an ordering between normal
+> > memory transactions and memory-mapped IO transactions, you cannot
+> > be sure that an IO transaction will arrive at the IO fabric "on the
+> > correct side" of the unlock memory transaction using this scheme.
 > 
-> > And all platforms other than sn2 don't appear to reorder IOs after
-> > they leave the CPU, so only sn2 needs to do the mmiowb thing before
-> > spin_unlock.
+> Hmm. So what if you had the following code executed by a single CPU:
 > 
-> I'm sure all of the following is already known to most readers, but
-> I thought the paragraph above might potentially cause confusion as
-> to the nature of the problem mmiowb() is solving on SN2.  So for
-> the record...
+> writel(data, ioaddr);
+> wmb(); 
+> *mem = 10;
 > 
-> SN2 does not reorder IOs issued from a single CPU (that would be
-> insane).  Neither does it reorder IOs once they've reached the IO
-> fabric (equally insane).  From an individual CPU's perspective, all
-> IOs that it issues to a device will arrive at that device in program
-> order.
+> Will the device see the io write before the store to mem?
 
-This is why I think mmiowb() is not like a Linux memory barrier.
+Not necessarily.  There is no guaranteed ordering between the IO write
+arriving at the device and the order of the normal memory reference,
+regardless of the intervening wmb(), at least on SN2.  I believe the
+missing component in the mental model is the effect of the platform
+chipset.
 
-And I presume that the device would see IOs and regular stores from
-a CPU in program order, given the correct wmb()s? (but maybe I'm
-wrong... more below).
+Perhaps this will help.  Uncached writes (i.e. IO writes) are posted
+to the SN2 SHub ASIC and placed in their own queue which the SHub chip
+then routes to the appropriate target.  This uncached write queue is
+independent of the NUMA cache-coherency maintained by the SHub ASIC
+for system memory; the relative order in which the uncached writes
+and the system memory traffic appear at their respective targets is
+undefined with respect to eachother.
 
+wmb() does not address this situation as it only guarantees that
+the writes issued from the CPU have been posted to the chipset,
+not that the chipset itself has posted the write to the final
+destination.  mmiowb() guarantees that all outstanding IO writes
+have been issued to the IO fabric before proceeding.
 
-> (In this entire message, all IOs are assumed to be memory-mapped.)
+I like to think of it this way (probably not 100% accurate, but it
+helps me wrap my brain around this particular point):
+
+	wmb(): Ensures preceding writes have issued from the CPU.
+	mmiowb(): Ensures preceding IO writes have issued from the
+		  system chipset.
+
+mmiowb() on SN2 polls a register in SHub that reports the length
+of the outstanding uncached write queue.  When the queue has emptied,
+it is known that all subsequent normal memory writes will therefore
+arrive at their destination after all preceding IO writes have arrived
+at the IO fabric.
+
+Thus, typical mmiowb() usage, for SN2's purpose, is to ensure that
+all IO traffic from a CPU has made it out to the IO fabric before
+issuing the normal memory transactions which release a RAM-based
+lock.  The lock in this case is the one used to serialize access
+to a particular IO device.
+
+> > mmiowb() causes SN2 to drain the pending IOs from the current CPU's
+> > node.  Once the IOs are drained the CPU can safely unlock a normal
+> > memory based lock without fear of the unlock's memory write passing
+> > any outstanding IOs from that CPU.
 > 
-> The problem mmiowb() helps solve on SN2 is the ordering of IOs issued
-> from multiple CPUs to a single device.  That ordering is undefined, as
-> IO transactions are not ordered across CPUs.  That is, if CPU A issues
-> an IO at time T, and CPU B at time T+1, CPU B's IO may arrive at the
-> IO fabric before CPU A's IO, particularly if CPU B happens to be closer
-> than CPU B to the target IO bridge on the NUMA network.
-> 
-> The simplistic method to solve this is a lock around the section
-> issuing IOs, thereby ensuring serialization of access to the IO
-> device.  However, as SN2 does not enforce an ordering between normal
-> memory transactions and memory-mapped IO transactions, you cannot
-> be sure that an IO transaction will arrive at the IO fabric "on the
-> correct side" of the unlock memory transaction using this scheme.
+> mmiowb needs to have the disclaimer that it's probably wrong if called
+> outside a lock, and it's probably wrong if called between two io writes
+> (need a regular wmb() in that case). I think some drivers are getting
+> this wrong.
 
-Hmm. So what if you had the following code executed by a single CPU:
+There are situations where mmiowb() can be pressed into service to
+some other end, but those are rather rare.  The only instance I am
+personally familiar with is synchronizing a free-running counter on
+a PCI device as closely as possible to the execution of a particular
+line of driver code.  A write of the new counter value to the device
+and subsequent mmiowb() synchronizes that execution point as closely
+as practical to the IO write arriving at the device.  Not perfect, but
+good enough for my purposes.  (This was a hack, by the way, pressing
+a bit of hardware into a purpose for which it wasn't really designed,
+ideally the hardware would have had a better mechanism to accomplish
+this goal.)
 
-writel(data, ioaddr);
-wmb(); 
-*mem = 10;
+But in the normal case, I believe you are 100% correct -- wmb() would
+ensure that the memory-mapped IO writes arrive at the chipset in a
+particular order, and thus should arrive at the IO hardware in a particular
+order.  mmiowb() would not necessarily accomplish this goal, and is
+incorrectly used wherever that is the intention.  At least for SN2.
 
-Will the device see the io write before the store to mem?
+Brent
 
-
-> Enter mmiowb().
-> 
-> mmiowb() causes SN2 to drain the pending IOs from the current CPU's
-> node.  Once the IOs are drained the CPU can safely unlock a normal
-> memory based lock without fear of the unlock's memory write passing
-> any outstanding IOs from that CPU.
-
-mmiowb needs to have the disclaimer that it's probably wrong if called
-outside a lock, and it's probably wrong if called between two io writes
-(need a regular wmb() in that case). I think some drivers are getting
-this wrong.
+-- 
+Brent Casavant                          All music is folk music.  I ain't
+bcasavan@sgi.com                        never heard a horse sing a song.
+Silicon Graphics, Inc.                    -- Louis Armstrong
