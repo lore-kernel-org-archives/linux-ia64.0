@@ -1,70 +1,63 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 20 Sep 2007 20:21:11 +0000
-Subject: [patch 1/2] ia64: abstract SAL_CALL wrapper to allow other firmware entry points
-Message-Id: <200709201421.12094.bjorn.helgaas@hp.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Sat, 01 Sep 2007 07:36:26 +0000
+Subject: [PATCH 1/2] Fix kernel panic in kdump on INIT
+Message-Id: <1188632186.3930.8.camel@kane-linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200709201420.24023.bjorn.helgaas@hp.com>
-In-Reply-To: <200709201420.24023.bjorn.helgaas@hp.com>
+References: <1188632093.3930.6.camel@kane-linux>
+In-Reply-To: <1188632093.3930.6.camel@kane-linux>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-acpi@vger.kernel.org
+To: linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, kexec@lists.infradead.org
 
-SAL_CALL() always calls through the ia64_sal function pointer.  I am adding
-new functionality that needs the same conventions as SAL_CALL (FP regs
-saved/restored, sal_lock acquired, etc), but doesn't use the ia64_sal
-function pointer.
+Fix the problem that kdump on INIT causes a kernel panic if kdump
+kernel image is not configured. The cause of this problem is
+machine_kexec_on_init() is using printk in INIT context. It should
+use ia64_mca_printk() instead.
 
-This patch pulls the body of SAL_CALL out into a new "IA64_FW_CALL" that
-takes care of these calling conventions, but allows the caller to specify
-either ia64_sal or some other firmware entry point.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+---
+ arch/ia64/kernel/crash.c   |    2 +-
+ arch/ia64/kernel/mca_drv.h |    2 --
+ include/asm-ia64/mca.h     |    2 ++
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-Index: work2/include/asm-ia64/sal.h
-=================================--- work2.orig/include/asm-ia64/sal.h	2007-09-19 10:25:12.000000000 -0600
-+++ work2/include/asm-ia64/sal.h	2007-09-19 10:27:15.000000000 -0600
-@@ -46,25 +46,28 @@
- extern spinlock_t sal_lock;
+Index: linux-2.6.23-rc4/arch/ia64/kernel/crash.c
+=================================--- linux-2.6.23-rc4.orig/arch/ia64/kernel/crash.c
++++ linux-2.6.23-rc4/arch/ia64/kernel/crash.c
+@@ -119,7 +119,7 @@ static void
+ machine_kdump_on_init(void)
+ {
+ 	if (!ia64_kimage) {
+-		printk(KERN_NOTICE "machine_kdump_on_init(): "
++		ia64_mca_printk(KERN_NOTICE "machine_kdump_on_init(): "
+ 				"kdump not configured\n");
+ 		return;
+ 	}
+Index: linux-2.6.23-rc4/arch/ia64/kernel/mca_drv.h
+=================================--- linux-2.6.23-rc4.orig/arch/ia64/kernel/mca_drv.h
++++ linux-2.6.23-rc4/arch/ia64/kernel/mca_drv.h
+@@ -118,7 +118,5 @@ struct mca_table_entry {
  
- /* SAL spec _requires_ eight args for each call. */
--#define __SAL_CALL(result,a0,a1,a2,a3,a4,a5,a6,a7)	\
--	result = (*ia64_sal)(a0,a1,a2,a3,a4,a5,a6,a7)
-+#define __IA64_FW_CALL(entry,result,a0,a1,a2,a3,a4,a5,a6,a7)	\
-+	result = (*entry)(a0,a1,a2,a3,a4,a5,a6,a7)
+ extern const struct mca_table_entry *search_mca_tables (unsigned long addr);
+ extern int mca_recover_range(unsigned long);
+-extern void ia64_mca_printk(const char * fmt, ...)
+-	 __attribute__ ((format (printf, 1, 2)));
+ extern void ia64_mlogbuf_dump(void);
  
--# define SAL_CALL(result,args...) do {				\
-+# define IA64_FW_CALL(entry,result,args...) do {		\
- 	unsigned long __ia64_sc_flags;				\
- 	struct ia64_fpreg __ia64_sc_fr[6];			\
- 	ia64_save_scratch_fpregs(__ia64_sc_fr);			\
- 	spin_lock_irqsave(&sal_lock, __ia64_sc_flags);		\
--	__SAL_CALL(result, args);				\
-+	__IA64_FW_CALL(entry, result, args);			\
- 	spin_unlock_irqrestore(&sal_lock, __ia64_sc_flags);	\
- 	ia64_load_scratch_fpregs(__ia64_sc_fr);			\
- } while (0)
+Index: linux-2.6.23-rc4/include/asm-ia64/mca.h
+=================================--- linux-2.6.23-rc4.orig/include/asm-ia64/mca.h
++++ linux-2.6.23-rc4/include/asm-ia64/mca.h
+@@ -151,6 +151,8 @@ extern void ia64_mca_cmc_vector_setup(vo
+ extern int  ia64_reg_MCA_extension(int (*fn)(void *, struct ia64_sal_os_state *));
+ extern void ia64_unreg_MCA_extension(void);
+ extern u64 ia64_get_rnat(u64 *);
++extern void ia64_mca_printk(const char * fmt, ...)
++	 __attribute__ ((format (printf, 1, 2)));
  
-+# define SAL_CALL(result,args...)			\
-+	IA64_FW_CALL(ia64_sal, result, args);
-+
- # define SAL_CALL_NOLOCK(result,args...) do {		\
- 	unsigned long __ia64_scn_flags;			\
- 	struct ia64_fpreg __ia64_scn_fr[6];		\
- 	ia64_save_scratch_fpregs(__ia64_scn_fr);	\
- 	local_irq_save(__ia64_scn_flags);		\
--	__SAL_CALL(result, args);			\
-+	__IA64_FW_CALL(ia64_sal, result, args);		\
- 	local_irq_restore(__ia64_scn_flags);		\
- 	ia64_load_scratch_fpregs(__ia64_scn_fr);	\
- } while (0)
-@@ -73,7 +76,7 @@
- 	struct ia64_fpreg __ia64_scs_fr[6];		\
- 	ia64_save_scratch_fpregs(__ia64_scs_fr);	\
- 	preempt_disable();				\
--	__SAL_CALL(result, args);			\
-+	__IA64_FW_CALL(ia64_sal, result, args);		\
- 	preempt_enable();				\
- 	ia64_load_scratch_fpregs(__ia64_scs_fr);	\
- } while (0)
+ struct ia64_mca_notify_die {
+ 	struct ia64_sal_os_state *sos;
+
+
