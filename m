@@ -1,41 +1,65 @@
-From: Adrian Bunk <bunk@kernel.org>
-Date: Mon, 10 Sep 2007 13:03:52 +0000
-Subject: Re: [PATCH 2/2] forbid asm/bitops.h direct inclusion
-Message-Id: <20070910130352.GF3563@stusta.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sat, 01 Sep 2007 10:14:38 +0000
+Subject: RE: git pull on ia64 linux tree
+Message-Id: <617E1C2C70743745A92448908E030B2A024F3C01@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <30483262301654323266@pripojeni.net> <276116173913632310@pripojeni.net> <20070910122838.GA10143@linux-mips.org>
-In-Reply-To: <20070910122838.GA10143@linux-mips.org>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ralf Baechle <ralf@linux-mips.org>
-Cc: Jiri Slaby <jirislaby@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, rth@twiddle.net, hskinnemoen@atmel.com, uclinux-dist-devel@blackfin.uclinux.org, dev-etrax@axis.com, dhowells@redhat.com, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, parisc-linux@parisc-linux.org, sparclinux@vger.kernel.org, chris@zankel.net
+To: linux-ia64@vger.kernel.org
 
-On Mon, Sep 10, 2007 at 01:28:38PM +0100, Ralf Baechle wrote:
-> On Sat, Sep 08, 2007 at 09:00:48PM +0100, Jiri Slaby wrote:
-> 
-> > forbid asm/bitops.h direct inclusion
-> > 
-> > Because of compile errors that may occur after bit changes if asm/bitops.h is
-> > included directly without e.g. linux/kernel.h which includes linux/bitops.h, forbid
-> > direct inclusion of asm/bitops.h. Thanks to Adrian Bunk.
-> 
-> This is the kind of thing that checkpatch.pl is already checking for and
-> I like that idea much more than adding thousands of checks over many of
-> the header files under asm.
+> Having looked closer, it looks like the magic actually disables some 
+> broken code from happening on other architectures.
 
-Checks in the header are only for header files where including only the 
-asm header doesn't work which doesn't seem to be the common case.
+Yes.  The drivers/char/hpet.c clocksource code was added for ia64 as
+part of the switch from the time interpolator to the generic clock
+code ... but the patch had languished for a long time, and by the time
+it was resurrected, i386 and x86_64 had added their own arch specific
+code ... which didn't get noticed until the "double hpet" bug report
+was logged.
 
->   Ralf
+> However, why was it done in that illogical manner?
 
-cu
-Adrian
+Too much LDS back in the sixties?  It looked very weird, but in a
+cute sort of way ... and I though the lifetime of the code was likely
+to be short (since this code is screming to be merged into a single
+version used by any arch with HPET) ... so I pushed it in.  Sorry.
+Your patch is much better.
 
--- 
+Here's a commit comment for your patch:
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+The HPET clocksource code in drivers/char/hpet.c should not be
+registered on anything except ia64 (as it is known to cause problems
+on x86_64, and perhaps i386 too). Disable this code with an #ifdef
+until we can merge all the hpet clocksource code.
 
+Acked-by: Tony Luck <tony.luck@intel.com>
+
+
+---
+ drivers/char/hpet.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/char/hpet.c b/drivers/char/hpet.c
+index 77bf4aa..7ecffc9 100644
+--- a/drivers/char/hpet.c
++++ b/drivers/char/hpet.c
+@@ -909,6 +909,8 @@ int hpet_alloc(struct hpet_data *hdp)
+ 
+ 	hpetp->hp_delta = hpet_calibrate(hpetp);
+ 
++/* This clocksource driver currently only works on ia64 */
++#ifdef CONFIG_IA64
+ 	if (!hpet_clocksource) {
+ 		hpet_mctr = (void __iomem *)&hpetp->hp_hpet->hpet_mc;
+ 		CLKSRC_FSYS_MMIO_SET(clocksource_hpet.fsys_mmio, hpet_mctr);
+@@ -918,6 +920,7 @@ int hpet_alloc(struct hpet_data *hdp)
+ 		hpetp->hp_clocksource = &clocksource_hpet;
+ 		hpet_clocksource = &clocksource_hpet;
+ 	}
++#endif
+ 
+ 	return 0;
+ }
