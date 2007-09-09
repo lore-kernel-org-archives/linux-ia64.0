@@ -1,186 +1,176 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Tue, 11 Sep 2007 08:39:39 +0000
-Subject: Re: [PATCH] ptrace RSE bug
-Message-Id: <1189499979.25803.2.camel@sli10-conroe.sh.intel.com>
+From: Bernhard Walle <bwalle@suse.de>
+Date: Sun, 09 Sep 2007 08:39:18 +0000
+Subject: [patch 4/5] Use extended crashkernel command line on IA64
+Message-Id: <20070909083915.165288618@strauss.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
-In-Reply-To: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
+References: <20070909083914.065380136@strauss.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kexec@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 2007-09-07 at 09:11 -0600, David Mosberger-Tang wrote:
-> Anything that avoids complicating the kernel exit path is worth doing!
->  The exit path is complicated enough as it is.
-> 
->   --david
-> 
-> On 9/7/07, Petr Tesarik <ptesarik@suse.cz> wrote:
-> > -----BEGIN PGP SIGNED MESSAGE-----
-> > Hash: SHA1
-> >
-> > Shaohua Li wrote:
-> > > On Thu, 2007-09-06 at 15:59 +0200, Petr Tesarik wrote:
-> > >>[...]
-> > >> So, what happens if upon syscall entry notification the debugger
-> > >> modifies the part of the RBS (in user-space) which corresponds to the
-> > >> arguments of that syscall? Currently, the syscall takes the modified
-> > >> arguments, but with your change it would still take the stale data
-> > >> from
-> > >> the kernel RBS.
-> > > The patch does sync from user RBS to kernel RBS just after syscall trace
-> > > enter. this is an exception I said doing sync just before syscall
-> > > return. I thought this covers your case, no?
-> >
-> > Ah, I'm sorry, I missed that part of the patch. Well, if we have to do a
-> > sync on every syscall_trace_enter() and syscall_trace_leave(), then the
-> > only cases where introducing TIF_RESTORE_RSE saves us a duplicate sync
-> > seems to be in the clone/fork and exit paths. In other words, it's
-> > probably not worth the added complexity. But since you have written the
-> > whole complex thing already, I have no objections against it.
-Ok, this is a simplified patch. please review.
+This patch adapts IA64 to use the generic parse_crashkernel() function
+instead of its own parsing for the crashkernel command line.
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Because the total amount of System RAM must be known when calling this
+function, efi_memmap_init() is modified to return its comulated 
+total_memory variable in a pointer value. IMO that's better than making the
+variable global.
+
+Also, the crashkernel handling is moved in an own function in
+arch/ia64/kernel/setup.c to make the code more readable.
+
+
+Signed-off-by: Bernhard Walle <bwalle@suse.de>
+
 ---
- arch/ia64/kernel/ptrace.c |   62 ++++++++++++++++++++++++++++++++++++++++++++++
- include/asm-ia64/ptrace.h |    2 +
- include/linux/ptrace.h    |    4 ++
- kernel/signal.c           |    5 ++-
- 4 files changed, 72 insertions(+), 1 deletion(-)
+ arch/ia64/kernel/efi.c     |    5 ++
+ arch/ia64/kernel/setup.c   |   88 +++++++++++++++++++++++----------------------
+ include/asm-ia64/meminit.h |    3 +
+ 3 files changed, 52 insertions(+), 44 deletions(-)
 
-Index: linux/arch/ia64/kernel/ptrace.c
-=================================--- linux.orig/arch/ia64/kernel/ptrace.c	2007-09-06 13:06:49.000000000 +0800
-+++ linux/arch/ia64/kernel/ptrace.c	2007-09-11 11:33:35.000000000 +0800
-@@ -547,6 +547,62 @@ ia64_sync_user_rbs (struct task_struct *
- 	return 0;
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -968,7 +968,7 @@ find_memmap_space (void)
+  * parts exist, and are WB.
+  */
+ void
+-efi_memmap_init(unsigned long *s, unsigned long *e)
++efi_memmap_init(unsigned long *s, unsigned long *e, unsigned long *total_memory)
+ {
+ 	struct kern_memdesc *k, *prev = NULL;
+ 	u64	contig_low=0, contig_high=0;
+@@ -1084,6 +1084,9 @@ efi_memmap_init(unsigned long *s, unsign
+ 	/* reserve the memory we are using for kern_memmap */
+ 	*s = (u64)kern_memmap;
+ 	*e = (u64)++k;
++
++	if (total_memory)
++		*total_memory = total_mem;
  }
  
-+static long
-+ia64_sync_kernel_rbs (struct task_struct *child, struct switch_stack *sw,
-+		unsigned long user_rbs_start, unsigned long user_rbs_end)
+ void
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -208,6 +208,48 @@ static int __init register_memory(void)
+ 
+ __initcall(register_memory);
+ 
++
++#ifdef CONFIG_KEXEC
++static void setup_crashkernel(unsigned long total, int *n)
 +{
-+	unsigned long addr, val;
-+	long ret;
++	unsigned long long base = 0, size = 0;
++	int ret;
 +
-+	/* now copy word for word from user rbs to kernel rbs: */
-+	for (addr = user_rbs_start; addr < user_rbs_end; addr += 8) {
-+		if (access_process_vm(child, addr, &val, sizeof(val), 0)
-+				!= sizeof(val))
-+			return -EIO;
-+
-+		ret = ia64_poke(child, sw, user_rbs_end, addr, val);
-+		if (ret < 0)
-+			return ret;
++	ret = parse_crashkernel(boot_command_line, total,
++			&size, &base);
++	if (ret = 0 && size > 0) {
++		if (!base) {
++			sort_regions(rsvd_region, *n);
++			base = kdump_find_rsvd_region(size,
++					rsvd_region, *n);
++		}
++		if (base != ~0UL) {
++			printk(KERN_INFO "Reserving %ldMB of memory at %ldMB "
++					"for crashkernel (System RAM: %ldMB)\n",
++					(unsigned long)(size >> 20),
++					(unsigned long)(base >> 20),
++					(unsigned long)(total >> 20));
++			rsvd_region[*n].start +				(unsigned long)__va(base);
++			rsvd_region[*n].end +				(unsigned long)__va(base + size);
++			(*n)++;
++			crashk_res.start = base;
++			crashk_res.end = base + size - 1;
++		}
 +	}
-+	return 0;
++	efi_memmap_res.start = ia64_boot_param->efi_memmap;
++	efi_memmap_res.end = efi_memmap_res.start +
++		ia64_boot_param->efi_memmap_size;
++	boot_param_res.start = __pa(ia64_boot_param);
++	boot_param_res.end = boot_param_res.start +
++		sizeof(*ia64_boot_param);
 +}
-+
-+#define RBS_SYNC_TO_USER 0
-+#define RBS_SYNC_TO_KERNEL 1
-+static void do_sync_rbs(struct unw_frame_info *info, void *arg)
-+{
-+	struct pt_regs *pt;
-+	unsigned long urbs_end;
-+	int to_user = (unsigned long)arg;
-+
-+	if (unw_unwind_to_user(info) < 0)
-+		return;
-+	pt = task_pt_regs(info->task);
-+	urbs_end = ia64_get_user_rbs_end(info->task, pt, NULL);
-+
-+	if (to_user = RBS_SYNC_TO_USER)
-+		ia64_sync_user_rbs(info->task, info->sw, pt->ar_bspstore, urbs_end);
-+	else
-+		ia64_sync_kernel_rbs(info->task, info->sw, pt->ar_bspstore, urbs_end);
-+}
-+
-+/*
-+ * when a thread is stopped (ptraced), debugger might change thread's user
-+ * stack (change memory directly), and we must avoid the RSE stored in kernel
-+ * to override user stack (user space's RSE is newer than kernel's in the
-+ * case). To workaround the issue, we copy kernel RSE to user RSE before the
-+ * task is stopped, so user RSE has updated data.  we then copy user RSE to
-+ * kernel after the task is resummed from traced stop and kernel will use the
-+ * newer RSE to return to user.
-+ */
-+void arch_ptrace_stop(int before_suspend)
-+{
-+	if (before_suspend)
-+		unw_init_running(do_sync_rbs, (void *)RBS_SYNC_TO_USER);
-+	else
-+		unw_init_running(do_sync_rbs, (void *)RBS_SYNC_TO_KERNEL);
-+}
-+
- static inline int
- thread_matches (struct task_struct *thread, unsigned long addr)
- {
-@@ -1422,6 +1478,7 @@ sys_ptrace (long request, pid_t pid, uns
- 	struct task_struct *child;
- 	struct switch_stack *sw;
- 	long ret;
-+	struct unw_frame_info info;
- 
- 	lock_kernel();
- 	ret = -EPERM;
-@@ -1481,6 +1538,11 @@ sys_ptrace (long request, pid_t pid, uns
- 		/* write the word at location addr */
- 		urbs_end = ia64_get_user_rbs_end(child, pt, NULL);
- 		ret = ia64_poke(child, sw, urbs_end, addr, data);
-+
-+		/* Make sure user RBS has the latest data */
-+		unw_init_from_blocked_task(&info, child);
-+		do_sync_rbs(&info, RBS_SYNC_TO_USER);
-+
- 		goto out_tsk;
- 
- 	      case PTRACE_PEEKUSR:
-Index: linux/include/asm-ia64/ptrace.h
-=================================--- linux.orig/include/asm-ia64/ptrace.h	2007-08-29 11:26:33.000000000 +0800
-+++ linux/include/asm-ia64/ptrace.h	2007-09-11 09:53:04.000000000 +0800
-@@ -303,6 +303,8 @@ struct switch_stack {
-   extern void ia64_increment_ip (struct pt_regs *pt);
-   extern void ia64_decrement_ip (struct pt_regs *pt);
- 
-+  extern void arch_ptrace_stop(int);
-+  #define HAVE_ARCH_PTRACE_STOP
- #endif /* !__KERNEL__ */
- 
- /* pt_all_user_regs is used for PTRACE_GETREGS PTRACE_SETREGS */
-Index: linux/kernel/signal.c
-=================================--- linux.orig/kernel/signal.c	2007-09-11 09:33:14.000000000 +0800
-+++ linux/kernel/signal.c	2007-09-11 10:55:05.000000000 +0800
-@@ -1599,15 +1599,18 @@ static void ptrace_stop(int exit_code, i
- 	current->last_siginfo = info;
- 	current->exit_code = exit_code;
- 
-+	spin_unlock_irq(&current->sighand->siglock);
-+	arch_ptrace_stop(1);
- 	/* Let the debugger run.  */
- 	set_current_state(TASK_TRACED);
--	spin_unlock_irq(&current->sighand->siglock);
-+
- 	try_to_freeze();
- 	read_lock(&tasklist_lock);
- 	if (may_ptrace_stop()) {
- 		do_notify_parent_cldstop(current, CLD_TRAPPED);
- 		read_unlock(&tasklist_lock);
- 		schedule();
-+		arch_ptrace_stop(0);
- 	} else {
- 		/*
- 		 * By the time we got the lock, our tracer went away.
-Index: linux/include/linux/ptrace.h
-=================================--- linux.orig/include/linux/ptrace.h	2007-08-29 11:26:33.000000000 +0800
-+++ linux/include/linux/ptrace.h	2007-09-11 09:52:32.000000000 +0800
-@@ -128,6 +128,10 @@ int generic_ptrace_pokedata(struct task_
- #define force_successful_syscall_return() do { } while (0)
- #endif
- 
-+#ifndef HAVE_ARCH_PTRACE_STOP
-+#define arch_ptrace_stop(a)	do { } while (0)
++#else
++static inline void setup_crashkernel(unsigned long total, int *n)
++{}
 +#endif
 +
+ /**
+  * reserve_memory - setup reserved memory areas
+  *
+@@ -219,6 +261,7 @@ void __init
+ reserve_memory (void)
+ {
+ 	int n = 0;
++	unsigned long total_memory = 0;
+ 
+ 	/*
+ 	 * none of the entries in this table overlap
+@@ -254,50 +297,11 @@ reserve_memory (void)
+ 		n++;
  #endif
  
- #endif
+-	efi_memmap_init(&rsvd_region[n].start, &rsvd_region[n].end);
++	efi_memmap_init(&rsvd_region[n].start, &rsvd_region[n].end, &total_memory);
+ 	n++;
+ 
+-#ifdef CONFIG_KEXEC
+-	/* crashkernel=size@offset specifies the size to reserve for a crash
+-	 * kernel. If offset is 0, then it is determined automatically.
+-	 * By reserving this memory we guarantee that linux never set's it
+-	 * up as a DMA target.Useful for holding code to do something
+-	 * appropriate after a kernel panic.
+-	 */
+-	{
+-		char *from = strstr(boot_command_line, "crashkernel=");
+-		unsigned long base, size;
+-		if (from) {
+-			size = memparse(from + 12, &from);
+-			if (*from = '@')
+-				base = memparse(from+1, &from);
+-			else
+-				base = 0;
+-			if (size) {
+-				if (!base) {
+-					sort_regions(rsvd_region, n);
+-					base = kdump_find_rsvd_region(size,
+-							      	rsvd_region, n);
+-					}
+-				if (base != ~0UL) {
+-					rsvd_region[n].start -						(unsigned long)__va(base);
+-					rsvd_region[n].end -						(unsigned long)__va(base + size);
+-					n++;
+-					crashk_res.start = base;
+-					crashk_res.end = base + size - 1;
+-				}
+-			}
+-		}
+-		efi_memmap_res.start = ia64_boot_param->efi_memmap;
+-                efi_memmap_res.end = efi_memmap_res.start +
+-                        ia64_boot_param->efi_memmap_size;
+-                boot_param_res.start = __pa(ia64_boot_param);
+-                boot_param_res.end = boot_param_res.start +
+-                        sizeof(*ia64_boot_param);
+-	}
+-#endif
++	setup_crashkernel(total_memory, &n);
++
+ 	/* end of memory marker */
+ 	rsvd_region[n].start = ~0UL;
+ 	rsvd_region[n].end   = ~0UL;
+--- a/include/asm-ia64/meminit.h
++++ b/include/asm-ia64/meminit.h
+@@ -35,7 +35,8 @@ extern void find_memory (void);
+ extern void reserve_memory (void);
+ extern void find_initrd (void);
+ extern int filter_rsvd_memory (unsigned long start, unsigned long end, void *arg);
+-extern void efi_memmap_init(unsigned long *, unsigned long *);
++extern void efi_memmap_init(unsigned long *s, unsigned long *e,
++		unsigned long *total_memory);
+ extern int find_max_min_low_pfn (unsigned long , unsigned long, void *);
+ 
+ extern unsigned long vmcore_find_descriptor_size(unsigned long address);
+
+-- 
