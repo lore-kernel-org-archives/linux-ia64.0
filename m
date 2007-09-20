@@ -1,13 +1,13 @@
 From: Bernhard Walle <bwalle@suse.de>
-Date: Thu, 13 Sep 2007 16:14:32 +0000
+Date: Thu, 20 Sep 2007 17:18:49 +0000
 Subject: [patch 4/7] Use extended crashkernel command line on ia64
-Message-Id: <20070913161429.709200229@strauss.suse.de>
+Message-Id: <20070920171846.695412000@stravinsky.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070913161428.343951643@strauss.suse.de>
+References: <20070920171845.774383000@stravinsky.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kexec@lists.infradead.org
+To: kexec@lists.infradead.org, akpm@linux-foundation.org
 Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
 
 This patch adapts IA64 to use the generic parse_crashkernel() function
@@ -57,7 +57,7 @@ Signed-off-by: Bernhard Walle <bwalle@suse.de>
  
 +
 +#ifdef CONFIG_KEXEC
-+static void setup_crashkernel(unsigned long total, int *n)
++static void __init setup_crashkernel(unsigned long total, int *n)
 +{
 +	unsigned long long base = 0, size = 0;
 +	int ret;
@@ -91,7 +91,7 @@ Signed-off-by: Bernhard Walle <bwalle@suse.de>
 +		sizeof(*ia64_boot_param);
 +}
 +#else
-+static inline void setup_crashkernel(unsigned long total, int *n)
++static inline void __init setup_crashkernel(unsigned long total, int *n)
 +{}
 +#endif
 +
