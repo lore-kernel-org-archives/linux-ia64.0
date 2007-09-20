@@ -1,62 +1,94 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Sat, 01 Sep 2007 07:37:48 +0000
-Subject: [PATCH 2/2] Fix kernel hangup in kdump on INIT
-Message-Id: <1188632268.3930.10.camel@kane-linux>
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 20 Sep 2007 18:59:12 +0000
+Subject: [patch] Remove needless delay in MCA rendezvous
+Message-Id: <20070920185911.GA20978@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1188632093.3930.6.camel@kane-linux>
-In-Reply-To: <1188632093.3930.6.camel@kane-linux>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: "Luck, Tony" <tony.luck@intel.com>, kexec@lists.infradead.org
+To: linux-ia64@vger.kernel.org
 
-Fix the problem that kdump on INIT hung up if kdump kernel image is
-not configured.
+[patch] Remove needless delay in MCA rendezvous
 
-The kdump_init_notifier() on monarch CPU stops its operation at
-DIE_INIT_MONARCH_LEAVE time if the kdump kernel image is not
-configured. On the other hand, kdump_init_notifier() on non-monarch
-CPUs get into spin because they don't know the fact the monarch stops
-its operation. This is the cause of this problem. To fix this problem,
-we need to check the kdump kernel image at the top of the
-kdump_init_notifier() function.
+While testing the MCA recovery code, noticed that some machines would have a 
+five second delay rendezvousing cpus.  What was happening is that 
+ia64_wait_for_slaves() would check to see if all the slave CPUs had 
+rendezvoused.  If any had not, it would wait 1 millisecond then check again.
+If any CPUs had still not rendezvoused, it would wait 5 seconds before
+checking again. 
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+On some configs the rendezvous takes more than 1 millisecond, causing the code
+to wait the full 5 seconds, even though the last CPU rendezvoused after only
+a few milliseconds.
+
+The fix is to check every 1 millisecond to see if all the cpus have 
+rendezvoused.  After 5 seconds the code concludes the CPUs will never
+rendezvous (same as before).
+
+The MCA code is, by definition, not performance critical, but a needless
+delay of 5 seconds is senseless.  The 5 seconds also adds up quickly
+when running the error injection code in a loop.
+
+This patch both simplifies the code and removes the needless delay.
+
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
 ---
- arch/ia64/kernel/crash.c |   13 ++++++++-----
- 1 files changed, 8 insertions(+), 5 deletions(-)
+ arch/ia64/kernel/mca.c |   41 +++++++++++++++++++----------------------
+ 1 file changed, 19 insertions(+), 22 deletions(-)
 
-Index: linux-2.6.23-rc4/arch/ia64/kernel/crash.c
-=================================--- linux-2.6.23-rc4.orig/arch/ia64/kernel/crash.c
-+++ linux-2.6.23-rc4/arch/ia64/kernel/crash.c
-@@ -118,11 +118,6 @@ machine_crash_shutdown(struct pt_regs *p
+Index: test/arch/ia64/kernel/mca.c
+=================================--- test.orig/arch/ia64/kernel/mca.c	2007-09-20 10:23:57.011455209 -0500
++++ test/arch/ia64/kernel/mca.c	2007-09-20 10:24:00.463872304 -0500
+@@ -1136,30 +1136,27 @@ no_mod:
  static void
- machine_kdump_on_init(void)
+ ia64_wait_for_slaves(int monarch, const char *type)
  {
--	if (!ia64_kimage) {
--		ia64_mca_printk(KERN_NOTICE "machine_kdump_on_init(): "
--				"kdump not configured\n");
--		return;
--	}
- 	local_irq_disable();
- 	kexec_disable_iosapic();
- 	machine_kexec(ia64_kimage);
-@@ -156,6 +151,14 @@ kdump_init_notifier(struct notifier_bloc
- 	if (!kdump_on_init)
- 		return NOTIFY_DONE;
- 
-+	if (!ia64_kimage) {
-+		if (val = DIE_INIT_MONARCH_LEAVE)
-+			ia64_mca_printk(KERN_NOTICE
-+					"%s: kdump not configured\n",
-+					__FUNCTION__);
-+		return NOTIFY_DONE;
-+	}
+-	int c, wait = 0, missing = 0;
+-	for_each_online_cpu(c) {
+-		if (c = monarch)
+-			continue;
+-		if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE) {
+-			udelay(1000);		/* short wait first */
+-			wait = 1;
+-			break;
++	int c, i , wait;
 +
- 	if (val != DIE_INIT_MONARCH_LEAVE &&
- 	    val != DIE_INIT_SLAVE_LEAVE &&
- 	    val != DIE_INIT_MONARCH_PROCESS &&
-
-
++	/*
++	 * wait 5 seconds total for slaves (arbitrary)
++	 */
++	for (i = 0; i < 5000; i++) {
++		wait = 0;
++		for_each_online_cpu(c) {
++			if (c = monarch)
++				continue;
++			if (ia64_mc_info.imi_rendez_checkin[c]
++					= IA64_MCA_RENDEZ_CHECKIN_NOTDONE) {
++				udelay(1000);		/* short wait */
++				wait = 1;
++				break;
++			}
+ 		}
++		if (!wait)
++			goto all_in;
+ 	}
+-	if (!wait)
+-		goto all_in;
+-	for_each_online_cpu(c) {
+-		if (c = monarch)
+-			continue;
+-		if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE) {
+-			udelay(5*1000000);	/* wait 5 seconds for slaves (arbitrary) */
+-			if (ia64_mc_info.imi_rendez_checkin[c] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE)
+-				missing = 1;
+-			break;
+-		}
+-	}
+-	if (!missing)
+-		goto all_in;
++
+ 	/*
+ 	 * Maybe slave(s) dead. Print buffered messages immediately.
+ 	 */
+-- 
+Russ Anderson  RAS group  SGI  rja@sgi.com
