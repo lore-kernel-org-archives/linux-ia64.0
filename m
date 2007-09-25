@@ -1,9 +1,9 @@
 From: Bernhard Walle <bwalle@suse.de>
-Date: Thu, 20 Sep 2007 17:18:49 +0000
+Date: Tue, 25 Sep 2007 18:23:01 +0000
 Subject: [patch 4/7] Use extended crashkernel command line on ia64
-Message-Id: <20070920171846.695412000@stravinsky.suse.de>
+Message-Id: <20070925182259.097017081@strauss.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20070920171845.774383000@stravinsky.suse.de>
+References: <20070925182257.900701776@strauss.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -102,7 +102,7 @@ Signed-off-by: Bernhard Walle <bwalle@suse.de>
  reserve_memory (void)
  {
  	int n = 0;
-+	unsigned long total_memory = 0;
++	unsigned long total_memory;
  
  	/*
  	 * none of the entries in this table overlap
