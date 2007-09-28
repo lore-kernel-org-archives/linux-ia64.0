@@ -1,306 +1,191 @@
-From: Len Brown <lenb@kernel.org>
-Date: Fri, 21 Sep 2007 01:03:11 +0000
-Subject: Re: [patch 2/2] ia64: add driver for ACPI methods to call native firmware
-Message-Id: <200709202103.11316.lenb@kernel.org>
+From: Alex Chiang <achiang@hp.com>
+Date: Fri, 28 Sep 2007 01:08:50 +0000
+Subject: [PATCH] ia64: /proc/cpuinfo "physical id" field cleanups
+Message-Id: <20070928010850.GG16444@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200709201420.24023.bjorn.helgaas@hp.com> <200709201422.03539.bjorn.helgaas@hp.com>
-In-Reply-To: <200709201422.03539.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, linux-acpi@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-I guess x86 does this via SMI,
-I don't see any other way, so it looks reasonable to me.
+Clean up the process for presenting the "physical id" field in
+/proc/cpuinfo.
 
-Tony,
-Acked-by: Len Brown <len.brown@intel.com>
+        - remove global smp_num_cpucores, as it is mostly useless
 
-On Thursday 20 September 2007 16:22, Bjorn Helgaas wrote:
-> This driver for HPQ5001 devices installs a global ACPI OpRegion handler.
-> AML methods can use this OpRegion to call native firmware entry points.
-> 
-> ACPI does not define a mechanism for AML methods to call native firmware
-> interfaces such as PAL or SAL.  This OpRegion handler adds such a mechanism.
-> After the handler is installed, an AML method can call native firmware by
-> storing the arguments and firmware entry point to specific offsets in the
-> OpRegion.  When AML reads the "return value" offset from the OpRegion, this
-> handler loads up the arguments, makes the firmware call, and returns the
-> result.
-> 
-> Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-> 
-> Index: work2/arch/ia64/Kconfig
-> =================================> --- work2.orig/arch/ia64/Kconfig	2007-09-19 10:09:43.000000000 -0600
-> +++ work2/arch/ia64/Kconfig	2007-09-19 10:51:15.000000000 -0600
-> @@ -461,6 +461,16 @@
->  	  firmware extensions, such as the ability to inject memory-errors
->  	  for test-purposes.  If you're unsure, say N.
->  
-> +config IA64_HP_AML_NFW
-> +	bool "Support ACPI AML calls to native firmware"
-> +	help
-> +	  This driver installs a global ACPI Operation Region handler for
-> +	  region 0xA1.  AML methods can use this OpRegion to call arbitrary
-> +	  native firmware functions.  The driver installs the OpRegion
-> +	  handler if there is an HPQ5001 device or if the user supplies
-> +	  the "force" module parameter, e.g., with the "aml_nfw.force"
-> +	  kernel command line option.
-> +
->  source "drivers/sn/Kconfig"
->  
->  config KEXEC
-> Index: work2/arch/ia64/hp/common/Makefile
-> =================================> --- work2.orig/arch/ia64/hp/common/Makefile	2007-09-19 10:09:43.000000000 -0600
-> +++ work2/arch/ia64/hp/common/Makefile	2007-09-19 10:51:15.000000000 -0600
-> @@ -8,3 +8,4 @@
->  obj-y := sba_iommu.o
->  obj-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += hwsw_iommu.o
->  obj-$(CONFIG_IA64_GENERIC) += hwsw_iommu.o
-> +obj-$(CONFIG_IA64_HP_AML_NFW) += aml_nfw.o
-> Index: work2/arch/ia64/hp/common/aml_nfw.c
-> =================================> --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-> +++ work2/arch/ia64/hp/common/aml_nfw.c	2007-09-20 14:05:21.000000000 -0600
-> @@ -0,0 +1,236 @@
-> +/*
-> + * OpRegion handler to allow AML to call native firmware
-> + *
-> + * (c) Copyright 2007 Hewlett-Packard Development Company, L.P.
-> + *	Bjorn Helgaas <bjorn.helgaas@hp.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + *
-> + * This driver implements HP Open Source Review Board proposal 1842,
-> + * which was approved on 9/20/2006.
-> + *
-> + * For technical documentation, see the HP SPPA Firmware EAS, Appendix F.
-> + *
-> + * ACPI does not define a mechanism for AML methods to call native firmware
-> + * interfaces such as PAL or SAL.  This OpRegion handler adds such a mechanism.
-> + * After the handler is installed, an AML method can call native firmware by
-> + * storing the arguments and firmware entry point to specific offsets in the
-> + * OpRegion.  When AML reads the "return value" offset from the OpRegion, this
-> + * handler loads up the arguments, makes the firmware call, and returns the
-> + * result.
-> + */
-> +
-> +#include <linux/module.h>
-> +#include <acpi/acpi_bus.h>
-> +#include <acpi/acpi_drivers.h>
-> +#include <asm/sal.h>
-> +
-> +MODULE_AUTHOR("Bjorn Helgaas <bjorn.helgaas@hp.com>");
-> +MODULE_LICENSE("GPL");
-> +MODULE_DESCRIPTION("ACPI opregion handler for native firmware calls");
-> +
-> +static int force_register;
-> +module_param_named(force, force_register, bool, 0);
-> +MODULE_PARM_DESC(force, "Install opregion handler even without HPQ5001 device");
-> +
-> +#define AML_NFW_SPACE		0xA1
-> +
-> +struct ia64_pdesc {
-> +	void *ip;
-> +	void *gp;
-> +};
-> +
-> +/*
-> + * N.B.  The layout of this structure is defined in the HP SPPA FW EAS, and
-> + *	 the member offsets are embedded in AML methods.
-> + */
-> +struct ia64_nfw_context {
-> +	u64 arg[8];
-> +	struct ia64_sal_retval ret;
-> +	u64 ip;
-> +	u64 gp;
-> +	u64 pad[2];
-> +};
-> +
-> +static void *virt_map(u64 address)
-> +{
-> +	if (address & (1UL << 63))
-> +		return (void *) (__IA64_UNCACHED_OFFSET | address);
-> +
-> +	return __va(address);
-> +}
-> +
-> +static void aml_nfw_execute(struct ia64_nfw_context *c)
-> +{
-> +	struct ia64_pdesc virt_entry;
-> +	ia64_sal_handler entry;
-> +
-> +	virt_entry.ip = virt_map(c->ip);
-> +	virt_entry.gp = virt_map(c->gp);
-> +
-> +	entry = (ia64_sal_handler) &virt_entry;
-> +
-> +	IA64_FW_CALL(entry, c->ret,
-> +		     c->arg[0], c->arg[1], c->arg[2], c->arg[3],
-> +		     c->arg[4], c->arg[5], c->arg[6], c->arg[7]);
-> +}
-> +
-> +static void aml_nfw_read_arg(u8 *offset, u32 bit_width, acpi_integer *value)
-> +{
-> +	switch (bit_width) {
-> +	case 8:
-> +		*value = *(u8 *)offset;
-> +		break;
-> +	case 16:
-> +		*value = *(u16 *)offset;
-> +		break;
-> +	case 32:
-> +		*value = *(u32 *)offset;
-> +		break;
-> +	case 64:
-> +		*value = *(u64 *)offset;
-> +		break;
-> +	}
-> +}
-> +
-> +static void aml_nfw_write_arg(u8 *offset, u32 bit_width, acpi_integer *value)
-> +{
-> +	switch (bit_width) {
-> +	case 8:
-> +		*(u8 *) offset = *value;
-> +		break;
-> +	case 16:
-> +		*(u16 *) offset = *value;
-> +		break;
-> +	case 32:
-> +		*(u32 *) offset = *value;
-> +		break;
-> +	case 64:
-> +		*(u64 *) offset = *value;
-> +		break;
-> +	}
-> +}
-> +
-> +static acpi_status aml_nfw_handler(u32 function, acpi_physical_address address,
-> +	u32 bit_width, acpi_integer *value, void *handler_context,
-> +	void *region_context)
-> +{
-> +	struct ia64_nfw_context *context = handler_context;
-> +	u8 *offset = (u8 *) context + address;
-> +
-> +	if (bit_width !=  8 && bit_width != 16 &&
-> +	    bit_width != 32 && bit_width != 64)
-> +		return AE_BAD_PARAMETER;
-> +
-> +	if (address + (bit_width >> 3) > sizeof(struct ia64_nfw_context))
-> +		return AE_BAD_PARAMETER;
-> +
-> +	switch (function) {
-> +	case ACPI_READ:
-> +		if (address = offsetof(struct ia64_nfw_context, ret))
-> +			aml_nfw_execute(context);
-> +		aml_nfw_read_arg(offset, bit_width, value);
-> +		break;
-> +	case ACPI_WRITE:
-> +		aml_nfw_write_arg(offset, bit_width, value);
-> +		break;
-> +	}
-> +
-> +	return AE_OK;
-> +}
-> +
-> +static struct ia64_nfw_context global_context;
-> +static int global_handler_registered;
-> +
-> +static int aml_nfw_add_global_handler(void)
-> +{
-> +	acpi_status status;
-> +
-> +	if (global_handler_registered)
-> +		return 0;
-> +
-> +	status = acpi_install_address_space_handler(ACPI_ROOT_OBJECT,
-> +		AML_NFW_SPACE, aml_nfw_handler, NULL, &global_context);
-> +	if (ACPI_FAILURE(status))
-> +		return -ENODEV;
-> +
-> +	global_handler_registered = 1;
-> +	printk(KERN_INFO "Global 0x%02X opregion handler registered\n",
-> +		AML_NFW_SPACE);
-> +	return 0;
-> +}
-> +
-> +static int aml_nfw_remove_global_handler(void)
-> +{
-> +	acpi_status status;
-> +
-> +	if (!global_handler_registered)
-> +		return 0;
-> +
-> +	status = acpi_remove_address_space_handler(ACPI_ROOT_OBJECT,
-> +		AML_NFW_SPACE, aml_nfw_handler);
-> +	if (ACPI_FAILURE(status))
-> +		return -ENODEV;
-> +
-> +	global_handler_registered = 0;
-> +	printk(KERN_INFO "Global 0x%02X opregion handler removed\n",
-> +		AML_NFW_SPACE);
-> +	return 0;
-> +}
-> +
-> +static int aml_nfw_add(struct acpi_device *device)
-> +{
-> +	/*
-> +	 * We would normally allocate a new context structure and install
-> +	 * the address space handler for the specific device we found.
-> +	 * But the HP-UX implementation shares a single global context
-> +	 * and always puts the handler at the root, so we'll do the same.
-> +	 */
-> +	return aml_nfw_add_global_handler();
-> +}
-> +
-> +static int aml_nfw_remove(struct acpi_device *device, int type)
-> +{
-> +	return aml_nfw_remove_global_handler();
-> +}
-> +
-> +static const struct acpi_device_id aml_nfw_ids[] = {
-> +	{"HPQ5001", 0},
-> +	{"", 0}
-> +};
-> +
-> +static struct acpi_driver acpi_aml_nfw_driver = {
-> +	.name = "native firmware",
-> +	.ids = aml_nfw_ids,
-> +	.ops = {
-> +		.add = aml_nfw_add,
-> +		.remove = aml_nfw_remove,
-> +		},
-> +};
-> +
-> +static int __init aml_nfw_init(void)
-> +{
-> +	int result;
-> +
-> +	if (force_register)
-> +		aml_nfw_add_global_handler();
-> +
-> +	result = acpi_bus_register_driver(&acpi_aml_nfw_driver);
-> +	if (result < 0) {
-> +		aml_nfw_remove_global_handler();
-> +		return result;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-> +static void __exit aml_nfw_exit(void)
-> +{
-> +	acpi_bus_unregister_driver(&acpi_aml_nfw_driver);
-> +	aml_nfw_remove_global_handler();
-> +}
-> +
-> +module_init(aml_nfw_init);
-> +module_exit(aml_nfw_exit);
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+        - remove check_for_logical_procs(), since we do the same
+          functionality in identify_siblings()
+
+        - reflow logic in identify_siblings(). For older CPUs
+          that do not support multi-core / thread, we still want
+          to call ia64_sal_physical_id_info() and better handle
+          ia64_pal_logical_to_phys().
+
+	- remove useless printk's about multi-core / thread
+	  capability in identify_siblings(), as that information
+	  is readily available in /proc/cpuinfo, and printing for
+	  the BSP only adds little value.
+
+	- smp_num_siblings is now meaningful if any CPU in the
+	  system supports threads, not just the BSP.
+
+	- expose "physical id" field, even on CPUs that are not
+	  multi-core / multi-threaded. Now we know what sockets
+	  Madisons live in too.
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
+---
+ arch/ia64/kernel/setup.c   |   48 ++++++-------------------------------------
+ arch/ia64/kernel/smpboot.c |   26 +++++++++++++++--------
+ include/asm-ia64/smp.h     |    1 -
+ 3 files changed, 24 insertions(+), 51 deletions(-)
+
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index cd9a37a..5e8e965 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -402,34 +402,6 @@ mark_bsp_online (void)
+ #endif
+ }
+ 
+-#ifdef CONFIG_SMP
+-static void __init
+-check_for_logical_procs (void)
+-{
+-	pal_logical_to_physical_t info;
+-	s64 status;
+-
+-	status = ia64_pal_logical_to_phys(0, &info);
+-	if (status = -1) {
+-		printk(KERN_INFO "No logical to physical processor mapping "
+-		       "available\n");
+-		return;
+-	}
+-	if (status) {
+-		printk(KERN_ERR "ia64_pal_logical_to_phys failed with %ld\n",
+-		       status);
+-		return;
+-	}
+-	/*
+-	 * Total number of siblings that BSP has.  Though not all of them 
+-	 * may have booted successfully. The correct number of siblings 
+-	 * booted is in info.overview_num_log.
+-	 */
+-	smp_num_siblings = info.overview_tpc;
+-	smp_num_cpucores = info.overview_cpp;
+-}
+-#endif
+-
+ static __initdata int nomca;
+ static __init int setup_nomca(char *s)
+ {
+@@ -528,16 +500,6 @@ setup_arch (char **cmdline_p)
+ 
+ 	cpu_set(0, cpu_sibling_map[0]);
+ 	cpu_set(0, cpu_core_map[0]);
+-
+-	check_for_logical_procs();
+-	if (smp_num_cpucores > 1)
+-		printk(KERN_INFO
+-		       "cpu package is Multi-Core capable: number of cores=%d\n",
+-		       smp_num_cpucores);
+-	if (smp_num_siblings > 1)
+-		printk(KERN_INFO
+-		       "cpu package is Multi-Threading capable: number of siblings=%d\n",
+-		       smp_num_siblings);
+ #endif
+ 
+ 	cpu_init();	/* initialize the bootstrap CPU */
+@@ -649,13 +611,14 @@ show_cpuinfo (struct seq_file *m, void *v)
+ 		   c->itc_freq / 1000000, c->itc_freq % 1000000,
+ 		   lpj*HZ/500000, (lpj*HZ/5000) % 100);
+ #ifdef CONFIG_SMP
+-	seq_printf(m, "siblings   : %u\n", cpus_weight(cpu_core_map[cpunum]));
++	seq_printf(m, "siblings   : %u\n"
++		      "physical id: %u\n", 
++		      cpus_weight(cpu_core_map[cpunum]), c->socket_id);
+ 	if (c->threads_per_core > 1 || c->cores_per_socket > 1)
+ 		seq_printf(m,
+-		   	   "physical id: %u\n"
+ 		   	   "core id    : %u\n"
+ 		   	   "thread id  : %u\n",
+-		   	   c->socket_id, c->core_id, c->thread_id);
++		   	   c->core_id, c->thread_id);
+ #endif
+ 	seq_printf(m,"\n");
+ 
+@@ -767,6 +730,9 @@ identify_cpu (struct cpuinfo_ia64 *c)
+ 	c->socket_id = -1;
+ 
+ 	identify_siblings(c);
++
++	if (c->threads_per_core > smp_num_siblings)
++		smp_num_siblings = c->threads_per_core;
+ #endif
+ 	c->ppn = cpuid.field.ppn;
+ 	c->number = cpuid.field.number;
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 62209dc..e1a0d7b 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -139,7 +139,6 @@ EXPORT_SYMBOL(cpu_possible_map);
+ cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
+ cpumask_t cpu_sibling_map[NR_CPUS] __cacheline_aligned;
+ int smp_num_siblings = 1;
+-int smp_num_cpucores = 1;
+ 
+ /* which logical CPU number maps to which CPU (physical APIC ID) */
+ volatile int ia64_cpu_to_sapicid[NR_CPUS];
+@@ -878,20 +877,29 @@ identify_siblings(struct cpuinfo_ia64 *c)
+ 	u16 pltid;
+ 	pal_logical_to_physical_t info;
+ 
+-	if (smp_num_cpucores = 1 && smp_num_siblings = 1)
+-		return;
+-
+-	if ((status = ia64_pal_logical_to_phys(-1, &info)) != PAL_STATUS_SUCCESS) {
+-		printk(KERN_ERR "ia64_pal_logical_to_phys failed with %ld\n",
+-		       status);
+-		return;
+-	}
+ 	if ((status = ia64_sal_physical_id_info(&pltid)) != PAL_STATUS_SUCCESS) {
+ 		printk(KERN_ERR "ia64_sal_pltid failed with %ld\n", status);
+ 		return;
+ 	}
+ 
++	if ((status = ia64_pal_logical_to_phys(-1, &info)) != PAL_STATUS_SUCCESS) {
++		if (status != PAL_STATUS_UNIMPLEMENTED) {
++			printk(KERN_ERR 
++				"ia64_pal_logical_to_phys failed with %ld\n",
++				status);
++			return;
++		}
++
++		info.overview_ppid = 0;
++		info.overview_cpp  = 1;
++		info.overview_tpc  = 1;
++	}
++
+ 	c->socket_id =  (pltid << 8) | info.overview_ppid;
++
++	if (info.overview_cpp = 1 && info.overview_tpc = 1)
++		return;
++
+ 	c->cores_per_socket = info.overview_cpp;
+ 	c->threads_per_core = info.overview_tpc;
+ 	c->num_log = info.overview_num_log;
+diff --git a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
+index 6314b29..822f0f6 100644
+--- a/include/asm-ia64/smp.h
++++ b/include/asm-ia64/smp.h
+@@ -60,7 +60,6 @@ extern cpumask_t cpu_online_map;
+ extern cpumask_t cpu_core_map[NR_CPUS];
+ extern cpumask_t cpu_sibling_map[NR_CPUS];
+ extern int smp_num_siblings;
+-extern int smp_num_cpucores;
+ extern void __iomem *ipi_base_addr;
+ extern unsigned char smp_int_redirect;
+ 
+-- 
+1.5.3.1.g1e61
+
