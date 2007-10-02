@@ -1,30 +1,42 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 19 Oct 2007 20:20:21 +0000
-Subject: Re: [PATCH] Simplify ptrace handling
-Message-Id: <20071019202021.GA7913@infradead.org>
+From: akpm@linux-foundation.org
+Date: Tue, 02 Oct 2007 20:39:46 +0000
+Subject: [patch 2/2] ia64 perfmon: Remove exit_pfm_fs()
+Message-Id: <200710022039.l92Kdk8O021184@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1192823729.2727.56.camel@elijah.suse.cz>
-In-Reply-To: <1192823729.2727.56.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Oct 19, 2007 at 09:55:29PM +0200, Petr Tesarik wrote:
-> Hi,
-> 
-> with Shaohua Li's patch we can get rid of much of the ugly code in
-> arch/ia64/kernel/ptrace.c:
-> 
->  - find_thread_for_addr() is no longer needed
->  - most calls to ia64_poke() and ia64_peek() can be converted to
->    simple accesses to the VM
-> 
-> This patch is incremental with Shaohua Li's fix, so it can't be applied
-> until we resolve the only remaining problem (race condition in
-> ptrace_stop). I'm only sending it to demonstrate the benefits of that
-> patch.
+From: "Satyam Sharma" <satyam.sharma@gmail.com>
 
-Nice.  With this you should also be able to switch to the generic sys_ptrace
-easily, could you add that to your patch?
+Because it is dead code and not referenced by anybody else (that file cannot
+be built modular).
 
+Signed-off-by: Satyam Sharma <satyam@infradead.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: Stephane Eranian <eranian@hpl.hp.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/kernel/perfmon.c |    7 -------
+ 1 file changed, 7 deletions(-)
+
+diff -puN arch/ia64/kernel/perfmon.c~ia64-perfmon-remove-exit_pfm_fs arch/ia64/kernel/perfmon.c
+--- a/arch/ia64/kernel/perfmon.c~ia64-perfmon-remove-exit_pfm_fs
++++ a/arch/ia64/kernel/perfmon.c
+@@ -1538,13 +1538,6 @@ init_pfm_fs(void)
+ 	return err;
+ }
+ 
+-static void __exit
+-exit_pfm_fs(void)
+-{
+-	unregister_filesystem(&pfm_fs_type);
+-	mntput(pfmfs_mnt);
+-}
+-
+ static ssize_t
+ pfm_read(struct file *filp, char __user *buf, size_t size, loff_t *ppos)
+ {
+_
