@@ -1,81 +1,143 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 16 Oct 2007 13:31:50 +0000
-Subject: [PATCH 0/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <4714BD46.7060700@jp.fujitsu.com>
+From: akpm@linux-foundation.org
+Date: Tue, 02 Oct 2007 20:39:45 +0000
+Subject: [patch 1/2] ia64 tree-wide: Misc __cpu{initdata, init, exit} annotations
+Message-Id: <200710022039.l92KdkN4021181@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi, ia64 folks.
+From: Satyam Sharma <satyam@infradead.org>
 
-Here is a set of patch to implement VIRT_CPU_ACCOUNTING for ia64,
-which enable us to use more accurate cpu time accounting.
+* palinfo.c:
 
------
-[1/9] ia64_add_config_virt_cpu_accounting.patch
-[2/9] ia64_expand_ia64_cputime_h.patch
-[3/9] ia64_cputime_to_nsec.patch
-[4/9] ia64_self_update_process_times.patch
-[5/9] ia64_acct_vars.patch
-[6/9] ia64_acct_gate_on_switch.patch
-[7/9] ia64_acct_gate_on_entry.patch
-[8/9] ia64_acct_gate_on_leave.patch
-[9/9] ia64_acct_get_vtime.patch
------
+palinfo_cpu_notifier is a CPU hotplug notifier_block, and can be
+marked __cpuinitdata, and the callback function palinfo_cpu_callback()
+itself can be marked __cpuinit. create_palinfo_proc_entries() is only
+called from __cpuinit callback or general __init code, therefore a
+candidate for __cpuinit itself. remove_palinfo_proc_entries() is only
+called from __cpuinit callback or general __exit code, therefore a
+candidate for __cpuexit.
 
-The cpu time accounting is a mechanism to determine how long
-the cpus are used for particular purpose, and also how long a
-thread uses cpu - values indicated in stime or utime.
+* salinfo.c:
 
-Now the cpu time accounting on ia64 system (and many other archs)
-is based on sampling at the time of tick(timer interrupt).
-If a thread is running in kernel mode at an timer interrupt, then
-the accounting increments the stime of the thread considering that
-the thread have consume cpu time in kernel mode from last tick to
-present. If the thread was swapper, then the accounting consider
-the cpu was idle from last tick.
+The CPU hotplug notifier_block can be __cpuinitdata. The callback
+salinfo_cpu_callback() is incorrectly marked __devinit -- it must
+be __cpuinit instead.
 
-This assumption that thread did not change from last tick is not
-always true, mostly false in modern hi-speed machines.
-If the stime of a thread has value 100, people tend to imagine that
-"this thread ran 100/HZ sec in kernel mode", however, the true
-meaning of the value is "this thread interrupted by tick 100 times
-while it is running in kernel mode" in fact, and thats all.
+* topology.c:
 
-ex.)
-+----+----+----+----+----+----+-> time (+ = tick)
-........SSUUUSSSUUSSUSS........ thread1 ([stime,utime] = [1,2])
-.SSUUUUSSS.SSUUSUSS...SSUUUSSS. thread2 ([stime,utime] = [1,2])
-........SUS...SUS..SUS......... thread3 ([stime,utime] = [1,2])
-(Note that all of these 3 threads really uses cpu time more in
- system, not in user.)
+cache_sysfs_init() is only called at device_initcall() time so marking
+it as __cpuinit is wrong and wasteful. It should be unconditionally
+__init. Also cleanup reference to hotplug notifier callback function
+from this function and replace with cache_add_dev(), which could also
+enable us to use other tricks to replace __cpuinit{data} annotations,
+as recently discussed on this list.
 
-Therefore, more accurate cpu time accounting is required to know
-how long the thread actually uses cpus, what purpose takes time
-of particular cpu, and so on.
+cache_shared_cpu_map_setup() is only ever called from __cpuinit-marked
+functions hence both its definitions (SMP or !SMP) are candidates for
+__cpuinit itself. Also all_cpu_cache_info can be __cpuinitdata because
+only referenced from __cpuinit code.
 
-The VIRT_CPU_ACCOUNTING is an item of kernel config, which s390
-and powerpc arch have.  By turning this config on, these archs
-change the mechanism of cpu time accounting from tick-sampling
-based one to state-transition based one.
+Signed-off-by: Satyam Sharma <satyam@infradead.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-The state-transition based accounting is done by checking time
-(cycle counter in processor) at every state-transition point,
-such as entrance/exit of kernel, interrupt, softirq etc.
-The difference between point to point is the actual time consumed
-during in the state. There is no doubt about that this value is
-more accurate than that of tick-based accounting.
+ arch/ia64/kernel/palinfo.c  |    6 +++---
+ arch/ia64/kernel/salinfo.c  |    4 ++--
+ arch/ia64/kernel/topology.c |   12 ++++++------
+ 3 files changed, 11 insertions(+), 11 deletions(-)
 
-My patches here port this VIRT_CPU_ACCOUNTING from these IBM archs.
-Some performance impact is expected, but as far as my brief tests,
-it looks like nothing much to worry about.
-
-I'd appreciate it if you could try this option and send me your
-feedback. Especially idea for optimization would be welcomed.
-
-Thanks,
-H.Seto
-
-
+diff -puN arch/ia64/kernel/palinfo.c~ia64-tree-wide-misc-__cpuinitdata-init-exit arch/ia64/kernel/palinfo.c
+--- a/arch/ia64/kernel/palinfo.c~ia64-tree-wide-misc-__cpuinitdata-init-exit
++++ a/arch/ia64/kernel/palinfo.c
+@@ -907,7 +907,7 @@ palinfo_read_entry(char *page, char **st
+ 	return len;
+ }
+ 
+-static void
++static void __cpuinit
+ create_palinfo_proc_entries(unsigned int cpu)
+ {
+ #	define CPUSTR	"cpu%d"
+@@ -968,7 +968,7 @@ remove_palinfo_proc_entries(unsigned int
+ 	}
+ }
+ 
+-static int palinfo_cpu_callback(struct notifier_block *nfb,
++static int __cpuinit palinfo_cpu_callback(struct notifier_block *nfb,
+ 					unsigned long action, void *hcpu)
+ {
+ 	unsigned int hotcpu = (unsigned long)hcpu;
+@@ -986,7 +986,7 @@ static int palinfo_cpu_callback(struct n
+ 	return NOTIFY_OK;
+ }
+ 
+-static struct notifier_block palinfo_cpu_notifier +static struct notifier_block palinfo_cpu_notifier __cpuinitdata  {
+ 	.notifier_call = palinfo_cpu_callback,
+ 	.priority = 0,
+diff -puN arch/ia64/kernel/salinfo.c~ia64-tree-wide-misc-__cpuinitdata-init-exit arch/ia64/kernel/salinfo.c
+--- a/arch/ia64/kernel/salinfo.c~ia64-tree-wide-misc-__cpuinitdata-init-exit
++++ a/arch/ia64/kernel/salinfo.c
+@@ -574,7 +574,7 @@ static const struct file_operations sali
+ 	.write   = salinfo_log_write,
+ };
+ 
+-static int __devinit
++static int __cpuinit
+ salinfo_cpu_callback(struct notifier_block *nb, unsigned long action, void *hcpu)
+ {
+ 	unsigned int i, cpu = (unsigned long)hcpu;
+@@ -615,7 +615,7 @@ salinfo_cpu_callback(struct notifier_blo
+ 	return NOTIFY_OK;
+ }
+ 
+-static struct notifier_block salinfo_cpu_notifier +static struct notifier_block salinfo_cpu_notifier __cpuinitdata  {
+ 	.notifier_call = salinfo_cpu_callback,
+ 	.priority = 0,
+diff -puN arch/ia64/kernel/topology.c~ia64-tree-wide-misc-__cpuinitdata-init-exit arch/ia64/kernel/topology.c
+--- a/arch/ia64/kernel/topology.c~ia64-tree-wide-misc-__cpuinitdata-init-exit
++++ a/arch/ia64/kernel/topology.c
+@@ -118,11 +118,11 @@ struct cpu_cache_info {
+ 	struct kobject kobj;
+ };
+ 
+-static struct cpu_cache_info	all_cpu_cache_info[NR_CPUS];
++static struct cpu_cache_info	all_cpu_cache_info[NR_CPUS] __cpuinitdata;
+ #define LEAF_KOBJECT_PTR(x,y)    (&all_cpu_cache_info[x].cache_leaves[y])
+ 
+ #ifdef CONFIG_SMP
+-static void cache_shared_cpu_map_setup( unsigned int cpu,
++static void __cpuinit cache_shared_cpu_map_setup( unsigned int cpu,
+ 		struct cache_info * this_leaf)
+ {
+ 	pal_cache_shared_info_t	csi;
+@@ -157,7 +157,7 @@ static void cache_shared_cpu_map_setup( 
+ 				&csi) = PAL_STATUS_SUCCESS);
+ }
+ #else
+-static void cache_shared_cpu_map_setup(unsigned int cpu,
++static void __cpuinit cache_shared_cpu_map_setup(unsigned int cpu,
+ 		struct cache_info * this_leaf)
+ {
+ 	cpu_set(cpu, this_leaf->shared_cpu_map);
+@@ -428,13 +428,13 @@ static struct notifier_block __cpuinitda
+ 	.notifier_call = cache_cpu_callback
+ };
+ 
+-static int __cpuinit cache_sysfs_init(void)
++static int __init cache_sysfs_init(void)
+ {
+ 	int i;
+ 
+ 	for_each_online_cpu(i) {
+-		cache_cpu_callback(&cache_cpu_notifier, CPU_ONLINE,
+-				(void *)(long)i);
++		struct sys_device *sys_dev = get_cpu_sysdev((unsigned int)i);
++		cache_add_dev(sys_dev);
+ 	}
+ 
+ 	register_hotcpu_notifier(&cache_cpu_notifier);
+_
