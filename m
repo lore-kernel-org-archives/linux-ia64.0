@@ -1,67 +1,69 @@
-From: Prarit Bhargava <prarit@redhat.com>
-Date: Wed, 10 Oct 2007 15:19:29 +0000
-Subject: Re: "make ARCH=ia64 headers_install" generates assembly errors
-Message-Id: <470CED81.3080903@redhat.com>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 03 Oct 2007 01:31:36 +0000
+Subject: [Question] How to represent SYSTEM_RAM in kerenel/resouce.c
+Message-Id: <20071003103136.addbe839.kamezawa.hiroyu@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0710101035470.26393@localhost.localdomain>
-In-Reply-To: <Pine.LNX.4.64.0710101035470.26393@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: andi@firstfloor.org, "linux-mm@kvack.org" <linux-mm@kvack.org>, "tony.luck@intel.com" <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, pbadari@us.ibm.com, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+
+Hi,
+
+Now, SYSTEM_RAM is registerd to resouce list and a user can see memory map
+from /proc/iomem, like following.
+=
+[kamezawa@drpq linux-2.6.23-rc8-mm2]$ grep RAM /proc/iomem
+00000000-0009ffff : System RAM
+00100000-03ffffff : System RAM
+04000000-04f1bfff : System RAM
+04f1c000-6b4b9fff : System RAM
+6b4ba000-6b797fff : System RAM
+6b798000-6b799fff : System RAM
+6b79a000-6b79dfff : System RAM
+6b79e000-6b79efff : System RAM
+6b79f000-6b7fbfff : System RAM
+6b7fc000-6c629fff : System RAM
+6c62a000-6c800fff : System RAM
+6c801000-6c843fff : System RAM
+6c844000-6c847fff : System RAM
+6c848000-6c849fff : System RAM
+6c84a000-6c85dfff : System RAM
+6c85e000-6c85efff : System RAM
+6c85f000-6cbfbfff : System RAM
+6cbfc000-6d349fff : System RAM
+6d34a000-6d3fbfff : System RAM
+6d3fc000-6d455fff : System RAM
+6d4fc000-6d773fff : System RAM
+100000000-7ffffffff : System RAM
+4080000000-40ffffffff : System RAM
+14004000000-147ffffffff : System RAM
+=
+
+But there is a confusion.
+
+i386 and x86_64 registers System RAM as IORESOUCE_MEM | IORESOUCE_BUSY.
+ia64 registers System RAM as IORESOURCE_MEM.
+
+Which is better ?
+
+I ask this because current memory hotplug treat memory as IORESOUCE_MEM.
+When memory hot-add occurs on x86_64, new memory is added as IORESOUCE_MEM.
+memory hot-remove (now) can remove only IORESOUCE_MEM.
+
+If ia64 should treat System RAM as IORESOUCE_MEM | IORESOUCE_BUSY, I'll write
+a fix.
+
+Thanks,
+-Kame
 
 
 
-Robert P. J. Day wrote:
->   the result of running:
->
-> $ make -d V=1 ARCH=ia64 headers_install
->
-> Reading makefiles...
-> Reading makefile `Makefile'...
-> Reading makefile `/home/rpjday/k/git/scripts/Kbuild.include' (search path) (no ~ expansion)...
-> Reading makefile `/home/rpjday/k/git/arch/ia64/Makefile' (search path) (no ~ expansion)...
-> /home/rpjday/k/git/arch/ia64/scripts/check-segrel.S: Assembler messages:
-> /home/rpjday/k/git/arch/ia64/scripts/check-segrel.S:1: Error: unknown pseudo-op: `.rodata'
-> /home/rpjday/k/git/arch/ia64/scripts/check-segrel.S:2: Error: no such instruction: `data4 @segrel(start)'
-> objdump: '/tmp/out26433': No such file
-> /home/rpjday/k/git/arch/ia64/scripts/toolchain-flags: line 19: [: !=: unary operator expected
-> /home/rpjday/k/git/arch/ia64/scripts/check-text-align.S: Assembler messages:
-> /home/rpjday/k/git/arch/ia64/scripts/check-text-align.S:1: Error: unknown pseudo-op: `.proc'
-> /home/rpjday/k/git/arch/ia64/scripts/check-text-align.S:2: Error: unknown pseudo-op: `.prologue'
-> /home/rpjday/k/git/arch/ia64/scripts/check-text-align.S:3: Error: unknown pseudo-op: `.save'
-> /home/rpjday/k/git/arch/ia64/scripts/check-text-align.S:6: Error: unknown pseudo-op: `.endp'
-> readelf: Error: '/tmp/out26433': No such file
-> /home/rpjday/k/git/arch/ia64/scripts/check-gas-asm.S: Assembler messages:
-> /home/rpjday/k/git/arch/ia64/scripts/check-gas-asm.S:1: Error: junk at end of line, first unrecognized character is `['
-> /home/rpjday/k/git/arch/ia64/scripts/check-gas-asm.S:2: Error: unknown pseudo-op: `.xdata4'
-> objdump: '/tmp/out26459.o': No such file
-> /home/rpjday/k/git/arch/ia64/scripts/check-gas: line 10: [: !=: unary operator expected
-> Updating makefiles....
-> ... etc etc ...
->
->   the issue appears to be this snippet from arch/ia64/Makefile:
->
-> ...
-> GAS_STATUS      = $(shell $(srctree)/arch/ia64/scripts/check-gas "$(CC)" "$(OBJDUMP)")
-> CPPFLAGS += $(shell $(srctree)/arch/ia64/scripts/toolchain-flags "$(CC)" "$(OBJDUMP)" "$(READELF)")
-> ...
->
->   
-
-Are these lines even useful anymore given the current tool chain we have?
-
-P.
 
 
->   this will obviously cause problems if you have no cross-compiler,
-> which you really shouldn't need if all you're doing is installing
-> headers, anyway.
->
->   the headers_install step still works, but it would be cleaner if the
-> Makefile didn't try to do things like check for proper assembler when
-> there's no call for it.
->
-> rday
->
->   
+
+
+
+
+
