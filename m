@@ -1,7 +1,7 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Fri, 05 Oct 2007 21:48:48 +0000
-Subject: Re: [PATCH] ia64: /proc/cpuinfo "physical id" field cleanups
-Message-Id: <20071005214847.GU8743@ldl.fc.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 08 Oct 2007 18:27:41 +0000
+Subject: RE: [PATCH] ia64: /proc/cpuinfo "physical id" field cleanups
+Message-Id: <617E1C2C70743745A92448908E030B2A029DBA6E@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20070928010850.GG16444@ldl.fc.hp.com>
 In-Reply-To: <20070928010850.GG16444@ldl.fc.hp.com>
@@ -10,18 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Tony,
+>	- expose "physical id" field, even on CPUs that are not
+>	  multi-core / multi-threaded. Now we know what sockets
+>	  Madisons live in too.
 
-* Alex Chiang <achiang@hp.com>:
-> Clean up the process for presenting the "physical id" field in
-> /proc/cpuinfo.
+This sounds like a good idea.  But this patch didn't work for me
+to achieve that on my HP 2620.  /proc/cpuinfo with this patch looks
+like this:
 
-Tagging onto Bjorn's ping ;) I was wondering what you thought of
-this patch as well.
+processor  : 0
+ ...
+physical id: 4294967295
 
-I've got the same desire to push my patch into a distro.
+processor  : 1
+ ...
+physical id: 4294967295
 
-Thanks!
 
-/ac
+So both my Madison cpus are apparently sharing the same socket!  That
+big decimal number is just "-1" printed as an unsigned.
 
+
+-Tony
