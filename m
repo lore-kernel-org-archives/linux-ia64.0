@@ -1,114 +1,60 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 16 Oct 2007 13:38:38 +0000
-Subject: [PATCH 5/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <4714BEDE.5030107@jp.fujitsu.com>
+From: George Beshers <gbeshers@sgi.com>
+Date: Thu, 11 Oct 2007 19:33:55 +0000
+Subject: [PATCH] ia64 IOSAPIC bogus error cleanup
+Message-Id: <470E7AA3.5020908@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------060704000304000309050504"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> [5/9] ia64_acct_vars.patch
+This is a multi-part message in MIME format.
+--------------060704000304000309050504
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Variables to keep ar.itc values is required.
 
-At least we need:
+Tony suggested a simplification to my original post on lkml,
+the result is this patch.
 
- - holder of time at last check point
-    When cpu comes to check-point(state-transition point),
-    load the time at last check point from this variable,
-    and save current time instead. The difference between
-    last time and current time is elapsed time in previous
-    state.
 
-However, what we need to care about here is cost of
-translation from the difference of time to elapsed time,
-i.e. cost of translation from cycle to nsec.
 
-This is a floating point calculation, not so cheap.
-So doing this translation in every kernel entrance/exit
-is not good idea.
 
-Therefore, we prepare more:
+--------------060704000304000309050504
+Content-Type: text/x-patch;
+ name="MADT2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="MADT2.patch"
 
- - holder of cumulated cycles for utime
- - holder of cumulated cycles for stime
 
-Using these variables, we can avoid translation until it
-is required. Translations on context switch and that in
-account_system_vtime() are not avoidable, since former
-changes accounting thread, and latter requires dividing
-stime to one in irq/softirq and one in not.
+On Altix (sn2) machines the "Error parsing MADT" message is
+misleading because the lack of IOSAPIC entries is expected.
 
-So if the thread repeats round trip between user and kernel
-without receiving interrupt, translation is required only
-once at leaving on context switch.
+Since I am sure someone will ask, I have been told that
+the chance of this changing anytime soon is close to nil.
 
-On the other hand, a timer interrupt will happen in every
-tick, so translation (and update of stime/utime) will be
-executed at least every tick.
-
-Finally, I allocate these variables in thread_info since
-it is accessible even in kernel entrance/exit, without
-causing a page fault. This location is a moot point.
-
-Thanks,
-H.Seto
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: George Beshers <gbeshers@sgi.com>
 
 ---
- arch/ia64/kernel/asm-offsets.c |    5 +++++
- include/asm-ia64/thread_info.h |   13 +++++++++++++
- 2 files changed, 18 insertions(+)
+ acpi.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+diff -purN linux-2.6.23/arch/ia64/kernel/acpi.c linux-2.6.23.b/arch/ia64/kernel/acpi.c
+--- linux-2.6.23/arch/ia64/kernel/acpi.c	2007-10-09 16:31:38.000000000 -0400
++++ linux-2.6.23.b/arch/ia64/kernel/acpi.c	2007-10-10 21:17:15.597545943 -0400
+@@ -678,9 +678,11 @@ int __init acpi_boot_init(void)
+ 	/* I/O APIC */
+ 
+ 	if (acpi_table_parse_madt
+-	    (ACPI_MADT_TYPE_IO_SAPIC, acpi_parse_iosapic, NR_IOSAPICS) < 1)
+-		printk(KERN_ERR PREFIX
+-		       "Error parsing MADT - no IOSAPIC entries\n");
++	    (ACPI_MADT_TYPE_IO_SAPIC, acpi_parse_iosapic, NR_IOSAPICS) < 1) {
++		if (!ia64_platform_is("sn2"))
++			printk(KERN_ERR PREFIX
++			       "Error parsing MADT - no IOSAPIC entries\n");
++	}
+ 
+ 	/* System-Level Interrupt Routing */
+ 
 
-Index: linux-2.6.23/arch/ia64/kernel/asm-offsets.c
-=================================--- linux-2.6.23.orig/arch/ia64/kernel/asm-offsets.c
-+++ linux-2.6.23/arch/ia64/kernel/asm-offsets.c
-@@ -39,6 +39,11 @@
- 	DEFINE(TI_FLAGS, offsetof(struct thread_info, flags));
- 	DEFINE(TI_CPU, offsetof(struct thread_info, cpu));
- 	DEFINE(TI_PRE_COUNT, offsetof(struct thread_info, preempt_count));
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING
-+	DEFINE(TI_AC_STAMP, offsetof(struct thread_info, ac_stamp));
-+	DEFINE(TI_AC_STIME, offsetof(struct thread_info, ac_stime));
-+	DEFINE(TI_AC_UTIME, offsetof(struct thread_info, ac_utime));
-+#endif
-
- 	BLANK();
-
-Index: linux-2.6.23/include/asm-ia64/thread_info.h
-=================================--- linux-2.6.23.orig/include/asm-ia64/thread_info.h
-+++ linux-2.6.23/include/asm-ia64/thread_info.h
-@@ -31,6 +31,11 @@
- 	mm_segment_t addr_limit;	/* user-level address space limit */
- 	int preempt_count;		/* 0=premptable, <0=BUG; will also serve as bh-counter */
- 	struct restart_block restart_block;
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING
-+	__u64 ac_stamp;
-+	__u64 ac_stime;
-+	__u64 ac_utime;
-+#endif
- };
-
- #define THREAD_SIZE			KERNEL_STACK_SIZE
-@@ -62,9 +67,17 @@
- #define task_stack_page(tsk)	((void *)(tsk))
-
- #define __HAVE_THREAD_FUNCTIONS
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING
-+#define setup_thread_stack(p, org)			\
-+	*task_thread_info(p) = *task_thread_info(org);	\
-+	task_thread_info(p)->ac_stime = 0;		\
-+	task_thread_info(p)->ac_utime = 0;		\
-+	task_thread_info(p)->task = (p);
-+#else
- #define setup_thread_stack(p, org) \
- 	*task_thread_info(p) = *task_thread_info(org); \
- 	task_thread_info(p)->task = (p);
-+#endif
- #define end_of_stack(p) (unsigned long *)((void *)(p) + IA64_RBS_OFFSET)
-
- #define __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
-
-
+--------------060704000304000309050504--
