@@ -1,50 +1,61 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Wed, 31 Oct 2007 20:00:01 +0000
-Subject: Re: [patch] __do_IRQ does not check IRQ_DISABLED when IRQ_PER_CPU is set
-Message-Id: <20071031200000.GB22855@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 15 Oct 2007 16:35:42 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <617E1C2C70743745A92448908E030B2A02AD55EC@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071030162657.GA21728@sgi.com> <617E1C2C70743745A92448908E030B2A02D2142E@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A02D2142E@scsmsx411.amr.corp.intel.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, akpm@linux-foundation.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 31, 2007 at 09:20:27AM -0700, Luck, Tony wrote:
-> > One user encountering this behavior is the CPE handler (in 
-> > arch/ia64/kernel/mca.c).  When the CPE handler encounters too many
-> > CPEs (such as a solid single bit error), it sets up a polling timer
-> > and disables the CPE interrupt (to avoid excessive overhead logging
-> > the stream of single bit errors).  disable_irq_nosync() is called
-> > which sets IRQ_DISABLED.  The IRQ_PER_CPU flag was previously set
-> > (in ia64_mca_late_init()).  The net result is the CPE handler gets
-> > called even though it is marked disabled.
-> 
-> Presumably we are in this situation because there are still some
-> pending CPE interrupts on some cpus when we disable CPE?  Or is
-> there a more serious problem that we aren't manage to disable CPE
-> on all cpus properly?
+Hi Linus,
 
-The latter.   If IRQ_PER_CPU is set, IRQ_DISABLED is not checked
-in __do_IRQ(), so the handler is always called.  It is not a race
-condition type thing where a few pended interrupts get handled after
-IRQ_DISABLED is set.
+please pull from:
 
-My assumption is that setting IRQ_PER_CPU should not change the
-behavior of IRQ_DISABLED.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-disable_irq_nosync() does call chip->disable() to provide a chipset
-specific interface for disabling the interrupt.  That avoids
-the issue by having the chipset not issue the interrupt.  If a 
-disable handler is required to disable the interrupt, then setting
-IRQ_DISABLED is not necessary (and misleading).  
+This will update the files shown below.
 
-I think the intended behavior is for chip->disable() to 
-disable the interrupt in the chipset.  If, for some reason,
-the interrupt cannot be disabled in the hardware, the IRQ_DISABLED
-would prevent the interrupt handler from being called.
+Thanks!
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+-Tony
+
+ arch/ia64/Kconfig                |   10 
+ arch/ia64/configs/sn2_defconfig  |  443 ++++++++++++++++-----------------------
+ arch/ia64/hp/common/Makefile     |    1 
+ arch/ia64/hp/common/aml_nfw.c    |  236 ++++++++++++++++++++
+ arch/ia64/kernel/crash.c         |   15 -
+ arch/ia64/kernel/machine_kexec.c |    6 
+ arch/ia64/kernel/mca.c           |   88 +++----
+ arch/ia64/kernel/mca_drv.h       |    2 
+ arch/ia64/kernel/palinfo.c       |    6 
+ arch/ia64/kernel/perfmon.c       |    7 
+ arch/ia64/kernel/salinfo.c       |    4 
+ arch/ia64/kernel/topology.c      |   12 -
+ include/asm-ia64/mca.h           |    2 
+ include/asm-ia64/sal.h           |   15 -
+ 14 files changed, 512 insertions(+), 335 deletions(-)
+
+Bjorn Helgaas (2):
+      [IA64] abstract SAL_CALL wrapper to allow other firmware entry points
+      [IA64] add driver for ACPI methods to call native firmware
+
+Jes Sorensen (1):
+      [IA64] update sn2_defconfig
+
+Kenji Kaneshige (2):
+      [IA64] Fix kernel panic in kdump on INIT
+      [IA64] Fix kernel hangup in kdump on INIT
+
+Russ Anderson (2):
+      [IA64] Remove needless delay in MCA rendezvous
+      [IA64] Fix race when multiple cpus go through MCA
+
+Satyam Sharma (2):
+      [IA64] tree-wide: Misc __cpu{initdata, init, exit} annotations
+      [IA64] perfmon: Remove exit_pfm_fs()
+
+Simon Horman (1):
+      [IA64] Remove vector from ia64_machine_kexec()
