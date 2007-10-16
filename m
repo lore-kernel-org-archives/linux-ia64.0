@@ -1,36 +1,43 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 16 Oct 2007 13:39:24 +0000
-Subject: [PATCH 6/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <4714BF0C.4020602@jp.fujitsu.com>
+Date: Tue, 16 Oct 2007 13:37:46 +0000
+Subject: [PATCH 4/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
+Message-Id: <4714BEAA.5050008@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> [6/9] ia64_acct_gate_on_switch.patch
+> [4/9] ia64_self_update_process_times.patch
 
-Well, let's begin building check points.
+Next, we need to stop sampling in timer interrupt which
+used for tick-based cpu time accounting.
 
-We have already get hook points by account_system_vtime(),
-so we have points at:
+Now the stime/utime of threads are updated in a function
+update_process_times(), that is called from timer_interrupt().
 
- - irq_enter
- - irq_exit
- - softirq entrance
- - softirq exit
+[arch/ia64/kernel/time.c]
+  46 static irqreturn_t
+  47 timer_interrupt (int irq, void *dev_id)
+  48 {
+　:
+  65         while (1) {
+  66                 update_process_times(user_mode(get_irq_regs()));
+　:
+  70                 if (smp_processor_id() = time_keeper_id) {
+　:
+  78                         do_timer(1);
+　:
+  84                 if (time_after(new_itm, ia64_get_itc()))
+  85                         break;
+　:
+  92         }
 
-and the rests are points at:
+This update_process_times() is defined in kernel/timer.c.
+Therefore, I copied this function into ia64 region to ready to
+modify it as we like.
 
- - context switch
- - kernel entrance
- - kernel exit
-
-Start from first one.
-
-This patch just create a hook point at context switch and
-make a function for the point. The inside of this function
-is written in last patch.
+This patch just do copy. Later change will be done.
 
 Thanks,
 H.Seto
@@ -38,49 +45,61 @@ H.Seto
 Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
 ---
- arch/ia64/kernel/time.c   |    5 +++++
- include/asm-ia64/system.h |    8 ++++++++
- 2 files changed, 13 insertions(+)
+ arch/ia64/kernel/time.c |   30 +++++++++++++++++++++++++++++-
+ 1 files changed, 29 insertions(+), 1 deletion(-)
 
 Index: linux-2.6.23/arch/ia64/kernel/time.c
 =================================--- linux-2.6.23.orig/arch/ia64/kernel/time.c
 +++ linux-2.6.23/arch/ia64/kernel/time.c
-@@ -64,6 +64,11 @@
- #include <linux/kernel_stat.h>
- #include <linux/posix-timers.h>
+@@ -61,6 +61,9 @@
 
-+void ia64_account_on_switch(struct task_struct *prev, struct task_struct *next)
-+{
-+
-+}
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+
++#include <linux/kernel_stat.h>
++#include <linux/posix-timers.h>
 +
  /*
   * Account time for a transition between system, hard irq
   * or soft irq state.
-Index: linux-2.6.23/include/asm-ia64/system.h
-=================================--- linux-2.6.23.orig/include/asm-ia64/system.h
-+++ linux-2.6.23/include/asm-ia64/system.h
-@@ -208,6 +208,13 @@
- extern void ia64_save_extra (struct task_struct *task);
- extern void ia64_load_extra (struct task_struct *task);
+@@ -70,6 +73,31 @@
 
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING
-+extern void ia64_account_on_switch (struct task_struct *prev, struct task_struct *next);
-+# define IA64_ACCOUNT_ON_SWITCH(p,n) ia64_account_on_switch(p,n)
-+#else
-+# define IA64_ACCOUNT_ON_SWITCH(p,n)
-+#endif
+ }
+
++/*
++ * Called from the timer interrupt handler to charge one tick to the current
++ * process.  user_tick is 1 if the tick is user time, 0 for system.
++ */
++static inline void ia64_update_process_times(int user_tick)
++{
++	struct task_struct *p = current;
++	int cpu = smp_processor_id();
 +
- #ifdef CONFIG_PERFMON
-   DECLARE_PER_CPU(unsigned long, pfm_syst_info);
- # define PERFMON_IS_SYSWIDE() (__get_cpu_var(pfm_syst_info) & 0x1)
-@@ -220,6 +227,7 @@
- 	 || IS_IA32_PROCESS(task_pt_regs(t)) || PERFMON_IS_SYSWIDE())
++	/* Note: this timer irq context must be accounted for as well. */
++	if (user_tick)
++		account_user_time(p, jiffies_to_cputime(1));
++	else
++		account_system_time(p, HARDIRQ_OFFSET, jiffies_to_cputime(1));
++	run_local_timers();
++	if (rcu_pending(cpu))
++		rcu_check_callbacks(cpu, user_tick);
++	scheduler_tick();
++	run_posix_cpu_timers(p);
++}
++
++#else /* CONFIG_VIRT_CPU_ACCOUNTING */
++
++#define ia64_update_process_times(utick) update_process_times(utick)
++
+ #endif /* CONFIG_VIRT_CPU_ACCOUNTING */
 
- #define __switch_to(prev,next,last) do {							 \
-+	IA64_ACCOUNT_ON_SWITCH(prev, next);							 \
- 	if (IA64_HAS_EXTRA_STATE(prev))								 \
- 		ia64_save_extra(prev);								 \
- 	if (IA64_HAS_EXTRA_STATE(next))								 \
+ static irqreturn_t
+@@ -92,7 +120,7 @@
+ 	profile_tick(CPU_PROFILING);
+
+ 	while (1) {
+-		update_process_times(user_mode(get_irq_regs()));
++		ia64_update_process_times(user_mode(get_irq_regs()));
+
+ 		new_itm += local_cpu_data->itm_delta;
 
 
