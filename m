@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 15 Oct 2007 22:21:56 +0000
+Date: Tue, 16 Oct 2007 21:49:25 +0000
 Subject: RE: git pull on ia64 linux tree
-Message-Id: <617E1C2C70743745A92448908E030B2A02B1D52F@scsmsx411.amr.corp.intel.com>
+Message-Id: <617E1C2C70743745A92448908E030B2A02B1E0FF@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -12,8 +12,7 @@ To: linux-ia64@vger.kernel.org
 
 Hi Linus,
 
-Another quick pull to fix the ia64 build problem introduced by some
-header file re-arrangements elsewhere in the tree.
+And another quick pull to fix an ia64 UP build problem.
 
 please pull from:
 
@@ -29,8 +28,8 @@ Thanks!
 
 -Tony
 
- include/asm-ia64/dma-mapping.h |    1 +
- 1 file changed, 1 insertion(+)
+ arch/ia64/kernel/setup.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
 Tony Luck (1):
-      [IA64] build fix for scatterlist
+      [IA64] Fix build for CONFIG_SMP=n
