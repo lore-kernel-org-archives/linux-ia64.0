@@ -1,46 +1,35 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 30 Oct 2007 02:41:00 +0000
-Subject: Re: [PATCH 3/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <20071030024047.GC5361@verge.net.au>
+From: Roland McGrath <roland@redhat.com>
+Date: Thu, 18 Oct 2007 22:11:08 +0000
+Subject: [PATCH] ia64 vDSO vs --build-id
+Message-Id: <20071018221108.638644D04E2@magilla.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4714BE38.60807@jp.fujitsu.com>
-In-Reply-To: <4714BE38.60807@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com, Doug Chapman <dchapman@redhat.com>
 
-On Tue, Oct 30, 2007 at 11:25:55AM +0900, Hidetoshi Seto wrote:
-> Simon Horman wrote:
-> > On Tue, Oct 16, 2007 at 10:35:52PM +0900, Hidetoshi Seto wrote:
-> >> +#define cputime_to_jiffies(__ct)	((__ct) * HZ / NSEC_PER_SEC)
-> >> +#define jiffies_to_cputime(__jif)	((__jif) * NSEC_PER_SEC / HZ)
-> >> +#define cputime64_to_jiffies64(__ct)	((__ct) * HZ / NSEC_PER_SEC)
-> >> +#define jiffies64_to_cputime64(__jif)	((__jif) * NSEC_PER_SEC / HZ)
-> > 
-> > It looks like cputime64_to_jiffies64 and cputime_to_jiffies will
-> > overflow at (((2^64 -1) / HZ) + 1) ns. In the case where HZ is 1000,
-> > this means it will overflow at (584/1000) years or about 213 days.
-> > Similarly for cputime_to_clock_t(). Is this a problem?
-> 
-> Exactly.
-> I guess NSEC_PER_SEC is permanently 10^9, and larger HZ will not be
-> required soon in this century. Does the following help us?
-> 
-> #define cputime64_to_jiffies64(__ct)	((__ct) / (NSEC_PER_SEC / HZ))
-> #define jiffies64_to_cputime64(__jif)	((__jif) * (NSEC_PER_SEC / HZ))
+When gcc uses --build-id by default, the gate.lds.S linker script runs afoul
+of the new note section and produces a bad DSO image.  This fixes it.
 
-That does seem to be a lot better. I guess there might be some rounding
-strangeness if NSEC_PER_SEC is not an integer multiple of HZ, but
-as both cputime64_to_jiffies64() and jiffies64_to_cputime64() use
-the same rounded value, this shouldn't be a problem. Actually its
-probably not a problem at all.
+Signed-off-by: Roland McGrath <roland@redhat.com>
 
-I guess there is also now an assumption that HZ is much less than
-NSEC_PER_SEC, that also seems reasonable.
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+--- a/arch/ia64/kernel/gate.lds.S
++++ b/arch/ia64/kernel/gate.lds.S
+@@ -20,6 +20,8 @@ SECTIONS
+ 	.gnu.version_d		: { *(.gnu.version_d) }
+ 	.gnu.version_r		: { *(.gnu.version_r) }
+ 
++	.note			: { *(.note*) }		:readable	:note
++
+ 	.dynamic		: { *(.dynamic) }	:readable	:dynamic
+ 
+ 	/*
+@@ -83,6 +85,7 @@ PHDRS
+ 	epc		PT_LOAD	FILEHDR PHDRS	FLAGS(1);	/* PF_X */
+ #endif
+ 	dynamic		PT_DYNAMIC		FLAGS(4);	/* PF_R */
++	note		PT_NOTE			FLAGS(4);	/* PF_R */
+ 	unwind		PT_IA_64_UNWIND;
+ }
+ 
