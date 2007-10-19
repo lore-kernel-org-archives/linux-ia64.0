@@ -1,7 +1,7 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Fri, 19 Oct 2007 09:14:34 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Fri, 19 Oct 2007 09:28:16 +0000
 Subject: Re: [IA64] Reduce __clear_bit_unlock overhead
-Message-Id: <4718757A.9040805@bull.net>
+Message-Id: <200710191928.16477.nickpiggin@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0710182037220.25820@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0710182037220.25820@schroedinger.engr.sgi.com>
@@ -10,64 +10,57 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-You may want to avoid assembly magics:
+On Friday 19 October 2007 19:14, Zoltan Menyhart wrote:
+> You may want to avoid assembly magics:
+>
+> static __inline__ void
+> __clear_bit_unlock(int const nr, volatile void * const addr)
+> {
+>         volatile __u32 * const m = (volatile __u32 *) addr + (nr >> 5);
+>
+>         *m &= ~(1 << (nr & 0x1f));
+> }
+>
+> GCC compiles volatile loads with ".acq" and stores with ".rel".
 
-static __inline__ void
-__clear_bit_unlock(int const nr, volatile void * const addr)
-{
-        volatile __u32 * const m = (volatile __u32 *) addr + (nr >> 5);
+Hmm, more arbitrary volatile semantics :(
 
-        *m &= ~(1 << (nr & 0x1f));
-}
+Actually I personally would prefer to use a non-volatile pointer,
+and do the assembly explicitly. However, that's not for me to
+decide. Importantly, the load with acquire is not required and I
+agree it should go. Thanks for noticing that.
 
-GCC compiles volatile loads with ".acq" and stores with ".rel".
-E.g. the following program:
 
-int lo = 3;
+> Another remark:
+> We are adding more variants of existing funtions, e.g.:
+>
+> clear_bit()
+> __clear_bit()
+>
+> I've got problems with hidden semantics.
 
-main()
-{
-        __clear_bit_unlock(1, &lo);
-}
+Double underscore prepended versions of the bitops are always
+non-atomic. This is nothing new.
 
-compiles into (NOP-s removed):
+Functions with "lock" or "unlock" in their names are relatively
+clear to be acquire and release. I preferred to stay with the
+lock / unlock theme rather than introduce the new acquire and
+release barriers into the kernel. Of course they are the same
+thing really, but lock/unlock is always associated with locking
+and unlocking something.
 
-4000000000000680 <main>:0b 70 e0 03 00 24       [MMI]       addl r140,r1;;
-4000000000000686:       f0 00 38 60 21 00                   ld4.acq r15=[r14]
-4000000000000690:       0a 78 f4 1f 2c 22       [MMI]       and r15=-3,r15;;
-4000000000000696:       00 78 38 60 23 00                   st4.rel [r14]=r15
-40000000000006ac:       08 00 84 00                         br.ret.sptk.many b0;;
+I don't want people to use the acquire/release semantics of these
+things for anything except taking and releasing a lock (in which
+case you really don't have to worry much about memory ordering
+issues).
 
-Actually, we don't need a load with ".acq". A somewhat less readable code:
+> Just reading the source (where they are used), I simply cannot guess
+> if a primitive is atomic or not, if it is with some fencing or w/o.
+>
+> Cannot we have some "speaking names"? E.g.: bit_unlock_Natomic_rel()
 
-static __inline__ void
-__clear_bit_unlock(int const nr, void * const addr)
-{
-        __u32 * const p = (__u32 *) addr + (nr >> 5);
-
-        * (volatile __u32 *) p = *p & ~(1 << (nr & 0x1f));
-}
-
-gives you:
-
-4000000000000680 <main>:0b 70 e0 03 00 24       [MMI]       addl r140,r1;;
-4000000000000686:       f0 00 38 20 20 00                   ld4 r15=[r14]
-4000000000000690:       0a 78 f4 1f 2c 22       [MMI]       and r15=-3,r15;;
-4000000000000696:       00 78 38 60 23 00                   st4.rel [r14]=r15
-40000000000006ac:       08 00 84 00                         br.ret.sptk.many b0;;
-
-that can be slightly more efficient.
-
-Another remark:
-We are adding more variants of existing funtions, e.g.:
-
-clear_bit()
-__clear_bit()
-
-I've got problems with hidden semantics.
-Just reading the source (where they are used), I simply cannot guess
-if a primitive is atomic or not, if it is with some fencing or w/o.
-
-Cannot we have some "speaking names"? E.g.: bit_unlock_Natomic_rel()
-
-Zoltan Menyhart
+I used the double underscore prefix for bit_unlock simply because
+it is pretty well associated with the bitops code. I personally do
+not like _Natomic postfix though. Also _rel definitely is redundant
+because an unlock operation is not exactly an unlock operation if
+it doesn't provide the right memory ordering.
