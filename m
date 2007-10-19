@@ -1,23 +1,101 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Wed, 17 Oct 2007 10:49:37 +0000
-Subject: Re: [RFC patch] fallback to "no irq" hack for case of no pnp_irq
-Message-Id: <20071017114937.0a646f27@the-village.bc.nu>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 19 Oct 2007 03:38:02 +0000
+Subject: [IA64] Reduce __clear_bit_unlock overhead
+Message-Id: <Pine.LNX.4.64.0710182037220.25820@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3877989d0710161950n3d255330lf55e190dde628277@mail.gmail.com>
-In-Reply-To: <3877989d0710161950n3d255330lf55e190dde628277@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Luming Yu <luming.yu@gmail.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-> Signed-off-by: Yu Luming <luming.yu@intel.com>
+On Fri, 19 Oct 2007, Nick Piggin wrote:
+
+> I'm not sure, I had an idea it was relatively expensive on ia64,
+> but I didn't really test with a good workload (a microbenchmark
+> probably isn't that good because it won't generate too much out
+> of order memory traffic that needs to be fenced).
+
+Its expensive on IA64. Is it any less expensive on x86?
+
+> > Where can I find your patchset? I looked through lkml but did not see it.
 > 
->  8250_pnp.c |    3 +++
->  1 files changed, 3 insertions(+)
+> Infrastructure in -mm, starting at bitops-introduce-lock-ops.patch.
+> bit_spin_lock-use-lock-bitops.patch and ia64-lock-bitops.patch are
+> ones to look at.
 
-Should really fix pnp_irq() to use zero to mean none as the kernel
-intends. If that causes other complications then this hack will do for
-now I guess.
+ia64-lock-bitops.patch defines:
 
-Alan
+static __inline__ void
+clear_bit_unlock (int nr, volatile void *addr)
+{
+       __u32 mask, old, new;
+       volatile __u32 *m;
+       CMPXCHG_BUGCHECK_DECL
+
+       m = (volatile __u32 *) addr + (nr >> 5);
+       mask = ~(1 << (nr & 31));
+       do {
+               CMPXCHG_BUGCHECK(m);
+               old = *m;
+               new = old & mask;
+       } while (cmpxchg_rel(m, old, new) != old);
+}
+
+/**
+ * __clear_bit_unlock - Non-atomically clear a bit with release
+ *
+ * This is like clear_bit_unlock, but the implementation may use a non-atomic
+ * store (this one uses an atomic, however).
+ */
+#define __clear_bit_unlock clear_bit_unlock
+
+
+A non atomic store is a misaligned store on IA64. That is not 
+relevant here. The data is properly aligned. I guess it was intended to
+refer to the cmpxchg.
+
+How about this patch? [Works fine on IA64 simulator...]
+
+
+
+
+IA64: Slim down __clear_bit_unlock
+
+__clear_bit_unlock does not need to perform atomic operations on the variable.
+Avoid a cmpxchg and simply do a store with release semantics. Add a barrier to
+be safe that the compiler does not do funky things.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+---
+ include/asm-ia64/bitops.h |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+Index: linux-2.6.23-mm1/include/asm-ia64/bitops.h
+=================================--- linux-2.6.23-mm1.orig/include/asm-ia64/bitops.h	2007-10-18 19:37:22.000000000 -0700
++++ linux-2.6.23-mm1/include/asm-ia64/bitops.h	2007-10-18 19:50:22.000000000 -0700
+@@ -124,10 +124,21 @@ clear_bit_unlock (int nr, volatile void 
+ /**
+  * __clear_bit_unlock - Non-atomically clear a bit with release
+  *
+- * This is like clear_bit_unlock, but the implementation may use a non-atomic
+- * store (this one uses an atomic, however).
++ * This is like clear_bit_unlock, but the implementation uses a store
++ * with release semantics. See also __raw_spin_unlock().
+  */
+-#define __clear_bit_unlock clear_bit_unlock
++static __inline__ void
++__clear_bit_unlock (int nr, volatile void *addr)
++{
++	__u32 mask, new;
++	volatile __u32 *m;
++
++	m = (volatile __u32 *) addr + (nr >> 5);
++	mask = ~(1 << (nr & 31));
++	new = *m & mask;
++	barrier();
++	asm volatile ("st4.rel.nta [%0] = %1\n\t" :: "r"(m), "r"(new));
++}
+ 
+ /**
+  * __clear_bit - Clears a bit in memory (non-atomic version)
