@@ -1,7 +1,7 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Fri, 19 Oct 2007 07:30:40 +0000
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Fri, 19 Oct 2007 19:42:52 +0000
 Subject: Re: [PATCH] ptrace RSE bug
-Message-Id: <1192779040.29598.1.camel@sli10-conroe.sh.intel.com>
+Message-Id: <1192822972.2727.47.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
 In-Reply-To: <1188357710.22637.7.camel@sli10-conroe.sh.intel.com>
@@ -70,7 +70,24 @@ On Thu, 2007-10-18 at 12:59 +0200, Petr Tesarik wrote:
 > latest git. Nevertheless, I still think that ia64_poke() can't do the
 > right thing here, because the changes made by PTRACE_PEEKDATA should
 > also be visible in /proc/<pid>/mem, for example.
-Yes, exactly. I remember somebody said ia64_poke should be removed.
 
-Thanks,
-Shaohua
+OK, I retested everything again with 2.6.23 and I can confirm that the
+kernel behaves consistently with this patch applied - modifying syscall
+arguments works (both for break and for fsyscalls), changes are refleced
+in /proc/<pid>/mem and accessing the RNAT bits works too.
+
+I would still like to get rid of ia64_peek() and ia64_poke(), because it
+is no longer needed and is inefficient. For example, currently each
+PTRACE_POKE first non-trivially finds out the correct location within
+the kernel RBS and then immediately synchronizes the RBS to user space.
+Not to mention that for peeking/poking a process with more threads the
+kernel must first find the correct thread for a given address.
+
+Shaohua's patch allows us to greatly simplify the architecture-specific
+bits of ptrace. I'll send a patch soon.
+
+In short, you've got my ack (whatever it's worth).
+
+Cheers,
+Petr Tesarik
+
