@@ -1,23 +1,57 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Thu, 25 Oct 2007 11:17:36 +0000
-Subject: Re: [PATCH] IA64/perfmon: kill dead code, clean irq handling
-Message-Id: <20071025111736.GA1414@infradead.org>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 19 Oct 2007 17:54:26 +0000
+Subject: [IA64] Effective __clear_bit_unlock V2
+Message-Id: <Pine.LNX.4.64.0710191050520.31589@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071023230908.GA12417@havoc.gtf.org> <20071025084615.GA32656@frankl.hpl.hp.com> <4720592D.4030604@garzik.org> <176273AE807A344A8C14F517A8FC59C20259A09E@scsmsx412.amr.corp.intel.com>
-In-Reply-To: <176273AE807A344A8C14F517A8FC59C20259A09E@scsmsx412.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Villacis, Juan" <juan.villacis@intel.com>
-Cc: Jeff Garzik <jeff@garzik.org>, eranian@hpl.hp.com, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, LKML <linux-kernel@vger.kernel.org>, "Stone, Joshua I" <joshua.i.stone@intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Thu, Oct 25, 2007 at 04:05:18AM -0700, Villacis, Juan wrote:
-> Hi,
-> 
-> The VTune sampling driver currently uses this hook for cases where it
-> needs to do its own handling of the PMU on platforms that Perfmon2 may
-> not yet (fully, correctly) recognize at the time of the kernel's
-> release.
+Avoid the use of cmpxchg in __clear_bit_unlock by calling __clear_bit.
+__clear_bit uses a volatile pointer and will generate a store with
+release semantics as shown by Zoltan. Add a barrier to make sure that
+the compiler does not reorder instructions around it.
 
-So killing it might be a good way to make the vtune folks more cooperative.
-Remember we don't keep hooks for crappy out of tree code around.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Acked-by: Nick Piggin <npiggin@suse.de>
+
+---
+ include/asm-ia64/bitops.h |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+Index: linux-2.6/include/asm-ia64/bitops.h
+=================================--- linux-2.6.orig/include/asm-ia64/bitops.h	2007-10-19 04:05:38.000000000 -0700
++++ linux-2.6/include/asm-ia64/bitops.h	2007-10-19 10:50:34.000000000 -0700
+@@ -118,14 +118,6 @@ clear_bit_unlock (int nr, volatile void 
+ }
+ 
+ /**
+- * __clear_bit_unlock - Non-atomically clear a bit with release
+- *
+- * This is like clear_bit_unlock, but the implementation may use a non-atomic
+- * store (this one uses an atomic, however).
+- */
+-#define __clear_bit_unlock clear_bit_unlock
+-
+-/**
+  * __clear_bit - Clears a bit in memory (non-atomic version)
+  */
+ static __inline__ void
+@@ -137,6 +129,16 @@ __clear_bit (int nr, volatile void *addr
+ }
+ 
+ /**
++ * __clear_bit_unlock - Non-atomically clear a bit with release
++ */
++static __inline__ void
++__clear_bit_unlock (int nr, volatile void *addr)
++{
++	barrier();
++	__clear_bit(nr, addr);
++}
++
++/**
+  * change_bit - Toggle a bit in memory
+  * @nr: Bit to clear
+  * @addr: Address to start counting from
