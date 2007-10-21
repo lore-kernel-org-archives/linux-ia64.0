@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 19 Oct 2007 17:44:53 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sun, 21 Oct 2007 04:43:31 +0000
 Subject: Re: [IA64] Reduce __clear_bit_unlock overhead
-Message-Id: <Pine.LNX.4.64.0710191042580.30937@schroedinger.engr.sgi.com>
+Message-Id: <200710211443.31445.nickpiggin@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0710182037220.25820@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0710182037220.25820@schroedinger.engr.sgi.com>
@@ -10,21 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 19 Oct 2007, Zoltan Menyhart wrote:
+On Friday 19 October 2007 21:12, Christoph Lameter wrote:
+> On Fri, 19 Oct 2007, Nick Piggin wrote:
+> > Of course, we can avoid the fence altogether on x86 as well, because
+> > it simply isn't needed for release semantics.
+>
+> So we can generally switch to using wmb there?
 
-> Can you please tell me what is the advantage of ".nta " on the store?
-> I far as I can see in the I2 Microarch. Guide, Table 3-2 Processor
-> Cache Hints, ".nta " on stores means:
-> - L2 NRU bit is not updated
-> - No slot is allocated in L3
+Not for asm-generic/. But for x86, we don't anything actually
+(because writes are ordered). I sent a patch to Linus for this
+earlier -- he hasn't taken it yet, but I will ensure it gets
+merged before 2.6.24.
 
-The advantage is that the cacheline is pushed out faster to real memory 
-which may save cacheline eviction if the lock has to be acquired by 
-another processor.
+Also I didn't get a chance to send out the other patches before,
+because of issues with my net connection. Will do so now.
 
-> In order to be able to take advantage of an "st.nta", you have to
-> use "ld.nta" in __clear_bit_unlock(), and at the bit lock
-> acquisition, too.
-
-Hmmm.. Yes this would make the function more complex to read. Maybe its 
-not worth having the nta there.
+>
+>
+>
+> __clear_bit_unlock: A write barrier is sufficient for release semantics
+>
+> Switch the smb_mb that causes a fence instruction to be issued on x86
+> to a write barrier which issues no instruction on x86.
+>
+> Signed-off-by: Christoph Lameter <clameter@sgi.com>
+>
+> Index: linux-2.6/include/asm-generic/bitops/lock.h
+> =================================> --- linux-2.6.orig/include/asm-generic/bitops/lock.h	2007-10-19
+> 04:08:58.000000000 -0700 +++
+> linux-2.6/include/asm-generic/bitops/lock.h	2007-10-19 04:09:17.000000000
+> -0700 @@ -37,7 +37,7 @@ do {					\
+>   */
+>  #define __clear_bit_unlock(nr, addr)	\
+>  do {					\
+> -	smp_mb();			\
+> +	smp_wmb();			\
+>  	__clear_bit(nr, addr);		\
+>  } while (0)
