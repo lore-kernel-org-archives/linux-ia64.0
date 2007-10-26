@@ -1,64 +1,129 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 16 Oct 2007 15:09:49 +0000
-Subject: Re: PAL_PROC_SET_FEATURES documentation
-Message-Id: <20071016150948.GA15834@sgi.com>
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 26 Oct 2007 09:40:24 +0000
+Subject: [PATCH] Remove always-true tests in irq handlers
+Message-Id: <53d6c8049d4c3999a9d33d73e385d6161b5de2b7.1193390974.git.jeff@garzik.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071016083414.GA28569@cse.unsw.EDU.AU>
-In-Reply-To: <20071016083414.GA28569@cse.unsw.EDU.AU>
+References: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org>
+In-Reply-To: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: akpm@linux-foundation.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, netdev@vger.kernel.org, ralf@linux-mips.org
 
-On Tue, Oct 16, 2007 at 06:34:14PM +1000, Matthew Chapman wrote:
-> Where would I find documentation on the Itanium 2 specific flags to
-> PAL_PROC_SET_FEATURES?
+In these drivers, dev_id is always non-NULL.
 
-"Intel=AE Itanium=AE 2 Processors Firmware Guide", though I don't see it
-on the Intel website.  Don't recall if the document is restricted.
-=20
-> Linux arch/ia64/kernel/setup.c seems to enable bit 0x80, but there is no
-> explanatory comment attached.
+Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
+---
+ arch/ia64/hp/sim/simeth.c                   |    5 -----
+ arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c |    5 +----
+ drivers/net/cpmac.c                         |    3 ---
+ drivers/net/ucc_geth.c                      |    3 ---
+ drivers/net/wan/farsync.c                   |   11 +++--------
+ 5 files changed, 4 insertions(+), 23 deletions(-)
 
-I assume you are refering to this code.
+diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
+index 08b117e..9898feb 100644
+--- a/arch/ia64/hp/sim/simeth.c
++++ b/arch/ia64/hp/sim/simeth.c
+@@ -497,11 +497,6 @@ simeth_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *dev = dev_id;
+ 
+-	if ( dev = NULL ) {
+-		printk(KERN_WARNING "simeth: irq %d for unknown device\n", irq);
+-		return IRQ_NONE;
+-	}
+-
+ 	/*
+ 	 * very simple loop because we get interrupts only when receiving
+ 	 */
+diff --git a/arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c b/arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c
+index ab96a2d..11769b5 100644
+--- a/arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c
++++ b/arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c
+@@ -126,9 +126,6 @@ static irqreturn_t hwbutton_handler(int irq, void *data)
+ 	struct hwbutton_interrupt *hirq = data;
+ 	unsigned long cic_ext = *CIC_EXT_CFG_REG;
+ 
+-	if (irq != hirq->irq)
+-		return IRQ_NONE;
+-
+ 	if (CIC_EXT_IS_ACTIVE_HI(cic_ext, hirq->eirq)) {
+ 		/* Interrupt: pin is now HI */
+ 		CIC_EXT_SET_ACTIVE_LO(cic_ext, hirq->eirq);
+@@ -164,7 +161,7 @@ static int msp_hwbutton_register(struct hwbutton_interrupt *hirq)
+ 	*CIC_EXT_CFG_REG = cic_ext;
+ 
+ 	return request_irq(hirq->irq, hwbutton_handler, IRQF_DISABLED,
+-				hirq->name, (void *)hirq);
++			   hirq->name, hirq);
+ }
+ 
+ static int __init msp_hwbutton_setup(void)
+diff --git a/drivers/net/cpmac.c b/drivers/net/cpmac.c
+index 6fd95a2..91d1596 100644
+--- a/drivers/net/cpmac.c
++++ b/drivers/net/cpmac.c
+@@ -661,9 +661,6 @@ static irqreturn_t cpmac_irq(int irq, void *dev_id)
+ 	int queue;
+ 	u32 status;
+ 
+-	if (!dev)
+-		return IRQ_NONE;
+-
+ 	priv = netdev_priv(dev);
+ 
+ 	status = cpmac_read(priv->regs, CPMAC_MAC_INT_VECTOR);
+diff --git a/drivers/net/ucc_geth.c b/drivers/net/ucc_geth.c
+index 9741d61..2243d34 100644
+--- a/drivers/net/ucc_geth.c
++++ b/drivers/net/ucc_geth.c
+@@ -3621,9 +3621,6 @@ static irqreturn_t ucc_geth_irq_handler(int irq, void *info)
+ 
+ 	ugeth_vdbg("%s: IN", __FUNCTION__);
+ 
+-	if (!ugeth)
+-		return IRQ_NONE;
+-
+ 	uccf = ugeth->uccf;
+ 	ug_info = ugeth->ug_info;
+ 
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index 12dae8e..cf27bf4 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -1498,9 +1498,9 @@ do_bottom_half_rx(struct fst_card_info *card)
+  *      Dev_id is our fst_card_info pointer
+  */
+ static irqreturn_t
+-fst_intr(int irq, void *dev_id)
++fst_intr(int dummy, void *dev_id)
+ {
+-	struct fst_card_info *card;
++	struct fst_card_info *card = dev_id;
+ 	struct fst_port_info *port;
+ 	int rdidx;		/* Event buffer indices */
+ 	int wridx;
+@@ -1509,17 +1509,12 @@ fst_intr(int irq, void *dev_id)
+ 	unsigned int do_card_interrupt;
+ 	unsigned int int_retry_count;
+ 
+-	if ((card = dev_id) = NULL) {
+-		dbg(DBG_INTR, "intr: spurious %d\n", irq);
+-		return IRQ_NONE;
+-	}
+-
+ 	/*
+ 	 * Check to see if the interrupt was for this card
+ 	 * return if not
+ 	 * Note that the call to clear the interrupt is important
+ 	 */
+-	dbg(DBG_INTR, "intr: %d %p\n", irq, card);
++	dbg(DBG_INTR, "intr: %d %p\n", card->irq, card);
+ 	if (card->state != FST_RUNNING) {
+ 		printk_err
+ 		    ("Interrupt received for card %d in a non running state (%d)\n",
+-- 
+1.5.2.4
 
---------------------------------------
-#ifdef CONFIG_MCKINLEY
-        {
-#               define FEATURE_SET 16
-                struct ia64_pal_retval iprv;
-
-                if (cpu_info->family =3D 0x1f) {
-                        PAL_CALL_PHYS(iprv, PAL_PROC_GET_FEATURES, 0, FEATU=
-RE_SET, 0);
-                        if ((iprv.status =3D 0) && (iprv.v0 & 0x80) && (ipr=
-v.v2 & 0x80))
-                                PAL_CALL_PHYS(iprv, PAL_PROC_SET_FEATURES,
-                                              (iprv.v1 | 0x80), FEATURE_SET=
-, 0);
-                }
-        }
-#endif
---------------------------------------
-
-Note that it is setting bit 7 (0x80) in feature set 16 (not feature set 0).
-
-> The Itanium 2 microarchitecture manual [1] says that early deferral of
-> speculative memory ops (bypassing VHPT walker) can be enabled via
-> PAL_PROC_SET_FEATURES, but as far as I can see does not specify anywhere
-> which is the appropriate bit...
->=20
-> Also, is it true that early deferral only happens with psr.ic=3D0, as
-> per Table 5-2?  What is the motivation for that?
->=20
-> Matt
->=20
-> [1] i.e. http://download.intel.com/design/Itanium2/manuals/25111003.pdf
->=20
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---=20
-Russ Anderson  RAS group  SGI  rja@sgi.com
