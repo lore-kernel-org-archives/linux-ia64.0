@@ -1,32 +1,53 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 17 Oct 2007 06:32:40 +0000
-Subject: Re: [PATCH 2/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <4715AC88.8080502@jp.fujitsu.com>
+From: Adrian Bunk <bunk@kernel.org>
+Date: Mon, 29 Oct 2007 12:49:47 +0000
+Subject: [2.6 patch] ia64/mm/init.c: fix section mismatches
+Message-Id: <20071029124947.GM7227@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <je7ilnji9k.fsf@sykes.suse.de>
-In-Reply-To: <je7ilnji9k.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Thank you for quick comment.
+This patch fixes the following section mismatches:
 
-Andreas Schwab wrote:
-> Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> writes:
-> 
->> Index: linux-2.6.23/include/asm-ia64/cputime.h
->> =================================>> --- linux-2.6.23.orig/include/asm-ia64/cputime.h
->> +++ linux-2.6.23/include/asm-ia64/cputime.h
->> @@ -1,6 +1,82 @@
->> +/*
->> + *  include/asm-ia64/cputime.h
-> 
-> Kill that line.  Instead describe the contents of the file.
-> 
-> Andreas.
+<--  snip  -->
 
-Well, then I will follow powerpc's example, not s390's :-D
+...
+WARNING: vmlinux.o(.text+0x5b5c2): Section mismatch: reference to .init.text:memmap_init_zone (between 'memmap_init' and 'virtual_memmap_init')
+WARNING: vmlinux.o(.text+0x5b842): Section mismatch: reference to .init.text:memmap_init_zone (between 'virtual_memmap_init' and 'ia64_mmu_init')
+...
 
-Thanks,
-H.Seto
+<--  snip  -->
+
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+
+---
+
+ arch/ia64/mm/init.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+45c99ede63b0f76fe3dcc906ae550193a4d41626 
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index c6c19bf..25aef62 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -472,7 +472,7 @@ struct memmap_init_callback_data {
+ 	unsigned long zone;
+ };
+ 
+-static int
++static int __meminit
+ virtual_memmap_init (u64 start, u64 end, void *arg)
+ {
+ 	struct memmap_init_callback_data *args;
+@@ -503,7 +503,7 @@ virtual_memmap_init (u64 start, u64 end, void *arg)
+ 	return 0;
+ }
+ 
+-void
++void __meminit
+ memmap_init (unsigned long size, int nid, unsigned long zone,
+ 	     unsigned long start_pfn)
+ {
+
