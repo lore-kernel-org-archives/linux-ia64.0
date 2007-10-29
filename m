@@ -1,7 +1,7 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Mon, 22 Oct 2007 09:01:39 +0000
-Subject: Re: [IA64] Effective __clear_bit_unlock V2
-Message-Id: <471C66F3.2060400@bull.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 29 Oct 2007 18:27:31 +0000
+Subject: RE: [IA64] Effective __clear_bit_unlock V2
+Message-Id: <617E1C2C70743745A92448908E030B2A02CE2F71@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0710191050520.31589@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.64.0710191050520.31589@schroedinger.engr.sgi.com>
@@ -10,63 +10,62 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
+Is this the final take on this ...  or was there a newer better faster cleaner
+version?
 
-> --- linux-2.6.orig/include/asm-ia64/bitops.h	2007-10-19 04:05:38.000000000 -0700
-> +++ linux-2.6/include/asm-ia64/bitops.h	2007-10-19 10:50:34.000000000 -0700
+-Tony 
 
-...
+-----Original Message-----
+From: Christoph Lameter [mailto:clameter@sgi.com] 
+Sent: Friday, October 19, 2007 10:54 AM
+To: Luck, Tony
+Cc: linux-ia64@vger.kernel.org; Zoltan Menyhart
+Subject: [IA64] Effective __clear_bit_unlock V2
 
->  /**
-> + * __clear_bit_unlock - Non-atomically clear a bit with release
-> + */
-> +static __inline__ void
-> +__clear_bit_unlock (int nr, volatile void *addr)
-> +{
-> +	barrier();
-> +	__clear_bit(nr, addr);
-> +}
-> +
-> +/**
+Avoid the use of cmpxchg in __clear_bit_unlock by calling __clear_bit.
+__clear_bit uses a volatile pointer and will generate a store with
+release semantics as shown by Zoltan. Add a barrier to make sure that
+the compiler does not reorder instructions around it.
 
-Well, the "old" __clear_bit() went like this:
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Acked-by: Nick Piggin <npiggin@suse.de>
 
-__clear_bit (int nr, volatile void *addr)
-{
-	*((__u32 *) addr + (nr >> 5)) &= ~(1 << (nr & 31));
-}
+---
+ include/asm-ia64/bitops.h |   12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-(I really do not see why "addr" is a pointer to a volatile stuff.
-If it really can change independently from the current thread of
-control, then a non atomic operation is not much useful.
-Luckily :-) "addr" is casted into a pointer to a non volatile stuff.)
-
-It has been changed into:
-
-__clear_bit (int nr, volatile void *addr)
-{
-        volatile __u32 *p = (__u32 *) addr + (nr >> 5);
-        __u32 m = 1 << (nr & 31);
-        *p &= ~m;
-}
-
-I guess because of __clear_bit_unlock() needs only.
-__set_bit() still keeps its ".rel" / ".acq" free store / load instruction.
-
-__set_bit (int nr, volatile void *addr)
-{
-        *((__u32 *) addr + (nr >> 5)) |= (1 << (nr & 31));
-}
-
-Note that most of the __clear_bit() / __set_bit() usage are some bit map
-or indicator manipulations. They do not need any ".rel" / ".acq"
-semantics.
-
-Let's put back the old ".rel" / ".acq" free __clear_bit() and
-let's use specific variant of ...clear_bit() where ".rel" semantics
-is requred.
-Let's avoid adding ".acq" semantics to ...clear_bit() where is is not
-required.
-
-
-Zoltan
+Index: linux-2.6/include/asm-ia64/bitops.h
+=================================--- linux-2.6.orig/include/asm-ia64/bitops.h	2007-10-19 04:05:38.000000000 -0700
++++ linux-2.6/include/asm-ia64/bitops.h	2007-10-19 10:50:34.000000000 -0700
+@@ -118,14 +118,6 @@ clear_bit_unlock (int nr, volatile void 
+ }
+ 
+ /**
+- * __clear_bit_unlock - Non-atomically clear a bit with release
+- *
+- * This is like clear_bit_unlock, but the implementation may use a non-atomic
+- * store (this one uses an atomic, however).
+- */
+-#define __clear_bit_unlock clear_bit_unlock
+-
+-/**
+  * __clear_bit - Clears a bit in memory (non-atomic version)
+  */
+ static __inline__ void
+@@ -137,6 +129,16 @@ __clear_bit (int nr, volatile void *addr
+ }
+ 
+ /**
++ * __clear_bit_unlock - Non-atomically clear a bit with release
++ */
++static __inline__ void
++__clear_bit_unlock (int nr, volatile void *addr)
++{
++	barrier();
++	__clear_bit(nr, addr);
++}
++
++/**
+  * change_bit - Toggle a bit in memory
+  * @nr: Bit to clear
+  * @addr: Address to start counting from
