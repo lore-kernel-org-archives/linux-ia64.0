@@ -1,25 +1,64 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Fri, 26 Oct 2007 12:02:13 +0000
-Subject: Re: [PATCH] Remove always-true tests in irq handlers
-Message-Id: <20071026120213.GA32421@linux-mips.org>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 30 Oct 2007 16:26:57 +0000
+Subject: [patch] __do_IRQ does not check IRQ_DISABLED when IRQ_PER_CPU is set
+Message-Id: <20071030162657.GA21728@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <9799624f63e093aa915947aea8fb1b8a5df959a1.1193390973.git.jeff@garzik.org> <53d6c8049d4c3999a9d33d73e385d6161b5de2b7.1193390974.git.jeff@garzik.org>
-In-Reply-To: <53d6c8049d4c3999a9d33d73e385d6161b5de2b7.1193390974.git.jeff@garzik.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jeff@garzik.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, akpm@linux-foundation.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>, akpm@linux-foundation.org, linux-ia64@vger.kernel.org
 
-On Fri, Oct 26, 2007 at 05:40:24AM -0400, Jeff Garzik wrote:
+[patch] __do_IRQ does not check IRQ_DISABLED when IRQ_PER_CPU is set
 
-> In these drivers, dev_id is always non-NULL.
-> 
-> Signed-off-by: Jeff Garzik <jgarzik@redhat.com>
-> ---
->  arch/ia64/hp/sim/simeth.c                   |    5 -----
->  arch/mips/pmc-sierra/msp71xx/msp_hwbutton.c |    5 +----
+In __do_IRQ(), the normal case is that IRQ_DISABLED is checked and if
+set the handler (handle_IRQ_event()) is not called.  
 
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
+Earlier in __do_IRQ(), if IRQ_PER_CPU is set the code does not check
+IRQ_DISABLED and calls the handler even though IRQ_DISABLED is set.
+This behavior seems unintentional.
 
-  Ralf
+One user encountering this behavior is the CPE handler (in 
+arch/ia64/kernel/mca.c).  When the CPE handler encounters too many
+CPEs (such as a solid single bit error), it sets up a polling timer
+and disables the CPE interrupt (to avoid excessive overhead logging
+the stream of single bit errors).  disable_irq_nosync() is called
+which sets IRQ_DISABLED.  The IRQ_PER_CPU flag was previously set
+(in ia64_mca_late_init()).  The net result is the CPE handler gets
+called even though it is marked disabled.
+
+If the behavior of not checking IRQ_DISABLED when IRQ_PER_CPU is
+set is intentional, it would be worthy of a comment describing 
+the intended behavior.  disable_irq_nosync() does call chip->disable()
+to provide a chipset specifiec interface for disabling the interrupt,
+which avoids this issue when used.
+
+Comments???
+
+Signed-off-by: Russ Anderson (rja@sgi.com)
+
+--------------------------------------------------------------------
+---
+ kernel/irq/handle.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+Index: linus/kernel/irq/handle.c
+=================================--- linus.orig/kernel/irq/handle.c	2007-10-30 09:49:26.000000000 -0500
++++ linus/kernel/irq/handle.c	2007-10-30 10:23:52.436719688 -0500
+@@ -178,9 +178,11 @@ fastcall unsigned int __do_IRQ(unsigned 
+ 		 */
+ 		if (desc->chip->ack)
+ 			desc->chip->ack(irq);
+-		action_ret = handle_IRQ_event(irq, desc->action);
+-		if (!noirqdebug)
+-			note_interrupt(irq, desc, action_ret);
++		if (likely(!(desc->status & IRQ_DISABLED))) {
++			action_ret = handle_IRQ_event(irq, desc->action);
++			if (!noirqdebug)
++				note_interrupt(irq, desc, action_ret);
++		}
+ 		desc->chip->end(irq);
+ 		return 1;
+ 	}
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
