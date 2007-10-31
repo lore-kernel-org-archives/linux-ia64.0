@@ -1,34 +1,37 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Tue, 30 Oct 2007 09:24:21 +0000
-Subject: Re: [IA64] Effective __clear_bit_unlock V2
-Message-Id: <4726F845.6080806@bull.net>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 31 Oct 2007 11:06:13 +0000
+Subject: [PATCH] ia64: Clean up /proc/interrupts output
+Message-Id: <472861A5.1010403@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0710191050520.31589@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0710191050520.31589@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Mon, 29 Oct 2007, Luck, Tony wrote:
-> 
-> 
->>Is this the final take on this ...  or was there a newer better faster cleaner
->>version?
-> 
-> 
-> AFAICT this is final.
-> 
+Clean up /proc/interrupts output on the system that has 10 or more
+CPUs.
 
-Can you please explain:
-- why should we have both acquisition and release semantics for
-  __clear_bit(), while none of them is present for __set_bit() ?
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-- why should we have both acquisition and release semantics for
-  __clear_bit() used for purposes other than clear_bit_unlock() ?
+---
+ arch/ia64/kernel/irq.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-Thanks,
-
-Zoltan
+Index: linux-2.6.24-rc1/arch/ia64/kernel/irq.c
+=================================--- linux-2.6.24-rc1.orig/arch/ia64/kernel/irq.c
++++ linux-2.6.24-rc1/arch/ia64/kernel/irq.c
+@@ -61,9 +61,11 @@ int show_interrupts(struct seq_file *p, 
+ 	unsigned long flags;
+ 
+ 	if (i = 0) {
+-		seq_printf(p, "           ");
++		char cpuname[16];
++		seq_printf(p, "     ");
+ 		for_each_online_cpu(j) {
+-			seq_printf(p, "CPU%d       ",j);
++			snprintf(cpuname, 10, "CPU%d", j);
++			seq_printf(p, "%10s ", cpuname);
+ 		}
+ 		seq_putc(p, '\n');
+ 	}
 
