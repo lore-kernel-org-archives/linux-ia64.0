@@ -1,63 +1,72 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 16 Oct 2007 13:40:58 +0000
-Subject: [PATCH 8/9] ia64: VIRT_CPU_ACCOUNTING (accurate cpu time accounting)
-Message-Id: <4714BF6A.4020805@jp.fujitsu.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Wed, 31 Oct 2007 16:10:38 +0000
+Subject: [patch] Disable/re-enable CPE interrupts on Altix
+Message-Id: <20071031161038.GA5321@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> [8/9] ia64_acct_gate_on_leave.patch
+[patch] Disable/re-enable CPE interrupts on Altix
 
-This is last patch for check point building.
+When the CPE handler encounters too many CPEs (such as a solid single
+bit memory error), it sets up a polling timer and disables the CPE
+interrupt (to avoid excessive overhead logging the stream of single
+bit errors).  disable_irq_nosync() calls chip->disable() to provide
+a chipset specifiec interface for disabling the interrupt.  This patch
+adds the Altix specific support to disable and re-enable the CPE interrupt.
 
- - kernel exit (stack switching from kernel to user)
-
-In contrast, there is only one codes that switches
-stack from kernel to user. It is ia64_leave_kernel().
-
-Following patch builds check point on this exit, including
-fetching ar.itc, cumulate cycles for stime and stamp updating.
-
-Thanks,
-H.Seto
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
 ---
- arch/ia64/kernel/entry.S |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+)
+ arch/ia64/kernel/mca.c    |    2 +-
+ arch/ia64/sn/kernel/irq.c |    8 +++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
-Index: linux-2.6.23/arch/ia64/kernel/entry.S
-=================================--- linux-2.6.23.orig/arch/ia64/kernel/entry.S
-+++ linux-2.6.23/arch/ia64/kernel/entry.S
-@@ -995,6 +995,26 @@
- 	shladd in0=loc1,3,r17
- 	mov in1=0
- 	;;
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING
-+account_sys_leave:
-+	alloc loc0=ar.pfs,2,7,0,0	// keep in0,in1
-+	mov loc1=IA64_KR(CURRENT)	// M2 (12 cycle read latency)
-+	mov loc6=ar.itc
-+	;;
-+	add loc2=TI_AC_STAMP+IA64_TASK_SIZE,loc1
-+	add loc3=TI_AC_STIME+IA64_TASK_SIZE,loc1
-+	;;
-+	ld8 loc4=[loc2]			// get last stamp
-+	ld8 loc5=[loc3]			// cumulated stime
-+	;;
-+	sub loc4=loc6,loc4		// elapsed time
-+	;;
-+	add loc5=loc5,loc4		// sum
-+	;;
-+	st8 [loc2]=loc6			// update stamp
-+	st8 [loc3]=loc5			// update stime
-+	;;
-+#endif
- 	TEXT_ALIGN(32)
- rse_clear_invalid:
- #ifdef CONFIG_ITANIUM
-
-
+Index: test/arch/ia64/sn/kernel/irq.c
+=================================--- test.orig/arch/ia64/sn/kernel/irq.c	2007-10-31 10:34:28.813022778 -0500
++++ test/arch/ia64/sn/kernel/irq.c	2007-10-31 10:44:15.605442886 -0500
+@@ -5,7 +5,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2006 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2007 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ #include <linux/irq.h>
+@@ -85,12 +85,18 @@ static void sn_shutdown_irq(unsigned int
+ {
+ }
+ 
++extern void ia64_mca_register_cpev(int);
++
+ static void sn_disable_irq(unsigned int irq)
+ {
++	if (irq = local_vector_to_irq(IA64_CPE_VECTOR))
++		ia64_mca_register_cpev(0);
+ }
+ 
+ static void sn_enable_irq(unsigned int irq)
+ {
++	if (irq = local_vector_to_irq(IA64_CPE_VECTOR))
++		ia64_mca_register_cpev(irq);
+ }
+ 
+ static void sn_ack_irq(unsigned int irq)
+Index: test/arch/ia64/kernel/mca.c
+=================================--- test.orig/arch/ia64/kernel/mca.c	2007-10-31 10:34:28.817023274 -0500
++++ test/arch/ia64/kernel/mca.c	2007-10-31 10:34:32.045423392 -0500
+@@ -571,7 +571,7 @@ out:
+  *  Outputs
+  *      None
+  */
+-static void __init
++void
+ ia64_mca_register_cpev (int cpev)
+ {
+ 	/* Register the CPE interrupt vector with SAL */
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
