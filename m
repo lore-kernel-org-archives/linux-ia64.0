@@ -1,30 +1,47 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Thu, 11 Oct 2007 05:16:31 +0000
-Subject: Re: compile 2.6.23 for zx2000?
-Message-Id: <20071011051631.GC26641@colo.lackof.org>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 31 Oct 2007 11:06:21 +0000
+Subject: [PATCH] ia64: Fix IOSAPIC delivery mode setting
+Message-Id: <472861AD.5050107@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071010063532.GA15655@colo.lackof.org>
-In-Reply-To: <20071010063532.GA15655@colo.lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 10, 2007 at 11:08:31AM +0200, Andreas Schwab wrote:
-> Grant Grundler <grundler@parisc-linux.org> writes:
-> 
-> > 2) But I'm getting this error:
-> >   CC [M]  drivers/char/ipmi/ipmi_si_intf.o
-> > drivers/char/ipmi/ipmi_si_intf.c:1095: error: __param_hotmod causes a section type conflict
-> 
-> This is probably the same as
-> <http://gcc.gnu.org/bugzilla/show_bug.cgi?id1490>.
+Fix the problem that redirect hit bit in I/O SAPIC RTE is set even
+when it must be disabled (e.g. nointroute boot option is set, CPU
+hotplug is enabled or percpu vector is enabled).
 
-Yup - looks like the same symptom at least.
-Does Debian have a gcc 4.2 or later compiler with that fixed?
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-I'd be happy to test it by building/running a 2.6.23 kernel if
-given a .deb to install.
+---
+ arch/ia64/kernel/iosapic.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-thanks,
-grant
+Index: linux-2.6.24-rc1/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.24-rc1.orig/arch/ia64/kernel/iosapic.c
++++ linux-2.6.24-rc1/arch/ia64/kernel/iosapic.c
+@@ -762,6 +762,12 @@ iosapic_register_intr (unsigned int gsi,
+ 	unsigned long flags;
+ 	struct iosapic_rte_info *rte;
+ 	u32 low32;
++	unsigned char dmode;
++
++	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
++		dmode = IOSAPIC_LOWEST_PRIORITY;
++	else
++		dmode = IOSAPIC_FIXED;
+ 
+ 	/*
+ 	 * If this GSI has already been registered (i.e., it's a
+@@ -791,8 +797,7 @@ iosapic_register_intr (unsigned int gsi,
+ 
+ 	spin_lock(&irq_desc[irq].lock);
+ 	dest = get_target_cpu(gsi, irq);
+-	err = register_intr(gsi, irq, IOSAPIC_LOWEST_PRIORITY,
+-			    polarity, trigger);
++	err = register_intr(gsi, irq, dmode, polarity, trigger);
+ 	if (err < 0) {
+ 		spin_unlock(&irq_desc[irq].lock);
+ 		irq = err;
+
