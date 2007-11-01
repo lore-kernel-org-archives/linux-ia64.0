@@ -1,38 +1,86 @@
-From: Adrian Bunk <bunk@kernel.org>
-Date: Tue, 27 Nov 2007 22:14:55 +0000
-Subject: Re: [patch 04/14] ia64: Remove the __SMALL_ADDR_AREA attribute for
-Message-Id: <20071127221455.GH3406@stusta.de>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Thu, 01 Nov 2007 09:21:35 +0000
+Subject: [PATCH] Add IORESOUCE_BUSY flag for System RAM (Re: [Question] How to represent SYSTEM_RAM in kerene
+Message-Id: <20071101181700.6D9A.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071127001407.859743255@sgi.com> <20071127001430.083503280@sgi.com> <jehcj83uir.fsf@sykes.suse.de> <Pine.LNX.4.64.0711271016500.2310@schroedinger.engr.sgi.com> <jeabozs7ou.fsf@sykes.suse.de> <Pine.LNX.4.64.0711271331240.4803@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.64.0711271331240.4803@schroedinger.engr.sgi.com>
+References: <20071003015242.GC12049@parisc-linux.org> <20071003135702.bdcf3f1b.kamezawa.hiroyu@jp.fujitsu.com>
+In-Reply-To: <20071003135702.bdcf3f1b.kamezawa.hiroyu@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Andreas Schwab <schwab@suse.de>, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Matthew Wilcox <matthew@wil.cx>, LKML <linux-kernel@vger.kernel.org>, andi@firstfloor.org, "linux-mm@kvack.org" <linux-mm@kvack.org>, "tony.luck@intel.com" <tony.luck@intel.com>, pbadari@us.ibm.com, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Dave Hansen <haveblue@us.ibm.com>
 
-On Tue, Nov 27, 2007 at 01:38:02PM -0800, Christoph Lameter wrote:
->...
-> Hmmm...
-> 
-> http://www.ohse.de/uwe/articles/gcc-attributes.html
-> 
-> says:
-> 
-> model (MODEL-NAME)
->     Found in versions: 2.8-3.4
->...
+Hello.
 
-This site says at the top it used gcc versions up to 3.4, so it 
-obviously can't find anything in gcc >= 4.0 ...
+I was asked from Kame-san to write this patch.
 
-cu
-Adrian
+Please apply.
+
+---------
+i386 and x86-64 registers System RAM as IORESOURCE_MEM | IORESOURCE_BUSY.
+
+But ia64 registers it as IORESOURCE_MEM only.
+In addition, memory hotplug code registers new memory as IORESOURCE_MEM too.
+
+This patch adds IORESOURCE_BUSY for them to avoid potential overlap mapping
+by PCI device.
+
+Signed-off-by: Yasunori Goto <y-goto@jp.fujitsu.com>
+
+---
+ arch/ia64/kernel/efi.c |    6 ++----
+ mm/memory_hotplug.c    |    2 +-
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+Index: current/arch/ia64/kernel/efi.c
+=================================--- current.orig/arch/ia64/kernel/efi.c	2007-11-01 15:24:05.000000000 +0900
++++ current/arch/ia64/kernel/efi.c	2007-11-01 15:24:18.000000000 +0900
+@@ -1111,7 +1111,7 @@ efi_initialize_iomem_resources(struct re
+ 		if (md->num_pages = 0) /* should not happen */
+ 			continue;
+ 
+-		flags = IORESOURCE_MEM;
++		flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+ 		switch (md->type) {
+ 
+ 			case EFI_MEMORY_MAPPED_IO:
+@@ -1133,12 +1133,11 @@ efi_initialize_iomem_resources(struct re
+ 
+ 			case EFI_ACPI_MEMORY_NVS:
+ 				name = "ACPI Non-volatile Storage";
+-				flags |= IORESOURCE_BUSY;
+ 				break;
+ 
+ 			case EFI_UNUSABLE_MEMORY:
+ 				name = "reserved";
+-				flags |= IORESOURCE_BUSY | IORESOURCE_DISABLED;
++				flags |= IORESOURCE_DISABLED;
+ 				break;
+ 
+ 			case EFI_RESERVED_TYPE:
+@@ -1147,7 +1146,6 @@ efi_initialize_iomem_resources(struct re
+ 			case EFI_ACPI_RECLAIM_MEMORY:
+ 			default:
+ 				name = "reserved";
+-				flags |= IORESOURCE_BUSY;
+ 				break;
+ 		}
+ 
+Index: current/mm/memory_hotplug.c
+=================================--- current.orig/mm/memory_hotplug.c	2007-11-01 15:24:16.000000000 +0900
++++ current/mm/memory_hotplug.c	2007-11-01 15:41:27.000000000 +0900
+@@ -39,7 +39,7 @@ static struct resource *register_memory_
+ 	res->name = "System RAM";
+ 	res->start = start;
+ 	res->end = start + size - 1;
+-	res->flags = IORESOURCE_MEM;
++	res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+ 	if (request_resource(&iomem_resource, res) < 0) {
+ 		printk("System RAM resource %llx - %llx cannot be added\n",
+ 		(unsigned long long)res->start, (unsigned long long)res->end);
 
 -- 
+Yasunori Goto 
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
 
