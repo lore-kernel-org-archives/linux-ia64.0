@@ -1,34 +1,39 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Fri, 09 Nov 2007 01:51:01 +0000
-Subject: [PATCH] ia64: Fix iosapic interrupt delivery mode for CPE
-Message-Id: <4733BD05.8040804@jp.fujitsu.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 01 Nov 2007 21:00:04 +0000
+Subject: [patch] Clean-up McKinley Errata message
+Message-Id: <20071101210004.GA11412@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-If "CPEI Processor Override" bit is not set in "Platform Interrupt
-Source Flags" in "Platform Interrupt Sources Structure" in ACPI MADT,
-the target processor of CPEI is restricted to a specific CPU. Because
-of this, the delivery mode for CPEI should be IOSAPIC_FIXED.
+[patch] Clean-up McKinley Errata message
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+A small clean-up patch.  
+
+No need to print "McKinley Errata 9 workaround not needed; disabling it"
+on every non-McKinley Itanium, which at this point is almost all of them.
+
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
 ---
- arch/ia64/kernel/iosapic.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/kernel/patch.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-Index: linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.24-rc2.orig/arch/ia64/kernel/iosapic.c
-+++ linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
-@@ -938,7 +938,7 @@ iosapic_register_platform_intr (u32 int_
- 	      case ACPI_INTERRUPT_CPEI:
- 		irq = vector = IA64_CPE_VECTOR;
- 		BUG_ON(bind_irq_vector(irq, vector, CPU_MASK_ALL));
--		delivery = IOSAPIC_LOWEST_PRIORITY;
-+		delivery = IOSAPIC_FIXED;
- 		mask = 1;
- 		break;
- 	      default:
-
+Index: test/arch/ia64/kernel/patch.c
+=================================--- test.orig/arch/ia64/kernel/patch.c	2007-10-16 09:19:28.000000000 -0500
++++ test/arch/ia64/kernel/patch.c	2007-11-01 15:28:38.613965920 -0500
+@@ -129,9 +129,6 @@ ia64_patch_mckinley_e9 (unsigned long st
+ 		first_time = 0;
+ 		if (need_workaround)
+ 			printk(KERN_INFO "Leaving McKinley Errata 9 workaround enabled\n");
+-		else
+-			printk(KERN_INFO "McKinley Errata 9 workaround not needed; "
+-			       "disabling it\n");
+ 	}
+ 	if (need_workaround)
+ 		return;
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
