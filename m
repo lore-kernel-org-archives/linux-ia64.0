@@ -1,41 +1,28 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Thu, 22 Nov 2007 08:40:16 +0000
-Subject: Re: [patch 1/3] IA64: Slim down __clear_bit_unlock
-Message-Id: <47454070.3020002@bull.net>
+From: Roel Kluin <12o3l@tiscali.nl>
+Date: Sat, 03 Nov 2007 23:43:42 +0000
+Subject: iounmap after ioremap in arch/ia64/sn/pci/pcibr/pcibr_provider.c
+Message-Id: <472D07AE.1000202@tiscali.nl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
-In-Reply-To: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Almost there :-)
+A better discription, maybe?
+--
+iounmap after ioremap
 
-> +static __inline__ void
-> +__clear_bit_unlock(int nr, volatile void *addr)
-> +{
-> +	__u32 mask, new;
-> +	volatile __u32 *m;
-> +
-> +	m = (volatile __u32 *)addr + (nr >> 5);
-
-Still cannot see why you need an ".acq" on this load.
-Why do you use "volatile"?
-
-What about this one?
-
-static __inline__ void
-__clear_bit_unlock(int const nr, void * const addr)
-{
-        __u32 * const m = addr + (nr >> 5);
-        __u32 new;
-
-        new = *m & ~(1 << (nr & 31));
-        barrier();
-        asm volatile ("st4.rel.nta [%0] = %1\n\t" :: "r"(m), "r"(new));
-}
-
-Thanks,
-
-Zoltan Menyhart
+Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
+---
+diff --git a/arch/ia64/sn/pci/pcibr/pcibr_provider.c b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+index ab3eaf8..00d1b85 100644
+--- a/arch/ia64/sn/pci/pcibr/pcibr_provider.c
++++ b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+@@ -186,6 +186,7 @@ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 
+ 	if (!soft->pbi_int_ate_resource.ate) {
+ 		kfree(soft);
++		iounmap(soft->pbi_buscommon.bs_base);
+ 		return NULL;
+ 	}
+ 
