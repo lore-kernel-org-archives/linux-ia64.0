@@ -1,93 +1,34 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Wed, 07 Nov 2007 06:38:30 +0000
-Subject: Re: [PATCH] ia64: Fix IOSAPIC delivery mode setting
-Message-Id: <47315D66.7000606@jp.fujitsu.com>
+From: Roel Kluin <12o3l@tiscali.nl>
+Date: Sat, 03 Nov 2007 23:50:48 +0000
+Subject: [PATCH] Also iounmap when kzalloc fails in tioca_bus_fixup (ia64/sn/pci/tioca_provider.c)
+Message-Id: <472D0958.9030203@tiscali.nl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <472861AD.5050107@jp.fujitsu.com>
-In-Reply-To: <472861AD.5050107@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> +	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
-> 
-> This breaks the build on CONFIG_SMP=n configurations (neither
-> smp_int_redirect nor SMP_IRQ_REDIRECTION is defined).
-> 
+Also iounmap when kzalloc fails
 
-Thank you for pointing out it, and I'm sorry about it.
-I'm attaching the fixed one. I noticed that the same fix is also
-needed for iosapic_override_isa_irq(). The fixed one also contains
-this fix.
-
-BTW, I'm thinking that delivery mode for CPEI also need to be fixed.
-I'll send the another patch about this.
-
-Thanks,
-Kenji Kaneshige
-
-
-Fix the problem that redirect hit bit in I/O SAPIC RTE is set even
-when it must be disabled (e.g. nointroute boot option is set, CPU
-hotplug is enabled or percpu vector is enabled).
-
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
+Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
 ---
- arch/ia64/kernel/iosapic.c |   18 +++++++++++++++---
- 1 files changed, 15 insertions(+), 3 deletions(-)
-
-Index: linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.24-rc2.orig/arch/ia64/kernel/iosapic.c
-+++ linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
-@@ -748,6 +748,15 @@ skip_numa_setup:
- #endif
- }
+diff --git a/arch/ia64/sn/pci/tioca_provider.c b/arch/ia64/sn/pci/tioca_provider.c
+index ef048a6..de1ec5c 100644
+--- a/arch/ia64/sn/pci/tioca_provider.c
++++ b/arch/ia64/sn/pci/tioca_provider.c
+@@ -618,6 +618,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
  
-+static inline unsigned char choose_dmode(void)
-+{
-+#ifdef CONFIG_SMP
-+	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
-+		return IOSAPIC_LOWEST_PRIORITY;
-+#endif
-+	return IOSAPIC_FIXED;
-+}
-+
- /*
-  * ACPI can describe IOSAPIC interrupts via static tables and namespace
-  * methods.  This provides an interface to register those interrupts and
-@@ -762,6 +771,7 @@ iosapic_register_intr (unsigned int gsi,
- 	unsigned long flags;
- 	struct iosapic_rte_info *rte;
- 	u32 low32;
-+	unsigned char dmode;
+ 	tioca_kern = kzalloc(sizeof(struct tioca_kernel), GFP_KERNEL);
+ 	if (!tioca_kern) {
++		iounmap(tioca_common->ca_common.bs_base);
+ 		kfree(tioca_common);
+ 		return NULL;
+ 	}
+@@ -637,6 +638,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 	/* init GART */
  
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
-@@ -791,8 +801,8 @@ iosapic_register_intr (unsigned int gsi,
- 
- 	spin_lock(&irq_desc[irq].lock);
- 	dest = get_target_cpu(gsi, irq);
--	err = register_intr(gsi, irq, IOSAPIC_LOWEST_PRIORITY,
--			    polarity, trigger);
-+	dmode = choose_dmode();
-+	err = register_intr(gsi, irq, dmode, polarity, trigger);
- 	if (err < 0) {
- 		spin_unlock(&irq_desc[irq].lock);
- 		irq = err;
-@@ -961,10 +971,12 @@ iosapic_override_isa_irq (unsigned int i
- {
- 	int vector, irq;
- 	unsigned int dest = cpu_physical_id(smp_processor_id());
-+	unsigned char dmode;
- 
- 	irq = vector = isa_irq_to_vector(isa_irq);
- 	BUG_ON(bind_irq_vector(irq, vector, CPU_MASK_ALL));
--	register_intr(gsi, irq, IOSAPIC_LOWEST_PRIORITY, polarity, trigger);
-+	dmode = choose_dmode();
-+	register_intr(gsi, irq, dmode, polarity, trigger);
- 
- 	DBG("ISA: IRQ %u -> GSI %u (%s,%s) -> CPU %d (0x%04x) vector %d\n",
- 	    isa_irq, gsi, trigger = IOSAPIC_EDGE ? "edge" : "level",
-
+ 	if (tioca_gart_init(tioca_kern) < 0) {
++		iounmap(tioca_common->ca_common.bs_base);
+ 		kfree(tioca_kern);
+ 		kfree(tioca_common);
+ 		return NULL;
