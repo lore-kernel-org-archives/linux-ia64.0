@@ -1,33 +1,35 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 20 Nov 2007 07:41:33 +0000
-Subject: Re: [PATCH 01/59] arch/ia64: Add missing "space"
-Message-Id: <20071120074132.GA3402@verge.net.au>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Date: Mon, 05 Nov 2007 02:17:24 +0000
+Subject: [PATCH 2/6] IA64: fix memset size error
+Message-Id: <472E7D34.1040509@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1195523331-15303-1-git-send-email-joe@perches.com> <ee1678e1bc8b80b7ae420059fffc7241486ea91a.1195454434.git.joe@perches.com> <20071120065431.GC10490@verge.net.au> <1195542565.4675.104.camel@localhost>
-In-Reply-To: <1195542565.4675.104.camel@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>
-Cc: linux-kernel@vger.kernel.org, Jes Sorensen <jes@sgi.com>, Tony Luck <tony.luck@intel.com>, linux-altix@sgi.com, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-On Mon, Nov 19, 2007 at 11:09:25PM -0800, Joe Perches wrote:
-> On Tue, 2007-11-20 at 15:54 +0900, Simon Horman wrote:
-> > Is it really neccessary for this fragment to create a line that
-> > is greater than 80 characters long? Persumably the entire reason
-> > that the printk line was split in the first place was to avoid
-> > a long line.
-> 
-> No.  Many other lines in that source file are > 80 char.
+The size arguments passing to memset is wrong.
 
-That may be so, but surely adding another one makes
-things slightly worse.
+Signed-off-by Li Zefan <lizf@cn.fujitsu.com>
 
-> My initial preference was to reformat the indented lines to the
-> printk open parenthesis, but the minimal change seemed better.
-> 
-> cheers, Joe
+---
+ drivers/video/ps3fb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/video/ps3fb.c b/drivers/video/ps3fb.c
+index b3463dd..75836aa 100644
+--- a/drivers/video/ps3fb.c
++++ b/drivers/video/ps3fb.c
+@@ -727,7 +727,7 @@ static int ps3fb_blank(int blank, struct fb_info *info)
+ 
+ static int ps3fb_get_vblank(struct fb_vblank *vblank)
+ {
+-	memset(vblank, 0, sizeof(&vblank));
++	memset(vblank, 0, sizeof(*vblank));
+ 	vblank->flags = FB_VBLANK_HAVE_VSYNC;
+ 	return 0;
+ }
 -- 
-Horms
+1.5.3.rc7
 
