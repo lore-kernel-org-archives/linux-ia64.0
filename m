@@ -1,76 +1,46 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Date: Mon, 05 Nov 2007 09:01:59 +0000
-Subject: Re: [PATCH] Also iounmap in error path in arch/ia64/kernel/cyclone.c
-Message-Id: <472EDC07.60801@tiscali.nl>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 06 Nov 2007 19:59:55 +0000
+Subject: sysctl table check failed ... Writable sysctl directory
+Message-Id: <617E1C2C70743745A92448908E030B2A02E21EDD@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <472D00A7.1080409@tiscali.nl>
-In-Reply-To: <472D00A7.1080409@tiscali.nl>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Simon Horman wrote:
-> On Sun, Nov 04, 2007 at 12:13:43AM +0100, Roel Kluin wrote:
->> base is a local u64. use_cyclone a global int.
->> --
->> Also iounmap in error path
-> 
-> This seems correct, but doesn't the same problem occur several other
-> times further down the same function?
-> 
+Stephane,
 
-Ok, since the function was ioremap_nocache instead of ioremap, I wasn't sure
-whether the unmap was required. Apparently I overlooked this was true for the
-first case as well.
+For a couple of weeks now the kernel has been complaining about
+a couple of "Writable sysctl directories".  When I pulled from
+Linus latest git tree today, the complaint got louder with an
+added stack trace ... pointing at pfm_init().
 
-Thanks for reviewing.
+This patch fixes the complaint.  Did you need mode 0755 for
+some reason, or should I just apply this?
 
---
-iounmap after ioremap when CBAR/PMCC/MPCS/MPMC is not found
+-Tony
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
 ---
-diff --git a/arch/ia64/kernel/cyclone.c b/arch/ia64/kernel/cyclone.c
-index 790ef0d..64d3ab9 100644
---- a/arch/ia64/kernel/cyclone.c
-+++ b/arch/ia64/kernel/cyclone.c
-@@ -59,13 +59,13 @@ int __init init_cyclone_clock(void)
- 		return -ENODEV;
- 	}
- 	base = readq(reg);
-+	iounmap(reg);
- 	if(!base){
- 		printk(KERN_ERR "Summit chipset: Could not find valid CBAR"
- 				" value.\n");
- 		use_cyclone = 0;
- 		return -ENODEV;
- 	}
--	iounmap(reg);
- 
- 	/* setup PMCC */
- 	offset = (base + CYCLONE_PMCC_OFFSET);
-@@ -74,6 +74,7 @@ int __init init_cyclone_clock(void)
- 		printk(KERN_ERR "Summit chipset: Could not find valid PMCC"
- 				" register.\n");
- 		use_cyclone = 0;
-+		iounmap(reg);
- 		return -ENODEV;
- 	}
- 	writel(0x00000001,reg);
-@@ -86,6 +87,7 @@ int __init init_cyclone_clock(void)
- 		printk(KERN_ERR "Summit chipset: Could not find valid MPCS"
- 				" register.\n");
- 		use_cyclone = 0;
-+		iounmap(reg);
- 		return -ENODEV;
- 	}
- 	writel(0x00000001,reg);
-@@ -98,6 +100,7 @@ int __init init_cyclone_clock(void)
- 		printk(KERN_ERR "Summit chipset: Could not find valid MPMC"
- 				" register.\n");
- 		use_cyclone = 0;
-+		iounmap(cyclone_timer);
- 		return -ENODEV;
- 	}
- 
+
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 59169bf..73e7c2e 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -558,7 +558,7 @@ static ctl_table pfm_sysctl_dir[] = {
+ 	{
+ 		.ctl_name	= CTL_UNNUMBERED,
+ 		.procname	= "perfmon",
+-		.mode		= 0755,
++		.mode		= 0555,
+ 		.child		= pfm_ctl_table,
+ 	},
+  	{}
+@@ -567,7 +567,7 @@ static ctl_table pfm_sysctl_root[] = {
+ 	{
+ 		.ctl_name	= CTL_KERN,
+ 		.procname	= "kernel",
+-		.mode		= 0755,
++		.mode		= 0555,
+ 		.child		= pfm_sysctl_dir,
+ 	},
+  	{}
