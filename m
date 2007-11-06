@@ -1,44 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 28 Nov 2007 09:21:18 +0000
-Subject: [patch 1/4] ia64: make iosapic_version static
-Message-Id: <20071128092247.028699233@vergenet.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 06 Nov 2007 22:19:35 +0000
+Subject: Itanium SDM spec update released
+Message-Id: <617E1C2C70743745A92448908E030B2A02E2213C@scsmsx411.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-iosapic_version is not used outside of arch/ia64/kernel/iosapic.c
-so it seems senible to make it static.
+http://developer.intel.com/design/itanium/documentation.htm?=Itanium+tab
+_technical_docs
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Here's some of what is in it:
 
-Index: linux-2.6/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/iosapic.c	2007-11-28 13:14:09.000000000 +0900
-+++ linux-2.6/arch/ia64/kernel/iosapic.c	2007-11-28 13:15:08.000000000 +0900
-@@ -491,7 +491,7 @@ struct irq_chip irq_type_iosapic_edge = 
- 	.set_affinity =	iosapic_set_affinity
- };
- 
--unsigned int
-+static unsigned int
- iosapic_version (char __iomem *addr)
- {
- 	/*
-Index: linux-2.6/include/asm-ia64/iosapic.h
-=================================--- linux-2.6.orig/include/asm-ia64/iosapic.h	2007-11-28 11:47:53.000000000 +0900
-+++ linux-2.6/include/asm-ia64/iosapic.h	2007-11-28 13:15:17.000000000 +0900
-@@ -94,7 +94,6 @@ extern int __init iosapic_register_platf
- 					   u16 eid, u16 id,
- 					   unsigned long polarity,
- 					   unsigned long trigger);
--extern unsigned int iosapic_version (char __iomem *addr);
- 
- #ifdef CONFIG_NUMA
- extern void __devinit map_iosapic_to_node (unsigned int, int);
+The October 2007  Intel(r) Itanium(r) Architecture Software
+Developer's Manual Specification Update supplements SDM
+2.2 with recent specification changes, specification
+clarifications, and document changes.
 
--- 
+Virtualization specification changes (#1, #3, #4, #5,
+#10, #11) apply to the dual-core Itanium 2 processor 9000
+series and 9100. Virtualization disable control (#10) is
+available on the dual-core Itanium 2 processor 9100 series.
 
--- 
-Horms
+Specification changes for future Itanium processors
+include the new Resource Utilization Counter (#2),
+PAL_MC_ERROR_INFO health indicator (#7), Variable
+Frequency Mode Additions to ACPI P-states (#12),
+PAL_MC_DYNAMIC redefinition (#13), and increased
+min-state save area (#14).
 
+
+-Tony
