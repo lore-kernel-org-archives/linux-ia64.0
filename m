@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 07 Nov 2007 16:26:59 +0000
-Subject: RE: [PATCH] XPC heartbeat timer function must run on CPU 0
-Message-Id: <617E1C2C70743745A92448908E030B2A02E2267E@scsmsx411.amr.corp.intel.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Thu, 08 Nov 2007 12:11:19 +0000
+Subject: Re: [PATCH] XPC heartbeat timer function must run on CPU 0
+Message-Id: <20071108121119.GA3336@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20071107135306.99AAF11C415@aqua.americas.sgi.com>
 In-Reply-To: <20071107135306.99AAF11C415@aqua.americas.sgi.com>
@@ -10,10 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Currently, XPC's heartbeat timer function runs on whatever CPU modprobe/insmod
-> ran on when XPC was started. To avoid the heartbeat from being delayed for
-> long periods the timer function must run on CPU 0.
+On Wed, Nov 07, 2007 at 08:26:59AM -0800, Luck, Tony wrote:
+> > Currently, XPC's heartbeat timer function runs on whatever CPU modprobe/insmod
+> > ran on when XPC was started. To avoid the heartbeat from being delayed for
+> > long periods the timer function must run on CPU 0.
+> 
+> Does Altix allow hot remove of cpu0?  If so, then you have a problem.
 
-Does Altix allow hot remove of cpu0?  If so, then you have a problem.
+At this time Altix does not support hot remove of cpu0, but it is something
+currently being worked on. At the time that feature is ready then this
+code would indeed need to be modified. In the meantime, we have an existing
+customer in need of a fix.
 
--Tony
+Thanks,
+Dean
+
