@@ -1,36 +1,43 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 08 Nov 2007 02:00:11 +0000
-Subject: Re: [PATCH] Move dmi_scan_machine() call ealier
-Message-Id: <20071108020009.GC831@verge.net.au>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 09 Nov 2007 10:44:38 +0000
+Subject: conflict between tickless and perfmon2
+Message-Id: <20071109104438.GB18909@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1194370267.31834.176.camel@bling>
-In-Reply-To: <1194370267.31834.176.camel@bling>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: perfmon2-devel@lists.sourceforge.net
+Cc: perfmon@napali.hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Stephane Eranian <eranian@hpl.hp.com>
 
-On Wed, Nov 07, 2007 at 09:40:29AM -0700, Alex Williamson wrote:
-> 
-> On Wed, 2007-11-07 at 08:30 -0800, Luck, Tony wrote:
-> > >   Thanks for the review Simon.  Is the patch below more like what
-> > > you're thinking?  I agree that check_bugs doesn't initial seem like the
-> > > most appropriate place to setup DMI, but think about what DMI is
-> > > typically used for in the kernel.
-> > 
-> > Then re-name check_bugs() to something more suited to the things that
-> > it is now doing. [I think that was what Simon was hinting at].
-> 
->    Re-naming check_bugs() becomes a cross architecture endeavor.  Since
-> x86 calls dmi_scan_machine() in setup_arch(), this would only be for
-> ia64.  Perhaps the right answer is to make dmi_scan_machine() callable
-> from setup_arch() on ia64, but that requires an safer early ioremap, and
-> I'm still not sure what that should look like.  Thanks,
+Hello,
 
-Yes, that does seem like a fairly substantial can of worms.
+We have identified a conflict between TICKLESS (CONFIG_NO_HZ) and
+the current perfmon2 implementation. The problem impacts system-wide
+sessions using timeout-based event set multiplexing.
+
+Event set multiplexing allows monitoring tools to measure more events
+than there are actual performance counters on the processor. Events
+are grouped in sets which are then multiplexed onto the actual counters.
+Switching can be triggered either by a timeout or by a counter overflow.
+This is supported for per-thread and system-wide sessions.
+
+For timeout-based switching, the duration expressed in nanoseconds is
+meant to represent wall-clock time in system-wide mode, and execution
+time in per-thread mode. Granularity is limited by HZ.
+
+The current implementation for timeout is a simple hook on the timer
+interrupt path in apic_*.c:smp_local_timer_interrupt(). Unfortunately,
+this does not work when tickless is enabled: we get much less set
+switches than expected on an idle system.
+
+It looks like a solution would be to change the implementation of
+timeout-based switching to use HR timers instead. Similar to what is
+done for ITIMER_REAL and ITIMER_VIRTUAL.
+
+Unless someone has a better proposal, I will experiment with this on
+2.6.24-rc2.
+
+Thanks.
 
 -- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+-Stephane
