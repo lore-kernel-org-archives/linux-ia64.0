@@ -1,36 +1,34 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Date: Thu, 15 Nov 2007 22:03:30 +0000
-Subject: [PATCH]
-Message-Id: <473CC232.6020901@tiscali.nl>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Fri, 09 Nov 2007 01:51:01 +0000
+Subject: [PATCH] ia64: Fix iosapic interrupt delivery mode for CPE
+Message-Id: <4733BD05.8040804@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, len.brown@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-I have sent this patch before to lkml, but it appears it wasn't picked up. Also
-I have to admit this isn't tested. This is a patch against linus' tree.
+If "CPEI Processor Override" bit is not set in "Platform Interrupt
+Source Flags" in "Platform Interrupt Sources Structure" in ACPI MADT,
+the target processor of CPEI is restricted to a specific CPU. Because
+of this, the delivery mode for CPEI should be IOSAPIC_FIXED.
 
-ACPI_MADT_ENABLED is defined 1    (include/acpi/actbl1.h 501)
-lapic_flags: an u32 of struct acpi_madt_local_sapic (include/acpi/actbl1.h 467)
---
-'!' has a higher priority than '&', so as was
-this won't test the first bit, but rather evaluates to false for any non-zero
-lsapic->lapic_flags.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
 ---
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index 3d45d24..7d78d22 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -858,7 +858,7 @@ int acpi_map_lsapic(acpi_handle handle, int *pcpu)
- 	lsapic = (struct acpi_madt_local_sapic *)obj->buffer.pointer;
- 
- 	if ((lsapic->header.type != ACPI_MADT_TYPE_LOCAL_SAPIC) ||
--	    (!lsapic->lapic_flags & ACPI_MADT_ENABLED)) {
-+	    (!(lsapic->lapic_flags & ACPI_MADT_ENABLED))) {
- 		kfree(buffer.pointer);
- 		return -EINVAL;
- 	}
+ arch/ia64/kernel/iosapic.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+Index: linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.24-rc2.orig/arch/ia64/kernel/iosapic.c
++++ linux-2.6.24-rc2/arch/ia64/kernel/iosapic.c
+@@ -938,7 +938,7 @@ iosapic_register_platform_intr (u32 int_
+ 	      case ACPI_INTERRUPT_CPEI:
+ 		irq = vector = IA64_CPE_VECTOR;
+ 		BUG_ON(bind_irq_vector(irq, vector, CPU_MASK_ALL));
+-		delivery = IOSAPIC_LOWEST_PRIORITY;
++		delivery = IOSAPIC_FIXED;
+ 		mask = 1;
+ 		break;
+ 	      default:
+
