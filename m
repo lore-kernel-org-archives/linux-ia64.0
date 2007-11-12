@@ -1,39 +1,35 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Thu, 01 Nov 2007 21:00:04 +0000
-Subject: [patch] Clean-up McKinley Errata message
-Message-Id: <20071101210004.GA11412@sgi.com>
+From: Simon Horman <horms@verge.net.au>
+Date: Mon, 12 Nov 2007 04:55:21 +0000
+Subject: [patch] ia64: Guard elfcorehdr_addr with #if CONFIG_PROC_FS
+Message-Id: <20071112045521.2BAF54F9EB@tabatha.lab.ultramonkey.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@in.ibm.com>, Haren Myneni <hbabu@us.ibm.com>
 
-[patch] Clean-up McKinley Errata message
+Access to elfcorehdr_addr needs to be guarded by #if CONFIG_PROC_FS
+as well as the existing #if guards.
 
-A small clean-up patch.  
+Fixes the following build problem:
 
-No need to print "McKinley Errata 9 workaround not needed; disabling it"
-on every non-McKinley Itanium, which at this point is almost all of them.
+arch/ia64/hp/common/built-in.o: In function
+`sba_init':arch/ia64/hp/common/sba_iommu.c:2043: undefined reference to `elfcorehdr_addr'
+:arch/ia64/hp/common/sba_iommu.c:2043: undefined reference to `elfcorehdr_addr'
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
----
- arch/ia64/kernel/patch.c |    3 ---
- 1 file changed, 3 deletions(-)
-
-Index: test/arch/ia64/kernel/patch.c
-=================================--- test.orig/arch/ia64/kernel/patch.c	2007-10-16 09:19:28.000000000 -0500
-+++ test/arch/ia64/kernel/patch.c	2007-11-01 15:28:38.613965920 -0500
-@@ -129,9 +129,6 @@ ia64_patch_mckinley_e9 (unsigned long st
- 		first_time = 0;
- 		if (need_workaround)
- 			printk(KERN_INFO "Leaving McKinley Errata 9 workaround enabled\n");
--		else
--			printk(KERN_INFO "McKinley Errata 9 workaround not needed; "
--			       "disabling it\n");
- 	}
- 	if (need_workaround)
- 		return;
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Index: net-2.6/arch/ia64/hp/common/sba_iommu.c
+=================================--- net-2.6.orig/arch/ia64/hp/common/sba_iommu.c	2007-11-12 12:49:23.000000000 +0900
++++ net-2.6/arch/ia64/hp/common/sba_iommu.c	2007-11-12 13:29:07.000000000 +0900
+@@ -2034,7 +2034,8 @@ sba_init(void)
+ 	if (!ia64_platform_is("hpzx1") && !ia64_platform_is("hpzx1_swiotlb"))
+ 		return 0;
+ 
+-#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP)
++#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP) && \
++        defined(CONFIG_PROC_FS)
+ 	/* If we are booting a kdump kernel, the sba_iommu will
+ 	 * cause devices that were not shutdown properly to MCA
+ 	 * as soon as they are turned back on.  Our only option for
