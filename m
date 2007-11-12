@@ -1,51 +1,72 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 13 Nov 2007 20:12:41 +0000
-Subject: Re: [patch 1/1] ia64: export copy_page() to modules
-Message-Id: <20071113121241.16a6ac15.akpm@linux-foundation.org>
+From: Li Zefan <lizf@cn.fujitsu.com>
+Date: Mon, 12 Nov 2007 01:42:53 +0000
+Subject: [PATCH] IA64 efi: make full use of macro efi_md_size
+Message-Id: <4737AF9D.7070403@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200711130929.lAD9Tmmh003824@imap1.linux-foundation.org>
-In-Reply-To: <200711130929.lAD9Tmmh003824@imap1.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
 
-On Tue, 13 Nov 2007 10:20:49 -0500 Kyle McMartin <kyle@mcmartin.ca> wrote:
+Macro efi_md_size is defined in efi.c, and here we apply it
+throughout efi.c.
 
-> On Tue, Nov 13, 2007 at 01:22:51AM -0800, akpm@linux-foundation.org wrote:
-> > To do this we need to move the copy_page() functions out of lib.a and into
-> > built-in.a, and create a silly little C file to add the EXPORT_SYMBOL().
-> > 
-> 
-> The usual thing to do for an export for an assembly file is to put it
-> into $arch_ksyms.c
-> 
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
 
-Yes.  I was a bit worried what would happen if CONFIG_ITANIUM=n and
-CONFIG_MCKINLEY=n, but I guess that isn't a valid combination.
+---
+ arch/ia64/kernel/efi.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-
-
-diff -puN arch/ia64/kernel/ia64_ksyms.c~ia64-export-copy_page-to-modules-fix arch/ia64/kernel/ia64_ksyms.c
---- a/arch/ia64/kernel/ia64_ksyms.c~ia64-export-copy_page-to-modules-fix
-+++ a/arch/ia64/kernel/ia64_ksyms.c
-@@ -63,6 +63,9 @@ EXPORT_SYMBOL(__udivdi3);
- EXPORT_SYMBOL(__moddi3);
- EXPORT_SYMBOL(__umoddi3);
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 0e4ef20..7392d7b 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -369,7 +369,7 @@ efi_get_pal_addr (void)
+ 			continue;
+ 		}
  
-+#include <asm/page.h>
-+EXPORT_SYMBOL(copy_page);
-+
- #if defined(CONFIG_MD_RAID456) || defined(CONFIG_MD_RAID456_MODULE)
- extern void xor_ia64_2(void);
- extern void xor_ia64_3(void);
-diff -puN arch/ia64/lib/copy_page-export.c~ia64-export-copy_page-to-modules-fix /dev/null
---- a/arch/ia64/lib/copy_page-export.c
-+++ /dev/null
-@@ -1,4 +0,0 @@
--#include <asm/page.h>
--#include <linux/module.h>
--
--EXPORT_SYMBOL(copy_page);
-_
+-		if (md->num_pages << EFI_PAGE_SHIFT > IA64_GRANULE_SIZE)
++		if (efi_md_size(md) > IA64_GRANULE_SIZE)
+ 			panic("Woah!  PAL code size bigger than a granule!");
+ 
+ #if EFI_DEBUG
+@@ -377,7 +377,7 @@ efi_get_pal_addr (void)
+ 
+ 		printk(KERN_INFO "CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
+ 			smp_processor_id(), md->phys_addr,
+-			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
++			md->phys_addr + efi_md_size(md),
+ 			vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
+ #endif
+ 		return __va(md->phys_addr);
+@@ -522,7 +522,7 @@ efi_init (void)
+ 			md = p;
+ 			printk("mem%02u: type=%u, attr=0x%lx, range=[0x%016lx-0x%016lx) (%luMB)\n",
+ 			       i, md->type, md->attribute, md->phys_addr,
+-			       md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
++			       md->phys_addr + efi_md_size(md),
+ 			       md->num_pages >> (20 - EFI_PAGE_SHIFT));
+ 		}
+ 	}
+@@ -655,7 +655,7 @@ efi_memory_descriptor (unsigned long phys_addr)
+ 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+ 		md = p;
+ 
+-		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
++		if (phys_addr - md->phys_addr < efi_md_size(md))
+ 			 return md;
+ 	}
+ 	return NULL;
+@@ -1159,7 +1159,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 
+ 		res->name = name;
+ 		res->start = md->phys_addr;
+-		res->end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1;
++		res->end = md->phys_addr + efi_md_size(md) - 1;
+ 		res->flags = flags;
+ 
+ 		if (insert_resource(&iomem_resource, res) < 0)
+-- 
+1.5.3.rc7
 
