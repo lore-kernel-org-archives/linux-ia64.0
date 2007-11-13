@@ -1,34 +1,64 @@
-From: samjames1@mchsi.com (Walter Jones)
-Date: Sat, 24 Nov 2007 14:42:18 +0000
-Subject: Xmas Draws...........Your Email Won
-Message-Id: <112420071442.12632.47483848000AEACA00003158219791299503010CD2079C080C03BFCE9C0A030E06030E9C@mchsi.com>
+From: akpm@linux-foundation.org
+Date: Tue, 13 Nov 2007 09:22:51 +0000
+Subject: [patch 1/1] ia64: export copy_page() to modules
+Message-Id: <200711130929.lAD9Tmmh003824@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <112420071434.7113.4748368200071EB400001BC9219791299503010CD2079C080C03BFCE9C0A030E06030E9C@mchsi.com>
-In-Reply-To: <112420071434.7113.4748368200071EB400001BC9219791299503010CD2079C080C03BFCE9C0A030E06030E9C@mchsi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-After this automated computer ballot, your e-mail address emerged as a
- winner in the category "A" with the following numbers attached Ref:
- Number:GP 14-M-246-04,Batch Number:573881545-NL/2007 and Ticket
- Number: PP
- 3502 /8707-01.
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Mr. Gordon Blackwell.
-Tel: +31-61-929-1754
-Fax:      +31 84 739 0336
-Email: surf_gordwell04@yahoo.de
-        
-You are advice to provide him with the following information:
-Names:.....................
-Telephone/Fax number...........
-Nationality:...................
-Occupation:.......................
-Age:..................................
+With the unionfs patch applied I get
 
-Regards,
-Walter Jones
-Lottery Coordinator.
-SINCERELY,
+ERROR: "copy_page" [fs/unionfs/unionfs.ko] undefined!
+
+the other architectures (some, at least) export copy_page() so I guess ia64
+should also do so.
+
+To do this we need to move the copy_page() functions out of lib.a and into
+built-in.a, and create a silly little C file to add the EXPORT_SYMBOL().
+
+Maybe there are better ways...
+
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/lib/Makefile           |    6 +++---
+ arch/ia64/lib/copy_page-export.c |    4 ++++
+ 2 files changed, 7 insertions(+), 3 deletions(-)
+
+diff -puN /dev/null arch/ia64/lib/copy_page-export.c
+--- /dev/null
++++ a/arch/ia64/lib/copy_page-export.c
+@@ -0,0 +1,4 @@
++#include <asm/page.h>
++#include <linux/module.h>
++
++EXPORT_SYMBOL(copy_page);
+diff -puN arch/ia64/lib/Makefile~ia64-export-copy_page-to-modules arch/ia64/lib/Makefile
+--- a/arch/ia64/lib/Makefile~ia64-export-copy_page-to-modules
++++ a/arch/ia64/lib/Makefile
+@@ -2,7 +2,7 @@
+ # Makefile for ia64-specific library routines..
+ #
+ 
+-obj-y := io.o
++obj-y := io.o copy_page-export.o
+ 
+ lib-y := __divsi3.o __udivsi3.o __modsi3.o __umodsi3.o			\
+ 	__divdi3.o __udivdi3.o __moddi3.o __umoddi3.o			\
+@@ -11,8 +11,8 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ 	flush.o ip_fast_csum.o do_csum.o				\
+ 	memset.o strlen.o xor.o
+ 
+-lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+-lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
++obj-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
++obj-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+ 
+ AFLAGS___divdi3.o	_
