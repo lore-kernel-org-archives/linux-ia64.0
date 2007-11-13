@@ -1,35 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 12 Nov 2007 04:55:21 +0000
-Subject: [patch] ia64: Guard elfcorehdr_addr with #if CONFIG_PROC_FS
-Message-Id: <20071112045521.2BAF54F9EB@tabatha.lab.ultramonkey.org>
+From: akpm@linux-foundation.org
+Date: Tue, 13 Nov 2007 09:13:22 +0000
+Subject: [patch 1/1] ia64: don't assume that unwcheck.py is executable
+Message-Id: <200711130920.lAD9KJJ1003496@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@in.ibm.com>, Haren Myneni <hbabu@us.ibm.com>
+To: linux-ia64@vger.kernel.org
 
-Access to elfcorehdr_addr needs to be guarded by #if CONFIG_PROC_FS
-as well as the existing #if guards.
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Fixes the following build problem:
+Don't assume that this file has execute permissions.  For example, patch(1)
+loses that information.
 
-arch/ia64/hp/common/built-in.o: In function
-`sba_init':arch/ia64/hp/common/sba_iommu.c:2043: undefined reference to `elfcorehdr_addr'
-:arch/ia64/hp/common/sba_iommu.c:2043: undefined reference to `elfcorehdr_addr'
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
+ arch/ia64/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Index: net-2.6/arch/ia64/hp/common/sba_iommu.c
-=================================--- net-2.6.orig/arch/ia64/hp/common/sba_iommu.c	2007-11-12 12:49:23.000000000 +0900
-+++ net-2.6/arch/ia64/hp/common/sba_iommu.c	2007-11-12 13:29:07.000000000 +0900
-@@ -2034,7 +2034,8 @@ sba_init(void)
- 	if (!ia64_platform_is("hpzx1") && !ia64_platform_is("hpzx1_swiotlb"))
- 		return 0;
+diff -puN arch/ia64/Makefile~ia64-dont-assume-that-unwcheckpy-is-executable arch/ia64/Makefile
+--- a/arch/ia64/Makefile~ia64-dont-assume-that-unwcheckpy-is-executable
++++ a/arch/ia64/Makefile
+@@ -77,7 +77,7 @@ vmlinux.gz: vmlinux
+ 	$(Q)$(MAKE) $(build)=$(boot) $@
  
--#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP)
-+#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP) && \
-+        defined(CONFIG_PROC_FS)
- 	/* If we are booting a kdump kernel, the sba_iommu will
- 	 * cause devices that were not shutdown properly to MCA
- 	 * as soon as they are turned back on.  Our only option for
+ unwcheck: vmlinux
+-	-$(Q)READELF=$(READELF) $(srctree)/arch/ia64/scripts/unwcheck.py $<
++	-$(Q)READELF=$(READELF) $(CONFIG_SHELL) $(srctree)/arch/ia64/scripts/unwcheck.py $<
+ 
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
+_
