@@ -1,26 +1,57 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Tue, 13 Nov 2007 22:34:01 +0000
-Subject: perfmon Itanium 9100 series support (Montvale)
-Message-Id: <20071113223401.GI5747@frankl.hpl.hp.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Wed, 14 Nov 2007 14:30:14 +0000
+Subject: Re: perfmon Itanium 9100 series support (Montvale)
+Message-Id: <20071114143011.GA4266@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20071113223401.GI5747@frankl.hpl.hp.com>
+In-Reply-To: <20071113223401.GI5747@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello everyone,
+On Tue, Nov 13, 2007 at 02:34:01PM -0800, Stephane Eranian wrote:
+> Hello everyone,
+> 
+> Intel released the Itanium 9100 series (Montvale) a few days ago.
+> 
+> My understanding is that the Montvale PMU is fully compatible with
+> the Montecito PMU (dual-core Itanium 9000 series). Thus, there will
+> not be any patches needed neither at the kernel level, nor in libpfm
+> or pfmon to support this new processor.
 
-Intel released the Itanium 9100 series (Montvale) a few days ago.
+Perfmon prints out "Montecito PMU" when booted on a Montvale.
+Updating the message may avoid some confusion.
 
-My understanding is that the Montvale PMU is fully compatible with
-the Montecito PMU (dual-core Itanium 9000 series). Thus, there will
-not be any patches needed neither at the kernel level, nor in libpfm
-or pfmon to support this new processor.
+---
+perfmon: version 2.0 IRQ 238
+perfmon: Montecito PMU detected, 27 PMCs, 35 PMDs, 12 counters (47 bits)
+---
 
-Those comments hold true for the mainline perfmon (v2.0) and
-the development perfmon in GIT (v2.7).
+Both Montvale and Montecito are family 32.  Montvale is model 1.
+Montecito is model 0.
 
-Thanks.
+---
+saturn1-10:~ # cat /proc/cpuinfo
+processor  : 0
+vendor     : GenuineIntel
+arch       : IA-64
+family     : 32
+model      : 1
+model name : Dual-Core Intel(R) Itanium(R) 2 Processor 9150M
+[...]
+processor  : 4
+vendor     : GenuineIntel
+arch       : IA-64
+family     : 32
+model      : 0
+model name : Dual-Core Intel(R) Itanium(R) 2 Processor 9040
+---
+ 
+> Those comments hold true for the mainline perfmon (v2.0) and
+> the development perfmon in GIT (v2.7).
 
+Thanks,
 -- 
--Stephane
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
