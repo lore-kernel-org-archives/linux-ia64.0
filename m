@@ -1,65 +1,63 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 14 Nov 2007 14:35:16 +0000
-Subject: Re: perfmon Itanium 9100 series support (Montvale)
-Message-Id: <20071114143516.GI6557@frankl.hpl.hp.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 20 Nov 2007 03:12:46 +0000
+Subject: [PATCH] set_thread_area fails in IA32 chroot
+Message-Id: <20071120031246.GB29070@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071113223401.GI5747@frankl.hpl.hp.com>
-In-Reply-To: <20071113223401.GI5747@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Nov 14, 2007 at 08:30:14AM -0600, Russ Anderson wrote:
-> On Tue, Nov 13, 2007 at 02:34:01PM -0800, Stephane Eranian wrote:
-> > Hello everyone,
-> > 
-> > Intel released the Itanium 9100 series (Montvale) a few days ago.
-> > 
-> > My understanding is that the Montvale PMU is fully compatible with
-> > the Montecito PMU (dual-core Itanium 9000 series). Thus, there will
-> > not be any patches needed neither at the kernel level, nor in libpfm
-> > or pfmon to support this new processor.
-> 
-> Perfmon prints out "Montecito PMU" when booted on a Montvale.
-> Updating the message may avoid some confusion.
-> 
-Yes, because it prints the PMU model not the processor model.
-On Madison, it prints Itanium 2.
+Hi,
 
-> ---
-> perfmon: version 2.0 IRQ 238
-> perfmon: Montecito PMU detected, 27 PMCs, 35 PMDs, 12 counters (47 bits)
-> ---
-> 
-> Both Montvale and Montecito are family 32.  Montvale is model 1.
-> Montecito is model 0.
-> 
-> ---
-> saturn1-10:~ # cat /proc/cpuinfo
-> processor  : 0
-> vendor     : GenuineIntel
-> arch       : IA-64
-> family     : 32
-> model      : 1
-> model name : Dual-Core Intel(R) Itanium(R) 2 Processor 9150M
-> [...]
-> processor  : 4
-> vendor     : GenuineIntel
-> arch       : IA-64
-> family     : 32
-> model      : 0
-> model name : Dual-Core Intel(R) Itanium(R) 2 Processor 9040
-> ---
->  
-> > Those comments hold true for the mainline perfmon (v2.0) and
-> > the development perfmon in GIT (v2.7).
-> 
-> Thanks,
-> -- 
-> Russ Anderson, OS RAS/Partitioning Project Lead  
-> SGI - Silicon Graphics Inc          rja@sgi.com
+I tried to upgrade an IA32 chroot on my IA64 to a new glibc with TLS.
+It kept dying because set_thread_area was returning -ESRCH
+(bugs.debian.org/451939).
 
--- 
+I instrumented arch/ia64/ia32/sys_ia32.c:get_free_idx() and ended up
+seeing output like
 
--Stephane
+[pid] idx   desc->a  desc->b
+-----------------------------
+[2710] 0 -> c6b0ffff 40dff31b
+[2710] 1 -> 0 0
+[2710] 2 -> 0 0
+
+[2710] 0 -> c6b0ffff 40dff31b
+[2710] 1 -> c6b0ffff 40dff31b
+[2710] 2 -> 0 0
+
+[2711] 0 -> c6b0ffff 40dff31b
+[2711] 1 -> c6b0ffff 40dff31b
+[2711] 2 -> 48c0ffff 40dff317
+
+which suggested to me that TLS pointers were surviving exec() calls,
+leading to GDT pointers filling up and the eventual failure of
+get_free_idx().
+
+I think the solution is flushing the tls array on exec as below.
+
+Cheers,
+
+-i
+
+Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
+---
+
+ process.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 2418289..2281a01 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -737,6 +737,7 @@ flush_thread (void)
+ 		ia32_drop_ia64_partial_page_list(current);
+ 		current->thread.task_size = IA32_PAGE_OFFSET;
+ 		set_fs(USER_DS);
++		memset(current->thread.tls_array, 0, sizeof(current->thread.tls_array));
+ 	}
+ #endif
+ }
+
