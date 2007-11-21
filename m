@@ -1,53 +1,72 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Tue, 13 Nov 2007 06:55:20 +0000
-Subject: [PATCH] kprobe: make kreturn probe handler stack unwind correct
-Message-Id: <1194936920.27851.5.camel@sli10-conroe.sh.intel.com>
+From: akpm@linux-foundation.org
+Date: Wed, 21 Nov 2007 22:58:26 +0000
+Subject: [patch 3/3] ia64 efi: make full use of macro efi_md_size
+Message-Id: <200711212258.lALMwQTd013405@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Restore regs->ccr_iip before kreturn probe handler runs. In this way, if
-probe handler does unwind, unwind can correctly get the stack trace.
+From: Li Zefan <lizf@cn.fujitsu.com>
 
-http://sourceware.org/bugzilla/show_bug.cgi?idP51
+Macro efi_md_size is defined in efi.c, and here we apply it throughout
+efi.c.
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: Li Zefan <lizf@cn.fujitsu.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-Index: linux/arch/ia64/kernel/kprobes.c
-=================================--- linux.orig/arch/ia64/kernel/kprobes.c	2007-10-17 10:33:45.000000000 +0800
-+++ linux/arch/ia64/kernel/kprobes.c	2007-11-13 14:39:50.000000000 +0800
-@@ -435,6 +435,23 @@ int __kprobes trampoline_probe_handler(s
- 			/* another task is sharing our hash bucket */
+ arch/ia64/kernel/efi.c |   10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff -puN arch/ia64/kernel/efi.c~ia64-efi-make-full-use-of-macro-efi_md_size arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c~ia64-efi-make-full-use-of-macro-efi_md_size
++++ a/arch/ia64/kernel/efi.c
+@@ -370,7 +370,7 @@ efi_get_pal_addr (void)
  			continue;
+ 		}
  
-+		orig_ret_address = (unsigned long)ri->ret_addr;
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
-+	}
-+
-+	regs->cr_iip = orig_ret_address;
-+
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+		if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+			continue;
-+
- 		if (ri->rp && ri->rp->handler)
- 			ri->rp->handler(ri, regs);
+-		if (md->num_pages << EFI_PAGE_SHIFT > IA64_GRANULE_SIZE)
++		if (efi_md_size(md) > IA64_GRANULE_SIZE)
+ 			panic("Woah!  PAL code size bigger than a granule!");
  
-@@ -452,8 +469,6 @@ int __kprobes trampoline_probe_handler(s
+ #if EFI_DEBUG
+@@ -378,7 +378,7 @@ efi_get_pal_addr (void)
  
- 	kretprobe_assert(ri, orig_ret_address, trampoline_address);
+ 		printk(KERN_INFO "CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
+ 			smp_processor_id(), md->phys_addr,
+-			md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
++			md->phys_addr + efi_md_size(md),
+ 			vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
+ #endif
+ 		return __va(md->phys_addr);
+@@ -523,7 +523,7 @@ efi_init (void)
+ 			md = p;
+ 			printk("mem%02u: type=%u, attr=0x%lx, range=[0x%016lx-0x%016lx) (%luMB)\n",
+ 			       i, md->type, md->attribute, md->phys_addr,
+-			       md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
++			       md->phys_addr + efi_md_size(md),
+ 			       md->num_pages >> (20 - EFI_PAGE_SHIFT));
+ 		}
+ 	}
+@@ -656,7 +656,7 @@ efi_memory_descriptor (unsigned long phy
+ 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+ 		md = p;
  
--	regs->cr_iip = orig_ret_address;
--
- 	reset_current_kprobe();
- 	spin_unlock_irqrestore(&kretprobe_lock, flags);
- 	preempt_enable_no_resched();
+-		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
++		if (phys_addr - md->phys_addr < efi_md_size(md))
+ 			 return md;
+ 	}
+ 	return NULL;
+@@ -1158,7 +1158,7 @@ efi_initialize_iomem_resources(struct re
+ 
+ 		res->name = name;
+ 		res->start = md->phys_addr;
+-		res->end = md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1;
++		res->end = md->phys_addr + efi_md_size(md) - 1;
+ 		res->flags = flags;
+ 
+ 		if (insert_resource(&iomem_resource, res) < 0)
+_
