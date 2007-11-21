@@ -1,63 +1,55 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Tue, 06 Nov 2007 20:18:11 +0000
-Subject: Re: [perfmon] sysctl table check failed ... Writable sysctl directory
-Message-Id: <20071106201811.GA13972@frankl.hpl.hp.com>
+From: akpm@linux-foundation.org
+Date: Wed, 21 Nov 2007 22:58:24 +0000
+Subject: [patch 1/3] IA64: Slim down __clear_bit_unlock
+Message-Id: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <617E1C2C70743745A92448908E030B2A02E21EDD@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A02E21EDD@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony,
+From: Christoph Lameter <clameter@sgi.com>
 
-Don't need 755, please apply your patch.
-Thanks.
+__clear_bit_unlock does not need to perform atomic operations on the
+variable.  Avoid a cmpxchg and simply do a store with release semantics. 
+Add a barrier to be safe that the compiler does not do funky things.
 
-On Tue, Nov 06, 2007 at 11:59:55AM -0800, Luck, Tony wrote:
-> Stephane,
-> 
-> For a couple of weeks now the kernel has been complaining about
-> a couple of "Writable sysctl directories".  When I pulled from
-> Linus latest git tree today, the complaint got louder with an
-> added stack trace ... pointing at pfm_init().
-> 
-> This patch fixes the complaint.  Did you need mode 0755 for
-> some reason, or should I just apply this?
-> 
-> -Tony
-> 
-> ---
-> 
-> diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-> index 59169bf..73e7c2e 100644
-> --- a/arch/ia64/kernel/perfmon.c
-> +++ b/arch/ia64/kernel/perfmon.c
-> @@ -558,7 +558,7 @@ static ctl_table pfm_sysctl_dir[] = {
->  	{
->  		.ctl_name	= CTL_UNNUMBERED,
->  		.procname	= "perfmon",
-> -		.mode		= 0755,
-> +		.mode		= 0555,
->  		.child		= pfm_ctl_table,
->  	},
->   	{}
-> @@ -567,7 +567,7 @@ static ctl_table pfm_sysctl_root[] = {
->  	{
->  		.ctl_name	= CTL_KERN,
->  		.procname	= "kernel",
-> -		.mode		= 0755,
-> +		.mode		= 0555,
->  		.child		= pfm_sysctl_dir,
->  	},
->   	{}
-> 
-> _______________________________________________
-> perfmon mailing list
-> perfmon@linux.hpl.hp.com
-> http://www.hpl.hp.com/hosted/linux/mail-archives/perfmon/
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Acked-by: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
--- 
+ include/asm-ia64/bitops.h |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
--Stephane
+diff -puN include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock include/asm-ia64/bitops.h
+--- a/include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock
++++ a/include/asm-ia64/bitops.h
+@@ -124,10 +124,21 @@ clear_bit_unlock (int nr, volatile void 
+ /**
+  * __clear_bit_unlock - Non-atomically clear a bit with release
+  *
+- * This is like clear_bit_unlock, but the implementation may use a non-atomic
+- * store (this one uses an atomic, however).
++ * This is like clear_bit_unlock, but the implementation uses a store
++ * with release semantics. See also __raw_spin_unlock().
+  */
+-#define __clear_bit_unlock clear_bit_unlock
++static __inline__ void
++__clear_bit_unlock(int nr, volatile void *addr)
++{
++	__u32 mask, new;
++	volatile __u32 *m;
++
++	m = (volatile __u32 *)addr + (nr >> 5);
++	mask = ~(1 << (nr & 31));
++	new = *m & mask;
++	barrier();
++	asm volatile ("st4.rel.nta [%0] = %1\n\t" :: "r"(m), "r"(new));
++}
+ 
+ /**
+  * __clear_bit - Clears a bit in memory (non-atomic version)
+_
