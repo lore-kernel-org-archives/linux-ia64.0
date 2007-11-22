@@ -1,99 +1,41 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 28 Nov 2007 21:09:35 +0000
-Subject: [patch 09/10] ia64: Use generic percpu
-Message-Id: <20071128211528.090929484@sgi.com>
+From: Shi Weihua <shiwh@cn.fujitsu.com>
+Date: Thu, 22 Nov 2007 03:15:55 +0000
+Subject: [PATCH RFC][try 2] IA64 signal : remove redundant code in setup_sigcontext()
+Message-Id: <4744F46B.6050004@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071128210926.008783214@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-V1->V2:
-- Merge fixes
-- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
+This patch removes some redundant code in the function setup_sigcontext().
 
-ia64 has a special processor specific mapping that can be used to locate the
-offset for the current per cpu area.
+The registers ar.ccv,b7,r14,ar.csd,ar.ssd,r2-r3 and r16-r31 are not restored 
+in restore_sigcontext() when (flags & IA64_SC_FLAG_IN_SYSCALL) is true. 
+So we don't need to zero those variables in setup_sigcontext().
 
-Cc: linux-ia64@vger.kernel.org
-Cc: tony.luck@intel.com
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
 
 ---
- include/asm-ia64/percpu.h |   25 +++++++------------------
- include/linux/percpu.h    |    4 ----
- 2 files changed, 7 insertions(+), 22 deletions(-)
+diff -urp linux-2.6.24-rc3-git1.orig/arch/ia64/kernel/signal.c linux-2.6.24-rc3-git1/arch/ia64/kernel/signal.c
+--- linux-2.6.24-rc3-git1.orig/arch/ia64/kernel/signal.c	2007-11-17 13:16:36.000000000 +0800
++++ linux-2.6.24-rc3-git1/arch/ia64/kernel/signal.c	2007-11-22 11:02:27.000000000 +0800
+@@ -280,15 +280,7 @@ setup_sigcontext (struct sigcontext __us
+ 	err |= __copy_to_user(&sc->sc_gr[15], &scr->pt.r15, 8);		/* r15 */
+ 	err |= __put_user(scr->pt.cr_iip + ia64_psr(&scr->pt)->ri, &sc->sc_ip);
+ 
+-	if (flags & IA64_SC_FLAG_IN_SYSCALL) {
+-		/* Clear scratch registers if the signal interrupted a system call. */
+-		err |= __put_user(0, &sc->sc_ar_ccv);				/* ar.ccv */
+-		err |= __put_user(0, &sc->sc_br[7]);				/* b7 */
+-		err |= __put_user(0, &sc->sc_gr[14]);				/* r14 */
+-		err |= __clear_user(&sc->sc_ar25, 2*8);			/* ar.csd & ar.ssd */
+-		err |= __clear_user(&sc->sc_gr[2], 2*8);			/* r2-r3 */
+-		err |= __clear_user(&sc->sc_gr[16], 16*8);			/* r16-r31 */
+-	} else {
++	if (!(flags & IA64_SC_FLAG_IN_SYSCALL)) {
+ 		/* Copy scratch regs to sigcontext if the signal didn't interrupt a syscall. */
+ 		err |= __put_user(scr->pt.ar_ccv, &sc->sc_ar_ccv);		/* ar.ccv */
+ 		err |= __put_user(scr->pt.b7, &sc->sc_br[7]);			/* b7 */
 
-Index: linux-2.6.24-rc3-mm2/include/asm-ia64/percpu.h
-=================================--- linux-2.6.24-rc3-mm2.orig/include/asm-ia64/percpu.h	2007-11-28 12:51:42.448213150 -0800
-+++ linux-2.6.24-rc3-mm2/include/asm-ia64/percpu.h	2007-11-28 12:52:04.955963258 -0800
-@@ -12,36 +12,20 @@
- # define THIS_CPU(var)	(per_cpu__##var)  /* use this to mark accesses to per-CPU variables... */
- #else /* !__ASSEMBLY__ */
- 
--
- #include <linux/threads.h>
- 
- #ifdef HAVE_MODEL_SMALL_ATTRIBUTE
- # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
- #endif
- 
--#define DECLARE_PER_CPU(type, name)				\
--	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
--
- #ifdef CONFIG_SMP
- 
--extern unsigned long __per_cpu_offset[NR_CPUS];
--#define per_cpu_offset(x) (__per_cpu_offset[x])
--
--/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
--DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
--
--#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
--#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
--#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
-+#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
- 
--extern void setup_per_cpu_areas (void);
- extern void *per_cpu_init(void);
- 
- #else /* ! SMP */
- 
--#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
--#define __get_cpu_var(var)			per_cpu__##var
--#define __raw_get_cpu_var(var)			per_cpu__##var
- #define per_cpu_init()				(__phys_per_cpu_start)
- 
- #endif	/* SMP */
-@@ -52,7 +36,12 @@ extern void *per_cpu_init(void);
-  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
-  * more efficient.
-  */
--#define __ia64_per_cpu_var(var)	(per_cpu__##var)
-+#define __ia64_per_cpu_var(var)	per_cpu__##var
-+
-+#include <asm-generic/percpu.h>
-+
-+/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
-+DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
- 
- #endif /* !__ASSEMBLY__ */
- 
-Index: linux-2.6.24-rc3-mm2/include/linux/percpu.h
-=================================--- linux-2.6.24-rc3-mm2.orig/include/linux/percpu.h	2007-11-28 12:51:42.448213150 -0800
-+++ linux-2.6.24-rc3-mm2/include/linux/percpu.h	2007-11-28 12:52:04.955963258 -0800
-@@ -9,10 +9,6 @@
- 
- #include <asm/percpu.h>
- 
--#ifndef PER_CPU_ATTRIBUTES
--#define PER_CPU_ATTRIBUTES
--#endif
--
- #define DEFINE_PER_CPU(type, name)					\
- 	__attribute__((__section__(".data.percpu")))			\
- 	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
-
--- 
