@@ -1,45 +1,32 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 05 Nov 2007 02:15:03 +0000
-Subject: Re: iounmap after ioremap in arch/ia64/sn/pci/pcibr/pcibr_provider.c
-Message-Id: <20071105021501.GF16909@verge.net.au>
+From: samjames1@mchsi.com (Walter Jones)
+Date: Sat, 24 Nov 2007 14:34:49 +0000
+Subject: Xmas Draws...........Your Email Won
+Message-Id: <112420071434.7113.4748368200071EB400001BC9219791299503010CD2079C080C03BFCE9C0A030E06030E9C@mchsi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <472D07AE.1000202@tiscali.nl>
-In-Reply-To: <472D07AE.1000202@tiscali.nl>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, Nov 04, 2007 at 12:43:42AM +0100, Roel Kluin wrote:
-> A better discription, maybe?
-> --
-> iounmap after ioremap
+After this automated computer ballot, your e-mail address emerged as a
+ winner in the category "A" with the following numbers attached Ref:
+ Number:GP 14-M-246-04,Batch Number:573881545-NL/2007 and Ticket
+ Number: PP
+ 3502 /8707-01.
 
-Again, this looks correct to me, so long as calling iounmap() actually
-reverses ioremap() in this case.
+Mr. Gordon Blackwell.
+Tel: +31-61-929-1754
+Fax:      +31 84 739 0336
+Email: surf_gordwell04@yahoo.de
+        
+You are advice to provide him with the following information:
+Names:.....................
+Telephone/Fax number...........
+Nationality:...................
+Occupation:.......................
+Age:..................................
 
-> 
-> Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
-> ---
-> diff --git a/arch/ia64/sn/pci/pcibr/pcibr_provider.c b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> index ab3eaf8..00d1b85 100644
-> --- a/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> +++ b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> @@ -186,6 +186,7 @@ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
->  
->  	if (!soft->pbi_int_ate_resource.ate) {
->  		kfree(soft);
-> +		iounmap(soft->pbi_buscommon.bs_base);
->  		return NULL;
->  	}
->  
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-Horms
-  H: http://www.vergenet.net/~horms/
-  W: http://www.valinux.co.jp/en/
-
+Regards,
+Walter Jones
+Lottery Coordinator.
+SINCERELY,
