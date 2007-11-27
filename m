@@ -1,28 +1,25 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 27 Nov 2007 09:30:36 +0000
-Subject: Re: [patch 04/14] ia64: Remove the __SMALL_ADDR_AREA attribute for per cpu access
-Message-Id: <jehcj83uir.fsf@sykes.suse.de>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 27 Nov 2007 18:15:29 +0000
+Subject: Re: [patch 04/14] ia64: Remove the __SMALL_ADDR_AREA attribute for
+Message-Id: <Pine.LNX.4.64.0711271014550.2310@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071127001407.859743255@sgi.com>
-	<20071127001430.083503280@sgi.com>
-In-Reply-To: <20071127001430.083503280@sgi.com> (Christoph Lameter's message
-	of "Mon\, 26 Nov 2007 16\:14\:11 -0800")
+References: <20071127001407.859743255@sgi.com>  <20071127001430.083503280@sgi.com>
+ <ed5aea430711262120p45bb5b2t1b16872e74547369@mail.gmail.com>
+In-Reply-To: <ed5aea430711262120p45bb5b2t1b16872e74547369@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christoph Lameter <clameter@sgi.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: David Mosberger-Tang <dmosberger@gmail.com>
 Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-Christoph Lameter <clameter@sgi.com> writes:
+On Mon, 26 Nov 2007, David Mosberger-Tang wrote:
 
-> The model(small) attribute is not supported by gcc 4.X.
+> On 11/26/07, Christoph Lameter <clameter@sgi.com> wrote:
+> > The model(small) attribute is not supported by gcc 4.X. The tests
+> > will always be negative today.
+> 
+> What was the rationale for removing this attribute?
 
-Which gcc 4.X are you talking about?
+The code is then similar across all architectures and can be moved into 
+generic code.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
