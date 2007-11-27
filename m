@@ -1,27 +1,38 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 27 Nov 2007 22:02:08 +0000
+From: Adrian Bunk <bunk@kernel.org>
+Date: Tue, 27 Nov 2007 22:14:55 +0000
 Subject: Re: [patch 04/14] ia64: Remove the __SMALL_ADDR_AREA attribute for
-Message-Id: <Pine.LNX.4.64.0711271401350.4803@schroedinger.engr.sgi.com>
+Message-Id: <20071127221455.GH3406@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071127001407.859743255@sgi.com>  <20071127001430.083503280@sgi.com>
-  <ed5aea430711262120p45bb5b2t1b16872e74547369@mail.gmail.com> 
- <Pine.LNX.4.64.0711271014550.2310@schroedinger.engr.sgi.com> 
- <ed5aea430711271310i144c005cj25101b7dd6b0d6d9@mail.gmail.com> 
- <Pine.LNX.4.64.0711271316110.4590@schroedinger.engr.sgi.com>
- <ed5aea430711271327l1644750dm363f846a23b1cce5@mail.gmail.com>
-In-Reply-To: <ed5aea430711271327l1644750dm363f846a23b1cce5@mail.gmail.com>
+References: <20071127001407.859743255@sgi.com> <20071127001430.083503280@sgi.com> <jehcj83uir.fsf@sykes.suse.de> <Pine.LNX.4.64.0711271016500.2310@schroedinger.engr.sgi.com> <jeabozs7ou.fsf@sykes.suse.de> <Pine.LNX.4.64.0711271331240.4803@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0711271331240.4803@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Mosberger-Tang <dmosberger@gmail.com>
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Andreas Schwab <schwab@suse.de>, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-On Tue, 27 Nov 2007, David Mosberger-Tang wrote:
+On Tue, Nov 27, 2007 at 01:38:02PM -0800, Christoph Lameter wrote:
+>...
+> Hmmm...
+> 
+> http://www.ohse.de/uwe/articles/gcc-attributes.html
+> 
+> says:
+> 
+> model (MODEL-NAME)
+>     Found in versions: 2.8-3.4
+>...
 
-> Code-size reduction?  You must be talking *source* code size
-> reduction.  Surely the small-data access-method decreases object code
-> size.
+This site says at the top it used gcc versions up to 3.4, so it 
+obviously can't find anything in gcc >= 4.0 ...
 
-Yes source code reduction. I just added the attribute back but in such a 
-way that any arch can add attributes to per cpu definitions.
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
