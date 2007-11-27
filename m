@@ -1,25 +1,24 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 27 Nov 2007 18:15:29 +0000
+Date: Tue, 27 Nov 2007 18:17:14 +0000
 Subject: Re: [patch 04/14] ia64: Remove the __SMALL_ADDR_AREA attribute for
-Message-Id: <Pine.LNX.4.64.0711271014550.2310@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.64.0711271016500.2310@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071127001407.859743255@sgi.com>  <20071127001430.083503280@sgi.com>
- <ed5aea430711262120p45bb5b2t1b16872e74547369@mail.gmail.com>
-In-Reply-To: <ed5aea430711262120p45bb5b2t1b16872e74547369@mail.gmail.com>
+References: <20071127001407.859743255@sgi.com> <20071127001430.083503280@sgi.com>
+ <jehcj83uir.fsf@sykes.suse.de>
+In-Reply-To: <jehcj83uir.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Mosberger-Tang <dmosberger@gmail.com>
+To: Andreas Schwab <schwab@suse.de>
 Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-On Mon, 26 Nov 2007, David Mosberger-Tang wrote:
+On Tue, 27 Nov 2007, Andreas Schwab wrote:
 
-> On 11/26/07, Christoph Lameter <clameter@sgi.com> wrote:
-> > The model(small) attribute is not supported by gcc 4.X. The tests
-> > will always be negative today.
+> Christoph Lameter <clameter@sgi.com> writes:
 > 
-> What was the rationale for removing this attribute?
+> > The model(small) attribute is not supported by gcc 4.X.
+> 
+> Which gcc 4.X are you talking about?
 
-The code is then similar across all architectures and can be moved into 
-generic code.
+All. Last gcc that supported this was 3.4.
 
