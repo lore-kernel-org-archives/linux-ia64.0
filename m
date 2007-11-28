@@ -1,30 +1,33 @@
-From: Roel Kluin <12o3l@tiscali.nl>
-Date: Tue, 06 Nov 2007 21:13:53 +0000
-Subject: [PATCH] fix number of bytes zeroed by sys_fw_init() in arch/ia64/hp/sim/boot/fw-emu.c
-Message-Id: <4730D911.9010701@tiscali.nl>
+From: Simon Horman <horms@verge.net.au>
+Date: Wed, 28 Nov 2007 09:21:19 +0000
+Subject: [patch 2/4] ia64: make iosapic_ack_edge_irq static
+Message-Id: <20071128092247.245256422@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The sizeof a pointer is constant, we want the sizeof what is pointed to.
---
-Zero out 'sizeof(*efi_systab)' bytes of the efi_system_table_t pointer
-'efi_systab' instead.
+iosapic_ack_edge_irq is not used outside of arch/ia64/kernel/iosapic.c
+so it seems senible to make it static.
 
-Signed-off-by: Roel Kluin <12o3l@tiscali.nl>
----
-diff --git a/arch/ia64/hp/sim/boot/fw-emu.c b/arch/ia64/hp/sim/boot/fw-emu.c
-index 1189d03..bf6d9d8 100644
---- a/arch/ia64/hp/sim/boot/fw-emu.c
-+++ b/arch/ia64/hp/sim/boot/fw-emu.c
-@@ -285,7 +285,7 @@ sys_fw_init (const char *args, int arglen)
- 	}
- 	cmd_line[arglen] = '\0';
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+Index: linux-2.6/arch/ia64/kernel/iosapic.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/iosapic.c	2007-11-28 13:19:12.000000000 +0900
++++ linux-2.6/arch/ia64/kernel/iosapic.c	2007-11-28 13:19:27.000000000 +0900
+@@ -478,7 +478,7 @@ iosapic_ack_edge_irq (unsigned int irq)
+ #define iosapic_disable_edge_irq	nop
+ #define iosapic_end_edge_irq		nop
  
--	memset(efi_systab, 0, sizeof(efi_systab));
-+	memset(efi_systab, 0, sizeof(*efi_systab));
- 	efi_systab->hdr.signature = EFI_SYSTEM_TABLE_SIGNATURE;
- 	efi_systab->hdr.revision  = ((1 << 16) | 00);
- 	efi_systab->hdr.headersize = sizeof(efi_systab->hdr);
+-struct irq_chip irq_type_iosapic_edge = {
++static struct irq_chip irq_type_iosapic_edge = {
+ 	.name =		"IO-SAPIC-edge",
+ 	.startup =	iosapic_startup_edge_irq,
+ 	.shutdown =	iosapic_disable_edge_irq,
+
+-- 
+
+-- 
+Horms
+
