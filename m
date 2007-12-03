@@ -1,77 +1,54 @@
-From: npiggin@suse.de
-Date: Wed, 05 Dec 2007 07:15:48 +0000
-Subject: [patch 01/18] ia64: ia32 nopage
-Message-Id: <20071205071626.816160000@nick.local0.net>
+From: Shi Weihua <shiwh@cn.fujitsu.com>
+Date: Mon, 03 Dec 2007 04:57:50 +0000
+Subject: [PATCH] IA64 signal : fix missing error checkings
+Message-Id: <47538CCE.90607@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20071205071547.701344000@nick.local0.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-Convert ia64's ia32 support from nopage to fault.
+Not all the return value of __copy_from_user and
+__put_user is checked.This patch fixed it.
 
-Signed-off-by: Nick Piggin <npiggin@suse.de>
-Cc: tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
+
 ---
- arch/ia64/ia32/binfmt_elf32.c |   34 +++++++++++++++-------------------
- 1 file changed, 15 insertions(+), 19 deletions(-)
-
-Index: linux-2.6/arch/ia64/ia32/binfmt_elf32.c
-=================================--- linux-2.6.orig/arch/ia64/ia32/binfmt_elf32.c
-+++ linux-2.6/arch/ia64/ia32/binfmt_elf32.c
-@@ -52,33 +52,29 @@ extern struct page *ia32_shared_page[];
- extern unsigned long *ia32_gdt;
- extern struct page *ia32_gate_page;
+diff -x '*.o*' -urp linux-2.6.24-rc3-git6.orig/arch/ia64/kernel/signal.c linux-2.6.24-rc3-git6/arch/ia64/kernel/signal.c
+--- linux-2.6.24-rc3-git6.orig/arch/ia64/kernel/signal.c	2007-12-03 12:04:22.000000000 +0800
++++ linux-2.6.24-rc3-git6/arch/ia64/kernel/signal.c	2007-12-03 12:50:15.000000000 +0800
+@@ -98,7 +98,7 @@ restore_sigcontext (struct sigcontext __
+ 	if ((flags & IA64_SC_FLAG_FPH_VALID) != 0) {
+ 		struct ia64_psr *psr = ia64_psr(&scr->pt);
  
--struct page *
--ia32_install_shared_page (struct vm_area_struct *vma, unsigned long address, int *type)
-+int
-+ia32_install_shared_page (struct vm_area_struct *vma, struct vm_fault *vmf)
+-		__copy_from_user(current->thread.fph, &sc->sc_fr[32], 96*16);
++		err |= __copy_from_user(current->thread.fph, &sc->sc_fr[32], 96*16);
+ 		psr->mfh = 0;	/* drop signal handler's fph contents... */
+ 		preempt_disable();
+ 		if (psr->dfh)
+@@ -244,7 +244,7 @@ static long
+ setup_sigcontext (struct sigcontext __user *sc, sigset_t *mask, struct sigscratch *scr)
  {
--	struct page *pg = ia32_shared_page[smp_processor_id()];
--	get_page(pg);
--	if (type)
--		*type = VM_FAULT_MINOR;
--	return pg;
--}
--
--struct page *
--ia32_install_gate_page (struct vm_area_struct *vma, unsigned long address, int *type)
--{
--	struct page *pg = ia32_gate_page;
--	get_page(pg);
--	if (type)
--		*type = VM_FAULT_MINOR;
--	return pg;
-+	vmf->page = ia32_shared_page[smp_processor_id()];
-+	get_page(vmf->page);
-+	return 0;
-+}
-+
-+int
-+ia32_install_gate_page (struct vm_area_struct *vma, struct vm_fault *vmf)
-+{
-+	vmf->page = ia32_gate_page;
-+	get_page(vmf->page);
-+	return 0;
- }
+ 	unsigned long flags = 0, ifs, cfm, nat;
+-	long err;
++	long err = 0;
  
+ 	ifs = scr->pt.cr_ifs;
  
- static struct vm_operations_struct ia32_shared_page_vm_ops = {
--	.nopage = ia32_install_shared_page
-+	.fault = ia32_install_shared_page
- };
+@@ -257,12 +257,12 @@ setup_sigcontext (struct sigcontext __us
+ 	ia64_flush_fph(current);
+ 	if ((current->thread.flags & IA64_THREAD_FPH_VALID)) {
+ 		flags |= IA64_SC_FLAG_FPH_VALID;
+-		__copy_to_user(&sc->sc_fr[32], current->thread.fph, 96*16);
++		err = __copy_to_user(&sc->sc_fr[32], current->thread.fph, 96*16);
+ 	}
  
- static struct vm_operations_struct ia32_gate_page_vm_ops = {
--	.nopage = ia32_install_gate_page
-+	.fault = ia32_install_gate_page
- };
+ 	nat = ia64_get_scratch_nat_bits(&scr->pt, scr->scratch_unat);
  
- void
-
--- 
+-	err  = __put_user(flags, &sc->sc_flags);
++	err |= __put_user(flags, &sc->sc_flags);
+ 	err |= __put_user(nat, &sc->sc_nat);
+ 	err |= PUT_SIGSET(mask, &sc->sc_mask);
+ 	err |= __put_user(cfm, &sc->sc_cfm);
 
