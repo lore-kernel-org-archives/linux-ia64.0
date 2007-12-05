@@ -1,42 +1,59 @@
-From: "Jan Beulich" <jbeulich@novell.com>
-Date: Wed, 12 Dec 2007 15:20:13 +0000
-Subject: [PATCH] ia64: remove dead code
-Message-Id: <47600A3D.76E4.0078.0@novell.com>
+From: akpm@linux-foundation.org
+Date: Wed, 05 Dec 2007 22:32:15 +0000
+Subject: [patch 3/3] ia64: export copy_page() to modules
+Message-Id: <200712052232.lB5MWFeP028397@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Neither __cpu_down() nor __cpu_die() are being referenced without
-CONFIG_HOTPLUG_CPU.
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
+With the unionfs patch applied I get
 
- arch/ia64/kernel/smpboot.c |   11 -----------
- 1 file changed, 11 deletions(-)
+ERROR: "copy_page" [fs/unionfs/unionfs.ko] undefined!
 
---- linux-2.6.24-rc5/arch/ia64/kernel/smpboot.c	2007-12-12 12:27:11.000000000 +0100
-+++ 2.6.24-rc5-ia64-cpu-die/arch/ia64/kernel/smpboot.c	2007-12-07 16:12:33.000000000 +0100
-@@ -767,17 +767,6 @@ void __cpu_die(unsigned int cpu)
- 	}
-  	printk(KERN_ERR "CPU %u didn't die...\n", cpu);
- }
--#else /* !CONFIG_HOTPLUG_CPU */
--int __cpu_disable(void)
--{
--	return -ENOSYS;
--}
--
--void __cpu_die(unsigned int cpu)
--{
--	/* We said "no" in __cpu_disable */
--	BUG();
--}
- #endif /* CONFIG_HOTPLUG_CPU */
+the other architectures (some, at least) export copy_page() so I guess ia64
+should also do so.
+
+To do this we need to move the copy_page() functions out of lib.a and into
+built-in.o and add the EXPORT_SYMBOL().
+
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: Kyle McMartin <kyle@mcmartin.ca>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/kernel/ia64_ksyms.c |    3 +++
+ arch/ia64/lib/Makefile        |    4 ++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff -puN arch/ia64/kernel/ia64_ksyms.c~ia64-export-copy_page-to-modules arch/ia64/kernel/ia64_ksyms.c
+--- a/arch/ia64/kernel/ia64_ksyms.c~ia64-export-copy_page-to-modules
++++ a/arch/ia64/kernel/ia64_ksyms.c
+@@ -63,6 +63,9 @@ EXPORT_SYMBOL(__udivdi3);
+ EXPORT_SYMBOL(__moddi3);
+ EXPORT_SYMBOL(__umoddi3);
  
- void
-
-
-
++#include <asm/page.h>
++EXPORT_SYMBOL(copy_page);
++
+ #if defined(CONFIG_MD_RAID456) || defined(CONFIG_MD_RAID456_MODULE)
+ extern void xor_ia64_2(void);
+ extern void xor_ia64_3(void);
+diff -puN arch/ia64/lib/Makefile~ia64-export-copy_page-to-modules arch/ia64/lib/Makefile
+--- a/arch/ia64/lib/Makefile~ia64-export-copy_page-to-modules
++++ a/arch/ia64/lib/Makefile
+@@ -11,8 +11,8 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
+ 	flush.o ip_fast_csum.o do_csum.o				\
+ 	memset.o strlen.o xor.o
+ 
+-lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
+-lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
++obj-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
++obj-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+ lib-$(CONFIG_PERFMON)	+= carta_random.o
+ 
+ AFLAGS___divdi3.o	_
