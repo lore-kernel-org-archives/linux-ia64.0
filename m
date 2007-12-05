@@ -1,77 +1,36 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 14 Dec 2007 06:25:10 +0000
-Subject: [PATCH] ia64: Adjust CMCI mask on CPU hotplug
-Message-Id: <476221C6.8040703@jp.fujitsu.com>
+From: akpm@linux-foundation.org
+Date: Wed, 05 Dec 2007 22:32:13 +0000
+Subject: [patch 1/3] ia64: increase .data.patch offset
+Message-Id: <200712052232.lB5MWEuw028391@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Currently CMCI mask of hot-added CPU is always disabled after CPU hotplug.
-We should adjust this mask depending on CMC polling state.
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Thanks,
-H.Seto
+I get this:
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
+/opt/crosstool/gcc-3.4.5-glibc-2.3.6/ia64-unknown-linux-gnu/lib/gcc/ia64-unknown-linux-gnu/3.4.5/../../../../ia64-unknown-linux-gnu/bin/ld: section .data.patch [a000000000000500 -> a000000000000507] overlaps section .dynamic [a0000000000003c8 -> a000000000000507]
 
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
-Index: linux-2.6.24-rc5/arch/ia64/kernel/mca.c
-=================================--- linux-2.6.24-rc5.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6.24-rc5/arch/ia64/kernel/mca.c
-@@ -75,6 +75,7 @@
- #include <linux/workqueue.h>
- #include <linux/cpumask.h>
- #include <linux/kdebug.h>
-+#include <linux/cpu.h>
 
- #include <asm/delay.h>
- #include <asm/machvec.h>
-@@ -1813,6 +1814,36 @@
- 							      PAGE_KERNEL));
- }
+ arch/ia64/kernel/gate.lds.S |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-+static void __cpuinit ia64_mca_cmc_vector_adjust(void *dummy)
-+{
-+	unsigned long flags;
-+
-+	local_irq_save(flags);
-+	if (!cmc_polling_enabled)
-+		ia64_mca_cmc_vector_enable(NULL);
-+	local_irq_restore(flags);
-+}
-+
-+static int __cpuinit mca_cpu_callback(struct notifier_block *nfb,
-+				      unsigned long action,
-+				      void *hcpu)
-+{
-+	int hotcpu = (unsigned long) hcpu;
-+
-+	switch (action) {
-+	case CPU_ONLINE:
-+	case CPU_ONLINE_FROZEN:
-+		smp_call_function_single(hotcpu, ia64_mca_cmc_vector_adjust,
-+					 NULL, 1, 0);
-+		break;
-+	}
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block mca_cpu_notifier __cpuinitdata = {
-+ 	.notifier_call = mca_cpu_callback
-+};
-+
- /*
-  * ia64_mca_init
-  *
-@@ -1996,6 +2027,8 @@
- 	if (!mca_init)
- 		return 0;
-
-+	register_hotcpu_notifier(&mca_cpu_notifier);
-+
- 	/* Setup the CMCI/P vector and handler */
- 	init_timer(&cmc_poll_timer);
- 	cmc_poll_timer.function = ia64_mca_cmc_poll;
+diff -puN arch/ia64/kernel/gate.lds.S~ia64-increase-datapatch-offset arch/ia64/kernel/gate.lds.S
+--- a/arch/ia64/kernel/gate.lds.S~ia64-increase-datapatch-offset
++++ a/arch/ia64/kernel/gate.lds.S
+@@ -30,7 +30,7 @@ SECTIONS
+ 	 * the dynamic symbol table et al.  If this amount is insufficient,
+ 	 * ld -shared will barf.  Just increase it here.
+ 	 */
+-	. = GATE_ADDR + 0x500;
++	. = GATE_ADDR + 0x600;
+ 
+ 	.data.patch		: {
+ 		__start_gate_mckinley_e9_patchlist = .;
+_
