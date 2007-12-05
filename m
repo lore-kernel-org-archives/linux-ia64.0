@@ -1,16 +1,36 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Thu, 13 Dec 2007 02:28:40 +0000
-Subject: Re: [PATCH 0/3] ptrace RSE handling - take 2
-Message-Id: <20071213022840.07E5726F8D9@magilla.localdomain>
+From: akpm@linux-foundation.org
+Date: Wed, 05 Dec 2007 22:32:14 +0000
+Subject: [patch 2/3] ia64: don't assume that unwcheck.py is executable
+Message-Id: <200712052232.lB5MWE3W028394@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <475FEDA0.9010104@suse.cz>
-In-Reply-To: <475FEDA0.9010104@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-All looks good to me!
+From: Andrew Morton <akpm@linux-foundation.org>
 
-Thanks,
-Roland
+Don't assume that this file has execute permissions.  For example, patch(1)
+loses that information.
+
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/Makefile |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN arch/ia64/Makefile~ia64-dont-assume-that-unwcheckpy-is-executable arch/ia64/Makefile
+--- a/arch/ia64/Makefile~ia64-dont-assume-that-unwcheckpy-is-executable
++++ a/arch/ia64/Makefile
+@@ -77,7 +77,7 @@ vmlinux.gz: vmlinux
+ 	$(Q)$(MAKE) $(build)=$(boot) $@
+ 
+ unwcheck: vmlinux
+-	-$(Q)READELF=$(READELF) $(srctree)/arch/ia64/scripts/unwcheck.py $<
++	-$(Q)READELF=$(READELF) $(CONFIG_SHELL) $(srctree)/arch/ia64/scripts/unwcheck.py $<
+ 
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
+_
