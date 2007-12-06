@@ -1,96 +1,57 @@
 From: Petr Tesarik <ptesarik@suse.cz>
-Date: Thu, 06 Dec 2007 16:52:29 +0000
-Subject: [PATCH 3/3] Synchronize RBS on PTRACE_ATTACH
-Message-Id: <1196959949.6586.10.camel@elijah.suse.cz>
+Date: Thu, 06 Dec 2007 16:56:43 +0000
+Subject: Re: [PATCH 3/3] Synchronize RBS on PTRACE_ATTACH
+Message-Id: <1196960203.6586.13.camel@elijah.suse.cz>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-Hkyf4yswEVt3kZO1bYfT"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <1196959949.6586.10.camel@elijah.suse.cz>
+In-Reply-To: <1196959949.6586.10.camel@elijah.suse.cz>
 To: linux-ia64@vger.kernel.org
 
-When attaching to a stopped process, the RSE must be explicitly
-synced to user-space, so the debugger can read the correct values.
 
-Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
----
- ptrace.c |   59 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 59 insertions(+)
+--=-Hkyf4yswEVt3kZO1bYfT
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index d8c9864..76cc4d4 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -613,6 +613,63 @@ void ia64_sync_krbs(void)
- 	unw_init_running(do_sync_rbs, ia64_sync_kernel_rbs);
- }
- 
-+/*
-+ * After PTRACE_ATTACH, a thread's register backing store area in user
-+ * space is assumed to contain correct data whenever the thread is
-+ * stopped.  arch_ptrace_stop takes care of this on tracing stops.
-+ * But if the child was already stopped for job control when we attach
-+ * to it, then it might not ever get into ptrace_stop by the time we
-+ * want to examine the user memory containing the RBS.
-+ */
-+static void
-+ptrace_attach_sync_user_rbs (struct task_struct *child)
-+{
-+	int stopped = 0;
-+	struct unw_frame_info info;
-+
-+	/*
-+	 * If the child is in TASK_STOPPED, we need to change that to
-+	 * TASK_TRACED momentarily while we operate on it.  This ensures
-+	 * that the child won't be woken up and return to user mode while
-+	 * we are doing the sync.  (It can only be woken up for SIGKILL.)
-+	 */
-+
-+	read_lock(&tasklist_lock);
-+	if (child->signal) {
-+		spin_lock_irq(&child->sighand->siglock);
-+		if (child->state = TASK_STOPPED &&
-+		    !test_and_set_tsk_thread_flag(child, TIF_RESTORE_RSE)) {
-+			tsk_set_notify_resume(child);
-+
-+			child->state = TASK_TRACED;
-+			stopped = 1;
-+		}
-+		spin_unlock_irq(&child->sighand->siglock);
-+	}
-+	read_unlock(&tasklist_lock);
-+
-+	if (!stopped)
-+		return;
-+
-+	unw_init_from_blocked_task(&info, child);
-+	do_sync_rbs(&info, ia64_sync_user_rbs);
-+
-+	/*
-+	 * Now move the child back into TASK_STOPPED if it should be in a
-+	 * job control stop, so that SIGCONT can be used to wake it up.
-+	 */
-+	read_lock(&tasklist_lock);
-+	if (child->signal) {
-+		spin_lock_irq(&child->sighand->siglock);
-+		if (child->state = TASK_TRACED &&
-+		    (child->signal->flags & SIGNAL_STOP_STOPPED)) {
-+			child->state = TASK_STOPPED;
-+		}
-+		spin_unlock_irq(&child->sighand->siglock);
-+	}
-+	read_unlock(&tasklist_lock);
-+}
-+
- static inline int
- thread_matches (struct task_struct *thread, unsigned long addr)
- {
-@@ -1520,6 +1577,8 @@ sys_ptrace (long request, pid_t pid, uns
- 
- 	if (request = PTRACE_ATTACH) {
- 		ret = ptrace_attach(child);
-+		if (ret = 0)
-+			ptrace_attach_sync_user_rbs(child);
- 		goto out_tsk;
- 	}
- 
+This is a simple test I produced for this case (attaching a stopped
+process).
 
+Regards,
+Petr Tesarik
+
+
+--=-Hkyf4yswEVt3kZO1bYfT
+Content-Disposition: attachment; filename=wrong-stop.tar.gz
+Content-Type: application/x-compressed-tar; name=wrong-stop.tar.gz
+Content-Transfer-Encoding: base64
+
+H4sIAIApWEcAA+1YbW/aSBDOV/tXzCVqBYiAbd6qUk4ixEmjpgFhqtzp7mQZew0WZm2tTdJc1f9+
+s+uXYEIv+ZCm9+JJkdnZ3ZlnZ3Yexr1lAV0cR3EQNg++lygovU4Hn1qr3e6Jsdpui2cqB6rS07qK
+htI9UFSth9PQ+W6ItmQTxRYDOAhjElnMW317HWHRSwB6Wbm9z/9Ha0VczyfP7oMnuCvyvT//qtZJ
+8692lW7rgE8qmH/l2ZHskf95/kdnl8NzY3B8bfk+HC8WzlyW8etb4FciJExOn7miYcP6LvIWDUOW
+bZ9Y9K0sHbN1Ng21RiD/6EOV8mTZqv80rc/v45H6V5WOmtd/G7kAJzVNLev/JeTIo7a/cQi8s6J1
+c0O9KHYay5/le310FzXxYyMrFCYOM0JYHsqy1Fj4wdzykRvMlef7qAhZYOfD9IlcgWZQjx9lYLFG
+6EZ1TfwpsrQObgCAqZ2B8auRmkl0uFwdfByeX4xMYza81GWp35elOZIRRxWF8aqxtugdwLw7QFiM
+YFJ9ku0ONrEy8KiyNVZxrO6xfqVfJ7a/QGPtebKEJhmxVmCaF8Nu2zyZ6sMPJsIbDS8v+WyK+c2A
+G7lXJEfjSvT6NTHTYCTewjrHmQahTpgHSW42gf8IQ7RhBOIlgamhw9yyVx5dgDgX2AGNLY9GYlqc
+EhwrtuT7U++NsVJX8aMkZ3P9TbRkUTLYg/ch1K5ccvp/U7b4P6/n5/bxWP/XUrWM/3uqyvv/dlfp
+lfz/EnLkudQhLiCvjicTfWq+N+UjVHiUFHS5couFJeWzqqnazhRSKE5oLa2FmzLr5tAw9I8nl2gM
+bfl45zLWq3g0htBz6sC/YAdS7eM+5EXPhWatsBFqza2pbXh85kdH8t8pe+rffm4fj9R/q7dV/1pL
+Lev/BQXr6CxgEGKT4zTDW+bFhBdTTgG/jCf6lWmMP01HOnQURd7uDGPHC4rNImGMBg/7x/guJNGe
+tjK24qLWtWns7yz0FtTa1eHmW8uLH2rDmFk2Kep5Z5vozcB1IxLvQNnT9Raa2ywYM92YmeMPkqQU
+VWfDi0v9VFKL2uHJeDpDtYZ9XQ2MYE1giUHGV2T+nywRtlwEm8JgRWij0RAxT8lyMpsOR7o50fUP
+n4ypfASp1aIeimN9mjKjLHMeZRtq2kvPdypV+Qs2eSnXLkiMVFup1sG4OOf0yclWwmZvw2h2vL78
+VZZ5ZjxbUDK/GWuyFjyNTxeZWvC35Tgs/VrD1lP4QWKuiKtUSVfiRB1J/U8SuBW+FD3zfVX4aVBQ
+VwF3SxhwFrDKIbfAfR0iPKkALw1qnzfVjwHHw5oCRgXPbIofGQHSXmLBu9Rak9+67T94ACIaMtzh
+VoQ2A5ysqSMCOGzyt5nmK99pclh1SFALk/0cRxASmpkYm9PT62lVYMoS4pD5ZrEgbAdPHti+DKmI
+qDKySGKMX24sv5+s5AfcROkAHXP8POxJxGFQPDYG9h0oxehymE+JLrfKi4zfGPED/TrxXYfrT1fi
+7p1WYTCAY7VoP92TXbGnuEmqs5Le6OFsNhy9ryddgYL/dq5HYdlj5gUjYVgUkScRURwVHaYllXqc
+oImpeWJMuOd+AlBY2YsiK0d8g5pH4d+jyQEcD6AFNXiTJS+rsbxq0sy/TlJfrX7TaHpxD2f48gc3
++ANmzfGV8MazeIbfgvL5lf/5d3qYXaLsPMmIZy9v2pLToRcMT15R0lcgfkRg3x7RA6YxSVGcBRuK
+iecTCMbf4EYK0xMDEWSByawnpHnv4aGZDV3R4JaiCTtgjNjx003uvVanevFa4f0cja9m+y9XsviJ
+BCTKMC30Nb6dC6602MKugyCbWg0HN3mxI4C8anmhDMAN2KpS3U7zLl9wIDxOxRUpxQvnP7qTKKWU
+UkoppZRSSimllFJKKeWfLH8B213T9wAoAAA=
+
+
+--=-Hkyf4yswEVt3kZO1bYfT--
