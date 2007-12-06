@@ -1,85 +1,96 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 19 Dec 2007 22:01:36 +0000
-Subject: git pull on ia64 linux tree
-Message-Id: <1FE6DD409037234FAB833C420AA843EC26D981@orsmsx424.amr.corp.intel.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Thu, 06 Dec 2007 16:52:29 +0000
+Subject: [PATCH 3/3] Synchronize RBS on PTRACE_ATTACH
+Message-Id: <1196959949.6586.10.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
-In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+When attaching to a stopped process, the RSE must be explicitly
+synced to user-space, so the debugger can read the correct values.
 
-please pull from:
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+---
+ ptrace.c |   59 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 59 insertions(+)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- arch/ia64/hp/common/sba_iommu.c   |    3 ++-
- arch/ia64/ia32/binfmt_elf32.c     |   28 ++++++++++++----------------
- arch/ia64/kernel/head.S           |    1 +
- arch/ia64/kernel/irq_ia64.c       |    4 ++--
- arch/ia64/kernel/mca.c            |   33 +++++++++++++++++++++++++++++++++
- arch/ia64/kernel/process.c        |    7 +++++--
- arch/ia64/kernel/signal.c         |   10 +---------
- arch/ia64/kernel/uncached.c       |    2 +-
- arch/ia64/mm/tlb.c                |   18 +++++++++++++++---
- arch/ia64/sn/kernel/bte.c         |    4 ++--
- arch/ia64/sn/kernel/bte_error.c   |    8 ++++++--
- arch/ia64/sn/pci/tioce_provider.c |    2 +-
- include/asm-ia64/bitops.h         |   17 ++++++++++++++---
- include/asm-ia64/gcc_intrin.h     |    5 +++++
- include/asm-ia64/hw_irq.h         |    2 +-
- include/asm-ia64/intel_intrin.h   |    3 +++
- include/asm-ia64/sn/bte.h         |   31 ++++++++++++++++++++++++++++++-
- include/asm-ia64/sn/xp.h          |   27 +++++++++++++++++++++++++--
- include/asm-ia64/sn/xpc.h         |    8 +++++++-
- include/asm-ia64/tlbflush.h       |    6 +++++-
- 20 files changed, 171 insertions(+), 48 deletions(-)
-
-Christoph Lameter (1):
-      IA64: Slim down __clear_bit_unlock
-
-Hidetoshi Seto (2):
-      [IA64] Remove assembler warnings on head.S
-      [IA64] Adjust CMCI mask on CPU hotplug
-
-Ian Wienand (1):
-      [IA64] set_thread_area fails in IA32 chroot
-
-Jan Beulich (1):
-      [IA64] make flush_tlb_kernel_range() an inline function
-
-Joe Perches (1):
-      [IA64] Two trivial spelling fixes
-
-Kenji Kaneshige (1):
-      [IA64] Remove compiler warinings about uninitialized variable in irq_ia64.c
-
-Nick Piggin (1):
-      [IA64] ia32 nopage
-
-Russ Anderson (1):
-      [IA64] Fix Altix BTE error return status
-
-Shi Weihua (1):
-      [IA64] signal: remove redundant code in setup_sigcontext()
-
-Simon Horman (1):
-      [IA64] Guard elfcorehdr_addr with #if CONFIG_PROC_FS
-
-Tony Luck (1):
-      [IA64] print kernel release in OOPS to make kerneloops.org happy
-
-de Dinechin, Christophe (Integrity VM) (1):
-      [IA64] Avoid unnecessary TLB flushes when allocating memory
-
-
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index d8c9864..76cc4d4 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -613,6 +613,63 @@ void ia64_sync_krbs(void)
+ 	unw_init_running(do_sync_rbs, ia64_sync_kernel_rbs);
+ }
+ 
++/*
++ * After PTRACE_ATTACH, a thread's register backing store area in user
++ * space is assumed to contain correct data whenever the thread is
++ * stopped.  arch_ptrace_stop takes care of this on tracing stops.
++ * But if the child was already stopped for job control when we attach
++ * to it, then it might not ever get into ptrace_stop by the time we
++ * want to examine the user memory containing the RBS.
++ */
++static void
++ptrace_attach_sync_user_rbs (struct task_struct *child)
++{
++	int stopped = 0;
++	struct unw_frame_info info;
++
++	/*
++	 * If the child is in TASK_STOPPED, we need to change that to
++	 * TASK_TRACED momentarily while we operate on it.  This ensures
++	 * that the child won't be woken up and return to user mode while
++	 * we are doing the sync.  (It can only be woken up for SIGKILL.)
++	 */
++
++	read_lock(&tasklist_lock);
++	if (child->signal) {
++		spin_lock_irq(&child->sighand->siglock);
++		if (child->state = TASK_STOPPED &&
++		    !test_and_set_tsk_thread_flag(child, TIF_RESTORE_RSE)) {
++			tsk_set_notify_resume(child);
++
++			child->state = TASK_TRACED;
++			stopped = 1;
++		}
++		spin_unlock_irq(&child->sighand->siglock);
++	}
++	read_unlock(&tasklist_lock);
++
++	if (!stopped)
++		return;
++
++	unw_init_from_blocked_task(&info, child);
++	do_sync_rbs(&info, ia64_sync_user_rbs);
++
++	/*
++	 * Now move the child back into TASK_STOPPED if it should be in a
++	 * job control stop, so that SIGCONT can be used to wake it up.
++	 */
++	read_lock(&tasklist_lock);
++	if (child->signal) {
++		spin_lock_irq(&child->sighand->siglock);
++		if (child->state = TASK_TRACED &&
++		    (child->signal->flags & SIGNAL_STOP_STOPPED)) {
++			child->state = TASK_STOPPED;
++		}
++		spin_unlock_irq(&child->sighand->siglock);
++	}
++	read_unlock(&tasklist_lock);
++}
++
+ static inline int
+ thread_matches (struct task_struct *thread, unsigned long addr)
+ {
+@@ -1520,6 +1577,8 @@ sys_ptrace (long request, pid_t pid, uns
+ 
+ 	if (request = PTRACE_ATTACH) {
+ 		ret = ptrace_attach(child);
++		if (ret = 0)
++			ptrace_attach_sync_user_rbs(child);
+ 		goto out_tsk;
+ 	}
+ 
 
