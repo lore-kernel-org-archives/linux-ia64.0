@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 11 Dec 2007 00:09:09 +0000
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Tue, 11 Dec 2007 06:17:06 +0000
 Subject: Re: Linux on Intel "Big Sur"
-Message-Id: <200712101709.09816.bjorn.helgaas@hp.com>
+Message-Id: <87wsrl7o2l.wl%peter@chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <475C2CF3.9010206@netbynet.ru>
 In-Reply-To: <475C2CF3.9010206@netbynet.ru>
@@ -10,34 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Monday 10 December 2007 03:03:42 pm Alexei Gerasimov wrote:
-> Bjorn Helgaas wrote:
-> > I've only used the HP i2000 version, and even that's been a long time,
-> > but my guess is that the firmware upgrade would be safe, and that the
-> > appropriate HP-UX version would probably run on it.
-> >   
-> I've discovered a small detail about updates: the firmware update seems
-> to be safe, but the BIOS update (to the version 1.30) available from the
-> HP website is marked as for CPU's with C2 stepping. According to my
-> CPUID, my Itanium's are C0 stepping, therefore an update to the version
-> dedicated for CPU's with different stepping might be fatal. Personally,
-> I don't know what stepping is, thus cannot be sure to make any
-> conclusions. What do you think about this?
+>>>>> "Alexei" = Alexei Gerasimov <alex@netbynet.ru> writes:
 
-CPU steppings are minor changes to the processor, usually to fix
-problems.  The CPU comes with a piece of firmware called PAL that
-is specific to the CPU model.  The PAL is packaged up as part of
-the firmware update from HP, but the PAL itself comes from Intel,
-and we really don't have much visibility into it.
 
-Normally, a new PAL would work on all previous steppings of a given
-processor model, but sometimes there are exceptions, especially for
-early prototype CPUs.
+Alexei> I have faced a problem of getting an operating system for
+Alexei> it. Namely, Linux. I have tried installing both Debian 3.0r6
+Alexei> Woody and Debian 4.0r1 Etch, however, the CD kernel doesn't
+Alexei> succeed to boot. Somewhere after probing for USB and SCSI
+Alexei> devices, the video signal is lost (monitor switches into a
+Alexei> stand-by mode), and nothing else happens. Since I'm using some
+Alexei> old Matrox graphics card, I thought it could be a problem with
+Alexei> framebuffer, but disabling the framebuffer didn't help.
 
-If this were my machine, and I really, really wanted to get it
-working (it's ancient and slow by today's standards), I would leave
-the firmware alone and try to debug it as a Linux problem.  If it
-turns out to be a firmware issue, you could try the upgrade.  But
-I'd hate to brick the box if it failed.
 
-Bjorn
+Hmmm.  I boot i2000s at least once a month to make sure Linux still
+works with the latest kernels.  But I use the BigSur defconfig, not
+the generic one the distros use (note to self:  try with a generic
+kernel).
+
+I strongly suggest trying to boot using a serial console.  The video
+stuff has been pretty flakey at various times.
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
