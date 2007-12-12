@@ -1,59 +1,55 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Fri, 21 Dec 2007 08:14:13 +0000
-Subject: RE: [kvm-devel] [1-5/17] Patch 1-10 of kvm/ia64 V2
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCB56769@pdsmsx415.ccr.corp.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 12 Dec 2007 07:15:19 +0000
+Subject: [PATCH] ia64: Remove compiler warnings on irq_ia64.c
+Message-Id: <475F8A87.60802@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDCB139D3@pdsmsx415.ccr.corp.intel.com> <92C843A5499377takebe_akio@jp.fujitsu.com>
-In-Reply-To: <92C843A5499377takebe_akio@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-devel@lists.sourceforge.net
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Avi Kivity <avi@qumranet.com>
+To: linux-ia64@vger.kernel.org
 
-Akio Takebe wrote:
-> Hi, Xiantao
-> 
->>> [3/17] Add firmware virtualization support.
-> 
-> +void kvm_sal_emul(struct kvm_vcpu *vcpu)
-> +{
-> +
-> +	struct sal_ret_values result;
-> +	u64 index, in1, in2, in3, in4, in5, in6, in7;
-> +
-> +	kvm_get_sal_call_data(vcpu, &index, &in1, &in2,
-> +			&in3, &in4, &in5, &in6, &in7);
-> +	if (index) {
-> +		result = sal_emulator(index, in1, in2, in3,
-> +						in4, in5, in6, in7);
-> +		set_sal_result(vcpu, result);
-> +	} else
-> +		printk(KERN_WARNING"kvm:Unsupported sal call called,"
-> +					" index:%d!\n", index);
-> +}
-> The printk always show index:0.
-> And set_sal_result() doesn't work at the time of index=0.
-> So I think the following code is better.
+Hi,
 
-Good catch! Originally, I want to use it for kvm_get_sal_call debug, but
-forget to remove it. 
-Thank you! :)
+This is repost of Kenji's patch at Aug 22.
 
-> +void kvm_sal_emul(struct kvm_vcpu *vcpu)
-> +{
-> +
-> +	struct sal_ret_values result;
-> +	u64 index, in1, in2, in3, in4, in5, in6, in7;
-> +
-> +	kvm_get_sal_call_data(vcpu, &index, &in1, &in2,
-> +			&in3, &in4, &in5, &in6, &in7);
-> +	result = sal_emulator(index, in1, in2, in3,
-> +					in4, in5, in6, in7);
-> +	set_sal_result(vcpu, result);
-> +}
-> 
-> Best Regards,
-> 
-> Akio Takebe
+Thanks,
+H.Seto
 
+---
+This patch removes the following compiler warning messages.
+
+  CC      arch/ia64/kernel/irq_ia64.o
+arch/ia64/kernel/irq_ia64.c: In function 'create_irq':
+arch/ia64/kernel/irq_ia64.c:343: warning: 'domain.bits[0u]' may be used uninitialized in this function
+arch/ia64/kernel/irq_ia64.c: In function 'assign_irq_vector':
+arch/ia64/kernel/irq_ia64.c:203: warning: 'domain.bits[0u]' may be used uninitialized in this function
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+
+---
+ arch/ia64/kernel/irq_ia64.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.24-rc5/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6.24-rc5.orig/arch/ia64/kernel/irq_ia64.c
++++ linux-2.6.24-rc5/arch/ia64/kernel/irq_ia64.c
+@@ -200,7 +200,7 @@
+ {
+ 	unsigned long flags;
+ 	int vector, cpu;
+-	cpumask_t domain;
++	cpumask_t domain = CPU_MASK_NONE;
+
+ 	vector = -ENOSPC;
+
+@@ -340,7 +340,7 @@
+ {
+ 	unsigned long flags;
+ 	int irq, vector, cpu;
+-	cpumask_t domain;
++	cpumask_t domain = CPU_MASK_NONE;
+
+ 	irq = vector = -ENOSPC;
+ 	spin_lock_irqsave(&vector_lock, flags);
