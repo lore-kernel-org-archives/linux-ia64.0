@@ -1,12 +1,17 @@
 From: Aron Griffis <aron@hp.com>
-Date: Wed, 12 Dec 2007 15:07:49 +0000
-Subject: [PATCH 2 of 4] Spelling/punctuation fixes
-Message-Id: <049467433cda01769d2f.1197472069@jenkins.nashua>
+Date: Wed, 12 Dec 2007 15:43:23 +0000
+Subject: Re: [PATCH 2 of 4] Spelling/punctuation fixes
+Message-Id: <20071212154323.GI4241@fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <049467433cda01769d2f.1197472069@jenkins.nashua>
+In-Reply-To: <049467433cda01769d2f.1197472069@jenkins.nashua>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I guess I forgot my signoff on this one, if it matters for spelling
+fixes...
 
 # HG changeset patch
 # User Aron Griffis <aron@hp.com>
@@ -16,6 +21,8 @@ To: linux-ia64@vger.kernel.org
 Spelling/punctuation fixes
 
 Woah is not a word ;-)
+
+Signed-off-by: Aron Griffis <aron@hp.com>
 
 diff -r 1161690ae815 -r 049467433cda arch/ia64/kernel/efi.c
 --- a/arch/ia64/kernel/efi.c	Tue Dec 11 21:53:55 2007 -0500
@@ -77,5 +84,3 @@ diff -r 1161690ae815 -r 049467433cda arch/ia64/kernel/efi.c
  			return;
  		}
  
-
-
