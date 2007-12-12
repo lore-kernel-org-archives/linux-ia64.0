@@ -1,137 +1,212 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 20 Dec 2007 16:13:46 +0000
-Subject: [PATCH] ia64: cleanup and improve fsys_gettimeofday
-Message-Id: <476A94BA.4060805@jp.fujitsu.com>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Wed, 12 Dec 2007 15:24:29 +0000
+Subject: [PATCH] ia64: honor notify_die() returning NOTIFY_STOP
+Message-Id: <47600B3D.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-No one really cares?
+This requires making die() and die_if_kernel() return a value, and
+their callers to honor this (and be prepared that it returns).
 
-This patch does:
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
- - Remove outdated comments (which someday I marked with "?").
- - Reassemble instructions to fit them in fewer bundles.
- - If McKinley Errata 9 workaround is not needed, the workaround
-   bundles will be patched out with NOPs. However it also not
-   needed to have a totally NOP bundle (nop * 3) before branch.
+ arch/ia64/ia32/ia32_support.c |    5 +++--
+ arch/ia64/kernel/traps.c      |   35 +++++++++++++++++++++++------------
+ arch/ia64/kernel/unaligned.c  |   13 ++++++++-----
+ arch/ia64/mm/fault.c          |    8 +++++---
+ 4 files changed, 39 insertions(+), 22 deletions(-)
 
-As a result, this makes the code path 3 (or 2) bundles shorter
-(and remove 1 unnecessary stop bit). It seems to be 1% faster.
-
-(10sec loop test, with nojitter @ Madison 1.5GHz x 4)
-Before:
- CPU  0:  0.14 (usecs) (0 errors / 69598875 iterations)
- CPU  1:  0.14 (usecs) (0 errors / 69630721 iterations)
- CPU  2:  0.14 (usecs) (0 errors / 69607850 iterations)
- CPU  3:  0.14 (usecs) (0 errors / 69619832 iterations)
-
-After:
- CPU  0:  0.14 (usecs) (0 errors / 70257728 iterations)
- CPU  1:  0.14 (usecs) (0 errors / 70309498 iterations)
- CPU  2:  0.14 (usecs) (0 errors / 70280639 iterations)
- CPU  3:  0.14 (usecs) (0 errors / 70260682 iterations)
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
----
- arch/ia64/kernel/fsys.S  |   28 ++++++++++++----------------
- arch/ia64/kernel/patch.c |    8 ++++----
- 2 files changed, 16 insertions(+), 20 deletions(-)
-
-Index: linux-2.6.24-rc5/arch/ia64/kernel/fsys.S
-=================================--- linux-2.6.24-rc5.orig/arch/ia64/kernel/fsys.S
-+++ linux-2.6.24-rc5/arch/ia64/kernel/fsys.S
-@@ -210,27 +210,25 @@
- 	// Note that instructions are optimized for McKinley. McKinley can
- 	// process two bundles simultaneously and therefore we continuously
- 	// try to feed the CPU two bundles and then a stop.
--	//
--	// Additional note that code has changed a lot. Optimization is TBD.
--	// Comments begin with "?" are maybe outdated.
--	tnat.nz p6,p0 = r31	// ? branch deferred to fit later bundle
--	mov pr = r30,0xc000	// Set predicates according to function
+--- linux-2.6.24-rc5/arch/ia64/ia32/ia32_support.c	2007-10-09 22:31:38.000000000 +0200
++++ 2.6.24-rc5-ia64-notify-die-return/arch/ia64/ia32/ia32_support.c	2007-12-04 16:22:55.000000000 +0100
+@@ -27,7 +27,7 @@
+ 
+ #include "ia32priv.h"
+ 
+-extern void die_if_kernel (char *str, struct pt_regs *regs, long err);
++extern int die_if_kernel (char *str, struct pt_regs *regs, long err);
+ 
+ struct exec_domain ia32_exec_domain;
+ struct page *ia32_shared_page[NR_CPUS];
+@@ -217,7 +217,8 @@ ia32_bad_interrupt (unsigned long int_nu
+ {
+ 	siginfo_t siginfo;
+ 
+-	die_if_kernel("Bad IA-32 interrupt", regs, int_num);
++	if (die_if_kernel("Bad IA-32 interrupt", regs, int_num))
++		return;
+ 
+ 	siginfo.si_signo = SIGTRAP;
+ 	siginfo.si_errno = int_num;	/* XXX is it OK to abuse si_errno like this? */
+--- linux-2.6.24-rc5/arch/ia64/kernel/traps.c	2007-12-12 12:27:11.000000000 +0100
++++ 2.6.24-rc5-ia64-notify-die-return/arch/ia64/kernel/traps.c	2007-12-04 16:24:42.000000000 +0100
+@@ -35,7 +35,7 @@ trap_init (void)
+ 		fpswa_interface = __va(ia64_boot_param->fpswa);
+ }
+ 
+-void
++int
+ die (const char *str, struct pt_regs *regs, long err)
+ {
+ 	static struct {
+@@ -62,8 +62,11 @@ die (const char *str, struct pt_regs *re
+ 	if (++die.lock_owner_depth < 3) {
+ 		printk("%s[%d]: %s %ld [%d]\n",
+ 		current->comm, task_pid_nr(current), str, err, ++die_counter);
+-		(void) notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
+-		show_regs(regs);
++		if (notify_die(DIE_OOPS, str, regs, err, 255, SIGSEGV)
++	            != NOTIFY_STOP)
++			show_regs(regs);
++		else
++			regs = NULL;
+   	} else
+ 		printk(KERN_ERR "Recursive die() failure, output suppressed\n");
+ 
+@@ -72,17 +75,22 @@ die (const char *str, struct pt_regs *re
+ 	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die.lock);
+ 
++	if (!regs)
++		return 1;
 +
- 	add r2 = TI_FLAGS+IA64_TASK_SIZE,r16
-+	tnat.nz p6,p0 = r31		// guard against Nat argument
-+(p6)	br.cond.spnt.few .fail_einval
- 	movl r20 = fsyscall_gtod_data // load fsyscall gettimeofday data address
- 	;;
-+	ld4 r2 = [r2]			// process work pending flags
- 	movl r29 = itc_jitter_data	// itc_jitter
- 	add r22 = IA64_GTOD_WALL_TIME_OFFSET,r20	// wall_time
--	ld4 r2 = [r2]		// process work pending flags
--	;;
--(p15)	add r22 = IA64_GTOD_MONO_TIME_OFFSET,r20	// monotonic_time
- 	add r21 = IA64_CLKSRC_MMIO_OFFSET,r20
--	add r19 = IA64_ITC_LASTCYCLE_OFFSET,r29
-+	mov pr = r30,0xc000	// Set predicates according to function
-+	;;
- 	and r2 = TIF_ALLWORK_MASK,r2
--(p6)    br.cond.spnt.few .fail_einval	// ? deferred branch
-+	add r19 = IA64_ITC_LASTCYCLE_OFFSET,r29
-+(p15)	add r22 = IA64_GTOD_MONO_TIME_OFFSET,r20	// monotonic_time
- 	;;
--	add r26 = IA64_CLKSRC_CYCLE_LAST_OFFSET,r20 // clksrc_cycle_last
-+	add r26 = IA64_CLKSRC_CYCLE_LAST_OFFSET,r20	// clksrc_cycle_last
- 	cmp.ne p6, p0 = 0, r2	// Fallback if work is scheduled
--(p6)    br.cond.spnt.many fsys_fallback_syscall
-+(p6)	br.cond.spnt.many fsys_fallback_syscall
- 	;;
- 	// Begin critical section
- .time_redo:
-@@ -258,7 +256,6 @@
- (p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
- (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
- (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
--	;;		// ? could be removed by moving the last add upward
- 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
- 	;;
- 	ld8 r8 = [r22],-IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_nsec
-@@ -285,13 +282,12 @@
- EX(.fail_efault, probe.w.fault r31, 3)
- 	xmpy.l f8 = f8,f7	// nsec_per_cyc*(counter-last_counter)
- 	;;
--	// ? simulate tbit.nz.or p7,p0 = r28,0
- 	getf.sig r2 = f8
- 	mf
- 	;;
- 	ld4 r10 = [r20]		// gtod_lock.sequence
- 	shr.u r2 = r2,r23	// shift by factor
--	;;		// ? overloaded 3 bundles!
-+	;;
- 	add r8 = r8,r2		// Add xtime.nsecs
- 	cmp4.ne p7,p0 = r28,r10
- (p7)	br.cond.dpnt.few .time_redo	// sequence number changed, redo
-@@ -319,9 +315,9 @@
- EX(.fail_efault, probe.w.fault r23, 3)	// This also costs 5 cycles
- (p14)	xmpy.hu f8 = f8, f7		// xmpy has 5 cycles latency so use it
- 	;;
--	mov r8 = r0
- (p14)	getf.sig r2 = f8
- 	;;
-+	mov r8 = r0
- (p14)	shr.u r21 = r2, 4
- 	;;
- EX(.fail_efault, st8 [r31] = r9)
-Index: linux-2.6.24-rc5/arch/ia64/kernel/patch.c
-=================================--- linux-2.6.24-rc5.orig/arch/ia64/kernel/patch.c
-+++ linux-2.6.24-rc5/arch/ia64/kernel/patch.c
-@@ -135,10 +135,10 @@
-
- 	while (offp < (s32 *) end) {
- 		wp = (u64 *) ia64_imva((char *) offp + *offp);
--		wp[0] = 0x0000000100000000UL; /* nop.m 0; nop.i 0; nop.i 0 */
--		wp[1] = 0x0004000000000200UL;
--		wp[2] = 0x0000000100000011UL; /* nop.m 0; nop.i 0; br.ret.sptk.many b6 */
--		wp[3] = 0x0084006880000200UL;
-+		wp[0] = 0x0000000100000011UL; /* nop.m 0; nop.i 0; br.ret.sptk.many b6 */
-+		wp[1] = 0x0084006880000200UL;
-+		wp[2] = 0x0000000100000000UL; /* nop.m 0; nop.i 0; nop.i 0 */
-+		wp[3] = 0x0004000000000200UL;
- 		ia64_fc(wp); ia64_fc(wp + 2);
- 		++offp;
+ 	if (panic_on_oops)
+ 		panic("Fatal exception");
+ 
+   	do_exit(SIGSEGV);
++	return 0;
+ }
+ 
+-void
++int
+ die_if_kernel (char *str, struct pt_regs *regs, long err)
+ {
+ 	if (!user_mode(regs))
+-		die(str, regs, err);
++		return die(str, regs, err);
++	return 0;
+ }
+ 
+ void
+@@ -102,7 +110,8 @@ __kprobes ia64_bad_break (unsigned long 
+ 		if (notify_die(DIE_BREAK, "break 0", regs, break_num, TRAP_BRKPT, SIGTRAP)
+ 			       	= NOTIFY_STOP)
+ 			return;
+-		die_if_kernel("bugcheck!", regs, break_num);
++		if (die_if_kernel("bugcheck!", regs, break_num))
++			return;
+ 		sig = SIGILL; code = ILL_ILLOPC;
+ 		break;
+ 
+@@ -155,8 +164,9 @@ __kprobes ia64_bad_break (unsigned long 
+ 		break;
+ 
+ 	      default:
+-		if (break_num < 0x40000 || break_num > 0x100000)
+-			die_if_kernel("Bad break", regs, break_num);
++		if ((break_num < 0x40000 || break_num > 0x100000)
++		    && die_if_kernel("Bad break", regs, break_num))
++			return;
+ 
+ 		if (break_num < 0x80000) {
+ 			sig = SIGILL; code = __ILL_BREAK;
+@@ -402,14 +412,15 @@ ia64_illegal_op_fault (unsigned long ec,
+ #endif
+ 
+ 	sprintf(buf, "IA-64 Illegal operation fault");
+-	die_if_kernel(buf, &regs, 0);
++	rv.fkt = 0;
++	if (die_if_kernel(buf, &regs, 0))
++		return rv;
+ 
+ 	memset(&si, 0, sizeof(si));
+ 	si.si_signo = SIGILL;
+ 	si.si_code = ILL_ILLOPC;
+ 	si.si_addr = (void __user *) (regs.cr_iip + ia64_psr(&regs)->ri);
+ 	force_sig_info(SIGILL, &si, current);
+-	rv.fkt = 0;
+ 	return rv;
+ }
+ 
+@@ -644,6 +655,6 @@ ia64_fault (unsigned long vector, unsign
+ 		sprintf(buf, "Fault %lu", vector);
+ 		break;
  	}
+-	die_if_kernel(buf, &regs, error);
+-	force_sig(SIGILL, current);
++	if (!die_if_kernel(buf, &regs, error))
++		force_sig(SIGILL, current);
+ }
+--- linux-2.6.24-rc5/arch/ia64/kernel/unaligned.c	2007-12-12 12:27:11.000000000 +0100
++++ 2.6.24-rc5-ia64-notify-die-return/arch/ia64/kernel/unaligned.c	2007-12-04 16:22:55.000000000 +0100
+@@ -23,7 +23,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unaligned.h>
+ 
+-extern void die_if_kernel(char *str, struct pt_regs *regs, long err);
++extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
+ 
+ #undef DEBUG_UNALIGNED_TRAP
+ 
+@@ -675,8 +675,9 @@ emulate_load_updates (update_t type, loa
+ 	 */
+ 	if (ld.x6_op = 1 || ld.x6_op = 3) {
+ 		printk(KERN_ERR "%s: register update on speculative load, error\n", __FUNCTION__);
+-		die_if_kernel("unaligned reference on speculative load with register update\n",
+-			      regs, 30);
++		if (die_if_kernel("unaligned reference on speculative load with register update\n",
++				  regs, 30))
++			return;
+ 	}
+ 
+ 
+@@ -1317,7 +1318,8 @@ ia64_handle_unaligned (unsigned long ifa
+ 
+ 	if (ia64_psr(regs)->be) {
+ 		/* we don't support big-endian accesses */
+-		die_if_kernel("big-endian unaligned accesses are not supported", regs, 0);
++		if (die_if_kernel("big-endian unaligned accesses are not supported", regs, 0))
++			return;
+ 		goto force_sigbus;
+ 	}
+ 
+@@ -1531,7 +1533,8 @@ ia64_handle_unaligned (unsigned long ifa
+ 			ia64_handle_exception(regs, eh);
+ 			goto done;
+ 		}
+-		die_if_kernel("error during unaligned kernel access\n", regs, ret);
++		if (die_if_kernel("error during unaligned kernel access\n", regs, ret))
++			return;
+ 		/* NOT_REACHED */
+ 	}
+   force_sigbus:
+--- linux-2.6.24-rc5/arch/ia64/mm/fault.c	2007-12-12 12:27:11.000000000 +0100
++++ 2.6.24-rc5-ia64-notify-die-return/arch/ia64/mm/fault.c	2007-12-04 16:22:55.000000000 +0100
+@@ -16,7 +16,7 @@
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ 
+-extern void die (char *, struct pt_regs *, long);
++extern int die(char *, struct pt_regs *, long);
+ 
+ #ifdef CONFIG_KPROBES
+ static inline int notify_page_fault(struct pt_regs *regs, int trap)
+@@ -267,9 +267,11 @@ ia64_do_page_fault (unsigned long addres
+ 	else
+ 		printk(KERN_ALERT "Unable to handle kernel paging request at "
+ 		       "virtual address %016lx\n", address);
+-	die("Oops", regs, isr);
++	if (die("Oops", regs, isr))
++		regs = NULL;
+ 	bust_spinlocks(0);
+-	do_exit(SIGKILL);
++	if (regs)
++		do_exit(SIGKILL);
+ 	return;
+ 
+   out_of_memory:
+
 
