@@ -1,29 +1,42 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Date: Fri, 21 Dec 2007 05:58:12 +0000
-Subject: I have a problem about changing a bundle, help!
-Message-Id: <476B55F4.7000205@cn.fujitsu.com>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Wed, 12 Dec 2007 15:20:13 +0000
+Subject: [PATCH] ia64: remove dead code
+Message-Id: <47600A3D.76E4.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hello!
-	
-	Are the following statements safe? Is there any coherence problem?
-And why?
+Neither __cpu_down() nor __cpu_die() are being referenced without
+CONFIG_HOTPLUG_CPU.
 
-	/* change the instruction */
-	memcpy(ins_addr, ins_buf, sizeof(struct ia64_bundle));
- 	flush_icache_range(ins_addr, ins_addr + sizeof(struct ia64_bundle));
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
-	I have make sure that just one thread changes the instruction(bundle),
-but maybe a lot of threads execute the instruction in the same time.
+ arch/ia64/kernel/smpboot.c |   11 -----------
+ 1 file changed, 11 deletions(-)
 
-	Is any thread executes an error instruction(maybe an error bundle
-combined with old bundle and new bundle, or other) in some condition?
+--- linux-2.6.24-rc5/arch/ia64/kernel/smpboot.c	2007-12-12 12:27:11.000000000 +0100
++++ 2.6.24-rc5-ia64-cpu-die/arch/ia64/kernel/smpboot.c	2007-12-07 16:12:33.000000000 +0100
+@@ -767,17 +767,6 @@ void __cpu_die(unsigned int cpu)
+ 	}
+  	printk(KERN_ERR "CPU %u didn't die...\n", cpu);
+ }
+-#else /* !CONFIG_HOTPLUG_CPU */
+-int __cpu_disable(void)
+-{
+-	return -ENOSYS;
+-}
+-
+-void __cpu_die(unsigned int cpu)
+-{
+-	/* We said "no" in __cpu_disable */
+-	BUG();
+-}
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
+ void
 
-	If the statements are unsafe, how can i change a bundle safely?
 
-Best Regards!
-Lai Jiangshan
+
