@@ -1,37 +1,73 @@
-From: "stephane eranian" <eranian@googlemail.com>
-Date: Wed, 12 Dec 2007 16:18:20 +0000
-Subject: Re: [PATCH 1/3] Rename TIF_PERFMON_WORK back to TIF_NOTIFY_RESUME
-Message-Id: <7c86c4470712120818k37f55cfavafe6cf6ede0c0684@mail.gmail.com>
+From: Aron Griffis <aron@hp.com>
+Date: Wed, 12 Dec 2007 15:07:51 +0000
+Subject: [PATCH 4 of 4] Add efi_guidtest_set to reduce duplication
+Message-Id: <81b2361265e2950b6a62.1197472071@jenkins.nashua>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1196959881.6586.6.camel@elijah.suse.cz>
-In-Reply-To: <1196959881.6586.6.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Petr,
+# HG changeset patch
+# User Aron Griffis <aron@hp.com>
+# Date 1197470701 18000
+# Node ID 81b2361265e2950b6a627c00e36a27aa43e3fdb5
+# Parent  cc913b598bc641c5584bff8ad379d4e213367076
+Add efi_guidtest_set to reduce duplication
+
+This is a list of duplicated tests.  Using a #define makes it easier to add new
+ones and harder to introduce an error.
+
+Signed-off-by: Aron Griffis <aron@hp.com>
+
+diff -r cc913b598bc6 -r 81b2361265e2 arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c	Wed Dec 12 09:43:15 2007 -0500
++++ b/arch/ia64/kernel/efi.c	Wed Dec 12 09:45:01 2007 -0500
+@@ -497,32 +497,20 @@ efi_init (void)
+ 	efi.hcdp       = EFI_INVALID_TABLE_ADDR;
+ 	efi.uga        = EFI_INVALID_TABLE_ADDR;
+ 
++#define efi_guidcmp_set(g, t, s)					       \
++	if (efi_guidcmp(config_tables[i].guid, g) = 0) {		       \
++		efi.t = config_tables[i].table;				       \
++		printk(" " s "=0x%lx", config_tables[i].table);		       \
++		continue;						       \
++	} else /* silly hack for semicolon */
++
+ 	for (i = 0; i < (int) efi.systab->nr_tables; i++) {
+-		if (efi_guidcmp(config_tables[i].guid, 
+-				MPS_TABLE_GUID) = 0) {
+-			efi.mps = config_tables[i].table;
+-			printk(" MPS=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, 
+-				       ACPI_20_TABLE_GUID) = 0) {
+-			efi.acpi20 = config_tables[i].table;
+-			printk(" ACPI 2.0=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, 
+-				       ACPI_TABLE_GUID) = 0) {
+-			efi.acpi = config_tables[i].table;
+-			printk(" ACPI=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, 
+-				       SMBIOS_TABLE_GUID) = 0) {
+-			efi.smbios = config_tables[i].table;
+-			printk(" SMBIOS=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, 
+-				       SAL_SYSTEM_TABLE_GUID) = 0) {
+-			efi.sal_systab = config_tables[i].table;
+-			printk(" SALsystab=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, 
+-				       HCDP_TABLE_GUID) = 0) {
+-			efi.hcdp = config_tables[i].table;
+-			printk(" HCDP=0x%lx", config_tables[i].table);
+-		}
++		efi_guidcmp_set(MPS_TABLE_GUID,        mps,        "MPS");
++		efi_guidcmp_set(ACPI_20_TABLE_GUID,    acpi20,     "ACPI 2.0");
++		efi_guidcmp_set(ACPI_TABLE_GUID,       acpi,       "ACPI");
++		efi_guidcmp_set(SMBIOS_TABLE_GUID,     smbios,     "SMBIOS");
++		efi_guidcmp_set(SAL_SYSTEM_TABLE_GUID, sal_systab, "SALsystab");
++		efi_guidcmp_set(HCDP_TABLE_GUID,       hcdp,       "HCDP");
+ 	}
+ 	printk("\n");
+ 
 
 
-On Dec 12, 2007 12:07 PM, Petr Tesarik <ptesarik@suse.cz> wrote:
->
-> I'm making a mental note to review this later for optimization. AFAICS
-> fetching the pfm_needs_checking field is not too costly, but of course
-> it's an extra memory reference (and possibly a cache miss).
->
-Yes. The TIF flag has the advantage of being in the same cacheline.
-
-> On a related note, I think that we should be able to use all 8 bits for
-> pending work TIF_ bits despite the brain-damaged sign extension in "and
-> imm8", but I don't have the time now to go through all uses of the
-> thread flags in assembly. Not really sure if it's worth adding one TIF_
-> bit, because we'll pretty certainly need one more bit in the future...
->
-Yes, I ran into that difficulty myself when I tried adding my TIF flag.
-Not sure how you could work around it.
-
-> Anyway, I'd like to push the changes to ptrace first, because that's
-> currently broken.
-That's fine. What you have right now show work.
-
-thanks.
