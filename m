@@ -1,47 +1,57 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 18 Dec 2007 07:49:49 +0000
-Subject: Re: [PATCH] arch/ia64/: Spelling fixes
-Message-Id: <47677B9D.2070507@sgi.com>
+From: akpm@linux-foundation.org
+Date: Thu, 13 Dec 2007 23:58:25 +0000
+Subject: [patch 1/3] IA64: Slim down __clear_bit_unlock
+Message-Id: <200712132358.lBDNwP6U025172@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1197919875-5288-6-git-send-email-joe@perches.com>
-In-Reply-To: <1197919875-5288-6-git-send-email-joe@perches.com>
+References: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
+In-Reply-To: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, linux-altix@sgi.com, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Joe,
+From: Christoph Lameter <clameter@sgi.com>
 
-I'm curious, do you have a patch that actually fixes something and adds
-value to the code? Maybe you could include the spelling fix with that to
-improve the S/N ratio?
+__clear_bit_unlock does not need to perform atomic operations on the
+variable.  Avoid a cmpxchg and simply do a store with release semantics. 
+Add a barrier to be safe that the compiler does not do funky things.
 
-In addition, posting a patch with no commit comment is no good, please
-read through Documentation/SubmittingPatches before posting an update
-to this.
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Acked-by: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-Thanks,
-Jes
+ include/asm-ia64/bitops.h |   17 ++++++++++++++---
+ 1 file changed, 14 insertions(+), 3 deletions(-)
 
-
-Joe Perches wrote:
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  arch/ia64/sn/pci/tioce_provider.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
-> index cee9379..e1a3e19 100644
-> --- a/arch/ia64/sn/pci/tioce_provider.c
-> +++ b/arch/ia64/sn/pci/tioce_provider.c
-> @@ -41,7 +41,7 @@
->   *	} else
->   *		do desired mmr access
->   *
-> - * According to hw, we can use reads instead of writes to the above addres
-> + * According to hw, we can use reads instead of writes to the above address
->   *
->   * Note this WAR can only to be used for accessing internal MMR's in the
->   * TIOCE Coretalk Address Range 0x0 - 0x07ff_ffff.  This includes the
-
+diff -puN include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock include/asm-ia64/bitops.h
+--- a/include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock
++++ a/include/asm-ia64/bitops.h
+@@ -124,10 +124,21 @@ clear_bit_unlock (int nr, volatile void 
+ /**
+  * __clear_bit_unlock - Non-atomically clear a bit with release
+  *
+- * This is like clear_bit_unlock, but the implementation may use a non-atomic
+- * store (this one uses an atomic, however).
++ * This is like clear_bit_unlock, but the implementation uses a store
++ * with release semantics. See also __raw_spin_unlock().
+  */
+-#define __clear_bit_unlock clear_bit_unlock
++static __inline__ void
++__clear_bit_unlock(int nr, volatile void *addr)
++{
++	__u32 mask, new;
++	volatile __u32 *m;
++
++	m = (volatile __u32 *)addr + (nr >> 5);
++	mask = ~(1 << (nr & 31));
++	new = *m & mask;
++	barrier();
++	asm volatile ("st4.rel.nta [%0] = %1\n\t" :: "r"(m), "r"(new));
++}
+ 
+ /**
+  * __clear_bit - Clears a bit in memory (non-atomic version)
+_
