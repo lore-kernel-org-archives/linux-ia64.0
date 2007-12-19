@@ -1,57 +1,55 @@
-From: akpm@linux-foundation.org
-Date: Thu, 13 Dec 2007 23:58:25 +0000
-Subject: [patch 1/3] IA64: Slim down __clear_bit_unlock
-Message-Id: <200712132358.lBDNwP6U025172@imap1.linux-foundation.org>
+From: David Chinner <dgc@sgi.com>
+Date: Wed, 19 Dec 2007 05:54:30 +0000
+Subject: [ia64] BUG: sleeping in atomic
+Message-Id: <20071219055430.GV4396912@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
-In-Reply-To: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: lkml <linux-kernel@vger.kernel.org>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-From: Christoph Lameter <clameter@sgi.com>
+Just saw this again:
 
-__clear_bit_unlock does not need to perform atomic operations on the
-variable.  Avoid a cmpxchg and simply do a store with release semantics. 
-Add a barrier to be safe that the compiler does not do funky things.
+[ 5667.086055] BUG: sleeping function called from invalid context at kernel=
+/fork.c:401
+[ 5667.087314] in_atomic():1, irqs_disabled():0
+[ 5667.088210]
+[ 5667.088212] Call Trace:
+[ 5667.089104]  [<a000000100015e00>] show_stack+0x80/0xa0
+[ 5667.089106]                                 sp=E0000038f6507a00 bsp=E000=
+0038f6500f48
+[ 5667.116025]  [<a000000100015e50>] dump_stack+0x30/0x60
+[ 5667.116028]                                 sp=E0000038f6507bd0 bsp=E000=
+0038f6500f30
+[ 5667.118317]  [<a0000001000af8a0>] __might_sleep+0x1e0/0x200
+[ 5667.118320]                                 sp=E0000038f6507bd0 bsp=E000=
+0038f6500f08
+[ 5667.142316]  [<a0000001000c55a0>] mmput+0x20/0x220
+[ 5667.142319]                                 sp=E0000038f6507bd0 bsp=E000=
+0038f6500ee0
+[ 5667.164201]  [<a000000100033ae0>] sys_ptrace+0x460/0x15c0
+[ 5667.164203]                                 sp=E0000038f6507bd0 bsp=E000=
+0038f6500dd0
+[ 5667.175488]  [<a00000010000b4a0>] ia64_ret_from_syscall+0x0/0x20
+[ 5667.175490]                                 sp=E0000038f6507e30 bsp=E000=
+0038f6500dd0
+[ 5667.199324]  [<a000000000010620>] __kernel_syscall_via_break+0x0/0x20
+[ 5667.199327]                                 sp=E0000038f6508000 bsp=E000=
+0038f6500dd0
+[ 5682.626704] BUG: sleeping function called from invalid context at kernel=
+/fork.c:401
 
-[akpm@linux-foundation.org: coding-style fixes]
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-Acked-by: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
+When stracing a process on 2.6.24-rc3 on ia64. commandline to reproduce:
 
- include/asm-ia64/bitops.h |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+# strace ls -l /mnt/scratch/test
 
-diff -puN include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock include/asm-ia64/bitops.h
---- a/include/asm-ia64/bitops.h~ia64-slim-down-__clear_bit_unlock
-+++ a/include/asm-ia64/bitops.h
-@@ -124,10 +124,21 @@ clear_bit_unlock (int nr, volatile void 
- /**
-  * __clear_bit_unlock - Non-atomically clear a bit with release
-  *
-- * This is like clear_bit_unlock, but the implementation may use a non-atomic
-- * store (this one uses an atomic, however).
-+ * This is like clear_bit_unlock, but the implementation uses a store
-+ * with release semantics. See also __raw_spin_unlock().
-  */
--#define __clear_bit_unlock clear_bit_unlock
-+static __inline__ void
-+__clear_bit_unlock(int nr, volatile void *addr)
-+{
-+	__u32 mask, new;
-+	volatile __u32 *m;
-+
-+	m = (volatile __u32 *)addr + (nr >> 5);
-+	mask = ~(1 << (nr & 31));
-+	new = *m & mask;
-+	barrier();
-+	asm volatile ("st4.rel.nta [%0] = %1\n\t" :: "r"(m), "r"(new));
-+}
- 
- /**
-  * __clear_bit - Clears a bit in memory (non-atomic version)
-_
+ISTR reporting this some time ago (maybe 2.6.22?)....
+
+Cheers,
+
+Dave.
+--=20
+Dave Chinner
+Principal Engineer
+SGI Australian Software Group
