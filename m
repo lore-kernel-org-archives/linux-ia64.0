@@ -1,55 +1,70 @@
-From: David Chinner <dgc@sgi.com>
-Date: Wed, 19 Dec 2007 05:54:30 +0000
-Subject: [ia64] BUG: sleeping in atomic
-Message-Id: <20071219055430.GV4396912@sgi.com>
+From: Kyle McMartin <kyle@mcmartin.ca>
+Date: Wed, 19 Dec 2007 16:42:04 +0000
+Subject: Re: [ia64] BUG: sleeping in atomic
+Message-Id: <20071219164204.GA18161@fattire.cabal.ca>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20071219055430.GV4396912@sgi.com>
+In-Reply-To: <20071219055430.GV4396912@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: lkml <linux-kernel@vger.kernel.org>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: David Chinner <dgc@sgi.com>
+Cc: lkml <linux-kernel@vger.kernel.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-Just saw this again:
+On Wed, Dec 19, 2007 at 04:54:30PM +1100, David Chinner wrote:
+> [ 5667.086055] BUG: sleeping function called from invalid context at kernel/fork.c:401
+> 
 
-[ 5667.086055] BUG: sleeping function called from invalid context at kernel=
-/fork.c:401
-[ 5667.087314] in_atomic():1, irqs_disabled():0
-[ 5667.088210]
-[ 5667.088212] Call Trace:
-[ 5667.089104]  [<a000000100015e00>] show_stack+0x80/0xa0
-[ 5667.089106]                                 sp=E0000038f6507a00 bsp=E000=
-0038f6500f48
-[ 5667.116025]  [<a000000100015e50>] dump_stack+0x30/0x60
-[ 5667.116028]                                 sp=E0000038f6507bd0 bsp=E000=
-0038f6500f30
-[ 5667.118317]  [<a0000001000af8a0>] __might_sleep+0x1e0/0x200
-[ 5667.118320]                                 sp=E0000038f6507bd0 bsp=E000=
-0038f6500f08
-[ 5667.142316]  [<a0000001000c55a0>] mmput+0x20/0x220
-[ 5667.142319]                                 sp=E0000038f6507bd0 bsp=E000=
-0038f6500ee0
-[ 5667.164201]  [<a000000100033ae0>] sys_ptrace+0x460/0x15c0
-[ 5667.164203]                                 sp=E0000038f6507bd0 bsp=E000=
-0038f6500dd0
-[ 5667.175488]  [<a00000010000b4a0>] ia64_ret_from_syscall+0x0/0x20
-[ 5667.175490]                                 sp=E0000038f6507e30 bsp=E000=
-0038f6500dd0
-[ 5667.199324]  [<a000000000010620>] __kernel_syscall_via_break+0x0/0x20
-[ 5667.199327]                                 sp=E0000038f6508000 bsp=E000=
-0038f6500dd0
-[ 5682.626704] BUG: sleeping function called from invalid context at kernel=
-/fork.c:401
+The problem is that mmput is called under the read_lock by
+find_thread_for_addr... The comment above seems to indicate that gdb
+needs to be able to access any child tasks register backing store
+memory... This seems pretty broken.
 
-When stracing a process on 2.6.24-rc3 on ia64. commandline to reproduce:
+cheers, Kyle
 
-# strace ls -l /mnt/scratch/test
+---
 
-ISTR reporting this some time ago (maybe 2.6.22?)....
+Who knows, maybe gdb is saner now?
 
-Cheers,
-
-Dave.
---=20
-Dave Chinner
-Principal Engineer
-SGI Australian Software Group
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 2e96f17..b609704 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -1418,7 +1418,7 @@ asmlinkage long
+ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
+ {
+ 	struct pt_regs *pt;
+-	unsigned long urbs_end, peek_or_poke;
++	unsigned long urbs_end;
+ 	struct task_struct *child;
+ 	struct switch_stack *sw;
+ 	long ret;
+@@ -1430,23 +1430,12 @@ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
+ 		goto out;
+ 	}
+ 
+-	peek_or_poke = (request = PTRACE_PEEKTEXT
+-			|| request = PTRACE_PEEKDATA
+-			|| request = PTRACE_POKETEXT
+-			|| request = PTRACE_POKEDATA);
+-	ret = -ESRCH;
+-	read_lock(&tasklist_lock);
+-	{
+-		child = find_task_by_pid(pid);
+-		if (child) {
+-			if (peek_or_poke)
+-				child = find_thread_for_addr(child, addr);
+-			get_task_struct(child);
+-		}
+-	}
+-	read_unlock(&tasklist_lock);
+-	if (!child)
++	child = ptrace_get_task_struct(pid);
++	if (IS_ERR(child)) {
++		ret = PTR_ERR(child);
+ 		goto out;
++	}
++
+ 	ret = -EPERM;
+ 	if (pid = 1)		/* no messing around with init! */
+ 		goto out_tsk;
