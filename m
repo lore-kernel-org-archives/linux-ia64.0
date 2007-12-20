@@ -1,36 +1,20 @@
-From: akpm@linux-foundation.org
-Date: Wed, 05 Dec 2007 22:32:13 +0000
-Subject: [patch 1/3] ia64: increase .data.patch offset
-Message-Id: <200712052232.lB5MWEuw028391@imap1.linux-foundation.org>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Thu, 20 Dec 2007 05:49:28 +0000
+Subject: [10-17/17] PATCH 11-17 of kvm/ia64 V2
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCB139DB@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
+> [11/17] Add processor virtulization support
+> [12/17] Some optimizations for virtualization faults.
+> [13/17] Generating offset values for assembly code use.
+> [14/17] Guest interruption injection support.
+> [15/17] Add Kconfig for choosing kvm support on IA64.
+> [16/17] Add Makefile for compiling source files.
+> [17/17] Adding kvm compile support in Kconfig and Makefile file
 
-I get this:
-
-/opt/crosstool/gcc-3.4.5-glibc-2.3.6/ia64-unknown-linux-gnu/lib/gcc/ia64-unknown-linux-gnu/3.4.5/../../../../ia64-unknown-linux-gnu/bin/ld: section .data.patch [a000000000000500 -> a000000000000507] overlaps section .dynamic [a0000000000003c8 -> a000000000000507]
-
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- arch/ia64/kernel/gate.lds.S |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN arch/ia64/kernel/gate.lds.S~ia64-increase-datapatch-offset arch/ia64/kernel/gate.lds.S
---- a/arch/ia64/kernel/gate.lds.S~ia64-increase-datapatch-offset
-+++ a/arch/ia64/kernel/gate.lds.S
-@@ -30,7 +30,7 @@ SECTIONS
- 	 * the dynamic symbol table et al.  If this amount is insufficient,
- 	 * ld -shared will barf.  Just increase it here.
- 	 */
--	. = GATE_ADDR + 0x500;
-+	. = GATE_ADDR + 0x600;
- 
- 	.data.patch		: {
- 		__start_gate_mckinley_e9_patchlist = .;
-_
+Signed-off-by : Zhang Xiantao (xiantao.zhang@intel.com)
