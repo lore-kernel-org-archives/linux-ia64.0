@@ -1,7 +1,7 @@
 From: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Date: Fri, 21 Dec 2007 07:07:06 +0000
+Date: Fri, 21 Dec 2007 07:44:16 +0000
 Subject: Re: [kvm-devel] [1-5/17] Patch 1-10 of kvm/ia64 V2
-Message-Id: <8FC843A018A012takebe_akio@jp.fujitsu.com>
+Message-Id: <92C843A5499377takebe_akio@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42DFA526FC41B1429CE7279EF83C6BDCB139D3@pdsmsx415.ccr.corp.intel.com>
 In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDCB139D3-wq7ZOvIWXbMAbVU2wMM1CrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
@@ -13,68 +13,40 @@ Cc: "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64
 
 Hi, Xiantao
 
-I got reading kvm-ia64 started. :)
-Which member is p2m table?
+>> [3/17] Add firmware virtualization support.
 
-> [2/17] Add kvm-ia64.c to support kvm module on Itanium processors.
-Some trivial comments.
-
-+int kvm_arch_init(void *opaque)
++void kvm_sal_emul(struct kvm_vcpu *vcpu)
 +{
-+	int r;
-+	struct kvm_vmm_info *vmm_info = (struct kvm_vmm_info *)opaque;
 +
-+	if (kvm_vmm_info) {
-+		printk(KERN_ERR "kvm: already loaded the other module!\n");
-+		r = -EEXIST;
-+		goto out;
-+	}
++	struct sal_ret_values result;
++	u64 index, in1, in2, in3, in4, in5, in6, in7;
 +
-+	r =  -ENOMEM;
-extra white space.
-
-+	kvm_vmm_info = kzalloc(sizeof(struct kvm_vmm_info), GFP_KERNEL);
-+	if (!kvm_vmm_info)
-+		goto out;
-+
-Can we get the message of shortage of memory by qemu?
-
-+	if (!vti_cpu_has_kvm_support()) {
-+		printk(KERN_ERR "kvm: no hardware support\n");
-+		r = -EOPNOTSUPP;
-+		goto out_free0;
-+	}
-+
-We had better check vti support at the first.
-
-+	kvm_hack_insert_tr();
-+
-+	if (kvm_alloc_vmm_area())
-+		goto out_free0;
-+
-r = kvm_alloc_vmm_area() is better.
-
-+	r = kvm_relocate_vmm(vmm_info, vmm_info->module);
-+	if (r)
-+		goto out_free1;
-+
-+	return 0;
-+
-+out_free1:
-+	kvm_free_vmm_area();
-+out_free0:
-+	kfree(kvm_vmm_info);
-+out:
-+	return r;
++	kvm_get_sal_call_data(vcpu, &index, &in1, &in2,
++			&in3, &in4, &in5, &in6, &in7);
++	if (index) {
++		result = sal_emulator(index, in1, in2, in3,
++						in4, in5, in6, in7);
++		set_sal_result(vcpu, result);
++	} else
++		printk(KERN_WARNING"kvm:Unsupported sal call called,"
++					" index:%d!\n", index);
 +}
-+
-+void kvm_arch_exit(void)
+The printk always show index:0.
+And set_sal_result() doesn't work at the time of index=0.
+So I think the following code is better.
+
++void kvm_sal_emul(struct kvm_vcpu *vcpu)
 +{
-+	kvm_free_vmm_area();
-+	kfree(kvm_vmm_info);
-+	kvm_vmm_info = 0;
++
++	struct sal_ret_values result;
++	u64 index, in1, in2, in3, in4, in5, in6, in7;
++
++	kvm_get_sal_call_data(vcpu, &index, &in1, &in2,
++			&in3, &in4, &in5, &in6, &in7);
++	result = sal_emulator(index, in1, in2, in3,
++					in4, in5, in6, in7);
++	set_sal_result(vcpu, result);
 +}
-kvm_vmm_info = (void *)0?
 
 Best Regards,
 
