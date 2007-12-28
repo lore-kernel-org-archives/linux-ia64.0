@@ -1,52 +1,98 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 12 Dec 2007 07:28:52 +0000
-Subject: [PATCH] ia64: Remove compiler warnings on head.S
-Message-Id: <475F8DB4.9040306@jp.fujitsu.com>
+From: travis@sgi.com
+Date: Fri, 28 Dec 2007 00:16:26 +0000
+Subject: [PATCH 09/10] ia64: Use generic percpu
+Message-Id: <20071228001618.816048000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <475F8A87.60802@jp.fujitsu.com>
-In-Reply-To: <475F8A87.60802@jp.fujitsu.com>
+References: <20071228001617.597161000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-Hi,
+V1->V2:
+- Merge fixes
+- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
 
-And another warning fix is here.
+ia64 has a special processor specific mapping that can be used to locate the
+offset for the current per cpu area.
 
-Thanks,
-H.Seto
-
----
-This patch removes the following compiler warning messages.
-
-  AS      arch/ia64/kernel/head.o
-arch/ia64/kernel/head.S: Assembler messages:
-arch/ia64/kernel/head.S:1179: Warning: Use of 'ld8' violates RAW dependency 'CR[PTA]' (data)
-arch/ia64/kernel/head.S:1179: Warning: Only the first path encountering the conflict is reported
-arch/ia64/kernel/head.S:1178: Warning: This is the location of the conflicting usage
-arch/ia64/kernel/head.S:1180: Warning: Use of 'ld8' violates RAW dependency 'CR[PTA]' (data)
-arch/ia64/kernel/head.S:1180: Warning: Only the first path encountering the conflict is reported
-arch/ia64/kernel/head.S:1178: Warning: This is the location of the conflicting usage
- :
-arch/ia64/kernel/head.S:1213: Warning: Use of 'ldf.fill.nta' violates RAW dependency 'CR[PTA]' (data)
-arch/ia64/kernel/head.S:1213: Warning: Only the first path encountering the conflict is reported
-arch/ia64/kernel/head.S:1178: Warning: This is the location of the conflicting usage
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: tony.luck@intel.com
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Mike Travis <travis@sgi.com>
 
 ---
- arch/ia64/kernel/head.S |    1 +
- 1 file changed, 1 insertion(+)
+ include/asm-ia64/percpu.h |   25 +++++++------------------
+ include/linux/percpu.h    |    4 ----
+ 2 files changed, 7 insertions(+), 22 deletions(-)
 
-Index: linux-2.6.24-rc5/arch/ia64/kernel/head.S
-=================================--- linux-2.6.24-rc5.orig/arch/ia64/kernel/head.S
-+++ linux-2.6.24-rc5/arch/ia64/kernel/head.S
-@@ -1176,6 +1176,7 @@
- 	RESTORE_REG(cr.dcr, r25, r17);;
- 	RESTORE_REG(cr.iva, r25, r17);;
- 	RESTORE_REG(cr.pta, r25, r17);;
-+	srlz.d;;	// required not to violate RAW dependency
- 	RESTORE_REG(cr.itv, r25, r17);;
- 	RESTORE_REG(cr.pmv, r25, r17);;
- 	RESTORE_REG(cr.cmcv, r25, r17);;
+--- a/include/asm-ia64/percpu.h
++++ b/include/asm-ia64/percpu.h
+@@ -12,36 +12,20 @@
+ # define THIS_CPU(var)	(per_cpu__##var)  /* use this to mark accesses to per-CPU variables... */
+ #else /* !__ASSEMBLY__ */
+ 
+-
+ #include <linux/threads.h>
+ 
+ #ifdef HAVE_MODEL_SMALL_ATTRIBUTE
+ # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
+ #endif
+ 
+-#define DECLARE_PER_CPU(type, name)				\
+-	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
+-
+ #ifdef CONFIG_SMP
+ 
+-extern unsigned long __per_cpu_offset[NR_CPUS];
+-#define per_cpu_offset(x) (__per_cpu_offset[x])
+-
+-/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
+-DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+-
+-#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
+-#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+-#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
++#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
+ 
+-extern void setup_per_cpu_areas (void);
+ extern void *per_cpu_init(void);
+ 
+ #else /* ! SMP */
+ 
+-#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
+-#define __get_cpu_var(var)			per_cpu__##var
+-#define __raw_get_cpu_var(var)			per_cpu__##var
+ #define per_cpu_init()				(__phys_per_cpu_start)
+ 
+ #endif	/* SMP */
+@@ -52,7 +36,12 @@ extern void *per_cpu_init(void);
+  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
+  * more efficient.
+  */
+-#define __ia64_per_cpu_var(var)	(per_cpu__##var)
++#define __ia64_per_cpu_var(var)	per_cpu__##var
++
++#include <asm-generic/percpu.h>
++
++/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
++DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+ 
+ #endif /* !__ASSEMBLY__ */
+ 
+--- a/include/linux/percpu.h
++++ b/include/linux/percpu.h
+@@ -9,10 +9,6 @@
+ 
+ #include <asm/percpu.h>
+ 
+-#ifndef PER_CPU_ATTRIBUTES
+-#define PER_CPU_ATTRIBUTES
+-#endif
+-
+ #define DEFINE_PER_CPU(type, name)					\
+ 	__attribute__((__section__(".data.percpu")))			\
+ 	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
+
+-- 
