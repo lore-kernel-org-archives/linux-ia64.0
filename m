@@ -1,48 +1,24 @@
-From: Mike Travis <travis@sgi.com>
-Date: Wed, 30 Jan 2008 21:57:31 +0000
-Subject: Re: [PATCH 2/6] percpu: Change Kconfig to HAVE_SETUP_PER_CPU_AREA
-Message-Id: <47A0F2CB.3070204@sgi.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Wed, 02 Jan 2008 09:54:01 +0000
+Subject: Re: [patch 1/3] IA64: Slim down __clear_bit_unlock
+Message-Id: <477B5F39.3090106@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080130180940.022172000@sgi.com> <20080130180940.369732000@sgi.com> <20080130215015.GA28242@elte.hu>
-In-Reply-To: <20080130215015.GA28242@elte.hu>
+References: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
+In-Reply-To: <200711212258.lALMwPnR013399@imap1.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, Sam Ravnborg <sam@ravnborg.org>, Rusty Russell <rusty@rustcorp.com.au>, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Ingo Molnar wrote:
-> * travis@sgi.com <travis@sgi.com> wrote:
-> 
->> Change:
->> 	config ARCH_SETS_UP_PER_CPU_AREA
->> to:
->> 	config HAVE_SETUP_PER_CPU_AREA
-> 
-> undocumented change:
-> 
->>  config ARCH_NO_VIRT_TO_BUS
->> --- a/init/main.c
->> +++ b/init/main.c
->> @@ -380,6 +380,8 @@ static void __init setup_per_cpu_areas(v
->>  
->>  	/* Copy section for each CPU (we discard the original) */
->>  	size = ALIGN(PERCPU_ENOUGH_ROOM, PAGE_SIZE);
->> +	printk(KERN_INFO
->> +	    "PERCPU: Allocating %lu bytes of per cpu data (main)\n", size);
->>  	ptr = alloc_bootmem_pages(size * nr_possible_cpus);
-> 
-> but looks fine to me.
-> 
-> 	Ingo
+Apparently, you reposted the same patch as you did on the 21st of November.
 
-Sorry, I should have noted this.  The primary reason I put this in, is
-that if the HAVE_SETUP_PER_CPU_AREA is not set when it should be, then
-the incorrect (generic) setup_per_cpu_areas() is used and weird things
-happen later on.  The above line documents that PERCPU has been allocated
-by init/main.c version of this function in the startup messages.
-(Since it's a static function, there is no "duplicate label" error in
-the linker.)
+So let me ask again, why you use "volatile" here, why you need an ".acq"
+on this load:
+
+> +	m = (volatile __u32 *)addr + (nr >> 5);
+
+I still think the right solution is in my post on the 22nd of November.
 
 Thanks,
-Mike
+
+Zoltan Menyhart
