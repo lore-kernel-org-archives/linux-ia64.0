@@ -1,26 +1,117 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 14 Jan 2008 07:41:51 +0000
-Subject: Re: [PATCH] Fix kprobes on ia64
-Message-Id: <20080114074151.GA15431@infradead.org>
+From: travis@sgi.com
+Date: Tue, 08 Jan 2008 02:11:51 +0000
+Subject: [PATCH 09/10] ia64: Use generic percpu
+Message-Id: <20080108021144.153400000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080114022423.GH18741@parisc-linux.org>
-In-Reply-To: <20080114022423.GH18741@parisc-linux.org>
+References: <20080108021142.585467000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+To: mingo@elte.hu, Andrew Morton <akpm@linux-foundation.org>, Andi Kleen <ak@suse.de>, Christoph Lameter <clameter@sgi.com>
+Cc: Jack Steiner <steiner@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-On Sun, Jan 13, 2008 at 07:24:24PM -0700, Matthew Wilcox wrote:
-> If CONFIG_KPROBES is set, we get the error during build:
-> 
-> kernel/kprobes.c:1057: error: __ksymtab_jprobe_return causes a section
-> type conflict
-> 
-> This is because ia64 defines a static inline jprobe_return which kprobes
-> attempts to EXPORT_SYMBOL.
+V1->V2:
+- Merge fixes
+- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
 
-Given that jprobe_return is defined in the arch-specific kprobes.c file
-it would be better to export it there instead of in kernel/kprobe.c, or
-in case of ia64 not export it at all.
+V2-.V3:
+- use generic percpy_modcopy()
 
+ia64 has a special processor specific mapping that can be used to locate the
+offset for the current per cpu area.
+
+Cc: linux-ia64@vger.kernel.org
+Cc: tony.luck@intel.com
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Mike Travis <travis@sgi.com>
+
+---
+ arch/ia64/kernel/module.c |   11 -----------
+ include/asm-ia64/percpu.h |   29 +++++++----------------------
+ include/linux/percpu.h    |    4 ----
+ 3 files changed, 7 insertions(+), 37 deletions(-)
+
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -940,14 +940,3 @@ module_arch_cleanup (struct module *mod)
+ 	if (mod->arch.core_unw_table)
+ 		unw_remove_unwind_table(mod->arch.core_unw_table);
+ }
+-
+-#ifdef CONFIG_SMP
+-void
+-percpu_modcopy (void *pcpudst, const void *src, unsigned long size)
+-{
+-	unsigned int i;
+-	for_each_possible_cpu(i) {
+-		memcpy(pcpudst + per_cpu_offset(i), src, size);
+-	}
+-}
+-#endif /* CONFIG_SMP */
+--- a/include/asm-ia64/percpu.h
++++ b/include/asm-ia64/percpu.h
+@@ -19,34 +19,14 @@
+ # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
+ #endif
+ 
+-#define DECLARE_PER_CPU(type, name)				\
+-	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
+-
+-/*
+- * Pretty much a literal copy of asm-generic/percpu.h, except that percpu_modcopy() is an
+- * external routine, to avoid include-hell.
+- */
+ #ifdef CONFIG_SMP
+ 
+-extern unsigned long __per_cpu_offset[NR_CPUS];
+-#define per_cpu_offset(x) (__per_cpu_offset[x])
+-
+-/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
+-DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
++#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
+ 
+-#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
+-#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+-#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+-
+-extern void percpu_modcopy(void *pcpudst, const void *src, unsigned long size);
+-extern void setup_per_cpu_areas (void);
+ extern void *per_cpu_init(void);
+ 
+ #else /* ! SMP */
+ 
+-#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
+-#define __get_cpu_var(var)			per_cpu__##var
+-#define __raw_get_cpu_var(var)			per_cpu__##var
+ #define per_cpu_init()				(__phys_per_cpu_start)
+ 
+ #endif	/* SMP */
+@@ -57,7 +37,12 @@ extern void *per_cpu_init(void);
+  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
+  * more efficient.
+  */
+-#define __ia64_per_cpu_var(var)	(per_cpu__##var)
++#define __ia64_per_cpu_var(var)	per_cpu__##var
++
++#include <asm-generic/percpu.h>
++
++/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
++DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+ 
+ #endif /* !__ASSEMBLY__ */
+ 
+--- a/include/linux/percpu.h
++++ b/include/linux/percpu.h
+@@ -9,10 +9,6 @@
+ 
+ #include <asm/percpu.h>
+ 
+-#ifndef PER_CPU_ATTRIBUTES
+-#define PER_CPU_ATTRIBUTES
+-#endif
+-
+ #ifdef CONFIG_SMP
+ #define DEFINE_PER_CPU(type, name)					\
+ 	__attribute__((__section__(".data.percpu")))			\
+
+-- 
