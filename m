@@ -1,506 +1,745 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Thu, 31 Jan 2008 10:30:22 +0000
-Subject: [PATCH][16] Generate offset values for assembly code use.
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCD31FD3@pdsmsx415.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C863F4.49773147"
+From: Aron Griffis <aron@hp.com>
+Date: Wed, 09 Jan 2008 03:29:36 +0000
+Subject: [PATCH 1 of 3] Make efi.c mostly fit in 80 columns
+Message-Id: <75e99ef90c594f17d715.1199849376@jenkins.nashua>
 List-Id: <linux-ia64.vger.kernel.org>
-To: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Cc: kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+1 file changed, 263 insertions(+), 220 deletions(-)
+arch/ia64/kernel/efi.c |  483 ++++++++++++++++++++++++++----------------------
 
-------_=_NextPart_001_01C863F4.49773147
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
 
-From: Zhang Xiantao <xiantao.zhang@intel.com>
-Date: Tue, 29 Jan 2008 14:40:41 +0800
-Subject: [PATCH] kvm/ia64: Generate offset values for assembly code use.
+This patch is purely whitespace changes to make the code fit in 80
+columns, plus fix some inconsistent indentation.  The efi_guidcmp()
+tests remain wider than 80-columns since that seems to be the most
+clear.
 
-asm-offsets.c will generate offset values used for assembly code
-for some fileds of special structures.
+Signed-off-by: Aron Griffis <aron@hp.com>
 
-Signed-off-by: Anthony Xu <anthony.xu@intel.com>
-Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
----
- arch/ia64/kvm/asm-offsets.c |  251
-+++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 251 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kvm/asm-offsets.c
+diff -r 22950da17ae6 -r 75e99ef90c59 arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c	Sun Jan 06 23:00:55 2008 +0000
++++ b/arch/ia64/kernel/efi.c	Tue Jan 08 22:29:29 2008 -0500
+@@ -1,7 +1,8 @@
+ /*
+  * Extensible Firmware Interface
+  *
+- * Based on Extensible Firmware Interface Specification version 0.9 April 30, 1999
++ * Based on Extensible Firmware Interface Specification version 0.9
++ * April 30, 1999
+  *
+  * Copyright (C) 1999 VA Linux Systems
+  * Copyright (C) 1999 Walt Drummond <drummond@valinux.com>
+@@ -48,145 +49,157 @@ static unsigned long mem_limit = ~0UL, m
+ 
+ #define efi_call_virt(f, args...)	(*(f))(args)
+ 
+-#define STUB_GET_TIME(prefix, adjust_arg)							  \
+-static efi_status_t										  \
+-prefix##_get_time (efi_time_t *tm, efi_time_cap_t *tc)						  \
+-{												  \
+-	struct ia64_fpreg fr[6];								  \
+-	efi_time_cap_t *atc = NULL;								  \
+-	efi_status_t ret;									  \
+-												  \
+-	if (tc)											  \
+-		atc = adjust_arg(tc);								  \
+-	ia64_save_scratch_fpregs(fr);								  \
+-	ret = efi_call_##prefix((efi_get_time_t *) __va(runtime->get_time), adjust_arg(tm), atc); \
+-	ia64_load_scratch_fpregs(fr);								  \
+-	return ret;										  \
++#define STUB_GET_TIME(prefix, adjust_arg)				       \
++static efi_status_t							       \
++prefix##_get_time (efi_time_t *tm, efi_time_cap_t *tc)			       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_time_cap_t *atc = NULL;					       \
++	efi_status_t ret;						       \
++									       \
++	if (tc)								       \
++		atc = adjust_arg(tc);					       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix((efi_get_time_t *) __va(runtime->get_time),    \
++				adjust_arg(tm), atc);			       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_SET_TIME(prefix, adjust_arg)							\
+-static efi_status_t										\
+-prefix##_set_time (efi_time_t *tm)								\
+-{												\
+-	struct ia64_fpreg fr[6];								\
+-	efi_status_t ret;									\
+-												\
+-	ia64_save_scratch_fpregs(fr);								\
+-	ret = efi_call_##prefix((efi_set_time_t *) __va(runtime->set_time), adjust_arg(tm));	\
+-	ia64_load_scratch_fpregs(fr);								\
+-	return ret;										\
++#define STUB_SET_TIME(prefix, adjust_arg)				       \
++static efi_status_t							       \
++prefix##_set_time (efi_time_t *tm)					       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_status_t ret;						       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix((efi_set_time_t *) __va(runtime->set_time),    \
++				adjust_arg(tm));			       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_GET_WAKEUP_TIME(prefix, adjust_arg)						\
+-static efi_status_t										\
+-prefix##_get_wakeup_time (efi_bool_t *enabled, efi_bool_t *pending, efi_time_t *tm)		\
+-{												\
+-	struct ia64_fpreg fr[6];								\
+-	efi_status_t ret;									\
+-												\
+-	ia64_save_scratch_fpregs(fr);								\
+-	ret = efi_call_##prefix((efi_get_wakeup_time_t *) __va(runtime->get_wakeup_time),	\
+-				adjust_arg(enabled), adjust_arg(pending), adjust_arg(tm));	\
+-	ia64_load_scratch_fpregs(fr);								\
+-	return ret;										\
++#define STUB_GET_WAKEUP_TIME(prefix, adjust_arg)			       \
++static efi_status_t							       \
++prefix##_get_wakeup_time (efi_bool_t *enabled, efi_bool_t *pending,	       \
++			  efi_time_t *tm)				       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_status_t ret;						       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix(					       \
++		(efi_get_wakeup_time_t *) __va(runtime->get_wakeup_time),      \
++		adjust_arg(enabled), adjust_arg(pending), adjust_arg(tm));     \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_SET_WAKEUP_TIME(prefix, adjust_arg)						\
+-static efi_status_t										\
+-prefix##_set_wakeup_time (efi_bool_t enabled, efi_time_t *tm)					\
+-{												\
+-	struct ia64_fpreg fr[6];								\
+-	efi_time_t *atm = NULL;									\
+-	efi_status_t ret;									\
+-												\
+-	if (tm)											\
+-		atm = adjust_arg(tm);								\
+-	ia64_save_scratch_fpregs(fr);								\
+-	ret = efi_call_##prefix((efi_set_wakeup_time_t *) __va(runtime->set_wakeup_time),	\
+-				enabled, atm);							\
+-	ia64_load_scratch_fpregs(fr);								\
+-	return ret;										\
++#define STUB_SET_WAKEUP_TIME(prefix, adjust_arg)			       \
++static efi_status_t							       \
++prefix##_set_wakeup_time (efi_bool_t enabled, efi_time_t *tm)		       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_time_t *atm = NULL;						       \
++	efi_status_t ret;						       \
++									       \
++	if (tm)								       \
++		atm = adjust_arg(tm);					       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix(					       \
++		(efi_set_wakeup_time_t *) __va(runtime->set_wakeup_time),      \
++		enabled, atm);						       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_GET_VARIABLE(prefix, adjust_arg)						\
+-static efi_status_t									\
+-prefix##_get_variable (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,		\
+-		       unsigned long *data_size, void *data)				\
+-{											\
+-	struct ia64_fpreg fr[6];							\
+-	u32 *aattr = NULL;									\
+-	efi_status_t ret;								\
+-											\
+-	if (attr)									\
+-		aattr = adjust_arg(attr);						\
+-	ia64_save_scratch_fpregs(fr);							\
+-	ret = efi_call_##prefix((efi_get_variable_t *) __va(runtime->get_variable),	\
+-				adjust_arg(name), adjust_arg(vendor), aattr,		\
+-				adjust_arg(data_size), adjust_arg(data));		\
+-	ia64_load_scratch_fpregs(fr);							\
+-	return ret;									\
++#define STUB_GET_VARIABLE(prefix, adjust_arg)				       \
++static efi_status_t							       \
++prefix##_get_variable (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,      \
++		       unsigned long *data_size, void *data)		       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	u32 *aattr = NULL;						       \
++	efi_status_t ret;						       \
++									       \
++	if (attr)							       \
++		aattr = adjust_arg(attr);				       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix(					       \
++		(efi_get_variable_t *) __va(runtime->get_variable),	       \
++		adjust_arg(name), adjust_arg(vendor), aattr,		       \
++		adjust_arg(data_size), adjust_arg(data));		       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_GET_NEXT_VARIABLE(prefix, adjust_arg)						\
+-static efi_status_t										\
+-prefix##_get_next_variable (unsigned long *name_size, efi_char16_t *name, efi_guid_t *vendor)	\
+-{												\
+-	struct ia64_fpreg fr[6];								\
+-	efi_status_t ret;									\
+-												\
+-	ia64_save_scratch_fpregs(fr);								\
+-	ret = efi_call_##prefix((efi_get_next_variable_t *) __va(runtime->get_next_variable),	\
+-				adjust_arg(name_size), adjust_arg(name), adjust_arg(vendor));	\
+-	ia64_load_scratch_fpregs(fr);								\
+-	return ret;										\
++#define STUB_GET_NEXT_VARIABLE(prefix, adjust_arg)			       \
++static efi_status_t							       \
++prefix##_get_next_variable (unsigned long *name_size, efi_char16_t *name,      \
++			    efi_guid_t *vendor)				       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_status_t ret;						       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix(					       \
++		(efi_get_next_variable_t *) __va(runtime->get_next_variable),  \
++		adjust_arg(name_size), adjust_arg(name), adjust_arg(vendor));  \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_SET_VARIABLE(prefix, adjust_arg)						\
+-static efi_status_t									\
+-prefix##_set_variable (efi_char16_t *name, efi_guid_t *vendor, unsigned long attr,	\
+-		       unsigned long data_size, void *data)				\
+-{											\
+-	struct ia64_fpreg fr[6];							\
+-	efi_status_t ret;								\
+-											\
+-	ia64_save_scratch_fpregs(fr);							\
+-	ret = efi_call_##prefix((efi_set_variable_t *) __va(runtime->set_variable),	\
+-				adjust_arg(name), adjust_arg(vendor), attr, data_size,	\
+-				adjust_arg(data));					\
+-	ia64_load_scratch_fpregs(fr);							\
+-	return ret;									\
++#define STUB_SET_VARIABLE(prefix, adjust_arg)				       \
++static efi_status_t							       \
++prefix##_set_variable (efi_char16_t *name, efi_guid_t *vendor,		       \
++		       unsigned long attr, unsigned long data_size,	       \
++		       void *data)					       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_status_t ret;						       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix(					       \
++		(efi_set_variable_t *) __va(runtime->set_variable),	       \
++		adjust_arg(name), adjust_arg(vendor), attr, data_size,	       \
++		adjust_arg(data));					       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_GET_NEXT_HIGH_MONO_COUNT(prefix, adjust_arg)					\
+-static efi_status_t										\
+-prefix##_get_next_high_mono_count (u32 *count)							\
+-{												\
+-	struct ia64_fpreg fr[6];								\
+-	efi_status_t ret;									\
+-												\
+-	ia64_save_scratch_fpregs(fr);								\
+-	ret = efi_call_##prefix((efi_get_next_high_mono_count_t *)				\
+-				__va(runtime->get_next_high_mono_count), adjust_arg(count));	\
+-	ia64_load_scratch_fpregs(fr);								\
+-	return ret;										\
++#define STUB_GET_NEXT_HIGH_MONO_COUNT(prefix, adjust_arg)		       \
++static efi_status_t							       \
++prefix##_get_next_high_mono_count (u32 *count)				       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_status_t ret;						       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	ret = efi_call_##prefix((efi_get_next_high_mono_count_t *)	       \
++				__va(runtime->get_next_high_mono_count),       \
++				adjust_arg(count));			       \
++	ia64_load_scratch_fpregs(fr);					       \
++	return ret;							       \
+ }
+ 
+-#define STUB_RESET_SYSTEM(prefix, adjust_arg)					\
+-static void									\
+-prefix##_reset_system (int reset_type, efi_status_t status,			\
+-		       unsigned long data_size, efi_char16_t *data)		\
+-{										\
+-	struct ia64_fpreg fr[6];						\
+-	efi_char16_t *adata = NULL;						\
+-										\
+-	if (data)								\
+-		adata = adjust_arg(data);					\
+-										\
+-	ia64_save_scratch_fpregs(fr);						\
+-	efi_call_##prefix((efi_reset_system_t *) __va(runtime->reset_system),	\
+-			  reset_type, status, data_size, adata);		\
+-	/* should not return, but just in case... */				\
+-	ia64_load_scratch_fpregs(fr);						\
++#define STUB_RESET_SYSTEM(prefix, adjust_arg)				       \
++static void								       \
++prefix##_reset_system (int reset_type, efi_status_t status,		       \
++		       unsigned long data_size, efi_char16_t *data)	       \
++{									       \
++	struct ia64_fpreg fr[6];					       \
++	efi_char16_t *adata = NULL;					       \
++									       \
++	if (data)							       \
++		adata = adjust_arg(data);				       \
++									       \
++	ia64_save_scratch_fpregs(fr);					       \
++	efi_call_##prefix(						       \
++		(efi_reset_system_t *) __va(runtime->reset_system),	       \
++		reset_type, status, data_size, adata);			       \
++	/* should not return, but just in case... */			       \
++	ia64_load_scratch_fpregs(fr);					       \
+ }
+ 
+ #define phys_ptr(arg)	((__typeof__(arg)) ia64_tpa(arg))
+@@ -223,7 +236,8 @@ efi_gettimeofday (struct timespec *ts)
+ 		return;
+ 	}
+ 
+-	ts->tv_sec = mktime(tm.year, tm.month, tm.day, tm.hour, tm.minute, tm.second);
++	ts->tv_sec = mktime(tm.year, tm.month, tm.day,
++			    tm.hour, tm.minute, tm.second);
+ 	ts->tv_nsec = tm.nanosecond;
+ }
+ 
+@@ -297,8 +311,8 @@ walk (efi_freemem_callback_t callback, v
+ }
+ 
+ /*
+- * Walks the EFI memory map and calls CALLBACK once for each EFI memory descriptor that
+- * has memory that is available for OS use.
++ * Walks the EFI memory map and calls CALLBACK once for each EFI memory
++ * descriptor that has memory that is available for OS use.
+  */
+ void
+ efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
+@@ -307,8 +321,8 @@ efi_memmap_walk (efi_freemem_callback_t 
+ }
+ 
+ /*
+- * Walks the EFI memory map and calls CALLBACK once for each EFI memory descriptor that
+- * has memory that is available for uncached allocator.
++ * Walks the EFI memory map and calls CALLBACK once for each EFI memory
++ * descriptor that has memory that is available for uncached allocator.
+  */
+ void
+ efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg)
+@@ -321,7 +335,6 @@ efi_memmap_walk_uc (efi_freemem_callback
+  * ITR to enable safe PAL calls in virtual mode.  See IA-64 Processor
+  * Abstraction Layer chapter 11 in ADAG
+  */
+-
+ void *
+ efi_get_pal_addr (void)
+ {
+@@ -341,32 +354,33 @@ efi_get_pal_addr (void)
+ 			continue;
+ 
+ 		if (++pal_code_count > 1) {
+-			printk(KERN_ERR "Too many EFI Pal Code memory ranges, dropped @ %lx\n",
+-			       md->phys_addr);
++			printk(KERN_ERR "Too many EFI Pal Code memory ranges, "
++			       "dropped @ %lx\n", md->phys_addr);
+ 			continue;
+ 		}
+ 		/*
+-		 * The only ITLB entry in region 7 that is used is the one installed by
+-		 * __start().  That entry covers a 64MB range.
++		 * The only ITLB entry in region 7 that is used is the one
++		 * installed by __start().  That entry covers a 64MB range.
+ 		 */
+ 		mask  = ~((1 << KERNEL_TR_PAGE_SHIFT) - 1);
+ 		vaddr = PAGE_OFFSET + md->phys_addr;
+ 
+ 		/*
+-		 * We must check that the PAL mapping won't overlap with the kernel
+-		 * mapping.
++		 * We must check that the PAL mapping won't overlap with the
++		 * kernel mapping.
+ 		 *
+-		 * PAL code is guaranteed to be aligned on a power of 2 between 4k and
+-		 * 256KB and that only one ITR is needed to map it. This implies that the
+-		 * PAL code is always aligned on its size, i.e., the closest matching page
+-		 * size supported by the TLB. Therefore PAL code is guaranteed never to
+-		 * cross a 64MB unless it is bigger than 64MB (very unlikely!).  So for
+-		 * now the following test is enough to determine whether or not we need a
+-		 * dedicated ITR for the PAL code.
++		 * PAL code is guaranteed to be aligned on a power of 2 between
++		 * 4k and 256KB and that only one ITR is needed to map it. This
++		 * implies that the PAL code is always aligned on its size,
++		 * i.e., the closest matching page size supported by the TLB.
++		 * Therefore PAL code is guaranteed never to cross a 64MB unless
++		 * it is bigger than 64MB (very unlikely!).  So for now the
++		 * following test is enough to determine whether or not we need
++		 * a dedicated ITR for the PAL code.
+ 		 */
+ 		if ((vaddr & mask) = (KERNEL_START & mask)) {
+-			printk(KERN_INFO "%s: no need to install ITR for PAL code\n",
+-			       __FUNCTION__);
++			printk(KERN_INFO "%s: no need to install ITR for "
++			       "PAL code\n", __FUNCTION__);
+ 			continue;
+ 		}
+ 
+@@ -376,10 +390,11 @@ efi_get_pal_addr (void)
+ #if EFI_DEBUG
+ 		mask  = ~((1 << IA64_GRANULE_SHIFT) - 1);
+ 
+-		printk(KERN_INFO "CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
+-			smp_processor_id(), md->phys_addr,
+-			md->phys_addr + efi_md_size(md),
+-			vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
++		printk(KERN_INFO "CPU %d: mapping PAL code "
++                       "[0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
++                       smp_processor_id(), md->phys_addr,
++                       md->phys_addr + efi_md_size(md),
++                       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
+ #endif
+ 		return __va(md->phys_addr);
+ 	}
+@@ -401,7 +416,8 @@ efi_map_pal_code (void)
+ 	 * Cannot write to CRx with PSR.ic=1
+ 	 */
+ 	psr = ia64_clear_ic();
+-	ia64_itr(0x1, IA64_TR_PALCODE, GRANULEROUNDDOWN((unsigned long) pal_vaddr),
++	ia64_itr(0x1, IA64_TR_PALCODE,
++		 GRANULEROUNDDOWN((unsigned long) pal_vaddr),
+ 		 pte_val(pfn_pte(__pa(pal_vaddr) >> PAGE_SHIFT, PAGE_KERNEL)),
+ 		 IA64_GRANULE_SHIFT);
+ 	ia64_set_psr(psr);		/* restore psr */
+@@ -418,7 +434,10 @@ efi_init (void)
+ 	char *cp, vendor[100] = "unknown";
+ 	int i;
+ 
+-	/* it's too early to be able to use the standard kernel command line support... */
++	/*
++	 * it's too early to be able to use the standard kernel command line
++	 * support...
++	 */
+ 	for (cp = boot_command_line; *cp; ) {
+ 		if (memcmp(cp, "mem=", 4) = 0) {
+ 			mem_limit = memparse(cp + 4, &cp);
+@@ -434,9 +453,11 @@ efi_init (void)
+ 		}
+ 	}
+ 	if (min_addr != 0UL)
+-		printk(KERN_INFO "Ignoring memory below %luMB\n", min_addr >> 20);
++		printk(KERN_INFO "Ignoring memory below %luMB\n",
++		       min_addr >> 20);
+ 	if (max_addr != ~0UL)
+-		printk(KERN_INFO "Ignoring memory above %luMB\n", max_addr >> 20);
++		printk(KERN_INFO "Ignoring memory above %luMB\n",
++		       max_addr >> 20);
+ 
+ 	efi.systab = __va(ia64_boot_param->efi_systab);
+ 
+@@ -464,7 +485,8 @@ efi_init (void)
+ 	}
+ 
+ 	printk(KERN_INFO "EFI v%u.%.02u by %s:",
+-	       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff, vendor);
++	       efi.systab->hdr.revision >> 16, 
++	       efi.systab->hdr.revision & 0xffff, vendor);
+ 
+ 	efi.mps        = EFI_INVALID_TABLE_ADDR;
+ 	efi.acpi       = EFI_INVALID_TABLE_ADDR;
+@@ -519,9 +541,12 @@ efi_init (void)
+ 		efi_memory_desc_t *md;
+ 		void *p;
+ 
+-		for (i = 0, p = efi_map_start; p < efi_map_end; ++i, p += efi_desc_size) {
++		for (i = 0, p = efi_map_start; p < efi_map_end; 
++		     ++i, p += efi_desc_size)
++		{
+ 			md = p;
+-			printk("mem%02u: type=%u, attr=0x%lx, range=[0x%016lx-0x%016lx) (%luMB)\n",
++			printk("mem%02u: type=%u, attr=0x%lx, "
++			       "range=[0x%016lx-0x%016lx) (%luMB)\n",
+ 			       i, md->type, md->attribute, md->phys_addr,
+ 			       md->phys_addr + efi_md_size(md),
+ 			       md->num_pages >> (20 - EFI_PAGE_SHIFT));
+@@ -549,8 +574,8 @@ efi_enter_virtual_mode (void)
+ 		md = p;
+ 		if (md->attribute & EFI_MEMORY_RUNTIME) {
+ 			/*
+-			 * Some descriptors have multiple bits set, so the order of
+-			 * the tests is relevant.
++			 * Some descriptors have multiple bits set, so the
++			 * order of the tests is relevant.
+ 			 */
+ 			if (md->attribute & EFI_MEMORY_WB) {
+ 				md->virt_addr = (u64) __va(md->phys_addr);
+@@ -558,21 +583,26 @@ efi_enter_virtual_mode (void)
+ 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
+ 			} else if (md->attribute & EFI_MEMORY_WC) {
+ #if 0
+-				md->virt_addr = ia64_remap(md->phys_addr, (_PAGE_A | _PAGE_P
+-									   | _PAGE_D
+-									   | _PAGE_MA_WC
+-									   | _PAGE_PL_0
+-									   | _PAGE_AR_RW));
++				md->virt_addr = ia64_remap(md->phys_addr,
++							   (_PAGE_A |
++							    _PAGE_P |
++							    _PAGE_D |
++							    _PAGE_MA_WC |
++							    _PAGE_PL_0 |
++							    _PAGE_AR_RW));
+ #else
+ 				printk(KERN_INFO "EFI_MEMORY_WC mapping\n");
+ 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
+ #endif
+ 			} else if (md->attribute & EFI_MEMORY_WT) {
+ #if 0
+-				md->virt_addr = ia64_remap(md->phys_addr, (_PAGE_A | _PAGE_P
+-									   | _PAGE_D | _PAGE_MA_WT
+-									   | _PAGE_PL_0
+-									   | _PAGE_AR_RW));
++				md->virt_addr = ia64_remap(md->phys_addr, 
++							   (_PAGE_A | 
++							    _PAGE_P |
++							    _PAGE_D | 
++							    _PAGE_MA_WT | 
++							    _PAGE_PL_0 | 
++							    _PAGE_AR_RW));
+ #else
+ 				printk(KERN_INFO "EFI_MEMORY_WT mapping\n");
+ 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
+@@ -583,16 +613,18 @@ efi_enter_virtual_mode (void)
+ 
+ 	status = efi_call_phys(__va(runtime->set_virtual_address_map),
+ 			       ia64_boot_param->efi_memmap_size,
+-			       efi_desc_size, ia64_boot_param->efi_memdesc_version,
++			       efi_desc_size, 
++			       ia64_boot_param->efi_memdesc_version,
+ 			       ia64_boot_param->efi_memmap);
+ 	if (status != EFI_SUCCESS) {
+-		printk(KERN_WARNING "warning: unable to switch EFI into virtual mode "
+-		       "(status=%lu)\n", status);
++		printk(KERN_WARNING "warning: unable to switch EFI into "
++		       "virtual mode (status=%lu)\n", status);
+ 		return;
+ 	}
+ 
+ 	/*
+-	 * Now that EFI is in virtual mode, we call the EFI functions more efficiently:
++	 * Now that EFI is in virtual mode, we call the EFI functions more
++	 * efficiently:
+ 	 */
+ 	efi.get_time = virt_get_time;
+ 	efi.set_time = virt_set_time;
+@@ -606,8 +638,8 @@ efi_enter_virtual_mode (void)
+ }
+ 
+ /*
+- * Walk the EFI memory map looking for the I/O port range.  There can only be one entry of
+- * this type, other I/O port ranges should be described via ACPI.
++ * Walk the EFI memory map looking for the I/O port range.  There can only be
++ * one entry of this type, other I/O port ranges should be described via ACPI.
+  */
+ u64
+ efi_get_iobase (void)
+@@ -678,7 +710,6 @@ efi_memmap_intersects (unsigned long phy
+ 
+ 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+ 		md = p;
+-
+ 		if (md->phys_addr < end && efi_md_end(md) > phys_addr)
+ 			return 1;
+ 	}
+@@ -883,7 +914,7 @@ efi_uart_console_only(void)
+ 				return 1;
+ 			uart = 0;
+ 		}
+-		hdr = (struct efi_generic_dev_path *) ((u8 *) hdr + hdr->length);
++		hdr = (struct efi_generic_dev_path *)((u8 *) hdr + hdr->length);
+ 	}
+ 	printk(KERN_ERR "Malformed %s value\n", name);
+ 	return 0;
+@@ -921,10 +952,12 @@ find_memmap_space (void)
+ 		if (!efi_wb(md)) {
+ 			continue;
+ 		}
+-		if (pmd = NULL || !efi_wb(pmd) || efi_md_end(pmd) != md->phys_addr) {
++		if (pmd = NULL || !efi_wb(pmd) ||
++		    efi_md_end(pmd) != md->phys_addr) {
+ 			contig_low = GRANULEROUNDUP(md->phys_addr);
+ 			contig_high = efi_md_end(md);
+-			for (q = p + efi_desc_size; q < efi_map_end; q += efi_desc_size) {
++			for (q = p + efi_desc_size; q < efi_map_end;
++			     q += efi_desc_size) {
+ 				check_md = q;
+ 				if (!efi_wb(check_md))
+ 					break;
+@@ -988,8 +1021,9 @@ efi_memmap_init(unsigned long *s, unsign
+ 	for (p = efi_map_start; p < efi_map_end; pmd = md, p += efi_desc_size) {
+ 		md = p;
+ 		if (!efi_wb(md)) {
+-			if (efi_uc(md) && (md->type = EFI_CONVENTIONAL_MEMORY ||
+-				    	   md->type = EFI_BOOT_SERVICES_DATA)) {
++			if (efi_uc(md) &&
++			    (md->type = EFI_CONVENTIONAL_MEMORY ||
++			     md->type = EFI_BOOT_SERVICES_DATA)) {
+ 				k->attribute = EFI_MEMORY_UC;
+ 				k->start = md->phys_addr;
+ 				k->num_pages = md->num_pages;
+@@ -997,10 +1031,12 @@ efi_memmap_init(unsigned long *s, unsign
+ 			}
+ 			continue;
+ 		}
+-		if (pmd = NULL || !efi_wb(pmd) || efi_md_end(pmd) != md->phys_addr) {
++		if (pmd = NULL || !efi_wb(pmd) || 
++		    efi_md_end(pmd) != md->phys_addr) {
+ 			contig_low = GRANULEROUNDUP(md->phys_addr);
+ 			contig_high = efi_md_end(md);
+-			for (q = p + efi_desc_size; q < efi_map_end; q += efi_desc_size) {
++			for (q = p + efi_desc_size; q < efi_map_end; 
++			     q += efi_desc_size) {
+ 				check_md = q;
+ 				if (!efi_wb(check_md))
+ 					break;
+@@ -1025,13 +1061,17 @@ efi_memmap_init(unsigned long *s, unsign
+ 		if (md->phys_addr < contig_low) {
+ 			lim = min(efi_md_end(md), contig_low);
+ 			if (efi_uc(md)) {
+-				if (k > kern_memmap && (k-1)->attribute = EFI_MEMORY_UC &&
++				if (k > kern_memmap && 
++				    (k-1)->attribute = EFI_MEMORY_UC &&
+ 				    kmd_end(k-1) = md->phys_addr) {
+-					(k-1)->num_pages += (lim - md->phys_addr) >> EFI_PAGE_SHIFT;
++					(k-1)->num_pages += 
++						(lim - md->phys_addr) 
++						>> EFI_PAGE_SHIFT;
+ 				} else {
+ 					k->attribute = EFI_MEMORY_UC;
+ 					k->start = md->phys_addr;
+-					k->num_pages = (lim - md->phys_addr) >> EFI_PAGE_SHIFT;
++					k->num_pages = (lim - md->phys_addr) 
++						>> EFI_PAGE_SHIFT;
+ 					k++;
+ 				}
+ 			}
+@@ -1049,7 +1089,8 @@ efi_memmap_init(unsigned long *s, unsign
+ 				} else {
+ 					k->attribute = EFI_MEMORY_UC;
+ 					k->start = lim;
+-					k->num_pages = (efi_md_end(md) - lim) >> EFI_PAGE_SHIFT;
++					k->num_pages = (efi_md_end(md) - lim) 
++						>> EFI_PAGE_SHIFT;
+ 					k++;
+ 				}
+ 			}
+@@ -1151,8 +1192,10 @@ efi_initialize_iomem_resources(struct re
+ 				break;
+ 		}
+ 
+-		if ((res = kzalloc(sizeof(struct resource), GFP_KERNEL)) = NULL) {
+-			printk(KERN_ERR "failed to alocate resource for iomem\n");
++		if ((res = kzalloc(sizeof(struct resource),
++				   GFP_KERNEL)) = NULL) {
++			printk(KERN_ERR 
++			       "failed to alocate resource for iomem\n");
+ 			return;
+ 		}
+ 
+@@ -1187,44 +1230,44 @@ efi_initialize_iomem_resources(struct re
+    rsvd_regions are sorted
+  */
+ unsigned long __init
+-kdump_find_rsvd_region (unsigned long size,
+-		struct rsvd_region *r, int n)
++kdump_find_rsvd_region (unsigned long size, struct rsvd_region *r, int n)
+ {
+-  int i;
+-  u64 start, end;
+-  u64 alignment = 1UL << _PAGE_SIZE_64M;
+-  void *efi_map_start, *efi_map_end, *p;
+-  efi_memory_desc_t *md;
+-  u64 efi_desc_size;
++	int i;
++	u64 start, end;
++	u64 alignment = 1UL << _PAGE_SIZE_64M;
++	void *efi_map_start, *efi_map_end, *p;
++	efi_memory_desc_t *md;
++	u64 efi_desc_size;
+ 
+-  efi_map_start = __va(ia64_boot_param->efi_memmap);
+-  efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+-  efi_desc_size = ia64_boot_param->efi_memdesc_size;
++	efi_map_start = __va(ia64_boot_param->efi_memmap);
++	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
++	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+ 
+-  for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
+-	  md = p;
+-	  if (!efi_wb(md))
+-		  continue;
+-	  start = ALIGN(md->phys_addr, alignment);
+-	  end = efi_md_end(md);
+-	  for (i = 0; i < n; i++) {
+-		if (__pa(r[i].start) >= start && __pa(r[i].end) < end) {
+-			if (__pa(r[i].start) > start + size)
+-				return start;
+-			start = ALIGN(__pa(r[i].end), alignment);
+-			if (i < n-1 && __pa(r[i+1].start) < start + size)
+-				continue;
+-			else
+-				break;
++	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
++		md = p;
++		if (!efi_wb(md))
++			continue;
++		start = ALIGN(md->phys_addr, alignment);
++		end = efi_md_end(md);
++		for (i = 0; i < n; i++) {
++			if (__pa(r[i].start) >= start && __pa(r[i].end) < end) {
++				if (__pa(r[i].start) > start + size)
++					return start;
++				start = ALIGN(__pa(r[i].end), alignment);
++				if (i < n-1 && 
++				    __pa(r[i+1].start) < start + size)
++					continue;
++				else
++					break;
++			}
+ 		}
+-	  }
+-	  if (end > start + size)
+-		return start;
+-  }
++		if (end > start + size)
++			return start;
++	}
+ 
+-  printk(KERN_WARNING "Cannot reserve 0x%lx byte of memory for crashdump\n",
+-	size);
+-  return ~0UL;
++	printk(KERN_WARNING 
++	       "Cannot reserve 0x%lx byte of memory for crashdump\n", size);
++	return ~0UL;
+ }
+ #endif
+ 
 
-diff --git a/arch/ia64/kvm/asm-offsets.c b/arch/ia64/kvm/asm-offsets.c
-new file mode 100644
-index 0000000..d9a164d
---- /dev/null
-+++ b/arch/ia64/kvm/asm-offsets.c
-@@ -0,0 +1,251 @@
-+/*
-+ * asm-offsets.c Generate definitions needed by assembly language
-modules.
-+ * This code generates raw asm output which is post-processed
-+ * to extract and format the required data.
-+ *
-+ * Anthony Xu    <anthony.xu@intel.com>
-+ * Zhang Xiantao <xiantao.zhang@intel.com>
-+ * Copyright (c) 2007 Intel Corporation  KVM support.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but
-WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
-License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-along with
-+ * this program; if not, write to the Free Software Foundation, Inc.,
-59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ */
-+
-+#include <linux/autoconf.h>
-+#include <linux/kvm_host.h>
-+
-+#include "vcpu.h"
-+
-+#define task_struct kvm_vcpu
-+
-+#define DEFINE(sym, val) \
-+	asm volatile("\n->" #sym " (%0) " #val : : "i" (val))
-+
-+#define BLANK() asm volatile("\n->" : :)
-+
-+#define OFFSET(_sym, _str, _mem) \
-+    DEFINE(_sym, offsetof(_str, _mem));
-+
-+void foo(void)
-+{
-+	DEFINE(VMM_TASK_SIZE, sizeof(struct kvm_vcpu));
-+	DEFINE(VMM_PT_REGS_SIZE, sizeof(struct kvm_pt_regs));
-+
-+	BLANK();
-+
-+	DEFINE(VMM_VCPU_META_RR0_OFFSET,
-+			offsetof(struct kvm_vcpu,
-arch.metaphysical_rr0));
-+	DEFINE(VMM_VCPU_META_SAVED_RR0_OFFSET,
-+			offsetof(struct kvm_vcpu,
-+				arch.metaphysical_saved_rr0));
-+	DEFINE(VMM_VCPU_VRR0_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.vrr[0]));
-+	DEFINE(VMM_VPD_IRR0_OFFSET,
-+			offsetof(struct vpd, irr[0]));
-+	DEFINE(VMM_VCPU_ITC_CHECK_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.itc_check));
-+	DEFINE(VMM_VCPU_IRQ_CHECK_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.irq_check));
-+	DEFINE(VMM_VPD_VHPI_OFFSET,
-+			offsetof(struct vpd, vhpi));
-+	DEFINE(VMM_VCPU_VSA_BASE_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.vsa_base));
-+	DEFINE(VMM_VCPU_VPD_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.vpd));
-+	DEFINE(VMM_VCPU_IRQ_CHECK,
-+			offsetof(struct kvm_vcpu, arch.irq_check));
-+	DEFINE(VMM_VCPU_TIMER_PENDING,
-+			offsetof(struct kvm_vcpu, arch.timer_pending));
-+	DEFINE(VMM_VCPU_META_SAVED_RR0_OFFSET,
-+			offsetof(struct kvm_vcpu,
-arch.metaphysical_saved_rr0));
-+	DEFINE(VMM_VCPU_MODE_FLAGS_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.mode_flags));
-+	DEFINE(VMM_VCPU_ITC_OFS_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.itc_offset));
-+	DEFINE(VMM_VCPU_LAST_ITC_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.last_itc));
-+	DEFINE(VMM_VCPU_SAVED_GP_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.saved_gp));
-+
-+	BLANK();
-+
-+	DEFINE(VMM_PT_REGS_B6_OFFSET,
-+				offsetof(struct kvm_pt_regs, b6));
-+	DEFINE(VMM_PT_REGS_B7_OFFSET,
-+				offsetof(struct kvm_pt_regs, b7));
-+	DEFINE(VMM_PT_REGS_AR_CSD_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_csd));
-+	DEFINE(VMM_PT_REGS_AR_SSD_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_ssd));
-+	DEFINE(VMM_PT_REGS_R8_OFFSET,
-+				offsetof(struct kvm_pt_regs, r8));
-+	DEFINE(VMM_PT_REGS_R9_OFFSET,
-+				offsetof(struct kvm_pt_regs, r9));
-+	DEFINE(VMM_PT_REGS_R10_OFFSET,
-+				offsetof(struct kvm_pt_regs, r10));
-+	DEFINE(VMM_PT_REGS_R11_OFFSET,
-+				offsetof(struct kvm_pt_regs, r11));
-+	DEFINE(VMM_PT_REGS_CR_IPSR_OFFSET,
-+				offsetof(struct kvm_pt_regs, cr_ipsr));
-+	DEFINE(VMM_PT_REGS_CR_IIP_OFFSET,
-+				offsetof(struct kvm_pt_regs, cr_iip));
-+	DEFINE(VMM_PT_REGS_CR_IFS_OFFSET,
-+				offsetof(struct kvm_pt_regs, cr_ifs));
-+	DEFINE(VMM_PT_REGS_AR_UNAT_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_unat));
-+	DEFINE(VMM_PT_REGS_AR_PFS_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_pfs));
-+	DEFINE(VMM_PT_REGS_AR_RSC_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_rsc));
-+	DEFINE(VMM_PT_REGS_AR_RNAT_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_rnat));
-+
-+	DEFINE(VMM_PT_REGS_AR_BSPSTORE_OFFSET,
-+				offsetof(struct kvm_pt_regs,
-ar_bspstore));
-+	DEFINE(VMM_PT_REGS_PR_OFFSET,
-+				offsetof(struct kvm_pt_regs, pr));
-+	DEFINE(VMM_PT_REGS_B0_OFFSET,
-+				offsetof(struct kvm_pt_regs, b0));
-+	DEFINE(VMM_PT_REGS_LOADRS_OFFSET,
-+				offsetof(struct kvm_pt_regs, loadrs));
-+	DEFINE(VMM_PT_REGS_R1_OFFSET,
-+				offsetof(struct kvm_pt_regs, r1));
-+	DEFINE(VMM_PT_REGS_R12_OFFSET,
-+				offsetof(struct kvm_pt_regs, r12));
-+	DEFINE(VMM_PT_REGS_R13_OFFSET,
-+				offsetof(struct kvm_pt_regs, r13));
-+	DEFINE(VMM_PT_REGS_AR_FPSR_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_fpsr));
-+	DEFINE(VMM_PT_REGS_R15_OFFSET,
-+				offsetof(struct kvm_pt_regs, r15));
-+	DEFINE(VMM_PT_REGS_R14_OFFSET,
-+				offsetof(struct kvm_pt_regs, r14));
-+	DEFINE(VMM_PT_REGS_R2_OFFSET,
-+				offsetof(struct kvm_pt_regs, r2));
-+	DEFINE(VMM_PT_REGS_R3_OFFSET,
-+				offsetof(struct kvm_pt_regs, r3));
-+	DEFINE(VMM_PT_REGS_R16_OFFSET,
-+				offsetof(struct kvm_pt_regs, r16));
-+	DEFINE(VMM_PT_REGS_R17_OFFSET,
-+				offsetof(struct kvm_pt_regs, r17));
-+	DEFINE(VMM_PT_REGS_R18_OFFSET,
-+				offsetof(struct kvm_pt_regs, r18));
-+	DEFINE(VMM_PT_REGS_R19_OFFSET,
-+				offsetof(struct kvm_pt_regs, r19));
-+	DEFINE(VMM_PT_REGS_R20_OFFSET,
-+				offsetof(struct kvm_pt_regs, r20));
-+	DEFINE(VMM_PT_REGS_R21_OFFSET,
-+				offsetof(struct kvm_pt_regs, r21));
-+	DEFINE(VMM_PT_REGS_R22_OFFSET,
-+				offsetof(struct kvm_pt_regs, r22));
-+	DEFINE(VMM_PT_REGS_R23_OFFSET,
-+				offsetof(struct kvm_pt_regs, r23));
-+	DEFINE(VMM_PT_REGS_R24_OFFSET,
-+				offsetof(struct kvm_pt_regs, r24));
-+	DEFINE(VMM_PT_REGS_R25_OFFSET,
-+				offsetof(struct kvm_pt_regs, r25));
-+	DEFINE(VMM_PT_REGS_R26_OFFSET,
-+				offsetof(struct kvm_pt_regs, r26));
-+	DEFINE(VMM_PT_REGS_R27_OFFSET,
-+				offsetof(struct kvm_pt_regs, r27));
-+	DEFINE(VMM_PT_REGS_R28_OFFSET,
-+				offsetof(struct kvm_pt_regs, r28));
-+	DEFINE(VMM_PT_REGS_R29_OFFSET,
-+				offsetof(struct kvm_pt_regs, r29));
-+	DEFINE(VMM_PT_REGS_R30_OFFSET,
-+				offsetof(struct kvm_pt_regs, r30));
-+	DEFINE(VMM_PT_REGS_R31_OFFSET,
-+				offsetof(struct kvm_pt_regs, r31));
-+	DEFINE(VMM_PT_REGS_AR_CCV_OFFSET,
-+				offsetof(struct kvm_pt_regs, ar_ccv));
-+	DEFINE(VMM_PT_REGS_F6_OFFSET,
-+				offsetof(struct kvm_pt_regs, f6));
-+	DEFINE(VMM_PT_REGS_F7_OFFSET,
-+				offsetof(struct kvm_pt_regs, f7));
-+	DEFINE(VMM_PT_REGS_F8_OFFSET,
-+				offsetof(struct kvm_pt_regs, f8));
-+	DEFINE(VMM_PT_REGS_F9_OFFSET,
-+				offsetof(struct kvm_pt_regs, f9));
-+	DEFINE(VMM_PT_REGS_F10_OFFSET,
-+				offsetof(struct kvm_pt_regs, f10));
-+	DEFINE(VMM_PT_REGS_F11_OFFSET,
-+				offsetof(struct kvm_pt_regs, f11));
-+	DEFINE(VMM_PT_REGS_R4_OFFSET,
-+				offsetof(struct kvm_pt_regs, r4));
-+	DEFINE(VMM_PT_REGS_R5_OFFSET,
-+				offsetof(struct kvm_pt_regs, r5));
-+	DEFINE(VMM_PT_REGS_R6_OFFSET,
-+				offsetof(struct kvm_pt_regs, r6));
-+	DEFINE(VMM_PT_REGS_R7_OFFSET,
-+				offsetof(struct kvm_pt_regs, r7));
-+	DEFINE(VMM_PT_REGS_EML_UNAT_OFFSET,
-+				offsetof(struct kvm_pt_regs, eml_unat));
-+	DEFINE(VMM_VCPU_IIPA_OFFSET,
-+				offsetof(struct kvm_vcpu,
-arch.cr_iipa));
-+	DEFINE(VMM_VCPU_OPCODE_OFFSET,
-+				offsetof(struct kvm_vcpu, arch.opcode));
-+	DEFINE(VMM_VCPU_CAUSE_OFFSET, offsetof(struct kvm_vcpu,
-arch.cause));
-+	DEFINE(VMM_VCPU_ISR_OFFSET,
-+				offsetof(struct kvm_vcpu, arch.cr_isr));
-+	DEFINE(VMM_PT_REGS_R16_SLOT,
-+				(((offsetof(struct kvm_pt_regs, r16)
-+				- sizeof(struct kvm_pt_regs)) >> 3) &
-0x3f));
-+	DEFINE(VMM_VCPU_MODE_FLAGS_OFFSET,
-+				offsetof(struct kvm_vcpu,
-arch.mode_flags));
-+	DEFINE(VMM_VCPU_GP_OFFSET, offsetof(struct kvm_vcpu,
-arch.__gp));
-+	BLANK();
-+
-+	DEFINE(VMM_VPD_BASE_OFFSET, offsetof(struct kvm_vcpu,
-arch.vpd));
-+	DEFINE(VMM_VPD_VIFS_OFFSET, offsetof(struct vpd, ifs));
-+	DEFINE(VMM_VLSAPIC_INSVC_BASE_OFFSET,
-+			offsetof(struct kvm_vcpu, arch.insvc[0]));
-+	DEFINE(VMM_VPD_VPTA_OFFSET, offsetof(struct vpd, pta));
-+	DEFINE(VMM_VPD_VPSR_OFFSET, offsetof(struct vpd, vpsr));
-+
-+	DEFINE(VMM_CTX_R4_OFFSET, offsetof(context_t, gr[4]));
-+	DEFINE(VMM_CTX_R5_OFFSET, offsetof(context_t, gr[5]));
-+	DEFINE(VMM_CTX_R12_OFFSET, offsetof(context_t, gr[12]));
-+	DEFINE(VMM_CTX_R13_OFFSET, offsetof(context_t, gr[13]));
-+	DEFINE(VMM_CTX_KR0_OFFSET, offsetof(context_t, ar[0]));
-+	DEFINE(VMM_CTX_KR1_OFFSET, offsetof(context_t, ar[1]));
-+	DEFINE(VMM_CTX_B0_OFFSET, offsetof(context_t, br[0]));
-+	DEFINE(VMM_CTX_B1_OFFSET, offsetof(context_t, br[1]));
-+	DEFINE(VMM_CTX_B2_OFFSET, offsetof(context_t, br[2]));
-+	DEFINE(VMM_CTX_RR0_OFFSET, offsetof(context_t, rr[0]));
-+	DEFINE(VMM_CTX_RSC_OFFSET, offsetof(context_t, ar[16]));
-+	DEFINE(VMM_CTX_BSPSTORE_OFFSET, offsetof(context_t, ar[18]));
-+	DEFINE(VMM_CTX_RNAT_OFFSET, offsetof(context_t, ar[19]));
-+	DEFINE(VMM_CTX_FCR_OFFSET, offsetof(context_t, ar[21]));
-+	DEFINE(VMM_CTX_EFLAG_OFFSET, offsetof(context_t, ar[24]));
-+	DEFINE(VMM_CTX_CFLG_OFFSET, offsetof(context_t, ar[27]));
-+	DEFINE(VMM_CTX_FSR_OFFSET, offsetof(context_t, ar[28]));
-+	DEFINE(VMM_CTX_FIR_OFFSET, offsetof(context_t, ar[29]));
-+	DEFINE(VMM_CTX_FDR_OFFSET, offsetof(context_t, ar[30]));
-+	DEFINE(VMM_CTX_UNAT_OFFSET, offsetof(context_t, ar[36]));
-+	DEFINE(VMM_CTX_FPSR_OFFSET, offsetof(context_t, ar[40]));
-+	DEFINE(VMM_CTX_PFS_OFFSET, offsetof(context_t, ar[64]));
-+	DEFINE(VMM_CTX_LC_OFFSET, offsetof(context_t, ar[65]));
-+	DEFINE(VMM_CTX_DCR_OFFSET, offsetof(context_t, cr[0]));
-+	DEFINE(VMM_CTX_IVA_OFFSET, offsetof(context_t, cr[2]));
-+	DEFINE(VMM_CTX_PTA_OFFSET, offsetof(context_t, cr[8]));
-+	DEFINE(VMM_CTX_IBR0_OFFSET, offsetof(context_t, ibr[0]));
-+	DEFINE(VMM_CTX_DBR0_OFFSET, offsetof(context_t, dbr[0]));
-+	DEFINE(VMM_CTX_F2_OFFSET, offsetof(context_t, fr[2]));
-+	DEFINE(VMM_CTX_F3_OFFSET, offsetof(context_t, fr[3]));
-+	DEFINE(VMM_CTX_F32_OFFSET, offsetof(context_t, fr[32]));
-+	DEFINE(VMM_CTX_F33_OFFSET, offsetof(context_t, fr[33]));
-+	DEFINE(VMM_CTX_PKR0_OFFSET, offsetof(context_t, pkr[0]));
-+	DEFINE(VMM_CTX_PSR_OFFSET, offsetof(context_t, psr));
-+	BLANK();
-+}
---=20
-1.5.1
 
-------_=_NextPart_001_01C863F4.49773147
-Content-Type: application/octet-stream;
-	name="0016-kvm-ia64-Generate-offset-values-for-assembly-code-u.patch"
-Content-Transfer-Encoding: base64
-Content-Description: 0016-kvm-ia64-Generate-offset-values-for-assembly-code-u.patch
-Content-Disposition: attachment;
-	filename="0016-kvm-ia64-Generate-offset-values-for-assembly-code-u.patch"
-
-RnJvbSAzNmEzNjQ2YTFjZTkzNzcwZjQyYjEwNDI0OWExM2IxODdiMDk1MTI2IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBaaGFuZyBYaWFudGFvIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogVHVlLCAyOSBKYW4gMjAwOCAxNDo0MDo0MSArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IGt2bS9pYTY0OiBHZW5lcmF0ZSBvZmZzZXQgdmFsdWVzIGZvciBhc3NlbWJseSBjb2RlIHVzZS4K
-CmFzbS1vZmZzZXRzLmMgd2lsbCBnZW5lcmF0ZSBvZmZzZXQgdmFsdWVzIHVzZWQgZm9yIGFzc2Vt
-Ymx5IGNvZGUKZm9yIHNvbWUgZmlsZWRzIG9mIHNwZWNpYWwgc3RydWN0dXJlcy4KClNpZ25lZC1v
-ZmYtYnk6IEFudGhvbnkgWHUgPGFudGhvbnkueHVAaW50ZWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBY
-aWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNvbT4KLS0tCiBhcmNoL2lhNjQva3Zt
-L2FzbS1vZmZzZXRzLmMgfCAgMjUxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysKIDEgZmlsZXMgY2hhbmdlZCwgMjUxIGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25z
-KC0pCiBjcmVhdGUgbW9kZSAxMDA2NDQgYXJjaC9pYTY0L2t2bS9hc20tb2Zmc2V0cy5jCgpkaWZm
-IC0tZ2l0IGEvYXJjaC9pYTY0L2t2bS9hc20tb2Zmc2V0cy5jIGIvYXJjaC9pYTY0L2t2bS9hc20t
-b2Zmc2V0cy5jCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAuLmQ5YTE2NGQKLS0t
-IC9kZXYvbnVsbAorKysgYi9hcmNoL2lhNjQva3ZtL2FzbS1vZmZzZXRzLmMKQEAgLTAsMCArMSwy
-NTEgQEAKKy8qCisgKiBhc20tb2Zmc2V0cy5jIEdlbmVyYXRlIGRlZmluaXRpb25zIG5lZWRlZCBi
-eSBhc3NlbWJseSBsYW5ndWFnZSBtb2R1bGVzLgorICogVGhpcyBjb2RlIGdlbmVyYXRlcyByYXcg
-YXNtIG91dHB1dCB3aGljaCBpcyBwb3N0LXByb2Nlc3NlZAorICogdG8gZXh0cmFjdCBhbmQgZm9y
-bWF0IHRoZSByZXF1aXJlZCBkYXRhLgorICoKKyAqIEFudGhvbnkgWHUgICAgPGFudGhvbnkueHVA
-aW50ZWwuY29tPgorICogWmhhbmcgWGlhbnRhbyA8eGlhbnRhby56aGFuZ0BpbnRlbC5jb20+Cisg
-KiBDb3B5cmlnaHQgKGMpIDIwMDcgSW50ZWwgQ29ycG9yYXRpb24gIEtWTSBzdXBwb3J0LgorICoK
-KyAqIFRoaXMgcHJvZ3JhbSBpcyBmcmVlIHNvZnR3YXJlOyB5b3UgY2FuIHJlZGlzdHJpYnV0ZSBp
-dCBhbmQvb3IgbW9kaWZ5IGl0CisgKiB1bmRlciB0aGUgdGVybXMgYW5kIGNvbmRpdGlvbnMgb2Yg
-dGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlLAorICogdmVyc2lvbiAyLCBhcyBwdWJsaXNo
-ZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbi4KKyAqCisgKiBUaGlzIHByb2dyYW0g
-aXMgZGlzdHJpYnV0ZWQgaW4gdGhlIGhvcGUgaXQgd2lsbCBiZSB1c2VmdWwsIGJ1dCBXSVRIT1VU
-CisgKiBBTlkgV0FSUkFOVFk7IHdpdGhvdXQgZXZlbiB0aGUgaW1wbGllZCB3YXJyYW50eSBvZiBN
-RVJDSEFOVEFCSUxJVFkgb3IKKyAqIEZJVE5FU1MgRk9SIEEgUEFSVElDVUxBUiBQVVJQT1NFLiAg
-U2VlIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSBmb3IKKyAqIG1vcmUgZGV0YWlscy4K
-KyAqCisgKiBZb3Ugc2hvdWxkIGhhdmUgcmVjZWl2ZWQgYSBjb3B5IG9mIHRoZSBHTlUgR2VuZXJh
-bCBQdWJsaWMgTGljZW5zZSBhbG9uZyB3aXRoCisgKiB0aGlzIHByb2dyYW07IGlmIG5vdCwgd3Jp
-dGUgdG8gdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbiwgSW5jLiwgNTkgVGVtcGxlCisgKiBQ
-bGFjZSAtIFN1aXRlIDMzMCwgQm9zdG9uLCBNQSAwMjExMS0xMzA3IFVTQS4KKyAqCisgKi8KKwor
-I2luY2x1ZGUgPGxpbnV4L2F1dG9jb25mLmg+CisjaW5jbHVkZSA8bGludXgva3ZtX2hvc3QuaD4K
-KworI2luY2x1ZGUgInZjcHUuaCIKKworI2RlZmluZSB0YXNrX3N0cnVjdCBrdm1fdmNwdQorCisj
-ZGVmaW5lIERFRklORShzeW0sIHZhbCkgXAorCWFzbSB2b2xhdGlsZSgiXG4tPiIgI3N5bSAiICgl
-MCkgIiAjdmFsIDogOiAiaSIgKHZhbCkpCisKKyNkZWZpbmUgQkxBTksoKSBhc20gdm9sYXRpbGUo
-IlxuLT4iIDogOikKKworI2RlZmluZSBPRkZTRVQoX3N5bSwgX3N0ciwgX21lbSkgXAorICAgIERF
-RklORShfc3ltLCBvZmZzZXRvZihfc3RyLCBfbWVtKSk7CisKK3ZvaWQgZm9vKHZvaWQpCit7CisJ
-REVGSU5FKFZNTV9UQVNLX1NJWkUsIHNpemVvZihzdHJ1Y3Qga3ZtX3ZjcHUpKTsKKwlERUZJTkUo
-Vk1NX1BUX1JFR1NfU0laRSwgc2l6ZW9mKHN0cnVjdCBrdm1fcHRfcmVncykpOworCisJQkxBTkso
-KTsKKworCURFRklORShWTU1fVkNQVV9NRVRBX1JSMF9PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1
-Y3Qga3ZtX3ZjcHUsIGFyY2gubWV0YXBoeXNpY2FsX3JyMCkpOworCURFRklORShWTU1fVkNQVV9N
-RVRBX1NBVkVEX1JSMF9PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3ZjcHUsCisJCQkJ
-YXJjaC5tZXRhcGh5c2ljYWxfc2F2ZWRfcnIwKSk7CisJREVGSU5FKFZNTV9WQ1BVX1ZSUjBfT0ZG
-U0VULAorCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBhcmNoLnZyclswXSkpOworCURFRklO
-RShWTU1fVlBEX0lSUjBfT0ZGU0VULAorCQkJb2Zmc2V0b2Yoc3RydWN0IHZwZCwgaXJyWzBdKSk7
-CisJREVGSU5FKFZNTV9WQ1BVX0lUQ19DSEVDS19PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3Qg
-a3ZtX3ZjcHUsIGFyY2guaXRjX2NoZWNrKSk7CisJREVGSU5FKFZNTV9WQ1BVX0lSUV9DSEVDS19P
-RkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3ZjcHUsIGFyY2guaXJxX2NoZWNrKSk7CisJ
-REVGSU5FKFZNTV9WUERfVkhQSV9PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3QgdnBkLCB2aHBp
-KSk7CisJREVGSU5FKFZNTV9WQ1BVX1ZTQV9CQVNFX09GRlNFVCwKKwkJCW9mZnNldG9mKHN0cnVj
-dCBrdm1fdmNwdSwgYXJjaC52c2FfYmFzZSkpOworCURFRklORShWTU1fVkNQVV9WUERfT0ZGU0VU
-LAorCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBhcmNoLnZwZCkpOworCURFRklORShWTU1f
-VkNQVV9JUlFfQ0hFQ0ssCisJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3ZjcHUsIGFyY2guaXJxX2No
-ZWNrKSk7CisJREVGSU5FKFZNTV9WQ1BVX1RJTUVSX1BFTkRJTkcsCisJCQlvZmZzZXRvZihzdHJ1
-Y3Qga3ZtX3ZjcHUsIGFyY2gudGltZXJfcGVuZGluZykpOworCURFRklORShWTU1fVkNQVV9NRVRB
-X1NBVkVEX1JSMF9PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3ZjcHUsIGFyY2gubWV0
-YXBoeXNpY2FsX3NhdmVkX3JyMCkpOworCURFRklORShWTU1fVkNQVV9NT0RFX0ZMQUdTX09GRlNF
-VCwKKwkJCW9mZnNldG9mKHN0cnVjdCBrdm1fdmNwdSwgYXJjaC5tb2RlX2ZsYWdzKSk7CisJREVG
-SU5FKFZNTV9WQ1BVX0lUQ19PRlNfT0ZGU0VULAorCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1
-LCBhcmNoLml0Y19vZmZzZXQpKTsKKwlERUZJTkUoVk1NX1ZDUFVfTEFTVF9JVENfT0ZGU0VULAor
-CQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBhcmNoLmxhc3RfaXRjKSk7CisJREVGSU5FKFZN
-TV9WQ1BVX1NBVkVEX0dQX09GRlNFVCwKKwkJCW9mZnNldG9mKHN0cnVjdCBrdm1fdmNwdSwgYXJj
-aC5zYXZlZF9ncCkpOworCisJQkxBTksoKTsKKworCURFRklORShWTU1fUFRfUkVHU19CNl9PRkZT
-RVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBiNikpOworCURFRklORShWTU1f
-UFRfUkVHU19CN19PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBiNykp
-OworCURFRklORShWTU1fUFRfUkVHU19BUl9DU0RfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVj
-dCBrdm1fcHRfcmVncywgYXJfY3NkKSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX0FSX1NTRF9PRkZT
-RVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBhcl9zc2QpKTsKKwlERUZJTkUo
-Vk1NX1BUX1JFR1NfUjhfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywg
-cjgpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjlfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVj
-dCBrdm1fcHRfcmVncywgcjkpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjEwX09GRlNFVCwKKwkJ
-CQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIxMCkpOworCURFRklORShWTU1fUFRfUkVH
-U19SMTFfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjExKSk7CisJ
-REVGSU5FKFZNTV9QVF9SRUdTX0NSX0lQU1JfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBr
-dm1fcHRfcmVncywgY3JfaXBzcikpOworCURFRklORShWTU1fUFRfUkVHU19DUl9JSVBfT0ZGU0VU
-LAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgY3JfaWlwKSk7CisJREVGSU5FKFZN
-TV9QVF9SRUdTX0NSX0lGU19PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdz
-LCBjcl9pZnMpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfQVJfVU5BVF9PRkZTRVQsCisJCQkJb2Zm
-c2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBhcl91bmF0KSk7CisJREVGSU5FKFZNTV9QVF9SRUdT
-X0FSX1BGU19PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBhcl9wZnMp
-KTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfQVJfUlNDX09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1
-Y3Qga3ZtX3B0X3JlZ3MsIGFyX3JzYykpOworCURFRklORShWTU1fUFRfUkVHU19BUl9STkFUX09G
-RlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIGFyX3JuYXQpKTsKKworCURF
-RklORShWTU1fUFRfUkVHU19BUl9CU1BTVE9SRV9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0
-IGt2bV9wdF9yZWdzLCBhcl9ic3BzdG9yZSkpOworCURFRklORShWTU1fUFRfUkVHU19QUl9PRkZT
-RVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBwcikpOworCURFRklORShWTU1f
-UFRfUkVHU19CMF9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBiMCkp
-OworCURFRklORShWTU1fUFRfUkVHU19MT0FEUlNfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVj
-dCBrdm1fcHRfcmVncywgbG9hZHJzKSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1IxX09GRlNFVCwK
-KwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIxKSk7CisJREVGSU5FKFZNTV9QVF9S
-RUdTX1IxMl9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMTIpKTsK
-KwlERUZJTkUoVk1NX1BUX1JFR1NfUjEzX09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3Zt
-X3B0X3JlZ3MsIHIxMykpOworCURFRklORShWTU1fUFRfUkVHU19BUl9GUFNSX09GRlNFVCwKKwkJ
-CQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIGFyX2Zwc3IpKTsKKwlERUZJTkUoVk1NX1BU
-X1JFR1NfUjE1X09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIxNSkp
-OworCURFRklORShWTU1fUFRfUkVHU19SMTRfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBr
-dm1fcHRfcmVncywgcjE0KSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1IyX09GRlNFVCwKKwkJCQlv
-ZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIyKSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1Iz
-X09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIzKSk7CisJREVGSU5F
-KFZNTV9QVF9SRUdTX1IxNl9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdz
-LCByMTYpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjE3X09GRlNFVCwKKwkJCQlvZmZzZXRvZihz
-dHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIxNykpOworCURFRklORShWTU1fUFRfUkVHU19SMThfT0ZGU0VU
-LAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjE4KSk7CisJREVGSU5FKFZNTV9Q
-VF9SRUdTX1IxOV9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMTkp
-KTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjIwX09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qg
-a3ZtX3B0X3JlZ3MsIHIyMCkpOworCURFRklORShWTU1fUFRfUkVHU19SMjFfT0ZGU0VULAorCQkJ
-CW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjIxKSk7CisJREVGSU5FKFZNTV9QVF9SRUdT
-X1IyMl9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMjIpKTsKKwlE
-RUZJTkUoVk1NX1BUX1JFR1NfUjIzX09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0
-X3JlZ3MsIHIyMykpOworCURFRklORShWTU1fUFRfUkVHU19SMjRfT0ZGU0VULAorCQkJCW9mZnNl
-dG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjI0KSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1IyNV9P
-RkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMjUpKTsKKwlERUZJTkUo
-Vk1NX1BUX1JFR1NfUjI2X09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3Ms
-IHIyNikpOworCURFRklORShWTU1fUFRfUkVHU19SMjdfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0
-cnVjdCBrdm1fcHRfcmVncywgcjI3KSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1IyOF9PRkZTRVQs
-CisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMjgpKTsKKwlERUZJTkUoVk1NX1BU
-X1JFR1NfUjI5X09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIyOSkp
-OworCURFRklORShWTU1fUFRfUkVHU19SMzBfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBr
-dm1fcHRfcmVncywgcjMwKSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX1IzMV9PRkZTRVQsCisJCQkJ
-b2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCByMzEpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1Nf
-QVJfQ0NWX09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIGFyX2Njdikp
-OworCURFRklORShWTU1fUFRfUkVHU19GNl9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2
-bV9wdF9yZWdzLCBmNikpOworCURFRklORShWTU1fUFRfUkVHU19GN19PRkZTRVQsCisJCQkJb2Zm
-c2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBmNykpOworCURFRklORShWTU1fUFRfUkVHU19GOF9P
-RkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBmOCkpOworCURFRklORShW
-TU1fUFRfUkVHU19GOV9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBm
-OSkpOworCURFRklORShWTU1fUFRfUkVHU19GMTBfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVj
-dCBrdm1fcHRfcmVncywgZjEwKSk7CisJREVGSU5FKFZNTV9QVF9SRUdTX0YxMV9PRkZTRVQsCisJ
-CQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV9wdF9yZWdzLCBmMTEpKTsKKwlERUZJTkUoVk1NX1BUX1JF
-R1NfUjRfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjQpKTsKKwlE
-RUZJTkUoVk1NX1BUX1JFR1NfUjVfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRf
-cmVncywgcjUpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjZfT0ZGU0VULAorCQkJCW9mZnNldG9m
-KHN0cnVjdCBrdm1fcHRfcmVncywgcjYpKTsKKwlERUZJTkUoVk1NX1BUX1JFR1NfUjdfT0ZGU0VU
-LAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywgcjcpKTsKKwlERUZJTkUoVk1NX1BU
-X1JFR1NfRU1MX1VOQVRfT0ZGU0VULAorCQkJCW9mZnNldG9mKHN0cnVjdCBrdm1fcHRfcmVncywg
-ZW1sX3VuYXQpKTsKKwlERUZJTkUoVk1NX1ZDUFVfSUlQQV9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yo
-c3RydWN0IGt2bV92Y3B1LCBhcmNoLmNyX2lpcGEpKTsKKwlERUZJTkUoVk1NX1ZDUFVfT1BDT0RF
-X09GRlNFVCwKKwkJCQlvZmZzZXRvZihzdHJ1Y3Qga3ZtX3ZjcHUsIGFyY2gub3Bjb2RlKSk7CisJ
-REVGSU5FKFZNTV9WQ1BVX0NBVVNFX09GRlNFVCwgb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBh
-cmNoLmNhdXNlKSk7CisJREVGSU5FKFZNTV9WQ1BVX0lTUl9PRkZTRVQsCisJCQkJb2Zmc2V0b2Yo
-c3RydWN0IGt2bV92Y3B1LCBhcmNoLmNyX2lzcikpOworCURFRklORShWTU1fUFRfUkVHU19SMTZf
-U0xPVCwKKwkJCQkoKChvZmZzZXRvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MsIHIxNikKKwkJCQktIHNp
-emVvZihzdHJ1Y3Qga3ZtX3B0X3JlZ3MpKSA+PiAzKSAmIDB4M2YpKTsKKwlERUZJTkUoVk1NX1ZD
-UFVfTU9ERV9GTEFHU19PRkZTRVQsCisJCQkJb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBhcmNo
-Lm1vZGVfZmxhZ3MpKTsKKwlERUZJTkUoVk1NX1ZDUFVfR1BfT0ZGU0VULCBvZmZzZXRvZihzdHJ1
-Y3Qga3ZtX3ZjcHUsIGFyY2guX19ncCkpOworCUJMQU5LKCk7CisKKwlERUZJTkUoVk1NX1ZQRF9C
-QVNFX09GRlNFVCwgb2Zmc2V0b2Yoc3RydWN0IGt2bV92Y3B1LCBhcmNoLnZwZCkpOworCURFRklO
-RShWTU1fVlBEX1ZJRlNfT0ZGU0VULCBvZmZzZXRvZihzdHJ1Y3QgdnBkLCBpZnMpKTsKKwlERUZJ
-TkUoVk1NX1ZMU0FQSUNfSU5TVkNfQkFTRV9PRkZTRVQsCisJCQlvZmZzZXRvZihzdHJ1Y3Qga3Zt
-X3ZjcHUsIGFyY2guaW5zdmNbMF0pKTsKKwlERUZJTkUoVk1NX1ZQRF9WUFRBX09GRlNFVCwgb2Zm
-c2V0b2Yoc3RydWN0IHZwZCwgcHRhKSk7CisJREVGSU5FKFZNTV9WUERfVlBTUl9PRkZTRVQsIG9m
-ZnNldG9mKHN0cnVjdCB2cGQsIHZwc3IpKTsKKworCURFRklORShWTU1fQ1RYX1I0X09GRlNFVCwg
-b2Zmc2V0b2YoY29udGV4dF90LCBncls0XSkpOworCURFRklORShWTU1fQ1RYX1I1X09GRlNFVCwg
-b2Zmc2V0b2YoY29udGV4dF90LCBncls1XSkpOworCURFRklORShWTU1fQ1RYX1IxMl9PRkZTRVQs
-IG9mZnNldG9mKGNvbnRleHRfdCwgZ3JbMTJdKSk7CisJREVGSU5FKFZNTV9DVFhfUjEzX09GRlNF
-VCwgb2Zmc2V0b2YoY29udGV4dF90LCBnclsxM10pKTsKKwlERUZJTkUoVk1NX0NUWF9LUjBfT0ZG
-U0VULCBvZmZzZXRvZihjb250ZXh0X3QsIGFyWzBdKSk7CisJREVGSU5FKFZNTV9DVFhfS1IxX09G
-RlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsxXSkpOworCURFRklORShWTU1fQ1RYX0IwX09G
-RlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBiclswXSkpOworCURFRklORShWTU1fQ1RYX0IxX09G
-RlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBiclsxXSkpOworCURFRklORShWTU1fQ1RYX0IyX09G
-RlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBiclsyXSkpOworCURFRklORShWTU1fQ1RYX1JSMF9P
-RkZTRVQsIG9mZnNldG9mKGNvbnRleHRfdCwgcnJbMF0pKTsKKwlERUZJTkUoVk1NX0NUWF9SU0Nf
-T0ZGU0VULCBvZmZzZXRvZihjb250ZXh0X3QsIGFyWzE2XSkpOworCURFRklORShWTU1fQ1RYX0JT
-UFNUT1JFX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsxOF0pKTsKKwlERUZJTkUoVk1N
-X0NUWF9STkFUX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsxOV0pKTsKKwlERUZJTkUo
-Vk1NX0NUWF9GQ1JfT0ZGU0VULCBvZmZzZXRvZihjb250ZXh0X3QsIGFyWzIxXSkpOworCURFRklO
-RShWTU1fQ1RYX0VGTEFHX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsyNF0pKTsKKwlE
-RUZJTkUoVk1NX0NUWF9DRkxHX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsyN10pKTsK
-KwlERUZJTkUoVk1NX0NUWF9GU1JfT0ZGU0VULCBvZmZzZXRvZihjb250ZXh0X3QsIGFyWzI4XSkp
-OworCURFRklORShWTU1fQ1RYX0ZJUl9PRkZTRVQsIG9mZnNldG9mKGNvbnRleHRfdCwgYXJbMjld
-KSk7CisJREVGSU5FKFZNTV9DVFhfRkRSX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBhclsz
-MF0pKTsKKwlERUZJTkUoVk1NX0NUWF9VTkFUX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90LCBh
-clszNl0pKTsKKwlERUZJTkUoVk1NX0NUWF9GUFNSX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4dF90
-LCBhcls0MF0pKTsKKwlERUZJTkUoVk1NX0NUWF9QRlNfT0ZGU0VULCBvZmZzZXRvZihjb250ZXh0
-X3QsIGFyWzY0XSkpOworCURFRklORShWTU1fQ1RYX0xDX09GRlNFVCwgb2Zmc2V0b2YoY29udGV4
-dF90LCBhcls2NV0pKTsKKwlERUZJTkUoVk1NX0NUWF9EQ1JfT0ZGU0VULCBvZmZzZXRvZihjb250
-ZXh0X3QsIGNyWzBdKSk7CisJREVGSU5FKFZNTV9DVFhfSVZBX09GRlNFVCwgb2Zmc2V0b2YoY29u
-dGV4dF90LCBjclsyXSkpOworCURFRklORShWTU1fQ1RYX1BUQV9PRkZTRVQsIG9mZnNldG9mKGNv
-bnRleHRfdCwgY3JbOF0pKTsKKwlERUZJTkUoVk1NX0NUWF9JQlIwX09GRlNFVCwgb2Zmc2V0b2Yo
-Y29udGV4dF90LCBpYnJbMF0pKTsKKwlERUZJTkUoVk1NX0NUWF9EQlIwX09GRlNFVCwgb2Zmc2V0
-b2YoY29udGV4dF90LCBkYnJbMF0pKTsKKwlERUZJTkUoVk1NX0NUWF9GMl9PRkZTRVQsIG9mZnNl
-dG9mKGNvbnRleHRfdCwgZnJbMl0pKTsKKwlERUZJTkUoVk1NX0NUWF9GM19PRkZTRVQsIG9mZnNl
-dG9mKGNvbnRleHRfdCwgZnJbM10pKTsKKwlERUZJTkUoVk1NX0NUWF9GMzJfT0ZGU0VULCBvZmZz
-ZXRvZihjb250ZXh0X3QsIGZyWzMyXSkpOworCURFRklORShWTU1fQ1RYX0YzM19PRkZTRVQsIG9m
-ZnNldG9mKGNvbnRleHRfdCwgZnJbMzNdKSk7CisJREVGSU5FKFZNTV9DVFhfUEtSMF9PRkZTRVQs
-IG9mZnNldG9mKGNvbnRleHRfdCwgcGtyWzBdKSk7CisJREVGSU5FKFZNTV9DVFhfUFNSX09GRlNF
-VCwgb2Zmc2V0b2YoY29udGV4dF90LCBwc3IpKTsKKwlCTEFOSygpOworfQotLSAKMS41LjEKCg==
-
-------_=_NextPart_001_01C863F4.49773147--
