@@ -1,39 +1,26 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 14 Jan 2008 23:34:05 +0000
-Subject: RE: [PATCH] Fix unaligned handler for floating point instructions with base update
-Message-Id: <1FE6DD409037234FAB833C420AA843EC50E17F@orsmsx424.amr.corp.intel.com>
+From: Aron Griffis <aron@hp.com>
+Date: Wed, 09 Jan 2008 03:29:35 +0000
+Subject: [PATCH 0 of 3] cleanups for efi.c
+Message-Id: <patchbomb.1199849375@jenkins.nashua>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC50D9B4@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC50D9B4@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> This sounds like a case of the kernel corrupting user data.  Are you
-> pushing this into the distro kernels?  Do you have bugzilla numbers?
+These trivial patches clean up efi.c.  There are no functionality
+changes introduced by these patches.  This submission incorporates
+feedback from my last post on Dec 12:
 
-Yes, the kernel is corrupting user data.  I'm not aware of bugzilla
-entries for this at the distros (I only became aware of the issue on
-Thursday afternoon).  I agree that it needs to go to the distros.
-My bugzilla searching skills are bad (I usually can't find bugs that
-I know are in there, for which I have all the right keywords :-( )
-So if anyone knows of existing bugs that might be caused by this
-problem ... let me know.  Otherwise I can open new entries when
-I send this patch to Linus.
+- merge forward to current tree
+- Tony suggested leaving efi_guidcmp() alone
+- Peter suggested punctuation/grammar fixes
 
-I'm a little puzzled that this hasn't been found before.  The code
-in unaligned.c has been essentially the same since the dawn of ia64
-time ... very early 2.4.x releases just used a "? :" rather than
-an "if ... else", so the patch would need some massaging before
-it could be applied to 2.4.3 or earlier.  I'm assuming that we haven't
-hit this before because either (or both) of these are true:
-1) Most FP access to memory is aligned.
-2) Compilers are not generating the "ldf fX = [rY], off" (and other
-   mis-decoded variations) very often.
+1/3 - fix whitespace, fit in 80 columns, repair some indentation
+2/3 - spelling and punctuation
+3/3 - add /* never reached */ to a couple returns
 
-Meanwhile ... if you could stare at the code and pages 3:302 - 3:306
-of the SDM for a while to check my patch for stupidity, that would
-be extremely helpful.
+1 file changed, 273 insertions(+), 230 deletions(-)
+arch/ia64/kernel/efi.c |  503 ++++++++++++++++++++++++++----------------------
 
--Tony
+
