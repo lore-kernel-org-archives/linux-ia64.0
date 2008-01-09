@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 03 Jan 2008 22:07:49 +0000
-Subject: RE: [RFC PATCH] clean up use of ia64 tool chain check scripts --resent
-Message-Id: <1FE6DD409037234FAB833C420AA843EC388F61@orsmsx424.amr.corp.intel.com>
+From: Aron Griffis <aron@hp.com>
+Date: Wed, 09 Jan 2008 03:41:33 +0000
+Subject: Re: [RFC PATCH] clean up use of ia64 tool chain check scripts
+Message-Id: <20080109034133.GB1534@fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20071220142053.GE4217@localhost.localdomain>
 In-Reply-To: <20071220142053.GE4217@localhost.localdomain>
@@ -10,21 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
--GAS_STATUS	= $(shell $(srctree)/arch/ia64/scripts/check-gas "$(CC)" "$(OBJDUMP)")
--CPPFLAGS += $(shell $(srctree)/arch/ia64/scripts/toolchain-flags "$(CC)" "$(OBJDUMP)" "$(READELF)")
+Luming Yu wrote:  [Thu Dec 20 2007, 09:20:53AM EST]
+> make ARCH=ia64 olconfig failed if ia64 cross
+> tool chain is __not__ installed or OBJDUMP and CC is __not__ set with
+> correct path on a non-ia64 box
 
-If we delete these calls from the Makefile, then should we also
-delete the scripts themselves (and the test programs that they
-use) from arch/ia64/scripts?
+Hey Luming, this has always bothered me.  Thanks for fixing it!
 
-+CPPFLAGS += -DHAVE_WORKING_TEXT_ALIGN -DHAVE_MODEL_SMALL_ATTRIBUTE -DHAVE_SERIALIZE_DIRECTIVE
-
-and if we are going to just unconditionally set these defines, perhaps
-we should clean the #ifdef'd code out of the source tree so we can
-remove this clutter from the Makefile too?
-
-It all sounds good to me ... but I'll wait a few more days in case
-somebody who knows better is still on their winter holiday break.
-[This is 2.6.25 cleanup material anyway, so waiting is not an issue]
-
--Tony
+Aron
