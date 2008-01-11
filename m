@@ -1,95 +1,64 @@
-From: travis@sgi.com
-Date: Fri, 18 Jan 2008 18:29:57 +0000
-Subject: [PATCH 4/7] ia64: Use generic percpu
-Message-Id: <20080118182954.323802000@sgi.com>
+From: Daniel Walker <dwalker@mvista.com>
+Date: Fri, 11 Jan 2008 04:31:51 +0000
+Subject: [PATCH] ia64: sn_hwperf semaphore to mutex
+Message-Id: <20080111043151.805226977@mvista.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080118182953.748071000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Andi Kleen <ak@suse.de>, mingo@elte.hu
-Cc: Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
 
-ia64 has a special processor specific mapping that can be used to locate the
-offset for the current per cpu area.
+Really simple mutex style semaphore user. The new API is struct mutex which is
+what I've converted it to with this change.
 
-Cc: linux-ia64@vger.kernel.org
-Cc: tony.luck@intel.com
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Daniel Walker <dwalker@mvista.com>
+ 
 ---
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-V1->V2:
-- Merge fixes
-- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
-
-V2-.V3:
-- use generic percpy_modcopy()
-
----
- include/asm-ia64/percpu.h |   24 +++++++-----------------
- include/linux/percpu.h    |    4 ----
- 2 files changed, 7 insertions(+), 21 deletions(-)
-
---- a/include/asm-ia64/percpu.h
-+++ b/include/asm-ia64/percpu.h
-@@ -19,29 +19,14 @@
- # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
- #endif
+Index: linux-2.6.23/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- linux-2.6.23.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ linux-2.6.23/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -33,6 +33,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/nodemask.h>
+ #include <linux/smp.h>
++#include <linux/mutex.h>
  
--#define DECLARE_PER_CPU(type, name)				\
--	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
--
- #ifdef CONFIG_SMP
+ #include <asm/processor.h>
+ #include <asm/topology.h>
+@@ -50,7 +51,7 @@ static void *sn_hwperf_salheap = NULL;
+ static int sn_hwperf_obj_cnt = 0;
+ static nasid_t sn_hwperf_master_nasid = INVALID_NASID;
+ static int sn_hwperf_init(void);
+-static DECLARE_MUTEX(sn_hwperf_init_mutex);
++static DEFINE_MUTEX(sn_hwperf_init_mutex);
  
--extern unsigned long __per_cpu_offset[NR_CPUS];
--#define per_cpu_offset(x) (__per_cpu_offset[x])
--
--/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
--DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
--
--#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
--#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
--#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
-+#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
+ #define cnode_possible(n)	((n) < num_cnodes)
  
--extern void setup_per_cpu_areas (void);
- extern void *per_cpu_init(void);
+@@ -884,10 +885,10 @@ static int sn_hwperf_init(void)
+ 	int e = 0;
  
- #else /* ! SMP */
+ 	/* single threaded, once-only initialization */
+-	down(&sn_hwperf_init_mutex);
++	mutex_lock(&sn_hwperf_init_mutex);
  
--#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
--#define __get_cpu_var(var)			per_cpu__##var
--#define __raw_get_cpu_var(var)			per_cpu__##var
- #define per_cpu_init()				(__phys_per_cpu_start)
+ 	if (sn_hwperf_salheap) {
+-		up(&sn_hwperf_init_mutex);
++		mutex_unlock(&sn_hwperf_init_mutex);
+ 		return e;
+ 	}
  
- #endif	/* SMP */
-@@ -52,7 +37,12 @@ extern void *per_cpu_init(void);
-  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
-  * more efficient.
-  */
--#define __ia64_per_cpu_var(var)	(per_cpu__##var)
-+#define __ia64_per_cpu_var(var)	per_cpu__##var
-+
-+#include <asm-generic/percpu.h>
-+
-+/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
-+DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+@@ -936,7 +937,7 @@ out:
+ 		sn_hwperf_salheap = NULL;
+ 		sn_hwperf_obj_cnt = 0;
+ 	}
+-	up(&sn_hwperf_init_mutex);
++	mutex_unlock(&sn_hwperf_init_mutex);
+ 	return e;
+ }
  
- #endif /* !__ASSEMBLY__ */
- 
---- a/include/linux/percpu.h
-+++ b/include/linux/percpu.h
-@@ -9,10 +9,6 @@
- 
- #include <asm/percpu.h>
- 
--#ifndef PER_CPU_ATTRIBUTES
--#define PER_CPU_ATTRIBUTES
--#endif
--
- #ifdef CONFIG_SMP
- #define DEFINE_PER_CPU(type, name)					\
- 	__attribute__((__section__(".data.percpu")))			\
+-- 
 
 -- 
