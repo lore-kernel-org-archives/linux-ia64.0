@@ -1,46 +1,27 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Mon, 14 Jan 2008 02:24:24 +0000
-Subject: [PATCH] Fix kprobes on ia64
-Message-Id: <20080114022423.GH18741@parisc-linux.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Mon, 14 Jan 2008 06:02:56 +0000
+Subject: Re: [PATCH] Fix kprobes on ia64
+Message-Id: <20080114060256.GB5187@uranus.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080114022423.GH18741@parisc-linux.org>
+In-Reply-To: <20080114022423.GH18741@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
 
+On Sun, Jan 13, 2008 at 07:24:24PM -0700, Matthew Wilcox wrote:
+> 
+> If CONFIG_KPROBES is set, we get the error during build:
+> 
+> kernel/kprobes.c:1057: error: __ksymtab_jprobe_return causes a section
+> type conflict
+> 
+> This is because ia64 defines a static inline jprobe_return which kprobes
+> attempts to EXPORT_SYMBOL.
 
-If CONFIG_KPROBES is set, we get the error during build:
+The better fix is to let jprobe_return be a normal function that can be exported.
+Then we avoid this arch specific ifdef for the cost of nothing.
 
-kernel/kprobes.c:1057: error: __ksymtab_jprobe_return causes a section
-type conflict
-
-This is because ia64 defines a static inline jprobe_return which kprobes
-attempts to EXPORT_SYMBOL.
-
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
-
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index e3a5d81..ecc25b3 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1053,11 +1053,11 @@ EXPORT_SYMBOL_GPL(register_kprobe);
- EXPORT_SYMBOL_GPL(unregister_kprobe);
- EXPORT_SYMBOL_GPL(register_jprobe);
- EXPORT_SYMBOL_GPL(unregister_jprobe);
-+
- #ifdef CONFIG_KPROBES
-+#ifndef __ia64__ /* It's static inline */
- EXPORT_SYMBOL_GPL(jprobe_return);
- #endif
--
--#ifdef CONFIG_KPROBES
- EXPORT_SYMBOL_GPL(register_kretprobe);
- EXPORT_SYMBOL_GPL(unregister_kretprobe);
- #endif
-
--- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+	Sam
