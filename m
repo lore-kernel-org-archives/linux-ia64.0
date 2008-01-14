@@ -1,40 +1,46 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 18 Jan 2008 08:28:42 +0000
-Subject: Re: runqueue locks in schedule()
-Message-Id: <200801181928.43249.nickpiggin@yahoo.com.au>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Mon, 14 Jan 2008 02:24:24 +0000
+Subject: [PATCH] Fix kprobes on ia64
+Message-Id: <20080114022423.GH18741@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470801161629t3870da59hb6ac371c44126b07@mail.gmail.com> <200801181307.53026.nickpiggin@yahoo.com.au> <7c86c4470801172233s333b5993q8b10e37f8ad151d@mail.gmail.com>
-In-Reply-To: <7c86c4470801172233s333b5993q8b10e37f8ad151d@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: stephane eranian <eranian@googlemail.com>
-Cc: Peter Zijlstra <peterz@infradead.org>, linux-kernel@vger.kernel.org, ia64 <linux-ia64@vger.kernel.org>, Stephane Eranian <eranian@gmail.com>, Corey J Ashford <cjashfor@us.ibm.com>, Ingo Molnar <mingo@elte.hu>
-
-On Friday 18 January 2008 17:33, stephane eranian wrote:
-> Nick,
-
-> > It is arch specific. If an architecture wants interrupts on during
-> > context switch, or runqueue unlocked, then they set it (btw
-> > INTERRUPTS_ON_CTXSW also implies UNLOCKED_CTXSW).
->
-> Yes , I noticed that. I am only interested in UNLOCKED_CTXSW.
-> But it appears that the approach suggested my Peter does work. We are
-> running some tests.
-
-OK, that might be OK.
+To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>
 
 
-> > Although, eg on x86, you would hold off interrupts and runqueue lock for
-> > slightly less time if you defined those, it results in _slightly_ more
-> > complicated context switching... although I did once find a workload
-> > where the reduced runqueue contention improved throughput a bit, it is
-> > not much problem in general to hold the lock.
->
-> By complicated you mean that now you'd have to make sure you don't
-> need to access runqueue data?
+If CONFIG_KPROBES is set, we get the error during build:
 
-Well, not speaking about the arch-specific code (which may involve
-more complexities), but the core scheduler needs the
-task_struct->oncpu variable wheras that isn't required if the
-runqueue is locked while switching tasks.
+kernel/kprobes.c:1057: error: __ksymtab_jprobe_return causes a section
+type conflict
+
+This is because ia64 defines a static inline jprobe_return which kprobes
+attempts to EXPORT_SYMBOL.
+
+Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index e3a5d81..ecc25b3 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1053,11 +1053,11 @@ EXPORT_SYMBOL_GPL(register_kprobe);
+ EXPORT_SYMBOL_GPL(unregister_kprobe);
+ EXPORT_SYMBOL_GPL(register_jprobe);
+ EXPORT_SYMBOL_GPL(unregister_jprobe);
++
+ #ifdef CONFIG_KPROBES
++#ifndef __ia64__ /* It's static inline */
+ EXPORT_SYMBOL_GPL(jprobe_return);
+ #endif
+-
+-#ifdef CONFIG_KPROBES
+ EXPORT_SYMBOL_GPL(register_kretprobe);
+ EXPORT_SYMBOL_GPL(unregister_kretprobe);
+ #endif
+
+-- 
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
