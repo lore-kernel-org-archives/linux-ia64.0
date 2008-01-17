@@ -1,9 +1,9 @@
 From: travis@sgi.com
-Date: Mon, 21 Jan 2008 20:27:52 +0000
-Subject: [PATCH 5/8] ia64: Use generic percpu fixup rc8-mm1-fixup
-Message-Id: <20080121202748.310145000@sgi.com>
+Date: Thu, 17 Jan 2008 22:35:09 +0000
+Subject: [PATCH 4/6] ia64: Use generic percpu
+Message-Id: <20080117223505.774586000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080121202747.593568000@sgi.com>
+References: <20080117223505.203884000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,16 +13,11 @@ Cc: Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.
 ia64 has a special processor specific mapping that can be used to locate the
 offset for the current per cpu area.
 
-Based on: 2.6.24-rc8-mm1
-
 Cc: linux-ia64@vger.kernel.org
 Cc: tony.luck@intel.com
 Signed-off-by: Christoph Lameter <clameter@sgi.com>
 Signed-off-by: Mike Travis <travis@sgi.com>
 ---
-rc8-mm1-fixup:
-  - rebased from 2.6.24-rc6-mm1 to 2.6.24-rc8-mm1
-    (removed changes that are in the git-x86.patch)
 
 V1->V2:
 - Merge fixes
