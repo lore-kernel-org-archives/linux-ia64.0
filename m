@@ -1,9 +1,9 @@
 From: travis@sgi.com
-Date: Thu, 17 Jan 2008 22:35:09 +0000
-Subject: [PATCH 4/6] ia64: Use generic percpu
-Message-Id: <20080117223505.774586000@sgi.com>
+Date: Fri, 18 Jan 2008 18:29:57 +0000
+Subject: [PATCH 4/7] ia64: Use generic percpu
+Message-Id: <20080118182954.323802000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080117223505.203884000@sgi.com>
+References: <20080118182953.748071000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
