@@ -1,42 +1,111 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 30 Jan 2008 03:17:42 +0000
-Subject: [PATCH] ia64: generalize attribute of fsyscall_gtod_data
-Message-Id: <479FEC56.9050803@jp.fujitsu.com>
+From: travis@sgi.com
+Date: Mon, 21 Jan 2008 20:28:25 +0000
+Subject: [PATCH 4/7] ia64: Use generic percpu fixup rc8-mm1-fixup with git-x86
+Message-Id: <20080121202822.393253000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080121202821.815918000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Andi Kleen <ak@suse.de>, mingo@elte.hu
+Cc: Christoph Lameter <clameter@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-In an ordinary way,
+ia64 has a special processor specific mapping that can be used to locate the
+offset for the current per cpu area.
 
-> } __attribute__ ((aligned (L1_CACHE_BYTES)));
+Based on 2.6.24-rc8-mm1 + latest (08/1/21) git-x86
 
-should be
-
-> } ____cacheline_aligned;
-
-to save some bytes on an uni-processor.
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
+Cc: linux-ia64@vger.kernel.org
+Cc: tony.luck@intel.com
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/kernel/fsyscall_gtod_data.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+rc8-mm1-fixup:
+  - rebased from 2.6.24-rc6-mm1 to 2.6.24-rc8-mm1
+    (removed changes that are in the git-x86.patch)
+---
+V1->V2:
+- Merge fixes
+- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
 
-Index: linux-2.6.24/arch/ia64/kernel/fsyscall_gtod_data.h
-=================================--- linux-2.6.24.orig/arch/ia64/kernel/fsyscall_gtod_data.h
-+++ linux-2.6.24/arch/ia64/kernel/fsyscall_gtod_data.h
-@@ -14,10 +14,10 @@
- 	u32		clk_shift;
- 	void		*clk_fsys_mmio;
- 	cycle_t		clk_cycle_last;
--} __attribute__ ((aligned (L1_CACHE_BYTES)));
-+} ____cacheline_aligned;
+V2-.V3:
+- use generic percpy_modcopy()
+---
+ arch/ia64/Kconfig         |    2 +-
+ include/asm-ia64/percpu.h |   24 +++++++-----------------
+ include/linux/percpu.h    |    4 ----
+ 3 files changed, 8 insertions(+), 22 deletions(-)
 
- struct itc_jitter_data_t {
- 	int		itc_jitter;
- 	cycle_t		itc_lastcycle;
--} __attribute__ ((aligned (L1_CACHE_BYTES)));
-+} ____cacheline_aligned;
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -80,7 +80,7 @@ config GENERIC_TIME_VSYSCALL
+ 	bool
+ 	default y
+ 
+-config ARCH_SETS_UP_PER_CPU_AREA
++config HAVE_SETUP_PER_CPU_AREA
+ 	def_bool y
+ 
+ config DMI
+--- a/include/asm-ia64/percpu.h
++++ b/include/asm-ia64/percpu.h
+@@ -19,29 +19,14 @@
+ # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
+ #endif
+ 
+-#define DECLARE_PER_CPU(type, name)				\
+-	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
+-
+ #ifdef CONFIG_SMP
+ 
+-extern unsigned long __per_cpu_offset[NR_CPUS];
+-#define per_cpu_offset(x) (__per_cpu_offset[x])
+-
+-/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
+-DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+-
+-#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
+-#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+-#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
++#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
+ 
+-extern void setup_per_cpu_areas (void);
+ extern void *per_cpu_init(void);
+ 
+ #else /* ! SMP */
+ 
+-#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
+-#define __get_cpu_var(var)			per_cpu__##var
+-#define __raw_get_cpu_var(var)			per_cpu__##var
+ #define per_cpu_init()				(__phys_per_cpu_start)
+ 
+ #endif	/* SMP */
+@@ -52,7 +37,12 @@ extern void *per_cpu_init(void);
+  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
+  * more efficient.
+  */
+-#define __ia64_per_cpu_var(var)	(per_cpu__##var)
++#define __ia64_per_cpu_var(var)	per_cpu__##var
++
++#include <asm-generic/percpu.h>
++
++/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
++DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
+ 
+ #endif /* !__ASSEMBLY__ */
+ 
+--- a/include/linux/percpu.h
++++ b/include/linux/percpu.h
+@@ -9,10 +9,6 @@
+ 
+ #include <asm/percpu.h>
+ 
+-#ifndef PER_CPU_ATTRIBUTES
+-#define PER_CPU_ATTRIBUTES
+-#endif
+-
+ #ifdef CONFIG_SMP
+ #define DEFINE_PER_CPU(type, name)					\
+ 	__attribute__((__section__(".data.percpu")))			\
 
+-- 
