@@ -1,55 +1,37 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Tue, 22 Jan 2008 01:07:46 +0000
-Subject: Re: [PATCH]Fix the order of atomic operations in
-Message-Id: <1200964066.1353.0.camel@sli10-desk.sh.intel.com>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Fri, 25 Jan 2008 01:18:51 +0000
+Subject: RE: [kvm-devel] ia64 kernel patches?
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCCE708C@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4790D1DE.8030700@redhat.com>
-In-Reply-To: <4790D1DE.8030700@redhat.com>
+References: <4798C34F.9010509@sgi.com> <20080124185316.GW3627@sequoia.sous-sol.org>
+In-Reply-To: <20080124185316.GW3627@sequoia.sous-sol.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@redhat.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, ia64 <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, systemtap-ml <systemtap@sources.redhat.com>
+To: Chris Wright <chrisw@sous-sol.org>, Jes Sorensen <jes@sgi.com>
+Cc: kvm-devel@lists.sourceforge.net, "Xu, Anthony" <anthony.xu@intel.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
+Hi, Jes
+Yes, Anthony and I are working with kernel-ia64 and kvm community to push the patches. Since kernel should export some interface for kvm use, we have to wait the response from kernel-ia64. But anyway,  It should be picked up in near future. :)  Compared with last push, we added smp guest support and got more stable status now . 
+Thanks
+Xiantao
 
-On Sat, 2008-01-19 at 00:20 +0800, Masami Hiramatsu wrote:
-> From: Masami Hiramatsu <mhiramat@redhat.com>
-> 
-> Fix the order of atomic operations to prevent overwriting
-> prev_kprobe[0].
-> To pop values from stack, we must decrement stack index right AFTER
-> reading values.
-> 
-> Signed-off-by: Masami Hiramatsu <mhiramat@redhat.com>
-> ---
-> Details of this issue was reported to
-> http://sources.redhat.com/bugzilla/show_bug.cgi?id 71
-> 
->    arch/ia64/kernel/kprobes.c |    7 ++++---
->    1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> Index: 2.6.24-rc8/arch/ia64/kernel/kprobes.c
-> =================================> --- 2.6.24-rc8.orig/arch/ia64/kernel/kprobes.c  2008-01-17
-> 21:14:01.000000000 -0500
-> +++ 2.6.24-rc8/arch/ia64/kernel/kprobes.c       2008-01-17
-> 21:14:01.000000000 -0500
-> @@ -381,9 +381,10 @@
->    static void __kprobes restore_previous_kprobe(struct kprobe_ctlblk
-> *kcb)
->    {
->         unsigned int i;
-> -       i = atomic_sub_return(1, &kcb->prev_kprobe_index);
-> -       __get_cpu_var(current_kprobe) = kcb->prev_kprobe[i].kp;
-> -       kcb->kprobe_status = kcb->prev_kprobe[i].status;
-> +       i = atomic_read(&kcb->prev_kprobe_index);
-> +       __get_cpu_var(current_kprobe) = kcb->prev_kprobe[i-1].kp;
-> +       kcb->kprobe_status = kcb->prev_kprobe[i-1].status;
-> +       atomic_sub(1, &kcb->prev_kprobe_index);
->    }
-> 
->    static void __kprobes set_current_kprobe(struct kprobe *p,
-Acked. Thanks for the patch.
+-----Original Message-----
+From: Chris Wright [mailto:chrisw@sous-sol.org] 
+Sent: 2008年1月25日 2:53
+To: Jes Sorensen
+Cc: Zhang, Xiantao; kvm-devel@lists.sourceforge.net
+Subject: Re: [kvm-devel] ia64 kernel patches?
 
-Thanks,
-Shaohua
+* Jes Sorensen (jes@sgi.com) wrote:
+> Trying to browse the list archives, but both gmane and sourcefrog's
+> interfaces are really painful to deal with.
+> 
+> So, any chance someone could point me at the current ia64 KVM kernel
+> patches? I notice they are not yet in Avi's tree.
 
+The last full round of patches I recall are from December.
+Maybe better to get updated patches from Xiantao?
+
+thanks,
+-chris
