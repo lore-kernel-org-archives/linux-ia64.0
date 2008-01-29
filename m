@@ -1,7 +1,7 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Mon, 07 Jan 2008 01:11:57 +0000
-Subject: Re: [PATCH] ia64: cleanup header comments in mca related files
-Message-Id: <47817C5D.5060204@jp.fujitsu.com>
+Date: Tue, 29 Jan 2008 05:39:43 +0000
+Subject: [PATCH] ia64: cleanup header comments in mca related files
+Message-Id: <479EBC1F.4020100@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <476B3AF5.7030309@jp.fujitsu.com>
 In-Reply-To: <476B3AF5.7030309@jp.fujitsu.com>
@@ -10,26 +10,7 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Happy late new year!
-
->> One possible worry is this bit: 
->>   * Copyright (C) 2003 Hewlett-Packard Co
->> - *	David Mosberger-Tang <davidm@hpl.hp.com>
->> + * Copyright (C) David Mosberger-Tang <davidm@hpl.hp.com>
->>
->> While this is in the same style as all the following entries, David
->> didn't explicitly claim copyright for himself with the old text, just
->> for Hewlett-Packard with a following note that he made the change.
->> You added the "Copyright (C)" against his name, and that doesn't
->> look like a good thing to do.
-> 
-> I agree; I don't think we should change copyright entries.
-
-I see. The following is the 2nd version that keeps David's entry as is.
-
-Thanks,
-H.Seto
------
+[Refreshed for 2.6.24]
 
 Unified changelog, 80 columns rule, and address form fix.
 
@@ -45,9 +26,9 @@ Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
  include/asm-ia64/mca_asm.h     |    3 +
  7 files changed, 71 insertions(+), 58 deletions(-)
 
-Index: GIT-torvalds/arch/ia64/kernel/mca.c
-=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca.c
-+++ GIT-torvalds/arch/ia64/kernel/mca.c
+Index: linux-2.6.24/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.24.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.24/arch/ia64/kernel/mca.c
 @@ -2,61 +2,69 @@
   * File:	mca.c
   * Purpose:	Generic MCA handling layer
@@ -148,9 +129,9 @@ Index: GIT-torvalds/arch/ia64/kernel/mca.c
   *
   * 2007-04-27 Russ Anderson <rja@sgi.com>
   *	      Support multiple cpus going through OS_MCA in the same event.
-Index: GIT-torvalds/arch/ia64/kernel/mca_asm.S
-=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca_asm.S
-+++ GIT-torvalds/arch/ia64/kernel/mca_asm.S
+Index: linux-2.6.24/arch/ia64/kernel/mca_asm.S
+=================================--- linux-2.6.24.orig/arch/ia64/kernel/mca_asm.S
++++ linux-2.6.24/arch/ia64/kernel/mca_asm.S
 @@ -1,24 +1,28 @@
 -//
 -// assembly portion of the IA64 MCA handling
@@ -201,9 +182,9 @@ Index: GIT-torvalds/arch/ia64/kernel/mca_asm.S
  #include <linux/threads.h>
 
  #include <asm/asmmacro.h>
-Index: GIT-torvalds/arch/ia64/kernel/mca_drv.c
-=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca_drv.c
-+++ GIT-torvalds/arch/ia64/kernel/mca_drv.c
+Index: linux-2.6.24/arch/ia64/kernel/mca_drv.c
+=================================--- linux-2.6.24.orig/arch/ia64/kernel/mca_drv.c
++++ linux-2.6.24/arch/ia64/kernel/mca_drv.c
 @@ -3,7 +3,7 @@
   * Purpose:	Generic MCA handling layer
   *
@@ -213,9 +194,9 @@ Index: GIT-torvalds/arch/ia64/kernel/mca_drv.c
   * Copyright (C) 2005 Silicon Graphics, Inc
   * Copyright (C) 2005 Keith Owens <kaos@sgi.com>
   * Copyright (C) 2006 Russ Anderson <rja@sgi.com>
-Index: GIT-torvalds/arch/ia64/kernel/mca_drv.h
-=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca_drv.h
-+++ GIT-torvalds/arch/ia64/kernel/mca_drv.h
+Index: linux-2.6.24/arch/ia64/kernel/mca_drv.h
+=================================--- linux-2.6.24.orig/arch/ia64/kernel/mca_drv.h
++++ linux-2.6.24/arch/ia64/kernel/mca_drv.h
 @@ -3,7 +3,7 @@
   * Purpose:	Define helpers for Generic MCA handling
   *
@@ -225,9 +206,9 @@ Index: GIT-torvalds/arch/ia64/kernel/mca_drv.h
   */
  /*
   * Processor error section:
-Index: GIT-torvalds/arch/ia64/kernel/mca_drv_asm.S
-=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca_drv_asm.S
-+++ GIT-torvalds/arch/ia64/kernel/mca_drv_asm.S
+Index: linux-2.6.24/arch/ia64/kernel/mca_drv_asm.S
+=================================--- linux-2.6.24.orig/arch/ia64/kernel/mca_drv_asm.S
++++ linux-2.6.24/arch/ia64/kernel/mca_drv_asm.S
 @@ -3,7 +3,7 @@
   * Purpose:     Assembly portion of Generic MCA handling
   *
@@ -237,9 +218,9 @@ Index: GIT-torvalds/arch/ia64/kernel/mca_drv_asm.S
   */
  #include <linux/threads.h>
 
-Index: GIT-torvalds/include/asm-ia64/mca.h
-=================================--- GIT-torvalds.orig/include/asm-ia64/mca.h
-+++ GIT-torvalds/include/asm-ia64/mca.h
+Index: linux-2.6.24/include/asm-ia64/mca.h
+=================================--- linux-2.6.24.orig/include/asm-ia64/mca.h
++++ linux-2.6.24/include/asm-ia64/mca.h
 @@ -3,9 +3,9 @@
   * Purpose:	Machine check handling specific defines
   *
@@ -253,9 +234,9 @@ Index: GIT-torvalds/include/asm-ia64/mca.h
   */
 
  #ifndef _ASM_IA64_MCA_H
-Index: GIT-torvalds/include/asm-ia64/mca_asm.h
-=================================--- GIT-torvalds.orig/include/asm-ia64/mca_asm.h
-+++ GIT-torvalds/include/asm-ia64/mca_asm.h
+Index: linux-2.6.24/include/asm-ia64/mca_asm.h
+=================================--- linux-2.6.24.orig/include/asm-ia64/mca_asm.h
++++ linux-2.6.24/include/asm-ia64/mca_asm.h
 @@ -1,8 +1,9 @@
  /*
   * File:	mca_asm.h
@@ -267,3 +248,4 @@ Index: GIT-torvalds/include/asm-ia64/mca_asm.h
   * Copyright (C) Srinivasa Thirumalachar <sprasad@engr.sgi.com>
   * Copyright (C) 2000 Hewlett-Packard Co.
   * Copyright (C) 2000 David Mosberger-Tang <davidm@hpl.hp.com>
+
