@@ -1,411 +1,161 @@
-From: "Xu, Anthony" <anthony.xu@intel.com>
-Date: Thu, 31 Jan 2008 09:37:29 +0000
-Subject: RE: [PATCH]Add TR insert/purge interface for add-on component
-Message-Id: <51CFAB8CB6883745AE7B93B3E084EBE201702606@pdsmsx412.ccr.corp.intel.com>
+From: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Date: Wed, 30 Jan 2008 15:27:02 +0000
+Subject: Re: x86/non-x86: percpu, node ids, apic ids x86.git fixup
+Message-Id: <Pine.LNX.4.64.0801301622460.11859@vixen.sonytel.be>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="-584349381-142965727-1201706760=:11859"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <51CFAB8CB6883745AE7B93B3E084EBE201670418@pdsmsx412.ccr.corp.intel.com> <1FE6DD409037234FAB833C420AA843EC5FD030@orsmsx424.amr.corp.intel.com> <51CFAB8CB6883745AE7B93B3E084EBE2016708BB@pdsmsx412.ccr.corp.intel.com> <51CFAB8CB6883745AE7B93B3E084EBE2016708D8@pdsmsx412.ccr.corp.intel.com>
-In-Reply-To: <51CFAB8CB6883745AE7B93B3E084EBE2016708D8@pdsmsx412.ccr.corp.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Xu, Anthony" <anthony.xu@intel.com>, "Luck, Tony" <tony.luck@intel.com>, Avi Kivity <avi@qumranet.com>
-Cc: linux-ia64@vger.kernel.org, kvm-devel <kvm-devel@lists.sourceforge.net>
+References: <200801301414.m0UEEgCC006371@hera.kernel.org>
+In-Reply-To: <200801301414.m0UEEgCC006371@hera.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>, Thomas Gleixner <tglx@linutronix.de>, Mike Travis <travis@sgi.com>
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux-ia64@vger.kernel.org, sparclinux@vger.kernel.org
 
-Hi tony,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-This is the revised patch per comments.
-We don't use index as parameter of ia64_ptr_entry,
-Because it will cause the unconvenientce to user.
-1. the user need to remember index.
-2. the user may want to use one purge to purge two previous inserts.
+---584349381-142965727-1201706760=:11859
+Content-Type: TEXT/PLAIN; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+Content-ID: <Pine.LNX.4.64.0801301626081.11859@vixen.sonytel.be>
 
-We add some optimization for ia64_ptr_entry,
-It only compare dynamical used TRs,
-As for KVM, it only compares two TRs, So it will not impact formance.
+On Wed, 30 Jan 2008, Linux Kernel Mailing List wrote:
+> Gitweb:     http://git.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commit;h=dd5af90a7f3d79e04b7eace9a98644dbf2038f4d
+> Commit:     dd5af90a7f3d79e04b7eace9a98644dbf2038f4d
+> Parent:     3212bff370c2f22e4987c6679ba485654cefb178
+> Author:     Mike Travis <travis@sgi.com>
+> AuthorDate: Wed Jan 30 13:33:32 2008 +0100
+> Committer:  Ingo Molnar <mingo@elte.hu>
+> CommitDate: Wed Jan 30 13:33:32 2008 +0100
+> 
+>     x86/non-x86: percpu, node ids, apic ids x86.git fixup
+>     
+>     Signed-off-by: Ingo Molnar <mingo@elte.hu>
+>     Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+> ---
+>  arch/x86/Kconfig             |    2 +-
+>  include/asm-generic/percpu.h |   12 ++----------
+>  init/main.c                  |    4 ++--
+>  kernel/module.c              |    8 ++++++++
 
+This broke powerpc (and presumably ia64 and sparc64) in current linux-2.6.git:
 
-Thanks,
-Anthony
+| init/main.c:376: error: static declaration of 'setup_per_cpu_areas' follows non-static declaration
+| include2/asm/percpu.h:33: error: previous declaration of 'setup_per_cpu_areas' was here
 
+as the generic and x86-specific parts were integrated, while the
+powerpc/ia64/sparc64-specific parts are still missing.
 
+>  4 files changed, 13 insertions(+), 13 deletions(-)
+> 
+> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+> index f0887d1..8e1b33c 100644
+> --- a/arch/x86/Kconfig
+> +++ b/arch/x86/Kconfig
+> @@ -97,7 +97,7 @@ config GENERIC_TIME_VSYSCALL
+>  	bool
+>  	default X86_64
+>  
+> -config ARCH_SETS_UP_PER_CPU_AREA
+> +config HAVE_SETUP_PER_CPU_AREA
+>  	def_bool X86_64
+>  
+>  config ARCH_SUPPORTS_OPROFILE
+> diff --git a/include/asm-generic/percpu.h b/include/asm-generic/percpu.h
+> index c41b1a7..4b8d31c 100644
+> --- a/include/asm-generic/percpu.h
+> +++ b/include/asm-generic/percpu.h
+> @@ -47,7 +47,7 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
+>  #endif
+>  
+>  /*
+> - * A percpu variable may point to a discarded reghions. The following are
+> + * A percpu variable may point to a discarded regions. The following are
+>   * established ways to produce a usable pointer from the percpu variable
+>   * offset.
+>   */
+> @@ -59,18 +59,10 @@ extern unsigned long __per_cpu_offset[NR_CPUS];
+>  	(*SHIFT_PERCPU_PTR(&per_cpu_var(var), __my_cpu_offset))
+>  
+>  
+> -#ifdef CONFIG_ARCH_SETS_UP_PER_CPU_AREA
+> +#ifdef CONFIG_HAVE_SETUP_PER_CPU_AREA
+>  extern void setup_per_cpu_areas(void);
+>  #endif
+>  
+> -/* A macro to avoid #include hell... */
+> -#define percpu_modcopy(pcpudst, src, size)			\
+> -do {								\
+> -	unsigned int __i;					\
+> -	for_each_possible_cpu(__i)				\
+> -		memcpy((pcpudst)+per_cpu_offset(__i),		\
+> -		       (src), (size));				\
+> -} while (0)
+>  #else /* ! SMP */
+>  
+>  #define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu_var(var)))
+> diff --git a/init/main.c b/init/main.c
+> index 5843fe9..3316dff 100644
+> --- a/init/main.c
+> +++ b/init/main.c
+> @@ -363,7 +363,7 @@ static inline void smp_prepare_cpus(unsigned int maxcpus) { }
+>  
+>  #else
+>  
+> -#ifndef CONFIG_ARCH_SETS_UP_PER_CPU_AREA
+> +#ifndef CONFIG_HAVE_SETUP_PER_CPU_AREA
+>  unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+>  
+>  EXPORT_SYMBOL(__per_cpu_offset);
+> @@ -384,7 +384,7 @@ static void __init setup_per_cpu_areas(void)
+>  		ptr += size;
+>  	}
+>  }
+> -#endif /* CONFIG_ARCH_SETS_UP_CPU_AREA */
+> +#endif /* CONFIG_HAVE_SETUP_PER_CPU_AREA */
+>  
+>  /* Called by boot processor to activate the rest. */
+>  static void __init smp_init(void)
+> diff --git a/kernel/module.c b/kernel/module.c
+> index f6a4e72..bd60278 100644
+> --- a/kernel/module.c
+> +++ b/kernel/module.c
+> @@ -430,6 +430,14 @@ static unsigned int find_pcpusec(Elf_Ehdr *hdr,
+>  	return find_sec(hdr, sechdrs, secstrings, ".data.percpu");
+>  }
+>  
+> +static void percpu_modcopy(void *pcpudest, const void *from, unsigned long size)
+> +{
+> +	int cpu;
+> +
+> +	for_each_possible_cpu(cpu)
+> +		memcpy(pcpudest + per_cpu_offset(cpu), from, size);
+> +}
+> +
+>  static int percpu_modinit(void)
+>  {
+>  	pcpu_num_used = 2;
+> -
+> To unsubscribe from this list: send the line "unsubscribe git-commits-head" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-From a10d0415ce8d7836c27da4147d73616bae055dd4 Mon Sep 17 00:00:00 2001
-From: Zhang Xiantao <xiantao.zhang@intel.com>
-Date: Tue, 29 Jan 2008 12:33:48 +0800
-Subject: [PATCH] Add API for allocating TR resouce.
+With kind regards,
 
-Dynamic TR resouce should be managed in an uniform way.
-Signed-off-by: Zhang Xiantao <xiantao.zhang@intel.com>
-Signed-off-by: Anthony Xu<anthony.xu@intel.com>
----
- arch/ia64/kernel/mca.c     |   50 ++++++++++++++
- arch/ia64/kernel/mca_asm.S |    5 ++
- arch/ia64/mm/tlb.c         |  163
-++++++++++++++++++++++++++++++++++++++++++++
- include/asm-ia64/kregs.h   |    3 +
- include/asm-ia64/tlb.h     |   12 +++
- 5 files changed, 233 insertions(+), 0 deletions(-)
+Geert Uytterhoeven
+Software Architect
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 6dbf591..4253343 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -89,6 +89,7 @@
- 
- #include <asm/irq.h>
- #include <asm/hw_irq.h>
-+#include <asm/tlb.h>
- 
- #include "mca_drv.h"
- #include "entry.h"
-@@ -104,8 +105,10 @@ DEFINE_PER_CPU(u64, ia64_mca_data); /* =
-__per_cpu_mca[smp_processor_id()] */
- DEFINE_PER_CPU(u64, ia64_mca_per_cpu_pte); /* PTE to map per-CPU area
-*/
- DEFINE_PER_CPU(u64, ia64_mca_pal_pte);	    /* PTE to map PAL code */
- DEFINE_PER_CPU(u64, ia64_mca_pal_base);    /* vaddr PAL code granule */
-+DEFINE_PER_CPU(u64, ia64_mca_tr_reload);   /* Flag for TR reload */
- 
- unsigned long __per_cpu_mca[NR_CPUS];
-+extern struct ia64_tr_entry
-__per_cpu_idtrs[NR_CPUS][2][IA64_TR_ALLOC_MAX];
- 
- /* In mca_asm.S */
- extern void			ia64_os_init_dispatch_monarch (void);
-@@ -1177,6 +1180,49 @@ all_in:
- 	return;
- }
- 
-+/*  mca_insert_tr
-+ *
-+ *  Switch rid when TR reload and needed!
-+ *  iord: 1: itr, 2: itr;
-+ *
-+*/
-+static void mca_insert_tr(u64 iord)
-+{
-+
-+	int i;
-+	u64 old_rr;
-+	struct ia64_tr_entry *p;
-+	unsigned long psr;
-+	int cpu = smp_processor_id();
-+
-+	psr = ia64_clear_ic();
-+	for (i = IA64_TR_ALLOC_BASE; i < IA64_TR_ALLOC_MAX; i++) {
-+		p = &__per_cpu_idtrs[cpu][iord-1][i];
-+		if (p->pte&0x1) {
-+			old_rr = ia64_get_rr(p->ifa);
-+			if (old_rr != p->rr) {
-+				ia64_set_rr(p->ifa, p->rr);
-+				ia64_srlz_d();
-+			}
-+			ia64_ptr(iord, p->ifa, p->itir >> 2);
-+			ia64_srlz_i();
-+			if (iord & 0x1) {
-+				ia64_itr(0x1, i, p->ifa, p->pte, p->itir
->> 2);
-+				ia64_srlz_i();
-+			}
-+			if (iord & 0x2) {
-+				ia64_itr(0x2, i, p->ifa, p->pte, p->itir
->> 2);
-+				ia64_srlz_i();
-+			}
-+			if (old_rr != p->rr) {
-+				ia64_set_rr(p->ifa, old_rr);
-+				ia64_srlz_d();
-+			}
-+		}
-+	}
-+	ia64_set_psr(psr);
-+}
-+
- /*
-  * ia64_mca_handler
-  *
-@@ -1266,6 +1312,10 @@ ia64_mca_handler(struct pt_regs *regs, struct
-switch_stack *sw,
- 		monarch_cpu = -1;
- #endif
- 	}
-+	if (__get_cpu_var(ia64_mca_tr_reload)) {
-+		mca_insert_tr(0x1); /*Reload dynamic itrs*/
-+		mca_insert_tr(0x2); /*Reload dynamic itrs*/
-+	}
- 	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, (long)&nd, 0,
-recover)
- 			= NOTIFY_STOP)
- 		ia64_mca_spin(__FUNCTION__);
-diff --git a/arch/ia64/kernel/mca_asm.S b/arch/ia64/kernel/mca_asm.S
-index 0f5965f..dd37dd0 100644
---- a/arch/ia64/kernel/mca_asm.S
-+++ b/arch/ia64/kernel/mca_asm.S
-@@ -215,8 +215,13 @@ ia64_reload_tr:
- 	mov r20=IA64_TR_CURRENT_STACK
- 	;;
- 	itr.d dtr[r20]=r16
-+	GET_THIS_PADDR(r2, ia64_mca_tr_reload)
-+	mov r18 = 1
- 	;;
- 	srlz.d
-+	;;
-+	st8 [r2] =r18
-+	;;
- 
- done_tlb_purge_and_reload:
- 
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index 655da24..5d7dcdb 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -26,6 +26,8 @@
- #include <asm/pal.h>
- #include <asm/tlbflush.h>
- #include <asm/dma.h>
-+#include <asm/processor.h>
-+#include <asm/tlb.h>
- 
- static struct {
- 	unsigned long mask;	/* mask of supported purge page-sizes */
-@@ -39,6 +41,9 @@ struct ia64_ctx ia64_ctx = {
- };
- 
- DEFINE_PER_CPU(u8, ia64_need_tlb_flush);
-+DEFINE_PER_CPU(u8, ia64_tr_num);
-+
-+struct ia64_tr_entry __per_cpu_idtrs[NR_CPUS][2][IA64_TR_ALLOC_MAX];
- 
- /*
-  * Initializes the ia64_ctx.bitmap array based on max_ctx+1.
-@@ -190,6 +195,9 @@ ia64_tlb_init (void)
- 	ia64_ptce_info_t uninitialized_var(ptce_info); /* GCC be quiet
-*/
- 	unsigned long tr_pgbits;
- 	long status;
-+	pal_vm_info_1_u_t vm_info_1;
-+	pal_vm_info_2_u_t vm_info_2;
-+	int cpu = smp_processor_id();
- 
- 	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) !0) {
- 		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with
-status=%ld; "
-@@ -206,4 +214,159 @@ ia64_tlb_init (void)
- 	local_cpu_data->ptce_stride[1] = ptce_info.stride[1];
- 
- 	local_flush_tlb_all();	/* nuke left overs from bootstrapping...
-*/
-+
-+	if ((status = ia64_pal_vm_summary(&vm_info_1, &vm_info_2)) != 0)
-{
-+		printk(KERN_ERR "ia64_pal_vm_summary=%ld\n", status);
-+		per_cpu(ia64_tr_num, cpu) = 8;
-+		return;
-+	}
-+	per_cpu(ia64_tr_num, cpu) vm_info_1.pal_vm_info_1_s.max_itr_entry+1;
-+	if (per_cpu(ia64_tr_num, cpu) > 
-+
-(vm_info_1.pal_vm_info_1_s.max_dtr_entry+1))
-+		per_cpu(ia64_tr_num, cpu) vm_info_1.pal_vm_info_1_s.max_dtr_entry+1;
-+}
-+
-+/*
-+ * is_tr_overlap
-+ *
-+ * Check overlap with inserted TRs.
-+ */
-+static int is_tr_overlap(struct ia64_tr_entry *p, u64 va, u64 log_size)
-+{
-+	u64 tr_log_size;
-+	u64 tr_end;
-+	u64 va_rr = ia64_get_rr(va);
-+	u64 va_rid = RR_TO_RID(va_rr);
-+	u64 va_end = va + (1<<log_size) - 1;
-+
-+	if (va_rid != RR_TO_RID(p->rr))
-+		return 0;
-+	tr_log_size = (p->itir & 0xff) >> 2;
-+	tr_end = p->ifa + (1<<tr_log_size) - 1;
-+
-+	if (va > tr_end || p->ifa > va_end)
-+		return 0;
-+	return 1;
-+
-+}
-+
-+/*
-+ * ia64_insert_tr in virtual mode. Allocate a TR slot
-+ *
-+ * target_mask : 0x1 : itr, 0x2 : dtr, 0x3 : idtr
-+ *
-+ * va 	: virtual address.
-+ * pte 	: pte entries inserted.
-+ * log_size: range to be covered.
-+ *
-+ * Return value:  <0 :  error No.
-+ *
-+ *		  >=0 : slot number allocated for TR.
-+ */
-+int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
-+{
-+	int i, r;
-+	unsigned long psr;
-+	struct ia64_tr_entry *p;
-+	int cpu = smp_processor_id();
-+
-+	r = -EINVAL;
-+	/*Check overlap with existing TR entries*/
-+	if (target_mask&0x1) {
-+		p = &__per_cpu_idtrs[cpu][0][0];
-+		for (i = IA64_TR_ALLOC_BASE; i < per_cpu(ia64_tr_num,
-cpu);
-+								i++,
-p++) {
-+			if (p->pte&0x1)
-+				if (is_tr_overlap(p, va, log_size))
-+					goto out;
-+		}
-+	}
-+	if (target_mask&0x2) {
-+		p = &__per_cpu_idtrs[cpu][1][0];
-+		for (i = IA64_TR_ALLOC_BASE; i < per_cpu(ia64_tr_num,
-cpu);
-+								i++,
-p++) {
-+			if (p->pte&0x1)
-+				if (is_tr_overlap(p, va, log_size))
-+					goto out;
-+		}
-+	}
-+
-+	for (i = IA64_TR_ALLOC_BASE; i < per_cpu(ia64_tr_num, cpu); i++)
-{
-+		switch (target_mask & 0x3) {
-+			case 1:
-+				if
-(!(__per_cpu_idtrs[cpu][0][i].pte&0x1))
-+					goto found;
-+				continue;
-+			case 2:
-+				if
-(!(__per_cpu_idtrs[cpu][1][i].pte&0x1))
-+					goto found;
-+				continue;
-+			case 3:
-+				if
-(!(__per_cpu_idtrs[cpu][0][i].pte&0x1) &&
-+
-!(__per_cpu_idtrs[cpu][1][i].pte&0x1))
-+					goto found;
-+				continue;
-+			default:
-+				r = -EINVAL;
-+				goto out;
-+		}
-+	}
-+found:
-+	/*Record tr info for mca hander use!*/
-+	psr = ia64_clear_ic();
-+	if (target_mask & 0x1) {
-+		ia64_itr(0x1, i, va, pte, log_size);
-+		ia64_srlz_i();
-+		p = &__per_cpu_idtrs[cpu][0][i];
-+		p->ifa = va;
-+		p->pte = pte;
-+		p->itir = log_size << 2;
-+		p->rr = ia64_get_rr(va);
-+	}
-+	if (target_mask & 0x2) {
-+		ia64_itr(0x2, i, va, pte, log_size);
-+		ia64_srlz_i();
-+		p = &__per_cpu_idtrs[cpu][1][i];
-+		p->ifa = va;
-+		p->pte = pte;
-+		p->itir = log_size << 2;
-+		p->rr = ia64_get_rr(va);
-+	}
-+	ia64_set_psr(psr);
-+	r = i;
-+out:
-+	return r;
-+}
-+EXPORT_SYMBOL_GPL(ia64_itr_entry);
-+
-+/*
-+ * ia64_purge_tr
-+ *
-+ * target_mask: 0x1: purge itr, 0x2 : purge dtr, 0x3 purge idtr.
-+ * va: begin address to be purged
-+ * log_size: size to purege.
-+ *
-+ */
-+void ia64_ptr_entry(u64 target_mask, u64 va, u64 log_size)
-+{
-+	int i;
-+	int cpu = smp_processor_id();
-+	struct ia64_tr_entry *p;
-+
-+	ia64_ptr(target_mask, va, log_size);
-+	ia64_srlz_i();
-+
-+	for (i = IA64_TR_ALLOC_BASE; i < per_cpu(ia64_tr_num, cpu); i++)
-{
-+		if (target_mask&0x1) {
-+			p = &__per_cpu_idtrs[cpu][0][i];
-+			if ((p->pte&0x1) && is_tr_overlap(p, va,
-log_size))
-+				p->pte = 0;
-+		}
-+		if (target_mask&0x2) {
-+			p = &__per_cpu_idtrs[cpu][1][i];
-+			if ((p->pte&0x1) && is_tr_overlap(p, va,
-log_size))
-+				p->pte = 0;
-+		}
-+	}
- }
-+EXPORT_SYMBOL_GPL(ia64_ptr_entry);
-diff --git a/include/asm-ia64/kregs.h b/include/asm-ia64/kregs.h
-index 7e55a58..aefcdfe 100644
---- a/include/asm-ia64/kregs.h
-+++ b/include/asm-ia64/kregs.h
-@@ -31,6 +31,9 @@
- #define IA64_TR_PALCODE		1	/* itr1: maps PALcode as
-required by EFI */
- #define IA64_TR_CURRENT_STACK	1	/* dtr1: maps kernel's memory- &
-register-stacks */
- 
-+#define IA64_TR_ALLOC_BASE	2 	/* itr&dtr: Base of dynamic TR
-resource*/
-+#define IA64_TR_ALLOC_MAX	32 	/* Max number for dynamic use*/
-+
- /* Processor status register bits: */
- #define IA64_PSR_BE_BIT		1
- #define IA64_PSR_UP_BIT		2
-diff --git a/include/asm-ia64/tlb.h b/include/asm-ia64/tlb.h
-index 26edcb7..f57a8c1 100644
---- a/include/asm-ia64/tlb.h
-+++ b/include/asm-ia64/tlb.h
-@@ -64,6 +64,18 @@ struct mmu_gather {
- 	struct page 		*pages[FREE_PTE_NR];
- };
- 
-+struct ia64_tr_entry {
-+	u64 ifa;
-+	u64 itir;
-+	u64 pte;
-+	u64 rr;
-+}; /*Record for tr entry!*/
-+
-+extern int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64
-log_size);
-+extern void ia64_ptr_entry(u64 target_mask, u64 va, u64 log_size);
-+
-+#define RR_TO_RID(rr) ((rr)<<32>>40)
-+
- /* Users of the generic TLB shootdown code must declare this storage
-space. */
- DECLARE_PER_CPU(struct mmu_gather, mmu_gathers);
- 
--- 
-1.5.1
+Sony Network and Software Technology Center Europe
+The Corporate Village · Da Vincilaan 7-D1 · B-1935 Zaventem · Belgium
+
+Phone:    +32 (0)2 700 8453
+Fax:      +32 (0)2 700 8622
+E-mail:   Geert.Uytterhoeven@sonycom.com
+Internet: http://www.sony-europe.com/
+
+Sony Network and Software Technology Center Europe
+A division of Sony Service Centre (Europe) N.V.
+Registered office: Technologielaan 7 · B-1840 Londerzeel · Belgium
+VAT BE 0413.825.160 · RPR Brussels
+Fortis Bank Zaventem · Swift GEBABEBB08A · IBAN BE39001382358619
+---584349381-142965727-1201706760=:11859--
