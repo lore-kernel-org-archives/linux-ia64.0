@@ -1,88 +1,113 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Thu, 31 Jan 2008 10:28:19 +0000
-Subject: [PATCH][02] Change srlz.d to srlz.i for ia64_set_psr
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCD31FC5@pdsmsx415.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C863F3.FFED6BA7"
+From: travis@sgi.com
+Date: Wed, 30 Jan 2008 18:09:41 +0000
+Subject: [PATCH 1/6] modules: Fold percpu_modcopy into module.c linux-2.6.git
+Message-Id: <20080130180940.227087000@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Cc: kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+References: <20080130180940.022172000@sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, mingo@elte.hu, Thomas Gleixner <tglx@linutronix.de>
+Cc: Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Andi Kleen <ak@suse.de>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, Rusty Russell <rusty@rustcorp.com.au>, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+percpu_modcopy() is defined multiple times in arch files. However, the only
+user is module.c. Put a static definition into module.c and remove
+the definitions from the arch files.
 
-------_=_NextPart_001_01C863F3.FFED6BA7
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Based on latest linux-2.6.git
 
-From: Xiantao Zhang <xiantao.zhang@intel.com>
-Date: Thu, 31 Jan 2008 17:46:09 +0800
-Subject: [PATCH] IA64: ia64_set_psr may need srlz.i sometimes.
+Cc: Andi Kleen <ak@suse.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: David Miller <davem@davemloft.net>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
+Cc: linuxppc-dev@ozlabs.org
+Cc: linux-ia64@vger.kernel.org
 
-Once psr.ic changes by ia64_set_psr, srlz.i is needed here.
-Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/kernel/efi.c       |    1 -
- include/asm-ia64/processor.h |    2 +-
- 2 files changed, 1 insertions(+), 2 deletions(-)
+linux-2.6.git:
+  - added back in missing pieces from x86.git merge
+---
+ arch/ia64/kernel/module.c    |   11 -----------
+ include/asm-ia64/percpu.h    |    5 -----
+ include/asm-powerpc/percpu.h |    9 ---------
+ include/asm-s390/percpu.h    |    9 ---------
+ 4 files changed, 34 deletions(-)
 
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 242d793..f3823db 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -405,7 +405,6 @@ efi_map_pal_code (void)
- 		 pte_val(pfn_pte(__pa(pal_vaddr) >> PAGE_SHIFT,
-PAGE_KERNEL)),
- 		 IA64_GRANULE_SHIFT);
- 	ia64_set_psr(psr);		/* restore psr */
--	ia64_srlz_i();
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -940,14 +940,3 @@ module_arch_cleanup (struct module *mod)
+ 	if (mod->arch.core_unw_table)
+ 		unw_remove_unwind_table(mod->arch.core_unw_table);
  }
-=20
- void __init
-diff --git a/include/asm-ia64/processor.h b/include/asm-ia64/processor.h
-index be3b0ae..038642f 100644
---- a/include/asm-ia64/processor.h
-+++ b/include/asm-ia64/processor.h
-@@ -472,7 +472,7 @@ ia64_set_psr (__u64 psr)
- {
- 	ia64_stop();
- 	ia64_setreg(_IA64_REG_PSR_L, psr);
--	ia64_srlz_d();
-+	ia64_srlz_i();
- }
-=20
- /*
---=20
-1.5.1
+-
+-#ifdef CONFIG_SMP
+-void
+-percpu_modcopy (void *pcpudst, const void *src, unsigned long size)
+-{
+-	unsigned int i;
+-	for_each_possible_cpu(i) {
+-		memcpy(pcpudst + per_cpu_offset(i), src, size);
+-	}
+-}
+-#endif /* CONFIG_SMP */
+--- a/include/asm-ia64/percpu.h
++++ b/include/asm-ia64/percpu.h
+@@ -22,10 +22,6 @@
+ #define DECLARE_PER_CPU(type, name)				\
+ 	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
+ 
+-/*
+- * Pretty much a literal copy of asm-generic/percpu.h, except that percpu_modcopy() is an
+- * external routine, to avoid include-hell.
+- */
+ #ifdef CONFIG_SMP
+ 
+ extern unsigned long __per_cpu_offset[NR_CPUS];
+@@ -38,7 +34,6 @@ DECLARE_PER_CPU(unsigned long, local_per
+ #define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+ #define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
+ 
+-extern void percpu_modcopy(void *pcpudst, const void *src, unsigned long size);
+ extern void setup_per_cpu_areas (void);
+ extern void *per_cpu_init(void);
+ 
+--- a/include/asm-powerpc/percpu.h
++++ b/include/asm-powerpc/percpu.h
+@@ -21,15 +21,6 @@
+ #define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __my_cpu_offset()))
+ #define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, local_paca->data_offset))
+ 
+-/* A macro to avoid #include hell... */
+-#define percpu_modcopy(pcpudst, src, size)			\
+-do {								\
+-	unsigned int __i;					\
+-	for_each_possible_cpu(__i)				\
+-		memcpy((pcpudst)+__per_cpu_offset(__i),		\
+-		       (src), (size));				\
+-} while (0)
+-
+ extern void setup_per_cpu_areas(void);
+ 
+ #else /* ! SMP */
+--- a/include/asm-s390/percpu.h
++++ b/include/asm-s390/percpu.h
+@@ -39,15 +39,6 @@ extern unsigned long __per_cpu_offset[NR
+ #define per_cpu(var,cpu) __reloc_hide(var,__per_cpu_offset[cpu])
+ #define per_cpu_offset(x) (__per_cpu_offset[x])
+ 
+-/* A macro to avoid #include hell... */
+-#define percpu_modcopy(pcpudst, src, size)			\
+-do {								\
+-	unsigned int __i;					\
+-	for_each_possible_cpu(__i)				\
+-		memcpy((pcpudst)+__per_cpu_offset[__i],		\
+-		       (src), (size));				\
+-} while (0)
+-
+ #else /* ! SMP */
+ 
+ #define __get_cpu_var(var) __reloc_hide(var,0)
 
-------_=_NextPart_001_01C863F3.FFED6BA7
-Content-Type: application/octet-stream;
-	name="0002-IA64-ia64_set_psr-may-need-srlz.i-sometimes.patch"
-Content-Transfer-Encoding: base64
-Content-Description: 0002-IA64-ia64_set_psr-may-need-srlz.i-sometimes.patch
-Content-Disposition: attachment;
-	filename="0002-IA64-ia64_set_psr-may-need-srlz.i-sometimes.patch"
-
-RnJvbSA1MWRlY2Q4ZWIwMzBlNGZkZjE1YzE0ZWJlNTJiYmI3MDhhNTJjNDNkIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogVGh1LCAzMSBKYW4gMjAwOCAxNzo0NjowOSArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IElBNjQ6IGlhNjRfc2V0X3BzciBtYXkgbmVlZCBzcmx6Lmkgc29tZXRpbWVzLgoKT25jZSBwc3Iu
-aWMgY2hhbmdlcyBieSBpYTY0X3NldF9wc3IsIHNybHouaSBpcyBuZWVkZWQgaGVyZS4KU2lnbmVk
-LW9mZi1ieTogWGlhbnRhbyBaaGFuZyA8eGlhbnRhby56aGFuZ0BpbnRlbC5jb20+Ci0tLQogYXJj
-aC9pYTY0L2tlcm5lbC9lZmkuYyAgICAgICB8ICAgIDEgLQogaW5jbHVkZS9hc20taWE2NC9wcm9j
-ZXNzb3IuaCB8ICAgIDIgKy0KIDIgZmlsZXMgY2hhbmdlZCwgMSBpbnNlcnRpb25zKCspLCAyIGRl
-bGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMgYi9hcmNoL2lh
-NjQva2VybmVsL2VmaS5jCmluZGV4IDI0MmQ3OTMuLmYzODIzZGIgMTAwNjQ0Ci0tLSBhL2FyY2gv
-aWE2NC9rZXJuZWwvZWZpLmMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9lZmkuYwpAQCAtNDA1LDcg
-KzQwNSw2IEBAIGVmaV9tYXBfcGFsX2NvZGUgKHZvaWQpCiAJCSBwdGVfdmFsKHBmbl9wdGUoX19w
-YShwYWxfdmFkZHIpID4+IFBBR0VfU0hJRlQsIFBBR0VfS0VSTkVMKSksCiAJCSBJQTY0X0dSQU5V
-TEVfU0hJRlQpOwogCWlhNjRfc2V0X3Bzcihwc3IpOwkJLyogcmVzdG9yZSBwc3IgKi8KLQlpYTY0
-X3NybHpfaSgpOwogfQogCiB2b2lkIF9faW5pdApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9hc20taWE2
-NC9wcm9jZXNzb3IuaCBiL2luY2x1ZGUvYXNtLWlhNjQvcHJvY2Vzc29yLmgKaW5kZXggYmUzYjBh
-ZS4uMDM4NjQyZiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9hc20taWE2NC9wcm9jZXNzb3IuaAorKysg
-Yi9pbmNsdWRlL2FzbS1pYTY0L3Byb2Nlc3Nvci5oCkBAIC00NzIsNyArNDcyLDcgQEAgaWE2NF9z
-ZXRfcHNyIChfX3U2NCBwc3IpCiB7CiAJaWE2NF9zdG9wKCk7CiAJaWE2NF9zZXRyZWcoX0lBNjRf
-UkVHX1BTUl9MLCBwc3IpOwotCWlhNjRfc3Jsel9kKCk7CisJaWE2NF9zcmx6X2koKTsKIH0KIAog
-LyoKLS0gCjEuNS4xCgo=
-
-------_=_NextPart_001_01C863F3.FFED6BA7--
+-- 
