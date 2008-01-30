@@ -1,95 +1,32 @@
-From: travis@sgi.com
-Date: Tue, 08 Jan 2008 21:10:32 +0000
-Subject: [PATCH 09/10] ia64: Use generic percpu
-Message-Id: <20080108211025.156938000@sgi.com>
+From: Matthew Chapman <matthewc@cse.unsw.edu.au>
+Date: Wed, 30 Jan 2008 16:31:28 +0000
+Subject: zx1 PCI DMA
+Message-Id: <20080130163128.GA26457@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080108211023.923047000@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, mingo@elte.hu, Andi Kleen <ak@suse.de>, Christoph Lameter <clameter@sgi.com>
-Cc: Jack Steiner <steiner@sgi.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
 
-ia64 has a special processor specific mapping that can be used to locate the
-offset for the current per cpu area.
+Hi folks,
 
-Cc: linux-ia64@vger.kernel.org
-Cc: tony.luck@intel.com
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-Signed-off-by: Mike Travis <travis@sgi.com>
----
+I'm trying to track down a PCI performance problem - part of my
+never-ending thesis troubles - and one thing I'm finding is that my HP
+zx1-based Itaniums are taking surprisingly long to satisfy PCI DMA
+reads.
 
-V1->V2:
-- Merge fixes
-- Remove transitional check for PER_CPU_ATTRIBUTES from linux/percpu.h
+On a 66Mhz PCI bus it seems to be taking about 60-75 bus cycles, i.e.
+~1000ns, to initiate a read targetting a cache line that was previously
+owned by a processor.  Even cache lines that have recently been accessed
+by the PCI device, without being touched by a processor, seem to be
+taking of the order of 50 bus cycles.
 
-V2-.V3:
-- use generic percpy_modcopy()
+This is a big surprise to me, since I know that zx1 performs really well
+CPU<->memory (order of 100ns).
 
----
- include/asm-ia64/percpu.h |   24 +++++++-----------------
- include/linux/percpu.h    |    4 ----
- 2 files changed, 7 insertions(+), 21 deletions(-)
+Does anyone know what the achievable DMA latency should be, and what I
+can tune on the zx1 chipset or PCI card?
 
---- a/include/asm-ia64/percpu.h
-+++ b/include/asm-ia64/percpu.h
-@@ -19,29 +19,14 @@
- # define PER_CPU_ATTRIBUTES	__attribute__((__model__ (__small__)))
- #endif
- 
--#define DECLARE_PER_CPU(type, name)				\
--	extern PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
--
- #ifdef CONFIG_SMP
- 
--extern unsigned long __per_cpu_offset[NR_CPUS];
--#define per_cpu_offset(x) (__per_cpu_offset[x])
--
--/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
--DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
--
--#define per_cpu(var, cpu)  (*RELOC_HIDE(&per_cpu__##var, __per_cpu_offset[cpu]))
--#define __get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
--#define __raw_get_cpu_var(var) (*RELOC_HIDE(&per_cpu__##var, __ia64_per_cpu_var(local_per_cpu_offset)))
-+#define __my_cpu_offset	__ia64_per_cpu_var(local_per_cpu_offset)
- 
--extern void setup_per_cpu_areas (void);
- extern void *per_cpu_init(void);
- 
- #else /* ! SMP */
- 
--#define per_cpu(var, cpu)			(*((void)(cpu), &per_cpu__##var))
--#define __get_cpu_var(var)			per_cpu__##var
--#define __raw_get_cpu_var(var)			per_cpu__##var
- #define per_cpu_init()				(__phys_per_cpu_start)
- 
- #endif	/* SMP */
-@@ -52,7 +37,12 @@ extern void *per_cpu_init(void);
-  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
-  * more efficient.
-  */
--#define __ia64_per_cpu_var(var)	(per_cpu__##var)
-+#define __ia64_per_cpu_var(var)	per_cpu__##var
-+
-+#include <asm-generic/percpu.h>
-+
-+/* Equal to __per_cpu_offset[smp_processor_id()], but faster to access: */
-+DECLARE_PER_CPU(unsigned long, local_per_cpu_offset);
- 
- #endif /* !__ASSEMBLY__ */
- 
---- a/include/linux/percpu.h
-+++ b/include/linux/percpu.h
-@@ -9,10 +9,6 @@
- 
- #include <asm/percpu.h>
- 
--#ifndef PER_CPU_ATTRIBUTES
--#define PER_CPU_ATTRIBUTES
--#endif
--
- #ifdef CONFIG_SMP
- #define DEFINE_PER_CPU(type, name)					\
- 	__attribute__((__section__(".data.percpu")))			\
+Thanks,
+Matt
 
--- 
