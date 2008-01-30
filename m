@@ -1,40 +1,31 @@
-From: Geoff Levand <geoffrey.levand@am.sony.com>
-Date: Wed, 30 Jan 2008 21:18:42 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 30 Jan 2008 21:20:30 +0000
 Subject: Re: x86/non-x86: percpu, node ids, apic ids x86.git fixup
-Message-Id: <47A0E9B2.1010706@am.sony.com>
+Message-Id: <20080130212030.GA12269@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200801301414.m0UEEgCC006371@hera.kernel.org>	<Pine.LNX.4.64.0801301622460.11859@vixen.sonytel.be>	<47A09F8A.3000309@sgi.com> <20080130161036.GA12293@elte.hu>	<1FE6DD409037234FAB833C420AA843EC757C72@orsmsx424.amr.corp.intel.com>	<20080130180623.GA24881@elte.hu>	<1FE6DD409037234FAB833C420AA843EC757DEA@orsmsx424.amr.corp.intel.com> <20080130184920.GA32212@elte.hu>
-In-Reply-To: <20080130184920.GA32212@elte.hu>
+References: <20080130180623.GA24881@elte.hu> <1FE6DD409037234FAB833C420AA843EC757DEA@orsmsx424.amr.corp.intel.com> <47A0CD4B.5040706@sgi.com> <1FE6DD409037234FAB833C420AA843EC757F12@orsmsx424.amr.corp.intel.com> <20080130194616.GA19426@elte.hu> <1FE6DD409037234FAB833C420AA843EC757F7C@orsmsx424.amr.corp.intel.com> <20080130200221.GA28073@elte.hu> <1FE6DD409037234FAB833C420AA843EC757FC2@orsmsx424.amr.corp.intel.com> <20080130205915.GA4562@elte.hu> <1FE6DD409037234FAB833C420AA843EC758076@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC758076@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: "Luck, Tony" <tony.luck@intel.com>, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, Linux Kernel Development <linux-kernel@vger.kernel.org>, Mike Travis <travis@sgi.com>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Thomas Gleixner <tglx@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Mike Travis <travis@sgi.com>, Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Linux Kernel Development <linux-kernel@vger.kernel.org>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux-ia64@vger.kernel.org, sparclinux@vger.kernel.org
 
-Ingo Molnar wrote:
-> * Luck, Tony <tony.luck@intel.com> wrote:
+
+* Luck, Tony <tony.luck@intel.com> wrote:
+
+> I'll start digging on why this doesn't boot ... but you might as well 
+> send the fixes so far upstream to Linus so that the SMP fix is 
+> available (which is all anyone really cares about ... there are very, 
+> very few UP ia64 systems in existence).
 > 
->> > Could you check the patch below? With this applied to latest -git, 
->> > ia64 buils fine for me in a cross-compiling environment. (but i dont 
->> > know whether it boots ...)
->> 
->> Uni-processor build still fails with this patch (config is 
->> arch/ia64/configs/tiger_defconfig with CONFIG_SMP switched from =y to 
->> =n).
-> 
-> could you try the full patchset that Travis has just sent and which i've 
-> put into x86.git, you can pull it from:
-> 
->     git://git.kernel.org/pub/scm/linux/kernel/git/x86/linux-2.6-x86.git
-> 
-> it's a fixes only tree, ontop of Linus-very-latest. Head 4b9e425c25f84. 
-> [pull from ssh://master.kernel.org if it's not on git.kernel.org yet, 
-> uploaded it this very minute.]
+> Acked-by: Tony Luck <tony.luck@intel.com>
 
-Just FYI, the following diff from the above tree applied to linux-2.6.git
-works with ps3_defconfig on the PS3 (powerpc):
+thanks alot! Can i also add your Acked-by to this patch:
 
-  git diff dd430ca20c40ecccd6954a7efd13d4398f507728..3823daf866c272c670dda7dc6179a647da64467f
+  Subject: ia64: use generic percpu
+  From: travis@sgi.com
 
--Geoff
+it seems like a sensible cleanup to me.
 
+	Ingo
