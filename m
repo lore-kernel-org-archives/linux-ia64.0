@@ -1,43 +1,28 @@
-From: Adrian Bunk <bunk@kernel.org>
-Date: Thu, 31 Jan 2008 10:47:38 +0000
-Subject: Re: x86/non-x86: percpu, node ids, apic ids x86.git fixup
-Message-Id: <20080131104738.GA30750@cs181133002.pp.htv.fi>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 31 Jan 2008 18:34:23 +0000
+Subject: RE: x86/non-x86: percpu, node ids, apic ids x86.git fixup
+Message-Id: <1FE6DD409037234FAB833C420AA843EC78C75A@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200801301414.m0UEEgCC006371@hera.kernel.org> <Pine.LNX.4.64.0801301622460.11859@vixen.sonytel.be> <47A09F8A.3000309@sgi.com> <20080130161036.GA12293@elte.hu> <1FE6DD409037234FAB833C420AA843EC757C72@orsmsx424.amr.corp.intel.com> <20080130180623.GA24881@elte.hu> <1FE6DD409037234FAB833C420AA843EC757DEA@orsmsx424.amr.corp.intel.com> <47A0CD4B.5040706@sgi.com> <1FE6DD409037234FAB833C420AA843EC757F12@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC757F12@orsmsx424.amr.corp.intel.com>
+References: <20080130180623.GA24881@elte.hu> <1FE6DD409037234FAB833C420AA843EC757DEA@orsmsx424.amr.corp.intel.com> <47A0CD4B.5040706@sgi.com> <1FE6DD409037234FAB833C420AA843EC757F12@orsmsx424.amr.corp.intel.com> <20080130194616.GA19426@elte.hu> <1FE6DD409037234FAB833C420AA843EC757F7C@orsmsx424.amr.corp.intel.com> <20080130200221.GA28073@elte.hu> <1FE6DD409037234FAB833C420AA843EC757FC2@orsmsx424.amr.corp.intel.com> <20080130205915.GA4562@elte.hu> <1FE6DD409037234FAB833C420AA843EC78C219@orsmsx424.amr.corp.intel.com> <20080131090642.GA5688@elte.hu>
+In-Reply-To: <20080131090642.GA5688@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Mike Travis <travis@sgi.com>, Ingo Molnar <mingo@elte.hu>, Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Linux Kernel Development <linux-kernel@vger.kernel.org>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux-ia64@vger.kernel.org, sparclinux@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+To: Ingo Molnar <mingo@elte.hu>
+Cc: Mike Travis <travis@sgi.com>, Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Linux Kernel Development <linux-kernel@vger.kernel.org>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux-ia64@vger.kernel.org, sparclinux@vger.kernel.org
 
-On Wed, Jan 30, 2008 at 11:33:29AM -0800, Luck, Tony wrote:
-> > I'm having trouble replicating this error.  With the latest linux-2.6.git
-> > plus the patch I just sent, I get the following errors:
-> >
-> > drivers/input/mouse/psmouse-base.c:45: error: __param_proto causes a section type conflict
-> > drivers/md/md.c:5881: error: __param_start_ro causes a section type conflict
-> 
-> Weird.  psmouse-base.c builds ok for me.  Perhaps there is a compiler
-> version difference?  I'm running a rather old 3.4.6 that came with
-> my RHEL 4.5 release.
->...
+> hm, as far as i could check, on ia64 UP the .percpu section link 
+> difference was the only ia64 difference i could find out of those 
+> changes. Could you try to copy a 2.6.24 include/asm-generic/percpu.h, 
+> include/asm-ia64.h and include/linux/percpu.h into your current tree, 
+> and see whether that boots? If yes, then it's the percpu changes. The 
+> patch below does this ontop of very latest -git - and it builds fine 
+> with your UP config with a crosscompiler.
 
-It depends on the compiler version.
+Applied that patch and UP kernel built ok, and then crashed in the
+same place with the memset() to a user-looking address from kmem_cache_alloc()
 
-And you were in the Cc of Ivan's patch that fixes it... [1]
+So the percpu changes are innocent ... something else since 2.6.24 is
+to blame.  Only 5749 commits :-)  I'll start bisecting.
 
-> -Tony
-
-cu
-Adrian
-
-[1] http://lkml.org/lkml/2007/12/27/29
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
-
+-Tony
