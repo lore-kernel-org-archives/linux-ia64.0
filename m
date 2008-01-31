@@ -1,1510 +1,584 @@
 From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Thu, 31 Jan 2008 10:29:59 +0000
-Subject: [PATCH] [13]Add trampoline for guest/host mode switch.
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCD31FD0@pdsmsx415.ccr.corp.intel.com>
+Date: Thu, 31 Jan 2008 10:29:47 +0000
+Subject: [PATCH] [11]Add mmio decoder for kvm/ia64.
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCD31FCE@pdsmsx415.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C863F4.3B53F3BF"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C863F4.34746687"
 List-Id: <linux-ia64.vger.kernel.org>
 To: Avi Kivity <avi-atKUWr5tajBWk0Htik3J/w@public.gmane.org>, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Xu, Anthony" <anthony.xu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Zhang, Xiantao" <xiantao.zhang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Cc: kvm-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kvm-ia64-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C863F4.3B53F3BF
+------_=_NextPart_001_01C863F4.34746687
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-From: Zhang Xiantao <xiantao.zhang@intel.com>
-Date: Tue, 29 Jan 2008 14:32:14 +0800
-Subject: [PATCH] kvm/ia64: Add trampoline for guest/host mode switch.
+From: Xiantao Zhang <xiantao.zhang@intel.com>
+Date: Thu, 31 Jan 2008 15:45:48 +0800
+Subject: [PATCH] kvm/ia64: Add mmio decoder for kvm/ia64.
 
-trampoline.S is for guest/host mode switch.
-
-Signed-off-by: Anthony Xu <anthony.xu@intel.com>
+mmio.c includes mmio decoder routines.
+Signed-off-by: Anthony Xu <Anthony.xu@intel.com>
 Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
 ---
- arch/ia64/kvm/trampoline.S | 1040
-++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 1040 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kvm/trampoline.S
+ arch/ia64/kvm/mmio.c |  349
+++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 349 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/kvm/mmio.c
 
-diff --git a/arch/ia64/kvm/trampoline.S b/arch/ia64/kvm/trampoline.S
+diff --git a/arch/ia64/kvm/mmio.c b/arch/ia64/kvm/mmio.c
 new file mode 100644
-index 0000000..d3232b5
+index 0000000..3f8027a
 --- /dev/null
-+++ b/arch/ia64/kvm/trampoline.S
-@@ -0,0 +1,1040 @@
-+/* Save all processor states
++++ b/arch/ia64/kvm/mmio.c
+@@ -0,0 +1,349 @@
++/*
++ * mmio.c: MMIO emulation components.
++ * Copyright (c) 2004, Intel Corporation.
++ *  Yaozu Dong (Eddie Dong) (Eddie.dong@intel.com)
++ *  Kun Tian (Kevin Tian) (Kevin.tian@intel.com)
 + *
-+ * Copyright (c) 2007 Fleming Feng <fleming.feng@intel.com>
-+ * Copyright (c) 2007 Anthony Xu   <anthony.xu@intel.com>
-+ */
-+
-+#include <asm/asmmacro.h>
-+#include "asm-offsets.h"
-+
-+
-+#define CTX(name)    VMM_CTX_##name##_OFFSET
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_BRANCH_REGS			\
-+	add	r2 =3D CTX(B0),r32;		\
-+	add	r3 =3D CTX(B1),r32;		\
-+	mov	r16 =3D b0;			\
-+	mov	r17 =3D b1;			\
-+	;;					\
-+	st8	[r2]=3Dr16,16;			\
-+	st8	[r3]=3Dr17,16;			\
-+	;;					\
-+	mov	r16 =3D b2;			\
-+	mov	r17 =3D b3;			\
-+	;;					\
-+	st8	[r2]=3Dr16,16;			\
-+	st8	[r3]=3Dr17,16;			\
-+	;;					\
-+	mov	r16 =3D b4;			\
-+	mov	r17 =3D b5;			\
-+	;;					\
-+	st8	[r2]=3Dr16;   			\
-+	st8	[r3]=3Dr17;   			\
-+	;;
-+
-+	/*
-+	 *	r33:		context_t base address
-+	 */
-+#define	RESTORE_BRANCH_REGS			\
-+	add	r2 =3D CTX(B0),r33;		\
-+	add	r3 =3D CTX(B1),r33;		\
-+	;;					\
-+	ld8	r16=3D[r2],16;			\
-+	ld8	r17=3D[r3],16;			\
-+	;;					\
-+	mov	b0 =3D r16;			\
-+	mov	b1 =3D r17;			\
-+	;;					\
-+	ld8	r16=3D[r2],16;			\
-+	ld8	r17=3D[r3],16;			\
-+	;;					\
-+	mov	b2 =3D r16;			\
-+	mov	b3 =3D r17;			\
-+	;;					\
-+	ld8	r16=3D[r2];   			\
-+	ld8	r17=3D[r3];   			\
-+	;;					\
-+	mov	b4=3Dr16;				\
-+	mov	b5=3Dr17;				\
-+	;;
-+
-+
-+	/*
-+	 *	r32: context_t base address
-+	 *	bsw =3D=3D 1
-+	 *	Save all bank1 general registers, r4 ~ r7
-+	 */
-+#define	SAVE_GENERAL_REGS			\
-+	add	r2=3DCTX(R4),r32;			\
-+	add	r3=3DCTX(R5),r32;			\
-+	;;					\
-+.mem.offset 0,0;        			\
-+	st8.spill	[r2]=3Dr4,16;		\
-+.mem.offset 8,0;        			\
-+	st8.spill	[r3]=3Dr5,16;		\
-+	;;					\
-+.mem.offset 0,0;        			\
-+	st8.spill	[r2]=3Dr6,48;		\
-+.mem.offset 8,0;        			\
-+	st8.spill	[r3]=3Dr7,48;		\
-+	;;                          		\
-+.mem.offset 0,0;        			\
-+    st8.spill    [r2]=3Dr12;			\
-+.mem.offset 8,0;				\
-+    st8.spill    [r3]=3Dr13;			\
-+    ;;
-+
-+	/*
-+	 *	r33: context_t base address
-+	 *	bsw =3D=3D 1
-+	 */
-+#define	RESTORE_GENERAL_REGS			\
-+	add	r2=3DCTX(R4),r33;			\
-+	add	r3=3DCTX(R5),r33;			\
-+	;;					\
-+	ld8.fill	r4=3D[r2],16;		\
-+	ld8.fill	r5=3D[r3],16;		\
-+	;;					\
-+	ld8.fill	r6=3D[r2],48;		\
-+	ld8.fill	r7=3D[r3],48;		\
-+	;;					\
-+	ld8.fill    r12=3D[r2];			\
-+	ld8.fill    r13 =3D[r3];			\
-+	;;
-+
-+
-+
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_KERNEL_REGS			\
-+	add	r2 =3D CTX(KR0),r32;		\
-+	add	r3 =3D CTX(KR1),r32;		\
-+	mov	r16 =3D ar.k0;			\
-+	mov	r17 =3D ar.k1;			\
-+	;;		        		\
-+	st8	[r2] =3D r16,16;			\
-+	st8	[r3] =3D r17,16;			\
-+	;;		        		\
-+	mov	r16 =3D ar.k2;			\
-+	mov	r17 =3D ar.k3;			\
-+	;;		        		\
-+	st8	[r2] =3D r16,16;			\
-+	st8	[r3] =3D r17,16;			\
-+	;;					\
-+	mov	r16 =3D ar.k4;			\
-+	mov	r17 =3D ar.k5;			\
-+	;;				    	\
-+	st8	[r2] =3D r16,16;			\
-+	st8	[r3] =3D r17,16;			\
-+	;;					\
-+	mov	r16 =3D ar.k6;			\
-+	mov	r17 =3D ar.k7;			\
-+	;;		    			\
-+	st8	[r2] =3D r16;     		\
-+	st8	[r3] =3D r17;			\
-+	;;
-+
-+
-+
-+	/*
-+	 *	r33:		context_t base address
-+	 */
-+#define	RESTORE_KERNEL_REGS			\
-+	add	r2 =3D CTX(KR0),r33;		\
-+	add	r3 =3D CTX(KR1),r33;		\
-+	;;		    			\
-+	ld8	r16=3D[r2],16;     		\
-+	ld8	r17=3D[r3],16;			\
-+	;;					\
-+	mov	ar.k0=3Dr16;  			\
-+	mov	ar.k1=3Dr17;	    		\
-+	;;		        		\
-+	ld8	r16=3D[r2],16;			\
-+	ld8	r17=3D[r3],16;			\
-+	;;		        		\
-+	mov	ar.k2=3Dr16;   			\
-+	mov	ar.k3=3Dr17;	    		\
-+	;;		        		\
-+	ld8	r16=3D[r2],16;			\
-+	ld8	r17=3D[r3],16;			\
-+	;;					\
-+	mov	ar.k4=3Dr16;			\
-+	mov	ar.k5=3Dr17;	    		\
-+	;;				    	\
-+	ld8	r16=3D[r2],16;			\
-+	ld8	r17=3D[r3],16;			\
-+	;;					\
-+	mov	ar.k6=3Dr16;  			\
-+	mov	ar.k7=3Dr17;	    		\
-+	;;
-+
-+
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_APP_REGS				\
-+	add  r2 =3D CTX(BSPSTORE),r32;		\
-+	mov  r16 =3D ar.bspstore;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(RNAT)-CTX(BSPSTORE);\
-+	mov  r16 =3D ar.rnat;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(FCR)-CTX(RNAT);	\
-+	mov  r16 =3D ar.fcr;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(EFLAG)-CTX(FCR);	\
-+	mov  r16 =3D ar.eflag;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(CFLG)-CTX(EFLAG);	\
-+	mov  r16 =3D ar.cflg;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(FSR)-CTX(CFLG);	\
-+	mov  r16 =3D ar.fsr;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(FIR)-CTX(FSR);	\
-+	mov  r16 =3D ar.fir;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(FDR)-CTX(FIR);	\
-+	mov  r16 =3D ar.fdr;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(UNAT)-CTX(FDR);	\
-+	mov  r16 =3D ar.unat;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(FPSR)-CTX(UNAT);	\
-+	mov  r16 =3D ar.fpsr;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(PFS)-CTX(FPSR);	\
-+	mov  r16 =3D ar.pfs;			\
-+	;;					\
-+	st8  [r2] =3D r16,CTX(LC)-CTX(PFS);	\
-+	mov  r16 =3D ar.lc;			\
-+	;;					\
-+	st8  [r2] =3D r16;			\
-+	;;
-+
-+	/*
-+	 *	r33:		context_t base address
-+	 */
-+#define	RESTORE_APP_REGS			\
-+	add  r2=3DCTX(BSPSTORE),r33;		\
-+	;;					\
-+	ld8  r16=3D[r2],CTX(RNAT)-CTX(BSPSTORE);	\
-+	;;					\
-+	mov  ar.bspstore=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(FCR)-CTX(RNAT);	\
-+	;;					\
-+	mov  ar.rnat=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(EFLAG)-CTX(FCR);	\
-+	;;					\
-+	mov  ar.fcr=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(CFLG)-CTX(EFLAG);	\
-+	;;					\
-+	mov  ar.eflag=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(FSR)-CTX(CFLG);	\
-+	;;					\
-+	mov  ar.cflg=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(FIR)-CTX(FSR);	\
-+	;;					\
-+	mov  ar.fsr=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(FDR)-CTX(FIR);	\
-+	;;					\
-+	mov  ar.fir=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(UNAT)-CTX(FDR);	\
-+	;;					\
-+	mov  ar.fdr=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(FPSR)-CTX(UNAT);	\
-+	;;					\
-+	mov  ar.unat=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(PFS)-CTX(FPSR);	\
-+	;;					\
-+	mov  ar.fpsr=3Dr16;			\
-+	ld8  r16=3D[r2],CTX(LC)-CTX(PFS);		\
-+	;;					\
-+	mov  ar.pfs=3Dr16;			\
-+	ld8  r16=3D[r2];				\
-+	;;					\
-+	mov  ar.lc=3Dr16;				\
-+	;;
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_CTL_REGS				\
-+	add	r2 =3D CTX(DCR),r32;		\
-+	mov	r16 =3D cr.dcr;			\
-+	;;					\
-+	st8	[r2] =3D r16,CTX(IVA)-CTX(DCR);	\
-+	;;                          		\
-+	mov	r16 =3D cr.iva;			\
-+	;;					\
-+	st8	[r2] =3D r16,CTX(PTA)-CTX(IVA);	\
-+	;;					\
-+	mov r16 =3D cr.pta;			\
-+	;;					\
-+	st8 [r2] =3D r16 ;			\
-+	;;
-+
-+	/*
-+	 *	r33:		context_t base address
-+	 */
-+#define	RESTORE_CTL_REGS				\
-+	add	r2 =3D CTX(DCR),r33;	        	\
-+	;;						\
-+	ld8	r16 =3D [r2],CTX(IVA)-CTX(DCR);		\
-+	;;                      			\
-+	mov	cr.dcr =3D r16;				\
-+	dv_serialize_data;				\
-+	;;						\
-+	ld8	r16 =3D [r2],CTX(PTA)-CTX(IVA);		\
-+	;;						\
-+	mov	cr.iva =3D r16;				\
-+	dv_serialize_data;				\
-+	;;						\
-+	ld8 r16 =3D [r2];					\
-+	;;						\
-+	mov cr.pta =3D r16;				\
-+	dv_serialize_data;				\
-+	;;
-+
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_REGION_REGS			\
-+	add	r2=3DCTX(RR0),r32;		\
-+	mov	r16=3Drr[r0];			\
-+	dep.z	r18=3D1,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;			\
-+	mov	r17=3Drr[r18];			\
-+	dep.z	r18=3D2,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr17,8;			\
-+	mov	r16=3Drr[r18];			\
-+	dep.z	r18=3D3,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;			\
-+	mov	r17=3Drr[r18];			\
-+	dep.z	r18=3D4,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr17,8;			\
-+	mov	r16=3Drr[r18];			\
-+	dep.z	r18=3D5,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;			\
-+	mov	r17=3Drr[r18];			\
-+	dep.z	r18=3D7,61,3;			\
-+	;;					\
-+	st8	[r2]=3Dr17,16;			\
-+	mov	r16=3Drr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;			\
-+	;;
-+
-+	/*
-+	 *	r33:context_t base address
-+	 */
-+#define	RESTORE_REGION_REGS	\
-+	add	r2=3DCTX(RR0),r33;\
-+	mov r18=3Dr0;		\
-+	;;			\
-+	ld8	r20=3D[r2],8;	\
-+	;;	/* rr0 */	\
-+	ld8	r21=3D[r2],8;	\
-+	;;	/* rr1 */	\
-+	ld8	r22=3D[r2],8;	\
-+	;;	/* rr2 */	\
-+	ld8	r23=3D[r2],8;	\
-+	;;	/* rr3 */	\
-+	ld8	r24=3D[r2],8;	\
-+	;;	/* rr4 */	\
-+	ld8	r25=3D[r2],16;	\
-+	;;	/* rr5 */	\
-+	ld8	r27=3D[r2];	\
-+	;;	/* rr7 */	\
-+	mov rr[r18]=3Dr20;	\
-+	dep.z	r18=3D1,61,3;	\
-+	;;  /* rr1 */		\
-+	mov rr[r18]=3Dr21;	\
-+	dep.z	r18=3D2,61,3;	\
-+	;;  /* rr2 */		\
-+	mov rr[r18]=3Dr22;	\
-+	dep.z	r18=3D3,61,3;	\
-+	;;  /* rr3 */		\
-+	mov rr[r18]=3Dr23;	\
-+	dep.z	r18=3D4,61,3;	\
-+	;;  /* rr4 */		\
-+	mov rr[r18]=3Dr24;	\
-+	dep.z	r18=3D5,61,3;	\
-+	;;  /* rr5 */		\
-+	mov rr[r18]=3Dr25;	\
-+	dep.z	r18=3D7,61,3;	\
-+	;;  /* rr7 */		\
-+	mov rr[r18]=3Dr27;	\
-+	;;			\
-+	srlz.i;			\
-+	;;
-+
-+
-+
-+	/*
-+	 *	r32:	context_t base address
-+	 *	r36~r39:scratch registers
-+	 */
-+#define	SAVE_DEBUG_REGS				\
-+	add	r2=3DCTX(IBR0),r32;		\
-+	add	r3=3DCTX(DBR0),r32;		\
-+	mov	r16=3Dibr[r0];			\
-+	mov	r17=3Ddbr[r0];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8; 			\
-+	st8	[r3]=3Dr17,8;	    		\
-+	add	r18=3D1,r0;		    	\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D2,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D2,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D3,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D4,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D5,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D6,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	add	r18=3D7,r0;			\
-+	;;					\
-+	mov	r16=3Dibr[r18];			\
-+	mov	r17=3Ddbr[r18];			\
-+	;;					\
-+	st8	[r2]=3Dr16,8;		    	\
-+	st8	[r3]=3Dr17,8;			\
-+	;;
-+
-+
-+/*
-+ *      r33:    point to context_t structure
-+ *      ar.lc are corrupted.
-+ */
-+#define RESTORE_DEBUG_REGS			\
-+	add	r2=3DCTX(IBR0),r33;		\
-+	add	r3=3DCTX(DBR0),r33;		\
-+	mov r16=3D7;    				\
-+	mov r17=3Dr0;				\
-+	;;                    			\
-+	mov ar.lc =3D r16;			\
-+	;; 					\
-+1:						\
-+	ld8 r18=3D[r2],8;		    		\
-+	ld8 r19=3D[r3],8;				\
-+	;;					\
-+	mov ibr[r17]=3Dr18;			\
-+	mov dbr[r17]=3Dr19;			\
-+	;;   					\
-+	srlz.i;					\
-+	;; 					\
-+	add r17=3D1,r17;				\
-+	br.cloop.sptk 1b;			\
-+	;;
-+
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_FPU_LOW				\
-+	add	r2=3DCTX(F2),r32;			\
-+	add	r3=3DCTX(F3),r32;			\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df2,32;		\
-+	stf.spill.nta	[r3]=3Df3,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df4,32;		\
-+	stf.spill.nta	[r3]=3Df5,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df6,32;		\
-+	stf.spill.nta	[r3]=3Df7,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df8,32;		\
-+	stf.spill.nta	[r3]=3Df9,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df10,32;		\
-+	stf.spill.nta	[r3]=3Df11,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df12,32;		\
-+	stf.spill.nta	[r3]=3Df13,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df14,32;		\
-+	stf.spill.nta	[r3]=3Df15,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df16,32;		\
-+	stf.spill.nta	[r3]=3Df17,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df18,32;		\
-+	stf.spill.nta	[r3]=3Df19,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df20,32;		\
-+	stf.spill.nta	[r3]=3Df21,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df22,32;		\
-+	stf.spill.nta	[r3]=3Df23,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df24,32;		\
-+	stf.spill.nta	[r3]=3Df25,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df26,32;		\
-+	stf.spill.nta	[r3]=3Df27,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df28,32;		\
-+	stf.spill.nta	[r3]=3Df29,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df30;		\
-+	stf.spill.nta	[r3]=3Df31;		\
-+	;;
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_FPU_HIGH				\
-+	add	r2=3DCTX(F32),r32;		\
-+	add	r3=3DCTX(F33),r32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df32,32;		\
-+	stf.spill.nta	[r3]=3Df33,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df34,32;		\
-+	stf.spill.nta	[r3]=3Df35,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df36,32;		\
-+	stf.spill.nta	[r3]=3Df37,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df38,32;		\
-+	stf.spill.nta	[r3]=3Df39,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df40,32;		\
-+	stf.spill.nta	[r3]=3Df41,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df42,32;		\
-+	stf.spill.nta	[r3]=3Df43,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df44,32;		\
-+	stf.spill.nta	[r3]=3Df45,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df46,32;		\
-+	stf.spill.nta	[r3]=3Df47,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df48,32;		\
-+	stf.spill.nta	[r3]=3Df49,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df50,32;		\
-+	stf.spill.nta	[r3]=3Df51,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df52,32;		\
-+	stf.spill.nta	[r3]=3Df53,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df54,32;		\
-+	stf.spill.nta	[r3]=3Df55,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df56,32;		\
-+	stf.spill.nta	[r3]=3Df57,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df58,32;		\
-+	stf.spill.nta	[r3]=3Df59,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df60,32;		\
-+	stf.spill.nta	[r3]=3Df61,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df62,32;		\
-+	stf.spill.nta	[r3]=3Df63,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df64,32;		\
-+	stf.spill.nta	[r3]=3Df65,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df66,32;		\
-+	stf.spill.nta	[r3]=3Df67,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df68,32;		\
-+	stf.spill.nta	[r3]=3Df69,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df70,32;		\
-+	stf.spill.nta	[r3]=3Df71,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df72,32;		\
-+	stf.spill.nta	[r3]=3Df73,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df74,32;		\
-+	stf.spill.nta	[r3]=3Df75,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df76,32;		\
-+	stf.spill.nta	[r3]=3Df77,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df78,32;		\
-+	stf.spill.nta	[r3]=3Df79,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df80,32;		\
-+	stf.spill.nta	[r3]=3Df81,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df82,32;		\
-+	stf.spill.nta	[r3]=3Df83,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df84,32;		\
-+	stf.spill.nta	[r3]=3Df85,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df86,32;		\
-+	stf.spill.nta	[r3]=3Df87,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df88,32;		\
-+	stf.spill.nta	[r3]=3Df89,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df90,32;		\
-+	stf.spill.nta	[r3]=3Df91,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df92,32;		\
-+	stf.spill.nta	[r3]=3Df93,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df94,32;		\
-+	stf.spill.nta	[r3]=3Df95,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df96,32;		\
-+	stf.spill.nta	[r3]=3Df97,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df98,32;		\
-+	stf.spill.nta	[r3]=3Df99,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df100,32;		\
-+	stf.spill.nta	[r3]=3Df101,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df102,32;		\
-+	stf.spill.nta	[r3]=3Df103,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df104,32;		\
-+	stf.spill.nta	[r3]=3Df105,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df106,32;		\
-+	stf.spill.nta	[r3]=3Df107,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df108,32;		\
-+	stf.spill.nta	[r3]=3Df109,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df110,32;		\
-+	stf.spill.nta	[r3]=3Df111,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df112,32;		\
-+	stf.spill.nta	[r3]=3Df113,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df114,32;		\
-+	stf.spill.nta	[r3]=3Df115,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df116,32;		\
-+	stf.spill.nta	[r3]=3Df117,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df118,32;		\
-+	stf.spill.nta	[r3]=3Df119,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df120,32;		\
-+	stf.spill.nta	[r3]=3Df121,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df122,32;		\
-+	stf.spill.nta	[r3]=3Df123,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df124,32;		\
-+	stf.spill.nta	[r3]=3Df125,32;		\
-+	;;					\
-+	stf.spill.nta	[r2]=3Df126;		\
-+	stf.spill.nta	[r3]=3Df127;		\
-+	;;
-+
-+     /*
-+      *      r33:    point to context_t structure
-+      */
-+#define	RESTORE_FPU_LOW				\
-+    add     r2 =3D CTX(F2), r33;			\
-+    add     r3 =3D CTX(F3), r33;			\
-+    ;;						\
-+    ldf.fill.nta f2 =3D [r2], 32;			\
-+    ldf.fill.nta f3 =3D [r3], 32;			\
-+    ;;						\
-+    ldf.fill.nta f4 =3D [r2], 32;			\
-+    ldf.fill.nta f5 =3D [r3], 32;			\
-+    ;;						\
-+    ldf.fill.nta f6 =3D [r2], 32;			\
-+    ldf.fill.nta f7 =3D [r3], 32;			\
-+    ;;						\
-+    ldf.fill.nta f8 =3D [r2], 32;			\
-+    ldf.fill.nta f9 =3D [r3], 32;			\
-+    ;;						\
-+    ldf.fill.nta f10 =3D [r2], 32;		\
-+    ldf.fill.nta f11 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f12 =3D [r2], 32;		\
-+    ldf.fill.nta f13 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f14 =3D [r2], 32;		\
-+    ldf.fill.nta f15 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f16 =3D [r2], 32;		\
-+    ldf.fill.nta f17 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f18 =3D [r2], 32;		\
-+    ldf.fill.nta f19 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f20 =3D [r2], 32;		\
-+    ldf.fill.nta f21 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f22 =3D [r2], 32;		\
-+    ldf.fill.nta f23 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f24 =3D [r2], 32;		\
-+    ldf.fill.nta f25 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f26 =3D [r2], 32;		\
-+    ldf.fill.nta f27 =3D [r3], 32;		\
-+	;;					\
-+    ldf.fill.nta f28 =3D [r2], 32;		\
-+    ldf.fill.nta f29 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f30 =3D [r2], 32;		\
-+    ldf.fill.nta f31 =3D [r3], 32;		\
-+    ;;
-+
-+
-+
-+    /*
-+     *      r33:    point to context_t structure
-+     */
-+#define	RESTORE_FPU_HIGH			\
-+    add     r2 =3D CTX(F32), r33;			\
-+    add     r3 =3D CTX(F33), r33;			\
-+    ;;						\
-+    ldf.fill.nta f32 =3D [r2], 32;		\
-+    ldf.fill.nta f33 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f34 =3D [r2], 32;		\
-+    ldf.fill.nta f35 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f36 =3D [r2], 32;		\
-+    ldf.fill.nta f37 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f38 =3D [r2], 32;		\
-+    ldf.fill.nta f39 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f40 =3D [r2], 32;		\
-+    ldf.fill.nta f41 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f42 =3D [r2], 32;		\
-+    ldf.fill.nta f43 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f44 =3D [r2], 32;		\
-+    ldf.fill.nta f45 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f46 =3D [r2], 32;		\
-+    ldf.fill.nta f47 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f48 =3D [r2], 32;		\
-+    ldf.fill.nta f49 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f50 =3D [r2], 32;		\
-+    ldf.fill.nta f51 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f52 =3D [r2], 32;		\
-+    ldf.fill.nta f53 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f54 =3D [r2], 32;		\
-+    ldf.fill.nta f55 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f56 =3D [r2], 32;		\
-+    ldf.fill.nta f57 =3D [r3], 32;   		\
-+    ;;						\
-+    ldf.fill.nta f58 =3D [r2], 32;		\
-+    ldf.fill.nta f59 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f60 =3D [r2], 32;		\
-+    ldf.fill.nta f61 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f62 =3D [r2], 32;		\
-+    ldf.fill.nta f63 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f64 =3D [r2], 32;		\
-+    ldf.fill.nta f65 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f66 =3D [r2], 32;		\
-+    ldf.fill.nta f67 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f68 =3D [r2], 32;		\
-+    ldf.fill.nta f69 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f70 =3D [r2], 32;		\
-+    ldf.fill.nta f71 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f72 =3D [r2], 32;		\
-+    ldf.fill.nta f73 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f74 =3D [r2], 32;		\
-+    ldf.fill.nta f75 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f76 =3D [r2], 32;		\
-+    ldf.fill.nta f77 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f78 =3D [r2], 32;		\
-+    ldf.fill.nta f79 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f80 =3D [r2], 32;		\
-+    ldf.fill.nta f81 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f82 =3D [r2], 32;		\
-+    ldf.fill.nta f83 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f84 =3D [r2], 32;		\
-+    ldf.fill.nta f85 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f86 =3D [r2], 32;		\
-+    ldf.fill.nta f87 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f88 =3D [r2], 32;		\
-+    ldf.fill.nta f89 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f90 =3D [r2], 32;		\
-+    ldf.fill.nta f91 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f92 =3D [r2], 32;		\
-+    ldf.fill.nta f93 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f94 =3D [r2], 32;		\
-+    ldf.fill.nta f95 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f96 =3D [r2], 32;		\
-+    ldf.fill.nta f97 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f98 =3D [r2], 32;		\
-+    ldf.fill.nta f99 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f100 =3D [r2], 32;		\
-+    ldf.fill.nta f101 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f102 =3D [r2], 32;		\
-+    ldf.fill.nta f103 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f104 =3D [r2], 32;		\
-+    ldf.fill.nta f105 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f106 =3D [r2], 32;		\
-+    ldf.fill.nta f107 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f108 =3D [r2], 32;		\
-+    ldf.fill.nta f109 =3D [r3], 32;   		\
-+    ;;						\
-+    ldf.fill.nta f110 =3D [r2], 32;		\
-+    ldf.fill.nta f111 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f112 =3D [r2], 32;		\
-+    ldf.fill.nta f113 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f114 =3D [r2], 32;		\
-+    ldf.fill.nta f115 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f116 =3D [r2], 32;		\
-+    ldf.fill.nta f117 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f118 =3D [r2], 32;		\
-+    ldf.fill.nta f119 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f120 =3D [r2], 32;		\
-+    ldf.fill.nta f121 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f122 =3D [r2], 32;		\
-+    ldf.fill.nta f123 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f124 =3D [r2], 32;		\
-+    ldf.fill.nta f125 =3D [r3], 32;		\
-+    ;;						\
-+    ldf.fill.nta f126 =3D [r2], 32;		\
-+    ldf.fill.nta f127 =3D [r3], 32;		\
-+    ;;
-+
-+	/*
-+	 *	r32:		context_t base address
-+	 */
-+#define	SAVE_PTK_REGS				\
-+    add r2=3DCTX(PKR0), r32;			\
-+    mov r16=3D7;    				\
-+    ;;                         			\
-+    mov ar.lc=3Dr16;  				\
-+    mov r17=3Dr0;					\
-+    ;;						\
-+1:						\
-+    mov r18=3Dpkr[r17];				\
-+    ;;                     			\
-+    srlz.i;					\
-+    ;; 						\
-+    st8 [r2]=3Dr18, 8;				\
-+    ;;    					\
-+    add r17 =3D1,r17;				\
-+    ;;                     			\
-+    br.cloop.sptk 1b;				\
-+    ;;
-+
-+/*
-+ *      r33:    point to context_t structure
-+ *      ar.lc are corrupted.
-+ */
-+#define RESTORE_PTK_REGS	    		\
-+    add r2=3DCTX(PKR0), r33;			\
-+    mov r16=3D7;    				\
-+    ;;                         			\
-+    mov ar.lc=3Dr16;  				\
-+    mov r17=3Dr0;					\
-+    ;;						\
-+1: 						\
-+    ld8 r18=3D[r2], 8;				\
-+    ;;						\
-+    mov pkr[r17]=3Dr18;				\
-+    ;;    					\
-+    srlz.i;					\
-+    ;; 						\
-+    add r17 =3D1,r17;				\
-+    ;;                     			\
-+    br.cloop.sptk 1b;				\
-+    ;;
-+
-+
-+/*
-+ * void vmm_trampoline( context_t * from,
-+ *			context_t * to)
++ * Copyright (c) 2007 Intel Corporation  KVM support.
++ * Xuefei Xu (Anthony Xu) (anthony.xu@intel.com)
++ * Xiantao Zhang  (xiantao.zhang@intel.com)
 + *
-+ * 	from:	r32
-+ *	to:	r33
-+ *  note: interrupt disabled before call this function.
++ * This program is free software; you can redistribute it and/or modify
+it
++ * under the terms and conditions of the GNU General Public License,
++ * version 2, as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope it will be useful, but
+WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for
++ * more details.
++ *
++ * You should have received a copy of the GNU General Public License
+along with
++ * this program; if not, write to the Free Software Foundation, Inc.,
+59 Temple
++ * Place - Suite 330, Boston, MA 02111-1307 USA.
++ *
 + */
-+GLOBAL_ENTRY(vmm_trampoline)
-+    mov r16 =3D psr
-+    adds r2 =3D CTX(PSR), r32
-+    ;;
-+    st8 [r2] =3D r16, 8       // psr
-+    mov r17 =3D pr
-+    ;;
-+    st8 [r2] =3D r17, 8       // pr
-+    mov r18 =3D ar.unat
-+    ;;
-+    st8 [r2] =3D r18
-+    mov r17 =3D ar.rsc
-+    ;;
-+    adds r2 =3D CTX(RSC),r32
-+    ;;
-+    st8 [r2]=3D r17
-+    mov ar.rsc =3D0
-+    flushrs
-+    ;;
-+    SAVE_GENERAL_REGS
-+    ;;
-+    SAVE_KERNEL_REGS
-+    ;;
-+    SAVE_APP_REGS
-+    ;;
-+    SAVE_BRANCH_REGS
-+    ;;
-+    SAVE_CTL_REGS
-+    ;;
-+    SAVE_REGION_REGS
-+    ;;
-+    //SAVE_DEBUG_REGS
-+    ;;
-+    rsm  psr.dfl
-+    ;;
-+    srlz.d
-+    ;;
-+    SAVE_FPU_LOW
-+    ;;
-+    rsm  psr.dfh
-+    ;;
-+    srlz.d
-+    ;;
-+    SAVE_FPU_HIGH
-+    ;;
-+    SAVE_PTK_REGS
-+    ;;
-+    RESTORE_PTK_REGS
-+    ;;
-+    RESTORE_FPU_HIGH
-+    ;;
-+    RESTORE_FPU_LOW
-+    ;;
-+    //RESTORE_DEBUG_REGS
-+    ;;
-+    RESTORE_REGION_REGS
-+    ;;
-+    RESTORE_CTL_REGS
-+    ;;
-+    RESTORE_BRANCH_REGS
-+    ;;
-+    RESTORE_APP_REGS
-+    ;;
-+    RESTORE_KERNEL_REGS
-+    ;;
-+    RESTORE_GENERAL_REGS
-+    ;;
-+    adds r2=3DCTX(PSR), r33
-+    ;;
-+    ld8 r16=3D[r2], 8       // psr
-+    ;;
-+    mov psr.l=3Dr16
-+    ;;
-+    srlz.d
-+    ;;
-+    ld8 r16=3D[r2], 8       // pr
-+    ;;
-+    mov pr =3Dr16,-1
-+    ld8 r16=3D[r2]       // unat
-+    ;;
-+    mov ar.unat=3Dr16
-+    ;;
-+    adds r2=3DCTX(RSC),r33
-+    ;;
-+    ld8 r16 =3D[r2]
-+    ;;
-+    mov ar.rsc =3D r16
-+    ;;
-+    br.ret.sptk.few b0
-+END(vmm_trampoline)
 +
++#include <linux/kvm_host.h>
 +
++#include "vcpu.h"
++
++static void vlsapic_write_xtp(VCPU *v, uint8_t val)
++{
++	VLSAPIC_XTP(v) =3D val;
++}
++
++/*
++ * LSAPIC OFFSET
++ */
++#define PIB_LOW_HALF(ofst)     !(ofst & (1 << 20))
++#define PIB_OFST_INTA          0x1E0000
++#define PIB_OFST_XTP           0x1E0008
++
++/*
++ * execute write IPI op.
++ */
++static void vlsapic_write_ipi(VCPU *vcpu, uint64_t addr, uint64_t data)
++{
++	struct exit_ctl_data *p =3D &current_vcpu->arch.exit_data;
++	unsigned long psr;
++
++	local_irq_save(psr);
++
++	p->exit_reason =3D EXIT_REASON_IPI;
++	p->u.ipi_data.addr.val =3D addr;
++	p->u.ipi_data.data.val =3D data;
++	vmm_transition(current_vcpu);
++
++	local_irq_restore(psr);
++
++}
++
++void lsapic_write(VCPU *v, unsigned long addr, unsigned long length,
++		unsigned long val)
++{
++	addr &=3D (PIB_SIZE - 1);
++
++	switch (addr) {
++	case PIB_OFST_INTA:
++		/*panic_domain(NULL, "Undefined write on PIB INTA\n");*/
++		panic_vm(v);
++		break;
++	case PIB_OFST_XTP:
++		if (length =3D=3D 1) {
++			vlsapic_write_xtp(v, val);
++		} else {
++			/*panic_domain(NULL,
++			"Undefined write on PIB XTP\n");*/
++			panic_vm(v);
++		}
++		break;
++	default:
++		if (PIB_LOW_HALF(addr)) {
++			/*lower half */
++			if (length !=3D 8)
++				/*panic_domain(NULL,
++				"Can't LHF write with size %ld!\n",
++				length);*/
++				panic_vm(v);
++			else
++				vlsapic_write_ipi(v, addr, val);
++		} else {   /*	upper half
++				printk("IPI-UHF write %lx\n",addr);*/
++			panic_vm(v);
++		}
++		break;
++	}
++}
++
++unsigned long lsapic_read(VCPU *v, unsigned long addr,
++		unsigned long length)
++{
++	uint64_t result =3D 0;
++
++	addr &=3D (PIB_SIZE - 1);
++
++	switch (addr) {
++	case PIB_OFST_INTA:
++		if (length =3D=3D 1) /* 1 byte load */
++			; /* There is no i8259, there is no INTA
+access*/
++		else
++			/*panic_domain(NULL,"Undefined read on PIB
+INTA\n"); */
++			panic_vm(v);
++
++		break;
++	case PIB_OFST_XTP:
++		if (length =3D=3D 1) {
++			result =3D VLSAPIC_XTP(v);
++			/* printk("read xtp %lx\n", result); */
++		} else {
++			/*panic_domain(NULL,
++			"Undefined read on PIB XTP\n");*/
++			panic_vm(v);
++		}
++		break;
++	default:
++		panic_vm(v);
++		break;
++	}
++	return result;
++}
++
++static void mmio_access(VCPU *vcpu, u64 src_pa, u64 *dest,
++					u16 s, int ma, int dir)
++{
++	unsigned long iot;
++	struct exit_ctl_data *p =3D &vcpu->arch.exit_data;
++	unsigned long psr;
++
++	iot =3D __gpfn_is_io(src_pa >> PAGE_SHIFT);
++
++	local_irq_save(psr);
++
++	/*Intercept the acces for PIB range*/
++	if (iot =3D=3D GPFN_PIB) {
++		if (!dir)
++			lsapic_write(vcpu, src_pa, s, *dest);
++		else
++			*dest =3D lsapic_read(vcpu, src_pa, s);
++		goto out;
++	}
++	p->exit_reason =3D EXIT_REASON_MMIO_INSTRUCTION;
++	p->u.ioreq.addr =3D src_pa;
++	p->u.ioreq.size =3D s;
++	p->u.ioreq.dir =3D dir;
++	if (dir =3D=3D IOREQ_WRITE)
++		p->u.ioreq.data =3D *dest;
++	p->u.ioreq.state =3D STATE_IOREQ_READY;
++	vmm_transition(vcpu);
++
++	if (p->u.ioreq.state =3D=3D STATE_IORESP_READY) {
++		if (dir =3D=3D IOREQ_READ)
++			*dest =3D p->u.ioreq.data;
++	} else
++		panic_vm(vcpu);
++out:
++	local_irq_restore(psr);
++	return ;
++}
++
++/*
++   dir 1: read 0:write
++   inst_type 0:integer 1:floating point
++ */
++#define SL_INTEGER	0	/* store/load interger*/
++#define SL_FLOATING	1     	/* store/load floating*/
++
++void emulate_io_inst(VCPU *vcpu, u64 padr, u64 ma)
++{
++	REGS *regs;
++	IA64_BUNDLE bundle;
++	int slot, dir =3D 0;
++	int inst_type =3D -1;
++	u16 size =3D 0;
++	u64 data, post_update, slot1a, slot1b, temp;
++	INST64 inst;
++
++	regs =3D vcpu_regs(vcpu);
++
++	if (fetch_code(vcpu, regs->cr_iip, &bundle)) {
++		/* if fetch code fail, return and try again */
++		return;
++	}
++	slot =3D ((ia64_psr *)&(regs->cr_ipsr))->ri;
++	if (!slot)
++		inst.inst =3D bundle.slot0;
++	else if (slot =3D=3D 1) {
++		slot1a =3D bundle.slot1a;
++		slot1b =3D bundle.slot1b;
++		inst.inst =3D slot1a + (slot1b << 18);
++	} else if (slot =3D=3D 2)
++		inst.inst =3D bundle.slot2;
++
++	/* Integer Load/Store */
++	if (inst.M1.major =3D=3D 4 && inst.M1.m =3D=3D 0 && inst.M1.x =3D=3D =
+0) {
++		inst_type =3D SL_INTEGER;
++		size =3D (inst.M1.x6 & 0x3);
++		if ((inst.M1.x6 >> 2) > 0xb) {
++			/*write*/
++			dir =3D IOREQ_WRITE;
++			data =3D vcpu_get_gr(vcpu, inst.M4.r2);
++		} else if ((inst.M1.x6 >> 2) < 0xb) {
++			/*read*/
++			dir =3D IOREQ_READ;
++		}
++	} else if (inst.M2.major =3D=3D 4 && inst.M2.m =3D=3D 1 && inst.M2.x =
+=3D=3D
+0) {
++		/* Integer Load + Reg update */
++		inst_type =3D SL_INTEGER;
++		dir =3D IOREQ_READ;
++		size =3D (inst.M2.x6 & 0x3);
++		temp =3D vcpu_get_gr(vcpu, inst.M2.r3);
++		post_update =3D vcpu_get_gr(vcpu, inst.M2.r2);
++		temp +=3D post_update;
++		vcpu_set_gr(vcpu, inst.M2.r3, temp, 0);
++	} else if (inst.M3.major =3D=3D 5) {
++		/*Integer Load/Store + Imm update*/
++		inst_type =3D SL_INTEGER;
++		size =3D (inst.M3.x6&0x3);
++		if ((inst.M5.x6 >> 2) > 0xb) {
++			/*write*/
++			dir =3D IOREQ_WRITE;
++			data =3D vcpu_get_gr(vcpu, inst.M5.r2);
++			temp =3D vcpu_get_gr(vcpu, inst.M5.r3);
++			post_update =3D (inst.M5.i << 7) + inst.M5.imm7;
++			if (inst.M5.s)
++				temp -=3D post_update;
++			else
++				temp +=3D post_update;
++			vcpu_set_gr(vcpu, inst.M5.r3, temp, 0);
++
++		} else if ((inst.M3.x6 >> 2) < 0xb) {
++			/*read*/
++			dir =3D IOREQ_READ;
++			temp =3D vcpu_get_gr(vcpu, inst.M3.r3);
++			post_update =3D (inst.M3.i << 7) + inst.M3.imm7;
++			if (inst.M3.s)
++				temp -=3D post_update;
++			else
++				temp +=3D post_update;
++			vcpu_set_gr(vcpu, inst.M3.r3, temp, 0);
++
++		}
++	} else if (inst.M9.major =3D=3D 6 && inst.M9.x6 =3D=3D 0x3B
++				&& inst.M9.m =3D=3D 0 && inst.M9.x =3D=3D 0) {
++		/* Floating-point spill*/
++		struct ia64_fpreg v;
++
++		inst_type =3D SL_FLOATING;
++		dir =3D IOREQ_WRITE;
++		vcpu_get_fpreg(vcpu, inst.M9.f2, &v);
++		/* Write high word. FIXME: this is a kludge!  */
++		v.u.bits[1] &=3D 0x3ffff;
++		mmio_access(vcpu, padr + 8, &v.u.bits[1], 8, ma,
+IOREQ_WRITE);
++		data =3D v.u.bits[0];
++		size =3D 3;
++	} else if (inst.M10.major =3D=3D 7 && inst.M10.x6 =3D=3D 0x3B) {
++		/* Floating-point spill + Imm update */
++		struct ia64_fpreg v;
++
++		inst_type =3D SL_FLOATING;
++		dir =3D IOREQ_WRITE;
++		vcpu_get_fpreg(vcpu, inst.M10.f2, &v);
++		temp =3D vcpu_get_gr(vcpu, inst.M10.r3);
++		post_update =3D (inst.M10.i << 7) + inst.M10.imm7;
++		if (inst.M10.s)
++			temp -=3D post_update;
++		else
++			temp +=3D post_update;
++		vcpu_set_gr(vcpu, inst.M10.r3, temp, 0);
++
++		/* Write high word.FIXME: this is a kludge!  */
++		v.u.bits[1] &=3D 0x3ffff;
++		mmio_access(vcpu, padr + 8, &v.u.bits[1], 8, ma,
+IOREQ_WRITE);
++		data =3D v.u.bits[0];
++		size =3D 3;
++	} else if (inst.M10.major =3D=3D 7 && inst.M10.x6 =3D=3D 0x31) {
++		/* Floating-point stf8 + Imm update */
++		struct ia64_fpreg v;
++		inst_type =3D SL_FLOATING;
++		dir =3D IOREQ_WRITE;
++		size =3D 3;
++		vcpu_get_fpreg(vcpu, inst.M10.f2, &v);
++		data =3D v.u.bits[0]; /* Significand.  */
++		temp =3D vcpu_get_gr(vcpu, inst.M10.r3);
++		post_update =3D (inst.M10.i << 7) + inst.M10.imm7;
++		if (inst.M10.s)
++			temp -=3D post_update;
++		else
++			temp +=3D post_update;
++		vcpu_set_gr(vcpu, inst.M10.r3, temp, 0);
++	} else if (inst.M15.major =3D=3D 7 && inst.M15.x6 >=3D 0x2c
++			&& inst.M15.x6 <=3D 0x2f) {
++		temp =3D vcpu_get_gr(vcpu, inst.M15.r3);
++		post_update =3D (inst.M15.i << 7) + inst.M15.imm7;
++		if (inst.M15.s)
++			temp -=3D post_update;
++		else
++			temp +=3D post_update;
++		vcpu_set_gr(vcpu, inst.M15.r3, temp, 0);
++
++		vcpu_increment_iip(vcpu);
++		return;
++	} else if (inst.M12.major =3D=3D 6 && inst.M12.m =3D=3D 1
++			&& inst.M12.x =3D=3D 1 && inst.M12.x6 =3D=3D 1) {
++		/* Floating-point Load Pair + Imm ldfp8 M12*/
++		struct ia64_fpreg v;
++
++		inst_type =3D SL_FLOATING;
++		dir =3D IOREQ_READ;
++		size =3D 8;     /*ldfd*/
++		mmio_access(vcpu, padr, &data, size, ma, dir);
++		v.u.bits[0] =3D data;
++		v.u.bits[1] =3D 0x1003E;
++		vcpu_set_fpreg(vcpu, inst.M12.f1, &v);
++		padr +=3D 8;
++		mmio_access(vcpu, padr, &data, size, ma, dir);
++		v.u.bits[0] =3D data;
++		v.u.bits[1] =3D 0x1003E;
++		vcpu_set_fpreg(vcpu, inst.M12.f2, &v);
++		padr +=3D 8;
++		vcpu_set_gr(vcpu, inst.M12.r3, padr, 0);
++		vcpu_increment_iip(vcpu);
++		return;
++	} else {
++		inst_type =3D -1;
++		panic_vm(vcpu);
++	}
++
++	size =3D 1 << size;
++	if (dir =3D=3D IOREQ_WRITE) {
++		mmio_access(vcpu, padr, &data, size, ma, dir);
++	} else {
++		mmio_access(vcpu, padr, &data, size, ma, dir);
++		if (inst_type =3D=3D SL_INTEGER) {
++			vcpu_set_gr(vcpu, inst.M1.r1, data, 0);
++		} else {
++			panic_vm(vcpu);
++		}
++	}
++	vcpu_increment_iip(vcpu);
++}
 --=20
 1.5.1
 
-------_=_NextPart_001_01C863F4.3B53F3BF
+------_=_NextPart_001_01C863F4.34746687
 Content-Type: application/octet-stream;
-	name="0013-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch"
+	name="0011-kvm-ia64-Add-mmio-decoder-for-kvm-ia64.patch"
 Content-Transfer-Encoding: base64
-Content-Description: 0013-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch
+Content-Description: 0011-kvm-ia64-Add-mmio-decoder-for-kvm-ia64.patch
 Content-Disposition: attachment;
-	filename="0013-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch"
+	filename="0011-kvm-ia64-Add-mmio-decoder-for-kvm-ia64.patch"
 
-RnJvbSA2Mzg4YmJkMjhkY2UzYmZhNzhiOGU4MTk0NjE1NDIxZGQzYTA5MjIyIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBaaGFuZyBYaWFudGFvIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogVHVlLCAyOSBKYW4gMjAwOCAxNDozMjoxNCArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IGt2bS9pYTY0OiBBZGQgdHJhbXBvbGluZSBmb3IgZ3Vlc3QvaG9zdCBtb2RlIHN3aXRjaC4KCnRy
-YW1wb2xpbmUuUyBpcyBmb3IgZ3Vlc3QvaG9zdCBtb2RlIHN3aXRjaC4KClNpZ25lZC1vZmYtYnk6
-IEFudGhvbnkgWHUgPGFudGhvbnkueHVAaW50ZWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBYaWFudGFv
-IFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNvbT4KLS0tCiBhcmNoL2lhNjQva3ZtL3RyYW1w
-b2xpbmUuUyB8IDEwNDAgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysKIDEgZmlsZXMgY2hhbmdlZCwgMTA0MCBpbnNlcnRpb25zKCspLCAwIGRlbGV0aW9ucygtKQog
-Y3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gvaWE2NC9rdm0vdHJhbXBvbGluZS5TCgpkaWZmIC0tZ2l0
-IGEvYXJjaC9pYTY0L2t2bS90cmFtcG9saW5lLlMgYi9hcmNoL2lhNjQva3ZtL3RyYW1wb2xpbmUu
-UwpuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAwMDAwLi5kMzIzMmI1Ci0tLSAvZGV2L251
-bGwKKysrIGIvYXJjaC9pYTY0L2t2bS90cmFtcG9saW5lLlMKQEAgLTAsMCArMSwxMDQwIEBACisv
-KiBTYXZlIGFsbCBwcm9jZXNzb3Igc3RhdGVzCisgKgorICogQ29weXJpZ2h0IChjKSAyMDA3IEZs
-ZW1pbmcgRmVuZyA8ZmxlbWluZy5mZW5nQGludGVsLmNvbT4KKyAqIENvcHlyaWdodCAoYykgMjAw
-NyBBbnRob255IFh1ICAgPGFudGhvbnkueHVAaW50ZWwuY29tPgorICovCisKKyNpbmNsdWRlIDxh
-c20vYXNtbWFjcm8uaD4KKyNpbmNsdWRlICJhc20tb2Zmc2V0cy5oIgorCisKKyNkZWZpbmUgQ1RY
-KG5hbWUpICAgIFZNTV9DVFhfIyNuYW1lIyNfT0ZGU0VUCisKKwkvKgorCSAqCXIzMjoJCWNvbnRl
-eHRfdCBiYXNlIGFkZHJlc3MKKwkgKi8KKyNkZWZpbmUJU0FWRV9CUkFOQ0hfUkVHUwkJCVwKKwlh
-ZGQJcjIgPSBDVFgoQjApLHIzMjsJCVwKKwlhZGQJcjMgPSBDVFgoQjEpLHIzMjsJCVwKKwltb3YJ
-cjE2ID0gYjA7CQkJXAorCW1vdglyMTcgPSBiMTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1y
-MTYsMTY7CQkJXAorCXN0OAlbcjNdPXIxNywxNjsJCQlcCisJOzsJCQkJCVwKKwltb3YJcjE2ID0g
-YjI7CQkJXAorCW1vdglyMTcgPSBiMzsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsMTY7
-CQkJXAorCXN0OAlbcjNdPXIxNywxNjsJCQlcCisJOzsJCQkJCVwKKwltb3YJcjE2ID0gYjQ7CQkJ
-XAorCW1vdglyMTcgPSBiNTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTY7ICAgCQkJXAor
-CXN0OAlbcjNdPXIxNzsgICAJCQlcCisJOzsKKworCS8qCisJICoJcjMzOgkJY29udGV4dF90IGJh
-c2UgYWRkcmVzcworCSAqLworI2RlZmluZQlSRVNUT1JFX0JSQU5DSF9SRUdTCQkJXAorCWFkZAly
-MiA9IENUWChCMCkscjMzOwkJXAorCWFkZAlyMyA9IENUWChCMSkscjMzOwkJXAorCTs7CQkJCQlc
-CisJbGQ4CXIxNj1bcjJdLDE2OwkJCVwKKwlsZDgJcjE3PVtyM10sMTY7CQkJXAorCTs7CQkJCQlc
-CisJbW92CWIwID0gcjE2OwkJCVwKKwltb3YJYjEgPSByMTc7CQkJXAorCTs7CQkJCQlcCisJbGQ4
-CXIxNj1bcjJdLDE2OwkJCVwKKwlsZDgJcjE3PVtyM10sMTY7CQkJXAorCTs7CQkJCQlcCisJbW92
-CWIyID0gcjE2OwkJCVwKKwltb3YJYjMgPSByMTc7CQkJXAorCTs7CQkJCQlcCisJbGQ4CXIxNj1b
-cjJdOyAgIAkJCVwKKwlsZDgJcjE3PVtyM107ICAgCQkJXAorCTs7CQkJCQlcCisJbW92CWI0PXIx
-NjsJCQkJXAorCW1vdgliNT1yMTc7CQkJCVwKKwk7OworCisKKwkvKgorCSAqCXIzMjogY29udGV4
-dF90IGJhc2UgYWRkcmVzcworCSAqCWJzdyA9PSAxCisJICoJU2F2ZSBhbGwgYmFuazEgZ2VuZXJh
-bCByZWdpc3RlcnMsIHI0IH4gcjcKKwkgKi8KKyNkZWZpbmUJU0FWRV9HRU5FUkFMX1JFR1MJCQlc
-CisJYWRkCXIyPUNUWChSNCkscjMyOwkJCVwKKwlhZGQJcjM9Q1RYKFI1KSxyMzI7CQkJXAorCTs7
-CQkJCQlcCisubWVtLm9mZnNldCAwLDA7ICAgICAgICAJCQlcCisJc3Q4LnNwaWxsCVtyMl09cjQs
-MTY7CQlcCisubWVtLm9mZnNldCA4LDA7ICAgICAgICAJCQlcCisJc3Q4LnNwaWxsCVtyM109cjUs
-MTY7CQlcCisJOzsJCQkJCVwKKy5tZW0ub2Zmc2V0IDAsMDsgICAgICAgIAkJCVwKKwlzdDguc3Bp
-bGwJW3IyXT1yNiw0ODsJCVwKKy5tZW0ub2Zmc2V0IDgsMDsgICAgICAgIAkJCVwKKwlzdDguc3Bp
-bGwJW3IzXT1yNyw0ODsJCVwKKwk7OyAgICAgICAgICAgICAgICAgICAgICAgICAgCQlcCisubWVt
-Lm9mZnNldCAwLDA7ICAgICAgICAJCQlcCisgICAgc3Q4LnNwaWxsICAgIFtyMl09cjEyOwkJCVwK
-Ky5tZW0ub2Zmc2V0IDgsMDsJCQkJXAorICAgIHN0OC5zcGlsbCAgICBbcjNdPXIxMzsJCQlcCisg
-ICAgOzsKKworCS8qCisJICoJcjMzOiBjb250ZXh0X3QgYmFzZSBhZGRyZXNzCisJICoJYnN3ID09
-IDEKKwkgKi8KKyNkZWZpbmUJUkVTVE9SRV9HRU5FUkFMX1JFR1MJCQlcCisJYWRkCXIyPUNUWChS
-NCkscjMzOwkJCVwKKwlhZGQJcjM9Q1RYKFI1KSxyMzM7CQkJXAorCTs7CQkJCQlcCisJbGQ4LmZp
-bGwJcjQ9W3IyXSwxNjsJCVwKKwlsZDguZmlsbAlyNT1bcjNdLDE2OwkJXAorCTs7CQkJCQlcCisJ
-bGQ4LmZpbGwJcjY9W3IyXSw0ODsJCVwKKwlsZDguZmlsbAlyNz1bcjNdLDQ4OwkJXAorCTs7CQkJ
-CQlcCisJbGQ4LmZpbGwgICAgcjEyPVtyMl07CQkJXAorCWxkOC5maWxsICAgIHIxMyA9W3IzXTsJ
-CQlcCisJOzsKKworCisKKworCS8qCisJICoJcjMyOgkJY29udGV4dF90IGJhc2UgYWRkcmVzcwor
-CSAqLworI2RlZmluZQlTQVZFX0tFUk5FTF9SRUdTCQkJXAorCWFkZAlyMiA9IENUWChLUjApLHIz
-MjsJCVwKKwlhZGQJcjMgPSBDVFgoS1IxKSxyMzI7CQlcCisJbW92CXIxNiA9IGFyLmswOwkJCVwK
-Kwltb3YJcjE3ID0gYXIuazE7CQkJXAorCTs7CQkgICAgICAgIAkJXAorCXN0OAlbcjJdID0gcjE2
-LDE2OwkJCVwKKwlzdDgJW3IzXSA9IHIxNywxNjsJCQlcCisJOzsJCSAgICAgICAgCQlcCisJbW92
-CXIxNiA9IGFyLmsyOwkJCVwKKwltb3YJcjE3ID0gYXIuazM7CQkJXAorCTs7CQkgICAgICAgIAkJ
-XAorCXN0OAlbcjJdID0gcjE2LDE2OwkJCVwKKwlzdDgJW3IzXSA9IHIxNywxNjsJCQlcCisJOzsJ
-CQkJCVwKKwltb3YJcjE2ID0gYXIuazQ7CQkJXAorCW1vdglyMTcgPSBhci5rNTsJCQlcCisJOzsJ
-CQkJICAgIAlcCisJc3Q4CVtyMl0gPSByMTYsMTY7CQkJXAorCXN0OAlbcjNdID0gcjE3LDE2OwkJ
-CVwKKwk7OwkJCQkJXAorCW1vdglyMTYgPSBhci5rNjsJCQlcCisJbW92CXIxNyA9IGFyLms3OwkJ
-CVwKKwk7OwkJICAgIAkJCVwKKwlzdDgJW3IyXSA9IHIxNjsgICAgIAkJXAorCXN0OAlbcjNdID0g
-cjE3OwkJCVwKKwk7OworCisKKworCS8qCisJICoJcjMzOgkJY29udGV4dF90IGJhc2UgYWRkcmVz
-cworCSAqLworI2RlZmluZQlSRVNUT1JFX0tFUk5FTF9SRUdTCQkJXAorCWFkZAlyMiA9IENUWChL
-UjApLHIzMzsJCVwKKwlhZGQJcjMgPSBDVFgoS1IxKSxyMzM7CQlcCisJOzsJCSAgICAJCQlcCisJ
-bGQ4CXIxNj1bcjJdLDE2OyAgICAgCQlcCisJbGQ4CXIxNz1bcjNdLDE2OwkJCVwKKwk7OwkJCQkJ
-XAorCW1vdglhci5rMD1yMTY7ICAJCQlcCisJbW92CWFyLmsxPXIxNzsJICAgIAkJXAorCTs7CQkg
-ICAgICAgIAkJXAorCWxkOAlyMTY9W3IyXSwxNjsJCQlcCisJbGQ4CXIxNz1bcjNdLDE2OwkJCVwK
-Kwk7OwkJICAgICAgICAJCVwKKwltb3YJYXIuazI9cjE2OyAgIAkJCVwKKwltb3YJYXIuazM9cjE3
-OwkgICAgCQlcCisJOzsJCSAgICAgICAgCQlcCisJbGQ4CXIxNj1bcjJdLDE2OwkJCVwKKwlsZDgJ
-cjE3PVtyM10sMTY7CQkJXAorCTs7CQkJCQlcCisJbW92CWFyLms0PXIxNjsJCQlcCisJbW92CWFy
-Lms1PXIxNzsJICAgIAkJXAorCTs7CQkJCSAgICAJXAorCWxkOAlyMTY9W3IyXSwxNjsJCQlcCisJ
-bGQ4CXIxNz1bcjNdLDE2OwkJCVwKKwk7OwkJCQkJXAorCW1vdglhci5rNj1yMTY7ICAJCQlcCisJ
-bW92CWFyLms3PXIxNzsJICAgIAkJXAorCTs7CisKKworCisJLyoKKwkgKglyMzI6CQljb250ZXh0
-X3QgYmFzZSBhZGRyZXNzCisJICovCisjZGVmaW5lCVNBVkVfQVBQX1JFR1MJCQkJXAorCWFkZCAg
-cjIgPSBDVFgoQlNQU1RPUkUpLHIzMjsJCVwKKwltb3YgIHIxNiA9IGFyLmJzcHN0b3JlOwkJCVwK
-Kwk7OwkJCQkJXAorCXN0OCAgW3IyXSA9IHIxNixDVFgoUk5BVCktQ1RYKEJTUFNUT1JFKTtcCisJ
-bW92ICByMTYgPSBhci5ybmF0OwkJCVwKKwk7OwkJCQkJXAorCXN0OCAgW3IyXSA9IHIxNixDVFgo
-RkNSKS1DVFgoUk5BVCk7CVwKKwltb3YgIHIxNiA9IGFyLmZjcjsJCQlcCisJOzsJCQkJCVwKKwlz
-dDggIFtyMl0gPSByMTYsQ1RYKEVGTEFHKS1DVFgoRkNSKTsJXAorCW1vdiAgcjE2ID0gYXIuZWZs
-YWc7CQkJXAorCTs7CQkJCQlcCisJc3Q4ICBbcjJdID0gcjE2LENUWChDRkxHKS1DVFgoRUZMQUcp
-OwlcCisJbW92ICByMTYgPSBhci5jZmxnOwkJCVwKKwk7OwkJCQkJXAorCXN0OCAgW3IyXSA9IHIx
-NixDVFgoRlNSKS1DVFgoQ0ZMRyk7CVwKKwltb3YgIHIxNiA9IGFyLmZzcjsJCQlcCisJOzsJCQkJ
-CVwKKwlzdDggIFtyMl0gPSByMTYsQ1RYKEZJUiktQ1RYKEZTUik7CVwKKwltb3YgIHIxNiA9IGFy
-LmZpcjsJCQlcCisJOzsJCQkJCVwKKwlzdDggIFtyMl0gPSByMTYsQ1RYKEZEUiktQ1RYKEZJUik7
-CVwKKwltb3YgIHIxNiA9IGFyLmZkcjsJCQlcCisJOzsJCQkJCVwKKwlzdDggIFtyMl0gPSByMTYs
-Q1RYKFVOQVQpLUNUWChGRFIpOwlcCisJbW92ICByMTYgPSBhci51bmF0OwkJCVwKKwk7OwkJCQkJ
-XAorCXN0OCAgW3IyXSA9IHIxNixDVFgoRlBTUiktQ1RYKFVOQVQpOwlcCisJbW92ICByMTYgPSBh
-ci5mcHNyOwkJCVwKKwk7OwkJCQkJXAorCXN0OCAgW3IyXSA9IHIxNixDVFgoUEZTKS1DVFgoRlBT
-Uik7CVwKKwltb3YgIHIxNiA9IGFyLnBmczsJCQlcCisJOzsJCQkJCVwKKwlzdDggIFtyMl0gPSBy
-MTYsQ1RYKExDKS1DVFgoUEZTKTsJXAorCW1vdiAgcjE2ID0gYXIubGM7CQkJXAorCTs7CQkJCQlc
-CisJc3Q4ICBbcjJdID0gcjE2OwkJCVwKKwk7OworCisJLyoKKwkgKglyMzM6CQljb250ZXh0X3Qg
-YmFzZSBhZGRyZXNzCisJICovCisjZGVmaW5lCVJFU1RPUkVfQVBQX1JFR1MJCQlcCisJYWRkICBy
-Mj1DVFgoQlNQU1RPUkUpLHIzMzsJCVwKKwk7OwkJCQkJXAorCWxkOCAgcjE2PVtyMl0sQ1RYKFJO
-QVQpLUNUWChCU1BTVE9SRSk7CVwKKwk7OwkJCQkJXAorCW1vdiAgYXIuYnNwc3RvcmU9cjE2OwkJ
-CVwKKwlsZDggIHIxNj1bcjJdLENUWChGQ1IpLUNUWChSTkFUKTsJXAorCTs7CQkJCQlcCisJbW92
-ICBhci5ybmF0PXIxNjsJCQlcCisJbGQ4ICByMTY9W3IyXSxDVFgoRUZMQUcpLUNUWChGQ1IpOwlc
-CisJOzsJCQkJCVwKKwltb3YgIGFyLmZjcj1yMTY7CQkJXAorCWxkOCAgcjE2PVtyMl0sQ1RYKENG
-TEcpLUNUWChFRkxBRyk7CVwKKwk7OwkJCQkJXAorCW1vdiAgYXIuZWZsYWc9cjE2OwkJCVwKKwls
-ZDggIHIxNj1bcjJdLENUWChGU1IpLUNUWChDRkxHKTsJXAorCTs7CQkJCQlcCisJbW92ICBhci5j
-ZmxnPXIxNjsJCQlcCisJbGQ4ICByMTY9W3IyXSxDVFgoRklSKS1DVFgoRlNSKTsJXAorCTs7CQkJ
-CQlcCisJbW92ICBhci5mc3I9cjE2OwkJCVwKKwlsZDggIHIxNj1bcjJdLENUWChGRFIpLUNUWChG
-SVIpOwlcCisJOzsJCQkJCVwKKwltb3YgIGFyLmZpcj1yMTY7CQkJXAorCWxkOCAgcjE2PVtyMl0s
-Q1RYKFVOQVQpLUNUWChGRFIpOwlcCisJOzsJCQkJCVwKKwltb3YgIGFyLmZkcj1yMTY7CQkJXAor
-CWxkOCAgcjE2PVtyMl0sQ1RYKEZQU1IpLUNUWChVTkFUKTsJXAorCTs7CQkJCQlcCisJbW92ICBh
-ci51bmF0PXIxNjsJCQlcCisJbGQ4ICByMTY9W3IyXSxDVFgoUEZTKS1DVFgoRlBTUik7CVwKKwk7
-OwkJCQkJXAorCW1vdiAgYXIuZnBzcj1yMTY7CQkJXAorCWxkOCAgcjE2PVtyMl0sQ1RYKExDKS1D
-VFgoUEZTKTsJCVwKKwk7OwkJCQkJXAorCW1vdiAgYXIucGZzPXIxNjsJCQlcCisJbGQ4ICByMTY9
-W3IyXTsJCQkJXAorCTs7CQkJCQlcCisJbW92ICBhci5sYz1yMTY7CQkJCVwKKwk7OworCisJLyoK
-KwkgKglyMzI6CQljb250ZXh0X3QgYmFzZSBhZGRyZXNzCisJICovCisjZGVmaW5lCVNBVkVfQ1RM
-X1JFR1MJCQkJXAorCWFkZAlyMiA9IENUWChEQ1IpLHIzMjsJCVwKKwltb3YJcjE2ID0gY3IuZGNy
-OwkJCVwKKwk7OwkJCQkJXAorCXN0OAlbcjJdID0gcjE2LENUWChJVkEpLUNUWChEQ1IpOwlcCisJ
-OzsgICAgICAgICAgICAgICAgICAgICAgICAgIAkJXAorCW1vdglyMTYgPSBjci5pdmE7CQkJXAor
-CTs7CQkJCQlcCisJc3Q4CVtyMl0gPSByMTYsQ1RYKFBUQSktQ1RYKElWQSk7CVwKKwk7OwkJCQkJ
-XAorCW1vdiByMTYgPSBjci5wdGE7CQkJXAorCTs7CQkJCQlcCisJc3Q4IFtyMl0gPSByMTYgOwkJ
-CVwKKwk7OworCisJLyoKKwkgKglyMzM6CQljb250ZXh0X3QgYmFzZSBhZGRyZXNzCisJICovCisj
-ZGVmaW5lCVJFU1RPUkVfQ1RMX1JFR1MJCQkJXAorCWFkZAlyMiA9IENUWChEQ1IpLHIzMzsJICAg
-ICAgICAJXAorCTs7CQkJCQkJXAorCWxkOAlyMTYgPSBbcjJdLENUWChJVkEpLUNUWChEQ1IpOwkJ
-XAorCTs7ICAgICAgICAgICAgICAgICAgICAgIAkJCVwKKwltb3YJY3IuZGNyID0gcjE2OwkJCQlc
-CisJZHZfc2VyaWFsaXplX2RhdGE7CQkJCVwKKwk7OwkJCQkJCVwKKwlsZDgJcjE2ID0gW3IyXSxD
-VFgoUFRBKS1DVFgoSVZBKTsJCVwKKwk7OwkJCQkJCVwKKwltb3YJY3IuaXZhID0gcjE2OwkJCQlc
-CisJZHZfc2VyaWFsaXplX2RhdGE7CQkJCVwKKwk7OwkJCQkJCVwKKwlsZDggcjE2ID0gW3IyXTsJ
-CQkJCVwKKwk7OwkJCQkJCVwKKwltb3YgY3IucHRhID0gcjE2OwkJCQlcCisJZHZfc2VyaWFsaXpl
-X2RhdGE7CQkJCVwKKwk7OworCisKKwkvKgorCSAqCXIzMjoJCWNvbnRleHRfdCBiYXNlIGFkZHJl
-c3MKKwkgKi8KKyNkZWZpbmUJU0FWRV9SRUdJT05fUkVHUwkJCVwKKwlhZGQJcjI9Q1RYKFJSMCks
-cjMyOwkJXAorCW1vdglyMTY9cnJbcjBdOwkJCVwKKwlkZXAueglyMTg9MSw2MSwzOwkJCVwKKwk7
-OwkJCQkJXAorCXN0OAlbcjJdPXIxNiw4OwkJCVwKKwltb3YJcjE3PXJyW3IxOF07CQkJXAorCWRl
-cC56CXIxOD0yLDYxLDM7CQkJXAorCTs7CQkJCQlcCisJc3Q4CVtyMl09cjE3LDg7CQkJXAorCW1v
-dglyMTY9cnJbcjE4XTsJCQlcCisJZGVwLnoJcjE4PTMsNjEsMzsJCQlcCisJOzsJCQkJCVwKKwlz
-dDgJW3IyXT1yMTYsODsJCQlcCisJbW92CXIxNz1ycltyMThdOwkJCVwKKwlkZXAueglyMTg9NCw2
-MSwzOwkJCVwKKwk7OwkJCQkJXAorCXN0OAlbcjJdPXIxNyw4OwkJCVwKKwltb3YJcjE2PXJyW3Ix
-OF07CQkJXAorCWRlcC56CXIxOD01LDYxLDM7CQkJXAorCTs7CQkJCQlcCisJc3Q4CVtyMl09cjE2
-LDg7CQkJXAorCW1vdglyMTc9cnJbcjE4XTsJCQlcCisJZGVwLnoJcjE4PTcsNjEsMzsJCQlcCisJ
-OzsJCQkJCVwKKwlzdDgJW3IyXT1yMTcsMTY7CQkJXAorCW1vdglyMTY9cnJbcjE4XTsJCQlcCisJ
-OzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCQlcCisJOzsKKworCS8qCisJICoJcjMzOmNvbnRl
-eHRfdCBiYXNlIGFkZHJlc3MKKwkgKi8KKyNkZWZpbmUJUkVTVE9SRV9SRUdJT05fUkVHUwlcCisJ
-YWRkCXIyPUNUWChSUjApLHIzMztcCisJbW92IHIxOD1yMDsJCVwKKwk7OwkJCVwKKwlsZDgJcjIw
-PVtyMl0sODsJXAorCTs7CS8qIHJyMCAqLwlcCisJbGQ4CXIyMT1bcjJdLDg7CVwKKwk7OwkvKiBy
-cjEgKi8JXAorCWxkOAlyMjI9W3IyXSw4OwlcCisJOzsJLyogcnIyICovCVwKKwlsZDgJcjIzPVty
-Ml0sODsJXAorCTs7CS8qIHJyMyAqLwlcCisJbGQ4CXIyND1bcjJdLDg7CVwKKwk7OwkvKiBycjQg
-Ki8JXAorCWxkOAlyMjU9W3IyXSwxNjsJXAorCTs7CS8qIHJyNSAqLwlcCisJbGQ4CXIyNz1bcjJd
-OwlcCisJOzsJLyogcnI3ICovCVwKKwltb3YgcnJbcjE4XT1yMjA7CVwKKwlkZXAueglyMTg9MSw2
-MSwzOwlcCisJOzsgIC8qIHJyMSAqLwkJXAorCW1vdiBycltyMThdPXIyMTsJXAorCWRlcC56CXIx
-OD0yLDYxLDM7CVwKKwk7OyAgLyogcnIyICovCQlcCisJbW92IHJyW3IxOF09cjIyOwlcCisJZGVw
-LnoJcjE4PTMsNjEsMzsJXAorCTs7ICAvKiBycjMgKi8JCVwKKwltb3YgcnJbcjE4XT1yMjM7CVwK
-KwlkZXAueglyMTg9NCw2MSwzOwlcCisJOzsgIC8qIHJyNCAqLwkJXAorCW1vdiBycltyMThdPXIy
-NDsJXAorCWRlcC56CXIxOD01LDYxLDM7CVwKKwk7OyAgLyogcnI1ICovCQlcCisJbW92IHJyW3Ix
-OF09cjI1OwlcCisJZGVwLnoJcjE4PTcsNjEsMzsJXAorCTs7ICAvKiBycjcgKi8JCVwKKwltb3Yg
-cnJbcjE4XT1yMjc7CVwKKwk7OwkJCVwKKwlzcmx6Lmk7CQkJXAorCTs7CisKKworCisJLyoKKwkg
-KglyMzI6CWNvbnRleHRfdCBiYXNlIGFkZHJlc3MKKwkgKglyMzZ+cjM5OnNjcmF0Y2ggcmVnaXN0
-ZXJzCisJICovCisjZGVmaW5lCVNBVkVfREVCVUdfUkVHUwkJCQlcCisJYWRkCXIyPUNUWChJQlIw
-KSxyMzI7CQlcCisJYWRkCXIzPUNUWChEQlIwKSxyMzI7CQlcCisJbW92CXIxNj1pYnJbcjBdOwkJ
-CVwKKwltb3YJcjE3PWRicltyMF07CQkJXAorCTs7CQkJCQlcCisJc3Q4CVtyMl09cjE2LDg7IAkJ
-CVwKKwlzdDgJW3IzXT1yMTcsODsJICAgIAkJXAorCWFkZAlyMTg9MSxyMDsJCSAgICAJXAorCTs7
-CQkJCQlcCisJbW92CXIxNj1pYnJbcjE4XTsJCQlcCisJbW92CXIxNz1kYnJbcjE4XTsJCQlcCisJ
-OzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCSAgICAJXAorCXN0OAlbcjNdPXIxNyw4OwkJCVwK
-KwlhZGQJcjE4PTIscjA7CQkJXAorCTs7CQkJCQlcCisJbW92CXIxNj1pYnJbcjE4XTsJCQlcCisJ
-bW92CXIxNz1kYnJbcjE4XTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCSAgICAJ
-XAorCXN0OAlbcjNdPXIxNyw4OwkJCVwKKwlhZGQJcjE4PTIscjA7CQkJXAorCTs7CQkJCQlcCisJ
-bW92CXIxNj1pYnJbcjE4XTsJCQlcCisJbW92CXIxNz1kYnJbcjE4XTsJCQlcCisJOzsJCQkJCVwK
-KwlzdDgJW3IyXT1yMTYsODsJCSAgICAJXAorCXN0OAlbcjNdPXIxNyw4OwkJCVwKKwlhZGQJcjE4
-PTMscjA7CQkJXAorCTs7CQkJCQlcCisJbW92CXIxNj1pYnJbcjE4XTsJCQlcCisJbW92CXIxNz1k
-YnJbcjE4XTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCSAgICAJXAorCXN0OAlb
-cjNdPXIxNyw4OwkJCVwKKwlhZGQJcjE4PTQscjA7CQkJXAorCTs7CQkJCQlcCisJbW92CXIxNj1p
-YnJbcjE4XTsJCQlcCisJbW92CXIxNz1kYnJbcjE4XTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3Iy
-XT1yMTYsODsJCSAgICAJXAorCXN0OAlbcjNdPXIxNyw4OwkJCVwKKwlhZGQJcjE4PTUscjA7CQkJ
-XAorCTs7CQkJCQlcCisJbW92CXIxNj1pYnJbcjE4XTsJCQlcCisJbW92CXIxNz1kYnJbcjE4XTsJ
-CQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCSAgICAJXAorCXN0OAlbcjNdPXIxNyw4
-OwkJCVwKKwlhZGQJcjE4PTYscjA7CQkJXAorCTs7CQkJCQlcCisJbW92CXIxNj1pYnJbcjE4XTsJ
-CQlcCisJbW92CXIxNz1kYnJbcjE4XTsJCQlcCisJOzsJCQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJ
-CSAgICAJXAorCXN0OAlbcjNdPXIxNyw4OwkJCVwKKwlhZGQJcjE4PTcscjA7CQkJXAorCTs7CQkJ
-CQlcCisJbW92CXIxNj1pYnJbcjE4XTsJCQlcCisJbW92CXIxNz1kYnJbcjE4XTsJCQlcCisJOzsJ
-CQkJCVwKKwlzdDgJW3IyXT1yMTYsODsJCSAgICAJXAorCXN0OAlbcjNdPXIxNyw4OwkJCVwKKwk7
-OworCisKKy8qCisgKiAgICAgIHIzMzogICAgcG9pbnQgdG8gY29udGV4dF90IHN0cnVjdHVyZQor
-ICogICAgICBhci5sYyBhcmUgY29ycnVwdGVkLgorICovCisjZGVmaW5lIFJFU1RPUkVfREVCVUdf
-UkVHUwkJCVwKKwlhZGQJcjI9Q1RYKElCUjApLHIzMzsJCVwKKwlhZGQJcjM9Q1RYKERCUjApLHIz
-MzsJCVwKKwltb3YgcjE2PTc7ICAgIAkJCQlcCisJbW92IHIxNz1yMDsJCQkJXAorCTs7ICAgICAg
-ICAgICAgICAgICAgICAJCQlcCisJbW92IGFyLmxjID0gcjE2OwkJCVwKKwk7OyAJCQkJCVwKKzE6
-CQkJCQkJXAorCWxkOCByMTg9W3IyXSw4OwkJICAgIAkJXAorCWxkOCByMTk9W3IzXSw4OwkJCQlc
-CisJOzsJCQkJCVwKKwltb3YgaWJyW3IxN109cjE4OwkJCVwKKwltb3YgZGJyW3IxN109cjE5OwkJ
-CVwKKwk7OyAgIAkJCQkJXAorCXNybHouaTsJCQkJCVwKKwk7OyAJCQkJCVwKKwlhZGQgcjE3PTEs
-cjE3OwkJCQlcCisJYnIuY2xvb3Auc3B0ayAxYjsJCQlcCisJOzsKKworCisJLyoKKwkgKglyMzI6
-CQljb250ZXh0X3QgYmFzZSBhZGRyZXNzCisJICovCisjZGVmaW5lCVNBVkVfRlBVX0xPVwkJCQlc
-CisJYWRkCXIyPUNUWChGMikscjMyOwkJCVwKKwlhZGQJcjM9Q1RYKEYzKSxyMzI7CQkJXAorCTs7
-CQkJCQlcCisJc3RmLnNwaWxsLm50YQlbcjJdPWYyLDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3Iz
-XT1mMywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNCwzMjsJCVwKKwlz
-dGYuc3BpbGwubnRhCVtyM109ZjUsMzI7CQlcCisJOzsJCQkJCVwKKwlzdGYuc3BpbGwubnRhCVty
-Ml09ZjYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY3LDMyOwkJXAorCTs7CQkJCQlcCisJ
-c3RmLnNwaWxsLm50YQlbcjJdPWY4LDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mOSwzMjsJ
-CVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMTAsMzI7CQlcCisJc3RmLnNwaWxs
-Lm50YQlbcjNdPWYxMSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMTIs
-MzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYxMywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5z
-cGlsbC5udGEJW3IyXT1mMTQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYxNSwzMjsJCVwK
-Kwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMTYsMzI7CQlcCisJc3RmLnNwaWxsLm50
-YQlbcjNdPWYxNywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMTgsMzI7
-CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYxOSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGls
-bC5udGEJW3IyXT1mMjAsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYyMSwzMjsJCVwKKwk7
-OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMjIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlb
-cjNdPWYyMywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMjQsMzI7CQlc
-CisJc3RmLnNwaWxsLm50YQlbcjNdPWYyNSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5u
-dGEJW3IyXT1mMjYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYyNywzMjsJCVwKKwk7OwkJ
-CQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMjgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNd
-PWYyOSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMzA7CQlcCisJc3Rm
-LnNwaWxsLm50YQlbcjNdPWYzMTsJCVwKKwk7OworCisJLyoKKwkgKglyMzI6CQljb250ZXh0X3Qg
-YmFzZSBhZGRyZXNzCisJICovCisjZGVmaW5lCVNBVkVfRlBVX0hJR0gJCQkJXAorCWFkZAlyMj1D
-VFgoRjMyKSxyMzI7CQlcCisJYWRkCXIzPUNUWChGMzMpLHIzMjsJCVwKKwk7OwkJCQkJXAorCXN0
-Zi5zcGlsbC5udGEJW3IyXT1mMzIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYzMywzMjsJ
-CVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMzQsMzI7CQlcCisJc3RmLnNwaWxs
-Lm50YQlbcjNdPWYzNSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mMzYs
-MzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYzNywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5z
-cGlsbC5udGEJW3IyXT1mMzgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYzOSwzMjsJCVwK
-Kwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNDAsMzI7CQlcCisJc3RmLnNwaWxsLm50
-YQlbcjNdPWY0MSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNDIsMzI7
-CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY0MywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGls
-bC5udGEJW3IyXT1mNDQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY0NSwzMjsJCVwKKwk7
-OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNDYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlb
-cjNdPWY0NywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNDgsMzI7CQlc
-CisJc3RmLnNwaWxsLm50YQlbcjNdPWY0OSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5u
-dGEJW3IyXT1mNTAsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY1MSwzMjsJCVwKKwk7OwkJ
-CQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNTIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNd
-PWY1MywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNTQsMzI7CQlcCisJ
-c3RmLnNwaWxsLm50YQlbcjNdPWY1NSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJ
-W3IyXT1mNTYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY1NywzMjsJCVwKKwk7OwkJCQkJ
-XAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNTgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY1
-OSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNjAsMzI7CQlcCisJc3Rm
-LnNwaWxsLm50YQlbcjNdPWY2MSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3Iy
-XT1mNjIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY2MywzMjsJCVwKKwk7OwkJCQkJXAor
-CXN0Zi5zcGlsbC5udGEJW3IyXT1mNjQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY2NSwz
-MjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNjYsMzI7CQlcCisJc3RmLnNw
-aWxsLm50YQlbcjNdPWY2NywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1m
-NjgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY2OSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0
-Zi5zcGlsbC5udGEJW3IyXT1mNzAsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY3MSwzMjsJ
-CVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNzIsMzI7CQlcCisJc3RmLnNwaWxs
-Lm50YQlbcjNdPWY3MywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNzQs
-MzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY3NSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5z
-cGlsbC5udGEJW3IyXT1mNzYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY3NywzMjsJCVwK
-Kwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mNzgsMzI7CQlcCisJc3RmLnNwaWxsLm50
-YQlbcjNdPWY3OSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mODAsMzI7
-CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY4MSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGls
-bC5udGEJW3IyXT1mODIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY4MywzMjsJCVwKKwk7
-OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mODQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlb
-cjNdPWY4NSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mODYsMzI7CQlc
-CisJc3RmLnNwaWxsLm50YQlbcjNdPWY4NywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5u
-dGEJW3IyXT1mODgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY4OSwzMjsJCVwKKwk7OwkJ
-CQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mOTAsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNd
-PWY5MSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mOTIsMzI7CQlcCisJ
-c3RmLnNwaWxsLm50YQlbcjNdPWY5MywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJ
-W3IyXT1mOTQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY5NSwzMjsJCVwKKwk7OwkJCQkJ
-XAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mOTYsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWY5
-NywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3IyXT1mOTgsMzI7CQlcCisJc3Rm
-LnNwaWxsLm50YQlbcjNdPWY5OSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJW3Iy
-XT1mMTAwLDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mMTAxLDMyOwkJXAorCTs7CQkJCQlc
-CisJc3RmLnNwaWxsLm50YQlbcjJdPWYxMDIsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNdPWYx
-MDMsMzI7CQlcCisJOzsJCQkJCVwKKwlzdGYuc3BpbGwubnRhCVtyMl09ZjEwNCwzMjsJCVwKKwlz
-dGYuc3BpbGwubnRhCVtyM109ZjEwNSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5udGEJ
-W3IyXT1mMTA2LDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mMTA3LDMyOwkJXAorCTs7CQkJ
-CQlcCisJc3RmLnNwaWxsLm50YQlbcjJdPWYxMDgsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlbcjNd
-PWYxMDksMzI7CQlcCisJOzsJCQkJCVwKKwlzdGYuc3BpbGwubnRhCVtyMl09ZjExMCwzMjsJCVwK
-KwlzdGYuc3BpbGwubnRhCVtyM109ZjExMSwzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGlsbC5u
-dGEJW3IyXT1mMTEyLDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mMTEzLDMyOwkJXAorCTs7
-CQkJCQlcCisJc3RmLnNwaWxsLm50YQlbcjJdPWYxMTQsMzI7CQlcCisJc3RmLnNwaWxsLm50YQlb
-cjNdPWYxMTUsMzI7CQlcCisJOzsJCQkJCVwKKwlzdGYuc3BpbGwubnRhCVtyMl09ZjExNiwzMjsJ
-CVwKKwlzdGYuc3BpbGwubnRhCVtyM109ZjExNywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5zcGls
-bC5udGEJW3IyXT1mMTE4LDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mMTE5LDMyOwkJXAor
-CTs7CQkJCQlcCisJc3RmLnNwaWxsLm50YQlbcjJdPWYxMjAsMzI7CQlcCisJc3RmLnNwaWxsLm50
-YQlbcjNdPWYxMjEsMzI7CQlcCisJOzsJCQkJCVwKKwlzdGYuc3BpbGwubnRhCVtyMl09ZjEyMiwz
-MjsJCVwKKwlzdGYuc3BpbGwubnRhCVtyM109ZjEyMywzMjsJCVwKKwk7OwkJCQkJXAorCXN0Zi5z
-cGlsbC5udGEJW3IyXT1mMTI0LDMyOwkJXAorCXN0Zi5zcGlsbC5udGEJW3IzXT1mMTI1LDMyOwkJ
-XAorCTs7CQkJCQlcCisJc3RmLnNwaWxsLm50YQlbcjJdPWYxMjY7CQlcCisJc3RmLnNwaWxsLm50
-YQlbcjNdPWYxMjc7CQlcCisJOzsKKworICAgICAvKgorICAgICAgKiAgICAgIHIzMzogICAgcG9p
-bnQgdG8gY29udGV4dF90IHN0cnVjdHVyZQorICAgICAgKi8KKyNkZWZpbmUJUkVTVE9SRV9GUFVf
-TE9XCQkJCVwKKyAgICBhZGQgICAgIHIyID0gQ1RYKEYyKSwgcjMzOwkJCVwKKyAgICBhZGQgICAg
-IHIzID0gQ1RYKEYzKSwgcjMzOwkJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEg
-ZjIgPSBbcjJdLCAzMjsJCQlcCisgICAgbGRmLmZpbGwubnRhIGYzID0gW3IzXSwgMzI7CQkJXAor
-ICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmNCA9IFtyMl0sIDMyOwkJCVwKKyAgICBs
-ZGYuZmlsbC5udGEgZjUgPSBbcjNdLCAzMjsJCQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZp
-bGwubnRhIGY2ID0gW3IyXSwgMzI7CQkJXAorICAgIGxkZi5maWxsLm50YSBmNyA9IFtyM10sIDMy
-OwkJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjggPSBbcjJdLCAzMjsJCQlc
-CisgICAgbGRmLmZpbGwubnRhIGY5ID0gW3IzXSwgMzI7CQkJXAorICAgIDs7CQkJCQkJXAorICAg
-IGxkZi5maWxsLm50YSBmMTAgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjExID0g
-W3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYxMiA9IFtyMl0s
-IDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMTMgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJ
-CVwKKyAgICBsZGYuZmlsbC5udGEgZjE0ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRh
-IGYxNSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMTYg
-PSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjE3ID0gW3IzXSwgMzI7CQlcCisgICAg
-OzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYxOCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5m
-aWxsLm50YSBmMTkgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5u
-dGEgZjIwID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGYyMSA9IFtyM10sIDMyOwkJ
-XAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMjIgPSBbcjJdLCAzMjsJCVwKKyAg
-ICBsZGYuZmlsbC5udGEgZjIzID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRm
-LmZpbGwubnRhIGYyNCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMjUgPSBbcjNd
-LCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjI2ID0gW3IyXSwgMzI7
-CQlcCisgICAgbGRmLmZpbGwubnRhIGYyNyA9IFtyM10sIDMyOwkJXAorCTs7CQkJCQlcCisgICAg
-bGRmLmZpbGwubnRhIGYyOCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMjkgPSBb
-cjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjMwID0gW3IyXSwg
-MzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGYzMSA9IFtyM10sIDMyOwkJXAorICAgIDs7CisKKwor
-CisgICAgLyoKKyAgICAgKiAgICAgIHIzMzogICAgcG9pbnQgdG8gY29udGV4dF90IHN0cnVjdHVy
-ZQorICAgICAqLworI2RlZmluZQlSRVNUT1JFX0ZQVV9ISUdICQkJXAorICAgIGFkZCAgICAgcjIg
-PSBDVFgoRjMyKSwgcjMzOwkJCVwKKyAgICBhZGQgICAgIHIzID0gQ1RYKEYzMyksIHIzMzsJCQlc
-CisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYzMiA9IFtyMl0sIDMyOwkJXAorICAg
-IGxkZi5maWxsLm50YSBmMzMgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYu
-ZmlsbC5udGEgZjM0ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGYzNSA9IFtyM10s
-IDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMzYgPSBbcjJdLCAzMjsJ
-CVwKKyAgICBsZGYuZmlsbC5udGEgZjM3ID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisg
-ICAgbGRmLmZpbGwubnRhIGYzOCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMzkg
-PSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjQwID0gW3Iy
-XSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY0MSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJ
-CQkJXAorICAgIGxkZi5maWxsLm50YSBmNDIgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5u
-dGEgZjQzID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY0
-NCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmNDUgPSBbcjNdLCAzMjsJCVwKKyAg
-ICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjQ2ID0gW3IyXSwgMzI7CQlcCisgICAgbGRm
-LmZpbGwubnRhIGY0NyA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxs
-Lm50YSBmNDggPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjQ5ID0gW3IzXSwgMzI7
-CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY1MCA9IFtyMl0sIDMyOwkJXAor
-ICAgIGxkZi5maWxsLm50YSBmNTEgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBs
-ZGYuZmlsbC5udGEgZjUyID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY1MyA9IFty
-M10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmNTQgPSBbcjJdLCAz
-MjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjU1ID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlc
-CisgICAgbGRmLmZpbGwubnRhIGY1NiA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBm
-NTcgPSBbcjNdLCAzMjsgICAJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjU4
-ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY1OSA9IFtyM10sIDMyOwkJXAorICAg
-IDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmNjAgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYu
-ZmlsbC5udGEgZjYxID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwu
-bnRhIGY2MiA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmNjMgPSBbcjNdLCAzMjsJ
-CVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjY0ID0gW3IyXSwgMzI7CQlcCisg
-ICAgbGRmLmZpbGwubnRhIGY2NSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxk
-Zi5maWxsLm50YSBmNjYgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjY3ID0gW3Iz
-XSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY2OCA9IFtyMl0sIDMy
-OwkJXAorICAgIGxkZi5maWxsLm50YSBmNjkgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwK
-KyAgICBsZGYuZmlsbC5udGEgZjcwID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY3
-MSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmNzIgPSBb
-cjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjczID0gW3IzXSwgMzI7CQlcCisgICAgOzsJ
-CQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY3NCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxs
-Lm50YSBmNzUgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEg
-Zjc2ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY3NyA9IFtyM10sIDMyOwkJXAor
-ICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmNzggPSBbcjJdLCAzMjsJCVwKKyAgICBs
-ZGYuZmlsbC5udGEgZjc5ID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZp
-bGwubnRhIGY4MCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmODEgPSBbcjNdLCAz
-MjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjgyID0gW3IyXSwgMzI7CQlc
-CisgICAgbGRmLmZpbGwubnRhIGY4MyA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAg
-IGxkZi5maWxsLm50YSBmODQgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjg1ID0g
-W3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY4NiA9IFtyMl0s
-IDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmODcgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJ
-CVwKKyAgICBsZGYuZmlsbC5udGEgZjg4ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRh
-IGY4OSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmOTAg
-PSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjkxID0gW3IzXSwgMzI7CQlcCisgICAg
-OzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGY5MiA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5m
-aWxsLm50YSBmOTMgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5u
-dGEgZjk0ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGY5NSA9IFtyM10sIDMyOwkJ
-XAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmOTYgPSBbcjJdLCAzMjsJCVwKKyAg
-ICBsZGYuZmlsbC5udGEgZjk3ID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRm
-LmZpbGwubnRhIGY5OCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmOTkgPSBbcjNd
-LCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjEwMCA9IFtyMl0sIDMy
-OwkJXAorICAgIGxkZi5maWxsLm50YSBmMTAxID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlc
-CisgICAgbGRmLmZpbGwubnRhIGYxMDIgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEg
-ZjEwMyA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMTA0
-ID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGYxMDUgPSBbcjNdLCAzMjsJCVwKKyAg
-ICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjEwNiA9IFtyMl0sIDMyOwkJXAorICAgIGxk
-Zi5maWxsLm50YSBmMTA3ID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZp
-bGwubnRhIGYxMDggPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjEwOSA9IFtyM10s
-IDMyOyAgIAkJXAorICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMTEwID0gW3IyXSwg
-MzI7CQlcCisgICAgbGRmLmZpbGwubnRhIGYxMTEgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJ
-CVwKKyAgICBsZGYuZmlsbC5udGEgZjExMiA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50
-YSBmMTEzID0gW3IzXSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYx
-MTQgPSBbcjJdLCAzMjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjExNSA9IFtyM10sIDMyOwkJXAor
-ICAgIDs7CQkJCQkJXAorICAgIGxkZi5maWxsLm50YSBmMTE2ID0gW3IyXSwgMzI7CQlcCisgICAg
-bGRmLmZpbGwubnRhIGYxMTcgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYu
-ZmlsbC5udGEgZjExOCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMTE5ID0gW3Iz
-XSwgMzI7CQlcCisgICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYxMjAgPSBbcjJdLCAz
-MjsJCVwKKyAgICBsZGYuZmlsbC5udGEgZjEyMSA9IFtyM10sIDMyOwkJXAorICAgIDs7CQkJCQkJ
-XAorICAgIGxkZi5maWxsLm50YSBmMTIyID0gW3IyXSwgMzI7CQlcCisgICAgbGRmLmZpbGwubnRh
-IGYxMjMgPSBbcjNdLCAzMjsJCVwKKyAgICA7OwkJCQkJCVwKKyAgICBsZGYuZmlsbC5udGEgZjEy
-NCA9IFtyMl0sIDMyOwkJXAorICAgIGxkZi5maWxsLm50YSBmMTI1ID0gW3IzXSwgMzI7CQlcCisg
-ICAgOzsJCQkJCQlcCisgICAgbGRmLmZpbGwubnRhIGYxMjYgPSBbcjJdLCAzMjsJCVwKKyAgICBs
-ZGYuZmlsbC5udGEgZjEyNyA9IFtyM10sIDMyOwkJXAorICAgIDs7CisKKwkvKgorCSAqCXIzMjoJ
-CWNvbnRleHRfdCBiYXNlIGFkZHJlc3MKKwkgKi8KKyNkZWZpbmUJU0FWRV9QVEtfUkVHUwkJCQlc
-CisgICAgYWRkIHIyPUNUWChQS1IwKSwgcjMyOwkJCVwKKyAgICBtb3YgcjE2PTc7ICAgIAkJCQlc
-CisgICAgOzsgICAgICAgICAgICAgICAgICAgICAgICAgCQkJXAorICAgIG1vdiBhci5sYz1yMTY7
-ICAJCQkJXAorICAgIG1vdiByMTc9cjA7CQkJCQlcCisgICAgOzsJCQkJCQlcCisxOgkJCQkJCVwK
-KyAgICBtb3YgcjE4PXBrcltyMTddOwkJCQlcCisgICAgOzsgICAgICAgICAgICAgICAgICAgICAJ
-CQlcCisgICAgc3Jsei5pOwkJCQkJXAorICAgIDs7IAkJCQkJCVwKKyAgICBzdDggW3IyXT1yMTgs
-IDg7CQkJCVwKKyAgICA7OyAgICAJCQkJCVwKKyAgICBhZGQgcjE3ID0xLHIxNzsJCQkJXAorICAg
-IDs7ICAgICAgICAgICAgICAgICAgICAgCQkJXAorICAgIGJyLmNsb29wLnNwdGsgMWI7CQkJCVwK
-KyAgICA7OworCisvKgorICogICAgICByMzM6ICAgIHBvaW50IHRvIGNvbnRleHRfdCBzdHJ1Y3R1
-cmUKKyAqICAgICAgYXIubGMgYXJlIGNvcnJ1cHRlZC4KKyAqLworI2RlZmluZSBSRVNUT1JFX1BU
-S19SRUdTCSAgICAJCVwKKyAgICBhZGQgcjI9Q1RYKFBLUjApLCByMzM7CQkJXAorICAgIG1vdiBy
-MTY9NzsgICAgCQkJCVwKKyAgICA7OyAgICAgICAgICAgICAgICAgICAgICAgICAJCQlcCisgICAg
-bW92IGFyLmxjPXIxNjsgIAkJCQlcCisgICAgbW92IHIxNz1yMDsJCQkJCVwKKyAgICA7OwkJCQkJ
-CVwKKzE6IAkJCQkJCVwKKyAgICBsZDggcjE4PVtyMl0sIDg7CQkJCVwKKyAgICA7OwkJCQkJCVwK
-KyAgICBtb3YgcGtyW3IxN109cjE4OwkJCQlcCisgICAgOzsgICAgCQkJCQlcCisgICAgc3Jsei5p
-OwkJCQkJXAorICAgIDs7IAkJCQkJCVwKKyAgICBhZGQgcjE3ID0xLHIxNzsJCQkJXAorICAgIDs7
-ICAgICAgICAgICAgICAgICAgICAgCQkJXAorICAgIGJyLmNsb29wLnNwdGsgMWI7CQkJCVwKKyAg
-ICA7OworCisKKy8qCisgKiB2b2lkIHZtbV90cmFtcG9saW5lKCBjb250ZXh0X3QgKiBmcm9tLAor
-ICoJCQljb250ZXh0X3QgKiB0bykKKyAqCisgKiAJZnJvbToJcjMyCisgKgl0bzoJcjMzCisgKiAg
-bm90ZTogaW50ZXJydXB0IGRpc2FibGVkIGJlZm9yZSBjYWxsIHRoaXMgZnVuY3Rpb24uCisgKi8K
-K0dMT0JBTF9FTlRSWSh2bW1fdHJhbXBvbGluZSkKKyAgICBtb3YgcjE2ID0gcHNyCisgICAgYWRk
-cyByMiA9IENUWChQU1IpLCByMzIKKyAgICA7OworICAgIHN0OCBbcjJdID0gcjE2LCA4ICAgICAg
-IC8vIHBzcgorICAgIG1vdiByMTcgPSBwcgorICAgIDs7CisgICAgc3Q4IFtyMl0gPSByMTcsIDgg
-ICAgICAgLy8gcHIKKyAgICBtb3YgcjE4ID0gYXIudW5hdAorICAgIDs7CisgICAgc3Q4IFtyMl0g
-PSByMTgKKyAgICBtb3YgcjE3ID0gYXIucnNjCisgICAgOzsKKyAgICBhZGRzIHIyID0gQ1RYKFJT
-QykscjMyCisgICAgOzsKKyAgICBzdDggW3IyXT0gcjE3CisgICAgbW92IGFyLnJzYyA9MAorICAg
-IGZsdXNocnMKKyAgICA7OworICAgIFNBVkVfR0VORVJBTF9SRUdTCisgICAgOzsKKyAgICBTQVZF
-X0tFUk5FTF9SRUdTCisgICAgOzsKKyAgICBTQVZFX0FQUF9SRUdTCisgICAgOzsKKyAgICBTQVZF
-X0JSQU5DSF9SRUdTCisgICAgOzsKKyAgICBTQVZFX0NUTF9SRUdTCisgICAgOzsKKyAgICBTQVZF
-X1JFR0lPTl9SRUdTCisgICAgOzsKKyAgICAvL1NBVkVfREVCVUdfUkVHUworICAgIDs7CisgICAg
-cnNtICBwc3IuZGZsCisgICAgOzsKKyAgICBzcmx6LmQKKyAgICA7OworICAgIFNBVkVfRlBVX0xP
-VworICAgIDs7CisgICAgcnNtICBwc3IuZGZoCisgICAgOzsKKyAgICBzcmx6LmQKKyAgICA7Owor
-ICAgIFNBVkVfRlBVX0hJR0gKKyAgICA7OworICAgIFNBVkVfUFRLX1JFR1MKKyAgICA7OworICAg
-IFJFU1RPUkVfUFRLX1JFR1MKKyAgICA7OworICAgIFJFU1RPUkVfRlBVX0hJR0gKKyAgICA7Owor
-ICAgIFJFU1RPUkVfRlBVX0xPVworICAgIDs7CisgICAgLy9SRVNUT1JFX0RFQlVHX1JFR1MKKyAg
-ICA7OworICAgIFJFU1RPUkVfUkVHSU9OX1JFR1MKKyAgICA7OworICAgIFJFU1RPUkVfQ1RMX1JF
-R1MKKyAgICA7OworICAgIFJFU1RPUkVfQlJBTkNIX1JFR1MKKyAgICA7OworICAgIFJFU1RPUkVf
-QVBQX1JFR1MKKyAgICA7OworICAgIFJFU1RPUkVfS0VSTkVMX1JFR1MKKyAgICA7OworICAgIFJF
-U1RPUkVfR0VORVJBTF9SRUdTCisgICAgOzsKKyAgICBhZGRzIHIyPUNUWChQU1IpLCByMzMKKyAg
-ICA7OworICAgIGxkOCByMTY9W3IyXSwgOCAgICAgICAvLyBwc3IKKyAgICA7OworICAgIG1vdiBw
-c3IubD1yMTYKKyAgICA7OworICAgIHNybHouZAorICAgIDs7CisgICAgbGQ4IHIxNj1bcjJdLCA4
-ICAgICAgIC8vIHByCisgICAgOzsKKyAgICBtb3YgcHIgPXIxNiwtMQorICAgIGxkOCByMTY9W3Iy
-XSAgICAgICAvLyB1bmF0CisgICAgOzsKKyAgICBtb3YgYXIudW5hdD1yMTYKKyAgICA7OworICAg
-IGFkZHMgcjI9Q1RYKFJTQykscjMzCisgICAgOzsKKyAgICBsZDggcjE2ID1bcjJdCisgICAgOzsK
-KyAgICBtb3YgYXIucnNjID0gcjE2CisgICAgOzsKKyAgICBici5yZXQuc3B0ay5mZXcgYjAKK0VO
-RCh2bW1fdHJhbXBvbGluZSkKKworCi0tIAoxLjUuMQoK
+RnJvbSBjMzY2MjYwNzI2MDA4NmQ3YjFmYTFlZGEwYjQxMjBiOGM3ODI3ZTY4IE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
+bT4KRGF0ZTogVGh1LCAzMSBKYW4gMjAwOCAxNTo0NTo0OCArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
+IGt2bS9pYTY0OiBBZGQgbW1pbyBkZWNvZGVyIGZvciBrdm0vaWE2NC4KCm1taW8uYyBpbmNsdWRl
+cyBtbWlvIGRlY29kZXIgcm91dGluZXMuClNpZ25lZC1vZmYtYnk6IEFudGhvbnkgWHUgPEFudGhv
+bnkueHVAaW50ZWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpo
+YW5nQGludGVsLmNvbT4KLS0tCiBhcmNoL2lhNjQva3ZtL21taW8uYyB8ICAzNDkgKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysKIDEgZmlsZXMgY2hhbmdl
+ZCwgMzQ5IGluc2VydGlvbnMoKyksIDAgZGVsZXRpb25zKC0pCiBjcmVhdGUgbW9kZSAxMDA2NDQg
+YXJjaC9pYTY0L2t2bS9tbWlvLmMKCmRpZmYgLS1naXQgYS9hcmNoL2lhNjQva3ZtL21taW8uYyBi
+L2FyY2gvaWE2NC9rdm0vbW1pby5jCm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAwMDAwMDAu
+LjNmODAyN2EKLS0tIC9kZXYvbnVsbAorKysgYi9hcmNoL2lhNjQva3ZtL21taW8uYwpAQCAtMCww
+ICsxLDM0OSBAQAorLyoKKyAqIG1taW8uYzogTU1JTyBlbXVsYXRpb24gY29tcG9uZW50cy4KKyAq
+IENvcHlyaWdodCAoYykgMjAwNCwgSW50ZWwgQ29ycG9yYXRpb24uCisgKiAgWWFvenUgRG9uZyAo
+RWRkaWUgRG9uZykgKEVkZGllLmRvbmdAaW50ZWwuY29tKQorICogIEt1biBUaWFuIChLZXZpbiBU
+aWFuKSAoS2V2aW4udGlhbkBpbnRlbC5jb20pCisgKgorICogQ29weXJpZ2h0IChjKSAyMDA3IElu
+dGVsIENvcnBvcmF0aW9uICBLVk0gc3VwcG9ydC4KKyAqIFh1ZWZlaSBYdSAoQW50aG9ueSBYdSkg
+KGFudGhvbnkueHVAaW50ZWwuY29tKQorICogWGlhbnRhbyBaaGFuZyAgKHhpYW50YW8uemhhbmdA
+aW50ZWwuY29tKQorICoKKyAqIFRoaXMgcHJvZ3JhbSBpcyBmcmVlIHNvZnR3YXJlOyB5b3UgY2Fu
+IHJlZGlzdHJpYnV0ZSBpdCBhbmQvb3IgbW9kaWZ5IGl0CisgKiB1bmRlciB0aGUgdGVybXMgYW5k
+IGNvbmRpdGlvbnMgb2YgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlLAorICogdmVyc2lv
+biAyLCBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbi4KKyAqCisg
+KiBUaGlzIHByb2dyYW0gaXMgZGlzdHJpYnV0ZWQgaW4gdGhlIGhvcGUgaXQgd2lsbCBiZSB1c2Vm
+dWwsIGJ1dCBXSVRIT1VUCisgKiBBTlkgV0FSUkFOVFk7IHdpdGhvdXQgZXZlbiB0aGUgaW1wbGll
+ZCB3YXJyYW50eSBvZiBNRVJDSEFOVEFCSUxJVFkgb3IKKyAqIEZJVE5FU1MgRk9SIEEgUEFSVElD
+VUxBUiBQVVJQT1NFLiAgU2VlIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSBmb3IKKyAq
+IG1vcmUgZGV0YWlscy4KKyAqCisgKiBZb3Ugc2hvdWxkIGhhdmUgcmVjZWl2ZWQgYSBjb3B5IG9m
+IHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSBhbG9uZyB3aXRoCisgKiB0aGlzIHByb2dy
+YW07IGlmIG5vdCwgd3JpdGUgdG8gdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbiwgSW5jLiwg
+NTkgVGVtcGxlCisgKiBQbGFjZSAtIFN1aXRlIDMzMCwgQm9zdG9uLCBNQSAwMjExMS0xMzA3IFVT
+QS4KKyAqCisgKi8KKworI2luY2x1ZGUgPGxpbnV4L2t2bV9ob3N0Lmg+CisKKyNpbmNsdWRlICJ2
+Y3B1LmgiCisKK3N0YXRpYyB2b2lkIHZsc2FwaWNfd3JpdGVfeHRwKFZDUFUgKnYsIHVpbnQ4X3Qg
+dmFsKQoreworCVZMU0FQSUNfWFRQKHYpID0gdmFsOworfQorCisvKgorICogTFNBUElDIE9GRlNF
+VAorICovCisjZGVmaW5lIFBJQl9MT1dfSEFMRihvZnN0KSAgICAgIShvZnN0ICYgKDEgPDwgMjAp
+KQorI2RlZmluZSBQSUJfT0ZTVF9JTlRBICAgICAgICAgIDB4MUUwMDAwCisjZGVmaW5lIFBJQl9P
+RlNUX1hUUCAgICAgICAgICAgMHgxRTAwMDgKKworLyoKKyAqIGV4ZWN1dGUgd3JpdGUgSVBJIG9w
+LgorICovCitzdGF0aWMgdm9pZCB2bHNhcGljX3dyaXRlX2lwaShWQ1BVICp2Y3B1LCB1aW50NjRf
+dCBhZGRyLCB1aW50NjRfdCBkYXRhKQoreworCXN0cnVjdCBleGl0X2N0bF9kYXRhICpwID0gJmN1
+cnJlbnRfdmNwdS0+YXJjaC5leGl0X2RhdGE7CisJdW5zaWduZWQgbG9uZyBwc3I7CisKKwlsb2Nh
+bF9pcnFfc2F2ZShwc3IpOworCisJcC0+ZXhpdF9yZWFzb24gPSBFWElUX1JFQVNPTl9JUEk7CisJ
+cC0+dS5pcGlfZGF0YS5hZGRyLnZhbCA9IGFkZHI7CisJcC0+dS5pcGlfZGF0YS5kYXRhLnZhbCA9
+IGRhdGE7CisJdm1tX3RyYW5zaXRpb24oY3VycmVudF92Y3B1KTsKKworCWxvY2FsX2lycV9yZXN0
+b3JlKHBzcik7CisKK30KKwordm9pZCBsc2FwaWNfd3JpdGUoVkNQVSAqdiwgdW5zaWduZWQgbG9u
+ZyBhZGRyLCB1bnNpZ25lZCBsb25nIGxlbmd0aCwKKwkJdW5zaWduZWQgbG9uZyB2YWwpCit7CisJ
+YWRkciAmPSAoUElCX1NJWkUgLSAxKTsKKworCXN3aXRjaCAoYWRkcikgeworCWNhc2UgUElCX09G
+U1RfSU5UQToKKwkJLypwYW5pY19kb21haW4oTlVMTCwgIlVuZGVmaW5lZCB3cml0ZSBvbiBQSUIg
+SU5UQVxuIik7Ki8KKwkJcGFuaWNfdm0odik7CisJCWJyZWFrOworCWNhc2UgUElCX09GU1RfWFRQ
+OgorCQlpZiAobGVuZ3RoID09IDEpIHsKKwkJCXZsc2FwaWNfd3JpdGVfeHRwKHYsIHZhbCk7CisJ
+CX0gZWxzZSB7CisJCQkvKnBhbmljX2RvbWFpbihOVUxMLAorCQkJIlVuZGVmaW5lZCB3cml0ZSBv
+biBQSUIgWFRQXG4iKTsqLworCQkJcGFuaWNfdm0odik7CisJCX0KKwkJYnJlYWs7CisJZGVmYXVs
+dDoKKwkJaWYgKFBJQl9MT1dfSEFMRihhZGRyKSkgeworCQkJLypsb3dlciBoYWxmICovCisJCQlp
+ZiAobGVuZ3RoICE9IDgpCisJCQkJLypwYW5pY19kb21haW4oTlVMTCwKKwkJCQkiQ2FuJ3QgTEhG
+IHdyaXRlIHdpdGggc2l6ZSAlbGQhXG4iLAorCQkJCWxlbmd0aCk7Ki8KKwkJCQlwYW5pY192bSh2
+KTsKKwkJCWVsc2UKKwkJCQl2bHNhcGljX3dyaXRlX2lwaSh2LCBhZGRyLCB2YWwpOworCQl9IGVs
+c2UgeyAgIC8qCXVwcGVyIGhhbGYKKwkJCQlwcmludGsoIklQSS1VSEYgd3JpdGUgJWx4XG4iLGFk
+ZHIpOyovCisJCQlwYW5pY192bSh2KTsKKwkJfQorCQlicmVhazsKKwl9Cit9CisKK3Vuc2lnbmVk
+IGxvbmcgbHNhcGljX3JlYWQoVkNQVSAqdiwgdW5zaWduZWQgbG9uZyBhZGRyLAorCQl1bnNpZ25l
+ZCBsb25nIGxlbmd0aCkKK3sKKwl1aW50NjRfdCByZXN1bHQgPSAwOworCisJYWRkciAmPSAoUElC
+X1NJWkUgLSAxKTsKKworCXN3aXRjaCAoYWRkcikgeworCWNhc2UgUElCX09GU1RfSU5UQToKKwkJ
+aWYgKGxlbmd0aCA9PSAxKSAvKiAxIGJ5dGUgbG9hZCAqLworCQkJOyAvKiBUaGVyZSBpcyBubyBp
+ODI1OSwgdGhlcmUgaXMgbm8gSU5UQSBhY2Nlc3MqLworCQllbHNlCisJCQkvKnBhbmljX2RvbWFp
+bihOVUxMLCJVbmRlZmluZWQgcmVhZCBvbiBQSUIgSU5UQVxuIik7ICovCisJCQlwYW5pY192bSh2
+KTsKKworCQlicmVhazsKKwljYXNlIFBJQl9PRlNUX1hUUDoKKwkJaWYgKGxlbmd0aCA9PSAxKSB7
+CisJCQlyZXN1bHQgPSBWTFNBUElDX1hUUCh2KTsKKwkJCS8qIHByaW50aygicmVhZCB4dHAgJWx4
+XG4iLCByZXN1bHQpOyAqLworCQl9IGVsc2UgeworCQkJLypwYW5pY19kb21haW4oTlVMTCwKKwkJ
+CSJVbmRlZmluZWQgcmVhZCBvbiBQSUIgWFRQXG4iKTsqLworCQkJcGFuaWNfdm0odik7CisJCX0K
+KwkJYnJlYWs7CisJZGVmYXVsdDoKKwkJcGFuaWNfdm0odik7CisJCWJyZWFrOworCX0KKwlyZXR1
+cm4gcmVzdWx0OworfQorCitzdGF0aWMgdm9pZCBtbWlvX2FjY2VzcyhWQ1BVICp2Y3B1LCB1NjQg
+c3JjX3BhLCB1NjQgKmRlc3QsCisJCQkJCXUxNiBzLCBpbnQgbWEsIGludCBkaXIpCit7CisJdW5z
+aWduZWQgbG9uZyBpb3Q7CisJc3RydWN0IGV4aXRfY3RsX2RhdGEgKnAgPSAmdmNwdS0+YXJjaC5l
+eGl0X2RhdGE7CisJdW5zaWduZWQgbG9uZyBwc3I7CisKKwlpb3QgPSBfX2dwZm5faXNfaW8oc3Jj
+X3BhID4+IFBBR0VfU0hJRlQpOworCisJbG9jYWxfaXJxX3NhdmUocHNyKTsKKworCS8qSW50ZXJj
+ZXB0IHRoZSBhY2NlcyBmb3IgUElCIHJhbmdlKi8KKwlpZiAoaW90ID09IEdQRk5fUElCKSB7CisJ
+CWlmICghZGlyKQorCQkJbHNhcGljX3dyaXRlKHZjcHUsIHNyY19wYSwgcywgKmRlc3QpOworCQll
+bHNlCisJCQkqZGVzdCA9IGxzYXBpY19yZWFkKHZjcHUsIHNyY19wYSwgcyk7CisJCWdvdG8gb3V0
+OworCX0KKwlwLT5leGl0X3JlYXNvbiA9IEVYSVRfUkVBU09OX01NSU9fSU5TVFJVQ1RJT047CisJ
+cC0+dS5pb3JlcS5hZGRyID0gc3JjX3BhOworCXAtPnUuaW9yZXEuc2l6ZSA9IHM7CisJcC0+dS5p
+b3JlcS5kaXIgPSBkaXI7CisJaWYgKGRpciA9PSBJT1JFUV9XUklURSkKKwkJcC0+dS5pb3JlcS5k
+YXRhID0gKmRlc3Q7CisJcC0+dS5pb3JlcS5zdGF0ZSA9IFNUQVRFX0lPUkVRX1JFQURZOworCXZt
+bV90cmFuc2l0aW9uKHZjcHUpOworCisJaWYgKHAtPnUuaW9yZXEuc3RhdGUgPT0gU1RBVEVfSU9S
+RVNQX1JFQURZKSB7CisJCWlmIChkaXIgPT0gSU9SRVFfUkVBRCkKKwkJCSpkZXN0ID0gcC0+dS5p
+b3JlcS5kYXRhOworCX0gZWxzZQorCQlwYW5pY192bSh2Y3B1KTsKK291dDoKKwlsb2NhbF9pcnFf
+cmVzdG9yZShwc3IpOworCXJldHVybiA7Cit9CisKKy8qCisgICBkaXIgMTogcmVhZCAwOndyaXRl
+CisgICBpbnN0X3R5cGUgMDppbnRlZ2VyIDE6ZmxvYXRpbmcgcG9pbnQKKyAqLworI2RlZmluZSBT
+TF9JTlRFR0VSCTAJLyogc3RvcmUvbG9hZCBpbnRlcmdlciovCisjZGVmaW5lIFNMX0ZMT0FUSU5H
+CTEgICAgIAkvKiBzdG9yZS9sb2FkIGZsb2F0aW5nKi8KKwordm9pZCBlbXVsYXRlX2lvX2luc3Qo
+VkNQVSAqdmNwdSwgdTY0IHBhZHIsIHU2NCBtYSkKK3sKKwlSRUdTICpyZWdzOworCUlBNjRfQlVO
+RExFIGJ1bmRsZTsKKwlpbnQgc2xvdCwgZGlyID0gMDsKKwlpbnQgaW5zdF90eXBlID0gLTE7CisJ
+dTE2IHNpemUgPSAwOworCXU2NCBkYXRhLCBwb3N0X3VwZGF0ZSwgc2xvdDFhLCBzbG90MWIsIHRl
+bXA7CisJSU5TVDY0IGluc3Q7CisKKwlyZWdzID0gdmNwdV9yZWdzKHZjcHUpOworCisJaWYgKGZl
+dGNoX2NvZGUodmNwdSwgcmVncy0+Y3JfaWlwLCAmYnVuZGxlKSkgeworCQkvKiBpZiBmZXRjaCBj
+b2RlIGZhaWwsIHJldHVybiBhbmQgdHJ5IGFnYWluICovCisJCXJldHVybjsKKwl9CisJc2xvdCA9
+ICgoaWE2NF9wc3IgKikmKHJlZ3MtPmNyX2lwc3IpKS0+cmk7CisJaWYgKCFzbG90KQorCQlpbnN0
+Lmluc3QgPSBidW5kbGUuc2xvdDA7CisJZWxzZSBpZiAoc2xvdCA9PSAxKSB7CisJCXNsb3QxYSA9
+IGJ1bmRsZS5zbG90MWE7CisJCXNsb3QxYiA9IGJ1bmRsZS5zbG90MWI7CisJCWluc3QuaW5zdCA9
+IHNsb3QxYSArIChzbG90MWIgPDwgMTgpOworCX0gZWxzZSBpZiAoc2xvdCA9PSAyKQorCQlpbnN0
+Lmluc3QgPSBidW5kbGUuc2xvdDI7CisKKwkvKiBJbnRlZ2VyIExvYWQvU3RvcmUgKi8KKwlpZiAo
+aW5zdC5NMS5tYWpvciA9PSA0ICYmIGluc3QuTTEubSA9PSAwICYmIGluc3QuTTEueCA9PSAwKSB7
+CisJCWluc3RfdHlwZSA9IFNMX0lOVEVHRVI7CisJCXNpemUgPSAoaW5zdC5NMS54NiAmIDB4Myk7
+CisJCWlmICgoaW5zdC5NMS54NiA+PiAyKSA+IDB4YikgeworCQkJLyp3cml0ZSovCisJCQlkaXIg
+PSBJT1JFUV9XUklURTsKKwkJCWRhdGEgPSB2Y3B1X2dldF9ncih2Y3B1LCBpbnN0Lk00LnIyKTsK
+KwkJfSBlbHNlIGlmICgoaW5zdC5NMS54NiA+PiAyKSA8IDB4YikgeworCQkJLypyZWFkKi8KKwkJ
+CWRpciA9IElPUkVRX1JFQUQ7CisJCX0KKwl9IGVsc2UgaWYgKGluc3QuTTIubWFqb3IgPT0gNCAm
+JiBpbnN0Lk0yLm0gPT0gMSAmJiBpbnN0Lk0yLnggPT0gMCkgeworCQkvKiBJbnRlZ2VyIExvYWQg
+KyBSZWcgdXBkYXRlICovCisJCWluc3RfdHlwZSA9IFNMX0lOVEVHRVI7CisJCWRpciA9IElPUkVR
+X1JFQUQ7CisJCXNpemUgPSAoaW5zdC5NMi54NiAmIDB4Myk7CisJCXRlbXAgPSB2Y3B1X2dldF9n
+cih2Y3B1LCBpbnN0Lk0yLnIzKTsKKwkJcG9zdF91cGRhdGUgPSB2Y3B1X2dldF9ncih2Y3B1LCBp
+bnN0Lk0yLnIyKTsKKwkJdGVtcCArPSBwb3N0X3VwZGF0ZTsKKwkJdmNwdV9zZXRfZ3IodmNwdSwg
+aW5zdC5NMi5yMywgdGVtcCwgMCk7CisJfSBlbHNlIGlmIChpbnN0Lk0zLm1ham9yID09IDUpIHsK
+KwkJLypJbnRlZ2VyIExvYWQvU3RvcmUgKyBJbW0gdXBkYXRlKi8KKwkJaW5zdF90eXBlID0gU0xf
+SU5URUdFUjsKKwkJc2l6ZSA9IChpbnN0Lk0zLng2JjB4Myk7CisJCWlmICgoaW5zdC5NNS54NiA+
+PiAyKSA+IDB4YikgeworCQkJLyp3cml0ZSovCisJCQlkaXIgPSBJT1JFUV9XUklURTsKKwkJCWRh
+dGEgPSB2Y3B1X2dldF9ncih2Y3B1LCBpbnN0Lk01LnIyKTsKKwkJCXRlbXAgPSB2Y3B1X2dldF9n
+cih2Y3B1LCBpbnN0Lk01LnIzKTsKKwkJCXBvc3RfdXBkYXRlID0gKGluc3QuTTUuaSA8PCA3KSAr
+IGluc3QuTTUuaW1tNzsKKwkJCWlmIChpbnN0Lk01LnMpCisJCQkJdGVtcCAtPSBwb3N0X3VwZGF0
+ZTsKKwkJCWVsc2UKKwkJCQl0ZW1wICs9IHBvc3RfdXBkYXRlOworCQkJdmNwdV9zZXRfZ3IodmNw
+dSwgaW5zdC5NNS5yMywgdGVtcCwgMCk7CisKKwkJfSBlbHNlIGlmICgoaW5zdC5NMy54NiA+PiAy
+KSA8IDB4YikgeworCQkJLypyZWFkKi8KKwkJCWRpciA9IElPUkVRX1JFQUQ7CisJCQl0ZW1wID0g
+dmNwdV9nZXRfZ3IodmNwdSwgaW5zdC5NMy5yMyk7CisJCQlwb3N0X3VwZGF0ZSA9IChpbnN0Lk0z
+LmkgPDwgNykgKyBpbnN0Lk0zLmltbTc7CisJCQlpZiAoaW5zdC5NMy5zKQorCQkJCXRlbXAgLT0g
+cG9zdF91cGRhdGU7CisJCQllbHNlCisJCQkJdGVtcCArPSBwb3N0X3VwZGF0ZTsKKwkJCXZjcHVf
+c2V0X2dyKHZjcHUsIGluc3QuTTMucjMsIHRlbXAsIDApOworCisJCX0KKwl9IGVsc2UgaWYgKGlu
+c3QuTTkubWFqb3IgPT0gNiAmJiBpbnN0Lk05Lng2ID09IDB4M0IKKwkJCQkmJiBpbnN0Lk05Lm0g
+PT0gMCAmJiBpbnN0Lk05LnggPT0gMCkgeworCQkvKiBGbG9hdGluZy1wb2ludCBzcGlsbCovCisJ
+CXN0cnVjdCBpYTY0X2ZwcmVnIHY7CisKKwkJaW5zdF90eXBlID0gU0xfRkxPQVRJTkc7CisJCWRp
+ciA9IElPUkVRX1dSSVRFOworCQl2Y3B1X2dldF9mcHJlZyh2Y3B1LCBpbnN0Lk05LmYyLCAmdik7
+CisJCS8qIFdyaXRlIGhpZ2ggd29yZC4gRklYTUU6IHRoaXMgaXMgYSBrbHVkZ2UhICAqLworCQl2
+LnUuYml0c1sxXSAmPSAweDNmZmZmOworCQltbWlvX2FjY2Vzcyh2Y3B1LCBwYWRyICsgOCwgJnYu
+dS5iaXRzWzFdLCA4LCBtYSwgSU9SRVFfV1JJVEUpOworCQlkYXRhID0gdi51LmJpdHNbMF07CisJ
+CXNpemUgPSAzOworCX0gZWxzZSBpZiAoaW5zdC5NMTAubWFqb3IgPT0gNyAmJiBpbnN0Lk0xMC54
+NiA9PSAweDNCKSB7CisJCS8qIEZsb2F0aW5nLXBvaW50IHNwaWxsICsgSW1tIHVwZGF0ZSAqLwor
+CQlzdHJ1Y3QgaWE2NF9mcHJlZyB2OworCisJCWluc3RfdHlwZSA9IFNMX0ZMT0FUSU5HOworCQlk
+aXIgPSBJT1JFUV9XUklURTsKKwkJdmNwdV9nZXRfZnByZWcodmNwdSwgaW5zdC5NMTAuZjIsICZ2
+KTsKKwkJdGVtcCA9IHZjcHVfZ2V0X2dyKHZjcHUsIGluc3QuTTEwLnIzKTsKKwkJcG9zdF91cGRh
+dGUgPSAoaW5zdC5NMTAuaSA8PCA3KSArIGluc3QuTTEwLmltbTc7CisJCWlmIChpbnN0Lk0xMC5z
+KQorCQkJdGVtcCAtPSBwb3N0X3VwZGF0ZTsKKwkJZWxzZQorCQkJdGVtcCArPSBwb3N0X3VwZGF0
+ZTsKKwkJdmNwdV9zZXRfZ3IodmNwdSwgaW5zdC5NMTAucjMsIHRlbXAsIDApOworCisJCS8qIFdy
+aXRlIGhpZ2ggd29yZC5GSVhNRTogdGhpcyBpcyBhIGtsdWRnZSEgICovCisJCXYudS5iaXRzWzFd
+ICY9IDB4M2ZmZmY7CisJCW1taW9fYWNjZXNzKHZjcHUsIHBhZHIgKyA4LCAmdi51LmJpdHNbMV0s
+IDgsIG1hLCBJT1JFUV9XUklURSk7CisJCWRhdGEgPSB2LnUuYml0c1swXTsKKwkJc2l6ZSA9IDM7
+CisJfSBlbHNlIGlmIChpbnN0Lk0xMC5tYWpvciA9PSA3ICYmIGluc3QuTTEwLng2ID09IDB4MzEp
+IHsKKwkJLyogRmxvYXRpbmctcG9pbnQgc3RmOCArIEltbSB1cGRhdGUgKi8KKwkJc3RydWN0IGlh
+NjRfZnByZWcgdjsKKwkJaW5zdF90eXBlID0gU0xfRkxPQVRJTkc7CisJCWRpciA9IElPUkVRX1dS
+SVRFOworCQlzaXplID0gMzsKKwkJdmNwdV9nZXRfZnByZWcodmNwdSwgaW5zdC5NMTAuZjIsICZ2
+KTsKKwkJZGF0YSA9IHYudS5iaXRzWzBdOyAvKiBTaWduaWZpY2FuZC4gICovCisJCXRlbXAgPSB2
+Y3B1X2dldF9ncih2Y3B1LCBpbnN0Lk0xMC5yMyk7CisJCXBvc3RfdXBkYXRlID0gKGluc3QuTTEw
+LmkgPDwgNykgKyBpbnN0Lk0xMC5pbW03OworCQlpZiAoaW5zdC5NMTAucykKKwkJCXRlbXAgLT0g
+cG9zdF91cGRhdGU7CisJCWVsc2UKKwkJCXRlbXAgKz0gcG9zdF91cGRhdGU7CisJCXZjcHVfc2V0
+X2dyKHZjcHUsIGluc3QuTTEwLnIzLCB0ZW1wLCAwKTsKKwl9IGVsc2UgaWYgKGluc3QuTTE1Lm1h
+am9yID09IDcgJiYgaW5zdC5NMTUueDYgPj0gMHgyYworCQkJJiYgaW5zdC5NMTUueDYgPD0gMHgy
+ZikgeworCQl0ZW1wID0gdmNwdV9nZXRfZ3IodmNwdSwgaW5zdC5NMTUucjMpOworCQlwb3N0X3Vw
+ZGF0ZSA9IChpbnN0Lk0xNS5pIDw8IDcpICsgaW5zdC5NMTUuaW1tNzsKKwkJaWYgKGluc3QuTTE1
+LnMpCisJCQl0ZW1wIC09IHBvc3RfdXBkYXRlOworCQllbHNlCisJCQl0ZW1wICs9IHBvc3RfdXBk
+YXRlOworCQl2Y3B1X3NldF9ncih2Y3B1LCBpbnN0Lk0xNS5yMywgdGVtcCwgMCk7CisKKwkJdmNw
+dV9pbmNyZW1lbnRfaWlwKHZjcHUpOworCQlyZXR1cm47CisJfSBlbHNlIGlmIChpbnN0Lk0xMi5t
+YWpvciA9PSA2ICYmIGluc3QuTTEyLm0gPT0gMQorCQkJJiYgaW5zdC5NMTIueCA9PSAxICYmIGlu
+c3QuTTEyLng2ID09IDEpIHsKKwkJLyogRmxvYXRpbmctcG9pbnQgTG9hZCBQYWlyICsgSW1tIGxk
+ZnA4IE0xMiovCisJCXN0cnVjdCBpYTY0X2ZwcmVnIHY7CisKKwkJaW5zdF90eXBlID0gU0xfRkxP
+QVRJTkc7CisJCWRpciA9IElPUkVRX1JFQUQ7CisJCXNpemUgPSA4OyAgICAgLypsZGZkKi8KKwkJ
+bW1pb19hY2Nlc3ModmNwdSwgcGFkciwgJmRhdGEsIHNpemUsIG1hLCBkaXIpOworCQl2LnUuYml0
+c1swXSA9IGRhdGE7CisJCXYudS5iaXRzWzFdID0gMHgxMDAzRTsKKwkJdmNwdV9zZXRfZnByZWco
+dmNwdSwgaW5zdC5NMTIuZjEsICZ2KTsKKwkJcGFkciArPSA4OworCQltbWlvX2FjY2Vzcyh2Y3B1
+LCBwYWRyLCAmZGF0YSwgc2l6ZSwgbWEsIGRpcik7CisJCXYudS5iaXRzWzBdID0gZGF0YTsKKwkJ
+di51LmJpdHNbMV0gPSAweDEwMDNFOworCQl2Y3B1X3NldF9mcHJlZyh2Y3B1LCBpbnN0Lk0xMi5m
+MiwgJnYpOworCQlwYWRyICs9IDg7CisJCXZjcHVfc2V0X2dyKHZjcHUsIGluc3QuTTEyLnIzLCBw
+YWRyLCAwKTsKKwkJdmNwdV9pbmNyZW1lbnRfaWlwKHZjcHUpOworCQlyZXR1cm47CisJfSBlbHNl
+IHsKKwkJaW5zdF90eXBlID0gLTE7CisJCXBhbmljX3ZtKHZjcHUpOworCX0KKworCXNpemUgPSAx
+IDw8IHNpemU7CisJaWYgKGRpciA9PSBJT1JFUV9XUklURSkgeworCQltbWlvX2FjY2Vzcyh2Y3B1
+LCBwYWRyLCAmZGF0YSwgc2l6ZSwgbWEsIGRpcik7CisJfSBlbHNlIHsKKwkJbW1pb19hY2Nlc3Mo
+dmNwdSwgcGFkciwgJmRhdGEsIHNpemUsIG1hLCBkaXIpOworCQlpZiAoaW5zdF90eXBlID09IFNM
+X0lOVEVHRVIpIHsKKwkJCXZjcHVfc2V0X2dyKHZjcHUsIGluc3QuTTEucjEsIGRhdGEsIDApOwor
+CQl9IGVsc2UgeworCQkJcGFuaWNfdm0odmNwdSk7CisJCX0KKwl9CisJdmNwdV9pbmNyZW1lbnRf
+aWlwKHZjcHUpOworfQotLSAKMS41LjEKCg==
 
-------_=_NextPart_001_01C863F4.3B53F3BF--
+------_=_NextPart_001_01C863F4.34746687--
