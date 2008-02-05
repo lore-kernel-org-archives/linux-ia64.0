@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 05 Feb 2008 23:54:18 +0000
-Subject: RE: [patch] Fix large MCA bootmem allocation
-Message-Id: <1FE6DD409037234FAB833C420AA843EC8480A7@orsmsx424.amr.corp.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 05 Feb 2008 23:54:39 +0000
+Subject: Re: [patch] Fix large MCA bootmem allocation
+Message-Id: <20080205235439.GA10413@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080205193232.GA8834@sgi.com>
 In-Reply-To: <20080205193232.GA8834@sgi.com>
@@ -10,32 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Tue, Feb 05, 2008 at 04:24:33PM -0700, Bjorn Helgaas wrote:
+> On Tuesday 05 February 2008 04:12:32 pm Russ Anderson wrote:
+> > On Tue, Feb 05, 2008 at 01:21:00PM -0700, Bjorn Helgaas wrote:
+> > 
+> > > What happens if this alloc fails?
+> > 
+> > The updated patch will panic is alloc fails.
+> 
+> I don't know this code well, so I apologize for asking basic
+> questions.
+> 
 > Is panic the only choice here?  It seems unfriendly to panic
 > just because we can't successfully add a new CPU.  It'd be
 > nicer to somehow make the addition fail so the new CPU is
 > just not usable.
 
-The current code sequence is:
-	start_secondary -> cpu_init -> ia64_mca_cpu_init
+It wasn't my first choice, but ia64_mca_cpu_init() is void
+so it's not as simple as returning a failing status.  That
+code was written as part of early boot and if you can't 
+get through boot without running out of memory you have
+bigger problems.  For example, __alloc_bootmem() calls panic
+if it cannot allocate memory.  There is no easy unwind path
+out of that code.
 
-and the memory allocation here happens very late in the
-sequence ... so it it fails we'd have to do a lot of work
-to back out.  Moving the ia64_mca_cpu_init() much earlier
-would help some ... but we don't currently have a graceful
-failure path if anything goes wrong.  The new cpu has
-already been passed from SAL control to OS control ... so
-we'd have to pass it back again.
+Given that ia64_mca_cpu_init() does not get called in
+the hot-plug path, the scenario of hot adding a cpu hitting
+this panic is not possible.  If/When the hot-plug code starts
+calling ia64_mca_cpu_init(), it will be an issue.  
 
-There are probably a whole host of potential failures in
-this code path that ought to be checked but currently
-aren't because all these routines were written to be
-called once at boot time when memory allocations hardly
-ever fail (and it they do, panic is perhaps the best
-answer).
-
-The liklihood of this particular allocation failing goes
-up as the configured pagesize is reduced.  With the
-default 64k, the allocation is order=1 ... but with a
-4k page we need an order=4 allocation to succeed.
-
--Tony
+Thanks,
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
