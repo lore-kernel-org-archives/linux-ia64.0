@@ -1,36 +1,39 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 26 Feb 2008 21:14:21 +0000
-Subject: Re: [PATCH 4/8] ia64/pv_ops: paravirtualize arch/ia64/kernel/switch_leave.S
-Message-Id: <4471.1204060461@ocs10w>
+From: akpm@linux-foundation.org
+Date: Tue, 05 Feb 2008 07:43:04 +0000
+Subject: [patch 4/4] ia64: fix ptrace inside a namespace
+Message-Id: <200802050742.m157gjIG010223@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12040343393726-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12040343393726-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Isaku Yamahata (on Tue, 26 Feb 2008 22:58:55 +0900) wrote:
-> /*
->  * ia64_leave_syscall(): Same as ia64_leave_kernel, except that it doesn't
->@@ -153,7 +165,8 @@ END(__ia64_switch_to)
->  *	      ar.csd: cleared
->  *	      ar.ssd: cleared
->  */
->-GLOBAL_ENTRY(__ia64_leave_syscall)
->+GLOBAL_ENTRY(__paravirt_leave_syscall)
->+	BR_IF_NATIVE(__ia64_leave_syscall, r22, p7)
-> 	PT_REGS_UNWIND_INFO(0)
+From: Pavel Emelyanov <xemul@openvz.org>
 
-Move BR_IF_NATIVE after PT_REGS_UNWIND_INFO.  PT_REGS_UNWIND_INFO must
-define the unwind state at slot 0 of this function to get correct
-unwind state.  When virtualized, BR_IF_NATIVE will generate extra code
-and move the unwind data past slot 0, breaking the backtrace.
+The ia64 has its own sys_ptrace implementation and it was overlooked when the
+pid namespaces patches were sent.
 
->-GLOBAL_ENTRY(__ia64_leave_kernel)
->+GLOBAL_ENTRY(__paravirt_leave_kernel)
->+	BR_IF_NATIVE(__ia64_leave_kernel, r22, p7)
-> 	PT_REGS_UNWIND_INFO(0)
+Use find_task_by_vpid() in it.
 
-Ditto.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
+ arch/ia64/kernel/ptrace.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN arch/ia64/kernel/ptrace.c~ia64-fix-ptrace-inside-a-namespace arch/ia64/kernel/ptrace.c
+--- a/arch/ia64/kernel/ptrace.c~ia64-fix-ptrace-inside-a-namespace
++++ a/arch/ia64/kernel/ptrace.c
+@@ -1437,7 +1437,7 @@ sys_ptrace (long request, pid_t pid, uns
+ 	ret = -ESRCH;
+ 	read_lock(&tasklist_lock);
+ 	{
+-		child = find_task_by_pid(pid);
++		child = find_task_by_vpid(pid);
+ 		if (child) {
+ 			if (peek_or_poke)
+ 				child = find_thread_for_addr(child, addr);
+_
