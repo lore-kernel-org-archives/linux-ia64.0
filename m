@@ -1,34 +1,41 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 07 Feb 2008 08:50:42 +0000
-Subject: XenLinux/IA64 domU forward port
-Message-Id: <20080207085042.GB4842%yamahata@valinux.co.jp>
+From: akpm@linux-foundation.org
+Date: Tue, 05 Feb 2008 07:43:03 +0000
+Subject: [patch 3/4] ia64: make pfm_get_task work with virtual pids
+Message-Id: <200802050742.m157gjgW010220@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: xen-ia64-devel@lists.xensource.com
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>, "virtualization@lists.osdl.org" <virtualization@lists.osdl.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi.
-I forward ported XenLinux/IA64 domU portion and put it at
-http://people.valinux.co.jp/~yamahata/xen-ia64/20080207/xen_ia64-20080207.patch
-This patch is for 551e4fb2465b87de9d4aa1669b27d624435443bb of
-git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
-It boots as domU and disk/network work.
+From: Pavel Emelyanov <xemul@openvz.org>
 
-This patch is for those who are interested in XenLinux/IA64 upstream
-merge activity. Many people asked me to publish it as soon as possible
-(Thank you very much for your patience) so that I decided to publish it.
-Sorry it is single jumbo patch yet, and not very clean.
-My next step is to split this patch down into many smaller
-patches (Especially portability part and dom0 part) and clean them up,
-then repost.
+This pid comes from user space, so treat it accordingly.
 
-Some cautions for those who will give it a try:
-- Console is hvc. (not xvc, tty, ttyS)
-- Disk is xvd. (not hd, sd)
-- One bug fix patch to xen is necessary.
-  I will sent it to xen-ia64-devel soon.
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
--- 
-yamahata
+ arch/ia64/kernel/perfmon.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff -puN arch/ia64/kernel/perfmon.c~ia64-make-pfm_get_task-work-with-virtual-pids arch/ia64/kernel/perfmon.c
+--- a/arch/ia64/kernel/perfmon.c~ia64-make-pfm_get_task-work-with-virtual-pids
++++ a/arch/ia64/kernel/perfmon.c
+@@ -2654,11 +2654,11 @@ pfm_get_task(pfm_context_t *ctx, pid_t p
+ 	/* XXX: need to add more checks here */
+ 	if (pid < 2) return -EPERM;
+ 
+-	if (pid != current->pid) {
++	if (pid != task_pid_vnr(current)) {
+ 
+ 		read_lock(&tasklist_lock);
+ 
+-		p = find_task_by_pid(pid);
++		p = find_task_by_vpid(pid);
+ 
+ 		/* make sure task cannot go away while we operate on it */
+ 		if (p) get_task_struct(p);
+_
