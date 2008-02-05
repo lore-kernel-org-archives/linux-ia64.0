@@ -1,179 +1,219 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Feb 2008 13:58:58 +0000
-Subject: [PATCH 7/8] ia64/xen: paravirtualize minstate.h, DO_SAVE_MIN.
-Message-Id: <12040343392692-git-send-email-yamahata@valinux.co.jp>
+From: akpm@linux-foundation.org
+Date: Tue, 05 Feb 2008 07:43:03 +0000
+Subject: [patch 2/4] ia64: honor notify_die() returning NOTIFY_STOP
+Message-Id: <200802050742.m157giFL010217@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+From: "Jan Beulich" <jbeulich@novell.com>
+
+This requires making die() and die_if_kernel() return a value, and their
+callers to honor this (and be prepared that it returns).
+
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/xen/xenminstate.h |  148 +++++++++++++++++++++++++++++++++++++++=
-++++
- 1 files changed, 148 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/xenminstate.h
 
-diff --git a/arch/ia64/xen/xenminstate.h b/arch/ia64/xen/xenminstate.h
-new file mode 100644
-index 0000000..cdaf910
---- /dev/null
-+++ b/arch/ia64/xen/xenminstate.h
-@@ -0,0 +1,148 @@
-+#include <asm/cache.h>
-+
-+#ifdef CONFIG_XEN
-+#include "../kernel/entry.h"
-+#else
-+#include "entry.h"
-+#endif
-+
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
-+/*
-+ * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
-+ * the minimum state necessary that allows us to turn psr.ic back
-+ * on.
-+ *
-+ * Assumed state upon entry:
-+ *	psr.ic: off
-+ *	r31:	contains saved predicates (pr)
-+ *
-+ * Upon exit, the state is as follows:
-+ *	psr.ic: off
-+ *	 r2 =3D points to &pt_regs.r16
-+ *	 r8 =3D contents of ar.ccv
-+ *	 r9 =3D contents of ar.csd
-+ *	r10 =3D contents of ar.ssd
-+ *	r11 =3D FPSR_DEFAULT
-+ *	r12 =3D kernel sp (kernel virtual address)
-+ *	r13 =3D points to current task_struct (kernel virtual address)
-+ *	p15 =3D TRUE if psr.i is set in cr.ipsr
-+ *	predicate registers (other than p2, p3, and p15), b6, r3, r14, r15:
-+ *		preserved
-+ * CONFIG_XEN note: p6/p7 are not preserved
-+ *
-+ * Note that psr.ic is NOT turned on by this macro.  This is so that
-+ * we can pass interruption state as arguments to a handler.
-+ */
-+#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
-+	mov r16=3DIA64_KR(CURRENT);	/* M */							\
-+	mov r27=3Dar.rsc;			/* M */							\
-+	mov r20=3Dr1;			/* A */							\
-+	mov r25=3Dar.unat;		/* M */							\
-+	/* mov r29=3Dcr.ipsr;		/* M */							\
-+	movl r29=3DXSI_IPSR;;									\
-+	ld8 r29=3D[r29];;										\
-+	mov r26=3Dar.pfs;			/* I */							\
-+	/* mov r28=3Dcr.iip;		/* M */							\
-+	movl r28=3DXSI_IIP;;									\
-+	ld8 r28=3D[r28];;										\
-+	mov r21=3Dar.fpsr;		/* M */							\
-+	COVER;				/* B;; (or nothing) */					\
-+	;;											\
-+	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
-+	;;											\
-+	ld1 r17=3D[r16];				/* load current->thread.on_ustack flag */	\
-+	st1 [r16]=3Dr0;				/* clear current->thread.on_ustack flag */	\
-+	adds r1=3D-IA64_TASK_THREAD_ON_USTACK_OFFSET,r16						\
-+	/* switch from user to kernel RBS: */							\
-+	;;											\
-+	invala;				/* M */							\
-+	/* SAVE_IFS; /* see xen special handling below */						\
-+	cmp.eq pKStk,pUStk=3Dr0,r17;		/* are we in kernel mode already? */		\
-+	;;											\
-+(pUStk)	mov ar.rsc=3D0;		/* set enforced lazy mode, pl 0, little-endian, l=
-oadrs=3D0 */	\
-+	;;											\
-+(pUStk)	mov.m r24=3Dar.rnat;									\
-+(pUStk)	addl r22=3DIA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
-+(pKStk) mov r1=3Dsp;					/* get sp  */				\
-+	;;											\
-+(pUStk) lfetch.fault.excl.nt1 [r22];								\
-+(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of=
- memory stack */	\
-+(pUStk)	mov r23=3Dar.bspstore;				/* save ar.bspstore */			\
-+	;;											\
-+(pUStk)	mov ar.bspstore=3Dr22;				/* switch to kernel RBS */		\
-+(pKStk) addl r1=3D-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r=
-12) */	\
-+	;;											\
-+(pUStk)	mov r18=3Dar.bsp;										\
-+(pUStk)	mov ar.rsc=3D0x3;		/* set eager mode, pl 0, little-endian, loadrs=
-=3D0 */		\
-+	adds r17=3D2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
-+	adds r16=3DPT(CR_IPSR),r1;								\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17],L1_CACHE_BYTES;						\
-+	st8 [r16]=3Dr29;		/* save cr.ipsr */						\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17];								\
-+	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT;							\
-+	mov r29=B0										\
-+	;;											\
-+	adds r16=3DPT(R8),r1;	/* initialize first base pointer */				\
-+	adds r17=3DPT(R9),r1;	/* initialize second base pointer */				\
-+(pKStk)	mov r18=3Dr0;		/* make sure r18 isn't NaT */					\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr8,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr9,16;								\
-+        ;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr10,24;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr11,24;							\
-+        ;;											\
-+	/* xen special handling for possibly lazy cover */					\
-+	movl r8=3DXSI_PRECOVER_IFS;								\
-+	;;											\
-+	ld8 r30=3D[r8];										\
-+	;;											\
-+	st8 [r16]=3Dr28,16;	/* save cr.iip */						\
-+	st8 [r17]=3Dr30,16;	/* save cr.ifs */						\
-+(pUStk)	sub r18=3Dr18,r22;	/* r18=3DRSE.ndirty*8 */						\
-+	mov r8=3Dar.ccv;										\
-+	mov r9=3Dar.csd;										\
-+	mov r10=3Dar.ssd;										\
-+	movl r11=3DFPSR_DEFAULT;   /* L-unit */							\
-+	;;											\
-+	st8 [r16]=3Dr25,16;	/* save ar.unat */						\
-+	st8 [r17]=3Dr26,16;	/* save ar.pfs */						\
-+	shl r18=3Dr18,16;		/* compute ar.rsc to be used for "loadrs" */			\
-+	;;											\
-+	st8 [r16]=3Dr27,16;	/* save ar.rsc */						\
-+(pUStk)	st8 [r17]=3Dr24,16;	/* save ar.rnat */						\
-+(pKStk)	adds r17=16,r17;	/* skip over ar_rnat field */					\
-+	;;			/* avoid RAW on r16 & r17 */					\
-+(pUStk)	st8 [r16]=3Dr23,16;	/* save ar.bspstore */						\
-+	st8 [r17]=3Dr31,16;	/* save predicates */						\
-+(pKStk)	adds r16=16,r16;	/* skip over ar_bspstore field */				\
-+	;;											\
-+	st8 [r16]=3Dr29,16;	/* save b0 */							\
-+	st8 [r17]=3Dr18,16;	/* save ar.rsc value for "loadrs" */				\
-+	cmp.eq pNonSys,pSys=3Dr0,r0	/* initialize pSys=3D0, pNonSys=3D1 */			\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr20,16;	/* save original r1 */				\
-+.mem.offset 8,0; st8.spill [r17]=3Dr12,16;							\
-+	adds r12=3D-16,r1;	/* switch to kernel memory stack (with 16 bytes of scr=
-atch) */	\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr13,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr21,16;	/* save ar.fpsr */				\
-+	mov r13=3DIA64_KR(CURRENT);	/* establish `current' */				\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr15,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr14,16;							\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
-+	;;											\
-+	EXTRA;											\
-+	mov r2=B0; br.call.sptk b0=3Dxen_bsw1;; mov b0=3Dr2;					\
-+	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
-+	;;											\
-+	movl r1=3D__gp;		/* establish kernel global pointer */				\
-+	;;											\
-+	/*bsw.1;*/		/* switch back to bank 1 (must be last in insn group) */	\
-+	;;
-+#endif /* __IA64_ASM_PARAVIRTUALIZED_XEN */
---=20
-1.5.3
+ arch/ia64/ia32/ia32_support.c |    5 ++--
+ arch/ia64/kernel/traps.c      |   35 +++++++++++++++++++++-----------
+ arch/ia64/kernel/unaligned.c  |   13 +++++++----
+ arch/ia64/mm/fault.c          |    8 ++++---
+ 4 files changed, 39 insertions(+), 22 deletions(-)
 
+diff -puN arch/ia64/ia32/ia32_support.c~ia64-honor-notify_die-returning-notify_stop arch/ia64/ia32/ia32_support.c
+--- a/arch/ia64/ia32/ia32_support.c~ia64-honor-notify_die-returning-notify_stop
++++ a/arch/ia64/ia32/ia32_support.c
+@@ -27,7 +27,7 @@
+ 
+ #include "ia32priv.h"
+ 
+-extern void die_if_kernel (char *str, struct pt_regs *regs, long err);
++extern int die_if_kernel (char *str, struct pt_regs *regs, long err);
+ 
+ struct exec_domain ia32_exec_domain;
+ struct page *ia32_shared_page[NR_CPUS];
+@@ -217,7 +217,8 @@ ia32_bad_interrupt (unsigned long int_nu
+ {
+ 	siginfo_t siginfo;
+ 
+-	die_if_kernel("Bad IA-32 interrupt", regs, int_num);
++	if (die_if_kernel("Bad IA-32 interrupt", regs, int_num))
++		return;
+ 
+ 	siginfo.si_signo = SIGTRAP;
+ 	siginfo.si_errno = int_num;	/* XXX is it OK to abuse si_errno like this? */
+diff -puN arch/ia64/kernel/traps.c~ia64-honor-notify_die-returning-notify_stop arch/ia64/kernel/traps.c
+--- a/arch/ia64/kernel/traps.c~ia64-honor-notify_die-returning-notify_stop
++++ a/arch/ia64/kernel/traps.c
+@@ -35,7 +35,7 @@ trap_init (void)
+ 		fpswa_interface = __va(ia64_boot_param->fpswa);
+ }
+ 
+-void
++int
+ die (const char *str, struct pt_regs *regs, long err)
+ {
+ 	static struct {
+@@ -62,8 +62,11 @@ die (const char *str, struct pt_regs *re
+ 	if (++die.lock_owner_depth < 3) {
+ 		printk("%s[%d]: %s %ld [%d]\n",
+ 		current->comm, task_pid_nr(current), str, err, ++die_counter);
+-		(void) notify_die(DIE_OOPS, (char *)str, regs, err, 255, SIGSEGV);
+-		show_regs(regs);
++		if (notify_die(DIE_OOPS, str, regs, err, 255, SIGSEGV)
++	            != NOTIFY_STOP)
++			show_regs(regs);
++		else
++			regs = NULL;
+   	} else
+ 		printk(KERN_ERR "Recursive die() failure, output suppressed\n");
+ 
+@@ -72,17 +75,22 @@ die (const char *str, struct pt_regs *re
+ 	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die.lock);
+ 
++	if (!regs)
++		return 1;
++
+ 	if (panic_on_oops)
+ 		panic("Fatal exception");
+ 
+   	do_exit(SIGSEGV);
++	return 0;
+ }
+ 
+-void
++int
+ die_if_kernel (char *str, struct pt_regs *regs, long err)
+ {
+ 	if (!user_mode(regs))
+-		die(str, regs, err);
++		return die(str, regs, err);
++	return 0;
+ }
+ 
+ void
+@@ -102,7 +110,8 @@ __kprobes ia64_bad_break (unsigned long 
+ 		if (notify_die(DIE_BREAK, "break 0", regs, break_num, TRAP_BRKPT, SIGTRAP)
+ 			       	= NOTIFY_STOP)
+ 			return;
+-		die_if_kernel("bugcheck!", regs, break_num);
++		if (die_if_kernel("bugcheck!", regs, break_num))
++			return;
+ 		sig = SIGILL; code = ILL_ILLOPC;
+ 		break;
+ 
+@@ -155,8 +164,9 @@ __kprobes ia64_bad_break (unsigned long 
+ 		break;
+ 
+ 	      default:
+-		if (break_num < 0x40000 || break_num > 0x100000)
+-			die_if_kernel("Bad break", regs, break_num);
++		if ((break_num < 0x40000 || break_num > 0x100000)
++		    && die_if_kernel("Bad break", regs, break_num))
++			return;
+ 
+ 		if (break_num < 0x80000) {
+ 			sig = SIGILL; code = __ILL_BREAK;
+@@ -402,14 +412,15 @@ ia64_illegal_op_fault (unsigned long ec,
+ #endif
+ 
+ 	sprintf(buf, "IA-64 Illegal operation fault");
+-	die_if_kernel(buf, &regs, 0);
++	rv.fkt = 0;
++	if (die_if_kernel(buf, &regs, 0))
++		return rv;
+ 
+ 	memset(&si, 0, sizeof(si));
+ 	si.si_signo = SIGILL;
+ 	si.si_code = ILL_ILLOPC;
+ 	si.si_addr = (void __user *) (regs.cr_iip + ia64_psr(&regs)->ri);
+ 	force_sig_info(SIGILL, &si, current);
+-	rv.fkt = 0;
+ 	return rv;
+ }
+ 
+@@ -644,6 +655,6 @@ ia64_fault (unsigned long vector, unsign
+ 		sprintf(buf, "Fault %lu", vector);
+ 		break;
+ 	}
+-	die_if_kernel(buf, &regs, error);
+-	force_sig(SIGILL, current);
++	if (!die_if_kernel(buf, &regs, error))
++		force_sig(SIGILL, current);
+ }
+diff -puN arch/ia64/kernel/unaligned.c~ia64-honor-notify_die-returning-notify_stop arch/ia64/kernel/unaligned.c
+--- a/arch/ia64/kernel/unaligned.c~ia64-honor-notify_die-returning-notify_stop
++++ a/arch/ia64/kernel/unaligned.c
+@@ -23,7 +23,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unaligned.h>
+ 
+-extern void die_if_kernel(char *str, struct pt_regs *regs, long err);
++extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
+ 
+ #undef DEBUG_UNALIGNED_TRAP
+ 
+@@ -675,8 +675,9 @@ emulate_load_updates (update_t type, loa
+ 	 */
+ 	if (ld.x6_op = 1 || ld.x6_op = 3) {
+ 		printk(KERN_ERR "%s: register update on speculative load, error\n", __FUNCTION__);
+-		die_if_kernel("unaligned reference on speculative load with register update\n",
+-			      regs, 30);
++		if (die_if_kernel("unaligned reference on speculative load with register update\n",
++				  regs, 30))
++			return;
+ 	}
+ 
+ 
+@@ -1317,7 +1318,8 @@ ia64_handle_unaligned (unsigned long ifa
+ 
+ 	if (ia64_psr(regs)->be) {
+ 		/* we don't support big-endian accesses */
+-		die_if_kernel("big-endian unaligned accesses are not supported", regs, 0);
++		if (die_if_kernel("big-endian unaligned accesses are not supported", regs, 0))
++			return;
+ 		goto force_sigbus;
+ 	}
+ 
+@@ -1534,7 +1536,8 @@ ia64_handle_unaligned (unsigned long ifa
+ 			ia64_handle_exception(regs, eh);
+ 			goto done;
+ 		}
+-		die_if_kernel("error during unaligned kernel access\n", regs, ret);
++		if (die_if_kernel("error during unaligned kernel access\n", regs, ret))
++			return;
+ 		/* NOT_REACHED */
+ 	}
+   force_sigbus:
+diff -puN arch/ia64/mm/fault.c~ia64-honor-notify_die-returning-notify_stop arch/ia64/mm/fault.c
+--- a/arch/ia64/mm/fault.c~ia64-honor-notify_die-returning-notify_stop
++++ a/arch/ia64/mm/fault.c
+@@ -16,7 +16,7 @@
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ 
+-extern void die (char *, struct pt_regs *, long);
++extern int die(char *, struct pt_regs *, long);
+ 
+ #ifdef CONFIG_KPROBES
+ static inline int notify_page_fault(struct pt_regs *regs, int trap)
+@@ -267,9 +267,11 @@ ia64_do_page_fault (unsigned long addres
+ 	else
+ 		printk(KERN_ALERT "Unable to handle kernel paging request at "
+ 		       "virtual address %016lx\n", address);
+-	die("Oops", regs, isr);
++	if (die("Oops", regs, isr))
++		regs = NULL;
+ 	bust_spinlocks(0);
+-	do_exit(SIGKILL);
++	if (regs)
++		do_exit(SIGKILL);
+ 	return;
+ 
+   out_of_memory:
+_
