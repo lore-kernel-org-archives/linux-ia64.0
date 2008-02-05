@@ -1,104 +1,25 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 06:13:23 +0000
-Subject: Re: [PATCH 04/28] ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
-Message-Id: <20080222061323.GC16685%yamahata@valinux.co.jp>
+From: Len Brown <lenb@kernel.org>
+Date: Tue, 05 Feb 2008 21:03:30 +0000
+Subject: Re: [PATCH 0/5] WMI patches for acpi-test (v2)
+Message-Id: <200802051603.30466.lenb@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12036570474076-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12036570474076-git-send-email-yamahata@valinux.co.jp>
+References: <20080205021658.4422.83165.stgit@pacifica>
+In-Reply-To: <20080205021658.4422.83165.stgit@pacifica>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Carlos Corbacho <carlos@strangeworlds.co.uk>
+Cc: linux-acpi@vger.kernel.org, Matthew Garrett <mjg59@srcf.ucam.org>, Alexey Starikovskiy <aystarik@gmail.com>, linux-ia64@vger.kernel.org
 
-On Thu, Feb 21, 2008 at 11:42:28PM -0600, Robin Holt wrote:
-> > +#define ADDR (*(volatile long *) addr)
-> 
-> This seems like a leftover #define.  Additionally, ADDR seems a bit
-> vague and easily misused.  Since I don't see it used anywhere else in
-> that patch, I will assume it should be tossed, but reserve the right to
-> rescind this comment later.
+On Monday 04 February 2008 21:16, Carlos Corbacho wrote:
 
-It's a leftover from i386 version so that I eliminated it.
+> 2) Do you know of any IA64 systems using ACPI-WMI? At the moment, WMI will work
+> on x86 and hopefully IA64, but if it turns out that no vendor has or ever will
+> implement ACPI-WMI on IA64, then we could safely drop it there.
 
+I recommend skipping WMI on IA64 unless/until a real need to support it emerges.
+There are no WMI extensions on the Intel Tiger or Hitachi Fusion IA64 boxes I have access to.
 
-ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
+thanks,
+-Len
 
-
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- include/asm-ia64/sync_bitops.h |   59 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 59 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/sync_bitops.h
-
-diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
-new file mode 100644
-index 0000000..f56cd90
---- /dev/null
-+++ b/include/asm-ia64/sync_bitops.h
-@@ -0,0 +1,59 @@
-+#ifndef _ASM_IA64_SYNC_BITOPS_H
-+#define _ASM_IA64_SYNC_BITOPS_H
-+
-+/*
-+ * Copyright 1992, Linus Torvalds.
-+ * Heavily modified to provide guaranteed strong synchronisation
-+ * when communicating with Xen or other guest OSes running on other CPUs.
-+ */
-+
-+static inline void sync_set_bit(int nr, volatile void *addr)
-+{
-+	set_bit(nr, addr);
-+}
-+
-+static inline void sync_clear_bit(int nr, volatile void *addr)
-+{
-+	clear_bit(nr, addr);
-+}
-+
-+static inline void sync_change_bit(int nr, volatile void *addr)
-+{
-+	change_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_set_bit(int nr, volatile void *addr)
-+{
-+	return test_and_set_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
-+{
-+	return test_and_clear_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_change_bit(int nr, volatile void *addr)
-+{
-+	return test_and_change_bit(nr, addr);
-+}
-+
-+static inline int sync_const_test_bit(int nr, const volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+static inline int sync_var_test_bit(int nr, volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+#define sync_cmpxchg	ia64_cmpxchg4_acq
-+
-+#define sync_test_bit(nr,addr)			\
-+	(__builtin_constant_p(nr) ?		\
-+	 sync_const_test_bit((nr), (addr)) :	\
-+	 sync_var_test_bit((nr), (addr)))
-+
-+#define sync_cmpxchg_subword sync_cmpxchg
-+
-+#endif /* _ASM_IA64_SYNC_BITOPS_H */
--- 
-1.5.3
-
-
-
--- 
-yamahata
