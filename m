@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 05 Feb 2008 23:54:39 +0000
-Subject: Re: [patch] Fix large MCA bootmem allocation
-Message-Id: <20080205235439.GA10413@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 06 Feb 2008 00:00:09 +0000
+Subject: RE: [patch] Fix large MCA bootmem allocation
+Message-Id: <1FE6DD409037234FAB833C420AA843EC8480C3@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080205193232.GA8834@sgi.com>
 In-Reply-To: <20080205193232.GA8834@sgi.com>
@@ -10,36 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 05, 2008 at 04:24:33PM -0700, Bjorn Helgaas wrote:
-> On Tuesday 05 February 2008 04:12:32 pm Russ Anderson wrote:
-> > On Tue, Feb 05, 2008 at 01:21:00PM -0700, Bjorn Helgaas wrote:
-> > 
-> > > What happens if this alloc fails?
-> > 
-> > The updated patch will panic is alloc fails.
-> 
-> I don't know this code well, so I apologize for asking basic
-> questions.
-> 
-> Is panic the only choice here?  It seems unfriendly to panic
-> just because we can't successfully add a new CPU.  It'd be
-> nicer to somehow make the addition fail so the new CPU is
-> just not usable.
+> Given that ia64_mca_cpu_init() does not get called in
+> the hot-plug path
 
-It wasn't my first choice, but ia64_mca_cpu_init() is void
-so it's not as simple as returning a failing status.  That
-code was written as part of early boot and if you can't 
-get through boot without running out of memory you have
-bigger problems.  For example, __alloc_bootmem() calls panic
-if it cannot allocate memory.  There is no easy unwind path
-out of that code.
+Surely it must be ... you even have code in it to cope
+with this case.  The:
 
-Given that ia64_mca_cpu_init() does not get called in
-the hot-plug path, the scenario of hot adding a cpu hitting
-this panic is not possible.  If/When the hot-plug code starts
-calling ia64_mca_cpu_init(), it will be an issue.  
+	if (__per_cpu_mca[cpu]) {
 
-Thanks,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+test can only be true if we are back in this code for a
+second run through if the cpu was taken offline and added
+again. Just like it says in the comment above this test.
+
+-Tony
