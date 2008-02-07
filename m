@@ -1,537 +1,348 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Feb 2008 13:58:56 +0000
-Subject: [PATCH 5/8] ia64/pv_ops: paravirtualize arch/ia64/kernel/ivt.S.
-Message-Id: <12040343393511-git-send-email-yamahata@valinux.co.jp>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 07 Feb 2008 21:34:50 +0000
+Subject: RE: [PATCH] Multiple outstanding ptc.g instructions support
+Message-Id: <1FE6DD409037234FAB833C420AA843EC8823A9@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/kernel/ivt.S |  159 +++++++++++++++++++++++++-------------------=
-----
- 1 files changed, 84 insertions(+), 75 deletions(-)
+I made a few changes to this:
 
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index 34f44d8..1347cda 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -12,6 +12,13 @@
-  *
-  * 00/08/23 Asit Mallick <asit.k.mallick@intel.com> TLB handling for SMP
-  * 00/12/20 David Mosberger-Tang <davidm@hpl.hp.com> DTLB/ITLB handler now=
- uses virtual PT.
-+ *
-+ * Copyright (C) 2005 Hewlett-Packard Co
-+ *	Dan Magenheimer <dan.magenheimer@hp.com>
-+ *      Xen paravirtualization
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *                    pv_ops.
-  */
- /*
-  * This file defines the interruption vector table used by the CPU.
-@@ -68,6 +75,13 @@
- # define DBG_FAULT(i)
- #endif
-=20
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
-+#include "../xen/inst_xen.h"
-+#include "../xen/xenminstate.h"
-+#else
-+#include "inst_native.h"
-+#endif
+1) Updated w.r.t. latest kernel (mostly due to cleanups in efi.c)
+2) Dropped the palinfo.c piece that provided the PALO values for
+   number of purges.  I think that /proc/pal/cpu*/* should just
+   return the values that PAL provides.  If we need to provide an
+   API to get at the PALO values, then a new interface is needed
+   (/proc/pal/palo perhaps?)
+3) Removed some global variables.
+4) Added code to act on max_purge values found from PAL_VM_SUMMARY.
+   This got a bit messy.  See setup_ptcg_sem() in arch/ia64/mm/tlb.c,
+   suggestions on how to make this simpler gratefully received.
+
+-Tony
+
+---
+
+commit bf454b2d048f7fd27cb834af87806c85a760d60c
+Author: Fenghua Yu <fenghua.yu@intel.com>
+Date:   Thu Feb 7 12:59:04 2008 -0800
+
+    [IA64] Multiple outstanding ptc.g instruction support
+    
+    According to SDM2.2, Itanium supports multiple outstanding ptc.g instructions.
+    But current kernel function ia64_global_tlb_purge() uses a spinlock to serialize
+    ptc.g instructions issued by multiple processors. This serialization might have
+    scalability issue on a big SMP machine where many processors could purge TLB
+    in parallel.
+    
+    The patch fixes this problem by issuing multiple ptc.g instructions in
+    ia64_global_tlb_purge(). It also adds support for the "PALO" table to get
+    a platform view of the max number of outstanding ptc.g instructions (which
+    may be different from the processor view found from PAL_VM_SUMMARY).
+    
+    PALO specification can be found at: http://www.dig64.org/home/DIG64_PALO_R1_0.pdf
+    
+    Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 919070a..5ce6523 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -37,6 +37,7 @@
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
+ #include <asm/mca.h>
++#include <asm/tlbflush.h>
+ 
+ #define EFI_DEBUG	0
+ 
+@@ -403,6 +404,41 @@ efi_get_pal_addr (void)
+ 	return NULL;
+ }
+ 
 +
- #include "minstate.h"
-=20
- #define FAULT(n)									\
-@@ -102,13 +116,13 @@ ENTRY(vhpt_miss)
- 	 *	- the faulting virtual address uses unimplemented address bits
- 	 *	- the faulting virtual address has no valid page table mapping
- 	 */
--	mov r16=3Dcr.ifa				// get address that caused the TLB miss
-+	MOV_FROM_IFA(r16)			// get address that caused the TLB miss
- #ifdef CONFIG_HUGETLB_PAGE
- 	movl r18=3DPAGE_SHIFT
--	mov r25=3Dcr.itir
-+	MOV_FROM_ITIR(r25)
++static u8 __init palo_checksum(u8 *buffer, u32 length)
++{
++	u8 sum = 0;
++	u8 *end = buffer + length;
++
++	while (buffer < end)
++		sum = (u8) (sum + *(buffer++));
++
++	return sum;
++}
++
++/*
++ * Parse and handle PALO table which is published at:
++ * http://www.dig64.org/home/DIG64_PALO_R1_0.pdf
++ */
++static void __init handle_palo(unsigned long palo_phys)
++{
++	struct palo_table *palo = __va(palo_phys);
++	u8  checksum;
++
++	if (strncmp(palo->signature, PALO_SIG, sizeof(PALO_SIG) - 1)) {
++		printk(KERN_INFO "PALO signature incorrect.\n");
++		return;
++	}
++
++	checksum = palo_checksum((u8 *)palo, palo->length);
++	if (checksum) {
++		printk(KERN_INFO "PALO checksum incorrect.\n");
++		return;
++	}
++
++	setup_ptcg_sem(palo->max_tlb_purges, 1);
++}
++
+ void
+ efi_map_pal_code (void)
+ {
+@@ -432,6 +468,7 @@ efi_init (void)
+ 	u64 efi_desc_size;
+ 	char *cp, vendor[100] = "unknown";
+ 	int i;
++	unsigned long palo_phys;
+ 
+ 	/*
+ 	 * It's too early to be able to use the standard kernel command line
+@@ -496,6 +533,8 @@ efi_init (void)
+ 	efi.hcdp       = EFI_INVALID_TABLE_ADDR;
+ 	efi.uga        = EFI_INVALID_TABLE_ADDR;
+ 
++	palo_phys      = EFI_INVALID_TABLE_ADDR;
++
+ 	for (i = 0; i < (int) efi.systab->nr_tables; i++) {
+ 		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) = 0) {
+ 			efi.mps = config_tables[i].table;
+@@ -515,10 +554,17 @@ efi_init (void)
+ 		} else if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) = 0) {
+ 			efi.hcdp = config_tables[i].table;
+ 			printk(" HCDP=0x%lx", config_tables[i].table);
++		} else if (efi_guidcmp(config_tables[i].guid,
++			 PROCESSOR_ABSTRACTION_LAYER_OVERWRITE_GUID) = 0) {
++			palo_phys = config_tables[i].table;
++			printk(" PALO=0x%lx", config_tables[i].table);
+ 		}
+ 	}
+ 	printk("\n");
+ 
++	if (palo_phys != EFI_INVALID_TABLE_ADDR)
++		handle_palo(palo_phys);
++
+ 	runtime = __va(efi.systab->runtime);
+ 	efi.get_time = phys_get_time;
+ 	efi.set_time = phys_set_time;
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index ebd1a09..93ce69d 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -59,6 +59,7 @@
+ #include <asm/setup.h>
+ #include <asm/smp.h>
+ #include <asm/system.h>
++#include <asm/tlbflush.h>
+ #include <asm/unistd.h>
+ #include <asm/hpsim.h>
+ 
+@@ -946,9 +947,10 @@ cpu_init (void)
  #endif
- 	;;
--	rsm psr.dt				// use physical addressing for data
-+	RSM_PSR_DT				// use physical addressing for data
- 	mov r31=3Dpr				// save the predicate registers
- 	mov r19=3DIA64_KR(PT_BASE)		// get page table base address
- 	shl r21=3Dr16,3				// shift bit 60 into sign bit
-@@ -168,21 +182,20 @@ ENTRY(vhpt_miss)
- 	dep r21=3Dr19,r20,3,(PAGE_SHIFT-3)	// r21=3Dpte_offset(pmd,addr)
- 	;;
- (p7)	ld8 r18=3D[r21]				// read *pte
--	mov r19=3Dcr.isr				// cr.isr bit 32 tells us if this is an insn miss
-+	MOV_FROM_ISR(r19)			// cr.isr bit 32 tells us if this is an insn miss
- 	;;
- (p7)	tbit.z p6,p7=3Dr18,_PAGE_P_BIT		// page present bit cleared?
--	mov r22=3Dcr.iha				// get the VHPT address that caused the TLB miss
-+	MOV_FROM_IHA(r22)			// get the VHPT address that caused the TLB miss
- 	;;					// avoid RAW on p7
- (p7)	tbit.nz.unc p10,p11=3Dr19,32		// is it an instruction TLB miss?
- 	dep r23=3D0,r20,0,PAGE_SHIFT		// clear low bits to get page address
- 	;;
--(p10)	itc.i r18				// insert the instruction TLB entry
--(p11)	itc.d r18				// insert the data TLB entry
-+	ITC_I_AND_D(p10, p11, r18, r24)		// insert the instruction TLB entry and
-+						// insert the data TLB entry
- (p6)	br.cond.spnt.many page_fault		// handle bad address/page not present =
-(page fault)
--	mov cr.ifa=3Dr22
+ 
+ 	/* set ia64_ctx.max_rid to the maximum RID that is supported by all CPUs: */
+-	if (ia64_pal_vm_summary(NULL, &vmi) = 0)
++	if (ia64_pal_vm_summary(NULL, &vmi) = 0) {
+ 		max_ctx = (1U << (vmi.pal_vm_info_2_s.rid_size - 3)) - 1;
+-	else {
++		setup_ptcg_sem(vmi.pal_vm_info_2_s.max_purges, 0);
++	} else {
+ 		printk(KERN_WARNING "cpu_init: PAL VM summary failed, assuming 18 RID bits\n");
+ 		max_ctx = (1U << 15) - 1;	/* use architected minimum */
+ 	}
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 655da24..78767e5 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -11,6 +11,9 @@
+  * Rohit Seth <rohit.seth@intel.com>
+  * Ken Chen <kenneth.w.chen@intel.com>
+  * Christophe de Dinechin <ddd@hp.com>: Avoid ptc.e on memory allocation
++ * Copyright (C) 2007 Intel Corp
++ *	Fenghua Yu <fenghua.yu@intel.com>
++ *	Add multiple ptc.g/ptc.ga instruction support in global tlb purge.
+  */
+ #include <linux/module.h>
+ #include <linux/init.h>
+@@ -26,6 +29,7 @@
+ #include <asm/pal.h>
+ #include <asm/tlbflush.h>
+ #include <asm/dma.h>
++#include <asm/sal.h>
+ 
+ static struct {
+ 	unsigned long mask;	/* mask of supported purge page-sizes */
+@@ -84,14 +88,78 @@ wrap_mmu_context (struct mm_struct *mm)
+ 	local_flush_tlb_all();
+ }
+ 
++static __DECLARE_SEMAPHORE_GENERIC(ptcg_sem, 1);
++static u16 nptcg = 1;
++static int need_ptcg_sem = 1;
++static int toolatetochangeptcgsem = 0;
++
++/*
++ * Maximum number of simultaneous ptc.g purges in the system can
++ * be defined by PAL_VM_SUMMARY (in which case we should take
++ * the smallest value for any cpu in the system) or by the PAL
++ * override table (in which case we should ignore the value from
++ * PAL_VM_SUMMARY).
++ *
++ * Complicating the logic here is the fact that num_possible_cpus()
++ * isn't fully setup until we start bringing cpus online.
++ */
++void
++setup_ptcg_sem(int max_purges, int from_palo)
++{
++	static int have_palo;
++	static int firstcpu = 1;
++
++	if (toolatetochangeptcgsem) {
++		BUG_ON(max_purges < nptcg);
++		return;
++	}
++
++	if (from_palo) {
++		have_palo = 1;
++
++		/* In PALO max_purges = 0 really means it! */
++		if (max_purges = 0)
++			panic("Whoa! Platform does not support global TLB purges.\n");
++		nptcg = max_purges;
++		if (nptcg = PALO_MAX_TLB_PURGES) {
++			need_ptcg_sem = 0;
++			return;
++		}
++		goto resetsema;
++	}
++	if (have_palo) {
++		if (nptcg != PALO_MAX_TLB_PURGES)
++			need_ptcg_sem = (num_possible_cpus() > nptcg);
++		return;
++	}
++
++	/* In PAL_VM_SUMMARY max_purges = 0 actually means 1 */
++	if (max_purges = 0) max_purges = 1;
++
++	if (firstcpu) {
++		nptcg = max_purges;
++		firstcpu = 0;
++	}
++	if (max_purges < nptcg)
++		nptcg = max_purges;
++	if (nptcg = PAL_MAX_PURGES) {
++		need_ptcg_sem = 0;
++		return;
++	} else
++		need_ptcg_sem = (num_possible_cpus() > nptcg);
++
++resetsema:
++	sema_init(&ptcg_sem, max_purges);
++}
++
+ void
+ ia64_global_tlb_purge (struct mm_struct *mm, unsigned long start,
+ 		       unsigned long end, unsigned long nbits)
+ {
+-	static DEFINE_SPINLOCK(ptcg_lock);
 -
-+	MOV_TO_IFA(r22, r24)
- #ifdef CONFIG_HUGETLB_PAGE
--(p8)	mov cr.itir=3Dr25				// change to default page-size for VHPT
-+	MOV_TO_ITIR(p8, r25, r24)		// change to default page-size for VHPT
- #endif
-=20
- 	/*
-@@ -192,7 +205,7 @@ ENTRY(vhpt_miss)
- 	 */
- 	adds r24=3D__DIRTY_BITS_NO_ED|_PAGE_PL_0|_PAGE_AR_RW,r23
- 	;;
--(p7)	itc.d r24
-+	ITC_D(p7, r24, r25)
- 	;;
- #ifdef CONFIG_SMP
- 	/*
-@@ -234,7 +247,7 @@ ENTRY(vhpt_miss)
- #endif
-=20
- 	mov pr=3Dr31,-1				// restore predicate registers
--	rfi
-+	RFI
- END(vhpt_miss)
-=20
- 	.org ia64_ivt+0x400
-@@ -248,11 +261,11 @@ ENTRY(itlb_miss)
- 	 * mode, walk the page table, and then re-execute the PTE read and
- 	 * go on normally after that.
- 	 */
--	mov r16=3Dcr.ifa				// get virtual address
-+	MOV_FROM_IFA(r16)			// get virtual address
- 	mov r29=B0				// save b0
- 	mov r31=3Dpr				// save predicates
- .itlb_fault:
--	mov r17=3Dcr.iha				// get virtual address of PTE
-+	MOV_FROM_IHA(r17)			// get virtual address of PTE
- 	movl r30=1F				// load nested fault continuation point
- 	;;
- 1:	ld8 r18=3D[r17]				// read *pte
-@@ -261,7 +274,7 @@ ENTRY(itlb_miss)
- 	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
- (p6)	br.cond.spnt page_fault
- 	;;
--	itc.i r18
-+	ITC_I(p0, r18, r19)
- 	;;
- #ifdef CONFIG_SMP
- 	/*
-@@ -278,7 +291,7 @@ ENTRY(itlb_miss)
- (p7)	ptc.l r16,r20
- #endif
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(itlb_miss)
-=20
- 	.org ia64_ivt+0x0800
-@@ -292,11 +305,11 @@ ENTRY(dtlb_miss)
- 	 * mode, walk the page table, and then re-execute the PTE read and
- 	 * go on normally after that.
- 	 */
--	mov r16=3Dcr.ifa				// get virtual address
-+	MOV_FROM_IFA(r16)			// get virtual address
- 	mov r29=B0				// save b0
- 	mov r31=3Dpr				// save predicates
- dtlb_fault:
--	mov r17=3Dcr.iha				// get virtual address of PTE
-+	MOV_FROM_IHA(r17)			// get virtual address of PTE
- 	movl r30=1F				// load nested fault continuation point
- 	;;
- 1:	ld8 r18=3D[r17]				// read *pte
-@@ -305,7 +318,7 @@ dtlb_fault:
- 	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
- (p6)	br.cond.spnt page_fault
- 	;;
--	itc.d r18
-+	ITC_D(p0, r18, r19)
- 	;;
- #ifdef CONFIG_SMP
- 	/*
-@@ -322,7 +335,7 @@ dtlb_fault:
- (p7)	ptc.l r16,r20
- #endif
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(dtlb_miss)
-=20
- 	.org ia64_ivt+0x0c00
-@@ -330,9 +343,9 @@ END(dtlb_miss)
- // 0x0c00 Entry 3 (size 64 bundles) Alt ITLB (19)
- ENTRY(alt_itlb_miss)
- 	DBG_FAULT(3)
--	mov r16=3Dcr.ifa		// get address that caused the TLB miss
-+	MOV_FROM_IFA(r16)	// get address that caused the TLB miss
- 	movl r17=3DPAGE_KERNEL
--	mov r21=3Dcr.ipsr
-+	MOV_FROM_IPSR(r21)
- 	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
- 	mov r31=3Dpr
- 	;;
-@@ -341,9 +354,9 @@ ENTRY(alt_itlb_miss)
- 	;;
- 	cmp.gt p8,p0=3D6,r22			// user mode
- 	;;
--(p8)	thash r17=3Dr16
-+	THASH(p8, r17, r16, r23)
- 	;;
--(p8)	mov cr.iha=3Dr17
-+	MOV_TO_IHA(p8, r17, r23)
- (p8)	mov r29=B0				// save b0
- (p8)	br.cond.dptk .itlb_fault
- #endif
-@@ -358,9 +371,9 @@ ENTRY(alt_itlb_miss)
- 	or r19=3Dr19,r18		// set bit 4 (uncached) if the access was to region 6
- (p8)	br.cond.spnt page_fault
- 	;;
--	itc.i r19		// insert the TLB entry
-+	ITC_I(p0, r19, r18)	// insert the TLB entry
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(alt_itlb_miss)
-=20
- 	.org ia64_ivt+0x1000
-@@ -368,11 +381,11 @@ END(alt_itlb_miss)
- // 0x1000 Entry 4 (size 64 bundles) Alt DTLB (7,46)
- ENTRY(alt_dtlb_miss)
- 	DBG_FAULT(4)
--	mov r16=3Dcr.ifa		// get address that caused the TLB miss
-+	MOV_FROM_IFA(r16)	// get address that caused the TLB miss
- 	movl r17=3DPAGE_KERNEL
--	mov r20=3Dcr.isr
-+	MOV_FROM_ISR(r20)
- 	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
--	mov r21=3Dcr.ipsr
-+	MOV_FROM_IPSR(r21)
- 	mov r31=3Dpr
- 	mov r24=3DPERCPU_ADDR
- 	;;
-@@ -381,9 +394,9 @@ ENTRY(alt_dtlb_miss)
- 	;;
- 	cmp.gt p8,p0=3D6,r22			// access to region 0-5
- 	;;
--(p8)	thash r17=3Dr16
-+	THASH(p8, r17, r16, r25)
- 	;;
--(p8)	mov cr.iha=3Dr17
-+	MOV_TO_IHA(r17, r25)
- (p8)	mov r29=B0				// save b0
- (p8)	br.cond.dptk dtlb_fault
- #endif
-@@ -402,7 +415,7 @@ ENTRY(alt_dtlb_miss)
- 	tbit.nz p9,p0=3Dr20,IA64_ISR_NA_BIT	// is non-access bit on?
- 	;;
- (p10)	sub r19=3Dr19,r26
--(p10)	mov cr.itir=3Dr25
-+	MOV_TO_ITIR(p10, r25, r24)
- 	cmp.ne p8,p0=3Dr0,r23
- (p9)	cmp.eq.or.andcm p6,p7=3DIA64_ISR_CODE_LFETCH,r22	// check isr.code fi=
-eld
- (p12)	dep r17=3D-1,r17,4,1			// set ma=3DUC for region 6 addr
-@@ -413,9 +426,9 @@ ENTRY(alt_dtlb_miss)
- 	or r19=3Dr19,r17		// insert PTE control bits into r19
- (p6)	mov cr.ipsr=3Dr21
- 	;;
--(p7)	itc.d r19		// insert the TLB entry
-+	ITC_D(p7, r19, r18)	// insert the TLB entry
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(alt_dtlb_miss)
-=20
- 	.org ia64_ivt+0x1400
-@@ -444,10 +457,10 @@ ENTRY(nested_dtlb_miss)
- 	 *
- 	 * Clobbered:	b0, r18, r19, r21, r22, psr.dt (cleared)
- 	 */
--	rsm psr.dt				// switch to using physical data addressing
-+	RSM_PSR_DT_AND_SRLZ_I			// switch to using physical data addressing
- 	mov r19=3DIA64_KR(PT_BASE)		// get the page table base address
- 	shl r21=3Dr16,3				// shift bit 60 into sign bit
--	mov r18=3Dcr.itir
-+	MOV_FROM_ITIR(r18)
- 	;;
- 	shr.u r17=3Dr16,61			// get the region number into r17
- 	extr.u r18=3Dr18,2,6			// get the faulting page size
-@@ -510,21 +523,15 @@ END(ikey_miss)
- 	//-----------------------------------------------------------------------=
-------------
- 	// call do_page_fault (predicates are in r31, psr.dt may be off, r16 is f=
-aulting address)
- ENTRY(page_fault)
--	ssm psr.dt
--	;;
--	srlz.i
-+	SSM_PSR_DT_AND_SRLZ_I
- 	;;
- 	SAVE_MIN_WITH_COVER
- 	alloc r15=3Dar.pfs,0,0,3,0
--	mov out0=3Dcr.ifa
--	mov out1=3Dcr.isr
-+	MOV_FROM_IFA(out0)
-+	MOV_FROM_ISR(out1)
-+	SSM_PSR_IC_AND_DEFAULT_BITS(r14, r3)
- 	adds r3=3D8,r2				// set up second base pointer
--	;;
--	ssm psr.ic | PSR_DEFAULT_BITS
--	;;
--	srlz.i					// guarantee that interruption collectin is on
--	;;
--(p15)	ssm psr.i				// restore psr.i
-+	SSM_PSR_I(p15, r14)			// restore psr.i
- 	movl r14=3Dia64_leave_kernel
- 	;;
- 	SAVE_REST
-@@ -556,10 +563,10 @@ ENTRY(dirty_bit)
- 	 * page table TLB entry isn't present, we take a nested TLB miss hit wher=
-e we look
- 	 * up the physical address of the L3 PTE and then continue at label 1 bel=
-ow.
- 	 */
--	mov r16=3Dcr.ifa				// get the address that caused the fault
-+	MOV_FROM_IFA(r16)			// get the address that caused the fault
- 	movl r30=1F				// load continuation point in case of nested fault
- 	;;
--	thash r17=3Dr16				// compute virtual address of L3 PTE
-+	THASH(p0, r17, r16, r18)		// compute virtual address of L3 PTE
- 	mov r29=B0				// save b0 in case of nested fault
- 	mov r31=3Dpr				// save pr
- #ifdef CONFIG_SMP
-@@ -576,7 +583,7 @@ ENTRY(dirty_bit)
- 	;;
- (p6)	cmp.eq p6,p7=3Dr26,r18			// Only compare if page is present
- 	;;
--(p6)	itc.d r25				// install updated PTE
-+	ITC_D(p6, r25, r18)			// install updated PTE
- 	;;
- 	/*
- 	 * Tell the assemblers dependency-violation checker that the above "itc" =
-instructions
-@@ -602,7 +609,7 @@ ENTRY(dirty_bit)
- 	itc.d r18				// install updated PTE
- #endif
- 	mov pr=3Dr31,-1				// restore pr
--	rfi
-+	RFI
- END(dirty_bit)
-=20
- 	.org ia64_ivt+0x2400
-@@ -611,7 +618,7 @@ END(dirty_bit)
- ENTRY(iaccess_bit)
- 	DBG_FAULT(9)
- 	// Like Entry 8, except for instruction access
--	mov r16=3Dcr.ifa				// get the address that caused the fault
-+	MOV_FROM_IFA(r16)			// get the address that caused the fault
- 	movl r30=1F				// load continuation point in case of nested fault
- 	mov r31=3Dpr				// save predicates
- #ifdef CONFIG_ITANIUM
-@@ -626,7 +633,7 @@ ENTRY(iaccess_bit)
- (p6)	mov r16=3Dr18				// if so, use cr.iip instead of cr.ifa
- #endif /* CONFIG_ITANIUM */
- 	;;
--	thash r17=3Dr16				// compute virtual address of L3 PTE
-+	THASH(p0, r17, r16, r18)		// compute virtual address of L3 PTE
- 	mov r29=B0				// save b0 in case of nested fault)
- #ifdef CONFIG_SMP
- 	mov r28=3Dar.ccv				// save ar.ccv
-@@ -642,7 +649,7 @@ ENTRY(iaccess_bit)
- 	;;
- (p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page present
- 	;;
--(p6)	itc.i r25				// install updated PTE
-+	ITC_I(p6, r25, r26)			// install updated PTE
- 	;;
- 	/*
- 	 * Tell the assemblers dependency-violation checker that the above "itc" =
-instructions
-@@ -668,7 +675,7 @@ ENTRY(iaccess_bit)
- 	itc.i r18				// install updated PTE
- #endif /* !CONFIG_SMP */
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(iaccess_bit)
-=20
- 	.org ia64_ivt+0x2800
-@@ -677,10 +684,10 @@ END(iaccess_bit)
- ENTRY(daccess_bit)
- 	DBG_FAULT(10)
- 	// Like Entry 8, except for data access
--	mov r16=3Dcr.ifa				// get the address that caused the fault
-+	MOV_FROM_IFA(r16)			// get the address that caused the fault
- 	movl r30=1F				// load continuation point in case of nested fault
- 	;;
--	thash r17=3Dr16				// compute virtual address of L3 PTE
-+	THASH(p0, r17, r16, r18)		// compute virtual address of L3 PTE
- 	mov r31=3Dpr
- 	mov r29=B0				// save b0 in case of nested fault)
- #ifdef CONFIG_SMP
-@@ -697,7 +704,7 @@ ENTRY(daccess_bit)
- 	;;
- (p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page is present
- 	;;
--(p6)	itc.d r25				// install updated PTE
-+	ITC_D(p6, r25, r26)			// install updated PTE
- 	/*
- 	 * Tell the assemblers dependency-violation checker that the above "itc" =
-instructions
- 	 * cannot possibly affect the following loads:
-@@ -721,7 +728,7 @@ ENTRY(daccess_bit)
- #endif
- 	mov b0=3Dr29				// restore b0
- 	mov pr=3Dr31,-1
--	rfi
-+	RFI
- END(daccess_bit)
-=20
- 	.org ia64_ivt+0x2c00
-@@ -745,10 +752,10 @@ ENTRY(break_fault)
- 	 */
- 	DBG_FAULT(11)
- 	mov.m r16=3DIA64_KR(CURRENT)		// M2 r16 <- current task (12 cyc)
--	mov r29=3Dcr.ipsr				// M2 (12 cyc)
-+	MOV_FROM_IPSR(r29)			// M2 (12 cyc)
- 	mov r31=3Dpr				// I0 (2 cyc)
-=20
--	mov r17=3Dcr.iim				// M2 (2 cyc)
-+	MOV_FROM_IIM(r17)			// M2 (2 cyc)
- 	mov.m r27=3Dar.rsc			// M2 (12 cyc)
- 	mov r18=3D__IA64_BREAK_SYSCALL		// A
-=20
-@@ -767,7 +774,7 @@ ENTRY(break_fault)
- 	nop.m 0
- 	movl r30=3Dsys_call_table			// X
-=20
--	mov r28=3Dcr.iip				// M2 (2 cyc)
-+	MOV_FROM_IIP(r28)			// M2 (2 cyc)
- 	cmp.eq p0,p7=3Dr18,r17			// I0 is this a system call?
- (p7)	br.cond.spnt non_syscall		// B  no ->
- 	//
-@@ -831,10 +838,10 @@ ENTRY(break_fault)
- 1:
- 	mov ar.rsc=3D0x3				// M2   set eager mode, pl 0, LE, loadrs=3D0
- 	nop 0
--	bsw.1					// B (6 cyc) regs are saved, switch to bank 1
-+	BSW_1(r2, r14)				// B (6 cyc) regs are saved, switch to bank 1
- 	;;
-=20
--	ssm psr.ic | PSR_DEFAULT_BITS		// M2	now it's safe to re-enable intr.-col=
-lection
-+	SSM_PSR_IC_AND_DEFAULT_BITS(r3, r16)	// M2	now it's safe to re-enable int=
-r.-collection
- 	movl r3=3Dia64_ret_from_syscall		// X
- 	;;
-=20
-@@ -842,7 +849,7 @@ ENTRY(break_fault)
- 	mov rp=3Dr3				// I0   set the real return addr
- (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-f=
-rame or r15 is a NaT
-=20
--(p15)	ssm psr.i				// M2   restore psr.i
-+	SSM_PSR_I(p15, r16)			// M2   restore psr.i
- (p14)	br.call.sptk.many b6=B6			// B    invoke syscall-handker (ignore ret=
-urn addr)
- 	br.cond.spnt.many ia64_trace_syscall	// B	do syscall-tracing thingamagic
- 	// NOT REACHED
-@@ -866,7 +873,7 @@ ENTRY(interrupt)
- 	mov r31=3Dpr		// prepare to save predicates
- 	;;
- 	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
--	ssm psr.ic | PSR_DEFAULT_BITS
-+	SSM_PSR_IC_AND_DEFAULT_BITS(r3, r14)
- 	;;
- 	adds r3=3D8,r2		// set up second base pointer for SAVE_REST
- 	srlz.i			// ensure everybody knows psr.ic is back on
-@@ -875,7 +882,7 @@ ENTRY(interrupt)
- 	;;
- 	MCA_RECOVER_RANGE(interrupt)
- 	alloc r14=3Dar.pfs,0,0,2,0 // must be first in an insn group
--	mov out0=3Dcr.ivr		// pass cr.ivr as first arg
-+	MOV_FROM_IVR(out0)	// pass cr.ivr as first arg
- 	add out1=16,sp		// pass pointer to pt_regs as second arg
- 	;;
- 	srlz.d			// make sure we see the effect of cr.ivr
-@@ -944,6 +951,7 @@ END(interrupt)
- 	 *	- ar.fpsr: set to kernel settings
- 	 *	-  b6: preserved (same as on entry)
- 	 */
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_NATIVE
- GLOBAL_ENTRY(ia64_syscall_setup)
- #if PT(B6) !=3D 0
- # error This code assumes that b6 is the first field in pt_regs.
-@@ -1035,6 +1043,7 @@ GLOBAL_ENTRY(ia64_syscall_setup)
- (p10)	mov r8=3D-EINVAL
- 	br.ret.sptk.many b7
- END(ia64_syscall_setup)
-+#endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
-=20
- 	.org ia64_ivt+0x3c00
- //////////////////////////////////////////////////////////////////////////=
-///////////////
-@@ -1181,10 +1190,10 @@ ENTRY(dispatch_to_fault_handler)
- 	SAVE_MIN_WITH_COVER_R19
- 	alloc r14=3Dar.pfs,0,0,5,0
- 	mov out0=3Dr15
--	mov out1=3Dcr.isr
--	mov out2=3Dcr.ifa
--	mov out3=3Dcr.iim
--	mov out4=3Dcr.itir
-+	MOV_FROM_ISR(out1)
-+	MOV_FROM_IFA(out2)
-+	MOV_FROM_IIM(out3)
-+	MOV_FROM_ITIR(out4)
- 	;;
- 	ssm psr.ic | PSR_DEFAULT_BITS
- 	;;
-@@ -1255,8 +1264,8 @@ END(iaccess_rights)
- // 0x5300 Entry 23 (size 16 bundles) Data Access Rights (14,53)
- ENTRY(daccess_rights)
- 	DBG_FAULT(23)
--	mov r16=3Dcr.ifa
--	rsm psr.dt
-+	MOV_FROM_IFA(r16)
-+	RSM_PSR_DT
- 	mov r31=3Dpr
- 	;;
- 	srlz.d
-@@ -1352,7 +1361,7 @@ ENTRY(speculation_vector)
- 	mov cr.ipsr=3Dr16
- 	;;
-=20
--	rfi				// and go back
-+	RFI
- END(speculation_vector)
-=20
- 	.org ia64_ivt+0x5800
-@@ -1506,7 +1515,7 @@ ENTRY(ia32_intercept)
- (p6)	br.cond.spnt 1f		// eflags.ac bit didn't change
- 	;;
- 	mov pr=3Dr31,-1		// restore predicate registers
--	rfi
-+	RFI
-=20
- 1:
- #endif	// CONFIG_IA32_SUPPORT
---=20
-1.5.3
+ 	struct mm_struct *active_mm = current->active_mm;
+ 
++	toolatetochangeptcgsem = 1;
++
+ 	if (mm != active_mm) {
+ 		/* Restore region IDs for mm */
+ 		if (mm && active_mm) {
+@@ -102,19 +170,20 @@ ia64_global_tlb_purge (struct mm_struct *mm, unsigned long start,
+ 		}
+ 	}
+ 
+-	/* HW requires global serialization of ptc.ga.  */
+-	spin_lock(&ptcg_lock);
+-	{
+-		do {
+-			/*
+-			 * Flush ALAT entries also.
+-			 */
+-			ia64_ptcga(start, (nbits<<2));
+-			ia64_srlz_i();
+-			start += (1UL << nbits);
+-		} while (start < end);
+-	}
+-	spin_unlock(&ptcg_lock);
++	if (need_ptcg_sem)
++		down(&ptcg_sem);
++
++	do {
++		/*
++		 * Flush ALAT entries also.
++		 */
++		ia64_ptcga(start, (nbits << 2));
++		ia64_srlz_i();
++		start += (1UL << nbits);
++	} while (start < end);
++
++	if (need_ptcg_sem)
++		up(&ptcg_sem);
+ 
+         if (mm != active_mm) {
+                 activate_context(active_mm);
+diff --git a/include/asm-ia64/sal.h b/include/asm-ia64/sal.h
+index 2251118..7bf168a 100644
+--- a/include/asm-ia64/sal.h
++++ b/include/asm-ia64/sal.h
+@@ -296,6 +296,9 @@ enum {
+     EFI_GUID(0xe429faf8, 0x3cb7, 0x11d4, 0xbc, 0xa7, 0x0, 0x80, 0xc7, 0x3c, 0x88, 0x81)
+ #define SAL_PLAT_BUS_ERR_SECT_GUID  \
+     EFI_GUID(0xe429faf9, 0x3cb7, 0x11d4, 0xbc, 0xa7, 0x0, 0x80, 0xc7, 0x3c, 0x88, 0x81)
++#define PROCESSOR_ABSTRACTION_LAYER_OVERWRITE_GUID \
++    EFI_GUID(0x6cb0a200, 0x893a, 0x11da, 0x96, 0xd2, 0x0, 0x10, 0x83, 0xff, \
++		0xca, 0x4d)
+ 
+ #define MAX_CACHE_ERRORS	6
+ #define MAX_TLB_ERRORS		6
+@@ -875,6 +878,20 @@ extern void ia64_jump_to_sal(struct sal_to_os_boot *);
+ 
+ extern void ia64_sal_handler_init(void *entry_point, void *gpval);
+ 
++#define PALO_MAX_TLB_PURGES	0xFFFF
++#define PALO_SIG	"PALO"
++
++struct palo_table {
++	u8  signature[4];	/* Should be "PALO" */
++	u32 length;
++	u8  minor_revision;
++	u8  major_revision;
++	u8  checksum;
++	u8  reserved1[5];
++	u16 max_tlb_purges;
++	u8  reserved2[6];
++};
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_IA64_SAL_H */
+diff --git a/include/asm-ia64/tlbflush.h b/include/asm-ia64/tlbflush.h
+index 7774a1c..3be25df 100644
+--- a/include/asm-ia64/tlbflush.h
++++ b/include/asm-ia64/tlbflush.h
+@@ -17,6 +17,7 @@
+  * Now for some TLB flushing routines.  This is the kind of stuff that
+  * can be very expensive, so try to avoid them whenever possible.
+  */
++extern void setup_ptcg_sem(int max_purges, int from_palo);
+ 
+ /*
+  * Flush everything (kernel mapping may also have changed due to
 
