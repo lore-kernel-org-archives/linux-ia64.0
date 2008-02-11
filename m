@@ -1,359 +1,105 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 25 Feb 2008 03:16:44 +0000
-Subject: [PATCH 2/4] ia64/xen: paravirtualize minstate.h, DO_SAVE_MIN.
-Message-Id: <12039094063108-git-send-email-yamahata@valinux.co.jp>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Mon, 11 Feb 2008 21:42:34 +0000
+Subject: [PATCH 3/6] remove find_thread_for_addr()
+Message-Id: <1202766154.9594.26.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+find_thread_for_addr() is no longer needed.  It was only used to find
+the correct kernel RBS for a given memory address, but since the kernel
+RBS is not needed any longer, this function can go away.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/xenminstate.h |  320 +++++++++++++++++++++++++++++++++++++++=
-++++
- 1 files changed, 320 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/xenminstate.h
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Christoph Hellwig <hch@infradead.org>
 
-diff --git a/arch/ia64/xen/xenminstate.h b/arch/ia64/xen/xenminstate.h
-new file mode 100644
-index 0000000..eb199db
---- /dev/null
-+++ b/arch/ia64/xen/xenminstate.h
-@@ -0,0 +1,320 @@
-+#include <asm/cache.h>
-+
-+#ifdef CONFIG_XEN
-+#include "../kernel/entry.h"
-+#else
-+#include "entry.h"
-+#endif
-+
-+/*
-+ * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
-+ * the minimum state necessary that allows us to turn psr.ic back
-+ * on.
-+ *
-+ * Assumed state upon entry:
-+ *	psr.ic: off
-+ *	r31:	contains saved predicates (pr)
-+ *
-+ * Upon exit, the state is as follows:
-+ *	psr.ic: off
-+ *	 r2 =3D points to &pt_regs.r16
-+ *	 r8 =3D contents of ar.ccv
-+ *	 r9 =3D contents of ar.csd
-+ *	r10 =3D contents of ar.ssd
-+ *	r11 =3D FPSR_DEFAULT
-+ *	r12 =3D kernel sp (kernel virtual address)
-+ *	r13 =3D points to current task_struct (kernel virtual address)
-+ *	p15 =3D TRUE if psr.i is set in cr.ipsr
-+ *	predicate registers (other than p2, p3, and p15), b6, r3, r14, r15:
-+ *		preserved
-+ * CONFIG_XEN note: p6/p7 are not preserved
-+ *
-+ * Note that psr.ic is NOT turned on by this macro.  This is so that
-+ * we can pass interruption state as arguments to a handler.
-+ */
-+#ifdef CONFIG_XEN
-+#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
-+	mov r16=3DIA64_KR(CURRENT);	/* M */							\
-+	mov r27=3Dar.rsc;			/* M */							\
-+	mov r20=3Dr1;			/* A */							\
-+	mov r25=3Dar.unat;		/* M */							\
-+	/* mov r29=3Dcr.ipsr;		/* M */							\
-+	movl r29=3DXSI_IPSR;;									\
-+	ld8 r29=3D[r29];;										\
-+	mov r26=3Dar.pfs;			/* I */							\
-+	/* mov r28=3Dcr.iip;		/* M */							\
-+	movl r28=3DXSI_IIP;;									\
-+	ld8 r28=3D[r28];;										\
-+	mov r21=3Dar.fpsr;		/* M */							\
-+	COVER;				/* B;; (or nothing) */					\
-+	;;											\
-+	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
-+	;;											\
-+	ld1 r17=3D[r16];				/* load current->thread.on_ustack flag */	\
-+	st1 [r16]=3Dr0;				/* clear current->thread.on_ustack flag */	\
-+	adds r1=3D-IA64_TASK_THREAD_ON_USTACK_OFFSET,r16						\
-+	/* switch from user to kernel RBS: */							\
-+	;;											\
-+	invala;				/* M */							\
-+	/* SAVE_IFS; /* see xen special handling below */						\
-+	cmp.eq pKStk,pUStk=3Dr0,r17;		/* are we in kernel mode already? */		\
-+	;;											\
-+(pUStk)	mov ar.rsc=3D0;		/* set enforced lazy mode, pl 0, little-endian, l=
-oadrs=3D0 */	\
-+	;;											\
-+(pUStk)	mov.m r24=3Dar.rnat;									\
-+(pUStk)	addl r22=3DIA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
-+(pKStk) mov r1=3Dsp;					/* get sp  */				\
-+	;;											\
-+(pUStk) lfetch.fault.excl.nt1 [r22];								\
-+(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of=
- memory stack */	\
-+(pUStk)	mov r23=3Dar.bspstore;				/* save ar.bspstore */			\
-+	;;											\
-+(pUStk)	mov ar.bspstore=3Dr22;				/* switch to kernel RBS */		\
-+(pKStk) addl r1=3D-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r=
-12) */	\
-+	;;											\
-+(pUStk)	mov r18=3Dar.bsp;										\
-+(pUStk)	mov ar.rsc=3D0x3;		/* set eager mode, pl 0, little-endian, loadrs=
-=3D0 */		\
-+	adds r17=3D2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
-+	adds r16=3DPT(CR_IPSR),r1;								\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17],L1_CACHE_BYTES;						\
-+	st8 [r16]=3Dr29;		/* save cr.ipsr */						\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17];								\
-+	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT;							\
-+	mov r29=B0										\
-+	;;											\
-+	adds r16=3DPT(R8),r1;	/* initialize first base pointer */				\
-+	adds r17=3DPT(R9),r1;	/* initialize second base pointer */				\
-+(pKStk)	mov r18=3Dr0;		/* make sure r18 isn't NaT */					\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr8,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr9,16;								\
-+        ;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr10,24;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr11,24;							\
-+        ;;											\
-+	/* xen special handling for possibly lazy cover */					\
-+	movl r8=3DXSI_PRECOVER_IFS;								\
-+	;;											\
-+	ld8 r30=3D[r8];										\
-+	;;											\
-+	st8 [r16]=3Dr28,16;	/* save cr.iip */						\
-+	st8 [r17]=3Dr30,16;	/* save cr.ifs */						\
-+(pUStk)	sub r18=3Dr18,r22;	/* r18=3DRSE.ndirty*8 */						\
-+	mov r8=3Dar.ccv;										\
-+	mov r9=3Dar.csd;										\
-+	mov r10=3Dar.ssd;										\
-+	movl r11=3DFPSR_DEFAULT;   /* L-unit */							\
-+	;;											\
-+	st8 [r16]=3Dr25,16;	/* save ar.unat */						\
-+	st8 [r17]=3Dr26,16;	/* save ar.pfs */						\
-+	shl r18=3Dr18,16;		/* compute ar.rsc to be used for "loadrs" */			\
-+	;;											\
-+	st8 [r16]=3Dr27,16;	/* save ar.rsc */						\
-+(pUStk)	st8 [r17]=3Dr24,16;	/* save ar.rnat */						\
-+(pKStk)	adds r17=16,r17;	/* skip over ar_rnat field */					\
-+	;;			/* avoid RAW on r16 & r17 */					\
-+(pUStk)	st8 [r16]=3Dr23,16;	/* save ar.bspstore */						\
-+	st8 [r17]=3Dr31,16;	/* save predicates */						\
-+(pKStk)	adds r16=16,r16;	/* skip over ar_bspstore field */				\
-+	;;											\
-+	st8 [r16]=3Dr29,16;	/* save b0 */							\
-+	st8 [r17]=3Dr18,16;	/* save ar.rsc value for "loadrs" */				\
-+	cmp.eq pNonSys,pSys=3Dr0,r0	/* initialize pSys=3D0, pNonSys=3D1 */			\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr20,16;	/* save original r1 */				\
-+.mem.offset 8,0; st8.spill [r17]=3Dr12,16;							\
-+	adds r12=3D-16,r1;	/* switch to kernel memory stack (with 16 bytes of scr=
-atch) */	\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr13,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr21,16;	/* save ar.fpsr */				\
-+	mov r13=3DIA64_KR(CURRENT);	/* establish `current' */				\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr15,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr14,16;							\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
-+	;;											\
-+	EXTRA;											\
-+	mov r2=B0; br.call.sptk b0=3Dxen_bsw1;; mov b0=3Dr2;					\
-+	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
-+	;;											\
-+	movl r1=3D__gp;		/* establish kernel global pointer */				\
-+	;;											\
-+	/*bsw.1;*/		/* switch back to bank 1 (must be last in insn group) */	\
-+	;;
-+#else
-+#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
-+	mov r16=3DIA64_KR(CURRENT);	/* M */							\
-+	mov r27=3Dar.rsc;			/* M */							\
-+	mov r20=3Dr1;			/* A */							\
-+	mov r25=3Dar.unat;		/* M */							\
-+	mov r29=3Dcr.ipsr;		/* M */							\
-+	mov r26=3Dar.pfs;			/* I */							\
-+	mov r28=3Dcr.iip;			/* M */							\
-+	mov r21=3Dar.fpsr;		/* M */							\
-+	COVER;				/* B;; (or nothing) */					\
-+	;;											\
-+	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
-+	;;											\
-+	ld1 r17=3D[r16];				/* load current->thread.on_ustack flag */	\
-+	st1 [r16]=3Dr0;				/* clear current->thread.on_ustack flag */	\
-+	adds r1=3D-IA64_TASK_THREAD_ON_USTACK_OFFSET,r16						\
-+	/* switch from user to kernel RBS: */							\
-+	;;											\
-+	invala;				/* M */							\
-+	SAVE_IFS;										\
-+	cmp.eq pKStk,pUStk=3Dr0,r17;		/* are we in kernel mode already? */		\
-+	;;											\
-+(pUStk)	mov ar.rsc=3D0;		/* set enforced lazy mode, pl 0, little-endian, l=
-oadrs=3D0 */	\
-+	;;											\
-+(pUStk)	mov.m r24=3Dar.rnat;									\
-+(pUStk)	addl r22=3DIA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
-+(pKStk) mov r1=3Dsp;					/* get sp  */				\
-+	;;											\
-+(pUStk) lfetch.fault.excl.nt1 [r22];								\
-+(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of=
- memory stack */	\
-+(pUStk)	mov r23=3Dar.bspstore;				/* save ar.bspstore */			\
-+	;;											\
-+(pUStk)	mov ar.bspstore=3Dr22;				/* switch to kernel RBS */		\
-+(pKStk) addl r1=3D-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r=
-12) */	\
-+	;;											\
-+(pUStk)	mov r18=3Dar.bsp;										\
-+(pUStk)	mov ar.rsc=3D0x3;		/* set eager mode, pl 0, little-endian, loadrs=
-=3D0 */		\
-+	adds r17=3D2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
-+	adds r16=3DPT(CR_IPSR),r1;								\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17],L1_CACHE_BYTES;						\
-+	st8 [r16]=3Dr29;		/* save cr.ipsr */						\
-+	;;											\
-+	lfetch.fault.excl.nt1 [r17];								\
-+	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT;							\
-+	mov r29=B0										\
-+	;;											\
-+	adds r16=3DPT(R8),r1;	/* initialize first base pointer */				\
-+	adds r17=3DPT(R9),r1;	/* initialize second base pointer */				\
-+(pKStk)	mov r18=3Dr0;		/* make sure r18 isn't NaT */					\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr8,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr9,16;								\
-+        ;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr10,24;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr11,24;							\
-+        ;;											\
-+	st8 [r16]=3Dr28,16;	/* save cr.iip */						\
-+	st8 [r17]=3Dr30,16;	/* save cr.ifs */						\
-+(pUStk)	sub r18=3Dr18,r22;	/* r18=3DRSE.ndirty*8 */						\
-+	mov r8=3Dar.ccv;										\
-+	mov r9=3Dar.csd;										\
-+	mov r10=3Dar.ssd;										\
-+	movl r11=3DFPSR_DEFAULT;   /* L-unit */							\
-+	;;											\
-+	st8 [r16]=3Dr25,16;	/* save ar.unat */						\
-+	st8 [r17]=3Dr26,16;	/* save ar.pfs */						\
-+	shl r18=3Dr18,16;		/* compute ar.rsc to be used for "loadrs" */			\
-+	;;											\
-+	st8 [r16]=3Dr27,16;	/* save ar.rsc */						\
-+(pUStk)	st8 [r17]=3Dr24,16;	/* save ar.rnat */						\
-+(pKStk)	adds r17=16,r17;	/* skip over ar_rnat field */					\
-+	;;			/* avoid RAW on r16 & r17 */					\
-+(pUStk)	st8 [r16]=3Dr23,16;	/* save ar.bspstore */						\
-+	st8 [r17]=3Dr31,16;	/* save predicates */						\
-+(pKStk)	adds r16=16,r16;	/* skip over ar_bspstore field */				\
-+	;;											\
-+	st8 [r16]=3Dr29,16;	/* save b0 */							\
-+	st8 [r17]=3Dr18,16;	/* save ar.rsc value for "loadrs" */				\
-+	cmp.eq pNonSys,pSys=3Dr0,r0	/* initialize pSys=3D0, pNonSys=3D1 */			\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr20,16;	/* save original r1 */				\
-+.mem.offset 8,0; st8.spill [r17]=3Dr12,16;							\
-+	adds r12=3D-16,r1;	/* switch to kernel memory stack (with 16 bytes of scr=
-atch) */	\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr13,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr21,16;	/* save ar.fpsr */				\
-+	mov r13=3DIA64_KR(CURRENT);	/* establish `current' */				\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr15,16;							\
-+.mem.offset 8,0; st8.spill [r17]=3Dr14,16;							\
-+	;;											\
-+.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
-+.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
-+	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
-+	;;											\
-+	EXTRA;											\
-+	movl r1=3D__gp;		/* establish kernel global pointer */				\
-+	;;											\
-+	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
-+	;;
-+#endif
-+
-+/*
-+ * SAVE_REST saves the remainder of pt_regs (with psr.ic on).
-+ *
-+ * Assumed state upon entry:
-+ *	psr.ic: on
-+ *	r2:	points to &pt_regs.r16
-+ *	r3:	points to &pt_regs.r17
-+ *	r8:	contents of ar.ccv
-+ *	r9:	contents of ar.csd
-+ *	r10:	contents of ar.ssd
-+ *	r11:	FPSR_DEFAULT
-+ *
-+ * Registers r14 and r15 are guaranteed not to be touched by SAVE_REST.
-+ */
-+#define SAVE_REST				\
-+.mem.offset 0,0; st8.spill [r2]=3Dr16,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr17,16;		\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr18,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr19,16;		\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr20,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr21,16;		\
-+	mov r18=B6;				\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr22,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr23,16;		\
-+	mov r19=B7;				\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr24,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr25,16;		\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr26,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr27,16;		\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr28,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr29,16;		\
-+	;;					\
-+.mem.offset 0,0; st8.spill [r2]=3Dr30,16;		\
-+.mem.offset 8,0; st8.spill [r3]=3Dr31,32;		\
-+	;;					\
-+	mov ar.fpsr=3Dr11;	/* M-unit */	\
-+	st8 [r2]=3Dr8,8;		/* ar.ccv */	\
-+	adds r24=3DPT(B6)-PT(F7),r3;		\
-+	;;					\
-+	stf.spill [r2]=F6,32;			\
-+	stf.spill [r3]=F7,32;			\
-+	;;					\
-+	stf.spill [r2]=F8,32;			\
-+	stf.spill [r3]=F9,32;			\
-+	;;					\
-+	stf.spill [r2]=F10;			\
-+	stf.spill [r3]=F11;			\
-+	adds r25=3DPT(B7)-PT(F11),r3;		\
-+	;;					\
-+	st8 [r24]=3Dr18,16;       /* b6 */	\
-+	st8 [r25]=3Dr19,16;       /* b7 */	\
-+	;;					\
-+	st8 [r24]=3Dr9;        	/* ar.csd */	\
-+	st8 [r25]=3Dr10;      	/* ar.ssd */	\
-+	;;
-+
-+#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(cover, mov r30=3Dcr.ifs,)
-+#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(cover, mov r30=3Dcr.ifs, mov r=
-15=3Dr19)
-+#ifdef CONFIG_XEN
-+#define SAVE_MIN		break 0;; /* FIXME: non-cover version only for ia32 supp=
-ort? */
-+#else
-+#define SAVE_MIN		DO_SAVE_MIN(     , mov r30=3Dr0, )
-+#endif
---=20
-1.5.3
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 54b7ea5..e82fe29 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -698,52 +698,6 @@ thread_matches (struct task_struct *thre
+ }
+ 
+ /*
+- * GDB apparently wants to be able to read the register-backing store
+- * of any thread when attached to a given process.  If we are peeking
+- * or poking an address that happens to reside in the kernel-backing
+- * store of another thread, we need to attach to that thread, because
+- * otherwise we end up accessing stale data.
+- *
+- * task_list_lock must be read-locked before calling this routine!
+- */
+-static struct task_struct *
+-find_thread_for_addr (struct task_struct *child, unsigned long addr)
+-{
+-	struct task_struct *p;
+-	struct mm_struct *mm;
+-	struct list_head *this, *next;
+-	int mm_users;
+-
+-	if (!(mm = get_task_mm(child)))
+-		return child;
+-
+-	/* -1 because of our get_task_mm(): */
+-	mm_users = atomic_read(&mm->mm_users) - 1;
+-	if (mm_users <= 1)
+-		goto out;		/* not multi-threaded */
+-
+-	/*
+-	 * Traverse the current process' children list.  Every task that
+-	 * one attaches to becomes a child.  And it is only attached children
+-	 * of the debugger that are of interest (ptrace_check_attach checks
+-	 * for this).
+-	 */
+- 	list_for_each_safe(this, next, &current->children) {
+-		p = list_entry(this, struct task_struct, sibling);
+-		if (p->tgid != child->tgid)
+-			continue;
+-		if (thread_matches(p, addr)) {
+-			child = p;
+-			goto out;
+-		}
+-	}
+-
+-  out:
+-	mmput(mm);
+-	return child;
+-}
+-
+-/*
+  * Write f32-f127 back to task->thread.fph if it has been modified.
+  */
+ inline void
+@@ -1520,7 +1474,6 @@ asmlinkage long
+ sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
+ {
+ 	struct pt_regs *pt;
+-	unsigned long peek_or_poke;
+ 	struct task_struct *child;
+ 	struct switch_stack *sw;
+ 	long ret;
+@@ -1532,19 +1485,12 @@ sys_ptrace (long request, pid_t pid, uns
+ 		goto out;
+ 	}
+ 
+-	peek_or_poke = (request = PTRACE_PEEKTEXT
+-			|| request = PTRACE_PEEKDATA
+-			|| request = PTRACE_POKETEXT
+-			|| request = PTRACE_POKEDATA);
+ 	ret = -ESRCH;
+ 	read_lock(&tasklist_lock);
+ 	{
+ 		child = find_task_by_pid(pid);
+-		if (child) {
+-			if (peek_or_poke)
+-				child = find_thread_for_addr(child, addr);
++		if (child)
+ 			get_task_struct(child);
+-		}
+ 	}
+ 	read_unlock(&tasklist_lock);
+ 	if (!child)
 
