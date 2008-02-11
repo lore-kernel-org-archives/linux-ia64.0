@@ -1,58 +1,64 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Date: Mon, 18 Feb 2008 00:05:21 +0000
-Subject: [PATCH] ia64: remove unnecessary nfs includes from
-Message-Id: <20080218000521.GA19975@fieldses.org>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Mon, 11 Feb 2008 21:42:00 +0000
+Subject: [PATCH 2/6] do not sync RBS when changing PT_AR_BSP or PT_CFM
+Message-Id: <1202766120.9594.24.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: J. Bruce Fields <bfields@citi.umich.edu>
+Syncing is no longer needed, because user RBS is already
+up-to-date.  Actually, if a debugger modified the contents
+of the original RBS prior to changing PT_AR_BSP, the
+modifications would get overwritten.
 
-These nfs includes seem to be completely unused.
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Christoph Hellwig <hch@infradead.org>
 
-Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
----
- arch/ia64/ia32/sys_ia32.c |    7 +------
- 1 files changed, 1 insertions(+), 6 deletions(-)
-
-On Sun, Feb 17, 2008 at 08:13:14AM -0500, Christoph Hellwig wrote:
-> Why does it need to include either of these at all?  There's nothing
-> nfs-specific in that file.
-
-Yep.  I tried an ia64 cross-compile with the following applied, and
-didn't see any complaints....  Also, looks like:
-
-	arch/parisc/kernel/sys_parisc32.c
-	arch/s390/kernel/compat_linux.c
-	arch/s390/kernel/compat_linux.h
-	arch/sparc64/kernel/sys_sparc32.c
-	arch/x86/ia32/sys_ia32.c
-
-have similarly unnecessary nfs includes.
-
---b.
-
-diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
-index d025a22..b1bf51f 100644
---- a/arch/ia64/ia32/sys_ia32.c
-+++ b/arch/ia64/ia32/sys_ia32.c
-@@ -32,13 +32,8 @@
- #include <linux/shm.h>
- #include <linux/slab.h>
- #include <linux/uio.h>
--#include <linux/nfs_fs.h>
-+#include <linux/socket.h>
- #include <linux/quota.h>
--#include <linux/sunrpc/svc.h>
--#include <linux/nfsd/nfsd.h>
--#include <linux/nfsd/cache.h>
--#include <linux/nfsd/xdr.h>
--#include <linux/nfsd/syscall.h>
- #include <linux/poll.h>
- #include <linux/eventpoll.h>
- #include <linux/personality.h>
--- 
-1.5.4.rc2.60.gb2e62
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 9d25914..54b7ea5 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -1011,14 +1011,9 @@ #	define pt_reg_addr(pt, reg)	((void *)	
+ 			 * the kernel was entered.
+ 			 *
+ 			 * Furthermore, when changing the contents of
+-			 * PT_AR_BSP (or PT_CFM) we MUST copy any
+-			 * users-level stacked registers that are
+-			 * stored on the kernel stack back to
+-			 * user-space because otherwise, we might end
+-			 * up clobbering kernel stacked registers.
+-			 * Also, if this happens while the task is
+-			 * blocked in a system call, which convert the
+-			 * state such that the non-system-call exit
++			 * PT_AR_BSP (or PT_CFM) while the task is
++			 * blocked in a system call, convert the state
++			 * so that the non-system-call exit
+ 			 * path is used.  This ensures that the proper
+ 			 * state will be picked up when resuming
+ 			 * execution.  However, it *also* means that
+@@ -1035,10 +1030,6 @@ #	define pt_reg_addr(pt, reg)	((void *)	
+ 			urbs_end = ia64_get_user_rbs_end(child, pt, &cfm);
+ 			if (write_access) {
+ 				if (*data != urbs_end) {
+-					if (ia64_sync_user_rbs(child, sw,
+-							       pt->ar_bspstore,
+-							       urbs_end) < 0)
+-						return -1;
+ 					if (in_syscall(pt))
+ 						convert_to_non_syscall(child,
+ 								       pt,
+@@ -1058,10 +1049,6 @@ #	define pt_reg_addr(pt, reg)	((void *)	
+ 			urbs_end = ia64_get_user_rbs_end(child, pt, &cfm);
+ 			if (write_access) {
+ 				if (((cfm ^ *data) & PFM_MASK) != 0) {
+-					if (ia64_sync_user_rbs(child, sw,
+-							       pt->ar_bspstore,
+-							       urbs_end) < 0)
+-						return -1;
+ 					if (in_syscall(pt))
+ 						convert_to_non_syscall(child,
+ 								       pt,
 
