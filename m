@@ -1,8 +1,10 @@
 From: Robin Holt <holt@sgi.com>
-Date: Mon, 11 Feb 2008 17:59:18 +0000
+Date: Mon, 11 Feb 2008 18:09:02 +0000
 Subject: [PATCH] Reduce per_cpu allocations to the minimum needed for boot
-Message-Id: <20080211175918.GO3875@sgi.com>
+Message-Id: <20080211180902.GP3875@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080211175918.GO3875@sgi.com>
+In-Reply-To: <20080211175918.GO3875@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,7 +16,7 @@ It does this by not allocating per_cpu areas for cpus that can never
 exist.
 
 In the case where acpi does not have any numa node description of the
-cpus, I defaulted to assigning the first 256 round-robin on the known
+cpus, I defaulted to assigning the first 32 round-robin on the known
 nodes..  For the !CONFIG_ACPI  I used for_each_possible_cpu().
 
 
@@ -29,6 +31,12 @@ Additionally, I booted the sn2- and defconfig both on altix and the
 defconfig on a zx2000 with 2 cpus.  I would like it if somebody with
 access to a simulator could build and boot this.  That is a different
 code path which I have no means of checking.
+
+Version 5:
+
+I went too quickly.  Shortly after I sent the last email, I got a reply
+from HP saying 16 was their largest non-numa box.  I will therefore go
+back to the 32 Tony and I discussed last Friday.
 
 Version 4:
 
@@ -69,10 +77,13 @@ Limit by current FSB spec and adjust as new processors come along?
 Using a patched SuSE SLES10 kernel with both the mca patch that Jack/Russ
 submitted a couple days ago and the attached.
 
-On a 2 cpu, 6GB system, NR_CPUS@96: Before the patch: Memory:
-5687728k/6234784k available (5777k code, 579632k reserved, 10450k data,
-672k init) After both patches: Memory: 6211984k/6235040k available (5552k
-code, 55376k reserved, 10418k data, 656k init) 90% savings on reserved.
+On a 2 cpu, 6GB system, NR_CPUS@96:
+Before the patch:
+Memory: 5687728k/6234784k available (5777k code, 579632k reserved, 10450k data,
+672k init)
+After both patches:
+Memory: 6211984k/6235040k available (5552k code, 55376k reserved, 10418k data, 656k init)
+90% savings on reserved.
 
 On a 1 cpu, 1GB system, NR_CPUS@96 before 572,464K, after 37,456k for
 a 93% savings.
@@ -80,7 +91,7 @@ a 93% savings.
 
 Index: per_cpu_v4/arch/ia64/kernel/setup.c
 =================================--- per_cpu_v4.orig/arch/ia64/kernel/setup.c	2008-02-11 06:22:41.586019474 -0600
-+++ per_cpu_v4/arch/ia64/kernel/setup.c	2008-02-11 11:41:43.169790795 -0600
++++ per_cpu_v4/arch/ia64/kernel/setup.c	2008-02-11 12:05:29.030432470 -0600
 @@ -45,6 +45,7 @@
  #include <linux/cpufreq.h>
  #include <linux/kexec.h>
@@ -94,7 +105,7 @@ Index: per_cpu_v4/arch/ia64/kernel/setup.c
  	acpi_numa_init();
  # endif
 +	per_cpu_scan_finalize((cpus_weight(early_cpu_possible_map) = 0 ?
-+		256 : cpus_weight(early_cpu_possible_map)), additional_cpus);
++		32 : cpus_weight(early_cpu_possible_map)), additional_cpus);
  #else
  # ifdef CONFIG_SMP
  	smp_build_cpu_map();	/* happens, e.g., with the Ski simulator */
