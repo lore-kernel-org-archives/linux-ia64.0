@@ -1,83 +1,83 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 29 Feb 2008 11:26:01 +0000
-Subject: Re: [patch 2/6] mm: bdi: export BDI attributes in sysfs
-Message-Id: <20080229032601.4a9e31eb.akpm@linux-foundation.org>
+From: =?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
+Date: Thu, 14 Feb 2008 15:36:40 +0000
+Subject: [PATCH 02/14] arch/ia64/kernel/: Use time_* macros
+Message-Id: <1203003412-11594-3-git-send-email-caglar@pardus.org.tr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080129154900.145303789@szeredi.hu>
-	<20080129154948.823761079@szeredi.hu>
-In-Reply-To: <20080129154948.823761079@szeredi.hu>
+References: y
+In-Reply-To: y
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Miklos Szeredi <miklos@szeredi.hu>
-Cc: a.p.zijlstra@chello.nl, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, Kay Sievers <kay.sievers@vrfy.org>, Greg KH <greg@kroah.com>, Trond Myklebust <trond.myklebust@fys.uio.no>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, =?utf-8?q?S=2E=C3=87a=C4=9Flar=20Onur?= <caglar@pardus.org.tr>
 
-On Tue, 29 Jan 2008 16:49:02 +0100 Miklos Szeredi <miklos@szeredi.hu> wrote:
+The functions time_before, time_before_eq, time_after, and time_after_eq are more robust for comparing jiffies against other values.
 
-> From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> 
-> Provide a place in sysfs (/sys/class/bdi) for the backing_dev_info
-> object.  This allows us to see and set the various BDI specific
-> variables.
-> 
-> In particular this properly exposes the read-ahead window for all
-> relevant users and /sys/block/<block>/queue/read_ahead_kb should be
-> deprecated.
-> 
-> With patient help from Kay Sievers and Greg KH
-> 
-> [mszeredi@suse.cz]
-> 
->  - split off NFS and FUSE changes into separate patches
->  - document new sysfs attributes under Documentation/ABI
->  - do bdi_class_init as a core_initcall, otherwise the "default" BDI
->    won't be initialized
->  - remove bdi_init_fmt macro, it's not used very much
+So following patch implements usage of the time_after() & time_before() macros, defined at linux/jiffies.h, which deals with wrapping correctly
 
-please always provide diffstats.
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: S.Çağlar Onur <caglar@pardus.org.tr>
+---
+ arch/ia64/kernel/irq_ia64.c  |    2 +-
+ arch/ia64/kernel/mca.c       |    3 ++-
+ arch/ia64/kernel/unaligned.c |    3 ++-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
 
- Documentation/ABI/testing/sysfs-class-bdi |   50 +++++++++++++                
- block/genhd.c                             |    3 
- include/linux/backing-dev.h               |    8 ++
- include/linux/writeback.h                 |    3 
- lib/percpu_counter.c                      |    1 
- mm/backing-dev.c                          |  108 ++++++++++++++++++++++++++++++
- mm/page-writeback.c                       |    2 
- mm/readahead.c                            |    8 +-
- 8 files changed, 181 insertions(+), 2 deletions(-)
-
-would you believe this breaks ia64 allmodconfig, in the usual place:
-
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:342:1: warning: "SET_PERSONALITY" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:180:1: warning: this is the location of the previous definition
-
-
-We keep on hitting stupid build errors in this area: ia64 and elf.  It is
-obviously quite fragile.  It would be nice to fix it properly.
-
-
-For now, the easy fix:
-
---- a/include/linux/backing-dev.h~mm-bdi-export-bdi-attributes-in-sysfs-ia64-fix
-+++ a/include/linux/backing-dev.h
-@@ -12,10 +12,10 @@
- #include <linux/log2.h>
- #include <linux/proportions.h>
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 0b52f19..5017a2d 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -405,7 +405,7 @@ ia64_handle_irq (ia64_vector vector, struct pt_regs *regs)
+ 			static unsigned char count;
+ 			static long last_time;
+ 
+-			if (jiffies - last_time > 5*HZ)
++			if (time_after(jiffies, last_time + 5 * HZ))
+ 				count = 0;
+ 			if (++count < 5) {
+ 				last_time = jiffies;
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 6e17aed..9b03e32 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -69,6 +69,7 @@
+  * 2007-04-27 Russ Anderson <rja@sgi.com>
+  *	      Support multiple cpus going through OS_MCA in the same event.
+  */
++#include <linux/jiffies.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+ #include <linux/sched.h>
+@@ -293,7 +294,7 @@ static void ia64_mlogbuf_dump_from_init(void)
+ 	if (mlogbuf_finished)
+ 		return;
+ 
+-	if (mlogbuf_timestamp && (mlogbuf_timestamp + 30*HZ > jiffies)) {
++	if (mlogbuf_timestamp && time_before(jiffies, mlogbuf_timestamp + 30 * HZ)) {
+ 		printk(KERN_ERR "INIT: mlogbuf_dump is interrupted by INIT "
+ 			" and the system seems to be messed up.\n");
+ 		ia64_mlogbuf_finish(0);
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 52f70bb..0bd0f46 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -13,6 +13,7 @@
+  * 2001/08/13	Correct size of extended floats (float_fsz) from 16 to 10 bytes.
+  * 2001/01/17	Add support emulation of unaligned kernel accesses.
+  */
++#include <linux/jiffies.h>
  #include <linux/kernel.h>
--#include <linux/device.h>
- #include <asm/atomic.h>
+ #include <linux/sched.h>
+ #include <linux/tty.h>
+@@ -1290,7 +1291,7 @@ within_logging_rate_limit (void)
+ {
+ 	static unsigned long count, last_time;
  
- struct page;
-+struct device;
- 
- /*
-  * Bits in backing_dev_info.state
+-	if (jiffies - last_time > 5*HZ)
++	if (time_after(jiffies, last_time + 5 * HZ))
+ 		count = 0;
+ 	if (count < 5) {
+ 		last_time = jiffies;
+-- 
+1.5.3.7
 
