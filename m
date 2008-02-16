@@ -1,57 +1,110 @@
-From: Masami Hiramatsu <mhiramat@redhat.com>
-Date: Wed, 06 Feb 2008 12:51:47 +0000
-Subject: Re: [RFC][PATCH] kprobes: kprobe-booster for ia64
-Message-Id: <47A9AD63.6060200@redhat.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sat, 16 Feb 2008 06:39:43 +0000
+Subject: git-nfsd on ia64
+Message-Id: <20080215223943.d12b8eb5.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <47A8E995.1090400@redhat.com> <1FE6DD409037234FAB833C420AA843EC84804C@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC84804C@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>, Jim Keniston <jkenisto@us.ibm.com>, "Li, Shaohua" <shaohua.li@intel.com>, LKML <linux-kernel@vger.kernel.org>, ia64 <linux-ia64@vger.kernel.org>, systemtap-ml <systemtap@sources.redhat.com>
+To: linux-ia64@vger.kernel.org
 
-Hello Tony,
 
-Thank you for review.
-Luck, Tony wrote:
-> +/* Insert a long branch code */
-> +static void __kprobes set_brl_inst(void *from, void *to)
-> +{
-> +	s64 rel = ((s64) to - (s64) from) >> 4;
-> +	bundle_t *brl;
-> +	brl = (bundle_t *) ((u64) from & ~0xf);
-> +	brl->quad0.template = 0x05;	/* [MLX](stop) */
-> +	brl->quad0.slot0 = NOP_M_INST;	/* nop.m 0x0 */
-> +	brl->quad0.slot1_p0 = ((rel >> 20) & 0x7fffffffff) << 2;
-> +	brl->quad1.slot1_p1 = (((rel >> 20) & 0x7fffffffff) << 2) >> (64 - 46);
-> +	/* brl.cond.sptk.many.clr rel<<4 (qp=0) */
-> +	brl->quad1.slot2 = BRL_INST(rel >> 59, rel & 0xfffff);
-> +}
-> 
-> Is this function operating directly on the instruction bundle in the
-> kernel code?  If so, the bundle will contain some "interesting"
-> intermediate values as each of the "brl->xxx = yyy;" are processed.
-> If another cpu should try to execute this bundle while the modifications
-> are in progress, then the results will be not what you want.
+Cunningly, current git-nfsd causes this, with ia64 allmodconfig:
 
-No, this function writes brl on kprobe's instruction buffer
-(kprobe.ainsn.insn->bundle[1]) when preparing the kprobe.
-So, other cpu never execute it, and we don't need to write it atomically.
+.config:3397:warning: trying to assign nonexistent symbol NFSD_TCP
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:297:1: warning: "elf_check_arch" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:19:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:302:1: warning: "ELF_CLASS" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:24:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:304:1: warning: "ELF_ARCH" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:26:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:318:1: warning: "ELF_EXEC_PAGESIZE" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:34:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:327:1: warning: "ELF_ET_DYN_BASE" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:43:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:330:1: warning: "ELF_PLAT_INIT" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:140:1: warning: this is the location of the previous definition
+In file included from arch/ia64/ia32/sys_ia32.c:59:
+arch/ia64/ia32/ia32priv.h:342:1: warning: "SET_PERSONALITY" redefined
+In file included from include/linux/elf.h:7,
+                 from include/linux/module.h:14,
+                 from include/linux/textsearch.h:9,
+                 from include/linux/skbuff.h:26,
+                 from include/linux/icmpv6.h:79,
+                 from include/linux/ipv6.h:197,
+                 from include/net/ipv6.h:18,
+                 from include/linux/sunrpc/svcauth.h:18,
+                 from include/linux/sunrpc/svc.h:18,
+                 from arch/ia64/ia32/sys_ia32.c:37:
+include/asm/elf.h:180:1: warning: this is the location of the previous definition
 
-> On cpu models that support st16 you could construct the brl instruction
-> and use a single st16 to update the whole bundle atomically.
-> 
-> -Tony
 
-Thank you again,
+I bet you didn't expect that.
 
--- 
-Masami Hiramatsu
-
-Software Engineer
-Hitachi Computer Products (America) Inc.
-Software Solutions Division
-
-e-mail: mhiramat@redhat.com
-
+Our header files suck.
