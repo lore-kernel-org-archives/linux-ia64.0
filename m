@@ -1,85 +1,107 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Thu, 28 Feb 2008 03:47:58 +0000
-Subject: Re: Tiger oops in ia64_sal_physical_id_info (was [RFC] regression:113134fcbca83619be4c68d0ca66db6093
-Message-Id: <20080228034757.GA14230@sgi.com>
+From: "Dong, Eddie" <eddie.dong@intel.com>
+Date: Mon, 18 Feb 2008 03:28:41 +0000
+Subject: paravirt_ops support in IA64
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A02C8234B@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200802251027.15107.bjorn.helgaas@hp.com>
-In-Reply-To: <200802251027.15107.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Feb 27, 2008 at 06:41:38PM -0700, Alex Chiang wrote:
-> * Russ Anderson <rja@sgi.com>:
-> > 
-> > The sal_version check should be removed.  The revision has been
-> > stuck at 2.9 but the version has been changing.
-> 
-> As per Russ' email, here is try #3.
+Hi, Tony & all:
+	Recently Xen-IA64 community is considering to add paravirt_ops
+support to keep sync with X86 and reduce maintenance effort. With
+pv_ops, sensitive instructions or some high level primitive
+functionalities (such as MMU ops) are replaced with pv_ops which is a
+function table call whose exact function pointer is initialized at Linux
+startup time depending on different hypervisor (or native) runing
+underlayer.
 
-Looks good.  Boots on both new and old hardware.
-Sorry about the inconvenience.
+	With this, we can reuse many code with X86 such as irqchip with
+X86, and similar dma support with X86, similar xenoprof/PMU profiling
+support etc. While CPU side pv_ops is quit different especially for
+those ASM code, since IA64 processor doesn;t have memory/stack ready at
+most IVT handler code.
 
-Acked-by: Russ Anderson <rja@sgi.com>
- 
-> Thanks.
-> 
-> /ac
-> 
-> From: Alex Chiang <achiang@hp.com>
-> Subject: [PATCH] ia64: workaround tiger ia64_sal_get_physical_id_info hang
-> 
-> Intel Tiger platforms hang when calling SAL_GET_PHYSICAL_ID_INFO
-> instead of properly returning -1 for unimplemented, so add a
-> version check.
-> 
-> SGI Altix platforms have an incorrect SAL version hard-coded into
-> their prom -- they encode 2.9, but actually implement 3.2 -- so
-> fix it up and allow ia64_sal_get_physical_id_info to keep
-> working.
-> 
-> Signed-off-by: Alex Chiang <achiang@hp.com>
-> ---
-> diff --git a/arch/ia64/kernel/sal.c b/arch/ia64/kernel/sal.c
-> index f44fe84..a3022dc 100644
-> --- a/arch/ia64/kernel/sal.c
-> +++ b/arch/ia64/kernel/sal.c
-> @@ -109,6 +109,13 @@ check_versions (struct ia64_sal_systab *systab)
->  		sal_revision = SAL_VERSION_CODE(2, 8);
->  		sal_version = SAL_VERSION_CODE(0, 0);
->  	}
-> +
-> +	if (ia64_platform_is("sn2") && (sal_revision = SAL_VERSION_CODE(2, 9)))
-> +		/*
-> +		 * SGI Altix has hard-coded version 2.9 in their prom
-> +		 * but they actually implement 3.2, so let's fix it here.
-> +		 */
-> +		sal_revision = SAL_VERSION_CODE(3, 2);
->  }
->  
->  static void __init
-> diff --git a/include/asm-ia64/sal.h b/include/asm-ia64/sal.h
-> index 2251118..f4904db 100644
-> --- a/include/asm-ia64/sal.h
-> +++ b/include/asm-ia64/sal.h
-> @@ -807,6 +807,10 @@ static inline s64
->  ia64_sal_physical_id_info(u16 *splid)
->  {
->  	struct ia64_sal_retval isrv;
-> +
-> +	if (sal_revision < SAL_VERSION_CODE(3,2))
-> +		return -1;
-> +
->  	SAL_CALL(isrv, SAL_PHYSICAL_ID_INFO, 0, 0, 0, 0, 0, 0, 0);
->  	if (splid)
->  		*splid = isrv.v0;
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	In X86, ASM side pv_ops can save clobber registers to stack and
+do function call, but IA64 can't due to unavailable of memory access.
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+#define DISABLE_INTERRUPTS(clobbers)
+\
+	PARA_SITE(PARA_PATCH(pv_irq_ops, PV_IRQ_irq_disable), clobbers,
+\
+		  pushl %eax; pushl %ecx; pushl %edx;
+\
+		  call *%cs:pv_irq_ops+PV_IRQ_irq_disable;
+\
+		  popl %edx; popl %ecx; popl %eax)
+\
+
+
+	One of the 1st biggest argument is how to support those ASM IVT
+handler code. Some ideas discussed include:
+
+	1: Dual IVT source code, dual IVT table.
+		This is current Xen did, and probably are not warmly
+welcomed since it is not in upstream yet and have maintenance effort.
+	2: Same IVT source code, but dual/mulitple compile to generate
+dual/multiple IVT table. I.e. we replace those primitive ops (sensitive
+instructions) with a MACRO which uses compile option for different
+hypervisor type. 
+		The pseudo code of the MACRO could be: (take read CR.IVR
+as example)
+
+AltA:
+#define ASM_READ_IVR	/* read IVR to GR24 */
+#ifdef XEN
+	breg1 = return address
+	br    xen_readivr
+#else	/* native
+	mov  GR24=CR.IVR;
+#endif
+		Or
+AltB:
+#define ASM_READ_IVR	/* read IVR to GR24 */
+#ifdef XEN
+	in place code of function xen_readivr
+#else	/* native
+	mov  GR24=CR.IVR;
+#endif
+
+		From maintenance effort point of view, it is minimized,
+but not exactly what X86 pv_ops look like.
+
+		Both approach will cause code size issue, but altB is
+much worse in this area, while AltA need one additional BR clobber
+register 
+
+	3: Single IVT table, using indirect function call for pv_ops.
+		This is more like X86 pv_ops, but we need to pay 2
+additional BR clobber registers due to indirect function call, like
+following pseudo code:
+
+AltC:
+	breg0 = pv_ops base
+	breg0 += offset for this pv_ops
+	breg1 = return address;
+	br  breg0.		/* pv_ops clobbered breg0/breg1 */
+
+
+	For both #2 & #3, we need to modify Linux IVT code to get
+clobber register for those MACROs, #3 need 2 br registers and 1-2 GR
+registers for the function body. #2A needs least clobber register, just
+1-2 GR registers.
+
+
+	In X86, there are another enhancement (dynamic patching) base on
+pv_ops. The purpose is to improve cpu predication by converting indriect
+function call to direct function call for both C & ASM code. We may take
+similar approach some time later too.
+
+	We really need advices from community before we jump into
+coding.
+	CC some active members that I though may be interested in pv_ops
+since KVM-IA64 mailinglist doesn;t exist yet.
+
+Thanks a lot, Eddie
+
