@@ -1,7 +1,7 @@
 From: "Dong, Eddie" <eddie.dong@intel.com>
-Date: Mon, 18 Feb 2008 13:58:27 +0000
+Date: Mon, 18 Feb 2008 15:43:11 +0000
 Subject: RE: paravirt_ops support in IA64
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A02C8274B@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A02C82768@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <10EA09EFD8728347A513008B6B0DA77A02C8234B@pdsmsx411.ccr.corp.intel.com>
 In-Reply-To: <10EA09EFD8728347A513008B6B0DA77A02C8234B@pdsmsx411.ccr.corp.intel.com>
@@ -10,91 +10,106 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote:
-> those should be discussed here.  Also, could you repost the patches?
+Isaku Yamahata wrote:
+ 
+>> 	2: Same IVT source code, but dual/mulitple compile to generate
+>> dual/multiple IVT table. I.e. we replace those primitive ops
+>> (sensitive instructions) with a MACRO which uses compile option for
+>> 		different hypervisor type. The pseudo code of the MACRO
+could be:
+>> (take read CR.IVR 
+>> as example)
+>> 
+>> AltA:
+>> #define ASM_READ_IVR	/* read IVR to GR24 */
+>> #ifdef XEN
+>> 	breg1 = return address
+>> 	br    xen_readivr
+>> #else	/* native
+>> 	mov  GR24=CR.IVR;
+>> #endif
+>> 		Or
+>> AltB:
+>> #define ASM_READ_IVR	/* read IVR to GR24 */
+>> #ifdef XEN
+>> 	in place code of function xen_readivr
+>> #else	/* native
+>> 	mov  GR24=CR.IVR;
+>> #endif
+>> 
+>> 		From maintenance effort point of view, it is minimized,
+>> but not exactly what X86 pv_ops look like.
+>> 
+>> 		Both approach will cause code size issue, but altB is
+>> much worse in this area, while AltA need one additional BR clobber
+>> register
+> 
+> 
+> Pros:
+> - single code
+> - hopefull less maintenance cost compared to #1
+> 
+> Cons:
+> - requires restriction on register usage. And we need to define its
+>   convension.
+>   When modifying ivt.S in the future after converting ivt.S,
+>   those convesion must be kept in mind.
+> - suboptimal for paravirtualized case compared to #1 case
+> 
+> 
+>> 	3: Single IVT table, using indirect function call for pv_ops.
+>> 		This is more like X86 pv_ops, but we need to pay 2
+>> additional BR clobber registers due to indirect function call, like
+>> following pseudo code: 
+>> 
+>> AltC:
+>> 	breg0 = pv_ops base
+>> 	breg0 += offset for this pv_ops
+>> 	breg1 = return address;
+>> 	br  breg0.		/* pv_ops clobbered breg0/breg1 */
+>> 
+>> 
+>> 	For both #2 & #3, we need to modify Linux IVT code to get
+>> clobber register for those MACROs, #3 need 2 br registers and 1-2 GR
+>> registers for the function body. #2A needs least clobber register,
+>> just 1-2 GR registers.
+> 
+> #2B may also need clobber 1(or 2?) GR registers depending on the
+> original instruction.
 
-The work is just started, so sorry we don't have patches in hand right
-now.
-But we can provide some example code for better reference.
+Yes, clobber GR # is almost same for all Alts.
 
 > 
-> On a different note, I am willingly and woefully unaware of what the
-> paravirt _NEEDS_ are.  Could those be summarised as well?  I will
+> Pros:
+> - single code/binary
+> - less maintenance cost
+> 
+> Cons:
+> - requires restriction on register usage. And we need to define its
+>   convension.
+>   When modifying ivt.S in the future after converting ivt.S,
+>   those convesion must be kept in mind.
+> - more clobbered register (for AltC)
+> - suboptimal even for native case.
 
-Sure. In both X86 & IA64, the classical processor architecture is not
-virtualizable (before VT and similar HW technology are invented), so
-para_virtualization technology is invented by modifying guest Linux
-source code to work with hypervisor cooperatively, such as Xen.
-
-But this kind of paravirtualization technology needs to modify Linux
-source a lot and get a lot of debate in community. The original
-Xen PV patches are not accepted so far and it is a 
-big issue to OSVs to maintain 2 version of Linux OS (guest Linux
-and bare metal Linux). Meanwhile there are new hypervisors come 
-in which need different modification to Linux. VMware proposed 
-VMI (Virtual Machine Interface) in 06 OLS to replace sensitive
-instructions
-by VMI so that same Linux binary can run for both native and guest. 
-
-Later on Rusty Russell proposed a function table based solution called 
-paravirt_ops (pv_ops) and eventually get community buy in. Today the
-X86/32 bits support is in upstream.
-
-The basic idea of X86 pv_ops is to replace original processor sensitive 
-instructions such as cli/sti to a call to a pv_ops function table, whose
-
-contents are initialized for each hypervisor.  For example:
-
---- xx  2008-02-18 20:09:32.000000000 +0800
-+++ entry_32.S  2007-12-18 16:22:59.000000000 +0800
-@@ -264,7 +264,7 @@
-
- #ifdef CONFIG_PREEMPT
- ENTRY(resume_kernel)
--       cli
-+       DISABLE_INTERRUPTS(CLBR_ANY)
-        cmpl $0,TI_preempt_count(%ebp)  # non-zero preempt_count ?
-        jnz restore_nocheck
- need_resched:
-
-	The definition of DISABLE_INTERRUPTS behavior like (pseudo
-code):
-
-#define DISABLE_INTERRUPTS(clb)	pv_irq_ops->irq_disable()
-
-	At the Linux startup time, the initialization code will set
-pv_irq_ops->irq_disable to xen_irqdisable if underlying hyperviosr is
-Xen,
-native_irqdisable if on bare metal for example.
-
-
-> admit to being completely ignorant about how paravirt works on x86.
-> Please don't state them in terms of we want to change the code this
-> way, but rather in terms of we need to intercept these points in the
-> kernel for this reason/purpose.
-
-Agree, basically IA64 side has same maintenance issue for OSVs
-such as Redhat to release 2 images for native & Xen guest today. 
-to be more important, today Xen PV (paravirtualized) guest only support
-2.6.18 Linux, forward porting to latest Linux needs a lot of effort. So
-we want to push those changes to upstream. That is the whole purpose.
-
-People ever pushed current Xen/IA64 PV Linux changes to upstream, 
-but didn't get promising result yet. Due to the ermeging pv_ops support
-in X86 side, if IA64 side also takes pv_ops based solution, we can reuse
-a lot of common code and thus less patch than before. It also can
-support
- different hypervisor in future easily such as KVM for
-paravirtualization. 
-
-Current Xen/IA64 is not doing pv_ops yet, we are still in brainstorming/
-design phase. If we could get more comments from you guys before we 
-choose a way to go, that would save us a lot of effort. 
-
-Yes, right now we are mainly focusing on entry.S & ivt.S changes.
+After binary patching, native side won't have impact. 
+We can have in place patching, i..e. replace whole AltC
+code dynamically with "mov GRx=CR.IVR;nop;nop..."
 
 > 
-> Thanks,
-> Robin
-> -
-Thanks, Eddie
+> Presumably we can use binary patching technique to mitigate those
+> overhead. Probably for native case, we can convert those branch with
+> single instruction.
+> For example we can make 'br breg0' into direct branch.
+
+If it is single IVT table, we don't know the target address of
+the function call.
+
+> AltD(AltC'):
+>         breg1 = return address;
+>         br  native_pv_ops_ops   <== binary patch at boot time
+> 
+
+?? Are u talking about AltA?
+
+thanks, Eddie
