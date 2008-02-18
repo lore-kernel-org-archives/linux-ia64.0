@@ -1,26 +1,44 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 11 Feb 2008 18:41:18 +0000
-Subject: RE: [PATH] Reduce per_cpu allocations to minimum needed for bootV3.
-Message-Id: <1FE6DD409037234FAB833C420AA843EC8BEEA6@orsmsx424.amr.corp.intel.com>
+From: Shi Weihua <shiwh@cn.fujitsu.com>
+Date: Mon, 18 Feb 2008 10:27:08 +0000
+Subject: [PATCH 5/5] signal(ia64_ia32): add a signal stack overflow check
+Message-Id: <47B95D7C.1080005@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080208225015.GK3875@sgi.com>
-In-Reply-To: <20080208225015.GK3875@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-> Would you mind putting in the patch as it was with 32? 
+The similar check has been added to x86_32(i386) in commit
+id 83bd01024b1fdfc41d9b758e5669e80fca72df66.
+So we add this check to ia64_ia32 and improve it a liitle bit in that
+we need to check for stack overflow only when the signal is on stack.
 
-I'll put in th V5 version that you just posted ... but this does
-need some more cleanup.
+Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
 
-For the hotplug path we should try to allocate both the per-cpu
-area and the MCA stack space *before* we try to bring the cpu online
-(i.e. allocation done by some existing cpu ... not by the cpu itself).
+---
+--- linux-2.6.25-rc2.orig/arch/ia64/ia32/ia32_signal.c	2008-02-16 04:57:20.000000000 +0800
++++ linux-2.6.25-rc2/arch/ia64/ia32/ia32_signal.c	2008-02-18 18:12:49.000000000 +0800
+@@ -766,8 +766,19 @@ get_sigframe (struct k_sigaction *ka, st
+ 
+ 	/* This is the X/Open sanctioned signal stack switching.  */
+ 	if (ka->sa.sa_flags & SA_ONSTACK) {
+-		if (!on_sig_stack(esp))
++		int onstack = sas_ss_flags(esp);
++
++		if (onstack = 0)
+ 			esp = current->sas_ss_sp + current->sas_ss_size;
++		else if (onstack = SS_ONSTACK) {
++			/*
++			 * If we are on the alternate signal stack and would
++			 * overflow it, don't return an always-bogus address
++			 * instead so we will die with SIGSEGV.
++			 */
++			if (!likely(on_sig_stack(esp - frame_size)))
++				return (void __user *) -1L;
++		}
+ 	}
+ 	/* Legacy stack switching not supported */
+ 
 
-For the boot time path it is probably fine to just assume that
-allocations will work (and panic if they don't).  Anyone that tries
-to bring up 1024 cpus on a 512MB system deserves to see a panic :-)
 
--Tony
