@@ -1,42 +1,26 @@
 From: Shi Weihua <shiwh@cn.fujitsu.com>
-Date: Tue, 19 Feb 2008 02:03:50 +0000
+Date: Tue, 19 Feb 2008 02:25:09 +0000
 Subject: Re: [PATCH 4/5] signal(ia64): add a signal stack overflow check
-Message-Id: <47BA3906.5080406@cn.fujitsu.com>
+Message-Id: <47BA3E05.8020805@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <47B95D4F.8030003@cn.fujitsu.com> <20080218123052.GG21012@parisc-linux.org>
-In-Reply-To: <20080218123052.GG21012@parisc-linux.org>
+References: <47B95D4F.8030003@cn.fujitsu.com>
+In-Reply-To: <47B95D4F.8030003@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-
-
-Matthew Wilcox wrote::
-> On Mon, Feb 18, 2008 at 06:26:23PM +0800, Shi Weihua wrote:
->> +			if (!rbs_on_sig_stack(scr->pt.ar_bspstore))
->> +				new_rbs = (current->sas_ss_sp +
->> +					  sizeof(long) - 1) & ~(sizeof(long) - 1);
-> 
-> I know you're only moving this code, but how about fixing it to use
-> ALIGN at the same time?
-> 
-> +			if (!rbs_on_sig_stack(scr->pt.ar_bspstore))
-> +				new_rbs = ALIGN(current->sas_ss_sp,
-> +						sizeof(long));
-> 
-
-Of course,we can improve the code by ALIGN.
-
----
 The similar check has been added to x86_32(i386) in commit
 id 83bd01024b1fdfc41d9b758e5669e80fca72df66.
-
 So we add this check to ia64 and improve it a liitle bit in that
 we need to check for stack overflow only when the signal is on stack.
 
 Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
+
+---
+
+The previous patch has a comment mistake. Now I correct it.
 
 ---
 --- linux-2.6.25-rc2.orig/arch/ia64/kernel/signal.c	2008-02-16 04:57:20.000000000 +0800
@@ -84,4 +68,5 @@ Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com>
  	}
  	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
  
+
 
