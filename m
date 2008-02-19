@@ -1,8 +1,10 @@
 From: Shi Weihua <shiwh@cn.fujitsu.com>
-Date: Mon, 18 Feb 2008 10:27:08 +0000
-Subject: [PATCH 5/5] signal(ia64_ia32): add a signal stack overflow check
-Message-Id: <47B95D7C.1080005@cn.fujitsu.com>
+Date: Tue, 19 Feb 2008 02:26:19 +0000
+Subject: Re: [PATCH 5/5] signal(ia64_ia32): add a signal stack overflow check
+Message-Id: <47BA3E4B.7070504@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <47B95D7C.1080005@cn.fujitsu.com>
+In-Reply-To: <47B95D7C.1080005@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,8 +19,12 @@ we need to check for stack overflow only when the signal is on stack.
 Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
 
 ---
+
+The previous patch has a comment mistake. Now I correct it.
+
+---
 --- linux-2.6.25-rc2.orig/arch/ia64/ia32/ia32_signal.c	2008-02-16 04:57:20.000000000 +0800
-+++ linux-2.6.25-rc2/arch/ia64/ia32/ia32_signal.c	2008-02-18 18:12:49.000000000 +0800
++++ linux-2.6.25-rc2/arch/ia64/ia32/ia32_signal.c	2008-02-19 09:57:28.000000000 +0800
 @@ -766,8 +766,19 @@ get_sigframe (struct k_sigaction *ka, st
  
  	/* This is the X/Open sanctioned signal stack switching.  */
@@ -31,7 +37,7 @@ Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com>
 +		else if (onstack = SS_ONSTACK) {
 +			/*
 +			 * If we are on the alternate signal stack and would
-+			 * overflow it, don't return an always-bogus address
++			 * overflow it, don't. Return an always-bogus address
 +			 * instead so we will die with SIGSEGV.
 +			 */
 +			if (!likely(on_sig_stack(esp - frame_size)))
