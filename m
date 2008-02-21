@@ -1,29 +1,32 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 12:52:42 +0000
-Subject: Re: [PATCH 09/28] ia64/xen: paravirtualize pal_call_static().
-Message-Id: <20080222125242.GG16685%yamahata@valinux.co.jp>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Date: Thu, 21 Feb 2008 23:11:04 +0000
+Subject: Re: [PATCH 24/28] ia64/xen: time paravirtualization
+Message-Id: <47BE0508.7080203@goop.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12036570473740-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12036570473740-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Feb 22, 2008 at 05:56:16AM -0600, Robin Holt wrote:
-> Getting back to these this morning, I noticed that I still have not
-> received 08/28 and neither had two of the mail archives I checked.
-> Could somebody resend that one?
+yamahata@valinux.co.jp wrote:
+> diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+> index 17fda52..1bb0362 100644
+> --- a/arch/ia64/kernel/time.c
+> +++ b/arch/ia64/kernel/time.c
+> @@ -29,6 +29,14 @@
+>  #include <asm/sections.h>
+>  #include <asm/system.h>
+>  
+> +#include <asm/xen/hypervisor.h>
+> +#ifdef CONFIG_XEN
+> +#include <linux/kernel_stat.h>
+> +#include <linux/posix-timers.h>
+> +#include <xen/interface/vcpu.h>
+> +#include <asm/percpu.h>
+> +#endif
+> +
 
-I resended, but it seems to be dropped from the list again.
-Is the patch too large?
+ia64 doesn't use clocksources yet?  Couldn't you share a lot of this 
+with the 32-bit Xen time code (esp stolen time accounting)?
 
-You can see it from
-http://lists.xensource.com/archives/html/xen-ia64-devel/2008-02/msg00213.html
-or
-http://article.gmane.org/gmane.comp.emulators.xen.ia64/9084
-
-Sorry for inconvenience
-
--- 
-yamahata
+    J
