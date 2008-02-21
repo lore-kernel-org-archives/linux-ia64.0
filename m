@@ -1,8 +1,10 @@
 From: holt@sgi.com
-Date: Wed, 13 Feb 2008 17:55:19 +0000
-Subject: [Patch 0/3] Modify how per_cpu allocations are done.
-Message-Id: <20080213175519.892353127@attica.americas.sgi.com>
+Date: Thu, 21 Feb 2008 21:08:42 +0000
+Subject: [Patch 0/3] Modify how per_cpu allocations are done. -V7 repost
+Message-Id: <20080221210842.520066148@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080213175519.892353127@attica.americas.sgi.com>
+In-Reply-To: <20080213175519.892353127@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
