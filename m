@@ -1,17 +1,27 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Wed, 27 Feb 2008 20:07:08 +0000
-Subject: Re: [patch 1/3] writeback regset[0] in coredump
-Message-Id: <20080227200708.44F6E2700FE@magilla.localdomain>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Date: Thu, 21 Feb 2008 23:47:10 +0000
+Subject: Re: [PATCH 13/28] ia64/xen: introduce xen hypercall routines necessary
+Message-Id: <47BE0D7E.7080301@goop.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1203928716.3841.19.camel@sli10-desk.sh.intel.com>
-In-Reply-To: <1203928716.3841.19.camel@sli10-desk.sh.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I posted a rewritten version of this patch.
+yamahata@valinux.co.jp wrote:
+> +static inline unsigned long
+> +HYPERVISOR_machtophys(unsigned long mfn)
+> +{
+> +	unsigned long ret = mfn;
+> +	if (is_running_on_xen())
+>   
 
+Do you often call hypercalls when not booting under Xen?  It seems to me 
+this check should have already been done at a higher layer, and it 
+needn't be repeated here.
 
-Thanks,
-Roland
+> +		ret = __HYPERVISOR_machtophys(mfn);
+> +	return ret;
+> +}
+
+    J
