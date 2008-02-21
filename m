@@ -1,8 +1,10 @@
 From: holt@sgi.com
-Date: Wed, 13 Feb 2008 17:55:21 +0000
+Date: Thu, 21 Feb 2008 21:08:44 +0000
 Subject: [Patch 2/3] Minimize per_cpu reservations.
-Message-Id: <20080213175520.520765195@attica.americas.sgi.com>
+Message-Id: <20080221210843.129837052@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080213175520.520765195@attica.americas.sgi.com>
+In-Reply-To: <20080213175520.520765195@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
