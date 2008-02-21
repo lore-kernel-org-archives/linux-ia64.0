@@ -1,8 +1,10 @@
 From: holt@sgi.com
-Date: Wed, 13 Feb 2008 17:55:20 +0000
+Date: Thu, 21 Feb 2008 21:08:43 +0000
 Subject: [Patch 1/3] Correct pernodesize calculation.
-Message-Id: <20080213175520.242474093@attica.americas.sgi.com>
+Message-Id: <20080221210842.883925564@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080213175520.242474093@attica.americas.sgi.com>
+In-Reply-To: <20080213175520.242474093@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
