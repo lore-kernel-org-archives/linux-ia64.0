@@ -1,27 +1,87 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 05 Feb 2008 19:05:03 +0000
-Subject: RE: x86/non-x86: percpu, node ids, apic ids x86.git fixup
-Message-Id: <1FE6DD409037234FAB833C420AA843EC8130DD@orsmsx424.amr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:20 +0000
+Subject: [PATCH 04/28] ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
+Message-Id: <12036570474076-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080130180623.GA24881@elte.hu> <1FE6DD409037234FAB833C420AA843EC757DEA@orsmsx424.amr.corp.intel.com> <47A0CD4B.5040706@sgi.com> <1FE6DD409037234FAB833C420AA843EC757F12@orsmsx424.amr.corp.intel.com> <20080130194616.GA19426@elte.hu> <1FE6DD409037234FAB833C420AA843EC757F7C@orsmsx424.amr.corp.intel.com> <20080130200221.GA28073@elte.hu> <1FE6DD409037234FAB833C420AA843EC757FC2@orsmsx424.amr.corp.intel.com> <20080130205915.GA4562@elte.hu> <1FE6DD409037234FAB833C420AA843EC78C219@orsmsx424.amr.corp.intel.com> <20080131090642.GA5688@elte.hu> <1FE6DD409037234FAB833C420AA843EC78C75A@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC78C75A@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: Mike Travis <travis@sgi.com>, Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Linux Kernel Development <linux-kernel@vger.kernel.org>, Linux/PPC Development <linuxppc-dev@ozlabs.org>, linux-ia64@vger.kernel.org, sparclinux@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-> Applied that patch and UP kernel built ok, and then crashed in the
-> same place with the memset() to a user-looking address from kmem_cache_alloc()
->
-> So the percpu changes are innocent ... something else since 2.6.24 is
-> to blame.  Only 5749 commits :-)  I'll start bisecting.
 
-The bisection narrowed in on an innocent patch in ipv4 space.  Meanwhile
-the rush of patches continues.  When I retested yesterday when Linus
-HEAD was 8af03e782... the CONFIG_SMP=n kernel worked perfectly.  So
-maybe it was fixed?  Or maybe the bug depends on the relative
-location of various bits of code/data and as the kernel grows and
-shrinks with incoming changes the problem comes and goes :-(
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ include/asm-ia64/sync_bitops.h |   61 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 61 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/sync_bitops.h
 
--Tony
+diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
+new file mode 100644
+index 0000000..dc402be
+--- /dev/null
++++ b/include/asm-ia64/sync_bitops.h
+@@ -0,0 +1,61 @@
++#ifndef __XEN_SYNC_BITOPS_H__
++#define __XEN_SYNC_BITOPS_H__
++
++/*
++ * Copyright 1992, Linus Torvalds.
++ * Heavily modified to provide guaranteed strong synchronisation
++ * when communicating with Xen or other guest OSes running on other CPUs.
++ */
++
++#define ADDR (*(volatile long *) addr)
++
++static inline void sync_set_bit(int nr, volatile void *addr)
++{
++	set_bit(nr, addr);
++}
++
++static inline void sync_clear_bit(int nr, volatile void *addr)
++{
++	clear_bit(nr, addr);
++}
++
++static inline void sync_change_bit(int nr, volatile void *addr)
++{
++	change_bit(nr, addr);
++}
++
++static inline int sync_test_and_set_bit(int nr, volatile void *addr)
++{
++	return test_and_set_bit(nr, addr);
++}
++
++static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
++{
++	return test_and_clear_bit(nr, addr);
++}
++
++static inline int sync_test_and_change_bit(int nr, volatile void *addr)
++{
++	return test_and_change_bit(nr, addr);
++}
++
++static inline int sync_const_test_bit(int nr, const volatile void *addr)
++{
++	return test_bit(nr, addr);
++}
++
++static inline int sync_var_test_bit(int nr, volatile void *addr)
++{
++	return test_bit(nr, addr);
++}
++
++#define sync_cmpxchg	ia64_cmpxchg4_acq
++
++#define sync_test_bit(nr,addr)			\
++	(__builtin_constant_p(nr) ?		\
++	 sync_const_test_bit((nr), (addr)) :	\
++	 sync_var_test_bit((nr), (addr)))
++
++#define sync_cmpxchg_subword sync_cmpxchg
++
++#endif /* __XEN_SYNC_BITOPS_H__ */
+-- 
+1.5.3
+
