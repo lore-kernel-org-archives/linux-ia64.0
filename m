@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 05:10:34 +0000
-Subject: [PATCH 15/28] ia64/xen: define xen_alloc_vm_area()/xen_free_vm_area() for ia64 arch.
-Message-Id: <12036570472422-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:46 +0000
+Subject: [PATCH 27/28] ia64/xen: update Kconfig to allow xen domU Linux
+Message-Id: <12036570484134-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -11,117 +11,70 @@ To: linux-ia64@vger.kernel.org
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/util.c |  101 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 101 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/util.c
+ arch/ia64/Kconfig     |    6 +++++-
+ arch/ia64/xen/Kconfig |   29 +++++++++++++++++++++++++++++
+ 2 files changed, 34 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/Kconfig
 
-diff --git a/arch/ia64/xen/util.c b/arch/ia64/xen/util.c
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index bc84008..31313bc 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -178,7 +178,7 @@ config PARAVIRT_NOP_B_PATCH
+ 	  "br.cond.sptk.many <native_xxx>" and replace it with 'nop.b 0'
+ 	  when running on xen.
+ 
+-#source "arch/ia64/xen/Kconfig"
++source "arch/ia64/xen/Kconfig"
+ 
+ endif
+ 
+@@ -238,6 +238,10 @@ config IA64_HP_SIM
+ 	bool "Ski-simulator"
+ 	select SWIOTLB
+ 
++config IA64_XEN
++	bool "Xen guest"
++	depends on XEN
++
+ endchoice
+ 
+ choice
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
 new file mode 100644
-index 0000000..242a1a4
+index 0000000..30f54c3
 --- /dev/null
-+++ b/arch/ia64/xen/util.c
-@@ -0,0 +1,101 @@
-+/******************************************************************************
-+ * arch/ia64/xen/util.c
-+ * This file is the ia64 counterpart of drivers/xen/util.c
-+ *
-+ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
++++ b/arch/ia64/xen/Kconfig
+@@ -0,0 +1,29 @@
++#
++# This Kconfig describes xen/ia64 options
++#
 +
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/slab.h>
-+#include <linux/vmalloc.h>
-+#include <asm/uaccess.h>
-+#include <xen/interface/memory.h>
-+#include <asm/xen/hypercall.h>
++config XEN
++	bool "Xen hypervisor support"
++	default y
++	select PARAVIRT
++	select PARAVIRT_ALT
++	select PARAVIRT_ENTRY
++	select PARAVIRT_NOP_B_PATCH
++	select XEN_XENCOMM
++	select IA64_XEN
++	help
++	  Enable Xen hypervisor support.  Resulting kernel runs
++	  both as a guest OS on Xen and natively on hardware.
 +
-+struct vm_struct *xen_alloc_vm_area(unsigned long size)
-+{
-+	int order;
-+	unsigned long virt;
-+	unsigned long nr_pages;
-+	struct vm_struct *area;
++if XEN
++config XEN_INTERFACE_VERSION
++	hex
++	default 0x00030207
 +
-+	order = get_order(size);
-+	virt = __get_free_pages(GFP_KERNEL, order);
-+	if (virt = 0)
-+		goto err0;
-+	nr_pages = 1 << order;
-+	scrub_pages(virt, nr_pages);
++config XEN_XENCOMM
++	def_bool y
 +
-+	area = kmalloc(sizeof(*area), GFP_KERNEL);
-+	if (area = NULL)
-+		goto err1;
++config NO_IDLE_HZ
++	def_bool y
 +
-+	area->flags = VM_IOREMAP;
-+	area->addr = (void *)virt;
-+	area->size = size;
-+	area->pages = NULL;
-+	area->nr_pages = nr_pages;
-+	area->phys_addr = 0;	/* xenbus_map_ring_valloc uses this field!  */
-+
-+	return area;
-+
-+err1:
-+	free_pages(virt, order);
-+err0:
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(xen_alloc_vm_area);
-+
-+void xen_free_vm_area(struct vm_struct *area)
-+{
-+	unsigned int order = get_order(area->size);
-+	unsigned long i;
-+	unsigned long phys_addr = __pa(area->addr);
-+
-+	/* This area is used for foreign page mappping.
-+	 * So underlying machine page may not be assigned. */
-+	for (i = 0; i < (1 << order); i++) {
-+		unsigned long ret;
-+		unsigned long gpfn = (phys_addr >> PAGE_SHIFT) + i;
-+		struct xen_memory_reservation reservation = {
-+			.nr_extents   = 1,
-+			.address_bits = 0,
-+			.extent_order = 0,
-+			.domid        = DOMID_SELF
-+		};
-+		set_xen_guest_handle(reservation.extent_start, &gpfn);
-+		ret = HYPERVISOR_memory_op(XENMEM_populate_physmap,
-+					   &reservation);
-+		BUG_ON(ret != 1);
-+	}
-+	free_pages((unsigned long)area->addr, order);
-+	kfree(area);
-+}
-+EXPORT_SYMBOL_GPL(xen_free_vm_area);
-+
-+/*
-+ * Local variables:
-+ *  c-file-style: "linux"
-+ *  indent-tabs-mode: t
-+ *  c-indent-level: 8
-+ *  c-basic-offset: 8
-+ *  tab-width: 8
-+ * End:
-+ */
++endif
 -- 
 1.5.3
 
