@@ -1,736 +1,740 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Thu, 28 Feb 2008 08:09:33 +0000
-Subject: [PATCH 2/4] IA64 regset: 32-bit support
-Message-Id: <1204186173.11494.17.camel@sli10-desk.sh.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:33 +0000
+Subject: [PATCH 14/28] ia64/xen: ia64 domU part of xencomm.
+Message-Id: <12036570473058-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is the 32-bit regset implementation under IA64. Basically register
-read/write, which is derived from current ptrace register read/write.
-This version added TLS support.
+import ia64 specific part of xencomm which converts hypercall argument in
+virtual address into pseudo physical address (guest physical address).
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/ia32/sys_ia32.c |  649 ++++++++++++++++++++++++++++++++++++++++++++--
- arch/ia64/kernel/ptrace.c |    5 
- 2 files changed, 629 insertions(+), 25 deletions(-)
+ arch/ia64/xen/xcom_asm.S          |   27 +++
+ arch/ia64/xen/xcom_hcall.c        |  458 +++++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/xencomm.c           |  108 +++++++++
+ include/asm-ia64/xen/xcom_hcall.h |   55 +++++
+ include/asm-ia64/xen/xencomm.h    |   33 +++
+ 5 files changed, 681 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/xcom_asm.S
+ create mode 100644 arch/ia64/xen/xcom_hcall.c
+ create mode 100644 arch/ia64/xen/xencomm.c
+ create mode 100644 include/asm-ia64/xen/xcom_hcall.h
+ create mode 100644 include/asm-ia64/xen/xencomm.h
 
-Index: linux/arch/ia64/ia32/sys_ia32.c
-=================================--- linux.orig/arch/ia64/ia32/sys_ia32.c	2008-02-28 07:19:34.000000000 +0800
-+++ linux/arch/ia64/ia32/sys_ia32.c	2008-02-28 10:51:22.000000000 +0800
-@@ -43,6 +43,7 @@
- #include <linux/eventpoll.h>
- #include <linux/personality.h>
- #include <linux/ptrace.h>
-+#include <linux/regset.h>
- #include <linux/stat.h>
- #include <linux/ipc.h>
- #include <linux/capability.h>
-@@ -2392,16 +2393,45 @@ get_free_idx (void)
- 	return -ESRCH;
- }
- 
-+static void set_tls_desc(struct task_struct *p, int idx,
-+		const struct ia32_user_desc *info, int n)
-+{
-+	struct thread_struct *t = &p->thread;
-+	struct desc_struct *desc = &t->tls_array[idx - GDT_ENTRY_TLS_MIN];
-+	int cpu;
-+
-+	/*
-+	 * We must not get preempted while modifying the TLS.
-+	 */
-+	cpu = get_cpu();
-+
-+	while (n-- > 0) {
-+		if (LDT_empty(info)) {
-+			desc->a = 0;
-+			desc->b = 0;
-+		} else {
-+			desc->a = LDT_entry_a(info);
-+			desc->b = LDT_entry_b(info);
-+		}
-+
-+		++info;
-+		++desc;
-+	}
-+
-+	if (t = &current->thread)
-+		load_TLS(t, cpu);
-+
-+	put_cpu();
-+}
-+
- /*
-  * Set a given TLS descriptor:
-  */
- asmlinkage int
- sys32_set_thread_area (struct ia32_user_desc __user *u_info)
- {
--	struct thread_struct *t = &current->thread;
- 	struct ia32_user_desc info;
--	struct desc_struct *desc;
--	int cpu, idx;
-+	int idx;
- 
- 	if (copy_from_user(&info, u_info, sizeof(info)))
- 		return -EFAULT;
-@@ -2421,18 +2451,7 @@ sys32_set_thread_area (struct ia32_user_
- 	if (idx < GDT_ENTRY_TLS_MIN || idx > GDT_ENTRY_TLS_MAX)
- 		return -EINVAL;
- 
--	desc = t->tls_array + idx - GDT_ENTRY_TLS_MIN;
--
--	cpu = smp_processor_id();
--
--	if (LDT_empty(&info)) {
--		desc->a = 0;
--		desc->b = 0;
--	} else {
--		desc->a = LDT_entry_a(&info);
--		desc->b = LDT_entry_b(&info);
--	}
--	load_TLS(t, cpu);
-+	set_tls_desc(current, idx, &info, 1);
- 	return 0;
- }
- 
-@@ -2456,6 +2475,20 @@ sys32_set_thread_area (struct ia32_user_
- #define GET_PRESENT(desc)	(((desc)->b >> 15) & 1)
- #define GET_USEABLE(desc)	(((desc)->b >> 20) & 1)
- 
-+static void fill_user_desc(struct ia32_user_desc *info, int idx,
-+		const struct desc_struct *desc)
-+{
-+	info->entry_number = idx;
-+	info->base_addr = GET_BASE(desc);
-+	info->limit = GET_LIMIT(desc);
-+	info->seg_32bit = GET_32BIT(desc);
-+	info->contents = GET_CONTENTS(desc);
-+	info->read_exec_only = !GET_WRITABLE(desc);
-+	info->limit_in_pages = GET_LIMIT_PAGES(desc);
-+	info->seg_not_present = !GET_PRESENT(desc);
-+	info->useable = GET_USEABLE(desc);
-+}
-+
- asmlinkage int
- sys32_get_thread_area (struct ia32_user_desc __user *u_info)
- {
-@@ -2469,22 +2502,588 @@ sys32_get_thread_area (struct ia32_user_
- 		return -EINVAL;
- 
- 	desc = current->thread.tls_array + idx - GDT_ENTRY_TLS_MIN;
--
--	info.entry_number = idx;
--	info.base_addr = GET_BASE(desc);
--	info.limit = GET_LIMIT(desc);
--	info.seg_32bit = GET_32BIT(desc);
--	info.contents = GET_CONTENTS(desc);
--	info.read_exec_only = !GET_WRITABLE(desc);
--	info.limit_in_pages = GET_LIMIT_PAGES(desc);
--	info.seg_not_present = !GET_PRESENT(desc);
--	info.useable = GET_USEABLE(desc);
-+	fill_user_desc(&info, idx, desc);
- 
- 	if (copy_to_user(u_info, &info, sizeof(info)))
- 		return -EFAULT;
- 	return 0;
- }
- 
-+struct regset_get {
-+	void *kbuf;
-+	void __user *ubuf;
-+};
-+
-+struct regset_set {
-+	const void *kbuf;
-+	const void __user *ubuf;
-+};
-+
-+struct regset_getset {
-+	struct task_struct *target;
-+	const struct user_regset *regset;
-+	union {
-+		struct regset_get get;
-+		struct regset_set set;
-+	} u;
-+	unsigned int pos;
-+	unsigned int count;
-+	int ret;
-+};
-+
-+static void getfpreg(struct task_struct *task, int regno, int *val)
-+{
-+	switch (regno / sizeof(int)) {
-+	case 0:
-+		*val = task->thread.fcr & 0xffff;
-+		break;
-+	case 1:
-+		*val = task->thread.fsr & 0xffff;
-+		break;
-+	case 2:
-+		*val = (task->thread.fsr>>16) & 0xffff;
-+		break;
-+	case 3:
-+		*val = task->thread.fir;
-+		break;
-+	case 4:
-+		*val = (task->thread.fir>>32) & 0xffff;
-+		break;
-+	case 5:
-+		*val = task->thread.fdr;
-+		break;
-+	case 6:
-+		*val = (task->thread.fdr >> 32) & 0xffff;
-+		break;
-+	}
-+}
-+
-+static void setfpreg(struct task_struct *task, int regno, int val)
-+{
-+	switch (regno / sizeof(int)) {
-+	case 0:
-+		task->thread.fcr = (task->thread.fcr & (~0x1f3f))
-+			| (val & 0x1f3f);
-+		break;
-+	case 1:
-+		task->thread.fsr = (task->thread.fsr & (~0xffff)) | val;
-+		break;
-+	case 2:
-+		task->thread.fsr = (task->thread.fsr & (~0xffff0000))
-+			| (val << 16);
-+		break;
-+	case 3:
-+		task->thread.fir = (task->thread.fir & (~0xffffffff)) | val;
-+		break;
-+	case 5:
-+		task->thread.fdr = (task->thread.fdr & (~0xffffffff)) | val;
-+		break;
-+	}
-+}
-+
-+static void access_fpreg_ia32(int regno, void *reg,
-+		struct pt_regs *pt, struct switch_stack *sw,
-+		int tos, int write)
-+{
-+	void *f;
-+
-+	if ((regno += tos) >= 8)
-+		regno -= 8;
-+	if (regno < 4)
-+		f = &pt->f8 + regno;
-+	else if (regno <= 7)
-+		f = &sw->f12 + (regno - 4);
-+	else {
-+		printk(KERN_ERR "regno must be less than 7 \n");
-+		 return;
-+	}
-+
-+	if (write)
-+		memcpy(f, reg, sizeof(struct _fpreg_ia32));
-+	else
-+		memcpy(reg, f, sizeof(struct _fpreg_ia32));
-+}
-+
-+static void do_fpregs_get(struct unw_frame_info *info, void *arg)
-+{
-+	struct regset_getset *dst = arg;
-+	struct task_struct *task = dst->target;
-+	struct pt_regs *pt;
-+	int start, end, tos;
-+	char buf[80];
-+
-+	if (dst->count = 0 || unw_unwind_to_user(info) < 0)
-+		return;
-+	if (dst->pos < 7 * sizeof(int)) {
-+		end = min((dst->pos + dst->count),
-+			(unsigned int)(7 * sizeof(int)));
-+		for (start = dst->pos; start < end; start += sizeof(int))
-+			getfpreg(task, start, (int *)(buf + start));
-+		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
-+				&dst->u.get.kbuf, &dst->u.get.ubuf, buf,
-+				0, 7 * sizeof(int));
-+		if (dst->ret || dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < sizeof(struct ia32_user_i387_struct)) {
-+		pt = task_pt_regs(task);
-+		tos = (task->thread.fsr >> 11) & 7;
-+		end = min(dst->pos + dst->count,
-+			(unsigned int)(sizeof(struct ia32_user_i387_struct)));
-+		start = (dst->pos - 7 * sizeof(int)) /
-+			sizeof(struct _fpreg_ia32);
-+		end = (end - 7 * sizeof(int)) / sizeof(struct _fpreg_ia32);
-+		for (; start < end; start++)
-+			access_fpreg_ia32(start,
-+				(struct _fpreg_ia32 *)buf + start,
-+				pt, info->sw, tos, 0);
-+		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
-+				&dst->u.get.kbuf, &dst->u.get.ubuf,
-+				buf, 7 * sizeof(int),
-+				sizeof(struct ia32_user_i387_struct));
-+		if (dst->ret || dst->count = 0)
-+			return;
-+	}
-+}
-+
-+static void do_fpregs_set(struct unw_frame_info *info, void *arg)
-+{
-+	struct regset_getset *dst = arg;
-+	struct task_struct *task = dst->target;
-+	struct pt_regs *pt;
-+	char buf[80];
-+	int end, start, tos;
-+
-+	if (dst->count = 0 || unw_unwind_to_user(info) < 0)
-+		return;
-+
-+	if (dst->pos < 7 * sizeof(int)) {
-+		start = dst->pos;
-+		dst->ret = user_regset_copyin(&dst->pos, &dst->count,
-+				&dst->u.set.kbuf, &dst->u.set.ubuf, buf,
-+				0, 7 * sizeof(int));
-+		if (dst->ret)
-+			return;
-+		for (; start < dst->pos; start += sizeof(int))
-+			setfpreg(task, start, *((int *)(buf + start)));
-+		if (dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < sizeof(struct ia32_user_i387_struct)) {
-+		start = (dst->pos - 7 * sizeof(int)) /
-+			sizeof(struct _fpreg_ia32);
-+		dst->ret = user_regset_copyin(&dst->pos, &dst->count,
-+				&dst->u.set.kbuf, &dst->u.set.ubuf,
-+				buf, 7 * sizeof(int),
-+				sizeof(struct ia32_user_i387_struct));
-+		if (dst->ret)
-+			return;
-+		pt = task_pt_regs(task);
-+		tos = (task->thread.fsr >> 11) & 7;
-+		end = (dst->pos - 7 * sizeof(int)) / sizeof(struct _fpreg_ia32);
-+		for (; start < end; start++)
-+			access_fpreg_ia32(start,
-+				(struct _fpreg_ia32 *)buf + start,
-+				pt, info->sw, tos, 1);
-+		if (dst->count = 0)
-+			return;
-+	}
-+}
-+
-+#define OFFSET(member) ((int)(offsetof(struct ia32_user_fxsr_struct, member)))
-+static void getfpxreg(struct task_struct *task, int start, int end, char *buf)
-+{
-+	int min_val;
-+
-+	min_val = min(end, OFFSET(fop));
-+	while (start < min_val) {
-+		if (start = OFFSET(cwd))
-+			*((short *)buf) = task->thread.fcr & 0xffff;
-+		else if (start = OFFSET(swd))
-+			*((short *)buf) = task->thread.fsr & 0xffff;
-+		else if (start = OFFSET(twd))
-+			*((short *)buf) = (task->thread.fsr>>16) & 0xffff;
-+		buf += 2;
-+		start += 2;
-+	}
-+	/* skip fop element */
-+	if (start = OFFSET(fop)) {
-+		start += 2;
-+		buf += 2;
-+	}
-+	while (start < end) {
-+		if (start = OFFSET(fip))
-+			*((int *)buf) = task->thread.fir;
-+		else if (start = OFFSET(fcs))
-+			*((int *)buf) = (task->thread.fir>>32) & 0xffff;
-+		else if (start = OFFSET(foo))
-+			*((int *)buf) = task->thread.fdr;
-+		else if (start = OFFSET(fos))
-+			*((int *)buf) = (task->thread.fdr>>32) & 0xffff;
-+		else if (start = OFFSET(mxcsr))
-+			*((int *)buf) = ((task->thread.fcr>>32) & 0xff80)
-+					 | ((task->thread.fsr>>32) & 0x3f);
-+		buf += 4;
-+		start += 4;
-+	}
-+}
-+
-+static void setfpxreg(struct task_struct *task, int start, int end, char *buf)
-+{
-+	int min_val, num32;
-+	short num;
-+	unsigned long num64;
-+
-+	min_val = min(end, OFFSET(fop));
-+	while (start < min_val) {
-+		num = *((short *)buf);
-+		if (start = OFFSET(cwd)) {
-+			task->thread.fcr = (task->thread.fcr & (~0x1f3f))
-+						| (num & 0x1f3f);
-+		} else if (start = OFFSET(swd)) {
-+			task->thread.fsr = (task->thread.fsr & (~0xffff)) | num;
-+		} else if (start = OFFSET(twd)) {
-+			task->thread.fsr = (task->thread.fsr & (~0xffff0000))
-+				| (((int)num) << 16);
-+		}
-+		buf += 2;
-+		start += 2;
-+	}
-+	/* skip fop element */
-+	if (start = OFFSET(fop)) {
-+		start += 2;
-+		buf += 2;
-+	}
-+	while (start < end) {
-+		num32 = *((int *)buf);
-+		if (start = OFFSET(fip))
-+			task->thread.fir = (task->thread.fir & (~0xffffffff))
-+						 | num32;
-+		else if (start = OFFSET(foo))
-+			task->thread.fdr = (task->thread.fdr & (~0xffffffff))
-+						 | num32;
-+		else if (start = OFFSET(mxcsr)) {
-+			num64 = num32 & 0xff10;
-+			task->thread.fcr = (task->thread.fcr &
-+				(~0xff1000000000UL)) | (num64<<32);
-+			num64 = num32 & 0x3f;
-+			task->thread.fsr = (task->thread.fsr &
-+				(~0x3f00000000UL)) | (num64<<32);
-+		}
-+		buf += 4;
-+		start += 4;
-+	}
-+}
-+
-+static void do_fpxregs_get(struct unw_frame_info *info, void *arg)
-+{
-+	struct regset_getset *dst = arg;
-+	struct task_struct *task = dst->target;
-+	struct pt_regs *pt;
-+	char buf[128];
-+	int start, end, tos;
-+
-+	if (dst->count = 0 || unw_unwind_to_user(info) < 0)
-+		return;
-+	if (dst->pos < OFFSET(st_space[0])) {
-+		end = min(dst->pos + dst->count, (unsigned int)32);
-+		getfpxreg(task, dst->pos, end, buf);
-+		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
-+				&dst->u.get.kbuf, &dst->u.get.ubuf, buf,
-+				0, OFFSET(st_space[0]));
-+		if (dst->ret || dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < OFFSET(xmm_space[0])) {
-+		pt = task_pt_regs(task);
-+		tos = (task->thread.fsr >> 11) & 7;
-+		end = min(dst->pos + dst->count,
-+				(unsigned int)OFFSET(xmm_space[0]));
-+		start = (dst->pos - OFFSET(st_space[0])) / 16;
-+		end = (end - OFFSET(st_space[0])) / 16;
-+		for (; start < end; start++)
-+			access_fpreg_ia32(start, buf + 16 * start, pt,
-+						info->sw, tos, 0);
-+		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
-+				&dst->u.get.kbuf, &dst->u.get.ubuf,
-+				buf, OFFSET(st_space[0]), OFFSET(xmm_space[0]));
-+		if (dst->ret || dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < OFFSET(padding[0]))
-+		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
-+				&dst->u.get.kbuf, &dst->u.get.ubuf,
-+				&info->sw->f16, OFFSET(xmm_space[0]),
-+				OFFSET(padding[0]));
-+}
-+
-+static void do_fpxregs_set(struct unw_frame_info *info, void *arg)
-+{
-+	struct regset_getset *dst = arg;
-+	struct task_struct *task = dst->target;
-+	char buf[128];
-+	int start, end;
-+
-+	if (dst->count = 0 || unw_unwind_to_user(info) < 0)
-+		return;
-+
-+	if (dst->pos < OFFSET(st_space[0])) {
-+		start = dst->pos;
-+		dst->ret = user_regset_copyin(&dst->pos, &dst->count,
-+				&dst->u.set.kbuf, &dst->u.set.ubuf,
-+				buf, 0, OFFSET(st_space[0]));
-+		if (dst->ret)
-+			return;
-+		setfpxreg(task, start, dst->pos, buf);
-+		if (dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < OFFSET(xmm_space[0])) {
-+		struct pt_regs *pt;
-+		int tos;
-+		pt = task_pt_regs(task);
-+		tos = (task->thread.fsr >> 11) & 7;
-+		start = (dst->pos - OFFSET(st_space[0])) / 16;
-+		dst->ret = user_regset_copyin(&dst->pos, &dst->count,
-+				&dst->u.set.kbuf, &dst->u.set.ubuf,
-+				buf, OFFSET(st_space[0]), OFFSET(xmm_space[0]));
-+		if (dst->ret)
-+			return;
-+		end = (dst->pos - OFFSET(st_space[0])) / 16;
-+		for (; start < end; start++)
-+			access_fpreg_ia32(start, buf + 16 * start, pt, info->sw,
-+						 tos, 1);
-+		if (dst->count = 0)
-+			return;
-+	}
-+	if (dst->pos < OFFSET(padding[0]))
-+		dst->ret = user_regset_copyin(&dst->pos, &dst->count,
-+				&dst->u.set.kbuf, &dst->u.set.ubuf,
-+				&info->sw->f16, OFFSET(xmm_space[0]),
-+				 OFFSET(padding[0]));
-+}
-+#undef OFFSET
-+
-+static int do_regset_call(void (*call)(struct unw_frame_info *, void *),
-+		struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		const void *kbuf, const void __user *ubuf)
-+{
-+	struct regset_getset info = { .target = target, .regset = regset,
-+		.pos = pos, .count = count,
-+		.u.set = { .kbuf = kbuf, .ubuf = ubuf },
-+		.ret = 0 };
-+
-+	if (target = current)
-+		unw_init_running(call, &info);
-+	else {
-+		struct unw_frame_info ufi;
-+		memset(&ufi, 0, sizeof(ufi));
-+		unw_init_from_blocked_task(&ufi, target);
-+		(*call)(&ufi, &info);
-+	}
-+
-+	return info.ret;
-+}
-+
-+static int ia32_fpregs_get(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		void *kbuf, void __user *ubuf)
-+{
-+	return do_regset_call(do_fpregs_get, target, regset, pos, count,
-+		kbuf, ubuf);
-+}
-+
-+static int ia32_fpregs_set(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		const void *kbuf, const void __user *ubuf)
-+{
-+	return do_regset_call(do_fpregs_set, target, regset, pos, count,
-+		kbuf, ubuf);
-+}
-+
-+static int ia32_fpxregs_get(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		void *kbuf, void __user *ubuf)
-+{
-+	return do_regset_call(do_fpxregs_get, target, regset, pos, count,
-+		kbuf, ubuf);
-+}
-+
-+static int ia32_fpxregs_set(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		const void *kbuf, const void __user *ubuf)
-+{
-+	return do_regset_call(do_fpxregs_set, target, regset, pos, count,
-+		kbuf, ubuf);
-+}
-+
-+static int ia32_genregs_get(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		void *kbuf, void __user *ubuf)
-+{
-+	if (kbuf) {
-+		u32 *kp = kbuf;
-+		while (count > 0) {
-+			*kp++ = getreg(target, pos);
-+			pos += 4;
-+			count -= 4;
-+		}
-+	} else {
-+		u32 __user *up = ubuf;
-+		while (count > 0) {
-+			if (__put_user(getreg(target, pos), up++))
-+				return -EFAULT;
-+			pos += 4;
-+			count -= 4;
-+		}
-+	}
-+	return 0;
-+}
-+
-+static int ia32_genregs_set(struct task_struct *target,
-+		const struct user_regset *regset,
-+		unsigned int pos, unsigned int count,
-+		const void *kbuf, const void __user *ubuf)
-+{
-+	int ret = 0;
-+
-+	if (kbuf) {
-+		const u32 *kp = kbuf;
-+		while (!ret && count > 0) {
-+			putreg(target, pos, *kp++);
-+			pos += 4;
-+			count -= 4;
-+		}
-+	} else {
-+		const u32 __user *up = ubuf;
-+		u32 val;
-+		while (!ret && count > 0) {
-+			ret = __get_user(val, up++);
-+			if (!ret)
-+				putreg(target, pos, val);
-+			pos += 4;
-+			count -= 4;
-+		}
-+	}
-+	return ret;
-+}
-+
-+static int ia32_tls_active(struct task_struct *target,
-+		const struct user_regset *regset)
-+{
-+	struct thread_struct *t = &target->thread;
-+	int n = GDT_ENTRY_TLS_ENTRIES;
-+	while (n > 0 && desc_empty(&t->tls_array[n -1]))
-+		--n;
-+	return n;
-+}
-+
-+static int ia32_tls_get(struct task_struct *target,
-+		const struct user_regset *regset, unsigned int pos,
-+		unsigned int count, void *kbuf, void __user *ubuf)
-+{
-+	const struct desc_struct *tls;
-+
-+	if (pos > GDT_ENTRY_TLS_ENTRIES * sizeof(struct ia32_user_desc) ||
-+			(pos % sizeof(struct ia32_user_desc)) != 0 ||
-+			(count % sizeof(struct ia32_user_desc)) != 0)
-+		return -EINVAL;
-+
-+	pos /= sizeof(struct ia32_user_desc);
-+	count /= sizeof(struct ia32_user_desc);
-+
-+	tls = &target->thread.tls_array[pos];
-+
-+	if (kbuf) {
-+		struct ia32_user_desc *info = kbuf;
-+		while (count-- > 0)
-+			fill_user_desc(info++, GDT_ENTRY_TLS_MIN + pos++,
-+					tls++);
-+	} else {
-+		struct ia32_user_desc __user *u_info = ubuf;
-+		while (count-- > 0) {
-+			struct ia32_user_desc info;
-+			fill_user_desc(&info, GDT_ENTRY_TLS_MIN + pos++, tls++);
-+			if (__copy_to_user(u_info++, &info, sizeof(info)))
-+				return -EFAULT;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static int ia32_tls_set(struct task_struct *target,
-+		const struct user_regset *regset, unsigned int pos,
-+		unsigned int count, const void *kbuf, const void __user *ubuf)
-+{
-+	struct ia32_user_desc infobuf[GDT_ENTRY_TLS_ENTRIES];
-+	const struct ia32_user_desc *info;
-+
-+	if (pos > GDT_ENTRY_TLS_ENTRIES * sizeof(struct ia32_user_desc) ||
-+			(pos % sizeof(struct ia32_user_desc)) != 0 ||
-+			(count % sizeof(struct ia32_user_desc)) != 0)
-+		return -EINVAL;
-+
-+	if (kbuf)
-+		info = kbuf;
-+	else if (__copy_from_user(infobuf, ubuf, count))
-+		return -EFAULT;
-+	else
-+		info = infobuf;
-+
-+	set_tls_desc(target,
-+		GDT_ENTRY_TLS_MIN + (pos / sizeof(struct ia32_user_desc)),
-+		info, count / sizeof(struct ia32_user_desc));
-+
-+	return 0;
-+}
+diff --git a/arch/ia64/xen/xcom_asm.S b/arch/ia64/xen/xcom_asm.S
+new file mode 100644
+index 0000000..8747908
+--- /dev/null
++++ b/arch/ia64/xen/xcom_asm.S
+@@ -0,0 +1,27 @@
++/*
++ * xencomm suspend support
++ * Support routines for Xen
++ *
++ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ */
++#include <asm/asmmacro.h>
++#include <xen/interface/xen.h>
 +
 +/*
-+ * This should match arch/i386/kernel/ptrace.c:native_regsets.
-+ * XXX ioperm? vm86?
++ * Stub for suspend.
++ * Just force the stacked registers to be written in memory.
 + */
-+static const struct user_regset ia32_regsets[] = {
-+	{
-+		.core_note_type = NT_PRSTATUS,
-+		.n = sizeof(struct user_regs_struct32)/4,
-+		.size = 4, .align = 4,
-+		.get = ia32_genregs_get, .set = ia32_genregs_set
-+	},
-+	{
-+		.core_note_type = NT_PRFPREG,
-+		.n = sizeof(struct ia32_user_i387_struct) / 4,
-+		.size = 4, .align = 4,
-+		.get = ia32_fpregs_get, .set = ia32_fpregs_set
-+	},
-+	{
-+		.core_note_type = NT_PRXFPREG,
-+		.n = sizeof(struct ia32_user_fxsr_struct) / 4,
-+		.size = 4, .align = 4,
-+		.get = ia32_fpxregs_get, .set = ia32_fpxregs_set
-+	},
-+	{
-+		.core_note_type = NT_386_TLS,
-+		.n = GDT_ENTRY_TLS_ENTRIES,
-+		.bias = GDT_ENTRY_TLS_MIN,
-+		.size = sizeof(struct ia32_user_desc),
-+		.align = sizeof(struct ia32_user_desc),
-+		.active = ia32_tls_active,
-+		.get = ia32_tls_get, .set = ia32_tls_set,
-+	},
-+};
++GLOBAL_ENTRY(xencomm_arch_hypercall_suspend)
++	;;
++	alloc r20=ar.pfs,0,0,6,0
++	mov r2=__HYPERVISOR_sched_op
++	;;
++	/* We don't want to deal with RSE.  */
++	flushrs
++	mov r33=r32
++	mov r32=2 // SCHEDOP_shutdown
++	;;
++	break 0x1000
++	;;
++	br.ret.sptk.many b0
++END(xencomm_arch_hypercall_suspend)
+diff --git a/arch/ia64/xen/xcom_hcall.c b/arch/ia64/xen/xcom_hcall.c
+new file mode 100644
+index 0000000..8cd9cdc
+--- /dev/null
++++ b/arch/ia64/xen/xcom_hcall.c
+@@ -0,0 +1,458 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ *
++ *          Tristan Gingold <tristan.gingold@bull.net>
++ *
++ *          Copyright (c) 2007
++ *          Isaku Yamahata <yamahata at valinux co jp>
++ *                          VA Linux Systems Japan K.K.
++ *          consolidate mini and inline version.
++ */
++#include <linux/types.h>
++#include <linux/errno.h>
++#include <linux/kernel.h>
++#include <linux/gfp.h>
++#include <linux/module.h>
++#include <xen/interface/xen.h>
++#include <xen/interface/memory.h>
++#include <xen/interface/xencomm.h>
++#include <xen/interface/version.h>
++#include <xen/interface/sched.h>
++#include <xen/interface/event_channel.h>
++#include <xen/interface/physdev.h>
++#include <xen/interface/grant_table.h>
++#include <xen/interface/callback.h>
++#include <xen/interface/vcpu.h>
++#include <asm/xen/hypervisor.h>
++#include <asm/page.h>
++#include <asm/uaccess.h>
++#include <asm/xen/xencomm.h>
 +
-+const struct user_regset_view user_ia32_view = {
-+	.name = "i386", .e_machine = EM_386,
-+	.regsets = ia32_regsets, .n = ARRAY_SIZE(ia32_regsets)
-+};
++/* Xencomm notes:
++ * This file defines hypercalls to be used by xencomm.  The hypercalls simply
++ * create inlines or mini descriptors for pointers and then call the raw arch
++ * hypercall xencomm_arch_hypercall_XXX
++ *
++ * If the arch wants to directly use these hypercalls, simply define macros
++ * in asm/xen/hypercall.h, eg:
++ *  #define HYPERVISOR_sched_op xencomm_hypercall_sched_op
++ *
++ * The arch may also define HYPERVISOR_xxx as a function and do more operations
++ * before/after doing the hypercall.
++ *
++ * Note: because only inline or mini descriptors are created these functions
++ * must only be called with in kernel memory parameters.
++ */
 +
- long sys32_fadvise64_64(int fd, __u32 offset_low, __u32 offset_high, 
- 			__u32 len_low, __u32 len_high, int advice)
- { 
-Index: linux/arch/ia64/kernel/ptrace.c
-=================================--- linux.orig/arch/ia64/kernel/ptrace.c	2008-02-28 07:48:05.000000000 +0800
-+++ linux/arch/ia64/kernel/ptrace.c	2008-02-28 10:53:48.000000000 +0800
-@@ -2314,5 +2314,10 @@ static const struct user_regset_view use
- 
- const struct user_regset_view *task_user_regset_view(struct task_struct *tsk)
- {
-+#ifdef CONFIG_IA32_SUPPORT
-+	extern const struct user_regset_view user_ia32_view;
-+	if (IS_IA32_PROCESS(task_pt_regs(tsk)))
-+		return &user_ia32_view;
++int
++xencomm_hypercall_console_io(int cmd, int count, char *str)
++{
++	return xencomm_arch_hypercall_console_io
++		(cmd, count, xencomm_map_no_alloc(str, count));
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_console_io);
++
++int
++xencomm_hypercall_event_channel_op(int cmd, void *op)
++{
++	struct xencomm_handle *desc;
++	desc = xencomm_map_no_alloc(op, sizeof(struct evtchn_op));
++	if (desc = NULL)
++		return -EINVAL;
++
++	return xencomm_arch_hypercall_event_channel_op(cmd, desc);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_event_channel_op);
++
++int
++xencomm_hypercall_xen_version(int cmd, void *arg)
++{
++	struct xencomm_handle *desc;
++	unsigned int argsize;
++
++	switch (cmd) {
++	case XENVER_version:
++		/* do not actually pass an argument */
++		return xencomm_arch_hypercall_xen_version(cmd, 0);
++	case XENVER_extraversion:
++		argsize = sizeof(struct xen_extraversion);
++		break;
++	case XENVER_compile_info:
++		argsize = sizeof(struct xen_compile_info);
++		break;
++	case XENVER_capabilities:
++		argsize = sizeof(struct xen_capabilities_info);
++		break;
++	case XENVER_changeset:
++		argsize = sizeof(struct xen_changeset_info);
++		break;
++	case XENVER_platform_parameters:
++		argsize = sizeof(struct xen_platform_parameters);
++		break;
++	case XENVER_get_features:
++		argsize = (arg = NULL) ? 0 : sizeof(struct xen_feature_info);
++		break;
++
++	default:
++		printk(KERN_DEBUG
++		       "%s: unknown version op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	desc = xencomm_map_no_alloc(arg, argsize);
++	if (desc = NULL)
++		return -EINVAL;
++
++	return xencomm_arch_hypercall_xen_version(cmd, desc);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_xen_version);
++
++int
++xencomm_hypercall_physdev_op(int cmd, void *op)
++{
++	unsigned int argsize;
++
++	switch (cmd) {
++	case PHYSDEVOP_apic_read:
++	case PHYSDEVOP_apic_write:
++		argsize = sizeof(struct physdev_apic);
++		break;
++	case PHYSDEVOP_alloc_irq_vector:
++	case PHYSDEVOP_free_irq_vector:
++		argsize = sizeof(struct physdev_irq);
++		break;
++	case PHYSDEVOP_irq_status_query:
++		argsize = sizeof(struct physdev_irq_status_query);
++		break;
++
++	default:
++		printk(KERN_DEBUG
++		       "%s: unknown physdev op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	return xencomm_arch_hypercall_physdev_op
++		(cmd, xencomm_map_no_alloc(op, argsize));
++}
++
++static int
++xencommize_grant_table_op(struct xencomm_mini **xc_area,
++			  unsigned int cmd, void *op, unsigned int count,
++			  struct xencomm_handle **desc)
++{
++	struct xencomm_handle *desc1;
++	unsigned int argsize;
++
++	switch (cmd) {
++	case GNTTABOP_map_grant_ref:
++		argsize = sizeof(struct gnttab_map_grant_ref);
++		break;
++	case GNTTABOP_unmap_grant_ref:
++		argsize = sizeof(struct gnttab_unmap_grant_ref);
++		break;
++	case GNTTABOP_setup_table:
++	{
++		struct gnttab_setup_table *setup = op;
++
++		argsize = sizeof(*setup);
++
++		if (count != 1)
++			return -EINVAL;
++		desc1 = __xencomm_map_no_alloc
++			(xen_guest_handle(setup->frame_list),
++			 setup->nr_frames *
++			 sizeof(*xen_guest_handle(setup->frame_list)),
++			 *xc_area);
++		if (desc1 = NULL)
++			return -EINVAL;
++		(*xc_area)++;
++		set_xen_guest_handle(setup->frame_list, (void *)desc1);
++		break;
++	}
++	case GNTTABOP_dump_table:
++		argsize = sizeof(struct gnttab_dump_table);
++		break;
++	case GNTTABOP_transfer:
++		argsize = sizeof(struct gnttab_transfer);
++		break;
++	case GNTTABOP_copy:
++		argsize = sizeof(struct gnttab_copy);
++		break;
++	case GNTTABOP_query_size:
++		argsize = sizeof(struct gnttab_query_size);
++		break;
++	default:
++		printk(KERN_DEBUG "%s: unknown hypercall grant table op %d\n",
++		       __func__, cmd);
++		BUG();
++	}
++
++	*desc = __xencomm_map_no_alloc(op, count * argsize, *xc_area);
++	if (*desc = NULL)
++		return -EINVAL;
++	(*xc_area)++;
++
++	return 0;
++}
++
++int
++xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
++				 unsigned int count)
++{
++	int rc;
++	struct xencomm_handle *desc;
++	XENCOMM_MINI_ALIGNED(xc_area, 2);
++
++	rc = xencommize_grant_table_op(&xc_area, cmd, op, count, &desc);
++	if (rc)
++		return rc;
++
++	return xencomm_arch_hypercall_grant_table_op(cmd, desc, count);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_grant_table_op);
++
++int
++xencomm_hypercall_sched_op(int cmd, void *arg)
++{
++	struct xencomm_handle *desc;
++	unsigned int argsize;
++
++	switch (cmd) {
++	case SCHEDOP_yield:
++	case SCHEDOP_block:
++		argsize = 0;
++		break;
++	case SCHEDOP_shutdown:
++		argsize = sizeof(struct sched_shutdown);
++		break;
++	case SCHEDOP_poll:
++	{
++		struct sched_poll *poll = arg;
++		struct xencomm_handle *ports;
++
++		argsize = sizeof(struct sched_poll);
++		ports = xencomm_map_no_alloc(xen_guest_handle(poll->ports),
++				     sizeof(*xen_guest_handle(poll->ports)));
++
++		set_xen_guest_handle(poll->ports, (void *)ports);
++		break;
++	}
++	default:
++		printk(KERN_DEBUG "%s: unknown sched op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	desc = xencomm_map_no_alloc(arg, argsize);
++	if (desc = NULL)
++		return -EINVAL;
++
++	return xencomm_arch_hypercall_sched_op(cmd, desc);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_sched_op);
++
++int
++xencomm_hypercall_multicall(void *call_list, int nr_calls)
++{
++	int rc;
++	int i;
++	struct multicall_entry *mce;
++	struct xencomm_handle *desc;
++	XENCOMM_MINI_ALIGNED(xc_area, nr_calls * 2);
++
++	for (i = 0; i < nr_calls; i++) {
++		mce = (struct multicall_entry *)call_list + i;
++
++		switch (mce->op) {
++		case __HYPERVISOR_update_va_mapping:
++		case __HYPERVISOR_mmu_update:
++			/* No-op on ia64.  */
++			break;
++		case __HYPERVISOR_grant_table_op:
++			rc = xencommize_grant_table_op
++				(&xc_area,
++				 mce->args[0], (void *)mce->args[1],
++				 mce->args[2], &desc);
++			if (rc)
++				return rc;
++			mce->args[1] = (unsigned long)desc;
++			break;
++		case __HYPERVISOR_memory_op:
++		default:
++			printk(KERN_DEBUG
++			       "%s: unhandled multicall op entry op %lu\n",
++			       __func__, mce->op);
++			return -ENOSYS;
++		}
++	}
++
++	desc = xencomm_map_no_alloc(call_list,
++				    nr_calls * sizeof(struct multicall_entry));
++	if (desc = NULL)
++		return -EINVAL;
++
++	return xencomm_arch_hypercall_multicall(desc, nr_calls);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_multicall);
++
++int
++xencomm_hypercall_callback_op(int cmd, void *arg)
++{
++	unsigned int argsize;
++	switch (cmd) {
++	case CALLBACKOP_register:
++		argsize = sizeof(struct callback_register);
++		break;
++	case CALLBACKOP_unregister:
++		argsize = sizeof(struct callback_unregister);
++		break;
++	default:
++		printk(KERN_DEBUG
++		       "%s: unknown callback op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	return xencomm_arch_hypercall_callback_op
++		(cmd, xencomm_map_no_alloc(arg, argsize));
++}
++
++static int
++xencommize_memory_reservation(struct xencomm_mini *xc_area,
++			      struct xen_memory_reservation *mop)
++{
++	struct xencomm_handle *desc;
++
++	desc = __xencomm_map_no_alloc(xen_guest_handle(mop->extent_start),
++			mop->nr_extents *
++			sizeof(*xen_guest_handle(mop->extent_start)),
++			xc_area);
++	if (desc = NULL)
++		return -EINVAL;
++
++	set_xen_guest_handle(mop->extent_start, (void *)desc);
++	return 0;
++}
++
++int
++xencomm_hypercall_memory_op(unsigned int cmd, void *arg)
++{
++	XEN_GUEST_HANDLE(xen_pfn_t) extent_start_va[2] = {{NULL}, {NULL}};
++	struct xen_memory_reservation *xmr = NULL;
++	int rc;
++	struct xencomm_handle *desc;
++	unsigned int argsize;
++	XENCOMM_MINI_ALIGNED(xc_area, 2);
++
++	switch (cmd) {
++	case XENMEM_increase_reservation:
++	case XENMEM_decrease_reservation:
++	case XENMEM_populate_physmap:
++		xmr = (struct xen_memory_reservation *)arg;
++		set_xen_guest_handle(extent_start_va[0],
++				     xen_guest_handle(xmr->extent_start));
++
++		argsize = sizeof(*xmr);
++		rc = xencommize_memory_reservation(xc_area, xmr);
++		if (rc)
++			return rc;
++		xc_area++;
++		break;
++
++	case XENMEM_maximum_ram_page:
++		argsize = 0;
++		break;
++
++	case XENMEM_add_to_physmap:
++		argsize = sizeof(struct xen_add_to_physmap);
++		break;
++
++	default:
++		printk(KERN_DEBUG "%s: unknown memory op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	desc = xencomm_map_no_alloc(arg, argsize);
++	if (desc = NULL)
++		return -EINVAL;
++
++	rc = xencomm_arch_hypercall_memory_op(cmd, desc);
++
++	switch (cmd) {
++	case XENMEM_increase_reservation:
++	case XENMEM_decrease_reservation:
++	case XENMEM_populate_physmap:
++		set_xen_guest_handle(xmr->extent_start,
++				     xen_guest_handle(extent_start_va[0]));
++		break;
++	}
++
++	return rc;
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_memory_op);
++
++int
++xencomm_hypercall_suspend(unsigned long srec)
++{
++	struct sched_shutdown arg;
++
++	arg.reason = SHUTDOWN_suspend;
++
++	return xencomm_arch_hypercall_suspend(
++		xencomm_map_no_alloc(&arg, sizeof(arg)));
++}
++
++long
++xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg)
++{
++	unsigned int argsize;
++	switch (cmd) {
++	case VCPUOP_register_runstate_memory_area: {
++		struct vcpu_register_runstate_memory_area *area +			(struct vcpu_register_runstate_memory_area *)arg;
++		argsize = sizeof(*arg);
++		set_xen_guest_handle(area->addr.h,
++		     (void *)xencomm_map_no_alloc(area->addr.v,
++						  sizeof(area->addr.v)));
++		break;
++	}
++
++	default:
++		printk(KERN_DEBUG "%s: unknown vcpu op %d\n", __func__, cmd);
++		return -ENOSYS;
++	}
++
++	return xencomm_arch_hypercall_vcpu_op(cmd, cpu,
++					xencomm_map_no_alloc(arg, argsize));
++}
++
++long
++xencomm_hypercall_opt_feature(void *arg)
++{
++	return xencomm_arch_hypercall_opt_feature(
++		xencomm_map_no_alloc(arg,
++				     sizeof(struct xen_ia64_opt_feature)));
++}
++
++int
++xencomm_hypercall_fpswa_revision(unsigned int *revision)
++{
++	struct xencomm_handle *desc;
++
++	desc = xencomm_map_no_alloc(revision, sizeof(*revision));
++	if (desc = NULL)
++		return -EINVAL;
++
++	return xencomm_arch_hypercall_fpswa_revision(desc);
++}
++EXPORT_SYMBOL_GPL(xencomm_hypercall_fpswa_revision);
+diff --git a/arch/ia64/xen/xencomm.c b/arch/ia64/xen/xencomm.c
+new file mode 100644
+index 0000000..6e9da66
+--- /dev/null
++++ b/arch/ia64/xen/xencomm.c
+@@ -0,0 +1,108 @@
++/*
++ * Copyright (C) 2006 Hollis Blanchard <hollisb@us.ibm.com>, IBM Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
++
++#include <linux/gfp.h>
++#include <linux/mm.h>
++#include <xen/interface/xen.h>
++#include <asm/page.h>
++
++#ifdef HAVE_XEN_PLATFORM_COMPAT_H
++#include <xen/platform-compat.h>
 +#endif
- 	return &user_ia64_view;
- }
-
++
++#include <asm/xen/xencomm.h>
++
++static unsigned long kernel_start_pa;
++
++void
++xencomm_initialize(void)
++{
++	kernel_start_pa = KERNEL_START - ia64_tpa(KERNEL_START);
++}
++
++/* Translate virtual address to physical address.  */
++unsigned long
++xencomm_vtop(unsigned long vaddr)
++{
++#ifndef CONFIG_VMX_GUEST
++	struct page *page;
++	struct vm_area_struct *vma;
++#endif
++
++	if (vaddr = 0)
++		return 0;
++
++#ifdef __ia64__
++	if (REGION_NUMBER(vaddr) = 5) {
++		pgd_t *pgd;
++		pud_t *pud;
++		pmd_t *pmd;
++		pte_t *ptep;
++
++		/* On ia64, TASK_SIZE refers to current.  It is not initialized
++		   during boot.
++		   Furthermore the kernel is relocatable and __pa() doesn't
++		   work on  addresses.  */
++		if (vaddr >= KERNEL_START
++		    && vaddr < (KERNEL_START + KERNEL_TR_PAGE_SIZE))
++			return vaddr - kernel_start_pa;
++
++		/* In kernel area -- virtually mapped.  */
++		pgd = pgd_offset_k(vaddr);
++		if (pgd_none(*pgd) || pgd_bad(*pgd))
++			return ~0UL;
++
++		pud = pud_offset(pgd, vaddr);
++		if (pud_none(*pud) || pud_bad(*pud))
++			return ~0UL;
++
++		pmd = pmd_offset(pud, vaddr);
++		if (pmd_none(*pmd) || pmd_bad(*pmd))
++			return ~0UL;
++
++		ptep = pte_offset_kernel(pmd, vaddr);
++		if (!ptep)
++			return ~0UL;
++
++		return (pte_val(*ptep) & _PFN_MASK) | (vaddr & ~PAGE_MASK);
++	}
++#endif
++
++	if (vaddr > TASK_SIZE) {
++		/* kernel address */
++		return __pa(vaddr);
++	}
++
++
++#ifdef CONFIG_VMX_GUEST
++	/* No privcmd within vmx guest.  */
++	return ~0UL;
++#else
++	/* XXX double-check (lack of) locking */
++	vma = find_extend_vma(current->mm, vaddr);
++	if (!vma)
++		return ~0UL;
++
++	/* We assume the page is modified.  */
++	page = follow_page(vma, vaddr, FOLL_WRITE | FOLL_TOUCH);
++	if (!page)
++		return ~0UL;
++
++	return (page_to_pfn(page) << PAGE_SHIFT) | (vaddr & ~PAGE_MASK);
++#endif
++}
+diff --git a/include/asm-ia64/xen/xcom_hcall.h b/include/asm-ia64/xen/xcom_hcall.h
+new file mode 100644
+index 0000000..adf4ba2
+--- /dev/null
++++ b/include/asm-ia64/xen/xcom_hcall.h
+@@ -0,0 +1,55 @@
++/*
++ * Copyright (C) 2006 Tristan Gingold <tristan.gingold@bull.net>, Bull SAS
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
++
++#ifndef _LINUX_XENCOMM_HCALL_H_
++#define _LINUX_XENCOMM_HCALL_H_
++
++/* These function creates inline or mini descriptor for the parameters and
++   calls the corresponding xencomm_arch_hypercall_X.
++   Architectures should defines HYPERVISOR_xxx as xencomm_hypercall_xxx unless
++   they want to use their own wrapper.  */
++extern int xencomm_hypercall_console_io(int cmd, int count, char *str);
++
++extern int xencomm_hypercall_event_channel_op(int cmd, void *op);
++
++extern int xencomm_hypercall_xen_version(int cmd, void *arg);
++
++extern int xencomm_hypercall_physdev_op(int cmd, void *op);
++
++extern int xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
++					    unsigned int count);
++
++extern int xencomm_hypercall_sched_op(int cmd, void *arg);
++
++extern int xencomm_hypercall_multicall(void *call_list, int nr_calls);
++
++extern int xencomm_hypercall_callback_op(int cmd, void *arg);
++
++extern int xencomm_hypercall_memory_op(unsigned int cmd, void *arg);
++
++extern unsigned long xencomm_hypercall_hvm_op(int cmd, void *arg);
++
++extern int xencomm_hypercall_suspend(unsigned long srec);
++
++extern long xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg);
++
++extern long xencomm_hypercall_opt_feature(void *arg);
++
++extern int xencomm_hypercall_kexec_op(int cmd, void *arg);
++
++#endif /* _LINUX_XENCOMM_HCALL_H_ */
+diff --git a/include/asm-ia64/xen/xencomm.h b/include/asm-ia64/xen/xencomm.h
+new file mode 100644
+index 0000000..cc27a5f
+--- /dev/null
++++ b/include/asm-ia64/xen/xencomm.h
+@@ -0,0 +1,33 @@
++/*
++ * Copyright (C) 2006 Hollis Blanchard <hollisb@us.ibm.com>, IBM Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
++
++#ifndef _ASM_IA64_XENCOMM_H_
++#define _ASM_IA64_XENCOMM_H_
++
++#define is_kernel_addr(x)					\
++	((PAGE_OFFSET <= (x) &&					\
++	  (x) < (PAGE_OFFSET + (1UL << IA64_MAX_PHYS_BITS))) ||	\
++	 (KERNEL_START <= (x) &&				\
++	  (x) < KERNEL_START + KERNEL_TR_PAGE_SIZE))
++
++/* Must be called before any hypercall.  */
++extern void xencomm_initialize(void);
++
++#include <xen/xencomm.h>
++
++#endif /* _ASM_IA64_XENCOMM_H_ */
+-- 
+1.5.3
 
