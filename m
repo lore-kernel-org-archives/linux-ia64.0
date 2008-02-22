@@ -1,105 +1,134 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Mon, 11 Feb 2008 21:42:34 +0000
-Subject: [PATCH 3/6] remove find_thread_for_addr()
-Message-Id: <1202766154.9594.26.camel@elijah.suse.cz>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:22 +0000
+Subject: [PATCH 06/28] ia64/xen: define xen assembler constants which will be used later.
+Message-Id: <1203657047694-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-find_thread_for_addr() is no longer needed.  It was only used to find
-the correct kernel RBS for a given memory address, but since the kernel
-RBS is not needed any longer, this function can go away.
 
-Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
-CC: Tony Luck <tony.luck@intel.com>
-CC: Christoph Hellwig <hch@infradead.org>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/asm-offsets.c |   25 ++++++++++++++
+ include/asm-ia64/xen/privop.h  |   73 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 98 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/privop.h
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index 54b7ea5..e82fe29 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -698,52 +698,6 @@ thread_matches (struct task_struct *thre
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index 0aebc6f..b432638 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -278,4 +278,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++
++#ifdef CONFIG_XEN
++	BLANK();
++
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(mapped_regs_t, field)))
++
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
  }
- 
- /*
-- * GDB apparently wants to be able to read the register-backing store
-- * of any thread when attached to a given process.  If we are peeking
-- * or poking an address that happens to reside in the kernel-backing
-- * store of another thread, we need to attach to that thread, because
-- * otherwise we end up accessing stale data.
-- *
-- * task_list_lock must be read-locked before calling this routine!
-- */
--static struct task_struct *
--find_thread_for_addr (struct task_struct *child, unsigned long addr)
--{
--	struct task_struct *p;
--	struct mm_struct *mm;
--	struct list_head *this, *next;
--	int mm_users;
--
--	if (!(mm = get_task_mm(child)))
--		return child;
--
--	/* -1 because of our get_task_mm(): */
--	mm_users = atomic_read(&mm->mm_users) - 1;
--	if (mm_users <= 1)
--		goto out;		/* not multi-threaded */
--
--	/*
--	 * Traverse the current process' children list.  Every task that
--	 * one attaches to becomes a child.  And it is only attached children
--	 * of the debugger that are of interest (ptrace_check_attach checks
--	 * for this).
--	 */
-- 	list_for_each_safe(this, next, &current->children) {
--		p = list_entry(this, struct task_struct, sibling);
--		if (p->tgid != child->tgid)
--			continue;
--		if (thread_matches(p, addr)) {
--			child = p;
--			goto out;
--		}
--	}
--
--  out:
--	mmput(mm);
--	return child;
--}
--
--/*
-  * Write f32-f127 back to task->thread.fph if it has been modified.
-  */
- inline void
-@@ -1520,7 +1474,6 @@ asmlinkage long
- sys_ptrace (long request, pid_t pid, unsigned long addr, unsigned long data)
- {
- 	struct pt_regs *pt;
--	unsigned long peek_or_poke;
- 	struct task_struct *child;
- 	struct switch_stack *sw;
- 	long ret;
-@@ -1532,19 +1485,12 @@ sys_ptrace (long request, pid_t pid, uns
- 		goto out;
- 	}
- 
--	peek_or_poke = (request = PTRACE_PEEKTEXT
--			|| request = PTRACE_PEEKDATA
--			|| request = PTRACE_POKETEXT
--			|| request = PTRACE_POKEDATA);
- 	ret = -ESRCH;
- 	read_lock(&tasklist_lock);
- 	{
- 		child = find_task_by_pid(pid);
--		if (child) {
--			if (peek_or_poke)
--				child = find_thread_for_addr(child, addr);
-+		if (child)
- 			get_task_struct(child);
--		}
- 	}
- 	read_unlock(&tasklist_lock);
- 	if (!child)
+diff --git a/include/asm-ia64/xen/privop.h b/include/asm-ia64/xen/privop.h
+new file mode 100644
+index 0000000..dd3e5ec
+--- /dev/null
++++ b/include/asm-ia64/xen/privop.h
+@@ -0,0 +1,73 @@
++#ifndef _ASM_IA64_XEN_PRIVOP_H
++#define _ASM_IA64_XEN_PRIVOP_H
++
++/*
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
++ *
++ * Paravirtualizations of privileged operations for Xen/ia64
++ *
++ *
++ * inline privop and paravirt_alt support
++ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ */
++
++#ifndef __ASSEMBLY__
++#include <linux/types.h>		/* arch-ia64.h requires uint64_t */
++#include <linux/stringify.h>
++#endif
++#include <asm/xen/interface.h>
++
++/* At 1 MB, before per-cpu space but still addressable using addl instead
++   of movl. */
++#define XSI_BASE			0xfffffffffff00000
++
++/* Address of mapped regs.  */
++#define XMAPPEDREGS_BASE		(XSI_BASE + XSI_SIZE)
++
++#ifdef __ASSEMBLY__
++#define XEN_HYPER_RFI			break HYPERPRIVOP_RFI
++#define XEN_HYPER_RSM_PSR_DT		break HYPERPRIVOP_RSM_DT
++#define XEN_HYPER_SSM_PSR_DT		break HYPERPRIVOP_SSM_DT
++#define XEN_HYPER_COVER			break HYPERPRIVOP_COVER
++#define XEN_HYPER_ITC_D			break HYPERPRIVOP_ITC_D
++#define XEN_HYPER_ITC_I			break HYPERPRIVOP_ITC_I
++#define XEN_HYPER_SSM_I			break HYPERPRIVOP_SSM_I
++#define XEN_HYPER_GET_IVR		break HYPERPRIVOP_GET_IVR
++#define XEN_HYPER_GET_TPR		break HYPERPRIVOP_GET_TPR
++#define XEN_HYPER_SET_TPR		break HYPERPRIVOP_SET_TPR
++#define XEN_HYPER_EOI			break HYPERPRIVOP_EOI
++#define XEN_HYPER_SET_ITM		break HYPERPRIVOP_SET_ITM
++#define XEN_HYPER_THASH			break HYPERPRIVOP_THASH
++#define XEN_HYPER_PTC_GA		break HYPERPRIVOP_PTC_GA
++#define XEN_HYPER_ITR_D			break HYPERPRIVOP_ITR_D
++#define XEN_HYPER_GET_RR		break HYPERPRIVOP_GET_RR
++#define XEN_HYPER_SET_RR		break HYPERPRIVOP_SET_RR
++#define XEN_HYPER_SET_KR		break HYPERPRIVOP_SET_KR
++#define XEN_HYPER_FC			break HYPERPRIVOP_FC
++#define XEN_HYPER_GET_CPUID		break HYPERPRIVOP_GET_CPUID
++#define XEN_HYPER_GET_PMD		break HYPERPRIVOP_GET_PMD
++#define XEN_HYPER_GET_EFLAG		break HYPERPRIVOP_GET_EFLAG
++#define XEN_HYPER_SET_EFLAG		break HYPERPRIVOP_SET_EFLAG
++#define XEN_HYPER_GET_PSR		break HYPERPRIVOP_GET_PSR
++#define XEN_HYPER_SET_RR0_TO_RR4	break HYPERPRIVOP_SET_RR0_TO_RR4
++
++#define XSI_IFS				(XSI_BASE + XSI_IFS_OFS)
++#define XSI_PRECOVER_IFS		(XSI_BASE + XSI_PRECOVER_IFS_OFS)
++#define XSI_IFA				(XSI_BASE + XSI_IFA_OFS)
++#define XSI_ISR				(XSI_BASE + XSI_ISR_OFS)
++#define XSI_IIM				(XSI_BASE + XSI_IIM_OFS)
++#define XSI_ITIR			(XSI_BASE + XSI_ITIR_OFS)
++#define XSI_PSR_I_ADDR			(XSI_BASE + XSI_PSR_I_ADDR_OFS)
++#define XSI_PSR_IC			(XSI_BASE + XSI_PSR_IC_OFS)
++#define XSI_IPSR			(XSI_BASE + XSI_IPSR_OFS)
++#define XSI_IIP				(XSI_BASE + XSI_IIP_OFS)
++#define XSI_B1NAT			(XSI_BASE + XSI_B1NATS_OFS)
++#define XSI_BANK1_R16			(XSI_BASE + XSI_BANK1_R16_OFS)
++#define XSI_BANKNUM			(XSI_BASE + XSI_BANKNUM_OFS)
++#define XSI_IHA				(XSI_BASE + XSI_IHA_OFS)
++#endif
++
++#endif /* _ASM_IA64_XEN_PRIVOP_H */
+-- 
+1.5.3
 
