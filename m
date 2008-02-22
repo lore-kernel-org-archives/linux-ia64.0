@@ -1,72 +1,101 @@
-From: Shi Weihua <shiwh@cn.fujitsu.com>
-Date: Tue, 19 Feb 2008 02:25:09 +0000
-Subject: Re: [PATCH 4/5] signal(ia64): add a signal stack overflow check
-Message-Id: <47BA3E05.8020805@cn.fujitsu.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Fri, 22 Feb 2008 17:14:20 +0000
+Subject: ia64_mca_cpe_int_handler
+Message-Id: <47BF02EC.4080102@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010507000806020104060609"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <47B95D4F.8030003@cn.fujitsu.com>
-In-Reply-To: <47B95D4F.8030003@cn.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------010507000806020104060609
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-The similar check has been added to x86_32(i386) in commit
-id 83bd01024b1fdfc41d9b758e5669e80fca72df66.
-So we add this check to ia64 and improve it a liitle bit in that
-we need to check for stack overflow only when the signal is on stack.
+The ia64_mca_cpe_int_handler() in 2.6.24 goes something like this:
 
-Signed-off-by: Shi Weihua <shiwh@cn.fujitsu.com> 
+ia64_mca_cpe_int_handler (int cpe_irq, void *arg)
+{
+...
+	/* SAL spec states this should run w/ interrupts enabled */
+	local_irq_enable();
 
----
+	spin_lock(&cpe_history_lock);
+...
+	spin_unlock(&cpe_history_lock);
 
-The previous patch has a comment mistake. Now I correct it.
+	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
+}
 
----
---- linux-2.6.25-rc2.orig/arch/ia64/kernel/signal.c	2008-02-16 04:57:20.000000000 +0800
-+++ linux-2.6.25-rc2/arch/ia64/kernel/signal.c	2008-02-19 09:57:05.000000000 +0800
-@@ -342,15 +342,33 @@ setup_frame (int sig, struct k_sigaction
+I think the interrupts are enabled too early. I just have caught a dead lock:
+I have got nested ia64_mca_cpe_int_handler()-s, the first instance has
+been interrupted somewhere between spin_lock(&cpe_history_lock) and
+spin_unlock(&cpe_history_lock). Obviously, the second instance will never get
+the lock.
+The previous versions, e.g. 2.6.18, were not safe either:
+
+ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
+{
+...
+        /* SAL spec states this should run w/ interrupts enabled */
+        local_irq_enable();
+
+        /* Get the CPE error record and log it */
+        ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
+
+        spin_lock(&cpe_history_lock);
+...
+	spin_unlock(&cpe_history_lock);
+}
+
+I think the interrupts have to be blocked while we are inside the lock-
+protected region.
+I can think of something like this below. Please have a look at this patch.
+
+Thanks,
+
+Zoltan Menyhart
+
+
+--------------010507000806020104060609
+Content-Type: text/plain;
+ name="mca.c-patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mca.c-patch"
+
+--- linux-2.6.24-old/arch/ia64/kernel/mca.c	2008-02-22 18:09:12.000000000 +0100
++++ linux-2.6.24/arch/ia64/kernel/mca.c	2008-02-22 18:09:26.000000000 +0100
+@@ -436,6 +436,10 @@
+ 	static const char * const rec_name[] = { "MCA", "INIT", "CMC", "CPE" };
+ #endif
  
- 	new_sp = scr->pt.r12;
- 	tramp_addr = (unsigned long) __kernel_sigtramp;
--	if ((ka->sa.sa_flags & SA_ONSTACK) && sas_ss_flags(new_sp) = 0) {
--		new_sp = current->sas_ss_sp + current->sas_ss_size;
--		/*
--		 * We need to check for the register stack being on the signal stack
--		 * separately, because it's switched separately (memory stack is switched
--		 * in the kernel, register stack is switched in the signal trampoline).
--		 */
--		if (!rbs_on_sig_stack(scr->pt.ar_bspstore))
--			new_rbs = (current->sas_ss_sp + sizeof(long) - 1) & ~(sizeof(long) - 1);
-+	if (ka->sa.sa_flags & SA_ONSTACK) {
-+		int onstack = sas_ss_flags(new_sp);
-+
-+		if (onstack = 0) {
-+			new_sp = current->sas_ss_sp + current->sas_ss_size;
-+			/*
-+			 * We need to check for the register stack being on the
-+			 * signal stack separately, because it's switched
-+			 * separately (memory stack is switched in the kernel,
-+			 * register stack is switched in the signal trampoline).
-+			 */
-+			if (!rbs_on_sig_stack(scr->pt.ar_bspstore))
-+				new_rbs = ALIGN(current->sas_ss_sp,
-+						sizeof(long));
-+		} else if (onstack = SS_ONSTACK) {
-+			unsigned long check_sp;
-+
-+			/*
-+			 * If we are on the alternate signal stack and would
-+			 * overflow it, don't. Return an always-bogus address
-+			 * instead so we will die with SIGSEGV.
-+			 */
-+			check_sp = (new_sp - sizeof(*frame)) & -STACK_ALIGN;
-+			if (!likely(on_sig_stack(check_sp)))
-+				return force_sigsegv_info(sig, (void __user *)
-+							  check_sp);
-+		}
- 	}
- 	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
++	if (irq_safe){
++		/* SAL spec states this should run w/ interrupts enabled */
++		local_irq_enable();
++	}
+ 	size = ia64_log_get(sal_info_type, &buffer, irq_safe);
+ 	if (!size)
+ 		return;
+@@ -512,9 +516,6 @@
+ 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+ 		       __FUNCTION__, cpe_irq, smp_processor_id());
  
+-	/* SAL spec states this should run w/ interrupts enabled */
+-	local_irq_enable();
+-
+ 	spin_lock(&cpe_history_lock);
+ 	if (!cpe_poll_enabled && cpe_vector >= 0) {
+ 
+@@ -1324,9 +1325,6 @@
+ 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+ 		       __FUNCTION__, cmc_irq, smp_processor_id());
+ 
+-	/* SAL spec states this should run w/ interrupts enabled */
+-	local_irq_enable();
+-
+ 	spin_lock(&cmc_history_lock);
+ 	if (!cmc_polling_enabled) {
+ 		int i, count = 1; /* we know 1 happened now */
 
-
+--------------010507000806020104060609--
