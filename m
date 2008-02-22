@@ -1,40 +1,46 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Date: Fri, 29 Feb 2008 20:28:43 +0000
-Subject: [PATCH] move gcc_intrin.h from header-y to unifdef-y
-Message-Id: <1204316923.8186.14.camel@athlon>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:07:39 +0000
+Subject: [PATCH 02/11] xen: add missing VIRQ_ARCH_[0-7] definitions which ia64/xen needs.
+Message-Id: <12036568683220-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12036568683779-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12036568683779-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-
-When I submitted 0df29025fd0379d5950d206314d0b10a2c8a9607 to ad
-an #ifdef __KERNEL__ to include/asm-ia64/gcc_intrin.h a few weeks
-ago I neglected to move gcc_intrin.h from header-y to unifdef-y.
-Thanks to David Woodhouse for pointing this out.
-
-Signed-off-by: Doug Chapman <doug.chapman@hp.com>
-Signed-off-by: Jarod Wilson <jwilson@redhat.com>
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, yamahata@valinux.co.jp
 
 
-diff --git a/include/asm-ia64/Kbuild b/include/asm-ia64/Kbuild
-index 4a1e48b..eb24a3f 100644
---- a/include/asm-ia64/Kbuild
-+++ b/include/asm-ia64/Kbuild
-@@ -3,7 +3,6 @@ include include/asm-generic/Kbuild.asm
- header-y += break.h
- header-y += fpu.h
- header-y += fpswa.h
--header-y += gcc_intrin.h
- header-y += ia64regs.h
- header-y += intel_intrin.h
- header-y += intrinsics.h
-@@ -12,5 +11,6 @@ header-y += ptrace_offsets.h
- header-y += rse.h
- header-y += ucontext.h
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ include/xen/interface/xen.h |   12 +++++++++++-
+ 1 files changed, 11 insertions(+), 1 deletions(-)
+
+diff --git a/include/xen/interface/xen.h b/include/xen/interface/xen.h
+index 87ad143..9b018da 100644
+--- a/include/xen/interface/xen.h
++++ b/include/xen/interface/xen.h
+@@ -78,8 +78,18 @@
+ #define VIRQ_CONSOLE    2  /* (DOM0) Bytes received on emergency console. */
+ #define VIRQ_DOM_EXC    3  /* (DOM0) Exceptional event for some domain.   */
+ #define VIRQ_DEBUGGER   6  /* (DOM0) A domain has paused for debugging.   */
+-#define NR_VIRQS        8
  
-+unifdef-y += gcc_intrin.h
- unifdef-y += perfmon.h
- unifdef-y += ustack.h
-
++/* Architecture-specific VIRQ definitions. */
++#define VIRQ_ARCH_0    16
++#define VIRQ_ARCH_1    17
++#define VIRQ_ARCH_2    18
++#define VIRQ_ARCH_3    19
++#define VIRQ_ARCH_4    20
++#define VIRQ_ARCH_5    21
++#define VIRQ_ARCH_6    22
++#define VIRQ_ARCH_7    23
++
++#define NR_VIRQS       24
+ /*
+  * MMU-UPDATE REQUESTS
+  *
+-- 
+1.5.3
 
