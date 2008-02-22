@@ -1,101 +1,53 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Fri, 22 Feb 2008 17:14:20 +0000
-Subject: ia64_mca_cpe_int_handler
-Message-Id: <47BF02EC.4080102@bull.net>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010507000806020104060609"
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 22 Feb 2008 22:32:11 +0000
+Subject: RE: ia64_mca_cpe_int_handler
+Message-Id: <1FE6DD409037234FAB833C420AA843ECA4220D@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <47BF02EC.4080102@bull.net>
+In-Reply-To: <47BF02EC.4080102@bull.net>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010507000806020104060609
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+> I think the interrupts are enabled too early.
 
-The ia64_mca_cpe_int_handler() in 2.6.24 goes something like this:
+This looks reasonable ... enabling the interrupts in code
+where we will hold the cmc_history_lock (or the cpe_history_lock)
+looks like a recipe for problems.
 
-ia64_mca_cpe_int_handler (int cpe_irq, void *arg)
-{
-...
-	/* SAL spec states this should run w/ interrupts enabled */
-	local_irq_enable();
+> Please have a look at this patch.
 
-	spin_lock(&cpe_history_lock);
-...
-	spin_unlock(&cpe_history_lock);
-
-	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-}
-
-I think the interrupts are enabled too early. I just have caught a dead lock:
-I have got nested ia64_mca_cpe_int_handler()-s, the first instance has
-been interrupted somewhere between spin_lock(&cpe_history_lock) and
-spin_unlock(&cpe_history_lock). Obviously, the second instance will never get
-the lock.
-The previous versions, e.g. 2.6.18, were not safe either:
-
-ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
-{
-...
-        /* SAL spec states this should run w/ interrupts enabled */
-        local_irq_enable();
-
-        /* Get the CPE error record and log it */
-        ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-
-        spin_lock(&cpe_history_lock);
-...
-	spin_unlock(&cpe_history_lock);
-}
-
-I think the interrupts have to be blocked while we are inside the lock-
-protected region.
-I can think of something like this below. Please have a look at this patch.
-
-Thanks,
-
-Zoltan Menyhart
-
-
---------------010507000806020104060609
-Content-Type: text/plain;
- name="mca.c-patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="mca.c-patch"
-
---- linux-2.6.24-old/arch/ia64/kernel/mca.c	2008-02-22 18:09:12.000000000 +0100
-+++ linux-2.6.24/arch/ia64/kernel/mca.c	2008-02-22 18:09:26.000000000 +0100
-@@ -436,6 +436,10 @@
- 	static const char * const rec_name[] = { "MCA", "INIT", "CMC", "CPE" };
- #endif
- 
 +	if (irq_safe){
 +		/* SAL spec states this should run w/ interrupts enabled */
 +		local_irq_enable();
 +	}
- 	size = ia64_log_get(sal_info_type, &buffer, irq_safe);
- 	if (!size)
- 		return;
-@@ -512,9 +516,6 @@
- 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
- 		       __FUNCTION__, cpe_irq, smp_processor_id());
- 
--	/* SAL spec states this should run w/ interrupts enabled */
--	local_irq_enable();
--
- 	spin_lock(&cpe_history_lock);
- 	if (!cpe_poll_enabled && cpe_vector >= 0) {
- 
-@@ -1324,9 +1325,6 @@
- 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
- 		       __FUNCTION__, cmc_irq, smp_processor_id());
- 
--	/* SAL spec states this should run w/ interrupts enabled */
--	local_irq_enable();
--
- 	spin_lock(&cmc_history_lock);
- 	if (!cmc_polling_enabled) {
- 		int i, count = 1; /* we know 1 happened now */
 
---------------010507000806020104060609--
+On first reading this I was a bit worried that you didn't enable
+interrrupts for *all* calls to SAL_GET_STATE_INFO calls (and
+rather worried that we perhaps needed to for MCA ... which sounded
+like a very, very bad idea).  But I went back to re-read the SAL
+spec, and figured out my confusion.
+
+The "irq_safe" variable is being over-loaded with extra meaning
+here ... it has the value we want (true for CMC or CPE) but the
+comment about SAL spec doesn't quite match the "irq safe" meaning
+implied by the name of the variable.
+
+The SAL spec doesn't say that we must have interrupts enabled if
+it is safe to do so, it says: "The operating system-corrected
+error handler shall run with interrupts enabled".
+
+Perhaps just update the comment to:
+
+		/* SAL spec says CMC and CPE handler must enable interrupts */
+
+which at least points the reader a little more clearly to what is
+going on.  Either that or make the test:
+
+	if (sal_info_type = SAL_INFO_TYPE_CMC || sal_info_type = SAL_INFO_TYPE_CPE) {
+		/* SAL spec states these should run w/ interrupts enabled */
+
+[This looks way too verbose]
+
+-Tony
