@@ -1,57 +1,59 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 05:10:41 +0000
-Subject: [PATCH 22/28] ia64/xen: mca paravirtualization
-Message-Id: <12036570472598-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:18 +0000
+Subject: [PATCH 02/28] ia64/xen: introduce ia64_get_psr_i() to make kernel paravirtualization friendly.
+Message-Id: <120365704729-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+__local_irq_save() and local_save_flags() are used to mask interruptions.
+They read all psr bits that requres whole bit emulation.
+On the other hand, reading only psr.i, the single bit, can be virtualized
+cheaply.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/mca.c |   22 ++++++++++++++++++++++
- 1 files changed, 22 insertions(+), 0 deletions(-)
+ include/asm-ia64/intrinsics.h |    2 ++
+ include/asm-ia64/system.h     |    4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 6e17aed..94f1023 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -339,11 +339,33 @@ typedef struct ia64_state_log_s
+diff --git a/include/asm-ia64/intrinsics.h b/include/asm-ia64/intrinsics.h
+index c206755..5800ad0 100644
+--- a/include/asm-ia64/intrinsics.h
++++ b/include/asm-ia64/intrinsics.h
+@@ -18,6 +18,8 @@
+ # include <asm/gcc_intrin.h>
+ #endif
  
- static ia64_state_log_t ia64_state_log[IA64_MAX_LOG_TYPES];
- 
-+#ifdef CONFIG_XEN
-+DEFINE_SPINLOCK(ia64_mca_xencomm_lock);
-+LIST_HEAD(ia64_mca_xencomm_list);
++#define ia64_get_psr_i()	(ia64_getreg(_IA64_REG_PSR) & IA64_PSR_I)
 +
-+#define IA64_MCA_XENCOMM_ALLOCATE(rec, desc) \
-+	if (is_running_on_xen()) { \
-+		ia64_mca_xencomm_t *entry; \
-+		entry = alloc_bootmem(sizeof(ia64_mca_xencomm_t)); \
-+		entry->record = rec; \
-+		entry->handle = desc; \
-+		list_add(&entry->list, &ia64_mca_xencomm_list); \
-+	}
-+#define IA64_LOG_ALLOCATE(it, size) \
-+	{ia64_err_rec_t *rec; \
-+	ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)] = rec = \
-+		(ia64_err_rec_t *)alloc_bootmem(size); \
-+	IA64_MCA_XENCOMM_ALLOCATE(rec, xencomm_map(rec, size)); \
-+	ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)] = rec = \
-+		(ia64_err_rec_t *)alloc_bootmem(size); \
-+	IA64_MCA_XENCOMM_ALLOCATE(rec, xencomm_map(rec, size));}
-+#else
- #define IA64_LOG_ALLOCATE(it, size) \
- 	{ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)] = \
- 		(ia64_err_rec_t *)alloc_bootmem(size); \
- 	ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)] = \
- 		(ia64_err_rec_t *)alloc_bootmem(size);}
-+#endif
- #define IA64_LOG_LOCK_INIT(it) spin_lock_init(&ia64_state_log[it].isl_lock)
- #define IA64_LOG_LOCK(it)      spin_lock_irqsave(&ia64_state_log[it].isl_lock, s)
- #define IA64_LOG_UNLOCK(it)    spin_unlock_irqrestore(&ia64_state_log[it].isl_lock,s)
+ #define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)	\
+ do {								\
+ 	ia64_set_rr(0x0000000000000000UL, (val0));		\
+diff --git a/include/asm-ia64/system.h b/include/asm-ia64/system.h
+index 595112b..2bca73e 100644
+--- a/include/asm-ia64/system.h
++++ b/include/asm-ia64/system.h
+@@ -125,7 +125,7 @@ extern struct ia64_boot_param {
+ #define __local_irq_save(x)			\
+ do {						\
+ 	ia64_stop();				\
+-	(x) = ia64_getreg(_IA64_REG_PSR);	\
++	(x) = ia64_get_psr_i();			\
+ 	ia64_stop();				\
+ 	ia64_rsm(IA64_PSR_I);			\
+ } while (0)
+@@ -173,7 +173,7 @@ do {								\
+ #endif /* !CONFIG_IA64_DEBUG_IRQ */
+ 
+ #define local_irq_enable()	({ ia64_stop(); ia64_ssm(IA64_PSR_I); ia64_srlz_d(); })
+-#define local_save_flags(flags)	({ ia64_stop(); (flags) = ia64_getreg(_IA64_REG_PSR); })
++#define local_save_flags(flags)	({ ia64_stop(); (flags) = ia64_get_psr_i(); })
+ 
+ #define irqs_disabled()				\
+ ({						\
 -- 
 1.5.3
 
