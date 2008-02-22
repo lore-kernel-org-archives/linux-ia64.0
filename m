@@ -1,651 +1,106 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 28 Feb 2008 09:57:16 +0000
-Subject: [PATCH 4/5] ia64/xen: introduce xen paravirtualized intrinsic operations for privileged instruction.
-Message-Id: <12041926373142-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:16 +0000
+Subject: [PATCH 00/28] RFC: ia64/xen domU paravirtualization
+Message-Id: <12036570473924-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi linux/ia64 developers. 
+Few days before Eddie posted the mail for Linux/IA64 paravirtualization.
+But only a few responded partially because there was no reviewable patches.
+Here is the patches for xen/ia64 Linux paravirtualization.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/hypercall.S     |  124 +++++++++++
- include/asm-ia64/xen/privop.h |  489 +++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 613 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/hypercall.S
+The goal is to merge IA64 xen Linux paravirtualization for both domU and dom0
+eventually. However the first step is to merge domU portion.
+As you can see from the current patchset, abstraction and many clean up
+must be done before merge.
+Before starting cleaning up, we want to discuss with linux ia64 developers.
+Please comment. Especially the first blocker is the paravirtualization of
+the hand written assembly code as Eddie already tried to discuss.
+The corresponding patch is
+"ia64/xen: xen hand written assembly code paravirtualization."
 
-diff --git a/arch/ia64/xen/hypercall.S b/arch/ia64/xen/hypercall.S
-new file mode 100644
-index 0000000..a96f278
---- /dev/null
-+++ b/arch/ia64/xen/hypercall.S
-@@ -0,0 +1,124 @@
-+/*
-+ * Support routines for Xen hypercalls
-+ *
-+ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
-+ */
-+
-+#include <asm/asmmacro.h>
-+#include <asm/intrinsics.h>
-+
-+#ifdef __INTEL_COMPILER
-+# undef ASM_SUPPORTED
-+#else
-+# define ASM_SUPPORTED
-+#endif
-+
-+#ifndef ASM_SUPPORTED
-+GLOBAL_ENTRY(xen_get_psr)
-+	XEN_HYPER_GET_PSR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_get_psr)
-+
-+GLOBAL_ENTRY(xen_get_ivr)
-+	XEN_HYPER_GET_IVR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_get_ivr)
-+
-+GLOBAL_ENTRY(xen_get_tpr)
-+	XEN_HYPER_GET_TPR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_get_tpr)
-+
-+GLOBAL_ENTRY(xen_set_tpr)
-+	mov r8=r32
-+	XEN_HYPER_SET_TPR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_set_tpr)
-+
-+GLOBAL_ENTRY(xen_eoi)
-+	mov r8=r32
-+	XEN_HYPER_EOI
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_eoi)
-+
-+GLOBAL_ENTRY(xen_thash)
-+	mov r8=r32
-+	XEN_HYPER_THASH
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_thash)
-+
-+GLOBAL_ENTRY(xen_set_itm)
-+	mov r8=r32
-+	XEN_HYPER_SET_ITM
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_set_itm)
-+
-+GLOBAL_ENTRY(xen_ptcga)
-+	mov r8=r32
-+	mov r9=r33
-+	XEN_HYPER_PTC_GA
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_ptcga)
-+
-+GLOBAL_ENTRY(xen_get_rr)
-+	mov r8=r32
-+	XEN_HYPER_GET_RR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_get_rr)
-+
-+GLOBAL_ENTRY(xen_set_rr)
-+	mov r8=r32
-+	mov r9=r33
-+	XEN_HYPER_SET_RR
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_set_rr)
-+
-+GLOBAL_ENTRY(xen_set_kr)
-+	mov r8=r32
-+	mov r9=r33
-+	XEN_HYPER_SET_KR
-+	br.ret.sptk.many rp
-+END(xen_set_kr)
-+
-+GLOBAL_ENTRY(xen_fc)
-+	mov r8=r32
-+	XEN_HYPER_FC
-+	br.ret.sptk.many rp
-+END(xen_fc)
-+
-+GLOBAL_ENTRY(xen_get_cpuid)
-+	mov r8=r32
-+	XEN_HYPER_GET_CPUID
-+	br.ret.sptk.many rp
-+END(xen_get_cpuid)
-+
-+GLOBAL_ENTRY(xen_get_pmd)
-+	mov r8=r32
-+	XEN_HYPER_GET_PMD
-+	br.ret.sptk.many rp
-+END(xen_get_pmd)
-+
-+#ifdef CONFIG_IA32_SUPPORT
-+GLOBAL_ENTRY(xen_get_eflag)
-+	XEN_HYPER_GET_EFLAG
-+	br.ret.sptk.many rp
-+END(xen_get_eflag)
-+
-+// some bits aren't set if pl!=0, see SDM vol1 3.1.8
-+GLOBAL_ENTRY(xen_set_eflag)
-+	mov r8=r32
-+	XEN_HYPER_SET_EFLAG
-+	br.ret.sptk.many rp
-+END(xen_set_eflag)
-+#endif /* CONFIG_IA32_SUPPORT */
-+#endif /* ASM_SUPPORTED */
-diff --git a/include/asm-ia64/xen/privop.h b/include/asm-ia64/xen/privop.h
-index 0fa8aa6..95e8e8a 100644
---- a/include/asm-ia64/xen/privop.h
-+++ b/include/asm-ia64/xen/privop.h
-@@ -70,6 +70,495 @@
- #define XSI_IHA				(XSI_BASE + XSI_IHA_OFS)
- #endif
- 
-+#ifndef __ASSEMBLY__
-+#define	XEN_HYPER_SSM_I		asm("break %0" : : "i" (HYPERPRIVOP_SSM_I))
-+#define	XEN_HYPER_GET_IVR	asm("break %0" : : "i" (HYPERPRIVOP_GET_IVR))
-+
-+/************************************************/
-+/* Instructions paravirtualized for correctness */
-+/************************************************/
-+
-+/* "fc" and "thash" are privilege-sensitive instructions, meaning they
-+ *  may have different semantics depending on whether they are executed
-+ *  at PL0 vs PL!=0.  When paravirtualized, these instructions mustn't
-+ *  be allowed to execute directly, lest incorrect semantics result. */
-+#ifdef ASM_SUPPORTED
-+static inline void
-+xen_fc(unsigned long addr)
-+{
-+	register __u64 __addr asm ("r8") = addr;
-+	asm volatile ("break %0":: "i"(HYPERPRIVOP_FC), "r"(__addr));
-+}
-+
-+static inline unsigned long
-+xen_thash(unsigned long addr)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	register __u64 __addr asm ("r8") = addr;
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res):
-+		      "i"(HYPERPRIVOP_THASH), "0"(__addr));
-+	return ia64_intri_res;
-+}
-+#else
-+extern void xen_fc(unsigned long addr);
-+extern unsigned long xen_thash(unsigned long addr);
-+#endif
-+
-+/* Note that "ttag" and "cover" are also privilege-sensitive; "ttag"
-+ * is not currently used (though it may be in a long-format VHPT system!)
-+ * and the semantics of cover only change if psr.ic is off which is very
-+ * rare (and currently non-existent outside of assembly code */
-+
-+/* There are also privilege-sensitive registers.  These registers are
-+ * readable at any privilege level but only writable at PL0. */
-+#ifdef ASM_SUPPORTED
-+static inline unsigned long
-+xen_get_cpuid(int index)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	register __u64 __index asm ("r8") = index;
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res):
-+		      "i"(HYPERPRIVOP_GET_CPUID), "0"(__index));
-+	return ia64_intri_res;
-+}
-+
-+static inline unsigned long
-+xen_get_pmd(int index)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	register __u64 __index asm ("r8") = index;
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res):
-+		      "i"(HYPERPRIVOP_GET_PMD), "0O"(__index));
-+	return ia64_intri_res;
-+}
-+#else
-+extern unsigned long xen_get_cpuid(int index);
-+extern unsigned long xen_get_pmd(int index);
-+#endif
-+
-+#ifdef ASM_SUPPORTED
-+static inline unsigned long
-+xen_get_eflag(void)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res): "i"(HYPERPRIVOP_GET_EFLAG));
-+	return ia64_intri_res;
-+}
-+
-+static inline void
-+xen_set_eflag(unsigned long val)
-+{
-+	register __u64 __val asm ("r8") = val;
-+	asm volatile ("break %0":: "i"(HYPERPRIVOP_SET_EFLAG), "r"(__val));
-+}
-+#else
-+extern unsigned long xen_get_eflag(void);	/* see xen_ia64_getreg */
-+extern void xen_set_eflag(unsigned long);	/* see xen_ia64_setreg */
-+#endif
-+
-+/************************************************/
-+/* Instructions paravirtualized for performance */
-+/************************************************/
-+
-+/* Xen uses memory-mapped virtual privileged registers for access to many
-+ * performance-sensitive privileged registers.  Some, like the processor
-+ * status register (psr), are broken up into multiple memory locations.
-+ * Others, like "pend", are abstractions based on privileged registers.
-+ * "Pend" is guaranteed to be set if reading cr.ivr would return a
-+ * (non-spurious) interrupt. */
-+#define XEN_MAPPEDREGS ((struct mapped_regs *)XMAPPEDREGS_BASE)
-+
-+#define XSI_PSR_I			\
-+	(*XEN_MAPPEDREGS->interrupt_mask_addr)
-+#define xen_get_virtual_psr_i()		\
-+	(!XSI_PSR_I)
-+#define xen_set_virtual_psr_i(_val)	\
-+	({ XSI_PSR_I = (uint8_t)(_val) ? 0 : 1; })
-+#define xen_set_virtual_psr_ic(_val)	\
-+	({ XEN_MAPPEDREGS->interrupt_collection_enabled = _val ? 1 : 0; })
-+#define xen_get_virtual_pend()		\
-+	(*(((uint8_t *)XEN_MAPPEDREGS->interrupt_mask_addr) - 1))
-+
-+/* Hyperprivops are "break" instructions with a well-defined API.
-+ * In particular, the virtual psr.ic bit must be off; in this way
-+ * it is guaranteed to never conflict with a linux break instruction.
-+ * Normally, this is done in a xen stub but this one is frequent enough
-+ * that we inline it */
-+#define xen_hyper_ssm_i()						\
-+({									\
-+	XEN_HYPER_SSM_I;						\
-+})
-+
-+/* turning off interrupts can be paravirtualized simply by writing
-+ * to a memory-mapped virtual psr.i bit (implemented as a 16-bit bool) */
-+#define xen_rsm_i()							\
-+do {									\
-+	xen_set_virtual_psr_i(0);					\
-+	barrier();							\
-+} while (0)
-+
-+/* turning on interrupts is a bit more complicated.. write to the
-+ * memory-mapped virtual psr.i bit first (to avoid race condition),
-+ * then if any interrupts were pending, we have to execute a hyperprivop
-+ * to ensure the pending interrupt gets delivered; else we're done! */
-+#define xen_ssm_i()							\
-+do {									\
-+	int old = xen_get_virtual_psr_i();				\
-+	xen_set_virtual_psr_i(1);					\
-+	barrier();							\
-+	if (!old && xen_get_virtual_pend())				\
-+		xen_hyper_ssm_i();					\
-+} while (0)
-+
-+#define xen_ia64_intrin_local_irq_restore(x)				\
-+do {									\
-+     if (is_running_on_xen()) {						\
-+	     if ((x) & IA64_PSR_I)					\
-+		     xen_ssm_i();					\
-+	     else							\
-+		     xen_rsm_i();					\
-+     } else {								\
-+	     native_intrin_local_irq_restore((x));			\
-+     }									\
-+} while (0)
-+
-+#define	xen_get_psr_i()							\
-+({									\
-+									\
-+	(is_running_on_xen()) ?						\
-+		(xen_get_virtual_psr_i() ? IA64_PSR_I : 0)		\
-+		: native_get_psr_i()					\
-+})
-+
-+#define xen_ia64_ssm(mask)						\
-+do {									\
-+	if ((mask) = IA64_PSR_I) {					\
-+		if (is_running_on_xen())				\
-+			xen_ssm_i(); 					\
-+		else							\
-+			native_ssm(mask);				\
-+	} else {							\
-+		native_ssm(mask);					\
-+	}								\
-+} while (0)
-+
-+#define xen_ia64_rsm(mask)						\
-+do {									\
-+	if ((mask) = IA64_PSR_I) {					\
-+		if (is_running_on_xen())				\
-+			xen_rsm_i(); 					\
-+		else							\
-+			native_rsm(mask);				\
-+	} else {							\
-+		native_rsm(mask);					\
-+	}								\
-+} while (0)
-+
-+/* Although all privileged operations can be left to trap and will
-+ * be properly handled by Xen, some are frequent enough that we use
-+ * hyperprivops for performance. */
-+
-+#ifndef ASM_SUPPORTED
-+extern unsigned long xen_get_psr(void);
-+extern unsigned long xen_get_ivr(void);
-+extern unsigned long xen_get_tpr(void);
-+extern void xen_set_itm(unsigned long);
-+extern void xen_set_tpr(unsigned long);
-+extern void xen_eoi(unsigned long);
-+extern void xen_set_rr(unsigned long index, unsigned long val);
-+extern unsigned long xen_get_rr(unsigned long index);
-+extern void xen_set_kr(unsigned long index, unsigned long val);
-+extern void xen_ptcga(unsigned long addr, unsigned long size);
-+#else
-+static inline unsigned long
-+xen_get_psr(void)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res): "i"(HYPERPRIVOP_GET_PSR));
-+	return ia64_intri_res;
-+}
-+
-+static inline unsigned long
-+xen_get_ivr(void)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res): "i"(HYPERPRIVOP_GET_IVR));
-+	return ia64_intri_res;
-+}
-+
-+static inline unsigned long
-+xen_get_tpr(void)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res): "i"(HYPERPRIVOP_GET_TPR));
-+	return ia64_intri_res;
-+}
-+
-+static inline void
-+xen_set_tpr(unsigned long val)
-+{
-+	register __u64 __val asm ("r8") = val;
-+	asm volatile ("break %0"::
-+		      "i"(HYPERPRIVOP_GET_TPR), "r"(__val));
-+}
-+
-+static inline void
-+xen_eoi(unsigned long val)
-+{
-+	register __u64 __val asm ("r8") = val;
-+	asm volatile ("break %0"::
-+		      "i"(HYPERPRIVOP_EOI), "r"(__val));
-+}
-+
-+static inline void
-+xen_set_itm(unsigned long val)
-+{
-+	register __u64 __val asm ("r8") = val;
-+	asm volatile ("break %0":: "i"(HYPERPRIVOP_SET_ITM), "r"(__val));
-+}
-+
-+static inline void
-+xen_ptcga(unsigned long addr, unsigned long size)
-+{
-+	register __u64 __addr asm ("r8") = addr;
-+	register __u64 __size asm ("r9") = size;
-+	asm volatile ("break %0"::
-+		      "i"(HYPERPRIVOP_PTC_GA), "r"(__addr), "r"(__size));
-+}
-+
-+static inline unsigned long
-+xen_get_rr(unsigned long index)
-+{
-+	register __u64 ia64_intri_res asm ("r8");
-+	register __u64 __index asm ("r8") = index;
-+	asm volatile ("break %1":
-+		      "=r"(ia64_intri_res):
-+		      "i"(HYPERPRIVOP_GET_RR), "0"(__index));
-+	return ia64_intri_res;
-+}
-+
-+static inline void
-+xen_set_rr(unsigned long index, unsigned long val)
-+{
-+	register __u64 __index asm ("r8") = index;
-+	register __u64 __val asm ("r9") = val;
-+	asm volatile ("break %0"::
-+		      "i"(HYPERPRIVOP_SET_RR), "r"(__index), "r"(__val));
-+}
-+
-+static inline void
-+xen_set_rr0_to_rr4(unsigned long val0, unsigned long val1,
-+		   unsigned long val2, unsigned long val3, unsigned long val4)
-+{
-+	register __u64 __val0 asm ("r8") = val0;
-+	register __u64 __val1 asm ("r9") = val1;
-+	register __u64 __val2 asm ("r10") = val2;
-+	register __u64 __val3 asm ("r11") = val3;
-+	register __u64 __val4 asm ("r14") = val4;
-+	asm volatile ("break %0" ::
-+		      "i"(HYPERPRIVOP_SET_RR0_TO_RR4),
-+		      "r"(__val0), "r"(__val1),
-+		      "r"(__val2), "r"(__val3), "r"(__val4));
-+}
-+
-+static inline void
-+xen_set_kr(unsigned long index, unsigned long val)
-+{
-+	register __u64 __index asm ("r8") = index;
-+	register __u64 __val asm ("r9") = val;
-+	asm volatile ("break %0"::
-+		      "i"(HYPERPRIVOP_SET_KR), "r"(__index), "r"(__val));
-+}
-+#endif
-+
-+/* Note: It may look wrong to test for is_running_on_xen() in each case.
-+ * However regnum is always a constant so, as written, the compiler
-+ * eliminates the switch statement, whereas is_running_on_xen() must be
-+ * tested dynamically. */
-+#define xen_ia64_getreg(regnum)						\
-+({									\
-+	__u64 ia64_intri_res;						\
-+									\
-+	switch (regnum) {						\
-+	case _IA64_REG_PSR:						\
-+		ia64_intri_res = (is_running_on_xen()) ?		\
-+			xen_get_psr() :					\
-+			native_getreg(regnum);				\
-+		break;							\
-+	case _IA64_REG_CR_IVR:						\
-+		ia64_intri_res = (is_running_on_xen()) ?		\
-+			xen_get_ivr() :					\
-+			native_getreg(regnum);				\
-+		break;							\
-+	case _IA64_REG_CR_TPR:						\
-+		ia64_intri_res = (is_running_on_xen()) ?		\
-+			xen_get_tpr() :					\
-+			native_getreg(regnum);				\
-+		break;							\
-+	case _IA64_REG_AR_EFLAG:					\
-+		ia64_intri_res = (is_running_on_xen()) ?		\
-+			xen_get_eflag() :				\
-+			native_getreg(regnum);				\
-+		break;							\
-+	default:							\
-+		ia64_intri_res = native_getreg(regnum);			\
-+		break;							\
-+	}								\
-+	ia64_intri_res;							\
-+})
-+
-+#define xen_ia64_setreg(regnum, val)					\
-+({									\
-+	switch (regnum) {						\
-+	case _IA64_REG_AR_KR0 ... _IA64_REG_AR_KR7:			\
-+		(is_running_on_xen()) ?					\
-+			xen_set_kr(((regnum)-_IA64_REG_AR_KR0), (val)) :\
-+			native_setreg((regnum), (val));			\
-+		break;							\
-+	case _IA64_REG_CR_ITM:						\
-+		(is_running_on_xen()) ?					\
-+			xen_set_itm(val) :				\
-+			native_setreg((regnum), (val));			\
-+		break;							\
-+	case _IA64_REG_CR_TPR:						\
-+		(is_running_on_xen()) ?					\
-+			xen_set_tpr(val) :				\
-+			native_setreg((regnum), (val));			\
-+		break;							\
-+	case _IA64_REG_CR_EOI:						\
-+		(is_running_on_xen()) ?					\
-+			xen_eoi(val) :					\
-+			native_setreg((regnum), (val));			\
-+		break;							\
-+	case _IA64_REG_AR_EFLAG:					\
-+		(is_running_on_xen()) ?					\
-+			xen_set_eflag(val) :				\
-+			native_setreg((regnum), (val));			\
-+		break;							\
-+	default:							\
-+		native_setreg((regnum), (val));				\
-+		break;							\
-+	}								\
-+})
-+
-+#if defined(ASM_SUPPORTED) && !defined(CONFIG_PARAVIRT_ALT)
-+
-+#define IA64_PARAVIRTUALIZED_PRIVOP
-+
-+#define ia64_fc(addr)							\
-+do {									\
-+	if (is_running_on_xen())					\
-+		xen_fc((unsigned long)(addr));				\
-+	else								\
-+		native_fc(addr);					\
-+} while (0)
-+
-+#define ia64_thash(addr)						\
-+({									\
-+	unsigned long ia64_intri_res;					\
-+	if (is_running_on_xen())					\
-+		ia64_intri_res =					\
-+			xen_thash((unsigned long)(addr));		\
-+	else								\
-+		ia64_intri_res = native_thash(addr);			\
-+	ia64_intri_res;							\
-+})
-+
-+#define ia64_get_cpuid(i)						\
-+({									\
-+	unsigned long ia64_intri_res;					\
-+	if (is_running_on_xen())					\
-+		ia64_intri_res = xen_get_cpuid(i);			\
-+	else								\
-+		ia64_intri_res = native_get_cpuid(i);			\
-+	ia64_intri_res;							\
-+})
-+
-+#define ia64_get_pmd(i)							\
-+({									\
-+	unsigned long ia64_intri_res;					\
-+	if (is_running_on_xen())					\
-+		ia64_intri_res = xen_get_pmd(i);			\
-+	else								\
-+		ia64_intri_res = native_get_pmd(i);			\
-+	ia64_intri_res;							\
-+})
-+
-+
-+#define ia64_ptcga(addr, size)						\
-+do {									\
-+	if (is_running_on_xen())					\
-+		xen_ptcga((addr), (size));				\
-+	else								\
-+		native_ptcga((addr), (size));				\
-+} while (0)
-+
-+#define ia64_set_rr(index, val)						\
-+do {									\
-+	if (is_running_on_xen())					\
-+		xen_set_rr((index), (val));				\
-+	else								\
-+		native_set_rr((index), (val));				\
-+} while (0)
-+
-+#define ia64_get_rr(index)						\
-+({									\
-+	__u64 ia64_intri_res;						\
-+	if (is_running_on_xen())					\
-+		ia64_intri_res = xen_get_rr((index));			\
-+	else								\
-+		ia64_intri_res = native_get_rr((index));		\
-+	ia64_intri_res;							\
-+})
-+
-+#define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)		\
-+do {									\
-+	if (is_running_on_xen())					\
-+		xen_set_rr0_to_rr4((val0), (val1), (val2),		\
-+				   (val3), (val4));			\
-+	else								\
-+		native_set_rr0_to_rr4((val0), (val1), (val2),		\
-+				      (val3), (val4));			\
-+} while (0)
-+
-+#define ia64_getreg			xen_ia64_getreg
-+#define ia64_setreg			xen_ia64_setreg
-+#define ia64_ssm			xen_ia64_ssm
-+#define ia64_rsm			xen_ia64_rsm
-+#define ia64_intrin_local_irq_restore	xen_ia64_intrin_local_irq_restore
-+#define ia64_get_psr_i			xen_get_psr_i
-+
-+/* the remainder of these are not performance-sensitive so its
-+ * OK to not paravirtualize and just take a privop trap and emulate */
-+#define ia64_hint			native_hint
-+#define ia64_set_pmd			native_set_pmd
-+#define ia64_itci			native_itci
-+#define ia64_itcd			native_itcd
-+#define ia64_itri			native_itri
-+#define ia64_itrd			native_itrd
-+#define ia64_tpa			native_tpa
-+#define ia64_set_ibr			native_set_ibr
-+#define ia64_set_pkr			native_set_pkr
-+#define ia64_set_pmc			native_set_pmc
-+#define ia64_get_ibr			native_get_ibr
-+#define ia64_get_pkr			native_get_pkr
-+#define ia64_get_pmc			native_get_pmc
-+#define ia64_ptce			native_ptce
-+#define ia64_ptcl			native_ptcl
-+#define ia64_ptri			native_ptri
-+#define ia64_ptrd			native_ptrd
-+
-+#endif /* ASM_SUPPORTED && !CONFIG_PARAVIRT_ALT */
-+
-+#endif /* !__ASSEMBLY__ */
-+
- /* these routines utilize privilege-sensitive or performance-sensitive
-  * privileged instructions so the code must be replaced with
-  * paravirtualized versions */
--- 
-1.5.3
+This patchset depends on another patchset which I sent out as
+"Xen arch portability patches."
 
+thansk,
+
+Diffstat:
+ arch/ia64/Kconfig                        |   76 +
+ arch/ia64/Makefile                       |   12 +-
+ arch/ia64/configs/xen_domu_wip_defconfig |  854 ++++++++++++
+ arch/ia64/kernel/Makefile                |   63 +
+ arch/ia64/kernel/acpi.c                  |    6 +
+ arch/ia64/kernel/asm-offsets.c           |   25 +
+ arch/ia64/kernel/entry.S                 |   41 +-
+ arch/ia64/kernel/fsys.S                  |   41 +
+ arch/ia64/kernel/gate.S                  |   55 +
+ arch/ia64/kernel/gate.lds.S              |   18 +
+ arch/ia64/kernel/head.S                  |    6 +
+ arch/ia64/kernel/iosapic.c               |   89 ++-
+ arch/ia64/kernel/irq_ia64.c              |  363 +++++-
+ arch/ia64/kernel/mca.c                   |   22 +
+ arch/ia64/kernel/module.c                |   32 +
+ arch/ia64/kernel/pal.S                   |    5 +-
+ arch/ia64/kernel/paravirt_alt.c          |  118 ++
+ arch/ia64/kernel/paravirt_core.c         |  201 +++
+ arch/ia64/kernel/paravirt_entry.c        |   99 ++
+ arch/ia64/kernel/paravirt_nop.c          |   49 +
+ arch/ia64/kernel/paravirtentry.S         |   37 +
+ arch/ia64/kernel/patch.c                 |   28 +
+ arch/ia64/kernel/salinfo.c               |   44 +
+ arch/ia64/kernel/setup.c                 |  121 ++
+ arch/ia64/kernel/smpboot.c               |    4 +
+ arch/ia64/kernel/time.c                  |  204 +++
+ arch/ia64/kernel/vmlinux.lds.S           |   41 +
+ arch/ia64/kernel/xengate-data.S          |    3 +
+ arch/ia64/mm/init.c                      |   22 +-
+ arch/ia64/xen/Kconfig                    |   29 +
+ arch/ia64/xen/Makefile                   |   11 +
+ arch/ia64/xen/hypercall.S                |  141 ++
+ arch/ia64/xen/hypervisor.c               |  228 +++
+ arch/ia64/xen/machvec.c                  |    4 +
+ arch/ia64/xen/paravirt_xen.c             |  242 ++++
+ arch/ia64/xen/privops_asm.S              |  221 +++
+ arch/ia64/xen/privops_c.c                |  279 ++++
+ arch/ia64/xen/util.c                     |  101 ++
+ arch/ia64/xen/xcom_asm.S                 |   27 +
+ arch/ia64/xen/xcom_hcall.c               |  458 +++++++
+ arch/ia64/xen/xencomm.c                  |  108 ++
+ arch/ia64/xen/xenentry.S                 |  798 +++++++++++
+ arch/ia64/xen/xenivt.S                   | 2204 ++++++++++++++++++++++++++++++
+ arch/ia64/xen/xenminstate.h              |  320 +++++
+ arch/ia64/xen/xenpal.S                   |   76 +
+ arch/ia64/xen/xensetup.S                 |   50 +
+ include/asm-ia64/gcc_intrin.h            |   58 +-
+ include/asm-ia64/hw_irq.h                |   10 +
+ include/asm-ia64/intel_intrin.h          |   64 +-
+ include/asm-ia64/intrinsics.h            |   12 +
+ include/asm-ia64/iosapic.h               |    2 +
+ include/asm-ia64/irq.h                   |   33 +
+ include/asm-ia64/machvec.h               |    2 +
+ include/asm-ia64/machvec_xen.h           |   22 +
+ include/asm-ia64/meminit.h               |    7 +
+ include/asm-ia64/mmu_context.h           |    6 +-
+ include/asm-ia64/module.h                |    6 +
+ include/asm-ia64/page.h                  |   11 +
+ include/asm-ia64/paravirt_alt.h          |   82 ++
+ include/asm-ia64/paravirt_core.h         |   54 +
+ include/asm-ia64/paravirt_entry.h        |   62 +
+ include/asm-ia64/paravirt_nop.h          |   46 +
+ include/asm-ia64/privop.h                |   67 +
+ include/asm-ia64/privop_paravirt.h       |  587 ++++++++
+ include/asm-ia64/sal.h                   |   36 +
+ include/asm-ia64/sync_bitops.h           |   61 +
+ include/asm-ia64/system.h                |    4 +-
+ include/asm-ia64/xen/hypercall.h         |  426 ++++++
+ include/asm-ia64/xen/hypervisor.h        |  249 ++++
+ include/asm-ia64/xen/interface.h         |  686 ++++++++++
+ include/asm-ia64/xen/page.h              |   19 +
+ include/asm-ia64/xen/privop.h            |  609 +++++++++
+ include/asm-ia64/xen/xcom_hcall.h        |   55 +
+ include/asm-ia64/xen/xencomm.h           |   33 +
+ 74 files changed, 11190 insertions(+), 95 deletions(-)
