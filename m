@@ -1,178 +1,42 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Feb 2008 13:58:54 +0000
-Subject: [PATCH 3/8] ia64/pv_ops: paravirtualization hand written assnbly code. inst_native.h
-Message-Id: <12040343393190-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:07:38 +0000
+Subject: [PATCH 01/11] xen: add missing __HYPERVISOR_arch_[0-7] definisions which ia64 needs.
+Message-Id: <12036568682767-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12036568683779-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12036568683779-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, yamahata@valinux.co.jp
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/inst_native.h |  153 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 153 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kernel/inst_native.h
+ include/xen/interface/xen.h |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/inst_native.h b/arch/ia64/kernel/inst_native.h
-new file mode 100644
-index 0000000..3ba88f4
---- /dev/null
-+++ b/arch/ia64/kernel/inst_native.h
-@@ -0,0 +1,153 @@
-+/******************************************************************************
-+ * inst_native.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
+diff --git a/include/xen/interface/xen.h b/include/xen/interface/xen.h
+index 518a5bf..87ad143 100644
+--- a/include/xen/interface/xen.h
++++ b/include/xen/interface/xen.h
+@@ -58,6 +58,16 @@
+ #define __HYPERVISOR_physdev_op           33
+ #define __HYPERVISOR_hvm_op               34
+ 
++/* Architecture-specific hypercall definitions. */
++#define __HYPERVISOR_arch_0               48
++#define __HYPERVISOR_arch_1               49
++#define __HYPERVISOR_arch_2               50
++#define __HYPERVISOR_arch_3               51
++#define __HYPERVISOR_arch_4               52
++#define __HYPERVISOR_arch_5               53
++#define __HYPERVISOR_arch_6               54
++#define __HYPERVISOR_arch_7               55
 +
-+#define IA64_ASM_PARAVIRTUALIZED_NATIVE
-+
-+#undef BR_IF_NATIVE
-+#define BR_IF_NATIVE(targ, reg, pred)		/* nothing */
-+
-+#define __paravirt_switch_to			__ia64_switch_to
-+#define __paravirt_leave_syscall		__ia64_leave_syscall
-+#define __paravirt_work_processed_syscall	__ia64_work_processed_syscall
-+#define __paravirt_leave_kernel			__ia64_leave_kernel
-+#define __paravirt_pending_syscall_end		ia64_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						ia64_work_processed_syscall
-+
-+#define MOV_FROM_IFA(reg)	\
-+	mov reg = cr.ifa
-+
-+#define MOV_FROM_ITIR(reg)	\
-+	mov reg = cr.itir
-+
-+#define MOV_FROM_ISR(reg)	\
-+	mov reg = cr.isr
-+
-+#define MOV_FROM_IHA(reg)	\
-+	mov reg = cr.iha
-+
-+#define MOV_FROM_IPSR(reg)	\
-+	mov reg = cr.ipsr
-+
-+#define MOV_FROM_IIM(reg)	\
-+	mov reg = cr.iim
-+
-+#define MOV_FROM_IIP(reg)	\
-+	mov reg = cr.iip
-+
-+#if 0
-+#define MOV_FROM_IVR(reg, clob)	\
-+	mov reg = cr.ivr
-+#else
-+#define MOV_FROM_IVR(reg)	\
-+	mov reg = cr.ivr
-+#endif
-+
-+#define MOV_FROM_PSR(pred, reg, clob)	\
-+	(pred) mov reg = psr
-+
-+#define MOV_TO_IFA(reg, clob)	\
-+	mov cr.ifa = reg
-+
-+#define MOV_TO_ITIR(pred, reg, clob)	\
-+	(pred) mov cr.itir = reg
-+
-+#define MOV_TO_IHA(pred, reg, clob)	\
-+	(pred) mov cr.iha = reg
-+
-+#define MOV_TO_IPSR(reg, clob)	\
-+	mov cr.ipsr = reg
-+
-+#define MOV_TO_IFS(pred, reg, clob)	\
-+	(pred) mov cr.ifs = reg
-+
-+#define MOV_TO_IIP(reg, clob)	\
-+	mov cr.iip = reg
-+
-+#if 0
-+#define MOV_TO_KR(kr, reg, clob0, clob1)	\
-+	mov IA64_KR(kr) = reg
-+#else
-+#define MOV_TO_KR(kr, reg)	\
-+	mov IA64_KR(kr) = reg
-+#endif
-+
-+#define ITC_I(pred, reg, clob)	\
-+	(pred) itc.i reg
-+
-+#define ITC_D(pred, reg, clob)	\
-+	(pred) itc.d reg
-+
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
-+	(pred_i) itc.i reg;			\
-+	(pred_d) itc.d reg
-+
-+#define THASH(pred, reg0, reg1, clob)		\
-+	(pred) thash reg0 = reg1
-+
-+#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)			\
-+	ssm psr.ic | PSR_DEFAULT_BITS					\
-+	;;								\
-+	srlz.i /* guarantee that interruption collectin is on */	\
-+	;;
-+
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
-+	ssm psr.ic;				\
-+	;;					\
-+	srlz.d
-+
-+#define RSM_PSR_IC(clob)	\
-+	rsm psr.ic
-+
-+#define SSM_PSR_I(pred, clob)	\
-+	(pred) ssm psr.i
-+
-+#define RSM_PSR_I(pred, clob0, clob1)	\
-+	(pred) rsm psr.i
-+
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
-+	rsm psr.i | psr.ic
-+
-+#define RSM_PSR_DT		\
-+	rsm psr.dt		\
-+
-+#define RSM_PSR_DT_AND_SRLZ_I	\
-+	rsm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define SSM_PSR_DT_AND_SRLZ_I	\
-+	ssm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define BSW_0(clob0, clob1, clob2)	\
-+	bsw.0
-+
-+#define BSW_1(clob0, clob1)	\
-+	bsw.1
-+
-+#define CONVER	\
-+	cover
-+
-+#define RFI	\
-+	rfi
+ /*
+  * VIRTUAL INTERRUPTS
+  *
 -- 
 1.5.3
 
