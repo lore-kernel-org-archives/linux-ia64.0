@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 03:54:57 +0000
-Subject: Re: [PATCH 13/28] ia64/xen: introduce xen hypercall routines necessary for domU.
-Message-Id: <20080222035457.GB2406%yamahata@valinux.co.jp>
+Date: Fri, 22 Feb 2008 05:10:32 +0000
+Subject: [PATCH 13/28] ia64/xen: introduce xen hypercall routines necessary for domU.
+Message-Id: <12036570471834-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47BE0D7E.7080301@goop.org>
 In-Reply-To: <47BE0D7E.7080301@goop.org>
@@ -10,22 +10,461 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Feb 21, 2008 at 03:47:10PM -0800, Jeremy Fitzhardinge wrote:
-> yamahata@valinux.co.jp wrote:
-> >+static inline unsigned long
-> >+HYPERVISOR_machtophys(unsigned long mfn)
-> >+{
-> >+	unsigned long ret = mfn;
-> >+	if (is_running_on_xen())
-> >  
-> 
-> Do you often call hypercalls when not booting under Xen?  It seems to me 
-> this check should have already been done at a higher layer, and it 
-> needn't be repeated here.
 
-IA64 pv_ops frame work doesn't exist yet so that xen code does
-in order to boot on both native and xen for now.
-I expect those check will be eliminated during developing ia64 pv_ops.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/xen/hypercall.S        |    7 +
+ include/asm-ia64/xen/hypercall.h |  426 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 433 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/hypercall.h
 
+diff --git a/arch/ia64/xen/hypercall.S b/arch/ia64/xen/hypercall.S
+index a96f278..7c5242b 100644
+--- a/arch/ia64/xen/hypercall.S
++++ b/arch/ia64/xen/hypercall.S
+@@ -122,3 +122,10 @@ GLOBAL_ENTRY(xen_set_eflag)
+ END(xen_set_eflag)
+ #endif /* CONFIG_IA32_SUPPORT */
+ #endif /* ASM_SUPPORTED */
++
++GLOBAL_ENTRY(__hypercall)
++	mov r2=r37
++	break 0x1000
++	br.ret.sptk.many b0
++	;;
++END(__hypercall)
+diff --git a/include/asm-ia64/xen/hypercall.h b/include/asm-ia64/xen/hypercall.h
+new file mode 100644
+index 0000000..8ea2060
+--- /dev/null
++++ b/include/asm-ia64/xen/hypercall.h
+@@ -0,0 +1,426 @@
++/******************************************************************************
++ * hypercall.h
++ *
++ * Linux-specific hypervisor handling.
++ *
++ * Copyright (c) 2002-2004, K A Fraser
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#ifndef __HYPERCALL_H__
++#define __HYPERCALL_H__
++
++#ifndef __HYPERVISOR_H__
++# error "please don't include this file directly"
++#endif
++
++#include <asm/xen/xcom_hcall.h>
++struct xencomm_handle;
++extern unsigned long __hypercall(unsigned long a1, unsigned long a2,
++				 unsigned long a3, unsigned long a4,
++				 unsigned long a5, unsigned long cmd);
++
++/*
++ * Assembler stubs for hyper-calls.
++ */
++
++#define _hypercall0(type, name)					\
++({								\
++	long __res;						\
++	__res = __hypercall(0, 0, 0, 0, 0, __HYPERVISOR_##name);\
++	(type)__res;						\
++})
++
++#define _hypercall1(type, name, a1)				\
++({								\
++	long __res;						\
++	__res = __hypercall((unsigned long)a1,			\
++			     0, 0, 0, 0, __HYPERVISOR_##name);	\
++	(type)__res;						\
++})
++
++#define _hypercall2(type, name, a1, a2)				\
++({								\
++	long __res;						\
++	__res = __hypercall((unsigned long)a1,			\
++			    (unsigned long)a2,			\
++			    0, 0, 0, __HYPERVISOR_##name);	\
++	(type)__res;						\
++})
++
++#define _hypercall3(type, name, a1, a2, a3)			\
++({								\
++	long __res;						\
++	__res = __hypercall((unsigned long)a1,			\
++			    (unsigned long)a2,			\
++			    (unsigned long)a3,			\
++			    0, 0, __HYPERVISOR_##name);		\
++	(type)__res;						\
++})
++
++#define _hypercall4(type, name, a1, a2, a3, a4)			\
++({								\
++	long __res;						\
++	__res = __hypercall((unsigned long)a1,			\
++			    (unsigned long)a2,			\
++			    (unsigned long)a3,			\
++			    (unsigned long)a4,			\
++			    0, __HYPERVISOR_##name);		\
++	(type)__res;						\
++})
++
++#define _hypercall5(type, name, a1, a2, a3, a4, a5)		\
++({								\
++	long __res;						\
++	__res = __hypercall((unsigned long)a1,			\
++			    (unsigned long)a2,			\
++			    (unsigned long)a3,			\
++			    (unsigned long)a4,			\
++			    (unsigned long)a5,			\
++			    __HYPERVISOR_##name);		\
++	(type)__res;						\
++})
++
++
++static inline int
++xencomm_arch_hypercall_sched_op(int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, sched_op, cmd, arg);
++}
++
++static inline long
++HYPERVISOR_set_timer_op(u64 timeout)
++{
++	unsigned long timeout_hi = (unsigned long)(timeout >> 32);
++	unsigned long timeout_lo = (unsigned long)timeout;
++	return _hypercall2(long, set_timer_op, timeout_lo, timeout_hi);
++}
++
++static inline int
++xencomm_arch_hypercall_multicall(struct xencomm_handle *call_list,
++				 int nr_calls)
++{
++	return _hypercall2(int, multicall, call_list, nr_calls);
++}
++
++static inline int
++xencomm_arch_hypercall_memory_op(unsigned int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, memory_op, cmd, arg);
++}
++
++static inline int
++xencomm_arch_hypercall_event_channel_op(int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, event_channel_op, cmd, arg);
++}
++
++static inline int
++xencomm_arch_hypercall_xen_version(int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, xen_version, cmd, arg);
++}
++
++static inline int
++xencomm_arch_hypercall_console_io(int cmd, int count,
++				  struct xencomm_handle *str)
++{
++	return _hypercall3(int, console_io, cmd, count, str);
++}
++
++static inline int
++xencomm_arch_hypercall_physdev_op(int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, physdev_op, cmd, arg);
++}
++
++static inline int
++xencomm_arch_hypercall_grant_table_op(unsigned int cmd,
++				      struct xencomm_handle *uop,
++				      unsigned int count)
++{
++	return _hypercall3(int, grant_table_op, cmd, uop, count);
++}
++
++int HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count);
++
++extern int xencomm_arch_hypercall_suspend(struct xencomm_handle *arg);
++
++static inline int
++xencomm_arch_hypercall_callback_op(int cmd, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, callback_op, cmd, arg);
++}
++
++static inline unsigned long
++xencomm_arch_hypercall_hvm_op(int cmd, void *arg)
++{
++	return _hypercall2(unsigned long, hvm_op, cmd, arg);
++}
++
++static inline long
++xencomm_arch_hypercall_vcpu_op(int cmd, int cpu, void *arg)
++{
++	return _hypercall3(long, vcpu_op, cmd, cpu, arg);
++}
++
++static inline int
++HYPERVISOR_physdev_op(int cmd, void *arg)
++{
++	switch (cmd) {
++	case PHYSDEVOP_eoi:
++		return _hypercall1(int, ia64_fast_eoi,
++				   ((struct physdev_eoi *)arg)->irq);
++	default:
++		return xencomm_hypercall_physdev_op(cmd, arg);
++	}
++}
++
++static inline int
++xencomm_arch_hypercall_xenoprof_op(int op, struct xencomm_handle *arg)
++{
++	return _hypercall2(int, xenoprof_op, op, arg);
++}
++
++static inline long
++xencomm_arch_hypercall_opt_feature(struct xencomm_handle *arg)
++{
++	return _hypercall1(long, opt_feature, arg);
++}
++
++#define xen_do_IRQ(irq, regs)		\
++do {					\
++	struct pt_regs *old_regs;	\
++	old_regs = set_irq_regs(regs);	\
++	irq_enter();			\
++	__do_IRQ(irq);			\
++	irq_exit();			\
++	set_irq_regs(old_regs);		\
++} while (0)
++#define irq_ctx_init(cpu)	do { } while (0)
++
++#include <linux/err.h>
++#ifdef HAVE_XEN_PLATFORM_COMPAT_H
++#include <xen/platform-compat.h>
++#endif
++
++static inline unsigned long
++__HYPERVISOR_ioremap(unsigned long ioaddr, unsigned long size)
++{
++	return _hypercall3(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_ioremap, ioaddr, size);
++}
++
++static inline unsigned long
++HYPERVISOR_ioremap(unsigned long ioaddr, unsigned long size)
++{
++	unsigned long ret = ioaddr;
++	if (is_running_on_xen()) {
++		ret = __HYPERVISOR_ioremap(ioaddr, size);
++		if (unlikely(ret = -ENOSYS))
++			panic("hypercall %s failed with %ld. "
++			      "Please check Xen and Linux config mismatch\n",
++			      __func__, -ret);
++		else if (unlikely(IS_ERR_VALUE(ret)))
++			ret = ioaddr;
++	}
++	return ret;
++}
++
++static inline unsigned long
++__HYPERVISOR_phystomach(unsigned long gpfn)
++{
++	return _hypercall2(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_phystomach, gpfn);
++}
++
++static inline unsigned long
++HYPERVISOR_phystomach(unsigned long gpfn)
++{
++	unsigned long ret = gpfn;
++	if (is_running_on_xen())
++		ret = __HYPERVISOR_phystomach(gpfn);
++	return ret;
++}
++
++static inline unsigned long
++__HYPERVISOR_machtophys(unsigned long mfn)
++{
++	return _hypercall2(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_machtophys, mfn);
++}
++
++static inline unsigned long
++HYPERVISOR_machtophys(unsigned long mfn)
++{
++	unsigned long ret = mfn;
++	if (is_running_on_xen())
++		ret = __HYPERVISOR_machtophys(mfn);
++	return ret;
++}
++
++static inline unsigned long
++__HYPERVISOR_zap_physmap(unsigned long gpfn, unsigned int extent_order)
++{
++	return _hypercall3(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_zap_physmap, gpfn, extent_order);
++}
++
++static inline unsigned long
++HYPERVISOR_zap_physmap(unsigned long gpfn, unsigned int extent_order)
++{
++	unsigned long ret = 0;
++	if (is_running_on_xen())
++		ret = __HYPERVISOR_zap_physmap(gpfn, extent_order);
++	return ret;
++}
++
++static inline unsigned long
++__HYPERVISOR_add_physmap(unsigned long gpfn, unsigned long mfn,
++			 unsigned long flags, domid_t domid)
++{
++	return _hypercall5(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_add_physmap, gpfn, mfn, flags, domid);
++}
++
++static inline unsigned long
++HYPERVISOR_add_physmap(unsigned long gpfn, unsigned long mfn,
++		       unsigned long flags, domid_t domid)
++{
++	unsigned long ret = 0;
++	BUG_ON(!is_running_on_xen());
++	if (is_running_on_xen())
++		ret = __HYPERVISOR_add_physmap(gpfn, mfn, flags, domid);
++	return ret;
++}
++
++static inline unsigned long
++__HYPERVISOR_add_physmap_with_gmfn(unsigned long gpfn, unsigned long gmfn,
++				   unsigned long flags, domid_t domid)
++{
++	return _hypercall5(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_add_physmap_with_gmfn,
++			   gpfn, gmfn, flags, domid);
++}
++
++static inline unsigned long
++HYPERVISOR_add_physmap_with_gmfn(unsigned long gpfn, unsigned long gmfn,
++				 unsigned long flags, domid_t domid)
++{
++	unsigned long ret = 0;
++	BUG_ON(!is_running_on_xen());
++	if (is_running_on_xen())
++		ret = __HYPERVISOR_add_physmap_with_gmfn(gpfn, gmfn,
++							 flags, domid);
++	return ret;
++}
++
++#ifdef CONFIG_XEN_IA64_EXPOSE_P2M
++static inline unsigned long
++HYPERVISOR_expose_p2m(unsigned long conv_start_gpfn,
++		      unsigned long assign_start_gpfn,
++		      unsigned long expose_size, unsigned long granule_pfn)
++{
++	return _hypercall5(unsigned long, ia64_dom0vp_op,
++			   IA64_DOM0VP_expose_p2m, conv_start_gpfn,
++			   assign_start_gpfn, expose_size, granule_pfn);
++}
++
++static inline int
++xencomm_arch_expose_foreign_p2m(unsigned long gpfn,
++				domid_t domid, struct xencomm_handle *arg,
++				unsigned long flags)
++{
++	return _hypercall5(int, ia64_dom0vp_op,
++			   IA64_DOM0VP_expose_foreign_p2m,
++			   gpfn, domid, arg, flags);
++}
++
++static inline int
++HYPERVISOR_unexpose_foreign_p2m(unsigned long gpfn, domid_t domid)
++{
++	return _hypercall3(int, ia64_dom0vp_op,
++			   IA64_DOM0VP_unexpose_foreign_p2m, gpfn, domid);
++}
++#endif
++
++static inline int
++xencomm_arch_hypercall_perfmon_op(unsigned long cmd,
++				  struct xencomm_handle *arg,
++				  unsigned long count)
++{
++	return _hypercall4(int, ia64_dom0vp_op,
++			   IA64_DOM0VP_perfmon, cmd, arg, count);
++}
++
++static inline int
++xencomm_arch_hypercall_fpswa_revision(struct xencomm_handle *arg)
++{
++	return _hypercall2(int, ia64_dom0vp_op,
++			   IA64_DOM0VP_fpswa_revision, arg);
++}
++
++static inline int
++xencomm_arch_hypercall_ia64_debug_op(unsigned long cmd,
++				     unsigned long domain,
++				     struct xencomm_handle *arg)
++{
++	return _hypercall3(int, ia64_debug_op, cmd, domain, arg);
++}
++
++static inline int
++HYPERVISOR_add_io_space(unsigned long phys_base,
++			unsigned long sparse,
++			unsigned long space_number)
++{
++	return _hypercall4(int, ia64_dom0vp_op, IA64_DOM0VP_add_io_space,
++			   phys_base, sparse, space_number);
++}
++
++/* for balloon driver */
++#define HYPERVISOR_update_va_mapping(va, new_val, flags) (0)
++
++/* Use xencomm to do hypercalls.  */
++#define HYPERVISOR_sched_op xencomm_hypercall_sched_op
++#define HYPERVISOR_event_channel_op xencomm_hypercall_event_channel_op
++#define HYPERVISOR_callback_op xencomm_hypercall_callback_op
++#define HYPERVISOR_multicall xencomm_hypercall_multicall
++#define HYPERVISOR_xen_version xencomm_hypercall_xen_version
++#define HYPERVISOR_console_io xencomm_hypercall_console_io
++#define HYPERVISOR_hvm_op xencomm_hypercall_hvm_op
++#define HYPERVISOR_memory_op xencomm_hypercall_memory_op
++#define HYPERVISOR_xenoprof_op xencomm_hypercall_xenoprof_op
++#define HYPERVISOR_perfmon_op xencomm_hypercall_perfmon_op
++#define HYPERVISOR_fpswa_revision xencomm_hypercall_fpswa_revision
++#define HYPERVISOR_suspend xencomm_hypercall_suspend
++#define HYPERVISOR_vcpu_op xencomm_hypercall_vcpu_op
++#define HYPERVISOR_opt_feature xencomm_hypercall_opt_feature
++#define HYPERVISOR_kexec_op xencomm_hypercall_kexec_op
++
++/* to compile gnttab_copy_grant_page() in drivers/xen/core/gnttab.c */
++#define HYPERVISOR_mmu_update(req, count, success_count, domid) ({ BUG(); 0; })
++
++#endif /* __HYPERCALL_H__ */
 -- 
-yamahata
+1.5.3
+
