@@ -1,24 +1,29 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 05 Feb 2008 09:49:25 +0000
-Subject: Re: [patch 4/4] ia64: fix ptrace inside a namespace
-Message-Id: <20080205094925.GA10476@lst.de>
+From: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
+Date: Mon, 25 Feb 2008 15:56:57 +0000
+Subject: 2.6.25-rc2-mm1 - boot hangs on ia64
+Message-Id: <1203955017.5046.29.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200802050742.m157gjIG010223@imap1.linux-foundation.org>
-In-Reply-To: <200802050742.m157gjIG010223@imap1.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>
+Cc: Bob Picco <bob.picco@hp.com>, Eric Whitney <eric.whitney@hp.com>
 
-On Mon, Feb 04, 2008 at 11:43:04PM -0800, akpm@linux-foundation.org wrote:
-> From: Pavel Emelyanov <xemul@openvz.org>
-> 
-> The ia64 has its own sys_ptrace implementation and it was overlooked when the
-> pid namespaces patches were sent.
-> 
-> Use find_task_by_vpid() in it
+25-rc2-mm1 is hanging early in boot on my HP ia64 numa platform.  I saw
+the "Strange hang on ia64 with CONFIG_PRINTK_TIME=y" thread on lkml:  
 
-The plan is to kill this code entirely and make ia64 look like other
-ptrace implementations.  Please double check this doesn't cause merge
-issues with the hopefully pending rewrite of the ia64 ptrace code.
+	http://marc.info/?t0288396800001&r=1&w=4
+
+However, my config does not include PRINTK_TIME=y.  In fact, hang occurs
+with ia64 defconfig as well--right after the "Loading...initrd...done"
+message.  2.6.25-rc2 boots OK.
+
+Bisecting the broken-out series appears to indict 'git-sched.patch'.  I
+went ahead and added Ingo's patch, discussed in the "strange hang"
+thread, even tho' I hadn't enabled printk timestamps.  No effect.
+
+Anyone else seeing this?
+
+Regards,
+Lee
 
