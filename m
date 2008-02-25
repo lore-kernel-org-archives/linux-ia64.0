@@ -1,31 +1,44 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Wed, 27 Feb 2008 23:04:44 +0000
-Subject: Re: ia64_mca_cpe_int_handler - take 2
-Message-Id: <20080227230444.GA22656@sgi.com>
+From: Shaohua Li <shaohua.li@intel.com>
+Date: Mon, 25 Feb 2008 08:38:36 +0000
+Subject: [patch 1/3] writeback regset[0] in coredump
+Message-Id: <1203928716.3841.19.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <47C530E6.7080905@bull.net>
-In-Reply-To: <47C530E6.7080905@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Feb 27, 2008 at 10:44:06AM +0100, Zoltan Menyhart wrote:
->  	/* Get the CPE error record and log it */
-> -	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-> -
-> +	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE,
-> +					1 /* not called from the MCA/INIT handlers */);
-
-Minor nit.  Please #define values.
-
-#define MCA_IRQ_NOTSAFE	0	/* called from the MCA/INIT handlers */
-#define MCA_IRQ_SAFE	1	/* not called from the MCA/INIT handlers */
-
-	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE, MCA_IRQ_SAFE);
+These are the patches to support regset in ia64. The patches are on top
+of Petr's ptrace cleanup patches.
+http://marc.info/?l=linux-ia64&m0276611704615&w=2
 
 
-Thanks,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Writeback regset[0] before access it to make user memory RSE is up to
+date. With Petr's patch, we are using access_process_vm to access user
+RSE.
+
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+---
+ fs/binfmt_elf.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+Index: linux/fs/binfmt_elf.c
+=================================--- linux.orig/fs/binfmt_elf.c	2008-02-25 15:19:18.000000000 +0800
++++ linux/fs/binfmt_elf.c	2008-02-25 15:20:23.000000000 +0800
+@@ -1431,6 +1431,14 @@ static int fill_thread_core_info(struct 
+ 	unsigned int i;
+ 
+ 	/*
++	 * If regset 0 has a writeback call, do it now. On register window
++	 * machines, this makes sure the user memory backing the register data
++	 * is up to date
++	 */
++	if (view->regsets[0].writeback)
++		view->regsets[0].writeback(t->task, &view->regsets[0], 1);
++
++	/*
+ 	 * NT_PRSTATUS is the one special case, because the regset data
+ 	 * goes into the pr_reg field inside the note contents, rather
+ 	 * than being the whole note contents.  We fill the reset in here.
+
+
