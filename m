@@ -1,332 +1,359 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Feb 2008 13:58:57 +0000
-Subject: [PATCH 6/8] ia64/pv_ops xen: xen paravirtualization of hand written assembly code. inst_xen.h
-Message-Id: <12040343393125-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 25 Feb 2008 03:16:44 +0000
+Subject: [PATCH 2/4] ia64/xen: paravirtualize minstate.h, DO_SAVE_MIN.
+Message-Id: <12039094063108-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
+
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/inst_xen.h |  307 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 307 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/inst_xen.h
+ arch/ia64/xen/xenminstate.h |  320 +++++++++++++++++++++++++++++++++++++++=
+++++
+ 1 files changed, 320 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/xenminstate.h
 
-diff --git a/arch/ia64/xen/inst_xen.h b/arch/ia64/xen/inst_xen.h
+diff --git a/arch/ia64/xen/xenminstate.h b/arch/ia64/xen/xenminstate.h
 new file mode 100644
-index 0000000..c0bd736
+index 0000000..eb199db
 --- /dev/null
-+++ b/arch/ia64/xen/inst_xen.h
-@@ -0,0 +1,307 @@
-+/******************************************************************************
-+ * inst_xen.h
++++ b/arch/ia64/xen/xenminstate.h
+@@ -0,0 +1,320 @@
++#include <asm/cache.h>
++
++#ifdef CONFIG_XEN
++#include "../kernel/entry.h"
++#else
++#include "entry.h"
++#endif
++
++/*
++ * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
++ * the minimum state necessary that allows us to turn psr.ic back
++ * on.
 + *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
++ * Assumed state upon entry:
++ *	psr.ic: off
++ *	r31:	contains saved predicates (pr)
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
++ * Upon exit, the state is as follows:
++ *	psr.ic: off
++ *	 r2 =3D points to &pt_regs.r16
++ *	 r8 =3D contents of ar.ccv
++ *	 r9 =3D contents of ar.csd
++ *	r10 =3D contents of ar.ssd
++ *	r11 =3D FPSR_DEFAULT
++ *	r12 =3D kernel sp (kernel virtual address)
++ *	r13 =3D points to current task_struct (kernel virtual address)
++ *	p15 =3D TRUE if psr.i is set in cr.ipsr
++ *	predicate registers (other than p2, p3, and p15), b6, r3, r14, r15:
++ *		preserved
++ * CONFIG_XEN note: p6/p7 are not preserved
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
++ * Note that psr.ic is NOT turned on by this macro.  This is so that
++ * we can pass interruption state as arguments to a handler.
 + */
-+
-+#define IA64_ASM_PARAVIRTUALIZED_XEN
-+
-+#define ia64_ivt				xen_ivt
-+
-+#define __paravirt_switch_to			xen_switch_to
-+#define __paravirt_leave_syscall		xen_leave_syscall
-+#define __paravirt_work_processed_syscall	xen_work_processed_syscall
-+#define __paravirt_leave_kernel			xen_leave_kernel
-+#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						xen_work_processed_syscall
-+
-+#define MOV_FROM_IFA(reg)	\
-+	movl reg = XSI_IFA;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_ITIR(reg)	\
-+	movl reg = XSI_ITIR;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_ISR(reg)	\
-+	movl reg = XSI_ISR;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_IHA(reg)	\
-+	movl reg = XSI_IHA;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_IPSR(reg)	\
-+	movl reg = XSI_IPSR;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_IIM(reg)	\
-+	movl reg = XSI_IIM;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_IIP(reg)	\
-+	movl reg = XSI_IIP;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#if 0
-+#define MOV_FROM_IVR(reg, clob)	\
-+	clob = r8;		\
-+	;;			\
-+	XEN_HYPER_GET_IVR	\
-+	;;			\
-+	mov reg = r8;		\
-+	;;			\
-+	mov r8 = clob
++#ifdef CONFIG_XEN
++#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
++	mov r16=3DIA64_KR(CURRENT);	/* M */							\
++	mov r27=3Dar.rsc;			/* M */							\
++	mov r20=3Dr1;			/* A */							\
++	mov r25=3Dar.unat;		/* M */							\
++	/* mov r29=3Dcr.ipsr;		/* M */							\
++	movl r29=3DXSI_IPSR;;									\
++	ld8 r29=3D[r29];;										\
++	mov r26=3Dar.pfs;			/* I */							\
++	/* mov r28=3Dcr.iip;		/* M */							\
++	movl r28=3DXSI_IIP;;									\
++	ld8 r28=3D[r28];;										\
++	mov r21=3Dar.fpsr;		/* M */							\
++	COVER;				/* B;; (or nothing) */					\
++	;;											\
++	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
++	;;											\
++	ld1 r17=3D[r16];				/* load current->thread.on_ustack flag */	\
++	st1 [r16]=3Dr0;				/* clear current->thread.on_ustack flag */	\
++	adds r1=3D-IA64_TASK_THREAD_ON_USTACK_OFFSET,r16						\
++	/* switch from user to kernel RBS: */							\
++	;;											\
++	invala;				/* M */							\
++	/* SAVE_IFS; /* see xen special handling below */						\
++	cmp.eq pKStk,pUStk=3Dr0,r17;		/* are we in kernel mode already? */		\
++	;;											\
++(pUStk)	mov ar.rsc=3D0;		/* set enforced lazy mode, pl 0, little-endian, l=
+oadrs=3D0 */	\
++	;;											\
++(pUStk)	mov.m r24=3Dar.rnat;									\
++(pUStk)	addl r22=3DIA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
++(pKStk) mov r1=3Dsp;					/* get sp  */				\
++	;;											\
++(pUStk) lfetch.fault.excl.nt1 [r22];								\
++(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of=
+ memory stack */	\
++(pUStk)	mov r23=3Dar.bspstore;				/* save ar.bspstore */			\
++	;;											\
++(pUStk)	mov ar.bspstore=3Dr22;				/* switch to kernel RBS */		\
++(pKStk) addl r1=3D-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r=
+12) */	\
++	;;											\
++(pUStk)	mov r18=3Dar.bsp;										\
++(pUStk)	mov ar.rsc=3D0x3;		/* set eager mode, pl 0, little-endian, loadrs=
+=3D0 */		\
++	adds r17=3D2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
++	adds r16=3DPT(CR_IPSR),r1;								\
++	;;											\
++	lfetch.fault.excl.nt1 [r17],L1_CACHE_BYTES;						\
++	st8 [r16]=3Dr29;		/* save cr.ipsr */						\
++	;;											\
++	lfetch.fault.excl.nt1 [r17];								\
++	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT;							\
++	mov r29=B0										\
++	;;											\
++	adds r16=3DPT(R8),r1;	/* initialize first base pointer */				\
++	adds r17=3DPT(R9),r1;	/* initialize second base pointer */				\
++(pKStk)	mov r18=3Dr0;		/* make sure r18 isn't NaT */					\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr8,16;								\
++.mem.offset 8,0; st8.spill [r17]=3Dr9,16;								\
++        ;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr10,24;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr11,24;							\
++        ;;											\
++	/* xen special handling for possibly lazy cover */					\
++	movl r8=3DXSI_PRECOVER_IFS;								\
++	;;											\
++	ld8 r30=3D[r8];										\
++	;;											\
++	st8 [r16]=3Dr28,16;	/* save cr.iip */						\
++	st8 [r17]=3Dr30,16;	/* save cr.ifs */						\
++(pUStk)	sub r18=3Dr18,r22;	/* r18=3DRSE.ndirty*8 */						\
++	mov r8=3Dar.ccv;										\
++	mov r9=3Dar.csd;										\
++	mov r10=3Dar.ssd;										\
++	movl r11=3DFPSR_DEFAULT;   /* L-unit */							\
++	;;											\
++	st8 [r16]=3Dr25,16;	/* save ar.unat */						\
++	st8 [r17]=3Dr26,16;	/* save ar.pfs */						\
++	shl r18=3Dr18,16;		/* compute ar.rsc to be used for "loadrs" */			\
++	;;											\
++	st8 [r16]=3Dr27,16;	/* save ar.rsc */						\
++(pUStk)	st8 [r17]=3Dr24,16;	/* save ar.rnat */						\
++(pKStk)	adds r17=16,r17;	/* skip over ar_rnat field */					\
++	;;			/* avoid RAW on r16 & r17 */					\
++(pUStk)	st8 [r16]=3Dr23,16;	/* save ar.bspstore */						\
++	st8 [r17]=3Dr31,16;	/* save predicates */						\
++(pKStk)	adds r16=16,r16;	/* skip over ar_bspstore field */				\
++	;;											\
++	st8 [r16]=3Dr29,16;	/* save b0 */							\
++	st8 [r17]=3Dr18,16;	/* save ar.rsc value for "loadrs" */				\
++	cmp.eq pNonSys,pSys=3Dr0,r0	/* initialize pSys=3D0, pNonSys=3D1 */			\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr20,16;	/* save original r1 */				\
++.mem.offset 8,0; st8.spill [r17]=3Dr12,16;							\
++	adds r12=3D-16,r1;	/* switch to kernel memory stack (with 16 bytes of scr=
+atch) */	\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr13,16;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr21,16;	/* save ar.fpsr */				\
++	mov r13=3DIA64_KR(CURRENT);	/* establish `current' */				\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr15,16;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr14,16;							\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
++.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
++	;;											\
++	EXTRA;											\
++	mov r2=B0; br.call.sptk b0=3Dxen_bsw1;; mov b0=3Dr2;					\
++	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
++	;;											\
++	movl r1=3D__gp;		/* establish kernel global pointer */				\
++	;;											\
++	/*bsw.1;*/		/* switch back to bank 1 (must be last in insn group) */	\
++	;;
 +#else
-+#define MOV_FROM_IVR(reg)	\
-+	;;			\
-+	XEN_HYPER_GET_IVR	\
-+	;;			\
-+	mov reg = r8
++#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
++	mov r16=3DIA64_KR(CURRENT);	/* M */							\
++	mov r27=3Dar.rsc;			/* M */							\
++	mov r20=3Dr1;			/* A */							\
++	mov r25=3Dar.unat;		/* M */							\
++	mov r29=3Dcr.ipsr;		/* M */							\
++	mov r26=3Dar.pfs;			/* I */							\
++	mov r28=3Dcr.iip;			/* M */							\
++	mov r21=3Dar.fpsr;		/* M */							\
++	COVER;				/* B;; (or nothing) */					\
++	;;											\
++	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
++	;;											\
++	ld1 r17=3D[r16];				/* load current->thread.on_ustack flag */	\
++	st1 [r16]=3Dr0;				/* clear current->thread.on_ustack flag */	\
++	adds r1=3D-IA64_TASK_THREAD_ON_USTACK_OFFSET,r16						\
++	/* switch from user to kernel RBS: */							\
++	;;											\
++	invala;				/* M */							\
++	SAVE_IFS;										\
++	cmp.eq pKStk,pUStk=3Dr0,r17;		/* are we in kernel mode already? */		\
++	;;											\
++(pUStk)	mov ar.rsc=3D0;		/* set enforced lazy mode, pl 0, little-endian, l=
+oadrs=3D0 */	\
++	;;											\
++(pUStk)	mov.m r24=3Dar.rnat;									\
++(pUStk)	addl r22=3DIA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
++(pKStk) mov r1=3Dsp;					/* get sp  */				\
++	;;											\
++(pUStk) lfetch.fault.excl.nt1 [r22];								\
++(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of=
+ memory stack */	\
++(pUStk)	mov r23=3Dar.bspstore;				/* save ar.bspstore */			\
++	;;											\
++(pUStk)	mov ar.bspstore=3Dr22;				/* switch to kernel RBS */		\
++(pKStk) addl r1=3D-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r=
+12) */	\
++	;;											\
++(pUStk)	mov r18=3Dar.bsp;										\
++(pUStk)	mov ar.rsc=3D0x3;		/* set eager mode, pl 0, little-endian, loadrs=
+=3D0 */		\
++	adds r17=3D2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
++	adds r16=3DPT(CR_IPSR),r1;								\
++	;;											\
++	lfetch.fault.excl.nt1 [r17],L1_CACHE_BYTES;						\
++	st8 [r16]=3Dr29;		/* save cr.ipsr */						\
++	;;											\
++	lfetch.fault.excl.nt1 [r17];								\
++	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT;							\
++	mov r29=B0										\
++	;;											\
++	adds r16=3DPT(R8),r1;	/* initialize first base pointer */				\
++	adds r17=3DPT(R9),r1;	/* initialize second base pointer */				\
++(pKStk)	mov r18=3Dr0;		/* make sure r18 isn't NaT */					\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr8,16;								\
++.mem.offset 8,0; st8.spill [r17]=3Dr9,16;								\
++        ;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr10,24;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr11,24;							\
++        ;;											\
++	st8 [r16]=3Dr28,16;	/* save cr.iip */						\
++	st8 [r17]=3Dr30,16;	/* save cr.ifs */						\
++(pUStk)	sub r18=3Dr18,r22;	/* r18=3DRSE.ndirty*8 */						\
++	mov r8=3Dar.ccv;										\
++	mov r9=3Dar.csd;										\
++	mov r10=3Dar.ssd;										\
++	movl r11=3DFPSR_DEFAULT;   /* L-unit */							\
++	;;											\
++	st8 [r16]=3Dr25,16;	/* save ar.unat */						\
++	st8 [r17]=3Dr26,16;	/* save ar.pfs */						\
++	shl r18=3Dr18,16;		/* compute ar.rsc to be used for "loadrs" */			\
++	;;											\
++	st8 [r16]=3Dr27,16;	/* save ar.rsc */						\
++(pUStk)	st8 [r17]=3Dr24,16;	/* save ar.rnat */						\
++(pKStk)	adds r17=16,r17;	/* skip over ar_rnat field */					\
++	;;			/* avoid RAW on r16 & r17 */					\
++(pUStk)	st8 [r16]=3Dr23,16;	/* save ar.bspstore */						\
++	st8 [r17]=3Dr31,16;	/* save predicates */						\
++(pKStk)	adds r16=16,r16;	/* skip over ar_bspstore field */				\
++	;;											\
++	st8 [r16]=3Dr29,16;	/* save b0 */							\
++	st8 [r17]=3Dr18,16;	/* save ar.rsc value for "loadrs" */				\
++	cmp.eq pNonSys,pSys=3Dr0,r0	/* initialize pSys=3D0, pNonSys=3D1 */			\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr20,16;	/* save original r1 */				\
++.mem.offset 8,0; st8.spill [r17]=3Dr12,16;							\
++	adds r12=3D-16,r1;	/* switch to kernel memory stack (with 16 bytes of scr=
+atch) */	\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr13,16;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr21,16;	/* save ar.fpsr */				\
++	mov r13=3DIA64_KR(CURRENT);	/* establish `current' */				\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr15,16;							\
++.mem.offset 8,0; st8.spill [r17]=3Dr14,16;							\
++	;;											\
++.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
++.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
++	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
++	;;											\
++	EXTRA;											\
++	movl r1=3D__gp;		/* establish kernel global pointer */				\
++	;;											\
++	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
++	;;
 +#endif
 +
-+#define MOV_FROM_PSR(pred, reg, clob)	\
-+	(pred) mov clob = r8;		\
-+	(pred) XEN_HYPER_GET_PSR;	\
-+	;;				\
-+	(pred) mov reg = r8;		\
-+	(pred) mov r8 = clob;		\
-+	;;
-+
-+
-+#define MOV_TO_IFA(reg, clob)	\
-+	movl clob = XSI_IFA;	\
-+	;;			\
-+	st8 [clob] = reg	\
-+
-+#define MOV_TO_ITIR(pred, reg, clob)	\
-+	(pred) movl clob = XSI_ITIR;	\
-+	;;				\
-+	(pred) st8 [clob] = reg
-+
-+#define MOV_TO_IHA(pred, reg, clob)	\
-+	(pred) movl clob = XSI_IHA;	\
-+	;;				\
-+	(pred) st8 [clob] = reg
-+
-+#define MOV_TO_IPSR(reg, clob)	\
-+	movl clob = XSI_IPSR;	\
-+	;;			\
-+	st8 [clob] = r29;	\
-+	;;
-+
-+#define MOV_TO_IFS(pred, reg, clob)	\
-+	(pred) movl clob = XSI_IFS;	\
-+	;;				\
-+	(pred) st8 [clob] = reg;	\
-+	;;
-+
-+#define MOV_TO_IIP(reg, clob)	\
-+	movl clob = XSI_IIP;	\
-+	;;			\
-+	st8 [clob] = reg
-+
-+#if 0
-+#define MOV_TO_KR(kr, reg, clob0, clob1)	\
-+	mov clob0 = r8;				\
-+	mov clob1 = r9;				\
++/*
++ * SAVE_REST saves the remainder of pt_regs (with psr.ic on).
++ *
++ * Assumed state upon entry:
++ *	psr.ic: on
++ *	r2:	points to &pt_regs.r16
++ *	r3:	points to &pt_regs.r17
++ *	r8:	contents of ar.ccv
++ *	r9:	contents of ar.csd
++ *	r10:	contents of ar.ssd
++ *	r11:	FPSR_DEFAULT
++ *
++ * Registers r14 and r15 are guaranteed not to be touched by SAVE_REST.
++ */
++#define SAVE_REST				\
++.mem.offset 0,0; st8.spill [r2]=3Dr16,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr17,16;		\
 +	;;					\
-+	mov r8 = IA64_KR_ ## kr ;		\
-+	mov r9 = reg;				\
++.mem.offset 0,0; st8.spill [r2]=3Dr18,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr19,16;		\
 +	;;					\
-+	XEN_HYPER_SET_KR;			\
-+	mov r8 = clob0;				\
-+	mov r9 = clob1
++.mem.offset 0,0; st8.spill [r2]=3Dr20,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr21,16;		\
++	mov r18=B6;				\
++	;;					\
++.mem.offset 0,0; st8.spill [r2]=3Dr22,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr23,16;		\
++	mov r19=B7;				\
++	;;					\
++.mem.offset 0,0; st8.spill [r2]=3Dr24,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr25,16;		\
++	;;					\
++.mem.offset 0,0; st8.spill [r2]=3Dr26,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr27,16;		\
++	;;					\
++.mem.offset 0,0; st8.spill [r2]=3Dr28,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr29,16;		\
++	;;					\
++.mem.offset 0,0; st8.spill [r2]=3Dr30,16;		\
++.mem.offset 8,0; st8.spill [r3]=3Dr31,32;		\
++	;;					\
++	mov ar.fpsr=3Dr11;	/* M-unit */	\
++	st8 [r2]=3Dr8,8;		/* ar.ccv */	\
++	adds r24=3DPT(B6)-PT(F7),r3;		\
++	;;					\
++	stf.spill [r2]=F6,32;			\
++	stf.spill [r3]=F7,32;			\
++	;;					\
++	stf.spill [r2]=F8,32;			\
++	stf.spill [r3]=F9,32;			\
++	;;					\
++	stf.spill [r2]=F10;			\
++	stf.spill [r3]=F11;			\
++	adds r25=3DPT(B7)-PT(F11),r3;		\
++	;;					\
++	st8 [r24]=3Dr18,16;       /* b6 */	\
++	st8 [r25]=3Dr19,16;       /* b7 */	\
++	;;					\
++	st8 [r24]=3Dr9;        	/* ar.csd */	\
++	st8 [r25]=3Dr10;      	/* ar.ssd */	\
++	;;
++
++#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(cover, mov r30=3Dcr.ifs,)
++#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(cover, mov r30=3Dcr.ifs, mov r=
+15=3Dr19)
++#ifdef CONFIG_XEN
++#define SAVE_MIN		break 0;; /* FIXME: non-cover version only for ia32 supp=
+ort? */
 +#else
-+#define MOV_TO_KR(kr, reg)		\
-+	mov r8 = IA64_KR_ ## kr;	\
-+	mov r9 = reg;			\
-+	;;				\
-+	XEN_HYPER_SET_KR
++#define SAVE_MIN		DO_SAVE_MIN(     , mov r30=3Dr0, )
 +#endif
-+
-+
-+#define ITC_I(pred, reg, clob)	\
-+	(pred) mov clob = r8;	\
-+	(pred) mov r8 = reg;	\
-+	;;			\
-+	(pred) XEN_HYPER_ITC_I; \
-+	;;			\
-+	(pred) mov r8 = clob;	\
-+	;;
-+
-+#define ITC_D(pred, reg, clob)	\
-+	(pred) mov clob = r8;	\
-+	(pred) mov r8 = reg;	\
-+	;;			\
-+	(pred) XEN_HYPER_ITC_D; \
-+	;;			\
-+	(pred) mov r8 = clob;	\
-+	;;
-+
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
-+	mov clob = r8;				\
-+	mov r8 = reg;				\
-+	;;					\
-+	(pred_i) XEN_HYPER_ITC_I;		\
-+	;;					\
-+	(pred_d) XEN_HYPER_ITC_D;		\
-+	;;					\
-+	mov r8 = clob;				\
-+	;;
-+
-+#define THASH(pred, reg0, reg1, clob)	\
-+	(pred) mov clob = r8;		\
-+	(pred) mov r8 = reg1;		\
-+	(pred) XEN_HYPER_THASH;		\
-+	;;				\
-+	(pred) mov reg0 = r8;		\
-+	(pred) mov r8 = clob;		\
-+	;;
-+
-+#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)	\
-+	mov clob0 = 1;					\
-+	movl clob1 = XSI_PSR_IC;			\
-+	;;						\
-+	st4 [clob1] = clob0				\
-+	;;
-+
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
-+	;;					\
-+	srlz.d;					\
-+	mov clob1 = 1;				\
-+	movl clob0=XSI_PSR_IC;			\
-+	;;					\
-+	st4 [clob0] = clob1
-+
-+#define RSM_PSR_IC(clob)	\
-+	movl clob = XSI_PSR_IC;	\
-+	;;			\
-+	st4 [clob] = r0;	\
-+	;;
-+
-+/* pred will be clobbered */
-+#define MASK_TO_PEND_OFS    (-1)
-+#define SSM_PSR_I(pred, clob)						\
-+	(pred)	movl clob = XSI_PSR_I_ADDR				\
-+	;;								\
-+	(pred)	ld8 clob = [clob]					\
-+	;;								\
-+	/* if (pred) vpsr.i = 1 */					\
-+	/* if (pred) (vcpu->vcpu_info->evtchn_upcall_mask)=0 */		\
-+	(pred)	st1 [clob] = r0, MASK_TO_PEND_OFS			\
-+	;;								\
-+	/* if (vcpu->vcpu_info->evtchn_upcall_pending) */		\
-+	(pred)	ld1 clob = [clob]					\
-+	;;								\
-+	(pred)	cmp.ne pred, p0 = clob, r0				\
-+	;;								\
-+	(pred)	XEN_HYPER_SSM_I	/* do areal ssm psr.i */
-+
-+#define RSM_PSR_I(pred, clob0, clob1)	\
-+	movl clob0 = XSI_PSR_I_ADDR;	\
-+	mov clob1 = 1;			\
-+	;;				\
-+	ld8 clob0 = [clob0];		\
-+	;;				\
-+	(pred)	st1 [clob0] = clob1
-+
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)		\
-+	movl clob0 = XSI_PSR_I_ADDR;			\
-+	movl clob1 = XSI_PSR_IC;			\
-+	;;						\
-+	ld8 clob0 = [clob0];				\
-+	mov clob2 = 1;					\
-+	;;						\
-+	/* note: clears both vpsr.i and vpsr.ic! */	\
-+	st1 [clob0] = clob2;				\
-+	st4 [clob1] = r0;				\
-+	;;
-+
-+#define RSM_PSR_DT		\
-+	XEN_HYPER_RSM_PSR_DT
-+
-+#define RSM_PSR_DT_AND_SRLZ_I	\
-+	XEN_HYPER_RSM_PSR_DT
-+
-+#define SSM_PSR_DT_AND_SRLZ_I	\
-+	XEN_HYPER_SSM_PSR_DT
-+
-+#define BSW_0(clob0, clob1, clob2)			\
-+	;;						\
-+	/* r16-r31 all now hold bank1 values */		\
-+	mov clob2 = ar.unat;				\
-+	movl clob0 = XSI_BANK1_R16;			\
-+	movl clob1 = XSI_BANK1_R16 + 8;			\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r16, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r17, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r18, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r19, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r20, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r21, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r22, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r23, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r24, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r25, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r26, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r27, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r28, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r29, 16;	\
-+	;;						\
-+	.mem.offset 0, 0; st8.spill [clob0] = r30, 16;	\
-+	.mem.offset 8, 0; st8.spill [clob1] = r31, 16;	\
-+	;;						\
-+	mov clob1 = ar.unat;				\
-+	movl clob0 = XSI_B1NAT;				\
-+	;;						\
-+	st8 [clob0] = clob1;				\
-+	mov ar.unat = clob2;				\
-+	movl clob0 = XSI_BANKNUM;			\
-+	;;						\
-+	st4 [clob0] = r0
-+
-+	/* xen_bsw1 clobbers clob1 */
-+#define BSW_1(clob0, clob1)		\
-+	mov clob0 = b0;			\
-+	br.call.sptk b0 = xen_bsw1;	\
-+	;;				\
-+	mov b0=clob0;			\
-+	;;
-+
-+#define COVER	\
-+	XEN_HYPER_COVER
-+
-+#define RFI			\
-+	XEN_HYPER_RFI;		\
-+	dv_serialize_data
--- 
+--=20
 1.5.3
 
