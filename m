@@ -1,917 +1,2356 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 28 Feb 2008 09:57:17 +0000
-Subject: [PATCH 5/5] ia64/pv_ops/xen:  xen privileged instruction intrinsics with binary patch.
-Message-Id: <120419263771-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 25 Feb 2008 03:16:43 +0000
+Subject: [PATCH 1/4] ia64/xen: paravirtualize ivt.S fault handlers, hand written assembly code.
+Message-Id: <12039094061261-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-With binary patching, make intrinsics paravirtualization hypervisor neutral.
-So far xen intrinsics doesn't allow another hypervisor.
-Binary patch marked privileged operations which needs paravirtualization
-if running on xen at early boot time.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/module.c     |   32 +++++
- arch/ia64/xen/Makefile        |    7 +
- arch/ia64/xen/paravirt_xen.c  |  242 +++++++++++++++++++++++++++++++++++
- arch/ia64/xen/privops_asm.S   |  221 ++++++++++++++++++++++++++++++++
- arch/ia64/xen/privops_c.c     |  279 +++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/xensetup.S      |   10 ++
- include/asm-ia64/xen/privop.h |   24 ++++
- 7 files changed, 815 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/Makefile
- create mode 100644 arch/ia64/xen/paravirt_xen.c
- create mode 100644 arch/ia64/xen/privops_asm.S
- create mode 100644 arch/ia64/xen/privops_c.c
+ arch/ia64/xen/xenivt.S | 2204 ++++++++++++++++++++++++++++++++++++++++++++=
+++++
+ 1 files changed, 2204 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/xenivt.S
 
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index e58f436..2806f70 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -454,6 +454,14 @@ module_frob_arch_sections (Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings,
- 			mod->arch.opd = s;
- 		else if (strcmp(".IA_64.unwind", secstrings + s->sh_name) = 0)
- 			mod->arch.unwind = s;
-+#ifdef CONFIG_PARAVIRT_ALT
-+		else if (strcmp(".paravirt_bundles",
-+				secstrings + s->sh_name) = 0)
-+			mod->arch.paravirt_bundles = s;
-+		else if (strcmp(".paravirt_insts",
-+				secstrings + s->sh_name) = 0)
-+			mod->arch.paravirt_insts = s;
-+#endif
- 
- 	if (!mod->arch.core_plt || !mod->arch.init_plt || !mod->arch.got || !mod->arch.opd) {
- 		printk(KERN_ERR "%s: sections missing\n", mod->name);
-@@ -929,6 +937,30 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
- 	DEBUGP("%s: init: entry=%p\n", __FUNCTION__, mod->init);
- 	if (mod->arch.unwind)
- 		register_unwind_table(mod);
-+#ifdef CONFIG_PARAVIRT_ALT
-+	if (mod->arch.paravirt_bundles) {
-+		struct paravirt_alt_bundle_patch *start +			(struct paravirt_alt_bundle_patch *)
-+			mod->arch.paravirt_bundles->sh_addr;
-+		struct paravirt_alt_bundle_patch *end +			(struct paravirt_alt_bundle_patch *)
-+			(mod->arch.paravirt_bundles->sh_addr +
-+			 mod->arch.paravirt_bundles->sh_size);
-+
-+		xen_alt_bundle_patch_module(start, end);
-+	}
-+	if (mod->arch.paravirt_insts) {
-+		struct paravirt_alt_inst_patch *start +			(struct paravirt_alt_inst_patch *)
-+			mod->arch.paravirt_insts->sh_addr;
-+		struct paravirt_alt_inst_patch *end +			(struct paravirt_alt_inst_patch *)
-+			(mod->arch.paravirt_insts->sh_addr +
-+			 mod->arch.paravirt_insts->sh_size);
-+
-+		xen_alt_inst_patch_module(start, end);
-+	}
-+#endif
- 	return 0;
- }
- 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
 new file mode 100644
-index 0000000..c219358
+index 0000000..f2eaa1f
 --- /dev/null
-+++ b/arch/ia64/xen/Makefile
-@@ -0,0 +1,7 @@
-+#
-+# Makefile for Xen components
-+#
-+
-+obj-$(CONFIG_PARAVIRT_ALT) += paravirt_xen.o privops_asm.o privops_c.o
-+obj-$(CONFIG_PARAVIRT_NOP_B_PATCH) += paravirt_xen.o
-+obj-$(CONFIG_PARAVIRT_ENTRY) += paravirt_xen.o
-diff --git a/arch/ia64/xen/paravirt_xen.c b/arch/ia64/xen/paravirt_xen.c
-new file mode 100644
-index 0000000..57b9dfd
---- /dev/null
-+++ b/arch/ia64/xen/paravirt_xen.c
-@@ -0,0 +1,242 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/paravirt_xen.c
-+ *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/types.h>
-+#include <linux/string.h>
-+#include <linux/init.h>
-+#include <asm/intrinsics.h>
-+#include <asm/bugs.h>
-+#include <asm/kprobes.h> /* for bundle_t */
-+#include <asm/paravirt_core.h>
-+
-+#ifdef CONFIG_PARAVIRT_ALT
-+struct xen_alt_bundle_patch_elem {
-+	const void	*sbundle;
-+	const void	*ebundle;
-+	unsigned long	type;
-+};
-+
-+static unsigned long __init_or_module
-+__xen_alt_bundle_patch(void *sbundle, void *ebundle, unsigned long type)
-+{
-+	extern const struct xen_alt_bundle_patch_elem xen_alt_bundle_array[];
-+	extern const unsigned long xen_alt_bundle_array_size;
-+
-+	unsigned long used = 0;
-+	unsigned long i;
-+
-+	BUG_ON((((unsigned long)sbundle) % sizeof(bundle_t)) != 0);
-+	BUG_ON((((unsigned long)ebundle) % sizeof(bundle_t)) != 0);
-+
-+	for (i = 0;
-+	     i < xen_alt_bundle_array_size / sizeof(xen_alt_bundle_array[0]);
-+	     i++) {
-+		const struct xen_alt_bundle_patch_elem *p +			&xen_alt_bundle_array[i];
-+		if (p->type = type) {
-+			used = p->ebundle - p->sbundle;
-+			BUG_ON(used > ebundle - sbundle);
-+			memcpy(sbundle, p->sbundle, used);
-+			break;
-+		}
-+	}
-+
-+	return used;
-+}
-+
-+static void __init
-+xen_alt_bundle_patch(void)
-+{
-+	extern struct paravirt_alt_bundle_patch __start_paravirt_bundles[];
-+	extern struct paravirt_alt_bundle_patch __stop_paravirt_bundles[];
-+
-+	paravirt_alt_bundle_patch_apply(__start_paravirt_bundles,
-+					__stop_paravirt_bundles,
-+					&__xen_alt_bundle_patch);
-+}
-+
-+#ifdef CONFIG_MODULES
-+void
-+xen_alt_bundle_patch_module(struct paravirt_alt_bundle_patch *start,
-+			    struct paravirt_alt_bundle_patch *end)
-+{
-+	if (is_running_on_xen())
-+		paravirt_alt_bundle_patch_apply(start, end,
-+						&__xen_alt_bundle_patch);
-+}
-+#endif /* CONFIG_MODULES */
-+
-+
++++ b/arch/ia64/xen/xenivt.S
+@@ -0,0 +1,2204 @@
 +/*
-+ * all the native instructions of hyperprivops are M-form or I-form
-+ * mov ar.<imm>=r1	I26, M29
-+ * mov r1=ar.<imm>	I28, M31
-+ * mov r1=cr.<imm>	M32
-+ * mov cr.<imm>=r1	M33
-+ * mov r1=psr		M36
-+ * mov indirect<r1>=r2	M42
-+ * mov r1=indirect<r2>	M43
-+ * ptc.ga		M45
-+ * thash r1=r2		M46
++ * arch/ia64/xen/ivt.S
 + *
-+ * break.{m, i} instrucitions format are same.
-+ * So we can safely replace all signle instruction which is target of
-+ * hyperpviops with break.{m, i} imm21 hyperprivops.
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
 + */
-+
-+struct xen_alt_inst_patch_elem {
-+	unsigned long stag;
-+	unsigned long etag;
-+	unsigned long type;
-+};
-+
-+unsigned long
-+__xen_alt_inst_patch(unsigned long stag, unsigned long etag,
-+		     unsigned long type)
-+{
-+	extern const struct xen_alt_inst_patch_elem xen_alt_inst_array[];
-+	extern const unsigned long xen_alt_inst_array_size;
-+
-+	unsigned long dest_tag = stag;
-+	unsigned long i;
-+
-+	for (i = 0;
-+	     i < xen_alt_inst_array_size / sizeof(xen_alt_inst_array[0]);
-+	     i++) {
-+		const struct xen_alt_inst_patch_elem *p +			&xen_alt_inst_array[i];
-+		if (p->type = type) {
-+			unsigned long src_tag;
-+
-+			for (src_tag = p->stag;
-+			     src_tag < p->etag;
-+			     src_tag = paravirt_get_next_tag(src_tag)) {
-+				const cmp_inst_t inst +					paravirt_read_inst(src_tag);
-+				paravirt_write_inst(dest_tag, inst);
-+
-+				BUG_ON(dest_tag >= etag);
-+				dest_tag = paravirt_get_next_tag(dest_tag);
-+			}
-+			break;
-+		}
-+	}
-+
-+	return dest_tag;
-+}
-+
-+void
-+xen_alt_inst_patch(void)
-+{
-+	extern struct paravirt_alt_inst_patch __start_paravirt_insts[];
-+	extern struct paravirt_alt_inst_patch __stop_paravirt_insts[];
-+
-+	paravirt_alt_inst_patch_apply(__start_paravirt_insts,
-+				      __stop_paravirt_insts,
-+				      &__xen_alt_inst_patch);
-+}
-+
-+#ifdef CONFIG_MODULES
-+void
-+xen_alt_inst_patch_module(struct paravirt_alt_inst_patch *start,
-+			  struct paravirt_alt_inst_patch *end)
-+{
-+	if (is_running_on_xen())
-+		paravirt_alt_inst_patch_apply(start, end,
-+					      &__xen_alt_inst_patch);
-+}
-+#endif
-+
-+#else
-+#define xen_alt_bundle_patch()	do { } while (0)
-+#define xen_alt_inst_patch()	do { } while (0)
-+#endif /* CONFIG_PARAVIRT_ALT */
-+
-+
-+#ifdef CONFIG_PARAVIRT_NOP_B_PATCH
-+#include <asm/paravirt_nop.h>
-+static void __init
-+xen_nop_b_patch(void)
-+{
-+	extern const struct paravirt_nop_patch __start_paravirt_nop_b[];
-+	extern const struct paravirt_nop_patch __stop_paravirt_nop_b[];
-+
-+	paravirt_nop_b_patch_apply(__start_paravirt_nop_b,
-+				   __stop_paravirt_nop_b);
-+}
-+#else
-+#define xen_nop_b_patch()	do { } while (0)
-+#endif
-+
-+
-+#ifdef CONFIG_PARAVIRT_ENTRY
-+
-+#include <asm/paravirt_entry.h>
-+
-+extern void *xen_switch_to;
-+extern void *xen_leave_syscall;
-+extern void *xen_leave_kernel;
-+extern void *xen_pal_call_static;
-+extern void *xen_work_processed_syscall;
-+
-+const static struct paravirt_entry xen_entries[] __initdata = {
-+	{&xen_switch_to,		PARAVIRT_ENTRY_SWITCH_TO},
-+	{&xen_leave_syscall,		PARAVIRT_ENTRY_LEAVE_SYSCALL},
-+	{&xen_leave_kernel,		PARAVIRT_ENTRY_LEAVE_KERNEL},
-+	{&xen_pal_call_static,		PARAVIRT_ENTRY_PAL_CALL_STATIC},
-+	{&xen_work_processed_syscall,	PARAVIRT_ENTRY_WORK_PROCESSED_SYSCALL},
-+};
-+
-+void __init
-+xen_entry_patch(void)
-+{
-+	extern const struct paravirt_entry_patch __start_paravirt_entry[];
-+	extern const struct paravirt_entry_patch __stop_paravirt_entry[];
-+
-+	paravirt_entry_patch_apply(__start_paravirt_entry,
-+				   __stop_paravirt_entry,
-+				   xen_entries,
-+				   sizeof(xen_entries)/sizeof(xen_entries[0]));
-+}
-+#else
-+#define xen_entry_patch()	do { } while (0)
-+#endif
-+
-+
-+void __init
-+xen_paravirt_patch(void)
-+{
-+	xen_alt_bundle_patch();
-+	xen_alt_inst_patch();
-+	xen_nop_b_patch();
-+	xen_entry_patch();
-+}
-+
 +/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/arch/ia64/xen/privops_asm.S b/arch/ia64/xen/privops_asm.S
-new file mode 100644
-index 0000000..40e400e
---- /dev/null
-+++ b/arch/ia64/xen/privops_asm.S
-@@ -0,0 +1,221 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/privop_s.S
++ * This file defines the interruption vector table used by the CPU.
++ * It does not include one entry per possible cause of interruption.
 + *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
++ * The first 20 entries of the table contain 64 bundles each while the
++ * remaining 48 entries contain only 16 bundles each.
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
++ * The 64 bundles are used to allow inlining the whole handler for critical
++ * interruptions like TLB misses.
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
++ *  For each entry, the comment is as follows:
 + *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *		// 0x1c00 Entry 7 (size 64 bundles) Data Key Miss (12,51)
++ *  entry offset ----/     /         /                  /          /
++ *  entry number ---------/         /                  /          /
++ *  size of the entry -------------/                  /          /
++ *  vector name -------------------------------------/          /
++ *  interruptions triggering this vector ----------------------/
 + *
++ * The table is 32KB in size and must be aligned on 32KB boundary.
++ * (The CPU ignores the 15 lower bits of the address)
++ *
++ * Table is based upon EAS2.6 (Oct 1999)
 + */
 +
-+#include <asm/intrinsics.h>
-+#include <linux/init.h>
-+#include <asm/paravirt_alt.h>
 +
-+#ifdef CONFIG_MODULES
-+#define __INIT_OR_MODULE	.text
-+#define __INITDATA_OR_MODULE	.data
-+#else
-+#define __INIT_OR_MODULE	__INIT
-+#define __INITDATA_OR_MODULE	__INITDATA
-+#endif /* CONFIG_MODULES */
-+
-+	__INIT_OR_MODULE
-+	.align 32
-+	.proc nop_b_inst_bundle
-+	.global nop_b_inst_bundle
-+nop_b_inst_bundle:
-+	{
-+		nop.b 0
-+		nop.b 0
-+		nop.b 0
-+	}
-+	.endp nop_b_inst_bundle
-+	__FINIT
-+
-+	/* NOTE: nop.[mfi] has same format */
-+	__INIT_OR_MODULE
-+	.align 32
-+	.proc nop_mfi_inst_bundle
-+	.global nop_mfi_inst_bundle
-+nop_mfi_inst_bundle:
-+	{
-+		nop.m 0
-+		nop.f 0
-+		nop.i 0
-+	}
-+	.endp nop_mfi_inst_bundle
-+	__FINIT
-+
-+	__INIT_OR_MODULE
-+	.align 32
-+	.proc nop_bundle
-+	.global nop_bundle
-+nop_bundle:
-+nop_bundle_start:
-+	{
-+		nop 0
-+		nop 0
-+		nop 0
-+	}
-+nop_bundle_end:
-+	.endp nop_bundle
-+	__FINIT
-+
-+	__INITDATA_OR_MODULE
-+	.align 8
-+	.global nop_bundle_size
-+nop_bundle_size:
-+	data8	nop_bundle_end - nop_bundle_start
-+
-+#define DEFINE_PRIVOP(name, instr)					\
-+	.align 32;							\
-+	.proc  xen_ ## name ## _instr;					\
-+	xen_ ## name ## _instr:;					\
-+	xen_ ## name ## _instr_start:;					\
-+	{;								\
-+	[xen_ ## name ## _stag:]					\
-+		instr;							\
-+	[xen_ ## name ## _etag:]					\
-+		nop 0;							\
-+		nop 0;							\
-+	};								\
-+	xen_ ## name ## _instr_end:;					\
-+	.endp  xen_ ## name ## _instr;
-+
-+	__INIT_OR_MODULE
-+	DEFINE_PRIVOP(rfi,		XEN_HYPER_RFI)
-+	DEFINE_PRIVOP(rsm_psr_dt,	XEN_HYPER_RSM_PSR_DT)
-+	DEFINE_PRIVOP(ssm_psr_dt,	XEN_HYPER_SSM_PSR_DT)
-+	DEFINE_PRIVOP(cover,		XEN_HYPER_COVER)
-+	DEFINE_PRIVOP(itc_d,		XEN_HYPER_ITC_D)
-+	DEFINE_PRIVOP(itc_i,		XEN_HYPER_ITC_I)
-+	DEFINE_PRIVOP(ssm_i,		XEN_HYPER_SSM_I)
-+	DEFINE_PRIVOP(get_ivr,		XEN_HYPER_GET_IVR)
-+	DEFINE_PRIVOP(get_tpr,		XEN_HYPER_GET_TPR)
-+	DEFINE_PRIVOP(set_tpr,		XEN_HYPER_SET_TPR)
-+	DEFINE_PRIVOP(eoi,		XEN_HYPER_EOI)
-+	DEFINE_PRIVOP(set_itm,		XEN_HYPER_SET_ITM)
-+	DEFINE_PRIVOP(thash,		XEN_HYPER_THASH)
-+	DEFINE_PRIVOP(ptc_ga,		XEN_HYPER_PTC_GA)
-+	DEFINE_PRIVOP(itr_d,		XEN_HYPER_ITR_D)
-+	DEFINE_PRIVOP(get_rr,		XEN_HYPER_GET_RR)
-+	DEFINE_PRIVOP(set_rr,		XEN_HYPER_SET_RR)
-+	DEFINE_PRIVOP(set_kr,		XEN_HYPER_SET_KR)
-+	DEFINE_PRIVOP(fc,		XEN_HYPER_FC)
-+	DEFINE_PRIVOP(get_cpuid,	XEN_HYPER_GET_CPUID)
-+	DEFINE_PRIVOP(get_pmd,		XEN_HYPER_GET_PMD)
-+	DEFINE_PRIVOP(get_eflag,	XEN_HYPER_GET_EFLAG)
-+	DEFINE_PRIVOP(set_eflag,	XEN_HYPER_SET_EFLAG)
-+	DEFINE_PRIVOP(get_psr,		XEN_HYPER_GET_PSR)
-+	DEFINE_PRIVOP(set_rr0_to_rr4,	XEN_HYPER_SET_RR0_TO_RR4)
-+	__FINIT
-+
-+
-+#define PARAVIRT_ALT_BUNDLE_ELEM(name, type)				\
-+	data8 xen_ ## name ## _instr_start;				\
-+	data8 xen_ ## name ## _instr_end;				\
-+	data8 type;
-+
-+	__INITDATA_OR_MODULE
-+	.align 8
-+	.global xen_alt_bundle_array
-+xen_alt_bundle_array:
-+xen_alt_bundle_array_start:
-+	PARAVIRT_ALT_BUNDLE_ELEM(rfi,		PARAVIRT_INST_RFI)
-+	PARAVIRT_ALT_BUNDLE_ELEM(rsm_psr_dt,	PARAVIRT_INST_RSM_DT)
-+	PARAVIRT_ALT_BUNDLE_ELEM(ssm_psr_dt,	PARAVIRT_INST_SSM_DT)
-+	PARAVIRT_ALT_BUNDLE_ELEM(cover,		PARAVIRT_INST_COVER)
-+	PARAVIRT_ALT_BUNDLE_ELEM(itc_d,		PARAVIRT_INST_ITC_D)
-+	PARAVIRT_ALT_BUNDLE_ELEM(itc_i,		PARAVIRT_INST_ITC_I)
-+	PARAVIRT_ALT_BUNDLE_ELEM(ssm_i,		PARAVIRT_INST_SSM_I)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_ivr,	PARAVIRT_INST_GET_IVR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_tpr,	PARAVIRT_INST_GET_TPR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(set_tpr,	PARAVIRT_INST_SET_TPR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(eoi,		PARAVIRT_INST_EOI)
-+	PARAVIRT_ALT_BUNDLE_ELEM(set_itm,	PARAVIRT_INST_SET_ITM)
-+	PARAVIRT_ALT_BUNDLE_ELEM(thash,		PARAVIRT_INST_THASH)
-+	PARAVIRT_ALT_BUNDLE_ELEM(ptc_ga,	PARAVIRT_INST_PTC_GA)
-+	PARAVIRT_ALT_BUNDLE_ELEM(itr_d,		PARAVIRT_INST_ITR_D)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_rr,	PARAVIRT_INST_GET_RR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(set_rr,	PARAVIRT_INST_SET_RR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(set_kr,	PARAVIRT_INST_SET_KR)
-+	PARAVIRT_ALT_BUNDLE_ELEM(fc,		PARAVIRT_INST_FC)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_cpuid,	PARAVIRT_INST_GET_CPUID)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_pmd,	PARAVIRT_INST_GET_PMD)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_eflag,	PARAVIRT_INST_GET_EFLAG)
-+	PARAVIRT_ALT_BUNDLE_ELEM(set_eflag,	PARAVIRT_INST_SET_EFLAG)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_psr,	PARAVIRT_INST_GET_PSR)
-+
-+	PARAVIRT_ALT_BUNDLE_ELEM(ssm_i,		PARAVIRT_BNDL_SSM_I)
-+	PARAVIRT_ALT_BUNDLE_ELEM(rsm_i,		PARAVIRT_BNDL_RSM_I)
-+	PARAVIRT_ALT_BUNDLE_ELEM(get_psr_i,	PARAVIRT_BNDL_GET_PSR_I)
-+	PARAVIRT_ALT_BUNDLE_ELEM(intrin_local_irq_restore,
-+					PARAVIRT_BNDL_INTRIN_LOCAL_IRQ_RESTORE)
-+xen_alt_bundle_array_end:
-+
-+	.align 8
-+	.global xen_alt_bundle_array_size
-+xen_alt_bundle_array_size:
-+	.long xen_alt_bundle_array_end - xen_alt_bundle_array_start
-+
-+
-+#define PARAVIRT_ALT_INST_ELEM(name, type)				\
-+	data8 xen_ ## name ## _stag ;					\
-+	data8 xen_ ## name ## _etag ;					\
-+	data8 type
-+
-+	__INITDATA_OR_MODULE
-+	.align 8
-+	.global xen_alt_inst_array
-+xen_alt_inst_array:
-+xen_alt_inst_array_start:
-+	PARAVIRT_ALT_INST_ELEM(rfi,		PARAVIRT_INST_RFI)
-+	PARAVIRT_ALT_INST_ELEM(rsm_psr_dt,	PARAVIRT_INST_RSM_DT)
-+	PARAVIRT_ALT_INST_ELEM(ssm_psr_dt,	PARAVIRT_INST_SSM_DT)
-+	PARAVIRT_ALT_INST_ELEM(cover,		PARAVIRT_INST_COVER)
-+	PARAVIRT_ALT_INST_ELEM(itc_d,		PARAVIRT_INST_ITC_D)
-+	PARAVIRT_ALT_INST_ELEM(itc_i,		PARAVIRT_INST_ITC_I)
-+	PARAVIRT_ALT_INST_ELEM(ssm_i,		PARAVIRT_INST_SSM_I)
-+	PARAVIRT_ALT_INST_ELEM(get_ivr,		PARAVIRT_INST_GET_IVR)
-+	PARAVIRT_ALT_INST_ELEM(get_tpr,		PARAVIRT_INST_GET_TPR)
-+	PARAVIRT_ALT_INST_ELEM(set_tpr,		PARAVIRT_INST_SET_TPR)
-+	PARAVIRT_ALT_INST_ELEM(eoi,		PARAVIRT_INST_EOI)
-+	PARAVIRT_ALT_INST_ELEM(set_itm,		PARAVIRT_INST_SET_ITM)
-+	PARAVIRT_ALT_INST_ELEM(thash,		PARAVIRT_INST_THASH)
-+	PARAVIRT_ALT_INST_ELEM(ptc_ga,		PARAVIRT_INST_PTC_GA)
-+	PARAVIRT_ALT_INST_ELEM(itr_d,		PARAVIRT_INST_ITR_D)
-+	PARAVIRT_ALT_INST_ELEM(get_rr,		PARAVIRT_INST_GET_RR)
-+	PARAVIRT_ALT_INST_ELEM(set_rr,		PARAVIRT_INST_SET_RR)
-+	PARAVIRT_ALT_INST_ELEM(set_kr,		PARAVIRT_INST_SET_KR)
-+	PARAVIRT_ALT_INST_ELEM(fc,		PARAVIRT_INST_FC)
-+	PARAVIRT_ALT_INST_ELEM(get_cpuid,	PARAVIRT_INST_GET_CPUID)
-+	PARAVIRT_ALT_INST_ELEM(get_pmd,		PARAVIRT_INST_GET_PMD)
-+	PARAVIRT_ALT_INST_ELEM(get_eflag,	PARAVIRT_INST_GET_EFLAG)
-+	PARAVIRT_ALT_INST_ELEM(set_eflag,	PARAVIRT_INST_SET_EFLAG)
-+	PARAVIRT_ALT_INST_ELEM(get_psr,		PARAVIRT_INST_GET_PSR)
-+	PARAVIRT_ALT_INST_ELEM(set_rr0_to_rr4,	PARAVIRT_INST_SET_RR0_TO_RR4)
-+
-+	PARAVIRT_ALT_INST_ELEM(ssm_i,		PARAVIRT_BNDL_SSM_I)
-+	PARAVIRT_ALT_INST_ELEM(rsm_i,		PARAVIRT_BNDL_RSM_I)
-+	PARAVIRT_ALT_INST_ELEM(get_psr_i,	PARAVIRT_BNDL_GET_PSR_I)
-+	PARAVIRT_ALT_INST_ELEM(intrin_local_irq_restore,
-+					PARAVIRT_BNDL_INTRIN_LOCAL_IRQ_RESTORE)
-+xen_alt_inst_array_end:
-+
-+	.align 8
-+	.global xen_alt_inst_array_size
-+xen_alt_inst_array_size:
-+	.long xen_alt_inst_array_end - xen_alt_inst_array_start
-diff --git a/arch/ia64/xen/privops_c.c b/arch/ia64/xen/privops_c.c
-new file mode 100644
-index 0000000..0fa2e23
---- /dev/null
-+++ b/arch/ia64/xen/privops_c.c
-@@ -0,0 +1,279 @@
-+/******************************************************************************
-+ * arch/ia64/xen/privops_c.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/linkage.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+
-+#include <xen/interface/xen.h>
-+
++#include <asm/asmmacro.h>
++#include <asm/break.h>
++#include <asm/ia32.h>
++#include <asm/kregs.h>
 +#include <asm/asm-offsets.h>
-+#define XEN_PSR_I_ADDR_ADDR	((uint8_t **)(XSI_BASE + XSI_PSR_I_ADDR_OFS))
++#include <asm/pgtable.h>
++#include <asm/processor.h>
++#include <asm/ptrace.h>
++#include <asm/system.h>
++#include <asm/thread_info.h>
++#include <asm/unistd.h>
++#include <asm/errno.h>
 +
-+
-+void __init_or_module
-+xen_privop_ssm_i(void)
-+{
-+	/*
-+	 * int masked = !xen_get_virtual_psr_i();
-+	 *	// masked = *(*XEN_MAPPEDREGS->interrupt_mask_addr)
-+	 * xen_set_virtual_psr_i(1)
-+	 *	// *(*XEN_MAPPEDREGS->interrupt_mask_addr) = 0
-+	 * // compiler barrier
-+	 * if (masked) {
-+	 *	uint8_t* pend_int_addr +	 *		(uint8_t*)(*XEN_MAPPEDREGS->interrupt_mask_addr) - 1;
-+	 *	uint8_t pending = *pend_int_addr;
-+	 *	if (pending)
-+	 *		XEN_HYPER_SSM_I
-+	 * }
-+	 */
-+	register uint8_t *tmp asm ("r8");
-+	register int masked asm ("r9");
-+	register uint8_t *pending_intr_addr asm ("r10");
-+
-+	asm volatile(".global xen_ssm_i_instr\n\t"
-+		     "xen_ssm_i_instr:\n\t"
-+		     ".global xen_ssm_i_instr_start\n\t"
-+		     "xen_ssm_i_instr_start:\n\t"
-+		     ".global xen_ssm_i_stag\n\t"
-+		     "[xen_ssm_i_stag:]\n\t"
-+		     /* tmp = &XEN_MAPPEDREGS->interrupt_mask_addr */
-+		     "mov %[tmp]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
-+		     ";;\n\t"
-+		     /* tmp = *XEN_MAPPEDREGS->interrupt_mask_addr */
-+		     "ld8 %[tmp]=[%[tmp]]\n\t"
-+		     ";;\n\t"
-+		     /* pending_intr_addr = tmp - 1 */
-+		     "add %[pending_intr_addr]=-1,%[tmp]\n\t"
-+		     /* masked = *tmp */
-+		     "ld1 %[masked]=[%[tmp]]\n\t"
-+		     ";;\n\t"
-+		     /* *tmp = 0 */
-+		     "st1 [%[tmp]]=r0\n\t"
-+		     /* p6 = !masked */
-+		     "cmp.ne.unc p6,p0=%[masked],r0\n\t"
-+		     ";;\n\t"
-+		     /* tmp = *pending_intr_addr */
-+		     "(p6) ld1 %[tmp]=[%[pending_intr_addr]]\n\t"
-+		     ";;\n\t"
-+		     /* p7 = p6 && !tmp */
-+		     "(p6) cmp.ne.unc p7,p0=%[tmp],r0\n\t"
-+		     ";;\n\t"
-+		     "(p7) break %[HYPERPRIVOP_SSM_I_IMM]\n\t"
-+		     ".global xen_ssm_i_etag\n\t"
-+		     "[xen_ssm_i_etag:]\n\t"
-+		     ".global xen_ssm_i_instr_end\n\t"
-+		     "xen_ssm_i_instr_end:\n\t"
-+		     :
-+		     [tmp] "=r"(tmp),
-+		     [pending_intr_addr] "=r"(pending_intr_addr),
-+		     [masked] "=r"(masked),
-+
-+		     "=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
-+		     :
-+		     [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
-+		     [HYPERPRIVOP_SSM_I_IMM] "i"(HYPERPRIVOP_SSM_I),
-+
-+		     "m"(*((uint8_t *)XEN_PSR_I_ADDR_ADDR)),
-+		     "m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
-+		     "m"(*(*((uint8_t **)XEN_PSR_I_ADDR_ADDR) - 1))
-+		     :
-+		     "memory",
-+		     /*
-+		      * predicate registers can't be specified as C variables
-+		      * so that we use p6, p7, p8 here.
-+		      */
-+		     "p6", /* is_old */
-+		     "p7"  /* is_pending */
-+		);
-+}
-+
-+void __init_or_module
-+xen_privop_rsm_i(void)
-+{
-+	/*
-+	 * psr_i_addr_addr = XEN_MAPPEDREGS->interrupt_mask_addr
-+	 *                 = XEN_PSR_I_ADDR_ADDR;
-+	 * psr_i_addr = *psr_i_addr_addr;
-+	 * *psr_i_addr = 1;
-+	 */
-+	register unsigned long psr_i_addr asm("r8");
-+	register uint8_t mask asm ("r9");
-+	asm volatile (".global xen_rsm_i_instr\n\t"
-+		      "xen_rsm_i_instr:\n\t"
-+		      ".global xen_rsm_i_instr_start\n\t"
-+		      "xen_rsm_i_instr_start:\n\t"
-+		      ".global xen_rsm_i_stag\n\t"
-+		      "[xen_rsm_i_stag:]\n\t"
-+		      "mov %[psr_i_addr]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
-+		      "mov %[mask]=%[ONE_IMM]\n\t"
-+		      ";;\n\t"
-+		      "ld8 %[psr_i_addr]=[%[psr_i_addr]]\n\t"
-+		      ";;\n\t"
-+		      "st1 [%[psr_i_addr]]=%[mask]\n\t"
-+		      ".global xen_rsm_i_etag\n\t"
-+		      "[xen_rsm_i_etag:]\n\t"
-+		      ".global xen_rsm_i_instr_end\n\t"
-+		      "xen_rsm_i_instr_end:\n\t"
-+		      :
-+		      [psr_i_addr] "=r"(psr_i_addr),
-+		      [mask] "=r"(mask),
-+		      "=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)):
-+		      [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
-+		      [ONE_IMM] "i"(1),
-+		      "m"(*((uint8_t **)XEN_PSR_I_ADDR_ADDR)):
-+		      "memory");
-+}
-+
-+void __init_or_module
-+xen_privop_ia64_intrin_local_irq_restore(unsigned long val)
-+{
-+	/*
-+	 * psr_i_addr_addr = XEN_PSR_I_ADDR_ADDR
-+	 * psr_i_addr = *psr_i_addr_addr
-+	 * pending_intr_addr = psr_i_addr - 1
-+	 * if (val & IA64_PSR_I) {
-+	 *   masked = *psr_i_addr
-+	 *   *psr_i_addr = 0
-+	 *   compiler barrier
-+	 *   if (masked) {
-+	 *	uint8_t pending = *pending_intr_addr;
-+	 *	if (pending)
-+	 *		XEN_HYPER_SSM_I
-+	 *   }
-+	 * } else {
-+	 *   *psr_i_addr = 1
-+	 * }
-+	 */
-+
-+	register unsigned long __val asm("r8") = val;
-+	register uint8_t *psr_i_addr asm ("r9");
-+	register uint8_t *pending_intr_addr asm ("r10");
-+	register uint8_t masked asm ("r11");
-+	register unsigned long one_or_pending asm ("r8");
-+
-+	asm volatile (
-+		".global xen_intrin_local_irq_restore_instr\n\t"
-+		"xen_intrin_local_irq_restore_instr:\n\t"
-+		".global xen_intrin_local_irq_restore_instr_start\n\t"
-+		"xen_intrin_local_irq_restore_instr_start:\n\t"
-+		".global xen_intrin_local_irq_restore_stag\n\t"
-+		"[xen_intrin_local_irq_restore_stag:]\n\t"
-+		"tbit.nz p6,p7=%[val],%[IA64_PSR_I_BIT_IMM]\n\t"
-+		"mov %[psr_i_addr]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
-+		";;\n\t"
-+		"ld8 %[psr_i_addr]=[%[psr_i_addr]]\n\t"
-+		"(p7)mov %[one_or_pending]=%[ONE_IMM]\n\t"
-+		";;\n\t"
-+		"add %[pending_intr_addr]=-1,%[psr_i_addr]\n\t"
-+		";;\n\t"
-+		"(p6) ld1 %[masked]=[%[psr_i_addr]]\n\t"
-+		"(p7) st1 [%[psr_i_addr]]=%[one_or_pending]\n\t"
-+		";;\n\t"
-+		"(p6) st1 [%[psr_i_addr]]=r0\n\t"
-+		"(p6) cmp.ne.unc p8,p0=%[masked],r0\n\t"
-+		"(p6) ld1 %[one_or_pending]=[%[pending_intr_addr]]\n\t"
-+		";;\n\t"
-+		"(p8) cmp.eq.unc p9,p0=%[one_or_pending],r0\n\t"
-+		";;\n\t"
-+		"(p9) break %[HYPERPRIVOP_SSM_I_IMM]\n\t"
-+		".global xen_intrin_local_irq_restore_etag\n\t"
-+		"[xen_intrin_local_irq_restore_etag:]\n\t"
-+		".global xen_intrin_local_irq_restore_instr_end\n\t"
-+		"xen_intrin_local_irq_restore_instr_end:\n\t"
-+		:
-+		[psr_i_addr] "=r"(psr_i_addr),
-+		[pending_intr_addr] "=r"(pending_intr_addr),
-+		[masked] "=r"(masked),
-+		[one_or_pending] "=r"(one_or_pending),
-+
-+		"=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
-+		:
-+		[val] "r"(__val),
-+		[IA64_PSR_I_BIT_IMM] "i"(IA64_PSR_I_BIT),
-+		[ONE_IMM] "i"(1),
-+
-+		[XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
-+		[HYPERPRIVOP_SSM_I_IMM] "i"(HYPERPRIVOP_SSM_I),
-+
-+		"m"(*((uint8_t *)XEN_PSR_I_ADDR_ADDR)),
-+		"m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
-+		"m"(*(*((uint8_t **)XEN_PSR_I_ADDR_ADDR) - 1))
-+		:
-+		"memory",
-+		"p6", /* is_psr_i_set  */
-+		"p7", /* not_psr_i_set */
-+		"p8", /* is_masked && is_psr_i_set */
-+		"p9"  /* is_pending && is_masked && is_psr_i_set */
-+		);
-+}
-+
-+unsigned long __init_or_module
-+xen_privop_get_psr_i(void)
-+{
-+	/*
-+	 * tmp = XEN_MAPPEDREGS->interrupt_mask_addr = XEN_PSR_I_ADDR_ADDR;
-+	 * tmp = *tmp
-+	 * tmp = *tmp;
-+	 * psr_i = tmp? 0: IA64_PSR_I;
-+	 */
-+	register unsigned long psr_i asm ("r8");
-+	register unsigned long tmp asm ("r9");
-+
-+	asm volatile (".global xen_get_psr_i_instr\n\t"
-+		      "xen_get_psr_i_instr:\n\t"
-+		      ".global xen_get_psr_i_instr_start\n\t"
-+		      "xen_get_psr_i_instr_start:\n\t"
-+		      ".global xen_get_psr_i_stag\n\t"
-+		      "[xen_get_psr_i_stag:]\n\t"
-+		      /* tmp = XEN_PSR_I_ADDR_ADDR */
-+		      "mov %[tmp]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
-+		      ";;\n\t"
-+		      /* tmp = *tmp = *XEN_PSR_I_ADDR_ADDR */
-+		      "ld8 %[tmp]=[%[tmp]]\n\t"
-+		      /* psr_i = 0 */
-+		      "mov %[psr_i]=0\n\t"
-+		      ";;\n\t"
-+		      /* tmp = *(uint8_t*)tmp */
-+		      "ld1 %[tmp]=[%[tmp]]\n\t"
-+		      ";;\n\t"
-+		      /* if (!tmp) psr_i = IA64_PSR_I */
-+		      "cmp.eq.unc p6,p0=%[tmp],r0\n\t"
-+		      ";;\n\t"
-+		      "(p6) mov %[psr_i]=%[IA64_PSR_I_IMM]\n\t"
-+		      ".global xen_get_psr_i_etag\n\t"
-+		      "[xen_get_psr_i_etag:]\n\t"
-+		      ".global xen_get_psr_i_instr_end\n\t"
-+		      "xen_get_psr_i_instr_end:\n\t"
-+		      :
-+		      [tmp] "=r"(tmp),
-+		      [psr_i] "=r"(psr_i)
-+		      :
-+		      [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
-+		      [IA64_PSR_I_IMM] "i"(IA64_PSR_I),
-+		      "m"(*((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
-+		      "m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
-+		      :
-+		      "p6");
-+	return psr_i;
-+}
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-index 17ad297..2d3d5d4 100644
---- a/arch/ia64/xen/xensetup.S
-+++ b/arch/ia64/xen/xensetup.S
-@@ -35,6 +35,16 @@ GLOBAL_ENTRY(early_xen_setup)
- (isBP)	movl r28=XSI_BASE;;
- (isBP)	break 0x1000;;
- 
-+#ifdef CONFIG_PARAVIRT
-+	/* patch privops */
-+(isBP)	mov r4=rp
-+	;;
-+(isBP)	br.call.sptk.many rp=xen_paravirt_patch
-+	;;
-+(isBP)	mov rp=r4
-+	;;
++#ifdef CONFIG_XEN
++#define ia64_ivt xen_ivt
 +#endif
 +
- 	br.ret.sptk.many rp
- 	;;
- END(early_xen_setup)
-diff --git a/include/asm-ia64/xen/privop.h b/include/asm-ia64/xen/privop.h
-index 95e8e8a..d59cc31 100644
---- a/include/asm-ia64/xen/privop.h
-+++ b/include/asm-ia64/xen/privop.h
-@@ -557,6 +557,18 @@ do {									\
- 
- #endif /* ASM_SUPPORTED && !CONFIG_PARAVIRT_ALT */
- 
-+#ifdef CONFIG_PARAVIRT_ALT
-+#if defined(CONFIG_MODULES) && defined(CONFIG_XEN)
-+void xen_alt_bundle_patch_module(struct paravirt_alt_bundle_patch *start,
-+				 struct paravirt_alt_bundle_patch *end);
-+void xen_alt_inst_patch_module(struct paravirt_alt_inst_patch *start,
-+			       struct paravirt_alt_inst_patch *end);
++#if 1
++# define PSR_DEFAULT_BITS	psr.ac
 +#else
-+#define xen_alt_bundle_patch_module(start, end)	do { } while (0)
-+#define xen_alt_inst_patch_module(start, end)	do { } while (0)
++# define PSR_DEFAULT_BITS	0
 +#endif
-+#endif /* CONFIG_PARAVIRT_ALT */
 +
- #endif /* !__ASSEMBLY__ */
- 
- /* these routines utilize privilege-sensitive or performance-sensitive
-@@ -573,12 +585,24 @@ do {									\
- 
- #ifdef CONFIG_XEN
- #ifdef __ASSEMBLY__
-+#ifdef CONFIG_PARAVIRT_ENTRY
-+#define BR_IF_NATIVE(target, reg_unused, pred_unused)	/* nothing */
-+#elif defined(CONFIG_PARAVIRT_NOP_B_PATCH)
-+#define BR_IF_NATIVE(target, reg_unused, pred_unused)	\
-+	.body ;						\
-+	[1:] ;						\
-+	br.cond.sptk.many target;; ;			\
-+	.section .paravirt_nop_b, "a" ;			\
-+	.previous ;					\
-+	.xdata8 ".paravirt_nop_b", 1b
++#if 0
++  /*
++   * This lets you track the last eight faults that occurred on the CPU.  =
+Make sure ar.k2 isn't
++   * needed for something else before enabling this...
++   */
++# define DBG_FAULT(i)	mov r16=3Dar.k2;;	shl r16=3Dr16,8;;	add r16=3D(i),r1=
+6;;mov ar.k2=3Dr16
 +#else
- #define BR_IF_NATIVE(target, reg, pred)		\
- 	.body ;					\
- 	movl reg=running_on_xen;; ;		\
- 	ld4 reg=[reg];; ;			\
- 	cmp.eq pred,p0=reg,r0 ;			\
- 	(pred)	br.cond.sptk.many target;;
++# define DBG_FAULT(i)
 +#endif
- #endif /* __ASSEMBLY__ */
- #endif
- 
--- 
++
++#ifdef CONFIG_XEN
++#include "xenminstate.h"
++#else
++#include "minstate.h"
++#endif
++
++#define FAULT(n)									\
++	mov r31=3Dpr;									\
++	mov r19=3Dn;;			/* prepare to save predicates */		\
++	br.sptk.many dispatch_to_fault_handler
++
++	.section .text.ivt,"ax"
++
++	.align 32768	// align on 32KB boundary
++	.global ia64_ivt
++ia64_ivt:
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x0000 Entry 0 (size 64 bundles) VHPT Translation (8,20,47)
++ENTRY(vhpt_miss)
++	DBG_FAULT(0)
++	/*
++	 * The VHPT vector is invoked when the TLB entry for the virtual page tab=
+le
++	 * is missing.  This happens only as a result of a previous
++	 * (the "original") TLB miss, which may either be caused by an instruction
++	 * fetch or a data access (or non-access).
++	 *
++	 * What we do here is normal TLB miss handing for the _original_ miss,
++	 * followed by inserting the TLB entry for the virtual page table page
++	 * that the VHPT walker was attempting to access.  The latter gets
++	 * inserted as long as page table entry above pte level have valid
++	 * mappings for the faulting address.  The TLB entry for the original
++	 * miss gets inserted only if the pte entry indicates that the page is
++	 * present.
++	 *
++	 * do_page_fault gets invoked in the following cases:
++	 *	- the faulting virtual address uses unimplemented address bits
++	 *	- the faulting virtual address has no valid page table mapping
++	 */
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++#ifdef CONFIG_HUGETLB_PAGE
++	movl r18=3DPAGE_SHIFT
++	movl r25=3DXSI_ITIR
++	;;
++	ld8 r25=3D[r25]
++#endif
++#else
++	mov r16=3Dcr.ifa				// get address that caused the TLB miss
++#ifdef CONFIG_HUGETLB_PAGE
++	movl r18=3DPAGE_SHIFT
++	mov r25=3Dcr.itir
++#endif
++#endif
++	;;
++#ifdef CONFIG_XEN
++	XEN_HYPER_RSM_PSR_DT;
++#else
++	rsm psr.dt				// use physical addressing for data
++#endif
++	mov r31=3Dpr				// save the predicate registers
++	mov r19=3DIA64_KR(PT_BASE)		// get page table base address
++	shl r21=3Dr16,3				// shift bit 60 into sign bit
++	shr.u r17=3Dr16,61			// get the region number into r17
++	;;
++	shr.u r22=3Dr21,3
++#ifdef CONFIG_HUGETLB_PAGE
++	extr.u r26=3Dr25,2,6
++	;;
++	cmp.ne p8,p0=3Dr18,r26
++	sub r27=3Dr26,r18
++	;;
++(p8)	dep r25=3Dr18,r25,2,6
++(p8)	shr r22=3Dr22,r27
++#endif
++	;;
++	cmp.eq p6,p7=3D5,r17			// is IFA pointing into to region 5?
++	shr.u r18=3Dr22,PGDIR_SHIFT		// get bottom portion of pgd index bit
++	;;
++(p7)	dep r17=3Dr17,r19,(PAGE_SHIFT-3),3	// put region number bits in place
++
++	srlz.d
++	LOAD_PHYSICAL(p6, r19, swapper_pg_dir)	// region 5 is rooted at swapper_p=
+g_dir
++
++	.pred.rel "mutex", p6, p7
++(p6)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
++(p7)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
++	;;
++(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3Dpgd_offset for region 5
++(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3Dpgd_offset for region[0-4]
++	cmp.eq p7,p6=3D0,r21			// unused address bits all zeroes?
++#ifdef CONFIG_PGTABLE_4
++	shr.u r28=3Dr22,PUD_SHIFT			// shift pud index into position
++#else
++	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
++#endif
++	;;
++	ld8 r17=3D[r17]				// get *pgd (may be 0)
++	;;
++(p7)	cmp.eq p6,p7=3Dr17,r0			// was pgd_present(*pgd) =3D NULL?
++#ifdef CONFIG_PGTABLE_4
++	dep r28=3Dr28,r17,3,(PAGE_SHIFT-3)	// r28=3Dpud_offset(pgd,addr)
++	;;
++	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
++(p7)	ld8 r29=3D[r28]				// get *pud (may be 0)
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=3Dr29,r0		// was pud_present(*pud) =3D NULL?
++	dep r17=3Dr18,r29,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pud,addr)
++#else
++	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pgd,addr)
++#endif
++	;;
++(p7)	ld8 r20=3D[r17]				// get *pmd (may be 0)
++	shr.u r19=3Dr22,PAGE_SHIFT		// shift pte index into position
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=3Dr20,r0		// was pmd_present(*pmd) =3D NULL?
++	dep r21=3Dr19,r20,3,(PAGE_SHIFT-3)	// r21=3Dpte_offset(pmd,addr)
++	;;
++(p7)	ld8 r18=3D[r21]				// read *pte
++#ifdef CONFIG_XEN
++	movl r19=3DXSI_ISR
++	;;
++	ld8 r19=3D[r19]
++#else
++	mov r19=3Dcr.isr				// cr.isr bit 32 tells us if this is an insn miss
++#endif
++	;;
++(p7)	tbit.z p6,p7=3Dr18,_PAGE_P_BIT		// page present bit cleared?
++#ifdef CONFIG_XEN
++	movl r22=3DXSI_IHA
++	;;
++	ld8 r22=3D[r22]
++#else
++	mov r22=3Dcr.iha				// get the VHPT address that caused the TLB miss
++#endif
++	;;					// avoid RAW on p7
++(p7)	tbit.nz.unc p10,p11=3Dr19,32		// is it an instruction TLB miss?
++	dep r23=3D0,r20,0,PAGE_SHIFT		// clear low bits to get page address
++	;;
++#ifdef CONFIG_XEN
++	mov r24=3Dr8
++	mov r8=3Dr18
++	;;
++(p10)	XEN_HYPER_ITC_I
++	;;
++(p11)	XEN_HYPER_ITC_D
++	;;
++	mov r8=3Dr24
++	;;
++#else
++(p10)	itc.i r18				// insert the instruction TLB entry
++(p11)	itc.d r18				// insert the data TLB entry
++#endif
++(p6)	br.cond.spnt.many page_fault		// handle bad address/page not present =
+(page fault)
++#ifdef CONFIG_XEN
++	movl r24=3DXSI_IFA
++	;;
++	st8 [r24]=3Dr22
++	;;
++#ifdef CONFIG_HUGETLB_PAGE
++(p8)	movl r24=3DXSI_ITIR
++	;;
++(p8)	st8 [r24]=3Dr25
++#endif
++#else
++	mov cr.ifa=3Dr22
++
++#ifdef CONFIG_HUGETLB_PAGE
++(p8)	mov cr.itir=3Dr25				// change to default page-size for VHPT
++#endif
++#endif
++
++	/*
++	 * Now compute and insert the TLB entry for the virtual page table.  We n=
+ever
++	 * execute in a page table page so there is no need to set the exception =
+deferral
++	 * bit.
++	 */
++	adds r24=3D__DIRTY_BITS_NO_ED|_PAGE_PL_0|_PAGE_AR_RW,r23
++	;;
++#ifdef CONFIG_XEN
++(p7)	mov r25=3Dr8
++(p7)	mov r8=3Dr24
++	;;
++(p7)	XEN_HYPER_ITC_D
++	;;
++(p7)	mov r8=3Dr25
++	;;
++#else
++(p7)	itc.d r24
++#endif
++	;;
++#ifdef CONFIG_SMP
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	/*
++	 * Re-check pagetable entry.  If they changed, we may have received a ptc=
+.g
++	 * between reading the pagetable and the "itc".  If so, flush the entry we
++	 * inserted and retry.  At this point, we have:
++	 *
++	 * r28 =3D equivalent of pud_offset(pgd, ifa)
++	 * r17 =3D equivalent of pmd_offset(pud, ifa)
++	 * r21 =3D equivalent of pte_offset(pmd, ifa)
++	 *
++	 * r29 =3D *pud
++	 * r20 =3D *pmd
++	 * r18 =3D *pte
++	 */
++	ld8 r25=3D[r21]				// read *pte again
++	ld8 r26=3D[r17]				// read *pmd again
++#ifdef CONFIG_PGTABLE_4
++	ld8 r19=3D[r28]				// read *pud again
++#endif
++	cmp.ne p6,p7=3Dr0,r0
++	;;
++	cmp.ne.or.andcm p6,p7=3Dr26,r20		// did *pmd change
++#ifdef CONFIG_PGTABLE_4
++	cmp.ne.or.andcm p6,p7=3Dr19,r29		// did *pud change
++#endif
++	mov r27=3DPAGE_SHIFT<<2
++	;;
++(p6)	ptc.l r22,r27				// purge PTE page translation
++(p7)	cmp.ne.or.andcm p6,p7=3Dr25,r18		// did *pte change
++	;;
++(p6)	ptc.l r16,r27				// purge translation
++#endif
++
++	mov pr=3Dr31,-1				// restore predicate registers
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(vhpt_miss)
++
++	.org ia64_ivt+0x400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x0400 Entry 1 (size 64 bundles) ITLB (21)
++ENTRY(itlb_miss)
++	DBG_FAULT(1)
++	/*
++	 * The ITLB handler accesses the PTE via the virtually mapped linear
++	 * page table.  If a nested TLB miss occurs, we switch into physical
++	 * mode, walk the page table, and then re-execute the PTE read and
++	 * go on normally after that.
++	 */
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++#else
++	mov r16=3Dcr.ifa				// get virtual address
++#endif
++	mov r29=B0				// save b0
++	mov r31=3Dpr				// save predicates
++.itlb_fault:
++#ifdef CONFIG_XEN
++	movl r17=3DXSI_IHA
++	;;
++	ld8 r17=3D[r17]				// get virtual address of L3 PTE
++#else
++	mov r17=3Dcr.iha				// get virtual address of PTE
++#endif
++	movl r30=1F				// load nested fault continuation point
++	;;
++1:	ld8 r18=3D[r17]				// read *pte
++	;;
++	mov b0=3Dr29
++	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
++(p6)	br.cond.spnt page_fault
++	;;
++#ifdef CONFIG_XEN
++	mov r19=3Dr8
++	mov r8=3Dr18
++	;;
++	XEN_HYPER_ITC_I
++	;;
++	mov r8=3Dr19
++#else
++	itc.i r18
++#endif
++	;;
++#ifdef CONFIG_SMP
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r19=3D[r17]				// read *pte again and see if same
++	mov r20=3DPAGE_SHIFT<<2			// setup page size for purge
++	;;
++	cmp.ne p7,p0=3Dr18,r19
++	;;
++(p7)	ptc.l r16,r20
++#endif
++	mov pr=3Dr31,-1
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(itlb_miss)
++
++	.org ia64_ivt+0x0800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x0800 Entry 2 (size 64 bundles) DTLB (9,48)
++ENTRY(dtlb_miss)
++	DBG_FAULT(2)
++	/*
++	 * The DTLB handler accesses the PTE via the virtually mapped linear
++	 * page table.  If a nested TLB miss occurs, we switch into physical
++	 * mode, walk the page table, and then re-execute the PTE read and
++	 * go on normally after that.
++	 */
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++#else
++	mov r16=3Dcr.ifa				// get virtual address
++#endif
++	mov r29=B0				// save b0
++	mov r31=3Dpr				// save predicates
++dtlb_fault:
++#ifdef CONFIG_XEN
++	movl r17=3DXSI_IHA
++	;;
++	ld8 r17=3D[r17]				// get virtual address of L3 PTE
++#else
++	mov r17=3Dcr.iha				// get virtual address of PTE
++#endif
++	movl r30=1F				// load nested fault continuation point
++	;;
++1:	ld8 r18=3D[r17]				// read *pte
++	;;
++	mov b0=3Dr29
++	tbit.z p6,p0=3Dr18,_PAGE_P_BIT		// page present bit cleared?
++(p6)	br.cond.spnt page_fault
++	;;
++#ifdef CONFIG_XEN
++	mov r19=3Dr8
++	mov r8=3Dr18
++	;;
++	XEN_HYPER_ITC_D
++	;;
++	mov r8=3Dr19
++	;;
++#else
++	itc.d r18
++#endif
++	;;
++#ifdef CONFIG_SMP
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r19=3D[r17]				// read *pte again and see if same
++	mov r20=3DPAGE_SHIFT<<2			// setup page size for purge
++	;;
++	cmp.ne p7,p0=3Dr18,r19
++	;;
++(p7)	ptc.l r16,r20
++#endif
++	mov pr=3Dr31,-1
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(dtlb_miss)
++
++	.org ia64_ivt+0x0c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x0c00 Entry 3 (size 64 bundles) Alt ITLB (19)
++ENTRY(alt_itlb_miss)
++	DBG_FAULT(3)
++#ifdef CONFIG_XEN
++	movl r31=3DXSI_IPSR
++	;;
++	ld8 r21=3D[r31],XSI_IFA_OFS-XSI_IPSR_OFS	// get ipsr, point to ifa
++	movl r17=3DPAGE_KERNEL
++	;;
++	ld8 r16=3D[r31]		// get ifa
++#else
++	mov r16=3Dcr.ifa		// get address that caused the TLB miss
++	movl r17=3DPAGE_KERNEL
++	mov r21=3Dcr.ipsr
++#endif
++	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
++	mov r31=3Dpr
++	;;
++#ifdef CONFIG_DISABLE_VHPT
++	shr.u r22=3Dr16,61			// get the region number into r21
++	;;
++	cmp.gt p8,p0=3D6,r22			// user mode
++	;;
++#ifdef CONFIG_XEN
++	//XXX notyet
++#else
++(p8)	thash r17=3Dr16
++	;;
++(p8)	mov cr.iha=3Dr17
++#endif
++(p8)	mov r29=B0				// save b0
++(p8)	br.cond.dptk .itlb_fault
++#endif
++	extr.u r23=3Dr21,IA64_PSR_CPL0_BIT,2	// extract psr.cpl
++	and r19=3Dr19,r16		// clear ed, reserved bits, and PTE control bits
++	shr.u r18=3Dr16,57	// move address bit 61 to bit 4
++	;;
++	andcm r18=3D0x10,r18	// bit 4=3D~address-bit(61)
++	cmp.ne p8,p0=3Dr0,r23	// psr.cpl !=3D 0?
++	or r19=3Dr17,r19		// insert PTE control bits into r19
++	;;
++	or r19=3Dr19,r18		// set bit 4 (uncached) if the access was to region 6
++(p8)	br.cond.spnt page_fault
++	;;
++#ifdef CONFIG_XEN
++	mov r18=3Dr8
++	mov r8=3Dr19
++	;;
++	XEN_HYPER_ITC_I
++	;;
++	mov r8=3Dr18
++	;;
++	mov pr=3Dr31,-1
++	;;
++	XEN_HYPER_RFI;
++#else
++	itc.i r19		// insert the TLB entry
++	mov pr=3Dr31,-1
++	rfi
++#endif
++END(alt_itlb_miss)
++
++	.org ia64_ivt+0x1000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x1000 Entry 4 (size 64 bundles) Alt DTLB (7,46)
++ENTRY(alt_dtlb_miss)
++	DBG_FAULT(4)
++#ifdef CONFIG_XEN
++	movl r31=3DXSI_IPSR
++	;;
++	ld8 r21=3D[r31],XSI_ISR_OFS-XSI_IPSR_OFS	// get ipsr, point to isr
++	movl r17=3DPAGE_KERNEL
++	;;
++	ld8 r20=3D[r31],XSI_IFA_OFS-XSI_ISR_OFS	// get isr, point to ifa
++	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
++	;;
++	ld8 r16=3D[r31]		// get ifa
++#else
++	mov r16=3Dcr.ifa		// get address that caused the TLB miss
++	movl r17=3DPAGE_KERNEL
++	mov r20=3Dcr.isr
++	movl r19=3D(((1 << IA64_MAX_PHYS_BITS) - 1) & ~0xfff)
++	mov r21=3Dcr.ipsr
++#endif
++	mov r31=3Dpr
++	mov r24=3DPERCPU_ADDR
++	;;
++#ifdef CONFIG_DISABLE_VHPT
++	shr.u r22=3Dr16,61			// get the region number into r21
++	;;
++	cmp.gt p8,p0=3D6,r22			// access to region 0-5
++	;;
++#ifdef CONFIG_XEN
++	//XXX notyet
++#else
++(p8)	thash r17=3Dr16
++	;;
++(p8)	mov cr.iha=3Dr17
++#endif
++(p8)	mov r29=B0				// save b0
++(p8)	br.cond.dptk dtlb_fault
++#endif
++	cmp.ge p10,p11=3Dr16,r24			// access to per_cpu_data?
++	tbit.z p12,p0=3Dr16,61			// access to region 6?
++	mov r25=3DPERCPU_PAGE_SHIFT << 2
++	mov r26=3DPERCPU_PAGE_SIZE
++	nop.m 0
++	nop.b 0
++	;;
++(p10)	mov r19=3DIA64_KR(PER_CPU_DATA)
++(p11)	and r19=3Dr19,r16				// clear non-ppn fields
++	extr.u r23=3Dr21,IA64_PSR_CPL0_BIT,2	// extract psr.cpl
++	and r22=3DIA64_ISR_CODE_MASK,r20		// get the isr.code field
++	tbit.nz p6,p7=3Dr20,IA64_ISR_SP_BIT	// is speculation bit on?
++	tbit.nz p9,p0=3Dr20,IA64_ISR_NA_BIT	// is non-access bit on?
++	;;
++(p10)	sub r19=3Dr19,r26
++#ifdef CONFIG_XEN
++(p10)	movl r24=3DXSI_ITIR
++	;;
++(p10)	st8 [r24]=3Dr25
++#else
++(p10)	mov cr.itir=3Dr25
++#endif
++	cmp.ne p8,p0=3Dr0,r23
++(p9)	cmp.eq.or.andcm p6,p7=3DIA64_ISR_CODE_LFETCH,r22	// check isr.code fi=
+eld
++(p12)	dep r17=3D-1,r17,4,1			// set ma=3DUC for region 6 addr
++(p8)	br.cond.spnt page_fault
++
++	dep r21=3D-1,r21,IA64_PSR_ED_BIT,1
++	;;
++	or r19=3Dr19,r17		// insert PTE control bits into r19
++(p6)	mov cr.ipsr=3Dr21
++	;;
++#ifdef CONFIG_XEN
++(p7)	mov r18=3Dr8
++(p7)	mov r8=3Dr19
++	;;
++(p7)	XEN_HYPER_ITC_D
++	;;
++(p7)	mov r8=3Dr18
++	;;
++	mov pr=3Dr31,-1
++	;;
++	XEN_HYPER_RFI;
++#else
++(p7)	itc.d r19		// insert the TLB entry
++	mov pr=3Dr31,-1
++	rfi
++#endif
++END(alt_dtlb_miss)
++
++	.org ia64_ivt+0x1400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x1400 Entry 5 (size 64 bundles) Data nested TLB (6,45)
++ENTRY(nested_dtlb_miss)
++	/*
++	 * In the absence of kernel bugs, we get here when the virtually mapped l=
+inear
++	 * page table is accessed non-speculatively (e.g., in the Dirty-bit, Inst=
+ruction
++	 * Access-bit, or Data Access-bit faults).  If the DTLB entry for the vir=
+tual page
++	 * table is missing, a nested TLB miss fault is triggered and control is
++	 * transferred to this point.  When this happens, we lookup the pte for t=
+he
++	 * faulting address by walking the page table in physical mode and return=
+ to the
++	 * continuation point passed in register r30 (or call page_fault if the a=
+ddress is
++	 * not mapped).
++	 *
++	 * Input:	r16:	faulting address
++	 *		r29:	saved b0
++	 *		r30:	continuation address
++	 *		r31:	saved pr
++	 *
++	 * Output:	r17:	physical address of PTE of faulting address
++	 *		r29:	saved b0
++	 *		r30:	continuation address
++	 *		r31:	saved pr
++	 *
++	 * Clobbered:	b0, r18, r19, r21, r22, psr.dt (cleared)
++	 */
++#ifdef CONFIG_XEN
++	XEN_HYPER_RSM_PSR_DT;
++#else
++	rsm psr.dt				// switch to using physical data addressing
++#endif
++	mov r19=3DIA64_KR(PT_BASE)		// get the page table base address
++	shl r21=3Dr16,3				// shift bit 60 into sign bit
++#ifdef CONFIG_XEN
++	movl r18=3DXSI_ITIR
++	;;
++	ld8 r18=3D[r18]
++#else
++	mov r18=3Dcr.itir
++#endif
++	;;
++	shr.u r17=3Dr16,61			// get the region number into r17
++	extr.u r18=3Dr18,2,6			// get the faulting page size
++	;;
++	cmp.eq p6,p7=3D5,r17			// is faulting address in region 5?
++	add r22=3D-PAGE_SHIFT,r18			// adjustment for hugetlb address
++	add r18=3DPGDIR_SHIFT-PAGE_SHIFT,r18
++	;;
++	shr.u r22=3Dr16,r22
++	shr.u r18=3Dr16,r18
++(p7)	dep r17=3Dr17,r19,(PAGE_SHIFT-3),3	// put region number bits in place
++
++	srlz.d
++	LOAD_PHYSICAL(p6, r19, swapper_pg_dir)	// region 5 is rooted at swapper_p=
+g_dir
++
++	.pred.rel "mutex", p6, p7
++(p6)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT
++(p7)	shr.u r21=3Dr21,PGDIR_SHIFT+PAGE_SHIFT-3
++	;;
++(p6)	dep r17=3Dr18,r19,3,(PAGE_SHIFT-3)	// r17=3Dpgd_offset for region 5
++(p7)	dep r17=3Dr18,r17,3,(PAGE_SHIFT-6)	// r17=3Dpgd_offset for region[0-4]
++	cmp.eq p7,p6=3D0,r21			// unused address bits all zeroes?
++#ifdef CONFIG_PGTABLE_4
++	shr.u r18=3Dr22,PUD_SHIFT			// shift pud index into position
++#else
++	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
++#endif
++	;;
++	ld8 r17=3D[r17]				// get *pgd (may be 0)
++	;;
++(p7)	cmp.eq p6,p7=3Dr17,r0			// was pgd_present(*pgd) =3D NULL?
++	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dp[u|m]d_offset(pgd,addr)
++	;;
++#ifdef CONFIG_PGTABLE_4
++(p7)	ld8 r17=3D[r17]				// get *pud (may be 0)
++	shr.u r18=3Dr22,PMD_SHIFT			// shift pmd index into position
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was pud_present(*pud) =3D NULL?
++	dep r17=3Dr18,r17,3,(PAGE_SHIFT-3)	// r17=3Dpmd_offset(pud,addr)
++	;;
++#endif
++(p7)	ld8 r17=3D[r17]				// get *pmd (may be 0)
++	shr.u r19=3Dr22,PAGE_SHIFT		// shift pte index into position
++	;;
++(p7)	cmp.eq.or.andcm p6,p7=3Dr17,r0		// was pmd_present(*pmd) =3D NULL?
++	dep r17=3Dr19,r17,3,(PAGE_SHIFT-3)	// r17=3Dpte_offset(pmd,addr);
++(p6)	br.cond.spnt page_fault
++	mov b0=3Dr30
++	br.sptk.many b0				// return to continuation point
++END(nested_dtlb_miss)
++
++	.org ia64_ivt+0x1800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x1800 Entry 6 (size 64 bundles) Instruction Key Miss (24)
++ENTRY(ikey_miss)
++	DBG_FAULT(6)
++	FAULT(6)
++END(ikey_miss)
++
++	//-----------------------------------------------------------------------=
+------------
++	// call do_page_fault (predicates are in r31, psr.dt may be off, r16 is f=
+aulting address)
++ENTRY(page_fault)
++#ifdef CONFIG_XEN
++	XEN_HYPER_SSM_PSR_DT
++#else
++	ssm psr.dt
++	;;
++	srlz.i
++#endif
++	;;
++	SAVE_MIN_WITH_COVER
++	alloc r15=3Dar.pfs,0,0,3,0
++#ifdef CONFIG_XEN
++	movl r3=3DXSI_ISR
++	;;
++	ld8 out1=3D[r3],XSI_IFA_OFS-XSI_ISR_OFS	// get vcr.isr, point to ifa
++	;;
++	ld8 out0=3D[r3]				// get vcr.ifa
++	mov r14=3D1
++	;;
++	add r3=3DXSI_PSR_IC_OFS-XSI_IFA_OFS, r3	// point to vpsr.ic
++	;;
++	st4 [r3]=3Dr14				// vpsr.ic =3D 1
++	adds r3=3D8,r2				// set up second base pointer
++	;;
++#else
++	mov out0=3Dcr.ifa
++	mov out1=3Dcr.isr
++	adds r3=3D8,r2				// set up second base pointer
++	;;
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i					// guarantee that interruption collectin is on
++	;;
++#endif
++#ifdef CONFIG_XEN
++
++#define MASK_TO_PEND_OFS    (-1)
++
++(p15)	movl r14=3DXSI_PSR_I_ADDR
++	;;
++(p15)	ld8 r14=3D[r14]
++	;;
++(p15)	st1 [r14]=3Dr0,MASK_TO_PEND_OFS		// if (p15) vpsr.i =3D 1
++	;;		// if (p15) (vcpu->vcpu_info->evtchn_upcall_mask)=3D0
++(p15)	ld1 r14=3D[r14]	// if (vcpu->vcpu_info->evtchn_upcall_pending)
++	;;
++(p15)	cmp.ne	p15,p0=3Dr14,r0
++	;;
++(p15)	XEN_HYPER_SSM_I
++#else
++(p15)	ssm psr.i				// restore psr.i
++#endif
++	movl r14=3Dia64_leave_kernel
++	;;
++	SAVE_REST
++	mov rp=3Dr14
++	;;
++	adds out2=16,r12			// out2 =3D pointer to pt_regs
++	br.call.sptk.many b6=3Dia64_do_page_fault	// ignore return address
++END(page_fault)
++
++	.org ia64_ivt+0x1c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x1c00 Entry 7 (size 64 bundles) Data Key Miss (12,51)
++ENTRY(dkey_miss)
++	DBG_FAULT(7)
++	FAULT(7)
++END(dkey_miss)
++
++	.org ia64_ivt+0x2000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x2000 Entry 8 (size 64 bundles) Dirty-bit (54)
++ENTRY(dirty_bit)
++	DBG_FAULT(8)
++	/*
++	 * What we do here is to simply turn on the dirty bit in the PTE.  We nee=
+d to
++	 * update both the page-table and the TLB entry.  To efficiently access t=
+he PTE,
++	 * we address it through the virtual page table.  Most likely, the TLB en=
+try for
++	 * the relevant virtual page table page is still present in the TLB so we=
+ can
++	 * normally do this without additional TLB misses.  In case the necessary=
+ virtual
++	 * page table TLB entry isn't present, we take a nested TLB miss hit wher=
+e we look
++	 * up the physical address of the L3 PTE and then continue at label 1 bel=
+ow.
++	 */
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++	;;
++#else
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++#endif
++	movl r30=1F				// load continuation point in case of nested fault
++	;;
++#ifdef CONFIG_XEN
++	mov r18=3Dr8;
++	mov r8=3Dr16;
++	XEN_HYPER_THASH;;
++	mov r17=3Dr8;
++	mov r8=3Dr18;;
++#else
++	thash r17=3Dr16				// compute virtual address of L3 PTE
++#endif
++	mov r29=B0				// save b0 in case of nested fault
++	mov r31=3Dpr				// save pr
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++1:	ld8 r18=3D[r17]
++	;;					// avoid RAW on r18
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT		// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only update if page is present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only compare if page is present
++	;;
++#ifdef CONFIG_XEN
++(p6)	mov r18=3Dr8
++(p6)	mov r8=3Dr25
++	;;
++(p6)	XEN_HYPER_ITC_D
++	;;
++(p6)	mov r8=3Dr18
++#else
++(p6)	itc.d r25				// install updated PTE
++#endif
++	;;
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	ptc.l r16,r24
++	mov b0=3Dr29				// restore b0
++	mov ar.ccv=3Dr28
++#else
++	;;
++1:	ld8 r18=3D[r17]
++	;;					// avoid RAW on r18
++	or r18=3D_PAGE_D|_PAGE_A,r18		// set the dirty and accessed bits
++	mov b0=3Dr29				// restore b0
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++	itc.d r18				// install updated PTE
++#endif
++	mov pr=3Dr31,-1				// restore pr
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(dirty_bit)
++
++	.org ia64_ivt+0x2400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x2400 Entry 9 (size 64 bundles) Instruction Access-bit (27)
++ENTRY(iaccess_bit)
++	DBG_FAULT(9)
++	// Like Entry 8, except for instruction access
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++	;;
++#else
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++#endif
++	movl r30=1F				// load continuation point in case of nested fault
++	mov r31=3Dpr				// save predicates
++#ifdef CONFIG_ITANIUM
++	/*
++	 * Erratum 10 (IFA may contain incorrect address) has "NoFix" status.
++	 */
++	mov r17=3Dcr.ipsr
++	;;
++	mov r18=3Dcr.iip
++	tbit.z p6,p0=3Dr17,IA64_PSR_IS_BIT	// IA64 instruction set?
++	;;
++(p6)	mov r16=3Dr18				// if so, use cr.iip instead of cr.ifa
++#endif /* CONFIG_ITANIUM */
++	;;
++#ifdef CONFIG_XEN
++	mov r18=3Dr8;
++	mov r8=3Dr16;
++	XEN_HYPER_THASH;;
++	mov r17=3Dr8;
++	mov r8=3Dr18;;
++#else
++	thash r17=3Dr16				// compute virtual address of L3 PTE
++#endif
++	mov r29=B0				// save b0 in case of nested fault)
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++1:	ld8 r18=3D[r17]
++	;;
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_A,r18			// set the accessed bit
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT	 	// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only if page present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page present
++	;;
++#ifdef CONFIG_XEN
++	mov r26=3Dr8
++	mov r8=3Dr25
++	;;
++(p6)	XEN_HYPER_ITC_I
++	;;
++	mov r8=3Dr26
++	;;
++#else
++(p6)	itc.i r25				// install updated PTE
++#endif
++	;;
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	ptc.l r16,r24
++	mov b0=3Dr29				// restore b0
++	mov ar.ccv=3Dr28
++#else /* !CONFIG_SMP */
++	;;
++1:	ld8 r18=3D[r17]
++	;;
++	or r18=3D_PAGE_A,r18			// set the accessed bit
++	mov b0=3Dr29				// restore b0
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++	itc.i r18				// install updated PTE
++#endif /* !CONFIG_SMP */
++	mov pr=3Dr31,-1
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(iaccess_bit)
++
++	.org ia64_ivt+0x2800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x2800 Entry 10 (size 64 bundles) Data Access-bit (15,55)
++ENTRY(daccess_bit)
++	DBG_FAULT(10)
++	// Like Entry 8, except for data access
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++	;;
++#else
++	mov r16=3Dcr.ifa				// get the address that caused the fault
++#endif
++	movl r30=1F				// load continuation point in case of nested fault
++	;;
++#ifdef CONFIG_XEN
++	mov r18=3Dr8
++	mov r8=3Dr16
++	XEN_HYPER_THASH
++	;;
++	mov r17=3Dr8
++	mov r8=3Dr18
++	;;
++#else
++	thash r17=3Dr16				// compute virtual address of L3 PTE
++#endif
++	mov r31=3Dpr
++	mov r29=B0				// save b0 in case of nested fault)
++#ifdef CONFIG_SMP
++	mov r28=3Dar.ccv				// save ar.ccv
++	;;
++1:	ld8 r18=3D[r17]
++	;;					// avoid RAW on r18
++	mov ar.ccv=3Dr18				// set compare value for cmpxchg
++	or r25=3D_PAGE_A,r18			// set the dirty bit
++	tbit.z p7,p6 =3D r18,_PAGE_P_BIT		// Check present bit
++	;;
++(p6)	cmpxchg8.acq r26=3D[r17],r25,ar.ccv	// Only if page is present
++	mov r24=3DPAGE_SHIFT<<2
++	;;
++(p6)	cmp.eq p6,p7=3Dr26,r18			// Only if page is present
++	;;
++#ifdef CONFIG_XEN
++	mov r26=3Dr8
++	mov r8=3Dr25
++	;;
++(p6)	XEN_HYPER_ITC_D
++	;;
++	mov r8=3Dr26
++	;;
++#else
++(p6)	itc.d r25				// install updated PTE
++#endif
++	/*
++	 * Tell the assemblers dependency-violation checker that the above "itc" =
+instructions
++	 * cannot possibly affect the following loads:
++	 */
++	dv_serialize_data
++	;;
++	ld8 r18=3D[r17]				// read PTE again
++	;;
++	cmp.eq p6,p7=3Dr18,r25			// is it same as the newly installed
++	;;
++(p7)	ptc.l r16,r24
++	mov ar.ccv=3Dr28
++#else
++	;;
++1:	ld8 r18=3D[r17]
++	;;					// avoid RAW on r18
++	or r18=3D_PAGE_A,r18			// set the accessed bit
++	;;
++	st8 [r17]=3Dr18				// store back updated PTE
++	itc.d r18				// install updated PTE
++#endif
++	mov b0=3Dr29				// restore b0
++	mov pr=3Dr31,-1
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI
++	dv_serialize_data
++#else
++	rfi
++#endif
++END(daccess_bit)
++
++	.org ia64_ivt+0x2c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x2c00 Entry 11 (size 64 bundles) Break instruction (33)
++ENTRY(break_fault)
++	/*
++	 * The streamlined system call entry/exit paths only save/restore the ini=
+tial part
++	 * of pt_regs.  This implies that the callers of system-calls must adhere=
+ to the
++	 * normal procedure calling conventions.
++	 *
++	 *   Registers to be saved & restored:
++	 *	CR registers: cr.ipsr, cr.iip, cr.ifs
++	 *	AR registers: ar.unat, ar.pfs, ar.rsc, ar.rnat, ar.bspstore, ar.fpsr
++	 * 	others: pr, b0, b6, loadrs, r1, r11, r12, r13, r15
++	 *   Registers to be restored only:
++	 * 	r8-r11: output value from the system call.
++	 *
++	 * During system call exit, scratch registers (including r15) are modifie=
+d/cleared
++	 * to prevent leaking bits from kernel to user level.
++	 */
++	DBG_FAULT(11)
++	mov.m r16=3DIA64_KR(CURRENT)		// M2 r16 <- current task (12 cyc)
++#ifdef CONFIG_XEN
++	movl r22=3DXSI_IPSR
++	;;
++	ld8 r29=3D[r22],XSI_IIM_OFS-XSI_IPSR_OFS	// get ipsr, point to iip
++#else
++	mov r29=3Dcr.ipsr				// M2 (12 cyc)
++#endif
++	mov r31=3Dpr				// I0 (2 cyc)
++
++#ifdef CONFIG_XEN
++	;;
++	ld8 r17=3D[r22],XSI_IIP_OFS-XSI_IIM_OFS
++#else
++	mov r17=3Dcr.iim				// M2 (2 cyc)
++#endif
++	mov.m r27=3Dar.rsc			// M2 (12 cyc)
++	mov r18=3D__IA64_BREAK_SYSCALL		// A
++
++	mov.m ar.rsc=3D0				// M2
++	mov.m r21=3Dar.fpsr			// M2 (12 cyc)
++	mov r19=B6				// I0 (2 cyc)
++	;;
++	mov.m r23=3Dar.bspstore			// M2 (12 cyc)
++	mov.m r24=3Dar.rnat			// M2 (5 cyc)
++	mov.i r26=3Dar.pfs			// I0 (2 cyc)
++
++	invala					// M0|1
++	nop.m 0					// M
++	mov r20=3Dr1				// A			save r1
++
++	nop.m 0
++	movl r30=3Dsys_call_table			// X
++
++#ifdef CONFIG_XEN
++	ld8 r28=3D[r22]
++#else
++	mov r28=3Dcr.iip				// M2 (2 cyc)
++#endif
++	cmp.eq p0,p7=3Dr18,r17			// I0 is this a system call?
++(p7)	br.cond.spnt non_syscall		// B  no ->
++	//
++	// From this point on, we are definitely on the syscall-path
++	// and we can use (non-banked) scratch registers.
++	//
++///////////////////////////////////////////////////////////////////////
++	mov r1=3Dr16				// A    move task-pointer to "addl"-addressable reg
++	mov r2=3Dr16				// A    setup r2 for ia64_syscall_setup
++	add r9=3DTI_FLAGS+IA64_TASK_SIZE,r16	// A	r9 =3D &current_thread_info()->=
+flags
++
++	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16
++	adds r15=3D-1024,r15			// A    subtract 1024 from syscall number
++	mov r3=3DNR_syscalls - 1
++	;;
++	ld1.bias r17=3D[r16]			// M0|1 r17 =3D current->thread.on_ustack flag
++	ld4 r9=3D[r9]				// M0|1 r9 =3D current_thread_info()->flags
++	extr.u r8=3Dr29,41,2			// I0   extract ei field from cr.ipsr
++
++	shladd r30=3Dr15,3,r30			// A    r30 =3D sys_call_table + 8*(syscall-1024)
++	addl r22=3DIA64_RBS_OFFSET,r1		// A    compute base of RBS
++	cmp.leu p6,p7=3Dr15,r3			// A    syscall number in range?
++	;;
++
++	lfetch.fault.excl.nt1 [r22]		// M0|1 prefetch RBS
++(p6)	ld8 r30=3D[r30]				// M0|1 load address of syscall entry point
++	tnat.nz.or p7,p0=3Dr15			// I0	is syscall nr a NaT?
++
++	mov.m ar.bspstore=3Dr22			// M2   switch to kernel RBS
++	cmp.eq p8,p9=3D2,r8			// A    isr.ei=3D2?
++	;;
++
++(p8)	mov r8=3D0				// A    clear ei to 0
++(p7)	movl r30=3Dsys_ni_syscall			// X
++
++(p8)	adds r28=16,r28				// A    switch cr.iip to next bundle
++(p9)	adds r8=3D1,r8				// A    increment ei to next slot
++	nop.i 0
++	;;
++
++	mov.m r25=3Dar.unat			// M2 (5 cyc)
++	dep r29=3Dr8,r29,41,2			// I0   insert new ei into cr.ipsr
++	adds r15=1024,r15			// A    restore original syscall number
++	//
++	// If any of the above loads miss in L1D, we'll stall here until
++	// the data arrives.
++	//
++///////////////////////////////////////////////////////////////////////
++	st1 [r16]=3Dr0				// M2|3 clear current->thread.on_ustack flag
++	mov b6=3Dr30				// I0   setup syscall handler branch reg early
++	cmp.eq pKStk,pUStk=3Dr0,r17		// A    were we on kernel stacks already?
++
++	and r9=3D_TIF_SYSCALL_TRACEAUDIT,r9	// A    mask trace or audit
++	mov r18=3Dar.bsp				// M2 (12 cyc)
++(pKStk)	br.cond.spnt .break_fixup		// B	we're already in kernel-mode -- fi=
+x up RBS
++	;;
++.back_from_break_fixup:
++(pUStk)	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1 // A    compute bas=
+e of memory stack
++	cmp.eq p14,p0=3Dr9,r0			// A    are syscalls being traced/audited?
++	br.call.sptk.many b7=3Dia64_syscall_setup	// B
++1:
++	mov ar.rsc=3D0x3				// M2   set eager mode, pl 0, LE, loadrs=3D0
++	nop 0
++#ifdef CONFIG_XEN
++	mov r2=B0; br.call.sptk b0=3Dxen_bsw1;; mov b0=3Dr2;;
++#else
++	bsw.1					// B (6 cyc) regs are saved, switch to bank 1
++#endif
++	;;
++
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_PSR_IC
++	mov r3=3D1
++	;;
++	st4 [r16]=3Dr3,XSI_PSR_I_ADDR_OFS-XSI_PSR_IC_OFS	// vpsr.ic =3D 1
++#else
++	ssm psr.ic | PSR_DEFAULT_BITS		// M2	now it's safe to re-enable intr.-col=
+lection
++#endif
++	movl r3=3Dia64_ret_from_syscall		// X
++	;;
++
++	srlz.i					// M0   ensure interruption collection is on
++	mov rp=3Dr3				// I0   set the real return addr
++(p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-f=
+rame or r15 is a NaT
++
++#ifdef CONFIG_XEN
++(p15)	ld8 r16=3D[r16]				// vpsr.i
++	;;
++(p15)	st1 [r16]=3Dr0,MASK_TO_PEND_OFS		// if (p15) vpsr.i =3D 1
++	;;		// if (p15) (vcpu->vcpu_info->evtchn_upcall_mask)=3D0
++(p15)	ld1 r2=3D[r16]	// if (vcpu->vcpu_info->evtchn_upcall_pending)
++	;;
++(p15)	cmp.ne.unc p6,p0=3Dr2,r0
++	;;
++(p6)	XEN_HYPER_SSM_I				//   do a real ssm psr.i
++#else
++(p15)	ssm psr.i				// M2   restore psr.i
++#endif
++(p14)	br.call.sptk.many b6=B6			// B    invoke syscall-handker (ignore ret=
+urn addr)
++	br.cond.spnt.many ia64_trace_syscall	// B	do syscall-tracing thingamagic
++	// NOT REACHED
++///////////////////////////////////////////////////////////////////////
++	// On entry, we optimistically assumed that we're coming from user-space.
++	// For the rare cases where a system-call is done from within the kernel,
++	// we fix things up at this point:
++.break_fixup:
++	add r1=3D-IA64_PT_REGS_SIZE,sp		// A    allocate space for pt_regs struct=
+ure
++	mov ar.rnat=3Dr24				// M2	restore kernel's AR.RNAT
++	;;
++	mov ar.bspstore=3Dr23			// M2	restore kernel's AR.BSPSTORE
++	br.cond.sptk .back_from_break_fixup
++END(break_fault)
++
++	.org ia64_ivt+0x3000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x3000 Entry 12 (size 64 bundles) External Interrupt (4)
++ENTRY(interrupt)
++	DBG_FAULT(12)
++	mov r31=3Dpr		// prepare to save predicates
++	;;
++	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
++#ifdef CONFIG_XEN
++	movl r3=3DXSI_PSR_IC
++	mov r14=3D1
++	;;
++	st4 [r3]=3Dr14
++#else
++	ssm psr.ic | PSR_DEFAULT_BITS
++#endif
++	;;
++	adds r3=3D8,r2		// set up second base pointer for SAVE_REST
++	srlz.i			// ensure everybody knows psr.ic is back on
++	;;
++	SAVE_REST
++	;;
++	MCA_RECOVER_RANGE(interrupt)
++	alloc r14=3Dar.pfs,0,0,2,0 // must be first in an insn group
++#ifdef CONFIG_XEN
++	;;
++	XEN_HYPER_GET_IVR
++	;;
++	mov out0=3Dr8		// pass cr.ivr as first arg
++#else
++	mov out0=3Dcr.ivr		// pass cr.ivr as first arg
++#endif
++	add out1=16,sp		// pass pointer to pt_regs as second arg
++	;;
++	srlz.d			// make sure we see the effect of cr.ivr
++	movl r14=3Dia64_leave_kernel
++	;;
++	mov rp=3Dr14
++	br.call.sptk.many b6=3Dia64_handle_irq
++END(interrupt)
++
++	.org ia64_ivt+0x3400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x3400 Entry 13 (size 64 bundles) Reserved
++	DBG_FAULT(13)
++	FAULT(13)
++
++	.org ia64_ivt+0x3800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x3800 Entry 14 (size 64 bundles) Reserved
++	DBG_FAULT(14)
++	FAULT(14)
++
++	/*
++	 * There is no particular reason for this code to be here, other than that
++	 * there happens to be space here that would go unused otherwise.  If this
++	 * fault ever gets "unreserved", simply moved the following code to a more
++	 * suitable spot...
++	 *
++	 * ia64_syscall_setup() is a separate subroutine so that it can
++	 *	allocate stacked registers so it can safely demine any
++	 *	potential NaT values from the input registers.
++	 *
++	 * On entry:
++	 *	- executing on bank 0 or bank 1 register set (doesn't matter)
++	 *	-  r1: stack pointer
++	 *	-  r2: current task pointer
++	 *	-  r3: preserved
++	 *	- r11: original contents (saved ar.pfs to be saved)
++	 *	- r12: original contents (sp to be saved)
++	 *	- r13: original contents (tp to be saved)
++	 *	- r15: original contents (syscall # to be saved)
++	 *	- r18: saved bsp (after switching to kernel stack)
++	 *	- r19: saved b6
++	 *	- r20: saved r1 (gp)
++	 *	- r21: saved ar.fpsr
++	 *	- r22: kernel's register backing store base (krbs_base)
++	 *	- r23: saved ar.bspstore
++	 *	- r24: saved ar.rnat
++	 *	- r25: saved ar.unat
++	 *	- r26: saved ar.pfs
++	 *	- r27: saved ar.rsc
++	 *	- r28: saved cr.iip
++	 *	- r29: saved cr.ipsr
++	 *	- r31: saved pr
++	 *	-  b0: original contents (to be saved)
++	 * On exit:
++	 *	-  p10: TRUE if syscall is invoked with more than 8 out
++	 *		registers or r15's Nat is true
++	 *	-  r1: kernel's gp
++	 *	-  r3: preserved (same as on entry)
++	 *	-  r8: -EINVAL if p10 is true
++	 *	- r12: points to kernel stack
++	 *	- r13: points to current task
++	 *	- r14: preserved (same as on entry)
++	 *	- p13: preserved
++	 *	- p15: TRUE if interrupts need to be re-enabled
++	 *	- ar.fpsr: set to kernel settings
++	 *	-  b6: preserved (same as on entry)
++	 */
++#ifndef CONFIG_XEN
++GLOBAL_ENTRY(ia64_syscall_setup)
++#if PT(B6) !=3D 0
++# error This code assumes that b6 is the first field in pt_regs.
++#endif
++	st8 [r1]=3Dr19				// save b6
++	add r16=3DPT(CR_IPSR),r1			// initialize first base pointer
++	add r17=3DPT(R11),r1			// initialize second base pointer
++	;;
++	alloc r19=3Dar.pfs,8,0,0,0		// ensure in0-in7 are writable
++	st8 [r16]=3Dr29,PT(AR_PFS)-PT(CR_IPSR)	// save cr.ipsr
++	tnat.nz p8,p0=3Din0
++
++	st8.spill [r17]=3Dr11,PT(CR_IIP)-PT(R11)	// save r11
++	tnat.nz p9,p0=3Din1
++(pKStk)	mov r18=3Dr0				// make sure r18 isn't NaT
++	;;
++
++	st8 [r16]=3Dr26,PT(CR_IFS)-PT(AR_PFS)	// save ar.pfs
++	st8 [r17]=3Dr28,PT(AR_UNAT)-PT(CR_IIP)	// save cr.iip
++	mov r28=B0				// save b0 (2 cyc)
++	;;
++
++	st8 [r17]=3Dr25,PT(AR_RSC)-PT(AR_UNAT)	// save ar.unat
++	dep r19=3D0,r19,38,26			// clear all bits but 0..37 [I0]
++(p8)	mov in0=3D-1
++	;;
++
++	st8 [r16]=3Dr19,PT(AR_RNAT)-PT(CR_IFS)	// store ar.pfs.pfm in cr.ifs
++	extr.u r11=3Dr19,7,7	// I0		// get sol of ar.pfs
++	and r8=3D0x7f,r19		// A		// get sof of ar.pfs
++
++	st8 [r17]=3Dr27,PT(AR_BSPSTORE)-PT(AR_RSC)// save ar.rsc
++	tbit.nz p15,p0=3Dr29,IA64_PSR_I_BIT // I0
++(p9)	mov in1=3D-1
++	;;
++
++(pUStk) sub r18=3Dr18,r22				// r18=3DRSE.ndirty*8
++	tnat.nz p10,p0=3Din2
++	add r11=3D8,r11
++	;;
++(pKStk) adds r16=3DPT(PR)-PT(AR_RNAT),r16		// skip over ar_rnat field
++(pKStk) adds r17=3DPT(B0)-PT(AR_BSPSTORE),r17	// skip over ar_bspstore fie=
+ld
++	tnat.nz p11,p0=3Din3
++	;;
++(p10)	mov in2=3D-1
++	tnat.nz p12,p0=3Din4				// [I0]
++(p11)	mov in3=3D-1
++	;;
++(pUStk) st8 [r16]=3Dr24,PT(PR)-PT(AR_RNAT)	// save ar.rnat
++(pUStk) st8 [r17]=3Dr23,PT(B0)-PT(AR_BSPSTORE)	// save ar.bspstore
++	shl r18=3Dr18,16				// compute ar.rsc to be used for "loadrs"
++	;;
++	st8 [r16]=3Dr31,PT(LOADRS)-PT(PR)		// save predicates
++	st8 [r17]=3Dr28,PT(R1)-PT(B0)		// save b0
++	tnat.nz p13,p0=3Din5				// [I0]
++	;;
++	st8 [r16]=3Dr18,PT(R12)-PT(LOADRS)	// save ar.rsc value for "loadrs"
++	st8.spill [r17]=3Dr20,PT(R13)-PT(R1)	// save original r1
++(p12)	mov in4=3D-1
++	;;
++
++.mem.offset 0,0; st8.spill [r16]=3Dr12,PT(AR_FPSR)-PT(R12)	// save r12
++.mem.offset 8,0; st8.spill [r17]=3Dr13,PT(R15)-PT(R13)		// save r13
++(p13)	mov in5=3D-1
++	;;
++	st8 [r16]=3Dr21,PT(R8)-PT(AR_FPSR)	// save ar.fpsr
++	tnat.nz p13,p0=3Din6
++	cmp.lt p10,p9=3Dr11,r8	// frame size can't be more than local+8
++	;;
++	mov r8=3D1
++(p9)	tnat.nz p10,p0=3Dr15
++	adds r12=3D-16,r1		// switch to kernel memory stack (with 16 bytes of scr=
+atch)
++
++	st8.spill [r17]=3Dr15			// save r15
++	tnat.nz p8,p0=3Din7
++	nop.i 0
++
++	mov r13=3Dr2				// establish `current'
++	movl r1=3D__gp				// establish kernel global pointer
++	;;
++	st8 [r16]=3Dr8		// ensure pt_regs.r8 !=3D 0 (see handle_syscall_error)
++(p13)	mov in6=3D-1
++(p8)	mov in7=3D-1
++
++	cmp.eq pSys,pNonSys=3Dr0,r0		// set pSys=3D1, pNonSys=3D0
++	movl r17=3DFPSR_DEFAULT
++	;;
++	mov.m ar.fpsr=3Dr17			// set ar.fpsr to kernel default value
++(p10)	mov r8=3D-EINVAL
++	br.ret.sptk.many b7
++END(ia64_syscall_setup)
++#endif
++
++	.org ia64_ivt+0x3c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x3c00 Entry 15 (size 64 bundles) Reserved
++	DBG_FAULT(15)
++	FAULT(15)
++
++	/*
++	 * Squatting in this space ...
++	 *
++	 * This special case dispatcher for illegal operation faults allows prese=
+rved
++	 * registers to be modified through a callback function (asm only) that i=
+s handed
++	 * back from the fault handler in r8. Up to three arguments can be passed=
+ to the
++	 * callback function by returning an aggregate with the callback as its f=
+irst
++	 * element, followed by the arguments.
++	 */
++ENTRY(dispatch_illegal_op_fault)
++	.prologue
++	.body
++	SAVE_MIN_WITH_COVER
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i		// guarantee that interruption collection is on
++	;;
++(p15)	ssm psr.i	// restore psr.i
++	adds r3=3D8,r2	// set up second base pointer for SAVE_REST
++	;;
++	alloc r14=3Dar.pfs,0,0,1,0	// must be first in insn group
++	mov out0=3Dar.ec
++	;;
++	SAVE_REST
++	PT_REGS_UNWIND_INFO(0)
++	;;
++	br.call.sptk.many rp=3Dia64_illegal_op_fault
++.ret0:	;;
++	alloc r14=3Dar.pfs,0,0,3,0	// must be first in insn group
++	mov out0=3Dr9
++	mov out1=3Dr10
++	mov out2=3Dr11
++	movl r15=3Dia64_leave_kernel
++	;;
++	mov rp=3Dr15
++	mov b6=3Dr8
++	;;
++	cmp.ne p6,p0=3D0,r8
++(p6)	br.call.dpnt.many b6=B6		// call returns to ia64_leave_kernel
++	br.sptk.many ia64_leave_kernel
++END(dispatch_illegal_op_fault)
++
++	.org ia64_ivt+0x4000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x4000 Entry 16 (size 64 bundles) Reserved
++	DBG_FAULT(16)
++	FAULT(16)
++
++	.org ia64_ivt+0x4400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x4400 Entry 17 (size 64 bundles) Reserved
++	DBG_FAULT(17)
++	FAULT(17)
++
++ENTRY(non_syscall)
++	mov ar.rsc=3Dr27			// restore ar.rsc before SAVE_MIN_WITH_COVER
++	;;
++	SAVE_MIN_WITH_COVER
++
++	// There is no particular reason for this code to be here, other than that
++	// there happens to be space here that would go unused otherwise.  If this
++	// fault ever gets "unreserved", simply moved the following code to a more
++	// suitable spot...
++
++	alloc r14=3Dar.pfs,0,0,2,0
++	mov out0=3Dcr.iim
++	add out1=16,sp
++	adds r3=3D8,r2			// set up second base pointer for SAVE_REST
++
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i				// guarantee that interruption collection is on
++	;;
++(p15)	ssm psr.i			// restore psr.i
++	movl r15=3Dia64_leave_kernel
++	;;
++	SAVE_REST
++	mov rp=3Dr15
++	;;
++	br.call.sptk.many b6=3Dia64_bad_break	// avoid WAW on CFM and ignore retu=
+rn addr
++END(non_syscall)
++
++	.org ia64_ivt+0x4800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x4800 Entry 18 (size 64 bundles) Reserved
++	DBG_FAULT(18)
++	FAULT(18)
++
++	/*
++	 * There is no particular reason for this code to be here, other than that
++	 * there happens to be space here that would go unused otherwise.  If this
++	 * fault ever gets "unreserved", simply moved the following code to a more
++	 * suitable spot...
++	 */
++
++ENTRY(dispatch_unaligned_handler)
++	SAVE_MIN_WITH_COVER
++	;;
++	alloc r14=3Dar.pfs,0,0,2,0		// now it's safe (must be first in insn group=
+!)
++	mov out0=3Dcr.ifa
++	adds out1=16,sp
++
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i					// guarantee that interruption collection is on
++	;;
++(p15)	ssm psr.i				// restore psr.i
++	adds r3=3D8,r2				// set up second base pointer
++	;;
++	SAVE_REST
++	movl r14=3Dia64_leave_kernel
++	;;
++	mov rp=3Dr14
++	br.sptk.many ia64_prepare_handle_unaligned
++END(dispatch_unaligned_handler)
++
++	.org ia64_ivt+0x4c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x4c00 Entry 19 (size 64 bundles) Reserved
++	DBG_FAULT(19)
++	FAULT(19)
++
++	/*
++	 * There is no particular reason for this code to be here, other than that
++	 * there happens to be space here that would go unused otherwise.  If this
++	 * fault ever gets "unreserved", simply moved the following code to a more
++	 * suitable spot...
++	 */
++
++ENTRY(dispatch_to_fault_handler)
++	/*
++	 * Input:
++	 *	psr.ic:	off
++	 *	r19:	fault vector number (e.g., 24 for General Exception)
++	 *	r31:	contains saved predicates (pr)
++	 */
++	SAVE_MIN_WITH_COVER_R19
++	alloc r14=3Dar.pfs,0,0,5,0
++	mov out0=3Dr15
++#ifdef CONFIG_XEN
++	movl out1=3DXSI_ISR
++	;;
++	adds out2=3DXSI_IFA-XSI_ISR,out1
++	adds out3=3DXSI_IIM-XSI_ISR,out1
++	adds out4=3DXSI_ITIR-XSI_ISR,out1
++	;;
++	ld8 out1=3D[out1]
++	ld8 out2=3D[out2]
++	ld8 out3=3D[out4]
++	ld8 out4=3D[out4]
++	;;
++#else
++	mov out1=3Dcr.isr
++	mov out2=3Dcr.ifa
++	mov out3=3Dcr.iim
++	mov out4=3Dcr.itir
++	;;
++#endif
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i					// guarantee that interruption collection is on
++	;;
++(p15)	ssm psr.i				// restore psr.i
++	adds r3=3D8,r2				// set up second base pointer for SAVE_REST
++	;;
++	SAVE_REST
++	movl r14=3Dia64_leave_kernel
++	;;
++	mov rp=3Dr14
++	br.call.sptk.many b6=3Dia64_fault
++END(dispatch_to_fault_handler)
++
++//
++// --- End of long entries, Beginning of short entries
++//
++
++	.org ia64_ivt+0x5000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5000 Entry 20 (size 16 bundles) Page Not Present (10,22,49)
++ENTRY(page_not_present)
++	DBG_FAULT(20)
++	mov r16=3Dcr.ifa
++	rsm psr.dt
++	/*
++	 * The Linux page fault handler doesn't expect non-present pages to be in
++	 * the TLB.  Flush the existing entry now, so we meet that expectation.
++	 */
++	mov r17=3DPAGE_SHIFT<<2
++	;;
++	ptc.l r16,r17
++	;;
++	mov r31=3Dpr
++	srlz.d
++	br.sptk.many page_fault
++END(page_not_present)
++
++	.org ia64_ivt+0x5100
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5100 Entry 21 (size 16 bundles) Key Permission (13,25,52)
++ENTRY(key_permission)
++	DBG_FAULT(21)
++	mov r16=3Dcr.ifa
++	rsm psr.dt
++	mov r31=3Dpr
++	;;
++	srlz.d
++	br.sptk.many page_fault
++END(key_permission)
++
++	.org ia64_ivt+0x5200
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5200 Entry 22 (size 16 bundles) Instruction Access Rights (26)
++ENTRY(iaccess_rights)
++	DBG_FAULT(22)
++	mov r16=3Dcr.ifa
++	rsm psr.dt
++	mov r31=3Dpr
++	;;
++	srlz.d
++	br.sptk.many page_fault
++END(iaccess_rights)
++
++	.org ia64_ivt+0x5300
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5300 Entry 23 (size 16 bundles) Data Access Rights (14,53)
++ENTRY(daccess_rights)
++	DBG_FAULT(23)
++#ifdef CONFIG_XEN
++	movl r16=3DXSI_IFA
++	;;
++	ld8 r16=3D[r16]
++	;;
++	XEN_HYPER_RSM_PSR_DT
++#else
++	mov r16=3Dcr.ifa
++	rsm psr.dt
++#endif
++	mov r31=3Dpr
++	;;
++	srlz.d
++	br.sptk.many page_fault
++END(daccess_rights)
++
++	.org ia64_ivt+0x5400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5400 Entry 24 (size 16 bundles) General Exception (5,32,34,36,38,39)
++ENTRY(general_exception)
++	DBG_FAULT(24)
++	mov r16=3Dcr.isr
++	mov r31=3Dpr
++	;;
++	cmp4.eq p6,p0=3D0,r16
++(p6)	br.sptk.many dispatch_illegal_op_fault
++	;;
++	mov r19$		// fault number
++	br.sptk.many dispatch_to_fault_handler
++END(general_exception)
++
++	.org ia64_ivt+0x5500
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5500 Entry 25 (size 16 bundles) Disabled FP-Register (35)
++ENTRY(disabled_fp_reg)
++	DBG_FAULT(25)
++	rsm psr.dfh		// ensure we can access fph
++	;;
++	srlz.d
++	mov r31=3Dpr
++	mov r19%
++	br.sptk.many dispatch_to_fault_handler
++END(disabled_fp_reg)
++
++	.org ia64_ivt+0x5600
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5600 Entry 26 (size 16 bundles) Nat Consumption (11,23,37,50)
++ENTRY(nat_consumption)
++	DBG_FAULT(26)
++
++	mov r16=3Dcr.ipsr
++	mov r17=3Dcr.isr
++	mov r31=3Dpr				// save PR
++	;;
++	and r18=3D0xf,r17				// r18 =3D cr.ipsr.code{3:0}
++	tbit.z p6,p0=3Dr17,IA64_ISR_NA_BIT
++	;;
++	cmp.ne.or p6,p0=3DIA64_ISR_CODE_LFETCH,r18
++	dep r16=3D-1,r16,IA64_PSR_ED_BIT,1
++(p6)	br.cond.spnt 1f		// branch if (cr.ispr.na =3D 0 || cr.ipsr.code{3:0} =
+!=3D LFETCH)
++	;;
++	mov cr.ipsr=3Dr16		// set cr.ipsr.na
++	mov pr=3Dr31,-1
++	;;
++	rfi
++
++1:	mov pr=3Dr31,-1
++	;;
++	FAULT(26)
++END(nat_consumption)
++
++	.org ia64_ivt+0x5700
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5700 Entry 27 (size 16 bundles) Speculation (40)
++ENTRY(speculation_vector)
++	DBG_FAULT(27)
++	/*
++	 * A [f]chk.[as] instruction needs to take the branch to the recovery cod=
+e but
++	 * this part of the architecture is not implemented in hardware on some C=
+PUs, such
++	 * as Itanium.  Thus, in general we need to emulate the behavior.  IIM co=
+ntains
++	 * the relative target (not yet sign extended).  So after sign extending =
+it we
++	 * simply add it to IIP.  We also need to reset the EI field of the IPSR =
+to zero,
++	 * i.e., the slot to restart into.
++	 *
++	 * cr.imm contains zero_ext(imm21)
++	 */
++	mov r18=3Dcr.iim
++	;;
++	mov r17=3Dcr.iip
++	shl r18=3Dr18,43			// put sign bit in position (43d-21)
++	;;
++
++	mov r16=3Dcr.ipsr
++	shr r18=3Dr18,39			// sign extend (39C-4)
++	;;
++
++	add r17=3Dr17,r18			// now add the offset
++	;;
++	mov cr.iip=3Dr17
++	dep r16=3D0,r16,41,2		// clear EI
++	;;
++
++	mov cr.ipsr=3Dr16
++	;;
++
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI;
++#else
++	rfi				// and go back
++#endif
++END(speculation_vector)
++
++	.org ia64_ivt+0x5800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5800 Entry 28 (size 16 bundles) Reserved
++	DBG_FAULT(28)
++	FAULT(28)
++
++	.org ia64_ivt+0x5900
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5900 Entry 29 (size 16 bundles) Debug (16,28,56)
++ENTRY(debug_vector)
++	DBG_FAULT(29)
++	FAULT(29)
++END(debug_vector)
++
++	.org ia64_ivt+0x5a00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5a00 Entry 30 (size 16 bundles) Unaligned Reference (57)
++ENTRY(unaligned_access)
++	DBG_FAULT(30)
++	mov r31=3Dpr		// prepare to save predicates
++	;;
++	br.sptk.many dispatch_unaligned_handler
++END(unaligned_access)
++
++	.org ia64_ivt+0x5b00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5b00 Entry 31 (size 16 bundles) Unsupported Data Reference (57)
++ENTRY(unsupported_data_reference)
++	DBG_FAULT(31)
++	FAULT(31)
++END(unsupported_data_reference)
++
++	.org ia64_ivt+0x5c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5c00 Entry 32 (size 16 bundles) Floating-Point Fault (64)
++ENTRY(floating_point_fault)
++	DBG_FAULT(32)
++	FAULT(32)
++END(floating_point_fault)
++
++	.org ia64_ivt+0x5d00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5d00 Entry 33 (size 16 bundles) Floating Point Trap (66)
++ENTRY(floating_point_trap)
++	DBG_FAULT(33)
++	FAULT(33)
++END(floating_point_trap)
++
++	.org ia64_ivt+0x5e00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5e00 Entry 34 (size 16 bundles) Lower Privilege Transfer Trap (66)
++ENTRY(lower_privilege_trap)
++	DBG_FAULT(34)
++	FAULT(34)
++END(lower_privilege_trap)
++
++	.org ia64_ivt+0x5f00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x5f00 Entry 35 (size 16 bundles) Taken Branch Trap (68)
++ENTRY(taken_branch_trap)
++	DBG_FAULT(35)
++	FAULT(35)
++END(taken_branch_trap)
++
++	.org ia64_ivt+0x6000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6000 Entry 36 (size 16 bundles) Single Step Trap (69)
++ENTRY(single_step_trap)
++	DBG_FAULT(36)
++	FAULT(36)
++END(single_step_trap)
++
++	.org ia64_ivt+0x6100
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6100 Entry 37 (size 16 bundles) Reserved
++	DBG_FAULT(37)
++	FAULT(37)
++
++	.org ia64_ivt+0x6200
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6200 Entry 38 (size 16 bundles) Reserved
++	DBG_FAULT(38)
++	FAULT(38)
++
++	.org ia64_ivt+0x6300
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6300 Entry 39 (size 16 bundles) Reserved
++	DBG_FAULT(39)
++	FAULT(39)
++
++	.org ia64_ivt+0x6400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6400 Entry 40 (size 16 bundles) Reserved
++	DBG_FAULT(40)
++	FAULT(40)
++
++	.org ia64_ivt+0x6500
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6500 Entry 41 (size 16 bundles) Reserved
++	DBG_FAULT(41)
++	FAULT(41)
++
++	.org ia64_ivt+0x6600
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6600 Entry 42 (size 16 bundles) Reserved
++	DBG_FAULT(42)
++	FAULT(42)
++
++	.org ia64_ivt+0x6700
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6700 Entry 43 (size 16 bundles) Reserved
++	DBG_FAULT(43)
++	FAULT(43)
++
++	.org ia64_ivt+0x6800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6800 Entry 44 (size 16 bundles) Reserved
++	DBG_FAULT(44)
++	FAULT(44)
++
++	.org ia64_ivt+0x6900
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6900 Entry 45 (size 16 bundles) IA-32 Exeception (17,18,29,41,42,43,4=
+4,58,60,61,62,72,73,75,76,77)
++ENTRY(ia32_exception)
++	DBG_FAULT(45)
++	FAULT(45)
++END(ia32_exception)
++
++	.org ia64_ivt+0x6a00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6a00 Entry 46 (size 16 bundles) IA-32 Intercept  (30,31,59,70,71)
++ENTRY(ia32_intercept)
++	DBG_FAULT(46)
++#ifdef	CONFIG_IA32_SUPPORT
++	mov r31=3Dpr
++	mov r16=3Dcr.isr
++	;;
++	extr.u r17=3Dr16,16,8	// get ISR.code
++	mov r18=3Dar.eflag
++	mov r19=3Dcr.iim		// old eflag value
++	;;
++	cmp.ne p6,p0=3D2,r17
++(p6)	br.cond.spnt 1f		// not a system flag fault
++	xor r16=3Dr18,r19
++	;;
++	extr.u r17=3Dr16,18,1	// get the eflags.ac bit
++	;;
++	cmp.eq p6,p0=3D0,r17
++(p6)	br.cond.spnt 1f		// eflags.ac bit didn't change
++	;;
++	mov pr=3Dr31,-1		// restore predicate registers
++#ifdef CONFIG_XEN
++	XEN_HYPER_RFI;
++#else
++	rfi
++#endif
++
++1:
++#endif	// CONFIG_IA32_SUPPORT
++	FAULT(46)
++END(ia32_intercept)
++
++	.org ia64_ivt+0x6b00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6b00 Entry 47 (size 16 bundles) IA-32 Interrupt  (74)
++ENTRY(ia32_interrupt)
++	DBG_FAULT(47)
++#ifdef CONFIG_IA32_SUPPORT
++	mov r31=3Dpr
++	br.sptk.many dispatch_to_ia32_handler
++#else
++	FAULT(47)
++#endif
++END(ia32_interrupt)
++
++	.org ia64_ivt+0x6c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6c00 Entry 48 (size 16 bundles) Reserved
++	DBG_FAULT(48)
++	FAULT(48)
++
++	.org ia64_ivt+0x6d00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6d00 Entry 49 (size 16 bundles) Reserved
++	DBG_FAULT(49)
++	FAULT(49)
++
++	.org ia64_ivt+0x6e00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6e00 Entry 50 (size 16 bundles) Reserved
++	DBG_FAULT(50)
++	FAULT(50)
++
++	.org ia64_ivt+0x6f00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x6f00 Entry 51 (size 16 bundles) Reserved
++	DBG_FAULT(51)
++	FAULT(51)
++
++	.org ia64_ivt+0x7000
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7000 Entry 52 (size 16 bundles) Reserved
++	DBG_FAULT(52)
++	FAULT(52)
++
++	.org ia64_ivt+0x7100
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7100 Entry 53 (size 16 bundles) Reserved
++	DBG_FAULT(53)
++	FAULT(53)
++
++	.org ia64_ivt+0x7200
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7200 Entry 54 (size 16 bundles) Reserved
++	DBG_FAULT(54)
++	FAULT(54)
++
++	.org ia64_ivt+0x7300
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7300 Entry 55 (size 16 bundles) Reserved
++	DBG_FAULT(55)
++	FAULT(55)
++
++	.org ia64_ivt+0x7400
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7400 Entry 56 (size 16 bundles) Reserved
++	DBG_FAULT(56)
++	FAULT(56)
++
++	.org ia64_ivt+0x7500
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7500 Entry 57 (size 16 bundles) Reserved
++	DBG_FAULT(57)
++	FAULT(57)
++
++	.org ia64_ivt+0x7600
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7600 Entry 58 (size 16 bundles) Reserved
++	DBG_FAULT(58)
++	FAULT(58)
++
++	.org ia64_ivt+0x7700
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7700 Entry 59 (size 16 bundles) Reserved
++	DBG_FAULT(59)
++	FAULT(59)
++
++	.org ia64_ivt+0x7800
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7800 Entry 60 (size 16 bundles) Reserved
++	DBG_FAULT(60)
++	FAULT(60)
++
++	.org ia64_ivt+0x7900
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7900 Entry 61 (size 16 bundles) Reserved
++	DBG_FAULT(61)
++	FAULT(61)
++
++	.org ia64_ivt+0x7a00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7a00 Entry 62 (size 16 bundles) Reserved
++	DBG_FAULT(62)
++	FAULT(62)
++
++	.org ia64_ivt+0x7b00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7b00 Entry 63 (size 16 bundles) Reserved
++	DBG_FAULT(63)
++	FAULT(63)
++
++	.org ia64_ivt+0x7c00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7c00 Entry 64 (size 16 bundles) Reserved
++	DBG_FAULT(64)
++	FAULT(64)
++
++	.org ia64_ivt+0x7d00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7d00 Entry 65 (size 16 bundles) Reserved
++	DBG_FAULT(65)
++	FAULT(65)
++
++	.org ia64_ivt+0x7e00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7e00 Entry 66 (size 16 bundles) Reserved
++	DBG_FAULT(66)
++	FAULT(66)
++
++	.org ia64_ivt+0x7f00
++//////////////////////////////////////////////////////////////////////////=
+///////////////
++// 0x7f00 Entry 67 (size 16 bundles) Reserved
++	DBG_FAULT(67)
++	FAULT(67)
++
++#ifdef CONFIG_IA32_SUPPORT
++
++	/*
++	 * There is no particular reason for this code to be here, other than that
++	 * there happens to be space here that would go unused otherwise.  If this
++	 * fault ever gets "unreserved", simply moved the following code to a more
++	 * suitable spot...
++	 */
++
++	// IA32 interrupt entry point
++
++ENTRY(dispatch_to_ia32_handler)
++	SAVE_MIN
++	;;
++	mov r14=3Dcr.isr
++	ssm psr.ic | PSR_DEFAULT_BITS
++	;;
++	srlz.i					// guarantee that interruption collection is on
++	;;
++(p15)	ssm psr.i
++	adds r3=3D8,r2		// Base pointer for SAVE_REST
++	;;
++	SAVE_REST
++	;;
++	mov r15=3D0x80
++	shr r14=3Dr14,16		// Get interrupt number
++	;;
++	cmp.ne p6,p0=3Dr14,r15
++(p6)	br.call.dpnt.many b6=3Dnon_ia32_syscall
++
++	adds r14=3DIA64_PT_REGS_R8_OFFSET + 16,sp	// 16 byte hole per SW conventi=
+ons
++	adds r15=3DIA64_PT_REGS_R1_OFFSET + 16,sp
++	;;
++	cmp.eq pSys,pNonSys=3Dr0,r0 // set pSys=3D1, pNonSys=3D0
++	ld8 r8=3D[r14]		// get r8
++	;;
++	st8 [r15]=3Dr8		// save original EAX in r1 (IA32 procs don't use the GP)
++	;;
++	alloc r15=3Dar.pfs,0,0,6,0	// must first in an insn group
++	;;
++	ld4 r8=3D[r14],8		// r8 =3D eax (syscall number)
++	mov r15=3DIA32_NR_syscalls
++	;;
++	cmp.ltu.unc p6,p7=3Dr8,r15
++	ld4 out1=3D[r14],8	// r9 =3D ecx
++	;;
++	ld4 out2=3D[r14],8	// r10 =3D edx
++	;;
++	ld4 out0=3D[r14]		// r11 =3D ebx
++	adds r14=3D(IA64_PT_REGS_R13_OFFSET) + 16,sp
++	;;
++	ld4 out5=3D[r14],PT(R14)-PT(R13)	// r13 =3D ebp
++	;;
++	ld4 out3=3D[r14],PT(R15)-PT(R14)	// r14 =3D esi
++	adds r2=3DTI_FLAGS+IA64_TASK_SIZE,r13
++	;;
++	ld4 out4=3D[r14]		// r15 =3D edi
++	movl r16=3Dia32_syscall_table
++	;;
++(p6)	shladd r16=3Dr8,3,r16	// force ni_syscall if not valid syscall number
++	ld4 r2=3D[r2]		// r2 =3D current_thread_info()->flags
++	;;
++	ld8 r16=3D[r16]
++	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2	// mask trace or audit
++	;;
++	mov b6=3Dr16
++	movl r15=3Dia32_ret_from_syscall
++	cmp.eq p8,p0=3Dr2,r0
++	;;
++	mov rp=3Dr15
++(p8)	br.call.sptk.many b6=B6
++	br.cond.sptk ia32_trace_syscall
++
++non_ia32_syscall:
++	alloc r15=3Dar.pfs,0,0,2,0
++	mov out0=3Dr14				// interrupt #
++	add out1=16,sp				// pointer to pt_regs
++	;;			// avoid WAW on CFM
++	br.call.sptk.many rp=3Dia32_bad_interrupt
++.ret1:	movl r15=3Dia64_leave_kernel
++	;;
++	mov rp=3Dr15
++	br.ret.sptk.many rp
++END(dispatch_to_ia32_handler)
++#endif /* CONFIG_IA32_SUPPORT */
++
++#ifdef CONFIG_XEN
++	.section .text,"ax"
++GLOBAL_ENTRY(xen_event_callback)
++	mov r31=3Dpr		// prepare to save predicates
++	;;
++	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
++	;;
++	movl r3=3DXSI_PSR_IC
++	mov r14=3D1
++	;;
++	st4 [r3]=3Dr14
++	;;
++	adds r3=3D8,r2		// set up second base pointer for SAVE_REST
++	srlz.i			// ensure everybody knows psr.ic is back on
++	;;
++	SAVE_REST
++	;;
++1:
++	alloc r14=3Dar.pfs,0,0,1,0 // must be first in an insn group
++	add out0=16,sp		// pass pointer to pt_regs as first arg
++	;;
++	br.call.sptk.many b0=3Dxen_evtchn_do_upcall
++	;;
++	movl r20=3DXSI_PSR_I_ADDR
++	;;
++	ld8 r20=3D[r20]
++	;;
++	adds r20=3D-1,r20		// vcpu_info->evtchn_upcall_pending
++	;;
++	ld1 r20=3D[r20]
++	;;
++	cmp.ne p6,p0=3Dr20,r0	// if there are pending events,
++	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
++	br.sptk.many ia64_leave_kernel
++END(xen_event_callback)
++
++
++	/*
++	 * There is no particular reason for this code to be here, other than that
++	 * there happens to be space here that would go unused otherwise.  If this
++	 * fault ever gets "unreserved", simply moved the following code to a more
++	 * suitable spot...
++	 */
++
++GLOBAL_ENTRY(xen_bsw1)
++	/* FIXME: THIS CODE IS NOT NaT SAFE! */
++	mov r14=3Dar.unat
++	movl r30=3DXSI_B1NAT
++	;;
++	ld8 r30=3D[r30];;
++	mov ar.unat=3Dr30
++	movl r30=3DXSI_BANKNUM;
++	mov r31=3D1;;
++	st4 [r30]=3Dr31;
++	movl r30=3DXSI_BANK1_R16;
++	movl r31=3DXSI_BANK1_R16+8;;
++	ld8.fill r16=3D[r30],16; ld8.fill r17=3D[r31],16;;
++	ld8.fill r18=3D[r30],16; ld8.fill r19=3D[r31],16;;
++	ld8.fill r20=3D[r30],16; ld8.fill r21=3D[r31],16;;
++	ld8.fill r22=3D[r30],16; ld8.fill r23=3D[r31],16;;
++	ld8.fill r24=3D[r30],16; ld8.fill r25=3D[r31],16;;
++	ld8.fill r26=3D[r30],16; ld8.fill r27=3D[r31],16;;
++	ld8.fill r28=3D[r30],16; ld8.fill r29=3D[r31],16;;
++	ld8.fill r30=3D[r30]; ld8.fill r31=3D[r31];;
++	mov ar.unat=3Dr14
++	br.ret.sptk.many b0
++END(xen_bsw1)
++
++#endif
+--=20
 1.5.3
 
