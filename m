@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Tue, 12 Feb 2008 04:29:38 +0000
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Tue, 26 Feb 2008 11:03:28 +0000
 Subject: Re: [PATCH 6/6] arch_ptrace() cleanup
-Message-Id: <20080212042937.GA31794@infradead.org>
+Message-Id: <1204023808.21919.26.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1202766249.9594.32.camel@elijah.suse.cz>
 In-Reply-To: <1202766249.9594.32.camel@elijah.suse.cz>
@@ -10,18 +10,157 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-All these patches looks really great to me from the ptrace perspective.
+On Mon, 2008-02-11 at 23:29 -0500, Christoph Hellwig wrote:
+> All these patches looks really great to me from the ptrace perspective.
+> 
+> While you're at cleaning up arch_ptrace it might be worth to convert
+> this odd indentation
+> 
+> >  	switch (request) {
+> >  	      case PTRACE_PEEKTEXT:
+> >  	      case PTRACE_PEEKDATA:
+> 
+> into the normal
+> 
+> 	switch (request) {
+> 	case PTRACE_PEEKTEXT:
+> 	case PTRACE_PEEKDATA:
 
-While you're at cleaning up arch_ptrace it might be worth to convert
-this odd indentation
+Well, if this was the only objection to the whole patch series, it's a
+pleasure to post a patch with the correct switch statement indentation.
 
->  	switch (request) {
->  	      case PTRACE_PEEKTEXT:
->  	      case PTRACE_PEEKDATA:
+When do you plan to add this series to git?
 
-into the normal
+arch_ptrace() cleanup
+    
+Remove duplicate code, clean up goto's and indentation.
+    
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Christoph Hellwig <hch@infradead.org>
 
-	switch (request) {
-	case PTRACE_PEEKTEXT:
-	case PTRACE_PEEKDATA:
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index f10c8b4..7e0d7dc 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -1491,88 +1491,60 @@ user_disable_single_step (struct task_st
+ void
+ ptrace_disable (struct task_struct *child)
+ {
+-	struct ia64_psr *child_psr = ia64_psr(task_pt_regs(child));
+-
+-	/* make sure the single step/taken-branch trap bits are not set: */
+-	clear_tsk_thread_flag(child, TIF_SINGLESTEP);
+-	child_psr->ss = 0;
+-	child_psr->tb = 0;
++	user_disable_single_step(child);
+ }
+ 
+ long
+ arch_ptrace (struct task_struct *child, long request, long addr, long data)
+ {
+-	struct pt_regs *pt;
+-	struct switch_stack *sw;
+-	long ret;
+-
+-	pt = task_pt_regs(child);
+-	sw = (struct switch_stack *) (child->thread.ksp + 16);
+-
+ 	switch (request) {
+-	      case PTRACE_PEEKTEXT:
+-	      case PTRACE_PEEKDATA:
++	case PTRACE_PEEKTEXT:
++	case PTRACE_PEEKDATA:
+ 		/* read word at location addr */
+ 		if (access_process_vm(child, addr, &data, sizeof(data), 0)
+-		    != sizeof(data)) {
+-			ret = -EIO;
+-			goto out_tsk;
+-		}
+-		ret = data;
+-		/* ensure "ret" is not mistaken as an error code */
++		    != sizeof(data))
++			return -EIO;
++		/* ensure return value is not mistaken for error code */
+ 		force_successful_syscall_return();
+-		goto out_tsk;
++		return data;
+ 
+ 	/* PTRACE_POKETEXT and PTRACE_POKEDATA is handled
+ 	 * by the generic ptrace_request().
+ 	 */
+ 
+-	      case PTRACE_PEEKUSR:
++	case PTRACE_PEEKUSR:
+ 		/* read the word at addr in the USER area */
+-		if (access_uarea(child, addr, &data, 0) < 0) {
+-			ret = -EIO;
+-			goto out_tsk;
+-		}
+-		ret = data;
+-		/* ensure "ret" is not mistaken as an error code */
++		if (access_uarea(child, addr, &data, 0) < 0)
++			return -EIO;
++		/* ensure return value is not mistaken for error code */
+ 		force_successful_syscall_return();
+-		goto out_tsk;
++		return data;
+ 
+-	      case PTRACE_POKEUSR:
++	case PTRACE_POKEUSR:
+ 		/* write the word at addr in the USER area */
+-		if (access_uarea(child, addr, &data, 1) < 0) {
+-			ret = -EIO;
+-			goto out_tsk;
+-		}
+-		ret = 0;
+-		goto out_tsk;
++		if (access_uarea(child, addr, &data, 1) < 0)
++			return -EIO;
++		return 0;
+ 
+-	      case PTRACE_OLD_GETSIGINFO:
++	case PTRACE_OLD_GETSIGINFO:
+ 		/* for backwards-compatibility */
+-		ret = ptrace_request(child, PTRACE_GETSIGINFO, addr, data);
+-		goto out_tsk;
++		return ptrace_request(child, PTRACE_GETSIGINFO, addr, data);
+ 
+-	      case PTRACE_OLD_SETSIGINFO:
++	case PTRACE_OLD_SETSIGINFO:
+ 		/* for backwards-compatibility */
+-		ret = ptrace_request(child, PTRACE_SETSIGINFO, addr, data);
+-		goto out_tsk;
+-
+-	      case PTRACE_GETREGS:
+-		ret = ptrace_getregs(child,
+-				     (struct pt_all_user_regs __user *) data);
+-		goto out_tsk;
+-
+-	      case PTRACE_SETREGS:
+-		ret = ptrace_setregs(child,
+-				     (struct pt_all_user_regs __user *) data);
+-		goto out_tsk;
+-
+-	      default:
+-		ret = ptrace_request(child, request, addr, data);
+-		goto out_tsk;
++		return ptrace_request(child, PTRACE_SETSIGINFO, addr, data);
++
++	case PTRACE_GETREGS:
++		return ptrace_getregs(child,
++				      (struct pt_all_user_regs __user *) data);
++
++	case PTRACE_SETREGS:
++		return ptrace_setregs(child,
++				      (struct pt_all_user_regs __user *) data);
++
++	default:
++		return ptrace_request(child, request, addr, data);
+ 	}
+-  out_tsk:
+-	return ret;
+ }
+ 
+ 
 
