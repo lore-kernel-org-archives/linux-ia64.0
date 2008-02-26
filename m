@@ -1,80 +1,45 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 05:10:46 +0000
-Subject: [PATCH 27/28] ia64/xen: update Kconfig to allow xen domU Linux
-Message-Id: <12036570484134-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Feb 2008 13:58:51 +0000
+Subject: [PATCH 0/8] RFC: ia64/xen TAKE 2: paravirtualization of hand written assembly code
+Message-Id: <1204034339752-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi. I rewrote the patch according to the comments. I adopted generating
+in-place code because it looks the quickest way.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/Kconfig     |    6 +++++-
- arch/ia64/xen/Kconfig |   29 +++++++++++++++++++++++++++++
- 2 files changed, 34 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/Kconfig
+The point Eddie wanted to discuss is how to generate code and its ABI.
+i.e. in-place generating v.s. direct jump v.s. indirect function call
+Indirect function call doesn't make sense because ivt.S is compiled
+multi times. And it is up to pv instances to choose in-place generating
+or direct jump. So what we should define is its clobbered registers.
+The ABI which this patch adopted is xen biased. Presumably we want to
+twist those macros to make more hypervisor neutral. (i.e. add more
+clobbered registers) Please comment.
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index bc84008..31313bc 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -178,7 +178,7 @@ config PARAVIRT_NOP_B_PATCH
- 	  "br.cond.sptk.many <native_xxx>" and replace it with 'nop.b 0'
- 	  when running on xen.
- 
--#source "arch/ia64/xen/Kconfig"
-+source "arch/ia64/xen/Kconfig"
- 
- endif
- 
-@@ -238,6 +238,10 @@ config IA64_HP_SIM
- 	bool "Ski-simulator"
- 	select SWIOTLB
- 
-+config IA64_XEN
-+	bool "Xen guest"
-+	depends on XEN
-+
- endchoice
- 
- choice
-diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
-new file mode 100644
-index 0000000..30f54c3
---- /dev/null
-+++ b/arch/ia64/xen/Kconfig
-@@ -0,0 +1,29 @@
-+#
-+# This Kconfig describes xen/ia64 options
-+#
-+
-+config XEN
-+	bool "Xen hypervisor support"
-+	default y
-+	select PARAVIRT
-+	select PARAVIRT_ALT
-+	select PARAVIRT_ENTRY
-+	select PARAVIRT_NOP_B_PATCH
-+	select XEN_XENCOMM
-+	select IA64_XEN
-+	help
-+	  Enable Xen hypervisor support.  Resulting kernel runs
-+	  both as a guest OS on Xen and natively on hardware.
-+
-+if XEN
-+config XEN_INTERFACE_VERSION
-+	hex
-+	default 0x00030207
-+
-+config XEN_XENCOMM
-+	def_bool y
-+
-+config NO_IDLE_HZ
-+	def_bool y
-+
-+endif
--- 
-1.5.3
+
+TODO:
+- more clean ups
+  some macro needs clean up to be aware register usage r8, r9.
+- Free xen_ivt ares somehow. No waste kernel space
+  From Keith Owens idea.
+  Probably after defining ABI because this is just optimization.
+
+Changes from TAKE 1:
+Single IVT source code. compile multitimes using assembler macros.
+
+Diffstat:
+ arch/ia64/kernel/Makefile                          |   32 +-
+ arch/ia64/kernel/entry.S                           |  568 +------------------
+ arch/ia64/kernel/inst_native.h                     |  153 +++++
+ arch/ia64/kernel/ivt.S                             |  159 +++---
+ arch/ia64/kernel/minstate.h                        |    2 +
+ arch/ia64/kernel/switch_leave.S                    |  609 ++++++++++++++++++++
+ arch/ia64/xen/inst_xen.h                           |  307 ++++++++++
+ arch/ia64/{kernel/minstate.h => xen/xenminstate.h} |   95 +---
+ include/asm-ia64/privop.h                          |   26 +
+ 9 files changed, 1245 insertions(+), 706 deletions(-)
 
