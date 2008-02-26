@@ -1,7 +1,7 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Tue, 26 Feb 2008 23:07:29 +0000
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 26 Feb 2008 23:46:53 +0000
 Subject: Re: Tiger oops in ia64_sal_physical_id_info (was [RFC] regression:113134fcbca83619be4c68d0ca66db6093
-Message-Id: <20080226230729.GA5715@parisc-linux.org>
+Message-Id: <20080226234653.GA23088@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200802251027.15107.bjorn.helgaas@hp.com>
 In-Reply-To: <200802251027.15107.bjorn.helgaas@hp.com>
@@ -11,6 +11,7 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 On Tue, Feb 26, 2008 at 03:45:40PM -0700, Alex Chiang wrote:
+> 
 > I looked through some SAL specs, and it turns out that
 > SAL_PHYSICAL_ID_INFO was introduced in v3.2, but this tiger
 > implements v3.1.
@@ -24,14 +25,18 @@ On Tue, Feb 26, 2008 at 03:45:40PM -0700, Alex Chiang wrote:
 > and egg problem to me -- the only way to try and check if a call
 > is implemented or not is to call it, and calling it hangs the
 > machine... :(
+> 
+> Thoughts?
 
-While you can check to see what SAL revision is supported, do be wary
-of some prototype HP SAL implementations which report numbers in the
-60-90 range.  It's probably safe to say 'if sal revision < 3.2 answer -1', but we were burned with extended PCI config space many moons ago
-when we said 'if sal > 3.1 use new method'.
+How about putting back some of the code that avoided the problem?
+
+The previous code must have bailed out before getting to 
+ia64_sal_physical_id_info().  Did it print out an error message,
+such as "No logical to physical processor mapping " or 
+"ia64_pal_logical_to_phys failed with"?   What does ia64_pal_logical_to_phys()
+return on a tiger box?
+ 
 
 -- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
