@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 27 Feb 2008 10:53:32 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Wed, 27 Feb 2008 12:18:12 +0000
 Subject: Re: ia64_mca_cpe_int_handler
-Message-Id: <20080227105331.GR11391@sgi.com>
+Message-Id: <47C55504.6070300@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47BF02EC.4080102@bull.net>
 In-Reply-To: <47BF02EC.4080102@bull.net>
@@ -10,41 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Feb 27, 2008 at 11:06:31AM +0100, Zoltan Menyhart wrote:
-> Russ,
->
-> Thank you for your remarks.
->
-> I want to add a new mechanism for the MCA/INIT handlers to be able to
-> store their logs in a safe way. (No locks, no waiting,...)
-> This will be based on the two buffers and the atomic counter for each
-> of the MCA/INIT handlers.
->
-> And I want to keep the existing mechanism when we are not in MCA/INIT
-> handlers' contexts.
->
-> Using separate mechanisms, avoids MCA/INIT handlers interfering with
-> the interrupts and the polling.
->
-> Should we receive too many CPEIs / CMCIs, chaining into polling,
-> may make us lose events.
->
-> Should we receive too many recovered MCAs or INITs, there will
-> always be some logs lost. I want to keep the first and the last log.
-> The first one to know how it begins.
-> Why the last one? I've got a _feeling_ that the last one will have
-> accumulated consequences (whatever it is) of the preceding ones.
+> Is this records per cpu or records total?
 
-Is this records per cpu or records total?
+Well, I planed 2 + 2 global log buffers for MCA / INIT. (As today.)
+The 1st CPU can use 1st buffer (and increments the atomic variable).
+For additional MCAs, it fills in the 2nd buffer.
+The other CPUs fill in the 2nd buffer, too.
+Yes, we overwrite the 2nd buffer. It goes like this:
+- increment the atomic variable, wmb()
+- memcpy() the log into the 2nd buffer, wmb()
+- increment the atomic variable
+- before starting, verify if the atomic variable is odd,
+  use compare-and-swap for the incrementing it
 
-In my experience, the first and last are somewhat random.  Often, when
-we have received multiple MCA's due to an event, the telling record is
-in the middle of the heap and not easily determined without some
-experience with that type of event group.  Is there any reasonable way
-to keep all the records or at least a larger group than just two.
+memcpy() should finish in a relatively short time.
+Should it provoke another MCA...
+(The actual code also assumes that the MCA handler is "hard core".)
 
-Russ, do you know what the max number of MCA/INIT records we would
-expect to see during a worst-case type event?
+We could have dedicated buffers to each CPU, and more than 2 of them
+per CPU.
+Yet all the resources have to be pre-allocated.
+For some hopefully very unlikely events...
+
+Eventually, this algorithm is easily modifiable to handle "n" buffers
+(overwriting the last one).
 
 Thanks,
-Robin
+
+Zoltan 
