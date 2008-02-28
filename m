@@ -1,96 +1,186 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Sat, 23 Feb 2008 20:40:42 +0000
-Subject: Re: runqueue locks in schedule()
-Message-Id: <1203799242.6242.108.camel@lappy>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 28 Feb 2008 09:57:12 +0000
+Subject: [PATCH 0/5] RFC: ia64/pv_ops: ia64 intrinsics paravirtualization
+Message-Id: <12041926372068-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470801161629t3870da59hb6ac371c44126b07@mail.gmail.com>
-	 <1200576266.28661.27.camel@twins>
-	 <7c86c4470802230650l1605db93o3c9b38ec52bcba89@mail.gmail.com>
-In-Reply-To: <7c86c4470802230650l1605db93o3c9b38ec52bcba89@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: stephane eranian <eranian@googlemail.com>
-Cc: linux-kernel@vger.kernel.org, ia64 <linux-ia64@vger.kernel.org>, Stephane Eranian <eranian@gmail.com>, Corey J Ashford <cjashfor@us.ibm.com>, Ingo Molnar <mingo@elte.hu>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
+
+Hi. Thank you for comments on asm code paravirtualization.
+Its direction is getting clear. Although it hasn't been finished yet,
+I'd like to start discussion on ia64 intrinsics paravirtualization.
+This patch set is just for discussion so that it is a subset of
+xen Linux/ia64 domU paravirtualization, not self complete.
+You can get the full patched tree by typing
+git clone http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64=
+.git/
 
 
-On Sat, 2008-02-23 at 15:50 +0100, stephane eranian wrote:
-> Peter,
-> 
-> >  On Wed, 2008-01-16 at 16:29 -0800, stephane eranian wrote:
-> >  > Hello,
-> >  >
-> >  > As suggested by people on this list, I have changed perfmon2 to use
-> >  > the high resolution timers as the interface to allow timeout-based
-> >  > event set multiplexing. This works around the problems I had with
-> >  > tickless-enabled kernels.
-> >  >
-> >  > Multiplexing is supported in per-thread as well. In that case, the
-> >  > timeout measures virtual time. When the thread is context switched
-> >  > out, we need to save the remainder of the timeout and cancel the
-> >  > timer. When the thread is context switched in, we need to reinstall
-> >  > the timer. These timer save/restore operations have to be done in the
-> >  > switch_to() code near the end of schedule().
-> >  >
-> >  > There are situations where hrtimer_start() may end up trying to
-> >  > acquire the runqueue lock. This happens on a context switch where the
-> >  > current thread is blocking (not preempted) and the new timeout happens
-> >  > to be either in the past or just expiring. We've run into such
-> >  > situations with simple tests.
-> >  >
-> >  > On all architectures, but IA-64, it seems thet the runqueue lock is
-> >  > held until the end of schedule(). On IA-64, the lock is released
-> >  > BEFORE switch_to() for some reason I don't quite remember. That may
-> >  > not even be needed anymore.
-> >  >
-> >  > The early unlocking is controlled by a macro named
-> >  > __ARCH_WANT_UNLOCKED_CTXSW. Defining this macros on X86 (or PPC) fixed
-> >  > our problem.
-> >  >
-> >  > It is not clear to me why the runqueue lock needs to be held up until
-> >  > the end of schedule() on some platforms and not on others. Not that
-> >  > releasing the lock earlier does not necessarily introduce more
-> >  > overhead because the lock is never re-acquired later in the schedule()
-> >  > function.
-> >  >
-> >  > Question:
-> >  >    - is it safe to release the lock before switch_to() on all architectures?
-> >
-> >  I had similar problem when using hrtimers from the scheduler, I extended
-> >  the HRTIMER_CB_IRQSAFE_NO_SOFTIRQ time type to run with cpu_base->lock
-> >  unlocked.
-> >
-> I am running into an issue when enabling this flag. Basically, the
-> timer never fires
-> when it gets into this situation where in hrtimer_start() the timer
-> ends up being the
-> next one to fire. In this mode,  hrtimer_enqueue_reprogram() become a NOP. But
-> then nobody never inserts the time into any queue. There is a comment that
-> says "caller site takes care of this". Could you elaborate on this?
-
-That would mean the timer already expired by the time you get to program
-it.
-
-The way to handle these is:
-
-for (;;) {
-	if (hrtimer_active(timer))
-		break;
-
-	now = hrtimer_cb_get_time(timer);
-	hrtimer_forward(timer, now, period);
-	hrtimer_start(timer, timer->expires, HRTIMER_MODE_ABS);
-}
-
-You could use the return value from hrtimer_forward() to determine how
-many events you missed if that is needed. The timer function needs a
-similar loop if it wants to use HRTIMER_RESTART.
-
-Single shot timers can handle it like in kernel/hrtimer.c:do_nanosleep()
-
-  hrtimer_start(timer, ...);
-  if (!hrtimer_active(timer))
-	/* handle the missed expiration */
+A paravirtualized guest wants to replace ia64 intrinsics, i.e.
+the operations defined in include/asm-ia64/gcc_instrin.h or
+include/asm-ia64/intel_instrin.h, with its own version.
+(At least xenLinux/ia64 does.)
+So we need a sort of interface to do so.
+I want to discuss on which direction to go for, please comment.
 
 
+This paravirtualization corresponds to the part of x86 pv_ops,
+  Performance critical code written in C. They are basically indirect
+  function call via pv_xxx_ops. For performance, each pv instance is
+  allowed to binary patch in order to replace function call instruction
+  with their predefined instructions in place.
+  The ia64 intrinsics corresonds to this kind of interface.
 
+The discussion points so far are
+- binary patching should be mandatory or optional?
+  The current patch requires binary patch, but some people think
+  requiring binary patch for pv instances is a bad idea.
+  I think by providing reasonable helper functions set, binary patch
+  won't be burden for pv instances.
+
+- How differ from x86 pv_ops?
+  Some people think that the very similarity to x86 pv_ops is important.
+  I guess they're thinking so considering maintenance cost. Anyway ia64 is
+  already different from x86, so such difference doesn't matter as
+  long as ia64 paravirtualization interface is clean enough for maintenance.
+
+Note: the way can differ from one operation from another, but it might cause
+some inconsistency.
+The following ways are proposed so far.
+
+
+* Option 1: the current way
+The code would look like
+        static inline unsigned long
+        paravirt_get_cpuid(int index)
+        {
+                register __u64 ia64_intri_res asm ("r8");
+                register __u64 __index asm ("r8") =3D index;
+                asm volatile (paravirt_alt_inst("mov %0=3Dcpuid[%r1]",
+                                           PARAVIRT_INST_GET_CPUID):
+                              "=3Dr"(ia64_intri_res): "0O"(__index));
+                return ia64_intri_res;
+        }
+        #define ia64_get_cpuid  paravirt_get_cpuid
+
+        note:
+        Using r8 is derived from xen hypercall abi.
+        We have to define which register should be used or can be clobbered.
+
+  Pros:
+  - in-place binary patch is possible.
+    (We may want to pad with nop. How many?)
+  - native case performance is good.
+  - native case doesn't need any modification.
+
+  Cons:
+  - binary patch is required for pv instances.
+  - Probably current implementation might be too xen-biased. Reviewing them
+    would be necessary for hypervisor neutrality.
+
+* Option 2: direct branch
+The code would look like
+        static inline unsigned long
+        paravirt_get_cpuid(int index)
+        {
+               register __u64 ia64_intri_res asm ("r8");
+               register __u64 __index asm ("r8") =3D index;
+               register __u64 ret_addr asm ("r9");
+               asm volatile (paravirt_alt_inst(
+                        "br.cond b0=3Dnative_get_cpuid",
+                        /* or brl.cond for fast hypercall */
+                         PARAVIRT_INST_GET_CPUID):
+                             "=3Dr"(ia64_intri_res), "=3Dr"(ret_addr):
+                             "0O"(__index)"
+                             "b0");
+               return ia64_intri_res;
+        }
+        #define ia64_get_cpuid  paravirt_get_cpuid
+
+        note:
+        Using r8 is derived from xen hypercall abi.
+        We have to define which register should be used or can be clobbered.
+
+  Pros:
+  - in-place binary patch is possible.
+    (We may want to pad with nop. How many?)
+  - so that performance would be good for native case using it.
+
+  Cons:
+  - binary patch is required for pv instances.
+  - native case needs binary patch for optimal performance.
+
+* Option 3: indirect branch
+The code would look like
+        static inline unsigned long
+        paravirt_get_cpuid(int index)
+        {
+               register __u64 ia64_intri_res asm ("r8");
+               register __u64 __index asm ("r8") =3D index;
+               register __u64 func asm ("r9");
+               asm volatile (paravirt_alt_inst(
+                        "mov %1 =3D pv_cpu_ops"
+                        "add %1 =3D %1, PV_CPU_GET_CPUID_OFFSET"
+                        "ld8 %1 =3D [%1]"
+                        "mov b1 =3D %1"
+                        "br.cond b0=B1"
+                         PARAVIRT_INST_GET_CPUID):
+                             "=3Dr"(ia64_intri_res),
+                             "=3Dr"(func):
+                             "0O"(__index):
+                             "b0", "b1");
+               return ia64_intri_res;
+        }
+        #define ia64_get_cpuid  paravirt_get_cpuid
+
+        note:
+        Using r8 is derived from xen hypercall abi.
+        We have to define which register should be used or can be clobbered.
+
+  Pros:
+  - binary patching isn't required for pv instances.
+  - in-place binary patch is possible
+    (We may want to pad with nop. How many?)
+  - so that performance would be good for native case using it.
+=20
+  Cons:
+  - use more spaces than the option #2.
+  - For optimal performance binary patch is necessary anyway.
+
+* Option 4: indirect function call
+The code would look like
+        struct pv_cpu_ops {
+                unsigned long (*get_cpuid)(unsigned long index)
+                ....
+        };
+        extern struct pv_cpu_ops pv_cpu_ops;
+        ...
+        static inline unsigned long
+        paravirt_get_cpuid(unsigned long index)
+        {
+                return pv_cpu_ops->get_cpuid(index);
+        }
+        #define ia64_get_cpuid  paravirt_get_cpuid
+
+  Pros:
+  - Binary patch isn't required.
+  - indirect function call is the very way x86 pv_ops adopted.
+  - If hypervisor supports fast hypercall using gate page,
+    it may want to use function call.
+
+  Cons:
+  - Binary patch is difficult.
+    ia64 function call uses stacked registers, so that marking br.call
+    instruction is difficult.
+  - so that the performance is suboptimal especially for native case.
+
+  Possibly the alternative is direct function call. At boot time,
+  scan all text detecting branch instructions which jumps to given
+  functions and binary patch branch target.
+ =20
+
+My current preference is option #1 or #2 making abi more hypervisor neutral.
+
+thanks,
