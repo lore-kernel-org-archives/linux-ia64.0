@@ -1,814 +1,917 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 13 Feb 2008 20:58:44 +0000
-Subject: Old broken patch to remove flatmem/discontig from ia64
-Message-Id: <Pine.LNX.4.64.0802131250450.20407@schroedinger.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 28 Feb 2008 09:57:17 +0000
+Subject: [PATCH 5/5] ia64/pv_ops/xen:  xen privileged instruction intrinsics with binary patch.
+Message-Id: <120419263771-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 13 Feb 2008, Robin Holt wrote:
+With binary patching, make intrinsics paravirtualization hypervisor neutral.
+So far xen intrinsics doesn't allow another hypervisor.
+Binary patch marked privileged operations which needs paravirtualization
+if running on xen at early boot time.
 
-> If you point me at that patch, I would happily resurrect it and see if
-> I can get it worked in.  I will be working on that in the evenings so
-> my progress will be slow.
-
-Evenings? Gosh. You are already too busy and we need you in sane 
-condition. Maybe someone else. Here is the patch that was never publicized 
-and likely will fail if applied to current sources. Lots of work. I asked 
-someone else for this before....
-
-Date: Wed, 21 Nov 2007 12:16:28 -0800 (PST)
-From: Christoph Lameter <clameter@sgi.com>
-Subject: Re: [PATCH] Cast page_to_pfn to unsigned long in CONFIG_SPARSEMEM (fwd)
-
-Could you do the honors of removing flatmem/discontig etc from ia64?
-
-I have a draft of patch here but I am deeply buried in the percpu stuff at 
-the moment. So I wont get around to test it soon. Needs testing I think.
-
-Is anyone taking care of cleaning up i386?
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/Kconfig                |   35 ----
- arch/ia64/kernel/machine_kexec.c |   10 -
- arch/ia64/mm/Makefile            |    5 
- arch/ia64/mm/contig.c            |  289 ---------------------------------------
- arch/ia64/mm/discontig.c         |   13 -
- arch/ia64/mm/init.c              |    5 
- arch/ia64/mm/numa.c              |    2 
- include/asm-ia64/page.h          |   26 ---
- 8 files changed, 5 insertions(+), 380 deletions(-)
+ arch/ia64/kernel/module.c     |   32 +++++
+ arch/ia64/xen/Makefile        |    7 +
+ arch/ia64/xen/paravirt_xen.c  |  242 +++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/privops_asm.S   |  221 ++++++++++++++++++++++++++++++++
+ arch/ia64/xen/privops_c.c     |  279 +++++++++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/xensetup.S      |   10 ++
+ include/asm-ia64/xen/privop.h |   24 ++++
+ 7 files changed, 815 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/Makefile
+ create mode 100644 arch/ia64/xen/paravirt_xen.c
+ create mode 100644 arch/ia64/xen/privops_asm.S
+ create mode 100644 arch/ia64/xen/privops_c.c
 
-Index: linux-2.6/arch/ia64/Kconfig
-=================================--- linux-2.6.orig/arch/ia64/Kconfig	2007-11-16 16:21:39.000000000 -0800
-+++ linux-2.6/arch/ia64/Kconfig	2007-11-16 16:23:10.000000000 -0800
-@@ -352,29 +352,13 @@ source "kernel/Kconfig.preempt"
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index e58f436..2806f70 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -454,6 +454,14 @@ module_frob_arch_sections (Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings,
+ 			mod->arch.opd = s;
+ 		else if (strcmp(".IA_64.unwind", secstrings + s->sh_name) = 0)
+ 			mod->arch.unwind = s;
++#ifdef CONFIG_PARAVIRT_ALT
++		else if (strcmp(".paravirt_bundles",
++				secstrings + s->sh_name) = 0)
++			mod->arch.paravirt_bundles = s;
++		else if (strcmp(".paravirt_insts",
++				secstrings + s->sh_name) = 0)
++			mod->arch.paravirt_insts = s;
++#endif
  
- source "mm/Kconfig"
- 
--config ARCH_SELECT_MEMORY_MODEL
--	def_bool y
--
--config ARCH_DISCONTIGMEM_ENABLE
--	def_bool y
--	help
--	  Say Y to support efficient handling of discontiguous physical memory,
--	  for architectures which are either NUMA (Non-Uniform Memory Access)
--	  or have huge holes in the physical address space for other reasons.
-- 	  See <file:Documentation/vm/numa> for more.
--
--config ARCH_FLATMEM_ENABLE
-+config ARCH_SPARSEMEM_DEFAULT
- 	def_bool y
- 
- config ARCH_SPARSEMEM_ENABLE
- 	def_bool y
--	depends on ARCH_DISCONTIGMEM_ENABLE
- 	select SPARSEMEM_VMEMMAP_ENABLE
- 
--config ARCH_DISCONTIGMEM_DEFAULT
--	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB)
--	depends on ARCH_DISCONTIGMEM_ENABLE
--
- config NUMA
- 	bool "NUMA support"
- 	depends on !IA64_HP_SIM && !FLATMEM
-@@ -398,23 +382,6 @@ config NODES_SHIFT
- config ARCH_POPULATES_NODE_MAP
- 	def_bool y
- 
--# VIRTUAL_MEM_MAP and FLAT_NODE_MEM_MAP are functionally equivalent.
--# VIRTUAL_MEM_MAP has been retained for historical reasons.
--config VIRTUAL_MEM_MAP
--	bool "Virtual mem map"
--	depends on !SPARSEMEM
--	default y if !IA64_HP_SIM
--	help
--	  Say Y to compile the kernel with support for a virtual mem map.
--	  This code also only takes effect if a memory hole of greater than
--	  1 Gb is found during boot.  You must turn this option on if you
--	  require the DISCONTIGMEM option for your machine. If you are
--	  unsure, say Y.
--
--config HOLES_IN_ZONE
--	bool
--	default y if VIRTUAL_MEM_MAP
--
- config HAVE_ARCH_EARLY_PFN_TO_NID
- 	def_bool y
- 	depends on NEED_MULTIPLE_NODES
-Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c	2007-11-16 16:23:52.000000000 -0800
-+++ linux-2.6/arch/ia64/kernel/machine_kexec.c	2007-11-16 16:24:03.000000000 -0800
-@@ -129,16 +129,6 @@ void machine_kexec(struct kimage *image)
- 
- void arch_crash_save_vmcoreinfo(void)
- {
--#if defined(CONFIG_ARCH_DISCONTIGMEM_ENABLE) && defined(CONFIG_NUMA)
--	VMCOREINFO_SYMBOL(pgdat_list);
--	VMCOREINFO_LENGTH(pgdat_list, MAX_NUMNODES);
--
--	VMCOREINFO_SYMBOL(node_memblk);
--	VMCOREINFO_LENGTH(node_memblk, NR_NODE_MEMBLKS);
--	VMCOREINFO_SIZE(node_memblk_s);
--	VMCOREINFO_OFFSET(node_memblk_s, start_paddr);
--	VMCOREINFO_OFFSET(node_memblk_s, size);
--#endif
- #ifdef CONFIG_PGTABLE_3
- 	VMCOREINFO_CONFIG(PGTABLE_3);
- #elif  CONFIG_PGTABLE_4
-Index: linux-2.6/arch/ia64/mm/Makefile
-=================================--- linux-2.6.orig/arch/ia64/mm/Makefile	2007-11-16 16:24:34.000000000 -0800
-+++ linux-2.6/arch/ia64/mm/Makefile	2007-11-16 16:25:04.000000000 -0800
-@@ -2,10 +2,7 @@
- # Makefile for the ia64-specific parts of the memory manager.
- #
- 
--obj-y := init.o fault.o tlb.o extable.o ioremap.o
-+obj-y := init.o fault.o tlb.o extable.o ioremap.o discontig.o
- 
- obj-$(CONFIG_HUGETLB_PAGE) += hugetlbpage.o
- obj-$(CONFIG_NUMA)	   += numa.o
--obj-$(CONFIG_DISCONTIGMEM) += discontig.o
--obj-$(CONFIG_SPARSEMEM)	   += discontig.o
--obj-$(CONFIG_FLATMEM)	   += contig.o
-Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2007-11-16 16:28:55.000000000 -0800
-+++ linux-2.6/arch/ia64/mm/discontig.c	2007-11-16 16:29:27.000000000 -0800
-@@ -667,21 +667,10 @@ void __init paging_init(void)
- 	sparse_memory_present_with_active_regions(MAX_NUMNODES);
- 	sparse_init();
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
--		sizeof(struct page));
--	vmem_map = (struct page *) vmalloc_end;
--	efi_memmap_walk(create_mem_map_page_table, NULL);
--	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
--#endif
--
- 	for_each_online_node(node) {
- 		num_physpages += mem_data[node].num_physpages;
- 		pfn_offset = mem_data[node].min_pfn;
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--		NODE_DATA(node)->node_mem_map = vmem_map + pfn_offset;
--#endif
- 		if (mem_data[node].max_pfn > max_pfn)
- 			max_pfn = mem_data[node].max_pfn;
- 	}
-@@ -716,10 +705,8 @@ void arch_refresh_nodedata(int update_no
- }
- #endif
- 
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
- int __meminit vmemmap_populate(struct page *start_page,
- 						unsigned long size, int node)
- {
- 	return vmemmap_populate_basepages(start_page, size, node);
- }
--#endif
-Index: linux-2.6/arch/ia64/mm/init.c
-=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2007-11-16 16:26:55.000000000 -0800
-+++ linux-2.6/arch/ia64/mm/init.c	2007-11-16 16:38:42.000000000 -0800
-@@ -43,13 +43,6 @@ extern void ia64_tlb_init (void);
- 
- unsigned long MAX_DMA_ADDRESS = PAGE_OFFSET + 0x100000000UL;
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--unsigned long vmalloc_end = VMALLOC_END_INIT;
--EXPORT_SYMBOL(vmalloc_end);
--struct page *vmem_map;
--EXPORT_SYMBOL(vmem_map);
--#endif
--
- struct page *zero_page_memmap_ptr;	/* map entry for zero page */
- EXPORT_SYMBOL(zero_page_memmap_ptr);
- 
-@@ -369,189 +362,6 @@ ia64_mmu_init (void *my_cpu_data)
- #endif
- }
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--int vmemmap_find_next_valid_pfn(int node, int i)
--{
--	unsigned long end_address, hole_next_pfn;
--	unsigned long stop_address;
--	pg_data_t *pgdat = NODE_DATA(node);
--
--	end_address = (unsigned long) &vmem_map[pgdat->node_start_pfn + i];
--	end_address = PAGE_ALIGN(end_address);
--
--	stop_address = (unsigned long) &vmem_map[
--		pgdat->node_start_pfn + pgdat->node_spanned_pages];
--
--	do {
--		pgd_t *pgd;
--		pud_t *pud;
--		pmd_t *pmd;
--		pte_t *pte;
--
--		pgd = pgd_offset_k(end_address);
--		if (pgd_none(*pgd)) {
--			end_address += PGDIR_SIZE;
--			continue;
--		}
--
--		pud = pud_offset(pgd, end_address);
--		if (pud_none(*pud)) {
--			end_address += PUD_SIZE;
--			continue;
--		}
--
--		pmd = pmd_offset(pud, end_address);
--		if (pmd_none(*pmd)) {
--			end_address += PMD_SIZE;
--			continue;
--		}
--
--		pte = pte_offset_kernel(pmd, end_address);
--retry_pte:
--		if (pte_none(*pte)) {
--			end_address += PAGE_SIZE;
--			pte++;
--			if ((end_address < stop_address) &&
--			    (end_address != ALIGN(end_address, 1UL << PMD_SHIFT)))
--				goto retry_pte;
--			continue;
--		}
--		/* Found next valid vmem_map page */
--		break;
--	} while (end_address < stop_address);
--
--	end_address = min(end_address, stop_address);
--	end_address = end_address - (unsigned long) vmem_map + sizeof(struct page) - 1;
--	hole_next_pfn = end_address / sizeof(struct page);
--	return hole_next_pfn - pgdat->node_start_pfn;
--}
--
--int __init
--create_mem_map_page_table (u64 start, u64 end, void *arg)
--{
--	unsigned long address, start_page, end_page;
--	struct page *map_start, *map_end;
--	int node;
--	pgd_t *pgd;
--	pud_t *pud;
--	pmd_t *pmd;
--	pte_t *pte;
--
--	map_start = vmem_map + (__pa(start) >> PAGE_SHIFT);
--	map_end   = vmem_map + (__pa(end) >> PAGE_SHIFT);
--
--	start_page = (unsigned long) map_start & PAGE_MASK;
--	end_page = PAGE_ALIGN((unsigned long) map_end);
--	node = paddr_to_nid(__pa(start));
--
--	for (address = start_page; address < end_page; address += PAGE_SIZE) {
--		pgd = pgd_offset_k(address);
--		if (pgd_none(*pgd))
--			pgd_populate(&init_mm, pgd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
--		pud = pud_offset(pgd, address);
--
--		if (pud_none(*pud))
--			pud_populate(&init_mm, pud, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
--		pmd = pmd_offset(pud, address);
--
--		if (pmd_none(*pmd))
--			pmd_populate_kernel(&init_mm, pmd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
--		pte = pte_offset_kernel(pmd, address);
--
--		if (pte_none(*pte))
--			set_pte(pte, pfn_pte(__pa(alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE)) >> PAGE_SHIFT,
--					     PAGE_KERNEL));
--	}
--	return 0;
--}
--
--struct memmap_init_callback_data {
--	struct page *start;
--	struct page *end;
--	int nid;
--	unsigned long zone;
--};
--
--static int __meminit
--virtual_memmap_init (u64 start, u64 end, void *arg)
--{
--	struct memmap_init_callback_data *args;
--	struct page *map_start, *map_end;
--
--	args = (struct memmap_init_callback_data *) arg;
--	map_start = vmem_map + (__pa(start) >> PAGE_SHIFT);
--	map_end   = vmem_map + (__pa(end) >> PAGE_SHIFT);
--
--	if (map_start < args->start)
--		map_start = args->start;
--	if (map_end > args->end)
--		map_end = args->end;
--
--	/*
--	 * We have to initialize "out of bounds" struct page elements that fit completely
--	 * on the same pages that were allocated for the "in bounds" elements because they
--	 * may be referenced later (and found to be "reserved").
--	 */
--	map_start -= ((unsigned long) map_start & (PAGE_SIZE - 1)) / sizeof(struct page);
--	map_end += ((PAGE_ALIGN((unsigned long) map_end) - (unsigned long) map_end)
--		    / sizeof(struct page));
--
--	if (map_start < map_end)
--		memmap_init_zone((unsigned long)(map_end - map_start),
--				 args->nid, args->zone, page_to_pfn(map_start),
--				 MEMMAP_EARLY);
--	return 0;
--}
--
--void __meminit
--memmap_init (unsigned long size, int nid, unsigned long zone,
--	     unsigned long start_pfn)
--{
--	if (!vmem_map)
--		memmap_init_zone(size, nid, zone, start_pfn, MEMMAP_EARLY);
--	else {
--		struct page *start;
--		struct memmap_init_callback_data args;
--
--		start = pfn_to_page(start_pfn);
--		args.start = start;
--		args.end = start + size;
--		args.nid = nid;
--		args.zone = zone;
--
--		efi_memmap_walk(virtual_memmap_init, &args);
--	}
--}
--
--int
--ia64_pfn_valid (unsigned long pfn)
--{
--	char byte;
--	struct page *pg = pfn_to_page(pfn);
--
--	return     (__get_user(byte, (char __user *) pg) = 0)
--		&& ((((u64)pg & PAGE_MASK) = (((u64)(pg + 1) - 1) & PAGE_MASK))
--			|| (__get_user(byte, (char __user *) (pg + 1) - 1) = 0));
--}
--EXPORT_SYMBOL(ia64_pfn_valid);
--
--int __init
--find_largest_hole (u64 start, u64 end, void *arg)
--{
--	u64 *max_gap = arg;
--
--	static u64 last_end = PAGE_OFFSET;
--
--	/* NOTE: this algorithm assumes efi memmap table is ordered */
--
--	if (*max_gap < (start - last_end))
--		*max_gap = start - last_end;
--	last_end = end;
--	return 0;
--}
--
--#endif /* CONFIG_VIRTUAL_MEM_MAP */
--
- int __init
- register_active_ranges(u64 start, u64 end, void *arg)
- {
-@@ -589,13 +399,8 @@ int
- find_max_min_low_pfn (unsigned long start, unsigned long end, void *arg)
- {
- 	unsigned long pfn_start, pfn_end;
--#ifdef CONFIG_FLATMEM
--	pfn_start = (PAGE_ALIGN(__pa(start))) >> PAGE_SHIFT;
--	pfn_end = (PAGE_ALIGN(__pa(end - 1))) >> PAGE_SHIFT;
--#else
- 	pfn_start = GRANULEROUNDDOWN(__pa(start)) >> PAGE_SHIFT;
- 	pfn_end = GRANULEROUNDUP(__pa(end - 1)) >> PAGE_SHIFT;
--#endif
- 	min_low_pfn = min(min_low_pfn, pfn_start);
- 	max_low_pfn = max(max_low_pfn, pfn_end);
+ 	if (!mod->arch.core_plt || !mod->arch.init_plt || !mod->arch.got || !mod->arch.opd) {
+ 		printk(KERN_ERR "%s: sections missing\n", mod->name);
+@@ -929,6 +937,30 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
+ 	DEBUGP("%s: init: entry=%p\n", __FUNCTION__, mod->init);
+ 	if (mod->arch.unwind)
+ 		register_unwind_table(mod);
++#ifdef CONFIG_PARAVIRT_ALT
++	if (mod->arch.paravirt_bundles) {
++		struct paravirt_alt_bundle_patch *start +			(struct paravirt_alt_bundle_patch *)
++			mod->arch.paravirt_bundles->sh_addr;
++		struct paravirt_alt_bundle_patch *end +			(struct paravirt_alt_bundle_patch *)
++			(mod->arch.paravirt_bundles->sh_addr +
++			 mod->arch.paravirt_bundles->sh_size);
++
++		xen_alt_bundle_patch_module(start, end);
++	}
++	if (mod->arch.paravirt_insts) {
++		struct paravirt_alt_inst_patch *start +			(struct paravirt_alt_inst_patch *)
++			mod->arch.paravirt_insts->sh_addr;
++		struct paravirt_alt_inst_patch *end +			(struct paravirt_alt_inst_patch *)
++			(mod->arch.paravirt_insts->sh_addr +
++			 mod->arch.paravirt_insts->sh_size);
++
++		xen_alt_inst_patch_module(start, end);
++	}
++#endif
  	return 0;
-Index: linux-2.6/arch/ia64/mm/numa.c
-=================================--- linux-2.6.orig/arch/ia64/mm/numa.c	2007-11-16 16:29:34.000000000 -0800
-+++ linux-2.6/arch/ia64/mm/numa.c	2007-11-16 16:30:00.000000000 -0800
-@@ -48,7 +48,7 @@ paddr_to_nid(unsigned long paddr)
- 	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
  }
  
--#if defined(CONFIG_SPARSEMEM) && defined(CONFIG_NUMA)
-+#ifdef CONFIG_NUMA
- /*
-  * Because of holes evaluate on section limits.
-  * If the section of memory exists, then return the node where the section
-Index: linux-2.6/include/asm-ia64/page.h
-=================================--- linux-2.6.orig/include/asm-ia64/page.h	2007-11-16 16:25:31.000000000 -0800
-+++ linux-2.6/include/asm-ia64/page.h	2007-11-16 16:26:23.000000000 -0800
-@@ -100,31 +100,9 @@ do {						\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+new file mode 100644
+index 0000000..c219358
+--- /dev/null
++++ b/arch/ia64/xen/Makefile
+@@ -0,0 +1,7 @@
++#
++# Makefile for Xen components
++#
++
++obj-$(CONFIG_PARAVIRT_ALT) += paravirt_xen.o privops_asm.o privops_c.o
++obj-$(CONFIG_PARAVIRT_NOP_B_PATCH) += paravirt_xen.o
++obj-$(CONFIG_PARAVIRT_ENTRY) += paravirt_xen.o
+diff --git a/arch/ia64/xen/paravirt_xen.c b/arch/ia64/xen/paravirt_xen.c
+new file mode 100644
+index 0000000..57b9dfd
+--- /dev/null
++++ b/arch/ia64/xen/paravirt_xen.c
+@@ -0,0 +1,242 @@
++/******************************************************************************
++ * linux/arch/ia64/xen/paravirt_xen.c
++ *
++ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <linux/types.h>
++#include <linux/string.h>
++#include <linux/init.h>
++#include <asm/intrinsics.h>
++#include <asm/bugs.h>
++#include <asm/kprobes.h> /* for bundle_t */
++#include <asm/paravirt_core.h>
++
++#ifdef CONFIG_PARAVIRT_ALT
++struct xen_alt_bundle_patch_elem {
++	const void	*sbundle;
++	const void	*ebundle;
++	unsigned long	type;
++};
++
++static unsigned long __init_or_module
++__xen_alt_bundle_patch(void *sbundle, void *ebundle, unsigned long type)
++{
++	extern const struct xen_alt_bundle_patch_elem xen_alt_bundle_array[];
++	extern const unsigned long xen_alt_bundle_array_size;
++
++	unsigned long used = 0;
++	unsigned long i;
++
++	BUG_ON((((unsigned long)sbundle) % sizeof(bundle_t)) != 0);
++	BUG_ON((((unsigned long)ebundle) % sizeof(bundle_t)) != 0);
++
++	for (i = 0;
++	     i < xen_alt_bundle_array_size / sizeof(xen_alt_bundle_array[0]);
++	     i++) {
++		const struct xen_alt_bundle_patch_elem *p +			&xen_alt_bundle_array[i];
++		if (p->type = type) {
++			used = p->ebundle - p->sbundle;
++			BUG_ON(used > ebundle - sbundle);
++			memcpy(sbundle, p->sbundle, used);
++			break;
++		}
++	}
++
++	return used;
++}
++
++static void __init
++xen_alt_bundle_patch(void)
++{
++	extern struct paravirt_alt_bundle_patch __start_paravirt_bundles[];
++	extern struct paravirt_alt_bundle_patch __stop_paravirt_bundles[];
++
++	paravirt_alt_bundle_patch_apply(__start_paravirt_bundles,
++					__stop_paravirt_bundles,
++					&__xen_alt_bundle_patch);
++}
++
++#ifdef CONFIG_MODULES
++void
++xen_alt_bundle_patch_module(struct paravirt_alt_bundle_patch *start,
++			    struct paravirt_alt_bundle_patch *end)
++{
++	if (is_running_on_xen())
++		paravirt_alt_bundle_patch_apply(start, end,
++						&__xen_alt_bundle_patch);
++}
++#endif /* CONFIG_MODULES */
++
++
++/*
++ * all the native instructions of hyperprivops are M-form or I-form
++ * mov ar.<imm>=r1	I26, M29
++ * mov r1=ar.<imm>	I28, M31
++ * mov r1=cr.<imm>	M32
++ * mov cr.<imm>=r1	M33
++ * mov r1=psr		M36
++ * mov indirect<r1>=r2	M42
++ * mov r1=indirect<r2>	M43
++ * ptc.ga		M45
++ * thash r1=r2		M46
++ *
++ * break.{m, i} instrucitions format are same.
++ * So we can safely replace all signle instruction which is target of
++ * hyperpviops with break.{m, i} imm21 hyperprivops.
++ */
++
++struct xen_alt_inst_patch_elem {
++	unsigned long stag;
++	unsigned long etag;
++	unsigned long type;
++};
++
++unsigned long
++__xen_alt_inst_patch(unsigned long stag, unsigned long etag,
++		     unsigned long type)
++{
++	extern const struct xen_alt_inst_patch_elem xen_alt_inst_array[];
++	extern const unsigned long xen_alt_inst_array_size;
++
++	unsigned long dest_tag = stag;
++	unsigned long i;
++
++	for (i = 0;
++	     i < xen_alt_inst_array_size / sizeof(xen_alt_inst_array[0]);
++	     i++) {
++		const struct xen_alt_inst_patch_elem *p +			&xen_alt_inst_array[i];
++		if (p->type = type) {
++			unsigned long src_tag;
++
++			for (src_tag = p->stag;
++			     src_tag < p->etag;
++			     src_tag = paravirt_get_next_tag(src_tag)) {
++				const cmp_inst_t inst +					paravirt_read_inst(src_tag);
++				paravirt_write_inst(dest_tag, inst);
++
++				BUG_ON(dest_tag >= etag);
++				dest_tag = paravirt_get_next_tag(dest_tag);
++			}
++			break;
++		}
++	}
++
++	return dest_tag;
++}
++
++void
++xen_alt_inst_patch(void)
++{
++	extern struct paravirt_alt_inst_patch __start_paravirt_insts[];
++	extern struct paravirt_alt_inst_patch __stop_paravirt_insts[];
++
++	paravirt_alt_inst_patch_apply(__start_paravirt_insts,
++				      __stop_paravirt_insts,
++				      &__xen_alt_inst_patch);
++}
++
++#ifdef CONFIG_MODULES
++void
++xen_alt_inst_patch_module(struct paravirt_alt_inst_patch *start,
++			  struct paravirt_alt_inst_patch *end)
++{
++	if (is_running_on_xen())
++		paravirt_alt_inst_patch_apply(start, end,
++					      &__xen_alt_inst_patch);
++}
++#endif
++
++#else
++#define xen_alt_bundle_patch()	do { } while (0)
++#define xen_alt_inst_patch()	do { } while (0)
++#endif /* CONFIG_PARAVIRT_ALT */
++
++
++#ifdef CONFIG_PARAVIRT_NOP_B_PATCH
++#include <asm/paravirt_nop.h>
++static void __init
++xen_nop_b_patch(void)
++{
++	extern const struct paravirt_nop_patch __start_paravirt_nop_b[];
++	extern const struct paravirt_nop_patch __stop_paravirt_nop_b[];
++
++	paravirt_nop_b_patch_apply(__start_paravirt_nop_b,
++				   __stop_paravirt_nop_b);
++}
++#else
++#define xen_nop_b_patch()	do { } while (0)
++#endif
++
++
++#ifdef CONFIG_PARAVIRT_ENTRY
++
++#include <asm/paravirt_entry.h>
++
++extern void *xen_switch_to;
++extern void *xen_leave_syscall;
++extern void *xen_leave_kernel;
++extern void *xen_pal_call_static;
++extern void *xen_work_processed_syscall;
++
++const static struct paravirt_entry xen_entries[] __initdata = {
++	{&xen_switch_to,		PARAVIRT_ENTRY_SWITCH_TO},
++	{&xen_leave_syscall,		PARAVIRT_ENTRY_LEAVE_SYSCALL},
++	{&xen_leave_kernel,		PARAVIRT_ENTRY_LEAVE_KERNEL},
++	{&xen_pal_call_static,		PARAVIRT_ENTRY_PAL_CALL_STATIC},
++	{&xen_work_processed_syscall,	PARAVIRT_ENTRY_WORK_PROCESSED_SYSCALL},
++};
++
++void __init
++xen_entry_patch(void)
++{
++	extern const struct paravirt_entry_patch __start_paravirt_entry[];
++	extern const struct paravirt_entry_patch __stop_paravirt_entry[];
++
++	paravirt_entry_patch_apply(__start_paravirt_entry,
++				   __stop_paravirt_entry,
++				   xen_entries,
++				   sizeof(xen_entries)/sizeof(xen_entries[0]));
++}
++#else
++#define xen_entry_patch()	do { } while (0)
++#endif
++
++
++void __init
++xen_paravirt_patch(void)
++{
++	xen_alt_bundle_patch();
++	xen_alt_inst_patch();
++	xen_nop_b_patch();
++	xen_entry_patch();
++}
++
++/*
++ * Local variables:
++ * mode: C
++ * c-set-style: "linux"
++ * c-basic-offset: 8
++ * tab-width: 8
++ * indent-tabs-mode: t
++ * End:
++ */
+diff --git a/arch/ia64/xen/privops_asm.S b/arch/ia64/xen/privops_asm.S
+new file mode 100644
+index 0000000..40e400e
+--- /dev/null
++++ b/arch/ia64/xen/privops_asm.S
+@@ -0,0 +1,221 @@
++/******************************************************************************
++ * linux/arch/ia64/xen/privop_s.S
++ *
++ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <asm/intrinsics.h>
++#include <linux/init.h>
++#include <asm/paravirt_alt.h>
++
++#ifdef CONFIG_MODULES
++#define __INIT_OR_MODULE	.text
++#define __INITDATA_OR_MODULE	.data
++#else
++#define __INIT_OR_MODULE	__INIT
++#define __INITDATA_OR_MODULE	__INITDATA
++#endif /* CONFIG_MODULES */
++
++	__INIT_OR_MODULE
++	.align 32
++	.proc nop_b_inst_bundle
++	.global nop_b_inst_bundle
++nop_b_inst_bundle:
++	{
++		nop.b 0
++		nop.b 0
++		nop.b 0
++	}
++	.endp nop_b_inst_bundle
++	__FINIT
++
++	/* NOTE: nop.[mfi] has same format */
++	__INIT_OR_MODULE
++	.align 32
++	.proc nop_mfi_inst_bundle
++	.global nop_mfi_inst_bundle
++nop_mfi_inst_bundle:
++	{
++		nop.m 0
++		nop.f 0
++		nop.i 0
++	}
++	.endp nop_mfi_inst_bundle
++	__FINIT
++
++	__INIT_OR_MODULE
++	.align 32
++	.proc nop_bundle
++	.global nop_bundle
++nop_bundle:
++nop_bundle_start:
++	{
++		nop 0
++		nop 0
++		nop 0
++	}
++nop_bundle_end:
++	.endp nop_bundle
++	__FINIT
++
++	__INITDATA_OR_MODULE
++	.align 8
++	.global nop_bundle_size
++nop_bundle_size:
++	data8	nop_bundle_end - nop_bundle_start
++
++#define DEFINE_PRIVOP(name, instr)					\
++	.align 32;							\
++	.proc  xen_ ## name ## _instr;					\
++	xen_ ## name ## _instr:;					\
++	xen_ ## name ## _instr_start:;					\
++	{;								\
++	[xen_ ## name ## _stag:]					\
++		instr;							\
++	[xen_ ## name ## _etag:]					\
++		nop 0;							\
++		nop 0;							\
++	};								\
++	xen_ ## name ## _instr_end:;					\
++	.endp  xen_ ## name ## _instr;
++
++	__INIT_OR_MODULE
++	DEFINE_PRIVOP(rfi,		XEN_HYPER_RFI)
++	DEFINE_PRIVOP(rsm_psr_dt,	XEN_HYPER_RSM_PSR_DT)
++	DEFINE_PRIVOP(ssm_psr_dt,	XEN_HYPER_SSM_PSR_DT)
++	DEFINE_PRIVOP(cover,		XEN_HYPER_COVER)
++	DEFINE_PRIVOP(itc_d,		XEN_HYPER_ITC_D)
++	DEFINE_PRIVOP(itc_i,		XEN_HYPER_ITC_I)
++	DEFINE_PRIVOP(ssm_i,		XEN_HYPER_SSM_I)
++	DEFINE_PRIVOP(get_ivr,		XEN_HYPER_GET_IVR)
++	DEFINE_PRIVOP(get_tpr,		XEN_HYPER_GET_TPR)
++	DEFINE_PRIVOP(set_tpr,		XEN_HYPER_SET_TPR)
++	DEFINE_PRIVOP(eoi,		XEN_HYPER_EOI)
++	DEFINE_PRIVOP(set_itm,		XEN_HYPER_SET_ITM)
++	DEFINE_PRIVOP(thash,		XEN_HYPER_THASH)
++	DEFINE_PRIVOP(ptc_ga,		XEN_HYPER_PTC_GA)
++	DEFINE_PRIVOP(itr_d,		XEN_HYPER_ITR_D)
++	DEFINE_PRIVOP(get_rr,		XEN_HYPER_GET_RR)
++	DEFINE_PRIVOP(set_rr,		XEN_HYPER_SET_RR)
++	DEFINE_PRIVOP(set_kr,		XEN_HYPER_SET_KR)
++	DEFINE_PRIVOP(fc,		XEN_HYPER_FC)
++	DEFINE_PRIVOP(get_cpuid,	XEN_HYPER_GET_CPUID)
++	DEFINE_PRIVOP(get_pmd,		XEN_HYPER_GET_PMD)
++	DEFINE_PRIVOP(get_eflag,	XEN_HYPER_GET_EFLAG)
++	DEFINE_PRIVOP(set_eflag,	XEN_HYPER_SET_EFLAG)
++	DEFINE_PRIVOP(get_psr,		XEN_HYPER_GET_PSR)
++	DEFINE_PRIVOP(set_rr0_to_rr4,	XEN_HYPER_SET_RR0_TO_RR4)
++	__FINIT
++
++
++#define PARAVIRT_ALT_BUNDLE_ELEM(name, type)				\
++	data8 xen_ ## name ## _instr_start;				\
++	data8 xen_ ## name ## _instr_end;				\
++	data8 type;
++
++	__INITDATA_OR_MODULE
++	.align 8
++	.global xen_alt_bundle_array
++xen_alt_bundle_array:
++xen_alt_bundle_array_start:
++	PARAVIRT_ALT_BUNDLE_ELEM(rfi,		PARAVIRT_INST_RFI)
++	PARAVIRT_ALT_BUNDLE_ELEM(rsm_psr_dt,	PARAVIRT_INST_RSM_DT)
++	PARAVIRT_ALT_BUNDLE_ELEM(ssm_psr_dt,	PARAVIRT_INST_SSM_DT)
++	PARAVIRT_ALT_BUNDLE_ELEM(cover,		PARAVIRT_INST_COVER)
++	PARAVIRT_ALT_BUNDLE_ELEM(itc_d,		PARAVIRT_INST_ITC_D)
++	PARAVIRT_ALT_BUNDLE_ELEM(itc_i,		PARAVIRT_INST_ITC_I)
++	PARAVIRT_ALT_BUNDLE_ELEM(ssm_i,		PARAVIRT_INST_SSM_I)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_ivr,	PARAVIRT_INST_GET_IVR)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_tpr,	PARAVIRT_INST_GET_TPR)
++	PARAVIRT_ALT_BUNDLE_ELEM(set_tpr,	PARAVIRT_INST_SET_TPR)
++	PARAVIRT_ALT_BUNDLE_ELEM(eoi,		PARAVIRT_INST_EOI)
++	PARAVIRT_ALT_BUNDLE_ELEM(set_itm,	PARAVIRT_INST_SET_ITM)
++	PARAVIRT_ALT_BUNDLE_ELEM(thash,		PARAVIRT_INST_THASH)
++	PARAVIRT_ALT_BUNDLE_ELEM(ptc_ga,	PARAVIRT_INST_PTC_GA)
++	PARAVIRT_ALT_BUNDLE_ELEM(itr_d,		PARAVIRT_INST_ITR_D)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_rr,	PARAVIRT_INST_GET_RR)
++	PARAVIRT_ALT_BUNDLE_ELEM(set_rr,	PARAVIRT_INST_SET_RR)
++	PARAVIRT_ALT_BUNDLE_ELEM(set_kr,	PARAVIRT_INST_SET_KR)
++	PARAVIRT_ALT_BUNDLE_ELEM(fc,		PARAVIRT_INST_FC)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_cpuid,	PARAVIRT_INST_GET_CPUID)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_pmd,	PARAVIRT_INST_GET_PMD)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_eflag,	PARAVIRT_INST_GET_EFLAG)
++	PARAVIRT_ALT_BUNDLE_ELEM(set_eflag,	PARAVIRT_INST_SET_EFLAG)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_psr,	PARAVIRT_INST_GET_PSR)
++
++	PARAVIRT_ALT_BUNDLE_ELEM(ssm_i,		PARAVIRT_BNDL_SSM_I)
++	PARAVIRT_ALT_BUNDLE_ELEM(rsm_i,		PARAVIRT_BNDL_RSM_I)
++	PARAVIRT_ALT_BUNDLE_ELEM(get_psr_i,	PARAVIRT_BNDL_GET_PSR_I)
++	PARAVIRT_ALT_BUNDLE_ELEM(intrin_local_irq_restore,
++					PARAVIRT_BNDL_INTRIN_LOCAL_IRQ_RESTORE)
++xen_alt_bundle_array_end:
++
++	.align 8
++	.global xen_alt_bundle_array_size
++xen_alt_bundle_array_size:
++	.long xen_alt_bundle_array_end - xen_alt_bundle_array_start
++
++
++#define PARAVIRT_ALT_INST_ELEM(name, type)				\
++	data8 xen_ ## name ## _stag ;					\
++	data8 xen_ ## name ## _etag ;					\
++	data8 type
++
++	__INITDATA_OR_MODULE
++	.align 8
++	.global xen_alt_inst_array
++xen_alt_inst_array:
++xen_alt_inst_array_start:
++	PARAVIRT_ALT_INST_ELEM(rfi,		PARAVIRT_INST_RFI)
++	PARAVIRT_ALT_INST_ELEM(rsm_psr_dt,	PARAVIRT_INST_RSM_DT)
++	PARAVIRT_ALT_INST_ELEM(ssm_psr_dt,	PARAVIRT_INST_SSM_DT)
++	PARAVIRT_ALT_INST_ELEM(cover,		PARAVIRT_INST_COVER)
++	PARAVIRT_ALT_INST_ELEM(itc_d,		PARAVIRT_INST_ITC_D)
++	PARAVIRT_ALT_INST_ELEM(itc_i,		PARAVIRT_INST_ITC_I)
++	PARAVIRT_ALT_INST_ELEM(ssm_i,		PARAVIRT_INST_SSM_I)
++	PARAVIRT_ALT_INST_ELEM(get_ivr,		PARAVIRT_INST_GET_IVR)
++	PARAVIRT_ALT_INST_ELEM(get_tpr,		PARAVIRT_INST_GET_TPR)
++	PARAVIRT_ALT_INST_ELEM(set_tpr,		PARAVIRT_INST_SET_TPR)
++	PARAVIRT_ALT_INST_ELEM(eoi,		PARAVIRT_INST_EOI)
++	PARAVIRT_ALT_INST_ELEM(set_itm,		PARAVIRT_INST_SET_ITM)
++	PARAVIRT_ALT_INST_ELEM(thash,		PARAVIRT_INST_THASH)
++	PARAVIRT_ALT_INST_ELEM(ptc_ga,		PARAVIRT_INST_PTC_GA)
++	PARAVIRT_ALT_INST_ELEM(itr_d,		PARAVIRT_INST_ITR_D)
++	PARAVIRT_ALT_INST_ELEM(get_rr,		PARAVIRT_INST_GET_RR)
++	PARAVIRT_ALT_INST_ELEM(set_rr,		PARAVIRT_INST_SET_RR)
++	PARAVIRT_ALT_INST_ELEM(set_kr,		PARAVIRT_INST_SET_KR)
++	PARAVIRT_ALT_INST_ELEM(fc,		PARAVIRT_INST_FC)
++	PARAVIRT_ALT_INST_ELEM(get_cpuid,	PARAVIRT_INST_GET_CPUID)
++	PARAVIRT_ALT_INST_ELEM(get_pmd,		PARAVIRT_INST_GET_PMD)
++	PARAVIRT_ALT_INST_ELEM(get_eflag,	PARAVIRT_INST_GET_EFLAG)
++	PARAVIRT_ALT_INST_ELEM(set_eflag,	PARAVIRT_INST_SET_EFLAG)
++	PARAVIRT_ALT_INST_ELEM(get_psr,		PARAVIRT_INST_GET_PSR)
++	PARAVIRT_ALT_INST_ELEM(set_rr0_to_rr4,	PARAVIRT_INST_SET_RR0_TO_RR4)
++
++	PARAVIRT_ALT_INST_ELEM(ssm_i,		PARAVIRT_BNDL_SSM_I)
++	PARAVIRT_ALT_INST_ELEM(rsm_i,		PARAVIRT_BNDL_RSM_I)
++	PARAVIRT_ALT_INST_ELEM(get_psr_i,	PARAVIRT_BNDL_GET_PSR_I)
++	PARAVIRT_ALT_INST_ELEM(intrin_local_irq_restore,
++					PARAVIRT_BNDL_INTRIN_LOCAL_IRQ_RESTORE)
++xen_alt_inst_array_end:
++
++	.align 8
++	.global xen_alt_inst_array_size
++xen_alt_inst_array_size:
++	.long xen_alt_inst_array_end - xen_alt_inst_array_start
+diff --git a/arch/ia64/xen/privops_c.c b/arch/ia64/xen/privops_c.c
+new file mode 100644
+index 0000000..0fa2e23
+--- /dev/null
++++ b/arch/ia64/xen/privops_c.c
+@@ -0,0 +1,279 @@
++/******************************************************************************
++ * arch/ia64/xen/privops_c.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <linux/module.h>
++
++#include <xen/interface/xen.h>
++
++#include <asm/asm-offsets.h>
++#define XEN_PSR_I_ADDR_ADDR	((uint8_t **)(XSI_BASE + XSI_PSR_I_ADDR_OFS))
++
++
++void __init_or_module
++xen_privop_ssm_i(void)
++{
++	/*
++	 * int masked = !xen_get_virtual_psr_i();
++	 *	// masked = *(*XEN_MAPPEDREGS->interrupt_mask_addr)
++	 * xen_set_virtual_psr_i(1)
++	 *	// *(*XEN_MAPPEDREGS->interrupt_mask_addr) = 0
++	 * // compiler barrier
++	 * if (masked) {
++	 *	uint8_t* pend_int_addr +	 *		(uint8_t*)(*XEN_MAPPEDREGS->interrupt_mask_addr) - 1;
++	 *	uint8_t pending = *pend_int_addr;
++	 *	if (pending)
++	 *		XEN_HYPER_SSM_I
++	 * }
++	 */
++	register uint8_t *tmp asm ("r8");
++	register int masked asm ("r9");
++	register uint8_t *pending_intr_addr asm ("r10");
++
++	asm volatile(".global xen_ssm_i_instr\n\t"
++		     "xen_ssm_i_instr:\n\t"
++		     ".global xen_ssm_i_instr_start\n\t"
++		     "xen_ssm_i_instr_start:\n\t"
++		     ".global xen_ssm_i_stag\n\t"
++		     "[xen_ssm_i_stag:]\n\t"
++		     /* tmp = &XEN_MAPPEDREGS->interrupt_mask_addr */
++		     "mov %[tmp]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
++		     ";;\n\t"
++		     /* tmp = *XEN_MAPPEDREGS->interrupt_mask_addr */
++		     "ld8 %[tmp]=[%[tmp]]\n\t"
++		     ";;\n\t"
++		     /* pending_intr_addr = tmp - 1 */
++		     "add %[pending_intr_addr]=-1,%[tmp]\n\t"
++		     /* masked = *tmp */
++		     "ld1 %[masked]=[%[tmp]]\n\t"
++		     ";;\n\t"
++		     /* *tmp = 0 */
++		     "st1 [%[tmp]]=r0\n\t"
++		     /* p6 = !masked */
++		     "cmp.ne.unc p6,p0=%[masked],r0\n\t"
++		     ";;\n\t"
++		     /* tmp = *pending_intr_addr */
++		     "(p6) ld1 %[tmp]=[%[pending_intr_addr]]\n\t"
++		     ";;\n\t"
++		     /* p7 = p6 && !tmp */
++		     "(p6) cmp.ne.unc p7,p0=%[tmp],r0\n\t"
++		     ";;\n\t"
++		     "(p7) break %[HYPERPRIVOP_SSM_I_IMM]\n\t"
++		     ".global xen_ssm_i_etag\n\t"
++		     "[xen_ssm_i_etag:]\n\t"
++		     ".global xen_ssm_i_instr_end\n\t"
++		     "xen_ssm_i_instr_end:\n\t"
++		     :
++		     [tmp] "=r"(tmp),
++		     [pending_intr_addr] "=r"(pending_intr_addr),
++		     [masked] "=r"(masked),
++
++		     "=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
++		     :
++		     [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
++		     [HYPERPRIVOP_SSM_I_IMM] "i"(HYPERPRIVOP_SSM_I),
++
++		     "m"(*((uint8_t *)XEN_PSR_I_ADDR_ADDR)),
++		     "m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
++		     "m"(*(*((uint8_t **)XEN_PSR_I_ADDR_ADDR) - 1))
++		     :
++		     "memory",
++		     /*
++		      * predicate registers can't be specified as C variables
++		      * so that we use p6, p7, p8 here.
++		      */
++		     "p6", /* is_old */
++		     "p7"  /* is_pending */
++		);
++}
++
++void __init_or_module
++xen_privop_rsm_i(void)
++{
++	/*
++	 * psr_i_addr_addr = XEN_MAPPEDREGS->interrupt_mask_addr
++	 *                 = XEN_PSR_I_ADDR_ADDR;
++	 * psr_i_addr = *psr_i_addr_addr;
++	 * *psr_i_addr = 1;
++	 */
++	register unsigned long psr_i_addr asm("r8");
++	register uint8_t mask asm ("r9");
++	asm volatile (".global xen_rsm_i_instr\n\t"
++		      "xen_rsm_i_instr:\n\t"
++		      ".global xen_rsm_i_instr_start\n\t"
++		      "xen_rsm_i_instr_start:\n\t"
++		      ".global xen_rsm_i_stag\n\t"
++		      "[xen_rsm_i_stag:]\n\t"
++		      "mov %[psr_i_addr]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
++		      "mov %[mask]=%[ONE_IMM]\n\t"
++		      ";;\n\t"
++		      "ld8 %[psr_i_addr]=[%[psr_i_addr]]\n\t"
++		      ";;\n\t"
++		      "st1 [%[psr_i_addr]]=%[mask]\n\t"
++		      ".global xen_rsm_i_etag\n\t"
++		      "[xen_rsm_i_etag:]\n\t"
++		      ".global xen_rsm_i_instr_end\n\t"
++		      "xen_rsm_i_instr_end:\n\t"
++		      :
++		      [psr_i_addr] "=r"(psr_i_addr),
++		      [mask] "=r"(mask),
++		      "=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)):
++		      [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
++		      [ONE_IMM] "i"(1),
++		      "m"(*((uint8_t **)XEN_PSR_I_ADDR_ADDR)):
++		      "memory");
++}
++
++void __init_or_module
++xen_privop_ia64_intrin_local_irq_restore(unsigned long val)
++{
++	/*
++	 * psr_i_addr_addr = XEN_PSR_I_ADDR_ADDR
++	 * psr_i_addr = *psr_i_addr_addr
++	 * pending_intr_addr = psr_i_addr - 1
++	 * if (val & IA64_PSR_I) {
++	 *   masked = *psr_i_addr
++	 *   *psr_i_addr = 0
++	 *   compiler barrier
++	 *   if (masked) {
++	 *	uint8_t pending = *pending_intr_addr;
++	 *	if (pending)
++	 *		XEN_HYPER_SSM_I
++	 *   }
++	 * } else {
++	 *   *psr_i_addr = 1
++	 * }
++	 */
++
++	register unsigned long __val asm("r8") = val;
++	register uint8_t *psr_i_addr asm ("r9");
++	register uint8_t *pending_intr_addr asm ("r10");
++	register uint8_t masked asm ("r11");
++	register unsigned long one_or_pending asm ("r8");
++
++	asm volatile (
++		".global xen_intrin_local_irq_restore_instr\n\t"
++		"xen_intrin_local_irq_restore_instr:\n\t"
++		".global xen_intrin_local_irq_restore_instr_start\n\t"
++		"xen_intrin_local_irq_restore_instr_start:\n\t"
++		".global xen_intrin_local_irq_restore_stag\n\t"
++		"[xen_intrin_local_irq_restore_stag:]\n\t"
++		"tbit.nz p6,p7=%[val],%[IA64_PSR_I_BIT_IMM]\n\t"
++		"mov %[psr_i_addr]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
++		";;\n\t"
++		"ld8 %[psr_i_addr]=[%[psr_i_addr]]\n\t"
++		"(p7)mov %[one_or_pending]=%[ONE_IMM]\n\t"
++		";;\n\t"
++		"add %[pending_intr_addr]=-1,%[psr_i_addr]\n\t"
++		";;\n\t"
++		"(p6) ld1 %[masked]=[%[psr_i_addr]]\n\t"
++		"(p7) st1 [%[psr_i_addr]]=%[one_or_pending]\n\t"
++		";;\n\t"
++		"(p6) st1 [%[psr_i_addr]]=r0\n\t"
++		"(p6) cmp.ne.unc p8,p0=%[masked],r0\n\t"
++		"(p6) ld1 %[one_or_pending]=[%[pending_intr_addr]]\n\t"
++		";;\n\t"
++		"(p8) cmp.eq.unc p9,p0=%[one_or_pending],r0\n\t"
++		";;\n\t"
++		"(p9) break %[HYPERPRIVOP_SSM_I_IMM]\n\t"
++		".global xen_intrin_local_irq_restore_etag\n\t"
++		"[xen_intrin_local_irq_restore_etag:]\n\t"
++		".global xen_intrin_local_irq_restore_instr_end\n\t"
++		"xen_intrin_local_irq_restore_instr_end:\n\t"
++		:
++		[psr_i_addr] "=r"(psr_i_addr),
++		[pending_intr_addr] "=r"(pending_intr_addr),
++		[masked] "=r"(masked),
++		[one_or_pending] "=r"(one_or_pending),
++
++		"=m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
++		:
++		[val] "r"(__val),
++		[IA64_PSR_I_BIT_IMM] "i"(IA64_PSR_I_BIT),
++		[ONE_IMM] "i"(1),
++
++		[XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
++		[HYPERPRIVOP_SSM_I_IMM] "i"(HYPERPRIVOP_SSM_I),
++
++		"m"(*((uint8_t *)XEN_PSR_I_ADDR_ADDR)),
++		"m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
++		"m"(*(*((uint8_t **)XEN_PSR_I_ADDR_ADDR) - 1))
++		:
++		"memory",
++		"p6", /* is_psr_i_set  */
++		"p7", /* not_psr_i_set */
++		"p8", /* is_masked && is_psr_i_set */
++		"p9"  /* is_pending && is_masked && is_psr_i_set */
++		);
++}
++
++unsigned long __init_or_module
++xen_privop_get_psr_i(void)
++{
++	/*
++	 * tmp = XEN_MAPPEDREGS->interrupt_mask_addr = XEN_PSR_I_ADDR_ADDR;
++	 * tmp = *tmp
++	 * tmp = *tmp;
++	 * psr_i = tmp? 0: IA64_PSR_I;
++	 */
++	register unsigned long psr_i asm ("r8");
++	register unsigned long tmp asm ("r9");
++
++	asm volatile (".global xen_get_psr_i_instr\n\t"
++		      "xen_get_psr_i_instr:\n\t"
++		      ".global xen_get_psr_i_instr_start\n\t"
++		      "xen_get_psr_i_instr_start:\n\t"
++		      ".global xen_get_psr_i_stag\n\t"
++		      "[xen_get_psr_i_stag:]\n\t"
++		      /* tmp = XEN_PSR_I_ADDR_ADDR */
++		      "mov %[tmp]=%[XEN_PSR_I_ADDR_ADDR_IMM]\n\t"
++		      ";;\n\t"
++		      /* tmp = *tmp = *XEN_PSR_I_ADDR_ADDR */
++		      "ld8 %[tmp]=[%[tmp]]\n\t"
++		      /* psr_i = 0 */
++		      "mov %[psr_i]=0\n\t"
++		      ";;\n\t"
++		      /* tmp = *(uint8_t*)tmp */
++		      "ld1 %[tmp]=[%[tmp]]\n\t"
++		      ";;\n\t"
++		      /* if (!tmp) psr_i = IA64_PSR_I */
++		      "cmp.eq.unc p6,p0=%[tmp],r0\n\t"
++		      ";;\n\t"
++		      "(p6) mov %[psr_i]=%[IA64_PSR_I_IMM]\n\t"
++		      ".global xen_get_psr_i_etag\n\t"
++		      "[xen_get_psr_i_etag:]\n\t"
++		      ".global xen_get_psr_i_instr_end\n\t"
++		      "xen_get_psr_i_instr_end:\n\t"
++		      :
++		      [tmp] "=r"(tmp),
++		      [psr_i] "=r"(psr_i)
++		      :
++		      [XEN_PSR_I_ADDR_ADDR_IMM] "i"(XEN_PSR_I_ADDR_ADDR),
++		      [IA64_PSR_I_IMM] "i"(IA64_PSR_I),
++		      "m"(*((uint8_t **)XEN_PSR_I_ADDR_ADDR)),
++		      "m"(**((uint8_t **)XEN_PSR_I_ADDR_ADDR))
++		      :
++		      "p6");
++	return psr_i;
++}
+diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
+index 17ad297..2d3d5d4 100644
+--- a/arch/ia64/xen/xensetup.S
++++ b/arch/ia64/xen/xensetup.S
+@@ -35,6 +35,16 @@ GLOBAL_ENTRY(early_xen_setup)
+ (isBP)	movl r28=XSI_BASE;;
+ (isBP)	break 0x1000;;
  
- #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
++#ifdef CONFIG_PARAVIRT
++	/* patch privops */
++(isBP)	mov r4=rp
++	;;
++(isBP)	br.call.sptk.many rp=xen_paravirt_patch
++	;;
++(isBP)	mov rp=r4
++	;;
++#endif
++
+ 	br.ret.sptk.many rp
+ 	;;
+ END(early_xen_setup)
+diff --git a/include/asm-ia64/xen/privop.h b/include/asm-ia64/xen/privop.h
+index 95e8e8a..d59cc31 100644
+--- a/include/asm-ia64/xen/privop.h
++++ b/include/asm-ia64/xen/privop.h
+@@ -557,6 +557,18 @@ do {									\
  
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--extern int ia64_pfn_valid (unsigned long pfn);
--#else
--# define ia64_pfn_valid(pfn) 1
--#endif
-+#define ia64_pfn_valid(pfn) 1
+ #endif /* ASM_SUPPORTED && !CONFIG_PARAVIRT_ALT */
  
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--extern struct page *vmem_map;
--#ifdef CONFIG_DISCONTIGMEM
--# define page_to_pfn(page)	((unsigned long) (page - vmem_map))
--# define pfn_to_page(pfn)	(vmem_map + (pfn))
--#else
--# include <asm-generic/memory_model.h>
--#endif
--#else
--# include <asm-generic/memory_model.h>
--#endif
--
--#ifdef CONFIG_FLATMEM
--# define pfn_valid(pfn)		(((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
--#elif defined(CONFIG_DISCONTIGMEM)
--extern unsigned long min_low_pfn;
--extern unsigned long max_low_pfn;
--# define pfn_valid(pfn)		(((pfn) >= min_low_pfn) && ((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
--#endif
-+#include <asm-generic/memory_model.h>
++#ifdef CONFIG_PARAVIRT_ALT
++#if defined(CONFIG_MODULES) && defined(CONFIG_XEN)
++void xen_alt_bundle_patch_module(struct paravirt_alt_bundle_patch *start,
++				 struct paravirt_alt_bundle_patch *end);
++void xen_alt_inst_patch_module(struct paravirt_alt_inst_patch *start,
++			       struct paravirt_alt_inst_patch *end);
++#else
++#define xen_alt_bundle_patch_module(start, end)	do { } while (0)
++#define xen_alt_inst_patch_module(start, end)	do { } while (0)
++#endif
++#endif /* CONFIG_PARAVIRT_ALT */
++
+ #endif /* !__ASSEMBLY__ */
  
- #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
- #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
-Index: linux-2.6/arch/ia64/mm/contig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/contig.c	2007-11-16 16:31:19.000000000 -0800
-+++ /dev/null	1970-01-01 00:00:00.000000000 +0000
-@@ -1,289 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- *
-- * Copyright (C) 1998-2003 Hewlett-Packard Co
-- *	David Mosberger-Tang <davidm@hpl.hp.com>
-- *	Stephane Eranian <eranian@hpl.hp.com>
-- * Copyright (C) 2000, Rohit Seth <rohit.seth@intel.com>
-- * Copyright (C) 1999 VA Linux Systems
-- * Copyright (C) 1999 Walt Drummond <drummond@valinux.com>
-- * Copyright (C) 2003 Silicon Graphics, Inc. All rights reserved.
-- *
-- * Routines used by ia64 machines with contiguous (or virtually contiguous)
-- * memory.
-- */
--#include <linux/bootmem.h>
--#include <linux/efi.h>
--#include <linux/mm.h>
--#include <linux/nmi.h>
--#include <linux/swap.h>
--
--#include <asm/meminit.h>
--#include <asm/pgalloc.h>
--#include <asm/pgtable.h>
--#include <asm/sections.h>
--#include <asm/mca.h>
--
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--static unsigned long max_gap;
--#endif
--
--/**
-- * show_mem - give short summary of memory stats
-- *
-- * Shows a simple page count of reserved and used pages in the system.
-- * For discontig machines, it does this on a per-pgdat basis.
-- */
--void show_mem(void)
--{
--	int i, total_reserved = 0;
--	int total_shared = 0, total_cached = 0;
--	unsigned long total_present = 0;
--	pg_data_t *pgdat;
--
--	printk(KERN_INFO "Mem-info:\n");
--	show_free_areas();
--	printk(KERN_INFO "Free swap:       %6ldkB\n",
--	       nr_swap_pages<<(PAGE_SHIFT-10));
--	printk(KERN_INFO "Node memory in pages:\n");
--	for_each_online_pgdat(pgdat) {
--		unsigned long present;
--		unsigned long flags;
--		int shared = 0, cached = 0, reserved = 0;
--
--		pgdat_resize_lock(pgdat, &flags);
--		present = pgdat->node_present_pages;
--		for(i = 0; i < pgdat->node_spanned_pages; i++) {
--			struct page *page;
--			if (unlikely(i % MAX_ORDER_NR_PAGES = 0))
--				touch_nmi_watchdog();
--			if (pfn_valid(pgdat->node_start_pfn + i))
--				page = pfn_to_page(pgdat->node_start_pfn + i);
--			else {
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--				if (max_gap < LARGE_GAP)
--					continue;
--#endif
--				i = vmemmap_find_next_valid_pfn(pgdat->node_id,
--					 i) - 1;
--				continue;
--			}
--			if (PageReserved(page))
--				reserved++;
--			else if (PageSwapCache(page))
--				cached++;
--			else if (page_count(page))
--				shared += page_count(page)-1;
--		}
--		pgdat_resize_unlock(pgdat, &flags);
--		total_present += present;
--		total_reserved += reserved;
--		total_cached += cached;
--		total_shared += shared;
--		printk(KERN_INFO "Node %4d:  RAM: %11ld, rsvd: %8d, "
--		       "shrd: %10d, swpd: %10d\n", pgdat->node_id,
--		       present, reserved, shared, cached);
--	}
--	printk(KERN_INFO "%ld pages of RAM\n", total_present);
--	printk(KERN_INFO "%d reserved pages\n", total_reserved);
--	printk(KERN_INFO "%d pages shared\n", total_shared);
--	printk(KERN_INFO "%d pages swap cached\n", total_cached);
--	printk(KERN_INFO "Total of %ld pages in page table cache\n",
--	       quicklist_total_size());
--	printk(KERN_INFO "%d free buffer pages\n", nr_free_buffer_pages());
--}
--
--
--/* physical address where the bootmem map is located */
--unsigned long bootmap_start;
--
--/**
-- * find_bootmap_location - callback to find a memory area for the bootmap
-- * @start: start of region
-- * @end: end of region
-- * @arg: unused callback data
-- *
-- * Find a place to put the bootmap and return its starting address in
-- * bootmap_start.  This address must be page-aligned.
-- */
--static int __init
--find_bootmap_location (unsigned long start, unsigned long end, void *arg)
--{
--	unsigned long needed = *(unsigned long *)arg;
--	unsigned long range_start, range_end, free_start;
--	int i;
--
--#if IGNORE_PFN0
--	if (start = PAGE_OFFSET) {
--		start += PAGE_SIZE;
--		if (start >= end)
--			return 0;
--	}
--#endif
--
--	free_start = PAGE_OFFSET;
--
--	for (i = 0; i < num_rsvd_regions; i++) {
--		range_start = max(start, free_start);
--		range_end   = min(end, rsvd_region[i].start & PAGE_MASK);
--
--		free_start = PAGE_ALIGN(rsvd_region[i].end);
--
--		if (range_end <= range_start)
--			continue; /* skip over empty range */
--
--		if (range_end - range_start >= needed) {
--			bootmap_start = __pa(range_start);
--			return -1;	/* done */
--		}
--
--		/* nothing more available in this segment */
--		if (range_end = end)
--			return 0;
--	}
--	return 0;
--}
--
--#ifdef CONFIG_SMP
--static void *cpu_data;
--/**
-- * per_cpu_init - setup per-cpu variables
-- *
-- * Allocate and setup per-cpu data areas.
-- */
--void * __cpuinit
--per_cpu_init (void)
--{
--	int cpu;
--	static int first_time=1;
--
--	/*
--	 * get_free_pages() cannot be used before cpu_init() done.  BSP
--	 * allocates "NR_CPUS" pages for all CPUs to avoid that AP calls
--	 * get_zeroed_page().
--	 */
--	if (first_time) {
--		first_time=0;
--		for (cpu = 0; cpu < NR_CPUS; cpu++) {
--			memcpy(cpu_data, __phys_per_cpu_start, __per_cpu_end - __per_cpu_start);
--			__per_cpu_offset[cpu] = (char *) cpu_data - __per_cpu_start;
--			cpu_data += PERCPU_PAGE_SIZE;
--			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
--		}
--	}
--	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
--}
--
--static inline void
--alloc_per_cpu_data(void)
--{
--	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
--				   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
--}
--#else
--#define alloc_per_cpu_data() do { } while (0)
--#endif /* CONFIG_SMP */
--
--/**
-- * find_memory - setup memory map
-- *
-- * Walk the EFI memory map and find usable memory for the system, taking
-- * into account reserved areas.
-- */
--void __init
--find_memory (void)
--{
--	unsigned long bootmap_size;
--
--	reserve_memory();
--
--	/* first find highest page frame number */
--	min_low_pfn = ~0UL;
--	max_low_pfn = 0;
--	efi_memmap_walk(find_max_min_low_pfn, NULL);
--	max_pfn = max_low_pfn;
--	/* how many bytes to cover all the pages */
--	bootmap_size = bootmem_bootmap_pages(max_pfn) << PAGE_SHIFT;
--
--	/* look for a location to hold the bootmap */
--	bootmap_start = ~0UL;
--	efi_memmap_walk(find_bootmap_location, &bootmap_size);
--	if (bootmap_start = ~0UL)
--		panic("Cannot find %ld bytes for bootmap\n", bootmap_size);
--
--	bootmap_size = init_bootmem_node(NODE_DATA(0),
--			(bootmap_start >> PAGE_SHIFT), 0, max_pfn);
--
--	/* Free all available memory, then mark bootmem-map as being in use. */
--	efi_memmap_walk(filter_rsvd_memory, free_bootmem);
--	reserve_bootmem(bootmap_start, bootmap_size);
--
--	find_initrd();
--
--	alloc_per_cpu_data();
--}
--
--static int
--count_pages (u64 start, u64 end, void *arg)
--{
--	unsigned long *count = arg;
--
--	*count += (end - start) >> PAGE_SHIFT;
--	return 0;
--}
--
--/*
-- * Set up the page tables.
-- */
--
--void __init
--paging_init (void)
--{
--	unsigned long max_dma;
--	unsigned long max_zone_pfns[MAX_NR_ZONES];
--
--	num_physpages = 0;
--	efi_memmap_walk(count_pages, &num_physpages);
--
--	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
--#ifdef CONFIG_ZONE_DMA
--	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
--	max_zone_pfns[ZONE_DMA] = max_dma;
--#endif
--	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
--
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--	efi_memmap_walk(register_active_ranges, NULL);
--	efi_memmap_walk(find_largest_hole, (u64 *)&max_gap);
--	if (max_gap < LARGE_GAP) {
--		vmem_map = (struct page *) 0;
--		free_area_init_nodes(max_zone_pfns);
--	} else {
--		unsigned long map_size;
--
--		/* allocate virtual_mem_map */
--
--		map_size = PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
--			sizeof(struct page));
--		vmalloc_end -= map_size;
--		vmem_map = (struct page *) vmalloc_end;
--		efi_memmap_walk(create_mem_map_page_table, NULL);
--
--		/*
--		 * alloc_node_mem_map makes an adjustment for mem_map
--		 * which isn't compatible with vmem_map.
--		 */
--		NODE_DATA(0)->node_mem_map = vmem_map +
--			find_min_pfn_with_active_regions();
--		free_area_init_nodes(max_zone_pfns);
--
--		printk("Virtual mem_map starts at 0x%p\n", mem_map);
--	}
--#else /* !CONFIG_VIRTUAL_MEM_MAP */
--	add_active_range(0, 0, max_low_pfn);
--	free_area_init_nodes(max_zone_pfns);
--#endif /* !CONFIG_VIRTUAL_MEM_MAP */
--	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
--}
-Index: linux-2.6/include/asm-ia64/meminit.h
-=================================--- linux-2.6.orig/include/asm-ia64/meminit.h	2007-11-16 16:35:11.000000000 -0800
-+++ linux-2.6/include/asm-ia64/meminit.h	2007-11-16 16:35:27.000000000 -0800
-@@ -58,17 +58,4 @@ extern int reserve_elfcorehdr(unsigned l
+ /* these routines utilize privilege-sensitive or performance-sensitive
+@@ -573,12 +585,24 @@ do {									\
  
- extern int register_active_ranges(u64 start, u64 end, void *arg);
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
--# define LARGE_GAP	0x40000000 /* Use virtual mem map if hole is > than this */
--  extern unsigned long vmalloc_end;
--  extern struct page *vmem_map;
--  extern int find_largest_hole (u64 start, u64 end, void *arg);
--  extern int create_mem_map_page_table (u64 start, u64 end, void *arg);
--  extern int vmemmap_find_next_valid_pfn(int, int);
--#else
--static inline int vmemmap_find_next_valid_pfn(int node, int i)
--{
--	return i + 1;
--}
--#endif
- #endif /* meminit_h */
-Index: linux-2.6/include/asm-ia64/pgtable.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgtable.h	2007-11-16 16:35:32.000000000 -0800
-+++ linux-2.6/include/asm-ia64/pgtable.h	2007-11-16 16:43:27.000000000 -0800
-@@ -245,9 +245,8 @@ ia64_phys_addr_valid (unsigned long addr
- #define VMALLOC_START		(RGN_BASE(RGN_GATE) + 0x200000000UL)
- #define VMALLOC_END_INIT	(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 10)))
- #define VMALLOC_END		VMALLOC_END_INIT
--#define vmemmap			((struct page *)VMALLOC_END)
--
- #define CPU_AREA_BASE		(RGN_BASE(RGN_GATE) + (3UL << (4*PAGE_SHIFT - 11)))
-+#define vmemmap			((struct page *)VMALLOC_END)
- 
- /* fs/proc/kcore.c */
- #define	kc_vaddr_to_offset(v) ((v) - RGN_BASE(RGN_GATE))
-@@ -569,14 +568,7 @@ extern struct page *zero_page_memmap_ptr
- })
+ #ifdef CONFIG_XEN
+ #ifdef __ASSEMBLY__
++#ifdef CONFIG_PARAVIRT_ENTRY
++#define BR_IF_NATIVE(target, reg_unused, pred_unused)	/* nothing */
++#elif defined(CONFIG_PARAVIRT_NOP_B_PATCH)
++#define BR_IF_NATIVE(target, reg_unused, pred_unused)	\
++	.body ;						\
++	[1:] ;						\
++	br.cond.sptk.many target;; ;			\
++	.section .paravirt_nop_b, "a" ;			\
++	.previous ;					\
++	.xdata8 ".paravirt_nop_b", 1b
++#else
+ #define BR_IF_NATIVE(target, reg, pred)		\
+ 	.body ;					\
+ 	movl reg=running_on_xen;; ;		\
+ 	ld4 reg=[reg];; ;			\
+ 	cmp.eq pred,p0=reg,r0 ;			\
+ 	(pred)	br.cond.sptk.many target;;
++#endif
+ #endif /* __ASSEMBLY__ */
  #endif
  
--#  ifdef CONFIG_VIRTUAL_MEM_MAP
--  /* arch mem_map init routine is needed due to holes in a virtual mem_map */
--#   define __HAVE_ARCH_MEMMAP_INIT
--    extern void memmap_init (unsigned long size, int nid, unsigned long zone,
--			     unsigned long start_pfn);
--#  endif /* CONFIG_VIRTUAL_MEM_MAP */
- # endif /* !__ASSEMBLY__ */
--
- /*
-  * Identity-mapped regions use a large page size.  We'll call such large pages
-  * "granules".  If you can think of a better name that's unambiguous, let me
-Index: linux-2.6/arch/ia64/mm/fault.c
-=================================--- linux-2.6.orig/arch/ia64/mm/fault.c	2007-11-16 16:38:59.000000000 -0800
-+++ linux-2.6/arch/ia64/mm/fault.c	2007-11-16 16:39:25.000000000 -0800
-@@ -91,7 +91,6 @@ ia64_do_page_fault (unsigned long addres
- 	if (in_atomic() || !mm)
- 		goto no_context;
- 
--#ifdef CONFIG_VIRTUAL_MEM_MAP
- 	/*
- 	 * If fault is in region 5 and we are in the kernel, we may already
- 	 * have the mmap_sem (pfn_valid macro is called during mmap). There
-@@ -101,7 +100,6 @@ ia64_do_page_fault (unsigned long addres
- 
- 	if ((REGION_NUMBER(address) = 5) && !user_mode(regs))
- 		goto bad_area_no_up;
--#endif
- 
- 	/*
- 	 * This is to handle the kprobes on user space access instructions
-@@ -205,9 +203,7 @@ ia64_do_page_fault (unsigned long addres
- 
-   bad_area:
- 	up_read(&mm->mmap_sem);
--#ifdef CONFIG_VIRTUAL_MEM_MAP
-   bad_area_no_up:
--#endif
- 	if ((isr & IA64_ISR_SP)
- 	    || ((isr & IA64_ISR_NA) && (isr & IA64_ISR_CODE_MASK) = IA64_ISR_CODE_LFETCH))
- 	{
+-- 
+1.5.3
+
