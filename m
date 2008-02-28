@@ -1,52 +1,71 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Thu, 28 Feb 2008 10:38:01 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 28 Feb 2008 11:50:41 +0000
 Subject: Re: 2.6.25-rc2-mm1 - boot hangs on ia64
-Message-Id: <20080228192509.BDCF.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+Message-Id: <20080228115041.GA22082@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080227103831.423F.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20080227071118.GA4638@elte.hu>
-In-Reply-To: <20080227071118.GA4638@elte.hu>
+References: <20080227103831.423F.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20080227071118.GA4638@elte.hu> <20080228192509.BDCF.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+In-Reply-To: <20080228192509.BDCF.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Steven Rostedt <srostedt@redhat.com>
-Cc: kosaki.motohiro@jp.fujitsu.com, Lee Schermerhorn <Lee.Schermerhorn@hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Bob Picco <bob.picco@hp.com>, Eric Whitney <eric.whitney@hp.com>, akpm@linux-foundation.org
-
-Hi Ingo,
-CC'ed Steven Rostedt 
-
-I found the following patch cause regression by bisect.
-
-2.6.25-rc2-mm1:                            doesn't boot
-2.6.25-rc2-mm1 + revert following patch:   works well
-
-but I think it is very strange.
-runqueue_is_locked() seems simple and have not bug. ;)
-
-What do you think this problem?
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: Steven Rostedt <srostedt@redhat.com>, Lee Schermerhorn <Lee.Schermerhorn@hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Bob Picco <bob.picco@hp.com>, Eric Whitney <eric.whitney@hp.com>
 
 
--------------------------------------------------------------------
-commit 033394c2c097215ac556a446154af24fbf18b064
-Author: Steven Rostedt <srostedt@redhat.com>
-Date:   Mon Feb 25 21:15:44 2008 +0100
+* KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com> wrote:
 
-    printk: dont wake up klogd with the rq locked
-
-    It is not wise to place a printk where the runqueue lock is held.
-
-
+> Hi Ingo,
+> CC'ed Steven Rostedt 
 > 
-> * KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com> wrote:
+> I found the following patch cause regression by bisect.
 > 
-> > > hm, that's a bit weird - nothing really should have broken it. Could you 
-> > > try to do a specific bisection of sched-devel.git:
-> > > 
-> > >    http://people.redhat.com/mingo/sched-devel.git/README
-> > 
-> > How do I know revision of git-sched.patch of 2.6.25-rc2-mm1? Should I 
-> > do bisect from HEAD of sched-devel.git?
+> 2.6.25-rc2-mm1:                            doesn't boot
+> 2.6.25-rc2-mm1 + revert following patch:   works well
 > 
-> yeah, please. If it's caused by sched-devel.git then you should see the 
-> hang there too.
+> but I think it is very strange. runqueue_is_locked() seems simple and 
+> have not bug. ;)
+> 
+> What do you think this problem?
 
+thanks for bisecting it down! Could ia64 have trouble accessing the 
+percpu data structures of the scheduler?
 
+does the patch below resolve the hang?
+
+	Ingo
+
+------------------------->
+Subject: sched: fix wake_up_klogd()
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu Feb 28 12:42:45 CET 2008
+
+on some platforms if we printk too early it might not be safe to call
+into the scheduler data structures.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ kernel/printk.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+Index: linux/kernel/printk.c
+=================================--- linux.orig/kernel/printk.c
++++ linux/kernel/printk.c
+@@ -948,7 +948,8 @@ int is_console_locked(void)
+ 
+ void wake_up_klogd(void)
+ {
+-	if (!oops_in_progress && waitqueue_active(&log_wait))
++	if (!oops_in_progress && waitqueue_active(&log_wait) &&
++						!runqueue_is_locked())
+ 		wake_up_interruptible(&log_wait);
+ }
+ 
+@@ -1000,7 +1001,7 @@ void release_console_sem(void)
+ 	 * If we try to wake up klogd while printing with the runqueue lock
+ 	 * held, this will deadlock.
+ 	 */
+-	if (wake_klogd && !runqueue_is_locked())
++	if (wake_klogd)
+ 		wake_up_klogd();
+ }
+ EXPORT_SYMBOL(release_console_sem);
