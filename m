@@ -1,958 +1,566 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 28 Feb 2008 09:57:14 +0000
-Subject: [PATCH 2/5] ia64: introduce basic facilities for binary patching.
-Message-Id: <12041926371106-git-send-email-yamahata@valinux.co.jp>
+From: Shaohua Li <shaohua.li@intel.com>
+Date: Thu, 28 Feb 2008 08:09:42 +0000
+Subject: [PATCH 4/4]remove duplicate code for register access
+Message-Id: <1204186182.11494.19.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/Kconfig                 |   72 +++++++++++++
- arch/ia64/kernel/Makefile         |    5 +
- arch/ia64/kernel/paravirt_alt.c   |  118 ++++++++++++++++++++++
- arch/ia64/kernel/paravirt_core.c  |  201 +++++++++++++++++++++++++++++++++++++
- arch/ia64/kernel/paravirt_entry.c |   99 ++++++++++++++++++
- arch/ia64/kernel/paravirt_nop.c   |   49 +++++++++
- arch/ia64/kernel/vmlinux.lds.S    |   35 +++++++
- include/asm-ia64/module.h         |    6 +
- include/asm-ia64/paravirt_alt.h   |   82 +++++++++++++++
- include/asm-ia64/paravirt_core.h  |   54 ++++++++++
- include/asm-ia64/paravirt_entry.h |   62 +++++++++++
- include/asm-ia64/paravirt_nop.h   |   46 +++++++++
- 12 files changed, 829 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kernel/paravirt_alt.c
- create mode 100644 arch/ia64/kernel/paravirt_core.c
- create mode 100644 arch/ia64/kernel/paravirt_entry.c
- create mode 100644 arch/ia64/kernel/paravirt_nop.c
- create mode 100644 include/asm-ia64/paravirt_alt.h
- create mode 100644 include/asm-ia64/paravirt_core.h
- create mode 100644 include/asm-ia64/paravirt_entry.h
- create mode 100644 include/asm-ia64/paravirt_nop.h
+We have duplicate code to access registers (access_uarea and regset
+way). They just have different layout, so remove duplicate code.
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index dff9edf..bc84008 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -110,6 +110,78 @@ config AUDIT_ARCH
- 	bool
- 	default y
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+---
+ arch/ia64/kernel/ptrace.c |  522 +++++++++++++++++-----------------------------
+ 1 file changed, 200 insertions(+), 322 deletions(-)
+
+Index: linux/arch/ia64/kernel/ptrace.c
+=================================--- linux.orig/arch/ia64/kernel/ptrace.c	2008-02-28 07:54:47.000000000 +0800
++++ linux/arch/ia64/kernel/ptrace.c	2008-02-28 10:47:46.000000000 +0800
+@@ -745,25 +745,6 @@ ia64_sync_fph (struct task_struct *task)
+ 	psr->dfh = 1;
+ }
  
-+menuconfig PARAVIRT_GUEST
-+	bool "Paravirtualized guest support"
-+	help
-+	  Say Y here to get to see options related to running Linux under
-+	  various hypervisors.  This option alone does not add any kernel code.
-+
-+	  If you say N, all options in this submenu will be skipped and disabled.
-+
-+if PARAVIRT_GUEST
-+
-+config PARAVIRT
-+	bool
-+	default y
-+	help
-+	  This changes the kernel so it can modify itself when it is run
-+	  under a hypervisor, potentially improving performance significantly
-+	  over full virtualization.  However, when run without a hypervisor
-+	  the kernel is theoretically slower and slightly larger.
-+
-+config PARAVIRT_ALT
-+	bool "paravirt_alt binary patching infrastructure"
-+	depends on PARAVIRT
-+	default y
-+	help
-+	  The binary patching infratstructure to replace some privileged
-+	  instructions with hypervisor specific instrutions.
-+	  There are several sensitive(i.e. non-virtualizable) instructions and
-+	  performance critical privileged instructions which Xen
-+	  paravirtualize as hyperprivops.
-+	  For transparent paravirtualization (i.e. single binary should run
-+	  on both baremetal and xen environment), xenLinux/IA64 needs
-+	  something like "if (is_running_on_xen()) {} else {}" where
-+	  is_running_on_xen() is determined at boot time.
-+	  This configuration tries to eliminate the overheads for hyperprivops
-+	  by annotating such instructions and replacing them with hyperprivops
-+	  at boot time.
-+
-+config PARAVIRT_ENTRY
-+	bool "paravirt entry"
-+	depends on PARAVIRT
-+	default y
-+	help
-+	  The entry point hooking infrastructure to change the execution path
-+	  at the boot time.
-+	  There are several paravirtualized paths in hand coded assembly code
-+	  which isn't binary patched easily by the paravirt_alt infrastructure.
-+	  E.g. ia64_switch_to, ia64_leave_syscall, ia64_leave_kernel and
-+	  ia64_pal_call_static.
-+	  For those hand written assembly code, change the execution path
-+	  by hooking them and jumping to hand paravirtualized code.
-+
-+config PARAVIRT_NOP_B_PATCH
-+	bool "paravirt branch if native"
-+	depends on PARAVIRT
-+	default y
-+	help
-+	  paravirt branch if native
-+	  There are several paravirtualized paths in hand coded assembly code.
-+	  For transparent paravirtualization, there are codes like
-+	  GLOBAL_ENTRY(xen_xxx)
-+	  'movl reg=running_on_xen;;'
-+	  'ld4 reg=[reg];;'
-+	  'cmp.e1 pred,p0=reg,r0'
-+	  '(pred) br.cond.sptk.many <native_xxx>;;'
-+	  To reduce overhead when running on bare metal, just
-+	  "br.cond.sptk.many <native_xxx>" and replace it with 'nop.b 0'
-+	  when running on xen.
-+
-+#source "arch/ia64/xen/Kconfig"
-+
-+endif
-+
- choice
- 	prompt "System type"
- 	default IA64_GENERIC
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 9281bf6..185e0e2 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -36,6 +36,11 @@ obj-$(CONFIG_PCI_MSI)		+= msi_ia64.o
- mca_recovery-y			+= mca_drv.o mca_drv_asm.o
- obj-$(CONFIG_IA64_MC_ERR_INJECT)+= err_inject.o
+-static int
+-access_fr (struct unw_frame_info *info, int regnum, int hi,
+-	   unsigned long *data, int write_access)
+-{
+-	struct ia64_fpreg fpval;
+-	int ret;
+-
+-	ret = unw_get_fr(info, regnum, &fpval);
+-	if (ret < 0)
+-		return ret;
+-
+-	if (write_access) {
+-		fpval.u.bits[hi] = *data;
+-		ret = unw_set_fr(info, regnum, fpval);
+-	} else
+-		*data = fpval.u.bits[hi];
+-	return ret;
+-}
+-
+ /*
+  * Change the machine-state of CHILD such that it will return via the normal
+  * kernel exit-path, rather than the syscall-exit path.
+@@ -865,309 +846,7 @@ access_nat_bits (struct task_struct *chi
  
-+obj-$(CONFIG_PARAVIRT)		+= paravirt_core.o
-+obj-$(CONFIG_PARAVIRT_ALT)	+= paravirt_alt.o
-+obj-$(CONFIG_PARAVIRT_ENTRY)	+= paravirt_entry.o paravirtentry.o
-+obj-$(CONFIG_PARAVIRT_NOP_B_PATCH) += paravirt_nop.o
-+
- obj-$(CONFIG_IA64_ESI)		+= esi.o
- ifneq ($(CONFIG_IA64_ESI),)
- obj-y				+= esi_stub.o	# must be in kernel proper
-diff --git a/arch/ia64/kernel/paravirt_alt.c b/arch/ia64/kernel/paravirt_alt.c
-new file mode 100644
-index 0000000..d0a34a7
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt_alt.c
-@@ -0,0 +1,118 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/paravirt_alt.c
-+ *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <asm/paravirt_core.h>
-+
-+extern const char nop_bundle[];
-+extern const unsigned long nop_bundle_size;
-+
-+static void __init_or_module
-+fill_nop(void *sbundle, void *ebundle)
+ static int
+ access_uarea (struct task_struct *child, unsigned long addr,
+-	      unsigned long *data, int write_access)
+-{
+-	unsigned long *ptr, regnum, urbs_end, cfm;
+-	struct switch_stack *sw;
+-	struct pt_regs *pt;
+-#	define pt_reg_addr(pt, reg)	((void *)			    \
+-					 ((unsigned long) (pt)		    \
+-					  + offsetof(struct pt_regs, reg)))
+-
+-
+-	pt = task_pt_regs(child);
+-	sw = (struct switch_stack *) (child->thread.ksp + 16);
+-
+-	if ((addr & 0x7) != 0) {
+-		dprintk("ptrace: unaligned register address 0x%lx\n", addr);
+-		return -1;
+-	}
+-
+-	if (addr < PT_F127 + 16) {
+-		/* accessing fph */
+-		if (write_access)
+-			ia64_sync_fph(child);
+-		else
+-			ia64_flush_fph(child);
+-		ptr = (unsigned long *)
+-			((unsigned long) &child->thread.fph + addr);
+-	} else if ((addr >= PT_F10) && (addr < PT_F11 + 16)) {
+-		/* scratch registers untouched by kernel (saved in pt_regs) */
+-		ptr = pt_reg_addr(pt, f10) + (addr - PT_F10);
+-	} else if (addr >= PT_F12 && addr < PT_F15 + 16) {
+-		/*
+-		 * Scratch registers untouched by kernel (saved in
+-		 * switch_stack).
+-		 */
+-		ptr = (unsigned long *) ((long) sw
+-					 + (addr - PT_NAT_BITS - 32));
+-	} else if (addr < PT_AR_LC + 8) {
+-		/* preserved state: */
+-		struct unw_frame_info info;
+-		char nat = 0;
+-		int ret;
+-
+-		unw_init_from_blocked_task(&info, child);
+-		if (unw_unwind_to_user(&info) < 0)
+-			return -1;
+-
+-		switch (addr) {
+-		      case PT_NAT_BITS:
+-			return access_nat_bits(child, pt, &info,
+-					       data, write_access);
+-
+-		      case PT_R4: case PT_R5: case PT_R6: case PT_R7:
+-			if (write_access) {
+-				/* read NaT bit first: */
+-				unsigned long dummy;
+-
+-				ret = unw_get_gr(&info, (addr - PT_R4)/8 + 4,
+-						 &dummy, &nat);
+-				if (ret < 0)
+-					return ret;
+-			}
+-			return unw_access_gr(&info, (addr - PT_R4)/8 + 4, data,
+-					     &nat, write_access);
+-
+-		      case PT_B1: case PT_B2: case PT_B3:
+-		      case PT_B4: case PT_B5:
+-			return unw_access_br(&info, (addr - PT_B1)/8 + 1, data,
+-					     write_access);
+-
+-		      case PT_AR_EC:
+-			return unw_access_ar(&info, UNW_AR_EC, data,
+-					     write_access);
+-
+-		      case PT_AR_LC:
+-			return unw_access_ar(&info, UNW_AR_LC, data,
+-					     write_access);
+-
+-		      default:
+-			if (addr >= PT_F2 && addr < PT_F5 + 16)
+-				return access_fr(&info, (addr - PT_F2)/16 + 2,
+-						 (addr & 8) != 0, data,
+-						 write_access);
+-			else if (addr >= PT_F16 && addr < PT_F31 + 16)
+-				return access_fr(&info,
+-						 (addr - PT_F16)/16 + 16,
+-						 (addr & 8) != 0,
+-						 data, write_access);
+-			else {
+-				dprintk("ptrace: rejecting access to register "
+-					"address 0x%lx\n", addr);
+-				return -1;
+-			}
+-		}
+-	} else if (addr < PT_F9+16) {
+-		/* scratch state */
+-		switch (addr) {
+-		      case PT_AR_BSP:
+-			/*
+-			 * By convention, we use PT_AR_BSP to refer to
+-			 * the end of the user-level backing store.
+-			 * Use ia64_rse_skip_regs(PT_AR_BSP, -CFM.sof)
+-			 * to get the real value of ar.bsp at the time
+-			 * the kernel was entered.
+-			 *
+-			 * Furthermore, when changing the contents of
+-			 * PT_AR_BSP (or PT_CFM) while the task is
+-			 * blocked in a system call, convert the state
+-			 * so that the non-system-call exit
+-			 * path is used.  This ensures that the proper
+-			 * state will be picked up when resuming
+-			 * execution.  However, it *also* means that
+-			 * once we write PT_AR_BSP/PT_CFM, it won't be
+-			 * possible to modify the syscall arguments of
+-			 * the pending system call any longer.  This
+-			 * shouldn't be an issue because modifying
+-			 * PT_AR_BSP/PT_CFM generally implies that
+-			 * we're either abandoning the pending system
+-			 * call or that we defer it's re-execution
+-			 * (e.g., due to GDB doing an inferior
+-			 * function call).
+-			 */
+-			urbs_end = ia64_get_user_rbs_end(child, pt, &cfm);
+-			if (write_access) {
+-				if (*data != urbs_end) {
+-					if (in_syscall(pt))
+-						convert_to_non_syscall(child,
+-								       pt,
+-								       cfm);
+-					/*
+-					 * Simulate user-level write
+-					 * of ar.bsp:
+-					 */
+-					pt->loadrs = 0;
+-					pt->ar_bspstore = *data;
+-				}
+-			} else
+-				*data = urbs_end;
+-			return 0;
+-
+-		      case PT_CFM:
+-			urbs_end = ia64_get_user_rbs_end(child, pt, &cfm);
+-			if (write_access) {
+-				if (((cfm ^ *data) & PFM_MASK) != 0) {
+-					if (in_syscall(pt))
+-						convert_to_non_syscall(child,
+-								       pt,
+-								       cfm);
+-					pt->cr_ifs = ((pt->cr_ifs & ~PFM_MASK)
+-						      | (*data & PFM_MASK));
+-				}
+-			} else
+-				*data = cfm;
+-			return 0;
+-
+-		      case PT_CR_IPSR:
+-			if (write_access) {
+-				unsigned long tmp = *data;
+-				/* psr.ri=3 is a reserved value: SDM 2:25 */
+-				if ((tmp & IA64_PSR_RI) = IA64_PSR_RI)
+-					tmp &= ~IA64_PSR_RI;
+-				pt->cr_ipsr = ((tmp & IPSR_MASK)
+-					       | (pt->cr_ipsr & ~IPSR_MASK));
+-			} else
+-				*data = (pt->cr_ipsr & IPSR_MASK);
+-			return 0;
+-
+-		      case PT_AR_RSC:
+-			if (write_access)
+-				pt->ar_rsc = *data | (3 << 2); /* force PL3 */
+-			else
+-				*data = pt->ar_rsc;
+-			return 0;
+-
+-		      case PT_AR_RNAT:
+-			ptr = pt_reg_addr(pt, ar_rnat);
+-			break;
+-		      case PT_R1:
+-			ptr = pt_reg_addr(pt, r1);
+-			break;
+-		      case PT_R2:  case PT_R3:
+-			ptr = pt_reg_addr(pt, r2) + (addr - PT_R2);
+-			break;
+-		      case PT_R8:  case PT_R9:  case PT_R10: case PT_R11:
+-			ptr = pt_reg_addr(pt, r8) + (addr - PT_R8);
+-			break;
+-		      case PT_R12: case PT_R13:
+-			ptr = pt_reg_addr(pt, r12) + (addr - PT_R12);
+-			break;
+-		      case PT_R14:
+-			ptr = pt_reg_addr(pt, r14);
+-			break;
+-		      case PT_R15:
+-			ptr = pt_reg_addr(pt, r15);
+-			break;
+-		      case PT_R16: case PT_R17: case PT_R18: case PT_R19:
+-		      case PT_R20: case PT_R21: case PT_R22: case PT_R23:
+-		      case PT_R24: case PT_R25: case PT_R26: case PT_R27:
+-		      case PT_R28: case PT_R29: case PT_R30: case PT_R31:
+-			ptr = pt_reg_addr(pt, r16) + (addr - PT_R16);
+-			break;
+-		      case PT_B0:
+-			ptr = pt_reg_addr(pt, b0);
+-			break;
+-		      case PT_B6:
+-			ptr = pt_reg_addr(pt, b6);
+-			break;
+-		      case PT_B7:
+-			ptr = pt_reg_addr(pt, b7);
+-			break;
+-		      case PT_F6:  case PT_F6+8: case PT_F7: case PT_F7+8:
+-		      case PT_F8:  case PT_F8+8: case PT_F9: case PT_F9+8:
+-			ptr = pt_reg_addr(pt, f6) + (addr - PT_F6);
+-			break;
+-		      case PT_AR_BSPSTORE:
+-			ptr = pt_reg_addr(pt, ar_bspstore);
+-			break;
+-		      case PT_AR_UNAT:
+-			ptr = pt_reg_addr(pt, ar_unat);
+-			break;
+-		      case PT_AR_PFS:
+-			ptr = pt_reg_addr(pt, ar_pfs);
+-			break;
+-		      case PT_AR_CCV:
+-			ptr = pt_reg_addr(pt, ar_ccv);
+-			break;
+-		      case PT_AR_FPSR:
+-			ptr = pt_reg_addr(pt, ar_fpsr);
+-			break;
+-		      case PT_CR_IIP:
+-			ptr = pt_reg_addr(pt, cr_iip);
+-			break;
+-		      case PT_PR:
+-			ptr = pt_reg_addr(pt, pr);
+-			break;
+-			/* scratch register */
+-
+-		      default:
+-			/* disallow accessing anything else... */
+-			dprintk("ptrace: rejecting access to register "
+-				"address 0x%lx\n", addr);
+-			return -1;
+-		}
+-	} else if (addr <= PT_AR_SSD) {
+-		ptr = pt_reg_addr(pt, ar_csd) + (addr - PT_AR_CSD);
+-	} else {
+-		/* access debug registers */
+-
+-		if (addr >= PT_IBR) {
+-			regnum = (addr - PT_IBR) >> 3;
+-			ptr = &child->thread.ibr[0];
+-		} else {
+-			regnum = (addr - PT_DBR) >> 3;
+-			ptr = &child->thread.dbr[0];
+-		}
+-
+-		if (regnum >= 8) {
+-			dprintk("ptrace: rejecting access to register "
+-				"address 0x%lx\n", addr);
+-			return -1;
+-		}
+-#ifdef CONFIG_PERFMON
+-		/*
+-		 * Check if debug registers are used by perfmon. This
+-		 * test must be done once we know that we can do the
+-		 * operation, i.e. the arguments are all valid, but
+-		 * before we start modifying the state.
+-		 *
+-		 * Perfmon needs to keep a count of how many processes
+-		 * are trying to modify the debug registers for system
+-		 * wide monitoring sessions.
+-		 *
+-		 * We also include read access here, because they may
+-		 * cause the PMU-installed debug register state
+-		 * (dbr[], ibr[]) to be reset. The two arrays are also
+-		 * used by perfmon, but we do not use
+-		 * IA64_THREAD_DBG_VALID. The registers are restored
+-		 * by the PMU context switch code.
+-		 */
+-		if (pfm_use_debug_registers(child)) return -1;
+-#endif
+-
+-		if (!(child->thread.flags & IA64_THREAD_DBG_VALID)) {
+-			child->thread.flags |= IA64_THREAD_DBG_VALID;
+-			memset(child->thread.dbr, 0,
+-			       sizeof(child->thread.dbr));
+-			memset(child->thread.ibr, 0,
+-			       sizeof(child->thread.ibr));
+-		}
+-
+-		ptr += regnum;
+-
+-		if ((regnum & 1) && write_access) {
+-			/* don't let the user set kernel-level breakpoints: */
+-			*ptr = *data & ~(7UL << 56);
+-			return 0;
+-		}
+-	}
+-	if (write_access)
+-		*ptr = *data;
+-	else
+-		*data = *ptr;
+-	return 0;
+-}
++	      unsigned long *data, int write_access);
+ 
+ static long
+ ptrace_getregs (struct task_struct *child, struct pt_all_user_regs __user *ppr)
+@@ -2290,6 +1969,205 @@ static int fpregs_set(struct task_struct
+ 		kbuf, ubuf);
+ }
+ 
++static int
++access_uarea(struct task_struct *child, unsigned long addr,
++	      unsigned long *data, int write_access)
 +{
-+	void *bundle = sbundle;
-+	BUG_ON((((unsigned long)sbundle) % sizeof(bundle_t)) != 0);
-+	BUG_ON((((unsigned long)ebundle) % sizeof(bundle_t)) != 0);
++	unsigned int pos = -1; /* an invalid value */
++	int ret;
++	unsigned long *ptr, regnum;
 +
-+	while (bundle < ebundle) {
-+		memcpy(bundle, nop_bundle, nop_bundle_size);
-+
-+		bundle += nop_bundle_size;
++	if ((addr & 0x7) != 0) {
++		dprintk("ptrace: unaligned register address 0x%lx\n", addr);
++		return -1;
 +	}
-+}
-+
-+void __init_or_module
-+paravirt_alt_bundle_patch_apply(struct paravirt_alt_bundle_patch *start,
-+				struct paravirt_alt_bundle_patch *end,
-+				unsigned long(*patch)(void *sbundle,
-+						      void *ebundle,
-+						      unsigned long type))
-+{
-+	struct paravirt_alt_bundle_patch *p;
-+
-+	for (p = start; p < end; p++) {
-+		unsigned long used;
-+
-+		used = (*patch)(p->sbundle, p->ebundle, p->type);
-+		if (used = 0)
-+			continue;
-+
-+		fill_nop(p->sbundle + used, p->ebundle);
-+		paravirt_flush_i_cache_range(p->sbundle,
-+					     p->ebundle - p->sbundle);
++	if ((addr >= PT_NAT_BITS + 8 && addr < PT_F2) ||
++		(addr >= PT_R7 + 8 && addr < PT_B1) ||
++		(addr >= PT_AR_LC + 8 && addr < PT_CR_IPSR) ||
++		(addr >= PT_AR_SSD + 8 && addr < PT_DBR)) {
++		dprintk("ptrace: rejecting access to register "
++					"address 0x%lx\n", addr);
++		return -1;
 +	}
-+	ia64_sync_i();
-+	ia64_srlz_i();
-+}
 +
-+/*
-+ * nop.i, nop.m, nop.f instruction are same format.
-+ * but nop.b has differennt format.
-+ * This doesn't support nop.b for now.
-+ */
-+static void __init_or_module
-+fill_nop_inst(unsigned long stag, unsigned long etag)
-+{
-+	extern const bundle_t nop_mfi_inst_bundle[];
-+	unsigned long tag;
-+	const cmp_inst_t nop_inst = paravirt_read_slot0(nop_mfi_inst_bundle);
-+
-+	for (tag = stag; tag < etag; tag = paravirt_get_next_tag(tag))
-+		paravirt_write_inst(tag, nop_inst);
-+}
-+
-+void __init_or_module
-+paravirt_alt_inst_patch_apply(struct paravirt_alt_inst_patch *start,
-+			      struct paravirt_alt_inst_patch *end,
-+			      unsigned long (*patch)(unsigned long stag,
-+						     unsigned long etag,
-+						     unsigned long type))
-+{
-+	struct paravirt_alt_inst_patch *p;
-+
-+	for (p = start; p < end; p++) {
-+		unsigned long tag;
-+		bundle_t *sbundle;
-+		bundle_t *ebundle;
-+
-+		tag = (*patch)(p->stag, p->etag, p->type);
-+		if (tag = p->stag)
-+			continue;
-+
-+		fill_nop_inst(tag, p->etag);
-+		sbundle = paravirt_get_bundle(p->stag);
-+		ebundle = paravirt_get_bundle(p->etag) + 1;
-+		paravirt_flush_i_cache_range(sbundle, (ebundle - sbundle) *
-+					     sizeof(bundle_t));
++	switch (addr) {
++	case PT_F32 ... (PT_F127 + 15):
++		pos = addr - PT_F32 + ELF_FP_OFFSET(32);
++		break;
++	case PT_F2 ... (PT_F5 + 15):
++		pos = addr - PT_F2 + ELF_FP_OFFSET(2);
++		break;
++	case PT_F10 ... (PT_F31 + 15):
++		pos = addr - PT_F10 + ELF_FP_OFFSET(10);
++		break;
++	case PT_F6 ... (PT_F9 + 15):
++		pos = addr - PT_F6 + ELF_FP_OFFSET(6);
++		break;
 +	}
-+	ia64_sync_i();
-+	ia64_srlz_i();
-+}
 +
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/arch/ia64/kernel/paravirt_core.c b/arch/ia64/kernel/paravirt_core.c
-new file mode 100644
-index 0000000..6b7c70f
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt_core.c
-@@ -0,0 +1,201 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/paravirt_core.c
-+ *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
++	if (pos != -1) {
++		if (write_access)
++			ret = fpregs_set(child, NULL, pos,
++				sizeof(unsigned long), data, NULL);
++		else
++			ret = fpregs_get(child, NULL, pos,
++				sizeof(unsigned long), data, NULL);
++		if (ret != 0)
++			return -1;
++		return 0;
++	}
 +
-+#include <asm/paravirt_core.h>
++	switch (addr) {
++	case PT_NAT_BITS:
++		pos = ELF_NAT_OFFSET;
++		break;
++	case PT_R4 ... PT_R7:
++		pos = addr - PT_R4 + ELF_GR_OFFSET(4);
++		break;
++	case PT_B1 ... PT_B5:
++		pos = addr - PT_B1 + ELF_BR_OFFSET(1);
++		break;
++	case PT_AR_EC:
++		pos = ELF_AR_EC_OFFSET;
++		break;
++	case PT_AR_LC:
++		pos = ELF_AR_LC_OFFSET;
++		break;
++	case PT_CR_IPSR:
++		pos = ELF_CR_IPSR_OFFSET;
++		break;
++	case PT_CR_IIP:
++		pos = ELF_CR_IIP_OFFSET;
++		break;
++	case PT_CFM:
++		pos = ELF_CFM_OFFSET;
++		break;
++	case PT_AR_UNAT:
++		pos = ELF_AR_UNAT_OFFSET;
++		break;
++	case PT_AR_PFS:
++		pos = ELF_AR_PFS_OFFSET;
++		break;
++	case PT_AR_RSC:
++		pos = ELF_AR_RSC_OFFSET;
++		break;
++	case PT_AR_RNAT:
++		pos = ELF_AR_RNAT_OFFSET;
++		break;
++	case PT_AR_BSPSTORE:
++		pos = ELF_AR_BSPSTORE_OFFSET;
++		break;
++	case PT_PR:
++		pos = ELF_PR_OFFSET;
++		break;
++	case PT_B6:
++		pos = ELF_BR_OFFSET(6);
++		break;
++	case PT_AR_BSP:
++		pos = ELF_AR_BSP_OFFSET;
++		break;
++	case PT_R1 ... PT_R3:
++		pos = addr - PT_R1 + ELF_GR_OFFSET(1);
++		break;
++	case PT_R12 ... PT_R15:
++		pos = addr - PT_R12 + ELF_GR_OFFSET(12);
++		break;
++	case PT_R8 ... PT_R11:
++		pos = addr - PT_R8 + ELF_GR_OFFSET(8);
++		break;
++	case PT_R16 ... PT_R31:
++		pos = addr - PT_R16 + ELF_GR_OFFSET(16);
++		break;
++	case PT_AR_CCV:
++		pos = ELF_AR_CCV_OFFSET;
++		break;
++	case PT_AR_FPSR:
++		pos = ELF_AR_FPSR_OFFSET;
++		break;
++	case PT_B0:
++		pos = ELF_BR_OFFSET(0);
++		break;
++	case PT_B7:
++		pos = ELF_BR_OFFSET(7);
++		break;
++	case PT_AR_CSD:
++		pos = ELF_AR_CSD_OFFSET;
++		break;
++	case PT_AR_SSD:
++		pos = ELF_AR_SSD_OFFSET;
++		break;
++	}
 +
-+/*
-+ * flush_icache_range() can't be used here.
-+ * we are here before cpu_init() which initializes
-+ * ia64_i_cache_stride_shift. flush_icache_range() uses it.
-+ */
-+void __init_or_module
-+paravirt_flush_i_cache_range(const void *instr, unsigned long size)
-+{
-+	unsigned long i;
++	if (pos != -1) {
++		if (write_access)
++			ret = gpregs_set(child, NULL, pos,
++				sizeof(unsigned long), data, NULL);
++		else
++			ret = gpregs_get(child, NULL, pos,
++				sizeof(unsigned long), data, NULL);
++		if (ret != 0)
++			return -1;
++		return 0;
++	}
 +
-+	for (i = 0; i < size; i += sizeof(bundle_t))
-+		asm volatile ("fc.i %0":: "r"(instr + i): "memory");
-+}
++	/* access debug registers */
++	if (addr >= PT_IBR) {
++		regnum = (addr - PT_IBR) >> 3;
++		ptr = &child->thread.ibr[0];
++	} else {
++		regnum = (addr - PT_DBR) >> 3;
++		ptr = &child->thread.dbr[0];
++	}
 +
-+bundle_t* __init_or_module
-+paravirt_get_bundle(unsigned long tag)
-+{
-+	return (bundle_t *)(tag & ~3UL);
-+}
-+
-+unsigned long __init_or_module
-+paravirt_get_slot(unsigned long tag)
-+{
-+	return tag & 3UL;
-+}
-+
-+#if 0
-+unsigned long __init_or_module
-+paravirt_get_num_inst(unsigned long stag, unsigned long etag)
-+{
-+	bundle_t *sbundle = paravirt_get_bundle(stag);
-+	unsigned long sslot = paravirt_get_slot(stag);
-+	bundle_t *ebundle = paravirt_get_bundle(etag);
-+	unsigned long eslot = paravirt_get_slot(etag);
-+
-+	return (ebundle - sbundle) * 3 + eslot - sslot + 1;
-+}
++	if (regnum >= 8) {
++		dprintk("ptrace: rejecting access to register "
++				"address 0x%lx\n", addr);
++		return -1;
++	}
++#ifdef CONFIG_PERFMON
++	/*
++	 * Check if debug registers are used by perfmon. This
++	 * test must be done once we know that we can do the
++	 * operation, i.e. the arguments are all valid, but
++	 * before we start modifying the state.
++	 *
++	 * Perfmon needs to keep a count of how many processes
++	 * are trying to modify the debug registers for system
++	 * wide monitoring sessions.
++	 *
++	 * We also include read access here, because they may
++	 * cause the PMU-installed debug register state
++	 * (dbr[], ibr[]) to be reset. The two arrays are also
++	 * used by perfmon, but we do not use
++	 * IA64_THREAD_DBG_VALID. The registers are restored
++	 * by the PMU context switch code.
++	 */
++	if (pfm_use_debug_registers(child))
++		return -1;
 +#endif
 +
-+unsigned long __init_or_module
-+paravirt_get_next_tag(unsigned long tag)
-+{
-+	unsigned long slot = paravirt_get_slot(tag);
-+
-+	switch (slot) {
-+	case 0:
-+	case 1:
-+		return tag + 1;
-+	case 2: {
-+		bundle_t *bundle = paravirt_get_bundle(tag);
-+		return (unsigned long)(bundle + 1);
++	if (!(child->thread.flags & IA64_THREAD_DBG_VALID)) {
++		child->thread.flags |= IA64_THREAD_DBG_VALID;
++		memset(child->thread.dbr, 0,
++				sizeof(child->thread.dbr));
++		memset(child->thread.ibr, 0,
++				sizeof(child->thread.ibr));
 +	}
-+	default:
-+		BUG();
++
++	ptr += regnum;
++
++	if ((regnum & 1) && write_access) {
++		/* don't let the user set kernel-level breakpoints: */
++		*ptr = *data & ~(7UL << 56);
++		return 0;
 +	}
-+	/* NOTREACHED */
-+}
-+
-+cmp_inst_t __init_or_module
-+paravirt_read_slot0(const bundle_t *bundle)
-+{
-+	cmp_inst_t inst;
-+	inst.l = bundle->quad0.slot0;
-+	return inst;
-+}
-+
-+cmp_inst_t __init_or_module
-+paravirt_read_slot1(const bundle_t *bundle)
-+{
-+	cmp_inst_t inst;
-+	inst.l = bundle->quad0.slot1_p0 |
-+		((unsigned long long)bundle->quad1.slot1_p1 << 18UL);
-+	return inst;
-+}
-+
-+cmp_inst_t __init_or_module
-+paravirt_read_slot2(const bundle_t *bundle)
-+{
-+	cmp_inst_t inst;
-+	inst.l = bundle->quad1.slot2;
-+	return inst;
-+}
-+
-+cmp_inst_t __init_or_module
-+paravirt_read_inst(unsigned long tag)
-+{
-+	bundle_t *bundle = paravirt_get_bundle(tag);
-+	unsigned long slot = paravirt_get_slot(tag);
-+
-+	switch (slot) {
-+	case 0:
-+		return paravirt_read_slot0(bundle);
-+	case 1:
-+		return paravirt_read_slot1(bundle);
-+	case 2:
-+		return paravirt_read_slot2(bundle);
-+	default:
-+		BUG();
-+	}
-+	/* NOTREACHED */
-+}
-+
-+void __init_or_module
-+paravirt_write_slot0(bundle_t *bundle, cmp_inst_t inst)
-+{
-+	bundle->quad0.slot0 = inst.l;
-+}
-+
-+void __init_or_module
-+paravirt_write_slot1(bundle_t *bundle, cmp_inst_t inst)
-+{
-+	bundle->quad0.slot1_p0 = inst.l;
-+	bundle->quad1.slot1_p1 = inst.l >> 18UL;
-+}
-+
-+void __init_or_module
-+paravirt_write_slot2(bundle_t *bundle, cmp_inst_t inst)
-+{
-+	bundle->quad1.slot2 = inst.l;
-+}
-+
-+void __init_or_module
-+paravirt_write_inst(unsigned long tag, cmp_inst_t inst)
-+{
-+	bundle_t *bundle = paravirt_get_bundle(tag);
-+	unsigned long slot = paravirt_get_slot(tag);
-+
-+	switch (slot) {
-+	case 0:
-+		paravirt_write_slot0(bundle, inst);
-+		break;
-+	case 1:
-+		paravirt_write_slot1(bundle, inst);
-+		break;
-+	case 2:
-+		paravirt_write_slot2(bundle, inst);
-+		break;
-+	default:
-+		BUG();
-+	}
-+	paravirt_flush_i_cache_range(bundle, sizeof(*bundle));
-+}
-+
-+/* for debug */
-+void
-+print_bundle(const bundle_t *bundle)
-+{
-+	const unsigned long *quad = (const unsigned long *)bundle;
-+	cmp_inst_t slot0 = paravirt_read_slot0(bundle);
-+	cmp_inst_t slot1 = paravirt_read_slot1(bundle);
-+	cmp_inst_t slot2 = paravirt_read_slot2(bundle);
-+
-+	printk(KERN_DEBUG
-+	       "bundle 0x%p 0x%016lx 0x%016lx\n", bundle, quad[0], quad[1]);
-+	printk(KERN_DEBUG
-+	       "bundle template 0x%x\n",
-+	       bundle->quad0.template);
-+	printk(KERN_DEBUG
-+	       "slot0 0x%lx slot1_p0 0x%lx slot1_p1 0x%lx slot2 0x%lx\n",
-+	       (unsigned long)bundle->quad0.slot0,
-+	       (unsigned long)bundle->quad0.slot1_p0,
-+	       (unsigned long)bundle->quad1.slot1_p1,
-+	       (unsigned long)bundle->quad1.slot2);
-+	printk(KERN_DEBUG
-+	       "slot0 0x%016llx slot1 0x%016llx slot2 0x%016llx\n",
-+	       slot0.l, slot1.l, slot2.l);
-+}
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/arch/ia64/kernel/paravirt_entry.c b/arch/ia64/kernel/paravirt_entry.c
-new file mode 100644
-index 0000000..708287a
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt_entry.c
-@@ -0,0 +1,99 @@
-+/******************************************************************************
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <asm/paravirt_core.h>
-+#include <asm/paravirt_entry.h>
-+
-+/* br.cond.sptk.many <target25>	B1 */
-+typedef union inst_b1 {
-+	cmp_inst_t inst;
-+	struct {
-+		unsigned long qp: 6;
-+		unsigned long btype: 3;
-+		unsigned long unused: 3;
-+		unsigned long p: 1;
-+		unsigned long imm20b: 20;
-+		unsigned long wh: 2;
-+		unsigned long d: 1;
-+		unsigned long s: 1;
-+		unsigned long opcode: 4;
-+	};
-+	unsigned long l;
-+} inst_b1_t;
-+
-+static void __init
-+__paravirt_entry_apply(unsigned long tag, const void *target)
-+{
-+	bundle_t *bundle = paravirt_get_bundle(tag);
-+	cmp_inst_t inst = paravirt_read_inst(tag);
-+	unsigned long target25 = (unsigned long)target - (unsigned long)bundle;
-+	inst_b1_t inst_b1;
-+
-+	inst_b1.l = inst.l;
-+	if (target25 & (1UL << 63))
-+		inst_b1.s = 1;
++	if (write_access)
++		*ptr = *data;
 +	else
-+		inst_b1.s = 0;
-+
-+	inst_b1.imm20b = target25 >> 4;
-+	inst.l = inst_b1.l;
-+
-+	paravirt_write_inst(tag, inst);
-+	paravirt_flush_i_cache_range(bundle, sizeof(*bundle));
++		*data = *ptr;
++	return 0;
 +}
 +
-+static void __init
-+paravirt_entry_apply(const struct paravirt_entry_patch *entry_patch,
-+		     const struct paravirt_entry *entries,
-+		     unsigned int nr_entries)
-+{
-+	unsigned int i;
-+	for (i = 0; i < nr_entries; i++) {
-+		if (entry_patch->type = entries[i].type) {
-+			__paravirt_entry_apply(entry_patch->tag,
-+					       entries[i].entry);
-+			break;
-+		}
-+	}
-+}
-+
-+void __init
-+paravirt_entry_patch_apply(const struct paravirt_entry_patch *start,
-+			   const struct paravirt_entry_patch *end,
-+			   const struct paravirt_entry *entries,
-+			   unsigned int nr_entries)
-+{
-+	const struct paravirt_entry_patch *p;
-+	for (p = start; p < end; p++)
-+		paravirt_entry_apply(p, entries, nr_entries);
-+
-+	ia64_sync_i();
-+	ia64_srlz_i();
-+}
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/arch/ia64/kernel/paravirt_nop.c b/arch/ia64/kernel/paravirt_nop.c
-new file mode 100644
-index 0000000..ee5a204
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt_nop.c
-@@ -0,0 +1,49 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/paravirt_nop.c
-+ *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <asm/paravirt_core.h>
-+#include <asm/paravirt_nop.h>
-+
-+void __init_or_module
-+paravirt_nop_b_patch_apply(const struct paravirt_nop_patch *start,
-+			   const struct paravirt_nop_patch *end)
-+{
-+	extern const bundle_t nop_b_inst_bundle;
-+	const cmp_inst_t nop_b_inst = paravirt_read_slot0(&nop_b_inst_bundle);
-+	const struct paravirt_nop_patch *p;
-+
-+	for (p = start; p < end; p++)
-+		paravirt_write_inst(p->tag, nop_b_inst);
-+
-+	ia64_sync_i();
-+	ia64_srlz_i();
-+}
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 80622ac..0cbe0a1 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -163,6 +163,41 @@ SECTIONS
- 	  __end___mckinley_e9_bundles = .;
- 	}
- 
-+#if defined(CONFIG_PARAVIRT_ALT)
-+  . = ALIGN(16);
-+  .paravirt_bundles : AT(ADDR(.paravirt_bundles) - LOAD_OFFSET)
-+	{
-+	  __start_paravirt_bundles = .;
-+          *(.paravirt_bundles)
-+	  __stop_paravirt_bundles = .;
-+	}
-+  . = ALIGN(16);
-+  .paravirt_insts : AT(ADDR(.paravirt_insts) - LOAD_OFFSET)
-+	{
-+	  __start_paravirt_insts = .;
-+          *(.paravirt_insts)
-+	  __stop_paravirt_insts = .;
-+	}
-+#endif
-+#if defined(CONFIG_PARAVIRT_NOP_B_PATCH)
-+  . = ALIGN(16);
-+  .paravirt_nop_b : AT(ADDR(.paravirt_nop_b) - LOAD_OFFSET)
-+	{
-+	  __start_paravirt_nop_b = .;
-+	  *(.paravirt_nop_b)
-+	  __stop_paravirt_nop_b = .;
-+	}
-+#endif
-+#if defined(CONFIG_PARAVIRT_ENTRY)
-+  . = ALIGN(16);
-+  .paravirt_entry : AT(ADDR(.paravirt_entry) - LOAD_OFFSET)
-+	{
-+	  __start_paravirt_entry = .;
-+	  *(.paravirt_entry)
-+	  __stop_paravirt_entry = .;
-+	}
-+#endif
-+
- #if defined(CONFIG_IA64_GENERIC)
-   /* Machine Vector */
-   . = ALIGN(16);
-diff --git a/include/asm-ia64/module.h b/include/asm-ia64/module.h
-index d2da61e..44f63ff 100644
---- a/include/asm-ia64/module.h
-+++ b/include/asm-ia64/module.h
-@@ -16,6 +16,12 @@ struct mod_arch_specific {
- 	struct elf64_shdr *got;		/* global offset table */
- 	struct elf64_shdr *opd;		/* official procedure descriptors */
- 	struct elf64_shdr *unwind;	/* unwind-table section */
-+#ifdef CONFIG_PARAVIRT_ALT
-+	struct elf64_shdr *paravirt_bundles;
-+					/* paravirt_alt_bundle_patch table */
-+	struct elf64_shdr *paravirt_insts;
-+					/* paravirt_alt_inst_patch table */
-+#endif
- 	unsigned long gp;		/* global-pointer for module */
- 
- 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
-diff --git a/include/asm-ia64/paravirt_alt.h b/include/asm-ia64/paravirt_alt.h
-new file mode 100644
-index 0000000..34c5473
---- /dev/null
-+++ b/include/asm-ia64/paravirt_alt.h
-@@ -0,0 +1,82 @@
-+/******************************************************************************
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef __ASM_PARAVIRT_ALT_H
-+#define __ASM_PARAVIRT_ALT_H
-+
-+#ifndef __ASSEMBLER__
-+/* for binary patch */
-+struct paravirt_alt_bundle_patch {
-+	void		*sbundle;
-+	void		*ebundle;
-+	unsigned long	type;
-+};
-+
-+/* label means the beginning of new bundle */
-+#define paravirt_alt_bundle(instr, privop)				\
-+	"\t1:\n"							\
-+	"\t" instr "\n"							\
-+	"\t2:\n"							\
-+	"\t.section .paravirt_bundles, \"a\"\n"				\
-+	"\t.previous\n"							\
-+	"\t.xdata8 \".paravirt_bundles\", 1b, 2b, "			\
-+	__stringify(privop) "\n"
-+
-+struct paravirt_alt_inst_patch {
-+	unsigned long	stag;
-+	unsigned long	etag;
-+	unsigned long	type;
-+};
-+
-+#define paravirt_alt_inst(instr, privop)				\
-+	"\t[1:]\n"							\
-+	"\t" instr "\n"							\
-+	"\t[2:]\n"							\
-+	"\t.section .paravirt_insts, \"a\"\n"				\
-+	"\t.previous\n"							\
-+	"\t.xdata8 \".paravirt_insts\", 1b, 2b, "			\
-+	__stringify(privop) "\n"
-+
-+void
-+paravirt_alt_bundle_patch_apply(struct paravirt_alt_bundle_patch *start,
-+				struct paravirt_alt_bundle_patch *end,
-+				unsigned long(*patch)(void *sbundle,
-+						      void *ebundle,
-+						      unsigned long type));
-+
-+void
-+paravirt_alt_inst_patch_apply(struct paravirt_alt_inst_patch *start,
-+			      struct paravirt_alt_inst_patch *end,
-+			      unsigned long (*patch)(unsigned long stag,
-+						     unsigned long etag,
-+						     unsigned long type));
-+#endif /* __ASSEMBLER__ */
-+
-+#endif /* __ASM_PARAVIRT_ALT_H */
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/include/asm-ia64/paravirt_core.h b/include/asm-ia64/paravirt_core.h
-new file mode 100644
-index 0000000..9979740
---- /dev/null
-+++ b/include/asm-ia64/paravirt_core.h
-@@ -0,0 +1,54 @@
-+/******************************************************************************
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef __ASM_PARAVIRT_CORE_H
-+#define __ASM_PARAVIRT_CORE_H
-+
-+#include <asm/kprobes.h>
-+
-+void paravirt_flush_i_cache_range(const void *instr, unsigned long size);
-+
-+bundle_t *paravirt_get_bundle(unsigned long tag);
-+unsigned long paravirt_get_slot(unsigned long tag);
-+unsigned long paravirt_get_next_tag(unsigned long tag);
-+
-+cmp_inst_t paravirt_read_slot0(const bundle_t *bundle);
-+cmp_inst_t paravirt_read_slot1(const bundle_t *bundle);
-+cmp_inst_t paravirt_read_slot2(const bundle_t *bundle);
-+cmp_inst_t paravirt_read_inst(unsigned long tag);
-+
-+void paravirt_write_slot0(bundle_t *bundle, cmp_inst_t inst);
-+void paravirt_write_slot1(bundle_t *bundle, cmp_inst_t inst);
-+void paravirt_write_slot2(bundle_t *bundle, cmp_inst_t inst);
-+void paravirt_write_inst(unsigned long tag, cmp_inst_t inst);
-+
-+void print_bundle(const bundle_t *bundle);
-+
-+#endif /* __ASM_PARAVIRT_CORE_H */
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/include/asm-ia64/paravirt_entry.h b/include/asm-ia64/paravirt_entry.h
-new file mode 100644
-index 0000000..857fd37
---- /dev/null
-+++ b/include/asm-ia64/paravirt_entry.h
-@@ -0,0 +1,62 @@
-+/******************************************************************************
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef __ASM_PARAVIRT_ENTRY_H
-+#define __ASM_PARAVIRT_ENTRY_H
-+
-+#ifdef __ASSEMBLY__
-+
-+#define BR_COND_SPTK_MANY(target, type)		\
-+	[1:] ;					\
-+	br.cond.sptk.many target;; ;		\
-+	.section .paravirt_entry, "a" ;		\
-+	.previous ;				\
-+	.xdata8 ".paravirt_entry", 1b, type
-+
-+#else /* __ASSEMBLY__ */
-+
-+struct paravirt_entry_patch {
-+	unsigned long	tag;
-+	unsigned long	type;
-+};
-+
-+struct paravirt_entry {
-+	void		*entry;
-+	unsigned long	type;
-+};
-+
-+void
-+paravirt_entry_patch_apply(const struct paravirt_entry_patch *start,
-+			   const struct paravirt_entry_patch *end,
-+			   const struct paravirt_entry *entries,
-+			   unsigned int nr_entries);
-+
-+#endif /* __ASSEMBLY__ */
-+
-+#endif /* __ASM_PARAVIRT_ENTRY_H */
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
-diff --git a/include/asm-ia64/paravirt_nop.h b/include/asm-ia64/paravirt_nop.h
-new file mode 100644
-index 0000000..2b05430
---- /dev/null
-+++ b/include/asm-ia64/paravirt_nop.h
-@@ -0,0 +1,46 @@
-+/******************************************************************************
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef __ASM_PARAVIRT_OPS_H
-+#define __ASM_PARAVIRT_OPS_H
-+
-+#ifndef __ASSEMBLY__
-+
-+struct paravirt_nop_patch {
-+	unsigned long	tag;
-+};
-+
-+void
-+paravirt_nop_b_patch_apply(const struct paravirt_nop_patch *start,
-+			   const struct paravirt_nop_patch *end);
-+
-+#endif /* !__ASSEMBLEY__ */
-+
-+#endif /* __ASM_PARAVIRT_OPS_H */
-+
-+/*
-+ * Local variables:
-+ * mode: C
-+ * c-set-style: "linux"
-+ * c-basic-offset: 8
-+ * tab-width: 8
-+ * indent-tabs-mode: t
-+ * End:
-+ */
--- 
-1.5.3
+ static const struct user_regset native_regsets[] = {
+ 	{
+ 		.core_note_type = NT_PRSTATUS,
+
 
