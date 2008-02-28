@@ -1,65 +1,135 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 22 Feb 2008 05:07:41 +0000
-Subject: [PATCH 04/11] xen: add missing definitions in include/xen/interface/vcpu.h which ia64/xen needs
-Message-Id: <12036568692040-git-send-email-yamahata@valinux.co.jp>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 28 Feb 2008 09:11:53 +0000
+Subject: ia64_mca_cpe_int_handler - take 3
+Message-Id: <47C67AD9.9030404@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070103060507050906020505"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12036568683779-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12036568683779-git-send-email-yamahata@valinux.co.jp>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------070103060507050906020505
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, yamahata@valinux.co.jp
+
+The ia64_mca_cpe_int_handler() and the ia64_mca_cmc_int_handler() are
+not safe against nested interrupts. The interrupts are enabled too early.
+The interrupts should remain blocked while we are inside the lock-
+protected region. (See ..._history_lock.)
+
+The interrupts will be enabled in ia64_mca_log_sal_error_record()
+unless it is called from the MCA/INIT handlers.
+
+Please have a look at this patch.
+
+Thanks,
+
+Zoltan Menyhart
+
+Signed-off-by: Zoltan Menyhart, <Zoltan.Menyhart@bull.net>
 
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- include/xen/interface/vcpu.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/include/xen/interface/vcpu.h b/include/xen/interface/vcpu.h
-index b05d8a6..87e6f8a 100644
---- a/include/xen/interface/vcpu.h
-+++ b/include/xen/interface/vcpu.h
-@@ -85,6 +85,7 @@ struct vcpu_runstate_info {
- 		 */
- 		uint64_t time[4];
- };
-+DEFINE_GUEST_HANDLE_STRUCT(vcpu_runstate_info);
- 
- /* VCPU is currently running on a physical CPU. */
- #define RUNSTATE_running  0
-@@ -119,6 +120,7 @@ struct vcpu_runstate_info {
- #define VCPUOP_register_runstate_memory_area 5
- struct vcpu_register_runstate_memory_area {
- 		union {
-+				GUEST_HANDLE(vcpu_runstate_info) h;
- 				struct vcpu_runstate_info *v;
- 				uint64_t p;
- 		} addr;
-@@ -134,6 +136,7 @@ struct vcpu_register_runstate_memory_area {
- struct vcpu_set_periodic_timer {
- 		uint64_t period_ns;
- };
-+DEFINE_GUEST_HANDLE_STRUCT(vcpu_set_periodic_timer);
+--------------070103060507050906020505
+Content-Type: text/plain;
+ name="mca.c-patch-new"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="mca.c-patch-new"
+
+--- linux-2.6.24-old/arch/ia64/kernel/mca.c	2008-02-28 09:32:09.000000000 +0100
++++ linux-2.6.24/arch/ia64/kernel/mca.c	2008-02-28 09:32:09.000000000 +0100
+@@ -176,6 +176,14 @@
+ 	oops_in_progress = 0;
  
  /*
-  * Set or stop a VCPU's single-shot timer. Every VCPU has one single-shot
-@@ -145,6 +148,7 @@ struct vcpu_set_singleshot_timer {
- 		uint64_t timeout_abs_ns;
- 		uint32_t flags;			   /* VCPU_SSHOTTMR_??? */
- };
-+DEFINE_GUEST_HANDLE_STRUCT(vcpu_set_singleshot_timer);
++ * It is not safe enabling interrupts (nor touching locks) in
++ * MCA/INIT handler context.
++ */
++#define	MCA_IRQ_NOTSAFE	0	/* Called from the MCA/INIT handlers */
++#define	MCA_IRQ_SAFE	1	/* NOT called from the MCA/INIT handlers */
++
++
++/*
+  * Push messages into buffer, print them later if not urgent.
+  */
+ void ia64_mca_printk(const char *fmt, ...)
+@@ -423,19 +431,26 @@
+  *  and wakes up any processes waiting for error records.
+  *
+  *  Inputs  :   sal_info_type   (Type of error record MCA/CMC/CPE)
+- *              FIXME: remove MCA and irq_safe.
++ *              irq_safe	(MCA_IRQ_NOTSAFE == 0 if called from the MCA/INIT handlers,
++ *				 MCA_IRQ_SAFE == 1 otherwise)
+  */
+ static void
+-ia64_mca_log_sal_error_record(int sal_info_type)
++ia64_mca_log_sal_error_record(int sal_info_type, int irq_safe)
+ {
+ 	u8 *buffer;
+ 	sal_log_record_header_t *rh;
+ 	u64 size;
+-	int irq_safe = sal_info_type != SAL_INFO_TYPE_MCA;
+ #ifdef IA64_MCA_DEBUG_INFO
+ 	static const char * const rec_name[] = { "MCA", "INIT", "CMC", "CPE" };
+ #endif
  
- /* Flags to VCPUOP_set_singleshot_timer. */
-  /* Require the timeout to be in the future (return -ETIME if it's passed). */
-@@ -164,5 +168,6 @@ struct vcpu_register_vcpu_info {
-     uint32_t offset; /* offset within page */
-     uint32_t rsvd;   /* unused */
- };
-+DEFINE_GUEST_HANDLE_STRUCT(vcpu_register_vcpu_info);
++	if (irq_safe){
++		/* SAL spec says: SAL_GET_STATE_INFO() and SAL_CLEAR_STATE_INFO()
++		 * should be called with interrupts enabled, unless we are in
++		 * MCA/INIT handlers.
++		 */
++		local_irq_enable();
++	}
+ 	size = ia64_log_get(sal_info_type, &buffer, irq_safe);
+ 	if (!size)
+ 		return;
+@@ -512,9 +527,6 @@
+ 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+ 		       __FUNCTION__, cpe_irq, smp_processor_id());
  
- #endif /* __XEN_PUBLIC_VCPU_H__ */
--- 
-1.5.3
+-	/* SAL spec states this should run w/ interrupts enabled */
+-	local_irq_enable();
+-
+ 	spin_lock(&cpe_history_lock);
+ 	if (!cpe_poll_enabled && cpe_vector >= 0) {
+ 
+@@ -553,7 +565,7 @@
+ 	spin_unlock(&cpe_history_lock);
+ out:
+ 	/* Get the CPE error record and log it */
+-	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
++	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE, MCA_IRQ_SAFE);
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -1245,7 +1257,7 @@
+         }
+ 
+ 	/* Get the MCA error record and log it */
+-	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_MCA);
++	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_MCA, MCA_IRQ_NOTSAFE);
+ 
+ 	/* MCA error recovery */
+ 	recover = (ia64_mca_ucmc_extension
+@@ -1322,9 +1334,6 @@
+ 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+ 		       __FUNCTION__, cmc_irq, smp_processor_id());
+ 
+-	/* SAL spec states this should run w/ interrupts enabled */
+-	local_irq_enable();
+-
+ 	spin_lock(&cmc_history_lock);
+ 	if (!cmc_polling_enabled) {
+ 		int i, count = 1; /* we know 1 happened now */
+@@ -1367,7 +1376,7 @@
+ 	spin_unlock(&cmc_history_lock);
+ out:
+ 	/* Get the CMC error record and log it */
+-	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CMC);
++	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CMC, MCA_IRQ_SAFE);
+ 
+ 	return IRQ_HANDLED;
+ }
 
+--------------070103060507050906020505--
