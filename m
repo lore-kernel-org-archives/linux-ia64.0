@@ -1,31 +1,31 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Thu, 28 Feb 2008 12:13:39 +0000
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 28 Feb 2008 18:13:43 +0000
 Subject: Re: 2.6.25-rc2-mm1 - boot hangs on ia64
-Message-Id: <20080228211044.BDD5.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+Message-Id: <20080228101343.1b9548e6.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080228192509.BDCF.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20080228115041.GA22082@elte.hu>
+References: <20080227103831.423F.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<20080227071118.GA4638@elte.hu>
+	<20080228192509.BDCF.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<20080228115041.GA22082@elte.hu>
 In-Reply-To: <20080228115041.GA22082@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Ingo Molnar <mingo@elte.hu>
-Cc: kosaki.motohiro@jp.fujitsu.com, Steven Rostedt <srostedt@redhat.com>, Lee Schermerhorn <Lee.Schermerhorn@hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Bob Picco <bob.picco@hp.com>, Eric Whitney <eric.whitney@hp.com>
+Cc: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Steven Rostedt <srostedt@redhat.com>, Lee Schermerhorn <Lee.Schermerhorn@hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Bob Picco <bob.picco@hp.com>, Eric Whitney <eric.whitney@hp.com>
 
-Hi Ingo,
+On Thu, 28 Feb 2008 12:50:41 +0100 Ingo Molnar <mingo@elte.hu> wrote:
 
-> thanks for bisecting it down! Could ia64 have trouble accessing the 
-> percpu data structures of the scheduler?
-> 
-> does the patch below resolve the hang?
+> @@ -1000,7 +1001,7 @@ void release_console_sem(void)
+>  	 * If we try to wake up klogd while printing with the runqueue lock
+>  	 * held, this will deadlock.
+>  	 */
+> -	if (wake_klogd && !runqueue_is_locked())
+> +	if (wake_klogd)
+>  		wake_up_klogd();
+>  }
 
-Thanks!
-that patch works well on my test environment.
-
-Tested-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-
-
-BTW: Your work is ultimate fast. it's wonderful :)
-
-
-
+I don't think we shoudl have added that hack in the first place.  It solves a
+problem which about three developers hit four times in five years but it
+has made kernel logging less reliable for everyone.
 
