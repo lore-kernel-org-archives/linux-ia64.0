@@ -1,33 +1,26 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Wed, 19 Mar 2008 21:19:14 +0000
-Subject: [PATCH 3/8] ia64 ptrace: forced_successful_syscall_return()
-Message-Id: <20080319211914.AFE0E26F995@magilla.localdomain>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 04 Mar 2008 23:34:57 +0000
+Subject: [PATCH] ia64: use dev_printk in video quirk
+Message-Id: <200803041634.57370.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080319211714.8B14226F995@magilla.localdomain>
-In-Reply-To: Roland McGrath's message of  Wednesday, 19 March 2008 14:17:14 -0700 <20080319211714.8B14226F995@magilla.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Define the forced_successful_syscall_return() macro to
-pair with our force_successful_syscall_return() definition.
+Convert quirk printks to dev_printk().
 
-Signed-off-by: Roland McGrath <roland@redhat.com>
----
- include/asm-ia64/ptrace.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-diff --git a/include/asm-ia64/ptrace.h b/include/asm-ia64/ptrace.h
-index 4b2a8d4..5e82915 100644
---- a/include/asm-ia64/ptrace.h
-+++ b/include/asm-ia64/ptrace.h
-@@ -276,6 +276,7 @@ struct switch_stack {
-    * On ia64, we can clear the user's pt_regs->r8 to force a successful syscall.
-    */
- # define force_successful_syscall_return()	(task_pt_regs(current)->r8 = 0)
-+# define forced_successful_syscall_return()	(task_pt_regs(current)->r8 = 0)
- 
-   struct task_struct;			/* forward decl */
-   struct unw_frame_info;		/* forward decl */
+Index: linux-mm/arch/ia64/pci/fixup.c
+=================================--- linux-mm.orig/arch/ia64/pci/fixup.c	2008-01-18 12:39:53.000000000 -0700
++++ linux-mm/arch/ia64/pci/fixup.c	2008-01-18 12:43:52.000000000 -0700
+@@ -63,7 +63,7 @@
+ 	pci_read_config_word(pdev, PCI_COMMAND, &config);
+ 	if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
+ 		pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
+-		printk(KERN_DEBUG "Boot video device is %s\n", pci_name(pdev));
++		dev_printk(KERN_DEBUG, &pdev->dev, "Boot video device\n");
+ 	}
+ }
+ DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, pci_fixup_video);
