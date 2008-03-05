@@ -1,84 +1,209 @@
-From: akpm@linux-foundation.org
-Date: Fri, 28 Mar 2008 21:27:05 +0000
-Subject: [patch 5/5] arch/ia64/kernel/: use time_* macros
-Message-Id: <200803282127.m2SLR537011059@imap1.linux-foundation.org>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:35 +0000
+Subject: [PATCH 20/50] ia64/pv_ops: paravirtualized instructions for hand written assembly code on native.
+Message-Id: <12047411463751-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: S.Caglar Onur <caglar@pardus.org.tr>
 
-The functions time_before, time_before_eq, time_after, and time_after_eq are
-more robust for comparing jiffies against other values.
-
-So use the time_after() & time_before() macros, defined at linux/jiffies.h,
-which deal with wrapping correctly
-
-[akpm@linux-foundation.org: coding-style fixes]
-Signed-off-by: S.Caglar Onur <caglar@pardus.org.tr>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Reviewed-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ arch/ia64/kernel/inst_native.h |  183 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 183 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/kernel/inst_native.h
 
- arch/ia64/kernel/irq_ia64.c  |    2 +-
- arch/ia64/kernel/mca.c       |    4 +++-
- arch/ia64/kernel/unaligned.c |    3 ++-
- 3 files changed, 6 insertions(+), 3 deletions(-)
+diff --git a/arch/ia64/kernel/inst_native.h b/arch/ia64/kernel/inst_native.h
+new file mode 100644
+index 0000000..9453083
+--- /dev/null
++++ b/arch/ia64/kernel/inst_native.h
+@@ -0,0 +1,183 @@
++/******************************************************************************
++ * inst_native.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#define IA64_ASM_PARAVIRTUALIZED_NATIVE
++
++#undef BR_IF_NATIVE
++#define BR_IF_NATIVE(targ, reg, pred)		/* nothing */
++
++#ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
++# define PARAVIRT_POISON	0xdeadbeefbaadf00d
++# define CLOBBER(clob)				\
++	;;					\
++	movl clob = PARAVIRT_POISON;		\
++	;;
++#else
++# define CLOBBER(clob)		/* nothing */
++#endif
++
++#define __paravirt_switch_to			native_switch_to
++#define __paravirt_leave_syscall		native_leave_syscall
++#define __paravirt_work_processed_syscall	native_work_processed_syscall
++#define __paravirt_leave_kernel			native_leave_kernel
++#define __paravirt_pending_syscall_end		ia64_work_pending_syscall_end
++#define __paravirt_work_processed_syscall_target \
++						ia64_work_processed_syscall
++
++#define MOV_FROM_IFA(reg)	\
++	mov reg = cr.ifa
++
++#define MOV_FROM_ITIR(reg)	\
++	mov reg = cr.itir
++
++#define MOV_FROM_ISR(reg)	\
++	mov reg = cr.isr
++
++#define MOV_FROM_IHA(reg)	\
++	mov reg = cr.iha
++
++#define MOV_FROM_IPSR(reg)	\
++	mov reg = cr.ipsr
++
++#define MOV_FROM_IIM(reg)	\
++	mov reg = cr.iim
++
++#define MOV_FROM_IIP(reg)	\
++	mov reg = cr.iip
++
++#define MOV_FROM_IVR(reg, clob)	\
++	mov reg = cr.ivr	\
++	CLOBBER(clob)
++
++#define MOV_FROM_PSR(pred, reg, clob)	\
++(pred)	mov reg = psr			\
++	CLOBBER(clob)
++
++#define MOV_TO_IFA(reg, clob)	\
++	mov cr.ifa = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_ITIR(pred, reg, clob)	\
++(pred)	mov cr.itir = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IHA(pred, reg, clob)	\
++(pred)	mov cr.iha = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IPSR(reg, clob)	\
++	mov cr.ipsr = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_IFS(pred, reg, clob)	\
++(pred)	mov cr.ifs = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IIP(reg, clob)	\
++	mov cr.iip = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_KR(kr, reg, clob0, clob1)	\
++	mov IA64_KR(kr) = reg			\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)
++
++#define ITC_I(pred, reg, clob)	\
++(pred)	itc.i reg		\
++	CLOBBER(clob)
++
++#define ITC_D(pred, reg, clob)	\
++(pred)	itc.d reg		\
++	CLOBBER(clob)
++
++#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
++(pred_i) itc.i reg;				\
++(pred_d) itc.d reg				\
++	CLOBBER(clob)
++
++#define THASH(pred, reg0, reg1, clob)		\
++(pred)	thash reg0 = reg1			\
++	CLOBBER(clob)
++
++#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)			\
++	ssm psr.ic | PSR_DEFAULT_BITS					\
++	CLOBBER(clob0)							\
++	CLOBBER(clob1)							\
++	;;								\
++	srlz.i /* guarantee that interruption collectin is on */	\
++	;;
++
++#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
++	ssm psr.ic				\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)				\
++	;;					\
++	srlz.d
++
++#define RSM_PSR_IC(clob)	\
++	rsm psr.ic		\
++	CLOBBER(clob)
++
++#define SSM_PSR_I(pred, clob)	\
++(pred)	ssm psr.i		\
++	CLOBBER(clob)
++
++#define RSM_PSR_I(pred, clob0, clob1)	\
++(pred)	rsm psr.i			\
++	CLOBBER(clob0)			\
++	CLOBBER(clob1)
++
++#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
++	rsm psr.i | psr.ic			\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)				\
++	CLOBBER(clob2)
++
++#define RSM_PSR_DT		\
++	rsm psr.dt
++
++#define RSM_PSR_DT_AND_SRLZ_I	\
++	rsm psr.dt		\
++	;;			\
++	srlz.i
++
++#define SSM_PSR_DT_AND_SRLZ_I	\
++	ssm psr.dt		\
++	;;			\
++	srlz.i
++
++#define BSW_0(clob0, clob1, clob2)	\
++	bsw.0				\
++	CLOBBER(clob0)			\
++	CLOBBER(clob1)			\
++	CLOBBER(clob2)
++
++#define BSW_1(clob0, clob1)	\
++	bsw.1			\
++	CLOBBER(clob0)		\
++	CLOBBER(clob1)
++
++#define COVER	\
++	cover
++
++#define RFI	\
++	rfi
+-- 
+1.5.3
 
-diff -puN arch/ia64/kernel/irq_ia64.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/irq_ia64.c
---- a/arch/ia64/kernel/irq_ia64.c~arch-ia64-kernel-use-time_-macros
-+++ a/arch/ia64/kernel/irq_ia64.c
-@@ -472,7 +472,7 @@ ia64_handle_irq (ia64_vector vector, str
- 			static unsigned char count;
- 			static long last_time;
- 
--			if (jiffies - last_time > 5*HZ)
-+			if (time_after(jiffies, last_time + 5 * HZ))
- 				count = 0;
- 			if (++count < 5) {
- 				last_time = jiffies;
-diff -puN arch/ia64/kernel/mca.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/mca.c
---- a/arch/ia64/kernel/mca.c~arch-ia64-kernel-use-time_-macros
-+++ a/arch/ia64/kernel/mca.c
-@@ -69,6 +69,7 @@
-  * 2007-04-27 Russ Anderson <rja@sgi.com>
-  *	      Support multiple cpus going through OS_MCA in the same event.
-  */
-+#include <linux/jiffies.h>
- #include <linux/types.h>
- #include <linux/init.h>
- #include <linux/sched.h>
-@@ -293,7 +294,8 @@ static void ia64_mlogbuf_dump_from_init(
- 	if (mlogbuf_finished)
- 		return;
- 
--	if (mlogbuf_timestamp && (mlogbuf_timestamp + 30*HZ > jiffies)) {
-+	if (mlogbuf_timestamp &&
-+			time_before(jiffies, mlogbuf_timestamp + 30 * HZ)) {
- 		printk(KERN_ERR "INIT: mlogbuf_dump is interrupted by INIT "
- 			" and the system seems to be messed up.\n");
- 		ia64_mlogbuf_finish(0);
-diff -puN arch/ia64/kernel/unaligned.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/unaligned.c
---- a/arch/ia64/kernel/unaligned.c~arch-ia64-kernel-use-time_-macros
-+++ a/arch/ia64/kernel/unaligned.c
-@@ -13,6 +13,7 @@
-  * 2001/08/13	Correct size of extended floats (float_fsz) from 16 to 10 bytes.
-  * 2001/01/17	Add support emulation of unaligned kernel accesses.
-  */
-+#include <linux/jiffies.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
- #include <linux/tty.h>
-@@ -1290,7 +1291,7 @@ within_logging_rate_limit (void)
- {
- 	static unsigned long count, last_time;
- 
--	if (jiffies - last_time > 5*HZ)
-+	if (time_after(jiffies, last_time + 5 * HZ))
- 		count = 0;
- 	if (count < 5) {
- 		last_time = jiffies;
-_
