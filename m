@@ -1,279 +1,213 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:38 +0000
-Subject: [PATCH 23/50] ia64/pv_ops: paravirtualize arch/ia64/kernel/switch_leave.S
-Message-Id: <12047411463332-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:30 +0000
+Subject: [PATCH 15/50] ia64/pv_ops: preparation for paravirtualizatin of switch_leave.S and ivt.S
+Message-Id: <12047411464088-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+make some symbol global and add some hooks.
+define __IA64_ASM_PARAVIRTUALIZED_NATIVE to tell its native compilation
+when compiling ivt.S and switch_leave.S
+replace COVER with __COVER to avoid name conflict.
+
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/switch_leave.S |   80 +++++++++++++++++++++--------------=
----
- 1 files changed, 44 insertions(+), 36 deletions(-)
+ arch/ia64/kernel/Makefile       |    6 ++++++
+ arch/ia64/kernel/entry.S        |    4 ++--
+ arch/ia64/kernel/minstate.h     |    6 ++++--
+ arch/ia64/kernel/switch_leave.S |   19 ++++++++++---------
+ include/asm-ia64/privop.h       |   26 ++++++++++++++++++++++++++
+ 5 files changed, 48 insertions(+), 13 deletions(-)
+ create mode 100644 include/asm-ia64/privop.h
 
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index f9bc3c4..9281bf6 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -70,3 +70,9 @@ $(obj)/gate-syms.o: $(obj)/gate.lds $(obj)/gate.o FORCE
+ # We must build gate.so before we can assemble it.
+ # Note: kbuild does not track this dependency due to usage of .incbin
+ $(obj)/gate-data.o: $(obj)/gate.so
++
++#
++# native ivt.S and switch_leave.S
++#
++AFLAGS_ivt.o +=3D -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
++AFLAGS_switch_leave.o +=3D -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index df8dcc9..de91f61 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -304,7 +304,7 @@ END(save_switch_stack)
+  *	- b7 holds address to return to
+  *	- must not touch r8-r11
+  */
+-ENTRY(load_switch_stack)
++GLOBAL_ENTRY(load_switch_stack)
+ 	.prologue
+ 	.altrp b7
+=20
+@@ -624,7 +624,7 @@ END(ia64_invoke_schedule_tail)
+ 	 * be set up by the caller.  We declare 8 input registers so the system c=
+all
+ 	 * args get preserved, in case we need to restart a system call.
+ 	 */
+-ENTRY(notify_resume_user)
++GLOBAL_ENTRY(notify_resume_user)
+ 	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(8)
+ 	alloc loc1=3Dar.pfs,8,2,3,0 // preserve all eight input regs in case of s=
+yscall restart!
+ 	mov r9=3Dar.unat
+diff --git a/arch/ia64/kernel/minstate.h b/arch/ia64/kernel/minstate.h
+index c9ac8ba..fc99141 100644
+--- a/arch/ia64/kernel/minstate.h
++++ b/arch/ia64/kernel/minstate.h
+@@ -3,6 +3,7 @@
+=20
+ #include "entry.h"
+=20
++#ifdef __IA64_ASM_PARAVIRTUALIZED_NATIVE
+ /*
+  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
+  * the minimum state necessary that allows us to turn psr.ic back
+@@ -28,7 +29,7 @@
+  * Note that psr.ic is NOT turned on by this macro.  This is so that
+  * we can pass interruption state as arguments to a handler.
+  */
+-#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
++#define DO_SAVE_MIN(__COVER,SAVE_IFS,EXTRA)							\
+ 	mov r16=3DIA64_KR(CURRENT);	/* M */							\
+ 	mov r27=3Dar.rsc;			/* M */							\
+ 	mov r20=3Dr1;			/* A */							\
+@@ -37,7 +38,7 @@
+ 	mov r26=3Dar.pfs;			/* I */							\
+ 	mov r28=3Dcr.iip;			/* M */							\
+ 	mov r21=3Dar.fpsr;		/* M */							\
+-	COVER;				/* B;; (or nothing) */					\
++	__COVER;			/* B;; (or nothing) */					\
+ 	;;											\
+ 	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
+ 	;;											\
+@@ -129,6 +130,7 @@
+ 	;;											\
+ 	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
+ 	;;
++#endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
+=20
+ /*
+  * SAVE_REST saves the remainder of pt_regs (with psr.ic on).
 diff --git a/arch/ia64/kernel/switch_leave.S b/arch/ia64/kernel/switch_leav=
 e.S
-index 9918160..d6d0f08 100644
+index 5ca5b84..9918160 100644
 --- a/arch/ia64/kernel/switch_leave.S
 +++ b/arch/ia64/kernel/switch_leave.S
-@@ -44,16 +44,17 @@
- #include <asm/pgtable.h>
- #include <asm/thread_info.h>
-=20
-+#include "inst_paravirt.h"
- #include "minstate.h"
-=20
--
- /*
-  * prev_task <- ia64_switch_to(struct task_struct *next)
-  *	With Ingo's new scheduler, interrupts are disabled when this routine ge=
-ts
+@@ -53,7 +53,7 @@
   *	called.  The code starting at .map relies on this.  The rest of the code
   *	doesn't care about the interrupt masking status.
   */
--GLOBAL_ENTRY(native_switch_to)
-+GLOBAL_ENTRY(__paravirt_switch_to)
-+	BR_IF_NATIVE(native_switch_to, r22, p7)
+-GLOBAL_ENTRY(ia64_switch_to)
++GLOBAL_ENTRY(native_switch_to)
  	.prologue
  	alloc r16=3Dar.pfs,1,0,0,0
  	DO_SAVE_SWITCH_STACK
-@@ -77,7 +78,7 @@ GLOBAL_ENTRY(native_switch_to)
- 	;;
- .done:
- 	ld8 sp=3D[r21]			// load kernel stack pointer of new task
--	mov IA64_KR(CURRENT)=3Din0	// update "current" application register
-+	MOV_TO_KR(CURRENT, in0, r8, r9)		// update "current" application register
- 	mov r8=3Dr13			// return pointer to previously running task
- 	mov r13=3Din0			// set "current" pointer
- 	;;
-@@ -89,25 +90,30 @@ GLOBAL_ENTRY(native_switch_to)
- 	br.ret.sptk.many rp		// boogie on out in new context
-=20
- .map:
--	rsm psr.ic			// interrupts (psr.i) are already disabled here
-+	RSM_PSR_IC(r25)			// interrupts (psr.i) are already disabled here
- 	movl r25=3DPAGE_KERNEL
+@@ -107,7 +107,7 @@ GLOBAL_ENTRY(ia64_switch_to)
  	;;
  	srlz.d
- 	or r23=3Dr25,r20			// construct PA | page properties
- 	mov r25=3DIA64_GRANULE_SHIFT<<2
- 	;;
--	mov cr.itir=3Dr25
--	mov cr.ifa=3Din0			// VA of next task...
-+	MOV_TO_ITIR(p0, r25, r8)
-+	MOV_TO_IFA(in0, r8)		// VA of next task...
- 	;;
- 	mov r25=3DIA64_TR_CURRENT_STACK
--	mov IA64_KR(CURRENT_STACK)=3Dr26	// remember last page we mapped...
-+	MOV_TO_KR(CURRENT_STACK, r26, r8, r9)	// remember last page we mapped...
- 	;;
- 	itr.d dtr[r25]=3Dr23		// wire in new mapping...
--	ssm psr.ic			// reenable the psr.ic bit
--	;;
--	srlz.d
-+	SSM_PSR_IC_AND_SRLZ_D(r8, r9)	// reenable the psr.ic bit
  	br.cond.sptk .done
--END(native_switch_to)
-+END(__paravirt_switch_to)
-+
-+#ifdef IA64_ASM_PARAVIRTUALIZED_XEN
-+GLOBAL_ENTRY(xen_work_processed_syscall_with_check)
-+	BR_IF_NATIVE(native_work_processed_syscall, r2, p7)
-+	br.cond.sptk xen_work_processed_syscall
-+END(xen_work_processed_syscall_with_check)
-+#endif /* IA64_ASM_PARAVIRTUALIZED_XEN */
+-END(ia64_switch_to)
++END(native_switch_to)
 =20
  /*
   * ia64_leave_syscall(): Same as ia64_leave_kernel, except that it doesn't
-@@ -153,8 +159,9 @@ END(native_switch_to)
+@@ -153,7 +153,7 @@ END(ia64_switch_to)
   *	      ar.csd: cleared
   *	      ar.ssd: cleared
   */
--GLOBAL_ENTRY(native_leave_syscall)
-+GLOBAL_ENTRY(__paravirt_leave_syscall)
+-ENTRY(ia64_leave_syscall)
++GLOBAL_ENTRY(native_leave_syscall)
  	PT_REGS_UNWIND_INFO(0)
-+	BR_IF_NATIVE(native_leave_syscall, r22, p7)
  	/*
  	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
 ns to
- 	 * user- or fsys-mode, hence we disable interrupts early on.
-@@ -177,12 +184,12 @@ GLOBAL_ENTRY(native_leave_syscall)
- 	;;
- 	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
- #else /* !CONFIG_PREEMPT */
--(pUStk)	rsm psr.i
-+	RSM_PSR_I(pUStk, r2, r18)
+@@ -163,7 +163,7 @@ ENTRY(ia64_leave_syscall)
+ 	 * extra work.  We always check for extra work when returning to user-lev=
+el.
+ 	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_cou=
+nt
+ 	 * is 0.  After extra work processing has been completed, execution
+-	 * resumes at .work_processed_syscall with p6 set to 1 if the extra-work-=
+check
++	 * resumes at ia64_work_processed_syscall with p6 set to 1 if the extra-w=
+ork-check
+ 	 * needs to be redone.
+ 	 */
+ #ifdef CONFIG_PREEMPT
+@@ -181,7 +181,8 @@ ENTRY(ia64_leave_syscall)
  	cmp.eq pLvSys,p0=3Dr0,r0		// pLvSys=3D1: leave from syscall
  (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
  #endif
--.global native_work_processed_syscall;
--native_work_processed_syscall:
-+.global __paravirt_work_processed_syscall;
-+__paravirt_work_processed_syscall:
+-.work_processed_syscall:
++.global native_work_processed_syscall;
++native_work_processed_syscall:
  	adds r2=3DPT(LOADRS)+16,r12
  	adds r3=3DPT(AR_BSPSTORE)+16,r12
  	adds r18=3DTI_FLAGS+IA64_TASK_SIZE,r13
-@@ -205,7 +212,7 @@ native_work_processed_syscall:
- (pNonSys) break 0		//      bug check: we shouldn't be here if pNonSys is T=
-RUE!
- 	;;
- 	invala			// M0|1 invalidate ALAT
--	rsm psr.i | psr.ic	// M2   turn off interrupts and interruption collection
-+	RSM_PSR_I_IC(r28, r29, r30)	// M2   turn off interrupts and interruption =
-collection
- 	cmp.eq p9,p0=3Dr0,r0	// A    set p9 to indicate that we should restore cr=
-.ifs
-=20
- 	ld8 r29=3D[r2],16		// M0|1 load cr.ipsr
-@@ -217,7 +224,7 @@ native_work_processed_syscall:
- (pUStk) add r14=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r13
- 	;;
- 	ld8 r26=3D[r2],PT(B0)-PT(AR_PFS)	// M0|1 load ar.pfs
--(pKStk)	mov r22=3Dpsr			// M2   read PSR now that interrupts are disabled
-+	MOV_FROM_PSR(pKStk, r22, r21)	// M2   read PSR now that interrupts are di=
-sabled
- 	nop 0
- 	;;
- 	ld8 r21=3D[r2],PT(AR_RNAT)-PT(B0) // M0|1 load b0
-@@ -246,7 +253,7 @@ native_work_processed_syscall:
-=20
- 	srlz.d				// M0   ensure interruption collection is off (for cover)
- 	shr.u r18=3Dr19,16		// I0|1 get byte size of existing "dirty" partition
--	cover				// B    add current frame into dirty partition & set cr.ifs
-+	COVER				// B    add current frame into dirty partition & set cr.ifs
- 	;;
- 	mov r19=3Dar.bsp			// M2   get new backing store pointer
- 	mov f10=F0			// F    clear f10
-@@ -261,10 +268,11 @@ native_work_processed_syscall:
+@@ -260,9 +261,9 @@ ENTRY(ia64_leave_syscall)
  	mov.m ar.ssd=3Dr0			// M2   clear ar.ssd
  	mov f11=F0			// F    clear f11
  	br.cond.sptk.many rbs_switch	// B
--END(native_leave_syscall)
-+END(__paravirt_leave_syscall)
+-END(ia64_leave_syscall)
++END(native_leave_syscall)
 =20
--GLOBAL_ENTRY(native_leave_kernel)
-+GLOBAL_ENTRY(__paravirt_leave_kernel)
+-GLOBAL_ENTRY(ia64_leave_kernel)
++GLOBAL_ENTRY(native_leave_kernel)
  	PT_REGS_UNWIND_INFO(0)
-+	BR_IF_NATIVE(native_leave_kernel, r22, p7)
  	/*
  	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
 ns to
- 	 * user- or fsys-mode, hence we disable interrupts early on.
-@@ -287,7 +295,7 @@ GLOBAL_ENTRY(native_leave_kernel)
- 	;;
- 	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
- #else
--(pUStk)	rsm psr.i
-+	RSM_PSR_I(pUStk, r17, r31)
- 	cmp.eq p0,pLvSys=3Dr0,r0		// pLvSys=3D0: leave from kernel
- (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
- #endif
-@@ -335,7 +343,7 @@ GLOBAL_ENTRY(native_leave_kernel)
- 	mov ar.csd=3Dr30
- 	mov ar.ssd=3Dr31
- 	;;
--	rsm psr.i | psr.ic	// initiate turning off of interrupt and interruption =
-collection
-+	RSM_PSR_I_IC(r23, r22, r25)	// initiate turning off of interrupt and inte=
-rruption collection
- 	invala			// invalidate ALAT
- 	;;
- 	ld8.fill r22=3D[r2],24
-@@ -367,13 +375,13 @@ GLOBAL_ENTRY(native_leave_kernel)
- 	mov ar.ccv=3Dr15
- 	;;
- 	ldf.fill f11=3D[r2]
--	bsw.0			// switch back to bank 0 (no stop bit required beforehand...)
-+	BSW_0(r2, r3, r15)	// switch back to bank 0 (no stop bit required beforeh=
-and...)
- 	;;
- (pUStk)	mov r18=3DIA64_KR(CURRENT)// M2 (12 cycle read latency)
- 	adds r16=3DPT(CR_IPSR)+16,r12
- 	adds r17=3DPT(CR_IIP)+16,r12
-=20
--(pKStk)	mov r22=3Dpsr		// M2 read PSR now that interrupts are disabled
-+	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disa=
-bled
- 	nop.i 0
- 	nop.i 0
- 	;;
-@@ -421,7 +429,7 @@ GLOBAL_ENTRY(native_leave_kernel)
- 	 * NOTE: alloc, loadrs, and cover can't be predicated.
- 	 */
- (pNonSys) br.cond.dpnt dont_preserve_current_frame
--	cover				// add current frame into dirty partition and set cr.ifs
-+	COVER				// add current frame into dirty partition and set cr.ifs
- 	;;
- 	mov r19=3Dar.bsp			// get new backing store pointer
- rbs_switch:
-@@ -524,16 +532,16 @@ skip_rbs_switch:
- (pKStk)	dep r29=3Dr22,r29,21,1	// I0 update ipsr.pp with psr.pp
- (pLvSys)mov r16=3Dr0		// A  clear r16 for leave_syscall, no-op otherwise
- 	;;
--	mov cr.ipsr=3Dr29		// M2
-+	MOV_TO_IPSR(r29, r25)	// M2
- 	mov ar.pfs=3Dr26		// I0
- (pLvSys)mov r17=3Dr0		// A  clear r17 for leave_syscall, no-op otherwise
-=20
--(p9)	mov cr.ifs=3Dr30		// M2
-+	MOV_TO_IFS(p9, r30, r25)// M2
- 	mov b0=3Dr21		// I0
- (pLvSys)mov r18=3Dr0		// A  clear r18 for leave_syscall, no-op otherwise
-=20
- 	mov ar.fpsr=3Dr20		// M2
--	mov cr.iip=3Dr28		// M2
-+	MOV_TO_IIP(r28, r25)	// M2
- 	nop 0
- 	;;
- (pUStk)	mov ar.rnat=3Dr24		// M2 must happen with RSE in lazy mode
-@@ -542,7 +550,7 @@ skip_rbs_switch:
-=20
- 	mov ar.rsc=3Dr27		// M2
- 	mov pr=3Dr31,-1		// I0
--	rfi			// B
-+	RFI			// B
-=20
- 	/*
- 	 * On entry:
-@@ -568,28 +576,28 @@ skip_rbs_switch:
- #endif
- 	br.call.spnt.many rp=3Dschedule
- .ret9:	cmp.eq p6,p0=3Dr0,r0				// p6 <- 1
--	rsm psr.i		// disable interrupts
-+	RSM_PSR_I(p0, r2, r20)	// disable interrupts
- 	;;
- #ifdef CONFIG_PREEMPT
- (pKStk)	adds r20=3DTI_PRE_COUNT+IA64_TASK_SIZE,r13
- 	;;
- (pKStk)	st4 [r20]=3Dr0		// preempt_count() <- 0
- #endif
--(pLvSys)br.cond.sptk.few  ia64_work_pending_syscall_end
-+(pLvSys)br.cond.sptk.few  __paravirt_pending_syscall_end
- 	br.cond.sptk.many .work_processed_kernel	// re-check
-=20
- .notify:
- (pUStk)	br.call.spnt.many rp=3Dnotify_resume_user
- .ret10:	cmp.ne p6,p0=3Dr0,r0				// p6 <- 0
--(pLvSys)br.cond.sptk.few  ia64_work_pending_syscall_end
-+(pLvSys)br.cond.sptk.few  __paravirt_pending_syscall_end
- 	br.cond.sptk.many .work_processed_kernel	// don't re-check
-=20
--.global ia64_work_pending_syscall_end;
--ia64_work_pending_syscall_end:
-+.global __paravirt_pending_syscall_end;
-+__paravirt_pending_syscall_end:
- 	adds r2=3DPT(R8)+16,r12
- 	adds r3=3DPT(R10)+16,r12
+@@ -590,5 +591,5 @@ ia64_work_pending_syscall_end:
  	;;
  	ld8 r8=3D[r2]
  	ld8 r10=3D[r3]
--	br.cond.sptk.many ia64_work_processed_syscall	// re-check
--END(native_leave_kernel)
-+	br.cond.sptk.many __paravirt_work_processed_syscall_target	// re-check
-+END(__paravirt_leave_kernel)
+-	br.cond.sptk.many .work_processed_syscall	// re-check
+-END(ia64_leave_kernel)
++	br.cond.sptk.many ia64_work_processed_syscall	// re-check
++END(native_leave_kernel)
+diff --git a/include/asm-ia64/privop.h b/include/asm-ia64/privop.h
+new file mode 100644
+index 0000000..11d26f7
+--- /dev/null
++++ b/include/asm-ia64/privop.h
+@@ -0,0 +1,26 @@
++#ifndef _ASM_IA64_PRIVOP_H
++#define _ASM_IA64_PRIVOP_H
++
++#ifndef _ASM_IA64_INTRINSICS_H
++#error "don't include privop.h directly. instead include intrinsics.h"
++#endif
++/*
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
++ *
++ */
++
++#ifdef CONFIG_XEN
++#include <asm/xen/privop.h>
++#endif
++
++/* fallback for native case */
++
++#ifndef IA64_PARAVIRTUALIZED_ENTRY
++#define ia64_switch_to			native_switch_to
++#define ia64_leave_syscall		native_leave_syscall
++#define ia64_work_processed_syscall	native_work_processed_syscall
++#define ia64_leave_kernel		native_leave_kernel
++#endif /* !IA64_PARAVIRTUALIZED_ENTRY */
++
++#endif /* _ASM_IA64_PRIVOP_H */
 --=20
 1.5.3
 
