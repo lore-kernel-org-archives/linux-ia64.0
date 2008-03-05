@@ -1,63 +1,84 @@
-From: Adrian Bunk <bunk@kernel.org>
-Date: Mon, 03 Mar 2008 18:07:22 +0000
-Subject: [2.6 patch] fix ia64 kprobes compilation
-Message-Id: <20080303180722.GG26072@cs181133002.pp.htv.fi>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:19:01 +0000
+Subject: [PATCH 46/50] ia64/xen: define xen related address conversion helper functions for domU
+Message-Id: <12047411464035-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: prasanna@in.ibm.com, ananth@in.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch fixes the following compile error with a recent gcc:
-
-<--  snip  -->
-
-...
-  CC      kernel/kprobes.o
-/home/bunk/linux/kernel-2.6/git/linux-2.6/kernel/kprobes.c:1066: error: __ksymtab_jprobe_return causes a section type conflict
-make[2]: *** [kernel/kprobes.o] Error 1
-
-<--  snip  -->
-
-Signed-off-by: Adrian Bunk <bunk@kernel.org>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ include/asm-ia64/page.h     |    8 ++++++++
+ include/asm-ia64/xen/page.h |   41 +++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/page.h
 
- arch/ia64/kernel/kprobes.c |    5 +++++
- include/asm-ia64/kprobes.h |    4 ----
- 2 files changed, 5 insertions(+), 4 deletions(-)
-
-20bd2855f85dd0ac9d76df414aeef8c82d2ec668 foobar
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index b618487..615c3d2 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -1001,6 +1001,11 @@ int __kprobes setjmp_pre_handler(struct kprobe *p, struct pt_regs *regs)
- 	return 1;
- }
+diff --git a/include/asm-ia64/page.h b/include/asm-ia64/page.h
+index 4999a6c..5508dc2 100644
+--- a/include/asm-ia64/page.h
++++ b/include/asm-ia64/page.h
+@@ -227,4 +227,12 @@ get_order (unsigned long size)
+ 					 (((current->personality & READ_IMPLIES_EXEC) != 0)	\
+ 					  ? VM_EXEC : 0))
  
-+/* ia64 does not need this */
-+void __kprobes jprobe_return(void)
++/*
++ * XXX: to compile
++ * after pv_ops'fication of xen paravirtualization, this should be removed.
++ */
++#if !defined(__ASSEMBLY__) && defined(CONFIG_XEN)
++#include <asm/xen/page.h>
++#endif /* !__ASSEMBLY__ && CONFIG_XEN */
++
+ #endif /* _ASM_IA64_PAGE_H */
+diff --git a/include/asm-ia64/xen/page.h b/include/asm-ia64/xen/page.h
+new file mode 100644
+index 0000000..c562036
+--- /dev/null
++++ b/include/asm-ia64/xen/page.h
+@@ -0,0 +1,41 @@
++#ifndef _ASM_IA64_XEN_PAGE_H
++#define _ASM_IA64_XEN_PAGE_H
++
++#include <linux/kernel.h>
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/hypercall.h>
++#include <xen/features.h>
++#include <xen/interface/xen.h>
++
++static inline unsigned long mfn_to_pfn(unsigned long mfn)
 +{
++	return mfn;
 +}
 +
- int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
- {
- 	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
-diff --git a/include/asm-ia64/kprobes.h b/include/asm-ia64/kprobes.h
-index a93ce9e..49684b6 100644
---- a/include/asm-ia64/kprobes.h
-+++ b/include/asm-ia64/kprobes.h
-@@ -122,10 +122,6 @@ extern int kprobes_fault_handler(struct pt_regs *regs, int trapnr);
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
- 
--/* ia64 does not need this */
--static inline void jprobe_return(void)
--{
--}
- extern void invalidate_stacked_regs(void);
- extern void flush_register_stack(void);
- extern void arch_remove_kprobe(struct kprobe *p);
++static inline unsigned long pfn_to_mfn(unsigned long pfn)
++{
++	return pfn;
++}
++
++static inline void *mfn_to_virt(unsigned long mfn)
++{
++	return __va(mfn << PAGE_SHIFT);
++}
++
++static inline unsigned long virt_to_mfn(void *virt)
++{
++	return __pa(virt) >> PAGE_SHIFT;
++}
++
++/* for tpmfront.c */
++static inline unsigned long virt_to_machine(void *virt)
++{
++	return __pa(virt);
++}
++
++static inline void set_phys_to_machine(unsigned long pfn, unsigned long mfn)
++{
++	/* nothing */
++}
++
++#endif /* _ASM_IA64_XEN_PAGE_H */
+-- 
+1.5.3
 
