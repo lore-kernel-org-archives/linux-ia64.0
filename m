@@ -1,84 +1,59 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:45 +0000
-Subject: [PATCH 30/50] ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
-Message-Id: <12047411461378-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:28 +0000
+Subject: [PATCH 13/50] ia64/pv_ops: introduce ia64_get_psr_i() to make kernel paravirtualization friendly.
+Message-Id: <1204741146323-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+__local_irq_save() and local_save_flags() are used to mask interruptions.
+They read all psr bits that requres whole bit emulation.
+On the other hand, reading only psr.i, the single bit, can be virtualized
+cheaply.
+
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/asm-ia64/sync_bitops.h |   59 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 59 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/sync_bitops.h
+ include/asm-ia64/intrinsics.h |    2 ++
+ include/asm-ia64/system.h     |    4 ++--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
-new file mode 100644
-index 0000000..f56cd90
---- /dev/null
-+++ b/include/asm-ia64/sync_bitops.h
-@@ -0,0 +1,59 @@
-+#ifndef _ASM_IA64_SYNC_BITOPS_H
-+#define _ASM_IA64_SYNC_BITOPS_H
+diff --git a/include/asm-ia64/intrinsics.h b/include/asm-ia64/intrinsics.h
+index c206755..5800ad0 100644
+--- a/include/asm-ia64/intrinsics.h
++++ b/include/asm-ia64/intrinsics.h
+@@ -18,6 +18,8 @@
+ # include <asm/gcc_intrin.h>
+ #endif
+ 
++#define ia64_get_psr_i()	(ia64_getreg(_IA64_REG_PSR) & IA64_PSR_I)
 +
-+/*
-+ * Copyright 1992, Linus Torvalds.
-+ * Heavily modified to provide guaranteed strong synchronisation
-+ * when communicating with Xen or other guest OSes running on other CPUs.
-+ */
-+
-+static inline void sync_set_bit(int nr, volatile void *addr)
-+{
-+	set_bit(nr, addr);
-+}
-+
-+static inline void sync_clear_bit(int nr, volatile void *addr)
-+{
-+	clear_bit(nr, addr);
-+}
-+
-+static inline void sync_change_bit(int nr, volatile void *addr)
-+{
-+	change_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_set_bit(int nr, volatile void *addr)
-+{
-+	return test_and_set_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
-+{
-+	return test_and_clear_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_change_bit(int nr, volatile void *addr)
-+{
-+	return test_and_change_bit(nr, addr);
-+}
-+
-+static inline int sync_const_test_bit(int nr, const volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+static inline int sync_var_test_bit(int nr, volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+#define sync_cmpxchg	ia64_cmpxchg4_acq
-+
-+#define sync_test_bit(nr,addr)			\
-+	(__builtin_constant_p(nr) ?		\
-+	 sync_const_test_bit((nr), (addr)) :	\
-+	 sync_var_test_bit((nr), (addr)))
-+
-+#define sync_cmpxchg_subword sync_cmpxchg
-+
-+#endif /* _ASM_IA64_SYNC_BITOPS_H */
+ #define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)	\
+ do {								\
+ 	ia64_set_rr(0x0000000000000000UL, (val0));		\
+diff --git a/include/asm-ia64/system.h b/include/asm-ia64/system.h
+index 595112b..2bca73e 100644
+--- a/include/asm-ia64/system.h
++++ b/include/asm-ia64/system.h
+@@ -125,7 +125,7 @@ extern struct ia64_boot_param {
+ #define __local_irq_save(x)			\
+ do {						\
+ 	ia64_stop();				\
+-	(x) = ia64_getreg(_IA64_REG_PSR);	\
++	(x) = ia64_get_psr_i();			\
+ 	ia64_stop();				\
+ 	ia64_rsm(IA64_PSR_I);			\
+ } while (0)
+@@ -173,7 +173,7 @@ do {								\
+ #endif /* !CONFIG_IA64_DEBUG_IRQ */
+ 
+ #define local_irq_enable()	({ ia64_stop(); ia64_ssm(IA64_PSR_I); ia64_srlz_d(); })
+-#define local_save_flags(flags)	({ ia64_stop(); (flags) = ia64_getreg(_IA64_REG_PSR); })
++#define local_save_flags(flags)	({ ia64_stop(); (flags) = ia64_get_psr_i(); })
+ 
+ #define irqs_disabled()				\
+ ({						\
 -- 
 1.5.3
 
