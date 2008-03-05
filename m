@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:36 +0000
-Subject: [PATCH 21/50] ia64/pv_ops: header file to switch paravirtualized assembly instructions.
-Message-Id: <12047411461445-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:19:04 +0000
+Subject: [PATCH 49/50] ia64/pv_ops/xen: define xen pv_iosapic_ops.
+Message-Id: <12047411463523-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,44 +10,85 @@ To: linux-ia64@vger.kernel.org
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/inst_paravirt.h |   28 ++++++++++++++++++++++++++++
- 1 files changed, 28 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kernel/inst_paravirt.h
+ arch/ia64/xen/xen_pv_ops.c |   53 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 53 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/inst_paravirt.h b/arch/ia64/kernel/inst_paravirt.h
-new file mode 100644
-index 0000000..689c343
---- /dev/null
-+++ b/arch/ia64/kernel/inst_paravirt.h
-@@ -0,0 +1,28 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/inst_paravirt.h
-+ *
-+ * Copyright (c) 2007 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index a2a7493..c35bb23 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -21,6 +21,7 @@
+  */
+ 
+ #include <linux/console.h>
++#include <linux/irq.h>
+ #include <linux/kernel.h>
+ #include <linux/notifier.h>
+ #include <linux/pm.h>
+@@ -251,6 +252,57 @@ static const struct pv_init_ops xen_init_ops __initdata = {
+ 
+ 
+ /***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
 + */
++static void
++xen_pcat_compat_init(void)
++{
++	/* nothing */
++}
 +
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
-+#include "../xen/inst_xen.h"
-+#include "../xen/xenminstate.h"
-+#else
-+#include "inst_native.h"
-+#endif
++static struct irq_chip*
++xen_iosapic_get_irq_chip(unsigned long trigger)
++{
++	return NULL;
++}
++
++static unsigned int
++xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	struct physdev_apic apic_op;
++	int ret;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
++	if (ret)
++		return ret;
++	return apic_op.value;
++}
++
++static void
++xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	struct physdev_apic apic_op;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	apic_op.value = val;
++	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
++}
++
++static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
++	.pcat_compat_init = xen_pcat_compat_init,
++	.get_irq_chip = xen_iosapic_get_irq_chip,
++
++	.__read = xen_iosapic_read,
++	.__write = xen_iosapic_write,
++};
++
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -260,4 +312,5 @@ xen_setup_pv_ops(void)
+ 	xen_info_init();
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
++	pv_iosapic_ops = xen_iosapic_ops;
+ }
 -- 
 1.5.3
 
