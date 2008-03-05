@@ -1,44 +1,37 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Wed, 19 Mar 2008 21:20:50 +0000
-Subject: [PATCH 7/8] x86 ptrace: arch_ptrace -ENOSYS return
-Message-Id: <20080319212050.32AA126F995@magilla.localdomain>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:37 +0000
+Subject: [PATCH 22/50] ia64/pv_ops: paravirtualize minstate.h.
+Message-Id: <12047411463391-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080319211714.8B14226F995@magilla.localdomain>
-In-Reply-To: Roland McGrath's message of  Wednesday, 19 March 2008 14:17:14 -0700 <20080319211714.8B14226F995@magilla.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Return -ENOSYS from arch_ptrace and compat_arch_ptrace
-rather than calling ptrace_request or compat_ptrace_request.
+This isn't necessary because xen defines its own DO_SAVE_MIN.
+But this makes the difference of them smaller.
 
-Signed-off-by: Roland McGrath <roland@redhat.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/x86/kernel/ptrace.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/minstate.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
-index 777d8f9..4d5561c 100644
---- a/arch/x86/kernel/ptrace.c
-+++ b/arch/x86/kernel/ptrace.c
-@@ -1010,7 +1010,7 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
- #endif
- 
- 	default:
--		ret = ptrace_request(child, request, addr, data);
-+		ret = -ENOSYS;
- 		break;
- 	}
- 
-@@ -1266,7 +1266,8 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
- 		return arch_ptrace(child, request, addr, data);
- 
- 	default:
--		return compat_ptrace_request(child, request, addr, data);
-+		ret = -ENOSYS;
-+		break;
- 	}
- 
- 	return ret;
+diff --git a/arch/ia64/kernel/minstate.h b/arch/ia64/kernel/minstate.h
+index fc99141..10a412c 100644
+--- a/arch/ia64/kernel/minstate.h
++++ b/arch/ia64/kernel/minstate.h
+@@ -34,9 +34,9 @@
+ 	mov r27=ar.rsc;			/* M */							\
+ 	mov r20=r1;			/* A */							\
+ 	mov r25=ar.unat;		/* M */							\
+-	mov r29=cr.ipsr;		/* M */							\
++	MOV_FROM_IPSR(r29);		/* M */							\
+ 	mov r26=ar.pfs;			/* I */							\
+-	mov r28=cr.iip;			/* M */							\
++	MOV_FROM_IIP(r28);		/* M */							\
+ 	mov r21=ar.fpsr;		/* M */							\
+ 	__COVER;			/* B;; (or nothing) */					\
+ 	;;											\
+-- 
+1.5.3
+
