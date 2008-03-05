@@ -1,36 +1,29 @@
-From: holt@sgi.com
-Date: Mon, 17 Mar 2008 12:12:41 +0000
-Subject: [Patch 1/3] Correct pernodesize calculation.
-Message-Id: <20080317121240.743452525@attica.americas.sgi.com>
+From: Matthew Chapman <matthewc@cse.unsw.edu.au>
+Date: Wed, 05 Mar 2008 09:41:28 +0000
+Subject: Interval timer
+Message-Id: <20080305094128.GA30069@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080213175520.242474093@attica.americas.sgi.com>
-In-Reply-To: <20080213175520.242474093@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Is there any interval timer on HP zx1 platforms, other than the
+CPU-based ITC/ITM?
 
-A simple fix.  The existing pernodesize reservation is not taking into
-account a second array of pg_data_t structures.  This is normally not
-important because the PAGE_ALIGN macro reserves adequate space.
+All I need is some mechanism that can deliver an interrupt "after a
+short time", where I don't care exactly how long that is, but preferably
+of the order of several microseconds (pinging the chipset is a bit short
+I think).
 
-I made the compute_pernodesize steps in the same order as the fill_pernode
-steps to make the correlation more clear.
+I used to use the PMU for this - the PMU is useful for an incredible
+number of things - but this was causing a bug (because of the 'freeze'
+behaviour on an interrupt, I miss important events in other counters).
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+Multiplexing ITC/ITM complicates my common path so I'm trying to avoid
+doing that if I can find any other way...
 
+Any ideas?
 
-Index: per_cpu_mca_v1/arch/ia64/mm/discontig.c
-=================================--- per_cpu_mca_v1.orig/arch/ia64/mm/discontig.c	2008-02-13 06:56:45.000000000 -0600
-+++ per_cpu_mca_v1/arch/ia64/mm/discontig.c	2008-02-13 07:12:44.847819507 -0600
-@@ -124,6 +124,7 @@ static unsigned long __meminit compute_p
- 	pernodesize += node * L1_CACHE_BYTES;
- 	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
- 	pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
-+	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
- 	pernodesize = PAGE_ALIGN(pernodesize);
- 	return pernodesize;
- }
+Matt
 
--- 
