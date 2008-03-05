@@ -1,229 +1,165 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:19:03 +0000
-Subject: [PATCH 48/50] ia64/pv_ops/xen: define xen pv_init_ops.
-Message-Id: <12047411463299-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:15 +0000
+Subject: [PATCH 00/50] ia64/xen take 3: ia64/xen domU paravirtualization
+Message-Id: <12047411453864-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi. This patchset implements xen/ia64 domU support.
+Qing He and Eddie Dong also has been woring on pv_ops so that
+I want to discuss before going further and avoid duplicated work.
+I suppose that Eddie will also post his own patch. So reviewing both
+patches, we can reach to better pv_ops interface.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/xen_pv_ops.c |  194 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 194 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 18aa2f6..a2a7493 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -58,6 +58,199 @@ xen_info_init(void)
- }
- 
- /***************************************************************************
-+ * pv_init_ops
-+ * initialization hooks.
-+ */
-+
-+static void
-+xen_panic_hypercall(struct unw_frame_info *info, void *arg)
-+{
-+	current->thread.ksp = (__u64)info->sw - 16;
-+	HYPERVISOR_shutdown(SHUTDOWN_crash);
-+	/* we're never actually going to get here... */
-+}
-+
-+static int
-+xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
-+{
-+	unw_init_running(xen_panic_hypercall, NULL);
-+	/* we're never actually going to get here... */
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block xen_panic_block = {
-+	xen_panic_event, NULL, 0 /* try to go last */
-+};
-+
-+static void xen_pm_power_off(void)
-+{
-+	local_irq_disable();
-+	HYPERVISOR_shutdown(SHUTDOWN_poweroff);
-+}
-+
-+static void __init
-+xen_banner(void)
-+{
-+	printk(KERN_INFO
-+	       "Running on Xen! pl = %d start_info_pfn=0x%lx nr_pages=%ld "
-+	       "flags=0x%x\n",
-+	       xen_info.kernel_rpl,
-+	       HYPERVISOR_shared_info->arch.start_info_pfn,
-+	       xen_start_info->nr_pages, xen_start_info->flags);
-+}
-+
-+static int __init
-+xen_reserve_memory(struct rsvd_region *region)
-+{
-+	region->start = (unsigned long)__va((HYPERVISOR_shared_info->arch.start_info_pfn << PAGE_SHIFT));
-+	region->end   = region->start + PAGE_SIZE;
-+	return 1;
-+}
-+
-+static void __init
-+xen_arch_setup_early(void)
-+{
-+	struct shared_info *s;
-+	BUG_ON(!is_running_on_xen());
-+
-+	s = HYPERVISOR_shared_info;
-+	xen_start_info = __va(s->arch.start_info_pfn << PAGE_SHIFT);
-+
-+	/* Must be done before any hypercall.  */
-+	xencomm_initialize();
-+
-+	xen_setup_features();
-+	/* Register a call for panic conditions. */
-+	atomic_notifier_chain_register(&panic_notifier_list,
-+				       &xen_panic_block);
-+	pm_power_off = xen_pm_power_off;
-+
-+	xen_ia64_enable_opt_feature();
-+}
-+
-+static void __init
-+xen_arch_setup_console(char **cmdline_p)
-+{
-+	/*
-+	 * If a console= is NOT specified, we assume using the
-+	 * xencons console is desired.  By default, this is xvc0
-+	 * for both dom0 and domU.
-+	 */
-+	if (!strstr(*cmdline_p, "console=")) {
-+		char *p, *q, name[5] = "xvc";
-+		int offset = 0;
-+
-+#if defined(CONFIG_VGA_CONSOLE)
-+		/*
-+		 * conswitchp might be set intelligently from the
-+		 * PCDP code.  If set to VGA console, use it.
-+		 */
-+		if (is_initial_xendomain() && conswitchp = &vga_con)
-+			strncpy(name, "tty", 3);
-+#endif
-+
-+		p = strstr(*cmdline_p, "xencons=");
-+
-+		if (p) {
-+			p += 8;
-+			if (!strncmp(p, "ttyS", 4)) {
-+				strncpy(name, p, 4);
-+				p += 4;
-+				offset = simple_strtol(p, &q, 10);
-+				if (p = q)
-+					offset = 0;
-+			} else if (!strncmp(p, "tty", 3) ||
-+				   !strncmp(p, "xvc", 3)) {
-+				strncpy(name, p, 3);
-+				p += 3;
-+				offset = simple_strtol(p, &q, 10);
-+				if (p = q)
-+					offset = 0;
-+			} else if (!strncmp(p, "off", 3))
-+				offset = -1;
-+		}
-+
-+		if (offset >= 0)
-+			add_preferred_console(name, offset, NULL);
-+	} else if (!is_initial_xendomain()) {
-+		/* use hvc_xen */
-+		add_preferred_console("hvc", 0, NULL);
-+	}
-+
-+#if !defined(CONFIG_VT) || !defined(CONFIG_DUMMY_CONSOLE)
-+	if (!is_initial_xendomain()) {
-+		conswitchp = NULL;
-+	}
-+#endif
-+}
-+
-+static int __init
-+xen_arch_setup_nomca(void)
-+{
-+	if (!is_initial_xendomain())
-+		return 1;
-+	return 0;
-+}
-+
-+static void __init
-+xen_post_platform_setup(void)
-+{
-+#ifdef CONFIG_XEN_PRIVILEGED_GUEST
-+	if (is_running_on_xen() && !ia64_platform_is("xen")) {
-+		extern ia64_mv_setup_t xen_setup;
-+		xen_setup(cmdline_p);
-+	}
-+#endif
-+}
-+
-+static void __init
-+xen_post_paging_init(void)
-+{
-+#ifdef notyet /* XXX: notyet dma api paravirtualization*/
-+#ifdef CONFIG_XEN
-+	xen_contiguous_bitmap_init(max_pfn);
-+#endif
-+#endif
-+}
-+
-+static void __init
-+__xen_cpu_init(void)
-+{
-+#ifdef CONFIG_XEN_PRIVILEGED_GUEST
-+	if (is_running_on_xen() && !ia64_platform_is("xen")) {
-+		extern ia64_mv_cpu_init_t xen_cpu_init;
-+		xen_cpu_init();
-+	}
-+#endif
-+}
-+
-+static void __init
-+xen_post_smp_prepare_boot_cpu(void)
-+{
-+	xen_setup_vcpu_info_placement();
-+}
-+
-+static const struct pv_init_ops xen_init_ops __initdata = {
-+	.banner = xen_banner,
-+
-+	.reserve_memory = xen_reserve_memory,
-+
-+	.arch_setup_early = xen_arch_setup_early,
-+	.arch_setup_console = xen_arch_setup_console,
-+	.arch_setup_nomca = xen_arch_setup_nomca,
-+	.post_platform_setup = xen_post_platform_setup,
-+	.post_paging_init = xen_post_paging_init,
-+
-+	.cpu_init = __xen_cpu_init,
-+
-+	.post_smp_prepare_boot_cpu = xen_post_smp_prepare_boot_cpu,
-+
-+	.bundle_patch_module = &xen_alt_bundle_patch_module,
-+	.inst_patch_module = &xen_alt_inst_patch_module,
-+};
-+
-+
-+/***************************************************************************
-  * pv_ops initialization
-  */
- 
-@@ -66,4 +259,5 @@ xen_setup_pv_ops(void)
- {
- 	xen_info_init();
- 	pv_info = xen_info;
-+	pv_init_ops = xen_init_ops;
- }
--- 
-1.5.3
+- I didn't changed the ia64 intrinsic paravirtulization abi from
+  the last post. Presumably it would be better to discuss with
+  the Eddie's patch.
 
+- I implemented The basic portion of domU pv_ops.
+  They may need the interface refinement. Probably Eddie has
+  his own opinion.
+
+- This time I dropped the patches which hasn't been pv_ops'fied yet 
+  because they aren't changed from the last post.
+
+You can also get the full source from
+http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64.git/
+branch: xen-ia64-2008mar06
+
+The patchset are organized as follows
+- xen arch portability.
+  Generalizes x86 xen patches for ia64 support.
+- some preliminary patches.
+  Make kernel paravirtualization friendly.
+- introduce pv_ops and the definitions for native.
+- basic helper functions for xen ia64 support.
+- introduce the pv_ops instance for xen/ia64.
+
+
+TODO:
+- discuss and define intrinsic paravirtualization abi.
+- discuss pv_ops.
+- more pv_ops for domU
+  - mca/sal call
+  - timer
+  - gate page
+  - fsys
+- support save/restore/live migration
+- more clean ups
+  - remove unnecessary if (is_running_on_xen()).
+- Free xen_ivt areas somehow. No waste kernel space
+  From Keith Owens idea.
+  Probably after defining ABI because this is just optimization.
+- dom0
+  consider after finishing domU/ia64 merge.
+
+
+Changes from take 2:
+- many clean ups following to comments.
+- clean up:assembly instruction macro.
+- introduced pv_ops: pv_info, pv_init_ops, pv_iosapic_ops, pv_irq_ops.
+
+Changes from take 1:
+Single IVT source code. compile multitimes using assembler macros.
+
+thanks,
+
+Diffstat:
+ arch/ia64/Kconfig                                  |   72 +++
+ arch/ia64/kernel/Makefile                          |   30 +-
+ arch/ia64/kernel/acpi.c                            |    4 +
+ arch/ia64/kernel/asm-offsets.c                     |   25 +
+ arch/ia64/kernel/entry.S                           |  568 +------------------
+ arch/ia64/kernel/head.S                            |    6 +
+ arch/ia64/kernel/inst_native.h                     |  183 ++++++
+ arch/ia64/kernel/inst_paravirt.h                   |   28 +
+ arch/ia64/kernel/iosapic.c                         |   43 +-
+ arch/ia64/kernel/irq_ia64.c                        |   21 +-
+ arch/ia64/kernel/ivt.S                             |  153 +++---
+ arch/ia64/kernel/minstate.h                        |   10 +-
+ arch/ia64/kernel/module.c                          |   32 +
+ arch/ia64/kernel/pal.S                             |    5 +-
+ arch/ia64/kernel/paravirt.c                        |   94 +++
+ arch/ia64/kernel/paravirt_alt.c                    |  118 ++++
+ arch/ia64/kernel/paravirt_core.c                   |  201 +++++++
+ arch/ia64/kernel/paravirt_entry.c                  |   99 ++++
+ arch/ia64/kernel/paravirt_nop.c                    |   49 ++
+ arch/ia64/kernel/paravirtentry.S                   |   37 ++
+ arch/ia64/kernel/setup.c                           |   14 +
+ arch/ia64/kernel/smpboot.c                         |    2 +
+ arch/ia64/kernel/switch_leave.S                    |  603 +++++++++++++++++++
+ arch/ia64/kernel/vmlinux.lds.S                     |   35 ++
+ arch/ia64/xen/Makefile                             |    9 +
+ arch/ia64/xen/hypercall.S                          |  141 +++++
+ arch/ia64/xen/hypervisor.c                         |  235 ++++++++
+ arch/ia64/xen/inst_xen.h                           |  503 ++++++++++++++++
+ arch/ia64/xen/irq_xen.c                            |  435 ++++++++++++++
+ arch/ia64/xen/irq_xen.h                            |    8 +
+ arch/ia64/xen/machvec.c                            |    4 +
+ arch/ia64/xen/paravirt_xen.c                       |  242 ++++++++
+ arch/ia64/xen/privops_asm.S                        |  221 +++++++
+ arch/ia64/xen/privops_c.c                          |  279 +++++++++
+ arch/ia64/xen/util.c                               |  101 ++++
+ arch/ia64/xen/xcom_asm.S                           |   27 +
+ arch/ia64/xen/xcom_hcall.c                         |  458 +++++++++++++++
+ arch/ia64/xen/xen_pv_ops.c                         |  319 ++++++++++
+ arch/ia64/xen/xencomm.c                            |  108 ++++
+ arch/ia64/xen/xenivt.S                             |   59 ++
+ arch/ia64/{kernel/minstate.h => xen/xenminstate.h} |   96 +---
+ arch/ia64/xen/xenpal.S                             |   76 +++
+ arch/ia64/xen/xensetup.S                           |   60 ++
+ arch/x86/xen/Makefile                              |    4 +-
+ arch/x86/xen/grant-table.c                         |   91 +++
+ arch/x86/xen/xen-ops.h                             |    2 +-
+ drivers/xen/Makefile                               |    3 +-
+ {arch/x86 => drivers}/xen/events.c                 |   33 +-
+ {arch/x86 => drivers}/xen/features.c               |    0 
+ drivers/xen/grant-table.c                          |   37 +--
+ drivers/xen/xenbus/xenbus_client.c                 |    6 +-
+ drivers/xen/xencomm.c                              |  232 ++++++++
+ include/asm-ia64/gcc_intrin.h                      |   58 +-
+ include/asm-ia64/hw_irq.h                          |   24 +-
+ include/asm-ia64/intel_intrin.h                    |   64 +-
+ include/asm-ia64/intrinsics.h                      |   12 +
+ include/asm-ia64/iosapic.h                         |   18 +-
+ include/asm-ia64/irq.h                             |   33 ++
+ include/asm-ia64/machvec.h                         |    2 +
+ include/asm-ia64/machvec_xen.h                     |   22 +
+ include/asm-ia64/meminit.h                         |    3 +-
+ include/asm-ia64/mmu_context.h                     |    6 +-
+ include/asm-ia64/module.h                          |    6 +
+ include/asm-ia64/page.h                            |    8 +
+ include/asm-ia64/paravirt.h                        |  284 +++++++++
+ include/asm-ia64/paravirt_alt.h                    |   82 +++
+ include/asm-ia64/paravirt_core.h                   |   54 ++
+ include/asm-ia64/paravirt_entry.h                  |   62 ++
+ include/asm-ia64/paravirt_nop.h                    |   46 ++
+ include/asm-ia64/privop.h                          |   67 +++
+ include/asm-ia64/privop_paravirt.h                 |  587 +++++++++++++++++++
+ include/asm-ia64/sync_bitops.h                     |   59 ++
+ include/asm-ia64/system.h                          |    4 +-
+ include/asm-ia64/xen/hypercall.h                   |  426 ++++++++++++++
+ include/asm-ia64/xen/hypervisor.h                  |  249 ++++++++
+ include/asm-ia64/xen/interface.h                   |  585 +++++++++++++++++++
+ include/asm-ia64/xen/page.h                        |   41 ++
+ include/asm-ia64/xen/privop.h                      |  609 ++++++++++++++++++++
+ include/asm-ia64/xen/xcom_hcall.h                  |   55 ++
+ include/asm-ia64/xen/xencomm.h                     |   33 ++
+ include/asm-x86/xen/hypervisor.h                   |   10 +
+ include/asm-x86/xen/interface.h                    |   24 +
+ include/{ => asm-x86}/xen/page.h                   |    0 
+ include/xen/events.h                               |    1 +
+ include/xen/grant_table.h                          |    6 +
+ include/xen/interface/callback.h                   |  119 ++++
+ include/xen/interface/grant_table.h                |   11 +-
+ include/xen/interface/vcpu.h                       |    5 +
+ include/xen/interface/xen.h                        |   22 +-
+ include/xen/interface/xencomm.h                    |   41 ++
+ include/xen/page.h                                 |  181 +------
+ include/xen/xen-ops.h                              |    6 +
+ include/xen/xencomm.h                              |   77 +++
+ 93 files changed, 9174 insertions(+), 1049 deletions(-)
