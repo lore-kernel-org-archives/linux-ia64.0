@@ -1,40 +1,63 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Wed, 12 Mar 2008 13:57:04 +0000
-Subject: RE: [kvm-ia64-devel] kvm-ia64.git is created on master.kernel.org!
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCF1BBC3@pdsmsx415.ccr.corp.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 05 Mar 2008 00:12:53 +0000
+Subject: git pull on ia64 linux tree
+Message-Id: <1FE6DD409037234FAB833C420AA843ECBC35AA@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDCF1BB8F@pdsmsx415.ccr.corp.intel.com> <DC8842D6FBC90takebe_akio@jp.fujitsu.com>
-In-Reply-To: <DC8842D6FBC90takebe_akio@jp.fujitsu.com>
+References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
+In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
-Cc: kvm-devel@lists.sourceforge.net, "Xu, Anthony" <anthony.xu@intel.com>, Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-Akio Takebe wrote:
-> Hi, Xiantao
-> 
->> We have created kvm-ia64.git on master.kernel.org for open
->> development, and the latest source is also included in this
->> repository. So you can clone  and make  contributions to it now. 
->> Cheers!! 
->> In this repository, I created the branch kvm-ia64-mc4 to hold the
->> patchset.  Now, the whole community had better work on the branch
->> together for reviewing code, doing cleanup, and adding the new
->> features. If you have any contribution or questions, please feel
->> free to submit to the kvm-ia64 mailing
->> list(https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel). 
-> Wow, greate!
-> Can we use the same userspace tree as x86?
+Hi Linus,
 
-Yes, but seems it is broken for ia64 side due to latest merge with qemu
-upstream. 
+please pull from:
 
-> Are save/restore already available?
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-It needs userspace patch. I enabled save&restore without log dirty
-mechanism, but it breaks after adding log dirty.  So need more debug
-effort on it. 
+This will update the files shown below.
 
-Xiantao
+Thanks!
+
+-Tony
+
+ arch/ia64/Kconfig                                  |    2 +
+ arch/ia64/Makefile                                 |    2 +
+ arch/ia64/{defconfig => configs/generic_defconfig} |    0 
+ arch/ia64/ia32/ia32_signal.c                       |   13 ++-
+ arch/ia64/kernel/iosapic.c                         |    4 +-
+ arch/ia64/kernel/irq_ia64.c                        |  134 +++++++++++++++-----
+ arch/ia64/kernel/kprobes.c                         |    5 +
+ arch/ia64/kernel/msi_ia64.c                        |    3 +-
+ arch/ia64/kernel/sal.c                             |    7 +
+ arch/ia64/kernel/signal.c                          |   36 ++++--
+ include/asm-ia64/Kbuild                            |    2 +-
+ include/asm-ia64/hw_irq.h                          |   12 ++-
+ include/asm-ia64/kprobes.h                         |    4 -
+ include/asm-ia64/sal.h                             |    4 +
+ 14 files changed, 180 insertions(+), 48 deletions(-)
+ rename arch/ia64/{defconfig => configs/generic_defconfig} (100%)
+
+Adrian Bunk (2):
+      [IA64] move defconfig to arch/ia64/configs/
+      [IA64] fix ia64 kprobes compilation
+
+Alex Chiang (1):
+      [IA64] workaround tiger ia64_sal_get_physical_id_info hang
+
+Doug Chapman (1):
+      [IA64] move gcc_intrin.h from header-y to unifdef-y
+
+Jes Sorensen (1):
+      [IA64] CONFIG_SGI_SN2 - auto select NUMA and ACPI_NUMA
+
+Kenji Kaneshige (1):
+      [IA64] Fix irq migration in multiple vector domain
+
+Shi Weihua (2):
+      [IA64] signal(ia64): add a signal stack overflow check
+      [IA64] signal(ia64_ia32): add a signal stack overflow check
+
+
 
