@@ -1,63 +1,42 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Fri, 28 Mar 2008 09:57:12 +0000
-Subject: [Patch][00/17] kvm-ia64 for kernel V6
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCFF7EEB@pdsmsx415.ccr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:52 +0000
+Subject: [PATCH 37/50] ia64/pv_ops/xen: multi compile switch_leave.S and ivt.S for xen.
+Message-Id: <12047411462336-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi
- This patchset enables kvm on ia64 platform. And it targets for Avi's
-pull to mainline. Please review.  If you don't have concerns, I will ask
-Avi's pull for kvm.git.  Thanks! 
- Also, you can get it from
-git://git.kernel.org/pub/scm/linux/kernel/git/xiantao/kvm-ia64.git
-kvm-ia64-mc6
 
-Tony, 
-	The first two patches touches kernel code, please have a review
-again, and ensure it is good for kernel. Thanks:)
-Xiantao
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/Makefile |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
- Documentation/ia64/kvm-howto.txt |   71 +
- arch/ia64/Kconfig                |    6 
- arch/ia64/Makefile               |    1 
- arch/ia64/kernel/mca.c           |   50 
- arch/ia64/kernel/mca_asm.S       |    5 
- arch/ia64/kernel/smp.c           |   84 +
- arch/ia64/kvm/Kconfig            |   43 
- arch/ia64/kvm/Makefile           |   61 +
- arch/ia64/kvm/asm-offsets.c      |  251 ++++
- arch/ia64/kvm/ia64_regs.h        |  234 ++++
- arch/ia64/kvm/kvm_fw.c           |  500 +++++++++
- arch/ia64/kvm/kvm_ia64.c         | 1789
-++++++++++++++++++++++++++++++++
- arch/ia64/kvm/kvm_minstate.h     |  273 ++++
- arch/ia64/kvm/lapic.h            |   27 
- arch/ia64/kvm/misc.h             |   93 +
- arch/ia64/kvm/mmio.c             |  349 ++++++
- arch/ia64/kvm/optvfault.S        |  918 ++++++++++++++++
- arch/ia64/kvm/process.c          |  979 +++++++++++++++++
- arch/ia64/kvm/trampoline.S       | 1040 ++++++++++++++++++
- arch/ia64/kvm/vcpu.c             | 2145
-+++++++++++++++++++++++++++++++++++++++
- arch/ia64/kvm/vcpu.h             |  749 +++++++++++++
- arch/ia64/kvm/vmm.c              |   66 +
- arch/ia64/kvm/vmm_ivt.S          | 1425 +++++++++++++++++++++++++
- arch/ia64/kvm/vti.h              |  290 +++++
- arch/ia64/kvm/vtlb.c             |  631 +++++++++++
- arch/ia64/mm/tlb.c               |  170 +++
- include/asm-ia64/kregs.h         |    3 
- include/asm-ia64/kvm.h           |  205 +++
- include/asm-ia64/kvm_host.h      |  530 +++++++++
- include/asm-ia64/kvm_para.h      |   29 
- include/asm-ia64/tlb.h           |   12 
- include/linux/smp.h              |    3 
- 32 files changed, 13014 insertions(+), 18 deletions(-)
-
- 
-
-
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 7849bc3..a80dd3f 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -83,3 +83,18 @@ $(obj)/gate-data.o: $(obj)/gate.so
+ #
+ AFLAGS_ivt.o += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
+ AFLAGS_switch_leave.o += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
++
++# xen multi compile
++$(obj)/xen_%.o: $(src)/%.S FORCE
++	$(call if_changed_dep,as_o_S)
++
++#
++# xenivt.o, xen_switch_leave.o
++#
++obj-$(CONFIG_XEN) += xen_ivt.o xen_switch_leave.o
++ifeq ($(CONFIG_XEN), y)
++targets += xen_ivt.o xen_switch_leave.o
++$(obj)/build-in.o: xen_ivt.o xen_switch_leave.o
++endif
++AFLAGS_xen_ivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++AFLAGS_xen_switch_leave.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+-- 
+1.5.3
 
