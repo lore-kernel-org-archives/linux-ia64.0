@@ -1,131 +1,208 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Sat, 01 Mar 2008 07:51:28 +0000
-Subject: [PATCH][2.6.25-rc2-mm1] ia64: remove unnecessary nfs includes from sys_ia32.c
-Message-Id: <20080301164035.528F.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:24 +0000
+Subject: [PATCH 09/50] xen: make grant table arch portable.
+Message-Id: <12047411462402-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "J. Bruce Fields" <bfields@citi.umich.edu>, linux-ia64@vger.kernel.org
-Cc: kosaki.motohiro@jp.fujitsu.com, Andrew Morton <akpm@linux-foundation.org>, LKML <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Hi
+split out x86 specific part from grant-table.c
 
-if compile 2.6.25-rc2-mm1 on ia64, output many warnings.
-
-----------------------------------------------------------------
-% LANG=C make arch/ia64/ia32/sys_ia32.o
-<-mm1% LANG=C make arch/ia64/ia32/sys_ia32.o
-  CHK     include/linux/version.h
-  CHK     include/linux/utsrelease.h
-  CALL    scripts/checksyscalls.sh
-  CC      arch/ia64/ia32/sys_ia32.o
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:297:1: warning: "elf_check_arch" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:19:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:302:1: warning: "ELF_CLASS" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:24:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:304:1: warning: "ELF_ARCH" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:26:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:318:1: warning: "ELF_EXEC_PAGESIZE" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:34:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:327:1: warning: "ELF_ET_DYN_BASE" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:43:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:330:1: warning: "ELF_PLAT_INIT" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:140:1: warning: this is the location of the previous definition
-In file included from arch/ia64/ia32/sys_ia32.c:59:
-arch/ia64/ia32/ia32priv.h:342:1: warning: "SET_PERSONALITY" redefined
-In file included from include/linux/elf.h:7,
-                 from include/linux/module.h:14,
-                 from include/linux/device.h:21,
-                 from include/linux/backing-dev.h:15,
-                 from include/linux/nfs_fs_sb.h:5,
-                 from include/linux/nfs_fs.h:50,
-                 from arch/ia64/ia32/sys_ia32.c:35:
-include/asm/elf.h:180:1: warning: this is the location of the previous definition
-------------------------------------------------------------------------
-
-IA64 support 2 ELF format (IA64 binary and IA32 binary),
-thus if 2 elf related header included, cause many warning or error.
-
-about 2 week ago, J. Bruce Fields proposed this problem fixed patch.
-(http://marc.info/?l=linux-ia64&m0329313305695&w=2)
-
-but unfortunately, it can't applied -mm tree.
-I rebase against 2.6.25-rc2-mm1.
-
-
-
-Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/ia32/sys_ia32.c |    7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+ arch/x86/xen/Makefile      |    2 +-
+ arch/x86/xen/grant-table.c |   91 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/xen/grant-table.c  |   35 +---------------
+ include/xen/grant_table.h  |    6 +++
+ 4 files changed, 101 insertions(+), 33 deletions(-)
+ create mode 100644 arch/x86/xen/grant-table.c
 
-Index: b/arch/ia64/ia32/sys_ia32.c
-=================================--- a/arch/ia64/ia32/sys_ia32.c 2008-02-18 17:13:15.000000000 +0900
-+++ b/arch/ia64/ia32/sys_ia32.c 2008-03-01 16:48:36.000000000 +0900
-@@ -32,13 +32,8 @@
- #include <linux/shm.h>
- #include <linux/slab.h>
- #include <linux/uio.h>
--#include <linux/nfs_fs.h>
-+#include <linux/socket.h>
- #include <linux/quota.h>
--#include <linux/sunrpc/svc.h>
--#include <linux/nfsd/nfsd.h>
--#include <linux/nfsd/cache.h>
--#include <linux/nfsd/xdr.h>
--#include <linux/nfsd/syscall.h>
- #include <linux/poll.h>
- #include <linux/eventpoll.h>
- #include <linux/personality.h>
+diff --git a/arch/x86/xen/Makefile b/arch/x86/xen/Makefile
+index 95c5926..3d8df98 100644
+--- a/arch/x86/xen/Makefile
++++ b/arch/x86/xen/Makefile
+@@ -1,4 +1,4 @@
+ obj-y		:= enlighten.o setup.o multicalls.o mmu.o \
+-			time.o manage.o xen-asm.o
++			time.o manage.o xen-asm.o grant-table.o
+ 
+ obj-$(CONFIG_SMP)	+= smp.o
+diff --git a/arch/x86/xen/grant-table.c b/arch/x86/xen/grant-table.c
+new file mode 100644
+index 0000000..49ba9b5
+--- /dev/null
++++ b/arch/x86/xen/grant-table.c
+@@ -0,0 +1,91 @@
++/******************************************************************************
++ * grant_table.c
++ * x86 specific part
++ *
++ * Granting foreign access to our memory reservation.
++ *
++ * Copyright (c) 2005-2006, Christopher Clark
++ * Copyright (c) 2004-2005, K A Fraser
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan. Split out x86 specific part.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#include <linux/sched.h>
++#include <linux/mm.h>
++#include <linux/vmalloc.h>
++
++#include <xen/interface/xen.h>
++#include <xen/page.h>
++#include <xen/grant_table.h>
++
++#include <asm/pgtable.h>
++
++static int map_pte_fn(pte_t *pte, struct page *pmd_page,
++		      unsigned long addr, void *data)
++{
++	unsigned long **frames = (unsigned long **)data;
++
++	set_pte_at(&init_mm, addr, pte, mfn_pte((*frames)[0], PAGE_KERNEL));
++	(*frames)++;
++	return 0;
++}
++
++static int unmap_pte_fn(pte_t *pte, struct page *pmd_page,
++			unsigned long addr, void *data)
++{
++
++	set_pte_at(&init_mm, addr, pte, __pte(0));
++	return 0;
++}
++
++int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
++			   unsigned long max_nr_gframes,
++			   struct grant_entry **__shared)
++{
++	int rc;
++	struct grant_entry *shared = *__shared;
++
++	if (shared = NULL) {
++		struct vm_struct *area +			xen_alloc_vm_area(PAGE_SIZE * max_nr_gframes);
++		BUG_ON(area = NULL);
++		shared = area->addr;
++		*__shared = shared;
++	}
++
++	rc = apply_to_page_range(&init_mm, (unsigned long)shared,
++				 PAGE_SIZE * nr_gframes,
++				 map_pte_fn, &frames);
++	return rc;
++}
++
++void arch_gnttab_unmap_shared(struct grant_entry *shared,
++			      unsigned long nr_gframes)
++{
++	apply_to_page_range(&init_mm, (unsigned long)shared,
++			    PAGE_SIZE * nr_gframes, unmap_pte_fn, NULL);
++}
+diff --git a/drivers/xen/grant-table.c b/drivers/xen/grant-table.c
+index 9fcde20..22f5104 100644
+--- a/drivers/xen/grant-table.c
++++ b/drivers/xen/grant-table.c
+@@ -435,24 +435,6 @@ static inline unsigned int max_nr_grant_frames(void)
+ 	return xen_max;
+ }
+ 
+-static int map_pte_fn(pte_t *pte, struct page *pmd_page,
+-		      unsigned long addr, void *data)
+-{
+-	unsigned long **frames = (unsigned long **)data;
+-
+-	set_pte_at(&init_mm, addr, pte, mfn_pte((*frames)[0], PAGE_KERNEL));
+-	(*frames)++;
+-	return 0;
+-}
+-
+-static int unmap_pte_fn(pte_t *pte, struct page *pmd_page,
+-			unsigned long addr, void *data)
+-{
+-
+-	set_pte_at(&init_mm, addr, pte, __pte(0));
+-	return 0;
+-}
+-
+ static int gnttab_map(unsigned int start_idx, unsigned int end_idx)
+ {
+ 	struct gnttab_setup_table setup;
+@@ -476,17 +458,9 @@ static int gnttab_map(unsigned int start_idx, unsigned int end_idx)
+ 
+ 	BUG_ON(rc || setup.status);
+ 
+-	if (shared = NULL) {
+-		struct vm_struct *area;
+-		area = xen_alloc_vm_area(PAGE_SIZE * max_nr_grant_frames());
+-		BUG_ON(area = NULL);
+-		shared = area->addr;
+-	}
+-	rc = apply_to_page_range(&init_mm, (unsigned long)shared,
+-				 PAGE_SIZE * nr_gframes,
+-				 map_pte_fn, &frames);
++	rc = arch_gnttab_map_shared(frames, nr_gframes, max_nr_grant_frames(),
++				    &shared);
+ 	BUG_ON(rc);
+-	frames -= nr_gframes; /* adjust after map_pte_fn() */
+ 
+ 	kfree(frames);
+ 
+@@ -502,10 +476,7 @@ static int gnttab_resume(void)
+ 
+ static int gnttab_suspend(void)
+ {
+-	apply_to_page_range(&init_mm, (unsigned long)shared,
+-			    PAGE_SIZE * nr_grant_frames,
+-			    unmap_pte_fn, NULL);
+-
++	arch_gnttab_unmap_shared(shared, nr_grant_frames);
+ 	return 0;
+ }
+ 
+diff --git a/include/xen/grant_table.h b/include/xen/grant_table.h
+index 761c834..50ca16e 100644
+--- a/include/xen/grant_table.h
++++ b/include/xen/grant_table.h
+@@ -102,6 +102,12 @@ void gnttab_grant_foreign_access_ref(grant_ref_t ref, domid_t domid,
+ void gnttab_grant_foreign_transfer_ref(grant_ref_t, domid_t domid,
+ 				       unsigned long pfn);
+ 
++int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
++			   unsigned long max_nr_gframes,
++			   struct grant_entry **__shared);
++void arch_gnttab_unmap_shared(struct grant_entry *shared,
++			      unsigned long nr_gframes);
++
+ #define gnttab_map_vaddr(map) ((void *)(map.host_virt_addr))
+ 
+ #endif /* __ASM_GNTTAB_H__ */
+-- 
+1.5.3
 
