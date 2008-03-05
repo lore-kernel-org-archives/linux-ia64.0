@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Wed, 05 Mar 2008 00:23:11 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Wed, 05 Mar 2008 13:14:52 +0000
 Subject: Re: [PATCH] New way of storing MCA/INIT logs
-Message-Id: <20080305002311.GA16658@sgi.com>
+Message-Id: <47CE9CCC.1040405@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47CD8142.7050207@bull.net>
 In-Reply-To: <47CD8142.7050207@bull.net>
@@ -10,45 +10,76 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 04, 2008 at 06:05:06PM +0100, Zoltan Menyhart wrote:
-> This patch adds a lock free, yet safe way of storing MCA/INIT logs.
-> You will not end up with logs mixed up from different MCAs.
+Thank you for your remarks.
 
-A good goal.
-
-> The MCAs/INITs are rare.
-
-One hopes.  :-)
-
-> There is no use wasting much permanent resources.
-
-Sometimes a necessary evil.  Normal memory allocation routines 
-cannot be called from MCA/INIT context.
-
-> Should you see a burst of events, they are not uncorrelated.
-> Only the recovered events are treated. Should you miss one,
-> you'll see it later :-)
-> With the others, you will not be able to store them on disk anyway.
-
-Even if the system is going down it is still nice to try to 
-go down gracefully.  Taking a system dump and logging as 
-much as possible is usefull, too.
-
-> There are IA64_MAX_MCA_INIT_BUFS log buffers for the MCA, and
-> another IA64_MAX_MCA_INIT_BUFS log buffers for the INIT handler.
+>>The MCAs/INITs are rare.
 > 
-> IA64_MAX_MCA_INIT_BUFS >= 2.
+> One hopes.  :-)
+
+Should you have a single unrecoverable MCA, the game is over.
+Neither the original code, nor mine can log it before the machine
+is re-booted / halted.
+
+Only the recovered ones play.
+It is safe to continue after the recovered ones.
+You need these logs to be alerted and to program the maintenance.
+
+Both the original code and mine can "swallow" about 1 recovered
+event / minute, and tolerate a "burst" of 2 or IA64_MAX_MCA_INIT_BUFS
+events.
+
+The probability to have more than that _independent_ events
+in a small time frame is very very low. Therefore you can
+afford losing events of the same "burst".
+
+>>There is no use wasting much permanent resources.
 > 
-> There is no per CPU log buffer.
+> Sometimes a necessary evil.  Normal memory allocation routines 
+> cannot be called from MCA/INIT context.
 
-In the case where all the CPUs are INITed, what happens?
-Does this assume only one CPU at a time processes/logs records?
+This is why I pre-allocate IA64_MAX_MCA_INIT_BUFS buffers.
 
-> The code does not assume that the rendezvous always works.
+> Even if the system is going down it is still nice to try to 
+> go down gracefully.  Taking a system dump and logging as 
+> much as possible is usefull, too.
 
-Could you explain.  Do you mean MCA/INIT rendezvous?
- 
+You (may want to) take a dump if the event is not recovered.
+In such e case, neither the original code, nor mine does any useful
+thing :-)
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+> In the case where all the CPUs are INITed, what happens?
+> Does this assume only one CPU at a time processes/logs records?
+
+I have not added my code to the INIT handler yet.
+
+From the SAL spec.: INIT reason code:
+
+0 = Received INIT signal on this processor for reasons other than machine
+     check rendezvous and CrashDump switch assertion.
+1 = Received INIT signal on this processor during machine check rendezvous.
+2 = Received INIT signal on this processor due to CrashDump switch assertion.
+
+I think there is no use to log anything in the cases of MCA rendezvous
+and CrashDump (that can actually dump, call the KDB).
+I intend to log the "other reasons" only, by the monarch only.
+
+>>The code does not assume that the rendezvous always works.
+> 
+> Could you explain.  Do you mean MCA/INIT rendezvous?
+
+Yes.
+If everything goes fine, only one CPU, the monarch logs.
+(See also the comment in the INIT handler saying:
+ FIXME: Workaround for broken proms that drive all INIT events as monarchs.)
+
+However, the SAL spec. allows in "OS_MCA Hand-off State" that
+"Rendezvous of other processors was required but was unsuccessful
+on one or more processors."
+
+E.g. two non-global MCAs can happen on two CPUs, both of them can start
+to execute the MCA handler, thinking that each of them is monarch.
+My code should survive...
+
+Thanks,
+
+Zoltan
