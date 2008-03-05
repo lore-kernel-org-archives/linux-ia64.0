@@ -1,467 +1,249 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:56 +0000
-Subject: [PATCH 41/50] ia64/xen: introduce xen hypercall routines necessary for domU.
-Message-Id: <12047411461252-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:43 +0000
+Subject: [PATCH 28/50] ia64/pv_ops: introduce pv_irq_ops and its hooks.
+Message-Id: <12047411461988-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/hypercall.S        |    7 +
- include/asm-ia64/xen/hypercall.h |  426 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 433 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/xen/hypercall.h
+ arch/ia64/kernel/irq_ia64.c |   21 ++++++++++----
+ arch/ia64/kernel/paravirt.c |   22 +++++++++++++++
+ include/asm-ia64/hw_irq.h   |   20 ++++++++++---
+ include/asm-ia64/paravirt.h |   63 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 115 insertions(+), 11 deletions(-)
 
-diff --git a/arch/ia64/xen/hypercall.S b/arch/ia64/xen/hypercall.S
-index a96f278..7c5242b 100644
---- a/arch/ia64/xen/hypercall.S
-+++ b/arch/ia64/xen/hypercall.S
-@@ -122,3 +122,10 @@ GLOBAL_ENTRY(xen_set_eflag)
- END(xen_set_eflag)
- #endif /* CONFIG_IA32_SUPPORT */
- #endif /* ASM_SUPPORTED */
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 2b8cf6e..5259faa 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -196,7 +196,7 @@ static void clear_irq_vector(int irq)
+ }
+ 
+ int
+-assign_irq_vector (int irq)
++native_assign_irq_vector (int irq)
+ {
+ 	unsigned long flags;
+ 	int vector, cpu;
+@@ -222,7 +222,7 @@ assign_irq_vector (int irq)
+ }
+ 
+ void
+-free_irq_vector (int vector)
++native_free_irq_vector (int vector)
+ {
+ 	if (vector < IA64_FIRST_DEVICE_VECTOR ||
+ 	    vector > IA64_LAST_DEVICE_VECTOR)
+@@ -623,7 +623,7 @@ static struct irqaction tlb_irqaction = {
+ #endif
+ 
+ void
+-register_percpu_irq (ia64_vector vec, struct irqaction *action)
++native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ {
+ 	irq_desc_t *desc;
+ 	unsigned int irq;
+@@ -638,13 +638,21 @@ register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ }
+ 
+ void __init
++native_init_IRQ_early(void)
++{
++#ifdef CONFIG_SMP
++	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
++	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
++#endif
++}
 +
-+GLOBAL_ENTRY(__hypercall)
-+	mov r2=r37
-+	break 0x1000
-+	br.ret.sptk.many b0
-+	;;
-+END(__hypercall)
-diff --git a/include/asm-ia64/xen/hypercall.h b/include/asm-ia64/xen/hypercall.h
-new file mode 100644
-index 0000000..a266e44
---- /dev/null
-+++ b/include/asm-ia64/xen/hypercall.h
-@@ -0,0 +1,426 @@
++void __init
+ init_IRQ (void)
+ {
++	paravirt_init_IRQ_early();
+ 	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
+ #ifdef CONFIG_SMP
+ 	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
+-	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
+-	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
+ #if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_DIG)
+ 	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
+ 		BUG_ON(IA64_FIRST_DEVICE_VECTOR != IA64_IRQ_MOVE_VECTOR);
+@@ -657,10 +665,11 @@ init_IRQ (void)
+ 	pfm_init_percpu();
+ #endif
+ 	platform_irq_init();
++	paravirt_init_IRQ_late();
+ }
+ 
+ void
+-ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect)
++native_send_ipi (int cpu, int vector, int delivery_mode, int redirect)
+ {
+ 	void __iomem *ipi_addr;
+ 	unsigned long ipi_data;
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 7e6a2d0..ce0b23b 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -70,3 +70,25 @@ struct pv_iosapic_ops pv_iosapic_ops = {
+ 	.__read = native_iosapic_read,
+ 	.__write = native_iosapic_write,
+ };
++
++/***************************************************************************
++ * pv_irq_ops
++ * irq operations
++ */
++
++void
++ia64_send_ipi(int cpu, int vector, int delivery_mode, int redirect)
++{
++	pv_irq_ops.send_ipi(cpu, vector, delivery_mode, redirect);
++}
++
++struct pv_irq_ops pv_irq_ops = {
++	.init_IRQ_early = native_init_IRQ_early,
++
++	.assign_irq_vector = native_assign_irq_vector,
++	.free_irq_vector = native_free_irq_vector,
++	.register_percpu_irq = native_register_percpu_irq,
++
++	.send_ipi = native_send_ipi,
++	.resend_irq = native_resend_irq,
++};
+diff --git a/include/asm-ia64/hw_irq.h b/include/asm-ia64/hw_irq.h
+index 76366dc..678efec 100644
+--- a/include/asm-ia64/hw_irq.h
++++ b/include/asm-ia64/hw_irq.h
+@@ -104,13 +104,23 @@ DECLARE_PER_CPU(int[IA64_NUM_VECTORS], vector_irq);
+ 
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
+ 
++#ifdef CONFIG_PARAVIRT_GUEST
++#include <asm/paravirt.h>
++#else
++#define assign_irq_vector	native_assign_irq_vector
++#define free_irq_vector		native_free_irq_vector
++#define ia64_send_ipi		native_send_ipi
++#define ia64_resend_irq		native_resend_irq
++#endif
++
++extern void native_init_IRQ_early(void);
+ extern int bind_irq_vector(int irq, int vector, cpumask_t domain);
+-extern int assign_irq_vector (int irq);	/* allocate a free vector */
+-extern void free_irq_vector (int vector);
++extern int native_assign_irq_vector (int irq);	/* allocate a free vector */
++extern void native_free_irq_vector (int vector);
+ extern int reserve_irq_vector (int vector);
+ extern void __setup_vector_irq(int cpu);
+-extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+-extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
++extern void native_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
++extern void native_register_percpu_irq (ia64_vector vec, struct irqaction *action);
+ extern int check_irq_used (int irq);
+ extern void destroy_and_reserve_irq (unsigned int irq);
+ 
+@@ -122,7 +132,7 @@ static inline int irq_prepare_move(int irq, int cpu) { return 0; }
+ static inline void irq_complete_move(unsigned int irq) {}
+ #endif
+ 
+-static inline void ia64_resend_irq(unsigned int vector)
++static inline void native_resend_irq(unsigned int vector)
+ {
+ 	platform_send_ipi(smp_processor_id(), vector, IA64_IPI_DM_INT, 0);
+ }
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+index 9efeda9..ace6653 100644
+--- a/include/asm-ia64/paravirt.h
++++ b/include/asm-ia64/paravirt.h
+@@ -28,6 +28,7 @@
+ 
+ #ifndef __ASSEMBLY__
+ 
++#include <asm/hw_irq.h>
+ #include <asm/meminit.h>
+ 
+ /******************************************************************************
+@@ -192,6 +193,65 @@ __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ 	return pv_iosapic_ops.__write(iosapic, reg, val);
+ }
+ 
 +/******************************************************************************
-+ * hypercall.h
-+ *
-+ * Linux-specific hypervisor handling.
-+ *
-+ * Copyright (c) 2002-2004, K A Fraser
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation; or, when distributed
-+ * separately from the Linux kernel or incorporated into other
-+ * software packages, subject to the following license:
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this source file (the "Software"), to deal in the Software without
-+ * restriction, including without limitation the rights to use, copy, modify,
-+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
-+ * and to permit persons to whom the Software is furnished to do so, subject to
-+ * the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-+ * IN THE SOFTWARE.
++ * replacement of irq operations.
 + */
 +
-+#ifndef _ASM_IA64_XEN_HYPERCALL_H
-+#define _ASM_IA64_XEN_HYPERCALL_H
++struct pv_irq_ops {
++	void (*init_IRQ_early)(void);
++	void (*init_IRQ_late)(void);
 +
-+#ifndef _ASM_IA64_XEN_HYPERVISOR_H
-+# error "please don't include this file directly"
-+#endif
++	int (*assign_irq_vector)(int irq);
++	void (*free_irq_vector)(int vector);
 +
-+#include <asm/xen/xcom_hcall.h>
-+struct xencomm_handle;
-+extern unsigned long __hypercall(unsigned long a1, unsigned long a2,
-+				 unsigned long a3, unsigned long a4,
-+				 unsigned long a5, unsigned long cmd);
++	void (*register_percpu_irq)(ia64_vector vec,
++				    struct irqaction *action);
 +
-+/*
-+ * Assembler stubs for hyper-calls.
-+ */
++	void (*send_ipi)(int cpu, int vector, int delivery_mode, int redirect);
++	void (*resend_irq)(unsigned int vector);
++};
 +
-+#define _hypercall0(type, name)					\
-+({								\
-+	long __res;						\
-+	__res = __hypercall(0, 0, 0, 0, 0, __HYPERVISOR_##name);\
-+	(type)__res;						\
-+})
++extern struct pv_irq_ops pv_irq_ops;
 +
-+#define _hypercall1(type, name, a1)				\
-+({								\
-+	long __res;						\
-+	__res = __hypercall((unsigned long)a1,			\
-+			     0, 0, 0, 0, __HYPERVISOR_##name);	\
-+	(type)__res;						\
-+})
-+
-+#define _hypercall2(type, name, a1, a2)				\
-+({								\
-+	long __res;						\
-+	__res = __hypercall((unsigned long)a1,			\
-+			    (unsigned long)a2,			\
-+			    0, 0, 0, __HYPERVISOR_##name);	\
-+	(type)__res;						\
-+})
-+
-+#define _hypercall3(type, name, a1, a2, a3)			\
-+({								\
-+	long __res;						\
-+	__res = __hypercall((unsigned long)a1,			\
-+			    (unsigned long)a2,			\
-+			    (unsigned long)a3,			\
-+			    0, 0, __HYPERVISOR_##name);		\
-+	(type)__res;						\
-+})
-+
-+#define _hypercall4(type, name, a1, a2, a3, a4)			\
-+({								\
-+	long __res;						\
-+	__res = __hypercall((unsigned long)a1,			\
-+			    (unsigned long)a2,			\
-+			    (unsigned long)a3,			\
-+			    (unsigned long)a4,			\
-+			    0, __HYPERVISOR_##name);		\
-+	(type)__res;						\
-+})
-+
-+#define _hypercall5(type, name, a1, a2, a3, a4, a5)		\
-+({								\
-+	long __res;						\
-+	__res = __hypercall((unsigned long)a1,			\
-+			    (unsigned long)a2,			\
-+			    (unsigned long)a3,			\
-+			    (unsigned long)a4,			\
-+			    (unsigned long)a5,			\
-+			    __HYPERVISOR_##name);		\
-+	(type)__res;						\
-+})
-+
-+
-+static inline int
-+xencomm_arch_hypercall_sched_op(int cmd, struct xencomm_handle *arg)
++static inline void
++paravirt_init_IRQ_early(void)
 +{
-+	return _hypercall2(int, sched_op, cmd, arg);
++	pv_irq_ops.init_IRQ_early();
 +}
 +
-+static inline long
-+HYPERVISOR_set_timer_op(u64 timeout)
++static inline void
++paravirt_init_IRQ_late(void)
 +{
-+	unsigned long timeout_hi = (unsigned long)(timeout >> 32);
-+	unsigned long timeout_lo = (unsigned long)timeout;
-+	return _hypercall2(long, set_timer_op, timeout_lo, timeout_hi);
++	if (pv_irq_ops.init_IRQ_late)
++		pv_irq_ops.init_IRQ_late();
 +}
 +
 +static inline int
-+xencomm_arch_hypercall_multicall(struct xencomm_handle *call_list,
-+				 int nr_calls)
++assign_irq_vector(int irq)
 +{
-+	return _hypercall2(int, multicall, call_list, nr_calls);
++	return pv_irq_ops.assign_irq_vector(irq);
 +}
 +
-+static inline int
-+xencomm_arch_hypercall_memory_op(unsigned int cmd, struct xencomm_handle *arg)
++static inline void
++free_irq_vector(int vector)
 +{
-+	return _hypercall2(int, memory_op, cmd, arg);
++	return pv_irq_ops.free_irq_vector(vector);
 +}
 +
-+static inline int
-+xencomm_arch_hypercall_event_channel_op(int cmd, struct xencomm_handle *arg)
++static inline void
++register_percpu_irq(ia64_vector vec, struct irqaction *action)
 +{
-+	return _hypercall2(int, event_channel_op, cmd, arg);
++	pv_irq_ops.register_percpu_irq(vec, action);
 +}
 +
-+static inline int
-+xencomm_arch_hypercall_xen_version(int cmd, struct xencomm_handle *arg)
++void ia64_send_ipi(int cpu, int vector, int delivery_mode, int redirect);
++
++static inline void
++ia64_resend_irq(unsigned int vector)
 +{
-+	return _hypercall2(int, xen_version, cmd, arg);
++	pv_irq_ops.resend_irq(vector);
 +}
 +
-+static inline int
-+xencomm_arch_hypercall_console_io(int cmd, int count,
-+				  struct xencomm_handle *str)
-+{
-+	return _hypercall3(int, console_io, cmd, count, str);
-+}
+ #endif /* __ASSEMBLY__ */
+ 
+ #else
+@@ -213,6 +273,9 @@ __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ #define paravirt_bundle_patch_module(start, end)	do { } while (0)
+ #define paravirt_inst_patch_module(start, end)		do { } while (0)
+ 
++#define paravirt_init_IRQ_early()			do { } while (0)
++#define paravirt_init_IRQ_late()			do { } while (0)
 +
-+static inline int
-+xencomm_arch_hypercall_physdev_op(int cmd, struct xencomm_handle *arg)
-+{
-+	return _hypercall2(int, physdev_op, cmd, arg);
-+}
-+
-+static inline int
-+xencomm_arch_hypercall_grant_table_op(unsigned int cmd,
-+				      struct xencomm_handle *uop,
-+				      unsigned int count)
-+{
-+	return _hypercall3(int, grant_table_op, cmd, uop, count);
-+}
-+
-+int HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count);
-+
-+extern int xencomm_arch_hypercall_suspend(struct xencomm_handle *arg);
-+
-+static inline int
-+xencomm_arch_hypercall_callback_op(int cmd, struct xencomm_handle *arg)
-+{
-+	return _hypercall2(int, callback_op, cmd, arg);
-+}
-+
-+static inline unsigned long
-+xencomm_arch_hypercall_hvm_op(int cmd, void *arg)
-+{
-+	return _hypercall2(unsigned long, hvm_op, cmd, arg);
-+}
-+
-+static inline long
-+xencomm_arch_hypercall_vcpu_op(int cmd, int cpu, void *arg)
-+{
-+	return _hypercall3(long, vcpu_op, cmd, cpu, arg);
-+}
-+
-+static inline int
-+HYPERVISOR_physdev_op(int cmd, void *arg)
-+{
-+	switch (cmd) {
-+	case PHYSDEVOP_eoi:
-+		return _hypercall1(int, ia64_fast_eoi,
-+				   ((struct physdev_eoi *)arg)->irq);
-+	default:
-+		return xencomm_hypercall_physdev_op(cmd, arg);
-+	}
-+}
-+
-+static inline int
-+xencomm_arch_hypercall_xenoprof_op(int op, struct xencomm_handle *arg)
-+{
-+	return _hypercall2(int, xenoprof_op, op, arg);
-+}
-+
-+static inline long
-+xencomm_arch_hypercall_opt_feature(struct xencomm_handle *arg)
-+{
-+	return _hypercall1(long, opt_feature, arg);
-+}
-+
-+#define xen_do_IRQ(irq, regs)		\
-+do {					\
-+	struct pt_regs *old_regs;	\
-+	old_regs = set_irq_regs(regs);	\
-+	irq_enter();			\
-+	__do_IRQ(irq);			\
-+	irq_exit();			\
-+	set_irq_regs(old_regs);		\
-+} while (0)
-+#define irq_ctx_init(cpu)	do { } while (0)
-+
-+#include <linux/err.h>
-+#ifdef HAVE_XEN_PLATFORM_COMPAT_H
-+#include <xen/platform-compat.h>
-+#endif
-+
-+static inline unsigned long
-+__HYPERVISOR_ioremap(unsigned long ioaddr, unsigned long size)
-+{
-+	return _hypercall3(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_ioremap, ioaddr, size);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_ioremap(unsigned long ioaddr, unsigned long size)
-+{
-+	unsigned long ret = ioaddr;
-+	if (is_running_on_xen()) {
-+		ret = __HYPERVISOR_ioremap(ioaddr, size);
-+		if (unlikely(ret = -ENOSYS))
-+			panic("hypercall %s failed with %ld. "
-+			      "Please check Xen and Linux config mismatch\n",
-+			      __func__, -ret);
-+		else if (unlikely(IS_ERR_VALUE(ret)))
-+			ret = ioaddr;
-+	}
-+	return ret;
-+}
-+
-+static inline unsigned long
-+__HYPERVISOR_phystomach(unsigned long gpfn)
-+{
-+	return _hypercall2(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_phystomach, gpfn);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_phystomach(unsigned long gpfn)
-+{
-+	unsigned long ret = gpfn;
-+	if (is_running_on_xen())
-+		ret = __HYPERVISOR_phystomach(gpfn);
-+	return ret;
-+}
-+
-+static inline unsigned long
-+__HYPERVISOR_machtophys(unsigned long mfn)
-+{
-+	return _hypercall2(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_machtophys, mfn);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_machtophys(unsigned long mfn)
-+{
-+	unsigned long ret = mfn;
-+	if (is_running_on_xen())
-+		ret = __HYPERVISOR_machtophys(mfn);
-+	return ret;
-+}
-+
-+static inline unsigned long
-+__HYPERVISOR_zap_physmap(unsigned long gpfn, unsigned int extent_order)
-+{
-+	return _hypercall3(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_zap_physmap, gpfn, extent_order);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_zap_physmap(unsigned long gpfn, unsigned int extent_order)
-+{
-+	unsigned long ret = 0;
-+	if (is_running_on_xen())
-+		ret = __HYPERVISOR_zap_physmap(gpfn, extent_order);
-+	return ret;
-+}
-+
-+static inline unsigned long
-+__HYPERVISOR_add_physmap(unsigned long gpfn, unsigned long mfn,
-+			 unsigned long flags, domid_t domid)
-+{
-+	return _hypercall5(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_add_physmap, gpfn, mfn, flags, domid);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_add_physmap(unsigned long gpfn, unsigned long mfn,
-+		       unsigned long flags, domid_t domid)
-+{
-+	unsigned long ret = 0;
-+	BUG_ON(!is_running_on_xen());
-+	if (is_running_on_xen())
-+		ret = __HYPERVISOR_add_physmap(gpfn, mfn, flags, domid);
-+	return ret;
-+}
-+
-+static inline unsigned long
-+__HYPERVISOR_add_physmap_with_gmfn(unsigned long gpfn, unsigned long gmfn,
-+				   unsigned long flags, domid_t domid)
-+{
-+	return _hypercall5(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_add_physmap_with_gmfn,
-+			   gpfn, gmfn, flags, domid);
-+}
-+
-+static inline unsigned long
-+HYPERVISOR_add_physmap_with_gmfn(unsigned long gpfn, unsigned long gmfn,
-+				 unsigned long flags, domid_t domid)
-+{
-+	unsigned long ret = 0;
-+	BUG_ON(!is_running_on_xen());
-+	if (is_running_on_xen())
-+		ret = __HYPERVISOR_add_physmap_with_gmfn(gpfn, gmfn,
-+							 flags, domid);
-+	return ret;
-+}
-+
-+#ifdef CONFIG_XEN_IA64_EXPOSE_P2M
-+static inline unsigned long
-+HYPERVISOR_expose_p2m(unsigned long conv_start_gpfn,
-+		      unsigned long assign_start_gpfn,
-+		      unsigned long expose_size, unsigned long granule_pfn)
-+{
-+	return _hypercall5(unsigned long, ia64_dom0vp_op,
-+			   IA64_DOM0VP_expose_p2m, conv_start_gpfn,
-+			   assign_start_gpfn, expose_size, granule_pfn);
-+}
-+
-+static inline int
-+xencomm_arch_expose_foreign_p2m(unsigned long gpfn,
-+				domid_t domid, struct xencomm_handle *arg,
-+				unsigned long flags)
-+{
-+	return _hypercall5(int, ia64_dom0vp_op,
-+			   IA64_DOM0VP_expose_foreign_p2m,
-+			   gpfn, domid, arg, flags);
-+}
-+
-+static inline int
-+HYPERVISOR_unexpose_foreign_p2m(unsigned long gpfn, domid_t domid)
-+{
-+	return _hypercall3(int, ia64_dom0vp_op,
-+			   IA64_DOM0VP_unexpose_foreign_p2m, gpfn, domid);
-+}
-+#endif
-+
-+static inline int
-+xencomm_arch_hypercall_perfmon_op(unsigned long cmd,
-+				  struct xencomm_handle *arg,
-+				  unsigned long count)
-+{
-+	return _hypercall4(int, ia64_dom0vp_op,
-+			   IA64_DOM0VP_perfmon, cmd, arg, count);
-+}
-+
-+static inline int
-+xencomm_arch_hypercall_fpswa_revision(struct xencomm_handle *arg)
-+{
-+	return _hypercall2(int, ia64_dom0vp_op,
-+			   IA64_DOM0VP_fpswa_revision, arg);
-+}
-+
-+static inline int
-+xencomm_arch_hypercall_ia64_debug_op(unsigned long cmd,
-+				     unsigned long domain,
-+				     struct xencomm_handle *arg)
-+{
-+	return _hypercall3(int, ia64_debug_op, cmd, domain, arg);
-+}
-+
-+static inline int
-+HYPERVISOR_add_io_space(unsigned long phys_base,
-+			unsigned long sparse,
-+			unsigned long space_number)
-+{
-+	return _hypercall4(int, ia64_dom0vp_op, IA64_DOM0VP_add_io_space,
-+			   phys_base, sparse, space_number);
-+}
-+
-+/* for balloon driver */
-+#define HYPERVISOR_update_va_mapping(va, new_val, flags) (0)
-+
-+/* Use xencomm to do hypercalls.  */
-+#define HYPERVISOR_sched_op xencomm_hypercall_sched_op
-+#define HYPERVISOR_event_channel_op xencomm_hypercall_event_channel_op
-+#define HYPERVISOR_callback_op xencomm_hypercall_callback_op
-+#define HYPERVISOR_multicall xencomm_hypercall_multicall
-+#define HYPERVISOR_xen_version xencomm_hypercall_xen_version
-+#define HYPERVISOR_console_io xencomm_hypercall_console_io
-+#define HYPERVISOR_hvm_op xencomm_hypercall_hvm_op
-+#define HYPERVISOR_memory_op xencomm_hypercall_memory_op
-+#define HYPERVISOR_xenoprof_op xencomm_hypercall_xenoprof_op
-+#define HYPERVISOR_perfmon_op xencomm_hypercall_perfmon_op
-+#define HYPERVISOR_fpswa_revision xencomm_hypercall_fpswa_revision
-+#define HYPERVISOR_suspend xencomm_hypercall_suspend
-+#define HYPERVISOR_vcpu_op xencomm_hypercall_vcpu_op
-+#define HYPERVISOR_opt_feature xencomm_hypercall_opt_feature
-+#define HYPERVISOR_kexec_op xencomm_hypercall_kexec_op
-+
-+/* to compile gnttab_copy_grant_page() in drivers/xen/core/gnttab.c */
-+#define HYPERVISOR_mmu_update(req, count, success_count, domid) ({ BUG(); 0; })
-+
-+#endif /* _ASM_IA64_XEN_HYPERCALL_H */
+ #endif /* __ASSEMBLY__ */
+ 
+ 
 -- 
 1.5.3
 
