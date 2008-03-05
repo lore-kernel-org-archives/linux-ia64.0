@@ -1,130 +1,279 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:19:02 +0000
-Subject: [PATCH 47/50] ia64/pv_ops/xen: define xen pv_info.
-Message-Id: <12047411462067-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 05 Mar 2008 18:18:38 +0000
+Subject: [PATCH 23/50] ia64/pv_ops: paravirtualize arch/ia64/kernel/switch_leave.S
+Message-Id: <12047411463332-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile     |    2 +
- arch/ia64/xen/xen_pv_ops.c |   69 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/xensetup.S   |   10 ++++++
- 3 files changed, 81 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/xen_pv_ops.c
+ arch/ia64/kernel/switch_leave.S |   80 +++++++++++++++++++++--------------=
+---
+ 1 files changed, 44 insertions(+), 36 deletions(-)
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index c219358..4b1db56 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,6 +2,8 @@
- # Makefile for Xen components
- #
- 
-+obj-y := xen_pv_ops.o
+diff --git a/arch/ia64/kernel/switch_leave.S b/arch/ia64/kernel/switch_leav=
+e.S
+index 9918160..d6d0f08 100644
+--- a/arch/ia64/kernel/switch_leave.S
++++ b/arch/ia64/kernel/switch_leave.S
+@@ -44,16 +44,17 @@
+ #include <asm/pgtable.h>
+ #include <asm/thread_info.h>
+=20
++#include "inst_paravirt.h"
+ #include "minstate.h"
+=20
+-
+ /*
+  * prev_task <- ia64_switch_to(struct task_struct *next)
+  *	With Ingo's new scheduler, interrupts are disabled when this routine ge=
+ts
+  *	called.  The code starting at .map relies on this.  The rest of the code
+  *	doesn't care about the interrupt masking status.
+  */
+-GLOBAL_ENTRY(native_switch_to)
++GLOBAL_ENTRY(__paravirt_switch_to)
++	BR_IF_NATIVE(native_switch_to, r22, p7)
+ 	.prologue
+ 	alloc r16=3Dar.pfs,1,0,0,0
+ 	DO_SAVE_SWITCH_STACK
+@@ -77,7 +78,7 @@ GLOBAL_ENTRY(native_switch_to)
+ 	;;
+ .done:
+ 	ld8 sp=3D[r21]			// load kernel stack pointer of new task
+-	mov IA64_KR(CURRENT)=3Din0	// update "current" application register
++	MOV_TO_KR(CURRENT, in0, r8, r9)		// update "current" application register
+ 	mov r8=3Dr13			// return pointer to previously running task
+ 	mov r13=3Din0			// set "current" pointer
+ 	;;
+@@ -89,25 +90,30 @@ GLOBAL_ENTRY(native_switch_to)
+ 	br.ret.sptk.many rp		// boogie on out in new context
+=20
+ .map:
+-	rsm psr.ic			// interrupts (psr.i) are already disabled here
++	RSM_PSR_IC(r25)			// interrupts (psr.i) are already disabled here
+ 	movl r25=3DPAGE_KERNEL
+ 	;;
+ 	srlz.d
+ 	or r23=3Dr25,r20			// construct PA | page properties
+ 	mov r25=3DIA64_GRANULE_SHIFT<<2
+ 	;;
+-	mov cr.itir=3Dr25
+-	mov cr.ifa=3Din0			// VA of next task...
++	MOV_TO_ITIR(p0, r25, r8)
++	MOV_TO_IFA(in0, r8)		// VA of next task...
+ 	;;
+ 	mov r25=3DIA64_TR_CURRENT_STACK
+-	mov IA64_KR(CURRENT_STACK)=3Dr26	// remember last page we mapped...
++	MOV_TO_KR(CURRENT_STACK, r26, r8, r9)	// remember last page we mapped...
+ 	;;
+ 	itr.d dtr[r25]=3Dr23		// wire in new mapping...
+-	ssm psr.ic			// reenable the psr.ic bit
+-	;;
+-	srlz.d
++	SSM_PSR_IC_AND_SRLZ_D(r8, r9)	// reenable the psr.ic bit
+ 	br.cond.sptk .done
+-END(native_switch_to)
++END(__paravirt_switch_to)
 +
- obj-$(CONFIG_PARAVIRT_ALT) += paravirt_xen.o privops_asm.o privops_c.o
- obj-$(CONFIG_PARAVIRT_NOP_B_PATCH) += paravirt_xen.o
- obj-$(CONFIG_PARAVIRT_ENTRY) += paravirt_xen.o
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-new file mode 100644
-index 0000000..18aa2f6
---- /dev/null
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -0,0 +1,69 @@
-+/******************************************************************************
-+ * arch/ia64/xen/xen_pv_ops.c
-+ *
-+ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/console.h>
-+#include <linux/kernel.h>
-+#include <linux/notifier.h>
-+#include <linux/pm.h>
-+#include <linux/sched.h>
-+#include <linux/string.h>
-+
-+#include <asm/paravirt.h>
-+#include <asm/unwind.h>
-+
-+#include <xen/features.h>
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
-+
-+/***************************************************************************
-+ * general info
-+ */
-+static struct pv_info xen_info __initdata = {
-+	.kernel_rpl = 2,	/* or 1: determin at runtime */
-+	.paravirt_enabled = 1,
-+	.name = "Xen/ia64",
-+};
-+
-+#define IA64_RSC_PL_SHIFT	2
-+#define IA64_RSC_PL_BIT_SIZE	2
-+#define IA64_RSC_PL_MASK	((1UL << (IA64_RSC_PL_BIT_SIZE - 1)) << IA64_RSC_PL_SHIFT)
-+
-+static void __init
-+xen_info_init(void)
-+{
-+	/* Xenified Linux/ia64 may run on pl = 1 or 2.
-+	 * determin at run time. */
-+	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
-+	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
-+	xen_info.kernel_rpl = rpl;
-+}
-+
-+/***************************************************************************
-+ * pv_ops initialization
-+ */
-+
-+void __init
-+xen_setup_pv_ops(void)
-+{
-+	xen_info_init();
-+	pv_info = xen_info;
-+}
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-index 2d3d5d4..cb3432b 100644
---- a/arch/ia64/xen/xensetup.S
-+++ b/arch/ia64/xen/xensetup.S
-@@ -35,6 +35,16 @@ GLOBAL_ENTRY(early_xen_setup)
- (isBP)	movl r28=XSI_BASE;;
- (isBP)	break 0x1000;;
- 
-+#ifdef CONFIG_PARAVIRT_GUEST
-+	/* patch privops */
-+(isBP)	mov r4=rp
-+	;;
-+(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
-+	;;
-+(isBP)	mov rp=r4
-+	;;
-+#endif
-+
- #ifdef CONFIG_PARAVIRT
- 	/* patch privops */
- (isBP)	mov r4=rp
--- 
++#ifdef IA64_ASM_PARAVIRTUALIZED_XEN
++GLOBAL_ENTRY(xen_work_processed_syscall_with_check)
++	BR_IF_NATIVE(native_work_processed_syscall, r2, p7)
++	br.cond.sptk xen_work_processed_syscall
++END(xen_work_processed_syscall_with_check)
++#endif /* IA64_ASM_PARAVIRTUALIZED_XEN */
+=20
+ /*
+  * ia64_leave_syscall(): Same as ia64_leave_kernel, except that it doesn't
+@@ -153,8 +159,9 @@ END(native_switch_to)
+  *	      ar.csd: cleared
+  *	      ar.ssd: cleared
+  */
+-GLOBAL_ENTRY(native_leave_syscall)
++GLOBAL_ENTRY(__paravirt_leave_syscall)
+ 	PT_REGS_UNWIND_INFO(0)
++	BR_IF_NATIVE(native_leave_syscall, r22, p7)
+ 	/*
+ 	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
+ns to
+ 	 * user- or fsys-mode, hence we disable interrupts early on.
+@@ -177,12 +184,12 @@ GLOBAL_ENTRY(native_leave_syscall)
+ 	;;
+ 	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
+ #else /* !CONFIG_PREEMPT */
+-(pUStk)	rsm psr.i
++	RSM_PSR_I(pUStk, r2, r18)
+ 	cmp.eq pLvSys,p0=3Dr0,r0		// pLvSys=3D1: leave from syscall
+ (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
+ #endif
+-.global native_work_processed_syscall;
+-native_work_processed_syscall:
++.global __paravirt_work_processed_syscall;
++__paravirt_work_processed_syscall:
+ 	adds r2=3DPT(LOADRS)+16,r12
+ 	adds r3=3DPT(AR_BSPSTORE)+16,r12
+ 	adds r18=3DTI_FLAGS+IA64_TASK_SIZE,r13
+@@ -205,7 +212,7 @@ native_work_processed_syscall:
+ (pNonSys) break 0		//      bug check: we shouldn't be here if pNonSys is T=
+RUE!
+ 	;;
+ 	invala			// M0|1 invalidate ALAT
+-	rsm psr.i | psr.ic	// M2   turn off interrupts and interruption collection
++	RSM_PSR_I_IC(r28, r29, r30)	// M2   turn off interrupts and interruption =
+collection
+ 	cmp.eq p9,p0=3Dr0,r0	// A    set p9 to indicate that we should restore cr=
+.ifs
+=20
+ 	ld8 r29=3D[r2],16		// M0|1 load cr.ipsr
+@@ -217,7 +224,7 @@ native_work_processed_syscall:
+ (pUStk) add r14=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r13
+ 	;;
+ 	ld8 r26=3D[r2],PT(B0)-PT(AR_PFS)	// M0|1 load ar.pfs
+-(pKStk)	mov r22=3Dpsr			// M2   read PSR now that interrupts are disabled
++	MOV_FROM_PSR(pKStk, r22, r21)	// M2   read PSR now that interrupts are di=
+sabled
+ 	nop 0
+ 	;;
+ 	ld8 r21=3D[r2],PT(AR_RNAT)-PT(B0) // M0|1 load b0
+@@ -246,7 +253,7 @@ native_work_processed_syscall:
+=20
+ 	srlz.d				// M0   ensure interruption collection is off (for cover)
+ 	shr.u r18=3Dr19,16		// I0|1 get byte size of existing "dirty" partition
+-	cover				// B    add current frame into dirty partition & set cr.ifs
++	COVER				// B    add current frame into dirty partition & set cr.ifs
+ 	;;
+ 	mov r19=3Dar.bsp			// M2   get new backing store pointer
+ 	mov f10=F0			// F    clear f10
+@@ -261,10 +268,11 @@ native_work_processed_syscall:
+ 	mov.m ar.ssd=3Dr0			// M2   clear ar.ssd
+ 	mov f11=F0			// F    clear f11
+ 	br.cond.sptk.many rbs_switch	// B
+-END(native_leave_syscall)
++END(__paravirt_leave_syscall)
+=20
+-GLOBAL_ENTRY(native_leave_kernel)
++GLOBAL_ENTRY(__paravirt_leave_kernel)
+ 	PT_REGS_UNWIND_INFO(0)
++	BR_IF_NATIVE(native_leave_kernel, r22, p7)
+ 	/*
+ 	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
+ns to
+ 	 * user- or fsys-mode, hence we disable interrupts early on.
+@@ -287,7 +295,7 @@ GLOBAL_ENTRY(native_leave_kernel)
+ 	;;
+ 	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
+ #else
+-(pUStk)	rsm psr.i
++	RSM_PSR_I(pUStk, r17, r31)
+ 	cmp.eq p0,pLvSys=3Dr0,r0		// pLvSys=3D0: leave from kernel
+ (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
+ #endif
+@@ -335,7 +343,7 @@ GLOBAL_ENTRY(native_leave_kernel)
+ 	mov ar.csd=3Dr30
+ 	mov ar.ssd=3Dr31
+ 	;;
+-	rsm psr.i | psr.ic	// initiate turning off of interrupt and interruption =
+collection
++	RSM_PSR_I_IC(r23, r22, r25)	// initiate turning off of interrupt and inte=
+rruption collection
+ 	invala			// invalidate ALAT
+ 	;;
+ 	ld8.fill r22=3D[r2],24
+@@ -367,13 +375,13 @@ GLOBAL_ENTRY(native_leave_kernel)
+ 	mov ar.ccv=3Dr15
+ 	;;
+ 	ldf.fill f11=3D[r2]
+-	bsw.0			// switch back to bank 0 (no stop bit required beforehand...)
++	BSW_0(r2, r3, r15)	// switch back to bank 0 (no stop bit required beforeh=
+and...)
+ 	;;
+ (pUStk)	mov r18=3DIA64_KR(CURRENT)// M2 (12 cycle read latency)
+ 	adds r16=3DPT(CR_IPSR)+16,r12
+ 	adds r17=3DPT(CR_IIP)+16,r12
+=20
+-(pKStk)	mov r22=3Dpsr		// M2 read PSR now that interrupts are disabled
++	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disa=
+bled
+ 	nop.i 0
+ 	nop.i 0
+ 	;;
+@@ -421,7 +429,7 @@ GLOBAL_ENTRY(native_leave_kernel)
+ 	 * NOTE: alloc, loadrs, and cover can't be predicated.
+ 	 */
+ (pNonSys) br.cond.dpnt dont_preserve_current_frame
+-	cover				// add current frame into dirty partition and set cr.ifs
++	COVER				// add current frame into dirty partition and set cr.ifs
+ 	;;
+ 	mov r19=3Dar.bsp			// get new backing store pointer
+ rbs_switch:
+@@ -524,16 +532,16 @@ skip_rbs_switch:
+ (pKStk)	dep r29=3Dr22,r29,21,1	// I0 update ipsr.pp with psr.pp
+ (pLvSys)mov r16=3Dr0		// A  clear r16 for leave_syscall, no-op otherwise
+ 	;;
+-	mov cr.ipsr=3Dr29		// M2
++	MOV_TO_IPSR(r29, r25)	// M2
+ 	mov ar.pfs=3Dr26		// I0
+ (pLvSys)mov r17=3Dr0		// A  clear r17 for leave_syscall, no-op otherwise
+=20
+-(p9)	mov cr.ifs=3Dr30		// M2
++	MOV_TO_IFS(p9, r30, r25)// M2
+ 	mov b0=3Dr21		// I0
+ (pLvSys)mov r18=3Dr0		// A  clear r18 for leave_syscall, no-op otherwise
+=20
+ 	mov ar.fpsr=3Dr20		// M2
+-	mov cr.iip=3Dr28		// M2
++	MOV_TO_IIP(r28, r25)	// M2
+ 	nop 0
+ 	;;
+ (pUStk)	mov ar.rnat=3Dr24		// M2 must happen with RSE in lazy mode
+@@ -542,7 +550,7 @@ skip_rbs_switch:
+=20
+ 	mov ar.rsc=3Dr27		// M2
+ 	mov pr=3Dr31,-1		// I0
+-	rfi			// B
++	RFI			// B
+=20
+ 	/*
+ 	 * On entry:
+@@ -568,28 +576,28 @@ skip_rbs_switch:
+ #endif
+ 	br.call.spnt.many rp=3Dschedule
+ .ret9:	cmp.eq p6,p0=3Dr0,r0				// p6 <- 1
+-	rsm psr.i		// disable interrupts
++	RSM_PSR_I(p0, r2, r20)	// disable interrupts
+ 	;;
+ #ifdef CONFIG_PREEMPT
+ (pKStk)	adds r20=3DTI_PRE_COUNT+IA64_TASK_SIZE,r13
+ 	;;
+ (pKStk)	st4 [r20]=3Dr0		// preempt_count() <- 0
+ #endif
+-(pLvSys)br.cond.sptk.few  ia64_work_pending_syscall_end
++(pLvSys)br.cond.sptk.few  __paravirt_pending_syscall_end
+ 	br.cond.sptk.many .work_processed_kernel	// re-check
+=20
+ .notify:
+ (pUStk)	br.call.spnt.many rp=3Dnotify_resume_user
+ .ret10:	cmp.ne p6,p0=3Dr0,r0				// p6 <- 0
+-(pLvSys)br.cond.sptk.few  ia64_work_pending_syscall_end
++(pLvSys)br.cond.sptk.few  __paravirt_pending_syscall_end
+ 	br.cond.sptk.many .work_processed_kernel	// don't re-check
+=20
+-.global ia64_work_pending_syscall_end;
+-ia64_work_pending_syscall_end:
++.global __paravirt_pending_syscall_end;
++__paravirt_pending_syscall_end:
+ 	adds r2=3DPT(R8)+16,r12
+ 	adds r3=3DPT(R10)+16,r12
+ 	;;
+ 	ld8 r8=3D[r2]
+ 	ld8 r10=3D[r3]
+-	br.cond.sptk.many ia64_work_processed_syscall	// re-check
+-END(native_leave_kernel)
++	br.cond.sptk.many __paravirt_work_processed_syscall_target	// re-check
++END(__paravirt_leave_kernel)
+--=20
 1.5.3
 
