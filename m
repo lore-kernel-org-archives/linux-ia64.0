@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 07 Mar 2008 16:55:54 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Mon, 10 Mar 2008 09:36:11 +0000
 Subject: Re: [PATCH] New way of storing MCA/INIT logs
-Message-Id: <20080307165553.GA32384@sgi.com>
+Message-Id: <47D5010B.2020003@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47CD8142.7050207@bull.net>
 In-Reply-To: <47CD8142.7050207@bull.net>
@@ -10,82 +10,60 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Mar 07, 2008 at 01:02:47PM +0100, Zoltan Menyhart wrote:
-> Russ Anderson wrote:
-> 
-> >Figure 2-1 does show SAL passing up CPEI records to OS, too.
-> 
-> Yes, as I also said:
-> "The SAL / PAL can be the origin of CPEIs / CMCIs if they succeed
-> in correcting MCAs. They stock the related information until the
-> OS calls SAL_GET_STATE_INFO()."
-> 
-> I Just want to emphasize that in case of the platform / CPU HW originated
-> CPEIs / CMCIs, the SAL does not know of them before we call
-> SAL_GET_STATE_INFO(), therefore it cannot store any information about
-> them.
+Russ Anderson wrote:
 
-In some implementations SAL builds the records in response to 
-SAL_GET_STATE_INFO(), in other implementations SAL knows of 
-the CPEI/CMCI and builds/buffers the records before the
-SAL_GET_STATE_INFO() call.  The SAL spec does not prohibit SAL 
-building/buffering the records before SAL_GET_STATE_INFO().
+> ... in other implementations SAL knows of
+> the CPEI/CMCI and builds/buffers the records before the
+> SAL_GET_STATE_INFO() call.
 
-From a practical perspective, I don't think the difference significantly
-changes how linux should handle CPEIs/CMCIs.  Linux should try to read/log
-the CPEI/CMCI as quick as possible.  The lack of SAL buffering increases
-the chance of a record getting lost (overwritten) while SAL buffering
-reduces the chance that a CPEI/CMCI record gets lost (overwritten).
-If anything, the lack of SAL buffering would be a reason for more
-linux buffers, to reduce the chance of losing records.
+If you mean MCAs corrected and transformed into CPEIs/CMCIs, I agree.
+If you mean the platform / CPU HW originated CPEIs/CMCIs, please
+explain how the SAL catches these interrupts.
 
-> >See section 5.3.2 CMC and CPE Records
-> >
-> >  Each processor or physical platform could have multiple valid corrected
-> >  machine check or corrected platform error records. The maximum number of
-> >  these records present in a system depends on the SAL implementation and
-> >  the storage space available on the system. There is no requirement for
-> >  these records to be logged into NVM. The SAL may use an implementation
-> >  specific error record replacement algorithm for overflow situations. The
-> >  OS needs to make an explicit call to the SAL procedure 
-> >  SAL_CLEAR_STATE_INFO
-> >  to clear the CMC and CPE records in order to free up the memory resources
-> >  that may be used for future records.
-> 
-> As far as I can understand, it is about the events not signaled by
-> interrupts, but MCAs, and either the PAL or the SAL manages to correct
-> them (=> CMCI, CPEI).
+I guess the differences among implementations call for a dynamically
+configurable solution.
 
-Agreed that SAL corrected errors can get passed up as CMCI/CPEI.
-I do not believe it prohibits other CMCI/CPEI records from being
-built/buffered before the SAL_CLEAR_STATE_INFO() call.  
+First I would have liked to discuss about the MCAs, which - in may
+approach - are completely separated from the CPEIs/CMCIs.
+As MCA log buffering cannot be synchronized as it is done
+for the CPEIs/CMCIs, it requires different code, can we discuss
+separately the mechanisms for MCAs and CPEIs/CMCIs?
+As far as the my MCA stuff is concerned, can you agree that it is
+safer than the original code?
 
-As stated above, from a practical perspective, I don't believe the
-difference significanlty changes how linux should behave other than
-possibly being a reason for more linux buffers.
+>>From a practical perspective, I don't think the difference significantly
+> changes how linux should handle CPEIs/CMCIs.  Linux should try to read/log
+> the CPEI/CMCI as quick as possible. The lack of SAL buffering increases
+> the chance of a record getting lost (overwritten) while SAL buffering
+> reduces the chance that a CPEI/CMCI record gets lost (overwritten).
+> If anything, the lack of SAL buffering would be a reason for more
+> linux buffers, to reduce the chance of losing records.
 
-> You have got N >= 1 buffers for this kind of errors.
+I agree.
 
-My preference is for a larger N.  Scaling N with system size
-may be the best solution for small & large systems.
+> Agreed that SAL corrected errors can get passed up as CMCI/CPEI.
+> I do not believe it prohibits other CMCI/CPEI records from being
+> built/buffered before the SAL_CLEAR_STATE_INFO() call.  
 
-> >5.4.1 Corrected Error Event Record
-> >
-> >  In response to a CMC/CPE condition, SAL builds and maintains the error
-> >  record for OS retrieval.
-> 
-> It does not say that the SAL knows about CMCI / CPEI signaled errors
-> before we call SAL_GET_STATE_INFO().
+How can it build / buffer records belonging to the platform / CPU HW
+originated CPEIs/CMCIs?
+Some of the CPEI/CMCI arrows on the Figure 2-1.... go directly from the
+platform / CPU HW to the OS.
+And as far as I can see, the SAL do not handle CPE/CMC interrupts.
 
-It does not say that SAL cannot know before the SAL_GET_STATE_INFO() call.
+> As stated above, from a practical perspective, I don't believe the
+> difference significanlty changes how linux should behave other than
+> possibly being a reason for more linux buffers.
 
-> Example: the Tiger box with i82870:
+> My preference is for a larger N.  Scaling N with system size
+> may be the best solution for small & large systems.
 
-I take your word as how Tiger SAL behaves.
-Please take my word that other SAL implementations behave differently.
+Can we think of some dynamic / platfom dependent way of configuring
+the number of the buffers?
 
+E.g. my MCA stuff can start up with, say, 3 buffers by default,
+and you will be able to override it by a boot command line option.
 
 Thanks,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+
+Zoltan
