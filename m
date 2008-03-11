@@ -1,42 +1,36 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:52 +0000
-Subject: [PATCH 37/50] ia64/pv_ops/xen: multi compile switch_leave.S and ivt.S for xen.
-Message-Id: <12047411462336-git-send-email-yamahata@valinux.co.jp>
+From: Masami Hiramatsu <mhiramat@redhat.com>
+Date: Tue, 11 Mar 2008 00:06:48 +0000
+Subject: [PATCH -mm] kprobes: fix prepare_booster to get correct slot
+Message-Id: <47D5CD18.4080400@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <47D166E7.2050803@redhat.com> <1205120600.20271.3.camel@sli10-desk.sh.intel.com> <47D57D28.7070100@redhat.com>
+In-Reply-To: <47D57D28.7070100@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Shaohua Li <shaohua.li@intel.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, ia64 <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, Jim Keniston <jkenisto@us.ibm.com>, systemtap-ml <systemtap@sources.redhat.com>
 
+Fix to get correct slot number from probing address
+in prepare_booster.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Masami Hiramatsu <mhiramat@redhat.com>
 ---
- arch/ia64/kernel/Makefile |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+Andrew, this is a bugfix of
+kprobes-kprobe-booster-for-ia64.patch
 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 7849bc3..a80dd3f 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -83,3 +83,18 @@ $(obj)/gate-data.o: $(obj)/gate.so
- #
- AFLAGS_ivt.o += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
- AFLAGS_switch_leave.o += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
-+
-+# xen multi compile
-+$(obj)/xen_%.o: $(src)/%.S FORCE
-+	$(call if_changed_dep,as_o_S)
-+
-+#
-+# xenivt.o, xen_switch_leave.o
-+#
-+obj-$(CONFIG_XEN) += xen_ivt.o xen_switch_leave.o
-+ifeq ($(CONFIG_XEN), y)
-+targets += xen_ivt.o xen_switch_leave.o
-+$(obj)/build-in.o: xen_ivt.o xen_switch_leave.o
-+endif
-+AFLAGS_xen_ivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-+AFLAGS_xen_switch_leave.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
--- 
-1.5.3
+ arch/ia64/kernel/kprobes.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+Index: 2.6.25-rc3-mm1/arch/ia64/kernel/kprobes.c
+=================================--- 2.6.25-rc3-mm1.orig/arch/ia64/kernel/kprobes.c
++++ 2.6.25-rc3-mm1/arch/ia64/kernel/kprobes.c
+@@ -565,7 +565,7 @@ static int __kprobes can_boost(bundle_t
+ static void __kprobes prepare_booster(struct kprobe *p)
+ {
+ 	unsigned long addr = (unsigned long)p->addr & ~0xFULL;
+-	unsigned int slot = addr & 0xf;
++	unsigned int slot = (unsigned long)p->addr & 0xf;
+ 	struct kprobe *other_kp;
+
+ 	if (can_boost(&p->ainsn.insn[0].bundle, slot, addr)) {
