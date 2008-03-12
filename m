@@ -1,36 +1,29 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 21 Mar 2008 23:58:30 +0000
-Subject: RE: [PATCH, RFC] Create 'slot' sysfs attributein/sys/devices/system/cpu/cpuN/topology/
-Message-Id: <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Wed, 12 Mar 2008 10:21:45 +0000
+Subject: kvm-ia64.git is created on master.kernel.org!
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCF1BB8F@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com>
-In-Reply-To: <20080319233140.GD16237@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Chiang <achiang@hp.com>
-Cc: lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+Cc: kvm-devel@lists.sourceforge.net, "Xu, Anthony" <anthony.xu@intel.com>, "Luck, Tony" <tony.luck@intel.com>, Avi Kivity <avi@qumranet.com>
 
-+	if (ACPI_SUCCESS(acpi_get_handle(pr->handle, "_SUN", &handle))) {
-+		status = acpi_evaluate_object(pr->handle,
-+						"_SUN", NULL, &buffer);
-+		if (ACPI_FAILURE(status))
-+			object.integer.value = -1;
-+	} else {
-+		object.integer.value = -1;
-+	}
-+	arch_set_topology_slot(pr->id, object.integer.value);
-+
- 	if (!object.processor.pblk_address)
- 		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "No PBLK (NULL address)\n"));
- 	else if (object.processor.pblk_length != 6)
+Hi, guys 
 
-I'm still seeing these messages:
+We have created kvm-ia64.git on master.kernel.org for open development,
+and the latest source is also included in this repository. So you can
+clone  and make  contributions to it now.  Cheers!!  
+In this repository, I created the branch kvm-ia64-mc4 to hold the
+patchset.  Now, the whole community had better work on the branch
+together for reviewing code, doing cleanup, and adding the new features.
+If you have any contribution or questions, please feel free to submit to
+the kvm-ia64 mailing
+list(https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel).  
 
- "ACPI: Invalid PBLK length [0]"
+BTW,  You know, since 2.6.26 merge window is coming, we have to prepare
+a clean and mature tree before its due.  Welcome to join in kvm/ia64
+development!   
+Thanks for you any contributions! 
 
-for every cpu.  Presumably because "object" is a union and when
-you did the "object.integer.value = -1;" you scribbled on some bits
-that were needed in the subsequent code.
-
--Tony
+Xiantao
