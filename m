@@ -1,152 +1,168 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Sat, 29 Mar 2008 00:12:30 +0000
-Subject: [PATCH 1/4] set_restore_sigmask
-Message-Id: <20080329001230.D013726FA1D@magilla.localdomain>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Fri, 14 Mar 2008 20:57:08 +0000
+Subject: [PATCH] Kernel parameter for max number of concurrent global TLB purges
+Message-Id: <20080314205708.GA30518@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-s390@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This adds the set_restore_sigmask() inline in <linux/thread_info.h> and
-replaces every set_thread_flag(TIF_RESTORE_SIGMASK) with a call to it.
-No change, but abstracts the flag protocol details from all the calls.
 
-Signed-off-by: Roland McGrath <roland@redhat.com>
+The patch defines kernel parameter "nptcg=". The parameter overrides max number
+of concurrent global TLB purges which is reported from either PAL_VM_SUMMARY or
+SAL PALO.
+
+This patch is on the top of patch sent before:
+
+http://www.gelato.unsw.edu.au/archives/linux-ia64/0801/21684.html
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
 ---
- fs/compat.c                 |    6 +++---
- fs/eventpoll.c              |    3 +--
- fs/select.c                 |    4 ++--
- include/linux/thread_info.h |   15 ++++++++++++++-
- kernel/compat.c             |    3 +--
- kernel/signal.c             |    2 +-
- 6 files changed, 22 insertions(+), 11 deletions(-)
 
-diff --git a/fs/compat.c b/fs/compat.c
-index 2ce4456..9964d54 100644
---- a/fs/compat.c
-+++ b/fs/compat.c
-@@ -1720,7 +1720,7 @@ sticky:
- 		if (sigmask) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 					sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		}
- 	} else if (sigmask)
- 		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
-@@ -1791,7 +1791,7 @@ asmlinkage long compat_sys_ppoll(struct pollfd __user *ufds,
- 		if (sigmask) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 				sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		}
- 		ret = -ERESTARTNOHAND;
- 	} else if (sigmask)
-@@ -2117,7 +2117,7 @@ asmlinkage long compat_sys_epoll_pwait(int epfd,
- 		if (err = -EINTR) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 			       sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		} else
- 			sigprocmask(SIG_SETMASK, &sigsaved, NULL);
- 	}
-diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index a415f42..503ffa4 100644
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -1300,7 +1300,7 @@ asmlinkage long sys_epoll_pwait(int epfd, struct epoll_event __user *events,
- 		if (error = -EINTR) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 			       sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		} else
- 			sigprocmask(SIG_SETMASK, &sigsaved, NULL);
- 	}
-@@ -1330,4 +1330,3 @@ static int __init eventpoll_init(void)
- 	return 0;
- }
- fs_initcall(eventpoll_init);
--
-diff --git a/fs/select.c b/fs/select.c
-index 5633fe9..bbd351c 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -498,7 +498,7 @@ sticky:
- 		if (sigmask) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 					sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		}
- 	} else if (sigmask)
- 		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
-@@ -805,7 +805,7 @@ asmlinkage long sys_ppoll(struct pollfd __user *ufds, unsigned int nfds,
- 		if (sigmask) {
- 			memcpy(&current->saved_sigmask, &sigsaved,
- 					sizeof(sigsaved));
--			set_thread_flag(TIF_RESTORE_SIGMASK);
-+			set_restore_sigmask();
- 		}
- 		ret = -ERESTARTNOHAND;
- 	} else if (sigmask)
-diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-index 421323e..d82c073 100644
---- a/include/linux/thread_info.h
-+++ b/include/linux/thread_info.h
-@@ -80,6 +80,19 @@ static inline int test_ti_thread_flag(struct thread_info *ti, int flag)
- #define set_need_resched()	set_thread_flag(TIF_NEED_RESCHED)
- #define clear_need_resched()	clear_thread_flag(TIF_NEED_RESCHED)
+ Documentation/kernel-parameters.txt |    4 +++
+ arch/ia64/kernel/efi.c              |    2 -
+ arch/ia64/kernel/setup.c            |    2 -
+ arch/ia64/mm/tlb.c                  |   46 ++++++++++++++++++++++++++++++++----
+ include/asm-ia64/sal.h              |    4 +++
+ 5 files changed, 51 insertions(+), 7 deletions(-)
+
+diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
+index 533e67f..3477a8b 100644
+--- a/Documentation/kernel-parameters.txt
++++ b/Documentation/kernel-parameters.txt
+@@ -1337,6 +1337,10 @@ and is between 256 and 4096 characters. It is defined in the file
  
--#endif
-+#ifdef TIF_RESTORE_SIGMASK
-+/**
-+ * set_restore_sigmask() - make sure saved_sigmask processing gets done
-+ *
-+ * This sets TIF_RESTORE_SIGMASK and ensures that the arch signal code
-+ * will run before returning to user mode, to process the flag.
-+ */
-+static inline void set_restore_sigmask(void)
-+{
-+	set_thread_flag(TIF_RESTORE_SIGMASK);
-+}
-+#endif	/* TIF_RESTORE_SIGMASK */
+ 	nowb		[ARM]
+ 
++	nptcg=		[IA64] Override max number of concurrent global TLB
++			purges which is reported from either PAL_VM_SUMMARY or
++			SAL PALO.
 +
-+#endif	/* __KERNEL__ */
+ 	numa_zonelist_order= [KNL, BOOT] Select zonelist order for NUMA.
+ 			one of ['zone', 'node', 'default'] can be specified
+ 			This can be set from sysctl after boot.
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 003cd09..d45f215 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -436,7 +436,7 @@ static void __init handle_palo(unsigned long palo_phys)
+ 		return;
+ 	}
  
- #endif /* _LINUX_THREAD_INFO_H */
-diff --git a/kernel/compat.c b/kernel/compat.c
-index 5f0e201..a830c84 100644
---- a/kernel/compat.c
-+++ b/kernel/compat.c
-@@ -899,7 +899,7 @@ asmlinkage long compat_sys_rt_sigsuspend(compat_sigset_t __user *unewset, compat
- 
- 	current->state = TASK_INTERRUPTIBLE;
- 	schedule();
--	set_thread_flag(TIF_RESTORE_SIGMASK);
-+	set_restore_sigmask();
- 	return -ERESTARTNOHAND;
+-	setup_ptcg_sem(palo->max_tlb_purges, 1);
++	setup_ptcg_sem(palo->max_tlb_purges, NPTCG_FROM_PALO);
  }
- #endif /* __ARCH_WANT_COMPAT_SYS_RT_SIGSUSPEND */
-@@ -1081,4 +1081,3 @@ compat_sys_sysinfo(struct compat_sysinfo __user *info)
  
- 	return 0;
- }
--
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 6af1210..977b3cd 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -2610,7 +2610,7 @@ asmlinkage long sys_rt_sigsuspend(sigset_t __user *unewset, size_t sigsetsize)
+ void
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 1cbd263..f798c07 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -949,7 +949,7 @@ cpu_init (void)
+ 	/* set ia64_ctx.max_rid to the maximum RID that is supported by all CPUs: */
+ 	if (ia64_pal_vm_summary(NULL, &vmi) = 0) {
+ 		max_ctx = (1U << (vmi.pal_vm_info_2_s.rid_size - 3)) - 1;
+-		setup_ptcg_sem(vmi.pal_vm_info_2_s.max_purges, 0);
++		setup_ptcg_sem(vmi.pal_vm_info_2_s.max_purges, NPTCG_FROM_PAL);
+ 	} else {
+ 		printk(KERN_WARNING "cpu_init: PAL VM summary failed, assuming 18 RID bits\n");
+ 		max_ctx = (1U << 15) - 1;	/* use architected minimum */
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 78767e5..2bafe7f 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -94,19 +94,45 @@ static int need_ptcg_sem = 1;
+ static int toolatetochangeptcgsem = 0;
  
- 	current->state = TASK_INTERRUPTIBLE;
- 	schedule();
--	set_thread_flag(TIF_RESTORE_SIGMASK);
-+	set_restore_sigmask();
- 	return -ERESTARTNOHAND;
- }
- #endif /* __ARCH_WANT_SYS_RT_SIGSUSPEND */
+ /*
++ * Kernel parameter "nptcg=" overrides max number of concurrent global TLB
++ * purges which is reported from either PAL or SAL PALO.
++ *
++ * We don't have sanity checking for nptcg value. It's the user's responsibility
++ * for valid nptcg value on the platform. Otherwise, kernel may hang in some
++ * cases.
++ */
++static int __init
++set_nptcg(char *str)
++{
++	int value = 0;
++
++	get_option(&str, &value);
++	setup_ptcg_sem(value, NPTCG_FROM_KERNEL_PARAMETER);
++
++	return 1;
++}
++
++__setup("nptcg=", set_nptcg);
++
++/*
+  * Maximum number of simultaneous ptc.g purges in the system can
+  * be defined by PAL_VM_SUMMARY (in which case we should take
+  * the smallest value for any cpu in the system) or by the PAL
+  * override table (in which case we should ignore the value from
+  * PAL_VM_SUMMARY).
+  *
++ * Kernel parameter "nptcg=" overrides maximum number of simultanesous ptc.g
++ * purges defined in either PAL_VM_SUMMARY or PAL override table. In this case,
++ * we should ignore the value from either PAL_VM_SUMMARY or PAL override table.
++ *
+  * Complicating the logic here is the fact that num_possible_cpus()
+  * isn't fully setup until we start bringing cpus online.
+  */
+ void
+-setup_ptcg_sem(int max_purges, int from_palo)
++setup_ptcg_sem(int max_purges, int nptcg_from)
+ {
+-	static int have_palo;
++	static int kp_override;
++	static int palo_override;
+ 	static int firstcpu = 1;
+ 
+ 	if (toolatetochangeptcgsem) {
+@@ -114,8 +140,18 @@ setup_ptcg_sem(int max_purges, int from_palo)
+ 		return;
+ 	}
+ 
+-	if (from_palo) {
+-		have_palo = 1;
++	if (nptcg_from = NPTCG_FROM_KERNEL_PARAMETER) {
++		kp_override = 1;
++		nptcg = max_purges;
++		goto resetsema;
++	}
++	if (kp_override) {
++		need_ptcg_sem = num_possible_cpus() > nptcg;
++		return;
++	}
++
++	if (nptcg_from = NPTCG_FROM_PALO) {
++		palo_override = 1;
+ 
+ 		/* In PALO max_purges = 0 really means it! */
+ 		if (max_purges = 0)
+@@ -127,7 +163,7 @@ setup_ptcg_sem(int max_purges, int from_palo)
+ 		}
+ 		goto resetsema;
+ 	}
+-	if (have_palo) {
++	if (palo_override) {
+ 		if (nptcg != PALO_MAX_TLB_PURGES)
+ 			need_ptcg_sem = (num_possible_cpus() > nptcg);
+ 		return;
+diff --git a/include/asm-ia64/sal.h b/include/asm-ia64/sal.h
+index 3cd637a..89594b4 100644
+--- a/include/asm-ia64/sal.h
++++ b/include/asm-ia64/sal.h
+@@ -896,6 +896,10 @@ struct palo_table {
+ 	u8  reserved2[6];
+ };
+ 
++#define NPTCG_FROM_PAL			0
++#define NPTCG_FROM_PALO			1
++#define NPTCG_FROM_KERNEL_PARAMETER	2
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_IA64_SAL_H */
