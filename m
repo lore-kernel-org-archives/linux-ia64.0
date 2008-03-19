@@ -1,85 +1,33 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:49 +0000
-Subject: [PATCH 34/50] ia64/xen: helper functions for xen fault handlers.
-Message-Id: <12047411461064-git-send-email-yamahata@valinux.co.jp>
+From: Roland McGrath <roland@redhat.com>
+Date: Wed, 19 Mar 2008 21:19:14 +0000
+Subject: [PATCH 3/8] ia64 ptrace: forced_successful_syscall_return()
+Message-Id: <20080319211914.AFE0E26F995@magilla.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080319211714.8B14226F995@magilla.localdomain>
+In-Reply-To: Roland McGrath's message of  Wednesday, 19 March 2008 14:17:14 -0700 <20080319211714.8B14226F995@magilla.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
 
+Define the forced_successful_syscall_return() macro to
+pair with our force_successful_syscall_return() definition.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Roland McGrath <roland@redhat.com>
 ---
- arch/ia64/xen/xenivt.S |   59 ++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 59 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/xenivt.S
+ include/asm-ia64/ptrace.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
-new file mode 100644
-index 0000000..99bb37a
---- /dev/null
-+++ b/arch/ia64/xen/xenivt.S
-@@ -0,0 +1,59 @@
-+/*
-+ * arch/ia64/xen/ivt.S
-+ *
-+ * Copyright (C) 2005 Hewlett-Packard Co
-+ *	Dan Magenheimer <dan.magenheimer@hp.com>
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *                    pv_ops.
-+ */
-+
-+#include <asm/asmmacro.h>
-+#include <asm/kregs.h>
-+#include <asm/pgtable.h>
-+
-+#define __IA64_ASM_PARAVIRTUALIZED_XEN
-+#include "inst_xen.h"
-+#include "xenminstate.h"
-+#include "../kernel/minstate.h"
-+
-+	.section .text,"ax"
-+GLOBAL_ENTRY(xen_event_callback)
-+	mov r31=pr		// prepare to save predicates
-+	;;
-+	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
-+	;;
-+	movl r3=XSI_PSR_IC
-+	mov r14=1
-+	;;
-+	st4 [r3]=r14
-+	;;
-+	adds r3=8,r2		// set up second base pointer for SAVE_REST
-+	srlz.i			// ensure everybody knows psr.ic is back on
-+	;;
-+	SAVE_REST
-+	;;
-+1:
-+	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
-+	add out0,sp		// pass pointer to pt_regs as first arg
-+	;;
-+	br.call.sptk.many b0=xen_evtchn_do_upcall
-+	;;
-+	movl r20=XSI_PSR_I_ADDR
-+	;;
-+	ld8 r20=[r20]
-+	;;
-+	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
-+	;;
-+	ld1 r20=[r20]
-+	;;
-+	cmp.ne p6,p0=r20,r0	// if there are pending events,
-+	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
-+	br.sptk.many ia64_leave_kernel
-+END(xen_event_callback)
-+
-+GLOBAL_ENTRY(xen_bsw1)
-+	XEN_BSW_1(r14)
-+	br.ret.sptk.many b0
-+END(xen_bsw1)
--- 
-1.5.3
-
+diff --git a/include/asm-ia64/ptrace.h b/include/asm-ia64/ptrace.h
+index 4b2a8d4..5e82915 100644
+--- a/include/asm-ia64/ptrace.h
++++ b/include/asm-ia64/ptrace.h
+@@ -276,6 +276,7 @@ struct switch_stack {
+    * On ia64, we can clear the user's pt_regs->r8 to force a successful syscall.
+    */
+ # define force_successful_syscall_return()	(task_pt_regs(current)->r8 = 0)
++# define forced_successful_syscall_return()	(task_pt_regs(current)->r8 = 0)
+ 
+   struct task_struct;			/* forward decl */
+   struct unw_frame_info;		/* forward decl */
