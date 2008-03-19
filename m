@@ -1,32 +1,33 @@
-From: Matthew Chapman <matthewc@cse.unsw.edu.au>
-Date: Wed, 05 Mar 2008 22:36:49 +0000
-Subject: Re: Interval timer
-Message-Id: <20080305223649.GA25774@cse.unsw.EDU.AU>
+From: Roland McGrath <roland@redhat.com>
+Date: Wed, 19 Mar 2008 21:19:36 +0000
+Subject: [PATCH 4/8] powerpc ptrace: forced_successful_syscall_return()
+Message-Id: <20080319211936.28E8B26F9A7@magilla.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080305094128.GA30069@cse.unsw.EDU.AU>
-In-Reply-To: <20080305094128.GA30069@cse.unsw.EDU.AU>
+References: <20080319211714.8B14226F995@magilla.localdomain>
+In-Reply-To: Roland McGrath's message of  Wednesday, 19 March 2008 14:17:14 -0700 <20080319211714.8B14226F995@magilla.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
 
-On Wed, Mar 05, 2008 at 03:19:16PM -0600, Robin Holt wrote:
-> 
-> How about setting HZ to 1024 and using regular add_timer() timers?
+Define the forced_successful_syscall_return() macro to
+pair with our force_successful_syscall_return() definition.
 
-I'd really like to get shorter timeouts in the common case.
+Signed-off-by: Roland McGrath <roland@redhat.com>
+---
+ include/asm-powerpc/ptrace.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-(Also, I was trying to avoid dealing with timer ticks at all in my
-hypervisor, leaving the details of setting ITC and ITM in the hands of
-the [single trusted] Linux kernel running on the hypervisor.  I guess I
-could run a uniformly fast timer tick in the hypervisor and deliver
-timer interrupts to the guest kernel on the closest tick, but I don't
-really like that solution, it's incurring extra overhead 'just in case'
-you happen to need a timeout in the hypervisor.)
-
-Anyway, I've written code to hijack ITM if the existing ITM is too far
-in the future, and then restore the previous value of ITM after the
-interrupt.  It works okay in the absence of better solutions.
-
-Matt
-
+diff --git a/include/asm-powerpc/ptrace.h b/include/asm-powerpc/ptrace.h
+index 891d689..07dd6fe 100644
+--- a/include/asm-powerpc/ptrace.h
++++ b/include/asm-powerpc/ptrace.h
+@@ -93,6 +93,7 @@ extern unsigned long profile_pc(struct pt_regs *regs);
+ 	do { \
+ 		set_thread_flag(TIF_NOERROR); \
+ 	} while(0)
++#define forced_successful_syscall_return()   (test_thread_flag(TIF_NOERROR))
+ 
+ struct task_struct;
+ extern unsigned long ptrace_get_reg(struct task_struct *task, int regno);
