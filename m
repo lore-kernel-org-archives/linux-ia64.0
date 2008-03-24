@@ -1,63 +1,29 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Sat, 29 Mar 2008 02:20:48 +0000
-Subject: RE: [11/17][PATCH] kvm/ia64: add processor virtulization support.
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCFF7F61@pdsmsx415.ccr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Date: Mon, 24 Mar 2008 20:37:22 +0000
+Subject: larger default page sizes...
+Message-Id: <20080324.133722.38645342.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <89C890DCEA6547takebe_akio@jp.fujitsu.com>
-In-Reply-To: <89C890DCEA6547takebe_akio@jp.fujitsu.com>
+References: <Pine.LNX.4.64.0803211037140.18671@schroedinger.engr.sgi.com>
+	<20080321.145712.198736315.davem@davemloft.net>
+	<Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: clameter@sgi.com
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
-Akio Takebe wrote:
-> Hi, Xiantao and Anthony
-> 
->> +void getfpreg(unsigned long regnum, struct ia64_fpreg *fpval,
->> +				struct kvm_pt_regs *regs)
->> +{
->> +	/* Take floating register rotation into consideration*/
->> +	if (regnum >= IA64_FIRST_ROTATING_FR)
->> +		regnum = IA64_FIRST_ROTATING_FR + fph_index(regs,
->> regnum);
->> +#define CASE_FIXED_FP(reg)			\
->> +	case  (reg) :				\
->> +		ia64_stf_spill(fpval, reg);	\
->> +	break
->> +
->> +	switch (regnum) {
->> +		CASE_FIXED_FP(0);
->> +		CASE_FIXED_FP(1);
->> +		CASE_FIXED_FP(2);
->> +		CASE_FIXED_FP(3);
->> +		CASE_FIXED_FP(4);
->> +		CASE_FIXED_FP(5);
->> +
->> +		CASE_FIXED_FP(6);
->> +		CASE_FIXED_FP(7);
->> +		CASE_FIXED_FP(8);
->> +		CASE_FIXED_FP(9);
->> +		CASE_FIXED_FP(10);
->> +		CASE_FIXED_FP(11);
->> +
-> Is this correct ? Though I don't know why xen do so.
-> In the case of Xen, the above parts are;
->
-> #define CASE_SAVED_FP(reg)                                      \
->         case reg:                                               \
->                 fpval->u.bits[0] = regs->f##reg.u.bits[0];      \
->                 fpval->u.bits[1] = regs->f##reg.u.bits[1];      \
->                 break
-> 
->                 CASE_SAVED_FP(6);
->                 CASE_SAVED_FP(7);
->                 CASE_SAVED_FP(8);
->  
-Hi, Akio
-	Current should be correct, because for every host<-> guest
-switch, we switched FPU accordingly.  So the fpu register file is
-dedicated for current vm, getting it from physical register should be
-right.  But for xen's code, due to lazy fpu save/restore, current fpu
-register file maybe not belong to current vcpu, so need to load it from
-stack. Thanks
-Xiantao 
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 24 Mar 2008 11:27:06 -0700 (PDT)
+
+> The move to 64k page size on IA64 is another way that this issue can
+> be addressed though.
+
+This is such a huge mistake I wish platforms such as powerpc and IA64
+would not make such decisions so lightly.
+
+The memory wastage is just rediculious.
+
+I already see several distributions moving to 64K pages for powerpc,
+so I want to nip this in the bud before this monkey-see-monkey-do
+thing gets any more out of hand.
