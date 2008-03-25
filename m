@@ -1,1324 +1,74 @@
 From: "Dong, Eddie" <eddie.dong@intel.com>
-Date: Tue, 25 Mar 2008 06:13:43 +0000
+Date: Tue, 25 Mar 2008 06:35:02 +0000
 Subject: RE: Xen common code across architecture
-Message-Id: <10EA09EFD8728347A513008B6B0DA77A02F37916@pdsmsx411.ccr.corp.intel.com>
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A02F3794B@pdsmsx411.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C88E3F.619D5D07"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C88E42.5B725E99"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12047411453864-git-send-email-yamahata@valinux.co.jp>	<12047411473158-git-send-email-yamahata@valinux.co.jp> <10EA09EFD8728347A513008B6B0DA77A02EF8C3A@pdsmsx411.ccr.corp.intel.com> <47E27348.5090705@goop.org>
-In-Reply-To: <47E27348.5090705@goop.org>
-To: Jeremy Fitzhardinge <jeremy@goop.org>
+References: <12047411453864-git-send-email-yamahata@valinux.co.jp>	<12047411473158-git-send-email-yamahata@valinux.co.jp> <10EA09EFD8728347A513008B6B0DA77A02EF8C3A@pdsmsx411.ccr.corp.intel.com> <47E27348.5090705@goop.org> <10EA09EFD8728347A513008B6B0DA77A02F37916@pdsmsx411.ccr.corp.intel.com>
+In-Reply-To: <10EA09EFD8728347A513008B6B0DA77A02F37916@pdsmsx411.ccr.corp.intel.com>
+To: "Dong, Eddie" <eddie.dong@intel.com>, Jeremy Fitzhardinge <jeremy@goop.org>
 Cc: virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, xen-ia64-devel@lists.xensource.com
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C88E3F.619D5D07
+------_=_NextPart_001_01C88E42.5B725E99
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-Jeremy/Andrew:
-
-	Isaku Yamahata, I and some other IA64/Xen community memebers are
-
-working together to enable pv_ops for IA64 Linux. This patch is a
-preparation to=20
-move common arch/x86/xen/events.c to drivers/xen (contents are
-identical) against
-mm tree, it is based on Yamahata's IA64/pv_ops patch serie.
-	In case you want to have a brief view of whole pv_ops/IA64 patch
-serie,=20
-please refer to IA64 Linux mailinglist.
-
-Thanks, Eddie
-=09
-
-    Move events.c to drivers/xen for IA64/Xen
-    support.
+Dong, Eddie wrote:
+> Jeremy/Andrew:
+>=20
+> 	Isaku Yamahata, I and some other IA64/Xen community memebers are
+>=20
+> working together to enable pv_ops for IA64 Linux. This patch is a
+> preparation to
+> move common arch/x86/xen/events.c to drivers/xen (contents are
+> identical) against
+> mm tree, it is based on Yamahata's IA64/pv_ops patch serie.
+> 	In case you want to have a brief view of whole pv_ops/IA64 patch
+> serie,
+> please refer to IA64 Linux mailinglist.
+>=20
+> Thanks, Eddie
+>=20
+>=20
+     Fix a typo. Merged one is attached too.
 
 
     Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 
-diff -urN old/arch/x86/xen/events.c linux/arch/x86/xen/events.c
---- old/arch/x86/xen/events.c	2008-03-10 13:22:27.000000000 +0800
-+++ linux/arch/x86/xen/events.c	1970-01-01 08:00:00.000000000 +0800
-@@ -1,591 +0,0 @@
--/*
-- * Xen event channels
-- *
-- * Xen models interrupts with abstract event channels.  Because each
-- * domain gets 1024 event channels, but NR_IRQ is not that large, we
-- * must dynamically map irqs<->event channels.  The event channels
-- * interface with the rest of the kernel by defining a xen interrupt
-- * chip.  When an event is recieved, it is mapped to an irq and sent
-- * through the normal interrupt processing path.
-- *
-- * There are four kinds of events which can be mapped to an event
-- * channel:
-- *
-- * 1. Inter-domain notifications.  This includes all the virtual
-- *    device events, since they're driven by front-ends in another
-domain
-- *    (typically dom0).
-- * 2. VIRQs, typically used for timers.  These are per-cpu events.
-- * 3. IPIs.
-- * 4. Hardware interrupts. Not supported at present.
-- *
-- * Jeremy Fitzhardinge <jeremy@xensource.com>, XenSource Inc, 2007
-- */
--
--#include <linux/linkage.h>
--#include <linux/interrupt.h>
--#include <linux/irq.h>
--#include <linux/module.h>
--#include <linux/string.h>
--
--#include <asm/ptrace.h>
--#include <asm/irq.h>
--#include <asm/sync_bitops.h>
--#include <asm/xen/hypercall.h>
--#include <asm/xen/hypervisor.h>
--
--#include <xen/events.h>
--#include <xen/interface/xen.h>
--#include <xen/interface/event_channel.h>
--
+--- drivers/xen/events_old.c	2008-03-25 14:31:40.503525471 +0800
++++ drivers/xen/events.c	2008-03-25 14:19:39.841851430 +0800
+@@ -37,7 +37,7 @@
+ #include <xen/interface/xen.h>
+ #include <xen/interface/event_channel.h>
+=20
 -#include "xen-ops.h"
--
--/*
-- * This lock protects updates to the following mapping and
-reference-count
-- * arrays. The lock does not need to be acquired to read the mapping
-tables.
-- */
--static DEFINE_SPINLOCK(irq_mapping_update_lock);
--
--/* IRQ <-> VIRQ mapping. */
--static DEFINE_PER_CPU(int, virq_to_irq[NR_VIRQS]) =3D {[0 ... =
-NR_VIRQS-1]
-=3D -1};
--
--/* IRQ <-> IPI mapping */
--static DEFINE_PER_CPU(int, ipi_to_irq[XEN_NR_IPIS]) =3D {[0 ...
-XEN_NR_IPIS-1] =3D -1};
--
--/* Packed IRQ information: binding type, sub-type index, and event
-channel. */
--struct packed_irq
--{
--	unsigned short evtchn;
--	unsigned char index;
--	unsigned char type;
--};
--
--static struct packed_irq irq_info[NR_IRQS];
--
--/* Binding types. */
--enum {
--	IRQT_UNBOUND,
--	IRQT_PIRQ,
--	IRQT_VIRQ,
--	IRQT_IPI,
--	IRQT_EVTCHN
--};
--
--/* Convenient shorthand for packed representation of an unbound IRQ. */
--#define IRQ_UNBOUND	mk_irq_info(IRQT_UNBOUND, 0, 0)
--
--static int evtchn_to_irq[NR_EVENT_CHANNELS] =3D {
--	[0 ... NR_EVENT_CHANNELS-1] =3D -1
--};
--static unsigned long
-cpu_evtchn_mask[NR_CPUS][NR_EVENT_CHANNELS/BITS_PER_LONG];
--static u8 cpu_evtchn[NR_EVENT_CHANNELS];
--
--/* Reference counts for bindings to IRQs. */
--static int irq_bindcount[NR_IRQS];
--
--/* Xen will never allocate port zero for any purpose. */
--#define VALID_EVTCHN(chn)	((chn) !=3D 0)
--
--/*
-- * Force a proper event-channel callback from Xen after clearing the
-- * callback mask. We do this in a very simple manner, by making a call
-- * down into Xen. The pending flag will be checked by Xen on return.
-- */
--void force_evtchn_callback(void)
--{
--	(void)HYPERVISOR_xen_version(0, NULL);
--}
--EXPORT_SYMBOL_GPL(force_evtchn_callback);
--
--static struct irq_chip xen_dynamic_chip;
--
--/* Constructor for packed IRQ information. */
--static inline struct packed_irq mk_irq_info(u32 type, u32 index, u32
-evtchn)
--{
--	return (struct packed_irq) { evtchn, index, type };
--}
--
--/*
-- * Accessors for packed IRQ information.
-- */
--static inline unsigned int evtchn_from_irq(int irq)
--{
--	return irq_info[irq].evtchn;
--}
--
--static inline unsigned int index_from_irq(int irq)
--{
--	return irq_info[irq].index;
--}
--
--static inline unsigned int type_from_irq(int irq)
--{
--	return irq_info[irq].type;
--}
--
--static inline unsigned long active_evtchns(unsigned int cpu,
--					   struct shared_info *sh,
--					   unsigned int idx)
--{
--	return (sh->evtchn_pending[idx] &
--		cpu_evtchn_mask[cpu][idx] &
--		~sh->evtchn_mask[idx]);
--}
--
--static void bind_evtchn_to_cpu(unsigned int chn, unsigned int cpu)
--{
--	int irq =3D evtchn_to_irq[chn];
--
--	BUG_ON(irq =3D=3D -1);
--#ifdef CONFIG_SMP
--	irq_desc[irq].affinity =3D cpumask_of_cpu(cpu);
--#endif
--
--	__clear_bit(chn, cpu_evtchn_mask[cpu_evtchn[chn]]);
--	__set_bit(chn, cpu_evtchn_mask[cpu]);
--
--	cpu_evtchn[chn] =3D cpu;
--}
--
--static void init_evtchn_cpu_bindings(void)
--{
--#ifdef CONFIG_SMP
--	int i;
--	/* By default all event channels notify CPU#0. */
--	for (i =3D 0; i < NR_IRQS; i++)
--		irq_desc[i].affinity =3D cpumask_of_cpu(0);
--#endif
--
--	memset(cpu_evtchn, 0, sizeof(cpu_evtchn));
--	memset(cpu_evtchn_mask[0], ~0, sizeof(cpu_evtchn_mask[0]));
--}
--
--static inline unsigned int cpu_from_evtchn(unsigned int evtchn)
--{
--	return cpu_evtchn[evtchn];
--}
--
--static inline void clear_evtchn(int port)
--{
--	struct shared_info *s =3D HYPERVISOR_shared_info;
--	sync_clear_bit(port, &s->evtchn_pending[0]);
--}
--
--static inline void set_evtchn(int port)
--{
--	struct shared_info *s =3D HYPERVISOR_shared_info;
--	sync_set_bit(port, &s->evtchn_pending[0]);
--}
--
--
--/**
-- * notify_remote_via_irq - send event to remote end of event channel
-via irq
-- * @irq: irq of event channel to send event to
-- *
-- * Unlike notify_remote_via_evtchn(), this is safe to use across
-- * save/restore. Notifications on a broken connection are silently
-- * dropped.
-- */
--void notify_remote_via_irq(int irq)
--{
--	int evtchn =3D evtchn_from_irq(irq);
--
--	if (VALID_EVTCHN(evtchn))
--		notify_remote_via_evtchn(evtchn);
--}
--EXPORT_SYMBOL_GPL(notify_remote_via_irq);
--
--static void mask_evtchn(int port)
--{
--	struct shared_info *s =3D HYPERVISOR_shared_info;
--	sync_set_bit(port, &s->evtchn_mask[0]);
--}
--
--static void unmask_evtchn(int port)
--{
--	struct shared_info *s =3D HYPERVISOR_shared_info;
--	unsigned int cpu =3D get_cpu();
--
--	BUG_ON(!irqs_disabled());
--
--	/* Slow path (hypercall) if this is a non-local port. */
--	if (unlikely(cpu !=3D cpu_from_evtchn(port))) {
--		struct evtchn_unmask unmask =3D { .port =3D port };
--		(void)HYPERVISOR_event_channel_op(EVTCHNOP_unmask,
-&unmask);
--	} else {
--		struct vcpu_info *vcpu_info =3D __get_cpu_var(xen_vcpu);
--
--		sync_clear_bit(port, &s->evtchn_mask[0]);
--
--		/*
--		 * The following is basically the equivalent of
--		 * 'hw_resend_irq'. Just like a real IO-APIC we 'lose
--		 * the interrupt edge' if the channel is masked.
--		 */
--		if (sync_test_bit(port, &s->evtchn_pending[0]) &&
--		    !sync_test_and_set_bit(port / BITS_PER_LONG,
--
-&vcpu_info->evtchn_pending_sel))
--			vcpu_info->evtchn_upcall_pending =3D 1;
--	}
--
--	put_cpu();
--}
--
--static int find_unbound_irq(void)
--{
--	int irq;
--
--	/* Only allocate from dynirq range */
--	for (irq =3D 0; irq < NR_IRQS; irq++)
--		if (irq_bindcount[irq] =3D=3D 0)
--			break;
--
--	if (irq =3D=3D NR_IRQS)
--		panic("No available IRQ to bind to: increase
-NR_IRQS!\n");
--
--	return irq;
--}
--
--int bind_evtchn_to_irq(unsigned int evtchn)
--{
--	int irq;
--
--	spin_lock(&irq_mapping_update_lock);
--
--	irq =3D evtchn_to_irq[evtchn];
--
--	if (irq =3D=3D -1) {
--		irq =3D find_unbound_irq();
--
--		dynamic_irq_init(irq);
--		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
--					      handle_level_irq,
-"event");
--
--		evtchn_to_irq[evtchn] =3D irq;
--		irq_info[irq] =3D mk_irq_info(IRQT_EVTCHN, 0, evtchn);
--	}
--
--	irq_bindcount[irq]++;
--
--	spin_unlock(&irq_mapping_update_lock);
--
--	return irq;
--}
--EXPORT_SYMBOL_GPL(bind_evtchn_to_irq);
--
--static int bind_ipi_to_irq(unsigned int ipi, unsigned int cpu)
--{
--	struct evtchn_bind_ipi bind_ipi;
--	int evtchn, irq;
--
--	spin_lock(&irq_mapping_update_lock);
--
--	irq =3D per_cpu(ipi_to_irq, cpu)[ipi];
--	if (irq =3D=3D -1) {
--		irq =3D find_unbound_irq();
--		if (irq < 0)
--			goto out;
--
--		dynamic_irq_init(irq);
--		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
--					      handle_level_irq, "ipi");
--
--		bind_ipi.vcpu =3D cpu;
--		if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_ipi,
--						&bind_ipi) !=3D 0)
--			BUG();
--		evtchn =3D bind_ipi.port;
--
--		evtchn_to_irq[evtchn] =3D irq;
--		irq_info[irq] =3D mk_irq_info(IRQT_IPI, ipi, evtchn);
--
--		per_cpu(ipi_to_irq, cpu)[ipi] =3D irq;
--
--		bind_evtchn_to_cpu(evtchn, cpu);
--	}
--
--	irq_bindcount[irq]++;
--
-- out:
--	spin_unlock(&irq_mapping_update_lock);
--	return irq;
--}
--
--
--static int bind_virq_to_irq(unsigned int virq, unsigned int cpu)
--{
--	struct evtchn_bind_virq bind_virq;
--	int evtchn, irq;
--
--	spin_lock(&irq_mapping_update_lock);
--
--	irq =3D per_cpu(virq_to_irq, cpu)[virq];
--
--	if (irq =3D=3D -1) {
--		bind_virq.virq =3D virq;
--		bind_virq.vcpu =3D cpu;
--		if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_virq,
--						&bind_virq) !=3D 0)
--			BUG();
--		evtchn =3D bind_virq.port;
--
--		irq =3D find_unbound_irq();
--
--		dynamic_irq_init(irq);
--		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
--					      handle_level_irq, "virq");
--
--		evtchn_to_irq[evtchn] =3D irq;
--		irq_info[irq] =3D mk_irq_info(IRQT_VIRQ, virq, evtchn);
--
--		per_cpu(virq_to_irq, cpu)[virq] =3D irq;
--
--		bind_evtchn_to_cpu(evtchn, cpu);
--	}
--
--	irq_bindcount[irq]++;
--
--	spin_unlock(&irq_mapping_update_lock);
--
--	return irq;
--}
--
--static void unbind_from_irq(unsigned int irq)
--{
--	struct evtchn_close close;
--	int evtchn =3D evtchn_from_irq(irq);
--
--	spin_lock(&irq_mapping_update_lock);
--
--	if (VALID_EVTCHN(evtchn) && (--irq_bindcount[irq] =3D=3D 0)) {
--		close.port =3D evtchn;
--		if (HYPERVISOR_event_channel_op(EVTCHNOP_close, &close)
-!=3D 0)
--			BUG();
--
--		switch (type_from_irq(irq)) {
--		case IRQT_VIRQ:
--			per_cpu(virq_to_irq, cpu_from_evtchn(evtchn))
--				[index_from_irq(irq)] =3D -1;
--			break;
--		default:
--			break;
--		}
--
--		/* Closed ports are implicitly re-bound to VCPU0. */
--		bind_evtchn_to_cpu(evtchn, 0);
--
--		evtchn_to_irq[evtchn] =3D -1;
--		irq_info[irq] =3D IRQ_UNBOUND;
--
--		dynamic_irq_init(irq);
--	}
--
--	spin_unlock(&irq_mapping_update_lock);
--}
--
--int bind_evtchn_to_irqhandler(unsigned int evtchn,
--			      irq_handler_t handler,
--			      unsigned long irqflags,
--			      const char *devname, void *dev_id)
--{
--	unsigned int irq;
--	int retval;
--
--	irq =3D bind_evtchn_to_irq(evtchn);
--	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
--	if (retval !=3D 0) {
--		unbind_from_irq(irq);
--		return retval;
--	}
--
--	return irq;
--}
--EXPORT_SYMBOL_GPL(bind_evtchn_to_irqhandler);
--
--int bind_virq_to_irqhandler(unsigned int virq, unsigned int cpu,
--			    irq_handler_t handler,
--			    unsigned long irqflags, const char *devname,
-void *dev_id)
--{
--	unsigned int irq;
--	int retval;
--
--	irq =3D bind_virq_to_irq(virq, cpu);
--	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
--	if (retval !=3D 0) {
--		unbind_from_irq(irq);
--		return retval;
--	}
--
--	return irq;
--}
--EXPORT_SYMBOL_GPL(bind_virq_to_irqhandler);
--
--int bind_ipi_to_irqhandler(enum ipi_vector ipi,
--			   unsigned int cpu,
--			   irq_handler_t handler,
--			   unsigned long irqflags,
--			   const char *devname,
--			   void *dev_id)
--{
--	int irq, retval;
--
--	irq =3D bind_ipi_to_irq(ipi, cpu);
--	if (irq < 0)
--		return irq;
--
--	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
--	if (retval !=3D 0) {
--		unbind_from_irq(irq);
--		return retval;
--	}
--
--	return irq;
--}
--
--void unbind_from_irqhandler(unsigned int irq, void *dev_id)
--{
--	free_irq(irq, dev_id);
--	unbind_from_irq(irq);
--}
--EXPORT_SYMBOL_GPL(unbind_from_irqhandler);
--
--void xen_send_IPI_one(unsigned int cpu, enum ipi_vector vector)
--{
--	int irq =3D per_cpu(ipi_to_irq, cpu)[vector];
--	BUG_ON(irq < 0);
--	notify_remote_via_irq(irq);
--}
--
--
--/*
-- * Search the CPUs pending events bitmasks.  For each one found, map
-- * the event number to an irq, and feed it into do_IRQ() for
-- * handling.
-- *
-- * Xen uses a two-level bitmap to speed searching.  The first level is
-- * a bitset of words which contain pending event bits.  The second
-- * level is a bitset of pending events themselves.
-- */
--void xen_evtchn_do_upcall(struct pt_regs *regs)
--{
--	int cpu =3D get_cpu();
--	struct shared_info *s =3D HYPERVISOR_shared_info;
--	struct vcpu_info *vcpu_info =3D __get_cpu_var(xen_vcpu);
--	unsigned long pending_words;
--
--	vcpu_info->evtchn_upcall_pending =3D 0;
--
--	/* NB. No need for a barrier here -- XCHG is a barrier on x86.
-*/
--	pending_words =3D xchg(&vcpu_info->evtchn_pending_sel, 0);
--	while (pending_words !=3D 0) {
--		unsigned long pending_bits;
--		int word_idx =3D __ffs(pending_words);
--		pending_words &=3D ~(1UL << word_idx);
--
--		while ((pending_bits =3D active_evtchns(cpu, s, word_idx))
-!=3D 0) {
--			int bit_idx =3D __ffs(pending_bits);
--			int port =3D (word_idx * BITS_PER_LONG) + bit_idx;
--			int irq =3D evtchn_to_irq[port];
--
--			if (irq !=3D -1) {
--				regs->orig_ax =3D ~irq;
--				do_IRQ(regs);
--			}
--		}
--	}
--
--	put_cpu();
--}
--
--/* Rebind an evtchn so that it gets delivered to a specific cpu */
--static void rebind_irq_to_cpu(unsigned irq, unsigned tcpu)
--{
--	struct evtchn_bind_vcpu bind_vcpu;
--	int evtchn =3D evtchn_from_irq(irq);
--
--	if (!VALID_EVTCHN(evtchn))
--		return;
--
--	/* Send future instances of this interrupt to other vcpu. */
--	bind_vcpu.port =3D evtchn;
--	bind_vcpu.vcpu =3D tcpu;
--
--	/*
--	 * If this fails, it usually just indicates that we're dealing
-with a
--	 * virq or IPI channel, which don't actually need to be rebound.
-Ignore
--	 * it, but don't do the xenlinux-level rebind in that case.
--	 */
--	if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_vcpu, &bind_vcpu)
->=3D 0)
--		bind_evtchn_to_cpu(evtchn, tcpu);
--}
--
--
--static void set_affinity_irq(unsigned irq, cpumask_t dest)
--{
--	unsigned tcpu =3D first_cpu(dest);
--	rebind_irq_to_cpu(irq, tcpu);
--}
--
--static void enable_dynirq(unsigned int irq)
--{
--	int evtchn =3D evtchn_from_irq(irq);
--
--	if (VALID_EVTCHN(evtchn))
--		unmask_evtchn(evtchn);
--}
--
--static void disable_dynirq(unsigned int irq)
--{
--	int evtchn =3D evtchn_from_irq(irq);
--
--	if (VALID_EVTCHN(evtchn))
--		mask_evtchn(evtchn);
--}
--
--static void ack_dynirq(unsigned int irq)
--{
--	int evtchn =3D evtchn_from_irq(irq);
--
--	move_native_irq(irq);
--
--	if (VALID_EVTCHN(evtchn))
--		clear_evtchn(evtchn);
--}
--
--static int retrigger_dynirq(unsigned int irq)
--{
--	int evtchn =3D evtchn_from_irq(irq);
--	int ret =3D 0;
--
--	if (VALID_EVTCHN(evtchn)) {
--		set_evtchn(evtchn);
--		ret =3D 1;
--	}
--
--	return ret;
--}
--
--static struct irq_chip xen_dynamic_chip __read_mostly =3D {
--	.name		=3D "xen-dyn",
--	.mask		=3D disable_dynirq,
--	.unmask		=3D enable_dynirq,
--	.ack		=3D ack_dynirq,
--	.set_affinity	=3D set_affinity_irq,
--	.retrigger	=3D retrigger_dynirq,
--};
--
--void __init xen_init_IRQ(void)
--{
--	int i;
--
--	init_evtchn_cpu_bindings();
--
--	/* No event channels are 'live' right now. */
--	for (i =3D 0; i < NR_EVENT_CHANNELS; i++)
--		mask_evtchn(i);
--
--	/* Dynamic IRQ space is currently unbound. Zero the refcnts. */
--	for (i =3D 0; i < NR_IRQS; i++)
--		irq_bindcount[i] =3D 0;
--
--	irq_ctx_init(smp_processor_id());
--}
-diff -urN old/arch/x86/xen/Makefile linux/arch/x86/xen/Makefile
---- old/arch/x86/xen/Makefile	2008-03-10 13:22:27.000000000 +0800
-+++ linux/arch/x86/xen/Makefile	2008-03-25 13:56:41.367764448 +0800
-@@ -1,4 +1,4 @@
- obj-y		:=3D enlighten.o setup.o features.o multicalls.o mmu.o \
--			events.o time.o manage.o xen-asm.o
-+			time.o manage.o xen-asm.o
-=20
- obj-$(CONFIG_SMP)	+=3D smp.o
-diff -urN old/arch/x86/xen/xen-ops.h linux/arch/x86/xen/xen-ops.h
---- old/arch/x86/xen/xen-ops.h	2008-03-25 13:21:09.996527604 +0800
-+++ linux/arch/x86/xen/xen-ops.h	2008-03-25 13:59:16.349809137
-+0800
-@@ -2,6 +2,7 @@
- #define XEN_OPS_H
-=20
- #include <linux/init.h>
 +#include <xen/xen-ops.h>
 =20
- /* These are code, but not functions.  Defined in entry.S */
- extern const char xen_hypervisor_callback[];
-@@ -9,7 +10,6 @@
-=20
- void xen_copy_trap_info(struct trap_info *traps);
-=20
--DECLARE_PER_CPU(struct vcpu_info *, xen_vcpu);
- DECLARE_PER_CPU(unsigned long, xen_cr3);
- DECLARE_PER_CPU(unsigned long, xen_current_cr3);
-=20
-diff -urN old/drivers/xen/events.c linux/drivers/xen/events.c
---- old/drivers/xen/events.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux/drivers/xen/events.c	2008-03-25 13:56:41.368764287 +0800
-@@ -0,0 +1,591 @@
-+/*
-+ * Xen event channels
-+ *
-+ * Xen models interrupts with abstract event channels.  Because each
-+ * domain gets 1024 event channels, but NR_IRQ is not that large, we
-+ * must dynamically map irqs<->event channels.  The event channels
-+ * interface with the rest of the kernel by defining a xen interrupt
-+ * chip.  When an event is recieved, it is mapped to an irq and sent
-+ * through the normal interrupt processing path.
-+ *
-+ * There are four kinds of events which can be mapped to an event
-+ * channel:
-+ *
-+ * 1. Inter-domain notifications.  This includes all the virtual
-+ *    device events, since they're driven by front-ends in another
-domain
-+ *    (typically dom0).
-+ * 2. VIRQs, typically used for timers.  These are per-cpu events.
-+ * 3. IPIs.
-+ * 4. Hardware interrupts. Not supported at present.
-+ *
-+ * Jeremy Fitzhardinge <jeremy@xensource.com>, XenSource Inc, 2007
-+ */
-+
-+#include <linux/linkage.h>
-+#include <linux/interrupt.h>
-+#include <linux/irq.h>
-+#include <linux/module.h>
-+#include <linux/string.h>
-+
-+#include <asm/ptrace.h>
-+#include <asm/irq.h>
-+#include <asm/sync_bitops.h>
-+#include <asm/xen/hypercall.h>
-+#include <asm/xen/hypervisor.h>
-+
-+#include <xen/events.h>
-+#include <xen/interface/xen.h>
-+#include <xen/interface/event_channel.h>
-+
-+#include "xen-ops.h"
-+
-+/*
-+ * This lock protects updates to the following mapping and
+ /*
+  * This lock protects updates to the following mapping and
 reference-count
-+ * arrays. The lock does not need to be acquired to read the mapping
-tables.
-+ */
-+static DEFINE_SPINLOCK(irq_mapping_update_lock);
-+
-+/* IRQ <-> VIRQ mapping. */
-+static DEFINE_PER_CPU(int, virq_to_irq[NR_VIRQS]) =3D {[0 ... =
-NR_VIRQS-1]
-=3D -1};
-+
-+/* IRQ <-> IPI mapping */
-+static DEFINE_PER_CPU(int, ipi_to_irq[XEN_NR_IPIS]) =3D {[0 ...
-XEN_NR_IPIS-1] =3D -1};
-+
-+/* Packed IRQ information: binding type, sub-type index, and event
-channel. */
-+struct packed_irq
-+{
-+	unsigned short evtchn;
-+	unsigned char index;
-+	unsigned char type;
-+};
-+
-+static struct packed_irq irq_info[NR_IRQS];
-+
-+/* Binding types. */
-+enum {
-+	IRQT_UNBOUND,
-+	IRQT_PIRQ,
-+	IRQT_VIRQ,
-+	IRQT_IPI,
-+	IRQT_EVTCHN
-+};
-+
-+/* Convenient shorthand for packed representation of an unbound IRQ. */
-+#define IRQ_UNBOUND	mk_irq_info(IRQT_UNBOUND, 0, 0)
-+
-+static int evtchn_to_irq[NR_EVENT_CHANNELS] =3D {
-+	[0 ... NR_EVENT_CHANNELS-1] =3D -1
-+};
-+static unsigned long
-cpu_evtchn_mask[NR_CPUS][NR_EVENT_CHANNELS/BITS_PER_LONG];
-+static u8 cpu_evtchn[NR_EVENT_CHANNELS];
-+
-+/* Reference counts for bindings to IRQs. */
-+static int irq_bindcount[NR_IRQS];
-+
-+/* Xen will never allocate port zero for any purpose. */
-+#define VALID_EVTCHN(chn)	((chn) !=3D 0)
-+
-+/*
-+ * Force a proper event-channel callback from Xen after clearing the
-+ * callback mask. We do this in a very simple manner, by making a call
-+ * down into Xen. The pending flag will be checked by Xen on return.
-+ */
-+void force_evtchn_callback(void)
-+{
-+	(void)HYPERVISOR_xen_version(0, NULL);
-+}
-+EXPORT_SYMBOL_GPL(force_evtchn_callback);
-+
-+static struct irq_chip xen_dynamic_chip;
-+
-+/* Constructor for packed IRQ information. */
-+static inline struct packed_irq mk_irq_info(u32 type, u32 index, u32
-evtchn)
-+{
-+	return (struct packed_irq) { evtchn, index, type };
-+}
-+
-+/*
-+ * Accessors for packed IRQ information.
-+ */
-+static inline unsigned int evtchn_from_irq(int irq)
-+{
-+	return irq_info[irq].evtchn;
-+}
-+
-+static inline unsigned int index_from_irq(int irq)
-+{
-+	return irq_info[irq].index;
-+}
-+
-+static inline unsigned int type_from_irq(int irq)
-+{
-+	return irq_info[irq].type;
-+}
-+
-+static inline unsigned long active_evtchns(unsigned int cpu,
-+					   struct shared_info *sh,
-+					   unsigned int idx)
-+{
-+	return (sh->evtchn_pending[idx] &
-+		cpu_evtchn_mask[cpu][idx] &
-+		~sh->evtchn_mask[idx]);
-+}
-+
-+static void bind_evtchn_to_cpu(unsigned int chn, unsigned int cpu)
-+{
-+	int irq =3D evtchn_to_irq[chn];
-+
-+	BUG_ON(irq =3D=3D -1);
-+#ifdef CONFIG_SMP
-+	irq_desc[irq].affinity =3D cpumask_of_cpu(cpu);
-+#endif
-+
-+	__clear_bit(chn, cpu_evtchn_mask[cpu_evtchn[chn]]);
-+	__set_bit(chn, cpu_evtchn_mask[cpu]);
-+
-+	cpu_evtchn[chn] =3D cpu;
-+}
-+
-+static void init_evtchn_cpu_bindings(void)
-+{
-+#ifdef CONFIG_SMP
-+	int i;
-+	/* By default all event channels notify CPU#0. */
-+	for (i =3D 0; i < NR_IRQS; i++)
-+		irq_desc[i].affinity =3D cpumask_of_cpu(0);
-+#endif
-+
-+	memset(cpu_evtchn, 0, sizeof(cpu_evtchn));
-+	memset(cpu_evtchn_mask[0], ~0, sizeof(cpu_evtchn_mask[0]));
-+}
-+
-+static inline unsigned int cpu_from_evtchn(unsigned int evtchn)
-+{
-+	return cpu_evtchn[evtchn];
-+}
-+
-+static inline void clear_evtchn(int port)
-+{
-+	struct shared_info *s =3D HYPERVISOR_shared_info;
-+	sync_clear_bit(port, &s->evtchn_pending[0]);
-+}
-+
-+static inline void set_evtchn(int port)
-+{
-+	struct shared_info *s =3D HYPERVISOR_shared_info;
-+	sync_set_bit(port, &s->evtchn_pending[0]);
-+}
-+
-+
-+/**
-+ * notify_remote_via_irq - send event to remote end of event channel
-via irq
-+ * @irq: irq of event channel to send event to
-+ *
-+ * Unlike notify_remote_via_evtchn(), this is safe to use across
-+ * save/restore. Notifications on a broken connection are silently
-+ * dropped.
-+ */
-+void notify_remote_via_irq(int irq)
-+{
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	if (VALID_EVTCHN(evtchn))
-+		notify_remote_via_evtchn(evtchn);
-+}
-+EXPORT_SYMBOL_GPL(notify_remote_via_irq);
-+
-+static void mask_evtchn(int port)
-+{
-+	struct shared_info *s =3D HYPERVISOR_shared_info;
-+	sync_set_bit(port, &s->evtchn_mask[0]);
-+}
-+
-+static void unmask_evtchn(int port)
-+{
-+	struct shared_info *s =3D HYPERVISOR_shared_info;
-+	unsigned int cpu =3D get_cpu();
-+
-+	BUG_ON(!irqs_disabled());
-+
-+	/* Slow path (hypercall) if this is a non-local port. */
-+	if (unlikely(cpu !=3D cpu_from_evtchn(port))) {
-+		struct evtchn_unmask unmask =3D { .port =3D port };
-+		(void)HYPERVISOR_event_channel_op(EVTCHNOP_unmask,
-&unmask);
-+	} else {
-+		struct vcpu_info *vcpu_info =3D __get_cpu_var(xen_vcpu);
-+
-+		sync_clear_bit(port, &s->evtchn_mask[0]);
-+
-+		/*
-+		 * The following is basically the equivalent of
-+		 * 'hw_resend_irq'. Just like a real IO-APIC we 'lose
-+		 * the interrupt edge' if the channel is masked.
-+		 */
-+		if (sync_test_bit(port, &s->evtchn_pending[0]) &&
-+		    !sync_test_and_set_bit(port / BITS_PER_LONG,
-+
-&vcpu_info->evtchn_pending_sel))
-+			vcpu_info->evtchn_upcall_pending =3D 1;
-+	}
-+
-+	put_cpu();
-+}
-+
-+static int find_unbound_irq(void)
-+{
-+	int irq;
-+
-+	/* Only allocate from dynirq range */
-+	for (irq =3D 0; irq < NR_IRQS; irq++)
-+		if (irq_bindcount[irq] =3D=3D 0)
-+			break;
-+
-+	if (irq =3D=3D NR_IRQS)
-+		panic("No available IRQ to bind to: increase
-NR_IRQS!\n");
-+
-+	return irq;
-+}
-+
-+int bind_evtchn_to_irq(unsigned int evtchn)
-+{
-+	int irq;
-+
-+	spin_lock(&irq_mapping_update_lock);
-+
-+	irq =3D evtchn_to_irq[evtchn];
-+
-+	if (irq =3D=3D -1) {
-+		irq =3D find_unbound_irq();
-+
-+		dynamic_irq_init(irq);
-+		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
-+					      handle_level_irq,
-"event");
-+
-+		evtchn_to_irq[evtchn] =3D irq;
-+		irq_info[irq] =3D mk_irq_info(IRQT_EVTCHN, 0, evtchn);
-+	}
-+
-+	irq_bindcount[irq]++;
-+
-+	spin_unlock(&irq_mapping_update_lock);
-+
-+	return irq;
-+}
-+EXPORT_SYMBOL_GPL(bind_evtchn_to_irq);
-+
-+static int bind_ipi_to_irq(unsigned int ipi, unsigned int cpu)
-+{
-+	struct evtchn_bind_ipi bind_ipi;
-+	int evtchn, irq;
-+
-+	spin_lock(&irq_mapping_update_lock);
-+
-+	irq =3D per_cpu(ipi_to_irq, cpu)[ipi];
-+	if (irq =3D=3D -1) {
-+		irq =3D find_unbound_irq();
-+		if (irq < 0)
-+			goto out;
-+
-+		dynamic_irq_init(irq);
-+		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
-+					      handle_level_irq, "ipi");
-+
-+		bind_ipi.vcpu =3D cpu;
-+		if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_ipi,
-+						&bind_ipi) !=3D 0)
-+			BUG();
-+		evtchn =3D bind_ipi.port;
-+
-+		evtchn_to_irq[evtchn] =3D irq;
-+		irq_info[irq] =3D mk_irq_info(IRQT_IPI, ipi, evtchn);
-+
-+		per_cpu(ipi_to_irq, cpu)[ipi] =3D irq;
-+
-+		bind_evtchn_to_cpu(evtchn, cpu);
-+	}
-+
-+	irq_bindcount[irq]++;
-+
-+ out:
-+	spin_unlock(&irq_mapping_update_lock);
-+	return irq;
-+}
-+
-+
-+static int bind_virq_to_irq(unsigned int virq, unsigned int cpu)
-+{
-+	struct evtchn_bind_virq bind_virq;
-+	int evtchn, irq;
-+
-+	spin_lock(&irq_mapping_update_lock);
-+
-+	irq =3D per_cpu(virq_to_irq, cpu)[virq];
-+
-+	if (irq =3D=3D -1) {
-+		bind_virq.virq =3D virq;
-+		bind_virq.vcpu =3D cpu;
-+		if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_virq,
-+						&bind_virq) !=3D 0)
-+			BUG();
-+		evtchn =3D bind_virq.port;
-+
-+		irq =3D find_unbound_irq();
-+
-+		dynamic_irq_init(irq);
-+		set_irq_chip_and_handler_name(irq, &xen_dynamic_chip,
-+					      handle_level_irq, "virq");
-+
-+		evtchn_to_irq[evtchn] =3D irq;
-+		irq_info[irq] =3D mk_irq_info(IRQT_VIRQ, virq, evtchn);
-+
-+		per_cpu(virq_to_irq, cpu)[virq] =3D irq;
-+
-+		bind_evtchn_to_cpu(evtchn, cpu);
-+	}
-+
-+	irq_bindcount[irq]++;
-+
-+	spin_unlock(&irq_mapping_update_lock);
-+
-+	return irq;
-+}
-+
-+static void unbind_from_irq(unsigned int irq)
-+{
-+	struct evtchn_close close;
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	spin_lock(&irq_mapping_update_lock);
-+
-+	if (VALID_EVTCHN(evtchn) && (--irq_bindcount[irq] =3D=3D 0)) {
-+		close.port =3D evtchn;
-+		if (HYPERVISOR_event_channel_op(EVTCHNOP_close, &close)
-!=3D 0)
-+			BUG();
-+
-+		switch (type_from_irq(irq)) {
-+		case IRQT_VIRQ:
-+			per_cpu(virq_to_irq, cpu_from_evtchn(evtchn))
-+				[index_from_irq(irq)] =3D -1;
-+			break;
-+		default:
-+			break;
-+		}
-+
-+		/* Closed ports are implicitly re-bound to VCPU0. */
-+		bind_evtchn_to_cpu(evtchn, 0);
-+
-+		evtchn_to_irq[evtchn] =3D -1;
-+		irq_info[irq] =3D IRQ_UNBOUND;
-+
-+		dynamic_irq_init(irq);
-+	}
-+
-+	spin_unlock(&irq_mapping_update_lock);
-+}
-+
-+int bind_evtchn_to_irqhandler(unsigned int evtchn,
-+			      irq_handler_t handler,
-+			      unsigned long irqflags,
-+			      const char *devname, void *dev_id)
-+{
-+	unsigned int irq;
-+	int retval;
-+
-+	irq =3D bind_evtchn_to_irq(evtchn);
-+	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
-+	if (retval !=3D 0) {
-+		unbind_from_irq(irq);
-+		return retval;
-+	}
-+
-+	return irq;
-+}
-+EXPORT_SYMBOL_GPL(bind_evtchn_to_irqhandler);
-+
-+int bind_virq_to_irqhandler(unsigned int virq, unsigned int cpu,
-+			    irq_handler_t handler,
-+			    unsigned long irqflags, const char *devname,
-void *dev_id)
-+{
-+	unsigned int irq;
-+	int retval;
-+
-+	irq =3D bind_virq_to_irq(virq, cpu);
-+	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
-+	if (retval !=3D 0) {
-+		unbind_from_irq(irq);
-+		return retval;
-+	}
-+
-+	return irq;
-+}
-+EXPORT_SYMBOL_GPL(bind_virq_to_irqhandler);
-+
-+int bind_ipi_to_irqhandler(enum ipi_vector ipi,
-+			   unsigned int cpu,
-+			   irq_handler_t handler,
-+			   unsigned long irqflags,
-+			   const char *devname,
-+			   void *dev_id)
-+{
-+	int irq, retval;
-+
-+	irq =3D bind_ipi_to_irq(ipi, cpu);
-+	if (irq < 0)
-+		return irq;
-+
-+	retval =3D request_irq(irq, handler, irqflags, devname, dev_id);
-+	if (retval !=3D 0) {
-+		unbind_from_irq(irq);
-+		return retval;
-+	}
-+
-+	return irq;
-+}
-+
-+void unbind_from_irqhandler(unsigned int irq, void *dev_id)
-+{
-+	free_irq(irq, dev_id);
-+	unbind_from_irq(irq);
-+}
-+EXPORT_SYMBOL_GPL(unbind_from_irqhandler);
-+
-+void xen_send_IPI_one(unsigned int cpu, enum ipi_vector vector)
-+{
-+	int irq =3D per_cpu(ipi_to_irq, cpu)[vector];
-+	BUG_ON(irq < 0);
-+	notify_remote_via_irq(irq);
-+}
-+
-+
-+/*
-+ * Search the CPUs pending events bitmasks.  For each one found, map
-+ * the event number to an irq, and feed it into do_IRQ() for
-+ * handling.
-+ *
-+ * Xen uses a two-level bitmap to speed searching.  The first level is
-+ * a bitset of words which contain pending event bits.  The second
-+ * level is a bitset of pending events themselves.
-+ */
-+void xen_evtchn_do_upcall(struct pt_regs *regs)
-+{
-+	int cpu =3D get_cpu();
-+	struct shared_info *s =3D HYPERVISOR_shared_info;
-+	struct vcpu_info *vcpu_info =3D __get_cpu_var(xen_vcpu);
-+	unsigned long pending_words;
-+
-+	vcpu_info->evtchn_upcall_pending =3D 0;
-+
-+	/* NB. No need for a barrier here -- XCHG is a barrier on x86.
-*/
-+	pending_words =3D xchg(&vcpu_info->evtchn_pending_sel, 0);
-+	while (pending_words !=3D 0) {
-+		unsigned long pending_bits;
-+		int word_idx =3D __ffs(pending_words);
-+		pending_words &=3D ~(1UL << word_idx);
-+
-+		while ((pending_bits =3D active_evtchns(cpu, s, word_idx))
-!=3D 0) {
-+			int bit_idx =3D __ffs(pending_bits);
-+			int port =3D (word_idx * BITS_PER_LONG) + bit_idx;
-+			int irq =3D evtchn_to_irq[port];
-+
-+			if (irq !=3D -1) {
-+				regs->orig_ax =3D ~irq;
-+				do_IRQ(regs);
-+			}
-+		}
-+	}
-+
-+	put_cpu();
-+}
-+
-+/* Rebind an evtchn so that it gets delivered to a specific cpu */
-+static void rebind_irq_to_cpu(unsigned irq, unsigned tcpu)
-+{
-+	struct evtchn_bind_vcpu bind_vcpu;
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	if (!VALID_EVTCHN(evtchn))
-+		return;
-+
-+	/* Send future instances of this interrupt to other vcpu. */
-+	bind_vcpu.port =3D evtchn;
-+	bind_vcpu.vcpu =3D tcpu;
-+
-+	/*
-+	 * If this fails, it usually just indicates that we're dealing
-with a
-+	 * virq or IPI channel, which don't actually need to be rebound.
-Ignore
-+	 * it, but don't do the xenlinux-level rebind in that case.
-+	 */
-+	if (HYPERVISOR_event_channel_op(EVTCHNOP_bind_vcpu, &bind_vcpu)
->=3D 0)
-+		bind_evtchn_to_cpu(evtchn, tcpu);
-+}
-+
-+
-+static void set_affinity_irq(unsigned irq, cpumask_t dest)
-+{
-+	unsigned tcpu =3D first_cpu(dest);
-+	rebind_irq_to_cpu(irq, tcpu);
-+}
-+
-+static void enable_dynirq(unsigned int irq)
-+{
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	if (VALID_EVTCHN(evtchn))
-+		unmask_evtchn(evtchn);
-+}
-+
-+static void disable_dynirq(unsigned int irq)
-+{
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	if (VALID_EVTCHN(evtchn))
-+		mask_evtchn(evtchn);
-+}
-+
-+static void ack_dynirq(unsigned int irq)
-+{
-+	int evtchn =3D evtchn_from_irq(irq);
-+
-+	move_native_irq(irq);
-+
-+	if (VALID_EVTCHN(evtchn))
-+		clear_evtchn(evtchn);
-+}
-+
-+static int retrigger_dynirq(unsigned int irq)
-+{
-+	int evtchn =3D evtchn_from_irq(irq);
-+	int ret =3D 0;
-+
-+	if (VALID_EVTCHN(evtchn)) {
-+		set_evtchn(evtchn);
-+		ret =3D 1;
-+	}
-+
-+	return ret;
-+}
-+
-+static struct irq_chip xen_dynamic_chip __read_mostly =3D {
-+	.name		=3D "xen-dyn",
-+	.mask		=3D disable_dynirq,
-+	.unmask		=3D enable_dynirq,
-+	.ack		=3D ack_dynirq,
-+	.set_affinity	=3D set_affinity_irq,
-+	.retrigger	=3D retrigger_dynirq,
-+};
-+
-+void __init xen_init_IRQ(void)
-+{
-+	int i;
-+
-+	init_evtchn_cpu_bindings();
-+
-+	/* No event channels are 'live' right now. */
-+	for (i =3D 0; i < NR_EVENT_CHANNELS; i++)
-+		mask_evtchn(i);
-+
-+	/* Dynamic IRQ space is currently unbound. Zero the refcnts. */
-+	for (i =3D 0; i < NR_IRQS; i++)
-+		irq_bindcount[i] =3D 0;
-+
-+	irq_ctx_init(smp_processor_id());
-+}
-diff -urN old/drivers/xen/Makefile linux/drivers/xen/Makefile
---- old/drivers/xen/Makefile	2008-03-10 13:22:27.000000000 +0800
-+++ linux/drivers/xen/Makefile	2008-03-25 13:56:41.368764287 +0800
-@@ -1,2 +1,2 @@
--obj-y	+=3D grant-table.o
-+obj-y	+=3D grant-table.o events.o
- obj-y	+=3D xenbus/
-diff -urN old/include/xen/xen-ops.h linux/include/xen/xen-ops.h
---- old/include/xen/xen-ops.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux/include/xen/xen-ops.h	2008-03-25 14:00:09.041321546 +0800
-@@ -0,0 +1,6 @@
-+#ifndef INCLUDE_XEN_OPS_H
-+#define INCLUDE_XEN_OPS_H
-+
-+DECLARE_PER_CPU(struct vcpu_info *, xen_vcpu);
-+
-+#endif /* INCLUDE_XEN_OPS_H */
 
-------_=_NextPart_001_01C88E3F.619D5D07
+------_=_NextPart_001_01C88E42.5B725E99
+Content-Type: application/octet-stream;
+	name="typo"
+Content-Transfer-Encoding: base64
+Content-Description: typo
+Content-Disposition: attachment;
+	filename="typo"
+
+LS0tIGRyaXZlcnMveGVuL2V2ZW50c19vbGQuYwkyMDA4LTAzLTI1IDE0OjMxOjQwLjUwMzUyNTQ3
+MSArMDgwMAorKysgZHJpdmVycy94ZW4vZXZlbnRzLmMJMjAwOC0wMy0yNSAxNDoxOTozOS44NDE4
+NTE0MzAgKzA4MDAKQEAgLTM3LDcgKzM3LDcgQEAKICNpbmNsdWRlIDx4ZW4vaW50ZXJmYWNlL3hl
+bi5oPgogI2luY2x1ZGUgPHhlbi9pbnRlcmZhY2UvZXZlbnRfY2hhbm5lbC5oPgogCi0jaW5jbHVk
+ZSAieGVuLW9wcy5oIgorI2luY2x1ZGUgPHhlbi94ZW4tb3BzLmg+CiAKIC8qCiAgKiBUaGlzIGxv
+Y2sgcHJvdGVjdHMgdXBkYXRlcyB0byB0aGUgZm9sbG93aW5nIG1hcHBpbmcgYW5kIHJlZmVyZW5j
+ZS1jb3VudAo=
+
+------_=_NextPart_001_01C88E42.5B725E99
 Content-Type: application/octet-stream;
 	name="move_xenirq3.patch"
 Content-Transfer-Encoding: base64
@@ -1627,246 +377,246 @@ c20vcHRyYWNlLmg+CisjaW5jbHVkZSA8YXNtL2lycS5oPgorI2luY2x1ZGUgPGFzbS9zeW5jX2Jp
 dG9wcy5oPgorI2luY2x1ZGUgPGFzbS94ZW4vaHlwZXJjYWxsLmg+CisjaW5jbHVkZSA8YXNtL3hl
 bi9oeXBlcnZpc29yLmg+CisKKyNpbmNsdWRlIDx4ZW4vZXZlbnRzLmg+CisjaW5jbHVkZSA8eGVu
 L2ludGVyZmFjZS94ZW4uaD4KKyNpbmNsdWRlIDx4ZW4vaW50ZXJmYWNlL2V2ZW50X2NoYW5uZWwu
-aD4KKworI2luY2x1ZGUgInhlbi1vcHMuaCIKKworLyoKKyAqIFRoaXMgbG9jayBwcm90ZWN0cyB1
-cGRhdGVzIHRvIHRoZSBmb2xsb3dpbmcgbWFwcGluZyBhbmQgcmVmZXJlbmNlLWNvdW50CisgKiBh
-cnJheXMuIFRoZSBsb2NrIGRvZXMgbm90IG5lZWQgdG8gYmUgYWNxdWlyZWQgdG8gcmVhZCB0aGUg
-bWFwcGluZyB0YWJsZXMuCisgKi8KK3N0YXRpYyBERUZJTkVfU1BJTkxPQ0soaXJxX21hcHBpbmdf
-dXBkYXRlX2xvY2spOworCisvKiBJUlEgPC0+IFZJUlEgbWFwcGluZy4gKi8KK3N0YXRpYyBERUZJ
-TkVfUEVSX0NQVShpbnQsIHZpcnFfdG9faXJxW05SX1ZJUlFTXSkgPSB7WzAgLi4uIE5SX1ZJUlFT
-LTFdID0gLTF9OworCisvKiBJUlEgPC0+IElQSSBtYXBwaW5nICovCitzdGF0aWMgREVGSU5FX1BF
-Ul9DUFUoaW50LCBpcGlfdG9faXJxW1hFTl9OUl9JUElTXSkgPSB7WzAgLi4uIFhFTl9OUl9JUElT
-LTFdID0gLTF9OworCisvKiBQYWNrZWQgSVJRIGluZm9ybWF0aW9uOiBiaW5kaW5nIHR5cGUsIHN1
-Yi10eXBlIGluZGV4LCBhbmQgZXZlbnQgY2hhbm5lbC4gKi8KK3N0cnVjdCBwYWNrZWRfaXJxCit7
-CisJdW5zaWduZWQgc2hvcnQgZXZ0Y2huOworCXVuc2lnbmVkIGNoYXIgaW5kZXg7CisJdW5zaWdu
-ZWQgY2hhciB0eXBlOworfTsKKworc3RhdGljIHN0cnVjdCBwYWNrZWRfaXJxIGlycV9pbmZvW05S
-X0lSUVNdOworCisvKiBCaW5kaW5nIHR5cGVzLiAqLworZW51bSB7CisJSVJRVF9VTkJPVU5ELAor
-CUlSUVRfUElSUSwKKwlJUlFUX1ZJUlEsCisJSVJRVF9JUEksCisJSVJRVF9FVlRDSE4KK307CisK
-Ky8qIENvbnZlbmllbnQgc2hvcnRoYW5kIGZvciBwYWNrZWQgcmVwcmVzZW50YXRpb24gb2YgYW4g
-dW5ib3VuZCBJUlEuICovCisjZGVmaW5lIElSUV9VTkJPVU5ECW1rX2lycV9pbmZvKElSUVRfVU5C
-T1VORCwgMCwgMCkKKworc3RhdGljIGludCBldnRjaG5fdG9faXJxW05SX0VWRU5UX0NIQU5ORUxT
-XSA9IHsKKwlbMCAuLi4gTlJfRVZFTlRfQ0hBTk5FTFMtMV0gPSAtMQorfTsKK3N0YXRpYyB1bnNp
-Z25lZCBsb25nIGNwdV9ldnRjaG5fbWFza1tOUl9DUFVTXVtOUl9FVkVOVF9DSEFOTkVMUy9CSVRT
-X1BFUl9MT05HXTsKK3N0YXRpYyB1OCBjcHVfZXZ0Y2huW05SX0VWRU5UX0NIQU5ORUxTXTsKKwor
-LyogUmVmZXJlbmNlIGNvdW50cyBmb3IgYmluZGluZ3MgdG8gSVJRcy4gKi8KK3N0YXRpYyBpbnQg
-aXJxX2JpbmRjb3VudFtOUl9JUlFTXTsKKworLyogWGVuIHdpbGwgbmV2ZXIgYWxsb2NhdGUgcG9y
-dCB6ZXJvIGZvciBhbnkgcHVycG9zZS4gKi8KKyNkZWZpbmUgVkFMSURfRVZUQ0hOKGNobikJKChj
-aG4pICE9IDApCisKKy8qCisgKiBGb3JjZSBhIHByb3BlciBldmVudC1jaGFubmVsIGNhbGxiYWNr
-IGZyb20gWGVuIGFmdGVyIGNsZWFyaW5nIHRoZQorICogY2FsbGJhY2sgbWFzay4gV2UgZG8gdGhp
-cyBpbiBhIHZlcnkgc2ltcGxlIG1hbm5lciwgYnkgbWFraW5nIGEgY2FsbAorICogZG93biBpbnRv
-IFhlbi4gVGhlIHBlbmRpbmcgZmxhZyB3aWxsIGJlIGNoZWNrZWQgYnkgWGVuIG9uIHJldHVybi4K
-KyAqLwordm9pZCBmb3JjZV9ldnRjaG5fY2FsbGJhY2sodm9pZCkKK3sKKwkodm9pZClIWVBFUlZJ
-U09SX3hlbl92ZXJzaW9uKDAsIE5VTEwpOworfQorRVhQT1JUX1NZTUJPTF9HUEwoZm9yY2VfZXZ0
-Y2huX2NhbGxiYWNrKTsKKworc3RhdGljIHN0cnVjdCBpcnFfY2hpcCB4ZW5fZHluYW1pY19jaGlw
-OworCisvKiBDb25zdHJ1Y3RvciBmb3IgcGFja2VkIElSUSBpbmZvcm1hdGlvbi4gKi8KK3N0YXRp
-YyBpbmxpbmUgc3RydWN0IHBhY2tlZF9pcnEgbWtfaXJxX2luZm8odTMyIHR5cGUsIHUzMiBpbmRl
-eCwgdTMyIGV2dGNobikKK3sKKwlyZXR1cm4gKHN0cnVjdCBwYWNrZWRfaXJxKSB7IGV2dGNobiwg
-aW5kZXgsIHR5cGUgfTsKK30KKworLyoKKyAqIEFjY2Vzc29ycyBmb3IgcGFja2VkIElSUSBpbmZv
-cm1hdGlvbi4KKyAqLworc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQgZXZ0Y2huX2Zyb21faXJx
-KGludCBpcnEpCit7CisJcmV0dXJuIGlycV9pbmZvW2lycV0uZXZ0Y2huOworfQorCitzdGF0aWMg
-aW5saW5lIHVuc2lnbmVkIGludCBpbmRleF9mcm9tX2lycShpbnQgaXJxKQoreworCXJldHVybiBp
-cnFfaW5mb1tpcnFdLmluZGV4OworfQorCitzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCB0eXBl
-X2Zyb21faXJxKGludCBpcnEpCit7CisJcmV0dXJuIGlycV9pbmZvW2lycV0udHlwZTsKK30KKwor
-c3RhdGljIGlubGluZSB1bnNpZ25lZCBsb25nIGFjdGl2ZV9ldnRjaG5zKHVuc2lnbmVkIGludCBj
-cHUsCisJCQkJCSAgIHN0cnVjdCBzaGFyZWRfaW5mbyAqc2gsCisJCQkJCSAgIHVuc2lnbmVkIGlu
-dCBpZHgpCit7CisJcmV0dXJuIChzaC0+ZXZ0Y2huX3BlbmRpbmdbaWR4XSAmCisJCWNwdV9ldnRj
-aG5fbWFza1tjcHVdW2lkeF0gJgorCQl+c2gtPmV2dGNobl9tYXNrW2lkeF0pOworfQorCitzdGF0
-aWMgdm9pZCBiaW5kX2V2dGNobl90b19jcHUodW5zaWduZWQgaW50IGNobiwgdW5zaWduZWQgaW50
-IGNwdSkKK3sKKwlpbnQgaXJxID0gZXZ0Y2huX3RvX2lycVtjaG5dOworCisJQlVHX09OKGlycSA9
-PSAtMSk7CisjaWZkZWYgQ09ORklHX1NNUAorCWlycV9kZXNjW2lycV0uYWZmaW5pdHkgPSBjcHVt
-YXNrX29mX2NwdShjcHUpOworI2VuZGlmCisKKwlfX2NsZWFyX2JpdChjaG4sIGNwdV9ldnRjaG5f
-bWFza1tjcHVfZXZ0Y2huW2Nobl1dKTsKKwlfX3NldF9iaXQoY2huLCBjcHVfZXZ0Y2huX21hc2tb
-Y3B1XSk7CisKKwljcHVfZXZ0Y2huW2Nobl0gPSBjcHU7Cit9CisKK3N0YXRpYyB2b2lkIGluaXRf
-ZXZ0Y2huX2NwdV9iaW5kaW5ncyh2b2lkKQoreworI2lmZGVmIENPTkZJR19TTVAKKwlpbnQgaTsK
-KwkvKiBCeSBkZWZhdWx0IGFsbCBldmVudCBjaGFubmVscyBub3RpZnkgQ1BVIzAuICovCisJZm9y
-IChpID0gMDsgaSA8IE5SX0lSUVM7IGkrKykKKwkJaXJxX2Rlc2NbaV0uYWZmaW5pdHkgPSBjcHVt
-YXNrX29mX2NwdSgwKTsKKyNlbmRpZgorCisJbWVtc2V0KGNwdV9ldnRjaG4sIDAsIHNpemVvZihj
-cHVfZXZ0Y2huKSk7CisJbWVtc2V0KGNwdV9ldnRjaG5fbWFza1swXSwgfjAsIHNpemVvZihjcHVf
-ZXZ0Y2huX21hc2tbMF0pKTsKK30KKworc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQgY3B1X2Zy
-b21fZXZ0Y2huKHVuc2lnbmVkIGludCBldnRjaG4pCit7CisJcmV0dXJuIGNwdV9ldnRjaG5bZXZ0
-Y2huXTsKK30KKworc3RhdGljIGlubGluZSB2b2lkIGNsZWFyX2V2dGNobihpbnQgcG9ydCkKK3sK
-KwlzdHJ1Y3Qgc2hhcmVkX2luZm8gKnMgPSBIWVBFUlZJU09SX3NoYXJlZF9pbmZvOworCXN5bmNf
-Y2xlYXJfYml0KHBvcnQsICZzLT5ldnRjaG5fcGVuZGluZ1swXSk7Cit9CisKK3N0YXRpYyBpbmxp
-bmUgdm9pZCBzZXRfZXZ0Y2huKGludCBwb3J0KQoreworCXN0cnVjdCBzaGFyZWRfaW5mbyAqcyA9
-IEhZUEVSVklTT1Jfc2hhcmVkX2luZm87CisJc3luY19zZXRfYml0KHBvcnQsICZzLT5ldnRjaG5f
-cGVuZGluZ1swXSk7Cit9CisKKworLyoqCisgKiBub3RpZnlfcmVtb3RlX3ZpYV9pcnEgLSBzZW5k
-IGV2ZW50IHRvIHJlbW90ZSBlbmQgb2YgZXZlbnQgY2hhbm5lbCB2aWEgaXJxCisgKiBAaXJxOiBp
-cnEgb2YgZXZlbnQgY2hhbm5lbCB0byBzZW5kIGV2ZW50IHRvCisgKgorICogVW5saWtlIG5vdGlm
-eV9yZW1vdGVfdmlhX2V2dGNobigpLCB0aGlzIGlzIHNhZmUgdG8gdXNlIGFjcm9zcworICogc2F2
-ZS9yZXN0b3JlLiBOb3RpZmljYXRpb25zIG9uIGEgYnJva2VuIGNvbm5lY3Rpb24gYXJlIHNpbGVu
-dGx5CisgKiBkcm9wcGVkLgorICovCit2b2lkIG5vdGlmeV9yZW1vdGVfdmlhX2lycShpbnQgaXJx
-KQoreworCWludCBldnRjaG4gPSBldnRjaG5fZnJvbV9pcnEoaXJxKTsKKworCWlmIChWQUxJRF9F
-VlRDSE4oZXZ0Y2huKSkKKwkJbm90aWZ5X3JlbW90ZV92aWFfZXZ0Y2huKGV2dGNobik7Cit9CitF
-WFBPUlRfU1lNQk9MX0dQTChub3RpZnlfcmVtb3RlX3ZpYV9pcnEpOworCitzdGF0aWMgdm9pZCBt
-YXNrX2V2dGNobihpbnQgcG9ydCkKK3sKKwlzdHJ1Y3Qgc2hhcmVkX2luZm8gKnMgPSBIWVBFUlZJ
-U09SX3NoYXJlZF9pbmZvOworCXN5bmNfc2V0X2JpdChwb3J0LCAmcy0+ZXZ0Y2huX21hc2tbMF0p
-OworfQorCitzdGF0aWMgdm9pZCB1bm1hc2tfZXZ0Y2huKGludCBwb3J0KQoreworCXN0cnVjdCBz
-aGFyZWRfaW5mbyAqcyA9IEhZUEVSVklTT1Jfc2hhcmVkX2luZm87CisJdW5zaWduZWQgaW50IGNw
-dSA9IGdldF9jcHUoKTsKKworCUJVR19PTighaXJxc19kaXNhYmxlZCgpKTsKKworCS8qIFNsb3cg
-cGF0aCAoaHlwZXJjYWxsKSBpZiB0aGlzIGlzIGEgbm9uLWxvY2FsIHBvcnQuICovCisJaWYgKHVu
-bGlrZWx5KGNwdSAhPSBjcHVfZnJvbV9ldnRjaG4ocG9ydCkpKSB7CisJCXN0cnVjdCBldnRjaG5f
-dW5tYXNrIHVubWFzayA9IHsgLnBvcnQgPSBwb3J0IH07CisJCSh2b2lkKUhZUEVSVklTT1JfZXZl
-bnRfY2hhbm5lbF9vcChFVlRDSE5PUF91bm1hc2ssICZ1bm1hc2spOworCX0gZWxzZSB7CisJCXN0
-cnVjdCB2Y3B1X2luZm8gKnZjcHVfaW5mbyA9IF9fZ2V0X2NwdV92YXIoeGVuX3ZjcHUpOworCisJ
-CXN5bmNfY2xlYXJfYml0KHBvcnQsICZzLT5ldnRjaG5fbWFza1swXSk7CisKKwkJLyoKKwkJICog
-VGhlIGZvbGxvd2luZyBpcyBiYXNpY2FsbHkgdGhlIGVxdWl2YWxlbnQgb2YKKwkJICogJ2h3X3Jl
-c2VuZF9pcnEnLiBKdXN0IGxpa2UgYSByZWFsIElPLUFQSUMgd2UgJ2xvc2UKKwkJICogdGhlIGlu
-dGVycnVwdCBlZGdlJyBpZiB0aGUgY2hhbm5lbCBpcyBtYXNrZWQuCisJCSAqLworCQlpZiAoc3lu
-Y190ZXN0X2JpdChwb3J0LCAmcy0+ZXZ0Y2huX3BlbmRpbmdbMF0pICYmCisJCSAgICAhc3luY190
-ZXN0X2FuZF9zZXRfYml0KHBvcnQgLyBCSVRTX1BFUl9MT05HLAorCQkJCQkgICAmdmNwdV9pbmZv
-LT5ldnRjaG5fcGVuZGluZ19zZWwpKQorCQkJdmNwdV9pbmZvLT5ldnRjaG5fdXBjYWxsX3BlbmRp
-bmcgPSAxOworCX0KKworCXB1dF9jcHUoKTsKK30KKworc3RhdGljIGludCBmaW5kX3VuYm91bmRf
-aXJxKHZvaWQpCit7CisJaW50IGlycTsKKworCS8qIE9ubHkgYWxsb2NhdGUgZnJvbSBkeW5pcnEg
-cmFuZ2UgKi8KKwlmb3IgKGlycSA9IDA7IGlycSA8IE5SX0lSUVM7IGlycSsrKQorCQlpZiAoaXJx
-X2JpbmRjb3VudFtpcnFdID09IDApCisJCQlicmVhazsKKworCWlmIChpcnEgPT0gTlJfSVJRUykK
-KwkJcGFuaWMoIk5vIGF2YWlsYWJsZSBJUlEgdG8gYmluZCB0bzogaW5jcmVhc2UgTlJfSVJRUyFc
-biIpOworCisJcmV0dXJuIGlycTsKK30KKworaW50IGJpbmRfZXZ0Y2huX3RvX2lycSh1bnNpZ25l
-ZCBpbnQgZXZ0Y2huKQoreworCWludCBpcnE7CisKKwlzcGluX2xvY2soJmlycV9tYXBwaW5nX3Vw
-ZGF0ZV9sb2NrKTsKKworCWlycSA9IGV2dGNobl90b19pcnFbZXZ0Y2huXTsKKworCWlmIChpcnEg
-PT0gLTEpIHsKKwkJaXJxID0gZmluZF91bmJvdW5kX2lycSgpOworCisJCWR5bmFtaWNfaXJxX2lu
-aXQoaXJxKTsKKwkJc2V0X2lycV9jaGlwX2FuZF9oYW5kbGVyX25hbWUoaXJxLCAmeGVuX2R5bmFt
-aWNfY2hpcCwKKwkJCQkJICAgICAgaGFuZGxlX2xldmVsX2lycSwgImV2ZW50Iik7CisKKwkJZXZ0
-Y2huX3RvX2lycVtldnRjaG5dID0gaXJxOworCQlpcnFfaW5mb1tpcnFdID0gbWtfaXJxX2luZm8o
-SVJRVF9FVlRDSE4sIDAsIGV2dGNobik7CisJfQorCisJaXJxX2JpbmRjb3VudFtpcnFdKys7CisK
-KwlzcGluX3VubG9jaygmaXJxX21hcHBpbmdfdXBkYXRlX2xvY2spOworCisJcmV0dXJuIGlycTsK
-K30KK0VYUE9SVF9TWU1CT0xfR1BMKGJpbmRfZXZ0Y2huX3RvX2lycSk7CisKK3N0YXRpYyBpbnQg
-YmluZF9pcGlfdG9faXJxKHVuc2lnbmVkIGludCBpcGksIHVuc2lnbmVkIGludCBjcHUpCit7CisJ
-c3RydWN0IGV2dGNobl9iaW5kX2lwaSBiaW5kX2lwaTsKKwlpbnQgZXZ0Y2huLCBpcnE7CisKKwlz
-cGluX2xvY2soJmlycV9tYXBwaW5nX3VwZGF0ZV9sb2NrKTsKKworCWlycSA9IHBlcl9jcHUoaXBp
-X3RvX2lycSwgY3B1KVtpcGldOworCWlmIChpcnEgPT0gLTEpIHsKKwkJaXJxID0gZmluZF91bmJv
-dW5kX2lycSgpOworCQlpZiAoaXJxIDwgMCkKKwkJCWdvdG8gb3V0OworCisJCWR5bmFtaWNfaXJx
-X2luaXQoaXJxKTsKKwkJc2V0X2lycV9jaGlwX2FuZF9oYW5kbGVyX25hbWUoaXJxLCAmeGVuX2R5
-bmFtaWNfY2hpcCwKKwkJCQkJICAgICAgaGFuZGxlX2xldmVsX2lycSwgImlwaSIpOworCisJCWJp
-bmRfaXBpLnZjcHUgPSBjcHU7CisJCWlmIChIWVBFUlZJU09SX2V2ZW50X2NoYW5uZWxfb3AoRVZU
-Q0hOT1BfYmluZF9pcGksCisJCQkJCQkmYmluZF9pcGkpICE9IDApCisJCQlCVUcoKTsKKwkJZXZ0
-Y2huID0gYmluZF9pcGkucG9ydDsKKworCQlldnRjaG5fdG9faXJxW2V2dGNobl0gPSBpcnE7CisJ
-CWlycV9pbmZvW2lycV0gPSBta19pcnFfaW5mbyhJUlFUX0lQSSwgaXBpLCBldnRjaG4pOworCisJ
-CXBlcl9jcHUoaXBpX3RvX2lycSwgY3B1KVtpcGldID0gaXJxOworCisJCWJpbmRfZXZ0Y2huX3Rv
-X2NwdShldnRjaG4sIGNwdSk7CisJfQorCisJaXJxX2JpbmRjb3VudFtpcnFdKys7CisKKyBvdXQ6
-CisJc3Bpbl91bmxvY2soJmlycV9tYXBwaW5nX3VwZGF0ZV9sb2NrKTsKKwlyZXR1cm4gaXJxOwor
-fQorCisKK3N0YXRpYyBpbnQgYmluZF92aXJxX3RvX2lycSh1bnNpZ25lZCBpbnQgdmlycSwgdW5z
-aWduZWQgaW50IGNwdSkKK3sKKwlzdHJ1Y3QgZXZ0Y2huX2JpbmRfdmlycSBiaW5kX3ZpcnE7CisJ
-aW50IGV2dGNobiwgaXJxOworCisJc3Bpbl9sb2NrKCZpcnFfbWFwcGluZ191cGRhdGVfbG9jayk7
-CisKKwlpcnEgPSBwZXJfY3B1KHZpcnFfdG9faXJxLCBjcHUpW3ZpcnFdOworCisJaWYgKGlycSA9
-PSAtMSkgeworCQliaW5kX3ZpcnEudmlycSA9IHZpcnE7CisJCWJpbmRfdmlycS52Y3B1ID0gY3B1
-OworCQlpZiAoSFlQRVJWSVNPUl9ldmVudF9jaGFubmVsX29wKEVWVENITk9QX2JpbmRfdmlycSwK
-KwkJCQkJCSZiaW5kX3ZpcnEpICE9IDApCisJCQlCVUcoKTsKKwkJZXZ0Y2huID0gYmluZF92aXJx
-LnBvcnQ7CisKKwkJaXJxID0gZmluZF91bmJvdW5kX2lycSgpOworCisJCWR5bmFtaWNfaXJxX2lu
-aXQoaXJxKTsKKwkJc2V0X2lycV9jaGlwX2FuZF9oYW5kbGVyX25hbWUoaXJxLCAmeGVuX2R5bmFt
-aWNfY2hpcCwKKwkJCQkJICAgICAgaGFuZGxlX2xldmVsX2lycSwgInZpcnEiKTsKKworCQlldnRj
-aG5fdG9faXJxW2V2dGNobl0gPSBpcnE7CisJCWlycV9pbmZvW2lycV0gPSBta19pcnFfaW5mbyhJ
-UlFUX1ZJUlEsIHZpcnEsIGV2dGNobik7CisKKwkJcGVyX2NwdSh2aXJxX3RvX2lycSwgY3B1KVt2
-aXJxXSA9IGlycTsKKworCQliaW5kX2V2dGNobl90b19jcHUoZXZ0Y2huLCBjcHUpOworCX0KKwor
-CWlycV9iaW5kY291bnRbaXJxXSsrOworCisJc3Bpbl91bmxvY2soJmlycV9tYXBwaW5nX3VwZGF0
-ZV9sb2NrKTsKKworCXJldHVybiBpcnE7Cit9CisKK3N0YXRpYyB2b2lkIHVuYmluZF9mcm9tX2ly
-cSh1bnNpZ25lZCBpbnQgaXJxKQoreworCXN0cnVjdCBldnRjaG5fY2xvc2UgY2xvc2U7CisJaW50
-IGV2dGNobiA9IGV2dGNobl9mcm9tX2lycShpcnEpOworCisJc3Bpbl9sb2NrKCZpcnFfbWFwcGlu
-Z191cGRhdGVfbG9jayk7CisKKwlpZiAoVkFMSURfRVZUQ0hOKGV2dGNobikgJiYgKC0taXJxX2Jp
-bmRjb3VudFtpcnFdID09IDApKSB7CisJCWNsb3NlLnBvcnQgPSBldnRjaG47CisJCWlmIChIWVBF
-UlZJU09SX2V2ZW50X2NoYW5uZWxfb3AoRVZUQ0hOT1BfY2xvc2UsICZjbG9zZSkgIT0gMCkKKwkJ
-CUJVRygpOworCisJCXN3aXRjaCAodHlwZV9mcm9tX2lycShpcnEpKSB7CisJCWNhc2UgSVJRVF9W
-SVJROgorCQkJcGVyX2NwdSh2aXJxX3RvX2lycSwgY3B1X2Zyb21fZXZ0Y2huKGV2dGNobikpCisJ
-CQkJW2luZGV4X2Zyb21faXJxKGlycSldID0gLTE7CisJCQlicmVhazsKKwkJZGVmYXVsdDoKKwkJ
-CWJyZWFrOworCQl9CisKKwkJLyogQ2xvc2VkIHBvcnRzIGFyZSBpbXBsaWNpdGx5IHJlLWJvdW5k
-IHRvIFZDUFUwLiAqLworCQliaW5kX2V2dGNobl90b19jcHUoZXZ0Y2huLCAwKTsKKworCQlldnRj
-aG5fdG9faXJxW2V2dGNobl0gPSAtMTsKKwkJaXJxX2luZm9baXJxXSA9IElSUV9VTkJPVU5EOwor
-CisJCWR5bmFtaWNfaXJxX2luaXQoaXJxKTsKKwl9CisKKwlzcGluX3VubG9jaygmaXJxX21hcHBp
-bmdfdXBkYXRlX2xvY2spOworfQorCitpbnQgYmluZF9ldnRjaG5fdG9faXJxaGFuZGxlcih1bnNp
-Z25lZCBpbnQgZXZ0Y2huLAorCQkJICAgICAgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAorCQkJICAg
-ICAgdW5zaWduZWQgbG9uZyBpcnFmbGFncywKKwkJCSAgICAgIGNvbnN0IGNoYXIgKmRldm5hbWUs
-IHZvaWQgKmRldl9pZCkKK3sKKwl1bnNpZ25lZCBpbnQgaXJxOworCWludCByZXR2YWw7CisKKwlp
-cnEgPSBiaW5kX2V2dGNobl90b19pcnEoZXZ0Y2huKTsKKwlyZXR2YWwgPSByZXF1ZXN0X2lycShp
-cnEsIGhhbmRsZXIsIGlycWZsYWdzLCBkZXZuYW1lLCBkZXZfaWQpOworCWlmIChyZXR2YWwgIT0g
-MCkgeworCQl1bmJpbmRfZnJvbV9pcnEoaXJxKTsKKwkJcmV0dXJuIHJldHZhbDsKKwl9CisKKwly
-ZXR1cm4gaXJxOworfQorRVhQT1JUX1NZTUJPTF9HUEwoYmluZF9ldnRjaG5fdG9faXJxaGFuZGxl
-cik7CisKK2ludCBiaW5kX3ZpcnFfdG9faXJxaGFuZGxlcih1bnNpZ25lZCBpbnQgdmlycSwgdW5z
-aWduZWQgaW50IGNwdSwKKwkJCSAgICBpcnFfaGFuZGxlcl90IGhhbmRsZXIsCisJCQkgICAgdW5z
-aWduZWQgbG9uZyBpcnFmbGFncywgY29uc3QgY2hhciAqZGV2bmFtZSwgdm9pZCAqZGV2X2lkKQor
-eworCXVuc2lnbmVkIGludCBpcnE7CisJaW50IHJldHZhbDsKKworCWlycSA9IGJpbmRfdmlycV90
-b19pcnEodmlycSwgY3B1KTsKKwlyZXR2YWwgPSByZXF1ZXN0X2lycShpcnEsIGhhbmRsZXIsIGly
-cWZsYWdzLCBkZXZuYW1lLCBkZXZfaWQpOworCWlmIChyZXR2YWwgIT0gMCkgeworCQl1bmJpbmRf
-ZnJvbV9pcnEoaXJxKTsKKwkJcmV0dXJuIHJldHZhbDsKKwl9CisKKwlyZXR1cm4gaXJxOworfQor
-RVhQT1JUX1NZTUJPTF9HUEwoYmluZF92aXJxX3RvX2lycWhhbmRsZXIpOworCitpbnQgYmluZF9p
-cGlfdG9faXJxaGFuZGxlcihlbnVtIGlwaV92ZWN0b3IgaXBpLAorCQkJICAgdW5zaWduZWQgaW50
-IGNwdSwKKwkJCSAgIGlycV9oYW5kbGVyX3QgaGFuZGxlciwKKwkJCSAgIHVuc2lnbmVkIGxvbmcg
-aXJxZmxhZ3MsCisJCQkgICBjb25zdCBjaGFyICpkZXZuYW1lLAorCQkJICAgdm9pZCAqZGV2X2lk
-KQoreworCWludCBpcnEsIHJldHZhbDsKKworCWlycSA9IGJpbmRfaXBpX3RvX2lycShpcGksIGNw
-dSk7CisJaWYgKGlycSA8IDApCisJCXJldHVybiBpcnE7CisKKwlyZXR2YWwgPSByZXF1ZXN0X2ly
-cShpcnEsIGhhbmRsZXIsIGlycWZsYWdzLCBkZXZuYW1lLCBkZXZfaWQpOworCWlmIChyZXR2YWwg
-IT0gMCkgeworCQl1bmJpbmRfZnJvbV9pcnEoaXJxKTsKKwkJcmV0dXJuIHJldHZhbDsKKwl9CisK
-KwlyZXR1cm4gaXJxOworfQorCit2b2lkIHVuYmluZF9mcm9tX2lycWhhbmRsZXIodW5zaWduZWQg
-aW50IGlycSwgdm9pZCAqZGV2X2lkKQoreworCWZyZWVfaXJxKGlycSwgZGV2X2lkKTsKKwl1bmJp
-bmRfZnJvbV9pcnEoaXJxKTsKK30KK0VYUE9SVF9TWU1CT0xfR1BMKHVuYmluZF9mcm9tX2lycWhh
-bmRsZXIpOworCit2b2lkIHhlbl9zZW5kX0lQSV9vbmUodW5zaWduZWQgaW50IGNwdSwgZW51bSBp
-cGlfdmVjdG9yIHZlY3RvcikKK3sKKwlpbnQgaXJxID0gcGVyX2NwdShpcGlfdG9faXJxLCBjcHUp
-W3ZlY3Rvcl07CisJQlVHX09OKGlycSA8IDApOworCW5vdGlmeV9yZW1vdGVfdmlhX2lycShpcnEp
-OworfQorCisKKy8qCisgKiBTZWFyY2ggdGhlIENQVXMgcGVuZGluZyBldmVudHMgYml0bWFza3Mu
-ICBGb3IgZWFjaCBvbmUgZm91bmQsIG1hcAorICogdGhlIGV2ZW50IG51bWJlciB0byBhbiBpcnEs
-IGFuZCBmZWVkIGl0IGludG8gZG9fSVJRKCkgZm9yCisgKiBoYW5kbGluZy4KKyAqCisgKiBYZW4g
-dXNlcyBhIHR3by1sZXZlbCBiaXRtYXAgdG8gc3BlZWQgc2VhcmNoaW5nLiAgVGhlIGZpcnN0IGxl
-dmVsIGlzCisgKiBhIGJpdHNldCBvZiB3b3JkcyB3aGljaCBjb250YWluIHBlbmRpbmcgZXZlbnQg
-Yml0cy4gIFRoZSBzZWNvbmQKKyAqIGxldmVsIGlzIGEgYml0c2V0IG9mIHBlbmRpbmcgZXZlbnRz
-IHRoZW1zZWx2ZXMuCisgKi8KK3ZvaWQgeGVuX2V2dGNobl9kb191cGNhbGwoc3RydWN0IHB0X3Jl
-Z3MgKnJlZ3MpCit7CisJaW50IGNwdSA9IGdldF9jcHUoKTsKKwlzdHJ1Y3Qgc2hhcmVkX2luZm8g
-KnMgPSBIWVBFUlZJU09SX3NoYXJlZF9pbmZvOworCXN0cnVjdCB2Y3B1X2luZm8gKnZjcHVfaW5m
-byA9IF9fZ2V0X2NwdV92YXIoeGVuX3ZjcHUpOworCXVuc2lnbmVkIGxvbmcgcGVuZGluZ193b3Jk
-czsKKworCXZjcHVfaW5mby0+ZXZ0Y2huX3VwY2FsbF9wZW5kaW5nID0gMDsKKworCS8qIE5CLiBO
-byBuZWVkIGZvciBhIGJhcnJpZXIgaGVyZSAtLSBYQ0hHIGlzIGEgYmFycmllciBvbiB4ODYuICov
-CisJcGVuZGluZ193b3JkcyA9IHhjaGcoJnZjcHVfaW5mby0+ZXZ0Y2huX3BlbmRpbmdfc2VsLCAw
-KTsKKwl3aGlsZSAocGVuZGluZ193b3JkcyAhPSAwKSB7CisJCXVuc2lnbmVkIGxvbmcgcGVuZGlu
-Z19iaXRzOworCQlpbnQgd29yZF9pZHggPSBfX2ZmcyhwZW5kaW5nX3dvcmRzKTsKKwkJcGVuZGlu
-Z193b3JkcyAmPSB+KDFVTCA8PCB3b3JkX2lkeCk7CisKKwkJd2hpbGUgKChwZW5kaW5nX2JpdHMg
-PSBhY3RpdmVfZXZ0Y2hucyhjcHUsIHMsIHdvcmRfaWR4KSkgIT0gMCkgeworCQkJaW50IGJpdF9p
-ZHggPSBfX2ZmcyhwZW5kaW5nX2JpdHMpOworCQkJaW50IHBvcnQgPSAod29yZF9pZHggKiBCSVRT
-X1BFUl9MT05HKSArIGJpdF9pZHg7CisJCQlpbnQgaXJxID0gZXZ0Y2huX3RvX2lycVtwb3J0XTsK
-KworCQkJaWYgKGlycSAhPSAtMSkgeworCQkJCXJlZ3MtPm9yaWdfYXggPSB+aXJxOworCQkJCWRv
-X0lSUShyZWdzKTsKKwkJCX0KKwkJfQorCX0KKworCXB1dF9jcHUoKTsKK30KKworLyogUmViaW5k
-IGFuIGV2dGNobiBzbyB0aGF0IGl0IGdldHMgZGVsaXZlcmVkIHRvIGEgc3BlY2lmaWMgY3B1ICov
-CitzdGF0aWMgdm9pZCByZWJpbmRfaXJxX3RvX2NwdSh1bnNpZ25lZCBpcnEsIHVuc2lnbmVkIHRj
-cHUpCit7CisJc3RydWN0IGV2dGNobl9iaW5kX3ZjcHUgYmluZF92Y3B1OworCWludCBldnRjaG4g
-PSBldnRjaG5fZnJvbV9pcnEoaXJxKTsKKworCWlmICghVkFMSURfRVZUQ0hOKGV2dGNobikpCisJ
-CXJldHVybjsKKworCS8qIFNlbmQgZnV0dXJlIGluc3RhbmNlcyBvZiB0aGlzIGludGVycnVwdCB0
-byBvdGhlciB2Y3B1LiAqLworCWJpbmRfdmNwdS5wb3J0ID0gZXZ0Y2huOworCWJpbmRfdmNwdS52
-Y3B1ID0gdGNwdTsKKworCS8qCisJICogSWYgdGhpcyBmYWlscywgaXQgdXN1YWxseSBqdXN0IGlu
-ZGljYXRlcyB0aGF0IHdlJ3JlIGRlYWxpbmcgd2l0aCBhCisJICogdmlycSBvciBJUEkgY2hhbm5l
-bCwgd2hpY2ggZG9uJ3QgYWN0dWFsbHkgbmVlZCB0byBiZSByZWJvdW5kLiBJZ25vcmUKKwkgKiBp
-dCwgYnV0IGRvbid0IGRvIHRoZSB4ZW5saW51eC1sZXZlbCByZWJpbmQgaW4gdGhhdCBjYXNlLgor
-CSAqLworCWlmIChIWVBFUlZJU09SX2V2ZW50X2NoYW5uZWxfb3AoRVZUQ0hOT1BfYmluZF92Y3B1
-LCAmYmluZF92Y3B1KSA+PSAwKQorCQliaW5kX2V2dGNobl90b19jcHUoZXZ0Y2huLCB0Y3B1KTsK
-K30KKworCitzdGF0aWMgdm9pZCBzZXRfYWZmaW5pdHlfaXJxKHVuc2lnbmVkIGlycSwgY3B1bWFz
-a190IGRlc3QpCit7CisJdW5zaWduZWQgdGNwdSA9IGZpcnN0X2NwdShkZXN0KTsKKwlyZWJpbmRf
-aXJxX3RvX2NwdShpcnEsIHRjcHUpOworfQorCitzdGF0aWMgdm9pZCBlbmFibGVfZHluaXJxKHVu
-c2lnbmVkIGludCBpcnEpCit7CisJaW50IGV2dGNobiA9IGV2dGNobl9mcm9tX2lycShpcnEpOwor
-CisJaWYgKFZBTElEX0VWVENITihldnRjaG4pKQorCQl1bm1hc2tfZXZ0Y2huKGV2dGNobik7Cit9
-CisKK3N0YXRpYyB2b2lkIGRpc2FibGVfZHluaXJxKHVuc2lnbmVkIGludCBpcnEpCit7CisJaW50
-IGV2dGNobiA9IGV2dGNobl9mcm9tX2lycShpcnEpOworCisJaWYgKFZBTElEX0VWVENITihldnRj
-aG4pKQorCQltYXNrX2V2dGNobihldnRjaG4pOworfQorCitzdGF0aWMgdm9pZCBhY2tfZHluaXJx
-KHVuc2lnbmVkIGludCBpcnEpCit7CisJaW50IGV2dGNobiA9IGV2dGNobl9mcm9tX2lycShpcnEp
-OworCisJbW92ZV9uYXRpdmVfaXJxKGlycSk7CisKKwlpZiAoVkFMSURfRVZUQ0hOKGV2dGNobikp
-CisJCWNsZWFyX2V2dGNobihldnRjaG4pOworfQorCitzdGF0aWMgaW50IHJldHJpZ2dlcl9keW5p
-cnEodW5zaWduZWQgaW50IGlycSkKK3sKKwlpbnQgZXZ0Y2huID0gZXZ0Y2huX2Zyb21faXJxKGly
-cSk7CisJaW50IHJldCA9IDA7CisKKwlpZiAoVkFMSURfRVZUQ0hOKGV2dGNobikpIHsKKwkJc2V0
-X2V2dGNobihldnRjaG4pOworCQlyZXQgPSAxOworCX0KKworCXJldHVybiByZXQ7Cit9CisKK3N0
-YXRpYyBzdHJ1Y3QgaXJxX2NoaXAgeGVuX2R5bmFtaWNfY2hpcCBfX3JlYWRfbW9zdGx5ID0gewor
-CS5uYW1lCQk9ICJ4ZW4tZHluIiwKKwkubWFzawkJPSBkaXNhYmxlX2R5bmlycSwKKwkudW5tYXNr
-CQk9IGVuYWJsZV9keW5pcnEsCisJLmFjawkJPSBhY2tfZHluaXJxLAorCS5zZXRfYWZmaW5pdHkJ
-PSBzZXRfYWZmaW5pdHlfaXJxLAorCS5yZXRyaWdnZXIJPSByZXRyaWdnZXJfZHluaXJxLAorfTsK
-Kwordm9pZCBfX2luaXQgeGVuX2luaXRfSVJRKHZvaWQpCit7CisJaW50IGk7CisKKwlpbml0X2V2
-dGNobl9jcHVfYmluZGluZ3MoKTsKKworCS8qIE5vIGV2ZW50IGNoYW5uZWxzIGFyZSAnbGl2ZScg
-cmlnaHQgbm93LiAqLworCWZvciAoaSA9IDA7IGkgPCBOUl9FVkVOVF9DSEFOTkVMUzsgaSsrKQor
-CQltYXNrX2V2dGNobihpKTsKKworCS8qIER5bmFtaWMgSVJRIHNwYWNlIGlzIGN1cnJlbnRseSB1
-bmJvdW5kLiBaZXJvIHRoZSByZWZjbnRzLiAqLworCWZvciAoaSA9IDA7IGkgPCBOUl9JUlFTOyBp
-KyspCisJCWlycV9iaW5kY291bnRbaV0gPSAwOworCisJaXJxX2N0eF9pbml0KHNtcF9wcm9jZXNz
-b3JfaWQoKSk7Cit9CmRpZmYgLXVyTiBvbGQvZHJpdmVycy94ZW4vTWFrZWZpbGUgbGludXgvZHJp
-dmVycy94ZW4vTWFrZWZpbGUKLS0tIG9sZC9kcml2ZXJzL3hlbi9NYWtlZmlsZQkyMDA4LTAzLTEw
-IDEzOjIyOjI3LjAwMDAwMDAwMCArMDgwMAorKysgbGludXgvZHJpdmVycy94ZW4vTWFrZWZpbGUJ
-MjAwOC0wMy0yNSAxMzo1Njo0MS4zNjg3NjQyODcgKzA4MDAKQEAgLTEsMiArMSwyIEBACi1vYmot
-eQkrPSBncmFudC10YWJsZS5vCitvYmoteQkrPSBncmFudC10YWJsZS5vIGV2ZW50cy5vCiBvYmot
-eQkrPSB4ZW5idXMvCmRpZmYgLXVyTiBvbGQvaW5jbHVkZS94ZW4veGVuLW9wcy5oIGxpbnV4L2lu
-Y2x1ZGUveGVuL3hlbi1vcHMuaAotLS0gb2xkL2luY2x1ZGUveGVuL3hlbi1vcHMuaAkxOTcwLTAx
-LTAxIDA4OjAwOjAwLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgvaW5jbHVkZS94ZW4veGVuLW9w
-cy5oCTIwMDgtMDMtMjUgMTQ6MDA6MDkuMDQxMzIxNTQ2ICswODAwCkBAIC0wLDAgKzEsNiBAQAor
-I2lmbmRlZiBJTkNMVURFX1hFTl9PUFNfSAorI2RlZmluZSBJTkNMVURFX1hFTl9PUFNfSAorCitE
-RUNMQVJFX1BFUl9DUFUoc3RydWN0IHZjcHVfaW5mbyAqLCB4ZW5fdmNwdSk7CisKKyNlbmRpZiAv
-KiBJTkNMVURFX1hFTl9PUFNfSCAqLwo=
+aD4KKworI2luY2x1ZGUgPHhlbi94ZW4tb3BzLmg+CisKKy8qCisgKiBUaGlzIGxvY2sgcHJvdGVj
+dHMgdXBkYXRlcyB0byB0aGUgZm9sbG93aW5nIG1hcHBpbmcgYW5kIHJlZmVyZW5jZS1jb3VudAor
+ICogYXJyYXlzLiBUaGUgbG9jayBkb2VzIG5vdCBuZWVkIHRvIGJlIGFjcXVpcmVkIHRvIHJlYWQg
+dGhlIG1hcHBpbmcgdGFibGVzLgorICovCitzdGF0aWMgREVGSU5FX1NQSU5MT0NLKGlycV9tYXBw
+aW5nX3VwZGF0ZV9sb2NrKTsKKworLyogSVJRIDwtPiBWSVJRIG1hcHBpbmcuICovCitzdGF0aWMg
+REVGSU5FX1BFUl9DUFUoaW50LCB2aXJxX3RvX2lycVtOUl9WSVJRU10pID0ge1swIC4uLiBOUl9W
+SVJRUy0xXSA9IC0xfTsKKworLyogSVJRIDwtPiBJUEkgbWFwcGluZyAqLworc3RhdGljIERFRklO
+RV9QRVJfQ1BVKGludCwgaXBpX3RvX2lycVtYRU5fTlJfSVBJU10pID0ge1swIC4uLiBYRU5fTlJf
+SVBJUy0xXSA9IC0xfTsKKworLyogUGFja2VkIElSUSBpbmZvcm1hdGlvbjogYmluZGluZyB0eXBl
+LCBzdWItdHlwZSBpbmRleCwgYW5kIGV2ZW50IGNoYW5uZWwuICovCitzdHJ1Y3QgcGFja2VkX2ly
+cQoreworCXVuc2lnbmVkIHNob3J0IGV2dGNobjsKKwl1bnNpZ25lZCBjaGFyIGluZGV4OworCXVu
+c2lnbmVkIGNoYXIgdHlwZTsKK307CisKK3N0YXRpYyBzdHJ1Y3QgcGFja2VkX2lycSBpcnFfaW5m
+b1tOUl9JUlFTXTsKKworLyogQmluZGluZyB0eXBlcy4gKi8KK2VudW0geworCUlSUVRfVU5CT1VO
+RCwKKwlJUlFUX1BJUlEsCisJSVJRVF9WSVJRLAorCUlSUVRfSVBJLAorCUlSUVRfRVZUQ0hOCit9
+OworCisvKiBDb252ZW5pZW50IHNob3J0aGFuZCBmb3IgcGFja2VkIHJlcHJlc2VudGF0aW9uIG9m
+IGFuIHVuYm91bmQgSVJRLiAqLworI2RlZmluZSBJUlFfVU5CT1VORAlta19pcnFfaW5mbyhJUlFU
+X1VOQk9VTkQsIDAsIDApCisKK3N0YXRpYyBpbnQgZXZ0Y2huX3RvX2lycVtOUl9FVkVOVF9DSEFO
+TkVMU10gPSB7CisJWzAgLi4uIE5SX0VWRU5UX0NIQU5ORUxTLTFdID0gLTEKK307CitzdGF0aWMg
+dW5zaWduZWQgbG9uZyBjcHVfZXZ0Y2huX21hc2tbTlJfQ1BVU11bTlJfRVZFTlRfQ0hBTk5FTFMv
+QklUU19QRVJfTE9OR107CitzdGF0aWMgdTggY3B1X2V2dGNobltOUl9FVkVOVF9DSEFOTkVMU107
+CisKKy8qIFJlZmVyZW5jZSBjb3VudHMgZm9yIGJpbmRpbmdzIHRvIElSUXMuICovCitzdGF0aWMg
+aW50IGlycV9iaW5kY291bnRbTlJfSVJRU107CisKKy8qIFhlbiB3aWxsIG5ldmVyIGFsbG9jYXRl
+IHBvcnQgemVybyBmb3IgYW55IHB1cnBvc2UuICovCisjZGVmaW5lIFZBTElEX0VWVENITihjaG4p
+CSgoY2huKSAhPSAwKQorCisvKgorICogRm9yY2UgYSBwcm9wZXIgZXZlbnQtY2hhbm5lbCBjYWxs
+YmFjayBmcm9tIFhlbiBhZnRlciBjbGVhcmluZyB0aGUKKyAqIGNhbGxiYWNrIG1hc2suIFdlIGRv
+IHRoaXMgaW4gYSB2ZXJ5IHNpbXBsZSBtYW5uZXIsIGJ5IG1ha2luZyBhIGNhbGwKKyAqIGRvd24g
+aW50byBYZW4uIFRoZSBwZW5kaW5nIGZsYWcgd2lsbCBiZSBjaGVja2VkIGJ5IFhlbiBvbiByZXR1
+cm4uCisgKi8KK3ZvaWQgZm9yY2VfZXZ0Y2huX2NhbGxiYWNrKHZvaWQpCit7CisJKHZvaWQpSFlQ
+RVJWSVNPUl94ZW5fdmVyc2lvbigwLCBOVUxMKTsKK30KK0VYUE9SVF9TWU1CT0xfR1BMKGZvcmNl
+X2V2dGNobl9jYWxsYmFjayk7CisKK3N0YXRpYyBzdHJ1Y3QgaXJxX2NoaXAgeGVuX2R5bmFtaWNf
+Y2hpcDsKKworLyogQ29uc3RydWN0b3IgZm9yIHBhY2tlZCBJUlEgaW5mb3JtYXRpb24uICovCitz
+dGF0aWMgaW5saW5lIHN0cnVjdCBwYWNrZWRfaXJxIG1rX2lycV9pbmZvKHUzMiB0eXBlLCB1MzIg
+aW5kZXgsIHUzMiBldnRjaG4pCit7CisJcmV0dXJuIChzdHJ1Y3QgcGFja2VkX2lycSkgeyBldnRj
+aG4sIGluZGV4LCB0eXBlIH07Cit9CisKKy8qCisgKiBBY2Nlc3NvcnMgZm9yIHBhY2tlZCBJUlEg
+aW5mb3JtYXRpb24uCisgKi8KK3N0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IGV2dGNobl9mcm9t
+X2lycShpbnQgaXJxKQoreworCXJldHVybiBpcnFfaW5mb1tpcnFdLmV2dGNobjsKK30KKworc3Rh
+dGljIGlubGluZSB1bnNpZ25lZCBpbnQgaW5kZXhfZnJvbV9pcnEoaW50IGlycSkKK3sKKwlyZXR1
+cm4gaXJxX2luZm9baXJxXS5pbmRleDsKK30KKworc3RhdGljIGlubGluZSB1bnNpZ25lZCBpbnQg
+dHlwZV9mcm9tX2lycShpbnQgaXJxKQoreworCXJldHVybiBpcnFfaW5mb1tpcnFdLnR5cGU7Cit9
+CisKK3N0YXRpYyBpbmxpbmUgdW5zaWduZWQgbG9uZyBhY3RpdmVfZXZ0Y2hucyh1bnNpZ25lZCBp
+bnQgY3B1LAorCQkJCQkgICBzdHJ1Y3Qgc2hhcmVkX2luZm8gKnNoLAorCQkJCQkgICB1bnNpZ25l
+ZCBpbnQgaWR4KQoreworCXJldHVybiAoc2gtPmV2dGNobl9wZW5kaW5nW2lkeF0gJgorCQljcHVf
+ZXZ0Y2huX21hc2tbY3B1XVtpZHhdICYKKwkJfnNoLT5ldnRjaG5fbWFza1tpZHhdKTsKK30KKwor
+c3RhdGljIHZvaWQgYmluZF9ldnRjaG5fdG9fY3B1KHVuc2lnbmVkIGludCBjaG4sIHVuc2lnbmVk
+IGludCBjcHUpCit7CisJaW50IGlycSA9IGV2dGNobl90b19pcnFbY2huXTsKKworCUJVR19PTihp
+cnEgPT0gLTEpOworI2lmZGVmIENPTkZJR19TTVAKKwlpcnFfZGVzY1tpcnFdLmFmZmluaXR5ID0g
+Y3B1bWFza19vZl9jcHUoY3B1KTsKKyNlbmRpZgorCisJX19jbGVhcl9iaXQoY2huLCBjcHVfZXZ0
+Y2huX21hc2tbY3B1X2V2dGNobltjaG5dXSk7CisJX19zZXRfYml0KGNobiwgY3B1X2V2dGNobl9t
+YXNrW2NwdV0pOworCisJY3B1X2V2dGNobltjaG5dID0gY3B1OworfQorCitzdGF0aWMgdm9pZCBp
+bml0X2V2dGNobl9jcHVfYmluZGluZ3Modm9pZCkKK3sKKyNpZmRlZiBDT05GSUdfU01QCisJaW50
+IGk7CisJLyogQnkgZGVmYXVsdCBhbGwgZXZlbnQgY2hhbm5lbHMgbm90aWZ5IENQVSMwLiAqLwor
+CWZvciAoaSA9IDA7IGkgPCBOUl9JUlFTOyBpKyspCisJCWlycV9kZXNjW2ldLmFmZmluaXR5ID0g
+Y3B1bWFza19vZl9jcHUoMCk7CisjZW5kaWYKKworCW1lbXNldChjcHVfZXZ0Y2huLCAwLCBzaXpl
+b2YoY3B1X2V2dGNobikpOworCW1lbXNldChjcHVfZXZ0Y2huX21hc2tbMF0sIH4wLCBzaXplb2Yo
+Y3B1X2V2dGNobl9tYXNrWzBdKSk7Cit9CisKK3N0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IGNw
+dV9mcm9tX2V2dGNobih1bnNpZ25lZCBpbnQgZXZ0Y2huKQoreworCXJldHVybiBjcHVfZXZ0Y2hu
+W2V2dGNobl07Cit9CisKK3N0YXRpYyBpbmxpbmUgdm9pZCBjbGVhcl9ldnRjaG4oaW50IHBvcnQp
+Cit7CisJc3RydWN0IHNoYXJlZF9pbmZvICpzID0gSFlQRVJWSVNPUl9zaGFyZWRfaW5mbzsKKwlz
+eW5jX2NsZWFyX2JpdChwb3J0LCAmcy0+ZXZ0Y2huX3BlbmRpbmdbMF0pOworfQorCitzdGF0aWMg
+aW5saW5lIHZvaWQgc2V0X2V2dGNobihpbnQgcG9ydCkKK3sKKwlzdHJ1Y3Qgc2hhcmVkX2luZm8g
+KnMgPSBIWVBFUlZJU09SX3NoYXJlZF9pbmZvOworCXN5bmNfc2V0X2JpdChwb3J0LCAmcy0+ZXZ0
+Y2huX3BlbmRpbmdbMF0pOworfQorCisKKy8qKgorICogbm90aWZ5X3JlbW90ZV92aWFfaXJxIC0g
+c2VuZCBldmVudCB0byByZW1vdGUgZW5kIG9mIGV2ZW50IGNoYW5uZWwgdmlhIGlycQorICogQGly
+cTogaXJxIG9mIGV2ZW50IGNoYW5uZWwgdG8gc2VuZCBldmVudCB0bworICoKKyAqIFVubGlrZSBu
+b3RpZnlfcmVtb3RlX3ZpYV9ldnRjaG4oKSwgdGhpcyBpcyBzYWZlIHRvIHVzZSBhY3Jvc3MKKyAq
+IHNhdmUvcmVzdG9yZS4gTm90aWZpY2F0aW9ucyBvbiBhIGJyb2tlbiBjb25uZWN0aW9uIGFyZSBz
+aWxlbnRseQorICogZHJvcHBlZC4KKyAqLwordm9pZCBub3RpZnlfcmVtb3RlX3ZpYV9pcnEoaW50
+IGlycSkKK3sKKwlpbnQgZXZ0Y2huID0gZXZ0Y2huX2Zyb21faXJxKGlycSk7CisKKwlpZiAoVkFM
+SURfRVZUQ0hOKGV2dGNobikpCisJCW5vdGlmeV9yZW1vdGVfdmlhX2V2dGNobihldnRjaG4pOwor
+fQorRVhQT1JUX1NZTUJPTF9HUEwobm90aWZ5X3JlbW90ZV92aWFfaXJxKTsKKworc3RhdGljIHZv
+aWQgbWFza19ldnRjaG4oaW50IHBvcnQpCit7CisJc3RydWN0IHNoYXJlZF9pbmZvICpzID0gSFlQ
+RVJWSVNPUl9zaGFyZWRfaW5mbzsKKwlzeW5jX3NldF9iaXQocG9ydCwgJnMtPmV2dGNobl9tYXNr
+WzBdKTsKK30KKworc3RhdGljIHZvaWQgdW5tYXNrX2V2dGNobihpbnQgcG9ydCkKK3sKKwlzdHJ1
+Y3Qgc2hhcmVkX2luZm8gKnMgPSBIWVBFUlZJU09SX3NoYXJlZF9pbmZvOworCXVuc2lnbmVkIGlu
+dCBjcHUgPSBnZXRfY3B1KCk7CisKKwlCVUdfT04oIWlycXNfZGlzYWJsZWQoKSk7CisKKwkvKiBT
+bG93IHBhdGggKGh5cGVyY2FsbCkgaWYgdGhpcyBpcyBhIG5vbi1sb2NhbCBwb3J0LiAqLworCWlm
+ICh1bmxpa2VseShjcHUgIT0gY3B1X2Zyb21fZXZ0Y2huKHBvcnQpKSkgeworCQlzdHJ1Y3QgZXZ0
+Y2huX3VubWFzayB1bm1hc2sgPSB7IC5wb3J0ID0gcG9ydCB9OworCQkodm9pZClIWVBFUlZJU09S
+X2V2ZW50X2NoYW5uZWxfb3AoRVZUQ0hOT1BfdW5tYXNrLCAmdW5tYXNrKTsKKwl9IGVsc2Ugewor
+CQlzdHJ1Y3QgdmNwdV9pbmZvICp2Y3B1X2luZm8gPSBfX2dldF9jcHVfdmFyKHhlbl92Y3B1KTsK
+KworCQlzeW5jX2NsZWFyX2JpdChwb3J0LCAmcy0+ZXZ0Y2huX21hc2tbMF0pOworCisJCS8qCisJ
+CSAqIFRoZSBmb2xsb3dpbmcgaXMgYmFzaWNhbGx5IHRoZSBlcXVpdmFsZW50IG9mCisJCSAqICdo
+d19yZXNlbmRfaXJxJy4gSnVzdCBsaWtlIGEgcmVhbCBJTy1BUElDIHdlICdsb3NlCisJCSAqIHRo
+ZSBpbnRlcnJ1cHQgZWRnZScgaWYgdGhlIGNoYW5uZWwgaXMgbWFza2VkLgorCQkgKi8KKwkJaWYg
+KHN5bmNfdGVzdF9iaXQocG9ydCwgJnMtPmV2dGNobl9wZW5kaW5nWzBdKSAmJgorCQkgICAgIXN5
+bmNfdGVzdF9hbmRfc2V0X2JpdChwb3J0IC8gQklUU19QRVJfTE9ORywKKwkJCQkJICAgJnZjcHVf
+aW5mby0+ZXZ0Y2huX3BlbmRpbmdfc2VsKSkKKwkJCXZjcHVfaW5mby0+ZXZ0Y2huX3VwY2FsbF9w
+ZW5kaW5nID0gMTsKKwl9CisKKwlwdXRfY3B1KCk7Cit9CisKK3N0YXRpYyBpbnQgZmluZF91bmJv
+dW5kX2lycSh2b2lkKQoreworCWludCBpcnE7CisKKwkvKiBPbmx5IGFsbG9jYXRlIGZyb20gZHlu
+aXJxIHJhbmdlICovCisJZm9yIChpcnEgPSAwOyBpcnEgPCBOUl9JUlFTOyBpcnErKykKKwkJaWYg
+KGlycV9iaW5kY291bnRbaXJxXSA9PSAwKQorCQkJYnJlYWs7CisKKwlpZiAoaXJxID09IE5SX0lS
+UVMpCisJCXBhbmljKCJObyBhdmFpbGFibGUgSVJRIHRvIGJpbmQgdG86IGluY3JlYXNlIE5SX0lS
+UVMhXG4iKTsKKworCXJldHVybiBpcnE7Cit9CisKK2ludCBiaW5kX2V2dGNobl90b19pcnEodW5z
+aWduZWQgaW50IGV2dGNobikKK3sKKwlpbnQgaXJxOworCisJc3Bpbl9sb2NrKCZpcnFfbWFwcGlu
+Z191cGRhdGVfbG9jayk7CisKKwlpcnEgPSBldnRjaG5fdG9faXJxW2V2dGNobl07CisKKwlpZiAo
+aXJxID09IC0xKSB7CisJCWlycSA9IGZpbmRfdW5ib3VuZF9pcnEoKTsKKworCQlkeW5hbWljX2ly
+cV9pbml0KGlycSk7CisJCXNldF9pcnFfY2hpcF9hbmRfaGFuZGxlcl9uYW1lKGlycSwgJnhlbl9k
+eW5hbWljX2NoaXAsCisJCQkJCSAgICAgIGhhbmRsZV9sZXZlbF9pcnEsICJldmVudCIpOworCisJ
+CWV2dGNobl90b19pcnFbZXZ0Y2huXSA9IGlycTsKKwkJaXJxX2luZm9baXJxXSA9IG1rX2lycV9p
+bmZvKElSUVRfRVZUQ0hOLCAwLCBldnRjaG4pOworCX0KKworCWlycV9iaW5kY291bnRbaXJxXSsr
+OworCisJc3Bpbl91bmxvY2soJmlycV9tYXBwaW5nX3VwZGF0ZV9sb2NrKTsKKworCXJldHVybiBp
+cnE7Cit9CitFWFBPUlRfU1lNQk9MX0dQTChiaW5kX2V2dGNobl90b19pcnEpOworCitzdGF0aWMg
+aW50IGJpbmRfaXBpX3RvX2lycSh1bnNpZ25lZCBpbnQgaXBpLCB1bnNpZ25lZCBpbnQgY3B1KQor
+eworCXN0cnVjdCBldnRjaG5fYmluZF9pcGkgYmluZF9pcGk7CisJaW50IGV2dGNobiwgaXJxOwor
+CisJc3Bpbl9sb2NrKCZpcnFfbWFwcGluZ191cGRhdGVfbG9jayk7CisKKwlpcnEgPSBwZXJfY3B1
+KGlwaV90b19pcnEsIGNwdSlbaXBpXTsKKwlpZiAoaXJxID09IC0xKSB7CisJCWlycSA9IGZpbmRf
+dW5ib3VuZF9pcnEoKTsKKwkJaWYgKGlycSA8IDApCisJCQlnb3RvIG91dDsKKworCQlkeW5hbWlj
+X2lycV9pbml0KGlycSk7CisJCXNldF9pcnFfY2hpcF9hbmRfaGFuZGxlcl9uYW1lKGlycSwgJnhl
+bl9keW5hbWljX2NoaXAsCisJCQkJCSAgICAgIGhhbmRsZV9sZXZlbF9pcnEsICJpcGkiKTsKKwor
+CQliaW5kX2lwaS52Y3B1ID0gY3B1OworCQlpZiAoSFlQRVJWSVNPUl9ldmVudF9jaGFubmVsX29w
+KEVWVENITk9QX2JpbmRfaXBpLAorCQkJCQkJJmJpbmRfaXBpKSAhPSAwKQorCQkJQlVHKCk7CisJ
+CWV2dGNobiA9IGJpbmRfaXBpLnBvcnQ7CisKKwkJZXZ0Y2huX3RvX2lycVtldnRjaG5dID0gaXJx
+OworCQlpcnFfaW5mb1tpcnFdID0gbWtfaXJxX2luZm8oSVJRVF9JUEksIGlwaSwgZXZ0Y2huKTsK
+KworCQlwZXJfY3B1KGlwaV90b19pcnEsIGNwdSlbaXBpXSA9IGlycTsKKworCQliaW5kX2V2dGNo
+bl90b19jcHUoZXZ0Y2huLCBjcHUpOworCX0KKworCWlycV9iaW5kY291bnRbaXJxXSsrOworCisg
+b3V0OgorCXNwaW5fdW5sb2NrKCZpcnFfbWFwcGluZ191cGRhdGVfbG9jayk7CisJcmV0dXJuIGly
+cTsKK30KKworCitzdGF0aWMgaW50IGJpbmRfdmlycV90b19pcnEodW5zaWduZWQgaW50IHZpcnEs
+IHVuc2lnbmVkIGludCBjcHUpCit7CisJc3RydWN0IGV2dGNobl9iaW5kX3ZpcnEgYmluZF92aXJx
+OworCWludCBldnRjaG4sIGlycTsKKworCXNwaW5fbG9jaygmaXJxX21hcHBpbmdfdXBkYXRlX2xv
+Y2spOworCisJaXJxID0gcGVyX2NwdSh2aXJxX3RvX2lycSwgY3B1KVt2aXJxXTsKKworCWlmIChp
+cnEgPT0gLTEpIHsKKwkJYmluZF92aXJxLnZpcnEgPSB2aXJxOworCQliaW5kX3ZpcnEudmNwdSA9
+IGNwdTsKKwkJaWYgKEhZUEVSVklTT1JfZXZlbnRfY2hhbm5lbF9vcChFVlRDSE5PUF9iaW5kX3Zp
+cnEsCisJCQkJCQkmYmluZF92aXJxKSAhPSAwKQorCQkJQlVHKCk7CisJCWV2dGNobiA9IGJpbmRf
+dmlycS5wb3J0OworCisJCWlycSA9IGZpbmRfdW5ib3VuZF9pcnEoKTsKKworCQlkeW5hbWljX2ly
+cV9pbml0KGlycSk7CisJCXNldF9pcnFfY2hpcF9hbmRfaGFuZGxlcl9uYW1lKGlycSwgJnhlbl9k
+eW5hbWljX2NoaXAsCisJCQkJCSAgICAgIGhhbmRsZV9sZXZlbF9pcnEsICJ2aXJxIik7CisKKwkJ
+ZXZ0Y2huX3RvX2lycVtldnRjaG5dID0gaXJxOworCQlpcnFfaW5mb1tpcnFdID0gbWtfaXJxX2lu
+Zm8oSVJRVF9WSVJRLCB2aXJxLCBldnRjaG4pOworCisJCXBlcl9jcHUodmlycV90b19pcnEsIGNw
+dSlbdmlycV0gPSBpcnE7CisKKwkJYmluZF9ldnRjaG5fdG9fY3B1KGV2dGNobiwgY3B1KTsKKwl9
+CisKKwlpcnFfYmluZGNvdW50W2lycV0rKzsKKworCXNwaW5fdW5sb2NrKCZpcnFfbWFwcGluZ191
+cGRhdGVfbG9jayk7CisKKwlyZXR1cm4gaXJxOworfQorCitzdGF0aWMgdm9pZCB1bmJpbmRfZnJv
+bV9pcnEodW5zaWduZWQgaW50IGlycSkKK3sKKwlzdHJ1Y3QgZXZ0Y2huX2Nsb3NlIGNsb3NlOwor
+CWludCBldnRjaG4gPSBldnRjaG5fZnJvbV9pcnEoaXJxKTsKKworCXNwaW5fbG9jaygmaXJxX21h
+cHBpbmdfdXBkYXRlX2xvY2spOworCisJaWYgKFZBTElEX0VWVENITihldnRjaG4pICYmICgtLWly
+cV9iaW5kY291bnRbaXJxXSA9PSAwKSkgeworCQljbG9zZS5wb3J0ID0gZXZ0Y2huOworCQlpZiAo
+SFlQRVJWSVNPUl9ldmVudF9jaGFubmVsX29wKEVWVENITk9QX2Nsb3NlLCAmY2xvc2UpICE9IDAp
+CisJCQlCVUcoKTsKKworCQlzd2l0Y2ggKHR5cGVfZnJvbV9pcnEoaXJxKSkgeworCQljYXNlIElS
+UVRfVklSUToKKwkJCXBlcl9jcHUodmlycV90b19pcnEsIGNwdV9mcm9tX2V2dGNobihldnRjaG4p
+KQorCQkJCVtpbmRleF9mcm9tX2lycShpcnEpXSA9IC0xOworCQkJYnJlYWs7CisJCWRlZmF1bHQ6
+CisJCQlicmVhazsKKwkJfQorCisJCS8qIENsb3NlZCBwb3J0cyBhcmUgaW1wbGljaXRseSByZS1i
+b3VuZCB0byBWQ1BVMC4gKi8KKwkJYmluZF9ldnRjaG5fdG9fY3B1KGV2dGNobiwgMCk7CisKKwkJ
+ZXZ0Y2huX3RvX2lycVtldnRjaG5dID0gLTE7CisJCWlycV9pbmZvW2lycV0gPSBJUlFfVU5CT1VO
+RDsKKworCQlkeW5hbWljX2lycV9pbml0KGlycSk7CisJfQorCisJc3Bpbl91bmxvY2soJmlycV9t
+YXBwaW5nX3VwZGF0ZV9sb2NrKTsKK30KKworaW50IGJpbmRfZXZ0Y2huX3RvX2lycWhhbmRsZXIo
+dW5zaWduZWQgaW50IGV2dGNobiwKKwkJCSAgICAgIGlycV9oYW5kbGVyX3QgaGFuZGxlciwKKwkJ
+CSAgICAgIHVuc2lnbmVkIGxvbmcgaXJxZmxhZ3MsCisJCQkgICAgICBjb25zdCBjaGFyICpkZXZu
+YW1lLCB2b2lkICpkZXZfaWQpCit7CisJdW5zaWduZWQgaW50IGlycTsKKwlpbnQgcmV0dmFsOwor
+CisJaXJxID0gYmluZF9ldnRjaG5fdG9faXJxKGV2dGNobik7CisJcmV0dmFsID0gcmVxdWVzdF9p
+cnEoaXJxLCBoYW5kbGVyLCBpcnFmbGFncywgZGV2bmFtZSwgZGV2X2lkKTsKKwlpZiAocmV0dmFs
+ICE9IDApIHsKKwkJdW5iaW5kX2Zyb21faXJxKGlycSk7CisJCXJldHVybiByZXR2YWw7CisJfQor
+CisJcmV0dXJuIGlycTsKK30KK0VYUE9SVF9TWU1CT0xfR1BMKGJpbmRfZXZ0Y2huX3RvX2lycWhh
+bmRsZXIpOworCitpbnQgYmluZF92aXJxX3RvX2lycWhhbmRsZXIodW5zaWduZWQgaW50IHZpcnEs
+IHVuc2lnbmVkIGludCBjcHUsCisJCQkgICAgaXJxX2hhbmRsZXJfdCBoYW5kbGVyLAorCQkJICAg
+IHVuc2lnbmVkIGxvbmcgaXJxZmxhZ3MsIGNvbnN0IGNoYXIgKmRldm5hbWUsIHZvaWQgKmRldl9p
+ZCkKK3sKKwl1bnNpZ25lZCBpbnQgaXJxOworCWludCByZXR2YWw7CisKKwlpcnEgPSBiaW5kX3Zp
+cnFfdG9faXJxKHZpcnEsIGNwdSk7CisJcmV0dmFsID0gcmVxdWVzdF9pcnEoaXJxLCBoYW5kbGVy
+LCBpcnFmbGFncywgZGV2bmFtZSwgZGV2X2lkKTsKKwlpZiAocmV0dmFsICE9IDApIHsKKwkJdW5i
+aW5kX2Zyb21faXJxKGlycSk7CisJCXJldHVybiByZXR2YWw7CisJfQorCisJcmV0dXJuIGlycTsK
+K30KK0VYUE9SVF9TWU1CT0xfR1BMKGJpbmRfdmlycV90b19pcnFoYW5kbGVyKTsKKworaW50IGJp
+bmRfaXBpX3RvX2lycWhhbmRsZXIoZW51bSBpcGlfdmVjdG9yIGlwaSwKKwkJCSAgIHVuc2lnbmVk
+IGludCBjcHUsCisJCQkgICBpcnFfaGFuZGxlcl90IGhhbmRsZXIsCisJCQkgICB1bnNpZ25lZCBs
+b25nIGlycWZsYWdzLAorCQkJICAgY29uc3QgY2hhciAqZGV2bmFtZSwKKwkJCSAgIHZvaWQgKmRl
+dl9pZCkKK3sKKwlpbnQgaXJxLCByZXR2YWw7CisKKwlpcnEgPSBiaW5kX2lwaV90b19pcnEoaXBp
+LCBjcHUpOworCWlmIChpcnEgPCAwKQorCQlyZXR1cm4gaXJxOworCisJcmV0dmFsID0gcmVxdWVz
+dF9pcnEoaXJxLCBoYW5kbGVyLCBpcnFmbGFncywgZGV2bmFtZSwgZGV2X2lkKTsKKwlpZiAocmV0
+dmFsICE9IDApIHsKKwkJdW5iaW5kX2Zyb21faXJxKGlycSk7CisJCXJldHVybiByZXR2YWw7CisJ
+fQorCisJcmV0dXJuIGlycTsKK30KKwordm9pZCB1bmJpbmRfZnJvbV9pcnFoYW5kbGVyKHVuc2ln
+bmVkIGludCBpcnEsIHZvaWQgKmRldl9pZCkKK3sKKwlmcmVlX2lycShpcnEsIGRldl9pZCk7CisJ
+dW5iaW5kX2Zyb21faXJxKGlycSk7Cit9CitFWFBPUlRfU1lNQk9MX0dQTCh1bmJpbmRfZnJvbV9p
+cnFoYW5kbGVyKTsKKwordm9pZCB4ZW5fc2VuZF9JUElfb25lKHVuc2lnbmVkIGludCBjcHUsIGVu
+dW0gaXBpX3ZlY3RvciB2ZWN0b3IpCit7CisJaW50IGlycSA9IHBlcl9jcHUoaXBpX3RvX2lycSwg
+Y3B1KVt2ZWN0b3JdOworCUJVR19PTihpcnEgPCAwKTsKKwlub3RpZnlfcmVtb3RlX3ZpYV9pcnEo
+aXJxKTsKK30KKworCisvKgorICogU2VhcmNoIHRoZSBDUFVzIHBlbmRpbmcgZXZlbnRzIGJpdG1h
+c2tzLiAgRm9yIGVhY2ggb25lIGZvdW5kLCBtYXAKKyAqIHRoZSBldmVudCBudW1iZXIgdG8gYW4g
+aXJxLCBhbmQgZmVlZCBpdCBpbnRvIGRvX0lSUSgpIGZvcgorICogaGFuZGxpbmcuCisgKgorICog
+WGVuIHVzZXMgYSB0d28tbGV2ZWwgYml0bWFwIHRvIHNwZWVkIHNlYXJjaGluZy4gIFRoZSBmaXJz
+dCBsZXZlbCBpcworICogYSBiaXRzZXQgb2Ygd29yZHMgd2hpY2ggY29udGFpbiBwZW5kaW5nIGV2
+ZW50IGJpdHMuICBUaGUgc2Vjb25kCisgKiBsZXZlbCBpcyBhIGJpdHNldCBvZiBwZW5kaW5nIGV2
+ZW50cyB0aGVtc2VsdmVzLgorICovCit2b2lkIHhlbl9ldnRjaG5fZG9fdXBjYWxsKHN0cnVjdCBw
+dF9yZWdzICpyZWdzKQoreworCWludCBjcHUgPSBnZXRfY3B1KCk7CisJc3RydWN0IHNoYXJlZF9p
+bmZvICpzID0gSFlQRVJWSVNPUl9zaGFyZWRfaW5mbzsKKwlzdHJ1Y3QgdmNwdV9pbmZvICp2Y3B1
+X2luZm8gPSBfX2dldF9jcHVfdmFyKHhlbl92Y3B1KTsKKwl1bnNpZ25lZCBsb25nIHBlbmRpbmdf
+d29yZHM7CisKKwl2Y3B1X2luZm8tPmV2dGNobl91cGNhbGxfcGVuZGluZyA9IDA7CisKKwkvKiBO
+Qi4gTm8gbmVlZCBmb3IgYSBiYXJyaWVyIGhlcmUgLS0gWENIRyBpcyBhIGJhcnJpZXIgb24geDg2
+LiAqLworCXBlbmRpbmdfd29yZHMgPSB4Y2hnKCZ2Y3B1X2luZm8tPmV2dGNobl9wZW5kaW5nX3Nl
+bCwgMCk7CisJd2hpbGUgKHBlbmRpbmdfd29yZHMgIT0gMCkgeworCQl1bnNpZ25lZCBsb25nIHBl
+bmRpbmdfYml0czsKKwkJaW50IHdvcmRfaWR4ID0gX19mZnMocGVuZGluZ193b3Jkcyk7CisJCXBl
+bmRpbmdfd29yZHMgJj0gfigxVUwgPDwgd29yZF9pZHgpOworCisJCXdoaWxlICgocGVuZGluZ19i
+aXRzID0gYWN0aXZlX2V2dGNobnMoY3B1LCBzLCB3b3JkX2lkeCkpICE9IDApIHsKKwkJCWludCBi
+aXRfaWR4ID0gX19mZnMocGVuZGluZ19iaXRzKTsKKwkJCWludCBwb3J0ID0gKHdvcmRfaWR4ICog
+QklUU19QRVJfTE9ORykgKyBiaXRfaWR4OworCQkJaW50IGlycSA9IGV2dGNobl90b19pcnFbcG9y
+dF07CisKKwkJCWlmIChpcnEgIT0gLTEpIHsKKwkJCQlyZWdzLT5vcmlnX2F4ID0gfmlycTsKKwkJ
+CQlkb19JUlEocmVncyk7CisJCQl9CisJCX0KKwl9CisKKwlwdXRfY3B1KCk7Cit9CisKKy8qIFJl
+YmluZCBhbiBldnRjaG4gc28gdGhhdCBpdCBnZXRzIGRlbGl2ZXJlZCB0byBhIHNwZWNpZmljIGNw
+dSAqLworc3RhdGljIHZvaWQgcmViaW5kX2lycV90b19jcHUodW5zaWduZWQgaXJxLCB1bnNpZ25l
+ZCB0Y3B1KQoreworCXN0cnVjdCBldnRjaG5fYmluZF92Y3B1IGJpbmRfdmNwdTsKKwlpbnQgZXZ0
+Y2huID0gZXZ0Y2huX2Zyb21faXJxKGlycSk7CisKKwlpZiAoIVZBTElEX0VWVENITihldnRjaG4p
+KQorCQlyZXR1cm47CisKKwkvKiBTZW5kIGZ1dHVyZSBpbnN0YW5jZXMgb2YgdGhpcyBpbnRlcnJ1
+cHQgdG8gb3RoZXIgdmNwdS4gKi8KKwliaW5kX3ZjcHUucG9ydCA9IGV2dGNobjsKKwliaW5kX3Zj
+cHUudmNwdSA9IHRjcHU7CisKKwkvKgorCSAqIElmIHRoaXMgZmFpbHMsIGl0IHVzdWFsbHkganVz
+dCBpbmRpY2F0ZXMgdGhhdCB3ZSdyZSBkZWFsaW5nIHdpdGggYQorCSAqIHZpcnEgb3IgSVBJIGNo
+YW5uZWwsIHdoaWNoIGRvbid0IGFjdHVhbGx5IG5lZWQgdG8gYmUgcmVib3VuZC4gSWdub3JlCisJ
+ICogaXQsIGJ1dCBkb24ndCBkbyB0aGUgeGVubGludXgtbGV2ZWwgcmViaW5kIGluIHRoYXQgY2Fz
+ZS4KKwkgKi8KKwlpZiAoSFlQRVJWSVNPUl9ldmVudF9jaGFubmVsX29wKEVWVENITk9QX2JpbmRf
+dmNwdSwgJmJpbmRfdmNwdSkgPj0gMCkKKwkJYmluZF9ldnRjaG5fdG9fY3B1KGV2dGNobiwgdGNw
+dSk7Cit9CisKKworc3RhdGljIHZvaWQgc2V0X2FmZmluaXR5X2lycSh1bnNpZ25lZCBpcnEsIGNw
+dW1hc2tfdCBkZXN0KQoreworCXVuc2lnbmVkIHRjcHUgPSBmaXJzdF9jcHUoZGVzdCk7CisJcmVi
+aW5kX2lycV90b19jcHUoaXJxLCB0Y3B1KTsKK30KKworc3RhdGljIHZvaWQgZW5hYmxlX2R5bmly
+cSh1bnNpZ25lZCBpbnQgaXJxKQoreworCWludCBldnRjaG4gPSBldnRjaG5fZnJvbV9pcnEoaXJx
+KTsKKworCWlmIChWQUxJRF9FVlRDSE4oZXZ0Y2huKSkKKwkJdW5tYXNrX2V2dGNobihldnRjaG4p
+OworfQorCitzdGF0aWMgdm9pZCBkaXNhYmxlX2R5bmlycSh1bnNpZ25lZCBpbnQgaXJxKQorewor
+CWludCBldnRjaG4gPSBldnRjaG5fZnJvbV9pcnEoaXJxKTsKKworCWlmIChWQUxJRF9FVlRDSE4o
+ZXZ0Y2huKSkKKwkJbWFza19ldnRjaG4oZXZ0Y2huKTsKK30KKworc3RhdGljIHZvaWQgYWNrX2R5
+bmlycSh1bnNpZ25lZCBpbnQgaXJxKQoreworCWludCBldnRjaG4gPSBldnRjaG5fZnJvbV9pcnEo
+aXJxKTsKKworCW1vdmVfbmF0aXZlX2lycShpcnEpOworCisJaWYgKFZBTElEX0VWVENITihldnRj
+aG4pKQorCQljbGVhcl9ldnRjaG4oZXZ0Y2huKTsKK30KKworc3RhdGljIGludCByZXRyaWdnZXJf
+ZHluaXJxKHVuc2lnbmVkIGludCBpcnEpCit7CisJaW50IGV2dGNobiA9IGV2dGNobl9mcm9tX2ly
+cShpcnEpOworCWludCByZXQgPSAwOworCisJaWYgKFZBTElEX0VWVENITihldnRjaG4pKSB7CisJ
+CXNldF9ldnRjaG4oZXZ0Y2huKTsKKwkJcmV0ID0gMTsKKwl9CisKKwlyZXR1cm4gcmV0OworfQor
+CitzdGF0aWMgc3RydWN0IGlycV9jaGlwIHhlbl9keW5hbWljX2NoaXAgX19yZWFkX21vc3RseSA9
+IHsKKwkubmFtZQkJPSAieGVuLWR5biIsCisJLm1hc2sJCT0gZGlzYWJsZV9keW5pcnEsCisJLnVu
+bWFzawkJPSBlbmFibGVfZHluaXJxLAorCS5hY2sJCT0gYWNrX2R5bmlycSwKKwkuc2V0X2FmZmlu
+aXR5CT0gc2V0X2FmZmluaXR5X2lycSwKKwkucmV0cmlnZ2VyCT0gcmV0cmlnZ2VyX2R5bmlycSwK
+K307CisKK3ZvaWQgX19pbml0IHhlbl9pbml0X0lSUSh2b2lkKQoreworCWludCBpOworCisJaW5p
+dF9ldnRjaG5fY3B1X2JpbmRpbmdzKCk7CisKKwkvKiBObyBldmVudCBjaGFubmVscyBhcmUgJ2xp
+dmUnIHJpZ2h0IG5vdy4gKi8KKwlmb3IgKGkgPSAwOyBpIDwgTlJfRVZFTlRfQ0hBTk5FTFM7IGkr
+KykKKwkJbWFza19ldnRjaG4oaSk7CisKKwkvKiBEeW5hbWljIElSUSBzcGFjZSBpcyBjdXJyZW50
+bHkgdW5ib3VuZC4gWmVybyB0aGUgcmVmY250cy4gKi8KKwlmb3IgKGkgPSAwOyBpIDwgTlJfSVJR
+UzsgaSsrKQorCQlpcnFfYmluZGNvdW50W2ldID0gMDsKKworCWlycV9jdHhfaW5pdChzbXBfcHJv
+Y2Vzc29yX2lkKCkpOworfQpkaWZmIC11ck4gb2xkL2RyaXZlcnMveGVuL01ha2VmaWxlIGxpbnV4
+L2RyaXZlcnMveGVuL01ha2VmaWxlCi0tLSBvbGQvZHJpdmVycy94ZW4vTWFrZWZpbGUJMjAwOC0w
+My0xMCAxMzoyMjoyNy4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4L2RyaXZlcnMveGVuL01ha2Vm
+aWxlCTIwMDgtMDMtMjUgMTM6NTY6NDEuMzY4NzY0Mjg3ICswODAwCkBAIC0xLDIgKzEsMiBAQAot
+b2JqLXkJKz0gZ3JhbnQtdGFibGUubworb2JqLXkJKz0gZ3JhbnQtdGFibGUubyBldmVudHMubwog
+b2JqLXkJKz0geGVuYnVzLwpkaWZmIC11ck4gb2xkL2luY2x1ZGUveGVuL3hlbi1vcHMuaCBsaW51
+eC9pbmNsdWRlL3hlbi94ZW4tb3BzLmgKLS0tIG9sZC9pbmNsdWRlL3hlbi94ZW4tb3BzLmgJMTk3
+MC0wMS0wMSAwODowMDowMC4wMDAwMDAwMDAgKzA4MDAKKysrIGxpbnV4L2luY2x1ZGUveGVuL3hl
+bi1vcHMuaAkyMDA4LTAzLTI1IDE0OjAwOjA5LjA0MTMyMTU0NiArMDgwMApAQCAtMCwwICsxLDYg
+QEAKKyNpZm5kZWYgSU5DTFVERV9YRU5fT1BTX0gKKyNkZWZpbmUgSU5DTFVERV9YRU5fT1BTX0gK
+KworREVDTEFSRV9QRVJfQ1BVKHN0cnVjdCB2Y3B1X2luZm8gKiwgeGVuX3ZjcHUpOworCisjZW5k
+aWYgLyogSU5DTFVERV9YRU5fT1BTX0ggKi8K
 
-------_=_NextPart_001_01C88E3F.619D5D07--
+------_=_NextPart_001_01C88E42.5B725E99--
