@@ -1,60 +1,38 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 25 Mar 2008 23:41:32 +0000
-Subject: Re: larger default page sizes...
-Message-Id: <87tziu5q37.wl%peter@chubb.wattle.id.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 25 Mar 2008 23:49:23 +0000
+Subject: RE: larger default page sizes...
+Message-Id: <1FE6DD409037234FAB833C420AA843ECE9E2CA@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0803241402060.7762@schroedinger.engr.sgi.com>
-	<20080324.144356.104645106.davem@davemloft.net>
-	<Pine.LNX.4.64.0803251045510.16206@schroedinger.engr.sgi.com>
-	<20080325.162244.61337214.davem@davemloft.net>
-In-Reply-To: <20080325.162244.61337214.davem@davemloft.net>
+References: <18408.29107.709577.374424@cargo.ozlabs.ibm.com><20080324.211532.33163290.davem@davemloft.net><18408.59112.945786.488350@cargo.ozlabs.ibm.com> <20080325.163240.102401706.davem@davemloft.net>
+In-Reply-To: <20080325.163240.102401706.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>
-Cc: clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, ianw@gelato.unsw.edu.au
+To: David Miller <davem@davemloft.net>, paulus@samba.org
+Cc: clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
->>>>> "David" = David Miller <davem@davemloft.net> writes:
+> > How do I get gcc to use hugepages, for instance?
+>
+> Implementing transparent automatic usage of hugepages has been
+> discussed many times, it's definitely doable and other OSs have
+> implemented this for years.
+>
+> This is what I was implying.
 
-David> From: Christoph Lameter <clameter@sgi.com> Date: Tue, 25 Mar
-David> 2008 10:48:19 -0700 (PDT)
+"large" pages, or "super" pages perhaps ... but Linux "huge" pages
+seem pretty hard to adapt for generic use by applications.  They
+are generally a somewhere between a bit too big (2MB on X86) to
+way too big (64MB, 256MB, 1GB or 4GB on ia64) for general use.
 
->> On Mon, 24 Mar 2008, David Miller wrote:
->> 
->> > There are ways to get large pages into the process address space
->> for > compute bound tasks, without suffering the well known
->> negative side > effects of using larger pages for everything.
->> 
->> These hacks have limitations. F.e. they do not deal with I/O and
->> require application changes.
+Right now they also suffer from making the sysadmin pick at
+boot time how much memory to allocate as huge pages (while it
+is possible to break huge pages into normal pages, going in
+the reverse direction requires a memory defragmenter that
+doesn't exist).
 
-David> Transparent automatic hugepages are definitely doable, I don't
-David> know why you think this requires application changes.
+Making an application use huge pages as heap may be simple
+(just link with a different library to provide with a different
+version of malloc()) ... code, stack, mmap'd files are all
+a lot harder to do transparently.
 
-It's actually harder than it looks.  Ian Wienand just finished his
-Master's project in this area, so we have *lots* of data.  The main
-issue is that, at least on Itanium, you have to turn off the hardware
-page table walker for hugepages if you want to mix superpages and
-standard pages in the same region. (The long format VHPT isn't the
-panacea we'd like it to be because the hash function it uses depends
-on the page size).  This means that although you have fewer TLB misses
-with larger pages, the cost of those TLB misses is three to four times
-higher than with the standard pages.  In addition, to set up a large
-page takes more effort... and it turns out there are few applications
-where the cost is amortised enough, so on SpecCPU for example, some
-tests improved performance slightly, some got slightly worse.
-
-What we saw was essentially that we could almost eliminate DTLB misses,
-other than the first, for a huge page.  For most applications, though,
-the extra cost of that first miss, plus the cost of setting up the
-huge page, was greater than the few hundred DTLB misses we avoided.
-
-I'm expecting Ian to publish the full results soon.
-
-Other architectures (where the page size isn't tied into the hash
-function, so the hardware walked can be used for superpages) will have
-different tradeoffs.
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-http://www.ertos.nicta.com.au           ERTOS within National ICT Australia
+-Tony
