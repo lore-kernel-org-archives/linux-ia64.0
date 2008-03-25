@@ -1,38 +1,37 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 25 Mar 2008 23:49:23 +0000
-Subject: RE: larger default page sizes...
-Message-Id: <1FE6DD409037234FAB833C420AA843ECE9E2CA@orsmsx424.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Date: Tue, 25 Mar 2008 23:49:27 +0000
+Subject: Re: larger default page sizes...
+Message-Id: <20080325.164927.249210766.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18408.29107.709577.374424@cargo.ozlabs.ibm.com><20080324.211532.33163290.davem@davemloft.net><18408.59112.945786.488350@cargo.ozlabs.ibm.com> <20080325.163240.102401706.davem@davemloft.net>
-In-Reply-To: <20080325.163240.102401706.davem@davemloft.net>
+References: <Pine.LNX.4.64.0803251045510.16206@schroedinger.engr.sgi.com>
+	<20080325.162244.61337214.davem@davemloft.net>
+	<87tziu5q37.wl%peter@chubb.wattle.id.au>
+In-Reply-To: <87tziu5q37.wl%peter@chubb.wattle.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>, paulus@samba.org
-Cc: clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
+To: peterc@gelato.unsw.edu.au
+Cc: clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, ianw@gelato.unsw.edu.au
 
-> > How do I get gcc to use hugepages, for instance?
->
-> Implementing transparent automatic usage of hugepages has been
-> discussed many times, it's definitely doable and other OSs have
-> implemented this for years.
->
-> This is what I was implying.
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 26 Mar 2008 10:41:32 +1100
 
-"large" pages, or "super" pages perhaps ... but Linux "huge" pages
-seem pretty hard to adapt for generic use by applications.  They
-are generally a somewhere between a bit too big (2MB on X86) to
-way too big (64MB, 256MB, 1GB or 4GB on ia64) for general use.
+> It's actually harder than it looks.  Ian Wienand just finished his
+> Master's project in this area, so we have *lots* of data.  The main
+> issue is that, at least on Itanium, you have to turn off the hardware
+> page table walker for hugepages if you want to mix superpages and
+> standard pages in the same region. (The long format VHPT isn't the
+> panacea we'd like it to be because the hash function it uses depends
+> on the page size).  This means that although you have fewer TLB misses
+> with larger pages, the cost of those TLB misses is three to four times
+> higher than with the standard pages.
 
-Right now they also suffer from making the sysadmin pick at
-boot time how much memory to allocate as huge pages (while it
-is possible to break huge pages into normal pages, going in
-the reverse direction requires a memory defragmenter that
-doesn't exist).
+If the hugepage is more than 3 to 4 times larger than the base
+page size, which it almost certainly is, it's still an enormous
+win.
 
-Making an application use huge pages as heap may be simple
-(just link with a different library to provide with a different
-version of malloc()) ... code, stack, mmap'd files are all
-a lot harder to do transparently.
+> Other architectures (where the page size isn't tied into the hash
+> function, so the hardware walked can be used for superpages) will have
+> different tradeoffs.
 
--Tony
+Right, admittedly this is just a (one of many) strange IA64 quirk.
