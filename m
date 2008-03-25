@@ -1,29 +1,39 @@
-From: Andi Kleen <andi@firstfloor.org>
-Date: Tue, 25 Mar 2008 12:05:53 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 25 Mar 2008 17:48:19 +0000
 Subject: Re: larger default page sizes...
-Message-Id: <87wsnrgg9q.fsf@basil.nowhere.org>
+Message-Id: <Pine.LNX.4.64.0803251045510.16206@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0803211037140.18671@schroedinger.engr.sgi.com>
-	<20080321.145712.198736315.davem@davemloft.net>
-	<Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
-	<20080324.133722.38645342.davem@davemloft.net>
-	<18408.29107.709577.374424@cargo.ozlabs.ibm.com>
-In-Reply-To: <18408.29107.709577.374424@cargo.ozlabs.ibm.com>
+References: <Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
+ <20080324.133722.38645342.davem@davemloft.net>
+ <Pine.LNX.4.64.0803241402060.7762@schroedinger.engr.sgi.com>
+ <20080324.144356.104645106.davem@davemloft.net>
+In-Reply-To: <20080324.144356.104645106.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Mackerras <paulus@samba.org>
-Cc: David Miller <davem@davemloft.net>, clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
-Paul Mackerras <paulus@samba.org> writes:
+On Mon, 24 Mar 2008, David Miller wrote:
+
+> We should fix the underlying problems.
 > 
-> 4kB pages:	444.051s user + 34.406s system time
-> 64kB pages:	419.963s user + 16.869s system time
+> I'm hitting issues on 128 cpu Niagara2 boxes, and it's all fundamental
+> stuff like contention on the per-zone page allocator locks.
 > 
-> That's nearly 10% faster with 64kB pages -- on a kernel compile.
+> Which is very fixable, without going to larger pages.
 
-Do you have some idea where the improvement mainly comes from?
-Is it TLB misses or reduced in kernel overhead? Ok I assume both
-play together but which part of the equation is more important?
+No its not fixable. You are doing linear optimizations to a slowdown that 
+grows exponentially. Going just one order up for page size reduces the
+necessary locks and handling of the kernel by 50%.
+ 
+> > powerpc also runs HPC codes. They certainly see the same results
+> > that we see.
+> 
+> There are ways to get large pages into the process address space for
+> compute bound tasks, without suffering the well known negative side
+> effects of using larger pages for everything.
 
--Andi
+These hacks have limitations. F.e. they do not deal with I/O and 
+require application changes.
+ 
