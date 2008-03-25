@@ -1,43 +1,31 @@
-From: Paul Mackerras <paulus@samba.org>
-Date: Tue, 25 Mar 2008 21:27:08 +0000
+From: David Miller <davem@davemloft.net>
+Date: Tue, 25 Mar 2008 23:22:44 +0000
 Subject: Re: larger default page sizes...
-Message-Id: <18409.28204.539283.566893@cargo.ozlabs.ibm.com>
+Message-Id: <20080325.162244.61337214.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0803211037140.18671@schroedinger.engr.sgi.com>
-	<20080321.145712.198736315.davem@davemloft.net>
-	<Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
-	<20080324.133722.38645342.davem@davemloft.net>
-	<18408.29107.709577.374424@cargo.ozlabs.ibm.com>
-	<87wsnrgg9q.fsf@basil.nowhere.org>
-In-Reply-To: <87wsnrgg9q.fsf@basil.nowhere.org>
+References: <Pine.LNX.4.64.0803241402060.7762@schroedinger.engr.sgi.com>
+	<20080324.144356.104645106.davem@davemloft.net>
+	<Pine.LNX.4.64.0803251045510.16206@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0803251045510.16206@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <andi@firstfloor.org>
-Cc: David Miller <davem@davemloft.net>, clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
+To: clameter@sgi.com
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
-Andi Kleen writes:
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 25 Mar 2008 10:48:19 -0700 (PDT)
 
-> Paul Mackerras <paulus@samba.org> writes:
-> > 
-> > 4kB pages:	444.051s user + 34.406s system time
-> > 64kB pages:	419.963s user + 16.869s system time
-> > 
-> > That's nearly 10% faster with 64kB pages -- on a kernel compile.
+> On Mon, 24 Mar 2008, David Miller wrote:
 > 
-> Do you have some idea where the improvement mainly comes from?
-> Is it TLB misses or reduced in kernel overhead? Ok I assume both
-> play together but which part of the equation is more important?
+> > There are ways to get large pages into the process address space for
+> > compute bound tasks, without suffering the well known negative side
+> > effects of using larger pages for everything.
+> 
+> These hacks have limitations. F.e. they do not deal with I/O and 
+> require application changes.
 
-I think that to a first approximation, the improvement in user time
-(24 seconds) is due to the increased TLB reach and reduced TLB misses,
-and the improvement in system time (18 seconds) is due to the reduced
-number of page faults and reductions in other kernel overheads.
+Transparent automatic hugepages are definitely doable, I don't know
+why you think this requires application changes.
 
-As Dave Hansen points out, I can separate the two effects by having
-the kernel use 64k pages at the VM level but 4k pages in the hardware
-page table, which is easy since we have support for 64k base page size
-on machines that don't have hardware 64k page support.  I'll do that
-today.
-
-Paul.
+People want these larger pages for HPC apps.
