@@ -1,57 +1,32 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Date: Wed, 26 Mar 2008 18:54:27 +0000
+From: David Miller <davem@davemloft.net>
+Date: Wed, 26 Mar 2008 23:21:43 +0000
 Subject: Re: larger default page sizes...
-Message-Id: <20080326185427.GA874@csn.ul.ie>
+Message-Id: <20080326.162143.244048620.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18408.29107.709577.374424@cargo.ozlabs.ibm.com> <20080324.211532.33163290.davem@davemloft.net> <18408.59112.945786.488350@cargo.ozlabs.ibm.com> <20080325.163240.102401706.davem@davemloft.net> <1FE6DD409037234FAB833C420AA843ECE9E2CA@orsmsx424.amr.corp.intel.com> <29495f1d0803260854j46d37eedrc0927af226b3b8c8@mail.gmail.com> <1FE6DD409037234FAB833C420AA843ECE9E7AC@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843ECE9E7AC@orsmsx424.amr.corp.intel.com>
+References: <87wsnrgg9q.fsf@basil.nowhere.org>
+	<18409.56843.909298.717089@cargo.ozlabs.ibm.com>
+	<Pine.LNX.4.64.0803261052550.29859@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.64.0803261052550.29859@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Nish Aravamudan <nish.aravamudan@gmail.com>, David Miller <davem@davemloft.net>, paulus@samba.org, clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, agl@us.ibm.com
+To: clameter@sgi.com
+Cc: paulus@samba.org, andi@firstfloor.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
-On (26/03/08 10:05), Luck, Tony didst pronounce:
-> > That's not entirely true. We have a dynamic pool now, thanks to Adam
-> > Litke [added to Cc], which can be treated as a high watermark for the
-> > hugetlb pool (and the static pool value serves as a low watermark).
-> > Unless by hugepages you mean something other than what I think (but
-> > referring to a 2M size on x86 imples you are not). And with the
-> > antifragmentation improvements, hugepage pool changes at run-time are
-> > more likely to succeed [added Mel to Cc].
-> 
-> Things are better than I thought ... though the phrase "more likely
-> to succeed" doesn't fill me with confidence. 
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 26 Mar 2008 10:56:17 -0700 (PDT)
 
-It's a lot more likely to succeed since 2.6.24 than it has in the past. On
-workloads where it is mainly user data that is occuping memory, the chances
-are even better. If min_free_kbytes is hugepage_size*num_online_nodes(),
-it becomes a harder again to fragment memory.
+> One should emphasize that this test was a kernel compile which is not 
+> a load that gains much from larger pages.
 
-> Instead I imagine a
-> system where an occasional spike in memory load causes some memory
-> fragmentation that can't be handled, and so from that point many of
-> the applications that relied on huge pages take a 10% performance
-> hit. 
+Actually, ever since gcc went to a garbage collecting allocator, I've
+found it to be a TLB thrasher.
 
-If it was found to be a problem and normal anti-frag is not coping for hugepage
-pool resizes, then specify movablecore=MAX_POSSIBLE_POOL_SIZE_YOU_WOULD_NEED
-on the command-line and the hugepage pool will be able to expand to that
-side independent of workload. This would avoid the need to scheduled regular
-reboots.
+It will repeatedly randomly walk over a GC pool of at least 8MB in
+size, which to fit fully in the TLB with 4K pages reaquires a TLB with
+2048 entries assuming gcc touches no other data which is of course a
+false assumption.
 
-> This results in sysadmins scheduling regular reboots to unjam
-> things. [Reminds me of the instructions that came with my first
-> flatbed scanner that recommended rebooting the system before and
-> after each use :-( ]
-> 
-> > I feel like I should promote libhugetlbfs here.
-> 
-> This is also better than I thought ... sounds like some really
-> good things have already happened here.
-> 
+For some compiles this GC pool is more than 100MB in size.
 
--- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+GCC does not fit into any modern TLB using it's base page size.
