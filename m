@@ -1,24 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Date: Wed, 26 Mar 2008 04:36:02 +0000
+From: Paul Mackerras <paulus@samba.org>
+Date: Wed, 26 Mar 2008 05:24:27 +0000
 Subject: Re: larger default page sizes...
-Message-Id: <20080325.213602.193698359.davem@davemloft.net>
+Message-Id: <18409.56843.909298.717089@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ed5aea430803251734u70f199w10951bc4f0db6262@mail.gmail.com>
-	<87lk465mks.wl%peter@chubb.wattle.id.au>
-	<47E9CE00.7060106@fc.hp.com>
-In-Reply-To: <47E9CE00.7060106@fc.hp.com>
+References: <Pine.LNX.4.64.0803211037140.18671@schroedinger.engr.sgi.com>
+	<20080321.145712.198736315.davem@davemloft.net>
+	<Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
+	<20080324.133722.38645342.davem@davemloft.net>
+	<18408.29107.709577.374424@cargo.ozlabs.ibm.com>
+	<87wsnrgg9q.fsf@basil.nowhere.org>
+In-Reply-To: <87wsnrgg9q.fsf@basil.nowhere.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jsm@fc.hp.com
-Cc: linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: Andi Kleen <andi@firstfloor.org>
+Cc: David Miller <davem@davemloft.net>, clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
 
-From: John Marvin <jsm@fc.hp.com>
-Date: Tue, 25 Mar 2008 22:16:00 -0600
+Andi Kleen writes:
 
-> 1) There was no easy way of determining what size the long format vhpt cache 
-> should be automatically, and changing it dynamically would be too painful. 
-> Different workloads performed better with different size vhpt caches.
+> Paul Mackerras <paulus@samba.org> writes:
+> > 
+> > 4kB pages:	444.051s user + 34.406s system time
+> > 64kB pages:	419.963s user + 16.869s system time
+> > 
+> > That's nearly 10% faster with 64kB pages -- on a kernel compile.
+> 
+> Do you have some idea where the improvement mainly comes from?
+> Is it TLB misses or reduced in kernel overhead? Ok I assume both
+> play together but which part of the equation is more important?
 
-This is exactly what sparc64 does btw, dynamic TLB miss hash table
-sizing based upon task RSS
+With the kernel configured for a 64k page size, but using 4k pages in
+the hardware page table, I get:
+
+64k/4k: 441.723s user + 27.258s system time
+
+So the improvement in the user time is almost all due to the reduced
+TLB misses (as one would expect).  For the system time, using 64k
+pages in the VM reduces it by about 21%, and using 64k hardware pages
+reduces it by another 30%.  So the reduction in kernel overhead is
+significant but not as large as the impact of reducing TLB misses.
+
+Paul.
