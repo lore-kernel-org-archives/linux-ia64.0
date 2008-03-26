@@ -1,10 +1,10 @@
 From: Dean Nelson <dcn@sgi.com>
-Date: Wed, 26 Mar 2008 16:50:36 +0000
-Subject: [Patch 2/5] move XP and XPC to drivers/misc/xp -v2
-Message-Id: <20080326165036.GC20663@sgi.com>
+Date: Wed, 26 Mar 2008 22:02:29 +0000
+Subject: [Patch 2/5] move XP and XPC to drivers/misc/xp -v3
+Message-Id: <20080326220229.GB31138@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080326163823.GA25653@sgi.com>
-In-Reply-To: <20080326163823.GA25653@sgi.com>
+References: <20080326215807.GF31340@sgi.com>
+In-Reply-To: <20080326215807.GF31340@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
