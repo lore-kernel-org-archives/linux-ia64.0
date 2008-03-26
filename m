@@ -1,65 +1,246 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Sat, 29 Mar 2008 00:14:50 +0000
-Subject: [PATCH 4/4] ia64 renumber TIF_RESTORE_SIGMASK
-Message-Id: <20080329001450.2B02D26FA1D@magilla.localdomain>
+From: Alex Chiang <achiang@hp.com>
+Date: Wed, 26 Mar 2008 18:59:12 +0000
+Subject: Re: [PATCH, RFC] Create 'slot' sysfs
+Message-Id: <20080326185912.GA30749@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080329001230.D013726FA1D@magilla.localdomain>
-In-Reply-To: Roland McGrath's message of  Friday, 28 March 2008 17:12:30 -0700 <20080329001230.D013726FA1D@magilla.localdomain>
+References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-s390@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
 
-TIF_RESTORE_SIGMASK no longer needs to be in the _TIF_WORK_* masks.
-Those low bits are scarce.  Renumber TIF_RESTORE_SIGMASK to free one up.
+Hi Tony,
 
-Signed-off-by: Roland McGrath <roland@redhat.com>
+* Luck, Tony <tony.luck@intel.com>:
+> +	if (ACPI_SUCCESS(acpi_get_handle(pr->handle, "_SUN", &handle))) {
+> +		status = acpi_evaluate_object(pr->handle,
+> +						"_SUN", NULL, &buffer);
+> +		if (ACPI_FAILURE(status))
+> +			object.integer.value = -1;
+> +	} else {
+> +		object.integer.value = -1;
+> +	}
+> +	arch_set_topology_slot(pr->id, object.integer.value);
+> +
+>  	if (!object.processor.pblk_address)
+>  		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "No PBLK (NULL address)\n"));
+>  	else if (object.processor.pblk_length != 6)
+> 
+> I'm still seeing these messages:
+> 
+>  "ACPI: Invalid PBLK length [0]"
+> 
+> for every cpu.  Presumably because "object" is a union and when
+> you did the "object.integer.value = -1;" you scribbled on some bits
+> that were needed in the subsequent code.
+
+Yes, you're right. Sorry about the sloppy code.
+
+Here is v3. I've verified that:
+
+	- it's benign on tiger (does not create errors/console
+	  noise). You'll still see the -1 if you cat
+	  /sys/devices/system/cpu/cpuN/topology/slot, but you
+	  would also get the -1 if you cat physical_package_id
+
+	- it does the right thing on platforms that do supply
+	  _SUN for processor objects. On my rx2600,
+	  physical_package_id is -1, but I get valid values for
+	  'slot' now.
+
+Thanks.
+
+/ac
+
+Subject: [PATCH] Create 'slot' sysfs attribute in /sys/devices/system/cpu/cpuN/topology/
+From: Alex Chiang <achiang@hp.com>
+
+/sys/devices/system/cpu/cpuN/topology/physical_package_id exists,
+but may contain incorrect information, especially on older ia64
+platforms that do not have modern firmware.
+
+Create a 'slot' attribute and define an interface that may be
+populated via alternate sources, without breaking existing
+functionality.
+
+Implement this interface on ia64 by invoking the _SUN method on a
+per cpu basis.
+
+Leave other archs alone for now.
+
+v2 -> v3:
+	- Stop stomping on existing PBLK in the event of _SUN failure
+
+v1 -> v2:
+	- Check for _SUN object on CPU before blindly attempting
+	  to call it
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
- arch/ia64/kernel/process.c     |    2 +-
- include/asm-ia64/thread_info.h |    5 ++---
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/setup.c      |    1 +
+ arch/ia64/kernel/topology.c   |    6 ++++++
+ drivers/acpi/processor_core.c |    8 ++++++++
+ drivers/base/topology.c       |    9 +++++++++
+ include/asm-ia64/cpu.h        |    1 +
+ include/asm-ia64/processor.h  |    7 ++++++-
+ include/asm-ia64/topology.h   |    3 +++
+ include/asm-x86/topology.h    |    2 ++
+ 8 files changed, 36 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 49937a3..2ef2794 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -183,7 +183,7 @@ do_notify_resume_user (sigset_t *unused, struct sigscratch *scr, long in_syscall
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 4aa9eae..228d960 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -735,6 +735,7 @@ identify_cpu (struct cpuinfo_ia64 *c)
+ 	 */
+ 	c->threads_per_core = c->cores_per_socket = c->num_log = 1;
+ 	c->socket_id = -1;
++	c->slot = -1;
+ 
+ 	identify_siblings(c);
+ 
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index a2484fc..512de14 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -27,6 +27,12 @@
+ 
+ static struct ia64_cpu *sysfs_cpus;
+ 
++void ia64_set_topology_slot(int num, u32 slot)
++{
++	cpu_data(num)->slot = slot;
++}
++EXPORT_SYMBOL_GPL(ia64_set_topology_slot);
++
+ int arch_register_cpu(int num)
+ {
+ #if defined (CONFIG_ACPI) && defined (CONFIG_HOTPLUG_CPU)
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index 36a68fa..a3a740d 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -612,6 +612,14 @@ static int acpi_processor_get_info(struct acpi_processor *pr, unsigned has_uid)
+ 		request_region(pr->throttling.address, 6, "ACPI CPU throttle");
+ 	}
+ 
++	/*
++	 * If ACPI describes a slot number for this CPU, let's fill it in
++	 */
++	status = acpi_evaluate_object(pr->handle, "_SUN", NULL, &buffer);
++	if (ACPI_FAILURE(status))
++		object.integer.value = -1;
++	arch_set_topology_slot(pr->id, object.integer.value);
++
+ 	return 0;
+ }
+ 
+diff --git a/drivers/base/topology.c b/drivers/base/topology.c
+index e1d3ad4..4fcffca 100644
+--- a/drivers/base/topology.c
++++ b/drivers/base/topology.c
+@@ -57,6 +57,14 @@ define_one_ro(physical_package_id);
+ #define ref_physical_package_id_attr
  #endif
  
- 	/* deal with pending signal delivery */
--	if (test_thread_flag(TIF_SIGPENDING)||test_thread_flag(TIF_RESTORE_SIGMASK))
-+	if (test_thread_flag(TIF_SIGPENDING))
- 		ia64_do_signal(scr, in_syscall);
++#ifdef	topology_slot
++define_id_show_func(slot);
++define_one_ro(slot);
++#define ref_slot_attr			&attr_slot.attr,
++#else
++#define ref_slot_attr
++#endif
++
+ #ifdef topology_core_id
+ define_id_show_func(core_id);
+ define_one_ro(core_id);
+@@ -83,6 +91,7 @@ define_one_ro(core_siblings);
  
- 	/* copy user rbs to kernel rbs */
-diff --git a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
-index 93d83cb..366e517 100644
---- a/include/asm-ia64/thread_info.h
-+++ b/include/asm-ia64/thread_info.h
-@@ -87,7 +87,6 @@ extern void tsk_clear_notify_resume(struct task_struct *tsk);
- #define TIF_SYSCALL_TRACE	2	/* syscall trace active */
- #define TIF_SYSCALL_AUDIT	3	/* syscall auditing active */
- #define TIF_SINGLESTEP		4	/* restore singlestep on return to user mode */
--#define TIF_RESTORE_SIGMASK	5	/* restore signal mask in do_signal() */
- #define TIF_NOTIFY_RESUME	6	/* resumption notification requested */
- #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
- #define TIF_MEMDIE		17
-@@ -95,6 +94,7 @@ extern void tsk_clear_notify_resume(struct task_struct *tsk);
- #define TIF_DB_DISABLED		19	/* debug trap disabled for fsyscall */
- #define TIF_FREEZE		20	/* is freezing for suspend */
- #define TIF_RESTORE_RSE		21	/* user RBS is newer than kernel RBS */
-+#define TIF_RESTORE_SIGMASK	22	/* restore signal mask in do_signal() */
+ static struct attribute *default_attrs[] = {
+ 	ref_physical_package_id_attr
++	ref_slot_attr
+ 	ref_core_id_attr
+ 	ref_thread_siblings_attr
+ 	ref_core_siblings_attr
+diff --git a/include/asm-ia64/cpu.h b/include/asm-ia64/cpu.h
+index e87fa32..393e545 100644
+--- a/include/asm-ia64/cpu.h
++++ b/include/asm-ia64/cpu.h
+@@ -14,6 +14,7 @@ DECLARE_PER_CPU(struct ia64_cpu, cpu_devices);
  
- #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
- #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
-@@ -112,8 +112,7 @@ extern void tsk_clear_notify_resume(struct task_struct *tsk);
+ DECLARE_PER_CPU(int, cpu_state);
  
- /* "work to do on user-return" bits */
- #define TIF_ALLWORK_MASK	(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SYSCALL_AUDIT|\
--				 _TIF_NEED_RESCHED| _TIF_SYSCALL_TRACE|\
--				 _TIF_RESTORE_SIGMASK)
-+				 _TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE)
- /* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_TRACE or TIF_SYSCALL_AUDIT */
- #define TIF_WORK_MASK		(TIF_ALLWORK_MASK&~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT))
++extern void arch_set_topology_slot(int num, u32 slot);
+ extern int arch_register_cpu(int num);
+ #ifdef CONFIG_HOTPLUG_CPU
+ extern void arch_unregister_cpu(int);
+diff --git a/include/asm-ia64/processor.h b/include/asm-ia64/processor.h
+index 741f7ec..066553c 100644
+--- a/include/asm-ia64/processor.h
++++ b/include/asm-ia64/processor.h
+@@ -125,6 +125,10 @@ struct ia64_psr {
+  */
+ struct cpuinfo_ia64 {
+ 	__u32 softirq_pending;
++
++#ifdef CONFIG_SMP
++	int cpu;
++#endif
+ 	__u64 itm_delta;	/* # of clock cycles between clock ticks */
+ 	__u64 itm_next;		/* interval timer mask value to use for next clock tick */
+ 	__u64 nsec_per_cyc;	/* (1000000000<<IA64_NSEC_PER_CYC_SHIFT)/itc_freq */
+@@ -140,7 +144,6 @@ struct cpuinfo_ia64 {
  
+ #ifdef CONFIG_SMP
+ 	__u64 loops_per_jiffy;
+-	int cpu;
+ 	__u32 socket_id;	/* physical processor socket id */
+ 	__u16 core_id;		/* core id */
+ 	__u16 thread_id;	/* thread id */
+@@ -150,6 +153,8 @@ struct cpuinfo_ia64 {
+ 	__u8  threads_per_core;	/* Threads per core */
+ #endif
+ 
++	__u32 slot;		/* physical slot; can differ from socket_id */
++
+ 	/* CPUID-derived information: */
+ 	__u64 ppn;
+ 	__u64 features;
+diff --git a/include/asm-ia64/topology.h b/include/asm-ia64/topology.h
+index 2d67b72..f986693 100644
+--- a/include/asm-ia64/topology.h
++++ b/include/asm-ia64/topology.h
+@@ -110,12 +110,15 @@ void build_cpu_to_node_map(void);
+ 
+ #ifdef CONFIG_SMP
+ #define topology_physical_package_id(cpu)	(cpu_data(cpu)->socket_id)
++#define topology_slot(cpu)			(cpu_data(cpu)->slot)
+ #define topology_core_id(cpu)			(cpu_data(cpu)->core_id)
+ #define topology_core_siblings(cpu)		(cpu_core_map[cpu])
+ #define topology_thread_siblings(cpu)		(per_cpu(cpu_sibling_map, cpu))
+ #define smt_capable() 				(smp_num_siblings > 1)
+ #endif
+ 
++#define arch_set_topology_slot(num, slot)	ia64_set_topology_slot(num,slot)
++
+ #include <asm-generic/topology.h>
+ 
+ #endif /* _ASM_IA64_TOPOLOGY_H */
+diff --git a/include/asm-x86/topology.h b/include/asm-x86/topology.h
+index 8af05a9..d4c922c 100644
+--- a/include/asm-x86/topology.h
++++ b/include/asm-x86/topology.h
+@@ -180,6 +180,8 @@ extern cpumask_t cpu_coregroup_map(int cpu);
+ #define topology_thread_siblings(cpu)		(per_cpu(cpu_sibling_map, cpu))
+ #endif
+ 
++#define arch_set_topology_slot(num, slot)
++
+ #ifdef CONFIG_SMP
+ #define mc_capable()			(boot_cpu_data.x86_max_cores > 1)
+ #define smt_capable()			(smp_num_siblings > 1)
+-- 
+1.5.3.1.g1e61
+
