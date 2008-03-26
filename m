@@ -1,30 +1,57 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 26 Mar 2008 17:56:17 +0000
+From: Mel Gorman <mel@csn.ul.ie>
+Date: Wed, 26 Mar 2008 18:54:27 +0000
 Subject: Re: larger default page sizes...
-Message-Id: <Pine.LNX.4.64.0803261052550.29859@schroedinger.engr.sgi.com>
+Message-Id: <20080326185427.GA874@csn.ul.ie>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0803211037140.18671@schroedinger.engr.sgi.com>
- <20080321.145712.198736315.davem@davemloft.net>
- <Pine.LNX.4.64.0803241121090.3002@schroedinger.engr.sgi.com>
- <20080324.133722.38645342.davem@davemloft.net> <18408.29107.709577.374424@cargo.ozlabs.ibm.com>
- <87wsnrgg9q.fsf@basil.nowhere.org> <18409.56843.909298.717089@cargo.ozlabs.ibm.com>
-In-Reply-To: <18409.56843.909298.717089@cargo.ozlabs.ibm.com>
+References: <18408.29107.709577.374424@cargo.ozlabs.ibm.com> <20080324.211532.33163290.davem@davemloft.net> <18408.59112.945786.488350@cargo.ozlabs.ibm.com> <20080325.163240.102401706.davem@davemloft.net> <1FE6DD409037234FAB833C420AA843ECE9E2CA@orsmsx424.amr.corp.intel.com> <29495f1d0803260854j46d37eedrc0927af226b3b8c8@mail.gmail.com> <1FE6DD409037234FAB833C420AA843ECE9E7AC@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843ECE9E7AC@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Mackerras <paulus@samba.org>
-Cc: Andi Kleen <andi@firstfloor.org>, David Miller <davem@davemloft.net>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Nish Aravamudan <nish.aravamudan@gmail.com>, David Miller <davem@davemloft.net>, paulus@samba.org, clameter@sgi.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, agl@us.ibm.com
 
-On Wed, 26 Mar 2008, Paul Mackerras wrote:
+On (26/03/08 10:05), Luck, Tony didst pronounce:
+> > That's not entirely true. We have a dynamic pool now, thanks to Adam
+> > Litke [added to Cc], which can be treated as a high watermark for the
+> > hugetlb pool (and the static pool value serves as a low watermark).
+> > Unless by hugepages you mean something other than what I think (but
+> > referring to a 2M size on x86 imples you are not). And with the
+> > antifragmentation improvements, hugepage pool changes at run-time are
+> > more likely to succeed [added Mel to Cc].
+> 
+> Things are better than I thought ... though the phrase "more likely
+> to succeed" doesn't fill me with confidence. 
 
-> So the improvement in the user time is almost all due to the reduced
-> TLB misses (as one would expect).  For the system time, using 64k
-> pages in the VM reduces it by about 21%, and using 64k hardware pages
-> reduces it by another 30%.  So the reduction in kernel overhead is
-> significant but not as large as the impact of reducing TLB misses.
+It's a lot more likely to succeed since 2.6.24 than it has in the past. On
+workloads where it is mainly user data that is occuping memory, the chances
+are even better. If min_free_kbytes is hugepage_size*num_online_nodes(),
+it becomes a harder again to fragment memory.
 
-One should emphasize that this test was a kernel compile which is not 
-a load that gains much from larger pages. 4k pages are mostly okay for 
-loads that use large amounts of small files.
+> Instead I imagine a
+> system where an occasional spike in memory load causes some memory
+> fragmentation that can't be handled, and so from that point many of
+> the applications that relied on huge pages take a 10% performance
+> hit. 
 
+If it was found to be a problem and normal anti-frag is not coping for hugepage
+pool resizes, then specify movablecore=MAX_POSSIBLE_POOL_SIZE_YOU_WOULD_NEED
+on the command-line and the hugepage pool will be able to expand to that
+side independent of workload. This would avoid the need to scheduled regular
+reboots.
 
+> This results in sysadmins scheduling regular reboots to unjam
+> things. [Reminds me of the instructions that came with my first
+> flatbed scanner that recommended rebooting the system before and
+> after each use :-( ]
+> 
+> > I feel like I should promote libhugetlbfs here.
+> 
+> This is also better than I thought ... sounds like some really
+> good things have already happened here.
+> 
+
+-- 
+Mel Gorman
+Part-time Phd Student                          Linux Technology Center
+University of Limerick                         IBM Dublin Software Lab
