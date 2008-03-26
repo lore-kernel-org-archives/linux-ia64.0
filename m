@@ -1,9 +1,10 @@
-From: dcn@sgi.com
-Date: Tue, 25 Mar 2008 19:25:25 +0000
-Subject: [Patch 1/5] add multi-page allocation to the uncached allocator
-Message-Id: <20080325192557.900017915@attica.americas.sgi.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Wed, 26 Mar 2008 16:48:15 +0000
+Subject: [Patch 1/5] add multi-page allocation to the uncached allocator -v2
+Message-Id: <20080326164815.GB20663@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080325192524.343385569@attica.americas.sgi.com>
+References: <20080326163823.GA25653@sgi.com>
+In-Reply-To: <20080326163823.GA25653@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -145,5 +146,3 @@ Index: linux-2.6/include/asm-ia64/uncached.h
 -extern void uncached_free_page(unsigned long);
 +extern unsigned long uncached_alloc_page(int, int);
 +extern void uncached_free_page(unsigned long, int);
-
--- 
