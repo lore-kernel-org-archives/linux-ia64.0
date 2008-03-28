@@ -1,209 +1,270 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:35 +0000
-Subject: [PATCH 20/50] ia64/pv_ops: paravirtualized instructions for hand written assembly code on native.
-Message-Id: <12047411463751-git-send-email-yamahata@valinux.co.jp>
+From: akpm@linux-foundation.org
+Date: Fri, 28 Mar 2008 21:27:02 +0000
+Subject: [patch 2/5] kprobes: kprobe-booster for ia64
+Message-Id: <200803282127.m2SLR2Tv011049@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+From: Masami Hiramatsu <mhiramat@redhat.com>
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Add kprobe-booster support on ia64.
+
+Kprobe-booster improves the performance of kprobes by eliminating single-step,
+where possible.  Currently, kprobe-booster is implemented on x86 and x86-64. 
+This is an ia64 port.
+
+On ia64, kprobe-booster executes a copied bundle directly, instead of single
+stepping.  Bundles which have B or X unit and which may cause an exception
+(including break) are not executed directly.  And also, to prevent hitting
+break exceptions on the copied bundle, only the hindmost kprobe is executed
+directly if several kprobes share a bundle and are placed in different slots. 
+Note: set_brl_inst() is used for preparing an instruction buffer(it does not
+modify any active code), so it does not need any atomic operation.
+
+Signed-off-by: Masami Hiramatsu <mhiramat@redhat.com>
+Cc: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: bibo,mao <bibo.mao@intel.com>
+Cc: Rusty Lynch <rusty.lynch@intel.com>
+Cc: Prasanna S Panchamukhi <prasanna@in.ibm.com>
+Cc: Jim Keniston <jkenisto@us.ibm.com>
+Cc: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/kernel/inst_native.h |  183 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 183 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kernel/inst_native.h
 
-diff --git a/arch/ia64/kernel/inst_native.h b/arch/ia64/kernel/inst_native.h
-new file mode 100644
-index 0000000..9453083
---- /dev/null
-+++ b/arch/ia64/kernel/inst_native.h
-@@ -0,0 +1,183 @@
-+/******************************************************************************
-+ * inst_native.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
+ arch/ia64/kernel/kprobes.c |  133 ++++++++++++++++++++++++++++-------
+ include/asm-ia64/kprobes.h |    7 +
+ 2 files changed, 113 insertions(+), 27 deletions(-)
+
+diff -puN arch/ia64/kernel/kprobes.c~kprobes-kprobe-booster-for-ia64 arch/ia64/kernel/kprobes.c
+--- a/arch/ia64/kernel/kprobes.c~kprobes-kprobe-booster-for-ia64
++++ a/arch/ia64/kernel/kprobes.c
+@@ -78,6 +78,20 @@ static enum instruction_type bundle_enco
+   { u, u, u },  			/* 1F */
+ };
+ 
++/* Insert a long branch code */
++static void __kprobes set_brl_inst(void *from, void *to)
++{
++	s64 rel = ((s64) to - (s64) from) >> 4;
++	bundle_t *brl;
++	brl = (bundle_t *) ((u64) from & ~0xf);
++	brl->quad0.template = 0x05;	/* [MLX](stop) */
++	brl->quad0.slot0 = NOP_M_INST;	/* nop.m 0x0 */
++	brl->quad0.slot1_p0 = ((rel >> 20) & 0x7fffffffff) << 2;
++	brl->quad1.slot1_p1 = (((rel >> 20) & 0x7fffffffff) << 2) >> (64 - 46);
++	/* brl.cond.sptk.many.clr rel<<4 (qp=0) */
++	brl->quad1.slot2 = BRL_INST(rel >> 59, rel & 0xfffff);
++}
++
+ /*
+  * In this function we check to see if the instruction
+  * is IP relative instruction and update the kprobe
+@@ -496,6 +510,77 @@ void __kprobes arch_prepare_kretprobe(st
+ 	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
+ }
+ 
++/* Check the instruction in the slot is break */
++static int __kprobes __is_ia64_break_inst(bundle_t *bundle, uint slot)
++{
++	unsigned int major_opcode;
++	unsigned int template = bundle->quad0.template;
++	unsigned long kprobe_inst;
++
++	/* Move to slot 2, if bundle is MLX type and kprobe slot is 1 */
++	if (slot = 1 && bundle_encoding[template][1] = L)
++		slot++;
++
++	/* Get Kprobe probe instruction at given slot*/
++	get_kprobe_inst(bundle, slot, &kprobe_inst, &major_opcode);
++
++	/* For break instruction,
++	 * Bits 37:40 Major opcode to be zero
++	 * Bits 27:32 X6 to be zero
++	 * Bits 32:35 X3 to be zero
++	 */
++	if (major_opcode || ((kprobe_inst >> 27) & 0x1FF)) {
++		/* Not a break instruction */
++		return 0;
++	}
++
++	/* Is a break instruction */
++	return 1;
++}
++
++/*
++ * In this function, we check whether the target bundle modifies IP or
++ * it triggers an exception. If so, it cannot be boostable.
 + */
++static int __kprobes can_boost(bundle_t *bundle, uint slot,
++			       unsigned long bundle_addr)
++{
++	unsigned int template = bundle->quad0.template;
 +
-+#define IA64_ASM_PARAVIRTUALIZED_NATIVE
++	do {
++		if (search_exception_tables(bundle_addr + slot) ||
++		    __is_ia64_break_inst(bundle, slot))
++			return 0;	/* exception may occur in this bundle*/
++	} while ((++slot) < 3);
++	template &= 0x1e;
++	if (template >= 0x10 /* including B unit */ ||
++	    template = 0x04 /* including X unit */ ||
++	    template = 0x06) /* undefined */
++		return 0;
 +
-+#undef BR_IF_NATIVE
-+#define BR_IF_NATIVE(targ, reg, pred)		/* nothing */
++	return 1;
++}
 +
-+#ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
-+# define PARAVIRT_POISON	0xdeadbeefbaadf00d
-+# define CLOBBER(clob)				\
-+	;;					\
-+	movl clob = PARAVIRT_POISON;		\
-+	;;
-+#else
-+# define CLOBBER(clob)		/* nothing */
++/* Prepare long jump bundle and disables other boosters if need */
++static void __kprobes prepare_booster(struct kprobe *p)
++{
++	unsigned long addr = (unsigned long)p->addr & ~0xFULL;
++	unsigned int slot = (unsigned long)p->addr & 0xf;
++	struct kprobe *other_kp;
++
++	if (can_boost(&p->ainsn.insn[0].bundle, slot, addr)) {
++		set_brl_inst(&p->ainsn.insn[1].bundle, (bundle_t *)addr + 1);
++		p->ainsn.inst_flag |= INST_FLAG_BOOSTABLE;
++	}
++
++	/* disables boosters in previous slots */
++	for (; addr < (unsigned long)p->addr; addr++) {
++		other_kp = get_kprobe((void *)addr);
++		if (other_kp)
++			other_kp->ainsn.inst_flag &= ~INST_FLAG_BOOSTABLE;
++	}
++}
++
+ int __kprobes arch_prepare_kprobe(struct kprobe *p)
+ {
+ 	unsigned long addr = (unsigned long) p->addr;
+@@ -530,6 +615,8 @@ int __kprobes arch_prepare_kprobe(struct
+ 
+ 	prepare_break_inst(template, slot, major_opcode, kprobe_inst, p, qp);
+ 
++	prepare_booster(p);
++
+ 	return 0;
+ }
+ 
+@@ -543,7 +630,9 @@ void __kprobes arch_arm_kprobe(struct kp
+ 	src = &p->opcode.bundle;
+ 
+ 	flush_icache_range((unsigned long)p->ainsn.insn,
+-			(unsigned long)p->ainsn.insn + sizeof(kprobe_opcode_t));
++			   (unsigned long)p->ainsn.insn +
++			   sizeof(kprobe_opcode_t) * MAX_INSN_SIZE);
++
+ 	switch (p->ainsn.slot) {
+ 		case 0:
+ 			dest->quad0.slot0 = src->quad0.slot0;
+@@ -584,13 +673,13 @@ void __kprobes arch_disarm_kprobe(struct
+ void __kprobes arch_remove_kprobe(struct kprobe *p)
+ {
+ 	mutex_lock(&kprobe_mutex);
+-	free_insn_slot(p->ainsn.insn, 0);
++	free_insn_slot(p->ainsn.insn, p->ainsn.inst_flag & INST_FLAG_BOOSTABLE);
+ 	mutex_unlock(&kprobe_mutex);
+ }
+ /*
+  * We are resuming execution after a single step fault, so the pt_regs
+  * structure reflects the register state after we executed the instruction
+- * located in the kprobe (p->ainsn.insn.bundle).  We still need to adjust
++ * located in the kprobe (p->ainsn.insn->bundle).  We still need to adjust
+  * the ip to point back to the original stack address. To set the IP address
+  * to original stack address, handle the case where we need to fixup the
+  * relative IP address and/or fixup branch register.
+@@ -607,7 +696,7 @@ static void __kprobes resume_execution(s
+ 	if (slot = 1 && bundle_encoding[template][1] = L)
+ 		slot = 2;
+ 
+-	if (p->ainsn.inst_flag) {
++	if (p->ainsn.inst_flag & ~INST_FLAG_BOOSTABLE) {
+ 
+ 		if (p->ainsn.inst_flag & INST_FLAG_FIX_RELATIVE_IP_ADDR) {
+ 			/* Fix relative IP address */
+@@ -686,33 +775,12 @@ static void __kprobes prepare_ss(struct 
+ static int __kprobes is_ia64_break_inst(struct pt_regs *regs)
+ {
+ 	unsigned int slot = ia64_psr(regs)->ri;
+-	unsigned int template, major_opcode;
+-	unsigned long kprobe_inst;
+ 	unsigned long *kprobe_addr = (unsigned long *)regs->cr_iip;
+ 	bundle_t bundle;
+ 
+ 	memcpy(&bundle, kprobe_addr, sizeof(bundle_t));
+-	template = bundle.quad0.template;
+-
+-	/* Move to slot 2, if bundle is MLX type and kprobe slot is 1 */
+-	if (slot = 1 && bundle_encoding[template][1] = L)
+-		slot++;
+-
+-	/* Get Kprobe probe instruction at given slot*/
+-	get_kprobe_inst(&bundle, slot, &kprobe_inst, &major_opcode);
+-
+-	/* For break instruction,
+-	 * Bits 37:40 Major opcode to be zero
+-	 * Bits 27:32 X6 to be zero
+-	 * Bits 32:35 X3 to be zero
+-	 */
+-	if (major_opcode || ((kprobe_inst >> 27) & 0x1FF) ) {
+-		/* Not a break instruction */
+-		return 0;
+-	}
+ 
+-	/* Is a break instruction */
+-	return 1;
++	return __is_ia64_break_inst(&bundle, slot);
+ }
+ 
+ static int __kprobes pre_kprobes_handler(struct die_args *args)
+@@ -802,6 +870,19 @@ static int __kprobes pre_kprobes_handler
+ 		return 1;
+ 
+ ss_probe:
++#if !defined(CONFIG_PREEMPT) || defined(CONFIG_PM)
++	if (p->ainsn.inst_flag = INST_FLAG_BOOSTABLE && !p->post_handler) {
++		/* Boost up -- we can execute copied instructions directly */
++		ia64_psr(regs)->ri = p->ainsn.slot;
++		regs->cr_iip = (unsigned long)&p->ainsn.insn->bundle & ~0xFULL;
++		/* turn single stepping off */
++		ia64_psr(regs)->ss = 0;
++
++		reset_current_kprobe();
++		preempt_enable_no_resched();
++		return 1;
++	}
 +#endif
-+
-+#define __paravirt_switch_to			native_switch_to
-+#define __paravirt_leave_syscall		native_leave_syscall
-+#define __paravirt_work_processed_syscall	native_work_processed_syscall
-+#define __paravirt_leave_kernel			native_leave_kernel
-+#define __paravirt_pending_syscall_end		ia64_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						ia64_work_processed_syscall
-+
-+#define MOV_FROM_IFA(reg)	\
-+	mov reg = cr.ifa
-+
-+#define MOV_FROM_ITIR(reg)	\
-+	mov reg = cr.itir
-+
-+#define MOV_FROM_ISR(reg)	\
-+	mov reg = cr.isr
-+
-+#define MOV_FROM_IHA(reg)	\
-+	mov reg = cr.iha
-+
-+#define MOV_FROM_IPSR(reg)	\
-+	mov reg = cr.ipsr
-+
-+#define MOV_FROM_IIM(reg)	\
-+	mov reg = cr.iim
-+
-+#define MOV_FROM_IIP(reg)	\
-+	mov reg = cr.iip
-+
-+#define MOV_FROM_IVR(reg, clob)	\
-+	mov reg = cr.ivr	\
-+	CLOBBER(clob)
-+
-+#define MOV_FROM_PSR(pred, reg, clob)	\
-+(pred)	mov reg = psr			\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IFA(reg, clob)	\
-+	mov cr.ifa = reg	\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_ITIR(pred, reg, clob)	\
-+(pred)	mov cr.itir = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IHA(pred, reg, clob)	\
-+(pred)	mov cr.iha = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IPSR(reg, clob)	\
-+	mov cr.ipsr = reg	\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IFS(pred, reg, clob)	\
-+(pred)	mov cr.ifs = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IIP(reg, clob)	\
-+	mov cr.iip = reg	\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_KR(kr, reg, clob0, clob1)	\
-+	mov IA64_KR(kr) = reg			\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)
-+
-+#define ITC_I(pred, reg, clob)	\
-+(pred)	itc.i reg		\
-+	CLOBBER(clob)
-+
-+#define ITC_D(pred, reg, clob)	\
-+(pred)	itc.d reg		\
-+	CLOBBER(clob)
-+
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
-+(pred_i) itc.i reg;				\
-+(pred_d) itc.d reg				\
-+	CLOBBER(clob)
-+
-+#define THASH(pred, reg0, reg1, clob)		\
-+(pred)	thash reg0 = reg1			\
-+	CLOBBER(clob)
-+
-+#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)			\
-+	ssm psr.ic | PSR_DEFAULT_BITS					\
-+	CLOBBER(clob0)							\
-+	CLOBBER(clob1)							\
-+	;;								\
-+	srlz.i /* guarantee that interruption collectin is on */	\
-+	;;
-+
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
-+	ssm psr.ic				\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)				\
-+	;;					\
-+	srlz.d
-+
-+#define RSM_PSR_IC(clob)	\
-+	rsm psr.ic		\
-+	CLOBBER(clob)
-+
-+#define SSM_PSR_I(pred, clob)	\
-+(pred)	ssm psr.i		\
-+	CLOBBER(clob)
-+
-+#define RSM_PSR_I(pred, clob0, clob1)	\
-+(pred)	rsm psr.i			\
-+	CLOBBER(clob0)			\
-+	CLOBBER(clob1)
-+
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
-+	rsm psr.i | psr.ic			\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)				\
-+	CLOBBER(clob2)
-+
-+#define RSM_PSR_DT		\
-+	rsm psr.dt
-+
-+#define RSM_PSR_DT_AND_SRLZ_I	\
-+	rsm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define SSM_PSR_DT_AND_SRLZ_I	\
-+	ssm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define BSW_0(clob0, clob1, clob2)	\
-+	bsw.0				\
-+	CLOBBER(clob0)			\
-+	CLOBBER(clob1)			\
-+	CLOBBER(clob2)
-+
-+#define BSW_1(clob0, clob1)	\
-+	bsw.1			\
-+	CLOBBER(clob0)		\
-+	CLOBBER(clob1)
-+
-+#define COVER	\
-+	cover
-+
-+#define RFI	\
-+	rfi
--- 
-1.5.3
-
+ 	prepare_ss(p, regs);
+ 	kcb->kprobe_status = KPROBE_HIT_SS;
+ 	return 1;
+diff -puN include/asm-ia64/kprobes.h~kprobes-kprobe-booster-for-ia64 include/asm-ia64/kprobes.h
+--- a/include/asm-ia64/kprobes.h~kprobes-kprobe-booster-for-ia64
++++ a/include/asm-ia64/kprobes.h
+@@ -30,8 +30,12 @@
+ #include <asm/break.h>
+ 
+ #define __ARCH_WANT_KPROBES_INSN_SLOT
+-#define MAX_INSN_SIZE   1
++#define MAX_INSN_SIZE   2	/* last half is for kprobe-booster */
+ #define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
++#define NOP_M_INST	(long)(1<<27)
++#define BRL_INST(i1, i2) ((long)((0xcL << 37) |	/* brl */ \
++				(0x1L << 12) |	/* many */ \
++				(((i1) & 1) << 36) | ((i2) << 13))) /* imm */
+ 
+ typedef union cmp_inst {
+ 	struct {
+@@ -112,6 +116,7 @@ struct arch_specific_insn {
+  #define INST_FLAG_FIX_RELATIVE_IP_ADDR		1
+  #define INST_FLAG_FIX_BRANCH_REG		2
+  #define INST_FLAG_BREAK_INST			4
++ #define INST_FLAG_BOOSTABLE			8
+  	unsigned long inst_flag;
+  	unsigned short target_br_reg;
+ 	unsigned short slot;
+_
