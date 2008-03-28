@@ -1,45 +1,84 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 05 Mar 2008 18:18:20 +0000
-Subject: [PATCH 05/50] xen: move features.c from arch/x86/xen/features.c to drivers/xen.
-Message-Id: <12047411452627-git-send-email-yamahata@valinux.co.jp>
+From: akpm@linux-foundation.org
+Date: Fri, 28 Mar 2008 21:27:05 +0000
+Subject: [patch 5/5] arch/ia64/kernel/: use time_* macros
+Message-Id: <200803282127.m2SLR537011059@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ia64/xen also uses it too, so move it into common place.
+From: S.Caglar Onur <caglar@pardus.org.tr>
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+The functions time_before, time_before_eq, time_after, and time_after_eq are
+more robust for comparing jiffies against other values.
+
+So use the time_after() & time_before() macros, defined at linux/jiffies.h,
+which deal with wrapping correctly
+
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: S.Caglar Onur <caglar@pardus.org.tr>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Reviewed-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/x86/xen/Makefile                |    2 +-
- drivers/xen/Makefile                 |    2 +-
- {arch/x86 => drivers}/xen/features.c |    0 
- 3 files changed, 2 insertions(+), 2 deletions(-)
- rename {arch/x86 => drivers}/xen/features.c (100%)
 
-diff --git a/arch/x86/xen/Makefile b/arch/x86/xen/Makefile
-index 343df24..c5e9aa4 100644
---- a/arch/x86/xen/Makefile
-+++ b/arch/x86/xen/Makefile
-@@ -1,4 +1,4 @@
--obj-y		:= enlighten.o setup.o features.o multicalls.o mmu.o \
-+obj-y		:= enlighten.o setup.o multicalls.o mmu.o \
- 			events.o time.o manage.o xen-asm.o
+ arch/ia64/kernel/irq_ia64.c  |    2 +-
+ arch/ia64/kernel/mca.c       |    4 +++-
+ arch/ia64/kernel/unaligned.c |    3 ++-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
+
+diff -puN arch/ia64/kernel/irq_ia64.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/irq_ia64.c
+--- a/arch/ia64/kernel/irq_ia64.c~arch-ia64-kernel-use-time_-macros
++++ a/arch/ia64/kernel/irq_ia64.c
+@@ -472,7 +472,7 @@ ia64_handle_irq (ia64_vector vector, str
+ 			static unsigned char count;
+ 			static long last_time;
  
- obj-$(CONFIG_SMP)	+= smp.o
-diff --git a/drivers/xen/Makefile b/drivers/xen/Makefile
-index 56592f0..609fdda 100644
---- a/drivers/xen/Makefile
-+++ b/drivers/xen/Makefile
-@@ -1,2 +1,2 @@
--obj-y	+= grant-table.o
-+obj-y	+= grant-table.o features.o
- obj-y	+= xenbus/
-diff --git a/arch/x86/xen/features.c b/drivers/xen/features.c
-similarity index 100%
-rename from arch/x86/xen/features.c
-rename to drivers/xen/features.c
--- 
-1.5.3
-
+-			if (jiffies - last_time > 5*HZ)
++			if (time_after(jiffies, last_time + 5 * HZ))
+ 				count = 0;
+ 			if (++count < 5) {
+ 				last_time = jiffies;
+diff -puN arch/ia64/kernel/mca.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/mca.c
+--- a/arch/ia64/kernel/mca.c~arch-ia64-kernel-use-time_-macros
++++ a/arch/ia64/kernel/mca.c
+@@ -69,6 +69,7 @@
+  * 2007-04-27 Russ Anderson <rja@sgi.com>
+  *	      Support multiple cpus going through OS_MCA in the same event.
+  */
++#include <linux/jiffies.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+ #include <linux/sched.h>
+@@ -293,7 +294,8 @@ static void ia64_mlogbuf_dump_from_init(
+ 	if (mlogbuf_finished)
+ 		return;
+ 
+-	if (mlogbuf_timestamp && (mlogbuf_timestamp + 30*HZ > jiffies)) {
++	if (mlogbuf_timestamp &&
++			time_before(jiffies, mlogbuf_timestamp + 30 * HZ)) {
+ 		printk(KERN_ERR "INIT: mlogbuf_dump is interrupted by INIT "
+ 			" and the system seems to be messed up.\n");
+ 		ia64_mlogbuf_finish(0);
+diff -puN arch/ia64/kernel/unaligned.c~arch-ia64-kernel-use-time_-macros arch/ia64/kernel/unaligned.c
+--- a/arch/ia64/kernel/unaligned.c~arch-ia64-kernel-use-time_-macros
++++ a/arch/ia64/kernel/unaligned.c
+@@ -13,6 +13,7 @@
+  * 2001/08/13	Correct size of extended floats (float_fsz) from 16 to 10 bytes.
+  * 2001/01/17	Add support emulation of unaligned kernel accesses.
+  */
++#include <linux/jiffies.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+ #include <linux/tty.h>
+@@ -1290,7 +1291,7 @@ within_logging_rate_limit (void)
+ {
+ 	static unsigned long count, last_time;
+ 
+-	if (jiffies - last_time > 5*HZ)
++	if (time_after(jiffies, last_time + 5 * HZ))
+ 		count = 0;
+ 	if (count < 5) {
+ 		last_time = jiffies;
+_
