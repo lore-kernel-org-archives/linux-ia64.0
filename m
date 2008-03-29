@@ -1,7 +1,7 @@
 From: Roland McGrath <roland@redhat.com>
-Date: Sat, 29 Mar 2008 03:11:46 +0000
+Date: Sat, 29 Mar 2008 03:14:13 +0000
 Subject: [PATCH 1/2] HAVE_SET_RESTORE_SIGMASK
-Message-Id: <20080329031146.6FF7126FA1D@magilla.localdomain>
+Message-Id: <20080329031413.EA38926FA1D@magilla.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080329001230.D013726FA1D@magilla.localdomain>
 	<20080329001341.7F93826FA1D@magilla.localdomain>
@@ -11,8 +11,8 @@ In-Reply-To: Roland McGrath's message of  Friday, 28 March 2008 19:24:08 -0700 <
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Linus Torvalds <torvalds@linux-foundation.org>Andrew Morton" <akpm@linux-foundation.org>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-s390@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-s390@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
 Change all the #ifdef TIF_RESTORE_SIGMASK conditionals in non-arch
 code to #ifdef HAVE_SET_RESTORE_SIGMASK.  If arch code defines it
