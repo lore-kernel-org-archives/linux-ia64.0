@@ -1,23 +1,25 @@
 From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Fri, 28 Mar 2008 09:58:33 +0000
-Subject: [10/17]  [PATCH] kvm/ia64: Add trampoline for guest/host mode switch.
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF6@pdsmsx415.ccr.corp.intel.com>
+Date: Mon, 31 Mar 2008 08:29:09 +0000
+Subject: [10/17]  [PATCH] kvm/ia64: Add trampoline for guest/host mode switch. V8
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC0104824F@pdsmsx415.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C890BA.48F0545B"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C89309.4AC7776B"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF6@pdsmsx415.ccr.corp.intel.com>
+In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF6@pdsmsx415.ccr.corp.intel.com>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C890BA.48F0545B
+------_=_NextPart_001_01C89309.4AC7776B
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-From 0eb62fe62134e844ab66a5c3e43d1021ee56f8a8 Mon Sep 17 00:00:00 2001
+From 1c867d876f8e2710f9fd13c34139266d74b29322 Mon Sep 17 00:00:00 2001
 From: Xiantao Zhang <xiantao.zhang@intel.com>
 Date: Wed, 12 Mar 2008 13:48:13 +0800
-Subject: [PATCH] kvm/ia64: Add trampoline for guest/host mode switch.
+Subject: [PATCH] KVM:IA64: Add trampoline for guest/host mode switch.
 
 trampoline.S is for guest/host mode switch.
 
@@ -1078,18 +1080,18 @@ index 0000000..d3232b5
 --=20
 1.5.2
 
-------_=_NextPart_001_01C890BA.48F0545B
+------_=_NextPart_001_01C89309.4AC7776B
 Content-Type: application/octet-stream;
-	name="0010-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch"
+	name="0010-KVM-IA64-Add-trampoline-for-guest-host-mode-switch.patch"
 Content-Transfer-Encoding: base64
-Content-Description: 0010-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch
+Content-Description: 0010-KVM-IA64-Add-trampoline-for-guest-host-mode-switch.patch
 Content-Disposition: attachment;
-	filename="0010-kvm-ia64-Add-trampoline-for-guest-host-mode-switch.patch"
+	filename="0010-KVM-IA64-Add-trampoline-for-guest-host-mode-switch.patch"
 
-RnJvbSAwZWI2MmZlNjIxMzRlODQ0YWI2NmE1YzNlNDNkMTAyMWVlNTZmOGE4IE1vbiBTZXAgMTcg
+RnJvbSAxYzg2N2Q4NzZmOGUyNzEwZjlmZDEzYzM0MTM5MjY2ZDc0YjI5MzIyIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
 bT4KRGF0ZTogV2VkLCAxMiBNYXIgMjAwOCAxMzo0ODoxMyArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IGt2bS9pYTY0OiBBZGQgdHJhbXBvbGluZSBmb3IgZ3Vlc3QvaG9zdCBtb2RlIHN3aXRjaC4KCnRy
+IEtWTTpJQTY0OiBBZGQgdHJhbXBvbGluZSBmb3IgZ3Vlc3QvaG9zdCBtb2RlIHN3aXRjaC4KCnRy
 YW1wb2xpbmUuUyBpcyBmb3IgZ3Vlc3QvaG9zdCBtb2RlIHN3aXRjaC4KClNpZ25lZC1vZmYtYnk6
 IEFudGhvbnkgWHUgPGFudGhvbnkueHVAaW50ZWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBYaWFudGFv
 IFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNvbT4KLS0tCiBhcmNoL2lhNjQva3ZtL3RyYW1w
@@ -1507,4 +1509,4 @@ IGFkZHMgcjI9Q1RYKFJTQykscjMzCisgICAgOzsKKyAgICBsZDggcjE2ID1bcjJdCisgICAgOzsK
 KyAgICBtb3YgYXIucnNjID0gcjE2CisgICAgOzsKKyAgICBici5yZXQuc3B0ay5mZXcgYjAKK0VO
 RCh2bW1fdHJhbXBvbGluZSkKKworCi0tIAoxLjUuMgoK
 
-------_=_NextPart_001_01C890BA.48F0545B--
+------_=_NextPart_001_01C89309.4AC7776B--
