@@ -1,302 +1,199 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Mon, 31 Mar 2008 08:31:53 +0000
-Subject: [16/17] [PATCH] kvm:ia64 Enable kvm build for ia64 - V8
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC0104825D@pdsmsx415.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C89309.AC9DA8A7"
+From: Jes Sorensen <jes@sgi.com>
+Date: Mon, 31 Mar 2008 12:33:47 +0000
+Subject: Re: [05/17][PATCH] kvm/ia64 : Add head files for kvm/ia64
+Message-Id: <47F0DA2B.9070403@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF0@pdsmsx415.ccr.corp.intel.com>
-In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF0@pdsmsx415.ccr.corp.intel.com>
-To: linux-ia64@vger.kernel.org
+References: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
+In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Cc: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, virtualization@lists.linux-foundation.org, Carsten Otte <cotte@de.ibm.com>
 
-This is a multi-part message in MIME format.
+Hi Xiantao,
 
-------_=_NextPart_001_01C89309.AC9DA8A7
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+More comments.
 
-From 9b38270a4c01d8cfe85cd022e22a6f5c0efe45e7 Mon Sep 17 00:00:00 2001
-From: Xiantao Zhang <xiantao.zhang@intel.com>
-Date: Fri, 28 Mar 2008 14:58:47 +0800
-Subject: [PATCH] KVM:IA64 Enable kvm build for ia64
+Zhang, Xiantao wrote:
+>>From 696b9eea9f5001a7b7a07c0e58514aa10306b91a Mon Sep 17 00:00:00 2001
+> From: Xiantao Zhang <xiantao.zhang@intel.com>
+> Date: Fri, 28 Mar 2008 09:51:36 +0800
+> Subject: [PATCH] KVM:IA64 : Add head files for kvm/ia64
+> 
+> ia64_regs: some defintions for special registers
+> which aren't defined in asm-ia64/ia64regs.
 
-Update the related Makefile and KConfig for kvm build
-Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
----
- arch/ia64/Kconfig      |    3 ++
- arch/ia64/Makefile     |    1 +
- arch/ia64/kvm/Kconfig  |   46 ++++++++++++++++++++++++++++++++++++
- arch/ia64/kvm/Makefile |   61
-++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 111 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kvm/Kconfig
- create mode 100644 arch/ia64/kvm/Makefile
+Please put missing definitions of registers into asm-ia64/ia64regs.h if
+they are official definitions from the spec.
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 8fa3faf..a7bb62e 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -19,6 +19,7 @@ config IA64
- 	select HAVE_OPROFILE
- 	select HAVE_KPROBES
- 	select HAVE_KRETPROBES
-+	select HAVE_KVM
- 	default y
- 	help
- 	  The Itanium Processor Family is Intel's 64-bit successor to
-@@ -589,6 +590,8 @@ config MSPEC
-=20
- source "fs/Kconfig"
-=20
-+source "arch/ia64/kvm/Kconfig"
-+
- source "lib/Kconfig"
-=20
- #
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index f1645c4..ec4cca4 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -57,6 +57,7 @@ core-$(CONFIG_IA64_GENERIC) 	+=3D arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1)	+=3D arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) +=3D arch/ia64/dig/
- core-$(CONFIG_IA64_SGI_SN2)	+=3D arch/ia64/sn/
-+core-$(CONFIG_KVM) 		+=3D arch/ia64/kvm/
-=20
- drivers-$(CONFIG_PCI)		+=3D arch/ia64/pci/
- drivers-$(CONFIG_IA64_HP_SIM)	+=3D arch/ia64/hp/sim/
-diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
-new file mode 100644
-index 0000000..d2e54b9
---- /dev/null
-+++ b/arch/ia64/kvm/Kconfig
-@@ -0,0 +1,46 @@
-+#
-+# KVM configuration
-+#
-+config HAVE_KVM
-+	bool
-+
-+menuconfig VIRTUALIZATION
-+	bool "Virtualization"
-+	depends on HAVE_KVM || IA64
-+	default y
-+	---help---
-+	  Say Y here to get to see options for using your Linux host to
-run other
-+	  operating systems inside virtual machines (guests).
-+	  This option alone does not add any kernel code.
-+
-+	  If you say N, all options in this submenu will be skipped and
-disabled.
-+
-+if VIRTUALIZATION
-+
-+config KVM
-+	tristate "Kernel-based Virtual Machine (KVM) support"
-+	depends on HAVE_KVM && EXPERIMENTAL
-+	select PREEMPT_NOTIFIERS
-+	select ANON_INODES
-+	---help---
-+	  Support hosting fully virtualized guest machines using
-hardware
-+	  virtualization extensions.  You will need a fairly recent
-+	  processor equipped with virtualization extensions. You will
-also
-+	  need to select one or more of the processor modules below.
-+
-+	  This module provides access to the hardware capabilities
-through
-+	  a character device node named /dev/kvm.
-+
-+	  To compile this as a module, choose M here: the module
-+	  will be called kvm.
-+
-+	  If unsure, say N.
-+
-+config KVM_INTEL
-+	tristate "KVM for Intel Itanium 2 processors support"
-+	depends on KVM && m
-+	---help---
-+	  Provides support for KVM on Itanium 2 processors equipped with
-the VT
-+	  extensions.
-+
-+endif # VIRTUALIZATION
-diff --git a/arch/ia64/kvm/Makefile b/arch/ia64/kvm/Makefile
-new file mode 100644
-index 0000000..cde7d8e
---- /dev/null
-+++ b/arch/ia64/kvm/Makefile
-@@ -0,0 +1,61 @@
-+#This Make file is to generate asm-offsets.h and build source.
-+#                    =20
-+
-+#Generate asm-offsets.h for vmm module build
-+offsets-file :=3D asm-offsets.h
-+
-+always  :=3D $(offsets-file)
-+targets :=3D $(offsets-file)
-+targets +=3D arch/ia64/kvm/asm-offsets.s
-+clean-files :=3D $(addprefix $(objtree)/,$(targets) $(obj)/memcpy.S
-$(obj)/memset.S)
-+
-+# Default sed regexp - multiline due to syntax constraints
-+define sed-y
-+	"/^->/{s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /*
-\3 */:; s:->::; p;}"
-+endef
-+
-+quiet_cmd_offsets =3D GEN     $@
-+define cmd_offsets
-+	(set -e; \
-+	 echo "#ifndef __ASM_KVM_OFFSETS_H__"; \
-+	 echo "#define __ASM_KVM_OFFSETS_H__"; \
-+	 echo "/*"; \
-+	 echo " * DO NOT MODIFY."; \
-+	 echo " *"; \
-+	 echo " * This file was generated by Makefile"; \
-+	 echo " *"; \
-+	 echo " */"; \
-+	 echo ""; \
-+	 sed -ne $(sed-y) $<; \
-+	 echo ""; \
-+	 echo "#endif" ) > $@
-+endef
-+# We use internal rules to avoid the "is up to date" message from make
-+arch/ia64/kvm/asm-offsets.s: arch/ia64/kvm/asm-offsets.c
-+	$(call if_changed_dep,cc_s_c)
-+
-+$(obj)/$(offsets-file): arch/ia64/kvm/asm-offsets.s
-+	$(call cmd,offsets)
-+
-+#
-+# Makefile for Kernel-based Virtual Machine module
-+#
-+
-+EXTRA_CFLAGS +=3D -Ivirt/kvm -Iarch/ia64/kvm/
-+
-+$(addprefix $(objtree)/,$(obj)/memcpy.S $(obj)/memset.S):=20
-+	$(shell ln -snf ../lib/memcpy.S $(src)/memcpy.S)
-+	$(shell ln -snf ../lib/memset.S $(src)/memset.S)
-+
-+common-objs =3D $(addprefix ../../../virt/kvm/, kvm_main.o ioapic.o)
-+
-+kvm-objs :=3D $(common-objs) kvm_ia64.o kvm_fw.o
-+obj-$(CONFIG_KVM) +=3D kvm.o
-+
-+FORCE : $(obj)/$(offsets-file)
-+EXTRA_CFLAGS_vcpu.o +=3D -mfixed-range=3Df2-f5,f12-f127
-+kvm-intel-objs =3D vmm.o vmm_ivt.o trampoline.o vcpu.o optvfault.o =
-mmio.o
-\
-+	vtlb.o process.o
-+#Add link memcpy and memset to avoid possible structure assignment
-error
-+kvm-intel-objs +=3D memset.o memcpy.o
-+obj-$(CONFIG_KVM_INTEL) +=3D kvm-intel.o
---=20
-1.5.2
+> kvm_minstate.h : Marcos about Min save routines.
+> lapic.h: apic structure definition.
+> vcpu.h : routions related to vcpu virtualization.
+> vti.h  : Some macros or routines for VT support on Itanium.
+> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
 
-------_=_NextPart_001_01C89309.AC9DA8A7
-Content-Type: application/octet-stream;
-	name="0016-KVM-IA64-Enable-kvm-build-for-ia64.patch"
-Content-Transfer-Encoding: base64
-Content-Description: 0016-KVM-IA64-Enable-kvm-build-for-ia64.patch
-Content-Disposition: attachment;
-	filename="0016-KVM-IA64-Enable-kvm-build-for-ia64.patch"
+> +/*
+> + * Flushrs instruction stream.
+> + */
+> +#define ia64_flushrs() asm volatile ("flushrs;;":::"memory")
+> +
+> +#define ia64_loadrs() asm volatile ("loadrs;;":::"memory")
 
-RnJvbSA5YjM4MjcwYTRjMDFkOGNmZTg1Y2QwMjJlMjJhNmY1YzBlZmU0NWU3IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogRnJpLCAyOCBNYXIgMjAwOCAxNDo1ODo0NyArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IEtWTTpJQTY0IEVuYWJsZSBrdm0gYnVpbGQgZm9yIGlhNjQKClVwZGF0ZSB0aGUgcmVsYXRlZCBN
-YWtlZmlsZSBhbmQgS0NvbmZpZyBmb3Iga3ZtIGJ1aWxkClNpZ25lZC1vZmYtYnk6IFhpYW50YW8g
-WmhhbmcgPHhpYW50YW8uemhhbmdAaW50ZWwuY29tPgotLS0KIGFyY2gvaWE2NC9LY29uZmlnICAg
-ICAgfCAgICAzICsrCiBhcmNoL2lhNjQvTWFrZWZpbGUgICAgIHwgICAgMSArCiBhcmNoL2lhNjQv
-a3ZtL0tjb25maWcgIHwgICA0NiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysK
-IGFyY2gvaWE2NC9rdm0vTWFrZWZpbGUgfCAgIDYxICsrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKwogNCBmaWxlcyBjaGFuZ2VkLCAxMTEgaW5zZXJ0aW9ucygr
-KSwgMCBkZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQva3ZtL0tjb25m
-aWcKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQva3ZtL01ha2VmaWxlCgpkaWZmIC0tZ2l0
-IGEvYXJjaC9pYTY0L0tjb25maWcgYi9hcmNoL2lhNjQvS2NvbmZpZwppbmRleCA4ZmEzZmFmLi5h
-N2JiNjJlIDEwMDY0NAotLS0gYS9hcmNoL2lhNjQvS2NvbmZpZworKysgYi9hcmNoL2lhNjQvS2Nv
-bmZpZwpAQCAtMTksNiArMTksNyBAQCBjb25maWcgSUE2NAogCXNlbGVjdCBIQVZFX09QUk9GSUxF
-CiAJc2VsZWN0IEhBVkVfS1BST0JFUwogCXNlbGVjdCBIQVZFX0tSRVRQUk9CRVMKKwlzZWxlY3Qg
-SEFWRV9LVk0KIAlkZWZhdWx0IHkKIAloZWxwCiAJICBUaGUgSXRhbml1bSBQcm9jZXNzb3IgRmFt
-aWx5IGlzIEludGVsJ3MgNjQtYml0IHN1Y2Nlc3NvciB0bwpAQCAtNTg5LDYgKzU5MCw4IEBAIGNv
-bmZpZyBNU1BFQwogCiBzb3VyY2UgImZzL0tjb25maWciCiAKK3NvdXJjZSAiYXJjaC9pYTY0L2t2
-bS9LY29uZmlnIgorCiBzb3VyY2UgImxpYi9LY29uZmlnIgogCiAjCmRpZmYgLS1naXQgYS9hcmNo
-L2lhNjQvTWFrZWZpbGUgYi9hcmNoL2lhNjQvTWFrZWZpbGUKaW5kZXggZjE2NDVjNC4uZWM0Y2Nh
-NCAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0L01ha2VmaWxlCisrKyBiL2FyY2gvaWE2NC9NYWtlZmls
-ZQpAQCAtNTcsNiArNTcsNyBAQCBjb3JlLSQoQ09ORklHX0lBNjRfR0VORVJJQykgCSs9IGFyY2gv
-aWE2NC9kaWcvCiBjb3JlLSQoQ09ORklHX0lBNjRfSFBfWlgxKQkrPSBhcmNoL2lhNjQvZGlnLwog
-Y29yZS0kKENPTkZJR19JQTY0X0hQX1pYMV9TV0lPVExCKSArPSBhcmNoL2lhNjQvZGlnLwogY29y
-ZS0kKENPTkZJR19JQTY0X1NHSV9TTjIpCSs9IGFyY2gvaWE2NC9zbi8KK2NvcmUtJChDT05GSUdf
-S1ZNKSAJCSs9IGFyY2gvaWE2NC9rdm0vCiAKIGRyaXZlcnMtJChDT05GSUdfUENJKQkJKz0gYXJj
-aC9pYTY0L3BjaS8KIGRyaXZlcnMtJChDT05GSUdfSUE2NF9IUF9TSU0pCSs9IGFyY2gvaWE2NC9o
-cC9zaW0vCmRpZmYgLS1naXQgYS9hcmNoL2lhNjQva3ZtL0tjb25maWcgYi9hcmNoL2lhNjQva3Zt
-L0tjb25maWcKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uZDJlNTRiOQotLS0g
-L2Rldi9udWxsCisrKyBiL2FyY2gvaWE2NC9rdm0vS2NvbmZpZwpAQCAtMCwwICsxLDQ2IEBACisj
-CisjIEtWTSBjb25maWd1cmF0aW9uCisjCitjb25maWcgSEFWRV9LVk0KKwlib29sCisKK21lbnVj
-b25maWcgVklSVFVBTElaQVRJT04KKwlib29sICJWaXJ0dWFsaXphdGlvbiIKKwlkZXBlbmRzIG9u
-IEhBVkVfS1ZNIHx8IElBNjQKKwlkZWZhdWx0IHkKKwktLS1oZWxwLS0tCisJICBTYXkgWSBoZXJl
-IHRvIGdldCB0byBzZWUgb3B0aW9ucyBmb3IgdXNpbmcgeW91ciBMaW51eCBob3N0IHRvIHJ1biBv
-dGhlcgorCSAgb3BlcmF0aW5nIHN5c3RlbXMgaW5zaWRlIHZpcnR1YWwgbWFjaGluZXMgKGd1ZXN0
-cykuCisJICBUaGlzIG9wdGlvbiBhbG9uZSBkb2VzIG5vdCBhZGQgYW55IGtlcm5lbCBjb2RlLgor
-CisJICBJZiB5b3Ugc2F5IE4sIGFsbCBvcHRpb25zIGluIHRoaXMgc3VibWVudSB3aWxsIGJlIHNr
-aXBwZWQgYW5kIGRpc2FibGVkLgorCitpZiBWSVJUVUFMSVpBVElPTgorCitjb25maWcgS1ZNCisJ
-dHJpc3RhdGUgIktlcm5lbC1iYXNlZCBWaXJ0dWFsIE1hY2hpbmUgKEtWTSkgc3VwcG9ydCIKKwlk
-ZXBlbmRzIG9uIEhBVkVfS1ZNICYmIEVYUEVSSU1FTlRBTAorCXNlbGVjdCBQUkVFTVBUX05PVElG
-SUVSUworCXNlbGVjdCBBTk9OX0lOT0RFUworCS0tLWhlbHAtLS0KKwkgIFN1cHBvcnQgaG9zdGlu
-ZyBmdWxseSB2aXJ0dWFsaXplZCBndWVzdCBtYWNoaW5lcyB1c2luZyBoYXJkd2FyZQorCSAgdmly
-dHVhbGl6YXRpb24gZXh0ZW5zaW9ucy4gIFlvdSB3aWxsIG5lZWQgYSBmYWlybHkgcmVjZW50CisJ
-ICBwcm9jZXNzb3IgZXF1aXBwZWQgd2l0aCB2aXJ0dWFsaXphdGlvbiBleHRlbnNpb25zLiBZb3Ug
-d2lsbCBhbHNvCisJICBuZWVkIHRvIHNlbGVjdCBvbmUgb3IgbW9yZSBvZiB0aGUgcHJvY2Vzc29y
-IG1vZHVsZXMgYmVsb3cuCisKKwkgIFRoaXMgbW9kdWxlIHByb3ZpZGVzIGFjY2VzcyB0byB0aGUg
-aGFyZHdhcmUgY2FwYWJpbGl0aWVzIHRocm91Z2gKKwkgIGEgY2hhcmFjdGVyIGRldmljZSBub2Rl
-IG5hbWVkIC9kZXYva3ZtLgorCisJICBUbyBjb21waWxlIHRoaXMgYXMgYSBtb2R1bGUsIGNob29z
-ZSBNIGhlcmU6IHRoZSBtb2R1bGUKKwkgIHdpbGwgYmUgY2FsbGVkIGt2bS4KKworCSAgSWYgdW5z
-dXJlLCBzYXkgTi4KKworY29uZmlnIEtWTV9JTlRFTAorCXRyaXN0YXRlICJLVk0gZm9yIEludGVs
-IEl0YW5pdW0gMiBwcm9jZXNzb3JzIHN1cHBvcnQiCisJZGVwZW5kcyBvbiBLVk0gJiYgbQorCS0t
-LWhlbHAtLS0KKwkgIFByb3ZpZGVzIHN1cHBvcnQgZm9yIEtWTSBvbiBJdGFuaXVtIDIgcHJvY2Vz
-c29ycyBlcXVpcHBlZCB3aXRoIHRoZSBWVAorCSAgZXh0ZW5zaW9ucy4KKworZW5kaWYgIyBWSVJU
-VUFMSVpBVElPTgpkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2t2bS9NYWtlZmlsZSBiL2FyY2gvaWE2
-NC9rdm0vTWFrZWZpbGUKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uY2RlN2Q4
-ZQotLS0gL2Rldi9udWxsCisrKyBiL2FyY2gvaWE2NC9rdm0vTWFrZWZpbGUKQEAgLTAsMCArMSw2
-MSBAQAorI1RoaXMgTWFrZSBmaWxlIGlzIHRvIGdlbmVyYXRlIGFzbS1vZmZzZXRzLmggYW5kIGJ1
-aWxkIHNvdXJjZS4KKyMgICAgICAgICAgICAgICAgICAgICAKKworI0dlbmVyYXRlIGFzbS1vZmZz
-ZXRzLmggZm9yIHZtbSBtb2R1bGUgYnVpbGQKK29mZnNldHMtZmlsZSA6PSBhc20tb2Zmc2V0cy5o
-CisKK2Fsd2F5cyAgOj0gJChvZmZzZXRzLWZpbGUpCit0YXJnZXRzIDo9ICQob2Zmc2V0cy1maWxl
-KQordGFyZ2V0cyArPSBhcmNoL2lhNjQva3ZtL2FzbS1vZmZzZXRzLnMKK2NsZWFuLWZpbGVzIDo9
-ICQoYWRkcHJlZml4ICQob2JqdHJlZSkvLCQodGFyZ2V0cykgJChvYmopL21lbWNweS5TICQob2Jq
-KS9tZW1zZXQuUykKKworIyBEZWZhdWx0IHNlZCByZWdleHAgLSBtdWx0aWxpbmUgZHVlIHRvIHN5
-bnRheCBjb25zdHJhaW50cworZGVmaW5lIHNlZC15CisJIi9eLT4ve3M6Xi0+XChbXiBdKlwpIFtc
-JCQjXSpcKFteIF0qXCkgXCguKlwpOiNkZWZpbmUgXDEgXDIgLyogXDMgKi86OyBzOi0+Ojo7IHA7
-fSIKK2VuZGVmCisKK3F1aWV0X2NtZF9vZmZzZXRzID0gR0VOICAgICAkQAorZGVmaW5lIGNtZF9v
-ZmZzZXRzCisJKHNldCAtZTsgXAorCSBlY2hvICIjaWZuZGVmIF9fQVNNX0tWTV9PRkZTRVRTX0hf
-XyI7IFwKKwkgZWNobyAiI2RlZmluZSBfX0FTTV9LVk1fT0ZGU0VUU19IX18iOyBcCisJIGVjaG8g
-Ii8qIjsgXAorCSBlY2hvICIgKiBETyBOT1QgTU9ESUZZLiI7IFwKKwkgZWNobyAiICoiOyBcCisJ
-IGVjaG8gIiAqIFRoaXMgZmlsZSB3YXMgZ2VuZXJhdGVkIGJ5IE1ha2VmaWxlIjsgXAorCSBlY2hv
-ICIgKiI7IFwKKwkgZWNobyAiICovIjsgXAorCSBlY2hvICIiOyBcCisJIHNlZCAtbmUgJChzZWQt
-eSkgJDw7IFwKKwkgZWNobyAiIjsgXAorCSBlY2hvICIjZW5kaWYiICkgPiAkQAorZW5kZWYKKyMg
-V2UgdXNlIGludGVybmFsIHJ1bGVzIHRvIGF2b2lkIHRoZSAiaXMgdXAgdG8gZGF0ZSIgbWVzc2Fn
-ZSBmcm9tIG1ha2UKK2FyY2gvaWE2NC9rdm0vYXNtLW9mZnNldHMuczogYXJjaC9pYTY0L2t2bS9h
-c20tb2Zmc2V0cy5jCisJJChjYWxsIGlmX2NoYW5nZWRfZGVwLGNjX3NfYykKKworJChvYmopLyQo
-b2Zmc2V0cy1maWxlKTogYXJjaC9pYTY0L2t2bS9hc20tb2Zmc2V0cy5zCisJJChjYWxsIGNtZCxv
-ZmZzZXRzKQorCisjCisjIE1ha2VmaWxlIGZvciBLZXJuZWwtYmFzZWQgVmlydHVhbCBNYWNoaW5l
-IG1vZHVsZQorIworCitFWFRSQV9DRkxBR1MgKz0gLUl2aXJ0L2t2bSAtSWFyY2gvaWE2NC9rdm0v
-CisKKyQoYWRkcHJlZml4ICQob2JqdHJlZSkvLCQob2JqKS9tZW1jcHkuUyAkKG9iaikvbWVtc2V0
-LlMpOiAKKwkkKHNoZWxsIGxuIC1zbmYgLi4vbGliL21lbWNweS5TICQoc3JjKS9tZW1jcHkuUykK
-KwkkKHNoZWxsIGxuIC1zbmYgLi4vbGliL21lbXNldC5TICQoc3JjKS9tZW1zZXQuUykKKworY29t
-bW9uLW9ianMgPSAkKGFkZHByZWZpeCAuLi8uLi8uLi92aXJ0L2t2bS8sIGt2bV9tYWluLm8gaW9h
-cGljLm8pCisKK2t2bS1vYmpzIDo9ICQoY29tbW9uLW9ianMpIGt2bV9pYTY0Lm8ga3ZtX2Z3Lm8K
-K29iai0kKENPTkZJR19LVk0pICs9IGt2bS5vCisKK0ZPUkNFIDogJChvYmopLyQob2Zmc2V0cy1m
-aWxlKQorRVhUUkFfQ0ZMQUdTX3ZjcHUubyArPSAtbWZpeGVkLXJhbmdlPWYyLWY1LGYxMi1mMTI3
-Citrdm0taW50ZWwtb2JqcyA9IHZtbS5vIHZtbV9pdnQubyB0cmFtcG9saW5lLm8gdmNwdS5vIG9w
-dHZmYXVsdC5vIG1taW8ubyBcCisJdnRsYi5vIHByb2Nlc3MubworI0FkZCBsaW5rIG1lbWNweSBh
-bmQgbWVtc2V0IHRvIGF2b2lkIHBvc3NpYmxlIHN0cnVjdHVyZSBhc3NpZ25tZW50IGVycm9yCitr
-dm0taW50ZWwtb2JqcyArPSBtZW1zZXQubyBtZW1jcHkubworb2JqLSQoQ09ORklHX0tWTV9JTlRF
-TCkgKz0ga3ZtLWludGVsLm8KLS0gCjEuNS4yCgo=
+Please put these into include/asm-ia64/gcc_intrin.h
 
-------_=_NextPart_001_01C89309.AC9DA8A7--
+> +#define ia64_get_rsc()
+> \
+> +({
+> \
+> +	unsigned long val;
+> \
+> +	asm volatile ("mov %0=ar.rsc;;" : "=r"(val) :: "memory");
+> \
+> +	val;
+> \
+> +})
+> +
+> +#define ia64_set_rsc(val)					\
+> +	asm volatile ("mov ar.rsc=%0;;" :: "r"(val) : "memory")
+
+Please update the ia64_get/set_reg macros to handle the RSC register
+and use those macros.
+
+> +#define ia64_get_bspstore()
+> \
+> +({
+> \
+> +	unsigned long val;
+> \
+> +	asm volatile ("mov %0=ar.bspstore;;" : "=r"(val) :: "memory");
+> \
+> +	val;
+> \
+> +})
+
+Ditto for for AR.BSPSTORE
+
+> +#define ia64_get_rnat()
+> \
+> +({
+> \
+> +	unsigned long val;
+> \
+> +	asm volatile ("mov %0=ar.rnat;" : "=r"(val) :: "memory");
+> \
+> +	val;
+> \
+> +})
+
+Ditto for AR.RNAT
+
+> +static inline unsigned long ia64_get_itc(void)
+> +{
+> +	unsigned long result;
+> +	result = ia64_getreg(_IA64_REG_AR_ITC);
+> +	return result;
+> +}
+
+This exists in include/asm-ia64/delay.h
+
+> +static inline void ia64_set_dcr(unsigned long dcr)
+> +{
+> +	ia64_setreg(_IA64_REG_CR_DCR, dcr);
+> +}
+
+Please just call ia64_setreg() in your code rather than defining a
+wrapper for it.
+
+> +#define ia64_ttag(addr)
+> \
+> +({
+> \
+> +	__u64 ia64_intri_res;
+> \
+> +	asm volatile ("ttag %0=%1" : "=r"(ia64_intri_res) : "r" (addr));
+> \
+> +	ia64_intri_res;
+> \
+> +})
+
+Please add to include/asm-ia64/gcc_intrin.h instead.
+
+> diff --git a/arch/ia64/kvm/lapic.h b/arch/ia64/kvm/lapic.h
+> new file mode 100644
+> index 0000000..152cbdc
+> --- /dev/null
+> +++ b/arch/ia64/kvm/lapic.h
+> @@ -0,0 +1,27 @@
+> +#ifndef __KVM_IA64_LAPIC_H
+> +#define __KVM_IA64_LAPIC_H
+> +
+> +#include "iodev.h"
+
+I don't understand why iodev.h is included here?
+
+> --- /dev/null
+> +++ b/arch/ia64/kvm/vcpu.h
+
+The formatting of this file is dodgy, please try and make it comply with
+the Linux standards in Documentation/CodingStyle
+
+> +#define _vmm_raw_spin_lock(x)
+> \
+[snip]
+> +
+> +#define _vmm_raw_spin_unlock(x)				\
+
+Could you explain the reasoning behind these two macros? Whenever I see
+open coded spin lock modifications like these, I have to admit I get a
+bit worried.
+
+> +typedef struct kvm_vcpu VCPU;
+> +typedef struct kvm_pt_regs REGS;
+> +typedef enum { DATA_REF, NA_REF, INST_REF, RSE_REF } vhpt_ref_t;
+> +typedef enum { INSTRUCTION, DATA, REGISTER } miss_type;
+
+ARGH! Please see previous mail about typedefs! I suspect this is code
+inherited from Xen ? Xen has a lot of really nasty and pointless
+typedefs like these :-(
+
+> +static inline void vcpu_set_dbr(VCPU *vcpu, u64 reg, u64 val)
+> +{
+> +	/* TODO: need to virtualize */
+> +	__ia64_set_dbr(reg, val);
+> +}
+> +
+> +static inline void vcpu_set_ibr(VCPU *vcpu, u64 reg, u64 val)
+> +{
+> +	/* TODO: need to virtualize */
+> +	ia64_set_ibr(reg, val);
+> +}
+> +
+> +static inline u64 vcpu_get_dbr(VCPU *vcpu, u64 reg)
+> +{
+> +	/* TODO: need to virtualize */
+> +	return ((u64)__ia64_get_dbr(reg));
+> +}
+> +
+> +static inline u64 vcpu_get_ibr(VCPU *vcpu, u64 reg)
+> +{
+> +	/* TODO: need to virtualize */
+> +	return ((u64)ia64_get_ibr(reg));
+> +}
+
+More wrapper macros that really should just use ia64_get/set_reg()
+directly in the code.
+
+
+> diff --git a/arch/ia64/kvm/vti.h b/arch/ia64/kvm/vti.h
+> new file mode 100644
+> index 0000000..591ab22
+[ship]
+> +/* -*-  Mode:C; c-basic-offset:4; tab-width:4; indent-tabs-mode:nil -*-
+> */
+
+Evil formatting again!
+
+Cheers,
+Jes
+
