@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 31 Mar 2008 12:33:47 +0000
+From: Carsten Otte <cotte@de.ibm.com>
+Date: Mon, 31 Mar 2008 15:34:55 +0000
 Subject: Re: [05/17][PATCH] kvm/ia64 : Add head files for kvm/ia64
-Message-Id: <47F0DA2B.9070403@sgi.com>
+Message-Id: <47F1049F.9030903@de.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
 In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
@@ -9,191 +9,141 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Cc: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, virtualization@lists.linux-foundation.org, Carsten Otte <cotte@de.ibm.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Jes Sorensen <jes@sgi.com>, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
 
-Hi Xiantao,
 
-More comments.
-
-Zhang, Xiantao wrote:
->>From 696b9eea9f5001a7b7a07c0e58514aa10306b91a Mon Sep 17 00:00:00 2001
-> From: Xiantao Zhang <xiantao.zhang@intel.com>
-> Date: Fri, 28 Mar 2008 09:51:36 +0800
-> Subject: [PATCH] KVM:IA64 : Add head files for kvm/ia64
-> 
-> ia64_regs: some defintions for special registers
-> which aren't defined in asm-ia64/ia64regs.
-
-Please put missing definitions of registers into asm-ia64/ia64regs.h if
-they are official definitions from the spec.
-
-> kvm_minstate.h : Marcos about Min save routines.
-> lapic.h: apic structure definition.
-> vcpu.h : routions related to vcpu virtualization.
-> vti.h  : Some macros or routines for VT support on Itanium.
-> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
-
-> +/*
-> + * Flushrs instruction stream.
-> + */
-> +#define ia64_flushrs() asm volatile ("flushrs;;":::"memory")
+> +/**********************************************************************
+> ****
+> +  VCPU control register access routines
 > +
-> +#define ia64_loadrs() asm volatile ("loadrs;;":::"memory")
-
-Please put these into include/asm-ia64/gcc_intrin.h
-
-> +#define ia64_get_rsc()
-> \
-> +({
-> \
-> +	unsigned long val;
-> \
-> +	asm volatile ("mov %0=ar.rsc;;" : "=r"(val) :: "memory");
-> \
-> +	val;
-> \
-> +})
-> +
-> +#define ia64_set_rsc(val)					\
-> +	asm volatile ("mov ar.rsc=%0;;" :: "r"(val) : "memory")
-
-Please update the ia64_get/set_reg macros to handle the RSC register
-and use those macros.
-
-> +#define ia64_get_bspstore()
-> \
-> +({
-> \
-> +	unsigned long val;
-> \
-> +	asm volatile ("mov %0=ar.bspstore;;" : "=r"(val) :: "memory");
-> \
-> +	val;
-> \
-> +})
-
-Ditto for for AR.BSPSTORE
-
-> +#define ia64_get_rnat()
-> \
-> +({
-> \
-> +	unsigned long val;
-> \
-> +	asm volatile ("mov %0=ar.rnat;" : "=r"(val) :: "memory");
-> \
-> +	val;
-> \
-> +})
-
-Ditto for AR.RNAT
-
-> +static inline unsigned long ia64_get_itc(void)
+> ************************************************************************
+> **/
+> +static inline u64 vcpu_get_itir(VCPU *vcpu)
 > +{
-> +	unsigned long result;
-> +	result = ia64_getreg(_IA64_REG_AR_ITC);
-> +	return result;
-> +}
-
-This exists in include/asm-ia64/delay.h
-
-> +static inline void ia64_set_dcr(unsigned long dcr)
-> +{
-> +	ia64_setreg(_IA64_REG_CR_DCR, dcr);
-> +}
-
-Please just call ia64_setreg() in your code rather than defining a
-wrapper for it.
-
-> +#define ia64_ttag(addr)
-> \
-> +({
-> \
-> +	__u64 ia64_intri_res;
-> \
-> +	asm volatile ("ttag %0=%1" : "=r"(ia64_intri_res) : "r" (addr));
-> \
-> +	ia64_intri_res;
-> \
-> +})
-
-Please add to include/asm-ia64/gcc_intrin.h instead.
-
-> diff --git a/arch/ia64/kvm/lapic.h b/arch/ia64/kvm/lapic.h
-> new file mode 100644
-> index 0000000..152cbdc
-> --- /dev/null
-> +++ b/arch/ia64/kvm/lapic.h
-> @@ -0,0 +1,27 @@
-> +#ifndef __KVM_IA64_LAPIC_H
-> +#define __KVM_IA64_LAPIC_H
-> +
-> +#include "iodev.h"
-
-I don't understand why iodev.h is included here?
-
-> --- /dev/null
-> +++ b/arch/ia64/kvm/vcpu.h
-
-The formatting of this file is dodgy, please try and make it comply with
-the Linux standards in Documentation/CodingStyle
-
-> +#define _vmm_raw_spin_lock(x)
-> \
-[snip]
-> +
-> +#define _vmm_raw_spin_unlock(x)				\
-
-Could you explain the reasoning behind these two macros? Whenever I see
-open coded spin lock modifications like these, I have to admit I get a
-bit worried.
-
-> +typedef struct kvm_vcpu VCPU;
-> +typedef struct kvm_pt_regs REGS;
-> +typedef enum { DATA_REF, NA_REF, INST_REF, RSE_REF } vhpt_ref_t;
-> +typedef enum { INSTRUCTION, DATA, REGISTER } miss_type;
-
-ARGH! Please see previous mail about typedefs! I suspect this is code
-inherited from Xen ? Xen has a lot of really nasty and pointless
-typedefs like these :-(
-
-> +static inline void vcpu_set_dbr(VCPU *vcpu, u64 reg, u64 val)
-> +{
-> +	/* TODO: need to virtualize */
-> +	__ia64_set_dbr(reg, val);
+> +	return ((u64)VCPU(vcpu, itir));
 > +}
 > +
-> +static inline void vcpu_set_ibr(VCPU *vcpu, u64 reg, u64 val)
+> +static inline void vcpu_set_itir(VCPU *vcpu, u64 val)
 > +{
-> +	/* TODO: need to virtualize */
-> +	ia64_set_ibr(reg, val);
+> +	VCPU(vcpu, itir) = val;
 > +}
 > +
-> +static inline u64 vcpu_get_dbr(VCPU *vcpu, u64 reg)
+> +static inline u64 vcpu_get_ifa(VCPU *vcpu)
 > +{
-> +	/* TODO: need to virtualize */
-> +	return ((u64)__ia64_get_dbr(reg));
+> +	return ((u64)VCPU(vcpu, ifa));
 > +}
 > +
-> +static inline u64 vcpu_get_ibr(VCPU *vcpu, u64 reg)
+> +static inline void vcpu_set_ifa(VCPU *vcpu, u64 val)
 > +{
-> +	/* TODO: need to virtualize */
-> +	return ((u64)ia64_get_ibr(reg));
+> +	VCPU(vcpu, ifa) = val;
 > +}
+> +
+> +static inline u64 vcpu_get_iva(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, iva));
+> +}
+> +
+> +static inline u64 vcpu_get_pta(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, pta));
+> +}
+> +
+> +static inline u64 vcpu_get_lid(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, lid));
+> +}
+> +
+> +static inline u64 vcpu_get_tpr(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, tpr));
+> +}
+> +
+> +static inline u64 vcpu_get_eoi(VCPU *vcpu)
+> +{
+> +	return (0UL);		/*reads of eoi always return 0 */
+> +}
+> +
+> +static inline u64 vcpu_get_irr0(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, irr[0]));
+> +}
+> +
+> +static inline u64 vcpu_get_irr1(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, irr[1]));
+> +}
+> +
+> +static inline u64 vcpu_get_irr2(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, irr[2]));
+> +}
+> +
+> +static inline u64 vcpu_get_irr3(VCPU *vcpu)
+> +{
+> +	return ((u64)VCPU(vcpu, irr[3]));
+> +}
+> +
+> +static inline void vcpu_set_dcr(VCPU *vcpu, u64 val)
+> +{
+> +	ia64_set_dcr(val);
+> +}
+> +
+> +static inline void vcpu_set_isr(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, isr) = val;
+> +}
+> +
+> +static inline void vcpu_set_lid(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, lid) = val;
+> +}
+> +
+> +static inline void vcpu_set_ipsr(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, ipsr) = val;
+> +}
+> +
+> +static inline void vcpu_set_iip(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, iip) = val;
+> +}
+> +
+> +static inline void vcpu_set_ifs(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, ifs) = val;
+> +}
+> +
+> +static inline void vcpu_set_iipa(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, iipa) = val;
+> +}
+> +
+> +static inline void vcpu_set_iha(VCPU *vcpu, u64 val)
+> +{
+> +	VCPU(vcpu, iha) = val;
+> +}
+> +
+> +
+> +static inline u64 vcpu_get_rr(VCPU *vcpu, u64 reg)
+> +{
+> +	return vcpu->arch.vrr[reg>>61];
+> +}
+Looks to me like most of them can be replaced by a few macros using 
+macro_##.
 
-More wrapper macros that really should just use ia64_get/set_reg()
-directly in the code.
-
-
-> diff --git a/arch/ia64/kvm/vti.h b/arch/ia64/kvm/vti.h
-> new file mode 100644
-> index 0000000..591ab22
-[ship]
-> +/* -*-  Mode:C; c-basic-offset:4; tab-width:4; indent-tabs-mode:nil -*-
-> */
-
-Evil formatting again!
-
-Cheers,
-Jes
-
+> +static inline int highest_bits(int *dat)
+> +{
+> +	u32  bits, bitnum;
+> +	int i;
+> +
+> +	/* loop for all 256 bits */
+> +	for (i = 7; i >= 0 ; i --) {
+> +		bits = dat[i];
+> +		if (bits) {
+> +			bitnum = fls(bits);
+> +			return i * 32 + bitnum - 1;
+> +		}
+> +	}
+> +	return NULL_VECTOR;
+> +}
+duplicate to asm/bitops.h find_first_bit().
