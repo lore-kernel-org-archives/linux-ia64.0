@@ -1,23 +1,25 @@
 From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Fri, 28 Mar 2008 09:58:11 +0000
-Subject: [16/17] [PATCH] kvm:ia64 Enable kvm build for ia64
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF0@pdsmsx415.ccr.corp.intel.com>
+Date: Mon, 31 Mar 2008 08:31:53 +0000
+Subject: [16/17] [PATCH] kvm:ia64 Enable kvm build for ia64 - V8
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC0104825D@pdsmsx415.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C890BA.3BB6BE0B"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C89309.AC9DA8A7"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF0@pdsmsx415.ccr.corp.intel.com>
+In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDCFF7EF0@pdsmsx415.ccr.corp.intel.com>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C890BA.3BB6BE0B
+------_=_NextPart_001_01C89309.AC9DA8A7
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-From 0639faa4a3347771e793e33652667272cc140240 Mon Sep 17 00:00:00 2001
+From 9b38270a4c01d8cfe85cd022e22a6f5c0efe45e7 Mon Sep 17 00:00:00 2001
 From: Xiantao Zhang <xiantao.zhang@intel.com>
 Date: Fri, 28 Mar 2008 14:58:47 +0800
-Subject: [PATCH] kvm:ia64 Enable kvm build for ia64
+Subject: [PATCH] KVM:IA64 Enable kvm build for ia64
 
 Update the related Makefile and KConfig for kvm build
 Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
@@ -197,18 +199,18 @@ error
 --=20
 1.5.2
 
-------_=_NextPart_001_01C890BA.3BB6BE0B
+------_=_NextPart_001_01C89309.AC9DA8A7
 Content-Type: application/octet-stream;
-	name="0016-kvm-ia64-Enable-kvm-build-for-ia64.patch"
+	name="0016-KVM-IA64-Enable-kvm-build-for-ia64.patch"
 Content-Transfer-Encoding: base64
-Content-Description: 0016-kvm-ia64-Enable-kvm-build-for-ia64.patch
+Content-Description: 0016-KVM-IA64-Enable-kvm-build-for-ia64.patch
 Content-Disposition: attachment;
-	filename="0016-kvm-ia64-Enable-kvm-build-for-ia64.patch"
+	filename="0016-KVM-IA64-Enable-kvm-build-for-ia64.patch"
 
-RnJvbSAwNjM5ZmFhNGEzMzQ3NzcxZTc5M2UzMzY1MjY2NzI3MmNjMTQwMjQwIE1vbiBTZXAgMTcg
+RnJvbSA5YjM4MjcwYTRjMDFkOGNmZTg1Y2QwMjJlMjJhNmY1YzBlZmU0NWU3IE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
 bT4KRGF0ZTogRnJpLCAyOCBNYXIgMjAwOCAxNDo1ODo0NyArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IGt2bTppYTY0IEVuYWJsZSBrdm0gYnVpbGQgZm9yIGlhNjQKClVwZGF0ZSB0aGUgcmVsYXRlZCBN
+IEtWTTpJQTY0IEVuYWJsZSBrdm0gYnVpbGQgZm9yIGlhNjQKClVwZGF0ZSB0aGUgcmVsYXRlZCBN
 YWtlZmlsZSBhbmQgS0NvbmZpZyBmb3Iga3ZtIGJ1aWxkClNpZ25lZC1vZmYtYnk6IFhpYW50YW8g
 WmhhbmcgPHhpYW50YW8uemhhbmdAaW50ZWwuY29tPgotLS0KIGFyY2gvaWE2NC9LY29uZmlnICAg
 ICAgfCAgICAzICsrCiBhcmNoL2lhNjQvTWFrZWZpbGUgICAgIHwgICAgMSArCiBhcmNoL2lhNjQv
@@ -297,4 +299,4 @@ bmQgbWVtc2V0IHRvIGF2b2lkIHBvc3NpYmxlIHN0cnVjdHVyZSBhc3NpZ25tZW50IGVycm9yCitr
 dm0taW50ZWwtb2JqcyArPSBtZW1zZXQubyBtZW1jcHkubworb2JqLSQoQ09ORklHX0tWTV9JTlRF
 TCkgKz0ga3ZtLWludGVsLm8KLS0gCjEuNS4yCgo=
 
-------_=_NextPart_001_01C890BA.3BB6BE0B--
+------_=_NextPart_001_01C89309.AC9DA8A7--
