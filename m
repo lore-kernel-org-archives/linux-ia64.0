@@ -1,218 +1,209 @@
 From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Tue, 01 Apr 2008 10:54:11 +0000
-Subject: [18/18] KVM: IA64: A Guide about how to create kvm guests on ia64 V9
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048731@pdsmsx415.ccr.corp.intel.com>
+Date: Tue, 01 Apr 2008 10:42:59 +0000
+Subject: [Patch][03/18] Prepare some structure definition and routines for kvm use.
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048722@pdsmsx415.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C893E6.B81069AB"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C893E5.27C20703"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C893E6.B81069AB
+------_=_NextPart_001_01C893E5.27C20703
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-From 365a0bb8b49354f9111b5745edb21b5e153784d9 Mon Sep 17 00:00:00 2001
+From 7f1714377e6d5812b4557bb3ccd8268b57865952 Mon Sep 17 00:00:00 2001
 From: Xiantao Zhang <xiantao.zhang@intel.com>
-Date: Tue, 1 Apr 2008 15:08:29 +0800
-Subject: [PATCH] KVM: IA64: A Guide about how to create kvm guests on
-ia64
+Date: Tue, 1 Apr 2008 14:42:00 +0800
+Subject: [PATCH] KVM: IA64 : Prepare some structure definitions and
+routines for kvm use.
 
-Guide for creating virtual machine on kvm/ia64.
+Register structures are defined per SDM.
+Add three small routines for kernel:
+ia64_ttag, ia64_loadrs, ia64_flushrs
 Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
 ---
- Documentation/ia64/kvm.txt |   82
-++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 82 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/ia64/kvm.txt
+ include/asm-ia64/gcc_intrin.h |   12 ++++++++
+ include/asm-ia64/processor.h  |   63
++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 75 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/ia64/kvm.txt b/Documentation/ia64/kvm.txt
-new file mode 100644
-index 0000000..a573521
---- /dev/null
-+++ b/Documentation/ia64/kvm.txt
-@@ -0,0 +1,82 @@
-+Currently, kvm module in EXPERIMENTAL stage on IA64. This means that
-+interfaces are not stable enough to use. So, plase had better don't run
-+critical applications in virtual machine. We will try our best to make
-it
-+strong in future versions!
-+				Guide: How to boot up guests on kvm/ia64
+diff --git a/include/asm-ia64/gcc_intrin.h
+b/include/asm-ia64/gcc_intrin.h
+index de2ed2c..2fe292c 100644
+--- a/include/asm-ia64/gcc_intrin.h
++++ b/include/asm-ia64/gcc_intrin.h
+@@ -21,6 +21,10 @@
+=20
+ #define ia64_invala_fr(regnum)	asm volatile ("invala.e f%0" ::
+"i"(regnum))
+=20
++#define ia64_flushrs() asm volatile ("flushrs;;":::"memory")
 +
-+This guide is to describe how to enable kvm support for IA-64 systems.
++#define ia64_loadrs() asm volatile ("loadrs;;":::"memory")
 +
-+1. Get the kvm source from git.kernel.org.
-+	Userspace source:
-+		git clone
-git://git.kernel.org/pub/scm/virt/kvm/kvm-userspace.git
-+	Kernel Source:
-+		git clone
-git://git.kernel.org/pub/scm/linux/kernel/git/xiantao/kvm-ia64.git
-+
-+2. Compile the source code.
-+	2.1 Compile userspace code:
-+		(1)cd ./kvm-userspace
-+		(2)./configure
-+		(3)cd kernel
-+		(4)make sync LINUX=3D $kernel_dir (kernel_dir is the
-directory of kernel source.)
-+		(5)cd ..
-+		(6)make qemu
-+		(7)cd qemu; make install
-+
-+	2.2 Compile kernel source code:
-+		(1) cd ./$kernel_dir
-+		(2) Make menuconfig=20
-+		(3) Enter into virtualization option, and choose kvm.
-+		(4) make=20
-+		(5) Once (4) done, make modules_install
-+		(6) Make initrd, and use new kernel to reboot up host
-machine.
-+		(7) Once (6) done, cd $kernel_dir/arch/ia64/kvm
-+		(8) insmod kvm.ko; insmod kvm-intel.ko
-+
-+Note: For step 2, please make sure that host page size =3D=3D
-TARGET_PAGE_SIZE of qemu, otherwise, may fail.
-+
-+3. Get Guest Firmware named as Flash.fd, and put it under right place:
-+	(1) If you have the guest firmware (binary) released by Intel
-Corp for Xen, use it directly.
-+
-+	(2) If you have no firmware at hand, Please download its source
-from
-+		hg clone
-http://xenbits.xensource.com/ext/efi-vfirmware.hg
-+	    you can get the firmware's binary in the directory of
-efi-vfirmware.hg/binaries.
-+
-+	(3) Rename the firware you owned to Flash.fd, and copy it to
-/usr/local/share/qemu
-+
-+4. Boot up Linux or Windows guests:
-+	4.1 Create or install a image for guest boot. If you have xen
-experience, it should be easy.
-+
-+	4.2 Boot up guests use the following command.
-+		/usr/local/bin/qemu-system-ia64 -smp xx -m 512 -hda
-$your_image
-+		(xx is the number of virtual processors for the guest,
-now the maximum value is 4)
-+
-+5. Known possibile issue on some platforms with old Firmware.
-+
-+If meet strange host crashe issues, try to solve it through either of
-the following ways:
-+
-+(1): Upgrade your Firmware to the latest one.
-+
-+(2): Applying the below patch to kernel source.
-+diff --git a/arch/ia64/kernel/pal.S b/arch/ia64/kernel/pal.S
-+index 0b53344..f02b0f7 100644
-+--- a/arch/ia64/kernel/pal.S
-++++ b/arch/ia64/kernel/pal.S
-+@@ -84,7 +84,8 @@ GLOBAL_ENTRY(ia64_pal_call_static)
-+ 	mov ar.pfs =3D loc1
-+ 	mov rp =3D loc0
-+ 	;;
-+-	srlz.d				// seralize restoration of psr.l
-++	srlz.i			// seralize restoration of psr.l
-++	;;
-+ 	br.ret.sptk.many b0
-+ END(ia64_pal_call_static)
-+
-+6. Bug report:
-+	If you found any issues when use kvm/ia64, Please post the bug
-info to kvm-ia64-devel mailing list.
-+	https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel/
-+
-+Thanks for your interest! Let's work together, and make kvm/ia64
-stronger and stronger!=20
+ extern void ia64_bad_param_for_setreg (void);
+ extern void ia64_bad_param_for_getreg (void);
+=20
+@@ -517,6 +521,14 @@ do {
+\
+ #define ia64_ptrd(addr, size)
+\
+ 	asm volatile ("ptr.d %0,%1" :: "r"(addr), "r"(size) : "memory")
+=20
++#define ia64_ttag(addr)
+\
++({
+\
++	__u64 ia64_intri_res;
+\
++	asm volatile ("ttag %0=3D%1" : "=3Dr"(ia64_intri_res) : "r" (addr));
+\
++	ia64_intri_res;
+\
++})
 +
 +
-+								Xiantao
-Zhang <xiantao.zhang@intel.com>
+ /* Values for lfhint in ia64_lfetch and ia64_lfetch_fault */
+=20
+ #define ia64_lfhint_none   0
+diff --git a/include/asm-ia64/processor.h b/include/asm-ia64/processor.h
+index 741f7ec..6aff126 100644
+--- a/include/asm-ia64/processor.h
++++ b/include/asm-ia64/processor.h
+@@ -119,6 +119,69 @@ struct ia64_psr {
+ 	__u64 reserved4 : 19;
+ };
+=20
++union ia64_isr {
++	__u64  val;
++	struct {
++		__u64 code : 16;
++		__u64 vector : 8;
++		__u64 reserved1 : 8;
++		__u64 x : 1;
++		__u64 w : 1;
++		__u64 r : 1;
++		__u64 na : 1;
++		__u64 sp : 1;
++		__u64 rs : 1;
++		__u64 ir : 1;
++		__u64 ni : 1;
++		__u64 so : 1;
++		__u64 ei : 2;
++		__u64 ed : 1;
++		__u64 reserved2 : 20;
++	};
++};
 +
-2008.3.10
++union ia64_lid {
++	__u64 val;
++	struct {
++		__u64  rv  : 16;
++		__u64  eid : 8;
++		__u64  id  : 8;
++		__u64  ig  : 32;
++	};
++};
++
++union ia64_tpr {
++	__u64 val;
++	struct {
++		__u64 ig0 : 4;
++		__u64 mic : 4;
++		__u64 rsv : 8;
++		__u64 mmi : 1;
++		__u64 ig1 : 47;
++	};
++};
++
++union ia64_itir {
++	__u64 val;
++	struct {
++		__u64 rv3  :  2; /* 0-1 */
++		__u64 ps   :  6; /* 2-7 */
++		__u64 key  : 24; /* 8-31 */
++		__u64 rv4  : 32; /* 32-63 */
++	};
++};
++
++union  ia64_rr {
++	__u64 val;
++	struct {
++		__u64  ve	:  1;  /* enable hw walker */
++		__u64  reserved0:  1;  /* reserved */
++		__u64  ps	:  6;  /* log page size */
++		__u64  rid	: 24;  /* region id */
++		__u64  reserved1: 32;  /* reserved */
++	};
++};
++
+ /*
+  * CPU type, hardware bug flags, and per-CPU state.  Frequently used
+  * state comes earlier:
 --=20
 1.5.2
 
-------_=_NextPart_001_01C893E6.B81069AB
+------_=_NextPart_001_01C893E5.27C20703
 Content-Type: application/octet-stream;
-	name="0018-KVM-IA64-A-Guide-about-how-to-create-kvm-guests-on.patch"
+	name="0003-KVM-IA64-Prepare-some-structure-and-routines-for.patch"
 Content-Transfer-Encoding: base64
-Content-Description: 0018-KVM-IA64-A-Guide-about-how-to-create-kvm-guests-on.patch
+Content-Description: 0003-KVM-IA64-Prepare-some-structure-and-routines-for.patch
 Content-Disposition: attachment;
-	filename="0018-KVM-IA64-A-Guide-about-how-to-create-kvm-guests-on.patch"
+	filename="0003-KVM-IA64-Prepare-some-structure-and-routines-for.patch"
 
-RnJvbSAzNjVhMGJiOGI0OTM1NGY5MTExYjU3NDVlZGIyMWI1ZTE1Mzc4NGQ5IE1vbiBTZXAgMTcg
+RnJvbSA3ZjE3MTQzNzdlNmQ1ODEyYjQ1NTdiYjNjY2Q4MjY4YjU3ODY1OTUyIE1vbiBTZXAgMTcg
 MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogVHVlLCAxIEFwciAyMDA4IDE1OjA4OjI5ICswODAwClN1YmplY3Q6IFtQQVRDSF0g
-S1ZNOiBJQTY0OiBBIEd1aWRlIGFib3V0IGhvdyB0byBjcmVhdGUga3ZtIGd1ZXN0cyBvbiBpYTY0
-CgpHdWlkZSBmb3IgY3JlYXRpbmcgdmlydHVhbCBtYWNoaW5lIG9uIGt2bS9pYTY0LgpTaWduZWQt
-b2ZmLWJ5OiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNvbT4KLS0tCiBEb2N1
-bWVudGF0aW9uL2lhNjQva3ZtLnR4dCB8ICAgODIgKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKysKIDEgZmlsZXMgY2hhbmdlZCwgODIgaW5zZXJ0aW9ucygrKSwgMCBk
-ZWxldGlvbnMoLSkKIGNyZWF0ZSBtb2RlIDEwMDY0NCBEb2N1bWVudGF0aW9uL2lhNjQva3ZtLnR4
-dAoKZGlmZiAtLWdpdCBhL0RvY3VtZW50YXRpb24vaWE2NC9rdm0udHh0IGIvRG9jdW1lbnRhdGlv
-bi9pYTY0L2t2bS50eHQKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMC4uYTU3MzUy
-MQotLS0gL2Rldi9udWxsCisrKyBiL0RvY3VtZW50YXRpb24vaWE2NC9rdm0udHh0CkBAIC0wLDAg
-KzEsODIgQEAKK0N1cnJlbnRseSwga3ZtIG1vZHVsZSBpbiBFWFBFUklNRU5UQUwgc3RhZ2Ugb24g
-SUE2NC4gVGhpcyBtZWFucyB0aGF0CitpbnRlcmZhY2VzIGFyZSBub3Qgc3RhYmxlIGVub3VnaCB0
-byB1c2UuIFNvLCBwbGFzZSBoYWQgYmV0dGVyIGRvbid0IHJ1bgorY3JpdGljYWwgYXBwbGljYXRp
-b25zIGluIHZpcnR1YWwgbWFjaGluZS4gV2Ugd2lsbCB0cnkgb3VyIGJlc3QgdG8gbWFrZSBpdAor
-c3Ryb25nIGluIGZ1dHVyZSB2ZXJzaW9ucyEKKwkJCQlHdWlkZTogSG93IHRvIGJvb3QgdXAgZ3Vl
-c3RzIG9uIGt2bS9pYTY0CisKK1RoaXMgZ3VpZGUgaXMgdG8gZGVzY3JpYmUgaG93IHRvIGVuYWJs
-ZSBrdm0gc3VwcG9ydCBmb3IgSUEtNjQgc3lzdGVtcy4KKworMS4gR2V0IHRoZSBrdm0gc291cmNl
-IGZyb20gZ2l0Lmtlcm5lbC5vcmcuCisJVXNlcnNwYWNlIHNvdXJjZToKKwkJZ2l0IGNsb25lIGdp
-dDovL2dpdC5rZXJuZWwub3JnL3B1Yi9zY20vdmlydC9rdm0va3ZtLXVzZXJzcGFjZS5naXQKKwlL
-ZXJuZWwgU291cmNlOgorCQlnaXQgY2xvbmUgZ2l0Oi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9s
-aW51eC9rZXJuZWwvZ2l0L3hpYW50YW8va3ZtLWlhNjQuZ2l0CisKKzIuIENvbXBpbGUgdGhlIHNv
-dXJjZSBjb2RlLgorCTIuMSBDb21waWxlIHVzZXJzcGFjZSBjb2RlOgorCQkoMSljZCAuL2t2bS11
-c2Vyc3BhY2UKKwkJKDIpLi9jb25maWd1cmUKKwkJKDMpY2Qga2VybmVsCisJCSg0KW1ha2Ugc3lu
-YyBMSU5VWD0gJGtlcm5lbF9kaXIgKGtlcm5lbF9kaXIgaXMgdGhlIGRpcmVjdG9yeSBvZiBrZXJu
-ZWwgc291cmNlLikKKwkJKDUpY2QgLi4KKwkJKDYpbWFrZSBxZW11CisJCSg3KWNkIHFlbXU7IG1h
-a2UgaW5zdGFsbAorCisJMi4yIENvbXBpbGUga2VybmVsIHNvdXJjZSBjb2RlOgorCQkoMSkgY2Qg
-Li8ka2VybmVsX2RpcgorCQkoMikgTWFrZSBtZW51Y29uZmlnIAorCQkoMykgRW50ZXIgaW50byB2
-aXJ0dWFsaXphdGlvbiBvcHRpb24sIGFuZCBjaG9vc2Uga3ZtLgorCQkoNCkgbWFrZSAKKwkJKDUp
-IE9uY2UgKDQpIGRvbmUsIG1ha2UgbW9kdWxlc19pbnN0YWxsCisJCSg2KSBNYWtlIGluaXRyZCwg
-YW5kIHVzZSBuZXcga2VybmVsIHRvIHJlYm9vdCB1cCBob3N0IG1hY2hpbmUuCisJCSg3KSBPbmNl
-ICg2KSBkb25lLCBjZCAka2VybmVsX2Rpci9hcmNoL2lhNjQva3ZtCisJCSg4KSBpbnNtb2Qga3Zt
-LmtvOyBpbnNtb2Qga3ZtLWludGVsLmtvCisKK05vdGU6IEZvciBzdGVwIDIsIHBsZWFzZSBtYWtl
-IHN1cmUgdGhhdCBob3N0IHBhZ2Ugc2l6ZSA9PSBUQVJHRVRfUEFHRV9TSVpFIG9mIHFlbXUsIG90
-aGVyd2lzZSwgbWF5IGZhaWwuCisKKzMuIEdldCBHdWVzdCBGaXJtd2FyZSBuYW1lZCBhcyBGbGFz
-aC5mZCwgYW5kIHB1dCBpdCB1bmRlciByaWdodCBwbGFjZToKKwkoMSkgSWYgeW91IGhhdmUgdGhl
-IGd1ZXN0IGZpcm13YXJlIChiaW5hcnkpIHJlbGVhc2VkIGJ5IEludGVsIENvcnAgZm9yIFhlbiwg
-dXNlIGl0IGRpcmVjdGx5LgorCisJKDIpIElmIHlvdSBoYXZlIG5vIGZpcm13YXJlIGF0IGhhbmQs
-IFBsZWFzZSBkb3dubG9hZCBpdHMgc291cmNlIGZyb20KKwkJaGcgY2xvbmUgaHR0cDovL3hlbmJp
-dHMueGVuc291cmNlLmNvbS9leHQvZWZpLXZmaXJtd2FyZS5oZworCSAgICB5b3UgY2FuIGdldCB0
-aGUgZmlybXdhcmUncyBiaW5hcnkgaW4gdGhlIGRpcmVjdG9yeSBvZiBlZmktdmZpcm13YXJlLmhn
-L2JpbmFyaWVzLgorCisJKDMpIFJlbmFtZSB0aGUgZmlyd2FyZSB5b3Ugb3duZWQgdG8gRmxhc2gu
-ZmQsIGFuZCBjb3B5IGl0IHRvIC91c3IvbG9jYWwvc2hhcmUvcWVtdQorCis0LiBCb290IHVwIExp
-bnV4IG9yIFdpbmRvd3MgZ3Vlc3RzOgorCTQuMSBDcmVhdGUgb3IgaW5zdGFsbCBhIGltYWdlIGZv
-ciBndWVzdCBib290LiBJZiB5b3UgaGF2ZSB4ZW4gZXhwZXJpZW5jZSwgaXQgc2hvdWxkIGJlIGVh
-c3kuCisKKwk0LjIgQm9vdCB1cCBndWVzdHMgdXNlIHRoZSBmb2xsb3dpbmcgY29tbWFuZC4KKwkJ
-L3Vzci9sb2NhbC9iaW4vcWVtdS1zeXN0ZW0taWE2NCAtc21wIHh4IC1tIDUxMiAtaGRhICR5b3Vy
-X2ltYWdlCisJCSh4eCBpcyB0aGUgbnVtYmVyIG9mIHZpcnR1YWwgcHJvY2Vzc29ycyBmb3IgdGhl
-IGd1ZXN0LCBub3cgdGhlIG1heGltdW0gdmFsdWUgaXMgNCkKKworNS4gS25vd24gcG9zc2liaWxl
-IGlzc3VlIG9uIHNvbWUgcGxhdGZvcm1zIHdpdGggb2xkIEZpcm13YXJlLgorCitJZiBtZWV0IHN0
-cmFuZ2UgaG9zdCBjcmFzaGUgaXNzdWVzLCB0cnkgdG8gc29sdmUgaXQgdGhyb3VnaCBlaXRoZXIg
-b2YgdGhlIGZvbGxvd2luZyB3YXlzOgorCisoMSk6IFVwZ3JhZGUgeW91ciBGaXJtd2FyZSB0byB0
-aGUgbGF0ZXN0IG9uZS4KKworKDIpOiBBcHBseWluZyB0aGUgYmVsb3cgcGF0Y2ggdG8ga2VybmVs
-IHNvdXJjZS4KK2RpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVsL3BhbC5TIGIvYXJjaC9pYTY0
-L2tlcm5lbC9wYWwuUworaW5kZXggMGI1MzM0NC4uZjAyYjBmNyAxMDA2NDQKKy0tLSBhL2FyY2gv
-aWE2NC9rZXJuZWwvcGFsLlMKKysrKyBiL2FyY2gvaWE2NC9rZXJuZWwvcGFsLlMKK0BAIC04NCw3
-ICs4NCw4IEBAIEdMT0JBTF9FTlRSWShpYTY0X3BhbF9jYWxsX3N0YXRpYykKKyAJbW92IGFyLnBm
-cyA9IGxvYzEKKyAJbW92IHJwID0gbG9jMAorIAk7OworLQlzcmx6LmQJCQkJLy8gc2VyYWxpemUg
-cmVzdG9yYXRpb24gb2YgcHNyLmwKKysJc3Jsei5pCQkJLy8gc2VyYWxpemUgcmVzdG9yYXRpb24g
-b2YgcHNyLmwKKysJOzsKKyAJYnIucmV0LnNwdGsubWFueSBiMAorIEVORChpYTY0X3BhbF9jYWxs
-X3N0YXRpYykKKworNi4gQnVnIHJlcG9ydDoKKwlJZiB5b3UgZm91bmQgYW55IGlzc3VlcyB3aGVu
-IHVzZSBrdm0vaWE2NCwgUGxlYXNlIHBvc3QgdGhlIGJ1ZyBpbmZvIHRvIGt2bS1pYTY0LWRldmVs
-IG1haWxpbmcgbGlzdC4KKwlodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0
-aW5mby9rdm0taWE2NC1kZXZlbC8KKworVGhhbmtzIGZvciB5b3VyIGludGVyZXN0ISBMZXQncyB3
-b3JrIHRvZ2V0aGVyLCBhbmQgbWFrZSBrdm0vaWE2NCBzdHJvbmdlciBhbmQgc3Ryb25nZXIhIAor
-CisKKwkJCQkJCQkJWGlhbnRhbyBaaGFuZyA8eGlhbnRhby56aGFuZ0BpbnRlbC5jb20+CisJCQkJ
-CQkJCQkJCTIwMDguMy4xMAotLSAKMS41LjIKCg==
+bT4KRGF0ZTogVHVlLCAxIEFwciAyMDA4IDE0OjQyOjAwICswODAwClN1YmplY3Q6IFtQQVRDSF0g
+S1ZNOiBJQTY0IDogUHJlcGFyZSBzb21lIHN0cnVjdHVyZSBhbmQgcm91dGluZXMgZm9yIGt2bSB1
+c2UuCgpSZWdpc3RlciBzdHJ1Y3R1cmVzIGFyZSBkZWZpbmVkIHBlciBTRE0uCkFkZCB0aHJlZSBz
+bWFsbCByb3V0aW5lcyBmb3Iga2VybmVsOgppYTY0X3R0YWcsIGlhNjRfbG9hZHJzLCBpYTY0X2Zs
+dXNocnMKU2lnbmVkLW9mZi1ieTogWGlhbnRhbyBaaGFuZyA8eGlhbnRhby56aGFuZ0BpbnRlbC5j
+b20+Ci0tLQogaW5jbHVkZS9hc20taWE2NC9nY2NfaW50cmluLmggfCAgIDEyICsrKysrKysrCiBp
+bmNsdWRlL2FzbS1pYTY0L3Byb2Nlc3Nvci5oICB8ICAgNjMgKysrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKysrKysKIDIgZmlsZXMgY2hhbmdlZCwgNzUgaW5zZXJ0aW9ucygrKSwg
+MCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9pbmNsdWRlL2FzbS1pYTY0L2djY19pbnRyaW4u
+aCBiL2luY2x1ZGUvYXNtLWlhNjQvZ2NjX2ludHJpbi5oCmluZGV4IGRlMmVkMmMuLjJmZTI5MmMg
+MTAwNjQ0Ci0tLSBhL2luY2x1ZGUvYXNtLWlhNjQvZ2NjX2ludHJpbi5oCisrKyBiL2luY2x1ZGUv
+YXNtLWlhNjQvZ2NjX2ludHJpbi5oCkBAIC0yMSw2ICsyMSwxMCBAQAogCiAjZGVmaW5lIGlhNjRf
+aW52YWxhX2ZyKHJlZ251bSkJYXNtIHZvbGF0aWxlICgiaW52YWxhLmUgZiUwIiA6OiAiaSIocmVn
+bnVtKSkKIAorI2RlZmluZSBpYTY0X2ZsdXNocnMoKSBhc20gdm9sYXRpbGUgKCJmbHVzaHJzOzsi
+Ojo6Im1lbW9yeSIpCisKKyNkZWZpbmUgaWE2NF9sb2FkcnMoKSBhc20gdm9sYXRpbGUgKCJsb2Fk
+cnM7OyI6OjoibWVtb3J5IikKKwogZXh0ZXJuIHZvaWQgaWE2NF9iYWRfcGFyYW1fZm9yX3NldHJl
+ZyAodm9pZCk7CiBleHRlcm4gdm9pZCBpYTY0X2JhZF9wYXJhbV9mb3JfZ2V0cmVnICh2b2lkKTsK
+IApAQCAtNTE3LDYgKzUyMSwxNCBAQCBkbyB7CQkJCQkJCQkJCVwKICNkZWZpbmUgaWE2NF9wdHJk
+KGFkZHIsIHNpemUpCQkJCQkJXAogCWFzbSB2b2xhdGlsZSAoInB0ci5kICUwLCUxIiA6OiAiciIo
+YWRkciksICJyIihzaXplKSA6ICJtZW1vcnkiKQogCisjZGVmaW5lIGlhNjRfdHRhZyhhZGRyKQkJ
+CQkJCQlcCisoewkJCQkJCQkJCSAgXAorCV9fdTY0IGlhNjRfaW50cmlfcmVzOwkJCQkJCSAgIFwK
+Kwlhc20gdm9sYXRpbGUgKCJ0dGFnICUwPSUxIiA6ICI9ciIoaWE2NF9pbnRyaV9yZXMpIDogInIi
+IChhZGRyKSk7ICAgXAorCWlhNjRfaW50cmlfcmVzOwkJCQkJCQkgXAorfSkKKworCiAvKiBWYWx1
+ZXMgZm9yIGxmaGludCBpbiBpYTY0X2xmZXRjaCBhbmQgaWE2NF9sZmV0Y2hfZmF1bHQgKi8KIAog
+I2RlZmluZSBpYTY0X2xmaGludF9ub25lICAgMApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9hc20taWE2
+NC9wcm9jZXNzb3IuaCBiL2luY2x1ZGUvYXNtLWlhNjQvcHJvY2Vzc29yLmgKaW5kZXggNzQxZjdl
+Yy4uNmFmZjEyNiAxMDA2NDQKLS0tIGEvaW5jbHVkZS9hc20taWE2NC9wcm9jZXNzb3IuaAorKysg
+Yi9pbmNsdWRlL2FzbS1pYTY0L3Byb2Nlc3Nvci5oCkBAIC0xMTksNiArMTE5LDY5IEBAIHN0cnVj
+dCBpYTY0X3BzciB7CiAJX191NjQgcmVzZXJ2ZWQ0IDogMTk7CiB9OwogCit1bmlvbiBpYTY0X2lz
+ciB7CisJX191NjQgIHZhbDsKKwlzdHJ1Y3QgeworCQlfX3U2NCBjb2RlIDogMTY7CisJCV9fdTY0
+IHZlY3RvciA6IDg7CisJCV9fdTY0IHJlc2VydmVkMSA6IDg7CisJCV9fdTY0IHggOiAxOworCQlf
+X3U2NCB3IDogMTsKKwkJX191NjQgciA6IDE7CisJCV9fdTY0IG5hIDogMTsKKwkJX191NjQgc3Ag
+OiAxOworCQlfX3U2NCBycyA6IDE7CisJCV9fdTY0IGlyIDogMTsKKwkJX191NjQgbmkgOiAxOwor
+CQlfX3U2NCBzbyA6IDE7CisJCV9fdTY0IGVpIDogMjsKKwkJX191NjQgZWQgOiAxOworCQlfX3U2
+NCByZXNlcnZlZDIgOiAyMDsKKwl9OworfTsKKwordW5pb24gaWE2NF9saWQgeworCV9fdTY0IHZh
+bDsKKwlzdHJ1Y3QgeworCQlfX3U2NCAgcnYgIDogMTY7CisJCV9fdTY0ICBlaWQgOiA4OworCQlf
+X3U2NCAgaWQgIDogODsKKwkJX191NjQgIGlnICA6IDMyOworCX07Cit9OworCit1bmlvbiBpYTY0
+X3RwciB7CisJX191NjQgdmFsOworCXN0cnVjdCB7CisJCV9fdTY0IGlnMCA6IDQ7CisJCV9fdTY0
+IG1pYyA6IDQ7CisJCV9fdTY0IHJzdiA6IDg7CisJCV9fdTY0IG1taSA6IDE7CisJCV9fdTY0IGln
+MSA6IDQ3OworCX07Cit9OworCit1bmlvbiBpYTY0X2l0aXIgeworCV9fdTY0IHZhbDsKKwlzdHJ1
+Y3QgeworCQlfX3U2NCBydjMgIDogIDI7IC8qIDAtMSAqLworCQlfX3U2NCBwcyAgIDogIDY7IC8q
+IDItNyAqLworCQlfX3U2NCBrZXkgIDogMjQ7IC8qIDgtMzEgKi8KKwkJX191NjQgcnY0ICA6IDMy
+OyAvKiAzMi02MyAqLworCX07Cit9OworCit1bmlvbiAgaWE2NF9yciB7CisJX191NjQgdmFsOwor
+CXN0cnVjdCB7CisJCV9fdTY0ICB2ZQk6ICAxOyAgLyogZW5hYmxlIGh3IHdhbGtlciAqLworCQlf
+X3U2NCAgcmVzZXJ2ZWQwOiAgMTsgIC8qIHJlc2VydmVkICovCisJCV9fdTY0ICBwcwk6ICA2OyAg
+LyogbG9nIHBhZ2Ugc2l6ZSAqLworCQlfX3U2NCAgcmlkCTogMjQ7ICAvKiByZWdpb24gaWQgKi8K
+KwkJX191NjQgIHJlc2VydmVkMTogMzI7ICAvKiByZXNlcnZlZCAqLworCX07Cit9OworCiAvKgog
+ICogQ1BVIHR5cGUsIGhhcmR3YXJlIGJ1ZyBmbGFncywgYW5kIHBlci1DUFUgc3RhdGUuICBGcmVx
+dWVudGx5IHVzZWQKICAqIHN0YXRlIGNvbWVzIGVhcmxpZXI6Ci0tIAoxLjUuMgoK
 
-------_=_NextPart_001_01C893E6.B81069AB--
+------_=_NextPart_001_01C893E5.27C20703--
