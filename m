@@ -1,111 +1,62 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:54 +0000
-Subject: [PATCH 23/23] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
-Message-Id: <12095586542310-git-send-email-yamahata@valinux.co.jp>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Tue, 01 Apr 2008 01:31:21 +0000
+Subject: RE: [04/17] [PATCH] Add kvm arch-specific core code for kvm/ia64.-V8
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048417@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1207716631167-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1207716631167-git-send-email-yamahata@valinux.co.jp>
+References: <42DFA526FC41B1429CE7279EF83C6BDC01048245@pdsmsx415.ccr.corp.intel.com> <47F0D2B7.7080607@sgi.com>
+In-Reply-To: <47F0D2B7.7080607@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, virtualization@lists.linux-foundation.org, Carsten Otte <cotte@de.ibm.com>
 
-introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
-paravirtualized guest.
-introduce CONFING_XEN, CONFIG_IA64_XEN for xen.
+Jes Sorensen wrote:
+> Zhang, Xiantao wrote:
+>>> From 62895ff991d48398a77afdbf7f2bef127e802230 Mon Sep 17 00:00:00
+>>> 2001 
+>> From: Xiantao Zhang <xiantao.zhang@intel.com>
+>> Date: Fri, 28 Mar 2008 09:49:57 +0800
+>> Subject: [PATCH] KVM: IA64: Add kvm arch-specific core code for
+>> kvm/ia64. 
+>> 
+>> kvm_ia64.c is created to handle kvm ia64-specific core logic.
+>> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
+> 
+> More comments, a couple of bugs in this one.
+> 
+>> +#include <linux/module.h>
+>> +#include <linux/vmalloc.h>
+> 
+> Don't think you need vmalloc.h here.
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/Kconfig     |   32 ++++++++++++++++++++++++++++++++
- arch/ia64/xen/Kconfig |   21 +++++++++++++++++++++
- 2 files changed, 53 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/Kconfig
+Originally, we called vmalloc, but removed later. Maybe we can remove it
+now. 
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 0df5f6f..d6806c0 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -116,6 +116,33 @@ config AUDIT_ARCH
- 	bool
- 	default y
- 
-+menuconfig PARAVIRT_GUEST
-+	bool "Paravirtualized guest support"
-+	help
-+	  Say Y here to get to see options related to running Linux under
-+	  various hypervisors.  This option alone does not add any kernel code.
-+
-+	  If you say N, all options in this submenu will be skipped and disabled.
-+
-+if PARAVIRT_GUEST
-+
-+config PARAVIRT
-+	bool "Enable paravirtualization code"
-+	depends on PARAVIRT_GUEST
-+	default y
-+	bool
-+	default y
-+	help
-+	  This changes the kernel so it can modify itself when it is run
-+	  under a hypervisor, potentially improving performance significantly
-+	  over full virtualization.  However, when run without a hypervisor
-+	  the kernel is theoretically slower and slightly larger.
-+
-+
-+source "arch/ia64/xen/Kconfig"
-+
-+endif
-+
- choice
- 	prompt "System type"
- 	default IA64_GENERIC
-@@ -136,6 +163,7 @@ config IA64_GENERIC
- 	  HP-zx1/sx1000+swiotlb	For HP systems with (broken) DMA-constrained devices.
- 	  SGI-SN2		For SGI Altix systems
- 	  Ski-simulator		For the HP simulator <http://www.hpl.hp.com/research/linux/ski/>
-+	  Xen-domU		For xen domU system
- 
- 	  If you don't know what to do, choose "generic".
- 
-@@ -174,6 +202,10 @@ config IA64_HP_SIM
- 	bool "Ski-simulator"
- 	select SWIOTLB
- 
-+config IA64_XEN
-+	bool "Xen guest"
-+	depends on XEN
-+
- endchoice
- 
- choice
-diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
-new file mode 100644
-index 0000000..d525fbb
---- /dev/null
-+++ b/arch/ia64/xen/Kconfig
-@@ -0,0 +1,21 @@
-+#
-+# This Kconfig describes xen/ia64 options
-+#
-+
-+config XEN
-+	bool "Xen hypervisor support"
-+	default y
-+	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
-+	select XEN_XENCOMM
-+	select NO_IDLE_HZ
-+	help
-+	  Enable Xen hypervisor support.  Resulting kernel runs
-+	  both as a guest OS on Xen and natively on hardware.
-+
-+config XEN_XENCOMM
-+	depends on XEN
-+	bool
-+
-+config NO_IDLE_HZ
-+	depends on XEN
-+	bool
--- 
-1.5.3
+>> +int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct
+>> kvm_regs *regs) +{
+> [snip]
+>> +	copy_from_user(&vcpu->arch.guest, regs->saved_guest,
+>> +						sizeof(union context));
+>> +	copy_from_user(vcpu + 1, regs->saved_stack + sizeof(struct
+>> kvm_vcpu),
+>> +			IA64_STK_OFFSET - sizeof(struct kvm_vcpu));
+> 
+> You need to check the return values from copy_from_user() here and
+> deal with possible failure.
+> 
+>> +	vcpu->arch.apic = kzalloc(sizeof(struct kvm_lapic), GFP_KERNEL);
+>> +	vcpu->arch.apic->vcpu = vcpu;
+> 
+> Whoops! Missing NULL pointer check here after the kzalloc.
+
+Good catch.  Fixed!
+
+>> +	copy_to_user(regs->saved_guest, &vcpu->arch.guest,
+>> +					sizeof(union context)); +
+copy_to_user(regs->saved_stack,
+>> (void *)vcpu, IA64_STK_OFFSET); 
+> 
+> Same problem as above - check the return values.
+
 
