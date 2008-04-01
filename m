@@ -1,236 +1,215 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:40 +0000
-Subject: [PATCH 09/23] ia64/xen: implement arch specific part of xen grant table.
-Message-Id: <1209558654507-git-send-email-yamahata@valinux.co.jp>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Tue, 01 Apr 2008 01:15:23 +0000
+Subject: RE: [05/17][PATCH] kvm/ia64 : Add head files for kvm/ia64
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC010483F7@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <120771663046-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <120771663046-git-send-email-yamahata@valinux.co.jp>
+References: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
+	<47F0DA2B.9070403@sgi.com>
+In-Reply-To: <47F0DA2B.9070403@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: Carsten Otte <cotte@de.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
 
-Xen implements grant tables which is for sharing pages with
-guest domains.
-This patch implements arch specific part of grant table initialization.
-and xen_alloc_vm_area()/xen_free_vm_area() which are helper functions
-for xen grant table.
+Jes Sorensen wrote:
+> Hi Xiantao,
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/Makefile             |    2 +-
- arch/ia64/xen/grant-table.c        |  155 ++++++++++++++++++++++++++++++++++++
- include/asm-ia64/xen/grant_table.h |   29 +++++++
- 3 files changed, 185 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/grant-table.c
- create mode 100644 include/asm-ia64/xen/grant_table.h
+Hi, Jes
+	I fixed the coding style issues. Thanks!
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index ae08822..eb59563 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for Xen components
- #
- 
--obj-y := hypercall.o xencomm.o xcom_hcall.o
-+obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/grant-table.c b/arch/ia64/xen/grant-table.c
-new file mode 100644
-index 0000000..777dd9a
---- /dev/null
-+++ b/arch/ia64/xen/grant-table.c
-@@ -0,0 +1,155 @@
-+/******************************************************************************
-+ * arch/ia64/xen/grant-table.c
-+ *
-+ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/vmalloc.h>
-+#include <linux/mm.h>
-+
-+#include <xen/interface/xen.h>
-+#include <xen/interface/memory.h>
-+#include <xen/grant_table.h>
-+
-+#include <asm/xen/hypervisor.h>
-+
-+struct vm_struct *xen_alloc_vm_area(unsigned long size)
-+{
-+	int order;
-+	unsigned long virt;
-+	unsigned long nr_pages;
-+	struct vm_struct *area;
-+
-+	order = get_order(size);
-+	virt = __get_free_pages(GFP_KERNEL, order);
-+	if (virt = 0)
-+		goto err0;
-+	nr_pages = 1 << order;
-+	scrub_pages(virt, nr_pages);
-+
-+	area = kmalloc(sizeof(*area), GFP_KERNEL);
-+	if (area = NULL)
-+		goto err1;
-+
-+	area->flags = VM_IOREMAP;
-+	area->addr = (void *)virt;
-+	area->size = size;
-+	area->pages = NULL;
-+	area->nr_pages = nr_pages;
-+	area->phys_addr = 0;	/* xenbus_map_ring_valloc uses this field!  */
-+
-+	return area;
-+
-+err1:
-+	free_pages(virt, order);
-+err0:
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(xen_alloc_vm_area);
-+
-+void xen_free_vm_area(struct vm_struct *area)
-+{
-+	unsigned int order = get_order(area->size);
-+	unsigned long i;
-+	unsigned long phys_addr = __pa(area->addr);
-+
-+	/* This area is used for foreign page mappping.
-+	 * So underlying machine page may not be assigned. */
-+	for (i = 0; i < (1 << order); i++) {
-+		unsigned long ret;
-+		unsigned long gpfn = (phys_addr >> PAGE_SHIFT) + i;
-+		struct xen_memory_reservation reservation = {
-+			.nr_extents   = 1,
-+			.address_bits = 0,
-+			.extent_order = 0,
-+			.domid        = DOMID_SELF
-+		};
-+		set_xen_guest_handle(reservation.extent_start, &gpfn);
-+		ret = HYPERVISOR_memory_op(XENMEM_populate_physmap,
-+					   &reservation);
-+		BUG_ON(ret != 1);
-+	}
-+	free_pages((unsigned long)area->addr, order);
-+	kfree(area);
-+}
-+EXPORT_SYMBOL_GPL(xen_free_vm_area);
-+
-+
-+/****************************************************************************
-+ * grant table hack
-+ * cmd: GNTTABOP_xxx
-+ */
-+
-+int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
-+			   unsigned long max_nr_gframes,
-+			   struct grant_entry **__shared)
-+{
-+	*__shared = __va(frames[0] << PAGE_SHIFT);
-+	return 0;
-+}
-+
-+void arch_gnttab_unmap_shared(struct grant_entry *shared,
-+			      unsigned long nr_gframes)
-+{
-+	/* nothing */
-+}
-+
-+static void
-+gnttab_map_grant_ref_pre(struct gnttab_map_grant_ref *uop)
-+{
-+	uint32_t flags;
-+
-+	flags = uop->flags;
-+
-+	if (flags & GNTMAP_host_map) {
-+		if (flags & GNTMAP_application_map) {
-+			printk(KERN_DEBUG
-+			       "GNTMAP_application_map is not supported yet: "
-+			       "flags 0x%x\n", flags);
-+			BUG();
-+		}
-+		if (flags & GNTMAP_contains_pte) {
-+			printk(KERN_DEBUG
-+			       "GNTMAP_contains_pte is not supported yet: "
-+			       "flags 0x%x\n", flags);
-+			BUG();
-+		}
-+	} else if (flags & GNTMAP_device_map) {
-+		printk("GNTMAP_device_map is not supported yet 0x%x\n", flags);
-+		BUG();	/* not yet. actually this flag is not used. */
-+	} else {
-+		BUG();
-+	}
-+}
-+
-+int
-+HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
-+{
-+	if (cmd = GNTTABOP_map_grant_ref) {
-+		unsigned int i;
-+		for (i = 0; i < count; i++) {
-+			gnttab_map_grant_ref_pre(
-+				(struct gnttab_map_grant_ref *)uop + i);
-+		}
-+	}
-+	return xencomm_hypercall_grant_table_op(cmd, uop, count);
-+}
-+
-+EXPORT_SYMBOL(HYPERVISOR_grant_table_op);
-diff --git a/include/asm-ia64/xen/grant_table.h b/include/asm-ia64/xen/grant_table.h
-new file mode 100644
-index 0000000..ebdf2ea
---- /dev/null
-+++ b/include/asm-ia64/xen/grant_table.h
-@@ -0,0 +1,29 @@
-+/******************************************************************************
-+ * include/asm-ia64/xen/grant_table.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef _ASM_IA64_XEN_GRANT_TABLE_H
-+#define _ASM_IA64_XEN_GRANT_TABLE_H
-+
-+struct vm_struct *xen_alloc_vm_area(unsigned long size);
-+void xen_free_vm_area(struct vm_struct *area);
-+
-+#endif /* _ASM_IA64_XEN_GRANT_TABLE_H */
--- 
-1.5.3
+> More comments.
+> 
+> Zhang, Xiantao wrote:
+>>> From 696b9eea9f5001a7b7a07c0e58514aa10306b91a Mon Sep 17 00:00:00
+>>> 2001 
+>> From: Xiantao Zhang <xiantao.zhang@intel.com>
+>> Date: Fri, 28 Mar 2008 09:51:36 +0800
+>> Subject: [PATCH] KVM:IA64 : Add head files for kvm/ia64
+>> 
+>> ia64_regs: some defintions for special registers
+>> which aren't defined in asm-ia64/ia64regs.
+> 
+> Please put missing definitions of registers into asm-ia64/ia64regs.h
+> if they are official definitions from the spec.
+
+Moved!
+
+>> kvm_minstate.h : Marcos about Min save routines.
+>> lapic.h: apic structure definition.
+>> vcpu.h : routions related to vcpu virtualization.
+>> vti.h  : Some macros or routines for VT support on Itanium.
+>> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
+> 
+>> +/*
+>> + * Flushrs instruction stream.
+>> + */
+>> +#define ia64_flushrs() asm volatile ("flushrs;;":::"memory") +
+>> +#define ia64_loadrs() asm volatile ("loadrs;;":::"memory")
+> 
+> Please put these into include/asm-ia64/gcc_intrin.h
+
+OK.
+
+>> +#define ia64_get_rsc()
+>> \
+>> +({
+>> \
+>> +	unsigned long val;
+>> \
+>> +	asm volatile ("mov %0=ar.rsc;;" : "=r"(val) :: "memory"); \
+>> +	val;
+>> \
+>> +})
+>> +
+>> +#define ia64_set_rsc(val)					\
+>> +	asm volatile ("mov ar.rsc=%0;;" :: "r"(val) : "memory")
+> 
+> Please update the ia64_get/set_reg macros to handle the RSC register
+> and use those macros.
+
+Moved.
+
+>> +#define ia64_get_bspstore()
+>> \
+>> +({
+>> \
+>> +	unsigned long val;
+>> \
+>> +	asm volatile ("mov %0=ar.bspstore;;" : "=r"(val) :: "memory"); \
+>> +	val;
+>> \
+>> +})
+> 
+> Ditto for for AR.BSPSTORE
+> 
+>> +#define ia64_get_rnat()
+>> \
+>> +({
+>> \
+>> +	unsigned long val;
+>> \
+>> +	asm volatile ("mov %0=ar.rnat;" : "=r"(val) :: "memory"); \
+>> +	val;
+>> \
+>> +})
+> 
+> Ditto for AR.RNAT
+> 
+>> +static inline unsigned long ia64_get_itc(void)
+>> +{
+>> +	unsigned long result;
+>> +	result = ia64_getreg(_IA64_REG_AR_ITC);
+>> +	return result;
+>> +}
+> 
+> This exists in include/asm-ia64/delay.h
+> 
+>> +static inline void ia64_set_dcr(unsigned long dcr) +{
+>> +	ia64_setreg(_IA64_REG_CR_DCR, dcr);
+>> +}
+> 
+> Please just call ia64_setreg() in your code rather than defining a
+> wrapper for it.
+
+Sure.
+
+>> +#define ia64_ttag(addr)
+>> \
+>> +({
+>> \
+>> +	__u64 ia64_intri_res;
+>> \
+>> +	asm volatile ("ttag %0=%1" : "=r"(ia64_intri_res) : "r" (addr));
+\
+>> +	ia64_intri_res;
+>> \
+>> +})
+> 
+> Please add to include/asm-ia64/gcc_intrin.h instead.
+> 
+>> diff --git a/arch/ia64/kvm/lapic.h b/arch/ia64/kvm/lapic.h
+>> new file mode 100644
+>> index 0000000..152cbdc
+>> --- /dev/null
+>> +++ b/arch/ia64/kvm/lapic.h
+>> @@ -0,0 +1,27 @@
+>> +#ifndef __KVM_IA64_LAPIC_H
+>> +#define __KVM_IA64_LAPIC_H
+>> +
+>> +#include "iodev.h"
+> 
+> I don't understand why iodev.h is included here?
+
+It is inherited from x86 side, and forget to remove it. Seems redundant.
+
+
+>> --- /dev/null
+>> +++ b/arch/ia64/kvm/vcpu.h
+> 
+> The formatting of this file is dodgy, please try and make it comply
+> with the Linux standards in Documentation/CodingStyle
+> 
+>> +#define _vmm_raw_spin_lock(x)
+>> \
+> [snip]
+>> +
+>> +#define _vmm_raw_spin_unlock(x)				\
+> 
+> Could you explain the reasoning behind these two macros? Whenever I
+> see open coded spin lock modifications like these, I have to admit I
+> get a bit worried.
+
+In the architecture of kvm/ia64, gvmm and host are in the two different
+worlds, and gvmm can't call host's interface.  In migration case, we
+need to take a lock to sync the status of dirty memory.  In order to
+make it work, this spin_lock is defined and used.
+
+>> +typedef struct kvm_vcpu VCPU;
+>> +typedef struct kvm_pt_regs REGS;
+>> +typedef enum { DATA_REF, NA_REF, INST_REF, RSE_REF } vhpt_ref_t;
+>> +typedef enum { INSTRUCTION, DATA, REGISTER } miss_type;
+> 
+> ARGH! Please see previous mail about typedefs! I suspect this is code
+> inherited from Xen ? Xen has a lot of really nasty and pointless
+> typedefs like these :-(
+
+Removed.
+
+
+>> +static inline void vcpu_set_dbr(VCPU *vcpu, u64 reg, u64 val) +{
+>> +	/* TODO: need to virtualize */
+>> +	__ia64_set_dbr(reg, val);
+>> +}
+>> +
+>> +static inline void vcpu_set_ibr(VCPU *vcpu, u64 reg, u64 val) +{
+>> +	/* TODO: need to virtualize */
+>> +	ia64_set_ibr(reg, val);
+>> +}
+>> +
+>> +static inline u64 vcpu_get_dbr(VCPU *vcpu, u64 reg) +{
+>> +	/* TODO: need to virtualize */
+>> +	return ((u64)__ia64_get_dbr(reg));
+>> +}
+>> +
+>> +static inline u64 vcpu_get_ibr(VCPU *vcpu, u64 reg) +{
+>> +	/* TODO: need to virtualize */
+>> +	return ((u64)ia64_get_ibr(reg));
+>> +}
+> 
+> More wrapper macros that really should just use ia64_get/set_reg()
+> directly in the code.
+Removed, and used the one without wrapper. 
+> 
+>> diff --git a/arch/ia64/kvm/vti.h b/arch/ia64/kvm/vti.h
+>> new file mode 100644
+>> index 0000000..591ab22
+> [ship]
+>> +/* -*-  Mode:C; c-basic-offset:4; tab-width:4; indent-tabs-mode:nil
+>> -*- */
+> 
+> Evil formatting again!
+> 
+> Cheers,
+> Jes
 
