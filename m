@@ -1,97 +1,74 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:36 +0000
-Subject: [PATCH 05/23] ia64/xen: define helper functions for xen related address conversion.
-Message-Id: <1209558654780-git-send-email-yamahata@valinux.co.jp>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Tue, 01 Apr 2008 01:00:28 +0000
+Subject: RE: [01/17]PATCH  Add API for allocating dynamic TR resouce. V8
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC010483DA@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166302402-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166302402-git-send-email-yamahata@valinux.co.jp>
+References: <42DFA526FC41B1429CE7279EF83C6BDC0104823F@pdsmsx415.ccr.corp.intel.com> <47F0EA15.9030408@de.ibm.com>
+In-Reply-To: <47F0EA15.9030408@de.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: carsteno@de.ibm.com
+Cc: Avi Kivity <avi@qumranet.com>, "Luck, Tony" <tony.luck@intel.com>, "Xu, Anthony" <anthony.xu@intel.com>, Jes Sorensen <jes@sgi.com>, Akio Takebe <takebe_akio@jp.fujitsu.com>, kvm-devel@lists.sourceforge.net, kvm-ia64-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, virtualization@lists.linux-foundation.org
 
-Xen needs some address conversions between pseudo physical
-address (guest phsyical address), guest machine address
-(real machine address) and dma address.
-Define helper functions for those address conversion.
+Carsten Otte wrote:
+> Zhang, Xiantao wrote:
+>> +/*  mca_insert_tr
+>> + *
+>> + *  Switch rid when TR reload and needed!
+>> + *  iord: 1: itr, 2: itr;
+>> + *
+>> +*/
+>> +static void mca_insert_tr(u64 iord)
+>> +{
+>> +
+>> +	int i;
+>> +	u64 old_rr;
+>> +	struct ia64_tr_entry *p;
+>> +	unsigned long psr;
+>> +	int cpu = smp_processor_id();
+> What if CONFIG_PREEMPT is on, and we're being preempted and scheduled
+> to a different CPU here? Are we running preempt disabled here? If so,
+> the function header should state that this function needs to be called
+> preempt_disabled.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- include/asm-ia64/xen/page.h |   65 +++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 65 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/xen/page.h
+The function insert one TR to local TLB, and doesn't allow preempt
+before and after the call, so the caller should be with preempt_disable
+before calling into this routine. 
+Maybe the descripiton of this function should contain "Called with
+preempt disabled!".  Does it make sense ?
+Xiantao
 
-diff --git a/include/asm-ia64/xen/page.h b/include/asm-ia64/xen/page.h
-new file mode 100644
-index 0000000..c3c18f9
---- /dev/null
-+++ b/include/asm-ia64/xen/page.h
-@@ -0,0 +1,65 @@
-+/******************************************************************************
-+ * include/asm-ia64/xen/page.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef _ASM_IA64_XEN_PAGE_H
-+#define _ASM_IA64_XEN_PAGE_H
-+
-+#define INVALID_P2M_ENTRY	(~0UL)
-+
-+static inline unsigned long mfn_to_pfn(unsigned long mfn)
-+{
-+	return mfn;
-+}
-+
-+static inline unsigned long pfn_to_mfn(unsigned long pfn)
-+{
-+	return pfn;
-+}
-+
-+#define phys_to_machine_mapping_valid(_x)	(1)
-+
-+static inline void *mfn_to_virt(unsigned long mfn)
-+{
-+	return __va(mfn << PAGE_SHIFT);
-+}
-+
-+static inline unsigned long virt_to_mfn(void *virt)
-+{
-+	return __pa(virt) >> PAGE_SHIFT;
-+}
-+
-+/* for tpmfront.c */
-+static inline unsigned long virt_to_machine(void *virt)
-+{
-+	return __pa(virt);
-+}
-+
-+static inline void set_phys_to_machine(unsigned long pfn, unsigned long mfn)
-+{
-+	/* nothing */
-+}
-+
-+#define pte_mfn(_x)	pte_pfn(_x)
-+#define mfn_pte(_x, _y)	__pte_ma(0)		/* unmodified use */
-+#define __pte_ma(_x)	((pte_t) {(_x)})        /* unmodified use */
-+
-+#endif /* _ASM_IA64_XEN_PAGE_H */
--- 
-1.5.3
+
+>> +/*
+>> + * ia64_insert_tr in virtual mode. Allocate a TR slot + *
+>> + * target_mask : 0x1 : itr, 0x2 : dtr, 0x3 : idtr
+>> + *
+>> + * va 	: virtual address.
+>> + * pte 	: pte entries inserted.
+>> + * log_size: range to be covered.
+>> + *
+>> + * Return value:  <0 :  error No.
+>> + *
+>> + *		  >=0 : slot number allocated for TR.
+>> + */
+>> +int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+>> +{ +	int i, r;
+>> +	unsigned long psr;
+>> +	struct ia64_tr_entry *p;
+>> +	int cpu = smp_processor_id();
+> Same here.
+> 
+>> +/*
+>> + * ia64_purge_tr
+>> + *
+>> + * target_mask: 0x1: purge itr, 0x2 : purge dtr, 0x3 purge idtr. + *
+>> + * slot: slot number to be freed.
+>> + */
+>> +void ia64_ptr_entry(u64 target_mask, int slot)
+>> +{
+>> +	int cpu = smp_processor_id();
+>> +	int i;
+>> +	struct ia64_tr_entry *p;
+> Here again.
 
