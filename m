@@ -1,225 +1,159 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:26 +0000
-Subject: [PATCH 13/15] ia64/pv_ops: add hooks, pv_iosapic_ops, to paravirtualize iosapic.
-Message-Id: <12095585681973-git-send-email-yamahata@valinux.co.jp>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Tue, 01 Apr 2008 01:37:25 +0000
+Subject: RE: [kvm-ia64-devel] [03/15][PATCH] kvm/ia64: Add header files forkvm/ia64. V8
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048428@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165494047-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165494047-git-send-email-yamahata@valinux.co.jp>
+References: <42DFA526FC41B1429CE7279EF83C6BDC01048243@pdsmsx415.ccr.corp.intel.com>
+	<47F0EB38.2090700@de.ibm.com>
+In-Reply-To: <47F0EB38.2090700@de.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: carsteno@de.ibm.com
+Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Jes Sorensen <jes@sgi.com>, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
 
-add hooks to paravirtualize iosapic which is a real hardware resource.
-On virtualized environment it may be replaced something virtualized
-friendly.
-Define pv_iosapic_ops and add the hooks.
+Carsten Otte wrote:
+> Zhang, Xiantao wrote:
+>> +typedef union context {
+>> +	/* 8K size */
+>> +	char	dummy[KVM_CONTEXT_SIZE];
+>> +	struct {
+>> +		unsigned long       psr;
+>> +		unsigned long       pr;
+>> +		unsigned long       caller_unat;
+>> +		unsigned long       pad;
+>> +		unsigned long       gr[32];
+>> +		unsigned long       ar[128];
+>> +		unsigned long       br[8];
+>> +		unsigned long       cr[128];
+>> +		unsigned long       rr[8];
+>> +		unsigned long       ibr[8];
+>> +		unsigned long       dbr[8];
+>> +		unsigned long       pkr[8];
+>> +		struct ia64_fpreg   fr[128];
+>> +	};
+>> +} context_t;
+> This looks ugly to me. I'd rather prefer to have a straight struct
+> with elements psr...fr[], and cast the pointer to char* when needed.
+> KVM_CONTEXT_SIZE can be used as parameter to kzalloc() on allocation,
+> it's too large to be on stack anyway.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/kernel/iosapic.c  |   45 +++++++++++++++++++++++++++---------------
- arch/ia64/kernel/paravirt.c |   25 +++++++++++++++++++++++
- include/asm-ia64/iosapic.h  |   18 +++++++++++++++-
- include/asm-ia64/paravirt.h |   40 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 110 insertions(+), 18 deletions(-)
+We need to allocate enough memory fix area, considering back-ward
+compabitility.  In migration or save/restore case, we need to save this
+area. If migration happens in different kvm versions, and the size of
+different, it may cause issues.  For example, we added  a new field in
+new kvm, and restore a new snapshot to old versions, it may fail.  
 
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index 082c31d..587196d 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -587,6 +587,15 @@ static inline int irq_is_shared (int irq)
- 	return (iosapic_intr_info[irq].count > 1);
- }
- 
-+struct irq_chip*
-+ia64_native_iosapic_get_irq_chip(unsigned long trigger)
-+{
-+	if (trigger = IOSAPIC_EDGE)
-+		return &irq_type_iosapic_edge;
-+	else
-+		return &irq_type_iosapic_level;
-+}
-+
- static int
- register_intr (unsigned int gsi, int irq, unsigned char delivery,
- 	       unsigned long polarity, unsigned long trigger)
-@@ -637,13 +646,10 @@ register_intr (unsigned int gsi, int irq, unsigned char delivery,
- 	iosapic_intr_info[irq].dmode    = delivery;
- 	iosapic_intr_info[irq].trigger  = trigger;
- 
--	if (trigger = IOSAPIC_EDGE)
--		irq_type = &irq_type_iosapic_edge;
--	else
--		irq_type = &irq_type_iosapic_level;
-+	irq_type = iosapic_get_irq_chip(trigger);
- 
- 	idesc = irq_desc + irq;
--	if (idesc->chip != irq_type) {
-+	if (irq_type != NULL && idesc->chip != irq_type) {
- 		if (idesc->chip != &no_irq_type)
- 			printk(KERN_WARNING
- 			       "%s: changing vector %d from %s to %s\n",
-@@ -976,6 +982,22 @@ iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
- }
- 
- void __init
-+ia64_native_iosapic_pcat_compat_init(void)
-+{
-+	if (pcat_compat) {
-+		/*
-+		 * Disable the compatibility mode interrupts (8259 style),
-+		 * needs IN/OUT support enabled.
-+		 */
-+		printk(KERN_INFO
-+		       "%s: Disabling PC-AT compatible 8259 interrupts\n",
-+		       __func__);
-+		outb(0xff, 0xA1);
-+		outb(0xff, 0x21);
-+	}
-+}
-+
-+void __init
- iosapic_system_init (int system_pcat_compat)
- {
- 	int irq;
-@@ -989,17 +1011,8 @@ iosapic_system_init (int system_pcat_compat)
- 	}
- 
- 	pcat_compat = system_pcat_compat;
--	if (pcat_compat) {
--		/*
--		 * Disable the compatibility mode interrupts (8259 style),
--		 * needs IN/OUT support enabled.
--		 */
--		printk(KERN_INFO
--		       "%s: Disabling PC-AT compatible 8259 interrupts\n",
--		       __func__);
--		outb(0xff, 0xA1);
--		outb(0xff, 0x21);
--	}
-+	if (pcat_compat)
-+		iosapic_pcat_compat_init();
- }
- 
- static inline int
-diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 5daf659..65c211b 100644
---- a/arch/ia64/kernel/paravirt.c
-+++ b/arch/ia64/kernel/paravirt.c
-@@ -312,3 +312,28 @@ paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch)
- 		cpu_asm_switch->work_processed_syscall;
- 	paravirt_leave_kernel_targ = cpu_asm_switch->leave_kernel;
- }
-+
-+/***************************************************************************
-+ * pv_iosapic_ops
-+ * iosapic read/write hooks.
-+ */
-+
-+static unsigned int
-+ia64_native_iosapic_read(char __iomem *iosapic, unsigned int reg)
-+{
-+	return __ia64_native_iosapic_read(iosapic, reg);
-+}
-+
-+static void
-+ia64_native_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
-+{
-+	__ia64_native_iosapic_write(iosapic, reg, val);
-+}
-+
-+struct pv_iosapic_ops pv_iosapic_ops = {
-+	.pcat_compat_init = ia64_native_iosapic_pcat_compat_init,
-+	.get_irq_chip = ia64_native_iosapic_get_irq_chip,
-+
-+	.__read = ia64_native_iosapic_read,
-+	.__write = ia64_native_iosapic_write,
-+};
-diff --git a/include/asm-ia64/iosapic.h b/include/asm-ia64/iosapic.h
-index a3a4288..b9c102e 100644
---- a/include/asm-ia64/iosapic.h
-+++ b/include/asm-ia64/iosapic.h
-@@ -55,13 +55,27 @@
- 
- #define NR_IOSAPICS			256
- 
--static inline unsigned int __iosapic_read(char __iomem *iosapic, unsigned int reg)
-+#ifdef CONFIG_PARAVIRT_GUEST
-+#include <asm/paravirt.h>
-+#else
-+#define iosapic_pcat_compat_init	ia64_native_iosapic_pcat_compat_init
-+#define __iosapic_read			__ia64_native_iosapic_read
-+#define __iosapic_write			__ia64_native_iosapic_write
-+#define iosapic_get_irq_chip		ia64_native_iosapic_get_irq_chip
-+#endif
-+
-+extern void __init ia64_native_iosapic_pcat_compat_init(void);
-+extern struct irq_chip *ia64_native_iosapic_get_irq_chip(unsigned long trigger);
-+
-+static inline unsigned int
-+__ia64_native_iosapic_read(char __iomem *iosapic, unsigned int reg)
- {
- 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
- 	return readl(iosapic + IOSAPIC_WINDOW);
- }
- 
--static inline void __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
-+static inline void
-+__ia64_native_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
- {
- 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
- 	writel(val, iosapic + IOSAPIC_WINDOW);
-diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
-index 8778e8b..48887a4 100644
---- a/include/asm-ia64/paravirt.h
-+++ b/include/asm-ia64/paravirt.h
-@@ -109,6 +109,46 @@ static inline void paravirt_post_smp_prepare_boot_cpu(void)
- 		pv_init_ops.post_smp_prepare_boot_cpu();
- }
- 
-+/******************************************************************************
-+ * replacement of iosapic operations.
-+ */
-+
-+struct pv_iosapic_ops {
-+	void (*pcat_compat_init)(void);
-+
-+	struct irq_chip *(*get_irq_chip)(unsigned long trigger);
-+
-+	unsigned int (*__read)(char __iomem *iosapic, unsigned int reg);
-+	void (*__write)(char __iomem *iosapic, unsigned int reg, u32 val);
-+};
-+
-+extern struct pv_iosapic_ops pv_iosapic_ops;
-+
-+static inline void
-+iosapic_pcat_compat_init(void)
-+{
-+	if (pv_iosapic_ops.pcat_compat_init)
-+		pv_iosapic_ops.pcat_compat_init();
-+}
-+
-+static inline struct irq_chip*
-+iosapic_get_irq_chip(unsigned long trigger)
-+{
-+	return pv_iosapic_ops.get_irq_chip(trigger);
-+}
-+
-+static inline unsigned int
-+__iosapic_read(char __iomem *iosapic, unsigned int reg)
-+{
-+	return pv_iosapic_ops.__read(iosapic, reg);
-+}
-+
-+static inline void
-+__iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
-+{
-+	return pv_iosapic_ops.__write(iosapic, reg, val);
-+}
-+
- #endif /* !__ASSEMBLY__ */
- 
- #else
--- 
-1.5.3
+>> +typedef struct thash_data {
+>> +	union {
+>> +		struct {
+>> +			unsigned long p    :  1; /* 0 */
+>> +			unsigned long rv1  :  1; /* 1 */
+>> +			unsigned long ma   :  3; /* 2-4 */
+>> +			unsigned long a    :  1; /* 5 */
+>> +			unsigned long d    :  1; /* 6 */
+>> +			unsigned long pl   :  2; /* 7-8 */
+>> +			unsigned long ar   :  3; /* 9-11 */
+>> +			unsigned long ppn  : 38; /* 12-49 */
+>> +			unsigned long rv2  :  2; /* 50-51 */
+>> +			unsigned long ed   :  1; /* 52 */
+>> +			unsigned long ig1  : 11; /* 53-63 */
+>> +		};
+>> +		struct {
+>> +			unsigned long __rv1 : 53;     /* 0-52 */
+>> +			unsigned long contiguous : 1; /*53 */
+>> +			unsigned long tc : 1;         /* 54 TR or TC */
++			unsigned
+>> long cl : 1; +			/* 55 I side or D side cache
+line */
+>> +			unsigned long len  :  4;      /* 56-59 */
+>> +			unsigned long io  : 1;	/* 60 entry is for io or
+>> not */
+>> +			unsigned long nomap : 1;
+>> +			/* 61 entry cann't be inserted into machine
+>> TLB.*/
+>> +			unsigned long checked : 1;
+>> +			/* 62 for VTLB/VHPT sanity check */
+>> +			unsigned long invalid : 1;
+>> +			/* 63 invalid entry */
+>> +		};
+>> +		unsigned long page_flags;
+>> +	};                  /* same for VHPT and TLB */
+>> +
+>> +	union {
+>> +		struct {
+>> +			unsigned long rv3  :  2;
+>> +			unsigned long ps   :  6;
+>> +			unsigned long key  : 24;
+>> +			unsigned long rv4  : 32;
+>> +		};
+>> +		unsigned long itir;
+>> +	};
+>> +	union {
+>> +		struct {
+>> +			unsigned long ig2  :  12;
+>> +			unsigned long vpn  :  49;
+>> +			unsigned long vrn  :   3;
+>> +		};
+>> +		unsigned long ifa;
+>> +		unsigned long vadr;
+>> +		struct {
+>> +			unsigned long tag  :  63;
+>> +			unsigned long ti   :  1;
+>> +		};
+>> +		unsigned long etag;
+>> +	};
+>> +	union {
+>> +		struct thash_data *next;
+>> +		unsigned long rid;
+>> +		unsigned long gpaddr;
+>> +	};
+>> +} thash_data_t;
+> A matter of taste, but I'd prefer unsigned long mask, and
+> #define MASK_BIT_FOR_PURPUSE over bitfields. This structure could be
+> much smaller that way.
 
+Yes, but it may be not so flexible to use. 
+
+>> +struct kvm_regs {
+>> +	char *saved_guest;
+>> +	char *saved_stack;
+>> +	struct saved_vpd vpd;
+>> +	/*Arch-regs*/
+>> +	int mp_state;
+>> +	unsigned long vmm_rr;
+>> +	/* TR and TC.  */
+>> +	struct thash_data itrs[NITRS];
+>> +	struct thash_data dtrs[NDTRS];
+>> +	/* Bit is set if there is a tr/tc for the region.  */ +	unsigned
+>> char itr_regions; +	unsigned char dtr_regions;
+>> +	unsigned char tc_regions;
+>> +
+>> +	char irq_check;
+>> +	unsigned long saved_itc;
+>> +	unsigned long itc_check;
+>> +	unsigned long timer_check;
+>> +	unsigned long timer_pending;
+>> +	unsigned long last_itc;
+>> +
+>> +	unsigned long vrr[8];
+>> +	unsigned long ibr[8];
+>> +	unsigned long dbr[8];
+>> +	unsigned long insvc[4];		/* Interrupt in service.  */ +
+unsigned
+>> long xtp; +
+>> +	unsigned long metaphysical_rr0; /* from kvm_arch (so is pinned)
+*/
+>> +	unsigned long metaphysical_rr4;	/* from kvm_arch (so is pinned)
+*/
+>> +	unsigned long metaphysical_saved_rr0; /* from kvm_arch */
+>> +	unsigned long metaphysical_saved_rr4; /* from kvm_arch */
+>> +	unsigned long fp_psr;       /*used for lazy float register */
+>> +	unsigned long saved_gp; +	/*for phycial  emulation */
+>> +};
+> This looks like it does'nt just have guest register content in it. It
+> seems to me preferable to have another ioctl different from
+> KVM_GET_REGS/KVM_SET_REGS to read and set the rest of the content and
+> seperate it from struct kvm_regs.
+
+We want to add a ioctl for that later. 
