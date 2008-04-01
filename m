@@ -1,7 +1,7 @@
 From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Tue, 01 Apr 2008 01:51:58 +0000
+Date: Tue, 01 Apr 2008 02:16:09 +0000
 Subject: RE: [04/17] [PATCH] Add kvm arch-specific core code for kvm/ia64.-V8
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048453@pdsmsx415.ccr.corp.intel.com>
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048488@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42DFA526FC41B1429CE7279EF83C6BDC01048245@pdsmsx415.ccr.corp.intel.com> <47F0FAA5.2090109@de.ibm.com>
 In-Reply-To: <47F0FAA5.2090109@de.ibm.com>
@@ -63,98 +63,11 @@ kvm_vcpu_kick(target_vcpu);
 > KVM_VCPU_RUN. My solution to that was struct local_interrupt, which
 > has its own lock, and has the waitqueue plus everything I need to send
 > a sigp [that's our flavor of ipi].
-> 
->> +int kvm_emulate_halt(struct kvm_vcpu *vcpu)
->> +{
->> +
->> +	ktime_t kt;
->> +	long itc_diff;
->> +	unsigned long vcpu_now_itc;
->> +
->> +	unsigned long expires;
->> +	struct hrtimer *p_ht = &vcpu->arch.hlt_timer;
-> That makes me jealous, I'd love to have hrtimer on s390 for this. I've
-> got to round up to the next jiffie. *Sigh*
-> 
->> +int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu, +
-struct
->> kvm_sregs *sregs) +{
->> +	printk(KERN_WARNING"kvm:kvm_arch_vcpu_ioctl_set_sregs
->> called!!\n");
->> +	return 0;
->> +}
->> +
->> +int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu, +
-struct
->> kvm_sregs *sregs) +{
->> +	printk(KERN_WARNING"kvm:kvm_arch_vcpu_ioctl_get_sregs
->> called!!\n");
->> +	return 0;
->> +
->> +}
-> Suggestion: if get/set sregs does'nt seem useful on ia64, why not
-> return -EINVAL? In that case, you could also not print a kern warning,
-> the user will either handle that situation or complain.
-> 
->> +int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
->> +{
-> <snip>
->> +	/*FIXME:Need to removed it later!!\n*/
->> +	vcpu->arch.apic = kzalloc(sizeof(struct kvm_lapic), GFP_KERNEL);
->> +	vcpu->arch.apic->vcpu = vcpu;
-> Fixme!
-Removed!
-
->> +static int vti_vcpu_setup(struct kvm_vcpu *vcpu, int id) +{
->> +	unsigned long psr;
->> +	int r;
->> +
->> +	local_irq_save(psr);
->> +	r = kvm_insert_vmm_mapping(vcpu);
->> +	if (r)
->> +		goto fail;
->> +	r = kvm_vcpu_init(vcpu, vcpu->kvm, id);
->> +	if (r)
->> +		goto fail;
-> Maybe change to return r, rather then goto fail?
-
-It should be same. 
-
->> +int kvm_arch_vcpu_ioctl_get_fpu(struct kvm_vcpu *vcpu, struct
->> kvm_fpu *fpu) +{
->> +	printk(KERN_WARNING"kvm:IA64 doesn't need to export" +
-"fpu to
->> userspace!\n"); +	return 0;
->> +}
->> +
->> +int kvm_arch_vcpu_ioctl_set_fpu(struct kvm_vcpu *vcpu, struct
->> kvm_fpu *fpu) +{
->> +	printk(KERN_WARNING"kvm:IA64 doesn't need to export"
->> +					"fpu to userspace !\n");
->> +	return 0;
->> +}
-> maybe -EINVAL?
-
-Good suggestion!
-
->> +static int find_highest_bits(int *dat)
->> +{
->> +	u32  bits, bitnum;
->> +	int i;
->> +
->> +	/* loop for all 256 bits */
->> +	for (i = 7; i >= 0 ; i--) {
->> +		bits = dat[i];
->> +		if (bits) {
->> +			bitnum = fls(bits);
->> +			return i * 32 + bitnum - 1;
->> +		}
->> +	}
->> +
->> +	return -1;
->> +}
-> Should be in asm/bitops.h. Look at find_first_bit() and friends, this
-> is duplicate.
-
-Seems find_first_bit only can be used to find lowest bit?
+ex
+Hi, Carsten 
+     Why do you think it is racy?  In this function,
+target_vcpu->arch.launched should be set to 1 for the first run, and
+keep its value all the time.  Except the first IPI to wake up the vcpu,
+all IPIs received by target vcpu should go into "else" condition. So you
+mean the race condition exist in "else"  code ?
 Xiantao
