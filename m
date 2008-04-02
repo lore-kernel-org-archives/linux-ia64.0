@@ -1,65 +1,87 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Thu, 24 Apr 2008 18:44:17 +0000
-Subject: Re: [PATCH, RFC] Create 'slot'
-Message-Id: <20080424184417.GA32553@ldl.fc.hp.com>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Wed, 02 Apr 2008 03:13:54 +0000
+Subject: RE: [kvm-ia64-devel] [16/18]KVM:IA64 : Add kvm sal/palvirtulization support.V9
+Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC010488D5@pdsmsx415.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com> <20080326185912.GA30749@ldl.fc.hp.com> <20080421052450.GA24055@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com>
+References: <42DFA526FC41B1429CE7279EF83C6BDC0104872F@pdsmsx415.ccr.corp.intel.com> <47F2541A.50007@sgi.com>
+In-Reply-To: <47F2541A.50007@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: Carsten Otte <cotte@de.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Akio Takebe <takebe_akio@jp.fujitsu.com>, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org, "Xu, Anthony" <anthony.xu@intel.com>
 
-Hi Tony,
+Changed to be a soft and clear saying. Thanks! :-)
+Xiantao
 
-* Luck, Tony <tony.luck@intel.com>:
-> > I noticed that this patch wasn't in the git tree you sent to
-> > Linus for 2.6.26. I don't remember seeing a NACK though -- is
-> > there something that I could rework to make it more acceptable?
+Jes Sorensen wrote:
+> Zhang, Xiantao wrote:
+>>> From 5c70c038c57190144390ae9d30c3d06afba103d4 Mon Sep 17 00:00:00
+>>> 2001 
+>> From: Xiantao Zhang <xiantao.zhang@intel.com>
+>> Date: Tue, 1 Apr 2008 14:59:30 +0800
+>> Subject: [PATCH] KVM:IA64 : Add kvm sal/pal virtulization support.
+>> 
+>> Some sal/pal calls would be traped to kvm for virtulization
+>> from guest firmware.
+>> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com> ---
+>>  arch/ia64/kvm/kvm_fw.c |  500
 > 
-> I'm mostly ok with this version of the patch.  I didn't see any
-> comments from the linux-kernel crowd on the whether they are fond
-> of the new API ("slot" file in cpu/cpuN/topology/) and hate to make
-> the presumption that because they are silent that they agree.
+> Hi Xiantao,
 > 
-> The "mostly ok" part would transform to "fully ok" if there were a way
-> to make sure the "slot" files only appeared on systems where they are
-> meaningful (i.e. have a value other then -1 in them).  If there is
-> an easy way to make this happen, then it would make me happier (less
-> clutter in /sys) and perhaps others too (since this API is only useful
-> on large systems where "slot" is meaningful, and there is generally
-> some bias from the community at large about adding interfaces that
-> aren't needed for normal desktop/laptop systems).
-
-Yeah, I agree that the first few attempts weren't so great. I
-don't really like the idea of adding a new 'slot' file to sysfs
-either.
-
-I reworked this patch to play nicer with the current topology
-stuff.
-
-I've also included a cleanup patch that you might be happy to see
-(removes the noisy ia64_sal_pltid failed with -1 printk).
-
-Tested on an hp rx4640 with Madisons and verified that I actually
-get sane output in /proc/cpuinfo:
-
-[root@max ~]# cat /proc/cpuinfo | grep processor
-processor  : 0
-processor  : 1
-processor  : 2
-processor  : 3
-[root@max ~]# cat /proc/cpuinfo | grep physical
-physical id: 0
-physical id: 1
-physical id: 2
-physical id: 3
-
-Also tested on a Tiger and verified that /proc/cpuinfo remains
-unchanged, and no useless printk's appear during boot.
-
-Thanks.
-
-/ac
+> A few more comments:
+> 
+> 
+>> --- /dev/null
+>> +++ b/arch/ia64/kvm/kvm_fw.c
+> 
+>> +static void kvm_get_pal_call_data(struct kvm_vcpu *vcpu,
+>> +		u64 *gr28, u64 *gr29, u64 *gr30, u64 *gr31) {
+>> +	struct exit_ctl_data *p;
+>> +
+>> +	if (vcpu) {
+>> +		p = &vcpu->arch.exit_data;
+>> +		if (p->exit_reason = EXIT_REASON_PAL_CALL) {
+>> +			*gr28 = p->u.pal_data.gr28;
+>> +			*gr29 = p->u.pal_data.gr29;
+>> +			*gr30 = p->u.pal_data.gr30;
+>> +			*gr31 = p->u.pal_data.gr31;
+>> +			return ;
+>> +		}
+>> +	}
+>> +	printk(KERN_DEBUG"Error occurs in kvm_get_pal_call_data!!\n");
+> 
+> Maybe make this error message a bit more elaborate with information
+> about what the error is?
+> 
+>> +static void set_sal_result(struct kvm_vcpu *vcpu,
+>> +		struct sal_ret_values result) {
+>> +	struct exit_ctl_data *p;
+>> +
+>> +	p = kvm_get_exit_data(vcpu);
+>> +	if (p && p->exit_reason = EXIT_REASON_SAL_CALL) {
+>> +		p->u.sal_data.ret = result;
+>> +		return ;
+>> +	}
+>> +	printk(KERN_WARNING"Error occurs!!!\n");
+> 
+> I love this error message :-) Seriously though, please make it say
+> where it is and what has been detected.
+> 
+> Cheers,
+> Jes
+> 
+>
+------------------------------------------------------------------------
+-
+> Check out the new SourceForge.net Marketplace.
+> It's the best place to buy or sell services for
+> just about anything Open Source.
+>
+http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketp
+lace
+> _______________________________________________
+> kvm-ia64-devel mailing list
+> kvm-ia64-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel
 
