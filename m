@@ -1,41 +1,34 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 01 Apr 2008 17:09:42 +0000
+Date: Wed, 02 Apr 2008 14:43:01 +0000
 Subject: Re: + revert-gregkh-pci-pci-x86-use-generic-pci_enable_resources.patch added to -mm tree
-Message-Id: <200804011109.43046.bjorn.helgaas@hp.com>
+Message-Id: <200804020843.02402.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200803282348.m2SNmleP016847@imap1.linux-foundation.org> <200804010957.16459.bjorn.helgaas@hp.com> <20080401100050.009cec7b.akpm@linux-foundation.org>
-In-Reply-To: <20080401100050.009cec7b.akpm@linux-foundation.org>
+References: <200803282348.m2SNmleP016847@imap1.linux-foundation.org> <1207082276.10388.224.camel@pasglop> <20080402051554.GA21714@kroah.com>
+In-Reply-To: <20080402051554.GA21714@kroah.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: davem@davemloft.net, greg@kroah.com, m.kozlowski@tuxland.pl, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+To: Greg KH <greg@kroah.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, akpm@linux-foundation.org, mm-commits@vger.kernel.org, davem@davemloft.net, m.kozlowski@tuxland.pl, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Kyle McMartin <kyle@mcmartin.ca>
 
-On Tuesday 01 April 2008 11:00:50 am Andrew Morton wrote:
-> On Tue, 1 Apr 2008 09:57:15 -0600 Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
-> 
-> > On Friday 28 March 2008 05:48:47 pm akpm@linux-foundation.org wrote:
+On Tuesday 01 April 2008 11:15:54 pm Greg KH wrote:
+> On Wed, Apr 02, 2008 at 07:37:56AM +1100, Benjamin Herrenschmidt wrote:
+> > 
+> > On Tue, 2008-04-01 at 09:57 -0600, Bjorn Helgaas wrote:
 > > > 
-> > > The patch titled
-> > >      revert gregkh-pci-pci-x86-use-generic-pci_enable_resources
-> > > has been added to the -mm tree.  Its filename is
-> > >      revert-gregkh-pci-pci-x86-use-generic-pci_enable_resources.patch
+> > > Can we just drop the "revert gregkh" patches for x86, alpha, powerpc,
+> > > and ia64?
 > > 
-> > OK, I'm not sure where we are with this.  Ben listed arches where
-> > the generic pci_enable_resources() should be safe: x86, alpha, and
-> > powerpc.  I think we should also include ia64, since I work on that.
-> > 
-> > If there's no objection to those arches, how should we move forward?
-> > Since Andrew put in "revert gregkh-pci" patches rather than just
-> > dropping things, I assume the original patches are in Greg KH's tree.
-> > 
-> > Can we just drop the "revert gregkh" patches for x86, alpha, powerpc,
-> > and ia64?
+> > Considering that the generic is equivalent to what I have today on
+> > powerpc, I'm fine with it.
 > 
-> So powerpc is OK but ppc might not be?
+> Ok, so what ones should I keep in my tree?
+> 
+> Bjorn, any help?
 
-I suppose Ben is the expert on that, and he did say he thought both
-powerpc and ppc would be OK.  I think we just care less about ppc
-because powerpc is the new converged one.
+I think we should keep x86, alpha, powerpc, ppc, and ia64.
+
+Kyle previously acked it for parisc, so maybe he can speak
+up about whether to keep it there.
 
 Bjorn
