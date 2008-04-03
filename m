@@ -1,41 +1,34 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 17 Apr 2008 07:59:52 +0000
-Subject: [PATCH 1/2] ia64: do notify DIE_MCA_MONARCH_PROCESS for each monarchs
-Message-Id: <48070378.7090707@jp.fujitsu.com>
+From: holt@sgi.com
+Date: Thu, 03 Apr 2008 20:17:12 +0000
+Subject: [Patch 1/2] Correct pernodesize calculation.
+Message-Id: <20080403201711.714238853@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There are 3 hooks in MCA handler, but this DIE_MCA_MONARCH_PROCESS
-event does not notified other than for the first monarch.
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
----
- arch/ia64/kernel/mca.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+A simple fix.  The existing pernodesize reservation is not taking into
+account a second array of pg_data_t structures.  This is normally not
+important because the PAGE_ALIGN macro reserves adequate space.
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index e51bced..3ba091b 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1288,13 +1288,14 @@ ia64_mca_handler(struct pt_regs *regs, struct switch_stack *sw,
- 		 * does not work.
- 		 */
- 		ia64_mca_wakeup_all();
--		if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, (long)&nd, 0, 0)
--				= NOTIFY_STOP)
--			ia64_mca_spin(__func__);
- 	} else {
- 		while (cpu_isset(cpu, mca_cpu))
- 			cpu_relax();	/* spin until monarch wakes us */
--        }
-+	}
-+
-+	if (notify_die(DIE_MCA_MONARCH_PROCESS, "MCA", regs, (long)&nd, 0, 0)
-+			= NOTIFY_STOP)
-+		ia64_mca_spin(__func__);
+I made the compute_pernodesize steps in the same order as the fill_pernode
+steps to make the correlation more clear.
 
- 	/* Get the MCA error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_MCA);
+Signed-off-by: Robin Holt <holt@sgi.com>
+
+
+Index: per_cpu_mca_v1/arch/ia64/mm/discontig.c
+=================================--- per_cpu_mca_v1.orig/arch/ia64/mm/discontig.c	2008-02-13 06:56:45.000000000 -0600
++++ per_cpu_mca_v1/arch/ia64/mm/discontig.c	2008-02-13 07:12:44.847819507 -0600
+@@ -124,6 +124,7 @@ static unsigned long __meminit compute_p
+ 	pernodesize += node * L1_CACHE_BYTES;
+ 	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 	pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
++	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 	pernodesize = PAGE_ALIGN(pernodesize);
+ 	return pernodesize;
+ }
+
+-- 
