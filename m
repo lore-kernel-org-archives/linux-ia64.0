@@ -1,34 +1,31 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 02 Apr 2008 14:43:01 +0000
-Subject: Re: + revert-gregkh-pci-pci-x86-use-generic-pci_enable_resources.patch added to -mm tree
-Message-Id: <200804020843.02402.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 04 Apr 2008 23:52:29 +0000
+Subject: RE: [2.6.25-rc5-mm1][regression] ia64: hackbench doesn't finish >12 hour
+Message-Id: <1FE6DD409037234FAB833C420AA843EC01011FE8@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200803282348.m2SNmleP016847@imap1.linux-foundation.org> <1207082276.10388.224.camel@pasglop> <20080402051554.GA21714@kroah.com>
-In-Reply-To: <20080402051554.GA21714@kroah.com>
+References: <20080318084314.FF0F.KOSAKI.MOTOHIRO@jp.fujitsu.com> <DDF46CB71CB9D647A983FECACF09A886A33019@orsmsx424.amr.corp.intel.com> <20080318094527.FF12.KOSAKI.MOTOHIRO@jp.fujitsu.com> <DDF46CB71CB9D647A983FECACF09A886A8A6B5@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <DDF46CB71CB9D647A983FECACF09A886A8A6B5@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, akpm@linux-foundation.org, mm-commits@vger.kernel.org, davem@davemloft.net, m.kozlowski@tuxland.pl, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Kyle McMartin <kyle@mcmartin.ca>
+To: "Yu, Fenghua" <fenghua.yu@intel.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Andrew Morton <akpm@linux-foundation.org>
 
-On Tuesday 01 April 2008 11:15:54 pm Greg KH wrote:
-> On Wed, Apr 02, 2008 at 07:37:56AM +1100, Benjamin Herrenschmidt wrote:
-> > 
-> > On Tue, 2008-04-01 at 09:57 -0600, Bjorn Helgaas wrote:
-> > > 
-> > > Can we just drop the "revert gregkh" patches for x86, alpha, powerpc,
-> > > and ia64?
-> > 
-> > Considering that the generic is equivalent to what I have today on
-> > powerpc, I'm fine with it.
-> 
-> Ok, so what ones should I keep in my tree?
-> 
-> Bjorn, any help?
+> We can reproduce the soft lockup issue now and root cause the issue as
+well.
+>
+> Since the ptc.g patch uses semaphore ptcg_sem to serialize multiple
+> ptc.g instructions in ia64_global_tlb_purge(). This requires the code
+> path should be safe to sleep in down(). But the code path can not
+> sleep during swap because it holds some spin locks (e.g.
+anon_vma_lock).
+> Going to sleep finally causes soft lockup.
 
-I think we should keep x86, alpha, powerpc, ppc, and ia64.
+I've just pushed a new version of this patch into my test tree (so
+it will show up in -mm and linux-next when they pull and rebuild).
+It now uses the Piggin/Wilcox "spinaphore" primitives.  It passes
+all my tests, and some runs of "hackbench" that tried to match the
+tests that failed before at Fujitsu by forcing moderate amounts of
+swapping.
 
-Kyle previously acked it for parisc, so maybe he can speak
-up about whether to keep it there.
-
-Bjorn
+-Tony
