@@ -1,41 +1,50 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:19 +0000
-Subject: [PATCH 06/15] ia64/pv_ops: preparation for paravirtulization of hand written assembly code.
-Message-Id: <12095585681382-git-send-email-yamahata@valinux.co.jp>
+From: "Dong, Eddie" <eddie.dong@intel.com>
+Date: Mon, 07 Apr 2008 09:47:38 +0000
+Subject: pv_ops progress & ask for suggestion
+Message-Id: <10EA09EFD8728347A513008B6B0DA77A03000059@pdsmsx411.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165494186-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165494186-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Preparation for paravirtualization of hand written assembly code.
-They are paravirtualized by single source code and compiled multi times.
-To tell those files for target (including native), add one defines.
+Tony & all:
+	Recently we have completed the IVT.s pv_ops by using dual
+compile, and also many cleanups to simplify the changes to upstream
+code. All the C code touching privilege instruction is replaced with
+indirect function call (will be binary patched to use direct function
+call in future), and IVT table is dual compiled to minimize impact to
+native IVT table, but we get some dilemma in handling kernel/entry.S and
+also generic policy for other ASM files.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/kernel/Makefile |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+	In entry.S, there are around 17 privilege instructions, some of
+them must be paravirtualized including 2 cover instructions, and 1 "RFI"
+(this one is due to Xen hypervisor issue). There are other 15 privilege
+instructions (In Xen) such as CR access that could be paravirtualized
+for performance reason.
 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 10a4ddb..8b25242 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -72,3 +72,12 @@ $(obj)/gate-syms.o: $(obj)/gate.lds $(obj)/gate.o FORCE
- # We must build gate.so before we can assemble it.
- # Note: kbuild does not track this dependency due to usage of .incbin
- $(obj)/gate-data.o: $(obj)/gate.so
-+
-+#
-+# native ivt.S and entry.S
-+#
-+ASM_PARAVIRT_OBJS = ivt.o entry.o
-+define paravirtualized_native
-+AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
-+endef
-+$(foreach obj,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_native,$(obj))))
--- 
-1.5.3
+	Now we have 2 choices:
+	Alt1:  Dual compile entry.S like IVT.s (dual compile all ASM
+files if it needs virtualization)
+		pros: Same policy with iVT, use same MACRO to
+replacement.
+		cons: There are other ASM files such as
+sn/kernel/pio_phys.S need to be dual compiled too.
+			And unlike IVT table, the memory occupied by
+dual compiled code won't be able to be freed easily since the size is
+not fixed. Also all future ASM code touch privilege instruction may need
+to be dual compiled too.
 
+	Alt2: Use indirect call like C code for non IVT nor gate page
+code (dual compile only for IVT & gate page which has fixed size and
+performance killer)
+		Pros: flexible for future ASM code (just use same MACRO,
+no dual compile requirement).
+		Cons: 2 sets of solution for ASM code, and also slightly
+performance lose due to indirect function call (future patching will
+convert it to direct function call, or in place code.)
+		
+
+	Any suggestions?
+
+	Thanks, eddie
