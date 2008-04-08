@@ -1,37 +1,80 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 25 Apr 2008 14:13:09 +0000
-Subject: [PATCH] ia64 bugfix: nptcg breaks cpu-hotadd
-Message-Id: <4811E6F5.9000600@jp.fujitsu.com>
+Date: Tue, 08 Apr 2008 04:33:08 +0000
+Subject: [PATCH 2/2] ia64 kdump: crash.c coding style fix
+Message-Id: <47FAF584.7050703@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-If "max_purges" from PAL is 0, it actually means 1.
-
-However it was not handled later when a hot-added cpu pass the
-max_purges from PAL.  This makes systems easy to go BUG_ON().
+Fix indenting of switch statement to follow Documentation/CodingStyle.
 
 Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
 ---
- arch/ia64/mm/tlb.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/crash.c |   52 +++++++++++++++++++++++------------------------
+ 1 file changed, 26 insertions(+), 26 deletions(-)
 
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index d52ec4e..8caf424 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -168,7 +168,10 @@ setup_ptcg_sem(int max_purges, int nptcg_from)
- 	static int firstcpu = 1;
+Index: GIT-torvalds/arch/ia64/kernel/crash.c
+=================================--- GIT-torvalds.orig/arch/ia64/kernel/crash.c
++++ GIT-torvalds/arch/ia64/kernel/crash.c
+@@ -174,32 +174,32 @@ kdump_init_notifier(struct notifier_bloc
+ 		return NOTIFY_DONE;
 
- 	if (toolatetochangeptcgsem) {
--		BUG_ON(max_purges < nptcg);
-+		if (nptcg_from = NPTCG_FROM_PAL && max_purges = 0)
-+			BUG_ON(1 < nptcg);
-+		else
-+			BUG_ON(max_purges < nptcg);
- 		return;
+ 	switch (val) {
+-		case DIE_INIT_MONARCH_PROCESS:
+-			if (kdump_on_init) {
+-				atomic_set(&kdump_in_progress, 1);
+-				*(nd->monarch_cpu) = -1;
+-			}
+-			break;
+-		case DIE_INIT_MONARCH_LEAVE:
+-			if (kdump_on_init)
+-				machine_kdump_on_init();
+-			break;
+-		case DIE_INIT_SLAVE_LEAVE:
+-			if (atomic_read(&kdump_in_progress))
+-				unw_init_running(kdump_cpu_freeze, NULL);
+-			break;
+-		case DIE_MCA_RENDZVOUS_LEAVE:
+-			if (atomic_read(&kdump_in_progress))
+-				unw_init_running(kdump_cpu_freeze, NULL);
+-			break;
+-		case DIE_MCA_MONARCH_LEAVE:
+-			/* die_register->signr indicate if MCA is recoverable */
+-			if (kdump_on_fatal_mca && !args->signr) {
+-				atomic_set(&kdump_in_progress, 1);
+-				*(nd->monarch_cpu) = -1;
+-				machine_kdump_on_init();
+-			}
+-			break;
++	case DIE_INIT_MONARCH_PROCESS:
++		if (kdump_on_init) {
++			atomic_set(&kdump_in_progress, 1);
++			*(nd->monarch_cpu) = -1;
++		}
++		break;
++	case DIE_INIT_MONARCH_LEAVE:
++		if (kdump_on_init)
++			machine_kdump_on_init();
++		break;
++	case DIE_INIT_SLAVE_LEAVE:
++		if (atomic_read(&kdump_in_progress))
++			unw_init_running(kdump_cpu_freeze, NULL);
++		break;
++	case DIE_MCA_RENDZVOUS_LEAVE:
++		if (atomic_read(&kdump_in_progress))
++			unw_init_running(kdump_cpu_freeze, NULL);
++		break;
++	case DIE_MCA_MONARCH_LEAVE:
++		/* die_register->signr indicate if MCA is recoverable */
++		if (kdump_on_fatal_mca && !args->signr) {
++			atomic_set(&kdump_in_progress, 1);
++			*(nd->monarch_cpu) = -1;
++			machine_kdump_on_init();
++		}
++		break;
  	}
-
-
+ 	return NOTIFY_DONE;
+ }
