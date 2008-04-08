@@ -1,7 +1,7 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Tue, 08 Apr 2008 18:34:00 +0000
-Subject: Re: [PATCH 1/2] ia64 kdump: add kdump_on_fatal_mca
-Message-Id: <47FBBA98.7040600@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 08 Apr 2008 18:54:13 +0000
+Subject: RE: [PATCH 1/2] ia64 kdump: add kdump_on_fatal_mca
+Message-Id: <1FE6DD409037234FAB833C420AA843EC0105AE07@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47FAF533.8010707@jp.fujitsu.com>
 In-Reply-To: <47FAF533.8010707@jp.fujitsu.com>
@@ -10,33 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Russ Anderson wrote:
-> On Tue, Apr 08, 2008 at 10:51:42AM -0700, Luck, Tony wrote:
->>> I think kdump_on_fatal_mca should be set to 1 by default. Fatal
->>> mca is exactly the case where we need a dump to analyze the problem.
->> I'm not so sure.  If the fatal MCA was caused by the s/w doing something
->> wrong (e.g. accessing non-existant memory), then a dump is useful to find out
->> what went wrong.
->>
->> But if the MCA was caused by some h/w error (e.g. 2xECC bit error in kernel
->> memory), then a dump won't help.
->>
->> Perhaps the dump would help distinguish the s/w case from the h/w case?
-> 
-> Yes.  We generally try to take a dump after a crash to collect all
-> the available data.  The analysis of the data (to determine h/w or
-> s/w) occurs after the reboot.
-> 
 > As an alternative, could kdump_on_fatal_mca be turned on by 
 > default in Altix (in the Altix specific boot code)?  Then
 > we could set our default without impacting other vendors.
 
-Yes, Propack can set the configuration on Altix. I saw the proposed
-patch that changes the current behavior without mentioning it
-at the summary, so i brought it up. ;)
+This is a sysctl variable ... are there any cases where we
+set these to different default values for different platforms?
 
-- jay
+It would seem better for the kernel to set the default value
+to the most useful one, and for system owners that don't want
+the default behaviour to just add an entry to /etc/sysctl.conf
+to set their preference.
 
-> 
-> Thanks,
+I'm not sure how we decide what is the most useful default.
+So far SGI are voting for enabling dumping for MCA, and
+Fujitsu have implicitly voted to disable (as that is what
+Seto-san's patch sets).  Any other opinions?
 
+-Tony
