@@ -1,125 +1,136 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:47 +0000
-Subject: [PATCH 16/23] ia64/pv_ops/xen: paravirtualize ivt.S for xen.
-Message-Id: <12095586543936-git-send-email-yamahata@valinux.co.jp>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Tue, 08 Apr 2008 04:31:47 +0000
+Subject: [PATCH 1/2] ia64 kdump: add kdump_on_fatal_mca
+Message-Id: <47FAF533.8010707@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166303274-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166303274-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize ivt.S for xen by multi compile.
+While it is convenient that we can invoke kdump by asserting INIT
+via button on chassis etc., there are some situations that invoking
+kdump on fatal MCA is not welcomed rather than rebooting fast without
+dump.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+This patch adds a new flag 'kdump_on_fatal_mca' that is independent
+from 'kdump_on_init' currently available.  Adding this flag enable
+us to turning on/off of kdump depend on the event, INIT and/or fatal
+MCA.
+
+Thanks,
+H.Seto
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
 ---
- arch/ia64/xen/Makefile      |   16 +++++++++++-
- arch/ia64/xen/xenivt.S      |   57 +++++++++++++++++++++++++++++++++++++++++++
- include/asm-ia64/xen/inst.h |    1 +
- 3 files changed, 73 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xenivt.S
+ arch/ia64/kernel/crash.c |   31 +++++++++++++++++++++++--------
+ arch/ia64/kernel/mca.c   |    6 +-----
+ 2 files changed, 24 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 7cb4247..5c87e4a 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,5 +2,19 @@
- # Makefile for Xen components
- #
- 
--obj-y := hypercall.o xensetup.o xen_pv_ops.o \
-+obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
- 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
+Index: GIT-torvalds/arch/ia64/kernel/crash.c
+=================================--- GIT-torvalds.orig/arch/ia64/kernel/crash.c
++++ GIT-torvalds/arch/ia64/kernel/crash.c
+@@ -24,6 +24,7 @@ int kdump_status[NR_CPUS];
+ static atomic_t kdump_cpu_frozen;
+ atomic_t kdump_in_progress;
+ static int kdump_on_init = 1;
++static int kdump_on_fatal_mca = 0;
+
+ static inline Elf64_Word
+ *append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
+@@ -148,7 +149,7 @@ kdump_init_notifier(struct notifier_bloc
+ 	struct ia64_mca_notify_die *nd;
+ 	struct die_args *args = data;
+
+-	if (!kdump_on_init)
++	if (!kdump_on_init && !kdump_on_fatal_mca)
+ 		return NOTIFY_DONE;
+
+ 	if (!ia64_kimage) {
+@@ -174,11 +175,14 @@ kdump_init_notifier(struct notifier_bloc
+
+ 	switch (val) {
+ 		case DIE_INIT_MONARCH_PROCESS:
+-			atomic_set(&kdump_in_progress, 1);
+-			*(nd->monarch_cpu) = -1;
++			if (kdump_on_init) {
++				atomic_set(&kdump_in_progress, 1);
++				*(nd->monarch_cpu) = -1;
++			}
+ 			break;
+ 		case DIE_INIT_MONARCH_LEAVE:
+-			machine_kdump_on_init();
++			if (kdump_on_init)
++				machine_kdump_on_init();
+ 			break;
+ 		case DIE_INIT_SLAVE_LEAVE:
+ 			if (atomic_read(&kdump_in_progress))
+@@ -189,16 +193,19 @@ kdump_init_notifier(struct notifier_bloc
+ 				unw_init_running(kdump_cpu_freeze, NULL);
+ 			break;
+ 		case DIE_MCA_MONARCH_LEAVE:
+-		     /* die_register->signr indicate if MCA is recoverable */
+-			if (!args->signr)
++			/* die_register->signr indicate if MCA is recoverable */
++			if (kdump_on_fatal_mca && !args->signr) {
++				atomic_set(&kdump_in_progress, 1);
++				*(nd->monarch_cpu) = -1;
+ 				machine_kdump_on_init();
++			}
+ 			break;
+ 	}
+ 	return NOTIFY_DONE;
+ }
+
+ #ifdef CONFIG_SYSCTL
+-static ctl_table kdump_on_init_table[] = {
++static ctl_table kdump_ctl_table[] = {
+ 	{
+ 		.ctl_name = CTL_UNNUMBERED,
+ 		.procname = "kdump_on_init",
+@@ -207,6 +214,14 @@ static ctl_table kdump_on_init_table[]  		.mode = 0644,
+ 		.proc_handler = &proc_dointvec,
+ 	},
++	{
++		.ctl_name = CTL_UNNUMBERED,
++		.procname = "kdump_on_fatal_mca",
++		.data = &kdump_on_fatal_mca,
++		.maxlen = sizeof(int),
++		.mode = 0644,
++		.proc_handler = &proc_dointvec,
++	},
+ 	{ .ctl_name = 0 }
+ };
+
+@@ -215,7 +230,7 @@ static ctl_table sys_table[] = {
+ 	  .ctl_name = CTL_KERN,
+ 	  .procname = "kernel",
+ 	  .mode = 0555,
+-	  .child = kdump_on_init_table,
++	  .child = kdump_ctl_table,
+ 	},
+ 	{ .ctl_name = 0 }
+ };
+Index: GIT-torvalds/arch/ia64/kernel/mca.c
+=================================--- GIT-torvalds.orig/arch/ia64/kernel/mca.c
++++ GIT-torvalds/arch/ia64/kernel/mca.c
+@@ -1266,16 +1266,12 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 	} else {
+ 		/* Dump buffered message to console */
+ 		ia64_mlogbuf_finish(1);
+-#ifdef CONFIG_KEXEC
+-		atomic_set(&kdump_in_progress, 1);
+-		monarch_cpu = -1;
+-#endif
+ 	}
 +
-+AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-+
-+# xen multi compile
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
-+ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
-+obj-y += $(ASM_PARAVIRT_OBJS)
-+define paravirtualized_xen
-+AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-+endef
-+$(foreach o,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_xen,$(o))))
-+
-+$(obj)/xen-%.o: $(src)/../kernel/%.S FORCE
-+	$(call if_changed_dep,as_o_S)
-diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
-new file mode 100644
-index 0000000..9e322ea
---- /dev/null
-+++ b/arch/ia64/xen/xenivt.S
-@@ -0,0 +1,57 @@
-+/*
-+ * arch/ia64/xen/ivt.S
-+ *
-+ * Copyright (C) 2005 Hewlett-Packard Co
-+ *	Dan Magenheimer <dan.magenheimer@hp.com>
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *                    pv_ops.
-+ */
-+
-+#include <asm/asmmacro.h>
-+#include <asm/kregs.h>
-+#include <asm/pgtable.h>
-+
-+#include "../kernel/minstate.h"
-+
-+	.section .text,"ax"
-+GLOBAL_ENTRY(xen_event_callback)
-+	mov r31=pr		// prepare to save predicates
-+	;;
-+	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
-+	;;
-+	movl r3=XSI_PSR_IC
-+	mov r14=1
-+	;;
-+	st4 [r3]=r14
-+	;;
-+	adds r3=8,r2		// set up second base pointer for SAVE_REST
-+	srlz.i			// ensure everybody knows psr.ic is back on
-+	;;
-+	SAVE_REST
-+	;;
-+1:
-+	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
-+	add out0,sp		// pass pointer to pt_regs as first arg
-+	;;
-+	br.call.sptk.many b0=xen_evtchn_do_upcall
-+	;;
-+	movl r20=XSI_PSR_I_ADDR
-+	;;
-+	ld8 r20=[r20]
-+	;;
-+	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
-+	;;
-+	ld1 r20=[r20]
-+	;;
-+	cmp.ne p6,p0=r20,r0	// if there are pending events,
-+	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
-+	br.sptk.many xen_leave_kernel	// we know ia64_leave_kernel is
-+					// paravirtualized as xen_leave_kernel
-+END(xen_event_callback)
-+
-+GLOBAL_ENTRY(xen_bsw1)
-+	XEN_BSW_1(r14)
-+	br.ret.sptk.many b0
-+END(xen_bsw1)
-diff --git a/include/asm-ia64/xen/inst.h b/include/asm-ia64/xen/inst.h
-index fa00d16..eff1c91 100644
---- a/include/asm-ia64/xen/inst.h
-+++ b/include/asm-ia64/xen/inst.h
-@@ -22,6 +22,7 @@
- 
- #include <asm/xen/privop.h>
- 
-+#define ia64_ivt				xen_ivt
- #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
- 
- #define MOV_FROM_IFA(reg)	\
--- 
-1.5.3
+ 	if (notify_die(DIE_MCA_MONARCH_LEAVE, "MCA", regs, (long)&nd, 0, recover)
+ 			= NOTIFY_STOP)
+ 		ia64_mca_spin(__func__);
+
+-
+ 	if (atomic_dec_return(&mca_count) > 0) {
+ 		int i;
+
 
