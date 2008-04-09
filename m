@@ -1,114 +1,199 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Mon, 14 Apr 2008 21:59:07 +0000
-Subject: Re: [2.6 patch] add SGI_IOC4 hardware dependencies
-Message-Id: <alpine.BSF.1.10.0804141615030.52763@pkunk.americas.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:49:00 +0000
+Subject: [PATCH 07/15] ia64/pv_ops: define paravirtualized instructions for native.
+Message-Id: <12077165493913-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080413181543.GF2182@cs181133002.pp.htv.fi>
-In-Reply-To: <20080413181543.GF2182@cs181133002.pp.htv.fi>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 14 Apr 2008, Adrian Bunk wrote:
+pv_cpu_asm_ops: define paravirtualized introduce for native execution
+environment.
 
-> On Mon, Apr 14, 2008 at 02:40:37PM -0500, Brent Casavant wrote:
-> > On Sun, 13 Apr 2008, Adrian Bunk wrote:
-> > 
-> > > Considering that all users of this code depend on
-> > > (IA64_SGI_SN2 || IA64_GENERIC) the SGI_IOC4 option
-> > > should also depend on it.
-> > > 
-> > > Signed-off-by: Adrian Bunk <bunk@kernel.org>
-> > 
-> > Tony,
-> > 
-> > Please don't apply this yet.  I'll need some guidance from Adrian
-> > and you on how to proceed.
-> > 
-> > The IOC4 chip _is_ available on a PCI card for x86 based systems.
-> > And that is why I removed the dependence of the config option on
-> > IA64_SGI_SN2 || IA64_GENERIC.
-> > 
-> > Unfortunately the only user of IOC4 on x86 is the "external interrupt"
-> > IOC4 sub-driver which is available under the GPL, but was not accepted
-> > into the Linux kernel.
-> >...
-> 
-> I wasn't aware of that driver.
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ include/asm-ia64/native/inst.h |  170 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 170 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/native/inst.h
 
-No big deal.  It's not very well publicized, and as I mentioned I
-overlooked making it easily available for download (we do make the
-source available on physical media to everyone we send precompiled
-binaries to).  I'm working on rectifying that oversight.
-
-> Why wasn't it accepted?
-
-The short answer is (to paraphrase) "the code is too complex for a
-one-off device".
-
-The linux-kernel thread regarding this begins with these three posts:
-
-	http://marc.info/?l=linux-kernel&m2448872525388&w=2
-	http://marc.info/?l=linux-kernel&m2448872506580&w=2
-	http://marc.info/?l=linux-kernel&m2448872526711&w=2
-
-(Don't look too hard at the code, it's been improved since then.  But
-the general structure remains the same.)
-
-Curiously enough I can't find the message where there were complaints
-about it being too complex.  I wonder if those only came to me privately.
-I was a bit more timid in my early lkml experience, and might have been
-too easily dissuaded from pursuing this. Anyway. . .
-
-In order to present a common method of interacting with external
-interrupt hardware to user space (i.e. present a common set of
-/sys/class/extint/*/* files and operations), I split the external
-interrupt driver into two parts.  This was done so that not only would
-the IOC4 chip would be supported, but so that if there was interest
-someone else could write external interrupt support for the IOC3
-chip, or use this same interface as a generic mechanism for any
-similar device other parties may provide.
-
-The first "low level" part is the section resposible for functioning
-the underlying hardware.  The second "abstraction" part exports the
-consistent user-visible portions (i.e. the /sys/class and /dev interfaces).
-These two portions interact with one another to abstract away all
-the nitty-gritty low-level details of the hardware, such that the
-user doesn't have to be concerned with what hardware device is
-at the bottom of the stack.  Sort of like how you don't worry which
-Ethernet controller is being used when writing (most) networking
-applications.
-
-As you can imagine, this means there was a whole layer of interface
-between the low-level and abstraction driver that was generalized to
-handle the needs of both.  I submitted only a single low-level driver
-(for IOC4) as part of the original patch set, as that's all I had
-written.  The patch set was rejected because it was carrying around far
-too much complexity/generality for the one device which would use it.
-
-It's hard to argue that such complaints were invalid given what I'd
-submitted. :)
-
-Since then I've had the Linux MIPS folks ask me about this code at a
-few points in time, as they might want to use it for the IOC3 present
-on SGI's old Octane and Origin 2000 machines.  Also, as SGI moves onto
-newer platforms we're investigating replacing the IOC4-based devices with
-something else, hopefully that we don't have to build ourselves.  We
-would certainly be looking to fit any such device into the existing
-external interrupt framework.  At that point it would become a lot
-easier to justify the additional complexity of the abstraction layer,
-but sadly we're not there yet.
-
-I hope that's some useful background.
-
-Looking again at the feedback I received originally, I may just have
-been too timid to push this for inclusion.  Perhaps I need to try
-again with the latest and greatest.
-
-Brent
-
+diff --git a/include/asm-ia64/native/inst.h b/include/asm-ia64/native/inst.h
+new file mode 100644
+index 0000000..295fde3
+--- /dev/null
++++ b/include/asm-ia64/native/inst.h
+@@ -0,0 +1,170 @@
++/******************************************************************************
++ * include/asm-ia64/native/inst.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
++# define PARAVIRT_POISON	0xdeadbeefbaadf00d
++# define CLOBBER(clob)				\
++	;;					\
++	movl clob = PARAVIRT_POISON;		\
++	;;
++#else
++# define CLOBBER(clob)		/* nothing */
++#endif
++
++#define MOV_FROM_IFA(reg)	\
++	mov reg = cr.ifa
++
++#define MOV_FROM_ITIR(reg)	\
++	mov reg = cr.itir
++
++#define MOV_FROM_ISR(reg)	\
++	mov reg = cr.isr
++
++#define MOV_FROM_IHA(reg)	\
++	mov reg = cr.iha
++
++#define MOV_FROM_IPSR(pred, reg)	\
++(pred)	mov reg = cr.ipsr
++
++#define MOV_FROM_IIM(reg)	\
++	mov reg = cr.iim
++
++#define MOV_FROM_IIP(reg)	\
++	mov reg = cr.iip
++
++#define MOV_FROM_IVR(reg, clob)	\
++	mov reg = cr.ivr	\
++	CLOBBER(clob)
++
++#define MOV_FROM_PSR(pred, reg, clob)	\
++(pred)	mov reg = psr			\
++	CLOBBER(clob)
++
++#define MOV_TO_IFA(reg, clob)	\
++	mov cr.ifa = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_ITIR(pred, reg, clob)	\
++(pred)	mov cr.itir = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IHA(pred, reg, clob)	\
++(pred)	mov cr.iha = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IPSR(reg, clob)	\
++	mov cr.ipsr = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_IFS(pred, reg, clob)	\
++(pred)	mov cr.ifs = reg		\
++	CLOBBER(clob)
++
++#define MOV_TO_IIP(reg, clob)	\
++	mov cr.iip = reg	\
++	CLOBBER(clob)
++
++#define MOV_TO_KR(kr, reg, clob0, clob1)	\
++	mov IA64_KR(kr) = reg			\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)
++
++#define ITC_I(pred, reg, clob)	\
++(pred)	itc.i reg		\
++	CLOBBER(clob)
++
++#define ITC_D(pred, reg, clob)	\
++(pred)	itc.d reg		\
++	CLOBBER(clob)
++
++#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
++(pred_i) itc.i reg;				\
++(pred_d) itc.d reg				\
++	CLOBBER(clob)
++
++#define THASH(pred, reg0, reg1, clob)		\
++(pred)	thash reg0 = reg1			\
++	CLOBBER(clob)
++
++#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)			\
++	ssm psr.ic | PSR_DEFAULT_BITS					\
++	CLOBBER(clob0)							\
++	CLOBBER(clob1)							\
++	;;								\
++	srlz.i /* guarantee that interruption collectin is on */	\
++	;;
++
++#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
++	ssm psr.ic				\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)				\
++	;;					\
++	srlz.d
++
++#define RSM_PSR_IC(clob)	\
++	rsm psr.ic		\
++	CLOBBER(clob)
++
++#define SSM_PSR_I(pred, clob)	\
++(pred)	ssm psr.i		\
++	CLOBBER(clob)
++
++#define RSM_PSR_I(pred, clob0, clob1)	\
++(pred)	rsm psr.i			\
++	CLOBBER(clob0)			\
++	CLOBBER(clob1)
++
++#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
++	rsm psr.i | psr.ic			\
++	CLOBBER(clob0)				\
++	CLOBBER(clob1)				\
++	CLOBBER(clob2)
++
++#define RSM_PSR_DT		\
++	rsm psr.dt
++
++#define RSM_PSR_DT_AND_SRLZ_I	\
++	rsm psr.dt		\
++	;;			\
++	srlz.i
++
++#define SSM_PSR_DT_AND_SRLZ_I	\
++	ssm psr.dt		\
++	;;			\
++	srlz.i
++
++#define BSW_0(clob0, clob1, clob2)	\
++	bsw.0				\
++	CLOBBER(clob0)			\
++	CLOBBER(clob1)			\
++	CLOBBER(clob2)
++
++#define BSW_1(clob0, clob1)	\
++	bsw.1			\
++	CLOBBER(clob0)		\
++	CLOBBER(clob1)
++
++#define COVER	\
++	cover
++
++#define RFI	\
++	rfi
 -- 
-Brent Casavant                          All music is folk music.  I ain't
-bcasavan@sgi.com                        never heard a horse sing a song.
-Silicon Graphics, Inc.                    -- Louis Armstrong
+1.5.3
+
