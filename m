@@ -1,201 +1,86 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:20 +0000
-Subject: [PATCH 07/15] ia64/pv_ops: define paravirtualized instructions for native.
-Message-Id: <12095585681033-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:50:08 +0000
+Subject: [PATCH 01/23] ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
+Message-Id: <12077166303062-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165493913-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165493913-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-pv_cpu_asm_ops: define paravirtualized introduce for native execution
-environment.
+define sync bitops which is necessary for ia64/xen.
 
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/asm-ia64/native/inst.h |  170 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 170 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/native/inst.h
+ include/asm-ia64/sync_bitops.h |   59 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 59 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/sync_bitops.h
 
-diff --git a/include/asm-ia64/native/inst.h b/include/asm-ia64/native/inst.h
+diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
 new file mode 100644
-index 0000000..295fde3
+index 0000000..f56cd90
 --- /dev/null
-+++ b/include/asm-ia64/native/inst.h
-@@ -0,0 +1,170 @@
-+/******************************************************************************
-+ * include/asm-ia64/native/inst.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
++++ b/include/asm-ia64/sync_bitops.h
+@@ -0,0 +1,59 @@
++#ifndef _ASM_IA64_SYNC_BITOPS_H
++#define _ASM_IA64_SYNC_BITOPS_H
++
++/*
++ * Copyright 1992, Linus Torvalds.
++ * Heavily modified to provide guaranteed strong synchronisation
++ * when communicating with Xen or other guest OSes running on other CPUs.
 + */
 +
-+#ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
-+# define PARAVIRT_POISON	0xdeadbeefbaadf00d
-+# define CLOBBER(clob)				\
-+	;;					\
-+	movl clob = PARAVIRT_POISON;		\
-+	;;
-+#else
-+# define CLOBBER(clob)		/* nothing */
-+#endif
++static inline void sync_set_bit(int nr, volatile void *addr)
++{
++	set_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IFA(reg)	\
-+	mov reg = cr.ifa
++static inline void sync_clear_bit(int nr, volatile void *addr)
++{
++	clear_bit(nr, addr);
++}
 +
-+#define MOV_FROM_ITIR(reg)	\
-+	mov reg = cr.itir
++static inline void sync_change_bit(int nr, volatile void *addr)
++{
++	change_bit(nr, addr);
++}
 +
-+#define MOV_FROM_ISR(reg)	\
-+	mov reg = cr.isr
++static inline int sync_test_and_set_bit(int nr, volatile void *addr)
++{
++	return test_and_set_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IHA(reg)	\
-+	mov reg = cr.iha
++static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
++{
++	return test_and_clear_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IPSR(pred, reg)	\
-+(pred)	mov reg = cr.ipsr
++static inline int sync_test_and_change_bit(int nr, volatile void *addr)
++{
++	return test_and_change_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IIM(reg)	\
-+	mov reg = cr.iim
++static inline int sync_const_test_bit(int nr, const volatile void *addr)
++{
++	return test_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IIP(reg)	\
-+	mov reg = cr.iip
++static inline int sync_var_test_bit(int nr, volatile void *addr)
++{
++	return test_bit(nr, addr);
++}
 +
-+#define MOV_FROM_IVR(reg, clob)	\
-+	mov reg = cr.ivr	\
-+	CLOBBER(clob)
++#define sync_cmpxchg	ia64_cmpxchg4_acq
 +
-+#define MOV_FROM_PSR(pred, reg, clob)	\
-+(pred)	mov reg = psr			\
-+	CLOBBER(clob)
++#define sync_test_bit(nr,addr)			\
++	(__builtin_constant_p(nr) ?		\
++	 sync_const_test_bit((nr), (addr)) :	\
++	 sync_var_test_bit((nr), (addr)))
 +
-+#define MOV_TO_IFA(reg, clob)	\
-+	mov cr.ifa = reg	\
-+	CLOBBER(clob)
++#define sync_cmpxchg_subword sync_cmpxchg
 +
-+#define MOV_TO_ITIR(pred, reg, clob)	\
-+(pred)	mov cr.itir = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IHA(pred, reg, clob)	\
-+(pred)	mov cr.iha = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IPSR(reg, clob)	\
-+	mov cr.ipsr = reg	\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IFS(pred, reg, clob)	\
-+(pred)	mov cr.ifs = reg		\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_IIP(reg, clob)	\
-+	mov cr.iip = reg	\
-+	CLOBBER(clob)
-+
-+#define MOV_TO_KR(kr, reg, clob0, clob1)	\
-+	mov IA64_KR(kr) = reg			\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)
-+
-+#define ITC_I(pred, reg, clob)	\
-+(pred)	itc.i reg		\
-+	CLOBBER(clob)
-+
-+#define ITC_D(pred, reg, clob)	\
-+(pred)	itc.d reg		\
-+	CLOBBER(clob)
-+
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
-+(pred_i) itc.i reg;				\
-+(pred_d) itc.d reg				\
-+	CLOBBER(clob)
-+
-+#define THASH(pred, reg0, reg1, clob)		\
-+(pred)	thash reg0 = reg1			\
-+	CLOBBER(clob)
-+
-+#define SSM_PSR_IC_AND_DEFAULT_BITS(clob0, clob1)			\
-+	ssm psr.ic | PSR_DEFAULT_BITS					\
-+	CLOBBER(clob0)							\
-+	CLOBBER(clob1)							\
-+	;;								\
-+	srlz.i /* guarantee that interruption collectin is on */	\
-+	;;
-+
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
-+	ssm psr.ic				\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)				\
-+	;;					\
-+	srlz.d
-+
-+#define RSM_PSR_IC(clob)	\
-+	rsm psr.ic		\
-+	CLOBBER(clob)
-+
-+#define SSM_PSR_I(pred, clob)	\
-+(pred)	ssm psr.i		\
-+	CLOBBER(clob)
-+
-+#define RSM_PSR_I(pred, clob0, clob1)	\
-+(pred)	rsm psr.i			\
-+	CLOBBER(clob0)			\
-+	CLOBBER(clob1)
-+
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
-+	rsm psr.i | psr.ic			\
-+	CLOBBER(clob0)				\
-+	CLOBBER(clob1)				\
-+	CLOBBER(clob2)
-+
-+#define RSM_PSR_DT		\
-+	rsm psr.dt
-+
-+#define RSM_PSR_DT_AND_SRLZ_I	\
-+	rsm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define SSM_PSR_DT_AND_SRLZ_I	\
-+	ssm psr.dt		\
-+	;;			\
-+	srlz.i
-+
-+#define BSW_0(clob0, clob1, clob2)	\
-+	bsw.0				\
-+	CLOBBER(clob0)			\
-+	CLOBBER(clob1)			\
-+	CLOBBER(clob2)
-+
-+#define BSW_1(clob0, clob1)	\
-+	bsw.1			\
-+	CLOBBER(clob0)		\
-+	CLOBBER(clob1)
-+
-+#define COVER	\
-+	cover
-+
-+#define RFI	\
-+	rfi
++#endif /* _ASM_IA64_SYNC_BITOPS_H */
 -- 
 1.5.3
 
