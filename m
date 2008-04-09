@@ -1,36 +1,31 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Fri, 25 Apr 2008 18:56:04 +0000
-Subject: Re: [Patch 1/4] move XP and XPC to drivers/misc/sgi-xp -v4
-Message-Id: <20080425185604.GB13773@sgi.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Date: Wed, 09 Apr 2008 11:45:32 +0000
+Subject: Re: [PATCH 1/2] HAVE_SET_RESTORE_SIGMASK
+Message-Id: <1207741532.27048.64.camel@shinybook.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080422194459.GB13086@sgi.com> <20080422194656.GA14628@sgi.com> <1FE6DD409037234FAB833C420AA843EC012AF3D7@orsmsx424.amr.corp.intel.com> <1FE6DD409037234FAB833C420AA843EC012AF549@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC012AF549@orsmsx424.amr.corp.intel.com>
+References: <20080329001230.D013726FA1D@magilla.localdomain>
+	 <20080329001341.7F93826FA1D@magilla.localdomain>
+	 <alpine.LFD.1.00.0803281746480.14670@woody.linux-foundation.org>
+	 <20080329022408.0DD4726FA1D@magilla.localdomain>
+	 <20080329031146.6FF7126FA1D@magilla.localdomain>
+In-Reply-To: <20080329031146.6FF7126FA1D@magilla.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: jes@sgi.com, gregkh@suse.de, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Roland McGrath <roland@redhat.com>
+Cc: "Linus Torvalds <torvalds@linux-foundation.org>Andrew Morton" <akpm@linux-foundation.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-s390@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, miles@gnu.org, rmk+linux@arm.linux.org.uk, geert@linux-m68k.org, zippel@linux-m68k.org
 
-On Tue, Apr 22, 2008 at 03:21:53PM -0700, Luck, Tony wrote:
-> > I applied this series on top of this morning's patch to change
-> > the uncached allocator to support multiple page allocations.
-> 
-> I've now dropped the change to the uncached allocator. You'll need
-> to update this patch with the changes to the users of 
-> uncached_{alloc,free}_page.
+On Fri, 2008-03-28 at 20:11 -0700, Roland McGrath wrote:
+> Change all the #ifdef TIF_RESTORE_SIGMASK conditionals in non-arch
+> code to #ifdef HAVE_SET_RESTORE_SIGMASK.
 
-Sorry for not responding sooner, but I've been on vacation (and still am)
-and wasn't reading email.
+That ifdef was only supposed to be a temporary thing until all
+architectures had implemented TIF_RESTORE_SIGMASK anyway.
 
-Thanks for dropping the uncached allocator patch in favor of the patchset
-that moves XPC/XPNET to drivers/misc/sgi-xp.
+It looks like only ARM, v850 and m68k which are still missing it; if
+those three architectures can catch up, then hopefully it can die off
+completely quite soon.
 
-I've just submitted a new version of the uncached allocator patch that
-includes the changes to drivers/misc/sgi-xp/xpc_partition.c necesssary
-for the system to build cleanly. (Sorry about that.)
+-- 
+dwmw2
 
-> Using the older one-page version your patches to move XP and
-> XPC all apply, and I see no build errors (I don't have a system
-> on which to check that this works).
-
-Doing what you did did result in a functioning XPC kernel module. Thanks.
