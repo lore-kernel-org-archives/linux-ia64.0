@@ -1,25 +1,101 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 02 Apr 2008 23:48:03 +0000
-Subject: RE: [02/17][PATCH] Implement smp_call_function_mask for ia64 - V8
-Message-Id: <1FE6DD409037234FAB833C420AA843ECF9E1F1@orsmsx424.amr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:50:30 +0000
+Subject: [PATCH 23/23] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
+Message-Id: <1207716631167-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDC01048240@pdsmsx415.ccr.corp.intel.com>	<47F0AB18.2010707@sgi.com>
-	<47F0FCFE.5010106@goop.org> <47F1F3B1.7020308@sgi.com>
-	<47F25D6B.40704@goop.org> <47F3362F.3020504@sgi.com>
-In-Reply-To: <47F3362F.3020504@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: Carsten Otte <cotte@de.ibm.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, virtualization@lists.linux-foundation.org, "Zhang,  Xiantao" <xiantao.zhang@intel.com>
+To: linux-ia64@vger.kernel.org
 
-> > Have you looked at Jens Axboe's patches to make all this stuff a lot 
-> > more arch-common?
->
-> Nope, do you have a pointer?
+introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
+paravirtualized guest.
+introduce CONFING_XEN, CONFIG_IA64_XEN for xen.
 
-Check your favourite archive for this Subject line:
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/Kconfig     |   31 +++++++++++++++++++++++++++++++
+ arch/ia64/xen/Kconfig |   21 +++++++++++++++++++++
+ 2 files changed, 52 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/Kconfig
 
- Generic smp_call_function(), improvements, and  smp_call_function_single()
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 8fa3faf..ca4d559 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -111,6 +111,33 @@ config AUDIT_ARCH
+ 	bool
+ 	default y
+ 
++menuconfig PARAVIRT_GUEST
++	bool "Paravirtualized guest support"
++	help
++	  Say Y here to get to see options related to running Linux under
++	  various hypervisors.  This option alone does not add any kernel code.
++
++	  If you say N, all options in this submenu will be skipped and disabled.
++
++if PARAVIRT_GUEST
++
++config PARAVIRT
++	bool "Enable paravirtualization code"
++	depends on PARAVIRT_GUEST
++	default y
++	bool
++	default y
++	help
++	  This changes the kernel so it can modify itself when it is run
++	  under a hypervisor, potentially improving performance significantly
++	  over full virtualization.  However, when run without a hypervisor
++	  the kernel is theoretically slower and slightly larger.
++
++
++source "arch/ia64/xen/Kconfig"
++
++endif
++
+ choice
+ 	prompt "System type"
+ 	default IA64_GENERIC
+@@ -169,6 +196,10 @@ config IA64_HP_SIM
+ 	bool "Ski-simulator"
+ 	select SWIOTLB
+ 
++config IA64_XEN
++	bool "Xen guest"
++	depends on XEN
++
+ endchoice
+ 
+ choice
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+new file mode 100644
+index 0000000..829b85c
+--- /dev/null
++++ b/arch/ia64/xen/Kconfig
+@@ -0,0 +1,21 @@
++#
++# This Kconfig describes xen/ia64 options
++#
++
++config XEN
++	bool "Xen hypervisor support"
++	default y
++	depends on PARAVIRT && !(IA64_DIG || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB || IA64_SGI_SN2 || IA64_HP_SIM) && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
++	select XEN_XENCOMM
++	select NO_IDLE_HZ
++	help
++	  Enable Xen hypervisor support.  Resulting kernel runs
++	  both as a guest OS on Xen and natively on hardware.
++
++config XEN_XENCOMM
++	depends on XEN
++	bool
++
++config NO_IDLE_HZ
++	depends on XEN
++	bool
+-- 
+1.5.3
 
--Tony
