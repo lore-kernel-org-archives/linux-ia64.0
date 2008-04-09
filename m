@@ -1,138 +1,198 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Tue, 29 Apr 2008 23:20:37 +0000
-Subject: Re: [PATCH 2/2] ia64: Provide ACPI fixup for
-Message-Id: <20080429232037.GA3820@ldl.fc.hp.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:49:05 +0000
+Subject: [PATCH 12/15] ia64/pv_ops: define initialization hooks, pv_init_ops, for paravirtualized environment
+Message-Id: <12077165492631-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com> <20080326185912.GA30749@ldl.fc.hp.com> <20080421052450.GA24055@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com> <20080424184417.GA32553@ldl.fc.hp.com> <20080424185222.GC32553@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC0138200C@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0138200C@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi Tony,
+define pv_init_ops hooks which represents various initialization
+hooks for paravirtualized environment. and add hooks.
 
-* Luck, Tony <tony.luck@intel.com>:
-> Alex,
-> 
-> I chewed on this a bit ... 
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/paravirt.c |    7 ++++
+ arch/ia64/kernel/setup.c    |   10 ++++++
+ arch/ia64/kernel/smpboot.c  |    2 +
+ include/asm-ia64/paravirt.h |   70 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 89 insertions(+), 0 deletions(-)
 
-Thanks for all the fixups -- your version looks a lot nicer!
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 6d7ae59..0b57a8d 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -41,6 +41,13 @@ struct pv_info pv_info = {
+ };
+ 
+ /***************************************************************************
++ * pv_init_ops
++ * initialization hooks.
++ */
++
++struct pv_init_ops pv_init_ops;
++
++/***************************************************************************
+  * pv_cpu_ops
+  * intrinsics hooks.
+  */
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 4aa9eae..c7e95ba 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -51,6 +51,7 @@
+ #include <asm/mca.h>
+ #include <asm/meminit.h>
+ #include <asm/page.h>
++#include <asm/paravirt.h>
+ #include <asm/patch.h>
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
+@@ -288,6 +289,8 @@ reserve_memory (void)
+ 	rsvd_region[n].end   = (unsigned long) ia64_imva(_end);
+ 	n++;
+ 
++	n += paravirt_reserve_memory(&rsvd_region[n]);
++
+ #ifdef CONFIG_BLK_DEV_INITRD
+ 	if (ia64_boot_param->initrd_start) {
+ 		rsvd_region[n].start = (unsigned long)__va(ia64_boot_param->initrd_start);
+@@ -466,6 +469,8 @@ setup_arch (char **cmdline_p)
+ {
+ 	unw_init();
+ 
++	paravirt_arch_setup_early();
++
+ 	ia64_patch_vtop((u64) __start___vtop_patchlist, (u64) __end___vtop_patchlist);
+ 
+ 	*cmdline_p = __va(ia64_boot_param->command_line);
+@@ -518,6 +523,9 @@ setup_arch (char **cmdline_p)
+ 	acpi_boot_init();
+ #endif
+ 
++	paravirt_banner();
++	paravirt_arch_setup_console(cmdline_p);
++
+ #ifdef CONFIG_VT
+ 	if (!conswitchp) {
+ # if defined(CONFIG_DUMMY_CONSOLE)
+@@ -537,6 +545,8 @@ setup_arch (char **cmdline_p)
+ #endif
+ 
+ 	/* enable IA-64 Machine Check Abort Handling unless disabled */
++	if (paravirt_arch_setup_nomca())
++		nomca = 1;
+ 	if (!nomca)
+ 		ia64_mca_init();
+ 
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 32ee597..e7ce751 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -50,6 +50,7 @@
+ #include <asm/machvec.h>
+ #include <asm/mca.h>
+ #include <asm/page.h>
++#include <asm/paravirt.h>
+ #include <asm/pgalloc.h>
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
+@@ -642,6 +643,7 @@ void __devinit smp_prepare_boot_cpu(void)
+ 	cpu_set(smp_processor_id(), cpu_online_map);
+ 	cpu_set(smp_processor_id(), cpu_callin_map);
+ 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
++	paravirt_post_smp_prepare_boot_cpu();
+ }
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+index 26b4334..8778e8b 100644
+--- a/include/asm-ia64/paravirt.h
++++ b/include/asm-ia64/paravirt.h
+@@ -52,11 +52,81 @@ static inline unsigned int get_kernel_rpl(void)
+ 	return pv_info.kernel_rpl;
+ }
+ 
++/******************************************************************************
++ * initialization hooks.
++ */
++struct rsvd_region;
++
++struct pv_init_ops {
++	void (*banner)(void);
++
++	int (*reserve_memory)(struct rsvd_region *region);
++
++	void (*arch_setup_early)(void);
++	void (*arch_setup_console)(char **cmdline_p);
++	int (*arch_setup_nomca)(void);
++
++	void (*post_smp_prepare_boot_cpu)(void);
++};
++
++extern struct pv_init_ops pv_init_ops;
++
++static inline void paravirt_banner(void)
++{
++	if (pv_init_ops.banner)
++		pv_init_ops.banner();
++}
++
++static inline int paravirt_reserve_memory(struct rsvd_region *region)
++{
++	if (pv_init_ops.reserve_memory)
++		return pv_init_ops.reserve_memory(region);
++	return 0;
++}
++
++static inline void paravirt_arch_setup_early(void)
++{
++	if (pv_init_ops.arch_setup_early)
++		pv_init_ops.arch_setup_early();
++}
++
++static inline void paravirt_arch_setup_console(char **cmdline_p)
++{
++	if (pv_init_ops.arch_setup_console)
++		pv_init_ops.arch_setup_console(cmdline_p);
++}
++
++static inline int paravirt_arch_setup_nomca(void)
++{
++	if (pv_init_ops.arch_setup_nomca)
++		return pv_init_ops.arch_setup_nomca();
++	return 0;
++}
++
++static inline void paravirt_post_smp_prepare_boot_cpu(void)
++{
++	if (pv_init_ops.post_smp_prepare_boot_cpu)
++		pv_init_ops.post_smp_prepare_boot_cpu();
++}
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #else
+ /* fallback for native case */
+ 
++#ifndef __ASSEMBLY__
++
++#define paravirt_banner()				do { } while (0)
++#define paravirt_reserve_memory(region)			0
++
++#define paravirt_arch_setup_early()			do { } while (0)
++#define paravirt_arch_setup_console(cmdline_p)		do { } while (0)
++#define paravirt_arch_setup_nomca()			0
++#define paravirt_post_smp_prepare_boot_cpu()		do { } while (0)
++
++#endif /* __ASSEMBLY__ */
++
++
+ #endif /* CONFIG_PARAVIRT_GUEST */
+ 
+ #endif /* __ASM_PARAVIRT_H */
+-- 
+1.5.3
 
-> diff --git a/include/asm-x86/topology.h b/include/asm-x86/topology.h
-> +#define arch_fix_phys_package_id(num, slot)
-> 
-> Style preference is to now use a "static inline void" function for
-> this to make sure args are correctly typed, and to avoid warnings about
-> unused variables.
-
-*nod*
-
-I'll use that convention in the future, thanks.
-
-> updated version of the patch looks like this ... ok???
-
-Looks great to me.
-
-/ac
-
-> 
-> -Tony
-> 
-> commit fe086a7bea7ab714930bd48addba961ceeef7634
-> Author: Alex Chiang <achiang@hp.com>
-> Date:   Tue Apr 29 15:05:29 2008 -0700
-> 
->     [IA64] Provide ACPI fixup for /proc/cpuinfo/physical_id
->     
->     Legacy HP ia64 platforms currently cannot provide
->     /proc/cpuinfo/physical_id due to legacy SAL/PAL implementations.
->     However, that physical topology information can be obtained
->     via ACPI.
->     
->     Provide an interface that gives ACPI one last chance to provide
->     physical_id for these legacy platforms. This logic only comes
->     into play iff:
->     
->     - ACPI actually provides slot information for the CPU
->     - we lack a valid socket_id
->     
->     Otherwise, we don't do anything.
->     
->     Since x86 uses the ACPI processor driver as well, we provide a nop
->     stub function for arch_fix_phys_package_id() in asm-x86/topology.h
->     
->     Signed-off-by: Alex Chiang <achiang@hp.com>
->     Signed-off-by: Tony Luck <tony.luck@intel.com>
-> 
-> diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-> index a2484fc..abb17a6 100644
-> --- a/arch/ia64/kernel/topology.c
-> +++ b/arch/ia64/kernel/topology.c
-> @@ -27,6 +27,15 @@
->  
->  static struct ia64_cpu *sysfs_cpus;
->  
-> +void arch_fix_phys_package_id(int num, u32 slot)
-> +{
-> +#ifdef CONFIG_SMP
-> +	if (cpu_data(num)->socket_id = -1)
-> +		cpu_data(num)->socket_id = slot;
-> +#endif
-> +}
-> +EXPORT_SYMBOL_GPL(arch_fix_phys_package_id);
-> +
->  int arch_register_cpu(int num)
->  {
->  #if defined (CONFIG_ACPI) && defined (CONFIG_HOTPLUG_CPU)
-> diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-> index dd28c91..5241e3f 100644
-> --- a/drivers/acpi/processor_core.c
-> +++ b/drivers/acpi/processor_core.c
-> @@ -603,6 +603,15 @@ static int acpi_processor_get_info(struct acpi_processor *pr, unsigned has_uid)
->  		request_region(pr->throttling.address, 6, "ACPI CPU throttle");
->  	}
->  
-> +	/*
-> +	 * If ACPI describes a slot number for this CPU, we can use it
-> +	 * ensure we get the right value in the "physical id" field
-> +	 * of /proc/cpuinfo
-> +	 */
-> +	status = acpi_evaluate_object(pr->handle, "_SUN", NULL, &buffer);
-> +	if (ACPI_SUCCESS(status))
-> +		arch_fix_phys_package_id(pr->id, object.integer.value);
-> +
->  	return 0;
->  }
->  
-> diff --git a/include/asm-ia64/topology.h b/include/asm-ia64/topology.h
-> index f2f72ef..32863b3 100644
-> --- a/include/asm-ia64/topology.h
-> +++ b/include/asm-ia64/topology.h
-> @@ -116,6 +116,8 @@ void build_cpu_to_node_map(void);
->  #define smt_capable() 				(smp_num_siblings > 1)
->  #endif
->  
-> +extern void arch_fix_phys_package_id(int num, u32 slot);
-> +
->  #define pcibus_to_cpumask(bus)	(pcibus_to_node(bus) = -1 ? \
->  					CPU_MASK_ALL : \
->  					node_to_cpumask(pcibus_to_node(bus)) \
-> diff --git a/include/asm-x86/topology.h b/include/asm-x86/topology.h
-> index 0e6d6b0..4f35a0f 100644
-> --- a/include/asm-x86/topology.h
-> +++ b/include/asm-x86/topology.h
-> @@ -193,6 +193,10 @@ extern cpumask_t cpu_coregroup_map(int cpu);
->  #define topology_thread_siblings(cpu)		(per_cpu(cpu_sibling_map, cpu))
->  #endif
->  
-> +static inline void arch_fix_phys_package_id(int num, u32 slot)
-> +{
-> +}
-> +
->  struct pci_bus;
->  void set_pci_bus_resources_arch_default(struct pci_bus *b);
->  
-> 
-> 
