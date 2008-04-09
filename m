@@ -1,65 +1,66 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:35 +0000
-Subject: [PATCH 04/23] ia64/xen: define several constants for ia64/xen.
-Message-Id: <1209558654489-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:48:55 +0000
+Subject: [PATCH 02/15] ia64/pv_ops: preparation: introduce ia64_set_rr0_to_rr4() to make kernel paravirtualiz
+Message-Id: <1207716548181-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166301833-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166301833-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define several constants for ia64/xen.
+make kernel paravirtualization friendly by introducing
+ia64_set_rr0_to_rr4().
+ia64/Xen will replace setting rr[0-4] with single hypercall later.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ include/asm-ia64/intrinsics.h  |   10 ++++++++++
+ include/asm-ia64/mmu_context.h |    6 +-----
+ 2 files changed, 11 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index c64a55a..6bd3fc5 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -16,6 +16,8 @@
- #include <asm-ia64/sigcontext.h>
- #include <asm-ia64/mca.h>
+diff --git a/include/asm-ia64/intrinsics.h b/include/asm-ia64/intrinsics.h
+index f1135b5..72f0383 100644
+--- a/include/asm-ia64/intrinsics.h
++++ b/include/asm-ia64/intrinsics.h
+@@ -18,6 +18,15 @@
+ # include <asm/gcc_intrin.h>
+ #endif
  
-+#include <asm-ia64/xen/interface.h>
++#define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)	\
++do {								\
++	ia64_set_rr(0x0000000000000000UL, (val0));		\
++	ia64_set_rr(0x2000000000000000UL, (val1));		\
++	ia64_set_rr(0x4000000000000000UL, (val2));		\
++	ia64_set_rr(0x6000000000000000UL, (val3));		\
++	ia64_set_rr(0x8000000000000000UL, (val4));		\
++} while (0)
 +
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
+ /*
+  * Force an unresolved reference if someone tries to use
+  * ia64_fetch_and_add() with a bad value.
+@@ -183,4 +192,5 @@ extern long ia64_cmpxchg_called_with_bad_pointer (void);
+ #endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
  
-@@ -286,4 +288,29 @@ void foo(void)
- 		offsetof (struct itc_jitter_data_t, itc_jitter));
- 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
- 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
+ #endif
 +
-+#ifdef CONFIG_XEN
-+	BLANK();
-+
-+#define DEFINE_MAPPED_REG_OFS(sym, field) \
-+	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
-+
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
-+	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
-+	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
-+	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
-+#endif /* CONFIG_XEN */
+ #endif /* _ASM_IA64_INTRINSICS_H */
+diff --git a/include/asm-ia64/mmu_context.h b/include/asm-ia64/mmu_context.h
+index cef2400..040bc87 100644
+--- a/include/asm-ia64/mmu_context.h
++++ b/include/asm-ia64/mmu_context.h
+@@ -152,11 +152,7 @@ reload_context (nv_mm_context_t context)
+ #  endif
+ #endif
+ 
+-	ia64_set_rr(0x0000000000000000UL, rr0);
+-	ia64_set_rr(0x2000000000000000UL, rr1);
+-	ia64_set_rr(0x4000000000000000UL, rr2);
+-	ia64_set_rr(0x6000000000000000UL, rr3);
+-	ia64_set_rr(0x8000000000000000UL, rr4);
++	ia64_set_rr0_to_rr4(rr0, rr1, rr2, rr3, rr4);
+ 	ia64_srlz_i();			/* srlz.i implies srlz.d */
  }
+ 
 -- 
 1.5.3
 
