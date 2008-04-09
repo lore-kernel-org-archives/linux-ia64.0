@@ -1,57 +1,91 @@
-From: "stephane eranian" <eranian@googlemail.com>
-Date: Wed, 30 Apr 2008 13:51:39 +0000
-Subject: Re: 2.6.25 new perfmon kernel patch + libpfm + pfmon available
-Message-Id: <7c86c4470804300651u5a8fc98dr56fd1834ba902a0e@mail.gmail.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:50:25 +0000
+Subject: [PATCH 18/23] ia64/pv_ops/xen: implement xen pv_iosapic_ops.
+Message-Id: <1207716630468-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470804291446l4693b317ha7ee2382d00e99e6@mail.gmail.com>
-	 <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com>
-	 <20080429080853.48c66b29@infradead.org>
-	 <7c86c4470804300611s7442fe11lba2b66f5a3a8ed88@mail.gmail.com>
-	 <20080429083334.1a019318@infradead.org>
-In-Reply-To: <20080429083334.1a019318@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arjan van de Ven <arjan@infradead.org>
-Cc: linux-kernel@vger.kernel.org, ia64 <linux-ia64@vger.kernel.org>, Robert Richter <robert.richter@amd.com>
+To: linux-ia64@vger.kernel.org
 
-If I recall, AMD said that this special initialization would eventually migrate
-into the core kernel. The pci_read() may be there because it was not exported
-by the kernel (this particular code lives in a kernel module).
+implement xen pv_iosapic_ops for xen paravirtualized
+iosapic.
 
-If you think there is now enough support in the core kernel to do this
-initialization
-then I'd be happy to remove this piece of code.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/xen/xen_pv_ops.c |   52 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
 
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index e483d47..97c882a 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -290,6 +290,57 @@ const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
+ };
+ 
+ /***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
++ */
++static void
++xen_pcat_compat_init(void)
++{
++	/* nothing */
++}
++
++static struct irq_chip*
++xen_iosapic_get_irq_chip(unsigned long trigger)
++{
++	return NULL;
++}
++
++static unsigned int
++xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	struct physdev_apic apic_op;
++	int ret;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
++	if (ret)
++		return ret;
++	return apic_op.value;
++}
++
++static void
++xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	struct physdev_apic apic_op;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	apic_op.value = val;
++	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
++}
++
++static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
++	.pcat_compat_init = xen_pcat_compat_init,
++	.get_irq_chip = xen_iosapic_get_irq_chip,
++
++	.__read = xen_iosapic_read,
++	.__write = xen_iosapic_write,
++};
++
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -300,6 +351,7 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++	pv_iosapic_ops = xen_iosapic_ops;
+ 
+ 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+ }
+-- 
+1.5.3
 
-
-
-On Tue, Apr 29, 2008 at 5:33 PM, Arjan van de Ven <arjan@infradead.org> wrote:
-> On Wed, 30 Apr 2008 15:11:11 +0200
->
-> "stephane eranian" <eranian@googlemail.com> wrote:
->
->
-> > Sorry,
->  >
->  > It's http://perfmon2.sf.net
->  >
->  >
->
->  hummmmm, I wonder why perfmon wants to reimplement half of the PCI layer...
->
->  +extern spinlock_t pci_config_lock;
->  +
->  +#define PCI_CONF1_ADDRESS(bus, devfn, reg) \
->  +       (0x80000000 | ((reg & 0xF00) << 16) | ((bus & 0xFF) << 16) \
->  +       | (devfn << 8) | (reg & 0xFC))
->  +
->  +#define is_ibs_pmc(x) (x = 4 || x = 5)
->  +
->  +static int pci_read(unsigned int seg, unsigned int bus,
->  +                   unsigned int devfn, int reg, int len, u32 *value)
->  +{
->  +       unsigned long flags;
->
->  especially since this doesn't seem to use the proper config space abstractions :(
->
