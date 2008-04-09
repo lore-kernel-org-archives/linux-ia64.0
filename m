@@ -1,68 +1,153 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Tue, 01 Apr 2008 15:26:18 +0000
-Subject: Re: [16/18]KVM:IA64 : Add kvm sal/pal virtulization support.V9
-Message-Id: <47F2541A.50007@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:48:57 +0000
+Subject: [PATCH 04/15] ia64/pv_ops: introduce pv_info which describes some random info.
+Message-Id: <12077165491881-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDC0104872F@pdsmsx415.ccr.corp.intel.com>
-In-Reply-To: <42DFA526FC41B1429CE7279EF83C6BDC0104872F@pdsmsx415.ccr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Cc: Carsten Otte <cotte@de.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
+To: linux-ia64@vger.kernel.org
 
-Zhang, Xiantao wrote:
->>From 5c70c038c57190144390ae9d30c3d06afba103d4 Mon Sep 17 00:00:00 2001
-> From: Xiantao Zhang <xiantao.zhang@intel.com>
-> Date: Tue, 1 Apr 2008 14:59:30 +0800
-> Subject: [PATCH] KVM:IA64 : Add kvm sal/pal virtulization support.
-> 
-> Some sal/pal calls would be traped to kvm for virtulization
-> from guest firmware.
-> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
-> ---
->  arch/ia64/kvm/kvm_fw.c |  500
+introduce pv_info which describes some randome info about
+underlying execution environment.
 
-Hi Xiantao,
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/Makefile   |    2 +
+ arch/ia64/kernel/paravirt.c |   41 ++++++++++++++++++++++++++++
+ include/asm-ia64/paravirt.h |   62 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 105 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/kernel/paravirt.c
+ create mode 100644 include/asm-ia64/paravirt.h
 
-A few more comments:
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 33e5a59..40a10e7 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -36,6 +36,8 @@ obj-$(CONFIG_PCI_MSI)		+= msi_ia64.o
+ mca_recovery-y			+= mca_drv.o mca_drv_asm.o
+ obj-$(CONFIG_IA64_MC_ERR_INJECT)+= err_inject.o
+ 
++obj-$(CONFIG_PARAVIRT)		+= paravirt.o
++
+ obj-$(CONFIG_IA64_ESI)		+= esi.o
+ ifneq ($(CONFIG_IA64_ESI),)
+ obj-y				+= esi_stub.o	# must be in kernel proper
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+new file mode 100644
+index 0000000..d295ea5
+--- /dev/null
++++ b/arch/ia64/kernel/paravirt.c
+@@ -0,0 +1,41 @@
++/******************************************************************************
++ * arch/ia64/kernel/paravirt.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *     Yaozu (Eddie) Dong <eddie.dong@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <linux/init.h>
++
++#include <linux/compiler.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++#include <linux/types.h>
++
++#include <asm/iosapic.h>
++#include <asm/paravirt.h>
++
++/***************************************************************************
++ * general info
++ */
++struct pv_info pv_info = {
++	.kernel_rpl = 0,
++	.paravirt_enabled = 0,
++	.name = "bare hardware"
++};
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+new file mode 100644
+index 0000000..26b4334
+--- /dev/null
++++ b/include/asm-ia64/paravirt.h
+@@ -0,0 +1,62 @@
++/******************************************************************************
++ * include/asm-ia64/paravirt.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++
++#ifndef __ASM_PARAVIRT_H
++#define __ASM_PARAVIRT_H
++
++#ifdef CONFIG_PARAVIRT_GUEST
++
++#ifndef __ASSEMBLY__
++
++#include <asm/hw_irq.h>
++#include <asm/meminit.h>
++
++/******************************************************************************
++ * general info
++ */
++struct pv_info {
++	unsigned int kernel_rpl;
++	int paravirt_enabled;
++	const char *name;
++};
++
++extern struct pv_info pv_info;
++
++static inline int paravirt_enabled(void)
++{
++	return pv_info.paravirt_enabled;
++}
++
++static inline unsigned int get_kernel_rpl(void)
++{
++	return pv_info.kernel_rpl;
++}
++
++#endif /* !__ASSEMBLY__ */
++
++#else
++/* fallback for native case */
++
++#endif /* CONFIG_PARAVIRT_GUEST */
++
++#endif /* __ASM_PARAVIRT_H */
+-- 
+1.5.3
 
-
-> --- /dev/null
-> +++ b/arch/ia64/kvm/kvm_fw.c
-
-> +static void kvm_get_pal_call_data(struct kvm_vcpu *vcpu,
-> +		u64 *gr28, u64 *gr29, u64 *gr30, u64 *gr31) {
-> +	struct exit_ctl_data *p;
-> +
-> +	if (vcpu) {
-> +		p = &vcpu->arch.exit_data;
-> +		if (p->exit_reason = EXIT_REASON_PAL_CALL) {
-> +			*gr28 = p->u.pal_data.gr28;
-> +			*gr29 = p->u.pal_data.gr29;
-> +			*gr30 = p->u.pal_data.gr30;
-> +			*gr31 = p->u.pal_data.gr31;
-> +			return ;
-> +		}
-> +	}
-> +	printk(KERN_DEBUG"Error occurs in kvm_get_pal_call_data!!\n");
-
-Maybe make this error message a bit more elaborate with information
-about what the error is?
-
-> +static void set_sal_result(struct kvm_vcpu *vcpu,
-> +		struct sal_ret_values result) {
-> +	struct exit_ctl_data *p;
-> +
-> +	p = kvm_get_exit_data(vcpu);
-> +	if (p && p->exit_reason = EXIT_REASON_SAL_CALL) {
-> +		p->u.sal_data.ret = result;
-> +		return ;
-> +	}
-> +	printk(KERN_WARNING"Error occurs!!!\n");
-
-I love this error message :-) Seriously though, please make it say
-where it is and what has been detected.
-
-Cheers,
-Jes
