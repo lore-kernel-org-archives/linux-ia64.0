@@ -1,45 +1,76 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:50 +0000
-Subject: [PATCH 19/23] ia64/pv_ops/xen: define the nubmer of irqs which xen needs.
-Message-Id: <12095586543985-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:49:01 +0000
+Subject: [PATCH 08/15] ia64/pv_ops: paravirtualize minstate.h.
+Message-Id: <12077165494039-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1207716630655-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1207716630655-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define include/asm-ia64/xen/irq.h to define the number of
-irqs which xen needs.
+paravirtualize minstate.h which are hand written assembly code.
+They include sensitive or performance critical privileged
+instructions. So that they are appropriate for paravirtualization.
 
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/nr-irqs.c |    1 +
- include/asm-ia64/xen/irq.h |   44 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/xen/irq.h
+ arch/ia64/kernel/minstate.h      |   13 +++++++------
+ arch/ia64/kernel/paravirt_inst.h |   29 +++++++++++++++++++++++++++++
+ include/asm-ia64/native/inst.h   |    2 ++
+ 3 files changed, 38 insertions(+), 6 deletions(-)
+ create mode 100644 arch/ia64/kernel/paravirt_inst.h
 
-diff --git a/arch/ia64/kernel/nr-irqs.c b/arch/ia64/kernel/nr-irqs.c
-index 1ae0491..bf89a8f 100644
---- a/arch/ia64/kernel/nr-irqs.c
-+++ b/arch/ia64/kernel/nr-irqs.c
-@@ -10,6 +10,7 @@
- #include <linux/kbuild.h>
- #include <linux/threads.h>
- #include <asm-ia64/native/irq.h>
-+#include <asm-ia64/xen/irq.h>
+diff --git a/arch/ia64/kernel/minstate.h b/arch/ia64/kernel/minstate.h
+index c9ac8ba..f00ca70 100644
+--- a/arch/ia64/kernel/minstate.h
++++ b/arch/ia64/kernel/minstate.h
+@@ -2,6 +2,7 @@
+ #include <asm/cache.h>
  
- void foo(void)
- {
-diff --git a/include/asm-ia64/xen/irq.h b/include/asm-ia64/xen/irq.h
+ #include "entry.h"
++#include "paravirt_inst.h"
+ 
+ /*
+  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
+@@ -28,16 +29,16 @@
+  * Note that psr.ic is NOT turned on by this macro.  This is so that
+  * we can pass interruption state as arguments to a handler.
+  */
+-#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
++#define IA64_NATIVE_DO_SAVE_MIN(__COVER,SAVE_IFS,EXTRA)						\
+ 	mov r16=IA64_KR(CURRENT);	/* M */							\
+ 	mov r27=ar.rsc;			/* M */							\
+ 	mov r20=r1;			/* A */							\
+ 	mov r25=ar.unat;		/* M */							\
+-	mov r29=cr.ipsr;		/* M */							\
++	MOV_FROM_IPSR(p0,r29);		/* M */							\
+ 	mov r26=ar.pfs;			/* I */							\
+-	mov r28=cr.iip;			/* M */							\
++	MOV_FROM_IIP(r28);		/* M */							\
+ 	mov r21=ar.fpsr;		/* M */							\
+-	COVER;				/* B;; (or nothing) */					\
++	__COVER;			/* B;; (or nothing) */					\
+ 	;;											\
+ 	adds r16=IA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
+ 	;;											\
+@@ -192,6 +193,6 @@
+ 	st8 [r25]=r10;      	/* ar.ssd */	\
+ 	;;
+ 
+-#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(cover, mov r30=cr.ifs,)
+-#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(cover, mov r30=cr.ifs, mov r15=r19)
++#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(COVER, mov r30=cr.ifs,)
++#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(COVER, mov r30=cr.ifs, mov r15=r19)
+ #define SAVE_MIN		DO_SAVE_MIN(     , mov r30=r0, )
+diff --git a/arch/ia64/kernel/paravirt_inst.h b/arch/ia64/kernel/paravirt_inst.h
 new file mode 100644
-index 0000000..3a5a15c
+index 0000000..5cad6fb
 --- /dev/null
-+++ b/include/asm-ia64/xen/irq.h
-@@ -0,0 +1,44 @@
++++ b/arch/ia64/kernel/paravirt_inst.h
+@@ -0,0 +1,29 @@
 +/******************************************************************************
-+ * include/asm-ia64/xen/irq.h
++ * linux/arch/ia64/xen/paravirt_inst.h
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -60,28 +91,26 @@ index 0000000..3a5a15c
 + *
 + */
 +
-+#ifndef _ASM_IA64_XEN_IRQ_H
-+#define _ASM_IA64_XEN_IRQ_H
++#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
++#include <asm/xen/inst.h>
++#include <asm/xen/minstate.h>
++#else
++#include <asm/native/inst.h>
++#endif
 +
-+/*
-+ * The flat IRQ space is divided into two regions:
-+ *  1. A one-to-one mapping of real physical IRQs. This space is only used
-+ *     if we have physical device-access privilege. This region is at the
-+ *     start of the IRQ space so that existing device drivers do not need
-+ *     to be modified to translate physical IRQ numbers into our IRQ space.
-+ *  3. A dynamic mapping of inter-domain and Xen-sourced virtual IRQs. These
-+ *     are bound using the provided bind/unbind functions.
-+ */
+diff --git a/include/asm-ia64/native/inst.h b/include/asm-ia64/native/inst.h
+index 295fde3..c167b7d 100644
+--- a/include/asm-ia64/native/inst.h
++++ b/include/asm-ia64/native/inst.h
+@@ -20,6 +20,8 @@
+  *
+  */
+ 
++#define DO_SAVE_MIN		IA64_NATIVE_DO_SAVE_MIN
 +
-+#define XEN_PIRQ_BASE		0
-+#define XEN_NR_PIRQS		256
-+
-+#define XEN_DYNIRQ_BASE		(XEN_PIRQ_BASE + XEN_NR_PIRQS)
-+#define XEN_NR_DYNIRQS		(NR_CPUS * 8)
-+
-+#define XEN_NR_IRQS		(XEN_NR_PIRQS + XEN_NR_DYNIRQS)
-+
-+#endif /* _ASM_IA64_XEN_IRQ_H */
+ #ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
+ # define PARAVIRT_POISON	0xdeadbeefbaadf00d
+ # define CLOBBER(clob)				\
 -- 
 1.5.3
 
