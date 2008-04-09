@@ -1,215 +1,135 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Tue, 01 Apr 2008 01:15:23 +0000
-Subject: RE: [05/17][PATCH] kvm/ia64 : Add head files for kvm/ia64
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC010483F7@pdsmsx415.ccr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:50:29 +0000
+Subject: [PATCH 22/23] ia64/xen: define xen machine vector for domU.
+Message-Id: <12077166312115-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDC01048246@pdsmsx415.ccr.corp.intel.com>
-	<47F0DA2B.9070403@sgi.com>
-In-Reply-To: <47F0DA2B.9070403@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Carsten Otte <cotte@de.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
+To: linux-ia64@vger.kernel.org
 
-Jes Sorensen wrote:
-> Hi Xiantao,
+define xen machine vector for domU.
 
-Hi, Jes
-	I fixed the coding style issues. Thanks!
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/Makefile             |    2 ++
+ arch/ia64/kernel/acpi.c        |    5 +++++
+ arch/ia64/xen/Makefile         |    2 ++
+ arch/ia64/xen/machvec.c        |    4 ++++
+ include/asm-ia64/machvec.h     |    2 ++
+ include/asm-ia64/machvec_xen.h |   22 ++++++++++++++++++++++
+ 6 files changed, 37 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/machvec.c
+ create mode 100644 include/asm-ia64/machvec_xen.h
 
-> More comments.
-> 
-> Zhang, Xiantao wrote:
->>> From 696b9eea9f5001a7b7a07c0e58514aa10306b91a Mon Sep 17 00:00:00
->>> 2001 
->> From: Xiantao Zhang <xiantao.zhang@intel.com>
->> Date: Fri, 28 Mar 2008 09:51:36 +0800
->> Subject: [PATCH] KVM:IA64 : Add head files for kvm/ia64
->> 
->> ia64_regs: some defintions for special registers
->> which aren't defined in asm-ia64/ia64regs.
-> 
-> Please put missing definitions of registers into asm-ia64/ia64regs.h
-> if they are official definitions from the spec.
-
-Moved!
-
->> kvm_minstate.h : Marcos about Min save routines.
->> lapic.h: apic structure definition.
->> vcpu.h : routions related to vcpu virtualization.
->> vti.h  : Some macros or routines for VT support on Itanium.
->> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
-> 
->> +/*
->> + * Flushrs instruction stream.
->> + */
->> +#define ia64_flushrs() asm volatile ("flushrs;;":::"memory") +
->> +#define ia64_loadrs() asm volatile ("loadrs;;":::"memory")
-> 
-> Please put these into include/asm-ia64/gcc_intrin.h
-
-OK.
-
->> +#define ia64_get_rsc()
->> \
->> +({
->> \
->> +	unsigned long val;
->> \
->> +	asm volatile ("mov %0=ar.rsc;;" : "=r"(val) :: "memory"); \
->> +	val;
->> \
->> +})
->> +
->> +#define ia64_set_rsc(val)					\
->> +	asm volatile ("mov ar.rsc=%0;;" :: "r"(val) : "memory")
-> 
-> Please update the ia64_get/set_reg macros to handle the RSC register
-> and use those macros.
-
-Moved.
-
->> +#define ia64_get_bspstore()
->> \
->> +({
->> \
->> +	unsigned long val;
->> \
->> +	asm volatile ("mov %0=ar.bspstore;;" : "=r"(val) :: "memory"); \
->> +	val;
->> \
->> +})
-> 
-> Ditto for for AR.BSPSTORE
-> 
->> +#define ia64_get_rnat()
->> \
->> +({
->> \
->> +	unsigned long val;
->> \
->> +	asm volatile ("mov %0=ar.rnat;" : "=r"(val) :: "memory"); \
->> +	val;
->> \
->> +})
-> 
-> Ditto for AR.RNAT
-> 
->> +static inline unsigned long ia64_get_itc(void)
->> +{
->> +	unsigned long result;
->> +	result = ia64_getreg(_IA64_REG_AR_ITC);
->> +	return result;
->> +}
-> 
-> This exists in include/asm-ia64/delay.h
-> 
->> +static inline void ia64_set_dcr(unsigned long dcr) +{
->> +	ia64_setreg(_IA64_REG_CR_DCR, dcr);
->> +}
-> 
-> Please just call ia64_setreg() in your code rather than defining a
-> wrapper for it.
-
-Sure.
-
->> +#define ia64_ttag(addr)
->> \
->> +({
->> \
->> +	__u64 ia64_intri_res;
->> \
->> +	asm volatile ("ttag %0=%1" : "=r"(ia64_intri_res) : "r" (addr));
-\
->> +	ia64_intri_res;
->> \
->> +})
-> 
-> Please add to include/asm-ia64/gcc_intrin.h instead.
-> 
->> diff --git a/arch/ia64/kvm/lapic.h b/arch/ia64/kvm/lapic.h
->> new file mode 100644
->> index 0000000..152cbdc
->> --- /dev/null
->> +++ b/arch/ia64/kvm/lapic.h
->> @@ -0,0 +1,27 @@
->> +#ifndef __KVM_IA64_LAPIC_H
->> +#define __KVM_IA64_LAPIC_H
->> +
->> +#include "iodev.h"
-> 
-> I don't understand why iodev.h is included here?
-
-It is inherited from x86 side, and forget to remove it. Seems redundant.
-
-
->> --- /dev/null
->> +++ b/arch/ia64/kvm/vcpu.h
-> 
-> The formatting of this file is dodgy, please try and make it comply
-> with the Linux standards in Documentation/CodingStyle
-> 
->> +#define _vmm_raw_spin_lock(x)
->> \
-> [snip]
->> +
->> +#define _vmm_raw_spin_unlock(x)				\
-> 
-> Could you explain the reasoning behind these two macros? Whenever I
-> see open coded spin lock modifications like these, I have to admit I
-> get a bit worried.
-
-In the architecture of kvm/ia64, gvmm and host are in the two different
-worlds, and gvmm can't call host's interface.  In migration case, we
-need to take a lock to sync the status of dirty memory.  In order to
-make it work, this spin_lock is defined and used.
-
->> +typedef struct kvm_vcpu VCPU;
->> +typedef struct kvm_pt_regs REGS;
->> +typedef enum { DATA_REF, NA_REF, INST_REF, RSE_REF } vhpt_ref_t;
->> +typedef enum { INSTRUCTION, DATA, REGISTER } miss_type;
-> 
-> ARGH! Please see previous mail about typedefs! I suspect this is code
-> inherited from Xen ? Xen has a lot of really nasty and pointless
-> typedefs like these :-(
-
-Removed.
-
-
->> +static inline void vcpu_set_dbr(VCPU *vcpu, u64 reg, u64 val) +{
->> +	/* TODO: need to virtualize */
->> +	__ia64_set_dbr(reg, val);
->> +}
->> +
->> +static inline void vcpu_set_ibr(VCPU *vcpu, u64 reg, u64 val) +{
->> +	/* TODO: need to virtualize */
->> +	ia64_set_ibr(reg, val);
->> +}
->> +
->> +static inline u64 vcpu_get_dbr(VCPU *vcpu, u64 reg) +{
->> +	/* TODO: need to virtualize */
->> +	return ((u64)__ia64_get_dbr(reg));
->> +}
->> +
->> +static inline u64 vcpu_get_ibr(VCPU *vcpu, u64 reg) +{
->> +	/* TODO: need to virtualize */
->> +	return ((u64)ia64_get_ibr(reg));
->> +}
-> 
-> More wrapper macros that really should just use ia64_get/set_reg()
-> directly in the code.
-Removed, and used the one without wrapper. 
-> 
->> diff --git a/arch/ia64/kvm/vti.h b/arch/ia64/kvm/vti.h
->> new file mode 100644
->> index 0000000..591ab22
-> [ship]
->> +/* -*-  Mode:C; c-basic-offset:4; tab-width:4; indent-tabs-mode:nil
->> -*- */
-> 
-> Evil formatting again!
-> 
-> Cheers,
-> Jes
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index f1645c4..a531403 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -56,7 +56,9 @@ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_GENERIC) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
++core-$(CONFIG_IA64_XEN)		+= arch/ia64/dig/
+ core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
++core-$(CONFIG_XEN)		+= arch/ia64/xen/
+ 
+ drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
+ drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 78f28d8..99770b0 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -52,6 +52,7 @@
+ #include <asm/numa.h>
+ #include <asm/sal.h>
+ #include <asm/cyclone.h>
++#include <asm/xen/hypervisor.h>
+ 
+ #define BAD_MADT_ENTRY(entry, end) (                                        \
+ 		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+@@ -118,6 +119,8 @@ acpi_get_sysname(void)
+ 		return "hpzx1";
+ 	} else if (!strcmp(hdr->oem_id, "SGI")) {
+ 		return "sn2";
++	} else if (is_running_on_xen() && !strcmp(hdr->oem_id, "XEN")) {
++		return "xen";
+ 	}
+ 
+ 	return "dig";
+@@ -132,6 +135,8 @@ acpi_get_sysname(void)
+ 	return "sn2";
+ # elif defined (CONFIG_IA64_DIG)
+ 	return "dig";
++# elif defined (CONFIG_IA64_XEN)
++	return "xen";
+ # else
+ #	error Unknown platform.  Fix acpi.c.
+ # endif
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index ed31c76..972d085 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -5,6 +5,8 @@
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+ 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
+ 
++obj-$(CONFIG_IA64_GENERIC) += machvec.o
++
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ 
+ # xen multi compile
+diff --git a/arch/ia64/xen/machvec.c b/arch/ia64/xen/machvec.c
+new file mode 100644
+index 0000000..4ad588a
+--- /dev/null
++++ b/arch/ia64/xen/machvec.c
+@@ -0,0 +1,4 @@
++#define MACHVEC_PLATFORM_NAME           xen
++#define MACHVEC_PLATFORM_HEADER         <asm/machvec_xen.h>
++#include <asm/machvec_init.h>
++
+diff --git a/include/asm-ia64/machvec.h b/include/asm-ia64/machvec.h
+index c201a20..cea8d63 100644
+--- a/include/asm-ia64/machvec.h
++++ b/include/asm-ia64/machvec.h
+@@ -120,6 +120,8 @@ extern void machvec_tlb_migrate_finish (struct mm_struct *);
+ #  include <asm/machvec_hpzx1_swiotlb.h>
+ # elif defined (CONFIG_IA64_SGI_SN2)
+ #  include <asm/machvec_sn2.h>
++# elif defined (CONFIG_IA64_XEN)
++#  include <asm/machvec_xen.h>
+ # elif defined (CONFIG_IA64_GENERIC)
+ 
+ # ifdef MACHVEC_PLATFORM_HEADER
+diff --git a/include/asm-ia64/machvec_xen.h b/include/asm-ia64/machvec_xen.h
+new file mode 100644
+index 0000000..55f9228
+--- /dev/null
++++ b/include/asm-ia64/machvec_xen.h
+@@ -0,0 +1,22 @@
++#ifndef _ASM_IA64_MACHVEC_XEN_h
++#define _ASM_IA64_MACHVEC_XEN_h
++
++extern ia64_mv_setup_t			dig_setup;
++extern ia64_mv_cpu_init_t		xen_cpu_init;
++extern ia64_mv_irq_init_t		xen_irq_init;
++extern ia64_mv_send_ipi_t		xen_platform_send_ipi;
++
++/*
++ * This stuff has dual use!
++ *
++ * For a generic kernel, the macros are used to initialize the
++ * platform's machvec structure.  When compiling a non-generic kernel,
++ * the macros are used directly.
++ */
++#define platform_name				"xen"
++#define platform_setup				dig_setup
++#define platform_cpu_init			xen_cpu_init
++#define platform_irq_init			xen_irq_init
++#define platform_send_ipi			xen_platform_send_ipi
++
++#endif /* _ASM_IA64_MACHVEC_XEN_h */
+-- 
+1.5.3
 
