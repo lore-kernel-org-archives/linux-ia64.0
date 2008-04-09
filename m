@@ -1,159 +1,191 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Tue, 01 Apr 2008 01:37:25 +0000
-Subject: RE: [kvm-ia64-devel] [03/15][PATCH] kvm/ia64: Add header files forkvm/ia64. V8
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC01048428@pdsmsx415.ccr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:50:18 +0000
+Subject: [PATCH 11/23] ia64/xen: detect xen environment and do minimal initialization.
+Message-Id: <12077166303487-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDC01048243@pdsmsx415.ccr.corp.intel.com>
-	<47F0EB38.2090700@de.ibm.com>
-In-Reply-To: <47F0EB38.2090700@de.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: carsteno@de.ibm.com
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Jes Sorensen <jes@sgi.com>, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Carsten Otte wrote:
-> Zhang, Xiantao wrote:
->> +typedef union context {
->> +	/* 8K size */
->> +	char	dummy[KVM_CONTEXT_SIZE];
->> +	struct {
->> +		unsigned long       psr;
->> +		unsigned long       pr;
->> +		unsigned long       caller_unat;
->> +		unsigned long       pad;
->> +		unsigned long       gr[32];
->> +		unsigned long       ar[128];
->> +		unsigned long       br[8];
->> +		unsigned long       cr[128];
->> +		unsigned long       rr[8];
->> +		unsigned long       ibr[8];
->> +		unsigned long       dbr[8];
->> +		unsigned long       pkr[8];
->> +		struct ia64_fpreg   fr[128];
->> +	};
->> +} context_t;
-> This looks ugly to me. I'd rather prefer to have a straight struct
-> with elements psr...fr[], and cast the pointer to char* when needed.
-> KVM_CONTEXT_SIZE can be used as parameter to kzalloc() on allocation,
-> it's too large to be on stack anyway.
+Add a hook for xen detection and initialization. It detects
+xen environment and does minimal initialization.
+For now xen is detected by checking psr.cpl !=3D 0.
+It's ok for now, but more abstraction would be needed later like x86.
+Presumably extending booting protocol (i.e. extending struct ia64_boot_para=
+m)
+or multi entry points depending on hypervisor would be necessary.
 
-We need to allocate enough memory fix area, considering back-ward
-compabitility.  In migration or save/restore case, we need to save this
-area. If migration happens in different kvm versions, and the size of
-different, it may cause issues.  For example, we added  a new field in
-new kvm, and restore a new snapshot to old versions, it may fail.  
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/head.S    |    6 ++++
+ arch/ia64/xen/Makefile     |    3 +-
+ arch/ia64/xen/xen_pv_ops.c |   65 ++++++++++++++++++++++++++++++++++++++++=
+++++
+ arch/ia64/xen/xensetup.S   |   49 +++++++++++++++++++++++++++++++++
+ 4 files changed, 122 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xen_pv_ops.c
+ create mode 100644 arch/ia64/xen/xensetup.S
 
->> +typedef struct thash_data {
->> +	union {
->> +		struct {
->> +			unsigned long p    :  1; /* 0 */
->> +			unsigned long rv1  :  1; /* 1 */
->> +			unsigned long ma   :  3; /* 2-4 */
->> +			unsigned long a    :  1; /* 5 */
->> +			unsigned long d    :  1; /* 6 */
->> +			unsigned long pl   :  2; /* 7-8 */
->> +			unsigned long ar   :  3; /* 9-11 */
->> +			unsigned long ppn  : 38; /* 12-49 */
->> +			unsigned long rv2  :  2; /* 50-51 */
->> +			unsigned long ed   :  1; /* 52 */
->> +			unsigned long ig1  : 11; /* 53-63 */
->> +		};
->> +		struct {
->> +			unsigned long __rv1 : 53;     /* 0-52 */
->> +			unsigned long contiguous : 1; /*53 */
->> +			unsigned long tc : 1;         /* 54 TR or TC */
-+			unsigned
->> long cl : 1; +			/* 55 I side or D side cache
-line */
->> +			unsigned long len  :  4;      /* 56-59 */
->> +			unsigned long io  : 1;	/* 60 entry is for io or
->> not */
->> +			unsigned long nomap : 1;
->> +			/* 61 entry cann't be inserted into machine
->> TLB.*/
->> +			unsigned long checked : 1;
->> +			/* 62 for VTLB/VHPT sanity check */
->> +			unsigned long invalid : 1;
->> +			/* 63 invalid entry */
->> +		};
->> +		unsigned long page_flags;
->> +	};                  /* same for VHPT and TLB */
->> +
->> +	union {
->> +		struct {
->> +			unsigned long rv3  :  2;
->> +			unsigned long ps   :  6;
->> +			unsigned long key  : 24;
->> +			unsigned long rv4  : 32;
->> +		};
->> +		unsigned long itir;
->> +	};
->> +	union {
->> +		struct {
->> +			unsigned long ig2  :  12;
->> +			unsigned long vpn  :  49;
->> +			unsigned long vrn  :   3;
->> +		};
->> +		unsigned long ifa;
->> +		unsigned long vadr;
->> +		struct {
->> +			unsigned long tag  :  63;
->> +			unsigned long ti   :  1;
->> +		};
->> +		unsigned long etag;
->> +	};
->> +	union {
->> +		struct thash_data *next;
->> +		unsigned long rid;
->> +		unsigned long gpaddr;
->> +	};
->> +} thash_data_t;
-> A matter of taste, but I'd prefer unsigned long mask, and
-> #define MASK_BIT_FOR_PURPUSE over bitfields. This structure could be
-> much smaller that way.
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index d3a41d5..2f8d770 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -367,6 +367,12 @@ start_ap:
+ 	;;
+ (isBP)	st8 [r2]=3Dr28		// save the address of the boot param area passed b=
+y the bootloader
+=20
++#ifdef CONFIG_XEN
++	//  Note: isBP is used by the subprogram.
++	br.call.sptk.many rp=EArly_xen_setup
++	;;
++#endif
++
+ #ifdef CONFIG_SMP
+ (isAP)	br.call.sptk.many rp=3Dstart_secondary
+ .ret0:
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index eb59563..abc356f 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for Xen components
+ #
+=20
+-obj-y :=3D hypercall.o xencomm.o xcom_hcall.o grant-table.o
++obj-y :=3D hypercall.o xensetup.o xen_pv_ops.o \
++	xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+new file mode 100644
+index 0000000..77db214
+--- /dev/null
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -0,0 +1,65 @@
++/*************************************************************************=
+*****
++ * arch/ia64/xen/xen_pv_ops.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  U=
+SA
++ *
++ */
++
++#include <linux/console.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/pm.h>
++
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/xencomm.h>
++#include <asm/xen/privop.h>
++
++/*************************************************************************=
+**
++ * general info
++ */
++static struct pv_info xen_info __initdata =3D {
++	.kernel_rpl =3D 2,	/* or 1: determin at runtime */
++	.paravirt_enabled =3D 1,
++	.name =3D "Xen/ia64",
++};
++
++#define IA64_RSC_PL_SHIFT	2
++#define IA64_RSC_PL_BIT_SIZE	2
++#define IA64_RSC_PL_MASK	\
++	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
++
++static void __init
++xen_info_init(void)
++{
++	/* Xenified Linux/ia64 may run on pl =3D 1 or 2.
++	 * determin at run time. */
++	unsigned long rsc =3D ia64_getreg(_IA64_REG_AR_RSC);
++	unsigned int rpl =3D (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
++	xen_info.kernel_rpl =3D rpl;
++}
++
++/*************************************************************************=
+**
++ * pv_ops initialization
++ */
++
++void __init
++xen_setup_pv_ops(void)
++{
++	xen_info_init();
++	pv_info =3D xen_info;
++}
+diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
+new file mode 100644
+index 0000000..43608b2
+--- /dev/null
++++ b/arch/ia64/xen/xensetup.S
+@@ -0,0 +1,49 @@
++/*
++ * Support routines for Xen
++ *
++ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ */
++
++#include <asm/processor.h>
++#include <asm/asmmacro.h>
++#include <asm/xen/privop.h>
++
++	.section .data.read_mostly
++	.align 8
++	.global running_on_xen
++running_on_xen:
++	data4 0
++	.previous
++
++#define isBP	p3	// are we the Bootstrap Processor?
++
++	.text
++GLOBAL_ENTRY(early_xen_setup)
++	mov r8=3Dar.rsc		// Initialized in head.S
++(isBP)	movl r9=3Drunning_on_xen;;
++	extr.u r8=3Dr8,2,2;;	// Extract pl fields
++	cmp.eq p7,p0=3Dr8,r0	// p7: !running on xen
++	mov r8=3D1		// booleanize.
++(p7)	br.ret.sptk.many rp;;
++(isBP)	st4 [r9]=3Dr8
++	movl r10=3Dxen_ivt;;
++
++	mov cr.iva=3Dr10
++
++	/* Set xsi base.  */
++#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
++(isBP)	mov r2=3DFW_HYPERCALL_SET_SHARED_INFO_VA
++(isBP)	movl r28=3DXSI_BASE;;
++(isBP)	break 0x1000;;
++
++	/* setup pv_ops */
++(isBP)	mov r4=3Drp
++	;;
++(isBP)	br.call.sptk.many rp=3Dxen_setup_pv_ops
++	;;
++(isBP)	mov rp=3Dr4
++	;;
++
++	br.ret.sptk.many rp
++	;;
++END(early_xen_setup)
+--=20
+1.5.3
 
-Yes, but it may be not so flexible to use. 
-
->> +struct kvm_regs {
->> +	char *saved_guest;
->> +	char *saved_stack;
->> +	struct saved_vpd vpd;
->> +	/*Arch-regs*/
->> +	int mp_state;
->> +	unsigned long vmm_rr;
->> +	/* TR and TC.  */
->> +	struct thash_data itrs[NITRS];
->> +	struct thash_data dtrs[NDTRS];
->> +	/* Bit is set if there is a tr/tc for the region.  */ +	unsigned
->> char itr_regions; +	unsigned char dtr_regions;
->> +	unsigned char tc_regions;
->> +
->> +	char irq_check;
->> +	unsigned long saved_itc;
->> +	unsigned long itc_check;
->> +	unsigned long timer_check;
->> +	unsigned long timer_pending;
->> +	unsigned long last_itc;
->> +
->> +	unsigned long vrr[8];
->> +	unsigned long ibr[8];
->> +	unsigned long dbr[8];
->> +	unsigned long insvc[4];		/* Interrupt in service.  */ +
-unsigned
->> long xtp; +
->> +	unsigned long metaphysical_rr0; /* from kvm_arch (so is pinned)
-*/
->> +	unsigned long metaphysical_rr4;	/* from kvm_arch (so is pinned)
-*/
->> +	unsigned long metaphysical_saved_rr0; /* from kvm_arch */
->> +	unsigned long metaphysical_saved_rr4; /* from kvm_arch */
->> +	unsigned long fp_psr;       /*used for lazy float register */
->> +	unsigned long saved_gp; +	/*for phycial  emulation */
->> +};
-> This looks like it does'nt just have guest register content in it. It
-> seems to me preferable to have another ioctl different from
-> KVM_GET_REGS/KVM_SET_REGS to read and set the rest of the content and
-> seperate it from struct kvm_regs.
-
-We want to add a ioctl for that later. 
