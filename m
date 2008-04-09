@@ -1,69 +1,223 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Thu, 24 Apr 2008 18:57:08 +0000
-Subject: Re: [PATCH 1/2] ia64: Remove printk noise on unimplemented
-Message-Id: <20080424185708.GD32553@ldl.fc.hp.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:49:06 +0000
+Subject: [PATCH 13/15] ia64/pv_ops: add hooks, pv_iosapic_ops, to paravirtualize iosapic.
+Message-Id: <12077165494047-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com> <20080326185912.GA30749@ldl.fc.hp.com> <20080421052450.GA24055@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com> <20080424184417.GA32553@ldl.fc.hp.com> <20080424185140.GB32553@ldl.fc.hp.com>
-In-Reply-To: <20080424185140.GB32553@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Ugh, next time, run checkpatch *before* sending out the patches.
-Sorry for the noise.
+add hooks to paravirtualize iosapic which is a real hardware resource.
+On virtualized environment it may be replaced something virtualized
+friendly.
+Define pv_iosapic_ops and add the hooks.
 
-/ac
-
-From: Alex Chiang <achiang@hp.com>
-Subject: [PATCH 1/2] ia64: Remove printk noise on unimplemented SAL_PHYSICAL_ID_INFO
-
-Commit 113134fcbca83619be4c68d0ca66db6093777b5d changed the flow of
-control when calling PAL_LOGICAL_TO_PHYSICAL and SAL_PHYSICAL_ID_INFO.
-With the change, if a platform did not implement the latter, a useless
-printk would appear in the boot log:
-
-	ia64_sal_pltid failed with -1
-
-So let's check the return code and only printk on a true error, and do
-not print anything in the unimplemented case. While we're in there,
-clean up some stylistic issues too.
-
-Signed-off-by: Alex Chiang <achiang@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/smpboot.c |   12 +++++++++---
- 1 files changed, 9 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/iosapic.c  |   45 +++++++++++++++++++++++++++---------------
+ arch/ia64/kernel/paravirt.c |   25 +++++++++++++++++++++++
+ include/asm-ia64/iosapic.h  |   18 +++++++++++++++-
+ include/asm-ia64/paravirt.h |   40 ++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 110 insertions(+), 18 deletions(-)
 
-diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
-index 16483be..8d86e1f 100644
---- a/arch/ia64/kernel/smpboot.c
-+++ b/arch/ia64/kernel/smpboot.c
-@@ -873,7 +873,8 @@ identify_siblings(struct cpuinfo_ia64 *c)
- 	u16 pltid;
- 	pal_logical_to_physical_t info;
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index 082c31d..587196d 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -587,6 +587,15 @@ static inline int irq_is_shared (int irq)
+ 	return (iosapic_intr_info[irq].count > 1);
+ }
  
--	if ((status = ia64_pal_logical_to_phys(-1, &info)) != PAL_STATUS_SUCCESS) {
-+	status = ia64_pal_logical_to_phys(-1, &info);
-+	if (status != PAL_STATUS_SUCCESS) {
- 		if (status != PAL_STATUS_UNIMPLEMENTED) {
- 			printk(KERN_ERR
- 				"ia64_pal_logical_to_phys failed with %ld\n",
-@@ -885,8 +886,13 @@ identify_siblings(struct cpuinfo_ia64 *c)
- 		info.overview_cpp  = 1;
- 		info.overview_tpc  = 1;
- 	}
--	if ((status = ia64_sal_physical_id_info(&pltid)) != PAL_STATUS_SUCCESS) {
--		printk(KERN_ERR "ia64_sal_pltid failed with %ld\n", status);
++struct irq_chip*
++ia64_native_iosapic_get_irq_chip(unsigned long trigger)
++{
++	if (trigger = IOSAPIC_EDGE)
++		return &irq_type_iosapic_edge;
++	else
++		return &irq_type_iosapic_level;
++}
 +
-+	status = ia64_sal_physical_id_info(&pltid);
-+	if (status != PAL_STATUS_SUCCESS) {
-+		if (status != PAL_STATUS_UNIMPLEMENTED)
-+			printk(KERN_ERR
-+				"ia64_sal_pltid failed with %ld\n",
-+				status);
- 		return;
+ static int
+ register_intr (unsigned int gsi, int irq, unsigned char delivery,
+ 	       unsigned long polarity, unsigned long trigger)
+@@ -637,13 +646,10 @@ register_intr (unsigned int gsi, int irq, unsigned char delivery,
+ 	iosapic_intr_info[irq].dmode    = delivery;
+ 	iosapic_intr_info[irq].trigger  = trigger;
+ 
+-	if (trigger = IOSAPIC_EDGE)
+-		irq_type = &irq_type_iosapic_edge;
+-	else
+-		irq_type = &irq_type_iosapic_level;
++	irq_type = iosapic_get_irq_chip(trigger);
+ 
+ 	idesc = irq_desc + irq;
+-	if (idesc->chip != irq_type) {
++	if (irq_type != NULL && idesc->chip != irq_type) {
+ 		if (idesc->chip != &no_irq_type)
+ 			printk(KERN_WARNING
+ 			       "%s: changing vector %d from %s to %s\n",
+@@ -976,6 +982,22 @@ iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ }
+ 
+ void __init
++ia64_native_iosapic_pcat_compat_init(void)
++{
++	if (pcat_compat) {
++		/*
++		 * Disable the compatibility mode interrupts (8259 style),
++		 * needs IN/OUT support enabled.
++		 */
++		printk(KERN_INFO
++		       "%s: Disabling PC-AT compatible 8259 interrupts\n",
++		       __func__);
++		outb(0xff, 0xA1);
++		outb(0xff, 0x21);
++	}
++}
++
++void __init
+ iosapic_system_init (int system_pcat_compat)
+ {
+ 	int irq;
+@@ -989,17 +1011,8 @@ iosapic_system_init (int system_pcat_compat)
  	}
  
+ 	pcat_compat = system_pcat_compat;
+-	if (pcat_compat) {
+-		/*
+-		 * Disable the compatibility mode interrupts (8259 style),
+-		 * needs IN/OUT support enabled.
+-		 */
+-		printk(KERN_INFO
+-		       "%s: Disabling PC-AT compatible 8259 interrupts\n",
+-		       __func__);
+-		outb(0xff, 0xA1);
+-		outb(0xff, 0x21);
+-	}
++	if (pcat_compat)
++		iosapic_pcat_compat_init();
+ }
+ 
+ static inline int
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 0b57a8d..4c54319 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -310,3 +310,28 @@ paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch)
+ 		cpu_asm_switch->work_processed_syscall;
+ 	paravirt_leave_kernel_targ = cpu_asm_switch->leave_kernel;
+ }
++
++/***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
++ */
++
++static unsigned int
++ia64_native_iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	return __ia64_native_iosapic_read(iosapic, reg);
++}
++
++static void
++ia64_native_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	__ia64_native_iosapic_write(iosapic, reg, val);
++}
++
++struct pv_iosapic_ops pv_iosapic_ops = {
++	.pcat_compat_init = ia64_native_iosapic_pcat_compat_init,
++	.get_irq_chip = ia64_native_iosapic_get_irq_chip,
++
++	.__read = ia64_native_iosapic_read,
++	.__write = ia64_native_iosapic_write,
++};
+diff --git a/include/asm-ia64/iosapic.h b/include/asm-ia64/iosapic.h
+index a3a4288..b9c102e 100644
+--- a/include/asm-ia64/iosapic.h
++++ b/include/asm-ia64/iosapic.h
+@@ -55,13 +55,27 @@
+ 
+ #define NR_IOSAPICS			256
+ 
+-static inline unsigned int __iosapic_read(char __iomem *iosapic, unsigned int reg)
++#ifdef CONFIG_PARAVIRT_GUEST
++#include <asm/paravirt.h>
++#else
++#define iosapic_pcat_compat_init	ia64_native_iosapic_pcat_compat_init
++#define __iosapic_read			__ia64_native_iosapic_read
++#define __iosapic_write			__ia64_native_iosapic_write
++#define iosapic_get_irq_chip		ia64_native_iosapic_get_irq_chip
++#endif
++
++extern void __init ia64_native_iosapic_pcat_compat_init(void);
++extern struct irq_chip *ia64_native_iosapic_get_irq_chip(unsigned long trigger);
++
++static inline unsigned int
++__ia64_native_iosapic_read(char __iomem *iosapic, unsigned int reg)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+ 	return readl(iosapic + IOSAPIC_WINDOW);
+ }
+ 
+-static inline void __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++static inline void
++__ia64_native_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ {
+ 	writel(reg, iosapic + IOSAPIC_REG_SELECT);
+ 	writel(val, iosapic + IOSAPIC_WINDOW);
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+index 8778e8b..48887a4 100644
+--- a/include/asm-ia64/paravirt.h
++++ b/include/asm-ia64/paravirt.h
+@@ -109,6 +109,46 @@ static inline void paravirt_post_smp_prepare_boot_cpu(void)
+ 		pv_init_ops.post_smp_prepare_boot_cpu();
+ }
+ 
++/******************************************************************************
++ * replacement of iosapic operations.
++ */
++
++struct pv_iosapic_ops {
++	void (*pcat_compat_init)(void);
++
++	struct irq_chip *(*get_irq_chip)(unsigned long trigger);
++
++	unsigned int (*__read)(char __iomem *iosapic, unsigned int reg);
++	void (*__write)(char __iomem *iosapic, unsigned int reg, u32 val);
++};
++
++extern struct pv_iosapic_ops pv_iosapic_ops;
++
++static inline void
++iosapic_pcat_compat_init(void)
++{
++	if (pv_iosapic_ops.pcat_compat_init)
++		pv_iosapic_ops.pcat_compat_init();
++}
++
++static inline struct irq_chip*
++iosapic_get_irq_chip(unsigned long trigger)
++{
++	return pv_iosapic_ops.get_irq_chip(trigger);
++}
++
++static inline unsigned int
++__iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	return pv_iosapic_ops.__read(iosapic, reg);
++}
++
++static inline void
++__iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	return pv_iosapic_ops.__write(iosapic, reg, val);
++}
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #else
 -- 
-1.5.3.1.g1e61
+1.5.3
 
