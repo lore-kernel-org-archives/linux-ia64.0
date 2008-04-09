@@ -1,57 +1,167 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:14 +0000
-Subject: [PATCH 01/15] ia64: preparation: remove extern in irq_ia64.c
-Message-Id: <1209558568892-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:49:08 +0000
+Subject: [PATCH 15/15] ia64/pv_ops: add to hooks, pv_time_ops, for steal time accounting.
+Message-Id: <1207716549108-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165482297-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165482297-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-remove extern declaration of handle_IPI() in irq_ia64.c.
-Instead, declare it in asm-ia64/smp.h.
-Later handle_IPI() will be referenced from another file.
+Introduce pv_time_ops which adds hook to steal time accounting.
+On virtualized environment, cpus are shared by many guests and
+steal time is the time which is used for other guests.
+On virtualized environtment, streal time should be accounted.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/irq_ia64.c |    1 -
- include/asm-ia64/smp.h      |    2 ++
- 2 files changed, 2 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/paravirt.c |   15 +++++++++++++++
+ arch/ia64/kernel/time.c     |   23 +++++++++++++++++++++++
+ include/asm-ia64/paravirt.h |   32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 70 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 5538471..c48171b 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -600,7 +600,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
- {
- 	BUG();
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 8e47c3f..433cb9b 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -350,3 +350,18 @@ struct pv_irq_ops pv_irq_ops = {
+ 
+ 	.resend_irq = ia64_native_resend_irq,
+ };
++
++/***************************************************************************
++ * pv_time_ops
++ * time operations
++ */
++
++static int
++ia64_native_do_steal_accounting(unsigned long *new_itm)
++{
++	return 0;
++}
++
++struct pv_time_ops pv_time_ops = {
++	.do_steal_accounting = ia64_native_do_steal_accounting,
++};
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index 17fda52..6fecc47 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -24,6 +24,7 @@
+ #include <asm/machvec.h>
+ #include <asm/delay.h>
+ #include <asm/hw_irq.h>
++#include <asm/paravirt.h>
+ #include <asm/ptrace.h>
+ #include <asm/sal.h>
+ #include <asm/sections.h>
+@@ -48,6 +49,15 @@ EXPORT_SYMBOL(last_cli_ip);
+ 
+ #endif
+ 
++#ifdef CONFIG_PARAVIRT
++static void
++paravirt_clocksource_resume(void)
++{
++	if (pv_time_ops.clocksource_resume)
++		pv_time_ops.clocksource_resume();
++}
++#endif
++
+ static struct clocksource clocksource_itc = {
+ 	.name           = "itc",
+ 	.rating         = 350,
+@@ -56,6 +66,9 @@ static struct clocksource clocksource_itc = {
+ 	.mult           = 0, /*to be calculated*/
+ 	.shift          = 16,
+ 	.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
++#ifdef CONFIG_PARAVIRT
++	.resume		= paravirt_clocksource_resume,
++#endif
+ };
+ static struct clocksource *itc_clocksource;
+ 
+@@ -78,6 +91,9 @@ timer_interrupt (int irq, void *dev_id)
+ 
+ 	profile_tick(CPU_PROFILING);
+ 
++	if (paravirt_do_steal_accounting(&new_itm))
++		goto skip_process_time_accounting;
++
+ 	while (1) {
+ 		update_process_times(user_mode(get_irq_regs()));
+ 
+@@ -107,6 +123,8 @@ timer_interrupt (int irq, void *dev_id)
+ 		local_irq_disable();
+ 	}
+ 
++skip_process_time_accounting:
++
+ 	do {
+ 		/*
+ 		 * If we're too close to the next clock tick for
+@@ -256,6 +274,11 @@ ia64_init_itm (void)
+ 		 */
+ 		clocksource_itc.rating = 50;
+ 
++	paravirt_init_missing_ticks_accounting(smp_processor_id());
++
++	/* avoid softlock up message when cpu is unplug and plugged again. */
++	touch_softlockup_watchdog();
++
+ 	/* Setup the CPU local timer tick */
+ 	ia64_cpu_local_tick();
+ 
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+index 2203e9a..44017c1 100644
+--- a/include/asm-ia64/paravirt.h
++++ b/include/asm-ia64/paravirt.h
+@@ -197,6 +197,35 @@ ia64_resend_irq(unsigned int vector)
+ 	pv_irq_ops.resend_irq(vector);
  }
--extern irqreturn_t handle_IPI (int irq, void *dev_id);
  
- static struct irqaction ipi_irqaction = {
- 	.handler =	handle_IPI,
-diff --git a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
-index ec5f355..2984e26 100644
---- a/include/asm-ia64/smp.h
-+++ b/include/asm-ia64/smp.h
-@@ -15,6 +15,7 @@
- #include <linux/kernel.h>
- #include <linux/cpumask.h>
- #include <linux/bitops.h>
-+#include <linux/irqreturn.h>
++/******************************************************************************
++ * replacement of time operations.
++ */
++
++extern struct itc_jitter_data_t itc_jitter_data;
++extern volatile int time_keeper_id;
++
++struct pv_time_ops {
++	void (*init_missing_ticks_accounting)(int cpu);
++	int (*do_steal_accounting)(unsigned long *new_itm);
++
++	void (*clocksource_resume)(void);
++};
++
++extern struct pv_time_ops pv_time_ops;
++
++static inline void
++paravirt_init_missing_ticks_accounting(int cpu)
++{
++	if (pv_time_ops.init_missing_ticks_accounting)
++		pv_time_ops.init_missing_ticks_accounting(cpu);
++}
++
++static inline int
++paravirt_do_steal_accounting(unsigned long *new_itm)
++{
++	return pv_time_ops.do_steal_accounting(new_itm);
++}
++
+ #endif /* !__ASSEMBLY__ */
  
- #include <asm/io.h>
- #include <asm/param.h>
-@@ -123,6 +124,7 @@ extern void __init smp_build_cpu_map(void);
- extern void __init init_smp_config (void);
- extern void smp_do_timer (struct pt_regs *regs);
+ #else
+@@ -212,6 +241,9 @@ ia64_resend_irq(unsigned int vector)
+ #define paravirt_arch_setup_nomca()			0
+ #define paravirt_post_smp_prepare_boot_cpu()		do { } while (0)
  
-+extern irqreturn_t handle_IPI(int irq, void *dev_id);
- extern void smp_send_reschedule (int cpu);
- extern void lock_ipi_calllock(void);
- extern void unlock_ipi_calllock(void);
++#define paravirt_init_missing_ticks_accounting(cpu)	do { } while (0)
++#define paravirt_do_steal_accounting(new_itm)		0
++
+ #endif /* __ASSEMBLY__ */
+ 
+ 
 -- 
 1.5.3
 
