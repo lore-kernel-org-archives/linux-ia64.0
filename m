@@ -1,36 +1,55 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 30 Apr 2008 07:51:06 +0000
-Subject: [PATCH] ia64: fix section mismatch in arch/ia64/kernel/acpi.c
-Message-Id: <481824EA.3000103@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Wed, 09 Apr 2008 04:48:54 +0000
+Subject: [PATCH 01/15] ia64: preparation: remove extern in irq_ia64.c
+Message-Id: <12077165482297-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <481824BE.2000409@jp.fujitsu.com>
-In-Reply-To: <481824BE.2000409@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch kills:
+remove extern declaration of handle_IPI() in irq_ia64.c.
+Instead, declare it in asm-ia64/smp.h.
+Later handle_IPI() will be referenced from another file.
 
-	WARNING: vmlinux.o(.text+0x1702): Section mismatch in
-	reference from the function acpi_register_ioapic() to the
-	function .devinit.text:iosapic_init()
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/acpi.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/irq_ia64.c |    1 -
+ include/asm-ia64/smp.h      |    2 ++
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index c7467f8..19709a0 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -966,7 +966,7 @@ acpi_map_iosapics (void)
- fs_initcall(acpi_map_iosapics);
- #endif				/* CONFIG_ACPI_NUMA */
- 
--int acpi_register_ioapic(acpi_handle handle, u64 phys_addr, u32 gsi_base)
-+int __ref acpi_register_ioapic(acpi_handle handle, u64 phys_addr, u32 gsi_base)
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index d8be23f..711635d 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -600,7 +600,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
  {
- 	int err;
+ 	BUG();
+ }
+-extern irqreturn_t handle_IPI (int irq, void *dev_id);
  
+ static struct irqaction ipi_irqaction = {
+ 	.handler =	handle_IPI,
+diff --git a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
+index 4fa733d..0a8435f 100644
+--- a/include/asm-ia64/smp.h
++++ b/include/asm-ia64/smp.h
+@@ -15,6 +15,7 @@
+ #include <linux/kernel.h>
+ #include <linux/cpumask.h>
+ #include <linux/bitops.h>
++#include <linux/irqreturn.h>
+ 
+ #include <asm/io.h>
+ #include <asm/param.h>
+@@ -120,6 +121,7 @@ extern void __init smp_build_cpu_map(void);
+ extern void __init init_smp_config (void);
+ extern void smp_do_timer (struct pt_regs *regs);
+ 
++extern irqreturn_t handle_IPI(int irq, void *dev_id);
+ extern void smp_send_reschedule (int cpu);
+ extern void lock_ipi_calllock(void);
+ extern void unlock_ipi_calllock(void);
+-- 
+1.5.3
+
