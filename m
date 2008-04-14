@@ -1,7 +1,7 @@
-From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Mon, 14 Apr 2008 12:40:46 +0000
-Subject: Re: [PATCH] NUMA memory configuration issue
-Message-Id: <480350CE.8040804@bull.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 14 Apr 2008 16:09:34 +0000
+Subject: RE: [PATCH] NUMA memory configuration issue
+Message-Id: <1FE6DD409037234FAB833C420AA843EC010D61DC@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <47FE313B.2010600@bull.net>
 In-Reply-To: <47FE313B.2010600@bull.net>
@@ -10,36 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
-> You missed a spot:
-> 
-> diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-> index 0479661..798bf98 100644
-> --- a/arch/ia64/mm/contig.c
-> +++ b/arch/ia64/mm/contig.c
-> @@ -253,7 +253,7 @@ paging_init (void)
->  	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
->  
->  #ifdef CONFIG_VIRTUAL_MEM_MAP
-> -	efi_memmap_walk(register_active_ranges, NULL);
-> +	efi_memmap_walk(filter_memory, register_active_ranges);
->  	efi_memmap_walk(find_largest_hole, (u64 *)&max_gap);
->  	if (max_gap < LARGE_GAP) {
->  		vmem_map = (struct page *) 0;
-> 
-> 
-> But otherwise this looks plausible.  My non-numa system still
-> boots.
+> Do you think contig.c is also effected?
+> Can you please explain why?
 
-Thank your for your response.
+No action is required in the contig.c case, but the compiler grumbles
+because you changed the type (of the arguments) for register_active_ranges().
+So for a .config with CONFIG_VIRTUAL_MEM_MAP=y the following warning is
+produced:
 
-My patch aims to avoid the confusion due to the EFI memory ranges
-which belong to different numa nodes and are merged in certain
-conditions.
+  CC      arch/ia64/mm/contig.o
+arch/ia64/mm/contig.c: In function `paging_init':
+arch/ia64/mm/contig.c:258: warning: passing arg 1 of `efi_memmap_walk' from incompatible pointer type
 
-Do you think contig.c is also effected?
-Can you please explain why?
-
-Thanks,
-
-Zoltan
+-Tony
