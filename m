@@ -1,155 +1,68 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:17 +0000
-Subject: [PATCH 04/15] ia64/pv_ops: introduce pv_info which describes some random info.
-Message-Id: <1209558568922-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 22 Apr 2008 06:42:21 +0000
+Subject: [PATCH 3/3] ia64/pv_ops: preparation: introduce ia64_get_psr_i() to make kernel paravirtualization f
+Message-Id: <12088465413705-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165491881-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165491881-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-introduce pv_info which describes some randome info about
-underlying execution environment.
+__local_irq_save() and local_save_flags() are used to mask interruptions.
+They read all psr bits that requres whole bit emulation.
+On the other hand, reading only psr.i, the single bit, can be virtualized
+cheaply.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/Makefile   |    2 +
- arch/ia64/kernel/paravirt.c |   41 ++++++++++++++++++++++++++++
- include/asm-ia64/paravirt.h |   62 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 105 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/kernel/paravirt.c
- create mode 100644 include/asm-ia64/paravirt.h
+ include/asm-ia64/intrinsics.h |    2 ++
+ include/asm-ia64/system.h     |   10 ++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 13fd10e..10a4ddb 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -36,6 +36,8 @@ obj-$(CONFIG_PCI_MSI)		+= msi_ia64.o
- mca_recovery-y			+= mca_drv.o mca_drv_asm.o
- obj-$(CONFIG_IA64_MC_ERR_INJECT)+= err_inject.o
+diff --git a/include/asm-ia64/intrinsics.h b/include/asm-ia64/intrinsics.h
+index 9b83f8f..a3b9689 100644
+--- a/include/asm-ia64/intrinsics.h
++++ b/include/asm-ia64/intrinsics.h
+@@ -18,6 +18,8 @@
+ # include <asm/gcc_intrin.h>
+ #endif
  
-+obj-$(CONFIG_PARAVIRT)		+= paravirt.o
++#define ia64_get_psr_i()	(ia64_getreg(_IA64_REG_PSR) & IA64_PSR_I)
 +
- obj-$(CONFIG_IA64_ESI)		+= esi.o
- ifneq ($(CONFIG_IA64_ESI),)
- obj-y				+= esi_stub.o	# must be in kernel proper
-diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-new file mode 100644
-index 0000000..d295ea5
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt.c
-@@ -0,0 +1,41 @@
-+/******************************************************************************
-+ * arch/ia64/kernel/paravirt.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *     Yaozu (Eddie) Dong <eddie.dong@intel.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/init.h>
-+
-+#include <linux/compiler.h>
-+#include <linux/io.h>
-+#include <linux/irq.h>
-+#include <linux/types.h>
-+
-+#include <asm/iosapic.h>
-+#include <asm/paravirt.h>
-+
-+/***************************************************************************
-+ * general info
-+ */
-+struct pv_info pv_info = {
-+	.kernel_rpl = 0,
-+	.paravirt_enabled = 0,
-+	.name = "bare hardware"
-+};
-diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
-new file mode 100644
-index 0000000..26b4334
---- /dev/null
-+++ b/include/asm-ia64/paravirt.h
-@@ -0,0 +1,62 @@
-+/******************************************************************************
-+ * include/asm-ia64/paravirt.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+
-+#ifndef __ASM_PARAVIRT_H
-+#define __ASM_PARAVIRT_H
-+
-+#ifdef CONFIG_PARAVIRT_GUEST
-+
-+#ifndef __ASSEMBLY__
-+
-+#include <asm/hw_irq.h>
-+#include <asm/meminit.h>
-+
-+/******************************************************************************
-+ * general info
-+ */
-+struct pv_info {
-+	unsigned int kernel_rpl;
-+	int paravirt_enabled;
-+	const char *name;
-+};
-+
-+extern struct pv_info pv_info;
-+
-+static inline int paravirt_enabled(void)
-+{
-+	return pv_info.paravirt_enabled;
-+}
-+
-+static inline unsigned int get_kernel_rpl(void)
-+{
-+	return pv_info.kernel_rpl;
-+}
-+
-+#endif /* !__ASSEMBLY__ */
-+
+ #define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)	\
+ do {								\
+ 	ia64_set_rr(0x0000000000000000UL, (val0));		\
+diff --git a/include/asm-ia64/system.h b/include/asm-ia64/system.h
+index dff8128..bcc2483 100644
+--- a/include/asm-ia64/system.h
++++ b/include/asm-ia64/system.h
+@@ -122,10 +122,16 @@ extern struct ia64_boot_param {
+  *   write a floating-point register right before reading the PSR
+  *   and that writes to PSR.mfl
+  */
++#ifdef CONFIG_PARAVIRT
++#define __local_save_flags()	ia64_get_psr_i()
 +#else
-+/* fallback for native case */
++#define __local_save_flags()	ia64_getreg(_IA64_REG_PSR)
++#endif
 +
-+#endif /* CONFIG_PARAVIRT_GUEST */
-+
-+#endif /* __ASM_PARAVIRT_H */
+ #define __local_irq_save(x)			\
+ do {						\
+ 	ia64_stop();				\
+-	(x) = ia64_getreg(_IA64_REG_PSR);	\
++	(x) = __local_save_flags();		\
+ 	ia64_stop();				\
+ 	ia64_rsm(IA64_PSR_I);			\
+ } while (0)
+@@ -173,7 +179,7 @@ do {								\
+ #endif /* !CONFIG_IA64_DEBUG_IRQ */
+ 
+ #define local_irq_enable()	({ ia64_stop(); ia64_ssm(IA64_PSR_I); ia64_srlz_d(); })
+-#define local_save_flags(flags)	({ ia64_stop(); (flags) = ia64_getreg(_IA64_REG_PSR); })
++#define local_save_flags(flags)	({ ia64_stop(); (flags) = __local_save_flags(); })
+ 
+ #define irqs_disabled()				\
+ ({						\
 -- 
 1.5.3
 
