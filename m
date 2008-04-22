@@ -1,87 +1,131 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Wed, 02 Apr 2008 03:13:54 +0000
-Subject: RE: [kvm-ia64-devel] [16/18]KVM:IA64 : Add kvm sal/palvirtulization support.V9
-Message-Id: <42DFA526FC41B1429CE7279EF83C6BDC010488D5@pdsmsx415.ccr.corp.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 22 Apr 2008 22:30:50 +0000
+Subject: Boot breakage on Altix
+Message-Id: <20080422223049.GA8765@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42DFA526FC41B1429CE7279EF83C6BDC0104872F@pdsmsx415.ccr.corp.intel.com> <47F2541A.50007@sgi.com>
-In-Reply-To: <47F2541A.50007@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Carsten Otte <cotte@de.ibm.com>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, kvm-ia64-devel@lists.sourceforge.net, kvm-devel@lists.sourceforge.net, Akio Takebe <takebe_akio@jp.fujitsu.com>, Avi Kivity <avi@qumranet.com>, virtualization@lists.linux-foundation.org, "Xu, Anthony" <anthony.xu@intel.com>
+To: linux-ia64@vger.kernel.org
 
-Changed to be a soft and clear saying. Thanks! :-)
-Xiantao
+Tony,
 
-Jes Sorensen wrote:
-> Zhang, Xiantao wrote:
->>> From 5c70c038c57190144390ae9d30c3d06afba103d4 Mon Sep 17 00:00:00
->>> 2001 
->> From: Xiantao Zhang <xiantao.zhang@intel.com>
->> Date: Tue, 1 Apr 2008 14:59:30 +0800
->> Subject: [PATCH] KVM:IA64 : Add kvm sal/pal virtulization support.
->> 
->> Some sal/pal calls would be traped to kvm for virtulization
->> from guest firmware.
->> Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com> ---
->>  arch/ia64/kvm/kvm_fw.c |  500
-> 
-> Hi Xiantao,
-> 
-> A few more comments:
-> 
-> 
->> --- /dev/null
->> +++ b/arch/ia64/kvm/kvm_fw.c
-> 
->> +static void kvm_get_pal_call_data(struct kvm_vcpu *vcpu,
->> +		u64 *gr28, u64 *gr29, u64 *gr30, u64 *gr31) {
->> +	struct exit_ctl_data *p;
->> +
->> +	if (vcpu) {
->> +		p = &vcpu->arch.exit_data;
->> +		if (p->exit_reason = EXIT_REASON_PAL_CALL) {
->> +			*gr28 = p->u.pal_data.gr28;
->> +			*gr29 = p->u.pal_data.gr29;
->> +			*gr30 = p->u.pal_data.gr30;
->> +			*gr31 = p->u.pal_data.gr31;
->> +			return ;
->> +		}
->> +	}
->> +	printk(KERN_DEBUG"Error occurs in kvm_get_pal_call_data!!\n");
-> 
-> Maybe make this error message a bit more elaborate with information
-> about what the error is?
-> 
->> +static void set_sal_result(struct kvm_vcpu *vcpu,
->> +		struct sal_ret_values result) {
->> +	struct exit_ctl_data *p;
->> +
->> +	p = kvm_get_exit_data(vcpu);
->> +	if (p && p->exit_reason = EXIT_REASON_SAL_CALL) {
->> +		p->u.sal_data.ret = result;
->> +		return ;
->> +	}
->> +	printk(KERN_WARNING"Error occurs!!!\n");
-> 
-> I love this error message :-) Seriously though, please make it say
-> where it is and what has been detected.
-> 
-> Cheers,
-> Jes
-> 
->
+The latest tree does not boot on Altix.
+Looks like low bootmem is broken.
+"low bootmem alloc of 128 bytes failed!"
+
+The tree was pulled down using:
+cg-clone git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git test
+
+Built using arch/ia64/configs/sn2_defconfig (default settings).
+
+I can look closer later tonight.
+
+The output:
 ------------------------------------------------------------------------
--
-> Check out the new SourceForge.net Marketplace.
-> It's the best place to buy or sell services for
-> just about anything Open Source.
->
-http://ad.doubleclick.net/clk;164216239;13503038;w?http://sf.net/marketp
-lace
-> _______________________________________________
-> kvm-ia64-devel mailing list
-> kvm-ia64-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel
+Shell> fs2:efi\suse\elilo net0:rja/vmlinux.rja.2625 root=/dev/sda6 console=ttySG0 kdb=on
+ELILO
+Uncompressing Linux... done
+Initializing cgroup subsys cpuset
+Linux version 2.6.25 (rja@attica) (gcc version 4.1.2 20070115 (prerelease) (SUSE Linux)) #3 SMP Tue Apr 22 16:25:27 CDT 2008
+EFI v1.10 by INTEL: SALsystab=0x46002c25010 ACPI 2.0=0x46002c25800
+console [sn_sal0] enabled
+ACPI: RSDP 46002C25800, 0024 (r2    SGI)
+ACPI: XSDT 46002C29460, 0044 (r1    SGI  XSDTSN2    10001           5C)
+ACPI: APIC 46002C258A0, 005C (r1    SGI  APICSN2    10001            1)
+ACPI: SRAT 46002C25910, 00C0 (r1    SGI  SRATSN2    10001            1)
+ACPI: SLIT 46002C259E0, 0030 (r1    SGI  SLITSN2    10001            1)
+ACPI: FACP 46002C25A80, 00F4 (r3    SGI  FACPSN2    30001            1)
+ACPI: DSDT 46002C28CB0, 0024 (r2    SGI  DSDTSN2    20001          6EA)
+ACPI: FACS 46002C25A30, 0040
+Number of logical nodes in system = 2
+Number of memory chunks in system = 2
+SAL 3.2: SGI SN2 version 1.42
+SAL Platform features: ITC_Drift
+SAL: AP wakeup using external interrupt vector 0x12
+ACPI: Local APIC address c0000000fee00000
+register_intr: No IOSAPIC for GSI 52
+4 CPUs available, 4 CPUs total
+MCA related initialization done
+ACPI: RSDP 46002C25800, 0024 (r2    SGI)
+ACPI: XSDT 46002C29460, 005C (r1    SGI  XSDTSN2    10001           5C)
+ACPI: APIC 46002C258A0, 005C (r1    SGI  APICSN2    10001            1)
+ACPI: SRAT 46002C25910, 00C0 (r1    SGI  SRATSN2    10001            1)
+ACPI: SLIT 46002C259E0, 0030 (r1    SGI  SLITSN2    10001            1)
+ACPI: FACP 46002C25A80, 00F4 (r3    SGI  FACPSN2    30001            1)
+ACPI: DSDT 46002C28CB0, 06EA (r2    SGI  DSDTSN2    20101          6EA)
+ACPI: FACS 46002C25A30, 0040
+ACPI: SSDT 46002C27B50, 0095 (r2    SGI  SSDTSN2    20101           95)
+ACPI: SSDT 46002C27C60, 0095 (r2    SGI  SSDTSN2    20101           95)
+ACPI: SSDT 46002C293B0, 0095 (r2    SGI  SSDTSN2    20101           95)
+SGI SAL version 1.42
+Virtual mem_map starts at 0xa07ffffed2c80000
+Zone PFN ranges:
+  Normal   73401088 -> 90209280
+Movable zone start PFN for each node
+early_node_map[5] active PFN ranges
+    0: 73401088 -> 73463807
+    1: 90178304 -> 90208895
+    1: 90209152 -> 90209237
+    1: 90209242 -> 90209249
+    1: 90209256 -> 90209262
+low bootmem alloc of 128 bytes failed!
+Kernel panic - not syncing: Out of low memory
 
+
+
+
+An example of a good boot.
+------------------------------------------------------------------------
+Shell> fs2:efi\suse\elilo net0:rja/vmlinux.rja.2625 root=/dev/sda6 console=ttySG0 kdb=on
+ELILO
+Uncompressing Linux... done
+Initializing cgroup subsys cpuset
+Linux version 2.6.25-rc8 (rja@attica) (gcc version 4.1.2 20070115 (prerelease) (SUSE Linux)) #199 SMP Tue Apr 22 15:37:55 CDT 2008
+EFI v1.10 by INTEL: SALsystab=0x46002c25010 ACPI 2.0=0x46002c25800
+console [sn_sal0] enabled
+ACPI: RSDP 46002C25800, 0024 (r2    SGI)
+ACPI: XSDT 46002C29460, 0044 (r1    SGI  XSDTSN2    10001           5C)
+ACPI: APIC 46002C258A0, 005C (r1    SGI  APICSN2    10001            1)
+ACPI: SRAT 46002C25910, 00C0 (r1    SGI  SRATSN2    10001            1)
+ACPI: SLIT 46002C259E0, 0030 (r1    SGI  SLITSN2    10001            1)
+ACPI: FACP 46002C25A80, 00F4 (r3    SGI  FACPSN2    30001            1)
+ACPI: DSDT 46002C28CB0, 0024 (r2    SGI  DSDTSN2    20001          6EA)
+ACPI: FACS 46002C25A30, 0040
+Number of logical nodes in system = 2
+Number of memory chunks in system = 2
+SAL 3.2: SGI SN2 version 1.42
+SAL Platform features: ITC_Drift
+SAL: AP wakeup using external interrupt vector 0x12
+ACPI: Local APIC address c0000000fee00000
+register_intr: No IOSAPIC for GSI 52
+4 CPUs available, 4 CPUs total
+MCA related initialization done
+ACPI: RSDP 46002C25800, 0024 (r2    SGI)
+ACPI: XSDT 46002C29460, 005C (r1    SGI  XSDTSN2    10001           5C)
+ACPI: APIC 46002C258A0, 005C (r1    SGI  APICSN2    10001            1)
+ACPI: SRAT 46002C25910, 00C0 (r1    SGI  SRATSN2    10001            1)
+ACPI: SLIT 46002C259E0, 0030 (r1    SGI  SLITSN2    10001            1)
+ACPI: FACP 46002C25A80, 00F4 (r3    SGI  FACPSN2    30001            1)
+ACPI: DSDT 46002C28CB0, 06EA (r2    SGI  DSDTSN2    20101          6EA)
+ACPI: FACS 46002C25A30, 0040
+ACPI: SSDT 46002C27B50, 0095 (r2    SGI  SSDTSN2    20101           95)
+ACPI: SSDT 46002C27C60, 0095 (r2    SGI  SSDTSN2    20101           95)
+ACPI: SSDT 46002C293B0, 0095 (r2    SGI  SSDTSN2    20101           95)
+SGI SAL version 1.42
+Virtual mem_map starts at 0xa07ffffed2c80000
+Zone PFN ranges:
+  Normal   73401088 -> 90209280
+Movable zone start PFN for each node
+early_node_map[5] active PFN ranges
+    0: 73401088 -> 73463807
+    1: 90178304 -> 90208895
+    1: 90209152 -> 90209237
+    1: 90209242 -> 90209249
+    1: 90209256 -> 90209262
+Built 2 zonelists in Node order, mobility grouping on.  Total pages: 93329
+Policy zone: Normal
+------------------------------------------------------------------------
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
