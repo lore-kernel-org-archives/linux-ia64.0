@@ -1,156 +1,344 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 29 Apr 2008 22:32:46 +0000
-Subject: RE: [PATCH 2/2] ia64: Provide ACPI fixup for /proc/cpuinfo/physical_id
-Message-Id: <1FE6DD409037234FAB833C420AA843EC0138200C@orsmsx424.amr.corp.intel.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Tue, 22 Apr 2008 19:46:56 +0000
+Subject: [Patch 1/4] move XP and XPC to drivers/misc/sgi-xp -v4
+Message-Id: <20080422194656.GA14628@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com> <20080326185912.GA30749@ldl.fc.hp.com> <20080421052450.GA24055@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com> <20080424184417.GA32553@ldl.fc.hp.com> <20080424185222.GC32553@ldl.fc.hp.com>
-In-Reply-To: <20080424185222.GC32553@ldl.fc.hp.com>
+References: <20080422194459.GB13086@sgi.com>
+In-Reply-To: <20080422194459.GB13086@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Chiang <achiang@hp.com>, lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com
+Cc: jes@sgi.com, gregkh@suse.de, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Alex,
+Move XPC and XPNET from arch/ia64/sn/kernel to drivers/misc/sgi-xp.
 
-I chewed on this a bit ... 
+Signed-off-by: Dean Nelson <dcn@sgi.com>
+
+---
+
+ arch/ia64/Kconfig                                  |   11 -----------
+ arch/ia64/sn/kernel/Makefile                       |    7 +------
+ drivers/misc/Kconfig                               |   12 ++++++++++++
+ drivers/misc/Makefile                              |    1 +
+ drivers/misc/sgi-xp/Makefile                       |   11 +++++++++++
+ {include/asm-ia64/sn => drivers/misc/sgi-xp}/xp.h  |    8 ++++----
+ .../sn/kernel => drivers/misc/sgi-xp}/xp_main.c    |    4 ++--
+ .../sn/kernel => drivers/misc/sgi-xp}/xp_nofault.S |    2 +-
+ {include/asm-ia64/sn => drivers/misc/sgi-xp}/xpc.h |   10 +++++-----
+ .../kernel => drivers/misc/sgi-xp}/xpc_channel.c   |    4 ++--
+ .../sn/kernel => drivers/misc/sgi-xp}/xpc_main.c   |    4 ++--
+ .../kernel => drivers/misc/sgi-xp}/xpc_partition.c |    4 ++--
+ .../ia64/sn/kernel => drivers/misc/sgi-xp}/xpnet.c |    4 ++--
+ 13 files changed, 45 insertions(+), 37 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index ed21737..cd13e13 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -266,17 +266,6 @@ config IOSAPIC
+ 	depends on !IA64_HP_SIM
+ 	default y
  
-+void ia64_fix_socket_id(int num, u32 slot)
-+{
-+	if (cpu_data(num)->socket_id = -1)
-+		cpu_data(num)->socket_id= slot;
-+}
-+EXPORT_SYMBOL_GPL(ia64_fix_socket_id);
-
-1) socket_id is only defined when CONFIG_SMP=y, so this breaks UP
-   build.  Fix: Wrap body of this function inside #ifdef
-2) should really just name this function "arch_fix_phys_package_id"
-   and avoid the #define rename in topology.h
-
-
-diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-+	/*
-+	 * If ACPI describes a slot number for this CPU, we can use it
-+	 * to fix a broken topology->physical_package_id.
-+	 */
-+	status = acpi_evaluate_object(pr->handle, "_SUN", NULL, &buffer);
-+	if (ACPI_SUCCESS(status))
-+		arch_fix_phys_package_id(pr->id, object.integer.value);
+-config IA64_SGI_SN_XP
+-	tristate "Support communication between SGI SSIs"
+-	depends on IA64_GENERIC || IA64_SGI_SN2
+-	select IA64_UNCACHED_ALLOCATOR
+-	help
+-	  An SGI machine can be divided into multiple Single System
+-	  Images which act independently of each other and have
+-	  hardware based memory protection from the others.  Enabling
+-	  this feature will allow for direct communication between SSIs
+-	  based on a network adapter and DMA messaging.
+-
+ config FORCE_MAX_ZONEORDER
+ 	int "MAX_ORDER (11 - 17)"  if !HUGETLB_PAGE
+ 	range 11 17  if !HUGETLB_PAGE
+diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
+index 688a3c2..0591038 100644
+--- a/arch/ia64/sn/kernel/Makefile
++++ b/arch/ia64/sn/kernel/Makefile
+@@ -4,7 +4,7 @@
+ # License.  See the file "COPYING" in the main directory of this archive
+ # for more details.
+ #
+-# Copyright (C) 1999,2001-2006 Silicon Graphics, Inc.  All Rights Reserved.
++# Copyright (C) 1999,2001-2006,2008 Silicon Graphics, Inc.  All Rights Reserved.
+ #
+ 
+ EXTRA_CFLAGS += -Iarch/ia64/sn/include
+@@ -15,9 +15,4 @@ obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
+ 				   sn2/
+ obj-$(CONFIG_IA64_GENERIC)      += machvec.o
+ obj-$(CONFIG_SGI_TIOCX)		+= tiocx.o
+-obj-$(CONFIG_IA64_SGI_SN_XP)	+= xp.o
+-xp-y				:= xp_main.o xp_nofault.o
+-obj-$(CONFIG_IA64_SGI_SN_XP)	+= xpc.o
+-xpc-y				:= xpc_main.o xpc_channel.o xpc_partition.o
+-obj-$(CONFIG_IA64_SGI_SN_XP)	+= xpnet.o
+ obj-$(CONFIG_PCI_MSI)		+= msi_sn.o
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index bb94ce7..297a48f 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -360,4 +360,16 @@ config ENCLOSURE_SERVICES
+ 	  driver (SCSI/ATA) which supports enclosures
+ 	  or a SCSI enclosure device (SES) to use these services.
+ 
++config SGI_XP
++	tristate "Support communication between SGI SSIs"
++	depends on IA64_GENERIC || IA64_SGI_SN2
++	select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
++	select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
++	---help---
++	  An SGI machine can be divided into multiple Single System
++	  Images which act independently of each other and have
++	  hardware based memory protection from the others.  Enabling
++	  this feature will allow for direct communication between SSIs
++	  based on a network adapter and DMA messaging.
 +
-
-Comment here still refers to what the previous patch was doing. Should
-now say that we are fixing /proc/cpuinfo "physical id".
- 
-diff --git a/include/asm-ia64/topology.h b/include/asm-ia64/topology.h
-+#define arch_fix_phys_package_id(num, slot)	ia64_fix_socket_id(num, slot)
-
-Not needed if we name ia64_fix_socket_id() appropriately. Turn this
-into an extern definition for arch_fix_phys_package_id() and drop the
-extern from cpu.h
-
-diff --git a/include/asm-x86/topology.h b/include/asm-x86/topology.h
-+#define arch_fix_phys_package_id(num, slot)
-
-Style preference is to now use a "static inline void" function for
-this to make sure args are correctly typed, and to avoid warnings about
-unused variables.
-
-updated version of the patch looks like this ... ok???
-
--Tony
-
-commit fe086a7bea7ab714930bd48addba961ceeef7634
-Author: Alex Chiang <achiang@hp.com>
-Date:   Tue Apr 29 15:05:29 2008 -0700
-
-    [IA64] Provide ACPI fixup for /proc/cpuinfo/physical_id
-    
-    Legacy HP ia64 platforms currently cannot provide
-    /proc/cpuinfo/physical_id due to legacy SAL/PAL implementations.
-    However, that physical topology information can be obtained
-    via ACPI.
-    
-    Provide an interface that gives ACPI one last chance to provide
-    physical_id for these legacy platforms. This logic only comes
-    into play iff:
-    
-    - ACPI actually provides slot information for the CPU
-    - we lack a valid socket_id
-    
-    Otherwise, we don't do anything.
-    
-    Since x86 uses the ACPI processor driver as well, we provide a nop
-    stub function for arch_fix_phys_package_id() in asm-x86/topology.h
-    
-    Signed-off-by: Alex Chiang <achiang@hp.com>
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index a2484fc..abb17a6 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -27,6 +27,15 @@
- 
- static struct ia64_cpu *sysfs_cpus;
- 
-+void arch_fix_phys_package_id(int num, u32 slot)
-+{
-+#ifdef CONFIG_SMP
-+	if (cpu_data(num)->socket_id = -1)
-+		cpu_data(num)->socket_id = slot;
-+#endif
-+}
-+EXPORT_SYMBOL_GPL(arch_fix_phys_package_id);
+ endif # MISC_DEVICES
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 4581b25..5914da4 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -24,3 +24,4 @@ obj-$(CONFIG_EEPROM_93CX6)	+= eeprom_93cx6.o
+ obj-$(CONFIG_INTEL_MENLOW)	+= intel_menlow.o
+ obj-$(CONFIG_ENCLOSURE_SERVICES) += enclosure.o
+ obj-$(CONFIG_KGDB_TESTS)	+= kgdbts.o
++obj-$(CONFIG_SGI_XP)		+= sgi-xp/
+diff --git a/drivers/misc/sgi-xp/Makefile b/drivers/misc/sgi-xp/Makefile
+new file mode 100644
+index 0000000..b6e40a7
+--- /dev/null
++++ b/drivers/misc/sgi-xp/Makefile
+@@ -0,0 +1,11 @@
++#
++# Makefile for SGI's XP devices.
++#
 +
- int arch_register_cpu(int num)
- {
- #if defined (CONFIG_ACPI) && defined (CONFIG_HOTPLUG_CPU)
-diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-index dd28c91..5241e3f 100644
---- a/drivers/acpi/processor_core.c
-+++ b/drivers/acpi/processor_core.c
-@@ -603,6 +603,15 @@ static int acpi_processor_get_info(struct acpi_processor *pr, unsigned has_uid)
- 		request_region(pr->throttling.address, 6, "ACPI CPU throttle");
- 	}
- 
-+	/*
-+	 * If ACPI describes a slot number for this CPU, we can use it
-+	 * ensure we get the right value in the "physical id" field
-+	 * of /proc/cpuinfo
-+	 */
-+	status = acpi_evaluate_object(pr->handle, "_SUN", NULL, &buffer);
-+	if (ACPI_SUCCESS(status))
-+		arch_fix_phys_package_id(pr->id, object.integer.value);
++obj-$(CONFIG_SGI_XP)		+= xp.o
++xp-y				:= xp_main.o xp_nofault.o
 +
- 	return 0;
++obj-$(CONFIG_SGI_XP)		+= xpc.o
++xpc-y				:= xpc_main.o xpc_channel.o xpc_partition.o
++
++obj-$(CONFIG_SGI_XP)		+= xpnet.o
+diff --git a/include/asm-ia64/sn/xp.h b/drivers/misc/sgi-xp/xp.h
+similarity index 99%
+rename from include/asm-ia64/sn/xp.h
+rename to drivers/misc/sgi-xp/xp.h
+index f7711b3..fb65981 100644
+--- a/include/asm-ia64/sn/xp.h
++++ b/drivers/misc/sgi-xp/xp.h
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 2004-2005 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 2004-2008 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
+ 
+@@ -12,8 +12,8 @@
+  */
+ 
+ 
+-#ifndef _ASM_IA64_SN_XP_H
+-#define _ASM_IA64_SN_XP_H
++#ifndef _DRIVERS_MISC_SGIXP_XP_H
++#define _DRIVERS_MISC_SGIXP_XP_H
+ 
+ 
+ #include <linux/cache.h>
+@@ -481,5 +481,5 @@ extern int xp_nofault_PIOR(void *);
+ extern int xp_error_PIOR(void);
+ 
+ 
+-#endif /* _ASM_IA64_SN_XP_H */
++#endif /* _DRIVERS_MISC_SGIXP_XP_H */
+ 
+diff --git a/arch/ia64/sn/kernel/xp_main.c b/drivers/misc/sgi-xp/xp_main.c
+similarity index 98%
+rename from arch/ia64/sn/kernel/xp_main.c
+rename to drivers/misc/sgi-xp/xp_main.c
+index b7ea466..5f9f9c2 100644
+--- a/arch/ia64/sn/kernel/xp_main.c
++++ b/drivers/misc/sgi-xp/xp_main.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2005 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -22,7 +22,7 @@
+ #include <linux/mutex.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/sn_sal.h>
+-#include <asm/sn/xp.h>
++#include "xp.h"
+ 
+ 
+ /*
+diff --git a/arch/ia64/sn/kernel/xp_nofault.S b/drivers/misc/sgi-xp/xp_nofault.S
+similarity index 95%
+rename from arch/ia64/sn/kernel/xp_nofault.S
+rename to drivers/misc/sgi-xp/xp_nofault.S
+index 98e7c7d..c13a709 100644
+--- a/arch/ia64/sn/kernel/xp_nofault.S
++++ b/drivers/misc/sgi-xp/xp_nofault.S
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2007 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+diff --git a/include/asm-ia64/sn/xpc.h b/drivers/misc/sgi-xp/xpc.h
+similarity index 99%
+rename from include/asm-ia64/sn/xpc.h
+rename to drivers/misc/sgi-xp/xpc.h
+index 3c0900a..14e70ee 100644
+--- a/include/asm-ia64/sn/xpc.h
++++ b/drivers/misc/sgi-xp/xpc.h
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2007 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -11,8 +11,8 @@
+  * Cross Partition Communication (XPC) structures and macros.
+  */
+ 
+-#ifndef _ASM_IA64_SN_XPC_H
+-#define _ASM_IA64_SN_XPC_H
++#ifndef _DRIVERS_MISC_SGIXP_XPC_H
++#define _DRIVERS_MISC_SGIXP_XPC_H
+ 
+ 
+ #include <linux/interrupt.h>
+@@ -27,7 +27,7 @@
+ #include <asm/sn/addrs.h>
+ #include <asm/sn/mspec.h>
+ #include <asm/sn/shub_mmr.h>
+-#include <asm/sn/xp.h>
++#include "xp.h"
+ 
+ 
+ /*
+@@ -1263,5 +1263,5 @@ xpc_check_for_channel_activity(struct xpc_partition *part)
  }
  
-diff --git a/include/asm-ia64/topology.h b/include/asm-ia64/topology.h
-index f2f72ef..32863b3 100644
---- a/include/asm-ia64/topology.h
-+++ b/include/asm-ia64/topology.h
-@@ -116,6 +116,8 @@ void build_cpu_to_node_map(void);
- #define smt_capable() 				(smp_num_siblings > 1)
- #endif
  
-+extern void arch_fix_phys_package_id(int num, u32 slot);
-+
- #define pcibus_to_cpumask(bus)	(pcibus_to_node(bus) = -1 ? \
- 					CPU_MASK_ALL : \
- 					node_to_cpumask(pcibus_to_node(bus)) \
-diff --git a/include/asm-x86/topology.h b/include/asm-x86/topology.h
-index 0e6d6b0..4f35a0f 100644
---- a/include/asm-x86/topology.h
-+++ b/include/asm-x86/topology.h
-@@ -193,6 +193,10 @@ extern cpumask_t cpu_coregroup_map(int cpu);
- #define topology_thread_siblings(cpu)		(per_cpu(cpu_sibling_map, cpu))
- #endif
+-#endif /* _ASM_IA64_SN_XPC_H */
++#endif /* _DRIVERS_MISC_SGIXP_XPC_H */
  
-+static inline void arch_fix_phys_package_id(int num, u32 slot)
-+{
-+}
-+
- struct pci_bus;
- void set_pci_bus_resources_arch_default(struct pci_bus *b);
+diff --git a/arch/ia64/sn/kernel/xpc_channel.c b/drivers/misc/sgi-xp/xpc_channel.c
+similarity index 99%
+rename from arch/ia64/sn/kernel/xpc_channel.c
+rename to drivers/misc/sgi-xp/xpc_channel.c
+index 44ccc0d..d7a215e 100644
+--- a/arch/ia64/sn/kernel/xpc_channel.c
++++ b/drivers/misc/sgi-xp/xpc_channel.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
  
-
-
+ 
+@@ -25,7 +25,7 @@
+ #include <linux/completion.h>
+ #include <asm/sn/bte.h>
+ #include <asm/sn/sn_sal.h>
+-#include <asm/sn/xpc.h>
++#include "xpc.h"
+ 
+ 
+ /*
+diff --git a/arch/ia64/sn/kernel/xpc_main.c b/drivers/misc/sgi-xp/xpc_main.c
+similarity index 99%
+rename from arch/ia64/sn/kernel/xpc_main.c
+rename to drivers/misc/sgi-xp/xpc_main.c
+index 9e0b164..bdb2cf1 100644
+--- a/arch/ia64/sn/kernel/xpc_main.c
++++ b/drivers/misc/sgi-xp/xpc_main.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2007 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -59,7 +59,7 @@
+ #include <asm/sn/intr.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/uaccess.h>
+-#include <asm/sn/xpc.h>
++#include "xpc.h"
+ 
+ 
+ /* define two XPC debug device structures to be used with dev_dbg() et al */
+diff --git a/arch/ia64/sn/kernel/xpc_partition.c b/drivers/misc/sgi-xp/xpc_partition.c
+similarity index 99%
+rename from arch/ia64/sn/kernel/xpc_partition.c
+rename to drivers/misc/sgi-xp/xpc_partition.c
+index 9e97c26..7412dc7 100644
+--- a/arch/ia64/sn/kernel/xpc_partition.c
++++ b/drivers/misc/sgi-xp/xpc_partition.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2004-2006 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2004-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+ 
+@@ -28,7 +28,7 @@
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/nodepda.h>
+ #include <asm/sn/addrs.h>
+-#include <asm/sn/xpc.h>
++#include "xpc.h"
+ 
+ 
+ /* XPC is exiting flag */
+diff --git a/arch/ia64/sn/kernel/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
+similarity index 99%
+rename from arch/ia64/sn/kernel/xpnet.c
+rename to drivers/misc/sgi-xp/xpnet.c
+index a5df672..38552f3 100644
+--- a/arch/ia64/sn/kernel/xpnet.c
++++ b/drivers/misc/sgi-xp/xpnet.c
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 1999,2001-2005 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 1999-2008 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
+ 
+@@ -38,7 +38,7 @@
+ #include <asm/sn/sn_sal.h>
+ #include <asm/types.h>
+ #include <asm/atomic.h>
+-#include <asm/sn/xp.h>
++#include "xp.h"
+ 
+ 
+ /*
