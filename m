@@ -1,47 +1,60 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Sat, 19 Apr 2008 10:07:02 +0000
-Subject: [PATCH][trivial][1/2] ia64: add constfy to pgd_offset()
-Message-Id: <20080419190442.A8F4.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 22 Apr 2008 06:42:20 +0000
+Subject: [PATCH 2/3] [RESEND] ia64/pv_ops: preparation: introduce ia64_set_rr0_to_rr4() to make kernel paravi
+Message-Id: <12088465413678-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080419184918.A8EE.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20080419185723.A8F1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-In-Reply-To: <20080419185723.A8F1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vegard Nossum <vegard.nossum@gmail.com>, Matt Mackall <mpm@selenic.com>, LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, dev-etrax@axis.com, "Luck, Tony" <tony.luck@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: kosaki.motohiro@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
 
-add constfy to pgd_offset() for avoid following warnings.
+make kernel paravirtualization friendly by introducing
+ia64_set_rr0_to_rr4().
+ia64/Xen will replace setting rr[0-4] with single hypercall later.
 
-  CC      mm/pagewalk.o
-mm/pagewalk.c: In function 'walk_page_range':
-mm/pagewalk.c:111: warning: passing argument 1 of 'pgd_offset' discards qualifiers from p\
-ointer target type
-
-
-
-
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Matt Mackall <mpm@selenic.com>
-CC: "Vegard Nossum" <vegard.nossum@gmail.com>
-CC: "Luck, Tony" <tony.luck@intel.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/asm-ia64/pgtable.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/asm-ia64/intrinsics.h  |    9 +++++++++
+ include/asm-ia64/mmu_context.h |    6 +-----
+ 2 files changed, 10 insertions(+), 5 deletions(-)
 
-Index: b/include/asm-ia64/pgtable.h
-=================================--- a/include/asm-ia64/pgtable.h        2008-04-19 17:46:11.000000000 +0900
-+++ b/include/asm-ia64/pgtable.h        2008-04-19 19:20:16.000000000 +0900
-@@ -371,7 +371,7 @@ pgd_index (unsigned long address)
- /* The offset in the 1-level directory is given by the 3 region bits
-    (61..63) and the level-1 bits.  */
- static inline pgd_t*
--pgd_offset (struct mm_struct *mm, unsigned long address)
-+pgd_offset (const struct mm_struct *mm, unsigned long address)
- {
-        return mm->pgd + pgd_index(address);
+diff --git a/include/asm-ia64/intrinsics.h b/include/asm-ia64/intrinsics.h
+index f1135b5..9b83f8f 100644
+--- a/include/asm-ia64/intrinsics.h
++++ b/include/asm-ia64/intrinsics.h
+@@ -18,6 +18,15 @@
+ # include <asm/gcc_intrin.h>
+ #endif
+ 
++#define ia64_set_rr0_to_rr4(val0, val1, val2, val3, val4)	\
++do {								\
++	ia64_set_rr(0x0000000000000000UL, (val0));		\
++	ia64_set_rr(0x2000000000000000UL, (val1));		\
++	ia64_set_rr(0x4000000000000000UL, (val2));		\
++	ia64_set_rr(0x6000000000000000UL, (val3));		\
++	ia64_set_rr(0x8000000000000000UL, (val4));		\
++} while (0)
++
+ /*
+  * Force an unresolved reference if someone tries to use
+  * ia64_fetch_and_add() with a bad value.
+diff --git a/include/asm-ia64/mmu_context.h b/include/asm-ia64/mmu_context.h
+index cef2400..040bc87 100644
+--- a/include/asm-ia64/mmu_context.h
++++ b/include/asm-ia64/mmu_context.h
+@@ -152,11 +152,7 @@ reload_context (nv_mm_context_t context)
+ #  endif
+ #endif
+ 
+-	ia64_set_rr(0x0000000000000000UL, rr0);
+-	ia64_set_rr(0x2000000000000000UL, rr1);
+-	ia64_set_rr(0x4000000000000000UL, rr2);
+-	ia64_set_rr(0x6000000000000000UL, rr3);
+-	ia64_set_rr(0x8000000000000000UL, rr4);
++	ia64_set_rr0_to_rr4(rr0, rr1, rr2, rr3, rr4);
+ 	ia64_srlz_i();			/* srlz.i implies srlz.d */
  }
-
-
+ 
+-- 
+1.5.3
 
