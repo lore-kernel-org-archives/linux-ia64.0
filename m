@@ -1,60 +1,38 @@
-From: Greg KH <greg@kroah.com>
-Date: Mon, 14 Apr 2008 22:10:44 +0000
-Subject: Re: +
-Message-Id: <20080414221044.GA3684@kroah.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 24 Apr 2008 18:16:59 +0000
+Subject: [patch] fix bootmem regression on Altix
+Message-Id: <20080424181659.GB5211@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200803282348.m2SNmleP016847@imap1.linux-foundation.org> <1207082276.10388.224.camel@pasglop> <20080402051554.GA21714@kroah.com> <200804020843.02402.bjorn.helgaas@hp.com>
-In-Reply-To: <200804020843.02402.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, akpm@linux-foundation.org, mm-commits@vger.kernel.org, davem@davemloft.net, m.kozlowski@tuxland.pl, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Kyle McMartin <kyle@mcmartin.ca>
+To: linux-ia64@vger.kernel.org
 
-On Wed, Apr 02, 2008 at 08:43:01AM -0600, Bjorn Helgaas wrote:
-> On Tuesday 01 April 2008 11:15:54 pm Greg KH wrote:
-> > On Wed, Apr 02, 2008 at 07:37:56AM +1100, Benjamin Herrenschmidt wrote:
-> > > 
-> > > On Tue, 2008-04-01 at 09:57 -0600, Bjorn Helgaas wrote:
-> > > > 
-> > > > Can we just drop the "revert gregkh" patches for x86, alpha, powerpc,
-> > > > and ia64?
-> > > 
-> > > Considering that the generic is equivalent to what I have today on
-> > > powerpc, I'm fine with it.
-> > 
-> > Ok, so what ones should I keep in my tree?
-> > 
-> > Bjorn, any help?
-> 
-> I think we should keep x86, alpha, powerpc, ppc, and ia64.
-> 
-> Kyle previously acked it for parisc, so maybe he can speak
-> up about whether to keep it there.
+[patch] fix bootmem regression on Altix
 
-Ok, I've kept:
-	x86
-	alpha
-	powerpc
-	ppc
-	parisc
-	ia64
+A recent change prevents SGI Altix from booting.
+This patch fixes the problem.
 
-and dropped:
-	arm
-	cris
-	frv
-	mips
-	mn10300
-	sh
-	sparc64
-	v850
-	xtensa
+The regresson was introduced in commit 434d53b00d6bb7be0a1d3dcc0d0d5df6c042e164
 
-from my tree.
+Signed-off-by: Russ Anderson (rja@sgi.com)
 
-If anything further needs to be changed, please let me know.
+---
+ kernel/sched.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-thanks,
-
-greg k-h
+Index: test/kernel/sched.c
+=================================--- test.orig/kernel/sched.c	2008-04-23 16:00:58.000000000 -0500
++++ test/kernel/sched.c	2008-04-23 16:01:33.047453963 -0500
+@@ -8127,7 +8127,7 @@ void __init sched_init(void)
+ 	 * we use alloc_bootmem().
+ 	 */
+ 	if (alloc_size) {
+-		ptr = (unsigned long)alloc_bootmem_low(alloc_size);
++		ptr = (unsigned long)alloc_bootmem(alloc_size);
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ 		init_task_group.se = (struct sched_entity **)ptr;
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
