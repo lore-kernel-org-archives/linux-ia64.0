@@ -1,200 +1,61 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:29:25 +0000
-Subject: [PATCH 12/15] ia64/pv_ops: define initialization hooks, pv_init_ops, for paravirtualized environment
-Message-Id: <12095585683056-git-send-email-yamahata@valinux.co.jp>
+From: Alex Chiang <achiang@hp.com>
+Date: Thu, 24 Apr 2008 18:51:40 +0000
+Subject: [PATCH 1/2] ia64: Remove printk noise on unimplemented
+Message-Id: <20080424185140.GB32553@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077165492631-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077165492631-git-send-email-yamahata@valinux.co.jp>
+References: <20080310222735.GA22619@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECCBFA9D@orsmsx424.amr.corp.intel.com> <20080319233140.GD16237@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843ECE13C6E@orsmsx424.amr.corp.intel.com> <20080326185912.GA30749@ldl.fc.hp.com> <20080421052450.GA24055@ldl.fc.hp.com> <1FE6DD409037234FAB833C420AA843EC012664E0@orsmsx424.amr.corp.intel.com> <20080424184417.GA32553@ldl.fc.hp.com>
+In-Reply-To: <20080424184417.GA32553@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>, lenb@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
 
-define pv_init_ops hooks which represents various initialization
-hooks for paravirtualized environment. and add hooks.
+Commit 113134fcbca83619be4c68d0ca66db6093777b5d changed the flow of
+control when calling PAL_LOGICAL_TO_PHYSICAL and SAL_PHYSICAL_ID_INFO.
+With the change, if a platform did not implement the latter, a useless
+printk would appear in the boot log:
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+	ia64_sal_pltid failed with -1
+
+So let's check the return code and only printk on a true error, and do
+not print anything in the unimplemented case. While we're in there,
+clean up some stylistic issues too.
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
- arch/ia64/kernel/paravirt.c |    7 ++++
- arch/ia64/kernel/setup.c    |   10 ++++++
- arch/ia64/kernel/smpboot.c  |    2 +
- include/asm-ia64/paravirt.h |   70 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 89 insertions(+), 0 deletions(-)
+ arch/ia64/kernel/smpboot.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 7126ea8..5daf659 100644
---- a/arch/ia64/kernel/paravirt.c
-+++ b/arch/ia64/kernel/paravirt.c
-@@ -42,6 +42,13 @@ struct pv_info pv_info = {
- };
- 
- /***************************************************************************
-+ * pv_init_ops
-+ * initialization hooks.
-+ */
-+
-+struct pv_init_ops pv_init_ops;
-+
-+/***************************************************************************
-  * pv_cpu_ops
-  * intrinsics hooks.
-  */
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 5015ca1..dc1b26b 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -51,6 +51,7 @@
- #include <asm/mca.h>
- #include <asm/meminit.h>
- #include <asm/page.h>
-+#include <asm/paravirt.h>
- #include <asm/patch.h>
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-@@ -312,6 +313,8 @@ reserve_memory (void)
- 	rsvd_region[n].end   = (unsigned long) ia64_imva(_end);
- 	n++;
- 
-+	n += paravirt_reserve_memory(&rsvd_region[n]);
-+
- #ifdef CONFIG_BLK_DEV_INITRD
- 	if (ia64_boot_param->initrd_start) {
- 		rsvd_region[n].start = (unsigned long)__va(ia64_boot_param->initrd_start);
-@@ -490,6 +493,8 @@ setup_arch (char **cmdline_p)
- {
- 	unw_init();
- 
-+	paravirt_arch_setup_early();
-+
- 	ia64_patch_vtop((u64) __start___vtop_patchlist, (u64) __end___vtop_patchlist);
- 
- 	*cmdline_p = __va(ia64_boot_param->command_line);
-@@ -544,6 +549,9 @@ setup_arch (char **cmdline_p)
- 	acpi_boot_init();
- #endif
- 
-+	paravirt_banner();
-+	paravirt_arch_setup_console(cmdline_p);
-+
- #ifdef CONFIG_VT
- 	if (!conswitchp) {
- # if defined(CONFIG_DUMMY_CONSOLE)
-@@ -563,6 +571,8 @@ setup_arch (char **cmdline_p)
- #endif
- 
- 	/* enable IA-64 Machine Check Abort Handling unless disabled */
-+	if (paravirt_arch_setup_nomca())
-+		nomca = 1;
- 	if (!nomca)
- 		ia64_mca_init();
- 
 diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
-index d7ad42b..933f388 100644
+index 16483be..8d86e1f 100644
 --- a/arch/ia64/kernel/smpboot.c
 +++ b/arch/ia64/kernel/smpboot.c
-@@ -50,6 +50,7 @@
- #include <asm/machvec.h>
- #include <asm/mca.h>
- #include <asm/page.h>
-+#include <asm/paravirt.h>
- #include <asm/pgalloc.h>
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-@@ -642,6 +643,7 @@ void __devinit smp_prepare_boot_cpu(void)
- 	cpu_set(smp_processor_id(), cpu_online_map);
- 	cpu_set(smp_processor_id(), cpu_callin_map);
- 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
-+	paravirt_post_smp_prepare_boot_cpu();
- }
+@@ -873,7 +873,8 @@ identify_siblings(struct cpuinfo_ia64 *c)
+ 	u16 pltid;
+ 	pal_logical_to_physical_t info;
  
- #ifdef CONFIG_HOTPLUG_CPU
-diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
-index 26b4334..8778e8b 100644
---- a/include/asm-ia64/paravirt.h
-+++ b/include/asm-ia64/paravirt.h
-@@ -52,11 +52,81 @@ static inline unsigned int get_kernel_rpl(void)
- 	return pv_info.kernel_rpl;
- }
+-	if ((status = ia64_pal_logical_to_phys(-1, &info)) != PAL_STATUS_SUCCESS) {
++	status = ia64_pal_logical_to_phys(-1, &info);
++	if (status != PAL_STATUS_SUCCESS) {
+ 		if (status != PAL_STATUS_UNIMPLEMENTED) {
+ 			printk(KERN_ERR
+ 				"ia64_pal_logical_to_phys failed with %ld\n",
+@@ -885,8 +886,13 @@ identify_siblings(struct cpuinfo_ia64 *c)
+ 		info.overview_cpp  = 1;
+ 		info.overview_tpc  = 1;
+ 	}
+-	if ((status = ia64_sal_physical_id_info(&pltid)) != PAL_STATUS_SUCCESS) {
+-		printk(KERN_ERR "ia64_sal_pltid failed with %ld\n", status);
++
++	status = ia64_sal_physical_id_info(&pltid);
++	if (status != PAL_STATUS_SUCCESS) {
++		if (status != PAL_STATUS_UNIMPLEMENTED)
++			printk(KERN_ERR 
++				"ia64_sal_pltid failed with %ld\n", 
++				status);
+ 		return;
+ 	}
  
-+/******************************************************************************
-+ * initialization hooks.
-+ */
-+struct rsvd_region;
-+
-+struct pv_init_ops {
-+	void (*banner)(void);
-+
-+	int (*reserve_memory)(struct rsvd_region *region);
-+
-+	void (*arch_setup_early)(void);
-+	void (*arch_setup_console)(char **cmdline_p);
-+	int (*arch_setup_nomca)(void);
-+
-+	void (*post_smp_prepare_boot_cpu)(void);
-+};
-+
-+extern struct pv_init_ops pv_init_ops;
-+
-+static inline void paravirt_banner(void)
-+{
-+	if (pv_init_ops.banner)
-+		pv_init_ops.banner();
-+}
-+
-+static inline int paravirt_reserve_memory(struct rsvd_region *region)
-+{
-+	if (pv_init_ops.reserve_memory)
-+		return pv_init_ops.reserve_memory(region);
-+	return 0;
-+}
-+
-+static inline void paravirt_arch_setup_early(void)
-+{
-+	if (pv_init_ops.arch_setup_early)
-+		pv_init_ops.arch_setup_early();
-+}
-+
-+static inline void paravirt_arch_setup_console(char **cmdline_p)
-+{
-+	if (pv_init_ops.arch_setup_console)
-+		pv_init_ops.arch_setup_console(cmdline_p);
-+}
-+
-+static inline int paravirt_arch_setup_nomca(void)
-+{
-+	if (pv_init_ops.arch_setup_nomca)
-+		return pv_init_ops.arch_setup_nomca();
-+	return 0;
-+}
-+
-+static inline void paravirt_post_smp_prepare_boot_cpu(void)
-+{
-+	if (pv_init_ops.post_smp_prepare_boot_cpu)
-+		pv_init_ops.post_smp_prepare_boot_cpu();
-+}
-+
- #endif /* !__ASSEMBLY__ */
- 
- #else
- /* fallback for native case */
- 
-+#ifndef __ASSEMBLY__
-+
-+#define paravirt_banner()				do { } while (0)
-+#define paravirt_reserve_memory(region)			0
-+
-+#define paravirt_arch_setup_early()			do { } while (0)
-+#define paravirt_arch_setup_console(cmdline_p)		do { } while (0)
-+#define paravirt_arch_setup_nomca()			0
-+#define paravirt_post_smp_prepare_boot_cpu()		do { } while (0)
-+
-+#endif /* __ASSEMBLY__ */
-+
-+
- #endif /* CONFIG_PARAVIRT_GUEST */
- 
- #endif /* __ASM_PARAVIRT_H */
 -- 
-1.5.3
+1.5.3.1.g1e61
 
