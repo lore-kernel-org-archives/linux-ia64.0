@@ -1,135 +1,143 @@
-From: "stephane eranian" <eranian@googlemail.com>
-Date: Thu, 24 Apr 2008 10:39:47 +0000
-Subject: ptrace problem with 2.6.25 on Itanium
-Message-Id: <7c86c4470804240339p77639b4ejee73baec305d74c5@mail.gmail.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_Part_32677_28219470.1209033587222"
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Thu, 24 Apr 2008 12:04:32 +0000
+Subject: Re: ptrace problem with 2.6.25 on Itanium
+Message-Id: <1209038672.22520.18.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <7c86c4470804240339p77639b4ejee73baec305d74c5@mail.gmail.com>
+In-Reply-To: <7c86c4470804240339p77639b4ejee73baec305d74c5@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-------=_Part_32677_28219470.1209033587222
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Thu, 2008-04-24 at 12:39 +0200, stephane eranian wrote:
+> Hello everyone,
+> 
+> I am running into a new problem with perfmon on Itanium and 2.6.25.
+> 
+> The pfmon tool is able to monitor across fork(). For that it relies on
+> ptrace() to receive notifications on fork. This works fine on X86 and 2.6.25
+> however it is currently broken on IA-64.
+> 
+> Normally, on fork(), the ptracing parent (here pfmon) receives 2 notifications:
+> 
+>    1. SIGTRAP with event PTRACE_EVENT_FORK to indicate a new process
+>        is being created. New pid is extracted via PTRACE_GETEVENTMSG
+> 
+>    2. SIGSTOP with for new pid indicating that child is ready to
+> execute its first
+>        instruction
+> 
+> 
+> The first message allow the tool to create the data structure to for
+> new process,
+> the second marks the point where a perfmon context can actually be attached.
+> 
+> With 2.6.25 on Itanium, the notifications are received out of order,
+> i.e., the SIGTOP
+> first and the FORK notification next. Of course, the tool is confused
+> because until
+> it sees the FORK event, it does not know the new process.
+> 
+> This situation never happens on X86 with the same kernel.
+> 
+> To demonstrate the problem, I have attached a simple test program. You need
+> to pass the name of a command that creates child processes. Look at the order
+> between the FORK and SIGSTOP notifications. There is a forktest program in
+> pfmon/tests.
+> 
+> I don't have time to track this down. However, I am highly suspicious of this
+> new TIF_RESTORE_RSE and the arch_ptrace_stop_needed() code. The do_fork()
+> routine does indeed set SIGSTOP, before it call ptrace_notify(). But this does
+> not impact X86, which, by the way, does not define arch_ptrace_stop_needed().
+> I don't have an older kernel handy to run the test. Hopefully someone
+> on this list
+> will try this on 2.6.24 or older.
 
-Hello everyone,
+I tried it on SLES10, which is basically a 2.6.16 with a simplified
+version of the patch (one which only uses arch_ptrace_stop, but not
+TIF_RESTORE_RSE) and it works as expected:
 
-I am running into a new problem with perfmon on Itanium and 2.6.25.
+glass:~/ptrace-wrong-notify # ./task_ptrace_attach ./forktest 10 10
+creating 10 additional process(es)
+10 iterations
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6199]
+pida99 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6199]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6200]
+pidb00 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6200]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6201]
+pida99 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6199]
+pidb00 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6200]
+pidb01 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6201]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pidb01 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6201]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6202]
+pidb02 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6202]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6203]
+pidb02 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6202]
+pidb03 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6203]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pidb03 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6203]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6204]
+pidb04 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6204]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6205]
+pidb04 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6204]
+pidb05 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6205]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6206]
+pidb05 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6205]
+pidb06 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6206]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6207]
+pidb06 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6206]
+pidb07 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6207]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig=5
+FORK new_pid [6208]
+pidb07 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6207]
+pidb08 errno=0 exited=0 stopped=1 signaled=0 stopsig
+SIGSTOP from [6208]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pidb08 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6208]
+pida98 errno=0 exited=0 stopped=1 signaled=0 stopsig
+pida98 errno=0 exited=1 stopped=0 signaled=0 stopsig=0
+EXITED [6198]
 
-The pfmon tool is able to monitor across fork(). For that it relies on
-ptrace() to receive notifications on fork. This works fine on X86 and 2.6.25
-however it is currently broken on IA-64.
+So, if something is broken, it must be the TIF_RESTORE_RSE part of the
+patch, or an unexpected side effect of switching to the generic
+sys_ptrace. I plan to have a look at mainline later today...
 
-Normally, on fork(), the ptracing parent (here pfmon) receives 2 notifications:
+Kind regards,
+Petr Tesarik
 
-   1. SIGTRAP with event PTRACE_EVENT_FORK to indicate a new process
-       is being created. New pid is extracted via PTRACE_GETEVENTMSG
-
-   2. SIGSTOP with for new pid indicating that child is ready to
-execute its first
-       instruction
-
-
-The first message allow the tool to create the data structure to for
-new process,
-the second marks the point where a perfmon context can actually be attached.
-
-With 2.6.25 on Itanium, the notifications are received out of order,
-i.e., the SIGTOP
-first and the FORK notification next. Of course, the tool is confused
-because until
-it sees the FORK event, it does not know the new process.
-
-This situation never happens on X86 with the same kernel.
-
-To demonstrate the problem, I have attached a simple test program. You need
-to pass the name of a command that creates child processes. Look at the order
-between the FORK and SIGSTOP notifications. There is a forktest program in
-pfmon/tests.
-
-I don't have time to track this down. However, I am highly suspicious of this
-new TIF_RESTORE_RSE and the arch_ptrace_stop_needed() code. The do_fork()
-routine does indeed set SIGSTOP, before it call ptrace_notify(). But this does
-not impact X86, which, by the way, does not define arch_ptrace_stop_needed().
-I don't have an older kernel handy to run the test. Hopefully someone
-on this list
-will try this on 2.6.24 or older.
-
-I am not on this mailing list anymore, so please CC me on your reply.
-
-------=_Part_32677_28219470.1209033587222
-Content-Type: application/octet-stream; name=task_ptrace.c
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fff7ae0c0
-Content-Disposition: attachment; filename=task_ptrace.c
-
-I2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8aW50dHlwZXMuaD4KI2luY2x1ZGUgPHN0
-ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0ZGFyZy5oPgojaW5jbHVkZSA8
-ZXJybm8uaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgojaW5jbHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRl
-IDxzdGRhcmcuaD4KI2luY2x1ZGUgPHN5cy93YWl0Lmg+CiNpbmNsdWRlIDxzeXMvcHRyYWNlLmg+
-CgovKgogKiBUaGlzIGJlbG9uZ3MgdG8gc29tZSBMSUJDIGhlYWRlciBmaWxlcyBmb3IgMi42CiAq
-LwojaWZuZGVmIFBUUkFDRV9TRVRPUFRJT05TCgovKiAweDQyMDAtMHg0MzAwIGFyZSByZXNlcnZl
-ZCBmb3IgYXJjaGl0ZWN0dXJlLWluZGVwZW5kZW50IGFkZGl0aW9ucy4gICovCiNkZWZpbmUgUFRS
-QUNFX1NFVE9QVElPTlMJMHg0MjAwCiNkZWZpbmUgUFRSQUNFX0dFVEVWRU5UTVNHCTB4NDIwMQoj
-ZGVmaW5lIFBUUkFDRV9HRVRTSUdJTkZPCTB4NDIwMgojZGVmaW5lIFBUUkFDRV9TRVRTSUdJTkZP
-CTB4NDIwMwoKLyogb3B0aW9ucyBzZXQgdXNpbmcgUFRSQUNFX1NFVE9QVElPTlMgKi8KI2RlZmlu
-ZSBQVFJBQ0VfT19UUkFDRVNZU0dPT0QJMHgwMDAwMDAwMQojZGVmaW5lIFBUUkFDRV9PX1RSQUNF
-Rk9SSwkweDAwMDAwMDAyCiNkZWZpbmUgUFRSQUNFX09fVFJBQ0VWRk9SSwkweDAwMDAwMDA0CiNk
-ZWZpbmUgUFRSQUNFX09fVFJBQ0VDTE9ORQkweDAwMDAwMDA4CiNkZWZpbmUgUFRSQUNFX09fVFJB
-Q0VFWEVDCTB4MDAwMDAwMTAKI2RlZmluZSBQVFJBQ0VfT19UUkFDRVZGT1JLRE9ORQkweDAwMDAw
-MDIwCiNkZWZpbmUgUFRSQUNFX09fVFJBQ0VFWElUCTB4MDAwMDAwNDAKCi8qIFdhaXQgZXh0ZW5k
-ZWQgcmVzdWx0IGNvZGVzIGZvciB0aGUgYWJvdmUgdHJhY2UgcHRfb3B0aW9ucy4gICovCiNkZWZp
-bmUgUFRSQUNFX0VWRU5UX0ZPUksJMQojZGVmaW5lIFBUUkFDRV9FVkVOVF9WRk9SSwkyCiNkZWZp
-bmUgUFRSQUNFX0VWRU5UX0NMT05FCTMKI2RlZmluZSBQVFJBQ0VfRVZFTlRfRVhFQwk0CiNkZWZp
-bmUgUFRSQUNFX0VWRU5UX1ZGT1JLX0RPTkUJNQojZGVmaW5lIFBUUkFDRV9FVkVOVF9FWElUCTYK
-I2VuZGlmIC8qIFBUUkFDRV9PUFRJT05TICovCgoKc3RhdGljIHZvaWQgZmF0YWxfZXJyb3IoY2hh
-ciAqZm10LC4uLikgX19hdHRyaWJ1dGVfXygobm9yZXR1cm4pKTsKCnN0YXRpYyB2b2lkCmZhdGFs
-X2Vycm9yKGNoYXIgKmZtdCwgLi4uKQp7Cgl2YV9saXN0IGFwOwoKCXZhX3N0YXJ0KGFwLCBmbXQp
-OwoJdmZwcmludGYoc3RkZXJyLCBmbXQsIGFwKTsKCXZhX2VuZChhcCk7CgoJZXhpdCgxKTsKfQoK
-aW50CmNoaWxkKGNoYXIgKiphcmcpCnsKCgkvKgoJICogd2lsbCBjYXVzZSB0aGUgcHJvZ3JhbSB0
-byBzdG9wIGJlZm9yZSBleGVjdXRpbmcgdGhlIGZpcnN0CgkgKiB1c2VyIGxldmVsIGluc3RydWN0
-aW9uLiBXZSBjYW4gb25seSBhdHRhY2ggKGxvYWQpIGEgY29udGV4dAoJICogaWYgdGhlIHRhc2sg
-aXMgaW4gdGhlIFNUT1BQRUQgc3RhdGUuCgkgKi8KCXB0cmFjZShQVFJBQ0VfVFJBQ0VNRSwgMCwg
-TlVMTCwgTlVMTCk7CgoJLyoKCSAqIGV4ZWN1dGUgdGhlIHJlcXVlc3RlZCBjb21tYW5kCgkgKi8K
-CWV4ZWN2cChhcmdbMF0sIGFyZyk7CgoJZmF0YWxfZXJyb3IoImNhbm5vdCBleGVjOiAlc1xuIiwg
-YXJnWzBdKTsKCS8qIG5vdCByZWFjaGVkICovCn0KCmludApwYXJlbnQoY2hhciAqKmFyZykKewoJ
-dW5zaWduZWQgbG9uZyBwdHJhY2VfZmxhZ3MgPSAwLCBzaWc7CglpbnQgZXZlbnQsIHN0YXR1cywg
-cmV0LCB3YWl0X3R5cGU7CglwaWRfdCBwaWQsIG5ld19waWQ7CgoJcHRyYWNlX2ZsYWdzIHw9IFBU
-UkFDRV9PX1RSQUNFRk9SSzsKCS8qCgkgKiBDcmVhdGUgdGhlIGNoaWxkIHRhc2sKCSAqLwoJcGlk
-ID0gZm9yaygpOwoJc3dpdGNoKHBpZCkgewoJCWNhc2UgLTE6CgkJCWZhdGFsX2Vycm9yKCJDYW5u
-b3QgZm9yayBwcm9jZXNzXG4iKTsKCQljYXNlIDA6CgkJCWV4aXQoY2hpbGQoYXJnKSk7Cgl9CgoJ
-LyoKCSAqIHdhaXQgZm9yIHRoZSBjaGlsZCB0byBleGVjCgkgKi8KCXdhaXRwaWQocGlkLCAmc3Rh
-dHVzLCBXVU5UUkFDRUQpOwoKCS8qCgkgKiBjaGVjayBpZiBwcm9jZXNzIGV4aXRlZCBlYXJseQoJ
-ICovCglpZiAoV0lGRVhJVEVEKHN0YXR1cykpCgkJZmF0YWxfZXJyb3IoImNvbW1hbmQgJXMgZXhp
-dGVkIHRvbyBlYXJseSB3aXRoIHN0YXR1cyAlZFxuIiwgYXJnWzBdLCBXRVhJVFNUQVRVUyhzdGF0
-dXMpKTsKCglwdHJhY2VfZmxhZ3MgfD0gUFRSQUNFX09fVFJBQ0VFWEVDOwoJcHRyYWNlX2ZsYWdz
-IHw9IFBUUkFDRV9PX1RSQUNFRk9SSzsKCglyZXQgPSBwdHJhY2UoUFRSQUNFX1NFVE9QVElPTlMs
-IHBpZCwgTlVMTCwgKHZvaWQgKilwdHJhY2VfZmxhZ3MpOwoJaWYgKHJldCkKCQlmYXRhbF9lcnJv
-cigicHRyYWNlIHNldG9waW9ucz0lZFxuIiwgZXJybm8pOwoKCXJldCA9IHB0cmFjZShQVFJBQ0Vf
-Q09OVCwgcGlkLCBOVUxMLCBOVUxMKTsKCWlmIChyZXQpCgkJZmF0YWxfZXJyb3IoInB0cmFjZSBj
-b250PSVkXG4iLCBlcnJubyk7CgoJd2FpdF90eXBlID0gV1VOVFJBQ0VEfFdOT0hBTkd8X19XQUxM
-OwoKCWZvciAoOzspIHsKCQlwaWQgPSB3YWl0NCgtMSwgJnN0YXR1cywgd2FpdF90eXBlLCBOVUxM
-KTsKCQlpZiAocGlkID09IDApCgkJCWNvbnRpbnVlOwoJCWlmIChwaWQgPCAxKQoJCQlicmVhazsK
-CQlwcmludGYoInBpZD0lZCBlcnJubz0lZCBleGl0ZWQ9JWQgc3RvcHBlZD0lZCBzaWduYWxlZD0l
-ZCBzdG9wc2lnPSUtMmRcbiIsCgkJCXBpZCwgZXJybm8sIAoJCQlXSUZFWElURUQoc3RhdHVzKSwg
-CgkJCVdJRlNUT1BQRUQoc3RhdHVzKSwgCgkJCVdJRlNJR05BTEVEKHN0YXR1cyksIAoJCQlXU1RP
-UFNJRyhzdGF0dXMpKTsKCgkJaWYgKFdJRkVYSVRFRChzdGF0dXMpIHx8IFdJRlNJR05BTEVEKHN0
-YXR1cykpIHsKCQkJcHJpbnRmKCJFWElURUQgWyVkXVxuIiwgcGlkKTsKCQkJY29udGludWU7CgkJ
-fQoKCQlzaWcgPSBXU1RPUFNJRyhzdGF0dXMpOwoKCQlpZiAoc2lnID09IFNJR1RSQVApIHsKCQkJ
-c2lnID0gMDsKCQkJZXZlbnQgPSBzdGF0dXMgPj4gMTY7CgkJCXN3aXRjaChldmVudCkgewoJCQkJ
-Y2FzZSBQVFJBQ0VfRVZFTlRfRk9SSzoKCQkJCQlyZXQgPSBwdHJhY2UoUFRSQUNFX0dFVEVWRU5U
-TVNHLCBwaWQsIE5VTEwsICh2b2lkICopJm5ld19waWQpOwoJCQkJCWlmIChyZXQpCgkJCQkJCWZh
-dGFsX2Vycm9yKCJwdHJhY2UgZ2V0bXNnPSVkXG4iLCBlcnJubyk7CgkJCQkJcHJpbnRmKCJGT1JL
-IG5ld19waWQgWyVsZF1cbiIsIG5ld19waWQpOwoJCQkJCXJldCA9IHB0cmFjZShQVFJBQ0VfU0VU
-T1BUSU9OUywgcGlkLCBOVUxMLCAodm9pZCAqKXB0cmFjZV9mbGFncyk7CgkJCQkJaWYgKHJldCkK
-CQkJCQkJZmF0YWxfZXJyb3IoInB0cmFjZSBvcHRpb25zIG5ld3BpZD0lZFxuIiwgZXJybm8pOwoJ
-CQkJCWJyZWFrOwoJCQkJZGVmYXVsdDoKCQkJCQlwcmludGYoInVuZXhwZWN0ZWQgZXZlbnQgJWRc
-biIsIGV2ZW50KTsKCQkJfQoJCX0gZWxzZSBpZiAoc2lnID09IFNJR1NUT1ApIHsKCQkJcHJpbnRm
-KCJTSUdTVE9QIGZyb20gWyVkXVxuIiwgcGlkKTsKCQkJc2lnID0gMDsKCQl9CgoJCXJldCA9IHB0
-cmFjZShQVFJBQ0VfQ09OVCwgcGlkLCBOVUxMLCAodm9pZCAqKXNpZyk7CgkJaWYgKHJldCkKCQkJ
-ZmF0YWxfZXJyb3IoInB0cmFjZSBjb250PSVkXG4iLCBlcnJubyk7Cgl9CgkvKgoJICogc2ltcGx5
-IHdhaXQgZm9yIGNvbXBsZXRpb24KCSAqLwoJd2FpdHBpZChwaWQsICZzdGF0dXMsIDApOwoKCXJl
-dHVybiAwOwp9CgppbnQKbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3YpCnsKCWlmIChhcmdjIDwg
-MikgewoJCWZhdGFsX2Vycm9yKCJZb3UgbXVzdCBzcGVjaWZ5IGEgY29tbWFuZCB0byBleGVjdXRl
-XG4iKTsKCX0KCXJldHVybiBwYXJlbnQoYXJndisxKTsKfQo=
-------=_Part_32677_28219470.1209033587222--
