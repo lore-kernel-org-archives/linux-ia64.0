@@ -1,32 +1,37 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Sat, 19 Apr 2008 10:04:30 +0000
-Subject: [PATCH][trivial][0/2] mm/pagewalk.c break const constraint. take2
-Message-Id: <20080419185723.A8F1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 25 Apr 2008 14:13:09 +0000
+Subject: [PATCH] ia64 bugfix: nptcg breaks cpu-hotadd
+Message-Id: <4811E6F5.9000600@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <19f34abd0804190234m190f7ec4ga2a652029a83bab6@mail.gmail.com> <20080419184918.A8EE.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-In-Reply-To: <20080419184918.A8EE.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vegard Nossum <vegard.nossum@gmail.com>, Matt Mackall <mpm@selenic.com>, LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, dev-etrax@axis.com, "Luck, Tony" <tony.luck@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: kosaki.motohiro@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
 
-this patch is against 2.6.25
+If "max_purges" from PAL is 0, it actually means 1.
 
+However it was not handled later when a hot-added cpu pass the
+max_purges from PAL.  This makes systems easy to go BUG_ON().
 
-when compile 2.6.25 on ia64, following warnings was outputed.
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+---
+ arch/ia64/mm/tlb.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-  CC      mm/pagewalk.o
-mm/pagewalk.c: In function 'walk_page_range':
-mm/pagewalk.c:111: warning: passing argument 1 of 'pgd_offset' discards qualifiers from p\
-ointer target type
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index d52ec4e..8caf424 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -168,7 +168,10 @@ setup_ptcg_sem(int max_purges, int nptcg_from)
+ 	static int firstcpu = 1;
 
-the type of mm argument of walk_page_range() is "const struct mm *",
-but pgd_offset() on ia64 declare "struct mm*".
-cris port has the same problems.
-
-I propse add const to pgd_offset() for solve this problem.
-
-Thanks!
+ 	if (toolatetochangeptcgsem) {
+-		BUG_ON(max_purges < nptcg);
++		if (nptcg_from = NPTCG_FROM_PAL && max_purges = 0)
++			BUG_ON(1 < nptcg);
++		else
++			BUG_ON(max_purges < nptcg);
+ 		return;
+ 	}
 
 
