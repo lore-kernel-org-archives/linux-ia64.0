@@ -1,51 +1,72 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 29 Apr 2008 23:36:12 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <1FE6DD409037234FAB833C420AA843EC0138211B@orsmsx424.amr.corp.intel.com>
+From: Adrian Bunk <bunk@kernel.org>
+Date: Fri, 25 Apr 2008 00:41:39 +0000
+Subject: [2.6 patch] ia64: let NUMA select SMP
+Message-Id: <20080425004139.GE18854@cs181133002.pp.htv.fi>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+References: <1FE6DD409037234FAB833C420AA843EC012F9EF0@orsmsx424.amr.corp.intel.com> <20080425001652.GD18854@cs181133002.pp.htv.fi> <1FE6DD409037234FAB833C420AA843EC012F9F55@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC012F9F55@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: torvalds@linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Mike Travis <travis@sgi.com>, Russ Anderson <rja@sgi.com>
 
-Hi Linus,
+On Thu, Apr 24, 2008 at 05:25:06PM -0700, Luck, Tony wrote:
+> >>       Build fix for CONFIG_NUMA=y && CONFIG_SMP=n
+> >>...
+> >
+> > Why is this an allowed configuration on ia64?
+> 
+> It shows up in allnoconfig ... probably because some
+> bit of Kconfig forces NUMA=y.
 
-please pull from:
+allnoconfig results in CONFIG_IA64_GENERIC=y, which in turn selects NUMA.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+What about the patch below instead?
 
-This will update the files shown below.
+> I can't imagine that it is ever a useful combination ... except to
+> find places in the code where people have:
+> 
+> #if defined(CONFIG_SMP)
+>  ...
+> #else
+> 
+> #if defined(CONFIG_NUMA) // !!! SMP=n, NUMA code???
+>   ...
+> #endif
+> #endif
+> 
+> 
+> Which is what happened, and is being fixed, here.
 
-asm-x86/topology.h got touched to add a null stub for the change by Alex
-to get better "physical id" values in /proc/cpuinfo by asking ACPI.
+If it isn't a useful combination such code makes no sense.
 
-Thanks!
+> -Tony
 
--Tony
+cu
+Adrian
 
- arch/ia64/kernel/smpboot.c          |   12 +++++++++---
- arch/ia64/kernel/topology.c         |    9 +++++++++
- arch/ia64/kernel/uncached.c         |   23 +++++++++++++----------
- arch/ia64/mm/tlb.c                  |    5 ++++-
- drivers/acpi/processor_core.c       |    9 +++++++++
- drivers/char/mspec.c                |   12 ++++++------
- drivers/misc/sgi-xp/xpc_partition.c |    4 ++--
- include/asm-ia64/topology.h         |    2 ++
- include/asm-ia64/uncached.h         |    6 +++---
- include/asm-x86/topology.h          |    4 ++++
- 10 files changed, 61 insertions(+), 25 deletions(-)
 
-Alex Chiang (2):
-      [IA64] Remove printk noise on unimplemented SAL_PHYSICAL_ID_INFO
-      [IA64] Provide ACPI fixup for /proc/cpuinfo/physical_id
+<--  snip  -->
 
-Dean Nelson (1):
-      [IA64] allocate multiple contiguous pages via uncached allocator
 
-Hidetoshi Seto (1):
-      [IA64] bugfix: nptcg breaks cpu-hotadd
+CONFIG_NUMA=y, CONFIG_SMP=n isn't a useful combination, so let NUMA 
+select SMP.
 
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+
+---
+a94d43a82a3c5a95c82b9688e5adebca6dcb7acb diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index cd13e13..19e8167 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -387,6 +387,7 @@ config NUMA
+ 	bool "NUMA support"
+ 	depends on !IA64_HP_SIM && !FLATMEM
+ 	default y if IA64_SGI_SN2
++	select SMP
+ 	select ACPI_NUMA if ACPI
+ 	help
+ 	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
 
 
