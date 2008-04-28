@@ -1,138 +1,94 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:53 +0000
-Subject: [PATCH 22/23] ia64/xen: define xen machine vector for domU.
-Message-Id: <12095586544079-git-send-email-yamahata@valinux.co.jp>
+From: Russ Anderson <rja@sgi.com>
+Date: Mon, 28 Apr 2008 19:22:52 +0000
+Subject: [PATCH 0/2] ia64: Migrate data off physical pages with correctable errors
+Message-Id: <20080428192252.GA14629@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166312115-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166312115-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-define xen machine vector for domU.
+	Migrate data off physical pages with corrected memory errors
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/Makefile             |    2 ++
- arch/ia64/kernel/acpi.c        |    5 +++++
- arch/ia64/xen/Makefile         |    2 ++
- arch/ia64/xen/machvec.c        |    4 ++++
- include/asm-ia64/machvec.h     |    2 ++
- include/asm-ia64/machvec_xen.h |   22 ++++++++++++++++++++++
- 6 files changed, 37 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/machvec.c
- create mode 100644 include/asm-ia64/machvec_xen.h
+Purpose:
 
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 4721a12..8fab7b8 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -56,8 +56,10 @@ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
- core-$(CONFIG_IA64_GENERIC) 	+= arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
-+core-$(CONFIG_IA64_XEN)		+= arch/ia64/dig/
- core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
- core-$(CONFIG_KVM) 		+= arch/ia64/kvm/
-+core-$(CONFIG_XEN)		+= arch/ia64/xen/
- 
- drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
- drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index c7467f8..09d4349 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -52,6 +52,7 @@
- #include <asm/numa.h>
- #include <asm/sal.h>
- #include <asm/cyclone.h>
-+#include <asm/xen/hypervisor.h>
- 
- #define BAD_MADT_ENTRY(entry, end) (                                        \
- 		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
-@@ -118,6 +119,8 @@ acpi_get_sysname(void)
- 		return "hpzx1";
- 	} else if (!strcmp(hdr->oem_id, "SGI")) {
- 		return "sn2";
-+	} else if (is_running_on_xen() && !strcmp(hdr->oem_id, "XEN")) {
-+		return "xen";
- 	}
- 
- 	return "dig";
-@@ -132,6 +135,8 @@ acpi_get_sysname(void)
- 	return "sn2";
- # elif defined (CONFIG_IA64_DIG)
- 	return "dig";
-+# elif defined (CONFIG_IA64_XEN)
-+	return "xen";
- # else
- #	error Unknown platform.  Fix acpi.c.
- # endif
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index ed31c76..972d085 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -5,6 +5,8 @@
- obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
- 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
- 
-+obj-$(CONFIG_IA64_GENERIC) += machvec.o
-+
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
- 
- # xen multi compile
-diff --git a/arch/ia64/xen/machvec.c b/arch/ia64/xen/machvec.c
-new file mode 100644
-index 0000000..4ad588a
---- /dev/null
-+++ b/arch/ia64/xen/machvec.c
-@@ -0,0 +1,4 @@
-+#define MACHVEC_PLATFORM_NAME           xen
-+#define MACHVEC_PLATFORM_HEADER         <asm/machvec_xen.h>
-+#include <asm/machvec_init.h>
-+
-diff --git a/include/asm-ia64/machvec.h b/include/asm-ia64/machvec.h
-index 9f020eb..625cf10 100644
---- a/include/asm-ia64/machvec.h
-+++ b/include/asm-ia64/machvec.h
-@@ -126,6 +126,8 @@ extern void machvec_tlb_migrate_finish (struct mm_struct *);
- #  include <asm/machvec_hpzx1_swiotlb.h>
- # elif defined (CONFIG_IA64_SGI_SN2)
- #  include <asm/machvec_sn2.h>
-+# elif defined (CONFIG_IA64_XEN)
-+#  include <asm/machvec_xen.h>
- # elif defined (CONFIG_IA64_GENERIC)
- 
- # ifdef MACHVEC_PLATFORM_HEADER
-diff --git a/include/asm-ia64/machvec_xen.h b/include/asm-ia64/machvec_xen.h
-new file mode 100644
-index 0000000..55f9228
---- /dev/null
-+++ b/include/asm-ia64/machvec_xen.h
-@@ -0,0 +1,22 @@
-+#ifndef _ASM_IA64_MACHVEC_XEN_h
-+#define _ASM_IA64_MACHVEC_XEN_h
-+
-+extern ia64_mv_setup_t			dig_setup;
-+extern ia64_mv_cpu_init_t		xen_cpu_init;
-+extern ia64_mv_irq_init_t		xen_irq_init;
-+extern ia64_mv_send_ipi_t		xen_platform_send_ipi;
-+
-+/*
-+ * This stuff has dual use!
-+ *
-+ * For a generic kernel, the macros are used to initialize the
-+ * platform's machvec structure.  When compiling a non-generic kernel,
-+ * the macros are used directly.
-+ */
-+#define platform_name				"xen"
-+#define platform_setup				dig_setup
-+#define platform_cpu_init			xen_cpu_init
-+#define platform_irq_init			xen_irq_init
-+#define platform_send_ipi			xen_platform_send_ipi
-+
-+#endif /* _ASM_IA64_MACHVEC_XEN_h */
+	Physical memory with corrected errors may decay over time into
+	uncorrectable errors.  The purpose of this patch is to move the
+	data off pages with correctable memory errors before the memory
+	goes bad.
+
+The patches:
+
+  [1/2] page.discard: Avoid putting a bad page back on the LRU.
+
+	page.discard are the arch independent changes.  It adds a new
+	page flag (PG_memerror) to mark the page as bad and prevent it
+	from being put back on the LRU.  PG_memerror is bit 32 and only
+	defined on 64 bit architectures.  It adds "BadPages:" output to
+	/proc/meminfo on 64 bit architectures.  
+
+  [2/2] cpe.migrate: Call migration code on correctable errors
+
+	cpe.migrate are the IA64 specific changes.  It connects the CPE
+	handler to the page migration code.  It is implemented as a kernel
+	loadable module, similar to the mca recovery code (mca_recovery.ko),
+	so that it can be removed to turn off the feature.  It exports
+	three symbols (migrate_prep, isolate_lru_page, and migrate_pages).
+
+Comments:
+
+	Since page flags are a precious commodity on 32 bit architectures,
+	the choice was made to implement PG_memerror only on 64 bit 
+	architectures, in the upper 32 bits.  If there is interest in
+	this feature on 32 bit, it only requires defining PG_memerror
+	in one of the lower 32 page flage bits and removing the BITS_PER_LONG
+	checks.
+
+	There is always an issue of how agressive the code should be on
+	migrating pages.  Should it migrate on the first correctable error,
+	or wait for some threshold?  Reasonable people may disagree on the
+	threshold and the "right" answer may be hardware specific.  The 
+	decision making is confined to the cpe_migrate.c code.  It is
+	currently set to migrate on the first correctable error.
+
+	Only pages that can be isolated on the LRU are migrated.  Other
+	pages, such as compound pages, are not migrated.  That functionality
+	could be a future enhancement.
+
+Flow of the code description (while testing on IA64):
+
+	1) A user level application test program allocates memory and
+	   passes the virtual address of the memory to the error injection
+	   driver.
+
+	2) The error injection driver converts the virtual address to
+	   physical, functions the Altix hardware to modify the ECC for the
+	   physical page, creating a correctable error, and returns to the
+	   user application.
+
+	3) The user application reads the memory.
+
+	4) The Altix hardware detects the correctable error and interrupts
+	   prom.  SAL builds a CPU error record, then sends a CPE 
+	   interrupt to linux.
+
+	5) The linux CPE handler calls the cpe_migrate module (if installed).
+
+	6) cpe_migrate parses the physical address from the CPE record and
+	   adds the address to the migrate list (if not already on the list)
+	   and schedules the worker thread (cpe_enable_work).
+
+	7) cpe_enable_work calls ia64_mca_cpe_move_page.
+
+	8) ia64_mca_cpe_move_page validates the physical address, converts
+	   to page, sets PG_memerror flag and calls the migration code
+	   (migrate_prep(), isolate_lru_page(), and migrate_pages().  If the
+	   page migrates successfully, the bad page is added to badpagelist.
+
+	9) Because PG_memerror is set, the bad page is not added back on the LRU
+	   due to checks in lru_cache_add() and lru_cache_add_active().
+
 -- 
-1.5.3
-
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
