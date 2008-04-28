@@ -1,101 +1,56 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:48:53 +0000
-Subject: [PATCH 00/15] RFC: ia64/pv_ops take 4
-Message-Id: <1207716548202-git-send-email-yamahata@valinux.co.jp>
+From: "stephane eranian" <eranian@googlemail.com>
+Date: Mon, 28 Apr 2008 22:11:09 +0000
+Subject: ia64_sync_krbs() may sleep with interrupts disabled
+Message-Id: <7c86c4470804281511n6dc69999t6ffd366bd29e7b29@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi. This patchset implements ia64/pv_ops support which is the
-framework for virtualization support.
-Please review and comments.
+Hello,
 
-On x86 various ways to support virtualization were proposed, and
-eventually pv_ops won. So on ia64 the pv_ops strategy is appropriate too.
-Later I'll post the patchset which implements xen domU based on
-ia64/pv_ops. Currently only ia64/xen pv_ops implementation exists,
-but I believe ia64/kvm can also obtain benefits from this ia64/pv_ops
-frame work.
+Here is another problem I ran into on 2.6.25
 
-Eddie Dong also has been working on ia64/pv_ops and posted a mail
-requesting for suggestion/comments.
-The corresponding patch is "[10/15] ia64/pv_ops: paravirtualize entry.S"
-As discussed before, ivt.S was paravirtualized by single source and multi
-compile way. But he thinks other way is appropriate for other hand
-written assembly code. Which way is acceptable?
+Although perfmon does rely on do_notify_resume_user(), it does not
+fiddle with TIF_RESTORE_RSE. What it may cause however, is more
+frequent calls to do_notify_resume_user() because perfmon does
+piggyback its own flag (TIF_PERFMON_WORK) onto TIF_NOTIFY_RESUME.
+
+In any case, executing the function triggers an assertion about sleeping wi=
+th
+interrupts disabled. Here is the call stack I am getting:
+
+BUG: sleeping function called from invalid context at kernel/rwsem.c:21
+in_atomic():0, irqs_disabled():1
+
+Call Trace:
+ [<a000000100012d60>] show_stack+0x40/0xa0
+                                sp=E0000003ea02f840 bsp=E0000003ea028f10
+ [<a000000100012df0>] dump_stack+0x30/0x60
+                                sp=E0000003ea02fa10 bsp=E0000003ea028ef8
+ [<a000000100064de0>] __might_sleep+0x1c0/0x1e0
+                                sp=E0000003ea02fa10 bsp=E0000003ea028ed0
+ [<a00000010050d1c0>] down_read+0x20/0x60
+                                sp=E0000003ea02fa10 bsp=E0000003ea028eb0
+ [<a0000001001093a0>] access_process_vm+0x60/0x2c0
+                                sp=E0000003ea02fa10 bsp=E0000003ea028e20
+ [<a0000001000148b0>] ia64_sync_kernel_rbs+0x30/0x100
+                                sp=E0000003ea02fa20 bsp=E0000003ea028de0
+ [<a000000100014fc0>] do_sync_rbs+0xc0/0x100
+                                sp=E0000003ea02fa30 bsp=E0000003ea028db0
+ [<a00000010000a8b0>] unw_init_running+0x70/0xa0
+                                sp=E0000003ea02fa40 bsp=E0000003ea028d88
+ [<a000000100018760>] ia64_sync_krbs+0x80/0xa0
+                                sp=E0000003ea02fe20 bsp=E0000003ea028d70
+ [<a000000100013800>] do_notify_resume_user+0x140/0x1a0
+                                sp=E0000003ea02fe20 bsp=E0000003ea028d40
+ [<a00000010000a740>] notify_resume_user+0x40/0x60
+                                sp=E0000003ea02fe20 bsp=E0000003ea028cf0
+ [<a00000010000a670>] skip_rbs_switch+0xe0/0x110
+                                sp=E0000003ea02fe30 bsp=E0000003ea028cf0
+ [<a000000000010720>] ia64_ivt+0xffffffff00010720/0x400
+                                sp=E0000003ea030000 bsp=E0000003ea028cf0
 
 
-This patchset does the followings.
-- some preparation work. Mainly make the kernel virtualization friendly.
-- introduce pv_info which describes the execution environment.
-- introduce macros for hand written assembly code to paravirtualize
-  hand written code to replace sensitive/privileged instructions.
-- introduce various hooks to replace the implementation with
-  paravirtualized.
-  They are defined as function tables called, pv_init_ops, pv_cpu_ops,
-  pv_irq_ops, pv_iosapic_ops and, pv_time_ops.
-  They represent
-    pv_init_ops: hooks for various initialization.
-    pv_cpu_ops: hooks for ia64 intrinsics.
-    pv_irq_ops: hooks for irq related operations.
-    pv_iosapic_ops: hooks for paravirtualized iosapic.
-    pv_time_ops: hooks for steal time accounting
-
-
-The working full source is available from
-http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64.git/
-branch: xen-ia64-2008apr08
-
-At this phase, we don't address the following issues.
-Those will be addressed after the first merge.
-- optimization by binary patch
-  In fact, we had the patch to do that, but we intentionally dropped
-  for patch size/readability/cleanness.
-- freeing the unused pages, i.e. pages for unused ivt.S.
-
-Changes from take 3:
-- split the patch set into pv_op part and xen domU part.
-- many clean ups.
-- introduced pv_ops: pv_cpu_ops and pv_time_ops.
-
-Changes from take 2:
-- many clean ups following to comments.
-- clean up:assembly instruction macro.
-- introduced pv_ops: pv_info, pv_init_ops, pv_iosapic_ops, pv_irq_ops.
-
-Changes from take 1:
-Single IVT source code. compile multitimes using assembler macros.
-
-thanks,
-
-Diffstat:
-
- arch/ia64/kernel/Makefile          |   11 +
- arch/ia64/kernel/entry.S           |  107 +++++++----
- arch/ia64/kernel/iosapic.c         |   45 +++--
- arch/ia64/kernel/irq_ia64.c        |   19 ++-
- arch/ia64/kernel/ivt.S             |  223 +++++++++++-----------
- arch/ia64/kernel/minstate.h        |   13 +-
- arch/ia64/kernel/paravirt.c        |  367 ++++++++++++++++++++++++++++++++++++
- arch/ia64/kernel/paravirt_inst.h   |   29 +++
- arch/ia64/kernel/paravirtentry.S   |   60 ++++++
- arch/ia64/kernel/setup.c           |   10 +
- arch/ia64/kernel/smpboot.c         |    2 +
- arch/ia64/kernel/time.c            |   23 +++
- include/asm-ia64/Kbuild            |    2 +-
- include/asm-ia64/gcc_intrin.h      |   24 ++--
- include/asm-ia64/hw_irq.h          |   23 ++-
- include/asm-ia64/intel_intrin.h    |   41 ++--
- include/asm-ia64/intrinsics.h      |   55 ++++++
- include/asm-ia64/iosapic.h         |   18 ++-
- include/asm-ia64/irq.h             |   10 +-
- include/asm-ia64/mmu_context.h     |    6 +-
- include/asm-ia64/native/inst.h     |  180 ++++++++++++++++++
- include/asm-ia64/paravirt.h        |  252 +++++++++++++++++++++++++
- include/asm-ia64/paravirt_irq.h    |   49 +++++
- include/asm-ia64/paravirt_privop.h |  114 +++++++++++
- include/asm-ia64/smp.h             |    2 +
- include/asm-ia64/system.h          |    4 +-
- 26 files changed, 1464 insertions(+), 225 deletions(-)
+Any ideas?
