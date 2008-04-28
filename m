@@ -1,45 +1,62 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Wed, 09 Apr 2008 03:26:10 +0000
-Subject: [PATCH][for -mm] ia64: pgd_offset() constfication.
-Message-Id: <20080409121930.944D.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Al Viro <viro@ftp.linux.org.uk>
+Date: Mon, 28 Apr 2008 05:59:15 +0000
+Subject: [PATCH] fix ia64 local_irq_save() et.al.
+Message-Id: <E1JqMOR-0004le-VO@ZenIV.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: torvalds@linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, sfr@canb.auug.org.au
 
 
-when compile 2.6.25-rc8-mm1, bellow warning happend.
-because walk_page_range pass argument as "const struct mm*", 
-but pgd_offset() receive as "struct mm*".
+psr is not a good name for local variable in macro body when it
+has a good chance of being the argument of said macro (actually
+is at least in one place)
 
-I fixed it.
-(no functional change)
-
----------------------------------------------------------------
-  CC      mm/pagewalk.o
-mm/pagewalk.c: In function 'walk_page_range':
-mm/pagewalk.c:111: warning: passing argument 1 of 'pgd_offset' discards qualifiers from pointer target type
-
-
-
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
 ---
- include/asm-ia64/pgtable.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ include/asm-ia64/system.h |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
-Index: b/include/asm-ia64/pgtable.h
-=================================--- a/include/asm-ia64/pgtable.h        2008-04-04 12:24:18.000000000 +0900
-+++ b/include/asm-ia64/pgtable.h        2008-04-09 12:42:49.000000000 +0900
-@@ -374,7 +374,7 @@ pgd_index (unsigned long address)
- /* The offset in the 1-level directory is given by the 3 region bits
-    (61..63) and the level-1 bits.  */
- static inline pgd_t*
--pgd_offset (struct mm_struct *mm, unsigned long address)
-+pgd_offset (const struct mm_struct *mm, unsigned long address)
- {
-        return mm->pgd + pgd_index(address);
- }
+diff --git a/include/asm-ia64/system.h b/include/asm-ia64/system.h
+index dff8128..26e250b 100644
+--- a/include/asm-ia64/system.h
++++ b/include/asm-ia64/system.h
+@@ -146,23 +146,23 @@ do {						\
+ 
+ # define local_irq_save(x)					\
+ do {								\
+-	unsigned long psr;					\
++	unsigned long __psr;					\
+ 								\
+-	__local_irq_save(psr);					\
+-	if (psr & IA64_PSR_I)					\
++	__local_irq_save(__psr);				\
++	if (__psr & IA64_PSR_I)					\
+ 		__save_ip();					\
+-	(x) = psr;						\
++	(x) = __psr;						\
+ } while (0)
+ 
+-# define local_irq_disable()	do { unsigned long x; local_irq_save(x); } while (0)
++# define local_irq_disable()	do { unsigned long __x; local_irq_save(__x); } while (0)
+ 
+ # define local_irq_restore(x)					\
+ do {								\
+-	unsigned long old_psr, psr = (x);			\
++	unsigned long __old_psr, __psr = (x);			\
+ 								\
+-	local_save_flags(old_psr);				\
+-	__local_irq_restore(psr);				\
+-	if ((old_psr & IA64_PSR_I) && !(psr & IA64_PSR_I))	\
++	local_save_flags(__old_psr);				\
++	__local_irq_restore(__psr);				\
++	if ((__old_psr & IA64_PSR_I) && !(__psr & IA64_PSR_I))	\
+ 		__save_ip();					\
+ } while (0)
+ 
+-- 
+1.5.3.GIT
 
 
