@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:11 +0000
+Date: Wed, 30 Apr 2008 12:30:35 +0000
 Subject: [PATCH 04/23] ia64/xen: define several constants for ia64/xen.
-Message-Id: <12077166301833-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558654489-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077166301833-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166301833-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,10 +18,10 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  1 files changed, 27 insertions(+), 0 deletions(-)
 
 diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index 0aebc6f..933e328 100644
+index c64a55a..6bd3fc5 100644
 --- a/arch/ia64/kernel/asm-offsets.c
 +++ b/arch/ia64/kernel/asm-offsets.c
-@@ -15,6 +15,8 @@
+@@ -16,6 +16,8 @@
  #include <asm-ia64/sigcontext.h>
  #include <asm-ia64/mca.h>
  
@@ -28,7 +30,7 @@ index 0aebc6f..933e328 100644
  #include "../kernel/sigframe.h"
  #include "../kernel/fsyscall_gtod_data.h"
  
-@@ -278,4 +280,29 @@ void foo(void)
+@@ -286,4 +288,29 @@ void foo(void)
  		offsetof (struct itc_jitter_data_t, itc_jitter));
  	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
  		offsetof (struct itc_jitter_data_t, itc_lastcycle));
