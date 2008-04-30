@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:16 +0000
+Date: Wed, 30 Apr 2008 12:30:40 +0000
 Subject: [PATCH 09/23] ia64/xen: implement arch specific part of xen grant table.
-Message-Id: <120771663046-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558654507-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <120771663046-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <120771663046-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
