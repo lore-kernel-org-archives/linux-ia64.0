@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:26 +0000
+Date: Wed, 30 Apr 2008 12:30:50 +0000
 Subject: [PATCH 19/23] ia64/pv_ops/xen: define the nubmer of irqs which xen needs.
-Message-Id: <1207716630655-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095586543985-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1207716630655-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1207716630655-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,13 +15,26 @@ irqs which xen needs.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ arch/ia64/kernel/nr-irqs.c |    1 +
  include/asm-ia64/xen/irq.h |   44 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 44 insertions(+), 0 deletions(-)
+ 2 files changed, 45 insertions(+), 0 deletions(-)
  create mode 100644 include/asm-ia64/xen/irq.h
 
+diff --git a/arch/ia64/kernel/nr-irqs.c b/arch/ia64/kernel/nr-irqs.c
+index 1ae0491..bf89a8f 100644
+--- a/arch/ia64/kernel/nr-irqs.c
++++ b/arch/ia64/kernel/nr-irqs.c
+@@ -10,6 +10,7 @@
+ #include <linux/kbuild.h>
+ #include <linux/threads.h>
+ #include <asm-ia64/native/irq.h>
++#include <asm-ia64/xen/irq.h>
+ 
+ void foo(void)
+ {
 diff --git a/include/asm-ia64/xen/irq.h b/include/asm-ia64/xen/irq.h
 new file mode 100644
-index 0000000..ac7db43
+index 0000000..3a5a15c
 --- /dev/null
 +++ b/include/asm-ia64/xen/irq.h
 @@ -0,0 +1,44 @@
@@ -62,7 +77,7 @@ index 0000000..ac7db43
 +#define XEN_NR_PIRQS		256
 +
 +#define XEN_DYNIRQ_BASE		(XEN_PIRQ_BASE + XEN_NR_PIRQS)
-+#define XEN_NR_DYNIRQS		(CONFIG_NR_CPUS * 8)
++#define XEN_NR_DYNIRQS		(NR_CPUS * 8)
 +
 +#define XEN_NR_IRQS		(XEN_NR_PIRQS + XEN_NR_DYNIRQS)
 +
