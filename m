@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:48:54 +0000
+Date: Wed, 30 Apr 2008 12:29:14 +0000
 Subject: [PATCH 01/15] ia64: preparation: remove extern in irq_ia64.c
-Message-Id: <12077165482297-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558568892-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165482297-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165482297-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +21,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  2 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index d8be23f..711635d 100644
+index 5538471..c48171b 100644
 --- a/arch/ia64/kernel/irq_ia64.c
 +++ b/arch/ia64/kernel/irq_ia64.c
 @@ -600,7 +600,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
@@ -31,7 +33,7 @@ index d8be23f..711635d 100644
  static struct irqaction ipi_irqaction = {
  	.handler =	handle_IPI,
 diff --git a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
-index 4fa733d..0a8435f 100644
+index ec5f355..2984e26 100644
 --- a/include/asm-ia64/smp.h
 +++ b/include/asm-ia64/smp.h
 @@ -15,6 +15,7 @@
@@ -42,7 +44,7 @@ index 4fa733d..0a8435f 100644
  
  #include <asm/io.h>
  #include <asm/param.h>
-@@ -120,6 +121,7 @@ extern void __init smp_build_cpu_map(void);
+@@ -123,6 +124,7 @@ extern void __init smp_build_cpu_map(void);
  extern void __init init_smp_config (void);
  extern void smp_do_timer (struct pt_regs *regs);
  
