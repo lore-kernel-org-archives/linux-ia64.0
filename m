@@ -1,7 +1,7 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Mon, 28 Apr 2008 10:01:35 +0000
+From: "stephane eranian" <eranian@googlemail.com>
+Date: Wed, 30 Apr 2008 19:32:11 +0000
 Subject: Re: ptrace problem with 2.6.25 on Itanium
-Message-Id: <1209376895.4027.29.camel@elijah.suse.cz>
+Message-Id: <7c86c4470804301232u79550db8g1792544bd2812c38@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <7c86c4470804240339p77639b4ejee73baec305d74c5@mail.gmail.com>
 In-Reply-To: <7c86c4470804240339p77639b4ejee73baec305d74c5@mail.gmail.com>
@@ -10,35 +10,62 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 2008-04-27 at 19:30 -0700, Roland McGrath wrote:
+Roland,
+
+On Mon, Apr 28, 2008 at 4:30 AM, Roland McGrath <roland@redhat.com> wrote:
 > Sorry to complicate your life, but this one is officially Your Problem.
-> There is no kernel bug here.  The semantics have not changed, only the
-> timing.  (You are not the first to assume some ordering constraint was
-> provided in the ptrace interface that in fact has never been guaranteed
-> at all.)
+>  There is no kernel bug here.  The semantics have not changed, only the
+>  timing.  (You are not the first to assume some ordering constraint was
+>  provided in the ptrace interface that in fact has never been guaranteed
+>  at all.)
+>
+I suspected you were going to say that. I have now fixed pfmon. I have
+released the new version yesterday. The trick I use is that if I get SIGSTOP
+notification first, I keep the child stopped until I get the FORK notification
+from the parent. This way, the child cannot exit before pfmon gets the
+FORK notification (I have seen this happen).
 
-I was just wondering why the timing was changed in such a way that the
-signals *consistently* arrive in wrong order, and why only on IA64. I
-think I know the answer:
+Thanks for checking on this.
+So far, never seen the inversion on X86.
 
-do_fork() calls ptrace_notify() from the parent before the parent
-process is rescheduled. This usually happens before the child process is
-scheduled - BTW it happens always if both processes run on the same CPU
-and the kernel is not preemptive.
 
-Now, what happens after applying the RSE patch is that sending the
-notification from the parent involves synchronizing the parent's RSE to
-user space. Because this takes some time (and may sleep), the child
-process is selected by the scheduler and runs first (note that the
-notification is sent _after_ waking the child).
 
-On other architectures, the overhead with enqueueing the notification
-signal is much smaller, so the parent usually finishes sending the
-signal before the child even gets to sending its own notification. But
-this is racy, as pointed out by Roland, and any program which relies on
-it will fail one day. In a way, we should be glad that ia64 now tends to
-send the signals in a non-deterministic order, as more people will hit
-the race and (hopefully) fix their programs. ;)
-
-Kind regards,
-Petr Tesarik
+>  It's not surprising that the TIF_RESTORE_RSE/arch_ptrace_stop() changes
+>  precipitated your first experience seeing this.  It may very well be that
+>  this order of the reports never ever happened before even once in real
+>  life.  But, it really truly has never been guaranteed (on any arch).
+>  There is not going to be any new guarantee.  You'll just have to adapt to
+>  what the actual rules have always been.  Sorry.
+>
+>  The new child is started running (so as to immediately deliver its
+>  SIGSTOP) before the parent's ptrace_notify.  This has always been so.
+>  It's probably true that for the child to get far enough to stop before
+>  the parent did, in the past, could only have happened through an
+>  extraordinary preemption situation.  Now that both parent and child do
+>  the arch_ptrace_stop() logic before they complete their stops, there
+>  are many more factors of nondeterminism involved in the common case.
+>
+>  On every arch, in every older kernel, if you have enough SMP, enough
+>  preemption load (and preemption enabled), HZ high enough to drive up
+>  frequency of preemption, relative to how long the particular CPU takes
+>  to complete the ptrace_notify work, you will eventually manage to see
+>  intermittent nondeterminism in the order of these two ptrace reports.
+>  A robust userland application just has to cope with it.
+>
+>  This is not so hard to deal with.  If you get a report for a new pid you
+>  have never heard of, then you know it must be a new child whose parent's
+>  fork/clone event you have yet to see.  (Note it won't always be a SIGSTOP
+>  that you see.  It could be a death by SIGKILL, or it could be a stop for
+>  a different signal that was dequeued before SIGSTOP, having just been
+>  posted in a quick race right after the birth of the child.)  In that
+>  event, you can be sure that the parent will be very quickly reporting
+>  too.  So you can do synchronous waits until you see the parent clone
+>  report whose eventmsg matches the spontaneous child pid.  (Or you can
+>  just keep track of the partial child in your data structures and go back
+>  to your normal wait loop, which is probably a better way to write your
+>  application.)
+>
+>
+>  Thanks,
+>  Roland
+>
