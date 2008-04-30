@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:08 +0000
+Date: Wed, 30 Apr 2008 12:29:28 +0000
 Subject: [PATCH 15/15] ia64/pv_ops: add to hooks, pv_time_ops, for steal time accounting.
-Message-Id: <1207716549108-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558568127-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1207716549108-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1207716549108-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,10 +23,10 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  3 files changed, 70 insertions(+), 0 deletions(-)
 
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 8e47c3f..433cb9b 100644
+index ba5383b..afaf5b9 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -350,3 +350,18 @@ struct pv_irq_ops pv_irq_ops = {
+@@ -352,3 +352,18 @@ struct pv_irq_ops pv_irq_ops = {
  
  	.resend_irq = ia64_native_resend_irq,
  };
@@ -44,7 +46,7 @@ index 8e47c3f..433cb9b 100644
 +	.do_steal_accounting = ia64_native_do_steal_accounting,
 +};
 diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 17fda52..6fecc47 100644
+index 48e15a5..744247c 100644
 --- a/arch/ia64/kernel/time.c
 +++ b/arch/ia64/kernel/time.c
 @@ -24,6 +24,7 @@
@@ -81,7 +83,7 @@ index 17fda52..6fecc47 100644
  };
  static struct clocksource *itc_clocksource;
  
-@@ -78,6 +91,9 @@ timer_interrupt (int irq, void *dev_id)
+@@ -156,6 +169,9 @@ timer_interrupt (int irq, void *dev_id)
  
  	profile_tick(CPU_PROFILING);
  
@@ -91,7 +93,7 @@ index 17fda52..6fecc47 100644
  	while (1) {
  		update_process_times(user_mode(get_irq_regs()));
  
-@@ -107,6 +123,8 @@ timer_interrupt (int irq, void *dev_id)
+@@ -185,6 +201,8 @@ timer_interrupt (int irq, void *dev_id)
  		local_irq_disable();
  	}
  
@@ -100,7 +102,7 @@ index 17fda52..6fecc47 100644
  	do {
  		/*
  		 * If we're too close to the next clock tick for
-@@ -256,6 +274,11 @@ ia64_init_itm (void)
+@@ -334,6 +352,11 @@ ia64_init_itm (void)
  		 */
  		clocksource_itc.rating = 50;
  
