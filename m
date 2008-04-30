@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:05 +0000
+Date: Wed, 30 Apr 2008 12:29:25 +0000
 Subject: [PATCH 12/15] ia64/pv_ops: define initialization hooks, pv_init_ops, for paravirtualized environment
-Message-Id: <12077165492631-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095585683056-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165492631-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165492631-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,10 +23,10 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  4 files changed, 89 insertions(+), 0 deletions(-)
 
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 6d7ae59..0b57a8d 100644
+index 7126ea8..5daf659 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -41,6 +41,13 @@ struct pv_info pv_info = {
+@@ -42,6 +42,13 @@ struct pv_info pv_info = {
  };
  
  /***************************************************************************
@@ -39,7 +41,7 @@ index 6d7ae59..0b57a8d 100644
   * intrinsics hooks.
   */
 diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 4aa9eae..c7e95ba 100644
+index 5015ca1..dc1b26b 100644
 --- a/arch/ia64/kernel/setup.c
 +++ b/arch/ia64/kernel/setup.c
 @@ -51,6 +51,7 @@
@@ -50,7 +52,7 @@ index 4aa9eae..c7e95ba 100644
  #include <asm/patch.h>
  #include <asm/pgtable.h>
  #include <asm/processor.h>
-@@ -288,6 +289,8 @@ reserve_memory (void)
+@@ -312,6 +313,8 @@ reserve_memory (void)
  	rsvd_region[n].end   = (unsigned long) ia64_imva(_end);
  	n++;
  
@@ -59,7 +61,7 @@ index 4aa9eae..c7e95ba 100644
  #ifdef CONFIG_BLK_DEV_INITRD
  	if (ia64_boot_param->initrd_start) {
  		rsvd_region[n].start = (unsigned long)__va(ia64_boot_param->initrd_start);
-@@ -466,6 +469,8 @@ setup_arch (char **cmdline_p)
+@@ -490,6 +493,8 @@ setup_arch (char **cmdline_p)
  {
  	unw_init();
  
@@ -68,7 +70,7 @@ index 4aa9eae..c7e95ba 100644
  	ia64_patch_vtop((u64) __start___vtop_patchlist, (u64) __end___vtop_patchlist);
  
  	*cmdline_p = __va(ia64_boot_param->command_line);
-@@ -518,6 +523,9 @@ setup_arch (char **cmdline_p)
+@@ -544,6 +549,9 @@ setup_arch (char **cmdline_p)
  	acpi_boot_init();
  #endif
  
@@ -78,7 +80,7 @@ index 4aa9eae..c7e95ba 100644
  #ifdef CONFIG_VT
  	if (!conswitchp) {
  # if defined(CONFIG_DUMMY_CONSOLE)
-@@ -537,6 +545,8 @@ setup_arch (char **cmdline_p)
+@@ -563,6 +571,8 @@ setup_arch (char **cmdline_p)
  #endif
  
  	/* enable IA-64 Machine Check Abort Handling unless disabled */
@@ -88,7 +90,7 @@ index 4aa9eae..c7e95ba 100644
  		ia64_mca_init();
  
 diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
-index 32ee597..e7ce751 100644
+index d7ad42b..933f388 100644
 --- a/arch/ia64/kernel/smpboot.c
 +++ b/arch/ia64/kernel/smpboot.c
 @@ -50,6 +50,7 @@
