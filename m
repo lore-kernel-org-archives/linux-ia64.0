@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:28 +0000
+Date: Wed, 30 Apr 2008 12:30:52 +0000
 Subject: [PATCH 21/23] ia64/pv_ops/xen: implement xen pv_time_ops.
-Message-Id: <12077166302786-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095586541686-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077166302786-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166302786-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
