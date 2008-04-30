@@ -1,193 +1,104 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 30 Apr 2008 12:30:42 +0000
-Subject: [PATCH 11/23] ia64/xen: detect xen environment and do minimal initialization.
-Message-Id: <12095586542127-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 30 Apr 2008 12:29:13 +0000
+Subject: [PATCH 00/15] ia64/pv_ops take 5
+Message-Id: <12095585682308-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166303487-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166303487-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add a hook for xen detection and initialization. It detects
-xen environment and does minimal initialization.
-For now xen is detected by checking psr.cpl !=3D 0.
-It's ok for now, but more abstraction would be needed later like x86.
-Presumably extending booting protocol (i.e. extending struct ia64_boot_para=
-m)
-or multi entry points depending on hypervisor would be necessary.
+Hi. This patchset implements ia64/pv_ops support which is the
+framework for virtualization support.
+Now all the comments so far have been addressed, but only a few exceptions.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/kernel/head.S    |    6 ++++
- arch/ia64/xen/Makefile     |    3 +-
- arch/ia64/xen/xen_pv_ops.c |   65 ++++++++++++++++++++++++++++++++++++++++=
-++++
- arch/ia64/xen/xensetup.S   |   49 +++++++++++++++++++++++++++++++++
- 4 files changed, 122 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xen_pv_ops.c
- create mode 100644 arch/ia64/xen/xensetup.S
+On x86 various ways to support virtualization were proposed, and
+eventually pv_ops won. So on ia64 the pv_ops strategy is appropriate too.
+Later I'll post the patchset which implements xen domU based on
+ia64/pv_ops. Currently only ia64/xen pv_ops implementation exists,
+but I believe ia64/kvm can also obtain benefits from this ia64/pv_ops
+frame work.
+linux/ia64 has the machine vector interface and another approach might be
+to utilize it. However pv_ops is better for some reasons. Please see
+the thread of the mailing list from
+http://www.spinics.net/lists/linux-ia64/msg05238.html
 
-diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
-index ddeab4e..39fecfc 100644
---- a/arch/ia64/kernel/head.S
-+++ b/arch/ia64/kernel/head.S
-@@ -367,6 +367,12 @@ start_ap:
- 	;;
- (isBP)	st8 [r2]=3Dr28		// save the address of the boot param area passed b=
-y the bootloader
-=20
-+#ifdef CONFIG_XEN
-+	//  Note: isBP is used by the subprogram.
-+	br.call.sptk.many rp=EArly_xen_setup
-+	;;
-+#endif
-+
- #ifdef CONFIG_SMP
- (isAP)	br.call.sptk.many rp=3Dstart_secondary
- .ret0:
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index eb59563..abc356f 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,5 @@
- # Makefile for Xen components
- #
-=20
--obj-y :=3D hypercall.o xencomm.o xcom_hcall.o grant-table.o
-+obj-y :=3D hypercall.o xensetup.o xen_pv_ops.o \
-+	xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-new file mode 100644
-index 0000000..77db214
---- /dev/null
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -0,0 +1,65 @@
-+/*************************************************************************=
-*****
-+ * arch/ia64/xen/xen_pv_ops.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  U=
-SA
-+ *
-+ */
-+
-+#include <linux/console.h>
-+#include <linux/irq.h>
-+#include <linux/kernel.h>
-+#include <linux/pm.h>
-+
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
-+#include <asm/xen/privop.h>
-+
-+/*************************************************************************=
-**
-+ * general info
-+ */
-+static struct pv_info xen_info __initdata =3D {
-+	.kernel_rpl =3D 2,	/* or 1: determin at runtime */
-+	.paravirt_enabled =3D 1,
-+	.name =3D "Xen/ia64",
-+};
-+
-+#define IA64_RSC_PL_SHIFT	2
-+#define IA64_RSC_PL_BIT_SIZE	2
-+#define IA64_RSC_PL_MASK	\
-+	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
-+
-+static void __init
-+xen_info_init(void)
-+{
-+	/* Xenified Linux/ia64 may run on pl =3D 1 or 2.
-+	 * determin at run time. */
-+	unsigned long rsc =3D ia64_getreg(_IA64_REG_AR_RSC);
-+	unsigned int rpl =3D (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
-+	xen_info.kernel_rpl =3D rpl;
-+}
-+
-+/*************************************************************************=
-**
-+ * pv_ops initialization
-+ */
-+
-+void __init
-+xen_setup_pv_ops(void)
-+{
-+	xen_info_init();
-+	pv_info =3D xen_info;
-+}
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-new file mode 100644
-index 0000000..43608b2
---- /dev/null
-+++ b/arch/ia64/xen/xensetup.S
-@@ -0,0 +1,49 @@
-+/*
-+ * Support routines for Xen
-+ *
-+ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
-+ */
-+
-+#include <asm/processor.h>
-+#include <asm/asmmacro.h>
-+#include <asm/xen/privop.h>
-+
-+	.section .data.read_mostly
-+	.align 8
-+	.global running_on_xen
-+running_on_xen:
-+	data4 0
-+	.previous
-+
-+#define isBP	p3	// are we the Bootstrap Processor?
-+
-+	.text
-+GLOBAL_ENTRY(early_xen_setup)
-+	mov r8=3Dar.rsc		// Initialized in head.S
-+(isBP)	movl r9=3Drunning_on_xen;;
-+	extr.u r8=3Dr8,2,2;;	// Extract pl fields
-+	cmp.eq p7,p0=3Dr8,r0	// p7: !running on xen
-+	mov r8=3D1		// booleanize.
-+(p7)	br.ret.sptk.many rp;;
-+(isBP)	st4 [r9]=3Dr8
-+	movl r10=3Dxen_ivt;;
-+
-+	mov cr.iva=3Dr10
-+
-+	/* Set xsi base.  */
-+#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
-+(isBP)	mov r2=3DFW_HYPERCALL_SET_SHARED_INFO_VA
-+(isBP)	movl r28=3DXSI_BASE;;
-+(isBP)	break 0x1000;;
-+
-+	/* setup pv_ops */
-+(isBP)	mov r4=3Drp
-+	;;
-+(isBP)	br.call.sptk.many rp=3Dxen_setup_pv_ops
-+	;;
-+(isBP)	mov rp=3Dr4
-+	;;
-+
-+	br.ret.sptk.many rp
-+	;;
-+END(early_xen_setup)
---=20
-1.5.3
 
+This patchset does the followings.
+- some preparation work. Mainly make the kernel virtualization friendly.
+- introduce pv_info which describes the execution environment.
+- introduce macros for hand written assembly code to paravirtualize
+  hand written code to replace sensitive/privileged instructions.
+- introduce various hooks to replace the implementation with
+  paravirtualized.
+  They are defined as function tables called, pv_init_ops, pv_cpu_ops,
+  pv_irq_ops, pv_iosapic_ops and, pv_time_ops.
+  They represent
+    pv_init_ops: hooks for various initialization.
+    pv_cpu_ops: hooks for ia64 intrinsics.
+    pv_irq_ops: hooks for irq related operations.
+    pv_iosapic_ops: hooks for paravirtualized iosapic.
+    pv_time_ops: hooks for steal time accounting
+
+
+The working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64.git/
+branch: xen-ia64-2008apr30
+
+At this phase, we don't address the following issues.
+Those will be addressed after the first merge.
+- optimization by binary patch
+  In fact, we had the patch to do that, but we intentionally dropped
+  for patch size/readability/cleanness.
+- freeing the unused pages, i.e. pages for unused ivt.S.
+
+Changes from take 4:
+- refined NR_IRQS paravirtualization according to Jes Soresen's comment
+- rebased and fixed the breakage due to the upstream change.
+- fixed various compilation errors.
+
+Changes from take 3:
+- split the patch set into pv_op part and xen domU part.
+- many clean ups.
+- introduced pv_ops: pv_cpu_ops and pv_time_ops.
+
+Changes from take 2:
+- many clean ups following to comments.
+- clean up:assembly instruction macro.
+- introduced pv_ops: pv_info, pv_init_ops, pv_iosapic_ops, pv_irq_ops.
+
+Changes from take 1:
+Single IVT source code. compile multitimes using assembler macros.
+
+thanks,
+
+Diffstat:
+ arch/ia64/Makefile                 |    6 +
+ arch/ia64/kernel/Makefile          |   44 +++++
+ arch/ia64/kernel/entry.S           |  115 +++++++----
+ arch/ia64/kernel/iosapic.c         |   45 +++--
+ arch/ia64/kernel/irq_ia64.c        |   19 ++-
+ arch/ia64/kernel/ivt.S             |  227 +++++++++++-----------
+ arch/ia64/kernel/minstate.h        |   13 +-
+ arch/ia64/kernel/nr-irqs.c         |   24 +++
+ arch/ia64/kernel/paravirt.c        |  369 ++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/paravirt_inst.h   |   29 +++
+ arch/ia64/kernel/paravirtentry.S   |   60 ++++++
+ arch/ia64/kernel/setup.c           |   10 +
+ arch/ia64/kernel/smpboot.c         |    2 +
+ arch/ia64/kernel/time.c            |   23 +++
+ include/asm-ia64/Kbuild            |    2 +-
+ include/asm-ia64/gcc_intrin.h      |   24 ++--
+ include/asm-ia64/hw_irq.h          |   23 ++-
+ include/asm-ia64/intel_intrin.h    |   41 ++--
+ include/asm-ia64/intrinsics.h      |   55 ++++++
+ include/asm-ia64/iosapic.h         |   18 ++-
+ include/asm-ia64/irq.h             |    9 +-
+ include/asm-ia64/mmu_context.h     |    6 +-
+ include/asm-ia64/native/inst.h     |  180 ++++++++++++++++++
+ include/asm-ia64/native/irq.h      |   35 ++++
+ include/asm-ia64/paravirt.h        |  252 ++++++++++++++++++++++++
+ include/asm-ia64/paravirt_privop.h |  114 +++++++++++
+ include/asm-ia64/smp.h             |    2 +
+ include/asm-ia64/system.h          |   10 +-
+ 28 files changed, 1520 insertions(+), 237 deletions(-)
