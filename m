@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:01 +0000
+Date: Wed, 30 Apr 2008 12:29:21 +0000
 Subject: [PATCH 08/15] ia64/pv_ops: paravirtualize minstate.h.
-Message-Id: <12077165494039-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095585683403-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165494039-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165494039-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,7 +24,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  create mode 100644 arch/ia64/kernel/paravirt_inst.h
 
 diff --git a/arch/ia64/kernel/minstate.h b/arch/ia64/kernel/minstate.h
-index c9ac8ba..f00ca70 100644
+index 7c548ac..9db53cf 100644
 --- a/arch/ia64/kernel/minstate.h
 +++ b/arch/ia64/kernel/minstate.h
 @@ -2,6 +2,7 @@
@@ -31,9 +33,9 @@ index c9ac8ba..f00ca70 100644
  #include "entry.h"
 +#include "paravirt_inst.h"
  
- /*
-  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
-@@ -28,16 +29,16 @@
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ /* read ar.itc in advance, and use it before leaving bank 0 */
+@@ -40,16 +41,16 @@
   * Note that psr.ic is NOT turned on by this macro.  This is so that
   * we can pass interruption state as arguments to a handler.
   */
@@ -54,7 +56,7 @@ index c9ac8ba..f00ca70 100644
  	;;											\
  	adds r16=IA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
  	;;											\
-@@ -192,6 +193,6 @@
+@@ -206,6 +207,6 @@
  	st8 [r25]=r10;      	/* ar.ssd */	\
  	;;
  
