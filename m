@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:29 +0000
+Date: Wed, 30 Apr 2008 12:30:53 +0000
 Subject: [PATCH 22/23] ia64/xen: define xen machine vector for domU.
-Message-Id: <12077166312115-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095586544079-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077166312115-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166312115-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,21 +25,22 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  create mode 100644 include/asm-ia64/machvec_xen.h
 
 diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index f1645c4..a531403 100644
+index 4721a12..8fab7b8 100644
 --- a/arch/ia64/Makefile
 +++ b/arch/ia64/Makefile
-@@ -56,7 +56,9 @@ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
+@@ -56,8 +56,10 @@ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
  core-$(CONFIG_IA64_GENERIC) 	+= arch/ia64/dig/
  core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
  core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
 +core-$(CONFIG_IA64_XEN)		+= arch/ia64/dig/
  core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
+ core-$(CONFIG_KVM) 		+= arch/ia64/kvm/
 +core-$(CONFIG_XEN)		+= arch/ia64/xen/
  
  drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
  drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
 diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index 78f28d8..99770b0 100644
+index c7467f8..09d4349 100644
 --- a/arch/ia64/kernel/acpi.c
 +++ b/arch/ia64/kernel/acpi.c
 @@ -52,6 +52,7 @@
@@ -90,10 +93,10 @@ index 0000000..4ad588a
 +#include <asm/machvec_init.h>
 +
 diff --git a/include/asm-ia64/machvec.h b/include/asm-ia64/machvec.h
-index c201a20..cea8d63 100644
+index 9f020eb..625cf10 100644
 --- a/include/asm-ia64/machvec.h
 +++ b/include/asm-ia64/machvec.h
-@@ -120,6 +120,8 @@ extern void machvec_tlb_migrate_finish (struct mm_struct *);
+@@ -126,6 +126,8 @@ extern void machvec_tlb_migrate_finish (struct mm_struct *);
  #  include <asm/machvec_hpzx1_swiotlb.h>
  # elif defined (CONFIG_IA64_SGI_SN2)
  #  include <asm/machvec_sn2.h>
