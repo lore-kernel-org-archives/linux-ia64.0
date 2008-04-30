@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:07 +0000
+Date: Wed, 30 Apr 2008 12:29:27 +0000
 Subject: [PATCH 14/15] ia64/pv_ops: add hooks, pv_irq_ops, to paravirtualized irq related operations.
-Message-Id: <12077165493286-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558568791-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165493286-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165493286-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,7 +27,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  4 files changed, 95 insertions(+), 9 deletions(-)
 
 diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 711635d..d5e2a14 100644
+index c48171b..28d3d48 100644
 --- a/arch/ia64/kernel/irq_ia64.c
 +++ b/arch/ia64/kernel/irq_ia64.c
 @@ -196,7 +196,7 @@ static void clear_irq_vector(int irq)
@@ -80,10 +82,10 @@ index 711635d..d5e2a14 100644
  	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
  		BUG_ON(IA64_FIRST_DEVICE_VECTOR != IA64_IRQ_MOVE_VECTOR);
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 4c54319..8e47c3f 100644
+index 65c211b..ba5383b 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -335,3 +335,18 @@ struct pv_iosapic_ops pv_iosapic_ops = {
+@@ -337,3 +337,18 @@ struct pv_iosapic_ops pv_iosapic_ops = {
  	.__read = ia64_native_iosapic_read,
  	.__write = ia64_native_iosapic_write,
  };
