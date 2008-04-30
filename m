@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:06 +0000
+Date: Wed, 30 Apr 2008 12:29:26 +0000
 Subject: [PATCH 13/15] ia64/pv_ops: add hooks, pv_iosapic_ops, to paravirtualize iosapic.
-Message-Id: <12077165494047-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095585681973-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165494047-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165494047-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -101,10 +103,10 @@ index 082c31d..587196d 100644
  
  static inline int
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 0b57a8d..4c54319 100644
+index 5daf659..65c211b 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -310,3 +310,28 @@ paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch)
+@@ -312,3 +312,28 @@ paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch)
  		cpu_asm_switch->work_processed_syscall;
  	paravirt_leave_kernel_targ = cpu_asm_switch->leave_kernel;
  }
