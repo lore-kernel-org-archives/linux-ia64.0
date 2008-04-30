@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:09 +0000
+Date: Wed, 30 Apr 2008 12:30:33 +0000
 Subject: [PATCH 02/23] ia64/xen: increase IA64_MAX_RSVD_REGIONS.
-Message-Id: <12077166303603-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095586541601-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077166303603-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166303603-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,7 +19,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/include/asm-ia64/meminit.h b/include/asm-ia64/meminit.h
-index f93308f..8de94e2 100644
+index 7245a57..6bc96ee 100644
 --- a/include/asm-ia64/meminit.h
 +++ b/include/asm-ia64/meminit.h
 @@ -18,10 +18,11 @@
