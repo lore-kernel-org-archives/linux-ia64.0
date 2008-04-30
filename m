@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:02 +0000
+Date: Wed, 30 Apr 2008 12:29:22 +0000
 Subject: [PATCH 09/15] ia64/pv_ops: paravirtualize ivt.S
-Message-Id: <1207716549646-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095585683645-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1207716549646-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1207716549646-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -16,12 +18,12 @@ So they need paravirtualization.
 Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/ivt.S |  223 ++++++++++++++++++++++++--------------------=
+ arch/ia64/kernel/ivt.S |  227 ++++++++++++++++++++++++--------------------=
 ----
- 1 files changed, 113 insertions(+), 110 deletions(-)
+ 1 files changed, 115 insertions(+), 112 deletions(-)
 
 diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index 34f44d8..d516bf4 100644
+index 6678c49..4244287 100644
 --- a/arch/ia64/kernel/ivt.S
 +++ b/arch/ia64/kernel/ivt.S
 @@ -12,6 +12,14 @@
@@ -227,7 +229,7 @@ index 34f44d8..d516bf4 100644
 +	THASH(p8, r17, r16, r25)
  	;;
 -(p8)	mov cr.iha=3Dr17
-+	MOV_TO_IHA(r17, r25)
++	MOV_TO_IHA(p8, r17, r25)
  (p8)	mov r29=B0				// save b0
  (p8)	br.cond.dptk dtlb_fault
  #endif
@@ -432,8 +434,8 @@ instructions
  	cmp.eq p0,p7=3Dr18,r17			// I0 is this a system call?
  (p7)	br.cond.spnt non_syscall		// B  no ->
  	//
-@@ -831,10 +832,10 @@ ENTRY(break_fault)
- 1:
+@@ -864,10 +865,10 @@ ENTRY(break_fault)
+ #endif
  	mov ar.rsc=3D0x3				// M2   set eager mode, pl 0, LE, loadrs=3D0
  	nop 0
 -	bsw.1					// B (6 cyc) regs are saved, switch to bank 1
@@ -447,7 +449,7 @@ r.-collection
  	movl r3=3Dia64_ret_from_syscall		// X
  	;;
 =20
-@@ -842,7 +843,7 @@ ENTRY(break_fault)
+@@ -875,7 +876,7 @@ ENTRY(break_fault)
  	mov rp=3Dr3				// I0   set the real return addr
  (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-f=
 rame or r15 is a NaT
@@ -458,7 +460,7 @@ rame or r15 is a NaT
 urn addr)
  	br.cond.spnt.many ia64_trace_syscall	// B	do syscall-tracing thingamagic
  	// NOT REACHED
-@@ -866,7 +867,7 @@ ENTRY(interrupt)
+@@ -899,7 +900,7 @@ ENTRY(interrupt)
  	mov r31=3Dpr		// prepare to save predicates
  	;;
  	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
@@ -467,7 +469,7 @@ urn addr)
  	;;
  	adds r3=3D8,r2		// set up second base pointer for SAVE_REST
  	srlz.i			// ensure everybody knows psr.ic is back on
-@@ -875,7 +876,7 @@ ENTRY(interrupt)
+@@ -908,7 +909,7 @@ ENTRY(interrupt)
  	;;
  	MCA_RECOVER_RANGE(interrupt)
  	alloc r14=3Dar.pfs,0,0,2,0 // must be first in an insn group
@@ -476,7 +478,7 @@ urn addr)
  	add out1=16,sp		// pass pointer to pt_regs as second arg
  	;;
  	srlz.d			// make sure we see the effect of cr.ivr
-@@ -944,6 +945,7 @@ END(interrupt)
+@@ -978,6 +979,7 @@ END(interrupt)
  	 *	- ar.fpsr: set to kernel settings
  	 *	-  b6: preserved (same as on entry)
  	 */
@@ -484,7 +486,7 @@ urn addr)
  GLOBAL_ENTRY(ia64_syscall_setup)
  #if PT(B6) !=3D 0
  # error This code assumes that b6 is the first field in pt_regs.
-@@ -1035,6 +1037,7 @@ GLOBAL_ENTRY(ia64_syscall_setup)
+@@ -1069,6 +1071,7 @@ GLOBAL_ENTRY(ia64_syscall_setup)
  (p10)	mov r8=3D-EINVAL
  	br.ret.sptk.many b7
  END(ia64_syscall_setup)
@@ -493,7 +495,7 @@ urn addr)
  	.org ia64_ivt+0x3c00
  //////////////////////////////////////////////////////////////////////////=
 ///////////////
-@@ -1055,11 +1058,11 @@ ENTRY(dispatch_illegal_op_fault)
+@@ -1089,11 +1092,11 @@ ENTRY(dispatch_illegal_op_fault)
  	.prologue
  	.body
  	SAVE_MIN_WITH_COVER
@@ -507,7 +509,26 @@ urn addr)
  	adds r3=3D8,r2	// set up second base pointer for SAVE_REST
  	;;
  	alloc r14=3Dar.pfs,0,0,1,0	// must be first in insn group
-@@ -1107,15 +1110,15 @@ ENTRY(non_syscall)
+@@ -1124,7 +1127,7 @@ END(dispatch_illegal_op_fault)
+ 	DBG_FAULT(16)
+ 	FAULT(16)
+=20
+-#ifdef CONFIG_VIRT_CPU_ACCOUNTING
++#if defined(CONFIG_VIRT_CPU_ACCOUNTING) && defined(__IA64_ASM_PARAVIRTUALI=
+ZED_NATIVE)
+ 	/*
+ 	 * There is no particular reason for this code to be here, other than
+ 	 * that there happens to be space here that would go unused otherwise.
+@@ -1134,7 +1137,7 @@ END(dispatch_illegal_op_fault)
+ 	 * account_sys_enter is called from SAVE_MIN* macros if accounting is
+ 	 * enabled and if the macro is entered from user mode.
+ 	 */
+-ENTRY(account_sys_enter)
++GLOBAL_ENTRY(account_sys_enter)
+ 	// mov.m r20=3Dar.itc is called in advance, and r13 is current
+ 	add r16=3DTI_AC_STAMP+IA64_TASK_SIZE,r13
+ 	add r17=3DTI_AC_LEAVE+IA64_TASK_SIZE,r13
+@@ -1176,15 +1179,15 @@ ENTRY(non_syscall)
  	// suitable spot...
 =20
  	alloc r14=3Dar.pfs,0,0,2,0
@@ -526,7 +547,7 @@ urn addr)
  	movl r15=3Dia64_leave_kernel
  	;;
  	SAVE_REST
-@@ -1141,14 +1144,14 @@ ENTRY(dispatch_unaligned_handler)
+@@ -1210,14 +1213,14 @@ ENTRY(dispatch_unaligned_handler)
  	SAVE_MIN_WITH_COVER
  	;;
  	alloc r14=3Dar.pfs,0,0,2,0		// now it's safe (must be first in insn group=
@@ -545,7 +566,7 @@ urn addr)
  	adds r3=3D8,r2				// set up second base pointer
  	;;
  	SAVE_REST
-@@ -1180,17 +1183,17 @@ ENTRY(dispatch_to_fault_handler)
+@@ -1249,17 +1252,17 @@ ENTRY(dispatch_to_fault_handler)
  	 */
  	SAVE_MIN_WITH_COVER_R19
  	alloc r14=3Dar.pfs,0,0,5,0
@@ -570,7 +591,7 @@ urn addr)
  	adds r3=3D8,r2				// set up second base pointer for SAVE_REST
  	;;
  	SAVE_REST
-@@ -1209,8 +1212,8 @@ END(dispatch_to_fault_handler)
+@@ -1278,8 +1281,8 @@ END(dispatch_to_fault_handler)
  // 0x5000 Entry 20 (size 16 bundles) Page Not Present (10,22,49)
  ENTRY(page_not_present)
  	DBG_FAULT(20)
@@ -581,7 +602,7 @@ urn addr)
  	/*
  	 * The Linux page fault handler doesn't expect non-present pages to be in
  	 * the TLB.  Flush the existing entry now, so we meet that expectation.
-@@ -1229,8 +1232,8 @@ END(page_not_present)
+@@ -1298,8 +1301,8 @@ END(page_not_present)
  // 0x5100 Entry 21 (size 16 bundles) Key Permission (13,25,52)
  ENTRY(key_permission)
  	DBG_FAULT(21)
@@ -592,7 +613,7 @@ urn addr)
  	mov r31=3Dpr
  	;;
  	srlz.d
-@@ -1242,8 +1245,8 @@ END(key_permission)
+@@ -1311,8 +1314,8 @@ END(key_permission)
  // 0x5200 Entry 22 (size 16 bundles) Instruction Access Rights (26)
  ENTRY(iaccess_rights)
  	DBG_FAULT(22)
@@ -603,7 +624,7 @@ urn addr)
  	mov r31=3Dpr
  	;;
  	srlz.d
-@@ -1255,8 +1258,8 @@ END(iaccess_rights)
+@@ -1324,8 +1327,8 @@ END(iaccess_rights)
  // 0x5300 Entry 23 (size 16 bundles) Data Access Rights (14,53)
  ENTRY(daccess_rights)
  	DBG_FAULT(23)
@@ -614,7 +635,7 @@ urn addr)
  	mov r31=3Dpr
  	;;
  	srlz.d
-@@ -1268,7 +1271,7 @@ END(daccess_rights)
+@@ -1337,7 +1340,7 @@ END(daccess_rights)
  // 0x5400 Entry 24 (size 16 bundles) General Exception (5,32,34,36,38,39)
  ENTRY(general_exception)
  	DBG_FAULT(24)
@@ -623,7 +644,7 @@ urn addr)
  	mov r31=3Dpr
  	;;
  	cmp4.eq p6,p0=3D0,r16
-@@ -1297,8 +1300,8 @@ END(disabled_fp_reg)
+@@ -1366,8 +1369,8 @@ END(disabled_fp_reg)
  ENTRY(nat_consumption)
  	DBG_FAULT(26)
 =20
@@ -634,7 +655,7 @@ urn addr)
  	mov r31=3Dpr				// save PR
  	;;
  	and r18=3D0xf,r17				// r18 =3D cr.ipsr.code{3:0}
-@@ -1308,10 +1311,10 @@ ENTRY(nat_consumption)
+@@ -1377,10 +1380,10 @@ ENTRY(nat_consumption)
  	dep r16=3D-1,r16,IA64_PSR_ED_BIT,1
  (p6)	br.cond.spnt 1f		// branch if (cr.ispr.na =3D 0 || cr.ipsr.code{3:0} =
 !=3D LFETCH)
@@ -648,7 +669,7 @@ urn addr)
 =20
  1:	mov pr=3Dr31,-1
  	;;
-@@ -1333,26 +1336,26 @@ ENTRY(speculation_vector)
+@@ -1402,26 +1405,26 @@ ENTRY(speculation_vector)
  	 *
  	 * cr.imm contains zero_ext(imm21)
  	 */
@@ -681,7 +702,7 @@ urn addr)
  END(speculation_vector)
 =20
  	.org ia64_ivt+0x5800
-@@ -1490,11 +1493,11 @@ ENTRY(ia32_intercept)
+@@ -1559,11 +1562,11 @@ ENTRY(ia32_intercept)
  	DBG_FAULT(46)
  #ifdef	CONFIG_IA32_SUPPORT
  	mov r31=3Dpr
@@ -695,7 +716,7 @@ urn addr)
  	;;
  	cmp.ne p6,p0=3D2,r17
  (p6)	br.cond.spnt 1f		// not a system flag fault
-@@ -1506,7 +1509,7 @@ ENTRY(ia32_intercept)
+@@ -1575,7 +1578,7 @@ ENTRY(ia32_intercept)
  (p6)	br.cond.spnt 1f		// eflags.ac bit didn't change
  	;;
  	mov pr=3Dr31,-1		// restore predicate registers
@@ -704,7 +725,7 @@ urn addr)
 =20
  1:
  #endif	// CONFIG_IA32_SUPPORT
-@@ -1660,12 +1663,12 @@ END(ia32_interrupt)
+@@ -1729,12 +1732,12 @@ END(ia32_interrupt)
  ENTRY(dispatch_to_ia32_handler)
  	SAVE_MIN
  	;;
