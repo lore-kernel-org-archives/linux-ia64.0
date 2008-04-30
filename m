@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:50:22 +0000
+Date: Wed, 30 Apr 2008 12:30:46 +0000
 Subject: [PATCH 15/23] ia64/pv_ops/xen: paravirtualize DO_SAVE_MIN for xen.
-Message-Id: <12077166302676-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095586542540-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077166302676-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166302676-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -14,9 +16,9 @@ Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
  include/asm-ia64/xen/inst.h     |    2 +
- include/asm-ia64/xen/minstate.h |  131 +++++++++++++++++++++++++++++++++++=
+ include/asm-ia64/xen/minstate.h |  133 +++++++++++++++++++++++++++++++++++=
 ++++
- 2 files changed, 133 insertions(+), 0 deletions(-)
+ 2 files changed, 135 insertions(+), 0 deletions(-)
  create mode 100644 include/asm-ia64/xen/minstate.h
 
 diff --git a/include/asm-ia64/xen/inst.h b/include/asm-ia64/xen/inst.h
@@ -35,10 +37,10 @@ index 1bcc3f3..fa00d16 100644
 diff --git a/include/asm-ia64/xen/minstate.h b/include/asm-ia64/xen/minstat=
 e.h
 new file mode 100644
-index 0000000..55e7ceb
+index 0000000..cc4c834
 --- /dev/null
 +++ b/include/asm-ia64/xen/minstate.h
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,133 @@
 +/*
 + * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
 + * the minimum state necessary that allows us to turn psr.ic back
@@ -168,12 +170,14 @@ atch) */	\
 +	;;											\
 +.mem.offset 0,0; st8.spill [r16]=3Dr2,16;								\
 +.mem.offset 8,0; st8.spill [r17]=3Dr3,16;								\
-+	;;											\
-+	EXTRA;											\
-+	BSW_1(r2,r14);		/* switch back to bank 1 (must be last in insn group) */	\
++	ACCOUNT_GET_STAMP									\
 +	adds r2=3DIA64_PT_REGS_R16_OFFSET,r1;							\
 +	;;											\
++	EXTRA;											\
 +	movl r1=3D__gp;		/* establish kernel global pointer */				\
++	;;											\
++	ACCOUNT_SYS_ENTER									\
++	BSW_1(r3,r14);		/* switch back to bank 1 (must be last in insn group) */	\
 +	;;
 --=20
 1.5.3
