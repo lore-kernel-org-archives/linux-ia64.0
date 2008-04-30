@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:49:03 +0000
+Date: Wed, 30 Apr 2008 12:29:23 +0000
 Subject: [PATCH 10/15] ia64/pv_ops: paravirtualize entry.S
-Message-Id: <1207716549278-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1209558568393-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1207716549278-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1207716549278-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -17,17 +19,17 @@ they are converted into indirect jump. And define each pv instances.
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
  arch/ia64/kernel/Makefile          |    2 +-
- arch/ia64/kernel/entry.S           |  107 +++++++++++++++++++++++---------=
-----
+ arch/ia64/kernel/entry.S           |  115 ++++++++++++++++++++++----------=
+---
  arch/ia64/kernel/paravirt.c        |   19 ++++++
- arch/ia64/kernel/paravirtentry.S   |   60 ++++++++++++++++++++
+ arch/ia64/kernel/paravirtentry.S   |   60 +++++++++++++++++++
  include/asm-ia64/native/inst.h     |    8 +++
- include/asm-ia64/paravirt_privop.h |   23 ++++++++
- 6 files changed, 179 insertions(+), 40 deletions(-)
+ include/asm-ia64/paravirt_privop.h |   23 +++++++
+ 6 files changed, 183 insertions(+), 44 deletions(-)
  create mode 100644 arch/ia64/kernel/paravirtentry.S
 
 diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index a462669..7232273 100644
+index 8b25242..cea91f1 100644
 --- a/arch/ia64/kernel/Makefile
 +++ b/arch/ia64/kernel/Makefile
 @@ -36,7 +36,7 @@ obj-$(CONFIG_PCI_MSI)		+=3D msi_ia64.o
@@ -40,7 +42,7 @@ index a462669..7232273 100644
  obj-$(CONFIG_IA64_ESI)		+=3D esi.o
  ifneq ($(CONFIG_IA64_ESI),)
 diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index 3c331c4..655c1ee 100644
+index e49ad8c..68fb7ef 100644
 --- a/arch/ia64/kernel/entry.S
 +++ b/arch/ia64/kernel/entry.S
 @@ -23,6 +23,11 @@
@@ -134,17 +136,16 @@ ch_stack.  This
  	.prologue
  	.altrp b7
 =20
-@@ -570,7 +576,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
- 	br.call.sptk.many rp=3Dsyscall_trace_leave // give parent a chance to cat=
-ch return value
+@@ -571,7 +577,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
  .ret3:
  (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0			// p6 <- pUStk
+ (pUStk)	rsm psr.i				// disable interrupts
 -	br.cond.sptk .work_pending_syscall_end
 +	br.cond.sptk ia64_work_pending_syscall_end
 =20
  strace_error:
  	ld8 r3=3D[r2]				// load pt_regs.r8
-@@ -635,8 +641,17 @@ GLOBAL_ENTRY(ia64_ret_from_syscall)
+@@ -636,8 +642,17 @@ GLOBAL_ENTRY(ia64_ret_from_syscall)
  	adds r2=3DPT(R8)+16,sp			// r2 =3D &pt_regs.r8
  	mov r10=3Dr0				// clear error indication in r10
  (p7)	br.cond.spnt handle_syscall_error	// handle potential syscall failure
@@ -162,7 +163,7 @@ ch return value
  /*
   * ia64_leave_syscall(): Same as ia64_leave_kernel, except that it doesn't
   *	need to switch to bank 0 and doesn't restore the scratch registers.
-@@ -681,7 +696,7 @@ END(ia64_ret_from_syscall)
+@@ -682,7 +697,7 @@ END(ia64_ret_from_syscall)
   *	      ar.csd: cleared
   *	      ar.ssd: cleared
   */
@@ -172,7 +173,7 @@ ch return value
  	/*
  	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
 ns to
-@@ -691,7 +706,7 @@ ENTRY(ia64_leave_syscall)
+@@ -692,11 +707,11 @@ ENTRY(ia64_leave_syscall)
  	 * extra work.  We always check for extra work when returning to user-lev=
 el.
  	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_cou=
@@ -185,7 +186,12 @@ ork-check
  	 * needs to be redone.
  	 */
  #ifdef CONFIG_PREEMPT
-@@ -705,11 +720,12 @@ ENTRY(ia64_leave_syscall)
+-	rsm psr.i				// disable interrupts
++	RSM_PSR_I(p0, r2, r18)			// disable interrupts
+ 	cmp.eq pLvSys,p0=3Dr0,r0			// pLvSys=3D1: leave from syscall
+ (pKStk) adds r20=3DTI_PRE_COUNT+IA64_TASK_SIZE,r13
+ 	;;
+@@ -706,11 +721,12 @@ ENTRY(ia64_leave_syscall)
  	;;
  	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
  #else /* !CONFIG_PREEMPT */
@@ -197,10 +203,10 @@ ork-check
 -.work_processed_syscall:
 +.global __paravirt_work_processed_syscall;
 +__paravirt_work_processed_syscall:
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
  	adds r2=3DPT(LOADRS)+16,r12
- 	adds r3=3DPT(AR_BSPSTORE)+16,r12
- 	adds r18=3DTI_FLAGS+IA64_TASK_SIZE,r13
-@@ -732,7 +748,7 @@ ENTRY(ia64_leave_syscall)
+ (pUStk)	mov.m r22=3Dar.itc			// fetch time at leave
+@@ -744,7 +760,7 @@ ENTRY(ia64_leave_syscall)
  (pNonSys) break 0		//      bug check: we shouldn't be here if pNonSys is T=
 RUE!
  	;;
@@ -212,9 +218,9 @@ collection
 .ifs
 =20
  	ld8 r29=3D[r2],16		// M0|1 load cr.ipsr
-@@ -744,7 +760,7 @@ ENTRY(ia64_leave_syscall)
- (pUStk) add r14=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r13
+@@ -765,7 +781,7 @@ ENTRY(ia64_leave_syscall)
  	;;
+ #endif
  	ld8 r26=3D[r2],PT(B0)-PT(AR_PFS)	// M0|1 load ar.pfs
 -(pKStk)	mov r22=3Dpsr			// M2   read PSR now that interrupts are disabled
 +	MOV_FROM_PSR(pKStk, r22, r21)	// M2   read PSR now that interrupts are di=
@@ -222,16 +228,16 @@ sabled
  	nop 0
  	;;
  	ld8 r21=3D[r2],PT(AR_RNAT)-PT(B0) // M0|1 load b0
-@@ -773,7 +789,7 @@ ENTRY(ia64_leave_syscall)
+@@ -798,7 +814,7 @@ ENTRY(ia64_leave_syscall)
 =20
  	srlz.d				// M0   ensure interruption collection is off (for cover)
  	shr.u r18=3Dr19,16		// I0|1 get byte size of existing "dirty" partition
 -	cover				// B    add current frame into dirty partition & set cr.ifs
 +	COVER				// B    add current frame into dirty partition & set cr.ifs
  	;;
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
  	mov r19=3Dar.bsp			// M2   get new backing store pointer
- 	mov f10=F0			// F    clear f10
-@@ -788,8 +804,9 @@ ENTRY(ia64_leave_syscall)
+@@ -823,8 +839,9 @@ ENTRY(ia64_leave_syscall)
  	mov.m ar.ssd=3Dr0			// M2   clear ar.ssd
  	mov f11=F0			// F    clear f11
  	br.cond.sptk.many rbs_switch	// B
@@ -242,7 +248,7 @@ sabled
  #ifdef CONFIG_IA32_SUPPORT
  GLOBAL_ENTRY(ia64_ret_from_ia32_execve)
  	PT_REGS_UNWIND_INFO(0)
-@@ -800,10 +817,20 @@ GLOBAL_ENTRY(ia64_ret_from_ia32_execve)
+@@ -835,10 +852,20 @@ GLOBAL_ENTRY(ia64_ret_from_ia32_execve)
  	st8.spill [r2]=3Dr8	// store return value in slot for r8 and set unat bit
  	.mem.offset 8,0
  	st8.spill [r3]=3Dr0	// clear error indication in slot for r10 and set una=
@@ -266,7 +272,16 @@ t bit
  	/*
  	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
 ns to
-@@ -827,7 +854,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+@@ -852,7 +879,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+ 	 * needs to be redone.
+ 	 */
+ #ifdef CONFIG_PREEMPT
+-	rsm psr.i				// disable interrupts
++	RSM_PSR_I(p0, r17, r31)			// disable interrupts
+ 	cmp.eq p0,pLvSys=3Dr0,r0			// pLvSys=3D0: leave from kernel
+ (pKStk)	adds r20=3DTI_PRE_COUNT+IA64_TASK_SIZE,r13
+ 	;;
+@@ -862,7 +889,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  	;;
  	cmp.eq p6,p0=3Dr21,r0		// p6 <- pUStk || (preempt_count =3D 0)
  #else
@@ -275,7 +290,7 @@ ns to
  	cmp.eq p0,pLvSys=3Dr0,r0		// pLvSys=3D0: leave from kernel
  (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
  #endif
-@@ -875,7 +902,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+@@ -910,7 +937,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  	mov ar.csd=3Dr30
  	mov ar.ssd=3Dr31
  	;;
@@ -286,7 +301,7 @@ rruption collection
  	invala			// invalidate ALAT
  	;;
  	ld8.fill r22=3D[r2],24
-@@ -907,13 +934,13 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+@@ -942,7 +969,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  	mov ar.ccv=3Dr15
  	;;
  	ldf.fill f11=3D[r2]
@@ -296,15 +311,24 @@ and...)
  	;;
  (pUStk)	mov r18=3DIA64_KR(CURRENT)// M2 (12 cycle read latency)
  	adds r16=3DPT(CR_IPSR)+16,r12
- 	adds r17=3DPT(CR_IIP)+16,r12
+@@ -950,12 +977,12 @@ GLOBAL_ENTRY(ia64_leave_kernel)
 =20
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ 	.pred.rel.mutex pUStk,pKStk
+-(pKStk)	mov r22=3Dpsr		// M2 read PSR now that interrupts are disabled
++	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disa=
+bled=09
+ (pUStk)	mov.m r22=3Dar.itc	// M  fetch time at leave
+ 	nop.i 0
+ 	;;
+ #else
 -(pKStk)	mov r22=3Dpsr		// M2 read PSR now that interrupts are disabled
 +	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disa=
 bled
  	nop.i 0
  	nop.i 0
  	;;
-@@ -961,7 +988,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+@@ -1027,7 +1054,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
  	 * NOTE: alloc, loadrs, and cover can't be predicated.
  	 */
  (pNonSys) br.cond.dpnt dont_preserve_current_frame
@@ -313,7 +337,7 @@ bled
  	;;
  	mov r19=3Dar.bsp			// get new backing store pointer
  rbs_switch:
-@@ -1064,16 +1091,16 @@ skip_rbs_switch:
+@@ -1130,16 +1157,16 @@ skip_rbs_switch:
  (pKStk)	dep r29=3Dr22,r29,21,1	// I0 update ipsr.pp with psr.pp
  (pLvSys)mov r16=3Dr0		// A  clear r16 for leave_syscall, no-op otherwise
  	;;
@@ -333,7 +357,7 @@ bled
  	nop 0
  	;;
  (pUStk)	mov ar.rnat=3Dr24		// M2 must happen with RSE in lazy mode
-@@ -1082,7 +1109,7 @@ skip_rbs_switch:
+@@ -1148,7 +1175,7 @@ skip_rbs_switch:
 =20
  	mov ar.rsc=3Dr27		// M2
  	mov pr=3Dr31,-1		// I0
@@ -342,7 +366,12 @@ bled
 =20
  	/*
  	 * On entry:
-@@ -1108,32 +1135,33 @@ skip_rbs_switch:
+@@ -1170,36 +1197,37 @@ skip_rbs_switch:
+ (pKStk) dep r21=3D-1,r0,PREEMPT_ACTIVE_BIT,1
+ 	;;
+ (pKStk) st4 [r20]=3Dr21
+-	ssm psr.i		// enable interrupts
++	SSM_PSR_I(p0, r2)	// enable interrupts
  #endif
  	br.call.spnt.many rp=3Dschedule
  .ret9:	cmp.eq p6,p0=3Dr0,r0				// p6 <- 1
@@ -384,7 +413,7 @@ bled
  	/*
  	 * Some system calls (e.g., ptrace, mmap) can return arbitrary values whi=
 ch could
-@@ -1172,7 +1200,7 @@ END(ia64_invoke_schedule_tail)
+@@ -1238,7 +1266,7 @@ END(ia64_invoke_schedule_tail)
  	 * be set up by the caller.  We declare 8 input registers so the system c=
 all
  	 * args get preserved, in case we need to restart a system call.
@@ -395,7 +424,7 @@ all
  	alloc loc1=3Dar.pfs,8,2,3,0 // preserve all eight input regs in case of s=
 yscall restart!
  	mov r9=3Dar.unat
-@@ -1234,7 +1262,7 @@ ENTRY(sys_rt_sigreturn)
+@@ -1300,7 +1328,7 @@ ENTRY(sys_rt_sigreturn)
  	adds sp=16,sp
  	;;
  	ld8 r9=3D[sp]				// load new ar.unat
@@ -404,20 +433,20 @@ yscall restart!
  	;;
  	mov ar.unat=3Dr9
  	br.many b7
-@@ -1593,3 +1621,4 @@ sys_call_table:
+@@ -1659,3 +1687,4 @@ sys_call_table:
  	data8 sys_timerfd_gettime
 =20
  	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase=
  NR_syscalls
 +#endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index bcfcb8b..6d7ae59 100644
+index e5482bb..7126ea8 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -284,3 +284,22 @@ struct pv_cpu_ops pv_cpu_ops =3D {
- 	.intrin_local_irq_restore
+@@ -286,3 +286,22 @@ struct pv_cpu_ops pv_cpu_ops =3D {
  			=3D ia64_native_intrin_local_irq_restore_func,
  };
+ EXPORT_SYMBOL(pv_cpu_ops);
 +
 +/*************************************************************************=
 *****
