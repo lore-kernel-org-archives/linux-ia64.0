@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 09 Apr 2008 04:48:59 +0000
+Date: Wed, 30 Apr 2008 12:29:19 +0000
 Subject: [PATCH 06/15] ia64/pv_ops: preparation for paravirtulization of hand written assembly code.
-Message-Id: <12077165494186-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12095585681382-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12077165494186-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077165494186-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -18,7 +20,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  1 files changed, 9 insertions(+), 0 deletions(-)
 
 diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 40a10e7..a462669 100644
+index 10a4ddb..8b25242 100644
 --- a/arch/ia64/kernel/Makefile
 +++ b/arch/ia64/kernel/Makefile
 @@ -72,3 +72,12 @@ $(obj)/gate-syms.o: $(obj)/gate.lds $(obj)/gate.o FORCE
