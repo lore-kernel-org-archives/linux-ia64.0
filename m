@@ -1,32 +1,52 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Fri, 30 May 2008 08:05:21 +0000
-Subject: Re: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a race
-Message-Id: <20080530080522.0546B26FA85@magilla.localdomain>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 01 May 2008 22:57:11 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <1FE6DD409037234FAB833C420AA843EC013F7630@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
-	<3877989d0805222042p176da844k384ea512b1cfb0da@mail.gmail.com>
-	<20080523041940.39E8726FA24@magilla.localdomain>
-	<3877989d0805222224n77ce36b6wdf15c4bab330a0f8@mail.gmail.com>
-	<20080526001527.81E1126FA9E@magilla.localdomain>
-	<3877989d0805251830w70f19e4cu46fbc32148217749@mail.gmail.com>
-	<3877989d0805262031i29db16bcjfa31652afc746b49@mail.gmail.com>
-	<20080527040454.053C526FA9E@magilla.localdomain>
-	<3877989d0805262249yab130cbyfc5f5e54065cec5c@mail.gmail.com>
-	<20080527061209.9A24426FAA6@magilla.localdomain>
-	<3877989d0805270148h1b9e7972w880e380c2c4c9b09@mail.gmail.com>
-In-Reply-To: Luming Yu's message of  Tuesday, 27 May 2008 16:48:54 +0800 <3877989d0805270148h1b9e7972w880e380c2c4c9b09@mail.gmail.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Luming Yu <luming.yu@gmail.com>
-Cc: Petr Tesarik <ptesarik@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-I'd say the first thing to do is understand the sequence of ptrace calls,
-wait results seen by the ptracer, and the ptrace_stop() path, in your test
-case.  Compare that on x86 and ia64, where the behavior you see differs.
-When you pinpoint the difference in that sequence, we will have some sense
-of what it is that really matters to your test.
+Hi Linus,
+
+please pull from:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/ia32/ia32_signal.c   |    2 +-
+ arch/ia64/kernel/acpi.c        |    2 +-
+ arch/ia64/kernel/irq.c         |    4 +-
+ arch/ia64/kernel/palinfo.c     |    2 +-
+ arch/ia64/kernel/perfmon.c     |  199 +++++++++++++++++----------------------
+ arch/ia64/kernel/signal.c      |   15 ++--
+ arch/ia64/kernel/smp.c         |   68 +++++++-------
+ arch/ia64/kernel/time.c        |    5 -
+ arch/ia64/kernel/topology.c    |   16 ++-
+ include/asm-ia64/cpu.h         |    2 +-
+ include/asm-ia64/thread_info.h |   13 ++-
+ 11 files changed, 157 insertions(+), 171 deletions(-)
+
+Al Viro (1):
+      [IA64] fix file and descriptor handling in perfmon
+
+Hidetoshi Seto (5):
+      [IA64] fix section mismatch in arch/ia64/kernel/acpi.c
+      [IA64] fix section mismatch in arch/ia64/kernel/irq.c
+      [IA64] fix section mismatch in arch/ia64/kernel/palinfo.c
+      [IA64] fix section mismatch in arch/ia64/kernel/topology.c
+      [IA64] smp.c coding style fix
+
+Roland McGrath (1):
+      [IA64] TS_RESTORE_SIGMASK
 
 
-Thanks,
-Roland
+
