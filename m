@@ -1,39 +1,76 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 28 May 2008 19:52:49 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <1FE6DD409037234FAB833C420AA843EC016FFB66@orsmsx424.amr.corp.intel.com>
+From: "stephane eranian" <eranian@googlemail.com>
+Date: Fri, 02 May 2008 16:01:06 +0000
+Subject: Re: 2.6.25 new perfmon kernel patch + libpfm + pfmon available
+Message-Id: <7c86c4470805020901v57ea92a1p1e8d07be87c35dcb@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+References: <7c86c4470804291446l4693b317ha7ee2382d00e99e6@mail.gmail.com>
+	 <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com>
+In-Reply-To: <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: ia64 <linux-ia64@vger.kernel.org>
 
-Hi Linus,
-
-please pull from:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- arch/ia64/kernel/ivt.S         |   84 ++++++++++++++++++++--------------------
- arch/ia64/kernel/minstate.h    |   46 ++++++++++++++++++++--
- arch/ia64/kernel/patch.c       |   23 +++++++++++
- arch/ia64/kernel/setup.c       |   11 +++++
- arch/ia64/kernel/vmlinux.lds.S |    7 +++
- include/asm-ia64/patch.h       |    1 +
- include/asm-ia64/ptrace.h      |    2 +-
- include/asm-ia64/sections.h    |    1 +
- 8 files changed, 128 insertions(+), 47 deletions(-)
-
-Tony Luck (1):
-      [IA64] Workaround for RSE issue
+Hello,
 
 
+Several people noticed there was a typo in the website url.
+The actual web site is:
 
+      http://perfmon2.sf.net
+
+
+Sorry about that.
+
+On Tue, Apr 29, 2008 at 11:47 PM, stephane eranian
+<eranian@googlemail.com> wrote:
+>
+> Hello,
+>
+>   I have released the perfmon2 kernel patch for kernel v2.6.25. There is
+>   no major features. However, there were a major restructuring of the code
+>   to make it more readable, isolate features per module. The header files
+>   have also been restructured to separate user vs. kernel, and generic only
+>   vs. shared with arch. The restructuring of the interrupt handler yielded
+>   a nice 15% latency improvement on single counter sampling runs on X86.
+>   This new structure will make it easier to extract features and merge them
+>   with the mainline kernel.
+>
+>   In the time frame of 2.6.26, I will push a few bits and pieces to LKML
+>   for final review and integration.
+>
+>   Here are some of the kernel changes:
+>   - Cell updates (Carl Love, Takashi Yamamoto)
+>   - new perfmon_debug boot option to enable debug (Robert Richter)
+>   - several bugs fixes on Itanium, MIPS and generic hrtimer management
+>   - Power locking updates (Corey Ashford)
+>
+>   There is also a new release for libpfm, now at version 3.4.
+>   The changes include:
+>   - AMD Phenom (a.k.a. Barcelona) IBS support (Robert Richter)
+>   - Python bindings and examples (Arun Sharma)
+>   - environment variable support to enable debugging
+>   - auto-detection of syscall base number for 2.6.24 and 2.6.25
+>   - new multi-threaded self-sampling example (Mark W. Krentel)
+>   - man pages cleanups (Steve Kaufmann)
+>
+>   Special thanks to Arun (Google). The Python bindings are a nice addition
+>   to libpfm especially for prototyping and writing testsuites.
+>
+>   Finally, a new major version of pfmon, now at pfmon-3.4.
+>   Among the many changes:
+>   - added support for dmalloc (Andrzej Nowak)
+>   - updated support for Cell processor (Takashi Yamamoto)
+>   - possibility to terminate pfmon cleanly with SIGTERM
+>   - --follow-fork and derivatives fixed on Itanium and other platforms
+>   - tracking of dlopen now works on mixed ABI environments
+>   - lots of bugs fixes
+>
+>   As usual all files and more detailed changelogs can be downloaded from our
+>   website at:
+>
+>         http://perfmon.sourceforge.net
+>
+>   Enjoy,
+>
