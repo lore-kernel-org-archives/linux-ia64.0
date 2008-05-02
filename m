@@ -1,74 +1,48 @@
-From: Julia Lawall <julia@diku.dk>
-Date: Mon, 12 May 2008 14:37:46 +0000
-Subject: Re: [PATCH 1/6] arch/ia64/kernel: remove null pointer dereference
-Message-Id: <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="-511516320-175496707-1210603066=:3694"
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Fri, 02 May 2008 09:27:44 +0000
+Subject: [BUG?][2.6.25-mm1] sleeping during IRQ disabled
+Message-Id: <20080502182440.6E5F.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
- <1210603050.25310.9.camel@odie.local>
-In-Reply-To: <1210603050.25310.9.camel@odie.local>
-To: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
-
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-
----511516320-175496707-1210603066=:3694
-Content-Type: TEXT/PLAIN; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Mon, 12 May 2008, Simon Holm Th=F8gersen wrote:
+Hi
 
-> man, 12 05 2008 kl. 15:37 +0200, skrev Julia Lawall:
-> > From: Julia Lawall <julia@diku.dk>
-> >=20
-> > If data is NULL, it is not possible to access data->ret.
-> >=20
-> > The problem was detected using the following semantic match
-> > (http://www.emn.fr/x-info/coccinelle/)
-> >=20
-> > // <smpl>
-> > @@
-> > expression E, E1;
-> > identifier f;
-> > statement S1,S2,S3;
-> > @@
-> >=20
-> > * if (E =3D=3D NULL)
-> > {
-> >   ... when !=3D if (E =3D=3D NULL) S1 else S2
-> >       when !=3D E =3D E1
-> > * E->f
-> >   ... when any
-> >   return ...;
-> > }
-> > else S3
-> > // </smpl>
-> >=20
-> > Signed-off-by: Julia Lawall <julia@diku.dk>
-> >=20
-> > ---
-> >=20
-> > diff -u -p a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
-> > --- a/arch/ia64/kernel/palinfo.c	2008-05-09 16:46:57.000000000 +0200
-> > +++ b/arch/ia64/kernel/palinfo.c	2008-05-12 08:43:35.000000000 +0200
-> > @@ -902,7 +902,6 @@ palinfo_smp_call(void *info)
-> >  	palinfo_smp_data_t *data =3D (palinfo_smp_data_t *)info;
-> >  	if (data =3D=3D NULL) {
-> >  		printk(KERN_ERR "palinfo: data pointer is NULL\n");
-> > -		data->ret =3D 0; /* no output */
-> >  		return;
-> >  	}
-> >  	/* does this actual call */
-> > --
->=20
-> The whole if block should just be deleted, as info is never NULL. There
-> is only palinfo_handle_smp as (indirect) user of palinfo_smp_call (by
-> way of smp_call_function_single) and surely palinfo_smp_call never pass
-> NULL.
+On ia64 2.6.25-mm1, below message is displayed at stress test running.
+Is it bug or not?
 
-OK.  Will you fix it?
 
-julia
----511516320-175496707-1210603066=:3694--
+---------------------------------------------
+BUG: sleeping function called from invalid context at kernel/rwsem.c:21
+in_atomic():0, irqs_disabled():1
+
+Call Trace:
+ [<a000000100015d00>] show_stack+0x80/0xa0
+                                sp=E00001608577f840 bsp=E000016085771038
+ [<a000000100015d50>] dump_stack+0x30/0x60
+                                sp=E00001608577fa10 bsp=E000016085771020
+ [<a000000100092e80>] __might_sleep+0x1e0/0x2e0
+                                sp=E00001608577fa10 bsp=E000016085770ff0
+ [<a000000100791f00>] down_read+0x20/0x60
+                                sp=E00001608577fa10 bsp=E000016085770fd0
+ [<a00000010015cd50>] access_process_vm+0x70/0x3a0
+                                sp=E00001608577fa10 bsp=E000016085770f28
+ [<a000000100030f60>] ia64_sync_kernel_rbs+0x40/0x100
+                                sp=E00001608577fa20 bsp=E000016085770ef0
+ [<a00000010002f640>] do_sync_rbs+0xc0/0x100
+                                sp=E00001608577fa30 bsp=E000016085770ec0
+ [<a00000010000b250>] unw_init_running+0x70/0xa0
+                                sp=E00001608577fa40 bsp=E000016085770e98
+ [<a000000100033ee0>] ia64_sync_krbs+0x80/0xa0
+                                sp=E00001608577fe20 bsp=E000016085770e80
+ [<a0000001000168a0>] do_notify_resume_user+0x1c0/0x1e0
+                                sp=E00001608577fe20 bsp=E000016085770e50
+ [<a00000010000b0e0>] notify_resume_user+0x40/0x60
+                                sp=E00001608577fe20 bsp=E000016085770e00
+ [<a00000010000b010>] skip_rbs_switch+0xe0/0x110
+                                sp=E00001608577fe30 bsp=E000016085770e00
+ [<a000000000010720>] __kernel_syscall_via_break+0x0/0x20
+                                sp=E000016085780000 bsp=E000016085770e0
+
