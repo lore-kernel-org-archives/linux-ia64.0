@@ -1,118 +1,604 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 13:13:37 +0000
-Subject: [PATCH 10/17] ia64/pv_ops: paravirtualize minstate.h.
-Message-Id: <1211202825448-git-send-email-yamahata@valinux.co.jp>
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 06 May 2008 20:18:55 +0000
+Subject: [PATCH 1/2] - Add UV header files
+Message-Id: <20080506201855.GA4516@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize minstate.h which are hand written assembly code.
-They include sensitive or performance critical privileged
-instructions. So that they are appropriate for paravirtualization.
 
-Cc: Keith Owens <kaos@ocs.com.au>
-Cc: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Add new UV-specific header files.
+
+Signed-off-by: Jack Steiner <steiner@sgi.com>
+
+
 ---
- arch/ia64/kernel/minstate.h      |   13 +++++++------
- arch/ia64/kernel/paravirt_inst.h |   29 +++++++++++++++++++++++++++++
- include/asm-ia64/native/inst.h   |    2 ++
- 3 files changed, 38 insertions(+), 6 deletions(-)
- create mode 100644 arch/ia64/kernel/paravirt_inst.h
+ include/asm-ia64/uv/uv_hub.h  |  309 ++++++++++++++++++++++++++++++++++++++++++
+ include/asm-ia64/uv/uv_mmrs.h |  266 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 575 insertions(+)
 
-diff --git a/arch/ia64/kernel/minstate.h b/arch/ia64/kernel/minstate.h
-index 7c548ac..9db53cf 100644
---- a/arch/ia64/kernel/minstate.h
-+++ b/arch/ia64/kernel/minstate.h
-@@ -2,6 +2,7 @@
- #include <asm/cache.h>
- 
- #include "entry.h"
-+#include "paravirt_inst.h"
- 
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- /* read ar.itc in advance, and use it before leaving bank 0 */
-@@ -40,16 +41,16 @@
-  * Note that psr.ic is NOT turned on by this macro.  This is so that
-  * we can pass interruption state as arguments to a handler.
-  */
--#define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
-+#define IA64_NATIVE_DO_SAVE_MIN(__COVER,SAVE_IFS,EXTRA)						\
- 	mov r16=IA64_KR(CURRENT);	/* M */							\
- 	mov r27=ar.rsc;			/* M */							\
- 	mov r20=r1;			/* A */							\
- 	mov r25=ar.unat;		/* M */							\
--	mov r29=cr.ipsr;		/* M */							\
-+	MOV_FROM_IPSR(p0,r29);		/* M */							\
- 	mov r26=ar.pfs;			/* I */							\
--	mov r28=cr.iip;			/* M */							\
-+	MOV_FROM_IIP(r28);		/* M */							\
- 	mov r21=ar.fpsr;		/* M */							\
--	COVER;				/* B;; (or nothing) */					\
-+	__COVER;			/* B;; (or nothing) */					\
- 	;;											\
- 	adds r16=IA64_TASK_THREAD_ON_USTACK_OFFSET,r16;						\
- 	;;											\
-@@ -206,6 +207,6 @@
- 	st8 [r25]=r10;      	/* ar.ssd */	\
- 	;;
- 
--#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(cover, mov r30=cr.ifs,)
--#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(cover, mov r30=cr.ifs, mov r15=r19)
-+#define SAVE_MIN_WITH_COVER	DO_SAVE_MIN(COVER, mov r30=cr.ifs,)
-+#define SAVE_MIN_WITH_COVER_R19	DO_SAVE_MIN(COVER, mov r30=cr.ifs, mov r15=r19)
- #define SAVE_MIN		DO_SAVE_MIN(     , mov r30=r0, )
-diff --git a/arch/ia64/kernel/paravirt_inst.h b/arch/ia64/kernel/paravirt_inst.h
-new file mode 100644
-index 0000000..5cad6fb
---- /dev/null
-+++ b/arch/ia64/kernel/paravirt_inst.h
-@@ -0,0 +1,29 @@
-+/******************************************************************************
-+ * linux/arch/ia64/xen/paravirt_inst.h
+Index: linux/include/asm-ia64/uv/uv_hub.h
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux/include/asm-ia64/uv/uv_hub.h	2008-05-06 13:59:48.033751888 -0500
+@@ -0,0 +1,309 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
 + *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
++ * SGI UV architectural definitions
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
++ * Copyright (C) 2008 Silicon Graphics, Inc. All rights reserved.
 + */
 +
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
-+#include <asm/xen/inst.h>
-+#include <asm/xen/minstate.h>
-+#else
-+#include <asm/native/inst.h>
-+#endif
++#ifndef __ASM_IA64_UV_HUB_H__
++#define __ASM_IA64_UV_HUB_H__
 +
-diff --git a/include/asm-ia64/native/inst.h b/include/asm-ia64/native/inst.h
-index 2a50b70..f1072ac 100644
---- a/include/asm-ia64/native/inst.h
-+++ b/include/asm-ia64/native/inst.h
-@@ -20,6 +20,8 @@
-  *
-  */
- 
-+#define DO_SAVE_MIN		IA64_NATIVE_DO_SAVE_MIN
++#include <linux/numa.h>
++#include <linux/percpu.h>
++#include <asm/types.h>
++#include <asm/percpu.h>
 +
- #ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
- # define PARAVIRT_POISON	0xdeadbeefbaadf00d
- # define CLOBBER(clob)				\
--- 
-1.5.3
-
++
++/*
++ * Addressing Terminology
++ *
++ *	M       - The low M bits of a physical address represent the offset
++ *		  into the blade local memory. RAM memory on a blade is physically
++ *		  contiguous (although various IO spaces may punch holes in
++ *		  it)..
++ *
++ * 	N	- Number of bits in the node portion of a socket physical
++ * 		  address.
++ *
++ * 	NASID   - network ID of a router, Mbrick or Cbrick. Nasid values of
++ * 	 	  routers always have low bit of 1, C/MBricks have low bit
++ * 		  equal to 0. Most addressing macros that target UV hub chips
++ * 		  right shift the NASID by 1 to exclude the always-zero bit.
++ * 		  NASIDs contain up to 15 bits.
++ *
++ *	GNODE   - NASID right shifted by 1 bit. Most mmrs contain gnodes instead
++ *		  of nasids.
++ *
++ * 	PNODE   - the low N bits of the GNODE. The PNODE is the most useful variant
++ * 		  of the nasid for socket usage.
++ *
++ *
++ *  NumaLink Global Physical Address Format:
++ *  +--------------------------------+---------------------+
++ *  |00..000|      GNODE             |      NodeOffset     |
++ *  +--------------------------------+---------------------+
++ *          |<-------53 - M bits --->|<--------M bits ----->
++ *
++ *	M - number of node offset bits (35 .. 40)
++ *
++ *
++ *  Memory/UV-HUB Processor Socket Address Format:
++ *  +----------------+---------------+---------------------+
++ *  |00..000000000000|   PNODE       |      NodeOffset     |
++ *  +----------------+---------------+---------------------+
++ *                   <--- N bits --->|<--------M bits ----->
++ *
++ *	M - number of node offset bits (35 .. 40)
++ *	N - number of PNODE bits (0 .. 10)
++ *
++ *		Note: M + N cannot currently exceed 44 (x86_64) or 46 (IA64).
++ *		The actual values are configuration dependent and are set at
++ *		boot time. M & N values are set by the hardware/BIOS at boot.
++ */
++
++
++/*
++ * Maximum number of bricks in all partitions and in all coherency domains.
++ * This is the total number of bricks accessible in the numalink fabric. It
++ * includes all C & M bricks. Routers are NOT included.
++ *
++ * This value is also the value of the maximum number of non-router NASIDs
++ * in the numalink fabric.
++ *
++ * NOTE: a brick may contain 1 or 2 OS nodes. Don't get these confused.
++ */
++#define UV_MAX_NUMALINK_BLADES	16384
++
++/*
++ * Maximum number of C/Mbricks within a software SSI (hardware may support
++ * more).
++ */
++#define UV_MAX_SSI_BLADES	1
++
++/*
++ * The largest possible NASID of a C or M brick (+ 2)
++ */
++#define UV_MAX_NASID_VALUE	(UV_MAX_NUMALINK_NODES * 2)
++
++/*
++ * The following defines attributes of the HUB chip. These attributes are
++ * frequently referenced and are kept in the per-cpu data areas of each cpu.
++ * They are kept together in a struct to minimize cache misses.
++ */
++struct uv_hub_info_s {
++	unsigned long	global_mmr_base;
++	unsigned long	gpa_mask;
++	unsigned long	gnode_upper;
++	unsigned long	lowmem_remap_top;
++	unsigned long	lowmem_remap_base;
++	unsigned short	pnode;
++	unsigned short	pnode_mask;
++	unsigned short	coherency_domain_number;
++	unsigned short	numa_blade_id;
++	unsigned char	blade_processor_id;
++	unsigned char	m_val;
++	unsigned char	n_val;
++};
++DECLARE_PER_CPU(struct uv_hub_info_s, __uv_hub_info);
++#define uv_hub_info 		(&__get_cpu_var(__uv_hub_info))
++#define uv_cpu_hub_info(cpu)	(&per_cpu(__uv_hub_info, cpu))
++
++/*
++ * Local & Global MMR space macros.
++ * 	Note: macros are intended to be used ONLY by inline functions
++ * 	in this file - not by other kernel code.
++ * 		n -  NASID (full 15-bit global nasid)
++ * 		g -  GNODE (full 15-bit global nasid, right shifted 1)
++ * 		p -  PNODE (local part of nsids, right shifted 1)
++ */
++#define UV_NASID_TO_PNODE(n)		(((n) >> 1) & uv_hub_info->pnode_mask)
++#define UV_PNODE_TO_NASID(p)		(((p) << 1) | uv_hub_info->gnode_upper)
++
++#define UV_LOCAL_MMR_BASE		0xf4000000UL
++#define UV_GLOBAL_MMR32_BASE		0xf8000000UL
++#define UV_GLOBAL_MMR64_BASE		(uv_hub_info->global_mmr_base)
++
++#define UV_GLOBAL_MMR32_PNODE_SHIFT	15
++#define UV_GLOBAL_MMR64_PNODE_SHIFT	26
++
++#define UV_GLOBAL_MMR32_PNODE_BITS(p)	((p) << (UV_GLOBAL_MMR32_PNODE_SHIFT))
++
++#define UV_GLOBAL_MMR64_PNODE_BITS(p)					\
++	((unsigned long)(p) << UV_GLOBAL_MMR64_PNODE_SHIFT)
++
++/*
++ * Macros for converting between kernel virtual addresses, socket local physical
++ * addresses, and UV global physical addresses.
++ * 	Note: use the standard __pa() & __va() macros for converting
++ * 	      between socket virtual and socket physical addresses.
++ */
++
++/* socket phys RAM --> UV global physical address */
++static inline unsigned long uv_soc_phys_ram_to_gpa(unsigned long paddr)
++{
++	if (paddr < uv_hub_info->lowmem_remap_top)
++		paddr += uv_hub_info->lowmem_remap_base;
++	return paddr | uv_hub_info->gnode_upper;
++}
++
++
++/* socket virtual --> UV global physical address */
++static inline unsigned long uv_gpa(void *v)
++{
++	return __pa(v) | uv_hub_info->gnode_upper;
++}
++
++/* socket virtual --> UV global physical address */
++static inline void *uv_vgpa(void *v)
++{
++	return (void *)uv_gpa(v);
++}
++
++/* UV global physical address --> socket virtual */
++static inline void *uv_va(unsigned long gpa)
++{
++	return __va(gpa & uv_hub_info->gpa_mask);
++}
++
++/* pnode, offset --> socket virtual */
++static inline void *uv_pnode_offset_to_vaddr(int pnode, unsigned long offset)
++{
++	return __va(((unsigned long)pnode << uv_hub_info->m_val) | offset);
++}
++
++
++/*
++ * Access global MMRs using the low memory MMR32 space. This region supports
++ * faster MMR access but not all MMRs are accessible in this space.
++ */
++static inline unsigned long *uv_global_mmr32_address(int pnode,
++				unsigned long offset)
++{
++	return __va(UV_GLOBAL_MMR32_BASE |
++		       UV_GLOBAL_MMR32_PNODE_BITS(pnode) | offset);
++}
++
++static inline void uv_write_global_mmr32(int pnode, unsigned long offset,
++				 unsigned long val)
++{
++	*uv_global_mmr32_address(pnode, offset) = val;
++}
++
++static inline unsigned long uv_read_global_mmr32(int pnode,
++						 unsigned long offset)
++{
++	return *uv_global_mmr32_address(pnode, offset);
++}
++
++/*
++ * Access Global MMR space using the MMR space located at the top of physical
++ * memory.
++ */
++static inline unsigned long *uv_global_mmr64_address(int pnode,
++				unsigned long offset)
++{
++	return __va(UV_GLOBAL_MMR64_BASE |
++		    UV_GLOBAL_MMR64_PNODE_BITS(pnode) | offset);
++}
++
++static inline void uv_write_global_mmr64(int pnode, unsigned long offset,
++				unsigned long val)
++{
++	*uv_global_mmr64_address(pnode, offset) = val;
++}
++
++static inline unsigned long uv_read_global_mmr64(int pnode,
++						 unsigned long offset)
++{
++	return *uv_global_mmr64_address(pnode, offset);
++}
++
++/*
++ * Access hub local MMRs. Faster than using global space but only local MMRs
++ * are accessible.
++ */
++static inline unsigned long *uv_local_mmr_address(unsigned long offset)
++{
++	return __va(UV_LOCAL_MMR_BASE | offset);
++}
++
++static inline unsigned long uv_read_local_mmr(unsigned long offset)
++{
++	return *uv_local_mmr_address(offset);
++}
++
++static inline void uv_write_local_mmr(unsigned long offset, unsigned long val)
++{
++	*uv_local_mmr_address(offset) = val;
++}
++
++/*
++ * Structures and definitions for converting between cpu, node, pnode, and blade
++ * numbers.
++ */
++
++/* Blade-local cpu number of current cpu. Numbered 0 .. <# cpus on the blade> */
++static inline int uv_blade_processor_id(void)
++{
++	return smp_processor_id();
++}
++
++/* Blade number of current cpu. Numnbered 0 .. <#blades -1> */
++static inline int uv_numa_blade_id(void)
++{
++	return 0;
++}
++
++/* Convert a cpu number to the the UV blade number */
++static inline int uv_cpu_to_blade_id(int cpu)
++{
++	return 0;
++}
++
++/* Convert linux node number to the UV blade number */
++static inline int uv_node_to_blade_id(int nid)
++{
++	return 0;
++}
++
++/* Convert a blade id to the PNODE of the blade */
++static inline int uv_blade_to_pnode(int bid)
++{
++	return 0;
++}
++
++/* Determine the number of possible cpus on a blade */
++static inline int uv_blade_nr_possible_cpus(int bid)
++{
++	return num_possible_cpus();
++}
++
++/* Determine the number of online cpus on a blade */
++static inline int uv_blade_nr_online_cpus(int bid)
++{
++	return num_online_cpus();
++}
++
++/* Convert a cpu id to the PNODE of the blade containing the cpu */
++static inline int uv_cpu_to_pnode(int cpu)
++{
++	return 0;
++}
++
++/* Convert a linux node number to the PNODE of the blade */
++static inline int uv_node_to_pnode(int nid)
++{
++	return 0;
++}
++
++/* Maximum possible number of blades */
++static inline int uv_num_possible_blades(void)
++{
++	return 1;
++}
++
++#endif /* __ASM_IA64_UV_HUB__ */
++
+Index: linux/include/asm-ia64/uv/uv_mmrs.h
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux/include/asm-ia64/uv/uv_mmrs.h	2008-05-06 13:59:48.049753856 -0500
+@@ -0,0 +1,266 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * SGI UV MMR definitions
++ *
++ * Copyright (C) 2007-2008 Silicon Graphics, Inc. All rights reserved.
++ */
++
++#ifndef __ASM_IA64_UV_MMRS__
++#define __ASM_IA64_UV_MMRS__
++
++/*
++ *       AUTO GENERATED - Do not edit
++ */
++
++ #define UV_MMR_ENABLE		(1UL << 63)
++
++/* ===================================== */
++/*                               UVH_NODE_ID                                 */
++/* ===================================== */
++#define UVH_NODE_ID 0x0UL
++
++#define UVH_NODE_ID_FORCE1_SHFT 0
++#define UVH_NODE_ID_FORCE1_MASK 0x0000000000000001UL
++#define UVH_NODE_ID_MANUFACTURER_SHFT 1
++#define UVH_NODE_ID_MANUFACTURER_MASK 0x0000000000000ffeUL
++#define UVH_NODE_ID_PART_NUMBER_SHFT 12
++#define UVH_NODE_ID_PART_NUMBER_MASK 0x000000000ffff000UL
++#define UVH_NODE_ID_REVISION_SHFT 28
++#define UVH_NODE_ID_REVISION_MASK 0x00000000f0000000UL
++#define UVH_NODE_ID_NODE_ID_SHFT 32
++#define UVH_NODE_ID_NODE_ID_MASK 0x00007fff00000000UL
++#define UVH_NODE_ID_NODES_PER_BIT_SHFT 48
++#define UVH_NODE_ID_NODES_PER_BIT_MASK 0x007f000000000000UL
++#define UVH_NODE_ID_NI_PORT_SHFT 56
++#define UVH_NODE_ID_NI_PORT_MASK 0x0f00000000000000UL
++
++union uvh_node_id_u {
++    unsigned long	v;
++    struct uvh_node_id_s {
++	unsigned long	force1        :  1;  /* RO */
++	unsigned long	manufacturer  : 11;  /* RO */
++	unsigned long	part_number   : 16;  /* RO */
++	unsigned long	revision      :  4;  /* RO */
++	unsigned long	node_id       : 15;  /* RW */
++	unsigned long	rsvd_47       :  1;  /*    */
++	unsigned long	nodes_per_bit :  7;  /* RW */
++	unsigned long	rsvd_55       :  1;  /*    */
++	unsigned long	ni_port       :  4;  /* RO */
++	unsigned long	rsvd_60_63    :  4;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_0_MMR                  */
++/* ===================================== */
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_0_MMR 0x16000d0UL
++
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_0_MMR_DEST_BASE_SHFT 24
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_0_MMR_DEST_BASE_MASK 0x00003fffff000000UL
++
++union uvh_rh_gam_alias210_redirect_config_0_mmr_u {
++    unsigned long	v;
++    struct uvh_rh_gam_alias210_redirect_config_0_mmr_s {
++	unsigned long	rsvd_0_23 : 24;  /*    */
++	unsigned long	dest_base : 22;  /* RW */
++	unsigned long	rsvd_46_63: 18;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_1_MMR                  */
++/* ===================================== */
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_1_MMR 0x16000e0UL
++
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_1_MMR_DEST_BASE_SHFT 24
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_1_MMR_DEST_BASE_MASK 0x00003fffff000000UL
++
++union uvh_rh_gam_alias210_redirect_config_1_mmr_u {
++    unsigned long	v;
++    struct uvh_rh_gam_alias210_redirect_config_1_mmr_s {
++	unsigned long	rsvd_0_23 : 24;  /*    */
++	unsigned long	dest_base : 22;  /* RW */
++	unsigned long	rsvd_46_63: 18;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_2_MMR                  */
++/* ===================================== */
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_2_MMR 0x16000f0UL
++
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_2_MMR_DEST_BASE_SHFT 24
++#define UVH_RH_GAM_ALIAS210_REDIRECT_CONFIG_2_MMR_DEST_BASE_MASK 0x00003fffff000000UL
++
++union uvh_rh_gam_alias210_redirect_config_2_mmr_u {
++    unsigned long	v;
++    struct uvh_rh_gam_alias210_redirect_config_2_mmr_s {
++	unsigned long	rsvd_0_23 : 24;  /*    */
++	unsigned long	dest_base : 22;  /* RW */
++	unsigned long	rsvd_46_63: 18;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                    UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR                      */
++/* ===================================== */
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR 0x1600010UL
++
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_BASE_SHFT 28
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_BASE_MASK 0x00003ffff0000000UL
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_GR4_SHFT 46
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_GR4_MASK 0x0000400000000000UL
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_N_GRU_SHFT 52
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_N_GRU_MASK 0x00f0000000000000UL
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_ENABLE_SHFT 63
++#define UVH_RH_GAM_GRU_OVERLAY_CONFIG_MMR_ENABLE_MASK 0x8000000000000000UL
++
++union uvh_rh_gam_gru_overlay_config_mmr_u {
++    unsigned long	v;
++    struct uvh_rh_gam_gru_overlay_config_mmr_s {
++	unsigned long	rsvd_0_27: 28;  /*    */
++	unsigned long	base   : 18;  /* RW */
++	unsigned long	gr4    :  1;  /* RW */
++	unsigned long	rsvd_47_51:  5;  /*    */
++	unsigned long	n_gru  :  4;  /* RW */
++	unsigned long	rsvd_56_62:  7;  /*    */
++	unsigned long	enable :  1;  /* RW */
++    } s;
++};
++
++/* ===================================== */
++/*                    UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR                      */
++/* ===================================== */
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR 0x1600028UL
++
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_BASE_SHFT 26
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_BASE_MASK 0x00003ffffc000000UL
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_DUAL_HUB_SHFT 46
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_DUAL_HUB_MASK 0x0000400000000000UL
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_ENABLE_SHFT 63
++#define UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR_ENABLE_MASK 0x8000000000000000UL
++
++union uvh_rh_gam_mmr_overlay_config_mmr_u {
++    unsigned long	v;
++    struct uvh_rh_gam_mmr_overlay_config_mmr_s {
++	unsigned long	rsvd_0_25: 26;  /*    */
++	unsigned long	base     : 20;  /* RW */
++	unsigned long	dual_hub :  1;  /* RW */
++	unsigned long	rsvd_47_62: 16;  /*    */
++	unsigned long	enable   :  1;  /* RW */
++    } s;
++};
++
++/* ===================================== */
++/*                                 UVH_RTC                                   */
++/* ===================================== */
++#define UVH_RTC 0x28000UL
++
++#define UVH_RTC_REAL_TIME_CLOCK_SHFT 0
++#define UVH_RTC_REAL_TIME_CLOCK_MASK 0x00ffffffffffffffUL
++
++union uvh_rtc_u {
++    unsigned long	v;
++    struct uvh_rtc_s {
++	unsigned long	real_time_clock : 56;  /* RW */
++	unsigned long	rsvd_56_63      :  8;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                          UVH_SI_ADDR_MAP_CONFIG                           */
++/* ===================================== */
++#define UVH_SI_ADDR_MAP_CONFIG 0xc80000UL
++
++#define UVH_SI_ADDR_MAP_CONFIG_M_SKT_SHFT 0
++#define UVH_SI_ADDR_MAP_CONFIG_M_SKT_MASK 0x000000000000003fUL
++#define UVH_SI_ADDR_MAP_CONFIG_N_SKT_SHFT 8
++#define UVH_SI_ADDR_MAP_CONFIG_N_SKT_MASK 0x0000000000000f00UL
++
++union uvh_si_addr_map_config_u {
++    unsigned long	v;
++    struct uvh_si_addr_map_config_s {
++	unsigned long	m_skt :  6;  /* RW */
++	unsigned long	rsvd_6_7:  2;  /*    */
++	unsigned long	n_skt :  4;  /* RW */
++	unsigned long	rsvd_12_63: 52;  /*    */
++    } s;
++};
++
++/* ===================================== */
++/*                       UVH_SI_ALIAS0_OVERLAY_CONFIG                        */
++/* ===================================== */
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG 0xc80008UL
++
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_BASE_SHFT 24
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_BASE_MASK 0x00000000ff000000UL
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_M_ALIAS_SHFT 48
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_M_ALIAS_MASK 0x001f000000000000UL
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_ENABLE_SHFT 63
++#define UVH_SI_ALIAS0_OVERLAY_CONFIG_ENABLE_MASK 0x8000000000000000UL
++
++union uvh_si_alias0_overlay_config_u {
++    unsigned long	v;
++    struct uvh_si_alias0_overlay_config_s {
++	unsigned long	rsvd_0_23: 24;  /*    */
++	unsigned long	base    :  8;  /* RW */
++	unsigned long	rsvd_32_47: 16;  /*    */
++	unsigned long	m_alias :  5;  /* RW */
++	unsigned long	rsvd_53_62: 10;  /*    */
++	unsigned long	enable  :  1;  /* RW */
++    } s;
++};
++
++/* ===================================== */
++/*                       UVH_SI_ALIAS1_OVERLAY_CONFIG                        */
++/* ===================================== */
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG 0xc80010UL
++
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_BASE_SHFT 24
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_BASE_MASK 0x00000000ff000000UL
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_M_ALIAS_SHFT 48
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_M_ALIAS_MASK 0x001f000000000000UL
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_ENABLE_SHFT 63
++#define UVH_SI_ALIAS1_OVERLAY_CONFIG_ENABLE_MASK 0x8000000000000000UL
++
++union uvh_si_alias1_overlay_config_u {
++    unsigned long	v;
++    struct uvh_si_alias1_overlay_config_s {
++	unsigned long	rsvd_0_23: 24;  /*    */
++	unsigned long	base    :  8;  /* RW */
++	unsigned long	rsvd_32_47: 16;  /*    */
++	unsigned long	m_alias :  5;  /* RW */
++	unsigned long	rsvd_53_62: 10;  /*    */
++	unsigned long	enable  :  1;  /* RW */
++    } s;
++};
++
++/* ===================================== */
++/*                       UVH_SI_ALIAS2_OVERLAY_CONFIG                        */
++/* ===================================== */
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG 0xc80018UL
++
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_BASE_SHFT 24
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_BASE_MASK 0x00000000ff000000UL
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_M_ALIAS_SHFT 48
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_M_ALIAS_MASK 0x001f000000000000UL
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_ENABLE_SHFT 63
++#define UVH_SI_ALIAS2_OVERLAY_CONFIG_ENABLE_MASK 0x8000000000000000UL
++
++union uvh_si_alias2_overlay_config_u {
++    unsigned long	v;
++    struct uvh_si_alias2_overlay_config_s {
++	unsigned long	rsvd_0_23: 24;  /*    */
++	unsigned long	base    :  8;  /* RW */
++	unsigned long	rsvd_32_47: 16;  /*    */
++	unsigned long	m_alias :  5;  /* RW */
++	unsigned long	rsvd_53_62: 10;  /*    */
++	unsigned long	enable  :  1;  /* RW */
++    } s;
++};
++
++
++#endif /* __ASM_IA64_UV_MMRS__ */
