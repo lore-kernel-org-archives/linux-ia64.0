@@ -1,76 +1,39 @@
-From: "stephane eranian" <eranian@googlemail.com>
-Date: Fri, 02 May 2008 16:01:06 +0000
+From: Robert Richter <robert.richter@amd.com>
+Date: Thu, 08 May 2008 10:11:14 +0000
 Subject: Re: 2.6.25 new perfmon kernel patch + libpfm + pfmon available
-Message-Id: <7c86c4470805020901v57ea92a1p1e8d07be87c35dcb@mail.gmail.com>
+Message-Id: <20080508101113.GB3267@erda.amd.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470804291446l4693b317ha7ee2382d00e99e6@mail.gmail.com>
-	 <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com>
-In-Reply-To: <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com>
+References: <7c86c4470804291446l4693b317ha7ee2382d00e99e6@mail.gmail.com> <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com> <20080429080853.48c66b29@infradead.org> <7c86c4470804300611s7442fe11lba2b66f5a3a8ed88@mail.gmail.com> <20080429083334.1a019318@infradead.org> <7c86c4470804300651u5a8fc98dr56fd1834ba902a0e@mail.gmail.com> <20080429094218.170a349c@infradead.org>
+In-Reply-To: <20080429094218.170a349c@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: ia64 <linux-ia64@vger.kernel.org>
+To: Arjan van de Ven <arjan@infradead.org>
+Cc: stephane eranian <eranian@googlemail.com>, linux-kernel@vger.kernel.org, ia64 <linux-ia64@vger.kernel.org>
 
-Hello,
+On 29.04.08 09:42:18, Arjan van de Ven wrote:
+> On Wed, 30 Apr 2008 15:51:39 +0200
+> "stephane eranian" <eranian@googlemail.com> wrote:
+> 
+> > If I recall, AMD said that this special initialization would
+> > eventually migrate into the core kernel. The pci_read() may be there
+> > because it was not exported by the kernel (this particular code lives
+> > in a kernel module).
+> 
+> ... yet your patch adds an EXPORT_SYMBOL() just to make this specific function possible. Weird.
+> 
+> I find it hard to believe that there would be no code in the kernel to
+> read or write config space of a device you have..... :)
+> In fact I bet 80% of the drivers in the tree use it.
 
+Access to extended config space for AMD northbridges was not yet
+implemented. Recent patches from Yinghai Lu fix this. I will send a
+patch that uses the in-kernel functions.
 
-Several people noticed there was a typo in the website url.
-The actual web site is:
+-Robert
 
-      http://perfmon2.sf.net
+-- 
+Advanced Micro Devices, Inc.
+Operating System Research Center
+email: robert.richter@amd.com
 
-
-Sorry about that.
-
-On Tue, Apr 29, 2008 at 11:47 PM, stephane eranian
-<eranian@googlemail.com> wrote:
->
-> Hello,
->
->   I have released the perfmon2 kernel patch for kernel v2.6.25. There is
->   no major features. However, there were a major restructuring of the code
->   to make it more readable, isolate features per module. The header files
->   have also been restructured to separate user vs. kernel, and generic only
->   vs. shared with arch. The restructuring of the interrupt handler yielded
->   a nice 15% latency improvement on single counter sampling runs on X86.
->   This new structure will make it easier to extract features and merge them
->   with the mainline kernel.
->
->   In the time frame of 2.6.26, I will push a few bits and pieces to LKML
->   for final review and integration.
->
->   Here are some of the kernel changes:
->   - Cell updates (Carl Love, Takashi Yamamoto)
->   - new perfmon_debug boot option to enable debug (Robert Richter)
->   - several bugs fixes on Itanium, MIPS and generic hrtimer management
->   - Power locking updates (Corey Ashford)
->
->   There is also a new release for libpfm, now at version 3.4.
->   The changes include:
->   - AMD Phenom (a.k.a. Barcelona) IBS support (Robert Richter)
->   - Python bindings and examples (Arun Sharma)
->   - environment variable support to enable debugging
->   - auto-detection of syscall base number for 2.6.24 and 2.6.25
->   - new multi-threaded self-sampling example (Mark W. Krentel)
->   - man pages cleanups (Steve Kaufmann)
->
->   Special thanks to Arun (Google). The Python bindings are a nice addition
->   to libpfm especially for prototyping and writing testsuites.
->
->   Finally, a new major version of pfmon, now at pfmon-3.4.
->   Among the many changes:
->   - added support for dmalloc (Andrzej Nowak)
->   - updated support for Cell processor (Takashi Yamamoto)
->   - possibility to terminate pfmon cleanly with SIGTERM
->   - --follow-fork and derivatives fixed on Itanium and other platforms
->   - tracking of dlopen now works on mixed ABI environments
->   - lots of bugs fixes
->
->   As usual all files and more detailed changelogs can be downloaded from our
->   website at:
->
->         http://perfmon.sourceforge.net
->
->   Enjoy,
->
