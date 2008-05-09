@@ -1,34 +1,73 @@
-From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
-Date: Mon, 12 May 2008 15:40:50 +0000
-Subject: [PATCH] Remove NULL pointer check for argument never passed as
-Message-Id: <1210606850.25310.14.camel@odie.local>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 09 May 2008 06:27:09 +0000
+Subject: [PATCH] ia64: trivial cleanup for perfmon.c
+Message-Id: <4823EEBD.4020109@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
-	 <1210603050.25310.9.camel@odie.local>
-	 <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
-In-Reply-To: <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Julia Lawall <julia@diku.dk>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-VGhlcmUgaXMgb25seSBwYWxpbmZvX2hhbmRsZV9zbXAgYXMgKGluZGlyZWN0KSB1c2VyIG9mIHBh
-bGluZm9fc21wX2NhbGwgKGJ5CndheSBvZiBzbXBfY2FsbF9mdW5jdGlvbl9zaW5nbGUpIGFuZCBz
-dXJlbHkgcGFsaW5mb19oYW5kbGVfc21wIG5ldmVyIHBhc3MKTlVMTCBhcyBwYXJhbWV0ZXIgZm9y
-IGluZm8uCgpTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb2xtIFRow7hnZXJzZW4gPG9kaWVAY3MuYWF1
-LmRrPgotLS0KIGFyY2gvaWE2NC9rZXJuZWwvcGFsaW5mby5jIHwgICAgNiAtLS0tLS0KIDEgZmls
-ZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBh
-L2FyY2gvaWE2NC9rZXJuZWwvcGFsaW5mby5jIGIvYXJjaC9pYTY0L2tlcm5lbC9wYWxpbmZvLmMK
-aW5kZXggNDU0N2EyMC4uOWRjMDBmNyAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9wYWxp
-bmZvLmMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9wYWxpbmZvLmMKQEAgLTkwMCwxMiArOTAwLDYg
-QEAgc3RhdGljIHZvaWQKIHBhbGluZm9fc21wX2NhbGwodm9pZCAqaW5mbykKIHsKIAlwYWxpbmZv
-X3NtcF9kYXRhX3QgKmRhdGEgPSAocGFsaW5mb19zbXBfZGF0YV90ICopaW5mbzsKLQlpZiAoZGF0
-YSA9IE5VTEwpIHsKLQkJcHJpbnRrKEtFUk5fRVJSICJwYWxpbmZvOiBkYXRhIHBvaW50ZXIgaXMg
-TlVMTFxuIik7Ci0JCWRhdGEtPnJldCA9IDA7IC8qIG5vIG91dHB1dCAqLwotCQlyZXR1cm47Ci0J
-fQotCS8qIGRvZXMgdGhpcyBhY3R1YWwgY2FsbCAqLwogCWRhdGEtPnJldCA9ICgqZGF0YS0+ZnVu
-YykoZGF0YS0+cGFnZSk7CiB9CiAKLS0gCjEuNS41LjEuMTI1LmdjNjk3YQoKLS0KVG8gdW5zdWJz
-Y3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlh
-NjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3Jn
-Ck1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
-LWluZm8uaHRtbA==
+Fix a typo, and coding style cleanups for pfm_handle_work().
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+---
+ arch/ia64/kernel/perfmon.c |   16 ++++++++++------
+ 1 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index c1ad27d..71d0513 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -5013,12 +5013,13 @@ pfm_context_force_terminate(pfm_context_t *ctx, struct pt_regs *regs)
+ }
+ 
+ static int pfm_ovfl_notify_user(pfm_context_t *ctx, unsigned long ovfl_pmds);
++
+  /*
+   * pfm_handle_work() can be called with interrupts enabled
+   * (TIF_NEED_RESCHED) or disabled. The down_interruptible
+   * call may sleep, therefore we must re-enable interrupts
+   * to avoid deadlocks. It is safe to do so because this function
+-  * is called ONLY when returning to user level (PUStk=1), in which case
++  * is called ONLY when returning to user level (pUStk=1), in which case
+   * there is no risk of kernel stack overflow due to deep
+   * interrupt nesting.
+   */
+@@ -5034,7 +5035,8 @@ pfm_handle_work(void)
+ 
+ 	ctx = PFM_GET_CTX(current);
+ 	if (ctx = NULL) {
+-		printk(KERN_ERR "perfmon: [%d] has no PFM context\n", task_pid_nr(current));
++		printk(KERN_ERR "perfmon: [%d] has no PFM context\n",
++			task_pid_nr(current));
+ 		return;
+ 	}
+ 
+@@ -5058,11 +5060,12 @@ pfm_handle_work(void)
+ 	/*
+ 	 * must be done before we check for simple-reset mode
+ 	 */
+-	if (ctx->ctx_fl_going_zombie || ctx->ctx_state = PFM_CTX_ZOMBIE) goto do_zombie;
+-
++	if (ctx->ctx_fl_going_zombie || ctx->ctx_state = PFM_CTX_ZOMBIE)
++		goto do_zombie;
+ 
+ 	//if (CTX_OVFL_NOBLOCK(ctx)) goto skip_blocking;
+-	if (reason = PFM_TRAP_REASON_RESET) goto skip_blocking;
++	if (reason = PFM_TRAP_REASON_RESET)
++		goto skip_blocking;
+ 
+ 	/*
+ 	 * restore interrupt mask to what it was on entry.
+@@ -5110,7 +5113,8 @@ do_zombie:
+ 	/*
+ 	 * in case of interruption of down() we don't restart anything
+ 	 */
+-	if (ret < 0) goto nothing_to_do;
++	if (ret < 0)
++		goto nothing_to_do;
+ 
+ skip_blocking:
+ 	pfm_resume_after_ovfl(ctx, ovfl_regs, regs);
+
