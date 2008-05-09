@@ -1,79 +1,643 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Fri, 02 May 2008 20:27:45 +0000
-Subject: Re: [PATCH 3/3] ia64: Call migration code on correctable errors v2
-Message-Id: <20080502202744.GA13285@sgi.com>
+Date: Fri, 09 May 2008 15:11:35 +0000
+Subject: [PATCH 3/3] ia64: Call migration code on correctable errors v3
+Message-Id: <20080509151135.GD16523@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080502004425.GD12006@sgi.com> <87fxt0vbu4.fsf@basil.nowhere.org> <20080502185030.GH7246@sgi.com> <481B6CA2.8080006@firstfloor.org>
-In-Reply-To: <481B6CA2.8080006@firstfloor.org>
+References: <20080502004425.GD12006@sgi.com>
+In-Reply-To: <20080502004425.GD12006@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <andi@firstfloor.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-On Fri, May 02, 2008 at 09:33:54PM +0200, Andi Kleen wrote:
-> Russ Anderson wrote:
-> > 
-> > The code migrates on the first correctable error on a page, so "excessive"
-> > is one.  Yes, keeping a per page count gets problematic, especially as
-> > memories get larger.  The issue of the right metric for when to migrate
-> > will always be debatable and the "right" answer likely will depend on
-> > the physical memory technology.
-> 
-> That doesn't sound like a good metric. What happens for example if you
-> have a flakey memory controller or DIMM socket that just occasionally
-> adds bit errors on transfer without the DIMM actually being bad? I doubt
-> such a simple heuristic is a good one.
+Migrate data off pages with correctable memory errors.  This patch is the 
+ia64 specific piece.  It connects the CPE handler to the page migration
+code.  It is implemented as a kernel loadable module, similar to the mca
+recovery code (mca_recovery.ko).  This allows the feature to be turned off
+by uninstalling the module.  
 
-Then occasionally pages on that DIMM get marked bad and are no longer used.
-There have been cases where there only one or two correctable errors
-before it degrades to and uncorrectable.  The "right" answer likely will 
-depend on the physical memory technology.
+It exports three symbols (migrate_prep, isolate_lru_page, and migrate_pages).
 
-Keep in mind the discarded pages can be later be freed.
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
-> The x86-64 machine check design has a database connected to a user space
-> program that can keep track of errors. I suspect something like this is
-> a better solution.
+---
+ arch/ia64/Kconfig              |    3 
+ arch/ia64/kernel/Makefile      |    1 
+ arch/ia64/kernel/cpe_migrate.c |  424 +++++++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/mca.c         |   34 +++
+ include/asm-ia64/mca.h         |    6 
+ include/asm-ia64/page.h        |    1 
+ mm/migrate.c                   |    4 
+ mm/page_alloc.c                |    1 
+ 8 files changed, 473 insertions(+), 1 deletion(-)
 
-I'll have to find out more.
-
-> >> Anyways I don't think this should be ia64 specific, but generic code.
-> > 
-> > The actual migration code is generic, in mm/migrate.c.
-> > 
-> > The ia64 kernel module piece is very arch specific.  It ties into the 
-> > ia64 CPE handler.  It gets the page address from the CPE record, based
-> > on the ia64 error handling spec.  Each arch will have a different way of
-> > determining the physical address of the correctable error (for example).
-> 
-> Still at least part of the code should be generic.
-
-Part is generic.  What other parts do you want generic?
-I'm not opposed to the idea, but things like parsing the
-CPE record is platform specific.
-
-> Also in general it's good that you finally realized that trying to write
-> lockless machine check handlers was a bad idea and that to do any
-> meaninful handling requires a proper process context. But I still wonder
-> when you move the rest of the ia64 machine check handling to that too so
-> that e.g. the sched.c hacks for lockless handling can be removed?
-
-Are you refereing to ia64 MCAs that can surface at any time?  That is
-an Intel CPU design issue far outside anything I can control.  CPEs 
-are regular interrupts, which is why they can be handled in a sane
-manner.
-
-> >> I also have my doubts about making such small code subsystems modules. Modules
-> >> always get rounded to pages so it ultimatively just wastes memory.
-> > 
-> > CONFIG_IA64_CPE_MIGRATE=m builds it as module.
-> 
-> It's far too small for it.
-
-Maybe I do not understand the issue.  Is the issue wasting part of one
-page?   Does building CONFIG_IA64_CPE_MIGRATE=y waste memory?
-
+Index: linus/arch/ia64/kernel/Makefile
+=================================--- linus.orig/arch/ia64/kernel/Makefile	2008-05-09 09:50:58.375235159 -0500
++++ linus/arch/ia64/kernel/Makefile	2008-05-09 09:51:23.118313613 -0500
+@@ -27,6 +27,7 @@ obj-$(CONFIG_PERFMON)		+= perfmon_defaul
+ obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
+ obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
+ obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
++obj-$(CONFIG_IA64_CPE_MIGRATE)	+= cpe_migrate.o
+ obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
+ obj-$(CONFIG_KEXEC)		+= machine_kexec.o relocate_kernel.o crash.o
+ obj-$(CONFIG_CRASH_DUMP)	+= crash_dump.o
+Index: linus/arch/ia64/kernel/cpe_migrate.c
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linus/arch/ia64/kernel/cpe_migrate.c	2008-05-09 09:53:07.447293325 -0500
+@@ -0,0 +1,424 @@
++/*
++ * File:	cpe_migrate.c
++ * Purpose:	Migrate data from physical pages with excessive correctable
++ *		errors to new physical pages.  Keep the old pages on a discard
++ *		list.
++ *
++ * Copyright (C) 2008 SGI - Silicon Graphics Inc.
++ * Copyright (C) 2008 Russ Anderson <rja@sgi.com>
++ */
++
++#include <linux/sysdev.h>
++#include <linux/types.h>
++#include <linux/sched.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/smp.h>
++#include <linux/workqueue.h>
++#include <linux/mm.h>
++#include <linux/swap.h>
++#include <linux/vmalloc.h>
++#include <linux/migrate.h>
++#include <linux/page-isolation.h>
++#include <linux/memcontrol.h>
++
++#include <asm/machvec.h>
++#include <asm/page.h>
++#include <asm/system.h>
++#include <asm/sal.h>
++#include <asm/hw_irq.h>
++#include <asm/sn/sn_cpuid.h>
++#include <asm/mca.h>
++
++#define BADRAM_BASENAME		"badram"
++#define CE_HISTORY_LENGTH	30
++
++struct cpe_info {
++	u64 	paddr;
++	u16	node;
++};
++static struct cpe_info cpe[CE_HISTORY_LENGTH];
++
++static int cpe_polling_enabled = 1;
++static int cpe_head;
++static int cpe_tail;
++
++int work_scheduled;
++static spinlock_t cpe_migrate_lock;
++
++void static
++get_physical_address(void *buffer, u64 *paddr, u16 *node)
++{
++	sal_log_record_header_t *rh;
++	sal_log_mem_dev_err_info_t *mdei;
++	ia64_err_rec_t *err_rec;
++	sal_log_platform_err_info_t *plat_err;
++	efi_guid_t guid;
++
++	err_rec = buffer;
++	rh = (sal_log_record_header_t *)&err_rec->sal_elog_header;
++	*paddr = 0;
++	*node = 0;
++
++	/*
++	 * Make sure it is a corrected error.
++	 */
++	if (rh->severity != sal_log_severity_corrected)
++		return;
++
++	plat_err = (sal_log_platform_err_info_t *)&err_rec->proc_err;
++
++	guid = (efi_guid_t)plat_err->mem_dev_err.header.guid;
++	if (efi_guidcmp(guid, SAL_PLAT_MEM_DEV_ERR_SECT_GUID) = 0) {
++		/*
++		 * Memory cpe
++		 */
++		mdei = (sal_log_mem_dev_err_info_t *)&plat_err->mem_dev_err;
++		if (mdei->valid.oem_data) {
++			if (mdei->valid.physical_addr)
++				*paddr = mdei->physical_addr;
++
++			if (mdei->valid.node) {
++				if (ia64_platform_is("sn2"))
++					*node = nasid_to_cnodeid(mdei->node);
++				else
++					*node = mdei->node;
++			}
++		}
++	}
++}
++
++static struct page *
++alloc_migrate_page(struct page *ignored, unsigned long node, int **x)
++{
++
++	return alloc_pages_node(node, GFP_HIGHUSER_MOVABLE, 0);
++}
++
++static int
++validate_paddr_page(u64 paddr)
++{
++	struct page *page;
++
++	if (!paddr)
++		return EINVAL;
++
++	if (!ia64_phys_addr_valid(paddr))
++		return EINVAL;
++
++	if (!pfn_valid(paddr >> PAGE_SHIFT))
++		return EINVAL;
++
++	page = phys_to_page(paddr);
++	if (PageMemError(page))
++		/*
++		 * The page has already been marked bad.
++		 */
++		return EINVAL;
++	return 0;
++}
++
++static int
++ia64_mca_cpe_move_page(u64 paddr, u32 node)
++{
++	LIST_HEAD(pagelist);
++	struct page *page;
++	int ret;
++	unsigned long irq_flags;
++
++	ret = validate_paddr_page(paddr);
++	if (ret < 0)
++		return EINVAL;
++
++	local_irq_save(irq_flags);
++
++	/*
++	 * convert physical address to page number
++	 */
++	page = phys_to_page(paddr);
++
++	if (!spin_trylock(&cpe_migrate_lock)) {
++		local_irq_restore(irq_flags);
++		return EBUSY;
++	}
++
++	migrate_prep();
++	ret = isolate_lru_page(page, &pagelist);
++	if (ret)
++		goto out;
++
++	SetPageMemError(page);		/* Mark the page as bad */
++	ret = migrate_pages(&pagelist, alloc_migrate_page, node);
++	if (ret = 0)
++		list_add_tail(&page->lru, &badpagelist);
++out:
++	spin_unlock_irqrestore(&cpe_migrate_lock, irq_flags);
++	return 0;
++}
++
++/*
++ * ia64_mca_cpe_migrate
++ *	The worker that does the actual migration.  It pulls a
++ *	physical address off the list and calls the migration code.
++ */
++static void
++ia64_mca_cpe_migrate(struct work_struct *unused)
++{
++	int ret;
++	u64 paddr;
++	u16 node;
++
++	do {
++		paddr = cpe[cpe_tail].paddr;
++		if (paddr) {
++			/*
++			 * There is a valid entry that needs processing.
++			 */
++			node = cpe[cpe_tail].node;
++
++			ret = ia64_mca_cpe_move_page(paddr, node);
++			if (ret <= 0)
++				/*
++				 * Even though the return status is negative,
++				 * clear the entry.  If the same address has
++				 * another CPE it will be re-added to the list.
++				 */
++				cpe[cpe_tail].paddr = 0;
++
++		}
++		if (++cpe_tail >= CE_HISTORY_LENGTH)
++			cpe_tail = 0;
++
++	} while (cpe_tail != cpe_head);
++	work_scheduled = 0;
++}
++static DECLARE_WORK(cpe_enable_work, ia64_mca_cpe_migrate);
++
++static spinlock_t cpe_list_lock;
++/*
++ * cpe_setup_migrate
++ *	Get the physical address out of the CPE record, add it
++ *	to the list of addresses to migrate (if not already on),
++ *	and schedule the back end worker task.  This is called
++ *	in interrupt context so cannot directly call the migration
++ *	code.
++ *
++ *  Inputs
++ *	rec	The CPE record
++ *  Outputs
++ *	1 on Success, -1 on failure
++ */
++static int
++cpe_setup_migrate(void *rec)
++{
++	u64 paddr;
++	u16 node;
++	/* int head, tail; */
++	int i, ret;
++
++	if (!rec)
++		return EINVAL;
++
++	get_physical_address(rec, &paddr, &node);
++	ret = validate_paddr_page(paddr);
++	if (ret < 0)
++		return EINVAL;
++
++	if (!((cpe_head = cpe_tail) && (cpe[cpe_head].paddr = 0)))
++		/*
++		 * List not empty
++		 */
++		for (i = 0; i < CE_HISTORY_LENGTH; i++) {
++			if (PAGE_ALIGN(cpe[i].paddr) = PAGE_ALIGN(paddr))
++				return 1;	/* already on the list */
++		}
++
++	if (!spin_trylock(&cpe_list_lock)) {
++		/*
++		 * Someone else has the lock.  To avoid spinning in interrupt
++		 * handler context, bail.
++		 */
++		return 1;
++	}
++
++	if (cpe[cpe_head].paddr = 0) {
++		cpe[cpe_head].node = node;
++		cpe[cpe_head].paddr = paddr;
++
++		if (++cpe_head >= CE_HISTORY_LENGTH)
++			cpe_head = 0;
++	}
++	spin_unlock(&cpe_list_lock);
++
++	if (!work_scheduled) {
++		work_scheduled = 1;
++		schedule_work(&cpe_enable_work);
++	}
++
++	return 1;
++}
++
++/*
++ * ======================================+ */
++
++/*
++ * free_one_bad_page
++ *	Free one page from the list of bad pages.
++ */
++static int
++free_one_bad_page(unsigned long paddr)
++{
++	LIST_HEAD(pagelist);
++	struct page *page, *page2, *target;
++
++	/*
++	 * Verify page address
++	 */
++	target = phys_to_page(paddr);
++	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
++		if (page != target)
++			continue;
++
++		ClearPageMemError(page);        /* Mark the page as good */
++		totalbad_pages--;
++		list_del(&page->lru);
++		list_add_tail(&page->lru, &pagelist);
++		putback_lru_pages(&pagelist);
++		break;
++	}
++	return 0;
++}
++
++/*
++ * free_all_bad_pages
++ *	Free all of the pages on the bad pages list.
++ */
++static int
++free_all_bad_pages(void)
++{
++	struct page *page, *page2;
++
++	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
++		ClearPageMemError(page);        /* Mark the page as good */
++		totalbad_pages--;
++	}
++	putback_lru_pages(&badpagelist);
++	return 0;
++}
++
++#define OPT_LEN	16
++
++static ssize_t
++badpage_store(struct kobject *kobj,
++	      struct kobj_attribute *attr, const char *buf, size_t count)
++{
++	char optstr[OPT_LEN];
++	unsigned long opt;
++	int len = OPT_LEN;
++	int err;
++
++	if (count < len)
++		len = count;
++
++	memcpy(optstr, buf, len);
++	optstr[len] = '\0';
++
++	err = strict_strtoul(optstr, 16, &opt);
++	if (err)
++		return err;
++
++	if (opt = 0)
++		free_all_bad_pages();
++	else
++		free_one_bad_page(opt);
++
++	return count;
++}
++
++/*
++ * badpage_show
++ *	Display the number, size, and addresses of all the pages on the
++ *	bad page list.
++ *
++ *	Note that sysfs provides buf of PAGE_SIZE length.  bufsize tracks
++ *	the remaining space in buf to avoid overflowing.
++ */
++static ssize_t
++badpage_show(struct kobject *kobj,
++	     struct kobj_attribute *attr, char *buf)
++
++{
++	struct page *page, *page2;
++	int i = 0, cnt;
++	int bufsize = PAGE_SIZE;
++
++	cnt = snprintf(buf, bufsize, "Bad RAM: %d kB, %d pages marked bad\n"
++			"List of bad physical pages\n",
++			totalbad_pages << (PAGE_SHIFT - 10), totalbad_pages);
++
++	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
++		bufsize = PAGE_SIZE - cnt;
++		if (bufsize < 20)
++			break;
++		cnt += snprintf(buf + cnt, bufsize,
++				" 0x%011lx", page_to_phys(page));
++		if (!(++i % 5))
++			cnt += snprintf(buf + cnt, bufsize, "\n");
++	}
++	cnt += snprintf(buf + cnt, bufsize, "\n");
++
++	return cnt;
++}
++
++static struct kobj_attribute badram_attr = {
++	.attr    = {
++		.name = "badram",
++		.mode = S_IWUSR | S_IRUGO,
++	},
++	.show = badpage_show,
++	.store = badpage_store,
++};
++
++int __init cpe_migrate_external_handler_init(void)
++{
++	int error;
++
++	error = sysfs_create_file(kernel_kobj, &badram_attr.attr);
++	if (error)
++		return -EINVAL;
++
++	spin_lock_init(&cpe_migrate_lock);
++	spin_lock_init(&cpe_list_lock);
++
++	/*
++	 * register external ce handler
++	 */
++	if (ia64_reg_CE_extension(cpe_setup_migrate)) {
++		printk(KERN_ERR "ia64_reg_CE_extension failed.\n");
++		return -EFAULT;
++	}
++	cpe_poll_enabled = cpe_polling_enabled;
++
++	printk(KERN_INFO "Registered badram Driver\n");
++	return 0;
++}
++
++void __exit cpe_migrate_external_handler_exit(void)
++{
++	/* unregister external mca handlers */
++	ia64_unreg_CE_extension();
++
++	sysfs_remove_file(kernel_kobj, &badram_attr.attr);
++}
++
++module_init(cpe_migrate_external_handler_init);
++module_exit(cpe_migrate_external_handler_exit);
++
++module_param(cpe_polling_enabled, int, 0644);
++MODULE_PARM_DESC(cpe_polling_enabled,
++		"Enable polling with migration");
++
++MODULE_AUTHOR("Russ Anderson <rja@sgi.com>");
++MODULE_DESCRIPTION("ia64 Corrected Error page migration driver");
++MODULE_LICENSE("GPL");
+Index: linus/arch/ia64/kernel/mca.c
+=================================--- linus.orig/arch/ia64/kernel/mca.c	2008-05-09 09:50:58.379235657 -0500
++++ linus/arch/ia64/kernel/mca.c	2008-05-09 09:51:23.162319088 -0500
+@@ -68,6 +68,9 @@
+  *
+  * 2007-04-27 Russ Anderson <rja@sgi.com>
+  *	      Support multiple cpus going through OS_MCA in the same event.
++ *
++ * 2008-04-22 Russ Anderson <rja@sgi.com>
++ *	      Migrate data off pages with correctable memory errors.
+  */
+ #include <linux/jiffies.h>
+ #include <linux/types.h>
+@@ -163,7 +166,11 @@ static int cmc_polling_enabled = 1;
+  * but encounters problems retrieving CPE logs.  This should only be
+  * necessary for debugging.
+  */
+-static int cpe_poll_enabled = 1;
++int cpe_poll_enabled = 1;
++EXPORT_SYMBOL(cpe_poll_enabled);
++
++LIST_HEAD(badpagelist);
++EXPORT_SYMBOL(badpagelist);
+ 
+ extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size, int irqsafe);
+ 
+@@ -525,6 +532,28 @@ EXPORT_SYMBOL_GPL(mca_recover_range);
+ 
+ #ifdef CONFIG_ACPI
+ 
++/* Function pointer to Corrected Error memory migration driver */
++int (*ia64_mca_ce_extension)(void *) = NULL;
++
++int
++ia64_reg_CE_extension(int (*fn)(void *))
++{
++	if (ia64_mca_ce_extension)
++		return 1;
++
++	ia64_mca_ce_extension = fn;
++	return 0;
++}
++EXPORT_SYMBOL(ia64_reg_CE_extension);
++
++void
++ia64_unreg_CE_extension(void)
++{
++	if (ia64_mca_ce_extension)
++		ia64_mca_ce_extension = NULL;
++}
++EXPORT_SYMBOL(ia64_unreg_CE_extension);
++
+ int cpe_vector = -1;
+ int ia64_cpe_irq = -1;
+ 
+@@ -534,6 +563,7 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
+ 	static unsigned long	cpe_history[CPE_HISTORY_LENGTH];
+ 	static int		index;
+ 	static DEFINE_SPINLOCK(cpe_history_lock);
++	int recover;
+ 
+ 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+ 		       __func__, cpe_irq, smp_processor_id());
+@@ -580,6 +610,8 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
+ out:
+ 	/* Get the CPE error record and log it */
+ 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
++	recover = (ia64_mca_ce_extension && ia64_mca_ce_extension(
++				IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_CPE)));
+ 
+ 	return IRQ_HANDLED;
+ }
+Index: linus/arch/ia64/Kconfig
+=================================--- linus.orig/arch/ia64/Kconfig	2008-05-09 09:50:58.379235657 -0500
++++ linus/arch/ia64/Kconfig	2008-05-09 09:51:23.190322572 -0500
+@@ -456,6 +456,9 @@ config COMPAT_FOR_U64_ALIGNMENT
+ config IA64_MCA_RECOVERY
+ 	tristate "MCA recovery from errors other than TLB."
+ 
++config IA64_CPE_MIGRATE
++	tristate "Migrate data off pages with correctable errors"
++
+ config PERFMON
+ 	bool "Performance monitor support"
+ 	help
+Index: linus/include/asm-ia64/mca.h
+=================================--- linus.orig/include/asm-ia64/mca.h	2008-05-09 09:50:58.379235657 -0500
++++ linus/include/asm-ia64/mca.h	2008-05-09 09:51:23.214325558 -0500
+@@ -137,6 +137,7 @@ extern unsigned long __per_cpu_mca[NR_CP
+ 
+ extern int cpe_vector;
+ extern int ia64_cpe_irq;
++extern int cpe_poll_enabled;
+ extern void ia64_mca_init(void);
+ extern void ia64_mca_cpu_init(void *);
+ extern void ia64_os_mca_dispatch(void);
+@@ -150,9 +151,14 @@ extern void ia64_slave_init_handler(void
+ extern void ia64_mca_cmc_vector_setup(void);
+ extern int  ia64_reg_MCA_extension(int (*fn)(void *, struct ia64_sal_os_state *));
+ extern void ia64_unreg_MCA_extension(void);
++extern int  ia64_reg_CE_extension(int (*fn)(void *));
++extern void ia64_unreg_CE_extension(void);
+ extern u64 ia64_get_rnat(u64 *);
+ extern void ia64_mca_printk(const char * fmt, ...)
+ 	 __attribute__ ((format (printf, 1, 2)));
++
++extern struct list_head badpagelist;
++extern struct kobject *kernel_kobj;
+ 
+ struct ia64_mca_notify_die {
+ 	struct ia64_sal_os_state *sos;
+Index: linus/mm/migrate.c
+=================================--- linus.orig/mm/migrate.c	2008-05-09 09:51:22.374221036 -0500
++++ linus/mm/migrate.c	2008-05-09 09:51:23.230327549 -0500
+@@ -64,6 +64,7 @@ int isolate_lru_page(struct page *page, 
+ 	}
+ 	return ret;
+ }
++EXPORT_SYMBOL(isolate_lru_page);
+ 
+ /*
+  * migrate_prep() needs to be called before we start compiling a list of pages
+@@ -81,6 +82,7 @@ int migrate_prep(void)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(migrate_prep);
+ 
+ static inline void move_to_lru(struct page *page)
+ {
+@@ -115,6 +117,7 @@ int putback_lru_pages(struct list_head *
+ 	}
+ 	return count;
+ }
++EXPORT_SYMBOL(putback_lru_pages);
+ 
+ /*
+  * Restore a potential migration pte to a working pte entry
+@@ -804,6 +807,7 @@ out:
+ 
+ 	return nr_failed + retry;
+ }
++EXPORT_SYMBOL(migrate_pages);
+ 
+ #ifdef CONFIG_NUMA
+ /*
+Index: linus/include/asm-ia64/page.h
+=================================--- linus.orig/include/asm-ia64/page.h	2008-05-09 09:50:58.379235657 -0500
++++ linus/include/asm-ia64/page.h	2008-05-09 09:51:23.254330535 -0500
+@@ -122,6 +122,7 @@ extern unsigned long max_low_pfn;
+ #endif
+ 
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
++#define	phys_to_page(kaddr)	(pfn_to_page(kaddr >> PAGE_SHIFT))
+ #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
+ #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
+ 
+Index: linus/mm/page_alloc.c
+=================================--- linus.orig/mm/page_alloc.c	2008-05-09 09:51:22.310213072 -0500
++++ linus/mm/page_alloc.c	2008-05-09 09:51:23.262331531 -0500
+@@ -72,6 +72,7 @@ unsigned long totalreserve_pages __read_
+ long nr_swap_pages;
+ int percpu_pagelist_fraction;
+ unsigned int totalbad_pages;
++EXPORT_SYMBOL(totalbad_pages);
+ 
+ #ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
+ int pageblock_order __read_mostly;
 -- 
 Russ Anderson, OS RAS/Partitioning Project Lead  
 SGI - Silicon Graphics Inc          rja@sgi.com
