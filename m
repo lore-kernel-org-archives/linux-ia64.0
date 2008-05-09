@@ -1,15 +1,34 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Fri, 02 May 2008 00:41:00 +0000
-Subject: [PATCH 0/3] ia64: Migrate data off physical pages with correctable errors v2
-Message-Id: <20080502004100.GA12006@sgi.com>
+Date: Fri, 09 May 2008 15:09:39 +0000
+Subject: [PATCH 0/3] ia64: Migrate data off physical pages with correctable errors v3
+Message-Id: <20080509150937.GA16523@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080502004100.GA12006@sgi.com>
+In-Reply-To: <20080502004100.GA12006@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-	Migrate data off physical pages with corrected memory errors
+	Migrate data off physical pages with corrected memory errors (Version 3)
+
+Version 3 changes:
+	page.cleanup.v3: 
+	    - Put PAGE_FLAGS definitions back in page-flags.h 
+		(per Christoph Lameter's request).
+
+	cpe.migrate.v3
+	    - Use putback_lru_pages() when returning an individual page
+		(per Christoph Lameter's request).
+	    - Code style cleanup 
+		(per Pekka Enberg's request).
+	    - Use strict_strtoul()
+		(per Pekka Enberg's request).
+	    - Added locking
+		(per Pekka Enberg's request).
+	    - Use /sys/kernel/ instead of /proc
+		(per Pekka Enberg's request).
 
 Version 2 changes:
 
@@ -17,15 +36,15 @@ Version 2 changes:
 	Christoph Lameter.  
 
 	page.cleanup.v2: 
-		- minor clean-up of page flags in page_alloc.c.  
+	    - minor clean-up of page flags in page_alloc.c.  
 
 	page.discard.v2:
-		- Updated for recent page flag clean-up.
-		- Removed the change to the sysinfo struct.
+	    - Updated for recent page flag clean-up.
+	    - Removed the change to the sysinfo struct.
 
 	cpe.migrate.v2
-		- Added /proc/badram interface to print page discard
-		  information and to free bad pages.
+	    - Added /proc/badram interface to print page discard
+	      information and to free bad pages.
 
 Purpose:
 
