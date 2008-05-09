@@ -1,8 +1,10 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Fri, 02 May 2008 00:41:55 +0000
-Subject: [PATCH 1/3] mm: Minor clean-up of page flags in mm/page_alloc.c
-Message-Id: <20080502004155.GB12006@sgi.com>
+Date: Fri, 09 May 2008 15:10:17 +0000
+Subject: [PATCH 1/3] mm: Minor clean-up of page flags in mm/page_alloc.c v3
+Message-Id: <20080509151017.GB16523@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080502004155.GB12006@sgi.com>
+In-Reply-To: <20080502004155.GB12006@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,13 +17,13 @@ There is no functional change.
 Signed-off-by: Russ Anderson <rja@sgi.com>
 
 ---
- include/linux/mm.h |    8 ++++++++
- mm/page_alloc.c    |   34 +++-------------------------------
- 2 files changed, 11 insertions(+), 31 deletions(-)
+ include/linux/page-flags.h |    9 +++++++++
+ mm/page_alloc.c            |   34 +++-------------------------------
+ 2 files changed, 12 insertions(+), 31 deletions(-)
 
 Index: linus/mm/page_alloc.c
-=================================--- linus.orig/mm/page_alloc.c	2008-05-01 19:05:35.000000000 -0500
-+++ linus/mm/page_alloc.c	2008-05-01 19:06:04.000000000 -0500
+=================================--- linus.orig/mm/page_alloc.c	2008-05-09 09:19:41.251081524 -0500
++++ linus/mm/page_alloc.c	2008-05-09 09:20:04.389938802 -0500
 @@ -237,16 +237,7 @@ static void bad_page(struct page *page)
  	printk(KERN_EMERG "Trying to fix it up, but a reboot is needed\n"
  		KERN_EMERG "Backtrace:\n");
@@ -77,24 +79,24 @@ Index: linus/mm/page_alloc.c
  		bad_page(page);
  
  	/*
-Index: linus/include/linux/mm.h
-=================================--- linus.orig/include/linux/mm.h	2008-05-01 19:05:34.000000000 -0500
-+++ linus/include/linux/mm.h	2008-05-01 19:06:04.000000000 -0500
-@@ -210,6 +210,14 @@ struct inode;
-  */
- #include <linux/page-flags.h>
+Index: linus/include/linux/page-flags.h
+=================================--- linus.orig/include/linux/page-flags.h	2008-05-09 09:19:41.251081524 -0500
++++ linus/include/linux/page-flags.h	2008-05-09 09:20:04.401940277 -0500
+@@ -306,5 +306,14 @@ static inline void __ClearPageTail(struc
+ }
  
+ #endif /* !PAGEFLAGS_EXTENDED */
++
 +#define PAGE_FLAGS	(1 << PG_lru   | 1 << PG_private   | 1 << PG_locked | \
 +			 1 << PG_buddy | 1 << PG_writeback | \
 +			 1 << PG_slab  | 1 << PG_swapcache | 1 << PG_active)
 +
-+#define PAGE_FLAGS_RECLAIM      (PAGE_FLAGS | 1 << PG_reclaim | 1 << PG_dirty)
++#define PAGE_FLAGS_RECLAIM	(PAGE_FLAGS | 1 << PG_reclaim | 1 << PG_dirty)
 +#define PAGE_FLAGS_RESERVE	(PAGE_FLAGS | 1 << PG_reserved)
 +#define PAGE_FLAGS_DIRTY	(PAGE_FLAGS | 1 << PG_reserved | 1 << PG_dirty)
 +
- #ifdef CONFIG_DEBUG_VM
- #define VM_BUG_ON(cond) BUG_ON(cond)
- #else
+ #endif /* !__GENERATING_BOUNDS_H */
+ #endif	/* PAGE_FLAGS_H */
 -- 
 Russ Anderson, OS RAS/Partitioning Project Lead  
 SGI - Silicon Graphics Inc          rja@sgi.com
