@@ -1,55 +1,34 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 13:13:28 +0000
-Subject: [PATCH 01/17] ia64: preparation: remove extern in irq_ia64.c
-Message-Id: <12112028241696-git-send-email-yamahata@valinux.co.jp>
+From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
+Date: Mon, 12 May 2008 15:40:50 +0000
+Subject: [PATCH] Remove NULL pointer check for argument never passed as
+Message-Id: <1210606850.25310.14.camel@odie.local>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
+	 <1210603050.25310.9.camel@odie.local>
+	 <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
+In-Reply-To: <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: Julia Lawall <julia@diku.dk>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-remove extern declaration of handle_IPI() in irq_ia64.c.
-Instead, declare it in asm-ia64/smp.h.
-Later handle_IPI() will be referenced from another file.
-
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/kernel/irq_ia64.c |    1 -
- include/asm-ia64/smp.h      |    2 ++
- 2 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 5538471..c48171b 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -600,7 +600,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
- {
- 	BUG();
- }
--extern irqreturn_t handle_IPI (int irq, void *dev_id);
- 
- static struct irqaction ipi_irqaction = {
- 	.handler =	handle_IPI,
-diff --git a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
-index ec5f355..2984e26 100644
---- a/include/asm-ia64/smp.h
-+++ b/include/asm-ia64/smp.h
-@@ -15,6 +15,7 @@
- #include <linux/kernel.h>
- #include <linux/cpumask.h>
- #include <linux/bitops.h>
-+#include <linux/irqreturn.h>
- 
- #include <asm/io.h>
- #include <asm/param.h>
-@@ -123,6 +124,7 @@ extern void __init smp_build_cpu_map(void);
- extern void __init init_smp_config (void);
- extern void smp_do_timer (struct pt_regs *regs);
- 
-+extern irqreturn_t handle_IPI(int irq, void *dev_id);
- extern void smp_send_reschedule (int cpu);
- extern void lock_ipi_calllock(void);
- extern void unlock_ipi_calllock(void);
--- 
-1.5.3
-
+VGhlcmUgaXMgb25seSBwYWxpbmZvX2hhbmRsZV9zbXAgYXMgKGluZGlyZWN0KSB1c2VyIG9mIHBh
+bGluZm9fc21wX2NhbGwgKGJ5CndheSBvZiBzbXBfY2FsbF9mdW5jdGlvbl9zaW5nbGUpIGFuZCBz
+dXJlbHkgcGFsaW5mb19oYW5kbGVfc21wIG5ldmVyIHBhc3MKTlVMTCBhcyBwYXJhbWV0ZXIgZm9y
+IGluZm8uCgpTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb2xtIFRow7hnZXJzZW4gPG9kaWVAY3MuYWF1
+LmRrPgotLS0KIGFyY2gvaWE2NC9rZXJuZWwvcGFsaW5mby5jIHwgICAgNiAtLS0tLS0KIDEgZmls
+ZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBh
+L2FyY2gvaWE2NC9rZXJuZWwvcGFsaW5mby5jIGIvYXJjaC9pYTY0L2tlcm5lbC9wYWxpbmZvLmMK
+aW5kZXggNDU0N2EyMC4uOWRjMDBmNyAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9wYWxp
+bmZvLmMKKysrIGIvYXJjaC9pYTY0L2tlcm5lbC9wYWxpbmZvLmMKQEAgLTkwMCwxMiArOTAwLDYg
+QEAgc3RhdGljIHZvaWQKIHBhbGluZm9fc21wX2NhbGwodm9pZCAqaW5mbykKIHsKIAlwYWxpbmZv
+X3NtcF9kYXRhX3QgKmRhdGEgPSAocGFsaW5mb19zbXBfZGF0YV90ICopaW5mbzsKLQlpZiAoZGF0
+YSA9IE5VTEwpIHsKLQkJcHJpbnRrKEtFUk5fRVJSICJwYWxpbmZvOiBkYXRhIHBvaW50ZXIgaXMg
+TlVMTFxuIik7Ci0JCWRhdGEtPnJldCA9IDA7IC8qIG5vIG91dHB1dCAqLwotCQlyZXR1cm47Ci0J
+fQotCS8qIGRvZXMgdGhpcyBhY3R1YWwgY2FsbCAqLwogCWRhdGEtPnJldCA9ICgqZGF0YS0+ZnVu
+YykoZGF0YS0+cGFnZSk7CiB9CiAKLS0gCjEuNS41LjEuMTI1LmdjNjk3YQoKLS0KVG8gdW5zdWJz
+Y3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlh
+NjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3Jn
+Ck1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
+LWluZm8uaHRtbA==
