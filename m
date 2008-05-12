@@ -1,40 +1,74 @@
-From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
-Date: Mon, 12 May 2008 14:37:29 +0000
+From: Julia Lawall <julia@diku.dk>
+Date: Mon, 12 May 2008 14:37:46 +0000
 Subject: Re: [PATCH 1/6] arch/ia64/kernel: remove null pointer dereference
-Message-Id: <1210603050.25310.9.camel@odie.local>
+Message-Id: <Pine.LNX.4.64.0805121637180.3694@ask.diku.dk>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="-511516320-175496707-1210603066=:3694"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
-In-Reply-To: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Julia Lawall <julia@diku.dk>
+ <1210603050.25310.9.camel@odie.local>
+In-Reply-To: <1210603050.25310.9.camel@odie.local>
+To: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
 Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-bWFuLCAxMiAwNSAyMDA4IGtsLiAxNTozNyArMDIwMCwgc2tyZXYgSnVsaWEgTGF3YWxsOgo+IEZy
-b206IEp1bGlhIExhd2FsbCA8anVsaWFAZGlrdS5kaz4KPiAKPiBJZiBkYXRhIGlzIE5VTEwsIGl0
-IGlzIG5vdCBwb3NzaWJsZSB0byBhY2Nlc3MgZGF0YS0+cmV0Lgo+IAo+IFRoZSBwcm9ibGVtIHdh
-cyBkZXRlY3RlZCB1c2luZyB0aGUgZm9sbG93aW5nIHNlbWFudGljIG1hdGNoCj4gKGh0dHA6Ly93
-d3cuZW1uLmZyL3gtaW5mby9jb2NjaW5lbGxlLykKPiAKPiAvLyA8c21wbD4KPiBAQAo+IGV4cHJl
-c3Npb24gRSwgRTE7Cj4gaWRlbnRpZmllciBmOwo+IHN0YXRlbWVudCBTMSxTMixTMzsKPiBAQAo+
-IAo+ICogaWYgKEUgPSBOVUxMKQo+IHsKPiAgIC4uLiB3aGVuICE9IGlmIChFID0gTlVMTCkgUzEg
-ZWxzZSBTMgo+ICAgICAgIHdoZW4gIT0gRSA9IEUxCj4gKiBFLT5mCj4gICAuLi4gd2hlbiBhbnkK
-PiAgIHJldHVybiAuLi47Cj4gfQo+IGVsc2UgUzMKPiAvLyA8L3NtcGw+Cj4gCj4gU2lnbmVkLW9m
-Zi1ieTogSnVsaWEgTGF3YWxsIDxqdWxpYUBkaWt1LmRrPgo+IAo+IC0tLQo+IAo+IGRpZmYgLXUg
-LXAgYS9hcmNoL2lhNjQva2VybmVsL3BhbGluZm8uYyBiL2FyY2gvaWE2NC9rZXJuZWwvcGFsaW5m
-by5jCj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9wYWxpbmZvLmMJMjAwOC0wNS0wOSAxNjo0Njo1
-Ny4wMDAwMDAwMDAgKzAyMDAKPiArKysgYi9hcmNoL2lhNjQva2VybmVsL3BhbGluZm8uYwkyMDA4
-LTA1LTEyIDA4OjQzOjM1LjAwMDAwMDAwMCArMDIwMAo+IEBAIC05MDIsNyArOTAyLDYgQEAgcGFs
-aW5mb19zbXBfY2FsbCh2b2lkICppbmZvKQo+ICAJcGFsaW5mb19zbXBfZGF0YV90ICpkYXRhID0g
-KHBhbGluZm9fc21wX2RhdGFfdCAqKWluZm87Cj4gIAlpZiAoZGF0YSA9IE5VTEwpIHsKPiAgCQlw
-cmludGsoS0VSTl9FUlIgInBhbGluZm86IGRhdGEgcG9pbnRlciBpcyBOVUxMXG4iKTsKPiAtCQlk
-YXRhLT5yZXQgPSAwOyAvKiBubyBvdXRwdXQgKi8KPiAgCQlyZXR1cm47Cj4gIAl9Cj4gIAkvKiBk
-b2VzIHRoaXMgYWN0dWFsIGNhbGwgKi8KPiAtLQoKVGhlIHdob2xlIGlmIGJsb2NrIHNob3VsZCBq
-dXN0IGJlIGRlbGV0ZWQsIGFzIGluZm8gaXMgbmV2ZXIgTlVMTC4gVGhlcmUKaXMgb25seSBwYWxp
-bmZvX2hhbmRsZV9zbXAgYXMgKGluZGlyZWN0KSB1c2VyIG9mIHBhbGluZm9fc21wX2NhbGwgKGJ5
-CndheSBvZiBzbXBfY2FsbF9mdW5jdGlvbl9zaW5nbGUpIGFuZCBzdXJlbHkgcGFsaW5mb19zbXBf
-Y2FsbCBuZXZlciBwYXNzCk5VTEwuCgoKU2ltb24gSG9sbSBUaMO4Z2Vyc2VuCgotLQpUbyB1bnN1
-YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgt
-aWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5v
-cmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRv
-bW8taW5mby5odG1s
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+
+---511516320-175496707-1210603066=:3694
+Content-Type: TEXT/PLAIN; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 12 May 2008, Simon Holm Th=F8gersen wrote:
+
+> man, 12 05 2008 kl. 15:37 +0200, skrev Julia Lawall:
+> > From: Julia Lawall <julia@diku.dk>
+> >=20
+> > If data is NULL, it is not possible to access data->ret.
+> >=20
+> > The problem was detected using the following semantic match
+> > (http://www.emn.fr/x-info/coccinelle/)
+> >=20
+> > // <smpl>
+> > @@
+> > expression E, E1;
+> > identifier f;
+> > statement S1,S2,S3;
+> > @@
+> >=20
+> > * if (E =3D=3D NULL)
+> > {
+> >   ... when !=3D if (E =3D=3D NULL) S1 else S2
+> >       when !=3D E =3D E1
+> > * E->f
+> >   ... when any
+> >   return ...;
+> > }
+> > else S3
+> > // </smpl>
+> >=20
+> > Signed-off-by: Julia Lawall <julia@diku.dk>
+> >=20
+> > ---
+> >=20
+> > diff -u -p a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+> > --- a/arch/ia64/kernel/palinfo.c	2008-05-09 16:46:57.000000000 +0200
+> > +++ b/arch/ia64/kernel/palinfo.c	2008-05-12 08:43:35.000000000 +0200
+> > @@ -902,7 +902,6 @@ palinfo_smp_call(void *info)
+> >  	palinfo_smp_data_t *data =3D (palinfo_smp_data_t *)info;
+> >  	if (data =3D=3D NULL) {
+> >  		printk(KERN_ERR "palinfo: data pointer is NULL\n");
+> > -		data->ret =3D 0; /* no output */
+> >  		return;
+> >  	}
+> >  	/* does this actual call */
+> > --
+>=20
+> The whole if block should just be deleted, as info is never NULL. There
+> is only palinfo_handle_smp as (indirect) user of palinfo_smp_call (by
+> way of smp_call_function_single) and surely palinfo_smp_call never pass
+> NULL.
+
+OK.  Will you fix it?
+
+julia
+---511516320-175496707-1210603066=:3694--
