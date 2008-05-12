@@ -1,65 +1,50 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 23:07:51 +0000
-Subject: [PATCH 04/23] ia64/xen: define several constants for ia64/xen.
-Message-Id: <12112384911143-git-send-email-yamahata@valinux.co.jp>
+From: Julia Lawall <julia@diku.dk>
+Date: Mon, 12 May 2008 13:37:09 +0000
+Subject: [PATCH 1/6] arch/ia64/kernel: remove null pointer dereference
+Message-Id: <Pine.LNX.4.64.0805121536370.3694@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166301833-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166301833-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-define several constants for ia64/xen.
+From: Julia Lawall <julia@diku.dk>
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+If data is NULL, it is not possible to access data->ret.
+
+The problem was detected using the following semantic match
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@@
+expression E, E1;
+identifier f;
+statement S1,S2,S3;
+@@
+
+* if (E = NULL)
+{
+  ... when != if (E = NULL) S1 else S2
+      when != E = E1
+* E->f
+  ... when any
+  return ...;
+}
+else S3
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
- arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index c64a55a..6bd3fc5 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -16,6 +16,8 @@
- #include <asm-ia64/sigcontext.h>
- #include <asm-ia64/mca.h>
- 
-+#include <asm-ia64/xen/interface.h>
-+
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
- 
-@@ -286,4 +288,29 @@ void foo(void)
- 		offsetof (struct itc_jitter_data_t, itc_jitter));
- 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
- 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
-+
-+#ifdef CONFIG_XEN
-+	BLANK();
-+
-+#define DEFINE_MAPPED_REG_OFS(sym, field) \
-+	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
-+
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
-+	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
-+	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
-+	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
-+#endif /* CONFIG_XEN */
- }
--- 
-1.5.3
-
+diff -u -p a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+--- a/arch/ia64/kernel/palinfo.c	2008-05-09 16:46:57.000000000 +0200
++++ b/arch/ia64/kernel/palinfo.c	2008-05-12 08:43:35.000000000 +0200
+@@ -902,7 +902,6 @@ palinfo_smp_call(void *info)
+ 	palinfo_smp_data_t *data = (palinfo_smp_data_t *)info;
+ 	if (data = NULL) {
+ 		printk(KERN_ERR "palinfo: data pointer is NULL\n");
+-		data->ret = 0; /* no output */
+ 		return;
+ 	}
+ 	/* does this actual call */
