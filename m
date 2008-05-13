@@ -1,60 +1,134 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Fri, 09 May 2008 21:51:16 +0000
-Subject: Re: [PATCH 2/3] mm: Avoid putting a bad page back on the LRU v3
-Message-Id: <20080509215116.GA32718@sgi.com>
+Date: Tue, 13 May 2008 23:03:12 +0000
+Subject: [PATCH 2/3] mm: Avoid putting a bad page back on the LRU v4
+Message-Id: <20080513230312.GC26722@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080509151058.GC16523@sgi.com> <20080509131134.dae2bd65.akpm@linux-foundation.org>
-In-Reply-To: <20080509131134.dae2bd65.akpm@linux-foundation.org>
+References: <20080502004248.GC12006@sgi.com>
+In-Reply-To: <20080502004248.GC12006@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, tony.luck@intel.com, clameter@sgi.com
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-On Fri, May 09, 2008 at 01:11:34PM -0700, Andrew Morton wrote:
-> On Fri, 9 May 2008 10:10:58 -0500
-> Russ Anderson <rja@sgi.com> wrote:
-> 
-> > Index: linus/mm/swap.c
-> > =================================> > --- linus.orig/mm/swap.c	2008-05-09 09:19:40.466984064 -0500
-> > +++ linus/mm/swap.c	2008-05-09 09:20:11.330791803 -0500
-> > @@ -195,6 +195,8 @@ void lru_cache_add(struct page *page)
-> >  	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
-> >  
-> >  	page_cache_get(page);
-> > +	if (unlikely(PageMemError(page)))
-> > +		return;		/* Don't add bad pages to the page list */
-> >  	if (!pagevec_add(pvec, page))
-> >  		__pagevec_lru_add(pvec);
-> >  	put_cpu_var(lru_add_pvecs);
-> > @@ -205,6 +207,8 @@ void lru_cache_add_active(struct page *p
-> >  	struct pagevec *pvec = &get_cpu_var(lru_add_active_pvecs);
-> >  
-> >  	page_cache_get(page);
-> > +	if (unlikely(PageMemError(page)))
-> > +		return;		/* Don't add bad pages to the page list */
-> >  	if (!pagevec_add(pvec, page))
-> >  		__pagevec_lru_add_active(pvec);
-> >  	put_cpu_var(lru_add_active_pvecs);
-> 
-> These PageMemError() tests are happening in some pretty darn hot paths. 
-> But we've gone and added this overhead to a lot of architectures and
-> configs which don't need it.
->
-> Should we tighten that up?  Arrange for PageMemError() to evaluate to
-> constant zero for all builds which don't actually implement "Migrate data
-> off physical pages with correctable errors"?
+Prevent a page with a physical memory error from being placed back
+on the LRU.  A new page flag (PG_memerror) is added on 64 bit
+architectures.  
 
-Yes.
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
-> Probably the way to implement that would be to add a new
-> CONFIG_NEED_PAGE_MEM_ERROR and `select' that from the appropriate place in
-> ia64 Kconfig.  Which is pretty nasty, but a) we're nasty that way rather
-> often and b) this time it _is_ a hot-path, so some nastiness is
-> justifiable.
+---
+ include/linux/migrate.h    |    1 +
+ include/linux/page-flags.h |   11 ++++++++++-
+ mm/migrate.c               |   12 ++++++++++--
+ mm/page_alloc.c            |    8 ++++----
+ 4 files changed, 25 insertions(+), 7 deletions(-)
 
-Will do.
-
+Index: linus/mm/page_alloc.c
+=================================--- linus.orig/mm/page_alloc.c	2008-05-13 15:27:32.308804354 -0500
++++ linus/mm/page_alloc.c	2008-05-13 15:35:57.071584039 -0500
+@@ -602,10 +602,10 @@ static int prep_new_page(struct page *pa
+ 		bad_page(page);
+ 
+ 	/*
+-	 * For now, we report if PG_reserved was found set, but do not
+-	 * clear it, and do not allocate the page: as a safety net.
++	 * For now, we report if PG_reserved or PG_memerror was found set, but
++	 * do not clear it, and do not allocate the page: as a safety net.
+ 	 */
+-	if (PageReserved(page))
++	if (PageReserved(page) || PageMemError(page))
+ 		return 1;
+ 
+ 	page->flags &= ~(1 << PG_uptodate | 1 << PG_error | 1 << PG_reclaim |
+@@ -2474,7 +2474,7 @@ static void setup_zone_migrate_reserve(s
+ 		page = pfn_to_page(pfn);
+ 
+ 		/* Blocks with reserved pages will never free, skip them. */
+-		if (PageReserved(page))
++		if (PageReserved(page) || PageMemError(page))
+ 			continue;
+ 
+ 		block_migratetype = get_pageblock_migratetype(page);
+Index: linus/mm/migrate.c
+=================================--- linus.orig/mm/migrate.c	2008-05-13 15:27:32.308804354 -0500
++++ linus/mm/migrate.c	2008-05-13 16:14:04.695801820 -0500
+@@ -35,6 +35,8 @@
+ 
+ #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
+ 
++unsigned int totalbad_pages;
++
+ /*
+  * Isolate one page from the LRU lists. If successful put it onto
+  * the indicated list with elevated page count.
+@@ -110,6 +112,8 @@ int putback_lru_pages(struct list_head *
+ 
+ 	list_for_each_entry_safe(page, page2, l, lru) {
+ 		list_del(&page->lru);
++		if (unlikely(PageMemError(page)))
++			continue;
+ 		move_to_lru(page);
+ 		count++;
+ 	}
+@@ -717,10 +721,14 @@ unlock:
+  		 * A page that has been migrated has all references
+  		 * removed and will be freed. A page that has not been
+  		 * migrated will have kepts its references and be
+- 		 * restored.
++		 * restored.  A page with a memory error will not
++		 * be moved to the LRU.
+  		 */
+  		list_del(&page->lru);
+- 		move_to_lru(page);
++		if (PageMemError(page))
++			totalbad_pages++;
++		else
++			move_to_lru(page);
+ 	}
+ 
+ move_newpage:
+Index: linus/include/linux/page-flags.h
+=================================--- linus.orig/include/linux/page-flags.h	2008-05-13 15:27:32.308804354 -0500
++++ linus/include/linux/page-flags.h	2008-05-13 15:28:06.589058491 -0500
+@@ -84,6 +84,7 @@ enum pageflags {
+ 	PG_private,		/* If pagecache, has fs-private data */
+ 	PG_writeback,		/* Page is under writeback */
+ #ifdef CONFIG_PAGEFLAGS_EXTENDED
++	PG_memerror,		/* Page has a physical memory error */
+ 	PG_head,		/* A head page */
+ 	PG_tail,		/* A tail page */
+ #else
+@@ -307,9 +308,17 @@ static inline void __ClearPageTail(struc
+ 
+ #endif /* !PAGEFLAGS_EXTENDED */
+ 
+-#define PAGE_FLAGS	(1 << PG_lru   | 1 << PG_private   | 1 << PG_locked | \
++#define PAGE_FLAGS_BASE	(1 << PG_lru   | 1 << PG_private   | 1 << PG_locked | \
+ 			 1 << PG_buddy | 1 << PG_writeback | \
+ 			 1 << PG_slab  | 1 << PG_swapcache | 1 << PG_active)
++
++#ifdef CONFIG_PAGEFLAGS_EXTENDED
++PAGEFLAG(MemError, memerror)
++#define	PAGE_FLAGS	(PAGE_FLAGS_BASE | 1UL << PG_memerror)
++#else
++PAGEFLAG_FALSE(MemError)
++#define	PAGE_FLAGS	(PAGE_FLAGS_BASE)
++#endif
+ 
+ #define PAGE_FLAGS_RECLAIM	(PAGE_FLAGS | 1 << PG_reclaim | 1 << PG_dirty)
+ #define PAGE_FLAGS_RESERVE	(PAGE_FLAGS | 1 << PG_reserved)
+Index: linus/include/linux/migrate.h
+=================================--- linus.orig/include/linux/migrate.h	2008-05-13 15:27:32.308804354 -0500
++++ linus/include/linux/migrate.h	2008-05-13 15:28:06.605060477 -0500
+@@ -38,6 +38,7 @@ extern int migrate_prep(void);
+ extern int migrate_vmas(struct mm_struct *mm,
+ 		const nodemask_t *from, const nodemask_t *to,
+ 		unsigned long flags);
++extern unsigned int totalbad_pages;
+ #else
+ static inline int vma_migratable(struct vm_area_struct *vma)
+ 					{ return 0; }
 -- 
 Russ Anderson, OS RAS/Partitioning Project Lead  
 SGI - Silicon Graphics Inc          rja@sgi.com
