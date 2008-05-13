@@ -1,7 +1,7 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Fri, 09 May 2008 15:10:17 +0000
-Subject: [PATCH 1/3] mm: Minor clean-up of page flags in mm/page_alloc.c v3
-Message-Id: <20080509151017.GB16523@sgi.com>
+Date: Tue, 13 May 2008 23:02:20 +0000
+Subject: [PATCH 1/3] mm: Minor clean-up of page flags in mm/page_alloc.c v4
+Message-Id: <20080513230220.GB26722@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080502004155.GB12006@sgi.com>
 In-Reply-To: <20080502004155.GB12006@sgi.com>
@@ -22,8 +22,8 @@ Signed-off-by: Russ Anderson <rja@sgi.com>
  2 files changed, 12 insertions(+), 31 deletions(-)
 
 Index: linus/mm/page_alloc.c
-=================================--- linus.orig/mm/page_alloc.c	2008-05-09 09:19:41.251081524 -0500
-+++ linus/mm/page_alloc.c	2008-05-09 09:20:04.389938802 -0500
+=================================--- linus.orig/mm/page_alloc.c	2008-05-12 14:23:07.711484337 -0500
++++ linus/mm/page_alloc.c	2008-05-13 10:26:46.513459253 -0500
 @@ -237,16 +237,7 @@ static void bad_page(struct page *page)
  	printk(KERN_EMERG "Trying to fix it up, but a reboot is needed\n"
  		KERN_EMERG "Backtrace:\n");
@@ -80,8 +80,8 @@ Index: linus/mm/page_alloc.c
  
  	/*
 Index: linus/include/linux/page-flags.h
-=================================--- linus.orig/include/linux/page-flags.h	2008-05-09 09:19:41.251081524 -0500
-+++ linus/include/linux/page-flags.h	2008-05-09 09:20:04.401940277 -0500
+=================================--- linus.orig/include/linux/page-flags.h	2008-05-12 14:23:07.711484337 -0500
++++ linus/include/linux/page-flags.h	2008-05-13 10:26:46.513459253 -0500
 @@ -306,5 +306,14 @@ static inline void __ClearPageTail(struc
  }
  
