@@ -1,52 +1,56 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 01 May 2008 22:57:11 +0000
+Date: Thu, 15 May 2008 20:46:32 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <1FE6DD409037234FAB833C420AA843EC013F7630@orsmsx424.amr.corp.intel.com>
+Message-Id: <1FE6DD409037234FAB833C420AA843EC015B19E7@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
-
-please pull from:
-
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- arch/ia64/ia32/ia32_signal.c   |    2 +-
- arch/ia64/kernel/acpi.c        |    2 +-
- arch/ia64/kernel/irq.c         |    4 +-
- arch/ia64/kernel/palinfo.c     |    2 +-
- arch/ia64/kernel/perfmon.c     |  199 +++++++++++++++++----------------------
- arch/ia64/kernel/signal.c      |   15 ++--
- arch/ia64/kernel/smp.c         |   68 +++++++-------
- arch/ia64/kernel/time.c        |    5 -
- arch/ia64/kernel/topology.c    |   16 ++-
- include/asm-ia64/cpu.h         |    2 +-
- include/asm-ia64/thread_info.h |   13 ++-
- 11 files changed, 157 insertions(+), 171 deletions(-)
-
-Al Viro (1):
-      [IA64] fix file and descriptor handling in perfmon
-
-Hidetoshi Seto (5):
-      [IA64] fix section mismatch in arch/ia64/kernel/acpi.c
-      [IA64] fix section mismatch in arch/ia64/kernel/irq.c
-      [IA64] fix section mismatch in arch/ia64/kernel/palinfo.c
-      [IA64] fix section mismatch in arch/ia64/kernel/topology.c
-      [IA64] smp.c coding style fix
-
-Roland McGrath (1):
-      [IA64] TS_RESTORE_SIGMASK
-
-
-
+SGkgTGludXMsCgpwbGVhc2UgcHVsbCBmcm9tOgoKCWdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9z
+Y20vbGludXgva2VybmVsL2dpdC9hZWdsL2xpbnV4LTIuNi5naXQgcmVsZWFzZQoKVGhpcyB3aWxs
+IHVwZGF0ZSB0aGUgZmlsZXMgc2hvd24gYmVsb3cuCgpUaGFua3MhCgotVG9ueQoKIERvY3VtZW50
+YXRpb24va2VybmVsLXBhcmFtZXRlcnMudHh0IHwgICAgNiArCiBhcmNoL2lhNjQvS2NvbmZpZyAg
+ICAgICAgICAgICAgICAgICB8ICAgMTMgKysKIGFyY2gvaWE2NC9NYWtlZmlsZSAgICAgICAgICAg
+ICAgICAgIHwgICAgMiArLQogYXJjaC9pYTY0L2lhMzIvaWEzMl9zdXBwb3J0LmMgICAgICAgfCAg
+IDEwIC0KIGFyY2gvaWE2NC9rZXJuZWwvYWNwaS5jICAgICAgICAgICAgIHwgICAxMCArLQogYXJj
+aC9pYTY0L2tlcm5lbC9lbnRyeS5TICAgICAgICAgICAgfCAgIDI2ICsrLQogYXJjaC9pYTY0L2tl
+cm5lbC9wYWxpbmZvLmMgICAgICAgICAgfCAgICA2IC0KIGFyY2gvaWE2NC9rZXJuZWwvcGVyZm1v
+bi5jICAgICAgICAgIHwgICAxNiArLQogYXJjaC9pYTY0L2tlcm5lbC9wcm9jZXNzLmMgICAgICAg
+ICAgfCAgIDI1ICsrKy0KIGFyY2gvaWE2NC9rZXJuZWwvc2FsLmMgICAgICAgICAgICAgIHwgICAx
+MSArKwogYXJjaC9pYTY0L2tlcm5lbC9zZXR1cC5jICAgICAgICAgICAgfCAgIDI5ICsrKysKIGFy
+Y2gvaWE2NC9tbS9pbml0LmMgICAgICAgICAgICAgICAgIHwgICAyNSArKysKIGFyY2gvaWE2NC91
+di9NYWtlZmlsZSAgICAgICAgICAgICAgIHwgICAxMiArKwogYXJjaC9pYTY0L3V2L2tlcm5lbC9N
+YWtlZmlsZSAgICAgICAgfCAgIDEzICsrCiBhcmNoL2lhNjQvdXYva2VybmVsL21hY2h2ZWMuYyAg
+ICAgICB8ICAgMTEgKysKIGFyY2gvaWE2NC91di9rZXJuZWwvc2V0dXAuYyAgICAgICAgIHwgICA5
+OCArKysrKysrKysrKwogaW5jbHVkZS9hc20taWE2NC9tYWNodmVjLmggICAgICAgICAgfCAgICAy
+ICsKIGluY2x1ZGUvYXNtLWlhNjQvbWFjaHZlY191di5oICAgICAgIHwgICAyNiArKysKIGluY2x1
+ZGUvYXNtLWlhNjQvdXYvdXZfaHViLmggICAgICAgIHwgIDMwOSArKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKysrKysrKwogaW5jbHVkZS9hc20taWE2NC91di91dl9tbXJzLmggICAgICAgfCAg
+MjY2ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwogMjAgZmlsZXMgY2hhbmdlZCwgODc4
+IGluc2VydGlvbnMoKyksIDM4IGRlbGV0aW9ucygtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gv
+aWE2NC91di9NYWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gvaWE2NC91di9rZXJuZWwv
+TWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQvdXYva2VybmVsL21hY2h2ZWMu
+YwogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gvaWE2NC91di9rZXJuZWwvc2V0dXAuYwogY3JlYXRl
+IG1vZGUgMTAwNjQ0IGluY2x1ZGUvYXNtLWlhNjQvbWFjaHZlY191di5oCiBjcmVhdGUgbW9kZSAx
+MDA2NDQgaW5jbHVkZS9hc20taWE2NC91di91dl9odWIuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGlu
+Y2x1ZGUvYXNtLWlhNjQvdXYvdXZfbW1ycy5oCgpBbGV4IENoaWFuZyAoMSk6CiAgICAgIFtJQTY0
+XSBhbGxvdyB1c2VyIHRvIGZvcmNlX3BhbF9jYWNoZV9mbHVzaAoKQmVybmhhcmQgV2FsbGUgKDEp
+OgogICAgICBbSUE2NF0gRG9uJ3QgcmVzZXJ2ZSBjcmFzaGtlcm5lbCBtZW1vcnkgPiA0IEdCCgpI
+aWRldG9zaGkgU2V0byAoMyk6CiAgICAgIFtJQTY0XSBmaXggaW50ZXJydXB0IG1hc2tpbmcgZm9y
+IHBlbmRpbmcgd29ya3Mgb24ga2VybmVsIGxlYXZlCiAgICAgIFtJQTY0XSB0cml2aWFsIGNsZWFu
+dXAgZm9yIGVudHJ5LlMKICAgICAgW0lBNjRdIHRyaXZpYWwgY2xlYW51cCBmb3IgcGVyZm1vbi5j
+CgpIdWFuZywgWGlhb2xhbiAoMSk6CiAgICAgIFtJQTY0XSBmaXggcGVyc29uYWxpdHkoUEVSX0xJ
+TlVYMzIpIHBlcmZvcm1hbmNlIGlzc3VlCgpKYWNrIFN0ZWluZXIgKDIpOgogICAgICBbSUE2NF0g
+QWRkIGhlYWRlciBmaWxlcyBmb3IgU0dJIFVWIHBsYXRmb3JtCiAgICAgIFtJQTY0XSBtYWNodmVj
+IHN1cHBvcnQgZm9yIFNHSSBVViBwbGF0Zm9ybQoKUHJhcml0IEJoYXJnYXZhICgxKToKICAgICAg
+W0lBNjRdIFByb3Blcmx5IHVucmVnaXN0ZXIgbGVnYWN5IGludGVycnVwdHMKClNpbW9uIEhvbG0g
+VGjDuGdlcnNlbiAoMSk6CiAgICAgIFtJQTY0XSBSZW1vdmUgTlVMTCBwb2ludGVyIGNoZWNrIGZv
+ciBhcmd1bWVudCBuZXZlciBwYXNzZWQgYXMgTlVMTC4KCgoKLS0KVG8gdW5zdWJzY3JpYmUgZnJv
+bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRo
+ZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFq
+b3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRt
+bA==
