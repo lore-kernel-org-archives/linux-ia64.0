@@ -1,7 +1,7 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Tue, 13 May 2008 23:03:12 +0000
-Subject: [PATCH 2/3] mm: Avoid putting a bad page back on the LRU v4
-Message-Id: <20080513230312.GC26722@sgi.com>
+Date: Fri, 16 May 2008 19:23:20 +0000
+Subject: [PATCH 2/3] mm: Avoid putting a bad page back on the LRU v5
+Message-Id: <20080516192320.GE7885@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080502004248.GC12006@sgi.com>
 In-Reply-To: <20080502004248.GC12006@sgi.com>
@@ -25,8 +25,8 @@ Signed-off-by: Russ Anderson <rja@sgi.com>
  4 files changed, 25 insertions(+), 7 deletions(-)
 
 Index: linus/mm/page_alloc.c
-=================================--- linus.orig/mm/page_alloc.c	2008-05-13 15:27:32.308804354 -0500
-+++ linus/mm/page_alloc.c	2008-05-13 15:35:57.071584039 -0500
+=================================--- linus.orig/mm/page_alloc.c	2008-05-15 12:59:03.334381011 -0500
++++ linus/mm/page_alloc.c	2008-05-15 12:59:04.958581070 -0500
 @@ -602,10 +602,10 @@ static int prep_new_page(struct page *pa
  		bad_page(page);
  
@@ -51,8 +51,8 @@ Index: linus/mm/page_alloc.c
  
  		block_migratetype = get_pageblock_migratetype(page);
 Index: linus/mm/migrate.c
-=================================--- linus.orig/mm/migrate.c	2008-05-13 15:27:32.308804354 -0500
-+++ linus/mm/migrate.c	2008-05-13 16:14:04.695801820 -0500
+=================================--- linus.orig/mm/migrate.c	2008-05-15 12:58:25.165679802 -0500
++++ linus/mm/migrate.c	2008-05-16 12:25:16.145557095 -0500
 @@ -35,6 +35,8 @@
  
  #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
@@ -89,8 +89,8 @@ Index: linus/mm/migrate.c
  
  move_newpage:
 Index: linus/include/linux/page-flags.h
-=================================--- linus.orig/include/linux/page-flags.h	2008-05-13 15:27:32.308804354 -0500
-+++ linus/include/linux/page-flags.h	2008-05-13 15:28:06.589058491 -0500
+=================================--- linus.orig/include/linux/page-flags.h	2008-05-15 12:59:03.362384460 -0500
++++ linus/include/linux/page-flags.h	2008-05-15 12:59:05.002586491 -0500
 @@ -84,6 +84,7 @@ enum pageflags {
  	PG_private,		/* If pagecache, has fs-private data */
  	PG_writeback,		/* Page is under writeback */
@@ -116,11 +116,11 @@ Index: linus/include/linux/page-flags.h
 +#define	PAGE_FLAGS	(PAGE_FLAGS_BASE)
 +#endif
  
- #define PAGE_FLAGS_RECLAIM	(PAGE_FLAGS | 1 << PG_reclaim | 1 << PG_dirty)
- #define PAGE_FLAGS_RESERVE	(PAGE_FLAGS | 1 << PG_reserved)
+ /*
+  * Flags checked in bad_page().  Pages on the free list should not have
 Index: linus/include/linux/migrate.h
-=================================--- linus.orig/include/linux/migrate.h	2008-05-13 15:27:32.308804354 -0500
-+++ linus/include/linux/migrate.h	2008-05-13 15:28:06.605060477 -0500
+=================================--- linus.orig/include/linux/migrate.h	2008-05-15 12:58:25.165679802 -0500
++++ linus/include/linux/migrate.h	2008-05-15 12:59:05.026589447 -0500
 @@ -38,6 +38,7 @@ extern int migrate_prep(void);
  extern int migrate_vmas(struct mm_struct *mm,
  		const nodemask_t *from, const nodemask_t *to,
