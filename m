@@ -1,7 +1,7 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Tue, 13 May 2008 23:05:09 +0000
-Subject: [PATCH 3/3] ia64: Call migration code on correctable errors v4
-Message-Id: <20080513230509.GD26722@sgi.com>
+Date: Fri, 16 May 2008 19:23:59 +0000
+Subject: [PATCH 3/3] ia64: Call migration code on correctable errors v5
+Message-Id: <20080516192359.GF7885@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080502004425.GD12006@sgi.com>
 In-Reply-To: <20080502004425.GD12006@sgi.com>
@@ -31,8 +31,8 @@ Signed-off-by: Russ Anderson <rja@sgi.com>
  7 files changed, 472 insertions(+), 1 deletion(-)
 
 Index: linus/arch/ia64/kernel/Makefile
-=================================--- linus.orig/arch/ia64/kernel/Makefile	2008-05-13 16:45:50.039583104 -0500
-+++ linus/arch/ia64/kernel/Makefile	2008-05-13 16:47:50.190357060 -0500
+=================================--- linus.orig/arch/ia64/kernel/Makefile	2008-05-14 15:36:06.822294012 -0500
++++ linus/arch/ia64/kernel/Makefile	2008-05-15 12:59:05.906697854 -0500
 @@ -27,6 +27,7 @@ obj-$(CONFIG_PERFMON)		+= perfmon_defaul
  obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
  obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
@@ -43,7 +43,7 @@ Index: linus/arch/ia64/kernel/Makefile
  obj-$(CONFIG_CRASH_DUMP)	+= crash_dump.o
 Index: linus/arch/ia64/kernel/cpe_migrate.c
 =================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linus/arch/ia64/kernel/cpe_migrate.c	2008-05-13 17:44:33.657066460 -0500
++++ linus/arch/ia64/kernel/cpe_migrate.c	2008-05-15 12:59:05.914698840 -0500
 @@ -0,0 +1,418 @@
 +/*
 + * File:	cpe_migrate.c
@@ -463,8 +463,8 @@ Index: linus/arch/ia64/kernel/cpe_migrate.c
 +MODULE_DESCRIPTION("ia64 Corrected Error page migration driver");
 +MODULE_LICENSE("GPL");
 Index: linus/arch/ia64/kernel/mca.c
-=================================--- linus.orig/arch/ia64/kernel/mca.c	2008-05-13 16:45:50.039583104 -0500
-+++ linus/arch/ia64/kernel/mca.c	2008-05-13 16:47:50.234362472 -0500
+=================================--- linus.orig/arch/ia64/kernel/mca.c	2008-05-14 15:36:06.822294012 -0500
++++ linus/arch/ia64/kernel/mca.c	2008-05-15 12:59:05.938701796 -0500
 @@ -68,6 +68,9 @@
   *
   * 2007-04-27 Russ Anderson <rja@sgi.com>
@@ -535,8 +535,8 @@ Index: linus/arch/ia64/kernel/mca.c
  	return IRQ_HANDLED;
  }
 Index: linus/arch/ia64/Kconfig
-=================================--- linus.orig/arch/ia64/Kconfig	2008-05-13 16:45:50.039583104 -0500
-+++ linus/arch/ia64/Kconfig	2008-05-13 17:16:14.077805136 -0500
+=================================--- linus.orig/arch/ia64/Kconfig	2008-05-14 15:36:06.826294509 -0500
++++ linus/arch/ia64/Kconfig	2008-05-15 12:59:05.962704753 -0500
 @@ -456,6 +456,15 @@ config COMPAT_FOR_U64_ALIGNMENT
  config IA64_MCA_RECOVERY
  	tristate "MCA recovery from errors other than TLB."
@@ -554,8 +554,8 @@ Index: linus/arch/ia64/Kconfig
  	bool "Performance monitor support"
  	help
 Index: linus/include/asm-ia64/mca.h
-=================================--- linus.orig/include/asm-ia64/mca.h	2008-05-13 16:45:50.039583104 -0500
-+++ linus/include/asm-ia64/mca.h	2008-05-13 17:26:41.519806327 -0500
+=================================--- linus.orig/include/asm-ia64/mca.h	2008-05-14 15:36:06.826294509 -0500
++++ linus/include/asm-ia64/mca.h	2008-05-15 12:59:05.986707709 -0500
 @@ -137,6 +137,7 @@ extern unsigned long __per_cpu_mca[NR_CP
  
  extern int cpe_vector;
@@ -579,8 +579,8 @@ Index: linus/include/asm-ia64/mca.h
  struct ia64_mca_notify_die {
  	struct ia64_sal_os_state *sos;
 Index: linus/mm/migrate.c
-=================================--- linus.orig/mm/migrate.c	2008-05-13 16:45:50.039583104 -0500
-+++ linus/mm/migrate.c	2008-05-13 16:47:50.322373295 -0500
+=================================--- linus.orig/mm/migrate.c	2008-05-15 12:59:04.978583534 -0500
++++ linus/mm/migrate.c	2008-05-15 12:59:06.006710173 -0500
 @@ -36,6 +36,7 @@
  #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
  
@@ -622,8 +622,8 @@ Index: linus/mm/migrate.c
  #ifdef CONFIG_NUMA
  /*
 Index: linus/include/asm-ia64/page.h
-=================================--- linus.orig/include/asm-ia64/page.h	2008-05-13 16:45:50.039583104 -0500
-+++ linus/include/asm-ia64/page.h	2008-05-13 16:47:50.354377231 -0500
+=================================--- linus.orig/include/asm-ia64/page.h	2008-05-14 15:36:06.826294509 -0500
++++ linus/include/asm-ia64/page.h	2008-05-15 12:59:06.022712144 -0500
 @@ -122,6 +122,7 @@ extern unsigned long max_low_pfn;
  #endif
  
