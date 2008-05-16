@@ -1,7 +1,7 @@
 From: Russ Anderson <rja@sgi.com>
-Date: Tue, 13 May 2008 23:01:39 +0000
-Subject: [PATCH 0/3] ia64: Migrate data off physical pages with correctable errors v4
-Message-Id: <20080513230139.GA26722@sgi.com>
+Date: Fri, 16 May 2008 19:22:01 +0000
+Subject: [PATCH 0/3] ia64: Migrate data off physical pages with correctable errors v5
+Message-Id: <20080516192201.GC7885@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080502004100.GA12006@sgi.com>
 In-Reply-To: <20080502004100.GA12006@sgi.com>
@@ -11,7 +11,12 @@ Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-	Migrate data off physical pages with corrected memory errors (Version 4)
+	Migrate data off physical pages with corrected memory errors (Version 5)
+
+Version 5 changes:
+	page.cleanup.v5: 
+	    - Change names to reflect the use and add comments to explain 
+		the meaning.  (per Linus Torvalds's request).
 
 Version 4 changes:
 	page.discard.v4:
