@@ -1,236 +1,138 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 23:07:56 +0000
-Subject: [PATCH 09/23] ia64/xen: implement arch specific part of xen grant table.
-Message-Id: <12112384911809-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:08:09 +0000
+Subject: [PATCH 22/23] ia64/xen: define xen machine vector for domU.
+Message-Id: <12112384923812-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <120771663046-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <120771663046-git-send-email-yamahata@valinux.co.jp>
+References: <12077166312115-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166312115-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Xen implements grant tables which is for sharing pages with
-guest domains.
-This patch implements arch specific part of grant table initialization.
-and xen_alloc_vm_area()/xen_free_vm_area() which are helper functions
-for xen grant table.
+define xen machine vector for domU.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile             |    2 +-
- arch/ia64/xen/grant-table.c        |  155 ++++++++++++++++++++++++++++++++++++
- include/asm-ia64/xen/grant_table.h |   29 +++++++
- 3 files changed, 185 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/grant-table.c
- create mode 100644 include/asm-ia64/xen/grant_table.h
+ arch/ia64/Makefile             |    2 ++
+ arch/ia64/kernel/acpi.c        |    5 +++++
+ arch/ia64/xen/Makefile         |    2 ++
+ arch/ia64/xen/machvec.c        |    4 ++++
+ include/asm-ia64/machvec.h     |    2 ++
+ include/asm-ia64/machvec_xen.h |   22 ++++++++++++++++++++++
+ 6 files changed, 37 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/machvec.c
+ create mode 100644 include/asm-ia64/machvec_xen.h
 
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index 3b9c8ca..60aaaaf 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -56,8 +56,10 @@ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_GENERIC) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
++core-$(CONFIG_IA64_XEN)		+= arch/ia64/dig/
+ core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
+ core-$(CONFIG_KVM) 		+= arch/ia64/kvm/
++core-$(CONFIG_XEN)		+= arch/ia64/xen/
+ 
+ drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
+ drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 853d1f1..f16be17 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -52,6 +52,7 @@
+ #include <asm/numa.h>
+ #include <asm/sal.h>
+ #include <asm/cyclone.h>
++#include <asm/xen/hypervisor.h>
+ 
+ #define BAD_MADT_ENTRY(entry, end) (                                        \
+ 		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+@@ -121,6 +122,8 @@ acpi_get_sysname(void)
+ 			return "uv";
+ 		else
+ 			return "sn2";
++	} else if (is_running_on_xen() && !strcmp(hdr->oem_id, "XEN")) {
++		return "xen";
+ 	}
+ 
+ 	return "dig";
+@@ -137,6 +140,8 @@ acpi_get_sysname(void)
+ 	return "uv";
+ # elif defined (CONFIG_IA64_DIG)
+ 	return "dig";
++# elif defined (CONFIG_IA64_XEN)
++	return "xen";
+ # else
+ #	error Unknown platform.  Fix acpi.c.
+ # endif
 diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index ae08822..eb59563 100644
+index ed31c76..972d085 100644
 --- a/arch/ia64/xen/Makefile
 +++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for Xen components
- #
+@@ -5,6 +5,8 @@
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+ 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
  
--obj-y := hypercall.o xencomm.o xcom_hcall.o
-+obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/grant-table.c b/arch/ia64/xen/grant-table.c
++obj-$(CONFIG_IA64_GENERIC) += machvec.o
++
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ 
+ # xen multi compile
+diff --git a/arch/ia64/xen/machvec.c b/arch/ia64/xen/machvec.c
 new file mode 100644
-index 0000000..777dd9a
+index 0000000..4ad588a
 --- /dev/null
-+++ b/arch/ia64/xen/grant-table.c
-@@ -0,0 +1,155 @@
-+/******************************************************************************
-+ * arch/ia64/xen/grant-table.c
-+ *
-+ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
++++ b/arch/ia64/xen/machvec.c
+@@ -0,0 +1,4 @@
++#define MACHVEC_PLATFORM_NAME           xen
++#define MACHVEC_PLATFORM_HEADER         <asm/machvec_xen.h>
++#include <asm/machvec_init.h>
 +
-+#include <linux/module.h>
-+#include <linux/vmalloc.h>
-+#include <linux/mm.h>
-+
-+#include <xen/interface/xen.h>
-+#include <xen/interface/memory.h>
-+#include <xen/grant_table.h>
-+
-+#include <asm/xen/hypervisor.h>
-+
-+struct vm_struct *xen_alloc_vm_area(unsigned long size)
-+{
-+	int order;
-+	unsigned long virt;
-+	unsigned long nr_pages;
-+	struct vm_struct *area;
-+
-+	order = get_order(size);
-+	virt = __get_free_pages(GFP_KERNEL, order);
-+	if (virt = 0)
-+		goto err0;
-+	nr_pages = 1 << order;
-+	scrub_pages(virt, nr_pages);
-+
-+	area = kmalloc(sizeof(*area), GFP_KERNEL);
-+	if (area = NULL)
-+		goto err1;
-+
-+	area->flags = VM_IOREMAP;
-+	area->addr = (void *)virt;
-+	area->size = size;
-+	area->pages = NULL;
-+	area->nr_pages = nr_pages;
-+	area->phys_addr = 0;	/* xenbus_map_ring_valloc uses this field!  */
-+
-+	return area;
-+
-+err1:
-+	free_pages(virt, order);
-+err0:
-+	return NULL;
-+}
-+EXPORT_SYMBOL_GPL(xen_alloc_vm_area);
-+
-+void xen_free_vm_area(struct vm_struct *area)
-+{
-+	unsigned int order = get_order(area->size);
-+	unsigned long i;
-+	unsigned long phys_addr = __pa(area->addr);
-+
-+	/* This area is used for foreign page mappping.
-+	 * So underlying machine page may not be assigned. */
-+	for (i = 0; i < (1 << order); i++) {
-+		unsigned long ret;
-+		unsigned long gpfn = (phys_addr >> PAGE_SHIFT) + i;
-+		struct xen_memory_reservation reservation = {
-+			.nr_extents   = 1,
-+			.address_bits = 0,
-+			.extent_order = 0,
-+			.domid        = DOMID_SELF
-+		};
-+		set_xen_guest_handle(reservation.extent_start, &gpfn);
-+		ret = HYPERVISOR_memory_op(XENMEM_populate_physmap,
-+					   &reservation);
-+		BUG_ON(ret != 1);
-+	}
-+	free_pages((unsigned long)area->addr, order);
-+	kfree(area);
-+}
-+EXPORT_SYMBOL_GPL(xen_free_vm_area);
-+
-+
-+/****************************************************************************
-+ * grant table hack
-+ * cmd: GNTTABOP_xxx
-+ */
-+
-+int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
-+			   unsigned long max_nr_gframes,
-+			   struct grant_entry **__shared)
-+{
-+	*__shared = __va(frames[0] << PAGE_SHIFT);
-+	return 0;
-+}
-+
-+void arch_gnttab_unmap_shared(struct grant_entry *shared,
-+			      unsigned long nr_gframes)
-+{
-+	/* nothing */
-+}
-+
-+static void
-+gnttab_map_grant_ref_pre(struct gnttab_map_grant_ref *uop)
-+{
-+	uint32_t flags;
-+
-+	flags = uop->flags;
-+
-+	if (flags & GNTMAP_host_map) {
-+		if (flags & GNTMAP_application_map) {
-+			printk(KERN_DEBUG
-+			       "GNTMAP_application_map is not supported yet: "
-+			       "flags 0x%x\n", flags);
-+			BUG();
-+		}
-+		if (flags & GNTMAP_contains_pte) {
-+			printk(KERN_DEBUG
-+			       "GNTMAP_contains_pte is not supported yet: "
-+			       "flags 0x%x\n", flags);
-+			BUG();
-+		}
-+	} else if (flags & GNTMAP_device_map) {
-+		printk("GNTMAP_device_map is not supported yet 0x%x\n", flags);
-+		BUG();	/* not yet. actually this flag is not used. */
-+	} else {
-+		BUG();
-+	}
-+}
-+
-+int
-+HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
-+{
-+	if (cmd = GNTTABOP_map_grant_ref) {
-+		unsigned int i;
-+		for (i = 0; i < count; i++) {
-+			gnttab_map_grant_ref_pre(
-+				(struct gnttab_map_grant_ref *)uop + i);
-+		}
-+	}
-+	return xencomm_hypercall_grant_table_op(cmd, uop, count);
-+}
-+
-+EXPORT_SYMBOL(HYPERVISOR_grant_table_op);
-diff --git a/include/asm-ia64/xen/grant_table.h b/include/asm-ia64/xen/grant_table.h
+diff --git a/include/asm-ia64/machvec.h b/include/asm-ia64/machvec.h
+index 0721a5e..d724342 100644
+--- a/include/asm-ia64/machvec.h
++++ b/include/asm-ia64/machvec.h
+@@ -128,6 +128,8 @@ extern void machvec_tlb_migrate_finish (struct mm_struct *);
+ #  include <asm/machvec_sn2.h>
+ # elif defined (CONFIG_IA64_SGI_UV)
+ #  include <asm/machvec_uv.h>
++# elif defined (CONFIG_IA64_XEN)
++#  include <asm/machvec_xen.h>
+ # elif defined (CONFIG_IA64_GENERIC)
+ 
+ # ifdef MACHVEC_PLATFORM_HEADER
+diff --git a/include/asm-ia64/machvec_xen.h b/include/asm-ia64/machvec_xen.h
 new file mode 100644
-index 0000000..ebdf2ea
+index 0000000..55f9228
 --- /dev/null
-+++ b/include/asm-ia64/xen/grant_table.h
-@@ -0,0 +1,29 @@
-+/******************************************************************************
-+ * include/asm-ia64/xen/grant_table.h
++++ b/include/asm-ia64/machvec_xen.h
+@@ -0,0 +1,22 @@
++#ifndef _ASM_IA64_MACHVEC_XEN_h
++#define _ASM_IA64_MACHVEC_XEN_h
++
++extern ia64_mv_setup_t			dig_setup;
++extern ia64_mv_cpu_init_t		xen_cpu_init;
++extern ia64_mv_irq_init_t		xen_irq_init;
++extern ia64_mv_send_ipi_t		xen_platform_send_ipi;
++
++/*
++ * This stuff has dual use!
 + *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
++ * For a generic kernel, the macros are used to initialize the
++ * platform's machvec structure.  When compiling a non-generic kernel,
++ * the macros are used directly.
 + */
++#define platform_name				"xen"
++#define platform_setup				dig_setup
++#define platform_cpu_init			xen_cpu_init
++#define platform_irq_init			xen_irq_init
++#define platform_send_ipi			xen_platform_send_ipi
 +
-+#ifndef _ASM_IA64_XEN_GRANT_TABLE_H
-+#define _ASM_IA64_XEN_GRANT_TABLE_H
-+
-+struct vm_struct *xen_alloc_vm_area(unsigned long size);
-+void xen_free_vm_area(struct vm_struct *area);
-+
-+#endif /* _ASM_IA64_XEN_GRANT_TABLE_H */
++#endif /* _ASM_IA64_MACHVEC_XEN_h */
 -- 
 1.5.3
 
