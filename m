@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 13:14:41 +0000
+Date: Mon, 19 May 2008 23:07:47 +0000
 Subject: [PATCH 00/23] ia64/xen domU take 6
-Message-Id: <12112028812997-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <12112384902859-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <12112028812997-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12112028812997-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
