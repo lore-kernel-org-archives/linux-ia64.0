@@ -1,167 +1,219 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 13:13:44 +0000
-Subject: [PATCH 17/17] ia64/pv_ops: add to hooks, pv_time_ops, for steal time accounting.
-Message-Id: <1211202825584-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 13:13:43 +0000
+Subject: [PATCH 16/17] ia64/pv_ops: add hooks, pv_irq_ops, to paravirtualized irq related operations.
+Message-Id: <12112028251082-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Introduce pv_time_ops which adds hook to steal time accounting.
-On virtualized environment, cpus are shared by many guests and
-steal time is the time which is used for other guests.
-On virtualized environtment, streal time should be accounted.
+introduce pv_irq_ops which adds hooks to paravirtualize irq related
+operations.
+On virtualized environment, interruption may be replaced by something
+virtualization friendly. So the irq related operation also may need
+paravirtualization.
+This patch adds necessary hooks to paravirtualize irq related operations.
 
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/paravirt.c |   15 +++++++++++++++
- arch/ia64/kernel/time.c     |   23 +++++++++++++++++++++++
- include/asm-ia64/paravirt.h |   32 ++++++++++++++++++++++++++++++++
- 3 files changed, 70 insertions(+), 0 deletions(-)
+ arch/ia64/kernel/irq_ia64.c |   18 +++++++++++----
+ arch/ia64/kernel/paravirt.c |   15 +++++++++++++
+ include/asm-ia64/hw_irq.h   |   23 +++++++++++++++++---
+ include/asm-ia64/paravirt.h |   48 +++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 95 insertions(+), 9 deletions(-)
 
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index c48171b..28d3d48 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -196,7 +196,7 @@ static void clear_irq_vector(int irq)
+ }
+ 
+ int
+-assign_irq_vector (int irq)
++ia64_native_assign_irq_vector (int irq)
+ {
+ 	unsigned long flags;
+ 	int vector, cpu;
+@@ -222,7 +222,7 @@ assign_irq_vector (int irq)
+ }
+ 
+ void
+-free_irq_vector (int vector)
++ia64_native_free_irq_vector (int vector)
+ {
+ 	if (vector < IA64_FIRST_DEVICE_VECTOR ||
+ 	    vector > IA64_LAST_DEVICE_VECTOR)
+@@ -622,7 +622,7 @@ static struct irqaction tlb_irqaction = {
+ #endif
+ 
+ void
+-register_percpu_irq (ia64_vector vec, struct irqaction *action)
++ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ {
+ 	irq_desc_t *desc;
+ 	unsigned int irq;
+@@ -637,13 +637,21 @@ register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ }
+ 
+ void __init
+-init_IRQ (void)
++ia64_native_register_ipi(void)
+ {
+-	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
+ #ifdef CONFIG_SMP
+ 	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
+ 	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
+ 	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
++#endif
++}
++
++void __init
++init_IRQ (void)
++{
++	ia64_register_ipi();
++	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
++#ifdef CONFIG_SMP
+ #if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_DIG)
+ 	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
+ 		BUG_ON(IA64_FIRST_DEVICE_VECTOR != IA64_IRQ_MOVE_VECTOR);
 diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index ba5383b..afaf5b9 100644
+index 65c211b..ba5383b 100644
 --- a/arch/ia64/kernel/paravirt.c
 +++ b/arch/ia64/kernel/paravirt.c
-@@ -352,3 +352,18 @@ struct pv_irq_ops pv_irq_ops = {
- 
- 	.resend_irq = ia64_native_resend_irq,
+@@ -337,3 +337,18 @@ struct pv_iosapic_ops pv_iosapic_ops = {
+ 	.__read = ia64_native_iosapic_read,
+ 	.__write = ia64_native_iosapic_write,
  };
 +
 +/***************************************************************************
-+ * pv_time_ops
-+ * time operations
++ * pv_irq_ops
++ * irq operations
 + */
 +
-+static int
-+ia64_native_do_steal_accounting(unsigned long *new_itm)
-+{
-+	return 0;
-+}
++struct pv_irq_ops pv_irq_ops = {
++	.register_ipi = ia64_native_register_ipi,
 +
-+struct pv_time_ops pv_time_ops = {
-+	.do_steal_accounting = ia64_native_do_steal_accounting,
++	.assign_irq_vector = ia64_native_assign_irq_vector,
++	.free_irq_vector = ia64_native_free_irq_vector,
++	.register_percpu_irq = ia64_native_register_percpu_irq,
++
++	.resend_irq = ia64_native_resend_irq,
 +};
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 8c73643..046ca89 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -24,6 +24,7 @@
- #include <asm/machvec.h>
- #include <asm/delay.h>
- #include <asm/hw_irq.h>
-+#include <asm/paravirt.h>
+diff --git a/include/asm-ia64/hw_irq.h b/include/asm-ia64/hw_irq.h
+index 76366dc..5c99cbc 100644
+--- a/include/asm-ia64/hw_irq.h
++++ b/include/asm-ia64/hw_irq.h
+@@ -15,7 +15,11 @@
  #include <asm/ptrace.h>
- #include <asm/sal.h>
- #include <asm/sections.h>
-@@ -48,6 +49,15 @@ EXPORT_SYMBOL(last_cli_ip);
+ #include <asm/smp.h>
  
++#ifndef CONFIG_PARAVIRT
+ typedef u8 ia64_vector;
++#else
++typedef u16 ia64_vector;
++#endif
+ 
+ /*
+  * 0 special
+@@ -104,13 +108,24 @@ DECLARE_PER_CPU(int[IA64_NUM_VECTORS], vector_irq);
+ 
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
+ 
++#ifdef CONFIG_PARAVIRT_GUEST
++#include <asm/paravirt.h>
++#else
++#define ia64_register_ipi	ia64_native_register_ipi
++#define assign_irq_vector	ia64_native_assign_irq_vector
++#define free_irq_vector		ia64_native_free_irq_vector
++#define register_percpu_irq	ia64_native_register_percpu_irq
++#define ia64_resend_irq		ia64_native_resend_irq
++#endif
++
++extern void ia64_native_register_ipi(void);
+ extern int bind_irq_vector(int irq, int vector, cpumask_t domain);
+-extern int assign_irq_vector (int irq);	/* allocate a free vector */
+-extern void free_irq_vector (int vector);
++extern int ia64_native_assign_irq_vector (int irq);	/* allocate a free vector */
++extern void ia64_native_free_irq_vector (int vector);
+ extern int reserve_irq_vector (int vector);
+ extern void __setup_vector_irq(int cpu);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+-extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
++extern void ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action);
+ extern int check_irq_used (int irq);
+ extern void destroy_and_reserve_irq (unsigned int irq);
+ 
+@@ -122,7 +137,7 @@ static inline int irq_prepare_move(int irq, int cpu) { return 0; }
+ static inline void irq_complete_move(unsigned int irq) {}
  #endif
  
-+#ifdef CONFIG_PARAVIRT
-+static void
-+paravirt_clocksource_resume(void)
-+{
-+	if (pv_time_ops.clocksource_resume)
-+		pv_time_ops.clocksource_resume();
-+}
-+#endif
-+
- static struct clocksource clocksource_itc = {
- 	.name           = "itc",
- 	.rating         = 350,
-@@ -56,6 +66,9 @@ static struct clocksource clocksource_itc = {
- 	.mult           = 0, /*to be calculated*/
- 	.shift          = 16,
- 	.flags          = CLOCK_SOURCE_IS_CONTINUOUS,
-+#ifdef CONFIG_PARAVIRT
-+	.resume		= paravirt_clocksource_resume,
-+#endif
- };
- static struct clocksource *itc_clocksource;
- 
-@@ -156,6 +169,9 @@ timer_interrupt (int irq, void *dev_id)
- 
- 	profile_tick(CPU_PROFILING);
- 
-+	if (paravirt_do_steal_accounting(&new_itm))
-+		goto skip_process_time_accounting;
-+
- 	while (1) {
- 		update_process_times(user_mode(get_irq_regs()));
- 
-@@ -185,6 +201,8 @@ timer_interrupt (int irq, void *dev_id)
- 		local_irq_disable();
- 	}
- 
-+skip_process_time_accounting:
-+
- 	do {
- 		/*
- 		 * If we're too close to the next clock tick for
-@@ -334,6 +352,11 @@ ia64_init_itm (void)
- 		 */
- 		clocksource_itc.rating = 50;
- 
-+	paravirt_init_missing_ticks_accounting(smp_processor_id());
-+
-+	/* avoid softlock up message when cpu is unplug and plugged again. */
-+	touch_softlockup_watchdog();
-+
- 	/* Setup the CPU local timer tick */
- 	ia64_cpu_local_tick();
- 
+-static inline void ia64_resend_irq(unsigned int vector)
++static inline void ia64_native_resend_irq(unsigned int vector)
+ {
+ 	platform_send_ipi(smp_processor_id(), vector, IA64_IPI_DM_INT, 0);
+ }
 diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
-index ee15646..1b4df12 100644
+index 3a40f62..ee15646 100644
 --- a/include/asm-ia64/paravirt.h
 +++ b/include/asm-ia64/paravirt.h
-@@ -200,6 +200,35 @@ ia64_resend_irq(unsigned int vector)
- 	pv_irq_ops.resend_irq(vector);
+@@ -152,6 +152,54 @@ __iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ 	return pv_iosapic_ops.__write(iosapic, reg, val);
  }
  
 +/******************************************************************************
-+ * replacement of time operations.
++ * replacement of irq operations.
 + */
 +
-+extern struct itc_jitter_data_t itc_jitter_data;
-+extern volatile int time_keeper_id;
++struct pv_irq_ops {
++	void (*register_ipi)(void);
 +
-+struct pv_time_ops {
-+	void (*init_missing_ticks_accounting)(int cpu);
-+	int (*do_steal_accounting)(unsigned long *new_itm);
++	int (*assign_irq_vector)(int irq);
++	void (*free_irq_vector)(int vector);
 +
-+	void (*clocksource_resume)(void);
++	void (*register_percpu_irq)(ia64_vector vec,
++				    struct irqaction *action);
++
++	void (*resend_irq)(unsigned int vector);
 +};
 +
-+extern struct pv_time_ops pv_time_ops;
++extern struct pv_irq_ops pv_irq_ops;
 +
 +static inline void
-+paravirt_init_missing_ticks_accounting(int cpu)
++ia64_register_ipi(void)
 +{
-+	if (pv_time_ops.init_missing_ticks_accounting)
-+		pv_time_ops.init_missing_ticks_accounting(cpu);
++	pv_irq_ops.register_ipi();
 +}
 +
 +static inline int
-+paravirt_do_steal_accounting(unsigned long *new_itm)
++assign_irq_vector(int irq)
 +{
-+	return pv_time_ops.do_steal_accounting(new_itm);
++	return pv_irq_ops.assign_irq_vector(irq);
++}
++
++static inline void
++free_irq_vector(int vector)
++{
++	return pv_irq_ops.free_irq_vector(vector);
++}
++
++static inline void
++register_percpu_irq(ia64_vector vec, struct irqaction *action)
++{
++	pv_irq_ops.register_percpu_irq(vec, action);
++}
++
++static inline void
++ia64_resend_irq(unsigned int vector)
++{
++	pv_irq_ops.resend_irq(vector);
 +}
 +
  #endif /* !__ASSEMBLY__ */
  
  #else
-@@ -215,6 +244,9 @@ ia64_resend_irq(unsigned int vector)
- #define paravirt_arch_setup_nomca()			0
- #define paravirt_post_smp_prepare_boot_cpu()		do { } while (0)
- 
-+#define paravirt_init_missing_ticks_accounting(cpu)	do { } while (0)
-+#define paravirt_do_steal_accounting(new_itm)		0
-+
- #endif /* __ASSEMBLY__ */
- 
- 
 -- 
 1.5.3
 
