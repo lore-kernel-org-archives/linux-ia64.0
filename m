@@ -1,149 +1,200 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Date: Fri, 02 May 2008 22:26:45 +0000
-Subject: [PATCH] Handle invalid ACPI SLIT table
-Message-Id: <20080502222645.GA25167@linux-os.sc.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:07:58 +0000
+Subject: [PATCH 11/23] ia64/pv_ops/xen: elf note based xen startup.
+Message-Id: <12112384912436-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BAE9DCEF64577A439B3A37F36F9B691C0339372B@orsmsx418.amr.corp.intel.com> <617E1C2C70743745A92448908E030B2A02AD5AD7@scsmsx411.amr.corp.intel.com>
-In-Reply-To: <617E1C2C70743745A92448908E030B2A02AD5AD7@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, "Luck, Tony" <tony.luck@intel.com>, Len Brown <lenb@kernel.org>, Arjan van de Ven <arjan@lin>
-Cc: linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+This patch enables elf note based xen startup for IA-64, which gives the
+kernel an early hint for running on xen like x86 case.
+In order to avoid the multi entry point, presumably extending booting
+protocol(i.e. extending struct ia64_boot_param) would be necessary.
+It probably means that elilo also needs modification.
 
-This is a SLIT sanity checking patch. It moves slit_valid() function to
-generic ACPI code and does sanity checking for both x86 and ia64. It sets up
-node_distance with LOCAL_DISTANCE and REMOTE_DISTANCE when hitting invalid SLIT
-table on ia64. It also cleans up unused variable localities in acpi_parse_slit()
-on x86. 
-
-Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
-
+Signed-off-by: Qing He <qing.he@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ arch/ia64/xen/Makefile     |    3 +-
+ arch/ia64/xen/xen_pv_ops.c |   65 ++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/xensetup.S   |   83 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 150 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xen_pv_ops.c
+ create mode 100644 arch/ia64/xen/xensetup.S
 
- arch/ia64/kernel/acpi.c |    9 +++++++--
- arch/x86/mm/srat_64.c   |   27 ---------------------------
- drivers/acpi/numa.c     |   31 +++++++++++++++++++++++++++----
- 3 files changed, 34 insertions(+), 33 deletions(-)
-
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index c7467f8..4f156f4 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -460,7 +460,6 @@ void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
- 		printk(KERN_ERR
- 		       "ACPI 2.0 SLIT: size mismatch: %d expected, %d actual\n",
- 		       len, slit->header.length);
--		memset(numa_slit, 10, sizeof(numa_slit));
- 		return;
- 	}
- 	slit_table = slit;
-@@ -569,8 +568,14 @@ void __init acpi_numa_arch_fixup(void)
- 	printk(KERN_INFO "Number of memory chunks in system = %d\n",
- 	       num_node_memblks);
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index eb59563..abc356f 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for Xen components
+ #
  
--	if (!slit_table)
-+	if (!slit_table) {
-+		for (i = 0; i < MAX_NUMNODES; i++)
-+			for (j = 0; j < MAX_NUMNODES; j++)
-+				node_distance(i, j) = i = j ? LOCAL_DISTANCE :
-+							REMOTE_DISTANCE;
- 		return;
-+	}
-+
- 	memset(numa_slit, -1, sizeof(numa_slit));
- 	for (i = 0; i < slit_table->locality_count; i++) {
- 		if (!pxm_bit_test(i))
-diff --git a/arch/x86/mm/srat_64.c b/arch/x86/mm/srat_64.c
-index 3890234..99649dc 100644
---- a/arch/x86/mm/srat_64.c
-+++ b/arch/x86/mm/srat_64.c
-@@ -97,36 +97,9 @@ static __init inline int srat_disabled(void)
- 	return numa_off || acpi_numa < 0;
- }
- 
--/*
-- * A lot of BIOS fill in 10 (= no distance) everywhere. This messes
-- * up the NUMA heuristics which wants the local node to have a smaller
-- * distance than the others.
-- * Do some quick checks here and only use the SLIT if it passes.
-- */
--static __init int slit_valid(struct acpi_table_slit *slit)
--{
--	int i, j;
--	int d = slit->locality_count;
--	for (i = 0; i < d; i++) {
--		for (j = 0; j < d; j++)  {
--			u8 val = slit->entry[d*i + j];
--			if (i = j) {
--				if (val != LOCAL_DISTANCE)
--					return 0;
--			} else if (val <= LOCAL_DISTANCE)
--				return 0;
--		}
--	}
--	return 1;
--}
--
- /* Callback for SLIT parsing */
- void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
- {
--	if (!slit_valid(slit)) {
--		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
--		return;
--	}
- 	acpi_slit = slit;
- }
- 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 5d59cb3..658e5f3 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -140,19 +140,42 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
- 	}
- }
- 
-+/*
-+ * A lot of BIOS fill in 10 (= no distance) everywhere. This messes
-+ * up the NUMA heuristics which wants the local node to have a smaller
-+ * distance than the others.
-+ * Do some quick checks here and only use the SLIT if it passes.
+-obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
++obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++	xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+new file mode 100644
+index 0000000..77db214
+--- /dev/null
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -0,0 +1,65 @@
++/******************************************************************************
++ * arch/ia64/xen/xen_pv_ops.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
-+static __init int slit_valid(struct acpi_table_slit *slit)
++
++#include <linux/console.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/pm.h>
++
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/xencomm.h>
++#include <asm/xen/privop.h>
++
++/***************************************************************************
++ * general info
++ */
++static struct pv_info xen_info __initdata = {
++	.kernel_rpl = 2,	/* or 1: determin at runtime */
++	.paravirt_enabled = 1,
++	.name = "Xen/ia64",
++};
++
++#define IA64_RSC_PL_SHIFT	2
++#define IA64_RSC_PL_BIT_SIZE	2
++#define IA64_RSC_PL_MASK	\
++	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
++
++static void __init
++xen_info_init(void)
 +{
-+	int i, j;
-+	int d = slit->locality_count;
-+	for (i = 0; i < d; i++) {
-+		for (j = 0; j < d; j++)  {
-+			u8 val = slit->entry[d*i + j];
-+			if (i = j) {
-+				if (val != LOCAL_DISTANCE)
-+					return 0;
-+			} else if (val <= LOCAL_DISTANCE)
-+				return 0;
-+		}
-+	}
-+	return 1;
++	/* Xenified Linux/ia64 may run on pl = 1 or 2.
++	 * determin at run time. */
++	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
++	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
++	xen_info.kernel_rpl = rpl;
 +}
 +
- static int __init acpi_parse_slit(struct acpi_table_header *table)
- {
- 	struct acpi_table_slit *slit;
--	u32 localities;
- 
- 	if (!table)
- 		return -EINVAL;
- 
- 	slit = (struct acpi_table_slit *)table;
- 
--	/* downcast just for %llu vs %lu for i386/ia64  */
--	localities = (u32) slit->locality_count;
--
-+	if (!slit_valid(slit)) {
-+		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
-+		return -EINVAL;
-+	}
- 	acpi_numa_slit_init(slit);
- 
- 	return 0;
++/***************************************************************************
++ * pv_ops initialization
++ */
++
++void __init
++xen_setup_pv_ops(void)
++{
++	xen_info_init();
++	pv_info = xen_info;
++}
+diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
+new file mode 100644
+index 0000000..7d71333
+--- /dev/null
++++ b/arch/ia64/xen/xensetup.S
+@@ -0,0 +1,83 @@
++/*
++ * Support routines for Xen
++ *
++ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ */
++
++#include <asm/processor.h>
++#include <asm/asmmacro.h>
++#include <asm/pgtable.h>
++#include <asm/system.h>
++#include <asm/paravirt.h>
++#include <asm/xen/privop.h>
++#include <linux/elfnote.h>
++#include <linux/init.h>
++#include <xen/interface/elfnote.h>
++
++	.section .data.read_mostly
++	.align 8
++	.global running_on_xen
++running_on_xen:
++	data4 0
++	.previous
++
++	__INIT
++ENTRY(startup_xen)
++	// Calculate load offset.
++	// The constant, LOAD_OFFSET, can't be used because the boot
++	// loader doesn't always load to the LMA specified by the vmlinux.lds.
++	mov r9=ip	// must be the first instruction to make sure
++			// that r9 = the physical address of startup_xen.
++			// Usually r9 = startup_xen - LOAD_OFFSET
++	movl r8=startup_xen
++	;;
++	sub r9=r9,r8	// Usually r9 = -LOAD_OFFSET.
++
++	mov r10=PARAVIRT_HYPERVISOR_TYPE_XEN
++	movl r11=_start
++	;;
++	add r11=r11,r9
++	movl r8=hypervisor_type
++	;;
++	add r8=r8,r9
++	mov b0=r11
++	;;
++	st8 [r8]=r10
++	br.cond.sptk.many b0
++	;;
++END(startup_xen)
++
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,	.asciz "linux")
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,	.asciz "2.6")
++	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,	.asciz "xen-3.0")
++	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,		data8.ua startup_xen - LOAD_OFFSET)
++
++#define isBP	p3	// are we the Bootstrap Processor?
++
++	.text
++
++GLOBAL_ENTRY(xen_setup_hook)
++	mov r8=1		// booleanize.
++(isBP)	movl r9=running_on_xen;;
++(isBP)	st4 [r9]=r8
++	movl r10=xen_ivt;;
++
++	mov cr.iva=r10
++
++	/* Set xsi base.  */
++#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
++(isBP)	mov r2=FW_HYPERCALL_SET_SHARED_INFO_VA
++(isBP)	movl r28=XSI_BASE;;
++(isBP)	break 0x1000;;
++
++	/* setup pv_ops */
++(isBP)	mov r4=rp
++	;;
++(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
++	;;
++(isBP)	mov rp=r4
++	;;
++
++	br.ret.sptk.many rp
++	;;
++END(xen_setup_hook)
+-- 
+1.5.3
+
