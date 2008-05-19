@@ -1,88 +1,125 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 23:07:48 +0000
-Subject: [PATCH 01/23] ia64/xen: introduce synch bitops which is necessary for ia64/xen support.
-Message-Id: <12112384901753-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:08:03 +0000
+Subject: [PATCH 16/23] ia64/pv_ops/xen: paravirtualize ivt.S for xen.
+Message-Id: <12112384913552-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166303062-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166303062-git-send-email-yamahata@valinux.co.jp>
+References: <12077166303274-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166303274-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define sync bitops which is necessary for ia64/xen.
+paravirtualize ivt.S for xen by multi compile.
 
-Cc: Robin Holt <holt@sgi.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/asm-ia64/sync_bitops.h |   57 ++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 57 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/sync_bitops.h
+ arch/ia64/xen/Makefile      |   16 +++++++++++-
+ arch/ia64/xen/xenivt.S      |   57 +++++++++++++++++++++++++++++++++++++++++++
+ include/asm-ia64/xen/inst.h |    1 +
+ 3 files changed, 73 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xenivt.S
 
-diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
-new file mode 100644
-index 0000000..27dc777
---- /dev/null
-+++ b/include/asm-ia64/sync_bitops.h
-@@ -0,0 +1,57 @@
-+#ifndef _ASM_IA64_SYNC_BITOPS_H
-+#define _ASM_IA64_SYNC_BITOPS_H
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 7cb4247..5c87e4a 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,5 +2,19 @@
+ # Makefile for Xen components
+ #
+ 
+-obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
+ 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
 +
++AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++
++# xen multi compile
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
++ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
++obj-y += $(ASM_PARAVIRT_OBJS)
++define paravirtualized_xen
++AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++endef
++$(foreach o,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_xen,$(o))))
++
++$(obj)/xen-%.o: $(src)/../kernel/%.S FORCE
++	$(call if_changed_dep,as_o_S)
+diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
+new file mode 100644
+index 0000000..9e322ea
+--- /dev/null
++++ b/arch/ia64/xen/xenivt.S
+@@ -0,0 +1,57 @@
 +/*
-+ * Copyright 1992, Linus Torvalds.
-+ * Heavily modified to provide guaranteed strong synchronisation
-+ * when communicating with Xen or other guest OSes running on other CPUs.
++ * arch/ia64/xen/ivt.S
++ *
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *                    pv_ops.
 + */
 +
-+static inline void sync_set_bit(int nr, volatile void *addr)
-+{
-+	set_bit(nr, addr);
-+}
++#include <asm/asmmacro.h>
++#include <asm/kregs.h>
++#include <asm/pgtable.h>
 +
-+static inline void sync_clear_bit(int nr, volatile void *addr)
-+{
-+	clear_bit(nr, addr);
-+}
++#include "../kernel/minstate.h"
 +
-+static inline void sync_change_bit(int nr, volatile void *addr)
-+{
-+	change_bit(nr, addr);
-+}
++	.section .text,"ax"
++GLOBAL_ENTRY(xen_event_callback)
++	mov r31=pr		// prepare to save predicates
++	;;
++	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
++	;;
++	movl r3=XSI_PSR_IC
++	mov r14=1
++	;;
++	st4 [r3]=r14
++	;;
++	adds r3=8,r2		// set up second base pointer for SAVE_REST
++	srlz.i			// ensure everybody knows psr.ic is back on
++	;;
++	SAVE_REST
++	;;
++1:
++	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
++	add out0,sp		// pass pointer to pt_regs as first arg
++	;;
++	br.call.sptk.many b0=xen_evtchn_do_upcall
++	;;
++	movl r20=XSI_PSR_I_ADDR
++	;;
++	ld8 r20=[r20]
++	;;
++	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
++	;;
++	ld1 r20=[r20]
++	;;
++	cmp.ne p6,p0=r20,r0	// if there are pending events,
++	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
++	br.sptk.many xen_leave_kernel	// we know ia64_leave_kernel is
++					// paravirtualized as xen_leave_kernel
++END(xen_event_callback)
 +
-+static inline int sync_test_and_set_bit(int nr, volatile void *addr)
-+{
-+	return test_and_set_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
-+{
-+	return test_and_clear_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_change_bit(int nr, volatile void *addr)
-+{
-+	return test_and_change_bit(nr, addr);
-+}
-+
-+static inline int sync_const_test_bit(int nr, const volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+static inline int sync_var_test_bit(int nr, volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+#define sync_cmpxchg(ptr, old, new) cmpxchg_acq((ptr), (old), (new))
-+
-+#define sync_test_bit(nr,addr)			\
-+	(__builtin_constant_p(nr) ?		\
-+	 sync_const_test_bit((nr), (addr)) :	\
-+	 sync_var_test_bit((nr), (addr)))
-+
-+#endif /* _ASM_IA64_SYNC_BITOPS_H */
++GLOBAL_ENTRY(xen_bsw1)
++	XEN_BSW_1(r14)
++	br.ret.sptk.many b0
++END(xen_bsw1)
+diff --git a/include/asm-ia64/xen/inst.h b/include/asm-ia64/xen/inst.h
+index 93bceae..e1e4435 100644
+--- a/include/asm-ia64/xen/inst.h
++++ b/include/asm-ia64/xen/inst.h
+@@ -22,6 +22,7 @@
+ 
+ #include <asm/xen/privop.h>
+ 
++#define ia64_ivt				xen_ivt
+ #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
+ 
+ #define MOV_FROM_IFA(reg)	\
 -- 
 1.5.3
 
