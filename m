@@ -1,68 +1,154 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 09 May 2008 06:26:51 +0000
-Subject: [PATCH] ia64: trivial cleanup for entry.S
-Message-Id: <4823EEAB.10607@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 13:13:32 +0000
+Subject: [PATCH 05/17] ia64/pv_ops: introduce pv_info which describes some random info.
+Message-Id: <12112028251117-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch does:
- - make comment at next to resched check more robust
- - move "re-check" comments to next to where change predicate regs
+introduce pv_info which describes some randome info about
+underlying execution environment.
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Jes Sorensen <jes@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/entry.S |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
+ arch/ia64/kernel/Makefile   |    2 +
+ arch/ia64/kernel/paravirt.c |   41 ++++++++++++++++++++++++++++
+ include/asm-ia64/paravirt.h |   62 +++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 105 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/kernel/paravirt.c
+ create mode 100644 include/asm-ia64/paravirt.h
 
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index ef6b031..ca2bb95 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1167,7 +1167,7 @@ skip_rbs_switch:
- 	st8 [r2]=r8
- 	st8 [r3]=r10
- .work_pending:
--	tbit.z p6,p0=r31,TIF_NEED_RESCHED		// current_thread_info()->need_resched=0?
-+	tbit.z p6,p0=r31,TIF_NEED_RESCHED	// is resched not needed?
- (p6)	br.cond.sptk.few .notify
- #ifdef CONFIG_PREEMPT
- (pKStk) dep r21=-1,r0,PREEMPT_ACTIVE_BIT,1
-@@ -1176,7 +1176,7 @@ skip_rbs_switch:
- #endif
- 	ssm psr.i		// enable interrupts
- 	br.call.spnt.many rp=schedule
--.ret9:	cmp.eq p6,p0=r0,r0				// p6 <- 1
-+.ret9:	cmp.eq p6,p0=r0,r0	// p6 <- 1 (re-check)
- 	rsm psr.i		// disable interrupts
- 	;;
- #ifdef CONFIG_PREEMPT
-@@ -1185,13 +1185,13 @@ skip_rbs_switch:
- (pKStk)	st4 [r20]=r0		// preempt_count() <- 0
- #endif
- (pLvSys)br.cond.sptk.few  .work_pending_syscall_end
--	br.cond.sptk.many .work_processed_kernel	// re-check
-+	br.cond.sptk.many .work_processed_kernel
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 13fd10e..10a4ddb 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -36,6 +36,8 @@ obj-$(CONFIG_PCI_MSI)		+= msi_ia64.o
+ mca_recovery-y			+= mca_drv.o mca_drv_asm.o
+ obj-$(CONFIG_IA64_MC_ERR_INJECT)+= err_inject.o
  
- .notify:
- (pUStk)	br.call.spnt.many rp=notify_resume_user
--.ret10:	cmp.ne p6,p0=r0,r0				// p6 <- 0
-+.ret10:	cmp.ne p6,p0=r0,r0	// p6 <- 0 (don't re-check)
- (pLvSys)br.cond.sptk.few  .work_pending_syscall_end
--	br.cond.sptk.many .work_processed_kernel	// don't re-check
-+	br.cond.sptk.many .work_processed_kernel
- 
- .work_pending_syscall_end:
- 	adds r2=PT(R8)+16,r12
-@@ -1199,7 +1199,7 @@ skip_rbs_switch:
- 	;;
- 	ld8 r8=[r2]
- 	ld8 r10=[r3]
--	br.cond.sptk.many .work_processed_syscall	// re-check
-+	br.cond.sptk.many .work_processed_syscall
- 
- END(ia64_leave_kernel)
- 
++obj-$(CONFIG_PARAVIRT)		+= paravirt.o
++
+ obj-$(CONFIG_IA64_ESI)		+= esi.o
+ ifneq ($(CONFIG_IA64_ESI),)
+ obj-y				+= esi_stub.o	# must be in kernel proper
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+new file mode 100644
+index 0000000..d295ea5
+--- /dev/null
++++ b/arch/ia64/kernel/paravirt.c
+@@ -0,0 +1,41 @@
++/******************************************************************************
++ * arch/ia64/kernel/paravirt.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *     Yaozu (Eddie) Dong <eddie.dong@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <linux/init.h>
++
++#include <linux/compiler.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++#include <linux/types.h>
++
++#include <asm/iosapic.h>
++#include <asm/paravirt.h>
++
++/***************************************************************************
++ * general info
++ */
++struct pv_info pv_info = {
++	.kernel_rpl = 0,
++	.paravirt_enabled = 0,
++	.name = "bare hardware"
++};
+diff --git a/include/asm-ia64/paravirt.h b/include/asm-ia64/paravirt.h
+new file mode 100644
+index 0000000..26b4334
+--- /dev/null
++++ b/include/asm-ia64/paravirt.h
+@@ -0,0 +1,62 @@
++/******************************************************************************
++ * include/asm-ia64/paravirt.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++
++#ifndef __ASM_PARAVIRT_H
++#define __ASM_PARAVIRT_H
++
++#ifdef CONFIG_PARAVIRT_GUEST
++
++#ifndef __ASSEMBLY__
++
++#include <asm/hw_irq.h>
++#include <asm/meminit.h>
++
++/******************************************************************************
++ * general info
++ */
++struct pv_info {
++	unsigned int kernel_rpl;
++	int paravirt_enabled;
++	const char *name;
++};
++
++extern struct pv_info pv_info;
++
++static inline int paravirt_enabled(void)
++{
++	return pv_info.paravirt_enabled;
++}
++
++static inline unsigned int get_kernel_rpl(void)
++{
++	return pv_info.kernel_rpl;
++}
++
++#endif /* !__ASSEMBLY__ */
++
++#else
++/* fallback for native case */
++
++#endif /* CONFIG_PARAVIRT_GUEST */
++
++#endif /* __ASM_PARAVIRT_H */
+-- 
+1.5.3
 
