@@ -1,181 +1,98 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 16 May 2008 19:22:01 +0000
-Subject: [PATCH 0/3] ia64: Migrate data off physical pages with correctable errors v5
-Message-Id: <20080516192201.GC7885@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:07:52 +0000
+Subject: [PATCH 05/23] ia64/xen: define helper functions for xen related address conversion.
+Message-Id: <12112384913566-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080502004100.GA12006@sgi.com>
-In-Reply-To: <20080502004100.GA12006@sgi.com>
+References: <12077166302402-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166302402-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-	Migrate data off physical pages with corrected memory errors (Version 5)
+Xen needs some address conversions between pseudo physical
+address (guest phsyical address), guest machine address
+(real machine address) and dma address.
+Define helper functions for those address conversion.
 
-Version 5 changes:
-	page.cleanup.v5: 
-	    - Change names to reflect the use and add comments to explain 
-		the meaning.  (per Linus Torvalds's request).
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ include/asm-ia64/xen/page.h |   65 +++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 65 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/page.h
 
-Version 4 changes:
-	page.discard.v4:
-	    - Remove the hot path checks in lru_cache_add() and
-		lru_cache_add_active().   Avoid moving the bad page to
-		the LRU in unmap_and_move() and putback_lru_pages().
-		(per Linus Torvalds's request).
-
-	cpe.migrate.v4
-	    - More code style cleanup (per Andrew Morton's request).
-	    - Removed locking when calling the migration code
-		(per Christoph Lameter's request).
-	    - If the page fails to migrate, clear the PG_memerror flag.
-	      This avoids a page with PG_memerror on the free list.
-
-Version 3 changes:
-	page.cleanup.v3: 
-	    - Put PAGE_FLAGS definitions back in page-flags.h 
-		(per Christoph Lameter's request).
-
-	cpe.migrate.v3
-	    - Use putback_lru_pages() when returning an individual page
-		(per Christoph Lameter's request).
-	    - Code style cleanup 
-		(per Pekka Enberg's request).
-	    - Use strict_strtoul()
-		(per Pekka Enberg's request).
-	    - Added locking
-		(per Pekka Enberg's request).
-	    - Use /sys/kernel/ instead of /proc
-		(per Pekka Enberg's request).
-
-Version 2 changes:
-
-	Broke the page.discard patch into two patches, per request by 
-	Christoph Lameter.  
-
-	page.cleanup.v2: 
-	    - minor clean-up of page flags in page_alloc.c.  
-
-	page.discard.v2:
-	    - Updated for recent page flag clean-up.
-	    - Removed the change to the sysinfo struct.
-
-	cpe.migrate.v2
-	    - Added /proc/badram interface to print page discard
-	      information and to free bad pages.
-
-Purpose:
-
-	Physical memory with corrected errors may decay over time into
-	uncorrectable errors.  The purpose of this patch is to move the
-	data off pages with correctable memory errors before the memory
-	goes bad.
-
-The patches:
-
-  [1/3] page.cleanup.v4: Minor clean-up of page flags in mm/page_alloc.c
-
-	Minor source code clean-up of page flags in mm/page_alloc.c.
-	No functional change.
-
-  [2/3] page.discard.v4: Avoid putting a bad page back on the LRU.
-
-	page.discard.v4 are the arch independent changes.  It adds a new
-	page flag (PG_memerror) to mark the page as bad and avoids calling
-	routines that would put the page back on the LRU.  The reference
-	count on the bad page is not decremented to zero.  PG_memerror is
-	only defined on 64 bit architectures. 
-
-  [3/3] cpe.migrate.v4: Call migration code on correctable errors
-
-	cpe.migrate.v4 are the IA64 specific changes.  It connects the CPE
-	handler to the page migration code.  It is implemented as a kernel
-	loadable module, similar to the mca recovery code (mca_recovery.ko),
-	so that it can be removed to turn off the feature.  Create
-	/sys/kernel/badram to print page discard information and to free
-	bad pages.
-
-Comments:
-
-	There is always an issue of how agressive the code should be on
-	migrating pages.  Should it migrate on the first correctable error,
-	or wait for some threshold?  Reasonable people may disagree on the
-	threshold and the "right" answer may be hardware specific.  The 
-	decision making is confined to the cpe_migrate.c code.  It is
-	currently set to migrate on the first correctable error.
-
-	Only pages that can be isolated on the LRU are migrated.  Other
-	pages, such as compound pages, are not migrated.  That functionality
-	could be a future enhancement.
-
-	/sys/kernel/badram is a way of displaying information about the bad
-	memory and freeing the bad pages.  A userspace program (or sysadmin)
-	could determine if a discarded page needs to be freed.
-
-Sample output:
-
-	linux> insmod cpe_migrate.ko
-	linux> cat /sys/kernel/badram			// This shows no discarded memory
-	Bad RAM: 0 kB, 0 pages marked bad
-	List of bad physical pages
-
-	linux> ./errsingle -c 6 -s 1		// Inject correctable errors on
-						// six pages.
-	linux> cat /sys/kernel/badram
-	Bad RAM: 384 kB, 6 pages marked bad
-	List of bad physical pages
-	  0x06048e10000  0x06870c40000  0x06870c20000  0x06870c10000  0x06007f00000
-	  0x06042070000
-
-	linux> echo 0x06870c20000 > /sys/kernel/badram	// Free one of the pages
-
-	linux> cat /sys/kernel/badram			// Five pages remain on the list
-	Bad RAM: 320 kB, 5 pages marked bad
-	List of bad physical pages
-	  0x06048e10000  0x06870c40000  0x06870c10000  0x06007f00000  0x06042070000
-
-	linux> echo 0 > /sys/kernel/badram		// Free all the bad pages
-	linux> cat /sys/kernel/badram			// All the pages are freed
-	Bad RAM: 0 kB, 0 pages marked bad
-	List of bad physical pages
-
-
-
-Flow of the code description (while testing on IA64):
-
-	1) A user level application test program allocates memory and
-	   passes the virtual address of the memory to the error injection
-	   driver.
-
-	2) The error injection driver converts the virtual address to
-	   physical, functions the Altix hardware to modify the ECC for the
-	   physical page, creating a correctable error, and returns to the
-	   user application.
-
-	3) The user application reads the memory.
-
-	4) The Altix hardware detects the correctable error and interrupts
-	   prom.  SAL builds a CPU error record, then sends a CPE 
-	   interrupt to linux.
-
-	5) The linux CPE handler calls the cpe_migrate module (if installed).
-
-	6) cpe_migrate parses the physical address from the CPE record and
-	   adds the address to the migrate list (if not already on the list)
-	   and schedules the worker thread (cpe_enable_work).
-
-	7) cpe_enable_work calls ia64_mca_cpe_move_page.
-
-	8) ia64_mca_cpe_move_page validates the physical address, converts
-	   to page, sets PG_memerror flag and calls the migration code
-	   (migrate_prep(), isolate_lru_page(), and migrate_pages().  If the
-	   page migrates successfully, the bad page is added to badpagelist.
-
-	9) Because PG_memerror is set, the bad page is not added back on the LRU
-	   by avoiding calls to move_to_lru().  Avoiding move_to_lru() prevents
-	   the page count from being decremented to zero.
-
+diff --git a/include/asm-ia64/xen/page.h b/include/asm-ia64/xen/page.h
+new file mode 100644
+index 0000000..c3c18f9
+--- /dev/null
++++ b/include/asm-ia64/xen/page.h
+@@ -0,0 +1,65 @@
++/******************************************************************************
++ * include/asm-ia64/xen/page.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#ifndef _ASM_IA64_XEN_PAGE_H
++#define _ASM_IA64_XEN_PAGE_H
++
++#define INVALID_P2M_ENTRY	(~0UL)
++
++static inline unsigned long mfn_to_pfn(unsigned long mfn)
++{
++	return mfn;
++}
++
++static inline unsigned long pfn_to_mfn(unsigned long pfn)
++{
++	return pfn;
++}
++
++#define phys_to_machine_mapping_valid(_x)	(1)
++
++static inline void *mfn_to_virt(unsigned long mfn)
++{
++	return __va(mfn << PAGE_SHIFT);
++}
++
++static inline unsigned long virt_to_mfn(void *virt)
++{
++	return __pa(virt) >> PAGE_SHIFT;
++}
++
++/* for tpmfront.c */
++static inline unsigned long virt_to_machine(void *virt)
++{
++	return __pa(virt);
++}
++
++static inline void set_phys_to_machine(unsigned long pfn, unsigned long mfn)
++{
++	/* nothing */
++}
++
++#define pte_mfn(_x)	pte_pfn(_x)
++#define mfn_pte(_x, _y)	__pte_ma(0)		/* unmodified use */
++#define __pte_ma(_x)	((pte_t) {(_x)})        /* unmodified use */
++
++#endif /* _ASM_IA64_XEN_PAGE_H */
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+1.5.3
+
