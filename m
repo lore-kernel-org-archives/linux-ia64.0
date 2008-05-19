@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@sgi.com>
-Date: Mon, 19 May 2008 12:25:51 +0000
+Date: Mon, 19 May 2008 12:51:28 +0000
 Subject: Re: ld2.acq - sign extension?
-Message-Id: <483171CF.5060701@sgi.com>
+Message-Id: <yq0od72ihin.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <yq0wslqiqyp.fsf@jaguar.mkp.net>
 In-Reply-To: <yq0wslqiqyp.fsf@jaguar.mkp.net>
@@ -10,23 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matthew Chapman wrote:
-> Jes,
-> 
-> You mentioned that you're running on KVM... while I don't know much
-> about how KVM works, is that load instruction being intercepted and
-> emulated by any chance?  (Considering that it looks like something that
-> would be accessing hardware registers on a real machine.)  A bug in that
-> emulation could explain why it's behaving strangely...
+>>>>> "Avi" = Avi Kivity <avi@qumranet.com> writes:
 
-Hi Matt,
+Avi> Jes Sorensen wrote:
+Avi> r17 is used later on, so your patch makes it uninitialized (if I
+Avi> may venture to comment about an assembly language I know nothing
+Avi> about).
 
-That has to be the reason - I was sitting here being convinced it
-wasn't emulated because it's not a priviledged instruction, but
-obviously it is given it's accessing the emulated registers.
+Oh, on ia64 the sequence is [dest] = [src] so the register usage is
+covered I believe.
 
-Next I need to figure out how thats handled, whether it's a KVM bug
-a hypervisor bug ..... all this fun we are having.
+Avi> Maybe a bug in the instruction emulator?
+
+Yeah it smells like it, that or in QEMU. I am not quite sure who is
+responsible for this part. Does QEMU just provide registers somewhere
+else and the instruction emulation reads them out of the QEMU share
+space, or is there some other magic going on?
 
 Cheers,
 Jes
