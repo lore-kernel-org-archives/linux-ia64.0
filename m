@@ -1,39 +1,93 @@
-From: Robert Richter <robert.richter@amd.com>
-Date: Thu, 08 May 2008 10:11:14 +0000
-Subject: Re: 2.6.25 new perfmon kernel patch + libpfm + pfmon available
-Message-Id: <20080508101113.GB3267@erda.amd.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:08:05 +0000
+Subject: [PATCH 18/23] ia64/pv_ops/xen: implement xen pv_iosapic_ops.
+Message-Id: <1211238491767-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470804291446l4693b317ha7ee2382d00e99e6@mail.gmail.com> <7c86c4470804291447w713934a7o2b8a5a690fc9a535@mail.gmail.com> <20080429080853.48c66b29@infradead.org> <7c86c4470804300611s7442fe11lba2b66f5a3a8ed88@mail.gmail.com> <20080429083334.1a019318@infradead.org> <7c86c4470804300651u5a8fc98dr56fd1834ba902a0e@mail.gmail.com> <20080429094218.170a349c@infradead.org>
-In-Reply-To: <20080429094218.170a349c@infradead.org>
+References: <1207716630468-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1207716630468-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arjan van de Ven <arjan@infradead.org>
-Cc: stephane eranian <eranian@googlemail.com>, linux-kernel@vger.kernel.org, ia64 <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-On 29.04.08 09:42:18, Arjan van de Ven wrote:
-> On Wed, 30 Apr 2008 15:51:39 +0200
-> "stephane eranian" <eranian@googlemail.com> wrote:
-> 
-> > If I recall, AMD said that this special initialization would
-> > eventually migrate into the core kernel. The pci_read() may be there
-> > because it was not exported by the kernel (this particular code lives
-> > in a kernel module).
-> 
-> ... yet your patch adds an EXPORT_SYMBOL() just to make this specific function possible. Weird.
-> 
-> I find it hard to believe that there would be no code in the kernel to
-> read or write config space of a device you have..... :)
-> In fact I bet 80% of the drivers in the tree use it.
+implement xen pv_iosapic_ops for xen paravirtualized
+iosapic.
 
-Access to extended config space for AMD northbridges was not yet
-implemented. Recent patches from Yinghai Lu fix this. I will send a
-patch that uses the in-kernel functions.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/xen/xen_pv_ops.c |   52 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
 
--Robert
-
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index e483d47..97c882a 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -290,6 +290,57 @@ const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
+ };
+ 
+ /***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
++ */
++static void
++xen_pcat_compat_init(void)
++{
++	/* nothing */
++}
++
++static struct irq_chip*
++xen_iosapic_get_irq_chip(unsigned long trigger)
++{
++	return NULL;
++}
++
++static unsigned int
++xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	struct physdev_apic apic_op;
++	int ret;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
++	if (ret)
++		return ret;
++	return apic_op.value;
++}
++
++static void
++xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	struct physdev_apic apic_op;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	apic_op.value = val;
++	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
++}
++
++static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
++	.pcat_compat_init = xen_pcat_compat_init,
++	.get_irq_chip = xen_iosapic_get_irq_chip,
++
++	.__read = xen_iosapic_read,
++	.__write = xen_iosapic_write,
++};
++
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -300,6 +351,7 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++	pv_iosapic_ops = xen_iosapic_ops;
+ 
+ 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+ }
 -- 
-Advanced Micro Devices, Inc.
-Operating System Research Center
-email: robert.richter@amd.com
+1.5.3
 
