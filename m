@@ -1,28 +1,80 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Date: Mon, 19 May 2008 07:46:14 +0000
-Subject: Re: [PATCH 00/15] ia64/pv_ops take 5
-Message-Id: <48313046.6030602@goop.org>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 23:07:57 +0000
+Subject: [PATCH 10/23] ia64/xen: add definitions necessary for xen event channel.
+Message-Id: <12112384913081-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12095585682308-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12095585682308-git-send-email-yamahata@valinux.co.jp>
+References: <12077166301093-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <12077166301093-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Isaku Yamahata wrote:
-> Yes, I also really want such a tool and I've thought of it.
-> I want to prevent people from accidently breaking paravirtualization
-> and only a way to do so would be by enforcing.
-> I think it can be easily achived by CPP macro trick.
-> At worst a simple .s (or .o) parser.
->   
+Xen paravirtualizes interrupt as event channel.
+This patch defines arch specific part of xen event channel.
 
-For what its worth, this hasn't been a problem on x86 at all.  All the 
-"interesting" instructions are used via macros/inline functions, and 
-there have been no instances (that I know of, at least) of naked ones 
-appearing anywhere.  And all the gatekeeper maintainers are definitely 
-aware of the paravirt constraints, so I don't think any would make it 
-past review.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ include/asm-ia64/xen/events.h |   50 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/events.h
 
-    J
+diff --git a/include/asm-ia64/xen/events.h b/include/asm-ia64/xen/events.h
+new file mode 100644
+index 0000000..42bb0b5
+--- /dev/null
++++ b/include/asm-ia64/xen/events.h
+@@ -0,0 +1,50 @@
++/******************************************************************************
++ * include/asm-ia64/xen/events.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++#ifndef _ASM_IA64_XEN_EVENTS_H
++#define _ASM_IA64_XEN_EVENTS_H
++
++enum ipi_vector {
++	XEN_RESCHEDULE_VECTOR,
++	XEN_IPI_VECTOR,
++	XEN_CMCP_VECTOR,
++	XEN_CPEP_VECTOR,
++
++	XEN_NR_IPIS,
++};
++
++static inline int xen_irqs_disabled(struct pt_regs *regs)
++{
++	return !(ia64_psr(regs)->i);
++}
++
++static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
++{
++	struct pt_regs *old_regs;
++	old_regs = set_irq_regs(regs);
++	irq_enter();
++	__do_IRQ(irq);
++	irq_exit();
++	set_irq_regs(old_regs);
++}
++#define irq_ctx_init(cpu)	do { } while (0)
++
++#endif /* _ASM_IA64_XEN_EVENTS_H */
+-- 
+1.5.3
+
