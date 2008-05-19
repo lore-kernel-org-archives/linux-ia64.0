@@ -1,154 +1,116 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 19 May 2008 23:08:00 +0000
-Subject: [PATCH 13/23] ia64/pv_ops/xen: define xen pv_cpu_ops.
-Message-Id: <12112384913880-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 19 May 2008 13:13:27 +0000
+Subject: [PATCH 00/17] ia64/pv_ops take 6
+Message-Id: <12112028241775-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12077166303849-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12077166303849-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define xen pv_cpu_ops which implementes xen paravirtualized
-privileged instructions.
+Hi. This patchset implements ia64/pv_ops support which is the
+framework for virtualization support.
+Changes from take 5 are rebased to Linux 2.6.26-rc3,
+bug fix ivt.S paravirtualization and multi entry point support.
+I believe these patches can be applied to the linux ia64 repository.
 
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/xen_pv_ops.c |  114 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 114 insertions(+), 0 deletions(-)
+On x86 various ways to support virtualization were proposed, and
+eventually pv_ops won. So on ia64 the pv_ops strategy is appropriate too.
+Later I'll post the patchset which implements xen domU based on
+ia64/pv_ops. Currently only ia64/xen pv_ops implementation exists,
+but I believe ia64/kvm can also obtain benefits from this ia64/pv_ops
+frame work.
+linux/ia64 has the machine vector interface and another approach might be
+to utilize it. However pv_ops is better for some reasons. Please see
+the thread of the mailing list from
+http://www.spinics.net/lists/linux-ia64/msg05238.html
 
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 01260a0..aa73942 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -161,6 +161,119 @@ static const struct pv_init_ops xen_init_ops __initdata = {
- };
- 
- /***************************************************************************
-+ * pv_cpu_ops
-+ * intrinsics hooks.
-+ */
-+
-+static void xen_setreg(int regnum, unsigned long val)
-+{
-+	switch (regnum) {
-+	case _IA64_REG_AR_KR0 ... _IA64_REG_AR_KR7:
-+		xen_set_kr(regnum - _IA64_REG_AR_KR0, val);
-+		break;
-+#ifdef CONFIG_IA32_SUPPORT
-+	case _IA64_REG_AR_EFLAG:
-+		xen_set_eflag(val);
-+		break;
-+#endif
-+	case _IA64_REG_CR_TPR:
-+		xen_set_tpr(val);
-+		break;
-+	case _IA64_REG_CR_ITM:
-+		xen_set_itm(val);
-+		break;
-+	case _IA64_REG_CR_EOI:
-+		xen_eoi(val);
-+		break;
-+	default:
-+		ia64_native_setreg_func(regnum, val);
-+		break;
-+	}
-+}
-+
-+static unsigned long xen_getreg(int regnum)
-+{
-+	unsigned long res;
-+
-+	switch (regnum) {
-+	case _IA64_REG_PSR:
-+		res = xen_get_psr();
-+		break;
-+#ifdef CONFIG_IA32_SUPPORT
-+	case _IA64_REG_AR_EFLAG:
-+		res = xen_get_eflag();
-+		break;
-+#endif
-+	case _IA64_REG_CR_IVR:
-+		res = xen_get_ivr();
-+		break;
-+	case _IA64_REG_CR_TPR:
-+		res = xen_get_tpr();
-+		break;
-+	default:
-+		res = ia64_native_getreg_func(regnum);
-+		break;
-+	}
-+	return res;
-+}
-+
-+/* turning on interrupts is a bit more complicated.. write to the
-+ * memory-mapped virtual psr.i bit first (to avoid race condition),
-+ * then if any interrupts were pending, we have to execute a hyperprivop
-+ * to ensure the pending interrupt gets delivered; else we're done! */
-+static void
-+xen_ssm_i(void)
-+{
-+	int old = xen_get_virtual_psr_i();
-+	xen_set_virtual_psr_i(1);
-+	barrier();
-+	if (!old && xen_get_virtual_pend())
-+		xen_hyper_ssm_i();
-+}
-+
-+/* turning off interrupts can be paravirtualized simply by writing
-+ * to a memory-mapped virtual psr.i bit (implemented as a 16-bit bool) */
-+static void
-+xen_rsm_i(void)
-+{
-+	xen_set_virtual_psr_i(0);
-+	barrier();
-+}
-+
-+static unsigned long
-+xen_get_psr_i(void)
-+{
-+	return xen_get_virtual_psr_i() ? IA64_PSR_I : 0;
-+}
-+
-+static void
-+xen_intrin_local_irq_restore(unsigned long mask)
-+{
-+	if (mask & IA64_PSR_I)
-+		xen_ssm_i();
-+	else
-+		xen_rsm_i();
-+}
-+
-+static const struct pv_cpu_ops xen_cpu_ops __initdata = {
-+	.fc		= xen_fc,
-+	.thash		= xen_thash,
-+	.get_cpuid	= xen_get_cpuid,
-+	.get_pmd	= xen_get_pmd,
-+	.getreg		= xen_getreg,
-+	.setreg		= xen_setreg,
-+	.ptcga		= xen_ptcga,
-+	.get_rr		= xen_get_rr,
-+	.set_rr		= xen_set_rr,
-+	.set_rr0_to_rr4	= xen_set_rr0_to_rr4,
-+	.ssm_i		= xen_ssm_i,
-+	.rsm_i		= xen_rsm_i,
-+	.get_psr_i	= xen_get_psr_i,
-+	.intrin_local_irq_restore
-+			= xen_intrin_local_irq_restore,
-+};
-+
-+/***************************************************************************
-  * pv_ops initialization
-  */
- 
-@@ -170,4 +283,5 @@ xen_setup_pv_ops(void)
- 	xen_info_init();
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
-+	pv_cpu_ops = xen_cpu_ops;
- }
--- 
-1.5.3
 
+This patchset does the followings.
+- some preparation work. Mainly make the kernel virtualization friendly.
+- introduce multi entry point support.
+- introduce pv_info which describes the execution environment.
+- introduce macros for hand written assembly code to paravirtualize
+  hand written code to replace sensitive/privileged instructions.
+- introduce various hooks to replace the implementation with
+  paravirtualized.
+  They are defined as function tables called, pv_init_ops, pv_cpu_ops,
+  pv_irq_ops, pv_iosapic_ops and, pv_time_ops.
+  They represent
+    pv_init_ops: hooks for various initialization.
+    pv_cpu_ops: hooks for ia64 intrinsics.
+    pv_irq_ops: hooks for irq related operations.
+    pv_iosapic_ops: hooks for paravirtualized iosapic.
+    pv_time_ops: hooks for steal time accounting
+
+
+The working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64.git/
+branch: xen-ia64-2008may19
+
+At this phase, we don't address the following issues.
+Those will be addressed after the first merge.
+- optimization by binary patch
+  In fact, we had the patch to do that, but we intentionally dropped
+  for patch size/readability/cleanness.
+- freeing the unused pages, i.e. pages for unused ivt.S.
+
+Changes from take 5:
+- rebased to Linux 2.6.26-rc3
+- fix ivt.S paravirtualization.
+  One instruction was wrongly paravirtualized.
+  It wasn't revealed with Xen HVM domain so far, but with real hw
+- multi entry point support.
+- revised changelog to add CCs.
+
+Changes from take 4:
+- refined NR_IRQS paravirtualization according to Jes Soresen's comment
+- rebased and fixed the breakage due to the upstream change.
+- fixed various compilation errors.
+
+Changes from take 3:
+- split the patch set into pv_op part and xen domU part.
+- many clean ups.
+- introduced pv_ops: pv_cpu_ops and pv_time_ops.
+
+Changes from take 2:
+- many clean ups following to comments.
+- clean up:assembly instruction macro.
+- introduced pv_ops: pv_info, pv_init_ops, pv_iosapic_ops, pv_irq_ops.
+
+Changes from take 1:
+Single IVT source code. compile multitimes using assembler macros.
+
+thanks,
+
+ arch/ia64/Makefile                 |    6 +
+ arch/ia64/kernel/Makefile          |   44 +++++
+ arch/ia64/kernel/entry.S           |  115 +++++++----
+ arch/ia64/kernel/head.S            |   41 ++++
+ arch/ia64/kernel/iosapic.c         |   45 +++--
+ arch/ia64/kernel/irq_ia64.c        |   19 ++-
+ arch/ia64/kernel/ivt.S             |  249 ++++++++++++------------
+ arch/ia64/kernel/minstate.h        |   13 +-
+ arch/ia64/kernel/nr-irqs.c         |   24 +++
+ arch/ia64/kernel/paravirt.c        |  369 ++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/paravirt_inst.h   |   29 +++
+ arch/ia64/kernel/paravirtentry.S   |   60 ++++++
+ arch/ia64/kernel/setup.c           |   10 +
+ arch/ia64/kernel/smpboot.c         |    2 +
+ arch/ia64/kernel/time.c            |   23 +++
+ arch/ia64/kernel/vmlinux.lds.S     |    1 -
+ include/asm-ia64/Kbuild            |    2 +-
+ include/asm-ia64/gcc_intrin.h      |   24 ++--
+ include/asm-ia64/hw_irq.h          |   23 ++-
+ include/asm-ia64/intel_intrin.h    |   41 ++--
+ include/asm-ia64/intrinsics.h      |   55 ++++++
+ include/asm-ia64/iosapic.h         |   18 ++-
+ include/asm-ia64/irq.h             |    9 +-
+ include/asm-ia64/mmu_context.h     |    6 +-
+ include/asm-ia64/native/inst.h     |  175 +++++++++++++++++
+ include/asm-ia64/native/irq.h      |   35 ++++
+ include/asm-ia64/paravirt.h        |  255 +++++++++++++++++++++++++
+ include/asm-ia64/paravirt_privop.h |  114 +++++++++++
+ include/asm-ia64/smp.h             |    2 +
+ include/asm-ia64/system.h          |   11 +-
+ 30 files changed, 1567 insertions(+), 253 deletions(-)
