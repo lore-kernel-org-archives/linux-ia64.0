@@ -1,52 +1,66 @@
-From: "Luming Yu" <luming.yu@gmail.com>
-Date: Thu, 22 May 2008 02:47:35 +0000
-Subject: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a race
-Message-Id: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_Part_8753_10367779.1211424456021"
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Thu, 22 May 2008 08:47:25 +0000
+Subject: Re: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a
+Message-Id: <1211446045.5610.33.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-To: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-
-------=_Part_8753_10367779.1211424456021
-Content-Type: text/plain; charset=UTF-8
+References: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
+In-Reply-To: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Luming Yu <luming.yu@gmail.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Roland McGrath <roland@redhat.com>
 
-Hello list,
+On Thu, 2008-05-22 at 10:47 +0800, Luming Yu wrote:
+> Hello list,
+> 
+> The following patch is to fixed a race in ptrace_stop handling which
+> causes "strace" hang if the target process blocks SIGTRAP with the
+> test case filed at
+> https://bugzilla.redhat.com/show_bug.cgi?idD6200#c16.
+> Please note this is just IA64 problem because just IA64 has
+> arch_ptrace_stop_needed defined, and has arch_ptrace_stop defined that
+> would set notify_resume flags for syncing rbs...but it also opens the
+> door to invoke ia64_do_signal->get_signal_to_deliver before setting
+> current PTRACED flag. Please help review.
+> 
+> **The patch is enclosed in text attachment*
+> **I'm using web client to send the patch* *
 
-The following patch is to fixed a race in ptrace_stop handling which
-causes "strace" hang if the target process blocks SIGTRAP with the
-test case filed at
-https://bugzilla.redhat.com/show_bug.cgi?id=446200#c16.
-Please note this is just IA64 problem because just IA64 has
-arch_ptrace_stop_needed defined, and has arch_ptrace_stop defined that
-would set notify_resume flags for syncing rbs...but it also opens the
-door to invoke ia64_do_signal->get_signal_to_deliver before setting
-current PTRACED flag. Please help review.
+I'm inlining the patch for sake of convenience:
 
-**The patch is enclosed in text attachment*
-**I'm using web client to send the patch* *
+> 
+> Signed-off-by: Yu Luming <luming.yu@intel.com>
+> --------------------------------------
+>  signal.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> --- 0/kernel/signal.c	2008-05-14 02:24:51.000000000 +0800
+> +++ 1/kernel/signal.c	2008-05-22 13:54:42.000000000 +0800
+> @@ -1488,6 +1488,9 @@
+>  {
+>  	int killed = 0;
+>  
+> +	/* Let the debugger run.  */
+> +	__set_current_state(TASK_TRACED);
+> +
 
-Signed-off-by: Yu Luming <luming.yu@intel.com>
---------------------------------------
- signal.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+That's probably not what we want. What happens if the task then sleeps
+during the user-space access? Unless I forgot something obvious, it will
+never get scheduled again...
 
-------=_Part_8753_10367779.1211424456021
-Content-Type: application/force-download; name=446200.patch
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_fgiqpxnr0
-Content-Disposition: attachment; filename=446200.patch
+Petr Tesarik
 
-LS0tIDAva2VybmVsL3NpZ25hbC5jCTIwMDgtMDUtMTQgMDI6MjQ6NTEuMDAwMDAwMDAwICswODAw
-CisrKyAxL2tlcm5lbC9zaWduYWwuYwkyMDA4LTA1LTIyIDEzOjU0OjQyLjAwMDAwMDAwMCArMDgw
-MApAQCAtMTQ4OCw2ICsxNDg4LDkgQEAKIHsKIAlpbnQga2lsbGVkID0gMDsKIAorCS8qIExldCB0
-aGUgZGVidWdnZXIgcnVuLiAgKi8KKwlfX3NldF9jdXJyZW50X3N0YXRlKFRBU0tfVFJBQ0VEKTsK
-KwogCWlmIChhcmNoX3B0cmFjZV9zdG9wX25lZWRlZChleGl0X2NvZGUsIGluZm8pKSB7CiAJCS8q
-CiAJCSAqIFRoZSBhcmNoIGNvZGUgaGFzIHNvbWV0aGluZyBzcGVjaWFsIHRvIGRvIGJlZm9yZSBh
-CkBAIC0xNTE2LDggKzE1MTksNiBAQAogCWN1cnJlbnQtPmxhc3Rfc2lnaW5mbyA9IGluZm87CiAJ
-Y3VycmVudC0+ZXhpdF9jb2RlID0gZXhpdF9jb2RlOwogCi0JLyogTGV0IHRoZSBkZWJ1Z2dlciBy
-dW4uICAqLwotCV9fc2V0X2N1cnJlbnRfc3RhdGUoVEFTS19UUkFDRUQpOwogCXNwaW5fdW5sb2Nr
-X2lycSgmY3VycmVudC0+c2lnaGFuZC0+c2lnbG9jayk7CiAJcmVhZF9sb2NrKCZ0YXNrbGlzdF9s
-b2NrKTsKIAlpZiAoIXVubGlrZWx5KGtpbGxlZCkgJiYgbWF5X3B0cmFjZV9zdG9wKCkpIHsK
-------=_Part_8753_10367779.1211424456021--
+>  	if (arch_ptrace_stop_needed(exit_code, info)) {
+>  		/*
+>  		 * The arch code has something special to do before a
+> @@ -1516,8 +1519,6 @@
+>  	current->last_siginfo = info;
+>  	current->exit_code = exit_code;
+>  
+> -	/* Let the debugger run.  */
+> -	__set_current_state(TASK_TRACED);
+>  	spin_unlock_irq(&current->sighand->siglock);
+>  	read_lock(&tasklist_lock);
+>  	if (!unlikely(killed) && may_ptrace_stop()) {
+
