@@ -1,11 +1,9 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Tue, 27 May 2008 06:25:15 +0000
-Subject: Re: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a
-Message-Id: <1211869515.29836.2.camel@elijah.suse.cz>
+From: "Luming Yu" <luming.yu@gmail.com>
+Date: Tue, 27 May 2008 06:34:26 +0000
+Subject: Re: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a race
+Message-Id: <3877989d0805262334j1ce4d0efhe05e0aa8c3975a28@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
-	 <3877989d0805220624i259a9d1j708795c65c636ca0@mail.gmail.com>
-	 <20080522203428.835D626FA24@magilla.localdomain>
 	 <3877989d0805222042p176da844k384ea512b1cfb0da@mail.gmail.com>
 	 <20080523041940.39E8726FA24@magilla.localdomain>
 	 <3877989d0805222224n77ce36b6wdf15c4bab330a0f8@mail.gmail.com>
@@ -20,32 +18,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: Roland McGrath <roland@redhat.com>
-Cc: Luming Yu <luming.yu@gmail.com>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Petr Tesarik <ptesarik@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-On Mon, 2008-05-26 at 23:12 -0700, Roland McGrath wrote:
-> >  [<a00000010000a9f0>] skip_rbs_switch+0xe0/0x110
-> >                                 sp=E000000141c9fe30 bsp=E000000141c90cf8
-> >  [<a000000000010740>] __kernel_syscall_via_break+0x0/0x20
-> >                                 sp=E000000141ca0000 bsp=E000000141c90cf8
-
-Indeed, there seems to be a large hole here. So, this is either a bug in
-the unwinder, or a bug in the RBS synchronization, which causes
-corruption. My test machine currently needs some work to run 2.6.25
-again, but I'll try your test case as soon as I re-install it later this
-week.
-
-Cheers,
-Petr Tesarik
-
-> >  [<a0000001000971c0>] ptrace_stop+0xa0/0x3e0
-> >                                 sp=E00000014716fdb0 bsp=E000000147160ca8
-> >  [<a000000100097650>] ptrace_notify+0x150/0x1c0
-> >                                 sp=E00000014716fdb0 bsp=E000000147160c88
->=20
+On Tue, May 27, 2008 at 2:12 PM, Roland McGrath <roland@redhat.com> wrote:
+>>  [<a00000010000a9f0>] skip_rbs_switch+0xe0/0x110
+>>                                 sp=E000000141c9fe30 bsp=E000000141c90cf8
+>>  [<a000000000010740>] __kernel_syscall_via_break+0x0/0x20
+>>                                 sp=E000000141ca0000 bsp=E000000141c90cf8
+>>  [<a0000001000971c0>] ptrace_stop+0xa0/0x3e0
+>>                                 sp=E00000014716fdb0 bsp=E000000147160ca8
+>>  [<a000000100097650>] ptrace_notify+0x150/0x1c0
+>>                                 sp=E00000014716fdb0 bsp=E000000147160c88
+>
 > If this is a backtrace of a single thread on the same kernel stack, it has
 > a stack depth of over 84MB.  You still need to follow the path inside
-> ia64_ptrace_stop() to see how any of this is possible.
->=20
->=20
-> Thanks,
-> Roland
+
+you are right, I just find outputs of two different thread are mixed!
+Please just ignore the call trace above..
