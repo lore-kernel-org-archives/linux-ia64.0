@@ -1,56 +1,39 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 15 May 2008 20:46:32 +0000
+Date: Wed, 28 May 2008 19:52:49 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <1FE6DD409037234FAB833C420AA843EC015B19E7@orsmsx424.amr.corp.intel.com>
+Message-Id: <1FE6DD409037234FAB833C420AA843EC016FFB66@orsmsx424.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-SGkgTGludXMsCgpwbGVhc2UgcHVsbCBmcm9tOgoKCWdpdDovL2dpdC5rZXJuZWwub3JnL3B1Yi9z
-Y20vbGludXgva2VybmVsL2dpdC9hZWdsL2xpbnV4LTIuNi5naXQgcmVsZWFzZQoKVGhpcyB3aWxs
-IHVwZGF0ZSB0aGUgZmlsZXMgc2hvd24gYmVsb3cuCgpUaGFua3MhCgotVG9ueQoKIERvY3VtZW50
-YXRpb24va2VybmVsLXBhcmFtZXRlcnMudHh0IHwgICAgNiArCiBhcmNoL2lhNjQvS2NvbmZpZyAg
-ICAgICAgICAgICAgICAgICB8ICAgMTMgKysKIGFyY2gvaWE2NC9NYWtlZmlsZSAgICAgICAgICAg
-ICAgICAgIHwgICAgMiArLQogYXJjaC9pYTY0L2lhMzIvaWEzMl9zdXBwb3J0LmMgICAgICAgfCAg
-IDEwIC0KIGFyY2gvaWE2NC9rZXJuZWwvYWNwaS5jICAgICAgICAgICAgIHwgICAxMCArLQogYXJj
-aC9pYTY0L2tlcm5lbC9lbnRyeS5TICAgICAgICAgICAgfCAgIDI2ICsrLQogYXJjaC9pYTY0L2tl
-cm5lbC9wYWxpbmZvLmMgICAgICAgICAgfCAgICA2IC0KIGFyY2gvaWE2NC9rZXJuZWwvcGVyZm1v
-bi5jICAgICAgICAgIHwgICAxNiArLQogYXJjaC9pYTY0L2tlcm5lbC9wcm9jZXNzLmMgICAgICAg
-ICAgfCAgIDI1ICsrKy0KIGFyY2gvaWE2NC9rZXJuZWwvc2FsLmMgICAgICAgICAgICAgIHwgICAx
-MSArKwogYXJjaC9pYTY0L2tlcm5lbC9zZXR1cC5jICAgICAgICAgICAgfCAgIDI5ICsrKysKIGFy
-Y2gvaWE2NC9tbS9pbml0LmMgICAgICAgICAgICAgICAgIHwgICAyNSArKysKIGFyY2gvaWE2NC91
-di9NYWtlZmlsZSAgICAgICAgICAgICAgIHwgICAxMiArKwogYXJjaC9pYTY0L3V2L2tlcm5lbC9N
-YWtlZmlsZSAgICAgICAgfCAgIDEzICsrCiBhcmNoL2lhNjQvdXYva2VybmVsL21hY2h2ZWMuYyAg
-ICAgICB8ICAgMTEgKysKIGFyY2gvaWE2NC91di9rZXJuZWwvc2V0dXAuYyAgICAgICAgIHwgICA5
-OCArKysrKysrKysrKwogaW5jbHVkZS9hc20taWE2NC9tYWNodmVjLmggICAgICAgICAgfCAgICAy
-ICsKIGluY2x1ZGUvYXNtLWlhNjQvbWFjaHZlY191di5oICAgICAgIHwgICAyNiArKysKIGluY2x1
-ZGUvYXNtLWlhNjQvdXYvdXZfaHViLmggICAgICAgIHwgIDMwOSArKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKwogaW5jbHVkZS9hc20taWE2NC91di91dl9tbXJzLmggICAgICAgfCAg
-MjY2ICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKwogMjAgZmlsZXMgY2hhbmdlZCwgODc4
-IGluc2VydGlvbnMoKyksIDM4IGRlbGV0aW9ucygtKQogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gv
-aWE2NC91di9NYWtlZmlsZQogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gvaWE2NC91di9rZXJuZWwv
-TWFrZWZpbGUKIGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQvdXYva2VybmVsL21hY2h2ZWMu
-YwogY3JlYXRlIG1vZGUgMTAwNjQ0IGFyY2gvaWE2NC91di9rZXJuZWwvc2V0dXAuYwogY3JlYXRl
-IG1vZGUgMTAwNjQ0IGluY2x1ZGUvYXNtLWlhNjQvbWFjaHZlY191di5oCiBjcmVhdGUgbW9kZSAx
-MDA2NDQgaW5jbHVkZS9hc20taWE2NC91di91dl9odWIuaAogY3JlYXRlIG1vZGUgMTAwNjQ0IGlu
-Y2x1ZGUvYXNtLWlhNjQvdXYvdXZfbW1ycy5oCgpBbGV4IENoaWFuZyAoMSk6CiAgICAgIFtJQTY0
-XSBhbGxvdyB1c2VyIHRvIGZvcmNlX3BhbF9jYWNoZV9mbHVzaAoKQmVybmhhcmQgV2FsbGUgKDEp
-OgogICAgICBbSUE2NF0gRG9uJ3QgcmVzZXJ2ZSBjcmFzaGtlcm5lbCBtZW1vcnkgPiA0IEdCCgpI
-aWRldG9zaGkgU2V0byAoMyk6CiAgICAgIFtJQTY0XSBmaXggaW50ZXJydXB0IG1hc2tpbmcgZm9y
-IHBlbmRpbmcgd29ya3Mgb24ga2VybmVsIGxlYXZlCiAgICAgIFtJQTY0XSB0cml2aWFsIGNsZWFu
-dXAgZm9yIGVudHJ5LlMKICAgICAgW0lBNjRdIHRyaXZpYWwgY2xlYW51cCBmb3IgcGVyZm1vbi5j
-CgpIdWFuZywgWGlhb2xhbiAoMSk6CiAgICAgIFtJQTY0XSBmaXggcGVyc29uYWxpdHkoUEVSX0xJ
-TlVYMzIpIHBlcmZvcm1hbmNlIGlzc3VlCgpKYWNrIFN0ZWluZXIgKDIpOgogICAgICBbSUE2NF0g
-QWRkIGhlYWRlciBmaWxlcyBmb3IgU0dJIFVWIHBsYXRmb3JtCiAgICAgIFtJQTY0XSBtYWNodmVj
-IHN1cHBvcnQgZm9yIFNHSSBVViBwbGF0Zm9ybQoKUHJhcml0IEJoYXJnYXZhICgxKToKICAgICAg
-W0lBNjRdIFByb3Blcmx5IHVucmVnaXN0ZXIgbGVnYWN5IGludGVycnVwdHMKClNpbW9uIEhvbG0g
-VGjDuGdlcnNlbiAoMSk6CiAgICAgIFtJQTY0XSBSZW1vdmUgTlVMTCBwb2ludGVyIGNoZWNrIGZv
-ciBhcmd1bWVudCBuZXZlciBwYXNzZWQgYXMgTlVMTC4KCgoKLS0KVG8gdW5zdWJzY3JpYmUgZnJv
-bSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRo
-ZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFq
-b3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRt
-bA==
+Hi Linus,
+
+please pull from:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/kernel/ivt.S         |   84 ++++++++++++++++++++--------------------
+ arch/ia64/kernel/minstate.h    |   46 ++++++++++++++++++++--
+ arch/ia64/kernel/patch.c       |   23 +++++++++++
+ arch/ia64/kernel/setup.c       |   11 +++++
+ arch/ia64/kernel/vmlinux.lds.S |    7 +++
+ include/asm-ia64/patch.h       |    1 +
+ include/asm-ia64/ptrace.h      |    2 +-
+ include/asm-ia64/sections.h    |    1 +
+ 8 files changed, 128 insertions(+), 47 deletions(-)
+
+Tony Luck (1):
+      [IA64] Workaround for RSE issue
+
+
+
