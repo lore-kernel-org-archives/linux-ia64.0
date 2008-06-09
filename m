@@ -1,40 +1,122 @@
-From: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Date: Thu, 19 Jun 2008 02:37:21 +0000
-Subject: RE: [PATCH 06/27] ia64/xen: define NET_SKB_NET to 18 if xen.
-Message-Id: <13C8D1B5662635takebe_akio@jp.fujitsu.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Mon, 09 Jun 2008 16:18:45 +0000
+Subject: [PATCH 1/3] mm: Minor clean-up of page flags in mm/page_alloc.c v6
+Message-Id: <20080609161845.GB14939@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12130840432829-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12130840432829-git-send-email-yamahata@valinux.co.jp>
+References: <20080502004155.GB12006@sgi.com>
+In-Reply-To: <20080502004155.GB12006@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Christoph Lameter <clameter@sgi.com>, Russ Anderson <rja@sgi.com>
 
-Hi, Tony
+Minor source code cleanup of page flags in mm/page_alloc.c.  
+Move the definition of the groups of bits to page-flags.h.
 
->> Resolve it by increasing NET_SKB_NET from the default value 16 to 18.
->
->Typo?  You mean NET_SKB_PAD here?
->
-I think so. :-)
+The purpose of this clean up is that the next patch will
+conditionally add a page flag to the groups.  Doing that
+in a header file is cleaner than adding #ifdefs to the
+C code.
 
->But in include/linux/skbuff.h it says: "It must be a power of 2".
->
->Explain why 18 is ok.
-It's supposed to add NET_IP_ALIGN when network driver allocs 
-skb with netdev_alloc_skb(). For example, e1000 do like the below, too.
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
-struct sk_buff *new_skb = netdev_alloc_skb(netdev, length + NET_IP_ALIGN);
+---
+ include/linux/page-flags.h |   24 ++++++++++++++++++++++++
+ mm/page_alloc.c            |   34 +++-------------------------------
+ 2 files changed, 27 insertions(+), 31 deletions(-)
 
-In the case of xen, xen-frontend.c also uses __netdev_alloc_skb(),
-so we need to add 16 + NET_IP_ALIGN for padding.
-I think we use NET_SKB_PAD+NET_IP_ALIGN or
-we add it to length of __netdev_alloc_skb().
-
-The below is my patch being relative to this.
-http://xenbits.xensource.com/xen-unstable.hg?csy7430d25f1b
-
-Best Regards,
-
-Akio Takebe
-
+Index: linux-next/mm/page_alloc.c
+=================================--- linux-next.orig/mm/page_alloc.c	2008-06-09 09:26:47.542997555 -0500
++++ linux-next/mm/page_alloc.c	2008-06-09 09:26:52.203578218 -0500
+@@ -237,16 +237,7 @@ static void bad_page(struct page *page)
+ 	printk(KERN_EMERG "Trying to fix it up, but a reboot is needed\n"
+ 		KERN_EMERG "Backtrace:\n");
+ 	dump_stack();
+-	page->flags &= ~(1 << PG_lru	|
+-			1 << PG_private |
+-			1 << PG_locked	|
+-			1 << PG_active	|
+-			1 << PG_dirty	|
+-			1 << PG_reclaim |
+-			1 << PG_slab    |
+-			1 << PG_swapcache |
+-			1 << PG_writeback |
+-			1 << PG_buddy );
++	page->flags &= ~PAGE_FLAGS_CLEAR_WHEN_BAD;
+ 	set_page_count(page, 0);
+ 	reset_page_mapcount(page);
+ 	page->mapping = NULL;
+@@ -463,16 +454,7 @@ static inline int free_pages_check(struc
+ 		(page->mapping != NULL)  |
+ 		(page_get_page_cgroup(page) != NULL) |
+ 		(page_count(page) != 0)  |
+-		(page->flags & (
+-			1 << PG_lru	|
+-			1 << PG_private |
+-			1 << PG_locked	|
+-			1 << PG_active	|
+-			1 << PG_slab	|
+-			1 << PG_swapcache |
+-			1 << PG_writeback |
+-			1 << PG_reserved |
+-			1 << PG_buddy ))))
++		(page->flags & PAGE_FLAGS_CHECK_AT_FREE)))
+ 		bad_page(page);
+ 	if (PageDirty(page))
+ 		__ClearPageDirty(page);
+@@ -616,17 +598,7 @@ static int prep_new_page(struct page *pa
+ 		(page->mapping != NULL)  |
+ 		(page_get_page_cgroup(page) != NULL) |
+ 		(page_count(page) != 0)  |
+-		(page->flags & (
+-			1 << PG_lru	|
+-			1 << PG_private	|
+-			1 << PG_locked	|
+-			1 << PG_active	|
+-			1 << PG_dirty	|
+-			1 << PG_slab    |
+-			1 << PG_swapcache |
+-			1 << PG_writeback |
+-			1 << PG_reserved |
+-			1 << PG_buddy ))))
++		(page->flags & PAGE_FLAGS_CHECK_AT_PREP)))
+ 		bad_page(page);
+ 
+ 	/*
+Index: linux-next/include/linux/page-flags.h
+=================================--- linux-next.orig/include/linux/page-flags.h	2008-06-09 09:26:47.546998054 -0500
++++ linux-next/include/linux/page-flags.h	2008-06-09 09:26:52.223580710 -0500
+@@ -307,5 +307,29 @@ static inline void __ClearPageTail(struc
+ }
+ 
+ #endif /* !PAGEFLAGS_EXTENDED */
++
++#define PAGE_FLAGS	(1 << PG_lru   | 1 << PG_private   | 1 << PG_locked | \
++			 1 << PG_buddy | 1 << PG_writeback | \
++			 1 << PG_slab  | 1 << PG_swapcache | 1 << PG_active)
++
++/*
++ * Flags checked in bad_page().  Pages on the free list should not have
++ * these flags set.  It they are, there is a problem.
++ */
++#define PAGE_FLAGS_CLEAR_WHEN_BAD (PAGE_FLAGS | 1 << PG_reclaim | 1 << PG_dirty)
++
++/*
++ * Flags checked when a page is freed.  Pages being freed should not have
++ * these flags set.  It they are, there is a problem.
++ */
++#define PAGE_FLAGS_CHECK_AT_FREE (PAGE_FLAGS | 1 << PG_reserved)
++
++/*
++ * Flags checked when a page is prepped for return by the page allocator.
++ * Pages being prepped should not have these flags set.  It they are, there
++ * is a problem.
++ */
++#define PAGE_FLAGS_CHECK_AT_PREP (PAGE_FLAGS | 1 << PG_reserved | 1 << PG_dirty)
++
+ #endif /* !__GENERATING_BOUNDS_H */
+ #endif	/* PAGE_FLAGS_H */
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
