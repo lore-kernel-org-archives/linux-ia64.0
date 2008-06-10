@@ -1,42 +1,154 @@
-From: Cliff Wickman <cpw@sgi.com>
-Date: Fri, 20 Jun 2008 12:13:51 +0000
-Subject: [PATCHv2] SN2: security hole in sn2_ptc_proc_write
-Message-Id: <E1K9fV1-0000l3-Hr@eag09.americas.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 10 Jun 2008 07:47:21 +0000
+Subject: [PATCH 25/27] ia64/xen: preliminary support for save/restore.
+Message-Id: <12130840441935-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+preliminary support for save/restore.
+Although Save/restore isn't fully working yet, this patch is necessary
+to compile.
 
-
-From: Cliff Wickman <cpw@sgi.com>
-
-Security hole in sn2_ptc_proc_write
-
-It is possible to overrun a buffer with a write to this /proc file.
-
-A little improvement suggested by Russ Anderson:
-> +     if (count > 64)
- I prefer sizeof(optstr) instead of hardcoding 64 again.  That
- way if optstr changes, it only has to be changed in one place.
-
-Diffed against 2.6.26-rc5
-
-Signed-off-by: Cliff Wickman <cpw@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/sn/kernel/sn2/sn2_smp.c |    2 ++
- 1 file changed, 2 insertions(+)
+ arch/ia64/xen/Makefile              |    2 +-
+ arch/ia64/xen/{time.h => suspend.c} |   40 +++++++++++++++++++++++++++++++++-
+ arch/ia64/xen/time.c                |   33 ++++++++++++++++++++++++++++
+ arch/ia64/xen/time.h                |    1 +
+ 4 files changed, 73 insertions(+), 3 deletions(-)
+ copy arch/ia64/xen/{time.h => suspend.c} (66%)
 
-Index: linux-2.6/arch/ia64/sn/kernel/sn2/sn2_smp.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c
-+++ linux-2.6/arch/ia64/sn/kernel/sn2/sn2_smp.c
-@@ -512,6 +512,8 @@ static ssize_t sn2_ptc_proc_write(struct
- 	int cpu;
- 	char optstr[64];
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 972d085..0ad0224 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -3,7 +3,7 @@
+ #
  
-+	if (count > sizeof(optstr))
-+		return -EINVAL;
- 	if (copy_from_user(optstr, user, count))
- 		return -EFAULT;
- 	optstr[count - 1] = '\0';
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
+ 
+ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+ 
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/suspend.c
+similarity index 66%
+copy from arch/ia64/xen/time.h
+copy to arch/ia64/xen/suspend.c
+index b9c7ec5..b4ce6b6 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/suspend.c
+@@ -1,5 +1,5 @@
+ /******************************************************************************
+- * arch/ia64/xen/time.h
++ * arch/ia64/xen/suspend.c
+  *
+  * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
+  *                    VA Linux Systems Japan K.K.
+@@ -18,6 +18,42 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
++ * suspend/resume
+  */
+ 
+-extern struct pv_time_ops xen_time_ops __initdata;
++#include <xen/xen-ops.h>
++#include <asm/xen/hypervisor.h>
++#include "time.h"
++
++void
++xen_mm_pin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_mm_unpin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_pre_suspend()
++{
++	/* nothing */
++}
++
++void
++xen_post_suspend(int suspend_cancelled)
++{
++	if (suspend_cancelled)
++		return;
++
++	xen_ia64_enable_opt_feature();
++	/* add more if necessary */
++}
++
++void xen_arch_resume(void)
++{
++	xen_timer_resume_on_aps();
++}
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index 3414f1e..81a61e8 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -26,6 +26,8 @@
+ #include <linux/irq.h>
+ #include <linux/clocksource.h>
+ 
++#include <asm/timex.h>
++
+ #include <asm/xen/hypervisor.h>
+ 
+ #include <xen/interface/vcpu.h>
+@@ -163,3 +165,34 @@ struct pv_time_ops xen_time_ops __initdata = {
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
+ };
++
++/* Called after suspend, to resume time.  */
++static void xen_local_tick_resume(void)
++{
++	/* Just trigger a tick.  */
++	ia64_cpu_local_tick();
++	touch_softlockup_watchdog();
++}
++
++void
++xen_timer_resume(void)
++{
++	unsigned int cpu;
++
++	xen_local_tick_resume();
++
++	for_each_online_cpu(cpu)
++		xen_init_missing_ticks_accounting(cpu);
++}
++
++static void ia64_cpu_local_tick_fn(void *unused)
++{
++	xen_local_tick_resume();
++	xen_init_missing_ticks_accounting(smp_processor_id());
++}
++
++void
++xen_timer_resume_on_aps(void)
++{
++	smp_call_function(&ia64_cpu_local_tick_fn, NULL, 0, 1);
++}
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
+index b9c7ec5..f98d7e1 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/time.h
+@@ -21,3 +21,4 @@
+  */
+ 
+ extern struct pv_time_ops xen_time_ops __initdata;
++void xen_timer_resume_on_aps(void);
+-- 
+1.5.3
+
