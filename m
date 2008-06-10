@@ -1,46 +1,63 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 10 Jun 2008 07:46:57 +0000
-Subject: [PATCH 01/27] ia64: move function declaration, ia64_cpu_local_tick() from .c to .h
-Message-Id: <12130840431680-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 10 Jun 2008 07:47:01 +0000
+Subject: [PATCH 05/27] ia64/xen: define several constants for ia64/xen.
+Message-Id: <12130840432828-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-eliminate the function declaration ia64_cpu_local_tick() in
-process.c by defining in asm-ia64/timex.h
-The same function will be used in a different .c file later.
+define several constants for ia64/xen.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/process.c |    1 -
- include/asm-ia64/timex.h   |    2 ++
- 2 files changed, 2 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index a3a34b4..1fbd9b8 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -247,7 +247,6 @@ default_idle (void)
- /* We don't actually take CPU down, just spin without interrupts. */
- static inline void play_dead(void)
- {
--	extern void ia64_cpu_local_tick (void);
- 	unsigned int this_cpu = smp_processor_id();
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index c64a55a..6bd3fc5 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -16,6 +16,8 @@
+ #include <asm-ia64/sigcontext.h>
+ #include <asm-ia64/mca.h>
  
- 	/* Ack it */
-diff --git a/include/asm-ia64/timex.h b/include/asm-ia64/timex.h
-index 05a6baf..4e03cfe 100644
---- a/include/asm-ia64/timex.h
-+++ b/include/asm-ia64/timex.h
-@@ -39,4 +39,6 @@ get_cycles (void)
- 	return ret;
- }
- 
-+extern void ia64_cpu_local_tick (void);
++#include <asm-ia64/xen/interface.h>
 +
- #endif /* _ASM_IA64_TIMEX_H */
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
+ 
+@@ -286,4 +288,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++
++#ifdef CONFIG_XEN
++	BLANK();
++
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
+ }
 -- 
 1.5.3
 
