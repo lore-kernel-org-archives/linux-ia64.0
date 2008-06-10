@@ -1,139 +1,179 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 19 Jun 2008 12:17:13 +0000
-Subject: Re: [PATCH 26/27] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
-Message-Id: <20080619121713.GR11378%yamahata@valinux.co.jp>
+Date: Tue, 10 Jun 2008 07:47:05 +0000
+Subject: [PATCH 09/27] ia64/xen: implement the arch specific part of xencomm.
+Message-Id: <12130840434082-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1213084044647-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1213084044647-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jun 18, 2008 at 03:13:13PM -0700, Luck, Tony wrote:
-> > introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
-> > paravirtualized guest.
-> > introduce CONFING_XEN, CONFIG_IA64_XEN for xen.
-> 
-> s/CONFING_XEN/CONFIG_XEN/
-> 
-> Would it make sense to rename CONFIG_IA64_XEN to be
-> CONFIG_IA64_XEN_GUEST?  The comments you add to
-> arch/ia64/Kconfig say that this is what it means.
-
-Sounds reasonable.
-
-From 0ab56a68e392c4d0fcf244cb91538e9645af5929 Mon Sep 17 00:00:00 2001
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 19 Jun 2008 20:01:33 +0900
-Subject: [PATCH] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
-
-introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
-paravirtualized guest.
-introduce CONFIG_XEN, CONFIG_IA64_XEN_GUEST for xen.
+On ia64/xen, pointer argument for the hypercall is passed
+by pseudo physical address (guest phsysical address.)
+So it is necessary to convert virtual address into pseudo physical
+address rigth before issuing hypercall. The frame work is called
+xencomm. This patch implements arch specific part.
 
 Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- arch/ia64/Kconfig     |   32 ++++++++++++++++++++++++++++++++
- arch/ia64/xen/Kconfig |   26 ++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/Kconfig
+ arch/ia64/xen/Makefile         |    2 +-
+ arch/ia64/xen/xencomm.c        |   95 ++++++++++++++++++++++++++++++++++++++++
+ include/asm-ia64/xen/xencomm.h |   33 ++++++++++++++
+ 3 files changed, 129 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xencomm.c
+ create mode 100644 include/asm-ia64/xen/xencomm.h
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 16be414..91d8c1b 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -116,6 +116,33 @@ config AUDIT_ARCH
- 	bool
- 	default y
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index c200704..ad0c9f7 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,4 @@
+ # Makefile for Xen components
+ #
  
-+menuconfig PARAVIRT_GUEST
-+	bool "Paravirtualized guest support"
-+	help
-+	  Say Y here to get to see options related to running Linux under
-+	  various hypervisors.  This option alone does not add any kernel code.
-+
-+	  If you say N, all options in this submenu will be skipped and disabled.
-+
-+if PARAVIRT_GUEST
-+
-+config PARAVIRT
-+	bool "Enable paravirtualization code"
-+	depends on PARAVIRT_GUEST
-+	default y
-+	bool
-+	default y
-+	help
-+	  This changes the kernel so it can modify itself when it is run
-+	  under a hypervisor, potentially improving performance significantly
-+	  over full virtualization.  However, when run without a hypervisor
-+	  the kernel is theoretically slower and slightly larger.
-+
-+
-+source "arch/ia64/xen/Kconfig"
-+
-+endif
-+
- choice
- 	prompt "System type"
- 	default IA64_GENERIC
-@@ -137,6 +164,7 @@ config IA64_GENERIC
- 	  SGI-SN2		For SGI Altix systems
- 	  SGI-UV		For SGI UV systems
- 	  Ski-simulator		For the HP simulator <http://www.hpl.hp.com/research/linux/ski/>
-+	  Xen-domU		For xen domU system
- 
- 	  If you don't know what to do, choose "generic".
- 
-@@ -187,6 +215,10 @@ config IA64_HP_SIM
- 	bool "Ski-simulator"
- 	select SWIOTLB
- 
-+config IA64_XEN_GUEST
-+	bool "Xen guest"
-+	depends on XEN
-+
- endchoice
- 
- choice
-diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+-obj-y := hypercall.o
++obj-y := hypercall.o xencomm.o
+diff --git a/arch/ia64/xen/xencomm.c b/arch/ia64/xen/xencomm.c
 new file mode 100644
-index 0000000..f1683a2
+index 0000000..659d98f
 --- /dev/null
-+++ b/arch/ia64/xen/Kconfig
-@@ -0,0 +1,26 @@
-+#
-+# This Kconfig describes xen/ia64 options
-+#
++++ b/arch/ia64/xen/xencomm.c
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (C) 2006 Hollis Blanchard <hollisb@us.ibm.com>, IBM Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
 +
-+config XEN
-+	bool "Xen hypervisor support"
-+	default y
-+	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
-+	select XEN_XENCOMM
-+	select NO_IDLE_HZ
++#include <linux/mm.h>
 +
-+	# those are required to save/restore.
-+	select ARCH_SUSPEND_POSSIBLE
-+	select SUSPEND
-+	select PM_SLEEP
-+	help
-+	  Enable Xen hypervisor support.  Resulting kernel runs
-+	  both as a guest OS on Xen and natively on hardware.
++#ifdef HAVE_XEN_PLATFORM_COMPAT_H
++#include <xen/platform-compat.h>
++#endif
 +
-+config XEN_XENCOMM
-+	depends on XEN
-+	bool
++static unsigned long kernel_start_pa;
 +
-+config NO_IDLE_HZ
-+	depends on XEN
-+	bool
++void
++xencomm_initialize(void)
++{
++	kernel_start_pa = KERNEL_START - ia64_tpa(KERNEL_START);
++}
++
++/* Translate virtual address to physical address.  */
++unsigned long
++xencomm_vtop(unsigned long vaddr)
++{
++	struct page *page;
++	struct vm_area_struct *vma;
++
++	if (vaddr = 0)
++		return 0;
++
++#ifdef __ia64__
++	if (REGION_NUMBER(vaddr) = 5) {
++		pgd_t *pgd;
++		pud_t *pud;
++		pmd_t *pmd;
++		pte_t *ptep;
++
++		/* On ia64, TASK_SIZE refers to current.  It is not initialized
++		   during boot.
++		   Furthermore the kernel is relocatable and __pa() doesn't
++		   work on  addresses.  */
++		if (vaddr >= KERNEL_START
++		    && vaddr < (KERNEL_START + KERNEL_TR_PAGE_SIZE))
++			return vaddr - kernel_start_pa;
++
++		/* In kernel area -- virtually mapped.  */
++		pgd = pgd_offset_k(vaddr);
++		if (pgd_none(*pgd) || pgd_bad(*pgd))
++			return ~0UL;
++
++		pud = pud_offset(pgd, vaddr);
++		if (pud_none(*pud) || pud_bad(*pud))
++			return ~0UL;
++
++		pmd = pmd_offset(pud, vaddr);
++		if (pmd_none(*pmd) || pmd_bad(*pmd))
++			return ~0UL;
++
++		ptep = pte_offset_kernel(pmd, vaddr);
++		if (!ptep)
++			return ~0UL;
++
++		return (pte_val(*ptep) & _PFN_MASK) | (vaddr & ~PAGE_MASK);
++	}
++#endif
++
++	if (vaddr > TASK_SIZE) {
++		/* kernel address */
++		return __pa(vaddr);
++	}
++
++	/* XXX double-check (lack of) locking */
++	vma = find_extend_vma(current->mm, vaddr);
++	if (!vma)
++		return ~0UL;
++
++	/* We assume the page is modified.  */
++	page = follow_page(vma, vaddr, FOLL_WRITE | FOLL_TOUCH);
++	if (!page)
++		return ~0UL;
++
++	return (page_to_pfn(page) << PAGE_SHIFT) | (vaddr & ~PAGE_MASK);
++}
+diff --git a/include/asm-ia64/xen/xencomm.h b/include/asm-ia64/xen/xencomm.h
+new file mode 100644
+index 0000000..e95db51
+--- /dev/null
++++ b/include/asm-ia64/xen/xencomm.h
+@@ -0,0 +1,33 @@
++/*
++ * Copyright (C) 2006 Hollis Blanchard <hollisb@us.ibm.com>, IBM Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ */
++
++#ifndef _ASM_IA64_XEN_XENCOMM_H
++#define _ASM_IA64_XEN_XENCOMM_H
++
++#define is_kernel_addr(x)					\
++	((PAGE_OFFSET <= (x) &&					\
++	  (x) < (PAGE_OFFSET + (1UL << IA64_MAX_PHYS_BITS))) ||	\
++	 (KERNEL_START <= (x) &&				\
++	  (x) < KERNEL_START + KERNEL_TR_PAGE_SIZE))
++
++/* Must be called before any hypercall.  */
++extern void xencomm_initialize(void);
++
++#include <xen/xencomm.h>
++
++#endif /* _ASM_IA64_XEN_XENCOMM_H */
 -- 
 1.5.3
 
-
-
--- 
-yamahata
