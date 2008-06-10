@@ -1,63 +1,78 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 10 Jun 2008 07:47:01 +0000
-Subject: [PATCH 05/27] ia64/xen: define several constants for ia64/xen.
-Message-Id: <12130840432828-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 10 Jun 2008 07:47:08 +0000
+Subject: [PATCH 12/27] ia64/xen: add definitions necessary for xen event channel.
+Message-Id: <12130840443862-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define several constants for ia64/xen.
+Xen paravirtualizes interrupt as event channel.
+This patch defines arch specific part of xen event channel.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ include/asm-ia64/xen/events.h |   50 +++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/events.h
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index c64a55a..6bd3fc5 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -16,6 +16,8 @@
- #include <asm-ia64/sigcontext.h>
- #include <asm-ia64/mca.h>
- 
-+#include <asm-ia64/xen/interface.h>
+diff --git a/include/asm-ia64/xen/events.h b/include/asm-ia64/xen/events.h
+new file mode 100644
+index 0000000..42bb0b5
+--- /dev/null
++++ b/include/asm-ia64/xen/events.h
+@@ -0,0 +1,50 @@
++/******************************************************************************
++ * include/asm-ia64/xen/events.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++#ifndef _ASM_IA64_XEN_EVENTS_H
++#define _ASM_IA64_XEN_EVENTS_H
 +
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
- 
-@@ -286,4 +288,29 @@ void foo(void)
- 		offsetof (struct itc_jitter_data_t, itc_jitter));
- 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
- 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++enum ipi_vector {
++	XEN_RESCHEDULE_VECTOR,
++	XEN_IPI_VECTOR,
++	XEN_CMCP_VECTOR,
++	XEN_CPEP_VECTOR,
 +
-+#ifdef CONFIG_XEN
-+	BLANK();
++	XEN_NR_IPIS,
++};
 +
-+#define DEFINE_MAPPED_REG_OFS(sym, field) \
-+	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++static inline int xen_irqs_disabled(struct pt_regs *regs)
++{
++	return !(ia64_psr(regs)->i);
++}
 +
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
-+	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
-+	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
-+	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
-+#endif /* CONFIG_XEN */
- }
++static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
++{
++	struct pt_regs *old_regs;
++	old_regs = set_irq_regs(regs);
++	irq_enter();
++	__do_IRQ(irq);
++	irq_exit();
++	set_irq_regs(old_regs);
++}
++#define irq_ctx_init(cpu)	do { } while (0)
++
++#endif /* _ASM_IA64_XEN_EVENTS_H */
 -- 
 1.5.3
 
