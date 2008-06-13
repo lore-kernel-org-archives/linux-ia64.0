@@ -1,41 +1,43 @@
-From: Adrian Bunk <bunk@kernel.org>
-Date: Thu, 12 Jun 2008 19:36:40 +0000
+From: Adam Litke <agl@us.ibm.com>
+Date: Fri, 13 Jun 2008 18:12:08 +0000
 Subject: Re: [RFC PATCH 2/2] Update defconfigs for CONFIG_HUGETLB
-Message-Id: <20080612193638.GB17231@cs181133002.pp.htv.fi>
+Message-Id: <1213380728.15016.8.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1213296540.17108.8.camel@localhost.localdomain> <1213296945.17108.13.camel@localhost.localdomain>
-In-Reply-To: <1213296945.17108.13.camel@localhost.localdomain>
+References: <1213296540.17108.8.camel@localhost.localdomain>
+	 <1213296945.17108.13.camel@localhost.localdomain>
+	 <20080612193638.GB17231@cs181133002.pp.htv.fi>
+In-Reply-To: <20080612193638.GB17231@cs181133002.pp.htv.fi>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Adam Litke <agl@us.ibm.com>
+To: Adrian Bunk <bunk@kernel.org>
 Cc: linux-mm <linux-mm@kvack.org>, npiggin@suse.de, nacc@us.ibm.com, mel@csn.ul.ie, Eric B Munson <ebmunson@us.ibm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, sparclinux@vger.kernel.org, linux-sh@vger.kernel.org, linux-s390@vger.kernel.org, linux-mips@linux-mips.org
 
-On Thu, Jun 12, 2008 at 02:55:45PM -0400, Adam Litke wrote:
-> Update all defconfigs that specify a default configuration for hugetlbfs.
-> There is now only one option: CONFIG_HUGETLB.  Replace the old
-> CONFIG_HUGETLB_PAGE and CONFIG_HUGETLBFS options with the new one.  I found no
-> cases where CONFIG_HUGETLBFS and CONFIG_HUGETLB_PAGE had different values so
-> this patch is large but completely mechanical:
->...
->  335 files changed, 335 insertions(+), 385 deletions(-)
->...
+On Thu, 2008-06-12 at 22:36 +0300, Adrian Bunk wrote:
+> On Thu, Jun 12, 2008 at 02:55:45PM -0400, Adam Litke wrote:
+> > Update all defconfigs that specify a default configuration for hugetlbfs.
+> > There is now only one option: CONFIG_HUGETLB.  Replace the old
+> > CONFIG_HUGETLB_PAGE and CONFIG_HUGETLBFS options with the new one.  I found no
+> > cases where CONFIG_HUGETLBFS and CONFIG_HUGETLB_PAGE had different values so
+> > this patch is large but completely mechanical:
+> >...
+> >  335 files changed, 335 insertions(+), 385 deletions(-)
+> >...
+> 
+> Please don't do this kind of patches - it doesn't bring any advantage 
+> but can create tons of patch conflicts.
+> 
+> The next time a defconfig gets updated it will anyway automatically be 
+> fixed, and for defconfigs that aren't updated it doesn't create any 
+> problems to keep them as they are today until they might one day get 
+> updated.
 
-Please don't do this kind of patches - it doesn't bring any advantage 
-but can create tons of patch conflicts.
-
-The next time a defconfig gets updated it will anyway automatically be 
-fixed, and for defconfigs that aren't updated it doesn't create any 
-problems to keep them as they are today until they might one day get 
-updated.
-
-cu
-Adrian
+Thanks for taking a look.  I am not sure if I have ever seen a defconfig
+patch hit the mailing list before and I was wondering how those changes
+happen.  In any case I am perfectly happy to drop this huge patch and
+stick with just the first one.
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Adam Litke - (agl at us.ibm.com)
+IBM Linux Technology Center
 
