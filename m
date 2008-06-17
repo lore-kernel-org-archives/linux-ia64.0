@@ -1,38 +1,50 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Thu, 26 Jun 2008 12:53:11 +0000
-Subject: [PATCH] Remove experimental status of kdump on IA64
-Message-Id: <1214484791-25439-1-git-send-email-bwalle@suse.de>
+From: Aron Griffis <aron@hp.com>
+Date: Tue, 17 Jun 2008 23:50:08 +0000
+Subject: Re: [Xen-ia64-devel] [PATCH 04/27] ia64/xen: introduce definitions
+Message-Id: <20080617235007.GM16618@fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, vgoyal@redhat.com, kexec@lists.infradead.org, Bernhard Walle <bwalle@suse.de>
 
-This patch removes the experimental status of kdump on IA64. kdump is on IA64
-now since more than one year and it has proven to be stable.
+Hi Yamahata-san,
 
+Who is the copyright holder on this file?
 
-Signed-off-by: Bernhard Walle <bwalle@suse.de>
----
- arch/ia64/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Thanks,
+Aron
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 16be414..f548e43 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -539,8 +539,8 @@ config KEXEC
- 	  strongly in flux, so no good recommendation can be made.
- 
- config CRASH_DUMP
--	  bool "kernel crash dumps (EXPERIMENTAL)"
--	  depends on EXPERIMENTAL && IA64_MCA_RECOVERY && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
-+	  bool "kernel crash dumps"
-+	  depends on IA64_MCA_RECOVERY && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
- 	  help
- 	    Generate crash dump after being started by kexec.
- 
--- 
-1.5.6
+Isaku Yamahata wrote:  [Tue Jun 10 2008, 03:47:00AM EDT]
+> diff --git a/include/asm-ia64/xen/interface.h b/include/asm-ia64/xen/interface.h
+> new file mode 100644
+> index 0000000..c0770a4
+> --- /dev/null
+> +++ b/include/asm-ia64/xen/interface.h
+> @@ -0,0 +1,320 @@
+> +/******************************************************************************
+> + * arch-ia64/hypervisor-if.h
+> + *
+> + * Guest OS interface to IA64 Xen.
+> + *
+> + * Permission is hereby granted, free of charge, to any person obtaining a copy
+> + * of this software and associated documentation files (the "Software"), to
+> + * deal in the Software without restriction, including without limitation the
+> + * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+> + * sell copies of the Software, and to permit persons to whom the Software is
+> + * furnished to do so, subject to the following conditions:
+> + *
+> + * The above copyright notice and this permission notice shall be included in
+> + * all copies or substantial portions of the Software.
+> + *
+> + * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> + * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> + * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> + * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> + * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+> + * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+> + * DEALINGS IN THE SOFTWARE.
+> + *
+> + */
+
 
