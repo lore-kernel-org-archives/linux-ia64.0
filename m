@@ -1,25 +1,21 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Fri, 13 Jun 2008 16:35:15 +0000
-Subject: Re: IPF Montvale machine panic when running a network-relevent testing
-Message-Id: <200806131835.15829.rjw@sisk.pl>
+From: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
+Date: Wed, 18 Jun 2008 03:27:43 +0000
+Subject: Re: IPF Montvale machine panic when running a network-relevent
+Message-Id: <1213759663.25608.33.camel@ymzhang>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1213345160.25608.3.camel@ymzhang>
 In-Reply-To: <1213345160.25608.3.camel@ymzhang>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: "Zhang, Yanmin" <yanmin_zhang@linux.intel.com>
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Linux-IA64 <linux-ia64@vger.kernel.org>
+To: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+Cc: LKML <linux-kernel@vger.kernel.org>, Linux-IA64 <linux-ia64@vger.kernel.org>
 
-On Friday, 13 of June 2008, Zhang, Yanmin wrote:
+On Fri, 2008-06-13 at 16:19 +0800, Zhang, Yanmin wrote:
 > With kernel 2.6.26-rc5 and a git kernel just between rc4 and rc5, my
 > kernel panic on my Montvale machine when I did an initial specweb2005
 > testing between 2 machines.
-
-I have created the Bugzilla entry at
-http://bugzilla.kernel.org/show_bug.cgi?id=10908
-for this bug.  Can you add yourself to the CC list in there, please?
-
+>=20
 > Below is the log.
 >=20
 > LOGIN: Unable to handle kernel NULL pointer dereference (address 00000000=
@@ -75,6 +71,10 @@ ue_add, because
 > =EF=BB=BFqueue->rskq_accept_tail is NULL. The call chain is:
 > =EF=BB=BF=EF=BB=BFtcp_rcv_established =3D> inet_csk_reqsk_queue_add =3D> =
 reqsk_queue_add.
+The call chain is:
+=EF=BB=BFtcp_rcv_established =3D> tcp_defer_accept_check =3D> inet_csk_reqs=
+k_queue_add =3D> reqsk_queue_add
+
 >=20
 > As I was running an initial specweb2005(configured 3500 sessions) testing=
  between
@@ -86,6 +86,97 @@ sed to
 > avoid race. But inet_csk_accept uses lock_sock(sk) (a kind of sleeper). A=
 lthough
 > lock_sock also accesses sk->sk_lock.slock, it looks like there is a race.
+This issue is caused by tcp defer accept. Mostly, process context calls loc=
+k_sock
+to apply a sleeping lock. BH (SoftIRQ) context calls bh_lock_sock(_nested) =
+to just apply
+for the sk->sk_lock.slock without sleeping, then do appropriate processing =
+based on
+if sk->sk_lock.owned=3D0. That works well if both process context and BH co=
+ntext operate
+the same sk at the same time. But with =EF=BB=BFtcp defer accept, it doesn'=
+t, because
+process context(for example, in inet_csk_accept) locks the listen sk, while=
+ BH
+context (in tcp_v4_rcv, for example) locks the child sk and calls
+=EF=BB=BFtcp_defer_accept_check=EF=BB=BF =3D> inet_csk_reqsk_queue_add =3D>=
+ reqsk_queue_add, so there is a race
+to access the listen sock.
 
-Thanks,
-Rafael
+Below patch against 2.6.26-rc6 fixes the issue.
+
+=EF=BB=BF=EF=BB=BFSigned-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
+---
+
+--- linux-2.6.26-rc6/net/ipv4/inet_connection_sock.c	2008-06-17 12:26:50.00=
+0000000 +0800
++++ linux-2.6.26-rc6_tcp/net/ipv4/inet_connection_sock.c	2008-06-17 16:41:0=
+7.000000000 +0800
+@@ -257,7 +257,10 @@ struct sock *inet_csk_accept(struct sock
+ 			goto out_err;
+ 	}
+=20
++	lock_sock_bh(sk);
+ 	newsk =3D reqsk_queue_get_child(&icsk->icsk_accept_queue, sk);
++	unlock_sock_bh(sk);
++
+ 	BUG_TRAP(newsk->sk_state !=3D TCP_SYN_RECV);
+ out:
+ 	release_sock(sk);
+@@ -602,7 +605,9 @@ void inet_csk_listen_stop(struct sock *s
+ 	inet_csk_delete_keepalive_timer(sk);
+=20
+ 	/* make all the listen_opt local to us */
++	lock_sock_bh(sk);
+ 	acc_req =3D reqsk_queue_yank_acceptq(&icsk->icsk_accept_queue);
++	unlock_sock_bh(sk);
+=20
+ 	/* Following specs, it would be better either to send FIN
+ 	 * (and enter FIN-WAIT-1, it is normal close)
+--- linux-2.6.26-rc6/net/ipv4/tcp_input.c	2008-06-17 12:26:50.000000000 +08=
+00
++++ linux-2.6.26-rc6_tcp/net/ipv4/tcp_input.c	2008-06-17 16:43:35.000000000=
+ +0800
+@@ -4554,6 +4554,8 @@ static int tcp_defer_accept_check(struct
+ 		if (queued_data && hasfin)
+ 			queued_data--;
+=20
++		bh_lock_sock_nested(tp->defer_tcp_accept.listen_sk);
++
+ 		if (queued_data &&
+ 		    tp->defer_tcp_accept.listen_sk->sk_state =3D TCP_LISTEN) {
+ 			if (sock_flag(sk, SOCK_KEEPOPEN)) {
+@@ -4568,6 +4570,8 @@ static int tcp_defer_accept_check(struct
+ 				tp->defer_tcp_accept.request,
+ 				sk);
+=20
++			bh_unlock_sock(tp->defer_tcp_accept.listen_sk);
++
+ 			tp->defer_tcp_accept.listen_sk->sk_data_ready(
+ 				tp->defer_tcp_accept.listen_sk, 0);
+=20
+@@ -4577,6 +4581,7 @@ static int tcp_defer_accept_check(struct
+ 			tp->defer_tcp_accept.request =3D NULL;
+ 		} else if (hasfin ||
+ 			   tp->defer_tcp_accept.listen_sk->sk_state !=3D TCP_LISTEN) {
++			bh_unlock_sock(tp->defer_tcp_accept.listen_sk);
+ 			tcp_reset(sk);
+ 			return -1;
+ 		}
+--- linux-2.6.26-rc6/include/net/sock.h	2008-06-17 12:26:50.000000000 +0800
++++ linux-2.6.26-rc6_tcp/include/net/sock.h	2008-06-17 16:43:58.000000000 +=
+0800
+@@ -827,6 +827,10 @@ static inline void lock_sock(struct sock
+=20
+ extern void release_sock(struct sock *sk);
+=20
++/* process context need below 2 interfaces */
++#define lock_sock_bh(__sk)	spin_lock_bh(&((__sk)->sk_lock.slock))
++#define unlock_sock_bh(__sk)	spin_unlock_bh(&((__sk)->sk_lock.slock))
++
+ /* BH context may only use the following locking interface. */
+ #define bh_lock_sock(__sk)	spin_lock(&((__sk)->sk_lock.slock))
+ #define bh_lock_sock_nested(__sk) \
+
+
