@@ -1,88 +1,30 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Tue, 24 Jun 2008 16:35:29 +0000
-Subject: Re: FW: [BISECT] Boot failure on ia64.
-Message-Id: <20080624163529.GD3599@ldl.fc.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 20 Jun 2008 23:24:18 +0000
+Subject: [git pull] ia64 change
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA306272919@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080624143922.GK10123@sgi.com> <yq0hcbiluke.fsf@jaguar.mkp.net>
-In-Reply-To: <yq0hcbiluke.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jes Sorensen <jes@sgi.com>
-Cc: Robin Holt <holt@sgi.com>, linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-* Jes Sorensen <jes@sgi.com>:
-> >>>>> "Robin" = Robin Holt <holt@sgi.com> writes:
-> 
-> Robin> Oops, missed sending this to the ia64 mailing list.  Robin
-> 
-> Hi Robin,
-> 
-> Just hit the same problem and did a little digging. It's because
-> platform_send_ipi() ends up doing a cpuid_to_nasid() on sn2, which
-> relies on NUMA information etc. being setup. 
-> 
-> In fact, check_sal_cache_flush() is called a fair bit before
-> platform_setup() in arch/ia64/kernel/setup.c, which I would claim is
-> completely broken.
+Hi Linus,
 
-Yeah, using platform_* before platform_setup() completes is
-probably a bad idea. :-/
+please pull from:
 
-> Either check_sal_cache_flush() needs to be moved to after
-> platform_setup() or Alex's patch should be reverted until a better
-> solution is found. I am attaching a patch that does the former, but I
-> don't know if this is safe on HP's systems.
-> 
-> This boots on SN2.
+        git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This patch works on 
+This will update the file shown below.
 
-	- rx5670 (the original buggy HP platform)
-	- rx6600 (low-end HP platform)
-	- rx7620 (mid-range HP platform)
+Thanks!
 
-Thanks for fixing this.
+-Tony
 
-Tested-by: Alex Chiang <achiang@hp.com>
+ arch/ia64/sn/kernel/sn2/sn2_smp.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-/ac
+Cliff Wickman (1):
+      [IA64] SN2: security hole in sn2_ptc_proc_write
 
-> 
-> Cheers,
-> Jes
-> 
-> Call check_sal_cache_flush() after platform_setup() as
-> check_sal_cache_flush() now relies on being able to call platform
-> vector code.
-> 
-> Signed-off-by: Jes Sorensen <jes@sgi.com>
-> ---
->  arch/ia64/kernel/setup.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> Index: linux-2.6.git/arch/ia64/kernel/setup.c
-> =================================> --- linux-2.6.git.orig/arch/ia64/kernel/setup.c
-> +++ linux-2.6.git/arch/ia64/kernel/setup.c
-> @@ -578,8 +578,6 @@ setup_arch (char **cmdline_p)
->  	cpu_init();	/* initialize the bootstrap CPU */
->  	mmu_context_init();	/* initialize context_id bitmap */
->  
-> -	check_sal_cache_flush();
-> -
->  #ifdef CONFIG_ACPI
->  	acpi_boot_init();
->  #endif
-> @@ -607,6 +605,7 @@ setup_arch (char **cmdline_p)
->  		ia64_mca_init();
->  
->  	platform_setup(cmdline_p);
-> +	check_sal_cache_flush();
->  	paging_init();
->  }
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+
