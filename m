@@ -1,21 +1,17 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 24 Jun 2008 15:41:10 +0000
+From: Alex Chiang <achiang@hp.com>
+Date: Tue, 24 Jun 2008 16:35:29 +0000
 Subject: Re: FW: [BISECT] Boot failure on ia64.
-Message-Id: <20080624154109.GA28897@sgi.com>
+Message-Id: <20080624163529.GD3599@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080624143922.GK10123@sgi.com>
-In-Reply-To: <20080624143922.GK10123@sgi.com>
+References: <20080624143922.GK10123@sgi.com> <yq0hcbiluke.fsf@jaguar.mkp.net>
+In-Reply-To: <yq0hcbiluke.fsf@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jes Sorensen <jes@sgi.com>
+Cc: Robin Holt <holt@sgi.com>, linux-ia64@vger.kernel.org, tony.luck@intel.com, linux-kernel@vger.kernel.org
 
-Yep, that gets it.
-
-Thanks,
-Robin
-
-On Tue, Jun 24, 2008 at 11:30:09AM -0400, Jes Sorensen wrote:
+* Jes Sorensen <jes@sgi.com>:
 > >>>>> "Robin" = Robin Holt <holt@sgi.com> writes:
 > 
 > Robin> Oops, missed sending this to the ia64 mailing list.  Robin
@@ -29,13 +25,29 @@ On Tue, Jun 24, 2008 at 11:30:09AM -0400, Jes Sorensen wrote:
 > In fact, check_sal_cache_flush() is called a fair bit before
 > platform_setup() in arch/ia64/kernel/setup.c, which I would claim is
 > completely broken.
-> 
+
+Yeah, using platform_* before platform_setup() completes is
+probably a bad idea. :-/
+
 > Either check_sal_cache_flush() needs to be moved to after
 > platform_setup() or Alex's patch should be reverted until a better
 > solution is found. I am attaching a patch that does the former, but I
 > don't know if this is safe on HP's systems.
 > 
 > This boots on SN2.
+
+This patch works on 
+
+	- rx5670 (the original buggy HP platform)
+	- rx6600 (low-end HP platform)
+	- rx7620 (mid-range HP platform)
+
+Thanks for fixing this.
+
+Tested-by: Alex Chiang <achiang@hp.com>
+
+/ac
+
 > 
 > Cheers,
 > Jes
@@ -73,3 +85,4 @@ On Tue, Jun 24, 2008 at 11:30:09AM -0400, Jes Sorensen wrote:
 > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
