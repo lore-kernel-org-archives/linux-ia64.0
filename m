@@ -1,36 +1,61 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 30 Jun 2008 23:52:37 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA306383A76@orsmsx505.amr.corp.intel.com>
+From: Julia Lawall <julia@diku.dk>
+Date: Tue, 24 Jun 2008 08:22:05 +0000
+Subject: [PATCH 3/14] arch/ia64: Eliminate NULL test and memset after
+Message-Id: <Pine.LNX.4.64.0806241021360.26777@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akinobu.mita@gmail.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-Hi Linus,
+From: Julia Lawall <julia@diku.dk>
 
-please pull from:
+As noted by Akinobu Mita in patch b1fceac2b9e04d278316b2faddf276015fc06e3b,
+alloc_bootmem and related functions never return NULL and always return a
+zeroed region of memory.  Thus a NULL test or memset after calls to these
+functions is unnecessary.
 
-        git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+ arch/ia64/kernel/iosapic.c |    2 --
+ 1 file changed, 2 deletions(-)
 
-This will update the files shown below.
+This was fixed using the following semantic patch.
+(http://www.emn.fr/x-info/coccinelle/)
 
-Thanks!
+// <smpl>
+@@
+expression E;
+statement S;
+@@
 
--Tony
+E = \(alloc_bootmem\|alloc_bootmem_low\|alloc_bootmem_pages\|alloc_bootmem_low_pages\)(...)
+... when != E
+(
+- BUG_ON (E = NULL);
+|
+- if (E = NULL) S
+)
 
- arch/ia64/kernel/setup.c |    3 ++-
- arch/ia64/kernel/time.c  |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+@@
+expression E,E1;
+@@
 
-Doug Chapman (1):
-      [IA64] export account_system_vtime
+E = \(alloc_bootmem\|alloc_bootmem_low\|alloc_bootmem_pages\|alloc_bootmem_low_pages\)(...)
+... when != E
+- memset(E,0,E1);
+// </smpl>
 
-Tony Luck (1):
-      [IA64] Bugfix for system with 32 cpus
+Signed-off-by: Julia Lawall <julia@diku.dk>
+---
 
-
-
+diff -u -p a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -558,8 +558,6 @@ static struct iosapic_rte_info * __init_
+ 	if (!iosapic_kmalloc_ok && list_empty(&free_rte_list)) {
+ 		rte = alloc_bootmem(sizeof(struct iosapic_rte_info) *
+ 				    NR_PREALLOCATE_RTE_ENTRIES);
+-		if (!rte)
+-			return NULL;
+ 		for (i = 0; i < NR_PREALLOCATE_RTE_ENTRIES; i++, rte++)
+ 			list_add(&rte->rte_list, &free_rte_list);
+ 	}
