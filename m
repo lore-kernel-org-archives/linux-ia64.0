@@ -1,25 +1,33 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 24 Jun 2008 17:59:51 +0000
+From: Julia Lawall <julia@diku.dk>
+Date: Tue, 24 Jun 2008 18:00:01 +0000
 Subject: RE: [PATCH 3/14] arch/ia64: Eliminate NULL test and memset after
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA3062D2488@orsmsx505.amr.corp.intel.com>
+Message-Id: <Pine.LNX.4.64.0806241959180.26777@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.64.0806241021360.26777@ask.diku.dk>
  <57C9024A16AD2D4C97DC78E552063EA3062D2438@orsmsx505.amr.corp.intel.com>
- <Pine.LNX.4.64.0806241948120.26777@ask.diku.dk>
-In-Reply-To: <Pine.LNX.4.64.0806241948120.26777@ask.diku.dk>
+ <57C9024A16AD2D4C97DC78E552063EA3062D2476@orsmsx505.amr.corp.intel.com>
+In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA3062D2476@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Julia Lawall <julia@diku.dk>
+To: "Luck, Tony" <tony.luck@intel.com>
 Cc: "akinobu.mita@gmail.com" <akinobu.mita@gmail.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
 
->> There is no commit b1fceac2b9e04d278316b2faddf276015fc06e3b in Linus' tree.
->
-> I am not sure to know how to tell precisely where you are looking, but you
-> can find it here:
+On Tue, 24 Jun 2008, Luck, Tony wrote:
 
-You are right ... I'm not at all sure where I was looking either.  I cut
-& pasted the commit to a "git show ....", and it came up with nothing.  But
-now it works!  Some strange user error on my part.  Sorry.
+> > In addition the current alloc_bootmem() is a macro that uses __alloc_bootmem
+> > which most defintely can return NULL.
+> 
+>         ...
+>         panic("Out of memory");
+>         return NULL;
+> }
+> 
+> Oops ... that "panic" call before the "return NULL" makes the
+> above statement totally wrong.
 
--Tony
+Thanks.  I was worried there might be somewhere a non-aborting version of 
+panic.  But that would be really confusing...
+
+julia
+
