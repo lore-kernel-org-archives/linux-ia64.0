@@ -1,28 +1,65 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Tue, 24 Jun 2008 15:21:29 +0000
-Subject: Re: [BISECT] Boot failure on ia64.
-Message-Id: <20080624152129.GB3599@ldl.fc.hp.com>
+From: Jes Sorensen <jes@sgi.com>
+Date: Tue, 24 Jun 2008 15:30:09 +0000
+Subject: Re: FW: [BISECT] Boot failure on ia64.
+Message-Id: <yq0hcbiluke.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080624123014.GJ10123@sgi.com> <20080624150851.GA3599@ldl.fc.hp.com> <20080624151715.GN10062@sgi.com>
-In-Reply-To: <20080624151715.GN10062@sgi.com>
+References: <20080624143922.GK10123@sgi.com>
+In-Reply-To: <20080624143922.GK10123@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Holt <holt@sgi.com>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-* Robin Holt <holt@sgi.com>:
-> I have not tried your patch yet.  Actually just read the email.
-> Jack Steiner did point out that booting with force_pal_cache_flush on
-> the command line will get it to boot.
+>>>>> "Robin" = Robin Holt <holt@sgi.com> writes:
 
-Yes, that command line arg will get your kernel to boot because
-it forces us to completely skip check_sal_cache_flush. It's
-probably not what you want to be using long term, though.
+Robin> Oops, missed sending this to the ia64 mailing list.  Robin
 
-> I will try your patch shortly and send you output.
+Hi Robin,
 
-Thanks.
+Just hit the same problem and did a little digging. It's because
+platform_send_ipi() ends up doing a cpuid_to_nasid() on sn2, which
+relies on NUMA information etc. being setup. 
 
-/ac
+In fact, check_sal_cache_flush() is called a fair bit before
+platform_setup() in arch/ia64/kernel/setup.c, which I would claim is
+completely broken.
 
+Either check_sal_cache_flush() needs to be moved to after
+platform_setup() or Alex's patch should be reverted until a better
+solution is found. I am attaching a patch that does the former, but I
+don't know if this is safe on HP's systems.
+
+This boots on SN2.
+
+Cheers,
+Jes
+
+Call check_sal_cache_flush() after platform_setup() as
+check_sal_cache_flush() now relies on being able to call platform
+vector code.
+
+Signed-off-by: Jes Sorensen <jes@sgi.com>
+---
+ arch/ia64/kernel/setup.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+Index: linux-2.6.git/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.git.orig/arch/ia64/kernel/setup.c
++++ linux-2.6.git/arch/ia64/kernel/setup.c
+@@ -578,8 +578,6 @@ setup_arch (char **cmdline_p)
+ 	cpu_init();	/* initialize the bootstrap CPU */
+ 	mmu_context_init();	/* initialize context_id bitmap */
+ 
+-	check_sal_cache_flush();
+-
+ #ifdef CONFIG_ACPI
+ 	acpi_boot_init();
+ #endif
+@@ -607,6 +605,7 @@ setup_arch (char **cmdline_p)
+ 		ia64_mca_init();
+ 
+ 	platform_setup(cmdline_p);
++	check_sal_cache_flush();
+ 	paging_init();
+ }
+ 
