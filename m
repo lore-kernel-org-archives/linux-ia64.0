@@ -1,34 +1,154 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 07:10:53 +0000
-Subject: [PATCH] xen: remove load_cr3() from manage.c for ia64 support.
-Message-Id: <20080703071053.GC15683%yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 06:55:02 +0000
+Subject: [PATCH] ia64/xen: preliminary support for save/restore.
+Message-Id: <12150681061107-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jeremy@goop.org
-Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-ia64@vger.kernel.org, xen-devel@lists.xensource.com, xen-ia64-devel@lists.xensource.com
+To: linux-ia64@vger.kernel.org
 
-remove load_cr3() from manage.c. It is unncessary and x86 dependent.
+preliminary support for save/restore.
+Although Save/restore isn't fully working yet, this patch is necessary
+to compile.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- drivers/xen/manage.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ arch/ia64/xen/Makefile              |    2 +-
+ arch/ia64/xen/{time.h => suspend.c} |   40 +++++++++++++++++++++++++++++++++-
+ arch/ia64/xen/time.c                |   33 ++++++++++++++++++++++++++++
+ arch/ia64/xen/time.h                |    1 +
+ 4 files changed, 73 insertions(+), 3 deletions(-)
+ copy arch/ia64/xen/{time.h => suspend.c} (66%)
 
-diff --git a/drivers/xen/manage.c b/drivers/xen/manage.c
-index 2bb268e..e8db90c 100644
---- a/drivers/xen/manage.c
-+++ b/drivers/xen/manage.c
-@@ -39,8 +39,6 @@ static int xen_suspend(void *data)
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 972d085..0ad0224 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -3,7 +3,7 @@
+ #
  
- 	BUG_ON(!irqs_disabled());
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
  
--	load_cr3(swapper_pg_dir);
--
- 	err = device_power_down(PMSG_SUSPEND);
- 	if (err) {
- 		printk(KERN_ERR "xen_suspend: device_power_down failed: %d\n",
+ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+ 
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/suspend.c
+similarity index 66%
+copy from arch/ia64/xen/time.h
+copy to arch/ia64/xen/suspend.c
+index b9c7ec5..b4ce6b6 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/suspend.c
+@@ -1,5 +1,5 @@
+ /******************************************************************************
+- * arch/ia64/xen/time.h
++ * arch/ia64/xen/suspend.c
+  *
+  * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
+  *                    VA Linux Systems Japan K.K.
+@@ -18,6 +18,42 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
++ * suspend/resume
+  */
+ 
+-extern struct pv_time_ops xen_time_ops __initdata;
++#include <xen/xen-ops.h>
++#include <asm/xen/hypervisor.h>
++#include "time.h"
++
++void
++xen_mm_pin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_mm_unpin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_pre_suspend()
++{
++	/* nothing */
++}
++
++void
++xen_post_suspend(int suspend_cancelled)
++{
++	if (suspend_cancelled)
++		return;
++
++	xen_ia64_enable_opt_feature();
++	/* add more if necessary */
++}
++
++void xen_arch_resume(void)
++{
++	xen_timer_resume_on_aps();
++}
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index 3414f1e..81a61e8 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -26,6 +26,8 @@
+ #include <linux/irq.h>
+ #include <linux/clocksource.h>
+ 
++#include <asm/timex.h>
++
+ #include <asm/xen/hypervisor.h>
+ 
+ #include <xen/interface/vcpu.h>
+@@ -163,3 +165,34 @@ struct pv_time_ops xen_time_ops __initdata = {
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
+ };
++
++/* Called after suspend, to resume time.  */
++static void xen_local_tick_resume(void)
++{
++	/* Just trigger a tick.  */
++	ia64_cpu_local_tick();
++	touch_softlockup_watchdog();
++}
++
++void
++xen_timer_resume(void)
++{
++	unsigned int cpu;
++
++	xen_local_tick_resume();
++
++	for_each_online_cpu(cpu)
++		xen_init_missing_ticks_accounting(cpu);
++}
++
++static void ia64_cpu_local_tick_fn(void *unused)
++{
++	xen_local_tick_resume();
++	xen_init_missing_ticks_accounting(smp_processor_id());
++}
++
++void
++xen_timer_resume_on_aps(void)
++{
++	smp_call_function(&ia64_cpu_local_tick_fn, NULL, 0, 1);
++}
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
+index b9c7ec5..f98d7e1 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/time.h
+@@ -21,3 +21,4 @@
+  */
+ 
+ extern struct pv_time_ops xen_time_ops __initdata;
++void xen_timer_resume_on_aps(void);
 -- 
 1.5.3
 
