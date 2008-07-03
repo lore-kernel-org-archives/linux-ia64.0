@@ -1,31 +1,83 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Date: Tue, 29 Jul 2008 14:18:35 +0000
-Subject: Re: [PATCH 5/5] sh: Define elfcorehdr_addr in arch dependent section
-Message-Id: <20080729141835.GC902@linux-sh.org>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 07:12:09 +0000
+Subject: [PATCH] xen: portability clean up and some minor clean up for xencomm.c
+Message-Id: <20080703071209.GD15683%yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080727234529.GM6175@verge.net.au> <20080728015117.GA12055@verge.net.au> <20080728024526.GB3334@verge.net.au> <20080728034007.GA30450@verge.net.au> <20080728211025.GA9985@redhat.com> <20080728211156.GB9985@redhat.com> <20080728211314.GC9985@redhat.com> <20080728211408.GD9985@redhat.com> <20080728211514.GE9985@redhat.com>
-In-Reply-To: <20080728211514.GE9985@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vivek Goyal <vgoyal@redhat.com>
-Cc: Simon Horman <horms@verge.net.au>, Andrew Morton <akpm@linux-foundation.org>, Muli Ben-Yehuda <muli@il.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Chandru <chandru@in.ibm.com>, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Terry Loftin <terry.loftin@hp.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Ingo Molnar <mingo@elte.hu>, Linus Torvalds <torvalds@linux-foundation.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org
+To: jeremy@goop.org
+Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-ia64@vger.kernel.org, xen-devel@lists.xensource.com, xen-ia64-devel@lists.xensource.com, "Luck, Tony" <tony.luck@intel.com>
 
-On Mon, Jul 28, 2008 at 05:15:14PM -0400, Vivek Goyal wrote:
-> o Move elfcorehdr_addr definition in arch dependent crash dump file. This is
->   equivalent to defining elfcorehdr_addr under CONFIG_CRASH_DUMP instead of
->   CONFIG_PROC_VMCORE. This is needed by is_kdump_kernel() which can be
->   used irrespective of the fact whether CONFIG_PROC_VMCORE is enabled or
->   not.
-> 
-> o I don't see sh setup code parsing the command line for elfcorehdr_addr. I 
->   am wondering how does vmcore interface work on sh. Anyway, I am atleast
->   defining elfcoredhr_addr so that compilation is not broken on sh.
-> 
-Hmm, you are correct, it seems like it was either lost in a merge
-somewhere or I simply neglected to check it in it when I was testing this
-stuff initially. Thanks for noticing!
+clean up of xencomm.c. is_phys_contiguous() is arch dependent
+function that depends on how virtual memory are laid out.
+So split out the function into arch specific code.
 
-> Signed-off-by: Vivek Goyal <vgoyal@redhat.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+---
+ drivers/xen/xencomm.c |   23 ++++-------------------
+ 1 files changed, 4 insertions(+), 19 deletions(-)
 
-Acked-by: Paul Mundt <lethal@linux-sh.org>
+diff --git a/drivers/xen/xencomm.c b/drivers/xen/xencomm.c
+index 797cb4e..a240b2c 100644
+--- a/drivers/xen/xencomm.c
++++ b/drivers/xen/xencomm.c
+@@ -23,13 +23,7 @@
+ #include <asm/page.h>
+ #include <xen/xencomm.h>
+ #include <xen/interface/xen.h>
+-#ifdef __ia64__
+-#include <asm/xen/xencomm.h>	/* for is_kern_addr() */
+-#endif
+-
+-#ifdef HAVE_XEN_PLATFORM_COMPAT_H
+-#include <xen/platform-compat.h>
+-#endif
++#include <asm/xen/xencomm.h>	/* for xencomm_is_phys_contiguous() */
+ 
+ static int xencomm_init(struct xencomm_desc *desc,
+ 			void *buffer, unsigned long bytes)
+@@ -157,20 +151,11 @@ static int xencomm_create(void *buffer, unsigned long bytes,
+ 	return 0;
+ }
+ 
+-/* check if memory address is within VMALLOC region  */
+-static int is_phys_contiguous(unsigned long addr)
+-{
+-	if (!is_kernel_addr(addr))
+-		return 0;
+-
+-	return (addr < VMALLOC_START) || (addr >= VMALLOC_END);
+-}
+-
+ static struct xencomm_handle *xencomm_create_inline(void *ptr)
+ {
+ 	unsigned long paddr;
+ 
+-	BUG_ON(!is_phys_contiguous((unsigned long)ptr));
++	BUG_ON(!xencomm_is_phys_contiguous((unsigned long)ptr));
+ 
+ 	paddr = (unsigned long)xencomm_pa(ptr);
+ 	BUG_ON(paddr & XENCOMM_INLINE_FLAG);
+@@ -202,7 +187,7 @@ struct xencomm_handle *xencomm_map(void *ptr, unsigned long bytes)
+ 	int rc;
+ 	struct xencomm_desc *desc;
+ 
+-	if (is_phys_contiguous((unsigned long)ptr))
++	if (xencomm_is_phys_contiguous((unsigned long)ptr))
+ 		return xencomm_create_inline(ptr);
+ 
+ 	rc = xencomm_create(ptr, bytes, &desc, GFP_KERNEL);
+@@ -219,7 +204,7 @@ struct xencomm_handle *__xencomm_map_no_alloc(void *ptr, unsigned long bytes,
+ 	int rc;
+ 	struct xencomm_desc *desc = NULL;
+ 
+-	if (is_phys_contiguous((unsigned long)ptr))
++	if (xencomm_is_phys_contiguous((unsigned long)ptr))
+ 		return xencomm_create_inline(ptr);
+ 
+ 	rc = xencomm_create_mini(ptr, bytes, xc_desc,
+-- 
+1.5.3
+
