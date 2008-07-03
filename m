@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:54:59 +0000
-Subject: [PATCH] ia64/pv_ops/xen: implement xen pv_irq_ops.
-Message-Id: <12150681061841-git-send-email-yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 06:55:00 +0000
+Subject: [PATCH] ia64/pv_ops/xen: implement xen pv_time_ops.
+Message-Id: <1215068106449-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <12150681061988-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <12150681061988-git-send-email-yamahata@valinux.co.jp>
@@ -10,43 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-implement xen pv_irq_ops to paravirtualize irq handling
-with xen event channel.
+implement xen pv_time_ops to account steal time.
 
 Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
 Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
  arch/ia64/xen/Makefile     |    2 +-
- arch/ia64/xen/irq_xen.c    |  435 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/irq_xen.h    |   34 ++++
- arch/ia64/xen/xen_pv_ops.c |    3 +
- 4 files changed, 473 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/irq_xen.c
- create mode 100644 arch/ia64/xen/irq_xen.h
+ arch/ia64/xen/time.c       |  165 ++++++++++++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/time.h       |   23 ++++++
+ arch/ia64/xen/xen_pv_ops.c |    2 +
+ 4 files changed, 191 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/time.c
+ create mode 100644 arch/ia64/xen/time.h
 
 diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 9b77e8a..01c4289 100644
+index 01c4289..ed31c76 100644
 --- a/arch/ia64/xen/Makefile
 +++ b/arch/ia64/xen/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for Xen components
+@@ -3,7 +3,7 @@
  #
  
--obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
-+obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
- 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
  
  AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-diff --git a/arch/ia64/xen/irq_xen.c b/arch/ia64/xen/irq_xen.c
+ 
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
 new file mode 100644
-index 0000000..af93aad
+index 0000000..3414f1e
 --- /dev/null
-+++ b/arch/ia64/xen/irq_xen.c
-@@ -0,0 +1,435 @@
++++ b/arch/ia64/xen/time.c
+@@ -0,0 +1,165 @@
 +/******************************************************************************
-+ * arch/ia64/xen/irq_xen.c
++ * arch/ia64/xen/time.c
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -67,427 +65,157 @@ index 0000000..af93aad
 + *
 + */
 +
-+#include <linux/cpu.h>
++#include <linux/delay.h>
++#include <linux/kernel_stat.h>
++#include <linux/posix-timers.h>
++#include <linux/irq.h>
++#include <linux/clocksource.h>
 +
-+#include <xen/interface/xen.h>
-+#include <xen/interface/callback.h>
-+#include <xen/events.h>
++#include <asm/xen/hypervisor.h>
 +
-+#include <asm/xen/privop.h>
++#include <xen/interface/vcpu.h>
 +
-+#include "irq_xen.h"
++#include "../kernel/fsyscall_gtod_data.h"
 +
-+/***************************************************************************
-+ * pv_irq_ops
-+ * irq operations
-+ */
++DEFINE_PER_CPU(struct vcpu_runstate_info, runstate);
++DEFINE_PER_CPU(unsigned long, processed_stolen_time);
++DEFINE_PER_CPU(unsigned long, processed_blocked_time);
 +
-+static int
-+xen_assign_irq_vector(int irq)
++/* taken from i386/kernel/time-xen.c */
++static void xen_init_missing_ticks_accounting(int cpu)
 +{
-+	struct physdev_irq irq_op;
++	struct vcpu_register_runstate_memory_area area;
++	struct vcpu_runstate_info *runstate = &per_cpu(runstate, cpu);
++	int rc;
 +
-+	irq_op.irq = irq;
-+	if (HYPERVISOR_physdev_op(PHYSDEVOP_alloc_irq_vector, &irq_op))
-+		return -ENOSPC;
++	memset(runstate, 0, sizeof(*runstate));
 +
-+	return irq_op.vector;
++	area.addr.v = runstate;
++	rc = HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area, cpu,
++				&area);
++	WARN_ON(rc && rc != -ENOSYS);
++
++	per_cpu(processed_blocked_time, cpu) = runstate->time[RUNSTATE_blocked];
++	per_cpu(processed_stolen_time, cpu) = runstate->time[RUNSTATE_runnable]
++					    + runstate->time[RUNSTATE_offline];
 +}
 +
-+static void
-+xen_free_irq_vector(int vector)
++#define NS_PER_TICK (1000000000LL/HZ)
++
++static unsigned long
++consider_steal_time(unsigned long new_itm)
 +{
-+	struct physdev_irq irq_op;
++	unsigned long stolen, blocked, sched_time;
++	unsigned long delta_itm = 0, stolentick = 0;
++	int cpu = smp_processor_id();
++	struct vcpu_runstate_info *runstate;
++	struct task_struct *p = current;
 +
-+	if (vector < IA64_FIRST_DEVICE_VECTOR ||
-+	    vector > IA64_LAST_DEVICE_VECTOR)
-+		return;
++	runstate = &per_cpu(runstate, smp_processor_id());
 +
-+	irq_op.vector = vector;
-+	if (HYPERVISOR_physdev_op(PHYSDEVOP_free_irq_vector, &irq_op))
-+		printk(KERN_WARNING "%s: xen_free_irq_vecotr fail vector=%d\n",
-+		       __func__, vector);
-+}
++	do {
++		sched_time = runstate->state_entry_time;
++		mb();
++		stolen = runstate->time[RUNSTATE_runnable] +
++			 runstate->time[RUNSTATE_offline] -
++			 per_cpu(processed_stolen_time, cpu);
++		blocked = runstate->time[RUNSTATE_blocked] -
++			  per_cpu(processed_blocked_time, cpu);
++		mb();
++	} while (sched_time != runstate->state_entry_time);
 +
-+
-+static DEFINE_PER_CPU(int, timer_irq) = -1;
-+static DEFINE_PER_CPU(int, ipi_irq) = -1;
-+static DEFINE_PER_CPU(int, resched_irq) = -1;
-+static DEFINE_PER_CPU(int, cmc_irq) = -1;
-+static DEFINE_PER_CPU(int, cmcp_irq) = -1;
-+static DEFINE_PER_CPU(int, cpep_irq) = -1;
-+#define NAME_SIZE	15
-+static DEFINE_PER_CPU(char[NAME_SIZE], timer_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], ipi_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], resched_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cmc_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cmcp_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cpep_name);
-+#undef NAME_SIZE
-+
-+struct saved_irq {
-+	unsigned int irq;
-+	struct irqaction *action;
-+};
-+/* 16 should be far optimistic value, since only several percpu irqs
-+ * are registered early.
-+ */
-+#define MAX_LATE_IRQ	16
-+static struct saved_irq saved_percpu_irqs[MAX_LATE_IRQ];
-+static unsigned short late_irq_cnt;
-+static unsigned short saved_irq_cnt;
-+static int xen_slab_ready;
-+
-+#ifdef CONFIG_SMP
-+/* Dummy stub. Though we may check XEN_RESCHEDULE_VECTOR before __do_IRQ,
-+ * it ends up to issue several memory accesses upon percpu data and
-+ * thus adds unnecessary traffic to other paths.
-+ */
-+static irqreturn_t
-+xen_dummy_handler(int irq, void *dev_id)
-+{
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static struct irqaction xen_ipi_irqaction = {
-+	.handler =	handle_IPI,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"IPI"
-+};
-+
-+static struct irqaction xen_resched_irqaction = {
-+	.handler =	xen_dummy_handler,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"resched"
-+};
-+
-+static struct irqaction xen_tlb_irqaction = {
-+	.handler =	xen_dummy_handler,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"tlb_flush"
-+};
-+#endif
-+
-+/*
-+ * This is xen version percpu irq registration, which needs bind
-+ * to xen specific evtchn sub-system. One trick here is that xen
-+ * evtchn binding interface depends on kmalloc because related
-+ * port needs to be freed at device/cpu down. So we cache the
-+ * registration on BSP before slab is ready and then deal them
-+ * at later point. For rest instances happening after slab ready,
-+ * we hook them to xen evtchn immediately.
-+ *
-+ * FIXME: MCA is not supported by far, and thus "nomca" boot param is
-+ * required.
-+ */
-+static void
-+__xen_register_percpu_irq(unsigned int cpu, unsigned int vec,
-+			struct irqaction *action, int save)
-+{
-+	irq_desc_t *desc;
-+	int irq = 0;
-+
-+	if (xen_slab_ready) {
-+		switch (vec) {
-+		case IA64_TIMER_VECTOR:
-+			snprintf(per_cpu(timer_name, cpu),
-+				 sizeof(per_cpu(timer_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_virq_to_irqhandler(VIRQ_ITC, cpu,
-+				action->handler, action->flags,
-+				per_cpu(timer_name, cpu), action->dev_id);
-+			per_cpu(timer_irq, cpu) = irq;
-+			break;
-+		case IA64_IPI_RESCHEDULE:
-+			snprintf(per_cpu(resched_name, cpu),
-+				 sizeof(per_cpu(resched_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_RESCHEDULE_VECTOR, cpu,
-+				action->handler, action->flags,
-+				per_cpu(resched_name, cpu), action->dev_id);
-+			per_cpu(resched_irq, cpu) = irq;
-+			break;
-+		case IA64_IPI_VECTOR:
-+			snprintf(per_cpu(ipi_name, cpu),
-+				 sizeof(per_cpu(ipi_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_IPI_VECTOR, cpu,
-+				action->handler, action->flags,
-+				per_cpu(ipi_name, cpu), action->dev_id);
-+			per_cpu(ipi_irq, cpu) = irq;
-+			break;
-+		case IA64_CMC_VECTOR:
-+			snprintf(per_cpu(cmc_name, cpu),
-+				 sizeof(per_cpu(cmc_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_virq_to_irqhandler(VIRQ_MCA_CMC, cpu,
-+						      action->handler,
-+						      action->flags,
-+						      per_cpu(cmc_name, cpu),
-+						      action->dev_id);
-+			per_cpu(cmc_irq, cpu) = irq;
-+			break;
-+		case IA64_CMCP_VECTOR:
-+			snprintf(per_cpu(cmcp_name, cpu),
-+				 sizeof(per_cpu(cmcp_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_CMCP_VECTOR, cpu,
-+						     action->handler,
-+						     action->flags,
-+						     per_cpu(cmcp_name, cpu),
-+						     action->dev_id);
-+			per_cpu(cmcp_irq, cpu) = irq;
-+			break;
-+		case IA64_CPEP_VECTOR:
-+			snprintf(per_cpu(cpep_name, cpu),
-+				 sizeof(per_cpu(cpep_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_CPEP_VECTOR, cpu,
-+						     action->handler,
-+						     action->flags,
-+						     per_cpu(cpep_name, cpu),
-+						     action->dev_id);
-+			per_cpu(cpep_irq, cpu) = irq;
-+			break;
-+		case IA64_CPE_VECTOR:
-+		case IA64_MCA_RENDEZ_VECTOR:
-+		case IA64_PERFMON_VECTOR:
-+		case IA64_MCA_WAKEUP_VECTOR:
-+		case IA64_SPURIOUS_INT_VECTOR:
-+			/* No need to complain, these aren't supported. */
-+			break;
-+		default:
-+			printk(KERN_WARNING "Percpu irq %d is unsupported "
-+			       "by xen!\n", vec);
-+			break;
-+		}
-+		BUG_ON(irq < 0);
-+
-+		if (irq > 0) {
-+			/*
-+			 * Mark percpu.  Without this, migrate_irqs() will
-+			 * mark the interrupt for migrations and trigger it
-+			 * on cpu hotplug.
-+			 */
-+			desc = irq_desc + irq;
-+			desc->status |= IRQ_PER_CPU;
-+		}
-+	}
-+
-+	/* For BSP, we cache registered percpu irqs, and then re-walk
-+	 * them when initializing APs
++	/*
++	 * Check for vcpu migration effect
++	 * In this case, itc value is reversed.
++	 * This causes huge stolen value.
++	 * This function just checks and reject this effect.
 +	 */
-+	if (!cpu && save) {
-+		BUG_ON(saved_irq_cnt = MAX_LATE_IRQ);
-+		saved_percpu_irqs[saved_irq_cnt].irq = vec;
-+		saved_percpu_irqs[saved_irq_cnt].action = action;
-+		saved_irq_cnt++;
-+		if (!xen_slab_ready)
-+			late_irq_cnt++;
++	if (!time_after_eq(runstate->time[RUNSTATE_blocked],
++			   per_cpu(processed_blocked_time, cpu)))
++		blocked = 0;
++
++	if (!time_after_eq(runstate->time[RUNSTATE_runnable] +
++			   runstate->time[RUNSTATE_offline],
++			   per_cpu(processed_stolen_time, cpu)))
++		stolen = 0;
++
++	if (!time_after(delta_itm + new_itm, ia64_get_itc()))
++		stolentick = ia64_get_itc() - new_itm;
++
++	do_div(stolentick, NS_PER_TICK);
++	stolentick++;
++
++	do_div(stolen, NS_PER_TICK);
++
++	if (stolen > stolentick)
++		stolen = stolentick;
++
++	stolentick -= stolen;
++	do_div(blocked, NS_PER_TICK);
++
++	if (blocked > stolentick)
++		blocked = stolentick;
++
++	if (stolen > 0 || blocked > 0) {
++		account_steal_time(NULL, jiffies_to_cputime(stolen));
++		account_steal_time(idle_task(cpu), jiffies_to_cputime(blocked));
++		run_local_timers();
++
++		if (rcu_pending(cpu))
++			rcu_check_callbacks(cpu, user_mode(get_irq_regs()));
++
++		scheduler_tick();
++		run_posix_cpu_timers(p);
++		delta_itm += local_cpu_data->itm_delta * (stolen + blocked);
++
++		if (cpu = time_keeper_id) {
++			write_seqlock(&xtime_lock);
++			do_timer(stolen + blocked);
++			local_cpu_data->itm_next = delta_itm + new_itm;
++			write_sequnlock(&xtime_lock);
++		} else {
++			local_cpu_data->itm_next = delta_itm + new_itm;
++		}
++		per_cpu(processed_stolen_time, cpu) += NS_PER_TICK * stolen;
++		per_cpu(processed_blocked_time, cpu) += NS_PER_TICK * blocked;
 +	}
++	return delta_itm;
 +}
 +
-+static void
-+xen_register_percpu_irq(ia64_vector vec, struct irqaction *action)
++static int xen_do_steal_accounting(unsigned long *new_itm)
 +{
-+	__xen_register_percpu_irq(smp_processor_id(), vec, action, 1);
++	unsigned long delta_itm;
++	delta_itm = consider_steal_time(*new_itm);
++	*new_itm += delta_itm;
++	if (time_after(*new_itm, ia64_get_itc()) && delta_itm)
++		return 1;
++
++	return 0;
 +}
 +
-+static void
-+xen_bind_early_percpu_irq(void)
++static void xen_itc_jitter_data_reset(void)
 +{
-+	int i;
++	u64 lcycle, ret;
 +
-+	xen_slab_ready = 1;
-+	/* There's no race when accessing this cached array, since only
-+	 * BSP will face with such step shortly
-+	 */
-+	for (i = 0; i < late_irq_cnt; i++)
-+		__xen_register_percpu_irq(smp_processor_id(),
-+					  saved_percpu_irqs[i].irq,
-+					  saved_percpu_irqs[i].action, 0);
++	do {
++		lcycle = itc_jitter_data.itc_lastcycle;
++		ret = cmpxchg(&itc_jitter_data.itc_lastcycle, lcycle, 0);
++	} while (unlikely(ret != lcycle));
 +}
 +
-+/* FIXME: There's no obvious point to check whether slab is ready. So
-+ * a hack is used here by utilizing a late time hook.
-+ */
-+
-+#ifdef CONFIG_HOTPLUG_CPU
-+static int __devinit
-+unbind_evtchn_callback(struct notifier_block *nfb,
-+		       unsigned long action, void *hcpu)
-+{
-+	unsigned int cpu = (unsigned long)hcpu;
-+
-+	if (action = CPU_DEAD) {
-+		/* Unregister evtchn.  */
-+		if (per_cpu(cpep_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cpep_irq, cpu), NULL);
-+			per_cpu(cpep_irq, cpu) = -1;
-+		}
-+		if (per_cpu(cmcp_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cmcp_irq, cpu), NULL);
-+			per_cpu(cmcp_irq, cpu) = -1;
-+		}
-+		if (per_cpu(cmc_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cmc_irq, cpu), NULL);
-+			per_cpu(cmc_irq, cpu) = -1;
-+		}
-+		if (per_cpu(ipi_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(ipi_irq, cpu), NULL);
-+			per_cpu(ipi_irq, cpu) = -1;
-+		}
-+		if (per_cpu(resched_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(resched_irq, cpu),
-+						NULL);
-+			per_cpu(resched_irq, cpu) = -1;
-+		}
-+		if (per_cpu(timer_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(timer_irq, cpu), NULL);
-+			per_cpu(timer_irq, cpu) = -1;
-+		}
-+	}
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block unbind_evtchn_notifier = {
-+	.notifier_call = unbind_evtchn_callback,
-+	.priority = 0
++struct pv_time_ops xen_time_ops __initdata = {
++	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
++	.do_steal_accounting		= xen_do_steal_accounting,
++	.clocksource_resume		= xen_itc_jitter_data_reset,
 +};
-+#endif
-+
-+void xen_smp_intr_init_early(unsigned int cpu)
-+{
-+#ifdef CONFIG_SMP
-+	unsigned int i;
-+
-+	for (i = 0; i < saved_irq_cnt; i++)
-+		__xen_register_percpu_irq(cpu, saved_percpu_irqs[i].irq,
-+					  saved_percpu_irqs[i].action, 0);
-+#endif
-+}
-+
-+void xen_smp_intr_init(void)
-+{
-+#ifdef CONFIG_SMP
-+	unsigned int cpu = smp_processor_id();
-+	struct callback_register event = {
-+		.type = CALLBACKTYPE_event,
-+		.address = { .ip = (unsigned long)&xen_event_callback },
-+	};
-+
-+	if (cpu = 0) {
-+		/* Initialization was already done for boot cpu.  */
-+#ifdef CONFIG_HOTPLUG_CPU
-+		/* Register the notifier only once.  */
-+		register_cpu_notifier(&unbind_evtchn_notifier);
-+#endif
-+		return;
-+	}
-+
-+	/* This should be piggyback when setup vcpu guest context */
-+	BUG_ON(HYPERVISOR_callback_op(CALLBACKOP_register, &event));
-+#endif /* CONFIG_SMP */
-+}
-+
-+void __init
-+xen_irq_init(void)
-+{
-+	struct callback_register event = {
-+		.type = CALLBACKTYPE_event,
-+		.address = { .ip = (unsigned long)&xen_event_callback },
-+	};
-+
-+	xen_init_IRQ();
-+	BUG_ON(HYPERVISOR_callback_op(CALLBACKOP_register, &event));
-+	late_time_init = xen_bind_early_percpu_irq;
-+}
-+
-+void
-+xen_platform_send_ipi(int cpu, int vector, int delivery_mode, int redirect)
-+{
-+#ifdef CONFIG_SMP
-+	/* TODO: we need to call vcpu_up here */
-+	if (unlikely(vector = ap_wakeup_vector)) {
-+		/* XXX
-+		 * This should be in __cpu_up(cpu) in ia64 smpboot.c
-+		 * like x86. But don't want to modify it,
-+		 * keep it untouched.
-+		 */
-+		xen_smp_intr_init_early(cpu);
-+
-+		xen_send_ipi(cpu, vector);
-+		/* vcpu_prepare_and_up(cpu); */
-+		return;
-+	}
-+#endif
-+
-+	switch (vector) {
-+	case IA64_IPI_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_IPI_VECTOR);
-+		break;
-+	case IA64_IPI_RESCHEDULE:
-+		xen_send_IPI_one(cpu, XEN_RESCHEDULE_VECTOR);
-+		break;
-+	case IA64_CMCP_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_CMCP_VECTOR);
-+		break;
-+	case IA64_CPEP_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_CPEP_VECTOR);
-+		break;
-+	case IA64_TIMER_VECTOR: {
-+		/* this is used only once by check_sal_cache_flush()
-+		   at boot time */
-+		static int used = 0;
-+		if (!used) {
-+			xen_send_ipi(cpu, IA64_TIMER_VECTOR);
-+			used = 1;
-+			break;
-+		}
-+		/* fallthrough */
-+	}
-+	default:
-+		printk(KERN_WARNING "Unsupported IPI type 0x%x\n",
-+		       vector);
-+		notify_remote_via_irq(0); /* defaults to 0 irq */
-+		break;
-+	}
-+}
-+
-+static void __init
-+xen_register_ipi(void)
-+{
-+#ifdef CONFIG_SMP
-+	register_percpu_irq(IA64_IPI_VECTOR, &xen_ipi_irqaction);
-+	register_percpu_irq(IA64_IPI_RESCHEDULE, &xen_resched_irqaction);
-+	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &xen_tlb_irqaction);
-+#endif
-+}
-+
-+static void
-+xen_resend_irq(unsigned int vector)
-+{
-+	(void)resend_irq_on_evtchn(vector);
-+}
-+
-+const struct pv_irq_ops xen_irq_ops __initdata = {
-+	.register_ipi = xen_register_ipi,
-+
-+	.assign_irq_vector = xen_assign_irq_vector,
-+	.free_irq_vector = xen_free_irq_vector,
-+	.register_percpu_irq = xen_register_percpu_irq,
-+
-+	.resend_irq = xen_resend_irq,
-+};
-diff --git a/arch/ia64/xen/irq_xen.h b/arch/ia64/xen/irq_xen.h
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
 new file mode 100644
-index 0000000..26110f3
+index 0000000..b9c7ec5
 --- /dev/null
-+++ b/arch/ia64/xen/irq_xen.h
-@@ -0,0 +1,34 @@
++++ b/arch/ia64/xen/time.h
+@@ -0,0 +1,23 @@
 +/******************************************************************************
-+ * arch/ia64/xen/irq_xen.h
++ * arch/ia64/xen/time.h
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -508,36 +236,24 @@ index 0000000..26110f3
 + *
 + */
 +
-+#ifndef IRQ_XEN_H
-+#define IRQ_XEN_H
-+
-+extern void (*late_time_init)(void);
-+extern char xen_event_callback;
-+void __init xen_init_IRQ(void);
-+
-+extern const struct pv_irq_ops xen_irq_ops __initdata;
-+extern void xen_smp_intr_init(void);
-+extern void xen_send_ipi(int cpu, int vec);
-+
-+#endif /* IRQ_XEN_H */
++extern struct pv_time_ops xen_time_ops __initdata;
 diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 6978131..0ac166c 100644
+index 0ac166c..5f83036 100644
 --- a/arch/ia64/xen/xen_pv_ops.c
 +++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -29,6 +29,8 @@
- #include <asm/xen/xencomm.h>
+@@ -30,6 +30,7 @@
  #include <asm/xen/privop.h>
  
-+#include "irq_xen.h"
-+
+ #include "irq_xen.h"
++#include "time.h"
+ 
  /***************************************************************************
   * general info
-  */
-@@ -354,6 +356,7 @@ xen_setup_pv_ops(void)
- 	pv_init_ops = xen_init_ops;
+@@ -357,6 +358,7 @@ xen_setup_pv_ops(void)
  	pv_cpu_ops = xen_cpu_ops;
  	pv_iosapic_ops = xen_iosapic_ops;
-+	pv_irq_ops = xen_irq_ops;
+ 	pv_irq_ops = xen_irq_ops;
++	pv_time_ops = xen_time_ops;
  
  	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
  }
