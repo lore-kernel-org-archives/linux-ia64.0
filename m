@@ -1,154 +1,91 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:55:02 +0000
-Subject: [PATCH] ia64/xen: preliminary support for save/restore.
-Message-Id: <12150681061107-git-send-email-yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 06:54:57 +0000
+Subject: [PATCH] ia64/pv_ops/xen: implement xen pv_iosapic_ops.
+Message-Id: <12150681061988-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-preliminary support for save/restore.
-Although Save/restore isn't fully working yet, this patch is necessary
-to compile.
+implement xen pv_iosapic_ops for xen paravirtualized
+iosapic.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile              |    2 +-
- arch/ia64/xen/{time.h => suspend.c} |   40 +++++++++++++++++++++++++++++++++-
- arch/ia64/xen/time.c                |   33 ++++++++++++++++++++++++++++
- arch/ia64/xen/time.h                |    1 +
- 4 files changed, 73 insertions(+), 3 deletions(-)
- copy arch/ia64/xen/{time.h => suspend.c} (66%)
+ arch/ia64/xen/xen_pv_ops.c |   52 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 972d085..0ad0224 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -3,7 +3,7 @@
- #
- 
- obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
--	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
-+	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
- 
- obj-$(CONFIG_IA64_GENERIC) += machvec.o
- 
-diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/suspend.c
-similarity index 66%
-copy from arch/ia64/xen/time.h
-copy to arch/ia64/xen/suspend.c
-index b9c7ec5..b4ce6b6 100644
---- a/arch/ia64/xen/time.h
-+++ b/arch/ia64/xen/suspend.c
-@@ -1,5 +1,5 @@
- /******************************************************************************
-- * arch/ia64/xen/time.h
-+ * arch/ia64/xen/suspend.c
-  *
-  * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-  *                    VA Linux Systems Japan K.K.
-@@ -18,6 +18,42 @@
-  * along with this program; if not, write to the Free Software
-  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-  *
-+ * suspend/resume
-  */
- 
--extern struct pv_time_ops xen_time_ops __initdata;
-+#include <xen/xen-ops.h>
-+#include <asm/xen/hypervisor.h>
-+#include "time.h"
-+
-+void
-+xen_mm_pin_all(void)
-+{
-+	/* nothing */
-+}
-+
-+void
-+xen_mm_unpin_all(void)
-+{
-+	/* nothing */
-+}
-+
-+void
-+xen_pre_suspend()
-+{
-+	/* nothing */
-+}
-+
-+void
-+xen_post_suspend(int suspend_cancelled)
-+{
-+	if (suspend_cancelled)
-+		return;
-+
-+	xen_ia64_enable_opt_feature();
-+	/* add more if necessary */
-+}
-+
-+void xen_arch_resume(void)
-+{
-+	xen_timer_resume_on_aps();
-+}
-diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
-index 3414f1e..81a61e8 100644
---- a/arch/ia64/xen/time.c
-+++ b/arch/ia64/xen/time.c
-@@ -26,6 +26,8 @@
- #include <linux/irq.h>
- #include <linux/clocksource.h>
- 
-+#include <asm/timex.h>
-+
- #include <asm/xen/hypervisor.h>
- 
- #include <xen/interface/vcpu.h>
-@@ -163,3 +165,34 @@ struct pv_time_ops xen_time_ops __initdata = {
- 	.do_steal_accounting		= xen_do_steal_accounting,
- 	.clocksource_resume		= xen_itc_jitter_data_reset,
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 1ba4617..6978131 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -292,6 +292,57 @@ const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
  };
-+
-+/* Called after suspend, to resume time.  */
-+static void xen_local_tick_resume(void)
+ 
+ /***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
++ */
++static void
++xen_pcat_compat_init(void)
 +{
-+	/* Just trigger a tick.  */
-+	ia64_cpu_local_tick();
-+	touch_softlockup_watchdog();
++	/* nothing */
 +}
 +
-+void
-+xen_timer_resume(void)
++static struct irq_chip*
++xen_iosapic_get_irq_chip(unsigned long trigger)
 +{
-+	unsigned int cpu;
-+
-+	xen_local_tick_resume();
-+
-+	for_each_online_cpu(cpu)
-+		xen_init_missing_ticks_accounting(cpu);
++	return NULL;
 +}
 +
-+static void ia64_cpu_local_tick_fn(void *unused)
++static unsigned int
++xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
 +{
-+	xen_local_tick_resume();
-+	xen_init_missing_ticks_accounting(smp_processor_id());
++	struct physdev_apic apic_op;
++	int ret;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
++	if (ret)
++		return ret;
++	return apic_op.value;
 +}
 +
-+void
-+xen_timer_resume_on_aps(void)
++static void
++xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
 +{
-+	smp_call_function(&ia64_cpu_local_tick_fn, NULL, 0, 1);
++	struct physdev_apic apic_op;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	apic_op.value = val;
++	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
 +}
-diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
-index b9c7ec5..f98d7e1 100644
---- a/arch/ia64/xen/time.h
-+++ b/arch/ia64/xen/time.h
-@@ -21,3 +21,4 @@
++
++static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
++	.pcat_compat_init = xen_pcat_compat_init,
++	.get_irq_chip = xen_iosapic_get_irq_chip,
++
++	.__read = xen_iosapic_read,
++	.__write = xen_iosapic_write,
++};
++
++/***************************************************************************
+  * pv_ops initialization
   */
  
- extern struct pv_time_ops xen_time_ops __initdata;
-+void xen_timer_resume_on_aps(void);
+@@ -302,6 +353,7 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++	pv_iosapic_ops = xen_iosapic_ops;
+ 
+ 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+ }
 -- 
 1.5.3
 
