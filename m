@@ -1,115 +1,85 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:55:03 +0000
-Subject: [PATCH] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
-Message-Id: <12150681062673-git-send-email-yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 06:54:58 +0000
+Subject: [PATCH] ia64/pv_ops/xen: define the nubmer of irqs which xen needs.
+Message-Id: <12150681064081-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
-paravirtualized guest.
-introduce CONFIG_XEN, CONFIG_IA64_XEN_GUEST for xen.
+define include/asm-ia64/xen/irq.h to define the number of
+irqs which xen needs.
 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- arch/ia64/Kconfig     |   32 ++++++++++++++++++++++++++++++++
- arch/ia64/xen/Kconfig |   26 ++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/xen/Kconfig
+ arch/ia64/kernel/nr-irqs.c |    1 +
+ include/asm-ia64/xen/irq.h |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 45 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/xen/irq.h
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 16be414..91d8c1b 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -116,6 +116,33 @@ config AUDIT_ARCH
- 	bool
- 	default y
+diff --git a/arch/ia64/kernel/nr-irqs.c b/arch/ia64/kernel/nr-irqs.c
+index 1ae0491..bf89a8f 100644
+--- a/arch/ia64/kernel/nr-irqs.c
++++ b/arch/ia64/kernel/nr-irqs.c
+@@ -10,6 +10,7 @@
+ #include <linux/kbuild.h>
+ #include <linux/threads.h>
+ #include <asm-ia64/native/irq.h>
++#include <asm-ia64/xen/irq.h>
  
-+menuconfig PARAVIRT_GUEST
-+	bool "Paravirtualized guest support"
-+	help
-+	  Say Y here to get to see options related to running Linux under
-+	  various hypervisors.  This option alone does not add any kernel code.
-+
-+	  If you say N, all options in this submenu will be skipped and disabled.
-+
-+if PARAVIRT_GUEST
-+
-+config PARAVIRT
-+	bool "Enable paravirtualization code"
-+	depends on PARAVIRT_GUEST
-+	default y
-+	bool
-+	default y
-+	help
-+	  This changes the kernel so it can modify itself when it is run
-+	  under a hypervisor, potentially improving performance significantly
-+	  over full virtualization.  However, when run without a hypervisor
-+	  the kernel is theoretically slower and slightly larger.
-+
-+
-+source "arch/ia64/xen/Kconfig"
-+
-+endif
-+
- choice
- 	prompt "System type"
- 	default IA64_GENERIC
-@@ -137,6 +164,7 @@ config IA64_GENERIC
- 	  SGI-SN2		For SGI Altix systems
- 	  SGI-UV		For SGI UV systems
- 	  Ski-simulator		For the HP simulator <http://www.hpl.hp.com/research/linux/ski/>
-+	  Xen-domU		For xen domU system
- 
- 	  If you don't know what to do, choose "generic".
- 
-@@ -187,6 +215,10 @@ config IA64_HP_SIM
- 	bool "Ski-simulator"
- 	select SWIOTLB
- 
-+config IA64_XEN_GUEST
-+	bool "Xen guest"
-+	depends on XEN
-+
- endchoice
- 
- choice
-diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+ void foo(void)
+ {
+diff --git a/include/asm-ia64/xen/irq.h b/include/asm-ia64/xen/irq.h
 new file mode 100644
-index 0000000..f1683a2
+index 0000000..3a5a15c
 --- /dev/null
-+++ b/arch/ia64/xen/Kconfig
-@@ -0,0 +1,26 @@
-+#
-+# This Kconfig describes xen/ia64 options
-+#
++++ b/include/asm-ia64/xen/irq.h
+@@ -0,0 +1,44 @@
++/******************************************************************************
++ * include/asm-ia64/xen/irq.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
 +
-+config XEN
-+	bool "Xen hypervisor support"
-+	default y
-+	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
-+	select XEN_XENCOMM
-+	select NO_IDLE_HZ
++#ifndef _ASM_IA64_XEN_IRQ_H
++#define _ASM_IA64_XEN_IRQ_H
 +
-+	# those are required to save/restore.
-+	select ARCH_SUSPEND_POSSIBLE
-+	select SUSPEND
-+	select PM_SLEEP
-+	help
-+	  Enable Xen hypervisor support.  Resulting kernel runs
-+	  both as a guest OS on Xen and natively on hardware.
++/*
++ * The flat IRQ space is divided into two regions:
++ *  1. A one-to-one mapping of real physical IRQs. This space is only used
++ *     if we have physical device-access privilege. This region is at the
++ *     start of the IRQ space so that existing device drivers do not need
++ *     to be modified to translate physical IRQ numbers into our IRQ space.
++ *  3. A dynamic mapping of inter-domain and Xen-sourced virtual IRQs. These
++ *     are bound using the provided bind/unbind functions.
++ */
 +
-+config XEN_XENCOMM
-+	depends on XEN
-+	bool
++#define XEN_PIRQ_BASE		0
++#define XEN_NR_PIRQS		256
 +
-+config NO_IDLE_HZ
-+	depends on XEN
-+	bool
++#define XEN_DYNIRQ_BASE		(XEN_PIRQ_BASE + XEN_NR_PIRQS)
++#define XEN_NR_DYNIRQS		(NR_CPUS * 8)
++
++#define XEN_NR_IRQS		(XEN_NR_PIRQS + XEN_NR_DYNIRQS)
++
++#endif /* _ASM_IA64_XEN_IRQ_H */
 -- 
 1.5.3
 
