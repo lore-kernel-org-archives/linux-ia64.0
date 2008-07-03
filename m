@@ -1,42 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 29 Jul 2008 12:28:02 +0000
-Subject: Re: [PATCH] ia64: export cpu_core_map
-Message-Id: <20080729122801.GB10471@solarflare.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 03 Jul 2008 06:54:42 +0000
+Subject: [PATCH] ia64/xen: define several constants for ia64/xen.
+Message-Id: <12150681052197-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080729111225.GA10471@solarflare.com>
-In-Reply-To: <20080729111225.GA10471@solarflare.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote:
-> On Tue, Jul 29, 2008 at 12:12:26PM +0100, Ben Hutchings wrote:
-> > cpu_core_map is referenced by the topology_core_siblings() macro, which is
-> > now used by the sfc driver.  Matthew Wilcox reported that the driver failed
-> > to link because that symbol is not exported.
-> > 
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> > ---
-> > I have not yet tested this as we have limited ia64 kit here.  Matthew,
-> > please could you check that this builds at least?
-> 
-> I had tested it last night when I CC'd you on the patch I sent to the
-> ia64 mailing list.
+define several constants for ia64/xen.
 
-Sorry, not sure how I missed that.  Now I look over the archive, I see
-Matthew also posted the same patch but didn't cc me.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-> I have booted it on a bunch of different sn2 ia64 boxes, but none with
-> your sfc network adapter (whatever that is).
-
-It's a PCI Express 10G Ethernet controller, but that's not important right
-now.
-
-> It does, however, build ;)
-
-Ben.
-
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index c64a55a..6bd3fc5 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -16,6 +16,8 @@
+ #include <asm-ia64/sigcontext.h>
+ #include <asm-ia64/mca.h>
+ 
++#include <asm-ia64/xen/interface.h>
++
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
+ 
+@@ -286,4 +288,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++
++#ifdef CONFIG_XEN
++	BLANK();
++
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
+ }
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
+1.5.3
+
