@@ -1,262 +1,216 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:55:05 +0000
-Subject: [PATCH] ia64/pv_ops: paravirtualized istruction checker.
-Message-Id: <1215068106477-git-send-email-yamahata@valinux.co.jp>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Fri, 04 Jul 2008 20:02:05 +0000
+Subject: Re: the printk problem
+Message-Id: <alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080625131101.GA6205@digi.com> <20080704104634.GA31634@digi.com>
+	<20080704111540.ddffd241.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org>
+In-Reply-To: <alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Peter Anvin <hpa@zytor.com>
 
-This patch implements a checker to detect instructions which
-should be paravirtualized instead of direct writing raw instruction.
-This patch does rough check so that it doesn't fully cover all cases,
-but it can detects most cases of paravirtualization breakage of hand
-written assembly codes.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+
+On Fri, 4 Jul 2008, Linus Torvalds wrote:
+> 
+> so I think we could easily just say that we extend %p in various ways:
+> 
+>  - %pS - print pointer as a symbol
+> 
+> and leave tons of room for future extensions for different kinds of 
+> pointers. 
+
+So here's a totally untested example patch of this, which could probably 
+easily be extended to to other things.
+
+I actually made it '%pF' and '%pS' for a Function descriptor pointer and 
+normal Symbolic pointer respectively, because of the stupid things ia64 
+and PPC64 do with the pointer indirection through function descriptors. 
+
+That function descriptor indirection is totally untested, and I did it 
+with a
+
+	pagefault_disable();
+	__get_user(..)
+	pagefault_enable();
+
+thing because I thought it would be nice if printk() was always safe, and 
+passing bogus function pointers to '%pF' should try to work, but quite 
+frankly, I didn't even check that that part compiles, much less works.
+
+ia64/ppc lists cc'd, just in case somebody wants to test this.
+
+NOTE! There are no current actual users of this, but the _idea_ is that we 
+should be able to just do
+
+	printk("%pF\n", desc->handle_irq);
+
+instead of using
+
+	print_symbol("%s\n", (unsigned long)desc->handle_irq);
+
+The latter is from kernel/irq/internals.h, and actually looks incorrect - 
+shouldn't it use print_fn_descriptor_symbol(), since it's a C level 
+function pointer? We should use "print_symbol()" for return pointers we 
+find on the stack and data pointers, but not for stuff that actually has a 
+C type that is a function pointer?
+
+Somebody who cares about the insane function descriptors should take a 
+deeper look.
+
+NOTE AGAIN! UNTESTED! I could easily have screwed up printk() _entirely_, 
+since I had to factor out the string handling into a function of its own.
+
+		Linus
 ---
- arch/ia64/kernel/Makefile            |   18 ++++
- arch/ia64/kernel/paravirt_inst.h     |    4 +-
- arch/ia64/scripts/pvcheck.sed        |   32 +++++++
- include/asm-ia64/native/pvchk_inst.h |  158 ++++++++++++++++++++++++++++++++++
- 4 files changed, 211 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/scripts/pvcheck.sed
- create mode 100644 include/asm-ia64/native/pvchk_inst.h
+ lib/vsprintf.c |  102 ++++++++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 74 insertions(+), 28 deletions(-)
 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 87fea11..55e6ca8 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -112,5 +112,23 @@ clean-files += $(objtree)/include/asm-ia64/nr-irqs.h
- ASM_PARAVIRT_OBJS = ivt.o entry.o
- define paravirtualized_native
- AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
-+AFLAGS_pvchk-sed-$(1) += -D__IA64_ASM_PARAVIRTUALIZED_PVCHECK
-+extra-y += pvchk-$(1)
- endef
- $(foreach obj,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_native,$(obj))))
-+
-+#
-+# Checker for paravirtualizations of privileged operations.
-+#
-+quiet_cmd_pv_check_sed = PVCHK   $@
-+define cmd_pv_check_sed
-+	sed -f $(srctree)/arch/$(SRCARCH)/scripts/pvcheck.sed $< > $@
-+endef
-+
-+$(obj)/pvchk-sed-%.s: $(src)/%.S $(srctree)/arch/$(SRCARCH)/scripts/pvcheck.sed FORCE
-+	$(call if_changed_dep,as_s_S)
-+$(obj)/pvchk-%.s: $(obj)/pvchk-sed-%.s FORCE
-+	$(call if_changed,pv_check_sed)
-+$(obj)/pvchk-%.o: $(obj)/pvchk-%.s FORCE
-+	$(call if_changed,as_o_S)
-+.PRECIOUS: $(obj)/pvchk-sed-%.s $(obj)/pvchk-%.s $(obj)/pvchk-%.o
-diff --git a/arch/ia64/kernel/paravirt_inst.h b/arch/ia64/kernel/paravirt_inst.h
-index 5cad6fb..64d6d81 100644
---- a/arch/ia64/kernel/paravirt_inst.h
-+++ b/arch/ia64/kernel/paravirt_inst.h
-@@ -20,7 +20,9 @@
-  *
-  */
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 6021757..148b656 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -22,6 +22,7 @@
+ #include <linux/string.h>
+ #include <linux/ctype.h>
+ #include <linux/kernel.h>
++#include <linux/kallsyms.h>
  
--#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
-+#ifdef __IA64_ASM_PARAVIRTUALIZED_PVCHECK
-+#include <asm/native/pvchk_inst.h>
-+#elif defined(__IA64_ASM_PARAVIRTUALIZED_XEN)
- #include <asm/xen/inst.h>
- #include <asm/xen/minstate.h>
- #else
-diff --git a/arch/ia64/scripts/pvcheck.sed b/arch/ia64/scripts/pvcheck.sed
-new file mode 100644
-index 0000000..5a452b9
---- /dev/null
-+++ b/arch/ia64/scripts/pvcheck.sed
-@@ -0,0 +1,32 @@
-+#
-+# Checker for paravirtualizations of privileged operations.
-+#
-+s/ssm.+psr\.ic/.warning \"ssm psr.ic should not be used directly\"/g
-+s/rsm.+psr\.ic/.warning \"rsm psr.ic should not be used directly\"/g
-+s/ssm.+psr\.i/.warning \"ssm psr.i should not be used directly\"/g
-+s/rsm.+psr\.i/.warning \"rsm psr.i should not be used directly\"/g
-+s/ssm.+psr\.dt/.warning \"ssm psr.dt should not be used directly\"/g
-+s/rsm.+psr\.dt/.warning \"rsm psr.dt should not be used directly\"/g
-+s/mov.+=.*cr\.ifa/.warning \"cr.ifa should not used directly\"/g
-+s/mov.+=.*cr\.itir/.warning \"cr.itir should not used directly\"/g
-+s/mov.+=.*cr\.isr/.warning \"cr.isr should not used directly\"/g
-+s/mov.+=.*cr\.iha/.warning \"cr.iha should not used directly\"/g
-+s/mov.+=.*cr\.ipsr/.warning \"cr.ipsr should not used directly\"/g
-+s/mov.+=.*cr\.iim/.warning \"cr.iim should not used directly\"/g
-+s/mov.+=.*cr\.iip/.warning \"cr.iip should not used directly\"/g
-+s/mov.+=.*cr\.ivr/.warning \"cr.ivr should not used directly\"/g
-+s/mov.+=.*psr/.warning \"psr should not used directly\"/g
-+s/mov.+=.*ar\.eflags/.warning \"ar.eflags should not used directly\"/g
-+s/mov.+cr\.ifa.*=/.warning \"cr.ifa should not used directly\"/g
-+s/mov.+cr\.itir.*=/.warning \"cr.itir should not used directly\"/g
-+s/mov.+cr\.iha.*=/.warning \"cr.iha should not used directly\"/g
-+s/mov.+cr\.ipsr.*=/.warning \"cr.ipsr should not used directly\"/g
-+s/mov.+cr\.ifs.*=/.warning \"cr.ifs should not used directly\"/g
-+s/mov.+cr\.iip.*=/.warning \"cr.iip should not used directly\"/g
-+s/mov.+cr\.kr.*=/.warning \"cr.kr should not used directly\"/g
-+s/mov.+ar\.eflags.*=/.warning \"ar.eflags should not used directly\"/g
-+s/itc\.i/.warning \"itc.i should not be used directly.\"/g
-+s/itc\.d/.warning \"itc.d should not be used directly.\"/g
-+s/bsw\.0/.warning \"bsw.0 should not be used directly.\"/g
-+s/bsw\.1/.warning \"bsw.1 should not be used directly.\"/g
-+s/ptc\.ga/.warning \"ptc.ga should not be used directly.\"/g
-diff --git a/include/asm-ia64/native/pvchk_inst.h b/include/asm-ia64/native/pvchk_inst.h
-new file mode 100644
-index 0000000..f73285e
---- /dev/null
-+++ b/include/asm-ia64/native/pvchk_inst.h
-@@ -0,0 +1,158 @@
-+#ifndef _ASM_NATIVE_PVCHK_INST_H
-+#define _ASM_NATIVE_PVCHK_INST_H
+ #include <asm/page.h>		/* for PAGE_SIZE */
+ #include <asm/div64.h>
+@@ -482,6 +483,72 @@ static char *number(char *buf, char *end, unsigned long long num, int base, int
+ 	return buf;
+ }
+ 
++static char *string(char *buf, char *end, char *s, int field_width, int precision, int flags)
++{
++	int len, i;
 +
-+/******************************************************************************
-+ * include/asm-ia64/native/pvcheck_inst.h
-+ * Checker for paravirtualizations of privileged operations.
-+ *
-+ * Copyright (C) 2005 Hewlett-Packard Co
-+ *      Dan Magenheimer <dan.magenheimer@hp.com>
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
++	if ((unsigned long)s < PAGE_SIZE)
++		s = "<NULL>";
 +
-+/**********************************************
-+ * Instructions paravirtualized for correctness
-+ **********************************************/
++	len = strnlen(s, precision);
 +
-+/* "fc" and "thash" are privilege-sensitive instructions, meaning they
-+ *  may have different semantics depending on whether they are executed
-+ *  at PL0 vs PL!=0.  When paravirtualized, these instructions mustn't
-+ *  be allowed to execute directly, lest incorrect semantics result.
-+ */
-+
-+#define fc	.error "fc should not be used directly."
-+#define thash	.error "thash should not be used directly."
-+
-+/* Note that "ttag" and "cover" are also privilege-sensitive; "ttag"
-+ * is not currently used (though it may be in a long-format VHPT system!)
-+ * and the semantics of cover only change if psr.ic is off which is very
-+ * rare (and currently non-existent outside of assembly code
-+ */
-+#define ttag	.error "ttag should not be used directly."
-+#define cover	.error "cover should not be used directly."
-+
-+/* There are also privilege-sensitive registers.  These registers are
-+ * readable at any privilege level but only writable at PL0.
-+ */
-+#define cpuid	.error "cpuid should not be used directly."
-+#define pmd	.error "pmd should not be used directly."
++	if (!(flags & LEFT)) {
++		while (len < field_width--) {
++			if (buf < end)
++				*buf = ' ';
++			++buf;
++		}
++	}
++	for (i = 0; i < len; ++i) {
++		if (buf < end)
++			*buf = *s;
++		++buf; ++s;
++	}
++	while (len < field_width--) {
++		if (buf < end)
++			*buf = ' ';
++		++buf;
++	}
++	return buf;
++}
 +
 +/*
-+ * mov ar.eflag + * mov = ar.eflag
++ * Show a '%p' thing.  A kernel extension is that the '%p' is followed
++ * by an extra set of alphanumeric characters that are extended format
++ * specifiers.  Right now we just handle 'F' (for symbolic Function
++ * pointers) and 'S' (for Symbolic data pointers), but this can easily
++ * be extended in the future (network address types etc).
++ *
++ * The difference between 'S' and 'F' is that on ia64 and ppc64 function
++ * pointers are really function descriptors, which contain a pointer the
++ * real address. 
 + */
++static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int base, int size, int precision, int type)
++{
++	char sym[KSYM_SYMBOL_LEN];
++	switch (*fmt) {
++	case 'F':	/* Function pointer */
++#if defined(CONFIG_IA64) || defined(CONFIG_PPC64)
++		{ void *p;
++		pagefault_disable();
++		if (!__get_user((void **)ptr, &p))
++			ptr = p;
++		pagefault_enable();
++		}
++#endif
++	/* Fallthrough */
++	case 'S':	/* Other pointer */
++#if CONFIG_KALLSYMS
++		sprint_symbol(sym, (unsigned long) ptr);
++		return string(buf, end, sym, size, precision, type);
++#else
++		type |= SPECIAL;
++		break;
++#endif
++	}
++	return number(buf, end, (unsigned long long) ptr, base, size, precision, type);
++}
 +
-+/**********************************************
-+ * Instructions paravirtualized for performance
-+ **********************************************/
-+/*
-+ * Those instructions include '.' which can't be handled by cpp.
-+ * or can't be handled by cpp easily.
-+ * They are handled by sed instead of cpp.
-+ */
-+
-+/* for .S
-+ * itc.i
-+ * itc.d
-+ *
-+ * bsw.0
-+ * bsw.1
-+ *
-+ * ssm psr.ic | PSR_DEFAULT_BITS
-+ * ssm psr.ic
-+ * rsm psr.ic
-+ * ssm psr.i
-+ * rsm psr.i
-+ * rsm psr.i | psr.ic
-+ * rsm psr.dt
-+ * ssm psr.dt
-+ *
-+ * mov = cr.ifa
-+ * mov = cr.itir
-+ * mov = cr.isr
-+ * mov = cr.iha
-+ * mov = cr.ipsr
-+ * mov = cr.iim
-+ * mov = cr.iip
-+ * mov = cr.ivr
-+ * mov = psr
-+ *
-+ * mov cr.ifa + * mov cr.itir + * mov cr.iha + * mov cr.ipsr + * mov cr.ifs + * mov cr.iip + * mov cr.kr + */
-+
-+/* for intrinsics
-+ * ssm psr.i
-+ * rsm psr.i
-+ * mov = psr
-+ * mov = ivr
-+ * mov = tpr
-+ * mov cr.itm + * mov eoi + * mov rr[] + * mov = rr[]
-+ * mov = kr
-+ * mov kr + * ptc.ga
-+ */
-+
-+/*************************************************************
-+ * define paravirtualized instrcution macros as nop to ingore.
-+ *************************************************************/
-+#define DO_SAVE_MIN(__COVER,SAVE_IFS,EXTRA,WORKAROUND)		nop 0
-+#define MOV_FROM_IFA(reg)					nop 0
-+#define MOV_FROM_ITIR(reg)					nop 0
-+#define MOV_FROM_ISR(reg)					nop 0
-+#define MOV_FROM_IHA(reg)					nop 0
-+#define MOV_FROM_IPSR(pred, reg)				nop 0
-+#define MOV_FROM_IIM(reg)					nop 0
-+#define MOV_FROM_IIP(reg)					nop 0
-+#define MOV_FROM_IVR(reg, clob)					nop 0
-+#define MOV_FROM_PSR(pred, reg, clob)				nop 0
-+#define MOV_TO_IFA(reg, clob)					nop 0
-+#define MOV_TO_ITIR(pred, reg, clob)				nop 0
-+#define MOV_TO_IHA(pred, reg, clob)				nop 0
-+#define MOV_TO_IPSR(pred, reg, clob)				nop 0
-+#define MOV_TO_IFS(pred, reg, clob)				nop 0
-+#define MOV_TO_IIP(reg, clob)					nop 0
-+#define MOV_TO_KR(kr, reg, clob0, clob1)			nop 0
-+#define ITC_I(pred, reg, clob)					nop 0
-+#define ITC_D(pred, reg, clob)					nop 0
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob)			nop 0
-+#define THASH(pred, reg0, reg1, clob)				nop 0
-+#define SSM_PSR_IC_AND_DEFAULT_BITS_AND_SRLZ_I(clob0, clob1)	nop 0
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)			nop 0
-+#define RSM_PSR_IC(clob)					nop 0
-+#define SSM_PSR_I(pred, pred_clob, clob)			nop 0
-+#define RSM_PSR_I(pred, clob0, clob1)				nop 0
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)			nop 0
-+#define RSM_PSR_DT						nop 0
-+#define SSM_PSR_DT_AND_SRLZ_I					nop 0
-+#define BSW_0(clob0, clob1, clob2)				nop 0
-+#define BSW_1(clob0, clob1)					nop 0
-+#define COVER							nop 0
-+#define RFI	br.ret.sptk.many rp /* defining nop causes dependency error */
-+
-+#endif /* _ASM_NATIVE_PVCHK_INST_H */
--- 
-1.5.3
-
+ /**
+  * vsnprintf - Format a string and place it in a buffer
+  * @buf: The buffer to place the result into
+@@ -502,11 +569,9 @@ static char *number(char *buf, char *end, unsigned long long num, int base, int
+  */
+ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+ {
+-	int len;
+ 	unsigned long long num;
+-	int i, base;
++	int base;
+ 	char *str, *end, c;
+-	const char *s;
+ 
+ 	int flags;		/* flags to number() */
+ 
+@@ -622,29 +687,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+ 				continue;
+ 
+ 			case 's':
+-				s = va_arg(args, char *);
+-				if ((unsigned long)s < PAGE_SIZE)
+-					s = "<NULL>";
+-
+-				len = strnlen(s, precision);
+-
+-				if (!(flags & LEFT)) {
+-					while (len < field_width--) {
+-						if (str < end)
+-							*str = ' ';
+-						++str;
+-					}
+-				}
+-				for (i = 0; i < len; ++i) {
+-					if (str < end)
+-						*str = *s;
+-					++str; ++s;
+-				}
+-				while (len < field_width--) {
+-					if (str < end)
+-						*str = ' ';
+-					++str;
+-				}
++				str = string(str, end, va_arg(args, char *), field_width, precision, flags);
+ 				continue;
+ 
+ 			case 'p':
+@@ -653,9 +696,12 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+ 					field_width = 2*sizeof(void *);
+ 					flags |= ZEROPAD;
+ 				}
+-				str = number(str, end,
+-						(unsigned long) va_arg(args, void *),
++				str = pointer(fmt+1, str, end,
++						va_arg(args, void *),
+ 						16, field_width, precision, flags);
++				/* Skip all alphanumeric pointer suffixes */
++				while (isalnum(fmt[1]))
++					fmt++;
+ 				continue;
+ 
+ 
