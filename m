@@ -1,26 +1,98 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Sat, 05 Jul 2008 18:52:53 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sat, 05 Jul 2008 22:32:41 +0000
 Subject: Re: the printk problem
-Message-Id: <20080705185253.GQ14894@parisc-linux.org>
+Message-Id: <alpine.LFD.1.10.0807051523180.2847@woody.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080705125230.GA20166@damson.getinternet.no> <alpine.LFD.1.10.0807051045520.2815@woody.linux-foundation.org> <19f34abd0807051141h4ccfd0ar28660199f2bbf81f@mail.gmail.com>
-In-Reply-To: <19f34abd0807051141h4ccfd0ar28660199f2bbf81f@mail.gmail.com>
+References: <20080625131101.GA6205@digi.com> <20080704104634.GA31634@digi.com>
+	<20080704111540.ddffd241.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org>
+	<alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org>
+	<1215212420.8970.8.camel@pasglop>
+	<alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org>
+In-Reply-To: <alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vegard Nossum <vegard.nossum@gmail.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jan Engelhardt <jengelh@medozas.de>, Andrew Morton <akpm@linux-foundation.org>, Peter Anvin <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, linux-kernel@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, Peter Anvin <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Arjan van de Ven <arjan@linux.intel.com>, "David S. Miller" <davem@davemloft.net>, parisc-linux@parisc-linux.org
 
-On Sat, Jul 05, 2008 at 08:41:39PM +0200, Vegard Nossum wrote:
-> Single letters are bad because it hurts readability and limits the
-> usefulness of the extension.</MHO>
 
-I think you need a little warning noise that goes off in your head that
-means "I might be overdesigning this".  Linus' code is elegant and
-solves a problem nicely.
 
--- 
-Intel are signing my paycheques ... these opinions are still mine
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+On Fri, 4 Jul 2008, Linus Torvalds wrote:
+> 
+> Still all happily untested, of course. And still with no actual users 
+> converted.
+
+Ok, it's tested, and here's an example usage conversion.
+
+The diffstat pretty much says it all. It _does_ change the format of the 
+stack trace entry a bit, but I don't think it's for the worse (unless it 
+breaks things like the oops tracker - Arjan?)
+
+It changes the symbol-in-module format from
+
+	:ext3:add_dirent_to_buf+0x6c/0x26c
+
+to
+
+	add_dirent_to_buf+0x6c/0x26c [ext3]
+
+but quite frankly, the latter was the standard format anyway (it's what 
+"sprint_symbol()" gives you), and traps_64.c was the odd man out.
+
+In fact, traps_32.c already uses the standard print_symbol() format, so it 
+really was an issue of the 64-bit code being odd (and I assume that this 
+also means that it cannot break the oops tracker, since it already had to 
+be able to handle both formats).
+
+I also removed the KALLSYMS dependency, so if KALLSYMS isn't enabled it 
+will now give the same hex format twice, but I doubt we really care (such 
+stack traces are unreadable whether it shows up once or twice, and the 
+simplicity is worth it).
+
+If people do just a few more conversions like this, then the 52 added 
+lines in lib/vsnprintf.c are more than made up for by removed lines 
+elsewhere (and more readable source code).
+
+		Linus
+
+---
+ arch/x86/kernel/traps_64.c |   25 +------------------------
+ 1 files changed, 1 insertions(+), 24 deletions(-)
+
+diff --git a/arch/x86/kernel/traps_64.c b/arch/x86/kernel/traps_64.c
+index adff76e..f1a95d1 100644
+--- a/arch/x86/kernel/traps_64.c
++++ b/arch/x86/kernel/traps_64.c
+@@ -104,30 +104,7 @@ int kstack_depth_to_print = 12;
+ 
+ void printk_address(unsigned long address, int reliable)
+ {
+-#ifdef CONFIG_KALLSYMS
+-	unsigned long offset = 0, symsize;
+-	const char *symname;
+-	char *modname;
+-	char *delim = ":";
+-	char namebuf[KSYM_NAME_LEN];
+-	char reliab[4] = "";
+-
+-	symname = kallsyms_lookup(address, &symsize, &offset,
+-					&modname, namebuf);
+-	if (!symname) {
+-		printk(" [<%016lx>]\n", address);
+-		return;
+-	}
+-	if (!reliable)
+-		strcpy(reliab, "? ");
+-
+-	if (!modname)
+-		modname = delim = "";
+-	printk(" [<%016lx>] %s%s%s%s%s+0x%lx/0x%lx\n",
+-		address, reliab, delim, modname, delim, symname, offset, symsize);
+-#else
+-	printk(" [<%016lx>]\n", address);
+-#endif
++	printk(" [<%016lx>] %s%pS\n", address, reliable ? "": "? ", (void *) address);
+ }
+ 
+ static unsigned long *in_exception_stack(unsigned cpu, unsigned long stack,
