@@ -1,131 +1,194 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Sun, 06 Jul 2008 05:27:41 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Sun, 06 Jul 2008 05:37:13 +0000
 Subject: Re: the printk problem
-Message-Id: <20080706052741.GA18928@elte.hu>
+Message-Id: <alpine.LFD.1.10.0807052232530.3016@woody.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080625131101.GA6205@digi.com> <20080704104634.GA31634@digi.com>
-	<20080704111540.ddffd241.akpm@linux-foundation.org>
-	<alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org>
-	<alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org>
-	<1215212420.8970.8.camel@pasglop>
-	<alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org>
-	<alpine.LFD.1.10.0807051523180.2847@woody.linux-foundation.org>
-In-Reply-To: <alpine.LFD.1.10.0807051523180.2847@woody.linux-foundation.org>
+References: <20080625131101.GA6205@digi.com> <20080704104634.GA31634@digi.com> <20080704111540.ddffd241.akpm@linux-foundation.org> <alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org> <alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org>
+ <1215212420.8970.8.camel@pasglop> <alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org> <alpine.LFD.1.10.0807051523180.2847@woody.linux-foundation.org> <20080706052741.GA18928@elte.hu>
+In-Reply-To: <20080706052741.GA18928@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, Peter Anvin <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Arjan van de Ven <arjan@linux.intel.com>, "David S. Miller" <davem@davemloft.net>, parisc-linux@parisc-linux.org
+To: Ingo Molnar <mingo@elte.hu>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, parisc-linux@parisc-linux.org, "David S. Miller" <davem@davemloft.net>, Peter Anvin <hpa@zytor.com>, Arjan van de Ven <arjan@linux.intel.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
 
-* Linus Torvalds <torvalds@linux-foundation.org> wrote:
 
-> > Still all happily untested, of course. And still with no actual 
-> > users converted.
+On Sun, 6 Jul 2008, Ingo Molnar wrote:
 > 
-> Ok, it's tested, and here's an example usage conversion.
-> 
-> The diffstat pretty much says it all. It _does_ change the format of 
-> the stack trace entry a bit, but I don't think it's for the worse 
-> (unless it breaks things like the oops tracker - Arjan?)
-> 
-> It changes the symbol-in-module format from
-> 
-> 	:ext3:add_dirent_to_buf+0x6c/0x26c
-> 
-> to
-> 
-> 	add_dirent_to_buf+0x6c/0x26c [ext3]
-> 
-> but quite frankly, the latter was the standard format anyway (it's 
-> what "sprint_symbol()" gives you), and traps_64.c was the odd man out.
-> 
-> In fact, traps_32.c already uses the standard print_symbol() format, 
-> so it really was an issue of the 64-bit code being odd (and I assume 
-> that this also means that it cannot break the oops tracker, since it 
-> already had to be able to handle both formats).
-> 
-> I also removed the KALLSYMS dependency, so if KALLSYMS isn't enabled 
-> it will now give the same hex format twice, but I doubt we really care 
-> (such stack traces are unreadable whether it shows up once or twice, 
-> and the simplicity is worth it).
-> 
-> If people do just a few more conversions like this, then the 52 added 
-> lines in lib/vsnprintf.c are more than made up for by removed lines 
-> elsewhere (and more readable source code).
+> applied (with the commit message below) to tip/x86/debug for v2.6.27 
+> merging, thanks Linus. Can i add your SOB too?
 
-applied (with the commit message below) to tip/x86/debug for v2.6.27 
-merging, thanks Linus. Can i add your SOB too?
+Sure, add my S-O-B. But I hope/assuem that you also added my earlier patch 
+that added the support for '%pS' too? I'm not entirely sure that should go 
+in an x86-specific branch, since it has nothing x86-specific in it.
 
-	Ingo
+Also, I've cleaned up the lib/vsnprintf.c patch to fix up some minor 
+details. For example, it should not default to a field width of 
+"2*sizeof(unsigned long)" - it should do that only if it ends up printing 
+the pointer as a hex number.
 
--------------------->
-commit 4afd2534d6d4a77f4b7497c92f1ff7528d8f4eaa
-Author: Linus Torvalds <torvalds@linux-foundation.org>
-Date:   Sat Jul 5 15:32:41 2008 -0700
+So this is my current version.. (the "precision" thing was moved into the 
+'pointer()' function, and to after the special case handling).
 
-    x86, 64-bit: standardize printk_address()
-    
-    Changes the symbol-in-module format from
-    
-    	:ext3:add_dirent_to_buf+0x6c/0x26c
-    
-    to
-    
-    	add_dirent_to_buf+0x6c/0x26c [ext3]
-    
-    the latter was the standard format anyway (it's what "sprint_symbol()"
-    gives you), and traps_64.c was the odd man out.
-    
-    In fact, traps_32.c already uses the standard print_symbol() format, so
-    it really was an issue of the 64-bit code being odd (and I assume that
-    this also means that it cannot break the oops tracker, since it already
-    had to be able to handle both formats).
-    
-    I also removed the KALLSYMS dependency, so if KALLSYMS isn't enabled it
-    will now give the same hex format twice, but I doubt we really care
-    (such stack traces are unreadable whether it shows up once or twice, and
-    the simplicity is worth it).
-    
-    If people do just a few more conversions like this, then the 52 added
-    lines in lib/vsnprintf.c are more than made up for by removed lines
-    elsewhere (and more readable source code).
-    
-    Signed-off-by: Ingo Molnar <mingo@elte.hu>
+		Linus
+---
+ lib/vsprintf.c |  118 ++++++++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 85 insertions(+), 33 deletions(-)
 
-diff --git a/arch/x86/kernel/traps_64.c b/arch/x86/kernel/traps_64.c
-index adff76e..f1a95d1 100644
---- a/arch/x86/kernel/traps_64.c
-+++ b/arch/x86/kernel/traps_64.c
-@@ -104,30 +104,7 @@ int kstack_depth_to_print = 12;
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 6021757..f60c7c0 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -22,6 +22,8 @@
+ #include <linux/string.h>
+ #include <linux/ctype.h>
+ #include <linux/kernel.h>
++#include <linux/kallsyms.h>
++#include <linux/uaccess.h>
  
- void printk_address(unsigned long address, int reliable)
- {
--#ifdef CONFIG_KALLSYMS
--	unsigned long offset = 0, symsize;
--	const char *symname;
--	char *modname;
--	char *delim = ":";
--	char namebuf[KSYM_NAME_LEN];
--	char reliab[4] = "";
--
--	symname = kallsyms_lookup(address, &symsize, &offset,
--					&modname, namebuf);
--	if (!symname) {
--		printk(" [<%016lx>]\n", address);
--		return;
--	}
--	if (!reliable)
--		strcpy(reliab, "? ");
--
--	if (!modname)
--		modname = delim = "";
--	printk(" [<%016lx>] %s%s%s%s%s+0x%lx/0x%lx\n",
--		address, reliab, delim, modname, delim, symname, offset, symsize);
--#else
--	printk(" [<%016lx>]\n", address);
--#endif
-+	printk(" [<%016lx>] %s%pS\n", address, reliable ? "": "? ", (void *) address);
+ #include <asm/page.h>		/* for PAGE_SIZE */
+ #include <asm/div64.h>
+@@ -482,6 +484,82 @@ static char *number(char *buf, char *end, unsigned long long num, int base, int
+ 	return buf;
  }
  
- static unsigned long *in_exception_stack(unsigned cpu, unsigned long stack,
++static char *string(char *buf, char *end, char *s, int field_width, int precision, int flags)
++{
++	int len, i;
++
++	if ((unsigned long)s < PAGE_SIZE)
++		s = "<NULL>";
++
++	len = strnlen(s, precision);
++
++	if (!(flags & LEFT)) {
++		while (len < field_width--) {
++			if (buf < end)
++				*buf = ' ';
++			++buf;
++		}
++	}
++	for (i = 0; i < len; ++i) {
++		if (buf < end)
++			*buf = *s;
++		++buf; ++s;
++	}
++	while (len < field_width--) {
++		if (buf < end)
++			*buf = ' ';
++		++buf;
++	}
++	return buf;
++}
++
++static inline void *dereference_function_descriptor(void *ptr)
++{
++#if defined(CONFIG_IA64) || defined(CONFIG_PPC64)
++	void *p;
++	if (!probe_kernel_address(ptr, p))
++		ptr = p;
++#endif
++	return ptr;
++}
++
++
++/*
++ * Show a '%p' thing.  A kernel extension is that the '%p' is followed
++ * by an extra set of alphanumeric characters that are extended format
++ * specifiers.  Right now we just handle 'F' (for symbolic Function
++ * pointers) and 'S' (for Symbolic data pointers), but this can easily
++ * be extended in the future (network address types etc).
++ *
++ * The difference between 'S' and 'F' is that on ia64 and ppc64 function
++ * pointers are really function descriptors, which contain a pointer the
++ * real address. 
++ */
++static char *pointer(const char *fmt, char *buf, char *end, void *ptr, int base, int size, int precision, int type)
++{
++	switch (*fmt) {
++	case 'F':
++		ptr = dereference_function_descriptor(ptr);
++		/* Fallthrough */
++	case 'S': {	/* Other (direct) pointer */
++#if CONFIG_KALLSYMS
++		char sym[KSYM_SYMBOL_LEN];
++		sprint_symbol(sym, (unsigned long) ptr);
++		return string(buf, end, sym, size, precision, type);
++#else
++		type |= SPECIAL;
++		break;
++#endif
++	}
++	}
++	type |= SMALL;
++	if (precision = -1) {
++		precision = 2*sizeof(void *);
++		type |= ZEROPAD;
++	}
++	return number(buf, end, (unsigned long long) ptr, base, size, precision, type);
++}
++
+ /**
+  * vsnprintf - Format a string and place it in a buffer
+  * @buf: The buffer to place the result into
+@@ -502,11 +580,9 @@ static char *number(char *buf, char *end, unsigned long long num, int base, int
+  */
+ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+ {
+-	int len;
+ 	unsigned long long num;
+-	int i, base;
++	int base;
+ 	char *str, *end, c;
+-	const char *s;
+ 
+ 	int flags;		/* flags to number() */
+ 
+@@ -622,40 +698,16 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
+ 				continue;
+ 
+ 			case 's':
+-				s = va_arg(args, char *);
+-				if ((unsigned long)s < PAGE_SIZE)
+-					s = "<NULL>";
+-
+-				len = strnlen(s, precision);
+-
+-				if (!(flags & LEFT)) {
+-					while (len < field_width--) {
+-						if (str < end)
+-							*str = ' ';
+-						++str;
+-					}
+-				}
+-				for (i = 0; i < len; ++i) {
+-					if (str < end)
+-						*str = *s;
+-					++str; ++s;
+-				}
+-				while (len < field_width--) {
+-					if (str < end)
+-						*str = ' ';
+-					++str;
+-				}
++				str = string(str, end, va_arg(args, char *), field_width, precision, flags);
+ 				continue;
+ 
+ 			case 'p':
+-				flags |= SMALL;
+-				if (field_width = -1) {
+-					field_width = 2*sizeof(void *);
+-					flags |= ZEROPAD;
+-				}
+-				str = number(str, end,
+-						(unsigned long) va_arg(args, void *),
++				str = pointer(fmt+1, str, end,
++						va_arg(args, void *),
+ 						16, field_width, precision, flags);
++				/* Skip all alphanumeric pointer suffixes */
++				while (isalnum(fmt[1]))
++					fmt++;
+ 				continue;
+ 
+ 
