@@ -1,35 +1,41 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Sun, 06 Jul 2008 06:13:11 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Mon, 07 Jul 2008 01:14:36 +0000
 Subject: Re: the printk problem
-Message-Id: <20080706061311.GA23606@elte.hu>
+Message-Id: <1215393276.8970.36.camel@pasglop>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080704104634.GA31634@digi.com> <20080704111540.ddffd241.akpm@linux-foundation.org> <alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org> <alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org> <1215212420.8970.8.camel@pasglop> <alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org> <alpine.LFD.1.10.0807051523180.2847@woody.linux-foundation.org> <20080706052741.GA18928@elte.hu> <alpine.LFD.1.10.0807052232530.3016@woody.linux-foundation.org> <20080706055317.GA4212@elte.hu>
-In-Reply-To: <20080706055317.GA4212@elte.hu>
+References: <20080625131101.GA6205@digi.com> <20080704104634.GA31634@digi.com>
+	<20080704111540.ddffd241.akpm@linux-foundation.org>
+	<alpine.LFD.1.10.0807041147450.2815@woody.linux-foundation.org>
+	<alpine.LFD.1.10.0807041250220.2815@woody.linux-foundation.org>
+	<1215212420.8970.8.camel@pasglop>
+	<alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org>
+In-Reply-To: <alpine.LFD.1.10.0807041622270.2815@woody.linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@ozlabs.org, linux-ia64@vger.kernel.org, parisc-linux@parisc-linux.org, "David S. Miller" <davem@davemloft.net>, Peter Anvin <hpa@zytor.com>, Arjan van de Ven <arjan@linux.intel.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, Peter Anvin <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, parisc-linux@parisc-linux.org
 
+On Fri, 2008-07-04 at 16:25 -0700, Linus Torvalds wrote:
+>=20
+> On Sat, 5 Jul 2008, Benjamin Herrenschmidt wrote:
+> >=20
+> > I'll give it a try using =EF=BB=BFprobe_kernel_address() instead on mon=
+day.
+>=20
+> Here's the updated patch which uses probe_kernel_address() instead (and=20
+> moves the whole #ifdef mess out of the code that wants it and into a=20
+> helper function - and maybe we should then put that helper into=20
+> kallsyms.h, but that's a different issue).
+>=20
+> Still all happily untested, of course. And still with no actual users=20
+> converted.
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+Did a few tests and it seems to work. I'll stick a patch converting
+powerpc to use %pS for oops display in -next.
 
-> yeah, agreed, combined it's not an x86 topic anymore.
-> 
-> [ There's some lkml trouble so i've missed the earlier patch. I'm not 
->   sure the email problem is on my side, see how incomplete the 
->   discussion is on lkml.org as well:
-> 
->      http://lkml.org/lkml/2008/6/25/170   ]
-> 
-> Anyway, i have have added this second patch of yours to 
-> tip/core/printk and moved your first patch over to that topic (which 
-> relies on it).
+Thanks !
 
-ah, i found the reason - it started out on linux-ia64 originally then 
-moved over to lkml - so only half of the discussion was visible there. 
-And linux-ia64 is one of the few vger lists i'm not subscribed to 
-apparently. (there's no vger-please-give-me-all-emails list - making the 
-following of Linux development even harder)
+Cheers,
+Ben.
 
-	Ingo
