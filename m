@@ -1,50 +1,154 @@
-From: "stephane eranian" <eranian@googlemail.com>
-Date: Wed, 30 Jul 2008 22:31:36 +0000
-Subject: 2.6.26 new perfmon kernel patch + libpfm + pfmon available
-Message-Id: <7c86c4470807301531i232ebd44m869affe95f036484@mail.gmail.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 17 Jul 2008 02:10:58 +0000
+Subject: [PATCH 26/29] ia64/xen: preliminary support for save/restore.
+Message-Id: <12162606621206-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7c86c4470807301530s224f5104wdd5004419464bc2e@mail.gmail.com>
-In-Reply-To: <7c86c4470807301530s224f5104wdd5004419464bc2e@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: ia64 <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Hello,
+preliminary support for save/restore.
+Although Save/restore isn't fully working yet, this patch is necessary
+to compile.
 
-I have released the perfmon2 kernel patch for kernel v2.6.26. There is
-no new major features.  Concerning the merge with mainline, we use a different
-code base which contains only code to  supports only per-thread counting on
-X86 processors. The patch is distributed as a quilt patchset and is
-posted on LKML.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/xen/Makefile              |    2 +-
+ arch/ia64/xen/{time.h => suspend.c} |   40 +++++++++++++++++++++++++++++++++-
+ arch/ia64/xen/time.c                |   33 ++++++++++++++++++++++++++++
+ arch/ia64/xen/time.h                |    1 +
+ 4 files changed, 73 insertions(+), 3 deletions(-)
+ copy arch/ia64/xen/{time.h => suspend.c} (66%)
 
-Here are some of the kernel changes:
- - Support for Intel architectural perfmon v3 (as per IA-32 Vol3b June 2008)
- - base syscall exported in /sys/kernel/perfmon/syscall
- - experimental utrace support
- - added dep_pmcs[] to PMD definitions to avoid picking up stale config
- - important IBM Power updates to solve counter overflow issues (Corey Ashford)
- - AMD64 APIC/PCI cleanups for IBS support (Robert Richter)
- - new API for handler routine of sampling formats to accomodate IBM
-Cell (Carl Love)
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 972d085..0ad0224 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -3,7 +3,7 @@
+ #
+ 
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
+ 
+ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+ 
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/suspend.c
+similarity index 66%
+copy from arch/ia64/xen/time.h
+copy to arch/ia64/xen/suspend.c
+index b9c7ec5..b4ce6b6 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/suspend.c
+@@ -1,5 +1,5 @@
+ /******************************************************************************
+- * arch/ia64/xen/time.h
++ * arch/ia64/xen/suspend.c
+  *
+  * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
+  *                    VA Linux Systems Japan K.K.
+@@ -18,6 +18,42 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
++ * suspend/resume
+  */
+ 
+-extern struct pv_time_ops xen_time_ops __initdata;
++#include <xen/xen-ops.h>
++#include <asm/xen/hypervisor.h>
++#include "time.h"
++
++void
++xen_mm_pin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_mm_unpin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_pre_suspend()
++{
++	/* nothing */
++}
++
++void
++xen_post_suspend(int suspend_cancelled)
++{
++	if (suspend_cancelled)
++		return;
++
++	xen_ia64_enable_opt_feature();
++	/* add more if necessary */
++}
++
++void xen_arch_resume(void)
++{
++	xen_timer_resume_on_aps();
++}
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index 3414f1e..81a61e8 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -26,6 +26,8 @@
+ #include <linux/irq.h>
+ #include <linux/clocksource.h>
+ 
++#include <asm/timex.h>
++
+ #include <asm/xen/hypervisor.h>
+ 
+ #include <xen/interface/vcpu.h>
+@@ -163,3 +165,34 @@ struct pv_time_ops xen_time_ops __initdata = {
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
+ };
++
++/* Called after suspend, to resume time.  */
++static void xen_local_tick_resume(void)
++{
++	/* Just trigger a tick.  */
++	ia64_cpu_local_tick();
++	touch_softlockup_watchdog();
++}
++
++void
++xen_timer_resume(void)
++{
++	unsigned int cpu;
++
++	xen_local_tick_resume();
++
++	for_each_online_cpu(cpu)
++		xen_init_missing_ticks_accounting(cpu);
++}
++
++static void ia64_cpu_local_tick_fn(void *unused)
++{
++	xen_local_tick_resume();
++	xen_init_missing_ticks_accounting(smp_processor_id());
++}
++
++void
++xen_timer_resume_on_aps(void)
++{
++	smp_call_function(&ia64_cpu_local_tick_fn, NULL, 0, 1);
++}
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
+index b9c7ec5..f98d7e1 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/time.h
+@@ -21,3 +21,4 @@
+  */
+ 
+ extern struct pv_time_ops xen_time_ops __initdata;
++void xen_timer_resume_on_aps(void);
+-- 
+1.5.3
 
-There is also a new release for libpfm, now at version 3.5.
-The changes include:
- - support for AMD K7 (Vince Weaver)
- - support for Intel architectural perfmon v3
- - support for SiCortex (ICA9A, ICA9B) (Phil Mucci)
- - dynamic perfmon syscall support via /sys
- - new environment variable to control debugging and force particular PMU model
-
-Finally, a new major version of pfmon, now at pfmon-3.5 with some minor
-changes:
- - group unknown symbols as UNKNOWN when sampling (Andrzej Nowak)
- - lots of bug fixes
-
-As usual all files and more detailed changelogs can be downloaded from our
-website at:
-
-       http://perfmon2.sourceforge.net
-
-Enjoy,
