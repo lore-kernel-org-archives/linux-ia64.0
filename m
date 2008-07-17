@@ -1,634 +1,234 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 18 Jul 2008 20:36:53 +0000
-Subject: [PATCH 2/2] ia64: Call migration code on correctable errors v7
-Message-Id: <20080718203653.GF29621@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 17 Jul 2008 02:10:44 +0000
+Subject: [PATCH 12/29] ia64/xen: implement arch specific part of xen grant table.
+Message-Id: <12162606624016-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mingo@elte.hu, tglx@linutronix.de, Tony Luck <tony.luck@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Russ Anderson <rja@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-[PATCH 2/2] ia64: Call migration code on correctable errors v7
+Xen implements grant tables which is for sharing pages with
+guest domains.
+This patch implements arch specific part of grant table initialization.
+and xen_alloc_vm_area()/xen_free_vm_area() which are helper functions
+for xen grant table.
 
-Migrate data off pages with correctable memory errors.  This patch is the 
-ia64 specific piece.  It connects the CPE handler to the page migration
-code.  It is implemented as a kernel loadable module, similar to the mca
-recovery code (mca_recovery.ko).  This allows the feature to be turned off
-by uninstalling the module.  
-
-
-Signed-off-by: Russ Anderson <rja@sgi.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/Kconfig              |    9 
- arch/ia64/kernel/Makefile      |    1 
- arch/ia64/kernel/cpe_migrate.c |  419 +++++++++++++++++++++++++++++++++++++++++
- arch/ia64/kernel/mca.c         |   37 +++
- include/asm-ia64/mca.h         |    6 
- include/asm-ia64/page.h        |    1 
- mm/migrate.c                   |    4 
- 7 files changed, 476 insertions(+), 1 deletion(-)
+ arch/ia64/xen/Makefile             |    2 +-
+ arch/ia64/xen/grant-table.c        |  155 ++++++++++++++++++++++++++++++++++++
+ include/asm-ia64/xen/grant_table.h |   29 +++++++
+ 3 files changed, 185 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/grant-table.c
+ create mode 100644 include/asm-ia64/xen/grant_table.h
 
-Index: linux/arch/ia64/kernel/Makefile
-=================================--- linux.orig/arch/ia64/kernel/Makefile	2008-07-18 15:15:48.000000000 -0500
-+++ linux/arch/ia64/kernel/Makefile	2008-07-18 15:16:23.000000000 -0500
-@@ -27,6 +27,7 @@ obj-$(CONFIG_PERFMON)		+= perfmon_defaul
- obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
- obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
- obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
-+obj-$(CONFIG_IA64_CPE_MIGRATE)	+= cpe_migrate.o
- obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
- obj-$(CONFIG_KEXEC)		+= machine_kexec.o relocate_kernel.o crash.o
- obj-$(CONFIG_CRASH_DUMP)	+= crash_dump.o
-Index: linux/arch/ia64/kernel/cpe_migrate.c
-=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux/arch/ia64/kernel/cpe_migrate.c	2008-07-18 15:16:23.000000000 -0500
-@@ -0,0 +1,419 @@
-+/*
-+ * File:	cpe_migrate.c
-+ * Purpose:	Migrate data from physical pages with excessive correctable
-+ *		errors to new physical pages.  Keep the old pages on a discard
-+ *		list.
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index ae08822..eb59563 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,4 @@
+ # Makefile for Xen components
+ #
+ 
+-obj-y := hypercall.o xencomm.o xcom_hcall.o
++obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/grant-table.c b/arch/ia64/xen/grant-table.c
+new file mode 100644
+index 0000000..777dd9a
+--- /dev/null
++++ b/arch/ia64/xen/grant-table.c
+@@ -0,0 +1,155 @@
++/******************************************************************************
++ * arch/ia64/xen/grant-table.c
 + *
-+ * Copyright (C) 2008 SGI - Silicon Graphics Inc.
-+ * Copyright (C) 2008 Russ Anderson <rja@sgi.com>
++ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
 +
-+#include <linux/sysdev.h>
-+#include <linux/types.h>
-+#include <linux/sched.h>
 +#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/smp.h>
-+#include <linux/workqueue.h>
-+#include <linux/mm.h>
-+#include <linux/swap.h>
 +#include <linux/vmalloc.h>
-+#include <linux/migrate.h>
-+#include <linux/page-isolation.h>
-+#include <linux/memcontrol.h>
-+#include <linux/kobject.h>
++#include <linux/mm.h>
 +
-+#include <asm/page.h>
-+#include <asm/system.h>
-+#include <asm/sn/sn_cpuid.h>
-+#include <asm/mca.h>
++#include <xen/interface/xen.h>
++#include <xen/interface/memory.h>
++#include <xen/grant_table.h>
 +
-+#define BADRAM_BASENAME		"badram"
-+#define CE_HISTORY_LENGTH	30
++#include <asm/xen/hypervisor.h>
 +
-+struct cpe_info {
-+	u64 	paddr;
-+	u16	node;
-+};
-+static struct cpe_info cpe[CE_HISTORY_LENGTH];
++struct vm_struct *xen_alloc_vm_area(unsigned long size)
++{
++	int order;
++	unsigned long virt;
++	unsigned long nr_pages;
++	struct vm_struct *area;
 +
-+static int cpe_polling_enabled = 1;
-+static int cpe_head;
-+static int cpe_tail;
-+static int work_scheduled;
++	order = get_order(size);
++	virt = __get_free_pages(GFP_KERNEL, order);
++	if (virt = 0)
++		goto err0;
++	nr_pages = 1 << order;
++	scrub_pages(virt, nr_pages);
 +
-+DEFINE_SPINLOCK(cpe_migrate_lock);
++	area = kmalloc(sizeof(*area), GFP_KERNEL);
++	if (area = NULL)
++		goto err1;
++
++	area->flags = VM_IOREMAP;
++	area->addr = (void *)virt;
++	area->size = size;
++	area->pages = NULL;
++	area->nr_pages = nr_pages;
++	area->phys_addr = 0;	/* xenbus_map_ring_valloc uses this field!  */
++
++	return area;
++
++err1:
++	free_pages(virt, order);
++err0:
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(xen_alloc_vm_area);
++
++void xen_free_vm_area(struct vm_struct *area)
++{
++	unsigned int order = get_order(area->size);
++	unsigned long i;
++	unsigned long phys_addr = __pa(area->addr);
++
++	/* This area is used for foreign page mappping.
++	 * So underlying machine page may not be assigned. */
++	for (i = 0; i < (1 << order); i++) {
++		unsigned long ret;
++		unsigned long gpfn = (phys_addr >> PAGE_SHIFT) + i;
++		struct xen_memory_reservation reservation = {
++			.nr_extents   = 1,
++			.address_bits = 0,
++			.extent_order = 0,
++			.domid        = DOMID_SELF
++		};
++		set_xen_guest_handle(reservation.extent_start, &gpfn);
++		ret = HYPERVISOR_memory_op(XENMEM_populate_physmap,
++					   &reservation);
++		BUG_ON(ret != 1);
++	}
++	free_pages((unsigned long)area->addr, order);
++	kfree(area);
++}
++EXPORT_SYMBOL_GPL(xen_free_vm_area);
++
++
++/****************************************************************************
++ * grant table hack
++ * cmd: GNTTABOP_xxx
++ */
++
++int arch_gnttab_map_shared(unsigned long *frames, unsigned long nr_gframes,
++			   unsigned long max_nr_gframes,
++			   struct grant_entry **__shared)
++{
++	*__shared = __va(frames[0] << PAGE_SHIFT);
++	return 0;
++}
++
++void arch_gnttab_unmap_shared(struct grant_entry *shared,
++			      unsigned long nr_gframes)
++{
++	/* nothing */
++}
 +
 +static void
-+get_physical_address(void *buffer, u64 *paddr, u16 *node)
++gnttab_map_grant_ref_pre(struct gnttab_map_grant_ref *uop)
 +{
-+	sal_log_record_header_t *rh;
-+	sal_log_mem_dev_err_info_t *mdei;
-+	ia64_err_rec_t *err_rec;
-+	sal_log_platform_err_info_t *plat_err;
-+	efi_guid_t guid;
++	uint32_t flags;
 +
-+	err_rec = buffer;
-+	rh = &err_rec->sal_elog_header;
-+	*paddr = 0;
-+	*node = 0;
++	flags = uop->flags;
 +
-+	/*
-+	 * Make sure it is a corrected error.
-+	 */
-+	if (rh->severity != sal_log_severity_corrected)
-+		return;
-+
-+	plat_err = (sal_log_platform_err_info_t *)&err_rec->proc_err;
-+
-+	guid = plat_err->mem_dev_err.header.guid;
-+	if (efi_guidcmp(guid, SAL_PLAT_MEM_DEV_ERR_SECT_GUID) = 0) {
-+		/*
-+		 * Memory cpe
-+		 */
-+		mdei = &plat_err->mem_dev_err;
-+		if (mdei->valid.oem_data) {
-+			if (mdei->valid.physical_addr)
-+				*paddr = mdei->physical_addr;
-+
-+			if (mdei->valid.node) {
-+				if (ia64_platform_is("sn2"))
-+					*node = nasid_to_cnodeid(mdei->node);
-+				else
-+					*node = mdei->node;
-+			}
++	if (flags & GNTMAP_host_map) {
++		if (flags & GNTMAP_application_map) {
++			printk(KERN_DEBUG
++			       "GNTMAP_application_map is not supported yet: "
++			       "flags 0x%x\n", flags);
++			BUG();
 +		}
-+	}
-+}
-+
-+static struct page *
-+alloc_migrate_page(struct page *ignored, unsigned long node, int **x)
-+{
-+
-+	return alloc_pages_node(node, GFP_HIGHUSER_MOVABLE, 0);
-+}
-+
-+static int
-+validate_paddr_page(u64 paddr)
-+{
-+	struct page *page;
-+
-+	if (!paddr)
-+		return -EINVAL;
-+
-+	if (!ia64_phys_addr_valid(paddr))
-+		return -EINVAL;
-+
-+	if (!pfn_valid(paddr >> PAGE_SHIFT))
-+		return -EINVAL;
-+
-+	page = phys_to_page(paddr);
-+	if (PageMemError(page))
-+		/*
-+		 * The page has already been marked bad.
-+		 */
-+		return -EINVAL;
-+	return 0;
-+}
-+
-+static int
-+ia64_mca_cpe_move_page(u64 paddr, u32 node)
-+{
-+	LIST_HEAD(pagelist);
-+	struct page *page;
-+	int ret;
-+
-+	ret = validate_paddr_page(paddr);
-+	if (ret < 0)
-+		return ret;
-+
-+	/*
-+	 * convert physical address to page number
-+	 */
-+	page = phys_to_page(paddr);
-+
-+	migrate_prep();
-+	ret = isolate_lru_page(page, &pagelist);
-+	if (ret)
-+		return ret;
-+
-+	SetPageMemError(page);		/* Mark the page as bad */
-+	ret = migrate_pages(&pagelist, alloc_migrate_page, node);
-+	if (ret = 0) {
-+		total_badpages++;
-+		list_add_tail(&page->lru, &badpagelist);
-+	} else
-+		/*
-+		 * The page failed to migrate and is not on the bad page list.
-+		 * Clearing the error bit will allow another attempt to migrate
-+		 * if it gets another correctable error.
-+		 */
-+		ClearPageMemError(page);
-+
-+	return 0;
-+}
-+
-+/*
-+ * ia64_mca_cpe_migrate
-+ *	The worker that does the actual migration.  It pulls a
-+ *	physical address off the list and calls the migration code.
-+ */
-+static void
-+ia64_mca_cpe_migrate(struct work_struct *unused)
-+{
-+	int ret;
-+	u64 paddr;
-+	u16 node;
-+
-+	do {
-+		paddr = cpe[cpe_tail].paddr;
-+		if (paddr) {
-+			/*
-+			 * There is a valid entry that needs processing.
-+			 */
-+			node = cpe[cpe_tail].node;
-+
-+			ret = ia64_mca_cpe_move_page(paddr, node);
-+			if (ret <= 0)
-+				/*
-+				 * Even though the return status is negative,
-+				 * clear the entry.  If the same address has
-+				 * another CPE it will be re-added to the list.
-+				 */
-+				cpe[cpe_tail].paddr = 0;
-+
++		if (flags & GNTMAP_contains_pte) {
++			printk(KERN_DEBUG
++			       "GNTMAP_contains_pte is not supported yet: "
++			       "flags 0x%x\n", flags);
++			BUG();
 +		}
-+		if (++cpe_tail >= CE_HISTORY_LENGTH)
-+			cpe_tail = 0;
-+
-+	} while (cpe_tail != cpe_head);
-+	work_scheduled = 0;
-+}
-+
-+static DECLARE_WORK(cpe_enable_work, ia64_mca_cpe_migrate);
-+DEFINE_SPINLOCK(cpe_list_lock);
-+
-+/*
-+ * cpe_setup_migrate
-+ *	Get the physical address out of the CPE record, add it
-+ *	to the list of addresses to migrate (if not already on),
-+ *	and schedule the back end worker task.  This is called
-+ *	in interrupt context so cannot directly call the migration
-+ *	code.
-+ *
-+ *  Inputs
-+ *	rec	The CPE record
-+ *  Outputs
-+ *	1 on Success, -1 on failure
-+ */
-+static int
-+cpe_setup_migrate(void *rec)
-+{
-+	u64 paddr;
-+	u16 node;
-+	/* int head, tail; */
-+	int i, ret;
-+
-+	if (!rec)
-+		return -EINVAL;
-+
-+	get_physical_address(rec, &paddr, &node);
-+	ret = validate_paddr_page(paddr);
-+	if (ret < 0)
-+		return -EINVAL;
-+
-+	if ((cpe_head != cpe_tail) || (cpe[cpe_head].paddr != 0))
-+		/*
-+		 * List not empty
-+		 */
-+		for (i = 0; i < CE_HISTORY_LENGTH; i++) {
-+			if (PAGE_ALIGN(cpe[i].paddr) = PAGE_ALIGN(paddr))
-+				return 1;	/* already on the list */
-+		}
-+
-+	if (!spin_trylock(&cpe_list_lock)) {
-+		/*
-+		 * Someone else has the lock.  To avoid spinning in interrupt
-+		 * handler context, bail.
-+		 */
-+		return 1;
++	} else if (flags & GNTMAP_device_map) {
++		printk("GNTMAP_device_map is not supported yet 0x%x\n", flags);
++		BUG();	/* not yet. actually this flag is not used. */
++	} else {
++		BUG();
 +	}
-+
-+	if (cpe[cpe_head].paddr = 0) {
-+		cpe[cpe_head].node = node;
-+		cpe[cpe_head].paddr = paddr;
-+
-+		if (++cpe_head >= CE_HISTORY_LENGTH)
-+			cpe_head = 0;
-+	}
-+	spin_unlock(&cpe_list_lock);
-+
-+	if (!work_scheduled) {
-+		work_scheduled = 1;
-+		schedule_work(&cpe_enable_work);
-+	}
-+
-+	return 1;
 +}
-+
-+/*
-+ * ======================================+ */
-+
-+/*
-+ * free_one_bad_page
-+ *	Free one page from the list of bad pages.
-+ */
-+static int
-+free_one_bad_page(unsigned long paddr)
-+{
-+	LIST_HEAD(pagelist);
-+	struct page *page, *page2, *target;
-+
-+	/*
-+	 * Verify page address
-+	 */
-+	target = phys_to_page(paddr);
-+	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
-+		if (page != target)
-+			continue;
-+
-+		ClearPageMemError(page);        /* Mark the page as good */
-+		total_badpages--;
-+		list_move_tail(&page->lru, &pagelist);
-+		putback_lru_pages(&pagelist);
-+		break;
-+	}
-+	return 0;
-+}
-+
-+/*
-+ * free_all_bad_pages
-+ *	Free all of the pages on the bad pages list.
-+ */
-+static int
-+free_all_bad_pages(void)
-+{
-+	struct page *page, *page2;
-+
-+	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
-+		ClearPageMemError(page);        /* Mark the page as good */
-+		total_badpages--;
-+	}
-+	putback_lru_pages(&badpagelist);
-+	return 0;
-+}
-+
-+#define OPT_LEN	16
-+
-+static ssize_t
-+badpage_store(struct kobject *kobj,
-+	      struct kobj_attribute *attr, const char *buf, size_t count)
-+{
-+	char optstr[OPT_LEN];
-+	unsigned long opt;
-+	int len = OPT_LEN;
-+	int err;
-+
-+	if (count < len)
-+		len = count;
-+
-+	strlcpy(optstr, buf, len);
-+
-+	err = strict_strtoul(optstr, 16, &opt);
-+	if (err)
-+		return err;
-+
-+	if (opt = 0)
-+		free_all_bad_pages();
-+	else
-+		free_one_bad_page(opt);
-+
-+	return count;
-+}
-+
-+/*
-+ * badpage_show
-+ *	Display the number, size, and addresses of all the pages on the
-+ *	bad page list.
-+ *
-+ *	Note that sysfs provides buf of PAGE_SIZE length.  bufend tracks
-+ *	the remaining space in buf to avoid overflowing.
-+ */
-+static ssize_t
-+badpage_show(struct kobject *kobj,
-+	     struct kobj_attribute *attr, char *buf)
-+
-+{
-+	struct page *page, *page2;
-+	int i = 0, cnt = 0;
-+	char *bufend = buf + PAGE_SIZE;
-+
-+	cnt = snprintf(buf, bufend - (buf + cnt),
-+			"Bad RAM: %d kB, %d pages marked bad\n"
-+			"List of bad physical pages\n",
-+			total_badpages << (PAGE_SHIFT - 10), total_badpages);
-+
-+	list_for_each_entry_safe(page, page2, &badpagelist, lru) {
-+		if (bufend - (buf + cnt) < 20)
-+			break;		/* Avoid overflowing the buffer */
-+		cnt += snprintf(buf + cnt, bufend - (buf + cnt),
-+				" 0x%011lx", page_to_phys(page));
-+		if (!(++i % 5))
-+			cnt += snprintf(buf + cnt, bufend - (buf + cnt), "\n");
-+	}
-+	cnt += snprintf(buf + cnt, bufend - (buf + cnt), "\n");
-+
-+	return cnt;
-+}
-+
-+static struct kobj_attribute badram_attr = {
-+	.attr    = {
-+		.name = "badram",
-+		.mode = S_IWUSR | S_IRUGO,
-+	},
-+	.show = badpage_show,
-+	.store = badpage_store,
-+};
-+
-+static int __init
-+cpe_migrate_external_handler_init(void)
-+{
-+	int error;
-+
-+	error = sysfs_create_file(kernel_kobj, &badram_attr.attr);
-+	if (error)
-+		return -EINVAL;
-+
-+	/*
-+	 * register external ce handler
-+	 */
-+	if (ia64_reg_CE_extension(cpe_setup_migrate)) {
-+		printk(KERN_ERR "ia64_reg_CE_extension failed.\n");
-+		return -EFAULT;
-+	}
-+	cpe_poll_enabled = cpe_polling_enabled;
-+
-+	printk(KERN_INFO "Registered badram Driver\n");
-+	return 0;
-+}
-+
-+static void __exit
-+cpe_migrate_external_handler_exit(void)
-+{
-+	/* unregister external mca handlers */
-+	ia64_unreg_CE_extension();
-+
-+	sysfs_remove_file(kernel_kobj, &badram_attr.attr);
-+}
-+
-+module_init(cpe_migrate_external_handler_init);
-+module_exit(cpe_migrate_external_handler_exit);
-+
-+module_param(cpe_polling_enabled, int, 0644);
-+MODULE_PARM_DESC(cpe_polling_enabled,
-+		"Enable polling with migration");
-+
-+MODULE_AUTHOR("Russ Anderson <rja@sgi.com>");
-+MODULE_DESCRIPTION("ia64 Corrected Error page migration driver");
-+MODULE_LICENSE("GPL");
-Index: linux/arch/ia64/kernel/mca.c
-=================================--- linux.orig/arch/ia64/kernel/mca.c	2008-07-18 15:15:48.000000000 -0500
-+++ linux/arch/ia64/kernel/mca.c	2008-07-18 15:16:23.000000000 -0500
-@@ -68,6 +68,9 @@
-  *
-  * 2007-04-27 Russ Anderson <rja@sgi.com>
-  *	      Support multiple cpus going through OS_MCA in the same event.
-+ *
-+ * 2008-04-22 Russ Anderson <rja@sgi.com>
-+ *	      Migrate data off pages with correctable memory errors.
-  */
- #include <linux/jiffies.h>
- #include <linux/types.h>
-@@ -163,7 +166,14 @@ static int cmc_polling_enabled = 1;
-  * but encounters problems retrieving CPE logs.  This should only be
-  * necessary for debugging.
-  */
--static int cpe_poll_enabled = 1;
-+int cpe_poll_enabled = 1;
-+EXPORT_SYMBOL(cpe_poll_enabled);
-+
-+unsigned int total_badpages;
-+EXPORT_SYMBOL(total_badpages);
-+
-+LIST_HEAD(badpagelist);
-+EXPORT_SYMBOL(badpagelist);
- 
- extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size, int irqsafe);
- 
-@@ -523,6 +533,28 @@ int mca_recover_range(unsigned long addr
- }
- EXPORT_SYMBOL_GPL(mca_recover_range);
- 
-+/* Function pointer to Corrected Error memory migration driver */
-+int (*ia64_mca_ce_extension)(void *);
 +
 +int
-+ia64_reg_CE_extension(int (*fn)(void *))
++HYPERVISOR_grant_table_op(unsigned int cmd, void *uop, unsigned int count)
 +{
-+	if (ia64_mca_ce_extension)
-+		return 1;
-+
-+	ia64_mca_ce_extension = fn;
-+	return 0;
++	if (cmd = GNTTABOP_map_grant_ref) {
++		unsigned int i;
++		for (i = 0; i < count; i++) {
++			gnttab_map_grant_ref_pre(
++				(struct gnttab_map_grant_ref *)uop + i);
++		}
++	}
++	return xencomm_hypercall_grant_table_op(cmd, uop, count);
 +}
-+EXPORT_SYMBOL(ia64_reg_CE_extension);
 +
-+void
-+ia64_unreg_CE_extension(void)
-+{
-+	if (ia64_mca_ce_extension)
-+		ia64_mca_ce_extension = NULL;
-+}
-+EXPORT_SYMBOL(ia64_unreg_CE_extension);
++EXPORT_SYMBOL(HYPERVISOR_grant_table_op);
+diff --git a/include/asm-ia64/xen/grant_table.h b/include/asm-ia64/xen/grant_table.h
+new file mode 100644
+index 0000000..ebdf2ea
+--- /dev/null
++++ b/include/asm-ia64/xen/grant_table.h
+@@ -0,0 +1,29 @@
++/******************************************************************************
++ * include/asm-ia64/xen/grant_table.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
 +
- #ifdef CONFIG_ACPI
- 
- int cpe_vector = -1;
-@@ -534,6 +566,7 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
- 	static unsigned long	cpe_history[CPE_HISTORY_LENGTH];
- 	static int		index;
- 	static DEFINE_SPINLOCK(cpe_history_lock);
-+	int recover;
- 
- 	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
- 		       __func__, cpe_irq, smp_processor_id());
-@@ -580,6 +613,8 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
- out:
- 	/* Get the CPE error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-+	recover = (ia64_mca_ce_extension && ia64_mca_ce_extension(
-+				IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_CPE)));
- 
- 	return IRQ_HANDLED;
- }
-Index: linux/arch/ia64/Kconfig
-=================================--- linux.orig/arch/ia64/Kconfig	2008-07-18 15:15:48.000000000 -0500
-+++ linux/arch/ia64/Kconfig	2008-07-18 15:16:23.000000000 -0500
-@@ -470,6 +470,15 @@ config COMPAT_FOR_U64_ALIGNMENT
- config IA64_MCA_RECOVERY
- 	tristate "MCA recovery from errors other than TLB."
- 
-+config IA64_CPE_MIGRATE
-+	tristate "Migrate data off pages with correctable errors"
-+	default m
-+	help
-+	  Migrate data off pages with correctable memory errors.  Selecting
-+	  Y will build this functionality into the kernel.  Selecting M will
-+	  build this functionality as a kernel loadable module.  Installing
-+	  the module will turn on the functionality.
++#ifndef _ASM_IA64_XEN_GRANT_TABLE_H
++#define _ASM_IA64_XEN_GRANT_TABLE_H
 +
- config PERFMON
- 	bool "Performance monitor support"
- 	help
-Index: linux/include/asm-ia64/mca.h
-=================================--- linux.orig/include/asm-ia64/mca.h	2008-07-18 15:15:48.000000000 -0500
-+++ linux/include/asm-ia64/mca.h	2008-07-18 15:16:23.000000000 -0500
-@@ -137,6 +137,7 @@ extern unsigned long __per_cpu_mca[NR_CP
- 
- extern int cpe_vector;
- extern int ia64_cpe_irq;
-+extern int cpe_poll_enabled;
- extern void ia64_mca_init(void);
- extern void ia64_mca_cpu_init(void *);
- extern void ia64_os_mca_dispatch(void);
-@@ -150,9 +151,14 @@ extern void ia64_slave_init_handler(void
- extern void ia64_mca_cmc_vector_setup(void);
- extern int  ia64_reg_MCA_extension(int (*fn)(void *, struct ia64_sal_os_state *));
- extern void ia64_unreg_MCA_extension(void);
-+extern int  ia64_reg_CE_extension(int (*fn)(void *));
-+extern void ia64_unreg_CE_extension(void);
- extern u64 ia64_get_rnat(u64 *);
- extern void ia64_mca_printk(const char * fmt, ...)
- 	 __attribute__ ((format (printf, 1, 2)));
++struct vm_struct *xen_alloc_vm_area(unsigned long size);
++void xen_free_vm_area(struct vm_struct *area);
 +
-+extern struct list_head badpagelist;
-+extern unsigned int total_badpages;
- 
- struct ia64_mca_notify_die {
- 	struct ia64_sal_os_state *sos;
-Index: linux/include/asm-ia64/page.h
-=================================--- linux.orig/include/asm-ia64/page.h	2008-07-18 15:15:48.000000000 -0500
-+++ linux/include/asm-ia64/page.h	2008-07-18 15:16:23.000000000 -0500
-@@ -122,6 +122,7 @@ extern unsigned long max_low_pfn;
- #endif
- 
- #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
-+#define phys_to_page(kaddr)	(pfn_to_page(kaddr >> PAGE_SHIFT))
- #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
- #define pfn_to_kaddr(pfn)	__va((pfn) << PAGE_SHIFT)
- 
-Index: linux/mm/migrate.c
-=================================--- linux.orig/mm/migrate.c	2008-07-18 15:16:09.000000000 -0500
-+++ linux/mm/migrate.c	2008-07-18 15:16:23.000000000 -0500
-@@ -64,6 +64,7 @@ int isolate_lru_page(struct page *page, 
- 	}
- 	return ret;
- }
-+EXPORT_SYMBOL(isolate_lru_page);
- 
- /*
-  * migrate_prep() needs to be called before we start compiling a list of pages
-@@ -81,6 +82,7 @@ int migrate_prep(void)
- 
- 	return 0;
- }
-+EXPORT_SYMBOL(migrate_prep);
- 
- static inline void move_to_lru(struct page *page)
- {
-@@ -115,6 +117,7 @@ int putback_lru_pages(struct list_head *
- 	}
- 	return count;
- }
-+EXPORT_SYMBOL(putback_lru_pages);
- 
- /*
-  * Restore a potential migration pte to a working pte entry
-@@ -831,6 +834,7 @@ out:
- 
- 	return nr_failed + retry;
- }
-+EXPORT_SYMBOL(migrate_pages);
- 
- #ifdef CONFIG_NUMA
- /*
++#endif /* _ASM_IA64_XEN_GRANT_TABLE_H */
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+1.5.3
+
