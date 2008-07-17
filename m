@@ -1,55 +1,63 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 31 Jul 2008 01:22:12 +0000
-Subject: [patch 4/6] kdump: use is_kdump_kernel() in sba_init()
-Message-Id: <20080731012927.629185400@vergenet.net>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 17 Jul 2008 02:10:38 +0000
+Subject: [PATCH 06/29] ia64/xen: define several constants for ia64/xen.
+Message-Id: <12162606623056-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080731012208.115225969@vergenet.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kexec@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Vivek Goyal <vgoyal@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@gmail.com>
+To: linux-ia64@vger.kernel.org
 
-o Make use of is_kdump_kernel() rather than checking elfcorehdr_addr directly.
+define several constants for ia64/xen.
 
-o Remove CONFIG_CRASH_DUMP as is_kdump_kernel() is safe to call anywhere
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-o Remove CONFIG_PROC_FS as it is bogus, the check
-  should occur regardless of if CONFIG_PROC_FS is set or not.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Acked-by: Vivek Goyal <vgoyal@redhat.com>
-
---- 
-Andrew, this patch fixes bug in the (unlikely) case where
-an ia64 crashdump kernel does not have CONFIG_PROC_FS set.
-I think it is worth including in 2.6.27. But breakage cases are
-likely to be minimal to non-existent, so I am comfortable
-with post 2.6.27 too.
-
-Index: linux-2.6/arch/ia64/hp/common/sba_iommu.c
-=================================--- linux-2.6.orig/arch/ia64/hp/common/sba_iommu.c	2008-07-29 10:57:17.000000000 +1000
-+++ linux-2.6/arch/ia64/hp/common/sba_iommu.c	2008-07-29 10:57:51.000000000 +1000
-@@ -2070,14 +2070,13 @@ sba_init(void)
- 	if (!ia64_platform_is("hpzx1") && !ia64_platform_is("hpzx1_swiotlb"))
- 		return 0;
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index c64a55a..6bd3fc5 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -16,6 +16,8 @@
+ #include <asm-ia64/sigcontext.h>
+ #include <asm-ia64/mca.h>
  
--#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP) && \
--        defined(CONFIG_PROC_FS)
-+#if defined(CONFIG_IA64_GENERIC)
- 	/* If we are booting a kdump kernel, the sba_iommu will
- 	 * cause devices that were not shutdown properly to MCA
- 	 * as soon as they are turned back on.  Our only option for
- 	 * a successful kdump kernel boot is to use the swiotlb.
- 	 */
--	if (elfcorehdr_addr < ELFCORE_ADDR_MAX) {
-+	if (is_kdump_kernel()) {
- 		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
- 			panic("Unable to initialize software I/O TLB:"
- 				  " Try machvec=dig boot option");
-
++#include <asm-ia64/xen/interface.h>
++
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
+ 
+@@ -286,4 +288,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++
++#ifdef CONFIG_XEN
++	BLANK();
++
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
+ }
 -- 
-
--- 
-Horms
+1.5.3
 
