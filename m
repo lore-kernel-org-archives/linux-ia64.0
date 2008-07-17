@@ -1,53 +1,84 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 21 Jul 2008 23:29:13 +0000
-Subject: [patch] Add error_recovery_info field to SAL section header
-Message-Id: <20080721232912.GA37347@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Thu, 17 Jul 2008 02:10:35 +0000
+Subject: [PATCH 03/29] ia64/xen: introduce sync bitops which is necessary for ia64/xen support.
+Message-Id: <12162606623470-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[patch] Add error_recovery_info field to SAL section header
+define sync bitops which is necessary for ia64/xen.
+This bit operation is used to communicate with VMM or other guest kernel
+Even when this kernel is built for UP, VMM might be SMP so that those operation
+must always use atomic operation.
 
-Add the error_recovery_info field to the SAL section header,
-as defined in the SAL Spec.
-
-Signed-off-by: Russ Anderson <rja@sgi.com>
-
+Cc: Robin Holt <holt@sgi.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- include/asm-ia64/sal.h |   15 ++++++++++++++-
- 1 file changed, 14 insertions(+), 1 deletion(-)
+ include/asm-ia64/sync_bitops.h |   51 ++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 51 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-ia64/sync_bitops.h
 
-Index: linus/include/asm-ia64/sal.h
-=================================--- linus.orig/include/asm-ia64/sal.h	2008-07-18 11:32:02.000000000 -0500
-+++ linus/include/asm-ia64/sal.h	2008-07-21 18:21:12.699419381 -0500
-@@ -337,11 +337,24 @@ typedef struct sal_log_record_header {
- #define sal_log_severity_fatal		1
- #define sal_log_severity_corrected	2
- 
-+/*
-+ * Error Recovery Info (ERI) bit decode.  From SAL Spec section B.2.2 Table B-3
-+ * Error Section Error_Recovery_Info Field Definition.
-+ */
-+#define ERI_NOT_VALID		0x0	/* Error Recovery Field is not valid */
-+#define ERI_NOT_ACCESSIBLE	0x30	/* Resource not accessible */
-+#define ERI_CONTAINMENT_WARN	0x22	/* Corrupt data propagated */
-+#define ERI_UNCORRECTED_ERROR	0x20	/* Uncorrected error */
-+#define ERI_COMPONENT_RESET	0x24	/* Component must be reset */
-+#define ERI_CORR_ERROR_LOG	0x21	/* Corrected error, needs logging */
-+#define ERI_CORR_ERROR_THRESH	0x29	/* Corrected error threshold exceeded */
+diff --git a/include/asm-ia64/sync_bitops.h b/include/asm-ia64/sync_bitops.h
+new file mode 100644
+index 0000000..593c12e
+--- /dev/null
++++ b/include/asm-ia64/sync_bitops.h
+@@ -0,0 +1,51 @@
++#ifndef _ASM_IA64_SYNC_BITOPS_H
++#define _ASM_IA64_SYNC_BITOPS_H
 +
- /* Definition of log section header structures */
- typedef struct sal_log_sec_header {
-     efi_guid_t guid;			/* Unique Section ID */
-     sal_log_revision_t revision;	/* Major and Minor revision of Section */
--    u16 reserved;
-+    u8 error_recovery_info;		/* Platform error recovery status */
-+    u8 reserved;
-     u32 len;				/* Section length */
- } sal_log_section_hdr_t;
- 
++/*
++ * Copyright (C) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *
++ * Based on synch_bitops.h which Dan Magenhaimer wrote.
++ *
++ * bit operations which provide guaranteed strong synchronisation
++ * when communicating with Xen or other guest OSes running on other CPUs.
++ */
++
++static inline void sync_set_bit(int nr, volatile void *addr)
++{
++	set_bit(nr, addr);
++}
++
++static inline void sync_clear_bit(int nr, volatile void *addr)
++{
++	clear_bit(nr, addr);
++}
++
++static inline void sync_change_bit(int nr, volatile void *addr)
++{
++	change_bit(nr, addr);
++}
++
++static inline int sync_test_and_set_bit(int nr, volatile void *addr)
++{
++	return test_and_set_bit(nr, addr);
++}
++
++static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
++{
++	return test_and_clear_bit(nr, addr);
++}
++
++static inline int sync_test_and_change_bit(int nr, volatile void *addr)
++{
++	return test_and_change_bit(nr, addr);
++}
++
++static inline int sync_test_bit(int nr, const volatile void *addr)
++{
++	return test_bit(nr, addr);
++}
++
++#define sync_cmpxchg(ptr, old, new)				\
++	((__typeof__(*(ptr)))cmpxchg_acq((ptr), (old), (new)))
++
++#endif /* _ASM_IA64_SYNC_BITOPS_H */
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+1.5.3
+
