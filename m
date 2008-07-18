@@ -1,7 +1,7 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Date: Fri, 18 Jul 2008 18:25:31 +0000
-Subject: Re: [PATCH 24/29] ia64/pv_ops/xen: implement xen pv_time_ops.
-Message-Id: <4880E01B.6060902@goop.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 18 Jul 2008 22:44:21 +0000
+Subject: RE: [PATCH 24/29] ia64/pv_ops/xen: implement xen pv_time_ops.
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3065E3A0D@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <12162606623288-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <12162606623288-git-send-email-yamahata@valinux.co.jp>
@@ -10,27 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
+>+       if (!time_after(delta_itm + new_itm, ia64_get_itc()))
+>+               stolentick = ia64_get_itc() - new_itm;
+>+
+>+       do_div(stolentick, NS_PER_TICK);
 >
-> ITC is never synchronized between cpus.  On some systems all processor ITC
-> may be driven from the same clock ... so an "offset from absolute system time"
-> would work on those systems. But on others the ITC on different processors
-> may be driven from different crystals, so the *rate* may be different. The
-> difference may be small if the crystals have the same nominal frequency, but
-> in the worst case the rates may be readically different (e.g. in some SGI
-> systems ~1.2GHz on some cpus and ~1.6GHz on others).
->   
+>
+> Which makes me assume that ia64_get_itc() is returning nanoseconds; does
+> it do the adjustment from the itc's actual rate to nanoseconds?  Could
+> it also apply an offset?
 
-OK.  The patch in question has code like:
+No. ia64_get_itc() does no scaling it returns the raw value from
+the cr.itc register which increments at a frequency that the OS
+discovers using a PAL call.
 
-+	if (!time_after(delta_itm + new_itm, ia64_get_itc()))
-+		stolentick = ia64_get_itc() - new_itm;
-+
-+	do_div(stolentick, NS_PER_TICK);
+I'm not quite sure what the above code thinks it is doing. NS_PER_TICK
+may have been poorly named???
 
-
-Which makes me assume that ia64_get_itc() is returning nanoseconds; does 
-it do the adjustment from the itc's actual rate to nanoseconds?  Could 
-it also apply an offset?
-
-    J
+-Tony
