@@ -1,71 +1,57 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:54:43 +0000
-Subject: [PATCH] ia64/xen: add a neccessary header file to copmle include/xen/interface/xen.h
-Message-Id: <12150681052496-git-send-email-yamahata@valinux.co.jp>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 29 Jul 2008 07:14:22 +0000
+Subject: Is topology_core_siblings for use by drivers?
+Message-Id: <20080729071422.GD28989@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-Create include/asm-ia64/xen/pvclock-abi.h to compile.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- include/asm-ia64/xen/pvclock-abi.h |   44 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 44 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/xen/pvclock-abi.h
+allmodconfig currently dies with:
 
-diff --git a/include/asm-ia64/xen/pvclock-abi.h b/include/asm-ia64/xen/pvclock-abi.h
-new file mode 100644
-index 0000000..0dcf3b4
---- /dev/null
-+++ b/include/asm-ia64/xen/pvclock-abi.h
-@@ -0,0 +1,44 @@
-+/* This file is stolen from include/asm-x86/pvclock-abi.h */
-+
-+#ifndef _ASM_IA64_XEN_PVCLOCK_ABI_H_
-+#define _ASM_IA64_XEN_PVCLOCK_ABI_H_
-+#ifndef __ASSEMBLY__
-+
-+/*
-+ * These structs MUST NOT be changed.
-+ * They are the ABI between hypervisor and guest OS.
-+ * Both Xen and KVM are using this.
-+ *
-+* pvclock_vcpu_time_info holds the system time and the tsc timestamp
-+ * of the last update. So the guest can use the tsc delta to get a
-+ * more precise system time.  There is one per virtual cpu.
-+ *
-+ * pvclock_wall_clock references the point in time when the system
-+ * time was zero (usually boot time), thus the guest calculates the
-+ * current wall clock by adding the system time.
-+ *
-+ * Protocol for the "version" fields is: hypervisor raises it (making
-+ * it uneven) before it starts updating the fields and raises it again
-+ * (making it even) when it is done.  Thus the guest can make sure the
-+ * time values it got are consistent by checking the version before
-+ * and after reading them.
-+ */
-+
-+struct pvclock_vcpu_time_info {
-+	u32   version;
-+	u32   pad0;
-+	u64   tsc_timestamp;
-+	u64   system_time;
-+	u32   tsc_to_system_mul;
-+	s8    tsc_shift;
-+	u8    pad[3];
-+} __attribute__((__packed__)); /* 32 bytes */
-+
-+struct pvclock_wall_clock {
-+	u32   version;
-+	u32   sec;
-+	u32   nsec;
-+} __attribute__((__packed__));
-+
-+#endif /* __ASSEMBLY__ */
-+#endif /* _ASM_IA64_XEN_PVCLOCK_ABI_H_ */
+ERROR: "cpu_core_map" [drivers/net/sfc/sfc.ko] undefined!
+
+$ grep -r cpu_core_map include/asm-ia64/
+include/asm-ia64/smp.h:extern cpumask_t cpu_core_map[NR_CPUS];
+include/asm-ia64/topology.h:#define topology_core_siblings(cpu) (cpu_core_map[cpu])
+
+OK ... it's not exported to modules.  Do other architectures have this
+problem?
+
+$ grep topology_core_siblings include/asm-*/topology.h
+include/asm-ia64/topology.h:#define topology_core_siblings(cpu) (cpu_core_map[cpu])
+include/asm-powerpc/topology.h:#define topology_core_siblings(cpu) (per_cpu(cpu_core_map, cpu))
+include/asm-s390/topology.h:#define topology_core_siblings(cpu) (cpu_core_map[cpu])
+include/asm-x86/topology.h:#define topology_core_siblings(cpu) (per_cpu(cpu_core_map, cpu))
+
+s390, I guess.  But they don't have PCI device drivers.
+
+If device drivers are supposed to call this, please apply this patch:
+
+----
+
+Export cpu_core_map so modules can call topology_core_siblings()
+
+Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 03f1a99..6cb0927 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -138,6 +138,7 @@ cpumask_t cpu_possible_map = CPU_MASK_NONE;
+ EXPORT_SYMBOL(cpu_possible_map);
+ 
+ cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
++EXPORT_SYMBOL(cpu_core_map);
+ DEFINE_PER_CPU_SHARED_ALIGNED(cpumask_t, cpu_sibling_map);
+ EXPORT_PER_CPU_SYMBOL(cpu_sibling_map);
+ 
+
 -- 
-1.5.3
-
+Intel are signing my paycheques ... these opinions are still mine
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
