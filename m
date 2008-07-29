@@ -1,98 +1,32 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Date: Thu, 17 Jul 2008 05:39:03 +0000
-Subject: Re: [PATCH 10/29] ia64/xen: implement the arch specific part of	xencomm.
-Message-Id: <487EDAF7.8060000@goop.org>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 29 Jul 2008 12:26:21 +0000
+Subject: [Patch] Allow ia64 to CONFIG_NR_CPUS up to 4096
+Message-Id: <20080729122621.GE10501@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12162606621561-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12162606621561-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Akio Takebe wrote:
-> Hi, Isaku
->
-> Thank you for your work.
-> one small comment.
->
->   
->> On ia64/xen, pointer argument for the hypercall is passed
->> by pseudo physical address (guest physical address.)
->> So it is necessary to convert virtual address into pseudo physical
->> address right before issuing hypercall. The frame work is called
->> xencomm. This patch implements arch specific part.
->>
->> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
->> Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
->> Cc: "Luck, Tony" <tony.luck@intel.com>
->> ---
->> arch/ia64/xen/Makefile         |    2 +-
->> arch/ia64/xen/xencomm.c        |   94 ++++++++++++++++++++++++++++++++++++++
->> ++
->> include/asm-ia64/xen/xencomm.h |   41 +++++++++++++++++
->> 3 files changed, 136 insertions(+), 1 deletions(-)
->> create mode 100644 arch/ia64/xen/xencomm.c
->> create mode 100644 include/asm-ia64/xen/xencomm.h
->>
->> diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
->> index c200704..ad0c9f7 100644
->> --- a/arch/ia64/xen/Makefile
->> +++ b/arch/ia64/xen/Makefile
->> @@ -2,4 +2,4 @@
->> # Makefile for Xen components
->> #
->>
->> -obj-y := hypercall.o
->> +obj-y := hypercall.o xencomm.o
->> diff --git a/arch/ia64/xen/xencomm.c b/arch/ia64/xen/xencomm.c
->> new file mode 100644
->> index 0000000..2a57058
->> --- /dev/null
->> +++ b/arch/ia64/xen/xencomm.c
->> @@ -0,0 +1,94 @@
->> +/*
->> + * Copyright (C) 2006 Hollis Blanchard <hollisb@us.ibm.com>, IBM Corporation
->> + *
->> + * This program is free software; you can redistribute it and/or modify
->> + * it under the terms of the GNU General Public License as published by
->> + * the Free Software Foundation; either version 2 of the License, or
->> + * (at your option) any later version.
->> + *
->> + * This program is distributed in the hope that it will be useful,
->> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
->> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->> + * GNU General Public License for more details.
->> + *
->> + * You should have received a copy of the GNU General Public License
->> + * along with this program; if not, write to the Free Software
->> + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
->> + */
->> +
->> +#include <linux/mm.h>
->> +
->> +static unsigned long kernel_virtual_offset;
->> +
->> +void
->> +xencomm_initialize(void)
->> +{
->> +	kernel_virtual_offset = KERNEL_START - ia64_tpa(KERNEL_START);
->> +}
->> +
->> +/* Translate virtual address to physical address.  */
->> +unsigned long
->> +xencomm_vtop(unsigned long vaddr)
->> +{
->> +	struct page *page;
->> +	struct vm_area_struct *vma;
->> +
->> +	if (vaddr = 0)
->> +		return 0;
->> +
->>     
-> It should be "return 0UL";
->   
 
-Not necessary.
+ia64 has compiled with NR_CPUS@96 for a couple releases, just forgot
+to update Kconfig to allow it.
 
-    J
+Signed-off-by: Robin Holt <holt@sgi.com>
+
+
+Index: contention_unroll/arch/ia64/Kconfig
+=================================--- contention_unroll.orig/arch/ia64/Kconfig	2008-07-28 18:19:56.000000000 -0500
++++ contention_unroll/arch/ia64/Kconfig	2008-07-29 06:29:26.248066055 -0500
+@@ -322,9 +322,9 @@ config SMP
+ 
+ config NR_CPUS
+ 	int "Maximum number of CPUs (2-1024)"
+-	range 2 1024
++	range 2 4096
+ 	depends on SMP
+-	default "1024"
++	default "4096"
+ 	help
+ 	  You should set this to the number of CPUs in your system, but
+ 	  keep in mind that a kernel compiled for, e.g., 2 CPUs will boot but
