@@ -1,37 +1,28 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 25 Jul 2008 20:30:11 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA3066E990E@orsmsx505.amr.corp.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 29 Jul 2008 01:36:50 +0000
+Subject: [Patch] fix ia64 build failure when CONFIG_SFC=m
+Message-Id: <20080729013650.GH9663@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: bhutchings@solarflare.com, jgarzik@redhat.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
 
-Hi Linus,
+CONFIG_SFC=m uses topology_core_siblings() which, for ia64, expects
+cpu_core_map to be exported.  It is not.  This patch exports the needed
+symbol.
 
-please pull from:
+Signed-off-by: Robin Holt <holt@sgi.com>
 
-        git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
-[And a big thanks to Ulrich for including test programs in the
-commits to x86 that added these system calls. That made testing
-on ia64 a breeze]
-
--Tony
-
- arch/ia64/kernel/entry.S  |    6 ++++++
- include/asm-ia64/unistd.h |    8 +++++++-
- 2 files changed, 13 insertions(+), 1 deletions(-)
-
-Tony Luck (1):
-      [IA64] Wire up new system calls
-
-
-
+Index: contention_unroll/arch/ia64/kernel/smpboot.c
+=================================--- contention_unroll.orig/arch/ia64/kernel/smpboot.c	2008-07-28 18:19:56.000000000 -0500
++++ contention_unroll/arch/ia64/kernel/smpboot.c	2008-07-28 20:25:54.240198328 -0500
+@@ -138,6 +138,7 @@ cpumask_t cpu_possible_map = CPU_MASK_NO
+ EXPORT_SYMBOL(cpu_possible_map);
+ 
+ cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
++EXPORT_SYMBOL(cpu_core_map);
+ DEFINE_PER_CPU_SHARED_ALIGNED(cpumask_t, cpu_sibling_map);
+ EXPORT_PER_CPU_SYMBOL(cpu_sibling_map);
+ 
