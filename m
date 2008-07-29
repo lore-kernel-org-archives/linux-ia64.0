@@ -1,28 +1,50 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 29 Jul 2008 01:36:50 +0000
-Subject: [Patch] fix ia64 build failure when CONFIG_SFC=m
-Message-Id: <20080729013650.GH9663@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 29 Jul 2008 17:23:53 +0000
+Subject: RE: [Patch] fix ia64 build failure when CONFIG_SFC=m
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3080BA318@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080729013650.GH9663@sgi.com>
+In-Reply-To: <20080729013650.GH9663@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: bhutchings@solarflare.com, jgarzik@redhat.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: "bhutchings@solarflare.com" <bhutchings@solarflare.com>
+Cc: "jgarzik@redhat.com" <jgarzik@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "matthew@wil.cx" <matthew@wil.cx>, Robin Holt <holt@sgi.com>
 
-CONFIG_SFC=m uses topology_core_siblings() which, for ia64, expects
-cpu_core_map to be exported.  It is not.  This patch exports the needed
-symbol.
+> CONFIG_SFC=m uses topology_core_siblings() which, for ia64, expects
+> cpu_core_map to be exported.  It is not.  This patch exports the needed
+> symbol.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+Ben,
 
-Index: contention_unroll/arch/ia64/kernel/smpboot.c
-=================================--- contention_unroll.orig/arch/ia64/kernel/smpboot.c	2008-07-28 18:19:56.000000000 -0500
-+++ contention_unroll/arch/ia64/kernel/smpboot.c	2008-07-28 20:25:54.240198328 -0500
-@@ -138,6 +138,7 @@ cpumask_t cpu_possible_map = CPU_MASK_NO
- EXPORT_SYMBOL(cpu_possible_map);
- 
- cpumask_t cpu_core_map[NR_CPUS] __cacheline_aligned;
-+EXPORT_SYMBOL(cpu_core_map);
- DEFINE_PER_CPU_SHARED_ALIGNED(cpumask_t, cpu_sibling_map);
- EXPORT_PER_CPU_SYMBOL(cpu_sibling_map);
- 
+Before I rush to apply this (or one of the other identical patches that
+I've received) ... I'd like to ponder on whether this is the right thing
+to do.
+
+Looking at the code in drivers/net/sfc/efx.c I see that you are using
+this to compute the number of RX queues based on the number of packages
+with the git commit comment saying:
+
+    Using multiple cores in the same package to handle received traffic
+    does not appear to provide a performance benefit.  Therefore use CPU
+    topology information to count CPU packages and use that as the default
+    number of RX queues and interrupts.  We rely on interrupt balancing to
+    spread the interrupts across packages.
+
+I have some questions on this:
+
+1) Did you measure on FSB based systems? ... It's kind of sad that the extra
+cores are not helping and I wonder why. Do AMD and QPI based systems have
+this same limitation?
+
+2) Should Linux have an API to give you a useful number of threads, rather
+than make you dig through the topology data structures? At some point cpumask_t
+data structure is going to be too big for the kernel stack.
+
+3) Does interrupt balancing always do the right thing to spread your interrupts
+across packages?
+
+4) In a hotplug system would you want to adjust the number of threads if cpus
+were added or removed?
+
+-Tony
