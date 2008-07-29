@@ -1,80 +1,102 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 17 Jul 2008 05:55:30 +0000
-Subject: Re: [PATCH 07/29] ia64/xen: add a neccessary header file to copmle include/xen/interface/xen.h
-Message-Id: <20080717055530.GD25137%yamahata@valinux.co.jp>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 29 Jul 2008 08:12:37 +0000
+Subject: [patch 2/3] kdump: add is_vmcore_usable() and vmcore_unusable()
+Message-Id: <20080729081629.522008269@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1216260662692-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1216260662692-git-send-email-yamahata@valinux.co.jp>
+References: <20080729081235.293361145@vergenet.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kexec@lists.infradead.org, linux-ia64@vger.kernel.org, lkml@vger.kernel.org
+Cc: Vivek Goyal <vgoyal@redhat.com>
 
-On Wed, Jul 16, 2008 at 10:43:21PM -0700, Jeremy Fitzhardinge wrote:
-> Isaku Yamahata wrote:
-> >Create include/asm-ia64/pvclock-abi.h to compile which includes
-> >include/asm-x86/pvclock-abi.h because ia64/xen uses same structure.
-> >Hopefully include/asm-x86/pvclock-abi.h would be moved to somewhere
-> >more generic.
-> >  
-> 
-> Could you fix the patch title spelling ("necessary", "compile")?  The 
-> misspelled words are hard to search for.
-> 
-> >Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-> >---
-> > include/asm-ia64/pvclock-abi.h |    5 +++++
-> > 1 files changed, 5 insertions(+), 0 deletions(-)
-> > create mode 100644 include/asm-ia64/pvclock-abi.h
-> >
-> >diff --git a/include/asm-ia64/pvclock-abi.h 
-> >b/include/asm-ia64/pvclock-abi.h
-> >new file mode 100644
-> >index 0000000..1c34d11
-> >--- /dev/null
-> >+++ b/include/asm-ia64/pvclock-abi.h
-> >@@ -0,0 +1,5 @@
-> >+/*
-> >+ * use same streucute to x86's
-> >  
-> "structure"?
-> 
+The usage of elfcorehdr_addr has changed recently
+such that being set to ELFCORE_ADDR_MAX is used by
+is_kdump_kernel() to indicate if the code is executing
+in a kernel executed as a crash kernel.
 
-Thanks for pointing out. Fixed typo.
+However, arch/ia64/kernel/setup.c:reserve_elfcorehdr will
+rest elfcorehdr_addr to ELFCORE_ADDR_MAX on error,
+which means any subsequent calls to is_kdump_kernel()
+will return 0, even though they should return 1.
+
+Ok, at this point in time there are no subsequent calls,
+but I think its fair to say that there is ample scope for error
+or at the very least confusion.
+
+This patch add an extra state, ELFCORE_ADDR_ERR, which
+indicates that elfcorehdr_addr was passed on the command line,
+and thus execution is taking place in a crashdump kernel,
+but vmcore can't be used for some reason. This is tested
+for using is_vmcore_usable() and set using vmcore_unusable().
+A subsequent patch makes use of this new code.
+
+To summarise, the states that elfcorehdr_addr can now be in are as follows:
+
+ELFCORE_ADDR_MAX: not a crashdump kernel
+ELFCORE_ADDR_ERR: crashdump kernel but vmcore is unusable
+any other value:  crash dump kernel and vmcore is usable
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
 
-From f6cfeafb4a63058b97a3a32f45e02ef878faa947 Mon Sep 17 00:00:00 2001
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 4 Jul 2008 11:29:33 +0900
-Subject: [PATCH 12/29] ia64/xen: add a necessary header file to compile include/xen/interface/xen.h
-
-Create include/asm-ia64/pvclock-abi.h to compile which includes
-include/asm-x86/pvclock-abi.h because ia64/xen uses same structure.
-Hopefully include/asm-x86/pvclock-abi.h would be moved to somewhere
-more generic.
-
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- include/asm-ia64/pvclock-abi.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
- create mode 100644 include/asm-ia64/pvclock-abi.h
-
-diff --git a/include/asm-ia64/pvclock-abi.h b/include/asm-ia64/pvclock-abi.h
-new file mode 100644
-index 0000000..63cbcca
---- /dev/null
-+++ b/include/asm-ia64/pvclock-abi.h
-@@ -0,0 +1,5 @@
-+/*
-+ * use same structure to x86's
-+ * Hopefully asm-x86/pvclock-abi.h would be moved to somewhere more generic.
+Index: linux-2.6/include/linux/crash_dump.h
+=================================--- linux-2.6.orig/include/linux/crash_dump.h	2008-07-29 17:27:43.000000000 +1000
++++ linux-2.6/include/linux/crash_dump.h	2008-07-29 17:53:13.000000000 +1000
+@@ -8,6 +8,7 @@
+ #include <linux/proc_fs.h>
+ 
+ #define ELFCORE_ADDR_MAX	(-1ULL)
++#define ELFCORE_ADDR_ERR	(-2ULL)
+ 
+ #ifdef CONFIG_PROC_VMCORE
+ extern unsigned long long elfcorehdr_addr;
+@@ -36,5 +37,30 @@ static inline int is_kdump_kernel(void)
+ static inline int is_kdump_kernel(void) { return 0; }
+ #endif /* CONFIG_CRASH_DUMP */
+ 
++#ifdef CONFIG_PROC_VMCORE
++/* is_vmcore_usable() checks if the kernel is booting after a panic and
++ * the vmcore region is usable.
++ *
++ * This makes use of the fact that due to alignment 1 is not
++ * a valid pointer, much in the vain of IS_ERR(), except
++ * dealing directly with an unsigned long long rather than a pointer.
 + */
-+#include <asm-x86/pvclock-abi.h>
++
++static inline int is_vmcore_usable(void)
++{
++	return is_kdump_kernel() && elfcorehdr_addr != ELFCORE_ADDR_ERR ? 1 : 0;
++}
++
++/* vmcore_unusable() marks the vmcore as unusable, without disturbing
++ * the logic of is_kdump_kernel()
++ */
++
++static inline void vmcore_unusable(void)
++{
++	if (!is_kdump_kernel())
++		elfcorehdr_addr = ELFCORE_ADDR_ERR;
++}
++#endif /* CONFIG_PROC_VMCORE */
++
+ extern unsigned long saved_max_pfn;
+ #endif /* LINUX_CRASHDUMP_H */
+Index: linux-2.6/fs/proc/vmcore.c
+=================================--- linux-2.6.orig/fs/proc/vmcore.c	2008-07-29 17:27:43.000000000 +1000
++++ linux-2.6/fs/proc/vmcore.c	2008-07-29 17:39:32.000000000 +1000
+@@ -653,7 +653,7 @@ static int __init vmcore_init(void)
+ 	int rc = 0;
+ 
+ 	/* If elfcorehdr= has been passed in cmdline, then capture the dump.*/
+-	if (!(elfcorehdr_addr < ELFCORE_ADDR_MAX))
++	if (!(is_vmcore_usable()))
+ 		return rc;
+ 	rc = parse_crash_elf_headers();
+ 	if (rc) {
+
 -- 
-1.5.3
-
-
-
 
 -- 
-yamahata
+Horms
+
