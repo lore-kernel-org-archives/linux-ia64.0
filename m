@@ -1,67 +1,89 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Mon, 28 Jul 2008 19:12:41 +0000
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 29 Jul 2008 00:33:50 +0000
 Subject: Re: [patch] crashdump: fix undefined reference to `elfcorehdr_addr'
-Message-Id: <m1wsj5lt5i.fsf@frodo.ebiederm.org>
+Message-Id: <20080729003348.GG10434@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080728015117.GA12055@verge.net.au>
-	<m1tzeamust.fsf@frodo.ebiederm.org>
-	<20080728062446.GC12655@il.ibm.com>
-	<20080728134405.GD25963@redhat.com>
-In-Reply-To: <20080728134405.GD25963@redhat.com> (Vivek Goyal's message of
-	"Mon, 28 Jul 2008 09:44:05 -0400")
+References: <20080727234529.GM6175@verge.net.au> <20080728015117.GA12055@verge.net.au> <20080728133110.GC25963@redhat.com>
+In-Reply-To: <20080728133110.GC25963@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Vivek Goyal <vgoyal@redhat.com>
-Cc: Muli Ben-Yehuda <muli@il.ibm.com>, Simon Horman <horms@verge.net.au>, Andrew Morton <akpm@linux-foundation.org>, Chandru <chandru@in.ibm.com>, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Linus Torvalds <torvalds@linux-foundation.org>, Terry Loftin <terry.loftin@hp.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, Muli Ben-Yehuda <muli@il.ibm.com>, Chandru <chandru@in.ibm.com>, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Linus Torvalds <torvalds@linux-foundation.org>, Terry Loftin <terry.loftin@hp.com>, Tony Luck <tony.luck@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>, linux-ia64@vger.kernel.org
 
-Vivek Goyal <vgoyal@redhat.com> writes:
+On Mon, Jul 28, 2008 at 09:31:10AM -0400, Vivek Goyal wrote:
+> On Mon, Jul 28, 2008 at 11:51:19AM +1000, Simon Horman wrote:
+> > [ Updated Vivek's email address to his vgoyal@redhat.com in CC list 
+> >   Added Terry Loftin, Tony Luck, Erik Biedermann and linux-ia64 to CC list ]
 
-> On Mon, Jul 28, 2008 at 09:24:46AM +0300, Muli Ben-Yehuda wrote:
->> 
->> With an isolation-capable IOMMU (such as Calgary, VT-d and AMD's
->> IOMMU) on the I/O path, as long as we want to keep DMAs running and
->> going through to memory, we need to keep the IOMMU running, with the
->> same set of permissions and translation tables. If we don't mind DMAs
->> failing, we need to gracefully handle IOMMU DMA faults (where
->> possible---Calgary can't do it at the moment). What we do instead with
->> Calgary (c.f., the patch that instigated this discussion) is a hack,
->> we "reinitialize" the IOMMU with the old IOMMU's translation tables so
->> that DMAs continue working. 
->> 
->
-> Hi Muli,
->
-> Agree, using old kernel's TCE tables is a hack. As Eric pointed out,
-> is there a reason why swiotlb will not work here? (I guess using
-> swiotlb will mean disabling iommu and that will again fault if 
-> DMA is going on).
->
-> So one of the solutions, as eric suggested,  will be to reserve some
-> entries in first kernel and then pass that info to second kernel and
-> let second kernel use thos entries for setting up DMA and let the
-> DMA's of first kernel run untouched.
->
-> This patch is effectively doing that (using previous kernel's TCE table),
-> except the fact that there are no gurantees that there are free table
-> entries when kdump kernel wants to perform a DMA of its own. Should
-> probably work though in most of the cases. 
->
->> My preference would be to have stopped all DMAs in the old kernel,
->> which would've made this nastiness go away. Can you explain in simple
->> words why we can't or won't do that?
->
-> Is there a reliable way of stopping all ongoing DMAs after kernel crash?
+[snip]
 
-When I investigated this there was no reliable way to stop DMAs from devices,
-in a generic way, and a callback to each device in the system in the kexec
-on panic path is less reliable then simply avoiding running out of regions
-where those DMAs are running.
+> > 1) Always parse the elfcorehdr kernel command line option
+> >    and set elfcorehdr_addr accordingly - currently this is only
+> >    done if CONFIG_PROC_VMCORE is set.
+> > 
+> >    This is nice as it won't need any modifications to kexec-tools
+> >    nor any command line bloat.
+> > 
+> >    A minor difficulty is working out where to initialise elfcorehdr_addr.
+> >    Sometimes in include/linux/crash_dump.h and sometimes in
+> >    fs/proc/vmcore.c seems horrible to me.
+> > 
+> >    Another problem is that would be alive and well in
+> >    code that really only uses it to check if kdump was activated or not
+> >    - a minor naming issue.
+> > 
+> 
+> Hi Simon,
+> 
+> There are some kernel bits (like iommu initialization patch), which need to
+> take special action if they are booting after a kexec on panic (Generally we
+> are referring it to booting into kdump kernel) and that's why the notion
+> is_kdump_kernel().
+> 
+> To me, is_kdump_kernel() symbolizes whether I  am booting after kexec on
+> panic and not just the fact if CONFIG_CRASH_DUMP is enabled or not in this
+> kernel.
+> 
+> So I would think that lets not rename it to kernel_has_vmcore(), instead
+> lets write few lines of comments before function is_kdump_kernel() to
+> clarify its meaning.
+> 
+> Secondly, we are using elfcorehdr_addr to determine whether this kernel
+> is booting after a panic so elfcorehdr_addr is not just limited to
+> CONFIG_PROC_VMCORE now and we should probably pull it out of
+> fs/proc/vmcore.c. How about declaring and initializing this variable in
+> kernel/kexec.c under CONFIG_CRASH_DUMP and always parse elfcorehdr_addr
+> irrespective of the setting of CONFIG_PROC_VMCORE?
 
-So it would be quite reasonable to drop all in flight DMA at the iommu.
+Agreed. Like Eric I think that this is a reasonable solution given
+the current state of things. I'll reply to your patches after looking
+at them a bit more closely.
 
-We do need a way to allow the drivers in the kernel running after the
-panic to use DMA.  Which is where the idea of reserving a region of
-the iommu comes from.
+> > 2) Add a new kernel command line option, perhaps in_kdump
+> > 
+> >    This is bloat to get around elfcorehdr_addr initialisation and
+> >    naming awkwardness above.
+> > 
+> > 3) Make select CONFIG_PROC_VMCORE when CONFIG_CRASH_DUMP is selected,
+> >    or perhaps even just remove CONFIG_PROC_VMCORE and only use
+> >    CONFIG_CRASH_DUMP instead. The effect would be the same either way.
+> > 
+> >    Pro: One less thing to be confused about
+> > 
+> >    Con: Bloat for people who want kdump without vmcore.
+> >         I wonder what usage case that is.
+> 
+> Argument was people can use /dev/oldmem and not use /proc/vmcore. So far
+> I don't know anybody who uses /dev/oldmem to capture dump and not
+> /proc/vmcore.
 
-Eric
+What I was getting at is that frangly the three variables
+CONFIG_KEXEC, CONFIG_CRASH_DUMP and CONFIG_PROC_VMCORE seem to
+confuse people. I've seen them used incorrectly several times now.
+So if there is a way to simplyfy things, even slightly, I think
+that would be a good idea. But if there isn't, so be it.
+
+-- 
+Horms
+
