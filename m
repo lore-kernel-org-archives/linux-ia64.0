@@ -1,90 +1,47 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 03 Jul 2008 06:54:56 +0000
-Subject: [PATCH] ia64/pv_ops/xen: paravirtualize entry.S for ia64/xen.
-Message-Id: <1215068106705-git-send-email-yamahata@valinux.co.jp>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 29 Jul 2008 08:12:36 +0000
+Subject: [patch 1/3] kdump: use is_kdump_kernel() in sba_init()
+Message-Id: <20080729081629.356523305@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12150681061283-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <12150681061283-git-send-email-yamahata@valinux.co.jp>
+References: <20080729081235.293361145@vergenet.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kexec@lists.infradead.org, linux-ia64@vger.kernel.org, lkml@vger.kernel.org
+Cc: Vivek Goyal <vgoyal@redhat.com>
 
-paravirtualize entry.S for ia64/xen by multi compile.
+After recent patches* is_kdump_kernel() should return 1 in the
+case where code is executing in a crashkernel and 0 otherwise.
+It is save to use outside of CONFIG_KDUMP.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/Makefile      |    2 +-
- arch/ia64/xen/xen_pv_ops.c  |   18 ++++++++++++++++++
- include/asm-ia64/xen/inst.h |    8 ++++++++
- 3 files changed, 27 insertions(+), 1 deletions(-)
+* http://lkml.org/lkml/2008/7/28/445
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 5c87e4a..9b77e8a 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -8,7 +8,7 @@ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+
+Index: linux-2.6/arch/ia64/hp/common/sba_iommu.c
+=================================--- linux-2.6.orig/arch/ia64/hp/common/sba_iommu.c	2008-07-29 10:57:17.000000000 +1000
++++ linux-2.6/arch/ia64/hp/common/sba_iommu.c	2008-07-29 10:57:51.000000000 +1000
+@@ -2070,14 +2070,13 @@ sba_init(void)
+ 	if (!ia64_platform_is("hpzx1") && !ia64_platform_is("hpzx1_swiotlb"))
+ 		return 0;
  
- # xen multi compile
--ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
- ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
- obj-y += $(ASM_PARAVIRT_OBJS)
- define paravirtualized_xen
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index b84286b..1ba4617 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -275,6 +275,22 @@ static const struct pv_cpu_ops xen_cpu_ops __initdata = {
- 			= xen_intrin_local_irq_restore,
- };
- 
-+/******************************************************************************
-+ * replacement of hand written assembly codes.
-+ */
-+
-+extern char xen_switch_to;
-+extern char xen_leave_syscall;
-+extern char xen_work_processed_syscall;
-+extern char xen_leave_kernel;
-+
-+const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
-+	.switch_to		= (unsigned long)&xen_switch_to,
-+	.leave_syscall		= (unsigned long)&xen_leave_syscall,
-+	.work_processed_syscall	= (unsigned long)&xen_work_processed_syscall,
-+	.leave_kernel		= (unsigned long)&xen_leave_kernel,
-+};
-+
- /***************************************************************************
-  * pv_ops initialization
-  */
-@@ -286,4 +302,6 @@ xen_setup_pv_ops(void)
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
- 	pv_cpu_ops = xen_cpu_ops;
-+
-+	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
- }
-diff --git a/include/asm-ia64/xen/inst.h b/include/asm-ia64/xen/inst.h
-index ed5ebeb..f4e1085 100644
---- a/include/asm-ia64/xen/inst.h
-+++ b/include/asm-ia64/xen/inst.h
-@@ -25,6 +25,14 @@
- #define ia64_ivt				xen_ivt
- #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
- 
-+#define __paravirt_switch_to			xen_switch_to
-+#define __paravirt_leave_syscall		xen_leave_syscall
-+#define __paravirt_work_processed_syscall	xen_work_processed_syscall
-+#define __paravirt_leave_kernel			xen_leave_kernel
-+#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						xen_work_processed_syscall
-+
- #define MOV_FROM_IFA(reg)	\
- 	movl reg = XSI_IFA;	\
- 	;;			\
+-#if defined(CONFIG_IA64_GENERIC) && defined(CONFIG_CRASH_DUMP) && \
+-        defined(CONFIG_PROC_FS)
++#if defined(CONFIG_IA64_GENERIC)
+ 	/* If we are booting a kdump kernel, the sba_iommu will
+ 	 * cause devices that were not shutdown properly to MCA
+ 	 * as soon as they are turned back on.  Our only option for
+ 	 * a successful kdump kernel boot is to use the swiotlb.
+ 	 */
+-	if (elfcorehdr_addr < ELFCORE_ADDR_MAX) {
++	if (is_kdump_kernel()) {
+ 		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+ 			panic("Unable to initialize software I/O TLB:"
+ 				  " Try machvec=dig boot option");
+
 -- 
-1.5.3
+
+-- 
+Horms
 
