@@ -1,77 +1,50 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Thu, 17 Jul 2008 11:33:21 +0000
-Subject: [patch] KVM/ia64 update to new smp_call_function API
-Message-Id: <487F2E01.1090608@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010908070009080403040605"
+From: "stephane eranian" <eranian@googlemail.com>
+Date: Wed, 30 Jul 2008 22:31:36 +0000
+Subject: 2.6.26 new perfmon kernel patch + libpfm + pfmon available
+Message-Id: <7c86c4470807301531i232ebd44m869affe95f036484@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010908070009080403040605
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+References: <7c86c4470807301530s224f5104wdd5004419464bc2e@mail.gmail.com>
+In-Reply-To: <7c86c4470807301530s224f5104wdd5004419464bc2e@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: ia64 <linux-ia64@vger.kernel.org>
 
-Hi,
+Hello,
 
-This one makes KVM/ia64 build and boot again.
+I have released the perfmon2 kernel patch for kernel v2.6.26. There is
+no new major features.  Concerning the merge with mainline, we use a different
+code base which contains only code to  supports only per-thread counting on
+X86 processors. The patch is distributed as a quilt patchset and is
+posted on LKML.
 
-Cheers,
-Jes
+Here are some of the kernel changes:
+ - Support for Intel architectural perfmon v3 (as per IA-32 Vol3b June 2008)
+ - base syscall exported in /sys/kernel/perfmon/syscall
+ - experimental utrace support
+ - added dep_pmcs[] to PMD definitions to avoid picking up stale config
+ - important IBM Power updates to solve counter overflow issues (Corey Ashford)
+ - AMD64 APIC/PCI cleanups for IBS support (Robert Richter)
+ - new API for handler routine of sampling formats to accomodate IBM
+Cell (Carl Love)
 
+There is also a new release for libpfm, now at version 3.5.
+The changes include:
+ - support for AMD K7 (Vince Weaver)
+ - support for Intel architectural perfmon v3
+ - support for SiCortex (ICA9A, ICA9B) (Phil Mucci)
+ - dynamic perfmon syscall support via /sys
+ - new environment variable to control debugging and force particular PMU model
 
---------------010908070009080403040605
-Content-Type: text/plain;
- name="ia64-fix-kvm-smp-call.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ia64-fix-kvm-smp-call.diff"
+Finally, a new major version of pfmon, now at pfmon-3.5 with some minor
+changes:
+ - group unknown symbols as UNKNOWN when sampling (Andrzej Nowak)
+ - lots of bug fixes
 
-Convert KVM/ia64 to use the updated smp_call_function api, removing
-the restart parameter.
+As usual all files and more detailed changelogs can be downloaded from our
+website at:
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
+       http://perfmon2.sourceforge.net
 
----
- arch/ia64/kvm/kvm-ia64.c |    4 ++--
- arch/ia64/kvm/kvm_fw.c   |    3 +--
- 2 files changed, 3 insertions(+), 4 deletions(-)
-
-Index: linux-2.6.git/arch/ia64/kvm/kvm-ia64.c
-===================================================================
---- linux-2.6.git.orig/arch/ia64/kvm/kvm-ia64.c
-+++ linux-2.6.git/arch/ia64/kvm/kvm-ia64.c
-@@ -395,7 +395,7 @@
- 		if (kvm->vcpus[i]->cpu != -1) {
- 			call_data.vcpu = kvm->vcpus[i];
- 			smp_call_function_single(kvm->vcpus[i]->cpu,
--					vcpu_global_purge, &call_data, 0, 1);
-+					vcpu_global_purge, &call_data, 1);
- 		} else
- 			printk(KERN_WARNING"kvm: Uninit vcpu received ipi!\n");
- 
-@@ -1693,7 +1693,7 @@
- 		wake_up_interruptible(&vcpu->wq);
- 
- 	if (vcpu->guest_mode)
--		smp_call_function_single(ipi_pcpu, vcpu_kick_intr, vcpu, 0, 0);
-+		smp_call_function_single(ipi_pcpu, vcpu_kick_intr, vcpu, 0);
- }
- 
- int kvm_apic_set_irq(struct kvm_vcpu *vcpu, u8 vec, u8 trig)
-Index: linux-2.6.git/arch/ia64/kvm/kvm_fw.c
-===================================================================
---- linux-2.6.git.orig/arch/ia64/kvm/kvm_fw.c
-+++ linux-2.6.git/arch/ia64/kvm/kvm_fw.c
-@@ -129,8 +129,7 @@
- 	gr30 &= ~PAL_CACHE_FLUSH_CHK_INTRS;
- 	args.cache_type = gr29;
- 	args.operation = gr30;
--	smp_call_function(remote_pal_cache_flush,
--				(void *)&args, 1, 1);
-+	smp_call_function(remote_pal_cache_flush, (void *)&args, 1);
- 	if (args.status != 0)
- 		printk(KERN_ERR"pal_cache_flush error!,"
- 				"status:0x%lx\n", args.status);
-
---------------010908070009080403040605--
+Enjoy,
