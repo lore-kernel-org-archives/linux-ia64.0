@@ -1,584 +1,251 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 17 Jul 2008 02:10:43 +0000
-Subject: [PATCH 11/29] ia64/xen: xencomm conversion functions for hypercalls
-Message-Id: <12162606623828-git-send-email-yamahata@valinux.co.jp>
+From: Simon Horman <horms@verge.net.au>
+Date: Thu, 31 Jul 2008 01:22:09 +0000
+Subject: [patch 1/6] kdump: Make elfcorehdr_addr independent of CONFIG_PROC_VMCORE
+Message-Id: <20080731012927.076924783@vergenet.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080731012208.115225969@vergenet.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kexec@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, linux-sh@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Terry Loftin <terry.loftin@hp.com>, Paul Mundt <lethal@linux-sh.org>, "Eric W. Biederman" <ebiederm@xmission.com>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Vivek Goyal <vgoyal@redhat.com>
 
-On ia64/xen, pointer arguments for hypercall is passed
-by pseudo physical address(guest physical address.)
-So such hypercalls needs address conversion functions.
-This patch implements concrete conversion functions for
-such hypercalls.
+From: Vivek Goyal <vgoyal@redhat.com>
 
-Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+o elfcorehdr_addr is used by not only the code under CONFIG_PROC_VMCORE but
+  also by the code which is not inside CONFIG_PROC_VMCORE. For example,
+  is_kdump_kernel() is used by powerpc code to determine if kernel is booting
+  after a panic then use previous kernel's TCE table. So even if
+  CONFIG_PROC_VMCORE is not set in second kernel, one should be able to
+  correctly determine that we are booting after a panic and setup calgary
+  iommu accordingly.
+
+o So remove the assumption that elfcorehdr_addr is under CONFIG_PROC_VMCORE.
+
+o Move definition of elfcorehdr_addr to arch dependent crash files.
+  (Unfortunately crash dump does not have an arch independent file otherwise
+   that would have been the best place).
+
+o kexec.c is not the right place as one can Have CRASH_DUMP enabled in
+  second kernel without KEXEC being enabled.
+
+o I don't see sh setup code parsing the command line for elfcorehdr_addr. I 
+  am wondering how does vmcore interface work on sh. Anyway, I am atleast
+  defining elfcoredhr_addr so that compilation is not broken on sh.
+
+Signed-off-by: Vivek Goyal <vgoyal@redhat.com>
+Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Acked-by: Simon Horman <horms@verge.net.au>
+Acked-by: Paul Mundt <lethal@linux-sh.org>
 ---
- arch/ia64/xen/Makefile            |    2 +-
- arch/ia64/xen/xcom_hcall.c        |  441 +++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/xencomm.c           |   11 +
- include/asm-ia64/xen/xcom_hcall.h |   51 +++++
- include/asm-ia64/xen/xencomm.h    |    1 +
- 5 files changed, 505 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xcom_hcall.c
- create mode 100644 include/asm-ia64/xen/xcom_hcall.h
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index ad0c9f7..ae08822 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for Xen components
- #
+ arch/ia64/kernel/crash_dump.c    |    4 ++++
+ arch/ia64/kernel/setup.c         |    9 ++++++++-
+ arch/powerpc/kernel/crash_dump.c |   10 ++++++++--
+ arch/sh/kernel/crash_dump.c      |    3 +++
+ arch/x86/kernel/crash_dump_32.c  |    3 +++
+ arch/x86/kernel/crash_dump_64.c  |    3 +++
+ arch/x86/kernel/setup.c          |    8 +++++++-
+ fs/proc/vmcore.c                 |    3 ---
+ include/linux/crash_dump.h       |   14 ++++++++++----
+ 9 files changed, 46 insertions(+), 11 deletions(-)
+
+Andrew, this patch is a clean-up and is not required by other patches,
+so it could wait until post 2.6.27 if you prefer. However, it is a
+valuable cleanup that removes messiness and should remove some of
+the confusion around elfcorehdr_addr and is_kdump_kernel(). So I
+would prefer it to be included in 2.6.27.
+
+sh setup code has been added in a separate patch that will
+be merged by Paul Mundt.
+
+- Simon Horman
+
+diff -puN include/linux/crash_dump.h~remove-elfcore-hdr-addr-definition-vmcore include/linux/crash_dump.h
+--- linux-2.6.27-pre-rc1/include/linux/crash_dump.h~remove-elfcore-hdr-addr-definition-vmcore	2008-07-28 12:00:44.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/include/linux/crash_dump.h	2008-07-28 12:00:56.000000000 -0400
+@@ -9,11 +9,7 @@
  
--obj-y := hypercall.o xencomm.o
-+obj-y := hypercall.o xencomm.o xcom_hcall.o
-diff --git a/arch/ia64/xen/xcom_hcall.c b/arch/ia64/xen/xcom_hcall.c
-new file mode 100644
-index 0000000..ccaf743
---- /dev/null
-+++ b/arch/ia64/xen/xcom_hcall.c
-@@ -0,0 +1,441 @@
+ #define ELFCORE_ADDR_MAX	(-1ULL)
+ 
+-#ifdef CONFIG_PROC_VMCORE
+ extern unsigned long long elfcorehdr_addr;
+-#else
+-static const unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
+-#endif
+ 
+ extern ssize_t copy_oldmem_page(unsigned long, char *, size_t,
+ 						unsigned long, int);
+@@ -28,6 +24,16 @@ extern struct proc_dir_entry *proc_vmcor
+ 
+ #define vmcore_elf_check_arch(x) (elf_check_arch(x) || vmcore_elf_check_arch_cross(x))
+ 
 +/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
++ * is_kdump_kernel() checks whether this kernel is booting after a panic of
++ * previous kernel or not. This is determined by checking if previous kernel
++ * has passed the elf core header address on command line.
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-+ *
-+ *          Tristan Gingold <tristan.gingold@bull.net>
-+ *
-+ *          Copyright (c) 2007
-+ *          Isaku Yamahata <yamahata at valinux co jp>
-+ *                          VA Linux Systems Japan K.K.
-+ *          consolidate mini and inline version.
++ * This is not just a test if CONFIG_CRASH_DUMP is enabled or not. It will
++ * return 1 if CONFIG_CRASH_DUMP=y and if kernel is booting after a panic of
++ * previous kernel.
 + */
 +
-+#include <linux/module.h>
-+#include <xen/interface/xen.h>
-+#include <xen/interface/memory.h>
-+#include <xen/interface/grant_table.h>
-+#include <xen/interface/callback.h>
-+#include <xen/interface/vcpu.h>
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
-+
-+/* Xencomm notes:
-+ * This file defines hypercalls to be used by xencomm.  The hypercalls simply
-+ * create inlines or mini descriptors for pointers and then call the raw arch
-+ * hypercall xencomm_arch_hypercall_XXX
-+ *
-+ * If the arch wants to directly use these hypercalls, simply define macros
-+ * in asm/xen/hypercall.h, eg:
-+ *  #define HYPERVISOR_sched_op xencomm_hypercall_sched_op
-+ *
-+ * The arch may also define HYPERVISOR_xxx as a function and do more operations
-+ * before/after doing the hypercall.
-+ *
-+ * Note: because only inline or mini descriptors are created these functions
-+ * must only be called with in kernel memory parameters.
-+ */
-+
-+int
-+xencomm_hypercall_console_io(int cmd, int count, char *str)
-+{
-+	/* xen early printk uses console io hypercall before
-+	 * xencomm initialization. In that case, we just ignore it.
-+	 */
-+	if (!xencomm_is_initialized())
-+		return 0;
-+
-+	return xencomm_arch_hypercall_console_io
-+		(cmd, count, xencomm_map_no_alloc(str, count));
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_console_io);
-+
-+int
-+xencomm_hypercall_event_channel_op(int cmd, void *op)
-+{
-+	struct xencomm_handle *desc;
-+	desc = xencomm_map_no_alloc(op, sizeof(struct evtchn_op));
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_event_channel_op(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_event_channel_op);
-+
-+int
-+xencomm_hypercall_xen_version(int cmd, void *arg)
-+{
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case XENVER_version:
-+		/* do not actually pass an argument */
-+		return xencomm_arch_hypercall_xen_version(cmd, 0);
-+	case XENVER_extraversion:
-+		argsize = sizeof(struct xen_extraversion);
-+		break;
-+	case XENVER_compile_info:
-+		argsize = sizeof(struct xen_compile_info);
-+		break;
-+	case XENVER_capabilities:
-+		argsize = sizeof(struct xen_capabilities_info);
-+		break;
-+	case XENVER_changeset:
-+		argsize = sizeof(struct xen_changeset_info);
-+		break;
-+	case XENVER_platform_parameters:
-+		argsize = sizeof(struct xen_platform_parameters);
-+		break;
-+	case XENVER_get_features:
-+		argsize = (arg = NULL) ? 0 : sizeof(struct xen_feature_info);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown version op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_xen_version(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_xen_version);
-+
-+int
-+xencomm_hypercall_physdev_op(int cmd, void *op)
-+{
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case PHYSDEVOP_apic_read:
-+	case PHYSDEVOP_apic_write:
-+		argsize = sizeof(struct physdev_apic);
-+		break;
-+	case PHYSDEVOP_alloc_irq_vector:
-+	case PHYSDEVOP_free_irq_vector:
-+		argsize = sizeof(struct physdev_irq);
-+		break;
-+	case PHYSDEVOP_irq_status_query:
-+		argsize = sizeof(struct physdev_irq_status_query);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown physdev op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_physdev_op
-+		(cmd, xencomm_map_no_alloc(op, argsize));
-+}
-+
-+static int
-+xencommize_grant_table_op(struct xencomm_mini **xc_area,
-+			  unsigned int cmd, void *op, unsigned int count,
-+			  struct xencomm_handle **desc)
-+{
-+	struct xencomm_handle *desc1;
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case GNTTABOP_map_grant_ref:
-+		argsize = sizeof(struct gnttab_map_grant_ref);
-+		break;
-+	case GNTTABOP_unmap_grant_ref:
-+		argsize = sizeof(struct gnttab_unmap_grant_ref);
-+		break;
-+	case GNTTABOP_setup_table:
-+	{
-+		struct gnttab_setup_table *setup = op;
-+
-+		argsize = sizeof(*setup);
-+
-+		if (count != 1)
-+			return -EINVAL;
-+		desc1 = __xencomm_map_no_alloc
-+			(xen_guest_handle(setup->frame_list),
-+			 setup->nr_frames *
-+			 sizeof(*xen_guest_handle(setup->frame_list)),
-+			 *xc_area);
-+		if (desc1 = NULL)
-+			return -EINVAL;
-+		(*xc_area)++;
-+		set_xen_guest_handle(setup->frame_list, (void *)desc1);
-+		break;
-+	}
-+	case GNTTABOP_dump_table:
-+		argsize = sizeof(struct gnttab_dump_table);
-+		break;
-+	case GNTTABOP_transfer:
-+		argsize = sizeof(struct gnttab_transfer);
-+		break;
-+	case GNTTABOP_copy:
-+		argsize = sizeof(struct gnttab_copy);
-+		break;
-+	case GNTTABOP_query_size:
-+		argsize = sizeof(struct gnttab_query_size);
-+		break;
-+	default:
-+		printk(KERN_DEBUG "%s: unknown hypercall grant table op %d\n",
-+		       __func__, cmd);
-+		BUG();
-+	}
-+
-+	*desc = __xencomm_map_no_alloc(op, count * argsize, *xc_area);
-+	if (*desc = NULL)
-+		return -EINVAL;
-+	(*xc_area)++;
-+
-+	return 0;
-+}
-+
-+int
-+xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
-+				 unsigned int count)
-+{
-+	int rc;
-+	struct xencomm_handle *desc;
-+	XENCOMM_MINI_ALIGNED(xc_area, 2);
-+
-+	rc = xencommize_grant_table_op(&xc_area, cmd, op, count, &desc);
-+	if (rc)
-+		return rc;
-+
-+	return xencomm_arch_hypercall_grant_table_op(cmd, desc, count);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_grant_table_op);
-+
-+int
-+xencomm_hypercall_sched_op(int cmd, void *arg)
-+{
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case SCHEDOP_yield:
-+	case SCHEDOP_block:
-+		argsize = 0;
-+		break;
-+	case SCHEDOP_shutdown:
-+		argsize = sizeof(struct sched_shutdown);
-+		break;
-+	case SCHEDOP_poll:
-+	{
-+		struct sched_poll *poll = arg;
-+		struct xencomm_handle *ports;
-+
-+		argsize = sizeof(struct sched_poll);
-+		ports = xencomm_map_no_alloc(xen_guest_handle(poll->ports),
-+				     sizeof(*xen_guest_handle(poll->ports)));
-+
-+		set_xen_guest_handle(poll->ports, (void *)ports);
-+		break;
-+	}
-+	default:
-+		printk(KERN_DEBUG "%s: unknown sched op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_sched_op(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_sched_op);
-+
-+int
-+xencomm_hypercall_multicall(void *call_list, int nr_calls)
-+{
-+	int rc;
-+	int i;
-+	struct multicall_entry *mce;
-+	struct xencomm_handle *desc;
-+	XENCOMM_MINI_ALIGNED(xc_area, nr_calls * 2);
-+
-+	for (i = 0; i < nr_calls; i++) {
-+		mce = (struct multicall_entry *)call_list + i;
-+
-+		switch (mce->op) {
-+		case __HYPERVISOR_update_va_mapping:
-+		case __HYPERVISOR_mmu_update:
-+			/* No-op on ia64.  */
-+			break;
-+		case __HYPERVISOR_grant_table_op:
-+			rc = xencommize_grant_table_op
-+				(&xc_area,
-+				 mce->args[0], (void *)mce->args[1],
-+				 mce->args[2], &desc);
-+			if (rc)
-+				return rc;
-+			mce->args[1] = (unsigned long)desc;
-+			break;
-+		case __HYPERVISOR_memory_op:
-+		default:
-+			printk(KERN_DEBUG
-+			       "%s: unhandled multicall op entry op %lu\n",
-+			       __func__, mce->op);
-+			return -ENOSYS;
-+		}
-+	}
-+
-+	desc = xencomm_map_no_alloc(call_list,
-+				    nr_calls * sizeof(struct multicall_entry));
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_multicall(desc, nr_calls);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_multicall);
-+
-+int
-+xencomm_hypercall_callback_op(int cmd, void *arg)
-+{
-+	unsigned int argsize;
-+	switch (cmd) {
-+	case CALLBACKOP_register:
-+		argsize = sizeof(struct callback_register);
-+		break;
-+	case CALLBACKOP_unregister:
-+		argsize = sizeof(struct callback_unregister);
-+		break;
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown callback op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_callback_op
-+		(cmd, xencomm_map_no_alloc(arg, argsize));
-+}
-+
-+static int
-+xencommize_memory_reservation(struct xencomm_mini *xc_area,
-+			      struct xen_memory_reservation *mop)
-+{
-+	struct xencomm_handle *desc;
-+
-+	desc = __xencomm_map_no_alloc(xen_guest_handle(mop->extent_start),
-+			mop->nr_extents *
-+			sizeof(*xen_guest_handle(mop->extent_start)),
-+			xc_area);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	set_xen_guest_handle(mop->extent_start, (void *)desc);
-+	return 0;
-+}
-+
-+int
-+xencomm_hypercall_memory_op(unsigned int cmd, void *arg)
-+{
-+	GUEST_HANDLE(xen_pfn_t) extent_start_va[2] = { {NULL}, {NULL} };
-+	struct xen_memory_reservation *xmr = NULL;
-+	int rc;
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
-+	XENCOMM_MINI_ALIGNED(xc_area, 2);
-+
-+	switch (cmd) {
-+	case XENMEM_increase_reservation:
-+	case XENMEM_decrease_reservation:
-+	case XENMEM_populate_physmap:
-+		xmr = (struct xen_memory_reservation *)arg;
-+		set_xen_guest_handle(extent_start_va[0],
-+				     xen_guest_handle(xmr->extent_start));
-+
-+		argsize = sizeof(*xmr);
-+		rc = xencommize_memory_reservation(xc_area, xmr);
-+		if (rc)
-+			return rc;
-+		xc_area++;
-+		break;
-+
-+	case XENMEM_maximum_ram_page:
-+		argsize = 0;
-+		break;
-+
-+	case XENMEM_add_to_physmap:
-+		argsize = sizeof(struct xen_add_to_physmap);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG "%s: unknown memory op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	rc = xencomm_arch_hypercall_memory_op(cmd, desc);
-+
-+	switch (cmd) {
-+	case XENMEM_increase_reservation:
-+	case XENMEM_decrease_reservation:
-+	case XENMEM_populate_physmap:
-+		set_xen_guest_handle(xmr->extent_start,
-+				     xen_guest_handle(extent_start_va[0]));
-+		break;
-+	}
-+
-+	return rc;
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_memory_op);
-+
-+int
-+xencomm_hypercall_suspend(unsigned long srec)
-+{
-+	struct sched_shutdown arg;
-+
-+	arg.reason = SHUTDOWN_suspend;
-+
-+	return xencomm_arch_hypercall_sched_op(
-+		SCHEDOP_shutdown, xencomm_map_no_alloc(&arg, sizeof(arg)));
-+}
-+
-+long
-+xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg)
-+{
-+	unsigned int argsize;
-+	switch (cmd) {
-+	case VCPUOP_register_runstate_memory_area: {
-+		struct vcpu_register_runstate_memory_area *area +			(struct vcpu_register_runstate_memory_area *)arg;
-+		argsize = sizeof(*arg);
-+		set_xen_guest_handle(area->addr.h,
-+		     (void *)xencomm_map_no_alloc(area->addr.v,
-+						  sizeof(area->addr.v)));
-+		break;
-+	}
-+
-+	default:
-+		printk(KERN_DEBUG "%s: unknown vcpu op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_vcpu_op(cmd, cpu,
-+					xencomm_map_no_alloc(arg, argsize));
-+}
-+
-+long
-+xencomm_hypercall_opt_feature(void *arg)
-+{
-+	return xencomm_arch_hypercall_opt_feature(
-+		xencomm_map_no_alloc(arg,
-+				     sizeof(struct xen_ia64_opt_feature)));
-+}
-diff --git a/arch/ia64/xen/xencomm.c b/arch/ia64/xen/xencomm.c
-index 2a57058..a90d2d2 100644
---- a/arch/ia64/xen/xencomm.c
-+++ b/arch/ia64/xen/xencomm.c
-@@ -19,11 +19,22 @@
- #include <linux/mm.h>
- 
- static unsigned long kernel_virtual_offset;
-+static int is_xencomm_initialized;
-+
-+/* for xen early printk. It uses console io hypercall which uses xencomm.
-+ * However early printk may use it before xencomm initialization.
-+ */
-+int
-+xencomm_is_initialized(void)
-+{
-+	return is_xencomm_initialized;
-+}
- 
- void
- xencomm_initialize(void)
+ static inline int is_kdump_kernel(void)
  {
- 	kernel_virtual_offset = KERNEL_START - ia64_tpa(KERNEL_START);
-+	is_xencomm_initialized = 1;
+ 	return (elfcorehdr_addr != ELFCORE_ADDR_MAX) ? 1 : 0;
+diff -puN fs/proc/vmcore.c~remove-elfcore-hdr-addr-definition-vmcore fs/proc/vmcore.c
+--- linux-2.6.27-pre-rc1/fs/proc/vmcore.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-28 09:19:50.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/fs/proc/vmcore.c	2008-07-28 09:20:10.000000000 -0400
+@@ -32,9 +32,6 @@ static size_t elfcorebuf_sz;
+ /* Total size of vmcore file. */
+ static u64 vmcore_size;
+ 
+-/* Stores the physical address of elf header of crash image. */
+-unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
+-
+ struct proc_dir_entry *proc_vmcore = NULL;
+ 
+ /* Reads a page from the oldmem device from given offset. */
+diff -puN arch/x86/kernel/crash_dump_32.c~remove-elfcore-hdr-addr-definition-vmcore arch/x86/kernel/crash_dump_32.c
+--- linux-2.6.27-pre-rc1/arch/x86/kernel/crash_dump_32.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:28:26.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/x86/kernel/crash_dump_32.c	2008-07-29 05:28:26.000000000 -0400
+@@ -13,6 +13,9 @@
+ 
+ static void *kdump_buf_page;
+ 
++/* Stores the physical address of elf header of crash image. */
++unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
++
+ /**
+  * copy_oldmem_page - copy one page from "oldmem"
+  * @pfn: page frame number to be copied
+diff -puN arch/x86/kernel/crash_dump_64.c~remove-elfcore-hdr-addr-definition-vmcore arch/x86/kernel/crash_dump_64.c
+--- linux-2.6.27-pre-rc1/arch/x86/kernel/crash_dump_64.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:28:26.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/x86/kernel/crash_dump_64.c	2008-07-29 05:28:26.000000000 -0400
+@@ -11,6 +11,9 @@
+ #include <asm/uaccess.h>
+ #include <asm/io.h>
+ 
++/* Stores the physical address of elf header of crash image. */
++unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
++
+ /**
+  * copy_oldmem_page - copy one page from "oldmem"
+  * @pfn: page frame number to be copied
+diff -puN arch/x86/kernel/setup.c~remove-elfcore-hdr-addr-definition-vmcore arch/x86/kernel/setup.c
+--- linux-2.6.27-pre-rc1/arch/x86/kernel/setup.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:28:26.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/x86/kernel/setup.c	2008-07-29 05:28:26.000000000 -0400
+@@ -558,7 +558,13 @@ static void __init reserve_standard_io_r
+ 
  }
  
- /* Translate virtual address to physical address.  */
-diff --git a/include/asm-ia64/xen/xcom_hcall.h b/include/asm-ia64/xen/xcom_hcall.h
-new file mode 100644
-index 0000000..20b2950
---- /dev/null
-+++ b/include/asm-ia64/xen/xcom_hcall.h
-@@ -0,0 +1,51 @@
+-#ifdef CONFIG_PROC_VMCORE
 +/*
-+ * Copyright (C) 2006 Tristan Gingold <tristan.gingold@bull.net>, Bull SAS
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
++ * Note: elfcorehdr_addr is not just limited to vmcore. It is also used by
++ * is_kdump_kernel() to determine if we are booting after a panic. Hence
++ * ifdef it under CONFIG_CRASH_DUMP and not CONFIG_PROC_VMCORE.
 + */
 +
-+#ifndef _ASM_IA64_XEN_XCOM_HCALL_H
-+#define _ASM_IA64_XEN_XCOM_HCALL_H
-+
-+/* These function creates inline or mini descriptor for the parameters and
-+   calls the corresponding xencomm_arch_hypercall_X.
-+   Architectures should defines HYPERVISOR_xxx as xencomm_hypercall_xxx unless
-+   they want to use their own wrapper.  */
-+extern int xencomm_hypercall_console_io(int cmd, int count, char *str);
-+
-+extern int xencomm_hypercall_event_channel_op(int cmd, void *op);
-+
-+extern int xencomm_hypercall_xen_version(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_physdev_op(int cmd, void *op);
-+
-+extern int xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
-+					    unsigned int count);
-+
-+extern int xencomm_hypercall_sched_op(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_multicall(void *call_list, int nr_calls);
-+
-+extern int xencomm_hypercall_callback_op(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_memory_op(unsigned int cmd, void *arg);
-+
-+extern int xencomm_hypercall_suspend(unsigned long srec);
-+
-+extern long xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg);
-+
-+extern long xencomm_hypercall_opt_feature(void *arg);
-+
-+#endif /* _ASM_IA64_XEN_XCOM_HCALL_H */
-diff --git a/include/asm-ia64/xen/xencomm.h b/include/asm-ia64/xen/xencomm.h
-index 28732cd..cded677 100644
---- a/include/asm-ia64/xen/xencomm.h
-+++ b/include/asm-ia64/xen/xencomm.h
-@@ -24,6 +24,7 @@
++#ifdef CONFIG_CRASH_DUMP
+ /* elfcorehdr= specifies the location of elf core header
+  * stored by the crashed kernel. This option will be passed
+  * by kexec loader to the capture kernel.
+diff -puN arch/powerpc/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore arch/powerpc/kernel/crash_dump.c
+--- linux-2.6.27-pre-rc1/arch/powerpc/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:30:33.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/powerpc/kernel/crash_dump.c	2008-07-29 05:30:33.000000000 -0400
+@@ -27,6 +27,9 @@
+ #define DBG(fmt...)
+ #endif
  
- /* Must be called before any hypercall.  */
- extern void xencomm_initialize(void);
-+extern int xencomm_is_initialized(void);
++/* Stores the physical address of elf header of crash image. */
++unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
++
+ void __init reserve_kdump_trampoline(void)
+ {
+ 	lmb_reserve(0, KDUMP_RESERVE_LIMIT);
+@@ -66,7 +69,11 @@ void __init setup_kdump_trampoline(void)
+ 	DBG(" <- setup_kdump_trampoline()\n");
+ }
  
- /* Check if virtual contiguity means physical contiguity
-  * where the passed address is a pointer value in virtual address.
+-#ifdef CONFIG_PROC_VMCORE
++/*
++ * Note: elfcorehdr_addr is not just limited to vmcore. It is also used by
++ * is_kdump_kernel() to determine if we are booting after a panic. Hence
++ * ifdef it under CONFIG_CRASH_DUMP and not CONFIG_PROC_VMCORE.
++ */
+ static int __init parse_elfcorehdr(char *p)
+ {
+ 	if (p)
+@@ -75,7 +82,6 @@ static int __init parse_elfcorehdr(char 
+ 	return 1;
+ }
+ __setup("elfcorehdr=", parse_elfcorehdr);
+-#endif
+ 
+ static int __init parse_savemaxmem(char *p)
+ {
+diff -puN arch/ia64/kernel/setup.c~remove-elfcore-hdr-addr-definition-vmcore arch/ia64/kernel/setup.c
+--- linux-2.6.27-pre-rc1/arch/ia64/kernel/setup.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:30:54.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/ia64/kernel/setup.c	2008-07-29 05:30:54.000000000 -0400
+@@ -478,7 +478,12 @@ static __init int setup_nomca(char *s)
+ }
+ early_param("nomca", setup_nomca);
+ 
+-#ifdef CONFIG_PROC_VMCORE
++/*
++ * Note: elfcorehdr_addr is not just limited to vmcore. It is also used by
++ * is_kdump_kernel() to determine if we are booting after a panic. Hence
++ * ifdef it under CONFIG_CRASH_DUMP and not CONFIG_PROC_VMCORE.
++ */
++#ifdef CONFIG_CRASH_DUMP
+ /* elfcorehdr= specifies the location of elf core header
+  * stored by the crashed kernel.
+  */
+@@ -491,7 +496,9 @@ static int __init parse_elfcorehdr(char 
+ 	return 0;
+ }
+ early_param("elfcorehdr", parse_elfcorehdr);
++#endif
+ 
++#ifdef CONFIG_PROC_VMCORE
+ int __init reserve_elfcorehdr(unsigned long *start, unsigned long *end)
+ {
+ 	unsigned long length;
+diff -puN arch/ia64/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore arch/ia64/kernel/crash_dump.c
+--- linux-2.6.27-pre-rc1/arch/ia64/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:37:10.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/ia64/kernel/crash_dump.c	2008-07-29 05:37:58.000000000 -0400
+@@ -8,10 +8,14 @@
+ 
+ #include <linux/errno.h>
+ #include <linux/types.h>
++#include <linux/crash_dump.h>
+ 
+ #include <asm/page.h>
+ #include <asm/uaccess.h>
+ 
++/* Stores the physical address of elf header of crash image. */
++unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
++
+ /**
+  * copy_oldmem_page - copy one page from "oldmem"
+  * @pfn: page frame number to be copied
+diff -puN arch/sh/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore arch/sh/kernel/crash_dump.c
+--- linux-2.6.27-pre-rc1/arch/sh/kernel/crash_dump.c~remove-elfcore-hdr-addr-definition-vmcore	2008-07-29 05:31:04.000000000 -0400
++++ linux-2.6.27-pre-rc1-root/arch/sh/kernel/crash_dump.c	2008-07-29 05:31:04.000000000 -0400
+@@ -10,6 +10,9 @@
+ #include <linux/io.h>
+ #include <asm/uaccess.h>
+ 
++/* Stores the physical address of elf header of crash image. */
++unsigned long long elfcorehdr_addr = ELFCORE_ADDR_MAX;
++
+ /**
+  * copy_oldmem_page - copy one page from "oldmem"
+  * @pfn: page frame number to be copied
+_
+
 -- 
-1.5.3
+
+-- 
+Horms
 
