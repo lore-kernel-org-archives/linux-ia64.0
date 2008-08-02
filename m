@@ -1,34 +1,76 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Sat, 16 Aug 2008 10:08:21 +0000
-Subject: Re: Pondering machvec ... was: [Patch] Remove sn2_defconfig.
-Message-Id: <48A6A715.2070103@sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Sat, 02 Aug 2008 18:14:58 +0000
+Subject: [Patch] Cleanup generated files not ignored by .gitignore.
+Message-Id: <20080802181458.GD6824@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <57C9024A16AD2D4C97DC78E552063EA309B82A07@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA309B82A07@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
->> I don't think I understand your argument.  Are you essentially saying we
->> should consider eliminating the mach_vec stuff entirely?  If so, will
->> we essentially be saying that the distros need to build a seperate kernel
->> for each of tiger, zx1, sn2, and uv?
-> 
-> No ... exactly the opposite ... I'm wondering whether we should give
-> up maintaining/building all the tiger_, zx1_ configs and only have the
-> generic one ... since it appears that the number of end users of non-generic
-> kernels can be counted on the toes of one foot.
+This patch moves nr-irqs.h to arch/ia64/include/asm and fixes up some
+.gitignore files to get git-status clean.
 
-Hi Tony,
+Signed-off-by: Robin Holt <holt@sgi.com>
 
-IMHO it would be fine to just run the generic builds and forget about
-the specialized ones. We can probably simplify the machvec
-infrastructure a bit by doing so, but I don't see how we're going to get
-rid of the bulk of it..... says the guy who is in the process of adding
-more entries :-)
 
-Cheers,
-Jes
+---
 
+Tony,
+
+This patch leaves a relatively small arch/ia64/kernel/.gitignore.  That
+could certainly be moved into arch/ia64 if you would like.
+
+Thanks,
+Robin
+
+
+Index: contention_unroll/arch/ia64/kernel/.gitignore
+=================================--- contention_unroll.orig/arch/ia64/kernel/.gitignore	2008-07-29 07:01:56.000000000 -0500
++++ contention_unroll/arch/ia64/kernel/.gitignore	2008-08-02 09:12:06.522384719 -0500
+@@ -1 +1,2 @@
+ gate.lds
++vmlinux.lds
+Index: contention_unroll/arch/ia64/Makefile
+=================================--- contention_unroll.orig/arch/ia64/Makefile	2008-07-28 18:19:56.000000000 -0500
++++ contention_unroll/arch/ia64/Makefile	2008-08-02 12:28:47.374270146 -0500
+@@ -105,4 +105,4 @@ archprepare: make_nr_irqs_h FORCE
+ PHONY += make_nr_irqs_h FORCE
+ 
+ make_nr_irqs_h: FORCE
+-	$(Q)$(MAKE) $(build)=arch/ia64/kernel include/asm-ia64/nr-irqs.h
++	$(Q)$(MAKE) $(build)=arch/ia64/kernel arch/ia64/include/asm/nr-irqs.h
+Index: contention_unroll/arch/ia64/include/asm/irq.h
+=================================--- contention_unroll.orig/arch/ia64/include/asm/irq.h	2008-08-01 19:31:08.000000000 -0500
++++ contention_unroll/arch/ia64/include/asm/irq.h	2008-08-02 12:34:01.493286456 -0500
+@@ -13,7 +13,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/cpumask.h>
+-#include <asm-ia64/nr-irqs.h>
++#include <asm/nr-irqs.h>
+ 
+ static __inline__ int
+ irq_canonicalize (int irq)
+Index: contention_unroll/arch/ia64/kernel/Makefile
+=================================--- contention_unroll.orig/arch/ia64/kernel/Makefile	2008-07-28 18:19:56.000000000 -0500
++++ contention_unroll/arch/ia64/kernel/Makefile	2008-08-02 12:32:08.319227814 -0500
+@@ -100,11 +100,11 @@ arch/$(SRCARCH)/kernel/nr-irqs.s: $(srct
+ 	$(Q)mkdir -p $(dir $@)
+ 	$(call if_changed_dep,cc_s_c)
+ 
+-include/asm-ia64/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-irqs.s
++arch/ia64/include/asm/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-irqs.s
+ 	$(Q)mkdir -p $(dir $@)
+ 	$(call cmd,nr_irqs)
+ 
+-clean-files += $(objtree)/include/asm-ia64/nr-irqs.h
++clean-files += $(objtree)/arch/ia64/include/asm/nr-irqs.h
+ 
+ #
+ # native ivt.S and entry.S
+Index: contention_unroll/arch/ia64/.gitignore
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ contention_unroll/arch/ia64/.gitignore	2008-08-02 12:39:22.945217365 -0500
+@@ -0,0 +1 @@
++include/asm/nr-irqs.h
