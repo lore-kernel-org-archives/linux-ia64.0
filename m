@@ -1,28 +1,31 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 04 Aug 2008 20:34:35 +0000
-Subject: RE: [Patch 2/2] update generic_defconfig to support sn2.
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA308328FA7@orsmsx505.amr.corp.intel.com>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 05 Aug 2008 09:57:41 +0000
+Subject: [patch] IA64: make rsvd_region and num_rsvd_regions static
+Message-Id: <20080805095739.GA12078@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080802183527.GA7290@sgi.com>
-In-Reply-To: <20080802183527.GA7290@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>
 
-> Dean and I just talked.  We think it should really be:
->
->         depends on (IA64_GENERIC || IA64_SGI_SN2 || IA64_SGI_UV || X86_64) && SMP
->         select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
->         select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
->         select SGI_GRU if (IA64_GENERIC || IA64_SGI_UV || X86_64) && SMP
->
-> Could you give it a try?  If not, Dean or I can try it tomorrow.
+rsvd_region and num_rsvd_regions are only accessed in
+arch/ia64/kernel/setup.c, so they should be static.
 
-Yes.  That works (not sure why I didn't manage to spot what is
-almost the same messed up expression just three lines above the
-one that I did see).
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-I'll fix it like that. Thanks.
 
--Tony
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2008-08-02 17:38:02.000000000 +1000
++++ linux-2.6/arch/ia64/kernel/setup.c	2008-08-02 17:38:20.000000000 +1000
+@@ -132,8 +132,8 @@ EXPORT_SYMBOL(ia64_max_iommu_merge_mask)
+ /*
+  * We use a special marker for the end of memory and it uses the extra (+1) slot
+  */
+-struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1] __initdata;
+-int num_rsvd_regions __initdata;
++static struct rsvd_region rsvd_region[IA64_MAX_RSVD_REGIONS + 1] __initdata;
++static int num_rsvd_regions __initdata;
+ 
+ 
+ /*
