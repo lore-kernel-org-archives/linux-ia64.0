@@ -1,23 +1,63 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 25 Aug 2008 18:29:25 +0000
-Subject: RE: [Patch] Export cpu_core_map.
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA309EDEAE8@orsmsx505.amr.corp.intel.com>
+From: Simon Horman <horms@verge.net.au>
+Date: Tue, 05 Aug 2008 09:48:27 +0000
+Subject: kdump, ia64: always reserve elfcore header memory in crash kernel
+Message-Id: <20080805094825.GA9712@verge.net.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080824125202.GC9501@sgi.com>
-In-Reply-To: <20080824125202.GC9501@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kexec@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Vivek Goyal <vgoyal@redhat.com>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>
 
-> I realize there was discussion about topology_core_siblings being the
-> wrong thing for the SFC driver to use.  I think this change is justified
-> despite that discussion.  This also gets an allmodconfig to build again
-> for ia64.  This patch merely brings parity between x86 and ia64.
+elfcore header memory needs to be reserved in a crash kernel.
+This means that the relevant code should be protected
+by CONFIG_CRASH_DUMP rather than CONFIG_PROC_VMCORE.
 
-Robin,
+Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Ok, I give in ... I've queued this locally and I'll push and
-ask Linus to pull in the next few days.
+--- 
+Andrew, this patch fixes bug in the (unlikely) case where
+an ia64 crashdump kernel does not have CONFIG_PROC_FS set.
+I think it is worth including in 2.6.27. But breakage cases are
+likely to be minimal to non-existent, so I am comfortable
+with post 2.6.27 too.
 
--Tony
+This patch should be appended to the series,
+"is_kdump_kernel() cleanup and related patches".
+
+http://lists.infradead.org/pipermail/kexec/2008-July/002270.html
+
+Index: linux-2.6/arch/ia64/kernel/efi.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/efi.c	2008-08-05 18:31:13.000000000 +1000
++++ linux-2.6/arch/ia64/kernel/efi.c	2008-08-05 18:31:21.000000000 +1000
+@@ -1334,7 +1334,7 @@ kdump_find_rsvd_region (unsigned long si
+ }
+ #endif
+ 
+-#ifdef CONFIG_PROC_VMCORE
++#ifdef CONFIG_CRASH_DUMP
+ /* locate the size find a the descriptor at a certain address */
+ unsigned long __init
+ vmcore_find_descriptor_size (unsigned long address)
+Index: linux-2.6/arch/ia64/kernel/setup.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/setup.c	2008-08-05 18:31:20.000000000 +1000
++++ linux-2.6/arch/ia64/kernel/setup.c	2008-08-05 18:31:21.000000000 +1000
+@@ -352,7 +352,7 @@ reserve_memory (void)
+ 	}
+ #endif
+ 
+-#ifdef CONFIG_PROC_VMCORE
++#ifdef CONFIG_CRASH_KERNEL
+ 	if (reserve_elfcorehdr(&rsvd_region[n].start,
+ 			       &rsvd_region[n].end) = 0)
+ 		n++;
+@@ -496,9 +496,7 @@ static int __init parse_elfcorehdr(char 
+ 	return 0;
+ }
+ early_param("elfcorehdr", parse_elfcorehdr);
+-#endif
+ 
+-#ifdef CONFIG_PROC_VMCORE
+ int __init reserve_elfcorehdr(unsigned long *start, unsigned long *end)
+ {
+ 	unsigned long length;
