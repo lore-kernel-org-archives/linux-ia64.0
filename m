@@ -1,37 +1,32 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:23:41 +0000
-Subject: [PATCH] xen: compilation fix of drivers/xen/events.c on IA64
-Message-Id: <20080826052341.GB1496%yamahata@valinux.co.jp>
+From: Adrian Bunk <bunk@kernel.org>
+Date: Fri, 08 Aug 2008 16:34:45 +0000
+Subject: [7/17] ia64: use bcd2bin/bin2bcd
+Message-Id: <20080808163445.GN14495@cs181140183.pp.htv.fi>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-ia64@vger.kernel.org, xen-devel@lists.xensource.com, xen-ia64-devel@lists.xensource.com
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, David Brownell <david-b@pacbell.net>
 
-use set_xen_guest_handle() instead of direct assigning.
+This patch changes ia64 to use the new bcd2bin/bin2bcd functions instead 
+of the obsolete BCD2BIN/BIN2BCD macros.
 
-> linux-2.6/drivers/xen/events.c: In function 'xen_poll_irq':
-> linux-2.6/drivers/xen/events.c:757: error: incompatible types in assignment
-> make[4]: *** [drivers/xen/events.o] Error 1
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- drivers/xen/events.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+fb54890949dadb16520ed7d3f9c7eb2b89abb34e 
+diff --git a/arch/ia64/include/asm/sal.h b/arch/ia64/include/asm/sal.h
+index 89594b4..ea310c0 100644
+--- a/arch/ia64/include/asm/sal.h
++++ b/arch/ia64/include/asm/sal.h
+@@ -236,7 +236,7 @@ extern struct ia64_sal_desc_ptc *ia64_ptc_domain_info;
+ 
+ extern unsigned short sal_revision;	/* supported SAL spec revision */
+ extern unsigned short sal_version;	/* SAL version; OEM dependent */
+-#define SAL_VERSION_CODE(major, minor) ((BIN2BCD(major) << 8) | BIN2BCD(minor))
++#define SAL_VERSION_CODE(major, minor) ((bin2bcd(major) << 8) | bin2bcd(minor))
+ 
+ extern const char *ia64_sal_strerror (long status);
+ extern void ia64_sal_init (struct ia64_sal_systab *sal_systab);
 
-diff --git a/drivers/xen/events.c b/drivers/xen/events.c
-index c3290bc..81e00ee 100644
---- a/drivers/xen/events.c
-+++ b/drivers/xen/events.c
-@@ -772,7 +772,7 @@ void xen_poll_irq(int irq)
- 
- 		poll.nr_ports = 1;
- 		poll.timeout = 0;
--		poll.ports = &evtchn;
-+		set_xen_guest_handle(poll.ports, &evtchn);
- 
- 		if (HYPERVISOR_sched_op(SCHEDOP_poll, &poll) != 0)
- 			BUG();
--- 
-1.6.0.rc0.42.g186458
