@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 06 Aug 2008 18:32:56 +0000
+Date: Tue, 12 Aug 2008 21:55:58 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA3083839C5@orsmsx505.amr.corp.intel.com>
+Message-Id: <200808122155.m7CLtwDB005156@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -14,7 +14,7 @@ Hi Linus,
 
 please pull from:
 
-        git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
 This will update the files shown below.
 
@@ -22,28 +22,18 @@ Thanks!
 
 -Tony
 
- arch/ia64/Kconfig                   |   10 +-
- arch/ia64/configs/generic_defconfig |  586 ++++++++++++++++++++++-------------
- arch/ia64/kernel/.gitignore         |    1 +
- arch/ia64/kernel/ivt.S              |    4 +-
- drivers/misc/Kconfig                |    4 +-
- 5 files changed, 381 insertions(+), 224 deletions(-)
+ arch/ia64/include/asm/sal.h    |    2 +-
+ arch/ia64/kernel/head.S        |   26 +++++++++++++++++++++++++-
+ arch/ia64/kernel/setup.c       |   18 ++++++++++--------
+ arch/ia64/kernel/smpboot.c     |    2 ++
+ arch/ia64/kernel/vmlinux.lds.S |    3 +++
+ arch/ia64/mm/contig.c          |   10 ++++++++--
+ arch/ia64/mm/discontig.c       |    6 +++++-
+ 7 files changed, 54 insertions(+), 13 deletions(-)
 
-Isaku Yamahata (1):
-      [IA64] pv_ops: fix ivt.S paravirtualization
+Adrian Bunk (1):
+      [IA64] use bcd2bin/bin2bcd
 
-Jack Steiner (1):
-      [IA64] Eliminate trailing backquote in IA64_SGI_UV
-
-Robin Holt (4):
-      [IA64] Cleanup generated file not ignored by .gitignore
-      [IA64] Allow ia64 to CONFIG_NR_CPUS up to 4096
-      [IA64] update generic_defconfig for 2.6.27-rc1
-      [IA64] update generic_defconfig to support sn2.
-
-Tony Luck (2):
-      [IA64] Fix uniprocessor build w.r.t. SGI_XP and SGI_GRU
-      [IA64] Update generic config
-
-
+Tony Luck (1):
+      [IA64] Ensure cpu0 can access per-cpu variables in early boot code
 
