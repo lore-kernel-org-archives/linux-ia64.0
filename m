@@ -1,39 +1,37 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 15 Aug 2008 17:20:03 +0000
-Subject: Pondering machvec ... was: [Patch] Remove sn2_defconfig.
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA309B82A07@orsmsx505.amr.corp.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Fri, 15 Aug 2008 18:32:57 +0000
+Subject: Re: Pondering machvec ... was: [Patch] Remove sn2_defconfig.
+Message-Id: <20080815183257.GP6824@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <57C9024A16AD2D4C97DC78E552063EA309B82A07@orsmsx505.amr.corp.intel.com>
+In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA309B82A07@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->    Not really a patch as much as a remove this file request.  Now that
->    generic_defconfig supports all the configurations SGI currently supports
->    and has NR_CPUS and NR_NODES at our largest configurations, we have no
->    reason to maintain the extra defconfig file.
+I am not addressing anything other than the sn2_defconfig, but it
+has gotten so stale that nobody I know inside SGI uses it any longer.
+We either maintain our own config file or start with the generic_defconfig
+and adjust the things we need.
 
-I'm wondering whether we really want to do this ... and in turn wondering
-about the value of the "generic" vs. system specific config files and the
-whole machvec mechanism.
+If any of our engineers wanted to eliminate the mach_vec stuff, we would
+likely start from the generic_defconfig and change _GENERIC to _SN2.
 
-If the config files is removed, then the occasional breakage that it
-finds will go unseen.  How much does this matter?  Not having it would
-speed by regression build sequence (sn2 takes the longest of all the
-builds I do).
+On Fri, Aug 15, 2008 at 10:20:03AM -0700, Luck, Tony wrote:
+> >    Not really a patch as much as a remove this file request.  Now that
+> >    generic_defconfig supports all the configurations SGI currently supports
+> >    and has NR_CPUS and NR_NODES at our largest configurations, we have no
+> >    reason to maintain the extra defconfig file.
+> 
+> I'm wondering whether we really want to do this ... and in turn wondering
+> about the value of the "generic" vs. system specific config files and the
+> whole machvec mechanism.
 
-I primarily test tiger_defconfig kernels on Intel systems and zx1_defconfig
-kernels on HP systems ... with just the occasional boot test of a
-generic_defconfig kernel to make sure it hasn't been severely broken.
+I don't think I understand your argument.  Are you essentially saying we
+should consider eliminating the mach_vec stuff entirely?  If so, will
+we essentially be saying that the distros need to build a seperate kernel
+for each of tiger, zx1, sn2, and uv?
 
-Most end users are using distribution kernels ... which are based on
-generic kernels because distributors don't want to maintain a slew of
-separate binaries.
-
-Now there are possibly some performance benefits from using a platform
-specific kernel (reduced cpu usage because the indirection through
-machvec is eliminated, plus reduced memory footprint for the kernel).
-Has anyone ever tried to measure these?  Are they worth the extra
-maintenance and testing needed to keep machvec alive?
-
--Tony
+Thanks,
+Robin
