@@ -1,152 +1,189 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:29 +0000
-Subject: [PATCH 17/30] ia64/pv_ops/xen: define xen pv_cpu_ops.
-Message-Id: <1219730322-11687-18-git-send-email-yamahata@valinux.co.jp>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 16 Aug 2008 17:50:28 +0000
+Subject: [PATCH] ia64: use generic compat_old_sys_readdir
+Message-Id: <20080816175028.GA4960@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define xen pv_cpu_ops which implementes xen paravirtualized
-privileged instructions.
+Switch ia64 to the generic compat_sys_old_readdir which is identical
+except for slightly better error handling.  Also remove sys32_getdents
+which already isn't wired up to the syscall table anymore in favour of
+compat_sys_getdents.
 
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/xen/xen_pv_ops.c |  114 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 114 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index fc9d599..c236f04 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -163,6 +163,119 @@ static const struct pv_init_ops xen_init_ops __initdata = {
- };
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+
+Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
+=================================--- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008-08-16 13:13:13.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-08-16 13:15:23.000000000 -0300
+@@ -262,7 +262,7 @@ ia32_syscall_table:
+ 	data8 sys_uselib
+ 	data8 sys_swapon
+ 	data8 sys_reboot
+-	data8 sys32_readdir
++	data8 compat_sys_old_readdir
+ 	data8 sys32_mmap	  /* 90 */
+ 	data8 sys32_munmap
+ 	data8 sys_truncate
+Index: linux-2.6/arch/ia64/ia32/ia32priv.h
+=================================--- linux-2.6.orig/arch/ia64/ia32/ia32priv.h	2008-08-16 13:16:30.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/ia32priv.h	2008-08-16 13:16:44.000000000 -0300
+@@ -276,13 +276,6 @@ typedef struct compat_siginfo {
+ 	} _sifields;
+ } compat_siginfo_t;
  
- /***************************************************************************
-+ * pv_cpu_ops
-+ * intrinsics hooks.
-+ */
-+
-+static void xen_setreg(int regnum, unsigned long val)
-+{
-+	switch (regnum) {
-+	case _IA64_REG_AR_KR0 ... _IA64_REG_AR_KR7:
-+		xen_set_kr(regnum - _IA64_REG_AR_KR0, val);
-+		break;
-+#ifdef CONFIG_IA32_SUPPORT
-+	case _IA64_REG_AR_EFLAG:
-+		xen_set_eflag(val);
-+		break;
-+#endif
-+	case _IA64_REG_CR_TPR:
-+		xen_set_tpr(val);
-+		break;
-+	case _IA64_REG_CR_ITM:
-+		xen_set_itm(val);
-+		break;
-+	case _IA64_REG_CR_EOI:
-+		xen_eoi(val);
-+		break;
-+	default:
-+		ia64_native_setreg_func(regnum, val);
-+		break;
-+	}
-+}
-+
-+static unsigned long xen_getreg(int regnum)
-+{
-+	unsigned long res;
-+
-+	switch (regnum) {
-+	case _IA64_REG_PSR:
-+		res = xen_get_psr();
-+		break;
-+#ifdef CONFIG_IA32_SUPPORT
-+	case _IA64_REG_AR_EFLAG:
-+		res = xen_get_eflag();
-+		break;
-+#endif
-+	case _IA64_REG_CR_IVR:
-+		res = xen_get_ivr();
-+		break;
-+	case _IA64_REG_CR_TPR:
-+		res = xen_get_tpr();
-+		break;
-+	default:
-+		res = ia64_native_getreg_func(regnum);
-+		break;
-+	}
-+	return res;
-+}
-+
-+/* turning on interrupts is a bit more complicated.. write to the
-+ * memory-mapped virtual psr.i bit first (to avoid race condition),
-+ * then if any interrupts were pending, we have to execute a hyperprivop
-+ * to ensure the pending interrupt gets delivered; else we're done! */
-+static void
-+xen_ssm_i(void)
-+{
-+	int old = xen_get_virtual_psr_i();
-+	xen_set_virtual_psr_i(1);
-+	barrier();
-+	if (!old && xen_get_virtual_pend())
-+		xen_hyper_ssm_i();
-+}
-+
-+/* turning off interrupts can be paravirtualized simply by writing
-+ * to a memory-mapped virtual psr.i bit (implemented as a 16-bit bool) */
-+static void
-+xen_rsm_i(void)
-+{
-+	xen_set_virtual_psr_i(0);
-+	barrier();
-+}
-+
-+static unsigned long
-+xen_get_psr_i(void)
-+{
-+	return xen_get_virtual_psr_i() ? IA64_PSR_I : 0;
-+}
-+
-+static void
-+xen_intrin_local_irq_restore(unsigned long mask)
-+{
-+	if (mask & IA64_PSR_I)
-+		xen_ssm_i();
-+	else
-+		xen_rsm_i();
-+}
-+
-+static const struct pv_cpu_ops xen_cpu_ops __initdata = {
-+	.fc		= xen_fc,
-+	.thash		= xen_thash,
-+	.get_cpuid	= xen_get_cpuid,
-+	.get_pmd	= xen_get_pmd,
-+	.getreg		= xen_getreg,
-+	.setreg		= xen_setreg,
-+	.ptcga		= xen_ptcga,
-+	.get_rr		= xen_get_rr,
-+	.set_rr		= xen_set_rr,
-+	.set_rr0_to_rr4	= xen_set_rr0_to_rr4,
-+	.ssm_i		= xen_ssm_i,
-+	.rsm_i		= xen_rsm_i,
-+	.get_psr_i	= xen_get_psr_i,
-+	.intrin_local_irq_restore
-+			= xen_intrin_local_irq_restore,
-+};
-+
-+/***************************************************************************
-  * pv_ops initialization
+-struct old_linux32_dirent {
+-	u32	d_ino;
+-	u32	d_offset;
+-	u16	d_namlen;
+-	char	d_name[1];
+-};
+-
+ /*
+  * IA-32 ELF specific definitions for IA-64.
   */
- 
-@@ -172,4 +285,5 @@ xen_setup_pv_ops(void)
- 	xen_info_init();
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
-+	pv_cpu_ops = xen_cpu_ops;
+Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
+=================================--- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-08-16 13:15:30.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-08-16 13:17:51.000000000 -0300
+@@ -1210,138 +1210,6 @@ sys32_settimeofday (struct compat_timeva
+ 	return do_sys_settimeofday(tv ? &kts : NULL, tz ? &ktz : NULL);
  }
--- 
-1.6.0.rc0.42.g186458
-
+ 
+-struct getdents32_callback {
+-	struct compat_dirent __user *current_dir;
+-	struct compat_dirent __user *previous;
+-	int count;
+-	int error;
+-};
+-
+-struct readdir32_callback {
+-	struct old_linux32_dirent __user * dirent;
+-	int count;
+-};
+-
+-static int
+-filldir32 (void *__buf, const char *name, int namlen, loff_t offset, u64 ino,
+-	   unsigned int d_type)
+-{
+-	struct compat_dirent __user * dirent;
+-	struct getdents32_callback * buf = (struct getdents32_callback *) __buf;
+-	int reclen = ROUND_UP(offsetof(struct compat_dirent, d_name) + namlen + 1, 4);
+-	u32 d_ino;
+-
+-	buf->error = -EINVAL;	/* only used if we fail.. */
+-	if (reclen > buf->count)
+-		return -EINVAL;
+-	d_ino = ino;
+-	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+-		return -EOVERFLOW;
+-	buf->error = -EFAULT;	/* only used if we fail.. */
+-	dirent = buf->previous;
+-	if (dirent)
+-		if (put_user(offset, &dirent->d_off))
+-			return -EFAULT;
+-	dirent = buf->current_dir;
+-	buf->previous = dirent;
+-	if (put_user(d_ino, &dirent->d_ino)
+-	    || put_user(reclen, &dirent->d_reclen)
+-	    || copy_to_user(dirent->d_name, name, namlen)
+-	    || put_user(0, dirent->d_name + namlen))
+-		return -EFAULT;
+-	dirent = (struct compat_dirent __user *) ((char __user *) dirent + reclen);
+-	buf->current_dir = dirent;
+-	buf->count -= reclen;
+-	return 0;
+-}
+-
+-asmlinkage long
+-sys32_getdents (unsigned int fd, struct compat_dirent __user *dirent, unsigned int count)
+-{
+-	struct file * file;
+-	struct compat_dirent __user * lastdirent;
+-	struct getdents32_callback buf;
+-	int error;
+-
+-	error = -EFAULT;
+-	if (!access_ok(VERIFY_WRITE, dirent, count))
+-		goto out;
+-
+-	error = -EBADF;
+-	file = fget(fd);
+-	if (!file)
+-		goto out;
+-
+-	buf.current_dir = dirent;
+-	buf.previous = NULL;
+-	buf.count = count;
+-	buf.error = 0;
+-
+-	error = vfs_readdir(file, filldir32, &buf);
+-	if (error < 0)
+-		goto out_putf;
+-	error = buf.error;
+-	lastdirent = buf.previous;
+-	if (lastdirent) {
+-		if (put_user(file->f_pos, &lastdirent->d_off))
+-			error = -EFAULT;
+-		else
+-			error = count - buf.count;
+-	}
+-
+-out_putf:
+-	fput(file);
+-out:
+-	return error;
+-}
+-
+-static int
+-fillonedir32 (void * __buf, const char * name, int namlen, loff_t offset, u64 ino,
+-	      unsigned int d_type)
+-{
+-	struct readdir32_callback * buf = (struct readdir32_callback *) __buf;
+-	struct old_linux32_dirent __user * dirent;
+-	u32 d_ino;
+-
+-	if (buf->count)
+-		return -EINVAL;
+-	d_ino = ino;
+-	if (sizeof(d_ino) < sizeof(ino) && d_ino != ino)
+-		return -EOVERFLOW;
+-	buf->count++;
+-	dirent = buf->dirent;
+-	if (put_user(d_ino, &dirent->d_ino)
+-	    || put_user(offset, &dirent->d_offset)
+-	    || put_user(namlen, &dirent->d_namlen)
+-	    || copy_to_user(dirent->d_name, name, namlen)
+-	    || put_user(0, dirent->d_name + namlen))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+-asmlinkage long
+-sys32_readdir (unsigned int fd, void __user *dirent, unsigned int count)
+-{
+-	int error;
+-	struct file * file;
+-	struct readdir32_callback buf;
+-
+-	error = -EBADF;
+-	file = fget(fd);
+-	if (!file)
+-		goto out;
+-
+-	buf.count = 0;
+-	buf.dirent = dirent;
+-
+-	error = vfs_readdir(file, fillonedir32, &buf);
+-	if (error >= 0)
+-		error = buf.count;
+-	fput(file);
+-out:
+-	return error;
+-}
+-
+ struct sel_arg_struct {
+ 	unsigned int n;
+ 	unsigned int inp;
