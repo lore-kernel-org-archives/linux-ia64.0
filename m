@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 12 Aug 2008 21:55:58 +0000
+Date: Mon, 18 Aug 2008 23:46:31 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <200808122155.m7CLtwDB005156@agluck-lia64.sc.intel.com>
+Message-Id: <200808182346.m7INkVTO007983@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,18 +22,22 @@ Thanks!
 
 -Tony
 
- arch/ia64/include/asm/sal.h    |    2 +-
- arch/ia64/kernel/head.S        |   26 +++++++++++++++++++++++++-
- arch/ia64/kernel/setup.c       |   18 ++++++++++--------
- arch/ia64/kernel/smpboot.c     |    2 ++
- arch/ia64/kernel/vmlinux.lds.S |    3 +++
- arch/ia64/mm/contig.c          |   10 ++++++++--
- arch/ia64/mm/discontig.c       |    6 +++++-
- 7 files changed, 54 insertions(+), 13 deletions(-)
+ arch/ia64/configs/sn2_defconfig | 1285 ---------------------------------------
+ arch/ia64/ia32/ia32_entry.S     |    2 +-
+ arch/ia64/ia32/ia32priv.h       |    7 -
+ arch/ia64/ia32/sys_ia32.c       |  132 ----
+ arch/ia64/kernel/smp.c          |    8 +-
+ arch/ia64/pci/pci.c             |   21 +-
+ 6 files changed, 16 insertions(+), 1439 deletions(-)
+ delete mode 100644 arch/ia64/configs/sn2_defconfig
 
-Adrian Bunk (1):
-      [IA64] use bcd2bin/bin2bcd
+Christoph Hellwig (1):
+      [IA64] use generic compat_old_sys_readdir
+
+Robin Holt (2):
+      [IA64] Remove sn2_defconfig.
+      [IA64] Shrink shadow_flush_counts to a short array to save 8k of per_cpu area.
 
 Tony Luck (1):
-      [IA64] Ensure cpu0 can access per-cpu variables in early boot code
+      [IA64] pci_acpi_scan_root cleanup
 
