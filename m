@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 21 Aug 2008 21:08:01 +0000
-Subject: Re: linux-next: ia64 allmodconfig
-Message-Id: <20080821210801.GC8051@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 21 Aug 2008 23:11:32 +0000
+Subject: RE: linux-next: ia64 allmodconfig
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA309EDDD52@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080820233526.14c44ea6.akpm@linux-foundation.org>
 In-Reply-To: <20080820233526.14c44ea6.akpm@linux-foundation.org>
@@ -10,36 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Aug 21, 2008 at 01:14:38PM -0700, Luck, Tony wrote:
-> > I just did a git-checkout of
-> > git://git.kernel.org/pub/scm/linux/kernel/git/sfr/linux-next.git
-> > linux-next/master and got commit:
-> > e85df409b2ad8528fa772379393c81406c417bbf
-> 
-> Hmmm that looks like the commit for next-20080821, but I see build
-> failures for 0820 and 0821.
-> 
-> Using "git diff next-20080819 next-20080820" shows the only
-> change in arch/ia64 is an innocuous looking one to arch/ia64/kvm/irq.h
-> The only plausible looking stuff is the slab.h and slub_def.h changes
-> because the first error is reported in efi_initialize_iomem_resources()
-> which does make a kzalloc() call ... and commenting out the kzalloc()
-> moves the first reported error out of this function to some other one.
-> 
-> I see the same error with the generic_defconfig ... so it
-> isn't special to allmodconfig.
-> 
-> I'm using gcc version:
->  gcc version 3.4.6 20060404 (Red Hat 3.4.6-8)
-> 
-> So this might be a 3.x vs. 4.x issue.
-> 
-> Heck if I can see where these "__ia64_save_stack_nonlocal" symbols
-> are coming from though.  I thought that there is some cpp
-> trickery concatenating tokens ... but a "cc -E" of efi.c didn't
-> give me any clues :-(
+> Not sure if this is helpful, but google pointed me at:
+> http://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg116574.html
 
-Not sure if this is helpful, but google pointed me at:
-http://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg116574.html
+That said "Fixed in 4.0.0" ... so I grabbed and built a newer
+gcc (4.2.4) and lo and behold the next-20080821 tag builds
+and boots just fine[*] with it.
 
-Robin
+Still need to figure out exactly what broke the build with
+a 3.x gcc to see if there is an easy workaround. Though 4.0.0
+was released over three years ago ... is it time to give up
+on the ancient 3.x technology?
+
+-Tony
+
+[*] If you ignore that the 4.2.4 compiler is about 15% slower
+than my trusty old 3.4.6 :-(
