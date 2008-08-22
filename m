@@ -1,29 +1,17 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 22 Aug 2008 01:11:12 +0000
+From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Date: Fri, 22 Aug 2008 10:15:18 +0000
 Subject: Re: kernel unaligned accesses on IA64 in IDE
-Message-Id: <20080822011112.GK26567@sgi.com>
+Message-Id: <200808221215.18542.bzolnier@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080819225606.GB22088@us.ibm.com> <20080820143531.GA6488@sgi.com> <20080821213146.GK11729@us.ibm.com> <20080821215426.GD8051@sgi.com> <20080822003906.GN11729@us.ibm.com>
+References: <20080819225606.GB22088@us.ibm.com> <20080821215426.GD8051@sgi.com> <20080822003906.GN11729@us.ibm.com>
 In-Reply-To: <20080822003906.GN11729@us.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: Nishanth Aravamudan <nacc@us.ibm.com>
-Cc: Robin Holt <holt@sgi.com>, tony.luck@intel.com, bzolnier@gmail.com, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org
+Cc: Robin Holt <holt@sgi.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, Borislav Petkov <petkovbb@gmail.com>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-Nish,
-
-Sounds like the callers to ide_output_data need to be doing some better
-alignment of their structures.  The thing that is confusing me is, I
-believe, my own assumption.  Do you know when this problem first occurred?
-I have assumed it is very recent, but that does not appear to be the
-case.
-
-Thanks,
-Robin
-
-
-On Thu, Aug 21, 2008 at 05:39:06PM -0700, Nishanth Aravamudan wrote:
+On Friday 22 August 2008, Nishanth Aravamudan wrote:
 > On 21.08.2008 [16:54:26 -0500], Robin Holt wrote:
 > > > [   32.597792] outsl(496, e000000644678466, 3)
 > >                             ^^^^^^^^^^^^^^^^
@@ -139,10 +127,5 @@ On Thu, Aug 21, 2008 at 05:39:06PM -0700, Nishanth Aravamudan wrote:
 > We are trying to send a sense command to the device and the buffer we
 > use (which is rq->cmd) is what is unaligned, I believe. I'm not sure how
 > useful I can be going forward...
->=20
-> Thanks,
-> Nish
->=20
-> --=20
-> Nishanth Aravamudan <nacc@us.ibm.com>
-> IBM Linux Technology Center
+
+Borislav/Fujita, any ideas what is going wrong with ide-cd?
