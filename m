@@ -1,84 +1,40 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:15 +0000
-Subject: [PATCH 03/30] ia64/xen: introduce sync bitops which is necessary for ia64/xen support.
-Message-Id: <1219730322-11687-4-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:14 +0000
+Subject: [PATCH 02/30] ia64/xen: reserve "break" numbers used for xen hypercalls.
+Message-Id: <1219730322-11687-3-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define sync bitops which is necessary for ia64/xen.
-This bit operation is used to communicate with VMM or other guest kernel
-Even when this kernel is built for UP, VMM might be SMP so that those operation
-must always use atomic operation.
+reserve "break" numbers used for xen hypercalls to avoid
+reuse for something else.
 
-Cc: Robin Holt <holt@sgi.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/sync_bitops.h |   51 +++++++++++++++++++++++++++++++++++
- 1 files changed, 51 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/sync_bitops.h
+ arch/ia64/include/asm/break.h |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/sync_bitops.h b/arch/ia64/include/asm/sync_bitops.h
-new file mode 100644
-index 0000000..593c12e
---- /dev/null
-+++ b/arch/ia64/include/asm/sync_bitops.h
-@@ -0,0 +1,51 @@
-+#ifndef _ASM_IA64_SYNC_BITOPS_H
-+#define _ASM_IA64_SYNC_BITOPS_H
-+
+diff --git a/arch/ia64/include/asm/break.h b/arch/ia64/include/asm/break.h
+index f034020..e90c40e 100644
+--- a/arch/ia64/include/asm/break.h
++++ b/arch/ia64/include/asm/break.h
+@@ -20,4 +20,13 @@
+  */
+ #define __IA64_BREAK_SYSCALL		0x100000
+ 
 +/*
-+ * Copyright (C) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *
-+ * Based on synch_bitops.h which Dan Magenhaimer wrote.
-+ *
-+ * bit operations which provide guaranteed strong synchronisation
-+ * when communicating with Xen or other guest OSes running on other CPUs.
++ * Xen specific break numbers:
 + */
++#define __IA64_XEN_HYPERCALL		0x1000
++/* [__IA64_XEN_HYPERPRIVOP_START, __IA64_XEN_HYPERPRIVOP_MAX] is used
++   for xen hyperprivops */
++#define __IA64_XEN_HYPERPRIVOP_START	0x1
++#define __IA64_XEN_HYPERPRIVOP_MAX	0x1a
 +
-+static inline void sync_set_bit(int nr, volatile void *addr)
-+{
-+	set_bit(nr, addr);
-+}
-+
-+static inline void sync_clear_bit(int nr, volatile void *addr)
-+{
-+	clear_bit(nr, addr);
-+}
-+
-+static inline void sync_change_bit(int nr, volatile void *addr)
-+{
-+	change_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_set_bit(int nr, volatile void *addr)
-+{
-+	return test_and_set_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_clear_bit(int nr, volatile void *addr)
-+{
-+	return test_and_clear_bit(nr, addr);
-+}
-+
-+static inline int sync_test_and_change_bit(int nr, volatile void *addr)
-+{
-+	return test_and_change_bit(nr, addr);
-+}
-+
-+static inline int sync_test_bit(int nr, const volatile void *addr)
-+{
-+	return test_bit(nr, addr);
-+}
-+
-+#define sync_cmpxchg(ptr, old, new)				\
-+	((__typeof__(*(ptr)))cmpxchg_acq((ptr), (old), (new)))
-+
-+#endif /* _ASM_IA64_SYNC_BITOPS_H */
+ #endif /* _ASM_IA64_BREAK_H */
 -- 
 1.6.0.rc0.42.g186458
 
