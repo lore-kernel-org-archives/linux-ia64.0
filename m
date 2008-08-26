@@ -1,40 +1,78 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:16 +0000
-Subject: [PATCH 04/30] ia64/xen: increase IA64_MAX_RSVD_REGIONS.
-Message-Id: <1219730322-11687-5-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:25 +0000
+Subject: [PATCH 13/30] ia64/xen: add definitions necessary for xen event channel.
+Message-Id: <1219730322-11687-14-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Xenlinux/ia64 needs to reserve one more region passed from xen hypervisor
-as start info.
+Xen paravirtualizes interrupt as event channel.
+This patch defines arch specific part of xen event channel.
 
-Cc: Robin Holt <holt@sgi.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/meminit.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ arch/ia64/include/asm/xen/events.h |   50 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/include/asm/xen/events.h
 
-diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
-index 7245a57..6bc96ee 100644
---- a/arch/ia64/include/asm/meminit.h
-+++ b/arch/ia64/include/asm/meminit.h
-@@ -18,10 +18,11 @@
-  * 	- crash dumping code reserved region
-  * 	- Kernel memory map built from EFI memory map
-  * 	- ELF core header
-+ *	- xen start info if CONFIG_XEN
-  *
-  * More could be added if necessary
-  */
--#define IA64_MAX_RSVD_REGIONS 8
-+#define IA64_MAX_RSVD_REGIONS 9
- 
- struct rsvd_region {
- 	unsigned long start;	/* virtual address of beginning of element */
+diff --git a/arch/ia64/include/asm/xen/events.h b/arch/ia64/include/asm/xen/events.h
+new file mode 100644
+index 0000000..7324878
+--- /dev/null
++++ b/arch/ia64/include/asm/xen/events.h
+@@ -0,0 +1,50 @@
++/******************************************************************************
++ * arch/ia64/include/asm/xen/events.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++#ifndef _ASM_IA64_XEN_EVENTS_H
++#define _ASM_IA64_XEN_EVENTS_H
++
++enum ipi_vector {
++	XEN_RESCHEDULE_VECTOR,
++	XEN_IPI_VECTOR,
++	XEN_CMCP_VECTOR,
++	XEN_CPEP_VECTOR,
++
++	XEN_NR_IPIS,
++};
++
++static inline int xen_irqs_disabled(struct pt_regs *regs)
++{
++	return !(ia64_psr(regs)->i);
++}
++
++static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
++{
++	struct pt_regs *old_regs;
++	old_regs = set_irq_regs(regs);
++	irq_enter();
++	__do_IRQ(irq);
++	irq_exit();
++	set_irq_regs(old_regs);
++}
++#define irq_ctx_init(cpu)	do { } while (0)
++
++#endif /* _ASM_IA64_XEN_EVENTS_H */
 -- 
 1.6.0.rc0.42.g186458
 
