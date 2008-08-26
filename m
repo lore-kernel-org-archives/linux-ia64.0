@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 18 Aug 2008 23:46:31 +0000
+Date: Tue, 26 Aug 2008 16:59:30 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <200808182346.m7INkVTO007983@agluck-lia64.sc.intel.com>
+Message-Id: <200808261659.m7QGxUnG007771@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,22 +22,13 @@ Thanks!
 
 -Tony
 
- arch/ia64/configs/sn2_defconfig | 1285 ---------------------------------------
- arch/ia64/ia32/ia32_entry.S     |    2 +-
- arch/ia64/ia32/ia32priv.h       |    7 -
- arch/ia64/ia32/sys_ia32.c       |  132 ----
- arch/ia64/kernel/smp.c          |    8 +-
- arch/ia64/pci/pci.c             |   21 +-
- 6 files changed, 16 insertions(+), 1439 deletions(-)
- delete mode 100644 arch/ia64/configs/sn2_defconfig
+ arch/ia64/include/asm/io.h |   10 ++++++----
+ arch/ia64/kernel/smpboot.c |    1 +
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
-Christoph Hellwig (1):
-      [IA64] use generic compat_old_sys_readdir
+James Bottomley (1):
+      [IA64] Fix __{in,out}s{w,l} to handle unaligned data
 
-Robin Holt (2):
-      [IA64] Remove sn2_defconfig.
-      [IA64] Shrink shadow_flush_counts to a short array to save 8k of per_cpu area.
-
-Tony Luck (1):
-      [IA64] pci_acpi_scan_root cleanup
+Robin Holt (1):
+      [IA64] Fix ia64 build failure when CONFIG_SFC=m
 
