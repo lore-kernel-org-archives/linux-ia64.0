@@ -1,71 +1,44 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:27 +0000
-Subject: [PATCH 15/30] ia64/pv_ops/xen: elf note based xen startup.
-Message-Id: <1219730322-11687-16-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:42 +0000
+Subject: [PATCH 30/30] ia64/pv_ops: paravirtualized istruction checker.
+Message-Id: <1219730322-11687-31-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch enables elf note based xen startup for IA-64, which gives the
-kernel an early hint for running on xen like x86 case.
-In order to avoid the multi entry point, presumably extending booting
-protocol(i.e. extending struct ia64_boot_param) would be necessary.
-It probably means that elilo also needs modification.
+This patch implements a checker to detect instructions which
+should be paravirtualized instead of direct writing raw instruction.
+This patch does rough check so that it doesn't fully cover all cases,
+but it can detects most cases of paravirtualization breakage of hand
+written assembly codes.
 
-Signed-off-by: Qing He <qing.he@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/asm-offsets.c |    4 ++
- arch/ia64/xen/Makefile         |    3 +-
- arch/ia64/xen/xen_pv_ops.c     |   65 +++++++++++++++++++++++++++++++
- arch/ia64/xen/xensetup.S       |   83 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 154 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xen_pv_ops.c
- create mode 100644 arch/ia64/xen/xensetup.S
+ arch/ia64/include/asm/native/pvchk_inst.h |  263 +++++++++++++++++++++++++++++
+ arch/ia64/kernel/Makefile                 |   18 ++
+ arch/ia64/kernel/paravirt_inst.h          |    4 +-
+ arch/ia64/scripts/pvcheck.sed             |   32 ++++
+ 4 files changed, 316 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/include/asm/native/pvchk_inst.h
+ create mode 100644 arch/ia64/scripts/pvcheck.sed
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index eaa988b..742dbb1 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -17,6 +17,7 @@
- #include <asm/mca.h>
- 
- #include <asm/xen/interface.h>
-+#include <asm/xen/hypervisor.h>
- 
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
-@@ -292,6 +293,9 @@ void foo(void)
- #ifdef CONFIG_XEN
- 	BLANK();
- 
-+	DEFINE(XEN_NATIVE_ASM, XEN_NATIVE);
-+	DEFINE(XEN_PV_DOMAIN_ASM, XEN_PV_DOMAIN);
-+
- #define DEFINE_MAPPED_REG_OFS(sym, field) \
- 	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
- 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index eb59563..abc356f 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,5 @@
- # Makefile for Xen components
- #
- 
--obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
-+obj-y := hypercall.o xensetup.o xen_pv_ops.o \
-+	xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+diff --git a/arch/ia64/include/asm/native/pvchk_inst.h b/arch/ia64/include/asm/native/pvchk_inst.h
 new file mode 100644
-index 0000000..77db214
+index 0000000..b8e6eb1
 --- /dev/null
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -0,0 +1,65 @@
++++ b/arch/ia64/include/asm/native/pvchk_inst.h
+@@ -0,0 +1,263 @@
++#ifndef _ASM_NATIVE_PVCHK_INST_H
++#define _ASM_NATIVE_PVCHK_INST_H
++
 +/******************************************************************************
-+ * arch/ia64/xen/xen_pv_ops.c
++ * arch/ia64/include/asm/native/pvchk_inst.h
++ * Checker for paravirtualizations of privileged operations.
++ *
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *      Dan Magenheimer <dan.magenheimer@hp.com>
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -86,138 +59,309 @@ index 0000000..77db214
 + *
 + */
 +
-+#include <linux/console.h>
-+#include <linux/irq.h>
-+#include <linux/kernel.h>
-+#include <linux/pm.h>
++/**********************************************
++ * Instructions paravirtualized for correctness
++ **********************************************/
 +
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
-+#include <asm/xen/privop.h>
-+
-+/***************************************************************************
-+ * general info
-+ */
-+static struct pv_info xen_info __initdata = {
-+	.kernel_rpl = 2,	/* or 1: determin at runtime */
-+	.paravirt_enabled = 1,
-+	.name = "Xen/ia64",
-+};
-+
-+#define IA64_RSC_PL_SHIFT	2
-+#define IA64_RSC_PL_BIT_SIZE	2
-+#define IA64_RSC_PL_MASK	\
-+	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
-+
-+static void __init
-+xen_info_init(void)
-+{
-+	/* Xenified Linux/ia64 may run on pl = 1 or 2.
-+	 * determin at run time. */
-+	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
-+	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
-+	xen_info.kernel_rpl = rpl;
-+}
-+
-+/***************************************************************************
-+ * pv_ops initialization
++/* "fc" and "thash" are privilege-sensitive instructions, meaning they
++ *  may have different semantics depending on whether they are executed
++ *  at PL0 vs PL!=0.  When paravirtualized, these instructions mustn't
++ *  be allowed to execute directly, lest incorrect semantics result.
 + */
 +
-+void __init
-+xen_setup_pv_ops(void)
-+{
-+	xen_info_init();
-+	pv_info = xen_info;
-+}
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-new file mode 100644
-index 0000000..28fed1f
---- /dev/null
-+++ b/arch/ia64/xen/xensetup.S
-@@ -0,0 +1,83 @@
++#define fc	.error "fc should not be used directly."
++#define thash	.error "thash should not be used directly."
++
++/* Note that "ttag" and "cover" are also privilege-sensitive; "ttag"
++ * is not currently used (though it may be in a long-format VHPT system!)
++ * and the semantics of cover only change if psr.ic is off which is very
++ * rare (and currently non-existent outside of assembly code
++ */
++#define ttag	.error "ttag should not be used directly."
++#define cover	.error "cover should not be used directly."
++
++/* There are also privilege-sensitive registers.  These registers are
++ * readable at any privilege level but only writable at PL0.
++ */
++#define cpuid	.error "cpuid should not be used directly."
++#define pmd	.error "pmd should not be used directly."
++
 +/*
-+ * Support routines for Xen
-+ *
-+ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ * mov ar.eflag + * mov = ar.eflag
 + */
 +
-+#include <asm/processor.h>
-+#include <asm/asmmacro.h>
-+#include <asm/pgtable.h>
-+#include <asm/system.h>
-+#include <asm/paravirt.h>
-+#include <asm/xen/privop.h>
-+#include <linux/elfnote.h>
-+#include <linux/init.h>
-+#include <xen/interface/elfnote.h>
++/**********************************************
++ * Instructions paravirtualized for performance
++ **********************************************/
++/*
++ * Those instructions include '.' which can't be handled by cpp.
++ * or can't be handled by cpp easily.
++ * They are handled by sed instead of cpp.
++ */
 +
-+	.section .data.read_mostly
-+	.align 8
-+	.global xen_domain_type
-+xen_domain_type:
-+	data4 XEN_NATIVE_ASM
-+	.previous
++/* for .S
++ * itc.i
++ * itc.d
++ *
++ * bsw.0
++ * bsw.1
++ *
++ * ssm psr.ic | PSR_DEFAULT_BITS
++ * ssm psr.ic
++ * rsm psr.ic
++ * ssm psr.i
++ * rsm psr.i
++ * rsm psr.i | psr.ic
++ * rsm psr.dt
++ * ssm psr.dt
++ *
++ * mov = cr.ifa
++ * mov = cr.itir
++ * mov = cr.isr
++ * mov = cr.iha
++ * mov = cr.ipsr
++ * mov = cr.iim
++ * mov = cr.iip
++ * mov = cr.ivr
++ * mov = psr
++ *
++ * mov cr.ifa + * mov cr.itir + * mov cr.iha + * mov cr.ipsr + * mov cr.ifs + * mov cr.iip + * mov cr.kr + */
 +
-+	__INIT
-+ENTRY(startup_xen)
-+	// Calculate load offset.
-+	// The constant, LOAD_OFFSET, can't be used because the boot
-+	// loader doesn't always load to the LMA specified by the vmlinux.lds.
-+	mov r9=ip	// must be the first instruction to make sure
-+			// that r9 = the physical address of startup_xen.
-+			// Usually r9 = startup_xen - LOAD_OFFSET
-+	movl r8=startup_xen
++/* for intrinsics
++ * ssm psr.i
++ * rsm psr.i
++ * mov = psr
++ * mov = ivr
++ * mov = tpr
++ * mov cr.itm + * mov eoi + * mov rr[] + * mov = rr[]
++ * mov = kr
++ * mov kr + * ptc.ga
++ */
++
++/*************************************************************
++ * define paravirtualized instrcution macros as nop to ingore.
++ * and check whether arguments are appropriate.
++ *************************************************************/
++
++/* check whether reg is a regular register */
++.macro is_rreg_in reg
++	.ifc "\reg", "r0"
++		nop 0
++		.exitm
++	.endif
 +	;;
-+	sub r9=r9,r8	// Usually r9 = -LOAD_OFFSET.
-+
-+	mov r10=PARAVIRT_HYPERVISOR_TYPE_XEN
-+	movl r11=_start
++	mov \reg = r0
 +	;;
-+	add r11=r11,r9
-+	movl r8=hypervisor_type
-+	;;
-+	add r8=r8,r9
-+	mov b0=r11
-+	;;
-+	st8 [r8]=r10
-+	br.cond.sptk.many b0
-+	;;
-+END(startup_xen)
++.endm
++#define IS_RREG_IN(reg)	is_rreg_in reg ;
 +
-+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,	.asciz "linux")
-+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,	.asciz "2.6")
-+	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,	.asciz "xen-3.0")
-+	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,		data8.ua startup_xen - LOAD_OFFSET)
-+
-+#define isBP	p3	// are we the Bootstrap Processor?
-+
-+	.text
-+
-+GLOBAL_ENTRY(xen_setup_hook)
-+	mov r8=XEN_PV_DOMAIN_ASM
-+(isBP)	movl r9=xen_domain_type;;
-+(isBP)	st4 [r9]=r8
-+	movl r10=xen_ivt;;
-+
-+	mov cr.iva=r10
-+
-+	/* Set xsi base.  */
-+#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
-+(isBP)	mov r2=FW_HYPERCALL_SET_SHARED_INFO_VA
-+(isBP)	movl r28=XSI_BASE;;
-+(isBP)	break 0x1000;;
-+
-+	/* setup pv_ops */
-+(isBP)	mov r4=rp
-+	;;
-+(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
-+	;;
-+(isBP)	mov rp=r4
++#define IS_RREG_OUT(reg)			\
++	;;					\
++	mov reg = r0				\
 +	;;
 +
-+	br.ret.sptk.many rp
++#define IS_RREG_CLOB(reg)	IS_RREG_OUT(reg)
++
++/* check whether pred is a predicate register */
++#define IS_PRED_IN(pred)			\
++	;;					\
++	(pred)	nop 0				\
 +	;;
-+END(xen_setup_hook)
++
++#define IS_PRED_OUT(pred)			\
++	;;					\
++	cmp.eq pred, p0 = r0, r0		\
++	;;
++
++#define IS_PRED_CLOB(pred)	IS_PRED_OUT(pred)
++
++
++#define DO_SAVE_MIN(__COVER, SAVE_IFS, EXTRA, WORKAROUND)	\
++	nop 0
++#define MOV_FROM_IFA(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_ITIR(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_ISR(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_IHA(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_IPSR(pred, reg)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_IIM(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_IIP(reg)			\
++	IS_RREG_OUT(reg)
++#define MOV_FROM_IVR(reg, clob)			\
++	IS_RREG_OUT(reg)			\
++	IS_RREG_CLOB(clob)
++#define MOV_FROM_PSR(pred, reg, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_OUT(reg)			\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_IFA(reg, clob)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_ITIR(pred, reg, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_IHA(pred, reg, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_IPSR(pred, reg, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_IFS(pred, reg, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_IIP(reg, clob)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define MOV_TO_KR(kr, reg, clob0, clob1)	\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)
++#define ITC_I(pred, reg, clob)			\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define ITC_D(pred, reg, clob)			\
++	IS_PRED_IN(pred)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
++	IS_PRED_IN(pred_i)			\
++	IS_PRED_IN(pred_d)			\
++	IS_RREG_IN(reg)				\
++	IS_RREG_CLOB(clob)
++#define THASH(pred, reg0, reg1, clob)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_OUT(reg0)			\
++	IS_RREG_IN(reg1)			\
++	IS_RREG_CLOB(clob)
++#define SSM_PSR_IC_AND_DEFAULT_BITS_AND_SRLZ_I(clob0, clob1)	\
++	IS_RREG_CLOB(clob0)					\
++	IS_RREG_CLOB(clob1)
++#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)
++#define RSM_PSR_IC(clob)			\
++	IS_RREG_CLOB(clob)
++#define SSM_PSR_I(pred, pred_clob, clob)	\
++	IS_PRED_IN(pred)			\
++	IS_PRED_CLOB(pred_clob)			\
++	IS_RREG_CLOB(clob)
++#define RSM_PSR_I(pred, clob0, clob1)		\
++	IS_PRED_IN(pred)			\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)
++#define RSM_PSR_I_IC(clob0, clob1, clob2)	\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)			\
++	IS_RREG_CLOB(clob2)
++#define RSM_PSR_DT				\
++	nop 0
++#define SSM_PSR_DT_AND_SRLZ_I			\
++	nop 0
++#define BSW_0(clob0, clob1, clob2)		\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)			\
++	IS_RREG_CLOB(clob2)
++#define BSW_1(clob0, clob1)			\
++	IS_RREG_CLOB(clob0)			\
++	IS_RREG_CLOB(clob1)
++#define COVER					\
++	nop 0
++#define RFI					\
++	br.ret.sptk.many rp /* defining nop causes dependency error */
++
++#endif /* _ASM_NATIVE_PVCHK_INST_H */
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 87fea11..55e6ca8 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -112,5 +112,23 @@ clean-files += $(objtree)/include/asm-ia64/nr-irqs.h
+ ASM_PARAVIRT_OBJS = ivt.o entry.o
+ define paravirtualized_native
+ AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
++AFLAGS_pvchk-sed-$(1) += -D__IA64_ASM_PARAVIRTUALIZED_PVCHECK
++extra-y += pvchk-$(1)
+ endef
+ $(foreach obj,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_native,$(obj))))
++
++#
++# Checker for paravirtualizations of privileged operations.
++#
++quiet_cmd_pv_check_sed = PVCHK   $@
++define cmd_pv_check_sed
++	sed -f $(srctree)/arch/$(SRCARCH)/scripts/pvcheck.sed $< > $@
++endef
++
++$(obj)/pvchk-sed-%.s: $(src)/%.S $(srctree)/arch/$(SRCARCH)/scripts/pvcheck.sed FORCE
++	$(call if_changed_dep,as_s_S)
++$(obj)/pvchk-%.s: $(obj)/pvchk-sed-%.s FORCE
++	$(call if_changed,pv_check_sed)
++$(obj)/pvchk-%.o: $(obj)/pvchk-%.s FORCE
++	$(call if_changed,as_o_S)
++.PRECIOUS: $(obj)/pvchk-sed-%.s $(obj)/pvchk-%.s $(obj)/pvchk-%.o
+diff --git a/arch/ia64/kernel/paravirt_inst.h b/arch/ia64/kernel/paravirt_inst.h
+index 5cad6fb..64d6d81 100644
+--- a/arch/ia64/kernel/paravirt_inst.h
++++ b/arch/ia64/kernel/paravirt_inst.h
+@@ -20,7 +20,9 @@
+  *
+  */
+ 
+-#ifdef __IA64_ASM_PARAVIRTUALIZED_XEN
++#ifdef __IA64_ASM_PARAVIRTUALIZED_PVCHECK
++#include <asm/native/pvchk_inst.h>
++#elif defined(__IA64_ASM_PARAVIRTUALIZED_XEN)
+ #include <asm/xen/inst.h>
+ #include <asm/xen/minstate.h>
+ #else
+diff --git a/arch/ia64/scripts/pvcheck.sed b/arch/ia64/scripts/pvcheck.sed
+new file mode 100644
+index 0000000..5a452b9
+--- /dev/null
++++ b/arch/ia64/scripts/pvcheck.sed
+@@ -0,0 +1,32 @@
++#
++# Checker for paravirtualizations of privileged operations.
++#
++s/ssm.+psr\.ic/.warning \"ssm psr.ic should not be used directly\"/g
++s/rsm.+psr\.ic/.warning \"rsm psr.ic should not be used directly\"/g
++s/ssm.+psr\.i/.warning \"ssm psr.i should not be used directly\"/g
++s/rsm.+psr\.i/.warning \"rsm psr.i should not be used directly\"/g
++s/ssm.+psr\.dt/.warning \"ssm psr.dt should not be used directly\"/g
++s/rsm.+psr\.dt/.warning \"rsm psr.dt should not be used directly\"/g
++s/mov.+=.*cr\.ifa/.warning \"cr.ifa should not used directly\"/g
++s/mov.+=.*cr\.itir/.warning \"cr.itir should not used directly\"/g
++s/mov.+=.*cr\.isr/.warning \"cr.isr should not used directly\"/g
++s/mov.+=.*cr\.iha/.warning \"cr.iha should not used directly\"/g
++s/mov.+=.*cr\.ipsr/.warning \"cr.ipsr should not used directly\"/g
++s/mov.+=.*cr\.iim/.warning \"cr.iim should not used directly\"/g
++s/mov.+=.*cr\.iip/.warning \"cr.iip should not used directly\"/g
++s/mov.+=.*cr\.ivr/.warning \"cr.ivr should not used directly\"/g
++s/mov.+=.*psr/.warning \"psr should not used directly\"/g
++s/mov.+=.*ar\.eflags/.warning \"ar.eflags should not used directly\"/g
++s/mov.+cr\.ifa.*=/.warning \"cr.ifa should not used directly\"/g
++s/mov.+cr\.itir.*=/.warning \"cr.itir should not used directly\"/g
++s/mov.+cr\.iha.*=/.warning \"cr.iha should not used directly\"/g
++s/mov.+cr\.ipsr.*=/.warning \"cr.ipsr should not used directly\"/g
++s/mov.+cr\.ifs.*=/.warning \"cr.ifs should not used directly\"/g
++s/mov.+cr\.iip.*=/.warning \"cr.iip should not used directly\"/g
++s/mov.+cr\.kr.*=/.warning \"cr.kr should not used directly\"/g
++s/mov.+ar\.eflags.*=/.warning \"ar.eflags should not used directly\"/g
++s/itc\.i/.warning \"itc.i should not be used directly.\"/g
++s/itc\.d/.warning \"itc.d should not be used directly.\"/g
++s/bsw\.0/.warning \"bsw.0 should not be used directly.\"/g
++s/bsw\.1/.warning \"bsw.1 should not be used directly.\"/g
++s/ptc\.ga/.warning \"ptc.ga should not be used directly.\"/g
 -- 
 1.6.0.rc0.42.g186458
 
