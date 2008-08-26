@@ -1,69 +1,153 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 15 Aug 2008 22:37:48 +0000
-Subject: [PATCH] ia64 pci_acpi_scan_root cleanup
-Message-Id: <200808152237.m7FMbmFQ011273@agluck-lia64.sc.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:12 +0000
+Subject: [PATCH 00/30] ia64/xen domU take 10
+Message-Id: <1219730322-11687-1-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The code walks all the acpi _CRS methods to see how many windows
-to allocate.  It then scans them all again to insert_resource()
-for each *even if the first scan found that there were none*.
+This patchset is ia64/xen domU patch take 10 which is rebased
+to 2.6.27-rc4.
+This patchset implements ia64/xen domU support based on ia64/pv_ops
+frame work which was sent as another patchest.
 
-Move the second scan inside the "if (windows)" clause.
+This patchset does the followings.
+- Some preparation work. Mainly importing header files to define
+  related structures.
+- Then, define functions related to hypercall which is the way to
+  communicate with Xen hypervisor.
+- Add some helper functions which is necessary to utilize
+  xen arch generic portion.
+- Next implements the xen instance of pv_ops introducing
+  pv_info, pv_init_ops, pv_cpu_ops and its assembler counter part,
+  pv_iosapic_ops, pv_irq_ops and, pv_time_ops step by step.
+- Introduce xen machine vector to describe xen platform.
+  By using machine vector, xen domU implementation can be simplified.
+- Lastly update Kconfig to allow paravirtualization support and
+  xen domU support to compile.
 
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+To compile, the changesets in x86/xen branch are also needed.
+I expected the necessary patches will be merged soon.
+For convenience the working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
+branch: ia64-pv-ops-2008aug26-xen-ia64
 
----
+For the status of this patch series
+http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
 
-Looks obvious ... but throwing this out for review just in
-case I'm missing something subtle.  My tiger system does have
-a root bus with no windows, so this isn't a no-op.
+At this phase, we don't address the following issues.
+Those will be addressed after the first merge.
+- optimization by binary patch
+  In fact, we had the patch to do that, but we intentionally dropped
+  for patch size/readability/cleanness.
+- freeing the unused pages, i.e. pages for unused ivt.S.
+- complete save/restore support
+- ar.itc paravirtualization which is necessary for save/restore support
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 77b15f8..7545037 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -324,7 +324,6 @@ pcibios_setup_root_windows(struct pci_bus *bus, struct pci_controller *ctrl)
- struct pci_bus * __devinit
- pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
- {
--	struct pci_root_info info;
- 	struct pci_controller *controller;
- 	unsigned int windows = 0;
- 	struct pci_bus *pbus;
-@@ -346,22 +345,24 @@ pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
- 			&windows);
- 	if (windows) {
-+		struct pci_root_info info;
-+
- 		controller->window  			kmalloc_node(sizeof(*controller->window) * windows,
- 				     GFP_KERNEL, controller->node);
- 		if (!controller->window)
- 			goto out2;
--	}
- 
--	name = kmalloc(16, GFP_KERNEL);
--	if (!name)
--		goto out3;
-+		name = kmalloc(16, GFP_KERNEL);
-+		if (!name)
-+			goto out3;
- 
--	sprintf(name, "PCI Bus %04x:%02x", domain, bus);
--	info.controller = controller;
--	info.name = name;
--	acpi_walk_resources(device->handle, METHOD_NAME__CRS, add_window,
--			&info);
-+		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
-+		info.controller = controller;
-+		info.name = name;
-+		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
-+			add_window, &info);
-+	}
- 	/*
- 	 * See arch/x86/pci/acpi.c.
- 	 * The desired pci bus might already be scanned in a quirk. We
+Changes from take 9:
+- rebased to 2.6.27-rc4
+- caught up moving header files.
+- caught up the x86 xen changes (mainly xen mode predicate)
+- enhanced pv checker to detect inappropriate register usage.
+- typo
+
+Changes from take 8:
+- rebased to 2.6.26
+- updated pvclock-abi.h
+
+Changes from take 7:
+- various typos
+- clean up sync_bitops.h
+- style fix on include/asm-ia64/xen/interface.h
+- reserve the "break" numbers in include/asm-ia64/break.h
+- xencomm clean up
+- dropped NET_SKB_PAD patch. It was a bug in xen-netfront.c.
+- CONFIG_IA64_XEN -> CONFIG_IA64_XEN_GUEST
+- catch up for x86 pvclock-abi.h
+- work around for IPI with IA64_TIME_VECTOR
+- add pv checker
+
+Changes from take 6:
+- rebased to linux ia64 test tree
+- xen bsw_1 simplification.
+- add documentation. Documentation/ia64/xen.txt
+- preliminary support for save/restore.
+- network fix. NET_SKB_PAD.
+
+Changes from take 5:
+- rebased to Linux 2.6.26-rc3
+- fix ivt.S paravirtualization.
+  One instruction was wrongly paravirtualized.
+  It wasn't revealed with Xen HVM domain so far, but with real hw
+- multi entry point support.
+- revised changelog to add CCs.
+
+Changes from take 4:
+- fix synch bit ops definitions to prevent accidental namespace clashes.
+- rebased and fixed breakages due to the upstream change.
+
+Changes from take 3:
+- split the patch set into pv_op part and xen domU part.
+- many clean ups.
+- introduced pv_ops: pv_cpu_ops and pv_time_ops.
+
+Changes from take 2:
+- many clean ups following to comments.
+- clean up:assembly instruction macro.
+- introduced pv_ops: pv_info, pv_init_ops, pv_iosapic_ops, pv_irq_ops.
+
+Changes from take 1:
+Single IVT source code. compile multitimes using assembler macros.
+
+thanks,
+
+Diffstat:
+ Documentation/ia64/xen.txt                         |  183 ++++++++
+ arch/ia64/Kconfig                                  |   32 ++
+ arch/ia64/Makefile                                 |    2 +
+ arch/ia64/include/asm/break.h                      |    9 +
+ arch/ia64/include/asm/machvec.h                    |    2 +
+ arch/ia64/include/asm/machvec_xen.h                |   22 +
+ arch/ia64/include/asm/meminit.h                    |    3 +-
+ arch/ia64/include/asm/native/pvchk_inst.h          |  263 +++++++++++
+ arch/ia64/include/asm/pvclock-abi.h                |    5 +
+ arch/ia64/include/asm/sync_bitops.h                |   51 +++
+ arch/ia64/include/asm/timex.h                      |    2 +
+ .../paravirt_inst.h => include/asm/xen/events.h}   |   35 ++-
+ .../asm/xen/grant_table.h}                         |   14 +-
+ arch/ia64/include/asm/xen/hypercall.h              |  265 +++++++++++
+ arch/ia64/include/asm/xen/hypervisor.h             |   89 ++++
+ arch/ia64/include/asm/xen/inst.h                   |  458 ++++++++++++++++++++
+ arch/ia64/include/asm/xen/interface.h              |  346 +++++++++++++++
+ arch/ia64/include/asm/xen/irq.h                    |   44 ++
+ arch/ia64/include/asm/xen/minstate.h               |  134 ++++++
+ arch/ia64/include/asm/xen/page.h                   |   65 +++
+ arch/ia64/include/asm/xen/privop.h                 |  129 ++++++
+ arch/ia64/include/asm/xen/xcom_hcall.h             |   51 +++
+ arch/ia64/include/asm/xen/xencomm.h                |   42 ++
+ arch/ia64/kernel/Makefile                          |   18 +
+ arch/ia64/kernel/acpi.c                            |    5 +
+ arch/ia64/kernel/asm-offsets.c                     |   31 ++
+ arch/ia64/kernel/nr-irqs.c                         |    1 +
+ arch/ia64/kernel/paravirt_inst.h                   |    4 +-
+ arch/ia64/kernel/process.c                         |    1 -
+ arch/ia64/scripts/pvcheck.sed                      |   32 ++
+ arch/ia64/xen/Kconfig                              |   26 ++
+ arch/ia64/xen/Makefile                             |   22 +
+ arch/ia64/xen/grant-table.c                        |  155 +++++++
+ arch/ia64/xen/hypercall.S                          |   91 ++++
+ arch/ia64/xen/hypervisor.c                         |   96 ++++
+ arch/ia64/xen/irq_xen.c                            |  435 +++++++++++++++++++
+ .../ia64/{kernel/paravirt_inst.h => xen/irq_xen.h} |   19 +-
+ arch/ia64/xen/machvec.c                            |    4 +
+ .../ia64/{kernel/paravirt_inst.h => xen/suspend.c} |   49 ++-
+ arch/ia64/xen/time.c                               |  198 +++++++++
+ arch/ia64/{kernel/paravirt_inst.h => xen/time.h}   |   11 +-
+ arch/ia64/xen/xcom_hcall.c                         |  441 +++++++++++++++++++
+ arch/ia64/xen/xen_pv_ops.c                         |  364 ++++++++++++++++
+ arch/ia64/xen/xencomm.c                            |  105 +++++
+ arch/ia64/xen/xenivt.S                             |   52 +++
+ arch/ia64/xen/xensetup.S                           |   83 ++++
+ 46 files changed, 4450 insertions(+), 39 deletions(-)
