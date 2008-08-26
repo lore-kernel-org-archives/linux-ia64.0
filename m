@@ -1,78 +1,91 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:25 +0000
-Subject: [PATCH 13/30] ia64/xen: add definitions necessary for xen event channel.
-Message-Id: <1219730322-11687-14-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:34 +0000
+Subject: [PATCH 22/30] ia64/pv_ops/xen: implement xen pv_iosapic_ops.
+Message-Id: <1219730322-11687-23-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Xen paravirtualizes interrupt as event channel.
-This patch defines arch specific part of xen event channel.
+implement xen pv_iosapic_ops for xen paravirtualized
+iosapic.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/events.h |   50 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 50 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/events.h
+ arch/ia64/xen/xen_pv_ops.c |   52 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 52 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/events.h b/arch/ia64/include/asm/xen/events.h
-new file mode 100644
-index 0000000..7324878
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/events.h
-@@ -0,0 +1,50 @@
-+/******************************************************************************
-+ * arch/ia64/include/asm/xen/events.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 5b23cd5..3186c4f 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -292,6 +292,57 @@ const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
+ };
+ 
+ /***************************************************************************
++ * pv_iosapic_ops
++ * iosapic read/write hooks.
 + */
-+#ifndef _ASM_IA64_XEN_EVENTS_H
-+#define _ASM_IA64_XEN_EVENTS_H
++static void
++xen_pcat_compat_init(void)
++{
++	/* nothing */
++}
 +
-+enum ipi_vector {
-+	XEN_RESCHEDULE_VECTOR,
-+	XEN_IPI_VECTOR,
-+	XEN_CMCP_VECTOR,
-+	XEN_CPEP_VECTOR,
++static struct irq_chip*
++xen_iosapic_get_irq_chip(unsigned long trigger)
++{
++	return NULL;
++}
 +
-+	XEN_NR_IPIS,
++static unsigned int
++xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
++{
++	struct physdev_apic apic_op;
++	int ret;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
++	if (ret)
++		return ret;
++	return apic_op.value;
++}
++
++static void
++xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
++{
++	struct physdev_apic apic_op;
++
++	apic_op.apic_physbase = (unsigned long)iosapic -
++					__IA64_UNCACHED_OFFSET;
++	apic_op.reg = reg;
++	apic_op.value = val;
++	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
++}
++
++static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
++	.pcat_compat_init = xen_pcat_compat_init,
++	.get_irq_chip = xen_iosapic_get_irq_chip,
++
++	.__read = xen_iosapic_read,
++	.__write = xen_iosapic_write,
 +};
 +
-+static inline int xen_irqs_disabled(struct pt_regs *regs)
-+{
-+	return !(ia64_psr(regs)->i);
-+}
-+
-+static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
-+{
-+	struct pt_regs *old_regs;
-+	old_regs = set_irq_regs(regs);
-+	irq_enter();
-+	__do_IRQ(irq);
-+	irq_exit();
-+	set_irq_regs(old_regs);
-+}
-+#define irq_ctx_init(cpu)	do { } while (0)
-+
-+#endif /* _ASM_IA64_XEN_EVENTS_H */
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -302,6 +353,7 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++	pv_iosapic_ops = xen_iosapic_ops;
+ 
+ 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+ }
 -- 
 1.6.0.rc0.42.g186458
 
