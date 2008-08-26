@@ -1,90 +1,62 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:34 +0000
-Subject: [PATCH 22/30] ia64/pv_ops/xen: implement xen pv_iosapic_ops.
-Message-Id: <1219730322-11687-23-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:18 +0000
+Subject: [PATCH 06/30] ia64/xen: define several constants for ia64/xen.
+Message-Id: <1219730322-11687-7-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-implement xen pv_iosapic_ops for xen paravirtualized
-iosapic.
+define several constants for ia64/xen.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/xen_pv_ops.c |   52 ++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 52 insertions(+), 0 deletions(-)
+ arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 5b23cd5..3186c4f 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -292,6 +292,57 @@ const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
- };
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index 94c44b1..eaa988b 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -16,6 +16,8 @@
+ #include <asm/sigcontext.h>
+ #include <asm/mca.h>
  
- /***************************************************************************
-+ * pv_iosapic_ops
-+ * iosapic read/write hooks.
-+ */
-+static void
-+xen_pcat_compat_init(void)
-+{
-+	/* nothing */
-+}
++#include <asm/xen/interface.h>
 +
-+static struct irq_chip*
-+xen_iosapic_get_irq_chip(unsigned long trigger)
-+{
-+	return NULL;
-+}
-+
-+static unsigned int
-+xen_iosapic_read(char __iomem *iosapic, unsigned int reg)
-+{
-+	struct physdev_apic apic_op;
-+	int ret;
-+
-+	apic_op.apic_physbase = (unsigned long)iosapic -
-+					__IA64_UNCACHED_OFFSET;
-+	apic_op.reg = reg;
-+	ret = HYPERVISOR_physdev_op(PHYSDEVOP_apic_read, &apic_op);
-+	if (ret)
-+		return ret;
-+	return apic_op.value;
-+}
-+
-+static void
-+xen_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
-+{
-+	struct physdev_apic apic_op;
-+
-+	apic_op.apic_physbase = (unsigned long)iosapic -
-+					__IA64_UNCACHED_OFFSET;
-+	apic_op.reg = reg;
-+	apic_op.value = val;
-+	HYPERVISOR_physdev_op(PHYSDEVOP_apic_write, &apic_op);
-+}
-+
-+static const struct pv_iosapic_ops xen_iosapic_ops __initdata = {
-+	.pcat_compat_init = xen_pcat_compat_init,
-+	.get_irq_chip = xen_iosapic_get_irq_chip,
-+
-+	.__read = xen_iosapic_read,
-+	.__write = xen_iosapic_write,
-+};
-+
-+/***************************************************************************
-  * pv_ops initialization
-  */
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
  
-@@ -302,6 +353,7 @@ xen_setup_pv_ops(void)
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
- 	pv_cpu_ops = xen_cpu_ops;
-+	pv_iosapic_ops = xen_iosapic_ops;
- 
- 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+@@ -286,4 +288,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++
++#ifdef CONFIG_XEN
++	BLANK();
++
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
  }
 -- 
 1.6.0.rc0.42.g186458
