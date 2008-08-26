@@ -1,88 +1,159 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:33 +0000
-Subject: [PATCH 21/30] ia64/pv_ops/xen: paravirtualize entry.S for ia64/xen.
-Message-Id: <1219730322-11687-22-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:39 +0000
+Subject: [PATCH 27/30] ia64/xen: preliminary support for save/restore.
+Message-Id: <1219730322-11687-28-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize entry.S for ia64/xen by multi compile.
+preliminary support for save/restore.
+Although Save/restore isn't fully working yet, this patch is necessary
+to compile.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/inst.h |    8 ++++++++
- arch/ia64/xen/Makefile           |    2 +-
- arch/ia64/xen/xen_pv_ops.c       |   18 ++++++++++++++++++
- 3 files changed, 27 insertions(+), 1 deletions(-)
+ arch/ia64/xen/Makefile              |    2 +-
+ arch/ia64/xen/{time.h => suspend.c} |   45 +++++++++++++++++++++++++++++++++-
+ arch/ia64/xen/time.c                |   33 +++++++++++++++++++++++++
+ arch/ia64/xen/time.h                |    1 +
+ 4 files changed, 78 insertions(+), 3 deletions(-)
+ copy arch/ia64/xen/{time.h => suspend.c} (64%)
 
-diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
-index e6a25c3..19c2ae1 100644
---- a/arch/ia64/include/asm/xen/inst.h
-+++ b/arch/ia64/include/asm/xen/inst.h
-@@ -25,6 +25,14 @@
- #define ia64_ivt				xen_ivt
- #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
- 
-+#define __paravirt_switch_to			xen_switch_to
-+#define __paravirt_leave_syscall		xen_leave_syscall
-+#define __paravirt_work_processed_syscall	xen_work_processed_syscall
-+#define __paravirt_leave_kernel			xen_leave_kernel
-+#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						xen_work_processed_syscall
-+
- #define MOV_FROM_IFA(reg)	\
- 	movl reg = XSI_IFA;	\
- 	;;			\
 diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 5c87e4a..9b77e8a 100644
+index 972d085..0ad0224 100644
 --- a/arch/ia64/xen/Makefile
 +++ b/arch/ia64/xen/Makefile
-@@ -8,7 +8,7 @@ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+@@ -3,7 +3,7 @@
+ #
  
- # xen multi compile
--ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
- ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
- obj-y += $(ASM_PARAVIRT_OBJS)
- define paravirtualized_xen
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index c236f04..5b23cd5 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -275,6 +275,22 @@ static const struct pv_cpu_ops xen_cpu_ops __initdata = {
- 			= xen_intrin_local_irq_restore,
- };
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
  
-+/******************************************************************************
-+ * replacement of hand written assembly codes.
-+ */
-+
-+extern char xen_switch_to;
-+extern char xen_leave_syscall;
-+extern char xen_work_processed_syscall;
-+extern char xen_leave_kernel;
-+
-+const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
-+	.switch_to		= (unsigned long)&xen_switch_to,
-+	.leave_syscall		= (unsigned long)&xen_leave_syscall,
-+	.work_processed_syscall	= (unsigned long)&xen_work_processed_syscall,
-+	.leave_kernel		= (unsigned long)&xen_leave_kernel,
-+};
-+
- /***************************************************************************
-  * pv_ops initialization
+ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+ 
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/suspend.c
+similarity index 64%
+copy from arch/ia64/xen/time.h
+copy to arch/ia64/xen/suspend.c
+index b9c7ec5..fd66b04 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/suspend.c
+@@ -1,5 +1,5 @@
+ /******************************************************************************
+- * arch/ia64/xen/time.h
++ * arch/ia64/xen/suspend.c
+  *
+  * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
+  *                    VA Linux Systems Japan K.K.
+@@ -18,6 +18,47 @@
+  * along with this program; if not, write to the Free Software
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+  *
++ * suspend/resume
   */
-@@ -286,4 +302,6 @@ xen_setup_pv_ops(void)
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
- 	pv_cpu_ops = xen_cpu_ops;
+ 
+-extern struct pv_time_ops xen_time_ops __initdata;
++#include <xen/xen-ops.h>
++#include <asm/xen/hypervisor.h>
++#include "time.h"
 +
-+	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
- }
++void
++xen_mm_pin_all(void)
++{
++	/* nothing */
++}
++
++void
++xen_mm_unpin_all(void)
++{
++	/* nothing */
++}
++
++void xen_pre_device_suspend(void)
++{
++	/* nothing */
++}
++
++void
++xen_pre_suspend()
++{
++	/* nothing */
++}
++
++void
++xen_post_suspend(int suspend_cancelled)
++{
++	if (suspend_cancelled)
++		return;
++
++	xen_ia64_enable_opt_feature();
++	/* add more if necessary */
++}
++
++void xen_arch_resume(void)
++{
++	xen_timer_resume_on_aps();
++}
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index 3414f1e..5785469 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -26,6 +26,8 @@
+ #include <linux/irq.h>
+ #include <linux/clocksource.h>
+ 
++#include <asm/timex.h>
++
+ #include <asm/xen/hypervisor.h>
+ 
+ #include <xen/interface/vcpu.h>
+@@ -163,3 +165,34 @@ struct pv_time_ops xen_time_ops __initdata = {
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
+ };
++
++/* Called after suspend, to resume time.  */
++static void xen_local_tick_resume(void)
++{
++	/* Just trigger a tick.  */
++	ia64_cpu_local_tick();
++	touch_softlockup_watchdog();
++}
++
++void
++xen_timer_resume(void)
++{
++	unsigned int cpu;
++
++	xen_local_tick_resume();
++
++	for_each_online_cpu(cpu)
++		xen_init_missing_ticks_accounting(cpu);
++}
++
++static void ia64_cpu_local_tick_fn(void *unused)
++{
++	xen_local_tick_resume();
++	xen_init_missing_ticks_accounting(smp_processor_id());
++}
++
++void
++xen_timer_resume_on_aps(void)
++{
++	smp_call_function(&ia64_cpu_local_tick_fn, NULL, 1);
++}
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
+index b9c7ec5..f98d7e1 100644
+--- a/arch/ia64/xen/time.h
++++ b/arch/ia64/xen/time.h
+@@ -21,3 +21,4 @@
+  */
+ 
+ extern struct pv_time_ops xen_time_ops __initdata;
++void xen_timer_resume_on_aps(void);
 -- 
 1.6.0.rc0.42.g186458
 
