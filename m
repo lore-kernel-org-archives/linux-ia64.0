@@ -1,68 +1,118 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 15 Aug 2008 14:21:24 +0000
-Subject: [Patch] Shrink shadow_flush_counts to a short array to save 8k of
-Message-Id: <20080815142124.GO6824@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:32 +0000
+Subject: [PATCH 20/30] ia64/pv_ops/xen: paravirtualize ivt.S for xen.
+Message-Id: <1219730322-11687-21-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+paravirtualize ivt.S for xen by multi compile.
 
-Making allmodconfig will break the current build.  This patch shrinks
-the per_cpu__shadow_flush_counts from 16k to 8k which frees enough space
-to allow allmodconfig to successfully complete.
-
-Signed-off-by: Robin Holt <holt@sgi.com>
-Acked-by: Jack Steiner <steiner@sgi.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ arch/ia64/include/asm/xen/inst.h |    1 +
+ arch/ia64/xen/Makefile           |   16 +++++++++++-
+ arch/ia64/xen/xenivt.S           |   52 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xenivt.S
 
-I realize this is not as clean as it might be.  We were concerned both
-about moving the shadow_flush_counts[] to be an allocation and then
-causing additional TLB (albeit slight) pressure.  This seemed like a
-reasonable compromise.  I don't think I personally have any additional
-time to put into this issue for this kernel release.
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index 1e92ed0..e6a25c3 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -22,6 +22,7 @@
+ 
+ #include <asm/xen/privop.h>
+ 
++#define ia64_ivt				xen_ivt
+ #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
+ 
+ #define MOV_FROM_IFA(reg)	\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 7cb4247..5c87e4a 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,5 +2,19 @@
+ # Makefile for Xen components
+ #
+ 
+-obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
+ 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
++
++AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++
++# xen multi compile
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
++ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
++obj-y += $(ASM_PARAVIRT_OBJS)
++define paravirtualized_xen
++AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++endef
++$(foreach o,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_xen,$(o))))
++
++$(obj)/xen-%.o: $(src)/../kernel/%.S FORCE
++	$(call if_changed_dep,as_o_S)
+diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
+new file mode 100644
+index 0000000..3e71d50
+--- /dev/null
++++ b/arch/ia64/xen/xenivt.S
+@@ -0,0 +1,52 @@
++/*
++ * arch/ia64/xen/ivt.S
++ *
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *                    pv_ops.
++ */
++
++#include <asm/asmmacro.h>
++#include <asm/kregs.h>
++#include <asm/pgtable.h>
++
++#include "../kernel/minstate.h"
++
++	.section .text,"ax"
++GLOBAL_ENTRY(xen_event_callback)
++	mov r31=pr		// prepare to save predicates
++	;;
++	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
++	;;
++	movl r3=XSI_PSR_IC
++	mov r14=1
++	;;
++	st4 [r3]=r14
++	;;
++	adds r3=8,r2		// set up second base pointer for SAVE_REST
++	srlz.i			// ensure everybody knows psr.ic is back on
++	;;
++	SAVE_REST
++	;;
++1:
++	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
++	add out0,sp		// pass pointer to pt_regs as first arg
++	;;
++	br.call.sptk.many b0=xen_evtchn_do_upcall
++	;;
++	movl r20=XSI_PSR_I_ADDR
++	;;
++	ld8 r20=[r20]
++	;;
++	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
++	;;
++	ld1 r20=[r20]
++	;;
++	cmp.ne p6,p0=r20,r0	// if there are pending events,
++	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
++	br.sptk.many xen_leave_kernel	// we know ia64_leave_kernel is
++					// paravirtualized as xen_leave_kernel
++END(xen_event_callback)
+-- 
+1.6.0.rc0.42.g186458
 
-Robin
-
-
-Index: reduce_per_cpu_usage/arch/ia64/kernel/smp.c
-=================================--- reduce_per_cpu_usage.orig/arch/ia64/kernel/smp.c	2008-08-15 09:04:39.434143449 -0500
-+++ reduce_per_cpu_usage/arch/ia64/kernel/smp.c	2008-08-15 09:10:22.436964745 -0500
-@@ -58,7 +58,7 @@ static struct local_tlb_flush_counts {
- 	unsigned int count;
- } __attribute__((__aligned__(32))) local_tlb_flush_counts[NR_CPUS];
- 
--static DEFINE_PER_CPU(unsigned int, shadow_flush_counts[NR_CPUS]) ____cacheline_aligned;
-+static DEFINE_PER_CPU(unsigned short, shadow_flush_counts[NR_CPUS]) ____cacheline_aligned;
- 
- #define IPI_CALL_FUNC		0
- #define IPI_CPU_STOP		1
-@@ -254,7 +254,7 @@ smp_local_flush_tlb(void)
- void
- smp_flush_tlb_cpumask(cpumask_t xcpumask)
- {
--	unsigned int *counts = __ia64_per_cpu_var(shadow_flush_counts);
-+	unsigned short *counts = __ia64_per_cpu_var(shadow_flush_counts);
- 	cpumask_t cpumask = xcpumask;
- 	int mycpu, cpu, flush_mycpu = 0;
- 
-@@ -262,7 +262,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask
- 	mycpu = smp_processor_id();
- 
- 	for_each_cpu_mask(cpu, cpumask)
--		counts[cpu] = local_tlb_flush_counts[cpu].count;
-+		counts[cpu] = local_tlb_flush_counts[cpu].count & 0xffff;
- 
- 	mb();
- 	for_each_cpu_mask(cpu, cpumask) {
-@@ -276,7 +276,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask
- 		smp_local_flush_tlb();
- 
- 	for_each_cpu_mask(cpu, cpumask)
--		while(counts[cpu] = local_tlb_flush_counts[cpu].count)
-+		while(counts[cpu] = (local_tlb_flush_counts[cpu].count & 0xffff))
- 			udelay(FLUSH_DELAY);
- 
- 	preempt_enable();
