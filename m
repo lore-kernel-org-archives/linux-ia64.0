@@ -1,52 +1,77 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:36 +0000
-Subject: [PATCH 24/30] ia64/pv_ops/xen: implement xen pv_irq_ops.
-Message-Id: <1219730322-11687-25-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:28 +0000
+Subject: [PATCH 16/30] ia64/pv_ops/xen: define xen pv_init_ops for various xen initialization.
+Message-Id: <1219730322-11687-17-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-implement xen pv_irq_ops to paravirtualize irq handling
-with xen event channel.
+This patch implements xen version of pv_init_ops to do various
+xen initialization.
+This patch also includes ia64 counter part of x86 xen early printk support
+patches.
 
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
 Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
 Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile     |    2 +-
- arch/ia64/xen/irq_xen.c    |  435 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/irq_xen.h    |   34 ++++
- arch/ia64/xen/xen_pv_ops.c |    3 +
- 4 files changed, 473 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/irq_xen.c
- create mode 100644 arch/ia64/xen/irq_xen.h
+ arch/ia64/include/asm/xen/hypervisor.h |   14 ++++
+ arch/ia64/xen/Makefile                 |    2 +-
+ arch/ia64/xen/hypervisor.c             |   96 ++++++++++++++++++++++++++++
+ arch/ia64/xen/xen_pv_ops.c             |  110 ++++++++++++++++++++++++++++++++
+ 4 files changed, 221 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/hypervisor.c
 
+diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
+index d1f84e1..7a804e8 100644
+--- a/arch/ia64/include/asm/xen/hypervisor.h
++++ b/arch/ia64/include/asm/xen/hypervisor.h
+@@ -59,8 +59,22 @@ extern enum xen_domain_type xen_domain_type;
+ /* deprecated. remove this */
+ #define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
+ 
++extern struct shared_info *HYPERVISOR_shared_info;
+ extern struct start_info *xen_start_info;
+ 
++void __init xen_setup_vcpu_info_placement(void);
++void force_evtchn_callback(void);
++
++/* for drivers/xen/balloon/balloon.c */
++#ifdef CONFIG_XEN_SCRUB_PAGES
++#define scrub_pages(_p, _n) memset((void *)(_p), 0, (_n) << PAGE_SHIFT)
++#else
++#define scrub_pages(_p, _n) ((void)0)
++#endif
++
++/* For setup_arch() in arch/ia64/kernel/setup.c */
++void xen_ia64_enable_opt_feature(void);
++
+ #else /* CONFIG_XEN */
+ 
+ #define xen_domain()		(0)
 diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 9b77e8a..01c4289 100644
+index abc356f..7cb4247 100644
 --- a/arch/ia64/xen/Makefile
 +++ b/arch/ia64/xen/Makefile
-@@ -2,7 +2,7 @@
- # Makefile for Xen components
+@@ -3,4 +3,4 @@
  #
  
--obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
-+obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
- 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
- 
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-diff --git a/arch/ia64/xen/irq_xen.c b/arch/ia64/xen/irq_xen.c
+ obj-y := hypercall.o xensetup.o xen_pv_ops.o \
+-	xencomm.o xcom_hcall.o grant-table.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/hypervisor.c b/arch/ia64/xen/hypervisor.c
 new file mode 100644
-index 0000000..af93aad
+index 0000000..cac4d97
 --- /dev/null
-+++ b/arch/ia64/xen/irq_xen.c
-@@ -0,0 +1,435 @@
++++ b/arch/ia64/xen/hypervisor.c
+@@ -0,0 +1,96 @@
 +/******************************************************************************
-+ * arch/ia64/xen/irq_xen.c
++ * arch/ia64/xen/hypervisor.c
 + *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -65,479 +90,204 @@ index 0000000..af93aad
 + *
 + */
 +
-+#include <linux/cpu.h>
-+
-+#include <xen/interface/xen.h>
-+#include <xen/interface/callback.h>
-+#include <xen/events.h>
-+
++#include <linux/efi.h>
++#include <asm/xen/hypervisor.h>
 +#include <asm/xen/privop.h>
 +
 +#include "irq_xen.h"
 +
-+/***************************************************************************
-+ * pv_irq_ops
-+ * irq operations
++struct shared_info *HYPERVISOR_shared_info __read_mostly +	(struct shared_info *)XSI_BASE;
++EXPORT_SYMBOL(HYPERVISOR_shared_info);
++
++DEFINE_PER_CPU(struct vcpu_info *, xen_vcpu);
++
++struct start_info *xen_start_info;
++EXPORT_SYMBOL(xen_start_info);
++
++EXPORT_SYMBOL(xen_domain_type);
++
++EXPORT_SYMBOL(__hypercall);
++
++/* Stolen from arch/x86/xen/enlighten.c */
++/*
++ * Flag to determine whether vcpu info placement is available on all
++ * VCPUs.  We assume it is to start with, and then set it to zero on
++ * the first failure.  This is because it can succeed on some VCPUs
++ * and not others, since it can involve hypervisor memory allocation,
++ * or because the guest failed to guarantee all the appropriate
++ * constraints on all VCPUs (ie buffer can't cross a page boundary).
++ *
++ * Note that any particular CPU may be using a placed vcpu structure,
++ * but we can only optimise if the all are.
++ *
++ * 0: not available, 1: available
 + */
++
++static void __init xen_vcpu_setup(int cpu)
++{
++	/*
++	 * WARNING:
++	 * before changing MAX_VIRT_CPUS,
++	 * check that shared_info fits on a page
++	 */
++	BUILD_BUG_ON(sizeof(struct shared_info) > PAGE_SIZE);
++	per_cpu(xen_vcpu, cpu) = &HYPERVISOR_shared_info->vcpu_info[cpu];
++}
++
++void __init xen_setup_vcpu_info_placement(void)
++{
++	int cpu;
++
++	for_each_possible_cpu(cpu)
++		xen_vcpu_setup(cpu);
++}
++
++void __cpuinit
++xen_cpu_init(void)
++{
++	xen_smp_intr_init();
++}
++
++/**************************************************************************
++ * opt feature
++ */
++void
++xen_ia64_enable_opt_feature(void)
++{
++	/* Enable region 7 identity map optimizations in Xen */
++	struct xen_ia64_opt_feature optf;
++
++	optf.cmd = XEN_IA64_OPTF_IDENT_MAP_REG7;
++	optf.on = XEN_IA64_OPTF_ON;
++	optf.pgprot = pgprot_val(PAGE_KERNEL);
++	optf.key = 0;	/* No key on linux. */
++	HYPERVISOR_opt_feature(&optf);
++}
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 77db214..fc9d599 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -54,6 +54,115 @@ xen_info_init(void)
+ }
+ 
+ /***************************************************************************
++ * pv_init_ops
++ * initialization hooks.
++ */
++
++static void
++xen_panic_hypercall(struct unw_frame_info *info, void *arg)
++{
++	current->thread.ksp = (__u64)info->sw - 16;
++	HYPERVISOR_shutdown(SHUTDOWN_crash);
++	/* we're never actually going to get here... */
++}
 +
 +static int
-+xen_assign_irq_vector(int irq)
++xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
 +{
-+	struct physdev_irq irq_op;
-+
-+	irq_op.irq = irq;
-+	if (HYPERVISOR_physdev_op(PHYSDEVOP_alloc_irq_vector, &irq_op))
-+		return -ENOSPC;
-+
-+	return irq_op.vector;
++	unw_init_running(xen_panic_hypercall, NULL);
++	/* we're never actually going to get here... */
++	return NOTIFY_DONE;
 +}
 +
-+static void
-+xen_free_irq_vector(int vector)
-+{
-+	struct physdev_irq irq_op;
-+
-+	if (vector < IA64_FIRST_DEVICE_VECTOR ||
-+	    vector > IA64_LAST_DEVICE_VECTOR)
-+		return;
-+
-+	irq_op.vector = vector;
-+	if (HYPERVISOR_physdev_op(PHYSDEVOP_free_irq_vector, &irq_op))
-+		printk(KERN_WARNING "%s: xen_free_irq_vecotr fail vector=%d\n",
-+		       __func__, vector);
-+}
-+
-+
-+static DEFINE_PER_CPU(int, timer_irq) = -1;
-+static DEFINE_PER_CPU(int, ipi_irq) = -1;
-+static DEFINE_PER_CPU(int, resched_irq) = -1;
-+static DEFINE_PER_CPU(int, cmc_irq) = -1;
-+static DEFINE_PER_CPU(int, cmcp_irq) = -1;
-+static DEFINE_PER_CPU(int, cpep_irq) = -1;
-+#define NAME_SIZE	15
-+static DEFINE_PER_CPU(char[NAME_SIZE], timer_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], ipi_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], resched_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cmc_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cmcp_name);
-+static DEFINE_PER_CPU(char[NAME_SIZE], cpep_name);
-+#undef NAME_SIZE
-+
-+struct saved_irq {
-+	unsigned int irq;
-+	struct irqaction *action;
-+};
-+/* 16 should be far optimistic value, since only several percpu irqs
-+ * are registered early.
-+ */
-+#define MAX_LATE_IRQ	16
-+static struct saved_irq saved_percpu_irqs[MAX_LATE_IRQ];
-+static unsigned short late_irq_cnt;
-+static unsigned short saved_irq_cnt;
-+static int xen_slab_ready;
-+
-+#ifdef CONFIG_SMP
-+/* Dummy stub. Though we may check XEN_RESCHEDULE_VECTOR before __do_IRQ,
-+ * it ends up to issue several memory accesses upon percpu data and
-+ * thus adds unnecessary traffic to other paths.
-+ */
-+static irqreturn_t
-+xen_dummy_handler(int irq, void *dev_id)
-+{
-+
-+	return IRQ_HANDLED;
-+}
-+
-+static struct irqaction xen_ipi_irqaction = {
-+	.handler =	handle_IPI,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"IPI"
++static struct notifier_block xen_panic_block = {
++	xen_panic_event, NULL, 0 /* try to go last */
 +};
 +
-+static struct irqaction xen_resched_irqaction = {
-+	.handler =	xen_dummy_handler,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"resched"
-+};
-+
-+static struct irqaction xen_tlb_irqaction = {
-+	.handler =	xen_dummy_handler,
-+	.flags =	IRQF_DISABLED,
-+	.name =		"tlb_flush"
-+};
-+#endif
-+
-+/*
-+ * This is xen version percpu irq registration, which needs bind
-+ * to xen specific evtchn sub-system. One trick here is that xen
-+ * evtchn binding interface depends on kmalloc because related
-+ * port needs to be freed at device/cpu down. So we cache the
-+ * registration on BSP before slab is ready and then deal them
-+ * at later point. For rest instances happening after slab ready,
-+ * we hook them to xen evtchn immediately.
-+ *
-+ * FIXME: MCA is not supported by far, and thus "nomca" boot param is
-+ * required.
-+ */
-+static void
-+__xen_register_percpu_irq(unsigned int cpu, unsigned int vec,
-+			struct irqaction *action, int save)
++static void xen_pm_power_off(void)
 +{
-+	irq_desc_t *desc;
-+	int irq = 0;
-+
-+	if (xen_slab_ready) {
-+		switch (vec) {
-+		case IA64_TIMER_VECTOR:
-+			snprintf(per_cpu(timer_name, cpu),
-+				 sizeof(per_cpu(timer_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_virq_to_irqhandler(VIRQ_ITC, cpu,
-+				action->handler, action->flags,
-+				per_cpu(timer_name, cpu), action->dev_id);
-+			per_cpu(timer_irq, cpu) = irq;
-+			break;
-+		case IA64_IPI_RESCHEDULE:
-+			snprintf(per_cpu(resched_name, cpu),
-+				 sizeof(per_cpu(resched_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_RESCHEDULE_VECTOR, cpu,
-+				action->handler, action->flags,
-+				per_cpu(resched_name, cpu), action->dev_id);
-+			per_cpu(resched_irq, cpu) = irq;
-+			break;
-+		case IA64_IPI_VECTOR:
-+			snprintf(per_cpu(ipi_name, cpu),
-+				 sizeof(per_cpu(ipi_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_IPI_VECTOR, cpu,
-+				action->handler, action->flags,
-+				per_cpu(ipi_name, cpu), action->dev_id);
-+			per_cpu(ipi_irq, cpu) = irq;
-+			break;
-+		case IA64_CMC_VECTOR:
-+			snprintf(per_cpu(cmc_name, cpu),
-+				 sizeof(per_cpu(cmc_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_virq_to_irqhandler(VIRQ_MCA_CMC, cpu,
-+						      action->handler,
-+						      action->flags,
-+						      per_cpu(cmc_name, cpu),
-+						      action->dev_id);
-+			per_cpu(cmc_irq, cpu) = irq;
-+			break;
-+		case IA64_CMCP_VECTOR:
-+			snprintf(per_cpu(cmcp_name, cpu),
-+				 sizeof(per_cpu(cmcp_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_CMCP_VECTOR, cpu,
-+						     action->handler,
-+						     action->flags,
-+						     per_cpu(cmcp_name, cpu),
-+						     action->dev_id);
-+			per_cpu(cmcp_irq, cpu) = irq;
-+			break;
-+		case IA64_CPEP_VECTOR:
-+			snprintf(per_cpu(cpep_name, cpu),
-+				 sizeof(per_cpu(cpep_name, cpu)),
-+				 "%s%d", action->name, cpu);
-+			irq = bind_ipi_to_irqhandler(XEN_CPEP_VECTOR, cpu,
-+						     action->handler,
-+						     action->flags,
-+						     per_cpu(cpep_name, cpu),
-+						     action->dev_id);
-+			per_cpu(cpep_irq, cpu) = irq;
-+			break;
-+		case IA64_CPE_VECTOR:
-+		case IA64_MCA_RENDEZ_VECTOR:
-+		case IA64_PERFMON_VECTOR:
-+		case IA64_MCA_WAKEUP_VECTOR:
-+		case IA64_SPURIOUS_INT_VECTOR:
-+			/* No need to complain, these aren't supported. */
-+			break;
-+		default:
-+			printk(KERN_WARNING "Percpu irq %d is unsupported "
-+			       "by xen!\n", vec);
-+			break;
-+		}
-+		BUG_ON(irq < 0);
-+
-+		if (irq > 0) {
-+			/*
-+			 * Mark percpu.  Without this, migrate_irqs() will
-+			 * mark the interrupt for migrations and trigger it
-+			 * on cpu hotplug.
-+			 */
-+			desc = irq_desc + irq;
-+			desc->status |= IRQ_PER_CPU;
-+		}
-+	}
-+
-+	/* For BSP, we cache registered percpu irqs, and then re-walk
-+	 * them when initializing APs
-+	 */
-+	if (!cpu && save) {
-+		BUG_ON(saved_irq_cnt = MAX_LATE_IRQ);
-+		saved_percpu_irqs[saved_irq_cnt].irq = vec;
-+		saved_percpu_irqs[saved_irq_cnt].action = action;
-+		saved_irq_cnt++;
-+		if (!xen_slab_ready)
-+			late_irq_cnt++;
-+	}
-+}
-+
-+static void
-+xen_register_percpu_irq(ia64_vector vec, struct irqaction *action)
-+{
-+	__xen_register_percpu_irq(smp_processor_id(), vec, action, 1);
-+}
-+
-+static void
-+xen_bind_early_percpu_irq(void)
-+{
-+	int i;
-+
-+	xen_slab_ready = 1;
-+	/* There's no race when accessing this cached array, since only
-+	 * BSP will face with such step shortly
-+	 */
-+	for (i = 0; i < late_irq_cnt; i++)
-+		__xen_register_percpu_irq(smp_processor_id(),
-+					  saved_percpu_irqs[i].irq,
-+					  saved_percpu_irqs[i].action, 0);
-+}
-+
-+/* FIXME: There's no obvious point to check whether slab is ready. So
-+ * a hack is used here by utilizing a late time hook.
-+ */
-+
-+#ifdef CONFIG_HOTPLUG_CPU
-+static int __devinit
-+unbind_evtchn_callback(struct notifier_block *nfb,
-+		       unsigned long action, void *hcpu)
-+{
-+	unsigned int cpu = (unsigned long)hcpu;
-+
-+	if (action = CPU_DEAD) {
-+		/* Unregister evtchn.  */
-+		if (per_cpu(cpep_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cpep_irq, cpu), NULL);
-+			per_cpu(cpep_irq, cpu) = -1;
-+		}
-+		if (per_cpu(cmcp_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cmcp_irq, cpu), NULL);
-+			per_cpu(cmcp_irq, cpu) = -1;
-+		}
-+		if (per_cpu(cmc_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(cmc_irq, cpu), NULL);
-+			per_cpu(cmc_irq, cpu) = -1;
-+		}
-+		if (per_cpu(ipi_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(ipi_irq, cpu), NULL);
-+			per_cpu(ipi_irq, cpu) = -1;
-+		}
-+		if (per_cpu(resched_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(resched_irq, cpu),
-+						NULL);
-+			per_cpu(resched_irq, cpu) = -1;
-+		}
-+		if (per_cpu(timer_irq, cpu) >= 0) {
-+			unbind_from_irqhandler(per_cpu(timer_irq, cpu), NULL);
-+			per_cpu(timer_irq, cpu) = -1;
-+		}
-+	}
-+	return NOTIFY_OK;
-+}
-+
-+static struct notifier_block unbind_evtchn_notifier = {
-+	.notifier_call = unbind_evtchn_callback,
-+	.priority = 0
-+};
-+#endif
-+
-+void xen_smp_intr_init_early(unsigned int cpu)
-+{
-+#ifdef CONFIG_SMP
-+	unsigned int i;
-+
-+	for (i = 0; i < saved_irq_cnt; i++)
-+		__xen_register_percpu_irq(cpu, saved_percpu_irqs[i].irq,
-+					  saved_percpu_irqs[i].action, 0);
-+#endif
-+}
-+
-+void xen_smp_intr_init(void)
-+{
-+#ifdef CONFIG_SMP
-+	unsigned int cpu = smp_processor_id();
-+	struct callback_register event = {
-+		.type = CALLBACKTYPE_event,
-+		.address = { .ip = (unsigned long)&xen_event_callback },
-+	};
-+
-+	if (cpu = 0) {
-+		/* Initialization was already done for boot cpu.  */
-+#ifdef CONFIG_HOTPLUG_CPU
-+		/* Register the notifier only once.  */
-+		register_cpu_notifier(&unbind_evtchn_notifier);
-+#endif
-+		return;
-+	}
-+
-+	/* This should be piggyback when setup vcpu guest context */
-+	BUG_ON(HYPERVISOR_callback_op(CALLBACKOP_register, &event));
-+#endif /* CONFIG_SMP */
-+}
-+
-+void __init
-+xen_irq_init(void)
-+{
-+	struct callback_register event = {
-+		.type = CALLBACKTYPE_event,
-+		.address = { .ip = (unsigned long)&xen_event_callback },
-+	};
-+
-+	xen_init_IRQ();
-+	BUG_ON(HYPERVISOR_callback_op(CALLBACKOP_register, &event));
-+	late_time_init = xen_bind_early_percpu_irq;
-+}
-+
-+void
-+xen_platform_send_ipi(int cpu, int vector, int delivery_mode, int redirect)
-+{
-+#ifdef CONFIG_SMP
-+	/* TODO: we need to call vcpu_up here */
-+	if (unlikely(vector = ap_wakeup_vector)) {
-+		/* XXX
-+		 * This should be in __cpu_up(cpu) in ia64 smpboot.c
-+		 * like x86. But don't want to modify it,
-+		 * keep it untouched.
-+		 */
-+		xen_smp_intr_init_early(cpu);
-+
-+		xen_send_ipi(cpu, vector);
-+		/* vcpu_prepare_and_up(cpu); */
-+		return;
-+	}
-+#endif
-+
-+	switch (vector) {
-+	case IA64_IPI_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_IPI_VECTOR);
-+		break;
-+	case IA64_IPI_RESCHEDULE:
-+		xen_send_IPI_one(cpu, XEN_RESCHEDULE_VECTOR);
-+		break;
-+	case IA64_CMCP_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_CMCP_VECTOR);
-+		break;
-+	case IA64_CPEP_VECTOR:
-+		xen_send_IPI_one(cpu, XEN_CPEP_VECTOR);
-+		break;
-+	case IA64_TIMER_VECTOR: {
-+		/* this is used only once by check_sal_cache_flush()
-+		   at boot time */
-+		static int used = 0;
-+		if (!used) {
-+			xen_send_ipi(cpu, IA64_TIMER_VECTOR);
-+			used = 1;
-+			break;
-+		}
-+		/* fallthrough */
-+	}
-+	default:
-+		printk(KERN_WARNING "Unsupported IPI type 0x%x\n",
-+		       vector);
-+		notify_remote_via_irq(0); /* defaults to 0 irq */
-+		break;
-+	}
++	local_irq_disable();
++	HYPERVISOR_shutdown(SHUTDOWN_poweroff);
 +}
 +
 +static void __init
-+xen_register_ipi(void)
++xen_banner(void)
 +{
-+#ifdef CONFIG_SMP
-+	register_percpu_irq(IA64_IPI_VECTOR, &xen_ipi_irqaction);
-+	register_percpu_irq(IA64_IPI_RESCHEDULE, &xen_resched_irqaction);
-+	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &xen_tlb_irqaction);
++	printk(KERN_INFO
++	       "Running on Xen! pl = %d start_info_pfn=0x%lx nr_pages=%ld "
++	       "flags=0x%x\n",
++	       xen_info.kernel_rpl,
++	       HYPERVISOR_shared_info->arch.start_info_pfn,
++	       xen_start_info->nr_pages, xen_start_info->flags);
++}
++
++static int __init
++xen_reserve_memory(struct rsvd_region *region)
++{
++	region->start = (unsigned long)__va(
++		(HYPERVISOR_shared_info->arch.start_info_pfn << PAGE_SHIFT));
++	region->end   = region->start + PAGE_SIZE;
++	return 1;
++}
++
++static void __init
++xen_arch_setup_early(void)
++{
++	struct shared_info *s;
++	BUG_ON(!xen_pv_domain());
++
++	s = HYPERVISOR_shared_info;
++	xen_start_info = __va(s->arch.start_info_pfn << PAGE_SHIFT);
++
++	/* Must be done before any hypercall.  */
++	xencomm_initialize();
++
++	xen_setup_features();
++	/* Register a call for panic conditions. */
++	atomic_notifier_chain_register(&panic_notifier_list,
++				       &xen_panic_block);
++	pm_power_off = xen_pm_power_off;
++
++	xen_ia64_enable_opt_feature();
++}
++
++static void __init
++xen_arch_setup_console(char **cmdline_p)
++{
++	add_preferred_console("xenboot", 0, NULL);
++	add_preferred_console("tty", 0, NULL);
++	/* use hvc_xen */
++	add_preferred_console("hvc", 0, NULL);
++
++#if !defined(CONFIG_VT) || !defined(CONFIG_DUMMY_CONSOLE)
++	conswitchp = NULL;
 +#endif
 +}
 +
-+static void
-+xen_resend_irq(unsigned int vector)
++static int __init
++xen_arch_setup_nomca(void)
 +{
-+	(void)resend_irq_on_evtchn(vector);
++	return 1;
 +}
 +
-+const struct pv_irq_ops xen_irq_ops __initdata = {
-+	.register_ipi = xen_register_ipi,
++static void __init
++xen_post_smp_prepare_boot_cpu(void)
++{
++	xen_setup_vcpu_info_placement();
++}
 +
-+	.assign_irq_vector = xen_assign_irq_vector,
-+	.free_irq_vector = xen_free_irq_vector,
-+	.register_percpu_irq = xen_register_percpu_irq,
++static const struct pv_init_ops xen_init_ops __initdata = {
++	.banner = xen_banner,
 +
-+	.resend_irq = xen_resend_irq,
++	.reserve_memory = xen_reserve_memory,
++
++	.arch_setup_early = xen_arch_setup_early,
++	.arch_setup_console = xen_arch_setup_console,
++	.arch_setup_nomca = xen_arch_setup_nomca,
++
++	.post_smp_prepare_boot_cpu = xen_post_smp_prepare_boot_cpu,
 +};
-diff --git a/arch/ia64/xen/irq_xen.h b/arch/ia64/xen/irq_xen.h
-new file mode 100644
-index 0000000..26110f3
---- /dev/null
-+++ b/arch/ia64/xen/irq_xen.h
-@@ -0,0 +1,34 @@
-+/******************************************************************************
-+ * arch/ia64/xen/irq_xen.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
 +
-+#ifndef IRQ_XEN_H
-+#define IRQ_XEN_H
-+
-+extern void (*late_time_init)(void);
-+extern char xen_event_callback;
-+void __init xen_init_IRQ(void);
-+
-+extern const struct pv_irq_ops xen_irq_ops __initdata;
-+extern void xen_smp_intr_init(void);
-+extern void xen_send_ipi(int cpu, int vec);
-+
-+#endif /* IRQ_XEN_H */
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 3186c4f..f866b0a 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -29,6 +29,8 @@
- #include <asm/xen/xencomm.h>
- #include <asm/xen/privop.h>
- 
-+#include "irq_xen.h"
-+
- /***************************************************************************
-  * general info
++/***************************************************************************
+  * pv_ops initialization
   */
-@@ -354,6 +356,7 @@ xen_setup_pv_ops(void)
- 	pv_init_ops = xen_init_ops;
- 	pv_cpu_ops = xen_cpu_ops;
- 	pv_iosapic_ops = xen_iosapic_ops;
-+	pv_irq_ops = xen_irq_ops;
  
- 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
+@@ -62,4 +171,5 @@ xen_setup_pv_ops(void)
+ {
+ 	xen_info_init();
+ 	pv_info = xen_info;
++	pv_init_ops = xen_init_ops;
  }
 -- 
 1.6.0.rc0.42.g186458
