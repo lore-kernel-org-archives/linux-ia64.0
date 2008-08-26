@@ -1,117 +1,115 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Wed, 06 Aug 2008 00:44:21 +0000
-Subject: Re: [patch 5/6] kdump: add is_vmcore_usable() and vmcore_unusable()
-Message-Id: <20080806004419.GB8627@verge.net.au>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:40 +0000
+Subject: [PATCH 28/30] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
+Message-Id: <1219730322-11687-29-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080731012208.115225969@vergenet.net> <20080731012927.813560963@vergenet.net>
-In-Reply-To: <20080731012927.813560963@vergenet.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kexec@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
+To: linux-ia64@vger.kernel.org
 
-The usage of elfcorehdr_addr has changed recently
-such that being set to ELFCORE_ADDR_MAX is used by
-is_kdump_kernel() to indicate if the code is executing
-in a kernel executed as a crash kernel.
+introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
+paravirtualized guest.
+introduce CONFIG_XEN, CONFIG_IA64_XEN_GUEST for xen.
 
-However, arch/ia64/kernel/setup.c:reserve_elfcorehdr will
-rest elfcorehdr_addr to ELFCORE_ADDR_MAX on error,
-which means any subsequent calls to is_kdump_kernel()
-will return 0, even though they should return 1.
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+---
+ arch/ia64/Kconfig     |   32 ++++++++++++++++++++++++++++++++
+ arch/ia64/xen/Kconfig |   26 ++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/Kconfig
 
-Ok, at this point in time there are no subsequent calls,
-but I think its fair to say that there is ample scope for error
-or at the very least confusion.
-
-This patch add an extra state, ELFCORE_ADDR_ERR, which
-indicates that elfcorehdr_addr was passed on the command line,
-and thus execution is taking place in a crashdump kernel,
-but vmcore can't be used for some reason. This is tested
-for using is_vmcore_usable() and set using vmcore_unusable().
-A subsequent patch makes use of this new code.
-
-To summarise, the states that elfcorehdr_addr can now be in are as follows:
-
-ELFCORE_ADDR_MAX: not a crashdump kernel
-ELFCORE_ADDR_ERR: crashdump kernel but vmcore is unusable
-any other value:  crash dump kernel and vmcore is usable
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Cc: Vivek Goyal <vgoyal@redhat.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-
---- 
-
- fs/proc/vmcore.c           |    2 +-
- include/linux/crash_dump.h |   26 ++++++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 1 deletion(-)
-
-Wed, 30 Jul 2008 09:10:37 +1000
-* Fixed logic bug in vmcore_unusable().
-  if (!is_kdump_kernel()) is correct
-  if (is_kdump_kernel()) is not
-
-Wed, 06 Aug 2008 09:53:44 +1000
-* is_vmcore_usable() and vmcore_unusable may be used when
-  CONFIG_CRASH_DUMP is defined but CONFIG_PROC_VMCORE is not.
-
-  This update is needed by
-  "kdump, ia64: always reserve elfcore header memory in crash kernel"
-  http://lists.infradead.org/pipermail/kexec/2008-August/002294.html
-
-Index: linux-2.6/include/linux/crash_dump.h
-=================================--- linux-2.6.orig/include/linux/crash_dump.h	2008-08-05 18:10:21.000000000 +1000
-+++ linux-2.6/include/linux/crash_dump.h	2008-08-05 18:11:14.000000000 +1000
-@@ -8,6 +8,7 @@
- #include <linux/proc_fs.h>
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 48e496f..34639f1 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -116,6 +116,33 @@ config AUDIT_ARCH
+ 	bool
+ 	default y
  
- #define ELFCORE_ADDR_MAX	(-1ULL)
-+#define ELFCORE_ADDR_ERR	(-2ULL)
++menuconfig PARAVIRT_GUEST
++	bool "Paravirtualized guest support"
++	help
++	  Say Y here to get to see options related to running Linux under
++	  various hypervisors.  This option alone does not add any kernel code.
++
++	  If you say N, all options in this submenu will be skipped and disabled.
++
++if PARAVIRT_GUEST
++
++config PARAVIRT
++	bool "Enable paravirtualization code"
++	depends on PARAVIRT_GUEST
++	default y
++	bool
++	default y
++	help
++	  This changes the kernel so it can modify itself when it is run
++	  under a hypervisor, potentially improving performance significantly
++	  over full virtualization.  However, when run without a hypervisor
++	  the kernel is theoretically slower and slightly larger.
++
++
++source "arch/ia64/xen/Kconfig"
++
++endif
++
+ choice
+ 	prompt "System type"
+ 	default IA64_GENERIC
+@@ -137,6 +164,7 @@ config IA64_GENERIC
+ 	  SGI-SN2		For SGI Altix systems
+ 	  SGI-UV		For SGI UV systems
+ 	  Ski-simulator		For the HP simulator <http://www.hpl.hp.com/research/linux/ski/>
++	  Xen-domU		For xen domU system
  
- extern unsigned long long elfcorehdr_addr;
+ 	  If you don't know what to do, choose "generic".
  
-@@ -38,6 +39,29 @@ static inline int is_kdump_kernel(void)
- {
- 	return (elfcorehdr_addr != ELFCORE_ADDR_MAX) ? 1 : 0;
- }
-+
-+/* is_vmcore_usable() checks if the kernel is booting after a panic and
-+ * the vmcore region is usable.
-+ *
-+ * This makes use of the fact that due to alignment -2ULL is not
-+ * a valid pointer, much in the vain of IS_ERR(), except
-+ * dealing directly with an unsigned long long rather than a pointer.
-+ */
-+
-+static inline int is_vmcore_usable(void)
-+{
-+	return is_kdump_kernel() && elfcorehdr_addr != ELFCORE_ADDR_ERR ? 1 : 0;
-+}
-+
-+/* vmcore_unusable() marks the vmcore as unusable,
-+ * without disturbing the logic of is_kdump_kernel()
-+ */
-+
-+static inline void vmcore_unusable(void)
-+{
-+	if (is_kdump_kernel())
-+		elfcorehdr_addr = ELFCORE_ADDR_ERR;
-+}
- #else /* !CONFIG_CRASH_DUMP */
- static inline int is_kdump_kernel(void) { return 0; }
- #endif /* CONFIG_CRASH_DUMP */
-Index: linux-2.6/fs/proc/vmcore.c
-=================================--- linux-2.6.orig/fs/proc/vmcore.c	2008-08-05 18:10:21.000000000 +1000
-+++ linux-2.6/fs/proc/vmcore.c	2008-08-05 18:10:25.000000000 +1000
-@@ -650,7 +650,7 @@ static int __init vmcore_init(void)
- 	int rc = 0;
+@@ -187,6 +215,10 @@ config IA64_HP_SIM
+ 	bool "Ski-simulator"
+ 	select SWIOTLB
  
- 	/* If elfcorehdr= has been passed in cmdline, then capture the dump.*/
--	if (!(elfcorehdr_addr < ELFCORE_ADDR_MAX))
-+	if (!(is_vmcore_usable()))
- 		return rc;
- 	rc = parse_crash_elf_headers();
- 	if (rc) {
++config IA64_XEN_GUEST
++	bool "Xen guest"
++	depends on XEN
++
+ endchoice
+ 
+ choice
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+new file mode 100644
+index 0000000..f1683a2
+--- /dev/null
++++ b/arch/ia64/xen/Kconfig
+@@ -0,0 +1,26 @@
++#
++# This Kconfig describes xen/ia64 options
++#
++
++config XEN
++	bool "Xen hypervisor support"
++	default y
++	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
++	select XEN_XENCOMM
++	select NO_IDLE_HZ
++
++	# those are required to save/restore.
++	select ARCH_SUSPEND_POSSIBLE
++	select SUSPEND
++	select PM_SLEEP
++	help
++	  Enable Xen hypervisor support.  Resulting kernel runs
++	  both as a guest OS on Xen and natively on hardware.
++
++config XEN_XENCOMM
++	depends on XEN
++	bool
++
++config NO_IDLE_HZ
++	depends on XEN
++	bool
+-- 
+1.6.0.rc0.42.g186458
 
