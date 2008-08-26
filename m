@@ -1,83 +1,106 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:31:25 +0000
-Subject: [PATCH] [RESEND] xen: portability clean up and some minor clean up for xencomm.c
-Message-Id: <20080826053125.GF1496%yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:26 +0000
+Subject: [PATCH 14/30] ia64/xen: introduce helper function to identify domain mode.
+Message-Id: <1219730322-11687-15-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-ia64@vger.kernel.org, xen-devel@lists.xensource.com, xen-ia64-devel@lists.xensource.com, "Luck, Tony" <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-clean up of xencomm.c. is_phys_contiguous() is arch dependent
-function that depends on how virtual memory are laid out.
-So split out the function into arch specific code.
+There are four operating modes Xen code may find itself running in:
+- native
+- hvm domain
+- pv dom0
+- pv domU
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- drivers/xen/xencomm.c |   23 ++++-------------------
- 1 files changed, 4 insertions(+), 19 deletions(-)
+ arch/ia64/include/asm/xen/hypervisor.h |   75 ++++++++++++++++++++++++++++++++
+ 1 files changed, 75 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/include/asm/xen/hypervisor.h
 
-diff --git a/drivers/xen/xencomm.c b/drivers/xen/xencomm.c
-index 797cb4e..a240b2c 100644
---- a/drivers/xen/xencomm.c
-+++ b/drivers/xen/xencomm.c
-@@ -23,13 +23,7 @@
- #include <asm/page.h>
- #include <xen/xencomm.h>
- #include <xen/interface/xen.h>
--#ifdef __ia64__
--#include <asm/xen/xencomm.h>	/* for is_kern_addr() */
--#endif
--
--#ifdef HAVE_XEN_PLATFORM_COMPAT_H
--#include <xen/platform-compat.h>
--#endif
-+#include <asm/xen/xencomm.h>	/* for xencomm_is_phys_contiguous() */
- 
- static int xencomm_init(struct xencomm_desc *desc,
- 			void *buffer, unsigned long bytes)
-@@ -157,20 +151,11 @@ static int xencomm_create(void *buffer, unsigned long bytes,
- 	return 0;
- }
- 
--/* check if memory address is within VMALLOC region  */
--static int is_phys_contiguous(unsigned long addr)
--{
--	if (!is_kernel_addr(addr))
--		return 0;
--
--	return (addr < VMALLOC_START) || (addr >= VMALLOC_END);
--}
--
- static struct xencomm_handle *xencomm_create_inline(void *ptr)
- {
- 	unsigned long paddr;
- 
--	BUG_ON(!is_phys_contiguous((unsigned long)ptr));
-+	BUG_ON(!xencomm_is_phys_contiguous((unsigned long)ptr));
- 
- 	paddr = (unsigned long)xencomm_pa(ptr);
- 	BUG_ON(paddr & XENCOMM_INLINE_FLAG);
-@@ -202,7 +187,7 @@ struct xencomm_handle *xencomm_map(void *ptr, unsigned long bytes)
- 	int rc;
- 	struct xencomm_desc *desc;
- 
--	if (is_phys_contiguous((unsigned long)ptr))
-+	if (xencomm_is_phys_contiguous((unsigned long)ptr))
- 		return xencomm_create_inline(ptr);
- 
- 	rc = xencomm_create(ptr, bytes, &desc, GFP_KERNEL);
-@@ -219,7 +204,7 @@ struct xencomm_handle *__xencomm_map_no_alloc(void *ptr, unsigned long bytes,
- 	int rc;
- 	struct xencomm_desc *desc = NULL;
- 
--	if (is_phys_contiguous((unsigned long)ptr))
-+	if (xencomm_is_phys_contiguous((unsigned long)ptr))
- 		return xencomm_create_inline(ptr);
- 
- 	rc = xencomm_create_mini(ptr, bytes, xc_desc,
+diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
+new file mode 100644
+index 0000000..d1f84e1
+--- /dev/null
++++ b/arch/ia64/include/asm/xen/hypervisor.h
+@@ -0,0 +1,75 @@
++/******************************************************************************
++ * hypervisor.h
++ *
++ * Linux-specific hypervisor handling.
++ *
++ * Copyright (c) 2002-2004, K A Fraser
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation; or, when distributed
++ * separately from the Linux kernel or incorporated into other
++ * software packages, subject to the following license:
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this source file (the "Software"), to deal in the Software without
++ * restriction, including without limitation the rights to use, copy, modify,
++ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
++ * and to permit persons to whom the Software is furnished to do so, subject to
++ * the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
++ * IN THE SOFTWARE.
++ */
++
++#ifndef _ASM_IA64_XEN_HYPERVISOR_H
++#define _ASM_IA64_XEN_HYPERVISOR_H
++
++#ifdef CONFIG_XEN
++
++#include <linux/init.h>
++#include <xen/interface/xen.h>
++#include <xen/interface/version.h>	/* to compile feature.c */
++#include <xen/features.h>		/* to comiple xen-netfront.c */
++#include <asm/xen/hypercall.h>
++
++/* xen_domain_type is set before executing any C code by early_xen_setup */
++enum xen_domain_type {
++	XEN_NATIVE,
++	XEN_PV_DOMAIN,
++	XEN_HVM_DOMAIN,
++};
++
++extern enum xen_domain_type xen_domain_type;
++
++#define xen_domain()		(xen_domain_type != XEN_NATIVE)
++#define xen_pv_domain()		(xen_domain_type = XEN_PV_DOMAIN)
++#define xen_initial_domain()	(xen_pv_domain() && \
++				 (xen_start_info->flags & SIF_INITDOMAIN))
++#define xen_hvm_domain()	(xen_domain_type = XEN_HVM_DOMAIN)
++
++/* deprecated. remove this */
++#define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
++
++extern struct start_info *xen_start_info;
++
++#else /* CONFIG_XEN */
++
++#define xen_domain()		(0)
++#define xen_pv_domain()		(0)
++#define xen_initial_domain()	(0)
++#define xen_hvm_domain()	(0)
++#define is_running_on_xen()	(0)	/* deprecated. remove this */
++#endif
++
++#define is_initial_xendomain()	(0)	/* deprecated. remove this */
++
++#endif /* _ASM_IA64_XEN_HYPERVISOR_H */
 -- 
 1.6.0.rc0.42.g186458
 
