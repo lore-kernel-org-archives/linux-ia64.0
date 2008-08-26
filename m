@@ -1,59 +1,67 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Wed, 27 Aug 2008 02:05:05 +0000
-Subject: [PATCH] ia64: implement efficient node_to_cpumask_ptr()
-Message-Id: <20080827105911.D6F9.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:28:12 +0000
+Subject: [PATCH] xen: wrap load_cr3() in manage.c for ia64 support.
+Message-Id: <20080826052812.GD1496%yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-ia64@vger.kernel.org, xen-devel@lists.xensource.com, xen-ia64-devel@lists.xensource.com
 
-Subject: ia64: implement efficient node_to_cpumask_ptr()
+wrap load_cr3() in manage.c by xen_pre_device_suspend()
+because it is x86 dependent.
 
-Now, arch generic node_to_cpumask_ptr() is slightly inefficient.
-it makes cpumask_t local variable.
-
-	generic version
-	--------------------------------------
-	#define node_to_cpumask_ptr(v, node)                                    \
-	                cpumask_t _##v = node_to_cpumask(node), *v = &_##v
-
-but x86 specific node_to_cpumask_ptr() is more efficient.
-
-	x86 version
-	------------------------------------
-	#define node_to_cpumask_ptr(v, node)            \
-	                 cpumask_t *v = &(node_to_cpumask_map[node])
-
-So, if we make ia64 specific node_to_cpusmask_ptr(),
-we can reduce stack a bit.
-
-
-Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Mike Travis <travis@sgi.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/asm-ia64/topology.h |    7 +++++++
- 1 file changed, 7 insertions(+)
+ arch/x86/xen/suspend.c |    5 +++++
+ drivers/xen/manage.c   |    3 +--
+ include/xen/xen-ops.h  |    1 +
+ 3 files changed, 7 insertions(+), 2 deletions(-)
 
-Index: b/include/asm-ia64/topology.h
-=================================--- a/include/asm-ia64/topology.h
-+++ b/include/asm-ia64/topology.h
-@@ -37,6 +37,13 @@
-  */
- #define node_to_cpumask(node) (node_to_cpu_mask[node])
+diff --git a/arch/x86/xen/suspend.c b/arch/x86/xen/suspend.c
+index 2a234db..ac139a2 100644
+--- a/arch/x86/xen/suspend.c
++++ b/arch/x86/xen/suspend.c
+@@ -10,6 +10,11 @@
+ #include "xen-ops.h"
+ #include "mmu.h"
  
-+/* Replace default node_to_cpumask_ptr with optimized version */
-+#define node_to_cpumask_ptr(v, node)		\
-+		const cpumask_t *v = &node_to_cpumask(node)
++void xen_pre_device_suspend(void)
++{
++        load_cr3(swapper_pg_dir);
++}
 +
-+#define node_to_cpumask_ptr_next(v, node)	\
-+		v = &node_to_cpumask(node)
-+
- /*
-  * Returns the number of the node containing Node 'nid'.
-  * Not implemented here. Multi-level hierarchies detected with
-
-
+ void xen_pre_suspend(void)
+ {
+ 	xen_start_info->store_mfn = mfn_to_pfn(xen_start_info->store_mfn);
+diff --git a/drivers/xen/manage.c b/drivers/xen/manage.c
+index a5bc91a..c7f2953 100644
+--- a/drivers/xen/manage.c
++++ b/drivers/xen/manage.c
+@@ -39,8 +39,7 @@ static int xen_suspend(void *data)
+ 
+ 	BUG_ON(!irqs_disabled());
+ 
+-	load_cr3(swapper_pg_dir);
+-
++	xen_pre_device_suspend();
+ 	err = device_power_down(PMSG_SUSPEND);
+ 	if (err) {
+ 		printk(KERN_ERR "xen_suspend: device_power_down failed: %d\n",
+diff --git a/include/xen/xen-ops.h b/include/xen/xen-ops.h
+index 883a21b..a26db6f 100644
+--- a/include/xen/xen-ops.h
++++ b/include/xen/xen-ops.h
+@@ -5,6 +5,7 @@
+ 
+ DECLARE_PER_CPU(struct vcpu_info *, xen_vcpu);
+ 
++void xen_pre_device_suspend(void);
+ void xen_pre_suspend(void);
+ void xen_post_suspend(int suspend_cancelled);
+ 
+-- 
+1.6.0.rc0.42.g186458
 
 
