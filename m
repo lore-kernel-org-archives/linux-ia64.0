@@ -1,31 +1,71 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 26 Aug 2008 05:58:35 +0000
-Subject: [PATCH 23/30] ia64/pv_ops/xen: define the nubmer of irqs which xen needs.
-Message-Id: <1219730322-11687-24-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 26 Aug 2008 05:58:27 +0000
+Subject: [PATCH 15/30] ia64/pv_ops/xen: elf note based xen startup.
+Message-Id: <1219730322-11687-16-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define arch/ia64/include/asm/xen/irq.h to define the number of
-irqs which xen needs.
+This patch enables elf note based xen startup for IA-64, which gives the
+kernel an early hint for running on xen like x86 case.
+In order to avoid the multi entry point, presumably extending booting
+protocol(i.e. extending struct ia64_boot_param) would be necessary.
+It probably means that elilo also needs modification.
 
+Signed-off-by: Qing He <qing.he@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/irq.h |   44 +++++++++++++++++++++++++++++++++++++++
- arch/ia64/kernel/nr-irqs.c      |    1 +
- 2 files changed, 45 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/irq.h
+ arch/ia64/kernel/asm-offsets.c |    4 ++
+ arch/ia64/xen/Makefile         |    3 +-
+ arch/ia64/xen/xen_pv_ops.c     |   65 +++++++++++++++++++++++++++++++
+ arch/ia64/xen/xensetup.S       |   83 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 154 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xen_pv_ops.c
+ create mode 100644 arch/ia64/xen/xensetup.S
 
-diff --git a/arch/ia64/include/asm/xen/irq.h b/arch/ia64/include/asm/xen/irq.h
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index eaa988b..742dbb1 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -17,6 +17,7 @@
+ #include <asm/mca.h>
+ 
+ #include <asm/xen/interface.h>
++#include <asm/xen/hypervisor.h>
+ 
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
+@@ -292,6 +293,9 @@ void foo(void)
+ #ifdef CONFIG_XEN
+ 	BLANK();
+ 
++	DEFINE(XEN_NATIVE_ASM, XEN_NATIVE);
++	DEFINE(XEN_PV_DOMAIN_ASM, XEN_PV_DOMAIN);
++
+ #define DEFINE_MAPPED_REG_OFS(sym, field) \
+ 	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
+ 
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index eb59563..abc356f 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for Xen components
+ #
+ 
+-obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
++obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++	xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
 new file mode 100644
-index 0000000..a904509
+index 0000000..77db214
 --- /dev/null
-+++ b/arch/ia64/include/asm/xen/irq.h
-@@ -0,0 +1,44 @@
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -0,0 +1,65 @@
 +/******************************************************************************
-+ * arch/ia64/include/asm/xen/irq.h
++ * arch/ia64/xen/xen_pv_ops.c
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -46,40 +86,138 @@ index 0000000..a904509
 + *
 + */
 +
-+#ifndef _ASM_IA64_XEN_IRQ_H
-+#define _ASM_IA64_XEN_IRQ_H
++#include <linux/console.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/pm.h>
 +
-+/*
-+ * The flat IRQ space is divided into two regions:
-+ *  1. A one-to-one mapping of real physical IRQs. This space is only used
-+ *     if we have physical device-access privilege. This region is at the
-+ *     start of the IRQ space so that existing device drivers do not need
-+ *     to be modified to translate physical IRQ numbers into our IRQ space.
-+ *  3. A dynamic mapping of inter-domain and Xen-sourced virtual IRQs. These
-+ *     are bound using the provided bind/unbind functions.
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/xencomm.h>
++#include <asm/xen/privop.h>
++
++/***************************************************************************
++ * general info
++ */
++static struct pv_info xen_info __initdata = {
++	.kernel_rpl = 2,	/* or 1: determin at runtime */
++	.paravirt_enabled = 1,
++	.name = "Xen/ia64",
++};
++
++#define IA64_RSC_PL_SHIFT	2
++#define IA64_RSC_PL_BIT_SIZE	2
++#define IA64_RSC_PL_MASK	\
++	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
++
++static void __init
++xen_info_init(void)
++{
++	/* Xenified Linux/ia64 may run on pl = 1 or 2.
++	 * determin at run time. */
++	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
++	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
++	xen_info.kernel_rpl = rpl;
++}
++
++/***************************************************************************
++ * pv_ops initialization
 + */
 +
-+#define XEN_PIRQ_BASE		0
-+#define XEN_NR_PIRQS		256
++void __init
++xen_setup_pv_ops(void)
++{
++	xen_info_init();
++	pv_info = xen_info;
++}
+diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
+new file mode 100644
+index 0000000..28fed1f
+--- /dev/null
++++ b/arch/ia64/xen/xensetup.S
+@@ -0,0 +1,83 @@
++/*
++ * Support routines for Xen
++ *
++ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ */
 +
-+#define XEN_DYNIRQ_BASE		(XEN_PIRQ_BASE + XEN_NR_PIRQS)
-+#define XEN_NR_DYNIRQS		(NR_CPUS * 8)
++#include <asm/processor.h>
++#include <asm/asmmacro.h>
++#include <asm/pgtable.h>
++#include <asm/system.h>
++#include <asm/paravirt.h>
++#include <asm/xen/privop.h>
++#include <linux/elfnote.h>
++#include <linux/init.h>
++#include <xen/interface/elfnote.h>
 +
-+#define XEN_NR_IRQS		(XEN_NR_PIRQS + XEN_NR_DYNIRQS)
++	.section .data.read_mostly
++	.align 8
++	.global xen_domain_type
++xen_domain_type:
++	data4 XEN_NATIVE_ASM
++	.previous
 +
-+#endif /* _ASM_IA64_XEN_IRQ_H */
-diff --git a/arch/ia64/kernel/nr-irqs.c b/arch/ia64/kernel/nr-irqs.c
-index 8273afc..ee56457 100644
---- a/arch/ia64/kernel/nr-irqs.c
-+++ b/arch/ia64/kernel/nr-irqs.c
-@@ -10,6 +10,7 @@
- #include <linux/kbuild.h>
- #include <linux/threads.h>
- #include <asm/native/irq.h>
-+#include <asm/xen/irq.h>
- 
- void foo(void)
- {
++	__INIT
++ENTRY(startup_xen)
++	// Calculate load offset.
++	// The constant, LOAD_OFFSET, can't be used because the boot
++	// loader doesn't always load to the LMA specified by the vmlinux.lds.
++	mov r9=ip	// must be the first instruction to make sure
++			// that r9 = the physical address of startup_xen.
++			// Usually r9 = startup_xen - LOAD_OFFSET
++	movl r8=startup_xen
++	;;
++	sub r9=r9,r8	// Usually r9 = -LOAD_OFFSET.
++
++	mov r10=PARAVIRT_HYPERVISOR_TYPE_XEN
++	movl r11=_start
++	;;
++	add r11=r11,r9
++	movl r8=hypervisor_type
++	;;
++	add r8=r8,r9
++	mov b0=r11
++	;;
++	st8 [r8]=r10
++	br.cond.sptk.many b0
++	;;
++END(startup_xen)
++
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,	.asciz "linux")
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,	.asciz "2.6")
++	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,	.asciz "xen-3.0")
++	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,		data8.ua startup_xen - LOAD_OFFSET)
++
++#define isBP	p3	// are we the Bootstrap Processor?
++
++	.text
++
++GLOBAL_ENTRY(xen_setup_hook)
++	mov r8=XEN_PV_DOMAIN_ASM
++(isBP)	movl r9=xen_domain_type;;
++(isBP)	st4 [r9]=r8
++	movl r10=xen_ivt;;
++
++	mov cr.iva=r10
++
++	/* Set xsi base.  */
++#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
++(isBP)	mov r2=FW_HYPERCALL_SET_SHARED_INFO_VA
++(isBP)	movl r28=XSI_BASE;;
++(isBP)	break 0x1000;;
++
++	/* setup pv_ops */
++(isBP)	mov r4=rp
++	;;
++(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
++	;;
++(isBP)	mov rp=r4
++	;;
++
++	br.ret.sptk.many rp
++	;;
++END(xen_setup_hook)
 -- 
 1.6.0.rc0.42.g186458
 
