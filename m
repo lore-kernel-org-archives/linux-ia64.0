@@ -1,24 +1,22 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 12 Aug 2008 23:21:22 +0000
-Subject: Re: [patch] IA64: make rsvd_region and num_rsvd_regions static
-Message-Id: <20080812232121.GC11363@verge.net.au>
+From: "jidong xiao" <jidong.xiao@gmail.com>
+Date: Wed, 27 Aug 2008 09:01:49 +0000
+Subject: Zero size vmcore on ia64
+Message-Id: <4104961b0808270201i64b1914ame2e6e90d316c6c7@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080805095739.GA12078@verge.net.au> <57C9024A16AD2D4C97DC78E552063EA30844AEFB@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA30844AEFB@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 12, 2008 at 01:47:37PM -0700, Luck, Tony wrote:
-> > rsvd_region and num_rsvd_regions are only accessed in
-> > arch/ia64/kernel/setup.c, so they should be static.
-> 
-> Are you looking at -mm or linux-next?  In my tree I see:
+Hi, All,
 
-Whatever I was looking at, I was wrong. Sorry for the noise.
+I encountered the zero-size-vmcore issue on IA64. I remember last year
+Nanhai submitted a patch which was intended to fix this issue, and I
+noticed that patch is merged into mainline kernel. I am using
+2.6.27-rc2, which means that patch is included in my kernel.And after
+the system
+completed rebooting, there is nothing generated in KDUMP_SAVEDIR. Let
+me know if I need to provide more information.Thanks.
 
-> arch/ia64/mm/contig.c:  for (i = 0; i < num_rsvd_regions; i++) {
-> arch/ia64/mm/contig.c:          range_end   = min(end, rsvd_region[i].start & PAGE_MASK);
-> arch/ia64/mm/contig.c:          free_start = PAGE_ALIGN(rsvd_region[i].end);
+Regards
+Jason
