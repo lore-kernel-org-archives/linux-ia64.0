@@ -1,32 +1,31 @@
-From: Bernhard Walle <bwalle@suse.de>
-Date: Fri, 29 Aug 2008 16:05:31 +0000
-Subject: Re: kdump broken on Altix 350
-Message-Id: <20080829180531.0524a1e4@halley.suse.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 29 Aug 2008 20:42:40 +0000
+Subject: RE: kdump broken on Altix 350
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA30A0067D6@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080829180302.6e67c26e@halley.suse.de>
-In-Reply-To: <20080829180302.6e67c26e@halley.suse.de>
+	<20080829180531.0524a1e4@halley.suse.de>
+In-Reply-To: <20080829180531.0524a1e4@halley.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Tony Luck <tony.luck@intel.com>
-Cc: jlan@sgi.com, linux-ia64@vger.kernel.org, kexec@lists.infradead.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Bernhard Walle <bwalle@suse.de>
+Cc: "jlan@sgi.com" <jlan@sgi.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>
 
-KiBCZXJuaGFyZCBXYWxsZSBbMjAwOC0wOC0yOSAxODowM106Cj4KPiB5b3VyIGNvbW1pdAo+IAo+
-ICAgICBjb21taXQgMTA2MTdiYmU4NDYyOGViMThhYjVmNzIzZDNiYTM1MDA1YWRkZTE0Mwo+ICAg
-ICBBdXRob3I6IFRvbnkgTHVjayA8dG9ueS5sdWNrQGludGVsLmNvbT4KPiAgICAgRGF0ZTogICBU
-dWUgQXVnIDEyIDEwOjM0OjIwIDIwMDggLTA3MDAKPiAKPiAgICAgW0lBNjRdIEVuc3VyZSBjcHUw
-IGNhbiBhY2Nlc3MgcGVyLWNwdSB2YXJpYWJsZXMgaW4gZWFybHkgYm9vdCBjb2RlCj4gCj4gYnJv
-a2Uga2R1bXAgb24gb3VyIEFsdGl4IDM1MC4gSSBnZXQgZm9sbG93aW5nIGVhcmx5IGNyYXNoIGlu
-IGtkdW1wCj4ga2VybmVsOgoKQWgsIGFuZCB0aGUga2V4ZWMgY2FsbCB3YXMKCi9zYmluL2tleGVj
-IC1wIC9ib290L3ZtbGludXotMi42LjI3LXJjMi1kZWZhdWx0IC0tYXBwZW5kPSIKcm9vdD0vZGV2
-L2Rpc2svYnktaWQvc2NzaS1TQVRBX0hEUzcyMjU4MFZMU0E4MF9WTlJCM0tDMkNaWTBSTC1wYXJ0
-NAprZGI9b24gc3lzcnE9MSBjb25zb2xlPXR0eTEgY29uc29sZT10dHlTRzAsMzg0MDAgdGhhc2hf
-ZW50cmllcyA5NzE1MgplbGV2YXRvct5hZGxpbmUgc3lzcnE9MSByZXNldF9kZXZpY2VzIGlycXBv
-bGwgbWF4Y3B1cz0xICIKLS1pbml0cmQ9L2Jvb3QvaW5pdHJkLTIuNi4yNy1yYzItZGVmYXVsdC1r
-ZHVtcCAgLS1ub2lvCgpUaGUgaW50ZXJlc3RpbmcgdGhpbmcgc2hvdWxkIGJlIHRoZSBrZXJuZWwg
-Y29tbWFuZCBsaW5lIGhlcmUuCgoKCkJlcm5oYXJkCi0tIApCZXJuaGFyZCBXYWxsZSwgU1VTRSBM
-aW51eCBQcm9kdWN0cyBHbWJILCBBcmNoaXRlY3R1cmUgRGV2ZWxvcG1lbnQKLS0KVG8gdW5zdWJz
-Y3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlh
-NjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3Jn
-Ck1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
-LWluZm8uaHRtbA==
+> your commit
+>
+>     commit 10617bbe84628eb18ab5f723d3ba35005adde143
+>     Author: Tony Luck <tony.luck@intel.com>
+>     Date:   Tue Aug 12 10:34:20 2008 -0700
+>
+>     [IA64] Ensure cpu0 can access per-cpu variables in early boot code
+>
+> broke kdump on our Altix 350. I get following early crash in kdump
+> kernel
+
+Sorry about that.  I'll try to reproduce it here.  Do you (or anyone
+else reading this) know if the version of kexec that ships with RHEL5.2
+works with current 2.6.27-rc kernels (perhaps not a politically correct
+question to ask someone with a @suse.de address :-)
+
+-Tony
