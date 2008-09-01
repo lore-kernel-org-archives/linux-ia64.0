@@ -1,53 +1,58 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Mon, 08 Sep 2008 09:10:10 +0000
-Subject: [PATCH 1/5] ia64: dma_alloc_coherent always use GFP_DMA
-Message-Id: <1220865014-1169-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 01 Sep 2008 16:18:10 +0000
+Subject: [PATCH] ia64: kill sys32_pipe
+Message-Id: <20080901161810.GA16320@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: mingo@redhat.com, joerg.roedel@amd.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, fujita.tomonori@lab.ntt.co.jp
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-This patch makes dma_alloc_coherent use GFP_DMA at all times. This is
-necessary for swiotlb, which requires the callers to set up the gfp
-flags properly.
+It's just a duplicate of the generic sys_pipe that still lacks the
+recently added =E6rror handling.
 
-swiotlb_alloc_coherent tries to allocate pages with the gfp flags. If
-the allocated memory isn't fit for dev->coherent_dma_mask,
-swiotlb_alloc_coherent reserves some of the swiotlb memory area, which
-is precious resource. So the callers need to set up the gfp flags
-properly.
 
-This patch means that other IA64 IOMMUs' dma_alloc_coherent also use
-GFP_DMA. These IOMMUs (e.g. SBA IOMMU) don't need GFP_DMA since they
-can map a memory to any address. But IA64's GFP_DMA is large,
-generally drivers allocate small memory with dma_alloc_coherent only
-at startup. So I chose the simplest way to set up the gfp flags for
-swiotlb.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- arch/ia64/include/asm/dma-mapping.h |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 9f0df9b..06ff1ba 100644
---- a/arch/ia64/include/asm/dma-mapping.h
-+++ b/arch/ia64/include/asm/dma-mapping.h
-@@ -8,7 +8,9 @@
- #include <asm/machvec.h>
- #include <linux/scatterlist.h>
- 
--#define dma_alloc_coherent	platform_dma_alloc_coherent
-+#define dma_alloc_coherent(dev, size, handle, gfp)	\
-+	platform_dma_alloc_coherent(dev, size, handle, (gfp) | GFP_DMA)
-+
- /* coherent mem. is cheap */
- static inline void *
- dma_alloc_noncoherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
--- 
-1.5.5.GIT
-
+Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008=
+-09-01 09:30:25.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-09-01 09:32:08.000000000 -03=
+00
+@@ -215,7 +215,7 @@ ia32_syscall_table:
+ 	data8 sys_mkdir
+ 	data8 sys_rmdir		  /* 40 */
+ 	data8 sys_dup
+-	data8 sys32_pipe
++	data8 sys_pipe
+ 	data8 compat_sys_times
+ 	data8 sys_ni_syscall	  /* old prof syscall holder */
+ 	data8 sys32_brk		  /* 45 */
+Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-0=
+9-01 09:31:49.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-09-01 09:32:34.000000000 -0300
+@@ -1098,21 +1098,6 @@ sys32_mremap (unsigned int addr, unsigne
+ 	return ret;
+ }
+=20
+-asmlinkage long
+-sys32_pipe (int __user *fd)
+-{
+-	int retval;
+-	int fds[2];
+-
+-	retval =3D do_pipe_flags(fds, 0);
+-	if (retval)
+-		goto out;
+-	if (copy_to_user(fd, fds, sizeof(fds)))
+-		retval =3D -EFAULT;
+-  out:
+-	return retval;
+-}
+-
+ static inline long
+ get_tv32 (struct timeval *o, struct compat_timeval __user *i)
+ {
