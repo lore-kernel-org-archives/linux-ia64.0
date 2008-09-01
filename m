@@ -1,82 +1,57 @@
-From: akpm@linux-foundation.org
-Date: Mon, 22 Sep 2008 21:43:37 +0000
-Subject: [patch 2/4] ia64 UV: use LED to indicate CPU is active
-Message-Id: <200809222143.m8MLhcN4031422@imap1.linux-foundation.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 01 Sep 2008 16:16:52 +0000
+Subject: [PATCH] ia64: remove sys32_pause
+Message-Id: <20080901161652.GB16121@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Mike Travis <travis@sgi.com>
+It's just a duplicate of the native sys_pause, which we can use after
+defining __ARCH_WANT_SYS_PAUSE.
 
-  * Add an idle callback to turn on/off a LED indicating that
-    the CPU is "active" (ON) or "idle" (OFF).
 
-  * Introduces a callback for "post-smp_cpus_done" processing
-    to setup callback.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Note that this is a RAS feature that allows external monitoring of
-various cpu state indicators, not just providing "pretty blinking
-lights", as the LED state is readable by the system controller.
-
-Signed-off-by: Mike Travis <travis@sgi.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- arch/ia64/include/asm/uv/uv_hub.h |    3 +++
- arch/ia64/uv/kernel/setup.c       |   19 +++++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
-
-diff -puN arch/ia64/include/asm/uv/uv_hub.h~ia64-uv-use-led-to-indicate-cpu-is-active arch/ia64/include/asm/uv/uv_hub.h
---- a/arch/ia64/include/asm/uv/uv_hub.h~ia64-uv-use-led-to-indicate-cpu-is-active
-+++ a/arch/ia64/include/asm/uv/uv_hub.h
-@@ -150,6 +150,9 @@ DECLARE_PER_CPU(struct uv_hub_info_s, __
- #define LED_CPU_BLINK		0xffff	/* blink led */
- #define LED_CPU_HB_INTERVAL	(HZ/2)	/* blink once per second */
- 
-+/* idle callback */
-+extern void (*ia64_mark_idle) (int);
-+
- /*
-  * Macros for converting between kernel virtual addresses, socket local physical
-  * addresses, and UV global physical addresses.
-diff -puN arch/ia64/uv/kernel/setup.c~ia64-uv-use-led-to-indicate-cpu-is-active arch/ia64/uv/kernel/setup.c
---- a/arch/ia64/uv/kernel/setup.c~ia64-uv-use-led-to-indicate-cpu-is-active
-+++ a/arch/ia64/uv/kernel/setup.c
-@@ -52,6 +52,19 @@ static __init void get_lowmem_redirect(u
- 	BUG();
+Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
+=================================--- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008-09-01 09:29:16.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-09-01 09:30:25.000000000 -0300
+@@ -202,7 +202,7 @@ ia32_syscall_table:
+ 	data8 sys32_ptrace
+ 	data8 sys32_alarm
+ 	data8 sys_ni_syscall
+-	data8 sys32_pause
++	data8 sys_pause
+ 	data8 compat_sys_utime	  /* 30 */
+ 	data8 sys_ni_syscall	  /* old stty syscall holder */
+ 	data8 sys_ni_syscall	  /* old gtty syscall holder */
+Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
+=================================--- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-09-01 09:29:16.000000000 -0300
++++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-09-01 09:30:25.000000000 -0300
+@@ -1795,14 +1795,6 @@ out:
  }
  
-+/*
-+ * Illuminate "activity" LED when CPU is going "active",
-+ * extinguish when going "idle".
-+ */
-+static void uv_idle(int state)
-+{
-+	if (state)
-+		uv_set_led_bits(0, LED_CPU_ACTIVITY);
-+
-+	else
-+		uv_set_led_bits(LED_CPU_ACTIVITY, LED_CPU_ACTIVITY);
-+}
-+
- void __init uv_setup(char **cmdline_p)
- {
- 	union uvh_si_addr_map_config_u m_n_config;
-@@ -104,9 +117,11 @@ void __init uv_setup(char **cmdline_p)
- 		uv_cpu_hub_info(cpu)->gnode_upper = gnode_upper;
- 		uv_cpu_hub_info(cpu)->global_mmr_base = mmr_base;
- 		uv_cpu_hub_info(cpu)->coherency_domain_number = 0;/* ZZZ */
--		uv_cpu_hub_info(cpu)->led_offset = LED_LOCAL_MMR_BASE + lcpu;
-+		uv_cpu_hub_info(cpu)->led_offset = LED_LOCAL_MMR_BASE + cpu;
- 		uv_cpu_hub_info(cpu)->led_state = 0;
- 		printk(KERN_DEBUG "UV cpu %d, nid %d\n", cpu, nid);
- 	}
+ asmlinkage int
+-sys32_pause (void)
+-{
+-	current->state = TASK_INTERRUPTIBLE;
+-	schedule();
+-	return -ERESTARTNOHAND;
 -}
- 
-+	/* enable idle callback */
-+	ia64_mark_idle = &uv_idle;
-+}
-_
+-
+-asmlinkage int
+ sys32_msync (unsigned int start, unsigned int len, int flags)
+ {
+ 	unsigned int addr;
+Index: linux-2.6/arch/ia64/include/asm/unistd.h
+=================================--- linux-2.6.orig/arch/ia64/include/asm/unistd.h	2008-09-01 09:31:13.000000000 -0300
++++ linux-2.6/arch/ia64/include/asm/unistd.h	2008-09-01 09:31:32.000000000 -0300
+@@ -337,6 +337,7 @@
+ # define __ARCH_WANT_SYS_NICE
+ # define __ARCH_WANT_SYS_OLD_GETRLIMIT
+ # define __ARCH_WANT_SYS_OLDUMOUNT
++# define __ARCH_WANT_SYS_PAUSE
+ # define __ARCH_WANT_SYS_SIGPENDING
+ # define __ARCH_WANT_SYS_SIGPROCMASK
+ # define __ARCH_WANT_COMPAT_SYS_RT_SIGSUSPEND
