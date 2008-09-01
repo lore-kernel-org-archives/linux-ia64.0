@@ -1,62 +1,77 @@
-From: akpm@linux-foundation.org
-Date: Mon, 22 Sep 2008 21:43:39 +0000
-Subject: [patch 4/4] ia64: fix the difference between node_mem_map and node_start_pfn
-Message-Id: <200809222143.m8MLhe02031428@imap1.linux-foundation.org>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Mon, 01 Sep 2008 01:42:45 +0000
+Subject: Re: [PATCH] x86: kill sys32_pause
+Message-Id: <20080901014245.GA11445@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20080901013924.GA7947@lst.de>
+In-Reply-To: <20080901013924.GA7947@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-From: "Ken'ichi Ohmichi" <oomichi@mxs.nes.nec.co.jp>
+On Mon, Sep 01, 2008 at 03:39:24AM +0200, Christoph Hellwig wrote:
+> It's just a duplicate of the native sys_pause.
 
-makedumpfile[1] cannot run on ia64 discontigmem kernel, because the member
-node_mem_map of struct pgdat_list has invalid value.  This patch fixes it.
+Oops, this also includes ia64.  Should be safe anyway :)
 
-node_start_pfn shows the start pfn of each node, and node_mem_map should
-point 'struct page' of each node's node_start_pfn.  On my machine, node0's
-node_start_pfn shows 0x400 and its node_mem_map points 0xa0007fffbf000000.
- This address is the same as vmem_map, so the node_mem_map points 'struct
-page' of pfn 0, even if its node_start_pfn shows 0x400.
-
-The cause is due to the round down of min_pfn in count_node_pages() and
-node0's node_mem_map points 'struct page' of inactive pfn (0x0).  This
-patch fixes it.
-
-makedumpfile[1]: dump filtering command
-https://sourceforge.net/projects/makedumpfile/
-
-Signed-off-by: Ken'ichi Ohmichi <oomichi@mxs.nes.nec.co.jp>
-Cc: Bernhard Walle <bwalle@suse.de>
-Cc: Jay Lan <jlan@sgi.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
----
-
- arch/ia64/include/asm/meminit.h |    1 -
- arch/ia64/mm/discontig.c        |    1 -
- 2 files changed, 2 deletions(-)
-
-diff -puN arch/ia64/include/asm/meminit.h~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn arch/ia64/include/asm/meminit.h
---- a/arch/ia64/include/asm/meminit.h~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn
-+++ a/arch/ia64/include/asm/meminit.h
-@@ -47,7 +47,6 @@ extern int reserve_elfcorehdr(unsigned l
-  */
- #define GRANULEROUNDDOWN(n)	((n) & ~(IA64_GRANULE_SIZE-1))
- #define GRANULEROUNDUP(n)	(((n)+IA64_GRANULE_SIZE-1) & ~(IA64_GRANULE_SIZE-1))
--#define ORDERROUNDDOWN(n)	((n) & ~((PAGE_SIZE<<MAX_ORDER)-1))
- 
- #ifdef CONFIG_NUMA
-   extern void call_pernode_memory (unsigned long start, unsigned long len, void *func);
-diff -puN arch/ia64/mm/discontig.c~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn arch/ia64/mm/discontig.c
---- a/arch/ia64/mm/discontig.c~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn
-+++ a/arch/ia64/mm/discontig.c
-@@ -635,7 +635,6 @@ static __init int count_node_pages(unsig
- 			(min(end, __pa(MAX_DMA_ADDRESS)) - start) >>PAGE_SHIFT;
- #endif
- 	start = GRANULEROUNDDOWN(start);
--	start = ORDERROUNDDOWN(start);
- 	end = GRANULEROUNDUP(end);
- 	mem_data[node].max_pfn = max(mem_data[node].max_pfn,
- 				     end >> PAGE_SHIFT);
-_
+> 
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> 
+> Index: linux-2.6/arch/x86/ia32/sys_ia32.c
+> =================================> --- linux-2.6.orig/arch/x86/ia32/sys_ia32.c	2008-08-22 12:48:34.000000000 -0300
+> +++ linux-2.6/arch/x86/ia32/sys_ia32.c	2008-08-22 12:48:40.000000000 -0300
+> @@ -556,15 +556,6 @@ asmlinkage long sys32_rt_sigqueueinfo(in
+>  	return ret;
+>  }
+>  
+> -/* These are here just in case some old ia32 binary calls it. */
+> -asmlinkage long sys32_pause(void)
+> -{
+> -	current->state = TASK_INTERRUPTIBLE;
+> -	schedule();
+> -	return -ERESTARTNOHAND;
+> -}
+> -
+> -
+>  #ifdef CONFIG_SYSCTL_SYSCALL
+>  struct sysctl_ia32 {
+>  	unsigned int	name;
+> Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
+> =================================> --- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008-08-22 12:49:25.000000000 -0300
+> +++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-08-22 12:49:29.000000000 -0300
+> @@ -202,7 +202,7 @@ ia32_syscall_table:
+>  	data8 sys32_ptrace
+>  	data8 sys32_alarm
+>  	data8 sys_ni_syscall
+> -	data8 sys32_pause
+> +	data8 sys_pause
+>  	data8 compat_sys_utime	  /* 30 */
+>  	data8 sys_ni_syscall	  /* old stty syscall holder */
+>  	data8 sys_ni_syscall	  /* old gtty syscall holder */
+> Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
+> =================================> --- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-08-22 12:49:33.000000000 -0300
+> +++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-08-22 12:49:37.000000000 -0300
+> @@ -1795,14 +1795,6 @@ out:
+>  }
+>  
+>  asmlinkage int
+> -sys32_pause (void)
+> -{
+> -	current->state = TASK_INTERRUPTIBLE;
+> -	schedule();
+> -	return -ERESTARTNOHAND;
+> -}
+> -
+> -asmlinkage int
+>  sys32_msync (unsigned int start, unsigned int len, int flags)
+>  {
+>  	unsigned int addr;
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+---end quoted text---
