@@ -1,58 +1,94 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 01 Sep 2008 16:18:10 +0000
-Subject: [PATCH] ia64: kill sys32_pipe
-Message-Id: <20080901161810.GA16320@lst.de>
+From: Manfred Spraul <manfred@colorfullife.com>
+Date: Sun, 07 Sep 2008 09:13:38 +0000
+Subject: ia64 start secondary cpus: what's the first line where interrupts
+Message-Id: <48C39B42.4080504@colorfullife.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010303020601040308050703"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, tony.luck@intel.com
 
-It's just a duplicate of the generic sys_pipe that still lacks the
-recently added =E6rror handling.
+This is a multi-part message in MIME format.
+--------------010303020601040308050703
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
+Hi,
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+For my rcu implementation, I try to figure out how the boot process for 
+secondary cpus works.
 
-Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008=
--09-01 09:30:25.000000000 -0300
-+++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-09-01 09:32:08.000000000 -03=
-00
-@@ -215,7 +215,7 @@ ia32_syscall_table:
- 	data8 sys_mkdir
- 	data8 sys_rmdir		  /* 40 */
- 	data8 sys_dup
--	data8 sys32_pipe
-+	data8 sys_pipe
- 	data8 compat_sys_times
- 	data8 sys_ni_syscall	  /* old prof syscall holder */
- 	data8 sys32_brk		  /* 45 */
-Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-0=
-9-01 09:31:49.000000000 -0300
-+++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-09-01 09:32:34.000000000 -0300
-@@ -1098,21 +1098,6 @@ sys32_mremap (unsigned int addr, unsigne
- 	return ret;
- }
-=20
--asmlinkage long
--sys32_pipe (int __user *fd)
--{
--	int retval;
--	int fds[2];
+arch/ia64/kernel/smpboot.c contains the following code:
+> static void __cpuinit
+> smp_callin (void)
+> {
+> [snip]
+>         per_cpu(cpu_state, cpuid) = CPU_ONLINE;
+>         spin_unlock(&vector_lock);
+>         ipi_call_unlock_irq();
+> <<<<<
+> <<<<< ipi_call_unlock_irq() does local_irq_enable()
+> <<<<<
+>         smp_setup_percpu_timer();
+>
+>         ia64_mca_cmc_vector_setup();    /* Setup vector on AP */
+>
+> #ifdef CONFIG_PERFMON
+>         pfm_init_percpu();
+> #endif
+>
+>         local_irq_enable();
+> <<<<<
+> <<<<< Another local_irq_enable().
+> <<<<<
+Which of these two local_irq_enable()'s is the right one?
+
+And: IMHO it's unclean to abuse ipi_call_unlock_irq() to enable the 
+local interrupts.
+What about the attached patch? Untested due to lack of test hardware.
+
+--
+    Manfred
+
+--------------010303020601040308050703
+Content-Type: text/plain;
+ name="patch-ia64-smpboot"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-ia64-smpboot"
+
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 03f1a99..f4868d2 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -396,14 +396,17 @@ smp_callin (void)
+ 
+ 	fix_b0_for_bsp();
+ 
+-	ipi_call_lock_irq();
++	ipi_call_lock();
+ 	spin_lock(&vector_lock);
+ 	/* Setup the per cpu irq handling data structures */
+ 	__setup_vector_irq(cpuid);
+ 	cpu_set(cpuid, cpu_online_map);
+ 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
+ 	spin_unlock(&vector_lock);
+-	ipi_call_unlock_irq();
++	ipi_call_unlock();
++	
++	/* begin processing interrupts */
++	local_irq_enable();
+ 
+ 	smp_setup_percpu_timer();
+ 
+@@ -413,8 +416,6 @@ smp_callin (void)
+ 	pfm_init_percpu();
+ #endif
+ 
+-	local_irq_enable();
 -
--	retval =3D do_pipe_flags(fds, 0);
--	if (retval)
--		goto out;
--	if (copy_to_user(fd, fds, sizeof(fds)))
--		retval =3D -EFAULT;
--  out:
--	return retval;
--}
--
- static inline long
- get_tv32 (struct timeval *o, struct compat_timeval __user *i)
- {
+ 	if (!(sal_platform_features & IA64_SAL_PLATFORM_FEATURE_ITC_DRIFT)) {
+ 		/*
+ 		 * Synchronize the ITC with the BP.  Need to do this after irqs are
+
+--------------010303020601040308050703--
