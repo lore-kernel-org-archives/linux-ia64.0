@@ -1,67 +1,61 @@
-From: Joerg Roedel <joerg.roedel@amd.com>
-Date: Mon, 08 Sep 2008 12:01:10 +0000
-Subject: Re: [PATCH 2/5] x86: move pci-nommu's dma_mask check to common code
-Message-Id: <20080908120110.GJ3189@amd.com>
+From: "A. Devine" <devine@dna.ie>
+Date: Sun, 07 Sep 2008 12:25:33 +0000
+Subject: Re: Graphics support - ATI vs nVidia
+Message-Id: <D2ACCD6DC10244B79038210F3101B59D@kodax64>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp> <1220865014-1169-2-git-send-email-fujita.tomonori@lab.ntt.co.jp> <1220865014-1169-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1220865014-1169-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <7C4B5C8349AD4AC082AD250928FB330D@kodax64>
+In-Reply-To: <7C4B5C8349AD4AC082AD250928FB330D@kodax64>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org
+To: linux-ia64@vger.kernel.org
 
-On Mon, Sep 08, 2008 at 06:10:11PM +0900, FUJITA Tomonori wrote:
-> The check to see if dev->dma_mask is NULL in pci-nommu is more
-> appropriate for dma_alloc_coherent().
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+----- Original Message ----- 
+From: "A. Devine" <devine@dna.ie>
+To: "Luck, Tony" <tony.luck@intel.com>; <linux-ia64@vger.kernel.org>
+Sent: Thursday, August 28, 2008 10:49 PM
+Subject: Re: Graphics support - ATI vs nVidia
 
-Acked-by: Joerg Roedel <joerg.roedel@amd.com>
 
-> ---
->  arch/x86/kernel/pci-nommu.c   |    3 ---
->  include/asm-x86/dma-mapping.h |    3 +++
->  2 files changed, 3 insertions(+), 3 deletions(-)
-> 
-> diff --git a/arch/x86/kernel/pci-nommu.c b/arch/x86/kernel/pci-nommu.c
-> index 73853d3..0f51883 100644
-> --- a/arch/x86/kernel/pci-nommu.c
-> +++ b/arch/x86/kernel/pci-nommu.c
-> @@ -80,9 +80,6 @@ nommu_alloc_coherent(struct device *hwdev, size_t size,
->  	int node;
->  	struct page *page;
->  
-> -	if (hwdev->dma_mask = NULL)
-> -		return NULL;
-> -
->  	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
->  	gfp |= __GFP_ZERO;
->  
-> diff --git a/include/asm-x86/dma-mapping.h b/include/asm-x86/dma-mapping.h
-> index bc6c8df..39d3641 100644
-> --- a/include/asm-x86/dma-mapping.h
-> +++ b/include/asm-x86/dma-mapping.h
-> @@ -256,6 +256,9 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
->  		gfp |= GFP_DMA;
->  	}
->  
-> +	if (!dev->dma_mask)
-> +		return NULL;
-> +
->  	if (ops->alloc_coherent)
->  		return ops->alloc_coherent(dev, size,
->  				dma_handle, gfp);
-> -- 
-> 1.5.5.GIT
-> 
-> 
+>
+>>
+>> nVidia stopped tracking ia64 at least a couple of years ago ... so their
+>> closed driver is only usable on old kernels.
+>>
+>> -Tony
+>> --
+>
+>
+> Thanks for that, I now have the ZX-6000 and am using on the supplied 
+> Radeon 7000 (RV100) card with Ubuntu 8.04 (tried Debian too). Ive been 
+> trying to get DRI working and have been digging through several years 
+> worth of mailing lists on the various flat out bugs with X on the IA64 
+> platform (which now should be fixed I hope!) and other issues. I have got 
+> it to the point that AGP is working but Im getting a very basic error as 
+> seen in glxinfo:
+>
+> libGL error: failed to open DRM: Operation not permitted
+> libGL error: reverting to (slow) indirect rendering
+>
+>
+> Usually this is just a permissions issue which is cured by adding:
+>
+> Section "DRI"
+>    Mode  0666
+> EndSection
+>
+>
+> to Xorg.conf. I have tried that (also tried lowercase) and it just doesnt 
+> work, makes no difference. Does anyone have any input or even just 
+> assurance that DRI does indeed work, somewhere and somehow on someones 
+> IA64?
+>
+>
+> Alan
 
--- 
-           |           AMD Saxony Limited Liability Company & Co. KG
- Operating |         Wilschdorfer Landstr. 101, 01109 Dresden, Germany
- System    |                  Register Court Dresden: HRA 4896
- Research  |              General Partner authorized to represent:
- Center    |             AMD Saxony LLC (Wilmington, Delaware, US)
-           | General Manager of AMD Saxony LLC: Dr. Hans-R. Deppe, Thomas McCoy
+Just to update my own email, I upgraded to Ubuntu Intrepid Ibex (Alpha 4 and 
+now 5) which includes Xorg 1.5 and new Radeon drivers. It now works "out of 
+the box". I had tried Ubuntu 7.04 and 8.04, several Kernel versions and DRM 
+changes, this is the first time it worked which would make it appear to be 
+some sort of Xorg issue. 
 
