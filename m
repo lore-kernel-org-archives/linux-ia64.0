@@ -1,41 +1,62 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Tue, 09 Sep 2008 10:41:07 +0000
-Subject: Re: [PATCH 0/5] fix exhaustion of ZONE_DMA with swiotlb (in x86
-Message-Id: <20080909194107.8bae460c.kamezawa.hiroyu@jp.fujitsu.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 08 Sep 2008 09:10:12 +0000
+Subject: [PATCH 3/5] x86: fix nommu_alloc_coherent allocation with NULL device argument
+Message-Id: <1220865014-1169-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1220865014-1169-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1220865014-1169-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1220865014-1169-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: linux-kernel@vger.kernel.org, mingo@redhat.com, joerg.roedel@amd.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Cc: mingo@redhat.com, joerg.roedel@amd.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, fujita.tomonori@lab.ntt.co.jp
 
-On Mon,  8 Sep 2008 18:10:09 +0900
-FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+We need to use __GFP_DMA for NULL device argument (fallback_dev) with
+pci-nommu. It's a hack for ISA (and some old code) so we need to use
+GFP_DMA.
 
-> This patchset (against tip/master) fixes the problem that swiotlb
-> exhausts ZONE_DMA:
-> 
-> http://lkml.org/lkml/2008/8/31/16
-> 
-> The root problem is that swiotlb_alloc_coherent always use ZONE_DMA,
-> which is fine for IA64 but not for x86_64.
-> 
-> This patchset makes the callers set up the gfp flags so that
-> swiotlb_alloc_coherent can stop playing with the gfp flags.
-> 
-> I think that it would be better to remove the allocation code in
-> swiotlb_alloc_coherent theoretically (what swiotlb should do is taking
-> care of the swiotlb memory. And swiotlb_alloc_coherent is not useful
-> since we use it only when we can't allocate memory reachable by the
-> device or we are in out of memory). But that code works for both x86
-> and IA64 so it's not so bad, I guess.
-> 
-> #1 is for IA64, #2-4 for x86, and #5 is for swiotlb.
-> 
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+---
+ arch/x86/kernel/pci-nommu.c   |    3 +--
+ include/asm-x86/dma-mapping.h |    2 ++
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-Thanks, works well for me :)
-
-Tested-by: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+diff --git a/arch/x86/kernel/pci-nommu.c b/arch/x86/kernel/pci-nommu.c
+index 0f51883..ada1c87 100644
+--- a/arch/x86/kernel/pci-nommu.c
++++ b/arch/x86/kernel/pci-nommu.c
+@@ -80,7 +80,6 @@ nommu_alloc_coherent(struct device *hwdev, size_t size,
+ 	int node;
+ 	struct page *page;
+ 
+-	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
+ 	gfp |= __GFP_ZERO;
+ 
+ 	dma_mask = hwdev->coherent_dma_mask;
+@@ -93,7 +92,7 @@ nommu_alloc_coherent(struct device *hwdev, size_t size,
+ 	node = dev_to_node(hwdev);
+ 
+ #ifdef CONFIG_X86_64
+-	if (dma_mask <= DMA_32BIT_MASK)
++	if (dma_mask <= DMA_32BIT_MASK && !(gfp & GFP_DMA))
+ 		gfp |= GFP_DMA32;
+ #endif
+ 
+diff --git a/include/asm-x86/dma-mapping.h b/include/asm-x86/dma-mapping.h
+index 39d3641..9d6dcf4 100644
+--- a/include/asm-x86/dma-mapping.h
++++ b/include/asm-x86/dma-mapping.h
+@@ -248,6 +248,8 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 	struct dma_mapping_ops *ops = get_dma_ops(dev);
+ 	void *memory;
+ 
++	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
++
+ 	if (dma_alloc_from_coherent(dev, size, dma_handle, &memory))
+ 		return memory;
+ 
+-- 
+1.5.5.GIT
 
