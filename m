@@ -1,77 +1,53 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 01 Sep 2008 01:42:45 +0000
-Subject: Re: [PATCH] x86: kill sys32_pause
-Message-Id: <20080901014245.GA11445@infradead.org>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 08 Sep 2008 09:10:10 +0000
+Subject: [PATCH 1/5] ia64: dma_alloc_coherent always use GFP_DMA
+Message-Id: <1220865014-1169-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20080901013924.GA7947@lst.de>
-In-Reply-To: <20080901013924.GA7947@lst.de>
+References: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1220865014-1169-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: mingo@redhat.com, joerg.roedel@amd.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, fujita.tomonori@lab.ntt.co.jp
 
-On Mon, Sep 01, 2008 at 03:39:24AM +0200, Christoph Hellwig wrote:
-> It's just a duplicate of the native sys_pause.
+This patch makes dma_alloc_coherent use GFP_DMA at all times. This is
+necessary for swiotlb, which requires the callers to set up the gfp
+flags properly.
 
-Oops, this also includes ia64.  Should be safe anyway :)
+swiotlb_alloc_coherent tries to allocate pages with the gfp flags. If
+the allocated memory isn't fit for dev->coherent_dma_mask,
+swiotlb_alloc_coherent reserves some of the swiotlb memory area, which
+is precious resource. So the callers need to set up the gfp flags
+properly.
 
-> 
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> 
-> Index: linux-2.6/arch/x86/ia32/sys_ia32.c
-> =================================> --- linux-2.6.orig/arch/x86/ia32/sys_ia32.c	2008-08-22 12:48:34.000000000 -0300
-> +++ linux-2.6/arch/x86/ia32/sys_ia32.c	2008-08-22 12:48:40.000000000 -0300
-> @@ -556,15 +556,6 @@ asmlinkage long sys32_rt_sigqueueinfo(in
->  	return ret;
->  }
->  
-> -/* These are here just in case some old ia32 binary calls it. */
-> -asmlinkage long sys32_pause(void)
-> -{
-> -	current->state = TASK_INTERRUPTIBLE;
-> -	schedule();
-> -	return -ERESTARTNOHAND;
-> -}
-> -
-> -
->  #ifdef CONFIG_SYSCTL_SYSCALL
->  struct sysctl_ia32 {
->  	unsigned int	name;
-> Index: linux-2.6/arch/ia64/ia32/ia32_entry.S
-> =================================> --- linux-2.6.orig/arch/ia64/ia32/ia32_entry.S	2008-08-22 12:49:25.000000000 -0300
-> +++ linux-2.6/arch/ia64/ia32/ia32_entry.S	2008-08-22 12:49:29.000000000 -0300
-> @@ -202,7 +202,7 @@ ia32_syscall_table:
->  	data8 sys32_ptrace
->  	data8 sys32_alarm
->  	data8 sys_ni_syscall
-> -	data8 sys32_pause
-> +	data8 sys_pause
->  	data8 compat_sys_utime	  /* 30 */
->  	data8 sys_ni_syscall	  /* old stty syscall holder */
->  	data8 sys_ni_syscall	  /* old gtty syscall holder */
-> Index: linux-2.6/arch/ia64/ia32/sys_ia32.c
-> =================================> --- linux-2.6.orig/arch/ia64/ia32/sys_ia32.c	2008-08-22 12:49:33.000000000 -0300
-> +++ linux-2.6/arch/ia64/ia32/sys_ia32.c	2008-08-22 12:49:37.000000000 -0300
-> @@ -1795,14 +1795,6 @@ out:
->  }
->  
->  asmlinkage int
-> -sys32_pause (void)
-> -{
-> -	current->state = TASK_INTERRUPTIBLE;
-> -	schedule();
-> -	return -ERESTARTNOHAND;
-> -}
-> -
-> -asmlinkage int
->  sys32_msync (unsigned int start, unsigned int len, int flags)
->  {
->  	unsigned int addr;
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
----end quoted text---
+This patch means that other IA64 IOMMUs' dma_alloc_coherent also use
+GFP_DMA. These IOMMUs (e.g. SBA IOMMU) don't need GFP_DMA since they
+can map a memory to any address. But IA64's GFP_DMA is large,
+generally drivers allocate small memory with dma_alloc_coherent only
+at startup. So I chose the simplest way to set up the gfp flags for
+swiotlb.
+
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+---
+ arch/ia64/include/asm/dma-mapping.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 9f0df9b..06ff1ba 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -8,7 +8,9 @@
+ #include <asm/machvec.h>
+ #include <linux/scatterlist.h>
+ 
+-#define dma_alloc_coherent	platform_dma_alloc_coherent
++#define dma_alloc_coherent(dev, size, handle, gfp)	\
++	platform_dma_alloc_coherent(dev, size, handle, (gfp) | GFP_DMA)
++
+ /* coherent mem. is cheap */
+ static inline void *
+ dma_alloc_noncoherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+-- 
+1.5.5.GIT
+
