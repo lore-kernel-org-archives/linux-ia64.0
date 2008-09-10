@@ -1,39 +1,44 @@
-From: "Luming Yu" <luming.yu@gmail.com>
-Date: Thu, 18 Sep 2008 05:44:07 +0000
-Subject: Re: [RFC PATCH] set TASK_TRACED before arch_ptrace code to fix a race
-Message-Id: <3877989d0809172244h196c79d6k67a9a024221b104a@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 10 Sep 2008 21:17:37 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <200809102117.m8ALHbrC031210@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3877989d0805211947i54bacc7cv619541e9b40824fb@mail.gmail.com>
-	 <3877989d0806031916wf11bb2t3847aa630fb39e60@mail.gmail.com>
-	 <48465D5C.8000804@suse.cz>
-	 <3877989d0806041849vb903aaw221de929e2ab8cb9@mail.gmail.com>
-	 <1212664605.15747.16.camel@elijah.suse.cz>
-	 <20080627204954.34F8B154231@magilla.localdomain>
-	 <3877989d0809082006v496bae4i1c0736f5d55e9b9f@mail.gmail.com>
-	 <20080910055504.9A2A41541FE@magilla.localdomain>
-	 <3877989d0809160150y385edd59i231aca8b1073ce14@mail.gmail.com>
-	 <20080917170122.7797E640A5@pipsqueak.localdomain>
-In-Reply-To: <20080917170122.7797E640A5@pipsqueak.localdomain>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Roland McGrath <roland@redhat.com>
-Cc: Petr Tesarik <ptesarik@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-The another mysterious that I completely don't understand  probably
-needs your help.
-Why kernels with utrace patch applied on ia64 just work?
-Sounds like utrace delivers an extra SIGTRAP comparing with kernel
-without utrace code..
-Dose it make sense? Hmm.. Sounds like a bug to me..
+Hi Linus,
 
-On Thu, Sep 18, 2008 at 1:01 AM, Roland McGrath <roland@redhat.com> wrote:
-> So is there or is there not any regression (change) in the kernel's behavior?
->
-> If you are now just talking about strace's own code, then the place for
-> that is strace-devel@lists.sourceforge.net, not any kernel lists.
->
->
-> Thanks,
-> Roland
->
+please pull from:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/include/asm/elf.h       |   15 +++++++++++++++
+ arch/ia64/include/asm/sections.h  |   13 ++++++++++++-
+ arch/ia64/include/asm/sn/bte.h    |    9 +++++----
+ arch/ia64/kernel/module.c         |   21 ---------------------
+ arch/ia64/kernel/smpboot.c        |    4 +---
+ arch/ia64/sn/pci/tioca_provider.c |    4 +++-
+ 6 files changed, 36 insertions(+), 30 deletions(-)
+
+James Bottomley (1):
+      [IA64] fix compile failure with non modular builds
+
+Julia Lawall (1):
+      [IA64] arch/ia64/sn/pci/tioca_provider.c: introduce missing kfree
+
+Paul E. McKenney (1):
+      [IA64] prevent ia64 from invoking irq handlers on offline CPUs
+
+Robin Holt (1):
+      [IA64] fix up bte.h
+
