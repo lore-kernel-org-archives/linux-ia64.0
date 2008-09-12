@@ -1,63 +1,44 @@
-From: Jay Lan <jlan@sgi.com>
-Date: Thu, 11 Sep 2008 23:00:08 +0000
-Subject: [PATCH]IA64: assign a distinguishable label to uncached memory in
-Message-Id: <48C9A2F8.3060308@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------020302050802090908040703"
+From: Bernhard Walle <bwalle@suse.de>
+Date: Fri, 12 Sep 2008 07:55:48 +0000
+Subject: Re: [PATCH]IA64: assign a distinguishable label to uncached memory
+Message-Id: <20080912095548.54471a93@kepler.site>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-Cc: Jack Steiner <steiner@sgi.com>, kexec@lists.infradead.org
-
-This is a multi-part message in MIME format.
---------------020302050802090908040703
-Content-Type: text/plain; charset=ISO-8859-1
+References: <48C9A2F8.3060308@sgi.com>
+In-Reply-To: <48C9A2F8.3060308@sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Jay Lan <jlan@sgi.com>
+Cc: kexec@lists.infradead.org, Jack Steiner <steiner@sgi.com>, linux-ia64@vger.kernel.org
 
-Currently a memory segment in memory map with attribute of EFI_MEMORY_UC
-is denoted as "System RAM" in /proc/iomem, while memory of attribute
-(EFI_MEMORY_WB|EFI_MEMORY_UC) is also labeled the same.
+* Jay Lan <jlan@sgi.com> [2008-09-11]: 
 
-The kexec utility then includes uncached memory as part of vmcore. The
-kdump kernel MCA'ed when it tries to save the vmcore to a disk. A normal
-"cached" access may cause MCAs.
+> -				} else {
+> -					name = "System RAM";
+> -				}
+> +				} else if (md->attribute = EFI_MEMORY_UC)
+> +						name = "Uncached RAM";
+> +					else
+> +						name = "System RAM";
+                                ^^^^^^^^
 
-This patch would label memory with attribute of EFI_MEMORY_UC only as
-"Uncached RAM" so that kexec would know not to include it in the vmcore.
-I will submit a separate kexec-tools patch to the kexec list.
+Isn't that too much indent, i.e. shouldn't that be
 
-Signed-off-by: Jay Lan <jlan@sgi.com>
-
-
-
---------------020302050802090908040703
-Content-Type: text/plain;
- name="UC-mem"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="UC-mem"
-
----
- arch/ia64/kernel/efi.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-Index: linux/arch/ia64/kernel/efi.c
-===================================================================
---- linux.orig/arch/ia64/kernel/efi.c
-+++ linux/arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
 @@ -1232,9 +1232,10 @@ efi_initialize_iomem_resources(struct re
- 				if (md->attribute & EFI_MEMORY_WP) {
- 					name = "System ROM";
- 					flags |= IORESOURCE_READONLY;
--				} else {
--					name = "System RAM";
--				}
-+				} else if (md->attribute == EFI_MEMORY_UC)
-+						name = "Uncached RAM";
-+					else
-+						name = "System RAM";
- 				break;
- 
- 			case EFI_ACPI_MEMORY_NVS:
+                                if (md->attribute & EFI_MEMORY_WP) {
+                                        name = "System ROM";
+                                        flags |= IORESOURCE_READONLY;
+-                               } else {
++                               } else if (md->attribute =
+EFI_MEMORY_UC)
++                                       name = "Uncached RAM";
++                               else
+                                        name = "System RAM";
+-                               }
+                                break;
 
 
---------------020302050802090908040703--
+
+Bernhard
