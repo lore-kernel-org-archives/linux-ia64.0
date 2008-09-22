@@ -1,94 +1,104 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Date: Sun, 07 Sep 2008 09:13:38 +0000
-Subject: ia64 start secondary cpus: what's the first line where interrupts
-Message-Id: <48C39B42.4080504@colorfullife.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010303020601040308050703"
+From: akpm@linux-foundation.org
+Date: Mon, 22 Sep 2008 21:43:39 +0000
+Subject: [patch 3/4] ia64 UV: use blinking LED for heartbeat display
+Message-Id: <200809222143.m8MLhd1D031425@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, tony.luck@intel.com
 
-This is a multi-part message in MIME format.
---------------010303020601040308050703
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Mike Travis <travis@sgi.com>
 
-Hi,
+  * Add a function to blink the "heartbeat" LED indicating
+    that the CPU is responding to timer interrupts.
 
-For my rcu implementation, I try to figure out how the boot process for 
-secondary cpus works.
+  * Introduces a callback for "heartbeat" display in the
+    clocksource_watchdog function, which in turn requires
+    CONFIG_CLOCKSOURCE_WATCHDOG to be set.
 
-arch/ia64/kernel/smpboot.c contains the following code:
-> static void __cpuinit
-> smp_callin (void)
-> {
-> [snip]
->         per_cpu(cpu_state, cpuid) = CPU_ONLINE;
->         spin_unlock(&vector_lock);
->         ipi_call_unlock_irq();
-> <<<<<
-> <<<<< ipi_call_unlock_irq() does local_irq_enable()
-> <<<<<
->         smp_setup_percpu_timer();
->
->         ia64_mca_cmc_vector_setup();    /* Setup vector on AP */
->
-> #ifdef CONFIG_PERFMON
->         pfm_init_percpu();
-> #endif
->
->         local_irq_enable();
-> <<<<<
-> <<<<< Another local_irq_enable().
-> <<<<<
-Which of these two local_irq_enable()'s is the right one?
+Note that this is a RAS feature that allows external monitoring of
+various cpu state indicators, not just providing "pretty blinking
+lights", as the LED state is readable by the system controller.
 
-And: IMHO it's unclean to abuse ipi_call_unlock_irq() to enable the 
-local interrupts.
-What about the attached patch? Untested due to lack of test hardware.
+Signed-off-by: Mike Travis <travis@sgi.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
---
-    Manfred
+ arch/ia64/include/asm/uv/uv_hub.h |    4 ++++
+ arch/ia64/uv/kernel/setup.c       |   28 ++++++++++++++++++++++++++++
+ 2 files changed, 32 insertions(+)
 
---------------010303020601040308050703
-Content-Type: text/plain;
- name="patch-ia64-smpboot"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-ia64-smpboot"
-
-diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
-index 03f1a99..f4868d2 100644
---- a/arch/ia64/kernel/smpboot.c
-+++ b/arch/ia64/kernel/smpboot.c
-@@ -396,14 +396,17 @@ smp_callin (void)
+diff -puN arch/ia64/include/asm/uv/uv_hub.h~ia64-uv-use-blinking-led-for-heartbeat-display arch/ia64/include/asm/uv/uv_hub.h
+--- a/arch/ia64/include/asm/uv/uv_hub.h~ia64-uv-use-blinking-led-for-heartbeat-display
++++ a/arch/ia64/include/asm/uv/uv_hub.h
+@@ -100,6 +100,7 @@ struct uv_hub_info_s {
+ 	unsigned long	lowmem_remap_top;
+ 	unsigned long	lowmem_remap_base;
+ 	unsigned long	led_offset;
++	unsigned int	led_heartbeat_count;
+ 	unsigned short	pnode;
+ 	unsigned short	pnode_mask;
+ 	unsigned short	coherency_domain_number;
+@@ -153,6 +154,9 @@ DECLARE_PER_CPU(struct uv_hub_info_s, __
+ /* idle callback */
+ extern void (*ia64_mark_idle) (int);
  
- 	fix_b0_for_bsp();
++/* idle callback */
++extern void (*ia64_mark_idle) (int);
++
+ /*
+  * Macros for converting between kernel virtual addresses, socket local physical
+  * addresses, and UV global physical addresses.
+diff -puN arch/ia64/uv/kernel/setup.c~ia64-uv-use-blinking-led-for-heartbeat-display arch/ia64/uv/kernel/setup.c
+--- a/arch/ia64/uv/kernel/setup.c~ia64-uv-use-blinking-led-for-heartbeat-display
++++ a/arch/ia64/uv/kernel/setup.c
+@@ -8,6 +8,7 @@
+  * Copyright (C) 2008 Silicon Graphics, Inc. All rights reserved.
+  */
  
--	ipi_call_lock_irq();
-+	ipi_call_lock();
- 	spin_lock(&vector_lock);
- 	/* Setup the per cpu irq handling data structures */
- 	__setup_vector_irq(cpuid);
- 	cpu_set(cpuid, cpu_online_map);
- 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
- 	spin_unlock(&vector_lock);
--	ipi_call_unlock_irq();
-+	ipi_call_unlock();
-+	
-+	/* begin processing interrupts */
-+	local_irq_enable();
++#include <linux/clocksource.h>
+ #include <linux/module.h>
+ #include <linux/percpu.h>
+ #include <asm/sn/simulator.h>
+@@ -65,6 +66,25 @@ static void uv_idle(int state)
+ 		uv_set_led_bits(LED_CPU_ACTIVITY, LED_CPU_ACTIVITY);
+ }
  
- 	smp_setup_percpu_timer();
++#ifdef CONFIG_CLOCKSOURCE_WATCHDOG
++static void uv_display_heartbeat(void)
++{
++	int cpu;
++
++	uv_hub_info->led_heartbeat_count = nr_cpu_ids;
++
++	for_each_online_cpu(cpu) {
++		struct uv_hub_info_s *hub = uv_cpu_hub_info(cpu);
++
++		if (hub->led_heartbeat_count > 0) {
++			uv_set_led_bits_on(cpu, LED_CPU_BLINK,
++						LED_CPU_HEARTBEAT);
++			--hub->led_heartbeat_count;
++		}
++	}
++}
++#endif
++
+ void __init uv_setup(char **cmdline_p)
+ {
+ 	union uvh_si_addr_map_config_u m_n_config;
+@@ -124,4 +144,12 @@ void __init uv_setup(char **cmdline_p)
  
-@@ -413,8 +416,6 @@ smp_callin (void)
- 	pfm_init_percpu();
- #endif
- 
--	local_irq_enable();
--
- 	if (!(sal_platform_features & IA64_SAL_PLATFORM_FEATURE_ITC_DRIFT)) {
- 		/*
- 		 * Synchronize the ITC with the BP.  Need to do this after irqs are
-
---------------010303020601040308050703--
+ 	/* enable idle callback */
+ 	ia64_mark_idle = &uv_idle;
++
++#ifdef CONFIG_CLOCKSOURCE_WATCHDOG
++	/* enable heartbeat display callback */
++	display_heartbeat = uv_display_heartbeat;
++#else
++	printk(KERN_NOTICE "UV: CLOCKSOURCE_WATCHDOG not configured, "
++			   "LED Heartbeat NOT enabled\n");
++#endif
+ }
+_
