@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 10 Sep 2008 21:17:37 +0000
+Date: Tue, 23 Sep 2008 16:59:14 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <200809102117.m8ALHbrC031210@agluck-lia64.sc.intel.com>
+Message-Id: <200809231659.m8NGxEiE000830@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,23 +22,13 @@ Thanks!
 
 -Tony
 
- arch/ia64/include/asm/elf.h       |   15 +++++++++++++++
- arch/ia64/include/asm/sections.h  |   13 ++++++++++++-
- arch/ia64/include/asm/sn/bte.h    |    9 +++++----
- arch/ia64/kernel/module.c         |   21 ---------------------
- arch/ia64/kernel/smpboot.c        |    4 +---
- arch/ia64/sn/pci/tioca_provider.c |    4 +++-
- 6 files changed, 36 insertions(+), 30 deletions(-)
+ arch/ia64/kernel/efi.c   |    5 +++--
+ arch/ia64/kernel/setup.c |    2 ++
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-James Bottomley (1):
-      [IA64] fix compile failure with non modular builds
+Alex Chiang (1):
+      [IA64] Ski simulator doesn't need check_sal_cache_flush
 
-Julia Lawall (1):
-      [IA64] arch/ia64/sn/pci/tioca_provider.c: introduce missing kfree
-
-Paul E. McKenney (1):
-      [IA64] prevent ia64 from invoking irq handlers on offline CPUs
-
-Robin Holt (1):
-      [IA64] fix up bte.h
+Jay Lan (1):
+      [IA64] kexec fails on systems with blocks of uncached memory
 
