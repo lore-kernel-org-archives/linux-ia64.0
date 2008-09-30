@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 23 Sep 2008 16:59:14 +0000
+Date: Tue, 30 Sep 2008 16:18:38 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <200809231659.m8NGxEiE000830@agluck-lia64.sc.intel.com>
+Message-Id: <200809301618.m8UGIcuk005874@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,13 +22,13 @@ Thanks!
 
 -Tony
 
- arch/ia64/kernel/efi.c   |    5 +++--
- arch/ia64/kernel/setup.c |    2 ++
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ arch/ia64/include/asm/sections.h |    3 +++
+ arch/ia64/kernel/head.S          |    9 +++++----
+ arch/ia64/kernel/vmlinux.lds.S   |    8 +++++---
+ arch/ia64/mm/contig.c            |    2 +-
+ arch/ia64/mm/discontig.c         |    2 +-
+ 5 files changed, 15 insertions(+), 9 deletions(-)
 
-Alex Chiang (1):
-      [IA64] Ski simulator doesn't need check_sal_cache_flush
-
-Jay Lan (1):
-      [IA64] kexec fails on systems with blocks of uncached memory
+Tony Luck (1):
+      [IA64] Put the space for cpu0 per-cpu area into .data section
 
