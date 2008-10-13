@@ -1,34 +1,30 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Date: Mon, 13 Oct 2008 06:06:15 +0000
-Subject: [PATCH] 2.6.27-rc9 QGLE make unsupported page size explicit
-Message-Id: <20081013060615.GB29358@colo.lackof.org>
+From: David Miller <davem@davemloft.net>
+Date: Mon, 13 Oct 2008 06:09:39 +0000
+Subject: Re: [PATCH] 2.6.27-rc9 QGLE make unsupported page size explicit
+Message-Id: <20081012.230939.240550430.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081013060615.GB29358@colo.lackof.org>
+In-Reply-To: <20081013060615.GB29358@colo.lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-driver@qlogic.com
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com, linux-ia64@vger.kernel.org
+To: grundler@parisc-linux.org
+Cc: linux-driver@qlogic.com, netdev@vger.kernel.org, ron.mercer@qlogic.com, linux-ia64@vger.kernel.org
 
-QLGE driver only supports 4k, 8k, and 64k pages.
-Default page size on ia64 is 16k. Compile fails with:
-drivers/net/qlge/qlge.h:1118: error: 'TX_DESC_PER_OAL' undeclared here (not in a function)
+From: Grant Grundler <grundler@parisc-linux.org>
+Date: Mon, 13 Oct 2008 00:06:15 -0600
 
-Patch below makes the cause of the compile failure obvious.
-(Better would be to support 16k pages but I don't have the HW or interest.)
+> QLGE driver only supports 4k, 8k, and 64k pages.
+> Default page size on ia64 is 16k. Compile fails with:
+> drivers/net/qlge/qlge.h:1118: error: 'TX_DESC_PER_OAL' undeclared here (not in a function)
+> 
+> Patch below makes the cause of the compile failure obvious.
+> (Better would be to support 16k pages but I don't have the HW or interest.)
+> 
+> Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
 
-Signed-off-by: Grant Grundler <grundler@parisc-linux.org>
+I would rather, at this point, give the qlge guys a day or two to
+try and add support for other page sizes if that is possible.
 
-
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index c37ea43..cf68503 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -60,6 +60,8 @@
- #define TX_DESC_PER_OAL ((MAX_SKB_FRAGS - TX_DESC_PER_IOCB) + 2)
- #elif (PAGE_SHIFT = 16)	/* 64k pages */
- #define TX_DESC_PER_OAL 0
-+#else
-+#error QLGE Driver only supports 4k, 8k, or 64k CPU page size.
- #endif
- 
- #define DB_PAGE_SIZE 4096
+If it isn't possible, I'd rather see a Kconfig guard, a compile
+failure is really not acceptable.
