@@ -1,159 +1,115 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:51 +0000
-Subject: [PATCH 32/35] cpumask: cpu_all_mask and cpu_none_mask.
-Message-Id: <20081020170324.009837000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:45 +0000
+Subject: [PATCH 30/32] ia64/pv_ops: update Kconfig for paravirtualized guest and xen.
+Message-Id: <1223963507-28056-31-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Instead of CPU_MASK_ALL_PTR and the SMP-only cpu_mask_all, this makes
-cpu_all_mask and cpu_none_mask which are const cpumask pointers which
-always exist.
+introduce CONFIG_PARAVIRT_GUEST, CONFIG_PARAVIRT for
+paravirtualized guest.
+introduce CONFIG_XEN, CONFIG_IA64_XEN_GUEST for xen.
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- include/linux/cpumask.h |   16 ++++++++++------
- init/main.c             |    7 +------
- kernel/cpu.c            |    2 ++
- kernel/kmod.c           |    2 +-
- kernel/kthread.c        |    4 ++--
- kernel/sched.c          |    2 +-
- 6 files changed, 17 insertions(+), 16 deletions(-)
+ arch/ia64/Kconfig     |   32 ++++++++++++++++++++++++++++++++
+ arch/ia64/xen/Kconfig |   26 ++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/xen/Kconfig
 
---- linux-2.6.28.orig/include/linux/cpumask.h
-+++ linux-2.6.28/include/linux/cpumask.h
-@@ -117,6 +117,7 @@ struct cpumask
- typedef struct cpumask cpumask_t;
- extern cpumask_t _unused_cpumask_arg_;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 48e496f..34639f1 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -116,6 +116,33 @@ config AUDIT_ARCH
+ 	bool
+ 	default y
  
-+#define CPU_MASK_ALL_PTR	(cpu_all_mask)
- #define CPU_MASK_ALL		((cpumask_t){ CPU_BITS_ALL })
- #define CPU_MASK_NONE		((cpumask_t){ CPU_BITS_NONE })
- #define CPU_MASK_CPU0		((cpumask_t){ CPU_BITS_CPU0 })
-@@ -175,6 +176,7 @@ extern cpumask_t _unused_cpumask_arg_;
- #define cpu_online_map		(*(cpumask_t *)cpu_online_mask)
- #define cpu_present_map		(*(cpumask_t *)cpu_present_mask)
- #define cpu_active_map		(*(cpumask_t *)cpu_active_mask)
-+#define cpu_mask_all		(*(cpumask_t *)cpu_all_mask)
- /* End deprecated region. */
- 
- #if NR_CPUS <= BITS_PER_LONG
-@@ -411,8 +413,6 @@ static inline const struct cpumask *cpum
- 	[BITS_TO_LONGS(CONFIG_NR_CPUS)-1] = CPU_MASK_LAST_WORD	\
- }
- 
--#define CPU_MASK_ALL_PTR	(&CPU_MASK_ALL)
--
- #else
- 
- #define CPU_BITS_ALL						\
-@@ -421,10 +421,6 @@ static inline const struct cpumask *cpum
- 	[BITS_TO_LONGS(CONFIG_NR_CPUS)-1] = CPU_MASK_LAST_WORD	\
- }
- 
--/* cpu_mask_all is in init/main.c */
--extern cpumask_t cpu_mask_all;
--#define CPU_MASK_ALL_PTR	(&cpu_mask_all)
--
- #endif
- 
- #define CPU_BITS_NONE						\
-@@ -578,6 +574,14 @@ extern const struct cpumask *const cpu_o
- extern const struct cpumask *const cpu_present_mask;
- extern const struct cpumask *const cpu_active_mask;
- 
-+/* It's common to want to use cpu_all_mask in struct member initializers,
-+ * so it has to refer to an address rather than a pointer. */
-+extern const DECLARE_BITMAP(cpu_all_bits, CONFIG_NR_CPUS);
-+#define cpu_all_mask to_cpumask(cpu_all_bits)
++menuconfig PARAVIRT_GUEST
++	bool "Paravirtualized guest support"
++	help
++	  Say Y here to get to see options related to running Linux under
++	  various hypervisors.  This option alone does not add any kernel code.
 +
-+/* First bits of cpu_bit_bitmap are in fact unset. */
-+#define cpu_none_mask to_cpumask(cpu_bit_bitmap[0])
++	  If you say N, all options in this submenu will be skipped and disabled.
 +
- #if NR_CPUS > 1
- #define num_online_cpus()	cpus_weight(cpu_online_map)
- #define num_possible_cpus()	cpus_weight(cpu_possible_map)
---- linux-2.6.28.orig/init/main.c
-+++ linux-2.6.28/init/main.c
-@@ -367,11 +367,6 @@ static inline void smp_prepare_cpus(unsi
++if PARAVIRT_GUEST
++
++config PARAVIRT
++	bool "Enable paravirtualization code"
++	depends on PARAVIRT_GUEST
++	default y
++	bool
++	default y
++	help
++	  This changes the kernel so it can modify itself when it is run
++	  under a hypervisor, potentially improving performance significantly
++	  over full virtualization.  However, when run without a hypervisor
++	  the kernel is theoretically slower and slightly larger.
++
++
++source "arch/ia64/xen/Kconfig"
++
++endif
++
+ choice
+ 	prompt "System type"
+ 	default IA64_GENERIC
+@@ -137,6 +164,7 @@ config IA64_GENERIC
+ 	  SGI-SN2		For SGI Altix systems
+ 	  SGI-UV		For SGI UV systems
+ 	  Ski-simulator		For the HP simulator <http://www.hpl.hp.com/research/linux/ski/>
++	  Xen-domU		For xen domU system
  
- #else
+ 	  If you don't know what to do, choose "generic".
  
--#if NR_CPUS > BITS_PER_LONG
--cpumask_t cpu_mask_all __read_mostly = CPU_MASK_ALL;
--EXPORT_SYMBOL(cpu_mask_all);
--#endif
--
- /* Setup number of possible processor ids */
- /* nr_cpumask_bits is a real variable for large NR_CPUS. */
- #ifndef nr_cpumask_bits
-@@ -869,7 +864,7 @@ static int __init kernel_init(void * unu
- 	/*
- 	 * init can run on any cpu.
- 	 */
--	set_cpus_allowed_ptr(current, CPU_MASK_ALL_PTR);
-+	set_cpus_allowed_ptr(current, cpu_all_mask);
- 	/*
- 	 * Tell the world that we're going to be the grim
- 	 * reaper of innocent orphaned children.
---- linux-2.6.28.orig/kernel/cpu.c
-+++ linux-2.6.28/kernel/cpu.c
-@@ -489,6 +489,8 @@ EXPORT_SYMBOL(cpu_present_mask);
- static DECLARE_BITMAP(cpu_active_bits, CONFIG_NR_CPUS) __read_mostly;
- const struct cpumask *const cpu_active_mask = to_cpumask(cpu_active_bits);
- EXPORT_SYMBOL(cpu_active_mask);
-+const DECLARE_BITMAP(cpu_all_bits, CONFIG_NR_CPUS) = CPU_BITS_ALL;
-+EXPORT_SYMBOL(cpu_all_bits);
+@@ -187,6 +215,10 @@ config IA64_HP_SIM
+ 	bool "Ski-simulator"
+ 	select SWIOTLB
  
- void set_cpu_possible(unsigned int cpu, bool possible)
- {
---- linux-2.6.28.orig/kernel/kmod.c
-+++ linux-2.6.28/kernel/kmod.c
-@@ -166,7 +166,7 @@ static int ____call_usermodehelper(void 
- 	}
++config IA64_XEN_GUEST
++	bool "Xen guest"
++	depends on XEN
++
+ endchoice
  
- 	/* We can run anywhere, unlike our parent keventd(). */
--	set_cpus_allowed_ptr(current, CPU_MASK_ALL_PTR);
-+	set_cpus_allowed_ptr(current, cpu_all_mask);
- 
- 	/*
- 	 * Our parent is keventd, which runs with elevated scheduling priority.
---- linux-2.6.28.orig/kernel/kthread.c
-+++ linux-2.6.28/kernel/kthread.c
-@@ -107,7 +107,7 @@ static void create_kthread(struct kthrea
- 		 */
- 		sched_setscheduler(create->result, SCHED_NORMAL, &param);
- 		set_user_nice(create->result, KTHREAD_NICE_LEVEL);
--		set_cpus_allowed_ptr(create->result, CPU_MASK_ALL_PTR);
-+		set_cpus_allowed_ptr(create->result, cpu_all_mask);
- 	}
- 	complete(&create->done);
- }
-@@ -238,7 +238,7 @@ int kthreadd(void *unused)
- 	set_task_comm(tsk, "kthreadd");
- 	ignore_signals(tsk);
- 	set_user_nice(tsk, KTHREAD_NICE_LEVEL);
--	set_cpus_allowed_ptr(tsk, CPU_MASK_ALL_PTR);
-+	set_cpus_allowed_ptr(tsk, cpu_all_mask);
- 
- 	current->flags |= PF_NOFREEZE | PF_FREEZER_NOSIG;
- 
---- linux-2.6.28.orig/kernel/sched.c
-+++ linux-2.6.28/kernel/sched.c
-@@ -6166,7 +6166,7 @@ static void move_task_off_dead_cpu(int d
-  */
- static void migrate_nr_uninterruptible(struct rq *rq_src)
- {
--	struct rq *rq_dest = cpu_rq(any_online_cpu(*CPU_MASK_ALL_PTR));
-+	struct rq *rq_dest = cpu_rq(cpumask_any(cpu_online_mask));
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
-
+ choice
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+new file mode 100644
+index 0000000..f1683a2
+--- /dev/null
++++ b/arch/ia64/xen/Kconfig
+@@ -0,0 +1,26 @@
++#
++# This Kconfig describes xen/ia64 options
++#
++
++config XEN
++	bool "Xen hypervisor support"
++	default y
++	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
++	select XEN_XENCOMM
++	select NO_IDLE_HZ
++
++	# those are required to save/restore.
++	select ARCH_SUSPEND_POSSIBLE
++	select SUSPEND
++	select PM_SLEEP
++	help
++	  Enable Xen hypervisor support.  Resulting kernel runs
++	  both as a guest OS on Xen and natively on hardware.
++
++config XEN_XENCOMM
++	depends on XEN
++	bool
++
++config NO_IDLE_HZ
++	depends on XEN
++	bool
 -- 
+1.6.0.2
+
