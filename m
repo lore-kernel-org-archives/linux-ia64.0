@@ -1,118 +1,52 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:54 +0000
-Subject: [PATCH 14/33] ia64/xen: xencomm conversion functions for hypercalls
-Message-Id: <1224209893-2032-15-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:42 +0000
+Subject: [PATCH 27/32] ia64/pv_ops/xen: implement xen pv_time_ops.
+Message-Id: <1223963507-28056-28-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On ia64/xen, pointer arguments for hypercall is passed
-by pseudo physical address(guest physical address.)
-So such hypercalls needs address conversion functions.
-This patch implements concrete conversion functions for
-such hypercalls.
+implement xen pv_time_ops to account steal time.
 
-Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/xcom_hcall.h |   51 ++++
- arch/ia64/include/asm/xen/xencomm.h    |    1 +
- arch/ia64/xen/Makefile                 |    2 +-
- arch/ia64/xen/xcom_hcall.c             |  441 ++++++++++++++++++++++++++++++++
- arch/ia64/xen/xencomm.c                |   11 +
- 5 files changed, 505 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/xcom_hcall.h
- create mode 100644 arch/ia64/xen/xcom_hcall.c
+ arch/ia64/xen/Makefile     |    2 +-
+ arch/ia64/xen/time.c       |  180 ++++++++++++++++++++++++++++++++++++++++++++
+ arch/ia64/xen/time.h       |   23 ++++++
+ arch/ia64/xen/xen_pv_ops.c |    2 +
+ 4 files changed, 206 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/time.c
+ create mode 100644 arch/ia64/xen/time.h
 
-diff --git a/arch/ia64/include/asm/xen/xcom_hcall.h b/arch/ia64/include/asm/xen/xcom_hcall.h
-new file mode 100644
-index 0000000..20b2950
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/xcom_hcall.h
-@@ -0,0 +1,51 @@
-+/*
-+ * Copyright (C) 2006 Tristan Gingold <tristan.gingold@bull.net>, Bull SAS
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
-+ */
-+
-+#ifndef _ASM_IA64_XEN_XCOM_HCALL_H
-+#define _ASM_IA64_XEN_XCOM_HCALL_H
-+
-+/* These function creates inline or mini descriptor for the parameters and
-+   calls the corresponding xencomm_arch_hypercall_X.
-+   Architectures should defines HYPERVISOR_xxx as xencomm_hypercall_xxx unless
-+   they want to use their own wrapper.  */
-+extern int xencomm_hypercall_console_io(int cmd, int count, char *str);
-+
-+extern int xencomm_hypercall_event_channel_op(int cmd, void *op);
-+
-+extern int xencomm_hypercall_xen_version(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_physdev_op(int cmd, void *op);
-+
-+extern int xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
-+					    unsigned int count);
-+
-+extern int xencomm_hypercall_sched_op(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_multicall(void *call_list, int nr_calls);
-+
-+extern int xencomm_hypercall_callback_op(int cmd, void *arg);
-+
-+extern int xencomm_hypercall_memory_op(unsigned int cmd, void *arg);
-+
-+extern int xencomm_hypercall_suspend(unsigned long srec);
-+
-+extern long xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg);
-+
-+extern long xencomm_hypercall_opt_feature(void *arg);
-+
-+#endif /* _ASM_IA64_XEN_XCOM_HCALL_H */
-diff --git a/arch/ia64/include/asm/xen/xencomm.h b/arch/ia64/include/asm/xen/xencomm.h
-index 28732cd..cded677 100644
---- a/arch/ia64/include/asm/xen/xencomm.h
-+++ b/arch/ia64/include/asm/xen/xencomm.h
-@@ -24,6 +24,7 @@
- 
- /* Must be called before any hypercall.  */
- extern void xencomm_initialize(void);
-+extern int xencomm_is_initialized(void);
- 
- /* Check if virtual contiguity means physical contiguity
-  * where the passed address is a pointer value in virtual address.
 diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index ad0c9f7..ae08822 100644
+index 01c4289..ed31c76 100644
 --- a/arch/ia64/xen/Makefile
 +++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for Xen components
+@@ -3,7 +3,7 @@
  #
  
--obj-y := hypercall.o xencomm.o
-+obj-y := hypercall.o xencomm.o xcom_hcall.o
-diff --git a/arch/ia64/xen/xcom_hcall.c b/arch/ia64/xen/xcom_hcall.c
+ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
+-	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
+ 
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ 
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
 new file mode 100644
-index 0000000..ccaf743
+index 0000000..ec168ec
 --- /dev/null
-+++ b/arch/ia64/xen/xcom_hcall.c
-@@ -0,0 +1,441 @@
-+/*
++++ b/arch/ia64/xen/time.c
+@@ -0,0 +1,180 @@
++/******************************************************************************
++ * arch/ia64/xen/time.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License as published by
 + * the Free Software Foundation; either version 2 of the License, or
@@ -125,460 +59,217 @@ index 0000000..ccaf743
 + *
 + * You should have received a copy of the GNU General Public License
 + * along with this program; if not, write to the Free Software
-+ * Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + *
-+ *          Tristan Gingold <tristan.gingold@bull.net>
-+ *
-+ *          Copyright (c) 2007
-+ *          Isaku Yamahata <yamahata at valinux co jp>
-+ *                          VA Linux Systems Japan K.K.
-+ *          consolidate mini and inline version.
 + */
 +
-+#include <linux/module.h>
-+#include <xen/interface/xen.h>
-+#include <xen/interface/memory.h>
-+#include <xen/interface/grant_table.h>
-+#include <xen/interface/callback.h>
-+#include <xen/interface/vcpu.h>
++#include <linux/delay.h>
++#include <linux/kernel_stat.h>
++#include <linux/posix-timers.h>
++#include <linux/irq.h>
++#include <linux/clocksource.h>
++
 +#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
 +
-+/* Xencomm notes:
-+ * This file defines hypercalls to be used by xencomm.  The hypercalls simply
-+ * create inlines or mini descriptors for pointers and then call the raw arch
-+ * hypercall xencomm_arch_hypercall_XXX
-+ *
-+ * If the arch wants to directly use these hypercalls, simply define macros
-+ * in asm/xen/hypercall.h, eg:
-+ *  #define HYPERVISOR_sched_op xencomm_hypercall_sched_op
-+ *
-+ * The arch may also define HYPERVISOR_xxx as a function and do more operations
-+ * before/after doing the hypercall.
-+ *
-+ * Note: because only inline or mini descriptors are created these functions
-+ * must only be called with in kernel memory parameters.
-+ */
++#include <xen/interface/vcpu.h>
 +
-+int
-+xencomm_hypercall_console_io(int cmd, int count, char *str)
++#include "../kernel/fsyscall_gtod_data.h"
++
++DEFINE_PER_CPU(struct vcpu_runstate_info, runstate);
++DEFINE_PER_CPU(unsigned long, processed_stolen_time);
++DEFINE_PER_CPU(unsigned long, processed_blocked_time);
++
++/* taken from i386/kernel/time-xen.c */
++static void xen_init_missing_ticks_accounting(int cpu)
 +{
-+	/* xen early printk uses console io hypercall before
-+	 * xencomm initialization. In that case, we just ignore it.
++	struct vcpu_register_runstate_memory_area area;
++	struct vcpu_runstate_info *runstate = &per_cpu(runstate, cpu);
++	int rc;
++
++	memset(runstate, 0, sizeof(*runstate));
++
++	area.addr.v = runstate;
++	rc = HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area, cpu,
++				&area);
++	WARN_ON(rc && rc != -ENOSYS);
++
++	per_cpu(processed_blocked_time, cpu) = runstate->time[RUNSTATE_blocked];
++	per_cpu(processed_stolen_time, cpu) = runstate->time[RUNSTATE_runnable]
++					    + runstate->time[RUNSTATE_offline];
++}
++
++/*
++ * Runstate accounting
++ */
++/* stolen from arch/x86/xen/time.c */
++static void get_runstate_snapshot(struct vcpu_runstate_info *res)
++{
++	u64 state_time;
++	struct vcpu_runstate_info *state;
++
++	BUG_ON(preemptible());
++
++	state = &__get_cpu_var(runstate);
++
++	/*
++	 * The runstate info is always updated by the hypervisor on
++	 * the current CPU, so there's no need to use anything
++	 * stronger than a compiler barrier when fetching it.
 +	 */
-+	if (!xencomm_is_initialized())
-+		return 0;
-+
-+	return xencomm_arch_hypercall_console_io
-+		(cmd, count, xencomm_map_no_alloc(str, count));
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_console_io);
-+
-+int
-+xencomm_hypercall_event_channel_op(int cmd, void *op)
-+{
-+	struct xencomm_handle *desc;
-+	desc = xencomm_map_no_alloc(op, sizeof(struct evtchn_op));
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_event_channel_op(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_event_channel_op);
-+
-+int
-+xencomm_hypercall_xen_version(int cmd, void *arg)
-+{
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case XENVER_version:
-+		/* do not actually pass an argument */
-+		return xencomm_arch_hypercall_xen_version(cmd, 0);
-+	case XENVER_extraversion:
-+		argsize = sizeof(struct xen_extraversion);
-+		break;
-+	case XENVER_compile_info:
-+		argsize = sizeof(struct xen_compile_info);
-+		break;
-+	case XENVER_capabilities:
-+		argsize = sizeof(struct xen_capabilities_info);
-+		break;
-+	case XENVER_changeset:
-+		argsize = sizeof(struct xen_changeset_info);
-+		break;
-+	case XENVER_platform_parameters:
-+		argsize = sizeof(struct xen_platform_parameters);
-+		break;
-+	case XENVER_get_features:
-+		argsize = (arg = NULL) ? 0 : sizeof(struct xen_feature_info);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown version op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_xen_version(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_xen_version);
-+
-+int
-+xencomm_hypercall_physdev_op(int cmd, void *op)
-+{
-+	unsigned int argsize;
-+
-+	switch (cmd) {
-+	case PHYSDEVOP_apic_read:
-+	case PHYSDEVOP_apic_write:
-+		argsize = sizeof(struct physdev_apic);
-+		break;
-+	case PHYSDEVOP_alloc_irq_vector:
-+	case PHYSDEVOP_free_irq_vector:
-+		argsize = sizeof(struct physdev_irq);
-+		break;
-+	case PHYSDEVOP_irq_status_query:
-+		argsize = sizeof(struct physdev_irq_status_query);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown physdev op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_physdev_op
-+		(cmd, xencomm_map_no_alloc(op, argsize));
++	do {
++		state_time = state->state_entry_time;
++		rmb();
++		*res = *state;
++		rmb();
++	} while (state->state_entry_time != state_time);
 +}
 +
-+static int
-+xencommize_grant_table_op(struct xencomm_mini **xc_area,
-+			  unsigned int cmd, void *op, unsigned int count,
-+			  struct xencomm_handle **desc)
++#define NS_PER_TICK (1000000000LL/HZ)
++
++static unsigned long
++consider_steal_time(unsigned long new_itm)
 +{
-+	struct xencomm_handle *desc1;
-+	unsigned int argsize;
++	unsigned long stolen, blocked;
++	unsigned long delta_itm = 0, stolentick = 0;
++	int cpu = smp_processor_id();
++	struct vcpu_runstate_info runstate;
++	struct task_struct *p = current;
 +
-+	switch (cmd) {
-+	case GNTTABOP_map_grant_ref:
-+		argsize = sizeof(struct gnttab_map_grant_ref);
-+		break;
-+	case GNTTABOP_unmap_grant_ref:
-+		argsize = sizeof(struct gnttab_unmap_grant_ref);
-+		break;
-+	case GNTTABOP_setup_table:
-+	{
-+		struct gnttab_setup_table *setup = op;
++	get_runstate_snapshot(&runstate);
 +
-+		argsize = sizeof(*setup);
++	/*
++	 * Check for vcpu migration effect
++	 * In this case, itc value is reversed.
++	 * This causes huge stolen value.
++	 * This function just checks and reject this effect.
++	 */
++	if (!time_after_eq(runstate.time[RUNSTATE_blocked],
++			   per_cpu(processed_blocked_time, cpu)))
++		blocked = 0;
 +
-+		if (count != 1)
-+			return -EINVAL;
-+		desc1 = __xencomm_map_no_alloc
-+			(xen_guest_handle(setup->frame_list),
-+			 setup->nr_frames *
-+			 sizeof(*xen_guest_handle(setup->frame_list)),
-+			 *xc_area);
-+		if (desc1 = NULL)
-+			return -EINVAL;
-+		(*xc_area)++;
-+		set_xen_guest_handle(setup->frame_list, (void *)desc1);
-+		break;
-+	}
-+	case GNTTABOP_dump_table:
-+		argsize = sizeof(struct gnttab_dump_table);
-+		break;
-+	case GNTTABOP_transfer:
-+		argsize = sizeof(struct gnttab_transfer);
-+		break;
-+	case GNTTABOP_copy:
-+		argsize = sizeof(struct gnttab_copy);
-+		break;
-+	case GNTTABOP_query_size:
-+		argsize = sizeof(struct gnttab_query_size);
-+		break;
-+	default:
-+		printk(KERN_DEBUG "%s: unknown hypercall grant table op %d\n",
-+		       __func__, cmd);
-+		BUG();
-+	}
++	if (!time_after_eq(runstate.time[RUNSTATE_runnable] +
++			   runstate.time[RUNSTATE_offline],
++			   per_cpu(processed_stolen_time, cpu)))
++		stolen = 0;
 +
-+	*desc = __xencomm_map_no_alloc(op, count * argsize, *xc_area);
-+	if (*desc = NULL)
-+		return -EINVAL;
-+	(*xc_area)++;
++	if (!time_after(delta_itm + new_itm, ia64_get_itc()))
++		stolentick = ia64_get_itc() - new_itm;
 +
-+	return 0;
-+}
++	do_div(stolentick, NS_PER_TICK);
++	stolentick++;
 +
-+int
-+xencomm_hypercall_grant_table_op(unsigned int cmd, void *op,
-+				 unsigned int count)
-+{
-+	int rc;
-+	struct xencomm_handle *desc;
-+	XENCOMM_MINI_ALIGNED(xc_area, 2);
++	do_div(stolen, NS_PER_TICK);
 +
-+	rc = xencommize_grant_table_op(&xc_area, cmd, op, count, &desc);
-+	if (rc)
-+		return rc;
++	if (stolen > stolentick)
++		stolen = stolentick;
 +
-+	return xencomm_arch_hypercall_grant_table_op(cmd, desc, count);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_grant_table_op);
++	stolentick -= stolen;
++	do_div(blocked, NS_PER_TICK);
 +
-+int
-+xencomm_hypercall_sched_op(int cmd, void *arg)
-+{
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
++	if (blocked > stolentick)
++		blocked = stolentick;
 +
-+	switch (cmd) {
-+	case SCHEDOP_yield:
-+	case SCHEDOP_block:
-+		argsize = 0;
-+		break;
-+	case SCHEDOP_shutdown:
-+		argsize = sizeof(struct sched_shutdown);
-+		break;
-+	case SCHEDOP_poll:
-+	{
-+		struct sched_poll *poll = arg;
-+		struct xencomm_handle *ports;
++	if (stolen > 0 || blocked > 0) {
++		account_steal_time(NULL, jiffies_to_cputime(stolen));
++		account_steal_time(idle_task(cpu), jiffies_to_cputime(blocked));
++		run_local_timers();
 +
-+		argsize = sizeof(struct sched_poll);
-+		ports = xencomm_map_no_alloc(xen_guest_handle(poll->ports),
-+				     sizeof(*xen_guest_handle(poll->ports)));
++		if (rcu_pending(cpu))
++			rcu_check_callbacks(cpu, user_mode(get_irq_regs()));
 +
-+		set_xen_guest_handle(poll->ports, (void *)ports);
-+		break;
-+	}
-+	default:
-+		printk(KERN_DEBUG "%s: unknown sched op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
++		scheduler_tick();
++		run_posix_cpu_timers(p);
++		delta_itm += local_cpu_data->itm_delta * (stolen + blocked);
 +
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_sched_op(cmd, desc);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_sched_op);
-+
-+int
-+xencomm_hypercall_multicall(void *call_list, int nr_calls)
-+{
-+	int rc;
-+	int i;
-+	struct multicall_entry *mce;
-+	struct xencomm_handle *desc;
-+	XENCOMM_MINI_ALIGNED(xc_area, nr_calls * 2);
-+
-+	for (i = 0; i < nr_calls; i++) {
-+		mce = (struct multicall_entry *)call_list + i;
-+
-+		switch (mce->op) {
-+		case __HYPERVISOR_update_va_mapping:
-+		case __HYPERVISOR_mmu_update:
-+			/* No-op on ia64.  */
-+			break;
-+		case __HYPERVISOR_grant_table_op:
-+			rc = xencommize_grant_table_op
-+				(&xc_area,
-+				 mce->args[0], (void *)mce->args[1],
-+				 mce->args[2], &desc);
-+			if (rc)
-+				return rc;
-+			mce->args[1] = (unsigned long)desc;
-+			break;
-+		case __HYPERVISOR_memory_op:
-+		default:
-+			printk(KERN_DEBUG
-+			       "%s: unhandled multicall op entry op %lu\n",
-+			       __func__, mce->op);
-+			return -ENOSYS;
++		if (cpu = time_keeper_id) {
++			write_seqlock(&xtime_lock);
++			do_timer(stolen + blocked);
++			local_cpu_data->itm_next = delta_itm + new_itm;
++			write_sequnlock(&xtime_lock);
++		} else {
++			local_cpu_data->itm_next = delta_itm + new_itm;
 +		}
++		per_cpu(processed_stolen_time, cpu) += NS_PER_TICK * stolen;
++		per_cpu(processed_blocked_time, cpu) += NS_PER_TICK * blocked;
 +	}
-+
-+	desc = xencomm_map_no_alloc(call_list,
-+				    nr_calls * sizeof(struct multicall_entry));
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	return xencomm_arch_hypercall_multicall(desc, nr_calls);
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_multicall);
-+
-+int
-+xencomm_hypercall_callback_op(int cmd, void *arg)
-+{
-+	unsigned int argsize;
-+	switch (cmd) {
-+	case CALLBACKOP_register:
-+		argsize = sizeof(struct callback_register);
-+		break;
-+	case CALLBACKOP_unregister:
-+		argsize = sizeof(struct callback_unregister);
-+		break;
-+	default:
-+		printk(KERN_DEBUG
-+		       "%s: unknown callback op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_callback_op
-+		(cmd, xencomm_map_no_alloc(arg, argsize));
++	return delta_itm;
 +}
 +
-+static int
-+xencommize_memory_reservation(struct xencomm_mini *xc_area,
-+			      struct xen_memory_reservation *mop)
++static int xen_do_steal_accounting(unsigned long *new_itm)
 +{
-+	struct xencomm_handle *desc;
++	unsigned long delta_itm;
++	delta_itm = consider_steal_time(*new_itm);
++	*new_itm += delta_itm;
++	if (time_after(*new_itm, ia64_get_itc()) && delta_itm)
++		return 1;
 +
-+	desc = __xencomm_map_no_alloc(xen_guest_handle(mop->extent_start),
-+			mop->nr_extents *
-+			sizeof(*xen_guest_handle(mop->extent_start)),
-+			xc_area);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	set_xen_guest_handle(mop->extent_start, (void *)desc);
 +	return 0;
 +}
 +
-+int
-+xencomm_hypercall_memory_op(unsigned int cmd, void *arg)
++static void xen_itc_jitter_data_reset(void)
 +{
-+	GUEST_HANDLE(xen_pfn_t) extent_start_va[2] = { {NULL}, {NULL} };
-+	struct xen_memory_reservation *xmr = NULL;
-+	int rc;
-+	struct xencomm_handle *desc;
-+	unsigned int argsize;
-+	XENCOMM_MINI_ALIGNED(xc_area, 2);
++	u64 lcycle, ret;
 +
-+	switch (cmd) {
-+	case XENMEM_increase_reservation:
-+	case XENMEM_decrease_reservation:
-+	case XENMEM_populate_physmap:
-+		xmr = (struct xen_memory_reservation *)arg;
-+		set_xen_guest_handle(extent_start_va[0],
-+				     xen_guest_handle(xmr->extent_start));
-+
-+		argsize = sizeof(*xmr);
-+		rc = xencommize_memory_reservation(xc_area, xmr);
-+		if (rc)
-+			return rc;
-+		xc_area++;
-+		break;
-+
-+	case XENMEM_maximum_ram_page:
-+		argsize = 0;
-+		break;
-+
-+	case XENMEM_add_to_physmap:
-+		argsize = sizeof(struct xen_add_to_physmap);
-+		break;
-+
-+	default:
-+		printk(KERN_DEBUG "%s: unknown memory op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	desc = xencomm_map_no_alloc(arg, argsize);
-+	if (desc = NULL)
-+		return -EINVAL;
-+
-+	rc = xencomm_arch_hypercall_memory_op(cmd, desc);
-+
-+	switch (cmd) {
-+	case XENMEM_increase_reservation:
-+	case XENMEM_decrease_reservation:
-+	case XENMEM_populate_physmap:
-+		set_xen_guest_handle(xmr->extent_start,
-+				     xen_guest_handle(extent_start_va[0]));
-+		break;
-+	}
-+
-+	return rc;
-+}
-+EXPORT_SYMBOL_GPL(xencomm_hypercall_memory_op);
-+
-+int
-+xencomm_hypercall_suspend(unsigned long srec)
-+{
-+	struct sched_shutdown arg;
-+
-+	arg.reason = SHUTDOWN_suspend;
-+
-+	return xencomm_arch_hypercall_sched_op(
-+		SCHEDOP_shutdown, xencomm_map_no_alloc(&arg, sizeof(arg)));
++	do {
++		lcycle = itc_jitter_data.itc_lastcycle;
++		ret = cmpxchg(&itc_jitter_data.itc_lastcycle, lcycle, 0);
++	} while (unlikely(ret != lcycle));
 +}
 +
-+long
-+xencomm_hypercall_vcpu_op(int cmd, int cpu, void *arg)
-+{
-+	unsigned int argsize;
-+	switch (cmd) {
-+	case VCPUOP_register_runstate_memory_area: {
-+		struct vcpu_register_runstate_memory_area *area +			(struct vcpu_register_runstate_memory_area *)arg;
-+		argsize = sizeof(*arg);
-+		set_xen_guest_handle(area->addr.h,
-+		     (void *)xencomm_map_no_alloc(area->addr.v,
-+						  sizeof(area->addr.v)));
-+		break;
-+	}
-+
-+	default:
-+		printk(KERN_DEBUG "%s: unknown vcpu op %d\n", __func__, cmd);
-+		return -ENOSYS;
-+	}
-+
-+	return xencomm_arch_hypercall_vcpu_op(cmd, cpu,
-+					xencomm_map_no_alloc(arg, argsize));
-+}
-+
-+long
-+xencomm_hypercall_opt_feature(void *arg)
-+{
-+	return xencomm_arch_hypercall_opt_feature(
-+		xencomm_map_no_alloc(arg,
-+				     sizeof(struct xen_ia64_opt_feature)));
-+}
-diff --git a/arch/ia64/xen/xencomm.c b/arch/ia64/xen/xencomm.c
-index 3dc307f..1f5d7ac 100644
---- a/arch/ia64/xen/xencomm.c
-+++ b/arch/ia64/xen/xencomm.c
-@@ -19,11 +19,22 @@
- #include <linux/mm.h>
- 
- static unsigned long kernel_virtual_offset;
-+static int is_xencomm_initialized;
-+
-+/* for xen early printk. It uses console io hypercall which uses xencomm.
-+ * However early printk may use it before xencomm initialization.
++struct pv_time_ops xen_time_ops __initdata = {
++	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
++	.do_steal_accounting		= xen_do_steal_accounting,
++	.clocksource_resume		= xen_itc_jitter_data_reset,
++};
+diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
+new file mode 100644
+index 0000000..b9c7ec5
+--- /dev/null
++++ b/arch/ia64/xen/time.h
+@@ -0,0 +1,23 @@
++/******************************************************************************
++ * arch/ia64/xen/time.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
-+int
-+xencomm_is_initialized(void)
-+{
-+	return is_xencomm_initialized;
-+}
++
++extern struct pv_time_ops xen_time_ops __initdata;
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 4fe4e62..04cd123 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -30,6 +30,7 @@
+ #include <asm/xen/privop.h>
  
- void
- xencomm_initialize(void)
- {
- 	kernel_virtual_offset = KERNEL_START - ia64_tpa(KERNEL_START);
-+	is_xencomm_initialized = 1;
+ #include "irq_xen.h"
++#include "time.h"
+ 
+ /***************************************************************************
+  * general info
+@@ -357,6 +358,7 @@ xen_setup_pv_ops(void)
+ 	pv_cpu_ops = xen_cpu_ops;
+ 	pv_iosapic_ops = xen_iosapic_ops;
+ 	pv_irq_ops = xen_irq_ops;
++	pv_time_ops = xen_time_ops;
+ 
+ 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
  }
- 
- /* Translate virtual address to physical address.  */
 -- 
 1.6.0.2
 
