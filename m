@@ -1,379 +1,203 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:48 +0000
-Subject: [PATCH 08/33] ia64/xen: introduce definitions necessary for ia64/xen hypercalls.
-Message-Id: <1224209893-2032-9-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:46 +0000
+Subject: [PATCH 31/32] ia64/xen: a recipe for using xen/ia64 with pv_ops.
+Message-Id: <1223963507-28056-32-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-import arch/ia64/include/asm/xen/interface.h to introduce
-definitions necessary for ia64/xen hypercalls.
-They are basic structures to communicate with xen hypervisor and
-will be used later.
+Recipe for useing xen/ia64 with pv_ops domU.
 
-Cc: Robin Holt <holt@sgi.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
- arch/ia64/include/asm/xen/interface.h |  346 +++++++++++++++++++++++++++++++++
- 1 files changed, 346 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/interface.h
+ Documentation/ia64/xen.txt |  183 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 183 insertions(+), 0 deletions(-)
+ create mode 100644 Documentation/ia64/xen.txt
 
-diff --git a/arch/ia64/include/asm/xen/interface.h b/arch/ia64/include/asm/xen/interface.h
+diff --git a/Documentation/ia64/xen.txt b/Documentation/ia64/xen.txt
 new file mode 100644
-index 0000000..f00fab4
+index 0000000..a5c6993
 --- /dev/null
-+++ b/arch/ia64/include/asm/xen/interface.h
-@@ -0,0 +1,346 @@
-+/******************************************************************************
-+ * arch-ia64/hypervisor-if.h
-+ *
-+ * Guest OS interface to IA64 Xen.
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this software and associated documentation files (the "Software"), to
-+ * deal in the Software without restriction, including without limitation the
-+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
-+ * sell copies of the Software, and to permit persons to whom the Software is
-+ * furnished to do so, subject to the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-+ * DEALINGS IN THE SOFTWARE.
-+ *
-+ * Copyright by those who contributed. (in alphabetical order)
-+ *
-+ * Anthony Xu <anthony.xu@intel.com>
-+ * Eddie Dong <eddie.dong@intel.com>
-+ * Fred Yang <fred.yang@intel.com>
-+ * Kevin Tian <kevin.tian@intel.com>
-+ * Alex Williamson <alex.williamson@hp.com>
-+ * Chris Wright <chrisw@sous-sol.org>
-+ * Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
-+ * Dietmar Hahn <dietmar.hahn@fujitsu-siemens.com>
-+ * Hollis Blanchard <hollisb@us.ibm.com>
-+ * Isaku Yamahata <yamahata@valinux.co.jp>
-+ * Jan Beulich <jbeulich@novell.com>
-+ * John Levon <john.levon@sun.com>
-+ * Kazuhiro Suzuki <kaz@jp.fujitsu.com>
-+ * Keir Fraser <keir.fraser@citrix.com>
-+ * Kouya Shimura <kouya@jp.fujitsu.com>
-+ * Masaki Kanno <kanno.masaki@jp.fujitsu.com>
-+ * Matt Chapman <matthewc@hp.com>
-+ * Matthew Chapman <matthewc@hp.com>
-+ * Samuel Thibault <samuel.thibault@eu.citrix.com>
-+ * Tomonari Horikoshi <t.horikoshi@jp.fujitsu.com>
-+ * Tristan Gingold <tgingold@free.fr>
-+ * Tsunehisa Doi <Doi.Tsunehisa@jp.fujitsu.com>
-+ * Yutaka Ezaki <yutaka.ezaki@jp.fujitsu.com>
-+ * Zhang Xin <xing.z.zhang@intel.com>
-+ * Zhang xiantao <xiantao.zhang@intel.com>
-+ * dan.magenheimer@hp.com
-+ * ian.pratt@cl.cam.ac.uk
-+ * michael.fetterman@cl.cam.ac.uk
-+ */
++++ b/Documentation/ia64/xen.txt
+@@ -0,0 +1,183 @@
++       Recipe for getting/building/running Xen/ia64 with pv_ops
++       --------------------------------------------------------
 +
-+#ifndef _ASM_IA64_XEN_INTERFACE_H
-+#define _ASM_IA64_XEN_INTERFACE_H
++This recipe discribes how to get xen-ia64 source and build it,
++and run domU with pv_ops.
 +
-+#define __DEFINE_GUEST_HANDLE(name, type)	\
-+	typedef struct { type *p; } __guest_handle_ ## name
++=====+Requirement
++=====+
++  - python
++  - mercurial
++    it (aka "hg") is a open-source source code
++    management software. See the below.
++    http://www.selenic.com/mercurial/wiki/
++  - git
++  - bridge-utils
 +
-+#define DEFINE_GUEST_HANDLE_STRUCT(name)	\
-+	__DEFINE_GUEST_HANDLE(name, struct name)
-+#define DEFINE_GUEST_HANDLE(name)	__DEFINE_GUEST_HANDLE(name, name)
-+#define GUEST_HANDLE(name)		__guest_handle_ ## name
-+#define GUEST_HANDLE_64(name)		GUEST_HANDLE(name)
-+#define set_xen_guest_handle(hnd, val)	do { (hnd).p = val; } while (0)
++================+Getting and Building Xen and Dom0
++================+
++  My enviroment is;
++    Machine  : Tiger4
++    Domain0 OS  : RHEL5
++    DomainU OS  : RHEL5
 +
-+#ifndef __ASSEMBLY__
-+/* Guest handles for primitive C types. */
-+__DEFINE_GUEST_HANDLE(uchar, unsigned char);
-+__DEFINE_GUEST_HANDLE(uint, unsigned int);
-+__DEFINE_GUEST_HANDLE(ulong, unsigned long);
-+__DEFINE_GUEST_HANDLE(u64, unsigned long);
-+DEFINE_GUEST_HANDLE(char);
-+DEFINE_GUEST_HANDLE(int);
-+DEFINE_GUEST_HANDLE(long);
-+DEFINE_GUEST_HANDLE(void);
++ 1. Download source
++    # hg clone http://xenbits.xensource.com/ext/ia64/xen-unstable.hg
++    # cd xen-unstable.hg
++    # hg clone http://xenbits.xensource.com/ext/ia64/linux-2.6.18-xen.hg
 +
-+typedef unsigned long xen_pfn_t;
-+DEFINE_GUEST_HANDLE(xen_pfn_t);
-+#define PRI_xen_pfn	"lx"
-+#endif
++ 2. # make world
 +
-+/* Arch specific VIRQs definition */
-+#define VIRQ_ITC	VIRQ_ARCH_0	/* V. Virtual itc timer */
-+#define VIRQ_MCA_CMC	VIRQ_ARCH_1	/* MCA cmc interrupt */
-+#define VIRQ_MCA_CPE	VIRQ_ARCH_2	/* MCA cpe interrupt */
++ 3. # make install-tools
 +
-+/* Maximum number of virtual CPUs in multi-processor guests. */
-+/* keep sizeof(struct shared_page) <= PAGE_SIZE.
-+ * this is checked in arch/ia64/xen/hypervisor.c. */
-+#define MAX_VIRT_CPUS	64
++ 4. copy kernels and xen
++    # cp xen/xen.gz /boot/efi/efi/redhat/
++    # cp build-linux-2.6.18-xen_ia64/vmlinux.gz \
++      /boot/efi/efi/redhat/vmlinuz-2.6.18.8-xen
 +
-+#ifndef __ASSEMBLY__
++ 5. make initrd for Dom0/DomU
++    # make -C linux-2.6.18-xen.hg ARCH=ia64 modules_install \
++      O=$(/bin/pwd)/build-linux-2.6.18-xen_ia64
++    # mkinitrd -f /boot/efi/efi/redhat/initrd-2.6.18.8-xen.img \
++      2.6.18.8-xen --builtin mptspi --builtin mptbase \
++      --builtin mptscsih --builtin uhci-hcd --builtin ohci-hcd \
++      --builtin ehci-hcd
 +
-+#define INVALID_MFN	(~0UL)
++================
++Making a disk image for guest OS
++================
 +
-+union vac {
-+	unsigned long value;
-+	struct {
-+		int a_int:1;
-+		int a_from_int_cr:1;
-+		int a_to_int_cr:1;
-+		int a_from_psr:1;
-+		int a_from_cpuid:1;
-+		int a_cover:1;
-+		int a_bsw:1;
-+		long reserved:57;
-+	};
-+};
++ 1. make file
++    # dd if=/dev/zero of=/root/rhel5.img bs=1M seek@96 count=0
++    # mke2fs -F -j /root/rhel5.img
++    # mount -o loop /root/rhel5.img /mnt
++    # cp -ax /{dev,var,etc,usr,bin,sbin,lib} /mnt
++    # mkdir /mnt/{root,proc,sys,home,tmp}
 +
-+union vdc {
-+	unsigned long value;
-+	struct {
-+		int d_vmsw:1;
-+		int d_extint:1;
-+		int d_ibr_dbr:1;
-+		int d_pmc:1;
-+		int d_to_pmd:1;
-+		int d_itm:1;
-+		long reserved:58;
-+	};
-+};
++    Note: You may miss some device files. If so, please create them
++    with mknod. Or you can use tar intead of cp.
 +
-+struct mapped_regs {
-+	union vac vac;
-+	union vdc vdc;
-+	unsigned long virt_env_vaddr;
-+	unsigned long reserved1[29];
-+	unsigned long vhpi;
-+	unsigned long reserved2[95];
-+	union {
-+		unsigned long vgr[16];
-+		unsigned long bank1_regs[16];	/* bank1 regs (r16-r31)
-+						   when bank0 active */
-+	};
-+	union {
-+		unsigned long vbgr[16];
-+		unsigned long bank0_regs[16];	/* bank0 regs (r16-r31)
-+						   when bank1 active */
-+	};
-+	unsigned long vnat;
-+	unsigned long vbnat;
-+	unsigned long vcpuid[5];
-+	unsigned long reserved3[11];
-+	unsigned long vpsr;
-+	unsigned long vpr;
-+	unsigned long reserved4[76];
-+	union {
-+		unsigned long vcr[128];
-+		struct {
-+			unsigned long dcr;	/* CR0 */
-+			unsigned long itm;
-+			unsigned long iva;
-+			unsigned long rsv1[5];
-+			unsigned long pta;	/* CR8 */
-+			unsigned long rsv2[7];
-+			unsigned long ipsr;	/* CR16 */
-+			unsigned long isr;
-+			unsigned long rsv3;
-+			unsigned long iip;
-+			unsigned long ifa;
-+			unsigned long itir;
-+			unsigned long iipa;
-+			unsigned long ifs;
-+			unsigned long iim;	/* CR24 */
-+			unsigned long iha;
-+			unsigned long rsv4[38];
-+			unsigned long lid;	/* CR64 */
-+			unsigned long ivr;
-+			unsigned long tpr;
-+			unsigned long eoi;
-+			unsigned long irr[4];
-+			unsigned long itv;	/* CR72 */
-+			unsigned long pmv;
-+			unsigned long cmcv;
-+			unsigned long rsv5[5];
-+			unsigned long lrr0;	/* CR80 */
-+			unsigned long lrr1;
-+			unsigned long rsv6[46];
-+		};
-+	};
-+	union {
-+		unsigned long reserved5[128];
-+		struct {
-+			unsigned long precover_ifs;
-+			unsigned long unat;	/* not sure if this is needed
-+						   until NaT arch is done */
-+			int interrupt_collection_enabled; /* virtual psr.ic */
++ 2. modify DomU's fstab
++    # vi /mnt/etc/fstab
++       /dev/xvda1  /            ext3    defaults        1 1
++       none        /dev/pts     devpts  gid=5,modeb0  0 0
++       none        /dev/shm     tmpfs   defaults        0 0
++       none        /proc        proc    defaults        0 0
++       none        /sys         sysfs   defaults        0 0
 +
-+			/* virtual interrupt deliverable flag is
-+			 * evtchn_upcall_mask in shared info area now.
-+			 * interrupt_mask_addr is the address
-+			 * of evtchn_upcall_mask for current vcpu
-+			 */
-+			unsigned char *interrupt_mask_addr;
-+			int pending_interruption;
-+			unsigned char vpsr_pp;
-+			unsigned char vpsr_dfh;
-+			unsigned char hpsr_dfh;
-+			unsigned char hpsr_mfh;
-+			unsigned long reserved5_1[4];
-+			int metaphysical_mode;	/* 1 = use metaphys mapping
-+						   0 = use virtual */
-+			int banknum;		/* 0 or 1, which virtual
-+						   register bank is active */
-+			unsigned long rrs[8];	/* region registers */
-+			unsigned long krs[8];	/* kernel registers */
-+			unsigned long tmp[16];	/* temp registers
-+						   (e.g. for hyperprivops) */
-+		};
-+	};
-+};
++ 3. modify inittab
++    set runlevel to 3 to avoid X trying to start
++    # vi /mnt/etc/inittab
++       id:3:initdefault:
++    Start a getty on the hvc0 console
++       X0:2345:respawn:/sbin/mingetty hvc0
++    tty1-6 mingetty can be commented out
 +
-+struct arch_vcpu_info {
-+	/* nothing */
-+};
++ 4. add hvc0 into /etc/securetty
++    # vi /mnt/etc/securetty (add hvc0)
 +
-+/*
-+ * This structure is used for magic page in domain pseudo physical address
-+ * space and the result of XENMEM_machine_memory_map.
-+ * As the XENMEM_machine_memory_map result,
-+ * xen_memory_map::nr_entries indicates the size in bytes
-+ * including struct xen_ia64_memmap_info. Not the number of entries.
-+ */
-+struct xen_ia64_memmap_info {
-+	uint64_t efi_memmap_size;	/* size of EFI memory map */
-+	uint64_t efi_memdesc_size;	/* size of an EFI memory map
-+					 * descriptor */
-+	uint32_t efi_memdesc_version;	/* memory descriptor version */
-+	void *memdesc[0];		/* array of efi_memory_desc_t */
-+};
++ 5. umount
++    # umount /mnt
 +
-+struct arch_shared_info {
-+	/* PFN of the start_info page.	*/
-+	unsigned long start_info_pfn;
++FYI, virt-manager can also make a disk image for guest OS.
++It's GUI tools and easy to make it.
 +
-+	/* Interrupt vector for event channel.	*/
-+	int evtchn_vector;
++=========
++Boot Xen & Domain0
++=========
 +
-+	/* PFN of memmap_info page */
-+	unsigned int memmap_info_num_pages;	/* currently only = 1 case is
-+						   supported. */
-+	unsigned long memmap_info_pfn;
++ 1. replace elilo
++    elilo of RHEL5 can boot Xen and Dom0.
++    If you use old elilo (e.g RHEL4), please download from the below
++    http://elilo.sourceforge.net/cgi-bin/blosxom
++    and copy into /boot/efi/efi/redhat/
++    # cp elilo-3.6-ia64.efi /boot/efi/efi/redhat/elilo.efi
 +
-+	uint64_t pad[31];
-+};
++ 2. modify elilo.conf (like the below)
++    # vi /boot/efi/efi/redhat/elilo.conf
++     prompt
++     timeout 
++     default=xen
++     relocatable
 +
-+struct xen_callback {
-+	unsigned long ip;
-+};
-+typedef struct xen_callback xen_callback_t;
++     image=vmlinuz-2.6.18.8-xen
++             label=xen
++             vmm=xen.gz
++             initrd=initrd-2.6.18.8-xen.img
++             read-only
++             append=" -- rhgb root=/dev/sda2"
 +
-+#endif /* !__ASSEMBLY__ */
++The append options before "--" are for xen hypervisor,
++the options after "--" are for dom0.
 +
-+/* Size of the shared_info area (this is not related to page size).  */
-+#define XSI_SHIFT			14
-+#define XSI_SIZE			(1 << XSI_SHIFT)
-+/* Log size of mapped_regs area (64 KB - only 4KB is used).  */
-+#define XMAPPEDREGS_SHIFT		12
-+#define XMAPPEDREGS_SIZE		(1 << XMAPPEDREGS_SHIFT)
-+/* Offset of XASI (Xen arch shared info) wrt XSI_BASE.	*/
-+#define XMAPPEDREGS_OFS			XSI_SIZE
++FYI, your machine may need console options like
++"com1200,8n1 console=vga,com1". For example,
++append="com1200,8n1 console=vga,com1 -- rhgb console=tty0 \
++console=ttyS0 root=/dev/sda2"
 +
-+/* Hyperprivops.  */
-+#define HYPERPRIVOP_START		0x1
-+#define HYPERPRIVOP_RFI			(HYPERPRIVOP_START + 0x0)
-+#define HYPERPRIVOP_RSM_DT		(HYPERPRIVOP_START + 0x1)
-+#define HYPERPRIVOP_SSM_DT		(HYPERPRIVOP_START + 0x2)
-+#define HYPERPRIVOP_COVER		(HYPERPRIVOP_START + 0x3)
-+#define HYPERPRIVOP_ITC_D		(HYPERPRIVOP_START + 0x4)
-+#define HYPERPRIVOP_ITC_I		(HYPERPRIVOP_START + 0x5)
-+#define HYPERPRIVOP_SSM_I		(HYPERPRIVOP_START + 0x6)
-+#define HYPERPRIVOP_GET_IVR		(HYPERPRIVOP_START + 0x7)
-+#define HYPERPRIVOP_GET_TPR		(HYPERPRIVOP_START + 0x8)
-+#define HYPERPRIVOP_SET_TPR		(HYPERPRIVOP_START + 0x9)
-+#define HYPERPRIVOP_EOI			(HYPERPRIVOP_START + 0xa)
-+#define HYPERPRIVOP_SET_ITM		(HYPERPRIVOP_START + 0xb)
-+#define HYPERPRIVOP_THASH		(HYPERPRIVOP_START + 0xc)
-+#define HYPERPRIVOP_PTC_GA		(HYPERPRIVOP_START + 0xd)
-+#define HYPERPRIVOP_ITR_D		(HYPERPRIVOP_START + 0xe)
-+#define HYPERPRIVOP_GET_RR		(HYPERPRIVOP_START + 0xf)
-+#define HYPERPRIVOP_SET_RR		(HYPERPRIVOP_START + 0x10)
-+#define HYPERPRIVOP_SET_KR		(HYPERPRIVOP_START + 0x11)
-+#define HYPERPRIVOP_FC			(HYPERPRIVOP_START + 0x12)
-+#define HYPERPRIVOP_GET_CPUID		(HYPERPRIVOP_START + 0x13)
-+#define HYPERPRIVOP_GET_PMD		(HYPERPRIVOP_START + 0x14)
-+#define HYPERPRIVOP_GET_EFLAG		(HYPERPRIVOP_START + 0x15)
-+#define HYPERPRIVOP_SET_EFLAG		(HYPERPRIVOP_START + 0x16)
-+#define HYPERPRIVOP_RSM_BE		(HYPERPRIVOP_START + 0x17)
-+#define HYPERPRIVOP_GET_PSR		(HYPERPRIVOP_START + 0x18)
-+#define HYPERPRIVOP_SET_RR0_TO_RR4	(HYPERPRIVOP_START + 0x19)
-+#define HYPERPRIVOP_MAX			(0x1a)
++==================+Getting and Building domU with pv_ops
++==================+
++ 1. get pv_ops tree
++    # git clone http://people.valinux.co.jp/~yamahata/xen-ia64/linux-2.6-xen-ia64.git/
 +
-+/* Fast and light hypercalls.  */
-+#define __HYPERVISOR_ia64_fast_eoi	__HYPERVISOR_arch_1
++ 2. git branch (if necessary)
++    # cd linux-2.6-xen-ia64/
++    # git checkout -b your_branch origin/xen-ia64-domu-minimal-2008may19
++    (Note: The current branch is xen-ia64-domu-minimal-2008may19.
++    But you would find the new branch. You can see with
++    "git branch -r" to get the branch lists.
++    http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
++    is also available. The tree is based on
++    git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6 test)
 +
-+/* Xencomm macros.  */
-+#define XENCOMM_INLINE_MASK		0xf800000000000000UL
-+#define XENCOMM_INLINE_FLAG		0x8000000000000000UL
 +
-+#ifndef __ASSEMBLY__
++ 3. copy .config for pv_ops of domU
++    # cp arch/ia64/configs/xen_domu_wip_defconfig .config
 +
-+/*
-+ * Optimization features.
-+ * The hypervisor may do some special optimizations for guests. This hypercall
-+ * can be used to switch on/of these special optimizations.
-+ */
-+#define __HYPERVISOR_opt_feature	0x700UL
++ 4. make kernel with pv_ops
++    # make oldconfig
++    # make
 +
-+#define XEN_IA64_OPTF_OFF		0x0
-+#define XEN_IA64_OPTF_ON		0x1
++ 5. install the kernel and initrd
++    # cp vmlinux.gz /boot/efi/efi/redhat/vmlinuz-2.6-pv_ops-xenU
++    # make modules_install
++    # mkinitrd -f /boot/efi/efi/redhat/initrd-2.6-pv_ops-xenU.img \
++      2.6.26-rc3xen-ia64-08941-g1b12161 --builtin mptspi \
++      --builtin mptbase --builtin mptscsih --builtin uhci-hcd \
++      --builtin ohci-hcd --builtin ehci-hcd
 +
-+/*
-+ * If this feature is switched on, the hypervisor inserts the
-+ * tlb entries without calling the guests traphandler.
-+ * This is useful in guests using region 7 for identity mapping
-+ * like the linux kernel does.
-+ */
-+#define XEN_IA64_OPTF_IDENT_MAP_REG7	1
++============
++Boot DomainU with pv_ops
++============
 +
-+/* Identity mapping of region 4 addresses in HVM. */
-+#define XEN_IA64_OPTF_IDENT_MAP_REG4	2
++ 1. make config of DomU
++   # vi /etc/xen/rhel5
++     kernel = "/boot/efi/efi/redhat/vmlinuz-2.6-pv_ops-xenU"
++     ramdisk = "/boot/efi/efi/redhat/initrd-2.6-pv_ops-xenU.img"
++     vcpus = 1
++     memory = 512
++     name = "rhel5"
++     disk = [ 'file:/root/rhel5.img,xvda1,w' ]
++     root = "/dev/xvda1 ro"
++     extra= "rhgb console=hvc0"
 +
-+/* Identity mapping of region 5 addresses in HVM. */
-+#define XEN_IA64_OPTF_IDENT_MAP_REG5	3
++ 2. After boot xen and dom0, start xend
++   # /etc/init.d/xend start
++   ( In the debugging case, # XEND_DEBUG=1 xend trace_start )
 +
-+#define XEN_IA64_OPTF_IDENT_MAP_NOT_SET	 (0)
++ 3. start domU
++   # xm create -c rhel5
 +
-+struct xen_ia64_opt_feature {
-+	unsigned long cmd;	/* Which feature */
-+	unsigned char on;	/* Switch feature on/off */
-+	union {
-+		struct {
-+			/* The page protection bit mask of the pte.
-+			 * This will be or'ed with the pte. */
-+			unsigned long pgprot;
-+			unsigned long key;	/* A protection key for itir.*/
-+		};
-+	};
-+};
++====+Reference
++====+- Wiki of Xen/IA64 upstream merge
++  http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
 +
-+#endif /* __ASSEMBLY__ */
-+
-+#endif /* _ASM_IA64_XEN_INTERFACE_H */
++Witten by Akio Takebe <takebe_akio@jp.fujitsu.com> on 28 May 2008
 -- 
 1.6.0.2
 
