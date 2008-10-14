@@ -1,88 +1,46 @@
-From: akpm@linux-foundation.org
-Date: Wed, 29 Oct 2008 21:17:59 +0000
-Subject: [patch 2/2] ia64: use common header for software IO/TLB
-Message-Id: <200810292117.m9TLHx6n018432@imap1.linux-foundation.org>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:18 +0000
+Subject: [PATCH 03/32] ia64: move function declaration, ia64_cpu_local_tick() from .c to .h
+Message-Id: <1223963507-28056-4-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Joerg Roedel <joerg.roedel@amd.com>
+eliminate the function declaration ia64_cpu_local_tick() in
+process.c by defining in arch/ia64/include/asm/timex.h
+The same function will be used in a different .c file later.
 
-Remove the swiotlb prototypes from the architecture code and use the
-common header file instead.
-
-Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
+ arch/ia64/include/asm/timex.h |    2 ++
+ arch/ia64/kernel/process.c    |    1 -
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
- arch/ia64/hp/common/hwsw_iommu.c |    9 +--------
- arch/ia64/include/asm/machvec.h  |   22 +---------------------
- 2 files changed, 2 insertions(+), 29 deletions(-)
+diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
+index 05a6baf..4e03cfe 100644
+--- a/arch/ia64/include/asm/timex.h
++++ b/arch/ia64/include/asm/timex.h
+@@ -39,4 +39,6 @@ get_cycles (void)
+ 	return ret;
+ }
+ 
++extern void ia64_cpu_local_tick (void);
++
+ #endif /* _ASM_IA64_TIMEX_H */
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 3ab8373..8de0f46 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -251,7 +251,6 @@ default_idle (void)
+ /* We don't actually take CPU down, just spin without interrupts. */
+ static inline void play_dead(void)
+ {
+-	extern void ia64_cpu_local_tick (void);
+ 	unsigned int this_cpu = smp_processor_id();
+ 
+ 	/* Ack it */
+-- 
+1.6.0.2
 
-diff -puN arch/ia64/hp/common/hwsw_iommu.c~ia64-use-common-header-for-software-io-tlb arch/ia64/hp/common/hwsw_iommu.c
---- a/arch/ia64/hp/common/hwsw_iommu.c~ia64-use-common-header-for-software-io-tlb
-+++ a/arch/ia64/hp/common/hwsw_iommu.c
-@@ -13,19 +13,12 @@
-  */
- 
- #include <linux/device.h>
-+#include <linux/swiotlb.h>
- 
- #include <asm/machvec.h>
- 
- /* swiotlb declarations & definitions: */
- extern int swiotlb_late_init_with_default_size (size_t size);
--extern ia64_mv_dma_alloc_coherent	swiotlb_alloc_coherent;
--extern ia64_mv_dma_free_coherent	swiotlb_free_coherent;
--extern ia64_mv_dma_map_single_attrs	swiotlb_map_single_attrs;
--extern ia64_mv_dma_unmap_single_attrs	swiotlb_unmap_single_attrs;
--extern ia64_mv_dma_map_sg_attrs		swiotlb_map_sg_attrs;
--extern ia64_mv_dma_unmap_sg_attrs	swiotlb_unmap_sg_attrs;
--extern ia64_mv_dma_supported		swiotlb_dma_supported;
--extern ia64_mv_dma_mapping_error	swiotlb_dma_mapping_error;
- 
- /* hwiommu declarations & definitions: */
- 
-diff -puN arch/ia64/include/asm/machvec.h~ia64-use-common-header-for-software-io-tlb arch/ia64/include/asm/machvec.h
---- a/arch/ia64/include/asm/machvec.h~ia64-use-common-header-for-software-io-tlb
-+++ a/arch/ia64/include/asm/machvec.h
-@@ -11,6 +11,7 @@
- #define _ASM_IA64_MACHVEC_H
- 
- #include <linux/types.h>
-+#include <linux/swiotlb.h>
- 
- /* forward declarations: */
- struct device;
-@@ -298,27 +299,6 @@ extern void machvec_init_from_cmdline(co
- # endif /* CONFIG_IA64_GENERIC */
- 
- /*
-- * Declare default routines which aren't declared anywhere else:
-- */
--extern ia64_mv_dma_init			swiotlb_init;
--extern ia64_mv_dma_alloc_coherent	swiotlb_alloc_coherent;
--extern ia64_mv_dma_free_coherent	swiotlb_free_coherent;
--extern ia64_mv_dma_map_single		swiotlb_map_single;
--extern ia64_mv_dma_map_single_attrs	swiotlb_map_single_attrs;
--extern ia64_mv_dma_unmap_single		swiotlb_unmap_single;
--extern ia64_mv_dma_unmap_single_attrs	swiotlb_unmap_single_attrs;
--extern ia64_mv_dma_map_sg		swiotlb_map_sg;
--extern ia64_mv_dma_map_sg_attrs		swiotlb_map_sg_attrs;
--extern ia64_mv_dma_unmap_sg		swiotlb_unmap_sg;
--extern ia64_mv_dma_unmap_sg_attrs	swiotlb_unmap_sg_attrs;
--extern ia64_mv_dma_sync_single_for_cpu	swiotlb_sync_single_for_cpu;
--extern ia64_mv_dma_sync_sg_for_cpu	swiotlb_sync_sg_for_cpu;
--extern ia64_mv_dma_sync_single_for_device swiotlb_sync_single_for_device;
--extern ia64_mv_dma_sync_sg_for_device	swiotlb_sync_sg_for_device;
--extern ia64_mv_dma_mapping_error	swiotlb_dma_mapping_error;
--extern ia64_mv_dma_supported		swiotlb_dma_supported;
--
--/*
-  * Define default versions so we can extend machvec for new platforms without having
-  * to update the machvec files for all existing platforms.
-  */
-_
