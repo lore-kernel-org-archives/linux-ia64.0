@@ -1,230 +1,223 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 20 Oct 2008 03:55:03 +0000
-Subject: [PATCH 01/13] ia64/pv_ops: add hooks to paravirtualize fsyscall implementation.
-Message-Id: <1224474915-17171-2-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:32 +0000
+Subject: [PATCH 17/32] ia64/pv_ops/xen: elf note based xen startup.
+Message-Id: <1223963507-28056-18-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: tony.luck@intel.com, linux-ia64@vger.kernel.org
-Cc: yamahata@valinux.co.jp, xen-ia64-devel@lists.xensource.com, mingo@elte.hu, virtualization@lists.linux-foundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Add two hooks, paravirt_get_fsyscall_table() and
-paravirt_get_fsys_bubble_doen() to paravirtualize fsyscall implementation.
-This patch just add the hooks fsyscall and don't paravirtualize it.
+This patch enables elf note based xen startup for IA-64, which gives the
+kernel an early hint for running on xen like x86 case.
+In order to avoid the multi entry point, presumably extending booting
+protocol(i.e. extending struct ia64_boot_param) would be necessary.
+It probably means that elilo also needs modification.
 
+Signed-off-by: Qing He <qing.he@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/native/inst.h |    3 +++
- arch/ia64/include/asm/paravirt.h    |   15 +++++++++++++++
- arch/ia64/kernel/Makefile           |    4 ++--
- arch/ia64/kernel/fsys.S             |   17 +++++++++--------
- arch/ia64/kernel/patch.c            |   26 +++++++++++++++++++++++---
- arch/ia64/mm/init.c                 |    2 +-
- 6 files changed, 53 insertions(+), 14 deletions(-)
+ arch/ia64/kernel/asm-offsets.c |    4 ++
+ arch/ia64/xen/Makefile         |    3 +-
+ arch/ia64/xen/xen_pv_ops.c     |   65 +++++++++++++++++++++++++++++++
+ arch/ia64/xen/xensetup.S       |   83 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 154 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xen_pv_ops.c
+ create mode 100644 arch/ia64/xen/xensetup.S
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/na=
-tive/inst.h
-index 0a1026c..5e4e151 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -30,6 +30,9 @@
- #define __paravirt_work_processed_syscall_target \
- 						ia64_work_processed_syscall
-=20
-+#define paravirt_fsyscall_table			ia64_native_fsyscall_table
-+#define paravirt_fsys_bubble_down		ia64_native_fsys_bubble_down
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index eaa988b..742dbb1 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -17,6 +17,7 @@
+ #include <asm/mca.h>
+ 
+ #include <asm/xen/interface.h>
++#include <asm/xen/hypervisor.h>
+ 
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
+@@ -292,6 +293,9 @@ void foo(void)
+ #ifdef CONFIG_XEN
+ 	BLANK();
+ 
++	DEFINE(XEN_NATIVE_ASM, XEN_NATIVE);
++	DEFINE(XEN_PV_DOMAIN_ASM, XEN_PV_DOMAIN);
 +
- #ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
- # define PARAVIRT_POISON	0xdeadbeefbaadf00d
- # define CLOBBER(clob)				\
-diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/parav=
-irt.h
-index 2bf3636..56f69f9 100644
---- a/arch/ia64/include/asm/paravirt.h
-+++ b/arch/ia64/include/asm/paravirt.h
-@@ -22,6 +22,21 @@
- #ifndef __ASM_PARAVIRT_H
- #define __ASM_PARAVIRT_H
-=20
-+#ifndef __ASSEMBLY__
-+/*************************************************************************=
-*****
-+ * fsys related addresses
+ #define DEFINE_MAPPED_REG_OFS(sym, field) \
+ 	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
+ 
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index eb59563..abc356f 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,4 +2,5 @@
+ # Makefile for Xen components
+ #
+ 
+-obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
++obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++	xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+new file mode 100644
+index 0000000..77db214
+--- /dev/null
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -0,0 +1,65 @@
++/******************************************************************************
++ * arch/ia64/xen/xen_pv_ops.c
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
-+struct pv_fsys_data {
-+	unsigned long *fsyscall_table;
-+	void *fsys_bubble_down;
++
++#include <linux/console.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/pm.h>
++
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/xencomm.h>
++#include <asm/xen/privop.h>
++
++/***************************************************************************
++ * general info
++ */
++static struct pv_info xen_info __initdata = {
++	.kernel_rpl = 2,	/* or 1: determin at runtime */
++	.paravirt_enabled = 1,
++	.name = "Xen/ia64",
 +};
 +
-+extern struct pv_fsys_data pv_fsys_data;
++#define IA64_RSC_PL_SHIFT	2
++#define IA64_RSC_PL_BIT_SIZE	2
++#define IA64_RSC_PL_MASK	\
++	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
 +
-+unsigned long *paravirt_get_fsyscall_table(void);
-+char *paravirt_get_fsys_bubble_down(void);
-+#endif
++static void __init
++xen_info_init(void)
++{
++	/* Xenified Linux/ia64 may run on pl = 1 or 2.
++	 * determin at run time. */
++	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
++	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
++	xen_info.kernel_rpl = rpl;
++}
 +
- #ifdef CONFIG_PARAVIRT_GUEST
-=20
- #define PARAVIRT_HYPERVISOR_TYPE_DEFAULT	0
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index c381ea9..1ab150e 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -111,9 +111,9 @@ include/asm-ia64/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-i=
-rqs.s
- clean-files +=3D $(objtree)/include/asm-ia64/nr-irqs.h
-=20
- #
--# native ivt.S and entry.S
-+# native ivt.S, entry.S and fsys.S
- #
--ASM_PARAVIRT_OBJS =3D ivt.o entry.o
-+ASM_PARAVIRT_OBJS =3D ivt.o entry.o fsys.o
- define paravirtualized_native
- AFLAGS_$(1) +=3D -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
- AFLAGS_pvchk-sed-$(1) +=3D -D__IA64_ASM_PARAVIRTUALIZED_PVCHECK
-diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
-index c1625c7..788319f 100644
---- a/arch/ia64/kernel/fsys.S
-+++ b/arch/ia64/kernel/fsys.S
-@@ -25,6 +25,7 @@
- #include <asm/unistd.h>
-=20
- #include "entry.h"
-+#include "paravirt_inst.h"
-=20
- /*
-  * See Documentation/ia64/fsys.txt for details on fsyscalls.
-@@ -602,7 +603,7 @@ ENTRY(fsys_fallback_syscall)
- 	mov r26=3Dar.pfs
- END(fsys_fallback_syscall)
- 	/* FALL THROUGH */
--GLOBAL_ENTRY(fsys_bubble_down)
-+GLOBAL_ENTRY(paravirt_fsys_bubble_down)
- 	.prologue
- 	.altrp b6
- 	.body
-@@ -640,7 +641,7 @@ GLOBAL_ENTRY(fsys_bubble_down)
- 	 *
- 	 * PSR.BE : already is turned off in __kernel_syscall_via_epc()
- 	 * PSR.AC : don't care (kernel normally turns PSR.AC on)
--	 * PSR.I  : already turned off by the time fsys_bubble_down gets
-+	 * PSR.I  : already turned off by the time paravirt_fsys_bubble_down gets
- 	 *	    invoked
- 	 * PSR.DFL: always 0 (kernel never turns it on)
- 	 * PSR.DFH: don't care --- kernel never touches f32-f127 on its own
-@@ -650,7 +651,7 @@ GLOBAL_ENTRY(fsys_bubble_down)
- 	 * PSR.DB : don't care --- kernel never enables kernel-level
- 	 *	    breakpoints
- 	 * PSR.TB : must be 0 already; if it wasn't zero on entry to
--	 *          __kernel_syscall_via_epc, the branch to fsys_bubble_down
-+	 *          __kernel_syscall_via_epc, the branch to paravirt_fsys_bubble_=
-down
- 	 *          will trigger a taken branch; the taken-trap-handler then
- 	 *          converts the syscall into a break-based system-call.
- 	 */
-@@ -741,14 +742,14 @@ GLOBAL_ENTRY(fsys_bubble_down)
- 	nop.m 0
- (p8)	br.call.sptk.many b6=B6			// B    (ignore return address)
- 	br.cond.spnt ia64_trace_syscall		// B
--END(fsys_bubble_down)
-+END(paravirt_fsys_bubble_down)
-=20
- 	.rodata
- 	.align 8
--	.globl fsyscall_table
-+	.globl paravirt_fsyscall_table
-=20
--	data8 fsys_bubble_down
--fsyscall_table:
-+	data8 paravirt_fsys_bubble_down
-+paravirt_fsyscall_table:
- 	data8 fsys_ni_syscall
- 	data8 0				// exit			// 1025
- 	data8 0				// read
-@@ -1033,4 +1034,4 @@ fsyscall_table:
-=20
- 	// fill in zeros for the remaining entries
- 	.zero:
--	.space fsyscall_table + 8*NR_syscalls - .zero, 0
-+	.space paravirt_fsyscall_table + 8*NR_syscalls - .zero, 0
-diff --git a/arch/ia64/kernel/patch.c b/arch/ia64/kernel/patch.c
-index b83b2c5..02dd977 100644
---- a/arch/ia64/kernel/patch.c
-+++ b/arch/ia64/kernel/patch.c
-@@ -7,6 +7,7 @@
- #include <linux/init.h>
- #include <linux/string.h>
-=20
++/***************************************************************************
++ * pv_ops initialization
++ */
++
++void __init
++xen_setup_pv_ops(void)
++{
++	xen_info_init();
++	pv_info = xen_info;
++}
+diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
+new file mode 100644
+index 0000000..28fed1f
+--- /dev/null
++++ b/arch/ia64/xen/xensetup.S
+@@ -0,0 +1,83 @@
++/*
++ * Support routines for Xen
++ *
++ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
++ */
++
++#include <asm/processor.h>
++#include <asm/asmmacro.h>
++#include <asm/pgtable.h>
++#include <asm/system.h>
 +#include <asm/paravirt.h>
- #include <asm/patch.h>
- #include <asm/processor.h>
- #include <asm/sections.h>
-@@ -169,16 +170,35 @@ ia64_patch_mckinley_e9 (unsigned long start, unsigned=
- long end)
- 	ia64_srlz_i();
- }
-=20
-+extern unsigned long ia64_native_fsyscall_table[NR_syscalls];
-+extern char ia64_native_fsys_bubble_down[];
-+struct pv_fsys_data pv_fsys_data __initdata =3D {
-+	.fsyscall_table =3D (unsigned long *)ia64_native_fsyscall_table,
-+	.fsys_bubble_down =3D (void *)ia64_native_fsys_bubble_down,
-+};
++#include <asm/xen/privop.h>
++#include <linux/elfnote.h>
++#include <linux/init.h>
++#include <xen/interface/elfnote.h>
 +
-+unsigned long * __init
-+paravirt_get_fsyscall_table(void)
-+{
-+	return pv_fsys_data.fsyscall_table;
-+}
++	.section .data.read_mostly
++	.align 8
++	.global xen_domain_type
++xen_domain_type:
++	data4 XEN_NATIVE_ASM
++	.previous
 +
-+char * __init
-+paravirt_get_fsys_bubble_down(void)
-+{
-+	return pv_fsys_data.fsys_bubble_down;
-+}
++	__INIT
++ENTRY(startup_xen)
++	// Calculate load offset.
++	// The constant, LOAD_OFFSET, can't be used because the boot
++	// loader doesn't always load to the LMA specified by the vmlinux.lds.
++	mov r9=ip	// must be the first instruction to make sure
++			// that r9 = the physical address of startup_xen.
++			// Usually r9 = startup_xen - LOAD_OFFSET
++	movl r8=startup_xen
++	;;
++	sub r9=r9,r8	// Usually r9 = -LOAD_OFFSET.
 +
- static void __init
- patch_fsyscall_table (unsigned long start, unsigned long end)
- {
--	extern unsigned long fsyscall_table[NR_syscalls];
-+	u64 fsyscall_table =3D (u64)paravirt_get_fsyscall_table();
- 	s32 *offp =3D (s32 *) start;
- 	u64 ip;
-=20
- 	while (offp < (s32 *) end) {
- 		ip =3D (u64) ia64_imva((char *) offp + *offp);
--		ia64_patch_imm64(ip, (u64) fsyscall_table);
-+		ia64_patch_imm64(ip, fsyscall_table);
- 		ia64_fc((void *) ip);
- 		++offp;
- 	}
-@@ -189,7 +209,7 @@ patch_fsyscall_table (unsigned long start, unsigned lon=
-g end)
- static void __init
- patch_brl_fsys_bubble_down (unsigned long start, unsigned long end)
- {
--	extern char fsys_bubble_down[];
-+	u64 fsys_bubble_down =3D (u64)paravirt_get_fsys_bubble_down();
- 	s32 *offp =3D (s32 *) start;
- 	u64 ip;
-=20
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index f482a90..59e6851 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -667,8 +667,8 @@ mem_init (void)
- 	 * code can tell them apart.
- 	 */
- 	for (i =3D 0; i < NR_syscalls; ++i) {
--		extern unsigned long fsyscall_table[NR_syscalls];
- 		extern unsigned long sys_call_table[NR_syscalls];
-+		unsigned long *fsyscall_table =3D paravirt_get_fsyscall_table();
-=20
- 		if (!fsyscall_table[i] || nolwsys)
- 			fsyscall_table[i] =3D sys_call_table[i] | 1;
---=20
++	mov r10=PARAVIRT_HYPERVISOR_TYPE_XEN
++	movl r11=_start
++	;;
++	add r11=r11,r9
++	movl r8=hypervisor_type
++	;;
++	add r8=r8,r9
++	mov b0=r11
++	;;
++	st8 [r8]=r10
++	br.cond.sptk.many b0
++	;;
++END(startup_xen)
++
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,	.asciz "linux")
++	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,	.asciz "2.6")
++	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,	.asciz "xen-3.0")
++	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,		data8.ua startup_xen - LOAD_OFFSET)
++
++#define isBP	p3	// are we the Bootstrap Processor?
++
++	.text
++
++GLOBAL_ENTRY(xen_setup_hook)
++	mov r8=XEN_PV_DOMAIN_ASM
++(isBP)	movl r9=xen_domain_type;;
++(isBP)	st4 [r9]=r8
++	movl r10=xen_ivt;;
++
++	mov cr.iva=r10
++
++	/* Set xsi base.  */
++#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
++(isBP)	mov r2=FW_HYPERCALL_SET_SHARED_INFO_VA
++(isBP)	movl r28=XSI_BASE;;
++(isBP)	break 0x1000;;
++
++	/* setup pv_ops */
++(isBP)	mov r4=rp
++	;;
++(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
++	;;
++(isBP)	mov rp=r4
++	;;
++
++	br.ret.sptk.many rp
++	;;
++END(xen_setup_hook)
+-- 
 1.6.0.2
 
