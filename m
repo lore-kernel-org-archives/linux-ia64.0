@@ -1,138 +1,152 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:22 +0000
-Subject: [PATCH 03/35] cpumask: add for_each_cpu_mask_and function
-Message-Id: <20081020170320.007751000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:34 +0000
+Subject: [PATCH 19/32] ia64/pv_ops/xen: define xen pv_cpu_ops.
+Message-Id: <1223963507-28056-20-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Add for_each_cpu_mask_and() function to eliminate need for a common use
-of a temporary cpumask_t variable.  When the following procedure is being
-used:
+define xen pv_cpu_ops which implementes xen paravirtualized
+privileged instructions.
 
-    funcproto(const cpumask_t *mask, ...)
-    {
-	cpumask_t temp;
-
-	cpus_and(temp, mask, cpu_online_map);
-	for_each_cpu_mask(cpu, temp)
-		...
-It then becomes:
-
-    funcproto(cpumask_t *mask, ...)
-    {
-	for_each_cpu_mask_and(cpu, *mask, cpu_online_map)
-		...
-
-... eliminating the need for the temp cpumask.
-
-
-Applies to linux-2.6.tip/master.
-
-Signed-off-by: Mike Travis <travis@sgi.com>
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/linux/cpumask.h |   33 ++++++++++++++++++++++++---------
- lib/cpumask.c           |    9 +++++++++
- 2 files changed, 33 insertions(+), 9 deletions(-)
+ arch/ia64/xen/xen_pv_ops.c |  114 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 114 insertions(+), 0 deletions(-)
 
---- test-compile.orig/include/linux/cpumask.h
-+++ test-compile/include/linux/cpumask.h
-@@ -109,6 +109,7 @@
-  *
-  * for_each_cpu_mask(cpu, mask)		for-loop cpu over mask using NR_CPUS
-  * for_each_cpu_mask_nr(cpu, mask)	for-loop cpu over mask using nr_cpu_ids
-+ * for_each_cpu_mask_and(cpu, mask, and) for-loop cpu over (mask & and).
-  *
-  * int num_online_cpus()		Number of online CPUs
-  * int num_possible_cpus()		Number of all possible CPUs
-@@ -400,29 +401,41 @@ static inline void __cpus_fold(cpumask_t
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index fc9d599..c236f04 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -163,6 +163,119 @@ static const struct pv_init_ops xen_init_ops __initdata = {
+ };
  
- #if NR_CPUS = 1
- 
--#define nr_cpu_ids		1
--#define first_cpu(src)		({ (void)(src); 0; })
--#define next_cpu(n, src)	({ (void)(src); 1; })
--#define any_online_cpu(mask)	0
--#define for_each_cpu_mask(cpu, mask)	\
-+#define nr_cpu_ids			1
-+#define first_cpu(src)			({ (void)(src); 0; })
-+#define next_cpu(n, src)		({ (void)(src); 1; })
-+#define cpumask_next_and(n, srcp, andp)	({ (void)(srcp), (void)(andp); 1; })
-+#define any_online_cpu(mask)		0
+ /***************************************************************************
++ * pv_cpu_ops
++ * intrinsics hooks.
++ */
 +
-+#define for_each_cpu_mask(cpu, mask)		\
- 	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask)
-+#define for_each_cpu_mask_and(cpu, mask, and)	\
-+	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask, (void)and)
- 
- #else /* NR_CPUS > 1 */
- 
- extern int nr_cpu_ids;
- int __first_cpu(const cpumask_t *srcp);
- int __next_cpu(int n, const cpumask_t *srcp);
-+int cpumask_next_and(int n, const cpumask_t *srcp, const cpumask_t *andp);
- int __any_online_cpu(const cpumask_t *mask);
- 
- #define first_cpu(src)		__first_cpu(&(src))
- #define next_cpu(n, src)	__next_cpu((n), &(src))
- #define any_online_cpu(mask) __any_online_cpu(&(mask))
-+
- #define for_each_cpu_mask(cpu, mask)			\
- 	for ((cpu) = -1;				\
- 		(cpu) = next_cpu((cpu), (mask)),	\
--		(cpu) < NR_CPUS; )
-+		(cpu) < NR_CPUS;)
-+#define for_each_cpu_mask_and(cpu, mask, and)				\
-+	for ((cpu) = -1;						\
-+		(cpu) = cpumask_next_and((cpu), &(mask), &(and)),	\
-+		(cpu) < nr_cpu_ids;)
- #endif
- 
-+#define cpumask_first_and(mask, and) cpumask_next_and(-1, (mask), (and))
-+
- #if NR_CPUS <= 64
- 
- #define next_cpu_nr(n, src)		next_cpu(n, src)
-@@ -432,12 +445,14 @@ int __any_online_cpu(const cpumask_t *ma
- #else /* NR_CPUS > 64 */
- 
- int __next_cpu_nr(int n, const cpumask_t *srcp);
--#define next_cpu_nr(n, src)	__next_cpu_nr((n), &(src))
--#define cpus_weight_nr(cpumask)	__cpus_weight(&(cpumask), nr_cpu_ids)
-+
-+#define next_cpu_nr(n, src)		__next_cpu_nr((n), &(src))
-+#define cpus_weight_nr(cpumask)		__cpus_weight(&(cpumask), nr_cpu_ids)
-+
- #define for_each_cpu_mask_nr(cpu, mask)			\
- 	for ((cpu) = -1;				\
- 		(cpu) = next_cpu_nr((cpu), (mask)),	\
--		(cpu) < nr_cpu_ids; )
-+		(cpu) < nr_cpu_ids;)
- 
- #endif /* NR_CPUS > 64 */
- 
---- test-compile.orig/lib/cpumask.c
-+++ test-compile/lib/cpumask.c
-@@ -15,6 +15,15 @@ int __next_cpu(int n, const cpumask_t *s
- }
- EXPORT_SYMBOL(__next_cpu);
- 
-+int cpumask_next_and(int n, const cpumask_t *srcp, const cpumask_t *andp)
++static void xen_setreg(int regnum, unsigned long val)
 +{
-+	while ((n = next_cpu_nr(n, *srcp)) < nr_cpu_ids)
-+		if (cpu_isset(n, *andp))
-+			break;
-+	return n;
++	switch (regnum) {
++	case _IA64_REG_AR_KR0 ... _IA64_REG_AR_KR7:
++		xen_set_kr(regnum - _IA64_REG_AR_KR0, val);
++		break;
++#ifdef CONFIG_IA32_SUPPORT
++	case _IA64_REG_AR_EFLAG:
++		xen_set_eflag(val);
++		break;
++#endif
++	case _IA64_REG_CR_TPR:
++		xen_set_tpr(val);
++		break;
++	case _IA64_REG_CR_ITM:
++		xen_set_itm(val);
++		break;
++	case _IA64_REG_CR_EOI:
++		xen_eoi(val);
++		break;
++	default:
++		ia64_native_setreg_func(regnum, val);
++		break;
++	}
 +}
-+EXPORT_SYMBOL(cpumask_next_and);
 +
- #if NR_CPUS > 64
- int __next_cpu_nr(int n, const cpumask_t *srcp)
- {
-
++static unsigned long xen_getreg(int regnum)
++{
++	unsigned long res;
++
++	switch (regnum) {
++	case _IA64_REG_PSR:
++		res = xen_get_psr();
++		break;
++#ifdef CONFIG_IA32_SUPPORT
++	case _IA64_REG_AR_EFLAG:
++		res = xen_get_eflag();
++		break;
++#endif
++	case _IA64_REG_CR_IVR:
++		res = xen_get_ivr();
++		break;
++	case _IA64_REG_CR_TPR:
++		res = xen_get_tpr();
++		break;
++	default:
++		res = ia64_native_getreg_func(regnum);
++		break;
++	}
++	return res;
++}
++
++/* turning on interrupts is a bit more complicated.. write to the
++ * memory-mapped virtual psr.i bit first (to avoid race condition),
++ * then if any interrupts were pending, we have to execute a hyperprivop
++ * to ensure the pending interrupt gets delivered; else we're done! */
++static void
++xen_ssm_i(void)
++{
++	int old = xen_get_virtual_psr_i();
++	xen_set_virtual_psr_i(1);
++	barrier();
++	if (!old && xen_get_virtual_pend())
++		xen_hyper_ssm_i();
++}
++
++/* turning off interrupts can be paravirtualized simply by writing
++ * to a memory-mapped virtual psr.i bit (implemented as a 16-bit bool) */
++static void
++xen_rsm_i(void)
++{
++	xen_set_virtual_psr_i(0);
++	barrier();
++}
++
++static unsigned long
++xen_get_psr_i(void)
++{
++	return xen_get_virtual_psr_i() ? IA64_PSR_I : 0;
++}
++
++static void
++xen_intrin_local_irq_restore(unsigned long mask)
++{
++	if (mask & IA64_PSR_I)
++		xen_ssm_i();
++	else
++		xen_rsm_i();
++}
++
++static const struct pv_cpu_ops xen_cpu_ops __initdata = {
++	.fc		= xen_fc,
++	.thash		= xen_thash,
++	.get_cpuid	= xen_get_cpuid,
++	.get_pmd	= xen_get_pmd,
++	.getreg		= xen_getreg,
++	.setreg		= xen_setreg,
++	.ptcga		= xen_ptcga,
++	.get_rr		= xen_get_rr,
++	.set_rr		= xen_set_rr,
++	.set_rr0_to_rr4	= xen_set_rr0_to_rr4,
++	.ssm_i		= xen_ssm_i,
++	.rsm_i		= xen_rsm_i,
++	.get_psr_i	= xen_get_psr_i,
++	.intrin_local_irq_restore
++			= xen_intrin_local_irq_restore,
++};
++
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -172,4 +285,5 @@ xen_setup_pv_ops(void)
+ 	xen_info_init();
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
++	pv_cpu_ops = xen_cpu_ops;
+ }
 -- 
+1.6.0.2
+
