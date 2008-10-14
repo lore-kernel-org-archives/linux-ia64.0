@@ -1,275 +1,118 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:18:08 +0000
-Subject: [PATCH 28/33] ia64/pv_ops/xen: implement xen pv_time_ops.
-Message-Id: <1224209893-2032-29-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:37 +0000
+Subject: [PATCH 22/32] ia64/pv_ops/xen: paravirtualize ivt.S for xen.
+Message-Id: <1223963507-28056-23-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-implement xen pv_time_ops to account steal time.
+paravirtualize ivt.S for xen by multi compile.
 
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile     |    2 +-
- arch/ia64/xen/time.c       |  180 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/time.h       |   23 ++++++
- arch/ia64/xen/xen_pv_ops.c |    2 +
- 4 files changed, 206 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/time.c
- create mode 100644 arch/ia64/xen/time.h
+ arch/ia64/include/asm/xen/inst.h |    1 +
+ arch/ia64/xen/Makefile           |   16 +++++++++++-
+ arch/ia64/xen/xenivt.S           |   52 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 68 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/xenivt.S
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 01c4289..ed31c76 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -3,7 +3,7 @@
- #
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index 1e92ed0..e6a25c3 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -22,6 +22,7 @@
  
- obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
--	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
-+	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
- 
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
- 
-diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
-new file mode 100644
-index 0000000..ec168ec
---- /dev/null
-+++ b/arch/ia64/xen/time.c
-@@ -0,0 +1,180 @@
-+/******************************************************************************
-+ * arch/ia64/xen/time.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/kernel_stat.h>
-+#include <linux/posix-timers.h>
-+#include <linux/irq.h>
-+#include <linux/clocksource.h>
-+
-+#include <asm/xen/hypervisor.h>
-+
-+#include <xen/interface/vcpu.h>
-+
-+#include "../kernel/fsyscall_gtod_data.h"
-+
-+DEFINE_PER_CPU(struct vcpu_runstate_info, runstate);
-+DEFINE_PER_CPU(unsigned long, processed_stolen_time);
-+DEFINE_PER_CPU(unsigned long, processed_blocked_time);
-+
-+/* taken from i386/kernel/time-xen.c */
-+static void xen_init_missing_ticks_accounting(int cpu)
-+{
-+	struct vcpu_register_runstate_memory_area area;
-+	struct vcpu_runstate_info *runstate = &per_cpu(runstate, cpu);
-+	int rc;
-+
-+	memset(runstate, 0, sizeof(*runstate));
-+
-+	area.addr.v = runstate;
-+	rc = HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area, cpu,
-+				&area);
-+	WARN_ON(rc && rc != -ENOSYS);
-+
-+	per_cpu(processed_blocked_time, cpu) = runstate->time[RUNSTATE_blocked];
-+	per_cpu(processed_stolen_time, cpu) = runstate->time[RUNSTATE_runnable]
-+					    + runstate->time[RUNSTATE_offline];
-+}
-+
-+/*
-+ * Runstate accounting
-+ */
-+/* stolen from arch/x86/xen/time.c */
-+static void get_runstate_snapshot(struct vcpu_runstate_info *res)
-+{
-+	u64 state_time;
-+	struct vcpu_runstate_info *state;
-+
-+	BUG_ON(preemptible());
-+
-+	state = &__get_cpu_var(runstate);
-+
-+	/*
-+	 * The runstate info is always updated by the hypervisor on
-+	 * the current CPU, so there's no need to use anything
-+	 * stronger than a compiler barrier when fetching it.
-+	 */
-+	do {
-+		state_time = state->state_entry_time;
-+		rmb();
-+		*res = *state;
-+		rmb();
-+	} while (state->state_entry_time != state_time);
-+}
-+
-+#define NS_PER_TICK (1000000000LL/HZ)
-+
-+static unsigned long
-+consider_steal_time(unsigned long new_itm)
-+{
-+	unsigned long stolen, blocked;
-+	unsigned long delta_itm = 0, stolentick = 0;
-+	int cpu = smp_processor_id();
-+	struct vcpu_runstate_info runstate;
-+	struct task_struct *p = current;
-+
-+	get_runstate_snapshot(&runstate);
-+
-+	/*
-+	 * Check for vcpu migration effect
-+	 * In this case, itc value is reversed.
-+	 * This causes huge stolen value.
-+	 * This function just checks and reject this effect.
-+	 */
-+	if (!time_after_eq(runstate.time[RUNSTATE_blocked],
-+			   per_cpu(processed_blocked_time, cpu)))
-+		blocked = 0;
-+
-+	if (!time_after_eq(runstate.time[RUNSTATE_runnable] +
-+			   runstate.time[RUNSTATE_offline],
-+			   per_cpu(processed_stolen_time, cpu)))
-+		stolen = 0;
-+
-+	if (!time_after(delta_itm + new_itm, ia64_get_itc()))
-+		stolentick = ia64_get_itc() - new_itm;
-+
-+	do_div(stolentick, NS_PER_TICK);
-+	stolentick++;
-+
-+	do_div(stolen, NS_PER_TICK);
-+
-+	if (stolen > stolentick)
-+		stolen = stolentick;
-+
-+	stolentick -= stolen;
-+	do_div(blocked, NS_PER_TICK);
-+
-+	if (blocked > stolentick)
-+		blocked = stolentick;
-+
-+	if (stolen > 0 || blocked > 0) {
-+		account_steal_time(NULL, jiffies_to_cputime(stolen));
-+		account_steal_time(idle_task(cpu), jiffies_to_cputime(blocked));
-+		run_local_timers();
-+
-+		if (rcu_pending(cpu))
-+			rcu_check_callbacks(cpu, user_mode(get_irq_regs()));
-+
-+		scheduler_tick();
-+		run_posix_cpu_timers(p);
-+		delta_itm += local_cpu_data->itm_delta * (stolen + blocked);
-+
-+		if (cpu = time_keeper_id) {
-+			write_seqlock(&xtime_lock);
-+			do_timer(stolen + blocked);
-+			local_cpu_data->itm_next = delta_itm + new_itm;
-+			write_sequnlock(&xtime_lock);
-+		} else {
-+			local_cpu_data->itm_next = delta_itm + new_itm;
-+		}
-+		per_cpu(processed_stolen_time, cpu) += NS_PER_TICK * stolen;
-+		per_cpu(processed_blocked_time, cpu) += NS_PER_TICK * blocked;
-+	}
-+	return delta_itm;
-+}
-+
-+static int xen_do_steal_accounting(unsigned long *new_itm)
-+{
-+	unsigned long delta_itm;
-+	delta_itm = consider_steal_time(*new_itm);
-+	*new_itm += delta_itm;
-+	if (time_after(*new_itm, ia64_get_itc()) && delta_itm)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static void xen_itc_jitter_data_reset(void)
-+{
-+	u64 lcycle, ret;
-+
-+	do {
-+		lcycle = itc_jitter_data.itc_lastcycle;
-+		ret = cmpxchg(&itc_jitter_data.itc_lastcycle, lcycle, 0);
-+	} while (unlikely(ret != lcycle));
-+}
-+
-+struct pv_time_ops xen_time_ops __initdata = {
-+	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
-+	.do_steal_accounting		= xen_do_steal_accounting,
-+	.clocksource_resume		= xen_itc_jitter_data_reset,
-+};
-diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
-new file mode 100644
-index 0000000..b9c7ec5
---- /dev/null
-+++ b/arch/ia64/xen/time.h
-@@ -0,0 +1,23 @@
-+/******************************************************************************
-+ * arch/ia64/xen/time.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+extern struct pv_time_ops xen_time_ops __initdata;
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 4fe4e62..04cd123 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -30,6 +30,7 @@
  #include <asm/xen/privop.h>
  
- #include "irq_xen.h"
-+#include "time.h"
++#define ia64_ivt				xen_ivt
+ #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
  
- /***************************************************************************
-  * general info
-@@ -357,6 +358,7 @@ xen_setup_pv_ops(void)
- 	pv_cpu_ops = xen_cpu_ops;
- 	pv_iosapic_ops = xen_iosapic_ops;
- 	pv_irq_ops = xen_irq_ops;
-+	pv_time_ops = xen_time_ops;
+ #define MOV_FROM_IFA(reg)	\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 7cb4247..5c87e4a 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -2,5 +2,19 @@
+ # Makefile for Xen components
+ #
  
- 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
- }
+-obj-y := hypercall.o xensetup.o xen_pv_ops.o \
++obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
+ 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
++
++AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++
++# xen multi compile
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
++ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
++obj-y += $(ASM_PARAVIRT_OBJS)
++define paravirtualized_xen
++AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++endef
++$(foreach o,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_xen,$(o))))
++
++$(obj)/xen-%.o: $(src)/../kernel/%.S FORCE
++	$(call if_changed_dep,as_o_S)
+diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
+new file mode 100644
+index 0000000..3e71d50
+--- /dev/null
++++ b/arch/ia64/xen/xenivt.S
+@@ -0,0 +1,52 @@
++/*
++ * arch/ia64/xen/ivt.S
++ *
++ * Copyright (C) 2005 Hewlett-Packard Co
++ *	Dan Magenheimer <dan.magenheimer@hp.com>
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *                    pv_ops.
++ */
++
++#include <asm/asmmacro.h>
++#include <asm/kregs.h>
++#include <asm/pgtable.h>
++
++#include "../kernel/minstate.h"
++
++	.section .text,"ax"
++GLOBAL_ENTRY(xen_event_callback)
++	mov r31=pr		// prepare to save predicates
++	;;
++	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
++	;;
++	movl r3=XSI_PSR_IC
++	mov r14=1
++	;;
++	st4 [r3]=r14
++	;;
++	adds r3=8,r2		// set up second base pointer for SAVE_REST
++	srlz.i			// ensure everybody knows psr.ic is back on
++	;;
++	SAVE_REST
++	;;
++1:
++	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
++	add out0,sp		// pass pointer to pt_regs as first arg
++	;;
++	br.call.sptk.many b0=xen_evtchn_do_upcall
++	;;
++	movl r20=XSI_PSR_I_ADDR
++	;;
++	ld8 r20=[r20]
++	;;
++	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
++	;;
++	ld1 r20=[r20]
++	;;
++	cmp.ne p6,p0=r20,r0	// if there are pending events,
++	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
++	br.sptk.many xen_leave_kernel	// we know ia64_leave_kernel is
++					// paravirtualized as xen_leave_kernel
++END(xen_event_callback)
 -- 
 1.6.0.2
 
