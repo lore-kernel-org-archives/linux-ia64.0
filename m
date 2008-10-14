@@ -1,28 +1,15 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:24 +0000
-Subject: [PATCH 09/32] ia64/xen: add a necessary header file to compile include/xen/interface/xen.h
-Message-Id: <1223963507-28056-10-git-send-email-yamahata@valinux.co.jp>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 14 Oct 2008 21:46:41 +0000
+Subject: RE: [PATCH 09/32] ia64/xen: add a necessary header file to compile
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA353274D0A@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1223963507-28056-10-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1223963507-28056-10-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Create include/asm-ia64/pvclock-abi.h to compile which includes
-include/asm-x86/pvclock-abi.h because ia64/xen uses same structure.
-Hopefully include/asm-x86/pvclock-abi.h would be moved to somewhere
-more generic.
-
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/pvclock-abi.h |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/pvclock-abi.h
-
-diff --git a/arch/ia64/include/asm/pvclock-abi.h b/arch/ia64/include/asm/pvclock-abi.h
-new file mode 100644
-index 0000000..63cbcca
---- /dev/null
 +++ b/arch/ia64/include/asm/pvclock-abi.h
 @@ -0,0 +1,5 @@
 +/*
@@ -30,6 +17,11 @@ index 0000000..63cbcca
 + * Hopefully asm-x86/pvclock-abi.h would be moved to somewhere more generic.
 + */
 +#include <asm-x86/pvclock-abi.h>
--- 
-1.6.0.2
 
+
+I will trade out this patch for one that just makes
+a copy of the x86 include file.  This #include will
+break if/when x86 moves their include files to
+arch/x86/include/asm
+
+-Tony
