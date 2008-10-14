@@ -1,90 +1,78 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:30 +0000
-Subject: [PATCH 11/35] x86: enable MAXSMP
-Message-Id: <20081020170321.119844000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:30 +0000
+Subject: [PATCH 15/32] ia64/xen: add definitions necessary for xen event channel.
+Message-Id: <1223963507-28056-16-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Set MAXSMP to enable a configuration with the maximum amount of CPUS and
-NODES.  Also enables CONFIG_CPUMASK_OFFSTACK which moves cpumask's off
-the stack (and in structs) when using cpumask_var_t.
+Xen paravirtualizes interrupt as event channel.
+This patch defines arch specific part of xen event channel.
 
-From: Mike Travis <travis@sgi.com>
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/x86/Kconfig |   29 ++++++++++++++++++++++++++---
- 1 file changed, 26 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/xen/events.h |   50 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 50 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/include/asm/xen/events.h
 
---- test-compile.orig/arch/x86/Kconfig
-+++ test-compile/arch/x86/Kconfig
-@@ -571,12 +571,20 @@ config IOMMU_HELPER
-=20
- config MAXSMP
- 	bool "Configure Maximum number of SMP Processors and NUMA Nodes"
--	depends on X86_64 && SMP && BROKEN
-+ 	depends on X86_64 && SMP && DEBUG_KERNEL && EXPERIMENTAL
-+	select CPUMASK_OFFSTACK
- 	default n
- 	help
- 	  Configure maximum number of CPUS and NUMA Nodes for this architecture.
- 	  If unsure, say N.
-=20
-+if MAXSMP
-+config NR_CPUS
-+	int
-+	default "4096"
-+endif
+diff --git a/arch/ia64/include/asm/xen/events.h b/arch/ia64/include/asm/xen/events.h
+new file mode 100644
+index 0000000..7324878
+--- /dev/null
++++ b/arch/ia64/include/asm/xen/events.h
+@@ -0,0 +1,50 @@
++/******************************************************************************
++ * arch/ia64/include/asm/xen/events.h
++ *
++ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++#ifndef _ASM_IA64_XEN_EVENTS_H
++#define _ASM_IA64_XEN_EVENTS_H
 +
-+if !MAXSMP
- config NR_CPUS
- 	int "Maximum number of CPUs (2-512)" if !MAXSMP
- 	range 2 512
-@@ -591,6 +599,14 @@ config NR_CPUS
-=20
- 	  This is purely to save memory - each supported CPU adds
- 	  approximately eight kilobytes to the kernel image.
-+endif
++enum ipi_vector {
++	XEN_RESCHEDULE_VECTOR,
++	XEN_IPI_VECTOR,
++	XEN_CMCP_VECTOR,
++	XEN_CPEP_VECTOR,
 +
-+config CPUMASK_OFFSTACK
-+	bool "Force CPU masks off stack" if DEBUG_PER_CPU_MAPS
-+	help
-+	  Use dynamic allocation for cpumask_var_t, instead of putting
-+	  them on the stack.  This is a bit more expensive, but avoids
-+	  stack overflow.
-=20
- config SCHED_SMT
- 	bool "SMT (Hyperthreading) scheduler support"
-@@ -1027,10 +1043,16 @@ config NUMA_EMU
- 	  into virtual nodes when booted with "numa=FAke=3DN", where N is the
- 	  number of nodes. This is only useful for debugging.
-=20
-+if MAXSMP
-+config NODES_SHIFT
-+	int
-+	default "9"
-+endif
++	XEN_NR_IPIS,
++};
 +
-+if !MAXSMP
- config NODES_SHIFT
--	int "Maximum NUMA Nodes (as a power of 2)" if !MAXSMP
-+	int "Maximum NUMA Nodes (as a power of 2)"
- 	range 1 9   if X86_64
--	default "9" if MAXSMP
- 	default "6" if X86_64
- 	default "4" if X86_NUMAQ
- 	default "3"
-@@ -1038,6 +1060,7 @@ config NODES_SHIFT
- 	help
- 	  Specify the maximum number of NUMA Nodes available on the target
- 	  system.  Increases memory reserved to accomodate various tables.
-+endif
-=20
- config HAVE_ARCH_BOOTMEM_NODE
- 	def_bool y
++static inline int xen_irqs_disabled(struct pt_regs *regs)
++{
++	return !(ia64_psr(regs)->i);
++}
++
++static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
++{
++	struct pt_regs *old_regs;
++	old_regs = set_irq_regs(regs);
++	irq_enter();
++	__do_IRQ(irq);
++	irq_exit();
++	set_irq_regs(old_regs);
++}
++#define irq_ctx_init(cpu)	do { } while (0)
++
++#endif /* _ASM_IA64_XEN_EVENTS_H */
+-- 
+1.6.0.2
 
---=20
