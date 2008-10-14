@@ -1,118 +1,63 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:37 +0000
-Subject: [PATCH 22/32] ia64/pv_ops/xen: paravirtualize ivt.S for xen.
-Message-Id: <1223963507-28056-23-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:23 +0000
+Subject: [PATCH 08/32] ia64/xen: define several constants for ia64/xen.
+Message-Id: <1223963507-28056-9-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize ivt.S for xen by multi compile.
+define several constants for ia64/xen.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/inst.h |    1 +
- arch/ia64/xen/Makefile           |   16 +++++++++++-
- arch/ia64/xen/xenivt.S           |   52 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 68 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xenivt.S
+ arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
+ 1 files changed, 27 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
-index 1e92ed0..e6a25c3 100644
---- a/arch/ia64/include/asm/xen/inst.h
-+++ b/arch/ia64/include/asm/xen/inst.h
-@@ -22,6 +22,7 @@
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index 94c44b1..eaa988b 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -16,6 +16,8 @@
+ #include <asm/sigcontext.h>
+ #include <asm/mca.h>
  
- #include <asm/xen/privop.h>
++#include <asm/xen/interface.h>
++
+ #include "../kernel/sigframe.h"
+ #include "../kernel/fsyscall_gtod_data.h"
  
-+#define ia64_ivt				xen_ivt
- #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
- 
- #define MOV_FROM_IFA(reg)	\
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 7cb4247..5c87e4a 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,5 +2,19 @@
- # Makefile for Xen components
- #
- 
--obj-y := hypercall.o xensetup.o xen_pv_ops.o \
-+obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
- 	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
+@@ -286,4 +288,29 @@ void foo(void)
+ 		offsetof (struct itc_jitter_data_t, itc_jitter));
+ 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
+ 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
 +
-+AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
++#ifdef CONFIG_XEN
++	BLANK();
 +
-+# xen multi compile
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
-+ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
-+obj-y += $(ASM_PARAVIRT_OBJS)
-+define paravirtualized_xen
-+AFLAGS_$(1) += -D__IA64_ASM_PARAVIRTUALIZED_XEN
-+endef
-+$(foreach o,$(ASM_PARAVIRT_OBJS),$(eval $(call paravirtualized_xen,$(o))))
++#define DEFINE_MAPPED_REG_OFS(sym, field) \
++	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
 +
-+$(obj)/xen-%.o: $(src)/../kernel/%.S FORCE
-+	$(call if_changed_dep,as_o_S)
-diff --git a/arch/ia64/xen/xenivt.S b/arch/ia64/xen/xenivt.S
-new file mode 100644
-index 0000000..3e71d50
---- /dev/null
-+++ b/arch/ia64/xen/xenivt.S
-@@ -0,0 +1,52 @@
-+/*
-+ * arch/ia64/xen/ivt.S
-+ *
-+ * Copyright (C) 2005 Hewlett-Packard Co
-+ *	Dan Magenheimer <dan.magenheimer@hp.com>
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *                    pv_ops.
-+ */
-+
-+#include <asm/asmmacro.h>
-+#include <asm/kregs.h>
-+#include <asm/pgtable.h>
-+
-+#include "../kernel/minstate.h"
-+
-+	.section .text,"ax"
-+GLOBAL_ENTRY(xen_event_callback)
-+	mov r31=pr		// prepare to save predicates
-+	;;
-+	SAVE_MIN_WITH_COVER	// uses r31; defines r2 and r3
-+	;;
-+	movl r3=XSI_PSR_IC
-+	mov r14=1
-+	;;
-+	st4 [r3]=r14
-+	;;
-+	adds r3=8,r2		// set up second base pointer for SAVE_REST
-+	srlz.i			// ensure everybody knows psr.ic is back on
-+	;;
-+	SAVE_REST
-+	;;
-+1:
-+	alloc r14=ar.pfs,0,0,1,0 // must be first in an insn group
-+	add out0,sp		// pass pointer to pt_regs as first arg
-+	;;
-+	br.call.sptk.many b0=xen_evtchn_do_upcall
-+	;;
-+	movl r20=XSI_PSR_I_ADDR
-+	;;
-+	ld8 r20=[r20]
-+	;;
-+	adds r20=-1,r20		// vcpu_info->evtchn_upcall_pending
-+	;;
-+	ld1 r20=[r20]
-+	;;
-+	cmp.ne p6,p0=r20,r0	// if there are pending events,
-+	(p6) br.spnt.few 1b	// call evtchn_do_upcall again.
-+	br.sptk.many xen_leave_kernel	// we know ia64_leave_kernel is
-+					// paravirtualized as xen_leave_kernel
-+END(xen_event_callback)
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
++	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
++	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
++	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
++	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
++	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
++	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
++	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
++	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
++	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
++	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
++	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
++	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++#endif /* CONFIG_XEN */
+ }
 -- 
 1.6.0.2
 
