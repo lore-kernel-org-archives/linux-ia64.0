@@ -1,59 +1,40 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Sun, 12 Oct 2008 13:42:41 +0000
-Subject: Re: [mmotm 10 Oct][PATCH 1/2] fix build error of git-tip
-Message-Id: <20081012224113.181D.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:21 +0000
+Subject: [PATCH 06/32] ia64/xen: increase IA64_MAX_RSVD_REGIONS.
+Message-Id: <1223963507-28056-7-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081012223808.1817.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-In-Reply-To: <20081012223808.1817.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64 <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
-Cc: kosaki.motohiro@jp.fujitsu.com, Yinghai Lu <yhlu.kernel@gmail.com>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, LKML <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
+Xenlinux/ia64 needs to reserve one more region passed from xen hypervisor
+as start info.
 
-Oops, I forgot to CCed Tony.
-sorry.
+Cc: Robin Holt <holt@sgi.com>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/meminit.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> 
-> Patch name: git-tip-fix.patch
-> Patch against: mmotm 10 Oct
-> Applied after: git-tip.patch
-> 
-> -----------
-> git-tip can't build on ia64 because __acpi_unmap_table() function tyep is wrong.
-> Then it cause following build error.
-> 
-> 
->   CC      arch/ia64/kernel/acpi.o
-> arch/ia64/kernel/acpi.c:180: error: conflicting types for '__acpi_unmap_table'
-> include/linux/acpi.h:82: error: previous declaration of '__acpi_unmap_table' was here
-> make[1]: *** [arch/ia64/kernel/acpi.o] Error 1
-> make: *** [arch/ia64/kernel] Error 2
-> 
-> 
-> Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> CC: Yinghai Lu <yhlu.kernel@gmail.com>
-> CC: Ingo Molnar <mingo@elte.hu>
-> 
-> ---
->  arch/ia64/kernel/acpi.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> Index: b/arch/ia64/kernel/acpi.c
-> =================================> --- a/arch/ia64/kernel/acpi.c
-> +++ b/arch/ia64/kernel/acpi.c
-> @@ -176,7 +176,7 @@ char *__init __acpi_map_table(unsigned l
->  	return __va(phys_addr);
->  }
->  
-> -char *__init __acpi_unmap_table(unsigned long virt_addr, unsigned long size)
-> +void __init __acpi_unmap_table(char *virt_addr, unsigned long size)
->  {
->  }
->  
-> 
-> 
-
-
+diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
+index 7245a57..6bc96ee 100644
+--- a/arch/ia64/include/asm/meminit.h
++++ b/arch/ia64/include/asm/meminit.h
+@@ -18,10 +18,11 @@
+  * 	- crash dumping code reserved region
+  * 	- Kernel memory map built from EFI memory map
+  * 	- ELF core header
++ *	- xen start info if CONFIG_XEN
+  *
+  * More could be added if necessary
+  */
+-#define IA64_MAX_RSVD_REGIONS 8
++#define IA64_MAX_RSVD_REGIONS 9
+ 
+ struct rsvd_region {
+ 	unsigned long start;	/* virtual address of beginning of element */
+-- 
+1.6.0.2
 
