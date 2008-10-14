@@ -1,106 +1,88 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:53 +0000
-Subject: [PATCH 34/35] cpumask: debug options for cpumasks
-Message-Id: <20081020170324.280990000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 14 Oct 2008 05:51:38 +0000
+Subject: [PATCH 23/32] ia64/pv_ops/xen: paravirtualize entry.S for ia64/xen.
+Message-Id: <1223963507-28056-24-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-It's useful to check that no one is accessing > nr_cpumask_bits for
-cpumasks.  This also allows you to turn on CONFIG_CPUMASKS_OFFSTACK
-even for smaller CONFIG_NR_CPUS.
+paravirtualize entry.S for ia64/xen by multi compile.
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/linux/cpumask.h |   23 +++++++++++++++++------
- lib/Kconfig.debug       |    6 ++++++
- lib/cpumask.c           |    3 +++
- 3 files changed, 26 insertions(+), 6 deletions(-)
+ arch/ia64/include/asm/xen/inst.h |    8 ++++++++
+ arch/ia64/xen/Makefile           |    2 +-
+ arch/ia64/xen/xen_pv_ops.c       |   18 ++++++++++++++++++
+ 3 files changed, 27 insertions(+), 1 deletions(-)
 
---- test-compile.orig/include/linux/cpumask.h
-+++ test-compile/include/linux/cpumask.h
-@@ -217,23 +217,34 @@ extern cpumask_t _unused_cpumask_arg_;
- }
- #endif /* CONFIG_NR_CPUS > BITS_PER_LONG */
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index e6a25c3..19c2ae1 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -25,6 +25,14 @@
+ #define ia64_ivt				xen_ivt
+ #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
  
-+/* verify cpu argument to cpumask_* operators */
-+static inline unsigned int cpumask_check(unsigned int cpu)
-+{
-+#ifdef CONFIG_DEBUG_PER_CPU_MAPS
-+	/* This breaks at runtime. */
-+	BUG_ON(cpu >= nr_cpumask_bits);
-+#endif /* CONFIG_DEBUG_PER_CPU_MAPS */
-+	return cpu;
-+}
++#define __paravirt_switch_to			xen_switch_to
++#define __paravirt_leave_syscall		xen_leave_syscall
++#define __paravirt_work_processed_syscall	xen_work_processed_syscall
++#define __paravirt_leave_kernel			xen_leave_kernel
++#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
++#define __paravirt_work_processed_syscall_target \
++						xen_work_processed_syscall
 +
- /* cpumask_* operators */
- static inline void cpumask_set_cpu(int cpu, volatile struct cpumask *dstp)
- {
--	set_bit(cpu, cpumask_bits(dstp));
-+	set_bit(cpumask_check(cpu), cpumask_bits(dstp));
- }
+ #define MOV_FROM_IFA(reg)	\
+ 	movl reg = XSI_IFA;	\
+ 	;;			\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 5c87e4a..9b77e8a 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -8,7 +8,7 @@ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
  
- static inline void cpumask_clear_cpu(int cpu, volatile struct cpumask *dstp)
- {
--	clear_bit(cpu, cpumask_bits(dstp));
-+	clear_bit(cpumask_check(cpu), cpumask_bits(dstp));
- }
+ # xen multi compile
+-ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
+ ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
+ obj-y += $(ASM_PARAVIRT_OBJS)
+ define paravirtualized_xen
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index c236f04..5b23cd5 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -275,6 +275,22 @@ static const struct pv_cpu_ops xen_cpu_ops __initdata = {
+ 			= xen_intrin_local_irq_restore,
+ };
  
- /* No static inline type checking - see Subtlety (1) above. */
--#define cpumask_test_cpu(cpu, cpumask) test_bit((cpu), (cpumask)->bits)
-+#define cpumask_test_cpu(cpu, cpumask) \
-+	test_bit(cpumask_check(cpu), (cpumask)->bits)
- 
- static inline int cpumask_test_and_set_cpu(int cpu, struct cpumask *addr)
- {
--	return test_and_set_bit(cpu, cpumask_bits(addr));
-+	return test_and_set_bit(cpumask_check(cpu), cpumask_bits(addr));
- }
- 
- static inline void cpumask_setall(struct cpumask *dstp)
-@@ -367,8 +378,8 @@ static inline int cpumask_cpuremap(int o
- 				   const struct cpumask *oldp,
- 				   const struct cpumask *newp)
- {
--	return bitmap_bitremap(oldbit, cpumask_bits(oldp), cpumask_bits(newp),
--							   nr_cpumask_bits);
-+	return bitmap_bitremap(cpumask_check(oldbit), cpumask_bits(oldp),
-+				cpumask_bits(newp), nr_cpumask_bits);
- }
- 
- static inline void cpumask_remap(struct cpumask *dstp,
---- test-compile.orig/lib/Kconfig.debug
-+++ test-compile/lib/Kconfig.debug
-@@ -766,6 +766,12 @@ config SYSCTL_SYSCALL_CHECK
- 	  to properly maintain and use. This enables checks that help
- 	  you to keep things correct.
- 
-+config DEBUG_PER_CPU_MAPS
-+	bool "Cpumask debug checks"
-+	---help---
-+	  Extra debugging for cpumasks.
-+	  eg. to make sure accesses to cpumasks are < nr_cpu_ids.
++/******************************************************************************
++ * replacement of hand written assembly codes.
++ */
 +
- source kernel/trace/Kconfig
- 
- config PROVIDE_OHCI1394_DMA_INIT
---- test-compile.orig/lib/cpumask.c
-+++ test-compile/lib/cpumask.c
-@@ -11,6 +11,9 @@ EXPORT_SYMBOL(cpumask_first);
- 
- int cpumask_next(int n, const cpumask_t *srcp)
- {
-+	/* -1 is a legal arg here. */
-+	if (n != -1)
-+		cpumask_check(n);
- 	return find_next_bit(cpumask_bits(srcp), nr_cpumask_bits, n+1);
++extern char xen_switch_to;
++extern char xen_leave_syscall;
++extern char xen_work_processed_syscall;
++extern char xen_leave_kernel;
++
++const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
++	.switch_to		= (unsigned long)&xen_switch_to,
++	.leave_syscall		= (unsigned long)&xen_leave_syscall,
++	.work_processed_syscall	= (unsigned long)&xen_work_processed_syscall,
++	.leave_kernel		= (unsigned long)&xen_leave_kernel,
++};
++
+ /***************************************************************************
+  * pv_ops initialization
+  */
+@@ -286,4 +302,6 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++
++	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
  }
- EXPORT_SYMBOL(cpumask_next);
-
 -- 
+1.6.0.2
+
