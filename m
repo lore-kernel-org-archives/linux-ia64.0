@@ -1,96 +1,51 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:51 +0000
-Subject: [PATCH 11/33] ia64/xen: define helper functions for xen related address conversion.
-Message-Id: <1224209893-2032-12-git-send-email-yamahata@valinux.co.jp>
+From: Alexei Gerasimov <alex@netbynet.ru>
+Date: Wed, 15 Oct 2008 15:01:24 +0000
+Subject: qla1280 crash
+Message-Id: <48F63750.70702@netbynet.ru>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Xen needs some address conversions between pseudo physical
-address (guest phsyical address), guest machine address
-(real machine address) and dma address.
-Define helper functions for those address conversion.
+Hello!
 
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/xen/page.h |   65 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 65 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/page.h
+I've been trying to boot various Linux distributions on an old Big-Sur 
+prototype machine build on dual Itanium "Merced" processors (this 
+machine was a prototype for HP i2000 workstation.) The outcome is always 
+the same: the system goes down during the loading of qla1280 SCSI 
+driver. Upon this, I get the following system event log entry:
 
-diff --git a/arch/ia64/include/asm/xen/page.h b/arch/ia64/include/asm/xen/page.h
-new file mode 100644
-index 0000000..03441a7
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/page.h
-@@ -0,0 +1,65 @@
-+/******************************************************************************
-+ * arch/ia64/include/asm/xen/page.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef _ASM_IA64_XEN_PAGE_H
-+#define _ASM_IA64_XEN_PAGE_H
-+
-+#define INVALID_P2M_ENTRY	(~0UL)
-+
-+static inline unsigned long mfn_to_pfn(unsigned long mfn)
-+{
-+	return mfn;
-+}
-+
-+static inline unsigned long pfn_to_mfn(unsigned long pfn)
-+{
-+	return pfn;
-+}
-+
-+#define phys_to_machine_mapping_valid(_x)	(1)
-+
-+static inline void *mfn_to_virt(unsigned long mfn)
-+{
-+	return __va(mfn << PAGE_SHIFT);
-+}
-+
-+static inline unsigned long virt_to_mfn(void *virt)
-+{
-+	return __pa(virt) >> PAGE_SHIFT;
-+}
-+
-+/* for tpmfront.c */
-+static inline unsigned long virt_to_machine(void *virt)
-+{
-+	return __pa(virt);
-+}
-+
-+static inline void set_phys_to_machine(unsigned long pfn, unsigned long mfn)
-+{
-+	/* nothing */
-+}
-+
-+#define pte_mfn(_x)	pte_pfn(_x)
-+#define mfn_pte(_x, _y)	__pte_ma(0)		/* unmodified use */
-+#define __pte_ma(_x)	((pte_t) {(_x)})        /* unmodified use */
-+
-+#endif /* _ASM_IA64_XEN_PAGE_H */
--- 
-1.6.0.2
+Processor Device Error
+ Map: 0x0000000001000000
+ State: 0x20000000fff21320
+ LID: 0x0000000003000000
+ Bus:
+  Valid: 0x0000000000000001
+  Info: 0x0000000000000340
+  Requester: 0x0000000000000000
+  Responder: 0x0000000000000000
+  Target: 0x0000000000000000
+  IP: 0x0000000000000000
+ CPU ID Info: 0x49656e69756e6547
+ CPU ID Info: 0x000000006c65746e
+ CPU ID Info: 0x0000000000000000
+ CPU ID Info: 0x0000000007000604
+ CPU ID Info: 0x0000000000000000
+ CPU ID Info: 0x0000000000000000
+
+What is this about exactly? Is this condition fixable?
+
+Here's additional information about the box:
+
+BIOS:  W460GXBS2.86E.0117C.P09.200108091154
+SMBIOS:  2.3.1
+
+PAL (A/B):  6623  6625
+SAL (A/B):  101  101
+Boot Block:  30
+
+Please assist me in some way or direct me further, I'm going desperate 
+on this machine. Thank you in advance,
+Alexey G.
 
