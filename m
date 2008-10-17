@@ -1,98 +1,46 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:47 +0000
-Subject: [PATCH 28/35] cpumask: accessors to manipulate possible/present/online/active maps
-Message-Id: <20081020170323.466127000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:17:44 +0000
+Subject: [PATCH 04/33] ia64: move function declaration, ia64_cpu_local_tick() from .c to .h
+Message-Id: <1224209893-2032-5-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Since we are moving to const cpumask pointers for the maps, we need a
-way to legitimately access them.  Simple accessors work well.
+eliminate the function declaration ia64_cpu_local_tick() in
+process.c by defining in arch/ia64/include/asm/timex.h
+The same function will be used in a different .c file later.
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/linux/cpumask.h |    9 +++++++++
- kernel/cpu.c            |   42 +++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 50 insertions(+), 1 deletion(-)
+ arch/ia64/include/asm/timex.h |    2 ++
+ arch/ia64/kernel/process.c    |    1 -
+ 2 files changed, 2 insertions(+), 1 deletions(-)
 
---- linux-2.6.28.orig/include/linux/cpumask.h
-+++ linux-2.6.28/include/linux/cpumask.h
-@@ -604,6 +604,15 @@ extern cpumask_t cpu_active_map;
- #define cpu_active(cpu)		((cpu) = 0)
- #endif
+diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
+index 05a6baf..4e03cfe 100644
+--- a/arch/ia64/include/asm/timex.h
++++ b/arch/ia64/include/asm/timex.h
+@@ -39,4 +39,6 @@ get_cycles (void)
+ 	return ret;
+ }
  
-+/* Wrappers to manipulate otherwise-constant masks. */
-+void set_cpu_possible(unsigned int cpu, bool possible);
-+void set_cpu_present(unsigned int cpu, bool present);
-+void set_cpu_online(unsigned int cpu, bool online);
-+void set_cpu_active(unsigned int cpu, bool active);
-+void init_cpu_present(const struct cpumask *src);
-+void init_cpu_possible(const struct cpumask *src);
-+void init_cpu_online(const struct cpumask *src);
++extern void ia64_cpu_local_tick (void);
 +
- #define cpu_is_offline(cpu)	unlikely(!cpu_online(cpu))
+ #endif /* _ASM_IA64_TIMEX_H */
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 3ab8373..8de0f46 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -251,7 +251,6 @@ default_idle (void)
+ /* We don't actually take CPU down, just spin without interrupts. */
+ static inline void play_dead(void)
+ {
+-	extern void ia64_cpu_local_tick (void);
+ 	unsigned int this_cpu = smp_processor_id();
  
- #define for_each_possible_cpu(cpu) for_each_cpu((cpu), &cpu_possible_map)
---- linux-2.6.28.orig/kernel/cpu.c
-+++ linux-2.6.28/kernel/cpu.c
-@@ -490,7 +490,6 @@ void notify_cpu_starting(unsigned int cp
- #define MASK_DECLARE_8(x)	MASK_DECLARE_4(x), MASK_DECLARE_4(x+4)
- 
- const unsigned long cpu_bit_bitmap[BITS_PER_LONG+1][BITS_TO_LONGS(NR_CPUS)] = {
--
- 	MASK_DECLARE_8(0),	MASK_DECLARE_8(8),
- 	MASK_DECLARE_8(16),	MASK_DECLARE_8(24),
- #if BITS_PER_LONG > 32
-@@ -499,3 +498,44 @@ const unsigned long cpu_bit_bitmap[BITS_
- #endif
- };
- EXPORT_SYMBOL_GPL(cpu_bit_bitmap);
-+
-+void set_cpu_possible(unsigned int cpu, bool possible)
-+{
-+	if (possible)
-+		cpumask_set_cpu(cpu, &cpu_possible_map);
-+	else
-+		cpumask_clear_cpu(cpu, &cpu_possible_map);
-+}
-+void set_cpu_present(unsigned int cpu, bool present)
-+{
-+	if (present)
-+		cpumask_set_cpu(cpu, &cpu_present_map);
-+	else
-+		cpumask_clear_cpu(cpu, &cpu_present_map);
-+}
-+void set_cpu_online(unsigned int cpu, bool online)
-+{
-+	if (online)
-+		cpumask_set_cpu(cpu, &cpu_online_map);
-+	else
-+		cpumask_clear_cpu(cpu, &cpu_online_map);
-+}
-+void set_cpu_active(unsigned int cpu, bool active)
-+{
-+	if (active)
-+		cpumask_set_cpu(cpu, &cpu_active_map);
-+	else
-+		cpumask_clear_cpu(cpu, &cpu_active_map);
-+}
-+void init_cpu_present(const struct cpumask *src)
-+{
-+	cpumask_copy(&cpu_present_map, src);
-+}
-+void init_cpu_possible(const struct cpumask *src)
-+{
-+	cpumask_copy(&cpu_possible_map, src);
-+}
-+void init_cpu_online(const struct cpumask *src)
-+{
-+	cpumask_copy(&cpu_online_map, src);
-+}
-
+ 	/* Ack it */
 -- 
+1.6.0.2
+
