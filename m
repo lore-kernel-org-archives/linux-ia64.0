@@ -1,30 +1,31 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:30 +0000
-Subject: [PATCH 15/32] ia64/xen: add definitions necessary for xen event channel.
-Message-Id: <1223963507-28056-16-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:18:06 +0000
+Subject: [PATCH 26/33] ia64/pv_ops/xen: define the nubmer of irqs which xen needs.
+Message-Id: <1224209893-2032-27-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Xen paravirtualizes interrupt as event channel.
-This patch defines arch specific part of xen event channel.
+define arch/ia64/include/asm/xen/irq.h to define the number of
+irqs which xen needs.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/events.h |   50 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 50 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/events.h
+ arch/ia64/include/asm/xen/irq.h |   44 +++++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/nr-irqs.c      |    1 +
+ 2 files changed, 45 insertions(+), 0 deletions(-)
+ create mode 100644 arch/ia64/include/asm/xen/irq.h
 
-diff --git a/arch/ia64/include/asm/xen/events.h b/arch/ia64/include/asm/xen/events.h
+diff --git a/arch/ia64/include/asm/xen/irq.h b/arch/ia64/include/asm/xen/irq.h
 new file mode 100644
-index 0000000..7324878
+index 0000000..a904509
 --- /dev/null
-+++ b/arch/ia64/include/asm/xen/events.h
-@@ -0,0 +1,50 @@
++++ b/arch/ia64/include/asm/xen/irq.h
+@@ -0,0 +1,44 @@
 +/******************************************************************************
-+ * arch/ia64/include/asm/xen/events.h
++ * arch/ia64/include/asm/xen/irq.h
 + *
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
 + *                    VA Linux Systems Japan K.K.
@@ -44,35 +45,41 @@ index 0000000..7324878
 + * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 + *
 + */
-+#ifndef _ASM_IA64_XEN_EVENTS_H
-+#define _ASM_IA64_XEN_EVENTS_H
 +
-+enum ipi_vector {
-+	XEN_RESCHEDULE_VECTOR,
-+	XEN_IPI_VECTOR,
-+	XEN_CMCP_VECTOR,
-+	XEN_CPEP_VECTOR,
++#ifndef _ASM_IA64_XEN_IRQ_H
++#define _ASM_IA64_XEN_IRQ_H
 +
-+	XEN_NR_IPIS,
-+};
++/*
++ * The flat IRQ space is divided into two regions:
++ *  1. A one-to-one mapping of real physical IRQs. This space is only used
++ *     if we have physical device-access privilege. This region is at the
++ *     start of the IRQ space so that existing device drivers do not need
++ *     to be modified to translate physical IRQ numbers into our IRQ space.
++ *  3. A dynamic mapping of inter-domain and Xen-sourced virtual IRQs. These
++ *     are bound using the provided bind/unbind functions.
++ */
 +
-+static inline int xen_irqs_disabled(struct pt_regs *regs)
-+{
-+	return !(ia64_psr(regs)->i);
-+}
++#define XEN_PIRQ_BASE		0
++#define XEN_NR_PIRQS		256
 +
-+static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
-+{
-+	struct pt_regs *old_regs;
-+	old_regs = set_irq_regs(regs);
-+	irq_enter();
-+	__do_IRQ(irq);
-+	irq_exit();
-+	set_irq_regs(old_regs);
-+}
-+#define irq_ctx_init(cpu)	do { } while (0)
++#define XEN_DYNIRQ_BASE		(XEN_PIRQ_BASE + XEN_NR_PIRQS)
++#define XEN_NR_DYNIRQS		(NR_CPUS * 8)
 +
-+#endif /* _ASM_IA64_XEN_EVENTS_H */
++#define XEN_NR_IRQS		(XEN_NR_PIRQS + XEN_NR_DYNIRQS)
++
++#endif /* _ASM_IA64_XEN_IRQ_H */
+diff --git a/arch/ia64/kernel/nr-irqs.c b/arch/ia64/kernel/nr-irqs.c
+index 8273afc..ee56457 100644
+--- a/arch/ia64/kernel/nr-irqs.c
++++ b/arch/ia64/kernel/nr-irqs.c
+@@ -10,6 +10,7 @@
+ #include <linux/kbuild.h>
+ #include <linux/threads.h>
+ #include <asm/native/irq.h>
++#include <asm/xen/irq.h>
+ 
+ void foo(void)
+ {
 -- 
 1.6.0.2
 
