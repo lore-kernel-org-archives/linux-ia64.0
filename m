@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 17 Oct 2008 17:45:45 +0000
+Date: Fri, 17 Oct 2008 20:15:29 +0000
 Subject: RE: [PATCH] ia64: use generic compat_sys_ptrace
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA35334585C@orsmsx505.amr.corp.intel.com>
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3533459D5@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20080901161918.GB16320@lst.de>
 In-Reply-To: <20080901161918.GB16320@lst.de>
@@ -10,12 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->> By using the generic compat_sys_ptrace we can remove lots of boilerplate
->> code.
->
-> ping?  Also for the other compat patches.
+Lots of overlap between your patch for this and
+part 4 of Shaohua Li's utrace preparation patch
+series:
 
-Excellent timing for a reminder ... I'm pulling stuff together now
-ready for a "please pull" soon.
+http://marc.info/?l=linux-ia64&m2172423100433&w=2
+
+
+I've taken Shaohua's patch.  We can work out later
+whether any bits that you did got missed.
+
+
+Your sys32_pipe and sys32_pause patches are now both
+in my tree.
 
 -Tony
