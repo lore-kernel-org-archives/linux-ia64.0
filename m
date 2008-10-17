@@ -1,78 +1,294 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Thu, 23 Oct 2008 16:06:01 +0000
-Subject: [PATCH V2 1/3] Factor out #ifdef's from kernel/spinlock.c to
-Message-Id: <1224777961.11530.64.camel@elijah.suse.cz>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:17:59 +0000
+Subject: [PATCH 19/33] ia64/pv_ops/xen: define xen pv_init_ops for various xen initialization.
+Message-Id: <1224209893-2032-20-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224777451.11530.52.camel@elijah.suse.cz>
-In-Reply-To: <1224777451.11530.52.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: tee@sgi.com, Robin Holt <holt@sgi.com>, Peter Zijlstra <peterz@infradead.org>
+To: linux-ia64@vger.kernel.org
 
-The new macro LOCK_CONTENDED_FLAGS expands to the correct implementation
-depending on the config options, so that IRQ's are re-enabled when
-possible, but they remain disabled if CONFIG_LOCKDEP is set.
+This patch implements xen version of pv_init_ops to do various
+xen initialization.
+This patch also includes ia64 counter part of x86 xen early printk support
+patches.
 
-Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/linux/lockdep.h |   17 +++++++++++++++++
- kernel/spinlock.c       |   12 ++----------
- 2 files changed, 19 insertions(+), 10 deletions(-)
+ arch/ia64/include/asm/xen/hypervisor.h |   14 ++++
+ arch/ia64/xen/Makefile                 |    2 +-
+ arch/ia64/xen/hypervisor.c             |   96 ++++++++++++++++++++++++++++
+ arch/ia64/xen/xen_pv_ops.c             |  110 ++++++++++++++++++++++++++++++++
+ 4 files changed, 221 insertions(+), 1 deletions(-)
+ create mode 100644 arch/ia64/xen/hypervisor.c
 
-diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
-index 331e5f1..1e6e578 100644
---- a/include/linux/lockdep.h
-+++ b/include/linux/lockdep.h
-@@ -376,6 +376,23 @@ do
-{                                                               \
+diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
+index d1f84e1..7a804e8 100644
+--- a/arch/ia64/include/asm/xen/hypervisor.h
++++ b/arch/ia64/include/asm/xen/hypervisor.h
+@@ -59,8 +59,22 @@ extern enum xen_domain_type xen_domain_type;
+ /* deprecated. remove this */
+ #define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
  
- #endif /* CONFIG_LOCK_STAT */
++extern struct shared_info *HYPERVISOR_shared_info;
+ extern struct start_info *xen_start_info;
  
-+#ifdef CONFIG_LOCKDEP
++void __init xen_setup_vcpu_info_placement(void);
++void force_evtchn_callback(void);
 +
-+/*
-+ * On lockdep we dont want the hand-coded irq-enable of
-+ * _raw_*_lock_flags() code, because lockdep assumes
-+ * that interrupts are not re-enabled during lock-acquire:
++/* for drivers/xen/balloon/balloon.c */
++#ifdef CONFIG_XEN_SCRUB_PAGES
++#define scrub_pages(_p, _n) memset((void *)(_p), 0, (_n) << PAGE_SHIFT)
++#else
++#define scrub_pages(_p, _n) ((void)0)
++#endif
++
++/* For setup_arch() in arch/ia64/kernel/setup.c */
++void xen_ia64_enable_opt_feature(void);
++
+ #else /* CONFIG_XEN */
+ 
+ #define xen_domain()		(0)
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index abc356f..7cb4247 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -3,4 +3,4 @@
+ #
+ 
+ obj-y := hypercall.o xensetup.o xen_pv_ops.o \
+-	xencomm.o xcom_hcall.o grant-table.o
++	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
+diff --git a/arch/ia64/xen/hypervisor.c b/arch/ia64/xen/hypervisor.c
+new file mode 100644
+index 0000000..cac4d97
+--- /dev/null
++++ b/arch/ia64/xen/hypervisor.c
+@@ -0,0 +1,96 @@
++/******************************************************************************
++ * arch/ia64/xen/hypervisor.c
++ *
++ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
++ *                    VA Linux Systems Japan K.K.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
 + */
-+#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
-+       LOCK_CONTENDED((_lock), (try), (lock))
 +
-+#else /* CONFIG_LOCKDEP */
++#include <linux/efi.h>
++#include <asm/xen/hypervisor.h>
++#include <asm/xen/privop.h>
 +
-+#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
-+       lockfl((_lock), (flags))
++#include "irq_xen.h"
 +
-+#endif /* CONFIG_LOCKDEP */
++struct shared_info *HYPERVISOR_shared_info __read_mostly +	(struct shared_info *)XSI_BASE;
++EXPORT_SYMBOL(HYPERVISOR_shared_info);
 +
- #if defined(CONFIG_TRACE_IRQFLAGS) && defined(CONFIG_GENERIC_HARDIRQS)
- extern void early_init_irq_lock_class(void);
- #else
-diff --git a/kernel/spinlock.c b/kernel/spinlock.c
-index 29ab207..cf41b87 100644
---- a/kernel/spinlock.c
-+++ b/kernel/spinlock.c
-@@ -299,16 +299,8 @@ unsigned long __lockfunc
-_spin_lock_irqsave_nested(spinlock_t *lock, int subclas
-        local_irq_save(flags);
-        preempt_disable();
-        spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
--       /*
--        * On lockdep we dont want the hand-coded irq-enable of
--        * _raw_spin_lock_flags() code, because lockdep assumes
--        * that interrupts are not re-enabled during lock-acquire:
--        */
--#ifdef CONFIG_LOCKDEP
--       LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
--#else
--       _raw_spin_lock_flags(lock, &flags);
--#endif
-+       LOCK_CONTENDED_FLAGS(lock, _raw_spin_trylock, _raw_spin_lock,
-+                            _raw_spin_lock_flags, &flags);
-        return flags;
++DEFINE_PER_CPU(struct vcpu_info *, xen_vcpu);
++
++struct start_info *xen_start_info;
++EXPORT_SYMBOL(xen_start_info);
++
++EXPORT_SYMBOL(xen_domain_type);
++
++EXPORT_SYMBOL(__hypercall);
++
++/* Stolen from arch/x86/xen/enlighten.c */
++/*
++ * Flag to determine whether vcpu info placement is available on all
++ * VCPUs.  We assume it is to start with, and then set it to zero on
++ * the first failure.  This is because it can succeed on some VCPUs
++ * and not others, since it can involve hypervisor memory allocation,
++ * or because the guest failed to guarantee all the appropriate
++ * constraints on all VCPUs (ie buffer can't cross a page boundary).
++ *
++ * Note that any particular CPU may be using a placed vcpu structure,
++ * but we can only optimise if the all are.
++ *
++ * 0: not available, 1: available
++ */
++
++static void __init xen_vcpu_setup(int cpu)
++{
++	/*
++	 * WARNING:
++	 * before changing MAX_VIRT_CPUS,
++	 * check that shared_info fits on a page
++	 */
++	BUILD_BUG_ON(sizeof(struct shared_info) > PAGE_SIZE);
++	per_cpu(xen_vcpu, cpu) = &HYPERVISOR_shared_info->vcpu_info[cpu];
++}
++
++void __init xen_setup_vcpu_info_placement(void)
++{
++	int cpu;
++
++	for_each_possible_cpu(cpu)
++		xen_vcpu_setup(cpu);
++}
++
++void __cpuinit
++xen_cpu_init(void)
++{
++	xen_smp_intr_init();
++}
++
++/**************************************************************************
++ * opt feature
++ */
++void
++xen_ia64_enable_opt_feature(void)
++{
++	/* Enable region 7 identity map optimizations in Xen */
++	struct xen_ia64_opt_feature optf;
++
++	optf.cmd = XEN_IA64_OPTF_IDENT_MAP_REG7;
++	optf.on = XEN_IA64_OPTF_ON;
++	optf.pgprot = pgprot_val(PAGE_KERNEL);
++	optf.key = 0;	/* No key on linux. */
++	HYPERVISOR_opt_feature(&optf);
++}
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 77db214..fc9d599 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -54,6 +54,115 @@ xen_info_init(void)
  }
- EXPORT_SYMBOL(_spin_lock_irqsave_nested);
-
+ 
+ /***************************************************************************
++ * pv_init_ops
++ * initialization hooks.
++ */
++
++static void
++xen_panic_hypercall(struct unw_frame_info *info, void *arg)
++{
++	current->thread.ksp = (__u64)info->sw - 16;
++	HYPERVISOR_shutdown(SHUTDOWN_crash);
++	/* we're never actually going to get here... */
++}
++
++static int
++xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	unw_init_running(xen_panic_hypercall, NULL);
++	/* we're never actually going to get here... */
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block xen_panic_block = {
++	xen_panic_event, NULL, 0 /* try to go last */
++};
++
++static void xen_pm_power_off(void)
++{
++	local_irq_disable();
++	HYPERVISOR_shutdown(SHUTDOWN_poweroff);
++}
++
++static void __init
++xen_banner(void)
++{
++	printk(KERN_INFO
++	       "Running on Xen! pl = %d start_info_pfn=0x%lx nr_pages=%ld "
++	       "flags=0x%x\n",
++	       xen_info.kernel_rpl,
++	       HYPERVISOR_shared_info->arch.start_info_pfn,
++	       xen_start_info->nr_pages, xen_start_info->flags);
++}
++
++static int __init
++xen_reserve_memory(struct rsvd_region *region)
++{
++	region->start = (unsigned long)__va(
++		(HYPERVISOR_shared_info->arch.start_info_pfn << PAGE_SHIFT));
++	region->end   = region->start + PAGE_SIZE;
++	return 1;
++}
++
++static void __init
++xen_arch_setup_early(void)
++{
++	struct shared_info *s;
++	BUG_ON(!xen_pv_domain());
++
++	s = HYPERVISOR_shared_info;
++	xen_start_info = __va(s->arch.start_info_pfn << PAGE_SHIFT);
++
++	/* Must be done before any hypercall.  */
++	xencomm_initialize();
++
++	xen_setup_features();
++	/* Register a call for panic conditions. */
++	atomic_notifier_chain_register(&panic_notifier_list,
++				       &xen_panic_block);
++	pm_power_off = xen_pm_power_off;
++
++	xen_ia64_enable_opt_feature();
++}
++
++static void __init
++xen_arch_setup_console(char **cmdline_p)
++{
++	add_preferred_console("xenboot", 0, NULL);
++	add_preferred_console("tty", 0, NULL);
++	/* use hvc_xen */
++	add_preferred_console("hvc", 0, NULL);
++
++#if !defined(CONFIG_VT) || !defined(CONFIG_DUMMY_CONSOLE)
++	conswitchp = NULL;
++#endif
++}
++
++static int __init
++xen_arch_setup_nomca(void)
++{
++	return 1;
++}
++
++static void __init
++xen_post_smp_prepare_boot_cpu(void)
++{
++	xen_setup_vcpu_info_placement();
++}
++
++static const struct pv_init_ops xen_init_ops __initdata = {
++	.banner = xen_banner,
++
++	.reserve_memory = xen_reserve_memory,
++
++	.arch_setup_early = xen_arch_setup_early,
++	.arch_setup_console = xen_arch_setup_console,
++	.arch_setup_nomca = xen_arch_setup_nomca,
++
++	.post_smp_prepare_boot_cpu = xen_post_smp_prepare_boot_cpu,
++};
++
++/***************************************************************************
+  * pv_ops initialization
+  */
+ 
+@@ -62,4 +171,5 @@ xen_setup_pv_ops(void)
+ {
+ 	xen_info_init();
+ 	pv_info = xen_info;
++	pv_init_ops = xen_init_ops;
+ }
+-- 
+1.6.0.2
 
