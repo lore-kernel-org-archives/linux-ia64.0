@@ -1,62 +1,87 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:23 +0000
-Subject: [PATCH 08/32] ia64/xen: define several constants for ia64/xen.
-Message-Id: <1223963507-28056-9-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:18:04 +0000
+Subject: [PATCH 24/33] ia64/pv_ops/xen: paravirtualize entry.S for ia64/xen.
+Message-Id: <1224209893-2032-25-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define several constants for ia64/xen.
+paravirtualize entry.S for ia64/xen by multi compile.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ arch/ia64/include/asm/xen/inst.h |    8 ++++++++
+ arch/ia64/xen/Makefile           |    2 +-
+ arch/ia64/xen/xen_pv_ops.c       |   18 ++++++++++++++++++
+ 3 files changed, 27 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index 94c44b1..eaa988b 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -16,6 +16,8 @@
- #include <asm/sigcontext.h>
- #include <asm/mca.h>
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index e6a25c3..19c2ae1 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -25,6 +25,14 @@
+ #define ia64_ivt				xen_ivt
+ #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
  
-+#include <asm/xen/interface.h>
++#define __paravirt_switch_to			xen_switch_to
++#define __paravirt_leave_syscall		xen_leave_syscall
++#define __paravirt_work_processed_syscall	xen_work_processed_syscall
++#define __paravirt_leave_kernel			xen_leave_kernel
++#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
++#define __paravirt_work_processed_syscall_target \
++						xen_work_processed_syscall
 +
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
+ #define MOV_FROM_IFA(reg)	\
+ 	movl reg = XSI_IFA;	\
+ 	;;			\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 5c87e4a..9b77e8a 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -8,7 +8,7 @@ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
  
-@@ -286,4 +288,29 @@ void foo(void)
- 		offsetof (struct itc_jitter_data_t, itc_jitter));
- 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
- 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
+ # xen multi compile
+-ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
+ ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
+ obj-y += $(ASM_PARAVIRT_OBJS)
+ define paravirtualized_xen
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index c236f04..5b23cd5 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -275,6 +275,22 @@ static const struct pv_cpu_ops xen_cpu_ops __initdata = {
+ 			= xen_intrin_local_irq_restore,
+ };
+ 
++/******************************************************************************
++ * replacement of hand written assembly codes.
++ */
 +
-+#ifdef CONFIG_XEN
-+	BLANK();
++extern char xen_switch_to;
++extern char xen_leave_syscall;
++extern char xen_work_processed_syscall;
++extern char xen_leave_kernel;
 +
-+#define DEFINE_MAPPED_REG_OFS(sym, field) \
-+	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
++	.switch_to		= (unsigned long)&xen_switch_to,
++	.leave_syscall		= (unsigned long)&xen_leave_syscall,
++	.work_processed_syscall	= (unsigned long)&xen_work_processed_syscall,
++	.leave_kernel		= (unsigned long)&xen_leave_kernel,
++};
 +
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
-+	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
-+	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
-+	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
-+#endif /* CONFIG_XEN */
+ /***************************************************************************
+  * pv_ops initialization
+  */
+@@ -286,4 +302,6 @@ xen_setup_pv_ops(void)
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
+ 	pv_cpu_ops = xen_cpu_ops;
++
++	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
  }
 -- 
 1.6.0.2
