@@ -1,42 +1,58 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Thu, 23 Oct 2008 19:12:00 +0000
-Subject: [patch] Add partition id and region size to UV.
-Message-Id: <20081023191200.GA76007@sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:17:42 +0000
+Subject: [PATCH 02/33] ia64/pv_ops: avoid name conflict of get_irq_chip().
+Message-Id: <1224209893-2032-3-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add partition id and region size to UV.
+The macro get_irq_chip() is defined in linux/include/linux/irq.h
+which cause name conflict with one in linux/arch/ia64/include/asm/paravirt.h.
+rename the latter to __get_irq_chip().
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
-
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
-The SGI xp drivers (drivers/misc/sgi-xp) are used on both
-sn (Itanium) and uv (Tukwilla).  Using the same names 
-(sn_coherency_id, sn_region_size) simplies the driver code.
+ arch/ia64/include/asm/paravirt.h |    4 ++--
+ arch/ia64/kernel/paravirt.c      |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-
-
- arch/ia64/uv/kernel/setup.c |    5 +++++
- 1 file changed, 5 insertions(+)
-
-Index: test/arch/ia64/uv/kernel/setup.c
-=================================--- test.orig/arch/ia64/uv/kernel/setup.c	2008-10-20 15:15:48.000000000 -0500
-+++ test/arch/ia64/uv/kernel/setup.c	2008-10-23 13:26:29.690059958 -0500
-@@ -21,6 +21,11 @@ EXPORT_PER_CPU_SYMBOL_GPL(__uv_hub_info)
- int sn_prom_type;
- #endif
+diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/paravirt.h
+index 660cab0..2bf3636 100644
+--- a/arch/ia64/include/asm/paravirt.h
++++ b/arch/ia64/include/asm/paravirt.h
+@@ -117,7 +117,7 @@ static inline void paravirt_post_smp_prepare_boot_cpu(void)
+ struct pv_iosapic_ops {
+ 	void (*pcat_compat_init)(void);
  
-+long sn_partition_id;
-+EXPORT_SYMBOL(sn_partition_id);
-+long sn_region_size;
-+EXPORT_SYMBOL(sn_region_size);
-+
- struct redir_addr {
- 	unsigned long redirect;
- 	unsigned long alias;
+-	struct irq_chip *(*get_irq_chip)(unsigned long trigger);
++	struct irq_chip *(*__get_irq_chip)(unsigned long trigger);
+ 
+ 	unsigned int (*__read)(char __iomem *iosapic, unsigned int reg);
+ 	void (*__write)(char __iomem *iosapic, unsigned int reg, u32 val);
+@@ -135,7 +135,7 @@ iosapic_pcat_compat_init(void)
+ static inline struct irq_chip*
+ iosapic_get_irq_chip(unsigned long trigger)
+ {
+-	return pv_iosapic_ops.get_irq_chip(trigger);
++	return pv_iosapic_ops.__get_irq_chip(trigger);
+ }
+ 
+ static inline unsigned int
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index afaf5b9..de35d8e 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -332,7 +332,7 @@ ia64_native_iosapic_write(char __iomem *iosapic, unsigned int reg, u32 val)
+ 
+ struct pv_iosapic_ops pv_iosapic_ops = {
+ 	.pcat_compat_init = ia64_native_iosapic_pcat_compat_init,
+-	.get_irq_chip = ia64_native_iosapic_get_irq_chip,
++	.__get_irq_chip = ia64_native_iosapic_get_irq_chip,
+ 
+ 	.__read = ia64_native_iosapic_read,
+ 	.__write = ia64_native_iosapic_write,
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+1.6.0.2
+
