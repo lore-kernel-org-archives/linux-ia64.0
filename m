@@ -1,88 +1,40 @@
-From: Len Brown <lenb@kernel.org>
-Date: Fri, 24 Oct 2008 19:25:20 +0000
-Subject: Re: [PATCH] ACPI: cpufreq,
-Message-Id: <alpine.LFD.1.10.0810241524590.3056@localhost.localdomain>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)"
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 17 Oct 2008 02:17:45 +0000
+Subject: [PATCH 05/33] ia64/xen: reserve "break" numbers used for xen hypercalls.
+Message-Id: <1224209893-2032-6-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <490193BC.70108@cn.fujitsu.com>
-In-Reply-To: <490193BC.70108@cn.fujitsu.com>
-To: Miao Xie <miaox@cn.fujitsu.com>
-Cc: linux-acpi@vger.kernel.org, trenn@suse.de, linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+reserve "break" numbers used for xen hypercalls to avoid
+reuse for something else.
 
---Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)
-Content-Type: TEXT/PLAIN; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/break.h |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
 
-applied.
-thanks,
--len
+diff --git a/arch/ia64/include/asm/break.h b/arch/ia64/include/asm/break.h
+index f034020..e90c40e 100644
+--- a/arch/ia64/include/asm/break.h
++++ b/arch/ia64/include/asm/break.h
+@@ -20,4 +20,13 @@
+  */
+ #define __IA64_BREAK_SYSCALL		0x100000
+ 
++/*
++ * Xen specific break numbers:
++ */
++#define __IA64_XEN_HYPERCALL		0x1000
++/* [__IA64_XEN_HYPERPRIVOP_START, __IA64_XEN_HYPERPRIVOP_MAX] is used
++   for xen hyperprivops */
++#define __IA64_XEN_HYPERPRIVOP_START	0x1
++#define __IA64_XEN_HYPERPRIVOP_MAX	0x1a
++
+ #endif /* _ASM_IA64_BREAK_H */
+-- 
+1.6.0.2
 
-On Fri, 24 Oct 2008, Miao Xie wrote:
-
-> When trying to build 2.6.28-rc1 on ia64, make aborts with:
-> 
->   CC      drivers/acpi/processor_perflib.o
->   drivers/acpi/processor_perflib.c:41:28: error: asm/cpufeature.h: No such file or directory
->   drivers/acpi/processor_perflib.c: In function ‘acpi_processor_get_performance_info’:
->   drivers/acpi/processor_perflib.c:364: error: implicit declaration of function ‘boot_cpu_has’
->   drivers/acpi/processor_perflib.c:364: error: ‘X86_FEATURE_EST’ undeclared (first use in this function)
->   drivers/acpi/processor_perflib.c:364: error: (Each undeclared identifier is reported only once
->   drivers/acpi/processor_perflib.c:364: error: for each function it appears in.)
->   make[2]: *** [drivers/acpi/processor_perflib.o] Error 1
->   make[1]: *** [drivers/acpi] Error 2
->   make: *** [drivers] Error 2
-> 
-> this patch fix it.
-> 
-> Signed-off-by: Miao Xie <miaox@cn.fujitsu.com>
-> Cc: Thomas Renninger <trenn@suse.de>
-> 
-> ---
->  drivers/acpi/processor_perflib.c |    5 +++++
->  1 files changed, 5 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/acpi/processor_perflib.c b/drivers/acpi/processor_perflib.c
-> index dc98f7a..dbcf260 100644
-> --- a/drivers/acpi/processor_perflib.c
-> +++ b/drivers/acpi/processor_perflib.c
-> @@ -38,7 +38,10 @@
->  
->  #include <asm/uaccess.h>
->  #endif
-> +
-> +#ifdef CONFIG_X86
->  #include <asm/cpufeature.h>
-> +#endif
->  
->  #include <acpi/acpi_bus.h>
->  #include <acpi/processor.h>
-> @@ -360,11 +363,13 @@ static int acpi_processor_get_performance_info(struct acpi_processor *pr)
->  	 * the BIOS is older than the CPU and does not know its frequencies
->  	 */
->   update_bios:
-> +#ifdef CONFIG_X86
->  	if (ACPI_SUCCESS(acpi_get_handle(pr->handle, "_PPC", &handle))){
->  		if(boot_cpu_has(X86_FEATURE_EST))
->  			printk(KERN_WARNING FW_BUG "BIOS needs update for CPU "
->  			       "frequency support\n");
->  	}
-> +#endif
->  	return result;
->  }
->  
-> -- 
-> 1.5.4.rc3
-> 
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
---Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)--
