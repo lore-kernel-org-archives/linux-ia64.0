@@ -1,86 +1,106 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 21 Oct 2008 21:15:09 +0000
-Subject: [PATCH] Add UV watchlist support
-Message-Id: <20081021211509.GB127371@sgi.com>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:53 +0000
+Subject: [PATCH 34/35] cpumask: debug options for cpumasks
+Message-Id: <20081020170324.280990000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-Add UV watchlist support.
+It's useful to check that no one is accessing > nr_cpumask_bits for
+cpumasks.  This also allows you to turn on CONFIG_CPUMASKS_OFFSTACK
+even for smaller CONFIG_NR_CPUS.
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
-This is used by SGI xp drivers (drivers/misc/sgi-xp).
+ include/linux/cpumask.h |   23 +++++++++++++++++------
+ lib/Kconfig.debug       |    6 ++++++
+ lib/cpumask.c           |    3 +++
+ 3 files changed, 26 insertions(+), 6 deletions(-)
 
-
-
- arch/ia64/include/asm/sn/sn_sal.h |   45 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 45 insertions(+)
-
-Index: test/arch/ia64/include/asm/sn/sn_sal.h
-=================================--- test.orig/arch/ia64/include/asm/sn/sn_sal.h	2008-10-20 15:15:48.647287983 -0500
-+++ test/arch/ia64/include/asm/sn/sn_sal.h	2008-10-21 15:55:48.571396776 -0500
-@@ -90,6 +90,8 @@
- #define  SN_SAL_SET_CPU_NUMBER			   0x02000068
- 
- #define  SN_SAL_KERNEL_LAUNCH_EVENT		   0x02000069
-+#define  SN_SAL_WATCHLIST_ALLOC			   0x02000070
-+#define  SN_SAL_WATCHLIST_FREE			   0x02000071
- 
- /*
-  * Service-specific constants
-@@ -1183,6 +1185,49 @@ ia64_sn_kernel_launch_event(void)
- {
-  	struct ia64_sal_retval rv;
- 	SAL_CALL_NOLOCK(rv, SN_SAL_KERNEL_LAUNCH_EVENT, 0, 0, 0, 0, 0, 0, 0);
-+	return rv.status;
-+}
-+
-+union sn_watchlist_u {
-+	u64     val;
-+	struct {
-+		u64	blade	: 16,
-+			size	: 32,
-+			filler	: 16;
-+	};
-+};
-+
-+static inline int
-+sn_mq_watchlist_alloc(int blade, void *mq, unsigned int mq_size,
-+				unsigned long *intr_mmr_offset)
-+{
-+	struct ia64_sal_retval rv;
-+	unsigned long addr;
-+	union sn_watchlist_u size_blade;
-+	int watchlist;
-+
-+	addr = (unsigned long)mq;
-+	size_blade.size = mq_size;
-+	size_blade.blade = blade;
-+
-+	/*
-+	 * bios returns watchlist number or negative error number.
-+	 */
-+	ia64_sal_oemcall_nolock(&rv, SN_SAL_WATCHLIST_ALLOC, addr,
-+			size_blade.val, (u64)intr_mmr_offset,
-+			(u64)&watchlist, 0, 0, 0);
-+	if (rv.status < 0)
-+		return rv.status;
-+
-+	return watchlist;
-+}
-+
-+static inline int
-+sn_mq_watchlist_free(int blade, int watchlist_num)
-+{
-+	struct ia64_sal_retval rv;
-+	ia64_sal_oemcall_nolock(&rv, SN_SAL_WATCHLIST_FREE, blade,
-+			watchlist_num, 0, 0, 0, 0, 0);
- 	return rv.status;
+--- test-compile.orig/include/linux/cpumask.h
++++ test-compile/include/linux/cpumask.h
+@@ -217,23 +217,34 @@ extern cpumask_t _unused_cpumask_arg_;
  }
- #endif /* _ASM_IA64_SN_SN_SAL_H */
+ #endif /* CONFIG_NR_CPUS > BITS_PER_LONG */
+ 
++/* verify cpu argument to cpumask_* operators */
++static inline unsigned int cpumask_check(unsigned int cpu)
++{
++#ifdef CONFIG_DEBUG_PER_CPU_MAPS
++	/* This breaks at runtime. */
++	BUG_ON(cpu >= nr_cpumask_bits);
++#endif /* CONFIG_DEBUG_PER_CPU_MAPS */
++	return cpu;
++}
++
+ /* cpumask_* operators */
+ static inline void cpumask_set_cpu(int cpu, volatile struct cpumask *dstp)
+ {
+-	set_bit(cpu, cpumask_bits(dstp));
++	set_bit(cpumask_check(cpu), cpumask_bits(dstp));
+ }
+ 
+ static inline void cpumask_clear_cpu(int cpu, volatile struct cpumask *dstp)
+ {
+-	clear_bit(cpu, cpumask_bits(dstp));
++	clear_bit(cpumask_check(cpu), cpumask_bits(dstp));
+ }
+ 
+ /* No static inline type checking - see Subtlety (1) above. */
+-#define cpumask_test_cpu(cpu, cpumask) test_bit((cpu), (cpumask)->bits)
++#define cpumask_test_cpu(cpu, cpumask) \
++	test_bit(cpumask_check(cpu), (cpumask)->bits)
+ 
+ static inline int cpumask_test_and_set_cpu(int cpu, struct cpumask *addr)
+ {
+-	return test_and_set_bit(cpu, cpumask_bits(addr));
++	return test_and_set_bit(cpumask_check(cpu), cpumask_bits(addr));
+ }
+ 
+ static inline void cpumask_setall(struct cpumask *dstp)
+@@ -367,8 +378,8 @@ static inline int cpumask_cpuremap(int o
+ 				   const struct cpumask *oldp,
+ 				   const struct cpumask *newp)
+ {
+-	return bitmap_bitremap(oldbit, cpumask_bits(oldp), cpumask_bits(newp),
+-							   nr_cpumask_bits);
++	return bitmap_bitremap(cpumask_check(oldbit), cpumask_bits(oldp),
++				cpumask_bits(newp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_remap(struct cpumask *dstp,
+--- test-compile.orig/lib/Kconfig.debug
++++ test-compile/lib/Kconfig.debug
+@@ -766,6 +766,12 @@ config SYSCTL_SYSCALL_CHECK
+ 	  to properly maintain and use. This enables checks that help
+ 	  you to keep things correct.
+ 
++config DEBUG_PER_CPU_MAPS
++	bool "Cpumask debug checks"
++	---help---
++	  Extra debugging for cpumasks.
++	  eg. to make sure accesses to cpumasks are < nr_cpu_ids.
++
+ source kernel/trace/Kconfig
+ 
+ config PROVIDE_OHCI1394_DMA_INIT
+--- test-compile.orig/lib/cpumask.c
++++ test-compile/lib/cpumask.c
+@@ -11,6 +11,9 @@ EXPORT_SYMBOL(cpumask_first);
+ 
+ int cpumask_next(int n, const cpumask_t *srcp)
+ {
++	/* -1 is a legal arg here. */
++	if (n != -1)
++		cpumask_check(n);
+ 	return find_next_bit(cpumask_bits(srcp), nr_cpumask_bits, n+1);
+ }
+ EXPORT_SYMBOL(cpumask_next);
+
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
