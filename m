@@ -1,62 +1,63 @@
-From: akpm@linux-foundation.org
-Date: Wed, 29 Oct 2008 21:17:57 +0000
-Subject: [patch 1/2] ia64: fix the difference between node_mem_map and node_start_pfn
-Message-Id: <200810292117.m9TLHwpA018429@imap1.linux-foundation.org>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:24 +0000
+Subject: [PATCH 05/35] sched: Reduce stack size requirements in kernel/sched.c
+Message-Id: <20081020170320.288298000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-From: "Ken'ichi Ohmichi" <oomichi@mxs.nes.nec.co.jp>
+  * use node_to_cpumask_ptr in place of node_to_cpumask to reduce stack
+    requirements in sched.c
 
-makedumpfile[1] cannot run on ia64 discontigmem kernel, because the member
-node_mem_map of struct pgdat_list has invalid value.  This patch fixes it.
+Applies to linux-2.6.tip/master.
 
-node_start_pfn shows the start pfn of each node, and node_mem_map should
-point 'struct page' of each node's node_start_pfn.  On my machine, node0's
-node_start_pfn shows 0x400 and its node_mem_map points 0xa0007fffbf000000.
- This address is the same as vmem_map, so the node_mem_map points 'struct
-page' of pfn 0, even if its node_start_pfn shows 0x400.
-
-The cause is due to the round down of min_pfn in count_node_pages() and
-node0's node_mem_map points 'struct page' of inactive pfn (0x0).  This
-patch fixes it.
-
-makedumpfile[1]: dump filtering command
-https://sourceforge.net/projects/makedumpfile/
-
-Signed-off-by: Ken'ichi Ohmichi <oomichi@mxs.nes.nec.co.jp>
-Cc: Bernhard Walle <bwalle@suse.de>
-Cc: Jay Lan <jlan@sgi.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Mike Travis <travis@sgi.com>
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
+ kernel/sched.c |   13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
- arch/ia64/include/asm/meminit.h |    1 -
- arch/ia64/mm/discontig.c        |    1 -
- 2 files changed, 2 deletions(-)
-
-diff -puN arch/ia64/include/asm/meminit.h~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn arch/ia64/include/asm/meminit.h
---- a/arch/ia64/include/asm/meminit.h~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn
-+++ a/arch/ia64/include/asm/meminit.h
-@@ -48,7 +48,6 @@ extern int reserve_elfcorehdr(unsigned l
-  */
- #define GRANULEROUNDDOWN(n)	((n) & ~(IA64_GRANULE_SIZE-1))
- #define GRANULEROUNDUP(n)	(((n)+IA64_GRANULE_SIZE-1) & ~(IA64_GRANULE_SIZE-1))
--#define ORDERROUNDDOWN(n)	((n) & ~((PAGE_SIZE<<MAX_ORDER)-1))
+--- linux-2.6.28.orig/kernel/sched.c
++++ linux-2.6.28/kernel/sched.c
+@@ -6117,8 +6117,9 @@ static void move_task_off_dead_cpu(int d
  
- #ifdef CONFIG_NUMA
-   extern void call_pernode_memory (unsigned long start, unsigned long len, void *func);
-diff -puN arch/ia64/mm/discontig.c~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn arch/ia64/mm/discontig.c
---- a/arch/ia64/mm/discontig.c~ia64-fix-the-difference-between-node_mem_map-and-node_start_pfn
-+++ a/arch/ia64/mm/discontig.c
-@@ -635,7 +635,6 @@ static __init int count_node_pages(unsig
- 			(min(end, __pa(MAX_DMA_ADDRESS)) - start) >>PAGE_SHIFT;
- #endif
- 	start = GRANULEROUNDDOWN(start);
--	start = ORDERROUNDDOWN(start);
- 	end = GRANULEROUNDUP(end);
- 	mem_data[node].max_pfn = max(mem_data[node].max_pfn,
- 				     end >> PAGE_SHIFT);
-_
+ 	do {
+ 		/* On same node? */
+-		mask = node_to_cpumask(cpu_to_node(dead_cpu));
+-		cpus_and(mask, mask, p->cpus_allowed);
++		node_to_cpumask_ptr(pnodemask, cpu_to_node(dead_cpu));
++
++		cpus_and(mask, *pnodemask, p->cpus_allowed);
+ 		dest_cpu = any_online_cpu(mask);
+ 
+ 		/* On any allowed CPU? */
+@@ -7126,9 +7127,9 @@ static int cpu_to_allnodes_group(int cpu
+ 				 struct sched_group **sg, cpumask_t *nodemask)
+ {
+ 	int group;
++	node_to_cpumask_ptr(pnodemask, cpu_to_node(cpu));
+ 
+-	*nodemask = node_to_cpumask(cpu_to_node(cpu));
+-	cpus_and(*nodemask, *nodemask, *cpu_map);
++	cpus_and(*nodemask, *pnodemask, *cpu_map);
+ 	group = first_cpu(*nodemask);
+ 
+ 	if (sg)
+@@ -7178,9 +7179,9 @@ static void free_sched_groups(const cpum
+ 
+ 		for (i = 0; i < nr_node_ids; i++) {
+ 			struct sched_group *oldsg, *sg = sched_group_nodes[i];
++			node_to_cpumask_ptr(pnodemask, i);
+ 
+-			*nodemask = node_to_cpumask(i);
+-			cpus_and(*nodemask, *nodemask, *cpu_map);
++			cpus_and(*nodemask, *pnodemask, *cpu_map);
+ 			if (cpus_empty(*nodemask))
+ 				continue;
+ 
+
+-- 
