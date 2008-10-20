@@ -1,106 +1,90 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:31 +0000
-Subject: [PATCH 16/32] ia64/xen: introduce helper function to identify domain mode.
-Message-Id: <1223963507-28056-17-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:30 +0000
+Subject: [PATCH 11/35] x86: enable MAXSMP
+Message-Id: <20081020170321.119844000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-There are four operating modes Xen code may find itself running in:
-- native
-- hvm domain
-- pv dom0
-- pv domU
+Set MAXSMP to enable a configuration with the maximum amount of CPUS and
+NODES.  Also enables CONFIG_CPUMASK_OFFSTACK which moves cpumask's off
+the stack (and in structs) when using cpumask_var_t.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- arch/ia64/include/asm/xen/hypervisor.h |   75 ++++++++++++++++++++++++++++++++
- 1 files changed, 75 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/hypervisor.h
+ arch/x86/Kconfig |   29 ++++++++++++++++++++++++++---
+ 1 file changed, 26 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
-new file mode 100644
-index 0000000..d1f84e1
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/hypervisor.h
-@@ -0,0 +1,75 @@
-+/******************************************************************************
-+ * hypervisor.h
-+ *
-+ * Linux-specific hypervisor handling.
-+ *
-+ * Copyright (c) 2002-2004, K A Fraser
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation; or, when distributed
-+ * separately from the Linux kernel or incorporated into other
-+ * software packages, subject to the following license:
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this source file (the "Software"), to deal in the Software without
-+ * restriction, including without limitation the rights to use, copy, modify,
-+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
-+ * and to permit persons to whom the Software is furnished to do so, subject to
-+ * the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-+ * IN THE SOFTWARE.
-+ */
+--- test-compile.orig/arch/x86/Kconfig
++++ test-compile/arch/x86/Kconfig
+@@ -571,12 +571,20 @@ config IOMMU_HELPER
+=20
+ config MAXSMP
+ 	bool "Configure Maximum number of SMP Processors and NUMA Nodes"
+-	depends on X86_64 && SMP && BROKEN
++ 	depends on X86_64 && SMP && DEBUG_KERNEL && EXPERIMENTAL
++	select CPUMASK_OFFSTACK
+ 	default n
+ 	help
+ 	  Configure maximum number of CPUS and NUMA Nodes for this architecture.
+ 	  If unsure, say N.
+=20
++if MAXSMP
++config NR_CPUS
++	int
++	default "4096"
++endif
 +
-+#ifndef _ASM_IA64_XEN_HYPERVISOR_H
-+#define _ASM_IA64_XEN_HYPERVISOR_H
++if !MAXSMP
+ config NR_CPUS
+ 	int "Maximum number of CPUs (2-512)" if !MAXSMP
+ 	range 2 512
+@@ -591,6 +599,14 @@ config NR_CPUS
+=20
+ 	  This is purely to save memory - each supported CPU adds
+ 	  approximately eight kilobytes to the kernel image.
++endif
 +
-+#ifdef CONFIG_XEN
++config CPUMASK_OFFSTACK
++	bool "Force CPU masks off stack" if DEBUG_PER_CPU_MAPS
++	help
++	  Use dynamic allocation for cpumask_var_t, instead of putting
++	  them on the stack.  This is a bit more expensive, but avoids
++	  stack overflow.
+=20
+ config SCHED_SMT
+ 	bool "SMT (Hyperthreading) scheduler support"
+@@ -1027,10 +1043,16 @@ config NUMA_EMU
+ 	  into virtual nodes when booted with "numa=FAke=3DN", where N is the
+ 	  number of nodes. This is only useful for debugging.
+=20
++if MAXSMP
++config NODES_SHIFT
++	int
++	default "9"
++endif
 +
-+#include <linux/init.h>
-+#include <xen/interface/xen.h>
-+#include <xen/interface/version.h>	/* to compile feature.c */
-+#include <xen/features.h>		/* to comiple xen-netfront.c */
-+#include <asm/xen/hypercall.h>
-+
-+/* xen_domain_type is set before executing any C code by early_xen_setup */
-+enum xen_domain_type {
-+	XEN_NATIVE,
-+	XEN_PV_DOMAIN,
-+	XEN_HVM_DOMAIN,
-+};
-+
-+extern enum xen_domain_type xen_domain_type;
-+
-+#define xen_domain()		(xen_domain_type != XEN_NATIVE)
-+#define xen_pv_domain()		(xen_domain_type = XEN_PV_DOMAIN)
-+#define xen_initial_domain()	(xen_pv_domain() && \
-+				 (xen_start_info->flags & SIF_INITDOMAIN))
-+#define xen_hvm_domain()	(xen_domain_type = XEN_HVM_DOMAIN)
-+
-+/* deprecated. remove this */
-+#define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
-+
-+extern struct start_info *xen_start_info;
-+
-+#else /* CONFIG_XEN */
-+
-+#define xen_domain()		(0)
-+#define xen_pv_domain()		(0)
-+#define xen_initial_domain()	(0)
-+#define xen_hvm_domain()	(0)
-+#define is_running_on_xen()	(0)	/* deprecated. remove this */
-+#endif
-+
-+#define is_initial_xendomain()	(0)	/* deprecated. remove this */
-+
-+#endif /* _ASM_IA64_XEN_HYPERVISOR_H */
--- 
-1.6.0.2
++if !MAXSMP
+ config NODES_SHIFT
+-	int "Maximum NUMA Nodes (as a power of 2)" if !MAXSMP
++	int "Maximum NUMA Nodes (as a power of 2)"
+ 	range 1 9   if X86_64
+-	default "9" if MAXSMP
+ 	default "6" if X86_64
+ 	default "4" if X86_NUMAQ
+ 	default "3"
+@@ -1038,6 +1060,7 @@ config NODES_SHIFT
+ 	help
+ 	  Specify the maximum number of NUMA Nodes available on the target
+ 	  system.  Increases memory reserved to accomodate various tables.
++endif
+=20
+ config HAVE_ARCH_BOOTMEM_NODE
+ 	def_bool y
 
+--=20
