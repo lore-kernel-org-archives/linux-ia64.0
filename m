@@ -1,210 +1,83 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 20 Oct 2008 03:55:13 +0000
-Subject: [PATCH 11/13] ia64/pv_ops: move down __kernel_syscall_via_epc.
-Message-Id: <1224474915-17171-12-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:33 +0000
+Subject: [PATCH 14/35] cpumask: make nr_cpu_ids valid in all configurations.
+Message-Id: <20081020170321.535939000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, linux-ia64@vger.kernel.org
-Cc: yamahata@valinux.co.jp, xen-ia64-devel@lists.xensource.com, mingo@elte.hu, virtualization@lists.linux-foundation.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-Move down __kernel_syscall_via_epc to the end of the page.
-We want to paravirtualize only __kernel_syscall_via_epc because
-it includes privileged instructions. Its paravirtualization increases
-its symbols size.
+nr_cpu_ids is the (badly named) runtime limit on possible CPU numbers;
+ie. the variable version of NR_CPUS.
 
-On the other hand, each paravirtualized gate must have e symbols of
-same value and size to native's because the page is mapped to GATE_ADDR
-and GATE_ADDR + PERCPU_PAGE_SIZE and vmlinux is linked to those symbols.
-Later to have the same symbol size, we pads NOPs at the end of
-__kernel_syscall_via_epc. Move it after other functions to keep
-symbols of other functions have same values and sizes.
+This makes is valid in all configs, including UP.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/kernel/gate.S |  162 +++++++++++++++++++++++-----------------------
- 1 files changed, 81 insertions(+), 81 deletions(-)
+ include/linux/cpumask.h |   10 ++++++++--
+ init/main.c             |    7 +++++++
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/gate.S b/arch/ia64/kernel/gate.S
-index 74b1ccc..c957228 100644
---- a/arch/ia64/kernel/gate.S
-+++ b/arch/ia64/kernel/gate.S
-@@ -48,87 +48,6 @@ GLOBAL_ENTRY(__kernel_syscall_via_break)
- }
- END(__kernel_syscall_via_break)
+--- test-compile.orig/include/linux/cpumask.h
++++ test-compile/include/linux/cpumask.h
+@@ -195,6 +195,14 @@ extern cpumask_t _unused_cpumask_arg_;
+ #define cpus_addr(src) ((src).bits)
+ /* End deprecated region. */
  
--/*
-- * On entry:
-- *	r11 = saved ar.pfs
-- *	r15 = system call #
-- *	b0  = saved return address
-- *	b6  = return address
-- * On exit:
-- *	r11 = saved ar.pfs
-- *	r15 = system call #
-- *	b0  = saved return address
-- *	all other "scratch" registers:	undefined
-- *	all "preserved" registers:	same as on entry
-- */
--
--GLOBAL_ENTRY(__kernel_syscall_via_epc)
--	.prologue
--	.altrp b6
--	.body
--{
--	/*
--	 * Note: the kernel cannot assume that the first two instructions in this
--	 * bundle get executed.  The remaining code must be safe even if
--	 * they do not get executed.
--	 */
--	adds r17=-1024,r15			// A
--	mov r10=0				// A    default to successful syscall execution
--	epc					// B	causes split-issue
--}
--	;;
--	rsm psr.be | psr.i			// M2 (5 cyc to srlz.d)
--	LOAD_FSYSCALL_TABLE(r14)		// X
--	;;
--	mov r16=IA64_KR(CURRENT)		// M2 (12 cyc)
--	shladd r18=r17,3,r14			// A
--	mov r19=NR_syscalls-1			// A
--	;;
--	lfetch [r18]				// M0|1
--	mov r29=psr				// M2 (12 cyc)
--	// If r17 is a NaT, p6 will be zero
--	cmp.geu p6,p7=r19,r17			// A    (sysnr > 0 && sysnr < 1024+NR_syscalls)?
--	;;
--	mov r21=ar.fpsr				// M2 (12 cyc)
--	tnat.nz p10,p9=r15			// I0
--	mov.i r26=ar.pfs			// I0 (would stall anyhow due to srlz.d...)
--	;;
--	srlz.d					// M0 (forces split-issue) ensure PSR.BE=0
--(p6)	ld8 r18=[r18]				// M0|1
--	nop.i 0
--	;;
--	nop.m 0
--(p6)	tbit.z.unc p8,p0=r18,0			// I0 (dual-issues with "mov b7=r18"!)
--	nop.i 0
--	;;
--(p8)	ssm psr.i
--(p6)	mov b7=r18				// I0
--(p8)	br.dptk.many b7				// B
--
--	mov r27=ar.rsc				// M2 (12 cyc)
--/*
-- * brl.cond doesn't work as intended because the linker would convert this branch
-- * into a branch to a PLT.  Perhaps there will be a way to avoid this with some
-- * future version of the linker.  In the meantime, we just use an indirect branch
-- * instead.
-- */
--#ifdef CONFIG_ITANIUM
--(p6)	add r14=-8,r14				// r14 <- addr of fsys_bubble_down entry
--	;;
--(p6)	ld8 r14=[r14]				// r14 <- fsys_bubble_down
--	;;
--(p6)	mov b7=r14
--(p6)	br.sptk.many b7
--#else
--	BRL_COND_FSYS_BUBBLE_DOWN(p6)
--#endif
--	ssm psr.i
--	mov r10=-1
--(p10)	mov r8=EINVAL
--(p9)	mov r8=ENOSYS
--	FSYS_RETURN
--END(__kernel_syscall_via_epc)
--
- #	define ARG0_OFF		(16 + IA64_SIGFRAME_ARG0_OFFSET)
- #	define ARG1_OFF		(16 + IA64_SIGFRAME_ARG1_OFFSET)
- #	define ARG2_OFF		(16 + IA64_SIGFRAME_ARG2_OFFSET)
-@@ -374,3 +293,84 @@ restore_rbs:
- 	// invala not necessary as that will happen when returning to user-mode
- 	br.cond.sptk back_from_restore_rbs
- END(__kernel_sigtramp)
-+
-+/*
-+ * On entry:
-+ *	r11 = saved ar.pfs
-+ *	r15 = system call #
-+ *	b0  = saved return address
-+ *	b6  = return address
-+ * On exit:
-+ *	r11 = saved ar.pfs
-+ *	r15 = system call #
-+ *	b0  = saved return address
-+ *	all other "scratch" registers:	undefined
-+ *	all "preserved" registers:	same as on entry
-+ */
-+
-+GLOBAL_ENTRY(__kernel_syscall_via_epc)
-+	.prologue
-+	.altrp b6
-+	.body
-+{
-+	/*
-+	 * Note: the kernel cannot assume that the first two instructions in this
-+	 * bundle get executed.  The remaining code must be safe even if
-+	 * they do not get executed.
-+	 */
-+	adds r17=-1024,r15			// A
-+	mov r10=0				// A    default to successful syscall execution
-+	epc					// B	causes split-issue
-+}
-+	;;
-+	rsm psr.be | psr.i			// M2 (5 cyc to srlz.d)
-+	LOAD_FSYSCALL_TABLE(r14)		// X
-+	;;
-+	mov r16=IA64_KR(CURRENT)		// M2 (12 cyc)
-+	shladd r18=r17,3,r14			// A
-+	mov r19=NR_syscalls-1			// A
-+	;;
-+	lfetch [r18]				// M0|1
-+	mov r29=psr				// M2 (12 cyc)
-+	// If r17 is a NaT, p6 will be zero
-+	cmp.geu p6,p7=r19,r17			// A    (sysnr > 0 && sysnr < 1024+NR_syscalls)?
-+	;;
-+	mov r21=ar.fpsr				// M2 (12 cyc)
-+	tnat.nz p10,p9=r15			// I0
-+	mov.i r26=ar.pfs			// I0 (would stall anyhow due to srlz.d...)
-+	;;
-+	srlz.d					// M0 (forces split-issue) ensure PSR.BE=0
-+(p6)	ld8 r18=[r18]				// M0|1
-+	nop.i 0
-+	;;
-+	nop.m 0
-+(p6)	tbit.z.unc p8,p0=r18,0			// I0 (dual-issues with "mov b7=r18"!)
-+	nop.i 0
-+	;;
-+(p8)	ssm psr.i
-+(p6)	mov b7=r18				// I0
-+(p8)	br.dptk.many b7				// B
-+
-+	mov r27=ar.rsc				// M2 (12 cyc)
-+/*
-+ * brl.cond doesn't work as intended because the linker would convert this branch
-+ * into a branch to a PLT.  Perhaps there will be a way to avoid this with some
-+ * future version of the linker.  In the meantime, we just use an indirect branch
-+ * instead.
-+ */
-+#ifdef CONFIG_ITANIUM
-+(p6)	add r14=-8,r14				// r14 <- addr of fsys_bubble_down entry
-+	;;
-+(p6)	ld8 r14=[r14]				// r14 <- fsys_bubble_down
-+	;;
-+(p6)	mov b7=r14
-+(p6)	br.sptk.many b7
++#if NR_CPUS <= BITS_PER_LONG
++/* Constant is usually more efficient than a variable for small NR_CPUS */
++#define nr_cpu_ids NR_CPUS
 +#else
-+	BRL_COND_FSYS_BUBBLE_DOWN(p6)
-+#endif
-+	ssm psr.i
-+	mov r10=-1
-+(p10)	mov r8=EINVAL
-+(p9)	mov r8=ENOSYS
-+	FSYS_RETURN
-+END(__kernel_syscall_via_epc)
--- 
-1.6.0.2
++/* Starts at NR_CPUS until we know better. */
++extern int nr_cpu_ids;
++#endif /* NR_CPUS > BITS_PER_LONG */
++
+ static inline void cpumask_set_cpu(int cpu, volatile struct cpumask *dstp)
+ {
+ 	set_bit(cpu, dstp->bits);
+@@ -434,7 +442,6 @@ extern cpumask_t cpu_mask_all;
+ 
+ #if NR_CPUS = 1
+ 
+-#define nr_cpu_ids			1
+ #define first_cpu(src)			({ (void)(src); 0; })
+ #define next_cpu(n, src)		({ (void)(src); 1; })
+ #define cpumask_next_and(n, srcp, andp)	({ (void)(srcp), (void)(andp); 1; })
+@@ -447,7 +454,6 @@ extern cpumask_t cpu_mask_all;
+ 
+ #else /* NR_CPUS > 1 */
+ 
+-extern int nr_cpu_ids;
+ int __first_cpu(const cpumask_t *srcp);
+ int __next_cpu(int n, const cpumask_t *srcp);
+ int cpumask_next_and(int n, const cpumask_t *srcp, const cpumask_t *andp);
+--- test-compile.orig/init/main.c
++++ test-compile/init/main.c
+@@ -373,6 +373,8 @@ EXPORT_SYMBOL(cpu_mask_all);
+ #endif
+ 
+ /* Setup number of possible processor ids */
++/* nr_cpu_ids is a real variable for large NR_CPUS. */
++#ifndef nr_cpu_ids
+ int nr_cpu_ids __read_mostly = NR_CPUS;
+ EXPORT_SYMBOL(nr_cpu_ids);
+ 
+@@ -386,6 +388,11 @@ void __init setup_nr_cpu_ids(void)
+ 
+ 	nr_cpu_ids = highest_cpu + 1;
+ }
++#else
++void __init setup_nr_cpu_ids(void)
++{
++}
++#endif /* ... nr_cpu_ids is a constant. */
+ 
+ #ifndef CONFIG_HAVE_SETUP_PER_CPU_AREA
+ unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
 
+-- 
