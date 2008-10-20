@@ -1,275 +1,237 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:42 +0000
-Subject: [PATCH 27/32] ia64/pv_ops/xen: implement xen pv_time_ops.
-Message-Id: <1223963507-28056-28-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 20 Oct 2008 03:55:07 +0000
+Subject: [PATCH 05/13] ia64/pv_ops/xen: paravirtualize read/write ar.itc and ar.itm
+Message-Id: <1224474915-17171-6-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-implement xen pv_time_ops to account steal time.
+paravirtualize ar.itc and ar.itm in order to support save/restore.
 
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/xen/Makefile     |    2 +-
- arch/ia64/xen/time.c       |  180 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ia64/xen/time.h       |   23 ++++++
- arch/ia64/xen/xen_pv_ops.c |    2 +
- 4 files changed, 206 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/time.c
- create mode 100644 arch/ia64/xen/time.h
+ arch/ia64/include/asm/xen/inst.h      |   21 +++++++++
+ arch/ia64/include/asm/xen/interface.h |    9 ++++
+ arch/ia64/include/asm/xen/minstate.h  |   11 ++++-
+ arch/ia64/include/asm/xen/privop.h    |    2 +
+ arch/ia64/kernel/asm-offsets.c        |    2 +
+ arch/ia64/xen/xen_pv_ops.c            |   80 ++++++++++++++++++++++++++++++++-
+ 6 files changed, 123 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 01c4289..ed31c76 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -3,7 +3,7 @@
- #
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index e8e01b2..90537dc 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -113,6 +113,27 @@
+ .endm
+ #define MOV_FROM_PSR(pred, reg, clob)	__MOV_FROM_PSR pred, reg, clob
  
- obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
--	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
-+	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o
++/* assuming ar.itc is read with interrupt disabled. */
++#define MOV_FROM_ITC(pred, pred_clob, reg, clob)		\
++(pred)	movl clob = XSI_ITC_OFFSET;				\
++	;;							\
++(pred)	ld8 clob = [clob];					\
++(pred)	mov reg = ar.itc;					\
++	;;							\
++(pred)	add reg = reg, clob;					\
++	;;							\
++(pred)	movl clob = XSI_ITC_LAST;				\
++	;;							\
++(pred)	ld8 clob = [clob];					\
++	;;							\
++(pred)	cmp.geu.unc pred_clob, p0 = clob, reg;			\
++	;;							\
++(pred_clob)	add reg = 1, clob;				\
++	;;							\
++(pred)	movl clob = XSI_ITC_LAST;				\
++	;;							\
++(pred)	st8 [clob] = reg
++
  
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ #define MOV_TO_IFA(reg, clob)	\
+ 	movl clob = XSI_IFA;	\
+diff --git a/arch/ia64/include/asm/xen/interface.h b/arch/ia64/include/asm/xen/interface.h
+index f00fab4..e951e74 100644
+--- a/arch/ia64/include/asm/xen/interface.h
++++ b/arch/ia64/include/asm/xen/interface.h
+@@ -209,6 +209,15 @@ struct mapped_regs {
+ 			unsigned long krs[8];	/* kernel registers */
+ 			unsigned long tmp[16];	/* temp registers
+ 						   (e.g. for hyperprivops) */
++
++			/* itc paravirtualization
++			 * vAR.ITC = mAR.ITC + itc_offset
++			 * itc_last is one which was lastly passed to
++			 * the guest OS in order to prevent it from
++			 * going backwords.
++			 */
++			unsigned long itc_offset;
++			unsigned long itc_last;
+ 		};
+ 	};
+ };
+diff --git a/arch/ia64/include/asm/xen/minstate.h b/arch/ia64/include/asm/xen/minstate.h
+index 4d92d9b..c57fa91 100644
+--- a/arch/ia64/include/asm/xen/minstate.h
++++ b/arch/ia64/include/asm/xen/minstate.h
+@@ -1,3 +1,12 @@
++
++#ifdef CONFIG_VIRT_CPU_ACCOUNTING
++/* read ar.itc in advance, and use it before leaving bank 0 */
++#define XEN_ACCOUNT_GET_STAMP		\
++	MOV_FROM_ITC(pUStk, p6, r20, r2);
++#else
++#define XEN_ACCOUNT_GET_STAMP
++#endif
++
+ /*
+  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
+  * the minimum state necessary that allows us to turn psr.ic back
+@@ -123,7 +132,7 @@
+ 	;;											\
+ .mem.offset 0,0; st8.spill [r16]=r2,16;								\
+ .mem.offset 8,0; st8.spill [r17]=r3,16;								\
+-	ACCOUNT_GET_STAMP									\
++	XEN_ACCOUNT_GET_STAMP									\
+ 	adds r2=IA64_PT_REGS_R16_OFFSET,r1;							\
+ 	;;											\
+ 	EXTRA;											\
+diff --git a/arch/ia64/include/asm/xen/privop.h b/arch/ia64/include/asm/xen/privop.h
+index 71ec754..2261dda 100644
+--- a/arch/ia64/include/asm/xen/privop.h
++++ b/arch/ia64/include/asm/xen/privop.h
+@@ -55,6 +55,8 @@
+ #define XSI_BANK1_R16			(XSI_BASE + XSI_BANK1_R16_OFS)
+ #define XSI_BANKNUM			(XSI_BASE + XSI_BANKNUM_OFS)
+ #define XSI_IHA				(XSI_BASE + XSI_IHA_OFS)
++#define XSI_ITC_OFFSET			(XSI_BASE + XSI_ITC_OFFSET_OFS)
++#define XSI_ITC_LAST			(XSI_BASE + XSI_ITC_LAST_OFS)
+ #endif
  
-diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
-new file mode 100644
-index 0000000..ec168ec
---- /dev/null
-+++ b/arch/ia64/xen/time.c
-@@ -0,0 +1,180 @@
-+/******************************************************************************
-+ * arch/ia64/xen/time.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/kernel_stat.h>
-+#include <linux/posix-timers.h>
-+#include <linux/irq.h>
-+#include <linux/clocksource.h>
-+
-+#include <asm/xen/hypervisor.h>
-+
-+#include <xen/interface/vcpu.h>
-+
-+#include "../kernel/fsyscall_gtod_data.h"
-+
-+DEFINE_PER_CPU(struct vcpu_runstate_info, runstate);
-+DEFINE_PER_CPU(unsigned long, processed_stolen_time);
-+DEFINE_PER_CPU(unsigned long, processed_blocked_time);
-+
-+/* taken from i386/kernel/time-xen.c */
-+static void xen_init_missing_ticks_accounting(int cpu)
-+{
-+	struct vcpu_register_runstate_memory_area area;
-+	struct vcpu_runstate_info *runstate = &per_cpu(runstate, cpu);
-+	int rc;
-+
-+	memset(runstate, 0, sizeof(*runstate));
-+
-+	area.addr.v = runstate;
-+	rc = HYPERVISOR_vcpu_op(VCPUOP_register_runstate_memory_area, cpu,
-+				&area);
-+	WARN_ON(rc && rc != -ENOSYS);
-+
-+	per_cpu(processed_blocked_time, cpu) = runstate->time[RUNSTATE_blocked];
-+	per_cpu(processed_stolen_time, cpu) = runstate->time[RUNSTATE_runnable]
-+					    + runstate->time[RUNSTATE_offline];
-+}
-+
-+/*
-+ * Runstate accounting
-+ */
-+/* stolen from arch/x86/xen/time.c */
-+static void get_runstate_snapshot(struct vcpu_runstate_info *res)
-+{
-+	u64 state_time;
-+	struct vcpu_runstate_info *state;
-+
-+	BUG_ON(preemptible());
-+
-+	state = &__get_cpu_var(runstate);
-+
-+	/*
-+	 * The runstate info is always updated by the hypervisor on
-+	 * the current CPU, so there's no need to use anything
-+	 * stronger than a compiler barrier when fetching it.
-+	 */
-+	do {
-+		state_time = state->state_entry_time;
-+		rmb();
-+		*res = *state;
-+		rmb();
-+	} while (state->state_entry_time != state_time);
-+}
-+
-+#define NS_PER_TICK (1000000000LL/HZ)
-+
-+static unsigned long
-+consider_steal_time(unsigned long new_itm)
-+{
-+	unsigned long stolen, blocked;
-+	unsigned long delta_itm = 0, stolentick = 0;
-+	int cpu = smp_processor_id();
-+	struct vcpu_runstate_info runstate;
-+	struct task_struct *p = current;
-+
-+	get_runstate_snapshot(&runstate);
-+
-+	/*
-+	 * Check for vcpu migration effect
-+	 * In this case, itc value is reversed.
-+	 * This causes huge stolen value.
-+	 * This function just checks and reject this effect.
-+	 */
-+	if (!time_after_eq(runstate.time[RUNSTATE_blocked],
-+			   per_cpu(processed_blocked_time, cpu)))
-+		blocked = 0;
-+
-+	if (!time_after_eq(runstate.time[RUNSTATE_runnable] +
-+			   runstate.time[RUNSTATE_offline],
-+			   per_cpu(processed_stolen_time, cpu)))
-+		stolen = 0;
-+
-+	if (!time_after(delta_itm + new_itm, ia64_get_itc()))
-+		stolentick = ia64_get_itc() - new_itm;
-+
-+	do_div(stolentick, NS_PER_TICK);
-+	stolentick++;
-+
-+	do_div(stolen, NS_PER_TICK);
-+
-+	if (stolen > stolentick)
-+		stolen = stolentick;
-+
-+	stolentick -= stolen;
-+	do_div(blocked, NS_PER_TICK);
-+
-+	if (blocked > stolentick)
-+		blocked = stolentick;
-+
-+	if (stolen > 0 || blocked > 0) {
-+		account_steal_time(NULL, jiffies_to_cputime(stolen));
-+		account_steal_time(idle_task(cpu), jiffies_to_cputime(blocked));
-+		run_local_timers();
-+
-+		if (rcu_pending(cpu))
-+			rcu_check_callbacks(cpu, user_mode(get_irq_regs()));
-+
-+		scheduler_tick();
-+		run_posix_cpu_timers(p);
-+		delta_itm += local_cpu_data->itm_delta * (stolen + blocked);
-+
-+		if (cpu = time_keeper_id) {
-+			write_seqlock(&xtime_lock);
-+			do_timer(stolen + blocked);
-+			local_cpu_data->itm_next = delta_itm + new_itm;
-+			write_sequnlock(&xtime_lock);
-+		} else {
-+			local_cpu_data->itm_next = delta_itm + new_itm;
-+		}
-+		per_cpu(processed_stolen_time, cpu) += NS_PER_TICK * stolen;
-+		per_cpu(processed_blocked_time, cpu) += NS_PER_TICK * blocked;
-+	}
-+	return delta_itm;
-+}
-+
-+static int xen_do_steal_accounting(unsigned long *new_itm)
-+{
-+	unsigned long delta_itm;
-+	delta_itm = consider_steal_time(*new_itm);
-+	*new_itm += delta_itm;
-+	if (time_after(*new_itm, ia64_get_itc()) && delta_itm)
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static void xen_itc_jitter_data_reset(void)
-+{
-+	u64 lcycle, ret;
-+
-+	do {
-+		lcycle = itc_jitter_data.itc_lastcycle;
-+		ret = cmpxchg(&itc_jitter_data.itc_lastcycle, lcycle, 0);
-+	} while (unlikely(ret != lcycle));
-+}
-+
-+struct pv_time_ops xen_time_ops __initdata = {
-+	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
-+	.do_steal_accounting		= xen_do_steal_accounting,
-+	.clocksource_resume		= xen_itc_jitter_data_reset,
-+};
-diff --git a/arch/ia64/xen/time.h b/arch/ia64/xen/time.h
-new file mode 100644
-index 0000000..b9c7ec5
---- /dev/null
-+++ b/arch/ia64/xen/time.h
-@@ -0,0 +1,23 @@
-+/******************************************************************************
-+ * arch/ia64/xen/time.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+extern struct pv_time_ops xen_time_ops __initdata;
+ #ifndef __ASSEMBLY__
+diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
+index 742dbb1..af56501 100644
+--- a/arch/ia64/kernel/asm-offsets.c
++++ b/arch/ia64/kernel/asm-offsets.c
+@@ -316,5 +316,7 @@ void foo(void)
+ 	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
+ 	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
+ 	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
++	DEFINE_MAPPED_REG_OFS(XSI_ITC_OFFSET_OFS, itc_offset);
++	DEFINE_MAPPED_REG_OFS(XSI_ITC_LAST_OFS, itc_last);
+ #endif /* CONFIG_XEN */
+ }
 diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 4fe4e62..04cd123 100644
+index 17eed4f..2515d8f 100644
 --- a/arch/ia64/xen/xen_pv_ops.c
 +++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -30,6 +30,7 @@
- #include <asm/xen/privop.h>
+@@ -183,6 +183,75 @@ struct pv_fsys_data xen_fsys_data __initdata = {
+  * intrinsics hooks.
+  */
  
- #include "irq_xen.h"
-+#include "time.h"
- 
- /***************************************************************************
-  * general info
-@@ -357,6 +358,7 @@ xen_setup_pv_ops(void)
- 	pv_cpu_ops = xen_cpu_ops;
- 	pv_iosapic_ops = xen_iosapic_ops;
- 	pv_irq_ops = xen_irq_ops;
-+	pv_time_ops = xen_time_ops;
- 
- 	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
- }
++static void
++xen_set_itm_with_offset(unsigned long val)
++{
++	/* ia64_cpu_local_tick() calls this with interrupt enabled. */
++	/* WARN_ON(!irqs_disabled()); */
++	xen_set_itm(val - XEN_MAPPEDREGS->itc_offset);
++}
++
++static unsigned long
++xen_get_itm_with_offset(void)
++{
++	/* unused at this moment */
++	printk(KERN_DEBUG "%s is called.\n", __func__);
++
++	WARN_ON(!irqs_disabled());
++	return ia64_native_getreg(_IA64_REG_CR_ITM) +
++		XEN_MAPPEDREGS->itc_offset;
++}
++
++/* ia64_set_itc() is only called by
++ * cpu_init() with ia64_set_itc(0) and ia64_sync_itc().
++ * So XEN_MAPPEDRESG->itc_offset cal be considered as almost constant.
++ */
++static void
++xen_set_itc(unsigned long val)
++{
++	unsigned long mitc;
++
++	WARN_ON(!irqs_disabled());
++	mitc = ia64_native_getreg(_IA64_REG_AR_ITC);
++	XEN_MAPPEDREGS->itc_offset = val - mitc;
++	XEN_MAPPEDREGS->itc_last = val;
++}
++
++static unsigned long
++xen_get_itc(void)
++{
++	unsigned long res;
++	unsigned long itc_offset;
++	unsigned long itc_last;
++	unsigned long ret_itc_last;
++
++	itc_offset = XEN_MAPPEDREGS->itc_offset;
++	do {
++		itc_last = XEN_MAPPEDREGS->itc_last;
++		res = ia64_native_getreg(_IA64_REG_AR_ITC);
++		res += itc_offset;
++		if (itc_last >= res)
++			res = itc_last + 1;
++		ret_itc_last = cmpxchg(&XEN_MAPPEDREGS->itc_last,
++				       itc_last, res);
++	} while (unlikely(ret_itc_last != itc_last));
++	return res;
++
++#if 0
++	/* ia64_itc_udelay() calls ia64_get_itc() with interrupt enabled.
++	   Should it be paravirtualized instead? */
++	WARN_ON(!irqs_disabled());
++	itc_offset = XEN_MAPPEDREGS->itc_offset;
++	itc_last = XEN_MAPPEDREGS->itc_last;
++	res = ia64_native_getreg(_IA64_REG_AR_ITC);
++	res += itc_offset;
++	if (itc_last >= res)
++		res = itc_last + 1;
++	XEN_MAPPEDREGS->itc_last = res;
++	return res;
++#endif
++}
++
+ static void xen_setreg(int regnum, unsigned long val)
+ {
+ 	switch (regnum) {
+@@ -194,11 +263,14 @@ static void xen_setreg(int regnum, unsigned long val)
+ 		xen_set_eflag(val);
+ 		break;
+ #endif
++	case _IA64_REG_AR_ITC:
++		xen_set_itc(val);
++		break;
+ 	case _IA64_REG_CR_TPR:
+ 		xen_set_tpr(val);
+ 		break;
+ 	case _IA64_REG_CR_ITM:
+-		xen_set_itm(val);
++		xen_set_itm_with_offset(val);
+ 		break;
+ 	case _IA64_REG_CR_EOI:
+ 		xen_eoi(val);
+@@ -222,6 +294,12 @@ static unsigned long xen_getreg(int regnum)
+ 		res = xen_get_eflag();
+ 		break;
+ #endif
++	case _IA64_REG_AR_ITC:
++		res = xen_get_itc();
++		break;
++	case _IA64_REG_CR_ITM:
++		res = xen_get_itm_with_offset();
++		break;
+ 	case _IA64_REG_CR_IVR:
+ 		res = xen_get_ivr();
+ 		break;
 -- 
 1.6.0.2
 
