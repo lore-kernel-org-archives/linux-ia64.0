@@ -1,49 +1,52 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 20 Oct 2008 17:03:28 +0000
-Subject: [PATCH 09/35] cpumask: add cpumask_copy()
-Message-Id: <20081020170320.850964000@polaris-admin.engr.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Mon, 20 Oct 2008 03:55:06 +0000
+Subject: [PATCH 04/13] ia64/pv_ops/pvchecker: support mov = ar.itc paravirtualization
+Message-Id: <1224474915-17171-5-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
+References: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
-Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com, linux-ia64@vger.kernel.org
+Cc: yamahata@valinux.co.jp, xen-ia64-devel@lists.xensource.com, mingo@elte.hu, virtualization@lists.linux-foundation.org
 
-Since cpumasks are to become pointers to undefined structs, we need to
-replace assignments.  Also, dynamically allocated ones will eventually
-be nr_cpu_ids bits (<= NR_CPUS), so assignment is a definite no-no.
+add suport for mov = ar.itc to pvchecker.
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Signed-off-by: Mike Travis <travis@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- include/linux/cpumask.h |    8 ++++++++
- 1 file changed, 8 insertions(+)
+ arch/ia64/include/asm/native/pvchk_inst.h |    5 +++++
+ arch/ia64/scripts/pvcheck.sed             |    1 +
+ 2 files changed, 6 insertions(+), 0 deletions(-)
 
---- linux-2.6.28.orig/include/linux/cpumask.h
-+++ linux-2.6.28/include/linux/cpumask.h
-@@ -64,6 +64,8 @@
-  * int next_cpu(cpu, mask)		Next cpu past 'cpu', or NR_CPUS
-  * int next_cpu_nr(cpu, mask)		Next cpu past 'cpu', or nr_cpu_ids
-  *
-+ * void cpumask_copy(dmask, smask)	dmask = smask
-+ *
-  * size_t cpumask_size()		Length of cpumask in bytes.
-  * cpumask_t cpumask_of_cpu(cpu)	Return cpumask with bit 'cpu' set
-  *					(can be used as an lvalue)
-@@ -351,6 +353,12 @@ static inline void cpumask_fold(struct c
- 	bitmap_fold(dstp->bits, origp->bits, sz, NR_CPUS);
- }
- 
-+static inline void cpumask_copy(struct cpumask *dstp,
-+				const struct cpumask *srcp)
-+{
-+	bitmap_copy(cpumask_bits(dstp), cpumask_bits(srcp), NR_CPUS);
-+}
-+
- /*
-  * Special-case data structure for "single bit set only" constant CPU masks.
-  *
-
+diff --git a/arch/ia64/include/asm/native/pvchk_inst.h b/arch/ia64/include/asm/native/pvchk_inst.h
+index b8e6eb1..13b289e 100644
+--- a/arch/ia64/include/asm/native/pvchk_inst.h
++++ b/arch/ia64/include/asm/native/pvchk_inst.h
+@@ -180,6 +180,11 @@
+ 	IS_PRED_IN(pred)			\
+ 	IS_RREG_OUT(reg)			\
+ 	IS_RREG_CLOB(clob)
++#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
++	IS_PRED_IN(pred)				\
++	IS_PRED_CLOB(pred_clob)				\
++	IS_RREG_OUT(reg)				\
++	IS_RREG_CLOB(clob)
+ #define MOV_TO_IFA(reg, clob)			\
+ 	IS_RREG_IN(reg)				\
+ 	IS_RREG_CLOB(clob)
+diff --git a/arch/ia64/scripts/pvcheck.sed b/arch/ia64/scripts/pvcheck.sed
+index ba66ac2..e59809a 100644
+--- a/arch/ia64/scripts/pvcheck.sed
++++ b/arch/ia64/scripts/pvcheck.sed
+@@ -17,6 +17,7 @@ s/mov.*=.*cr\.iip/.warning \"cr.iip should not used directly\"/g
+ s/mov.*=.*cr\.ivr/.warning \"cr.ivr should not used directly\"/g
+ s/mov.*=[^\.]*psr/.warning \"psr should not used directly\"/g	# avoid ar.fpsr
+ s/mov.*=.*ar\.eflags/.warning \"ar.eflags should not used directly\"/g
++s/mov.*=.*ar\.itc.*/.warning \"ar.itc should not used directly\"/g
+ s/mov.*cr\.ifa.*=.*/.warning \"cr.ifa should not used directly\"/g
+ s/mov.*cr\.itir.*=.*/.warning \"cr.itir should not used directly\"/g
+ s/mov.*cr\.iha.*=.*/.warning \"cr.iha should not used directly\"/g
 -- 
+1.6.0.2
+
