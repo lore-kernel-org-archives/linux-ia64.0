@@ -1,83 +1,51 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 20 Oct 2008 03:55:05 +0000
-Subject: [PATCH 03/13] ia64/pv_ops: paravirtualize fsys.S.
-Message-Id: <1224474915-17171-4-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:21 +0000
+Subject: [PATCH 02/35] cpumask: remove min from first_cpu/next_cpu
+Message-Id: <20081020170319.867619000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-paravirtualize fsys.S.
+Seems like this has been here forever, but I can't see why:
+find_first_bit and find_next_bit both return >= NR_CPUS on failure.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/kernel/fsys.S |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ lib/cpumask.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
-index 788319f..3544d75 100644
---- a/arch/ia64/kernel/fsys.S
-+++ b/arch/ia64/kernel/fsys.S
-@@ -419,7 +419,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
- 	mov r17=(1 << (SIGKILL - 1)) | (1 << (SIGSTOP - 1))
- 	;;
+--- linux-2.6.28.orig/lib/cpumask.c
++++ linux-2.6.28/lib/cpumask.c
+@@ -5,21 +5,20 @@
  
--	rsm psr.i				// mask interrupt delivery
-+	RSM_PSR_I(p0, r18, r19)			// mask interrupt delivery
- 	mov ar.ccv=0
- 	andcm r14=r14,r17			// filter out SIGKILL & SIGSTOP
+ int __first_cpu(const cpumask_t *srcp)
+ {
+-	return min_t(int, NR_CPUS, find_first_bit(srcp->bits, NR_CPUS));
++	return find_first_bit(srcp->bits, NR_CPUS);
+ }
+ EXPORT_SYMBOL(__first_cpu);
  
-@@ -492,7 +492,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
- #ifdef CONFIG_SMP
- 	st4.rel [r31]=r0			// release the lock
+ int __next_cpu(int n, const cpumask_t *srcp)
+ {
+-	return min_t(int, NR_CPUS, find_next_bit(srcp->bits, NR_CPUS, n+1));
++	return find_next_bit(srcp->bits, NR_CPUS, n+1);
+ }
+ EXPORT_SYMBOL(__next_cpu);
+ 
+ #if NR_CPUS > 64
+ int __next_cpu_nr(int n, const cpumask_t *srcp)
+ {
+-	return min_t(int, nr_cpu_ids,
+-				find_next_bit(srcp->bits, nr_cpu_ids, n+1));
++	return find_next_bit(srcp->bits, nr_cpu_ids, n+1);
+ }
+ EXPORT_SYMBOL(__next_cpu_nr);
  #endif
--	ssm psr.i
-+	SSM_PSR_I(p0, p9, r31)
- 	;;
- 
- 	srlz.d					// ensure psr.i is set again
-@@ -514,7 +514,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
- #ifdef CONFIG_SMP
- 	st4.rel [r31]=r0			// release the lock
- #endif
--	ssm psr.i
-+	SSM_PSR_I(p0, p9, r17)
- 	;;
- 	srlz.d
- 	br.sptk.many fsys_fallback_syscall	// with signal pending, do the heavy-weight syscall
-@@ -522,7 +522,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
- #ifdef CONFIG_SMP
- .lock_contention:
- 	/* Rather than spinning here, fall back on doing a heavy-weight syscall.  */
--	ssm psr.i
-+	SSM_PSR_I(p0, p9, r17)
- 	;;
- 	srlz.d
- 	br.sptk.many fsys_fallback_syscall
-@@ -593,11 +593,11 @@ ENTRY(fsys_fallback_syscall)
- 	adds r17=-1024,r15
- 	movl r14=sys_call_table
- 	;;
--	rsm psr.i
-+	RSM_PSR_I(p0, r26, r27)
- 	shladd r18=r17,3,r14
- 	;;
- 	ld8 r18=[r18]				// load normal (heavy-weight) syscall entry-point
--	mov r29=psr				// read psr (12 cyc load latency)
-+	MOV_FROM_PSR(p0, r29, r26)		// read psr (12 cyc load latency)
- 	mov r27=ar.rsc
- 	mov r21=ar.fpsr
- 	mov r26=ar.pfs
-@@ -735,7 +735,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
- 	mov rp=r14				// I0   set the real return addr
- 	and r3=_TIF_SYSCALL_TRACEAUDIT,r3	// A
- 	;;
--	ssm psr.i				// M2   we're on kernel stacks now, reenable irqs
-+	SSM_PSR_I(p0, p6, r22)			// M2   we're on kernel stacks now, reenable irqs
- 	cmp.eq p8,p0=r3,r0			// A
- (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-frame or r15 is a NaT
- 
+
 -- 
-1.6.0.2
-
