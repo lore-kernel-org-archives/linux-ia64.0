@@ -1,94 +1,63 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 20 Oct 2008 03:55:04 +0000
-Subject: [PATCH 02/13] ia64/pv_ops/xen: preliminary to paravirtualizing fsys.S for xen.
-Message-Id: <1224474915-17171-3-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 20 Oct 2008 03:55:02 +0000
+Subject: [PATCH 00/13] ia64/pv_ops, xen: more paravirtualization.
+Message-Id: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, linux-ia64@vger.kernel.org
-Cc: yamahata@valinux.co.jp, xen-ia64-devel@lists.xensource.com, mingo@elte.hu, virtualization@lists.linux-foundation.org
+To: linux-ia64@vger.kernel.org
 
-This is a preliminary patch to paravirtualizing fsys.S.
-compile fsys.S twice one for native and one for xen, and switch
-them at run tine.
-Later fsys.S will be paravirtualized.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/xen/inst.h |    3 +++
- arch/ia64/xen/Makefile           |    2 +-
- arch/ia64/xen/xen_pv_ops.c       |   14 ++++++++++++++
- 3 files changed, 18 insertions(+), 1 deletions(-)
+This patchset is for more paravirtualization on ia64/pv_ops.
+- paravirtualize fsys call (fsys.S) by multi compile
+- paravirtualize gate page (gate.S) by multi compile
+- support save/restore
+  For this purpose, the followings needs to be paravirtualized
+  - ar.itc instruction 
+  - sched_clock()
+  This is because timer may changed before/after saving/restoring.
 
-diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
-index 19c2ae1..e8e01b2 100644
---- a/arch/ia64/include/asm/xen/inst.h
-+++ b/arch/ia64/include/asm/xen/inst.h
-@@ -33,6 +33,9 @@
- #define __paravirt_work_processed_syscall_target \
- 						xen_work_processed_syscall
- 
-+#define paravirt_fsyscall_table			xen_fsyscall_table
-+#define paravirt_fsys_bubble_down		xen_fsys_bubble_down
-+
- #define MOV_FROM_IFA(reg)	\
- 	movl reg = XSI_IFA;	\
- 	;;			\
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 0ad0224..b4ca2e6 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -10,7 +10,7 @@ obj-$(CONFIG_IA64_GENERIC) += machvec.o
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
- 
- # xen multi compile
--ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S fsys.S
- ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
- obj-y += $(ASM_PARAVIRT_OBJS)
- define paravirtualized_xen
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 04cd123..17eed4f 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -24,6 +24,7 @@
- #include <linux/irq.h>
- #include <linux/kernel.h>
- #include <linux/pm.h>
-+#include <linux/unistd.h>
- 
- #include <asm/xen/hypervisor.h>
- #include <asm/xen/xencomm.h>
-@@ -166,6 +167,18 @@ static const struct pv_init_ops xen_init_ops __initdata = {
- };
- 
- /***************************************************************************
-+ * pv_fsys_data
-+ * addresses for fsys
-+ */
-+
-+extern unsigned long xen_fsyscall_table[NR_syscalls];
-+extern char xen_fsys_bubble_down[];
-+struct pv_fsys_data xen_fsys_data __initdata = {
-+	.fsyscall_table = (unsigned long *)xen_fsyscall_table,
-+	.fsys_bubble_down = (void *)xen_fsys_bubble_down,
-+};
-+
-+/***************************************************************************
-  * pv_cpu_ops
-  * intrinsics hooks.
-  */
-@@ -355,6 +368,7 @@ xen_setup_pv_ops(void)
- 	xen_info_init();
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
-+	pv_fsys_data = xen_fsys_data;
- 	pv_cpu_ops = xen_cpu_ops;
- 	pv_iosapic_ops = xen_iosapic_ops;
- 	pv_irq_ops = xen_irq_ops;
--- 
-1.6.0.2
+For convenience the working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
+branch: ia64-pv-ops-2008oct20-xen-ia64-optimized-domu
 
+For the status of this patch series
+http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
+
+thanks,
+
+Diffstat:
+ arch/ia64/include/asm/native/inst.h       |   13 ++
+ arch/ia64/include/asm/native/patchlist.h  |   38 ++++++
+ arch/ia64/include/asm/native/pvchk_inst.h |    8 +
+ arch/ia64/include/asm/paravirt.h          |   57 +++++++++
+ arch/ia64/include/asm/timex.h             |    1 
+ arch/ia64/include/asm/xen/inst.h          |   28 ++++
+ arch/ia64/include/asm/xen/interface.h     |    9 +
+ arch/ia64/include/asm/xen/minstate.h      |   11 +
+ arch/ia64/include/asm/xen/patchlist.h     |   38 ++++++
+ arch/ia64/include/asm/xen/privop.h        |    2 
+ arch/ia64/kernel/Makefile                 |   36 +-----
+ arch/ia64/kernel/Makefile.gate            |   27 ++++
+ arch/ia64/kernel/asm-offsets.c            |    2 
+ arch/ia64/kernel/entry.S                  |    4 
+ arch/ia64/kernel/fsys.S                   |   35 +++--
+ arch/ia64/kernel/gate.S                   |  179 +++++++++++++++---------------
+ arch/ia64/kernel/gate.lds.S               |   17 +-
+ arch/ia64/kernel/head.S                   |    4 
+ arch/ia64/kernel/ivt.S                    |    2 
+ arch/ia64/kernel/paravirt.c               |    1 
+ arch/ia64/kernel/paravirt_patchlist.c     |   78 +++++++++++++
+ arch/ia64/kernel/paravirt_patchlist.h     |   28 ++++
+ arch/ia64/kernel/patch.c                  |   38 ++++--
+ arch/ia64/kernel/time.c                   |   12 ++
+ arch/ia64/kernel/vmlinux.lds.S            |    6 +
+ arch/ia64/mm/init.c                       |    8 -
+ arch/ia64/scripts/pvcheck.sed             |    1 
+ arch/ia64/xen/Kconfig                     |    1 
+ arch/ia64/xen/Makefile                    |   19 ++-
+ arch/ia64/xen/gate-data.S                 |    3 
+ arch/ia64/xen/time.c                      |   48 ++++++++
+ arch/ia64/xen/xen_pv_ops.c                |  126 ++++++++++++++++++++-
+ 32 files changed, 720 insertions(+), 160 deletions(-)
