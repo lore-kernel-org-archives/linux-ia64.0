@@ -1,88 +1,43 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:38 +0000
-Subject: [PATCH 23/32] ia64/pv_ops/xen: paravirtualize entry.S for ia64/xen.
-Message-Id: <1223963507-28056-24-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:27 +0000
+Subject: [PATCH 08/35] cpumask: cpumask_size()
+Message-Id: <20081020170320.713010000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-paravirtualize entry.S for ia64/xen by multi compile.
+Dynamic allocation of cpumasks requires the size.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/include/asm/xen/inst.h |    8 ++++++++
- arch/ia64/xen/Makefile           |    2 +-
- arch/ia64/xen/xen_pv_ops.c       |   18 ++++++++++++++++++
- 3 files changed, 27 insertions(+), 1 deletions(-)
+ include/linux/cpumask.h |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
-index e6a25c3..19c2ae1 100644
---- a/arch/ia64/include/asm/xen/inst.h
-+++ b/arch/ia64/include/asm/xen/inst.h
-@@ -25,6 +25,14 @@
- #define ia64_ivt				xen_ivt
- #define DO_SAVE_MIN				XEN_DO_SAVE_MIN
- 
-+#define __paravirt_switch_to			xen_switch_to
-+#define __paravirt_leave_syscall		xen_leave_syscall
-+#define __paravirt_work_processed_syscall	xen_work_processed_syscall
-+#define __paravirt_leave_kernel			xen_leave_kernel
-+#define __paravirt_pending_syscall_end		xen_work_pending_syscall_end
-+#define __paravirt_work_processed_syscall_target \
-+						xen_work_processed_syscall
-+
- #define MOV_FROM_IFA(reg)	\
- 	movl reg = XSI_IFA;	\
- 	;;			\
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index 5c87e4a..9b77e8a 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -8,7 +8,7 @@ obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o \
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
- 
- # xen multi compile
--ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S
-+ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
- ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
- obj-y += $(ASM_PARAVIRT_OBJS)
- define paravirtualized_xen
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index c236f04..5b23cd5 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -275,6 +275,22 @@ static const struct pv_cpu_ops xen_cpu_ops __initdata = {
- 			= xen_intrin_local_irq_restore,
+--- test-compile.orig/include/linux/cpumask.h
++++ test-compile/include/linux/cpumask.h
+@@ -64,6 +64,7 @@
+  * int next_cpu(cpu, mask)		Next cpu past 'cpu', or NR_CPUS
+  * int next_cpu_nr(cpu, mask)		Next cpu past 'cpu', or nr_cpu_ids
+  *
++ * size_t cpumask_size()		Length of cpumask in bytes.
+  * cpumask_t cpumask_of_cpu(cpu)	Return cpumask with bit 'cpu' set
+  *					(can be used as an lvalue)
+  * CPU_MASK_ALL				Initializer - all bits set
+@@ -148,6 +149,11 @@ struct cpumask
  };
+ #define cpumask_bits(maskp) ((maskp)->bits)
  
-+/******************************************************************************
-+ * replacement of hand written assembly codes.
-+ */
++static inline ssize_t cpumask_size(void)
++{
++	return BITS_TO_LONGS(NR_CPUS) * sizeof(long);
++}
 +
-+extern char xen_switch_to;
-+extern char xen_leave_syscall;
-+extern char xen_work_processed_syscall;
-+extern char xen_leave_kernel;
-+
-+const struct pv_cpu_asm_switch xen_cpu_asm_switch = {
-+	.switch_to		= (unsigned long)&xen_switch_to,
-+	.leave_syscall		= (unsigned long)&xen_leave_syscall,
-+	.work_processed_syscall	= (unsigned long)&xen_work_processed_syscall,
-+	.leave_kernel		= (unsigned long)&xen_leave_kernel,
-+};
-+
- /***************************************************************************
-  * pv_ops initialization
-  */
-@@ -286,4 +302,6 @@ xen_setup_pv_ops(void)
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
- 	pv_cpu_ops = xen_cpu_ops;
-+
-+	paravirt_cpu_asm_init(&xen_cpu_asm_switch);
- }
--- 
-1.6.0.2
+ /* Deprecated. */
+ typedef struct cpumask cpumask_t;
+ extern cpumask_t _unused_cpumask_arg_;
 
+-- 
