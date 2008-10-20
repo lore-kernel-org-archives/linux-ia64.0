@@ -1,294 +1,281 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:59 +0000
-Subject: [PATCH 19/33] ia64/pv_ops/xen: define xen pv_init_ops for various xen initialization.
-Message-Id: <1224209893-2032-20-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:38 +0000
+Subject: [PATCH 19/35] cpumask: use cpumask_bits() everywhere.
+Message-Id: <20081020170322.226973000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-This patch implements xen version of pv_init_ops to do various
-xen initialization.
-This patch also includes ia64 counter part of x86 xen early printk support
-patches.
+Instead of accessing ->bits, we use cpumask_bits().  This will be very
+useful when 'struct cpumask' has a hidden definition.
 
-Signed-off-by: Akio Takebe <takebe_akio@jp.fujitsu.com>
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: Mike Travis <travis@sgi.com>
 ---
- arch/ia64/include/asm/xen/hypervisor.h |   14 ++++
- arch/ia64/xen/Makefile                 |    2 +-
- arch/ia64/xen/hypervisor.c             |   96 ++++++++++++++++++++++++++++
- arch/ia64/xen/xen_pv_ops.c             |  110 ++++++++++++++++++++++++++++++++
- 4 files changed, 221 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/hypervisor.c
+ include/linux/cpumask.h  |   70 ++++++++++++++++++++++++++++-------------------
+ include/linux/seq_file.h |    2 -
+ kernel/time/timer_list.c |    4 +-
+ lib/cpumask.c            |    4 +-
+ 4 files changed, 47 insertions(+), 33 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
-index d1f84e1..7a804e8 100644
---- a/arch/ia64/include/asm/xen/hypervisor.h
-+++ b/arch/ia64/include/asm/xen/hypervisor.h
-@@ -59,8 +59,22 @@ extern enum xen_domain_type xen_domain_type;
- /* deprecated. remove this */
- #define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
+--- linux-2.6.28.orig/include/linux/cpumask.h
++++ linux-2.6.28/include/linux/cpumask.h
+@@ -191,12 +191,12 @@ extern int nr_cpu_ids;
  
-+extern struct shared_info *HYPERVISOR_shared_info;
- extern struct start_info *xen_start_info;
- 
-+void __init xen_setup_vcpu_info_placement(void);
-+void force_evtchn_callback(void);
-+
-+/* for drivers/xen/balloon/balloon.c */
-+#ifdef CONFIG_XEN_SCRUB_PAGES
-+#define scrub_pages(_p, _n) memset((void *)(_p), 0, (_n) << PAGE_SHIFT)
-+#else
-+#define scrub_pages(_p, _n) ((void)0)
-+#endif
-+
-+/* For setup_arch() in arch/ia64/kernel/setup.c */
-+void xen_ia64_enable_opt_feature(void);
-+
- #else /* CONFIG_XEN */
- 
- #define xen_domain()		(0)
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index abc356f..7cb4247 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -3,4 +3,4 @@
- #
- 
- obj-y := hypercall.o xensetup.o xen_pv_ops.o \
--	xencomm.o xcom_hcall.o grant-table.o
-+	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/hypervisor.c b/arch/ia64/xen/hypervisor.c
-new file mode 100644
-index 0000000..cac4d97
---- /dev/null
-+++ b/arch/ia64/xen/hypervisor.c
-@@ -0,0 +1,96 @@
-+/******************************************************************************
-+ * arch/ia64/xen/hypervisor.c
-+ *
-+ * Copyright (c) 2006 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#include <linux/efi.h>
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/privop.h>
-+
-+#include "irq_xen.h"
-+
-+struct shared_info *HYPERVISOR_shared_info __read_mostly +	(struct shared_info *)XSI_BASE;
-+EXPORT_SYMBOL(HYPERVISOR_shared_info);
-+
-+DEFINE_PER_CPU(struct vcpu_info *, xen_vcpu);
-+
-+struct start_info *xen_start_info;
-+EXPORT_SYMBOL(xen_start_info);
-+
-+EXPORT_SYMBOL(xen_domain_type);
-+
-+EXPORT_SYMBOL(__hypercall);
-+
-+/* Stolen from arch/x86/xen/enlighten.c */
-+/*
-+ * Flag to determine whether vcpu info placement is available on all
-+ * VCPUs.  We assume it is to start with, and then set it to zero on
-+ * the first failure.  This is because it can succeed on some VCPUs
-+ * and not others, since it can involve hypervisor memory allocation,
-+ * or because the guest failed to guarantee all the appropriate
-+ * constraints on all VCPUs (ie buffer can't cross a page boundary).
-+ *
-+ * Note that any particular CPU may be using a placed vcpu structure,
-+ * but we can only optimise if the all are.
-+ *
-+ * 0: not available, 1: available
-+ */
-+
-+static void __init xen_vcpu_setup(int cpu)
-+{
-+	/*
-+	 * WARNING:
-+	 * before changing MAX_VIRT_CPUS,
-+	 * check that shared_info fits on a page
-+	 */
-+	BUILD_BUG_ON(sizeof(struct shared_info) > PAGE_SIZE);
-+	per_cpu(xen_vcpu, cpu) = &HYPERVISOR_shared_info->vcpu_info[cpu];
-+}
-+
-+void __init xen_setup_vcpu_info_placement(void)
-+{
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu)
-+		xen_vcpu_setup(cpu);
-+}
-+
-+void __cpuinit
-+xen_cpu_init(void)
-+{
-+	xen_smp_intr_init();
-+}
-+
-+/**************************************************************************
-+ * opt feature
-+ */
-+void
-+xen_ia64_enable_opt_feature(void)
-+{
-+	/* Enable region 7 identity map optimizations in Xen */
-+	struct xen_ia64_opt_feature optf;
-+
-+	optf.cmd = XEN_IA64_OPTF_IDENT_MAP_REG7;
-+	optf.on = XEN_IA64_OPTF_ON;
-+	optf.pgprot = pgprot_val(PAGE_KERNEL);
-+	optf.key = 0;	/* No key on linux. */
-+	HYPERVISOR_opt_feature(&optf);
-+}
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index 77db214..fc9d599 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -54,6 +54,115 @@ xen_info_init(void)
- }
- 
- /***************************************************************************
-+ * pv_init_ops
-+ * initialization hooks.
-+ */
-+
-+static void
-+xen_panic_hypercall(struct unw_frame_info *info, void *arg)
-+{
-+	current->thread.ksp = (__u64)info->sw - 16;
-+	HYPERVISOR_shutdown(SHUTDOWN_crash);
-+	/* we're never actually going to get here... */
-+}
-+
-+static int
-+xen_panic_event(struct notifier_block *this, unsigned long event, void *ptr)
-+{
-+	unw_init_running(xen_panic_hypercall, NULL);
-+	/* we're never actually going to get here... */
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block xen_panic_block = {
-+	xen_panic_event, NULL, 0 /* try to go last */
-+};
-+
-+static void xen_pm_power_off(void)
-+{
-+	local_irq_disable();
-+	HYPERVISOR_shutdown(SHUTDOWN_poweroff);
-+}
-+
-+static void __init
-+xen_banner(void)
-+{
-+	printk(KERN_INFO
-+	       "Running on Xen! pl = %d start_info_pfn=0x%lx nr_pages=%ld "
-+	       "flags=0x%x\n",
-+	       xen_info.kernel_rpl,
-+	       HYPERVISOR_shared_info->arch.start_info_pfn,
-+	       xen_start_info->nr_pages, xen_start_info->flags);
-+}
-+
-+static int __init
-+xen_reserve_memory(struct rsvd_region *region)
-+{
-+	region->start = (unsigned long)__va(
-+		(HYPERVISOR_shared_info->arch.start_info_pfn << PAGE_SHIFT));
-+	region->end   = region->start + PAGE_SIZE;
-+	return 1;
-+}
-+
-+static void __init
-+xen_arch_setup_early(void)
-+{
-+	struct shared_info *s;
-+	BUG_ON(!xen_pv_domain());
-+
-+	s = HYPERVISOR_shared_info;
-+	xen_start_info = __va(s->arch.start_info_pfn << PAGE_SHIFT);
-+
-+	/* Must be done before any hypercall.  */
-+	xencomm_initialize();
-+
-+	xen_setup_features();
-+	/* Register a call for panic conditions. */
-+	atomic_notifier_chain_register(&panic_notifier_list,
-+				       &xen_panic_block);
-+	pm_power_off = xen_pm_power_off;
-+
-+	xen_ia64_enable_opt_feature();
-+}
-+
-+static void __init
-+xen_arch_setup_console(char **cmdline_p)
-+{
-+	add_preferred_console("xenboot", 0, NULL);
-+	add_preferred_console("tty", 0, NULL);
-+	/* use hvc_xen */
-+	add_preferred_console("hvc", 0, NULL);
-+
-+#if !defined(CONFIG_VT) || !defined(CONFIG_DUMMY_CONSOLE)
-+	conswitchp = NULL;
-+#endif
-+}
-+
-+static int __init
-+xen_arch_setup_nomca(void)
-+{
-+	return 1;
-+}
-+
-+static void __init
-+xen_post_smp_prepare_boot_cpu(void)
-+{
-+	xen_setup_vcpu_info_placement();
-+}
-+
-+static const struct pv_init_ops xen_init_ops __initdata = {
-+	.banner = xen_banner,
-+
-+	.reserve_memory = xen_reserve_memory,
-+
-+	.arch_setup_early = xen_arch_setup_early,
-+	.arch_setup_console = xen_arch_setup_console,
-+	.arch_setup_nomca = xen_arch_setup_nomca,
-+
-+	.post_smp_prepare_boot_cpu = xen_post_smp_prepare_boot_cpu,
-+};
-+
-+/***************************************************************************
-  * pv_ops initialization
-  */
- 
-@@ -62,4 +171,5 @@ xen_setup_pv_ops(void)
+ static inline void cpumask_set_cpu(int cpu, volatile struct cpumask *dstp)
  {
- 	xen_info_init();
- 	pv_info = xen_info;
-+	pv_init_ops = xen_init_ops;
+-	set_bit(cpu, dstp->bits);
++	set_bit(cpu, cpumask_bits(dstp));
  }
--- 
-1.6.0.2
+ 
+ static inline void cpumask_clear_cpu(int cpu, volatile struct cpumask *dstp)
+ {
+-	clear_bit(cpu, dstp->bits);
++	clear_bit(cpu, cpumask_bits(dstp));
+ }
+ 
+ /* No static inline type checking - see Subtlety (1) above. */
+@@ -204,130 +204,142 @@ static inline void cpumask_clear_cpu(int
+ 
+ static inline int cpumask_test_and_set_cpu(int cpu, struct cpumask *addr)
+ {
+-	return test_and_set_bit(cpu, addr->bits);
++	return test_and_set_bit(cpu, cpumask_bits(addr));
+ }
+ 
+ static inline void cpumask_setall(struct cpumask *dstp)
+ {
+-	bitmap_fill(dstp->bits, nr_cpumask_bits);
++	bitmap_fill(cpumask_bits(dstp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_clear(struct cpumask *dstp)
+ {
+-	bitmap_zero(dstp->bits, nr_cpumask_bits);
++	bitmap_zero(cpumask_bits(dstp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_and(struct cpumask *dstp,
+ 			       const struct cpumask *src1p,
+ 			       const struct cpumask *src2p)
+ {
+-	bitmap_and(dstp->bits, src1p->bits, src2p->bits, nr_cpumask_bits);
++	bitmap_and(cpumask_bits(dstp), cpumask_bits(src1p),
++				       cpumask_bits(src2p), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_or(struct cpumask *dstp, const struct cpumask *src1p,
+ 			      const struct cpumask *src2p)
+ {
+-	bitmap_or(dstp->bits, src1p->bits, src2p->bits, nr_cpumask_bits);
++	bitmap_or(cpumask_bits(dstp), cpumask_bits(src1p),
++				      cpumask_bits(src2p), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_xor(struct cpumask *dstp,
+ 			       const struct cpumask *src1p,
+ 			       const struct cpumask *src2p)
+ {
+-	bitmap_xor(dstp->bits, src1p->bits, src2p->bits, nr_cpumask_bits);
++	bitmap_xor(cpumask_bits(dstp), cpumask_bits(src1p),
++				       cpumask_bits(src2p), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_andnot(struct cpumask *dstp,
+ 				  const struct cpumask *src1p,
+ 				  const struct cpumask *src2p)
+ {
+-	bitmap_andnot(dstp->bits, src1p->bits, src2p->bits, nr_cpumask_bits);
++	bitmap_andnot(cpumask_bits(dstp), cpumask_bits(src1p),
++					  cpumask_bits(src2p), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_complement(struct cpumask *dstp,
+ 				      const struct cpumask *srcp)
+ {
+-	bitmap_complement(dstp->bits, srcp->bits, nr_cpumask_bits);
++	bitmap_complement(cpumask_bits(dstp), cpumask_bits(srcp),
++					      nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_equal(const struct cpumask *src1p,
+ 				const struct cpumask *src2p)
+ {
+-	return bitmap_equal(src1p->bits, src2p->bits, nr_cpumask_bits);
++	return bitmap_equal(cpumask_bits(src1p), cpumask_bits(src2p),
++						 nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_intersects(const struct cpumask *src1p,
+ 				     const struct cpumask *src2p)
+ {
+-	return bitmap_intersects(src1p->bits, src2p->bits, nr_cpumask_bits);
++	return bitmap_intersects(cpumask_bits(src1p), cpumask_bits(src2p),
++						      nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_subset(const struct cpumask *src1p,
+ 				 const struct cpumask *src2p)
+ {
+-	return bitmap_subset(src1p->bits, src2p->bits, nr_cpumask_bits);
++	return bitmap_subset(cpumask_bits(src1p), cpumask_bits(src2p),
++						  nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_empty(const struct cpumask *srcp)
+ {
+-	return bitmap_empty(srcp->bits, nr_cpumask_bits);
++	return bitmap_empty(cpumask_bits(srcp), nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_full(const struct cpumask *srcp)
+ {
+-	return bitmap_full(srcp->bits, nr_cpumask_bits);
++	return bitmap_full(cpumask_bits(srcp), nr_cpumask_bits);
+ }
+ 
+ static inline int __cpus_weight(const cpumask_t *srcp, int nbits)
+ {
+-	return bitmap_weight(srcp->bits, nbits);
++	return bitmap_weight(cpumask_bits(srcp), nbits);
+ }
+ 
+ static inline int cpumask_weight(const struct cpumask *srcp)
+ {
+-	return bitmap_weight(srcp->bits, nr_cpumask_bits);
++	return bitmap_weight(cpumask_bits(srcp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_shift_right(struct cpumask *dstp,
+ 				       const struct cpumask *srcp, int n)
+ {
+-	bitmap_shift_right(dstp->bits, srcp->bits, n, nr_cpumask_bits);
++	bitmap_shift_right(cpumask_bits(dstp), cpumask_bits(srcp), n,
++					       nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_shift_left(struct cpumask *dstp,
+ 				      const struct cpumask *srcp, int n)
+ {
+-	bitmap_shift_left(dstp->bits, srcp->bits, n, nr_cpumask_bits);
++	bitmap_shift_left(cpumask_bits(dstp), cpumask_bits(srcp), n,
++					      nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_scnprintf(char *buf, int len,
+ 				    const struct cpumask *srcp)
+ {
+-	return bitmap_scnprintf(buf, len, srcp->bits, nr_cpumask_bits);
++	return bitmap_scnprintf(buf, len, cpumask_bits(srcp), nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_parse_user(const char __user *buf, int len,
+ 				     struct cpumask *dstp)
+ {
+-	return bitmap_parse_user(buf, len, dstp->bits, nr_cpumask_bits);
++	return bitmap_parse_user(buf, len, cpumask_bits(dstp), nr_cpumask_bits);
+ }
+ 
+ static inline int cpulist_scnprintf(char *buf, int len,
+ 				    const struct cpumask *srcp)
+ {
+-	return bitmap_scnlistprintf(buf, len, srcp->bits, nr_cpumask_bits);
++	return bitmap_scnlistprintf(buf, len, cpumask_bits(srcp),
++					      nr_cpumask_bits);
+ }
+ 
+ static inline int cpulist_parse(const char *buf, struct cpumask *dstp)
+ {
+-	return bitmap_parselist(buf, dstp->bits, nr_cpumask_bits);
++	return bitmap_parselist(buf, cpumask_bits(dstp), nr_cpumask_bits);
+ }
+ 
+ static inline int cpumask_cpuremap(int oldbit,
+ 				   const struct cpumask *oldp,
+ 				   const struct cpumask *newp)
+ {
+-	return bitmap_bitremap(oldbit, oldp->bits, newp->bits, nr_cpumask_bits);
++	return bitmap_bitremap(oldbit, cpumask_bits(oldp), cpumask_bits(newp),
++							   nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_remap(struct cpumask *dstp,
+@@ -335,21 +347,23 @@ static inline void cpumask_remap(struct 
+ 				 const struct cpumask *oldp,
+ 				 const struct cpumask *newp)
+ {
+-	bitmap_remap(dstp->bits, srcp->bits, oldp->bits, newp->bits,
+-		     nr_cpumask_bits);
++	bitmap_remap(cpumask_bits(dstp), cpumask_bits(srcp),
++		     cpumask_bits(oldp), cpumask_bits(newp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_onto(struct cpumask *dstp,
+ 				const struct cpumask *origp,
+ 				const struct cpumask *relmapp)
+ {
+-	bitmap_onto(dstp->bits, origp->bits, relmapp->bits, nr_cpumask_bits);
++	bitmap_onto(cpumask_bits(dstp), cpumask_bits(origp),
++					cpumask_bits(relmapp), nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_fold(struct cpumask *dstp,
+ 				const struct cpumask *origp, int sz)
+ {
+-	bitmap_fold(dstp->bits, origp->bits, sz, nr_cpumask_bits);
++	bitmap_fold(cpumask_bits(dstp), cpumask_bits(origp), sz,
++					nr_cpumask_bits);
+ }
+ 
+ static inline void cpumask_copy(struct cpumask *dstp,
+--- linux-2.6.28.orig/include/linux/seq_file.h
++++ linux-2.6.28/include/linux/seq_file.h
+@@ -52,7 +52,7 @@ int seq_path_root(struct seq_file *m, st
+ int seq_bitmap(struct seq_file *m, unsigned long *bits, unsigned int nr_bits);
+ static inline int seq_cpumask(struct seq_file *m, cpumask_t *mask)
+ {
+-	return seq_bitmap(m, mask->bits, nr_cpu_ids);
++	return seq_bitmap(m, cpumask_bits(mask), nr_cpu_ids);
+ }
+ 
+ static inline int seq_nodemask(struct seq_file *m, nodemask_t *mask)
+--- linux-2.6.28.orig/kernel/time/timer_list.c
++++ linux-2.6.28/kernel/time/timer_list.c
+@@ -226,10 +226,10 @@ static void timer_list_show_tickdevices(
+ #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
+ 	print_tickdevice(m, tick_get_broadcast_device());
+ 	SEQ_printf(m, "tick_broadcast_mask: %08lx\n",
+-		   tick_get_broadcast_mask()->bits[0]);
++		   cpumask_bits(tick_get_broadcast_mask())[0]);
+ #ifdef CONFIG_TICK_ONESHOT
+ 	SEQ_printf(m, "tick_broadcast_oneshot_mask: %08lx\n",
+-		   tick_get_broadcast_oneshot_mask()->bits[0]);
++		   cpumask_bits(tick_get_broadcast_oneshot_mask())[0]);
+ #endif
+ 	SEQ_printf(m, "\n");
+ #endif
+--- linux-2.6.28.orig/lib/cpumask.c
++++ linux-2.6.28/lib/cpumask.c
+@@ -5,13 +5,13 @@
+ 
+ int __first_cpu(const cpumask_t *srcp)
+ {
+-	return find_first_bit(srcp->bits, nr_cpumask_bits);
++	return find_first_bit(cpumask_bits(srcp), nr_cpumask_bits);
+ }
+ EXPORT_SYMBOL(__first_cpu);
+ 
+ int __next_cpu(int n, const cpumask_t *srcp)
+ {
+-	return find_next_bit(srcp->bits, nr_cpumask_bits, n+1);
++	return find_next_bit(cpumask_bits(srcp), nr_cpumask_bits, n+1);
+ }
+ EXPORT_SYMBOL(__next_cpu);
+ 
 
+-- 
