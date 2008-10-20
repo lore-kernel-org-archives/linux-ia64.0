@@ -1,223 +1,138 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:32 +0000
-Subject: [PATCH 17/32] ia64/pv_ops/xen: elf note based xen startup.
-Message-Id: <1223963507-28056-18-git-send-email-yamahata@valinux.co.jp>
+From: Mike Travis <travis@sgi.com>
+Date: Mon, 20 Oct 2008 17:03:22 +0000
+Subject: [PATCH 03/35] cpumask: add for_each_cpu_mask_and function
+Message-Id: <20081020170320.007751000@polaris-admin.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081020170319.539427000@polaris-admin.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>
+Cc: Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-This patch enables elf note based xen startup for IA-64, which gives the
-kernel an early hint for running on xen like x86 case.
-In order to avoid the multi entry point, presumably extending booting
-protocol(i.e. extending struct ia64_boot_param) would be necessary.
-It probably means that elilo also needs modification.
+Add for_each_cpu_mask_and() function to eliminate need for a common use
+of a temporary cpumask_t variable.  When the following procedure is being
+used:
 
-Signed-off-by: Qing He <qing.he@intel.com>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+    funcproto(const cpumask_t *mask, ...)
+    {
+	cpumask_t temp;
+
+	cpus_and(temp, mask, cpu_online_map);
+	for_each_cpu_mask(cpu, temp)
+		...
+It then becomes:
+
+    funcproto(cpumask_t *mask, ...)
+    {
+	for_each_cpu_mask_and(cpu, *mask, cpu_online_map)
+		...
+
+... eliminating the need for the temp cpumask.
+
+
+Applies to linux-2.6.tip/master.
+
+Signed-off-by: Mike Travis <travis@sgi.com>
+Acked-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- arch/ia64/kernel/asm-offsets.c |    4 ++
- arch/ia64/xen/Makefile         |    3 +-
- arch/ia64/xen/xen_pv_ops.c     |   65 +++++++++++++++++++++++++++++++
- arch/ia64/xen/xensetup.S       |   83 ++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 154 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/xen/xen_pv_ops.c
- create mode 100644 arch/ia64/xen/xensetup.S
+ include/linux/cpumask.h |   33 ++++++++++++++++++++++++---------
+ lib/cpumask.c           |    9 +++++++++
+ 2 files changed, 33 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index eaa988b..742dbb1 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -17,6 +17,7 @@
- #include <asm/mca.h>
+--- test-compile.orig/include/linux/cpumask.h
++++ test-compile/include/linux/cpumask.h
+@@ -109,6 +109,7 @@
+  *
+  * for_each_cpu_mask(cpu, mask)		for-loop cpu over mask using NR_CPUS
+  * for_each_cpu_mask_nr(cpu, mask)	for-loop cpu over mask using nr_cpu_ids
++ * for_each_cpu_mask_and(cpu, mask, and) for-loop cpu over (mask & and).
+  *
+  * int num_online_cpus()		Number of online CPUs
+  * int num_possible_cpus()		Number of all possible CPUs
+@@ -400,29 +401,41 @@ static inline void __cpus_fold(cpumask_t
  
- #include <asm/xen/interface.h>
-+#include <asm/xen/hypervisor.h>
+ #if NR_CPUS = 1
  
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
-@@ -292,6 +293,9 @@ void foo(void)
- #ifdef CONFIG_XEN
- 	BLANK();
+-#define nr_cpu_ids		1
+-#define first_cpu(src)		({ (void)(src); 0; })
+-#define next_cpu(n, src)	({ (void)(src); 1; })
+-#define any_online_cpu(mask)	0
+-#define for_each_cpu_mask(cpu, mask)	\
++#define nr_cpu_ids			1
++#define first_cpu(src)			({ (void)(src); 0; })
++#define next_cpu(n, src)		({ (void)(src); 1; })
++#define cpumask_next_and(n, srcp, andp)	({ (void)(srcp), (void)(andp); 1; })
++#define any_online_cpu(mask)		0
++
++#define for_each_cpu_mask(cpu, mask)		\
+ 	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask)
++#define for_each_cpu_mask_and(cpu, mask, and)	\
++	for ((cpu) = 0; (cpu) < 1; (cpu)++, (void)mask, (void)and)
  
-+	DEFINE(XEN_NATIVE_ASM, XEN_NATIVE);
-+	DEFINE(XEN_PV_DOMAIN_ASM, XEN_PV_DOMAIN);
-+
- #define DEFINE_MAPPED_REG_OFS(sym, field) \
- 	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
+ #else /* NR_CPUS > 1 */
  
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index eb59563..abc356f 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -2,4 +2,5 @@
- # Makefile for Xen components
- #
+ extern int nr_cpu_ids;
+ int __first_cpu(const cpumask_t *srcp);
+ int __next_cpu(int n, const cpumask_t *srcp);
++int cpumask_next_and(int n, const cpumask_t *srcp, const cpumask_t *andp);
+ int __any_online_cpu(const cpumask_t *mask);
  
--obj-y := hypercall.o xencomm.o xcom_hcall.o grant-table.o
-+obj-y := hypercall.o xensetup.o xen_pv_ops.o \
-+	xencomm.o xcom_hcall.o grant-table.o
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-new file mode 100644
-index 0000000..77db214
---- /dev/null
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -0,0 +1,65 @@
-+/******************************************************************************
-+ * arch/ia64/xen/xen_pv_ops.c
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
+ #define first_cpu(src)		__first_cpu(&(src))
+ #define next_cpu(n, src)	__next_cpu((n), &(src))
+ #define any_online_cpu(mask) __any_online_cpu(&(mask))
 +
-+#include <linux/console.h>
-+#include <linux/irq.h>
-+#include <linux/kernel.h>
-+#include <linux/pm.h>
+ #define for_each_cpu_mask(cpu, mask)			\
+ 	for ((cpu) = -1;				\
+ 		(cpu) = next_cpu((cpu), (mask)),	\
+-		(cpu) < NR_CPUS; )
++		(cpu) < NR_CPUS;)
++#define for_each_cpu_mask_and(cpu, mask, and)				\
++	for ((cpu) = -1;						\
++		(cpu) = cpumask_next_and((cpu), &(mask), &(and)),	\
++		(cpu) < nr_cpu_ids;)
+ #endif
+ 
++#define cpumask_first_and(mask, and) cpumask_next_and(-1, (mask), (and))
 +
-+#include <asm/xen/hypervisor.h>
-+#include <asm/xen/xencomm.h>
-+#include <asm/xen/privop.h>
+ #if NR_CPUS <= 64
+ 
+ #define next_cpu_nr(n, src)		next_cpu(n, src)
+@@ -432,12 +445,14 @@ int __any_online_cpu(const cpumask_t *ma
+ #else /* NR_CPUS > 64 */
+ 
+ int __next_cpu_nr(int n, const cpumask_t *srcp);
+-#define next_cpu_nr(n, src)	__next_cpu_nr((n), &(src))
+-#define cpus_weight_nr(cpumask)	__cpus_weight(&(cpumask), nr_cpu_ids)
 +
-+/***************************************************************************
-+ * general info
-+ */
-+static struct pv_info xen_info __initdata = {
-+	.kernel_rpl = 2,	/* or 1: determin at runtime */
-+	.paravirt_enabled = 1,
-+	.name = "Xen/ia64",
-+};
++#define next_cpu_nr(n, src)		__next_cpu_nr((n), &(src))
++#define cpus_weight_nr(cpumask)		__cpus_weight(&(cpumask), nr_cpu_ids)
 +
-+#define IA64_RSC_PL_SHIFT	2
-+#define IA64_RSC_PL_BIT_SIZE	2
-+#define IA64_RSC_PL_MASK	\
-+	(((1UL << IA64_RSC_PL_BIT_SIZE) - 1) << IA64_RSC_PL_SHIFT)
-+
-+static void __init
-+xen_info_init(void)
+ #define for_each_cpu_mask_nr(cpu, mask)			\
+ 	for ((cpu) = -1;				\
+ 		(cpu) = next_cpu_nr((cpu), (mask)),	\
+-		(cpu) < nr_cpu_ids; )
++		(cpu) < nr_cpu_ids;)
+ 
+ #endif /* NR_CPUS > 64 */
+ 
+--- test-compile.orig/lib/cpumask.c
++++ test-compile/lib/cpumask.c
+@@ -15,6 +15,15 @@ int __next_cpu(int n, const cpumask_t *s
+ }
+ EXPORT_SYMBOL(__next_cpu);
+ 
++int cpumask_next_and(int n, const cpumask_t *srcp, const cpumask_t *andp)
 +{
-+	/* Xenified Linux/ia64 may run on pl = 1 or 2.
-+	 * determin at run time. */
-+	unsigned long rsc = ia64_getreg(_IA64_REG_AR_RSC);
-+	unsigned int rpl = (rsc & IA64_RSC_PL_MASK) >> IA64_RSC_PL_SHIFT;
-+	xen_info.kernel_rpl = rpl;
++	while ((n = next_cpu_nr(n, *srcp)) < nr_cpu_ids)
++		if (cpu_isset(n, *andp))
++			break;
++	return n;
 +}
++EXPORT_SYMBOL(cpumask_next_and);
 +
-+/***************************************************************************
-+ * pv_ops initialization
-+ */
-+
-+void __init
-+xen_setup_pv_ops(void)
-+{
-+	xen_info_init();
-+	pv_info = xen_info;
-+}
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-new file mode 100644
-index 0000000..28fed1f
---- /dev/null
-+++ b/arch/ia64/xen/xensetup.S
-@@ -0,0 +1,83 @@
-+/*
-+ * Support routines for Xen
-+ *
-+ * Copyright (C) 2005 Dan Magenheimer <dan.magenheimer@hp.com>
-+ */
-+
-+#include <asm/processor.h>
-+#include <asm/asmmacro.h>
-+#include <asm/pgtable.h>
-+#include <asm/system.h>
-+#include <asm/paravirt.h>
-+#include <asm/xen/privop.h>
-+#include <linux/elfnote.h>
-+#include <linux/init.h>
-+#include <xen/interface/elfnote.h>
-+
-+	.section .data.read_mostly
-+	.align 8
-+	.global xen_domain_type
-+xen_domain_type:
-+	data4 XEN_NATIVE_ASM
-+	.previous
-+
-+	__INIT
-+ENTRY(startup_xen)
-+	// Calculate load offset.
-+	// The constant, LOAD_OFFSET, can't be used because the boot
-+	// loader doesn't always load to the LMA specified by the vmlinux.lds.
-+	mov r9=ip	// must be the first instruction to make sure
-+			// that r9 = the physical address of startup_xen.
-+			// Usually r9 = startup_xen - LOAD_OFFSET
-+	movl r8=startup_xen
-+	;;
-+	sub r9=r9,r8	// Usually r9 = -LOAD_OFFSET.
-+
-+	mov r10=PARAVIRT_HYPERVISOR_TYPE_XEN
-+	movl r11=_start
-+	;;
-+	add r11=r11,r9
-+	movl r8=hypervisor_type
-+	;;
-+	add r8=r8,r9
-+	mov b0=r11
-+	;;
-+	st8 [r8]=r10
-+	br.cond.sptk.many b0
-+	;;
-+END(startup_xen)
-+
-+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_OS,	.asciz "linux")
-+	ELFNOTE(Xen, XEN_ELFNOTE_GUEST_VERSION,	.asciz "2.6")
-+	ELFNOTE(Xen, XEN_ELFNOTE_XEN_VERSION,	.asciz "xen-3.0")
-+	ELFNOTE(Xen, XEN_ELFNOTE_ENTRY,		data8.ua startup_xen - LOAD_OFFSET)
-+
-+#define isBP	p3	// are we the Bootstrap Processor?
-+
-+	.text
-+
-+GLOBAL_ENTRY(xen_setup_hook)
-+	mov r8=XEN_PV_DOMAIN_ASM
-+(isBP)	movl r9=xen_domain_type;;
-+(isBP)	st4 [r9]=r8
-+	movl r10=xen_ivt;;
-+
-+	mov cr.iva=r10
-+
-+	/* Set xsi base.  */
-+#define FW_HYPERCALL_SET_SHARED_INFO_VA			0x600
-+(isBP)	mov r2=FW_HYPERCALL_SET_SHARED_INFO_VA
-+(isBP)	movl r28=XSI_BASE;;
-+(isBP)	break 0x1000;;
-+
-+	/* setup pv_ops */
-+(isBP)	mov r4=rp
-+	;;
-+(isBP)	br.call.sptk.many rp=xen_setup_pv_ops
-+	;;
-+(isBP)	mov rp=r4
-+	;;
-+
-+	br.ret.sptk.many rp
-+	;;
-+END(xen_setup_hook)
+ #if NR_CPUS > 64
+ int __next_cpu_nr(int n, const cpumask_t *srcp)
+ {
+
 -- 
-1.6.0.2
-
