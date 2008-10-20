@@ -1,476 +1,230 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:35 +0000
-Subject: [PATCH 20/32] ia64/pv_ops/xen: define xen paravirtualized instructions for hand written assembly cod
-Message-Id: <1223963507-28056-21-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 20 Oct 2008 03:55:03 +0000
+Subject: [PATCH 01/13] ia64/pv_ops: add hooks to paravirtualize fsyscall implementation.
+Message-Id: <1224474915-17171-2-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1224474915-17171-1-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: tony.luck@intel.com, linux-ia64@vger.kernel.org
+Cc: yamahata@valinux.co.jp, xen-ia64-devel@lists.xensource.com, mingo@elte.hu, virtualization@lists.linux-foundation.org
 
-define xen paravirtualized instructions for hand written assembly code.
+Add two hooks, paravirt_get_fsyscall_table() and
+paravirt_get_fsys_bubble_doen() to paravirtualize fsyscall implementation.
+This patch just add the hooks fsyscall and don't paravirtualize it.
 
-Signed-off-by: Yaozu (Eddie) Dong <eddie.dong@intel.com>
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-Cc: Akio Takebe <takebe_akio@jp.fujitsu.com>
 ---
- arch/ia64/include/asm/xen/inst.h |  447 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 447 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/inst.h
+ arch/ia64/include/asm/native/inst.h |    3 +++
+ arch/ia64/include/asm/paravirt.h    |   15 +++++++++++++++
+ arch/ia64/kernel/Makefile           |    4 ++--
+ arch/ia64/kernel/fsys.S             |   17 +++++++++--------
+ arch/ia64/kernel/patch.c            |   26 +++++++++++++++++++++++---
+ arch/ia64/mm/init.c                 |    2 +-
+ 6 files changed, 53 insertions(+), 14 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
-new file mode 100644
-index 0000000..03895e9
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/inst.h
-@@ -0,0 +1,447 @@
-+/******************************************************************************
-+ * arch/ia64/include/asm/xen/inst.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
+diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/na=
+tive/inst.h
+index 0a1026c..5e4e151 100644
+--- a/arch/ia64/include/asm/native/inst.h
++++ b/arch/ia64/include/asm/native/inst.h
+@@ -30,6 +30,9 @@
+ #define __paravirt_work_processed_syscall_target \
+ 						ia64_work_processed_syscall
+=20
++#define paravirt_fsyscall_table			ia64_native_fsyscall_table
++#define paravirt_fsys_bubble_down		ia64_native_fsys_bubble_down
++
+ #ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
+ # define PARAVIRT_POISON	0xdeadbeefbaadf00d
+ # define CLOBBER(clob)				\
+diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/parav=
+irt.h
+index 2bf3636..56f69f9 100644
+--- a/arch/ia64/include/asm/paravirt.h
++++ b/arch/ia64/include/asm/paravirt.h
+@@ -22,6 +22,21 @@
+ #ifndef __ASM_PARAVIRT_H
+ #define __ASM_PARAVIRT_H
+=20
++#ifndef __ASSEMBLY__
++/*************************************************************************=
+*****
++ * fsys related addresses
 + */
++struct pv_fsys_data {
++	unsigned long *fsyscall_table;
++	void *fsys_bubble_down;
++};
 +
-+#include <asm/xen/privop.h>
++extern struct pv_fsys_data pv_fsys_data;
 +
-+#define MOV_FROM_IFA(reg)	\
-+	movl reg = XSI_IFA;	\
-+	;;			\
-+	ld8 reg = [reg]
++unsigned long *paravirt_get_fsyscall_table(void);
++char *paravirt_get_fsys_bubble_down(void);
++#endif
 +
-+#define MOV_FROM_ITIR(reg)	\
-+	movl reg = XSI_ITIR;	\
-+	;;			\
-+	ld8 reg = [reg]
+ #ifdef CONFIG_PARAVIRT_GUEST
+=20
+ #define PARAVIRT_HYPERVISOR_TYPE_DEFAULT	0
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index c381ea9..1ab150e 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -111,9 +111,9 @@ include/asm-ia64/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-i=
+rqs.s
+ clean-files +=3D $(objtree)/include/asm-ia64/nr-irqs.h
+=20
+ #
+-# native ivt.S and entry.S
++# native ivt.S, entry.S and fsys.S
+ #
+-ASM_PARAVIRT_OBJS =3D ivt.o entry.o
++ASM_PARAVIRT_OBJS =3D ivt.o entry.o fsys.o
+ define paravirtualized_native
+ AFLAGS_$(1) +=3D -D__IA64_ASM_PARAVIRTUALIZED_NATIVE
+ AFLAGS_pvchk-sed-$(1) +=3D -D__IA64_ASM_PARAVIRTUALIZED_PVCHECK
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index c1625c7..788319f 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -25,6 +25,7 @@
+ #include <asm/unistd.h>
+=20
+ #include "entry.h"
++#include "paravirt_inst.h"
+=20
+ /*
+  * See Documentation/ia64/fsys.txt for details on fsyscalls.
+@@ -602,7 +603,7 @@ ENTRY(fsys_fallback_syscall)
+ 	mov r26=3Dar.pfs
+ END(fsys_fallback_syscall)
+ 	/* FALL THROUGH */
+-GLOBAL_ENTRY(fsys_bubble_down)
++GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+ 	.prologue
+ 	.altrp b6
+ 	.body
+@@ -640,7 +641,7 @@ GLOBAL_ENTRY(fsys_bubble_down)
+ 	 *
+ 	 * PSR.BE : already is turned off in __kernel_syscall_via_epc()
+ 	 * PSR.AC : don't care (kernel normally turns PSR.AC on)
+-	 * PSR.I  : already turned off by the time fsys_bubble_down gets
++	 * PSR.I  : already turned off by the time paravirt_fsys_bubble_down gets
+ 	 *	    invoked
+ 	 * PSR.DFL: always 0 (kernel never turns it on)
+ 	 * PSR.DFH: don't care --- kernel never touches f32-f127 on its own
+@@ -650,7 +651,7 @@ GLOBAL_ENTRY(fsys_bubble_down)
+ 	 * PSR.DB : don't care --- kernel never enables kernel-level
+ 	 *	    breakpoints
+ 	 * PSR.TB : must be 0 already; if it wasn't zero on entry to
+-	 *          __kernel_syscall_via_epc, the branch to fsys_bubble_down
++	 *          __kernel_syscall_via_epc, the branch to paravirt_fsys_bubble_=
+down
+ 	 *          will trigger a taken branch; the taken-trap-handler then
+ 	 *          converts the syscall into a break-based system-call.
+ 	 */
+@@ -741,14 +742,14 @@ GLOBAL_ENTRY(fsys_bubble_down)
+ 	nop.m 0
+ (p8)	br.call.sptk.many b6=B6			// B    (ignore return address)
+ 	br.cond.spnt ia64_trace_syscall		// B
+-END(fsys_bubble_down)
++END(paravirt_fsys_bubble_down)
+=20
+ 	.rodata
+ 	.align 8
+-	.globl fsyscall_table
++	.globl paravirt_fsyscall_table
+=20
+-	data8 fsys_bubble_down
+-fsyscall_table:
++	data8 paravirt_fsys_bubble_down
++paravirt_fsyscall_table:
+ 	data8 fsys_ni_syscall
+ 	data8 0				// exit			// 1025
+ 	data8 0				// read
+@@ -1033,4 +1034,4 @@ fsyscall_table:
+=20
+ 	// fill in zeros for the remaining entries
+ 	.zero:
+-	.space fsyscall_table + 8*NR_syscalls - .zero, 0
++	.space paravirt_fsyscall_table + 8*NR_syscalls - .zero, 0
+diff --git a/arch/ia64/kernel/patch.c b/arch/ia64/kernel/patch.c
+index b83b2c5..02dd977 100644
+--- a/arch/ia64/kernel/patch.c
++++ b/arch/ia64/kernel/patch.c
+@@ -7,6 +7,7 @@
+ #include <linux/init.h>
+ #include <linux/string.h>
+=20
++#include <asm/paravirt.h>
+ #include <asm/patch.h>
+ #include <asm/processor.h>
+ #include <asm/sections.h>
+@@ -169,16 +170,35 @@ ia64_patch_mckinley_e9 (unsigned long start, unsigned=
+ long end)
+ 	ia64_srlz_i();
+ }
+=20
++extern unsigned long ia64_native_fsyscall_table[NR_syscalls];
++extern char ia64_native_fsys_bubble_down[];
++struct pv_fsys_data pv_fsys_data __initdata =3D {
++	.fsyscall_table =3D (unsigned long *)ia64_native_fsyscall_table,
++	.fsys_bubble_down =3D (void *)ia64_native_fsys_bubble_down,
++};
 +
-+#define MOV_FROM_ISR(reg)	\
-+	movl reg = XSI_ISR;	\
-+	;;			\
-+	ld8 reg = [reg]
++unsigned long * __init
++paravirt_get_fsyscall_table(void)
++{
++	return pv_fsys_data.fsyscall_table;
++}
 +
-+#define MOV_FROM_IHA(reg)	\
-+	movl reg = XSI_IHA;	\
-+	;;			\
-+	ld8 reg = [reg]
++char * __init
++paravirt_get_fsys_bubble_down(void)
++{
++	return pv_fsys_data.fsys_bubble_down;
++}
 +
-+#define MOV_FROM_IPSR(pred, reg)	\
-+(pred)	movl reg = XSI_IPSR;		\
-+	;;				\
-+(pred)	ld8 reg = [reg]
-+
-+#define MOV_FROM_IIM(reg)	\
-+	movl reg = XSI_IIM;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+#define MOV_FROM_IIP(reg)	\
-+	movl reg = XSI_IIP;	\
-+	;;			\
-+	ld8 reg = [reg]
-+
-+.macro __MOV_FROM_IVR reg, clob
-+	.ifc "\reg", "r8"
-+		XEN_HYPER_GET_IVR
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		XEN_HYPER_GET_IVR
-+		;;
-+		mov \reg = r8
-+		.exitm
-+	.endif
-+
-+	mov \clob = r8
-+	;;
-+	XEN_HYPER_GET_IVR
-+	;;
-+	mov \reg = r8
-+	;;
-+	mov r8 = \clob
-+.endm
-+#define MOV_FROM_IVR(reg, clob)	__MOV_FROM_IVR reg, clob
-+
-+.macro __MOV_FROM_PSR pred, reg, clob
-+	.ifc "\reg", "r8"
-+		(\pred)	XEN_HYPER_GET_PSR;
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		(\pred)	XEN_HYPER_GET_PSR
-+		;;
-+		(\pred)	mov \reg = r8
-+		.exitm
-+	.endif
-+
-+	(\pred)	mov \clob = r8
-+	(\pred)	XEN_HYPER_GET_PSR
-+	;;
-+	(\pred)	mov \reg = r8
-+	(\pred)	mov r8 = \clob
-+.endm
-+#define MOV_FROM_PSR(pred, reg, clob)	__MOV_FROM_PSR pred, reg, clob
-+
-+
-+#define MOV_TO_IFA(reg, clob)	\
-+	movl clob = XSI_IFA;	\
-+	;;			\
-+	st8 [clob] = reg	\
-+
-+#define MOV_TO_ITIR(pred, reg, clob)	\
-+(pred)	movl clob = XSI_ITIR;		\
-+	;;				\
-+(pred)	st8 [clob] = reg
-+
-+#define MOV_TO_IHA(pred, reg, clob)	\
-+(pred)	movl clob = XSI_IHA;		\
-+	;;				\
-+(pred)	st8 [clob] = reg
-+
-+#define MOV_TO_IPSR(pred, reg, clob)	\
-+(pred)	movl clob = XSI_IPSR;		\
-+	;;				\
-+(pred)	st8 [clob] = reg;		\
-+	;;
-+
-+#define MOV_TO_IFS(pred, reg, clob)	\
-+(pred)	movl clob = XSI_IFS;		\
-+	;;				\
-+(pred)	st8 [clob] = reg;		\
-+	;;
-+
-+#define MOV_TO_IIP(reg, clob)	\
-+	movl clob = XSI_IIP;	\
-+	;;			\
-+	st8 [clob] = reg
-+
-+.macro ____MOV_TO_KR kr, reg, clob0, clob1
-+	.ifc "\clob0", "r9"
-+		.error "clob0 \clob0 must not be r9"
-+	.endif
-+	.ifc "\clob1", "r8"
-+		.error "clob1 \clob1 must not be r8"
-+	.endif
-+
-+	.ifnc "\reg", "r9"
-+		.ifnc "\clob1", "r9"
-+			mov \clob1 = r9
-+		.endif
-+		mov r9 = \reg
-+	.endif
-+	.ifnc "\clob0", "r8"
-+		mov \clob0 = r8
-+	.endif
-+	mov r8 = \kr
-+	;;
-+	XEN_HYPER_SET_KR
-+
-+	.ifnc "\reg", "r9"
-+		.ifnc "\clob1", "r9"
-+			mov r9 = \clob1
-+		.endif
-+	.endif
-+	.ifnc "\clob0", "r8"
-+		mov r8 = \clob0
-+	.endif
-+.endm
-+
-+.macro __MOV_TO_KR kr, reg, clob0, clob1
-+	.ifc "\clob0", "r9"
-+		____MOV_TO_KR \kr, \reg, \clob1, \clob0
-+		.exitm
-+	.endif
-+	.ifc "\clob1", "r8"
-+		____MOV_TO_KR \kr, \reg, \clob1, \clob0
-+		.exitm
-+	.endif
-+
-+	____MOV_TO_KR \kr, \reg, \clob0, \clob1
-+.endm
-+
-+#define MOV_TO_KR(kr, reg, clob0, clob1) \
-+	__MOV_TO_KR IA64_KR_ ## kr, reg, clob0, clob1
-+
-+
-+.macro __ITC_I pred, reg, clob
-+	.ifc "\reg", "r8"
-+		(\pred)	XEN_HYPER_ITC_I
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		(\pred)	mov r8 = \reg
-+		;;
-+		(\pred)	XEN_HYPER_ITC_I
-+		.exitm
-+	.endif
-+
-+	(\pred)	mov \clob = r8
-+	(\pred)	mov r8 = \reg
-+	;;
-+	(\pred)	XEN_HYPER_ITC_I
-+	;;
-+	(\pred)	mov r8 = \clob
-+	;;
-+.endm
-+#define ITC_I(pred, reg, clob)	__ITC_I pred, reg, clob
-+
-+.macro __ITC_D pred, reg, clob
-+	.ifc "\reg", "r8"
-+		(\pred)	XEN_HYPER_ITC_D
-+		;;
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		(\pred)	mov r8 = \reg
-+		;;
-+		(\pred)	XEN_HYPER_ITC_D
-+		;;
-+		.exitm
-+	.endif
-+
-+	(\pred)	mov \clob = r8
-+	(\pred)	mov r8 = \reg
-+	;;
-+	(\pred)	XEN_HYPER_ITC_D
-+	;;
-+	(\pred)	mov r8 = \clob
-+	;;
-+.endm
-+#define ITC_D(pred, reg, clob)	__ITC_D pred, reg, clob
-+
-+.macro __ITC_I_AND_D pred_i, pred_d, reg, clob
-+	.ifc "\reg", "r8"
-+		(\pred_i)XEN_HYPER_ITC_I
-+		;;
-+		(\pred_d)XEN_HYPER_ITC_D
-+		;;
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		mov r8 = \reg
-+		;;
-+		(\pred_i)XEN_HYPER_ITC_I
-+		;;
-+		(\pred_d)XEN_HYPER_ITC_D
-+		;;
-+		.exitm
-+	.endif
-+
-+	mov \clob = r8
-+	mov r8 = \reg
-+	;;
-+	(\pred_i)XEN_HYPER_ITC_I
-+	;;
-+	(\pred_d)XEN_HYPER_ITC_D
-+	;;
-+	mov r8 = \clob
-+	;;
-+.endm
-+#define ITC_I_AND_D(pred_i, pred_d, reg, clob) \
-+	__ITC_I_AND_D pred_i, pred_d, reg, clob
-+
-+.macro __THASH pred, reg0, reg1, clob
-+	.ifc "\reg0", "r8"
-+		(\pred)	mov r8 = \reg1
-+		(\pred)	XEN_HYPER_THASH
-+		.exitm
-+	.endc
-+	.ifc "\reg1", "r8"
-+		(\pred)	XEN_HYPER_THASH
-+		;;
-+		(\pred)	mov \reg0 = r8
-+		;;
-+		.exitm
-+	.endif
-+	.ifc "\clob", "r8"
-+		(\pred)	mov r8 = \reg1
-+		(\pred)	XEN_HYPER_THASH
-+		;;
-+		(\pred)	mov \reg0 = r8
-+		;;
-+		.exitm
-+	.endif
-+
-+	(\pred)	mov \clob = r8
-+	(\pred)	mov r8 = \reg1
-+	(\pred)	XEN_HYPER_THASH
-+	;;
-+	(\pred)	mov \reg0 = r8
-+	(\pred)	mov r8 = \clob
-+	;;
-+.endm
-+#define THASH(pred, reg0, reg1, clob) __THASH pred, reg0, reg1, clob
-+
-+#define SSM_PSR_IC_AND_DEFAULT_BITS_AND_SRLZ_I(clob0, clob1)	\
-+	mov clob0 = 1;						\
-+	movl clob1 = XSI_PSR_IC;				\
-+	;;							\
-+	st4 [clob1] = clob0					\
-+	;;
-+
-+#define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
-+	;;					\
-+	srlz.d;					\
-+	mov clob1 = 1;				\
-+	movl clob0 = XSI_PSR_IC;		\
-+	;;					\
-+	st4 [clob0] = clob1
-+
-+#define RSM_PSR_IC(clob)	\
-+	movl clob = XSI_PSR_IC;	\
-+	;;			\
-+	st4 [clob] = r0;	\
-+	;;
-+
-+/* pred will be clobbered */
-+#define MASK_TO_PEND_OFS    (-1)
-+#define SSM_PSR_I(pred, pred_clob, clob)				\
-+(pred)	movl clob = XSI_PSR_I_ADDR					\
-+	;;								\
-+(pred)	ld8 clob = [clob]						\
-+	;;								\
-+	/* if (pred) vpsr.i = 1 */					\
-+	/* if (pred) (vcpu->vcpu_info->evtchn_upcall_mask)=0 */		\
-+(pred)	st1 [clob] = r0, MASK_TO_PEND_OFS				\
-+	;;								\
-+	/* if (vcpu->vcpu_info->evtchn_upcall_pending) */		\
-+(pred)	ld1 clob = [clob]						\
-+	;;								\
-+(pred)	cmp.ne.unc pred_clob, p0 = clob, r0				\
-+	;;								\
-+(pred_clob)XEN_HYPER_SSM_I	/* do areal ssm psr.i */
-+
-+#define RSM_PSR_I(pred, clob0, clob1)	\
-+	movl clob0 = XSI_PSR_I_ADDR;	\
-+	mov clob1 = 1;			\
-+	;;				\
-+	ld8 clob0 = [clob0];		\
-+	;;				\
-+(pred)	st1 [clob0] = clob1
-+
-+#define RSM_PSR_I_IC(clob0, clob1, clob2)		\
-+	movl clob0 = XSI_PSR_I_ADDR;			\
-+	movl clob1 = XSI_PSR_IC;			\
-+	;;						\
-+	ld8 clob0 = [clob0];				\
-+	mov clob2 = 1;					\
-+	;;						\
-+	/* note: clears both vpsr.i and vpsr.ic! */	\
-+	st1 [clob0] = clob2;				\
-+	st4 [clob1] = r0;				\
-+	;;
-+
-+#define RSM_PSR_DT		\
-+	XEN_HYPER_RSM_PSR_DT
-+
-+#define SSM_PSR_DT_AND_SRLZ_I	\
-+	XEN_HYPER_SSM_PSR_DT
-+
-+#define BSW_0(clob0, clob1, clob2)			\
-+	;;						\
-+	/* r16-r31 all now hold bank1 values */		\
-+	mov clob2 = ar.unat;				\
-+	movl clob0 = XSI_BANK1_R16;			\
-+	movl clob1 = XSI_BANK1_R16 + 8;			\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r16, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r17, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r18, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r19, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r20, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r21, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r22, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r23, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r24, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r25, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r26, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r27, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r28, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r29, 16;		\
-+	;;						\
-+.mem.offset 0, 0; st8.spill [clob0] = r30, 16;		\
-+.mem.offset 8, 0; st8.spill [clob1] = r31, 16;		\
-+	;;						\
-+	mov clob1 = ar.unat;				\
-+	movl clob0 = XSI_B1NAT;				\
-+	;;						\
-+	st8 [clob0] = clob1;				\
-+	mov ar.unat = clob2;				\
-+	movl clob0 = XSI_BANKNUM;			\
-+	;;						\
-+	st4 [clob0] = r0
-+
-+
-+	/* FIXME: THIS CODE IS NOT NaT SAFE! */
-+#define XEN_BSW_1(clob)			\
-+	mov clob = ar.unat;		\
-+	movl r30 = XSI_B1NAT;		\
-+	;;				\
-+	ld8 r30 = [r30];		\
-+	mov r31 = 1;			\
-+	;;				\
-+	mov ar.unat = r30;		\
-+	movl r30 = XSI_BANKNUM;		\
-+	;;				\
-+	st4 [r30] = r31;		\
-+	movl r30 = XSI_BANK1_R16;	\
-+	movl r31 = XSI_BANK1_R16+8;	\
-+	;;				\
-+	ld8.fill r16 = [r30], 16;	\
-+	ld8.fill r17 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r18 = [r30], 16;	\
-+	ld8.fill r19 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r20 = [r30], 16;	\
-+	ld8.fill r21 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r22 = [r30], 16;	\
-+	ld8.fill r23 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r24 = [r30], 16;	\
-+	ld8.fill r25 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r26 = [r30], 16;	\
-+	ld8.fill r27 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r28 = [r30], 16;	\
-+	ld8.fill r29 = [r31], 16;	\
-+	;;				\
-+	ld8.fill r30 = [r30];		\
-+	ld8.fill r31 = [r31];		\
-+	;;				\
-+	mov ar.unat = clob
-+
-+#define BSW_1(clob0, clob1)	XEN_BSW_1(clob1)
-+
-+
-+#define COVER	\
-+	XEN_HYPER_COVER
-+
-+#define RFI			\
-+	XEN_HYPER_RFI;		\
-+	dv_serialize_data
--- 
+ static void __init
+ patch_fsyscall_table (unsigned long start, unsigned long end)
+ {
+-	extern unsigned long fsyscall_table[NR_syscalls];
++	u64 fsyscall_table =3D (u64)paravirt_get_fsyscall_table();
+ 	s32 *offp =3D (s32 *) start;
+ 	u64 ip;
+=20
+ 	while (offp < (s32 *) end) {
+ 		ip =3D (u64) ia64_imva((char *) offp + *offp);
+-		ia64_patch_imm64(ip, (u64) fsyscall_table);
++		ia64_patch_imm64(ip, fsyscall_table);
+ 		ia64_fc((void *) ip);
+ 		++offp;
+ 	}
+@@ -189,7 +209,7 @@ patch_fsyscall_table (unsigned long start, unsigned lon=
+g end)
+ static void __init
+ patch_brl_fsys_bubble_down (unsigned long start, unsigned long end)
+ {
+-	extern char fsys_bubble_down[];
++	u64 fsys_bubble_down =3D (u64)paravirt_get_fsys_bubble_down();
+ 	s32 *offp =3D (s32 *) start;
+ 	u64 ip;
+=20
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index f482a90..59e6851 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -667,8 +667,8 @@ mem_init (void)
+ 	 * code can tell them apart.
+ 	 */
+ 	for (i =3D 0; i < NR_syscalls; ++i) {
+-		extern unsigned long fsyscall_table[NR_syscalls];
+ 		extern unsigned long sys_call_table[NR_syscalls];
++		unsigned long *fsyscall_table =3D paravirt_get_fsyscall_table();
+=20
+ 		if (!fsyscall_table[i] || nolwsys)
+ 			fsyscall_table[i] =3D sys_call_table[i] | 1;
+--=20
 1.6.0.2
 
