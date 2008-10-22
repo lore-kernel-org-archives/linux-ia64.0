@@ -1,99 +1,279 @@
-From: Mike Travis <travis@sgi.com>
-Date: Tue, 21 Oct 2008 13:53:04 +0000
-Subject: Re: [PATCH 18/35] cpumask: add nr_cpumask_bits
-Message-Id: <48FDDEC0.9040903@sgi.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Wed, 22 Oct 2008 08:34:36 +0000
+Subject: [PATCH 1/2] Allow rwlocks to re-enable interrupts
+Message-Id: <1224664476.4430.38.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081020170319.539427000@polaris-admin.engr.sgi.com> <20081020170322.090531000@polaris-admin.engr.sgi.com> <200810212326.10278.rusty@rustcorp.com.au>
-In-Reply-To: <200810212326.10278.rusty@rustcorp.com.au>
+References: <1224664414.4430.33.camel@elijah.suse.cz>
+In-Reply-To: <1224664414.4430.33.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Ingo Molnar <mingo@elte.hu>, Andi Kleen <andi@firstfloor.org>, Andrew Morton <akpm@linux-foundation.org>, davej@codemonkey.org.uk, David Miller <davem@davemloft.net>, Eric Dumazet <dada1@cosmosbay.com>, Jack Steiner <steiner@sgi.com>, Jeremy Fitzhardinge <jeremy@goop.org>, Jes Sorensen <jes@sgi.com>, "H. Peter Anvin" <hpa@zytor.com>, peterz@infradead.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yhlu.kernel@gmail.com>, IA64 <linux-ia64@vger.kernel.org>, PowerPC <linuxppc-dev@ozlabs.org>, S390 <linux-s390@vger.kernel.org>, SPARC <sparclinux@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: tee@sgi.com
 
-Rusty Russell wrote:
-> On Tuesday 21 October 2008 04:03:37 Mike Travis wrote:
->> When nr_cpu_ids is set to CONFIG_NR_CPUS then references to nr_cpu_ids
->> will return the maximum index of the configured NR_CPUS (+1) instead
->> of the maximum index of the possible number of cpus (+1).  This results
->> in extra unused memory being allocated by functions that are setting up
->> arrays of structs to keep track of per cpu items.
-> 
-> 1) I like the name in this context: it's a beacon of sanity after NR_CPUS and
->    nr_cpu_ids.  But it's not so clearly a win when general code uses it:
-> 
-> 	if (cpumask_first(mymask) = nr_cpumask_bits) ...
-> 
->    vs:
->    
-> 	if (cpumask_first(mymask) = nr_cpu_ids) ...
+Pass the original flags to rwlock arch-code, so that it can re-enable
+interrupts if implemented for that architecture.
+    
+Initially, make __raw_read_lock_flags and __raw_write_lock_flags
+stubs which just do the same thing as their non-flags variants.
 
-I think the correct use for iterators would be:
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+---
+ arch/alpha/include/asm/spinlock.h    |    3 +++
+ arch/arm/include/asm/spinlock.h      |    3 +++
+ arch/ia64/include/asm/spinlock.h     |    3 +++
+ arch/mips/include/asm/spinlock.h     |    2 ++
+ arch/powerpc/include/asm/spinlock.h  |    3 +++
+ arch/s390/include/asm/spinlock.h     |    3 +++
+ arch/sh/include/asm/spinlock.h       |    3 +++
+ arch/sparc/include/asm/spinlock_32.h |    2 ++
+ arch/sparc/include/asm/spinlock_64.h |    2 ++
+ include/asm-cris/arch-v32/spinlock.h |    2 ++
+ include/asm-m32r/spinlock.h          |    3 +++
+ include/asm-parisc/spinlock.h        |    3 +++
+ include/asm-x86/spinlock.h           |    3 +++
+ include/linux/spinlock.h             |    6 ++++++
+ kernel/spinlock.c                    |    8 ++++++++
+ 15 files changed, 49 insertions(+), 0 deletions(-)
 
-	if (cpumask_first(mymask) >= nr_cpu_ids)
-
-... since nr_cpu_ids is guaranteed to be <= nr_cpumask_bits.  And nr_cpumask_bits
-is not really meant to be used anywhere except in the bit operations supporting
-the cpumask_* operators.
-
-> 2) This breaks anyone who tests that the iterators etc. return = nr_cpu_ids.
-
-I think that's broken anyways... ;-)
-
->    One of the other patches tried to change them from NR_CPUS to nr_cpu_ids,
->    that should now be revisited & reaudited.
-
-The change from NR_CPUS to nr_cpu_ids is ok, but it should also be changed from:
-
-	(x = NR_CPUS)
-to:
-	(x <= nr_cpu_ids)
+diff --git a/arch/alpha/include/asm/spinlock.h b/arch/alpha/include/asm/spinlock.h
+index aeeb125..e38fb95 100644
+--- a/arch/alpha/include/asm/spinlock.h
++++ b/arch/alpha/include/asm/spinlock.h
+@@ -166,6 +166,9 @@ static inline void __raw_write_unlock(raw_rwlock_t * lock)
+ 	lock->lock = 0;
+ }
  
-> 3) Noone should be naively allocating "* nr_cpu_ids" arrays, they should be
->    using per-cpu pointers.  Not doing so wastes memory on non-contiguous
->    processor systems.
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/arch/arm/include/asm/spinlock.h b/arch/arm/include/asm/spinlock.h
+index 2b41ebb..c13681a 100644
+--- a/arch/arm/include/asm/spinlock.h
++++ b/arch/arm/include/asm/spinlock.h
+@@ -217,6 +217,9 @@ static inline int __raw_read_trylock(raw_rwlock_t *rw)
+ /* read_can_lock - would read_trylock() succeed? */
+ #define __raw_read_can_lock(x)		((x)->lock < 0x80000000)
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/arch/ia64/include/asm/spinlock.h b/arch/ia64/include/asm/spinlock.h
+index 0229fb9..0a61961 100644
+--- a/arch/ia64/include/asm/spinlock.h
++++ b/arch/ia64/include/asm/spinlock.h
+@@ -213,6 +213,9 @@ static inline int __raw_read_trylock(raw_rwlock_t *x)
+ 	return (u32)ia64_cmpxchg4_acq((__u32 *)(x), new.word, old.word) = old.word;
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/arch/mips/include/asm/spinlock.h b/arch/mips/include/asm/spinlock.h
+index 1a1f320..de03e47 100644
+--- a/arch/mips/include/asm/spinlock.h
++++ b/arch/mips/include/asm/spinlock.h
+@@ -479,6 +479,8 @@ static inline int __raw_write_trylock(raw_rwlock_t *rw)
+ 	return ret;
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
+ 
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+diff --git a/arch/powerpc/include/asm/spinlock.h b/arch/powerpc/include/asm/spinlock.h
+index f56a843..f6491ae 100644
+--- a/arch/powerpc/include/asm/spinlock.h
++++ b/arch/powerpc/include/asm/spinlock.h
+@@ -287,6 +287,9 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
+ 	rw->lock = 0;
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	__spin_yield(lock)
+ #define _raw_read_relax(lock)	__rw_yield(lock)
+ #define _raw_write_relax(lock)	__rw_yield(lock)
+diff --git a/arch/s390/include/asm/spinlock.h b/arch/s390/include/asm/spinlock.h
+index df84ae9..f3861b0 100644
+--- a/arch/s390/include/asm/spinlock.h
++++ b/arch/s390/include/asm/spinlock.h
+@@ -172,6 +172,9 @@ static inline int __raw_write_trylock(raw_rwlock_t *rw)
+ 	return _raw_write_trylock_retry(rw);
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+ 
+diff --git a/arch/sh/include/asm/spinlock.h b/arch/sh/include/asm/spinlock.h
+index e793181..6028356 100644
+--- a/arch/sh/include/asm/spinlock.h
++++ b/arch/sh/include/asm/spinlock.h
+@@ -216,6 +216,9 @@ static inline int __raw_write_trylock(raw_rwlock_t *rw)
+ 	return (oldval > (RW_LOCK_BIAS - 1));
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/arch/sparc/include/asm/spinlock_32.h b/arch/sparc/include/asm/spinlock_32.h
+index bf2d532..46f91ab 100644
+--- a/arch/sparc/include/asm/spinlock_32.h
++++ b/arch/sparc/include/asm/spinlock_32.h
+@@ -177,6 +177,8 @@ static inline int __read_trylock(raw_rwlock_t *rw)
+ #define __raw_write_unlock(rw)	do { (rw)->lock = 0; } while(0)
+ 
+ #define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
++#define __raw_read_lock_flags(rw, flags)   __raw_read_lock(rw)
++#define __raw_write_lock_flags(rw, flags)  __raw_write_lock(rw)
+ 
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+diff --git a/arch/sparc/include/asm/spinlock_64.h b/arch/sparc/include/asm/spinlock_64.h
+index 120cfe4..e856cd0 100644
+--- a/arch/sparc/include/asm/spinlock_64.h
++++ b/arch/sparc/include/asm/spinlock_64.h
+@@ -230,9 +230,11 @@ static int inline __write_trylock(raw_rwlock_t *lock)
+ }
+ 
+ #define __raw_read_lock(p)	__read_lock(p)
++#define __raw_read_lock_flags(p, f) __read_lock(p)
+ #define __raw_read_trylock(p)	__read_trylock(p)
+ #define __raw_read_unlock(p)	__read_unlock(p)
+ #define __raw_write_lock(p)	__write_lock(p)
++#define __raw_write_lock_flags(p, f) __write_lock(p)
+ #define __raw_write_unlock(p)	__write_unlock(p)
+ #define __raw_write_trylock(p)	__write_trylock(p)
+ 
+diff --git a/include/asm-cris/arch-v32/spinlock.h b/include/asm-cris/arch-v32/spinlock.h
+index 0d5709b..129756b 100644
+--- a/include/asm-cris/arch-v32/spinlock.h
++++ b/include/asm-cris/arch-v32/spinlock.h
+@@ -121,6 +121,8 @@ static  inline int __raw_write_trylock(raw_rwlock_t *rw)
+ 	return 1;
+ }
+ 
++#define _raw_read_lock_flags(lock, flags) _raw_read_lock(lock)
++#define _raw_write_lock_flags(lock, flags) _raw_write_lock(lock)
+ 
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+diff --git a/include/asm-m32r/spinlock.h b/include/asm-m32r/spinlock.h
+index f5cfba8..dded923 100644
+--- a/include/asm-m32r/spinlock.h
++++ b/include/asm-m32r/spinlock.h
+@@ -316,6 +316,9 @@ static inline int __raw_write_trylock(raw_rwlock_t *lock)
+ 	return 0;
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/include/asm-parisc/spinlock.h b/include/asm-parisc/spinlock.h
+index f3d2090..fae03e1 100644
+--- a/include/asm-parisc/spinlock.h
++++ b/include/asm-parisc/spinlock.h
+@@ -187,6 +187,9 @@ static __inline__ int __raw_write_can_lock(raw_rwlock_t *rw)
+ 	return !rw->counter;
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/include/asm-x86/spinlock.h b/include/asm-x86/spinlock.h
+index 157ff7f..132f5d3 100644
+--- a/include/asm-x86/spinlock.h
++++ b/include/asm-x86/spinlock.h
+@@ -357,6 +357,9 @@ static inline void __raw_write_unlock(raw_rwlock_t *rw)
+ 		     : "+m" (rw->lock) : "i" (RW_LOCK_BIAS) : "memory");
+ }
+ 
++#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
++#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
+diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
+index e0c0fcc..9e3fe36 100644
+--- a/include/linux/spinlock.h
++++ b/include/linux/spinlock.h
+@@ -148,9 +148,11 @@ do {								\
+  extern int _raw_spin_trylock(spinlock_t *lock);
+  extern void _raw_spin_unlock(spinlock_t *lock);
+  extern void _raw_read_lock(rwlock_t *lock);
++#define _raw_read_lock_flags(lock, flags) _raw_read_lock(lock)
+  extern int _raw_read_trylock(rwlock_t *lock);
+  extern void _raw_read_unlock(rwlock_t *lock);
+  extern void _raw_write_lock(rwlock_t *lock);
++#define _raw_write_lock_flags(lock, flags) _raw_write_lock(lock)
+  extern int _raw_write_trylock(rwlock_t *lock);
+  extern void _raw_write_unlock(rwlock_t *lock);
+ #else
+@@ -160,9 +162,13 @@ do {								\
+ # define _raw_spin_trylock(lock)	__raw_spin_trylock(&(lock)->raw_lock)
+ # define _raw_spin_unlock(lock)		__raw_spin_unlock(&(lock)->raw_lock)
+ # define _raw_read_lock(rwlock)		__raw_read_lock(&(rwlock)->raw_lock)
++# define _raw_read_lock_flags(lock, flags) \
++		__raw_read_lock_flags(&(lock)->raw_lock, *(flags))
+ # define _raw_read_trylock(rwlock)	__raw_read_trylock(&(rwlock)->raw_lock)
+ # define _raw_read_unlock(rwlock)	__raw_read_unlock(&(rwlock)->raw_lock)
+ # define _raw_write_lock(rwlock)	__raw_write_lock(&(rwlock)->raw_lock)
++# define _raw_write_lock_flags(lock, flags) \
++		__raw_write_lock_flags(&(lock)->raw_lock, *(flags))
+ # define _raw_write_trylock(rwlock)	__raw_write_trylock(&(rwlock)->raw_lock)
+ # define _raw_write_unlock(rwlock)	__raw_write_unlock(&(rwlock)->raw_lock)
+ #endif
+diff --git a/kernel/spinlock.c b/kernel/spinlock.c
+index 29ab207..f769d8a 100644
+--- a/kernel/spinlock.c
++++ b/kernel/spinlock.c
+@@ -121,7 +121,11 @@ unsigned long __lockfunc _read_lock_irqsave(rwlock_t *lock)
+ 	local_irq_save(flags);
+ 	preempt_disable();
+ 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
++#ifdef CONFIG_LOCKDEP
+ 	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
++#else
++	_raw_read_lock_flags(lock, &flags);
++#endif
+ 	return flags;
+ }
+ EXPORT_SYMBOL(_read_lock_irqsave);
+@@ -151,7 +155,11 @@ unsigned long __lockfunc _write_lock_irqsave(rwlock_t *lock)
+ 	local_irq_save(flags);
+ 	preempt_disable();
+ 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
++#ifdef CONFIG_LOCKDEP
+ 	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
++#else
++	_raw_write_lock_flags(lock, &flags);
++#endif
+ 	return flags;
+ }
+ EXPORT_SYMBOL(_write_lock_irqsave);
 
-The problem often arises where an array is allocated that will use the
-cpu as an index into the array.  They can be changed eventually to use a
-percpu pointer, but in the interim keeping nr_cpu_ids intact maintains
-compatibility without allocating unused memory.
 
-> 4) It should be a constant not be dependent on CONFIG_CPUMASK_OFFSTACK, but
->    rather as it was on NR_CPUS > BITS_PER_LONG.  I think that's the sweet
->    spot, and should also make your 2MB "gain" vanish.
-
-I'll run the test again but most likely the result will be an extra 1Mb of
-unused memory instead. ;-)  One other note, that test compile used the default
-config [and NR_CPUS8] which turns off a lot of functions.  A typical distro
-config will have many more options turned on.
-
-And the beauty of using a separate flag to enable variable length cpumasks,
-is there may be cases where an arch or specific system config wants a multiple
-word cpumask on the stack for performance reasons (like cache or node locality,
-avoidance of the kmalloc's, etc.)
-
-> That's why I suggested a max_possible_cpu() function, and using that for those 
-> who really want to do allocations, who should be audited anyway, see (3).  I 
-> don't want it as prominent as nr_cpu_ids, which is usually the Right Thing, 
-> and always safe.
-
-We could change all refs from nr_cpu_ids to max_possible_cpu but wouldn't
-we still be leaving a window open where it could be incorrectly used?
-So far all the cpumask conversions allow for "mixed-use" cpumask (i.e.,
-cpumask_t and struct cpumask *) by maintaining backwards compatility,
-until everything is eventually sorted out.  Keeping nr_cpu_ids representing
-the same value maintains this "compatibility bridge".
-
-The most correct way would be to use the (not yet implemented) zero
-based PERCPU allocator.  Slightly less efficient would be to allocate
-node local memory for each struct, in a loop using a per cpu pointer
-and "for_each_possible_cpu()".
-
-> Cheers,
-> Rusty.
-> PS.  I have part of a patch for this...
-
-But as I've said, it's not critical to the new functionality...
-
-Thanks!
-Mike
