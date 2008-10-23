@@ -1,63 +1,78 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:49 +0000
-Subject: [PATCH 09/33] ia64/xen: define several constants for ia64/xen.
-Message-Id: <1224209893-2032-10-git-send-email-yamahata@valinux.co.jp>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Thu, 23 Oct 2008 16:06:01 +0000
+Subject: [PATCH V2 1/3] Factor out #ifdef's from kernel/spinlock.c to
+Message-Id: <1224777961.11530.64.camel@elijah.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1224777451.11530.52.camel@elijah.suse.cz>
+In-Reply-To: <1224777451.11530.52.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: tee@sgi.com, Robin Holt <holt@sgi.com>, Peter Zijlstra <peterz@infradead.org>
 
-define several constants for ia64/xen.
+The new macro LOCK_CONTENDED_FLAGS expands to the correct implementation
+depending on the config options, so that IRQ's are re-enabled when
+possible, but they remain disabled if CONFIG_LOCKDEP is set.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
 ---
- arch/ia64/kernel/asm-offsets.c |   27 +++++++++++++++++++++++++++
- 1 files changed, 27 insertions(+), 0 deletions(-)
+ include/linux/lockdep.h |   17 +++++++++++++++++
+ kernel/spinlock.c       |   12 ++----------
+ 2 files changed, 19 insertions(+), 10 deletions(-)
 
-diff --git a/arch/ia64/kernel/asm-offsets.c b/arch/ia64/kernel/asm-offsets.c
-index 94c44b1..eaa988b 100644
---- a/arch/ia64/kernel/asm-offsets.c
-+++ b/arch/ia64/kernel/asm-offsets.c
-@@ -16,6 +16,8 @@
- #include <asm/sigcontext.h>
- #include <asm/mca.h>
+diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
+index 331e5f1..1e6e578 100644
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -376,6 +376,23 @@ do
+{                                                               \
  
-+#include <asm/xen/interface.h>
-+
- #include "../kernel/sigframe.h"
- #include "../kernel/fsyscall_gtod_data.h"
+ #endif /* CONFIG_LOCK_STAT */
  
-@@ -286,4 +288,29 @@ void foo(void)
- 		offsetof (struct itc_jitter_data_t, itc_jitter));
- 	DEFINE(IA64_ITC_LASTCYCLE_OFFSET,
- 		offsetof (struct itc_jitter_data_t, itc_lastcycle));
++#ifdef CONFIG_LOCKDEP
 +
-+#ifdef CONFIG_XEN
-+	BLANK();
++/*
++ * On lockdep we dont want the hand-coded irq-enable of
++ * _raw_*_lock_flags() code, because lockdep assumes
++ * that interrupts are not re-enabled during lock-acquire:
++ */
++#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
++       LOCK_CONTENDED((_lock), (try), (lock))
 +
-+#define DEFINE_MAPPED_REG_OFS(sym, field) \
-+	DEFINE(sym, (XMAPPEDREGS_OFS + offsetof(struct mapped_regs, field)))
++#else /* CONFIG_LOCKDEP */
 +
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_I_ADDR_OFS, interrupt_mask_addr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IPSR_OFS, ipsr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIP_OFS, iip);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFS_OFS, ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_PRECOVER_IFS_OFS, precover_ifs);
-+	DEFINE_MAPPED_REG_OFS(XSI_ISR_OFS, isr);
-+	DEFINE_MAPPED_REG_OFS(XSI_IFA_OFS, ifa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIPA_OFS, iipa);
-+	DEFINE_MAPPED_REG_OFS(XSI_IIM_OFS, iim);
-+	DEFINE_MAPPED_REG_OFS(XSI_IHA_OFS, iha);
-+	DEFINE_MAPPED_REG_OFS(XSI_ITIR_OFS, itir);
-+	DEFINE_MAPPED_REG_OFS(XSI_PSR_IC_OFS, interrupt_collection_enabled);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANKNUM_OFS, banknum);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK0_R16_OFS, bank0_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_BANK1_R16_OFS, bank1_regs[0]);
-+	DEFINE_MAPPED_REG_OFS(XSI_B0NATS_OFS, vbnat);
-+	DEFINE_MAPPED_REG_OFS(XSI_B1NATS_OFS, vnat);
-+#endif /* CONFIG_XEN */
++#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
++       lockfl((_lock), (flags))
++
++#endif /* CONFIG_LOCKDEP */
++
+ #if defined(CONFIG_TRACE_IRQFLAGS) && defined(CONFIG_GENERIC_HARDIRQS)
+ extern void early_init_irq_lock_class(void);
+ #else
+diff --git a/kernel/spinlock.c b/kernel/spinlock.c
+index 29ab207..cf41b87 100644
+--- a/kernel/spinlock.c
++++ b/kernel/spinlock.c
+@@ -299,16 +299,8 @@ unsigned long __lockfunc
+_spin_lock_irqsave_nested(spinlock_t *lock, int subclas
+        local_irq_save(flags);
+        preempt_disable();
+        spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
+-       /*
+-        * On lockdep we dont want the hand-coded irq-enable of
+-        * _raw_spin_lock_flags() code, because lockdep assumes
+-        * that interrupts are not re-enabled during lock-acquire:
+-        */
+-#ifdef CONFIG_LOCKDEP
+-       LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
+-#else
+-       _raw_spin_lock_flags(lock, &flags);
+-#endif
++       LOCK_CONTENDED_FLAGS(lock, _raw_spin_trylock, _raw_spin_lock,
++                            _raw_spin_lock_flags, &flags);
+        return flags;
  }
--- 
-1.6.0.2
+ EXPORT_SYMBOL(_spin_lock_irqsave_nested);
+
 
