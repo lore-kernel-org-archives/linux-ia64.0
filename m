@@ -1,96 +1,88 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 20 Oct 2008 03:55:08 +0000
-Subject: [PATCH 06/13] ia64/pv_ops: paravirtualize mov = ar.itc.
-Message-Id: <1224474915-17171-7-git-send-email-yamahata@valinux.co.jp>
+From: Len Brown <lenb@kernel.org>
+Date: Fri, 24 Oct 2008 19:25:20 +0000
+Subject: Re: [PATCH] ACPI: cpufreq,
+Message-Id: <alpine.LFD.1.10.0810241524590.3056@localhost.localdomain>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+References: <490193BC.70108@cn.fujitsu.com>
+In-Reply-To: <490193BC.70108@cn.fujitsu.com>
+To: Miao Xie <miaox@cn.fujitsu.com>
+Cc: linux-acpi@vger.kernel.org, trenn@suse.de, linux-ia64@vger.kernel.org
 
-paravirtualize mov reg = ar.itc.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/native/inst.h |    5 +++++
- arch/ia64/kernel/entry.S            |    4 ++--
- arch/ia64/kernel/fsys.S             |    4 ++--
- arch/ia64/kernel/ivt.S              |    2 +-
- 4 files changed, 10 insertions(+), 5 deletions(-)
+--Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)
+Content-Type: TEXT/PLAIN; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
-index 5e4e151..ad59fc6 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -77,6 +77,11 @@
- (pred)	mov reg = psr			\
- 	CLOBBER(clob)
- 
-+#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
-+(pred)	mov reg = ar.itc				\
-+	CLOBBER(clob)					\
-+	CLOBBER_PRED(pred_clob)
-+
- #define MOV_TO_IFA(reg, clob)	\
- 	mov cr.ifa = reg	\
- 	CLOBBER(clob)
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index 7ef0c59..d8462bd 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -734,7 +734,7 @@ GLOBAL_ENTRY(__paravirt_leave_syscall)
- __paravirt_work_processed_syscall:
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	adds r2=PT(LOADRS)+16,r12
--(pUStk)	mov.m r22=ar.itc			// fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r19)	// fetch time at leave
- 	adds r18=TI_FLAGS+IA64_TASK_SIZE,r13
- 	;;
- (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
-@@ -983,7 +983,7 @@ GLOBAL_ENTRY(__paravirt_leave_kernel)
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	.pred.rel.mutex pUStk,pKStk
- 	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disabled
--(pUStk)	mov.m r22=ar.itc	// M  fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r29)	// M  fetch time at leave
- 	nop.i 0
- 	;;
- #else
-diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
-index 3544d75..3567d54 100644
---- a/arch/ia64/kernel/fsys.S
-+++ b/arch/ia64/kernel/fsys.S
-@@ -280,7 +280,7 @@ ENTRY(fsys_gettimeofday)
- (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
- 	;;
- 	.pred.rel.mutex p8,p9
--(p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
-+	MOV_FROM_ITC(p8, p6, r2, r10)	// CPU_TIMER. 36 clocks latency!!!
- (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
- (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
- 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
-@@ -684,7 +684,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
- 	;;
- 	mov ar.rsc=0				// M2   set enforced lazy mode, pl 0, LE, loadrs=0
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p6, r30, r23)		// M    get cycle for accounting
- #else
- 	nop.m 0
- #endif
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index f675d8e..ec9a5fd 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -804,7 +804,7 @@ ENTRY(break_fault)
- ///////////////////////////////////////////////////////////////////////
- 	st1 [r16]=r0				// M2|3 clear current->thread.on_ustack flag
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p14, r30, r18)		// M    get cycle for accounting
- #else
- 	mov b6=r30				// I0   setup syscall handler branch reg early
- #endif
--- 
-1.6.0.2
+applied.
+thanks,
+-len
 
+On Fri, 24 Oct 2008, Miao Xie wrote:
+
+> When trying to build 2.6.28-rc1 on ia64, make aborts with:
+> 
+>   CC      drivers/acpi/processor_perflib.o
+>   drivers/acpi/processor_perflib.c:41:28: error: asm/cpufeature.h: No such file or directory
+>   drivers/acpi/processor_perflib.c: In function ‘acpi_processor_get_performance_info’:
+>   drivers/acpi/processor_perflib.c:364: error: implicit declaration of function ‘boot_cpu_has’
+>   drivers/acpi/processor_perflib.c:364: error: ‘X86_FEATURE_EST’ undeclared (first use in this function)
+>   drivers/acpi/processor_perflib.c:364: error: (Each undeclared identifier is reported only once
+>   drivers/acpi/processor_perflib.c:364: error: for each function it appears in.)
+>   make[2]: *** [drivers/acpi/processor_perflib.o] Error 1
+>   make[1]: *** [drivers/acpi] Error 2
+>   make: *** [drivers] Error 2
+> 
+> this patch fix it.
+> 
+> Signed-off-by: Miao Xie <miaox@cn.fujitsu.com>
+> Cc: Thomas Renninger <trenn@suse.de>
+> 
+> ---
+>  drivers/acpi/processor_perflib.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/acpi/processor_perflib.c b/drivers/acpi/processor_perflib.c
+> index dc98f7a..dbcf260 100644
+> --- a/drivers/acpi/processor_perflib.c
+> +++ b/drivers/acpi/processor_perflib.c
+> @@ -38,7 +38,10 @@
+>  
+>  #include <asm/uaccess.h>
+>  #endif
+> +
+> +#ifdef CONFIG_X86
+>  #include <asm/cpufeature.h>
+> +#endif
+>  
+>  #include <acpi/acpi_bus.h>
+>  #include <acpi/processor.h>
+> @@ -360,11 +363,13 @@ static int acpi_processor_get_performance_info(struct acpi_processor *pr)
+>  	 * the BIOS is older than the CPU and does not know its frequencies
+>  	 */
+>   update_bios:
+> +#ifdef CONFIG_X86
+>  	if (ACPI_SUCCESS(acpi_get_handle(pr->handle, "_PPC", &handle))){
+>  		if(boot_cpu_has(X86_FEATURE_EST))
+>  			printk(KERN_WARNING FW_BUG "BIOS needs update for CPU "
+>  			       "frequency support\n");
+>  	}
+> +#endif
+>  	return result;
+>  }
+>  
+> -- 
+> 1.5.4.rc3
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+--Boundary_(ID_c2v0sdjgLm3jZ9/jR7fKOg)--
