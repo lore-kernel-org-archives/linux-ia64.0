@@ -1,106 +1,88 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 17 Oct 2008 02:17:57 +0000
-Subject: [PATCH 17/33] ia64/xen: introduce helper function to identify domain mode.
-Message-Id: <1224209893-2032-18-git-send-email-yamahata@valinux.co.jp>
+From: akpm@linux-foundation.org
+Date: Wed, 29 Oct 2008 21:17:59 +0000
+Subject: [patch 2/2] ia64: use common header for software IO/TLB
+Message-Id: <200810292117.m9TLHx6n018432@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There are four operating modes Xen code may find itself running in:
-- native
-- hvm domain
-- pv dom0
-- pv domU
+From: Joerg Roedel <joerg.roedel@amd.com>
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Remove the swiotlb prototypes from the architecture code and use the
+common header file instead.
+
+Signed-off-by: Joerg Roedel <joerg.roedel@amd.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/include/asm/xen/hypervisor.h |   75 ++++++++++++++++++++++++++++++++
- 1 files changed, 75 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/hypervisor.h
 
-diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
-new file mode 100644
-index 0000000..d1f84e1
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/hypervisor.h
-@@ -0,0 +1,75 @@
-+/******************************************************************************
-+ * hypervisor.h
-+ *
-+ * Linux-specific hypervisor handling.
-+ *
-+ * Copyright (c) 2002-2004, K A Fraser
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation; or, when distributed
-+ * separately from the Linux kernel or incorporated into other
-+ * software packages, subject to the following license:
-+ *
-+ * Permission is hereby granted, free of charge, to any person obtaining a copy
-+ * of this source file (the "Software"), to deal in the Software without
-+ * restriction, including without limitation the rights to use, copy, modify,
-+ * merge, publish, distribute, sublicense, and/or sell copies of the Software,
-+ * and to permit persons to whom the Software is furnished to do so, subject to
-+ * the following conditions:
-+ *
-+ * The above copyright notice and this permission notice shall be included in
-+ * all copies or substantial portions of the Software.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-+ * IN THE SOFTWARE.
-+ */
-+
-+#ifndef _ASM_IA64_XEN_HYPERVISOR_H
-+#define _ASM_IA64_XEN_HYPERVISOR_H
-+
-+#ifdef CONFIG_XEN
-+
-+#include <linux/init.h>
-+#include <xen/interface/xen.h>
-+#include <xen/interface/version.h>	/* to compile feature.c */
-+#include <xen/features.h>		/* to comiple xen-netfront.c */
-+#include <asm/xen/hypercall.h>
-+
-+/* xen_domain_type is set before executing any C code by early_xen_setup */
-+enum xen_domain_type {
-+	XEN_NATIVE,
-+	XEN_PV_DOMAIN,
-+	XEN_HVM_DOMAIN,
-+};
-+
-+extern enum xen_domain_type xen_domain_type;
-+
-+#define xen_domain()		(xen_domain_type != XEN_NATIVE)
-+#define xen_pv_domain()		(xen_domain_type = XEN_PV_DOMAIN)
-+#define xen_initial_domain()	(xen_pv_domain() && \
-+				 (xen_start_info->flags & SIF_INITDOMAIN))
-+#define xen_hvm_domain()	(xen_domain_type = XEN_HVM_DOMAIN)
-+
-+/* deprecated. remove this */
-+#define is_running_on_xen()	(xen_domain_type = XEN_PV_DOMAIN)
-+
-+extern struct start_info *xen_start_info;
-+
-+#else /* CONFIG_XEN */
-+
-+#define xen_domain()		(0)
-+#define xen_pv_domain()		(0)
-+#define xen_initial_domain()	(0)
-+#define xen_hvm_domain()	(0)
-+#define is_running_on_xen()	(0)	/* deprecated. remove this */
-+#endif
-+
-+#define is_initial_xendomain()	(0)	/* deprecated. remove this */
-+
-+#endif /* _ASM_IA64_XEN_HYPERVISOR_H */
--- 
-1.6.0.2
+ arch/ia64/hp/common/hwsw_iommu.c |    9 +--------
+ arch/ia64/include/asm/machvec.h  |   22 +---------------------
+ 2 files changed, 2 insertions(+), 29 deletions(-)
 
+diff -puN arch/ia64/hp/common/hwsw_iommu.c~ia64-use-common-header-for-software-io-tlb arch/ia64/hp/common/hwsw_iommu.c
+--- a/arch/ia64/hp/common/hwsw_iommu.c~ia64-use-common-header-for-software-io-tlb
++++ a/arch/ia64/hp/common/hwsw_iommu.c
+@@ -13,19 +13,12 @@
+  */
+ 
+ #include <linux/device.h>
++#include <linux/swiotlb.h>
+ 
+ #include <asm/machvec.h>
+ 
+ /* swiotlb declarations & definitions: */
+ extern int swiotlb_late_init_with_default_size (size_t size);
+-extern ia64_mv_dma_alloc_coherent	swiotlb_alloc_coherent;
+-extern ia64_mv_dma_free_coherent	swiotlb_free_coherent;
+-extern ia64_mv_dma_map_single_attrs	swiotlb_map_single_attrs;
+-extern ia64_mv_dma_unmap_single_attrs	swiotlb_unmap_single_attrs;
+-extern ia64_mv_dma_map_sg_attrs		swiotlb_map_sg_attrs;
+-extern ia64_mv_dma_unmap_sg_attrs	swiotlb_unmap_sg_attrs;
+-extern ia64_mv_dma_supported		swiotlb_dma_supported;
+-extern ia64_mv_dma_mapping_error	swiotlb_dma_mapping_error;
+ 
+ /* hwiommu declarations & definitions: */
+ 
+diff -puN arch/ia64/include/asm/machvec.h~ia64-use-common-header-for-software-io-tlb arch/ia64/include/asm/machvec.h
+--- a/arch/ia64/include/asm/machvec.h~ia64-use-common-header-for-software-io-tlb
++++ a/arch/ia64/include/asm/machvec.h
+@@ -11,6 +11,7 @@
+ #define _ASM_IA64_MACHVEC_H
+ 
+ #include <linux/types.h>
++#include <linux/swiotlb.h>
+ 
+ /* forward declarations: */
+ struct device;
+@@ -298,27 +299,6 @@ extern void machvec_init_from_cmdline(co
+ # endif /* CONFIG_IA64_GENERIC */
+ 
+ /*
+- * Declare default routines which aren't declared anywhere else:
+- */
+-extern ia64_mv_dma_init			swiotlb_init;
+-extern ia64_mv_dma_alloc_coherent	swiotlb_alloc_coherent;
+-extern ia64_mv_dma_free_coherent	swiotlb_free_coherent;
+-extern ia64_mv_dma_map_single		swiotlb_map_single;
+-extern ia64_mv_dma_map_single_attrs	swiotlb_map_single_attrs;
+-extern ia64_mv_dma_unmap_single		swiotlb_unmap_single;
+-extern ia64_mv_dma_unmap_single_attrs	swiotlb_unmap_single_attrs;
+-extern ia64_mv_dma_map_sg		swiotlb_map_sg;
+-extern ia64_mv_dma_map_sg_attrs		swiotlb_map_sg_attrs;
+-extern ia64_mv_dma_unmap_sg		swiotlb_unmap_sg;
+-extern ia64_mv_dma_unmap_sg_attrs	swiotlb_unmap_sg_attrs;
+-extern ia64_mv_dma_sync_single_for_cpu	swiotlb_sync_single_for_cpu;
+-extern ia64_mv_dma_sync_sg_for_cpu	swiotlb_sync_sg_for_cpu;
+-extern ia64_mv_dma_sync_single_for_device swiotlb_sync_single_for_device;
+-extern ia64_mv_dma_sync_sg_for_device	swiotlb_sync_sg_for_device;
+-extern ia64_mv_dma_mapping_error	swiotlb_dma_mapping_error;
+-extern ia64_mv_dma_supported		swiotlb_dma_supported;
+-
+-/*
+  * Define default versions so we can extend machvec for new platforms without having
+  * to update the machvec files for all existing platforms.
+  */
+_
