@@ -1,96 +1,48 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 14 Oct 2008 05:51:25 +0000
-Subject: [PATCH 10/32] ia64/xen: define helper functions for xen related address conversion.
-Message-Id: <1223963507-28056-11-git-send-email-yamahata@valinux.co.jp>
+From: Russ Anderson <rja@sgi.com>
+Date: Wed, 29 Oct 2008 22:29:18 +0000
+Subject: [PATCH trivial] ia64: Fix gru compiler warning
+Message-Id: <20081029222918.GA71188@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-next@vger.kernel.org
 
-Xen needs some address conversions between pseudo physical
-address (guest phsyical address), guest machine address
-(real machine address) and dma address.
-Define helper functions for those address conversion.
+Fix compiler warning in sgi-gru driver.
 
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Russ Anderson <rja@sgi.com>
+
 ---
- arch/ia64/include/asm/xen/page.h |   65 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 65 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/page.h
+Andrew,
 
-diff --git a/arch/ia64/include/asm/xen/page.h b/arch/ia64/include/asm/xen/page.h
-new file mode 100644
-index 0000000..03441a7
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/page.h
-@@ -0,0 +1,65 @@
-+/******************************************************************************
-+ * arch/ia64/include/asm/xen/page.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#ifndef _ASM_IA64_XEN_PAGE_H
-+#define _ASM_IA64_XEN_PAGE_H
-+
-+#define INVALID_P2M_ENTRY	(~0UL)
-+
-+static inline unsigned long mfn_to_pfn(unsigned long mfn)
-+{
-+	return mfn;
-+}
-+
-+static inline unsigned long pfn_to_mfn(unsigned long pfn)
-+{
-+	return pfn;
-+}
-+
-+#define phys_to_machine_mapping_valid(_x)	(1)
-+
-+static inline void *mfn_to_virt(unsigned long mfn)
-+{
-+	return __va(mfn << PAGE_SHIFT);
-+}
-+
-+static inline unsigned long virt_to_mfn(void *virt)
-+{
-+	return __pa(virt) >> PAGE_SHIFT;
-+}
-+
-+/* for tpmfront.c */
-+static inline unsigned long virt_to_machine(void *virt)
-+{
-+	return __pa(virt);
-+}
-+
-+static inline void set_phys_to_machine(unsigned long pfn, unsigned long mfn)
-+{
-+	/* nothing */
-+}
-+
-+#define pte_mfn(_x)	pte_pfn(_x)
-+#define mfn_pte(_x, _y)	__pte_ma(0)		/* unmodified use */
-+#define __pte_ma(_x)	((pte_t) {(_x)})        /* unmodified use */
-+
-+#endif /* _ASM_IA64_XEN_PAGE_H */
+This patch gets rid of the gru compiler warnings.
+
+
+In file included from drivers/misc/sgi-gru/gruhandles.h:25,
+                 from drivers/misc/sgi-gru/grutables.h:151,
+                 from drivers/misc/sgi-gru/grufile.c:41:
+drivers/misc/sgi-gru/gru_instructions.h: In function `gru_flush_cache':
+drivers/misc/sgi-gru/gru_instructions.h:292: warning: passing arg 1 of pointer to
+function makes integer from pointer without a cast
+
+
+
+ drivers/misc/sgi-gru/gru_instructions.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: test/drivers/misc/sgi-gru/gru_instructions.h
+=================================--- test.orig/drivers/misc/sgi-gru/gru_instructions.h	2008-10-29 11:19:56.000000000 -0500
++++ test/drivers/misc/sgi-gru/gru_instructions.h	2008-10-29 14:23:43.230943026 -0500
+@@ -29,7 +29,7 @@
+ #if defined(CONFIG_IA64)
+ #include <linux/compiler.h>
+ #include <asm/intrinsics.h>
+-#define __flush_cache(p)		ia64_fc(p)
++#define __flush_cache(p)		ia64_fc((unsigned long)p)
+ /* Use volatile on IA64 to ensure ordering via st4.rel */
+ #define gru_ordered_store_int(p,v)					\
+ 		do {							\
 -- 
-1.6.0.2
-
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
