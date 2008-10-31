@@ -1,38 +1,29 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Fri, 31 Oct 2008 08:52:22 +0000
-Subject: Re: [PATCH V2 0/2] enable irqs when waiting for rwlocks
-Message-Id: <1225443142.6825.4.camel@elijah.suse.cz>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 31 Oct 2008 20:22:56 +0000
+Subject: RE: [PATCH V2 0/2] enable irqs when waiting for rwlocks
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35A7ED9D3@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1224777451.11530.52.camel@elijah.suse.cz>
-In-Reply-To: <1224777451.11530.52.camel@elijah.suse.cz>
+ <1225443142.6825.4.camel@elijah.suse.cz>
+In-Reply-To: <1225443142.6825.4.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
+To: Petr Tesarik <ptesarik@suse.cz>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On Thu, 2008-10-23 at 18:08 +0200, Petr Tesarik wrote:
-> New in V2:
->  * get rid of ugly #ifdef's in kernel/spinlock.h
->  * convert __raw_{read|write}_lock_flags to an inline func
-> 
-> SGI has observed that on large systems, interrupts are not serviced for
-> a long period of time when waiting for a rwlock. The following patch
-> series re-enables irqs while waiting for the lock, resembling the code
-> which is already there for spinlocks.
-> 
-> I only made the ia64 version, because the patch adds some overhead to
-> the fast path. I assume there is currently no demand to have this for
-> other architectures, because the systems are not so large. Of course,
-> the possibility to implement raw_{read|write}_lock_flags for any
-> architecture is still there.
-> 
-> Petr Tesarik
+> Any comments on my second patch series? Not even an Acked-by? Dislike of
+> the concept? Should I post it again?
 
-Any comments on my second patch series? Not even an Acked-by? Dislike of
-the concept? Should I post it again?
+Better response to interrupts is good, but it comes at the
+cost of longer latency acquiring the lock (in the case where
+an interrupt happens while we are waiting for the lock, and
+the lock is freed while we are off executing the interrupt
+handler).
 
-I feel a bit too uncertain what the status is...
+Any suggestions on how to measure the trade-off here?  Possibly
+it doesn't matter because this may only be significant when
+the lock is heavily contended and you are probably aleady
+hosed in this case.
 
-Petr
-
+-Tony
