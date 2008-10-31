@@ -1,28 +1,27 @@
-From: Mark Fasheh <mfasheh@suse.com>
-Date: Wed, 29 Oct 2008 21:39:02 +0000
-Subject: Re: linux-next: Tree for October 28
-Message-Id: <20081029213902.GF15154@wotan.suse.de>
+From: "jidong xiao" <jidong.xiao@gmail.com>
+Date: Fri, 31 Oct 2008 11:45:02 +0000
+Subject: Where is asm-ia64 directory in 2.6.27 kernel?
+Message-Id: <4104961b0810310445v49e13b85xe85d417bfe9ad979@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081028183055.fbcf5420.sfr@canb.auug.org.au> <20081028220741.f5d331ba.akpm@linux-foundation.org>
-In-Reply-To: <20081028220741.f5d331ba.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Steven Rostedt <rostedt@goodmis.org>, linux-wireless@vger.kernel.org, Joel Becker <Joel.Becker@oracle.com>
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Oct 28, 2008 at 10:07:41PM -0700, Andrew Morton wrote:
-> plus of course enough compile warnings to start a small war.   ocfs2 is
-> prominent.
-> 
-> fs/ocfs2/xattr.c: In function `ocfs2_xattr_index_block_find':
-> fs/ocfs2/xattr.c:2338: warning: long long unsigned int format, u64 arg (arg 7)
-> fs/ocfs2/xattr.c:2338: warning: long long unsigned int format, u64 arg (arg 7)
-> fs/ocfs2/xattr.c:2338: warning: long long unsigned int format, u64 arg (arg 7)
+Hi,
 
-Thanks for pointing these out Andrew. They slipped by me. I'll get them
-fixed up before the conflict escalates  ;)
-	--Mark
+I just noticed there is no such a directory now, where are the
+including files re-located?Is it also merged into asm-x86??
 
---
-Mark Fasheh
+lfs:/usr/src/linux-2.6.27-rc2/include # ls
+acpi       asm-blackfin  asm-h8300      asm-mips     asm-x86
+Kbuild    media   rdma   video
+asm-alpha  asm-cris      asm-m32r       asm-mn10300  asm-xtensa  keys
+    mtd     rxrpc  xen
+asm-arm    asm-frv       asm-m68k       asm-parisc   crypto      linux
+    net     scsi
+asm-avr32  asm-generic   asm-m68knommu  asm-um       drm
+math-emu  pcmcia  sound
+
+Regards
+Jason
