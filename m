@@ -1,54 +1,62 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Fri, 07 Nov 2008 02:49:48 +0000
-Subject: Re: [PATCH] Reserve elfcorehdr memory in CONFIG_CRASH_DUMP
-Message-Id: <20081107024946.GA20889@verge.net.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 04 Nov 2008 22:13:39 +0000
+Subject: RE: Panic in multiple kernels: IA64 SBA IOMMU: Culprit commit on
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35BE05F00@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4913A8C0.8090108@sgi.com>
-In-Reply-To: <4913A8C0.8090108@sgi.com>
+References: <490F880E.4000801@cse.unsw.edu.au>
+In-Reply-To: <490F880E.4000801@cse.unsw.edu.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Jay Lan <jlan@sgi.com>
-Cc: "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Shehjar Tikoo <shehjart@cse.unsw.edu.au>, "fujita.tomonori@lab.ntt.co.jp" <fujita.tomonori@lab.ntt.co.jp>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On Thu, Nov 06, 2008 at 06:32:32PM -0800, Jay Lan wrote:
-> IA64 kdump kernel failed to initialize /proc/vmcore in 2.6.28-rc2.
-> A bug was introduced in this patch commit:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3Dco=
-mmitdiff;h=D9a9855d0b06ca6d6cc92596fedcc03f8512e062
->=20
-> The problem was that the call to reserve_elfcorehdr() should be placed
-> in CONFIG_CRASH_DUMP rather than in CONFIG_CRASH_KERNEL, which does
-> not exist.
->=20
-> The patch fixes the problem.
->=20
-> Signed-off-by: Jay Lan <jlan@sgi.com>
+Added Cc: linux-ia64 ... more likely to attract attention of HP
+ia64 experts there.
 
-Acked-by: Simon Horman <horms@verge.net.au>
+> arch/ia64/hp/common/sba_iommu.c: I/O MMU is out of mapping resources
 
-> ---
->  arch/ia64/kernel/setup.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> Index: linux/arch/ia64/kernel/setup.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D> --- linux.orig/arch/ia64/kernel/setup.c	2008-1=
-1-06 18:01:18.000000000 -0800
-> +++ linux/arch/ia64/kernel/setup.c	2008-11-06 18:05:42.047332827 -0800
-> @@ -359,7 +359,7 @@ reserve_memory (void)
->  	}
->  #endif
-> =20
-> -#ifdef CONFIG_CRASH_KERNEL
-> +#ifdef CONFIG_CRASH_DUMP
->  	if (reserve_elfcorehdr(&rsvd_region[n].start,
->  			       &rsvd_region[n].end) =3D 0)
->  		n++;
+Odd ... the code (back to the dawn of git time in 2.6.12-rc1) looks like
 
+        panic(__FILE__ ": I/O MMU @ %p is out of mapping resources\n"
+                ioc->ioc_hpa);
 
---=20
-Simon Horman
-  VA Linux Systems Japan K.K., Sydney, Australia Satellite Office
-  H: www.vergenet.net/~horms/             W: www.valinux.co.jp/en
+I wonder why you don't see the "@ HEXADDRESS"?
 
+> Using git-bisect, I've zeroed in on the commit that introduced this.
+> Please see the attached file for the commit.
+
+Did you confirm that reverting this commit on a recent kernel
+fixes the problem (once in a while git bisect can point to
+the wrong commit ... it seems very likely that it got the
+right one here, but it is always good to check).  When I
+tried to use "patch -R" to revert this it got confused on
+the Kconfig file because the lines that were added were
+subsequently changed ... so you may need to revert that
+by hand ... the sba_iommu.c apparently reverted ok).
+
+> Other info:
+> System is HP RX6600(16Gb RAM, 16 processors w/ dual cores and HT)
+> 20 SATA disks under software RAID0 with 6 TB capacity.
+> Silicon Image 3124 controller.
+> File system is XFS.
+
+My HP test system is way too small to attempt to recreate
+this (just 2 cpus & 1 disk).  How long does each of your
+tests take to hit the problems ... a few minutes? Or hours?
+
+> I'd much appreciate some help in fixing this because this panic has
+> basically stalled my own work. I'd be willing to run more tests on my
+> setup to test any patches that possibly fix this issue.
+
+Adding some printk() before the panic might give a clue as to what
+is going wrong.  Either a bogus call is trying to allocate far
+too much space, or the bitmap is leaking, or we have a totally
+messed up "ioc" structure.
+
+Printing "pages_needed" the address of "ioc" and some interesting
+fields from ioc (at least ioc->res_size) would help.  I assume
+the the return value from sba_search_bitmap() is ~0x0 ... but
+you should print "pide" just to be sure.
+
+-Tony
