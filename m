@@ -1,39 +1,30 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Wed, 12 Nov 2008 01:40:18 +0000
-Subject: Re: [Q] Why does dma_alloc_coherent() of ia64 GFP_DMA?
-Message-Id: <20081112104048C.fujita.tomonori@lab.ntt.co.jp>
+From: holt@sgi.com
+Date: Tue, 04 Nov 2008 12:24:05 +0000
+Subject: [Patch V3 0/3] Enable irqs when waiting for rwlocks
+Message-Id: <20081104122405.046233722@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0811101600490.32282@quilx.com>
-	<20081111145418P.fujita.tomonori@lab.ntt.co.jp>
-	<Pine.LNX.4.64.0811111431440.26610@quilx.com>
-In-Reply-To: <Pine.LNX.4.64.0811111431440.26610@quilx.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: cl@linux-foundation.org
-Cc: fujita.tomonori@lab.ntt.co.jp, y-goto@jp.fujitsu.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, joerg.roedel@amd.com
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Petr Tesarik <ptesarik@suse.cz>, Tony Ernst <tee@sgi.com>, Robin Holt <holt@sgi.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@elte.hu>
 
-On Tue, 11 Nov 2008 14:32:46 -0600 (CST)
-Christoph Lameter <cl@linux-foundation.org> wrote:
+New in V3:
+ * Handle rearrangement of some arch's include/asm directories.
 
-> On Tue, 11 Nov 2008, FUJITA Tomonori wrote:
-> 
-> > Is it because it does some kinda address translation
-> > (provider->dma_map_consistent) later? The zone flag is meaningless if
-> > you do sorta address translation (e.g. hardware IOMMU like VT-d).
-> 
-> Yes it can do address translation. Therefore a < 4G address can show up at
-> any 64 bit address. So no need for a special DMA zone. The same is true
-> for more x86_64 platforms that have an IOMMU.
+New in V2:
+ * get rid of ugly #ifdef's in kernel/spinlock.h
+ * convert __raw_{read|write}_lock_flags to an inline func
 
-Yes, with address translation hardware such as IOMMU, the zone is
-meaningless. The IOMMU drivers ignore the zone flag
-(e.g. intel_alloc_coherent).
+SGI has observed that on large systems, interrupts are not serviced for
+a long period of time when waiting for a rwlock. The following patch
+series re-enables irqs while waiting for the lock, resembling the code
+which is already there for spinlocks.
 
-But the GFP_DMA in IA64's platform_dma_alloc_coherent() is still
-necessary for swiotlb with devices that don't have DMA_64BIT_MASK
-coherent_dma_mask. They need a < 4G address.
+I only made the ia64 version, because the patch adds some overhead to
+the fast path. I assume there is currently no demand to have this for
+other architectures, because the systems are not so large. Of course,
+the possibility to implement raw_{read|write}_lock_flags for any
+architecture is still there.
 
-This is exactly what x86 and x86_64 do, dma_alloc_coherent in
-arch/x86/include/asm/dma-mapping.h. It sets GFP_DMA and GFP_DMA32 for
-swiotlb and pci-nommu.c when necessary.
+Robin Holt
