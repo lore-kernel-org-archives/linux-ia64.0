@@ -1,96 +1,140 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 25 Nov 2008 12:57:48 +0000
-Subject: [PATCH 05/13] ia64/pv_ops: paravirtualize mov = ar.itc.
-Message-Id: <1227618131-3755-6-git-send-email-yamahata@valinux.co.jp>
+From: holt@sgi.com
+Date: Tue, 04 Nov 2008 12:24:08 +0000
+Subject: [Patch V3 3/3] ia64: implement interrupt-enabling rwlocks
+Message-Id: <20081104122419.300137718@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20081104122405.046233722@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+Cc: Petr Tesarik <ptesarik@suse.cz>, Tony Ernst <tee@sgi.com>, Robin Holt <holt@sgi.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@elte.hu>
 
-paravirtualize mov reg = ar.itc.
+Implement __raw_read_lock_flags and __raw_write_lock_flags for the
+ia64 architecture.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+Signed-off-by: Robin Holt <holt@sgi.com>
 ---
- arch/ia64/include/asm/native/inst.h |    5 +++++
- arch/ia64/kernel/entry.S            |    4 ++--
- arch/ia64/kernel/fsys.S             |    4 ++--
- arch/ia64/kernel/ivt.S              |    2 +-
- 4 files changed, 10 insertions(+), 5 deletions(-)
+ spinlock.h |   80 ++++++++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 63 insertions(+), 17 deletions(-)
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
-index 5e4e151..ad59fc6 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -77,6 +77,11 @@
- (pred)	mov reg = psr			\
- 	CLOBBER(clob)
+Index: rwlock/arch/ia64/include/asm/spinlock.h
+=================================--- rwlock.orig/arch/ia64/include/asm/spinlock.h	2008-11-04 06:01:29.251624869 -0600
++++ rwlock/arch/ia64/include/asm/spinlock.h	2008-11-04 06:01:32.500040620 -0600
+@@ -120,6 +120,38 @@ do {											\
+ #define __raw_read_can_lock(rw)		(*(volatile int *)(rw) >= 0)
+ #define __raw_write_can_lock(rw)	(*(volatile int *)(rw) = 0)
  
-+#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
-+(pred)	mov reg = ar.itc				\
-+	CLOBBER(clob)					\
-+	CLOBBER_PRED(pred_clob)
++#ifdef ASM_SUPPORTED
 +
- #define MOV_TO_IFA(reg, clob)	\
- 	mov cr.ifa = reg	\
- 	CLOBBER(clob)
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index d435f4a..c5709c6 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -735,7 +735,7 @@ GLOBAL_ENTRY(__paravirt_leave_syscall)
- __paravirt_work_processed_syscall:
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	adds r2=PT(LOADRS)+16,r12
--(pUStk)	mov.m r22=ar.itc			// fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r19)	// fetch time at leave
- 	adds r18=TI_FLAGS+IA64_TASK_SIZE,r13
- 	;;
- (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
-@@ -984,7 +984,7 @@ GLOBAL_ENTRY(__paravirt_leave_kernel)
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	.pred.rel.mutex pUStk,pKStk
- 	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disabled
--(pUStk)	mov.m r22=ar.itc	// M  fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r29)	// M  fetch time at leave
- 	nop.i 0
- 	;;
- #else
-diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
-index 3544d75..3567d54 100644
---- a/arch/ia64/kernel/fsys.S
-+++ b/arch/ia64/kernel/fsys.S
-@@ -280,7 +280,7 @@ ENTRY(fsys_gettimeofday)
- (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
- 	;;
- 	.pred.rel.mutex p8,p9
--(p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
-+	MOV_FROM_ITC(p8, p6, r2, r10)	// CPU_TIMER. 36 clocks latency!!!
- (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
- (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
- 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
-@@ -684,7 +684,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
- 	;;
- 	mov ar.rsc=0				// M2   set enforced lazy mode, pl 0, LE, loadrs=0
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p6, r30, r23)		// M    get cycle for accounting
- #else
- 	nop.m 0
- #endif
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index f675d8e..ec9a5fd 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -804,7 +804,7 @@ ENTRY(break_fault)
- ///////////////////////////////////////////////////////////////////////
- 	st1 [r16]=r0				// M2|3 clear current->thread.on_ustack flag
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p14, r30, r18)		// M    get cycle for accounting
- #else
- 	mov b6=r30				// I0   setup syscall handler branch reg early
- #endif
--- 
-1.6.0.2
++static __always_inline void
++__raw_read_lock_flags(raw_spinlock_t *lock, unsigned long flags)
++{
++	__asm__ __volatile__ (
++		"tbit.nz p6, p0 = %1,%2\n"
++		"br.few 3f\n"
++		"1:\n"
++		"fetchadd4.rel r2 = [%0], -1;;\n"
++		"(p6) ssm psr.i\n"
++		"2:\n"
++		"hint @pause\n"
++		"ld4 r2 = [%0];;\n"
++		"cmp4.lt p7,p0 = r2, r0\n"
++		"(p7) br.cond.spnt.few 2b\n"
++		"(p6) rsm psr.i\n"
++		";;\n"
++		"3:\n"
++		"fetchadd4.acq r2 = [%0], 1;;\n"
++		"cmp4.lt p7,p0 = r2, r0\n"
++		"(p7) br.cond.spnt.few 1b\n"
++		: : "r"(lock), "r"(flags), "i"(IA64_PSR_I_BIT)
++		: "p6", "p7", "r2", "memory");
++}
++
++#define __raw_read_lock(lock) __raw_read_lock_flags(lock, 0)
++
++#else /* !ASM_SUPPORTED */
++
++#define __raw_read_lock_flags(rw, flags) __raw_read_lock(rw)
++
+ #define __raw_read_lock(rw)								\
+ do {											\
+ 	raw_rwlock_t *__read_lock_ptr = (rw);						\
+@@ -131,6 +163,8 @@ do {											\
+ 	}										\
+ } while (0)
+ 
++#endif /* !ASM_SUPPORTED */
++
+ #define __raw_read_unlock(rw)					\
+ do {								\
+ 	raw_rwlock_t *__read_lock_ptr = (rw);			\
+@@ -138,20 +172,33 @@ do {								\
+ } while (0)
+ 
+ #ifdef ASM_SUPPORTED
+-#define __raw_write_lock(rw)							\
+-do {										\
+- 	__asm__ __volatile__ (							\
+-		"mov ar.ccv = r0\n"						\
+-		"dep r29 = -1, r0, 31, 1;;\n"					\
+-		"1:\n"								\
+-		"ld4 r2 = [%0];;\n"						\
+-		"cmp4.eq p0,p7 = r0,r2\n"					\
+-		"(p7) br.cond.spnt.few 1b \n"					\
+-		"cmpxchg4.acq r2 = [%0], r29, ar.ccv;;\n"			\
+-		"cmp4.eq p0,p7 = r0, r2\n"					\
+-		"(p7) br.cond.spnt.few 1b;;\n"					\
+-		:: "r"(rw) : "ar.ccv", "p7", "r2", "r29", "memory");		\
+-} while(0)
++
++static __always_inline void
++__raw_write_lock_flags(raw_spinlock_t *lock, unsigned long flags)
++{
++	__asm__ __volatile__ (
++		"tbit.nz p6, p0 = %1, %2\n"
++		"mov ar.ccv = r0\n"
++		"dep r29 = -1, r0, 31, 1\n"
++		"br.few 3f;;\n"
++		"1:\n"
++		"(p6) ssm psr.i\n"
++		"2:\n"
++		"hint @pause\n"
++		"ld4 r2 = [%0];;\n"
++		"cmp4.eq p0,p7 = r0, r2\n"
++		"(p7) br.cond.spnt.few 2b\n"
++		"(p6) rsm psr.i\n"
++		";;\n"
++		"3:\n"
++		"cmpxchg4.acq r2 = [%0], r29, ar.ccv;;\n"
++		"cmp4.eq p0,p7 = r0, r2\n"
++		"(p7) br.cond.spnt.few 1b;;\n"
++		: : "r"(lock), "r"(flags), "i"(IA64_PSR_I_BIT)
++		: "ar.ccv", "p6", "p7", "r2", "r29", "memory");
++}
++
++#define __raw_write_lock(rw) __raw_write_lock_flags(rw, 0)
+ 
+ #define __raw_write_trylock(rw)							\
+ ({										\
+@@ -174,6 +221,8 @@ static inline void __raw_write_unlock(ra
+ 
+ #else /* !ASM_SUPPORTED */
+ 
++#define __raw_write_lock_flags(l, flags) __raw_write_lock(l)
++
+ #define __raw_write_lock(l)								\
+ ({											\
+ 	__u64 ia64_val, ia64_set_val = ia64_dep_mi(-1, 0, 31, 1);			\
+@@ -213,9 +262,6 @@ static inline int __raw_read_trylock(raw
+ 	return (u32)ia64_cmpxchg4_acq((__u32 *)(x), new.word, old.word) = old.word;
+ }
+ 
+-#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
+-#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
+-
+ #define _raw_spin_relax(lock)	cpu_relax()
+ #define _raw_read_relax(lock)	cpu_relax()
+ #define _raw_write_relax(lock)	cpu_relax()
 
