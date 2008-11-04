@@ -1,7 +1,7 @@
-From: Doug Chapman <doug.chapman@hp.com>
-Date: Tue, 04 Nov 2008 20:35:30 +0000
-Subject: Re: [REGRESSION] Minimize per_cpu reservations patch causes NULL
-Message-Id: <1225830930.13942.10.camel@localhost.localdomain>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 04 Nov 2008 21:12:33 +0000
+Subject: RE: [REGRESSION] Minimize per_cpu reservations patch causes NULL
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35BE05E2F@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1225830514.13942.8.camel@localhost.localdomain>
 In-Reply-To: <1225830514.13942.8.camel@localhost.localdomain>
@@ -10,19 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2008-11-04 at 15:28 -0500, Doug Chapman wrote:
-> It appears the intent of calling per_cpu_scan_finalize() at the
-> current
-> location is that it needs to be called prior to find_memory().  The
-> "Minimize
-> per_cpu reservations." patch changes code in arch/ia64/mm/discontig.c
-> which
-> sets up the per-cpu datastructures to only set those up for CPUs in
-> early_cpu_possible_map.
+> 1) try to get the info regarding offline CPUs earlier either by calling
+> acpi_boot_init() earlier (probably not possible prior to calling find_memory())
+> or walk a subset of the ACPI tables to get the number of offline CPUs sooner
+> (which sounds ugly).
+>
+>
+> 2) after we call acpi_boot_init() go back and setup the per-cpu datastructures
+> for the offline CPUs then.  Seems like this might be cleaner but I have not
+> investigated the specifics.
 
-Correction on this bit,  it isn't find_memory() it is cpu_init() which
-calls per_cpu_init() however the general problem is the same.
+What about:
 
-- Doug
+3) Perform the needed allocations when we try to bring the new cpu online?
 
+It is possible that this will fail ... but if you are so low on memory
+that you can't allocate a couple of pages for the new cpu, you are in
+a world of hurt already and adding a new cpu is liklely to make things
+worse.
 
+-Tony
