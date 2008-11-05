@@ -1,116 +1,56 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Wed, 05 Nov 2008 23:06:08 +0000
-Subject: Re: [PATCH][IA64] fix boot panic caused by offline CPUs
-Message-Id: <20081105230608.GF6742@ldl.fc.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 05 Nov 2008 00:43:27 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <200811050043.mA50hRhd009070@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1225925872.1605.27.camel@oberon>
-In-Reply-To: <1225925872.1605.27.camel@oberon>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-* Doug Chapman <doug.chapman@hp.com>:
-> This fixes a regression introduced by 2c6e6db41f01b6b4eb98809350827c9678996698
-> "Minimize per_cpu reservations."  That patch incorrectly used information about
-> what CPUs are possible that was not yet initialized by ACPI.  The end result
-> was that per_cpu structures for offline CPUs were not initialized causing a
-> NULL pointer reference.
-> 
-> Since we cannot do the full acpi_boot_init() call any earlier, the simplest
-> fix is to just parse the MADT for SAPIC entries early to find the CPU
-> info.  This should also allow for some cleanup of the code added by the
-> "Minimize per_cpu reservations".  This patch just fixes the regressions, the
-> cleanup will come in a later patch.
+Hi Linus,
 
-Note that this approach is similar to (but not an exact copy of)
-the x86 approach of doing an early parse of the MADT for somewhat
-similar reasons. See the x86 version of setup_arch() and drill
-down into early_acpi_boot_init() as needed.
+please pull from:
 
-/ac
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-> 
-> 
-> Signed-off-by: Doug Chapman <doug.chapman@hp.com>
-> Signed-off-by: Alex Chiang <achiang@hp.com>
-> CC: Robin Holt <holt@sgi.com>
-> 
-> ---
-> 
-> diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-> index 0635015..bd7acc7 100644
-> --- a/arch/ia64/kernel/acpi.c
-> +++ b/arch/ia64/kernel/acpi.c
-> @@ -678,6 +678,30 @@ static int __init acpi_parse_fadt(struct acpi_table_header *table)
->  	return 0;
->  }
->  
-> +int __init early_acpi_boot_init(void)
-> +{
-> +	int ret;
-> +
-> +	/*
-> +	 * do a partial walk of MADT to determine how many CPUs
-> +	 * we have including offline CPUs
-> +	 */
-> +	if (acpi_table_parse(ACPI_SIG_MADT, acpi_parse_madt)) {
-> +		printk(KERN_ERR PREFIX "Can't find MADT\n");
-> +		return 0;
-> +	}
-> +
-> +	ret = acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_SAPIC,
-> +		acpi_parse_lsapic, NR_CPUS);
-> +	if (ret < 1)
-> +		printk(KERN_ERR PREFIX
-> +		       "Error parsing MADT - no LAPIC entries\n");
-> +
-> +	return 0;
-> +}
-> +
-> +
-> +
->  int __init acpi_boot_init(void)
->  {
->  
-> @@ -701,11 +725,6 @@ int __init acpi_boot_init(void)
->  		printk(KERN_ERR PREFIX
->  		       "Error parsing LAPIC address override entry\n");
->  
-> -	if (acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_SAPIC, acpi_parse_lsapic, NR_CPUS)
-> -	    < 1)
-> -		printk(KERN_ERR PREFIX
-> -		       "Error parsing MADT - no LAPIC entries\n");
-> -
->  	if (acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_APIC_NMI, acpi_parse_lapic_nmi, 0)
->  	    < 0)
->  		printk(KERN_ERR PREFIX "Error parsing LAPIC NMI entry\n");
-> diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-> index ae79117..bf441f4 100644
-> --- a/arch/ia64/kernel/setup.c
-> +++ b/arch/ia64/kernel/setup.c
-> @@ -561,8 +561,12 @@ setup_arch (char **cmdline_p)
->  #ifdef CONFIG_ACPI
->  	/* Initialize the ACPI boot-time table parser */
->  	acpi_table_init();
-> +	early_acpi_boot_init();
->  # ifdef CONFIG_ACPI_NUMA
->  	acpi_numa_init();
-> +#ifdef CONFIG_ACPI_HOTPLUG_CPU
-> +	prefill_possible_map();
-> +#endif
->  	per_cpu_scan_finalize((cpus_weight(early_cpu_possible_map) = 0 ?
->  		32 : cpus_weight(early_cpu_possible_map)),
->  		additional_cpus > 0 ? additional_cpus : 0);
-> @@ -853,9 +857,6 @@ void __init
->  setup_per_cpu_areas (void)
->  {
->  	/* start_kernel() requires this... */
-> -#ifdef CONFIG_ACPI_HOTPLUG_CPU
-> -	prefill_possible_map();
-> -#endif
->  }
->  
->  /*
-> 
-> 
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/Kconfig                 |    1 +
+ arch/ia64/hp/common/hwsw_iommu.c  |    9 +------
+ arch/ia64/include/asm/io.h        |   24 -------------------
+ arch/ia64/include/asm/machvec.h   |   22 +-----------------
+ arch/ia64/include/asm/meminit.h   |    1 -
+ arch/ia64/include/asm/sal.h       |   15 +++++++++++-
+ arch/ia64/include/asm/sn/sn_sal.h |   45 +++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/pci-dma.c        |    2 -
+ arch/ia64/mm/discontig.c          |    1 -
+ arch/ia64/uv/kernel/setup.c       |    6 +++++
+ 10 files changed, 68 insertions(+), 58 deletions(-)
+
+FUJITA Tomonori (1):
+      [IA64] remove dead BIO_VMERGE_BOUNDARY definition
+
+Huang Weiyi (1):
+      [IA64] remove duplicated #include from pci-dma.c
+
+Joerg Roedel (1):
+      [IA64] use common header for software IO/TLB
+
+Ken'ichi Ohmichi (1):
+      [IA64] fix the difference between node_mem_map and node_start_pfn
+
+Russ Anderson (3):
+      [IA64] Simplify SGI uv vs. sn2 driver issues
+      [IA64] Add UV watchlist support.
+      [IA64] Add error_recovery_info field to SAL section header
+
+Tony Luck (1):
+      [IA64] Build VT-D iommu support into generic kernel
+
