@@ -1,54 +1,105 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 25 Nov 2008 12:59:50 +0000
-Subject: [PATCH 0/5] ia64/pv_ops, xen: binary patch optimization
-Message-Id: <1227618235-3890-1-git-send-email-yamahata@valinux.co.jp>
+From: Doug Chapman <doug.chapman@hp.com>
+Date: Wed, 05 Nov 2008 22:57:52 +0000
+Subject: [PATCH][IA64] fix boot panic caused by offline CPUs
+Message-Id: <1225925872.1605.27.camel@oberon>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch set is for binary patch optimization for paravirt_ops.
-The binary patch optimization is important on native case because
-the paravirt_ops overhead can be reduced by converting indirect 
-call into in-place execution or direct call.
+This fixes a regression introduced by 2c6e6db41f01b6b4eb98809350827c9678996698
+"Minimize per_cpu reservations."  That patch incorrectly used information about
+what CPUs are possible that was not yet initialized by ACPI.  The end result
+was that per_cpu structures for offline CPUs were not initialized causing a
+NULL pointer reference.
+
+Since we cannot do the full acpi_boot_init() call any earlier, the simplest
+fix is to just parse the MADT for SAPIC entries early to find the CPU
+info.  This should also allow for some cleanup of the code added by the
+"Minimize per_cpu reservations".  This patch just fixes the regressions, the
+cleanup will come in a later patch.
 
 
-The first patch imports helper functions which themselves doesn't interesting
-things.
-The second patch replaces the indirect function calls with a special
-call written in gcc extended inline asm and introduces native methods.
-The third patch introduces binary patch for kernel modules.
-The forth patch suppress false positive warnings which were caused by
-the previous patches.
-The last patch implements xen methods.
+Signed-off-by: Doug Chapman <doug.chapman@hp.com>
+Signed-off-by: Alex Chiang <achiang@hp.com>
+CC: Robin Holt <holt@sgi.com>
+
+---
+
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 0635015..bd7acc7 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -678,6 +678,30 @@ static int __init acpi_parse_fadt(struct acpi_table_header *table)
+ 	return 0;
+ }
+ 
++int __init early_acpi_boot_init(void)
++{
++	int ret;
++
++	/*
++	 * do a partial walk of MADT to determine how many CPUs
++	 * we have including offline CPUs
++	 */
++	if (acpi_table_parse(ACPI_SIG_MADT, acpi_parse_madt)) {
++		printk(KERN_ERR PREFIX "Can't find MADT\n");
++		return 0;
++	}
++
++	ret = acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_SAPIC,
++		acpi_parse_lsapic, NR_CPUS);
++	if (ret < 1)
++		printk(KERN_ERR PREFIX
++		       "Error parsing MADT - no LAPIC entries\n");
++
++	return 0;
++}
++
++
++
+ int __init acpi_boot_init(void)
+ {
+ 
+@@ -701,11 +725,6 @@ int __init acpi_boot_init(void)
+ 		printk(KERN_ERR PREFIX
+ 		       "Error parsing LAPIC address override entry\n");
+ 
+-	if (acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_SAPIC, acpi_parse_lsapic, NR_CPUS)
+-	    < 1)
+-		printk(KERN_ERR PREFIX
+-		       "Error parsing MADT - no LAPIC entries\n");
+-
+ 	if (acpi_table_parse_madt(ACPI_MADT_TYPE_LOCAL_APIC_NMI, acpi_parse_lapic_nmi, 0)
+ 	    < 0)
+ 		printk(KERN_ERR PREFIX "Error parsing LAPIC NMI entry\n");
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index ae79117..bf441f4 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -561,8 +561,12 @@ setup_arch (char **cmdline_p)
+ #ifdef CONFIG_ACPI
+ 	/* Initialize the ACPI boot-time table parser */
+ 	acpi_table_init();
++	early_acpi_boot_init();
+ # ifdef CONFIG_ACPI_NUMA
+ 	acpi_numa_init();
++#ifdef CONFIG_ACPI_HOTPLUG_CPU
++	prefill_possible_map();
++#endif
+ 	per_cpu_scan_finalize((cpus_weight(early_cpu_possible_map) = 0 ?
+ 		32 : cpus_weight(early_cpu_possible_map)),
+ 		additional_cpus > 0 ? additional_cpus : 0);
+@@ -853,9 +857,6 @@ void __init
+ setup_per_cpu_areas (void)
+ {
+ 	/* start_kernel() requires this... */
+-#ifdef CONFIG_ACPI_HOTPLUG_CPU
+-	prefill_possible_map();
+-#endif
+ }
+ 
+ /*
 
 
-For convenience the working full source is available from
-http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
-branch: ia64-pv-ops-2008nov25-xen-ia64-optimized-domu-binary-patch
-
-For the status of this patch series
-http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
-
-thanks,
-
-Diffstat:
- arch/ia64/include/asm/intrinsics.h      |    6 +-
- arch/ia64/include/asm/module.h          |    6 +
- arch/ia64/include/asm/paravirt.h        |    8 +
- arch/ia64/include/asm/paravirt_patch.h  |  143 +++++++
- arch/ia64/include/asm/paravirt_privop.h |  347 ++++++++++++++++-
- arch/ia64/include/asm/xen/privop.h      |    4 +
- arch/ia64/kernel/Makefile               |    3 +-
- arch/ia64/kernel/efi.c                  |    1 +
- arch/ia64/kernel/module.c               |   32 ++
- arch/ia64/kernel/paravirt.c             |  520 ++++++++++++++++++++++++-
- arch/ia64/kernel/paravirt_patch.c       |  509 +++++++++++++++++++++++
- arch/ia64/kernel/paravirtentry.S        |  101 ++++-
- arch/ia64/kernel/setup.c                |    1 +
- arch/ia64/kernel/vmlinux.lds.S          |   24 ++
- arch/ia64/kvm/vtlb.c                    |    2 +
- arch/ia64/xen/hypercall.S               |    2 +
- arch/ia64/xen/xen_pv_ops.c              |  667 +++++++++++++++++++++++++++++++
- 17 files changed, 2351 insertions(+), 25 deletions(-)
