@@ -1,72 +1,53 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 25 Nov 2008 12:59:48 +0000
-Subject: [PATCH 4/5] ia64/pv_ops/binary patch: define paravirt_dv_serialize_data() and suppress false positiv
-Message-Id: <1227618235-3890-5-git-send-email-yamahata@valinux.co.jp>
+From: Jay Lan <jlan@sgi.com>
+Date: Fri, 07 Nov 2008 02:32:32 +0000
+Subject: [PATCH] Reserve elfcorehdr memory in CONFIG_CRASH_DUMP
+Message-Id: <4913A8C0.8090108@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------050900080006010709070406"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Cc: Simon Horman <horms@verge.net.au>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>
+
+This is a multi-part message in MIME format.
+--------------050900080006010709070406
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
 
-define paravirt_dv_serialize_data() and insert it to suppress
-false positive warnings.
+IA64 kdump kernel failed to initialize /proc/vmcore in 2.6.28-rc2.
+A bug was introduced in this patch commit:
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=d9a9855d0b06ca6d6cc92596fedcc03f8512e062
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+The problem was that the call to reserve_elfcorehdr() should be placed
+in CONFIG_CRASH_DUMP rather than in CONFIG_CRASH_KERNEL, which does
+not exist.
+
+The patch fixes the problem.
+
+Signed-off-by: Jay Lan <jlan@sgi.com>
+
+--------------050900080006010709070406
+Content-Type: text/plain;
+ name="reserve-elfcorehdr-in-CRASH_DUMP"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="reserve-elfcorehdr-in-CRASH_DUMP"
+
 ---
- arch/ia64/include/asm/paravirt_privop.h |    6 ++++++
- arch/ia64/kernel/efi.c                  |    1 +
- arch/ia64/kvm/vtlb.c                    |    2 ++
- 3 files changed, 9 insertions(+), 0 deletions(-)
+ arch/ia64/kernel/setup.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/paravirt_privop.h b/arch/ia64/include/asm/paravirt_privop.h
-index ee941cb..4baaae9 100644
---- a/arch/ia64/include/asm/paravirt_privop.h
-+++ b/arch/ia64/include/asm/paravirt_privop.h
-@@ -119,6 +119,12 @@ void paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch);
- 
- #endif /* CONFIG_PARAVIRT */
- 
-+#if defined(CONFIG_PARAVIRT) && defined(ASM_SUPPORTED)
-+#define paravirt_dv_serialize_data()	ia64_dv_serialize_data()
-+#else
-+#define paravirt_dv_serialize_data()	/* nothing */
-+#endif
-+
- /* these routines utilize privilege-sensitive or performance-sensitive
-  * privileged instructions so the code must be replaced with
-  * paravirtualized versions */
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index efaff15..7ef80e8 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -456,6 +456,7 @@ efi_map_pal_code (void)
- 		 GRANULEROUNDDOWN((unsigned long) pal_vaddr),
- 		 pte_val(pfn_pte(__pa(pal_vaddr) >> PAGE_SHIFT, PAGE_KERNEL)),
- 		 IA64_GRANULE_SHIFT);
-+	paravirt_dv_serialize_data();
- 	ia64_set_psr(psr);		/* restore psr */
- }
- 
-diff --git a/arch/ia64/kvm/vtlb.c b/arch/ia64/kvm/vtlb.c
-index e22b933..500c878 100644
---- a/arch/ia64/kvm/vtlb.c
-+++ b/arch/ia64/kvm/vtlb.c
-@@ -210,6 +210,7 @@ void thash_vhpt_insert(struct kvm_vcpu *v, u64 pte, u64 itir, u64 va, int type)
- 		phy_pte  &= ~PAGE_FLAGS_RV_MASK;
- 		psr = ia64_clear_ic();
- 		ia64_itc(type, va, phy_pte, itir_ps(itir));
-+		paravirt_dv_serialize_data();
- 		ia64_set_psr(psr);
+Index: linux/arch/ia64/kernel/setup.c
+===================================================================
+--- linux.orig/arch/ia64/kernel/setup.c	2008-11-06 18:01:18.000000000 -0800
++++ linux/arch/ia64/kernel/setup.c	2008-11-06 18:05:42.047332827 -0800
+@@ -359,7 +359,7 @@ reserve_memory (void)
  	}
+ #endif
  
-@@ -464,6 +465,7 @@ int thash_purge_and_insert(struct kvm_vcpu *v, u64 pte, u64 itir,
- 		phy_pte  &= ~PAGE_FLAGS_RV_MASK;
- 		psr = ia64_clear_ic();
- 		ia64_itc(type, ifa, phy_pte, ps);
-+		paravirt_dv_serialize_data();
- 		ia64_set_psr(psr);
- 	}
- 	if (!(pte&VTLB_PTE_IO))
--- 
-1.6.0.2
+-#ifdef CONFIG_CRASH_KERNEL
++#ifdef CONFIG_CRASH_DUMP
+ 	if (reserve_elfcorehdr(&rsvd_region[n].start,
+ 			       &rsvd_region[n].end) == 0)
+ 		n++;
 
+--------------050900080006010709070406--
