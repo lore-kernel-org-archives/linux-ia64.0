@@ -1,51 +1,73 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Sun, 23 Nov 2008 06:32:03 +0000
-Subject: RE: [PATCH] IA64: fix VT-d dma_mapping_error
-Message-Id: <20081123153159S.fujita.tomonori@lab.ntt.co.jp>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Mon, 10 Nov 2008 04:47:51 +0000
+Subject: [Q] Why does dma_alloc_coherent() of ia64 GFP_DMA?
+Message-Id: <20081110121123.F82A.E1E9C6FF@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <A6AD88C3F2289247BE726C37303E1EB88EAB57E1@orsmsx505.amr.corp.intel.com>
-	<20081123014037A.fujita.tomonori@lab.ntt.co.jp>
-	<A6AD88C3F2289247BE726C37303E1EB88EAB5850@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <A6AD88C3F2289247BE726C37303E1EB88EAB5850@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: fenghua.yu@intel.com
-Cc: fujita.tomonori@lab.ntt.co.jp, tony.luck@intel.com, dwmw2@infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, linux-ia64@vger.kernel.org, Linux Kernel ML <linux-kernel@vger.kernel.org>, Joerg Roedel <joerg.roedel@amd.com>
 
-On Sat, 22 Nov 2008 22:10:05 -0800
-"Yu, Fenghua" <fenghua.yu@intel.com> wrote:
 
-> >Hmm, intel_dma_mapping_error is used to test only the value that
-> >intel_map_single() returns. If intel_map_single() returns a non-zero
-> >dma address, it belongs to hwdev's domain. So intel_dma_mapping_error
-> >can simply return 1 (failure) if the dma_addr is zero.
-> 
-> Then there is no usage of hwdev which is one of two parameters in intel_dma_mapping_error?
+Hello. 
 
-Yes, and that's how VT-d dma_mapping_error() works on X86_64.
+I have a (may be dumb) question about dma_alloc_coherent() for ia64.
 
-Note that we use hwdev in the following way, see
-arch/x86/kernel/include/asm/dma-mapping.h
 
-static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
-{
-#ifdef CONFIG_X86_32
-	return 0;
-#else
-	struct dma_mapping_ops *ops = get_dma_ops(dev);
-	if (ops->mapping_error)
-		return ops->mapping_error(dev, dma_addr);
+Why does dma_alloc_coherent() of ia64 force GFP_DMA yet?
+And why is swiotlb_dma_alloc_coherent() default routine of
+platform_dma_alloc_coherent()?
 
-	return (dma_addr = bad_dma_address);
-#endif
+-------
+#define dma_alloc_coherent(dev, size, handle, gfp)      \
+        platform_dma_alloc_coherent(dev, size, handle, (gfp) | GFP_DMA)
+--------
+
+Even if a device allows over 4G access and the driver doesn't specify
+GFP_DMA, dma_alloc_coherent() returns under 4G area.
+I guess many people think this is not so big issue because drivers require
+very small memory generally.
+
+However, I think this has the possibility of a finishing blow of OOM.
+For example,
+
+  1) Page caches occupy normal zone, and DMA zone is free.
+  2) A user's application requires a few GB memory and mlock it.
+     All DMA zone is occupied by it.
+  3) A device which allows over 4GB is hot-added.
+     But dma_alloc_coherent() try to allocate DMA zone.
+     Then OOM occurs because there is no freeable pages.
+
+I heard there are some users who require a few GB mlock.
+There are similar trouble in past. 
+
+
+If GFP_DMA is removed from above definition of dma_alloc_coherent(),
+what will happen?
+
+If it is not allowed, how is followings?
+
+dma_alloc_coherent()
+  -> platform_dma_alloc_coherent()
+       -> normal_alloc_coherent()
+          {
+                 if (dma_mask allow over 4G)
+                        ret = __get_free_pages();
+				:
+                        (check validation of returned address)
+				:
+                 else 
+                        swiotlb_alloc_coherent();
+          }
 }
 
-dma_mapping_error uses a point to struct device to choose a proper
-dma_mapping_ops.
+If I'm something misunderstanding, please let me know.
 
 
-> Maybe checking dma_addr only is good enough for the function? At least it's fast to check errors.
+Thanks.
 
-Yeah, that's what my patch does (and what x86 VT-d dma_mapping_error()
-does).
+-- 
+Yasunori Goto 
+
+
