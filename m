@@ -1,7 +1,7 @@
-From: "David Mosberger-Tang" <dmosberger@gmail.com>
-Date: Sat, 15 Nov 2008 03:03:27 +0000
+From: "Tony Luck" <tony.luck@intel.com>
+Date: Sat, 15 Nov 2008 19:57:29 +0000
 Subject: Re: [PATCH] Ensure PSR.ac is cleared for early userspace
-Message-Id: <ed5aea430811141903w1de4c8b7p362aa4c0d307c03b@mail.gmail.com>
+Message-Id: <12c511ca0811151157u71abfecfn3361885167a2d540@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
 In-Reply-To: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
@@ -10,57 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony,
+On Fri, Nov 14, 2008 at 7:26 PM, David Mosberger-Tang
+<dmosberger@gmail.com> wrote:
+>  In any case, as I remember, the idea was that the kernel would always
+>  execute with PSR.AC=1 to avoid silent performance bugs and just since
+>  the kernel should be alignment-clean, anyhow.  The fys-code doesn't
+>  turn on PSR.AC, but I believe the heavy-weight syscall path does.  I
+>  don't know why head.S turns off PSR.AC.  Seems like a bug to me.
 
-Have you checked the IA64 ABI?  I remember there being a section
-talking about the state in which signal handlers should be started.  I
-don't remember off hand if it said anything about psr.ac.
+Running base code and interrupt/trap code with different settings of PSR.ac
+does sound like a bug ... but the question of what we should set it to deserves
+a little more thought.
 
-  --david
+Perhaps the best option would be for test & development kernels to set
+PSR.ac=1 to aid in tracking down any alignment problems in the code.
+But production kernels should set PSR.ac=0 so that they don't take the
+cost of a trap on unaligned access that the specific model of processor
+can handle anyway.  If this is the right path, then it should become a
+CONFIG option.
 
-On 11/14/08, Luck, Tony <tony.luck@intel.com> wrote:
->  GLOBAL_ENTRY(kernel_execve)
->  +       rum IA64_PSR_AC
->         mov r15=__NR_execve                     // put syscall number in place
->         break __BREAK_SYSCALL
->         br.ret.sptk.many rp
->
->  I'm not overly happy with this because I still don't understand how
->  the PSR.ac bit became set in this context.  This patch papers
->  over the problem by clearing psr.ac ... but it shouldn't be
->  set at this point!
->
->  As far as I can see usage of psr.ac is as follows:
->
->  1) When Linux first boots the code in head.S transitions to
->  virtual mode ... this code sets PSR.ac=0.
->
->  2) Eight of the code paths in ivt.S set PSR.ac=1 before
->  transitioning to C code.  Thus interrupt handlers, page faults
->  and other traps are executed with .ac=1.  This is controlled by the
->  PSR_DEFAULT_BITS define ... which is (and I think always has)
->  been defined to set psr.ac.
->
->  [I'm a bit puzzled as to why we want strict alignment checking
->  in interrupt/fault handlers, but are satisfied with more relaxed
->  behaivour in base code]
->
->  I'm also puzzled why this issue only just surfaced, and why I
->  only see it on generic kernels.
->
->  The problem may be related to some interrupt behavior.  If I
->  tweak just the "__interrupt" code to not set psr.ac (but leave
->  the other seven fault handlers setting psr.ac=1) then I don't
->  see any unaligned traps in early init code.
->
->  -Tony
->
-> --
->  To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
->  the body of a message to majordomo@vger.kernel.org
->  More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
--- 
-Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+-Tony
