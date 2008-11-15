@@ -1,7 +1,7 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Thu, 13 Nov 2008 06:22:53 +0000
-Subject: Re: [PATCH] Ensure PSR.ac is cleared for early userspace
-Message-Id: <20081113062253.GH21311%yamahata@valinux.co.jp>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sat, 15 Nov 2008 01:38:28 +0000
+Subject: RE: [PATCH] Ensure PSR.ac is cleared for early userspace
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35C3BDD44@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
 In-Reply-To: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
@@ -10,29 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Nov 11, 2008 at 05:35:50PM -0800, Luck, Tony wrote:
-> Does the use of "rum" instruction need some paravirtualization? It is
-> not in a critical path (used a couple of times during boot).
+ GLOBAL_ENTRY(kernel_execve)
++       rum IA64_PSR_AC
+        mov r15=__NR_execve                     // put syscall number in place
+        break __BREAK_SYSCALL
+        br.ret.sptk.many rp
 
-No, because rum isn't privileged instruction.
-At lease xen/ia64 doesn't need it.
+I'm not overly happy with this because I still don't understand how
+the PSR.ac bit became set in this context.  This patch papers
+over the problem by clearing psr.ac ... but it shouldn't be
+set at this point!
 
-thanks,
+As far as I can see usage of psr.ac is as follows:
 
-> 
-> diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-> index 7ef0c59..595a0b6 100644
-> --- a/arch/ia64/kernel/entry.S
-> +++ b/arch/ia64/kernel/entry.S
-> @@ -499,6 +499,7 @@ GLOBAL_ENTRY(prefetch_stack)
->  END(prefetch_stack)
->  
->  GLOBAL_ENTRY(kernel_execve)
-> +	rum IA64_PSR_AC
->  	mov r15=__NR_execve			// put syscall number in place
->  	break __BREAK_SYSCALL
->  	br.ret.sptk.many rp
-> 
+1) When Linux first boots the code in head.S transitions to
+virtual mode ... this code sets PSR.ac=0.
 
--- 
-yamahata
+2) Eight of the code paths in ivt.S set PSR.ac=1 before
+transitioning to C code.  Thus interrupt handlers, page faults
+and other traps are executed with .ac=1.  This is controlled by the
+PSR_DEFAULT_BITS define ... which is (and I think always has)
+been defined to set psr.ac.
+
+[I'm a bit puzzled as to why we want strict alignment checking
+in interrupt/fault handlers, but are satisfied with more relaxed
+behaivour in base code]
+
+I'm also puzzled why this issue only just surfaced, and why I
+only see it on generic kernels.
+
+The problem may be related to some interrupt behavior.  If I
+tweak just the "__interrupt" code to not set psr.ac (but leave
+the other seven fault handlers setting psr.ac=1) then I don't
+see any unaligned traps in early init code.
+
+-Tony
