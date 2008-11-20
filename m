@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 07 Nov 2008 18:00:15 +0000
+Date: Thu, 20 Nov 2008 22:47:08 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <200811071800.mA7I0FwJ014919@agluck-lia64.sc.intel.com>
+Message-Id: <200811202247.mAKMl8qT029408@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -18,53 +18,30 @@ please pull from:
 
 This will update the files shown below.
 
-[repeat of request posted on Tuesday, but new & improved with 3 extra
- bonus patches]
-
 Thanks!
 
 -Tony
 
- arch/ia64/Kconfig                 |   19 ++++++++-------
- arch/ia64/hp/common/hwsw_iommu.c  |    9 +------
- arch/ia64/include/asm/io.h        |   24 -------------------
- arch/ia64/include/asm/machvec.h   |   22 +-----------------
- arch/ia64/include/asm/meminit.h   |    1 -
- arch/ia64/include/asm/sal.h       |   15 +++++++++++-
- arch/ia64/include/asm/sn/sn_sal.h |   45 +++++++++++++++++++++++++++++++++++++
- arch/ia64/kernel/acpi.c           |   29 +++++++++++++++++++----
- arch/ia64/kernel/pci-dma.c        |    2 -
- arch/ia64/kernel/setup.c          |    9 ++++---
- arch/ia64/mm/discontig.c          |    1 -
- arch/ia64/uv/kernel/setup.c       |    6 +++++
- 12 files changed, 106 insertions(+), 76 deletions(-)
+ arch/ia64/include/asm/intrinsics.h      |    2 +-
+ arch/ia64/include/asm/paravirt_privop.h |   13 +++++++++++++
+ arch/ia64/kernel/entry.S                |    1 +
+ arch/ia64/kernel/head.S                 |    2 +-
+ arch/ia64/kernel/mca.c                  |    2 +-
+ arch/ia64/kernel/paravirt.c             |    2 +-
+ arch/ia64/kernel/pci-dma.c              |    1 -
+ arch/ia64/xen/hypercall.S               |    2 +-
+ 8 files changed, 19 insertions(+), 6 deletions(-)
 
-Bjorn Helgaas (1):
-      [IA64] reorder Kconfig options to match x86
-
-Doug Chapman (1):
-      [IA64] fix boot panic caused by offline CPUs
-
-FUJITA Tomonori (1):
-      [IA64] remove dead BIO_VMERGE_BOUNDARY definition
+Hidetoshi Seto (1):
+      [IA64] use mprintk instead of printk, in ia64_mca_modify_original_stack
 
 Huang Weiyi (1):
-      [IA64] remove duplicated #include from pci-dma.c
+      [IA64] remove duplicate include iommu.h
 
-Jay Lan (1):
-      [IA64] Reserve elfcorehdr memory in CONFIG_CRASH_DUMP
-
-Joerg Roedel (1):
-      [IA64] use common header for software IO/TLB
-
-Ken'ichi Ohmichi (1):
-      [IA64] fix the difference between node_mem_map and node_start_pfn
-
-Russ Anderson (3):
-      [IA64] Simplify SGI uv vs. sn2 driver issues
-      [IA64] Add UV watchlist support.
-      [IA64] Add error_recovery_info field to SAL section header
+Isaku Yamahata (2):
+      [IA64] ia64/pv_ops/pv_cpu_ops: fix _IA64_REG_IP case.
+      [IA64] xen: fix xen_get_eflags.
 
 Tony Luck (1):
-      [IA64] Build VT-D iommu support into generic kernel
+      [IA64] Rationalize kernel mode alignment checking
 
