@@ -1,32 +1,39 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 18 Nov 2008 10:20:51 +0000
-Subject: [PATCH] ia64/xen: fix xen_get_eflags.
-Message-Id: <20081118102051.GB12360%yamahata@valinux.co.jp>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Fri, 21 Nov 2008 03:58:39 +0000
+Subject: [PATCH] ia64: remove BUILD_BUG_ON from paravirt_getreg()
+Message-Id: <20081121040221.GA5170@x200.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-fix xen_get_eflags. It doesn't take any argument.
+  CC      arch/ia64/kernel/asm-offsets.s
+In file included from include/linux/bitops.h:17,
+                 from include/linux/kernel.h:15,
+                 from include/linux/sched.h:52,
+                 from arch/ia64/kernel/asm-offsets.c:9:
+arch/ia64/include/asm/bitops.h: In function 'set_bit':
+arch/ia64/include/asm/bitops.h:47: error: implicit declaration of function 'BUILD_BUG_ON'
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+
+Obvious inclusion of kernel.h doesn't fix it, because of circular dependencies
+involving fls.h and log2(). Fixing the latter requires some serious header surgery,
+it seems, so just remove BUILD_BUG_ON for now.
+
+Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 ---
- arch/ia64/xen/hypercall.S |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/xen/hypercall.S b/arch/ia64/xen/hypercall.S
-index d4ff0b9..45e02bb 100644
---- a/arch/ia64/xen/hypercall.S
-+++ b/arch/ia64/xen/hypercall.S
-@@ -58,7 +58,7 @@ __HCALL2(xen_set_rr, HYPERPRIVOP_SET_RR)
- __HCALL2(xen_set_kr, HYPERPRIVOP_SET_KR)
- 
- #ifdef CONFIG_IA32_SUPPORT
--__HCALL1(xen_get_eflag, HYPERPRIVOP_GET_EFLAG)
-+__HCALL0(xen_get_eflag, HYPERPRIVOP_GET_EFLAG)
- __HCALL1(xen_set_eflag, HYPERPRIVOP_SET_EFLAG)	// refer SDM vol1 3.1.8
- #endif /* CONFIG_IA32_SUPPORT */
- 
--- 
-1.6.0.2
+ arch/ia64/include/asm/paravirt_privop.h |    1 -
+ 1 file changed, 1 deletion(-)
+
+--- a/arch/ia64/include/asm/paravirt_privop.h
++++ b/arch/ia64/include/asm/paravirt_privop.h
+@@ -83,7 +83,6 @@ extern unsigned long ia64_native_getreg_func(int regnum);
+ #define paravirt_getreg(reg)					\
+ 	({							\
+ 		unsigned long res;				\
+-		BUILD_BUG_ON(!__builtin_constant_p(reg));	\
+ 		if ((reg) = _IA64_REG_IP)			\
+ 			res = ia64_native_getreg(_IA64_REG_IP); \
+ 		else						\
