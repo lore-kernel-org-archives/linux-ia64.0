@@ -1,102 +1,67 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 21 Nov 2008 05:11:45 +0000
+From: Bernhard Walle <bwalle@suse.de>
+Date: Sun, 23 Nov 2008 13:37:22 +0000
 Subject: Re: [PATCH] ia64: SN specific version of dma_get_required_mask()
-Message-Id: <20081121141134K.fujita.tomonori@lab.ntt.co.jp>
+Message-Id: <20081123143722.03dbbfcc@kopernikus.site>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081120135023M.fujita.tomonori@lab.ntt.co.jp>
-	<200811202257.mAKMvgGO061606@fcbayern.americas.sgi.com>
-In-Reply-To: <200811202257.mAKMvgGO061606@fcbayern.americas.sgi.com>
+References: <20081117173930.35342b31@hale.suse.de>
+	<200811181408.mAIE8BHH057134@fcbayern.americas.sgi.com>
+In-Reply-To: <200811181408.mAIE8BHH057134@fcbayern.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jpk@sgi.com
-Cc: fujita.tomonori@lab.ntt.co.jp, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: John Keller <jpk@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, 20 Nov 2008 16:57:41 -0600 (CST)
-John Keller <jpk@sgi.com> wrote:
+Hi,
 
-> > 
-> > On Wed, 19 Nov 2008 10:12:23 -0600 (CST)
-> > John Keller <jpk@sgi.com> wrote:
-> > 
-> > > On Tue, 18 Nov 2008
-> > > Fujita Tomonori wrote:
-> > > 
-> > > > On Mon, 17 Nov 2008 10:24:54 -0600
-> > > > John Keller <jpk@sgi.com> wrote:
-> > > 
-> > > > > Create a platform specific version of dma_get_required_mask()
-> > > > > for ia64 SN Altix. All SN Altix platforms support 64 bit DMA
-> > > > > addressing regardless of the size of system memory.
-> > > > > Create a ia64 machvec for dma_get_required_mask, with the
-> > > > > SN version unconditionally returning DMA_64BIT_MASK.
-> > > > > 
-> > > > > 
-> > > > > Signed-off-by: John Keller <jpk@sgi.com>
-> > > > > ---
-> > > > > 
-> > > > >  Documentation/DMA-API.txt            |    9 ++++-----
-> > > > >  arch/ia64/include/asm/dma-mapping.h  |    3 +++
-> > > > >  arch/ia64/include/asm/machvec.h      |    7 +++++++
-> > > > >  arch/ia64/include/asm/machvec_init.h |    1 +
-> > > > >  arch/ia64/include/asm/machvec_sn2.h  |    2 ++
-> > > > >  arch/ia64/pci/pci.c                  |   21 +++++++++++++++++++++
-> > > > >  arch/ia64/sn/pci/pci_dma.c           |    6 ++++++
-> > > > >  include/linux/dma-mapping.h          |    2 ++
-> > > > >  8 files changed, 46 insertions(+), 5 deletions(-)
-> > > > 
-> > > > (snip)
-> > > > 
-> > > > >  static int __init pcibios_init(void)
-> > > > >  {
-> > > > >  	set_pci_cacheline_size();
-> > > > > Index: linux-2.6/include/linux/dma-mapping.h
-> > > > > =================================> > > > > --- linux-2.6.orig/include/linux/dma-mapping.h	2008-11-17 08:38:07.740451313 -0600
-> > > > > +++ linux-2.6/include/linux/dma-mapping.h	2008-11-17 08:39:50.573284674 -0600
-> > > > > @@ -70,7 +70,9 @@ static inline u64 dma_get_mask(struct de
-> > > > >  	return DMA_32BIT_MASK;
-> > > > >  }
-> > > > >  
-> > > > > +#ifndef CONFIG_IA64
-> > > > >  extern u64 dma_get_required_mask(struct device *dev);
-> > > > > +#endif
-> > > > 
-> > > > I think that adding CONFIG_IA64 to include/linux/dma-mapping.h is
-> > > > wrong. I also think that you don't need to ifndef this extern.
-> > > 
-> > > Without this change ia64 would not build for me.
-> > 
-> > Odd. It works for me. Can you send your .config?
-> 
-> It built with CONFIG_IA64_SGI_SN2, but not CONFIG_IA64_GENERIC.
-> The error was related to the machvec magic, where the extern was
-> transformed into:
-> 
-> extern u64 ia64_mv.dma_get_required_mask(struct device *dev);
-> 
-> and the error was:
-> 
-> include/linux/dma-mapping.h:73: error: expected '=', ',' ';', 'asm' or '__attribute__' before '.' token
-> 
-> I'll be resubmitting the patch with this fixed and the #ifndef removed.
+[Sorry for the late reply and for not following the whole thread, I'm
+just busy.]
 
-Ok, if you don't add IA64 specific stuff to
-include/linux/dma-mapping.h, I think that there is no complaint from
-non IA64 developers.
+* John Keller [2008-11-18 08:08]:
+> 
+> This patch addresses a problem on SN Altix systems with < 4GB, where
+> device drivers using the dma_get_required_mask() API would be told
+> to use 32 bit DMA, when 64 bit is more efficient.
+> 
+> How exactly the use of dma_get_required_mask() relates to the crash
+> kernel code you refer to is unclear to me.
+
+I'm not sure myself. The crashkernel reservation code on IA64 (for
+other architectures I don't know any machines that have basically their
+whole memory except a small amount which is used for booting mapped
+above 4 GiB physical address space) needs to check if it's okay to
+use memory for the crashkernel that is *all* above 4 GiB.
+
+This is only possible if a hardware IO/MMU is present (and working
+correctly in the kdump case which isn't the case on HP IA64) and SWIOTBL
+is not used because SWIOTBL needs some memory below that 4 GiB margin.
+
+Now I thought that there's a relationship between "memory above 4 GiB
+can be used for DMA" and the return value of dma_get_required_mask().
+My assumption was:
+
+  (dma_get_required_mask() & 0xffffffff00000000ull) > 0
+  -> memory above 4 GiB can be used for DMA and so the
+     crashkernel memory can reside above 4 GiB
+
+  (dma_get_required_mask() & 0xffffffff00000000ull) = 0
+  -> memory above 4 GiB can not be used for DMA and so the
+     crashkernel memory can not all reside above 4 GiB
+
+Is that wrong?
+
+> If, for all platforms, the crash kernel code could use the mask returned
+> from dma_get_required_mask() to do its check, then switching the code
+> might be OK. But, if that's not possible for some platforms, then I'd
+> wonder if dma_get_required_mask() is being used in the wrong context in
+> this case.
+
+The crashkernel reservation code is different for every platform, so it
+does not matter. However, in theory I think the check would return
+correct results.
 
 
-> > > > If you need this trick with only CONFIG_IA64_SGI_SN2, how about
-> > > > something like this? It's simple and we can avoid duplicate the
-> > > > generic dma_get_required_mask in arch/ia64/pci/pci.c
-> > > 
-> > > Actually I need it for CONFIG_IA64_GENERIC and CONFIG_IA64_SGI_SN2.
-> > 
-> > Hmm, but your patch puts sn_dma_get_required_mask in
-> > arch/ia64/sn/pci/pci_dma.c. arch/ia64/sn/pci/pci_dma.c is compiled
-> > only with CONFIG_IA64_SGI_SN2?
-> 
-> No, arch/ia64/sn/pci/pci_dma.c is complied with CONFIG_IA64_GENERIC
-> as well, and if the kernel is booted on a SN2 platform, the
-> sn_machvec becomes the default.
-
-Ah, I see. Thanks,
+Regards,
+Bernhard
+-- 
+Bernhard Walle, SUSE LINUX Products GmbH, Architecture Development
