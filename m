@@ -1,51 +1,47 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 27 Nov 2008 15:33:21 +0000
-Subject: Re: [PATCH V2 2/3] Allow rwlocks to re-enable interrupts
-Message-Id: <1227800001.4454.1712.camel@twins>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Mon, 24 Nov 2008 19:53:27 +0000
+Subject: [PATCH 2/2] Enable Pass Through Feature in Intel IOMMU
+Message-Id: <20081124195327.GA29471@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224777451.11530.52.camel@elijah.suse.cz>
-	 <1224777969.11530.67.camel@elijah.suse.cz>
-In-Reply-To: <1224777969.11530.67.camel@elijah.suse.cz>
+References: <A6AD88C3F2289247BE726C37303E1EB884780E2A@orsmsx505.amr.corp.intel.com> <48F62C0E.2060705@redhat.com> <A6AD88C3F2289247BE726C37303E1EB884876541@orsmsx505.amr.corp.intel.com> <1224236501.6770.1256.camel@macbook.infradead.org>
+In-Reply-To: <1224236501.6770.1256.camel@macbook.infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Petr Tesarik <ptesarik@suse.cz>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tee@sgi.com, Robin Holt <holt@sgi.com>, Ingo Molnar <mingo@elte.hu>
+To: Avi Kivity <avi@redhat.com>, David Woodhouse <dwmw2@infradead.org>, Ingo Molnar <mingo@elte.hu>, "Luck, Tony" <tony.luck@intel.com>, Jesse Barnes <jbarnes@virtuousgeek.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, iommu@lists.linux-foundation.org, kvm@vger.kernel.org
 
-On Thu, 2008-10-23 at 18:06 +0200, Petr Tesarik wrote:
-> Pass the original flags to rwlock arch-code, so that it can re-enable
-> interrupts if implemented for that architecture.
-> 
-> Initially, make __raw_read_lock_flags and __raw_write_lock_flags
-> stubs which just do the same thing as non-flags variants.
-> 
-> Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+The patch set adds kernel parameter intel_iommu=pt to set up pass through mode in
+context mapping entry. This disables DMAR in linux kernel; but KVM still runs on
+VT-d. In this mode, kernel uses swiotlb for DMA API functions but other VT-d
+functionalities are enabled for KVM. By default, pass though mode is disabled in
+kernel.
 
-Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+This second patch changes context mapping interface called in KVM vtd.c. KVM
+always uses multi level translation page table in VT-d.
 
-> diff --git a/kernel/spinlock.c b/kernel/spinlock.c
-> index cf41b87..7c2f5b5 100644
-> --- a/kernel/spinlock.c
-> +++ b/kernel/spinlock.c
-> @@ -121,7 +121,8 @@ unsigned long __lockfunc _read_lock_irqsave(rwlock_t *lock)
->  	local_irq_save(flags);
->  	preempt_disable();
->  	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
-> -	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
-> +	LOCK_CONTENDED_FLAGS(lock, _raw_read_trylock, _raw_read_lock,
-> +			     _raw_read_lock_flags, &flags);
->  	return flags;
->  }
->  EXPORT_SYMBOL(_read_lock_irqsave);
-> @@ -151,7 +152,8 @@ unsigned long __lockfunc _write_lock_irqsave(rwlock_t *lock)
->  	local_irq_save(flags);
->  	preempt_disable();
->  	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-> -	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
-> +	LOCK_CONTENDED_FLAGS(lock, _raw_write_trylock, _raw_write_lock,
-> +			     _raw_write_lock_flags, &flags);
->  	return flags;
->  }
->  EXPORT_SYMBOL(_write_lock_irqsave);
-> 
-> 
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Weidong Han <weidong.han@intel.com>
+Signed-off-by: Allen Kay <allen.m.kay@intel.com>
+Signed-off-by: David Woodhouse <david.woodhouse@intel.com>
+
+---
+
+ vtd.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+
+diff --git a/virt/kvm/vtd.c b/virt/kvm/vtd.c
+index a770874..7b753d7 100644
+--- a/virt/kvm/vtd.c
++++ b/virt/kvm/vtd.c
+@@ -124,7 +124,7 @@ int kvm_iommu_map_guest(struct kvm *kvm,
+ 			       pdev->bus->number, pdev->devfn);
+ 
+ 	r = intel_iommu_context_mapping(kvm->arch.intel_iommu_domain,
+-					pdev);
++					pdev, CONTEXT_TT_MULTI_LEVEL);
+ 	if (r) {
+ 		printk(KERN_ERR "Domain context map for %s failed",
+ 		       pci_name(pdev));
