@@ -1,34 +1,54 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 20 Nov 2008 22:45:59 +0000
-Subject: RE: [PATCH] Ensure PSR.ac is cleared for early userspace
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA35C4BCF62@orsmsx505.amr.corp.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:59:50 +0000
+Subject: [PATCH 0/5] ia64/pv_ops, xen: binary patch optimization
+Message-Id: <1227618235-3890-1-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
-In-Reply-To: <200811120135.mAC1ZoSd017352@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Well, then let's make it a boot option (or a sysctl). The default must
-> be psr.ac =3D 1, but if the admin sees "unaligned access" messages and
-> knows that there is no way of getting a (timely) fix for that particular
-> production system, s/he should be able to turn them off.
+This patch set is for binary patch optimization for paravirt_ops.
+The binary patch optimization is important on native case because
+the paravirt_ops overhead can be reduced by converting indirect 
+call into in-place execution or direct call.
 
-Nice in theory ... but since the setting of psr.ac happens as an immediate
-value in the instructions in all the trap handlers, this would require
-yet another batch of kernel patching its own code ... which we do plenty
-of already ... but I'm not feeling in the mood to add more for this.
 
-I've been swayed by Rick's arguments ... we don't appear to have
-much of a problem at the moment with kernel unaligned accesses, so
-let's try to keep it that way.  I'm putting in a patch that turns
-on psr.ac in head.S so we do strict aligment checking all the time
-in the kernel.
+The first patch imports helper functions which themselves doesn't interesting
+things.
+The second patch replaces the indirect function calls with a special
+call written in gcc extended inline asm and introduces native methods.
+The third patch introduces binary patch for kernel modules.
+The forth patch suppress false positive warnings which were caused by
+the previous patches.
+The last patch implements xen methods.
 
--Tony
-=FF=F4=E8=BA{.n=C7+=89=B7=9F=AE=89=AD=86+%=8A=CB=FF=B1=E9=DD=B6=17=A5=8Aw=
-=FF=BA{.n=C7+=89=B7=A5=8A{=B1=FE&=BA=E3=F8=A7=B6=17=9B=A1=DC=A8}=A9=9E=B2=
-=C6=A0z=DA&j:+v=89=A8=FE=F8=1E=AF=F9=1E=AEw=A5=FE=8A=E02=8A=DE=99=A8=E8=AD=
-=DA&=A2)=DF=A1=ABa=B6=DA=FF=FF=FB=E0z=BF=E4z=B9=DE=97=FA+=83=F9=9A=8E=8A=DD=
-=A2j=FF=8Aw=E8=FE=1Bf
+
+For convenience the working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
+branch: ia64-pv-ops-2008nov25-xen-ia64-optimized-domu-binary-patch
+
+For the status of this patch series
+http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
+
+thanks,
+
+Diffstat:
+ arch/ia64/include/asm/intrinsics.h      |    6 +-
+ arch/ia64/include/asm/module.h          |    6 +
+ arch/ia64/include/asm/paravirt.h        |    8 +
+ arch/ia64/include/asm/paravirt_patch.h  |  143 +++++++
+ arch/ia64/include/asm/paravirt_privop.h |  347 ++++++++++++++++-
+ arch/ia64/include/asm/xen/privop.h      |    4 +
+ arch/ia64/kernel/Makefile               |    3 +-
+ arch/ia64/kernel/efi.c                  |    1 +
+ arch/ia64/kernel/module.c               |   32 ++
+ arch/ia64/kernel/paravirt.c             |  520 ++++++++++++++++++++++++-
+ arch/ia64/kernel/paravirt_patch.c       |  509 +++++++++++++++++++++++
+ arch/ia64/kernel/paravirtentry.S        |  101 ++++-
+ arch/ia64/kernel/setup.c                |    1 +
+ arch/ia64/kernel/vmlinux.lds.S          |   24 ++
+ arch/ia64/kvm/vtlb.c                    |    2 +
+ arch/ia64/xen/hypercall.S               |    2 +
+ arch/ia64/xen/xen_pv_ops.c              |  667 +++++++++++++++++++++++++++++++
+ 17 files changed, 2351 insertions(+), 25 deletions(-)
