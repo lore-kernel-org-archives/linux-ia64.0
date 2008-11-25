@@ -1,118 +1,96 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 25 Nov 2008 12:57:46 +0000
-Subject: [PATCH 07/13] ia64/pv_ops/pv_time_ops: add sched_clock hook.
-Message-Id: <1227618131-3755-8-git-send-email-yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:57:51 +0000
+Subject: [PATCH 08/13] ia64/pv_ops/xen/pv_time_ops: implement sched_clock.
+Message-Id: <1227618131-3755-9-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-add sched_clock() hook to paravirtualize sched_clock().
-ia64 sched_clock() is based on ar.itc which isn't stable
-on virtualized environment because vcpu may move around on
-pcpus. So it needs paravirtualization.
+paravirtualize sched_clock.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/paravirt.h |    7 +++++++
- arch/ia64/include/asm/timex.h    |    1 +
- arch/ia64/kernel/head.S          |    4 ++--
- arch/ia64/kernel/paravirt.c      |    1 +
- arch/ia64/kernel/time.c          |   12 ++++++++++++
- 5 files changed, 23 insertions(+), 2 deletions(-)
+ arch/ia64/xen/Kconfig |    1 +
+ arch/ia64/xen/time.c  |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/paravirt.h
-index 56f69f9..a73e77a 100644
---- a/arch/ia64/include/asm/paravirt.h
-+++ b/arch/ia64/include/asm/paravirt.h
-@@ -225,6 +225,8 @@ struct pv_time_ops {
- 	int (*do_steal_accounting)(unsigned long *new_itm);
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+index f1683a2..48839da 100644
+--- a/arch/ia64/xen/Kconfig
++++ b/arch/ia64/xen/Kconfig
+@@ -8,6 +8,7 @@ config XEN
+ 	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
+ 	select XEN_XENCOMM
+ 	select NO_IDLE_HZ
++	select HAVE_UNSTABLE_SCHED_CLOCK
  
- 	void (*clocksource_resume)(void);
-+
-+	unsigned long long (*sched_clock)(void);
- };
- 
- extern struct pv_time_ops pv_time_ops;
-@@ -242,6 +244,11 @@ paravirt_do_steal_accounting(unsigned long *new_itm)
- 	return pv_time_ops.do_steal_accounting(new_itm);
+ 	# those are required to save/restore.
+ 	select ARCH_SUSPEND_POSSIBLE
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index d15a94c..c85d319 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -175,10 +175,58 @@ static void xen_itc_jitter_data_reset(void)
+ 	} while (unlikely(ret != lcycle));
  }
  
-+static inline unsigned long long paravirt_sched_clock(void)
++/* based on xen_sched_clock() in arch/x86/xen/time.c. */
++/*
++ * This relies on HAVE_UNSTABLE_SCHED_CLOCK. If it can't be defined,
++ * something similar logic should be implemented here.
++ */
++/*
++ * Xen sched_clock implementation.  Returns the number of unstolen
++ * nanoseconds, which is nanoseconds the VCPU spent in RUNNING+BLOCKED
++ * states.
++ */
++static unsigned long long xen_sched_clock(void)
 +{
-+	return pv_time_ops.sched_clock();
++	struct vcpu_runstate_info runstate;
++
++	unsigned long long now;
++	unsigned long long offset;
++	unsigned long long ret;
++
++	/*
++	 * Ideally sched_clock should be called on a per-cpu basis
++	 * anyway, so preempt should already be disabled, but that's
++	 * not current practice at the moment.
++	 */
++	preempt_disable();
++
++	/*
++	 * both ia64_native_sched_clock() and xen's runstate are
++	 * based on mAR.ITC. So difference of them makes sense.
++	 */
++	now = ia64_native_sched_clock();
++
++	get_runstate_snapshot(&runstate);
++
++	WARN_ON(runstate.state != RUNSTATE_running);
++
++	offset = 0;
++	if (now > runstate.state_entry_time)
++		offset = now - runstate.state_entry_time;
++	ret = runstate.time[RUNSTATE_blocked] +
++		runstate.time[RUNSTATE_running] +
++		offset;
++
++	preempt_enable();
++
++	return ret;
 +}
 +
- #endif /* !__ASSEMBLY__ */
- 
- #else
-diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
-index 4e03cfe..86c7db8 100644
---- a/arch/ia64/include/asm/timex.h
-+++ b/arch/ia64/include/asm/timex.h
-@@ -40,5 +40,6 @@ get_cycles (void)
- }
- 
- extern void ia64_cpu_local_tick (void);
-+extern unsigned long long ia64_native_sched_clock (void);
- 
- #endif /* _ASM_IA64_TIMEX_H */
-diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
-index 59301c4..01e410e 100644
---- a/arch/ia64/kernel/head.S
-+++ b/arch/ia64/kernel/head.S
-@@ -1050,7 +1050,7 @@ END(ia64_delay_loop)
-  * except that the multiplication and the shift are done with 128-bit
-  * intermediate precision so that we can produce a full 64-bit result.
-  */
--GLOBAL_ENTRY(sched_clock)
-+GLOBAL_ENTRY(ia64_native_sched_clock)
- 	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
- 	mov.m r9=ar.itc		// fetch cycle-counter				(35 cyc)
- 	;;
-@@ -1066,7 +1066,7 @@ GLOBAL_ENTRY(sched_clock)
- 	;;
- 	shrp r8=r9,r8,IA64_NSEC_PER_CYC_SHIFT
- 	br.ret.sptk.many rp
--END(sched_clock)
-+END(ia64_native_sched_clock)
- 
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- GLOBAL_ENTRY(cycle_to_cputime)
-diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 9f14c16..6bc33a6 100644
---- a/arch/ia64/kernel/paravirt.c
-+++ b/arch/ia64/kernel/paravirt.c
-@@ -366,4 +366,5 @@ ia64_native_do_steal_accounting(unsigned long *new_itm)
- 
- struct pv_time_ops pv_time_ops = {
- 	.do_steal_accounting = ia64_native_do_steal_accounting,
-+	.sched_clock = ia64_native_sched_clock,
+ struct pv_time_ops xen_time_ops __initdata = {
+ 	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
++	.sched_clock			= xen_sched_clock,
  };
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 65c10a4..6f6ca42 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -50,6 +50,18 @@ EXPORT_SYMBOL(last_cli_ip);
- #endif
  
- #ifdef CONFIG_PARAVIRT
-+/* We need to define a real function for sched_clock, to override the
-+   weak default version */
-+unsigned long long sched_clock(void)
-+{
-+        return paravirt_sched_clock();
-+}
-+#else
-+unsigned long long
-+sched_clock(void) __attribute__((alias("ia64_native_sched_clock")));
-+#endif
-+
-+#ifdef CONFIG_PARAVIRT
- static void
- paravirt_clocksource_resume(void)
- {
+ /* Called after suspend, to resume time.  */
 -- 
 1.6.0.2
 
