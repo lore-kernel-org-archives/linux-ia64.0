@@ -1,91 +1,72 @@
-From: John Keller <jpk@sgi.com>
-Date: Tue, 25 Nov 2008 20:50:01 +0000
-Subject: Re: [PATCH] ia64: SN specific version of dma_get_required_mask()
-Message-Id: <200811252050.mAPKo2CL087992@fcbayern.americas.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:59:48 +0000
+Subject: [PATCH 4/5] ia64/pv_ops/binary patch: define paravirt_dv_serialize_data() and suppress false positiv
+Message-Id: <1227618235-3890-5-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20081123143722.03dbbfcc@kopernikus.site> from "Bernhard Walle" at Nov 23, 2008 02:37:22 PM
-References: <20081117162454.169426.74531.sendpatchset@attica.americas.sgi.com>
-In-Reply-To: <20081117162454.169426.74531.sendpatchset@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bernhard Walle <bwalle@suse.de>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-> 
-> Hi,
-> 
-> [Sorry for the late reply and for not following the whole thread, I'm
-> just busy.]
-> 
-> * John Keller [2008-11-18 08:08]:
-> > 
-> > This patch addresses a problem on SN Altix systems with < 4GB, where
-> > device drivers using the dma_get_required_mask() API would be told
-> > to use 32 bit DMA, when 64 bit is more efficient.
-> > 
-> > How exactly the use of dma_get_required_mask() relates to the crash
-> > kernel code you refer to is unclear to me.
-> 
-> I'm not sure myself. The crashkernel reservation code on IA64 (for
-> other architectures I don't know any machines that have basically their
-> whole memory except a small amount which is used for booting mapped
-> above 4 GiB physical address space) needs to check if it's okay to
-> use memory for the crashkernel that is *all* above 4 GiB.
-> 
-> This is only possible if a hardware IO/MMU is present (and working
-> correctly in the kdump case which isn't the case on HP IA64) and SWIOTBL
-> is not used because SWIOTBL needs some memory below that 4 GiB margin.
-> 
-> Now I thought that there's a relationship between "memory above 4 GiB
-> can be used for DMA" and the return value of dma_get_required_mask().
-> My assumption was:
-> 
->   (dma_get_required_mask() & 0xffffffff00000000ull) > 0
->   -> memory above 4 GiB can be used for DMA and so the
->      crashkernel memory can reside above 4 GiB
-> 
->   (dma_get_required_mask() & 0xffffffff00000000ull) = 0
->   -> memory above 4 GiB can not be used for DMA and so the
->      crashkernel memory can not all reside above 4 GiB
-> 
-> Is that wrong?
+define paravirt_dv_serialize_data() and insert it to suppress
+false positive warnings.
 
-In the case of SN Altix, the return value (with my patch) will always
-be 0xffffffffffffffffull. So, your check would work. And just as the
-current code's ia64_platform_is("sn2") check would always return TRUE
-on any SN2 system, so would your proposed use of dma_get_required_mask().
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/paravirt_privop.h |    6 ++++++
+ arch/ia64/kernel/efi.c                  |    1 +
+ arch/ia64/kvm/vtlb.c                    |    2 ++
+ 3 files changed, 9 insertions(+), 0 deletions(-)
 
-However, for SN2, memory size or location cannot be inferred from the
-return value, as it has no affect on the returned value.
-As Documentation/DMA-API.txt says:
-    "This API returns the mask that the platform requires to
-    operate efficiently."
-
-And for SN2, this is always a 64 bit mask, irregardless of memory size,
-location, etc.
-
-
-> 
-> > If, for all platforms, the crash kernel code could use the mask returned
-> > from dma_get_required_mask() to do its check, then switching the code
-> > might be OK. But, if that's not possible for some platforms, then I'd
-> > wonder if dma_get_required_mask() is being used in the wrong context in
-> > this case.
-> 
-> The crashkernel reservation code is different for every platform, so it
-> does not matter. However, in theory I think the check would return
-> correct results.
-
-OK, I must not be understanding something. check_crashkernel_memory()
-appears to be coded to handle 3 or more platforms (sn2, uv, and others).
-
-
-> 
-> 
-> Regards,
-> Bernhard
-> -- 
-> Bernhard Walle, SUSE LINUX Products GmbH, Architecture Development
-> 
+diff --git a/arch/ia64/include/asm/paravirt_privop.h b/arch/ia64/include/asm/paravirt_privop.h
+index ee941cb..4baaae9 100644
+--- a/arch/ia64/include/asm/paravirt_privop.h
++++ b/arch/ia64/include/asm/paravirt_privop.h
+@@ -119,6 +119,12 @@ void paravirt_cpu_asm_init(const struct pv_cpu_asm_switch *cpu_asm_switch);
+ 
+ #endif /* CONFIG_PARAVIRT */
+ 
++#if defined(CONFIG_PARAVIRT) && defined(ASM_SUPPORTED)
++#define paravirt_dv_serialize_data()	ia64_dv_serialize_data()
++#else
++#define paravirt_dv_serialize_data()	/* nothing */
++#endif
++
+ /* these routines utilize privilege-sensitive or performance-sensitive
+  * privileged instructions so the code must be replaced with
+  * paravirtualized versions */
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index efaff15..7ef80e8 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -456,6 +456,7 @@ efi_map_pal_code (void)
+ 		 GRANULEROUNDDOWN((unsigned long) pal_vaddr),
+ 		 pte_val(pfn_pte(__pa(pal_vaddr) >> PAGE_SHIFT, PAGE_KERNEL)),
+ 		 IA64_GRANULE_SHIFT);
++	paravirt_dv_serialize_data();
+ 	ia64_set_psr(psr);		/* restore psr */
+ }
+ 
+diff --git a/arch/ia64/kvm/vtlb.c b/arch/ia64/kvm/vtlb.c
+index e22b933..500c878 100644
+--- a/arch/ia64/kvm/vtlb.c
++++ b/arch/ia64/kvm/vtlb.c
+@@ -210,6 +210,7 @@ void thash_vhpt_insert(struct kvm_vcpu *v, u64 pte, u64 itir, u64 va, int type)
+ 		phy_pte  &= ~PAGE_FLAGS_RV_MASK;
+ 		psr = ia64_clear_ic();
+ 		ia64_itc(type, va, phy_pte, itir_ps(itir));
++		paravirt_dv_serialize_data();
+ 		ia64_set_psr(psr);
+ 	}
+ 
+@@ -464,6 +465,7 @@ int thash_purge_and_insert(struct kvm_vcpu *v, u64 pte, u64 itir,
+ 		phy_pte  &= ~PAGE_FLAGS_RV_MASK;
+ 		psr = ia64_clear_ic();
+ 		ia64_itc(type, ifa, phy_pte, ps);
++		paravirt_dv_serialize_data();
+ 		ia64_set_psr(psr);
+ 	}
+ 	if (!(pte&VTLB_PTE_IO))
+-- 
+1.6.0.2
 
