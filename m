@@ -1,56 +1,83 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 05 Nov 2008 19:32:43 +0000
-Subject: [patch] ia64: reorder Kconfig options to match x86
-Message-Id: <200811051232.43598.bjorn.helgaas@hp.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:57:44 +0000
+Subject: [PATCH 03/13] ia64/pv_ops: paravirtualize fsys.S.
+Message-Id: <1227618131-3755-4-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-No functional change, just reorder some config options to match
-the defacto x86 standard.
+paravirtualize fsys.S.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/Kconfig |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ arch/ia64/kernel/fsys.S |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 27eec71..08559ee 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -641,6 +641,8 @@ source "net/Kconfig"
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index 788319f..3544d75 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -419,7 +419,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
+ 	mov r17=(1 << (SIGKILL - 1)) | (1 << (SIGSTOP - 1))
+ 	;;
  
- source "drivers/Kconfig"
+-	rsm psr.i				// mask interrupt delivery
++	RSM_PSR_I(p0, r18, r19)			// mask interrupt delivery
+ 	mov ar.ccv=0
+ 	andcm r14=r14,r17			// filter out SIGKILL & SIGSTOP
  
-+source "arch/ia64/hp/sim/Kconfig"
-+
- config MSPEC
- 	tristate "Memory special operations driver"
- 	depends on IA64
-@@ -652,6 +654,12 @@ config MSPEC
+@@ -492,7 +492,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
+ #ifdef CONFIG_SMP
+ 	st4.rel [r31]=r0			// release the lock
+ #endif
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r31)
+ 	;;
  
- source "fs/Kconfig"
+ 	srlz.d					// ensure psr.i is set again
+@@ -514,7 +514,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
+ #ifdef CONFIG_SMP
+ 	st4.rel [r31]=r0			// release the lock
+ #endif
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r17)
+ 	;;
+ 	srlz.d
+ 	br.sptk.many fsys_fallback_syscall	// with signal pending, do the heavy-weight syscall
+@@ -522,7 +522,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
+ #ifdef CONFIG_SMP
+ .lock_contention:
+ 	/* Rather than spinning here, fall back on doing a heavy-weight syscall.  */
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r17)
+ 	;;
+ 	srlz.d
+ 	br.sptk.many fsys_fallback_syscall
+@@ -593,11 +593,11 @@ ENTRY(fsys_fallback_syscall)
+ 	adds r17=-1024,r15
+ 	movl r14=sys_call_table
+ 	;;
+-	rsm psr.i
++	RSM_PSR_I(p0, r26, r27)
+ 	shladd r18=r17,3,r14
+ 	;;
+ 	ld8 r18=[r18]				// load normal (heavy-weight) syscall entry-point
+-	mov r29=psr				// read psr (12 cyc load latency)
++	MOV_FROM_PSR(p0, r29, r26)		// read psr (12 cyc load latency)
+ 	mov r27=ar.rsc
+ 	mov r21=ar.fpsr
+ 	mov r26=ar.pfs
+@@ -735,7 +735,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+ 	mov rp=r14				// I0   set the real return addr
+ 	and r3=_TIF_SYSCALL_TRACEAUDIT,r3	// A
+ 	;;
+-	ssm psr.i				// M2   we're on kernel stacks now, reenable irqs
++	SSM_PSR_I(p0, p6, r22)			// M2   we're on kernel stacks now, reenable irqs
+ 	cmp.eq p8,p0=r3,r0			// A
+ (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-frame or r15 is a NaT
  
-+source "arch/ia64/Kconfig.debug"
-+
-+source "security/Kconfig"
-+
-+source "crypto/Kconfig"
-+
- source "arch/ia64/kvm/Kconfig"
- 
- source "lib/Kconfig"
-@@ -678,11 +686,3 @@ config IRQ_PER_CPU
- 
- config IOMMU_HELPER
- 	def_bool (IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB || IA64_GENERIC || SWIOTLB)
--
--source "arch/ia64/hp/sim/Kconfig"
--
--source "arch/ia64/Kconfig.debug"
--
--source "security/Kconfig"
--
--source "crypto/Kconfig"
+-- 
+1.6.0.2
+
