@@ -1,259 +1,96 @@
-From: holt@sgi.com
-Date: Tue, 04 Nov 2008 12:24:07 +0000
-Subject: [Patch V3 2/3] Allow rwlocks to re-enable interrupts
-Message-Id: <20081104122419.070913678@attica.americas.sgi.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:57:48 +0000
+Subject: [PATCH 05/13] ia64/pv_ops: paravirtualize mov = ar.itc.
+Message-Id: <1227618131-3755-6-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081104122405.046233722@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Petr Tesarik <ptesarik@suse.cz>, Tony Ernst <tee@sgi.com>, Robin Holt <holt@sgi.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@elte.hu>
+To: linux-ia64@vger.kernel.org
 
-Pass the original flags to rwlock arch-code, so that it can re-enable
-interrupts if implemented for that architecture.
+paravirtualize mov reg = ar.itc.
 
-Initially, make __raw_read_lock_flags and __raw_write_lock_flags
-stubs which just do the same thing as non-flags variants.
-
-Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
-Signed-off-by: Robin Holt <holt@sgi.com>
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/alpha/include/asm/spinlock.h          |    3 +++
- arch/arm/include/asm/spinlock.h            |    3 +++
- arch/cris/include/arch-v32/arch/spinlock.h |    2 ++
- arch/ia64/include/asm/spinlock.h           |    3 +++
- arch/mips/include/asm/spinlock.h           |    2 ++
- arch/parisc/include/asm/spinlock.h         |    3 +++
- arch/powerpc/include/asm/spinlock.h        |    3 +++
- arch/s390/include/asm/spinlock.h           |    3 +++
- arch/sh/include/asm/spinlock.h             |    3 +++
- arch/sparc/include/asm/spinlock_32.h       |    2 ++
- arch/sparc/include/asm/spinlock_64.h       |    2 ++
- arch/x86/include/asm/spinlock.h            |    3 +++
- include/asm-m32r/spinlock.h                |    3 +++
- include/linux/spinlock.h                   |    6 ++++++
- kernel/spinlock.c                          |    6 ++++--
- 15 files changed, 45 insertions(+), 2 deletions(-)
+ arch/ia64/include/asm/native/inst.h |    5 +++++
+ arch/ia64/kernel/entry.S            |    4 ++--
+ arch/ia64/kernel/fsys.S             |    4 ++--
+ arch/ia64/kernel/ivt.S              |    2 +-
+ 4 files changed, 10 insertions(+), 5 deletions(-)
 
-Index: rwlock/arch/alpha/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/alpha/include/asm/spinlock.h	2008-11-04 05:54:18.340396518 -0600
-+++ rwlock/arch/alpha/include/asm/spinlock.h	2008-11-04 05:58:47.862958623 -0600
-@@ -166,6 +166,9 @@ static inline void __raw_write_unlock(ra
- 	lock->lock = 0;
- }
+diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
+index 5e4e151..ad59fc6 100644
+--- a/arch/ia64/include/asm/native/inst.h
++++ b/arch/ia64/include/asm/native/inst.h
+@@ -77,6 +77,11 @@
+ (pred)	mov reg = psr			\
+ 	CLOBBER(clob)
  
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
++#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
++(pred)	mov reg = ar.itc				\
++	CLOBBER(clob)					\
++	CLOBBER_PRED(pred_clob)
 +
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/arm/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/arm/include/asm/spinlock.h	2008-11-04 05:54:18.340396518 -0600
-+++ rwlock/arch/arm/include/asm/spinlock.h	2008-11-04 05:58:47.874960161 -0600
-@@ -217,6 +217,9 @@ static inline int __raw_read_trylock(raw
- /* read_can_lock - would read_trylock() succeed? */
- #define __raw_read_can_lock(x)		((x)->lock < 0x80000000)
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/ia64/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/ia64/include/asm/spinlock.h	2008-11-04 05:54:18.340396518 -0600
-+++ rwlock/arch/ia64/include/asm/spinlock.h	2008-11-04 05:58:47.894962723 -0600
-@@ -213,6 +213,9 @@ static inline int __raw_read_trylock(raw
- 	return (u32)ia64_cmpxchg4_acq((__u32 *)(x), new.word, old.word) = old.word;
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/mips/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/mips/include/asm/spinlock.h	2008-11-04 05:54:18.340396518 -0600
-+++ rwlock/arch/mips/include/asm/spinlock.h	2008-11-04 05:58:47.918965799 -0600
-@@ -479,6 +479,8 @@ static inline int __raw_write_trylock(ra
- 	return ret;
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
- 
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
-Index: rwlock/arch/powerpc/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/powerpc/include/asm/spinlock.h	2008-11-04 05:54:18.340396518 -0600
-+++ rwlock/arch/powerpc/include/asm/spinlock.h	2008-11-04 05:58:47.942968874 -0600
-@@ -287,6 +287,9 @@ static inline void __raw_write_unlock(ra
- 	rw->lock = 0;
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	__spin_yield(lock)
- #define _raw_read_relax(lock)	__rw_yield(lock)
- #define _raw_write_relax(lock)	__rw_yield(lock)
-Index: rwlock/arch/s390/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/s390/include/asm/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/s390/include/asm/spinlock.h	2008-11-04 05:58:47.966971949 -0600
-@@ -172,6 +172,9 @@ static inline int __raw_write_trylock(ra
- 	return _raw_write_trylock_retry(rw);
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
- 
-Index: rwlock/arch/sh/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/sh/include/asm/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/sh/include/asm/spinlock.h	2008-11-04 05:58:47.990975024 -0600
-@@ -216,6 +216,9 @@ static inline int __raw_write_trylock(ra
- 	return (oldval > (RW_LOCK_BIAS - 1));
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/sparc/include/asm/spinlock_32.h
-=================================--- rwlock.orig/arch/sparc/include/asm/spinlock_32.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/sparc/include/asm/spinlock_32.h	2008-11-04 05:58:48.014978100 -0600
-@@ -177,6 +177,8 @@ static inline int __read_trylock(raw_rwl
- #define __raw_write_unlock(rw)	do { (rw)->lock = 0; } while(0)
- 
- #define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
-+#define __raw_read_lock_flags(rw, flags)   __raw_read_lock(rw)
-+#define __raw_write_lock_flags(rw, flags)  __raw_write_lock(rw)
- 
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
-Index: rwlock/arch/sparc/include/asm/spinlock_64.h
-=================================--- rwlock.orig/arch/sparc/include/asm/spinlock_64.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/sparc/include/asm/spinlock_64.h	2008-11-04 05:58:48.034980662 -0600
-@@ -230,9 +230,11 @@ static int inline __write_trylock(raw_rw
- }
- 
- #define __raw_read_lock(p)	__read_lock(p)
-+#define __raw_read_lock_flags(p, f) __read_lock(p)
- #define __raw_read_trylock(p)	__read_trylock(p)
- #define __raw_read_unlock(p)	__read_unlock(p)
- #define __raw_write_lock(p)	__write_lock(p)
-+#define __raw_write_lock_flags(p, f) __write_lock(p)
- #define __raw_write_unlock(p)	__write_unlock(p)
- #define __raw_write_trylock(p)	__write_trylock(p)
- 
-Index: rwlock/arch/cris/include/arch-v32/arch/spinlock.h
-=================================--- rwlock.orig/arch/cris/include/arch-v32/arch/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/cris/include/arch-v32/arch/spinlock.h	2008-11-04 05:58:48.050982713 -0600
-@@ -121,6 +121,8 @@ static  inline int __raw_write_trylock(r
- 	return 1;
- }
- 
-+#define _raw_read_lock_flags(lock, flags) _raw_read_lock(lock)
-+#define _raw_write_lock_flags(lock, flags) _raw_write_lock(lock)
- 
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
-Index: rwlock/include/asm-m32r/spinlock.h
-=================================--- rwlock.orig/include/asm-m32r/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/include/asm-m32r/spinlock.h	2008-11-04 05:58:48.074985788 -0600
-@@ -316,6 +316,9 @@ static inline int __raw_write_trylock(ra
- 	return 0;
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/parisc/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/parisc/include/asm/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/parisc/include/asm/spinlock.h	2008-11-04 05:58:48.098988863 -0600
-@@ -187,6 +187,9 @@ static __inline__ int __raw_write_can_lo
- 	return !rw->counter;
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/arch/x86/include/asm/spinlock.h
-=================================--- rwlock.orig/arch/x86/include/asm/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/arch/x86/include/asm/spinlock.h	2008-11-04 05:58:48.122991938 -0600
-@@ -357,6 +357,9 @@ static inline void __raw_write_unlock(ra
- 		     : "+m" (rw->lock) : "i" (RW_LOCK_BIAS) : "memory");
- }
- 
-+#define __raw_read_lock_flags(lock, flags) __raw_read_lock(lock)
-+#define __raw_write_lock_flags(lock, flags) __raw_write_lock(lock)
-+
- #define _raw_spin_relax(lock)	cpu_relax()
- #define _raw_read_relax(lock)	cpu_relax()
- #define _raw_write_relax(lock)	cpu_relax()
-Index: rwlock/include/linux/spinlock.h
-=================================--- rwlock.orig/include/linux/spinlock.h	2008-11-04 05:54:18.344397031 -0600
-+++ rwlock/include/linux/spinlock.h	2008-11-04 05:58:48.142994501 -0600
-@@ -148,9 +148,11 @@ do {								\
-  extern int _raw_spin_trylock(spinlock_t *lock);
-  extern void _raw_spin_unlock(spinlock_t *lock);
-  extern void _raw_read_lock(rwlock_t *lock);
-+#define _raw_read_lock_flags(lock, flags) _raw_read_lock(lock)
-  extern int _raw_read_trylock(rwlock_t *lock);
-  extern void _raw_read_unlock(rwlock_t *lock);
-  extern void _raw_write_lock(rwlock_t *lock);
-+#define _raw_write_lock_flags(lock, flags) _raw_write_lock(lock)
-  extern int _raw_write_trylock(rwlock_t *lock);
-  extern void _raw_write_unlock(rwlock_t *lock);
+ #define MOV_TO_IFA(reg, clob)	\
+ 	mov cr.ifa = reg	\
+ 	CLOBBER(clob)
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index d435f4a..c5709c6 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -735,7 +735,7 @@ GLOBAL_ENTRY(__paravirt_leave_syscall)
+ __paravirt_work_processed_syscall:
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ 	adds r2=PT(LOADRS)+16,r12
+-(pUStk)	mov.m r22=ar.itc			// fetch time at leave
++	MOV_FROM_ITC(pUStk, p9, r22, r19)	// fetch time at leave
+ 	adds r18=TI_FLAGS+IA64_TASK_SIZE,r13
+ 	;;
+ (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
+@@ -984,7 +984,7 @@ GLOBAL_ENTRY(__paravirt_leave_kernel)
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ 	.pred.rel.mutex pUStk,pKStk
+ 	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disabled
+-(pUStk)	mov.m r22=ar.itc	// M  fetch time at leave
++	MOV_FROM_ITC(pUStk, p9, r22, r29)	// M  fetch time at leave
+ 	nop.i 0
+ 	;;
  #else
-@@ -160,9 +162,13 @@ do {								\
- # define _raw_spin_trylock(lock)	__raw_spin_trylock(&(lock)->raw_lock)
- # define _raw_spin_unlock(lock)		__raw_spin_unlock(&(lock)->raw_lock)
- # define _raw_read_lock(rwlock)		__raw_read_lock(&(rwlock)->raw_lock)
-+# define _raw_read_lock_flags(lock, flags) \
-+		__raw_read_lock_flags(&(lock)->raw_lock, *(flags))
- # define _raw_read_trylock(rwlock)	__raw_read_trylock(&(rwlock)->raw_lock)
- # define _raw_read_unlock(rwlock)	__raw_read_unlock(&(rwlock)->raw_lock)
- # define _raw_write_lock(rwlock)	__raw_write_lock(&(rwlock)->raw_lock)
-+# define _raw_write_lock_flags(lock, flags) \
-+		__raw_write_lock_flags(&(lock)->raw_lock, *(flags))
- # define _raw_write_trylock(rwlock)	__raw_write_trylock(&(rwlock)->raw_lock)
- # define _raw_write_unlock(rwlock)	__raw_write_unlock(&(rwlock)->raw_lock)
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index 3544d75..3567d54 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -280,7 +280,7 @@ ENTRY(fsys_gettimeofday)
+ (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
+ 	;;
+ 	.pred.rel.mutex p8,p9
+-(p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
++	MOV_FROM_ITC(p8, p6, r2, r10)	// CPU_TIMER. 36 clocks latency!!!
+ (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
+ (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
+ 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
+@@ -684,7 +684,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+ 	;;
+ 	mov ar.rsc=0				// M2   set enforced lazy mode, pl 0, LE, loadrs=0
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+-	mov.m r30=ar.itc			// M    get cycle for accounting
++	MOV_FROM_ITC(p0, p6, r30, r23)		// M    get cycle for accounting
+ #else
+ 	nop.m 0
  #endif
-Index: rwlock/kernel/spinlock.c
-=================================--- rwlock.orig/kernel/spinlock.c	2008-11-04 05:55:43.347304150 -0600
-+++ rwlock/kernel/spinlock.c	2008-11-04 05:58:48.166997576 -0600
-@@ -121,7 +121,8 @@ unsigned long __lockfunc _read_lock_irqs
- 	local_irq_save(flags);
- 	preempt_disable();
- 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
--	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
-+	LOCK_CONTENDED_FLAGS(lock, _raw_read_trylock, _raw_read_lock,
-+			     _raw_read_lock_flags, &flags);
- 	return flags;
- }
- EXPORT_SYMBOL(_read_lock_irqsave);
-@@ -151,7 +152,8 @@ unsigned long __lockfunc _write_lock_irq
- 	local_irq_save(flags);
- 	preempt_disable();
- 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
--	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
-+	LOCK_CONTENDED_FLAGS(lock, _raw_write_trylock, _raw_write_lock,
-+			     _raw_write_lock_flags, &flags);
- 	return flags;
- }
- EXPORT_SYMBOL(_write_lock_irqsave);
+diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
+index f675d8e..ec9a5fd 100644
+--- a/arch/ia64/kernel/ivt.S
++++ b/arch/ia64/kernel/ivt.S
+@@ -804,7 +804,7 @@ ENTRY(break_fault)
+ ///////////////////////////////////////////////////////////////////////
+ 	st1 [r16]=r0				// M2|3 clear current->thread.on_ustack flag
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+-	mov.m r30=ar.itc			// M    get cycle for accounting
++	MOV_FROM_ITC(p0, p14, r30, r18)		// M    get cycle for accounting
+ #else
+ 	mov b6=r30				// I0   setup syscall handler branch reg early
+ #endif
+-- 
+1.6.0.2
 
