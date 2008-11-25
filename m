@@ -1,37 +1,91 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Wed, 05 Nov 2008 09:54:33 +0000
-Subject: RE: [PATCH V2 0/2] enable irqs when waiting for rwlocks
-Message-Id: <1225878873.3033.1.camel@elijah.suse.cz>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:57:43 +0000
+Subject: [PATCH 02/13] ia64/pv_ops/xen: preliminary to paravirtualizing fsys.S for xen.
+Message-Id: <1227618131-3755-3-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1224777451.11530.52.camel@elijah.suse.cz>
-	 <1225443142.6825.4.camel@elijah.suse.cz>
-	 <57C9024A16AD2D4C97DC78E552063EA35A7ED9D3@orsmsx505.amr.corp.intel.com>
-	 <20081103114638.GD8483@sgi.com>
-	 <57C9024A16AD2D4C97DC78E552063EA35BE0554D@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA35BE0554D@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Robin Holt <holt@sgi.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-On Mon, 2008-11-03 at 13:47 -0800, Luck, Tony wrote:
-> > Just a few years of experiencal evidence.  The equivalent of this patch
-> > has been in the SuSE SLES10 kernel for years and not been detected as
-> > being negative.
-> 
-> That's good to know.
-> 
-> Petr: I tried to apply these ... but the patches seem corrupted
-> (leading spaces dropped? ... I checked in the marc.info archive
-> and they seem broken there too).  Can you regenerate them and
-> repost (attachments are ok).
+This is a preliminary patch to paravirtualizing fsys.S.
+compile fsys.S twice one for native and one for xen, and switch
+them at run tine.
+Later fsys.S will be paravirtualized.
 
-Oops. Interesting.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/xen/inst.h |    3 +++
+ arch/ia64/xen/Makefile           |    2 +-
+ arch/ia64/xen/xen_pv_ops.c       |   14 ++++++++++++++
+ 3 files changed, 18 insertions(+), 1 deletions(-)
 
-Anyway, I can see that Robin Holt has already regenerated the patches
-against the latest directory structure, so I assume there's nothing more
-to be done.
-
-Petr
+diff --git a/arch/ia64/include/asm/xen/inst.h b/arch/ia64/include/asm/xen/inst.h
+index 19c2ae1..e8e01b2 100644
+--- a/arch/ia64/include/asm/xen/inst.h
++++ b/arch/ia64/include/asm/xen/inst.h
+@@ -33,6 +33,9 @@
+ #define __paravirt_work_processed_syscall_target \
+ 						xen_work_processed_syscall
+ 
++#define paravirt_fsyscall_table			xen_fsyscall_table
++#define paravirt_fsys_bubble_down		xen_fsys_bubble_down
++
+ #define MOV_FROM_IFA(reg)	\
+ 	movl reg = XSI_IFA;	\
+ 	;;			\
+diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
+index 0ad0224..b4ca2e6 100644
+--- a/arch/ia64/xen/Makefile
++++ b/arch/ia64/xen/Makefile
+@@ -10,7 +10,7 @@ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+ AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ 
+ # xen multi compile
+-ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S
++ASM_PARAVIRT_MULTI_COMPILE_SRCS = ivt.S entry.S fsys.S
+ ASM_PARAVIRT_OBJS = $(addprefix xen-,$(ASM_PARAVIRT_MULTI_COMPILE_SRCS:.S=.o))
+ obj-y += $(ASM_PARAVIRT_OBJS)
+ define paravirtualized_xen
+diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
+index 5d491d9..46b418a 100644
+--- a/arch/ia64/xen/xen_pv_ops.c
++++ b/arch/ia64/xen/xen_pv_ops.c
+@@ -24,6 +24,7 @@
+ #include <linux/irq.h>
+ #include <linux/kernel.h>
+ #include <linux/pm.h>
++#include <linux/unistd.h>
+ 
+ #include <asm/xen/hypervisor.h>
+ #include <asm/xen/xencomm.h>
+@@ -166,6 +167,18 @@ static struct pv_init_ops xen_init_ops __initdata = {
+ };
+ 
+ /***************************************************************************
++ * pv_fsys_data
++ * addresses for fsys
++ */
++
++extern unsigned long xen_fsyscall_table[NR_syscalls];
++extern char xen_fsys_bubble_down[];
++struct pv_fsys_data xen_fsys_data __initdata = {
++	.fsyscall_table = (unsigned long *)xen_fsyscall_table,
++	.fsys_bubble_down = (void *)xen_fsys_bubble_down,
++};
++
++/***************************************************************************
+  * pv_cpu_ops
+  * intrinsics hooks.
+  */
+@@ -355,6 +368,7 @@ xen_setup_pv_ops(void)
+ 	xen_info_init();
+ 	pv_info = xen_info;
+ 	pv_init_ops = xen_init_ops;
++	pv_fsys_data = xen_fsys_data;
+ 	pv_cpu_ops = xen_cpu_ops;
+ 	pv_iosapic_ops = xen_iosapic_ops;
+ 	pv_irq_ops = xen_irq_ops;
+-- 
+1.6.0.2
 
