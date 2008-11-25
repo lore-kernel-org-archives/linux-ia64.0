@@ -1,96 +1,118 @@
-From: "David Mosberger-Tang" <dmosberger@gmail.com>
-Date: Sat, 15 Nov 2008 03:26:41 +0000
-Subject: Fwd: [PATCH] Ensure PSR.ac is cleared for early userspace
-Message-Id: <ed5aea430811141926o582cc3fdn7785c30b34ff33e5@mail.gmail.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Tue, 25 Nov 2008 12:57:46 +0000
+Subject: [PATCH 07/13] ia64/pv_ops/pv_time_ops: add sched_clock hook.
+Message-Id: <1227618131-3755-8-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
----------- Forwarded message ----------
-From: David Mosberger-Tang <dmosberger@gmail.com>
-Date: Nov 14, 2008 8:25 PM
-Subject: Re: [PATCH] Ensure PSR.ac is cleared for early userspace
-To: "Luck, Tony" <tony.luck@intel.com>
+add sched_clock() hook to paravirtualize sched_clock().
+ia64 sched_clock() is based on ar.itc which isn't stable
+on virtualized environment because vcpu may move around on
+pcpus. So it needs paravirtualization.
 
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/paravirt.h |    7 +++++++
+ arch/ia64/include/asm/timex.h    |    1 +
+ arch/ia64/kernel/head.S          |    4 ++--
+ arch/ia64/kernel/paravirt.c      |    1 +
+ arch/ia64/kernel/time.c          |   12 ++++++++++++
+ 5 files changed, 23 insertions(+), 2 deletions(-)
 
-Ugh, I shouldn't read things into your emails... ;-/
-
- In any case, as I remember, the idea was that the kernel would always
- execute with PSR.AC=1 to avoid silent performance bugs and just since
- the kernel should be alignment-clean, anyhow.  The fys-code doesn't
- turn on PSR.AC, but I believe the heavy-weight syscall path does.  I
- don't know why head.S turns off PSR.AC.  Seems like a bug to me.
-
-
-  --david
-
-
- On 11/14/08, David Mosberger-Tang <dmosberger@gmail.com> wrote:
- > Tony,
- >
- >  Have you checked the IA64 ABI?  I remember there being a section
- >  talking about the state in which signal handlers should be started.  I
- >  don't remember off hand if it said anything about psr.ac.
- >
- >   --david
- >
- >
- >  On 11/14/08, Luck, Tony <tony.luck@intel.com> wrote:
- >  >  GLOBAL_ENTRY(kernel_execve)
- >  >  +       rum IA64_PSR_AC
- >  >         mov r15=__NR_execve                     // put syscall
-number in place
- >  >         break __BREAK_SYSCALL
- >  >         br.ret.sptk.many rp
- >  >
- >  >  I'm not overly happy with this because I still don't understand how
- >  >  the PSR.ac bit became set in this context.  This patch papers
- >  >  over the problem by clearing psr.ac ... but it shouldn't be
- >  >  set at this point!
- >  >
- >  >  As far as I can see usage of psr.ac is as follows:
- >  >
- >  >  1) When Linux first boots the code in head.S transitions to
- >  >  virtual mode ... this code sets PSR.ac=0.
- >  >
- >  >  2) Eight of the code paths in ivt.S set PSR.ac=1 before
- >  >  transitioning to C code.  Thus interrupt handlers, page faults
- >  >  and other traps are executed with .ac=1.  This is controlled by the
- >  >  PSR_DEFAULT_BITS define ... which is (and I think always has)
- >  >  been defined to set psr.ac.
- >  >
- >  >  [I'm a bit puzzled as to why we want strict alignment checking
- >  >  in interrupt/fault handlers, but are satisfied with more relaxed
- >  >  behaivour in base code]
- >  >
- >  >  I'm also puzzled why this issue only just surfaced, and why I
- >  >  only see it on generic kernels.
- >  >
- >  >  The problem may be related to some interrupt behavior.  If I
- >  >  tweak just the "__interrupt" code to not set psr.ac (but leave
- >  >  the other seven fault handlers setting psr.ac=1) then I don't
- >  >  see any unaligned traps in early init code.
- >  >
- >  >  -Tony
- >  >
- >  > --
- >  >  To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
- >  >  the body of a message to majordomo@vger.kernel.org
- >  >  More majordomo info at  http://vger.kernel.org/majordomo-info.html
- >  >
- >
- >
- >
- > --
- >  Mosberger Consulting LLC, http://www.mosberger-consulting.com/
- >
-
-
- --
- Mosberger Consulting LLC, http://www.mosberger-consulting.com/
-
-
+diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/paravirt.h
+index 56f69f9..a73e77a 100644
+--- a/arch/ia64/include/asm/paravirt.h
++++ b/arch/ia64/include/asm/paravirt.h
+@@ -225,6 +225,8 @@ struct pv_time_ops {
+ 	int (*do_steal_accounting)(unsigned long *new_itm);
+ 
+ 	void (*clocksource_resume)(void);
++
++	unsigned long long (*sched_clock)(void);
+ };
+ 
+ extern struct pv_time_ops pv_time_ops;
+@@ -242,6 +244,11 @@ paravirt_do_steal_accounting(unsigned long *new_itm)
+ 	return pv_time_ops.do_steal_accounting(new_itm);
+ }
+ 
++static inline unsigned long long paravirt_sched_clock(void)
++{
++	return pv_time_ops.sched_clock();
++}
++
+ #endif /* !__ASSEMBLY__ */
+ 
+ #else
+diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
+index 4e03cfe..86c7db8 100644
+--- a/arch/ia64/include/asm/timex.h
++++ b/arch/ia64/include/asm/timex.h
+@@ -40,5 +40,6 @@ get_cycles (void)
+ }
+ 
+ extern void ia64_cpu_local_tick (void);
++extern unsigned long long ia64_native_sched_clock (void);
+ 
+ #endif /* _ASM_IA64_TIMEX_H */
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index 59301c4..01e410e 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -1050,7 +1050,7 @@ END(ia64_delay_loop)
+  * except that the multiplication and the shift are done with 128-bit
+  * intermediate precision so that we can produce a full 64-bit result.
+  */
+-GLOBAL_ENTRY(sched_clock)
++GLOBAL_ENTRY(ia64_native_sched_clock)
+ 	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
+ 	mov.m r9=ar.itc		// fetch cycle-counter				(35 cyc)
+ 	;;
+@@ -1066,7 +1066,7 @@ GLOBAL_ENTRY(sched_clock)
+ 	;;
+ 	shrp r8=r9,r8,IA64_NSEC_PER_CYC_SHIFT
+ 	br.ret.sptk.many rp
+-END(sched_clock)
++END(ia64_native_sched_clock)
+ 
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ GLOBAL_ENTRY(cycle_to_cputime)
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 9f14c16..6bc33a6 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -366,4 +366,5 @@ ia64_native_do_steal_accounting(unsigned long *new_itm)
+ 
+ struct pv_time_ops pv_time_ops = {
+ 	.do_steal_accounting = ia64_native_do_steal_accounting,
++	.sched_clock = ia64_native_sched_clock,
+ };
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index 65c10a4..6f6ca42 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -50,6 +50,18 @@ EXPORT_SYMBOL(last_cli_ip);
+ #endif
+ 
+ #ifdef CONFIG_PARAVIRT
++/* We need to define a real function for sched_clock, to override the
++   weak default version */
++unsigned long long sched_clock(void)
++{
++        return paravirt_sched_clock();
++}
++#else
++unsigned long long
++sched_clock(void) __attribute__((alias("ia64_native_sched_clock")));
++#endif
++
++#ifdef CONFIG_PARAVIRT
+ static void
+ paravirt_clocksource_resume(void)
+ {
 -- 
-Mosberger Consulting LLC, http://www.mosberger-consulting.com/
+1.6.0.2
+
