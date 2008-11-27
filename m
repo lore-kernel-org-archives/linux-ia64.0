@@ -1,67 +1,85 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Tue, 25 Nov 2008 12:57:43 +0000
-Subject: [PATCH 00/13] ia64/pv_ops, xen: more paravirtualization. TAKE 2
-Message-Id: <1227618131-3755-1-git-send-email-yamahata@valinux.co.jp>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Thu, 27 Nov 2008 15:32:47 +0000
+Subject: Re: [PATCH V2 1/3] Factor out #ifdef's from kernel/spinlock.c to
+Message-Id: <1227799967.4454.1711.camel@twins>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1224777451.11530.52.camel@elijah.suse.cz>
+	 <1224777961.11530.64.camel@elijah.suse.cz>
+In-Reply-To: <1224777961.11530.64.camel@elijah.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Petr Tesarik <ptesarik@suse.cz>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tee@sgi.com, Robin Holt <holt@sgi.com>
 
-This patchset is for more paravirtualization on ia64/xen domU.
-- paravirtualize fsys call (fsys.S) by multi compile
-- paravirtualize gate page (gate.S) by multi compile
-- support save/restore
-  For this purpose, the followings needs to be paravirtualized
-  - ar.itc instruction 
-  - sched_clock()
-  This is because timer may changed before/after saving/restoring.
+On Thu, 2008-10-23 at 18:06 +0200, Petr Tesarik wrote:
+> The new macro LOCK_CONTENDED_FLAGS expands to the correct implementation
+> depending on the config options, so that IRQ's are re-enabled when
+> possible, but they remain disabled if CONFIG_LOCKDEP is set.
+> 
+> Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
 
-For convenience the working full source is available from
-http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
-branch: ia64-pv-ops-2008nov25-xen-ia64-optimized-domu
+Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
 
-For the status of this patch series
-http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
+Sorry, got lost in the inbox...
 
-thanks,
-
-Changes from take 1
-- rebased to 2.6.28-rc6
-  no essential change.
-
-
-Diffstat:
- arch/ia64/include/asm/native/inst.h       |   13 ++
- arch/ia64/include/asm/native/patchlist.h  |   38 +++++++
- arch/ia64/include/asm/native/pvchk_inst.h |    8 ++
- arch/ia64/include/asm/paravirt.h          |   57 ++++++++++
- arch/ia64/include/asm/timex.h             |    1 +
- arch/ia64/include/asm/xen/inst.h          |   28 +++++
- arch/ia64/include/asm/xen/interface.h     |    9 ++
- arch/ia64/include/asm/xen/minstate.h      |   11 ++-
- arch/ia64/include/asm/xen/patchlist.h     |   38 +++++++
- arch/ia64/include/asm/xen/privop.h        |    2 +
- arch/ia64/kernel/Makefile                 |   36 +-----
- arch/ia64/kernel/Makefile.gate            |   27 +++++
- arch/ia64/kernel/asm-offsets.c            |    2 +
- arch/ia64/kernel/entry.S                  |    4 +-
- arch/ia64/kernel/fsys.S                   |   35 +++---
- arch/ia64/kernel/gate.S                   |  171 +++++++++++++++--------------
- arch/ia64/kernel/gate.lds.S               |   17 ++--
- arch/ia64/kernel/head.S                   |    4 +-
- arch/ia64/kernel/ivt.S                    |    2 +-
- arch/ia64/kernel/paravirt.c               |    1 +
- arch/ia64/kernel/paravirt_patchlist.c     |   78 +++++++++++++
- arch/ia64/kernel/paravirt_patchlist.h     |   28 +++++
- arch/ia64/kernel/patch.c                  |   38 +++++--
- arch/ia64/kernel/time.c                   |   12 ++
- arch/ia64/kernel/vmlinux.lds.S            |    6 +
- arch/ia64/mm/init.c                       |    8 +-
- arch/ia64/scripts/pvcheck.sed             |    1 +
- arch/ia64/xen/Kconfig                     |    1 +
- arch/ia64/xen/Makefile                    |   19 +++-
- arch/ia64/xen/gate-data.S                 |    3 +
- arch/ia64/xen/time.c                      |   48 ++++++++
- arch/ia64/xen/xen_pv_ops.c                |  126 +++++++++++++++++++++-
- 32 files changed, 716 insertions(+), 156 deletions(-)
+> ---
+>  include/linux/lockdep.h |   17 +++++++++++++++++
+>  kernel/spinlock.c       |   12 ++----------
+>  2 files changed, 19 insertions(+), 10 deletions(-)
+> 
+> diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
+> index 331e5f1..1e6e578 100644
+> --- a/include/linux/lockdep.h
+> +++ b/include/linux/lockdep.h
+> @@ -376,6 +376,23 @@ do
+> {                                                               \
+>  
+>  #endif /* CONFIG_LOCK_STAT */
+>  
+> +#ifdef CONFIG_LOCKDEP
+> +
+> +/*
+> + * On lockdep we dont want the hand-coded irq-enable of
+> + * _raw_*_lock_flags() code, because lockdep assumes
+> + * that interrupts are not re-enabled during lock-acquire:
+> + */
+> +#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
+> +       LOCK_CONTENDED((_lock), (try), (lock))
+> +
+> +#else /* CONFIG_LOCKDEP */
+> +
+> +#define LOCK_CONTENDED_FLAGS(_lock, try, lock, lockfl, flags) \
+> +       lockfl((_lock), (flags))
+> +
+> +#endif /* CONFIG_LOCKDEP */
+> +
+>  #if defined(CONFIG_TRACE_IRQFLAGS) && defined(CONFIG_GENERIC_HARDIRQS)
+>  extern void early_init_irq_lock_class(void);
+>  #else
+> diff --git a/kernel/spinlock.c b/kernel/spinlock.c
+> index 29ab207..cf41b87 100644
+> --- a/kernel/spinlock.c
+> +++ b/kernel/spinlock.c
+> @@ -299,16 +299,8 @@ unsigned long __lockfunc
+> _spin_lock_irqsave_nested(spinlock_t *lock, int subclas
+>         local_irq_save(flags);
+>         preempt_disable();
+>         spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
+> -       /*
+> -        * On lockdep we dont want the hand-coded irq-enable of
+> -        * _raw_spin_lock_flags() code, because lockdep assumes
+> -        * that interrupts are not re-enabled during lock-acquire:
+> -        */
+> -#ifdef CONFIG_LOCKDEP
+> -       LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
+> -#else
+> -       _raw_spin_lock_flags(lock, &flags);
+> -#endif
+> +       LOCK_CONTENDED_FLAGS(lock, _raw_spin_trylock, _raw_spin_lock,
+> +                            _raw_spin_lock_flags, &flags);
+>         return flags;
+>  }
+>  EXPORT_SYMBOL(_spin_lock_irqsave_nested);
+> 
+> 
