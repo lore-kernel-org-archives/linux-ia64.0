@@ -1,34 +1,69 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 09 Dec 2008 16:51:32 +0000
-Subject: [PATCH] - Fix GRU compile error w/o CONFIG_HUGETLB_PAGE
-Message-Id: <20081209165132.GA26860@sgi.com>
+From: akpm@linux-foundation.org
+Date: Mon, 01 Dec 2008 22:18:36 +0000
+Subject: [patch 1/2] ia64: use the new byteorder headers
+Message-Id: <200812012218.mB1MIaXY011621@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: a.beregalov@gmail.com, kernel-testers@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Eliminate compile error when compiling without CONFIG_HUGETLB_PAGE.
+From: Harvey Harrison <harvey.harrison@gmail.com>
 
-Signed-off-by: Jack Steiner <steiner@sgi.com>
-
+Signed-off-by: Harvey Harrison <harvey.harrison@gmail.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- drivers/misc/sgi-gru/grufault.c |    4 ++++
- 1 file changed, 4 insertions(+)
 
-Index: linux/drivers/misc/sgi-gru/grufault.c
-=================================--- linux.orig/drivers/misc/sgi-gru/grufault.c	2008-12-08 08:25:57.000000000 -0600
-+++ linux/drivers/misc/sgi-gru/grufault.c	2008-12-09 09:35:02.000000000 -0600
-@@ -254,7 +254,11 @@ static int atomic_pte_lookup(struct vm_a
- 		return 1;
+ arch/ia64/include/asm/byteorder.h |   26 +++++++++++---------------
+ 1 file changed, 11 insertions(+), 15 deletions(-)
+
+diff -puN arch/ia64/include/asm/byteorder.h~ia64-use-the-new-byteorder-headers arch/ia64/include/asm/byteorder.h
+--- a/arch/ia64/include/asm/byteorder.h~ia64-use-the-new-byteorder-headers
++++ a/arch/ia64/include/asm/byteorder.h
+@@ -10,33 +10,29 @@
+ #include <asm/intrinsics.h>
+ #include <linux/compiler.h>
  
- 	*paddr = pte_pfn(pte) << PAGE_SHIFT;
-+#ifdef CONFIG_HUGETLB_PAGE
- 	*pageshift = is_vm_hugetlb_page(vma) ? HPAGE_SHIFT : PAGE_SHIFT;
-+#else
-+	*pageshift = PAGE_SHIFT;
-+#endif
- 	return 0;
+-static __inline__ __attribute_const__ __u64
+-__ia64_swab64 (__u64 x)
++#define __LITTLE_ENDIAN
++
++static inline __attribute_const__ __u64 __arch_swab64(__u64 x)
+ {
+ 	__u64 result;
  
- err:
+ 	result = ia64_mux1(x, ia64_mux1_rev);
+ 	return result;
+ }
++#define __arch_swab64 __arch_swab64
+ 
+-static __inline__ __attribute_const__ __u32
+-__ia64_swab32 (__u32 x)
++static inline __attribute_const__ __u32 __arch_swab32(__u32 x)
+ {
+-	return __ia64_swab64(x) >> 32;
++	return __arch_swab64(x) >> 32;
+ }
++#define __arch_swab32 __arch_swab32
+ 
+-static __inline__ __attribute_const__ __u16
+-__ia64_swab16(__u16 x)
++static inline __attribute_const__ __u16 __arch_swab16(__u16 x)
+ {
+-	return __ia64_swab64(x) >> 48;
++	return __arch_swab64(x) >> 48;
+ }
++#define __arch_swab16 __arch_swab16
+ 
+-#define __arch__swab64(x) __ia64_swab64(x)
+-#define __arch__swab32(x) __ia64_swab32(x)
+-#define __arch__swab16(x) __ia64_swab16(x)
+-
+-#define __BYTEORDER_HAS_U64__
+-
+-#include <linux/byteorder/little_endian.h>
++#include <linux/byteorder.h>
+ 
+ #endif /* _ASM_IA64_BYTEORDER_H */
+_
