@@ -1,59 +1,74 @@
-From: John Keller <jpk@sgi.com>
-Date: Mon, 08 Dec 2008 17:44:11 +0000
-Subject: [PATCH] ia64: SN: prevent IRQ retargetting in request_irq()
-Message-Id: <20081208174411.119278.58670.83945@attica.americas.sgi.com>
+From: akpm@linux-foundation.org
+Date: Mon, 01 Dec 2008 22:18:37 +0000
+Subject: [patch 2/2] arch/ia64: eliminate NULL test and memset after alloc_bootmem
+Message-Id: <200812012218.mB1MIbeB011624@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-Cc: tglx@linutronix.de, mingo@elte.hu, yinghai@kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-With the introduction of the generic affinity autoselector,
-irq_select_affinity(), IRQs are now being retargetted,
-using a default mask, via the request_irq() path.
-This results in all IRQs targetted at CPU 0.
+From: Julia Lawall <julia@diku.dk>
 
-SN Altix assigns affinity in the SN PROM, and does not
-expect that to be changed as part of request_irq().
+As noted by Akinobu Mita in patch b1fceac2b9e04d278316b2faddf276015fc06e3b,
+alloc_bootmem and related functions never return NULL and always return a
+zeroed region of memory.  Thus a NULL test or memset after calls to these
+functions is unnecessary.
 
-Set the IRQ_AFFINITY_SET flag to prevent
-request_irq() from resetting affinity.
+This was fixed using the following semantic patch.
+(http://www.emn.fr/x-info/coccinelle/)
 
+// <smpl>
+@@
+expression E;
+statement S;
+@@
 
-Signed-off-by: John Keller <jpk@sgi.com>
+E = \(alloc_bootmem\|alloc_bootmem_low\|alloc_bootmem_pages\|alloc_bootmem_low_pages\|alloc_bootmem_node\|alloc_bootmem_low_pages_node\|alloc_bootmem_pages_node\)(...)
+... when != E
+(
+- BUG_ON (E = NULL);
+|
+- if (E = NULL) S
+)
 
+@@
+expression E,E1;
+@@
 
-Index: linux-2.6/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/irq.c	2008-12-03 14:19:41.000000000 -0600
-+++ linux-2.6/arch/ia64/sn/kernel/irq.c	2008-12-08 11:03:19.116963490 -0600
-@@ -5,7 +5,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (c) 2000-2007 Silicon Graphics, Inc.  All Rights Reserved.
-+ * Copyright (c) 2000-2008 Silicon Graphics, Inc.  All Rights Reserved.
-  */
+E = \(alloc_bootmem\|alloc_bootmem_low\|alloc_bootmem_pages\|alloc_bootmem_low_pages\|alloc_bootmem_node\|alloc_bootmem_low_pages_node\|alloc_bootmem_pages_node\)(...)
+... when != E
+- memset(E,0,E1);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/sn/kernel/setup.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff -puN arch/ia64/sn/kernel/setup.c~arch-ia64-eliminate-null-test-and-memset-after-alloc_bootmem arch/ia64/sn/kernel/setup.c
+--- a/arch/ia64/sn/kernel/setup.c~arch-ia64-eliminate-null-test-and-memset-after-alloc_bootmem
++++ a/arch/ia64/sn/kernel/setup.c
+@@ -512,7 +512,6 @@ static void __init sn_init_pdas(char **c
+ 	for_each_online_node(cnode) {
+ 		nodepdaindr[cnode]  		    alloc_bootmem_node(NODE_DATA(cnode), sizeof(nodepda_t));
+-		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
+ 		memset(nodepdaindr[cnode]->phys_cpuid, -1,
+ 		    sizeof(nodepdaindr[cnode]->phys_cpuid));
+ 		spin_lock_init(&nodepdaindr[cnode]->ptc_lock);
+@@ -521,11 +520,9 @@ static void __init sn_init_pdas(char **c
+ 	/*
+ 	 * Allocate & initialize nodepda for TIOs.  For now, put them on node 0.
+ 	 */
+-	for (cnode = num_online_nodes(); cnode < num_cnodes; cnode++) {
++	for (cnode = num_online_nodes(); cnode < num_cnodes; cnode++)
+ 		nodepdaindr[cnode]  		    alloc_bootmem_node(NODE_DATA(0), sizeof(nodepda_t));
+-		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
+-	}
  
- #include <linux/irq.h>
-@@ -375,6 +375,7 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	int cpu = nasid_slice_to_cpuid(nasid, slice);
- #ifdef CONFIG_SMP
- 	int cpuphys;
-+	irq_desc_t *desc;
- #endif
- 
- 	pci_dev_get(pci_dev);
-@@ -391,6 +392,12 @@ void sn_irq_fixup(struct pci_dev *pci_de
- #ifdef CONFIG_SMP
- 	cpuphys = cpu_physical_id(cpu);
- 	set_irq_affinity_info(sn_irq_info->irq_irq, cpuphys, 0);
-+	desc = irq_to_desc(sn_irq_info->irq_irq);
-+	/*
-+	 * Affinity was set by the PROM, prevent it from
-+	 * being reset by the request_irq() path.
-+	 */
-+	desc->status |= IRQ_AFFINITY_SET;
- #endif
- }
- 
+ 	/*
+ 	 * Now copy the array of nodepda pointers to each nodepda.
+_
