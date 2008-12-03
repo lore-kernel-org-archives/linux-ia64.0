@@ -1,61 +1,46 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 19 Dec 2008 09:09:01 +0000
-Subject: Re: [RFC 1/2] ftrace porting of ia64
-Message-Id: <20081219090901.GA20301@elte.hu>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Wed, 03 Dec 2008 00:13:11 +0000
+Subject: Re: [Patch V3 0/3] Enable irqs when waiting for rwlocks
+Message-Id: <20081202161311.ae3376cb.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1229570238.28616.31.camel@sli10-desk.sh.intel.com>
-In-Reply-To: <1229570238.28616.31.camel@sli10-desk.sh.intel.com>
+References: <20081104122405.046233722@attica.americas.sgi.com>
+In-Reply-To: <20081104122405.046233722@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: holt@sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, ptesarik@suse.cz, tee@sgi.com, peterz@infradead.org, mingo@elte.hu, linux-arch@vger.kernel.org
 
+On Tue, 04 Nov 2008 06:24:05 -0600
+holt@sgi.com wrote:
 
-* Shaohua Li <shaohua.li@intel.com> wrote:
+> New in V3:
+>  * Handle rearrangement of some arch's include/asm directories.
+> 
+> New in V2:
+>  * get rid of ugly #ifdef's in kernel/spinlock.h
+>  * convert __raw_{read|write}_lock_flags to an inline func
+> 
+> SGI has observed that on large systems, interrupts are not serviced for
+> a long period of time when waiting for a rwlock. The following patch
+> series re-enables irqs while waiting for the lock, resembling the code
+> which is already there for spinlocks.
+> 
+> I only made the ia64 version, because the patch adds some overhead to
+> the fast path. I assume there is currently no demand to have this for
+> other architectures, because the systems are not so large. Of course,
+> the possibility to implement raw_{read|write}_lock_flags for any
+> architecture is still there.
+> 
 
-> On Thu, 2008-12-18 at 23:31 +0800, Steven Rostedt wrote:
-> > On Thu, 2008-12-18 at 15:28 +0100, Ingo Molnar wrote:
-> > > * Steven Rostedt <srostedt@redhat.com> wrote:
-> > > 
-> > > > 
-> > > > On Thu, 2008-12-18 at 11:25 +0100, Ingo Molnar wrote:
-> > > > > * Shaohua Li <shaohua.li@intel.com> wrote:
-> > > > > 
-> > > > > > ftrace porting of IA64.
-> > > > > > TBD:
-> > > > > > 1. I don't how to add unwind info to the assemble code, so please
-> > > > > > advise.
-> > > > > > 2. The generic ftrace ring buffer code doesn't handle alignment well.
-> > > > > > With the patch, kernel will report a lot of unalignment. This is still
-> > > > > > under investigation.
-> > > > > 
-> > > > > hm, that's weird - i recently profiled 64-bit x86 for unaligned accesses 
-> > > > > and there didnt seem to be many. In any case, feel free to fix any 
-> > > > > unaligned structure fields by reordering them.
-> > > > 
-> > > > Will x86_64 break if something is aligned by 32 bits?
-> > > 
-> > > No, but there are tools to detect misalignment as they happen. (there are 
-> > > CPU hw counters for access misalignment and kerneltop can profile based on 
-> > > that info :-)
-> > > 
-> > > > The records in the buffer use to be 64 bit aligned. They are now 32 bit 
-> > > > aligned. I wonder if we should make that alignment arch specific.
-> > > 
-> > > No, we should just align them to 64 bits and be done with it.
-> > 
-> > I originally had it 64 bit aligned, but a lot of people complained about
-> > the wasted space. The minimum record was 8 bytes, but you could have a
-> > 12 byte record. This allows for more compact recording.
-> > 
-> > Hmm, the header is 32 bits. Maybe that's the problem. The data part
-> > starts at the 32bit mark. Maybe it is not the alignment of the record,
-> > but the alignment of where the data starts. If the size is small enough,
-> > it might align to the 32bit boundary.
-> > 
-> > I'll have to look more into that.
-> I port my patch to latest -tip, the unalignment issue seems disappear.
+The patches seem reasonable.  I queued all three with the intention of
+merging #1 and #2 into 2.6.29.  At that stage, architectures can decide
+whether or not they want to do this.  I shall then spam Tony with #3 so
+you can duke it out with him.
 
-thanks for checking!
+It's a bit regrettable to have different architectures behaving in
+different ways.  It would be interesting to toss an x86_64
+implementation into the grinder, see if it causes any problems, see if
+it produces any tangible benefits.  Then other architectures might
+follow.  Or not, depending on the results ;)
 
-	Ingo
