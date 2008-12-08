@@ -1,47 +1,59 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Tue, 23 Dec 2008 06:08:17 +0000
-Subject: [PATCH 4/5] Add macro for ftrace_caller
-Message-Id: <1230012497.10933.101.camel@sli10-desk.sh.intel.com>
+From: John Keller <jpk@sgi.com>
+Date: Mon, 08 Dec 2008 17:44:11 +0000
+Subject: [PATCH] ia64: SN: prevent IRQ retargetting in request_irq()
+Message-Id: <20081208174411.119278.58670.83945@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: tglx@linutronix.de, mingo@elte.hu, yinghai@kernel.org, linux-kernel@vger.kernel.org, John Keller <jpk@sgi.com>
 
-The same reason as last patch (function isn't a 'unsigned long').
-Define FTRACE_ADDR.
+With the introduction of the generic affinity autoselector,
+irq_select_affinity(), IRQs are now being retargetted,
+using a default mask, via the request_irq() path.
+This results in all IRQs targetted at CPU 0.
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
----
- include/linux/ftrace.h |    4 ++++
- kernel/trace/ftrace.c  |    2 +-
- 2 files changed, 5 insertions(+), 1 deletion(-)
+SN Altix assigns affinity in the SN PROM, and does not
+expect that to be changed as part of request_irq().
 
-Index: linux/include/linux/ftrace.h
-=================================--- linux.orig/include/linux/ftrace.h	2008-12-23 13:11:27.000000000 +0800
-+++ linux/include/linux/ftrace.h	2008-12-23 13:28:29.000000000 +0800
-@@ -126,6 +126,10 @@ extern int ftrace_update_ftrace_func(ftr
- extern void ftrace_caller(void);
- extern void ftrace_call(void);
- extern void mcount_call(void);
-+
-+#ifndef FTRACE_ADDR
-+#define FTRACE_ADDR ((unsigned long)ftrace_caller)
-+#endif
- #ifdef CONFIG_FUNCTION_GRAPH_TRACER
- extern void ftrace_graph_caller(void);
- extern int ftrace_enable_ftrace_graph_caller(void);
-Index: linux/kernel/trace/ftrace.c
-=================================--- linux.orig/kernel/trace/ftrace.c	2008-12-23 13:24:59.000000000 +0800
-+++ linux/kernel/trace/ftrace.c	2008-12-23 13:28:29.000000000 +0800
-@@ -455,7 +455,7 @@ __ftrace_replace_code(struct dyn_ftrace 
- 	unsigned long ip, fl;
- 	unsigned long ftrace_addr;
+Set the IRQ_AFFINITY_SET flag to prevent
+request_irq() from resetting affinity.
+
+
+Signed-off-by: John Keller <jpk@sgi.com>
+
+
+Index: linux-2.6/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/irq.c	2008-12-03 14:19:41.000000000 -0600
++++ linux-2.6/arch/ia64/sn/kernel/irq.c	2008-12-08 11:03:19.116963490 -0600
+@@ -5,7 +5,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2007 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2008 Silicon Graphics, Inc.  All Rights Reserved.
+  */
  
--	ftrace_addr = (unsigned long)ftrace_caller;
-+	ftrace_addr = (unsigned long)FTRACE_ADDR;
+ #include <linux/irq.h>
+@@ -375,6 +375,7 @@ void sn_irq_fixup(struct pci_dev *pci_de
+ 	int cpu = nasid_slice_to_cpuid(nasid, slice);
+ #ifdef CONFIG_SMP
+ 	int cpuphys;
++	irq_desc_t *desc;
+ #endif
  
- 	ip = rec->ip;
+ 	pci_dev_get(pci_dev);
+@@ -391,6 +392,12 @@ void sn_irq_fixup(struct pci_dev *pci_de
+ #ifdef CONFIG_SMP
+ 	cpuphys = cpu_physical_id(cpu);
+ 	set_irq_affinity_info(sn_irq_info->irq_irq, cpuphys, 0);
++	desc = irq_to_desc(sn_irq_info->irq_irq);
++	/*
++	 * Affinity was set by the PROM, prevent it from
++	 * being reset by the request_irq() path.
++	 */
++	desc->status |= IRQ_AFFINITY_SET;
+ #endif
+ }
  
-
-
