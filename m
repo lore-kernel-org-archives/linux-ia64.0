@@ -1,19 +1,28 @@
-From: "Alexander Beregalov" <a.beregalov@gmail.com>
-Date: Tue, 09 Dec 2008 14:22:48 +0000
-Subject: next-20081209: fails to build IA64 allyesconfig
-Message-Id: <a4423d670812090622h668b597ah7e4c9b4c5a1cbb@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 09 Dec 2008 18:55:02 +0000
+Subject: RE: next-20081209: fails to build IA64 allyesconfig
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35C7EEAB0@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <a4423d670812090622h668b597ah7e4c9b4c5a1cbb@mail.gmail.com>
+In-Reply-To: <a4423d670812090622h668b597ah7e4c9b4c5a1cbb@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-next@vger.kernel.org
+Content-Type: text/plain; charset="windows-1254"
+Content-Transfer-Encoding: base64
+To: Alexander Beregalov <a.beregalov@gmail.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
 
-  GEN     include/linux/bounds.h
-  CC      arch/ia64/kernel/asm-offsets.s
-In file included from include/linux/bitops.h:17,
-                 from include/linux/kernel.h:15,
-                 from include/linux/sched.h:52,
-                 from arch/ia64/kernel/asm-offsets.c:9:
-/home/alexb/linux-2.6/arch/ia64/include/asm/bitops.h: In function 'set_bit':
-/home/alexb/linux-2.6/arch/ia64/include/asm/bitops.h:47: error:
-implicit declaration of function 'BUILD_BUG_ON'
+PiAgR0VOICAgICBpbmNsdWRlL2xpbnV4L2JvdW5kcy5oCj4gIENDICAgICAgYXJjaC9pYTY0L2tl
+cm5lbC9hc20tb2Zmc2V0cy5zCj4gSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUvbGludXgv
+Yml0b3BzLmg6MTcsCj4gICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9saW51eC9rZXJuZWwu
+aDoxNSwKPiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRlL2xpbnV4L3NjaGVkLmg6NTIsCj4g
+ICAgICAgICAgICAgICAgIGZyb20gYXJjaC9pYTY0L2tlcm5lbC9hc20tb2Zmc2V0cy5jOjk6Cj4g
+L2hvbWUvYWxleGIvbGludXgtMi42L2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9iaXRvcHMuaDogSW4g
+ZnVuY3Rpb24gJ3NldF9iaXQnOgo+IC9ob21lL2FsZXhiL2xpbnV4LTIuNi9hcmNoL2lhNjQvaW5j
+bHVkZS9hc20vYml0b3BzLmg6NDc6IGVycm9yOgo+IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1
+bmN0aW9uICdCVUlMRF9CVUdfT04nCgpTYW1lIHNpZ25hdHVyZSBhcyBodHRwOi8vbWFyYy5pbmZv
+Lz9sPWxpbnV4LWlhNjQmbRIyNzIzOTkxOTAyOTc1Jnc9MgoKSSB3YXMgc3VyZSB0aGF0IEkgYWxy
+ZWFkeSBhcHBsaWVkIHRoYXQgcGF0Y2ggLi4uIGJ1dCBJIG11c3QgaGF2ZSBwdXQKaXQgaW50byBh
+IHRlbXBvcmFyeSBicmFuY2ggYW5kIGZvcmdvdCB0byBtZXJnZSBpdC4gIEkndmUgYXBwbGllZCBp
+dApmb3IgcmVhbCB0aGlzIHRpbWUgYW5kIHdpbGwgcHVzaCBvdXQgc29vbi4KCi1Ub255Cv/06Lp7
+Lm7HK4m3n66JrYYrJYrL/7Hp3bYXpYp3/7p7Lm7HK4m3pYp7sf4muuP4p7YXm6HcqH2pnrLGoHra
+Jmo6K3aJqP74Hq/5Hq53pf6K4DKK3pmo6K3aJqIp36GrYbba///74Hq/5Hq53pf6K4P5mo6K3aJq
+/4p36P4bZgo=
