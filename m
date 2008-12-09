@@ -1,36 +1,55 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 10 Dec 2008 20:29:28 +0000
-Subject: Re: sshd segmentation fault on ia64 on 28-rc7-mmotm-081203 -
-Message-Id: <20081210122928.2bf923ce.akpm@linux-foundation.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 09 Dec 2008 22:28:28 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <200812092228.mB9MSSxv005263@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1228322600.6693.61.camel@lts-notebook>
-	<1228940487.6139.68.camel@lts-notebook>
-In-Reply-To: <1228940487.6139.68.camel@lts-notebook>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lee Schermerhorn <Lee.Schermerhorn@hp.com>
-Cc: linux-kernel@vger.kernel.org, fbuihuu@gmail.com, netdev@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Wed, 10 Dec 2008 15:21:26 -0500
-Lee Schermerhorn <Lee.Schermerhorn@hp.com> wrote:
+Hi Linus,
 
-> On Wed, 2008-12-03 at 11:43 -0500, Lee Schermerhorn wrote:
-> > I couldn't find anything on the list about this.
-> > 
-> > I've built and booted 28-rc7-mmotm-081203 on both x86_64 and ia64.  I
-> > can ssh into the x86_64 platform fine.  On the ia64, I'm seeing sshd
-> > [from RHEL5 distro] seg faulting.  [Same sshd worked on the
-> > 28-rc6-mmotm-081201 kernel.]
-> > 
-> > Has anyone else seen this?
-> > 
-> 
-> I finally got around to bisecting this--sshd fails with SEGV on ia64--on
-> mmotm-081208.  It appears to be caused by the patch duo:
-> 
-> do_mpage_readpage-remove-first_logical_block-parameter.patch
-> do_mpage_readpage-remove-first_logical_block-parameter-fix.patch
-> 
+please pull from:
 
-Thanks, I dropped them.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/configs/generic_defconfig     |  218 +++++++++++++++++++++----------
+ arch/ia64/include/asm/paravirt_privop.h |    1 -
+ arch/ia64/kernel/topology.c             |    4 +-
+ arch/ia64/sn/kernel/irq.c               |    9 +-
+ arch/ia64/sn/kernel/setup.c             |    9 +-
+ drivers/ide/sgiioc4.c                   |    6 +-
+ drivers/misc/sgi-gru/grufault.c         |    4 +
+ drivers/serial/ioc3_serial.c            |    6 +-
+ 8 files changed, 171 insertions(+), 86 deletions(-)
+
+Alexey Dobriyan (1):
+      [IA64] remove BUILD_BUG_ON from paravirt_getreg()
+
+Jack Steiner (1):
+      [IA64] Fix GRU compile error w/o CONFIG_HUGETLB_PAGE
+
+John Keller (1):
+      [IA64] SN: prevent IRQ retargetting in request_irq()
+
+Julia Lawall (1):
+      [IA64] eliminate NULL test and memset after alloc_bootmem
+
+Robin Holt (4):
+      [IA64] Updated the generic_defconfig to work with the 2.6.28-rc7 kernel.
+      [IA64] Clear up section mismatch for sn_check_wars.
+      [IA64] Clear up section mismatch with arch_unregister_cpu()
+      [IA64] Clear up section mismatch for ioc4_ide_attach_one.
+
+Tony Luck (1):
+      [IA64] Fix section mismatch ioc3uart_init()/ioc3uart_submodule
+
