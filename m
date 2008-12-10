@@ -1,57 +1,38 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Date: Tue, 09 Dec 2008 15:08:27 +0000
-Subject: [PATCH] simnet: convert to net_device_ops
-Message-Id: <20081209150827.GA8134@x200.localdomain>
+From: David Miller <davem@davemloft.net>
+Date: Wed, 10 Dec 2008 06:57:28 +0000
+Subject: Re: [PATCH] simnet: convert to net_device_ops
+Message-Id: <20081209.225728.07389385.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
-In-Reply-To: <a4423d670812090611v715309adq3e9d2d95254e2e16@mail.gmail.com>
+	<20081209150827.GA8134@x200.localdomain>
+In-Reply-To: <20081209150827.GA8134@x200.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alexander Beregalov <a.beregalov@gmail.com>, davem@davemloft.net
-Cc: linux-next@vger.kernel.org, Netdev <netdev@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: adobriyan@gmail.com
+Cc: a.beregalov@gmail.com, linux-next@vger.kernel.org, netdev@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
->   CC      arch/ia64/hp/sim/simeth.o
-> arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
-> arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Date: Tue, 9 Dec 2008 18:08:27 +0300
 
-[PATCH] simeth: convert to net_device_ops
+> On Tue, Dec 09, 2008 at 05:11:17PM +0300, Alexander Beregalov wrote:
+> >   CC      arch/ia64/hp/sim/simeth.o
+> > arch/ia64/hp/sim/simeth.c: In function 'simeth_probe1':
+> > arch/ia64/hp/sim/simeth.c:212: error: 'struct net_device' has no member named 'open'
+> 
+> [PATCH] simeth: convert to net_device_ops
+> 
+> Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
 
-Signed-off-by: Alexey Dobriyan <adobriyan@gmail.com>
----
+This doesn't explain the build failure.
 
- arch/ia64/hp/sim/simeth.c |   15 ++++++++++-----
- 1 file changed, 10 insertions(+), 5 deletions(-)
+Using ->open() and friends should work perfectly fine for drivers not
+yet converted to netdev_ops.  The code protected by COMPAT_NET_DEV_OPS
+provides this, and we force that Kconfig option to always be on.
 
---- a/arch/ia64/hp/sim/simeth.c
-+++ b/arch/ia64/hp/sim/simeth.c
-@@ -167,6 +167,15 @@ netdev_read(int fd, unsigned char *buf, unsigned int len)
- 	return ia64_ssc(fd, __pa(buf), len, 0, SSC_NETDEV_RECV);
- }
- 
-+static const struct net_device_ops simeth_netdev_ops = {
-+	.ndo_open		= simeth_open,
-+	.ndo_stop		= simeth_close,
-+	.ndo_start_xmit		= simeth_tx,
-+	.ndo_get_stats		= simeth_get_stats,
-+	.ndo_set_multicast_list	= set_multicast_list, /* not yet used */
-+
-+};
-+
- /*
-  * Function shared with module code, so cannot be in init section
-  *
-@@ -209,11 +218,7 @@ simeth_probe1(void)
- 	local = netdev_priv(dev);
- 	local->simfd = fd; /* keep track of underlying file descriptor */
- 
--	dev->open		= simeth_open;
--	dev->stop		= simeth_close;
--	dev->hard_start_xmit	= simeth_tx;
--	dev->get_stats		= simeth_get_stats;
--	dev->set_multicast_list = set_multicast_list; /* no yet used */
-+	dev->netdev_ops = &simeth_netdev_ops;
- 
- 	err = register_netdev(dev);
- 	if (err) {
+I don't want to add this patch and just shrug off this build failure.
+If this build failures, we should be seeing 200 other drivers not
+build too.
+
+I suspect something is messed up with this person's kernel config
+or similar.
