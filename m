@@ -1,53 +1,96 @@
-From: Rick Jones <rick.jones2@hp.com>
-Date: Wed, 17 Dec 2008 19:44:09 +0000
-Subject: Re: Soft Lockups on 2.6.28-rc8 under netperf bulk receive workload
-Message-Id: <49495689.9090205@hp.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 12 Dec 2008 06:38:56 +0000
+Subject: [PATCH 07/15] ia64/pv_ops: paravirtualize mov = ar.itc.
+Message-Id: <1229063944-27462-8-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4948566E.1050309@hp.com> <494934C5.5000003@chelsio.com>
-In-Reply-To: <494934C5.5000003@chelsio.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Divy Le Ray <divy@chelsio.com>
-Cc: Linux Network Development list <netdev@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Divy Le Ray wrote:
-> Can you please reconfigure your kernel with the following kernel hacking
-> options enabled, and run your tests again?
-> 
-> Kernel hacking
-> 	Kernel debugging
-> 		Detect soft lockups
-> 	RT mutex debugging
-> 	Spinlock and rw-lock debugging: basic checks
-> 	Mutex debugging: basic checks
+paravirtualize mov reg = ar.itc.
 
-Got the above
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/native/inst.h |    5 +++++
+ arch/ia64/kernel/entry.S            |    4 ++--
+ arch/ia64/kernel/fsys.S             |    4 ++--
+ arch/ia64/kernel/ivt.S              |    2 +-
+ 4 files changed, 10 insertions(+), 5 deletions(-)
 
-> 	Lock debugging: detect incorrect freeing of live locks
-> 	Lock debugging: prove locking correctness
+diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
+index 5e4e151..ad59fc6 100644
+--- a/arch/ia64/include/asm/native/inst.h
++++ b/arch/ia64/include/asm/native/inst.h
+@@ -77,6 +77,11 @@
+ (pred)	mov reg = psr			\
+ 	CLOBBER(clob)
+ 
++#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
++(pred)	mov reg = ar.itc				\
++	CLOBBER(clob)					\
++	CLOBBER_PRED(pred_clob)
++
+ #define MOV_TO_IFA(reg, clob)	\
+ 	mov cr.ifa = reg	\
+ 	CLOBBER(clob)
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index d435f4a..c5709c6 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -735,7 +735,7 @@ GLOBAL_ENTRY(__paravirt_leave_syscall)
+ __paravirt_work_processed_syscall:
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ 	adds r2=PT(LOADRS)+16,r12
+-(pUStk)	mov.m r22=ar.itc			// fetch time at leave
++	MOV_FROM_ITC(pUStk, p9, r22, r19)	// fetch time at leave
+ 	adds r18=TI_FLAGS+IA64_TASK_SIZE,r13
+ 	;;
+ (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
+@@ -984,7 +984,7 @@ GLOBAL_ENTRY(__paravirt_leave_kernel)
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ 	.pred.rel.mutex pUStk,pKStk
+ 	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disabled
+-(pUStk)	mov.m r22=ar.itc	// M  fetch time at leave
++	MOV_FROM_ITC(pUStk, p9, r22, r29)	// M  fetch time at leave
+ 	nop.i 0
+ 	;;
+ #else
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index 3544d75..3567d54 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -280,7 +280,7 @@ ENTRY(fsys_gettimeofday)
+ (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
+ 	;;
+ 	.pred.rel.mutex p8,p9
+-(p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
++	MOV_FROM_ITC(p8, p6, r2, r10)	// CPU_TIMER. 36 clocks latency!!!
+ (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
+ (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
+ 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
+@@ -684,7 +684,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+ 	;;
+ 	mov ar.rsc=0				// M2   set enforced lazy mode, pl 0, LE, loadrs=0
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+-	mov.m r30=ar.itc			// M    get cycle for accounting
++	MOV_FROM_ITC(p0, p6, r30, r23)		// M    get cycle for accounting
+ #else
+ 	nop.m 0
+ #endif
+diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
+index f675d8e..ec9a5fd 100644
+--- a/arch/ia64/kernel/ivt.S
++++ b/arch/ia64/kernel/ivt.S
+@@ -804,7 +804,7 @@ ENTRY(break_fault)
+ ///////////////////////////////////////////////////////////////////////
+ 	st1 [r16]=r0				// M2|3 clear current->thread.on_ustack flag
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+-	mov.m r30=ar.itc			// M    get cycle for accounting
++	MOV_FROM_ITC(p0, p14, r30, r18)		// M    get cycle for accounting
+ #else
+ 	mov b6=r30				// I0   setup syscall handler branch reg early
+ #endif
+-- 
+1.6.0.2
 
-I don't see those two above in a make menuconfig
-
-> 	Spinlock debugging: sleep-inside-spinlock checking
-> 	Compile the kernel with debug info
-
-Got those above.
-
-> 	Compile the kernel with frame pointers
-
-That doesn't appear in make menuconfig in kernel hacking either.
-
-I built a kernel with those I could find enabled, and I think it invoked 
-the spirit of Heisenberg - no more soft lockups appearing on the 
-console.  I think it has also _significantly_ dropped the throughput.
-
-I've since learned how to tell caliper one doesn't care about the 
-per-process stuff and just lump it all together.  The cycles and cgprof 
-profiles for the debug run can be found under the same URL as before:
-
-ftp://ftp.netperf.org/lockup
-
-with what I hope are obvious names.
-
-rick jones
