@@ -1,112 +1,78 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 22 Dec 2008 05:50:21 +0000
-Subject: [PATCH 14/15] ia64/pv_ops: paravirtualize gate.S.
-Message-Id: <1229925022-31365-15-git-send-email-yamahata@valinux.co.jp>
+Date: Fri, 12 Dec 2008 06:38:49 +0000
+Subject: [PATCH 00/15] ia64/pv_ops, xen: more paravirtualization. TAKE 3
+Message-Id: <1229063944-27462-1-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1229063944-27462-15-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1229063944-27462-15-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize gate.S.
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/native/inst.h       |    5 +++++
- arch/ia64/include/asm/native/pvchk_inst.h |    3 +++
- arch/ia64/kernel/gate.S                   |   17 +++++++++++++----
- 3 files changed, 21 insertions(+), 4 deletions(-)
+This patch set is intended for the next merge window. They are just
+enhancements of the already merged patches or ia64 porting from x86
+paravirt techniques and that their quality is enough for merge.
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
-index ad59fc6..d2d46ef 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -166,6 +166,11 @@
- #define RSM_PSR_DT		\
- 	rsm psr.dt
- 
-+#define RSM_PSR_BE_I(clob0, clob1)	\
-+	rsm psr.be | psr.i		\
-+	CLOBBER(clob0)			\
-+	CLOBBER(clob1)
-+
- #define SSM_PSR_DT_AND_SRLZ_I	\
- 	ssm psr.dt		\
- 	;;			\
-diff --git a/arch/ia64/include/asm/native/pvchk_inst.h b/arch/ia64/include/asm/native/pvchk_inst.h
-index 13b289e..8d72962 100644
---- a/arch/ia64/include/asm/native/pvchk_inst.h
-+++ b/arch/ia64/include/asm/native/pvchk_inst.h
-@@ -251,6 +251,9 @@
- 	IS_RREG_CLOB(clob2)
- #define RSM_PSR_DT				\
- 	nop 0
-+#define RSM_PSR_BE_I(clob0, clob1)		\
-+	IS_RREG_CLOB(clob0)			\
-+	IS_RREG_CLOB(clob1)
- #define SSM_PSR_DT_AND_SRLZ_I			\
- 	nop 0
- #define BSW_0(clob0, clob1, clob2)		\
-diff --git a/arch/ia64/kernel/gate.S b/arch/ia64/kernel/gate.S
-index c957228..cf5e0a1 100644
---- a/arch/ia64/kernel/gate.S
-+++ b/arch/ia64/kernel/gate.S
-@@ -13,6 +13,7 @@
- #include <asm/sigcontext.h>
- #include <asm/system.h>
- #include <asm/unistd.h>
-+#include "paravirt_inst.h"
- 
- /*
-  * We can't easily refer to symbols inside the kernel.  To avoid full runtime relocation,
-@@ -323,7 +324,7 @@ GLOBAL_ENTRY(__kernel_syscall_via_epc)
- 	epc					// B	causes split-issue
- }
- 	;;
--	rsm psr.be | psr.i			// M2 (5 cyc to srlz.d)
-+	RSM_PSR_BE_I(r20, r22)			// M2 (5 cyc to srlz.d)
- 	LOAD_FSYSCALL_TABLE(r14)		// X
- 	;;
- 	mov r16=IA64_KR(CURRENT)		// M2 (12 cyc)
-@@ -331,7 +332,7 @@ GLOBAL_ENTRY(__kernel_syscall_via_epc)
- 	mov r19=NR_syscalls-1			// A
- 	;;
- 	lfetch [r18]				// M0|1
--	mov r29=psr				// M2 (12 cyc)
-+	MOV_FROM_PSR(p0, r29, r8)		// M2 (12 cyc)
- 	// If r17 is a NaT, p6 will be zero
- 	cmp.geu p6,p7=r19,r17			// A    (sysnr > 0 && sysnr < 1024+NR_syscalls)?
- 	;;
-@@ -347,7 +348,7 @@ GLOBAL_ENTRY(__kernel_syscall_via_epc)
- (p6)	tbit.z.unc p8,p0=r18,0			// I0 (dual-issues with "mov b7=r18"!)
- 	nop.i 0
- 	;;
--(p8)	ssm psr.i
-+	SSM_PSR_I(p8, p14, r25)
- (p6)	mov b7=r18				// I0
- (p8)	br.dptk.many b7				// B
- 
-@@ -368,9 +369,17 @@ GLOBAL_ENTRY(__kernel_syscall_via_epc)
- #else
- 	BRL_COND_FSYS_BUBBLE_DOWN(p6)
- #endif
--	ssm psr.i
-+	SSM_PSR_I(p0, p14, r10)
- 	mov r10=-1
- (p10)	mov r8=EINVAL
- (p9)	mov r8=ENOSYS
- 	FSYS_RETURN
-+
-+#ifdef CONFIG_PARAVIRT
-+	/*
-+	 * padd to make the size of this symbol constant
-+	 * independent of paravirtualization.
-+	 */
-+	.align PAGE_SIZE / 8
-+#endif
- END(__kernel_syscall_via_epc)
--- 
-1.6.0.2
+This patch set is for more paravirtualization on ia64/xen domU.
+This patch set does
+- remove existing warnings
+- paravirtualize fsys call (fsys.S) by multi compile
+- paravirtualize gate page (gate.S) by multi compile
+- support save/restore
+  For this purpose, the followings needs to be paravirtualized
+  - ar.itc instruction 
+  - sched_clock()
+  This is because timer may changed before/after saving/restoring.
 
+For convenience the working full source is available from
+http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
+branch: ia64-pv-ops-2008dec12-xen-ia64-optimized-domu
+
+For the status of this patch series
+http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
+
+thanks,
+
+Changes from take2
+- two patches to remove warnings.
+- rebased to 2.6.28-rc8
+
+Changes from take 1
+- refreshed to 2.6.28-rc6
+  no essential change.
+
+
+Diffstat:
+ arch/ia64/include/asm/native/inst.h       |   13 ++
+ arch/ia64/include/asm/native/patchlist.h  |   38 +++++++
+ arch/ia64/include/asm/native/pvchk_inst.h |    8 ++
+ arch/ia64/include/asm/paravirt.h          |   57 ++++++++++
+ arch/ia64/include/asm/timex.h             |    1 +
+ arch/ia64/include/asm/xen/inst.h          |   24 ++++
+ arch/ia64/include/asm/xen/interface.h     |    9 ++
+ arch/ia64/include/asm/xen/minstate.h      |   11 ++-
+ arch/ia64/include/asm/xen/patchlist.h     |   38 +++++++
+ arch/ia64/include/asm/xen/privop.h        |    2 +
+ arch/ia64/kernel/Makefile                 |   36 +-----
+ arch/ia64/kernel/Makefile.gate            |   27 +++++
+ arch/ia64/kernel/asm-offsets.c            |    2 +
+ arch/ia64/kernel/entry.S                  |    4 +-
+ arch/ia64/kernel/fsys.S                   |   35 +++---
+ arch/ia64/kernel/gate.S                   |  171 +++++++++++++++--------------
+ arch/ia64/kernel/gate.lds.S               |   17 ++--
+ arch/ia64/kernel/head.S                   |    4 +-
+ arch/ia64/kernel/ivt.S                    |    2 +-
+ arch/ia64/kernel/paravirt.c               |    1 +
+ arch/ia64/kernel/paravirt_patchlist.c     |   78 +++++++++++++
+ arch/ia64/kernel/paravirt_patchlist.h     |   28 +++++
+ arch/ia64/kernel/patch.c                  |   48 ++++++---
+ arch/ia64/kernel/time.c                   |   12 ++
+ arch/ia64/kernel/vmlinux.lds.S            |    6 +
+ arch/ia64/mm/init.c                       |    8 +-
+ arch/ia64/scripts/pvcheck.sed             |    1 +
+ arch/ia64/xen/Kconfig                     |    1 +
+ arch/ia64/xen/Makefile                    |   18 +++-
+ arch/ia64/xen/gate-data.S                 |    3 +
+ arch/ia64/xen/time.c                      |   48 ++++++++
+ arch/ia64/xen/xen_pv_ops.c                |  132 +++++++++++++++++++++-
+ 32 files changed, 719 insertions(+), 164 deletions(-)
