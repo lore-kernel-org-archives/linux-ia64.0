@@ -1,55 +1,49 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 09 Dec 2008 22:28:28 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <200812092228.mB9MSSxv005263@agluck-lia64.sc.intel.com>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 12 Dec 2008 06:38:55 +0000
+Subject: [PATCH 06/15] ia64/pv_ops/pvchecker: support mov = ar.itc paravirtualization
+Message-Id: <1229063944-27462-7-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+add suport for mov = ar.itc to pvchecker.
 
-please pull from:
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/include/asm/native/pvchk_inst.h |    5 +++++
+ arch/ia64/scripts/pvcheck.sed             |    1 +
+ 2 files changed, 6 insertions(+), 0 deletions(-)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- arch/ia64/configs/generic_defconfig     |  218 +++++++++++++++++++++----------
- arch/ia64/include/asm/paravirt_privop.h |    1 -
- arch/ia64/kernel/topology.c             |    4 +-
- arch/ia64/sn/kernel/irq.c               |    9 +-
- arch/ia64/sn/kernel/setup.c             |    9 +-
- drivers/ide/sgiioc4.c                   |    6 +-
- drivers/misc/sgi-gru/grufault.c         |    4 +
- drivers/serial/ioc3_serial.c            |    6 +-
- 8 files changed, 171 insertions(+), 86 deletions(-)
-
-Alexey Dobriyan (1):
-      [IA64] remove BUILD_BUG_ON from paravirt_getreg()
-
-Jack Steiner (1):
-      [IA64] Fix GRU compile error w/o CONFIG_HUGETLB_PAGE
-
-John Keller (1):
-      [IA64] SN: prevent IRQ retargetting in request_irq()
-
-Julia Lawall (1):
-      [IA64] eliminate NULL test and memset after alloc_bootmem
-
-Robin Holt (4):
-      [IA64] Updated the generic_defconfig to work with the 2.6.28-rc7 kernel.
-      [IA64] Clear up section mismatch for sn_check_wars.
-      [IA64] Clear up section mismatch with arch_unregister_cpu()
-      [IA64] Clear up section mismatch for ioc4_ide_attach_one.
-
-Tony Luck (1):
-      [IA64] Fix section mismatch ioc3uart_init()/ioc3uart_submodule
+diff --git a/arch/ia64/include/asm/native/pvchk_inst.h b/arch/ia64/include/asm/native/pvchk_inst.h
+index b8e6eb1..13b289e 100644
+--- a/arch/ia64/include/asm/native/pvchk_inst.h
++++ b/arch/ia64/include/asm/native/pvchk_inst.h
+@@ -180,6 +180,11 @@
+ 	IS_PRED_IN(pred)			\
+ 	IS_RREG_OUT(reg)			\
+ 	IS_RREG_CLOB(clob)
++#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
++	IS_PRED_IN(pred)				\
++	IS_PRED_CLOB(pred_clob)				\
++	IS_RREG_OUT(reg)				\
++	IS_RREG_CLOB(clob)
+ #define MOV_TO_IFA(reg, clob)			\
+ 	IS_RREG_IN(reg)				\
+ 	IS_RREG_CLOB(clob)
+diff --git a/arch/ia64/scripts/pvcheck.sed b/arch/ia64/scripts/pvcheck.sed
+index ba66ac2..e59809a 100644
+--- a/arch/ia64/scripts/pvcheck.sed
++++ b/arch/ia64/scripts/pvcheck.sed
+@@ -17,6 +17,7 @@ s/mov.*=.*cr\.iip/.warning \"cr.iip should not used directly\"/g
+ s/mov.*=.*cr\.ivr/.warning \"cr.ivr should not used directly\"/g
+ s/mov.*=[^\.]*psr/.warning \"psr should not used directly\"/g	# avoid ar.fpsr
+ s/mov.*=.*ar\.eflags/.warning \"ar.eflags should not used directly\"/g
++s/mov.*=.*ar\.itc.*/.warning \"ar.itc should not used directly\"/g
+ s/mov.*cr\.ifa.*=.*/.warning \"cr.ifa should not used directly\"/g
+ s/mov.*cr\.itir.*=.*/.warning \"cr.itir should not used directly\"/g
+ s/mov.*cr\.iha.*=.*/.warning \"cr.iha should not used directly\"/g
+-- 
+1.6.0.2
 
