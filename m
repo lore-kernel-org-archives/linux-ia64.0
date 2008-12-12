@@ -1,54 +1,96 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 03 Dec 2008 12:44:49 +0000
-Subject: Re: [Patch V3 0/3] Enable irqs when waiting for rwlocks
-Message-Id: <1228308289.9673.237.camel@twins>
+From: Isaku Yamahata <yamahata@valinux.co.jp>
+Date: Fri, 12 Dec 2008 06:38:59 +0000
+Subject: [PATCH 10/15] ia64/pv_ops/xen/pv_time_ops: implement sched_clock.
+Message-Id: <1229063944-27462-11-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20081104122405.046233722@attica.americas.sgi.com>
-	 <20081202161311.ae3376cb.akpm@linux-foundation.org>
-	 <20081203113744.GE8970@sgi.com>  <1228307117.9673.232.camel@twins>
-	 <1228307798.1009.1.camel@nathan.suse.cz>
-In-Reply-To: <1228307798.1009.1.camel@nathan.suse.cz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Petr Tesarik <ptesarik@suse.cz>
-Cc: Robin Holt <holt@sgi.com>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, tee@sgi.com, mingo@elte.hu, linux-arch@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-On Wed, 2008-12-03 at 13:36 +0100, Petr Tesarik wrote:
-> Peter Zijlstra píše v St 03. 12. 2008 v 13:25 +0100:
-> > On Wed, 2008-12-03 at 05:37 -0600, Robin Holt wrote:
-> > > > It's a bit regrettable to have different architectures behaving in
-> > > > different ways.  It would be interesting to toss an x86_64
-> > > > implementation into the grinder, see if it causes any problems, see if
-> > > > it produces any tangible benefits.  Then other architectures might
-> > > > follow.  Or not, depending on the results ;)
-> > > 
-> > > I personally expect SGI to work on this for x86_64 in the future.
-> > > Once we actually start testing systems with 128 and above cpus, I
-> > > would expect to see these performance issues needing to be addressed.
-> > > Until then, it is just a theoretical.
-> > 
-> > Personally I consider this a ugly hack and would love to see people
-> > solve the actual problem and move away from rwlock_t, its utter rubbish.
-> 
-> Me too, but we don't have that clean and nice solution today, but what
-> we _do_ have today are the machines which break badly when interrupts
-> are disabled for the whole duration of taking a rwlock_t. :(
+paravirtualize sched_clock.
 
-Right, which creates an incentive to work on it. So we then either to a
-quick and ugly hack and relieve the stress and never again get around to
-looking at that particular issue (because management or something
-doesn't see the problem anymore) or we do the right thing and fix it
-properly.
+Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+---
+ arch/ia64/xen/Kconfig |    1 +
+ arch/ia64/xen/time.c  |   48 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 49 insertions(+), 0 deletions(-)
 
-I prefer the second, but I understand its not always an option.
-
-> Feel free to rewrite all users of rwlock_t. I'll appreciate it, oh so
-> very much.
-
-Hehe, I wish! its on my todo list though, along with some other things,
-but very unlikely I'll ever get around to it.
-
-The good news is that Eric Dumazet recently got rid of a few prominent
-users in the net code.
+diff --git a/arch/ia64/xen/Kconfig b/arch/ia64/xen/Kconfig
+index f1683a2..48839da 100644
+--- a/arch/ia64/xen/Kconfig
++++ b/arch/ia64/xen/Kconfig
+@@ -8,6 +8,7 @@ config XEN
+ 	depends on PARAVIRT && MCKINLEY && IA64_PAGE_SIZE_16KB && EXPERIMENTAL
+ 	select XEN_XENCOMM
+ 	select NO_IDLE_HZ
++	select HAVE_UNSTABLE_SCHED_CLOCK
+ 
+ 	# those are required to save/restore.
+ 	select ARCH_SUSPEND_POSSIBLE
+diff --git a/arch/ia64/xen/time.c b/arch/ia64/xen/time.c
+index d15a94c..c85d319 100644
+--- a/arch/ia64/xen/time.c
++++ b/arch/ia64/xen/time.c
+@@ -175,10 +175,58 @@ static void xen_itc_jitter_data_reset(void)
+ 	} while (unlikely(ret != lcycle));
+ }
+ 
++/* based on xen_sched_clock() in arch/x86/xen/time.c. */
++/*
++ * This relies on HAVE_UNSTABLE_SCHED_CLOCK. If it can't be defined,
++ * something similar logic should be implemented here.
++ */
++/*
++ * Xen sched_clock implementation.  Returns the number of unstolen
++ * nanoseconds, which is nanoseconds the VCPU spent in RUNNING+BLOCKED
++ * states.
++ */
++static unsigned long long xen_sched_clock(void)
++{
++	struct vcpu_runstate_info runstate;
++
++	unsigned long long now;
++	unsigned long long offset;
++	unsigned long long ret;
++
++	/*
++	 * Ideally sched_clock should be called on a per-cpu basis
++	 * anyway, so preempt should already be disabled, but that's
++	 * not current practice at the moment.
++	 */
++	preempt_disable();
++
++	/*
++	 * both ia64_native_sched_clock() and xen's runstate are
++	 * based on mAR.ITC. So difference of them makes sense.
++	 */
++	now = ia64_native_sched_clock();
++
++	get_runstate_snapshot(&runstate);
++
++	WARN_ON(runstate.state != RUNSTATE_running);
++
++	offset = 0;
++	if (now > runstate.state_entry_time)
++		offset = now - runstate.state_entry_time;
++	ret = runstate.time[RUNSTATE_blocked] +
++		runstate.time[RUNSTATE_running] +
++		offset;
++
++	preempt_enable();
++
++	return ret;
++}
++
+ struct pv_time_ops xen_time_ops __initdata = {
+ 	.init_missing_ticks_accounting	= xen_init_missing_ticks_accounting,
+ 	.do_steal_accounting		= xen_do_steal_accounting,
+ 	.clocksource_resume		= xen_itc_jitter_data_reset,
++	.sched_clock			= xen_sched_clock,
+ };
+ 
+ /* Called after suspend, to resume time.  */
+-- 
+1.6.0.2
 
