@@ -1,123 +1,362 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Mon, 22 Dec 2008 05:50:16 +0000
-Subject: [PATCH 09/15] ia64/pv_ops/pv_time_ops: add sched_clock hook.
-Message-Id: <1229925022-31365-10-git-send-email-yamahata@valinux.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Tue, 16 Dec 2008 22:50:04 +0000
+Subject: Re: local_add_return
+Message-Id: <200812170908.05423.rusty@rustcorp.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1229063944-27462-10-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1229063944-27462-10-git-send-email-yamahata@valinux.co.jp>
+References: <alpine.DEB.1.10.0812150823370.18692@gandalf.stny.rr.com> <200812161703.00697.rusty@rustcorp.com.au> <20081215.231314.92267481.davem@davemloft.net>
+In-Reply-To: <20081215.231314.92267481.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Cc: rostedt@goodmis.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca, paulus@samba.org, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org
 
-add sched_clock() hook to paravirtualize sched_clock().
-ia64 sched_clock() is based on ar.itc which isn't stable
-on virtualized environment because vcpu may move around on
-pcpus. So it needs paravirtualization.
+On Tuesday 16 December 2008 17:43:14 David Miller wrote:
+> Here ya go:
 
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+Very interesting.  There's a little noise there (that first local_inc of 243
+is wrong), but the picture is clear: trivalue is the best implementation for
+sparc64.
+
+Note: trivalue uses 3 values, so instead of hitting random values across 8MB
+it's across 24MB, and despite the resulting cache damage it's 15% faster.  The
+cpu_local_inc test is a single value, so no cache effects: it shows trivalue
+to be 3 to 3.5 times faster in the cache-hot case.
+
+This sucks, because it really does mean that there's no one-size-fits-all
+implementation of local_t.  There's also no platform yet where atomic_long_t
+is the right choice; and that's the default!
+
+Any chance of an IA64 or s390 run?  You can normalize if you like, since
+it's only to compare the different approaches.
+
+Cheers,
+Rusty.
+
+Benchmarks for local_t variants
+
+(This patch also fixes the x86 cpu_local_* macros, which are obviously
+unused).
+
+I chose a large array (1M longs) for the inc/add/add_return tests so
+the trivalue case would show some cache pressure.
+
+The cpu_local_inc case is always cache-hot, so it's not comparable to
+the others.
+
+Time in ns per iteration (brackets is with CONFIG_PREEMPT=y):
+
+		inc	add	add_return	cpu_local_inc	read
+x86-32: 2.13 Ghz Core Duo 2
+atomic_long	118	118	115		17		17
+irqsave/rest	77	78	77		23		16
+trivalue	45	45	127		3(6)		21
+local_t		36	36	36		1(5)		17
+
+x86-64: 2.6 GHz Dual-Core AMD Opteron 2218
+atomic_long	55	60	-		6		19
+irqsave/rest	54	54	-		11		19
+trivalue	47	47	-		5		28
+local_t		47	46	-		1		19
+
+PPC64: 2.7 GHz PPC970MP [normalized]
+atomic_long	18	18	20		3(4)		8
+irqsave/rest	10(4)	5(4)	4		8(9)		10(9)
+trivalue	9	9	2		1(3)		10
+local_t		18	18	18		3(4)		8
+
+Sparc64: UltraSPARC-IIIi
+atomic_long	243	222	-		37		169
+irqsave/rest	205	205	-		25		169
+trivalue	193	193	-		11		221
+local_t		221	221	-		37		169
+
+Sparc64: Niagara-2
+atomic_long	207	206	-		72		160
+irqsave/rest	228	228	-		78		160
+trivalue:	172	172	-		20		222
+local_t		206	207	-		73		160
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- arch/ia64/include/asm/paravirt.h |    7 +++++++
- arch/ia64/include/asm/timex.h    |    1 +
- arch/ia64/kernel/head.S          |   10 ++++++++--
- arch/ia64/kernel/paravirt.c      |    1 +
- arch/ia64/kernel/time.c          |    9 +++++++++
- 5 files changed, 26 insertions(+), 2 deletions(-)
+ arch/x86/include/asm/local.h |   20 +--
+ init/main.c                  |  223 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 233 insertions(+), 10 deletions(-)
 
-diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/paravirt.h
-index 56f69f9..a73e77a 100644
---- a/arch/ia64/include/asm/paravirt.h
-+++ b/arch/ia64/include/asm/paravirt.h
-@@ -225,6 +225,8 @@ struct pv_time_ops {
- 	int (*do_steal_accounting)(unsigned long *new_itm);
+diff --git a/arch/x86/include/asm/local.h b/arch/x86/include/asm/local.h
+--- a/arch/x86/include/asm/local.h
++++ b/arch/x86/include/asm/local.h
+@@ -220,16 +220,16 @@ static inline long local_sub_return(long
+ 	preempt_enable();		\
+ })					\
  
- 	void (*clocksource_resume)(void);
-+
-+	unsigned long long (*sched_clock)(void);
- };
+-#define cpu_local_read(l)    cpu_local_wrap_v(local_read(&__get_cpu_var((l))))
+-#define cpu_local_set(l, i)  cpu_local_wrap(local_set(&__get_cpu_var((l)), (i)))
+-#define cpu_local_inc(l)     cpu_local_wrap(local_inc(&__get_cpu_var((l))))
+-#define cpu_local_dec(l)     cpu_local_wrap(local_dec(&__get_cpu_var((l))))
+-#define cpu_local_add(i, l)  cpu_local_wrap(local_add((i), &__get_cpu_var((l))))
+-#define cpu_local_sub(i, l)  cpu_local_wrap(local_sub((i), &__get_cpu_var((l))))
++#define cpu_local_read(l)    cpu_local_wrap_v(local_read(&__get_cpu_var(l)))
++#define cpu_local_set(l, i)  cpu_local_wrap(local_set(&__get_cpu_var(l), (i)))
++#define cpu_local_inc(l)     cpu_local_wrap(local_inc(&__get_cpu_var(l)))
++#define cpu_local_dec(l)     cpu_local_wrap(local_dec(&__get_cpu_var(l)))
++#define cpu_local_add(i, l)  cpu_local_wrap(local_add((i), &__get_cpu_var(l)))
++#define cpu_local_sub(i, l)  cpu_local_wrap(local_sub((i), &__get_cpu_var(l)))
  
- extern struct pv_time_ops pv_time_ops;
-@@ -242,6 +244,11 @@ paravirt_do_steal_accounting(unsigned long *new_itm)
- 	return pv_time_ops.do_steal_accounting(new_itm);
- }
+-#define __cpu_local_inc(l)	cpu_local_inc((l))
+-#define __cpu_local_dec(l)	cpu_local_dec((l))
+-#define __cpu_local_add(i, l)	cpu_local_add((i), (l))
+-#define __cpu_local_sub(i, l)	cpu_local_sub((i), (l))
++#define __cpu_local_inc(l)	cpu_local_inc(l)
++#define __cpu_local_dec(l)	cpu_local_dec(l)
++#define __cpu_local_add(i, l)	cpu_local_add((i), l)
++#define __cpu_local_sub(i, l)	cpu_local_sub((i), l)
  
-+static inline unsigned long long paravirt_sched_clock(void)
-+{
-+	return pv_time_ops.sched_clock();
-+}
-+
- #endif /* !__ASSEMBLY__ */
- 
- #else
-diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
-index 4e03cfe..86c7db8 100644
---- a/arch/ia64/include/asm/timex.h
-+++ b/arch/ia64/include/asm/timex.h
-@@ -40,5 +40,6 @@ get_cycles (void)
- }
- 
- extern void ia64_cpu_local_tick (void);
-+extern unsigned long long ia64_native_sched_clock (void);
- 
- #endif /* _ASM_IA64_TIMEX_H */
-diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
-index 59301c4..23f846d 100644
---- a/arch/ia64/kernel/head.S
-+++ b/arch/ia64/kernel/head.S
-@@ -1050,7 +1050,7 @@ END(ia64_delay_loop)
-  * except that the multiplication and the shift are done with 128-bit
-  * intermediate precision so that we can produce a full 64-bit result.
-  */
--GLOBAL_ENTRY(sched_clock)
-+GLOBAL_ENTRY(ia64_native_sched_clock)
- 	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
- 	mov.m r9=ar.itc		// fetch cycle-counter				(35 cyc)
- 	;;
-@@ -1066,7 +1066,13 @@ GLOBAL_ENTRY(sched_clock)
- 	;;
- 	shrp r8=r9,r8,IA64_NSEC_PER_CYC_SHIFT
- 	br.ret.sptk.many rp
--END(sched_clock)
-+END(ia64_native_sched_clock)
-+#ifndef CONFIG_PARAVIRT
-+	//unsigned long long
-+	//sched_clock(void) __attribute__((alias("ia64_native_sched_clock")));
-+	.global sched_clock
-+sched_clock = ia64_native_sched_clock
-+#endif
- 
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- GLOBAL_ENTRY(cycle_to_cputime)
-diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
-index 9f14c16..6bc33a6 100644
---- a/arch/ia64/kernel/paravirt.c
-+++ b/arch/ia64/kernel/paravirt.c
-@@ -366,4 +366,5 @@ ia64_native_do_steal_accounting(unsigned long *new_itm)
- 
- struct pv_time_ops pv_time_ops = {
- 	.do_steal_accounting = ia64_native_do_steal_accounting,
-+	.sched_clock = ia64_native_sched_clock,
- };
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 65c10a4..91047f8 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -50,6 +50,15 @@ EXPORT_SYMBOL(last_cli_ip);
- #endif
- 
- #ifdef CONFIG_PARAVIRT
-+/* We need to define a real function for sched_clock, to override the
-+   weak default version */
-+unsigned long long sched_clock(void)
-+{
-+        return paravirt_sched_clock();
-+}
-+#endif
-+
-+#ifdef CONFIG_PARAVIRT
- static void
- paravirt_clocksource_resume(void)
+ #endif /* _ASM_X86_LOCAL_H */
+diff --git a/init/main.c b/init/main.c
+--- a/init/main.c
++++ b/init/main.c
+@@ -534,6 +534,225 @@ void __init __weak thread_info_cache_ini
  {
--- 
-1.6.0.2
-
+ }
+ 
++/* There are three obvious ways to implement local_t on an arch which
++ * can't do single-instruction inc/dec etc.
++ * 1) atomic_long
++ * 2) irq_save/irq_restore
++ * 3) multiple counters.
++ *
++ * This does a very rough benchmark on each one.
++ */
++struct local1 {
++	atomic_long_t v;
++};
++struct local2 {
++	unsigned long v;
++};
++struct local3 {
++	unsigned long v[3];
++};
++
++/* Enough to put some pressure on the caches. */
++#define NUM_LOCAL_TEST (1024*1024)
++#define NUM_LOCAL_RUNS (NUM_LOCAL_TEST*32)
++/* This will make it jump around looking random */
++#define STRIDE 514001
++
++static void *test_local_variants_mem;
++
++static void init_test_local_variants(void)
++{
++	unsigned long size;
++	size = max(sizeof(struct local1),
++		   max(sizeof(struct local2),
++		       max(sizeof(struct local3), sizeof(local_t))))
++		* NUM_LOCAL_TEST;
++	/* Assume this works in early boot. */
++	test_local_variants_mem = alloc_bootmem_nopanic(size);
++
++	if (!test_local_variants_mem) {
++		printk("test_local_variants: failed to allocate %lu bytes\n",
++		       size);
++		return;
++	}
++}
++
++static void print_result(const char *str,
++			 struct timespec start, struct timespec end)
++{
++	s64 diff;
++
++	diff = ktime_to_ns(ktime_sub(timespec_to_ktime(end), timespec_to_ktime(start)));
++	printk("%s=%lli/%lli ",
++	       str, diff, diff/NUM_LOCAL_RUNS);
++}
++
++static unsigned int warm_local_test_cache(const void *mem, size_t len)
++{
++	unsigned int i, total = 0;
++	for (i = 0; i < len; i++)
++		total += ((char *)mem)[i];
++	return total;
++}
++
++#define TEST_LOOP(expr)				\
++	n = 0;					\
++	getnstimeofday(&start);			\
++	for (i = 0; i < NUM_LOCAL_RUNS; i++) {	\
++		expr;				\
++		n += STRIDE;			\
++		n %= NUM_LOCAL_TEST;		\
++	}					\
++	getnstimeofday(&end);
++
++/* This doesn't test cache effects at all */
++#define NUM_PERCPU_VARS		16
++DEFINE_PER_CPU(struct local1[NUM_PERCPU_VARS], local1_test);
++DEFINE_PER_CPU(struct local2[NUM_PERCPU_VARS], local2_test);
++DEFINE_PER_CPU(struct local3[NUM_PERCPU_VARS], local3_test);
++DEFINE_PER_CPU(local_t[NUM_PERCPU_VARS], local4_test);
++
++static void test_local_variants(void)
++{
++	struct timespec start, end;
++	unsigned int i, n;
++	unsigned long total, warm_total = 0;
++	struct local1 *l1;
++	struct local2 *l2;
++	struct local3 *l3;
++	local_t *l4;
++
++	if (!test_local_variants_mem)
++		return;
++
++	printk("Running local_t variant benchmarks\n");
++	l1 = test_local_variants_mem;
++	l2 = test_local_variants_mem;
++	l3 = test_local_variants_mem;
++	l4 = test_local_variants_mem;
++
++	printk("atomic_long: ");
++	memset(l1, 0, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(atomic_long_inc(&l1[n].v));
++	print_result("local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(atomic_long_add(1234, &l1[n].v));
++	print_result("local_add", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(atomic_long_inc(&__get_cpu_var(local1_test)[n%NUM_PERCPU_VARS].v));
++	print_result("cpu_local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	total = 0;
++	TEST_LOOP(total += atomic_long_read(&l1[n].v));
++	print_result("local_read", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(total += atomic_long_add_return(7, &l1[n].v));
++	print_result("local_add_return", start, end);
++
++	printk("(total was %lu)\n", total);
++
++	printk("irqsave/restore: ");
++	memset(l2, 0, sizeof(*l2)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned long flags;
++		  local_irq_save(flags);
++		  l2[n].v++;
++		  local_irq_restore(flags));
++	print_result("local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned long flags;
++		  local_irq_save(flags);
++		  l2[n].v += 1234;
++		  local_irq_restore(flags));
++	print_result("local_add", start, end);
++
++	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned long flags;
++		  local_irq_save(flags);
++		  __get_cpu_var(local2_test)[n%NUM_PERCPU_VARS].v++;
++		  local_irq_restore(flags));
++	print_result("cpu_local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
++	total = 0;
++	TEST_LOOP(total += l2[n].v);
++	print_result("local_read", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned long flags;
++		  local_irq_save(flags);
++		  l2[n].v += 7;
++		  total += l2[n].v;
++		  local_irq_restore(flags));
++	print_result("local_add_return", start, end);
++	printk("(total was %lu)\n", total);
++
++	printk("trivalue: ");
++	memset(l3, 0, sizeof(*l3)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned int idx
++			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
++			!(preempt_count() & HARDIRQ_MASK);
++		  l3[n].v[idx]++);
++	print_result("local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned int idx
++			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
++			!(preempt_count() & HARDIRQ_MASK);
++		  l3[n].v[idx] += 1234);
++	print_result("local_add", start, end);
++
++	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned int idx
++			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
++			!(preempt_count() & HARDIRQ_MASK);
++		  get_cpu_var(local3_test)[n%NUM_PERCPU_VARS].v[idx]++;
++		  put_cpu_var());
++	print_result("cpu_local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
++	total = 0;
++	TEST_LOOP(total += l3[n].v[0] + l3[n].v[1] + l3[n].v[2]);
++	print_result("local_read", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(unsigned long flags;
++		  local_irq_save(flags);
++		  l3[n].v[0] += 7;
++		  total += l3[n].v[0] + l3[n].v[1] + l3[n].v[2];
++		  local_irq_restore(flags));
++	print_result("local_add_return", start, end);
++
++	printk("(total was %lu)\n", total);
++
++	printk("local_t: ");
++	memset(l4, 0, sizeof(*l4)*NUM_LOCAL_TEST);
++	TEST_LOOP(local_inc(&l4[n]));
++	print_result("local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
++	TEST_LOOP(local_add(1234, &l4[n]));
++	print_result("local_add", start, end);
++
++	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
++	TEST_LOOP(cpu_local_inc(local4_test[n%NUM_PERCPU_VARS]));
++	print_result("cpu_local_inc", start, end);
++
++	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
++	total = 0;
++	TEST_LOOP(total += local_read(&l4[n]));
++	print_result("local_read", start, end);
++
++	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
++	TEST_LOOP(total += local_add_return(7, &l1[n].v));
++	print_result("local_add_return", start, end);
++	printk("(total was %lu, warm_total %lu)\n", total, warm_total);
++}
++
+ asmlinkage void __init start_kernel(void)
+ {
+ 	char * command_line;
+@@ -630,6 +849,8 @@ asmlinkage void __init start_kernel(void
+ 	 */
+ 	locking_selftest();
+ 
++	init_test_local_variants();
++
+ #ifdef CONFIG_BLK_DEV_INITRD
+ 	if (initrd_start && !initrd_below_start_ok &&
+ 	    page_to_pfn(virt_to_page((void *)initrd_start)) < min_low_pfn) {
+@@ -687,6 +908,8 @@ asmlinkage void __init start_kernel(void
+ 	acpi_early_init(); /* before LAPIC and SMP init */
+ 
+ 	ftrace_init();
++
++	test_local_variants();
+ 
+ 	/* Do the rest non-__init'ed, we're now alive */
+ 	rest_init();
