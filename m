@@ -1,44 +1,59 @@
-From: Robin Holt <holt@sgi.com>
-Date: Mon, 08 Dec 2008 14:43:46 +0000
-Subject: [Patch 2/4] Clear up section mismatch for sn_check_wars.
-Message-Id: <20081208144346.429106143@attica.americas.sgi.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Tue, 16 Dec 2008 08:02:56 +0000
+Subject: [mmotm][PATCH] ia64: typo fix of implement interrupt-enabling rwlocks
+Message-Id: <20081216170020.DBB4.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Petr Tesarik <ptesarik@suse.cz>, Robin Holt <holt@sgi.com>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <a.p.zijlstra@chello.nl>, "Luck, Tony" <tony.luck@intel.com>, LKML <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: kosaki.motohiro@jp.fujitsu.com
 
 
-The generic_defconfig has three section mismatches.  This clears up
-sn_check_wars().
+
+Applied after: ia64-implement-interrupt-enabling-rwlocks.patch
+=
+Recently, __raw_read_lock_flags and __raw_write_lock_flags for ia64 was implemented.
+
+But its patch has typo. then following warnings happend.
+
+  CC      lib/spinlock_debug.o
+lib/spinlock_debug.c: In function '_raw_read_lock':
+lib/spinlock_debug.c:199: warning: passing argument 1 of '__raw_read_lock_flags' from incompatible pointer type
+lib/spinlock_debug.c: In function '_raw_write_lock':
+lib/spinlock_debug.c:274: warning: passing argument 1 of '__raw_write_lock_flags' from incompatible pointer type
 
 
-Signed-off-by: Robin Holt <holt@sgi.com>
-Signed-off-by: Jack Steiner <steiner@sgi.com>
-
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Petr Tesarik <ptesarik@suse.cz>
+CC: Robin Holt <holt@sgi.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: "Luck, Tony" <tony.luck@intel.com>
 ---
-
- arch/ia64/sn/kernel/setup.c |    4 ++--
+ arch/ia64/include/asm/spinlock.h |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
-Index: v2.6.28-rc7-20081208-218d11a/arch/ia64/sn/kernel/setup.c
-=================================--- v2.6.28-rc7-20081208-218d11a.orig/arch/ia64/sn/kernel/setup.c	2008-12-08 08:23:35.067501669 -0600
-+++ v2.6.28-rc7-20081208-218d11a/arch/ia64/sn/kernel/setup.c	2008-12-08 08:23:56.046117537 -0600
-@@ -200,7 +200,7 @@ static int __cpuinitdata shub_1_1_found;
-  * Set flag for enabling shub specific wars
-  */
+
+Index: b/arch/ia64/include/asm/spinlock.h
+=================================--- a/arch/ia64/include/asm/spinlock.h
++++ b/arch/ia64/include/asm/spinlock.h
+@@ -123,7 +123,7 @@ do {											\
+ #ifdef ASM_SUPPORTED
  
--static inline int __init is_shub_1_1(int nasid)
-+static inline int __cpuinit is_shub_1_1(int nasid)
+ static __always_inline void
+-__raw_read_lock_flags(raw_spinlock_t *lock, unsigned long flags)
++__raw_read_lock_flags(raw_rwlock_t *lock, unsigned long flags)
  {
- 	unsigned long id;
- 	int rev;
-@@ -212,7 +212,7 @@ static inline int __init is_shub_1_1(int
- 	return rev <= 2;
- }
+ 	__asm__ __volatile__ (
+ 		"tbit.nz p6, p0 = %1,%2\n"
+@@ -174,7 +174,7 @@ do {								\
+ #ifdef ASM_SUPPORTED
  
--static void __init sn_check_for_wars(void)
-+static void __cpuinit sn_check_for_wars(void)
+ static __always_inline void
+-__raw_write_lock_flags(raw_spinlock_t *lock, unsigned long flags)
++__raw_write_lock_flags(raw_rwlock_t *lock, unsigned long flags)
  {
- 	int cnode;
- 
+ 	__asm__ __volatile__ (
+ 		"tbit.nz p6, p0 = %1, %2\n"
+
 
