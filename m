@@ -1,100 +1,386 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Tue, 16 Dec 2008 23:59:00 +0000
+From: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Date: Wed, 17 Dec 2008 00:01:55 +0000
 Subject: Re: local_add_return
-Message-Id: <494840C4.50000@cosmosbay.com>
+Message-Id: <20081217000155.GA28174@Krystal>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <alpine.DEB.1.10.0812150823370.18692@gandalf.stny.rr.com> <200812161703.00697.rusty@rustcorp.com.au> <20081215.231314.92267481.davem@davemloft.net> <200812170908.05423.rusty@rustcorp.com.au>
 In-Reply-To: <200812170908.05423.rusty@rustcorp.com.au>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: Rusty Russell <rusty@rustcorp.com.au>
-Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, mathieu.desnoyers@polymtl.ca, paulus@samba.org, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, rostedt@goodmis.org, akpm@linux-foundation.org, linux-kernel@vger.kernel.org, paulus@samba.org, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, Christoph Lameter <christoph@lameter.com>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Martin Bligh <mbligh@google.com>
 
-UnVzdHkgUnVzc2VsbCBhIOljcml0IDoKPiBPbiBUdWVzZGF5IDE2IERlY2VtYmVyIDIwMDggMTc6
-NDM6MTQgRGF2aWQgTWlsbGVyIHdyb3RlOgo+PiBIZXJlIHlhIGdvOgo+IAo+IFZlcnkgaW50ZXJl
-c3RpbmcuICBUaGVyZSdzIGEgbGl0dGxlIG5vaXNlIHRoZXJlICh0aGF0IGZpcnN0IGxvY2FsX2lu
-YyBvZiAyNDMKPiBpcyB3cm9uZyksIGJ1dCB0aGUgcGljdHVyZSBpcyBjbGVhcjogdHJpdmFsdWUg
-aXMgdGhlIGJlc3QgaW1wbGVtZW50YXRpb24gZm9yCj4gc3BhcmM2NC4KPiAKPiBOb3RlOiB0cml2
-YWx1ZSB1c2VzIDMgdmFsdWVzLCBzbyBpbnN0ZWFkIG9mIGhpdHRpbmcgcmFuZG9tIHZhbHVlcyBh
-Y3Jvc3MgOE1CCj4gaXQncyBhY3Jvc3MgMjRNQiwgYW5kIGRlc3BpdGUgdGhlIHJlc3VsdGluZyBj
-YWNoZSBkYW1hZ2UgaXQncyAxNSUgZmFzdGVyLiAgVGhlCj4gY3B1X2xvY2FsX2luYyB0ZXN0IGlz
-IGEgc2luZ2xlIHZhbHVlLCBzbyBubyBjYWNoZSBlZmZlY3RzOiBpdCBzaG93cyB0cml2YWx1ZQo+
-IHRvIGJlIDMgdG8gMy41IHRpbWVzIGZhc3RlciBpbiB0aGUgY2FjaGUtaG90IGNhc2UuCj4gCj4g
-VGhpcyBzdWNrcywgYmVjYXVzZSBpdCByZWFsbHkgZG9lcyBtZWFuIHRoYXQgdGhlcmUncyBubyBv
-bmUtc2l6ZS1maXRzLWFsbAo+IGltcGxlbWVudGF0aW9uIG9mIGxvY2FsX3QuICBUaGVyZSdzIGFs
-c28gbm8gcGxhdGZvcm0geWV0IHdoZXJlIGF0b21pY19sb25nX3QKPiBpcyB0aGUgcmlnaHQgY2hv
-aWNlOyBhbmQgdGhhdCdzIHRoZSBkZWZhdWx0IQo+IAo+IEFueSBjaGFuY2Ugb2YgYW4gSUE2NCBv
-ciBzMzkwIHJ1bj8gIFlvdSBjYW4gbm9ybWFsaXplIGlmIHlvdSBsaWtlLCBzaW5jZQo+IGl0J3Mg
-b25seSB0byBjb21wYXJlIHRoZSBkaWZmZXJlbnQgYXBwcm9hY2hlcy4KPiAKPiBDaGVlcnMsCj4g
-UnVzdHkuCj4gCj4gQmVuY2htYXJrcyBmb3IgbG9jYWxfdCB2YXJpYW50cwo+IAo+IChUaGlzIHBh
-dGNoIGFsc28gZml4ZXMgdGhlIHg4NiBjcHVfbG9jYWxfKiBtYWNyb3MsIHdoaWNoIGFyZSBvYnZp
-b3VzbHkKPiB1bnVzZWQpLgo+IAo+IEkgY2hvc2UgYSBsYXJnZSBhcnJheSAoMU0gbG9uZ3MpIGZv
-ciB0aGUgaW5jL2FkZC9hZGRfcmV0dXJuIHRlc3RzIHNvCj4gdGhlIHRyaXZhbHVlIGNhc2Ugd291
-bGQgc2hvdyBzb21lIGNhY2hlIHByZXNzdXJlLgo+IAo+IFRoZSBjcHVfbG9jYWxfaW5jIGNhc2Ug
-aXMgYWx3YXlzIGNhY2hlLWhvdCwgc28gaXQncyBub3QgY29tcGFyYWJsZSB0bwo+IHRoZSBvdGhl
-cnMuCgpXb3VsZCBiZSBnb29kIHRvIGRpZmZlcmVuY2lhdGUgcmVzdWx0cywgaWYgZGF0YSBpcyBh
-bHJlYWR5IGluIGNhY2hlIG9yIG5vdC4uLgoKPiAKPiBUaW1lIGluIG5zIHBlciBpdGVyYXRpb24g
-KGJyYWNrZXRzIGlzIHdpdGggQ09ORklHX1BSRUVNUFQ9eSk6Cj4gCj4gCQlpbmMJYWRkCWFkZF9y
-ZXR1cm4JY3B1X2xvY2FsX2luYwlyZWFkCj4geDg2LTMyOiAyLjEzIEdoeiBDb3JlIER1byAyCj4g
-YXRvbWljX2xvbmcJMTE4CTExOAkxMTUJCTE3CQkxNwoKcmVhbGx5IHN0cmFuZ2UgYXRvbWljX2xv
-bmcgcGVyZm9ybXMgc28gYmFkbHkgaGVyZS4KTE9DSyArIGRhdGEgbm90IGluIGNhY2hlIC0+IHJl
-YWxseSByZWFsbHkgYmFkLi4uCgo+IGlycXNhdmUvcmVzdAk3Nwk3OAk3NwkJMjMJCTE2Cj4gdHJp
-dmFsdWUJNDUJNDUJMTI3CQkzKDYpCQkyMQo+IGxvY2FsX3QJCTM2CTM2CTM2CQkxKDUpCQkxNwo+
-IAo+IHg4Ni02NDogMi42IEdIeiBEdWFsLUNvcmUgQU1EIE9wdGVyb24gMjIxOAo+IGF0b21pY19s
-b25nCTU1CTYwCS0JCTYJCTE5Cj4gaXJxc2F2ZS9yZXN0CTU0CTU0CS0JCTExCQkxOQo+IHRyaXZh
-bHVlCTQ3CTQ3CS0JCTUJCTI4Cj4gbG9jYWxfdAkJNDcJNDYJLQkJMQkJMTkKPiAKClJ1bm5pbmcg
-bG9jYWxfdCB2YXJpYW50IGJlbmNobWFya3MKYXRvbWljX2xvbmc6IGxvY2FsX2luYzk1MDAxODQ2
-LzExIGxvY2FsX2FkZDk1MDAwMzI1LzExIGNwdV9sb2NhbF9pbmM2MjAwMDI5NS8xMCBsb2NhbF9y
-ZWFkSTAwMDA0MC8xIGxvY2FsX2FkZF9yZXR1cm45NjAwMDMyMi8xMSAodG90YWwgd2FzIDE3Mjgw
-NTMyNDgpCmlycXNhdmUvcmVzdG9yZTogbG9jYWxfaW5jSTgwMDA0MDAvMTQgbG9jYWxfYWRkSTYw
-MDAzOTUvMTQgY3B1X2xvY2FsX2luY0g2MDAwMzg0LzE0IGxvY2FsX3JlYWRoMDAwMDU0LzIgbG9j
-YWxfYWRkX3JldHVyblAyMDAwMzk0LzE0ICh0b3RhbCB3YXMgMTcyODA1MzI0OCkKdHJpdmFsdWU6
-IGxvY2FsX2luYxMyNTAwMTAyNC8zOSBsb2NhbF9hZGQTMjQwMDEyMjYvMzkgY3B1X2xvY2FsX2lu
-Y4EwMDAwODAvMiBsb2NhbF9yZWFkeDYwMDA3NjYvMjMgbG9jYWxfYWRkX3JldHVybkE5MzAwMzc4
-MS8xMjQgKHRvdGFsIHdhcyAxNzI4MDUzMjQ4KQpsb2NhbF90OiBsb2NhbF9pbmNpMDAwMDU5LzIg
-bG9jYWxfYWRkaTAwMDA1OC8yIGNwdV9sb2NhbF9pbmNCMDAwMDM1LzEgbG9jYWxfcmVhZFAwMDAw
-NDMvMSBsb2NhbF9hZGRfcmV0dXJukDAwMDA3Ni8yICh0b3RhbCB3YXMgMTcyODA1MzI0OCwgd2Fy
-bV90b3RhbCA2MjkxNDU2MikKCgpJbnRlbChSKSBYZW9uKFIpIENQVSAgICAgICAgICAgRTU0NTAg
-IEAgMy4wMEdIegoKdHdvIHF1YWRjb3JlIGNwdXMsIHg4Ni0zMiBrZXJuZWwKCkl0IHNlZW1zIENv
-cmUyIGFyZSByZWFsbHkgYmV0dGVyIHRoYW4gQ29yZSBEdW8gMiwKb3IgdGhlaXIgY2FjaGUgaXMg
-YmlnIGVub3VnaCB0byBob2xkIHRoZSBhcnJheSBvZiB5b3VyIHRlc3QuLi4KCihhdCBsZWFzdCBm
-b3IgbDEgJiBsMiwgdGhlaXIgNE1ieXRlcyB3b3JraW5nIHNldCBmaXRzIGluIGNhY2hlKQoKcHJv
-Y2Vzc29yICAgICAgIDogNwp2ZW5kb3JfaWQgICAgICAgOiBHZW51aW5lSW50ZWwKY3B1IGZhbWls
-eSAgICAgIDogNgptb2RlbCAgICAgICAgICAgOiAyMwptb2RlbCBuYW1lICAgICAgOiBJbnRlbChS
-KSBYZW9uKFIpIENQVSAgICAgICAgICAgRTU0NTAgIEAgMy4wMEdIegpzdGVwcGluZyAgICAgICAg
-OiA2CmNwdSBNSHogICAgICAgICA6IDMwMDAuMDk5CmNhY2hlIHNpemUgICAgICA6IDYxNDQgS0Ig
-ICAgPDw8PCB5ZXMsIHRoYXRzIGJpZyA6KSA+Pj4+CgpJZiBJIGRvdWJsZSBzaXplIG9mIHdvcmtp
-bmcgc2V0CgojZGVmaW5lIE5VTV9MT0NBTF9URVNUICgyKjEwMjQqMTAyNCkKCnRoZW4gSSBnZXQg
-cXVpdGUgZGlmZmVyZW50IG51bWJlcnMgOgoKUnVubmluZyBsb2NhbF90IHZhcmlhbnQgYmVuY2ht
-YXJrcwphdG9taWNfbG9uZzogbG9jYWxfaW5jZzI5MDA3MjY0LzEwMCBsb2NhbF9hZGRnMjcwMDU5
-NDMvMTAwIGNwdV9sb2NhbF9pbmNyNDAwMDU2OS8xMCBsb2NhbF9yZWFkEDMwMDAwNzg0LzE1IGxv
-Y2FsCl9hZGRfcmV0dXJuZjIzMDA0NjE2Lzk4ICh0b3RhbCB3YXMgMzQ1NjEwNjQ5NikKaXJxc2F2
-ZS9yZXN0b3JlOiBsb2NhbF9pbmNENTgwMDI3OTYvNjYgbG9jYWxfYWRkRDU5MDAxOTk4LzY2IGNw
-dV9sb2NhbF9pbmOXMTAwMDM4MS8xNCBsb2NhbF9yZWFkEDYwMDAwMzg5LzE1IGxvYwphbF9hZGRf
-cmV0dXJuRTI4MDAxMzg4LzY3ICh0b3RhbCB3YXMgMzQ1NjEwNjQ5NikKdHJpdmFsdWU6IGxvY2Fs
-X2luYyg3MTAwMDg1NS80MiBsb2NhbF9hZGQoNjcwMDA5NzYvNDIgY3B1X2xvY2FsX2luYxYyMDAw
-MDUyLzIgbG9jYWxfcmVhZBc0NzAwMDU1MS8yNiBsb2NhbF9hZGRfcgpldHVybogyOTAwMjM1Mi8x
-MzEgKHRvdGFsIHdhcyAzNDU2MTA2NDk2KQpsb2NhbF90OiBsb2NhbF9pbmMiMTAwMDA0OTIvMzIg
-bG9jYWxfYWRkIjA2MDAwNDYwLzMyIGNwdV9sb2NhbF9pbmOEMDAwMDE3LzEgbG9jYWxfcmVhZBAy
-OTAwMDIwMy8xNSBsb2NhbF9hZGRfcmV0CnVybiIxNjAwMDQxNS8zMyAodG90YWwgd2FzIDM0NTYx
-MDY0OTYsIHdhcm1fdG90YWwgMTI1ODI5MTI0KQoKSWYgbm93IEkgcmVkdWNlIE5VTV9MT0NBTF9U
-RVNUIHRvIDI1NioxMDI0IHNvIHRoYXQgZXZlbiB0cml2YWx1ZSBsMyBmaXRzIGNhY2hlLgoKUnVu
-bmluZyBsb2NhbF90IHZhcmlhbnQgYmVuY2htYXJrcwphdG9taWNfbG9uZzogbG9jYWxfaW5jmDk4
-NDkyOS8xMSBsb2NhbF9hZGSYOTg0ODg5LzExIGNwdV9sb2NhbF9pbmOJOTg2MjQ4LzEwIGxvY2Fs
-X3JlYWQROTk4MTY1LzEgbG9jYWxfYWRkX3JldHVyCm6ZMDAzMjkyLzExICh0b3RhbCB3YXMgMjU3
-OTQ5Njk2MCkKaXJxc2F2ZS9yZXN0b3JlOiBsb2NhbF9pbmMSNDAwMDEwMi8xNCBsb2NhbF9hZGQS
-NDAwMDEwMi8xNCBjcHVfbG9jYWxfaW5jEjEwMDAxMDAvMTQgbG9jYWxfcmVhZBcwMDAwMTMvMiBs
-b2NhbF9hZApkX3JldHVybhI2MDAwMTAzLzE1ICh0b3RhbCB3YXMgMjU3OTQ5Njk2MCkKdHJpdmFs
-dWU6IGxvY2FsX2luYyEwMDAwMTcvMiBsb2NhbF9hZGQgMDAwMDE2LzIgY3B1X2xvY2FsX2luYyAw
-MDAwMTcvMiBsb2NhbF9yZWFkJTAwMDAyMS8yIGxvY2FsX2FkZF9yZXR1cm4TNjAKMDAxMTAvMTYg
-KHRvdGFsIHdhcyAyNTc5NDk2OTYwKQpsb2NhbF90OiBsb2NhbF9pbmMXMDAwMDE0LzIgbG9jYWxf
-YWRkFzAwMDAxNS8yIGNwdV9sb2NhbF9pbmMRMDAwMDA5LzEgbG9jYWxfcmVhZBIwMDAwMTAvMSBs
-b2NhbF9hZGRfcmV0dXJuIzAwMAowMTkvMiAodG90YWwgd2FzIDI1Nzk0OTY5NjAsIHdhcm1fdG90
-YWwgMTU3Mjg2NDIpCgoKCkFib3V0IHRyaXZhbHVlcywgdGhlaXIgdXNlIGluIHBlcmNwdV9jb3Vu
-dGVyIGxvY2FsIHN0b3JhZ2UgKG9uZSB0cml2YWx1ZSBmb3IgZWFjaCBjcHUpCndvdWxkIG1ha2Ug
-dGhlIGFjY3VyYWN5IGEgbGl0bGUgYml0IG1vcmUgbGF6eS4uLgoKCi0tClRvIHVuc3Vic2NyaWJl
-IGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBp
-bgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3Jl
-IG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZv
-Lmh0bWw=
+* Rusty Russell (rusty@rustcorp.com.au) wrote:
+> On Tuesday 16 December 2008 17:43:14 David Miller wrote:
+> > Here ya go:
+> 
+> Very interesting.  There's a little noise there (that first local_inc of 243
+> is wrong), but the picture is clear: trivalue is the best implementation for
+> sparc64.
+> 
+> Note: trivalue uses 3 values, so instead of hitting random values across 8MB
+> it's across 24MB, and despite the resulting cache damage it's 15% faster.  The
+> cpu_local_inc test is a single value, so no cache effects: it shows trivalue
+> to be 3 to 3.5 times faster in the cache-hot case.
+> 
+> This sucks, because it really does mean that there's no one-size-fits-all
+> implementation of local_t.  There's also no platform yet where atomic_long_t
+> is the right choice; and that's the default!
+> 
+
+This problem could be fixed by introducing a local_count_t, which maps
+to either local_t or to a trivalue, along with read accessors which sums
+the trivalues.
+
+I think we have two different use-cases here :
+
+- local_t is useful as-is for things such as a tracer, which need to
+  modify an element of data atomically wrt local interrupts. The
+  atomic_long_t, in this case, is the correct fallback.
+- local_count_t could be used for fast counters. It could be a
+  requirement to only use it from thread/softirq/irq context (never NMI
+  or exception) so we are sure the trivalue approach will not lead to
+  corruption. local_count_t could use either local_t or trivalue
+  depending on which is the fastest on a given architecture.
+
+Mathieu
+
+
+> Any chance of an IA64 or s390 run?  You can normalize if you like, since
+> it's only to compare the different approaches.
+> 
+> Cheers,
+> Rusty.
+> 
+> Benchmarks for local_t variants
+> 
+> (This patch also fixes the x86 cpu_local_* macros, which are obviously
+> unused).
+> 
+> I chose a large array (1M longs) for the inc/add/add_return tests so
+> the trivalue case would show some cache pressure.
+> 
+> The cpu_local_inc case is always cache-hot, so it's not comparable to
+> the others.
+> 
+> Time in ns per iteration (brackets is with CONFIG_PREEMPT=y):
+> 
+> 		inc	add	add_return	cpu_local_inc	read
+> x86-32: 2.13 Ghz Core Duo 2
+> atomic_long	118	118	115		17		17
+> irqsave/rest	77	78	77		23		16
+> trivalue	45	45	127		3(6)		21
+> local_t		36	36	36		1(5)		17
+> 
+> x86-64: 2.6 GHz Dual-Core AMD Opteron 2218
+> atomic_long	55	60	-		6		19
+> irqsave/rest	54	54	-		11		19
+> trivalue	47	47	-		5		28
+> local_t		47	46	-		1		19
+> 
+> PPC64: 2.7 GHz PPC970MP [normalized]
+> atomic_long	18	18	20		3(4)		8
+> irqsave/rest	10(4)	5(4)	4		8(9)		10(9)
+> trivalue	9	9	2		1(3)		10
+> local_t		18	18	18		3(4)		8
+> 
+> Sparc64: UltraSPARC-IIIi
+> atomic_long	243	222	-		37		169
+> irqsave/rest	205	205	-		25		169
+> trivalue	193	193	-		11		221
+> local_t		221	221	-		37		169
+> 
+> Sparc64: Niagara-2
+> atomic_long	207	206	-		72		160
+> irqsave/rest	228	228	-		78		160
+> trivalue:	172	172	-		20		222
+> local_t		206	207	-		73		160
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> ---
+>  arch/x86/include/asm/local.h |   20 +--
+>  init/main.c                  |  223 +++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 233 insertions(+), 10 deletions(-)
+> 
+> diff --git a/arch/x86/include/asm/local.h b/arch/x86/include/asm/local.h
+> --- a/arch/x86/include/asm/local.h
+> +++ b/arch/x86/include/asm/local.h
+> @@ -220,16 +220,16 @@ static inline long local_sub_return(long
+>  	preempt_enable();		\
+>  })					\
+>  
+> -#define cpu_local_read(l)    cpu_local_wrap_v(local_read(&__get_cpu_var((l))))
+> -#define cpu_local_set(l, i)  cpu_local_wrap(local_set(&__get_cpu_var((l)), (i)))
+> -#define cpu_local_inc(l)     cpu_local_wrap(local_inc(&__get_cpu_var((l))))
+> -#define cpu_local_dec(l)     cpu_local_wrap(local_dec(&__get_cpu_var((l))))
+> -#define cpu_local_add(i, l)  cpu_local_wrap(local_add((i), &__get_cpu_var((l))))
+> -#define cpu_local_sub(i, l)  cpu_local_wrap(local_sub((i), &__get_cpu_var((l))))
+> +#define cpu_local_read(l)    cpu_local_wrap_v(local_read(&__get_cpu_var(l)))
+> +#define cpu_local_set(l, i)  cpu_local_wrap(local_set(&__get_cpu_var(l), (i)))
+> +#define cpu_local_inc(l)     cpu_local_wrap(local_inc(&__get_cpu_var(l)))
+> +#define cpu_local_dec(l)     cpu_local_wrap(local_dec(&__get_cpu_var(l)))
+> +#define cpu_local_add(i, l)  cpu_local_wrap(local_add((i), &__get_cpu_var(l)))
+> +#define cpu_local_sub(i, l)  cpu_local_wrap(local_sub((i), &__get_cpu_var(l)))
+>  
+> -#define __cpu_local_inc(l)	cpu_local_inc((l))
+> -#define __cpu_local_dec(l)	cpu_local_dec((l))
+> -#define __cpu_local_add(i, l)	cpu_local_add((i), (l))
+> -#define __cpu_local_sub(i, l)	cpu_local_sub((i), (l))
+> +#define __cpu_local_inc(l)	cpu_local_inc(l)
+> +#define __cpu_local_dec(l)	cpu_local_dec(l)
+> +#define __cpu_local_add(i, l)	cpu_local_add((i), l)
+> +#define __cpu_local_sub(i, l)	cpu_local_sub((i), l)
+>  
+>  #endif /* _ASM_X86_LOCAL_H */
+> diff --git a/init/main.c b/init/main.c
+> --- a/init/main.c
+> +++ b/init/main.c
+> @@ -534,6 +534,225 @@ void __init __weak thread_info_cache_ini
+>  {
+>  }
+>  
+> +/* There are three obvious ways to implement local_t on an arch which
+> + * can't do single-instruction inc/dec etc.
+> + * 1) atomic_long
+> + * 2) irq_save/irq_restore
+> + * 3) multiple counters.
+> + *
+> + * This does a very rough benchmark on each one.
+> + */
+> +struct local1 {
+> +	atomic_long_t v;
+> +};
+> +struct local2 {
+> +	unsigned long v;
+> +};
+> +struct local3 {
+> +	unsigned long v[3];
+> +};
+> +
+> +/* Enough to put some pressure on the caches. */
+> +#define NUM_LOCAL_TEST (1024*1024)
+> +#define NUM_LOCAL_RUNS (NUM_LOCAL_TEST*32)
+> +/* This will make it jump around looking random */
+> +#define STRIDE 514001
+> +
+> +static void *test_local_variants_mem;
+> +
+> +static void init_test_local_variants(void)
+> +{
+> +	unsigned long size;
+> +	size = max(sizeof(struct local1),
+> +		   max(sizeof(struct local2),
+> +		       max(sizeof(struct local3), sizeof(local_t))))
+> +		* NUM_LOCAL_TEST;
+> +	/* Assume this works in early boot. */
+> +	test_local_variants_mem = alloc_bootmem_nopanic(size);
+> +
+> +	if (!test_local_variants_mem) {
+> +		printk("test_local_variants: failed to allocate %lu bytes\n",
+> +		       size);
+> +		return;
+> +	}
+> +}
+> +
+> +static void print_result(const char *str,
+> +			 struct timespec start, struct timespec end)
+> +{
+> +	s64 diff;
+> +
+> +	diff = ktime_to_ns(ktime_sub(timespec_to_ktime(end), timespec_to_ktime(start)));
+> +	printk("%s=%lli/%lli ",
+> +	       str, diff, diff/NUM_LOCAL_RUNS);
+> +}
+> +
+> +static unsigned int warm_local_test_cache(const void *mem, size_t len)
+> +{
+> +	unsigned int i, total = 0;
+> +	for (i = 0; i < len; i++)
+> +		total += ((char *)mem)[i];
+> +	return total;
+> +}
+> +
+> +#define TEST_LOOP(expr)				\
+> +	n = 0;					\
+> +	getnstimeofday(&start);			\
+> +	for (i = 0; i < NUM_LOCAL_RUNS; i++) {	\
+> +		expr;				\
+> +		n += STRIDE;			\
+> +		n %= NUM_LOCAL_TEST;		\
+> +	}					\
+> +	getnstimeofday(&end);
+> +
+> +/* This doesn't test cache effects at all */
+> +#define NUM_PERCPU_VARS		16
+> +DEFINE_PER_CPU(struct local1[NUM_PERCPU_VARS], local1_test);
+> +DEFINE_PER_CPU(struct local2[NUM_PERCPU_VARS], local2_test);
+> +DEFINE_PER_CPU(struct local3[NUM_PERCPU_VARS], local3_test);
+> +DEFINE_PER_CPU(local_t[NUM_PERCPU_VARS], local4_test);
+> +
+> +static void test_local_variants(void)
+> +{
+> +	struct timespec start, end;
+> +	unsigned int i, n;
+> +	unsigned long total, warm_total = 0;
+> +	struct local1 *l1;
+> +	struct local2 *l2;
+> +	struct local3 *l3;
+> +	local_t *l4;
+> +
+> +	if (!test_local_variants_mem)
+> +		return;
+> +
+> +	printk("Running local_t variant benchmarks\n");
+> +	l1 = test_local_variants_mem;
+> +	l2 = test_local_variants_mem;
+> +	l3 = test_local_variants_mem;
+> +	l4 = test_local_variants_mem;
+> +
+> +	printk("atomic_long: ");
+> +	memset(l1, 0, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(atomic_long_inc(&l1[n].v));
+> +	print_result("local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(atomic_long_add(1234, &l1[n].v));
+> +	print_result("local_add", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(atomic_long_inc(&__get_cpu_var(local1_test)[n%NUM_PERCPU_VARS].v));
+> +	print_result("cpu_local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	total = 0;
+> +	TEST_LOOP(total += atomic_long_read(&l1[n].v));
+> +	print_result("local_read", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(total += atomic_long_add_return(7, &l1[n].v));
+> +	print_result("local_add_return", start, end);
+> +
+> +	printk("(total was %lu)\n", total);
+> +
+> +	printk("irqsave/restore: ");
+> +	memset(l2, 0, sizeof(*l2)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned long flags;
+> +		  local_irq_save(flags);
+> +		  l2[n].v++;
+> +		  local_irq_restore(flags));
+> +	print_result("local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned long flags;
+> +		  local_irq_save(flags);
+> +		  l2[n].v += 1234;
+> +		  local_irq_restore(flags));
+> +	print_result("local_add", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned long flags;
+> +		  local_irq_save(flags);
+> +		  __get_cpu_var(local2_test)[n%NUM_PERCPU_VARS].v++;
+> +		  local_irq_restore(flags));
+> +	print_result("cpu_local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l2, sizeof(*l2)*NUM_LOCAL_TEST);
+> +	total = 0;
+> +	TEST_LOOP(total += l2[n].v);
+> +	print_result("local_read", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned long flags;
+> +		  local_irq_save(flags);
+> +		  l2[n].v += 7;
+> +		  total += l2[n].v;
+> +		  local_irq_restore(flags));
+> +	print_result("local_add_return", start, end);
+> +	printk("(total was %lu)\n", total);
+> +
+> +	printk("trivalue: ");
+> +	memset(l3, 0, sizeof(*l3)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned int idx
+> +			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
+> +			!(preempt_count() & HARDIRQ_MASK);
+> +		  l3[n].v[idx]++);
+> +	print_result("local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned int idx
+> +			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
+> +			!(preempt_count() & HARDIRQ_MASK);
+> +		  l3[n].v[idx] += 1234);
+> +	print_result("local_add", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned int idx
+> +			= !(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK)) +
+> +			!(preempt_count() & HARDIRQ_MASK);
+> +		  get_cpu_var(local3_test)[n%NUM_PERCPU_VARS].v[idx]++;
+> +		  put_cpu_var());
+> +	print_result("cpu_local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l3, sizeof(*l3)*NUM_LOCAL_TEST);
+> +	total = 0;
+> +	TEST_LOOP(total += l3[n].v[0] + l3[n].v[1] + l3[n].v[2]);
+> +	print_result("local_read", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(unsigned long flags;
+> +		  local_irq_save(flags);
+> +		  l3[n].v[0] += 7;
+> +		  total += l3[n].v[0] + l3[n].v[1] + l3[n].v[2];
+> +		  local_irq_restore(flags));
+> +	print_result("local_add_return", start, end);
+> +
+> +	printk("(total was %lu)\n", total);
+> +
+> +	printk("local_t: ");
+> +	memset(l4, 0, sizeof(*l4)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(local_inc(&l4[n]));
+> +	print_result("local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(local_add(1234, &l4[n]));
+> +	print_result("local_add", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(cpu_local_inc(local4_test[n%NUM_PERCPU_VARS]));
+> +	print_result("cpu_local_inc", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l4, sizeof(*l4)*NUM_LOCAL_TEST);
+> +	total = 0;
+> +	TEST_LOOP(total += local_read(&l4[n]));
+> +	print_result("local_read", start, end);
+> +
+> +	warm_total += warm_local_test_cache(l1, sizeof(*l1)*NUM_LOCAL_TEST);
+> +	TEST_LOOP(total += local_add_return(7, &l1[n].v));
+> +	print_result("local_add_return", start, end);
+> +	printk("(total was %lu, warm_total %lu)\n", total, warm_total);
+> +}
+> +
+>  asmlinkage void __init start_kernel(void)
+>  {
+>  	char * command_line;
+> @@ -630,6 +849,8 @@ asmlinkage void __init start_kernel(void
+>  	 */
+>  	locking_selftest();
+>  
+> +	init_test_local_variants();
+> +
+>  #ifdef CONFIG_BLK_DEV_INITRD
+>  	if (initrd_start && !initrd_below_start_ok &&
+>  	    page_to_pfn(virt_to_page((void *)initrd_start)) < min_low_pfn) {
+> @@ -687,6 +908,8 @@ asmlinkage void __init start_kernel(void
+>  	acpi_early_init(); /* before LAPIC and SMP init */
+>  
+>  	ftrace_init();
+> +
+> +	test_local_variants();
+>  
+>  	/* Do the rest non-__init'ed, we're now alive */
+>  	rest_init();
+
+-- 
+Mathieu Desnoyers
+OpenPGP key fingerprint: 8CD5 52C3 8E3C 4140 715F  BA06 3F25 A8FE 3BAE 9A68
