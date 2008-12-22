@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:41:14 +0000
-Subject: [PATCH 0/5] ia64/pv_ops, xen: binary patch optimization TAKE 2
-Message-Id: <1229064079-27735-1-git-send-email-yamahata@valinux.co.jp>
+Date: Mon, 22 Dec 2008 05:51:10 +0000
+Subject: [PATCH 0/5] ia64/pv_ops, xen: binary patch optimization TAKE 3
+Message-Id: <1229925075-31465-1-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1227618235-3890-1-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <1227618235-3890-1-git-send-email-yamahata@valinux.co.jp>
@@ -10,12 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+
 This patch set is intended for the next merge window. They are just
 enhancements of the already merged patches or ia64 porting from x86
 paravirt techniques and that their quality is enough for merge.
 
-
-This patch set is for binary patch optimization for paravirt_ops.
+This patch set is for binary patch optimization for paravirt_ops which
+depends on the patch series I sent out, ia64/pv_ops, xen:
+more paravirtualization.
 The binary patch optimization is important on native case because
 the paravirt_ops overhead can be reduced by converting indirect 
 call into in-place execution or direct call.
@@ -33,12 +35,15 @@ The patch series does
 
 For convenience the working full source is available from
 http://people.valinux.co.jp/~yamahata/xen-ia64/for_eagl/linux-2.6-ia64-pv-ops.git/
-branch: ia64-pv-ops-2008dec12-xen-ia64-optimized-domu-binary-patch
+branch: ia64-pv-ops-2008dec22-xen-ia64-optimized-domu-binary-patch
 
 For the status of this patch series
 http://wiki.xensource.com/xenwiki/XenIA64/UpstreamMerge
 
 thanks,
+
+changes from take 2:
+- removed trivial compilation error depending on .config
 
 changes from take 1:
 - no essential change from the last one
@@ -52,7 +57,6 @@ Diffstat:
  arch/ia64/include/asm/paravirt.h        |    8 +
  arch/ia64/include/asm/paravirt_patch.h  |  143 +++++++
  arch/ia64/include/asm/paravirt_privop.h |  347 ++++++++++++++++-
- arch/ia64/include/asm/xen/inst.h        |    4 +
  arch/ia64/include/asm/xen/privop.h      |    4 +
  arch/ia64/kernel/Makefile               |    3 +-
  arch/ia64/kernel/efi.c                  |    1 +
@@ -60,10 +64,9 @@ Diffstat:
  arch/ia64/kernel/paravirt.c             |  520 ++++++++++++++++++++++++-
  arch/ia64/kernel/paravirt_patch.c       |  514 ++++++++++++++++++++++++
  arch/ia64/kernel/paravirtentry.S        |   99 ++++-
- arch/ia64/kernel/setup.c                |    1 +
+ arch/ia64/kernel/setup.c                |    2 +
  arch/ia64/kernel/vmlinux.lds.S          |   24 ++
  arch/ia64/kvm/vtlb.c                    |    2 +
- arch/ia64/xen/Makefile                  |    1 +
  arch/ia64/xen/hypercall.S               |    2 +
  arch/ia64/xen/xen_pv_ops.c              |  665 +++++++++++++++++++++++++++++++
- 19 files changed, 2357 insertions(+), 25 deletions(-)
+ 17 files changed, 2353 insertions(+), 25 deletions(-)
