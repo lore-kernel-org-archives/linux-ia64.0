@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:41:17 +0000
+Date: Mon, 22 Dec 2008 05:51:13 +0000
 Subject: [PATCH 3/5] ia64/pv_ops/bp/module: support binary patching for kernel module.
-Message-Id: <1229064079-27735-4-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925075-31465-4-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1227618235-3890-4-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <1227618235-3890-4-git-send-email-yamahata@valinux.co.jp>
