@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:39:01 +0000
+Date: Mon, 22 Dec 2008 05:50:19 +0000
 Subject: [PATCH 12/15] ia64/pv_ops/xen: define xen specific gate page.
-Message-Id: <1229063944-27462-13-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925022-31365-13-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1229063944-27462-13-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-13-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
