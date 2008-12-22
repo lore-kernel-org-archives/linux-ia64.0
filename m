@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:41:15 +0000
+Date: Mon, 22 Dec 2008 05:51:11 +0000
 Subject: [PATCH 1/5] ia64/pv_op/binarypatch: add helper functions to support binary patching for paravirt_ops
-Message-Id: <1229064079-27735-2-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925075-31465-2-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1227618235-3890-2-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <1227618235-3890-2-git-send-email-yamahata@valinux.co.jp>
@@ -24,7 +24,7 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 
 diff --git a/arch/ia64/include/asm/paravirt_patch.h b/arch/ia64/include/asm/paravirt_patch.h
 new file mode 100644
-index 0000000..23d4fbf
+index 0000000..128ff5d
 --- /dev/null
 +++ b/arch/ia64/include/asm/paravirt_patch.h
 @@ -0,0 +1,143 @@
@@ -133,7 +133,7 @@ index 0000000..23d4fbf
 +paravirt_patch_reloc_brl(unsigned long tag, const void *target);
 +
 +
-+#ifdef ASM_SUPPORTED
++#if defined(ASM_SUPPORTED) && defined(CONFIG_PARAVIRT)
 +unsigned long
 +ia64_native_patch_bundle(void *sbundle, void *ebundle, unsigned long type);
 +
@@ -173,7 +173,7 @@ index 0000000..23d4fbf
 + */
 diff --git a/arch/ia64/kernel/paravirt_patch.c b/arch/ia64/kernel/paravirt_patch.c
 new file mode 100644
-index 0000000..356f196
+index 0000000..bfdfef1
 --- /dev/null
 +++ b/arch/ia64/kernel/paravirt_patch.c
 @@ -0,0 +1,514 @@
@@ -223,7 +223,7 @@ index 0000000..356f196
 +void __init_or_module
 +paravirt_flush_i_cache_range(const void *instr, unsigned long size)
 +{
-+	extern void paravirt_fc_i(unsigned long addr);
++	extern void paravirt_fc_i(const void *addr);
 +	unsigned long i;
 +
 +	for (i = 0; i < size; i += sizeof(bundle_t))
