@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:38:52 +0000
+Date: Mon, 22 Dec 2008 05:50:10 +0000
 Subject: [PATCH 03/15] ia64/pv_ops: add hooks to paravirtualize fsyscall implementation.
-Message-Id: <1229063944-27462-4-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925022-31365-4-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1229063944-27462-4-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-4-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -19,8 +21,8 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  arch/ia64/kernel/Makefile           |    4 ++--
  arch/ia64/kernel/fsys.S             |   17 +++++++++--------
  arch/ia64/kernel/patch.c            |   26 +++++++++++++++++++++++---
- arch/ia64/mm/init.c                 |    2 +-
- 6 files changed, 53 insertions(+), 14 deletions(-)
+ arch/ia64/mm/init.c                 |    3 ++-
+ 6 files changed, 54 insertions(+), 14 deletions(-)
 
 diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/na=
 tive/inst.h
@@ -209,10 +211,18 @@ g end)
  	u64 ip;
 =20
 diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 054bcd9..7d9b964 100644
+index 054bcd9..23f4dcf 100644
 --- a/arch/ia64/mm/init.c
 +++ b/arch/ia64/mm/init.c
-@@ -667,8 +667,8 @@ mem_init (void)
+@@ -35,6 +35,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+ #include <asm/mca.h>
++#include <asm/paravirt.h>
+=20
+ DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
+=20
+@@ -667,8 +668,8 @@ mem_init (void)
  	 * code can tell them apart.
  	 */
  	for (i =3D 0; i < NR_syscalls; ++i) {
