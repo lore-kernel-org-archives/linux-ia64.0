@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:38:54 +0000
+Date: Mon, 22 Dec 2008 05:50:12 +0000
 Subject: [PATCH 05/15] ia64/pv_ops: paravirtualize fsys.S.
-Message-Id: <1229063944-27462-6-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925022-31365-6-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1229063944-27462-6-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-6-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
