@@ -1,7 +1,7 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:41:16 +0000
+Date: Mon, 22 Dec 2008 05:51:12 +0000
 Subject: [PATCH 2/5] ia64/pv_ops: implement binary patching optimization for native.
-Message-Id: <1229064079-27735-3-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925075-31465-3-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1227618235-3890-3-git-send-email-yamahata@valinux.co.jp>
 In-Reply-To: <1227618235-3890-3-git-send-email-yamahata@valinux.co.jp>
@@ -22,8 +22,8 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  arch/ia64/kernel/Makefile               |    3 +-
  arch/ia64/kernel/paravirt.c             |  520 ++++++++++++++++++++++++++++++-
  arch/ia64/kernel/paravirtentry.S        |   43 ++--
- arch/ia64/kernel/setup.c                |    1 +
- 7 files changed, 897 insertions(+), 25 deletions(-)
+ arch/ia64/kernel/setup.c                |    2 +
+ 7 files changed, 898 insertions(+), 25 deletions(-)
 
 diff --git a/arch/ia64/include/asm/intrinsics.h b/arch/ia64/include/asm/intrinsics.h
 index a3e44a5..fbe2ad9 100644
@@ -1067,10 +1067,18 @@ index 80c0d36..6158560 100644
  
  #ifdef CONFIG_MODULES
 diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 865af27..a76ad4e 100644
+index 865af27..4ed3e1c 100644
 --- a/arch/ia64/kernel/setup.c
 +++ b/arch/ia64/kernel/setup.c
-@@ -537,6 +537,7 @@ setup_arch (char **cmdline_p)
+@@ -52,6 +52,7 @@
+ #include <asm/meminit.h>
+ #include <asm/page.h>
+ #include <asm/paravirt.h>
++#include <asm/paravirt_patch.h>
+ #include <asm/patch.h>
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
+@@ -537,6 +538,7 @@ setup_arch (char **cmdline_p)
  	paravirt_arch_setup_early();
  
  	ia64_patch_vtop((u64) __start___vtop_patchlist, (u64) __end___vtop_patchlist);
