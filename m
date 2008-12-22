@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:39:04 +0000
+Date: Mon, 22 Dec 2008 05:50:22 +0000
 Subject: [PATCH 15/15] ia64/pv_ops/xen/gate.S: xen gate page paravirtualization
-Message-Id: <1229063944-27462-16-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925022-31365-16-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1229063944-27462-16-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-16-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
