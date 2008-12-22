@@ -1,8 +1,10 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Fri, 12 Dec 2008 06:39:00 +0000
+Date: Mon, 22 Dec 2008 05:50:18 +0000
 Subject: [PATCH 11/15] ia64/pv_ops: gate page paravirtualization.
-Message-Id: <1229063944-27462-12-git-send-email-yamahata@valinux.co.jp>
+Message-Id: <1229925022-31365-12-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1229063944-27462-12-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-12-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -17,13 +19,13 @@ Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
  arch/ia64/include/asm/paravirt.h         |   35 +++++++++++++
  arch/ia64/kernel/Makefile                |   32 ++----------
  arch/ia64/kernel/Makefile.gate           |   27 ++++++++++
- arch/ia64/kernel/gate.lds.S              |   17 ++++---
- arch/ia64/kernel/paravirt_patchlist.c    |   78 ++++++++++++++++++++++++++=
+ arch/ia64/kernel/gate.lds.S              |   17 +++---
+ arch/ia64/kernel/paravirt_patchlist.c    |   79 ++++++++++++++++++++++++++=
 ++++
  arch/ia64/kernel/paravirt_patchlist.h    |   28 +++++++++++
  arch/ia64/kernel/patch.c                 |   12 ++--
  arch/ia64/mm/init.c                      |    6 ++-
- 9 files changed, 230 insertions(+), 43 deletions(-)
+ 9 files changed, 231 insertions(+), 43 deletions(-)
  create mode 100644 arch/ia64/include/asm/native/patchlist.h
  create mode 100644 arch/ia64/kernel/Makefile.gate
  create mode 100644 arch/ia64/kernel/paravirt_patchlist.c
@@ -261,10 +263,10 @@ index 3cb1abc..88c64ed 100644
 diff --git a/arch/ia64/kernel/paravirt_patchlist.c b/arch/ia64/kernel/parav=
 irt_patchlist.c
 new file mode 100644
-index 0000000..bdefe9a
+index 0000000..b28082a
 --- /dev/null
 +++ b/arch/ia64/kernel/paravirt_patchlist.c
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,79 @@
 +/*************************************************************************=
 *****
 + * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
@@ -287,6 +289,7 @@ SA
 + *
 + */
 +
++#include <linux/bug.h>
 +#include <asm/paravirt.h>
 +
 +#define DECLARE(name)						\
@@ -410,10 +413,10 @@ LE_DOWN));
 =20
  void ia64_patch_phys_stack_reg(unsigned long val)
 diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 7d9b964..790d94e 100644
+index 23f4dcf..b4adc19 100644
 --- a/arch/ia64/mm/init.c
 +++ b/arch/ia64/mm/init.c
-@@ -259,6 +259,7 @@ put_kernel_page (struct page *page, unsigned long addre=
+@@ -260,6 +260,7 @@ put_kernel_page (struct page *page, unsigned long addre=
 ss, pgprot_t pgprot)
  static void __init
  setup_gate (void)
@@ -422,7 +425,7 @@ ss, pgprot_t pgprot)
  	struct page *page;
 =20
  	/*
-@@ -266,10 +267,11 @@ setup_gate (void)
+@@ -267,10 +268,11 @@ setup_gate (void)
  	 * headers etc. and once execute-only page to enable
  	 * privilege-promotion via "epc":
  	 */
