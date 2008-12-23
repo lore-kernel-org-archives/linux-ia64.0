@@ -1,75 +1,47 @@
 From: Shaohua Li <shaohua.li@intel.com>
-Date: Tue, 23 Dec 2008 06:08:05 +0000
-Subject: [PATCH 2/5] Make recordmcount destinct module compile
-Message-Id: <1230012485.10933.99.camel@sli10-desk.sh.intel.com>
+Date: Tue, 23 Dec 2008 06:08:17 +0000
+Subject: [PATCH 4/5] Add macro for ftrace_caller
+Message-Id: <1230012497.10933.101.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In IA64, module build and kernel build use different option.
-Make recordmcount.pl differentiate the two cases.
+The same reason as last patch (function isn't a 'unsigned long').
+Define FTRACE_ADDR.
 
 Signed-off-by: Shaohua Li <shaohua.li@intel.com>
 ---
- scripts/Makefile.build  |    9 ++++++++-
- scripts/recordmcount.pl |    6 +++---
- 2 files changed, 11 insertions(+), 4 deletions(-)
+ include/linux/ftrace.h |    4 ++++
+ kernel/trace/ftrace.c  |    2 +-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-Index: linux/scripts/Makefile.build
-=================================--- linux.orig/scripts/Makefile.build	2008-12-23 13:16:00.000000000 +0800
-+++ linux/scripts/Makefile.build	2008-12-23 13:24:38.000000000 +0800
-@@ -114,6 +114,7 @@ endif
- # Default is built-in, unless we know otherwise
- modkern_cflags := $(CFLAGS_KERNEL)
- quiet_modtag := $(empty)   $(empty)
-+is_module := 0
- 
- $(real-objs-m)        : modkern_cflags := $(CFLAGS_MODULE)
- $(real-objs-m:.o=.i)  : modkern_cflags := $(CFLAGS_MODULE)
-@@ -125,6 +126,11 @@ $(real-objs-m:.o=.i)  : quiet_modtag := 
- $(real-objs-m:.o=.s)  : quiet_modtag := [M]
- $(real-objs-m:.o=.lst): quiet_modtag := [M]
- 
-+$(real-objs-m)        : is_module := 1
-+$(real-objs-m:.o=.i)  : is_module := 1
-+$(real-objs-m:.o=.s)  : is_module := 1
-+$(real-objs-m:.o=.lst): is_module := 1
+Index: linux/include/linux/ftrace.h
+=================================--- linux.orig/include/linux/ftrace.h	2008-12-23 13:11:27.000000000 +0800
++++ linux/include/linux/ftrace.h	2008-12-23 13:28:29.000000000 +0800
+@@ -126,6 +126,10 @@ extern int ftrace_update_ftrace_func(ftr
+ extern void ftrace_caller(void);
+ extern void ftrace_call(void);
+ extern void mcount_call(void);
 +
- $(obj-m)              : quiet_modtag := [M]
++#ifndef FTRACE_ADDR
++#define FTRACE_ADDR ((unsigned long)ftrace_caller)
++#endif
+ #ifdef CONFIG_FUNCTION_GRAPH_TRACER
+ extern void ftrace_graph_caller(void);
+ extern int ftrace_enable_ftrace_graph_caller(void);
+Index: linux/kernel/trace/ftrace.c
+=================================--- linux.orig/kernel/trace/ftrace.c	2008-12-23 13:24:59.000000000 +0800
++++ linux/kernel/trace/ftrace.c	2008-12-23 13:28:29.000000000 +0800
+@@ -455,7 +455,7 @@ __ftrace_replace_code(struct dyn_ftrace 
+ 	unsigned long ip, fl;
+ 	unsigned long ftrace_addr;
  
- # Default for not multi-part modules
-@@ -201,7 +207,8 @@ endif
- ifdef CONFIG_FTRACE_MCOUNT_RECORD
- cmd_record_mcount = perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
- 	"$(if $(CONFIG_64BIT),64,32)" \
--	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" "$(@)";
-+	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" \
-+	"$(is_module)" "$(@)";
- endif
+-	ftrace_addr = (unsigned long)ftrace_caller;
++	ftrace_addr = (unsigned long)FTRACE_ADDR;
  
- define rule_cc_o_c
-Index: linux/scripts/recordmcount.pl
-=================================--- linux.orig/scripts/recordmcount.pl	2008-12-23 13:16:00.000000000 +0800
-+++ linux/scripts/recordmcount.pl	2008-12-23 13:24:38.000000000 +0800
-@@ -100,14 +100,14 @@ $P =~ s@.*/@@g;
+ 	ip = rec->ip;
  
- my $V = '0.1';
- 
--if ($#ARGV < 6) {
--	print "usage: $P arch objdump objcopy cc ld nm rm mv inputfile\n";
-+if ($#ARGV < 7) {
-+	print "usage: $P arch objdump objcopy cc ld nm rm mv is_module inputfile\n";
- 	print "version: $V\n";
- 	exit(1);
- }
- 
- my ($arch, $bits, $objdump, $objcopy, $cc,
--    $ld, $nm, $rm, $mv, $inputfile) = @ARGV;
-+    $ld, $nm, $rm, $mv, $is_module, $inputfile) = @ARGV;
- 
- # Acceptable sections to record.
- my %text_sections = (
 
 
