@@ -1,39 +1,75 @@
-From: Robin Holt <holt@sgi.com>
-Date: Mon, 08 Dec 2008 14:43:46 +0000
-Subject: [Patch 3/4] Clear up section mismatch with arch_unregister_cpu()
-Message-Id: <20081208144346.699315443@attica.americas.sgi.com>
+From: Shaohua Li <shaohua.li@intel.com>
+Date: Tue, 23 Dec 2008 06:08:05 +0000
+Subject: [PATCH 2/5] Make recordmcount destinct module compile
+Message-Id: <1230012485.10933.99.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+In IA64, module build and kernel build use different option.
+Make recordmcount.pl differentiate the two cases.
 
-The generic_defconfig has three section mismatches.  This clears
-arch_unregister_cpu()
-
-Signed-off-by: Robin Holt <holt@sgi.com>
-Signed-off-by: Jack Steiner <steiner@sgi.com>
-
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
 ---
+ scripts/Makefile.build  |    9 ++++++++-
+ scripts/recordmcount.pl |    6 +++---
+ 2 files changed, 11 insertions(+), 4 deletions(-)
 
- arch/ia64/kernel/topology.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-Index: v2.6.28-rc7-20081208-218d11a/arch/ia64/kernel/topology.c
-=================================--- v2.6.28-rc7-20081208-218d11a.orig/arch/ia64/kernel/topology.c	2008-12-08 08:23:35.011494686 -0600
-+++ v2.6.28-rc7-20081208-218d11a/arch/ia64/kernel/topology.c	2008-12-08 08:24:25.153747021 -0600
-@@ -53,10 +53,12 @@ int __ref arch_register_cpu(int num)
- }
- EXPORT_SYMBOL(arch_register_cpu);
+Index: linux/scripts/Makefile.build
+=================================--- linux.orig/scripts/Makefile.build	2008-12-23 13:16:00.000000000 +0800
++++ linux/scripts/Makefile.build	2008-12-23 13:24:38.000000000 +0800
+@@ -114,6 +114,7 @@ endif
+ # Default is built-in, unless we know otherwise
+ modkern_cflags := $(CFLAGS_KERNEL)
+ quiet_modtag := $(empty)   $(empty)
++is_module := 0
  
--void arch_unregister_cpu(int num)
-+void __ref arch_unregister_cpu(int num)
- {
- 	unregister_cpu(&sysfs_cpus[num].cpu);
-+#ifdef CONFIG_ACPI
- 	unmap_cpu_from_node(num, cpu_to_node(num));
-+#endif
+ $(real-objs-m)        : modkern_cflags := $(CFLAGS_MODULE)
+ $(real-objs-m:.o=.i)  : modkern_cflags := $(CFLAGS_MODULE)
+@@ -125,6 +126,11 @@ $(real-objs-m:.o=.i)  : quiet_modtag := 
+ $(real-objs-m:.o=.s)  : quiet_modtag := [M]
+ $(real-objs-m:.o=.lst): quiet_modtag := [M]
+ 
++$(real-objs-m)        : is_module := 1
++$(real-objs-m:.o=.i)  : is_module := 1
++$(real-objs-m:.o=.s)  : is_module := 1
++$(real-objs-m:.o=.lst): is_module := 1
++
+ $(obj-m)              : quiet_modtag := [M]
+ 
+ # Default for not multi-part modules
+@@ -201,7 +207,8 @@ endif
+ ifdef CONFIG_FTRACE_MCOUNT_RECORD
+ cmd_record_mcount = perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
+ 	"$(if $(CONFIG_64BIT),64,32)" \
+-	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" "$(@)";
++	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" \
++	"$(is_module)" "$(@)";
+ endif
+ 
+ define rule_cc_o_c
+Index: linux/scripts/recordmcount.pl
+=================================--- linux.orig/scripts/recordmcount.pl	2008-12-23 13:16:00.000000000 +0800
++++ linux/scripts/recordmcount.pl	2008-12-23 13:24:38.000000000 +0800
+@@ -100,14 +100,14 @@ $P =~ s@.*/@@g;
+ 
+ my $V = '0.1';
+ 
+-if ($#ARGV < 6) {
+-	print "usage: $P arch objdump objcopy cc ld nm rm mv inputfile\n";
++if ($#ARGV < 7) {
++	print "usage: $P arch objdump objcopy cc ld nm rm mv is_module inputfile\n";
+ 	print "version: $V\n";
+ 	exit(1);
  }
- EXPORT_SYMBOL(arch_unregister_cpu);
- #else
+ 
+ my ($arch, $bits, $objdump, $objcopy, $cc,
+-    $ld, $nm, $rm, $mv, $inputfile) = @ARGV;
++    $ld, $nm, $rm, $mv, $is_module, $inputfile) = @ARGV;
+ 
+ # Acceptable sections to record.
+ my %text_sections = (
+
 
