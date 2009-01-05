@@ -1,91 +1,58 @@
-From: Mike Travis <travis@sgi.com>
-Date: Mon, 12 Jan 2009 22:05:23 +0000
-Subject: [PATCH 4/8] ia64 irq: update ia64 for new irq_desc
-Message-Id: <20090112220520.175039000@polaris-admin.engr.sgi.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:10 +0000
+Subject: [PATCH 05/13] add dma_mapping_ops for SGI Altix
+Message-Id: <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090112220519.566749000@polaris-admin.engr.sgi.com>
+References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Andrew Morton <akpm@linux-foundation.org>, Jack Steiner <steiner@sgi.com>, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-Impact: cleanup, update to new cpumask API
+This is for IA64_SGI_SN2.
 
-Irq_desc.affinity and irq_desc.pending_mask are now cpumask_var_t's
-so access to them should be using the new cpumask API.
-
-Signed-off-by: Mike Travis <travis@sgi.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: <linux-ia64@vger.kernel.org>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/kernel/iosapic.c   |    2 +-
- arch/ia64/kernel/irq.c       |    4 ++--
- arch/ia64/kernel/msi_ia64.c  |    4 ++--
- arch/ia64/sn/kernel/msi_sn.c |    2 +-
- 4 files changed, 6 insertions(+), 6 deletions(-)
+ arch/ia64/sn/pci/pci_dma.c |   16 ++++++++++++++++
+ 1 files changed, 16 insertions(+), 0 deletions(-)
 
---- linux-2.6-for-ingo.orig/arch/ia64/kernel/iosapic.c
-+++ linux-2.6-for-ingo/arch/ia64/kernel/iosapic.c
-@@ -880,7 +880,7 @@ iosapic_unregister_intr (unsigned int gs
- 	if (iosapic_intr_info[irq].count = 0) {
- #ifdef CONFIG_SMP
- 		/* Clear affinity */
--		cpus_setall(idesc->affinity);
-+		cpumask_setall(idesc->affinity);
- #endif
- 		/* Clear the interrupt information */
- 		iosapic_intr_info[irq].dest = 0;
---- linux-2.6-for-ingo.orig/arch/ia64/kernel/irq.c
-+++ linux-2.6-for-ingo/arch/ia64/kernel/irq.c
-@@ -103,7 +103,7 @@ static char irq_redir [NR_IRQS]; // = { 
- void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
- {
- 	if (irq < NR_IRQS) {
--		cpumask_copy(&irq_desc[irq].affinity,
-+		cpumask_copy(irq_desc[irq].affinity,
- 			     cpumask_of(cpu_logical_id(hwid)));
- 		irq_redir[irq] = (char) (redir & 0xff);
- 	}
-@@ -148,7 +148,7 @@ static void migrate_irqs(void)
- 		if (desc->status = IRQ_PER_CPU)
- 			continue;
+diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
+index 53ebb64..4ad13ff 100644
+--- a/arch/ia64/sn/pci/pci_dma.c
++++ b/arch/ia64/sn/pci/pci_dma.c
+@@ -11,6 +11,7 @@
  
--		if (cpumask_any_and(&irq_desc[irq].affinity, cpu_online_mask)
-+		if (cpumask_any_and(irq_desc[irq].affinity, cpu_online_mask)
- 		    >= nr_cpu_ids) {
- 			/*
- 			 * Save it for phase 2 processing
---- linux-2.6-for-ingo.orig/arch/ia64/kernel/msi_ia64.c
-+++ linux-2.6-for-ingo/arch/ia64/kernel/msi_ia64.c
-@@ -75,7 +75,7 @@ static void ia64_set_msi_irq_affinity(un
- 	msg.data = data;
- 
- 	write_msi_msg(irq, &msg);
--	irq_desc[irq].affinity = cpumask_of_cpu(cpu);
-+	cpumask_copy(irq_desc[irq].affinity, cpumask_of(cpu));
+ #include <linux/module.h>
+ #include <linux/dma-attrs.h>
++#include <linux/dma-mapping.h>
+ #include <asm/dma.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+@@ -465,3 +466,18 @@ int sn_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
+  out:
+ 	return ret;
  }
- #endif /* CONFIG_SMP */
- 
-@@ -187,7 +187,7 @@ static void dmar_msi_set_affinity(unsign
- 	msg.address_lo |= MSI_ADDR_DESTID_CPU(cpu_physical_id(cpu));
- 
- 	dmar_msi_write(irq, &msg);
--	irq_desc[irq].affinity = *mask;
-+	cpumask_copy(irq_desc[irq].affinity, mask);
- }
- #endif /* CONFIG_SMP */
- 
---- linux-2.6-for-ingo.orig/arch/ia64/sn/kernel/msi_sn.c
-+++ linux-2.6-for-ingo/arch/ia64/sn/kernel/msi_sn.c
-@@ -205,7 +205,7 @@ static void sn_set_msi_irq_affinity(unsi
- 	msg.address_lo = (u32)(bus_addr & 0x00000000ffffffff);
- 
- 	write_msi_msg(irq, &msg);
--	irq_desc[irq].affinity = *cpu_mask;
-+	cpumask_copy(irq_desc[irq].affinity, cpu_mask);
- }
- #endif /* CONFIG_SMP */
- 
-
++
++struct dma_mapping_ops sn_dma_ops = {
++	.alloc_coherent		= sn_dma_alloc_coherent,
++	.free_coherent		= sn_dma_free_coherent,
++	.map_single_attrs	= sn_dma_map_single_attrs,
++	.unmap_single_attrs	= sn_dma_unmap_single_attrs,
++	.map_sg_attrs		= sn_dma_map_sg_attrs,
++	.unmap_sg_attrs		= sn_dma_unmap_sg_attrs,
++	.sync_single_for_cpu 	= sn_dma_sync_single_for_cpu,
++	.sync_sg_for_cpu	= sn_dma_sync_sg_for_cpu,
++	.sync_single_for_device = sn_dma_sync_single_for_device,
++	.sync_sg_for_device	= sn_dma_sync_sg_for_device,
++	.mapping_error		= sn_dma_mapping_error,
++	.dma_supported_op	= sn_dma_supported,
++};
 -- 
+1.6.0.6
+
