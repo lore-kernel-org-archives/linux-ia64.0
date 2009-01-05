@@ -1,148 +1,94 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Fri, 09 Jan 2009 02:33:02 +0000
-Subject: [PATCH 5/6]IA64 static ftrace support
-Message-Id: <1231468382.10683.104.camel@sli10-desk.sh.intel.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:11 +0000
+Subject: [PATCH 06/13] add dma_mapping_ops for SWIOTLB
+Message-Id: <1231166178-20050-7-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-IA64 ftrace suppport. In IA64, below code will be added in each function
-if -pg is enabled.
+There is already dma_mapping_ops for SWIOTLB but there are some
+missing hooks.
 
-alloc r40=3Dar.pfs,12,8,0
-mov r43=3Dr0;;
-mov r42=B0
-mov r41=3Dr1
-nop.i 0x0
-br.call.sptk.many b0 =3D _mcount;;
+This is for IA64_DIG_VTD, IA64_HP_ZX1_SWIOTLB, IA64_SGI_UV,
+IA64_HP_SIM, IA64_XEN_GUEST and IA64_GENERIC.
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/Kconfig              |    1=20
- arch/ia64/include/asm/ftrace.h |   15 ++++++++++++
- arch/ia64/kernel/entry.S       |   49 ++++++++++++++++++++++++++++++++++++=
-+++++
- arch/ia64/kernel/ia64_ksyms.c  |    6 +++++
- 4 files changed, 71 insertions(+)
+ arch/ia64/kernel/Makefile      |    2 --
+ arch/ia64/kernel/pci-dma.c     |    3 ---
+ arch/ia64/kernel/pci-swiotlb.c |    9 ++++++++-
+ 3 files changed, 8 insertions(+), 6 deletions(-)
 
-Index: linux/arch/ia64/Kconfig
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/Kconfig	2009-01-09 09:53:0=
-7.000000000 +0800
-+++ linux/arch/ia64/Kconfig	2009-01-09 09:56:59.000000000 +0800
-@@ -21,6 +21,7 @@ config IA64
- 	select HAVE_OPROFILE
- 	select HAVE_KPROBES
- 	select HAVE_KRETPROBES
-+	select HAVE_FUNCTION_TRACER
- 	select HAVE_DMA_ATTRS
- 	select HAVE_KVM
- 	select HAVE_ARCH_TRACEHOOK
-Index: linux/arch/ia64/include/asm/ftrace.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux/arch/ia64/include/asm/ftrace.h	2009-01-09 09:56:59.000000000 +0800
-@@ -0,0 +1,15 @@
-+#ifndef _ASM_IA64_FTRACE_H
-+#define _ASM_IA64_FTRACE_H
-+
-+#ifdef CONFIG_FUNCTION_TRACER
-+#define MCOUNT_INSN_SIZE        32 /* sizeof mcount call */
-+
-+#ifndef __ASSEMBLY__
-+extern void _mcount(unsigned long pfs, unsigned long r1, unsigned long b0,=
- unsigned long r0);
-+#define mcount _mcount
-+
-+#endif
-+
-+#endif /* CONFIG_FUNCTION_TRACER */
-+
-+#endif /* _ASM_IA64_FTRACE_H */
-Index: linux/arch/ia64/kernel/entry.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/entry.S	2009-01-09 =
-09:53:07.000000000 +0800
-+++ linux/arch/ia64/kernel/entry.S	2009-01-09 09:56:59.000000000 +0800
-@@ -47,6 +47,7 @@
- #include <asm/processor.h>
- #include <asm/thread_info.h>
- #include <asm/unistd.h>
-+#include <asm/ftrace.h>
-=20
- #include "minstate.h"
-=20
-@@ -1404,6 +1405,54 @@ GLOBAL_ENTRY(unw_init_running)
- 	br.ret.sptk.many rp
- END(unw_init_running)
-=20
-+#ifdef CONFIG_FUNCTION_TRACER
-+GLOBAL_ENTRY(_mcount)
-+	movl r2 =3D ftrace_stub
-+	movl r3 =3D ftrace_trace_function;;
-+	ld8 r3 =3D [r3];;
-+	ld8 r3 =3D [r3];;
-+	cmp.eq p7,p0 =3D r2, r3
-+(p7)	br.sptk.many ftrace_stub
-+	;;
-+
-+	alloc loc0 =3D ar.pfs, 4, 4, 2, 0
-+	;;
-+	mov loc1 =3D b0
-+	mov out0 =3D b0
-+	mov loc2 =3D r8
-+	mov loc3 =3D r15
-+	;;
-+	adds out0 =3D -MCOUNT_INSN_SIZE, out0
-+	mov out1 =3D in2
-+	mov b6 =3D r3
-+
-+	br.call.sptk.many b0 =3D b6
-+	;;
-+	mov ar.pfs =3D loc0
-+	mov b0 =3D loc1
-+	mov r8 =3D loc2
-+	mov r15 =3D loc3
-+	br ftrace_stub
-+	;;
-+END(_mcount)
-+
-+GLOBAL_ENTRY(ftrace_stub)
-+	mov r3 =3D b0
-+	movl r2 =3D _mcount_ret_helper
-+	;;
-+	mov b6 =3D r2
-+	mov b7 =3D r3
-+	br.ret.sptk.many b6
-+
-+_mcount_ret_helper:
-+	mov b0 =3D r42
-+	mov r1 =3D r41
-+	mov ar.pfs =3D r40
-+	br b7
-+END(ftrace_stub)
-+
-+#endif /* CONFIG_FUNCTION_TRACER */
-+
- 	.rodata
- 	.align 8
- 	.globl sys_call_table
-Index: linux/arch/ia64/kernel/ia64_ksyms.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/ia64_ksyms.c	2009-0=
-1-09 09:53:07.000000000 +0800
-+++ linux/arch/ia64/kernel/ia64_ksyms.c	2009-01-09 09:56:59.000000000 +0800
-@@ -112,3 +112,9 @@ EXPORT_SYMBOL_GPL(esi_call_phys);
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index c381ea9..bc1f62a 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -43,9 +43,7 @@ ifneq ($(CONFIG_IA64_ESI),)
+ obj-y				+= esi_stub.o	# must be in kernel proper
+ endif
+ obj-$(CONFIG_DMAR)		+= pci-dma.o
+-ifeq ($(CONFIG_DMAR), y)
+ obj-$(CONFIG_SWIOTLB)		+= pci-swiotlb.o
+-endif
+ 
+ # The gate DSO image is built using a special linker script.
+ targets += gate.so gate-syms.o
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 2a92f63..f8c38bd 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -32,9 +32,6 @@ int force_iommu __read_mostly = 1;
+ int force_iommu __read_mostly;
  #endif
- extern char ia64_ivt[];
- EXPORT_SYMBOL(ia64_ivt);
+ 
+-/* Set this to 1 if there is a HW IOMMU in the system */
+-int iommu_detected __read_mostly;
+-
+ /* Dummy device used for NULL arguments (normally ISA). Better would
+    be probably a smaller DMA mask, but this is bug-to-bug compatible
+    to i386. */
+diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
+index 16c5051..b62fb93 100644
+--- a/arch/ia64/kernel/pci-swiotlb.c
++++ b/arch/ia64/kernel/pci-swiotlb.c
+@@ -13,12 +13,18 @@
+ int swiotlb __read_mostly;
+ EXPORT_SYMBOL(swiotlb);
+ 
++/* Set this to 1 if there is a HW IOMMU in the system */
++int iommu_detected __read_mostly;
 +
-+#include <asm/ftrace.h>
-+#ifdef CONFIG_FUNCTION_TRACER
-+/* mcount is defined in assembly */
-+EXPORT_SYMBOL(_mcount);
-+#endif
-
+ struct dma_mapping_ops swiotlb_dma_ops = {
+-	.mapping_error = swiotlb_dma_mapping_error,
+ 	.alloc_coherent = swiotlb_alloc_coherent,
+ 	.free_coherent = swiotlb_free_coherent,
+ 	.map_single = swiotlb_map_single,
+ 	.unmap_single = swiotlb_unmap_single,
++	.map_single_attrs = swiotlb_map_single_attrs,
++	.unmap_single_attrs = swiotlb_unmap_single_attrs,
++	.map_sg_attrs = swiotlb_map_sg_attrs,
++	.unmap_sg_attrs	= swiotlb_unmap_sg_attrs,
+ 	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
+ 	.sync_single_for_device = swiotlb_sync_single_for_device,
+ 	.sync_single_range_for_cpu = swiotlb_sync_single_range_for_cpu,
+@@ -28,6 +34,7 @@ struct dma_mapping_ops swiotlb_dma_ops = {
+ 	.map_sg = swiotlb_map_sg,
+ 	.unmap_sg = swiotlb_unmap_sg,
+ 	.dma_supported_op = swiotlb_dma_supported,
++	.mapping_error = swiotlb_dma_mapping_error,
+ };
+ 
+ void __init pci_swiotlb_init(void)
+-- 
+1.6.0.6
 
