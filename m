@@ -1,403 +1,269 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Fri, 09 Jan 2009 02:33:05 +0000
-Subject: [PATCH 6/6]IA64 dynamic ftrace support
-Message-Id: <1231468385.10683.105.camel@sli10-desk.sh.intel.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:17 +0000
+Subject: [PATCH 12/13] remove hwsw_dma_ops
+Message-Id: <1231166178-20050-13-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-7-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-8-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-9-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-10-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-11-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-12-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-12-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-IA64 dynamic ftrace support.
-The original _mcount stub for each function is like:
-	alloc r40=3Dar.pfs,12,8,0
-	mov r43=3Dr0;;
-	mov r42=B0
-	mov r41=3Dr1
-	nop.i 0x0
-	br.call.sptk.many b0 =3D _mcount;;
+This removes remove hwsw_dma_ops (and hwsw_*
+functions). hwsw_dma_get_ops can select swiotlb_dma_ops and
+sba_dma_ops appropriately.
 
-The patch convert it to below for nop:
-	[MII] nop.m 0x0
-	mov r3=3Dip
-	nop.i 0x0
-	[MLX] nop.m 0x0
-	nop.x 0x0;;
-This isn't completely nop, as there is one instuction 'mov r3=3Dip', but
-it should be light and harmless for code follow it.
-
-And below is for call
-	[MII] nop.m 0x0
-	mov r3=3Dip
-	nop.i 0x0
-	[MLX] nop.m 0x0
-	brl.many .;;
-In this way, only one instruction is changed to convert code between nop
-and call. This should meet dyn-ftrace's requirement.
-But this requires CPU support brl instruction, so dyn-ftrace isn't
-supported for old Itanium system. Assume there are quite few such old
-system running.
-
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/Kconfig              |    2=20
- arch/ia64/include/asm/ftrace.h |   13 ++
- arch/ia64/kernel/Makefile      |    5=20
- arch/ia64/kernel/entry.S       |   51 ++++++++++
- arch/ia64/kernel/ftrace.c      |  206 ++++++++++++++++++++++++++++++++++++=
-+++++
- 5 files changed, 277 insertions(+)
+ arch/ia64/hp/common/hwsw_iommu.c              |  183 ++-----------------------
+ arch/ia64/include/asm/machvec_hpzx1_swiotlb.h |    2 +
+ 2 files changed, 14 insertions(+), 171 deletions(-)
 
-Index: linux/arch/ia64/Kconfig
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/Kconfig	2009-01-09 09:56:5=
-9.000000000 +0800
-+++ linux/arch/ia64/Kconfig	2009-01-09 09:57:23.000000000 +0800
-@@ -21,6 +21,8 @@ config IA64
- 	select HAVE_OPROFILE
- 	select HAVE_KPROBES
- 	select HAVE_KRETPROBES
-+	select HAVE_FTRACE_MCOUNT_RECORD
-+	select HAVE_DYNAMIC_FTRACE if (!ITANIUM)
- 	select HAVE_FUNCTION_TRACER
- 	select HAVE_DMA_ATTRS
- 	select HAVE_KVM
-Index: linux/arch/ia64/kernel/Makefile
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/Makefile	2009-01-09=
- 09:52:00.000000000 +0800
-+++ linux/arch/ia64/kernel/Makefile	2009-01-09 09:57:23.000000000 +0800
-@@ -2,6 +2,10 @@
- # Makefile for the linux kernel.
- #
-=20
-+ifdef CONFIG_DYNAMIC_FTRACE
-+CFLAGS_REMOVE_ftrace.o =3D -pg
-+endif
+diff --git a/arch/ia64/hp/common/hwsw_iommu.c b/arch/ia64/hp/common/hwsw_iommu.c
+index 5cf750e..e5bbeba 100644
+--- a/arch/ia64/hp/common/hwsw_iommu.c
++++ b/arch/ia64/hp/common/hwsw_iommu.c
+@@ -17,55 +17,33 @@
+ #include <linux/swiotlb.h>
+ #include <asm/machvec.h>
+ 
++extern struct dma_mapping_ops sba_dma_ops, swiotlb_dma_ops;
 +
- extra-y	:=3D head.o init_task.o vmlinux.lds
-=20
- obj-y :=3D acpi.o entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o=
- irq.o irq_ia64.o	\
-@@ -28,6 +32,7 @@ obj-$(CONFIG_IA64_CYCLONE)	+=3D cyclone.o
- obj-$(CONFIG_CPU_FREQ)		+=3D cpufreq/
- obj-$(CONFIG_IA64_MCA_RECOVERY)	+=3D mca_recovery.o
- obj-$(CONFIG_KPROBES)		+=3D kprobes.o jprobes.o
-+obj-$(CONFIG_DYNAMIC_FTRACE)	+=3D ftrace.o
- obj-$(CONFIG_KEXEC)		+=3D machine_kexec.o relocate_kernel.o crash.o
- obj-$(CONFIG_CRASH_DUMP)	+=3D crash_dump.o
- obj-$(CONFIG_IA64_UNCACHED_ALLOCATOR)	+=3D uncached.o
-Index: linux/arch/ia64/kernel/ftrace.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux/arch/ia64/kernel/ftrace.c	2009-01-09 09:57:23.000000000 +0800
-@@ -0,0 +1,206 @@
-+/*
-+ * Dynamic function tracing support.
-+ *
-+ * Copyright (C) 2008 Shaohua Li <shaohua.li@intel.com>
-+ *
-+ * For licencing details, see COPYING.
-+ *
-+ * Defines low-level handling of mcount calls when the kernel
-+ * is compiled with the -pg flag. When using dynamic ftrace, the
-+ * mcount call-sites get patched lazily with NOP till they are
-+ * enabled. All code mutation routines here take effect atomically.
-+ */
-+
-+#include <linux/uaccess.h>
-+#include <linux/ftrace.h>
-+
-+#include <asm/cacheflush.h>
-+#include <asm/patch.h>
-+
-+/* In IA64, each function will be added below two bundles with -pg option =
-*/
-+static unsigned char __attribute__((aligned(8)))
-+ftrace_orig_code[MCOUNT_INSN_SIZE] =3D {
-+	0x02, 0x40, 0x31, 0x10, 0x80, 0x05, /* alloc r40=3Dar.pfs,12,8,0 */
-+	0xb0, 0x02, 0x00, 0x00, 0x42, 0x40, /* mov r43=3Dr0;; */
-+	0x05, 0x00, 0xc4, 0x00,             /* mov r42=B0 */
-+	0x11, 0x48, 0x01, 0x02, 0x00, 0x21, /* mov r41=3Dr1 */
-+	0x00, 0x00, 0x00, 0x02, 0x00, 0x00, /* nop.i 0x0 */
-+	0x08, 0x00, 0x00, 0x50              /* br.call.sptk.many b0 =3D _mcount;;=
- */
-+};
-+
-+struct ftrace_orig_insn {
-+	u64 dummy1, dummy2, dummy3;
-+	u64 dummy4:64-41+13;
-+	u64 imm20:20;
-+	u64 dummy5:3;
-+	u64 sign:1;
-+	u64 dummy6:4;
-+};
-+
-+/* mcount stub will be converted below for nop */
-+static unsigned char ftrace_nop_code[MCOUNT_INSN_SIZE] =3D {
-+	0x00, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MII] nop.m 0x0 */
-+	0x30, 0x00, 0x00, 0x60, 0x00, 0x00, /* mov r3=3Dip */
-+	0x00, 0x00, 0x04, 0x00,             /* nop.i 0x0 */
-+	0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0x0 */
-+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* nop.x 0x0;; */
-+	0x00, 0x00, 0x04, 0x00
-+};
-+
-+static unsigned char *ftrace_nop_replace(void)
+ /* swiotlb declarations & definitions: */
+ extern int swiotlb_late_init_with_default_size (size_t size);
+ 
+-/* hwiommu declarations & definitions: */
+-
+-extern void *sba_alloc_coherent(struct device *, size_t, dma_addr_t *, gfp_t);
+-extern void sba_free_coherent (struct device *, size_t, void *, dma_addr_t);
+-extern dma_addr_t sba_map_single_attrs(struct device *, void *, size_t, int,
+-				       struct dma_attrs *);
+-extern void sba_unmap_single_attrs(struct device *, dma_addr_t, size_t, int,
+-				   struct dma_attrs *);
+-extern int sba_map_sg_attrs(struct device *, struct scatterlist *, int, int,
+-			    struct dma_attrs *);
+-extern void sba_unmap_sg_attrs(struct device *, struct scatterlist *, int, int,
+-			       struct dma_attrs *);
+-extern int sba_dma_supported (struct device *, u64);
+-extern int sba_dma_mapping_error(struct device *, dma_addr_t);
+-
+-#define hwiommu_alloc_coherent		sba_alloc_coherent
+-#define hwiommu_free_coherent		sba_free_coherent
+-#define hwiommu_map_single_attrs	sba_map_single_attrs
+-#define hwiommu_unmap_single_attrs	sba_unmap_single_attrs
+-#define hwiommu_map_sg_attrs		sba_map_sg_attrs
+-#define hwiommu_unmap_sg_attrs		sba_unmap_sg_attrs
+-#define hwiommu_dma_supported		sba_dma_supported
+-#define hwiommu_dma_mapping_error	sba_dma_mapping_error
+-#define hwiommu_sync_single_for_cpu	machvec_dma_sync_single
+-#define hwiommu_sync_sg_for_cpu		machvec_dma_sync_sg
+-#define hwiommu_sync_single_for_device	machvec_dma_sync_single
+-#define hwiommu_sync_sg_for_device	machvec_dma_sync_sg
+-
+-
+ /*
+  * Note: we need to make the determination of whether or not to use
+  * the sw I/O TLB based purely on the device structure.  Anything else
+  * would be unreliable or would be too intrusive.
+  */
+-static inline int
+-use_swiotlb (struct device *dev)
++static inline int use_swiotlb(struct device *dev)
+ {
+-	return dev && dev->dma_mask && !hwiommu_dma_supported(dev, *dev->dma_mask);
++	return dev && dev->dma_mask &&
++		!sba_dma_ops.dma_supported_op(dev, *dev->dma_mask);
+ }
+ 
+-struct dma_mapping_ops hwsw_dma_ops;
++struct dma_mapping_ops *hwsw_dma_get_ops(struct device *dev)
 +{
-+	return ftrace_nop_code;
++	if (use_swiotlb(dev))
++		return &swiotlb_dma_ops;
++	return &sba_dma_ops;
 +}
-+
-+/*
-+ * mcount stub will be converted below for call
-+ * Note: Just the last instruction is changed against nop
-+ * */
-+static unsigned char __attribute__((aligned(8)))
-+ftrace_call_code[MCOUNT_INSN_SIZE] =3D {
-+	0x00, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MII] nop.m 0x0 */
-+	0x30, 0x00, 0x00, 0x60, 0x00, 0x00, /* mov r3=3Dip */
-+	0x00, 0x00, 0x04, 0x00,             /* nop.i 0x0 */
-+	0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0x0 */
-+	0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, /* brl.many .;;*/
-+	0xf8, 0xff, 0xff, 0xc8
-+};
-+
-+struct ftrace_call_insn {
-+	u64 dummy1, dummy2;
-+	u64 dummy3:48;
-+	u64 imm39_l:16;
-+	u64 imm39_h:23;
-+	u64 dummy4:13;
-+	u64 imm20:20;
-+	u64 dummy5:3;
-+	u64 i:1;
-+	u64 dummy6:4;
-+};
-+
-+static unsigned char *ftrace_call_replace(unsigned long ip, unsigned long =
-addr)
-+{
-+	struct ftrace_call_insn *code =3D (void *)ftrace_call_code;
-+	unsigned long offset =3D addr - (ip + 0x10);
-+
-+	code->imm39_l =3D offset >> 24;
-+	code->imm39_h =3D offset >> 40;
-+	code->imm20 =3D offset >> 4;
-+	code->i =3D offset >> 63;
-+	return ftrace_call_code;
-+}
-+
-+static int
-+ftrace_modify_code(unsigned long ip, unsigned char *old_code,
-+		   unsigned char *new_code, int do_check)
-+{
-+	unsigned char replaced[MCOUNT_INSN_SIZE];
-+
-+	/*
-+	 * Note: Due to modules and __init, code can
-+	 *  disappear and change, we need to protect against faulting
-+	 *  as well as code changing. We do this by using the
-+	 *  probe_kernel_* functions.
-+	 *
-+	 * No real locking needed, this code is run through
-+	 * kstop_machine, or before SMP starts.
-+	 */
-+
-+	if (!do_check)
-+		goto skip_check;
-+
-+	/* read the text we want to modify */
-+	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
-+		return -EFAULT;
-+
-+	/* Make sure it is what we expect it to be */
-+	if (memcmp(replaced, old_code, MCOUNT_INSN_SIZE) !=3D 0)
-+		return -EINVAL;
-+
-+skip_check:
-+	/* replace the text with the new text */
-+	if (probe_kernel_write(((void *)ip), new_code, MCOUNT_INSN_SIZE))
-+		return -EPERM;
-+	flush_icache_range(ip, ip + MCOUNT_INSN_SIZE);
-+
-+	return 0;
-+}
-+
-+static int ftrace_make_nop_check(struct dyn_ftrace *rec, unsigned long add=
-r)
-+{
-+	unsigned char __attribute__((aligned(8))) replaced[MCOUNT_INSN_SIZE];
-+	unsigned long ip =3D rec->ip;
-+
-+	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
-+		return -EFAULT;
-+	if (rec->flags & FTRACE_FL_CONVERTED) {
-+		struct ftrace_call_insn *call_insn, *tmp_call;
-+
-+		call_insn =3D (void *)ftrace_call_code;
-+		tmp_call =3D (void *)replaced;
-+		call_insn->imm39_l =3D tmp_call->imm39_l;
-+		call_insn->imm39_h =3D tmp_call->imm39_h;
-+		call_insn->imm20 =3D tmp_call->imm20;
-+		call_insn->i =3D tmp_call->i;
-+		if (memcmp(replaced, ftrace_call_code, MCOUNT_INSN_SIZE) !=3D 0)
-+			return -EINVAL;
-+		return 0;
-+	} else {
-+		struct ftrace_orig_insn *call_insn, *tmp_call;
-+
-+		call_insn =3D (void *)ftrace_orig_code;
-+		tmp_call =3D (void *)replaced;
-+		call_insn->sign =3D tmp_call->sign;
-+		call_insn->imm20 =3D tmp_call->imm20;
-+		if (memcmp(replaced, ftrace_orig_code, MCOUNT_INSN_SIZE) !=3D 0)
-+			return -EINVAL;
-+		return 0;
-+	}
-+}
-+
-+int ftrace_make_nop(struct module *mod,
-+		    struct dyn_ftrace *rec, unsigned long addr)
-+{
-+	int ret;
-+	char *new;
-+
-+	ret =3D ftrace_make_nop_check(rec, addr);
-+	if (ret)
-+		return ret;
-+	new =3D ftrace_nop_replace();
-+	return ftrace_modify_code(rec->ip, NULL, new, 0);
-+}
-+
-+int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+{
-+	unsigned long ip =3D rec->ip;
-+	unsigned char *old, *new;
-+
-+	old=3D  ftrace_nop_replace();
-+	new =3D ftrace_call_replace(ip, addr);
-+	return ftrace_modify_code(ip, old, new, 1);
-+}
-+
-+/* in IA64, _mcount can't directly call ftrace_stub. Only jump is ok */
-+int ftrace_update_ftrace_func(ftrace_func_t func)
-+{
-+	unsigned long ip;
-+	unsigned long addr =3D ((struct fnptr *)ftrace_call)->ip;
-+
-+	if (func =3D ftrace_stub)
-+		return 0;
-+	ip =3D ((struct fnptr *)func)->ip;
-+
-+	ia64_patch_imm64(addr + 2, ip);
-+
-+	flush_icache_range(addr, addr + 16);
-+	return 0;
-+}
-+
-+/* run from kstop_machine */
-+int __init ftrace_dyn_arch_init(void *data)
-+{
-+	*(unsigned long *)data =3D 0;
-+
-+	return 0;
-+}
-Index: linux/arch/ia64/include/asm/ftrace.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/include/asm/ftrace.h	2009-=
-01-09 09:56:59.000000000 +0800
-+++ linux/arch/ia64/include/asm/ftrace.h	2009-01-09 09:57:23.000000000 +0800
-@@ -8,6 +8,19 @@
- extern void _mcount(unsigned long pfs, unsigned long r1, unsigned long b0,=
- unsigned long r0);
- #define mcount _mcount
-=20
-+#include <asm/kprobes.h>
-+/* In IA64, MCOUNT_ADDR is set in link time, so it's not a constant at com=
-pile time */
-+#define MCOUNT_ADDR (((struct fnptr *)mcount)->ip)
-+#define FTRACE_ADDR (((struct fnptr *)ftrace_caller)->ip)
-+
-+static inline unsigned long ftrace_call_adjust(unsigned long addr)
-+{
-+	/* second bundle, insn 2 */
-+	return addr - 0x12;
-+}
-+
-+struct dyn_arch_ftrace {
-+};
++EXPORT_SYMBOL(hwsw_dma_get_ops);
+ 
+ void __init
+ hwsw_init (void)
+ {
+-	dma_ops = &hwsw_dma_ops;
+ 	/* default to a smallish 2MB sw I/O TLB */
+ 	if (swiotlb_late_init_with_default_size (2 * (1<<20)) != 0) {
+ #ifdef CONFIG_IA64_GENERIC
+@@ -78,140 +56,3 @@ hwsw_init (void)
  #endif
-=20
- #endif /* CONFIG_FUNCTION_TRACER */
-Index: linux/arch/ia64/kernel/entry.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/entry.S	2009-01-09 =
-09:56:59.000000000 +0800
-+++ linux/arch/ia64/kernel/entry.S	2009-01-09 09:57:23.000000000 +0800
-@@ -1406,6 +1406,56 @@ GLOBAL_ENTRY(unw_init_running)
- END(unw_init_running)
-=20
- #ifdef CONFIG_FUNCTION_TRACER
-+#ifdef CONFIG_DYNAMIC_FTRACE
-+GLOBAL_ENTRY(_mcount)
-+	br ftrace_stub
-+END(_mcount)
-+
-+.here:
-+	br.ret.sptk.many b0
-+
-+GLOBAL_ENTRY(ftrace_caller)
-+	alloc out0 =3D ar.pfs, 8, 0, 4, 0
-+	mov out3 =3D r0
-+	;;
-+	mov out2 =3D b0
-+	add r3 =3D 0x20, r3
-+	mov out1 =3D r1;
-+	br.call.sptk.many b0 =3D ftrace_patch_gp
-+	//this might be called from module, so we must patch gp
-+ftrace_patch_gp:
-+	movl gp=3D__gp
-+	mov b0 =3D r3
-+	;;
-+.global ftrace_call;
-+ftrace_call:
-+{
-+	.mlx
-+	nop.m 0x0
-+	movl r3 =3D .here;;
-+}
-+	alloc loc0 =3D ar.pfs, 4, 4, 2, 0
-+	;;
-+	mov loc1 =3D b0
-+	mov out0 =3D b0
-+	mov loc2 =3D r8
-+	mov loc3 =3D r15
-+	;;
-+	adds out0 =3D -MCOUNT_INSN_SIZE, out0
-+	mov out1 =3D in2
-+	mov b6 =3D r3
-+
-+	br.call.sptk.many b0 =3D b6
-+	;;
-+	mov ar.pfs =3D loc0
-+	mov b0 =3D loc1
-+	mov r8 =3D loc2
-+	mov r15 =3D loc3
-+	br ftrace_stub
-+	;;
-+END(ftrace_caller)
-+
-+#else
- GLOBAL_ENTRY(_mcount)
- 	movl r2 =3D ftrace_stub
- 	movl r3 =3D ftrace_trace_function;;
-@@ -1435,6 +1485,7 @@ GLOBAL_ENTRY(_mcount)
- 	br ftrace_stub
- 	;;
- END(_mcount)
-+#endif
-=20
- GLOBAL_ENTRY(ftrace_stub)
- 	mov r3 =3D b0
-
+ 	}
+ }
+-
+-void *
+-hwsw_alloc_coherent (struct device *dev, size_t size, dma_addr_t *dma_handle, gfp_t flags)
+-{
+-	if (use_swiotlb(dev))
+-		return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
+-	else
+-		return hwiommu_alloc_coherent(dev, size, dma_handle, flags);
+-}
+-
+-void
+-hwsw_free_coherent (struct device *dev, size_t size, void *vaddr, dma_addr_t dma_handle)
+-{
+-	if (use_swiotlb(dev))
+-		swiotlb_free_coherent(dev, size, vaddr, dma_handle);
+-	else
+-		hwiommu_free_coherent(dev, size, vaddr, dma_handle);
+-}
+-
+-dma_addr_t
+-hwsw_map_single_attrs(struct device *dev, void *addr, size_t size, int dir,
+-		       struct dma_attrs *attrs)
+-{
+-	if (use_swiotlb(dev))
+-		return swiotlb_map_single_attrs(dev, addr, size, dir, attrs);
+-	else
+-		return hwiommu_map_single_attrs(dev, addr, size, dir, attrs);
+-}
+-EXPORT_SYMBOL(hwsw_map_single_attrs);
+-
+-void
+-hwsw_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+-			 int dir, struct dma_attrs *attrs)
+-{
+-	if (use_swiotlb(dev))
+-		return swiotlb_unmap_single_attrs(dev, iova, size, dir, attrs);
+-	else
+-		return hwiommu_unmap_single_attrs(dev, iova, size, dir, attrs);
+-}
+-EXPORT_SYMBOL(hwsw_unmap_single_attrs);
+-
+-int
+-hwsw_map_sg_attrs(struct device *dev, struct scatterlist *sglist, int nents,
+-		   int dir, struct dma_attrs *attrs)
+-{
+-	if (use_swiotlb(dev))
+-		return swiotlb_map_sg_attrs(dev, sglist, nents, dir, attrs);
+-	else
+-		return hwiommu_map_sg_attrs(dev, sglist, nents, dir, attrs);
+-}
+-EXPORT_SYMBOL(hwsw_map_sg_attrs);
+-
+-void
+-hwsw_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist, int nents,
+-		     int dir, struct dma_attrs *attrs)
+-{
+-	if (use_swiotlb(dev))
+-		return swiotlb_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
+-	else
+-		return hwiommu_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
+-}
+-EXPORT_SYMBOL(hwsw_unmap_sg_attrs);
+-
+-void
+-hwsw_sync_single_for_cpu (struct device *dev, dma_addr_t addr, size_t size, int dir)
+-{
+-	if (use_swiotlb(dev))
+-		swiotlb_sync_single_for_cpu(dev, addr, size, dir);
+-	else
+-		hwiommu_sync_single_for_cpu(dev, addr, size, dir);
+-}
+-
+-void
+-hwsw_sync_sg_for_cpu (struct device *dev, struct scatterlist *sg, int nelems, int dir)
+-{
+-	if (use_swiotlb(dev))
+-		swiotlb_sync_sg_for_cpu(dev, sg, nelems, dir);
+-	else
+-		hwiommu_sync_sg_for_cpu(dev, sg, nelems, dir);
+-}
+-
+-void
+-hwsw_sync_single_for_device (struct device *dev, dma_addr_t addr, size_t size, int dir)
+-{
+-	if (use_swiotlb(dev))
+-		swiotlb_sync_single_for_device(dev, addr, size, dir);
+-	else
+-		hwiommu_sync_single_for_device(dev, addr, size, dir);
+-}
+-
+-void
+-hwsw_sync_sg_for_device (struct device *dev, struct scatterlist *sg, int nelems, int dir)
+-{
+-	if (use_swiotlb(dev))
+-		swiotlb_sync_sg_for_device(dev, sg, nelems, dir);
+-	else
+-		hwiommu_sync_sg_for_device(dev, sg, nelems, dir);
+-}
+-
+-int
+-hwsw_dma_supported (struct device *dev, u64 mask)
+-{
+-	if (hwiommu_dma_supported(dev, mask))
+-		return 1;
+-	return swiotlb_dma_supported(dev, mask);
+-}
+-
+-int
+-hwsw_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return hwiommu_dma_mapping_error(dev, dma_addr) ||
+-		swiotlb_dma_mapping_error(dev, dma_addr);
+-}
+-
+-EXPORT_SYMBOL(hwsw_dma_mapping_error);
+-EXPORT_SYMBOL(hwsw_dma_supported);
+-EXPORT_SYMBOL(hwsw_alloc_coherent);
+-EXPORT_SYMBOL(hwsw_free_coherent);
+-EXPORT_SYMBOL(hwsw_sync_single_for_cpu);
+-EXPORT_SYMBOL(hwsw_sync_single_for_device);
+-EXPORT_SYMBOL(hwsw_sync_sg_for_cpu);
+-EXPORT_SYMBOL(hwsw_sync_sg_for_device);
+-
+-struct dma_mapping_ops hwsw_dma_ops = {
+-	.alloc_coherent		= hwsw_alloc_coherent,
+-	.free_coherent		= hwsw_free_coherent,
+-	.map_single_attrs	= hwsw_map_single_attrs,
+-	.unmap_single_attrs	= hwsw_unmap_single_attrs,
+-	.map_sg_attrs		= hwsw_map_sg_attrs,
+-	.unmap_sg_attrs		= hwsw_unmap_sg_attrs,
+-	.sync_single_for_cpu	= hwsw_sync_single_for_cpu,
+-	.sync_sg_for_cpu	= hwsw_sync_sg_for_cpu,
+-	.sync_single_for_device	= hwsw_sync_single_for_device,
+-	.sync_sg_for_device	= hwsw_sync_sg_for_device,
+-	.dma_supported_op	= hwsw_dma_supported,
+-	.mapping_error		= hwsw_dma_mapping_error,
+-};
+diff --git a/arch/ia64/include/asm/machvec_hpzx1_swiotlb.h b/arch/ia64/include/asm/machvec_hpzx1_swiotlb.h
+index 48c3a35..1091ac3 100644
+--- a/arch/ia64/include/asm/machvec_hpzx1_swiotlb.h
++++ b/arch/ia64/include/asm/machvec_hpzx1_swiotlb.h
+@@ -2,6 +2,7 @@
+ #define _ASM_IA64_MACHVEC_HPZX1_SWIOTLB_h
+ 
+ extern ia64_mv_setup_t				dig_setup;
++extern ia64_mv_dma_get_ops			hwsw_dma_get_ops;
+ 
+ /*
+  * This stuff has dual use!
+@@ -13,5 +14,6 @@ extern ia64_mv_setup_t				dig_setup;
+ #define platform_name				"hpzx1_swiotlb"
+ #define platform_setup				dig_setup
+ #define platform_dma_init			machvec_noop
++#define platform_dma_get_ops			hwsw_dma_get_ops
+ 
+ #endif /* _ASM_IA64_MACHVEC_HPZX1_SWIOTLB_h */
+-- 
+1.6.0.6
 
