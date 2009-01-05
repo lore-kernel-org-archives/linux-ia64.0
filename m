@@ -1,58 +1,61 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Mon, 05 Jan 2009 14:36:10 +0000
-Subject: [PATCH 05/13] add dma_mapping_ops for SGI Altix
-Message-Id: <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:06 +0000
+Subject: [PATCH 01/13] add map/unmap_single_attr and map/unmap_sg_attr to struct dma_mapping_ops
+Message-Id: <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: tony.luck@intel.com
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-This is for IA64_SGI_SN2.
+This adds map/unmap_single_attr and map/unmap_sg_attr to struct
+dma_mapping_ops. This enables us to move the dma operations in struct
+ia64_machine_vector to struct dma_mapping_ops.
+
+Note that we will remove map/unmap_sg and map/umap_single.
+
+This is a preparation of struct dma_mapping_ops unification.
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/sn/pci/pci_dma.c |   16 ++++++++++++++++
- 1 files changed, 16 insertions(+), 0 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
-index 53ebb64..4ad13ff 100644
---- a/arch/ia64/sn/pci/pci_dma.c
-+++ b/arch/ia64/sn/pci/pci_dma.c
-@@ -11,6 +11,7 @@
- 
- #include <linux/module.h>
- #include <linux/dma-attrs.h>
-+#include <linux/dma-mapping.h>
- #include <asm/dma.h>
- #include <asm/sn/intr.h>
- #include <asm/sn/pcibus_provider_defs.h>
-@@ -465,3 +466,18 @@ int sn_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
-  out:
- 	return ret;
- }
-+
-+struct dma_mapping_ops sn_dma_ops = {
-+	.alloc_coherent		= sn_dma_alloc_coherent,
-+	.free_coherent		= sn_dma_free_coherent,
-+	.map_single_attrs	= sn_dma_map_single_attrs,
-+	.unmap_single_attrs	= sn_dma_unmap_single_attrs,
-+	.map_sg_attrs		= sn_dma_map_sg_attrs,
-+	.unmap_sg_attrs		= sn_dma_unmap_sg_attrs,
-+	.sync_single_for_cpu 	= sn_dma_sync_single_for_cpu,
-+	.sync_sg_for_cpu	= sn_dma_sync_sg_for_cpu,
-+	.sync_single_for_device = sn_dma_sync_single_for_device,
-+	.sync_sg_for_device	= sn_dma_sync_sg_for_device,
-+	.mapping_error		= sn_dma_mapping_error,
-+	.dma_supported_op	= sn_dma_supported,
-+};
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index bbab7e2..eeb2aa3 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -20,6 +20,13 @@ struct dma_mapping_ops {
+ 				size_t size, int direction);
+ 	void            (*unmap_single)(struct device *dev, dma_addr_t addr,
+ 				size_t size, int direction);
++	dma_addr_t      (*map_single_attrs)(struct device *dev, void *cpu_addr,
++					    size_t size, int direction,
++					    struct dma_attrs *attrs);
++	void		(*unmap_single_attrs)(struct device *dev,
++					      dma_addr_t dma_addr,
++					      size_t size, int direction,
++					      struct dma_attrs *attrs);
+ 	void            (*sync_single_for_cpu)(struct device *hwdev,
+ 				dma_addr_t dma_handle, size_t size,
+ 				int direction);
+@@ -43,6 +50,13 @@ struct dma_mapping_ops {
+ 	void            (*unmap_sg)(struct device *hwdev,
+ 				struct scatterlist *sg, int nents,
+ 				int direction);
++	int             (*map_sg_attrs)(struct device *dev,
++					struct scatterlist *sg, int nents,
++					int direction, struct dma_attrs *attrs);
++	void            (*unmap_sg_attrs)(struct device *dev,
++					  struct scatterlist *sg, int nents,
++					  int direction,
++					  struct dma_attrs *attrs);
+ 	int             (*dma_supported_op)(struct device *hwdev, u64 mask);
+ 	int		is_phys;
+ };
 -- 
 1.6.0.6
 
