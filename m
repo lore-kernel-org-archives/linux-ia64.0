@@ -1,33 +1,59 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 13 Jan 2009 13:04:05 +0000
-Subject: Re: [PATCH 9/9] ftrace, trivial: fix typo "resgister" ->
-Message-Id: <alpine.DEB.1.10.0901130802440.31098@gandalf.stny.rr.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:09 +0000
+Subject: [PATCH 04/13] add dma_mapping_ops for intel-iommu
+Message-Id: <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org> <20090113061148.807298761@goodmis.org> <20090113080352.GB23381@pengutronix.de>
-In-Reply-To: <20090113080352.GB23381@pengutronix.de>
+References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: =?ISO-8859-15?Q?Uwe_Kleine-K=F6nig?= <u.kleine-koenig@pengutronix.de>
-Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, trivial@kernel.org, Steven Rostedt <srostedt@redhat.com>
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
+This is for IA64_DIG_VTD.
 
-On Tue, 13 Jan 2009, Uwe Kleine-K?nig wrote:
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+---
+ arch/ia64/dig/dig_vtd_iommu.c |   18 ++++++++++++++++++
+ 1 files changed, 18 insertions(+), 0 deletions(-)
 
-> On Tue, Jan 13, 2009 at 01:11:19AM -0500, Steven Rostedt wrote:
-> > From: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>
-> > 
-> > Signed-off-by: Uwe Kleine-K?nig <ukleinek@strlen.de>
-> who ever will apply this patch, can you please take care that the '?' is
-> substituted by '?' or if that is too hard, by 'oe'?
+diff --git a/arch/ia64/dig/dig_vtd_iommu.c b/arch/ia64/dig/dig_vtd_iommu.c
+index 1c8a079..fdb8ba9 100644
+--- a/arch/ia64/dig/dig_vtd_iommu.c
++++ b/arch/ia64/dig/dig_vtd_iommu.c
+@@ -1,6 +1,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
++#include <linux/dma-mapping.h>
+ #include <linux/intel-iommu.h>
+ 
+ void *
+@@ -57,3 +58,20 @@ vtd_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(vtd_dma_mapping_error);
++
++extern int iommu_dma_supported(struct device *dev, u64 mask);
++
++struct dma_mapping_ops vtd_dma_ops = {
++	.alloc_coherent		= vtd_alloc_coherent,
++	.free_coherent		= vtd_free_coherent,
++	.map_single_attrs	= vtd_map_single_attrs,
++	.unmap_single_attrs	= vtd_unmap_single_attrs,
++	.map_sg_attrs		= vtd_map_sg_attrs,
++	.unmap_sg_attrs		= vtd_unmap_sg_attrs,
++	.sync_single_for_cpu	= machvec_dma_sync_single,
++	.sync_sg_for_cpu	= machvec_dma_sync_sg,
++	.sync_single_for_device	= machvec_dma_sync_single,
++	.sync_sg_for_device	= machvec_dma_sync_sg,
++	.dma_supported_op	= iommu_dma_supported,
++	.mapping_error		= vtd_dma_mapping_error,
++};
+-- 
+1.6.0.6
 
-Ouch, that looks bad. I just used git am to apply it and ran it through a 
-compile and boot up (never know when a comment change will break the build 
-;-)
-
-I did not look at how git checked it in.
-
-Ingo, if you did not pull this, and since it is the last patch, I'll fix 
-it in my tree.
-
--- Steve
