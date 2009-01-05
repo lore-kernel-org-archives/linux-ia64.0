@@ -1,154 +1,162 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 13 Jan 2009 06:11:15 +0000
-Subject: [PATCH 5/9] ftrace, ia64: IA64 static ftrace support
-Message-Id: <20090113061147.944289231@goodmis.org>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Mon, 05 Jan 2009 14:36:18 +0000
+Subject: [PATCH 13/13] make sba DMA mapping functions static
+Message-Id: <1231166178-20050-14-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org>
+References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-7-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-8-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-9-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-10-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-11-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-12-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+ <1231166178-20050-13-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1231166178-20050-13-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Steven Rostedt <srostedt@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 
-From: Shaohua Li <shaohua.li@intel.com>
+Now we don't need to export these DMA mapping functions.
 
-IA64 ftrace suppport. In IA64, below code will be added in each function
-if -pg is enabled.
-
-alloc r40=3Dar.pfs,12,8,0
-mov r43=3Dr0;;
-mov r42=B0
-mov r41=3Dr1
-nop.i 0x0
-br.call.sptk.many b0 =3D _mcount;;
-
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
-Signed-off-by: Steven Rostedt <srostedt@redhat.com>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/Kconfig              |    1 +
- arch/ia64/include/asm/ftrace.h |   15 ++++++++++++
- arch/ia64/kernel/entry.S       |   49 ++++++++++++++++++++++++++++++++++++=
-++++
- arch/ia64/kernel/ia64_ksyms.c  |    6 +++++
- 4 files changed, 71 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/ftrace.h
+ arch/ia64/hp/common/sba_iommu.c |   34 ++++++++++++----------------------
+ 1 files changed, 12 insertions(+), 22 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 3d31636..b992ba4 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -21,6 +21,7 @@ config IA64
- 	select HAVE_OPROFILE
- 	select HAVE_KPROBES
- 	select HAVE_KRETPROBES
-+	select HAVE_FUNCTION_TRACER
- 	select HAVE_DMA_ATTRS
- 	select HAVE_KVM
- 	select HAVE_ARCH_TRACEHOOK
-diff --git a/arch/ia64/include/asm/ftrace.h b/arch/ia64/include/asm/ftrace.h
-new file mode 100644
-index 0000000..48694b3
---- /dev/null
-+++ b/arch/ia64/include/asm/ftrace.h
-@@ -0,0 +1,15 @@
-+#ifndef _ASM_IA64_FTRACE_H
-+#define _ASM_IA64_FTRACE_H
-+
-+#ifdef CONFIG_FUNCTION_TRACER
-+#define MCOUNT_INSN_SIZE        32 /* sizeof mcount call */
-+
-+#ifndef __ASSEMBLY__
-+extern void _mcount(unsigned long pfs, unsigned long r1, unsigned long b0,=
- unsigned long r0);
-+#define mcount _mcount
-+
-+#endif
-+
-+#endif /* CONFIG_FUNCTION_TRACER */
-+
-+#endif /* _ASM_IA64_FTRACE_H */
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index d435f4a..c2f7d79 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -47,6 +47,7 @@
- #include <asm/processor.h>
- #include <asm/thread_info.h>
- #include <asm/unistd.h>
-+#include <asm/ftrace.h>
-=20
- #include "minstate.h"
-=20
-@@ -1404,6 +1405,54 @@ GLOBAL_ENTRY(unw_init_running)
- 	br.ret.sptk.many rp
- END(unw_init_running)
-=20
-+#ifdef CONFIG_FUNCTION_TRACER
-+GLOBAL_ENTRY(_mcount)
-+	movl r2 =3D ftrace_stub
-+	movl r3 =3D ftrace_trace_function;;
-+	ld8 r3 =3D [r3];;
-+	ld8 r3 =3D [r3];;
-+	cmp.eq p7,p0 =3D r2, r3
-+(p7)	br.sptk.many ftrace_stub
-+	;;
-+
-+	alloc loc0 =3D ar.pfs, 4, 4, 2, 0
-+	;;
-+	mov loc1 =3D b0
-+	mov out0 =3D b0
-+	mov loc2 =3D r8
-+	mov loc3 =3D r15
-+	;;
-+	adds out0 =3D -MCOUNT_INSN_SIZE, out0
-+	mov out1 =3D in2
-+	mov b6 =3D r3
-+
-+	br.call.sptk.many b0 =3D b6
-+	;;
-+	mov ar.pfs =3D loc0
-+	mov b0 =3D loc1
-+	mov r8 =3D loc2
-+	mov r15 =3D loc3
-+	br ftrace_stub
-+	;;
-+END(_mcount)
-+
-+GLOBAL_ENTRY(ftrace_stub)
-+	mov r3 =3D b0
-+	movl r2 =3D _mcount_ret_helper
-+	;;
-+	mov b6 =3D r2
-+	mov b7 =3D r3
-+	br.ret.sptk.many b6
-+
-+_mcount_ret_helper:
-+	mov b0 =3D r42
-+	mov r1 =3D r41
-+	mov ar.pfs =3D r40
-+	br b7
-+END(ftrace_stub)
-+
-+#endif /* CONFIG_FUNCTION_TRACER */
-+
- 	.rodata
- 	.align 8
- 	.globl sys_call_table
-diff --git a/arch/ia64/kernel/ia64_ksyms.c b/arch/ia64/kernel/ia64_ksyms.c
-index 6da1f20..2d31186 100644
---- a/arch/ia64/kernel/ia64_ksyms.c
-+++ b/arch/ia64/kernel/ia64_ksyms.c
-@@ -112,3 +112,9 @@ EXPORT_SYMBOL_GPL(esi_call_phys);
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index e82870a..29e7206 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -909,7 +909,7 @@ sba_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-dma_addr_t
++static dma_addr_t
+ sba_map_single_attrs(struct device *dev, void *addr, size_t size, int dir,
+ 		     struct dma_attrs *attrs)
+ {
+@@ -991,7 +991,6 @@ sba_map_single_attrs(struct device *dev, void *addr, size_t size, int dir,
  #endif
- extern char ia64_ivt[];
- EXPORT_SYMBOL(ia64_ivt);
-+
-+#include <asm/ftrace.h>
-+#ifdef CONFIG_FUNCTION_TRACER
-+/* mcount is defined in assembly */
-+EXPORT_SYMBOL(_mcount);
-+#endif
---=20
-1.5.6.5
+ 	return SBA_IOVA(ioc, iovp, offset);
+ }
+-EXPORT_SYMBOL(sba_map_single_attrs);
+ 
+ #ifdef ENABLE_MARK_CLEAN
+ static SBA_INLINE void
+@@ -1027,8 +1026,8 @@ sba_mark_clean(struct ioc *ioc, dma_addr_t iova, size_t size)
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+-			    int dir, struct dma_attrs *attrs)
++static void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
++				   int dir, struct dma_attrs *attrs)
+ {
+ 	struct ioc *ioc;
+ #if DELAYED_RESOURCE_CNT > 0
+@@ -1095,7 +1094,6 @@ void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+ 	spin_unlock_irqrestore(&ioc->res_lock, flags);
+ #endif /* DELAYED_RESOURCE_CNT = 0 */
+ }
+-EXPORT_SYMBOL(sba_unmap_single_attrs);
+ 
+ /**
+  * sba_alloc_coherent - allocate/map shared mem for DMA
+@@ -1105,7 +1103,7 @@ EXPORT_SYMBOL(sba_unmap_single_attrs);
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-void *
++static void *
+ sba_alloc_coherent (struct device *dev, size_t size, dma_addr_t *dma_handle, gfp_t flags)
+ {
+ 	struct ioc *ioc;
+@@ -1168,7 +1166,8 @@ sba_alloc_coherent (struct device *dev, size_t size, dma_addr_t *dma_handle, gfp
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-void sba_free_coherent (struct device *dev, size_t size, void *vaddr, dma_addr_t dma_handle)
++static void sba_free_coherent (struct device *dev, size_t size, void *vaddr,
++			       dma_addr_t dma_handle)
+ {
+ 	sba_unmap_single_attrs(dev, dma_handle, size, 0, NULL);
+ 	free_pages((unsigned long) vaddr, get_order(size));
+@@ -1423,8 +1422,8 @@ sba_coalesce_chunks(struct ioc *ioc, struct device *dev,
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist, int nents,
+-		     int dir, struct dma_attrs *attrs)
++static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
++			    int nents, int dir, struct dma_attrs *attrs)
+ {
+ 	struct ioc *ioc;
+ 	int coalesced, filled = 0;
+@@ -1503,7 +1502,6 @@ int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist, int nents,
+ 
+ 	return filled;
+ }
+-EXPORT_SYMBOL(sba_map_sg_attrs);
+ 
+ /**
+  * sba_unmap_sg_attrs - unmap Scatter/Gather list
+@@ -1515,8 +1513,8 @@ EXPORT_SYMBOL(sba_map_sg_attrs);
+  *
+  * See Documentation/DMA-mapping.txt
+  */
+-void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+-			int nents, int dir, struct dma_attrs *attrs)
++static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
++			       int nents, int dir, struct dma_attrs *attrs)
+ {
+ #ifdef ASSERT_PDIR_SANITY
+ 	struct ioc *ioc;
+@@ -1552,7 +1550,6 @@ void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ #endif
+ 
+ }
+-EXPORT_SYMBOL(sba_unmap_sg_attrs);
+ 
+ /**************************************************************
+ *
+@@ -2143,15 +2140,13 @@ nosbagart(char *str)
+ 	return 1;
+ }
+ 
+-int
+-sba_dma_supported (struct device *dev, u64 mask)
++static int sba_dma_supported (struct device *dev, u64 mask)
+ {
+ 	/* make sure it's at least 32bit capable */
+ 	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
+ }
+ 
+-int
+-sba_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
++static int sba_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	return 0;
+ }
+@@ -2181,11 +2176,6 @@ sba_page_override(char *str)
+ 
+ __setup("sbapagesize=",sba_page_override);
+ 
+-EXPORT_SYMBOL(sba_dma_mapping_error);
+-EXPORT_SYMBOL(sba_dma_supported);
+-EXPORT_SYMBOL(sba_alloc_coherent);
+-EXPORT_SYMBOL(sba_free_coherent);
+-
+ struct dma_mapping_ops sba_dma_ops = {
+ 	.alloc_coherent		= sba_alloc_coherent,
+ 	.free_coherent		= sba_free_coherent,
+-- 
+1.6.0.6
 
---=20
