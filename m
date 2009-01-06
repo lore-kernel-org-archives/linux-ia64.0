@@ -1,23 +1,47 @@
-From: Avi Kivity <avi@redhat.com>
-Date: Wed, 21 Jan 2009 08:53:53 +0000
-Subject: Re: [PATCH 00/03] Patches to enable windows2008 on kvm/ia64.
-Message-Id: <4976E2A1.3050707@redhat.com>
+From: Dimitri Sivanich <sivanich@sgi.com>
+Date: Tue, 06 Jan 2009 16:27:41 +0000
+Subject: [PATCH] configure HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN systems
+Message-Id: <20090106162741.GA7991@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <706158FABBBA044BAD4FE898A02E4BC2223BCE96@pdsmsx503.ccr.corp.intel.com>
-In-Reply-To: <706158FABBBA044BAD4FE898A02E4BC2223BCE96@pdsmsx503.ccr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Cc: "kvm-ia64@vger.kernel.org" <kvm-ia64@vger.kernel.org>, "kvm@vger.kernel.org" <kvm@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Greg KH <greg@kroah.com>
+Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Gregory Haskins <ghaskins@novell.com>, Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@gmail.com>, Robin Holt <holt@sgi.com>
 
-Zhang, Xiantao wrote:
-> With the following three patches,  we can boot up windows 2008 guests with good stability and performance on kvm/ia64, and they can be applied for kvm.git kvm-ia64.git and linus's git repo. 
->
->   
+Turn on CONFIG_HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN.
 
-Applied, thanks.
+SGI Altix has unsynchronized itc clocks.  This results in rq->clock
+occasionally being set to a time in the past by a remote cpu.
 
--- 
-error compiling committee.c: too many arguments to function
+Note that it is possible that this problem may exist for other ia64
+machines as well, based on the following comment for sched_clock() in
+arch/ia64/kernel/head.S:
 
+ * Return a CPU-local timestamp in nano-seconds.  This timestamp is
+ * NOT synchronized across CPUs its return value must never be
+ * compared against the values returned on another CPU.  The usage in
+ * kernel/sched.c ensures that.
+
+
+Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+
+---
+
+Greg, if everyone is OK with this patch, this should also be applied
+to all stable trees starting with 2.6.26.
+
+ arch/ia64/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
+
+Index: linux-2.6/arch/ia64/Kconfig
+=================================--- linux-2.6.orig/arch/ia64/Kconfig	2009-01-06 10:13:13.051918923 -0600
++++ linux-2.6/arch/ia64/Kconfig	2009-01-06 10:13:44.547856328 -0600
+@@ -536,6 +536,7 @@ config IA64_MC_ERR_INJECT
+ 
+ config SGI_SN
+ 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
++	select HAVE_UNSTABLE_SCHED_CLOCK
+ 
+ config IA64_ESI
+ 	bool "ESI (Extensible SAL Interface) support"
