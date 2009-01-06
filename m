@@ -1,47 +1,47 @@
-From: Dimitri Sivanich <sivanich@sgi.com>
-Date: Tue, 06 Jan 2009 16:27:41 +0000
-Subject: [PATCH] configure HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN systems
-Message-Id: <20090106162741.GA7991@sgi.com>
+From: Greg KH <greg@kroah.com>
+Date: Tue, 06 Jan 2009 17:12:13 +0000
+Subject: Re: [PATCH] configure HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN systems
+Message-Id: <20090106171213.GA21880@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20090106162741.GA7991@sgi.com>
+In-Reply-To: <20090106162741.GA7991@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Greg KH <greg@kroah.com>
-Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Gregory Haskins <ghaskins@novell.com>, Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@gmail.com>, Robin Holt <holt@sgi.com>
+To: Dimitri Sivanich <sivanich@sgi.com>
+Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Gregory Haskins <ghaskins@novell.com>, Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@gmail.com>, Robin Holt <holt@sgi.com>
 
-Turn on CONFIG_HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN.
+On Tue, Jan 06, 2009 at 10:27:41AM -0600, Dimitri Sivanich wrote:
+> Turn on CONFIG_HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN.
+> 
+> SGI Altix has unsynchronized itc clocks.  This results in rq->clock
+> occasionally being set to a time in the past by a remote cpu.
+> 
+> Note that it is possible that this problem may exist for other ia64
+> machines as well, based on the following comment for sched_clock() in
+> arch/ia64/kernel/head.S:
+> 
+>  * Return a CPU-local timestamp in nano-seconds.  This timestamp is
+>  * NOT synchronized across CPUs its return value must never be
+>  * compared against the values returned on another CPU.  The usage in
+>  * kernel/sched.c ensures that.
+> 
+> 
+> Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+> 
+> ---
+> 
+> Greg, if everyone is OK with this patch, this should also be applied
+> to all stable trees starting with 2.6.26.
 
-SGI Altix has unsynchronized itc clocks.  This results in rq->clock
-occasionally being set to a time in the past by a remote cpu.
+That's fine (but 2.6.26 is no longer getting -stable releases).
 
-Note that it is possible that this problem may exist for other ia64
-machines as well, based on the following comment for sched_clock() in
-arch/ia64/kernel/head.S:
+Just let stable@kernel.org know when this patch is applied in Linus's
+tree.  You can do this automatically by adding a:
+	Cc: stable <stable@kernel.org>
+to the signed-off-by: area of the patch, and the stable team will be
+automatically notified when it goes into Linus's tree.
 
- * Return a CPU-local timestamp in nano-seconds.  This timestamp is
- * NOT synchronized across CPUs its return value must never be
- * compared against the values returned on another CPU.  The usage in
- * kernel/sched.c ensures that.
+thanks,
 
-
-Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
-
----
-
-Greg, if everyone is OK with this patch, this should also be applied
-to all stable trees starting with 2.6.26.
-
- arch/ia64/Kconfig |    1 +
- 1 file changed, 1 insertion(+)
-
-Index: linux-2.6/arch/ia64/Kconfig
-=================================--- linux-2.6.orig/arch/ia64/Kconfig	2009-01-06 10:13:13.051918923 -0600
-+++ linux-2.6/arch/ia64/Kconfig	2009-01-06 10:13:44.547856328 -0600
-@@ -536,6 +536,7 @@ config IA64_MC_ERR_INJECT
- 
- config SGI_SN
- 	def_bool y if (IA64_SGI_SN2 || IA64_GENERIC)
-+	select HAVE_UNSTABLE_SCHED_CLOCK
- 
- config IA64_ESI
- 	bool "ESI (Extensible SAL Interface) support"
+greg k-h
