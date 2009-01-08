@@ -1,7 +1,7 @@
-From: Steven Rostedt <srostedt@redhat.com>
-Date: Thu, 08 Jan 2009 17:08:07 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 08 Jan 2009 20:25:42 +0000
 Subject: RE: [PATCH 5/5] IA64 dynamic ftrace support
-Message-Id: <1231434487.21980.5.camel@localhost.localdomain>
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA35CBE5CB0@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1230012500.10933.102.camel@sli10-desk.sh.intel.com>
 In-Reply-To: <1230012500.10933.102.camel@sli10-desk.sh.intel.com>
@@ -10,49 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+> The patch convert it to below for nop:
+>       [MII] nop.m 0x0
+>       mov r3=ip
+>       nop.i 0x0
+>       [MLX] nop.m 0x0
+>       nop.x 0x0;;
+> This isn't completely nop, as there is one instuction 'mov r3=ip', but
+> it should be light and harmless for code follow it.
 
-On Thu, 2009-01-08 at 16:05 +0800, Shaohua Li wrote:
-> On Tue, 2009-01-06 at 08:42 +0800, Luck, Tony wrote:
-> > > In this way, only one instruction is changed to convert code between nop
-> > > and call. This should meet dyn-ftrace's requirement.
-> > > But this requires CPU support brl instruction, so dyn-ftrace isn't
-> > > supported for old Itanium system. Assume there are quite few such old
-> > > system running.
-> > 
-> > Perhaps very few old Merced systems are used for development
-> > and performance tuning (the kind of work where ftrace is useful).
-> > So not having ftrace support on them might not be too big a loss.
-> Tony,
-> I simplified the patch to make it more clean, no functional change with
-> the one I sent last week. please give it a try and consider merge if
-> possible.
+Did you consider using predicate registers to enable/disable.  E.g.
+using something like this (using your currrent calling convention):
 
-> Signed-off-by: Shaohua Li <shaohua.li@intel.com>
-> ---
->  arch/ia64/Kconfig              |    2 
->  arch/ia64/include/asm/ftrace.h |   13 ++
->  arch/ia64/kernel/Makefile      |    5 
->  arch/ia64/kernel/entry.S       |   51 ++++++++++
->  arch/ia64/kernel/ftrace.c      |  206 +++++++++++++++++++++++++++++++++++++++++
->  scripts/recordmcount.pl        |    7 +
+        MMI     cmp.ne p6,p0=r0,r0;;
+                nop.m 0
+        (p06)   mov r3=ip
+        MLX     nop.m 0
+        (p06)   brl.many <target_address>
 
-Shaohua,
+Then just patch the "cmp" instruction to something that makes p6 true to enable.
 
-Are you changes now confined to ia64 (besides the recordmcount.pl)
-change?  Any changes to the ftrace infrastructure we would like to go
-through tip. This will give it proper testing against all archs before
-pushing it to mainline.
+Like this it may not be any better though ... although it avoids
+doing the "mov r3=ip" when the tracepoint is disabled ... it may still
+mess with the branch prediction logic and update entries in the branch
+target cache before the processor realizes that p6 is false and so the
+branch should be squashed.
 
-Please send me any patches outside of arch/ia64 that we can pull in.
-This includes the recordmcount.pl patch.
+But it does give you the flexibility to pick almost any 5 instructions
+for your stub (so long as they can fit within the available templates)
+while still allowing ftrace to enable/disable them by patching just one
+instruction.  So you might think of some smarter way to do this.
 
-Also, send it to rostedt@goodmis.org that account has my scripts to pull
-into git.
-
-Thanks,
-
--- Steve
-
-
-
-
+-Tony
