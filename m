@@ -1,35 +1,75 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 15 Jan 2009 17:59:54 +0000
-Subject: Re: crash: IP: [<ffffffff80478092>] __bitmap_intersects+0x48/0x73 [PATCH supplied]
-Message-Id: <jepriolaat.fsf@sykes.suse.de>
+From: Shaohua Li <shaohua.li@intel.com>
+Date: Fri, 09 Jan 2009 02:32:48 +0000
+Subject: [PATCH 1/6]Make recordmcount destinct module compile
+Message-Id: <1231468368.10683.100.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <496BF6D5.9030403@sgi.com> <20090113130048.GB31147@elte.hu>
-	<496CAF5A.3010304@sgi.com> <496D0F46.2010907@sgi.com>
-	<496D2172.6030608@sgi.com> <20090114165431.GA18826@elte.hu>
-	<20090114165524.GA21742@elte.hu> <20090114175126.GA21078@elte.hu>
-	<496E78BA.5040609@sgi.com> <20090115101428.GG5833@elte.hu>
-	<496F67D8.4060507@sgi.com>
-In-Reply-To: <496F67D8.4060507@sgi.com> (Mike Travis's message of "Thu, 15 Jan
-	2009 08:44:08 -0800")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Mike Travis <travis@sgi.com>
-Cc: Ingo Molnar <mingo@elte.hu>, Rusty Russell <rusty@rustcorp.com.au>, Yinghai Lu <yinghai@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, Tony Luck <tony.luck@intel.com>, IA64 <linux-ia64@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org, David Howells <dhowells@redhat.com>, Koichi Yasutake <yasutake.koichi@jp.panasonic.com>, linux-am33-list@redhat.com, "David S. Miller" <davem@davemloft.net>, SPARC <sparclinux@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Mike Travis <travis@sgi.com> writes:
+In IA64, module build and kernel build use different option.
+Make recordmcount.pl differentiate the two cases.
 
->  23> git-remote update
-> Updating linus
-> Updating tip
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+---
+ scripts/Makefile.build  |    9 ++++++++-
+ scripts/recordmcount.pl |    6 +++---
+ 2 files changed, 11 insertions(+), 4 deletions(-)
 
-This only updates the remotes, but does not merge anything into your
-local branch.  You need to run "git merge tip" to do that.
+Index: linux/scripts/Makefile.build
+=================================--- linux.orig/scripts/Makefile.build	2009-01-09 09:52:01.000000000 +0800
++++ linux/scripts/Makefile.build	2009-01-09 09:52:36.000000000 +0800
+@@ -114,6 +114,7 @@ endif
+ # Default is built-in, unless we know otherwise
+ modkern_cflags := $(CFLAGS_KERNEL)
+ quiet_modtag := $(empty)   $(empty)
++is_module := 0
+ 
+ $(real-objs-m)        : modkern_cflags := $(CFLAGS_MODULE)
+ $(real-objs-m:.o=.i)  : modkern_cflags := $(CFLAGS_MODULE)
+@@ -125,6 +126,11 @@ $(real-objs-m:.o=.i)  : quiet_modtag := 
+ $(real-objs-m:.o=.s)  : quiet_modtag := [M]
+ $(real-objs-m:.o=.lst): quiet_modtag := [M]
+ 
++$(real-objs-m)        : is_module := 1
++$(real-objs-m:.o=.i)  : is_module := 1
++$(real-objs-m:.o=.s)  : is_module := 1
++$(real-objs-m:.o=.lst): is_module := 1
++
+ $(obj-m)              : quiet_modtag := [M]
+ 
+ # Default for not multi-part modules
+@@ -201,7 +207,8 @@ endif
+ ifdef CONFIG_FTRACE_MCOUNT_RECORD
+ cmd_record_mcount = perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
+ 	"$(if $(CONFIG_64BIT),64,32)" \
+-	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" "$(@)";
++	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" \
++	"$(is_module)" "$(@)";
+ endif
+ 
+ define rule_cc_o_c
+Index: linux/scripts/recordmcount.pl
+=================================--- linux.orig/scripts/recordmcount.pl	2009-01-08 16:09:59.000000000 +0800
++++ linux/scripts/recordmcount.pl	2009-01-09 09:52:36.000000000 +0800
+@@ -100,14 +100,14 @@ $P =~ s@.*/@@g;
+ 
+ my $V = '0.1';
+ 
+-if ($#ARGV < 6) {
+-	print "usage: $P arch objdump objcopy cc ld nm rm mv inputfile\n";
++if ($#ARGV < 7) {
++	print "usage: $P arch objdump objcopy cc ld nm rm mv is_module inputfile\n";
+ 	print "version: $V\n";
+ 	exit(1);
+ }
+ 
+ my ($arch, $bits, $objdump, $objcopy, $cc,
+-    $ld, $nm, $rm, $mv, $inputfile) = @ARGV;
++    $ld, $nm, $rm, $mv, $is_module, $inputfile) = @ARGV;
+ 
+ # Acceptable sections to record.
+ my %text_sections = (
 
-Andreas.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-PGP key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
