@@ -1,447 +1,403 @@
-From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
-Date: Wed, 21 Jan 2009 03:44:55 +0000
-Subject: [PATCH 03/03] KVM: ia64: Implement some pal calls needed for
-Message-Id: <706158FABBBA044BAD4FE898A02E4BC2223BCE99@pdsmsx503.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="_002_706158FABBBA044BAD4FE898A02E4BC2223BCE99pdsmsx503ccrcor_"
+From: Shaohua Li <shaohua.li@intel.com>
+Date: Fri, 09 Jan 2009 02:33:05 +0000
+Subject: [PATCH 6/6]IA64 dynamic ftrace support
+Message-Id: <1231468385.10683.105.camel@sli10-desk.sh.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: "kvm-ia64@vger.kernel.org" <kvm-ia64@vger.kernel.org>
-Cc: Avi Kivity <avi@redhat.com>, "kvm@vger.kernel.org" <kvm@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-
---_002_706158FABBBA044BAD4FE898A02E4BC2223BCE99pdsmsx503ccrcor_
-Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-From 4a3755fda38a944a5bce40d14b54bd9032ba92a4 Mon Sep 17 00:00:00 2001
-From: Xiantao Zhang <xiantao.zhang@intel.com>
-Date: Wed, 21 Jan 2009 11:21:27 +0800
-Subject: [PATCH] KVM: ia64: Implement some pal calls needed for windows 200=
-8.
+IA64 dynamic ftrace support.
+The original _mcount stub for each function is like:
+	alloc r40=3Dar.pfs,12,8,0
+	mov r43=3Dr0;;
+	mov r42=B0
+	mov r41=3Dr1
+	nop.i 0x0
+	br.call.sptk.many b0 =3D _mcount;;
 
-For windows 2008, it needs more pal calls to implement for booting.
-In addition, also changes the name of set_{sal, pal}_call_result to
-get_{sal, pal}_call_result for readability.
+The patch convert it to below for nop:
+	[MII] nop.m 0x0
+	mov r3=3Dip
+	nop.i 0x0
+	[MLX] nop.m 0x0
+	nop.x 0x0;;
+This isn't completely nop, as there is one instuction 'mov r3=3Dip', but
+it should be light and harmless for code follow it.
 
-Signed-off-by: Xiantao Zhang <xiantao.zhang@intel.com>
+And below is for call
+	[MII] nop.m 0x0
+	mov r3=3Dip
+	nop.i 0x0
+	[MLX] nop.m 0x0
+	brl.many .;;
+In this way, only one instruction is changed to convert code between nop
+and call. This should meet dyn-ftrace's requirement.
+But this requires CPU support brl instruction, so dyn-ftrace isn't
+supported for old Itanium system. Assume there are quite few such old
+system running.
+
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
 ---
- arch/ia64/kvm/kvm_fw.c  |  151 +++++++++++++++++++++++++++++++++++++++++++=
-+++-
- arch/ia64/kvm/process.c |    8 +-
- 2 files changed, 152 insertions(+), 7 deletions(-)
+ arch/ia64/Kconfig              |    2=20
+ arch/ia64/include/asm/ftrace.h |   13 ++
+ arch/ia64/kernel/Makefile      |    5=20
+ arch/ia64/kernel/entry.S       |   51 ++++++++++
+ arch/ia64/kernel/ftrace.c      |  206 ++++++++++++++++++++++++++++++++++++=
++++++
+ 5 files changed, 277 insertions(+)
 
-diff --git a/arch/ia64/kvm/kvm_fw.c b/arch/ia64/kvm/kvm_fw.c
-index cb7600b..a8ae52e 100644
---- a/arch/ia64/kvm/kvm_fw.c
-+++ b/arch/ia64/kvm/kvm_fw.c
-@@ -227,6 +227,18 @@ static struct ia64_pal_retval pal_proc_get_features(st=
-ruct kvm_vcpu *vcpu)
- 	return result;
- }
+Index: linux/arch/ia64/Kconfig
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/Kconfig	2009-01-09 09:56:5=
+9.000000000 +0800
++++ linux/arch/ia64/Kconfig	2009-01-09 09:57:23.000000000 +0800
+@@ -21,6 +21,8 @@ config IA64
+ 	select HAVE_OPROFILE
+ 	select HAVE_KPROBES
+ 	select HAVE_KRETPROBES
++	select HAVE_FTRACE_MCOUNT_RECORD
++	select HAVE_DYNAMIC_FTRACE if (!ITANIUM)
+ 	select HAVE_FUNCTION_TRACER
+ 	select HAVE_DMA_ATTRS
+ 	select HAVE_KVM
+Index: linux/arch/ia64/kernel/Makefile
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/Makefile	2009-01-09=
+ 09:52:00.000000000 +0800
++++ linux/arch/ia64/kernel/Makefile	2009-01-09 09:57:23.000000000 +0800
+@@ -2,6 +2,10 @@
+ # Makefile for the linux kernel.
+ #
 =20
-+static struct ia64_pal_retval pal_register_info(struct kvm_vcpu *vcpu)
++ifdef CONFIG_DYNAMIC_FTRACE
++CFLAGS_REMOVE_ftrace.o =3D -pg
++endif
++
+ extra-y	:=3D head.o init_task.o vmlinux.lds
+=20
+ obj-y :=3D acpi.o entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o=
+ irq.o irq_ia64.o	\
+@@ -28,6 +32,7 @@ obj-$(CONFIG_IA64_CYCLONE)	+=3D cyclone.o
+ obj-$(CONFIG_CPU_FREQ)		+=3D cpufreq/
+ obj-$(CONFIG_IA64_MCA_RECOVERY)	+=3D mca_recovery.o
+ obj-$(CONFIG_KPROBES)		+=3D kprobes.o jprobes.o
++obj-$(CONFIG_DYNAMIC_FTRACE)	+=3D ftrace.o
+ obj-$(CONFIG_KEXEC)		+=3D machine_kexec.o relocate_kernel.o crash.o
+ obj-$(CONFIG_CRASH_DUMP)	+=3D crash_dump.o
+ obj-$(CONFIG_IA64_UNCACHED_ALLOCATOR)	+=3D uncached.o
+Index: linux/arch/ia64/kernel/ftrace.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/ia64/kernel/ftrace.c	2009-01-09 09:57:23.000000000 +0800
+@@ -0,0 +1,206 @@
++/*
++ * Dynamic function tracing support.
++ *
++ * Copyright (C) 2008 Shaohua Li <shaohua.li@intel.com>
++ *
++ * For licencing details, see COPYING.
++ *
++ * Defines low-level handling of mcount calls when the kernel
++ * is compiled with the -pg flag. When using dynamic ftrace, the
++ * mcount call-sites get patched lazily with NOP till they are
++ * enabled. All code mutation routines here take effect atomically.
++ */
++
++#include <linux/uaccess.h>
++#include <linux/ftrace.h>
++
++#include <asm/cacheflush.h>
++#include <asm/patch.h>
++
++/* In IA64, each function will be added below two bundles with -pg option =
+*/
++static unsigned char __attribute__((aligned(8)))
++ftrace_orig_code[MCOUNT_INSN_SIZE] =3D {
++	0x02, 0x40, 0x31, 0x10, 0x80, 0x05, /* alloc r40=3Dar.pfs,12,8,0 */
++	0xb0, 0x02, 0x00, 0x00, 0x42, 0x40, /* mov r43=3Dr0;; */
++	0x05, 0x00, 0xc4, 0x00,             /* mov r42=B0 */
++	0x11, 0x48, 0x01, 0x02, 0x00, 0x21, /* mov r41=3Dr1 */
++	0x00, 0x00, 0x00, 0x02, 0x00, 0x00, /* nop.i 0x0 */
++	0x08, 0x00, 0x00, 0x50              /* br.call.sptk.many b0 =3D _mcount;;=
+ */
++};
++
++struct ftrace_orig_insn {
++	u64 dummy1, dummy2, dummy3;
++	u64 dummy4:64-41+13;
++	u64 imm20:20;
++	u64 dummy5:3;
++	u64 sign:1;
++	u64 dummy6:4;
++};
++
++/* mcount stub will be converted below for nop */
++static unsigned char ftrace_nop_code[MCOUNT_INSN_SIZE] =3D {
++	0x00, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MII] nop.m 0x0 */
++	0x30, 0x00, 0x00, 0x60, 0x00, 0x00, /* mov r3=3Dip */
++	0x00, 0x00, 0x04, 0x00,             /* nop.i 0x0 */
++	0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0x0 */
++	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* nop.x 0x0;; */
++	0x00, 0x00, 0x04, 0x00
++};
++
++static unsigned char *ftrace_nop_replace(void)
 +{
-+
-+	struct ia64_pal_retval result =3D {0, 0, 0, 0};
-+	long in0, in1, in2, in3;
-+
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
-+	result.status =3D ia64_pal_register_info(in1, &result.v1, &result.v2);
-+
-+	return result;
++	return ftrace_nop_code;
 +}
 +
- static struct ia64_pal_retval pal_cache_info(struct kvm_vcpu *vcpu)
- {
-=20
-@@ -268,8 +280,12 @@ static struct ia64_pal_retval pal_vm_summary(struct kv=
-m_vcpu *vcpu)
- static struct ia64_pal_retval pal_vm_info(struct kvm_vcpu *vcpu)
- {
- 	struct ia64_pal_retval result;
-+	unsigned long in0, in1, in2, in3;
-=20
--	INIT_PAL_STATUS_UNIMPLEMENTED(result);
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
++/*
++ * mcount stub will be converted below for call
++ * Note: Just the last instruction is changed against nop
++ * */
++static unsigned char __attribute__((aligned(8)))
++ftrace_call_code[MCOUNT_INSN_SIZE] =3D {
++	0x00, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MII] nop.m 0x0 */
++	0x30, 0x00, 0x00, 0x60, 0x00, 0x00, /* mov r3=3Dip */
++	0x00, 0x00, 0x04, 0x00,             /* nop.i 0x0 */
++	0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0x0 */
++	0xff, 0xff, 0xff, 0xff, 0x7f, 0x00, /* brl.many .;;*/
++	0xf8, 0xff, 0xff, 0xc8
++};
 +
-+	result.status =3D ia64_pal_vm_info(in1, in2,
-+			(pal_tc_info_u_t *)&result.v1, &result.v2);
-=20
- 	return result;
- }
-@@ -292,6 +308,108 @@ static void prepare_for_halt(struct kvm_vcpu *vcpu)
- 	vcpu->arch.timer_fired =3D 0;
- }
-=20
-+static struct ia64_pal_retval pal_perf_mon_info(struct kvm_vcpu *vcpu)
++struct ftrace_call_insn {
++	u64 dummy1, dummy2;
++	u64 dummy3:48;
++	u64 imm39_l:16;
++	u64 imm39_h:23;
++	u64 dummy4:13;
++	u64 imm20:20;
++	u64 dummy5:3;
++	u64 i:1;
++	u64 dummy6:4;
++};
++
++static unsigned char *ftrace_call_replace(unsigned long ip, unsigned long =
+addr)
 +{
-+	long status;
-+	unsigned long in0, in1, in2, in3, r9;
-+	unsigned long pm_buffer[16];
++	struct ftrace_call_insn *code =3D (void *)ftrace_call_code;
++	unsigned long offset =3D addr - (ip + 0x10);
 +
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
-+	status =3D ia64_pal_perf_mon_info(pm_buffer,
-+				(pal_perf_mon_info_u_t *) &r9);
-+	if (status !=3D 0) {
-+		printk(KERN_DEBUG"PAL_PERF_MON_INFO fails ret=3D%ld\n", status);
++	code->imm39_l =3D offset >> 24;
++	code->imm39_h =3D offset >> 40;
++	code->imm20 =3D offset >> 4;
++	code->i =3D offset >> 63;
++	return ftrace_call_code;
++}
++
++static int
++ftrace_modify_code(unsigned long ip, unsigned char *old_code,
++		   unsigned char *new_code, int do_check)
++{
++	unsigned char replaced[MCOUNT_INSN_SIZE];
++
++	/*
++	 * Note: Due to modules and __init, code can
++	 *  disappear and change, we need to protect against faulting
++	 *  as well as code changing. We do this by using the
++	 *  probe_kernel_* functions.
++	 *
++	 * No real locking needed, this code is run through
++	 * kstop_machine, or before SMP starts.
++	 */
++
++	if (!do_check)
++		goto skip_check;
++
++	/* read the text we want to modify */
++	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
++		return -EFAULT;
++
++	/* Make sure it is what we expect it to be */
++	if (memcmp(replaced, old_code, MCOUNT_INSN_SIZE) !=3D 0)
++		return -EINVAL;
++
++skip_check:
++	/* replace the text with the new text */
++	if (probe_kernel_write(((void *)ip), new_code, MCOUNT_INSN_SIZE))
++		return -EPERM;
++	flush_icache_range(ip, ip + MCOUNT_INSN_SIZE);
++
++	return 0;
++}
++
++static int ftrace_make_nop_check(struct dyn_ftrace *rec, unsigned long add=
+r)
++{
++	unsigned char __attribute__((aligned(8))) replaced[MCOUNT_INSN_SIZE];
++	unsigned long ip =3D rec->ip;
++
++	if (probe_kernel_read(replaced, (void *)ip, MCOUNT_INSN_SIZE))
++		return -EFAULT;
++	if (rec->flags & FTRACE_FL_CONVERTED) {
++		struct ftrace_call_insn *call_insn, *tmp_call;
++
++		call_insn =3D (void *)ftrace_call_code;
++		tmp_call =3D (void *)replaced;
++		call_insn->imm39_l =3D tmp_call->imm39_l;
++		call_insn->imm39_h =3D tmp_call->imm39_h;
++		call_insn->imm20 =3D tmp_call->imm20;
++		call_insn->i =3D tmp_call->i;
++		if (memcmp(replaced, ftrace_call_code, MCOUNT_INSN_SIZE) !=3D 0)
++			return -EINVAL;
++		return 0;
 +	} else {
-+		if (in1)
-+			memcpy((void *)in1, pm_buffer, sizeof(pm_buffer));
-+		else {
-+			status =3D PAL_STATUS_EINVAL;
-+			printk(KERN_WARNING"Invalid parameters "
-+						"for PAL call:0x%lx!\n", in0);
-+		}
++		struct ftrace_orig_insn *call_insn, *tmp_call;
++
++		call_insn =3D (void *)ftrace_orig_code;
++		tmp_call =3D (void *)replaced;
++		call_insn->sign =3D tmp_call->sign;
++		call_insn->imm20 =3D tmp_call->imm20;
++		if (memcmp(replaced, ftrace_orig_code, MCOUNT_INSN_SIZE) !=3D 0)
++			return -EINVAL;
++		return 0;
 +	}
-+	return (struct ia64_pal_retval){status, r9, 0, 0};
 +}
 +
-+static struct ia64_pal_retval pal_halt_info(struct kvm_vcpu *vcpu)
++int ftrace_make_nop(struct module *mod,
++		    struct dyn_ftrace *rec, unsigned long addr)
 +{
-+	unsigned long in0, in1, in2, in3;
-+	long status;
-+	unsigned long res =3D 1000UL | (1000UL << 16) | (10UL << 32)
-+					| (1UL << 61) | (1UL << 60);
++	int ret;
++	char *new;
 +
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
-+	if (in1) {
-+		memcpy((void *)in1, &res, sizeof(res));
-+		status =3D 0;
-+	} else{
-+		status =3D PAL_STATUS_EINVAL;
-+		printk(KERN_WARNING"Invalid parameters "
-+					"for PAL call:0x%lx!\n", in0);
-+	}
-+
-+	return (struct ia64_pal_retval){status, 0, 0, 0};
++	ret =3D ftrace_make_nop_check(rec, addr);
++	if (ret)
++		return ret;
++	new =3D ftrace_nop_replace();
++	return ftrace_modify_code(rec->ip, NULL, new, 0);
 +}
 +
-+static struct ia64_pal_retval pal_mem_attrib(struct kvm_vcpu *vcpu)
++int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
 +{
-+	unsigned long r9;
-+	long status;
++	unsigned long ip =3D rec->ip;
++	unsigned char *old, *new;
 +
-+	status =3D ia64_pal_mem_attrib(&r9);
-+
-+	return (struct ia64_pal_retval){status, r9, 0, 0};
++	old=3D  ftrace_nop_replace();
++	new =3D ftrace_call_replace(ip, addr);
++	return ftrace_modify_code(ip, old, new, 1);
 +}
 +
-+static void remote_pal_prefetch_visibility(void *v)
++/* in IA64, _mcount can't directly call ftrace_stub. Only jump is ok */
++int ftrace_update_ftrace_func(ftrace_func_t func)
 +{
-+	s64 trans_type =3D (s64)v;
-+	ia64_pal_prefetch_visibility(trans_type);
++	unsigned long ip;
++	unsigned long addr =3D ((struct fnptr *)ftrace_call)->ip;
++
++	if (func =3D ftrace_stub)
++		return 0;
++	ip =3D ((struct fnptr *)func)->ip;
++
++	ia64_patch_imm64(addr + 2, ip);
++
++	flush_icache_range(addr, addr + 16);
++	return 0;
 +}
 +
-+static struct ia64_pal_retval pal_prefetch_visibility(struct kvm_vcpu *vcp=
-u)
++/* run from kstop_machine */
++int __init ftrace_dyn_arch_init(void *data)
 +{
-+	struct ia64_pal_retval result =3D {0, 0, 0, 0};
-+	unsigned long in0, in1, in2, in3;
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
-+	result.status =3D ia64_pal_prefetch_visibility(in1);
-+	if (result.status =3D=3D 0) {
-+		/* Must be performed on all remote processors
-+		in the coherence domain. */
-+		smp_call_function(remote_pal_prefetch_visibility,
-+					(void *)in1, 1);
-+		/* Unnecessary on remote processor for other vcpus!*/
-+		result.status =3D 1;
-+	}
-+	return result;
-+}
++	*(unsigned long *)data =3D 0;
 +
-+static void remote_pal_mc_drain(void *v)
++	return 0;
++}
+Index: linux/arch/ia64/include/asm/ftrace.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/include/asm/ftrace.h	2009-=
+01-09 09:56:59.000000000 +0800
++++ linux/arch/ia64/include/asm/ftrace.h	2009-01-09 09:57:23.000000000 +0800
+@@ -8,6 +8,19 @@
+ extern void _mcount(unsigned long pfs, unsigned long r1, unsigned long b0,=
+ unsigned long r0);
+ #define mcount _mcount
+=20
++#include <asm/kprobes.h>
++/* In IA64, MCOUNT_ADDR is set in link time, so it's not a constant at com=
+pile time */
++#define MCOUNT_ADDR (((struct fnptr *)mcount)->ip)
++#define FTRACE_ADDR (((struct fnptr *)ftrace_caller)->ip)
++
++static inline unsigned long ftrace_call_adjust(unsigned long addr)
 +{
-+	ia64_pal_mc_drain();
++	/* second bundle, insn 2 */
++	return addr - 0x12;
 +}
 +
-+static struct ia64_pal_retval pal_get_brand_info(struct kvm_vcpu *vcpu)
++struct dyn_arch_ftrace {
++};
+ #endif
+=20
+ #endif /* CONFIG_FUNCTION_TRACER */
+Index: linux/arch/ia64/kernel/entry.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/entry.S	2009-01-09 =
+09:56:59.000000000 +0800
++++ linux/arch/ia64/kernel/entry.S	2009-01-09 09:57:23.000000000 +0800
+@@ -1406,6 +1406,56 @@ GLOBAL_ENTRY(unw_init_running)
+ END(unw_init_running)
+=20
+ #ifdef CONFIG_FUNCTION_TRACER
++#ifdef CONFIG_DYNAMIC_FTRACE
++GLOBAL_ENTRY(_mcount)
++	br ftrace_stub
++END(_mcount)
++
++.here:
++	br.ret.sptk.many b0
++
++GLOBAL_ENTRY(ftrace_caller)
++	alloc out0 =3D ar.pfs, 8, 0, 4, 0
++	mov out3 =3D r0
++	;;
++	mov out2 =3D b0
++	add r3 =3D 0x20, r3
++	mov out1 =3D r1;
++	br.call.sptk.many b0 =3D ftrace_patch_gp
++	//this might be called from module, so we must patch gp
++ftrace_patch_gp:
++	movl gp=3D__gp
++	mov b0 =3D r3
++	;;
++.global ftrace_call;
++ftrace_call:
 +{
-+	struct ia64_pal_retval result =3D {0, 0, 0, 0};
-+	unsigned long in0, in1, in2, in3;
-+
-+	kvm_get_pal_call_data(vcpu, &in0, &in1, &in2, &in3);
-+
-+	if (in1 =3D=3D 0 && in2) {
-+		char brand_info[128];
-+		result.status =3D ia64_pal_get_brand_info(brand_info);
-+		if (result.status =3D=3D PAL_STATUS_SUCCESS)
-+			memcpy((void *)in2, brand_info, 128);
-+	} else {
-+		result.status =3D PAL_STATUS_REQUIRES_MEMORY;
-+		printk(KERN_WARNING"Invalid parameters for "
-+					"PAL call:0x%lx!\n", in0);
-+	}
-+
-+	return result;
++	.mlx
++	nop.m 0x0
++	movl r3 =3D .here;;
 +}
++	alloc loc0 =3D ar.pfs, 4, 4, 2, 0
++	;;
++	mov loc1 =3D b0
++	mov out0 =3D b0
++	mov loc2 =3D r8
++	mov loc3 =3D r15
++	;;
++	adds out0 =3D -MCOUNT_INSN_SIZE, out0
++	mov out1 =3D in2
++	mov b6 =3D r3
 +
- int kvm_pal_emul(struct kvm_vcpu *vcpu, struct kvm_run *run)
- {
-=20
-@@ -300,14 +418,22 @@ int kvm_pal_emul(struct kvm_vcpu *vcpu, struct kvm_ru=
-n *run)
- 	int ret =3D 1;
-=20
- 	gr28 =3D kvm_get_pal_call_index(vcpu);
--	/*printk("pal_call index:%lx\n",gr28);*/
- 	switch (gr28) {
- 	case PAL_CACHE_FLUSH:
- 		result =3D pal_cache_flush(vcpu);
- 		break;
-+	case PAL_MEM_ATTRIB:
-+		result =3D pal_mem_attrib(vcpu);
-+		break;
- 	case PAL_CACHE_SUMMARY:
- 		result =3D pal_cache_summary(vcpu);
- 		break;
-+	case PAL_PERF_MON_INFO:
-+		result =3D pal_perf_mon_info(vcpu);
-+		break;
-+	case PAL_HALT_INFO:
-+		result =3D pal_halt_info(vcpu);
-+		break;
- 	case PAL_HALT_LIGHT:
- 	{
- 		INIT_PAL_STATUS_SUCCESS(result);
-@@ -317,6 +443,16 @@ int kvm_pal_emul(struct kvm_vcpu *vcpu, struct kvm_run=
- *run)
- 	}
- 		break;
-=20
-+	case PAL_PREFETCH_VISIBILITY:
-+		result =3D pal_prefetch_visibility(vcpu);
-+		break;
-+	case PAL_MC_DRAIN:
-+		result.status =3D ia64_pal_mc_drain();
-+		/* FIXME: All vcpus likely call PAL_MC_DRAIN.
-+		   That causes the congestion. */
-+		smp_call_function(remote_pal_mc_drain, NULL, 1);
-+		break;
++	br.call.sptk.many b0 =3D b6
++	;;
++	mov ar.pfs =3D loc0
++	mov b0 =3D loc1
++	mov r8 =3D loc2
++	mov r15 =3D loc3
++	br ftrace_stub
++	;;
++END(ftrace_caller)
 +
- 	case PAL_FREQ_RATIOS:
- 		result =3D pal_freq_ratios(vcpu);
- 		break;
-@@ -346,6 +482,9 @@ int kvm_pal_emul(struct kvm_vcpu *vcpu, struct kvm_run =
-*run)
- 		INIT_PAL_STATUS_SUCCESS(result);
- 		result.v1 =3D (1L << 32) | 1L;
- 		break;
-+	case PAL_REGISTER_INFO:
-+		result =3D pal_register_info(vcpu);
-+		break;
- 	case PAL_VM_PAGE_SIZE:
- 		result.status =3D ia64_pal_vm_page_size(&result.v0,
- 							&result.v1);
-@@ -365,12 +504,18 @@ int kvm_pal_emul(struct kvm_vcpu *vcpu, struct kvm_ru=
-n *run)
- 		result.status =3D ia64_pal_version(
- 				(pal_version_u_t *)&result.v0,
- 				(pal_version_u_t *)&result.v1);
--
- 		break;
- 	case PAL_FIXED_ADDR:
- 		result.status =3D PAL_STATUS_SUCCESS;
- 		result.v0 =3D vcpu->vcpu_id;
- 		break;
-+	case PAL_BRAND_INFO:
-+		result =3D pal_get_brand_info(vcpu);
-+		break;
-+	case PAL_GET_PSTATE:
-+	case PAL_CACHE_SHARED_INFO:
-+		INIT_PAL_STATUS_UNIMPLEMENTED(result);
-+		break;
- 	default:
- 		INIT_PAL_STATUS_UNIMPLEMENTED(result);
- 		printk(KERN_WARNING"kvm: Unsupported pal call,"
-diff --git a/arch/ia64/kvm/process.c b/arch/ia64/kvm/process.c
-index 6ed0347..7079ace 100644
---- a/arch/ia64/kvm/process.c
-+++ b/arch/ia64/kvm/process.c
-@@ -606,7 +606,7 @@ static void set_pal_call_data(struct kvm_vcpu *vcpu)
- 	p->exit_reason =3D EXIT_REASON_PAL_CALL;
- }
++#else
+ GLOBAL_ENTRY(_mcount)
+ 	movl r2 =3D ftrace_stub
+ 	movl r3 =3D ftrace_trace_function;;
+@@ -1435,6 +1485,7 @@ GLOBAL_ENTRY(_mcount)
+ 	br ftrace_stub
+ 	;;
+ END(_mcount)
++#endif
 =20
--static void set_pal_call_result(struct kvm_vcpu *vcpu)
-+static void get_pal_call_result(struct kvm_vcpu *vcpu)
- {
- 	struct exit_ctl_data *p =3D &vcpu->arch.exit_data;
-=20
-@@ -634,7 +634,7 @@ static void set_sal_call_data(struct kvm_vcpu *vcpu)
- 	p->exit_reason =3D EXIT_REASON_SAL_CALL;
- }
-=20
--static void set_sal_call_result(struct kvm_vcpu *vcpu)
-+static void get_sal_call_result(struct kvm_vcpu *vcpu)
- {
- 	struct exit_ctl_data *p =3D &vcpu->arch.exit_data;
-=20
-@@ -657,13 +657,13 @@ void  kvm_ia64_handle_break(unsigned long ifa, struct=
- kvm_pt_regs *regs,
- 		if (iim =3D=3D DOMN_PAL_REQUEST) {
- 			set_pal_call_data(v);
- 			vmm_transition(v);
--			set_pal_call_result(v);
-+			get_pal_call_result(v);
- 			vcpu_increment_iip(v);
- 			return;
- 		} else if (iim =3D=3D DOMN_SAL_REQUEST) {
- 			set_sal_call_data(v);
- 			vmm_transition(v);
--			set_sal_call_result(v);
-+			get_sal_call_result(v);
- 			vcpu_increment_iip(v);
- 			return;
- 		}
---=20
-1.6.0
+ GLOBAL_ENTRY(ftrace_stub)
+ 	mov r3 =3D b0
 
---_002_706158FABBBA044BAD4FE898A02E4BC2223BCE99pdsmsx503ccrcor_
-Content-Type: application/octet-stream;
-	name="0003-KVM-ia64-Implement-some-pal-calls-needed-for-windo.patch"
-Content-Description: 0003-KVM-ia64-Implement-some-pal-calls-needed-for-windo.patch
-Content-Disposition: attachment;
-	filename="0003-KVM-ia64-Implement-some-pal-calls-needed-for-windo.patch";
-	size=7836; creation-date="Wed, 21 Jan 2009 11:37:36 GMT";
-	modification-date="Wed, 21 Jan 2009 11:37:36 GMT"
-Content-Transfer-Encoding: base64
 
-RnJvbSA0YTM3NTVmZGEzOGE5NDRhNWJjZTQwZDE0YjU0YmQ5MDMyYmE5MmE0IE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBYaWFudGFvIFpoYW5nIDx4aWFudGFvLnpoYW5nQGludGVsLmNv
-bT4KRGF0ZTogV2VkLCAyMSBKYW4gMjAwOSAxMToyMToyNyArMDgwMApTdWJqZWN0OiBbUEFUQ0hd
-IEtWTTogaWE2NDogSW1wbGVtZW50IHNvbWUgcGFsIGNhbGxzIG5lZWRlZCBmb3Igd2luZG93cyAy
-MDA4LgoKRm9yIHdpbmRvd3MgMjAwOCwgaXQgbmVlZHMgbW9yZSBwYWwgY2FsbHMgdG8gaW1wbGVt
-ZW50IGZvciBib290aW5nLgpJbiBhZGRpdGlvbiwgYWxzbyBjaGFuZ2VzIHRoZSBuYW1lIG9mIHNl
-dF97c2FsLCBwYWx9X2NhbGxfcmVzdWx0IHRvCmdldF97c2FsLCBwYWx9X2NhbGxfcmVzdWx0IGZv
-ciByZWFkYWJpbGl0eS4KClNpZ25lZC1vZmYtYnk6IFhpYW50YW8gWmhhbmcgPHhpYW50YW8uemhh
-bmdAaW50ZWwuY29tPgotLS0KIGFyY2gvaWE2NC9rdm0va3ZtX2Z3LmMgIHwgIDE1MSArKysrKysr
-KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrLQogYXJjaC9pYTY0L2t2bS9w
-cm9jZXNzLmMgfCAgICA4ICstCiAyIGZpbGVzIGNoYW5nZWQsIDE1MiBpbnNlcnRpb25zKCspLCA3
-IGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rdm0va3ZtX2Z3LmMgYi9hcmNo
-L2lhNjQva3ZtL2t2bV9mdy5jCmluZGV4IGNiNzYwMGIuLmE4YWU1MmUgMTAwNjQ0Ci0tLSBhL2Fy
-Y2gvaWE2NC9rdm0va3ZtX2Z3LmMKKysrIGIvYXJjaC9pYTY0L2t2bS9rdm1fZncuYwpAQCAtMjI3
-LDYgKzIyNywxOCBAQCBzdGF0aWMgc3RydWN0IGlhNjRfcGFsX3JldHZhbCBwYWxfcHJvY19nZXRf
-ZmVhdHVyZXMoc3RydWN0IGt2bV92Y3B1ICp2Y3B1KQogCXJldHVybiByZXN1bHQ7CiB9CiAKK3N0
-YXRpYyBzdHJ1Y3QgaWE2NF9wYWxfcmV0dmFsIHBhbF9yZWdpc3Rlcl9pbmZvKHN0cnVjdCBrdm1f
-dmNwdSAqdmNwdSkKK3sKKworCXN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcmVzdWx0ID0gezAsIDAs
-IDAsIDB9OworCWxvbmcgaW4wLCBpbjEsIGluMiwgaW4zOworCisJa3ZtX2dldF9wYWxfY2FsbF9k
-YXRhKHZjcHUsICZpbjAsICZpbjEsICZpbjIsICZpbjMpOworCXJlc3VsdC5zdGF0dXMgPSBpYTY0
-X3BhbF9yZWdpc3Rlcl9pbmZvKGluMSwgJnJlc3VsdC52MSwgJnJlc3VsdC52Mik7CisKKwlyZXR1
-cm4gcmVzdWx0OworfQorCiBzdGF0aWMgc3RydWN0IGlhNjRfcGFsX3JldHZhbCBwYWxfY2FjaGVf
-aW5mbyhzdHJ1Y3Qga3ZtX3ZjcHUgKnZjcHUpCiB7CiAKQEAgLTI2OCw4ICsyODAsMTIgQEAgc3Rh
-dGljIHN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcGFsX3ZtX3N1bW1hcnkoc3RydWN0IGt2bV92Y3B1
-ICp2Y3B1KQogc3RhdGljIHN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcGFsX3ZtX2luZm8oc3RydWN0
-IGt2bV92Y3B1ICp2Y3B1KQogewogCXN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcmVzdWx0OworCXVu
-c2lnbmVkIGxvbmcgaW4wLCBpbjEsIGluMiwgaW4zOwogCi0JSU5JVF9QQUxfU1RBVFVTX1VOSU1Q
-TEVNRU5URUQocmVzdWx0KTsKKwlrdm1fZ2V0X3BhbF9jYWxsX2RhdGEodmNwdSwgJmluMCwgJmlu
-MSwgJmluMiwgJmluMyk7CisKKwlyZXN1bHQuc3RhdHVzID0gaWE2NF9wYWxfdm1faW5mbyhpbjEs
-IGluMiwKKwkJCShwYWxfdGNfaW5mb191X3QgKikmcmVzdWx0LnYxLCAmcmVzdWx0LnYyKTsKIAog
-CXJldHVybiByZXN1bHQ7CiB9CkBAIC0yOTIsNiArMzA4LDEwOCBAQCBzdGF0aWMgdm9pZCBwcmVw
-YXJlX2Zvcl9oYWx0KHN0cnVjdCBrdm1fdmNwdSAqdmNwdSkKIAl2Y3B1LT5hcmNoLnRpbWVyX2Zp
-cmVkID0gMDsKIH0KIAorc3RhdGljIHN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcGFsX3BlcmZfbW9u
-X2luZm8oc3RydWN0IGt2bV92Y3B1ICp2Y3B1KQoreworCWxvbmcgc3RhdHVzOworCXVuc2lnbmVk
-IGxvbmcgaW4wLCBpbjEsIGluMiwgaW4zLCByOTsKKwl1bnNpZ25lZCBsb25nIHBtX2J1ZmZlclsx
-Nl07CisKKwlrdm1fZ2V0X3BhbF9jYWxsX2RhdGEodmNwdSwgJmluMCwgJmluMSwgJmluMiwgJmlu
-Myk7CisJc3RhdHVzID0gaWE2NF9wYWxfcGVyZl9tb25faW5mbyhwbV9idWZmZXIsCisJCQkJKHBh
-bF9wZXJmX21vbl9pbmZvX3VfdCAqKSAmcjkpOworCWlmIChzdGF0dXMgIT0gMCkgeworCQlwcmlu
-dGsoS0VSTl9ERUJVRyJQQUxfUEVSRl9NT05fSU5GTyBmYWlscyByZXQ9JWxkXG4iLCBzdGF0dXMp
-OworCX0gZWxzZSB7CisJCWlmIChpbjEpCisJCQltZW1jcHkoKHZvaWQgKilpbjEsIHBtX2J1ZmZl
-ciwgc2l6ZW9mKHBtX2J1ZmZlcikpOworCQllbHNlIHsKKwkJCXN0YXR1cyA9IFBBTF9TVEFUVVNf
-RUlOVkFMOworCQkJcHJpbnRrKEtFUk5fV0FSTklORyJJbnZhbGlkIHBhcmFtZXRlcnMgIgorCQkJ
-CQkJImZvciBQQUwgY2FsbDoweCVseCFcbiIsIGluMCk7CisJCX0KKwl9CisJcmV0dXJuIChzdHJ1
-Y3QgaWE2NF9wYWxfcmV0dmFsKXtzdGF0dXMsIHI5LCAwLCAwfTsKK30KKworc3RhdGljIHN0cnVj
-dCBpYTY0X3BhbF9yZXR2YWwgcGFsX2hhbHRfaW5mbyhzdHJ1Y3Qga3ZtX3ZjcHUgKnZjcHUpCit7
-CisJdW5zaWduZWQgbG9uZyBpbjAsIGluMSwgaW4yLCBpbjM7CisJbG9uZyBzdGF0dXM7CisJdW5z
-aWduZWQgbG9uZyByZXMgPSAxMDAwVUwgfCAoMTAwMFVMIDw8IDE2KSB8ICgxMFVMIDw8IDMyKQor
-CQkJCQl8ICgxVUwgPDwgNjEpIHwgKDFVTCA8PCA2MCk7CisKKwlrdm1fZ2V0X3BhbF9jYWxsX2Rh
-dGEodmNwdSwgJmluMCwgJmluMSwgJmluMiwgJmluMyk7CisJaWYgKGluMSkgeworCQltZW1jcHko
-KHZvaWQgKilpbjEsICZyZXMsIHNpemVvZihyZXMpKTsKKwkJc3RhdHVzID0gMDsKKwl9IGVsc2V7
-CisJCXN0YXR1cyA9IFBBTF9TVEFUVVNfRUlOVkFMOworCQlwcmludGsoS0VSTl9XQVJOSU5HIklu
-dmFsaWQgcGFyYW1ldGVycyAiCisJCQkJCSJmb3IgUEFMIGNhbGw6MHglbHghXG4iLCBpbjApOwor
-CX0KKworCXJldHVybiAoc3RydWN0IGlhNjRfcGFsX3JldHZhbCl7c3RhdHVzLCAwLCAwLCAwfTsK
-K30KKworc3RhdGljIHN0cnVjdCBpYTY0X3BhbF9yZXR2YWwgcGFsX21lbV9hdHRyaWIoc3RydWN0
-IGt2bV92Y3B1ICp2Y3B1KQoreworCXVuc2lnbmVkIGxvbmcgcjk7CisJbG9uZyBzdGF0dXM7CisK
-KwlzdGF0dXMgPSBpYTY0X3BhbF9tZW1fYXR0cmliKCZyOSk7CisKKwlyZXR1cm4gKHN0cnVjdCBp
-YTY0X3BhbF9yZXR2YWwpe3N0YXR1cywgcjksIDAsIDB9OworfQorCitzdGF0aWMgdm9pZCByZW1v
-dGVfcGFsX3ByZWZldGNoX3Zpc2liaWxpdHkodm9pZCAqdikKK3sKKwlzNjQgdHJhbnNfdHlwZSA9
-IChzNjQpdjsKKwlpYTY0X3BhbF9wcmVmZXRjaF92aXNpYmlsaXR5KHRyYW5zX3R5cGUpOworfQor
-CitzdGF0aWMgc3RydWN0IGlhNjRfcGFsX3JldHZhbCBwYWxfcHJlZmV0Y2hfdmlzaWJpbGl0eShz
-dHJ1Y3Qga3ZtX3ZjcHUgKnZjcHUpCit7CisJc3RydWN0IGlhNjRfcGFsX3JldHZhbCByZXN1bHQg
-PSB7MCwgMCwgMCwgMH07CisJdW5zaWduZWQgbG9uZyBpbjAsIGluMSwgaW4yLCBpbjM7CisJa3Zt
-X2dldF9wYWxfY2FsbF9kYXRhKHZjcHUsICZpbjAsICZpbjEsICZpbjIsICZpbjMpOworCXJlc3Vs
-dC5zdGF0dXMgPSBpYTY0X3BhbF9wcmVmZXRjaF92aXNpYmlsaXR5KGluMSk7CisJaWYgKHJlc3Vs
-dC5zdGF0dXMgPT0gMCkgeworCQkvKiBNdXN0IGJlIHBlcmZvcm1lZCBvbiBhbGwgcmVtb3RlIHBy
-b2Nlc3NvcnMKKwkJaW4gdGhlIGNvaGVyZW5jZSBkb21haW4uICovCisJCXNtcF9jYWxsX2Z1bmN0
-aW9uKHJlbW90ZV9wYWxfcHJlZmV0Y2hfdmlzaWJpbGl0eSwKKwkJCQkJKHZvaWQgKilpbjEsIDEp
-OworCQkvKiBVbm5lY2Vzc2FyeSBvbiByZW1vdGUgcHJvY2Vzc29yIGZvciBvdGhlciB2Y3B1cyEq
-LworCQlyZXN1bHQuc3RhdHVzID0gMTsKKwl9CisJcmV0dXJuIHJlc3VsdDsKK30KKworc3RhdGlj
-IHZvaWQgcmVtb3RlX3BhbF9tY19kcmFpbih2b2lkICp2KQoreworCWlhNjRfcGFsX21jX2RyYWlu
-KCk7Cit9CisKK3N0YXRpYyBzdHJ1Y3QgaWE2NF9wYWxfcmV0dmFsIHBhbF9nZXRfYnJhbmRfaW5m
-byhzdHJ1Y3Qga3ZtX3ZjcHUgKnZjcHUpCit7CisJc3RydWN0IGlhNjRfcGFsX3JldHZhbCByZXN1
-bHQgPSB7MCwgMCwgMCwgMH07CisJdW5zaWduZWQgbG9uZyBpbjAsIGluMSwgaW4yLCBpbjM7CisK
-Kwlrdm1fZ2V0X3BhbF9jYWxsX2RhdGEodmNwdSwgJmluMCwgJmluMSwgJmluMiwgJmluMyk7CisK
-KwlpZiAoaW4xID09IDAgJiYgaW4yKSB7CisJCWNoYXIgYnJhbmRfaW5mb1sxMjhdOworCQlyZXN1
-bHQuc3RhdHVzID0gaWE2NF9wYWxfZ2V0X2JyYW5kX2luZm8oYnJhbmRfaW5mbyk7CisJCWlmIChy
-ZXN1bHQuc3RhdHVzID09IFBBTF9TVEFUVVNfU1VDQ0VTUykKKwkJCW1lbWNweSgodm9pZCAqKWlu
-MiwgYnJhbmRfaW5mbywgMTI4KTsKKwl9IGVsc2UgeworCQlyZXN1bHQuc3RhdHVzID0gUEFMX1NU
-QVRVU19SRVFVSVJFU19NRU1PUlk7CisJCXByaW50ayhLRVJOX1dBUk5JTkciSW52YWxpZCBwYXJh
-bWV0ZXJzIGZvciAiCisJCQkJCSJQQUwgY2FsbDoweCVseCFcbiIsIGluMCk7CisJfQorCisJcmV0
-dXJuIHJlc3VsdDsKK30KKwogaW50IGt2bV9wYWxfZW11bChzdHJ1Y3Qga3ZtX3ZjcHUgKnZjcHUs
-IHN0cnVjdCBrdm1fcnVuICpydW4pCiB7CiAKQEAgLTMwMCwxNCArNDE4LDIyIEBAIGludCBrdm1f
-cGFsX2VtdWwoc3RydWN0IGt2bV92Y3B1ICp2Y3B1LCBzdHJ1Y3Qga3ZtX3J1biAqcnVuKQogCWlu
-dCByZXQgPSAxOwogCiAJZ3IyOCA9IGt2bV9nZXRfcGFsX2NhbGxfaW5kZXgodmNwdSk7Ci0JLypw
-cmludGsoInBhbF9jYWxsIGluZGV4OiVseFxuIixncjI4KTsqLwogCXN3aXRjaCAoZ3IyOCkgewog
-CWNhc2UgUEFMX0NBQ0hFX0ZMVVNIOgogCQlyZXN1bHQgPSBwYWxfY2FjaGVfZmx1c2godmNwdSk7
-CiAJCWJyZWFrOworCWNhc2UgUEFMX01FTV9BVFRSSUI6CisJCXJlc3VsdCA9IHBhbF9tZW1fYXR0
-cmliKHZjcHUpOworCQlicmVhazsKIAljYXNlIFBBTF9DQUNIRV9TVU1NQVJZOgogCQlyZXN1bHQg
-PSBwYWxfY2FjaGVfc3VtbWFyeSh2Y3B1KTsKIAkJYnJlYWs7CisJY2FzZSBQQUxfUEVSRl9NT05f
-SU5GTzoKKwkJcmVzdWx0ID0gcGFsX3BlcmZfbW9uX2luZm8odmNwdSk7CisJCWJyZWFrOworCWNh
-c2UgUEFMX0hBTFRfSU5GTzoKKwkJcmVzdWx0ID0gcGFsX2hhbHRfaW5mbyh2Y3B1KTsKKwkJYnJl
-YWs7CiAJY2FzZSBQQUxfSEFMVF9MSUdIVDoKIAl7CiAJCUlOSVRfUEFMX1NUQVRVU19TVUNDRVNT
-KHJlc3VsdCk7CkBAIC0zMTcsNiArNDQzLDE2IEBAIGludCBrdm1fcGFsX2VtdWwoc3RydWN0IGt2
-bV92Y3B1ICp2Y3B1LCBzdHJ1Y3Qga3ZtX3J1biAqcnVuKQogCX0KIAkJYnJlYWs7CiAKKwljYXNl
-IFBBTF9QUkVGRVRDSF9WSVNJQklMSVRZOgorCQlyZXN1bHQgPSBwYWxfcHJlZmV0Y2hfdmlzaWJp
-bGl0eSh2Y3B1KTsKKwkJYnJlYWs7CisJY2FzZSBQQUxfTUNfRFJBSU46CisJCXJlc3VsdC5zdGF0
-dXMgPSBpYTY0X3BhbF9tY19kcmFpbigpOworCQkvKiBGSVhNRTogQWxsIHZjcHVzIGxpa2VseSBj
-YWxsIFBBTF9NQ19EUkFJTi4KKwkJICAgVGhhdCBjYXVzZXMgdGhlIGNvbmdlc3Rpb24uICovCisJ
-CXNtcF9jYWxsX2Z1bmN0aW9uKHJlbW90ZV9wYWxfbWNfZHJhaW4sIE5VTEwsIDEpOworCQlicmVh
-azsKKwogCWNhc2UgUEFMX0ZSRVFfUkFUSU9TOgogCQlyZXN1bHQgPSBwYWxfZnJlcV9yYXRpb3Mo
-dmNwdSk7CiAJCWJyZWFrOwpAQCAtMzQ2LDYgKzQ4Miw5IEBAIGludCBrdm1fcGFsX2VtdWwoc3Ry
-dWN0IGt2bV92Y3B1ICp2Y3B1LCBzdHJ1Y3Qga3ZtX3J1biAqcnVuKQogCQlJTklUX1BBTF9TVEFU
-VVNfU1VDQ0VTUyhyZXN1bHQpOwogCQlyZXN1bHQudjEgPSAoMUwgPDwgMzIpIHwgMUw7CiAJCWJy
-ZWFrOworCWNhc2UgUEFMX1JFR0lTVEVSX0lORk86CisJCXJlc3VsdCA9IHBhbF9yZWdpc3Rlcl9p
-bmZvKHZjcHUpOworCQlicmVhazsKIAljYXNlIFBBTF9WTV9QQUdFX1NJWkU6CiAJCXJlc3VsdC5z
-dGF0dXMgPSBpYTY0X3BhbF92bV9wYWdlX3NpemUoJnJlc3VsdC52MCwKIAkJCQkJCQkmcmVzdWx0
-LnYxKTsKQEAgLTM2NSwxMiArNTA0LDE4IEBAIGludCBrdm1fcGFsX2VtdWwoc3RydWN0IGt2bV92
-Y3B1ICp2Y3B1LCBzdHJ1Y3Qga3ZtX3J1biAqcnVuKQogCQlyZXN1bHQuc3RhdHVzID0gaWE2NF9w
-YWxfdmVyc2lvbigKIAkJCQkocGFsX3ZlcnNpb25fdV90ICopJnJlc3VsdC52MCwKIAkJCQkocGFs
-X3ZlcnNpb25fdV90ICopJnJlc3VsdC52MSk7Ci0KIAkJYnJlYWs7CiAJY2FzZSBQQUxfRklYRURf
-QUREUjoKIAkJcmVzdWx0LnN0YXR1cyA9IFBBTF9TVEFUVVNfU1VDQ0VTUzsKIAkJcmVzdWx0LnYw
-ID0gdmNwdS0+dmNwdV9pZDsKIAkJYnJlYWs7CisJY2FzZSBQQUxfQlJBTkRfSU5GTzoKKwkJcmVz
-dWx0ID0gcGFsX2dldF9icmFuZF9pbmZvKHZjcHUpOworCQlicmVhazsKKwljYXNlIFBBTF9HRVRf
-UFNUQVRFOgorCWNhc2UgUEFMX0NBQ0hFX1NIQVJFRF9JTkZPOgorCQlJTklUX1BBTF9TVEFUVVNf
-VU5JTVBMRU1FTlRFRChyZXN1bHQpOworCQlicmVhazsKIAlkZWZhdWx0OgogCQlJTklUX1BBTF9T
-VEFUVVNfVU5JTVBMRU1FTlRFRChyZXN1bHQpOwogCQlwcmludGsoS0VSTl9XQVJOSU5HImt2bTog
-VW5zdXBwb3J0ZWQgcGFsIGNhbGwsIgpkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2t2bS9wcm9jZXNz
-LmMgYi9hcmNoL2lhNjQva3ZtL3Byb2Nlc3MuYwppbmRleCA2ZWQwMzQ3Li43MDc5YWNlIDEwMDY0
-NAotLS0gYS9hcmNoL2lhNjQva3ZtL3Byb2Nlc3MuYworKysgYi9hcmNoL2lhNjQva3ZtL3Byb2Nl
-c3MuYwpAQCAtNjA2LDcgKzYwNiw3IEBAIHN0YXRpYyB2b2lkIHNldF9wYWxfY2FsbF9kYXRhKHN0
-cnVjdCBrdm1fdmNwdSAqdmNwdSkKIAlwLT5leGl0X3JlYXNvbiA9IEVYSVRfUkVBU09OX1BBTF9D
-QUxMOwogfQogCi1zdGF0aWMgdm9pZCBzZXRfcGFsX2NhbGxfcmVzdWx0KHN0cnVjdCBrdm1fdmNw
-dSAqdmNwdSkKK3N0YXRpYyB2b2lkIGdldF9wYWxfY2FsbF9yZXN1bHQoc3RydWN0IGt2bV92Y3B1
-ICp2Y3B1KQogewogCXN0cnVjdCBleGl0X2N0bF9kYXRhICpwID0gJnZjcHUtPmFyY2guZXhpdF9k
-YXRhOwogCkBAIC02MzQsNyArNjM0LDcgQEAgc3RhdGljIHZvaWQgc2V0X3NhbF9jYWxsX2RhdGEo
-c3RydWN0IGt2bV92Y3B1ICp2Y3B1KQogCXAtPmV4aXRfcmVhc29uID0gRVhJVF9SRUFTT05fU0FM
-X0NBTEw7CiB9CiAKLXN0YXRpYyB2b2lkIHNldF9zYWxfY2FsbF9yZXN1bHQoc3RydWN0IGt2bV92
-Y3B1ICp2Y3B1KQorc3RhdGljIHZvaWQgZ2V0X3NhbF9jYWxsX3Jlc3VsdChzdHJ1Y3Qga3ZtX3Zj
-cHUgKnZjcHUpCiB7CiAJc3RydWN0IGV4aXRfY3RsX2RhdGEgKnAgPSAmdmNwdS0+YXJjaC5leGl0
-X2RhdGE7CiAKQEAgLTY1NywxMyArNjU3LDEzIEBAIHZvaWQgIGt2bV9pYTY0X2hhbmRsZV9icmVh
-ayh1bnNpZ25lZCBsb25nIGlmYSwgc3RydWN0IGt2bV9wdF9yZWdzICpyZWdzLAogCQlpZiAoaWlt
-ID09IERPTU5fUEFMX1JFUVVFU1QpIHsKIAkJCXNldF9wYWxfY2FsbF9kYXRhKHYpOwogCQkJdm1t
-X3RyYW5zaXRpb24odik7Ci0JCQlzZXRfcGFsX2NhbGxfcmVzdWx0KHYpOworCQkJZ2V0X3BhbF9j
-YWxsX3Jlc3VsdCh2KTsKIAkJCXZjcHVfaW5jcmVtZW50X2lpcCh2KTsKIAkJCXJldHVybjsKIAkJ
-fSBlbHNlIGlmIChpaW0gPT0gRE9NTl9TQUxfUkVRVUVTVCkgewogCQkJc2V0X3NhbF9jYWxsX2Rh
-dGEodik7CiAJCQl2bW1fdHJhbnNpdGlvbih2KTsKLQkJCXNldF9zYWxfY2FsbF9yZXN1bHQodik7
-CisJCQlnZXRfc2FsX2NhbGxfcmVzdWx0KHYpOwogCQkJdmNwdV9pbmNyZW1lbnRfaWlwKHYpOwog
-CQkJcmV0dXJuOwogCQl9Ci0tIAoxLjYuMAoK
-
---_002_706158FABBBA044BAD4FE898A02E4BC2223BCE99pdsmsx503ccrcor_--
