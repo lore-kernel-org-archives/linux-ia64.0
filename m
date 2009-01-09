@@ -1,44 +1,148 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 13 Jan 2009 06:11:14 +0000
-Subject: [PATCH 4/9] ftrace, ia64: Add recordmcount for ia64
-Message-Id: <20090113061147.742218543@goodmis.org>
-List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Steven Rostedt <srostedt@redhat.com>
-
 From: Shaohua Li <shaohua.li@intel.com>
+Date: Fri, 09 Jan 2009 02:33:02 +0000
+Subject: [PATCH 5/6]IA64 static ftrace support
+Message-Id: <1231468382.10683.104.camel@sli10-desk.sh.intel.com>
+List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Add recordmcount for ia64.
+IA64 ftrace suppport. In IA64, below code will be added in each function
+if -pg is enabled.
+
+alloc r40=3Dar.pfs,12,8,0
+mov r43=3Dr0;;
+mov r42=B0
+mov r41=3Dr1
+nop.i 0x0
+br.call.sptk.many b0 =3D _mcount;;
 
 Signed-off-by: Shaohua Li <shaohua.li@intel.com>
-Signed-off-by: Steven Rostedt <srostedt@redhat.com>
 ---
- scripts/recordmcount.pl |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+ arch/ia64/Kconfig              |    1=20
+ arch/ia64/include/asm/ftrace.h |   15 ++++++++++++
+ arch/ia64/kernel/entry.S       |   49 ++++++++++++++++++++++++++++++++++++=
++++++
+ arch/ia64/kernel/ia64_ksyms.c  |    6 +++++
+ 4 files changed, 71 insertions(+)
 
-diff --git a/scripts/recordmcount.pl b/scripts/recordmcount.pl
-index 070042b..2ded5c8 100755
---- a/scripts/recordmcount.pl
-+++ b/scripts/recordmcount.pl
-@@ -206,6 +206,13 @@ if ($arch eq "x86_64") {
-     $alignment = 2;
-     $section_type = '%progbits';
- 
-+} elsif ($arch eq "ia64") {
-+    $mcount_regex = "^\\s*([0-9a-fA-F]+):.*\\s_mcount\$";
-+    $type = "data8";
+Index: linux/arch/ia64/Kconfig
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/Kconfig	2009-01-09 09:53:0=
+7.000000000 +0800
++++ linux/arch/ia64/Kconfig	2009-01-09 09:56:59.000000000 +0800
+@@ -21,6 +21,7 @@ config IA64
+ 	select HAVE_OPROFILE
+ 	select HAVE_KPROBES
+ 	select HAVE_KRETPROBES
++	select HAVE_FUNCTION_TRACER
+ 	select HAVE_DMA_ATTRS
+ 	select HAVE_KVM
+ 	select HAVE_ARCH_TRACEHOOK
+Index: linux/arch/ia64/include/asm/ftrace.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux/arch/ia64/include/asm/ftrace.h	2009-01-09 09:56:59.000000000 +0800
+@@ -0,0 +1,15 @@
++#ifndef _ASM_IA64_FTRACE_H
++#define _ASM_IA64_FTRACE_H
 +
-+    if ($is_module eq "0") {
-+        $cc .= " -mconstant-gp";
-+    }
- } else {
-     die "Arch $arch is not supported with CONFIG_FTRACE_MCOUNT_RECORD";
- }
--- 
-1.5.6.5
++#ifdef CONFIG_FUNCTION_TRACER
++#define MCOUNT_INSN_SIZE        32 /* sizeof mcount call */
++
++#ifndef __ASSEMBLY__
++extern void _mcount(unsigned long pfs, unsigned long r1, unsigned long b0,=
+ unsigned long r0);
++#define mcount _mcount
++
++#endif
++
++#endif /* CONFIG_FUNCTION_TRACER */
++
++#endif /* _ASM_IA64_FTRACE_H */
+Index: linux/arch/ia64/kernel/entry.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/entry.S	2009-01-09 =
+09:53:07.000000000 +0800
++++ linux/arch/ia64/kernel/entry.S	2009-01-09 09:56:59.000000000 +0800
+@@ -47,6 +47,7 @@
+ #include <asm/processor.h>
+ #include <asm/thread_info.h>
+ #include <asm/unistd.h>
++#include <asm/ftrace.h>
+=20
+ #include "minstate.h"
+=20
+@@ -1404,6 +1405,54 @@ GLOBAL_ENTRY(unw_init_running)
+ 	br.ret.sptk.many rp
+ END(unw_init_running)
+=20
++#ifdef CONFIG_FUNCTION_TRACER
++GLOBAL_ENTRY(_mcount)
++	movl r2 =3D ftrace_stub
++	movl r3 =3D ftrace_trace_function;;
++	ld8 r3 =3D [r3];;
++	ld8 r3 =3D [r3];;
++	cmp.eq p7,p0 =3D r2, r3
++(p7)	br.sptk.many ftrace_stub
++	;;
++
++	alloc loc0 =3D ar.pfs, 4, 4, 2, 0
++	;;
++	mov loc1 =3D b0
++	mov out0 =3D b0
++	mov loc2 =3D r8
++	mov loc3 =3D r15
++	;;
++	adds out0 =3D -MCOUNT_INSN_SIZE, out0
++	mov out1 =3D in2
++	mov b6 =3D r3
++
++	br.call.sptk.many b0 =3D b6
++	;;
++	mov ar.pfs =3D loc0
++	mov b0 =3D loc1
++	mov r8 =3D loc2
++	mov r15 =3D loc3
++	br ftrace_stub
++	;;
++END(_mcount)
++
++GLOBAL_ENTRY(ftrace_stub)
++	mov r3 =3D b0
++	movl r2 =3D _mcount_ret_helper
++	;;
++	mov b6 =3D r2
++	mov b7 =3D r3
++	br.ret.sptk.many b6
++
++_mcount_ret_helper:
++	mov b0 =3D r42
++	mov r1 =3D r41
++	mov ar.pfs =3D r40
++	br b7
++END(ftrace_stub)
++
++#endif /* CONFIG_FUNCTION_TRACER */
++
+ 	.rodata
+ 	.align 8
+ 	.globl sys_call_table
+Index: linux/arch/ia64/kernel/ia64_ksyms.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/ia64_ksyms.c	2009-0=
+1-09 09:53:07.000000000 +0800
++++ linux/arch/ia64/kernel/ia64_ksyms.c	2009-01-09 09:56:59.000000000 +0800
+@@ -112,3 +112,9 @@ EXPORT_SYMBOL_GPL(esi_call_phys);
+ #endif
+ extern char ia64_ivt[];
+ EXPORT_SYMBOL(ia64_ivt);
++
++#include <asm/ftrace.h>
++#ifdef CONFIG_FUNCTION_TRACER
++/* mcount is defined in assembly */
++EXPORT_SYMBOL(_mcount);
++#endif
 
--- 
+
