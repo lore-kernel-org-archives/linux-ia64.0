@@ -1,53 +1,28 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 15 Jan 2009 19:45:33 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <200901151945.n0FJjXMe001477@agluck-lia64.sc.intel.com>
+From: "Motorola Company" <info@winner.com>
+Date: Sat, 10 Jan 2009 08:25:30 +0000
+Subject: MOTOROLA PROMOTION
+Message-Id: <z0fqLy6a.1231575930.9497610.solucionlogica@cablenet.com.ni>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+From the online email ballot promotions held by
+Motorola Company, your email have been approved to claim the
+sum of =A3400,000 (Four hundred thousand pounds) .
 
-please pull from:
+To file for claim, you are required to
+provide us with the information below for verification:
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+Full Name:
+Mailing address:
+Permanent house address:
+Country of resident:
+Phone Number:
+Age:
+Occupation:
 
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- Documentation/DMA-API.txt            |    9 ++++-----
- arch/ia64/Kconfig                    |    1 +
- arch/ia64/configs/generic_defconfig  |    2 +-
- arch/ia64/include/asm/dma-mapping.h  |    2 ++
- arch/ia64/include/asm/machvec.h      |    7 +++++++
- arch/ia64/include/asm/machvec_init.h |    1 +
- arch/ia64/include/asm/machvec_sn2.h  |    2 ++
- arch/ia64/kernel/unaligned.c         |    6 +++++-
- arch/ia64/pci/pci.c                  |   27 +++++++++++++++++++++++++++
- arch/ia64/sn/pci/pci_dma.c           |    6 ++++++
- arch/ia64/xen/time.c                 |    4 ++--
- kernel/sysctl.c                      |    9 +++++++++
- 12 files changed, 67 insertions(+), 9 deletions(-)
-
-Brent Casavant (1):
-      [IA64] generic_defconfig: Enable SATA_VITESSE
-
-Doug Chapman (1):
-      [IA64] dump stack on kernel unaligned warnings
-
-Isaku Yamahata (1):
-      [IA64] Update to use account_{steal,idle}_ticks
-
-John Keller (1):
-      [IA64] SN specific version of dma_get_required_mask()
-
-Tony Luck (1):
-      [IA64] Turn on CONFIG_HAVE_UNSTABLE_CLOCK
-
+Reply this email with the information
+for claim
+(pr_moto@yahoo.com.hk)
