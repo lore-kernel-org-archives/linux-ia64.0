@@ -1,51 +1,38 @@
-From: Shaohua Li <shaohua.li@intel.com>
-Date: Fri, 09 Jan 2009 02:42:03 +0000
-Subject: RE: [PATCH 5/5] IA64 dynamic ftrace support
-Message-Id: <1231468923.10683.112.camel@sli10-desk.sh.intel.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 13 Jan 2009 06:11:19 +0000
+Subject: [PATCH 9/9] ftrace, trivial: fix typo "resgister" -> "register"
+Message-Id: <20090113061148.807298761@goodmis.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1230012500.10933.102.camel@sli10-desk.sh.intel.com>
-In-Reply-To: <1230012500.10933.102.camel@sli10-desk.sh.intel.com>
+References: <20090113061110.856268617@goodmis.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Uwe Kleine-K?nig <ukleinek@strlen.de>, trivial@kernel.org, Steven Rostedt <srostedt@redhat.com>
 
-On Thu, 2009-01-08 at 13:25 -0700, Luck, Tony wrote:
-> > The patch convert it to below for nop:
-> >       [MII] nop.m 0x0
-> >       mov r3=ip
-> >       nop.i 0x0
-> >       [MLX] nop.m 0x0
-> >       nop.x 0x0;;
-> > This isn't completely nop, as there is one instuction 'mov r3=ip', but
-> > it should be light and harmless for code follow it.
-> 
-> Did you consider using predicate registers to enable/disable.  E.g.
-> using something like this (using your currrent calling convention):
-> 
->         MMI     cmp.ne p6,p0=r0,r0;;
->                 nop.m 0
->         (p06)   mov r3=ip
->         MLX     nop.m 0
->         (p06)   brl.many <target_address>
-> 
-> Then just patch the "cmp" instruction to something that makes p6 true to enable.
-> 
-> Like this it may not be any better though ... although it avoids
-> doing the "mov r3=ip" when the tracepoint is disabled ... it may still
-> mess with the branch prediction logic and update entries in the branch
-> target cache before the processor realizes that p6 is false and so the
-> branch should be squashed.
-> 
-> But it does give you the flexibility to pick almost any 5 instructions
-> for your stub (so long as they can fit within the available templates)
-> while still allowing ftrace to enable/disable them by patching just one
-> instruction.  So you might think of some smarter way to do this.
-Ya, this should work too. Is it a nop (or as light as a nop) if an
-instruction has false prediction? the 'mov r3=ip' takes overhead, but we
-need it in current implementation. Better we can remove the overhead.
-Instruction room doesn't matter now. instruction overhead is concerned.
+From: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>
 
-Thanks,
-Shaohua
+Signed-off-by: Uwe Kleine-K?nig <ukleinek@strlen.de>
+Cc: trivial@kernel.org
+Signed-off-by: Steven Rostedt <srostedt@redhat.com>
+---
+ kernel/trace/ftrace.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
+index 9f53610..8c1c9c0 100644
+--- a/kernel/trace/ftrace.c
++++ b/kernel/trace/ftrace.c
+@@ -1894,7 +1894,7 @@ int register_ftrace_function(struct ftrace_ops *ops)
+ }
+ 
+ /**
+- * unregister_ftrace_function - unresgister a function for profiling.
++ * unregister_ftrace_function - unregister a function for profiling.
+  * @ops - ops structure that holds the function to unregister
+  *
+  * Unregister a function that was added to be called by ftrace profiling.
+-- 
+1.5.6.5
+
+-- 
