@@ -1,38 +1,28 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 13 Jan 2009 06:11:19 +0000
-Subject: [PATCH 9/9] ftrace, trivial: fix typo "resgister" -> "register"
-Message-Id: <20090113061148.807298761@goodmis.org>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+Date: Tue, 13 Jan 2009 08:03:52 +0000
+Subject: Re: [PATCH 9/9] ftrace, trivial: fix typo "resgister" -> "register"
+Message-Id: <20090113080352.GB23381@pengutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org>
+References: <20090113061110.856268617@goodmis.org> <20090113061148.807298761@goodmis.org>
+In-Reply-To: <20090113061148.807298761@goodmis.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Uwe Kleine-K?nig <ukleinek@strlen.de>, trivial@kernel.org, Steven Rostedt <srostedt@redhat.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Steven Rostedt <rostedt@goodmis.org>
+Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, trivial@kernel.org, Steven Rostedt <srostedt@redhat.com>
 
-From: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>
+On Tue, Jan 13, 2009 at 01:11:19AM -0500, Steven Rostedt wrote:
+> From: Uwe Kleine-K?nig <u.kleine-koenig@pengutronix.de>
+>=20
+> Signed-off-by: Uwe Kleine-K?nig <ukleinek@strlen.de>
+who ever will apply this patch, can you please take care that the '?' is
+substituted by '=F6' or if that is too hard, by 'oe'?
 
-Signed-off-by: Uwe Kleine-K?nig <ukleinek@strlen.de>
-Cc: trivial@kernel.org
-Signed-off-by: Steven Rostedt <srostedt@redhat.com>
----
- kernel/trace/ftrace.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thanks
+Uwe
 
-diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
-index 9f53610..8c1c9c0 100644
---- a/kernel/trace/ftrace.c
-+++ b/kernel/trace/ftrace.c
-@@ -1894,7 +1894,7 @@ int register_ftrace_function(struct ftrace_ops *ops)
- }
- 
- /**
-- * unregister_ftrace_function - unresgister a function for profiling.
-+ * unregister_ftrace_function - unregister a function for profiling.
-  * @ops - ops structure that holds the function to unregister
-  *
-  * Unregister a function that was added to be called by ftrace profiling.
--- 
-1.5.6.5
-
--- 
+--=20
+Pengutronix e.K.                              | Uwe Kleine-K=F6nig         =
+   |
+Industrial Linux Solutions                    | http://www.pengutronix.de/ =
+ |
