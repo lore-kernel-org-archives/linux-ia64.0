@@ -1,94 +1,84 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Mon, 05 Jan 2009 14:36:11 +0000
-Subject: [PATCH 06/13] add dma_mapping_ops for SWIOTLB
-Message-Id: <1231166178-20050-7-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Tue, 13 Jan 2009 06:11:11 +0000
+Subject: [PATCH 1/9] ftrace, ia64: make recordmcount destinct module compile
+Message-Id: <20090113061147.147906400@goodmis.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1231166178-20050-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
- <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1231166178-20050-6-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <20090113061110.856268617@goodmis.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+To: linux-kernel@vger.kernel.org
+Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Steven Rostedt <srostedt@redhat.com>
 
-There is already dma_mapping_ops for SWIOTLB but there are some
-missing hooks.
+From: Shaohua Li <shaohua.li@intel.com>
 
-This is for IA64_DIG_VTD, IA64_HP_ZX1_SWIOTLB, IA64_SGI_UV,
-IA64_HP_SIM, IA64_XEN_GUEST and IA64_GENERIC.
+In IA64, module build and kernel build use different option.
+Make recordmcount.pl differentiate the two cases.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Signed-off-by: Shaohua Li <shaohua.li@intel.com>
+Acked-by: Sam Ravnborg <sam@ravnborg.org>
+Signed-off-by: Steven Rostedt <srostedt@redhat.com>
 ---
- arch/ia64/kernel/Makefile      |    2 --
- arch/ia64/kernel/pci-dma.c     |    3 ---
- arch/ia64/kernel/pci-swiotlb.c |    9 ++++++++-
- 3 files changed, 8 insertions(+), 6 deletions(-)
+ scripts/Makefile.build  |   13 +++++++------
+ scripts/recordmcount.pl |    6 +++---
+ 2 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index c381ea9..bc1f62a 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -43,9 +43,7 @@ ifneq ($(CONFIG_IA64_ESI),)
- obj-y				+= esi_stub.o	# must be in kernel proper
+diff --git a/scripts/Makefile.build b/scripts/Makefile.build
+index 5d90030..b5efa98 100644
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -112,13 +112,13 @@ endif
+ # ---------------------------------------------------------------------------
+ 
+ # Default is built-in, unless we know otherwise
+-modkern_cflags := $(CFLAGS_KERNEL)
++modkern_cflags = $(if $(part-of-module), $(CFLAGS_MODULE), $(CFLAGS_KERNEL))
+ quiet_modtag := $(empty)   $(empty)
+ 
+-$(real-objs-m)        : modkern_cflags := $(CFLAGS_MODULE)
+-$(real-objs-m:.o=.i)  : modkern_cflags := $(CFLAGS_MODULE)
+-$(real-objs-m:.o=.s)  : modkern_cflags := $(CFLAGS_MODULE)
+-$(real-objs-m:.o=.lst): modkern_cflags := $(CFLAGS_MODULE)
++$(real-objs-m)        : part-of-module := y
++$(real-objs-m:.o=.i)  : part-of-module := y
++$(real-objs-m:.o=.s)  : part-of-module := y
++$(real-objs-m:.o=.lst): part-of-module := y
+ 
+ $(real-objs-m)        : quiet_modtag := [M]
+ $(real-objs-m:.o=.i)  : quiet_modtag := [M]
+@@ -215,7 +215,8 @@ endif
+ ifdef CONFIG_FTRACE_MCOUNT_RECORD
+ cmd_record_mcount = perl $(srctree)/scripts/recordmcount.pl "$(ARCH)" \
+ 	"$(if $(CONFIG_64BIT),64,32)" \
+-	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" "$(@)";
++	"$(OBJDUMP)" "$(OBJCOPY)" "$(CC)" "$(LD)" "$(NM)" "$(RM)" "$(MV)" \
++	"$(if $(part-of-module),1,0)" "$(@)";
  endif
- obj-$(CONFIG_DMAR)		+= pci-dma.o
--ifeq ($(CONFIG_DMAR), y)
- obj-$(CONFIG_SWIOTLB)		+= pci-swiotlb.o
--endif
  
- # The gate DSO image is built using a special linker script.
- targets += gate.so gate-syms.o
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index 2a92f63..f8c38bd 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -32,9 +32,6 @@ int force_iommu __read_mostly = 1;
- int force_iommu __read_mostly;
- #endif
+ define rule_cc_o_c
+diff --git a/scripts/recordmcount.pl b/scripts/recordmcount.pl
+index fe83141..282485a 100755
+--- a/scripts/recordmcount.pl
++++ b/scripts/recordmcount.pl
+@@ -100,14 +100,14 @@ $P =~ s@.*/@@g;
  
--/* Set this to 1 if there is a HW IOMMU in the system */
--int iommu_detected __read_mostly;
--
- /* Dummy device used for NULL arguments (normally ISA). Better would
-    be probably a smaller DMA mask, but this is bug-to-bug compatible
-    to i386. */
-diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
-index 16c5051..b62fb93 100644
---- a/arch/ia64/kernel/pci-swiotlb.c
-+++ b/arch/ia64/kernel/pci-swiotlb.c
-@@ -13,12 +13,18 @@
- int swiotlb __read_mostly;
- EXPORT_SYMBOL(swiotlb);
+ my $V = '0.1';
  
-+/* Set this to 1 if there is a HW IOMMU in the system */
-+int iommu_detected __read_mostly;
-+
- struct dma_mapping_ops swiotlb_dma_ops = {
--	.mapping_error = swiotlb_dma_mapping_error,
- 	.alloc_coherent = swiotlb_alloc_coherent,
- 	.free_coherent = swiotlb_free_coherent,
- 	.map_single = swiotlb_map_single,
- 	.unmap_single = swiotlb_unmap_single,
-+	.map_single_attrs = swiotlb_map_single_attrs,
-+	.unmap_single_attrs = swiotlb_unmap_single_attrs,
-+	.map_sg_attrs = swiotlb_map_sg_attrs,
-+	.unmap_sg_attrs	= swiotlb_unmap_sg_attrs,
- 	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
- 	.sync_single_for_device = swiotlb_sync_single_for_device,
- 	.sync_single_range_for_cpu = swiotlb_sync_single_range_for_cpu,
-@@ -28,6 +34,7 @@ struct dma_mapping_ops swiotlb_dma_ops = {
- 	.map_sg = swiotlb_map_sg,
- 	.unmap_sg = swiotlb_unmap_sg,
- 	.dma_supported_op = swiotlb_dma_supported,
-+	.mapping_error = swiotlb_dma_mapping_error,
- };
+-if ($#ARGV < 6) {
+-	print "usage: $P arch objdump objcopy cc ld nm rm mv inputfile\n";
++if ($#ARGV < 7) {
++	print "usage: $P arch objdump objcopy cc ld nm rm mv is_module inputfile\n";
+ 	print "version: $V\n";
+ 	exit(1);
+ }
  
- void __init pci_swiotlb_init(void)
+ my ($arch, $bits, $objdump, $objcopy, $cc,
+-    $ld, $nm, $rm, $mv, $inputfile) = @ARGV;
++    $ld, $nm, $rm, $mv, $is_module, $inputfile) = @ARGV;
+ 
+ # Acceptable sections to record.
+ my %text_sections = (
 -- 
-1.6.0.6
+1.5.6.5
 
+-- 
