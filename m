@@ -1,35 +1,53 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 28 Jan 2009 17:15:08 +0000
-Subject: RE: [PATCH] percpu: add optimized generic percpu accessors
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA35F317910@orsmsx505.amr.corp.intel.com>
+Date: Thu, 15 Jan 2009 19:45:33 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <200901151945.n0FJjXMe001477@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200901271213.18605.rusty@rustcorp.com.au>
- <497E705B.5000302@kernel.org> <alpine.DEB.1.10.0901271506580.3114@qirst.com>
- <20090127.134747.153565246.davem@davemloft.net> <497F8F02.9000603@hp.com>
- <57C9024A16AD2D4C97DC78E552063EA35F317617@orsmsx505.amr.corp.intel.com>
- <alpine.DEB.1.10.0901281146260.13825@qirst.com>
-In-Reply-To: <alpine.DEB.1.10.0901281146260.13825@qirst.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <cl@linux-foundation.org>
-Cc: Rick Jones <rick.jones2@hp.com>, David Miller <davem@davemloft.net>, "tj@kernel.org" <tj@kernel.org>, "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>, "mingo@elte.hu" <mingo@elte.hu>, "herbert@gondor.apana.org.au" <herbert@gondor.apana.org.au>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "hpa@zytor.com" <hpa@zytor.com>, "brgerst@gmail.com" <brgerst@gmail.com>, "ebiederm@xmission.com" <ebiederm@xmission.com>, "travis@sgi.com" <travis@sgi.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "steiner@sgi.com" <steiner@sgi.com>, "hugh@veritas.com" <hugh@veritas.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>, "mathieu.desnoyers@polymtl.ca" <mathieu.desnoyers@polymtl.ca>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-> > Managing a larger space could be done ... but at the expense of making
-> > the Alt-DTLB miss handler do a memory lookup to find the physical address
-> > of the per-cpu page needed (assuming that we allocate a bunch of random
-> > physical pages for use as per-cpu space rather than a single contiguous
-> > block of physical memory).
->
-> We cannot resize the area by using a single larger TLB entry?
+Hi Linus,
 
-Yes we could ... the catch is that the supported TLB page sizes go
-up by multiples of 4.  So if 64K is not enough the next stop is
-at 256K, then 1M, then 4M, and so on.
+please pull from:
 
-That's why I asked when we know what total amount of per-cpu memory
-is needed.  CONFIG time or boot time is good, because allocating higher
-order pages is easy at boot time.  Arbitrary run time is bad because
-we might have difficulty allocating a high order page for every cpu.
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
 
 -Tony
+
+ Documentation/DMA-API.txt            |    9 ++++-----
+ arch/ia64/Kconfig                    |    1 +
+ arch/ia64/configs/generic_defconfig  |    2 +-
+ arch/ia64/include/asm/dma-mapping.h  |    2 ++
+ arch/ia64/include/asm/machvec.h      |    7 +++++++
+ arch/ia64/include/asm/machvec_init.h |    1 +
+ arch/ia64/include/asm/machvec_sn2.h  |    2 ++
+ arch/ia64/kernel/unaligned.c         |    6 +++++-
+ arch/ia64/pci/pci.c                  |   27 +++++++++++++++++++++++++++
+ arch/ia64/sn/pci/pci_dma.c           |    6 ++++++
+ arch/ia64/xen/time.c                 |    4 ++--
+ kernel/sysctl.c                      |    9 +++++++++
+ 12 files changed, 67 insertions(+), 9 deletions(-)
+
+Brent Casavant (1):
+      [IA64] generic_defconfig: Enable SATA_VITESSE
+
+Doug Chapman (1):
+      [IA64] dump stack on kernel unaligned warnings
+
+Isaku Yamahata (1):
+      [IA64] Update to use account_{steal,idle}_ticks
+
+John Keller (1):
+      [IA64] SN specific version of dma_get_required_mask()
+
+Tony Luck (1):
+      [IA64] Turn on CONFIG_HAVE_UNSTABLE_CLOCK
+
