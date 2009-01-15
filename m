@@ -1,24 +1,97 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 15 Jan 2009 12:21:56 +0000
+From: Mike Travis <travis@sgi.com>
+Date: Thu, 15 Jan 2009 16:44:08 +0000
 Subject: Re: crash: IP: [<ffffffff80478092>] __bitmap_intersects+0x48/0x73
-Message-Id: <20090115122156.GA20349@elte.hu>
+Message-Id: <496F67D8.4060507@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <496BF6D5.9030403@sgi.com> <20090113130048.GB31147@elte.hu> <496CAF5A.3010304@sgi.com> <496D0F46.2010907@sgi.com> <496D2172.6030608@sgi.com> <20090114165431.GA18826@elte.hu> <20090114165524.GA21742@elte.hu> <20090114175126.GA21078@elte.hu> <496E78BA.5040609@sgi.com> <20090115101617.GH5833@elte.hu>
-In-Reply-To: <20090115101617.GH5833@elte.hu>
+References: <496BF6D5.9030403@sgi.com> <20090113130048.GB31147@elte.hu> <496CAF5A.3010304@sgi.com> <496D0F46.2010907@sgi.com> <496D2172.6030608@sgi.com> <20090114165431.GA18826@elte.hu> <20090114165524.GA21742@elte.hu> <20090114175126.GA21078@elte.hu> <496E78BA.5040609@sgi.com> <20090115101428.GG5833@elte.hu>
+In-Reply-To: <20090115101428.GG5833@elte.hu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Mike Travis <travis@sgi.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Ingo Molnar <mingo@elte.hu>
 Cc: Rusty Russell <rusty@rustcorp.com.au>, Yinghai Lu <yinghai@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, Tony Luck <tony.luck@intel.com>, IA64 <linux-ia64@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org, David Howells <dhowells@redhat.com>, Koichi Yasutake <yasutake.koichi@jp.panasonic.com>, linux-am33-list@redhat.com, "David S. Miller" <davem@davemloft.net>, SPARC <sparclinux@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
 
+Ingo Molnar wrote:
+> * Mike Travis <travis@sgi.com> wrote:
+> 
+>> Ingo Molnar wrote:
+>>> also, with latest tip/master the ia64 cross-build still fails:
+>>>
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c: In function `ia64_handle_irq':
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c:498: error: structure has no member named `irqs'
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c:500: error: structure has no member named `irqs'
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c: In function `ia64_process_pending_intr':
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c:556: error: structure has no member named `irqs'
+>>> /home/mingo/tip/arch/ia64/kernel/irq_ia64.c:558: error: structure has no member named `irqs'
+>>> make[2]: *** [arch/ia64/kernel/irq_ia64.o] Error 1
+>>> make[2]: *** Waiting for unfinished jobs....
+>>>
+>>> and so does the MIPS build:
+>>>
+>>> /home/mingo/tip/arch/mips/sgi-ip22/ip22-int.c: In function 'indy_buserror_irq':
+>>> /home/mingo/tip/arch/mips/sgi-ip22/ip22-int.c:158: error: 'struct kernel_stat' has no member named 'irqs'
+>>> make[2]: *** [arch/mips/sgi-ip22/ip22-int.o] Error 1
+>>> make[2]: *** Waiting for unfinished jobs....
+>>> /home/mingo/tip/arch/mips/sgi-ip22/ip22-time.c: In function 'indy_8254timer_irq':
+>>> /home/mingo/tip/arch/mips/sgi-ip22/ip22-time.c:125: error: 'struct kernel_stat' has no member named 'irqs'
+>>> make[2]: *** [arch/mips/sgi-ip22/ip22-time.o] Error 1
+>>> make[1]: *** [arch/mips/sgi-ip22] Error 2
+>>> make[1]: *** Waiting for unfinished jobs....
+>>>
+>>> 	Ingo
+>> Hi Ingo,
+>>
+>> This appears to be a fallout of the sparse irqs changes.  Here is a 
+>> suggested patch.
+>>
+>> Btw, my ia64 build fails under tip/cpus4096 because this commit is not 
+>> present:
+>>
+>> commit e65e49d0f3714f4a6a42f6f6a19926ba33fcda75
+>> Author: Mike Travis <travis@sgi.com>
+>> Date:   Mon Jan 12 15:27:13 2009 -0800
+>>
+>>     irq: update all arches for new irq_desc
+> 
+> it is present:
+> 
+>  [mingo@hera tip]$ git log cpus4096 | grep e65e49d
+>  commit e65e49d0f3714f4a6a42f6f6a19926ba33fcda75
+> 
+> 	Ingo
 
-FYI, there's new warnings due to cpumask changes:
+Hmm, the exact same command on my work tree produces nothing.  If I generate
+a whole new tip/cpus4096 tree, it's then there.  Once again a victim of 
+git remote updating - not!  There must be something that I'm doing wrong:
 
-arch/x86/kernel/cpu/intel_cacheinfo.c: In function ‘show_cache_disable’:
-arch/x86/kernel/cpu/intel_cacheinfo.c:710: warning: unused variable ‘mask’
-arch/x86/kernel/cpu/intel_cacheinfo.c: In function ‘store_cache_disable’:
-arch/x86/kernel/cpu/intel_cacheinfo.c:745: warning: unused variable ‘mask’
+Non-working tree:
 
-on 32-bit defconfig.
+ 21> git-describe
+v2.6.29-rc1-19-g92296c6
 
-	Ingo
+ 22> git-status
+# On branch cpus4096
+# Your branch is behind 'tip/cpus4096' by 233 commits, and can be fast-forwarded.
+
+ 23> git-remote update
+Updating linus
+Updating tip
+
+ 24> git-status
+# On branch cpus4096
+# Your branch is behind 'tip/cpus4096' by 233 commits, and can be fast-forwarded.
+
+ 25> git-describe
+v2.6.29-rc1-19-g92296c6
+
+New (working) tree:
+
+ 2> git-describe
+v2.6.29-rc1-252-g5cd7376
+
+???
+
+Thanks,
+Mike
+
+
