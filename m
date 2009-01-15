@@ -1,32 +1,41 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 07 Jan 2009 15:16:14 +0000
+From: Greg KH <greg@kroah.com>
+Date: Thu, 15 Jan 2009 18:48:32 +0000
 Subject: Re: [PATCH] configure HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN systems
-Message-Id: <1231341374.11687.303.camel@twins>
+Message-Id: <20090115184832.GE10674@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <57C9024A16AD2D4C97DC78E552063EA35CB95575@orsmsx505.amr.corp.intel.com>
-	 <20090106201950.GA3850@sgi.com>
-	 <57C9024A16AD2D4C97DC78E552063EA35CB955B4@orsmsx505.amr.corp.intel.com>
-	 <1231275441.11687.110.camel@twins> <20090106225054.GB3850@sgi.com>
-	 <1231283763.11687.135.camel@twins> <20090107030030.GH3390@wotan.suse.de>
-	 <1231313289.11687.172.camel@twins> <20090107094328.GD3850@sgi.com>
-	 <1231322037.11687.178.camel@twins>  <20090107133230.GA28694@sgi.com>
-In-Reply-To: <20090107133230.GA28694@sgi.com>
+References: <20090106162741.GA7991@sgi.com>
+In-Reply-To: <20090106162741.GA7991@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Dimitri Sivanich <sivanich@sgi.com>
-Cc: Robin Holt <holt@sgi.com>, Nick Piggin <npiggin@suse.de>, "Luck, Tony" <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Greg KH <greg@kroah.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Gregory Haskins <ghaskins@novell.com>, Tony Luck <tony.luck@gmail.com>
+Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Gregory Haskins <ghaskins@novell.com>, Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@gmail.com>, Robin Holt <holt@sgi.com>
 
-On Wed, 2009-01-07 at 07:32 -0600, Dimitri Sivanich wrote:
-> Peter,
+On Tue, Jan 06, 2009 at 10:27:41AM -0600, Dimitri Sivanich wrote:
+> Turn on CONFIG_HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN.
 > 
-> On Wed, Jan 07, 2009 at 10:53:57AM +0100, Peter Zijlstra wrote:
-> > 
-> > Clock state is kept per-cpu, and locked with a spinlock. When we request
+> SGI Altix has unsynchronized itc clocks.  This results in rq->clock
+> occasionally being set to a time in the past by a remote cpu.
 > 
-> Admittedly I have not looked at this possibility too closely, but my
-> initial concern upon looking at sched_clock_cpu() for the UNSTABLE
-> case was the lock_double_clock() and what sort of contention that
-> might cause on larger systems under certain conditions.
+> Note that it is possible that this problem may exist for other ia64
+> machines as well, based on the following comment for sched_clock() in
+> arch/ia64/kernel/head.S:
+> 
+>  * Return a CPU-local timestamp in nano-seconds.  This timestamp is
+>  * NOT synchronized across CPUs its return value must never be
+>  * compared against the values returned on another CPU.  The usage in
+>  * kernel/sched.c ensures that.
+> 
+> 
+> Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+> 
+> ---
+> 
+> Greg, if everyone is OK with this patch, this should also be applied
+> to all stable trees starting with 2.6.26.
 
-Similar contention would already exist on rq->lock.
+What is the status of this going into Linus's tree?
+
+thanks,
+
+greg k-h
