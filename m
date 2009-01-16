@@ -1,92 +1,98 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 14 Jan 2009 11:12:26 +0000
-Subject: Re: [PATCH 0/9] ftrace: updates for tip
-Message-Id: <20090114111226.GL2913@elte.hu>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 16 Jan 2009 01:49:49 +0000
+Subject: linux-next: build problem with nfs tree (Was: Re: [mmotm][PATCH]
+Message-Id: <20090116124949.7828a559.sfr@canb.auug.org.au>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Signature=_Fri__16_Jan_2009_12_49_49_+1100_GJbIO4u/muZTDHew"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org> <alpine.DEB.1.10.0901130905110.31098@gandalf.stny.rr.com> <alpine.DEB.1.10.0901131147310.9837@gandalf.stny.rr.com>
-In-Reply-To: <alpine.DEB.1.10.0901131147310.9837@gandalf.stny.rr.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de
+References: <20090115200315.EBE3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+	<20090115093514.f3f6b8ff.akpm@linux-foundation.org>
+In-Reply-To: <20090115093514.f3f6b8ff.akpm@linux-foundation.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-next@vger.kernel.org, Prarit Bhargava <prarit@redhat.com>, David Howells <dhowells@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, LKML <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Sam Ravnborg <sam@ravnborg.org>, Kyle McMartin <kyle@mcmartin.ca>, Tony Luck <tony.luck@intel.com>, Trond Myklebust <trond.myklebust@fys.uio.no>
 
+--Signature=_Fri__16_Jan_2009_12_49_49_+1100_GJbIO4u/muZTDHew
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-* Steven Rostedt <rostedt@goodmis.org> wrote:
+Hi Andrew,
 
-> 
-> On Tue, 13 Jan 2009, Steven Rostedt wrote:
-> 
-> > 
-> > 
-> > On Tue, 13 Jan 2009, Steven Rostedt wrote:
-> > 
-> > > 
-> > > The following patches are in:
-> > > 
-> > >   git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-trace.git
-> > > 
-> > >     branch: tip/devel
-> > 
-> > Ingo,
-> > 
-> > Don't pull any of this yet please. I'm going to rebase some of the patches 
-> > to fix the change logs (typos). I'll let you know when that's finished.
-> > 
-> 
-> OK, I rebased in changing the change logs. Here's what I did:
-> 
-> s/destinct/distinct/
-> s/K?nig/Koenig/
-> 
-> Here's the changes:
-> 
-> 
-> The following patches are in:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-trace.git
-> 
->     branch: tip/devel
-> 
-> 
-> Frederic Weisbecker (2):
->       tracing/ftrace: separate events tracing and stats tracing engine
->       tracing: add a new workqueue tracer
-> 
-> Shaohua Li (6):
->       ftrace, ia64: make recordmcount distinct module compile
->       ftrace, ia64: explictly ignore a file in recordmcount.pl
->       ftrace, ia64: Add macro for ftrace_caller
->       ftrace, ia64: Add recordmcount for ia64
->       ftrace, ia64: IA64 static ftrace support
->       ftrace, ia64: IA64 dynamic ftrace support
-> 
-> Uwe Kleine-Koenig (1):
->       ftrace, trivial: fix typo "resgister" -> "register"
-> 
-> ----
->  arch/ia64/Kconfig              |    3 +
->  arch/ia64/include/asm/ftrace.h |   28 ++++
->  arch/ia64/kernel/Makefile      |    5 +
->  arch/ia64/kernel/entry.S       |  100 ++++++++++++++
->  arch/ia64/kernel/ftrace.c      |  206 ++++++++++++++++++++++++++++
->  arch/ia64/kernel/ia64_ksyms.c  |    6 +
->  include/linux/ftrace.h         |    4 +
->  include/trace/workqueue.h      |   25 ++++
->  kernel/trace/Kconfig           |   11 ++
->  kernel/trace/Makefile          |    1 +
->  kernel/trace/ftrace.c          |   14 +--
->  kernel/trace/trace.c           |    2 -
->  kernel/trace/trace.h           |   20 ---
->  kernel/trace/trace_branch.c    |  108 +++++++++-------
->  kernel/trace/trace_stat.c      |  191 +++++++++++---------------
->  kernel/trace/trace_stat.h      |   31 +++++
->  kernel/trace/trace_workqueue.c |  287 ++++++++++++++++++++++++++++++++++++++++
->  kernel/workqueue.c             |   16 ++-
->  scripts/Makefile.build         |   13 +-
->  scripts/recordmcount.pl        |   18 ++-
->  20 files changed, 888 insertions(+), 201 deletions(-)
+On Thu, 15 Jan 2009 09:35:14 -0800 Andrew Morton <akpm@linux-foundation.org=
+> wrote:
+>
+> On Thu, 15 Jan 2009 20:05:08 +0900 (JST) KOSAKI Motohiro <kosaki.motohiro=
+@jp.fujitsu.com> wrote:
+>=20
+> > Applied after: linux-next.patch
+> > =3D=3D
+> > Subject: [PATCH] remove duplicate EXPORT_SYMBOL()
+> > Impact: fix build error
+> >=20
+> > In past, ia64_ksyms.c had EXPORT_SYMBOL(copy_page) in wrong place.
+> >=20
+> > old code was
+> >=20
+> > 	#include <asm/uaccess.h>
+> > 	EXPORT_SYMBOL(__copy_user);
+> > 	EXPORT_SYMBOL(__do_clear_user);
+> > 	EXPORT_SYMBOL(__strlen_user);
+> > 	EXPORT_SYMBOL(__strncpy_from_user);
+> > 	EXPORT_SYMBOL(__strnlen_user);
+> > 	EXPORT_SYMBOL(copy_page);
+> >=20
+> > (but actually, copy_page is declared in asm/page.h)
+> >=20
+> > And recently, commit bdc2619ab95d45d434c16d5c216bc6243761f6fb insert
+> > EXPORT_SYMBOL(copy_page) into correct place.
+> >=20
+> > then, duplicate EXPORT_SYMBOL create following build error.
+> >=20
+> > arch/ia64/kernel/ia64_ksyms.c:65: error: redefinition of '__kcrctab_cop=
+y_page'
+> > arch/ia64/kernel/ia64_ksyms.c:43: error: previous definition of '__kcrc=
+tab_copy_page' was here
+> > arch/ia64/kernel/ia64_ksyms.c:65: error: redefinition of '__kstrtab_cop=
+y_page'
+> > arch/ia64/kernel/ia64_ksyms.c:43: error: previous definition of '__kstr=
+tab_copy_page' was here
+> > arch/ia64/kernel/ia64_ksyms.c:65: error: redefinition of '__ksymtab_cop=
+y_page'
+> > arch/ia64/kernel/ia64_ksyms.c:43: error: previous definition of '__ksym=
+tab_copy_page' was here
+>=20
+> Yes, this is a strange bug added by
+>=20
+> commit 7aed50e09223e7623c7ab826efd53f097bed2f73
+> Author:     Prarit Bhargava <prarit@redhat.com>
+> AuthorDate: Sat Jan 10 02:25:44 2009 +0000
+> Commit:     David Howells <dhowells@redhat.com>
+> CommitDate: Sat Jan 10 02:25:44 2009 +0000
+>=20
+>     CacheFiles: Add missing copy_page export for ia64
+>=20
+> I don't see how it could have been tested :(
+>=20
+> I also don't know which linux-next tree added that commit.  There's a
+> way of working this out but I forgot it.
 
-pulled into tip/tracing/ftrace, thanks Steve!
+In gitk you can search backwards for a merge commit containing "sfr" :-)
 
-	Ingo
+I have dropped the nfs tree from linux-next for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Fri__16_Jan_2009_12_49_49_+1100_GJbIO4u/muZTDHew
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAklv570ACgkQjjKRsyhoI8y7RgCcDNfn1Mkh8oN6I2CpRpQnN6Nl
+YqsAnjp3YHIMibugJylbNr0T8xItUVz9
+=D5Uy
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__16_Jan_2009_12_49_49_+1100_GJbIO4u/muZTDHew--
