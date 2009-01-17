@@ -1,28 +1,25 @@
-From: Greg KH <greg@kroah.com>
-Date: Thu, 22 Jan 2009 19:04:52 +0000
-Subject: Re: [PATCH] configure HAVE_UNSTABLE_SCHED_CLOCK for SGI_SN systems
-Message-Id: <20090122190452.GA20770@kroah.com>
+From: David Howells <dhowells@redhat.com>
+Date: Sat, 17 Jan 2009 06:00:44 +0000
+Subject: FS-Cache fixes for IA64 export and AFS linkage
+Message-Id: <16871.1232172044@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090106162741.GA7991@sgi.com> <20090115184832.GE10674@kroah.com> <57C9024A16AD2D4C97DC78E552063EA35CD8C4C3@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA35CD8C4C3@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Dimitri Sivanich <sivanich@sgi.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Gregory Haskins <ghaskins@novell.com>, Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@gmail.com>, Robin Holt <holt@sgi.com>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>, Randy Dunlap <randy.dunlap@oracle.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Andrew Morton <akpm@linux-foundation.org>
+Cc: dhowells@redhat.com, linux-next@vger.kernel.org, linux-kernel@vger.kernel.org, Prarit Bhargava <prarit@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Sam Ravnborg <sam@ravnborg.org>, Kyle McMartin <kyle@mcmartin.ca>, Tony Luck <tony.luck@intel.com>
 
-On Thu, Jan 15, 2009 at 11:21:05AM -0800, Luck, Tony wrote:
-> > > Greg, if everyone is OK with this patch, this should also be applied
-> > > to all stable trees starting with 2.6.26.
-> 
-> > What is the status of this going into Linus's tree?
-> 
-> I'm about to ask Linus to pull a modified version that does
-> a "select HAVE_UNSTABLE_SCHED_CLOCK" for all IA64 systems ...
-> SGI sched_clock() is a lot less "stable" than most, but all
-> ia64 systems can hit this as the ar.itc cycle counter is only
-> s/w synchronized between cpus.
 
-Thanks, I see it now and will queue it up for the next -stable releases.
+I've dropped the patch to export copy_page() for IA64 from my patchset and
+updated the AFS patch so that it no longer produces link errors if
+CONFIG_AFS_FS=y and CONFIG_FSCACHE=m but CONFIG_AFS_FSCACHE=n.
 
-greg k-h
+These patches are now available as:
+
+	http://people.redhat.com/~dhowells/fscache/patches/nfs+fscache-44.tar.bz2
+
+and I've updated my GIT tree for Trond to pull:
+
+	http://git.kernel.org/?p=linux/kernel/git/dhowells/linux-2.6-nfs-fscache.git;a=shortlog
+
+David
