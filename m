@@ -1,54 +1,34 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 16 Jan 2009 22:51:56 +0000
-Subject: Re: linux-next: build problem with nfs tree (Was: Re:
-Message-Id: <20090116145156.ebbea173.akpm@linux-foundation.org>
+From: David Howells <dhowells@redhat.com>
+Date: Sat, 17 Jan 2009 04:43:52 +0000
+Subject: Re: linux-next: build problem with nfs tree (Was: Re: [mmotm][PATCH] fix ia64 build error)
+Message-Id: <24484.1232167432@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090115200315.EBE3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-	<20090115093514.f3f6b8ff.akpm@linux-foundation.org>
-	<20090116124949.7828a559.sfr@canb.auug.org.au>
-	<20090115175917.8e0ae536.akpm@linux-foundation.org>
-	<20090116134930.68e783aa.sfr@canb.auug.org.au>
-	<20090116153417.891297ca.sfr@canb.auug.org.au>
-	<20090116141557.0a3eaaac.akpm@linux-foundation.org>
-	<20090117094008.5a0ce562.sfr@canb.auug.org.au>
-In-Reply-To: <20090117094008.5a0ce562.sfr@canb.auug.org.au>
+References: <20090116134930.68e783aa.sfr@canb.auug.org.au> <20090115200315.EBE3.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20090115093514.f3f6b8ff.akpm@linux-foundation.org> <20090116124949.7828a559.sfr@canb.auug.org.au> <20090115175917.8e0ae536.akpm@linux-foundation.org>
+In-Reply-To: <20090116134930.68e783aa.sfr@canb.auug.org.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Stephen Rothwell <sfr@canb.auug.org.au>
-Cc: linux-next@vger.kernel.org, prarit@redhat.com, dhowells@redhat.com, kosaki.motohiro@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, sam@ravnborg.org, kyle@mcmartin.ca, tony.luck@intel.com, trond.myklebust@fys.uio.no
+Cc: dhowells@redhat.com, Andrew Morton <akpm@linux-foundation.org>, linux-next@vger.kernel.org, Prarit Bhargava <prarit@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, LKML <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Sam Ravnborg <sam@ravnborg.org>, Kyle McMartin <kyle@mcmartin.ca>, Tony Luck <tony.luck@intel.com>, Trond Myklebust <trond.myklebust@fys.uio.no>
 
-On Sat, 17 Jan 2009 09:40:08 +1100
 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 
-> Hi Andrew,
+> > > I have dropped the nfs tree from linux-next for today.
+> > 
+> > Just for this buglet?  That sounds a bit savage.
 > 
-> On Fri, 16 Jan 2009 14:15:57 -0800 Andrew Morton <akpm@linux-foundation.org> wrote:
-> >
-> > y:/usr/src/git26> git-checkout linux-next
-> > Switched to branch "linux-next"
-> > y:/usr/src/git26> who-committed.sh ba9a5918
-> 
-> Well that commit is from 2.6.23-rc1:
-> 
-> commit ba9a5918c86762fa7fae353c635bb6ed5221dfb8
-> Author: Douglas Thompson <dougthompson@xmission.com>
-> Date:   Thu Jul 19 01:50:32 2007 -0700
-> 
->     drivers/edac: add to maintainers new info
-> 
-> before linux-next even existed.  My script only works for things in
-> linux-next but not in Linus' tree ...
-> 
-> > y:/usr/src/git26> who-committed.sh 2c3fb6b1b1a43ca089032e6523207f6687c962c1
-> 
-> And that is one I committed myself because Linus' tree is broken.
+> There was another problem with the fscache code as well.  Also, this was
+> reported the day before yesterday and got no response.
 
-Oh, OK, sorry, drat.  Two hastily and poorly chosen test cases.
+I've been flying to Tasmania for LCA and spending much time sitting around in
+too many different airports.
 
-> I'll see if I can do better.  What do you actually want to do?
+> Also, the other patch that added EXPORT_SYMBOL(copy_page) "recently" was
+> from December, *2007* ... Also, this is 2.6.30 material and they have a long
+> time to fix it.
 
-y:/usr/src/git26> who-committed.sh bcff57c25287216221d0ff82080ac37bb081969e
-ide
+The patch was required Tuesday morning for my patches to build on top of
+Linus's vanilla kernel.  This may have changed, but I haven't checked - too
+busy enjoying my pre-LCA hols in Tas:-)
 
-That ;)
+David
