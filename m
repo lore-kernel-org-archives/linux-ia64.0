@@ -1,32 +1,32 @@
-From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Date: Mon, 19 Jan 2009 04:25:04 +0000
-Subject: how to fix nand driver build breakage
-Message-Id: <20090120132317.B0B3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+From: Simon Holm =?ISO-8859-1?Q?Th=F8gersen?= <odie@cs.aau.dk>
+Date: Mon, 19 Jan 2009 11:46:18 +0000
+Subject: Re: how to fix nand driver build breakage
+Message-Id: <1232365578.5764.4.camel@odie.local>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <38D9F46DFF92C54980D2F2C1E8EE31301FC5E7FB@pdsmsx503.ccr.corp.intel.com>
-In-Reply-To: <38D9F46DFF92C54980D2F2C1E8EE31301FC5E7FB@pdsmsx503.ccr.corp.intel.com>
+	 <20090120132317.B0B3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+In-Reply-To: <20090120132317.B0B3.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Gao, Yunpeng" <yunpeng.gao@intel.com>
-Cc: kosaki.motohiro@jp.fujitsu.com, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: "Gao, Yunpeng" <yunpeng.gao@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-> Hi all,
-> 
-> I have to use 64bit variable in my 2.6.27 kernel NAND driver as below:
-> ---------------------------------------------------------------------------
-> u64 NAND_capacity;
-> unsigned int block_num, block_size;
-> ...
-> block_num = NAND_capacity / block_size;
-> ---------------------------------------------------------------------------
-> but it failed when compiling and reports 'undefined reference to `__udivdi3'.
-> 
-> Does any idea about this? I need to include some special head file or change something in Kconfig?
-> 
-> BTW, the environment is Fedora Core 9, gcc 4.3.0. 
-
-Couldn't you use do_div()?
-
-
-
+bWFuLCAxOSAwMSAyMDA5IGtsLiAxMzoyNSArMDkwMCwgc2tyZXYgS09TQUtJIE1vdG9oaXJvOgo+
+ID4gSGkgYWxsLAo+ID4gCj4gPiBJIGhhdmUgdG8gdXNlIDY0Yml0IHZhcmlhYmxlIGluIG15IDIu
+Ni4yNyBrZXJuZWwgTkFORCBkcml2ZXIgYXMgYmVsb3c6Cj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0K
+PiA+IHU2NCBOQU5EX2NhcGFjaXR5Owo+ID4gdW5zaWduZWQgaW50IGJsb2NrX251bSwgYmxvY2tf
+c2l6ZTsKPiA+IC4uLgo+ID4gYmxvY2tfbnVtID0gTkFORF9jYXBhY2l0eSAvIGJsb2NrX3NpemU7
+Cj4gPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KPiA+IGJ1dCBpdCBmYWlsZWQgd2hlbiBjb21waWxpbmcg
+YW5kIHJlcG9ydHMgJ3VuZGVmaW5lZCByZWZlcmVuY2UgdG8gYF9fdWRpdmRpMycuCj4gPiAKPiA+
+IERvZXMgYW55IGlkZWEgYWJvdXQgdGhpcz8gSSBuZWVkIHRvIGluY2x1ZGUgc29tZSBzcGVjaWFs
+IGhlYWQgZmlsZSBvciBjaGFuZ2Ugc29tZXRoaW5nIGluIEtjb25maWc/Cj4gPiAKPiA+IEJUVywg
+dGhlIGVudmlyb25tZW50IGlzIEZlZG9yYSBDb3JlIDksIGdjYyA0LjMuMC4gCj4gCj4gQ291bGRu
+J3QgeW91IHVzZSBkb19kaXYoKT8KClBlcmhhcHMgcmF0aGVyIGRpdl91NjQsIGJ1dCBvdGhlcndp
+c2UgaGUgc2hvdWxkIGJlIGFibGUgdG8geWVzLgoKClNpbW9uIEhvbG0gVGjDuGdlcnNlbgoKLS0K
+VG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJl
+IGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5r
+ZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcv
+bWFqb3Jkb21vLWluZm8uaHRtbA==
