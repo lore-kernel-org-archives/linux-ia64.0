@@ -1,58 +1,68 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Sun, 18 Jan 2009 23:45:39 +0000
-Subject: Re: FS-Cache fixes for IA64 export and AFS linkage
-Message-Id: <20090119104539.06511073.sfr@canb.auug.org.au>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Signature=_Mon__19_Jan_2009_10_45_39_+1100_EweFNL.4s5Fs_cLD"
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Tue, 27 Jan 2009 14:43:59 +0000
+Subject: [PATCH -tip] IA64: fix the compile error on IA64_DIG_VTD
+Message-Id: <20090127233530U.fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16871.1232172044@redhat.com>
-	<4973BB3F.8090702@oracle.com>
-In-Reply-To: <4973BB3F.8090702@oracle.com>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: David Howells <dhowells@redhat.com>, Trond Myklebust <Trond.Myklebust@netapp.com>, Andrew Morton <akpm@linux-foundation.org>, linux-next@vger.kernel.org, linux-kernel@vger.kernel.org, Prarit Bhargava <prarit@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Sam Ravnborg <sam@ravnborg.org>, Kyle McMartin <kyle@mcmartin.ca>, Tony Luck <tony.luck@intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com, mingo@elte.hu
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
---Signature=_Mon__19_Jan_2009_10_45_39_+1100_EweFNL.4s5Fs_cLD
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sorry about fallout from my dma mapping ops unification.
 
-On Sun, 18 Jan 2009 15:29:03 -0800 Randy Dunlap <randy.dunlap@oracle.com> w=
-rote:
->
-> David Howells wrote:
-> > I've dropped the patch to export copy_page() for IA64 from my patchset =
-and
-> > updated the AFS patch so that it no longer produces link errors if
-> > CONFIG_AFS_FS=3Dy and CONFIG_FSCACHE=3Dm but CONFIG_AFS_FSCACHE=3Dn.
-> >=20
-> > These patches are now available as:
-> >=20
-> > 	http://people.redhat.com/~dhowells/fscache/patches/nfs+fscache-44.tar.=
-bz2
-> >=20
-> > and I've updated my GIT tree for Trond to pull:
-> >=20
-> > 	http://git.kernel.org/?p=3Dlinux/kernel/git/dhowells/linux-2.6-nfs-fsc=
-ache.git;a=3Dshortlog
->=20
-> Ack.  Builds for me.  Thanks.
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] IA64: fix the compile error on IA64_DIG_VTD
 
-And it will be in today's linux-next, since Trond has merged it.
+This moves iommu_detected to arch/ia64/kernel/dma-mapping.c from
+arch/ia64/kernel/pci-swiotlb.c to fix the following error on on
+IA64_DIG_VTD:
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
+arch/ia64/kernel/built-in.o: In function `pci_iommu_init':
+pci-dma.c:(.init.text+0xa021): undefined reference to `iommu_detected'
+pci-dma.c:(.init.text+0xa030): undefined reference to `iommu_detected'
+drivers/built-in.o: In function `detect_intel_iommu':
+(.init.text+0x11c0): undefined reference to `iommu_detected'
+drivers/built-in.o: In function `detect_intel_iommu':
+(.init.text+0x11e1): undefined reference to `iommu_detected'
 
---Signature=_Mon__19_Jan_2009_10_45_39_+1100_EweFNL.4s5Fs_cLD
-Content-Type: application/pgp-signature
+iommu_detected is used to handle IOMMUs so I guess that
+arch/ia64/kernel/dma-mapping.c is ok (there might be a better place
+for it though).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+---
+ arch/ia64/kernel/dma-mapping.c |    3 +++
+ arch/ia64/kernel/pci-swiotlb.c |    3 ---
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-iEYEARECAAYFAklzvyMACgkQjjKRsyhoI8y26QCgkuxCvkhMKtQA1OqDO2qrhVWF
-PakAoLerLyMvqVAFewwreTcIdg+fuu85
-=Emze
------END PGP SIGNATURE-----
+diff --git a/arch/ia64/kernel/dma-mapping.c b/arch/ia64/kernel/dma-mapping.c
+index 7060e13..086a2ae 100644
+--- a/arch/ia64/kernel/dma-mapping.c
++++ b/arch/ia64/kernel/dma-mapping.c
+@@ -1,5 +1,8 @@
+ #include <linux/dma-mapping.h>
+ 
++/* Set this to 1 if there is a HW IOMMU in the system */
++int iommu_detected __read_mostly;
++
+ struct dma_map_ops *dma_ops;
+ EXPORT_SYMBOL(dma_ops);
+ 
+diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
+index d21dea4..717ad4f 100644
+--- a/arch/ia64/kernel/pci-swiotlb.c
++++ b/arch/ia64/kernel/pci-swiotlb.c
+@@ -13,9 +13,6 @@
+ int swiotlb __read_mostly;
+ EXPORT_SYMBOL(swiotlb);
+ 
+-/* Set this to 1 if there is a HW IOMMU in the system */
+-int iommu_detected __read_mostly;
+-
+ struct dma_map_ops swiotlb_dma_ops = {
+ 	.alloc_coherent = swiotlb_alloc_coherent,
+ 	.free_coherent = swiotlb_free_coherent,
+-- 
+1.6.0.6
 
---Signature=_Mon__19_Jan_2009_10_45_39_+1100_EweFNL.4s5Fs_cLD--
