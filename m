@@ -1,69 +1,57 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Tue, 10 Feb 2009 13:38:21 +0000
-Subject: Re: [PATCH] don't compile SGI XP/GRU on ia64_generic
-Message-Id: <20090210133821.GA23973@sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 04 Feb 2009 00:40:59 +0000
+Subject: [Patch] bte_copy of BTE_MAX_XFER trips BUG_ON.
+Message-Id: <20090204004059.GM8559@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090210162821.6FC1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
-In-Reply-To: <20090210162821.6FC1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Tony Luck <tony.luck@intel.com>
-Cc: Jack Steiner <steiner@sgi.com>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
-
-On Tue, Feb 10, 2009 at 04:35:46PM +0900, KOSAKI Motohiro wrote:
-> Impact: fix build error
-> 
-> Currently sgi-xp driver depend on "uv.h" header file.
-> but only x86 have "uv.h" header.
-
-Yesterday I submitted a patch that introduces a 'uv.h' header file for
-ia64 and eliminates the ia64 build error. Link to any one of the following
-to see the patch.
-
-	http://marc.info/?l=linux-ia64&m3419673126499&w=2
-	http://marc.info/?l=linux-next&m3419673226503&w=2
-	http://marc.info/?l=linux-kernel&m3419682026636&w=2
-
-That is the preferred solution to this problem.
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Dean Nelson <dcn@sgi.com>, Russ Anderson <rja@sgi.com>
 
 
-> Then, ia64 hit following build error.
-> 
->   In file included from drivers/misc/sgi-gru/grufile.c:39:
->   drivers/misc/sgi-gru/gru.h:22:23: error: asm/uv/uv.h: No such file or directory
-> 
-> Cc: Jack Steiner <steiner@sgi.com>
-> Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> 
-> ---
->  drivers/misc/Kconfig |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> Index: b/drivers/misc/Kconfig
-> =================================> --- a/drivers/misc/Kconfig
-> +++ b/drivers/misc/Kconfig
-> @@ -165,7 +165,7 @@ config SGI_XP
->  	depends on (IA64_GENERIC || IA64_SGI_SN2 || IA64_SGI_UV || X86_UV) && SMP
->  	select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
->  	select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
-> -	select SGI_GRU if (IA64_GENERIC || IA64_SGI_UV || X86_64) && SMP
-> +	select SGI_GRU if (IA64_SGI_UV || X86_UV) && SMP
->  	---help---
->  	  An SGI machine can be divided into multiple Single System
->  	  Images which act independently of each other and have
-> @@ -189,7 +189,7 @@ config HP_ILO
->  
->  config SGI_GRU
->  	tristate "SGI GRU driver"
-> -	depends on (X86_UV || IA64_SGI_UV || IA64_GENERIC) && SMP
-> +	depends on (X86_UV || IA64_SGI_UV) && SMP
->  	default n
->  	select MMU_NOTIFIER
->  	---help---
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+BTE_MAX_XFER is wrong.  It is one greater than the number of cache
+lines the BTE is actually able to transfer.  If you request a transfer
+of exactly BTE_MAX_XFER size, you trip a very cryptic BUG_ON() which
+should certainly be made more clear.
+
+This patch fixes that constant and also cleans up the BUG_ON()s in
+arch/ia64/sn/kernel/bte.c to test one condition per line.
+
+Signed-off-by: Robin Holt <holt@sgi.com>
+
+---
+
+ arch/ia64/include/asm/sn/bte.h |    2 +-
+ arch/ia64/sn/kernel/bte.c      |    7 ++++---
+ 2 files changed, 5 insertions(+), 4 deletions(-)
+
+Index: bte_max_xfer_fix/arch/ia64/include/asm/sn/bte.h
+=================================--- bte_max_xfer_fix.orig/arch/ia64/include/asm/sn/bte.h	2009-02-03 18:07:26.000000000 -0600
++++ bte_max_xfer_fix/arch/ia64/include/asm/sn/bte.h	2009-02-03 18:09:38.749729353 -0600
+@@ -39,7 +39,7 @@
+ /* BTE status register only supports 16 bits for length field */
+ #define BTE_LEN_BITS (16)
+ #define BTE_LEN_MASK ((1 << BTE_LEN_BITS) - 1)
+-#define BTE_MAX_XFER ((1 << BTE_LEN_BITS) * L1_CACHE_BYTES)
++#define BTE_MAX_XFER (BTE_LEN_MASK << L1_CACHE_SHIFT)
+ 
+ 
+ /* Define hardware */
+Index: bte_max_xfer_fix/arch/ia64/sn/kernel/bte.c
+=================================--- bte_max_xfer_fix.orig/arch/ia64/sn/kernel/bte.c	2009-02-03 18:07:26.000000000 -0600
++++ bte_max_xfer_fix/arch/ia64/sn/kernel/bte.c	2009-02-03 18:15:42.854040475 -0600
+@@ -97,9 +97,10 @@ bte_result_t bte_copy(u64 src, u64 dest,
+ 		return BTE_SUCCESS;
+ 	}
+ 
+-	BUG_ON((len & L1_CACHE_MASK) ||
+-		 (src & L1_CACHE_MASK) || (dest & L1_CACHE_MASK));
+-	BUG_ON(!(len < ((BTE_LEN_MASK + 1) << L1_CACHE_SHIFT)));
++	BUG_ON(len & L1_CACHE_MASK);
++	BUG_ON(src & L1_CACHE_MASK);
++	BUG_ON(dest & L1_CACHE_MASK);
++	BUG_ON(len > BTE_MAX_XFER);
+ 
+ 	/*
+ 	 * Start with interface corresponding to cpu number
