@@ -1,14 +1,14 @@
 From: Robin Holt <holt@sgi.com>
-Date: Wed, 04 Feb 2009 00:40:59 +0000
-Subject: [Patch] bte_copy of BTE_MAX_XFER trips BUG_ON.
-Message-Id: <20090204004059.GM8559@sgi.com>
+Date: Wed, 04 Feb 2009 16:47:37 +0000
+Subject: [Patch] bte_copy of BTE_MAX_XFER trips BUG_ON -V2
+Message-Id: <20090204164737.GM8577@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20090204004059.GM8559@sgi.com>
+In-Reply-To: <20090204004059.GM8559@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Dean Nelson <dcn@sgi.com>, Russ Anderson <rja@sgi.com>
-
+To: linux-ia64@vger.kernel.org
 
 BTE_MAX_XFER is wrong.  It is one greater than the number of cache
 lines the BTE is actually able to transfer.  If you request a transfer
@@ -22,25 +22,31 @@ Signed-off-by: Robin Holt <holt@sgi.com>
 
 ---
 
- arch/ia64/include/asm/sn/bte.h |    2 +-
- arch/ia64/sn/kernel/bte.c      |    7 ++++---
- 2 files changed, 5 insertions(+), 4 deletions(-)
+Changes since -V1:
+	Base the BTE_LEN_MASK upon a 1UL instead of 1 for correctness.
 
-Index: bte_max_xfer_fix/arch/ia64/include/asm/sn/bte.h
-=================================--- bte_max_xfer_fix.orig/arch/ia64/include/asm/sn/bte.h	2009-02-03 18:07:26.000000000 -0600
-+++ bte_max_xfer_fix/arch/ia64/include/asm/sn/bte.h	2009-02-03 18:09:38.749729353 -0600
-@@ -39,7 +39,7 @@
+
+ arch/ia64/include/asm/sn/bte.h |    4 ++--
+ arch/ia64/sn/kernel/bte.c      |    7 ++++---
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+Index: bte_fixup/arch/ia64/include/asm/sn/bte.h
+=================================--- bte_fixup.orig/arch/ia64/include/asm/sn/bte.h	2009-02-04 10:37:29.594750841 -0600
++++ bte_fixup/arch/ia64/include/asm/sn/bte.h	2009-02-04 10:40:32.495791608 -0600
+@@ -38,8 +38,8 @@
+ 
  /* BTE status register only supports 16 bits for length field */
  #define BTE_LEN_BITS (16)
- #define BTE_LEN_MASK ((1 << BTE_LEN_BITS) - 1)
+-#define BTE_LEN_MASK ((1 << BTE_LEN_BITS) - 1)
 -#define BTE_MAX_XFER ((1 << BTE_LEN_BITS) * L1_CACHE_BYTES)
++#define BTE_LEN_MASK ((1UL << BTE_LEN_BITS) - 1)
 +#define BTE_MAX_XFER (BTE_LEN_MASK << L1_CACHE_SHIFT)
  
  
  /* Define hardware */
-Index: bte_max_xfer_fix/arch/ia64/sn/kernel/bte.c
-=================================--- bte_max_xfer_fix.orig/arch/ia64/sn/kernel/bte.c	2009-02-03 18:07:26.000000000 -0600
-+++ bte_max_xfer_fix/arch/ia64/sn/kernel/bte.c	2009-02-03 18:15:42.854040475 -0600
+Index: bte_fixup/arch/ia64/sn/kernel/bte.c
+=================================--- bte_fixup.orig/arch/ia64/sn/kernel/bte.c	2009-02-04 10:37:30.026753839 -0600
++++ bte_fixup/arch/ia64/sn/kernel/bte.c	2009-02-04 10:40:11.711701203 -0600
 @@ -97,9 +97,10 @@ bte_result_t bte_copy(u64 src, u64 dest,
  		return BTE_SUCCESS;
  	}
