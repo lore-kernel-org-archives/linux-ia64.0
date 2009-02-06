@@ -1,68 +1,20 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 06 Feb 2009 17:14:00 +0000
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Fri, 06 Feb 2009 17:22:07 +0000
 Subject: Re: [linux-next][PATCH] revert headers_check fix: ia64, fpu.h
-Message-Id: <20090206171400.GA14818@elte.hu>
+Message-Id: <20090206172207.GL13758@n2100.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090206180957.6294.KOSAKI.MOTOHIRO@jp.fujitsu.com> <20090206145556.GH18368@elte.hu> <1233934141.3209.20.camel@localhost.localdomain> <20090206153315.GD13758@n2100.arm.linux.org.uk> <1233935328.3209.30.camel@localhost.localdomain> <20090206155512.GF13758@n2100.arm.linux.org.uk> <20090206161229.GA8256@elte.hu> <20090206162352.GI13758@n2100.arm.linux.org.uk> <20090206163314.GA11216@elte.hu> <20090206163857.GJ13758@n2100.arm.linux.org.uk>
-In-Reply-To: <20090206163857.GJ13758@n2100.arm.linux.org.uk>
+References: <20090206145556.GH18368@elte.hu> <1233934141.3209.20.camel@localhost.localdomain> <20090206153315.GD13758@n2100.arm.linux.org.uk> <1233935328.3209.30.camel@localhost.localdomain> <20090206155512.GF13758@n2100.arm.linux.org.uk> <20090206161229.GA8256@elte.hu> <20090206162352.GI13758@n2100.arm.linux.org.uk> <20090206163314.GA11216@elte.hu> <20090206163857.GJ13758@n2100.arm.linux.org.uk> <20090206171400.GA14818@elte.hu>
+In-Reply-To: <20090206171400.GA14818@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+To: Ingo Molnar <mingo@elte.hu>
 Cc: Jaswinder Singh Rajput <jaswinder@kernel.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Jaswinder Singh Rajput <jaswinderlinux@gmail.com>, Linus Torvalds <torvalds@linux-foundation.org>, Sam Ravnborg <sam@ravnborg.org>, Andrew Morton <akpm@linux-foundation.org>, hskinnemoen@atmel.com, cooloney@kernel.org, tony.luck@intel.com, ralf@linux-mips.org, dhowells@redhat.com, matthew@wil.cx, chris@zankel.net, LKML <linux-kernel@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 
+On Fri, Feb 06, 2009 at 06:14:00PM +0100, Ingo Molnar wrote:
+> I take this that you kind of agree that that removing ugly #ifdefs spread 
+> out is an upside. You failed to point out any downsides - you just seem to 
+> claim that you can live without the upsides. That is fine.
 
-* Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
-
-> On Fri, Feb 06, 2009 at 05:33:14PM +0100, Ingo Molnar wrote:
-> > 
-> > * Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
-> > 
-> > > On Fri, Feb 06, 2009 at 05:12:29PM +0100, Ingo Molnar wrote:
-> > > > 
-> > > > * Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
-> > > > 
-> > > > > > We cannot see any downside of this patch.
-> > > > > > 
-> > > > > > But we can see upside of this patch is:
-> > > > > > 1. No need to protect linux/types.h with #ifndef __ASSEMBLY__ in many
-> > > > > > files
-> > > > > > 2. So we trying to replace multiple #ifndef __ASSEMBLY__ with one.
-> > > > > 
-> > > > > The point is:
-> > > > > 
-> > > > > 1. If the parent include needs to include linux/types.h to get at C
-> > > > >    types _and_ the include file needs to also be included by assembly
-> > > > >    code, it itself needs to have #ifndef __ASSEMBLY__ to protect those
-> > > > >    uses from the assembly code.
-> > > > > 
-> > > > >    In that case, the linux/types.h include should be contained within
-> > > > >    the #ifndef __ASSEMBLY__ .. #endif block along with all C only
-> > > > >    parts of the header file.
-> > > > 
-> > > > That makes the code much less clean: putting #include's in the middle of a 
-> > > > header is poor style and leads to people failing to consider dependencies. 
-> > > > We generally put them to the header portion.
-> > > > 
-> > > > Putting an #include line in the middle of a header file is a receipe for a 
-> > > > dependency hell (it can easily fall inside #ifdefs, can be overlooked, 
-> > > > etc.), so it's _strongly_ discouraged (at least on arch/x86).
-> > > 
-> > > Put them at the top then with an additional ifndef.
-> > 
-> > So you advocate 40 stupid pairs of #ifdefs spread out, instead of a 
-> > _single_, obvious #ifdef in a commonly used header?
-> 
-> As I see it, if you want all your style points to be adhered to, then yes.
-> And I do believe it to be a valid solution.
-> 
-> Personally, I'd put them nearer the C code.
-> 
-> That's precisely what I do with the ARM include files.  Never been a
-> problem.
-
-I take this that you kind of agree that that removing ugly #ifdefs spread 
-out is an upside. You failed to point out any downsides - you just seem to 
-claim that you can live without the upsides. That is fine.
-
-	Ingo
+I'm sorry, I thought I pointed them out in my previous emails.  Clearly
+you didn't read those emails in spite of replying to them.
