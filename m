@@ -1,56 +1,85 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Tue, 13 Jan 2009 06:11:13 +0000
-Subject: [PATCH 3/9] ftrace, ia64: Add macro for ftrace_caller
-Message-Id: <20090113061147.545128781@goodmis.org>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Fri, 06 Feb 2009 08:19:00 +0000
+Subject: [linux-next][PATCH] revert headers_check fix: ia64, fpu.h
+Message-Id: <20090206164546.6291.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090113061110.856268617@goodmis.org>
+References: <1233385816.17794.16.camel@localhost.localdomain>
+In-Reply-To: <1233385816.17794.16.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Frederic Weisbecker <fweisbec@gmail.com>, Shaohua Li <shaohua.li@intel.com>, ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Sam Ravnborg <sam@ravnborg.org>, u.kleine-koenig@pengutronix.de, Steven Rostedt <srostedt@redhat.com>
+To: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Cc: kosaki.motohiro@jp.fujitsu.com, Ingo Molnar <mingo@elte.hu>, Linus Torvalds <torvalds@linux-foundation.org>, Sam Ravnborg <sam@ravnborg.org>, Andrew Morton <akpm@linux-foundation.org>, Russell King - ARM Linux <linux@arm.linux.org.uk>, hskinnemoen@atmel.com, cooloney@kernel.org, tony.luck@intel.com, ralf@linux-mips.org, dhowells@redhat.com, matthew@wil.cx, chris@zankel.net, LKML <linux-kernel@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>
 
-From: Shaohua Li <shaohua.li@intel.com>
+> diff --git a/arch/ia64/include/asm/fpu.h b/arch/ia64/include/asm/fpu.h
+> index 3859558..b6395ad 100644
+> --- a/arch/ia64/include/asm/fpu.h
+> +++ b/arch/ia64/include/asm/fpu.h
+> @@ -6,7 +6,7 @@
+>   *	David Mosberger-Tang <davidm@hpl.hp.com>
+>   */
+>  
+> -#include <asm/types.h>
+> +#include <linux/types.h>
 
-Define FTRACE_ADDR. In IA64, a function pointer isn't a 'unsigned long' but a
-'struct {unsigned long ip, unsigned long gp}'.
+this change break ia64 build perfectly.
+this patch seems don't tested at all.
 
-Signed-off-by: Shaohua Li <shaohua.li@intel.com>
-Signed-off-by: Steven Rostedt <srostedt@redhat.com>
+Ingo, I hope you ask patch author how to test posted patch ;-)
+
+=
+Subject: [PATCH] revert headers_check fix: ia64, fpu.h
+
+commit fa9ea6c7abd94482ecd84e130676b6a1b3e61c2c break ia64 build perfectly.
+it because ia64 has following include file dependency.
+
+entry.S
+ -> asm/processor.h
+    -> asm/ptrace.h
+       -> asm/fpu.h
+
+Then, above commit introduce below dependency.
+
+entry.S
+ -> asm/processor.h
+    -> asm/ptrace.h
+       -> asm/fpu.h
+          -> linux/types.h
+             -> linux/posix_types.h
+                -> linux/stddef.h
+
+Then, assembler can't intepret following statement in stddef.h
+
+enum {
+        false   = 0,
+        true    = 1
+};
+
+
+Therefore, >100 line tons error was outputed.
+
+
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: Jaswinder Singh Rajput <jaswinder@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-next <linux-next@vger.kernel.org>
+Cc: linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
 ---
- include/linux/ftrace.h |    4 ++++
- kernel/trace/ftrace.c  |    2 +-
- 2 files changed, 5 insertions(+), 1 deletions(-)
+ arch/ia64/include/asm/fpu.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/linux/ftrace.h b/include/linux/ftrace.h
-index 677432b..0547214 100644
---- a/include/linux/ftrace.h
-+++ b/include/linux/ftrace.h
-@@ -126,6 +126,10 @@ extern int ftrace_update_ftrace_func(ftrace_func_t func);
- extern void ftrace_caller(void);
- extern void ftrace_call(void);
- extern void mcount_call(void);
-+
-+#ifndef FTRACE_ADDR
-+#define FTRACE_ADDR ((unsigned long)ftrace_caller)
-+#endif
- #ifdef CONFIG_FUNCTION_GRAPH_TRACER
- extern void ftrace_graph_caller(void);
- extern int ftrace_enable_ftrace_graph_caller(void);
-diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
-index 76bb884..9f53610 100644
---- a/kernel/trace/ftrace.c
-+++ b/kernel/trace/ftrace.c
-@@ -455,7 +455,7 @@ __ftrace_replace_code(struct dyn_ftrace *rec, int enable)
- 	unsigned long ip, fl;
- 	unsigned long ftrace_addr;
+Index: b/arch/ia64/include/asm/fpu.h
+=================================--- a/arch/ia64/include/asm/fpu.h
++++ b/arch/ia64/include/asm/fpu.h
+@@ -6,7 +6,7 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  */
  
--	ftrace_addr = (unsigned long)ftrace_caller;
-+	ftrace_addr = (unsigned long)FTRACE_ADDR;
+-#include <linux/types.h>
++#include <asm/types.h>
  
- 	ip = rec->ip;
- 
--- 
-1.5.6.5
+ /* floating point status register: */
+ #define FPSR_TRAP_VD	(1 << 0)	/* invalid op trap disabled */
 
--- 
+
