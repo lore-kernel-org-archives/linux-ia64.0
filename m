@@ -1,36 +1,31 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 25 Feb 2009 22:44:10 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <49a5c9ba26947c25c0@agluck-desktop.sc.intel.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Mon, 09 Feb 2009 18:13:38 +0000
+Subject: [PATCH v2 0/2] ia64: prevent irq migration race in __cpu_disable
+Message-Id: <20090209181338.GD19064@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, stable@kernel.org, linux-ia64@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
 
-Hi Linus,
+This is v2 of my attempt to prevent an oops while offlining CPUs.
 
-please pull from:
+The change is that the patch becomes a full revert of Paul's
+original patch, along with a long changelog that explains the
+situation as best as I can determine. It's not 100% satisfactory
+to me right now, but the testing we've done supports the patch.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+The 2nd patch in the series is mostly cosmetic, and removes a
+redundant call to cpu_clear() that we no longer need().
 
-This will update the files shown below.
+Tony, if you agree with the rationale in 1/2, then this series is
+a candidate for .29.
 
-Thanks!
+stable team, if Tony pushes upstream for .29, then this series
+should be applied to the .27 and .28 stable series.
 
--Tony
+Thanks.
 
- arch/ia64/Kconfig          |   11 +++++++++++
- arch/ia64/kernel/iosapic.c |    2 +-
- arch/ia64/kernel/unwind.c  |    2 +-
- 3 files changed, 13 insertions(+), 2 deletions(-)
-
-Kyle McMartin (1):
-      [IA64] enable setting DMAR on by default
-
-Roel Kluin (2):
-      [IA64] Do not go beyond ARRAY_SIZE of unw.hash
-      [IA64] Don't go beyond iosapic_intr_info's arraysize
+/ac
 
