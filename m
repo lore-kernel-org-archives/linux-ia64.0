@@ -1,34 +1,41 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sat, 21 Feb 2009 22:40:27 +0000
-Subject: [PATCH] ia64: beyond iosapic_intr_info's arraysize?
-Message-Id: <49A082DB.9040708@gmail.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Mon, 09 Feb 2009 18:16:57 +0000
+Subject: [PATCH v2 2/2] ia64: Remove redundant cpu_clear() in __cpu_disable
+Message-Id: <20090209181657.GF19064@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20090209181338.GD19064@ldl.fc.hp.com>
+In-Reply-To: <20090209181338.GD19064@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, stable@kernel.org, linux-ia64@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
 
-vi arch/ia64/kernel/iosapic.c +142
-static struct iosapic_intr_info {
-	...
-} iosapic_intr_info[NR_IRQS];
+The second call to cpu_clear() is redundant, as we've already removed
+the CPU from cpu_online_map before calling migrate_platform_irqs().
 
-So this goes beyond its arraysize, correct?
---------------------------->8-------------8<------------------------------
-Don't go beyond iosapic_intr_info's arraysize
-
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index 5cfd3d9..e131250 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -507,7 +507,7 @@ static int iosapic_find_sharable_irq(unsigned long trigger, unsigned long pol)
- 	if (trigger = IOSAPIC_EDGE)
- 		return -EINVAL;
+ arch/ia64/kernel/smpboot.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 2ec5bbf..5229054 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -740,11 +740,10 @@ int __cpu_disable(void)
  
--	for (i = 0; i <= NR_IRQS; i++) {
-+	for (i = 0; i < NR_IRQS; i++) {
- 		info = &iosapic_intr_info[i];
- 		if (info->trigger = trigger && info->polarity = pol &&
- 		    (info->dmode = IOSAPIC_FIXED ||
+ 	if (migrate_platform_irqs(cpu)) {
+ 		cpu_set(cpu, cpu_online_map);
+-		return (-EBUSY);
++		return -EBUSY;
+ 	}
+ 
+ 	remove_siblinginfo(cpu);
+-	cpu_clear(cpu, cpu_online_map);
+ 	fixup_irqs();
+ 	local_flush_tlb_all();
+ 	cpu_clear(cpu, cpu_callin_map);
+-- 
+1.6.0.1.161.g7f314
+
