@@ -1,78 +1,51 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Mon, 09 Feb 2009 22:50:00 +0000
-Subject: Re: RCU can use cpu_active_map?
-Message-Id: <20090209225000.GC3939@ldl.fc.hp.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Tue, 10 Feb 2009 07:35:46 +0000
+Subject: [PATCH] don't compile SGI XP/GRU on ia64_generic
+Message-Id: <20090210162821.6FC1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090209201345.GB13107@ldl.fc.hp.com> <20090209213929.GQ6802@linux.vnet.ibm.com>
-In-Reply-To: <20090209213929.GQ6802@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: LKML <linux-kernel@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Jack Steiner <steiner@sgi.com>
+Cc: kosaki.motohiro@jp.fujitsu.com
 
-* Paul E. McKenney <paulmck@linux.vnet.ibm.com>:
-> On Mon, Feb 09, 2009 at 01:13:45PM -0700, Alex Chiang wrote:
-> > Paul,
-> > 
-> > I don't pretend to understand RCU, but a very quick and naive
-> > look through rcupreempt.c makes me think that we could use the
-> > cpu_active_map instead of cpu_online_map?
-> > 
-> > cpu_active_map was introduced by e761b772.
-> > 
-> > In the CPU hotplug path, we touch the cpu_active_map very early
-> > on:
-> > 
-> > int __ref cpu_down(unsigned int cpu)
-> > {
-> >         int err;
-> >         err = stop_machine_create();
-> >         if (err)
-> >                 return err;
-> >         cpu_maps_update_begin();
-> > 
-> >         if (cpu_hotplug_disabled) {
-> >                 err = -EBUSY;
-> >                 goto out;
-> >         }
-> > 
-> >         cpu_clear(cpu, cpu_active_map);
-> > 	/* ... */
-> >         synchronize_sched();
-> >         err = _cpu_down(cpu, 0);
-> >         if (cpu_online(cpu))
-> >                 cpu_set(cpu, cpu_active_map);
-> > 
-> > out:
-> >         cpu_maps_update_done();
-> >         stop_machine_destroy();
-> >         return err;
-> > }
-> > 
-> > The call to _cpu_down() is where we eventually get to the code
-> > that my patch below touches, so you can see that we mark the CPU
-> > as !active before we ever get to the step of migrating interrupts
-> > (which relies on cpu_online_map).
-> > 
-> > If RCU looked at cpu_active_map instead of cpu_online_map, it
-> > seems like we would avoid the potential race situation you
-> > mentioned earlier.
-> > 
-> > Alternatively, I could explore just playing with the ia64
-> > interrupt migration code to use cpu_active_mask instead, but
-> > wanted to get your thoughts from the RCU perspective.
-> 
-> Perhaps I am confused, but if the CPU is on its way down, doesn't RCU
-> need a mask where the CPU's bit stays set longer rather than shorter?
-> 
-> If I use cpu_active_mask, couldn't there be device interrupts during
-> (for example) the synchronize_sched(), which might have RCU read-side
-> critical sections that RCU needs to pay attention to?
+Impact: fix build error
 
-Hm, I think you're right.
+Currently sgi-xp driver depend on "uv.h" header file.
+but only x86 have "uv.h" header.
 
-Thanks.
+Then, ia64 hit following build error.
 
-/ac
+  In file included from drivers/misc/sgi-gru/grufile.c:39:
+  drivers/misc/sgi-gru/gru.h:22:23: error: asm/uv/uv.h: No such file or directory
+
+Cc: Jack Steiner <steiner@sgi.com>
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+
+---
+ drivers/misc/Kconfig |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+Index: b/drivers/misc/Kconfig
+=================================--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -165,7 +165,7 @@ config SGI_XP
+ 	depends on (IA64_GENERIC || IA64_SGI_SN2 || IA64_SGI_UV || X86_UV) && SMP
+ 	select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+ 	select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+-	select SGI_GRU if (IA64_GENERIC || IA64_SGI_UV || X86_64) && SMP
++	select SGI_GRU if (IA64_SGI_UV || X86_UV) && SMP
+ 	---help---
+ 	  An SGI machine can be divided into multiple Single System
+ 	  Images which act independently of each other and have
+@@ -189,7 +189,7 @@ config HP_ILO
+ 
+ config SGI_GRU
+ 	tristate "SGI GRU driver"
+-	depends on (X86_UV || IA64_SGI_UV || IA64_GENERIC) && SMP
++	depends on (X86_UV || IA64_SGI_UV) && SMP
+ 	default n
+ 	select MMU_NOTIFIER
+ 	---help---
+
 
