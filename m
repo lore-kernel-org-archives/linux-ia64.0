@@ -1,63 +1,47 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 04 Feb 2009 16:47:37 +0000
-Subject: [Patch] bte_copy of BTE_MAX_XFER trips BUG_ON -V2
-Message-Id: <20090204164737.GM8577@sgi.com>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Tue, 10 Feb 2009 12:03:40 +0000
+Subject: [PATCH 2/2] don't compile SGI XP/GRU on ia64_generic
+Message-Id: <20090210210110.7001.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090204004059.GM8559@sgi.com>
-In-Reply-To: <20090204004059.GM8559@sgi.com>
+References: <20090210162821.6FC1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
+In-Reply-To: <20090210162821.6FC1.KOSAKI.MOTOHIRO@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jack Steiner <steiner@sgi.com>
+Cc: kosaki.motohiro@jp.fujitsu.com, LKML <linux-kernel@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Dean Nelson <dcn@sgi.com>
 
-BTE_MAX_XFER is wrong.  It is one greater than the number of cache
-lines the BTE is actually able to transfer.  If you request a transfer
-of exactly BTE_MAX_XFER size, you trip a very cryptic BUG_ON() which
-should certainly be made more clear.
+Subject: [PATCH] ia64: don't compile SGI-XP on ia64 generic.
+Impact: fix build error
 
-This patch fixes that constant and also cleans up the BUG_ON()s in
-arch/ia64/sn/kernel/bte.c to test one condition per line.
+Currently sgi-xp driver depend on "uv.h" header file.
+but only x86 have "uv.h" header.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+Then, ia64 hit following build error.
 
+  In file included from drivers/misc/sgi-xp/xp_main.c:19:
+  drivers/misc/sgi-xp/xp.h:18:23: error: asm/uv/uv.h: No such file or directory
+  make[3]: *** [drivers/misc/sgi-xp/xp_main.o] Error 1
+  make[2]: *** [drivers/misc/sgi-xp] Error 2
+
+Cc: Jack Steiner <steiner@sgi.com>
+Cc: Dean Nelson <dcn@sgi.com>
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 ---
+ drivers/misc/Kconfig |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Changes since -V1:
-	Base the BTE_LEN_MASK upon a 1UL instead of 1 for correctness.
+Index: b/drivers/misc/Kconfig
+=================================--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -162,7 +162,7 @@ config ENCLOSURE_SERVICES
+ config SGI_XP
+ 	tristate "Support communication between SGI SSIs"
+ 	depends on NET
+-	depends on (IA64_GENERIC || IA64_SGI_SN2 || IA64_SGI_UV || X86_UV) && SMP
++	depends on (IA64_SGI_SN2 || IA64_SGI_UV || X86_UV) && SMP
+ 	select IA64_UNCACHED_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+ 	select GENERIC_ALLOCATOR if IA64_GENERIC || IA64_SGI_SN2
+ 	select SGI_GRU if (IA64_SGI_UV || X86_UV) && SMP
 
 
- arch/ia64/include/asm/sn/bte.h |    4 ++--
- arch/ia64/sn/kernel/bte.c      |    7 ++++---
- 2 files changed, 6 insertions(+), 5 deletions(-)
-
-Index: bte_fixup/arch/ia64/include/asm/sn/bte.h
-=================================--- bte_fixup.orig/arch/ia64/include/asm/sn/bte.h	2009-02-04 10:37:29.594750841 -0600
-+++ bte_fixup/arch/ia64/include/asm/sn/bte.h	2009-02-04 10:40:32.495791608 -0600
-@@ -38,8 +38,8 @@
- 
- /* BTE status register only supports 16 bits for length field */
- #define BTE_LEN_BITS (16)
--#define BTE_LEN_MASK ((1 << BTE_LEN_BITS) - 1)
--#define BTE_MAX_XFER ((1 << BTE_LEN_BITS) * L1_CACHE_BYTES)
-+#define BTE_LEN_MASK ((1UL << BTE_LEN_BITS) - 1)
-+#define BTE_MAX_XFER (BTE_LEN_MASK << L1_CACHE_SHIFT)
- 
- 
- /* Define hardware */
-Index: bte_fixup/arch/ia64/sn/kernel/bte.c
-=================================--- bte_fixup.orig/arch/ia64/sn/kernel/bte.c	2009-02-04 10:37:30.026753839 -0600
-+++ bte_fixup/arch/ia64/sn/kernel/bte.c	2009-02-04 10:40:11.711701203 -0600
-@@ -97,9 +97,10 @@ bte_result_t bte_copy(u64 src, u64 dest,
- 		return BTE_SUCCESS;
- 	}
- 
--	BUG_ON((len & L1_CACHE_MASK) ||
--		 (src & L1_CACHE_MASK) || (dest & L1_CACHE_MASK));
--	BUG_ON(!(len < ((BTE_LEN_MASK + 1) << L1_CACHE_SHIFT)));
-+	BUG_ON(len & L1_CACHE_MASK);
-+	BUG_ON(src & L1_CACHE_MASK);
-+	BUG_ON(dest & L1_CACHE_MASK);
-+	BUG_ON(len > BTE_MAX_XFER);
- 
- 	/*
- 	 * Start with interface corresponding to cpu number
