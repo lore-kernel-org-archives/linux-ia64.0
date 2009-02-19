@@ -1,46 +1,48 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 09 Feb 2009 23:52:33 +0000
-Subject: Re: [PATCH v2 1/2] Revert "[IA64] prevent ia64 from invoking irq handlers on offline CPUs"
-Message-Id: <20090209235233.GA6235@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 19 Feb 2009 21:02:42 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <499dc8f263026d61@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090209181338.GD19064@ldl.fc.hp.com> <20090209181616.GE19064@ldl.fc.hp.com> <20090209211743.GA3939@ldl.fc.hp.com> <20090209233324.GE3939@ldl.fc.hp.com>
-In-Reply-To: <20090209233324.GE3939@ldl.fc.hp.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Chiang <achiang@hp.com>, tony.luck@intel.com, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, stable@kernel.org, linux-ia64@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
-Cc: rja@sgi.com
+To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 09, 2009 at 04:33:24PM -0700, Alex Chiang wrote:
-> 
-> I'm a little closer to understanding why the original revert
-> survives my test though.
-> 
-> It seems that during ia64_process_pending_intr(), we will skip
-> TLB flushes, and IPI reschedules.
-> 
-> Vectors lower than IA64_TIMER_VECTOR are masked (because we raise
-> the TPR), meaning we won't see CMC/CPE interrupts or perfmon
-> interrupts.
-> 
-> This leaves only IPIs and MCA above IA64_TIMER_VECTOR. The kernel
-> doesn't actually send many IPIs to itself, so in practice, we
-> almost never see those.  If we receive an MCA interrupt, well, we
-> have more problems to worry about than taking a CPU offline (and
-> whatever implications it may have on RCU). So I'm not concerned
-> there.
+Hi Linus,
 
-Keep in mind there are recoverable MCAs on ia64.  It should
-be a rare condition to have an MCA surface while taking a CPU
-offline, but it could happen.
+please pull from:
 
-My main point is to make sure people do not assume that an MCA means
-the system is going down.  
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-> The upshot is that in practice, we pretty much ever only need to
-> handle the timer interrupt.
+This will update the files shown below.
 
-Thanks.
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Thanks!
+
+-Tony
+
+ arch/ia64/Kconfig                    |    7 +-
+ arch/ia64/configs/xen_domu_defconfig | 1601 ++++++++++++++++++++++++++++++++++
+ arch/ia64/include/asm/sn/bte.h       |    2 +-
+ arch/ia64/kernel/smpboot.c           |    5 +-
+ arch/ia64/sn/kernel/bte.c            |    7 +-
+ arch/ia64/xen/Kconfig                |    3 +-
+ arch/ia64/xen/xen_pv_ops.c           |    4 +-
+ 7 files changed, 1617 insertions(+), 12 deletions(-)
+ create mode 100644 arch/ia64/configs/xen_domu_defconfig
+
+Alex Chiang (2):
+      [IA64] Revert "prevent ia64 from invoking irq handlers on offline CPUs"
+      [IA64] Remove redundant cpu_clear() in __cpu_disable path
+
+Isaku Yamahata (1):
+      [IA64] fixes configs and add default config for ia64 xen domU
+
+Robin Holt (1):
+      [IA64] bte_copy of BTE_MAX_XFER trips BUG_ON.
+
+Tony Luck (2):
+      [IA64] Build fix for __early_pfn_to_nid() undefined link error
+      [IA64] xen_domu build fix
+
