@@ -1,37 +1,28 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 13 Feb 2009 11:58:51 +0000
-Subject: Re: [git pull] preempt-count: force hardirq-count to max of 10
-Message-Id: <20090213115851.GK15679@elte.hu>
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Fri, 20 Feb 2009 11:52:44 +0000
+Subject: [PATCH] IA64: cast has a higher precedence than '?'
+Message-Id: <499E998C.9060407@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.DEB.1.10.0902121139230.15469@gandalf.stny.rr.com>
-In-Reply-To: <alpine.DEB.1.10.0902121139230.15469@gandalf.stny.rr.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-m68k@vger.kernel.org, linux-ia64@vger.kernel.org, kernel@avr32linux.org, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Peter Zijlstra <peterz@infradead.org>, =?iso-8859-1?Q?Fr=E9d=E9ric?= Weisbecker <fweisbec@gmail.com>, Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, Tony Luck <tony.luck@intel.com>, Mike Travis <travis@sgi.com>, isimatu.yasuaki@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
 
+A cast has a higher precedence than '?'
 
-* Steven Rostedt <rostedt@goodmis.org> wrote:
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
+index 2f758a4..3fc1832 100644
+--- a/arch/ia64/include/asm/syscall.h
++++ b/arch/ia64/include/asm/syscall.h
+@@ -64,7 +64,7 @@ static inline void syscall_set_return_value(struct task_struct *task,
+ {
+ #ifdef CONFIG_IA32_SUPPORT
+ 	if (IS_IA32_PROCESS(regs)) {
+-		regs->r8 = (long) error ? error : val;
++		regs->r8 = (long) (error ? error : val);
+ 		return;
+ 	}
+ #endif
 
-> Ingo,
-> 
-> Please pull the latest tip/tracing/core tree, which can be found at:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/rostedt/linux-2.6-trace.git
-> tip/tracing/core
-> 
-> 
-> Steven Rostedt (1):
->       preempt-count: force hardirq-count to max of 10
-> 
-> ----
->  arch/alpha/include/asm/hardirq.h |   13 ----------
->  arch/avr32/include/asm/hardirq.h |   11 --------
->  arch/ia64/include/asm/hardirq.h  |   10 --------
->  include/linux/hardirq.h          |   48 +++++++++++++++++++-------------------
->  4 files changed, 24 insertions(+), 58 deletions(-)
-
-Pulled, thanks Steve.
-
-	Ingo
