@@ -1,44 +1,34 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Wed, 11 Feb 2009 20:25:12 +0000
-Subject: Re: [PATCH] SGI IA64 UV: fix ia64 build error in the linux-next tree
-Message-Id: <20090211202512.GB8283@elte.hu>
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Sat, 21 Feb 2009 22:40:27 +0000
+Subject: [PATCH] ia64: beyond iosapic_intr_info's arraysize?
+Message-Id: <49A082DB.9040708@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090209162520.GA4882@sgi.com> <20090210132555.be1c1462.akpm@linux-foundation.org> <20090211150103.GA15814@sgi.com> <20090211150536.GE10525@elte.hu> <57C9024A16AD2D4C97DC78E552063EA361689D7D@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <57C9024A16AD2D4C97DC78E552063EA361689D7D@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Dean Nelson <dcn@sgi.com>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-next <linux-next@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
+vi arch/ia64/kernel/iosapic.c +142
+static struct iosapic_intr_info {
+	...
+} iosapic_intr_info[NR_IRQS];
 
-* Luck, Tony <tony.luck@intel.com> wrote:
+So this goes beyond its arraysize, correct?
+--------------------------->8-------------8<------------------------------
+Don't go beyond iosapic_intr_info's arraysize
 
-> > What question was that? Folding back across that distance is not possible
-> > in a Git workflow. I do regular cross-builds - the build bug did not trigger
-> > with the ia64 defconfig.
-> 
-> I'm confused by this, as it definitely triggered for me.  Perhaps
-> my build scripts do things a bit differently.  Essentially I do:
-> 
->         $ for c in `ls arch/ia64/configs`
->         > do
->         >       cp arch/ia64/configs/$i .config
->         >       yes '' | make oldconfig
->         >       make
->         > done
-> 
-> Which takes the default answer for any new questions that crop
-> up.  This enabled the GRU driver in the case of the generic_defconfig,
-> and so the build failed because of the lack of asm/uv.h
-
-hm, my build scripts do (in essence):
-
- make mrproper
- make ARCH=ia64 defconfig
-
-hm, GRU is enabled as a module. I generally build the =y items, i.e. the
-vmlinux. There's around 20 thousand modules enabled in various defconfigs,
-that's a _lot_ of time to build.
-
-	Ingo
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index 5cfd3d9..e131250 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -507,7 +507,7 @@ static int iosapic_find_sharable_irq(unsigned long trigger, unsigned long pol)
+ 	if (trigger = IOSAPIC_EDGE)
+ 		return -EINVAL;
+ 
+-	for (i = 0; i <= NR_IRQS; i++) {
++	for (i = 0; i < NR_IRQS; i++) {
+ 		info = &iosapic_intr_info[i];
+ 		if (info->trigger = trigger && info->polarity = pol &&
+ 		    (info->dmode = IOSAPIC_FIXED ||
