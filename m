@@ -1,180 +1,85 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 04 Mar 2009 12:05:43 +0000
-Subject: [PATCH 12/15] ia64/pv_ops/xen: define xen specific gate page.
-Message-Id: <1236168346-29788-13-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 04 Mar 2009 12:05:36 +0000
+Subject: [PATCH 05/15] ia64/pv_ops: paravirtualize fsys.S.
+Message-Id: <1236168346-29788-6-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1229063944-27462-13-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1229063944-27462-13-git-send-email-yamahata@valinux.co.jp>
+References: <1229063944-27462-6-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-6-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-define xen specific gate page.
-At this phase bits in the gate page is same to native.
-At the next phase, it will be paravirtualized.
+paravirtualize fsys.S.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/xen/patchlist.h |   38 +++++++++++++++++++++++++++++++++
- arch/ia64/kernel/vmlinux.lds.S        |    6 +++++
- arch/ia64/xen/Makefile                |   16 +++++++++++++-
- arch/ia64/xen/gate-data.S             |    3 ++
- arch/ia64/xen/xen_pv_ops.c            |   32 +++++++++++++++++++++++++++
- 5 files changed, 94 insertions(+), 1 deletions(-)
- create mode 100644 arch/ia64/include/asm/xen/patchlist.h
- create mode 100644 arch/ia64/xen/gate-data.S
+ arch/ia64/kernel/fsys.S |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/include/asm/xen/patchlist.h b/arch/ia64/include/asm/xen/patchlist.h
-new file mode 100644
-index 0000000..eae944e
---- /dev/null
-+++ b/arch/ia64/include/asm/xen/patchlist.h
-@@ -0,0 +1,38 @@
-+/******************************************************************************
-+ * arch/ia64/include/asm/xen/patchlist.h
-+ *
-+ * Copyright (c) 2008 Isaku Yamahata <yamahata at valinux co jp>
-+ *                    VA Linux Systems Japan K.K.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+#define __paravirt_start_gate_fsyscall_patchlist		\
-+	__xen_start_gate_fsyscall_patchlist
-+#define __paravirt_end_gate_fsyscall_patchlist			\
-+	__xen_end_gate_fsyscall_patchlist
-+#define __paravirt_start_gate_brl_fsys_bubble_down_patchlist	\
-+	__xen_start_gate_brl_fsys_bubble_down_patchlist
-+#define __paravirt_end_gate_brl_fsys_bubble_down_patchlist	\
-+	__xen_end_gate_brl_fsys_bubble_down_patchlist
-+#define __paravirt_start_gate_vtop_patchlist			\
-+	__xen_start_gate_vtop_patchlist
-+#define __paravirt_end_gate_vtop_patchlist			\
-+	__xen_end_gate_vtop_patchlist
-+#define __paravirt_start_gate_mckinley_e9_patchlist		\
-+	__xen_start_gate_mckinley_e9_patchlist
-+#define __paravirt_end_gate_mckinley_e9_patchlist		\
-+	__xen_end_gate_mckinley_e9_patchlist
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 10a7d47..92ae7e8 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -201,6 +201,12 @@ SECTIONS
- 	  __start_gate_section = .;
- 	  *(.data.gate)
- 	  __stop_gate_section = .;
-+#ifdef CONFIG_XEN
-+	  . = ALIGN(PAGE_SIZE);
-+	  __xen_start_gate_section = .;
-+	  *(.data.gate.xen)
-+	  __xen_stop_gate_section = .;
-+#endif
- 	}
-   . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose
-   				 * kernel data
-diff --git a/arch/ia64/xen/Makefile b/arch/ia64/xen/Makefile
-index b4ca2e6..94f0d8e 100644
---- a/arch/ia64/xen/Makefile
-+++ b/arch/ia64/xen/Makefile
-@@ -3,10 +3,24 @@
- #
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index 788319f..3544d75 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -419,7 +419,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
+ 	mov r17=(1 << (SIGKILL - 1)) | (1 << (SIGSTOP - 1))
+ 	;;
  
- obj-y := hypercall.o xenivt.o xensetup.o xen_pv_ops.o irq_xen.o \
--	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o
-+	 hypervisor.o xencomm.o xcom_hcall.o grant-table.o time.o suspend.o \
-+	 gate-data.o
+-	rsm psr.i				// mask interrupt delivery
++	RSM_PSR_I(p0, r18, r19)			// mask interrupt delivery
+ 	mov ar.ccv=0
+ 	andcm r14=r14,r17			// filter out SIGKILL & SIGSTOP
  
- obj-$(CONFIG_IA64_GENERIC) += machvec.o
+@@ -492,7 +492,7 @@ EX(.fail_efault, ld8 r14=[r33])			// r14 <- *set
+ #ifdef CONFIG_SMP
+ 	st4.rel [r31]=r0			// release the lock
+ #endif
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r31)
+ 	;;
  
-+# The gate DSO image is built using a special linker script.
-+include $(srctree)/arch/ia64/kernel/Makefile.gate
-+
-+# tell compiled for xen
-+CPPFLAGS_gate.lds += -D__IA64_GATE_PARAVIRTUALIZED_XEN
-+
-+# use same file of native.
-+$(obj)/gate.o: $(src)/../kernel/gate.S FORCE
-+	$(call if_changed_dep,as_o_S)
-+$(obj)/gate.lds: $(src)/../kernel/gate.lds.S FORCE
-+	$(call if_changed_dep,cpp_lds_S)
-+
-+
- AFLAGS_xenivt.o += -D__IA64_ASM_PARAVIRTUALIZED_XEN
+ 	srlz.d					// ensure psr.i is set again
+@@ -514,7 +514,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
+ #ifdef CONFIG_SMP
+ 	st4.rel [r31]=r0			// release the lock
+ #endif
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r17)
+ 	;;
+ 	srlz.d
+ 	br.sptk.many fsys_fallback_syscall	// with signal pending, do the heavy-weight syscall
+@@ -522,7 +522,7 @@ EX(.fail_efault, (p15) st8 [r34]=r3)
+ #ifdef CONFIG_SMP
+ .lock_contention:
+ 	/* Rather than spinning here, fall back on doing a heavy-weight syscall.  */
+-	ssm psr.i
++	SSM_PSR_I(p0, p9, r17)
+ 	;;
+ 	srlz.d
+ 	br.sptk.many fsys_fallback_syscall
+@@ -593,11 +593,11 @@ ENTRY(fsys_fallback_syscall)
+ 	adds r17=-1024,r15
+ 	movl r14=sys_call_table
+ 	;;
+-	rsm psr.i
++	RSM_PSR_I(p0, r26, r27)
+ 	shladd r18=r17,3,r14
+ 	;;
+ 	ld8 r18=[r18]				// load normal (heavy-weight) syscall entry-point
+-	mov r29=psr				// read psr (12 cyc load latency)
++	MOV_FROM_PSR(p0, r29, r26)		// read psr (12 cyc load latency)
+ 	mov r27=ar.rsc
+ 	mov r21=ar.fpsr
+ 	mov r26=ar.pfs
+@@ -735,7 +735,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+ 	mov rp=r14				// I0   set the real return addr
+ 	and r3=_TIF_SYSCALL_TRACEAUDIT,r3	// A
+ 	;;
+-	ssm psr.i				// M2   we're on kernel stacks now, reenable irqs
++	SSM_PSR_I(p0, p6, r22)			// M2   we're on kernel stacks now, reenable irqs
+ 	cmp.eq p8,p0=r3,r0			// A
+ (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-frame or r15 is a NaT
  
- # xen multi compile
-diff --git a/arch/ia64/xen/gate-data.S b/arch/ia64/xen/gate-data.S
-new file mode 100644
-index 0000000..7d4830a
---- /dev/null
-+++ b/arch/ia64/xen/gate-data.S
-@@ -0,0 +1,3 @@
-+	.section .data.gate.xen, "aw"
-+
-+	.incbin "arch/ia64/xen/gate.so"
-diff --git a/arch/ia64/xen/xen_pv_ops.c b/arch/ia64/xen/xen_pv_ops.c
-index d913361..bdf1acb 100644
---- a/arch/ia64/xen/xen_pv_ops.c
-+++ b/arch/ia64/xen/xen_pv_ops.c
-@@ -179,6 +179,37 @@ struct pv_fsys_data xen_fsys_data __initdata = {
- };
- 
- /***************************************************************************
-+ * pv_patchdata
-+ * patchdata addresses
-+ */
-+
-+#define DECLARE(name)							\
-+	extern unsigned long __xen_start_gate_##name##_patchlist[];	\
-+	extern unsigned long __xen_end_gate_##name##_patchlist[]
-+
-+DECLARE(fsyscall);
-+DECLARE(brl_fsys_bubble_down);
-+DECLARE(vtop);
-+DECLARE(mckinley_e9);
-+
-+extern unsigned long __xen_start_gate_section[];
-+
-+#define ASSIGN(name)							\
-+	.start_##name##_patchlist =					\
-+		(unsigned long)__xen_start_gate_##name##_patchlist,	\
-+	.end_##name##_patchlist =					\
-+		(unsigned long)__xen_end_gate_##name##_patchlist
-+
-+static struct pv_patchdata xen_patchdata __initdata = {
-+	ASSIGN(fsyscall),
-+	ASSIGN(brl_fsys_bubble_down),
-+	ASSIGN(vtop),
-+	ASSIGN(mckinley_e9),
-+
-+	.gate_section = (void*)__xen_start_gate_section,
-+};
-+
-+/***************************************************************************
-  * pv_cpu_ops
-  * intrinsics hooks.
-  */
-@@ -447,6 +478,7 @@ xen_setup_pv_ops(void)
- 	pv_info = xen_info;
- 	pv_init_ops = xen_init_ops;
- 	pv_fsys_data = xen_fsys_data;
-+	pv_patchdata = xen_patchdata;
- 	pv_cpu_ops = xen_cpu_ops;
- 	pv_iosapic_ops = xen_iosapic_ops;
- 	pv_irq_ops = xen_irq_ops;
 -- 
 1.6.0.2
 
