@@ -1,98 +1,123 @@
 From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Wed, 04 Mar 2009 12:05:38 +0000
-Subject: [PATCH 07/15] ia64/pv_ops: paravirtualize mov = ar.itc.
-Message-Id: <1236168346-29788-8-git-send-email-yamahata@valinux.co.jp>
+Date: Wed, 04 Mar 2009 12:05:40 +0000
+Subject: [PATCH 09/15] ia64/pv_ops/pv_time_ops: add sched_clock hook.
+Message-Id: <1236168346-29788-10-git-send-email-yamahata@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1229063944-27462-8-git-send-email-yamahata@valinux.co.jp>
-In-Reply-To: <1229063944-27462-8-git-send-email-yamahata@valinux.co.jp>
+References: <1229063944-27462-10-git-send-email-yamahata@valinux.co.jp>
+In-Reply-To: <1229063944-27462-10-git-send-email-yamahata@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-paravirtualize mov reg = ar.itc.
+add sched_clock() hook to paravirtualize sched_clock().
+ia64 sched_clock() is based on ar.itc which isn't stable
+on virtualized environment because vcpu may move around on
+pcpus. So it needs paravirtualization.
 
 Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 ---
- arch/ia64/include/asm/native/inst.h |    5 +++++
- arch/ia64/kernel/entry.S            |    4 ++--
- arch/ia64/kernel/fsys.S             |    4 ++--
- arch/ia64/kernel/ivt.S              |    2 +-
- 4 files changed, 10 insertions(+), 5 deletions(-)
+ arch/ia64/include/asm/paravirt.h |    7 +++++++
+ arch/ia64/include/asm/timex.h    |    1 +
+ arch/ia64/kernel/head.S          |   10 ++++++++--
+ arch/ia64/kernel/paravirt.c      |    1 +
+ arch/ia64/kernel/time.c          |    9 +++++++++
+ 5 files changed, 26 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
-index 5e4e151..ad59fc6 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -77,6 +77,11 @@
- (pred)	mov reg = psr			\
- 	CLOBBER(clob)
+diff --git a/arch/ia64/include/asm/paravirt.h b/arch/ia64/include/asm/paravirt.h
+index 56f69f9..a73e77a 100644
+--- a/arch/ia64/include/asm/paravirt.h
++++ b/arch/ia64/include/asm/paravirt.h
+@@ -225,6 +225,8 @@ struct pv_time_ops {
+ 	int (*do_steal_accounting)(unsigned long *new_itm);
  
-+#define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
-+(pred)	mov reg = ar.itc				\
-+	CLOBBER(clob)					\
-+	CLOBBER_PRED(pred_clob)
+ 	void (*clocksource_resume)(void);
 +
- #define MOV_TO_IFA(reg, clob)	\
- 	mov cr.ifa = reg	\
- 	CLOBBER(clob)
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index e5341e2..ccfdeee 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -735,7 +735,7 @@ GLOBAL_ENTRY(__paravirt_leave_syscall)
- __paravirt_work_processed_syscall:
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	adds r2=PT(LOADRS)+16,r12
--(pUStk)	mov.m r22=ar.itc			// fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r19)	// fetch time at leave
- 	adds r18=TI_FLAGS+IA64_TASK_SIZE,r13
- 	;;
- (p6)	ld4 r31=[r18]				// load current_thread_info()->flags
-@@ -984,7 +984,7 @@ GLOBAL_ENTRY(__paravirt_leave_kernel)
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
- 	.pred.rel.mutex pUStk,pKStk
- 	MOV_FROM_PSR(pKStk, r22, r29)	// M2 read PSR now that interrupts are disabled
--(pUStk)	mov.m r22=ar.itc	// M  fetch time at leave
-+	MOV_FROM_ITC(pUStk, p9, r22, r29)	// M  fetch time at leave
- 	nop.i 0
- 	;;
++	unsigned long long (*sched_clock)(void);
+ };
+ 
+ extern struct pv_time_ops pv_time_ops;
+@@ -242,6 +244,11 @@ paravirt_do_steal_accounting(unsigned long *new_itm)
+ 	return pv_time_ops.do_steal_accounting(new_itm);
+ }
+ 
++static inline unsigned long long paravirt_sched_clock(void)
++{
++	return pv_time_ops.sched_clock();
++}
++
+ #endif /* !__ASSEMBLY__ */
+ 
  #else
-diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
-index 3544d75..3567d54 100644
---- a/arch/ia64/kernel/fsys.S
-+++ b/arch/ia64/kernel/fsys.S
-@@ -280,7 +280,7 @@ ENTRY(fsys_gettimeofday)
- (p9)	cmp.eq p13,p0 = 0,r30	// if mmio_ptr, clear p13 jitter control
+diff --git a/arch/ia64/include/asm/timex.h b/arch/ia64/include/asm/timex.h
+index 4e03cfe..86c7db8 100644
+--- a/arch/ia64/include/asm/timex.h
++++ b/arch/ia64/include/asm/timex.h
+@@ -40,5 +40,6 @@ get_cycles (void)
+ }
+ 
+ extern void ia64_cpu_local_tick (void);
++extern unsigned long long ia64_native_sched_clock (void);
+ 
+ #endif /* _ASM_IA64_TIMEX_H */
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index 59301c4..23f846d 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -1050,7 +1050,7 @@ END(ia64_delay_loop)
+  * except that the multiplication and the shift are done with 128-bit
+  * intermediate precision so that we can produce a full 64-bit result.
+  */
+-GLOBAL_ENTRY(sched_clock)
++GLOBAL_ENTRY(ia64_native_sched_clock)
+ 	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
+ 	mov.m r9=ar.itc		// fetch cycle-counter				(35 cyc)
  	;;
- 	.pred.rel.mutex p8,p9
--(p8)	mov r2 = ar.itc		// CPU_TIMER. 36 clocks latency!!!
-+	MOV_FROM_ITC(p8, p6, r2, r10)	// CPU_TIMER. 36 clocks latency!!!
- (p9)	ld8 r2 = [r30]		// MMIO_TIMER. Could also have latency issues..
- (p13)	ld8 r25 = [r19]		// get itc_lastcycle value
- 	ld8 r9 = [r22],IA64_TIMESPEC_TV_NSEC_OFFSET	// tv_sec
-@@ -684,7 +684,7 @@ GLOBAL_ENTRY(paravirt_fsys_bubble_down)
+@@ -1066,7 +1066,13 @@ GLOBAL_ENTRY(sched_clock)
  	;;
- 	mov ar.rsc=0				// M2   set enforced lazy mode, pl 0, LE, loadrs=0
+ 	shrp r8=r9,r8,IA64_NSEC_PER_CYC_SHIFT
+ 	br.ret.sptk.many rp
+-END(sched_clock)
++END(ia64_native_sched_clock)
++#ifndef CONFIG_PARAVIRT
++	//unsigned long long
++	//sched_clock(void) __attribute__((alias("ia64_native_sched_clock")));
++	.global sched_clock
++sched_clock = ia64_native_sched_clock
++#endif
+ 
  #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p6, r30, r23)		// M    get cycle for accounting
- #else
- 	nop.m 0
+ GLOBAL_ENTRY(cycle_to_cputime)
+diff --git a/arch/ia64/kernel/paravirt.c b/arch/ia64/kernel/paravirt.c
+index 9f14c16..6bc33a6 100644
+--- a/arch/ia64/kernel/paravirt.c
++++ b/arch/ia64/kernel/paravirt.c
+@@ -366,4 +366,5 @@ ia64_native_do_steal_accounting(unsigned long *new_itm)
+ 
+ struct pv_time_ops pv_time_ops = {
+ 	.do_steal_accounting = ia64_native_do_steal_accounting,
++	.sched_clock = ia64_native_sched_clock,
+ };
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index f0ebb34..c323c7b 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -50,6 +50,15 @@ EXPORT_SYMBOL(last_cli_ip);
  #endif
-diff --git a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
-index f675d8e..ec9a5fd 100644
---- a/arch/ia64/kernel/ivt.S
-+++ b/arch/ia64/kernel/ivt.S
-@@ -804,7 +804,7 @@ ENTRY(break_fault)
- ///////////////////////////////////////////////////////////////////////
- 	st1 [r16]=r0				// M2|3 clear current->thread.on_ustack flag
- #ifdef CONFIG_VIRT_CPU_ACCOUNTING
--	mov.m r30=ar.itc			// M    get cycle for accounting
-+	MOV_FROM_ITC(p0, p14, r30, r18)		// M    get cycle for accounting
- #else
- 	mov b6=r30				// I0   setup syscall handler branch reg early
- #endif
+ 
+ #ifdef CONFIG_PARAVIRT
++/* We need to define a real function for sched_clock, to override the
++   weak default version */
++unsigned long long sched_clock(void)
++{
++        return paravirt_sched_clock();
++}
++#endif
++
++#ifdef CONFIG_PARAVIRT
+ static void
+ paravirt_clocksource_resume(void)
+ {
 -- 
 1.6.0.2
 
