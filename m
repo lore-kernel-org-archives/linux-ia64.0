@@ -1,33 +1,45 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 31 Mar 2009 18:39:24 +0000
-Subject: RE: [GIT PULL] percpu, cpumask, x86 updates for v2.6.30
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA39B13FB2E@orsmsx505.amr.corp.intel.com>
+From: akpm@linux-foundation.org
+Date: Wed, 04 Mar 2009 20:09:46 +0000
+Subject: [patch for 2.6.29? 1/1] ia64: fix PCI DMA flag propagation on SN (Altix) with PICs
+Message-Id: <200903042009.n24K9kpC029740@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LFD.2.00.0903281341100.3994@localhost.localdomain>
-In-Reply-To: <alpine.LFD.2.00.0903281341100.3994@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> If there was something here that shouldnt have happened then let me
-> know and i'll trace back exactly how it happened and will prevent it
-> in the future.
+From: Jeremy Higdon <jeremy@sgi.com>
 
-Then perhaps it was the sequence in which things were released to
-Linus?  Jes & both saw a problem in the ia64 build after pulling
-from Linus on Friday.  He came up with a patch, which I incorporated
-& sent to Linus[1] ... and thus the conflict occurred when more stuff
-came from your tree.
+We recently discovered a problem with passing of DMA attributes on SN
+systems with the older PIC chips.
 
-So bisectability was broken by the sequence of patches that were
-being fed into Linus' tree.
+[akpm@linux-foundation.org: coding-style fixes]
+Signed-off-by: Jeremy Higdon <jeremy@sgi.com>
+Cc: <habeck@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Cc: Jesse Barnes <jbarnes@virtuousgeek.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
--Tony
+ arch/ia64/sn/pci/pcibr/pcibr_dma.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-[1] Note this is the only patch that I've submitted so far for
-2.6.30 ... I have some other stuff that has been sitting in
-linux-next ... but some of it isn't as well aged there as it
-should be, so I'm holding it back for the latter part of the
-merge window to make sure I don't break anything that has
-followed better aging practices.
+diff -puN arch/ia64/sn/pci/pcibr/pcibr_dma.c~ia64-fix-pci-dma-flag-propagation-on-sn-altix-with-pics arch/ia64/sn/pci/pcibr/pcibr_dma.c
+--- a/arch/ia64/sn/pci/pcibr/pcibr_dma.c~ia64-fix-pci-dma-flag-propagation-on-sn-altix-with-pics
++++ a/arch/ia64/sn/pci/pcibr/pcibr_dma.c
+@@ -135,11 +135,10 @@ pcibr_dmatrans_direct64(struct pcidev_in
+ 	if (SN_DMA_ADDRTYPE(dma_flags) = SN_DMA_ADDR_PHYS)
+ 		pci_addr = IS_PIC_SOFT(pcibus_info) ?
+ 				PHYS_TO_DMA(paddr) :
+-		    		PHYS_TO_TIODMA(paddr) | dma_attributes;
++				PHYS_TO_TIODMA(paddr);
+ 	else
+-		pci_addr = IS_PIC_SOFT(pcibus_info) ?
+-				paddr :
+-				paddr | dma_attributes;
++		pci_addr = paddr;
++	pci_addr |= dma_attributes;
+ 
+ 	/* Handle Bus mode */
+ 	if (IS_PCIX(pcibus_info))
+_
