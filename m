@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 06 Mar 2009 22:17:50 +0000
+Date: Fri, 27 Mar 2009 17:46:04 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <49b1a10e82788e0dd@agluck-desktop.sc.intel.com>
+Message-Id: <49cd10dc323461c4ee@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,9 +22,9 @@ Thanks!
 
 -Tony
 
- arch/ia64/sn/pci/pcibr/pcibr_dma.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/irq_ia64.c |   25 +++++++++++++++----------
+ 1 files changed, 15 insertions(+), 10 deletions(-)
 
-Jeremy Higdon (1):
-      [IA64] fix PCI DMA flag propagation on SN (Altix) with PICs
+Jes Sorensen (1):
+      [IA64] Fix kstat_this_cpu build breakage
 
