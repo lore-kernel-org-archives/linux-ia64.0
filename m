@@ -1,37 +1,55 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 20 Apr 2009 17:32:46 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <49ecb1be18769a0a7f@agluck-desktop.sc.intel.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Wed, 08 Apr 2009 00:39:21 +0000
+Subject: cross-compilers
+Message-Id: <20090408003921.GA5054@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi Andrew,
 
-please pull from:
+I've been using your cross-compilers here:
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+	http://userweb.kernel.org/~akpm/cross-compilers/
 
-This will update the files shown below.
+for a long time now, but they're starting to suffer from a bit of
+neglect.
 
-Thanks!
+For example, the ia64 bundle, which used gcc 3.4.5 is now finally
+too old to build 2.6.30-rc1, because of a gcc bug related to
+labels.
 
--Tony
+Some of the newer bundles which use gcc 4.1.0 don't work because
+of a check in:
 
- arch/ia64/include/asm/paravirt_privop.h |    2 --
- arch/ia64/kernel/smp.c                  |   14 ++++++--------
- 2 files changed, 6 insertions(+), 10 deletions(-)
+	include/linux/compiler-gcc4.h
 
-Dimitri Sivanich (1):
-      [IA64] smp_flush_tlb_mm() should only send IPI's to cpus in cpu_vm_mask
+So my question is, do you still use those tools hosted on
+kernel.org or do you have a new solution these days?
 
-Isaku Yamahata (1):
-      [IA64] fix allmodconfig compilation breakage.
+If you have a new solution, I'd like to hear it, because I found
+those cross-compilers pretty useful, as I'm sure others did.
 
-Marcelo Tosatti (1):
-      [IA64] export smp_send_reschedule
+I spent most of yesterday fiddling about and managed to build an
+x86_64 host, ia64 target, gcc 4.2.3, glibc 2.3.6 bundle, and it
+all seems to work.
+
+Is this something you're interested in? I could send you my
+tarball (and slowly work on some of the other archs).
+
+If so, what were the crosstool build options you used? I'm
+specifically wondering about:
+
+	- should I am for lowest common denominator host or are
+	  you ok with x86_64 host
+	
+	- did you statically link the toolchain? or is it
+	  dynamically linked?
+
+Thanks.
+
+/ac
 
