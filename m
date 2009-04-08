@@ -1,37 +1,27 @@
-From: Andi Kleen <andi@firstfloor.org>
-Date: Wed, 08 Apr 2009 09:50:08 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 08 Apr 2009 10:53:13 +0000
 Subject: Re: cross-compilers
-Message-Id: <87myara2zz.fsf@basil.nowhere.org>
+Message-Id: <20090408105313.GA13576@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090408003921.GA5054@ldl.fc.hp.com>
-	<20090408010331.GB10768@sgi.com> <20090408054612.GA6744@ldl.fc.hp.com>
-In-Reply-To: <20090408054612.GA6744@ldl.fc.hp.com> (Alex Chiang's message of "Tue, 7 Apr 2009 23:46:12 -0600")
+References: <20090408003921.GA5054@ldl.fc.hp.com> <20090408010331.GB10768@sgi.com> <20090408054612.GA6744@ldl.fc.hp.com> <20090407225457.86f8a458.akpm@linux-foundation.org>
+In-Reply-To: <20090407225457.86f8a458.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Chiang <achiang@hp.com>
-Cc: Robin Holt <holt@sgi.com>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alex Chiang <achiang@hp.com>, Robin Holt <holt@sgi.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Alex Chiang <achiang@hp.com> writes:
+On Tue, Apr 07, 2009 at 10:54:57PM -0700, Andrew Morton wrote:
+> > Or shall we just recommend emdebian to everyone? :)
+> 
+> That sounds suspiciously like "thou shalt use debian".  I was so
+> traumatised by dselect ten years ago that I don't think I could afford
+> the therapy bills.
 
-> * Robin Holt <holt@sgi.com>:
->> Don't know if this answers your problem, but I use the tools from
->> emdebian and they do not suffer from the problems you list below.
->
-> Wow, this seems _much_ simpler. Once you get the toolchain
-> installed, all you have to do is set ARCH and CROSS_COMPILE
-> appropriately?
->
-> I guess the question remains for Andrew. Since I pretty much did
-> all the work needed to update his cross-compiler repo, is there
-> still value in it?
->
-> Or shall we just recommend emdebian to everyone? :)
-
-SUSE also has cross-gcc-* rpms. Typically for icecream, but they're
-relatively easy to extract into native format.
-
--Andi
+I think it's been about ten years since I last used dselect ;-)
 
 -- 
-ak@linux.intel.com -- Speaking for myself only.
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
