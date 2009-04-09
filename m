@@ -1,32 +1,27 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Thu, 09 Apr 2009 20:31:51 +0000
+From: Segher Boessenkool <segher@kernel.crashing.org>
+Date: Thu, 09 Apr 2009 20:51:38 +0000
 Subject: Re: cross-compilers
-Message-Id: <20090409203151.GA2770@ldl.fc.hp.com>
+Message-Id: <1D6A3AE1-14BE-491F-89F2-BC9CE04F444E@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090408003921.GA5054@ldl.fc.hp.com> <20090408010331.GB10768@sgi.com> <20090408054612.GA6744@ldl.fc.hp.com> <20090407225457.86f8a458.akpm@linux-foundation.org> <20090409003308.GK16602@bilbo.ozlabs.org> <20090408174443.79e71503.akpm@linux-foundation.org> <20090409005521.GA22364@ldl.fc.hp.com> <49DE597B.6090104@gmx.de>
-In-Reply-To: <49DE597B.6090104@gmx.de>
+References: <20090408003921.GA5054@ldl.fc.hp.com> <20090408010331.GB10768@sgi.com> <20090408054612.GA6744@ldl.fc.hp.com> <20090407225457.86f8a458.akpm@linux-foundation.org> <20090408173332.GB20187@ldl.fc.hp.com> <20090409125237.GD7921@lug-owl.de>
+In-Reply-To: <20090409125237.GD7921@lug-owl.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Helge Deller <deller@gmx.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Tony Breeds <tony@bakeyournoodle.com>, Robin Holt <holt@sgi.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Jan-Benedict Glaw <jbglaw@lug-owl.de>
+Cc: Alex Chiang <achiang@hp.com>, Andrew Morton <akpm@linux-foundation.org>, Robin Holt <holt@sgi.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-* Helge Deller <deller@gmx.de>:
-> Alex Chiang wrote:
-> >> Several people have made suggestions but I don't think I've
-> >> yet seen anything which is download-and-go.
-> > 
-> > This is what I plan on doing with Vegard. I've already sent
-> > him mail offline.
-> 
-> Any chance to add cross compilers for linux-parisc and
-> linux-parisc64 as well?
+> Is anybody building GCC trunk for the targets on a daily basis?
 
-I can try.
+Not daily yet, but often anyway.  Also binutils and kernel mainline.
 
-I'm about to leave on a two-week holiday so it'll be a while.
+Scripts: <http://git.infradead.org/users/segher/buildall.git>
 
-Thanks.
+Edit "config" for your local paths etc.
+Run  ./build [--kernel] <arch> [<some-defconfig>]  to build a toolchain
+and a kernel, or only the kernel if --kernel is given.  Run  ./buildall
+to build a toolchain+kernel for all archs.
 
-/ac
+
+Segher
 
