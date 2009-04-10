@@ -1,107 +1,71 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Sat, 18 Apr 2009 03:31:41 +0000
-Subject: Re: ia64 allmodconfig bustage in 2.6.30-rc2
-Message-Id: <20090418033141.GA24626%yamahata@valinux.co.jp>
+From: Doug Chapman <doug.chapman@hp.com>
+Date: Fri, 10 Apr 2009 19:13:23 +0000
+Subject: squashfs broken on ia64
+Message-Id: <1239390803.21349.13.camel@oberon>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090417152551.381bc522.akpm@linux-foundation.org>
-In-Reply-To: <20090417152551.381bc522.akpm@linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 17, 2009 at 04:07:51PM -0700, Luck, Tony wrote:
-> > `make allmodconfig'
-> > `make vmlinux'
-> >
-> >  CC      arch/ia64/kernel/asm-offsets.s
-> > In file included from include/linux/bitops.h:17,
-> >                 from include/linux/kernel.h:15,
-> >                 from include/linux/sched.h:52,
-> >                 from arch/ia64/kernel/asm-offsets.c:9:
-> > /usr/src/devel/arch/ia64/include/asm/bitops.h: In function `set_bit':
-> > /usr/src/devel/arch/ia64/include/asm/bitops.h:47: error: implicit declaration of function `BUILD_BUG_ON'
-> 
-> Line 47 of bitops.h is a CMPXCHG_BUGCHECK() and allmodconfig
-> has CONFIG_IA64_DEBUG_CMPXCHG=y, so we pick the debug version
-> that uses ia64_getreg(_IA64_REG_IP) to printk a message about
-> where we are stuck.
-> 
-> Now allmodconfig picks CONFIG_PARAVIRT=y ... so this ends up
-> taking us to __paravirt_getreg(), which is where the BUILD_BUG_ON()
-> gets introduced.  So we need to include <linux/kernel.h> somewhere
-> (or somewhere earlier than we currently do) to make this alright.
-> 
-> But our probem is that kernel.h goes off and includes bitops.h
-> long before it defines BUILD_BUG_ON.  Just moving the definition
-> of BUILD_BUG_ON up before we #include anything else (ugly) fixes
-> this immediate problem ... but then there are lots of other errors from
-> asm/bitops.h :-(
-> 
-> Deleting the two BUILD_BUG_ON instances from paravirt_privop.h does
-> get the build up on its feet and running.  But that loses us some
-> compile time checking for a coding/usage error.
-> 
-> Yamahata-san: How important do you think the BUILD_BUG_ON()
-> checks are here?  What would the failure look like if we dropped
-> them, and at some later time someone coded a call to ia64_getreg
-> with a non-constant register number as argument?
-> 
-> -Tony
-> 
+It appears that squashfs 4.0 doesn't work on ia64.  I am not sure what
+could be arch specific here but the same kernel versions work OK on
+x86_64.
 
-Oh, sorry. I think removing it doesn't spoil compile time check
-because the error the BUILD_BUG_ON() catches is also caught when
-CONFIG_PARAVIRT=n. Here is the patch.
+I can reproduce this even with a very simple squashfs image that
+contains just one "hello world" text file so it isn't specific to any
+strange corner case.  I also tried a known-good image file (from x86_64
+fedora rawhide) to ensure it wasn't something specific to the ia64
+squashfs tool.  As far as I can tell the last time this worked on ia64
+was with the older squashfs 3.1 code.
 
-From f8f6a92b7433debdc8e70157ae2d70cbadcdd90b Mon Sep 17 00:00:00 2001
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Date: Sat, 18 Apr 2009 12:15:23 +0900
-Subject: [PATCH] ia64/pv_ops: fix allmodconfig compilation breakage.
-
-This patch fixes the following compilation error caused by recursive
-inclusion of kernel.h which defines BUILD_BUG_ON().
-In this case, the case it catches will be caught by the case
-CONFIG_PARAVIRT=n, so removing it would not hurt compile time check
-very much. So fix the breakage by removing it.
-
-  CC      arch/ia64/kernel/asm-offsets.s
-In file included from include/linux/bitops.h:17,
-                 from include/linux/kernel.h:15,
-                 from include/linux/sched.h:52,
-                 from arch/ia64/kernel/asm-offsets.c:9:
-arch/ia64/include/asm/bitops.h: In function 'set_bit':
-arch/ia64/include/asm/bitops.h:47: error: implicit declaration of function 'BUILD_BUG_ON'
-
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- arch/ia64/include/asm/paravirt_privop.h |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/arch/ia64/include/asm/paravirt_privop.h b/arch/ia64/include/asm/paravirt_privop.h
-index 3d29511..8f6cb11 100644
---- a/arch/ia64/include/asm/paravirt_privop.h
-+++ b/arch/ia64/include/asm/paravirt_privop.h
-@@ -445,7 +445,6 @@ paravirt_set_rr0_to_rr4(unsigned long val0, unsigned long val1,
- 		register unsigned long ia64_intri_res asm ("r8");	\
- 		register unsigned long __reg asm ("r8") = (reg);	\
- 									\
--		BUILD_BUG_ON(!__builtin_constant_p(reg));		\
- 		asm volatile (paravirt_alt_bundle(__PARAVIRT_BR,	\
- 						  PARAVIRT_TYPE(GETREG) \
- 						  + (reg))		\
-@@ -464,7 +463,6 @@ paravirt_set_rr0_to_rr4(unsigned long val0, unsigned long val1,
- 		register unsigned long ia64_clobber1 asm ("r8");	\
- 		register unsigned long ia64_clobber2 asm ("r9");	\
- 									\
--		BUILD_BUG_ON(!__builtin_constant_p(reg));		\
- 		asm volatile (paravirt_alt_bundle(__PARAVIRT_BR,	\
- 						  PARAVIRT_TYPE(SETREG) \
- 						  + (reg))		\
--- 
-1.6.0.2
+I will continue to investigate but any ideas are very welcome as I have
+never looked at the squashfs code before.  I did some quick debugging
+and found that zlib_inflate is returning Z_BUF_ERROR but that is as deep
+as I have gone.
 
 
+squashfs: version 4.0 (2009/01/31) Phillip Lougher
+SQUASHFS error: zlib_inflate error, data probably corrupt
+SQUASHFS error: squashfs_read_data failed to read block 0x85
+SQUASHFS error: Unable to read metadata cache entry [85]
+SQUASHFS error: Unable to read inode 0x20
+------------[ cut here ]------------
+WARNING: at fs/inode.c:673 unlock_new_inode+0x50/0xc0()
+Hardware name: server rx2660                  =20
+Modules linked in: squashfs sunrpc ip6table_filter ip6_tables ipv6
+cpufreq_ondemand acpi_cpufreq freq_table vfat fat dm_multipath tg3
+joydev mptsas mptscsih mptbase [last unloaded: scsi_wait_scan]
 
--- 
-yamahata
+Call Trace:
+ [<a000000100017b10>] show_stack+0x50/0xa0
+                                sp=E0000100874efab0 bsp=E0000100874e9278
+ [<a0000001009b9cb0>] dump_stack+0x30/0x50
+                                sp=E0000100874efc80 bsp=E0000100874e9260
+ [<a0000001000b2450>] warn_slowpath+0x130/0x200
+                                sp=E0000100874efc80 bsp=E0000100874e9200
+ [<a000000100234650>] unlock_new_inode+0x50/0xc0
+                                sp=E0000100874efda0 bsp=E0000100874e91d8
+ [<a000000100239b50>] iget_failed+0x30/0x60
+                                sp=E0000100874efda0 bsp=E0000100874e91b8
+ [<a00000020511e9e0>] squashfs_fill_super+0x900/0xb80 [squashfs]
+                                sp=E0000100874efda0 bsp=E0000100874e9160
+ [<a000000100208350>] get_sb_bdev+0x230/0x320
+                                sp=E0000100874efdc0 bsp=E0000100874e9100
+ [<a00000020511dea0>] squashfs_get_sb+0x40/0x60 [squashfs]
+                                sp=E0000100874efde0 bsp=E0000100874e90c0
+ [<a000000100207a20>] vfs_kern_mount+0x140/0x2e0
+                                sp=E0000100874efde0 bsp=E0000100874e9070
+ [<a000000100207c80>] do_kern_mount+0x60/0x220
+                                sp=E0000100874efde0 bsp=E0000100874e9030
+ [<a000000100244300>] do_mount+0x1480/0x1540
+                                sp=E0000100874efde0 bsp=E0000100874e8fb8
+ [<a0000001002444c0>] sys_mount+0x100/0x1c0
+                                sp=E0000100874efe10 bsp=E0000100874e8f28
+ [<a00000010000c4b0>] ia64_trace_syscall+0xf0/0x130
+                                sp=E0000100874efe30 bsp=E0000100874e8f28
+ [<a000000000010800>] __kernel_syscall_via_break+0x0/0x20
+                                sp=E0000100874f0000 bsp=E0000100874e8f28
+---[ end trace c6916087bfb06ff0 ]---
+
+
