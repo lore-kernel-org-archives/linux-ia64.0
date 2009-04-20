@@ -1,99 +1,60 @@
-From: Jes Sorensen <jes@sgi.com>
-Date: Fri, 27 Mar 2009 15:55:41 +0000
-Subject: [patch] kstat_this_cpu breakage in Linus' tree
-Message-Id: <49CCF6FD.5010008@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------030403090302030408000903"
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Mon, 20 Apr 2009 16:45:06 +0000
+Subject: ate_resource->lowest_free_index signed or unsigned?
+Message-Id: <49ECA692.2040007@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030403090302030408000903
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+In arch/ia64/include/asm/sn/pcibr_provider.h:94
 
-Hi,
+struct ate_resource{
+        u64 *ate;
+        u64 num_ate;
+        u64 lowest_free_index;
+};
 
-Due to a patch getting pulled in overnight, Linus' kernel failed to
-build here. Not sure if anybody else already fixed this, if so feel
-free to just hit delete here. Otherwise here's a patch that boots for
-me - thought it could be I got something wrong :-)
+as you see lowest_free_index is unsigned,
 
-Cheers,
-Jes
+but in alloc_ate_resource() and free_ate_resource() it is
+treated as signed:
 
---------------030403090302030408000903
-Content-Type: text/x-patch;
- name="4000-ia64-fix-kstat-irq.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="4000-ia64-fix-kstat-irq.patch"
+static inline void free_ate_resource(struct ate_resource *ate_resource,
+                                     int start)
+{
+        mark_ate(ate_resource, start, ate_resource->ate[start], 0);
+        if ((ate_resource->lowest_free_index > start) ||
+            (ate_resource->lowest_free_index < 0))
+                ate_resource->lowest_free_index = start;
+}
 
-Fix build breakage due to recent kstat_this_cpu changes in
-d7e51e66899f95dabc89b4d4c6674a6e50fa37fc
+/*
+ * alloc_ate_resource:  Allocate the requested number of ATEs.
+ */
+static inline int alloc_ate_resource(struct ate_resource *ate_resource,
+                                     int ate_needed)
+{
+        int start_index;
 
-Signed-off-by: Jes Sorensen <jes@sgi.com>
+        /*
+         * Check for ate exhaustion.
+         */
+        if (ate_resource->lowest_free_index < 0)
+                return -1;
 
+        /*
+         * Find the required number of free consecutive ates.
+         */
+        start_index             find_free_ate(ate_resource, ate_resource->lowest_free_index,
+                          ate_needed);
+        if (start_index >= 0)
+                mark_ate(ate_resource, start_index, ate_needed, ate_needed);
 
----
- arch/ia64/kernel/irq_ia64.c |   24 ++++++++++++++----------
- 1 file changed, 14 insertions(+), 10 deletions(-)
+        ate_resource->lowest_free_index             find_free_ate(ate_resource, ate_resource->lowest_free_index, 1);
 
-Index: linux-2.6.git/arch/ia64/kernel/irq_ia64.c
-===================================================================
---- linux-2.6.git.orig/arch/ia64/kernel/irq_ia64.c
-+++ linux-2.6.git/arch/ia64/kernel/irq_ia64.c
-@@ -493,14 +493,16 @@
- 	saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
- 	ia64_srlz_d();
- 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
-+		struct irq_desc *desc;
-+		int irq = local_vector_to_irq(vector);
-+
-+		desc = irq_desc + irq;
- 		if (unlikely(IS_LOCAL_TLB_FLUSH(vector))) {
- 			smp_local_flush_tlb();
--			kstat_this_cpu.irqs[vector]++;
-+			kstat_incr_irqs_this_cpu(irq, desc);
- 		} else if (unlikely(IS_RESCHEDULE(vector)))
--			kstat_this_cpu.irqs[vector]++;
-+			kstat_incr_irqs_this_cpu(irq, desc);
- 		else {
--			int irq = local_vector_to_irq(vector);
--
- 			ia64_setreg(_IA64_REG_CR_TPR, vector);
- 			ia64_srlz_d();
- 
-@@ -543,22 +545,24 @@
- 
- 	vector = ia64_get_ivr();
- 
--	 irq_enter();
--	 saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
--	 ia64_srlz_d();
-+	irq_enter();
-+	saved_tpr = ia64_getreg(_IA64_REG_CR_TPR);
-+	ia64_srlz_d();
- 
- 	 /*
- 	  * Perform normal interrupt style processing
- 	  */
- 	while (vector != IA64_SPURIOUS_INT_VECTOR) {
-+		struct irq_desc *desc;
-+		int irq = local_vector_to_irq(vector);
-+		desc = irq_desc + irq;
- 		if (unlikely(IS_LOCAL_TLB_FLUSH(vector))) {
- 			smp_local_flush_tlb();
--			kstat_this_cpu.irqs[vector]++;
-+			kstat_incr_irqs_this_cpu(irq, desc);
- 		} else if (unlikely(IS_RESCHEDULE(vector)))
--			kstat_this_cpu.irqs[vector]++;
-+			kstat_incr_irqs_this_cpu(irq, desc);
- 		else {
- 			struct pt_regs *old_regs = set_irq_regs(NULL);
--			int irq = local_vector_to_irq(vector);
- 
- 			ia64_setreg(_IA64_REG_CR_TPR, vector);
- 			ia64_srlz_d();
+        return start_index;
+}
 
---------------030403090302030408000903--
+should it be signed instead?
