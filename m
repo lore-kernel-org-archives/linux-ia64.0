@@ -1,70 +1,56 @@
-From: akpm@linux-foundation.org
-Date: Tue, 12 May 2009 20:40:21 +0000
-Subject: [patch 1/3] ia64: remove obsolete no_irq_type
-Message-Id: <200905122059.n4CKxba5004954@imap1.linux-foundation.org>
+From: Tim Abbott <tabbott@MIT.EDU>
+Date: Fri, 01 May 2009 00:04:03 +0000
+Subject: [PATCH 1/5] ia64: Use .ref.text, not .text.init for start_ap.
+Message-Id: <1241136247-10623-2-git-send-email-tabbott@mit.edu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
+In-Reply-To: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
+Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
 
-From: Thomas Gleixner <tglx@linutronix.de>
+It seems that start_ap doesn't need to be in a special location in the
+kernel, but it references some init code so it should be in .ref.text.
 
-The defines and typedefs (hw_interrupt_type, no_irq_type, irq_desc_t) have
-been kept around for migration reasons.  After more than two years it's
-time to remove them finally.
+Since this is the only thing in the .text.head section, eliminate
+.text.head from the linker script.
 
-This patch cleans up one of the remaining users.  When all such patches
-hit mainline we can remove the defines and typedefs finally.
-
-Impact: cleanup
-
-convert the last remaining users to no_irq_chip
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Tim Abbott <tabbott@mit.edu>
 Cc: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-ia64@vger.kernel.org
 ---
+ arch/ia64/kernel/head.S        |    2 +-
+ arch/ia64/kernel/vmlinux.lds.S |    2 --
+ 2 files changed, 1 insertions(+), 3 deletions(-)
 
- arch/ia64/hp/sim/hpsim_irq.c |    2 +-
- arch/ia64/kernel/iosapic.c   |    2 +-
- arch/ia64/sn/kernel/irq.c    |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index 23f846d..8239ff6 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -181,7 +181,7 @@ swapper_pg_dir:
+ halt_msg:
+ 	stringz "Halting kernel\n"
+ 
+-	.section .text.head,"ax"
++	__REF
+ 
+ 	.global start_ap
+ 
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 4a95e86..fa3a558 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -51,8 +51,6 @@ SECTIONS
+ 	KPROBES_TEXT
+ 	*(.gnu.linkonce.t*)
+     }
+-  .text.head : AT(ADDR(.text.head) - LOAD_OFFSET)
+-	{ *(.text.head) }
+   .text2 : AT(ADDR(.text2) - LOAD_OFFSET)
+ 	{ *(.text2) }
+ #ifdef CONFIG_SMP
+-- 
+1.6.2.1
 
-diff -puN arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-no_irq_type arch/ia64/hp/sim/hpsim_irq.c
---- a/arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/hp/sim/hpsim_irq.c
-@@ -46,7 +46,7 @@ hpsim_irq_init (void)
- 
- 	for (i = 0; i < NR_IRQS; ++i) {
- 		idesc = irq_desc + i;
--		if (idesc->chip = &no_irq_type)
-+		if (idesc->chip = &no_irq_chip)
- 			idesc->chip = &irq_type_hp_sim;
- 	}
- }
-diff -puN arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-no_irq_type arch/ia64/kernel/iosapic.c
---- a/arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/kernel/iosapic.c
-@@ -650,7 +650,7 @@ register_intr (unsigned int gsi, int irq
- 
- 	idesc = irq_desc + irq;
- 	if (irq_type != NULL && idesc->chip != irq_type) {
--		if (idesc->chip != &no_irq_type)
-+		if (idesc->chip != &no_irq_chip)
- 			printk(KERN_WARNING
- 			       "%s: changing vector %d from %s to %s\n",
- 			       __func__, irq_to_vector(irq),
-diff -puN arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-no_irq_type arch/ia64/sn/kernel/irq.c
---- a/arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/sn/kernel/irq.c
-@@ -301,7 +301,7 @@ void sn_irq_init(void)
- 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
- 
- 	for (i = 0; i < NR_IRQS; i++) {
--		if (base_desc[i].chip = &no_irq_type) {
-+		if (base_desc[i].chip = &no_irq_chip) {
- 			base_desc[i].chip = &irq_type_sn;
- 		}
- 	}
-_
