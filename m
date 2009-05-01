@@ -1,49 +1,47 @@
 From: Tim Abbott <tabbott@MIT.EDU>
-Date: Fri, 01 May 2009 00:04:04 +0000
-Subject: [PATCH 2/5] ia64: use new macro for .data.cacheline_aligned section.
-Message-Id: <1241136247-10623-3-git-send-email-tabbott@mit.edu>
+Date: Fri, 01 May 2009 00:04:02 +0000
+Subject: [PATCH 0/5] section name cleanup for ia64
+Message-Id: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
- <1241136247-10623-2-git-send-email-tabbott@mit.edu>
-In-Reply-To: <1241136247-10623-2-git-send-email-tabbott@mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Sam Ravnborg <sam@ravnborg.org>
 Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
 
-.data.cacheline_aligned should not need a separate output section;
-this change moves it into the .data section.
+This patch series cleans up the section names on the ia64
+architecture.  It requires the architecture-independent macro
+definitions from this patch series:
 
-Signed-off-by: Tim Abbott <tabbott@mit.edu>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/kernel/vmlinux.lds.S |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+<http://www.spinics.net/lists/mips/msg33499.html>
 
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index fa3a558..cdcd655 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -237,9 +237,6 @@ SECTIONS
-   .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
-         { *(.data.read_mostly) }
- 
--  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
--        { *(.data.cacheline_aligned) }
--
-   /* Per-cpu data: */
-   . = ALIGN(PERCPU_PAGE_SIZE);
-   PERCPU_VADDR(PERCPU_ADDR, :percpu)
-@@ -256,6 +253,7 @@ SECTIONS
- 		__cpu0_per_cpu = .;
-   . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
- #endif
-+		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
- 		DATA_DATA
- 		*(.data1)
- 		*(.gnu.linkonce.d*)
--- 
-1.6.2.1
+The long-term goal here is to add support for building the kernel with
+-ffunction-sections -fdata-sections.  This requires renaming all the
+magic section names in the kernel of the form .text.foo, .data.foo,
+.bss.foo, and .rodata.foo to not have collisions with sections
+generated for code like:
+
+static int nosave = 0; /* -fdata-sections places in .data.nosave */
+static void head(); /* -ffunction-sections places in .text.head */
+
+Note that these patches have not been boot-tested (aside from testing
+the analogous changes on x86), since I don't have access to the
+appropriate hardware.
+
+	-Tim Abbott
+
+Tim Abbott (5):
+  ia64: Use .ref.text, not .text.init for start_ap.
+  ia64: use new macro for .data.cacheline_aligned section.
+  ia64: use new macros for .data.init_task
+  ia64: use new macro for .data.read_mostly section.
+  ia64: convert to new generic read_mostly support.
+
+ arch/ia64/Kconfig              |    3 +++
+ arch/ia64/include/asm/cache.h  |    2 --
+ arch/ia64/kernel/head.S        |    2 +-
+ arch/ia64/kernel/init_task.c   |    2 +-
+ arch/ia64/kernel/vmlinux.lds.S |   15 +++------------
+ arch/ia64/xen/xensetup.S       |    3 ++-
+ 6 files changed, 10 insertions(+), 17 deletions(-)
 
