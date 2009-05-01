@@ -1,85 +1,49 @@
-From: akpm@linux-foundation.org
-Date: Tue, 12 May 2009 20:40:22 +0000
-Subject: [patch 3/3] ia64: remove obsolete hw_interrupt_type
-Message-Id: <200905122059.n4CKxcaT004960@imap1.linux-foundation.org>
+From: Tim Abbott <tabbott@MIT.EDU>
+Date: Fri, 01 May 2009 00:04:04 +0000
+Subject: [PATCH 2/5] ia64: use new macro for .data.cacheline_aligned section.
+Message-Id: <1241136247-10623-3-git-send-email-tabbott@mit.edu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
+ <1241136247-10623-2-git-send-email-tabbott@mit.edu>
+In-Reply-To: <1241136247-10623-2-git-send-email-tabbott@mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Sam Ravnborg <sam@ravnborg.org>
+Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
 
-From: Thomas Gleixner <tglx@linutronix.de>
+.data.cacheline_aligned should not need a separate output section;
+this change moves it into the .data section.
 
-The defines and typedefs (hw_interrupt_type, no_irq_type, irq_desc_t) have
-been kept around for migration reasons.  After more than two years it's
-time to remove them finally.
-
-This patch cleans up one of the remaining users.  When all such patches
-hit mainline we can remove the defines and typedefs finally.
-
-Impact: cleanup
-
-Convert the last remaining users to struct irq_chip and remove the
-define.
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Tim Abbott <tabbott@mit.edu>
 Cc: Tony Luck <tony.luck@intel.com>
-
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-ia64@vger.kernel.org
 ---
+ arch/ia64/kernel/vmlinux.lds.S |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
- arch/ia64/hp/sim/hpsim_irq.c   |    2 +-
- arch/ia64/include/asm/hw_irq.h |    2 +-
- arch/ia64/kernel/iosapic.c     |    2 +-
- arch/ia64/kernel/irq_lsapic.c  |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index fa3a558..cdcd655 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -237,9 +237,6 @@ SECTIONS
+   .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
+         { *(.data.read_mostly) }
+ 
+-  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
+-        { *(.data.cacheline_aligned) }
+-
+   /* Per-cpu data: */
+   . = ALIGN(PERCPU_PAGE_SIZE);
+   PERCPU_VADDR(PERCPU_ADDR, :percpu)
+@@ -256,6 +253,7 @@ SECTIONS
+ 		__cpu0_per_cpu = .;
+   . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
+ #endif
++		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
+ 		DATA_DATA
+ 		*(.data1)
+ 		*(.gnu.linkonce.d*)
+-- 
+1.6.2.1
 
-diff -puN arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/hp/sim/hpsim_irq.c
---- a/arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-hw_interrupt_type
-+++ a/arch/ia64/hp/sim/hpsim_irq.c
-@@ -27,7 +27,7 @@ hpsim_set_affinity_noop(unsigned int a, 
- 	return 0;
- }
- 
--static struct hw_interrupt_type irq_type_hp_sim = {
-+static struct irq_chip irq_type_hp_sim = {
- 	.name =		"hpsim",
- 	.startup =	hpsim_irq_startup,
- 	.shutdown =	hpsim_irq_noop,
-diff -puN arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-hw_interrupt_type arch/ia64/include/asm/hw_irq.h
---- a/arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-hw_interrupt_type
-+++ a/arch/ia64/include/asm/hw_irq.h
-@@ -106,7 +106,7 @@ extern struct irq_cfg irq_cfg[NR_IRQS];
- #define irq_to_domain(x)	irq_cfg[(x)].domain
- DECLARE_PER_CPU(int[IA64_NUM_VECTORS], vector_irq);
- 
--extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
-+extern struct irq_chip irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
- 
- #ifdef CONFIG_PARAVIRT_GUEST
- #include <asm/paravirt.h>
-diff -puN arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/kernel/iosapic.c
---- a/arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-hw_interrupt_type
-+++ a/arch/ia64/kernel/iosapic.c
-@@ -601,7 +601,7 @@ register_intr (unsigned int gsi, int irq
- 	       unsigned long polarity, unsigned long trigger)
- {
- 	struct irq_desc *idesc;
--	struct hw_interrupt_type *irq_type;
-+	struct irq_chip *irq_type;
- 	int index;
- 	struct iosapic_rte_info *rte;
- 
-diff -puN arch/ia64/kernel/irq_lsapic.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/kernel/irq_lsapic.c
---- a/arch/ia64/kernel/irq_lsapic.c~ia64-remove-obsolete-hw_interrupt_type
-+++ a/arch/ia64/kernel/irq_lsapic.c
-@@ -33,7 +33,7 @@ static int lsapic_retrigger(unsigned int
- 	return 1;
- }
- 
--struct hw_interrupt_type irq_type_ia64_lsapic = {
-+struct irq_chip irq_type_ia64_lsapic = {
- 	.name =		"LSAPIC",
- 	.startup =	lsapic_noop_startup,
- 	.shutdown =	lsapic_noop,
-_
