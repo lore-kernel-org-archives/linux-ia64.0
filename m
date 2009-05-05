@@ -1,72 +1,78 @@
-From: Tim Abbott <tabbott@MIT.EDU>
-Date: Fri, 01 May 2009 00:04:07 +0000
-Subject: [PATCH 5/5] ia64: convert to new generic read_mostly support.
-Message-Id: <1241136247-10623-6-git-send-email-tabbott@mit.edu>
+From: "Jan Beulich" <jbeulich@novell.com>
+Date: Tue, 05 May 2009 12:57:52 +0000
+Subject: [PATCH] ia64/xen: fix build issues
+Message-Id: <4A0053F0.76EA.0078.0@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
- <1241136247-10623-2-git-send-email-tabbott@mit.edu>
- <1241136247-10623-3-git-send-email-tabbott@mit.edu>
- <1241136247-10623-4-git-send-email-tabbott@mit.edu>
- <1241136247-10623-5-git-send-email-tabbott@mit.edu>
-In-Reply-To: <1241136247-10623-5-git-send-email-tabbott@mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
+To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Tim Abbott <tabbott@mit.edu>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
+- drivers/xen/events.c did not compile
+- xen_setup_hook caused a modpost section warning
+- the use of u64 (instead of unsigned long long) together with a %llu
+  in drivers/xen/balloon.c caused a compiler warning
+
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
+
 ---
- arch/ia64/Kconfig             |    3 +++
- arch/ia64/include/asm/cache.h |    2 --
- arch/ia64/xen/xensetup.S      |    3 ++-
- 3 files changed, 5 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/idle.h       |    7 +++++++
+ arch/ia64/include/asm/xen/events.h |    7 +------
+ arch/ia64/xen/xensetup.S           |    2 --
+ drivers/xen/balloon.c              |    3 ++-
+ 4 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 294a3b1..1e2cd63 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -91,6 +91,9 @@ config GENERIC_TIME_VSYSCALL
- config HAVE_SETUP_PER_CPU_AREA
- 	def_bool y
- 
-+config HAVE_READ_MOSTLY_DATA
-+	def_bool y
+--- linux-2.6.30-rc4/arch/ia64/include/asm/idle.h	1970-01-01 01:00:00.000000000 +0100
++++ 2.6.30-rc4-ia64-xen-build/arch/ia64/include/asm/idle.h	2009-05-05 14:00:51.000000000 +0200
+@@ -0,0 +1,7 @@
++#ifndef _ASM_IA64_IDLE_H
++#define _ASM_IA64_IDLE_H
 +
- config DMI
- 	bool
- 	default y
-diff --git a/arch/ia64/include/asm/cache.h b/arch/ia64/include/asm/cache.h
-index e7482bd..8f72e1b 100644
---- a/arch/ia64/include/asm/cache.h
-+++ b/arch/ia64/include/asm/cache.h
-@@ -24,6 +24,4 @@
- # define SMP_CACHE_BYTES	(1 << 3)
- #endif
++static inline void enter_idle(void) { }
++static inline void exit_idle(void) { }
++
++#endif /* _ASM_IA64_IDLE_H */
+--- linux-2.6.30-rc4/arch/ia64/include/asm/xen/events.h	2008-12-25 00:26:37.000000000 +0100
++++ 2.6.30-rc4-ia64-xen-build/arch/ia64/include/asm/xen/events.h	2009-05-05 14:02:35.000000000 +0200
+@@ -36,14 +36,9 @@ static inline int xen_irqs_disabled(stru
+ 	return !(ia64_psr(regs)->i);
+ }
  
--#define __read_mostly __attribute__((__section__(".data.read_mostly")))
+-static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
++static inline void handle_irq(int irq, struct pt_regs *regs)
+ {
+-	struct pt_regs *old_regs;
+-	old_regs = set_irq_regs(regs);
+-	irq_enter();
+ 	__do_IRQ(irq);
+-	irq_exit();
+-	set_irq_regs(old_regs);
+ }
+ #define irq_ctx_init(cpu)	do { } while (0)
+ 
+--- linux-2.6.30-rc4/arch/ia64/xen/xensetup.S	2008-12-25 00:26:37.000000000 +0100
++++ 2.6.30-rc4-ia64-xen-build/arch/ia64/xen/xensetup.S	2009-05-05 14:08:18.000000000 +0200
+@@ -54,8 +54,6 @@ END(startup_xen)
+ 
+ #define isBP	p3	// are we the Bootstrap Processor?
+ 
+-	.text
 -
- #endif /* _ASM_IA64_CACHE_H */
-diff --git a/arch/ia64/xen/xensetup.S b/arch/ia64/xen/xensetup.S
-index 28fed1f..8781561 100644
---- a/arch/ia64/xen/xensetup.S
-+++ b/arch/ia64/xen/xensetup.S
-@@ -10,11 +10,12 @@
- #include <asm/system.h>
- #include <asm/paravirt.h>
- #include <asm/xen/privop.h>
-+#include <linux/cache.h>
- #include <linux/elfnote.h>
- #include <linux/init.h>
- #include <xen/interface/elfnote.h>
+ GLOBAL_ENTRY(xen_setup_hook)
+ 	mov r8=XEN_PV_DOMAIN_ASM
+ (isBP)	movl r9=xen_domain_type;;
+--- linux-2.6.30-rc4/drivers/xen/balloon.c	2009-03-24 00:12:14.000000000 +0100
++++ 2.6.30-rc4-ia64-xen-build/drivers/xen/balloon.c	2009-05-05 14:14:37.000000000 +0200
+@@ -513,7 +513,8 @@ static ssize_t show_target(struct sys_de
+ 			      char *buf)
+ {
+ 	return sprintf(buf, "%llu\n",
+-		       (u64)balloon_stats.target_pages << PAGE_SHIFT);
++		       (unsigned long long)balloon_stats.target_pages
++		       << PAGE_SHIFT);
+ }
  
--	.section .data.read_mostly
-+	__READ_MOSTLY
- 	.align 8
- 	.global xen_domain_type
- xen_domain_type:
--- 
-1.6.2.1
+ static ssize_t store_target(struct sys_device *dev,
+
+
 
