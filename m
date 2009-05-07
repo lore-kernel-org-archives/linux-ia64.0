@@ -1,67 +1,221 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 15 May 2009 03:55:04 +0000
-Subject: [PATCH -tip 4/5] ia64: add CONFIG_DMA_API_DEBUG support
-Message-Id: <1242359705-2117-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Date: Thu, 07 May 2009 04:35:44 +0000
+Subject: [PATCH -tip 1/5] add asm-generic/dma-mappig.h
+Message-Id: <1241670948-5818-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+
+This header file provides some generic dma mapping function
+definitions for the users of struct dma_map_ops.
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Acked-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
- arch/ia64/Kconfig                   |    1 +
- arch/ia64/include/asm/dma-mapping.h |    8 +++++++-
- 2 files changed, 8 insertions(+), 1 deletions(-)
+ include/asm-generic/dma-mapping.h |  190 +++++++++++++++++++++++++++++++++++++
+ 1 files changed, 190 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-generic/dma-mapping.h
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 294a3b1..170042b 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -28,6 +28,7 @@ config IA64
- 	select HAVE_DMA_ATTRS
- 	select HAVE_KVM
- 	select HAVE_ARCH_TRACEHOOK
-+	select HAVE_DMA_API_DEBUG
- 	default y
- 	help
- 	  The Itanium Processor Family is Intel's 64-bit successor to
-diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 2475c91..5a61b5c 100644
---- a/arch/ia64/include/asm/dma-mapping.h
-+++ b/arch/ia64/include/asm/dma-mapping.h
-@@ -8,6 +8,7 @@
- #include <asm/machvec.h>
- #include <linux/scatterlist.h>
- #include <asm/swiotlb.h>
-+#include <linux/dma-debug.h>
- 
- #define ARCH_HAS_DMA_GET_REQUIRED_MASK
- 
-@@ -24,13 +25,18 @@ static inline void *dma_alloc_coherent(struct device *dev, size_t size,
- 				       dma_addr_t *daddr, gfp_t gfp)
- {
- 	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	return ops->alloc_coherent(dev, size, daddr, gfp);
-+	void *caddr;
+diff --git a/include/asm-generic/dma-mapping.h b/include/asm-generic/dma-mapping.h
+new file mode 100644
+index 0000000..7698b78
+--- /dev/null
++++ b/include/asm-generic/dma-mapping.h
+@@ -0,0 +1,190 @@
++#ifndef _ASM_GENERIC_DMA_MAPPING_H
++#define _ASM_GENERIC_DMA_MAPPING_H
 +
-+	caddr = ops->alloc_coherent(dev, size, daddr, gfp);
-+	debug_dma_alloc_coherent(dev, size, *daddr, caddr);
-+	return caddr;
- }
- 
- static inline void dma_free_coherent(struct device *dev, size_t size,
- 				     void *caddr, dma_addr_t daddr)
- {
- 	struct dma_map_ops *ops = platform_dma_get_ops(dev);
-+	debug_dma_free_coherent(dev, size, caddr, daddr);
- 	ops->free_coherent(dev, size, caddr, daddr);
- }
- 
++#include <linux/kmemcheck.h>
++#include <linux/scatterlist.h>
++#include <linux/dma-debug.h>
++#include <linux/dma-attrs.h>
++
++static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
++					      size_t size,
++					      enum dma_data_direction dir,
++					      struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	dma_addr_t addr;
++
++	kmemcheck_mark_initialized(ptr, size);
++	BUG_ON(!valid_dma_direction(dir));
++	addr = ops->map_page(dev, virt_to_page(ptr),
++			     (unsigned long)ptr & ~PAGE_MASK, size,
++			     dir, NULL);
++	debug_dma_map_page(dev, virt_to_page(ptr),
++			   (unsigned long)ptr & ~PAGE_MASK, size,
++			   dir, addr, true);
++	return addr;
++}
++
++static inline void dma_unmap_single_attrs(struct device *dev, dma_addr_t addr,
++					  size_t size,
++					  enum dma_data_direction dir,
++					  struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->unmap_page)
++		ops->unmap_page(dev, addr, size, dir, NULL);
++	debug_dma_unmap_page(dev, addr, size, dir, true);
++}
++
++static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
++				   int nents, enum dma_data_direction dir,
++				   struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	int i, ents;
++	struct scatterlist *s;
++
++	for_each_sg(sg, s, nents, i)
++		kmemcheck_mark_initialized(sg_virt(s), s->length);
++	BUG_ON(!valid_dma_direction(dir));
++	ents = ops->map_sg(dev, sg, nents, dir, NULL);
++	debug_dma_map_sg(dev, sg, nents, ents, dir);
++
++	return ents;
++}
++
++static inline void dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sg,
++				      int nents, enum dma_data_direction dir,
++				      struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	debug_dma_unmap_sg(dev, sg, nents, dir);
++	if (ops->unmap_sg)
++		ops->unmap_sg(dev, sg, nents, dir, NULL);
++}
++
++static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
++				      size_t offset, size_t size,
++				      enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	dma_addr_t addr;
++
++	kmemcheck_mark_initialized(page_address(page) + offset, size);
++	BUG_ON(!valid_dma_direction(dir));
++	addr = ops->map_page(dev, page, offset, size, dir, NULL);
++	debug_dma_map_page(dev, page, offset, size, dir, addr, false);
++
++	return addr;
++}
++
++static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
++				  size_t size, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->unmap_page)
++		ops->unmap_page(dev, addr, size, dir, NULL);
++	debug_dma_unmap_page(dev, addr, size, dir, false);
++}
++
++static inline void dma_sync_single_for_cpu(struct device *dev, dma_addr_t addr,
++					   size_t size,
++					   enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_for_cpu)
++		ops->sync_single_for_cpu(dev, addr, size, dir);
++	debug_dma_sync_single_for_cpu(dev, addr, size, dir);
++	flush_write_buffers();
++}
++
++static inline void dma_sync_single_for_device(struct device *dev,
++					      dma_addr_t addr, size_t size,
++					      enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_for_device)
++		ops->sync_single_for_device(dev, addr, size, dir);
++	debug_dma_sync_single_for_device(dev, addr, size, dir);
++	flush_write_buffers();
++}
++
++static inline void dma_sync_single_range_for_cpu(struct device *dev,
++						 dma_addr_t addr,
++						 unsigned long offset,
++						 size_t size,
++						 enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_range_for_cpu) {
++		ops->sync_single_range_for_cpu(dev, addr, offset, size, dir);
++		debug_dma_sync_single_range_for_cpu(dev, addr, offset, size, dir);
++
++		flush_write_buffers();
++	} else
++		dma_sync_single_for_cpu(dev, addr, size, dir);
++}
++
++static inline void dma_sync_single_range_for_device(struct device *dev,
++						    dma_addr_t addr,
++						    unsigned long offset,
++						    size_t size,
++						    enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_range_for_device) {
++		ops->sync_single_range_for_device(dev, addr, offset, size, dir);
++		debug_dma_sync_single_range_for_device(dev, addr, offset, size, dir);
++
++		flush_write_buffers();
++	} else
++		dma_sync_single_for_device(dev, addr, size, dir);
++}
++
++static inline void
++dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
++		    int nelems, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_sg_for_cpu)
++		ops->sync_sg_for_cpu(dev, sg, nelems, dir);
++	debug_dma_sync_sg_for_cpu(dev, sg, nelems, dir);
++	flush_write_buffers();
++}
++
++static inline void
++dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
++		       int nelems, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_sg_for_device)
++		ops->sync_sg_for_device(dev, sg, nelems, dir);
++	debug_dma_sync_sg_for_device(dev, sg, nelems, dir);
++
++	flush_write_buffers();
++}
++
++#define dma_map_single(d, a, s, r) dma_map_single_attrs(d, a, s, r, NULL)
++#define dma_unmap_single(d, a, s, r) dma_unmap_single_attrs(d, a, s, r, NULL)
++#define dma_map_sg(d, s, n, r) dma_map_sg_attrs(d, s, n, r, NULL)
++#define dma_unmap_sg(d, s, n, r) dma_unmap_sg_attrs(d, s, n, r, NULL)
++
++#endif
 -- 
 1.6.0.6
 
