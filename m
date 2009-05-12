@@ -1,65 +1,85 @@
-From: Tim Abbott <tabbott@MIT.EDU>
-Date: Fri, 01 May 2009 00:04:05 +0000
-Subject: [PATCH 3/5] ia64: use new macros for .data.init_task
-Message-Id: <1241136247-10623-4-git-send-email-tabbott@mit.edu>
+From: akpm@linux-foundation.org
+Date: Tue, 12 May 2009 20:40:22 +0000
+Subject: [patch 3/3] ia64: remove obsolete hw_interrupt_type
+Message-Id: <200905122059.n4CKxcaT004960@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
- <1241136247-10623-2-git-send-email-tabbott@mit.edu>
- <1241136247-10623-3-git-send-email-tabbott@mit.edu>
-In-Reply-To: <1241136247-10623-3-git-send-email-tabbott@mit.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
+To: linux-ia64@vger.kernel.org
 
-.data.init_task should not need a separate output section; this change
-moves it into the .data section.
+From: Thomas Gleixner <tglx@linutronix.de>
 
-Signed-off-by: Tim Abbott <tabbott@mit.edu>
+The defines and typedefs (hw_interrupt_type, no_irq_type, irq_desc_t) have
+been kept around for migration reasons.  After more than two years it's
+time to remove them finally.
+
+This patch cleans up one of the remaining users.  When all such patches
+hit mainline we can remove the defines and typedefs finally.
+
+Impact: cleanup
+
+Convert the last remaining users to struct irq_chip and remove the
+define.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
+
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/kernel/init_task.c   |    2 +-
- arch/ia64/kernel/vmlinux.lds.S |    5 +----
- 2 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/init_task.c b/arch/ia64/kernel/init_task.c
-index 5b0e830..8b7bbed 100644
---- a/arch/ia64/kernel/init_task.c
-+++ b/arch/ia64/kernel/init_task.c
-@@ -37,7 +37,7 @@ union {
- 		struct thread_info thread_info;
- 	} s;
- 	unsigned long stack[KERNEL_STACK_SIZE/sizeof (unsigned long)];
--} init_task_mem asm ("init_task") __attribute__((section(".data.init_task"))) = {{
-+} init_task_mem asm ("init_task") __init_task_data = {{
- 	.task =		INIT_TASK(init_task_mem.s.task),
- 	.thread_info =	INIT_THREAD_INFO(init_task_mem.s.task)
- }};
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index cdcd655..9c4cc29 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -214,10 +214,6 @@ SECTIONS
-   . = ALIGN(PAGE_SIZE);
-   __init_end = .;
+ arch/ia64/hp/sim/hpsim_irq.c   |    2 +-
+ arch/ia64/include/asm/hw_irq.h |    2 +-
+ arch/ia64/kernel/iosapic.c     |    2 +-
+ arch/ia64/kernel/irq_lsapic.c  |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff -puN arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/hp/sim/hpsim_irq.c
+--- a/arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-hw_interrupt_type
++++ a/arch/ia64/hp/sim/hpsim_irq.c
+@@ -27,7 +27,7 @@ hpsim_set_affinity_noop(unsigned int a, 
+ 	return 0;
+ }
  
--  /* The initial task and kernel stack */
--  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET)
--	{ *(.data.init_task) }
--
-   .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET)
-         { *(__special_page_section)
- 	  __start_gate_section = .;
-@@ -253,6 +249,7 @@ SECTIONS
- 		__cpu0_per_cpu = .;
-   . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
- #endif
-+		INIT_TASK_DATA(PAGE_SIZE)
- 		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
- 		DATA_DATA
- 		*(.data1)
--- 
-1.6.2.1
-
+-static struct hw_interrupt_type irq_type_hp_sim = {
++static struct irq_chip irq_type_hp_sim = {
+ 	.name =		"hpsim",
+ 	.startup =	hpsim_irq_startup,
+ 	.shutdown =	hpsim_irq_noop,
+diff -puN arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-hw_interrupt_type arch/ia64/include/asm/hw_irq.h
+--- a/arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-hw_interrupt_type
++++ a/arch/ia64/include/asm/hw_irq.h
+@@ -106,7 +106,7 @@ extern struct irq_cfg irq_cfg[NR_IRQS];
+ #define irq_to_domain(x)	irq_cfg[(x)].domain
+ DECLARE_PER_CPU(int[IA64_NUM_VECTORS], vector_irq);
+ 
+-extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
++extern struct irq_chip irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
+ 
+ #ifdef CONFIG_PARAVIRT_GUEST
+ #include <asm/paravirt.h>
+diff -puN arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/kernel/iosapic.c
+--- a/arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-hw_interrupt_type
++++ a/arch/ia64/kernel/iosapic.c
+@@ -601,7 +601,7 @@ register_intr (unsigned int gsi, int irq
+ 	       unsigned long polarity, unsigned long trigger)
+ {
+ 	struct irq_desc *idesc;
+-	struct hw_interrupt_type *irq_type;
++	struct irq_chip *irq_type;
+ 	int index;
+ 	struct iosapic_rte_info *rte;
+ 
+diff -puN arch/ia64/kernel/irq_lsapic.c~ia64-remove-obsolete-hw_interrupt_type arch/ia64/kernel/irq_lsapic.c
+--- a/arch/ia64/kernel/irq_lsapic.c~ia64-remove-obsolete-hw_interrupt_type
++++ a/arch/ia64/kernel/irq_lsapic.c
+@@ -33,7 +33,7 @@ static int lsapic_retrigger(unsigned int
+ 	return 1;
+ }
+ 
+-struct hw_interrupt_type irq_type_ia64_lsapic = {
++struct irq_chip irq_type_ia64_lsapic = {
+ 	.name =		"LSAPIC",
+ 	.startup =	lsapic_noop_startup,
+ 	.shutdown =	lsapic_noop,
+_
