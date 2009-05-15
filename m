@@ -1,45 +1,33 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Fri, 29 May 2009 08:43:54 +0000
-Subject: 
-Message-Id: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 15 May 2009 21:27:12 +0000
+Subject: RE: [PATCH] Convert ia64 to use int-ll64.h
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3A80D567A@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Ian Campbell <ian.campbell@citrix.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Greg KH <gregkh@suse.de>, Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>, Kumar Gala <galak@kernel.crashing.org>, Olaf Kirch <okir@suse.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, x86@kernel.org
+To: linux-ia64@vger.kernel.org
 
-This series:
-* removes the swiotlb_(arch_)_phys_to_bus and bus_to_phys __weak
-  hooks, replacing them with an architecture-specific phys_to_dma and
-  dma_to_phys interface. These are used by both PowerPC and Xen to
-  provide the correct mapping from physical to DMA addresses.
-* removes the swiotlb_address_needs_mapping and
-  swiotlb_range_needs_mapping __weak functions as well as
-  is_buffer_dma_capable (which should never have been a generic
-  function). All three are replaced by a single architecture-specific
-  interface which meets the needs of both PowerPC and Xen.
-* removes the swiotlb_virt_to_bus __weak function and replaces it with
-  a CONFIG_HIGHMEM compatible version when high memory is in use. This
-  is needed for 32 bit PowerPC swiotlb support.
+Somewhat to my surprise this old patch still applies (with a little
+"fuzz") and builds (for tiger_defconfig) and boots.
 
-I think these new interfaces are cleaner than the existing __weak
-functions and isolate the swiotlb code from architecture internals.
+generic_defconfig fails to build because of a type conflict on
+the declaration of register_active_ranges() ... still uses u64
+for args in meminit.h, but mm/init.c has "unsigned long".
 
-This series does not contain any Xen or PowerPC specific changes, those
-will follow in separate postings. The complete patchset has been boot
-tested under Xen and native-x86 and compiled for IA64 and PowerPC
+Looking into this I think that all the parts that make functions
+that are used as the first argument to efi_memmap_walk() match the
+efi_freemem_callback_t typedef in include/linux/efi.h:
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Becky Bruce <beckyb@kernel.crashing.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: Greg KH <gregkh@suse.de>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: Kumar Gala <galak@kernel.crashing.org>
-Cc: Olaf Kirch <okir@suse.de>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@ozlabs.org
-Cc: x86@kernel.org
+typedef int (*efi_freemem_callback_t) (unsigned long start, unsigned long end, void *arg);
+
+may be unneeded.
+
+I strongly suspect that this typedef should have used "u64" for the
+first two arguments.  Other bits in efi.h seem to use u64 for addresses,
+most notably the efi_memory_desc_t typedef.
+
+It seems that ia64 is the only user of efi_memmap_walk ... so this
+typedef can be fixed without impacting other architectures.
+
+-Tony
