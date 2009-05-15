@@ -1,24 +1,25 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Thu, 07 May 2009 04:35:45 +0000
-Subject: [PATCH -tip 2/5] x86: use asm-generic/dma-mapping.h
-Message-Id: <1241670948-5818-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 15 May 2009 03:55:02 +0000
+Subject: [PATCH -tip 2/5] x86: use asm-generic/dma-mapping-common.h
+Message-Id: <1242359705-2117-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Acked-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
  arch/x86/Kconfig                   |    1 +
  arch/x86/include/asm/dma-mapping.h |  174 +-----------------------------------
  2 files changed, 3 insertions(+), 172 deletions(-)
 
 diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index fa4d702..13d26ce 100644
+index 5f50179..666cb29 100644
 --- a/arch/x86/Kconfig
 +++ b/arch/x86/Kconfig
 @@ -47,6 +47,7 @@ config X86
@@ -30,14 +31,14 @@ index fa4d702..13d26ce 100644
  config OUTPUT_FORMAT
  	string
 diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index 916cbb6..2c1cbd8 100644
+index 916cbb6..1c3f943 100644
 --- a/arch/x86/include/asm/dma-mapping.h
 +++ b/arch/x86/include/asm/dma-mapping.h
 @@ -33,6 +33,8 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
  #endif
  }
  
-+#include <asm-generic/dma-mapping.h>
++#include <asm-generic/dma-mapping-common.h>
 +
  /* Make sure we keep the same behaviour */
  static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
