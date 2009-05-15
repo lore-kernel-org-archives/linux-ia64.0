@@ -1,28 +1,45 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Date: Sat, 30 May 2009 13:02:58 +0000
-Subject: Re: [PATCH 6/9] swiotlb: use dma_to_phys and phys_to_dma
-Message-Id: <1243688578.4399.67.camel@localhost.localdomain>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 15 May 2009 03:55:00 +0000
+Subject: [PATCH -tip v2 0/5] add common functions for struct dma_map_ops
+Message-Id: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
-	 <1243586643-5554-7-git-send-email-ian.campbell@citrix.com>
-	 <4A204EFC.501@goop.org>
-In-Reply-To: <4A204EFC.501@goop.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Olaf Kirch <okir@suse.de>, Greg KH <gregkh@suse.de>, Tony Luck <tony.luck@intel.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Kumar Gala <galak@kernel.crashing.org>, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org
+To: linux-kernel@vger.kernel.org
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
 
-On Fri, 2009-05-29 at 14:09 -0700, Jeremy Fitzhardinge wrote:
-> Ian Campbell wrote:
-> >  void * __weak swiotlb_bus_to_virt(struct device *hwdev, dma_addr_t address)
-> >   
-> 
-> Does this need to be weak too?
+We unified x86 and IA64's handling of multiple dma mapping operations
+(struct dma_map_ops in linux/dma-mapping.h) so we can remove
+duplication in their arch/include/asm/dma-mapping.h.
 
-It's was wanted by PowerPC to support highmem, that's what patch 8/9
-tries to address in an arch-independent way.
+This patchset adds include/asm-generic/dma-mapping-common.h that
+provides some generic dma mapping function definitions for the users
+of struct dma_map_ops. This enables us to remove about 100 lines. This
+also enables us to easily add CONFIG_DMA_API_DEBUG support, which only
+x86 supports for now. The 4th patch adds CONFIG_DMA_API_DEBUG support
+to IA64 by adding only 8 lines.
 
-Ian.
+This is against tip/master since tip has some changes to
+arch/x86/include/asm/dma-mapping.h.
+
+The changes since the first version are
+
+- fixed a bug that dma_attrs is not passed properly (thanks to Arnd
+Bergmann).
+
+- used a new name, dma-mapping-common.h, instead of dma-mapping.h
+(suggested by Arnd Bergmann).
+
+- added Joerg's Acked-by
+
+ arch/ia64/Kconfig                        |    1 +
+ arch/ia64/include/asm/dma-mapping.h      |  110 ++----------------
+ arch/x86/Kconfig                         |    1 +
+ arch/x86/include/asm/dma-mapping.h       |  174 +---------------------------
+ include/asm-generic/dma-mapping-common.h |  190 ++++++++++++++++++++++++++++++
+ lib/dma-debug.c                          |   82 ++++++++------
+ 6 files changed, 252 insertions(+), 306 deletions(-)
+
 
 
