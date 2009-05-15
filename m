@@ -1,91 +1,222 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Mon, 11 May 2009 22:59:02 +0000
-Subject: Re: [PATCH -tip 1/5] add asm-generic/dma-mappig.h
-Message-Id: <20090512080018N.fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 15 May 2009 03:55:01 +0000
+Subject: [PATCH -tip 1/5] add asm-generic/dma-mappig-common.h
+Message-Id: <1242359705-2117-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-	<1241670948-5818-2-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-	<200905071238.05110.arnd@arndb.de>
-In-Reply-To: <200905071238.05110.arnd@arndb.de>
+References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de
-Cc: fujita.tomonori@lab.ntt.co.jp, linux-kernel@vger.kernel.org, mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
 
-On Thu, 7 May 2009 12:38:04 +0200
-Arnd Bergmann <arnd@arndb.de> wrote:
+This header file provides some mapping function definitions that the
+users of struct dma_map_ops can use.
 
-> On Thursday 07 May 2009, FUJITA Tomonori wrote:
-> > This header file provides some generic dma mapping function
-> > definitions for the users of struct dma_map_ops.
-> > 
-> > Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> 
-> I'm currently trying to add asm-generic variants for all of
-> the common headers. One of my goals there is to make them
-> as complete as possible, i.e. if a header file in asm-generic
-> has the same name as one in any of the architectures, it should
-> IMHO provide the same (full) API.
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Acked-by: Joerg Roedel <joerg.roedel@amd.com>
+---
+ include/asm-generic/dma-mapping-common.h |  190 ++++++++++++++++++++++++++++++
+ 1 files changed, 190 insertions(+), 0 deletions(-)
+ create mode 100644 include/asm-generic/dma-mapping-common.h
 
-I see.
+diff --git a/include/asm-generic/dma-mapping-common.h b/include/asm-generic/dma-mapping-common.h
+new file mode 100644
+index 0000000..5406a60
+--- /dev/null
++++ b/include/asm-generic/dma-mapping-common.h
+@@ -0,0 +1,190 @@
++#ifndef _ASM_GENERIC_DMA_MAPPING_H
++#define _ASM_GENERIC_DMA_MAPPING_H
++
++#include <linux/kmemcheck.h>
++#include <linux/scatterlist.h>
++#include <linux/dma-debug.h>
++#include <linux/dma-attrs.h>
++
++static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
++					      size_t size,
++					      enum dma_data_direction dir,
++					      struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	dma_addr_t addr;
++
++	kmemcheck_mark_initialized(ptr, size);
++	BUG_ON(!valid_dma_direction(dir));
++	addr = ops->map_page(dev, virt_to_page(ptr),
++			     (unsigned long)ptr & ~PAGE_MASK, size,
++			     dir, attrs);
++	debug_dma_map_page(dev, virt_to_page(ptr),
++			   (unsigned long)ptr & ~PAGE_MASK, size,
++			   dir, addr, true);
++	return addr;
++}
++
++static inline void dma_unmap_single_attrs(struct device *dev, dma_addr_t addr,
++					  size_t size,
++					  enum dma_data_direction dir,
++					  struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->unmap_page)
++		ops->unmap_page(dev, addr, size, dir, attrs);
++	debug_dma_unmap_page(dev, addr, size, dir, true);
++}
++
++static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
++				   int nents, enum dma_data_direction dir,
++				   struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	int i, ents;
++	struct scatterlist *s;
++
++	for_each_sg(sg, s, nents, i)
++		kmemcheck_mark_initialized(sg_virt(s), s->length);
++	BUG_ON(!valid_dma_direction(dir));
++	ents = ops->map_sg(dev, sg, nents, dir, attrs);
++	debug_dma_map_sg(dev, sg, nents, ents, dir);
++
++	return ents;
++}
++
++static inline void dma_unmap_sg_attrs(struct device *dev, struct scatterlist *sg,
++				      int nents, enum dma_data_direction dir,
++				      struct dma_attrs *attrs)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	debug_dma_unmap_sg(dev, sg, nents, dir);
++	if (ops->unmap_sg)
++		ops->unmap_sg(dev, sg, nents, dir, attrs);
++}
++
++static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
++				      size_t offset, size_t size,
++				      enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++	dma_addr_t addr;
++
++	kmemcheck_mark_initialized(page_address(page) + offset, size);
++	BUG_ON(!valid_dma_direction(dir));
++	addr = ops->map_page(dev, page, offset, size, dir, NULL);
++	debug_dma_map_page(dev, page, offset, size, dir, addr, false);
++
++	return addr;
++}
++
++static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
++				  size_t size, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->unmap_page)
++		ops->unmap_page(dev, addr, size, dir, NULL);
++	debug_dma_unmap_page(dev, addr, size, dir, false);
++}
++
++static inline void dma_sync_single_for_cpu(struct device *dev, dma_addr_t addr,
++					   size_t size,
++					   enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_for_cpu)
++		ops->sync_single_for_cpu(dev, addr, size, dir);
++	debug_dma_sync_single_for_cpu(dev, addr, size, dir);
++	flush_write_buffers();
++}
++
++static inline void dma_sync_single_for_device(struct device *dev,
++					      dma_addr_t addr, size_t size,
++					      enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_for_device)
++		ops->sync_single_for_device(dev, addr, size, dir);
++	debug_dma_sync_single_for_device(dev, addr, size, dir);
++	flush_write_buffers();
++}
++
++static inline void dma_sync_single_range_for_cpu(struct device *dev,
++						 dma_addr_t addr,
++						 unsigned long offset,
++						 size_t size,
++						 enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_range_for_cpu) {
++		ops->sync_single_range_for_cpu(dev, addr, offset, size, dir);
++		debug_dma_sync_single_range_for_cpu(dev, addr, offset, size, dir);
++
++		flush_write_buffers();
++	} else
++		dma_sync_single_for_cpu(dev, addr, size, dir);
++}
++
++static inline void dma_sync_single_range_for_device(struct device *dev,
++						    dma_addr_t addr,
++						    unsigned long offset,
++						    size_t size,
++						    enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_single_range_for_device) {
++		ops->sync_single_range_for_device(dev, addr, offset, size, dir);
++		debug_dma_sync_single_range_for_device(dev, addr, offset, size, dir);
++
++		flush_write_buffers();
++	} else
++		dma_sync_single_for_device(dev, addr, size, dir);
++}
++
++static inline void
++dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
++		    int nelems, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_sg_for_cpu)
++		ops->sync_sg_for_cpu(dev, sg, nelems, dir);
++	debug_dma_sync_sg_for_cpu(dev, sg, nelems, dir);
++	flush_write_buffers();
++}
++
++static inline void
++dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
++		       int nelems, enum dma_data_direction dir)
++{
++	struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->sync_sg_for_device)
++		ops->sync_sg_for_device(dev, sg, nelems, dir);
++	debug_dma_sync_sg_for_device(dev, sg, nelems, dir);
++
++	flush_write_buffers();
++}
++
++#define dma_map_single(d, a, s, r) dma_map_single_attrs(d, a, s, r, NULL)
++#define dma_unmap_single(d, a, s, r) dma_unmap_single_attrs(d, a, s, r, NULL)
++#define dma_map_sg(d, s, n, r) dma_map_sg_attrs(d, s, n, r, NULL)
++#define dma_unmap_sg(d, s, n, r) dma_unmap_sg_attrs(d, s, n, r, NULL)
++
++#endif
+-- 
+1.6.0.6
 
-
-> I would therefore suggest that you either rename the file to
-> something like dma-mapping-common.h or add some template
-> functions that can be overriden per architecture, like
-> 
-> #ifndef dma_get_ops
-> static inline struct dma_map_ops *get_dma_ops(struct device *dev)
-> {
-> 	return dma_ops;
-> }
-> #endif
-> #ifndef dma_alloc_coherent
-> /*
->  * to be defined out of line
->  */
-> extern void *dma_alloc_coherent(struct device *dev, size_t size,
-> 		dma_addr_t *dma_handle, gfp_t gfp);
-> #endif
-> 
-> Then an architecture can opt-in to do things like:
-> 
-> #define dma_get_ops dma_get_ops
-> static inline struct dma_map_ops *get_dma_ops(struct device *dev)
-> {
-> 	return dev->archdata.dma_ops;
-> }
-> 
-> before the #include <asm-generic/dma-mapping.h>
-
-It doesn't fit for what we want with dma-mapping.h and looks really
-ugly.
-
-ok, I'll go with something like include/linux/dma-mapping-common.h.
-
-
-> > +static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
-> > +					      size_t size,
-> > +					      enum dma_data_direction dir,
-> > +					      struct dma_attrs *attrs)
-> > +{
-> > +	struct dma_map_ops *ops = get_dma_ops(dev);
-> > +	dma_addr_t addr;
-> > +
-> > +	kmemcheck_mark_initialized(ptr, size);
-> > +	BUG_ON(!valid_dma_direction(dir));
-> > +	addr = ops->map_page(dev, virt_to_page(ptr),
-> > +			     (unsigned long)ptr & ~PAGE_MASK, size,
-> > +			     dir, NULL);
-> > +	debug_dma_map_page(dev, virt_to_page(ptr),
-> > +			   (unsigned long)ptr & ~PAGE_MASK, size,
-> > +			   dir, addr, true);
-> > +	return addr;
-> > +}
-> 
-> You are not passing the dma_attrs down here, which I think you need to,
-> if any of the architectures using this file want to support DMA attributes.
-
-Yeah, thanks. It's my silly mistake. IA64 needs dma_attrs so of course
-we heed to pass it down here.
