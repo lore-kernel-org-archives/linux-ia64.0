@@ -1,23 +1,24 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Thu, 07 May 2009 04:35:46 +0000
-Subject: [PATCH -tip 3/5] ia64: use asm-generic/dma-mapping.h
-Message-Id: <1241670948-5818-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 15 May 2009 03:55:03 +0000
+Subject: [PATCH -tip 3/5] ia64: use asm-generic/dma-mapping-common.h
+Message-Id: <1242359705-2117-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Acked-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
  arch/ia64/include/asm/dma-mapping.h |  102 +---------------------------------
  1 files changed, 3 insertions(+), 99 deletions(-)
 
 diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 36c0009..bc462e1 100644
+index 36c0009..2475c91 100644
 --- a/arch/ia64/include/asm/dma-mapping.h
 +++ b/arch/ia64/include/asm/dma-mapping.h
 @@ -37,82 +37,10 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
@@ -102,7 +103,7 @@ index 36c0009..bc462e1 100644
 -	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 -	ops->sync_sg_for_device(dev, sgl, nents, dir);
 -}
-+#include <asm-generic/dma-mapping.h>
++#include <asm-generic/dma-mapping-common.h>
  
  static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
  {
