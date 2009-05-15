@@ -1,17 +1,18 @@
 From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Thu, 07 May 2009 04:35:47 +0000
+Date: Fri, 15 May 2009 03:55:04 +0000
 Subject: [PATCH -tip 4/5] ia64: add CONFIG_DMA_API_DEBUG support
-Message-Id: <1241670948-5818-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+Message-Id: <1242359705-2117-5-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1241670948-5818-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
 
 Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Acked-by: Joerg Roedel <joerg.roedel@amd.com>
 ---
  arch/ia64/Kconfig                   |    1 +
  arch/ia64/include/asm/dma-mapping.h |    8 +++++++-
@@ -30,7 +31,7 @@ index 294a3b1..170042b 100644
  	help
  	  The Itanium Processor Family is Intel's 64-bit successor to
 diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index bc462e1..3176204 100644
+index 2475c91..5a61b5c 100644
 --- a/arch/ia64/include/asm/dma-mapping.h
 +++ b/arch/ia64/include/asm/dma-mapping.h
 @@ -8,6 +8,7 @@
