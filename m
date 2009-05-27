@@ -1,7 +1,7 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Wed, 27 May 2009 05:48:12 +0000
+Date: Wed, 27 May 2009 07:46:11 +0000
 Subject: Re: [Patch 4/4] module: trim exception table in module_free()
-Message-Id: <4A1CD41C.1000008@redhat.com>
+Message-Id: <4A1CEFC3.2010309@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090526083717.5050.32719.sendpatchset@localhost.localdomain> <200905271151.28045.rusty@rustcorp.com.au> <4A1CAF44.7000002@redhat.com> <200905271453.51914.rusty@rustcorp.com.au>
 In-Reply-To: <200905271453.51914.rusty@rustcorp.com.au>
@@ -25,14 +25,13 @@ Rusty Russell wrote:
 > may be first or last.
 >   
 
-Hmm, I understand now. The problem is that we don't know which entries
-are for __init, and which are not...
+Hmm, how about the following? :-)
 
-> (You can see here why we haven't fixed this: exceptions in __init in modules 
-> are rare, perhaps non-existent).
->   
-Agreed.
-Is it possible to put extable for __init in a separate section?
+struct exception_table_entry *p = mod->extable;
 
-Thanks for your explanation!
+for (;p <= mod->extable+mod->num_exentries; p++ )
+         if (with_in_module_init(p->insn, mod))
+                   trim_it(p);
+
+
 
