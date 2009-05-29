@@ -1,176 +1,198 @@
-From: akpm@linux-foundation.org
-Date: Tue, 12 May 2009 20:40:21 +0000
-Subject: [patch 2/3] ia64: remove obsolete irq_desc_t typedef
-Message-Id: <200905122059.n4CKxbQG004957@imap1.linux-foundation.org>
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 29 May 2009 08:44:01 +0000
+Subject: [PATCH 7/9] swiotlb: use dma_map_range
+Message-Id: <1243586643-5554-8-git-send-email-ian.campbell@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Jeremy Fitzhardinge <jeremy@goop.org>, Olaf Kirch <okir@suse.de>, Greg KH <gregkh@suse.de>, Tony Luck <tony.luck@intel.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Kumar Gala <galak@kernel.crashing.org>, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
+This replaces usages of address_needs_mapping, range_needs_mapping and
+is_buffer_dma_capable and the __weak architecture hooks to those
+functions with a more flexible single function.
 
-The defines and typedefs (hw_interrupt_type, no_irq_type, irq_desc_t) have
-been kept around for migration reasons.  After more than two years it's
-time to remove them finally.
-
-This patch cleans up one of the remaining users.  When all such patches
-hit mainline we can remove the defines and typedefs finally.
-
-Impact: cleanup
-
-Convert the last remaining users and remove the typedef.
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: Olaf Kirch <okir@suse.de>
+Cc: Greg KH <gregkh@suse.de>
 Cc: Tony Luck <tony.luck@intel.com>
-
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Cc: Becky Bruce <beckyb@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Kumar Gala <galak@kernel.crashing.org>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: x86@kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org
 ---
+ include/linux/dma-mapping.h |    5 ----
+ lib/swiotlb.c               |   57 +++++++++++++------------------------------
+ 2 files changed, 17 insertions(+), 45 deletions(-)
 
- arch/ia64/hp/sim/hpsim_irq.c   |    2 +-
- arch/ia64/include/asm/hw_irq.h |    2 +-
- arch/ia64/kernel/iosapic.c     |    6 +++---
- arch/ia64/kernel/irq.c         |    2 +-
- arch/ia64/kernel/irq_ia64.c    |    2 +-
- arch/ia64/kernel/mca.c         |    2 +-
- arch/ia64/kernel/smpboot.c     |    2 +-
- arch/ia64/sn/kernel/irq.c      |    4 ++--
- arch/ia64/xen/irq_xen.c        |    2 +-
- 9 files changed, 12 insertions(+), 12 deletions(-)
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 8083b6a..85dafa1 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -96,11 +96,6 @@ static inline int is_device_dma_capable(struct device *dev)
+ 	return dev->dma_mask != NULL && *dev->dma_mask != DMA_MASK_NONE;
+ }
+ 
+-static inline int is_buffer_dma_capable(u64 mask, dma_addr_t addr, size_t size)
+-{
+-	return addr + size <= mask;
+-}
+-
+ #ifdef CONFIG_HAS_DMA
+ #include <asm/dma-mapping.h>
+ #else
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index baa1991..e332342 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -135,17 +135,6 @@ void * __weak swiotlb_bus_to_virt(struct device *hwdev, dma_addr_t address)
+ 	return phys_to_virt(dma_to_phys(hwdev, address));
+ }
+ 
+-int __weak swiotlb_arch_address_needs_mapping(struct device *hwdev,
+-					       dma_addr_t addr, size_t size)
+-{
+-	return !is_buffer_dma_capable(dma_get_mask(hwdev), addr, size);
+-}
+-
+-int __weak swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size)
+-{
+-	return 0;
+-}
+-
+ static void swiotlb_print_info(unsigned long bytes)
+ {
+ 	phys_addr_t pstart, pend;
+@@ -305,17 +294,6 @@ cleanup1:
+ 	return -ENOMEM;
+ }
+ 
+-static inline int
+-address_needs_mapping(struct device *hwdev, dma_addr_t addr, size_t size)
+-{
+-	return swiotlb_arch_address_needs_mapping(hwdev, addr, size);
+-}
+-
+-static inline int range_needs_mapping(phys_addr_t paddr, size_t size)
+-{
+-	return swiotlb_force || swiotlb_arch_range_needs_mapping(paddr, size);
+-}
+-
+ static int is_swiotlb_buffer(char *addr)
+ {
+ 	return addr >= io_tlb_start && addr < io_tlb_end;
+@@ -542,7 +520,7 @@ void *
+ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		       dma_addr_t *dma_handle, gfp_t flags)
+ {
+-	dma_addr_t dev_addr;
++	phys_addr_t phys;
+ 	void *ret;
+ 	int order = get_order(size);
+ 	u64 dma_mask = DMA_BIT_MASK(32);
+@@ -551,9 +529,8 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		dma_mask = hwdev->coherent_dma_mask;
+ 
+ 	ret = (void *)__get_free_pages(flags, order);
+-	if (ret &&
+-	    !is_buffer_dma_capable(dma_mask, swiotlb_virt_to_bus(hwdev, ret),
+-				   size)) {
++	if (ret && !dma_map_range(hwdev, dma_mask, virt_to_phys(ret),
++				  size, dma_handle)) {
+ 		/*
+ 		 * The allocated memory isn't reachable by the device.
+ 		 */
+@@ -572,19 +549,18 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 	}
+ 
+ 	memset(ret, 0, size);
+-	dev_addr = swiotlb_virt_to_bus(hwdev, ret);
++	phys = virt_to_phys(ret);
+ 
+ 	/* Confirm address can be DMA'd by device */
+-	if (!is_buffer_dma_capable(dma_mask, dev_addr, size)) {
+-		printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016Lx\n",
++	if (!dma_map_range(hwdev, dma_mask, phys, size, dma_handle)) {
++		printk("hwdev DMA mask = 0x%016Lx, physical addr = 0x%016Lx\n",
+ 		       (unsigned long long)dma_mask,
+-		       (unsigned long long)dev_addr);
++		       (unsigned long long)phys);
+ 
+ 		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
+ 		do_unmap_single(hwdev, ret, size, DMA_TO_DEVICE);
+ 		return NULL;
+ 	}
+-	*dma_handle = dev_addr;
+ 	return ret;
+ }
+ EXPORT_SYMBOL(swiotlb_alloc_coherent);
+@@ -636,7 +612,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 			    struct dma_attrs *attrs)
+ {
+ 	phys_addr_t phys = page_to_phys(page) + offset;
+-	dma_addr_t dev_addr = phys_to_dma(dev, phys);
++	dma_addr_t dev_addr;
+ 	void *map;
+ 
+ 	BUG_ON(dir = DMA_NONE);
+@@ -645,8 +621,8 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 	 * we can safely return the device addr and not worry about bounce
+ 	 * buffering it.
+ 	 */
+-	if (!address_needs_mapping(dev, dev_addr, size) &&
+-	    !range_needs_mapping(phys, size))
++	if (dma_map_range(dev, dma_get_mask(dev), phys, size, &dev_addr) &&
++	    !swiotlb_force)
+ 		return dev_addr;
+ 
+ 	/*
+@@ -658,12 +634,12 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 		map = io_tlb_overflow_buffer;
+ 	}
+ 
+-	dev_addr = swiotlb_virt_to_bus(dev, map);
++	phys = virt_to_phys(map);
+ 
+ 	/*
+ 	 * Ensure that the address returned is DMA'ble
+ 	 */
+-	if (address_needs_mapping(dev, dev_addr, size))
++	if (!dma_map_range(dev, dma_get_mask(dev), phys, size, &dev_addr))
+ 		panic("map_single: bounce buffer is not DMA'ble");
+ 
+ 	return dev_addr;
+@@ -807,10 +783,10 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 
+ 	for_each_sg(sgl, sg, nelems, i) {
+ 		phys_addr_t paddr = sg_phys(sg);
+-		dma_addr_t dev_addr = phys_to_dma(hwdev, paddr);
++		dma_addr_t uninitialized_var(dev_addr);
+ 
+-		if (range_needs_mapping(paddr, sg->length) ||
+-		    address_needs_mapping(hwdev, dev_addr, sg->length)) {
++		if (!dma_map_range(hwdev, dma_get_mask(hwdev), dev_addr, sg->length, &dev_addr) ||
++		    swiotlb_force) {
+ 			void *map = map_single(hwdev, sg_phys(sg),
+ 					       sg->length, dir);
+ 			if (!map) {
+@@ -822,7 +798,8 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 				sgl[0].dma_length = 0;
+ 				return 0;
+ 			}
+-			sg->dma_address = swiotlb_virt_to_bus(hwdev, map);
++			paddr = virt_to_phys(map);
++			sg->dma_address = phys_to_dma(hwdev, paddr);
+ 		} else
+ 			sg->dma_address = dev_addr;
+ 		sg->dma_length = sg->length;
+-- 
+1.5.6.5
 
-diff -puN arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/hp/sim/hpsim_irq.c
---- a/arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/hp/sim/hpsim_irq.c
-@@ -41,7 +41,7 @@ static struct hw_interrupt_type irq_type
- void __init
- hpsim_irq_init (void)
- {
--	irq_desc_t *idesc;
-+	struct irq_desc *idesc;
- 	int i;
- 
- 	for (i = 0; i < NR_IRQS; ++i) {
-diff -puN arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/include/asm/hw_irq.h
---- a/arch/ia64/include/asm/hw_irq.h~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/include/asm/hw_irq.h
-@@ -146,7 +146,7 @@ static inline void ia64_native_resend_ir
-  * Default implementations for the irq-descriptor API:
-  */
- 
--extern irq_desc_t irq_desc[NR_IRQS];
-+extern struct irq_desc irq_desc[NR_IRQS];
- 
- #ifndef CONFIG_IA64_GENERIC
- static inline ia64_vector __ia64_irq_to_vector(int irq)
-diff -puN arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/kernel/iosapic.c
---- a/arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/kernel/iosapic.c
-@@ -451,7 +451,7 @@ iosapic_startup_edge_irq (unsigned int i
- static void
- iosapic_ack_edge_irq (unsigned int irq)
- {
--	irq_desc_t *idesc = irq_desc + irq;
-+	struct irq_desc *idesc = irq_desc + irq;
- 
- 	irq_complete_move(irq);
- 	move_native_irq(irq);
-@@ -600,7 +600,7 @@ static int
- register_intr (unsigned int gsi, int irq, unsigned char delivery,
- 	       unsigned long polarity, unsigned long trigger)
- {
--	irq_desc_t *idesc;
-+	struct irq_desc *idesc;
- 	struct hw_interrupt_type *irq_type;
- 	int index;
- 	struct iosapic_rte_info *rte;
-@@ -828,7 +828,7 @@ iosapic_unregister_intr (unsigned int gs
- {
- 	unsigned long flags;
- 	int irq, index;
--	irq_desc_t *idesc;
-+	struct irq_desc *idesc;
- 	u32 low32;
- 	unsigned long trigger, polarity;
- 	unsigned int dest;
-diff -puN arch/ia64/kernel/irq.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/kernel/irq.c
---- a/arch/ia64/kernel/irq.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/kernel/irq.c
-@@ -130,7 +130,7 @@ unsigned int vectors_in_migration[NR_IRQ
-  */
- static void migrate_irqs(void)
- {
--	irq_desc_t *desc;
-+	struct irq_desc *desc;
- 	int 		irq, new_cpu;
- 
- 	for (irq=0; irq < NR_IRQS; irq++) {
-diff -puN arch/ia64/kernel/irq_ia64.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/kernel/irq_ia64.c
---- a/arch/ia64/kernel/irq_ia64.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/kernel/irq_ia64.c
-@@ -630,7 +630,7 @@ static struct irqaction tlb_irqaction = 
- void
- ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
- {
--	irq_desc_t *desc;
-+	struct irq_desc *desc;
- 	unsigned int irq;
- 
- 	irq = vec;
-diff -puN arch/ia64/kernel/mca.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/kernel/mca.c
---- a/arch/ia64/kernel/mca.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/kernel/mca.c
-@@ -2093,7 +2093,7 @@ ia64_mca_late_init(void)
- 	cpe_poll_timer.function = ia64_mca_cpe_poll;
- 
- 	{
--		irq_desc_t *desc;
-+		struct irq_desc *desc;
- 		unsigned int irq;
- 
- 		if (cpe_vector >= 0) {
-diff -puN arch/ia64/kernel/smpboot.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/kernel/smpboot.c
---- a/arch/ia64/kernel/smpboot.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/kernel/smpboot.c
-@@ -678,7 +678,7 @@ extern void fixup_irqs(void);
- int migrate_platform_irqs(unsigned int cpu)
- {
- 	int new_cpei_cpu;
--	irq_desc_t *desc = NULL;
-+	struct irq_desc *desc = NULL;
- 	const struct cpumask *mask;
- 	int 		retval = 0;
- 
-diff -puN arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/sn/kernel/irq.c
---- a/arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/sn/kernel/irq.c
-@@ -295,7 +295,7 @@ unsigned int sn_local_vector_to_irq(u8 v
- void sn_irq_init(void)
- {
- 	int i;
--	irq_desc_t *base_desc = irq_desc;
-+	struct irq_desc *base_desc = irq_desc;
- 
- 	ia64_first_device_vector = IA64_SN2_FIRST_DEVICE_VECTOR;
- 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
-@@ -377,7 +377,7 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	int cpu = nasid_slice_to_cpuid(nasid, slice);
- #ifdef CONFIG_SMP
- 	int cpuphys;
--	irq_desc_t *desc;
-+	struct irq_desc *desc;
- #endif
- 
- 	pci_dev_get(pci_dev);
-diff -puN arch/ia64/xen/irq_xen.c~ia64-remove-obsolete-irq_desc_t-typedef arch/ia64/xen/irq_xen.c
---- a/arch/ia64/xen/irq_xen.c~ia64-remove-obsolete-irq_desc_t-typedef
-+++ a/arch/ia64/xen/irq_xen.c
-@@ -138,7 +138,7 @@ static void
- __xen_register_percpu_irq(unsigned int cpu, unsigned int vec,
- 			struct irqaction *action, int save)
- {
--	irq_desc_t *desc;
-+	struct irq_desc *desc;
- 	int irq = 0;
- 
- 	if (xen_slab_ready) {
-_
