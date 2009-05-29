@@ -1,78 +1,69 @@
-From: "Jan Beulich" <jbeulich@novell.com>
-Date: Tue, 05 May 2009 12:57:52 +0000
-Subject: [PATCH] ia64/xen: fix build issues
-Message-Id: <4A0053F0.76EA.0078.0@novell.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 29 May 2009 08:43:55 +0000
+Subject: [PATCH 1/9] ia64: introduce arch-specific dma-mapping interfaces
+Message-Id: <1243586643-5554-2-git-send-email-ian.campbell@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-- drivers/xen/events.c did not compile
-- xen_setup_hook caused a modpost section warning
-- the use of u64 (instead of unsigned long long) together with a %llu
-  in drivers/xen/balloon.c caused a compiler warning
+dma_map_range is intended to replace usage of both
+swiotlb_arch_range_needs_mapping and
+swiotlb_arch_address_needs_mapping as __weak functions as well as
+replacing is_buffer_dma_capable.
 
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
+phys_to_dma and dma_to_phys are intended to replace
+swiotlb_phys_to_bus and swiotlb_bus_to_phys.  I choose to use dma
+rather than bus since a) it matches the parameters and b) avoids
+confusion on x86 with the existing (but deprecated) virt_to_bus
+function which relates to ISA device DMA.
 
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/include/asm/idle.h       |    7 +++++++
- arch/ia64/include/asm/xen/events.h |    7 +------
- arch/ia64/xen/xensetup.S           |    2 --
- drivers/xen/balloon.c              |    3 ++-
- 4 files changed, 10 insertions(+), 9 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
---- linux-2.6.30-rc4/arch/ia64/include/asm/idle.h	1970-01-01 01:00:00.000000000 +0100
-+++ 2.6.30-rc4-ia64-xen-build/arch/ia64/include/asm/idle.h	2009-05-05 14:00:51.000000000 +0200
-@@ -0,0 +1,7 @@
-+#ifndef _ASM_IA64_IDLE_H
-+#define _ASM_IA64_IDLE_H
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 36c0009..7250e1a 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -174,4 +174,27 @@ dma_cache_sync (struct device *dev, void *vaddr, size_t size,
+ 
+ #define dma_is_consistent(d, h)	(1)	/* all we do is coherent memory... */
+ 
++static inline dma_addr_t phys_to_dma(struct device *hwdev, phys_addr_t paddr)
++{
++        return paddr;
++}
 +
-+static inline void enter_idle(void) { }
-+static inline void exit_idle(void) { }
++static inline phys_addr_t dma_to_phys(struct device *hwdev, dma_addr_t daddr)
++{
++        return daddr;
++}
 +
-+#endif /* _ASM_IA64_IDLE_H */
---- linux-2.6.30-rc4/arch/ia64/include/asm/xen/events.h	2008-12-25 00:26:37.000000000 +0100
-+++ 2.6.30-rc4-ia64-xen-build/arch/ia64/include/asm/xen/events.h	2009-05-05 14:02:35.000000000 +0200
-@@ -36,14 +36,9 @@ static inline int xen_irqs_disabled(stru
- 	return !(ia64_psr(regs)->i);
- }
- 
--static inline void xen_do_IRQ(int irq, struct pt_regs *regs)
-+static inline void handle_irq(int irq, struct pt_regs *regs)
- {
--	struct pt_regs *old_regs;
--	old_regs = set_irq_regs(regs);
--	irq_enter();
- 	__do_IRQ(irq);
--	irq_exit();
--	set_irq_regs(old_regs);
- }
- #define irq_ctx_init(cpu)	do { } while (0)
- 
---- linux-2.6.30-rc4/arch/ia64/xen/xensetup.S	2008-12-25 00:26:37.000000000 +0100
-+++ 2.6.30-rc4-ia64-xen-build/arch/ia64/xen/xensetup.S	2009-05-05 14:08:18.000000000 +0200
-@@ -54,8 +54,6 @@ END(startup_xen)
- 
- #define isBP	p3	// are we the Bootstrap Processor?
- 
--	.text
--
- GLOBAL_ENTRY(xen_setup_hook)
- 	mov r8=XEN_PV_DOMAIN_ASM
- (isBP)	movl r9=xen_domain_type;;
---- linux-2.6.30-rc4/drivers/xen/balloon.c	2009-03-24 00:12:14.000000000 +0100
-+++ 2.6.30-rc4-ia64-xen-build/drivers/xen/balloon.c	2009-05-05 14:14:37.000000000 +0200
-@@ -513,7 +513,8 @@ static ssize_t show_target(struct sys_de
- 			      char *buf)
- {
- 	return sprintf(buf, "%llu\n",
--		       (u64)balloon_stats.target_pages << PAGE_SHIFT);
-+		       (unsigned long long)balloon_stats.target_pages
-+		       << PAGE_SHIFT);
- }
- 
- static ssize_t store_target(struct sys_device *dev,
-
-
++static inline bool dma_map_range(struct device *dev, u64 mask,
++				       phys_addr_t addr, size_t size,
++				       dma_addr_t *dma_addr_p)
++{
++	dma_addr_t dma_addr = phys_to_dma(dev, addr);
++
++	if (dma_addr + size > mask)
++		return false;
++
++	*dma_addr_p = dma_addr;
++	return true;
++}
++
+ #endif /* _ASM_IA64_DMA_MAPPING_H */
+-- 
+1.5.6.5
 
