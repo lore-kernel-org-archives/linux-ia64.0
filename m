@@ -1,143 +1,103 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 15 May 2009 03:55:03 +0000
-Subject: [PATCH -tip 3/5] ia64: use asm-generic/dma-mapping-common.h
-Message-Id: <1242359705-2117-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 29 May 2009 08:44:00 +0000
+Subject: [PATCH 6/9] swiotlb: use dma_to_phys and phys_to_dma
+Message-Id: <1243586643-5554-7-git-send-email-ian.campbell@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1242359705-2117-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: mingo@elte.hu, tony.luck@intel.com, linux-ia64@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp, arnd@arndb.de, joerg.roedel@amd.com
+Cc: Ian Campbell <ian.campbell@citrix.com>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Jeremy Fitzhardinge <jeremy@goop.org>, Olaf Kirch <okir@suse.de>, Greg KH <gregkh@suse.de>, Tony Luck <tony.luck@intel.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Kumar Gala <galak@kernel.crashing.org>, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Acked-by: Joerg Roedel <joerg.roedel@amd.com>
+These new architecture-specific interfaces subsume the existing __weak
+function hooks.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: Olaf Kirch <okir@suse.de>
+Cc: Greg KH <gregkh@suse.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Becky Bruce <beckyb@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Kumar Gala <galak@kernel.crashing.org>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: x86@kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org
 ---
- arch/ia64/include/asm/dma-mapping.h |  102 +---------------------------------
- 1 files changed, 3 insertions(+), 99 deletions(-)
+ include/linux/swiotlb.h |    5 -----
+ lib/swiotlb.c           |   18 ++++--------------
+ 2 files changed, 4 insertions(+), 19 deletions(-)
 
-diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 36c0009..2475c91 100644
---- a/arch/ia64/include/asm/dma-mapping.h
-+++ b/arch/ia64/include/asm/dma-mapping.h
-@@ -37,82 +37,10 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
- #define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
- #define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index cb1a663..954feec 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -27,11 +27,6 @@ swiotlb_init(void);
+ extern void *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
+ extern void *swiotlb_alloc(unsigned order, unsigned long nslabs);
  
--static inline dma_addr_t dma_map_single_attrs(struct device *dev,
--					      void *caddr, size_t size,
--					      enum dma_data_direction dir,
--					      struct dma_attrs *attrs)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	return ops->map_page(dev, virt_to_page(caddr),
--			     (unsigned long)caddr & ~PAGE_MASK, size,
--			     dir, attrs);
--}
+-extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
+-				      phys_addr_t address);
+-extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
+-				       dma_addr_t address);
 -
--static inline void dma_unmap_single_attrs(struct device *dev, dma_addr_t daddr,
--					  size_t size,
--					  enum dma_data_direction dir,
--					  struct dma_attrs *attrs)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->unmap_page(dev, daddr, size, dir, attrs);
--}
--
--#define dma_map_single(d, a, s, r) dma_map_single_attrs(d, a, s, r, NULL)
--#define dma_unmap_single(d, a, s, r) dma_unmap_single_attrs(d, a, s, r, NULL)
--
--static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sgl,
--				   int nents, enum dma_data_direction dir,
--				   struct dma_attrs *attrs)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	return ops->map_sg(dev, sgl, nents, dir, attrs);
--}
--
--static inline void dma_unmap_sg_attrs(struct device *dev,
--				      struct scatterlist *sgl, int nents,
--				      enum dma_data_direction dir,
--				      struct dma_attrs *attrs)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->unmap_sg(dev, sgl, nents, dir, attrs);
--}
-+#define get_dma_ops(dev) platform_dma_get_ops(dev)
-+#define flush_write_buffers()
+ extern int swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size);
  
--#define dma_map_sg(d, s, n, r) dma_map_sg_attrs(d, s, n, r, NULL)
--#define dma_unmap_sg(d, s, n, r) dma_unmap_sg_attrs(d, s, n, r, NULL)
--
--static inline void dma_sync_single_for_cpu(struct device *dev, dma_addr_t daddr,
--					   size_t size,
--					   enum dma_data_direction dir)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->sync_single_for_cpu(dev, daddr, size, dir);
--}
--
--static inline void dma_sync_sg_for_cpu(struct device *dev,
--				       struct scatterlist *sgl,
--				       int nents, enum dma_data_direction dir)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->sync_sg_for_cpu(dev, sgl, nents, dir);
--}
--
--static inline void dma_sync_single_for_device(struct device *dev,
--					      dma_addr_t daddr,
--					      size_t size,
--					      enum dma_data_direction dir)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->sync_single_for_device(dev, daddr, size, dir);
--}
--
--static inline void dma_sync_sg_for_device(struct device *dev,
--					  struct scatterlist *sgl,
--					  int nents,
--					  enum dma_data_direction dir)
--{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	ops->sync_sg_for_device(dev, sgl, nents, dir);
--}
-+#include <asm-generic/dma-mapping-common.h>
- 
- static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
- {
-@@ -120,30 +48,6 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
- 	return ops->mapping_error(dev, daddr);
+ extern void
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index bffe6d7..baa1991 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -124,25 +124,15 @@ void * __weak swiotlb_alloc(unsigned order, unsigned long nslabs)
+ 	return (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN, order);
  }
  
--static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
--				      size_t offset, size_t size,
--				      enum dma_data_direction dir)
+-dma_addr_t __weak swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
 -{
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--	return ops->map_page(dev, page, offset, size, dir, NULL);
+-	return paddr;
 -}
 -
--static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
--				  size_t size, enum dma_data_direction dir)
+-phys_addr_t __weak swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
 -{
--	dma_unmap_single(dev, addr, size, dir);
+-	return baddr;
 -}
 -
--/*
-- * Rest of this file is part of the "Advanced DMA API".  Use at your own risk.
-- * See Documentation/DMA-API.txt for details.
-- */
--
--#define dma_sync_single_range_for_cpu(dev, dma_handle, offset, size, dir)	\
--	dma_sync_single_for_cpu(dev, dma_handle, size, dir)
--#define dma_sync_single_range_for_device(dev, dma_handle, offset, size, dir)	\
--	dma_sync_single_for_device(dev, dma_handle, size, dir)
--
- static inline int dma_supported(struct device *dev, u64 mask)
+ static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
+ 				      volatile void *address)
  {
- 	struct dma_map_ops *ops = platform_dma_get_ops(dev);
+-	return swiotlb_phys_to_bus(hwdev, virt_to_phys(address));
++	return phys_to_dma(hwdev, virt_to_phys(address));
+ }
+ 
+ void * __weak swiotlb_bus_to_virt(struct device *hwdev, dma_addr_t address)
+ {
+-	return phys_to_virt(swiotlb_bus_to_phys(hwdev, address));
++	return phys_to_virt(dma_to_phys(hwdev, address));
+ }
+ 
+ int __weak swiotlb_arch_address_needs_mapping(struct device *hwdev,
+@@ -646,7 +636,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 			    struct dma_attrs *attrs)
+ {
+ 	phys_addr_t phys = page_to_phys(page) + offset;
+-	dma_addr_t dev_addr = swiotlb_phys_to_bus(dev, phys);
++	dma_addr_t dev_addr = phys_to_dma(dev, phys);
+ 	void *map;
+ 
+ 	BUG_ON(dir = DMA_NONE);
+@@ -817,7 +807,7 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 
+ 	for_each_sg(sgl, sg, nelems, i) {
+ 		phys_addr_t paddr = sg_phys(sg);
+-		dma_addr_t dev_addr = swiotlb_phys_to_bus(hwdev, paddr);
++		dma_addr_t dev_addr = phys_to_dma(hwdev, paddr);
+ 
+ 		if (range_needs_mapping(paddr, sg->length) ||
+ 		    address_needs_mapping(hwdev, dev_addr, sg->length)) {
 -- 
-1.6.0.6
+1.5.6.5
 
