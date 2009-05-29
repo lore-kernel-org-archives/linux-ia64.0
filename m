@@ -1,22 +1,45 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Tue, 05 May 2009 13:17:33 +0000
-Subject: Re: [PATCH] fix SAL info mutex handling
-Message-Id: <20090505131733.GA8112@parisc-linux.org>
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 29 May 2009 08:43:54 +0000
+Subject: 
+Message-Id: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4A0052D9.76EA.0078.0@novell.com>
-In-Reply-To: <4A0052D9.76EA.0078.0@novell.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Greg KH <gregkh@suse.de>, Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>, Kumar Gala <galak@kernel.crashing.org>, Olaf Kirch <okir@suse.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, x86@kernel.org
 
-On Tue, May 05, 2009 at 01:53:13PM +0100, Jan Beulich wrote:
-> Using up() on a mutex that wasn't necessarily acquired seems wrong.
+This series:
+* removes the swiotlb_(arch_)_phys_to_bus and bus_to_phys __weak
+  hooks, replacing them with an architecture-specific phys_to_dma and
+  dma_to_phys interface. These are used by both PowerPC and Xen to
+  provide the correct mapping from physical to DMA addresses.
+* removes the swiotlb_address_needs_mapping and
+  swiotlb_range_needs_mapping __weak functions as well as
+  is_buffer_dma_capable (which should never have been a generic
+  function). All three are replaced by a single architecture-specific
+  interface which meets the needs of both PowerPC and Xen.
+* removes the swiotlb_virt_to_bus __weak function and replaces it with
+  a CONFIG_HIGHMEM compatible version when high memory is in use. This
+  is needed for 32 bit PowerPC swiotlb support.
 
-Yeah, but search the archives, there's a reason for this horrible abuse.
+I think these new interfaces are cleaner than the existing __weak
+functions and isolate the swiotlb code from architecture internals.
 
--- 
-Matthew Wilcox				Intel Open Source Technology Centre
-"Bill, look, we understand that you're interested in selling us this
-operating system, but compare it to ours.  We can't possibly take such
-a retrograde step."
+This series does not contain any Xen or PowerPC specific changes, those
+will follow in separate postings. The complete patchset has been boot
+tested under Xen and native-x86 and compiled for IA64 and PowerPC
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Becky Bruce <beckyb@kernel.crashing.org>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Greg KH <gregkh@suse.de>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: Kumar Gala <galak@kernel.crashing.org>
+Cc: Olaf Kirch <okir@suse.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org
+Cc: x86@kernel.org
