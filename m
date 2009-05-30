@@ -1,27 +1,28 @@
-From: Jeremy Fitzhardinge <jeremy@goop.org>
-Date: Fri, 29 May 2009 21:09:16 +0000
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Date: Sat, 30 May 2009 13:02:58 +0000
 Subject: Re: [PATCH 6/9] swiotlb: use dma_to_phys and phys_to_dma
-Message-Id: <4A204EFC.501@goop.org>
+Message-Id: <1243688578.4399.67.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com> <1243586643-5554-7-git-send-email-ian.campbell@citrix.com>
-In-Reply-To: <1243586643-5554-7-git-send-email-ian.campbell@citrix.com>
+References: <1243586643-5554-1-git-send-email-ian.campbell@citrix.com>
+	 <1243586643-5554-7-git-send-email-ian.campbell@citrix.com>
+	 <4A204EFC.501@goop.org>
+In-Reply-To: <4A204EFC.501@goop.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ian Campbell <ian.campbell@citrix.com>
+To: Jeremy Fitzhardinge <jeremy@goop.org>
 Cc: linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Olaf Kirch <okir@suse.de>, Greg KH <gregkh@suse.de>, Tony Luck <tony.luck@intel.com>, Becky Bruce <beckyb@kernel.crashing.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Kumar Gala <galak@kernel.crashing.org>, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org
 
-Ian Campbell wrote:
-> static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
->  				      volatile void *address)
->  {
-> -	return swiotlb_phys_to_bus(hwdev, virt_to_phys(address));
-> +	return phys_to_dma(hwdev, virt_to_phys(address));
->  }
->  
->  void * __weak swiotlb_bus_to_virt(struct device *hwdev, dma_addr_t address)
->   
+On Fri, 2009-05-29 at 14:09 -0700, Jeremy Fitzhardinge wrote:
+> Ian Campbell wrote:
+> >  void * __weak swiotlb_bus_to_virt(struct device *hwdev, dma_addr_t address)
+> >   
+> 
+> Does this need to be weak too?
 
-Does this need to be weak too?
+It's was wanted by PowerPC to support highmem, that's what patch 8/9
+tries to address in an arch-independent way.
 
-    J
+Ian.
+
+
