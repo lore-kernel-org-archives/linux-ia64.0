@@ -1,52 +1,69 @@
-From: Tim Abbott <tabbott@MIT.EDU>
-Date: Fri, 01 May 2009 00:04:06 +0000
-Subject: [PATCH 4/5] ia64: use new macro for .data.read_mostly section.
-Message-Id: <1241136247-10623-5-git-send-email-tabbott@mit.edu>
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Mon, 01 Jun 2009 15:32:53 +0000
+Subject: [PATCH 01/11] ia64: introduce arch-specific dma-mapping interfaces
+Message-Id: <1243870383-12954-2-git-send-email-ian.campbell@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1241136247-10623-1-git-send-email-tabbott@mit.edu>
- <1241136247-10623-2-git-send-email-tabbott@mit.edu>
- <1241136247-10623-3-git-send-email-tabbott@mit.edu>
- <1241136247-10623-4-git-send-email-tabbott@mit.edu>
-In-Reply-To: <1241136247-10623-4-git-send-email-tabbott@mit.edu>
+References: <1243870383-12954-1-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <1243870383-12954-1-git-send-email-ian.campbell@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sam Ravnborg <sam@ravnborg.org>
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>, Anders Kaseorg <andersk@MIT.EDU>, Waseem Daher <wdaher@MIT.EDU>, Denys Vlasenko <vda.linux@googlemail.com>, Jeff Arnold <jbarnold@MIT.EDU>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Tim Abbott <tabbott@MIT.EDU>
+To: linux-kernel@vger.kernel.org
+Cc: Ian Campbell <ian.campbell@citrix.com>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-As with .data.cacheline_aligned, I eliminated the separate output
-section and set the alignment to SMP_CACHE_BYTES.  An ack from Tony
-would be appreciated.
+dma_map_range is intended to replace usage of both
+swiotlb_arch_range_needs_mapping and
+swiotlb_arch_address_needs_mapping as __weak functions as well as
+replacing is_buffer_dma_capable.
 
-Signed-off-by: Tim Abbott <tabbott@mit.edu>
+phys_to_dma and dma_to_phys are intended to replace
+swiotlb_phys_to_bus and swiotlb_bus_to_phys.  I choose to use dma
+rather than bus since a) it matches the parameters and b) avoids
+confusion on x86 with the existing (but deprecated) virt_to_bus
+function which relates to ISA device DMA.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/vmlinux.lds.S |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 9c4cc29..e99faad 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -230,9 +230,6 @@ SECTIONS
-   				 * kernel data
- 				 */
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 36c0009..47d4107 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -174,4 +174,27 @@ dma_cache_sync (struct device *dev, void *vaddr, size_t size,
  
--  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
--        { *(.data.read_mostly) }
--
-   /* Per-cpu data: */
-   . = ALIGN(PERCPU_PAGE_SIZE);
-   PERCPU_VADDR(PERCPU_ADDR, :percpu)
-@@ -251,6 +248,7 @@ SECTIONS
- #endif
- 		INIT_TASK_DATA(PAGE_SIZE)
- 		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
-+		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
- 		DATA_DATA
- 		*(.data1)
- 		*(.gnu.linkonce.d*)
+ #define dma_is_consistent(d, h)	(1)	/* all we do is coherent memory... */
+ 
++static inline dma_addr_t phys_to_dma(struct device *hwdev, phys_addr_t paddr)
++{
++	return paddr;
++}
++
++static inline phys_addr_t dma_to_phys(struct device *hwdev, dma_addr_t daddr)
++{
++	return daddr;
++}
++
++static inline bool dma_map_range(struct device *dev, u64 mask,
++				       phys_addr_t addr, size_t size,
++				       dma_addr_t *dma_addr_p)
++{
++	dma_addr_t dma_addr = phys_to_dma(dev, addr);
++
++	if (dma_addr + size > mask)
++		return false;
++
++	*dma_addr_p = dma_addr;
++	return true;
++}
++
+ #endif /* _ASM_IA64_DMA_MAPPING_H */
 -- 
-1.6.2.1
+1.5.6.5
 
