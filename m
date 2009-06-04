@@ -1,27 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Date: Wed, 10 Jun 2009 08:09:15 +0000
-Subject: Re: [Patch 4/5] module: trim exception table in module_free()
-Message-Id: <20090610.010915.255287284.davem@davemloft.net>
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Thu, 04 Jun 2009 10:23:15 +0000
+Subject: [PATCH v4] zone_reclaim is always 0 by default
+Message-Id: <20090604192236.9761.A69D9226@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200906041800.54696.rusty@rustcorp.com.au>
-	<4A278C62.8000801@redhat.com>
-	<200906060038.03089.rusty@rustcorp.com.au>
-In-Reply-To: <200906060038.03089.rusty@rustcorp.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au
-Cc: amwang@redhat.com, linux-kernel@vger.kernel.org, jdike@addtoit.com, hch@infradead.org, mingo@elte.hu, akpm@linux-foundation.org, sparclinux@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Christoph Lameter <cl@linux-foundation.org>, Rik van Riel <riel@redhat.com>, Robin Holt <holt@sgi.com>, "Zhang, Yanmin" <yanmin.zhang@intel.com>, Wu Fengguang <fengguang.wu@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: kosaki.motohiro@jp.fujitsu.com
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Sat, 6 Jun 2009 00:38:02 +0930
 
-> Sparc32 is unique; it doesn't seem to define ARCH_HAS_SORT_EXTABLE,
-> yet it defines its own sort_extable() which overrides the one in lib.
-> It doesn't sort, so we have to mark deleted entries instead of
-> actually trimming them.
-> 
-> Inspired-by: Amerigo Wang <amwang@redhat.com>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Current linux policy is, zone_reclaim_mode is enabled by default if the machine
+has large remote node distance. it's because we could assume that large distance
+mean large server until recently.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Unfortunately, recent modern x86 CPU (e.g. Core i7, Opeteron) have P2P transport
+memory controller. IOW it's seen as NUMA from software view.
+Some Core i7 machine has large remote node distance.
+
+Yanmin reported zone_reclaim_mode=1 cause large apache regression.
+
+    One Nehalem machine has 12GB memory,
+    but there is always 2GB free although applications accesses lots of files.
+    Eventually we located the root cause as zone_reclaim_mode=1.
+
+Actually, zone_reclaim_mode=1 mean "I dislike remote node allocation rather than
+disk access", it makes performance improvement to HPC workload.
+but it makes performance degression to desktop, file server and web server.
+
+In general, workload depended configration shouldn't put into default settings.
+
+However, current code is long standing about two year. Highest POWER and IA64 HPC machine
+(only) use this setting.
+
+Thus, x86 and almost rest architecture change default setting, but Only power and ia64
+remain current configuration for backward-compatibility.
+
+
+Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Cc: Rik van Riel <riel@redhat.com>
+Cc: Robin Holt <holt@sgi.com>
+Cc: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Cc: Wu Fengguang <fengguang.wu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@ozlabs.org
+---
+ arch/powerpc/include/asm/topology.h |    6 ++++++
+ include/linux/topology.h            |    7 +------
+ 2 files changed, 7 insertions(+), 6 deletions(-)
+
+Index: b/include/linux/topology.h
+=================================--- a/include/linux/topology.h
++++ b/include/linux/topology.h
+@@ -54,12 +54,7 @@ int arch_update_cpu_topology(void);
+ #define node_distance(from,to)	((from) = (to) ? LOCAL_DISTANCE : REMOTE_DISTANCE)
+ #endif
+ #ifndef RECLAIM_DISTANCE
+-/*
+- * If the distance between nodes in a system is larger than RECLAIM_DISTANCE
+- * (in whatever arch specific measurement units returned by node_distance())
+- * then switch on zone reclaim on boot.
+- */
+-#define RECLAIM_DISTANCE 20
++#define RECLAIM_DISTANCE INT_MAX
+ #endif
+ #ifndef PENALTY_FOR_NODE_WITH_CPUS
+ #define PENALTY_FOR_NODE_WITH_CPUS	(1)
+Index: b/arch/powerpc/include/asm/topology.h
+=================================--- a/arch/powerpc/include/asm/topology.h
++++ b/arch/powerpc/include/asm/topology.h
+@@ -10,6 +10,12 @@ struct device_node;
+ 
+ #include <asm/mmzone.h>
+ 
++/*
++ * Distance above which we begin to use zone reclaim
++ */
++#define RECLAIM_DISTANCE 20
++
++
+ static inline int cpu_to_node(int cpu)
+ {
+ 	return numa_cpu_lookup_table[cpu];
+
+
