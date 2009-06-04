@@ -1,7 +1,7 @@
-From: Wu Fengguang <fengguang.wu@intel.com>
-Date: Thu, 04 Jun 2009 10:59:59 +0000
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 04 Jun 2009 12:24:09 +0000
 Subject: Re: [PATCH v4] zone_reclaim is always 0 by default
-Message-Id: <20090604105959.GA22118@localhost>
+Message-Id: <20090604122409.GK29447@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090604192236.9761.A69D9226@jp.fujitsu.com>
 In-Reply-To: <20090604192236.9761.A69D9226@jp.fujitsu.com>
@@ -9,58 +9,30 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Cc: Christoph Lameter <cl@linux-foundation.org>, Rik van Riel <riel@redhat.com>, Robin Holt <holt@sgi.com>, "Zhang, Yanmin" <yanmin.zhang@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linuxppc-dev@ozlabs.org" <linuxppc-dev@ozlabs.org>, LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Christoph Lameter <cl@linux-foundation.org>, Rik van Riel <riel@redhat.com>, Robin Holt <holt@sgi.com>, "Zhang, Yanmin" <yanmin.zhang@intel.com>, Wu Fengguang <fengguang.wu@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
 
-On Thu, Jun 04, 2009 at 06:23:15PM +0800, KOSAKI Motohiro wrote:
-> 
-> Current linux policy is, zone_reclaim_mode is enabled by default if the machine
-> has large remote node distance. it's because we could assume that large distance
-> mean large server until recently.
-> 
-> Unfortunately, recent modern x86 CPU (e.g. Core i7, Opeteron) have P2P transport
-> memory controller. IOW it's seen as NUMA from software view.
-> Some Core i7 machine has large remote node distance.
-> 
-> Yanmin reported zone_reclaim_mode=1 cause large apache regression.
-> 
->     One Nehalem machine has 12GB memory,
->     but there is always 2GB free although applications accesses lots of files.
->     Eventually we located the root cause as zone_reclaim_mode=1.
-> 
+Acked-by: Robin Holt <holt@sgi.com>
+
+
+On Thu, Jun 04, 2009 at 07:23:15PM +0900, KOSAKI Motohiro wrote:
+...
 > Actually, zone_reclaim_mode=1 mean "I dislike remote node allocation rather than
 > disk access", it makes performance improvement to HPC workload.
 > but it makes performance degression to desktop, file server and web server.
-> 
-> In general, workload depended configration shouldn't put into default settings.
-> 
-> However, current code is long standing about two year. Highest POWER and IA64 HPC machine
-> (only) use this setting.
-> 
-> Thus, x86 and almost rest architecture change default setting, but Only power and ia64
-> remain current configuration for backward-compatibility.
 
-The above lines are too long. Limit to 72 cols in general could be
-better as git-log may add additional leading white spaces.
+I still disagree with this statement, but I don't care that much.
+Why not something more to the effect of:
 
-Thank you for all the efforts!
+Setting zone_reclaim_mode=1 causes memory allocations on a nearly
+exhausted node to do direct reclaim within that node before attempting
+off-node allocations.  For work loads where most pages are clean in
+page cache and easily reclaimed, this can result excessive disk activity
+versus a more fair node memory balance.
 
-Acked-by: Wu Fengguang <fengguang.wu@intel.com>
+If you disagree, don't respond, just ignore.
 
-> Signed-off-by: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> Cc: Christoph Lameter <cl@linux-foundation.org>
-> Cc: Rik van Riel <riel@redhat.com>
-> Cc: Robin Holt <holt@sgi.com>
-> Cc: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-> Cc: Wu Fengguang <fengguang.wu@intel.com>
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linuxppc-dev@ozlabs.org
-> ---
->  arch/powerpc/include/asm/topology.h |    6 ++++++
->  include/linux/topology.h            |    7 +------
->  2 files changed, 7 insertions(+), 6 deletions(-)
-> 
-> Index: b/include/linux/topology.h
-> =================================> --- a/include/linux/topology.h
+...
+> --- a/include/linux/topology.h
 > +++ b/include/linux/topology.h
 > @@ -54,12 +54,7 @@ int arch_update_cpu_topology(void);
 >  #define node_distance(from,to)	((from) = (to) ? LOCAL_DISTANCE : REMOTE_DISTANCE)
@@ -73,26 +45,8 @@ Acked-by: Wu Fengguang <fengguang.wu@intel.com>
 > - */
 > -#define RECLAIM_DISTANCE 20
 > +#define RECLAIM_DISTANCE INT_MAX
->  #endif
->  #ifndef PENALTY_FOR_NODE_WITH_CPUS
->  #define PENALTY_FOR_NODE_WITH_CPUS	(1)
-> Index: b/arch/powerpc/include/asm/topology.h
-> =================================> --- a/arch/powerpc/include/asm/topology.h
-> +++ b/arch/powerpc/include/asm/topology.h
-> @@ -10,6 +10,12 @@ struct device_node;
->  
->  #include <asm/mmzone.h>
->  
-> +/*
-> + * Distance above which we begin to use zone reclaim
 
-s/begin to/default to/ ?
+Why remove this comment?  It seems more-or-less a reasonable statement.
 
-> + */
-> +#define RECLAIM_DISTANCE 20
-> +
-> +
->  static inline int cpu_to_node(int cpu)
->  {
->  	return numa_cpu_lookup_table[cpu];
-> 
+Thanks,
+Robin
