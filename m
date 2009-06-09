@@ -1,76 +1,134 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 09 Jun 2009 12:02:14 +0000
+From: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Date: Tue, 09 Jun 2009 13:48:34 +0000
 Subject: Re: [PATCH v4] zone_reclaim is always 0 by default
-Message-Id: <20090609120213.GA18753@attica.americas.sgi.com>
+Message-Id: <20090609211721.DD9A.A69D9226@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090604192236.9761.A69D9226@jp.fujitsu.com> <20090608115048.GA15070@csn.ul.ie> <20090609095507.GA9851@attica.americas.sgi.com> <20090609103754.GN18380@csn.ul.ie>
-In-Reply-To: <20090609103754.GN18380@csn.ul.ie>
+References: <20090604192236.9761.A69D9226@jp.fujitsu.com> <20090608115048.GA15070@csn.ul.ie>
+In-Reply-To: <20090608115048.GA15070@csn.ul.ie>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Mel Gorman <mel@csn.ul.ie>
-Cc: Robin Holt <holt@sgi.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Christoph Lameter <cl@linux-foundation.org>, Rik van Riel <riel@redhat.com>, "Zhang, Yanmin" <yanmin.zhang@intel.com>, Wu Fengguang <fengguang.wu@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: kosaki.motohiro@jp.fujitsu.com, Christoph Lameter <cl@linux-foundation.org>, Rik van Riel <riel@redhat.com>, Robin Holt <holt@sgi.com>, "Zhang, Yanmin" <yanmin.zhang@intel.com>, Wu Fengguang <fengguang.wu@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, LKML <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@linux-foundation.org>
 
-On Tue, Jun 09, 2009 at 11:37:55AM +0100, Mel Gorman wrote:
-> On Tue, Jun 09, 2009 at 04:55:07AM -0500, Robin Holt wrote:
-> > On Mon, Jun 08, 2009 at 12:50:48PM +0100, Mel Gorman wrote:
+Hi
+
+sorry for late responce. my e-mail reading speed is very slow ;-)
+
+First, Could you please read past thread?
+I think many topic of this mail are already discussed.
+
+
+> On Thu, Jun 04, 2009 at 07:23:15PM +0900, KOSAKI Motohiro wrote:
 > > 
-> > Let me start by saying I agree completely with everything you wrote and
-> > still disagree with this patch, but was willing to compromise and work
-> > around this for our upcoming x86_64 machine by putting a "value add"
-> > into our packaging of adding a sysctl that turns reclaim back on.
+> > Current linux policy is, zone_reclaim_mode is enabled by default if the machine
+> > has large remote node distance. it's because we could assume that large distance
+> > mean large server until recently.
 > > 
 > 
-> To be honest, I'm more leaning towards a NACK than an ACK on this one. I
-> don't support enough NUMA machines to feel strongly enough about it but
-> unconditionally setting zone_reclaim_mode to 0 on x86-64 just because i7's
-> might be there seems ill-advised to me and will have other consequences for
-> existing more traditional x86-64 NUMA machines.
+> We don't make assumptions about the server being large, small or otherwise. The
+> affinity tables reporting a distance of 20 or more is saying "remote memory
+> has twice the latency of local memory". This is true irrespective of workload
+> and implies that going off-node has a real penalty regardless of workload.
 
-I was sort-of planning on coming up with an x86_64 arch specific function
-for setting zone_reclaim_mode, but didn't like the direction things
-were going.
+No.
+Now, we talk about off-node allocation vs unnecessary file cache dropping.
+IOW, off-node allocation vs disk access.
 
-Something to the effect of...
---- 20090609.orig/mm/page_alloc.c       2009-06-09 06:51:34.000000000 -0500
-+++ 20090609/mm/page_alloc.c    2009-06-09 06:55:00.160762069 -0500
-@@ -2326,12 +2326,7 @@ static void build_zonelists(pg_data_t *p
-        while ((node = find_next_best_node(local_node, &used_mask)) >= 0) {
-                int distance = node_distance(local_node, node);
- 
--               /*
--                * If another node is sufficiently far away then it is better
--                * to reclaim pages in a zone before going off node.
--                */
--               if (distance > RECLAIM_DISTANCE)
--                       zone_reclaim_mode = 1;
-+               zone_reclaim_mode = arch_zone_reclaim_mode(distance);
- 
-                /*
-                 * We don't want to pressure a particular node.
+Then, the worth doesn't only depend on off-node distance, but also depend on
+workload IO tendency and IO speed.
 
-And then letting each arch define an arch_zone_reclaim_mode().  If other
-values are needed in the determination, we would add parameters to
-reflect this.
+Fujitsu has 64 core ia64 HPC box, zone-reclaim sometimes made performance
+degression although its box. 
 
-For ia64, add
-
-static inline ia64_zone_reclaim_mode(int distance)
-{
-	if (distance > 15)
-		return 1;
-}
-
-#define	arch_zone_reclaim_mode(_d)	ia64_zone_reclaim_mode(_d)
+So, I don't think this problem is small vs large machine issue.
+nor i7 issue.
+high-speed P2P CPU integrated memory controller expose old issue.
 
 
-Then, inside x86_64_zone_reclaim_mode(), I could make it something like
-	if (distance > 40 || is_uv_system())
-		return 1;
+> > In general, workload depended configration shouldn't put into default settings.
+> > 
+> > However, current code is long standing about two year. Highest POWER and IA64 HPC machine
+> > (only) use this setting.
+> > 
+> > Thus, x86 and almost rest architecture change default setting, but Only power and ia64
+> > remain current configuration for backward-compatibility.
+> > 
+> 
+> What about if it's x86-64-based NUMA but it's not i7 based. There, the
+> NUMA distances might really mean something and that zone_reclaim behaviour
+> is desirable.
 
-In the end, I didn't think this fight was worth fighting given how ugly
-this felt.  Upon second thought, I am beginning to think it is not that
-bad, but I also don't think it is that good either.
+hmmm..
+I don't hope ignore AMD, I think it's common characterastic of P2P and
+integrated memory controller machine.
 
-Thanks,
-Robin
+Also, I don't hope detect CPU family or similar, because we need update
+such code evey when Intel makes new cpu.
+
+Can we detect P2P interconnect machine? I'm not sure.
+
+
+> I think if we're going down the road of setting the default, it shouldn't be
+> per-architecture defaults as such. Other choices for addressing this might be;
+> 
+> 1. Make RECLAIM_DISTANCE a variable on x86. Set it to 20 by default, and 5
+>    (or some other sensible figure) on i7
+> 
+> 2. There should be a per-arch modifier callback for the affinity
+>    distances. If the x86 code detects the CPU is an i7, it can reduce the
+>    reported latencies to be more in line with expected reality.
+> 
+> 3. Do not use zone_reclaim() for file-backed data if more than 20% of memory
+>    overall is free. The difficulty is figuring out if the allocation is for
+>    file pages.
+> 
+> 4. Change zone_reclaim_mode default to mean "do your best to figure it
+>    out". Patch 1 would default large distances to 1 to see what happens.
+>    Then apply a heuristic when in figure-it-out mode and using reclaim_mode = 1
+> 
+> 	If we have locally reclaimed 2% of the nodes memory in file pages
+> 	within the last 5 seconds when >= 20% of total physical memory was
+> 	free, then set the reclaim_mode to 0 on the assumption the node is
+> 	mostly caching pages and shouldn't be reclaimed to avoid excessive IO
+> 
+> Option 1 would appear to be the most straight-forward but option 2
+> should be doable. Option 3 and 4 could turn into a rats nest and I would
+> consider those approaches a bit more drastic.
+
+hmhm. 
+I think the key-point of option 1 and 2 are proper hardware detecting way.
+
+option 3 and 4 are more prefere idea to me. I like workload adapted heuristic.
+but you already pointed out its hard, because page-allocator don't know
+allocation purpose ;)
+
+
+> > @@ -10,6 +10,12 @@ struct device_node;
+> >  
+> >  #include <asm/mmzone.h>
+> >  
+> > +/*
+> > + * Distance above which we begin to use zone reclaim
+> > + */
+> > +#define RECLAIM_DISTANCE 20
+> > +
+> > +
+> 
+> Where is the ia-64-specific modifier to RECAIM_DISTANCE?
+
+
+arch/ia64/include/asm/topology.h has
+
+	/*
+	 * Distance above which we begin to use zone reclaim
+	 */
+	#define RECLAIM_DISTANCE 15
+
+
+I don't think distance=15 is machine independent proper definition.
+but there is long lived definition ;)
+
+
+
+
