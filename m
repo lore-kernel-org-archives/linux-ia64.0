@@ -1,19 +1,39 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Thu, 09 Jul 2009 00:01:06 +0000
-Subject: RE: ftrace and lockdep on ia64?
-Message-Id: <A6AD88C3F2289247BE726C37303E1EB8B06227F0@orsmsx505.amr.corp.intel.com>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Wed, 08 Jul 2009 19:54:00 +0000
+Subject: [PATCH] IA64: Fix IS_ERR() Compilation Errors
+Message-Id: <20090708195400.GA13171@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3877989d0907072251w202d4ba6vbf0ece63d2d88a8f@mail.gmail.com>
-In-Reply-To: <3877989d0907072251w202d4ba6vbf0ece63d2d88a8f@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 To: linux-ia64@vger.kernel.org
 
->Does anyone have boot problem with upstream kernel on ia64 box?
+Fix ia64 IS_ERR() compilation errors.
 
-Without IOMMU, upstream kernel boots fine on ia64 box. Upstream kernel has some regression issue on ia64 if IOMMU is enabled.
+When building ia64 kernel with CONFIG_XEN_SYS_HYPERVISOR, compiler reports
+errors:
 
-Thanks.
+drivers/xen/sys-hypervisor.c: In function ‘uuid_show’:
+drivers/xen/sys-hypervisor.c:125: error: implicit declaration of function ‘IS_ERR’
+drivers/xen/sys-hypervisor.c:126: error: implicit declaration of function ‘PTR_ERR’
 
--Fenghua
+This patch fixes the errors.
+
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
+
+---
+ arch/ia64/include/asm/xen/hypervisor.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/ia64/include/asm/xen/hypervisor.h b/arch/ia64/include/asm/xen/hypervisor.h
+index e425227..88afb54 100644
+--- a/arch/ia64/include/asm/xen/hypervisor.h
++++ b/arch/ia64/include/asm/xen/hypervisor.h
+@@ -33,6 +33,7 @@
+ #ifndef _ASM_IA64_XEN_HYPERVISOR_H
+ #define _ASM_IA64_XEN_HYPERVISOR_H
+ 
++#include <linux/err.h>
+ #include <xen/interface/xen.h>
+ #include <xen/interface/version.h>	/* to compile feature.c */
+ #include <xen/features.h>		/* to comiple xen-netfront.c */
