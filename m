@@ -1,7 +1,7 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Jul 2009 07:14:28 +0000
-Subject: [PATCH v2 4/7] ia64, kdump: Don't return APs to SAL from kdump
-Message-Id: <4A5598D4.3060001@jp.fujitsu.com>
+Date: Thu, 09 Jul 2009 07:12:48 +0000
+Subject: [PATCH v2 3/7] ia64, kexec: Unregister MCA handler before kexec
+Message-Id: <4A559870.7090801@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4A39E247.4030908@jp.fujitsu.com> <4A5595F3.2050609@jp.fujitsu.com>
 In-Reply-To: <4A5595F3.2050609@jp.fujitsu.com>
@@ -13,89 +13,61 @@ Cc: Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, kexec@list
 
 Summary:
 
-  Asserting INIT on cpu going to be offline will result in unexpected
-  behavior.  It will be a real problem in kdump cases where INIT might
-  be asserted to unstable APs going to be offline by returning to SAL.
+  MCA on the beginning of kdump/kexec kernel will result in unexpected
+  behavior because MCA handler for previous kernel is invoked on the
+  kdump kernel.
 
 Description:
 
-  Since psr.mc is cleared when bits in psr are set to SAL_PSR_BITS_TO_SET
-  in ia64_jump_to_sal(), there is a small window (~few msecs) that the
-  cpu can receive INIT even if the cpu enter there via INIT handler.
-  In this window we do restore of registers for SAL, so INIT asserted
-  here will not work properly.
-
-  It is hard to remove this window by masking INIT (i.e. setting psr.mc)
-  because we have to unmask it later in OS, because we have to use branch
-  instruction (br.ret, not rfi) to return SAL, due to OS_BOOT_RENDEZ to
-  SAL return convention.
-
-  I suppose this window will not be a real problem on cpu offline if we
-  can educate people not to push INIT button during hotplug operation.
-  However, only exception is a race in kdump and INIT.  Now kdump returns
-  APs to SAL before processing dump, but the kernel might receive INIT at
-  that point in time.  Such INIT might be asserted by kdump itself if an
-  AP doesn't react IPI soon and kdump decided to use INIT to stop the AP.
-  Or it might be asserted by operator or an external agent to start dump
-  on the unstable system.
-
-  Such panic+INIT or INIT+INIT cases should be rare, but it will be happy
-  if we can retrieve crashdump even in such cases.
+  Once a cpu is passed to new kernel, all resources in previous kernel
+  should not be used from the cpu.  Even the resources for MCA handler
+  are no exception.  So we cannot handle MCAs and its machine check
+  errors during kernel transition, until new handler for new kernel is
+  registered with new resources ready for handling the MCA.
 
 How to reproduce:
 
-  panic+INIT or INIT+INIT, with kdump configured
+  Assert MCA while kdump kernel is booting, before new MCA handler for
+  kdump kernel is registered.
 
-Expected results:
+Expected(Desirable) results:
 
-  crashdump is retrieved anyway
+  No recovery, cancel kdump and reboot the system.
 
 Actual results:
 
-  panic, hang etc. (unexpected)
+  MCA handler for previous kernel is invoked on the kdump kernel.
+  => panic, hang etc. (unexpected)
 
-Proposed fix
+Proposed fix:
 
-  To avoid the window on the way to SAL, this patch stops returning APs
-  to SAL in case of kdump.  In other words, this patch makes APs spin
-  in OS instead of spinning in SAL.
-
-  (* Note: What impact would be there?  If a cpu is spinning in SAL,
-   the cpu is in BOOT_RENDEZ loop, as same as offlined cpu.
-   In theory if an INIT is asserted there, cpus in the BOOT_RENDEZ loop
-   should not invoke OS_INIT on it.  So in either way, no matter where
-   the cpu is spinning actually in, once cpu starts spin and act as
-   "frozen," INIT on the cpu have no effects.
-   From another point of view, all debug information on the cpu should
-   have stored to memory before the cpu start to be frozen.  So no more
-   action on the cpu is required.)
-
-  I confirmed that the kdump sometime hangs by concurrent INITs (another
-  INIT after an INIT), and it doesn't hang after applying this patch.
+  To avoid entering MCA handler from early stage of new kernel,
+  unregister the entry point from SAL before leave from current
+  kernel.  Then SAL will make all MCAs to warmboot safely, without
+  invoking OS_MCA.
 
 Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 Cc: Vivek Goyal <vgoyal@redhat.com>
 Cc: Haren Myneni <hbabu@us.ibm.com>
 Cc: kexec@lists.infradead.org
 ---
- arch/ia64/kernel/crash.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/machine_kexec.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index 3f3a579..b2a8b3d 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -140,10 +140,6 @@ kdump_cpu_freeze(struct unw_frame_info *info, void *arg)
- 	atomic_inc(&kdump_cpu_frozen);
- 	kdump_status[cpuid] = 1;
- 	mb();
--#ifdef CONFIG_HOTPLUG_CPU
--	if (cpuid != 0)
--		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
--#endif
- 	for (;;)
- 		cpu_relax();
- }
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index 571d663..3d3aeef 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -104,6 +104,9 @@ static void ia64_machine_kexec(struct unw_frame_info *info, void *arg)
+ 		ia64_sal_set_vectors(SAL_VECTOR_OS_INIT, 0, 0, 0, 0, 0, 0);
+ 	}
+ 
++	/* Unregister mca handler - No more recovery on current kernel */
++	ia64_sal_set_vectors(SAL_VECTOR_OS_MCA, 0, 0, 0, 0, 0, 0);
++
+ 	/* Interrupts aren't acceptable while we reboot */
+ 	local_irq_disable();
+ 
 -- 
 1.6.0
 
