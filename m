@@ -1,23 +1,19 @@
-From: Luming Yu <luming.yu@gmail.com>
-Date: Wed, 08 Jul 2009 05:51:14 +0000
-Subject: Re: ftrace and lockdep on ia64?
-Message-Id: <3877989d0907072251w202d4ba6vbf0ece63d2d88a8f@mail.gmail.com>
+From: "Yu, Fenghua" <fenghua.yu@intel.com>
+Date: Thu, 09 Jul 2009 00:01:06 +0000
+Subject: RE: ftrace and lockdep on ia64?
+Message-Id: <A6AD88C3F2289247BE726C37303E1EB8B06227F0@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <3877989d0907072251w202d4ba6vbf0ece63d2d88a8f@mail.gmail.com>
+In-Reply-To: <3877989d0907072251w202d4ba6vbf0ece63d2d88a8f@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sorry for later response
+>Does anyone have boot problem with upstream kernel on ia64 box?
 
-> I found an old patch from Luming Yu to implement lockdep on IA64, but it
-> didn't get anywhere:
-> http://www.gelato.unsw.edu.au/archives/linux-ia64/0712/21510.html
+Without IOMMU, upstream kernel boots fine on ia64 box. Upstream kernel has some regression issue on ia64 if IOMMU is enabled.
 
-I will re-base it to 31-Rc if nobody comes up with a better one.
+Thanks.
 
->
-> Any chance someone could look into resurrecting it or at least the
-> support functionality for ftrace?
-
-Does anyone have boot problem with upstream kernel on ia64 box?
+-Fenghua
