@@ -1,115 +1,102 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 10 Jul 2009 01:05:02 +0000
-Subject: [PATCH 13/15] swiotlb: use phys_to_dma and dma_to_phys
-Message-Id: <1247187904-31999-14-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 09 Jul 2009 07:14:28 +0000
+Subject: [PATCH v2 4/7] ia64, kdump: Don't return APs to SAL from kdump
+Message-Id: <4A5598D4.3060001@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <4A39E247.4030908@jp.fujitsu.com> <4A5595F3.2050609@jp.fujitsu.com>
+In-Reply-To: <4A5595F3.2050609@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, kexec@lists.infradead.org, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>
 
-This converts swiotlb to use phys_to_dma and dma_to_phys instead of
-swiotlb_phys_to_bus() and swiotlb_bus_to_phys().
+Summary:
 
-swiotlb_phys_to_bus() and swiotlb_bus_to_phys() are not necessary so
-this patch also removes them.
+  Asserting INIT on cpu going to be offline will result in unexpected
+  behavior.  It will be a real problem in kdump cases where INIT might
+  be asserted to unstable APs going to be offline by returning to SAL.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Description:
+
+  Since psr.mc is cleared when bits in psr are set to SAL_PSR_BITS_TO_SET
+  in ia64_jump_to_sal(), there is a small window (~few msecs) that the
+  cpu can receive INIT even if the cpu enter there via INIT handler.
+  In this window we do restore of registers for SAL, so INIT asserted
+  here will not work properly.
+
+  It is hard to remove this window by masking INIT (i.e. setting psr.mc)
+  because we have to unmask it later in OS, because we have to use branch
+  instruction (br.ret, not rfi) to return SAL, due to OS_BOOT_RENDEZ to
+  SAL return convention.
+
+  I suppose this window will not be a real problem on cpu offline if we
+  can educate people not to push INIT button during hotplug operation.
+  However, only exception is a race in kdump and INIT.  Now kdump returns
+  APs to SAL before processing dump, but the kernel might receive INIT at
+  that point in time.  Such INIT might be asserted by kdump itself if an
+  AP doesn't react IPI soon and kdump decided to use INIT to stop the AP.
+  Or it might be asserted by operator or an external agent to start dump
+  on the unstable system.
+
+  Such panic+INIT or INIT+INIT cases should be rare, but it will be happy
+  if we can retrieve crashdump even in such cases.
+
+How to reproduce:
+
+  panic+INIT or INIT+INIT, with kdump configured
+
+Expected results:
+
+  crashdump is retrieved anyway
+
+Actual results:
+
+  panic, hang etc. (unexpected)
+
+Proposed fix
+
+  To avoid the window on the way to SAL, this patch stops returning APs
+  to SAL in case of kdump.  In other words, this patch makes APs spin
+  in OS instead of spinning in SAL.
+
+  (* Note: What impact would be there?  If a cpu is spinning in SAL,
+   the cpu is in BOOT_RENDEZ loop, as same as offlined cpu.
+   In theory if an INIT is asserted there, cpus in the BOOT_RENDEZ loop
+   should not invoke OS_INIT on it.  So in either way, no matter where
+   the cpu is spinning actually in, once cpu starts spin and act as
+   "frozen," INIT on the cpu have no effects.
+   From another point of view, all debug information on the cpu should
+   have stored to memory before the cpu start to be frozen.  So no more
+   action on the cpu is required.)
+
+  I confirmed that the kdump sometime hangs by concurrent INITs (another
+  INIT after an INIT), and it doesn't hang after applying this patch.
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Vivek Goyal <vgoyal@redhat.com>
+Cc: Haren Myneni <hbabu@us.ibm.com>
+Cc: kexec@lists.infradead.org
 ---
- include/linux/swiotlb.h |    5 -----
- lib/swiotlb.c           |   22 ++++++----------------
- 2 files changed, 6 insertions(+), 21 deletions(-)
+ arch/ia64/kernel/crash.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index a977da2..73b1f1c 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -23,11 +23,6 @@ struct scatterlist;
- extern void
- swiotlb_init(void);
- 
--extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
--				      phys_addr_t address);
--extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
--				       dma_addr_t address);
--
- extern void
- *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 			dma_addr_t *dma_handle, gfp_t flags);
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index a0faeb0..de71dba 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -114,20 +114,10 @@ setup_io_tlb_npages(char *str)
- __setup("swiotlb=", setup_io_tlb_npages);
- /* make io_tlb_overflow tunable too? */
- 
--dma_addr_t __weak swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
--{
--	return paddr;
--}
--
--phys_addr_t __weak swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
--{
--	return baddr;
--}
--
- static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
- 				      volatile void *address)
- {
--	return swiotlb_phys_to_bus(hwdev, virt_to_phys(address));
-+	return phys_to_dma(hwdev, virt_to_phys(address));
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index 3f3a579..b2a8b3d 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -140,10 +140,6 @@ kdump_cpu_freeze(struct unw_frame_info *info, void *arg)
+ 	atomic_inc(&kdump_cpu_frozen);
+ 	kdump_status[cpuid] = 1;
+ 	mb();
+-#ifdef CONFIG_HOTPLUG_CPU
+-	if (cpuid != 0)
+-		ia64_jump_to_sal(&sal_boot_rendez_state[cpuid]);
+-#endif
+ 	for (;;)
+ 		cpu_relax();
  }
- 
- static void swiotlb_print_info(unsigned long bytes)
-@@ -566,7 +556,7 @@ void
- swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
- 		      dma_addr_t dev_addr)
- {
--	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
-+	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
- 
- 	WARN_ON(irqs_disabled());
- 	if (!is_swiotlb_buffer(paddr))
-@@ -611,7 +601,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 			    struct dma_attrs *attrs)
- {
- 	phys_addr_t phys = page_to_phys(page) + offset;
--	dma_addr_t dev_addr = swiotlb_phys_to_bus(dev, phys);
-+	dma_addr_t dev_addr = phys_to_dma(dev, phys);
- 	void *map;
- 
- 	BUG_ON(dir = DMA_NONE);
-@@ -655,7 +645,7 @@ EXPORT_SYMBOL_GPL(swiotlb_map_page);
- static void unmap_single(struct device *hwdev, dma_addr_t dev_addr,
- 			 size_t size, int dir)
- {
--	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
-+	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
- 
- 	BUG_ON(dir = DMA_NONE);
- 
-@@ -692,7 +682,7 @@ static void
- swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
- 		    size_t size, int dir, int target)
- {
--	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
-+	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
- 
- 	BUG_ON(dir = DMA_NONE);
- 
-@@ -781,7 +771,7 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
- 
- 	for_each_sg(sgl, sg, nelems, i) {
- 		phys_addr_t paddr = sg_phys(sg);
--		dma_addr_t dev_addr = swiotlb_phys_to_bus(hwdev, paddr);
-+		dma_addr_t dev_addr = phys_to_dma(hwdev, paddr);
- 
- 		if (swiotlb_force ||
- 		    !dma_capable(hwdev, dev_addr, sg->length)) {
 -- 
-1.6.0.6
+1.6.0
+
 
