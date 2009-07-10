@@ -1,38 +1,115 @@
-From: Aurelien Jarno <aurelien@aurel32.net>
-Date: Sun, 12 Jul 2009 15:58:33 +0000
-Subject: [PATCH] Revert "Neither asm/types.h nor linux/types.h is required
-Message-Id: <20090712155833.GB12923@volta.aurel32.net>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 10 Jul 2009 01:05:02 +0000
+Subject: [PATCH 13/15] swiotlb: use phys_to_dma and dma_to_phys
+Message-Id: <1247187904-31999-14-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
 
-asm/fpu.h uses the __IA64_UL macro which is declared in asm/types.h, so
-this include is really required. Without it, GNU libc fails to build.
+This converts swiotlb to use phys_to_dma and dma_to_phys instead of
+swiotlb_phys_to_bus() and swiotlb_bus_to_phys().
 
-This reverts commit 2678c07b07ac2076675e5d57653bdf02e9af1950.
+swiotlb_phys_to_bus() and swiotlb_bus_to_phys() are not necessary so
+this patch also removes them.
+
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/include/asm/fpu.h |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ include/linux/swiotlb.h |    5 -----
+ lib/swiotlb.c           |   22 ++++++----------------
+ 2 files changed, 6 insertions(+), 21 deletions(-)
 
-diff --git a/arch/ia64/include/asm/fpu.h b/arch/ia64/include/asm/fpu.h
-index 0c26157..b6395ad 100644
---- a/arch/ia64/include/asm/fpu.h
-+++ b/arch/ia64/include/asm/fpu.h
-@@ -6,6 +6,8 @@
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  */
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index a977da2..73b1f1c 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -23,11 +23,6 @@ struct scatterlist;
+ extern void
+ swiotlb_init(void);
  
-+#include <linux/types.h>
-+
- /* floating point status register: */
- #define FPSR_TRAP_VD	(1 << 0)	/* invalid op trap disabled */
- #define FPSR_TRAP_DD	(1 << 1)	/* denormal trap disabled */
+-extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
+-				      phys_addr_t address);
+-extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
+-				       dma_addr_t address);
+-
+ extern void
+ *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 			dma_addr_t *dma_handle, gfp_t flags);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index a0faeb0..de71dba 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -114,20 +114,10 @@ setup_io_tlb_npages(char *str)
+ __setup("swiotlb=", setup_io_tlb_npages);
+ /* make io_tlb_overflow tunable too? */
+ 
+-dma_addr_t __weak swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
+-{
+-	return paddr;
+-}
+-
+-phys_addr_t __weak swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
+-{
+-	return baddr;
+-}
+-
+ static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
+ 				      volatile void *address)
+ {
+-	return swiotlb_phys_to_bus(hwdev, virt_to_phys(address));
++	return phys_to_dma(hwdev, virt_to_phys(address));
+ }
+ 
+ static void swiotlb_print_info(unsigned long bytes)
+@@ -566,7 +556,7 @@ void
+ swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
+ 		      dma_addr_t dev_addr)
+ {
+-	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
++	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
+ 
+ 	WARN_ON(irqs_disabled());
+ 	if (!is_swiotlb_buffer(paddr))
+@@ -611,7 +601,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 			    struct dma_attrs *attrs)
+ {
+ 	phys_addr_t phys = page_to_phys(page) + offset;
+-	dma_addr_t dev_addr = swiotlb_phys_to_bus(dev, phys);
++	dma_addr_t dev_addr = phys_to_dma(dev, phys);
+ 	void *map;
+ 
+ 	BUG_ON(dir = DMA_NONE);
+@@ -655,7 +645,7 @@ EXPORT_SYMBOL_GPL(swiotlb_map_page);
+ static void unmap_single(struct device *hwdev, dma_addr_t dev_addr,
+ 			 size_t size, int dir)
+ {
+-	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
++	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
+ 
+ 	BUG_ON(dir = DMA_NONE);
+ 
+@@ -692,7 +682,7 @@ static void
+ swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
+ 		    size_t size, int dir, int target)
+ {
+-	phys_addr_t paddr = swiotlb_bus_to_phys(hwdev, dev_addr);
++	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
+ 
+ 	BUG_ON(dir = DMA_NONE);
+ 
+@@ -781,7 +771,7 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 
+ 	for_each_sg(sgl, sg, nelems, i) {
+ 		phys_addr_t paddr = sg_phys(sg);
+-		dma_addr_t dev_addr = swiotlb_phys_to_bus(hwdev, paddr);
++		dma_addr_t dev_addr = phys_to_dma(hwdev, paddr);
+ 
+ 		if (swiotlb_force ||
+ 		    !dma_capable(hwdev, dev_addr, sg->length)) {
 -- 
-1.6.1.3
+1.6.0.6
 
--- 
-Aurelien Jarno	                        GPG: 1024D/F1BCDB73
-aurelien@aurel32.net                 http://www.aurel32.net
