@@ -1,29 +1,73 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 17 Jul 2009 14:09:55 +0000
-Subject: Re: [PATCH, RFC] xfs: event tracing support
-Message-Id: <20090717140955.GA26050@infradead.org>
+From: Ali Polatel <polatel@gmail.com>
+Date: Fri, 10 Jul 2009 16:06:03 +0000
+Subject: sydbox and ia64
+Message-Id: <20090710160603.GE749@harikalardiyari>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="hHWLQfXTYDoKhP50"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090616214844.GA12310@infradead.org>
-	<4E752C93-A674-4725-AF23-C227C0A1E659@sgi.com>
-	<20090622205904.GA1855@infradead.org>
-	<4A5FA82F.6050903@sandeen.net>
-In-Reply-To: <4A5FA82F.6050903@sandeen.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Eric Sandeen <sandeen@sandeen.net>
-Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>, xfs@oss.sgi.com
+To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 16, 2009 at 05:22:39PM -0500, Eric Sandeen wrote:
-> Where are we at with this one, I'd like to get this in for XFS but I
-> agree w/ Felix that throwing out a "working" trace infrastructure w/
-> nothing to replace it on ia64 would not be great.
 
-Well, it's not actuall working in these sense of that it isn't and never
-has been in mainline and also is utterly bit-rotted.  I have absolutely
-no interested in keeping a tracing implementation away from mainline
-that just works out of the box (not just on x86 but also on powerpc and
-others) just because ia64 is too slow to get modern features.
+--hHWLQfXTYDoKhP50
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-And it's not like we got any interesting amount of IA64 users, nor have
-does SGI who seems to be interested in IA64 do a lot of patches to XFS.
+Hi everyone,
+Sydbox is a ptrace based sandboxing application. Basically it checks
+system call arguments for path prefixes and allows/denies them by
+comparing them to a whitelist. So far it has support for x86 and x86_64
+architectures.
+
+I'm trying to port it to IA64 architecture. Only ptrace() involved
+functions=B9 needs to be ported, namely:
+trace_get_syscall: Get system call number (done)
+trace_set_syscall: Set system call number (done)
+trace_get_return: Get system call return value (done but not tested)
+trace_set_return: Set system call return value (done but not tested)
+trace_get_string: Get a string argument of the system call (done)
+
+These functions more or less work fine, the two functions i need help
+with are:
+trace_set_string: Set a string argument of the system call.
+  This function is used to change some path arguments to /dev/null so
+  that the application running under sydbox thinks everything is fine
+  but in reality it writes to /dev/null, not the actual file. We call
+  this write predicted paths.
+trace_fake_stat: Fake stat buffer of stat() call.
+  This function is used to implement the so-called magic commands.
+  When run under sydbox the stat()'ing the path /dev/sydbox returns the
+  faked stat buffer, not the actual one (which is failure because it
+  doesn't exist.)
+
+Both of these functions use ptrace(PTRACE_POKEDATA, ...) to poke data to
+child's memory area and both of these functions don't work as expected.
+I suspect additional hackery is involved to make them work. I'd
+appreciate if anyone with knowledge about ptrace() and itanium
+processors be kind enough to look at this file and tell me what's wrong
+:-].
+Thanks in advance.
+
+
+=B9: These functions reside in trace.c which you can see here:
+   http://github.com/alip/sydbox/blob/ia64/src/trace.c
+   For those who want to clone the repository, the git url is:
+   git://github.com/alip/sydbox.git
+
+--=20
+Regards,
+Ali Polatel
+
+--hHWLQfXTYDoKhP50
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.12 (GNU/Linux)
+
+iEYEABECAAYFAkpXZusACgkQQU4yORhF8iDQogCguJqrlVIKbdQj38eWl7KgqAoA
+Xl4AoMg+8rEdMQUQlb7i2ucJ02h+M0Xy
+=G7z2
+-----END PGP SIGNATURE-----
+
+--hHWLQfXTYDoKhP50--
