@@ -1,54 +1,45 @@
-From: Tim Abbott <tabbott@ksplice.com>
-Date: Fri, 31 Jul 2009 20:57:51 +0000
-Subject: [PATCH 1/3] ia64: Use .ref.text, not .text.init for start_ap.
-Message-Id: <1249073873-30028-1-git-send-email-tabbott@ksplice.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 10 Jul 2009 01:04:56 +0000
+Subject: [PATCH 07/15] ia64: add dma_capable() to replace is_buffer_dma_capable()
+Message-Id: <1247187904-31999-8-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Cc: Sam Ravnborg <sam@ravnborg.org>, Anders Kaseorg <andersk@ksplice.com>, Nelson Elhage <nelhage@ksplice.com>, Tim Abbott <tabbott@ksplice.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
 
-It seems that start_ap doesn't need to be in a special location in the
-kernel, but it references some init code so it should be in .ref.text.
+dma_capable() eventually replaces is_buffer_dma_capable(), which tells
+if a memory area is dma-capable or not. The problem of
+is_buffer_dma_capable() is that it doesn't take a pointer to struct
+device so it doesn't work for POWERPC.
 
-Since this is the only thing in the .text.head section, eliminate
-.text.head from the linker script.
-
-Signed-off-by: Tim Abbott <tabbott@ksplice.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/kernel/head.S        |    2 +-
- arch/ia64/kernel/vmlinux.lds.S |    2 --
- 2 files changed, 1 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
-index 23f846d..8239ff6 100644
---- a/arch/ia64/kernel/head.S
-+++ b/arch/ia64/kernel/head.S
-@@ -181,7 +181,7 @@ swapper_pg_dir:
- halt_msg:
- 	stringz "Halting kernel\n"
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 5a61b5c..88d0f86 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -69,6 +69,14 @@ dma_set_mask (struct device *dev, u64 mask)
+ 	return 0;
+ }
  
--	.section .text.head,"ax"
-+	__REF
++static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
++{
++	if (!dev->dma_mask)
++		return 0;
++
++	return addr + size <= *dev->dma_mask;
++}
++
+ extern int dma_get_cache_alignment(void);
  
- 	.global start_ap
- 
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 4a95e86..fa3a558 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -51,8 +51,6 @@ SECTIONS
- 	KPROBES_TEXT
- 	*(.gnu.linkonce.t*)
-     }
--  .text.head : AT(ADDR(.text.head) - LOAD_OFFSET)
--	{ *(.text.head) }
-   .text2 : AT(ADDR(.text2) - LOAD_OFFSET)
- 	{ *(.text2) }
- #ifdef CONFIG_SMP
+ static inline void
 -- 
-1.6.3.3
+1.6.0.6
 
