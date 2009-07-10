@@ -1,101 +1,60 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 10 Jul 2009 01:04:52 +0000
-Subject: [PATCH 03/15] swiotlb: remove swiotlb_arch_range_needs_mapping
-Message-Id: <1247187904-31999-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Fri, 10 Jul 2009 05:55:56 +0000
+Subject: Re: [PATCH 00/11] swiotlb: Introduce architecture-specific APIs to
+Message-Id: <1247205356.15530.18.camel@pasglop>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1243870383-12954-1-git-send-email-ian.campbell@citrix.com>
+In-Reply-To: <1243870383-12954-1-git-send-email-ian.campbell@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
+To: Ian Campbell <ian.campbell@citrix.com>
+Cc: linux-kernel@vger.kernel.org, Becky Bruce <beckyb@kernel.crashing.org>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Greg KH <gregkh@suse.de>, Ingo Molnar <mingo@elte.hu>, Jeremy Fitzhardinge <jeremy@goop.org>, Kumar Gala <galak@kernel.crashing.org>, Olaf Kirch <okir@suse.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, x86@kernel.org
 
-Nobody uses swiotlb_arch_range_needs_mapping().
+On Mon, 2009-06-01 at 16:32 +0100, Ian Campbell wrote:
+> This series:
+> * removes the swiotlb_(arch_)_phys_to_bus and bus_to_phys __weak
+>   hooks, replacing them with an architecture-specific phys_to_dma and
+>   dma_to_phys interface. These are used by both PowerPC and Xen to
+>   provide the correct mapping from physical to DMA addresses.
+> * removes the swiotlb_address_needs_mapping and
+>   swiotlb_range_needs_mapping __weak functions as well as
+>   is_buffer_dma_capable (which should never have been a generic
+>   function). All three are replaced by a single architecture-specific
+>   interface which meets the needs of both PowerPC and Xen.
+> * removes the swiotlb_virt_to_bus __weak function and replaces it with
+>   a CONFIG_HIGHMEM compatible version when high memory is in use. This
+>   is needed for 32 bit PowerPC swiotlb support.
+> * removes the swiotlb_alloc* __weak functions and replaces them with
+>   swiotlb_init_with_buffer which allows the use of a caller allocated
+>   buffer (and emergency pool).
+> 
+> I think these new interfaces are cleaner than the existing __weak
+> functions and isolate the swiotlb code from architecture internals.
+> 
+> This series does not contain any Xen or PowerPC specific changes, those
+> will follow in separate postings. The complete patchset has been boot
+> tested under Xen and native-x86 and compiled for IA64 and PowerPC
+> 
+> Changes since v1: 
+> - Fixed compile error in swiotlb_dma_to_virt highmem version. Moved
+>   #ifdef into function to avoid prototype drift.
+> - checkpatch fixes.
+> - missed a swiotlb_arch_range_needs_mapping in swiotlb.h and x86
+>   pci-swiotlb.c and swiotlb_bus_to_phys/phys_to_bus implementations in
+>   x86.
+> - additionally replaced __weak swiotlb_alloc* with
+>   swiotlb_init_with_buffer.
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
----
- arch/x86/kernel/pci-swiotlb.c |    5 -----
- include/linux/swiotlb.h       |    2 --
- lib/swiotlb.c                 |   15 ++-------------
- 3 files changed, 2 insertions(+), 20 deletions(-)
+Looks like I was only CCed on part of them... it's not very handy for me
+as I end up having some of the patches in one folder and some
+elsewhere :-)
 
-diff --git a/arch/x86/kernel/pci-swiotlb.c b/arch/x86/kernel/pci-swiotlb.c
-index ea675cf..165bd7f 100644
---- a/arch/x86/kernel/pci-swiotlb.c
-+++ b/arch/x86/kernel/pci-swiotlb.c
-@@ -23,11 +23,6 @@ phys_addr_t swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
- 	return baddr;
- }
- 
--int __weak swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size)
--{
--	return 0;
--}
--
- static void *x86_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 					dma_addr_t *dma_handle, gfp_t flags)
- {
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index 6bc5094..a977da2 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -28,8 +28,6 @@ extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
- extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
- 				       dma_addr_t address);
- 
--extern int swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size);
--
- extern void
- *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 			dma_addr_t *dma_handle, gfp_t flags);
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 3c4c21c..dc1cd1f 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -141,11 +141,6 @@ int __weak swiotlb_arch_address_needs_mapping(struct device *hwdev,
- 	return !is_buffer_dma_capable(dma_get_mask(hwdev), addr, size);
- }
- 
--int __weak swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size)
--{
--	return 0;
--}
--
- static void swiotlb_print_info(unsigned long bytes)
- {
- 	phys_addr_t pstart, pend;
-@@ -312,11 +307,6 @@ address_needs_mapping(struct device *hwdev, dma_addr_t addr, size_t size)
- 	return swiotlb_arch_address_needs_mapping(hwdev, addr, size);
- }
- 
--static inline int range_needs_mapping(phys_addr_t paddr, size_t size)
--{
--	return swiotlb_force || swiotlb_arch_range_needs_mapping(paddr, size);
--}
--
- static int is_swiotlb_buffer(char *addr)
- {
- 	return addr >= io_tlb_start && addr < io_tlb_end;
-@@ -646,8 +636,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 	 * we can safely return the device addr and not worry about bounce
- 	 * buffering it.
- 	 */
--	if (!address_needs_mapping(dev, dev_addr, size) &&
--	    !range_needs_mapping(phys, size))
-+	if (!address_needs_mapping(dev, dev_addr, size) && !swiotlb_force)
- 		return dev_addr;
- 
- 	/*
-@@ -810,7 +799,7 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
- 		phys_addr_t paddr = sg_phys(sg);
- 		dma_addr_t dev_addr = swiotlb_phys_to_bus(hwdev, paddr);
- 
--		if (range_needs_mapping(paddr, sg->length) ||
-+		if (swiotlb_force ||
- 		    address_needs_mapping(hwdev, dev_addr, sg->length)) {
- 			void *map = map_single(hwdev, sg_phys(sg),
- 					       sg->length, dir);
--- 
-1.6.0.6
+I don't have a firm objection but they will have to go through Becky
+and Kumar since they are the one who need swiotlb for their embedded
+platforms.
+
+Cheers,
+Ben.
+
 
