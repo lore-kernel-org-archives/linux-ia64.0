@@ -1,119 +1,101 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Jul 2009 07:18:42 +0000
-Subject: [PATCH v2 7/7] ia64, kdump: Short path to freeze CPUs
-Message-Id: <4A5599D2.7080604@jp.fujitsu.com>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Fri, 10 Jul 2009 01:04:52 +0000
+Subject: [PATCH 03/15] swiotlb: remove swiotlb_arch_range_needs_mapping
+Message-Id: <1247187904-31999-4-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4A39E247.4030908@jp.fujitsu.com> <4A5595F3.2050609@jp.fujitsu.com>
-In-Reply-To: <4A5595F3.2050609@jp.fujitsu.com>
+References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, kexec@lists.infradead.org, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
 
-Setting monarch_cpu = -1 to let slaves frozen might not work, because
-there might be slaves being late, not entered the rendezvous yet.
-Such slaves might be caught in while (monarch_cpu = -1) loop.
+Nobody uses swiotlb_arch_range_needs_mapping().
 
-Use kdump_in_progress instead of monarch_cpus to break INIT rendezvous
-and let all slaves enter DIE_INIT_SLAVE_LEAVE smoothly.
-
-And monarch no longer need to manage rendezvous if once kdump_in_progress
-is set, catch the monarch in DIE_INIT_MONARCH_ENTER then.
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: Vivek Goyal <vgoyal@redhat.com>
-Cc: Haren Myneni <hbabu@us.ibm.com>
-Cc: kexec@lists.infradead.org
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- arch/ia64/kernel/crash.c |   15 ++++++---------
- arch/ia64/kernel/mca.c   |   15 +++++++++++++--
- 2 files changed, 19 insertions(+), 11 deletions(-)
+ arch/x86/kernel/pci-swiotlb.c |    5 -----
+ include/linux/swiotlb.h       |    2 --
+ lib/swiotlb.c                 |   15 ++-------------
+ 3 files changed, 2 insertions(+), 20 deletions(-)
 
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index 0995fdc..6631a9d 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -127,14 +127,13 @@ machine_crash_shutdown(struct pt_regs *pt)
- 	 * If an INIT is asserted here:
- 	 * - All receivers might be slaves, since some of cpus could already
- 	 *   be frozen and INIT might be masked on monarch.  In this case,
--	 *   all slaves will park in while (monarch_cpu = -1) loop before
--	 *   DIE_INIT_SLAVE_ENTER that for waiting monarch enters.
--	 *	=> TBD: freeze all slaves
-+	 *   all slaves will be frozen soon since kdump_in_progress will let
-+	 *   them into DIE_INIT_SLAVE_LEAVE.
- 	 * - One might be a monarch, but INIT rendezvous will fail since
- 	 *   at least this cpu already have INIT masked so it never join
- 	 *   to the rendezvous.  In this case, all slaves and monarch will
--	 *   be frozen after timeout of the INIT rendezvous.
--	 *	=> TBD: freeze them without waiting timeout
-+	 *   be frozen soon with no wait since the INIT rendezvous is skipped
-+	 *   by kdump_in_progress.
+diff --git a/arch/x86/kernel/pci-swiotlb.c b/arch/x86/kernel/pci-swiotlb.c
+index ea675cf..165bd7f 100644
+--- a/arch/x86/kernel/pci-swiotlb.c
++++ b/arch/x86/kernel/pci-swiotlb.c
+@@ -23,11 +23,6 @@ phys_addr_t swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
+ 	return baddr;
+ }
+ 
+-int __weak swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size)
+-{
+-	return 0;
+-}
+-
+ static void *x86_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 					dma_addr_t *dma_handle, gfp_t flags)
+ {
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index 6bc5094..a977da2 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -28,8 +28,6 @@ extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
+ extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
+ 				       dma_addr_t address);
+ 
+-extern int swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size);
+-
+ extern void
+ *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 			dma_addr_t *dma_handle, gfp_t flags);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index 3c4c21c..dc1cd1f 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -141,11 +141,6 @@ int __weak swiotlb_arch_address_needs_mapping(struct device *hwdev,
+ 	return !is_buffer_dma_capable(dma_get_mask(hwdev), addr, size);
+ }
+ 
+-int __weak swiotlb_arch_range_needs_mapping(phys_addr_t paddr, size_t size)
+-{
+-	return 0;
+-}
+-
+ static void swiotlb_print_info(unsigned long bytes)
+ {
+ 	phys_addr_t pstart, pend;
+@@ -312,11 +307,6 @@ address_needs_mapping(struct device *hwdev, dma_addr_t addr, size_t size)
+ 	return swiotlb_arch_address_needs_mapping(hwdev, addr, size);
+ }
+ 
+-static inline int range_needs_mapping(phys_addr_t paddr, size_t size)
+-{
+-	return swiotlb_force || swiotlb_arch_range_needs_mapping(paddr, size);
+-}
+-
+ static int is_swiotlb_buffer(char *addr)
+ {
+ 	return addr >= io_tlb_start && addr < io_tlb_end;
+@@ -646,8 +636,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 	 * we can safely return the device addr and not worry about bounce
+ 	 * buffering it.
  	 */
- 	kdump_smp_send_stop();
- 	/* not all cpu response to IPI, send INIT to freeze them */
-@@ -187,6 +186,7 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
- 				break;
- 			/* fall through */
- 		case DIE_INIT_SLAVE_LEAVE:
-+		case DIE_INIT_MONARCH_ENTER:
- 		case DIE_MCA_RENDZVOUS_LEAVE:
- 			unw_init_running(kdump_cpu_freeze, NULL);
- 			break;
-@@ -217,7 +217,6 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
- 		if (kdump_on_init && (nd->sos->rv_rc != 1)) {
- 			if (atomic_inc_return(&kdump_in_progress) != 1)
- 				kdump_freeze_monarch = 1;
--			*(nd->monarch_cpu) = -1;
- 		}
- 		break;
- 	case DIE_INIT_MONARCH_LEAVE:
-@@ -228,10 +227,8 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
- 	case DIE_MCA_MONARCH_LEAVE:
- 		/* *(nd->data) indicate if MCA is recoverable */
- 		if (kdump_on_fatal_mca && !(*(nd->data))) {
--			if (atomic_inc_return(&kdump_in_progress) = 1) {
--				*(nd->monarch_cpu) = -1;
-+			if (atomic_inc_return(&kdump_in_progress) = 1)
- 				machine_kdump_on_init();
--			}
- 			/* We got fatal MCA while kdump!? No way!! */
- 		}
- 		break;
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 7b30d21..d2877a7 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1682,14 +1682,25 @@ ia64_init_handler(struct pt_regs *regs, struct switch_stack *sw,
+-	if (!address_needs_mapping(dev, dev_addr, size) &&
+-	    !range_needs_mapping(phys, size))
++	if (!address_needs_mapping(dev, dev_addr, size) && !swiotlb_force)
+ 		return dev_addr;
  
- 	if (!sos->monarch) {
- 		ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_INIT;
-+
-+#ifdef CONFIG_KEXEC
-+		while (monarch_cpu = -1 && !atomic_read(&kdump_in_progress))
-+			udelay(1000);
-+#else
- 		while (monarch_cpu = -1)
--		       cpu_relax();	/* spin until monarch enters */
-+			cpu_relax();	/* spin until monarch enters */
-+#endif
+ 	/*
+@@ -810,7 +799,7 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 		phys_addr_t paddr = sg_phys(sg);
+ 		dma_addr_t dev_addr = swiotlb_phys_to_bus(hwdev, paddr);
  
- 		NOTIFY_INIT(DIE_INIT_SLAVE_ENTER, regs, (long)&nd, 1);
- 		NOTIFY_INIT(DIE_INIT_SLAVE_PROCESS, regs, (long)&nd, 1);
- 
-+#ifdef CONFIG_KEXEC
-+		while (monarch_cpu != -1 && !atomic_read(&kdump_in_progress))
-+			udelay(1000);
-+#else
- 		while (monarch_cpu != -1)
--		       cpu_relax();	/* spin until monarch leaves */
-+			cpu_relax();	/* spin until monarch leaves */
-+#endif
- 
- 		NOTIFY_INIT(DIE_INIT_SLAVE_LEAVE, regs, (long)&nd, 1);
- 
+-		if (range_needs_mapping(paddr, sg->length) ||
++		if (swiotlb_force ||
+ 		    address_needs_mapping(hwdev, dev_addr, sg->length)) {
+ 			void *map = map_single(hwdev, sg_phys(sg),
+ 					       sg->length, dir);
 -- 
-1.6.0
-
+1.6.0.6
 
