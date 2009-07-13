@@ -1,70 +1,55 @@
-From: akpm@linux-foundation.org
-Date: Wed, 10 Jun 2009 19:44:59 +0000
-Subject: [patch 1/4] ia64: remove obsolete no_irq_type
-Message-Id: <200906101944.n5AJixRS032303@imap1.linux-foundation.org>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Mon, 13 Jul 2009 20:09:43 +0000
+Subject: [PATCH] linux-next arch/ia64/kernel/setup.c: Fix setup_per_cpu_areas() compilation error
+Message-Id: <20090713200942.GA19606@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <A6AD88C3F2289247BE726C37303E1EB8B06CB5E9@orsmsx505.amr.corp.intel.com>
+In-Reply-To: <A6AD88C3F2289247BE726C37303E1EB8B06CB5E9@orsmsx505.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>, Tejun Heo <tj@kernel.org>
+Cc: linux-next@vger.kernel.org, linux-ia64@vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
+Fix ia64 build setup_per_cpu_areas() redifinition issue in UP configuration
 
-The defines and typedefs (hw_interrupt_type, no_irq_type, irq_desc_t) have
-been kept around for migration reasons.  After more than two years it's
-time to remove them finally.
+When compiling ia64 kernel in UP configuration, the following compilation errors
+are reported:
 
-This patch cleans up one of the remaining users.  When all such patches
-hit mainline we can remove the defines and typedefs finally.
+arch/ia64/kernel/setup.c:860: error: redefinition of 'setup_per_cpu_areas'
+include/linux/percpu.h:185: error: previous definition of 'setup_per_cpu_areas' was here
 
-Impact: cleanup
+The patch fixes the issue in arch/ia64/kernel/setup.c
 
-convert the last remaining users to no_irq_chip
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
- arch/ia64/hp/sim/hpsim_irq.c |    2 +-
- arch/ia64/kernel/iosapic.c   |    2 +-
- arch/ia64/sn/kernel/irq.c    |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+The commit e74e396204bfcb67570ba4517b08f5918e69afea in linux-next causes this
+build issue.  
 
-diff -puN arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-no_irq_type arch/ia64/hp/sim/hpsim_irq.c
---- a/arch/ia64/hp/sim/hpsim_irq.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/hp/sim/hpsim_irq.c
-@@ -46,7 +46,7 @@ hpsim_irq_init (void)
- 
- 	for (i = 0; i < NR_IRQS; ++i) {
- 		idesc = irq_desc + i;
--		if (idesc->chip = &no_irq_type)
-+		if (idesc->chip = &no_irq_chip)
- 			idesc->chip = &irq_type_hp_sim;
- 	}
+ setup.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 1b23ec1..1de86c9 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -855,11 +855,17 @@ identify_cpu (struct cpuinfo_ia64 *c)
+ 	c->unimpl_pa_mask = ~((1L<<63) | ((1L << phys_addr_size) - 1));
  }
-diff -puN arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-no_irq_type arch/ia64/kernel/iosapic.c
---- a/arch/ia64/kernel/iosapic.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/kernel/iosapic.c
-@@ -650,7 +650,7 @@ register_intr (unsigned int gsi, int irq
  
- 	idesc = irq_desc + irq;
- 	if (irq_type != NULL && idesc->chip != irq_type) {
--		if (idesc->chip != &no_irq_type)
-+		if (idesc->chip != &no_irq_chip)
- 			printk(KERN_WARNING
- 			       "%s: changing vector %d from %s to %s\n",
- 			       __func__, irq_to_vector(irq),
-diff -puN arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-no_irq_type arch/ia64/sn/kernel/irq.c
---- a/arch/ia64/sn/kernel/irq.c~ia64-remove-obsolete-no_irq_type
-+++ a/arch/ia64/sn/kernel/irq.c
-@@ -301,7 +301,7 @@ void sn_irq_init(void)
- 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
++/*
++ * In UP configuration, setup_per_cpu_areas() is defined in
++ * include/linux/percpu.h
++ */
++#ifdef CONFIG_SMP
+ void __init
+ setup_per_cpu_areas (void)
+ {
+ 	/* start_kernel() requires this... */
+ }
++#endif
  
- 	for (i = 0; i < NR_IRQS; i++) {
--		if (base_desc[i].chip = &no_irq_type) {
-+		if (base_desc[i].chip = &no_irq_chip) {
- 			base_desc[i].chip = &irq_type_sn;
- 		}
- 	}
-_
+ /*
+  * Do the following calculations:
