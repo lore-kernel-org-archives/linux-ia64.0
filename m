@@ -1,36 +1,45 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Date: Tue, 21 Jul 2009 15:09:44 +0000
-Subject: [patch] ia64: boolean __test_and_clear_bit
-Message-Id: <1248188984-10148-1-git-send-email-hannes@cmpxchg.org>
+From: Aurelien Jarno <aurelien@aurel32.net>
+Date: Mon, 13 Jul 2009 16:53:35 +0000
+Subject: [PATCH v2] Revert "Neither asm/types.h nor linux/types.h is
+Message-Id: <20090713165335.GA29702@volta.aurel32.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20090712155833.GB12923@volta.aurel32.net>
+In-Reply-To: <20090712155833.GB12923@volta.aurel32.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-__test_and_clear_bit() returns a bitfield with the tested-for bit set.
-Make it consistent with the other bitops - of ia64 but also every
-other architecture - and return a boolean value.
+Sorry forget to add a S-o-B tag. Please find a new version below.
 
-Signed-off-by: Johannes Weiner <hannes@cmpxchg.org>
+
+asm/fpu.h uses the __IA64_UL macro which is declared in asm/types.h, so
+this include is really required. Without it, GNU libc fails to build.
+
+This reverts commit 2678c07b07ac2076675e5d57653bdf02e9af1950.
+
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+
 ---
- arch/ia64/include/asm/bitops.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/include/asm/fpu.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/bitops.h b/arch/ia64/include/asm/bitops.h
-index e2ca800..57a2787 100644
---- a/arch/ia64/include/asm/bitops.h
-+++ b/arch/ia64/include/asm/bitops.h
-@@ -286,7 +286,7 @@ __test_and_clear_bit(int nr, volatile void * addr)
- {
- 	__u32 *p = (__u32 *) addr + (nr >> 5);
- 	__u32 m = 1 << (nr & 31);
--	int oldbitset = *p & m;
-+	int oldbitset = (*p & m) != 0;
+diff --git a/arch/ia64/include/asm/fpu.h b/arch/ia64/include/asm/fpu.h
+index 0c26157..b6395ad 100644
+--- a/arch/ia64/include/asm/fpu.h
++++ b/arch/ia64/include/asm/fpu.h
+@@ -6,6 +6,8 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  */
  
- 	*p &= ~m;
- 	return oldbitset;
++#include <linux/types.h>
++
+ /* floating point status register: */
+ #define FPSR_TRAP_VD	(1 << 0)	/* invalid op trap disabled */
+ #define FPSR_TRAP_DD	(1 << 1)	/* denormal trap disabled */
 -- 
-1.6.3
+1.6.1.3
 
+-- 
+Aurelien Jarno	                        GPG: 1024D/F1BCDB73
+aurelien@aurel32.net                 http://www.aurel32.net
