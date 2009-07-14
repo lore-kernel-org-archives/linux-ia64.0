@@ -1,62 +1,84 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Date: Mon, 13 Jul 2009 10:05:57 +0000
+From: Becky Bruce <beckyb@kernel.crashing.org>
+Date: Tue, 14 Jul 2009 03:13:56 +0000
 Subject: Re: [00/15] swiotlb cleanup
-Message-Id: <1247479557.11668.30.camel@zakaz.uk.xensource.com>
+Message-Id: <68EFFAF6-EF5B-4148-BC54-70BF2AF2456E@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247234520.4002.418.camel@zakaz.uk.xensource.com>
-	 <20090713131859N.fujita.tomonori@lab.ntt.co.jp>
-	 <1247478029.11668.10.camel@zakaz.uk.xensource.com>
-	 <20090713185247W.fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <20090713185247W.fujita.tomonori@lab.ntt.co.jp>
+References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp> <20090710051236.GA22218@elte.hu>
+In-Reply-To: <20090710051236.GA22218@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: mingo@elte.hu, jeremy@goop.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, beckyb@kernel.crashing.org, joerg.roedel@amd.com
+To: Ingo Molnar <mingo@elte.hu>
+Cc: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, Ian Campbell <Ian.Campbell@citrix.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, Joerg Roedel <joerg.roedel@amd.com>
 
-On Mon, 2009-07-13 at 18:53 +0900, FUJITA Tomonori wrote:
-> On Mon, 13 Jul 2009 10:40:29 +0100
-> Ian Campbell <Ian.Campbell@eu.citrix.com> wrote:
-> 
-> > On Mon, 2009-07-13 at 05:20 +0100, FUJITA Tomonori wrote:
-> > > On Fri, 10 Jul 2009 15:02:00 +0100
-> > > Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> > > 
-> > > > On Fri, 2009-07-10 at 14:35 +0900, FUJITA Tomonori wrote:
-> > > > > I don't think that we need to take account of dom0 support; we don't
-> > > > > have a clear idea about an acceptable dom0 design (it needs to use
-> > > > > swiotlb code? I don't know yet), we don't even know we will have dom0
-> > > > > support in mainline. That's why I didn't CC this patchset to Xen
-> > > > > camp.
-> > > > 
-> > > > The core domain 0 patches which were the subject of the discussions a
-> > > > few week back are completely orthogonal to the swiotlb side of things
-> > > 
-> > > ? If we don't merge dom0 patch, we don't need dom0 changes to
-> > > swiotlb. We don't know we would have dom0 support in mainline. Or I
-> > > overlooked something?
-> > [...]
-> > > As far as I know, you have not posted anything about changes to
-> > > swiotlb for domU. I can't discuss it. If you want, please send
-> > > patches.
-> > 
-> > There are no separate domU swiotlb patches -- the exact the same patches
-> > as we have already been discussing are useful and necessary for both
-> > domU and dom0.
-> 
-> Hmm, you guys introduced the swiotlb hooks by saying that it's for
-> only dom0.
 
-That was just sloppy wording on our part. domain 0 is the major usecase
-today so there is a tendency to think in those terms but the changes are
-actually relevant to any domain with access to a physical device that
-can do DMA, this includes domU via PCI passthrough.
+On Jul 10, 2009, at 12:12 AM, Ingo Molnar wrote:
 
-> I don't see any comments like 'this is useful to dom0 too'. I'm still
-                                                      ^U?
-> not sure what exactly part is useful to domU.
+>
+> * FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+>
+>> - removes unused (and unnecessary) hooks in swiotlb.
+>>
+>> - adds dma_capable() and converts swiotlb to use it. It can be used  
+>> to
+>> know if a memory area is dma capable or not. I added
+>> is_buffer_dma_capable() for the same purpose long ago but it turned
+>> out that the function doesn't work on POWERPC.
+>>
+>> This can be applied cleanly to linux-next, -mm, and mainline. This
+>> patchset touches multiple architectures (ia64, powerpc, x86) so I
+>> guess that -mm is appropriate for this patchset (I don't care much
+>> what tree would merge this though).
+>>
+>> This is tested on x86 but only compile tested on POWERPC and IA64.
+>>
+>> Thanks,
+>>
+>> >> arch/ia64/include/asm/dma-mapping.h    |   18 ++++++
+>> arch/powerpc/include/asm/dma-mapping.h |   23 +++++++
+>> arch/powerpc/kernel/dma-swiotlb.c      |   48 +---------------
+>> arch/x86/include/asm/dma-mapping.h     |   18 ++++++
+>> arch/x86/kernel/pci-dma.c              |    2 +-
+>> arch/x86/kernel/pci-gart_64.c          |    5 +-
+>> arch/x86/kernel/pci-nommu.c            |    2 +-
+>> arch/x86/kernel/pci-swiotlb.c          |   25 --------
+>> include/linux/dma-mapping.h            |    5 --
+>> include/linux/swiotlb.h                |   11 ----
+>> lib/swiotlb.c                          |  102 ++++++++ 
+>> +-----------------------
+>> 11 files changed, 92 insertions(+), 167 deletions(-)
+>
+> Hm, the functions and facilities you remove here were added as part
+> of preparatory patches for Xen guest support. You were aware of
+> them, you were involved in discussions about those aspects with Ian
+> and Jeremy but still you chose not to Cc: either of them and you
+> failed to address that aspect in the changelogs.
+>
+> I'd like the Xen code to become cleaner more than anyone else here i
+> guess, but patch submission methods like this are not really
+> helpful. A far better method is to be open about such disagreements,
+> to declare them, to Cc: everyone who disagrees, and to line out the
+> arguments in the changelogs as well - instead of just curtly
+> declaring those APIs 'unused' and failing to Cc: involved parties.
+>
+> Alas, on the technical level the cleanups themselves look mostly
+> fine to me. Ian, Jeremy, the changes will alter Xen's use of
+> swiotlb, but can the Xen side still live with these new methods - in
+> particular is dma_capable() sufficient as a mechanism and can the
+> Xen side filter out DMA allocations to make them physically
+> continuous?
+>
+> Ben, Tony, Becky, any objections wrt. the PowerPC / IA64 impact? If
+> everyone agrees i can apply them to the IOMMU tree, test it and push
+> it out to -next, etc.
+>
 
-All of it...
+Ingo,
 
-Ian.
+With the exception of the patch I commented on, I think these look OK  
+from the powerpc point of view.  I've successfully booted one of my  
+test platforms with the entire series applied and will run some more  
+extensive (i.e. not "Whee!  A prompt!") tests tomorrow.
+
+-Becky
 
