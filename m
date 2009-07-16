@@ -1,34 +1,41 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Fri, 24 Jul 2009 06:45:43 +0000
-Subject: Re: [RFC PATCH] ia64: convert to dynamic percpu allocator
-Message-Id: <4A695897.2020902@kernel.org>
+From: Eric Sandeen <sandeen@sandeen.net>
+Date: Thu, 16 Jul 2009 22:22:39 +0000
+Subject: Re: [PATCH, RFC] xfs: event tracing support
+Message-Id: <4A5FA82F.6050903@sandeen.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4A65B0AB.5000608@kernel.org> <A6AD88C3F2289247BE726C37303E1EB8B097D4C5@orsmsx505.amr.corp.intel.com> <4A663DC7.4060600@kernel.org> <A6AD88C3F2289247BE726C37303E1EB8B0A9115B@orsmsx505.amr.corp.intel.com>
-In-Reply-To: <A6AD88C3F2289247BE726C37303E1EB8B0A9115B@orsmsx505.amr.corp.intel.com>
+References: <20090616214844.GA12310@infradead.org>	<4E752C93-A674-4725-AF23-C227C0A1E659@sgi.com>
+	<20090622205904.GA1855@infradead.org>
+In-Reply-To: <20090622205904.GA1855@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Yu, Fenghua" <fenghua.yu@intel.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, 'lkml' <linux-kernel@vger.kernel.org>, "'linux-arch@vger.kernel.org'" <linux-arch@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>
+Cc: linux-ia64@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>, xfs@oss.sgi.com
 
-Hello,
-
-Yu, Fenghua wrote:
-
-> After cloning from
-> git://git.kernel.org/pub/scm/linux/kernel/git/tj/percpu.git, kernel
-> built with CONFIG_DISCONTIGMEM=y boots ok.
+Christoph Hellwig wrote:
+> On Mon, Jun 22, 2009 at 01:01:35PM -0500, Felix Blyakher wrote:
+>>> To use it make sure CONFIG_EVENT_TRACING is enabled and then enable  
+>>> all
+>>> xfs trace channels by:
+>>>
+>>>   echo 1 > /sys/kernel/debug/tracing/events/xfs/enable
+>> Does event tracing work on ia64 platform?
+>> I spent some time on it over weekend, but was not able even
+>> to force "CONFIG_EVENT_TRACING=y" setting in the .config.
+>> Seems to build ok on x86_64, which does have CONFIG_TRACING
+>> in defconfig, and allows to set CONFIG_EVENT_TRACING.
 > 
-> After pulling from review-ia64, kernel built with
-> CONFIG_DISCONTIGMEM=y can not boot on ia64. After loading kernel and
-> initrd, system hangs and doesn't show anything on serial port.
+> IA64 ftrace support was added earlier this year, but it seems it can't
+> be enabled anymore since the big config option reshuffle.  Now tracing
+> support requires the architecture to define the TRACE_IRQFLAGS_SUPPORT
+> and STACKTRACE_SUPPORT symbols, which seems to be missing on ia64.
 
-Heh, I didn't really expect it to work that easily either.  The code
-builds but is completely untested (I can't test them).  Can you try to
-track it down?  Serial console should be up and running at that point,
-no?
+Where are we at with this one, I'd like to get this in for XFS but I
+agree w/ Felix that throwing out a "working" trace infrastructure w/
+nothing to replace it on ia64 would not be great.
 
-Thanks.
+Is this just config confusion, or is the functionality actually missing
+on ia64?
 
--- 
-tejun
+Thanks,
+-Eric
