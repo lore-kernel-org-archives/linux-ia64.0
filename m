@@ -1,7 +1,7 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Thu, 16 Jul 2009 22:35:27 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Fri, 17 Jul 2009 14:09:55 +0000
 Subject: Re: [PATCH, RFC] xfs: event tracing support
-Message-Id: <alpine.DEB.2.00.0907161831391.9337@gandalf.stny.rr.com>
+Message-Id: <20090717140955.GA26050@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090616214844.GA12310@infradead.org>
 	<4E752C93-A674-4725-AF23-C227C0A1E659@sgi.com>
@@ -12,49 +12,18 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Eric Sandeen <sandeen@sandeen.net>
-Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, xfs@oss.sgi.com
+Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>, xfs@oss.sgi.com
 
-
-Added Ingo as well.
-
-On Thu, 16 Jul 2009, Eric Sandeen wrote:
-
-> Christoph Hellwig wrote:
-> > On Mon, Jun 22, 2009 at 01:01:35PM -0500, Felix Blyakher wrote:
-> >>> To use it make sure CONFIG_EVENT_TRACING is enabled and then enable  
-> >>> all
-> >>> xfs trace channels by:
-> >>>
-> >>>   echo 1 > /sys/kernel/debug/tracing/events/xfs/enable
-> >> Does event tracing work on ia64 platform?
-> >> I spent some time on it over weekend, but was not able even
-> >> to force "CONFIG_EVENT_TRACING=y" setting in the .config.
-> >> Seems to build ok on x86_64, which does have CONFIG_TRACING
-> >> in defconfig, and allows to set CONFIG_EVENT_TRACING.
-> > 
-> > IA64 ftrace support was added earlier this year, but it seems it can't
-> > be enabled anymore since the big config option reshuffle.  Now tracing
-> > support requires the architecture to define the TRACE_IRQFLAGS_SUPPORT
-> > and STACKTRACE_SUPPORT symbols, which seems to be missing on ia64.
-> 
+On Thu, Jul 16, 2009 at 05:22:39PM -0500, Eric Sandeen wrote:
 > Where are we at with this one, I'd like to get this in for XFS but I
 > agree w/ Felix that throwing out a "working" trace infrastructure w/
 > nothing to replace it on ia64 would not be great.
-> 
-> Is this just config confusion, or is the functionality actually missing
-> on ia64?
 
-For PPC32, we have stacktrace support but there was lots of issues with 
-the IRQFLAGS support. Namely, issues with handling traces in assembly when 
-interrupts are off.
+Well, it's not actuall working in these sense of that it isn't and never
+has been in mainline and also is utterly bit-rotted.  I have absolutely
+no interested in keeping a tracing implementation away from mainline
+that just works out of the box (not just on x86 but also on powerpc and
+others) just because ia64 is too slow to get modern features.
 
-Hence, we have an exception for PPC32 with the IRQFLAGS config. Is there a 
-reason that we can't have STACKTRACE_SUPPORT for ia64? Perhaps it should 
-be implemented? Probably not that difficult.
-
-Then we can add an exception for ia64 too if there's a technical reason 
-that IRQFLAGS is not supported. Otherwise, IRQFLAGS should also be 
-ported. That way, ia64 would benefit from lockdep as well.
-
--- Steve
-
+And it's not like we got any interesting amount of IA64 users, nor have
+does SGI who seems to be interested in IA64 do a lot of patches to XFS.
