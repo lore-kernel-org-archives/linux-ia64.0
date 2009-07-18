@@ -1,101 +1,77 @@
-From: Becky Bruce <beckyb@kernel.crashing.org>
-Date: Wed, 15 Jul 2009 20:24:33 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Sat, 18 Jul 2009 10:41:01 +0000
 Subject: Re: [00/15] swiotlb cleanup
-Message-Id: <FF72C10D-2755-4B85-8714-8C35F34FED69@kernel.crashing.org>
+Message-Id: <20090718104101.GA27239@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp> <20090710051236.GA22218@elte.hu> <68EFFAF6-EF5B-4148-BC54-70BF2AF2456E@kernel.crashing.org>
-In-Reply-To: <68EFFAF6-EF5B-4148-BC54-70BF2AF2456E@kernel.crashing.org>
+References: <1247234512.4002.417.camel@zakaz.uk.xensource.com> <20090710141248.GE26264@elte.hu> <20090713131157V.fujita.tomonori@lab.ntt.co.jp> <20090713181558B.fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <20090713181558B.fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: beckyb@kernel.crashing.org, Jeremy Fitzhardinge <jeremy@goop.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Ian Campbell <Ian.Campbell@citrix.com>, x86@kernel.org, "linux-kernel@vger.kernel.org Mailing List" <linux-kernel@vger.kernel.org>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, "linuxppc-dev@ozlabs.org list" <linuxppc-dev@ozlabs.org>, Joerg Roedel <joerg.roedel@amd.com>
+To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Cc: Ian.Campbell@eu.citrix.com, jeremy@goop.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, beckyb@kernel.crashing.org, joerg.roedel@amd.com
 
 
-On Jul 13, 2009, at 10:13 PM, Becky Bruce wrote:
+* FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
 
->
-> On Jul 10, 2009, at 12:12 AM, Ingo Molnar wrote:
->
->>
->> * FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
->>
->>> - removes unused (and unnecessary) hooks in swiotlb.
->>>
->>> - adds dma_capable() and converts swiotlb to use it. It can be  
->>> used to
->>> know if a memory area is dma capable or not. I added
->>> is_buffer_dma_capable() for the same purpose long ago but it turned
->>> out that the function doesn't work on POWERPC.
->>>
->>> This can be applied cleanly to linux-next, -mm, and mainline. This
->>> patchset touches multiple architectures (ia64, powerpc, x86) so I
->>> guess that -mm is appropriate for this patchset (I don't care much
->>> what tree would merge this though).
->>>
->>> This is tested on x86 but only compile tested on POWERPC and IA64.
->>>
->>> Thanks,
->>>
->>> >>> arch/ia64/include/asm/dma-mapping.h    |   18 ++++++
->>> arch/powerpc/include/asm/dma-mapping.h |   23 +++++++
->>> arch/powerpc/kernel/dma-swiotlb.c      |   48 +---------------
->>> arch/x86/include/asm/dma-mapping.h     |   18 ++++++
->>> arch/x86/kernel/pci-dma.c              |    2 +-
->>> arch/x86/kernel/pci-gart_64.c          |    5 +-
->>> arch/x86/kernel/pci-nommu.c            |    2 +-
->>> arch/x86/kernel/pci-swiotlb.c          |   25 --------
->>> include/linux/dma-mapping.h            |    5 --
->>> include/linux/swiotlb.h                |   11 ----
->>> lib/swiotlb.c                          |  102 ++++++++ 
->>> +-----------------------
->>> 11 files changed, 92 insertions(+), 167 deletions(-)
->>
->> Hm, the functions and facilities you remove here were added as part
->> of preparatory patches for Xen guest support. You were aware of
->> them, you were involved in discussions about those aspects with Ian
->> and Jeremy but still you chose not to Cc: either of them and you
->> failed to address that aspect in the changelogs.
->>
->> I'd like the Xen code to become cleaner more than anyone else here i
->> guess, but patch submission methods like this are not really
->> helpful. A far better method is to be open about such disagreements,
->> to declare them, to Cc: everyone who disagrees, and to line out the
->> arguments in the changelogs as well - instead of just curtly
->> declaring those APIs 'unused' and failing to Cc: involved parties.
->>
->> Alas, on the technical level the cleanups themselves look mostly
->> fine to me. Ian, Jeremy, the changes will alter Xen's use of
->> swiotlb, but can the Xen side still live with these new methods - in
->> particular is dma_capable() sufficient as a mechanism and can the
->> Xen side filter out DMA allocations to make them physically
->> continuous?
->>
->> Ben, Tony, Becky, any objections wrt. the PowerPC / IA64 impact? If
->> everyone agrees i can apply them to the IOMMU tree, test it and push
->> it out to -next, etc.
->>
->
-> Ingo,
->
-> With the exception of the patch I commented on, I think these look  
-> OK from the powerpc point of view.  I've successfully booted one of  
-> my test platforms with the entire series applied and will run some  
-> more extensive (i.e. not "Whee!  A prompt!") tests tomorrow.
+> On Mon, 13 Jul 2009 13:20:22 +0900
+> FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp> wrote:
+> 
+> > On Fri, 10 Jul 2009 16:12:48 +0200
+> > Ingo Molnar <mingo@elte.hu> wrote:
+> > 
+> > > > functionality and reimplemented the surrounding infrastructure in 
+> > > > terms of that (and incorporating our additional requirements). I 
+> > > > prototyped this (it is currently unworking, in fact it seems to 
+> > > > have developed rather a taste for filesystems :-() but the 
+> > > > diffstat of my WIP patch is:
+> > > >
+> > > >          arch/x86/kernel/pci-swiotlb.c |    6 
+> > > >          arch/x86/xen/pci-swiotlb.c    |    2 
+> > > >          drivers/pci/xen-iommu.c       |  385 ++++++++++++++++++++++++++++++++++++++++--
+> > > >          include/linux/swiotlb.h       |   12 +
+> > > >          lib/swiotlb.c                 |   10 -
+> > > >          5 files changed, 385 insertions(+), 30 deletions(-)
+> > > >
+> > > > where a fair number of the lines in xen-iommu.c are copies of 
+> > > > functions from swiotlb.c with minor modifications. As I say it 
+> > > > doesn't work yet but I think it's roughly indicative of what such 
+> > > > an approach would look like. I don't like it much but am happy to 
+> > > > run with it if it looks to be the most acceptable approach. [...]
+> > > 
+> > > +400 lines of code to avoid much fewer lines of generic code impact 
+> > > on the lib/swiotlb.c side sounds like a bad technical choice to me. 
+> > 
+> > The amount of code is not the point. The way to impact on the
+> > lib/swiotlb.c is totally wrong from the perspective of the kernel
+> > design; it uses architecture code in the very original (xen) way.
+> 
+> btw, '+400 lines of code to avoid much fewer lines of generic code
+> impact on the lib/swiotlb.c' doesn't sound true to me.
+> 
+> Here is a patch in the way that Xen people want to do:
+> 
+> http://patchwork.kernel.org/patch/26343/
+> 
+> ---
+>  arch/x86/Kconfig                 |    4 +
+>  arch/x86/include/asm/io.h        |    2 +
+>  arch/x86/include/asm/pci_x86.h   |    1 +
+>  arch/x86/include/asm/xen/iommu.h |   12 ++
+>  arch/x86/kernel/pci-dma.c        |    3 +
+>  arch/x86/pci/Makefile            |    1 +
+>  arch/x86/pci/init.c              |    6 +
+>  arch/x86/pci/xen.c               |   51 +++++++
+>  drivers/pci/Makefile             |    2 +
+>  drivers/pci/xen-iommu.c          |  271 ++++++++++++++++++++++++++++++++++++++
+> 
+> Even with the way that Xen people want to do, 
+> drivers/pci/xen-iommu.c is about 300 lines. And my patchset 
+> removes the nice amount of lines for dom0 support. I don't see 
+> much difference wrt lines.
 
-Well, I am still testing.  I've observed one unexpected LTP testcase  
-failure with these patches applied, but so far have been unable to  
-reproduce it.  So these patches are probably OK, but I will look into  
-this some more next week.
+ok, that kind of impact looks reasonable. If we are wrong and the 
+Xen model becomes duplicated anywhere else it can still be 
+generalized into core swiotlb code.
 
--Becky
-
->
->
-> -Becky
->
-> _______________________________________________
-> Linuxppc-dev mailing list
-> Linuxppc-dev@lists.ozlabs.org
-> https://lists.ozlabs.org/listinfo/linuxppc-dev
-
+	Ingo
