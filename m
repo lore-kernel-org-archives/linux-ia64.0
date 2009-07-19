@@ -1,45 +1,83 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 10 Jul 2009 01:05:04 +0000
-Subject: [PATCH 15/15] x86: remove unused swiotlb_phys_to_bus() and swiotlb_bus_to_phys()
-Message-Id: <1247187904-31999-16-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 19 Jul 2009 15:29:37 +0000
+Subject: [PATCH 7/10] drivers/serial: Move a dereference below a NULL test
+Message-Id: <Pine.LNX.4.64.0907191729140.16542@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: pfg@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-phys_to_dma() and dma_to_phys() are used instead of
-swiotlb_phys_to_bus() and swiotlb_bus_to_phys().
+From: Julia Lawall <julia@diku.dk>
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+If the NULL test is necessary, then the dereference should be moved below
+the NULL test.
+
+The semantic patch that makes this change is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
+
+// <smpl>
+@@
+type T;
+expression E,E1;
+identifier i,fld;
+statement S;
+@@
+
+- T i =3D E->fld;
++ T i;
+  ... when !=3D E=E1
+      when !=3D i
+  BUG_ON (E =3D NULL);
++ i =3D E->fld;
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
- arch/x86/kernel/pci-swiotlb.c |   10 ----------
- 1 files changed, 0 insertions(+), 10 deletions(-)
+ drivers/serial/ioc3_serial.c |    3 ++-
+ drivers/serial/ioc4_serial.c |    3 ++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/pci-swiotlb.c b/arch/x86/kernel/pci-swiotlb.c
-index 165bd7f..e8a3501 100644
---- a/arch/x86/kernel/pci-swiotlb.c
-+++ b/arch/x86/kernel/pci-swiotlb.c
-@@ -13,16 +13,6 @@
- 
- int swiotlb __read_mostly;
- 
--dma_addr_t swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
--{
--	return paddr;
--}
--
--phys_addr_t swiotlb_bus_to_phys(struct device *hwdev, dma_addr_t baddr)
--{
--	return baddr;
--}
--
- static void *x86_swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 					dma_addr_t *dma_handle, gfp_t flags)
- {
--- 
-1.6.0.6
-
+diff --git a/drivers/serial/ioc3_serial.c b/drivers/serial/ioc3_serial.c
+index ae3699d..6d5c91b 100644
+--- a/drivers/serial/ioc3_serial.c
++++ b/drivers/serial/ioc3_serial.c
+@@ -1117,13 +1117,14 @@ static inline int do_read(struct uart_port *the_por=
+t, char *buf, int len)
+ 	struct ioc3_port *port =3D get_ioc3_port(the_port);
+ 	struct ring *inring;
+ 	struct ring_entry *entry;
+-	struct port_hooks *hooks =3D port->ip_hooks;
++	struct port_hooks *hooks;
+ 	int byte_num;
+ 	char *sc;
+ 	int loop_counter;
+=20
+ 	BUG_ON(!(len >=3D 0));
+ 	BUG_ON(!port);
++	hooks =3D port->ip_hooks;
+=20
+ 	/* There is a nasty timing issue in the IOC3. When the rx_timer
+ 	 * expires or the rx_high condition arises, we take an interrupt.
+diff --git a/drivers/serial/ioc4_serial.c b/drivers/serial/ioc4_serial.c
+index 6bab63c..aeca2f8 100644
+--- a/drivers/serial/ioc4_serial.c
++++ b/drivers/serial/ioc4_serial.c
+@@ -2067,13 +2067,14 @@ static inline int do_read(struct uart_port *the_por=
+t, unsigned char *buf,
+ 	struct ioc4_port *port =3D get_ioc4_port(the_port, 0);
+ 	struct ring *inring;
+ 	struct ring_entry *entry;
+-	struct hooks *hooks =3D port->ip_hooks;
++	struct hooks *hooks;
+ 	int byte_num;
+ 	char *sc;
+ 	int loop_counter;
+=20
+ 	BUG_ON(!(len >=3D 0));
+ 	BUG_ON(!port);
++	hooks =3D port->ip_hooks;
+=20
+ 	/* There is a nasty timing issue in the IOC4. When the rx_timer
+ 	 * expires or the rx_high condition arises, we take an interrupt.
