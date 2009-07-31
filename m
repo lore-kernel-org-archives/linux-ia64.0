@@ -1,80 +1,54 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Date: Fri, 10 Jul 2009 01:04:51 +0000
-Subject: [PATCH 02/15] swiotlb: remove unused swiotlb_alloc()
-Message-Id: <1247187904-31999-3-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+From: Tim Abbott <tabbott@ksplice.com>
+Date: Fri, 31 Jul 2009 20:57:52 +0000
+Subject: [PATCH 2/3] ia64: Use standard macros for page-aligned data.
+Message-Id: <1249073873-30028-2-git-send-email-tabbott@ksplice.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <1247187904-31999-1-git-send-email-fujita.tomonori@lab.ntt.co.jp>
+References: <1249073873-30028-1-git-send-email-tabbott@ksplice.com>
+In-Reply-To: <1249073873-30028-1-git-send-email-tabbott@ksplice.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, linuxppc-dev@ozlabs.org, benh@kernel.crashing.org, tony.luck@intel.com, x86@kernel.org, fujita.tomonori@lab.ntt.co.jp, beckyb@kernel.crashing.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Sam Ravnborg <sam@ravnborg.org>, Anders Kaseorg <andersk@ksplice.com>, Nelson Elhage <nelhage@ksplice.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-Nobody uses swiotlb_alloc().
+From: Nelson Elhage <nelhage@ksplice.com>
 
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/x86/kernel/pci-swiotlb.c |    5 -----
- include/linux/swiotlb.h       |    2 --
- lib/swiotlb.c                 |    8 ++------
- 3 files changed, 2 insertions(+), 13 deletions(-)
+ arch/ia64/kernel/head.S        |    2 +-
+ arch/ia64/kernel/vmlinux.lds.S |    4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/pci-swiotlb.c b/arch/x86/kernel/pci-swiotlb.c
-index 0ac7cd5..ea675cf 100644
---- a/arch/x86/kernel/pci-swiotlb.c
-+++ b/arch/x86/kernel/pci-swiotlb.c
-@@ -13,11 +13,6 @@
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index 8239ff6..ef27e79 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -167,7 +167,7 @@ RestRR:											\
+ 	mov _tmp2=((ia64_rid(IA64_REGION_ID_KERNEL, (num<<61)) << 8) | (pgsize << 2) | vhpt);; \
+ 	mov rr[_tmp1]=_tmp2
  
- int swiotlb __read_mostly;
+-	.section __special_page_section,"ax"
++	__PAGE_ALIGNED_DATA
  
--void *swiotlb_alloc(unsigned order, unsigned long nslabs)
--{
--	return (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN, order);
--}
--
- dma_addr_t swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
- {
- 	return paddr;
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index 94db704..6bc5094 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -23,8 +23,6 @@ struct scatterlist;
- extern void
- swiotlb_init(void);
+ 	.global empty_zero_page
+ empty_zero_page:
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index fa3a558..b484b86 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -219,7 +219,9 @@ SECTIONS
+ 	{ *(.data.init_task) }
  
--extern void *swiotlb_alloc(unsigned order, unsigned long nslabs);
--
- extern dma_addr_t swiotlb_phys_to_bus(struct device *hwdev,
- 				      phys_addr_t address);
- extern phys_addr_t swiotlb_bus_to_phys(struct device *hwdev,
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 9edfdd4..3c4c21c 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -114,11 +114,6 @@ setup_io_tlb_npages(char *str)
- __setup("swiotlb=", setup_io_tlb_npages);
- /* make io_tlb_overflow tunable too? */
- 
--void * __weak swiotlb_alloc(unsigned order, unsigned long nslabs)
--{
--	return (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN, order);
--}
--
- dma_addr_t __weak swiotlb_phys_to_bus(struct device *hwdev, phys_addr_t paddr)
- {
- 	return paddr;
-@@ -240,7 +235,8 @@ swiotlb_late_init_with_default_size(size_t default_size)
- 	bytes = io_tlb_nslabs << IO_TLB_SHIFT;
- 
- 	while ((SLABS_PER_PAGE << order) > IO_TLB_MIN_SLABS) {
--		io_tlb_start = swiotlb_alloc(order, io_tlb_nslabs);
-+		io_tlb_start = (void *)__get_free_pages(GFP_DMA | __GFP_NOWARN,
-+							order);
- 		if (io_tlb_start)
- 			break;
- 		order--;
+   .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET)
+-        { *(__special_page_section)
++        {
++	PAGE_ALIGNED_DATA(PAGE_SIZE)
++	  . = ALIGN(PAGE_SIZE);
+ 	  __start_gate_section = .;
+ 	  *(.data.gate)
+ 	  __stop_gate_section = .;
 -- 
-1.6.0.6
+1.6.3.3
 
