@@ -1,73 +1,65 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 10 Aug 2009 03:02:10 +0000
-Subject: Re: [Patch 4/7] ia64: implement crashkernel=auto
-Message-Id: <4A7F8DB2.5040501@redhat.com>
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 02 Aug 2009 08:45:18 +0000
+Subject: [PATCH 3/15] arch/ia64: Use DIV_ROUND_CLOSEST
+Message-Id: <Pine.LNX.4.64.0908021044540.15557@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090806062125.5578.72123.sendpatchset@localhost.localdomain> <20090806062211.5578.59301.sendpatchset@localhost.localdomain> <4A7C7AEA.7080800@gmx.de>
-In-Reply-To: <4A7C7AEA.7080800@gmx.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bernhard Walle <bernhard.walle@gmx.de>
-Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, akpm@linux-foundation.org, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+To: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-Bernhard Walle wrote:
-> Amerigo Wang schrieb:
->   
->>  
->> +#ifdef CONFIG_KEXEC_AUTO_RESERVE
->> +#ifdef KEXEC_AUTO_RESERVED_SIZE
->> +#undef KEXEC_AUTO_RESERVED_SIZE
->> +#endif
->> +#define KEXEC_AUTO_RESERVED_SIZE (1ULL<<28) /* 256M */
->> +#include <asm-generic/kexec.h>
->> +#endif
->> +
->>  extern struct kimage *ia64_kimage;
->>     
->
-> IMO that's way too small for practial use on IA64 systems.
->
-> For SLES11, which is based on Linux 2.6.28 IIRC, we use following memory
-> size values in the YaST2 kdump module which configures the crashkernel
-> parameter (this is YCP syntax, but I think everybody understands it):
->
->   
->> // bnc #446480 - Fine-tune kdump memory proposal
->> if ((Arch::ia64()) && (total_memory >= 1024))
->> {
->>     integer total_memory_gigabyte = total_memory/1024;
->>     if ((total_memory_gigabyte >= 1) && (total_memory_gigabyte <12))
->>         alocated_memory = "256";
->>     else if ((total_memory_gigabyte >= 12) && (total_memory_gigabyte <128))
->>         alocated_memory = "512";
->>     else if ((total_memory_gigabyte >= 128) && (total_memory_gigabyte <256))
->>         alocated_memory = "768";
->>     else if ((total_memory_gigabyte >= 256) && (total_memory_gigabyte <378))
->>         alocated_memory = "1024";
->>     else if ((total_memory_gigabyte >= 378) && (total_memory_gigabyte <512))
->>         alocated_memory = "1536";
->>     else if ((total_memory_gigabyte >= 512) && (total_memory_gigabyte <768))
->>         alocated_memory = "2048";
->>     else if (total_memory_gigabyte >= 768)
->>         alocated_memory = "3072";
->> }
->>     
->
-> I got that assumtions from SGI (and they are known to have large IA64
-> systems) and I think the values were tested.
->   
+From: Julia Lawall <julia@diku.dk>
 
-Hmm, thanks for this.
+The kernel.h macro DIV_ROUND_CLOSEST performs the computation (x + d/2)/d
+but is perhaps more readable.
 
-> But IMO it doesn't make sense to put such policy decisions in the
-> kernel. I see no advantage for that. The average user doesn't have to
-> write crashkernel parameters, they use the values that the distribution
-> ships. Or do you think that an average user knows what a UUID of a file
-> system is just to specify the correct root partition?
->   
-The advantage is that we can provide a clever policy which can't be 
-implemented with current mechanism, e.g. 32nd of phy mem, as proposed by 
-Eric.
+The semantic patch that makes this change is as follows:
+(http://www.emn.fr/x-info/coccinelle/)
 
+// <smpl>
+@haskernel@
+@@
+
+#include <linux/kernel.h>
+
+@depends on haskernel@
+expression x,__divisor;
+@@
+
+- (((x) + ((__divisor) / 2)) / (__divisor))
++ DIV_ROUND_CLOSEST(x,__divisor)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ arch/ia64/kernel/time.c             |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index 4990495..aaa6651 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -314,7 +314,7 @@ ia64_init_itm (void)
+ 
+ 	itc_freq = (platform_base_freq*itc_ratio.num)/itc_ratio.den;
+ 
+-	local_cpu_data->itm_delta = (itc_freq + HZ/2) / HZ;
++	local_cpu_data->itm_delta = DIV_ROUND_CLOSEST(itc_freq, HZ);
+ 	printk(KERN_DEBUG "CPU %d: base freq=%lu.%03luMHz, ITC ratio=%u/%u, "
+ 	       "ITC freq=%lu.%03luMHz", smp_processor_id(),
+ 	       platform_base_freq / 1000000, (platform_base_freq / 1000) % 1000,
+@@ -330,9 +330,11 @@ ia64_init_itm (void)
+ 
+ 	local_cpu_data->proc_freq = (platform_base_freq*proc_ratio.num)/proc_ratio.den;
+ 	local_cpu_data->itc_freq = itc_freq;
+-	local_cpu_data->cyc_per_usec = (itc_freq + USEC_PER_SEC/2) / USEC_PER_SEC;
+-	local_cpu_data->nsec_per_cyc = ((NSEC_PER_SEC<<IA64_NSEC_PER_CYC_SHIFT)
+-					+ itc_freq/2)/itc_freq;
++	local_cpu_data->cyc_per_usec +		DIV_ROUND_CLOSEST(itc_freq, USEC_PER_SEC);
++	local_cpu_data->nsec_per_cyc +		DIV_ROUND_CLOSEST(NSEC_PER_SEC << IA64_NSEC_PER_CYC_SHIFT,
++				  itc_freq);
+ 
+ 	if (!(sal_platform_features & IA64_SAL_PLATFORM_FEATURE_ITC_DRIFT)) {
+ #ifdef CONFIG_SMP
 
