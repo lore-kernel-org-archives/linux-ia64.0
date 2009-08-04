@@ -1,97 +1,42 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Wed, 12 Aug 2009 03:14:45 +0000
-Subject: Re: [RFC Patch 2/2] kexec: allow to shrink reserved memory
-Message-Id: <4A8233A5.2020501@redhat.com>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Tue, 04 Aug 2009 22:10:24 +0000
+Subject: [PATCH 2/4] Bug Fix drivers/pci/intel-iommu.c: secure sg_next() calling
+Message-Id: <20090804221024.GA21406@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090811104144.5154.77871.sendpatchset@localhost.localdomain>	<20090811104154.5154.78710.sendpatchset@localhost.localdomain>	<m1r5vi9l9v.fsf@fess.ebiederm.org> <4A821A14.1020408@redhat.com>	<m17hx9n6s5.fsf@fess.ebiederm.org> <4A822404.9030603@redhat.com> <m1ws5992gd.fsf@fess.ebiederm.org>
-In-Reply-To: <m1ws5992gd.fsf@fess.ebiederm.org>
+References: <BAE9DCEF64577A439B3A37F36F9B691C0339372B@orsmsx418.amr.corp.intel.com> <617E1C2C70743745A92448908E030B2A02AD5AD7@scsmsx411.amr.corp.intel.com>
+In-Reply-To: <617E1C2C70743745A92448908E030B2A02AD5AD7@scsmsx411.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, Andi Kleen <andi@firstfloor.org>, akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>
+To: David Woodhouse <dwmw2@infradead.org>, Tony Luck <tony.luck@intel.com>
+Cc: iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>
 
-Eric W. Biederman wrote:
-> Amerigo Wang <amwang@redhat.com> writes:
->
->   
->> Eric W. Biederman wrote:
->>     
->>> Amerigo Wang <amwang@redhat.com> writes:
->>>
->>>   
->>>       
->>>> Eric W. Biederman wrote:
->>>>     
->>>>         
->>>>> Amerigo Wang <amwang@redhat.com> writes:
->>>>>
->>>>>         
->>>>>           
->>>>>> This patch implements shrinking the reserved memory for crash kernel,
->>>>>> if it is more than enough.
->>>>>>
->>>>>> For example, if you have already reserved 128M, now you just want 100M,
->>>>>> you can do:
->>>>>>
->>>>>> # echo $((100*1024*1024)) > /sys/kernel/kexec_crash_size
->>>>>>             
->>>>>>             
->>>>> This patch looks like a reasonable start.
->>>>>
->>>>> However once a crash kernel image is loaded we have already told that
->>>>> image about the memory that is available and what you are doing here
->>>>> will go and stop on the memory that is reserved but not yet used,
->>>>> totally breaking the DMA protections.  AKA we know the memory is safe
->>>>> from ongoing DMAs because it has lain fallow since boot up.
->>>>>
->>>>> The only safe thing to do is to reduce the memory size before (possibly
->>>>> just before) we load the crash kernel.  Which means we should only
->>>>> be allowed to shrink the size when nothing is loaded, exactly the
->>>>> opposite of what you have implemented.
->>>>>
->>>>>         
->>>>>           
->>>> Confused, why just loading the crash kernel makes it unsafe?
->>>> DMA should be avoided when reserving that memory during boot, shouldn't it?
->>>>     
->>>>         
->>> Yes.  But you are removing the reservation and starting DMA on memory
->>> we have told the crash kernel it can use.
->>>   
->>>       
->> We can modify the info given to the crash kernel.
->>     
->
-> Only by unloading and reloading.
->
->   
->>>> I know I missed the part that freeing memory before loading, but if it is safe
->>>> before loading, how can it be unsafe after that?
->>>>     
->>>>         
->>> We tell the crash kernel when loading it, it can use all of the reserved memory.
->>>   
->>>       
->> Yeah, but we should reload the kernel after shrinking the memory, it is not
->> surprised that doing this is necessary...
->>     
->
-> So unload the crash kernel first.  If you don't you open a race where
-> many of the guarantees we make for the crash kernel about the state of
-> the memory it might be using are not true.
->
-> In general I expect we will be able to do this all before we load the
-> crash kernel the first time.  But at least we should not need to reboot
-> things if there is a problem.
->   
+sg_next() is called only when sg is not NULL. This solves a kernel panic on
+some platforms (e.g. ia64).
 
-Ok, thanks for your explanation.
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-I will drop patch 1/2, since we will move it to kexec.
-I will put patch 2/2 into my "crashkernel=auto" patch set, and resend 
-them all.
+---
 
-Thanks.
+ drivers/pci/intel-iommu.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-
+diff --git a/drivers/pci/intel-iommu.c b/drivers/pci/intel-iommu.c
+index bec29ed..54ee63d 100644
+--- a/drivers/pci/intel-iommu.c
++++ b/drivers/pci/intel-iommu.c
+@@ -1705,8 +1715,12 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
+ 		iov_pfn++;
+ 		pteval += VTD_PAGE_SIZE;
+ 		sg_res--;
+-		if (!sg_res)
+-			sg = sg_next(sg);
++		if (!sg_res) {
++			if (sg)
++				sg = sg_next(sg);
++			else
++				return 0;
++		}
+ 	}
+ 	return 0;
+ }
