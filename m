@@ -1,53 +1,39 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 10 Aug 2009 03:11:34 +0000
-Subject: Re: [Patch 0/7] Implement crashkernel=auto
-Message-Id: <4A7F8FE6.9030709@redhat.com>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Tue, 04 Aug 2009 22:11:20 +0000
+Subject: [PATCH 4/4] Bug Fix drivers/pci/intel-iommu.c: convert pfn_lo to VTD page address when calling iommu
+Message-Id: <20090804221119.GA21544@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090805112123.6552.73574.sendpatchset@localhost.localdomain>	<m1eirqtmey.fsf@fess.ebiederm.org>	<20090805140408.GJ7259@hmsreliant.think-freely.org>	<m1skg5vpgg.fsf@fess.ebiederm.org> <4A7A3A78.7080200@redhat.com>	<m1y6pxr737.fsf@fess.ebiederm.org> <4A7A506B.2060008@redhat.com>	<m1ljlxsiox.fsf@fess.ebiederm.org> <4A7A70E5.2010204@redhat.com>	<m1bpmtqxjh.fsf@fess.ebiederm.org> <4A7A7A0F.6070906@redhat.com>	<m1iqh1nxv3.fsf@fess.ebiederm.org> <4A7A9E54.60705@redhat.com> <m1iqgze740.fsf@fess.ebiederm.org>
-In-Reply-To: <m1iqgze740.fsf@fess.ebiederm.org>
+References: <bug-504363-150293@bugzilla.redhat.com> <200908042017.n74KHsNw018095@bz-web1.app.phx.redhat.com>
+In-Reply-To: <200908042017.n74KHsNw018095@bz-web1.app.phx.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Neil Horman <nhorman@redhat.com>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>, Andi Kleen <andi@firstfloor.org>, Bernhard Walle <bernhard.walle@gmx.de>, Kexec Mailing List <kexec@lists.infradead.org>
+To: David Woodhouse <dwmw2@infradead.org>, Tony Luck <tony.luck@intel.com>
+Cc: iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>
 
-Eric W. Biederman wrote:
-> Let me put this concrete proposal on the table.
->
-> The problem:
->
-> With the current set of crashkernel= options we are asking the
-> distribution installer to perform magic.  Moving as much of this logic
-> into a normal init script for better maintenance is desirable.
->
-> My proposal:
->
-> Implement crashkernel=max which reserves as much memory as is
-> reasonable for a crash kernel, without seriously affecting stability,
-> performance, and reliability.
->   
+The iova->pfn_lo should be converted to VTD page address before it's passed to
+iommu_flush_dev_iotlb().
 
-This is almost exactly what I want with crashkernel=auto....
-So there's no big difference, except the name.
+This issue may cause DMA failure on PAGE_SIZE>VTD_PAGE_SIZE platforms e.g. ia64
+platforms.
 
-> As an initial approximation I would use a 32nd of low memory.
->   
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-Hmm, I think Bernhard's proposal is fine for this case, i.e. we can 
-introduce a new syntax, "crashkernel=>>X" which means we reserve 1/2^X 
-of system memory.
+---
 
-What do you think?
+ drivers/pci/intel-iommu.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-> In addition implement:
->
-> /sys/kernel/crash_size
->
-> That can be written to (with enough privileges when no crash kernel is
-> loaded) reduce the amount of memory reserved by the crash kernel.
->   
-
-Yeah, this is nice!
-
-Thanks.
-
+diff --git a/drivers/pci/intel-iommu.c b/drivers/pci/intel-iommu.c
+index bec29ed..54ee63d 100644
+--- a/drivers/pci/intel-iommu.c
++++ b/drivers/pci/intel-iommu.c
+@@ -2647,7 +2654,7 @@ static void flush_unmaps(void)
+ 			mask = (iova->pfn_hi - iova->pfn_lo + 1) << PAGE_SHIFT;
+ 			mask = ilog2(mask >> VTD_PAGE_SHIFT);
+ 			iommu_flush_dev_iotlb(deferred_flush[i].domain[j],
+-					iova->pfn_lo << PAGE_SHIFT, mask);
++					iova->pfn_lo << VTD_PAGE_SHIFT, mask);
+ 			__free_iova(&deferred_flush[i].domain[j]->iovad, iova);
+ 		}
+ 		deferred_flush[i].next = 0;
