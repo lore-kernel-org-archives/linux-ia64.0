@@ -1,52 +1,39 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Date: Wed, 05 Aug 2009 08:09:59 +0000
-Subject: Re: [PATCH 2/4] Bug Fix drivers/pci/intel-iommu.c: secure
-Message-Id: <1249459799.9324.348.camel@macbook.infradead.org>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Wed, 05 Aug 2009 11:19:31 +0000
+Subject: [Patch 3/7] ia64: add CONFIG_KEXEC_AUTO_RESERVE
+Message-Id: <20090805112152.6552.95269.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BAE9DCEF64577A439B3A37F36F9B691C0339372B@orsmsx418.amr.corp.intel.com>
-	 <617E1C2C70743745A92448908E030B2A02AD5AD7@scsmsx411.amr.corp.intel.com>
-	 <20090804221024.GA21406@linux-os.sc.intel.com>
-In-Reply-To: <20090804221024.GA21406@linux-os.sc.intel.com>
+References: <20090805112123.6552.73574.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090805112123.6552.73574.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
-On Tue, 2009-08-04 at 15:10 -0700, Fenghua Yu wrote:
-> sg_next() is called only when sg is not NULL. This solves a kernel panic on
-> some platforms (e.g. ia64).
 
-Is this still necessary after we fix the other bugs? When does it
-happen? And is this fix sufficient (ignore the first hunk; it's just a
-cleanup that the fix allows me to make, which is why I'd prefer to do it
-this way):
+Introduce a new config option KEXEC_AUTO_RESERVE for ia64.
 
-diff --git a/drivers/pci/intel-iommu.c b/drivers/pci/intel-iommu.c
-index 11b317a..c9bdb0b 100644
---- a/drivers/pci/intel-iommu.c
-+++ b/drivers/pci/intel-iommu.c
-@@ -1675,7 +1675,7 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
- 	if (sg)
- 		sg_res = 0;
- 	else {
--		sg_res = nr_pages + 1;
-+		sg_res = nr_pages;
- 		pteval = ((phys_addr_t)phys_pfn << VTD_PAGE_SHIFT) | prot;
- 	}
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+---
+Index: linux-2.6/arch/ia64/Kconfig
+=================================--- linux-2.6.orig/arch/ia64/Kconfig
++++ linux-2.6/arch/ia64/Kconfig
+@@ -582,6 +582,16 @@ config KEXEC
+ 	  support.  As of this writing the exact hardware interface is
+ 	  strongly in flux, so no good recommendation can be made.
  
-@@ -1716,7 +1716,7 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
- 		iov_pfn++;
- 		pteval += VTD_PAGE_SIZE;
- 		sg_res--;
--		if (!sg_res)
-+		if (nr_pages && !sg_res)
- 			sg = sg_next(sg);
- 	}
- 	return 0;
-
-
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
-
++config KEXEC_AUTO_RESERVE
++	bool "automatically reserve memory for kexec kernel"
++	depends on KEXEC
++	default y
++	---help---
++	  Automatically reserve memory for a kexec kernel, so that you don't
++	  need to specify numbers for the "crashkernel=X@Y" boot option,
++	  instead you can use "crashkernel=auto".
++	  On IA64, 256M is reserved.
++
+ config CRASH_DUMP
+ 	  bool "kernel crash dumps"
+ 	  depends on IA64_MCA_RECOVERY && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
