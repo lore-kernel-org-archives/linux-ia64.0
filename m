@@ -1,15 +1,15 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Wed, 05 Aug 2009 11:20:10 +0000
+Date: Thu, 06 Aug 2009 06:20:25 +0000
 Subject: [Patch 7/7] doc: update the kdump document
-Message-Id: <20090805112230.6552.87209.sendpatchset@localhost.localdomain>
+Message-Id: <20090806062246.5578.33397.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090805112123.6552.73574.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090805112123.6552.73574.sendpatchset@localhost.localdomain>
+References: <20090806062125.5578.72123.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090806062125.5578.72123.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
 Update the document for kdump.
@@ -17,6 +17,7 @@ Update the document for kdump.
 Signed-off-by: WANG Cong <amwang@redhat.com>
 
 ---
+
 Index: linux-2.6/Documentation/kdump/kdump.txt
 =================================--- linux-2.6.orig/Documentation/kdump/kdump.txt
 +++ linux-2.6/Documentation/kdump/kdump.txt
