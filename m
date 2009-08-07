@@ -1,42 +1,29 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Thu, 27 Aug 2009 03:16:31 +0000
-Subject: [Patch 5/8] powerpc: add CONFIG_KEXEC_AUTO_RESERVE
-Message-Id: <20090827031858.4534.6233.sendpatchset@localhost.localdomain>
+From: Roel Kluin <roel.kluin@gmail.com>
+Date: Fri, 07 Aug 2009 20:12:37 +0000
+Subject: [PATCH] acpi-cpufreq: Read buffer overflow?
+Message-Id: <4A7C8AB5.90503@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Amerigo Wang <amwang@redhat.com>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Anton Vorontsov <avorontsov@ru.mvista.com>
+To: linux-ia64@vger.kernel.org
 
+If `data->acpi_data.state_count' is 0, we read from data->acpi_data.states[-1].
 
-Introduce a new config option KEXEC_AUTO_RESERVE for powerpc.
-
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
 ---
+Unsure whether this can happen.
 
-Index: linux-2.6/arch/powerpc/Kconfig
-=================================--- linux-2.6.orig/arch/powerpc/Kconfig
-+++ linux-2.6/arch/powerpc/Kconfig
-@@ -346,6 +346,17 @@ config KEXEC
- 	  support.  As of this writing the exact hardware interface is
- 	  strongly in flux, so no good recommendation can be made.
+diff --git a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+index 7b43545..7cdd1f6 100644
+--- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
++++ b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+@@ -95,7 +95,7 @@ extract_clock (
+ 		if (value = data->acpi_data.states[i].status)
+ 			return data->acpi_data.states[i].core_frequency;
+ 	}
+-	return data->acpi_data.states[i-1].core_frequency;
++	return i ? data->acpi_data.states[i-1].core_frequency : 0;
+ }
  
-+config KEXEC_AUTO_RESERVE
-+	bool "automatically reserve memory for kexec kernel"
-+	depends on KEXEC
-+	default y
-+	---help---
-+	  Automatically reserve memory for a kexec kernel, so that you don't
-+	  need to specify numbers for the "crashkernel=X@Y" boot option,
-+	  instead you can use "crashkernel=auto". To make this work, you need
-+	  to have more than 2G memory. On PPC, 128M or 256M is reserved, on
-+	  PPC64 1/32 of your physical memory, but it will not exceed 4G.
-+
- config CRASH_DUMP
- 	bool "Build a kdump crash kernel"
- 	depends on PPC64 || 6xx
+ 
