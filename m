@@ -1,7 +1,7 @@
-From: Bernhard Walle <bernhard.walle@gmx.de>
-Date: Fri, 07 Aug 2009 19:05:14 +0000
+From: Bernhard Walle <bernhard@bwalle.de>
+Date: Fri, 07 Aug 2009 19:15:57 +0000
 Subject: Re: [Patch 4/7] ia64: implement crashkernel=auto
-Message-Id: <4A7C7AEA.7080800@gmx.de>
+Message-Id: <4A7C7D6D.3020706@bwalle.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090806062125.5578.72123.sendpatchset@localhost.localdomain> <20090806062211.5578.59301.sendpatchset@localhost.localdomain>
 In-Reply-To: <20090806062211.5578.59301.sendpatchset@localhost.localdomain>
@@ -61,3 +61,4 @@ system is just to specify the correct root partition?
 
 Regards,
 Bernhard
+
