@@ -1,45 +1,75 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Date: Sat, 15 Aug 2009 00:33:00 +0000
-Subject: [PATCH 2.6.30 stable] Bug Fix arch/ia64/kernel/pci-dma.c: fix recursive dma_supported() call in iomm
-Message-Id: <20090815003259.GA18989@linux-os.sc.intel.com>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Date: Sun, 09 Aug 2009 19:53:57 +0000
+Subject: [PATCH 02/14] ia64: use printk_once
+Message-Id: <1249847649-11631-3-git-send-email-marcin.slusarz@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
+In-Reply-To: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-The commit 160c1d8e40866edfeae7d68816b7005d70acf391 introduced
-dma_ops->dma_supported = iommu_dma_supported;
- 
-This dma_ops->dma_supported is first called in platform_dma_init() during kernel
-boot. Then dma_ops->dma_supported will be called recursively in
-iommu_dma_supported.
- 
-Kernel can not boot because kernel can not get out of iommu_dma_supported until
-it runs out of stack memory.
-
-This patch is in commit 51b89f7a6615eca184aa0b85db5781d931e9c8d1
-
-Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
-
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- 
- arch/ia64/kernel/pci-dma.c |    5 -----
- 1 files changed, 5 deletions(-)
+ arch/ia64/kernel/unaligned.c    |    6 ++----
+ arch/ia64/sn/kernel/io_common.c |    8 ++------
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index 0569596..f6b1ff0 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -69,11 +69,6 @@ iommu_dma_init(void)
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 6db0859..776dd40 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -60,7 +60,6 @@ dump (const char *str, void *vp, size_t len)
+  */
+ int no_unaligned_warning;
+ int unaligned_dump_stack;
+-static int noprint_warning;
  
- int iommu_dma_supported(struct device *dev, u64 mask)
- {
--	struct dma_map_ops *ops = platform_dma_get_ops(dev);
--
--	if (ops->dma_supported)
--		return ops->dma_supported(dev, mask);
--
- 	/* Copied from i386. Doesn't make much sense, because it will
- 	   only work for pci_alloc_coherent.
- 	   The caller just has to use GFP_DMA in this case. */
+ /*
+  * For M-unit:
+@@ -1357,9 +1356,8 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
+ 			/* watch for command names containing %s */
+ 			printk(KERN_WARNING "%s", buf);
+ 		} else {
+-			if (no_unaligned_warning && !noprint_warning) {
+-				noprint_warning = 1;
+-				printk(KERN_WARNING "%s(%d) encountered an "
++			if (no_unaligned_warning) {
++				printk_once(KERN_WARNING "%s(%d) encountered an "
+ 				       "unaligned exception which required\n"
+ 				       "kernel assistance, which degrades "
+ 				       "the performance of the application.\n"
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 25831c4..308e659 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -119,7 +119,6 @@ sn_pcidev_info_get(struct pci_dev *dev)
+  * Additionally note that the struct sn_flush_device_war also has to be
+  * removed from arch/ia64/sn/include/xtalk/hubdev.h
+  */
+-static u8 war_implemented = 0;
+ 
+ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
+ 			       struct sn_flush_device_common *common)
+@@ -128,11 +127,8 @@ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
+ 	struct sn_flush_device_war *dev_entry;
+ 	struct ia64_sal_retval isrv = {0,0,0,0};
+ 
+-	if (!war_implemented) {
+-		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
+-		       "PROM flush WAR\n");
+-		war_implemented = 1;
+-	}
++	printk_once(KERN_WARNING
++		"PROM version < 4.50 -- implementing old PROM flush WAR\n");
+ 
+ 	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
+ 	BUG_ON(!war_list);
+-- 
+1.6.3.3
+
