@@ -1,78 +1,64 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Wed, 05 Aug 2009 23:22:06 +0000
-Subject: RE: [PATCH 3/15] arch/ia64: Use DIV_ROUND_CLOSEST
-Message-Id: <A6AD88C3F2289247BE726C37303E1EB8B38E494C@orsmsx505.amr.corp.intel.com>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Wed, 12 Aug 2009 08:16:32 +0000
+Subject: [Patch 7/8] doc: update the kdump document
+Message-Id: <20090812081854.5757.88620.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.0908021044540.15557@ask.diku.dk>
-In-Reply-To: <Pine.LNX.4.64.0908021044540.15557@ask.diku.dk>
+References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Julia Lawall' <julia@diku.dk>, "Luck, Tony" <tony.luck@intel.com>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>, "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>, "'kernel-janitors@vger.kernel.org'" <kernel-janitors@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
->-----Original Message-----
->From: Julia Lawall [mailto:julia@diku.dk]
->Sent: Sunday, August 02, 2009 1:45 AM
->To: Yu, Fenghua; Luck, Tony; linux-ia64@vger.kernel.org; linux-
->kernel@vger.kernel.org; kernel-janitors@vger.kernel.org
->Subject: [PATCH 3/15] arch/ia64: Use DIV_ROUND_CLOSEST
->
->From: Julia Lawall <julia@diku.dk>
->
->The kernel.h macro DIV_ROUND_CLOSEST performs the computation (x + d/2)/d
->but is perhaps more readable.
->
->The semantic patch that makes this change is as follows:
->(http://www.emn.fr/x-info/coccinelle/)
->
->// <smpl>
->@haskernel@
->@@
->
->#include <linux/kernel.h>
->
->@depends on haskernel@
->expression x,__divisor;
->@@
->
->- (((x) + ((__divisor) / 2)) / (__divisor))
->+ DIV_ROUND_CLOSEST(x,__divisor)
->// </smpl>
->
->Signed-off-by: Julia Lawall <julia@diku.dk>
->
->---
-> arch/ia64/kernel/time.c             |   10 ++++++----
-> 1 files changed, 6 insertions(+), 4 deletions(-)
->
->diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
->index 4990495..aaa6651 100644
->--- a/arch/ia64/kernel/time.c
->+++ b/arch/ia64/kernel/time.c
->@@ -314,7 +314,7 @@ ia64_init_itm (void)
->
-> 	itc_freq = (platform_base_freq*itc_ratio.num)/itc_ratio.den;
->
->-	local_cpu_data->itm_delta = (itc_freq + HZ/2) / HZ;
->+	local_cpu_data->itm_delta = DIV_ROUND_CLOSEST(itc_freq, HZ);
-> 	printk(KERN_DEBUG "CPU %d: base freq=%lu.%03luMHz, ITC ratio=%u/%u, "
-> 	       "ITC freq=%lu.%03luMHz", smp_processor_id(),
-> 	       platform_base_freq / 1000000, (platform_base_freq / 1000) %
->1000,
->@@ -330,9 +330,11 @@ ia64_init_itm (void)
->
-> 	local_cpu_data->proc_freq >(platform_base_freq*proc_ratio.num)/proc_ratio.den;
-> 	local_cpu_data->itc_freq = itc_freq;
->-	local_cpu_data->cyc_per_usec = (itc_freq + USEC_PER_SEC/2) /
->USEC_PER_SEC;
->-	local_cpu_data->nsec_per_cyc >((NSEC_PER_SEC<<IA64_NSEC_PER_CYC_SHIFT)
->-					+ itc_freq/2)/itc_freq;
->+	local_cpu_data->cyc_per_usec >+		DIV_ROUND_CLOSEST(itc_freq, USEC_PER_SEC);
->+	local_cpu_data->nsec_per_cyc >+		DIV_ROUND_CLOSEST(NSEC_PER_SEC << IA64_NSEC_PER_CYC_SHIFT,
->+				  itc_freq);
->
-> 	if (!(sal_platform_features & IA64_SAL_PLATFORM_FEATURE_ITC_DRIFT)) {
-> #ifdef CONFIG_SMP
 
-Acked-by: Fenghua Yu <Fenghua.yu@intel.com>
+Update the document for kdump.
 
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+---
+
+Index: linux-2.6/Documentation/kdump/kdump.txt
+=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt
++++ linux-2.6/Documentation/kdump/kdump.txt
+@@ -147,6 +147,15 @@ System kernel config options
+    analysis tools require a vmlinux with debug symbols in order to read
+    and analyze a dump file.
+ 
++4) Enable "automatically reserve memory for kexec kernel" in
++   "Processor type and features."
++
++   CONFIG_KEXEC_AUTO_RESERVE=y
++
++   This will let you to use "crashkernel=auto", instead of specifying
++   numbers for "crashkernel=". Note, you need to have enough memory.
++   The threshold and reserved memory size are arch-dependent.
++
+ Dump-capture kernel config options (Arch Independent)
+ -----------------------------------------------------
+ 
+@@ -266,6 +275,25 @@ This would mean:
+     2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
+     3) if the RAM size is larger than 2G, then reserve 128M
+ 
++Or you can use:
++
++    crashkernel=auto
++
++if you have enough memory. The threshold is 4G, below which this won't work.
++
++The automatically reserved memory size would be 128M on x86_32, 256M on
++ppc, 1/32 of your physical memory size on x86_64 and ppc64 (but it will not
++exceed 1TB/32 if you have more). IA64 has its own policy, shown below:
++
++	Memory size	Reserved memory
++	======	=======+	[4G, 12G)	256M
++	[12G, 128G)	512M
++	[128G, 256G)	768M
++	[256G, 378G)	1024M
++	[378G, 512G)	1536M
++	[512G, 768G)	2048M
++	[768G, )	3072M
+ 
+ 
+ Boot into System Kernel
