@@ -1,71 +1,44 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Fri, 28 Aug 2009 20:08:30 +0000
-Subject: RE: [Patch 4/8] ia64: implement crashkernel=auto
-Message-Id: <A6AD88C3F2289247BE726C37303E1EB8B954B3BB@orsmsx505.amr.corp.intel.com>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Wed, 12 Aug 2009 08:15:21 +0000
+Subject: [Patch 1/8] x86: add CONFIG_KEXEC_AUTO_RESERVE
+Message-Id: <20090812081743.5757.62474.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
- <20090827031848.4534.40440.sendpatchset@localhost.localdomain>
- <A6AD88C3F2289247BE726C37303E1EB8B949E358@orsmsx505.amr.corp.intel.com>
- <4A965F3A.5070007@redhat.com>
- <A6AD88C3F2289247BE726C37303E1EB8B949E7A3@orsmsx505.amr.corp.intel.com>
- <4A97ABA9.8030604@redhat.com>
-In-Reply-To: <4A97ABA9.8030604@redhat.com>
+References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Amerigo Wang' <amwang@redhat.com>
-Cc: "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>, 'Anton Vorontsov' <avorontsov@ru.mvista.com>, "Luck, Tony" <tony.luck@intel.com>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>, 'Neil Horman' <nhorman@redhat.com>, "'Eric W. Biederman'" <ebiederm@xmission.com>, "'kamezawa.hiroyu@jp.fujitsu.com'" <kamezawa.hiroyu@jp.fujitsu.com>, 'Andi Kleen' <andi@firstfloor.org>, 'Michael Ellerman' <michael@ellerman.id.au>, "'M. Mohan Kumar'" <mohan@in.ibm.com>, "'akpm@linux-foundation.org'" <akpm@linux-foundation.org>, "'bernhard.walle@gmx.de'" <bernhard.walle@gmx.de>, 'Ingo Molnar' <mingo@elte.hu>
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
->>>>> +	unsigned long long ret;
->>>>> +
->>>>> +	if (total_size >= GBYTES(4) && total_size < GBYTES(12))
->>>>> +		ret = MBYTES(256);
->>>>> +	else if (total_size >= GBYTES(12) && total_size < GBYTES(128))
->>>>> +		ret = MBYTES(512);
->>>>> +	else if (total_size >= GBYTES(128) && total_size < GBYTES(256))
->>>>> +		ret = MBYTES(768);
->>>>> +	else if (total_size >= GBYTES(256) && total_size < GBYTES(378))
->>>>> +		ret = MBYTES(1024);
->>>>> +	else if (total_size >= GBYTES(318) && total_size < GBYTES(512))
->>>>> +		ret = MBYTES(1536);
->>>>> +	else if (total_size >= GBYTES(512) && total_size < GBYTES(768))
->>>>> +		ret = MBYTES(2048);
->>>>> +	else
->>>>> +		ret = MBYTES(3072);
->>>>> +	if (!ia64_platform_is("sn2") && !ia64_platform_is("uv"))
->>>>> +		if (ret > GBYTES(4))
->>>>> +			ret = ret / GBYTES(4) * MBYTES(256);
->>>>>
->>>>>
->>>> This code doesn't make sense to me. What you really want is following
->>>>
->>> code, right?
->>>
->>>> +		if (total_size > GBYTES(4))
->>>> +			ret = total_size / GBYTES(4) * MBYTEST(256)
->>>>
->>>>
->>>>
->>> Nope. Check check_crashkernel_memory().
->>>
->>
->> This statement will be ALWAYS false:
->> +		if (ret > GBYTES(4))
->> since ret's max value is 3GB after the above total_size checks.
->>
->> So the code doesn't make sense. Did I miss something?
->>
->
->Oops, in fact it was supposed to be:
->
->  if (ret + base > GBYTES(4))
->    //blah blah
->
->Hmm, but is it possible for ia64 to choose a base address above 1G? If
->no, that code can be removed.
 
-I think you don't need to consider the base here. This arch_default_crash_size() only returns size. Later on, ia64 setup_crashkernel() will find a base value in reserved region and check if the base value is under 4GB etc.
+Introduce a new config option KEXEC_AUTO_RESERVE for x86.
 
-Thanks.
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
--Fenghua
+---
+
+Index: linux-2.6/arch/x86/Kconfig
+=================================--- linux-2.6.orig/arch/x86/Kconfig
++++ linux-2.6/arch/x86/Kconfig
+@@ -1482,6 +1482,19 @@ config KEXEC
+ 	  support.  As of this writing the exact hardware interface is
+ 	  strongly in flux, so no good recommendation can be made.
+ 
++config KEXEC_AUTO_RESERVE
++	bool "automatically reserve memory for kexec kernel"
++	depends on KEXEC
++	default y
++	---help---
++	  Automatically reserve memory for a kexec kernel, so that you don't
++	  need to specify numbers for the "crashkernel=X@Y" boot option,
++	  instead you can use "crashkernel=auto". To make this work, you need
++	  to have more than 4G memory.
++
++	  On x86_32, 128M is reserved, on x86_64 1/32 of your memory is
++	  reserved, but it will not exceed 1T/32.
++
+ config CRASH_DUMP
+ 	bool "kernel crash dumps"
+ 	depends on X86_64 || (X86_32 && HIGHMEM)
