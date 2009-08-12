@@ -1,34 +1,54 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Wed, 05 Aug 2009 03:04:56 +0000
-Subject: RE: [PATCH] Bug Fix arch/ia64/kernel/pci-dma.c: fix recursive
-Message-Id: <A6AD88C3F2289247BE726C37303E1EB8B3821A49@orsmsx505.amr.corp.intel.com>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Wed, 12 Aug 2009 08:15:55 +0000
+Subject: [Patch 4/8] ia64: implement crashkernel=auto
+Message-Id: <20090812081818.5757.15172.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090804223526.GA26801@linux-os.sc.intel.com>
-In-Reply-To: <20090804223526.GA26801@linux-os.sc.intel.com>
+References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
->On Tue, 4 Aug 2009 15:35:26 -0700
->Fenghua Yu <fenghua.yu@intel.com> wrote:
->
->> In commit dfb805e831cc5306b14eacd64e0b36d0d973ee0d,
->> dma_ops->dma_supported = iommu_dma_supported;
->
->Hmm, the dfb805e831cc5306b14eacd64e0b36d0d973ee0d commit touches only
->dma_ops->mapping_error. It doesn't like like that this commit is
->related with the bug.
->
->I guess that I added the bug when I rewrote IA64 dma operations.
+Since in patch 2/8 we already implement the generic part, this will
+add the rest part for ia64.
 
-My bad. The commit I refer to should be 160c1d8e40866edfeae7d68816b7005d70acf391
-which added the statement:
-dma_ops->dma_supported = iommu_dma_supported;
+Signed-off-by: WANG Cong <amwang@redhat.com>
 
-I will change to this commit# in comment when push the patch to upstream.
+---
 
-Thanks.
-
--Fenghua
+Index: linux-2.6/arch/ia64/include/asm/kexec.h
+=================================--- linux-2.6.orig/arch/ia64/include/asm/kexec.h
++++ linux-2.6/arch/ia64/include/asm/kexec.h
+@@ -19,6 +19,29 @@
+                 flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
+         } while(0)
+ 
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++#define ARCH_HAS_DEFAULT_CRASH_SIZE
++static inline
++unsigned long long arch_default_crash_size(unsigned long long total_size)
++{
++	if (total_size >= 4ULL<<30 && total_size < 12ULL<<30)
++		return 1ULL<<28;
++	else if (total_size >= 12ULL<<30 && total_size < 128ULL<<30)
++		return 1ULL<<29;
++	else if (total_size >= 128ULL<<30 && total_size < 256ULL<<30)
++		return 3ULL<<28;
++	else if (total_size >= 256ULL<<30 && total_size < 378ULL<<30)
++		return 1ULL<<30;
++	else if (total_size >= 318ULL<<30 && total_size < 512ULL<<30)
++		return 3ULL<<29;
++	else if (total_size >= 512ULL<<30 && total_size < 768ULL<<30)
++		return 2ULL<<30;
++	else if (total_size >= 768ULL<<30)
++		return 3ULL<<30;
++}
++#include <asm-generic/kexec.h>
++#endif
++
+ extern struct kimage *ia64_kimage;
+ extern const unsigned int relocate_new_kernel_size;
+ extern void relocate_new_kernel(unsigned long, unsigned long,
