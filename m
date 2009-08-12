@@ -1,67 +1,159 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 31 Aug 2009 03:27:07 +0000
-Subject: Re: [Patch 0/8] V5 Implement crashkernel=auto
-Message-Id: <4A9B430B.5060006@redhat.com>
+Date: Wed, 12 Aug 2009 08:16:44 +0000
+Subject: [Patch 8/8] kexec: allow to shrink reserved memory
+Message-Id: <20090812081906.5757.39417.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain> <1251680096.5279.6.camel@concordia>
-In-Reply-To: <1251680096.5279.6.camel@concordia>
+References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: michael@ellerman.id.au
-Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
-Michael Ellerman wrote:
-> On Wed, 2009-08-26 at 23:15 -0400, Amerigo Wang wrote:
->   
->> V4 -> V5:
->>  - Rename the global functions, as suggested by Andrew.
->>  - Save some macros, as suggested by Andrew.
->>  - Change the high threshold, from 32G to 4G.
->>  - Change the low threshold on ppc, suggested by ppc developers.
->>  - Make the mm part as a seperate function, suggest by Eric.
->>  - Make the IA64 code more readable.
->>  - Reorder the patchset again, since review from mm people is done.
->>
->> V3 -> V4:
->>  - Reorder the patches.
->>  - Really free the reserved memory, instead of remapping it.
->>    (Thanks to KAMEZAWA Hiroyuki!)
->>  - Release the reserved memory resource when the size is 0.
->>  - Use strict_strtoul() instead of simple_strtoul().
->>
->> V2 -> V3:
->>  - Use more clever way to calculate reserved memory size, especially for IA64.
->>  - Add that patch that implements shrinking reserved memory
->>
->> V1 -> V2:
->>  - Use include/asm-generic/kexec.h, suggested by Neil.
->>  - Rename a local variable, suggested by Fenghua.
->>  - Fix some style problems found by checkpatch.pl.
->>  - Unify the Kconfig docs.
->>
->> This series of patch implements automatically reserved memory for crashkernel,
->> by introducing a new boot option "crashkernel=auto". This idea is from Neil.
->>
->> In case of breaking user-space applications, it modifies this boot option after
->> it decides how much memory should be reserved.
->>
->> On different arch, the threshold and reserved memory size is different. Please
->> refer patch 7/8 which contains an update for the documentation.
->>
->> Patch 8/8 implements shrinking reserved memory at run-time, which is useful
->> when more than enough memory is reserved automatically.
->>
->> This patchset _is_ already tested on x86_64, IA64 and ppc64.
->>     
->
-> I don't want to sound like a micro-kernel zealot, I'm not, but I'm still
-> unconvinced as to why the auto logic needs to go in the kernel. What is
-> the compelling reason that the kernel needs to do this calculation vs
-> some userspace tool? We already have the syntax that allows defining a
-> different crash size depending on the size of RAM.
->   
+This patch implements shrinking the reserved memory for crash kernel,
+if it is more than enough.
 
-Take a look at the x86 part, it can not be done _directly_ in kernel 
-command line with the syntax.
+For example, if you have already reserved 128M, now you just want 100M,
+you can do:
 
+# echo $((100*1024*1024)) > /sys/kernel/kexec_crash_size
+
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Andi Kleen <andi@firstfloor.org>
+
+---
+
+Index: linux-2.6/include/linux/kexec.h
+=================================--- linux-2.6.orig/include/linux/kexec.h
++++ linux-2.6/include/linux/kexec.h
+@@ -206,6 +206,9 @@ extern size_t vmcoreinfo_max_size;
+ 
+ int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
+ 		unsigned long long *crash_size, unsigned long long *crash_base);
++int shrink_crash_memory(unsigned long new_size);
++int kexec_crash_kernel_loaded(void);
++size_t get_crash_memory_size(void);
+ 
+ #else /* !CONFIG_KEXEC */
+ struct pt_regs;
+Index: linux-2.6/kernel/kexec.c
+=================================--- linux-2.6.orig/kernel/kexec.c
++++ linux-2.6/kernel/kexec.c
+@@ -1083,6 +1083,76 @@ void crash_kexec(struct pt_regs *regs)
+ 	}
+ }
+ 
++int kexec_crash_kernel_loaded(void)
++{
++	int ret;
++	if (!mutex_trylock(&kexec_mutex))
++		return 1;
++	ret = kexec_crash_image != NULL;
++	mutex_unlock(&kexec_mutex);
++	return ret;
++}
++
++size_t get_crash_memory_size(void)
++{
++	size_t size;
++	if (!mutex_trylock(&kexec_mutex))
++		return 1;
++	size = crashk_res.end - crashk_res.start + 1;
++	mutex_unlock(&kexec_mutex);
++	return size;
++}
++
++int shrink_crash_memory(unsigned long new_size)
++{
++	struct page **pages;
++	int ret = 0;
++	int  npages, i;
++	unsigned long addr;
++	unsigned long start, end;
++	void *vaddr;
++
++	if (!mutex_trylock(&kexec_mutex))
++		return -EBUSY;
++
++	start = crashk_res.start;
++	end = crashk_res.end;
++
++	if (new_size >= end - start + 1) {
++		ret = -EINVAL;
++		if (new_size = end - start + 1)
++			ret = 0;
++		goto unlock;
++	}
++
++	start = roundup(start, PAGE_SIZE);
++	end = roundup(start + new_size, PAGE_SIZE) - 1;
++	npages = (end + 1 - start ) / PAGE_SIZE;
++
++	pages = kmalloc(sizeof(struct page *) * npages, GFP_KERNEL);
++	if (!pages) {
++		ret = -ENOMEM;
++		goto unlock;
++	}
++	for (i = 0; i < npages; i++) {
++		addr = end + 1 + i * PAGE_SIZE;
++		pages[i] = virt_to_page(addr);
++	}
++
++	vaddr = vm_map_ram(pages, npages, 0, PAGE_KERNEL);
++	if (!vaddr) {
++		ret = -ENOMEM;
++		goto free;
++	}
++	crashk_res.end = end;
++
++free:
++	kfree(pages);
++unlock:
++	mutex_unlock(&kexec_mutex);
++	return ret;
++}
++
+ static u32 *append_elf_note(u32 *buf, char *name, unsigned type, void *data,
+ 			    size_t data_len)
+ {
+Index: linux-2.6/kernel/ksysfs.c
+=================================--- linux-2.6.orig/kernel/ksysfs.c
++++ linux-2.6/kernel/ksysfs.c
+@@ -100,6 +100,26 @@ static ssize_t kexec_crash_loaded_show(s
+ }
+ KERNEL_ATTR_RO(kexec_crash_loaded);
+ 
++static ssize_t kexec_crash_size_show(struct kobject *kobj,
++				       struct kobj_attribute *attr, char *buf)
++{
++	return sprintf(buf, "%lu\n", get_crash_memory_size());
++}
++static ssize_t kexec_crash_size_store(struct kobject *kobj,
++				   struct kobj_attribute *attr,
++				   const char *buf, size_t count)
++{
++	unsigned long cnt;
++	int ret;
++
++	if (kexec_crash_kernel_loaded())
++		return -ENOENT;
++	cnt = simple_strtoul(buf, NULL, 10);
++	ret = shrink_crash_memory(cnt);
++	return ret < 0 ? ret: count;
++}
++KERNEL_ATTR_RW(kexec_crash_size);
++
+ static ssize_t vmcoreinfo_show(struct kobject *kobj,
+ 			       struct kobj_attribute *attr, char *buf)
+ {
+@@ -147,6 +167,7 @@ static struct attribute * kernel_attrs[]
+ #ifdef CONFIG_KEXEC
+ 	&kexec_loaded_attr.attr,
+ 	&kexec_crash_loaded_attr.attr,
++	&kexec_crash_size_attr.attr,
+ 	&vmcoreinfo_attr.attr,
+ #endif
+ 	NULL
