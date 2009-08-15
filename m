@@ -1,46 +1,45 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Date: Sun, 09 Aug 2009 15:39:55 +0000
-Subject: [PATCH] IA64: includecheck fix: ia64, ia64_ksyms.c
-Message-Id: <1249831675.2957.30.camel@ht.satnam>
+From: Fenghua Yu <fenghua.yu@intel.com>
+Date: Sat, 15 Aug 2009 00:33:00 +0000
+Subject: [PATCH 2.6.30 stable] Bug Fix arch/ia64/kernel/pci-dma.c: fix recursive dma_supported() call in iomm
+Message-Id: <20090815003259.GA18989@linux-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The commit 160c1d8e40866edfeae7d68816b7005d70acf391 introduced
+dma_ops->dma_supported = iommu_dma_supported;
+ 
+This dma_ops->dma_supported is first called in platform_dma_init() during kernel
+boot. Then dma_ops->dma_supported will be called recursively in
+iommu_dma_supported.
+ 
+Kernel can not boot because kernel can not get out of iommu_dma_supported until
+it runs out of stack memory.
 
-fix the following 'make includecheck' warning:
+This patch is in commit 51b89f7a6615eca184aa0b85db5781d931e9c8d1
 
-  arch/ia64/kernel/ia64_ksyms.c: asm/page.h is included more than once.
+Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
 
-Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
 ---
- arch/ia64/kernel/ia64_ksyms.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ 
+ arch/ia64/kernel/pci-dma.c |    5 -----
+ 1 files changed, 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/ia64_ksyms.c b/arch/ia64/kernel/ia64_ksyms.c
-index 2d31186..8ebccb5 100644
---- a/arch/ia64/kernel/ia64_ksyms.c
-+++ b/arch/ia64/kernel/ia64_ksyms.c
-@@ -21,6 +21,7 @@ EXPORT_SYMBOL(csum_ipv6_magic);
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 0569596..f6b1ff0 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -69,11 +69,6 @@ iommu_dma_init(void)
  
- #include <asm/page.h>
- EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(copy_page);
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- #include <linux/bootmem.h>
-@@ -60,9 +61,6 @@ EXPORT_SYMBOL(__udivdi3);
- EXPORT_SYMBOL(__moddi3);
- EXPORT_SYMBOL(__umoddi3);
- 
--#include <asm/page.h>
--EXPORT_SYMBOL(copy_page);
+ int iommu_dma_supported(struct device *dev, u64 mask)
+ {
+-	struct dma_map_ops *ops = platform_dma_get_ops(dev);
 -
- #if defined(CONFIG_MD_RAID456) || defined(CONFIG_MD_RAID456_MODULE)
- extern void xor_ia64_2(void);
- extern void xor_ia64_3(void);
--- 
-1.6.0.6
-
-
+-	if (ops->dma_supported)
+-		return ops->dma_supported(dev, mask);
+-
+ 	/* Copied from i386. Doesn't make much sense, because it will
+ 	   only work for pci_alloc_coherent.
+ 	   The caller just has to use GFP_DMA in this case. */
