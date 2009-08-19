@@ -1,49 +1,45 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Thu, 06 Aug 2009 06:19:04 +0000
-Subject: [Patch 0/7] V2 Implement crashkernel=auto
-Message-Id: <20090806062125.5578.72123.sendpatchset@localhost.localdomain>
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 19 Aug 2009 16:12:34 +0000
+Subject: Re: [PATCH] Add minimal support for software performance counters
+Message-Id: <20090819161234.GB31058@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4A8C2290.3040707@redhat.com>
+In-Reply-To: <4A8C2290.3040707@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+To: William Cohen <wcohen@redhat.com>, "Luck, Tony" <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>, Paul Mackerras <paulus@samba.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
 
-V1 -> V2:
- - Use include/asm-generic/kexec.h, suggested by Neil.
- - Rename a local variable, suggested by Fenghua.
- - Fix some style problems found by checkpatch.pl.
- - Unify the Kconfig docs.
+* William Cohen <wcohen@redhat.com> wrote:
 
-This series of patch implements automatically reserved memory for crashkernel,
-by introducing a new boot option "crashkernel=auto". This idea is from Neil.
+> The following patch adds minimal support for software 
+> performance counters for ia64.
 
-In case of breaking user-space applications, it modifies this boot option after
-it decides how much memory should be reserved.
+Nice!
 
-On different arch, the threshold and reserved memory size is different. Please
-refer patch 7/7 which contains an update for the documentation.
+> For the kernel the patch enables configuration of the 
+> perf counter option, adds the perf_counter_open 
+> syscall, and includes a minimal machine specific 
+> asm/perf.h header file.
+> 
+> For the perf tool the header perf.h includes an ia64 
+> specific section and the options used in the Makefile 
+> were adjusted to allow compilation on ia64.  The 
+> -Wcast-align gives "cast increases required alignment 
+> of target type" warning for the list_for_each_entry() 
+> macro. The "-fno-strict-aliasing" was used to avoid 
+> warnings for "dereferencing type-punned pointer will 
+> break strict-aliasing rules" warnings for sscanf() 
+> functions in util/trace-event-parse.c
 
-Note: This patchset was only tested on x86_64 with differernt memory sizes.
+Tony, Fenghua Yu, this patch already depends on .32 
+changes in the perfcounters tree - would be OK to you if 
+we merged this patch into the perfcounters tree? Plus 
+perhaps merge a syscall placeholder patch into the ia64 
+tree?
 
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: Neil Horman <nhorman@redhat.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>
-Cc: Andi Kleen <andi@firstfloor.org>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
+Thanks,
 
----
- Documentation/kdump/kdump.txt    |   16 ++++++++++++++++
- arch/ia64/Kconfig                |   10 ++++++++++
- arch/ia64/include/asm/kexec.h    |    8 ++++++++
- arch/powerpc/Kconfig             |   10 ++++++++++
- arch/powerpc/include/asm/kexec.h |    8 ++++++++
- arch/x86/Kconfig                 |   10 ++++++++++
- arch/x86/include/asm/kexec.h     |    1 +
- kernel/kexec.c                   |   34 ++++++++++++++++++++++++++++++++++
- 8 files changed, 97 insertions(+)
-
+	Ingo
