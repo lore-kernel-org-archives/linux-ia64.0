@@ -1,44 +1,66 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Thu, 27 Aug 2009 03:15:49 +0000
-Subject: [Patch 1/8] x86: add CONFIG_KEXEC_AUTO_RESERVE
-Message-Id: <20090827031816.4534.48608.sendpatchset@localhost.localdomain>
+Date: Fri, 21 Aug 2009 06:54:12 +0000
+Subject: [Patch 0/8] V4 Implement crashkernel=auto
+Message-Id: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Amerigo Wang <amwang@redhat.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
+V3 -> V4:
+ - Reorder the patches.
+ - Really free the reserved memory, instead of remapping it.
+   (Thanks to KAMEZAWA Hiroyuki!)
+ - Release the reserved memory resource when the size is 0.
+ - Use strict_strtoul() instead of simple_strtoul().
 
-Introduce a new config option KEXEC_AUTO_RESERVE for x86.
+V2 -> V3:
+ - Use more clever way to calculate reserved memory size, especially for IA64.
+ - Add that patch that implements shrinking reserved memory
 
+V1 -> V2:
+ - Use include/asm-generic/kexec.h, suggested by Neil.
+ - Rename a local variable, suggested by Fenghua.
+ - Fix some style problems found by checkpatch.pl.
+ - Unify the Kconfig docs.
+
+This series of patch implements automatically reserved memory for crashkernel,
+by introducing a new boot option "crashkernel=auto". This idea is from Neil.
+
+In case of breaking user-space applications, it modifies this boot option after
+it decides how much memory should be reserved.
+
+On different arch, the threshold and reserved memory size is different. Please
+refer patch 8/8 which contains an update for the documentation.
+
+Patch 1/8 implements shrinking reserved memory at run-time, which is useful
+when more than enough memory is reserved automatically.
+
+Note: This patchset was only tested on x86_64 with differernt memory sizes.
+
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bernhard Walle <bernhard.walle@gmx.de>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Signed-off-by: WANG Cong <amwang@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
 ---
-
-Index: linux-2.6/arch/x86/Kconfig
-=================================--- linux-2.6.orig/arch/x86/Kconfig
-+++ linux-2.6/arch/x86/Kconfig
-@@ -1482,6 +1482,19 @@ config KEXEC
- 	  support.  As of this writing the exact hardware interface is
- 	  strongly in flux, so no good recommendation can be made.
- 
-+config KEXEC_AUTO_RESERVE
-+	bool "automatically reserve memory for kexec kernel"
-+	depends on KEXEC
-+	default y
-+	---help---
-+	  Automatically reserve memory for a kexec kernel, so that you don't
-+	  need to specify numbers for the "crashkernel=X@Y" boot option,
-+	  instead you can use "crashkernel=auto". To make this work, you need
-+	  to have more than 4G memory.
-+
-+	  On x86_32, 128M is reserved, on x86_64 1/32 of your memory is
-+	  reserved, but it will not exceed 4G.
-+
- config CRASH_DUMP
- 	bool "kernel crash dumps"
- 	depends on X86_64 || (X86_32 && HIGHMEM)
+ Documentation/kdump/kdump.txt    |   28 ++++++
+ arch/ia64/Kconfig                |   14 +++
+ arch/ia64/include/asm/kexec.h    |   23 ++++
+ arch/powerpc/Kconfig             |   11 ++
+ arch/powerpc/include/asm/kexec.h |    8 +
+ arch/x86/Kconfig                 |   13 ++
+ arch/x86/include/asm/kexec.h     |    1 
+ include/asm-generic/kexec.h      |   42 +++++++++
+ include/linux/kexec.h            |    5 +
+ kernel/kexec.c                   |  180 +++++++++++++++++++++++++++++++++++++++
+ kernel/ksysfs.c                  |   46 +++++++++
+ 11 files changed, 371 insertions(+)
