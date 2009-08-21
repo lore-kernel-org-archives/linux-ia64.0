@@ -1,36 +1,64 @@
-From: Jaswinder Singh Rajput <jaswinder@kernel.org>
-Date: Sun, 09 Aug 2009 15:39:27 +0000
-Subject: [PATCH] IA64: includecheck fix: ia64, pgtable.h
-Message-Id: <1249831647.2957.29.camel@ht.satnam>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Fri, 21 Aug 2009 06:55:34 +0000
+Subject: [Patch 8/8] doc: update the kdump document
+Message-Id: <20090821065759.4855.24212.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
-fix the following 'make includecheck' warning:
+Update the document for kdump.
 
-  arch/ia64/include/asm/pgtable.h: asm/processor.h is included more than once.
+Signed-off-by: WANG Cong <amwang@redhat.com>
 
-Signed-off-by: Jaswinder Singh Rajput <jaswinderrajput@gmail.com>
 ---
- arch/ia64/include/asm/pgtable.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 0a9cc73..8840a69 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -155,7 +155,6 @@
- #include <linux/bitops.h>
- #include <asm/cacheflush.h>
- #include <asm/mmu_context.h>
--#include <asm/processor.h>
+Index: linux-2.6/Documentation/kdump/kdump.txt
+=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt
++++ linux-2.6/Documentation/kdump/kdump.txt
+@@ -147,6 +147,15 @@ System kernel config options
+    analysis tools require a vmlinux with debug symbols in order to read
+    and analyze a dump file.
  
- /*
-  * Next come the mappings that determine how mmap() protection bits
--- 
-1.6.0.6
-
-
++4) Enable "automatically reserve memory for kexec kernel" in
++   "Processor type and features."
++
++   CONFIG_KEXEC_AUTO_RESERVE=y
++
++   This will let you to use "crashkernel=auto", instead of specifying
++   numbers for "crashkernel=". Note, you need to have enough memory.
++   The threshold and reserved memory size are arch-dependent.
++
+ Dump-capture kernel config options (Arch Independent)
+ -----------------------------------------------------
+ 
+@@ -266,6 +275,25 @@ This would mean:
+     2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
+     3) if the RAM size is larger than 2G, then reserve 128M
+ 
++Or you can use:
++
++    crashkernel=auto
++
++if you have enough memory. The threshold is 4G, below which this won't work.
++
++The automatically reserved memory size would be 128M on x86_32, 256M on
++ppc, 1/32 of your physical memory size on x86_64 and ppc64 (but it will not
++exceed 1TB/32 if you have more). IA64 has its own policy, shown below:
++
++	Memory size	Reserved memory
++	======	=======+	[4G, 12G)	256M
++	[12G, 128G)	512M
++	[128G, 256G)	768M
++	[256G, 378G)	1024M
++	[378G, 512G)	1536M
++	[512G, 768G)	2048M
++	[768G, )	3072M
+ 
+ 
+ Boot into System Kernel
