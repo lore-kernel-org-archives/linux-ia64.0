@@ -1,74 +1,56 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Jul 2009 07:12:48 +0000
-Subject: [PATCH v2 3/7] ia64, kexec: Unregister MCA handler before kexec
-Message-Id: <4A559870.7090801@jp.fujitsu.com>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Fri, 21 Aug 2009 06:55:04 +0000
+Subject: [Patch 5/8] ia64: implement crashkernel=auto
+Message-Id: <20090821065729.4855.47860.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4A39E247.4030908@jp.fujitsu.com> <4A5595F3.2050609@jp.fujitsu.com>
-In-Reply-To: <4A5595F3.2050609@jp.fujitsu.com>
+References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, kexec@lists.infradead.org, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Anton Vorontsov <avorontsov@ru.mvista.com>
 
-Summary:
 
-  MCA on the beginning of kdump/kexec kernel will result in unexpected
-  behavior because MCA handler for previous kernel is invoked on the
-  kdump kernel.
+Since in patch 3/8 we already implement the generic part, this will
+add the rest part for ia64.
 
-Description:
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
 
-  Once a cpu is passed to new kernel, all resources in previous kernel
-  should not be used from the cpu.  Even the resources for MCA handler
-  are no exception.  So we cannot handle MCAs and its machine check
-  errors during kernel transition, until new handler for new kernel is
-  registered with new resources ready for handling the MCA.
-
-How to reproduce:
-
-  Assert MCA while kdump kernel is booting, before new MCA handler for
-  kdump kernel is registered.
-
-Expected(Desirable) results:
-
-  No recovery, cancel kdump and reboot the system.
-
-Actual results:
-
-  MCA handler for previous kernel is invoked on the kdump kernel.
-  => panic, hang etc. (unexpected)
-
-Proposed fix:
-
-  To avoid entering MCA handler from early stage of new kernel,
-  unregister the entry point from SAL before leave from current
-  kernel.  Then SAL will make all MCAs to warmboot safely, without
-  invoking OS_MCA.
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: Vivek Goyal <vgoyal@redhat.com>
-Cc: Haren Myneni <hbabu@us.ibm.com>
-Cc: kexec@lists.infradead.org
 ---
- arch/ia64/kernel/machine_kexec.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
-index 571d663..3d3aeef 100644
---- a/arch/ia64/kernel/machine_kexec.c
-+++ b/arch/ia64/kernel/machine_kexec.c
-@@ -104,6 +104,9 @@ static void ia64_machine_kexec(struct unw_frame_info *info, void *arg)
- 		ia64_sal_set_vectors(SAL_VECTOR_OS_INIT, 0, 0, 0, 0, 0, 0);
- 	}
+Index: linux-2.6/arch/ia64/include/asm/kexec.h
+=================================--- linux-2.6.orig/arch/ia64/include/asm/kexec.h
++++ linux-2.6/arch/ia64/include/asm/kexec.h
+@@ -19,6 +19,29 @@
+                 flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
+         } while(0)
  
-+	/* Unregister mca handler - No more recovery on current kernel */
-+	ia64_sal_set_vectors(SAL_VECTOR_OS_MCA, 0, 0, 0, 0, 0, 0);
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++#define ARCH_HAS_DEFAULT_CRASH_SIZE
++static inline
++unsigned long long arch_default_crash_size(unsigned long long total_size)
++{
++	if (total_size >= 4ULL<<30 && total_size < 12ULL<<30)
++		return 1ULL<<28;
++	else if (total_size >= 12ULL<<30 && total_size < 128ULL<<30)
++		return 1ULL<<29;
++	else if (total_size >= 128ULL<<30 && total_size < 256ULL<<30)
++		return 3ULL<<28;
++	else if (total_size >= 256ULL<<30 && total_size < 378ULL<<30)
++		return 1ULL<<30;
++	else if (total_size >= 318ULL<<30 && total_size < 512ULL<<30)
++		return 3ULL<<29;
++	else if (total_size >= 512ULL<<30 && total_size < 768ULL<<30)
++		return 2ULL<<30;
++	else if (total_size >= 768ULL<<30)
++		return 3ULL<<30;
++}
++#include <asm-generic/kexec.h>
++#endif
 +
- 	/* Interrupts aren't acceptable while we reboot */
- 	local_irq_disable();
- 
--- 
-1.6.0
-
-
+ extern struct kimage *ia64_kimage;
+ extern const unsigned int relocate_new_kernel_size;
+ extern void relocate_new_kernel(unsigned long, unsigned long,
