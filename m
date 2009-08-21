@@ -1,65 +1,44 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Thu, 27 Aug 2009 03:16:53 +0000
-Subject: [Patch 7/8] doc: update the kdump document
-Message-Id: <20090827031920.4534.9468.sendpatchset@localhost.localdomain>
+Date: Fri, 21 Aug 2009 06:54:34 +0000
+Subject: [Patch 2/8] x86: add CONFIG_KEXEC_AUTO_RESERVE
+Message-Id: <20090821065659.4855.46369.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
+References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Amerigo Wang <amwang@redhat.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
-Update the document for kdump.
+Introduce a new config option KEXEC_AUTO_RESERVE for x86.
 
 Signed-off-by: WANG Cong <amwang@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
 ---
 
-Index: linux-2.6/Documentation/kdump/kdump.txt
-=================================--- linux-2.6.orig/Documentation/kdump/kdump.txt
-+++ linux-2.6/Documentation/kdump/kdump.txt
-@@ -147,6 +147,15 @@ System kernel config options
-    analysis tools require a vmlinux with debug symbols in order to read
-    and analyze a dump file.
+Index: linux-2.6/arch/x86/Kconfig
+=================================--- linux-2.6.orig/arch/x86/Kconfig
++++ linux-2.6/arch/x86/Kconfig
+@@ -1482,6 +1482,19 @@ config KEXEC
+ 	  support.  As of this writing the exact hardware interface is
+ 	  strongly in flux, so no good recommendation can be made.
  
-+4) Enable "automatically reserve memory for kexec kernel" in
-+   "Processor type and features."
++config KEXEC_AUTO_RESERVE
++	bool "automatically reserve memory for kexec kernel"
++	depends on KEXEC
++	default y
++	---help---
++	  Automatically reserve memory for a kexec kernel, so that you don't
++	  need to specify numbers for the "crashkernel=X@Y" boot option,
++	  instead you can use "crashkernel=auto". To make this work, you need
++	  to have more than 4G memory.
 +
-+   CONFIG_KEXEC_AUTO_RESERVE=y
++	  On x86_32, 128M is reserved, on x86_64 1/32 of your memory is
++	  reserved, but it will not exceed 1T/32.
 +
-+   This will let you to use "crashkernel=auto", instead of specifying
-+   numbers for "crashkernel=". Note, you need to have enough memory.
-+   The threshold and reserved memory size are arch-dependent.
-+
- Dump-capture kernel config options (Arch Independent)
- -----------------------------------------------------
- 
-@@ -266,6 +275,26 @@ This would mean:
-     2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
-     3) if the RAM size is larger than 2G, then reserve 128M
- 
-+Or you can use:
-+
-+    crashkernel=auto
-+
-+if you have enough memory. The threshold is 4G on ia64 and x86, 2G on powerpc,
-+below which this won't work.
-+
-+The automatically reserved memory size would be 128M on x86_32, 128M or 256M
-+on ppc, 1/32 of your physical memory size on x86_64 and ppc64 (but it will not
-+grow if you have more than 128G memory). IA64 has its own policy, shown below:
-+
-+	Memory size	Reserved memory
-+	======	=======+	[4G, 12G)	256M
-+	[12G, 128G)	512M
-+	[128G, 256G)	768M
-+	[256G, 378G)	1024M
-+	[378G, 512G)	1536M
-+	[512G, 768G)	2048M
-+	[768G, )	3072M
- 
- 
- Boot into System Kernel
+ config CRASH_DUMP
+ 	bool "kernel crash dumps"
+ 	depends on X86_64 || (X86_32 && HIGHMEM)
