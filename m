@@ -1,45 +1,67 @@
-From: Amerigo Wang <amwang@redhat.com>
-Date: Fri, 21 Aug 2009 06:54:54 +0000
-Subject: [Patch 4/8] ia64: add CONFIG_KEXEC_AUTO_RESERVE
-Message-Id: <20090821065719.4855.68203.sendpatchset@localhost.localdomain>
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Date: Sun, 23 Aug 2009 18:22:40 +0000
+Subject: [PATCH resend] ia64: use printk_once
+Message-Id: <4A9188F0.3030603@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 
-Introduce a new config option KEXEC_AUTO_RESERVE for ia64.
-
-Signed-off-by: WANG Cong <amwang@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-
----
-
-Index: linux-2.6/arch/ia64/Kconfig
-=================================--- linux-2.6.orig/arch/ia64/Kconfig
-+++ linux-2.6/arch/ia64/Kconfig
-@@ -582,6 +582,20 @@ config KEXEC
- 	  support.  As of this writing the exact hardware interface is
- 	  strongly in flux, so no good recommendation can be made.
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 6db0859..776dd40 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -60,7 +60,6 @@ dump (const char *str, void *vp, size_t len)
+  */
+ int no_unaligned_warning;
+ int unaligned_dump_stack;
+-static int noprint_warning;
  
-+config KEXEC_AUTO_RESERVE
-+	bool "automatically reserve memory for kexec kernel"
-+	depends on KEXEC
-+	default y
-+	---help---
-+	  Automatically reserve memory for a kexec kernel, so that you don't
-+	  need to specify numbers for the "crashkernel=X@Y" boot option,
-+	  instead you can use "crashkernel=auto". To make this work, you need
-+	  to have more than 4G memory.
-+
-+	  The reserved memory size is different depends on how much memory
-+	  you actually have. Please check Documentation/kdump/kdump.txt.
-+	  If you doubt, say N.
-+
- config CRASH_DUMP
- 	  bool "kernel crash dumps"
- 	  depends on IA64_MCA_RECOVERY && !IA64_HP_SIM && (!SMP || HOTPLUG_CPU)
+ /*
+  * For M-unit:
+@@ -1357,9 +1356,8 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
+ 			/* watch for command names containing %s */
+ 			printk(KERN_WARNING "%s", buf);
+ 		} else {
+-			if (no_unaligned_warning && !noprint_warning) {
+-				noprint_warning = 1;
+-				printk(KERN_WARNING "%s(%d) encountered an "
++			if (no_unaligned_warning) {
++				printk_once(KERN_WARNING "%s(%d) encountered an "
+ 				       "unaligned exception which required\n"
+ 				       "kernel assistance, which degrades "
+ 				       "the performance of the application.\n"
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 25831c4..308e659 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -119,7 +119,6 @@ sn_pcidev_info_get(struct pci_dev *dev)
+  * Additionally note that the struct sn_flush_device_war also has to be
+  * removed from arch/ia64/sn/include/xtalk/hubdev.h
+  */
+-static u8 war_implemented = 0;
+ 
+ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
+ 			       struct sn_flush_device_common *common)
+@@ -128,11 +127,8 @@ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
+ 	struct sn_flush_device_war *dev_entry;
+ 	struct ia64_sal_retval isrv = {0,0,0,0};
+ 
+-	if (!war_implemented) {
+-		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
+-		       "PROM flush WAR\n");
+-		war_implemented = 1;
+-	}
++	printk_once(KERN_WARNING
++		"PROM version < 4.50 -- implementing old PROM flush WAR\n");
+ 
+ 	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
+ 	BUG_ON(!war_list);
+
