@@ -1,54 +1,57 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Sat, 22 Aug 2009 11:18:16 +0000
+From: Amerigo Wang <amwang@redhat.com>
+Date: Mon, 24 Aug 2009 01:59:29 +0000
 Subject: Re: [Patch 5/8] ia64: implement crashkernel=auto
-Message-Id: <20090822111816.GA12281@elte.hu>
+Message-Id: <4A91F401.3010904@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain> <20090821065729.4855.47860.sendpatchset@localhost.localdomain> <20090821172407.d3a5cd2b.akpm@linux-foundation.org>
+References: <20090821065637.4855.32234.sendpatchset@localhost.localdomain>	<20090821065729.4855.47860.sendpatchset@localhost.localdomain> <20090821172407.d3a5cd2b.akpm@linux-foundation.org>
 In-Reply-To: <20090821172407.d3a5cd2b.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, nhorman@redhat.com, ebiederm@xmission.com, andi@firstfloor.org, bernhard.walle@gmx.de, fenghua.yu@intel.com, kamezawa.hiroyu@jp.fujitsu.com, avorontsov@ru.mvista.com
+Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, nhorman@redhat.com, ebiederm@xmission.com, andi@firstfloor.org, mingo@elte.hu, bernhard.walle@gmx.de, fenghua.yu@intel.com, kamezawa.hiroyu@jp.fujitsu.com, avorontsov@ru.mvista.com
 
-
-* Andrew Morton <akpm@linux-foundation.org> wrote:
-
+Andrew Morton wrote:
 > On Fri, 21 Aug 2009 02:55:04 -0400
 > Amerigo Wang <amwang@redhat.com> wrote:
-> 
-> > +#ifdef CONFIG_KEXEC_AUTO_RESERVE
-> > +#define ARCH_HAS_DEFAULT_CRASH_SIZE
-> > +static inline
-> > +unsigned long long arch_default_crash_size(unsigned long long total_size)
-> > +{
-> > +	if (total_size >= 4ULL<<30 && total_size < 12ULL<<30)
-> > +		return 1ULL<<28;
-> > +	else if (total_size >= 12ULL<<30 && total_size < 128ULL<<30)
-> > +		return 1ULL<<29;
-> > +	else if (total_size >= 128ULL<<30 && total_size < 256ULL<<30)
-> > +		return 3ULL<<28;
-> > +	else if (total_size >= 256ULL<<30 && total_size < 378ULL<<30)
-> > +		return 1ULL<<30;
-> > +	else if (total_size >= 318ULL<<30 && total_size < 512ULL<<30)
-> > +		return 3ULL<<29;
-> > +	else if (total_size >= 512ULL<<30 && total_size < 768ULL<<30)
-> > +		return 2ULL<<30;
-> > +	else if (total_size >= 768ULL<<30)
-> > +		return 3ULL<<30;
-> > +}
-> > +#include <asm-generic/kexec.h>
-> > +#endif
-> 
+>
+>   
+>> +#ifdef CONFIG_KEXEC_AUTO_RESERVE
+>> +#define ARCH_HAS_DEFAULT_CRASH_SIZE
+>> +static inline
+>> +unsigned long long arch_default_crash_size(unsigned long long total_size)
+>> +{
+>> +	if (total_size >= 4ULL<<30 && total_size < 12ULL<<30)
+>> +		return 1ULL<<28;
+>> +	else if (total_size >= 12ULL<<30 && total_size < 128ULL<<30)
+>> +		return 1ULL<<29;
+>> +	else if (total_size >= 128ULL<<30 && total_size < 256ULL<<30)
+>> +		return 3ULL<<28;
+>> +	else if (total_size >= 256ULL<<30 && total_size < 378ULL<<30)
+>> +		return 1ULL<<30;
+>> +	else if (total_size >= 318ULL<<30 && total_size < 512ULL<<30)
+>> +		return 3ULL<<29;
+>> +	else if (total_size >= 512ULL<<30 && total_size < 768ULL<<30)
+>> +		return 2ULL<<30;
+>> +	else if (total_size >= 768ULL<<30)
+>> +		return 3ULL<<30;
+>> +}
+>> +#include <asm-generic/kexec.h>
+>> +#endif
+>>     
+>
 > a) Why on earth is this inlined?
-> 
+>
 > b) Please consider making arch_default_crash_size() a __weak
 >    function.  You'll probably find the result to be pleasing.
-> 
+>   
+
+Good idea!
+
 > c) If we can't use __weak then please don't add
 >    ARCH_HAS_DEFAULT_CRASH_SIZE.  Instead do this trick:
-> 
-> 
+>
+>
 > 	#ifndef arch_default_crash_size
 > 	static inline unsigned long long arch_default_crash_size(unsigned long long total_size)
 > 	{
@@ -56,20 +59,21 @@ Cc: Amerigo Wang <amwang@redhat.com>, linux-kernel@vger.kernel.org, tony.luck@in
 > 	}
 > 	#define arch_default_crash_size arch_default_crash_size
 > 	#endif
-> 
+>
 > 	because i) it's good to standardise on something and ii) one less
 > 	symbol gets added to the kernel.
-> 
+>   
+
+Yes, agree. I will try b) which seems to be better than c).
+
 > d) why is asm-generic/kexec.h only included in asm/kexec.h if
 >    CONFIG_KEXEC_AUTO_RESERVE happened to be defined?  That makes no
 >    sense - there may be a multitude of reasons why asm/kexec.h wants
 >    to include asm-generic/kexec.h.
+>
+>   
+Hmm, yes? kernel/kexec.c includes linux/kexec.h which already includes 
+asm/kexec.h....
 
-e) All the 'else' statements are superflous and make it all harder 
-   to read.
 
-f) 2ULL<<30 should be written as 1ULL<31, to keep things consistent.
 
-g) A nice comment explaining the purpose and logic wouldnt hurt.
-
-	Ingo
