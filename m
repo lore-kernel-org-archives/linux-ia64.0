@@ -1,75 +1,46 @@
-From: Marcin Slusarz <marcin.slusarz@gmail.com>
-Date: Sun, 09 Aug 2009 19:53:57 +0000
-Subject: [PATCH 02/14] ia64: use printk_once
-Message-Id: <1249847649-11631-3-git-send-email-marcin.slusarz@gmail.com>
+From: Jiri Slaby <jirislaby@gmail.com>
+Date: Tue, 25 Aug 2009 18:54:10 +0000
+Subject: [PATCH 1/1] ia64: pci_br, fix infinite loop
+Message-Id: <1251226450-25280-1-git-send-email-jirislaby@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
-In-Reply-To: <1249847649-11631-1-git-send-email-marcin.slusarz@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jiri Slaby <jirislaby@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
+When
+* there is almost out of ates
+* one asks for more than one ate
+* there are some available at the end of ate array
+then the inner for loop will end without incrementing 'index'. This
+means the outer loop will start at the same point finding it's available
+and runs the inner loop again from the same index. This repeats forever.
+
+Hence make sure we check we were at the end of ate array and return
+an error in such case.
+
+Signed-off-by: Jiri Slaby <jirislaby@gmail.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Found-by: Jeff Mahoney <jeffm@novell.com>
 ---
- arch/ia64/kernel/unaligned.c    |    6 ++----
- arch/ia64/sn/kernel/io_common.c |    8 ++------
- 2 files changed, 4 insertions(+), 10 deletions(-)
+ arch/ia64/sn/pci/pcibr/pcibr_ate.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index 6db0859..776dd40 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -60,7 +60,6 @@ dump (const char *str, void *vp, size_t len)
-  */
- int no_unaligned_warning;
- int unaligned_dump_stack;
--static int noprint_warning;
- 
- /*
-  * For M-unit:
-@@ -1357,9 +1356,8 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
- 			/* watch for command names containing %s */
- 			printk(KERN_WARNING "%s", buf);
- 		} else {
--			if (no_unaligned_warning && !noprint_warning) {
--				noprint_warning = 1;
--				printk(KERN_WARNING "%s(%d) encountered an "
-+			if (no_unaligned_warning) {
-+				printk_once(KERN_WARNING "%s(%d) encountered an "
- 				       "unaligned exception which required\n"
- 				       "kernel assistance, which degrades "
- 				       "the performance of the application.\n"
-diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
-index 25831c4..308e659 100644
---- a/arch/ia64/sn/kernel/io_common.c
-+++ b/arch/ia64/sn/kernel/io_common.c
-@@ -119,7 +119,6 @@ sn_pcidev_info_get(struct pci_dev *dev)
-  * Additionally note that the struct sn_flush_device_war also has to be
-  * removed from arch/ia64/sn/include/xtalk/hubdev.h
-  */
--static u8 war_implemented = 0;
- 
- static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
- 			       struct sn_flush_device_common *common)
-@@ -128,11 +127,8 @@ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
- 	struct sn_flush_device_war *dev_entry;
- 	struct ia64_sal_retval isrv = {0,0,0,0};
- 
--	if (!war_implemented) {
--		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
--		       "PROM flush WAR\n");
--		war_implemented = 1;
--	}
-+	printk_once(KERN_WARNING
-+		"PROM version < 4.50 -- implementing old PROM flush WAR\n");
- 
- 	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
- 	BUG_ON(!war_list);
+diff --git a/arch/ia64/sn/pci/pcibr/pcibr_ate.c b/arch/ia64/sn/pci/pcibr/pcibr_ate.c
+index 239b3ce..5bc34ea 100644
+--- a/arch/ia64/sn/pci/pcibr/pcibr_ate.c
++++ b/arch/ia64/sn/pci/pcibr/pcibr_ate.c
+@@ -54,6 +54,8 @@ static int find_free_ate(struct ate_resource *ate_resource, int start,
+ 					break;
+ 				}
+ 			}
++			if (i >= ate_resource->num_ate)
++				return -1;
+ 		} else
+ 			index++;	/* Try next ate */
+ 	}
 -- 
 1.6.3.3
 
