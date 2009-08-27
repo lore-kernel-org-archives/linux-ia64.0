@@ -1,21 +1,26 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Wed, 12 Aug 2009 08:15:32 +0000
+Date: Thu, 27 Aug 2009 03:15:59 +0000
 Subject: [Patch 2/8] x86: implement crashkernel=auto
-Message-Id: <20090812081755.5757.32765.sendpatchset@localhost.localdomain>
+Message-Id: <20090827031826.4534.34220.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
 Implement "crashkernel=auto" for x86 first, other arch will be added in the
 following patches.
 
+The kernel will modify this command line with the actually reserved size,
+in case of breaking any user-space programs.
+
 Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Ingo Molnar <mingo@elte.hu>
 
 ---
 
@@ -30,7 +35,45 @@ Index: linux-2.6/kernel/kexec.c
  
  /* Per cpu memory for storing cpu states in case of system crash. */
  note_buf_t* crash_notes;
-@@ -1297,6 +1298,39 @@ int __init parse_crashkernel(char 		 *cm
+@@ -1269,6 +1270,37 @@ static int __init parse_crashkernel_simp
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++#ifndef arch_default_crash_size
++unsigned long long arch_default_crash_size(unsigned long long total_size)
++{
++	if (total_size < KEXEC_AUTO_THRESHOLD)
++		return 0;
++	else {
++#ifdef CONFIG_64BIT
++		if (total_size > (1ULL<<37)) /* 128G */
++			return KEXEC_AUTO_RESERVED_SIZE
++				* ((1ULL<<37) / KEXEC_AUTO_THRESHOLD);
++		return 1ULL<<ilog2(roundup(total_size/32, 1ULL<<21));
++#else
++		return KEXEC_AUTO_RESERVED_SIZE;
++#endif
++	}
++}
++#define arch_default_crash_size arch_default_crash_size
++#endif
++
++#ifndef arch_default_crash_base
++unsigned long long arch_default_crash_base(void)
++{
++	/* 0 means find the base address automatically. */
++	return 0;
++}
++#define arch_default_crash_base arch_default_crash_base
++#endif
++
++#endif /*CONFIG_KEXEC_AUTO_RESERVE*/
++
+ /*
+  * That function is the entry point for command line parsing and should be
+  * called from the arch-specific code.
+@@ -1297,6 +1329,39 @@ int __init parse_crashkernel(char 		 *cm
  
  	ck_cmdline += 12; /* strlen("crashkernel=") */
  
@@ -84,7 +127,7 @@ Index: linux-2.6/arch/x86/include/asm/kexec.h
 Index: linux-2.6/include/asm-generic/kexec.h
 =================================--- /dev/null
 +++ linux-2.6/include/asm-generic/kexec.h
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,16 @@
 +#ifndef _ASM_GENERIC_KEXEC_H
 +#define _ASM_GENERIC_KEXEC_H
 +
@@ -97,32 +140,6 @@ Index: linux-2.6/include/asm-generic/kexec.h
 +#define KEXEC_AUTO_THRESHOLD (1ULL<<32) /* 4G */
 +#endif
 +
-+#ifndef ARCH_HAS_DEFAULT_CRASH_SIZE
-+static inline
-+unsigned long long arch_default_crash_size(unsigned long long total_size)
-+{
-+	if (total_size < KEXEC_AUTO_THRESHOLD)
-+		return 0;
-+	else {
-+#ifdef CONFIG_64BIT
-+		if (total_size > 1ULL<<40) /* 1TB */
-+			return KEXEC_AUTO_RESERVED_SIZE
-+				* (1ULL<<40 / KEXEC_AUTO_THRESHOLD);
-+		return 1ULL<<ilog2(roundup(total_size/32, 1ULL<<21));
-+#else
-+		return KEXEC_AUTO_RESERVED_SIZE;
-+#endif
-+	}
-+}
-+#endif
-+#ifndef ARCH_HAS_DEFAULT_CRASH_BASE
-+static inline
-+unsigned long long arch_default_crash_base(void)
-+{
-+	/* 0 means find the base address automatically. */
-+	return 0;
-+}
-+#endif
 +
 +#endif /* CONFIG_KEXEC_AUTO_RESERVE */
 +
