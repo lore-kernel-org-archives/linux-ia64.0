@@ -1,41 +1,78 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Thu, 06 Aug 2009 06:20:01 +0000
-Subject: [Patch 5/7] powerpc: add CONFIG_KEXEC_AUTO_RESERVE
-Message-Id: <20090806062222.5578.97267.sendpatchset@localhost.localdomain>
+Date: Thu, 27 Aug 2009 03:15:33 +0000
+Subject: [Patch 0/8] V5 Implement crashkernel=auto
+Message-Id: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090806062125.5578.72123.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090806062125.5578.72123.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Michael Ellerman <michael@ellerman.id.au>, Amerigo Wang <amwang@redhat.com>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
+V4 -> V5:
+ - Rename the global functions, as suggested by Andrew.
+ - Save some macros, as suggested by Andrew.
+ - Change the high threshold, from 32G to 4G.
+ - Change the low threshold on ppc, suggested by ppc developers.
+ - Make the mm part as a seperate function, suggest by Eric.
+ - Make the IA64 code more readable.
+ - Reorder the patchset again, since review from mm people is done.
 
-Introduce a new config option KEXEC_AUTO_RESERVE for powerpc.
+V3 -> V4:
+ - Reorder the patches.
+ - Really free the reserved memory, instead of remapping it.
+   (Thanks to KAMEZAWA Hiroyuki!)
+ - Release the reserved memory resource when the size is 0.
+ - Use strict_strtoul() instead of simple_strtoul().
 
+V2 -> V3:
+ - Use more clever way to calculate reserved memory size, especially for IA64.
+ - Add that patch that implements shrinking reserved memory
+
+V1 -> V2:
+ - Use include/asm-generic/kexec.h, suggested by Neil.
+ - Rename a local variable, suggested by Fenghua.
+ - Fix some style problems found by checkpatch.pl.
+ - Unify the Kconfig docs.
+
+This series of patch implements automatically reserved memory for crashkernel,
+by introducing a new boot option "crashkernel=auto". This idea is from Neil.
+
+In case of breaking user-space applications, it modifies this boot option after
+it decides how much memory should be reserved.
+
+On different arch, the threshold and reserved memory size is different. Please
+refer patch 7/8 which contains an update for the documentation.
+
+Patch 8/8 implements shrinking reserved memory at run-time, which is useful
+when more than enough memory is reserved automatically.
+
+This patchset _is_ already tested on x86_64, IA64 and ppc64.
+
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: M. Mohan Kumar <mohan@in.ibm.com>
+Cc: Michael Ellerman <michael@ellerman.id.au>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bernhard Walle <bernhard.walle@gmx.de>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 Signed-off-by: WANG Cong <amwang@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
 ---
+ Documentation/kdump/kdump.txt    |   29 +++++++++
+ arch/ia64/Kconfig                |   14 ++++
+ arch/ia64/include/asm/kexec.h    |   44 +++++++++++++
+ arch/powerpc/Kconfig             |   11 +++
+ arch/powerpc/include/asm/kexec.h |   39 ++++++++++++
+ arch/x86/Kconfig                 |   13 ++++
+ arch/x86/include/asm/kexec.h     |    1 
+ include/asm-generic/kexec.h      |   16 +++++
+ include/linux/kexec.h            |    2 
+ kernel/kexec.c                   |  124 +++++++++++++++++++++++++++++++++++++++
+ kernel/ksysfs.c                  |   21 ++++++
+ 11 files changed, 314 insertions(+)
 
-Index: linux-2.6/arch/powerpc/Kconfig
-=================================--- linux-2.6.orig/arch/powerpc/Kconfig
-+++ linux-2.6/arch/powerpc/Kconfig
-@@ -346,6 +346,16 @@ config KEXEC
- 	  support.  As of this writing the exact hardware interface is
- 	  strongly in flux, so no good recommendation can be made.
- 
-+config KEXEC_AUTO_RESERVE
-+	bool "automatically reserve memory for kexec kernel"
-+	depends on KEXEC
-+	default y
-+	---help---
-+	  Automatically reserve memory for a kexec kernel, so that you don't
-+	  need to specify numbers for the "crashkernel=X@Y" boot option,
-+	  instead you can use "crashkernel=auto".
-+	  On PPC, 256M is reserved and only when you have memory > 4G.
-+
- config CRASH_DUMP
- 	bool "Build a kdump crash kernel"
- 	depends on PPC64 || 6xx
