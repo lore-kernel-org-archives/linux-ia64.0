@@ -1,15 +1,15 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Wed, 12 Aug 2009 08:16:32 +0000
+Date: Thu, 27 Aug 2009 03:16:53 +0000
 Subject: [Patch 7/8] doc: update the kdump document
-Message-Id: <20090812081854.5757.88620.sendpatchset@localhost.localdomain>
+Message-Id: <20090827031920.4534.9468.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
-In-Reply-To: <20090812081731.5757.25254.sendpatchset@localhost.localdomain>
+References: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090827031800.4534.94868.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Amerigo Wang <amwang@redhat.com>
 
 
 Update the document for kdump.
@@ -37,7 +37,7 @@ Index: linux-2.6/Documentation/kdump/kdump.txt
  Dump-capture kernel config options (Arch Independent)
  -----------------------------------------------------
  
-@@ -266,6 +275,25 @@ This would mean:
+@@ -266,6 +275,26 @@ This would mean:
      2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
      3) if the RAM size is larger than 2G, then reserve 128M
  
@@ -45,11 +45,12 @@ Index: linux-2.6/Documentation/kdump/kdump.txt
 +
 +    crashkernel=auto
 +
-+if you have enough memory. The threshold is 4G, below which this won't work.
++if you have enough memory. The threshold is 4G on ia64 and x86, 2G on powerpc,
++below which this won't work.
 +
-+The automatically reserved memory size would be 128M on x86_32, 256M on
-+ppc, 1/32 of your physical memory size on x86_64 and ppc64 (but it will not
-+exceed 1TB/32 if you have more). IA64 has its own policy, shown below:
++The automatically reserved memory size would be 128M on x86_32, 128M or 256M
++on ppc, 1/32 of your physical memory size on x86_64 and ppc64 (but it will not
++grow if you have more than 128G memory). IA64 has its own policy, shown below:
 +
 +	Memory size	Reserved memory
 +	======	=======+	[4G, 12G)	256M
