@@ -1,7 +1,7 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Date: Tue, 01 Sep 2009 11:35:18 +0000
-Subject: Re: [RFC][PATCH] ia64: fix csum_ipv6_magic()
-Message-Id: <20090901113518.GA4874@midget.suse.cz>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 01 Sep 2009 23:20:34 +0000
+Subject: RE: [RFC][PATCH] ia64: fix csum_ipv6_magic()
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E038D4AE@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090827211113.GA22793@midget.suse.cz>
  <A6AD88C3F2289247BE726C37303E1EB8B954B4A6@orsmsx505.amr.corp.intel.com>
@@ -9,41 +9,28 @@ In-Reply-To: <A6AD88C3F2289247BE726C37303E1EB8B954B4A6@orsmsx505.amr.corp.intel.
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Yu, Fenghua" <fenghua.yu@intel.com>
-Cc: 'Jiri Bohac' <jbohac@suse.cz>, "Luck, Tony" <tony.luck@intel.com>, "'kenneth.w.chen@intel.com'" <kenneth.w.chen@intel.com>, "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>
+To: "Yu, Fenghua" <fenghua.yu@intel.com>, 'Jiri Bohac' <jbohac@suse.cz>
+Cc: "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>
 
-On Fri, Aug 28, 2009 at 02:19:19PM -0700, Yu, Fenghua wrote:
-> >I was seeing "nf_ct_icmpv6: ICMPv6 checksum failed" errors on
-> >every ICMPv6 packet received. The packets did not pass the
-> >netfilter checksum verification but they did pass the standard
-> >verification later and got processed. This happenns with hardware
-> >checksumming turned off or with adapters that do not checksum
-> >ICMP packets (e.g. tg3). I tracked the problem down to the ia64
-> >version of csum_ipv6_magic() introduced by 007d77d0c5.  For some
-> >arguments, it gives differrent results than the generic version.
-> >
-> >The following patch fixes the problem for me. IA64 experts, can
-> >you please have a look?
-> 
-> Looks good to me. Do you know the caller function for the failed csum_ipv6_magic()?
+>--- a/arch/ia64/lib/ip_fast_csum.S
+>+++ b/arch/ia64/lib/ip_fast_csum.S
+>@@ -96,20 +96,22 @@ END(ip_fast_csum)
+> GLOBAL_ENTRY(csum_ipv6_magic)
+> 	ld4	r20=[in0],4
+> 	ld4	r21=[in1],4
+>-	dep	r15=in3,in2,32,16
+>+	zxt4	in3=in3
 
-I saw the problem when csum_ipv6_magic() was called from
-nf_ip6_checksum(), in the CHECKSUM_NONE branch.
+I think this zxt4 instruction have a typo.  You really want to zap the
+high part on "in2" here (the "len") parameter.  "in3" contains the "proto"
+argument, which is only 16-bits.  But any garbage in the high part on in3
+will be dropped by the "dep" instruction later which only pulls out the low
+16 bits from it.
 
-The the bug is triggered by having some bits set in the high
-32-bits of the register used to pass the sum parameter to
-csum_ipv6_magic().
+So I think you meant to type:
 
-For some reason, the 
-	csum_sub(skb->csum, skb_checksum(skb, 0, dataoff, 0))
-in the CHECKSUM_COMPLETE branch does not seem to trigger this,
-while the
-	csum_sub(0, skb_checksum(skb, 0, dataoff, 0))
-in the CHECKSUM_NONE branch does.
+	zxt4	in2=in2
 
-I haven't looked at the disassembly to see why, though.
+Does this make sense?
 
--- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
-
+-Tony
