@@ -1,47 +1,44 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Sat, 12 Sep 2009 23:39:17 +0000
-Subject: RE: [RFC] Convert ia64 spinlocks to use "tickets"
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E0564BE9@orsmsx505.amr.corp.intel.com>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Fri, 04 Sep 2009 10:08:35 +0000
+Subject: [Patch 1/8] x86: add CONFIG_KEXEC_AUTO_RESERVE
+Message-Id: <20090904101102.5220.52114.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4aa9e16649286264@agluck-desktop.sc.intel.com>
-In-Reply-To: <4aa9e16649286264@agluck-desktop.sc.intel.com>
+References: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Amerigo Wang <amwang@redhat.com>
 
-> It was a eight socket platform. I'm not aware of any unfair two socket
-> platforms.
 
-I got the two socket information from Nick's git commit comment:
+Introduce a new config option KEXEC_AUTO_RESERVE for x86.
 
-commit 314cdbefd1fd0a7acf3780e9628465b77ea6a836
-Author: Nick Piggin <npiggin@suse.de>
-Date:   Wed Jan 30 13:31:21 2008 +0100
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
-    x86: FIFO ticket spinlocks
+---
 
-...
-
-On an 8 core (2 socket) Opteron, spinlock unfairness is extremely noticable,
-with a userspace test having a difference of up to 2x runtime per thread, and
-some threads are starved or "unfairly" granted the lock up to 1 000 000 (!)
-times. After this patch, all threads appear to finish at exactly the same
-time.
-
-> BTW the main problem of ticket locks is that they tend to cooperate
-> badly with hypervisors, they can run into bad convoying issues with
-> the vcpu scheduler. So you probably should have a way to turn them
-> off.
-
-In the paravirtualized case the spinlock contention case should be a
-hypercall.
-
-Yes, I see that in the native case the vcpu scheduler has less to worry
-about ... any spinner that it picks can acquire the lock with traditional
-spin locks ... whereas with ticket locks if it picks the wrong one it
-will just spin uselessly waiting for a "now serving" value to show up
-that can't happen until all the vcpus that hold lower number tickets
-have been run (in order!).
-
--Tony
+Index: linux-2.6/arch/x86/Kconfig
+=================================--- linux-2.6.orig/arch/x86/Kconfig
++++ linux-2.6/arch/x86/Kconfig
+@@ -1482,6 +1482,19 @@ config KEXEC
+ 	  support.  As of this writing the exact hardware interface is
+ 	  strongly in flux, so no good recommendation can be made.
+ 
++config KEXEC_AUTO_RESERVE
++	bool "automatically reserve memory for kexec kernel"
++	depends on KEXEC
++	default y
++	---help---
++	  Automatically reserve memory for a kexec kernel, so that you don't
++	  need to specify numbers for the "crashkernel=X@Y" boot option,
++	  instead you can use "crashkernel=auto". To make this work, you need
++	  to have more than 4G memory.
++
++	  On x86_32, 128M is reserved, on x86_64 1/32 of your memory is
++	  reserved, but it will not exceed 4G.
++
+ config CRASH_DUMP
+ 	bool "kernel crash dumps"
+ 	depends on X86_64 || (X86_32 && HIGHMEM)
