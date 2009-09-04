@@ -1,58 +1,146 @@
-From: "Anirban Sinha" <ASinha@zeugmasystems.com>
-Date: Tue, 15 Sep 2009 19:08:14 +0000
-Subject: RE: [PATCH] cleanup legacy console_print function
-Message-Id: <DDFD17CC94A9BD49A82147DDF7D545C501F1012C@exchange.ZeugmaSystems.local>
+From: Amerigo Wang <amwang@redhat.com>
+Date: Fri, 04 Sep 2009 10:08:45 +0000
+Subject: [Patch 2/8] x86: implement crashkernel=auto
+Message-Id: <20090904101112.5220.16543.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <DDFD17CC94A9BD49A82147DDF7D545C501F0FF17@exchange.ZeugmaSystems.local> <200909151127.10697.bjorn.helgaas@hp.com> <DDFD17CC94A9BD49A82147DDF7D545C501F100E4@exchange.ZeugmaSystems.local> <12c511ca0909151100ne3841b7l7af5bffb977d6d9b@mail.gmail.com> <DDFD17CC94A9BD49A82147DDF7D545C501F100EB@exchange.ZeugmaSystems.local> <57C9024A16AD2D4C97DC78E552063EA3E05DBC6E@orsmsx505.amr.corp.intel.com> <DDFD17CC94A9BD49A82147DDF7D545C501F10104@exchange.ZeugmaSystems.local> <12c511ca0909151139w400256d1t84dad5fa9e1ab3a2@mail.gmail.com>
-In-Reply-To: <12c511ca0909151139w400256d1t84dad5fa9e1ab3a2@mail.gmail.com>
+References: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
+In-Reply-To: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel@vger.kernel.org, Randy Dunlap <randy.dunlap@oracle.com>, linux-ia64@vger.kernel.org
-
->
->The diffstat doesn't match the patch (doesn't include a change to
->process.c) ... but the patch itself is OK.
->
->Acked-by: Tony Luck <tony.luck@intel.com>
-
-Yeah, my bad. I had a local change in that file which I also committed.
-Anyway, here it is again:
+To: linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
-Subject: Fix ia64 build breakage. 
+Implement "crashkernel=auto" for x86 first, other arch will be added in the
+following patches.
 
-On ia64 it is not necessary to provide any kind of "extern" declaration
-before using external symbols.
+The kernel will modify this command line with the actually reserved size,
+in case of breaking any user-space programs.
 
-Signed-off-by: Anirban Sinha <asinha@zeugmasystems.com>
-Acked-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Eric W. Biederman <ebiederm@xmission.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+
 ---
-arch/ia64/kernel/head.S |    1 -
-arch/ia64/kernel/head.h |    1 -
-2 files changed, 0 insertions(+), 2 deletions(-)
-delete mode 100644 arch/ia64/kernel/head.h
 
-diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
-index e6c5c3d..23f846d 100644
---- a/arch/ia64/kernel/head.S
-+++ b/arch/ia64/kernel/head.S
-@@ -34,7 +34,6 @@
- #include <asm/mca_asm.h>
- #include <linux/init.h>
- #include <linux/linkage.h>
--#include "head.h"
-
- #ifdef CONFIG_HOTPLUG_CPU
- #define SAL_PSR_BITS_TO_SET                            \
-diff --git a/arch/ia64/kernel/head.h b/arch/ia64/kernel/head.h
-deleted file mode 100644
-index 2e2ac68..0000000
---- a/arch/ia64/kernel/head.h
-+++ /dev/null
-@@ -1 +0,0 @@
--extern void console_print(const char *s);
---
-1.6.4
-
+Index: linux-2.6/kernel/kexec.c
+=================================--- linux-2.6.orig/kernel/kexec.c
++++ linux-2.6/kernel/kexec.c
+@@ -37,6 +37,7 @@
+ #include <asm/io.h>
+ #include <asm/system.h>
+ #include <asm/sections.h>
++#include <asm/setup.h>
+ 
+ /* Per cpu memory for storing cpu states in case of system crash. */
+ note_buf_t* crash_notes;
+@@ -1269,6 +1270,37 @@ static int __init parse_crashkernel_simp
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++#ifndef arch_default_crash_size
++unsigned long long __init arch_default_crash_size(unsigned long long total_size)
++{
++	if (total_size < KEXEC_AUTO_THRESHOLD)
++		return 0;
++	else {
++#ifdef CONFIG_64BIT
++		if (total_size > (1ULL<<37)) /* 128G */
++			return KEXEC_AUTO_RESERVED_SIZE
++				* ((1ULL<<37) / KEXEC_AUTO_THRESHOLD);
++		return 1ULL<<ilog2(roundup(total_size/32, 1ULL<<21));
++#else
++		return KEXEC_AUTO_RESERVED_SIZE;
++#endif
++	}
++}
++#define arch_default_crash_size arch_default_crash_size
++#endif
++
++#ifndef arch_default_crash_base
++unsigned long long __init arch_default_crash_base(void)
++{
++	/* 0 means find the base address automatically. */
++	return 0;
++}
++#define arch_default_crash_base arch_default_crash_base
++#endif
++
++#endif /*CONFIG_KEXEC_AUTO_RESERVE*/
++
+ /*
+  * That function is the entry point for command line parsing and should be
+  * called from the arch-specific code.
+@@ -1297,6 +1329,39 @@ int __init parse_crashkernel(char 		 *cm
+ 
+ 	ck_cmdline += 12; /* strlen("crashkernel=") */
+ 
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++	if (strncmp(ck_cmdline, "auto", 4) = 0) {
++		unsigned long long size;
++		int len;
++		char tmp[32];
++
++		size = arch_default_crash_size(system_ram);
++		if (size != 0) {
++			*crash_size = size;
++			*crash_base = arch_default_crash_base();
++			len = scnprintf(tmp, sizeof(tmp), "%luM@%luM",
++					(unsigned long)(*crash_size)>>20,
++					(unsigned long)(*crash_base)>>20);
++			/* 'len' can't be <= 4. */
++			if (likely((len - 4 + strlen(cmdline))
++					< COMMAND_LINE_SIZE - 1)) {
++				memmove(ck_cmdline + len, ck_cmdline + 4,
++					strlen(cmdline) - (ck_cmdline + 4 - cmdline) + 1);
++				memcpy(ck_cmdline, tmp, len);
++			}
++			return 0;
++		} else {
++			/*
++			 * We can't reserve memory auotmatcally,
++			 * remove "crashkernel=auto" from cmdline.
++			 */
++			ck_cmdline += 4; /* strlen("auto") */
++			memmove(ck_cmdline - 16, ck_cmdline,
++				strlen(cmdline) - (ck_cmdline - cmdline) + 1);
++			return -ENOMEM;
++		}
++	}
++#endif
+ 	/*
+ 	 * if the commandline contains a ':', then that's the extended
+ 	 * syntax -- if not, it must be the classic syntax
+Index: linux-2.6/arch/x86/include/asm/kexec.h
+=================================--- linux-2.6.orig/arch/x86/include/asm/kexec.h
++++ linux-2.6/arch/x86/include/asm/kexec.h
+@@ -23,6 +23,7 @@
+ 
+ #include <asm/page.h>
+ #include <asm/ptrace.h>
++#include <asm-generic/kexec.h>
+ 
+ /*
+  * KEXEC_SOURCE_MEMORY_LIMIT maximum page get_free_page can return.
+Index: linux-2.6/include/asm-generic/kexec.h
+=================================--- /dev/null
++++ linux-2.6/include/asm-generic/kexec.h
+@@ -0,0 +1,16 @@
++#ifndef _ASM_GENERIC_KEXEC_H
++#define _ASM_GENERIC_KEXEC_H
++
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++
++#ifndef KEXEC_AUTO_RESERVED_SIZE
++#define KEXEC_AUTO_RESERVED_SIZE (1ULL<<27) /* 128M */
++#endif
++#ifndef KEXEC_AUTO_THRESHOLD
++#define KEXEC_AUTO_THRESHOLD (1ULL<<32) /* 4G */
++#endif
++
++
++#endif /* CONFIG_KEXEC_AUTO_RESERVE */
++
++#endif
