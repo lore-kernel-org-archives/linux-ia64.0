@@ -1,7 +1,7 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Date: Sat, 05 Sep 2009 00:04:28 +0000
-Subject: [PATCH] ioc4_serial: fix printk format warnings
-Message-Id: <20090904170428.bda55420.randy.dunlap@oracle.com>
+Date: Fri, 04 Sep 2009 23:58:05 +0000
+Subject: [PATCH] mbcs: fix printk format warnings
+Message-Id: <20090904165805.0be17c25.randy.dunlap@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -11,26 +11,36 @@ To: linux-ia64@vger.kernel.org
 From: Randy Dunlap <randy.dunlap@oracle.com>
 
 ia64:
-drivers/serial/ioc4_serial.c:943: warning: format '%lx' expects type 'long unsigned int', but argument 2 has type 'long long unsigned int'
+drivers/char/mbcs.c:719: warning: format '%lx' expects type 'long unsigned int', but argument 3 has type 'uint64_t'
+drivers/char/mbcs.c:719: warning: format '%lx' expects type 'long unsigned int', but argument 4 has type 'uint64_t'
 
 Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-Cc: Pat Gefre <pfg@sgi.com>
+Cc: Bruce Losure <blosure@sgi.com>
 ---
- drivers/serial/ioc4_serial.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/char/mbcs.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
---- linux-2.6.31-rc8-git1.orig/drivers/serial/ioc4_serial.c
-+++ linux-2.6.31-rc8-git1/drivers/serial/ioc4_serial.c
-@@ -930,7 +930,7 @@ static void handle_dma_error_intr(void *
+--- linux-2.6.31-rc8-git1.orig/drivers/char/mbcs.c
++++ linux-2.6.31-rc8-git1/drivers/char/mbcs.c
+@@ -15,6 +15,7 @@
+ #include <linux/moduleparam.h>
+ #include <linux/types.h>
+ #include <linux/ioport.h>
++#include <linux/kernel.h>
+ #include <linux/notifier.h>
+ #include <linux/reboot.h>
+ #include <linux/init.h>
+@@ -715,8 +716,8 @@ static ssize_t show_algo(struct device *
+ 	 */
+ 	debug0 = *(uint64_t *) soft->debug_addr;
  
- 	if (readl(&port->ip_mem->pci_err_addr_l.raw) & IOC4_PCI_ERR_ADDR_VLD) {
- 		printk(KERN_ERR
--			"PCI error address is 0x%lx, "
-+			"PCI error address is 0x%llx, "
- 				"master is serial port %c %s\n",
- 		     (((uint64_t)readl(&port->ip_mem->pci_err_addr_h)
- 							 << 32)
-
+-	return sprintf(buf, "0x%lx 0x%lx\n",
+-		       (debug0 >> 32), (debug0 & 0xffffffff));
++	return sprintf(buf, "0x%x 0x%x\n",
++		       upper_32_bits(debug0), lower_32_bits(debug0));
+ }
+ 
+ static ssize_t store_algo(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 
 
 
