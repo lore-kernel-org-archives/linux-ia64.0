@@ -1,7 +1,7 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Fri, 04 Sep 2009 10:08:45 +0000
-Subject: [Patch 2/8] x86: implement crashkernel=auto
-Message-Id: <20090904101112.5220.16543.sendpatchset@localhost.localdomain>
+Date: Fri, 04 Sep 2009 10:09:05 +0000
+Subject: [Patch 4/8] ia64: implement crashkernel=auto
+Message-Id: <20090904101133.5220.82773.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
 In-Reply-To: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
@@ -9,138 +9,86 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Amerigo Wang <amwang@redhat.com>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Anton Vorontsov <avorontsov@ru.mvista.com>
+Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, kamezawa.hiroyu@jp.fujitsu.com, Andi Kleen <andi@firstfloor.org>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@elte.hu>, Amerigo Wang <amwang@redhat.com>
 
 
-Implement "crashkernel=auto" for x86 first, other arch will be added in the
-following patches.
-
-The kernel will modify this command line with the actually reserved size,
-in case of breaking any user-space programs.
+Since in patch 2/8 we already implement the generic part, this will
+add the rest part for ia64.
 
 Signed-off-by: WANG Cong <amwang@redhat.com>
-Cc: Eric W. Biederman <ebiederm@xmission.com>
-Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
 
 ---
 
-Index: linux-2.6/kernel/kexec.c
-=================================--- linux-2.6.orig/kernel/kexec.c
-+++ linux-2.6/kernel/kexec.c
-@@ -37,6 +37,7 @@
- #include <asm/io.h>
- #include <asm/system.h>
- #include <asm/sections.h>
-+#include <asm/setup.h>
+Index: linux-2.6/arch/ia64/include/asm/kexec.h
+=================================--- linux-2.6.orig/arch/ia64/include/asm/kexec.h
++++ linux-2.6/arch/ia64/include/asm/kexec.h
+@@ -1,6 +1,7 @@
+ #ifndef _ASM_IA64_KEXEC_H
+ #define _ASM_IA64_KEXEC_H
  
- /* Per cpu memory for storing cpu states in case of system crash. */
- note_buf_t* crash_notes;
-@@ -1269,6 +1270,37 @@ static int __init parse_crashkernel_simp
- 	return 0;
- }
++#include <asm-generic/kexec.h>
+ 
+ /* Maximum physical address we can use pages from */
+ #define KEXEC_SOURCE_MEMORY_LIMIT (-1UL)
+@@ -19,6 +20,12 @@
+                 flush_icache_range(page_addr, page_addr + PAGE_SIZE); \
+         } while(0)
  
 +#ifdef CONFIG_KEXEC_AUTO_RESERVE
-+#ifndef arch_default_crash_size
-+unsigned long long __init arch_default_crash_size(unsigned long long total_size)
-+{
-+	if (total_size < KEXEC_AUTO_THRESHOLD)
-+		return 0;
-+	else {
-+#ifdef CONFIG_64BIT
-+		if (total_size > (1ULL<<37)) /* 128G */
-+			return KEXEC_AUTO_RESERVED_SIZE
-+				* ((1ULL<<37) / KEXEC_AUTO_THRESHOLD);
-+		return 1ULL<<ilog2(roundup(total_size/32, 1ULL<<21));
-+#else
-+		return KEXEC_AUTO_RESERVED_SIZE;
-+#endif
-+	}
-+}
++extern
++unsigned long long __init arch_default_crash_size(unsigned long long);
 +#define arch_default_crash_size arch_default_crash_size
 +#endif
 +
-+#ifndef arch_default_crash_base
-+unsigned long long __init arch_default_crash_base(void)
+ extern struct kimage *ia64_kimage;
+ extern const unsigned int relocate_new_kernel_size;
+ extern void relocate_new_kernel(unsigned long, unsigned long,
+Index: linux-2.6/arch/ia64/kernel/machine_kexec.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/machine_kexec.c
++++ linux-2.6/arch/ia64/kernel/machine_kexec.c
+@@ -147,6 +147,44 @@ void arch_crash_save_vmcoreinfo(void)
+ #endif
+ }
+ 
++#ifdef CONFIG_KEXEC_AUTO_RESERVE
++#define MBYTES(n) ((n)*1024*1024ULL)
++#define GBYTES(n) ((n)*1024*1024*1024ULL)
++/*
++       Memory size     Reserved memory
++       ======     =======+       [4G, 12G)       256M
++       [12G, 128G)     512M
++       [128G, 256G)    768M
++       [256G, 378G)    1024M
++       [378G, 512G)    1536M
++       [512G, 768G)    2048M
++       [768G, )        3072M
++ */
++unsigned long long __init arch_default_crash_size(unsigned long long total_size)
 +{
-+	/* 0 means find the base address automatically. */
-+	return 0;
++	unsigned long long ret;
++
++	if (total_size >= GBYTES(4) && total_size < GBYTES(12))
++		ret = MBYTES(256);
++	else if (total_size >= GBYTES(12) && total_size < GBYTES(128))
++		ret = MBYTES(512);
++	else if (total_size >= GBYTES(128) && total_size < GBYTES(256))
++		ret = MBYTES(768);
++	else if (total_size >= GBYTES(256) && total_size < GBYTES(378))
++		ret = MBYTES(1024);
++	else if (total_size >= GBYTES(318) && total_size < GBYTES(512))
++		ret = MBYTES(1536);
++	else if (total_size >= GBYTES(512) && total_size < GBYTES(768))
++		ret = MBYTES(2048);
++	else
++		ret = MBYTES(3072);
++	return ret;
 +}
-+#define arch_default_crash_base arch_default_crash_base
++#undef GBYTES
++#undef MBYTES
 +#endif
 +
-+#endif /*CONFIG_KEXEC_AUTO_RESERVE*/
-+
- /*
-  * That function is the entry point for command line parsing and should be
-  * called from the arch-specific code.
-@@ -1297,6 +1329,39 @@ int __init parse_crashkernel(char 		 *cm
- 
- 	ck_cmdline += 12; /* strlen("crashkernel=") */
- 
-+#ifdef CONFIG_KEXEC_AUTO_RESERVE
-+	if (strncmp(ck_cmdline, "auto", 4) = 0) {
-+		unsigned long long size;
-+		int len;
-+		char tmp[32];
-+
-+		size = arch_default_crash_size(system_ram);
-+		if (size != 0) {
-+			*crash_size = size;
-+			*crash_base = arch_default_crash_base();
-+			len = scnprintf(tmp, sizeof(tmp), "%luM@%luM",
-+					(unsigned long)(*crash_size)>>20,
-+					(unsigned long)(*crash_base)>>20);
-+			/* 'len' can't be <= 4. */
-+			if (likely((len - 4 + strlen(cmdline))
-+					< COMMAND_LINE_SIZE - 1)) {
-+				memmove(ck_cmdline + len, ck_cmdline + 4,
-+					strlen(cmdline) - (ck_cmdline + 4 - cmdline) + 1);
-+				memcpy(ck_cmdline, tmp, len);
-+			}
-+			return 0;
-+		} else {
-+			/*
-+			 * We can't reserve memory auotmatcally,
-+			 * remove "crashkernel=auto" from cmdline.
-+			 */
-+			ck_cmdline += 4; /* strlen("auto") */
-+			memmove(ck_cmdline - 16, ck_cmdline,
-+				strlen(cmdline) - (ck_cmdline - cmdline) + 1);
-+			return -ENOMEM;
-+		}
-+	}
-+#endif
- 	/*
- 	 * if the commandline contains a ':', then that's the extended
- 	 * syntax -- if not, it must be the classic syntax
-Index: linux-2.6/arch/x86/include/asm/kexec.h
-=================================--- linux-2.6.orig/arch/x86/include/asm/kexec.h
-+++ linux-2.6/arch/x86/include/asm/kexec.h
-@@ -23,6 +23,7 @@
- 
- #include <asm/page.h>
- #include <asm/ptrace.h>
-+#include <asm-generic/kexec.h>
- 
- /*
-  * KEXEC_SOURCE_MEMORY_LIMIT maximum page get_free_page can return.
-Index: linux-2.6/include/asm-generic/kexec.h
-=================================--- /dev/null
-+++ linux-2.6/include/asm-generic/kexec.h
-@@ -0,0 +1,16 @@
-+#ifndef _ASM_GENERIC_KEXEC_H
-+#define _ASM_GENERIC_KEXEC_H
-+
-+#ifdef CONFIG_KEXEC_AUTO_RESERVE
-+
-+#ifndef KEXEC_AUTO_RESERVED_SIZE
-+#define KEXEC_AUTO_RESERVED_SIZE (1ULL<<27) /* 128M */
-+#endif
-+#ifndef KEXEC_AUTO_THRESHOLD
-+#define KEXEC_AUTO_THRESHOLD (1ULL<<32) /* 4G */
-+#endif
-+
-+
-+#endif /* CONFIG_KEXEC_AUTO_RESERVE */
-+
-+#endif
+ unsigned long paddr_vmcoreinfo_note(void)
+ {
+ 	return ia64_tpa((unsigned long)(char *)&vmcoreinfo_note);
