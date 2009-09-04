@@ -1,7 +1,7 @@
 From: Amerigo Wang <amwang@redhat.com>
-Date: Fri, 04 Sep 2009 10:08:35 +0000
-Subject: [Patch 1/8] x86: add CONFIG_KEXEC_AUTO_RESERVE
-Message-Id: <20090904101102.5220.52114.sendpatchset@localhost.localdomain>
+Date: Fri, 04 Sep 2009 10:09:16 +0000
+Subject: [Patch 5/8] powerpc: add CONFIG_KEXEC_AUTO_RESERVE
+Message-Id: <20090904101143.5220.61131.sendpatchset@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
 In-Reply-To: <20090904101047.5220.20618.sendpatchset@localhost.localdomain>
@@ -9,20 +9,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Anton Vorontsov <avorontsov@ru.mvista.com>, tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Amerigo Wang <amwang@redhat.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, Neil Horman <nhorman@redhat.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andi Kleen <andi@firstfloor.org>, Ingo Molnar <mingo@elte.hu>, Amerigo Wang <amwang@redhat.com>, Michael Ellerman <michael@ellerman.id.au>, "M. Mohan Kumar" <mohan@in.ibm.com>, akpm@linux-foundation.org, bernhard.walle@gmx.de, Fenghua Yu <fenghua.yu@intel.com>, kamezawa.hiroyu@jp.fujitsu.com, Anton Vorontsov <avorontsov@ru.mvista.com>
 
 
-Introduce a new config option KEXEC_AUTO_RESERVE for x86.
+Introduce a new config option KEXEC_AUTO_RESERVE for powerpc.
 
 Signed-off-by: WANG Cong <amwang@redhat.com>
 Acked-by: Neil Horman <nhorman@tuxdriver.com>
 
 ---
 
-Index: linux-2.6/arch/x86/Kconfig
-=================================--- linux-2.6.orig/arch/x86/Kconfig
-+++ linux-2.6/arch/x86/Kconfig
-@@ -1482,6 +1482,19 @@ config KEXEC
+Index: linux-2.6/arch/powerpc/Kconfig
+=================================--- linux-2.6.orig/arch/powerpc/Kconfig
++++ linux-2.6/arch/powerpc/Kconfig
+@@ -346,6 +346,17 @@ config KEXEC
  	  support.  As of this writing the exact hardware interface is
  	  strongly in flux, so no good recommendation can be made.
  
@@ -34,11 +34,9 @@ Index: linux-2.6/arch/x86/Kconfig
 +	  Automatically reserve memory for a kexec kernel, so that you don't
 +	  need to specify numbers for the "crashkernel=X@Y" boot option,
 +	  instead you can use "crashkernel=auto". To make this work, you need
-+	  to have more than 4G memory.
-+
-+	  On x86_32, 128M is reserved, on x86_64 1/32 of your memory is
-+	  reserved, but it will not exceed 4G.
++	  to have more than 2G memory. On PPC, 128M or 256M is reserved, on
++	  PPC64 1/32 of your physical memory, but it will not exceed 4G.
 +
  config CRASH_DUMP
- 	bool "kernel crash dumps"
- 	depends on X86_64 || (X86_32 && HIGHMEM)
+ 	bool "Build a kdump crash kernel"
+ 	depends on PPC64 || 6xx
