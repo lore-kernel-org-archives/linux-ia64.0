@@ -1,7 +1,7 @@
-From: Andi Kleen <andi@firstfloor.org>
-Date: Sat, 12 Sep 2009 21:23:52 +0000
-Subject: Re: [RFC] Convert ia64 spinlocks to use "tickets"
-Message-Id: <87ab0zhn6f.fsf@basil.nowhere.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sat, 12 Sep 2009 23:24:37 +0000
+Subject: RE: [RFC] Convert ia64 spinlocks to use "tickets"
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E0564BE4@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4aa9e16649286264@agluck-desktop.sc.intel.com>
 In-Reply-To: <4aa9e16649286264@agluck-desktop.sc.intel.com>
@@ -10,26 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" <tony.luck@intel.com> writes:
->
-> But the patch went in because the ticket locks were only very slightly
-> slower in the uncontended case, and they did solve a real problem
-> for a common two socket platform where the lack of fairness allowed the
+> Have you done any testing where the spin with interrupts disabled was
+> problematic?
 
-It was a eight socket platform. I'm not aware of any unfair two socket
-platforms.
+So far my testing has been limited to mild stress running kernel builds.
+Any pointers to other stress tests that might shed light on these kinds
+of problems would be gratefully received.  Presumably some sort of heavy
+i/o (networking) benchmark so there are lots of interrupts to process?
 
-> cores on one socket to freeze out the cores on the other socket for
-> extremely long periods.
+> I know we have had ages of problems with these, but I don't recall
+> any specific instances right now (keep in mind it is 3:00 AM when I am
+> finally getting to look at this).
 
-Very long as a minute in extreme corner cases. So the motivation was more
-to limit the worst case than to tune a common case.
+Thanks for looking at it.
 
-BTW the main problem of ticket locks is that they tend to cooperate
-badly with hypervisors, they can run into bad convoying issues with
-the vcpu scheduler. So you probably should have a way to turn them
-off.
-
--Andi
--- 
-ak@linux.intel.com -- Speaking for myself only.
+-Tony
