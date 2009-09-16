@@ -1,185 +1,196 @@
-From: Tejun Heo <teheo@suse.de>
-Date: Wed, 30 Sep 2009 01:24:14 +0000
-Subject: [PATCH REPOST 3/5] ia64: allocate percpu area for cpu0 like percpu
-Message-Id: <4AC2B33E.6000902@suse.de>
+From: Tim Abbott <tabbott@ksplice.com>
+Date: Wed, 16 Sep 2009 16:42:44 +0000
+Subject: [PATCH v2 3/3] ia64: Clean up linker script using standard macros.
+Message-Id: <1253119364-19359-4-git-send-email-tabbott@ksplice.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1253682382-24740-1-git-send-email-tj@kernel.org>
-In-Reply-To: <1253682382-24740-1-git-send-email-tj@kernel.org>
+References: <1253119364-19359-1-git-send-email-tabbott@ksplice.com>
+In-Reply-To: <1253119364-19359-1-git-send-email-tabbott@ksplice.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>, Christoph Lameter <cl@linux-foundation.org>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-kernel@vger.kernel.org, Sam Ravnborg <sam@ravnborg.org>, Nelson Elhage <nelhage@ksplice.com>
 
-cpu0 used special percpu area reserved by the linker, __cpu0_per_cpu,
-which is set up early in boot by head.S.  However, this doesn't
-guarantee that the area will be on the same node as cpu0 and the
-percpu area for cpu0 ends up very far away from percpu areas for other
-cpus which cause problems for congruent percpu allocator.
+From: Nelson Elhage <nelhage@ksplice.com>
 
-This patch makes percpu area initialization allocate percpu area for
-cpu0 like any other cpus and copy it from __cpu0_per_cpu which now
-resides in the __init area.  This means that for cpu0, percpu area is
-first setup at __cpu0_per_cpu early by head.S and then moved to an
-area in the linear mapping during memory initialization and it's not
-allowed to take a pointer to percpu variables between head.S and
-memory initialization.
+Aside from using fewer output sections and moving some data around,
+the main side effect of this change is changing the alignment of some
+sections. In particular:
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
+* cachline-aligned and read_mostly data are now aligned to
+  SMP_CACHE_BYTES. (Previously, they were laid out consecutively after
+  a PAGE_SIZE alignment)
+* .init.ramfs is now page-aligned, per the INIT_RAM_FS
+  macro. (Previously it had no explicit alignment).
+
+Signed-off-by: Nelson Elhage <nelhage@ksplice.com>
 Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org
 ---
-Tony Luck didn't receive this one and couldn't find it in archives
-either.  Repost.  Unchanged from the original posting.
-
- arch/ia64/kernel/vmlinux.lds.S |   11 +++++----
- arch/ia64/mm/contig.c          |   47 +++++++++++++++++++++++++--------------
- arch/ia64/mm/discontig.c       |   35 ++++++++++++++++++++---------
- 3 files changed, 60 insertions(+), 33 deletions(-)
+ arch/ia64/kernel/vmlinux.lds.S |  106 ++++------------------------------------
+ 1 files changed, 10 insertions(+), 96 deletions(-)
 
 diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 0a0c77b..1295ba3 100644
+index 7976719..f289927 100644
 --- a/arch/ia64/kernel/vmlinux.lds.S
 +++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -166,6 +166,12 @@ SECTIONS
+@@ -64,14 +64,7 @@ SECTIONS
+   NOTES :code :note		/* put .notes in text and mark in PT_NOTE  */
+   code_continues : {} :code	/* switch back to regular program...  */
+ 
+-  /* Exception table */
+-  . = ALIGN(16);
+-  __ex_table : AT(ADDR(__ex_table) - LOAD_OFFSET)
+-	{
+-	  __start___ex_table = .;
+-	  *(__ex_table)
+-	  __stop___ex_table = .;
+-	}
++  EXCEPTION_TABLE(16)
+ 
+   /* MCA table */
+   . = ALIGN(16);
+@@ -113,38 +106,9 @@ SECTIONS
+ 
+   . = ALIGN(PAGE_SIZE);
+   __init_begin = .;
+-  .init.text : AT(ADDR(.init.text) - LOAD_OFFSET)
+-	{
+-	  _sinittext = .;
+-	  INIT_TEXT
+-	  _einittext = .;
+-	}
+ 
+-  .init.data : AT(ADDR(.init.data) - LOAD_OFFSET)
+-	{ INIT_DATA }
+-
+-#ifdef CONFIG_BLK_DEV_INITRD
+-  .init.ramfs : AT(ADDR(.init.ramfs) - LOAD_OFFSET)
+-	{
+-	  __initramfs_start = .;
+-	  *(.init.ramfs)
+-	  __initramfs_end = .;
+-	}
+-#endif
+-
+-   . = ALIGN(16);
+-  .init.setup : AT(ADDR(.init.setup) - LOAD_OFFSET)
+-        {
+-	  __setup_start = .;
+-	  *(.init.setup)
+-	  __setup_end = .;
+-	}
+-  .initcall.init : AT(ADDR(.initcall.init) - LOAD_OFFSET)
+-	{
+-	  __initcall_start = .;
+-	INITCALLS
+-	  __initcall_end = .;
+-	}
++  INIT_TEXT_SECTION(PAGE_SIZE)
++  INIT_DATA_SECTION(16)
+ 
+   .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
+ 	{
+@@ -202,22 +166,9 @@ SECTIONS
  	}
  #endif
-
-+#ifdef	CONFIG_SMP
-+  . = ALIGN(PERCPU_PAGE_SIZE);
-+  __cpu0_per_cpu = .;
-+  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
-+#endif
-+
+ 
+-  . = ALIGN(8);
+-   __con_initcall_start = .;
+-  .con_initcall.init : AT(ADDR(.con_initcall.init) - LOAD_OFFSET)
+-	{ *(.con_initcall.init) }
+-  __con_initcall_end = .;
+-  __security_initcall_start = .;
+-  .security_initcall.init : AT(ADDR(.security_initcall.init) - LOAD_OFFSET)
+-	{ *(.security_initcall.init) }
+-  __security_initcall_end = .;
    . = ALIGN(PAGE_SIZE);
    __init_end = .;
-
-@@ -198,11 +204,6 @@ SECTIONS
-   data : { } :data
-   .data : AT(ADDR(.data) - LOAD_OFFSET)
- 	{
--#ifdef	CONFIG_SMP
--  . = ALIGN(PERCPU_PAGE_SIZE);
--		__cpu0_per_cpu = .;
--  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
--#endif
- 		INIT_TASK_DATA(PAGE_SIZE)
- 		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
- 		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
-diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 1341437..351da0a 100644
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -154,36 +154,49 @@ static void *cpu_data;
- void * __cpuinit
- per_cpu_init (void)
- {
--	int cpu;
--	static int first_time=1;
-+	static bool first_time = true;
-+	void *cpu0_data = __cpu0_per_cpu;
-+	unsigned int cpu;
-+
-+	if (!first_time)
-+		goto skip;
-+	first_time = false;
-
- 	/*
- 	 * get_free_pages() cannot be used before cpu_init() done.  BSP
- 	 * allocates "NR_CPUS" pages for all CPUs to avoid that AP calls
- 	 * get_zeroed_page().
- 	 */
--	if (first_time) {
--		void *cpu0_data = __cpu0_per_cpu;
-+	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-+		void *src = cpu = 0 ? cpu0_data : __phys_per_cpu_start;
-
--		first_time=0;
-+		memcpy(cpu_data, src, __per_cpu_end - __per_cpu_start);
-+		__per_cpu_offset[cpu] = (char *)cpu_data - __per_cpu_start;
-+		per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
-
--		__per_cpu_offset[0] = (char *) cpu0_data - __per_cpu_start;
--		per_cpu(local_per_cpu_offset, 0) = __per_cpu_offset[0];
-+		/*
-+		 * percpu area for cpu0 is moved from the __init area
-+		 * which is setup by head.S and used till this point.
-+		 * Update ar.k3.  This move is ensures that percpu
-+		 * area for cpu0 is on the correct node and its
-+		 * virtual address isn't insanely far from other
-+		 * percpu areas which is important for congruent
-+		 * percpu allocator.
-+		 */
-+		if (cpu = 0)
-+			ia64_set_kr(IA64_KR_PER_CPU_DATA, __pa(cpu_data) -
-+				    (unsigned long)__per_cpu_start);
-
--		for (cpu = 1; cpu < NR_CPUS; cpu++) {
--			memcpy(cpu_data, __phys_per_cpu_start, __per_cpu_end - __per_cpu_start);
--			__per_cpu_offset[cpu] = (char *) cpu_data - __per_cpu_start;
--			cpu_data += PERCPU_PAGE_SIZE;
--			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
--		}
-+		cpu_data += PERCPU_PAGE_SIZE;
- 	}
-+skip:
- 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
- }
-
- static inline void
- alloc_per_cpu_data(void)
- {
--	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS-1,
-+	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
- 				   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
- }
- #else
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 9f24b3c..200282b 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -143,17 +143,30 @@ static void *per_cpu_node_setup(void *cpu_data, int node)
- 	int cpu;
-
- 	for_each_possible_early_cpu(cpu) {
--		if (cpu = 0) {
--			void *cpu0_data = __cpu0_per_cpu;
--			__per_cpu_offset[cpu] = (char*)cpu0_data -
--				__per_cpu_start;
--		} else if (node = node_cpuid[cpu].nid) {
--			memcpy(__va(cpu_data), __phys_per_cpu_start,
--			       __per_cpu_end - __per_cpu_start);
--			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
--				__per_cpu_start;
--			cpu_data += PERCPU_PAGE_SIZE;
--		}
-+		void *src = cpu = 0 ? __cpu0_per_cpu : __phys_per_cpu_start;
-+
-+		if (node != node_cpuid[cpu].nid)
-+			continue;
-+
-+		memcpy(__va(cpu_data), src, __per_cpu_end - __per_cpu_start);
-+		__per_cpu_offset[cpu] = (char *)__va(cpu_data) -
-+			__per_cpu_start;
-+
-+		/*
-+		 * percpu area for cpu0 is moved from the __init area
-+		 * which is setup by head.S and used till this point.
-+		 * Update ar.k3.  This move is ensures that percpu
-+		 * area for cpu0 is on the correct node and its
-+		 * virtual address isn't insanely far from other
-+		 * percpu areas which is important for congruent
-+		 * percpu allocator.
-+		 */
-+		if (cpu = 0)
-+			ia64_set_kr(IA64_KR_PER_CPU_DATA,
-+				    (unsigned long)cpu_data -
-+				    (unsigned long)__per_cpu_start);
-+
-+		cpu_data += PERCPU_PAGE_SIZE;
- 	}
+ 
+-  /* The initial task and kernel stack */
+-  .data.init_task : AT(ADDR(.data.init_task) - LOAD_OFFSET)
+-	{ *(.data.init_task) }
+-
+   .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET)
+         {
+ 	PAGE_ALIGNED_DATA(PAGE_SIZE)
+@@ -236,12 +187,6 @@ SECTIONS
+   				 * kernel data
+ 				 */
+ 
+-  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
+-        { *(.data.read_mostly) }
+-
+-  .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
+-        { *(.data.cacheline_aligned) }
+-
+   /* Per-cpu data: */
+   . = ALIGN(PERCPU_PAGE_SIZE);
+   PERCPU_VADDR(PERCPU_ADDR, :percpu)
+@@ -258,6 +203,9 @@ SECTIONS
+ 		__cpu0_per_cpu = .;
+   . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
  #endif
- 	return cpu_data;
++		INIT_TASK_DATA(PAGE_SIZE)
++		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
++		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
+ 		DATA_DATA
+ 		*(.data1)
+ 		*(.gnu.linkonce.d*)
+@@ -274,49 +222,15 @@ SECTIONS
+   .sdata : AT(ADDR(.sdata) - LOAD_OFFSET)
+ 	{ *(.sdata) *(.sdata1) *(.srdata) }
+   _edata  =  .;
+-  __bss_start = .;
+-  .sbss : AT(ADDR(.sbss) - LOAD_OFFSET)
+-	{ *(.sbss) *(.scommon) }
+-  .bss : AT(ADDR(.bss) - LOAD_OFFSET)
+-	{ *(.bss) *(COMMON) }
+-  __bss_stop = .;
++
++  BSS_SECTION(0, 0, 0)
+ 
+   _end = .;
+ 
+   code : { } :code
+-  /* Stabs debugging sections.  */
+-  .stab 0 : { *(.stab) }
+-  .stabstr 0 : { *(.stabstr) }
+-  .stab.excl 0 : { *(.stab.excl) }
+-  .stab.exclstr 0 : { *(.stab.exclstr) }
+-  .stab.index 0 : { *(.stab.index) }
+-  .stab.indexstr 0 : { *(.stab.indexstr) }
+-  /* DWARF debug sections.
+-     Symbols in the DWARF debugging sections are relative to the beginning
+-     of the section so we begin them at 0.  */
+-  /* DWARF 1 */
+-  .debug          0 : { *(.debug) }
+-  .line           0 : { *(.line) }
+-  /* GNU DWARF 1 extensions */
+-  .debug_srcinfo  0 : { *(.debug_srcinfo) }
+-  .debug_sfnames  0 : { *(.debug_sfnames) }
+-  /* DWARF 1.1 and DWARF 2 */
+-  .debug_aranges  0 : { *(.debug_aranges) }
+-  .debug_pubnames 0 : { *(.debug_pubnames) }
+-  /* DWARF 2 */
+-  .debug_info     0 : { *(.debug_info) }
+-  .debug_abbrev   0 : { *(.debug_abbrev) }
+-  .debug_line     0 : { *(.debug_line) }
+-  .debug_frame    0 : { *(.debug_frame) }
+-  .debug_str      0 : { *(.debug_str) }
+-  .debug_loc      0 : { *(.debug_loc) }
+-  .debug_macinfo  0 : { *(.debug_macinfo) }
+-  /* SGI/MIPS DWARF 2 extensions */
+-  .debug_weaknames 0 : { *(.debug_weaknames) }
+-  .debug_funcnames 0 : { *(.debug_funcnames) }
+-  .debug_typenames 0 : { *(.debug_typenames) }
+-  .debug_varnames  0 : { *(.debug_varnames) }
+ 
++  STABS_DEBUG
++  DWARF_DEBUG
+   /* Default discards */
+   DISCARDS
+ }
 -- 
-1.6.4.2
+1.6.3.3
 
