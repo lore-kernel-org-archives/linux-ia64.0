@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 02 Sep 2009 17:28:23 +0000
+Date: Thu, 17 Sep 2009 17:11:52 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <4a9eab37542339bc0@agluck-desktop.sc.intel.com>
+Message-Id: <4ab26dd826123a52e4@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -16,19 +16,288 @@ please pull from:
 
 	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-This will update the files shown below.
+This will update the files shown below.  My version of git couldn't manage an
+auto-merge for arch/ia64/kernel/vmllinux.lds.S (overlapping changes in replacing
+big pieces of original with macro calls to generic code).  The resolution is
+relatively obvious, but just to be sure I've appended a copy of what the merged
+version of this file should loook like).
 
 Thanks!
 
 -Tony
 
- arch/ia64/kernel/dma-mapping.c |    4 +++-
- arch/ia64/lib/ip_fast_csum.S   |    8 +++++---
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ arch/ia64/include/asm/mca.h        |    2 +
+ arch/ia64/kernel/crash.c           |   83 ++++++++++++++++++--------
+ arch/ia64/kernel/head.S            |    6 +-
+ arch/ia64/kernel/machine_kexec.c   |   15 +++++
+ arch/ia64/kernel/mca.c             |   15 ++++-
+ arch/ia64/kernel/mca_asm.S         |   47 +++++++++++++++
+ arch/ia64/kernel/relocate_kernel.S |    2 +-
+ arch/ia64/kernel/vmlinux.lds.S     |  115 ++++-------------------------------
+ arch/ia64/sn/pci/pcibr/pcibr_ate.c |    2 +
+ drivers/char/mbcs.c                |    5 +-
+ drivers/misc/sgi-xp/xpc_sn2.c      |   40 +++++++------
+ drivers/serial/ioc4_serial.c       |    2 +-
+ 12 files changed, 179 insertions(+), 155 deletions(-)
 
-Jiri Bohac (1):
-      [IA64] fix csum_ipv6_magic()
+Hidetoshi Seto (7):
+      [IA64] kdump: Mask MCA/INIT on frozen cpus
+      [IA64] kexec: Make INIT safe while transition to
+      [IA64] kexec: Unregister MCA handler before kexec
+      [IA64] kdump: Don't return APs to SAL from kdump
+      [IA64] kdump: Mask INIT first in panic-kdump path
+      [IA64] kdump: Try INIT regardless of
+      [IA64] kdump: Short path to freeze CPUs
 
-Tony Luck (1):
-      [IA64] Fix warning in dma-mapping.c
+Jiri Slaby (1):
+      [IA64] pci_br, fix infinite loop in find_free_ate()
 
+Nelson Elhage (2):
+      [IA64] Use standard macros for page-aligned data.
+      [IA64] Clean up linker script using standard macros.
+
+Randy Dunlap (3):
+      [IA64] mbcs: fix printk format warnings
+      [IA64] ioc4_serial: fix printk format warnings
+      [IA64] sgi-xp: fix printk format warnings
+
+Tim Abbott (1):
+      [IA64] Use .ref.text, not .text.init for start_ap.
+
+=== after merging arch/ia64/kernel/vmlinux.lds.S ==
+#include <asm/cache.h>
+#include <asm/ptrace.h>
+#include <asm/system.h>
+#include <asm/pgtable.h>
+
+#include <asm-generic/vmlinux.lds.h>
+
+#define IVT_TEXT							\
+		VMLINUX_SYMBOL(__start_ivt_text) = .;			\
+		*(.text.ivt)						\
+		VMLINUX_SYMBOL(__end_ivt_text) = .;
+
+OUTPUT_FORMAT("elf64-ia64-little")
+OUTPUT_ARCH(ia64)
+ENTRY(phys_start)
+jiffies = jiffies_64;
+PHDRS {
+  code   PT_LOAD;
+  percpu PT_LOAD;
+  data   PT_LOAD;
+  note   PT_NOTE;
+  unwind 0x70000001; /* PT_IA_64_UNWIND, but ld doesn't match the name */
+}
+SECTIONS
+{
+  /* unwind exit sections must be discarded before the rest of the
+     sections get included. */
+  /DISCARD/ : {
+	*(.IA_64.unwind.exit.text)
+	*(.IA_64.unwind_info.exit.text)
+	*(.comment)
+	*(.note)
+  }
+
+  v = PAGE_OFFSET;	/* this symbol is here to make debugging easier... */
+  phys_start = _start - LOAD_OFFSET;
+
+  code : { } :code
+  . = KERNEL_START;
+
+  _text = .;
+  _stext = .;
+
+  .text : AT(ADDR(.text) - LOAD_OFFSET)
+    {
+	IVT_TEXT
+	TEXT_TEXT
+	SCHED_TEXT
+	LOCK_TEXT
+	KPROBES_TEXT
+	*(.gnu.linkonce.t*)
+    }
+  .text2 : AT(ADDR(.text2) - LOAD_OFFSET)
+	{ *(.text2) }
+#ifdef CONFIG_SMP
+  .text.lock : AT(ADDR(.text.lock) - LOAD_OFFSET)
+	{ *(.text.lock) }
+#endif
+  _etext = .;
+
+  /* Read-only data */
+
+  NOTES :code :note		/* put .notes in text and mark in PT_NOTE  */
+  code_continues : {} :code	/* switch back to regular program...  */
+
+  EXCEPTION_TABLE(16)
+
+  /* MCA table */
+  . = ALIGN(16);
+  __mca_table : AT(ADDR(__mca_table) - LOAD_OFFSET)
+	{
+	  __start___mca_table = .;
+	  *(__mca_table)
+	  __stop___mca_table = .;
+	}
+
+  .data.patch.phys_stack_reg : AT(ADDR(.data.patch.phys_stack_reg) - LOAD_OFFSET)
+	{
+	  __start___phys_stack_reg_patchlist = .;
+	  *(.data.patch.phys_stack_reg)
+	  __end___phys_stack_reg_patchlist = .;
+	}
+
+  /* Global data */
+  _data = .;
+
+  /* Unwind info & table: */
+  . = ALIGN(8);
+  .IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - LOAD_OFFSET)
+	{ *(.IA_64.unwind_info*) }
+  .IA_64.unwind : AT(ADDR(.IA_64.unwind) - LOAD_OFFSET)
+	{
+	  __start_unwind = .;
+	  *(.IA_64.unwind*)
+	  __end_unwind = .;
+	} :code :unwind
+  code_continues2 : {} : code
+
+  RODATA
+
+  .opd : AT(ADDR(.opd) - LOAD_OFFSET)
+	{ *(.opd) }
+
+  /* Initialization code and data: */
+
+  . = ALIGN(PAGE_SIZE);
+  __init_begin = .;
+
+  INIT_TEXT_SECTION(PAGE_SIZE)
+  INIT_DATA_SECTION(16)
+
+  .data.patch.vtop : AT(ADDR(.data.patch.vtop) - LOAD_OFFSET)
+	{
+	  __start___vtop_patchlist = .;
+	  *(.data.patch.vtop)
+	  __end___vtop_patchlist = .;
+	}
+
+  .data.patch.rse : AT(ADDR(.data.patch.rse) - LOAD_OFFSET)
+	{
+	  __start___rse_patchlist = .;
+	  *(.data.patch.rse)
+	  __end___rse_patchlist = .;
+	}
+
+  .data.patch.mckinley_e9 : AT(ADDR(.data.patch.mckinley_e9) - LOAD_OFFSET)
+	{
+	  __start___mckinley_e9_bundles = .;
+	  *(.data.patch.mckinley_e9)
+	  __end___mckinley_e9_bundles = .;
+	}
+
+#if defined(CONFIG_PARAVIRT)
+  . = ALIGN(16);
+  .paravirt_bundles : AT(ADDR(.paravirt_bundles) - LOAD_OFFSET)
+	{
+	  __start_paravirt_bundles = .;
+          *(.paravirt_bundles)
+	  __stop_paravirt_bundles = .;
+	}
+  . = ALIGN(16);
+  .paravirt_insts : AT(ADDR(.paravirt_insts) - LOAD_OFFSET)
+	{
+	  __start_paravirt_insts = .;
+          *(.paravirt_insts)
+	  __stop_paravirt_insts = .;
+	}
+  . = ALIGN(16);
+  .paravirt_branches : AT(ADDR(.paravirt_branches) - LOAD_OFFSET)
+	{
+	  __start_paravirt_branches = .;
+	  *(.paravirt_branches)
+	  __stop_paravirt_branches = .;
+	}
+#endif
+
+#if defined(CONFIG_IA64_GENERIC)
+  /* Machine Vector */
+  . = ALIGN(16);
+  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
+	{
+	  machvec_start = .;
+	  *(.machvec)
+	  machvec_end = .;
+	}
+#endif
+
+  . = ALIGN(PAGE_SIZE);
+  __init_end = .;
+
+  .data.page_aligned : AT(ADDR(.data.page_aligned) - LOAD_OFFSET)
+        {
+	PAGE_ALIGNED_DATA(PAGE_SIZE)
+	  . = ALIGN(PAGE_SIZE);
+	  __start_gate_section = .;
+	  *(.data.gate)
+	  __stop_gate_section = .;
+#ifdef CONFIG_XEN
+	  . = ALIGN(PAGE_SIZE);
+	  __xen_start_gate_section = .;
+	  *(.data.gate.xen)
+	  __xen_stop_gate_section = .;
+#endif
+	}
+  . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose
+  				 * kernel data
+				 */
+
+  /* Per-cpu data: */
+  . = ALIGN(PERCPU_PAGE_SIZE);
+  PERCPU_VADDR(PERCPU_ADDR, :percpu)
+  __phys_per_cpu_start = __per_cpu_load;
+  . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits
+  						 * into percpu page size
+						 */
+
+  data : { } :data
+  .data : AT(ADDR(.data) - LOAD_OFFSET)
+	{
+#ifdef	CONFIG_SMP
+  . = ALIGN(PERCPU_PAGE_SIZE);
+		__cpu0_per_cpu = .;
+  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
+#endif
+		INIT_TASK_DATA(PAGE_SIZE)
+		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
+		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
+		DATA_DATA
+		*(.data1)
+		*(.gnu.linkonce.d*)
+		CONSTRUCTORS
+	}
+
+  . = ALIGN(16);	/* gp must be 16-byte aligned for exc. table */
+  .got : AT(ADDR(.got) - LOAD_OFFSET)
+	{ *(.got.plt) *(.got) }
+  __gp = ADDR(.got) + 0x200000;
+  /* We want the small data sections together, so single-instruction offsets
+     can access them all, and initialized data all before uninitialized, so
+     we can shorten the on-disk segment size.  */
+  .sdata : AT(ADDR(.sdata) - LOAD_OFFSET)
+	{ *(.sdata) *(.sdata1) *(.srdata) }
+  _edata  =  .;
+
+  BSS_SECTION(0, 0, 0)
+
+  _end = .;
+
+  code : { } :code
+
+  STABS_DEBUG
+  DWARF_DEBUG
+
+  /* Default discards */
+  DISCARDS
+}
