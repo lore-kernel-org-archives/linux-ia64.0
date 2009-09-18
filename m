@@ -1,134 +1,71 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Wed, 23 Sep 2009 05:06:19 +0000
-Subject: [PATCH 2/5] ia64: initialize cpu maps early
-Message-Id: <1253682382-24740-3-git-send-email-tj@kernel.org>
+From: akpm@linux-foundation.org
+Date: Fri, 18 Sep 2009 19:48:12 +0000
+Subject: [patch 1/1] ia64: use printk_once
+Message-Id: <200909181948.n8IJmCOT016578@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1253682382-24740-1-git-send-email-tj@kernel.org>
-In-Reply-To: <1253682382-24740-1-git-send-email-tj@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>, Christoph Lameter <cl@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-All information necessary to initialize cpu possible and present maps
-are available once early_acpi_boot_init() is complete.  Reorganize
-setup_arch() and acpi init functions such that,
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
 
-* CPU information is printed after LAPIC entries are parsed in
-  early_acpi_boot_init().
-
-* smp_build_cpu_map() is called by setup_arch() instead of acpi
-  functions.
-
-* smp_build_cpu_map() is called once all CPU related information is
-  available before memory is initialized.
-
-This is primarily to allow find_memory() to use cpu maps but is also a
-general cleanup.  Please note that with this change, the somewhat
-ad-hoc early_cpu_possible_map defined and used for NUMA configurations
-is probably unnecessary.  Something to clean up another day.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
+Signed-off-by: Marcin Slusarz <marcin.slusarz@gmail.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64 <linux-ia64@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
- arch/ia64/kernel/acpi.c  |   33 +++++++++++++++------------------
- arch/ia64/kernel/setup.c |   11 +++++------
- 2 files changed, 20 insertions(+), 24 deletions(-)
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index baec6f0..40574ae 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -702,11 +702,23 @@ int __init early_acpi_boot_init(void)
- 		printk(KERN_ERR PREFIX
- 		       "Error parsing MADT - no LAPIC entries\n");
+ arch/ia64/kernel/unaligned.c    |    6 ++----
+ arch/ia64/sn/kernel/io_common.c |    8 ++------
+ 2 files changed, 4 insertions(+), 10 deletions(-)
+
+diff -puN arch/ia64/kernel/unaligned.c~ia64-use-printk_once arch/ia64/kernel/unaligned.c
+--- a/arch/ia64/kernel/unaligned.c~ia64-use-printk_once
++++ a/arch/ia64/kernel/unaligned.c
+@@ -60,7 +60,6 @@ dump (const char *str, void *vp, size_t 
+  */
+ int no_unaligned_warning;
+ int unaligned_dump_stack;
+-static int noprint_warning;
  
-+#ifdef CONFIG_SMP
-+	if (available_cpus = 0) {
-+		printk(KERN_INFO "ACPI: Found 0 CPUS; assuming 1\n");
-+		printk(KERN_INFO "CPU 0 (0x%04x)", hard_smp_processor_id());
-+		smp_boot_data.cpu_phys_id[available_cpus] +		    hard_smp_processor_id();
-+		available_cpus = 1;	/* We've got at least one of these, no? */
-+	}
-+	smp_boot_data.cpu_count = available_cpus;
-+#endif
-+	/* Make boot-up look pretty */
-+	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus,
-+	       total_cpus);
-+
- 	return 0;
- }
+ /*
+  * For M-unit:
+@@ -1357,9 +1356,8 @@ ia64_handle_unaligned (unsigned long ifa
+ 			/* watch for command names containing %s */
+ 			printk(KERN_WARNING "%s", buf);
+ 		} else {
+-			if (no_unaligned_warning && !noprint_warning) {
+-				noprint_warning = 1;
+-				printk(KERN_WARNING "%s(%d) encountered an "
++			if (no_unaligned_warning) {
++				printk_once(KERN_WARNING "%s(%d) encountered an "
+ 				       "unaligned exception which required\n"
+ 				       "kernel assistance, which degrades "
+ 				       "the performance of the application.\n"
+diff -puN arch/ia64/sn/kernel/io_common.c~ia64-use-printk_once arch/ia64/sn/kernel/io_common.c
+--- a/arch/ia64/sn/kernel/io_common.c~ia64-use-printk_once
++++ a/arch/ia64/sn/kernel/io_common.c
+@@ -119,7 +119,6 @@ sn_pcidev_info_get(struct pci_dev *dev)
+  * Additionally note that the struct sn_flush_device_war also has to be
+  * removed from arch/ia64/sn/include/xtalk/hubdev.h
+  */
+-static u8 war_implemented = 0;
  
--
--
- int __init acpi_boot_init(void)
- {
+ static s64 sn_device_fixup_war(u64 nasid, u64 widget, int device,
+ 			       struct sn_flush_device_common *common)
+@@ -128,11 +127,8 @@ static s64 sn_device_fixup_war(u64 nasid
+ 	struct sn_flush_device_war *dev_entry;
+ 	struct ia64_sal_retval isrv = {0,0,0,0};
  
-@@ -769,18 +781,8 @@ int __init acpi_boot_init(void)
- 	if (acpi_table_parse(ACPI_SIG_FADT, acpi_parse_fadt))
- 		printk(KERN_ERR PREFIX "Can't find FADT\n");
- 
-+#ifdef CONFIG_ACPI_NUMA
- #ifdef CONFIG_SMP
--	if (available_cpus = 0) {
--		printk(KERN_INFO "ACPI: Found 0 CPUS; assuming 1\n");
--		printk(KERN_INFO "CPU 0 (0x%04x)", hard_smp_processor_id());
--		smp_boot_data.cpu_phys_id[available_cpus] -		    hard_smp_processor_id();
--		available_cpus = 1;	/* We've got at least one of these, no? */
+-	if (!war_implemented) {
+-		printk(KERN_WARNING "PROM version < 4.50 -- implementing old "
+-		       "PROM flush WAR\n");
+-		war_implemented = 1;
 -	}
--	smp_boot_data.cpu_count = available_cpus;
--
--	smp_build_cpu_map();
--# ifdef CONFIG_ACPI_NUMA
- 	if (srat_num_cpus = 0) {
- 		int cpu, i = 1;
- 		for (cpu = 0; cpu < smp_boot_data.cpu_count; cpu++)
-@@ -789,14 +791,9 @@ int __init acpi_boot_init(void)
- 				node_cpuid[i++].phys_id  				    smp_boot_data.cpu_phys_id[cpu];
- 	}
--# endif
- #endif
--#ifdef CONFIG_ACPI_NUMA
- 	build_cpu_to_node_map();
- #endif
--	/* Make boot-up look pretty */
--	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus,
--	       total_cpus);
- 	return 0;
- }
++	printk_once(KERN_WARNING
++		"PROM version < 4.50 -- implementing old PROM flush WAR\n");
  
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 1de86c9..5d77c1e 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -566,19 +566,18 @@ setup_arch (char **cmdline_p)
- 	early_acpi_boot_init();
- # ifdef CONFIG_ACPI_NUMA
- 	acpi_numa_init();
--#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+#  ifdef CONFIG_ACPI_HOTPLUG_CPU
- 	prefill_possible_map();
--#endif
-+#  endif
- 	per_cpu_scan_finalize((cpus_weight(early_cpu_possible_map) = 0 ?
- 		32 : cpus_weight(early_cpu_possible_map)),
- 		additional_cpus > 0 ? additional_cpus : 0);
- # endif
--#else
--# ifdef CONFIG_SMP
--	smp_build_cpu_map();	/* happens, e.g., with the Ski simulator */
--# endif
- #endif /* CONFIG_APCI_BOOT */
- 
-+#ifdef CONFIG_SMP
-+	smp_build_cpu_map();
-+#endif
- 	find_memory();
- 
- 	/* process SAL system table: */
--- 
-1.6.4.2
-
+ 	war_list = kzalloc(DEV_PER_WIDGET * sizeof(*war_list), GFP_KERNEL);
+ 	BUG_ON(!war_list);
+_
