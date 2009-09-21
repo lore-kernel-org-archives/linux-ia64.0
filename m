@@ -1,26 +1,35 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Wed, 23 Sep 2009 11:22:55 +0000
-Subject: Re: [PATCH 5/5] percpu: kill legacy percpu allocator
-Message-Id: <200909232040.55878.rusty@rustcorp.com.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 21 Sep 2009 08:31:25 +0000
+Subject: Re: [PATCH] remove duplicate asm/mman.h files
+Message-Id: <200909211031.25369.arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1253682382-24740-1-git-send-email-tj@kernel.org> <1253682382-24740-6-git-send-email-tj@kernel.org>
-In-Reply-To: <1253682382-24740-6-git-send-email-tj@kernel.org>
+References: <cover.1251197514.git.ebmunson@us.ibm.com> <200909181848.42192.arnd@arndb.de> <alpine.DEB.1.00.0909181236190.27556@chino.kir.corp.google.com>
+In-Reply-To: <alpine.DEB.1.00.0909181236190.27556@chino.kir.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tejun Heo <tj@kernel.org>
-Cc: Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Christoph Lameter <cl@linux-foundation.org>, linux-kernel@vger.kernel.org
+To: David Rientjes <rientjes@google.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>, ebmunson@us.ibm.com, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-man@vger.kernel.org, mtk.manpages@gmail.com, randy.dunlap@oracle.com, rth@twiddle.net, ink@jurassic.park.msu.ru, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Wed, 23 Sep 2009 02:36:22 pm Tejun Heo wrote:
-> With ia64 converted, there's no arch left which still uses legacy
-> percpu allocator.  Kill it.
+On Friday 18 September 2009, David Rientjes wrote:
+> On Fri, 18 Sep 2009, Arnd Bergmann wrote:
+>
+> > -#define MCL_CURRENT	1		/* lock all current mappings */
+> > -#define MCL_FUTURE	2		/* lock all future mappings */
+> > +#define MAP_GROWSUP	0x0200		/* register stack-like segment */
+> >  
+> >  #ifdef __KERNEL__
+> >  #ifndef __ASSEMBLY__
 > 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: Rusty Russell <rusty@rustcorp.com.au>
-> Cc: Christoph Lameter <cl@linux-foundation.org>
+> ia64 doesn't use MAP_GROWSUP, so it's probably not necessary to carry it 
+> along with your cleanup.
 
-Delightedly-acked-by: Rusty Russell <rusty@rustcorp.com.au>
+ia64 is the only architecture defining it, nobody uses it in the kernel.
+If the ia64 maintainers want to remove it in a separate patch, that
+would probably be a good idea.
 
-Thanks!
-Rusty.
+I tried not to change the ABI in any way in my patch, and there is
+a theoretical possibility that some user space program on ia64 currently
+depends on that definition.
+
+	Arnd <><
