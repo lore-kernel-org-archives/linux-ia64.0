@@ -1,247 +1,114 @@
 From: Tejun Heo <tj@kernel.org>
-Date: Tue, 22 Sep 2009 07:40:13 +0000
-Subject: [PATCH 3/4] ia64: convert to dynamic percpu allocator
-Message-Id: <1253605214-23210-4-git-send-email-tj@kernel.org>
+Date: Wed, 23 Sep 2009 05:06:18 +0000
+Subject: [PATCH 1/5] ia64: don't alias VMALLOC_END to vmalloc_end
+Message-Id: <1253682382-24740-2-git-send-email-tj@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1253605214-23210-1-git-send-email-tj@kernel.org>
-In-Reply-To: <1253605214-23210-1-git-send-email-tj@kernel.org>
+References: <1253682382-24740-1-git-send-email-tj@kernel.org>
+In-Reply-To: <1253682382-24740-1-git-send-email-tj@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>, Christoph Lameter <cl@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Christoph Lameter <cl@linux-foundation.org>
 
-Unlike other archs, ia64 reserves space for percpu areas during early
-memory initialization.  These areas occupy a contiguous region indexed
-by cpu number on contiguous memory model or are grouped by node on
-discontiguous memory model.
+If CONFIG_VIRTUAL_MEM_MAP is enabled, ia64 defines macro VMALLOC_END
+as unsigned long variable vmalloc_end which is adjusted to prepare
+room for vmemmap.  This becomes probnlematic if a local variables
+vmalloc_end is defined in some function (not very unlikely) and
+VMALLOC_END is used in the function - the function thinks its
+referencing the global VMALLOC_END value but would be referencing its
+own local vmalloc_end variable.
 
-As allocation and initialization are done by the arch code, all that
-setup_per_cpu_areas() needs to do is communicating the determined
-layout to the percpu allocator.  This patch implements
-setup_per_cpu_areas() for both contig and discontig memory models and
-drops HAVE_LEGACY_PER_CPU_AREA.
-
-Please note that for contig model, the allocation itself is modified
-only to allocate for possible cpus instead of NR_CPUS.  As dynamic
-percpu allocator can handle non-direct mapping, there's no reason to
-allocate memory for cpus which aren't possible.
+There's no reason VMALLOC_END should be a macro.  Just define it as an
+unsigned long variable if CONFIG_VIRTUAL_MEM_MAP is set to avoid nasty
+surprises.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Christoph Lameter <cl@linux-foundation.org>
 ---
- arch/ia64/Kconfig        |    3 --
- arch/ia64/kernel/setup.c |   12 ------
- arch/ia64/mm/contig.c    |   50 ++++++++++++++++++++++++---
- arch/ia64/mm/discontig.c |   85 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 130 insertions(+), 20 deletions(-)
+ arch/ia64/include/asm/meminit.h |    2 +-
+ arch/ia64/include/asm/pgtable.h |    3 +--
+ arch/ia64/mm/contig.c           |    4 ++--
+ arch/ia64/mm/discontig.c        |    4 ++--
+ arch/ia64/mm/init.c             |    4 ++--
+ 5 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 011a1cd..e624611 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -89,9 +89,6 @@ config GENERIC_TIME_VSYSCALL
- 	bool
- 	default y
+diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
+index 688a812..61c7b17 100644
+--- a/arch/ia64/include/asm/meminit.h
++++ b/arch/ia64/include/asm/meminit.h
+@@ -61,7 +61,7 @@ extern int register_active_ranges(u64 start, u64 len, int nid);
  
--config HAVE_LEGACY_PER_CPU_AREA
--	def_bool y
--
- config HAVE_SETUP_PER_CPU_AREA
- 	def_bool y
- 
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 1de86c9..42f8a18 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -856,18 +856,6 @@ identify_cpu (struct cpuinfo_ia64 *c)
- }
- 
- /*
-- * In UP configuration, setup_per_cpu_areas() is defined in
-- * include/linux/percpu.h
-- */
--#ifdef CONFIG_SMP
--void __init
--setup_per_cpu_areas (void)
--{
--	/* start_kernel() requires this... */
--}
--#endif
--
--/*
-  * Do the following calculations:
-  *
-  * 1. the max. cache line size.
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ # define LARGE_GAP	0x40000000 /* Use virtual mem map if hole is > than this */
+-  extern unsigned long vmalloc_end;
++  extern unsigned long VMALLOC_END;
+   extern struct page *vmem_map;
+   extern int find_largest_hole(u64 start, u64 end, void *arg);
+   extern int create_mem_map_page_table(u64 start, u64 end, void *arg);
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 8840a69..69bf138 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -228,8 +228,7 @@ ia64_phys_addr_valid (unsigned long addr)
+ #define VMALLOC_START		(RGN_BASE(RGN_GATE) + 0x200000000UL)
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ # define VMALLOC_END_INIT	(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
+-# define VMALLOC_END		vmalloc_end
+-  extern unsigned long vmalloc_end;
++extern unsigned long VMALLOC_END;
+ #else
+ #if defined(CONFIG_SPARSEMEM) && defined(CONFIG_SPARSEMEM_VMEMMAP)
+ /* SPARSEMEM_VMEMMAP uses half of vmalloc... */
 diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 9493bbf..c86ce4f 100644
+index 2f724d2..1341437 100644
 --- a/arch/ia64/mm/contig.c
 +++ b/arch/ia64/mm/contig.c
-@@ -163,11 +163,11 @@ per_cpu_init (void)
- 	first_time = false;
+@@ -270,8 +270,8 @@ paging_init (void)
  
- 	/*
--	 * get_free_pages() cannot be used before cpu_init() done.  BSP
--	 * allocates "NR_CPUS" pages for all CPUs to avoid that AP calls
--	 * get_zeroed_page().
-+	 * get_free_pages() cannot be used before cpu_init() done.
-+	 * BSP allocates PERCPU_PAGE_SIZE bytes for all possible CPUs
-+	 * to avoid that AP calls get_zeroed_page().
- 	 */
--	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-+	for_each_possible_cpu(cpu) {
- 		void *src = cpu = 0 ? cpu0_data : __phys_per_cpu_start;
+ 		map_size = PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
+ 			sizeof(struct page));
+-		vmalloc_end -= map_size;
+-		vmem_map = (struct page *) vmalloc_end;
++		VMALLOC_END -= map_size;
++		vmem_map = (struct page *) VMALLOC_END;
+ 		efi_memmap_walk(create_mem_map_page_table, NULL);
  
- 		memcpy(cpu_data, src, __per_cpu_end - __per_cpu_start);
-@@ -196,9 +196,49 @@ skip:
- static inline void
- alloc_per_cpu_data(void)
- {
--	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
-+	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * num_possible_cpus(),
- 				   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
- }
-+
-+/**
-+ * setup_per_cpu_areas - setup percpu areas
-+ *
-+ * Arch code has already allocated and initialized percpu areas.  All
-+ * this function has to do is to teach the determined layout to the
-+ * dynamic percpu allocator, which happens to be more complex than
-+ * creating whole new ones using helpers.
-+ */
-+void __init
-+setup_per_cpu_areas(void)
-+{
-+	struct pcpu_alloc_info *ai;
-+	struct pcpu_group_info *gi;
-+	unsigned int cpu;
-+	int rc;
-+
-+	ai = pcpu_alloc_alloc_info(1, num_possible_cpus());
-+	if (!ai)
-+		panic("failed to allocate pcpu_alloc_info");
-+	gi = &ai->groups[0];
-+
-+	/* units are assigned consecutively to possible cpus */
-+	for_each_possible_cpu(cpu)
-+		gi->cpu_map[gi->nr_units++] = cpu;
-+
-+	/* set parameters */
-+	ai->static_size		= __per_cpu_end - __per_cpu_start;
-+	ai->reserved_size	= PERCPU_MODULE_RESERVE;
-+	ai->dyn_size		= PERCPU_DYNAMIC_RESERVE;
-+	ai->unit_size		= PERCPU_PAGE_SIZE;
-+	ai->atom_size		= PAGE_SIZE;
-+	ai->alloc_size		= PERCPU_PAGE_SIZE;
-+
-+	rc = pcpu_setup_first_chunk(ai, __per_cpu_start + __per_cpu_offset[0]);
-+	if (rc)
-+		panic("failed to setup percpu area (err=%d)", rc);
-+
-+	pcpu_free_alloc_info(ai);
-+}
- #else
- #define alloc_per_cpu_data() do { } while (0)
- #endif /* CONFIG_SMP */
+ 		/*
 diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 35a61ec..69e9e91 100644
+index d85ba98..9f24b3c 100644
 --- a/arch/ia64/mm/discontig.c
 +++ b/arch/ia64/mm/discontig.c
-@@ -172,6 +172,91 @@ static void *per_cpu_node_setup(void *cpu_data, int node)
- 	return cpu_data;
- }
+@@ -666,9 +666,9 @@ void __init paging_init(void)
+ 	sparse_init();
  
-+#ifdef CONFIG_SMP
-+/**
-+ * setup_per_cpu_areas - setup percpu areas
-+ *
-+ * Arch code has already allocated and initialized percpu areas.  All
-+ * this function has to do is to teach the determined layout to the
-+ * dynamic percpu allocator, which happens to be more complex than
-+ * creating whole new ones using helpers.
-+ */
-+void __init setup_per_cpu_areas(void)
-+{
-+	struct pcpu_alloc_info *ai;
-+	struct pcpu_group_info *uninitialized_var(gi);
-+	unsigned int *cpu_map;
-+	void *base;
-+	unsigned long base_offset;
-+	unsigned int cpu;
-+	ssize_t static_size, reserved_size, dyn_size;
-+	int node, prev_node, unit, nr_units, rc;
-+
-+	ai = pcpu_alloc_alloc_info(MAX_NUMNODES, nr_cpu_ids);
-+	if (!ai)
-+		panic("failed to allocate pcpu_alloc_info");
-+	cpu_map = ai->groups[0].cpu_map;
-+
-+	/* determine base */
-+	base = (void *)ULONG_MAX;
-+	for_each_possible_cpu(cpu)
-+		base = min(base,
-+			   (void *)(__per_cpu_offset[cpu] + __per_cpu_start));
-+	base_offset = (void *)__per_cpu_start - base;
-+
-+	/* build cpu_map, units are grouped by node */
-+	unit = 0;
-+	for_each_node(node)
-+		for_each_possible_cpu(cpu)
-+			if (node = node_cpuid[cpu].nid)
-+				cpu_map[unit++] = cpu;
-+	nr_units = unit;
-+
-+	/* set basic parameters */
-+	static_size = __per_cpu_end - __per_cpu_start;
-+	reserved_size = PERCPU_MODULE_RESERVE;
-+	dyn_size = PERCPU_PAGE_SIZE - static_size - reserved_size;
-+	if (dyn_size < 0)
-+		panic("percpu area overflow static=%zd reserved=%zd\n",
-+		      static_size, reserved_size);
-+
-+	ai->static_size		= static_size;
-+	ai->reserved_size	= reserved_size;
-+	ai->dyn_size		= dyn_size;
-+	ai->unit_size		= PERCPU_PAGE_SIZE;
-+	ai->atom_size		= PAGE_SIZE;
-+	ai->alloc_size		= PERCPU_PAGE_SIZE;
-+
-+	/*
-+	 * CPUs are put into groups according to node.  Walk cpu_map
-+	 * and create new groups at node boundaries.
-+	 */
-+	prev_node = -1;
-+	ai->nr_groups = 0;
-+	for (unit = 0; unit < nr_units; unit++) {
-+		cpu = cpu_map[unit];
-+		node = node_cpuid[cpu].nid;
-+
-+		if (node = prev_node) {
-+			gi->nr_units++;
-+			continue;
-+		}
-+		prev_node = node;
-+
-+		gi = &ai->groups[ai->nr_groups++];
-+		gi->nr_units		= 1;
-+		gi->base_offset		= __per_cpu_offset[cpu] + base_offset;
-+		gi->cpu_map		= &cpu_map[unit];
-+	}
-+
-+	rc = pcpu_setup_first_chunk(ai, base);
-+	if (rc)
-+		panic("failed to setup percpu area (err=%d)", rc);
-+
-+	pcpu_free_alloc_info(ai);
-+}
-+#endif
-+
- /**
-  * fill_pernode - initialize pernode data.
-  * @node: the node id.
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
++	VMALLOC_END -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
+ 		sizeof(struct page));
+-	vmem_map = (struct page *) vmalloc_end;
++	vmem_map = (struct page *) VMALLOC_END;
+ 	efi_memmap_walk(create_mem_map_page_table, NULL);
+ 	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
+ #endif
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 1d28624..f301071 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -44,8 +44,8 @@ extern void ia64_tlb_init (void);
+ unsigned long MAX_DMA_ADDRESS = PAGE_OFFSET + 0x100000000UL;
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-unsigned long vmalloc_end = VMALLOC_END_INIT;
+-EXPORT_SYMBOL(vmalloc_end);
++unsigned long VMALLOC_END = VMALLOC_END_INIT;
++EXPORT_SYMBOL(VMALLOC_END);
+ struct page *vmem_map;
+ EXPORT_SYMBOL(vmem_map);
+ #endif
 -- 
 1.6.4.2
 
