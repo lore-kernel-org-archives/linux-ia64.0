@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sun, 27 Sep 2009 05:18:41 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sun, 27 Sep 2009 05:20:32 +0000
 Subject: RE: [git pull] ia64 changes
-Message-Id: <alpine.LFD.2.01.0909262205520.3303@localhost.localdomain>
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E2DD4A5E@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -10,60 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Just for reference ... here is what gcc produces from the
+code that I submitted for spin_lock (the spin_unlock gets
+inlined as a single fetchadd4.rel):
 
+a000000100805100 <_spin_lock>:
+a000000100805100:       [MMI]       mov r2=r32;;
+a000000100805106:                   ld4 r15=[r2],4
+a00000010080510c:                   nop.i 0x0;;
+a000000100805110:       [MII]       fetchadd4.acq r14=[r2],1
+a000000100805116:                   nop.i 0x0
+a00000010080511c:                   nop.i 0x0;;
+a000000100805120:       [MIB]       mov r16=r14
+a000000100805126:                   cmp4.eq p6,p7=r15,r14
+a00000010080512c:             (p06) br.ret.dpnt.many b0
+a000000100805130:       [MII]       hint.m 0x0
+a000000100805136:                   nop.i 0x0
+a00000010080513c:                   nop.i 0x0;;
+a000000100805140:       [MMI]       nop.m 0x0
+a000000100805146:                   ld4.acq r3=[r32]
+a00000010080514c:                   nop.i 0x0;;
+a000000100805150:       [MIB]       nop.m 0x0
+a000000100805156:                   cmp4.eq p9,p8=r16,r3
+a00000010080515c:             (p08) br.cond.dptk.few a000000100805130 <_spin_lock+0x30>
+a000000100805160:       [MIB]       nop.m 0x0
+a000000100805166:                   nop.i 0x0
+a00000010080516c:                   br.ret.sptk.many b0;;
 
-On Sat, 26 Sep 2009, Luck, Tony wrote:
-> 
-> Actually the ACCESS_ONCE() macro does end up with a "ld4.acq" here (because
-> it defined with "volatile" in there, and the people that wrote the Itanium
-> ABI said that compilers must generate .acq, .rel for volatile access.
+As I said, I ran this past a h/w guru who blessed its semantics
+(while griping a little about some of the dumbness of gcc). He's
+looking into whether we can improve the contended case using
+ld4.c.nc (ia64 equivalent of mwait) to stall until the "now-serving"
+value actually changes, rather than keep peeking at it.
 
-Ahh, ok.
+I'll take a look at the performance of the 4-byte version of the lock
+to see how it stacks up.  If that doesn't come out well, I can look
+at improving the "ld4" ... "fetchadd4" cache transition issue that
+you first complained about.
 
-> However, when I ran the generated code with the .acq in here past one
-> of the Itanium h/w architects, he said that it actually wasn't needed
-> because the cmp/branch would also prevent accesses from inside the
-> protected region from leaking out.
-
-That seems to be purely an implementation (as opposed to architectural) 
-detail.
-
-But it looks like it is unlikely that we'll ever see an OoO ia64 
-implementation, so I suspect that the implementations we have are all that 
-matter.
-
-> >   This allows 32768 different CPU's.
-> 
-> And 640K of memory should be enough for anyone :-)  SGI booted with 4096
-> over a year ago ... so I'm not sure that 32768 cpus are really out of the
-> question.
-
-Well, the point is that we certainly don't support it _yet_. And if we 
-ever do more than 32k CPU's, you'll have to recompile the kernel and have 
-a 64-bit spinlock (the same way x86 does the 8/16-bit versions).
-
-No sense in pessimizing the normal case if you can avoid it.
-
-> >	unsigned short value = (*mem + 2) & ~1;
-> >
-> >	st2.rel.nta value,[mem]
-> 
-> This does suffer from the problem that you complained about for my
-> spin_lock() function ... we will first get the cache line in shared
-> mode and then have to upgrade to exclusive when we do the store ...
-
-Yes. On the other hand, the common case for the spin_unlock should be that 
-it's already dirty in the cache due to the preceding spin_lock(). So you'd 
-have lost it from the cache only if there is contention, which should 
-hopefully not be that common.
-
-On x86, we avoid it by just doing a regular r-m-w operation (not atomic), 
-which should be enough to get the "load with write intent" cache behavior. 
-Apparently, on ia64 you can do the same with:
-
-> We could perhaps make it less of an issue by using "ld.bias" to get
-> the line exclusive to begin with.
-
-Yes, sounds good.
-
-			Linus
+-Tony
