@@ -1,7 +1,7 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 28 Sep 2009 22:54:09 +0000
+Date: Mon, 28 Sep 2009 23:01:25 +0000
 Subject: RE: [git pull] ia64 changes
-Message-Id: <alpine.LFD.2.01.0909281549550.6996@localhost.localdomain>
+Message-Id: <alpine.LFD.2.01.0909281555580.6996@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -12,25 +12,16 @@ To: linux-ia64@vger.kernel.org
 
 
 
-On Mon, 28 Sep 2009, Luck, Tony wrote:
-> 
-> 	ticket = ia64_fetchadd(1, p, acq);
-> 
-> 	if (!(((ticket >> TICKET_SHIFT) ^ ticket) & ((1L << TICKET_BITS) - 1)))
-> 		return;
+On Mon, 28 Sep 2009, Linus Torvalds wrote:
+>
+> Or did I miss something?
 
-I think the above is wrong.
+Never mind, it's all fine. It just depends on what you define "unlocked" 
+to be, and "old value matches high bits is unlocked" is obviously the more 
+attractive case than the one I was thinking of ("new value matches high 
+bits"), since it makes a zero initializer be unlocked.
 
-Doesn't 'fetchadd' return the _old_ value? 
-
-If so, the "fastcase" above will not trigger in the normal case, so you'll 
-always fall down to the slowcase:
-
-> 	do {
-> 		cpu_relax();
-> 		serve = ACCESS_ONCE(*p);
-> 	} while (((serve >> TICKET_SHIFT) ^ ticket) & ((1 << TICKET_BITS) - 1));
-
-Or did I miss something?
+And it's what x86 does too. I don't know why I expected the "new value 
+is the ticket" case.
 
 		Linus
