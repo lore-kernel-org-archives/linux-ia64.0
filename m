@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 29 Sep 2009 17:53:34 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 29 Sep 2009 18:07:40 +0000
 Subject: RE: [git pull] ia64 changes
-Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E2EA3B8B@orsmsx505.amr.corp.intel.com>
+Message-Id: <alpine.LFD.2.01.0909291100560.6996@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -10,31 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> That said, the 8% slowdown sounds like a real problem. Maybe Tony's 
-> original version (perhaps with a "ld.bias" to get the initial load to try 
-> to get exclusive ownership) is worth the size expansion
 
-The 8%/16% numbers are absolute worst case values.  They are based on
-the time to acquire and release a lock in the case where the lock is
-resident in the L1 cache of the cpu running the code.  So I'm looking
-at 24 cycles for the old xchg-based version. 26 cycles for 8-byte ticket
-locks and 28-cycles for 4-byte ticket locks.
 
-The real world is likely to be much kinder.  If the lock is being
-acquired by different cpus, then we'll have to go to memory (or remote
-cache, which is just as bad) to get the lock. Then the 2-4 extra cycles
-will be a much tinier percentage of the total.  Even if the lock is being
-mostly used by a single cpu with only occasional remote access, it still
-isn't likely to live in the L1 cache ... so we'd see another 14 cycles if
-we had to pull it back into L1 from L3.
+On Tue, 29 Sep 2009, Luck, Tony wrote:
+> 
+> What will be the big areas of growth? dentry? inode? Something off
+> in networking?
 
-Any feel for how much memory this is going to cost?  Although there is
-a spinlock inside "struct page" it is buried in a union with a larger
-structure. So changing from 4 to 8 bytes makes no difference to the
-total size of the structure.  For statically declared locks the
-difference reported by "size vmlinux" is laughably small (~4KB!)
+I'd pick dentry, but I'm biased (I happen to think the dcache is one of 
+the most important data structures we have). Right now, in x86-64, we lay 
+out the spinlock along with the other int-sized things, and we've tried to 
+pack things over the years (ie put the commonly accessed ones together). 
 
-What will be the big areas of growth? dentry? inode? Something off
-in networking?
+See for example commit c2452f32786159ed85f0e4b21fec09258f822fc8.
 
--Tony
+I do agree that none of the static spinlocks care about size, obviously. 
+The only time the size of a spinlock matters is when it's embedded in one 
+of the critical common data structures. And in _many_ cases you'll have 
+pointers there that end up forcing it to 64-bit, but 'struct dentry' is an 
+example of something where things can be (and are) more densely packed, 
+and people have spent some time on it.
+
+		Linus
