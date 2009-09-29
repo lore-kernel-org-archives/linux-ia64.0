@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 29 Sep 2009 00:14:07 +0000
-Subject: Re: [git pull] ia64 changes
-Message-Id: <alpine.LFD.2.01.0909281706420.6996@localhost.localdomain>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 29 Sep 2009 17:53:34 +0000
+Subject: RE: [git pull] ia64 changes
+Message-Id: <57C9024A16AD2D4C97DC78E552063EA3E2EA3B8B@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -10,34 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+> That said, the 8% slowdown sounds like a real problem. Maybe Tony's 
+> original version (perhaps with a "ld.bias" to get the initial load to try 
+> to get exclusive ownership) is worth the size expansion
 
+The 8%/16% numbers are absolute worst case values.  They are based on
+the time to acquire and release a lock in the case where the lock is
+resident in the L1 cache of the cpu running the code.  So I'm looking
+at 24 cycles for the old xchg-based version. 26 cycles for 8-byte ticket
+locks and 28-cycles for 4-byte ticket locks.
 
-On Mon, 28 Sep 2009, Rick Jones wrote:
-> 
-> Youch, that is 17% if I've done the math correctly.  This is to deal with
-> contended locks more "fairly" correct?
+The real world is likely to be much kinder.  If the lock is being
+acquired by different cpus, then we'll have to go to memory (or remote
+cache, which is just as bad) to get the lock. Then the 2-4 extra cycles
+will be a much tinier percentage of the total.  Even if the lock is being
+mostly used by a single cpu with only occasional remote access, it still
+isn't likely to live in the L1 cache ... so we'd see another 14 cycles if
+we had to pull it back into L1 from L3.
 
-It's worth to note that if there is actual real contention, then a fair 
-lock generally has lower throughput than a non-fair one, so that case is 
-likely also slowed down, not just the non-contended one.
+Any feel for how much memory this is going to cost?  Although there is
+a spinlock inside "struct page" it is buried in a union with a larger
+structure. So changing from 4 to 8 bytes makes no difference to the
+total size of the structure.  For statically declared locks the
+difference reported by "size vmlinux" is laughably small (~4KB!)
 
-That said, I think it's been worth it on x86. We had some test-programs to 
-show some rather extreme unfairness on x86, especially on big machines. 
-With the lock local to one node, that node had a huge advantage in 
-re-acquiring the lock, to the point where you had lock imbalances on the 
-order of 10,000:1. At some point that becomes a real starvation issue, 
-although obviously you'd hope that the kernel never gets even close to 
-that much contention on any locks.
+What will be the big areas of growth? dentry? inode? Something off
+in networking?
 
-[ I also don't think it was anywhere near a 17% hit on x86 in general - 
-  although xadd _was_ noticeably slower on some microarchitectures than a 
-  regular 'inc' due to being microcoded or something, so it was a hit on 
-  _some_ microarchitectures ]
-
-That said, the 8% slowdown sounds like a real problem. Maybe Tony's 
-original version (perhaps with a "ld.bias" to get the initial load to try 
-to get exclusive ownership) is worth the size expansion. On x86, we have 
-atomic 8-bit and 16-bit operations with arbitrary immediates, so there's 
-not the silly overhead from the shifting and masking.
-
-		Linus
+-Tony
