@@ -1,7 +1,7 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Wed, 23 Sep 2009 05:06:18 +0000
-Subject: [PATCH 1/5] ia64: don't alias VMALLOC_END to vmalloc_end
-Message-Id: <1253682382-24740-2-git-send-email-tj@kernel.org>
+From: Tejun Heo <teheo@suse.de>
+Date: Wed, 30 Sep 2009 01:24:14 +0000
+Subject: [PATCH REPOST 3/5] ia64: allocate percpu area for cpu0 like percpu
+Message-Id: <4AC2B33E.6000902@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1253682382-24740-1-git-send-email-tj@kernel.org>
 In-Reply-To: <1253682382-24740-1-git-send-email-tj@kernel.org>
@@ -9,106 +9,177 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Nick Piggin <npiggin@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Rusty Russell <rusty@rustcorp.com.au>, Christoph Lameter <cl@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, Christoph Lameter <cl@linux-foundation.org>
 
-If CONFIG_VIRTUAL_MEM_MAP is enabled, ia64 defines macro VMALLOC_END
-as unsigned long variable vmalloc_end which is adjusted to prepare
-room for vmemmap.  This becomes probnlematic if a local variables
-vmalloc_end is defined in some function (not very unlikely) and
-VMALLOC_END is used in the function - the function thinks its
-referencing the global VMALLOC_END value but would be referencing its
-own local vmalloc_end variable.
+cpu0 used special percpu area reserved by the linker, __cpu0_per_cpu,
+which is set up early in boot by head.S.  However, this doesn't
+guarantee that the area will be on the same node as cpu0 and the
+percpu area for cpu0 ends up very far away from percpu areas for other
+cpus which cause problems for congruent percpu allocator.
 
-There's no reason VMALLOC_END should be a macro.  Just define it as an
-unsigned long variable if CONFIG_VIRTUAL_MEM_MAP is set to avoid nasty
-surprises.
+This patch makes percpu area initialization allocate percpu area for
+cpu0 like any other cpus and copy it from __cpu0_per_cpu which now
+resides in the __init area.  This means that for cpu0, percpu area is
+first setup at __cpu0_per_cpu early by head.S and then moved to an
+area in the linear mapping during memory initialization and it's not
+allowed to take a pointer to percpu variables between head.S and
+memory initialization.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: Christoph Lameter <cl@linux-foundation.org>
 ---
- arch/ia64/include/asm/meminit.h |    2 +-
- arch/ia64/include/asm/pgtable.h |    3 +--
- arch/ia64/mm/contig.c           |    4 ++--
- arch/ia64/mm/discontig.c        |    4 ++--
- arch/ia64/mm/init.c             |    4 ++--
- 5 files changed, 8 insertions(+), 9 deletions(-)
+Tony Luck didn't receive this one and couldn't find it in archives
+either.  Repost.  Unchanged from the original posting.
 
-diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/meminit.h
-index 688a812..61c7b17 100644
---- a/arch/ia64/include/asm/meminit.h
-+++ b/arch/ia64/include/asm/meminit.h
-@@ -61,7 +61,7 @@ extern int register_active_ranges(u64 start, u64 len, int nid);
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- # define LARGE_GAP	0x40000000 /* Use virtual mem map if hole is > than this */
--  extern unsigned long vmalloc_end;
-+  extern unsigned long VMALLOC_END;
-   extern struct page *vmem_map;
-   extern int find_largest_hole(u64 start, u64 end, void *arg);
-   extern int create_mem_map_page_table(u64 start, u64 end, void *arg);
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index 8840a69..69bf138 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -228,8 +228,7 @@ ia64_phys_addr_valid (unsigned long addr)
- #define VMALLOC_START		(RGN_BASE(RGN_GATE) + 0x200000000UL)
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- # define VMALLOC_END_INIT	(RGN_BASE(RGN_GATE) + (1UL << (4*PAGE_SHIFT - 9)))
--# define VMALLOC_END		vmalloc_end
--  extern unsigned long vmalloc_end;
-+extern unsigned long VMALLOC_END;
- #else
- #if defined(CONFIG_SPARSEMEM) && defined(CONFIG_SPARSEMEM_VMEMMAP)
- /* SPARSEMEM_VMEMMAP uses half of vmalloc... */
+ arch/ia64/kernel/vmlinux.lds.S |   11 +++++----
+ arch/ia64/mm/contig.c          |   47 +++++++++++++++++++++++++--------------
+ arch/ia64/mm/discontig.c       |   35 ++++++++++++++++++++---------
+ 3 files changed, 60 insertions(+), 33 deletions(-)
+
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 0a0c77b..1295ba3 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -166,6 +166,12 @@ SECTIONS
+ 	}
+ #endif
+
++#ifdef	CONFIG_SMP
++  . = ALIGN(PERCPU_PAGE_SIZE);
++  __cpu0_per_cpu = .;
++  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
++#endif
++
+   . = ALIGN(PAGE_SIZE);
+   __init_end = .;
+
+@@ -198,11 +204,6 @@ SECTIONS
+   data : { } :data
+   .data : AT(ADDR(.data) - LOAD_OFFSET)
+ 	{
+-#ifdef	CONFIG_SMP
+-  . = ALIGN(PERCPU_PAGE_SIZE);
+-		__cpu0_per_cpu = .;
+-  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
+-#endif
+ 		INIT_TASK_DATA(PAGE_SIZE)
+ 		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
+ 		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
 diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 2f724d2..1341437 100644
+index 1341437..351da0a 100644
 --- a/arch/ia64/mm/contig.c
 +++ b/arch/ia64/mm/contig.c
-@@ -270,8 +270,8 @@ paging_init (void)
- 
- 		map_size = PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
- 			sizeof(struct page));
--		vmalloc_end -= map_size;
--		vmem_map = (struct page *) vmalloc_end;
-+		VMALLOC_END -= map_size;
-+		vmem_map = (struct page *) VMALLOC_END;
- 		efi_memmap_walk(create_mem_map_page_table, NULL);
- 
- 		/*
+@@ -154,36 +154,49 @@ static void *cpu_data;
+ void * __cpuinit
+ per_cpu_init (void)
+ {
+-	int cpu;
+-	static int first_time=1;
++	static bool first_time = true;
++	void *cpu0_data = __cpu0_per_cpu;
++	unsigned int cpu;
++
++	if (!first_time)
++		goto skip;
++	first_time = false;
+
+ 	/*
+ 	 * get_free_pages() cannot be used before cpu_init() done.  BSP
+ 	 * allocates "NR_CPUS" pages for all CPUs to avoid that AP calls
+ 	 * get_zeroed_page().
+ 	 */
+-	if (first_time) {
+-		void *cpu0_data = __cpu0_per_cpu;
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		void *src = cpu = 0 ? cpu0_data : __phys_per_cpu_start;
+
+-		first_time=0;
++		memcpy(cpu_data, src, __per_cpu_end - __per_cpu_start);
++		__per_cpu_offset[cpu] = (char *)cpu_data - __per_cpu_start;
++		per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+
+-		__per_cpu_offset[0] = (char *) cpu0_data - __per_cpu_start;
+-		per_cpu(local_per_cpu_offset, 0) = __per_cpu_offset[0];
++		/*
++		 * percpu area for cpu0 is moved from the __init area
++		 * which is setup by head.S and used till this point.
++		 * Update ar.k3.  This move is ensures that percpu
++		 * area for cpu0 is on the correct node and its
++		 * virtual address isn't insanely far from other
++		 * percpu areas which is important for congruent
++		 * percpu allocator.
++		 */
++		if (cpu = 0)
++			ia64_set_kr(IA64_KR_PER_CPU_DATA, __pa(cpu_data) -
++				    (unsigned long)__per_cpu_start);
+
+-		for (cpu = 1; cpu < NR_CPUS; cpu++) {
+-			memcpy(cpu_data, __phys_per_cpu_start, __per_cpu_end - __per_cpu_start);
+-			__per_cpu_offset[cpu] = (char *) cpu_data - __per_cpu_start;
+-			cpu_data += PERCPU_PAGE_SIZE;
+-			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+-		}
++		cpu_data += PERCPU_PAGE_SIZE;
+ 	}
++skip:
+ 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
+ }
+
+ static inline void
+ alloc_per_cpu_data(void)
+ {
+-	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS-1,
++	cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
+ 				   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
+ }
+ #else
 diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index d85ba98..9f24b3c 100644
+index 9f24b3c..200282b 100644
 --- a/arch/ia64/mm/discontig.c
 +++ b/arch/ia64/mm/discontig.c
-@@ -666,9 +666,9 @@ void __init paging_init(void)
- 	sparse_init();
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
--	vmalloc_end -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
-+	VMALLOC_END -= PAGE_ALIGN(ALIGN(max_low_pfn, MAX_ORDER_NR_PAGES) *
- 		sizeof(struct page));
--	vmem_map = (struct page *) vmalloc_end;
-+	vmem_map = (struct page *) VMALLOC_END;
- 	efi_memmap_walk(create_mem_map_page_table, NULL);
- 	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
+@@ -143,17 +143,30 @@ static void *per_cpu_node_setup(void *cpu_data, int node)
+ 	int cpu;
+
+ 	for_each_possible_early_cpu(cpu) {
+-		if (cpu = 0) {
+-			void *cpu0_data = __cpu0_per_cpu;
+-			__per_cpu_offset[cpu] = (char*)cpu0_data -
+-				__per_cpu_start;
+-		} else if (node = node_cpuid[cpu].nid) {
+-			memcpy(__va(cpu_data), __phys_per_cpu_start,
+-			       __per_cpu_end - __per_cpu_start);
+-			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
+-				__per_cpu_start;
+-			cpu_data += PERCPU_PAGE_SIZE;
+-		}
++		void *src = cpu = 0 ? __cpu0_per_cpu : __phys_per_cpu_start;
++
++		if (node != node_cpuid[cpu].nid)
++			continue;
++
++		memcpy(__va(cpu_data), src, __per_cpu_end - __per_cpu_start);
++		__per_cpu_offset[cpu] = (char *)__va(cpu_data) -
++			__per_cpu_start;
++
++		/*
++		 * percpu area for cpu0 is moved from the __init area
++		 * which is setup by head.S and used till this point.
++		 * Update ar.k3.  This move is ensures that percpu
++		 * area for cpu0 is on the correct node and its
++		 * virtual address isn't insanely far from other
++		 * percpu areas which is important for congruent
++		 * percpu allocator.
++		 */
++		if (cpu = 0)
++			ia64_set_kr(IA64_KR_PER_CPU_DATA,
++				    (unsigned long)cpu_data -
++				    (unsigned long)__per_cpu_start);
++
++		cpu_data += PERCPU_PAGE_SIZE;
+ 	}
  #endif
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 1d28624..f301071 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -44,8 +44,8 @@ extern void ia64_tlb_init (void);
- unsigned long MAX_DMA_ADDRESS = PAGE_OFFSET + 0x100000000UL;
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
--unsigned long vmalloc_end = VMALLOC_END_INIT;
--EXPORT_SYMBOL(vmalloc_end);
-+unsigned long VMALLOC_END = VMALLOC_END_INIT;
-+EXPORT_SYMBOL(VMALLOC_END);
- struct page *vmem_map;
- EXPORT_SYMBOL(vmem_map);
- #endif
+ 	return cpu_data;
 -- 
 1.6.4.2
 
