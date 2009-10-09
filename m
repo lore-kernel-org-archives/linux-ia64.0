@@ -1,20 +1,21 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Wed, 28 Oct 2009 14:59:31 +0000
-Subject: Re: [PATCH 1/2] percpu: allow pcpu_alloc() to be called with IRQs
-Message-Id: <4AE85C53.7020400@kernel.org>
+From: Nick Piggin <npiggin@suse.de>
+Date: Fri, 09 Oct 2009 02:12:51 +0000
+Subject: ticket spinlocks and sizeof(struct dentry)
+Message-Id: <20091009021251.GA4287@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LSU.2.00.0910271328340.19847@wotan.suse.de> <4AE6EDBF.7040905@kernel.org>
-In-Reply-To: <4AE6EDBF.7040905@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jiri Kosina <jkosina@suse.cz>
-Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Jeff Mahoney <jeffm@suse.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Comment added why irqsave/restore are used in alloc path and queued in
-percpu#for-linus.  I'll send pull request in a few hours.
+Hi guys,
 
-Thanks.
+Just to let you know you may have turned sizeof(struct dentry) into
+something nasty with 64 bit spinlocks (like 200 bytes) which would
+mean a significant number (~half?) of dentries will cover 3 cachelines
+instead of 2.
 
---
-tejun
+If I'm nost mistaken, this would probably be worth correcting.
+
+Thanks,
+Nick
