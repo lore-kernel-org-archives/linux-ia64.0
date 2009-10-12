@@ -1,66 +1,74 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Tue, 27 Oct 2009 10:52:23 +0000
-Subject: Re: Commit 34d76c41 causes linker errors on ia64 with NR_CPUS=4096
-Message-Id: <alpine.LRH.2.00.0910271150100.25075@twin.jikos.cz>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Mon, 12 Oct 2009 14:24:30 +0000
+Subject: [PATCH] ia64: Don't call SAL < 3.2 for extended config space
+Message-Id: <20091012142430.GE7545@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4ADB967A.4080707@suse.com> <alpine.LRH.2.00.0910200356340.20992@twin.jikos.cz> <alpine.LRH.2.00.0910200651510.20992@twin.jikos.cz> <4ADD48D1.1040701@kernel.org>
-In-Reply-To: <4ADD48D1.1040701@kernel.org>
+References: <20091011074531.GA12357@grsecurity.net> <4AD1AE0D.1030007@kernel.org> <4AD24766.7050205@kernel.org> <20091011213245.GC18513@grsecurity.net> <20091011231039.GB7545@parisc-linux.org> <20091012135628.GA310@grsecurity.net>
+In-Reply-To: <20091012135628.GA310@grsecurity.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tejun Heo <tj@kernel.org>
-Cc: Jiri Kosina <jkosina@suse.cz>, Jeff Mahoney <jeffm@suse.com>, Peter Zijlstra <peterz@infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Brad Spengler <spender@grsecurity.net>
+Cc: Yinghai Lu <yinghai@kernel.org>, Jesse Barnes <jbarnes@virtuousgeek.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, linux-ia64@vger.kernel.org
 
-On Tue, 20 Oct 2009, Tejun Heo wrote:
-
-> > How about this one? (untested)
-> > 
-> > From: Jiri Kosina <jkosina@suse.cz>
-> > Subject: sched: move rq_weight data array out of .percpu
-> > 
-> > Commit 34d76c41 introduced percpu array update_shares_data, size of which 
-> > being proportional to NR_CPUS. Unfortunately this blows up ia64 for large 
-> > NR_CPUS configuration, as ia64 allows only 64k for .percpu section.
-> > 
-> > Fix this by allocating this array dynamically and keep only pointer to it 
-> > percpu.
+On Mon, Oct 12, 2009 at 09:56:28AM -0400, Brad Spengler wrote:
+> > So how about we go back to adding that check ... this does require that
+> > SGI's 750 machine reports its SAL revision correctly.  Could you send
+> > the dmesg?
 > 
-> If the structure can be dynamically allocated at all, just using
-> percpu_alloc() to allocate the whole thing should solve it with the
-> correct numa locality.
+> The dmesg of the working kernel:
+> http://grsecurity.net/~spender/dmesg.txt
 
-Unfortunately it's not that straightforward and easy, as we can't simply 
-call __alloc_percpu from sched_init().
+Thanks, that's reporting SAL 3.0, so it will be correctly caught by
+this patch:
 
-The reason is that does spin_unlock_irq(), and in sched_init() time it's 
-too early for that, so we end up with
+---
 
-WARNING: at kernel/lockdep.c:2311 trace_hardirqs_on_caller+0xd2/0x1a0()
-Hardware name: Kfisher   HT2100 HT1000
-Modules linked in:
-Pid: 0, comm: swapper Not tainted 2.6.32-rc5-default #66
-Call Trace:
- [<ffffffff81086a62>] ? trace_hardirqs_on_caller+0xd2/0x1a0
- [<ffffffff81054528>] warn_slowpath_common+0x78/0xd0
- [<ffffffff81356b8b>] ? _spin_unlock_irq+0x2b/0x40
- [<ffffffff8105458f>] warn_slowpath_null+0xf/0x20
- [<ffffffff81086a62>] trace_hardirqs_on_caller+0xd2/0x1a0
- [<ffffffff81086b3d>] trace_hardirqs_on+0xd/0x10
- [<ffffffff81356b8b>] _spin_unlock_irq+0x2b/0x40
- [<ffffffff811154c1>] pcpu_extend_area_map+0x41/0x110
- [<ffffffff81115ce0>] pcpu_alloc+0x120/0x890
- [<ffffffff81084577>] ? trace_hardirqs_off_caller+0x67/0xa0
- [<ffffffff8108578d>] ? trace_hardirqs_off+0xd/0x10
- [<ffffffff8111646b>] __alloc_percpu+0xb/0x10
- [<ffffffff81712215>] sched_init+0x147/0x5d2
- [<ffffffff816fabca>] start_kernel+0x1fc/0x40c
- [<ffffffff816fa299>] x86_64_start_reservations+0x99/0xb9
- [<ffffffff816fa3bf>] x86_64_start_kernel+0x106/0x121
- [<ffffffff816fa140>] ? early_idt_handler+0x0/0x71
----[ end trace 4eaa2a86a8e2da22 ]---
-start_kernel(): bug: interrupts were enabled *very* early, fixing it
+From: Matthew Wilcox <willy@linux.intel.com>
+Subject: Require SAL 3.2 in order to do extended config space ops
+
+We had assumed that SAL firmware would return an error if it didn't
+understand extended config space.  Unfortunately, the SAL on the SGI 750
+doesn't do that, it panics the machine.  So, condition the extended PCI
+config space accesses on SAL revision 3.2.
+
+Signed-off-by: Matthew Wilcox <willy@linux.intel.com>
+
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 7de76dd..61363cc 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -56,10 +56,13 @@ int raw_pci_read(unsigned int seg, unsigned int bus, unsigned int devfn,
+ 	if ((seg | reg) <= 255) {
+ 		addr = PCI_SAL_ADDRESS(seg, bus, devfn, reg);
+ 		mode = 0;
+-	} else {
++	} else if (sal_revision >= SAL_VERSION_CODE(3,2))
+ 		addr = PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg);
+ 		mode = 1;
++	} else {
++		return -EINVAL;
+ 	}
++
+ 	result = ia64_sal_pci_config_read(addr, mode, len, &data);
+ 	if (result != 0)
+ 		return -EINVAL;
+@@ -80,9 +83,11 @@ int raw_pci_write(unsigned int seg, unsigned int bus, unsigned int devfn,
+ 	if ((seg | reg) <= 255) {
+ 		addr = PCI_SAL_ADDRESS(seg, bus, devfn, reg);
+ 		mode = 0;
+-	} else {
++	} else if (sal_revision >= SAL_VERSION_CODE(3,2))
+ 		addr = PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg);
+ 		mode = 1;
++	} else {
++		return -EINVAL;
+ 	}
+ 	result = ia64_sal_pci_config_write(addr, mode, len, value);
+ 	if (result != 0)
 
 -- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
-
+Matthew Wilcox				Intel Open Source Technology Centre
+"Bill, look, we understand that you're interested in selling us this
+operating system, but compare it to ours.  We can't possibly take such
+a retrograde step."
