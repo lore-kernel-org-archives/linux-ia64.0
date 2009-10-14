@@ -1,137 +1,194 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Thu, 15 Oct 2009 06:07:07 +0000
-Subject: [PATCH -mmotm -v2] Fix
-Message-Id: <20091015060706.GA26956@localhost.localdomain>
+From: Tejun Heo <tj@kernel.org>
+Date: Wed, 14 Oct 2009 06:02:00 +0000
+Subject: [PATCH 11/16] percpu: make percpu symbols in ia64 unique
+Message-Id: <1255500125-3210-12-git-send-email-tj@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1255076961-21325-1-git-send-email-akinobu.mita@gmail.com> <1255076961-21325-2-git-send-email-akinobu.mita@gmail.com> <20091009164100.85a36188.akpm@linux-foundation.org> <20091013021818.GA3898@localhost.localdomain> <20091013091017.GA18431@localhost.localdomain> <20091014032258.GA18527@localhost.localdomain>
-In-Reply-To: <20091014032258.GA18527@localhost.localdomain>
+References: <1255500125-3210-1-git-send-email-tj@kernel.org>
+In-Reply-To: <1255500125-3210-1-git-send-email-tj@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Greg Kroah-Hartman <gregkh@suse.de>, Lothar Wassmann <LW@KARO-electronics.de>, linux-usb@vger.kernel.org, Roland Dreier <rolandd@cisco.com>, Yevgeny Petrilin <yevgenyp@mellanox.co.il>, netdev@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com, Kyle Hubert <khubert@gmail.com>
+To: linux-kernel@vger.kernel.org, rusty@rustcorp.com.au, cl@linux-foundation.org, mingo@redhat.com, tglx@linutronix.de, akpm@linux-foundation.org, rostedt@goodmis.org, hpa@zytor.com, cebbert@redhat.com
+Cc: Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Subject: Fix bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
+This patch updates percpu related symbols in ia64 such that percpu
+symbols are unique and don't clash with local symbols.  This serves
+two purposes of decreasing the possibility of global percpu symbol
+collision and allowing dropping per_cpu__ prefix from percpu symbols.
 
-- Rewrite bitmap_set and bitmap_clear
+* arch/ia64/kernel/setup.c: s/cpu_info/ia64_cpu_info/
 
-  Instead of setting or clearing for each bit.
+Partly based on Rusty Russell's "alloc_percpu: rename percpu vars
+which cause name clashes" patch.
 
-- Fix off-by-one errors in bitmap_find_next_zero_area
-
-  This bug was derived from find_next_zero_area in iommu-helper.
-
-- Add kerneldoc for bitmap_find_next_zero_area
-
-This patch is supposed to be folded into
-bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
-
-* -v2
-- Remove an extra test at the "index" value by find_next_bit
-
-Index was just returned by find_next_zero_bit, so we know it's zero.
-
-Noticed-by: Kyle Hubert <khubert@gmail.com>
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Reviewed-by: Christoph Lameter <cl@linux-foundation.org>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- lib/bitmap.c |   62 ++++++++++++++++++++++++++++++++++++++++++++-------------
- 1 files changed, 48 insertions(+), 14 deletions(-)
+ arch/ia64/include/asm/processor.h  |    6 +++---
+ arch/ia64/kernel/head.S            |    4 ++--
+ arch/ia64/kernel/ia64_ksyms.c      |    2 +-
+ arch/ia64/kernel/mca_asm.S         |    2 +-
+ arch/ia64/kernel/relocate_kernel.S |    2 +-
+ arch/ia64/kernel/setup.c           |    4 ++--
+ arch/ia64/mm/discontig.c           |    5 +++--
+ arch/ia64/sn/kernel/sn2/sn2_smp.c  |    8 ++++----
+ 8 files changed, 17 insertions(+), 16 deletions(-)
 
-diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 2415da4..962b863 100644
---- a/lib/bitmap.c
-+++ b/lib/bitmap.c
-@@ -271,28 +271,62 @@ int __bitmap_weight(const unsigned long *bitmap, int bits)
- }
- EXPORT_SYMBOL(__bitmap_weight);
+diff --git a/arch/ia64/include/asm/processor.h b/arch/ia64/include/asm/processor.h
+index 3eaeedf..7fa90f7 100644
+--- a/arch/ia64/include/asm/processor.h
++++ b/arch/ia64/include/asm/processor.h
+@@ -229,7 +229,7 @@ struct cpuinfo_ia64 {
+ #endif
+ };
  
--void bitmap_set(unsigned long *map, int i, int len)
--{
--	int end = i + len;
-+#define BITMAP_FIRST_WORD_MASK(start) (~0UL << ((start) % BITS_PER_LONG))
+-DECLARE_PER_CPU(struct cpuinfo_ia64, cpu_info);
++DECLARE_PER_CPU(struct cpuinfo_ia64, ia64_cpu_info);
  
--	while (i < end) {
--		__set_bit(i, map);
--		i++;
-+void bitmap_set(unsigned long *map, int start, int nr)
-+{
-+	unsigned long *p = map + BIT_WORD(start);
-+	const int size = start + nr;
-+	int bits_to_set = BITS_PER_LONG - (start % BITS_PER_LONG);
-+	unsigned long mask_to_set = BITMAP_FIRST_WORD_MASK(start);
-+
-+	while (nr - bits_to_set >= 0) {
-+		*p |= mask_to_set;
-+		nr -= bits_to_set;
-+		bits_to_set = BITS_PER_LONG;
-+		mask_to_set = ~0UL;
-+		p++;
-+	}
-+	if (nr) {
-+		mask_to_set &= BITMAP_LAST_WORD_MASK(size);
-+		*p |= mask_to_set;
+ /*
+  * The "local" data variable.  It refers to the per-CPU data of the currently executing
+@@ -237,8 +237,8 @@ DECLARE_PER_CPU(struct cpuinfo_ia64, cpu_info);
+  * Do not use the address of local_cpu_data, since it will be different from
+  * cpu_data(smp_processor_id())!
+  */
+-#define local_cpu_data		(&__ia64_per_cpu_var(cpu_info))
+-#define cpu_data(cpu)		(&per_cpu(cpu_info, cpu))
++#define local_cpu_data		(&__ia64_per_cpu_var(ia64_cpu_info))
++#define cpu_data(cpu)		(&per_cpu(ia64_cpu_info, cpu))
+ 
+ extern void print_cpu_info (struct cpuinfo_ia64 *);
+ 
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index 696eff2..17a9fba 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -1051,7 +1051,7 @@ END(ia64_delay_loop)
+  * intermediate precision so that we can produce a full 64-bit result.
+  */
+ GLOBAL_ENTRY(ia64_native_sched_clock)
+-	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
++	addl r8=THIS_CPU(ia64_cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
+ 	mov.m r9=ar.itc		// fetch cycle-counter				(35 cyc)
+ 	;;
+ 	ldf8 f8=[r8]
+@@ -1077,7 +1077,7 @@ sched_clock = ia64_native_sched_clock
+ #ifdef CONFIG_VIRT_CPU_ACCOUNTING
+ GLOBAL_ENTRY(cycle_to_cputime)
+ 	alloc r16=ar.pfs,1,0,0,0
+-	addl r8=THIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
++	addl r8=THIS_CPU(ia64_cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
+ 	;;
+ 	ldf8 f8=[r8]
+ 	;;
+diff --git a/arch/ia64/kernel/ia64_ksyms.c b/arch/ia64/kernel/ia64_ksyms.c
+index 14d39e3..461b999 100644
+--- a/arch/ia64/kernel/ia64_ksyms.c
++++ b/arch/ia64/kernel/ia64_ksyms.c
+@@ -30,7 +30,7 @@ EXPORT_SYMBOL(max_low_pfn);	/* defined by bootmem.c, but not exported by generic
+ #endif
+ 
+ #include <asm/processor.h>
+-EXPORT_SYMBOL(per_cpu__cpu_info);
++EXPORT_SYMBOL(per_cpu__ia64_cpu_info);
+ #ifdef CONFIG_SMP
+ EXPORT_SYMBOL(per_cpu__local_per_cpu_offset);
+ #endif
+diff --git a/arch/ia64/kernel/mca_asm.S b/arch/ia64/kernel/mca_asm.S
+index 7461d25..d5bdf9d 100644
+--- a/arch/ia64/kernel/mca_asm.S
++++ b/arch/ia64/kernel/mca_asm.S
+@@ -59,7 +59,7 @@
+ ia64_do_tlb_purge:
+ #define O(member)	IA64_CPUINFO_##member##_OFFSET
+ 
+-	GET_THIS_PADDR(r2, cpu_info)	// load phys addr of cpu_info into r2
++	GET_THIS_PADDR(r2, ia64_cpu_info) // load phys addr of cpu_info into r2
+ 	;;
+ 	addl r17=O(PTCE_STRIDE),r2
+ 	addl r2=O(PTCE_BASE),r2
+diff --git a/arch/ia64/kernel/relocate_kernel.S b/arch/ia64/kernel/relocate_kernel.S
+index 32f6fc1..c370e02 100644
+--- a/arch/ia64/kernel/relocate_kernel.S
++++ b/arch/ia64/kernel/relocate_kernel.S
+@@ -61,7 +61,7 @@ GLOBAL_ENTRY(relocate_new_kernel)
+ 
+ 	// purge all TC entries
+ #define O(member)       IA64_CPUINFO_##member##_OFFSET
+-        GET_THIS_PADDR(r2, cpu_info)    // load phys addr of cpu_info into r2
++        GET_THIS_PADDR(r2, ia64_cpu_info) // load phys addr of cpu_info into r2
+         ;;
+         addl r17=O(PTCE_STRIDE),r2
+         addl r2=O(PTCE_BASE),r2
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index bc1ef4a..a1ea879 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -74,7 +74,7 @@ unsigned long __per_cpu_offset[NR_CPUS];
+ EXPORT_SYMBOL(__per_cpu_offset);
+ #endif
+ 
+-DEFINE_PER_CPU(struct cpuinfo_ia64, cpu_info);
++DEFINE_PER_CPU(struct cpuinfo_ia64, ia64_cpu_info);
+ DEFINE_PER_CPU(unsigned long, local_per_cpu_offset);
+ unsigned long ia64_cycles_per_usec;
+ struct ia64_boot_param *ia64_boot_param;
+@@ -967,7 +967,7 @@ cpu_init (void)
+ 	 * depends on the data returned by identify_cpu().  We break the dependency by
+ 	 * accessing cpu_data() through the canonical per-CPU address.
+ 	 */
+-	cpu_info = cpu_data + ((char *) &__ia64_per_cpu_var(cpu_info) - __per_cpu_start);
++	cpu_info = cpu_data + ((char *) &__ia64_per_cpu_var(ia64_cpu_info) - __per_cpu_start);
+ 	identify_cpu(cpu_info);
+ 
+ #ifdef CONFIG_MCKINLEY
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 40e4c1f..19c4b21 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -450,7 +450,8 @@ static void __init initialize_pernode_data(void)
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for_each_possible_early_cpu(cpu) {
+ 		node = node_cpuid[cpu].nid;
+-		per_cpu(cpu_info, cpu).node_data = mem_data[node].node_data;
++		per_cpu(ia64_cpu_info, cpu).node_data +			mem_data[node].node_data;
  	}
- }
- EXPORT_SYMBOL(bitmap_set);
- 
- void bitmap_clear(unsigned long *map, int start, int nr)
- {
--	int end = start + nr;
--
--	while (start < end) {
--		__clear_bit(start, map);
--		start++;
-+	unsigned long *p = map + BIT_WORD(start);
-+	const int size = start + nr;
-+	int bits_to_clear = BITS_PER_LONG - (start % BITS_PER_LONG);
-+	unsigned long mask_to_clear = BITMAP_FIRST_WORD_MASK(start);
-+
-+	while (nr - bits_to_clear >= 0) {
-+		*p &= ~mask_to_clear;
-+		nr -= bits_to_clear;
-+		bits_to_clear = BITS_PER_LONG;
-+		mask_to_clear = ~0UL;
-+		p++;
-+	}
-+	if (nr) {
-+		mask_to_clear &= BITMAP_LAST_WORD_MASK(size);
-+		*p &= ~mask_to_clear;
+ #else
+ 	{
+@@ -458,7 +459,7 @@ static void __init initialize_pernode_data(void)
+ 		cpu = 0;
+ 		node = node_cpuid[cpu].nid;
+ 		cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
+-			((char *)&per_cpu__cpu_info - __per_cpu_start));
++			((char *)&per_cpu__ia64_cpu_info - __per_cpu_start));
+ 		cpu0_cpu_info->node_data = mem_data[node].node_data;
  	}
+ #endif /* CONFIG_SMP */
+diff --git a/arch/ia64/sn/kernel/sn2/sn2_smp.c b/arch/ia64/sn/kernel/sn2/sn2_smp.c
+index 1176506..e884ba4 100644
+--- a/arch/ia64/sn/kernel/sn2/sn2_smp.c
++++ b/arch/ia64/sn/kernel/sn2/sn2_smp.c
+@@ -496,13 +496,13 @@ static int sn2_ptc_seq_show(struct seq_file *file, void *data)
+ 		seq_printf(file, "cpu %d %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld %ld\n", cpu, stat->ptc_l,
+ 				stat->change_rid, stat->shub_ptc_flushes, stat->nodes_flushed,
+ 				stat->deadlocks,
+-				1000 * stat->lock_itc_clocks / per_cpu(cpu_info, cpu).cyc_per_usec,
+-				1000 * stat->shub_itc_clocks / per_cpu(cpu_info, cpu).cyc_per_usec,
+-				1000 * stat->shub_itc_clocks_max / per_cpu(cpu_info, cpu).cyc_per_usec,
++				1000 * stat->lock_itc_clocks / per_cpu(ia64_cpu_info, cpu).cyc_per_usec,
++				1000 * stat->shub_itc_clocks / per_cpu(ia64_cpu_info, cpu).cyc_per_usec,
++				1000 * stat->shub_itc_clocks_max / per_cpu(ia64_cpu_info, cpu).cyc_per_usec,
+ 				stat->shub_ptc_flushes_not_my_mm,
+ 				stat->deadlocks2,
+ 				stat->shub_ipi_flushes,
+-				1000 * stat->shub_ipi_flushes_itc_clocks / per_cpu(cpu_info, cpu).cyc_per_usec);
++				1000 * stat->shub_ipi_flushes_itc_clocks / per_cpu(ia64_cpu_info, cpu).cyc_per_usec);
+ 	}
+ 	return 0;
  }
- EXPORT_SYMBOL(bitmap_clear);
- 
-+/*
-+ * bitmap_find_next_zero_area - find a contiguous aligned zero area
-+ * @map: The address to base the search on
-+ * @size: The bitmap size in bits
-+ * @start: The bitnumber to start searching at
-+ * @nr: The number of zeroed bits we're looking for
-+ * @align_mask: Alignment mask for zero area
-+ *
-+ * The @align_mask should be one less than a power of 2; the effect is that
-+ * the bit offset of all zero areas this function finds is multiples of that
-+ * power of 2. A @align_mask of 0 means no alignment is required.
-+ */
- unsigned long bitmap_find_next_zero_area(unsigned long *map,
- 					 unsigned long size,
- 					 unsigned long start,
-@@ -304,12 +338,12 @@ again:
- 	index = find_next_zero_bit(map, size, start);
- 
- 	/* Align allocation */
--	index = (index + align_mask) & ~align_mask;
-+	index = __ALIGN_MASK(index, align_mask);
- 
- 	end = index + nr;
--	if (end >= size)
-+	if (end > size)
- 		return end;
--	i = find_next_bit(map, end, index);
-+	i = find_next_bit(map, end, index + 1);
- 	if (i < end) {
- 		start = i + 1;
- 		goto again;
 -- 
-1.5.4.3
+1.6.4.2
 
