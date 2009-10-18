@@ -1,154 +1,122 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Tue, 27 Oct 2009 15:30:33 +0000
-Subject: Re: [PATCH 2/2] sched: move rq_weight data array out of .percpu
-Message-Id: <alpine.LSU.2.00.0910271629410.19847@wotan.suse.de>
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Date: Sun, 18 Oct 2009 05:07:04 +0000
+Subject: [PATCH] ia64: fix SBA IOMMU to handle allocation failure properly
+Message-Id: <20091018140631K.fujita.tomonori@lab.ntt.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
-In-Reply-To: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>, Jeff Mahoney <jeffm@suse.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, lchiquitto@novell.com
 
-The previous version of the patch will actually not compile for 
-configurations with CONFIG_SMP=n && CONFIG_FAR_GROUP_SCHED=y
+This is an updated patch of the patch that I've posted one year
+ago. Shehjar reported the problem and confirmed that the patch fixes
+it:
 
-Tejun, please use the version below instead, which has proper ifdef in 
-place around the percpu allocation. Thanks.
+http://lkml.indiana.edu/hypermail/linux/kernel/0811.0/01562.html
 
+Leonardo told me that he hit the same problem and confirmed that the
+patch fixes it.
 
+From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+Subject: [PATCH] ia64: fix SBA IOMMU to handle allocation failure properly
 
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: sched: move rq_weight data array out of .percpu
+It's possible that SBA IOMMU might fail to find I/O space under heavy
+I/Os. SBA IOMMU panics on allocation failure but it shouldn't; drivers
+can handle the failure. The majority of other IOMMU drivers don't
+panic on allocation failure.
 
-Commit 34d76c41 introduced percpu array update_shares_data, size of which
-being proportional to NR_CPUS. Unfortunately this blows up ia64 for large
-NR_CPUS configuration, as ia64 allows only 64k for .percpu section.
+This patch fixes SBA IOMMU path to handle allocation failure properly.
 
-Fix this by allocating this array dynamically and keep only pointer to it
-percpu.
-
-The per-cpu handling doesn't impose significant performance penalty on
-potentially contented path in tg_shares_up().
-
-...
-ffffffff8104337c:       65 48 8b 14 25 20 cd    mov    %gs:0xcd20,%rdx
-ffffffff81043383:       00 00
-ffffffff81043385:       48 c7 c0 00 e1 00 00    mov    $0xe100,%rax
-ffffffff8104338c:       48 c7 45 a0 00 00 00    movq   $0x0,-0x60(%rbp)
-ffffffff81043393:       00
-ffffffff81043394:       48 c7 45 a8 00 00 00    movq   $0x0,-0x58(%rbp)
-ffffffff8104339b:       00
-ffffffff8104339c:       48 01 d0                add    %rdx,%rax
-ffffffff8104339f:       49 8d 94 24 08 01 00    lea    0x108(%r12),%rdx
-ffffffff810433a6:       00
-ffffffff810433a7:       b9 ff ff ff ff          mov    $0xffffffff,%ecx
-ffffffff810433ac:       48 89 45 b0             mov    %rax,-0x50(%rbp)
-ffffffff810433b0:       bb 00 04 00 00          mov    $0x400,%ebx
-ffffffff810433b5:       48 89 55 c0             mov    %rdx,-0x40(%rbp)
-...
-
-After:
-
-...
-ffffffff8104337c:       65 8b 04 25 28 cd 00    mov    %gs:0xcd28,%eax
-ffffffff81043383:       00
-ffffffff81043384:       48 98                   cltq
-ffffffff81043386:       49 8d bc 24 08 01 00    lea    0x108(%r12),%rdi
-ffffffff8104338d:       00
-ffffffff8104338e:       48 8b 15 d3 7f 76 00    mov    0x767fd3(%rip),%rdx        # ffffffff817ab368 <update_shares_data>
-ffffffff81043395:       48 8b 34 c5 00 ee 6d    mov    -0x7e921200(,%rax,8),%rsi
-ffffffff8104339c:       81
-ffffffff8104339d:       48 c7 45 a0 00 00 00    movq   $0x0,-0x60(%rbp)
-ffffffff810433a4:       00
-ffffffff810433a5:       b9 ff ff ff ff          mov    $0xffffffff,%ecx
-ffffffff810433aa:       48 89 7d c0             mov    %rdi,-0x40(%rbp)
-ffffffff810433ae:       48 c7 45 a8 00 00 00    movq   $0x0,-0x58(%rbp)
-ffffffff810433b5:       00
-ffffffff810433b6:       bb 00 04 00 00          mov    $0x400,%ebx
-ffffffff810433bb:       48 01 f2                add    %rsi,%rdx
-ffffffff810433be:       48 89 55 b0             mov    %rdx,-0x50(%rbp)
-...
-
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
 ---
- kernel/sched.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c |   38 +++++++++++++++++++++++++++++---------
+ 1 files changed, 29 insertions(+), 9 deletions(-)
 
-diff --git a/kernel/sched.c b/kernel/sched.c
-index e886895..7c7ccbb 100644
---- a/kernel/sched.c
-+++ b/kernel/sched.c
-@@ -1564,11 +1564,7 @@ static unsigned long cpu_avg_load_per_task(int cpu)
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 674a837..01ae69b 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -677,12 +677,19 @@ sba_alloc_range(struct ioc *ioc, struct device *dev, size_t size)
+ 			spin_unlock_irqrestore(&ioc->saved_lock, flags);
  
- #ifdef CONFIG_FAIR_GROUP_SCHED
+ 			pide = sba_search_bitmap(ioc, dev, pages_needed, 0);
+-			if (unlikely(pide >= (ioc->res_size << 3)))
+-				panic(__FILE__ ": I/O MMU @ %p is out of mapping resources\n",
+-				      ioc->ioc_hpa);
++			if (unlikely(pide >= (ioc->res_size << 3))) {
++				printk(KERN_WARNING "%s: I/O MMU @ %p is"
++				       "out of mapping resources, %u %u %lx\n",
++				       __func__, ioc->ioc_hpa, ioc->res_size,
++				       pages_needed, dma_get_seg_boundary(dev));
++				return -1;
++			}
+ #else
+-			panic(__FILE__ ": I/O MMU @ %p is out of mapping resources\n",
+-			      ioc->ioc_hpa);
++			printk(KERN_WARNING "%s: I/O MMU @ %p is"
++			       "out of mapping resources, %u %u %lx\n",
++			       __func__, ioc->ioc_hpa, ioc->res_size,
++			       pages_needed, dma_get_seg_boundary(dev));
++			return -1;
+ #endif
+ 		}
+ 	}
+@@ -965,6 +972,8 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+ #endif
  
--struct update_shares_data {
--	unsigned long rq_weight[NR_CPUS];
--};
+ 	pide = sba_alloc_range(ioc, dev, size);
++	if (pide < 0)
++		return 0;
+ 
+ 	iovp = (dma_addr_t) pide << iovp_shift;
+ 
+@@ -1320,6 +1329,7 @@ sba_coalesce_chunks(struct ioc *ioc, struct device *dev,
+ 	unsigned long dma_offset, dma_len; /* start/len of DMA stream */
+ 	int n_mappings = 0;
+ 	unsigned int max_seg_size = dma_get_max_seg_size(dev);
++	int idx;
+ 
+ 	while (nents > 0) {
+ 		unsigned long vaddr = (unsigned long) sba_sg_address(startsg);
+@@ -1418,16 +1428,22 @@ sba_coalesce_chunks(struct ioc *ioc, struct device *dev,
+ 		vcontig_sg->dma_length = vcontig_len;
+ 		dma_len = (dma_len + dma_offset + ~iovp_mask) & iovp_mask;
+ 		ASSERT(dma_len <= DMA_CHUNK_SIZE);
+-		dma_sg->dma_address = (dma_addr_t) (PIDE_FLAG
+-			| (sba_alloc_range(ioc, dev, dma_len) << iovp_shift)
+-			| dma_offset);
++		idx = sba_alloc_range(ioc, dev, dma_len);
++		if (idx < 0) {
++			dma_sg->dma_length = 0;
++			return -1;
++		}
++		dma_sg->dma_address = (dma_addr_t)(PIDE_FLAG | (idx << iovp_shift)
++						   | dma_offset);
+ 		n_mappings++;
+ 	}
+ 
+ 	return n_mappings;
+ }
+ 
 -
--static DEFINE_PER_CPU(struct update_shares_data, update_shares_data);
-+static __read_mostly unsigned long *update_shares_data;
++static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
++			       int nents, enum dma_data_direction dir,
++			       struct dma_attrs *attrs);
+ /**
+  * sba_map_sg - map Scatter/Gather list
+  * @dev: instance of PCI owned by the driver that's asking.
+@@ -1493,6 +1509,10 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 	** Access to the virtual address is what forces a two pass algorithm.
+ 	*/
+ 	coalesced = sba_coalesce_chunks(ioc, dev, sglist, nents);
++	if (coalesced < 0) {
++		sba_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
++		return 0;
++	}
  
- static void __set_se_shares(struct sched_entity *se, unsigned long shares);
- 
-@@ -1578,12 +1574,12 @@ static void __set_se_shares(struct sched_entity *se, unsigned long shares);
- static void update_group_shares_cpu(struct task_group *tg, int cpu,
- 				    unsigned long sd_shares,
- 				    unsigned long sd_rq_weight,
--				    struct update_shares_data *usd)
-+				    unsigned long *usd_rq_weight)
- {
- 	unsigned long shares, rq_weight;
- 	int boost = 0;
- 
--	rq_weight = usd->rq_weight[cpu];
-+	rq_weight = usd_rq_weight[cpu];
- 	if (!rq_weight) {
- 		boost = 1;
- 		rq_weight = NICE_0_LOAD;
-@@ -1618,7 +1614,7 @@ static void update_group_shares_cpu(struct task_group *tg, int cpu,
- static int tg_shares_up(struct task_group *tg, void *data)
- {
- 	unsigned long weight, rq_weight = 0, shares = 0;
--	struct update_shares_data *usd;
-+	unsigned long *usd_rq_weight;
- 	struct sched_domain *sd = data;
- 	unsigned long flags;
- 	int i;
-@@ -1627,11 +1623,11 @@ static int tg_shares_up(struct task_group *tg, void *data)
- 		return 0;
- 
- 	local_irq_save(flags);
--	usd = &__get_cpu_var(update_shares_data);
-+	usd_rq_weight = per_cpu_ptr(update_shares_data, smp_processor_id());
- 
- 	for_each_cpu(i, sched_domain_span(sd)) {
- 		weight = tg->cfs_rq[i]->load.weight;
--		usd->rq_weight[i] = weight;
-+		usd_rq_weight[i] = weight;
- 
- 		/*
- 		 * If there are currently no tasks on the cpu pretend there
-@@ -1652,7 +1648,7 @@ static int tg_shares_up(struct task_group *tg, void *data)
- 		shares = tg->shares;
- 
- 	for_each_cpu(i, sched_domain_span(sd))
--		update_group_shares_cpu(tg, i, shares, rq_weight, usd);
-+		update_group_shares_cpu(tg, i, shares, rq_weight, usd_rq_weight);
- 
- 	local_irq_restore(flags);
- 
-@@ -9407,6 +9403,10 @@ void __init sched_init(void)
- #endif /* CONFIG_USER_SCHED */
- #endif /* CONFIG_GROUP_SCHED */
- 
-+#if defined CONFIG_FAIR_GROUP_SCHED && defined CONFIG_SMP
-+	update_shares_data = __alloc_percpu(nr_cpu_ids * sizeof(unsigned long),
-+					    __alignof__(unsigned long));
-+#endif
- 	for_each_possible_cpu(i) {
- 		struct rq *rq;
- 
+ 	/*
+ 	** Program the I/O Pdir
+-- 
+1.5.6.5
 
