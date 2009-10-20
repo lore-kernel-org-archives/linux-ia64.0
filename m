@@ -1,67 +1,36 @@
-From: "Jan Beulich" <JBeulich@novell.com>
-Date: Fri, 30 Oct 2009 16:05:24 +0000
-Subject: Re: [PATCH -next] ia64/sn: fix percpu warnings
-Message-Id: <4AEB1CD4020000780001CD66@vpn.id2.novell.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Tue, 20 Oct 2009 02:02:14 +0000
+Subject: Re: Commit 34d76c41 causes linker errors on ia64 with NR_CPUS=4096
+Message-Id: <alpine.LRH.2.00.0910200356340.20992@twin.jikos.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091014163445.f0441473.sfr@canb.auug.org.au>
- <20091014151003.0ef42973.randy.dunlap@oracle.com>
- <4AD67C05.2030201@kernel.org>
- <12c511ca0910261124p64f2ad5emc88d00b9957482b3@mail.gmail.com>
- <57C9024A16AD2D4C97DC78E552063EA3E345953E@orsmsx505.amr.corp.intel.com>
- <4AE85D28.90809@kernel.org>
- <57C9024A16AD2D4C97DC78E552063EA3E34C0108@orsmsx505.amr.corp.intel.com>
- <4AE87344.6030708@kernel.org>
- <57C9024A16AD2D4C97DC78E552063EA3E34C018B@orsmsx505.amr.corp.intel.com>
- <57C9024A16AD2D4C97DC78E552063EA3E34C0629@orsmsx505.amr.corp.intel.com>
- <4AE9AA0E.5070104@kernel.org> <4AE9B812.2080307@kernel.org>
-In-Reply-To: <4AE9B812.2080307@kernel.org>
+References: <4ADB967A.4080707@suse.com>
+In-Reply-To: <4ADB967A.4080707@suse.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Tejun Heo <tj@kernel.org>
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, akpm <akpm@linux-foundation.org>, Randy Dunlap <randy.dunlap@oracle.com>, Sam Ravnborg <sam@ravnborg.org>, Andreas Gruenbacher <agruen@suse.de>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, "linux-next@vger.kernel.org" <linux-next@vger.kernel.org>
+To: Jeff Mahoney <jeffm@suse.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
->>> Tejun Heo <tj@kernel.org> 29.10.09 16:43 >>>
->So, the problem is that genksyms can't understand the following.
->
->  __typeof__(int [10]) my_ar;
->  EXPORT_SYMBOL(my_ar);
+On Sun, 18 Oct 2009, Jeff Mahoney wrote:
 
-In fact almost no use of typeof() works with genksyms: Out of
+> Hi Peter -
+> 
+> Commit 34d76c41 introduced the update_shares_data percpu, but it ends up
+> causing problems on large ia64 machines. Specifically, ia64 is limited
+> to 64k in percpu vars and with NR_CPUS@96, that ends up being 32k by
+> itself. It ends up causing link errors since that is how ia64 enforces
+> the 64k limit.
+> 
+> I can take a deeper look at finding a workable solution but thought I'd
+> mention it in case you had ideas already.
 
-#include <linux/module.h>
+I am adding some IA64 CCs, as the failure is solely caused by the ia64 
+percpu implementation/pagefault handler optimization which requires the 
+.percpu section area not be larger than 64k, which blows up with 34d76c41 
+and NR_CPUS high enoufh (due to introduction of percpu array being 
+size-dependent on NR_CPUS).
 
-extern int x;
-
-#define export(t, n) typeof(t) export_##n; EXPORT_SYMBOL(export_##n)
-
-export(x, a);
-export(&x, b);
-export(int, c);
-export(int*, d);
-export(int**, e);
-export(int[4], f);
-export(typeof(x), g);
-export(typeof(&x), h);
-export(typeof(x)*, i);
-
-only c and d get a non-zero CRC. This is clearly due to the naive parsing
-scripts/genksyms/parse.y does:
-
-type_specifier:
-	simple_type_specifier
-	| cvar_qualifier
-	| TYPEOF_KEYW '(' decl_specifier_seq '*' ')'
-	| TYPEOF_KEYW '(' decl_specifier_seq ')'
-	...
-
->Would it be difficult to teach it how to parse it?
-
-For someone familiar with bison/yacc this would seem not very difficult
-a job, but as far as I'm concerned this is not something I would feel
-comfortable trying to fix. Of course one could go the simplistic route
-and just add the array case here, but imo this wouldn't be the right
-way to deal with it.
-
-Jan
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
 
