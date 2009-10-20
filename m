@@ -1,42 +1,27 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Tue, 20 Oct 2009 07:39:01 +0000
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Tue, 20 Oct 2009 09:21:14 +0000
 Subject: Re: Commit 34d76c41 causes linker errors on ia64 with NR_CPUS=4096
-Message-Id: <4ADD6915.7000909@kernel.org>
+Message-Id: <1256030474.17774.36.camel@laptop>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4ADB967A.4080707@suse.com> <alpine.LRH.2.00.0910200356340.20992@twin.jikos.cz> <alpine.LRH.2.00.0910200651510.20992@twin.jikos.cz> <20091020061557.GE8550@elte.hu> <alpine.LSU.2.00.0910200820500.8582@wotan.suse.de> <20091020063555.GJ8550@elte.hu> <4ADD62AA.8060503@gmail.com>
-In-Reply-To: <4ADD62AA.8060503@gmail.com>
+References: <4ADB967A.4080707@suse.com>
+	 <alpine.LRH.2.00.0910200356340.20992@twin.jikos.cz>
+	 <alpine.LRH.2.00.0910200651510.20992@twin.jikos.cz>
+	 <20091020061557.GE8550@elte.hu>
+In-Reply-To: <20091020061557.GE8550@elte.hu>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Ingo Molnar <mingo@elte.hu>, Jiri Kosina <jkosina@suse.cz>, Jeff Mahoney <jeffm@suse.com>, Peter Zijlstra <peterz@infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Ingo Molnar <mingo@elte.hu>
+Cc: Jiri Kosina <jkosina@suse.cz>, Jeff Mahoney <jeffm@suse.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Eric Dumazet wrote:
-> Ingo Molnar a =E9crit :
-> =20
->> Still looks like a bug if it causes a breakage (linker error) on IA64,=20
->> and if the 'fix' (i'd call it a workaround) causes a (small but nonzero)=
-=20
->> performance regression on other architectures.
->>
->=20
-> True, but this also save some amount of ram for some distro kernels.
->=20
-> If we keep this static NR_CPUS thing, we might be able to free
-> the end of table, for other per_cpu users ?
->=20
-> if (nr_cpus_ids < NR_CPUS) {
-> 	per_cpu_free_static_zone(&update_shares_data[nr_cpus_ids],
-> 				 sizeof(long)*(NR_CPUS - nr_cpus_ids));
-> }
+On Tue, 2009-10-20 at 08:15 +0200, Ingo Molnar wrote:
+> 
+> Seems like an IA64 bug to me. It's _very_ easy to get more than 64K of 
+> percpu data - i'm wondering why IA64 only triggered it now? Sure 
+> lockdep/lockstat must have triggered it before.
 
-That's doable but Considering that the users of NR_CPUS are pretty few
-(and should be kept that way), I think it would be better to just use
-dynamic allocation, which no longer incurs any major performance
-difference (the only difference is constant offset vs. pointer in a
-variable), for those cases.
+I seem to remember people wanting to make lockstat data dynamically
+allocated because of this.
 
-Thanks.
+But then, I'm not sure ia64 actually has lockdep support.
 
---=20
-tejun
