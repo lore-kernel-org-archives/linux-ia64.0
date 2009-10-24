@@ -1,38 +1,22 @@
-From: Roel Kluin <roel.kluin@gmail.com>
-Date: Sat, 17 Oct 2009 22:10:08 +0000
-Subject: [PATCH] ia64: Fix tests on unsigned
-Message-Id: <4ADA40C0.4010806@gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Sat, 24 Oct 2009 00:55:27 +0000
+Subject: Itanium spec update available.
+Message-Id: <4ae2507f2822159c27@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-struct ate_resource member lowest_free_index is unsigned,
-the test was invalid.
+There is an update to the Itanium software developer manual available from:
 
-Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
----
-diff --git a/arch/ia64/sn/pci/pcibr/pcibr_ate.c b/arch/ia64/sn/pci/pcibr/pcibr_ate.c
-index 5bc34ea..12a5a9c 100644
---- a/arch/ia64/sn/pci/pcibr/pcibr_ate.c
-+++ b/arch/ia64/sn/pci/pcibr/pcibr_ate.c
-@@ -70,8 +70,7 @@ static inline void free_ate_resource(struct ate_resource *ate_resource,
- 				     int start)
- {
- 	mark_ate(ate_resource, start, ate_resource->ate[start], 0);
--	if ((ate_resource->lowest_free_index > start) ||
--	    (ate_resource->lowest_free_index < 0))
-+	if (ate_resource->lowest_free_index > start)
- 		ate_resource->lowest_free_index = start;
- }
- 
-@@ -86,7 +85,7 @@ static inline int alloc_ate_resource(struct ate_resource *ate_resource,
- 	/*
- 	 * Check for ate exhaustion.
- 	 */
--	if (ate_resource->lowest_free_index < 0)
-+	if (ate_resource->lowest_free_index = -1)
- 		return -1;
- 
- 	/*
+http://download.intel.com/design/itanium/specupdt/248699.pdf
+
+Section 4.5.1 on p.59 explains the use of ALAT to provide information to
+hint@pause on the event that a cpu-thread is waiting for.  H/W support
+to take notice of the ALAT in this way begins with Tukwila.
+
+Next couple of posts will have patches to spin locks and spinaphores to
+make use of this feature.
+
+-Tony
