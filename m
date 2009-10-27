@@ -1,141 +1,36 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Tue, 27 Oct 2009 12:32:21 +0000
-Subject: [PATCH 1/2] percpu: allow pcpu_alloc() to be called with IRQs off
-Message-Id: <alpine.LSU.2.00.0910271328340.19847@wotan.suse.de>
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 27 Oct 2009 12:55:27 +0000
+Subject: Re: [PATCH 1/2] percpu: allow pcpu_alloc() to be called with IRQs
+Message-Id: <4AE6EDBF.7040905@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <alpine.LSU.2.00.0910271328340.19847@wotan.suse.de>
+In-Reply-To: <alpine.LSU.2.00.0910271328340.19847@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>, Jeff Mahoney <jeffm@suse.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Jiri Kosina <jkosina@suse.cz>
+Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Jeff Mahoney <jeffm@suse.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-pcpu_alloc() and pcpu_extend_area_map() perform a series of
-spin_lock_irq()/spin_unlock_irq() calls, which make them unsafe
-with respect to being called from contexts which have IRQs off.
+Jiri Kosina wrote:
+> pcpu_alloc() and pcpu_extend_area_map() perform a series of
+> spin_lock_irq()/spin_unlock_irq() calls, which make them unsafe
+> with respect to being called from contexts which have IRQs off.
+> 
+> This patch converts the code to perform save/restore of flags instead,
+> making pcpu_alloc() (or __alloc_percpu() respectively) to be called
+> from early kernel startup stage, where IRQs are off.
+> 
+> This is needed for proper initialization of per-cpu rq_weight data from
+> sched_init().
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
-This patch converts the code to perform save/restore of flags instead,
-making pcpu_alloc() (or __alloc_percpu() respectively) to be called
-from early kernel startup stage, where IRQs are off.
+Acked-by: Tejun Heo <tj@kernel.org>
 
-This is needed for proper initialization of per-cpu rq_weight data from
-sched_init().
+I'll wait for response on the series and push it through percpu#fixes
+tomorrow if there's no objection.
 
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
----
- mm/percpu.c |   25 +++++++++++++------------
- 1 files changed, 13 insertions(+), 12 deletions(-)
+Thanks.
 
-diff --git a/mm/percpu.c b/mm/percpu.c
-index 6af78c1..6b82bbf 100644
---- a/mm/percpu.c
-+++ b/mm/percpu.c
-@@ -366,7 +366,7 @@ static struct pcpu_chunk *pcpu_chunk_addr_search(void *addr)
-  * RETURNS:
-  * 0 if noop, 1 if successfully extended, -errno on failure.
-  */
--static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
-+static int pcpu_extend_area_map(struct pcpu_chunk *chunk, unsigned long *flags)
- {
- 	int new_alloc;
- 	int *new;
-@@ -376,7 +376,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
- 	if (chunk->map_alloc >= chunk->map_used + 2)
- 		return 0;
- 
--	spin_unlock_irq(&pcpu_lock);
-+	spin_unlock_irqrestore(&pcpu_lock, *flags);
- 
- 	new_alloc = PCPU_DFL_MAP_ALLOC;
- 	while (new_alloc < chunk->map_used + 2)
-@@ -384,7 +384,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
- 
- 	new = pcpu_mem_alloc(new_alloc * sizeof(new[0]));
- 	if (!new) {
--		spin_lock_irq(&pcpu_lock);
-+		spin_lock_irqsave(&pcpu_lock, *flags);
- 		return -ENOMEM;
- 	}
- 
-@@ -393,7 +393,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
- 	 * could have happened inbetween, so map_used couldn't have
- 	 * grown.
- 	 */
--	spin_lock_irq(&pcpu_lock);
-+	spin_lock_irqsave(&pcpu_lock, *flags);
- 	BUG_ON(new_alloc < chunk->map_used + 2);
- 
- 	size = chunk->map_alloc * sizeof(chunk->map[0]);
-@@ -1047,6 +1047,7 @@ static void *pcpu_alloc(size_t size, size_t align, bool reserved)
- 	struct pcpu_chunk *chunk;
- 	const char *err;
- 	int slot, off;
-+	unsigned long flags;
- 
- 	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE)) {
- 		WARN(true, "illegal size (%zu) or align (%zu) for "
-@@ -1055,13 +1056,13 @@ static void *pcpu_alloc(size_t size, size_t align, bool reserved)
- 	}
- 
- 	mutex_lock(&pcpu_alloc_mutex);
--	spin_lock_irq(&pcpu_lock);
-+	spin_lock_irqsave(&pcpu_lock, flags);
- 
- 	/* serve reserved allocations from the reserved chunk if available */
- 	if (reserved && pcpu_reserved_chunk) {
- 		chunk = pcpu_reserved_chunk;
- 		if (size > chunk->contig_hint ||
--		    pcpu_extend_area_map(chunk) < 0) {
-+		    pcpu_extend_area_map(chunk, &flags) < 0) {
- 			err = "failed to extend area map of reserved chunk";
- 			goto fail_unlock;
- 		}
-@@ -1079,7 +1080,7 @@ restart:
- 			if (size > chunk->contig_hint)
- 				continue;
- 
--			switch (pcpu_extend_area_map(chunk)) {
-+			switch (pcpu_extend_area_map(chunk, &flags)) {
- 			case 0:
- 				break;
- 			case 1:
-@@ -1096,7 +1097,7 @@ restart:
- 	}
- 
- 	/* hmmm... no space left, create a new chunk */
--	spin_unlock_irq(&pcpu_lock);
-+	spin_unlock_irqrestore(&pcpu_lock, flags);
- 
- 	chunk = alloc_pcpu_chunk();
- 	if (!chunk) {
-@@ -1104,16 +1105,16 @@ restart:
- 		goto fail_unlock_mutex;
- 	}
- 
--	spin_lock_irq(&pcpu_lock);
-+	spin_lock_irqsave(&pcpu_lock, flags);
- 	pcpu_chunk_relocate(chunk, -1);
- 	goto restart;
- 
- area_found:
--	spin_unlock_irq(&pcpu_lock);
-+	spin_unlock_irqrestore(&pcpu_lock, flags);
- 
- 	/* populate, map and clear the area */
- 	if (pcpu_populate_chunk(chunk, off, size)) {
--		spin_lock_irq(&pcpu_lock);
-+		spin_lock_irqsave(&pcpu_lock, flags);
- 		pcpu_free_area(chunk, off);
- 		err = "failed to populate";
- 		goto fail_unlock;
-@@ -1125,7 +1126,7 @@ area_found:
- 	return __addr_to_pcpu_ptr(chunk->base_addr + off);
- 
- fail_unlock:
--	spin_unlock_irq(&pcpu_lock);
-+	spin_unlock_irqrestore(&pcpu_lock, flags);
- fail_unlock_mutex:
- 	mutex_unlock(&pcpu_alloc_mutex);
- 	if (warn_limit) {
 -- 
-1.6.4.2
-
+tejun
