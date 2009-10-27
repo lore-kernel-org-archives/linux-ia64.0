@@ -1,41 +1,141 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Thu, 29 Oct 2009 08:53:29 +0000
-Subject: Re: [PATCH 1/7] bitmap: Introduce bitmap_set, bitmap_clear,
-Message-Id: <961aa3350910290153n70c3d982w10699ac28be63b6c@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Tue, 27 Oct 2009 12:32:21 +0000
+Subject: [PATCH 1/2] percpu: allow pcpu_alloc() to be called with IRQs off
+Message-Id: <alpine.LSU.2.00.0910271328340.19847@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1256719397-4258-1-git-send-email-akinobu.mita@gmail.com>
-	 <20091028131141.523854cb.akpm@linux-foundation.org>
-In-Reply-To: <20091028131141.523854cb.akpm@linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@ozlabs.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Greg Kroah-Hartman <gregkh@suse.de>, Lothar Wassmann <LW@karo-electronics.de>, linux-usb@vger.kernel.org, Roland Dreier <rolandd@cisco.com>, Yevgeny Petrilin <yevgenyp@mellanox.co.il>, netdev@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com, Joerg Roedel <joerg.roedel@amd.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>, Jeff Mahoney <jeffm@suse.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-2009/10/29 Andrew Morton <akpm@linux-foundation.org>:
->
-> Why were these patches resent? =A0What changed?
->
-> Everybody who is going to review these patches has already reviewed
-> them and now they need to review them all again?
+pcpu_alloc() and pcpu_extend_area_map() perform a series of
+spin_lock_irq()/spin_unlock_irq() calls, which make them unsafe
+with respect to being called from contexts which have IRQs off.
 
-I resent the patches because the iommu-helper change was not correct
-and I introduced serious bug in bitmap_find_next_zero_area()
-if align_mask !=3D 0 in follow-up patch then those were dropped from
-the -mm tree.
+This patch converts the code to perform save/restore of flags instead,
+making pcpu_alloc() (or __alloc_percpu() respectively) to be called
+from early kernel startup stage, where IRQs are off.
 
-Only [PATCH 1/7] and [PATCH 2/7] have changes since the first submission of
-this patch set.
+This is needed for proper initialization of per-cpu rq_weight data from
+sched_init().
 
-* [PATCH 1/7]
-- Rewrite bitmap_set() and bitmap_clear()
-- Let bitmap_find_next_zero_area() check the last bit of the limit
-- Add kerneldoc for bitmap_find_next_zero_area()
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+---
+ mm/percpu.c |   25 +++++++++++++------------
+ 1 files changed, 13 insertions(+), 12 deletions(-)
 
-* [PATCH 2/7]
-- Convert find_next_zero_area() to use bitmap_find_next_zero_area() correct=
-ly
-  iommu-helper doesn't want to search the last bit of the limist in bitmap
+diff --git a/mm/percpu.c b/mm/percpu.c
+index 6af78c1..6b82bbf 100644
+--- a/mm/percpu.c
++++ b/mm/percpu.c
+@@ -366,7 +366,7 @@ static struct pcpu_chunk *pcpu_chunk_addr_search(void *addr)
+  * RETURNS:
+  * 0 if noop, 1 if successfully extended, -errno on failure.
+  */
+-static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
++static int pcpu_extend_area_map(struct pcpu_chunk *chunk, unsigned long *flags)
+ {
+ 	int new_alloc;
+ 	int *new;
+@@ -376,7 +376,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
+ 	if (chunk->map_alloc >= chunk->map_used + 2)
+ 		return 0;
+ 
+-	spin_unlock_irq(&pcpu_lock);
++	spin_unlock_irqrestore(&pcpu_lock, *flags);
+ 
+ 	new_alloc = PCPU_DFL_MAP_ALLOC;
+ 	while (new_alloc < chunk->map_used + 2)
+@@ -384,7 +384,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
+ 
+ 	new = pcpu_mem_alloc(new_alloc * sizeof(new[0]));
+ 	if (!new) {
+-		spin_lock_irq(&pcpu_lock);
++		spin_lock_irqsave(&pcpu_lock, *flags);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -393,7 +393,7 @@ static int pcpu_extend_area_map(struct pcpu_chunk *chunk)
+ 	 * could have happened inbetween, so map_used couldn't have
+ 	 * grown.
+ 	 */
+-	spin_lock_irq(&pcpu_lock);
++	spin_lock_irqsave(&pcpu_lock, *flags);
+ 	BUG_ON(new_alloc < chunk->map_used + 2);
+ 
+ 	size = chunk->map_alloc * sizeof(chunk->map[0]);
+@@ -1047,6 +1047,7 @@ static void *pcpu_alloc(size_t size, size_t align, bool reserved)
+ 	struct pcpu_chunk *chunk;
+ 	const char *err;
+ 	int slot, off;
++	unsigned long flags;
+ 
+ 	if (unlikely(!size || size > PCPU_MIN_UNIT_SIZE || align > PAGE_SIZE)) {
+ 		WARN(true, "illegal size (%zu) or align (%zu) for "
+@@ -1055,13 +1056,13 @@ static void *pcpu_alloc(size_t size, size_t align, bool reserved)
+ 	}
+ 
+ 	mutex_lock(&pcpu_alloc_mutex);
+-	spin_lock_irq(&pcpu_lock);
++	spin_lock_irqsave(&pcpu_lock, flags);
+ 
+ 	/* serve reserved allocations from the reserved chunk if available */
+ 	if (reserved && pcpu_reserved_chunk) {
+ 		chunk = pcpu_reserved_chunk;
+ 		if (size > chunk->contig_hint ||
+-		    pcpu_extend_area_map(chunk) < 0) {
++		    pcpu_extend_area_map(chunk, &flags) < 0) {
+ 			err = "failed to extend area map of reserved chunk";
+ 			goto fail_unlock;
+ 		}
+@@ -1079,7 +1080,7 @@ restart:
+ 			if (size > chunk->contig_hint)
+ 				continue;
+ 
+-			switch (pcpu_extend_area_map(chunk)) {
++			switch (pcpu_extend_area_map(chunk, &flags)) {
+ 			case 0:
+ 				break;
+ 			case 1:
+@@ -1096,7 +1097,7 @@ restart:
+ 	}
+ 
+ 	/* hmmm... no space left, create a new chunk */
+-	spin_unlock_irq(&pcpu_lock);
++	spin_unlock_irqrestore(&pcpu_lock, flags);
+ 
+ 	chunk = alloc_pcpu_chunk();
+ 	if (!chunk) {
+@@ -1104,16 +1105,16 @@ restart:
+ 		goto fail_unlock_mutex;
+ 	}
+ 
+-	spin_lock_irq(&pcpu_lock);
++	spin_lock_irqsave(&pcpu_lock, flags);
+ 	pcpu_chunk_relocate(chunk, -1);
+ 	goto restart;
+ 
+ area_found:
+-	spin_unlock_irq(&pcpu_lock);
++	spin_unlock_irqrestore(&pcpu_lock, flags);
+ 
+ 	/* populate, map and clear the area */
+ 	if (pcpu_populate_chunk(chunk, off, size)) {
+-		spin_lock_irq(&pcpu_lock);
++		spin_lock_irqsave(&pcpu_lock, flags);
+ 		pcpu_free_area(chunk, off);
+ 		err = "failed to populate";
+ 		goto fail_unlock;
+@@ -1125,7 +1126,7 @@ area_found:
+ 	return __addr_to_pcpu_ptr(chunk->base_addr + off);
+ 
+ fail_unlock:
+-	spin_unlock_irq(&pcpu_lock);
++	spin_unlock_irqrestore(&pcpu_lock, flags);
+ fail_unlock_mutex:
+ 	mutex_unlock(&pcpu_alloc_mutex);
+ 	if (warn_limit) {
+-- 
+1.6.4.2
 
-* [PATCH 3/7] - [PATCH 7/7]
-- No changes
