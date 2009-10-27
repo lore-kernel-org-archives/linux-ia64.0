@@ -1,16 +1,29 @@
 From: Jiri Kosina <jkosina@suse.cz>
-Date: Tue, 27 Oct 2009 12:32:33 +0000
-Subject: [PATCH 2/2] sched: move rq_weight data array out of .percpu
-Message-Id: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
+Date: Tue, 27 Oct 2009 15:30:33 +0000
+Subject: Re: [PATCH 2/2] sched: move rq_weight data array out of .percpu
+Message-Id: <alpine.LSU.2.00.0910271629410.19847@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
+In-Reply-To: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>, Jeff Mahoney <jeffm@suse.com>
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Commit 34d76c41 introduced percpu array update_shares_data, size of which 
-being proportional to NR_CPUS. Unfortunately this blows up ia64 for large 
+The previous version of the patch will actually not compile for 
+configurations with CONFIG_SMP=n && CONFIG_FAR_GROUP_SCHED=y
+
+Tejun, please use the version below instead, which has proper ifdef in 
+place around the percpu allocation. Thanks.
+
+
+
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: sched: move rq_weight data array out of .percpu
+
+Commit 34d76c41 introduced percpu array update_shares_data, size of which
+being proportional to NR_CPUS. Unfortunately this blows up ia64 for large
 NR_CPUS configuration, as ia64 allows only 64k for .percpu section.
 
 Fix this by allocating this array dynamically and keep only pointer to it
@@ -131,13 +144,11 @@ index e886895..7c7ccbb 100644
  #endif /* CONFIG_USER_SCHED */
  #endif /* CONFIG_GROUP_SCHED */
  
-+#ifdef CONFIG_FAIR_GROUP_SCHED
++#if defined CONFIG_FAIR_GROUP_SCHED && defined CONFIG_SMP
 +	update_shares_data = __alloc_percpu(nr_cpu_ids * sizeof(unsigned long),
 +					    __alignof__(unsigned long));
 +#endif
  	for_each_possible_cpu(i) {
  		struct rq *rq;
  
--- 
-1.6.4.2
 
