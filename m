@@ -1,58 +1,143 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Sat, 17 Oct 2009 15:42:04 +0000
-Subject: Re: [PATCH 2/8] bitmap: Introduce bitmap_set, bitmap_clear,
-Message-Id: <961aa3350910170842w58a72be0id5fbd0e3a5058a1c@mail.gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Tue, 27 Oct 2009 12:32:33 +0000
+Subject: [PATCH 2/2] sched: move rq_weight data array out of .percpu
+Message-Id: <alpine.LSU.2.00.0910271330200.19847@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091013091017.GA18431@localhost.localdomain>
-	 <20091017224028V.fujita.tomonori@lab.ntt.co.jp>
-	 <961aa3350910170743n4c9947d1ka0bd31aa1c7b9917@mail.gmail.com>
-	 <20091017235117U.fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <20091017235117U.fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: akpm@linux-foundation.org, linux-kernel@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, benh@kernel.crashing.org, paulus@samba.org, linuxppc-dev@ozlabs.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, gregkh@suse.de, LW@karo-electronics.de, linux-usb@vger.kernel.org, rolandd@cisco.com, yevgenyp@mellanox.co.il, netdev@vger.kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-altix@sgi.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Tejun Heo <tj@kernel.org>, Jeff Mahoney <jeffm@suse.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
->> >> --- a/lib/iommu-helper.c
->> >> +++ b/lib/iommu-helper.c
->> >> @@ -19,7 +19,7 @@ again:
->> >> =A0 =A0 =A0 index =3D (index + align_mask) & ~align_mask;
->> >>
->> >> =A0 =A0 =A0 end =3D index + nr;
->> >> - =A0 =A0 if (end >=3D size)
->> >> + =A0 =A0 if (end > size)
->> >
->> > I think that this is intentional; the last byte of the limit doesn't
->> > work.
->>
->> It looks ok to me. Without above change, find_next_zero_area cannot
->> find a 64 bits zeroed area in next sample code.
->
-> I meant that we don't want to find such area for IOMMUs (IIRC, it code
-> came from POWER IOMMU).
+Commit 34d76c41 introduced percpu array update_shares_data, size of which 
+being proportional to NR_CPUS. Unfortunately this blows up ia64 for large 
+NR_CPUS configuration, as ia64 allows only 64k for .percpu section.
 
-OK, I see.  I think we need the comment about it.
+Fix this by allocating this array dynamically and keep only pointer to it
+percpu.
 
-So we cannot replace find_next_zero_area by bitmap_find_next_zero_area
-and current -mmotm has the bug introduced by this patch in iommu-helper
-and I also introduced the bug in bitmap_find_next_zero_area if
-align_mask !=3D 0 in
-bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area-fix.pat=
-ch
+The per-cpu handling doesn't impose significant performance penalty on
+potentially contented path in tg_shares_up().
 
-Andrew, please drop
+...
+ffffffff8104337c:       65 48 8b 14 25 20 cd    mov    %gs:0xcd20,%rdx
+ffffffff81043383:       00 00
+ffffffff81043385:       48 c7 c0 00 e1 00 00    mov    $0xe100,%rax
+ffffffff8104338c:       48 c7 45 a0 00 00 00    movq   $0x0,-0x60(%rbp)
+ffffffff81043393:       00
+ffffffff81043394:       48 c7 45 a8 00 00 00    movq   $0x0,-0x58(%rbp)
+ffffffff8104339b:       00
+ffffffff8104339c:       48 01 d0                add    %rdx,%rax
+ffffffff8104339f:       49 8d 94 24 08 01 00    lea    0x108(%r12),%rdx
+ffffffff810433a6:       00
+ffffffff810433a7:       b9 ff ff ff ff          mov    $0xffffffff,%ecx
+ffffffff810433ac:       48 89 45 b0             mov    %rax,-0x50(%rbp)
+ffffffff810433b0:       bb 00 04 00 00          mov    $0x400,%ebx
+ffffffff810433b5:       48 89 55 c0             mov    %rdx,-0x40(%rbp)
+...
 
-lib-iommu-helperc-fix-off-by-one-error-in-find_next_zero_area.patch
-iommu-helper-simplify-find_next_zero_area.patch
-bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area.patch
-bitmap-introduce-bitmap_set-bitmap_clear-bitmap_find_next_zero_area-fix.pat=
-ch
-iommu-helper-use-bitmap-library.patch
-isp1362-hcd-use-bitmap_find_next_zero_area.patch
-mlx4-use-bitmap_find_next_zero_area.patch
-sparc-use-bitmap_find_next_zero_area.patch
-ia64-use-bitmap_find_next_zero_area.patch
-genalloc-use-bitmap_find_next_zero_area.patch
+After:
 
-I'll overhaul the patchset and retry again.
+...
+ffffffff8104337c:       65 8b 04 25 28 cd 00    mov    %gs:0xcd28,%eax
+ffffffff81043383:       00
+ffffffff81043384:       48 98                   cltq
+ffffffff81043386:       49 8d bc 24 08 01 00    lea    0x108(%r12),%rdi
+ffffffff8104338d:       00
+ffffffff8104338e:       48 8b 15 d3 7f 76 00    mov    0x767fd3(%rip),%rdx        # ffffffff817ab368 <update_shares_data>
+ffffffff81043395:       48 8b 34 c5 00 ee 6d    mov    -0x7e921200(,%rax,8),%rsi
+ffffffff8104339c:       81
+ffffffff8104339d:       48 c7 45 a0 00 00 00    movq   $0x0,-0x60(%rbp)
+ffffffff810433a4:       00
+ffffffff810433a5:       b9 ff ff ff ff          mov    $0xffffffff,%ecx
+ffffffff810433aa:       48 89 7d c0             mov    %rdi,-0x40(%rbp)
+ffffffff810433ae:       48 c7 45 a8 00 00 00    movq   $0x0,-0x58(%rbp)
+ffffffff810433b5:       00
+ffffffff810433b6:       bb 00 04 00 00          mov    $0x400,%ebx
+ffffffff810433bb:       48 01 f2                add    %rsi,%rdx
+ffffffff810433be:       48 89 55 b0             mov    %rdx,-0x50(%rbp)
+...
+
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+---
+ kernel/sched.c |   22 +++++++++++-----------
+ 1 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/kernel/sched.c b/kernel/sched.c
+index e886895..7c7ccbb 100644
+--- a/kernel/sched.c
++++ b/kernel/sched.c
+@@ -1564,11 +1564,7 @@ static unsigned long cpu_avg_load_per_task(int cpu)
+ 
+ #ifdef CONFIG_FAIR_GROUP_SCHED
+ 
+-struct update_shares_data {
+-	unsigned long rq_weight[NR_CPUS];
+-};
+-
+-static DEFINE_PER_CPU(struct update_shares_data, update_shares_data);
++static __read_mostly unsigned long *update_shares_data;
+ 
+ static void __set_se_shares(struct sched_entity *se, unsigned long shares);
+ 
+@@ -1578,12 +1574,12 @@ static void __set_se_shares(struct sched_entity *se, unsigned long shares);
+ static void update_group_shares_cpu(struct task_group *tg, int cpu,
+ 				    unsigned long sd_shares,
+ 				    unsigned long sd_rq_weight,
+-				    struct update_shares_data *usd)
++				    unsigned long *usd_rq_weight)
+ {
+ 	unsigned long shares, rq_weight;
+ 	int boost = 0;
+ 
+-	rq_weight = usd->rq_weight[cpu];
++	rq_weight = usd_rq_weight[cpu];
+ 	if (!rq_weight) {
+ 		boost = 1;
+ 		rq_weight = NICE_0_LOAD;
+@@ -1618,7 +1614,7 @@ static void update_group_shares_cpu(struct task_group *tg, int cpu,
+ static int tg_shares_up(struct task_group *tg, void *data)
+ {
+ 	unsigned long weight, rq_weight = 0, shares = 0;
+-	struct update_shares_data *usd;
++	unsigned long *usd_rq_weight;
+ 	struct sched_domain *sd = data;
+ 	unsigned long flags;
+ 	int i;
+@@ -1627,11 +1623,11 @@ static int tg_shares_up(struct task_group *tg, void *data)
+ 		return 0;
+ 
+ 	local_irq_save(flags);
+-	usd = &__get_cpu_var(update_shares_data);
++	usd_rq_weight = per_cpu_ptr(update_shares_data, smp_processor_id());
+ 
+ 	for_each_cpu(i, sched_domain_span(sd)) {
+ 		weight = tg->cfs_rq[i]->load.weight;
+-		usd->rq_weight[i] = weight;
++		usd_rq_weight[i] = weight;
+ 
+ 		/*
+ 		 * If there are currently no tasks on the cpu pretend there
+@@ -1652,7 +1648,7 @@ static int tg_shares_up(struct task_group *tg, void *data)
+ 		shares = tg->shares;
+ 
+ 	for_each_cpu(i, sched_domain_span(sd))
+-		update_group_shares_cpu(tg, i, shares, rq_weight, usd);
++		update_group_shares_cpu(tg, i, shares, rq_weight, usd_rq_weight);
+ 
+ 	local_irq_restore(flags);
+ 
+@@ -9407,6 +9403,10 @@ void __init sched_init(void)
+ #endif /* CONFIG_USER_SCHED */
+ #endif /* CONFIG_GROUP_SCHED */
+ 
++#ifdef CONFIG_FAIR_GROUP_SCHED
++	update_shares_data = __alloc_percpu(nr_cpu_ids * sizeof(unsigned long),
++					    __alignof__(unsigned long));
++#endif
+ 	for_each_possible_cpu(i) {
+ 		struct rq *rq;
+ 
+-- 
+1.6.4.2
+
