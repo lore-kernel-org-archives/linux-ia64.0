@@ -1,149 +1,73 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Sat, 24 Oct 2009 00:56:07 +0000
-Subject: [PATCH] Squeeze spin locks back into 4 bytes
-Message-Id: <4ae250a72822257ba9@agluck-desktop.sc.intel.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Date: Wed, 28 Oct 2009 08:43:16 +0000
+Subject: [PATCH 6/7] ia64: Use bitmap_find_next_zero_area
+Message-Id: <1256719397-4258-6-git-send-email-akinobu.mita@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1256719397-4258-1-git-send-email-akinobu.mita@gmail.com>
+In-Reply-To: <1256719397-4258-1-git-send-email-akinobu.mita@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, akpm@linux-foundation.org
+Cc: Akinobu Mita <akinobu.mita@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
 
-Linus pointed out that other people have spent large amounts of time
-and effort to optimize the layout of frequently used structures. Often
-these have embedded locks, and the assumption is that a lock takes
-4 bytes.  Linus also pointed out how to work with the limited options
-for atomic instructions on Itanium.
-
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-altix@sgi.com
 ---
+ arch/ia64/sn/pci/tioca_provider.c |   19 +++++--------------
+ 1 files changed, 5 insertions(+), 14 deletions(-)
 
-diff --git a/arch/ia64/include/asm/spinlock.h b/arch/ia64/include/asm/spinlock.h
-index 30bb930..239ecdc 100644
---- a/arch/ia64/include/asm/spinlock.h
-+++ b/arch/ia64/include/asm/spinlock.h
-@@ -25,61 +25,82 @@
-  * by atomically noting the tail and incrementing it by one (thus adding
-  * ourself to the queue and noting our position), then waiting until the head
-  * becomes equal to the the initial value of the tail.
-+ * The pad bits in the middle are used to prevent the next_ticket number
-+ * overflowing into the now_serving number.
-  *
-- *   63                     32  31                      0
-+ *   31             17  16    15  14                    0
-  *  +----------------------------------------------------+
-- *  |  next_ticket_number      |     now_serving         |
-+ *  |  now_serving     | padding |   next_ticket         |
-  *  +----------------------------------------------------+
-  */
- 
--#define TICKET_SHIFT	32
-+#define TICKET_SHIFT	17
-+#define TICKET_BITS	15
-+#define	TICKET_MASK	((1 << TICKET_BITS) - 1)
- 
- static __always_inline void __ticket_spin_lock(raw_spinlock_t *lock)
+diff --git a/arch/ia64/sn/pci/tioca_provider.c b/arch/ia64/sn/pci/tioca_provider.c
+index 35b2a27..efb4545 100644
+--- a/arch/ia64/sn/pci/tioca_provider.c
++++ b/arch/ia64/sn/pci/tioca_provider.c
+@@ -9,6 +9,7 @@
+ #include <linux/types.h>
+ #include <linux/interrupt.h>
+ #include <linux/pci.h>
++#include <linux/bitmap.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/addrs.h>
+ #include <asm/sn/io.h>
+@@ -369,7 +370,7 @@ tioca_dma_d48(struct pci_dev *pdev, u64 paddr)
+ static dma_addr_t
+ tioca_dma_mapped(struct pci_dev *pdev, unsigned long paddr, size_t req_size)
  {
--	int	*p = (int *)&lock->lock, turn, now_serving;
-+	int	*p = (int *)&lock->lock, ticket, serve;
+-	int i, ps, ps_shift, entry, entries, mapsize, last_entry;
++	int ps, ps_shift, entry, entries, mapsize;
+ 	u64 xio_addr, end_xio_addr;
+ 	struct tioca_common *tioca_common;
+ 	struct tioca_kernel *tioca_kern;
+@@ -410,23 +411,13 @@ tioca_dma_mapped(struct pci_dev *pdev, unsigned long paddr, size_t req_size)
+ 	map = tioca_kern->ca_pcigart_pagemap;
+ 	mapsize = tioca_kern->ca_pcigart_entries;
  
--	now_serving = *p;
--	turn = ia64_fetchadd(1, p+1, acq);
-+	ticket = ia64_fetchadd(1, p, acq);
- 
--	if (turn = now_serving)
-+	if (!(((ticket >> TICKET_SHIFT) ^ ticket) & TICKET_MASK))
- 		return;
- 
--	do {
-+	ia64_invala();
-+
-+	for (;;) {
-+		asm volatile ("ld4.c.nc %0=[%1]" : "=r"(serve) : "r"(p) : "memory");
-+
-+		if (!(((serve >> TICKET_SHIFT) ^ ticket) & TICKET_MASK))
-+			return;
- 		cpu_relax();
--	} while (ACCESS_ONCE(*p) != turn);
-+	}
- }
- 
- static __always_inline int __ticket_spin_trylock(raw_spinlock_t *lock)
- {
--	long tmp = ACCESS_ONCE(lock->lock), try;
+-	entry = find_first_zero_bit(map, mapsize);
+-	while (entry < mapsize) {
+-		last_entry = find_next_bit(map, mapsize, entry);
 -
--	if (!(((tmp >> TICKET_SHIFT) ^ tmp) & ((1L << TICKET_SHIFT) - 1))) {
--		try = tmp + (1L << TICKET_SHIFT);
-+	int tmp = ACCESS_ONCE(lock->lock);
- 
--		return ia64_cmpxchg(acq, &lock->lock, tmp, try, sizeof (tmp)) = tmp;
+-		if (last_entry - entry >= entries)
+-			break;
+-
+-		entry = find_next_zero_bit(map, mapsize, last_entry);
 -	}
-+	if (!(((tmp >> TICKET_SHIFT) ^ tmp) & TICKET_MASK))
-+		return ia64_cmpxchg(acq, &lock->lock, tmp, tmp + 1, sizeof (tmp)) = tmp;
- 	return 0;
- }
+-
+-	if (entry > mapsize) {
++	entry = bitmap_find_next_zero_area(map, mapsize, 0, entries, 0);
++	if (entry >= mapsize) {
+ 		kfree(ca_dmamap);
+ 		goto map_return;
+ 	}
  
- static __always_inline void __ticket_spin_unlock(raw_spinlock_t *lock)
- {
--	int	*p = (int *)&lock->lock;
-+	unsigned short	*p = (unsigned short *)&lock->lock + 1, tmp;
+-	for (i = 0; i < entries; i++)
+-		set_bit(entry + i, map);
++	bitmap_set(map, entry, entries);
  
--	(void)ia64_fetchadd(1, p, rel);
-+	asm volatile ("ld2.bias %0=[%1]" : "=r"(tmp) : "r"(p));
-+	ACCESS_ONCE(*p) = (tmp + 2) & ~1;
-+}
-+
-+static __always_inline void __ticket_spin_unlock_wait(raw_spinlock_t *lock)
-+{
-+	int	*p = (int *)&lock->lock, ticket;
-+
-+	ia64_invala();
-+
-+	for (;;) {
-+		asm volatile ("ld4.c.nc %0=[%1]" : "=r"(ticket) : "r"(p) : "memory");
-+		if (!(((ticket >> TICKET_SHIFT) ^ ticket) & TICKET_MASK))
-+			return;
-+		cpu_relax();
-+	}
- }
+ 	bus_addr = tioca_kern->ca_pciap_base + (entry * ps);
  
- static inline int __ticket_spin_is_locked(raw_spinlock_t *lock)
- {
- 	long tmp = ACCESS_ONCE(lock->lock);
- 
--	return !!(((tmp >> TICKET_SHIFT) ^ tmp) & ((1L << TICKET_SHIFT) - 1));
-+	return !!(((tmp >> TICKET_SHIFT) ^ tmp) & TICKET_MASK);
- }
- 
- static inline int __ticket_spin_is_contended(raw_spinlock_t *lock)
- {
- 	long tmp = ACCESS_ONCE(lock->lock);
- 
--	return (((tmp >> TICKET_SHIFT) - tmp) & ((1L << TICKET_SHIFT) - 1)) > 1;
-+	return ((tmp - (tmp >> TICKET_SHIFT)) & TICKET_MASK) > 1;
- }
- 
- static inline int __raw_spin_is_locked(raw_spinlock_t *lock)
-@@ -116,8 +137,7 @@ static __always_inline void __raw_spin_lock_flags(raw_spinlock_t *lock,
- 
- static inline void __raw_spin_unlock_wait(raw_spinlock_t *lock)
- {
--	while (__raw_spin_is_locked(lock))
--		cpu_relax();
-+	__ticket_spin_unlock_wait(lock);
- }
- 
- #define __raw_read_can_lock(rw)		(*(volatile int *)(rw) >= 0)
-diff --git a/arch/ia64/include/asm/spinlock_types.h b/arch/ia64/include/asm/spinlock_types.h
-index b61d136..474e46f 100644
---- a/arch/ia64/include/asm/spinlock_types.h
-+++ b/arch/ia64/include/asm/spinlock_types.h
-@@ -6,7 +6,7 @@
- #endif
- 
- typedef struct {
--	volatile unsigned long lock;
-+	volatile unsigned int lock;
- } raw_spinlock_t;
- 
- #define __RAW_SPIN_LOCK_UNLOCKED	{ 0 }
+-- 
+1.6.5.1
+
