@@ -1,40 +1,33 @@
-From: "Leonardo Chiquitto" <lchiquitto@novell.com>
-Date: Wed, 21 Oct 2009 13:29:17 +0000
-Subject: Re: [PATCH] ia64: fix SBA IOMMU to handle allocation failure
-Message-Id: <4ADEF08D020000860004410B@sinclair.provo.novell.com>
+From: Tejun Heo <tj@kernel.org>
+Date: Thu, 29 Oct 2009 14:03:31 +0000
+Subject: [PATCH percpu#for-next] ia64: add sparse annotation to __ia64_per_cpu_var()
+Message-Id: <4AE9A0B3.4010305@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091018140631K.fujita.tomonori@lab.ntt.co.jp>
-In-Reply-To: <20091018140631K.fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, Christoph Lameter <cl@linux-foundation.org>
 
-> This is an updated patch of the patch that I've posted one year
-> ago. Shehjar reported the problem and confirmed that the patch fixes
-> it:
-> 
-> http://lkml.indiana.edu/hypermail/linux/kernel/0811.0/01562.html
-> 
-> Leonardo told me that he hit the same problem and confirmed that the
-> patch fixes it.
-> 
-> > From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-> Subject: [PATCH] ia64: fix SBA IOMMU to handle allocation failure properly
-> 
-> It's possible that SBA IOMMU might fail to find I/O space under heavy
-> I/Os. SBA IOMMU panics on allocation failure but it shouldn't; drivers
-> can handle the failure. The majority of other IOMMU drivers don't
-> panic on allocation failure.
-> 
-> This patch fixes SBA IOMMU path to handle allocation failure properly.
-> 
-> Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+ia64 has its own optimized percpu accessor - __ia64_per_cpu_var().
+Add percpu sparse annotations to it.
 
-Thanks for refreshing and resubmitting this. I just received feedback
-confirming that the patch resolves the problem.
+Signed-off-by: Tejun Heo <tj@kernel.org>
+---
+ arch/ia64/include/asm/percpu.h |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-Kind regards,
-Leonardo
-
+Index: work/arch/ia64/include/asm/percpu.h
+=================================--- work.orig/arch/ia64/include/asm/percpu.h
++++ work/arch/ia64/include/asm/percpu.h
+@@ -39,7 +39,10 @@ extern void *per_cpu_init(void);
+  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
+  * more efficient.
+  */
+-#define __ia64_per_cpu_var(var)	var
++#define __ia64_per_cpu_var(var) (*({					\
++	__verify_pcpu_ptr(&(var));					\
++	((typeof(var) __kernel __force *)&(var));			\
++}))
+ 
+ #include <asm-generic/percpu.h>
+ 
