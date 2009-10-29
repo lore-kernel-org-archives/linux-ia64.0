@@ -1,33 +1,19 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Thu, 29 Oct 2009 14:03:31 +0000
-Subject: [PATCH percpu#for-next] ia64: add sparse annotation to __ia64_per_cpu_var()
-Message-Id: <4AE9A0B3.4010305@kernel.org>
+From: Christoph Lameter <cl@linux-foundation.org>
+Date: Thu, 29 Oct 2009 14:49:17 +0000
+Subject: Re: [PATCH percpu#for-next] ia64: add sparse annotation to
+Message-Id: <alpine.DEB.1.10.0910291444240.18197@V090114053VZO-1>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4AE9A0B3.4010305@kernel.org>
+In-Reply-To: <4AE9A0B3.4010305@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, Christoph Lameter <cl@linux-foundation.org>
+To: Tejun Heo <tj@kernel.org>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
 
-ia64 has its own optimized percpu accessor - __ia64_per_cpu_var().
-Add percpu sparse annotations to it.
+On Thu, 29 Oct 2009, Tejun Heo wrote:
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
----
- arch/ia64/include/asm/percpu.h |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+> ia64 has its own optimized percpu accessor - __ia64_per_cpu_var().
+> Add percpu sparse annotations to it.
 
-Index: work/arch/ia64/include/asm/percpu.h
-=================================--- work.orig/arch/ia64/include/asm/percpu.h
-+++ work/arch/ia64/include/asm/percpu.h
-@@ -39,7 +39,10 @@ extern void *per_cpu_init(void);
-  * On the positive side, using __ia64_per_cpu_var() instead of __get_cpu_var() is slightly
-  * more efficient.
-  */
--#define __ia64_per_cpu_var(var)	var
-+#define __ia64_per_cpu_var(var) (*({					\
-+	__verify_pcpu_ptr(&(var));					\
-+	((typeof(var) __kernel __force *)&(var));			\
-+}))
- 
- #include <asm-generic/percpu.h>
- 
+Reviewed-by: Christoph Lameter <cl@linux-foundation.org>
