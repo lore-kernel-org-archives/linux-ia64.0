@@ -1,128 +1,79 @@
-From: Takao Indoh <indou.takao@jp.fujitsu.com>
-Date: Thu, 19 Nov 2009 21:39:22 +0000
-Subject: [PATCH] Save I-resources to ia64_sal_os_state
-Message-Id: <51CA6960C1E2ECindou.takao@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 10 Nov 2009 17:11:38 +0000
+Subject: [PATCH v2 2/3] ACPI: pci_root: save downstream bus range
+Message-Id: <20091110171138.10645.99610.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20091110170802.10645.91272.stgit@bob.kio>
+In-Reply-To: <20091110170802.10645.91272.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Len Brown <lenb@kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
 
-Hi,
+We need the entire downstream bus range, not just the base bus number, to
+support _CBA.  See the PCI Firmware spec, rev 3.0, sec 4.1.3.  It's clear
+that the bus range is supposed to be in _CRS, but if we don't find it there,
+we'll assume [_BBN - 0xFF].
 
-This is a patch related to this discussion.
-http://www.spinics.net/lists/linux-ia64/msg07605.html
-
-When INIT is sent, ip/psr/pfs register is stored to the I-resources
-(iip/ipsr/ifs registers), and they are copied in the min-state save
-area(pmsa_{iip,ipsr,ifs}).
-
-Therefore, in creating pt_regs at ia64_mca_modify_original_stack(),
-cr_{iip,ipsr,ifs} should be derived from pmsa_{iip,ipsr,ifs}. But
-current code copies pmsa_{xip,xpsr,xfs} to cr_{iip,ipsr,ifs}
-when PSR.ic is 0.
-
-finish_pt_regs(struct pt_regs *regs, const pal_min_state_area_t *ms,
-                unsigned long *nat)
-{
-(snip)
-        if (ia64_psr(regs)->ic) {
-                regs->cr_iip = ms->pmsa_iip;
-                regs->cr_ipsr = ms->pmsa_ipsr;
-                regs->cr_ifs = ms->pmsa_ifs;
-        } else {
-                regs->cr_iip = ms->pmsa_xip;
-                regs->cr_ipsr = ms->pmsa_xpsr;
-                regs->cr_ifs = ms->pmsa_xfs;
-        }
-
-It's ok when PSR.ic is not 0. But when PSR.ic is 0, this could be
-a problem when we investigate kernel as the value of regs->cr_iip does
-not point to where INIT really interrupted.
-
-At first I tried to change finish_pt_regs() so that it uses always
-pmsa_{iip,ipsr,ifs} for cr_{iip,ipsr,ifs}, but Keith Owens pointed out
-it could cause another problem if I change it.
-
->The only problem I can think of is an MCA/INIT
->arriving while code like SAVE_MIN or SAVE_REST is executing.  Back
->tracing at that point using pmsa_iip is going to be a problem, you have
->no idea what state the registers or stack are in.
-
-I confirmed he was right, so I decided to keep it as-is and to
-save pmsa_{iip,ipsr,ifs} to ia64_sal_os_state for debugging.
-
-An attached patch is just adding new members into ia64_sal_os_state to
-save pmsa_{iip,ipsr,ifs}.
-
-Any comments would be appreciated.
-
-Thanks,
-Takao Indoh
-
-Signed-off-by: Takao Indoh <indou.takao@jp.fujitsu.com>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 ---
- arch/ia64/include/asm/mca.h |    5 +++++
- arch/ia64/kernel/mca.c      |   11 ++++++++---
- 2 files changed, 13 insertions(+), 3 deletions(-)
+ drivers/acpi/pci_root.c |   19 +++++++++++++------
+ include/acpi/acpi_bus.h |    1 +
+ 2 files changed, 14 insertions(+), 6 deletions(-)
 
-diff -Nurp linux-2.6-ia64.org/arch/ia64/include/asm/mca.h linux-2.6-ia64/arch/ia64/include/asm/mca.h
---- linux-2.6-ia64.org/arch/ia64/include/asm/mca.h	2009-11-09 17:32:21.000000000 -0500
-+++ linux-2.6-ia64/arch/ia64/include/asm/mca.h	2009-11-09 17:34:41.000000000 -0500
-@@ -106,6 +106,11 @@ struct ia64_sal_os_state {
- 	unsigned long		os_status;		/* OS status to SAL, enum below */
- 	unsigned long		context;		/* 0 if return to same context
- 							   1 if return to new context */
-+
-+	/* I-resources */
-+	unsigned long		iip;
-+	unsigned long		ipsr;
-+	unsigned long		ifs;
- };
+diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
+index aa9eeee..a3e6f0e 100644
+--- a/drivers/acpi/pci_root.c
++++ b/drivers/acpi/pci_root.c
+@@ -485,16 +485,22 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
  
- enum {
-diff -Nurp linux-2.6-ia64.org/arch/ia64/kernel/mca.c linux-2.6-ia64/arch/ia64/kernel/mca.c
---- linux-2.6-ia64.org/arch/ia64/kernel/mca.c	2009-11-09 17:32:21.000000000 -0500
-+++ linux-2.6-ia64/arch/ia64/kernel/mca.c	2009-11-09 17:34:41.000000000 -0500
-@@ -888,9 +888,10 @@ ia64_mca_modify_comm(const struct task_s
- }
- 
- static void
--finish_pt_regs(struct pt_regs *regs, const pal_min_state_area_t *ms,
-+finish_pt_regs(struct pt_regs *regs, struct ia64_sal_os_state *sos,
- 		unsigned long *nat)
- {
-+	const pal_min_state_area_t *ms = sos->pal_min_state;
- 	const u64 *bank;
- 
- 	/* If ipsr.ic then use pmsa_{iip,ipsr,ifs}, else use
-@@ -904,6 +905,10 @@ finish_pt_regs(struct pt_regs *regs, con
- 		regs->cr_iip = ms->pmsa_xip;
- 		regs->cr_ipsr = ms->pmsa_xpsr;
- 		regs->cr_ifs = ms->pmsa_xfs;
-+
-+		sos->iip = ms->pmsa_iip;
-+		sos->ipsr = ms->pmsa_ipsr;
-+		sos->ifs = ms->pmsa_ifs;
+ 	/* Check _CRS first, then _BBN.  If no _BBN, default to zero. */
+ 	secondary.start = 0;
++	secondary.end = 0xFF;
+ 	status = try_get_root_bridge_busnr(device->handle, &secondary);
+-	if (ACPI_SUCCESS(status)) {
+-		bus = secondary.start;
+-	} else {
++	if (ACPI_FAILURE(status)) {
++		/*
++		 * We need both the start and end of the downstream bus range
++		 * to interpret _CBA (MMCONFIG base address), so it really is
++		 * supposed to be in _CRS.
++		 */
++		printk(KERN_WARNING FW_BUG PREFIX
++		       "no secondary bus range in _CRS\n");
+ 		status = acpi_evaluate_integer(device->handle, METHOD_NAME__BBN,					       NULL, &bus);
+ 		if (ACPI_FAILURE(status) && status != AE_NOT_FOUND) {
+-			printk(KERN_ERR PREFIX
+-			     "no bus number in _CRS and can't evaluate _BBN\n");
++			printk(KERN_ERR PREFIX "can't evaluate _BBN\n");
+ 			return -ENODEV;
+ 		}
++		secondary.start = bus;
  	}
- 	regs->pr = ms->pmsa_pr;
- 	regs->b0 = ms->pmsa_br0;
-@@ -1079,7 +1084,7 @@ ia64_mca_modify_original_stack(struct pt
- 	memcpy(old_regs, regs, sizeof(*regs));
- 	old_regs->loadrs = loadrs;
- 	old_unat = old_regs->ar_unat;
--	finish_pt_regs(old_regs, ms, &old_unat);
-+	finish_pt_regs(old_regs, sos, &old_unat);
  
- 	/* Next stack a struct switch_stack.  mca_asm.S built a partial
- 	 * switch_stack, copy it and fill in the blanks using pt_regs and
-@@ -1150,7 +1155,7 @@ no_mod:
- 	mprintk(KERN_INFO "cpu %d, %s %s, original stack not modified\n",
- 			smp_processor_id(), type, msg);
- 	old_unat = regs->ar_unat;
--	finish_pt_regs(regs, ms, &old_unat);
-+	finish_pt_regs(regs, sos, &old_unat);
- 	return previous_current;
- }
+ 	root = kzalloc(sizeof(struct acpi_pci_root), GFP_KERNEL);
+@@ -504,7 +510,8 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
+ 	INIT_LIST_HEAD(&root->node);
+ 	root->device = device;
+ 	root->segment = segment & 0xFFFF;
+-	root->bus_nr = bus & 0xFF;
++	root->bus_nr = secondary.start & 0xFF;
++	root->subordinate_bus_nr = secondary.end & 0xFF;
+ 	strcpy(acpi_device_name(device), ACPI_PCI_ROOT_DEVICE_NAME);
+ 	strcpy(acpi_device_class(device), ACPI_PCI_ROOT_CLASS);
+ 	device->driver_data = root;
+diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
+index 3cd9ccd..3d6e6e8 100644
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -371,6 +371,7 @@ struct acpi_pci_root {
+ 	struct pci_bus *bus;
+ 	u16 segment;
+ 	u8 bus_nr;
++	u8 subordinate_bus_nr;
  
+ 	u32 osc_support_set;	/* _OSC state of support bits */
+ 	u32 osc_control_set;	/* _OSC state of control bits */
 
