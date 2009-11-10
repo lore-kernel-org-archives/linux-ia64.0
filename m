@@ -1,112 +1,92 @@
-From: akpm@linux-foundation.org
-Date: Tue, 17 Nov 2009 22:44:35 +0000
-Subject: [patch 1/1] ia64: fix SBA IOMMU to handle allocation failure properly
-Message-Id: <200911172244.nAHMiZde031479@imap1.linux-foundation.org>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 10 Nov 2009 17:11:43 +0000
+Subject: [PATCH v2 3/3] ACPI: pci_root: pass acpi_pci_root to arch-specific
+Message-Id: <20091110171143.10645.30432.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20091110170802.10645.91272.stgit@bob.kio>
+In-Reply-To: <20091110170802.10645.91272.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Len Brown <lenb@kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
 
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+The acpi_pci_root structure contains all the individual items (acpi_device,
+domain, bus number) we pass to pci_acpi_scan_root(), so just pass the
+single acpi_pci_root pointer directly.
 
-It's possible that SBA IOMMU might fail to find I/O space under heavy
-I/Os.  SBA IOMMU panics on allocation failure but it shouldn't; drivers
-can handle the failure.  The majority of other IOMMU drivers don't panic
-on allocation failure.
+This will make it easier to add _CBA support later.  For _CBA, we need the
+entire downstream bus range, not just the base bus number.  We have that in
+the acpi_pci_root structure, so passing the pointer makes it available to
+the arch-specific code.
 
-This patch fixes SBA IOMMU path to handle allocation failure properly.
-
-Signed-off-by: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 ---
+ arch/ia64/pci/pci.c         |    5 ++++-
+ arch/x86/pci/acpi.c         |    5 ++++-
+ drivers/acpi/pci_root.c     |    2 +-
+ include/acpi/acpi_drivers.h |    3 +--
+ 4 files changed, 10 insertions(+), 5 deletions(-)
 
- arch/ia64/hp/common/sba_iommu.c |   38 ++++++++++++++++++++++--------
- 1 file changed, 29 insertions(+), 9 deletions(-)
-
-diff -puN arch/ia64/hp/common/sba_iommu.c~ia64-fix-sba-iommu-to-handle-allocation-failure-properly arch/ia64/hp/common/sba_iommu.c
---- a/arch/ia64/hp/common/sba_iommu.c~ia64-fix-sba-iommu-to-handle-allocation-failure-properly
-+++ a/arch/ia64/hp/common/sba_iommu.c
-@@ -677,12 +677,19 @@ sba_alloc_range(struct ioc *ioc, struct 
- 			spin_unlock_irqrestore(&ioc->saved_lock, flags);
- 
- 			pide = sba_search_bitmap(ioc, dev, pages_needed, 0);
--			if (unlikely(pide >= (ioc->res_size << 3)))
--				panic(__FILE__ ": I/O MMU @ %p is out of mapping resources\n",
--				      ioc->ioc_hpa);
-+			if (unlikely(pide >= (ioc->res_size << 3))) {
-+				printk(KERN_WARNING "%s: I/O MMU @ %p is"
-+				       "out of mapping resources, %u %u %lx\n",
-+				       __func__, ioc->ioc_hpa, ioc->res_size,
-+				       pages_needed, dma_get_seg_boundary(dev));
-+				return -1;
-+			}
- #else
--			panic(__FILE__ ": I/O MMU @ %p is out of mapping resources\n",
--			      ioc->ioc_hpa);
-+			printk(KERN_WARNING "%s: I/O MMU @ %p is"
-+			       "out of mapping resources, %u %u %lx\n",
-+			       __func__, ioc->ioc_hpa, ioc->res_size,
-+			       pages_needed, dma_get_seg_boundary(dev));
-+			return -1;
- #endif
- 		}
- 	}
-@@ -965,6 +972,8 @@ static dma_addr_t sba_map_page(struct de
- #endif
- 
- 	pide = sba_alloc_range(ioc, dev, size);
-+	if (pide < 0)
-+		return 0;
- 
- 	iovp = (dma_addr_t) pide << iovp_shift;
- 
-@@ -1320,6 +1329,7 @@ sba_coalesce_chunks(struct ioc *ioc, str
- 	unsigned long dma_offset, dma_len; /* start/len of DMA stream */
- 	int n_mappings = 0;
- 	unsigned int max_seg_size = dma_get_max_seg_size(dev);
-+	int idx;
- 
- 	while (nents > 0) {
- 		unsigned long vaddr = (unsigned long) sba_sg_address(startsg);
-@@ -1418,16 +1428,22 @@ sba_coalesce_chunks(struct ioc *ioc, str
- 		vcontig_sg->dma_length = vcontig_len;
- 		dma_len = (dma_len + dma_offset + ~iovp_mask) & iovp_mask;
- 		ASSERT(dma_len <= DMA_CHUNK_SIZE);
--		dma_sg->dma_address = (dma_addr_t) (PIDE_FLAG
--			| (sba_alloc_range(ioc, dev, dma_len) << iovp_shift)
--			| dma_offset);
-+		idx = sba_alloc_range(ioc, dev, dma_len);
-+		if (idx < 0) {
-+			dma_sg->dma_length = 0;
-+			return -1;
-+		}
-+		dma_sg->dma_address = (dma_addr_t)(PIDE_FLAG | (idx << iovp_shift)
-+						   | dma_offset);
- 		n_mappings++;
- 	}
- 
- 	return n_mappings;
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 7d51bf4..21c80bc 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -341,8 +341,11 @@ pcibios_setup_root_windows(struct pci_bus *bus, struct pci_controller *ctrl)
  }
  
--
-+static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
-+			       int nents, enum dma_data_direction dir,
-+			       struct dma_attrs *attrs);
- /**
-  * sba_map_sg - map Scatter/Gather list
-  * @dev: instance of PCI owned by the driver that's asking.
-@@ -1493,6 +1509,10 @@ static int sba_map_sg_attrs(struct devic
- 	** Access to the virtual address is what forces a two pass algorithm.
- 	*/
- 	coalesced = sba_coalesce_chunks(ioc, dev, sglist, nents);
-+	if (coalesced < 0) {
-+		sba_unmap_sg_attrs(dev, sglist, nents, dir, attrs);
-+		return 0;
-+	}
+ struct pci_bus * __devinit
+-pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
++pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
++	struct acpi_device *device = root->device;
++	int domain = root->segment;
++	int bus = root->bus_nr;
+ 	struct pci_controller *controller;
+ 	unsigned int windows = 0;
+ 	struct pci_bus *pbus;
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index 959e548..419b36d 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -199,8 +199,11 @@ res_alloc_fail:
+ 	return;
+ }
  
- 	/*
- 	** Program the I/O Pdir
-_
+-struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_device *device, int domain, int busnum)
++struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
++	struct acpi_device *device = root->device;
++	int domain = root->segment;
++	int busnum = root->bus_nr;
+ 	struct pci_bus *bus;
+ 	struct pci_sysdata *sd;
+ 	int node;
+diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
+index a3e6f0e..cc237a3 100644
+--- a/drivers/acpi/pci_root.c
++++ b/drivers/acpi/pci_root.c
+@@ -542,7 +542,7 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
+ 	 * PCI namespace does not get created until this call is made (and 
+ 	 * thus the root bridge's pci_dev does not exist).
+ 	 */
+-	root->bus = pci_acpi_scan_root(device, segment, bus);
++	root->bus = pci_acpi_scan_root(root);
+ 	if (!root->bus) {
+ 		printk(KERN_ERR PREFIX
+ 			    "Bus %04x:%02x not present in PCI namespace\n",
+diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
+index f4906f6..0c0522f 100644
+--- a/include/acpi/acpi_drivers.h
++++ b/include/acpi/acpi_drivers.h
+@@ -102,8 +102,7 @@ int acpi_pci_bind_root(struct acpi_device *device);
+ 
+ /* Arch-defined function to add a bus to the system */
+ 
+-struct pci_bus *pci_acpi_scan_root(struct acpi_device *device, int domain,
+-				   int bus);
++struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root);
+ 
+ /* --------------------------------------------------------------------------
+                                     Processor
+
