@@ -1,55 +1,72 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 02 Nov 2009 18:07:50 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4aef1ff632340df3fa@agluck-desktop.sc.intel.com>
+From: Jiri Slaby <jslaby@novell.com>
+Date: Wed, 18 Nov 2009 14:51:49 +0000
+Subject: [PATCH 03/16] IA64: use ACCESS_ONCE for rlimits
+Message-Id: <1258555922-2064-3-git-send-email-jslaby@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+References: <4B040A03.2020508@gmail.com>
+In-Reply-To: <4B040A03.2020508@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: jirislaby@gmail.com
+Cc: mingo@elte.hu, nhorman@tuxdriver.com, sfr@canb.auug.org.au, linux-kernel@vger.kernel.org, akpm@linux-foundation.org, marcin.slusarz@gmail.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, torvalds@linux-foundation.org, Jiri Slaby <jslaby@novell.com>, James Morris <jmorris@namei.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-ia64@vger.kernel.org
 
-Hi Linus,
+Make sure compiler won't do weird things with limits. E.g. fetching
+them twice may return 2 different values after writable limits are
+implemented.
 
-please pull from:
+Signed-off-by: Jiri Slaby <jslaby@novell.com>
+Cc: James Morris <jmorris@namei.org>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/kernel/perfmon.c  |    2 +-
+ arch/ia64/kernel/sys_ia64.c |    2 +-
+ arch/ia64/mm/init.c         |    3 ++-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
-
--Tony
-
- arch/ia64/include/asm/spinlock.h       |   62 +++++++++++++-------
- arch/ia64/include/asm/spinlock_types.h |    2 +-
- arch/ia64/kernel/mca.c                 |  104 +++++++++++++++++--------------
- arch/ia64/kernel/unaligned.c           |    6 +-
- arch/ia64/mm/tlb.c                     |   24 ++++++--
- arch/ia64/pci/pci.c                    |    9 ++-
- arch/ia64/sn/kernel/io_common.c        |    8 +--
- arch/ia64/sn/kernel/sn2/sn_hwperf.c    |    7 +-
- 8 files changed, 132 insertions(+), 90 deletions(-)
-
-Marcin Slusarz (1):
-      [IA64] use printk_once() unaligned.c/io_common.c
-
-Matthew Wilcox (1):
-      [IA64] Require SAL 3.2 in order to do extended config space ops
-
-Randy Dunlap (1):
-      [IA64] fix percpu warnings
-
-Roel Kluin (1):
-      [IA64] unsigned cannot be less than 0 in sn_hwperf_ioctl()
-
-Takao Indoh (1):
-      [IA64] Restore registers in the stack on INIT
-
-Tony Luck (4):
-      [IA64] Squeeze ticket locks back into 4 bytes.
-      [IA64] Re-implement spinaphores using ticket lock concepts
-      [IA64] SMT friendly version of spin_unlock_wait()
-      Revert "[IA64] fix percpu warnings"
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index f178270..91b8607 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2298,7 +2298,7 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
+ 	 * if ((mm->total_vm << PAGE_SHIFT) + len> task->rlim[RLIMIT_AS].rlim_cur)
+ 	 * 	return -ENOMEM;
+ 	 */
+-	if (size > task->signal->rlim[RLIMIT_MEMLOCK].rlim_cur)
++	if (size > ACCESS_ONCE(task->signal->rlim[RLIMIT_MEMLOCK].rlim_cur))
+ 		return -ENOMEM;
+ 
+ 	/*
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index 92ed83f..6a2b5d9 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -129,7 +129,7 @@ ia64_brk (unsigned long brk)
+ 		goto out;
+ 
+ 	/* Check against rlimit.. */
+-	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
++	rlim = ACCESS_ONCE(current->signal->rlim[RLIMIT_DATA].rlim_cur);
+ 	if (rlim < RLIM_INFINITY && brk - mm->start_data > rlim)
+ 		goto out;
+ 
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 1857766..fe6d63f 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -91,7 +91,8 @@ dma_mark_clean(void *addr, size_t size)
+ inline void
+ ia64_set_rbs_bot (void)
+ {
+-	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
++	unsigned long stack_size = ACCESS_ONCE(current->signal->
++			rlim[RLIMIT_STACK].rlim_max) & -16;
+ 
+ 	if (stack_size > MAX_USER_STACK_SIZE)
+ 		stack_size = MAX_USER_STACK_SIZE;
+-- 
+1.6.4.2
 
