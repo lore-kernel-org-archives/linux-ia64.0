@@ -1,108 +1,74 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 10 Nov 2009 17:11:33 +0000
-Subject: [PATCH v2 1/3] ACPI: pci_root: show entire downstream bus range
-Message-Id: <20091110171133.10645.95957.stgit@bob.kio>
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 27 Nov 2009 23:05:55 +0000
+Subject: [PATCH v3 15/27] IA64: use helpers for rlimits
+Message-Id: <1259363167-9347-15-git-send-email-jslaby@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091110170802.10645.91272.stgit@bob.kio>
-In-Reply-To: <20091110170802.10645.91272.stgit@bob.kio>
+References: <1259363167-9347-1-git-send-email-jslaby@suse.cz>
+In-Reply-To: <1259363167-9347-1-git-send-email-jslaby@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Len Brown <lenb@kernel.org>
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
+To: jirislaby@gmail.com
+Cc: mingo@elte.hu, nhorman@tuxdriver.com, sfr@canb.auug.org.au, linux-kernel@vger.kernel.org, akpm@linux-foundation.org, marcin.slusarz@gmail.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, torvalds@linux-foundation.org, oleg@redhat.com, James Morris <jmorris@namei.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-ia64@vger.kernel.org
 
-Previously, we only printed the immediately downstream bus number, but a
-host bridge claims a range of bus numbers.  _CRS tells us the range, and
-it helps understand the system topology, so let's show it.
+Make sure compiler won't do weird things with limits. E.g. fetching
+them twice may return 2 different values after writable limits are
+implemented.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+I.e. either use newly added rlimit helpers or ACCESS_ONCE if not
+applicable.
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: James Morris <jmorris@namei.org>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: linux-ia64@vger.kernel.org
 ---
- drivers/acpi/pci_root.c |   33 ++++++++++++++++++---------------
- 1 files changed, 18 insertions(+), 15 deletions(-)
+ arch/ia64/kernel/perfmon.c  |    2 +-
+ arch/ia64/kernel/sys_ia64.c |    2 +-
+ arch/ia64/mm/init.c         |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
-index 1af8081..aa9eeee 100644
---- a/drivers/acpi/pci_root.c
-+++ b/drivers/acpi/pci_root.c
-@@ -152,7 +152,7 @@ EXPORT_SYMBOL_GPL(acpi_is_root_bridge);
- static acpi_status
- get_root_bridge_busnr_callback(struct acpi_resource *resource, void *data)
- {
--	int *busnr = data;
-+	struct resource *res = data;
- 	struct acpi_resource_address64 address;
- 
- 	if (resource->type != ACPI_RESOURCE_TYPE_ADDRESS16 &&
-@@ -162,28 +162,27 @@ get_root_bridge_busnr_callback(struct acpi_resource *resource, void *data)
- 
- 	acpi_resource_to_address64(resource, &address);
- 	if ((address.address_length > 0) &&
--	    (address.resource_type = ACPI_BUS_NUMBER_RANGE))
--		*busnr = address.minimum;
-+	    (address.resource_type = ACPI_BUS_NUMBER_RANGE)) {
-+		res->start = address.minimum;
-+		res->end = address.minimum + address.address_length - 1;
-+	}
- 
- 	return AE_OK;
- }
- 
- static acpi_status try_get_root_bridge_busnr(acpi_handle handle,
--					     unsigned long long *bus)
-+					     struct resource *res)
- {
- 	acpi_status status;
--	int busnum;
- 
--	busnum = -1;
-+	res->start = -1;
- 	status  	    acpi_walk_resources(handle, METHOD_NAME__CRS,
--				get_root_bridge_busnr_callback, &busnum);
-+				get_root_bridge_busnr_callback, res);
- 	if (ACPI_FAILURE(status))
- 		return status;
--	/* Check if we really get a bus number from _CRS */
--	if (busnum = -1)
-+	if (res->start = -1)
- 		return AE_ERROR;
--	*bus = busnum;
- 	return AE_OK;
- }
- 
-@@ -474,6 +473,7 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
- 	acpi_handle handle;
- 	struct acpi_device *child;
- 	u32 flags, base_flags;
-+	struct resource secondary;
- 
- 	segment = 0;
- 	status = acpi_evaluate_integer(device->handle, METHOD_NAME__SEG, NULL,
-@@ -484,9 +484,11 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
- 	}
- 
- 	/* Check _CRS first, then _BBN.  If no _BBN, default to zero. */
--	bus = 0;
--	status = try_get_root_bridge_busnr(device->handle, &bus);
--	if (ACPI_FAILURE(status)) {
-+	secondary.start = 0;
-+	status = try_get_root_bridge_busnr(device->handle, &secondary);
-+	if (ACPI_SUCCESS(status)) {
-+		bus = secondary.start;
-+	} else {
- 		status = acpi_evaluate_integer(device->handle, METHOD_NAME__BBN,					       NULL, &bus);
- 		if (ACPI_FAILURE(status) && status != AE_NOT_FOUND) {
- 			printk(KERN_ERR PREFIX
-@@ -521,9 +523,10 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
- 	/* TBD: Locking */
- 	list_add_tail(&root->node, &acpi_pci_roots);
- 
--	printk(KERN_INFO PREFIX "%s [%s] (%04x:%02x)\n",
-+	printk(KERN_INFO PREFIX "%s [%s] (domain %04x [bus %02x-%02x])\n",
- 	       acpi_device_name(device), acpi_device_bid(device),
--	       root->segment, root->bus_nr);
-+	       root->segment,
-+	       (unsigned int) secondary.start, (unsigned int) secondary.end);
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index f178270..82429cc 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2298,7 +2298,7 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
+ 	 * if ((mm->total_vm << PAGE_SHIFT) + len> task->rlim[RLIMIT_AS].rlim_cur)
+ 	 * 	return -ENOMEM;
+ 	 */
+-	if (size > task->signal->rlim[RLIMIT_MEMLOCK].rlim_cur)
++	if (size > task_rlim_get_cur(task, RLIMIT_MEMLOCK))
+ 		return -ENOMEM;
  
  	/*
- 	 * Scan the Root Bridge
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index 92ed83f..ad663c8 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -129,7 +129,7 @@ ia64_brk (unsigned long brk)
+ 		goto out;
+ 
+ 	/* Check against rlimit.. */
+-	rlim = current->signal->rlim[RLIMIT_DATA].rlim_cur;
++	rlim = rlim_get_cur(RLIMIT_DATA);
+ 	if (rlim < RLIM_INFINITY && brk - mm->start_data > rlim)
+ 		goto out;
+ 
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 1857766..0995019 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -91,7 +91,7 @@ dma_mark_clean(void *addr, size_t size)
+ inline void
+ ia64_set_rbs_bot (void)
+ {
+-	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
++	unsigned long stack_size = rlim_get_max(RLIMIT_STACK) & -16;
+ 
+ 	if (stack_size > MAX_USER_STACK_SIZE)
+ 		stack_size = MAX_USER_STACK_SIZE;
+-- 
+1.6.5.3
 
