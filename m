@@ -1,99 +1,93 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 08 Dec 2009 09:08:01 +0000
-Subject: Re: [PATCH] m68k: don't alias VMALLOC_END to vmalloc_end
-Message-Id: <10f740e80912080108s5e145ee8t74a27e44d31966ed@mail.gmail.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Mon, 07 Dec 2009 23:35:52 +0000
+Subject: Re: [PATCH] mm/vmalloc: don't use vmalloc_end
+Message-Id: <20091207153552.0fadf335.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4B1D3A3302000078000241CD@vpn.id2.novell.com>
-	 <20091207153552.0fadf335.akpm@linux-foundation.org>
-	 <4B1DA06A.1050004@kernel.org> <4B1DF8D4.2010202@novell.com>
-In-Reply-To: <4B1DF8D4.2010202@novell.com>
+In-Reply-To: <4B1D3A3302000078000241CD@vpn.id2.novell.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Tejun Heo <teheo@novell.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Jan Beulich <JBeulich@novell.com>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, Roman Zippel <zippel@linux-m68k.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Jan Beulich <JBeulich@novell.com>
+Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, tj@kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On Tue, Dec 8, 2009 at 07:57, Tejun Heo <teheo@novell.com> wrote:
-> On SUN3, m68k defines macro VMALLOC_END as unsigned long variable
-> vmalloc_end which is adjusted from mmu_emu_init().  This becomes
-> problematic if a local variables vmalloc_end is defined in some
-> function (not very unlikely) and VMALLOC_END is used in the function -
-> the function thinks its referencing the global VMALLOC_END value but
-> would be referencing its own local vmalloc_end variable.
->
-> There's no reason VMALLOC_END should be a macro.  Just define it as an
-> unsigned long variable to avoid nasty surprises.
->
-> Signed-off-by: Tejun Heo <tj@kernel.org>
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Roman Zippel <zippel@linux-m68k.org>
+(cc linux-ia64)
+
+On Mon, 07 Dec 2009 16:24:03 +0000
+"Jan Beulich" <JBeulich@novell.com> wrote:
+
+> At least on ia64 vmalloc_end is a global variable that VMALLOC_END
+> expands to. Hence having a local variable named vmalloc_end and
+> initialized from VMALLOC_END won't work on such platforms. Rename
+> these variables, and for consistency also rename vmalloc_start.
+> 
+
+erk.  So does 2.6.32's vmalloc() actually work correctly on ia64?
+
+Perhaps vmalloc_end wasn't a well chosen name for an arch-specific
+global variable.
+
+arch/m68k/include/asm/pgtable_mm.h does the same thing.  Did it break too?
+
 > ---
-> Okay, here it is.  Compile tested.  Geert, Roman, if you guys don't
-> object, I'd like to push it with the rest of percpu changes to Linus.
-> What do you think?
-
-Fine for me, except that by convention allcaps is reserved for macros?
-
->
-> Thanks.
->
->  arch/m68k/include/asm/pgtable_mm.h |    3 +--
->  arch/m68k/sun3/mmu_emu.c           |    8 ++++----
->  2 files changed, 5 insertions(+), 6 deletions(-)
->
-> diff --git a/arch/m68k/include/asm/pgtable_mm.h b/arch/m68k/include/asm/pgtable_mm.h
-> index fe60e1a..0ea9f09 100644
-> --- a/arch/m68k/include/asm/pgtable_mm.h
-> +++ b/arch/m68k/include/asm/pgtable_mm.h
-> @@ -83,9 +83,8 @@
->  #define VMALLOC_START (((unsigned long) high_memory + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1))
->  #define VMALLOC_END KMAP_START
->  #else
-> -extern unsigned long vmalloc_end;
->  #define VMALLOC_START 0x0f800000
-> -#define VMALLOC_END vmalloc_end
-> +extern unsigned long VMALLOC_END;
->  #endif /* CONFIG_SUN3 */
->
->  /* zero page used for uninitialized stuff */
-> diff --git a/arch/m68k/sun3/mmu_emu.c b/arch/m68k/sun3/mmu_emu.c
-> index 3cd1939..25e2b14 100644
-> --- a/arch/m68k/sun3/mmu_emu.c
-> +++ b/arch/m68k/sun3/mmu_emu.c
-> @@ -45,8 +45,8 @@
->  ** Globals
->  */
->
-> -unsigned long vmalloc_end;
-> -EXPORT_SYMBOL(vmalloc_end);
-> +unsigned long VMALLOC_END;
-> +EXPORT_SYMBOL(VMALLOC_END);
->
->  unsigned long pmeg_vaddr[PMEGS_NUM];
->  unsigned char pmeg_alloc[PMEGS_NUM];
-> @@ -172,8 +172,8 @@ void mmu_emu_init(unsigned long bootmem_end)
->  #endif
->                        // the lowest mapping here is the end of our
->                        // vmalloc region
-> -                       if(!vmalloc_end)
-> -                               vmalloc_end = seg;
-> +                       if (!VMALLOC_END)
-> +                               VMALLOC_END = seg;
->
->                        // mark the segmap alloc'd, and reserve any
->                        // of the first 0xbff pages the hardware is
->
-
-
-
--- 
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+>  mm/vmalloc.c |   16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+> 
+> --- linux-2.6.32/mm/vmalloc.c
+> +++ 2.6.32-dont-use-vmalloc_end/mm/vmalloc.c
+> @@ -2060,13 +2060,13 @@ static unsigned long pvm_determine_end(s
+>  				       struct vmap_area **pprev,
+>  				       unsigned long align)
+>  {
+> -	const unsigned long vmalloc_end = VMALLOC_END & ~(align - 1);
+> +	const unsigned long end = VMALLOC_END & ~(align - 1);
+>  	unsigned long addr;
+>  
+>  	if (*pnext)
+> -		addr = min((*pnext)->va_start & ~(align - 1), vmalloc_end);
+> +		addr = min((*pnext)->va_start & ~(align - 1), end);
+>  	else
+> -		addr = vmalloc_end;
+> +		addr = end;
+>  
+>  	while (*pprev && (*pprev)->va_end > addr) {
+>  		*pnext = *pprev;
+> @@ -2105,8 +2105,8 @@ struct vm_struct **pcpu_get_vm_areas(con
+>  				     const size_t *sizes, int nr_vms,
+>  				     size_t align, gfp_t gfp_mask)
+>  {
+> -	const unsigned long vmalloc_start = ALIGN(VMALLOC_START, align);
+> -	const unsigned long vmalloc_end = VMALLOC_END & ~(align - 1);
+> +	const unsigned long vstart = ALIGN(VMALLOC_START, align);
+> +	const unsigned long vend = VMALLOC_END & ~(align - 1);
+>  	struct vmap_area **vas, *prev, *next;
+>  	struct vm_struct **vms;
+>  	int area, area2, last_area, term_area;
+> @@ -2142,7 +2142,7 @@ struct vm_struct **pcpu_get_vm_areas(con
+>  	}
+>  	last_end = offsets[last_area] + sizes[last_area];
+>  
+> -	if (vmalloc_end - vmalloc_start < last_end) {
+> +	if (vend - vstart < last_end) {
+>  		WARN_ON(true);
+>  		return NULL;
+>  	}
+> @@ -2167,7 +2167,7 @@ retry:
+>  	end = start + sizes[area];
+>  
+>  	if (!pvm_find_next_prev(vmap_area_pcpu_hole, &next, &prev)) {
+> -		base = vmalloc_end - last_end;
+> +		base = vend - last_end;
+>  		goto found;
+>  	}
+>  	base = pvm_determine_end(&next, &prev, align) - end;
+> @@ -2180,7 +2180,7 @@ retry:
+>  		 * base might have underflowed, add last_end before
+>  		 * comparing.
+>  		 */
+> -		if (base + last_end < vmalloc_start + last_end) {
+> +		if (base + last_end < vstart + last_end) {
+>  			spin_unlock(&vmap_area_lock);
+>  			if (!purged) {
+>  				purge_vmap_area_lazy();
+> 
