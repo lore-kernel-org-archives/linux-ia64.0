@@ -1,100 +1,78 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Sun, 20 Dec 2009 19:30:59 +0000
-Subject: [PATCH v2 07/11] ACPI: processor: introduce acpi_processor_alloc_pdc()
-Message-Id: <20091220193059.5545.23552.stgit@bob.kio>
+From: Tejun Heo <teheo@novell.com>
+Date: Wed, 09 Dec 2009 08:47:47 +0000
+Subject: [PATCH] m68k: rename global variable vmalloc_end to m68k_vmalloc_end
+Message-Id: <4B1F6433.3090006@novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091220192731.5545.20582.stgit@bob.kio>
-In-Reply-To: <20091220192731.5545.20582.stgit@bob.kio>
+References: <4B1D3A3302000078000241CD@vpn.id2.novell.com>	 <20091207153552.0fadf335.akpm@linux-foundation.org> <10f740e80912080111l57b0562doebedb1f878592105@mail.gmail.com> <4B1E1B68.5050503@kernel.org>
+In-Reply-To: <4B1E1B68.5050503@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: venkatesh.pallipadi@intel.com, lenb@kernel.org
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Jan Beulich <JBeulich@novell.com>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-acpi_processor_init_pdc() isn't really doing anything interesting
-with the struct acpi_processor * parameter. Its real job is to allocate
-the buffer for the _PDC bits.
+On SUN3, m68k defines macro VMALLOC_END as unsigned long variable
+vmalloc_end which is adjusted from mmu_emu_init().  This becomes
+problematic if a local variables vmalloc_end is defined in some
+function (not very unlikely) and VMALLOC_END is used in the function -
+the function thinks its referencing the global VMALLOC_END value but
+would be referencing its own local vmalloc_end variable.
 
-So rename the function to acpi_processor_alloc_pdc(), and just return
-the struct acpi_object_list * it's supposed to allocate.
+Rename the global variable to m68k_vmlloc_end which is much less
+likely to be used as local variable name.
 
-Signed-off-by: Alex Chiang <achiang@hp.com>
+Signed-off-by: Tejun Heo <tj@kernel.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Roman Zippel <zippel@linux-m68k.org>
 ---
+This patch has been queued to percpu#for-linus.  Thanks.
 
- drivers/acpi/processor_pdc.c |   22 +++++++++++++---------
- 1 files changed, 13 insertions(+), 9 deletions(-)
+ arch/m68k/include/asm/pgtable_mm.h |    4 ++--
+ arch/m68k/sun3/mmu_emu.c           |    8 ++++----
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
-index e786e2c..23d2828 100644
---- a/drivers/acpi/processor_pdc.c
-+++ b/drivers/acpi/processor_pdc.c
-@@ -54,26 +54,24 @@ static void acpi_set_pdc_bits(u32 *buf)
- 	arch_acpi_set_pdc_bits(buf);
- }
+diff --git a/arch/m68k/include/asm/pgtable_mm.h b/arch/m68k/include/asm/pgtable_mm.h
+index fe60e1a..aca0e28 100644
+--- a/arch/m68k/include/asm/pgtable_mm.h
++++ b/arch/m68k/include/asm/pgtable_mm.h
+@@ -83,9 +83,9 @@
+ #define VMALLOC_START (((unsigned long) high_memory + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1))
+ #define VMALLOC_END KMAP_START
+ #else
+-extern unsigned long vmalloc_end;
++extern unsigned long m68k_vmalloc_end;
+ #define VMALLOC_START 0x0f800000
+-#define VMALLOC_END vmalloc_end
++#define VMALLOC_END m68k_vmalloc_end
+ #endif /* CONFIG_SUN3 */
  
--static void acpi_processor_init_pdc(struct acpi_processor *pr)
-+static struct acpi_object_list *acpi_processor_alloc_pdc(void)
- {
- 	struct acpi_object_list *obj_list;
- 	union acpi_object *obj;
- 	u32 *buf;
+ /* zero page used for uninitialized stuff */
+diff --git a/arch/m68k/sun3/mmu_emu.c b/arch/m68k/sun3/mmu_emu.c
+index 3cd1939..94f81ec 100644
+--- a/arch/m68k/sun3/mmu_emu.c
++++ b/arch/m68k/sun3/mmu_emu.c
+@@ -45,8 +45,8 @@
+ ** Globals
+ */
  
--	pr->pdc = NULL;
--
- 	/* allocate and initialize pdc. It will be used later. */
- 	obj_list = kmalloc(sizeof(struct acpi_object_list), GFP_KERNEL);
- 	if (!obj_list) {
- 		printk(KERN_ERR "Memory allocation error\n");
--		return;
-+		return NULL;
- 	}
+-unsigned long vmalloc_end;
+-EXPORT_SYMBOL(vmalloc_end);
++unsigned long m68k_vmalloc_end;
++EXPORT_SYMBOL(m68k_vmalloc_end);
  
- 	obj = kmalloc(sizeof(union acpi_object), GFP_KERNEL);
- 	if (!obj) {
- 		printk(KERN_ERR "Memory allocation error\n");
- 		kfree(obj_list);
--		return;
-+		return NULL;
- 	}
+ unsigned long pmeg_vaddr[PMEGS_NUM];
+ unsigned char pmeg_alloc[PMEGS_NUM];
+@@ -172,8 +172,8 @@ void mmu_emu_init(unsigned long bootmem_end)
+ #endif
+ 			// the lowest mapping here is the end of our
+ 			// vmalloc region
+-			if(!vmalloc_end)
+-				vmalloc_end = seg;
++			if (!m68k_vmalloc_end)
++				m68k_vmalloc_end = seg;
  
- 	buf = kmalloc(12, GFP_KERNEL);
-@@ -81,7 +79,7 @@ static void acpi_processor_init_pdc(struct acpi_processor *pr)
- 		printk(KERN_ERR "Memory allocation error\n");
- 		kfree(obj);
- 		kfree(obj_list);
--		return;
-+		return NULL;
- 	}
- 
- 	acpi_set_pdc_bits(buf);
-@@ -91,9 +89,8 @@ static void acpi_processor_init_pdc(struct acpi_processor *pr)
- 	obj->buffer.pointer = (u8 *) buf;
- 	obj_list->count = 1;
- 	obj_list->pointer = obj;
--	pr->pdc = obj_list;
- 
--	return;
-+	return obj_list;
- }
- 
- /*
-@@ -142,10 +139,17 @@ static void acpi_processor_cleanup_pdc(struct acpi_processor *pr)
- 
- void acpi_processor_set_pdc(struct acpi_processor *pr)
- {
-+	struct acpi_object_list *obj_list;
-+
- 	if (arch_has_acpi_pdc() = false)
- 		return;
- 
--	acpi_processor_init_pdc(pr);
-+	obj_list = acpi_processor_alloc_pdc();
-+	if (!obj_list)
-+		return;
-+
-+	pr->pdc = obj_list;
-+
- 	acpi_processor_eval_pdc(pr);
- 	acpi_processor_cleanup_pdc(pr);
- }
+ 			// mark the segmap alloc'd, and reserve any
+ 			// of the first 0xbff pages the hardware is
+-- 
+1.6.4.2
 
