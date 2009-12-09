@@ -1,45 +1,36 @@
-From: Mike Travis <travis@sgi.com>
-Date: Wed, 09 Dec 2009 18:37:16 +0000
+From: Christoph Lameter <cl@linux-foundation.org>
+Date: Wed, 09 Dec 2009 18:46:24 +0000
 Subject: Re: [PATCH] mm/vmalloc: don't use vmalloc_end
-Message-Id: <4B1FEE5C.1030303@sgi.com>
+Message-Id: <alpine.DEB.2.00.0912091241370.16491@router.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4B1D3A3302000078000241CD@vpn.id2.novell.com> <20091207153552.0fadf335.akpm@linux-foundation.org> <4B1E1B1B0200007800024345@vpn.id2.novell.com> <alpine.DEB.2.00.0912091128280.16491@router.home> <4B1FE81F.30408@sgi.com> <alpine.DEB.2.00.0912091218060.16491@router.home>
-In-Reply-To: <alpine.DEB.2.00.0912091218060.16491@router.home>
+ <4B1FEE5C.1030303@sgi.com>
+In-Reply-To: <4B1FEE5C.1030303@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <cl@linux-foundation.org>
+To: Mike Travis <travis@sgi.com>
 Cc: tony.luck@intel.com, Andrew Morton <akpm@linux-foundation.org>, Jan Beulich <JBeulich@novell.com>, Tejun Heo <tj@kernel.org>, linux-mm@kvack.org, Geert Uytterhoeven <geert@linux-m68k.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+On Wed, 9 Dec 2009, Mike Travis wrote:
 
+> > Boot with 2.6.32 and see if the per cpu allocator works. Check if there
+> > are any changes to memory consumption. Create a few thousand virtual
+> > ethernet devices and see if the system keels over.
+>
+> Any advice on how to go about the above would be helpful... ;-)
 
-Christoph Lameter wrote:
-> On Wed, 9 Dec 2009, Mike Travis wrote:
-> 
->>> Tony: Can you confirm that the new percpu stuff works on IA64? (Or is
->>> there nobody left to care?)
->> Christoph,  I have access to a 640p system for a couple more weeks if
->> there's anything you'd like me to check out.
-> 
-> Boot with 2.6.32 and see if the per cpu allocator works. Check if there
-> are any changes to memory consumption. Create a few thousand virtual
-> ethernet devices and see if the system keels over.
+I believe you can create an additional alias device with
 
-Any advice on how to go about the above would be helpful... ;-)
+ifconfig eth0:<N>
 
-> 
-> It may also be good to run some scheduler test. Compare AIM9 of latest
-> SLES with 2.6.32. Concurrent page fault test? Then a performance test with
-> lots of concurrency but the usual stuff wont work since HPC apps usually
-> pin.
+or so.
 
-I'm doing some aim7/9 comparisons right now between SPARSE and DISCONTIG
-memory configs using sles11 + 2.6.32.  Which other benchmarks would you
-recommend for the other tests?
+> I'm doing some aim7/9 comparisons right now between SPARSE and DISCONTIG
+> memory configs using sles11 + 2.6.32.  Which other benchmarks would you
+> recommend for the other tests?
 
-> 
-> Run latencytest (available in the lldiag package) from
-> kernel.org/pub/linux/kernel/people/christoph/lldiag and see how the
-> disturbances by the OS are changed.
+See f.e. http://kernel-perf.sourceforge.net/about_tests.php
 
-I'll put that on the list.
+lmbench?
+
