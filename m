@@ -1,7 +1,7 @@
 From: Luming Yu <luming.yu@gmail.com>
-Date: Tue, 08 Dec 2009 12:25:44 +0000
+Date: Wed, 09 Dec 2009 06:45:05 +0000
 Subject: Re: [RFC PATCH] Add TRACE_IRQFLAGS_SUPPORT, LOCKDEP_SUPPORT then
-Message-Id: <3877989d0912080425o4bf9e2beuf573e47930fd707f@mail.gmail.com>
+Message-Id: <3877989d0912082245m3ee1ea14y3b3c8aca99e9f378@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3877989d0908272018va6ee8f7n7ab2838fdf1b26e6@mail.gmail.com>
 	 <20090828062212.GB11552@elte.hu>
@@ -10,243 +10,84 @@ References: <3877989d0908272018va6ee8f7n7ab2838fdf1b26e6@mail.gmail.com>
 	 <3877989d0912041919i458300d7ydce73cf77979dad3@mail.gmail.com>
 	 <3877989d0912062156v7ba2a192y726f45b550ba50e@mail.gmail.com>
 	 <12c511ca0912071335i1a805c2eudb6ecb8f726f6a80@mail.gmail.com>
-In-Reply-To: <12c511ca0912071335i1a805c2eudb6ecb8f726f6a80@mail.gmail.com>
+	 <3877989d0912080425o4bf9e2beuf573e47930fd707f@mail.gmail.com>
+In-Reply-To: <3877989d0912080425o4bf9e2beuf573e47930fd707f@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: Tony Luck <tony.luck@gmail.com>
 Cc: Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Christoph Hellwig <hch@infradead.org>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, Felix Blyakher <felixb@sgi.com>, "Li, Shaohua" <shaohua.li@intel.com>, Bob Picco <bob.picco@hp.com>
 
-On Tue, Dec 8, 2009 at 5:35 AM, Tony Luck <tony.luck@gmail.com> wrote:
->> please check out the attached config.
 >
-> Your config fails for me too (same way, blank screen, nothing on
-> serial console).
+> But let me try more on other ia64 boxes that I can get access.
 >
-> Essentially I applied your patch to 2.6.32 (patch only gave a few
-> "offset" warnings).   Kernel
-> builds ok, and boots on tiger (using tiger_defconfig).
->
-> When I turned on some LOCKDEP bits (see attached config) it fails.
-> Nothing on the
-> early uart console to say why.  Screen just blanks right away.
+> Stay tuned.
 
-Hmm, I changed the bad config a bit as below.
-Nothing seems to be lockdep releated.
+I might have reproduced the problem on a HP ia64 system
+with -32 kernel as the following info. But -31 kernel with
+lockdep code enabled just works. ....debugging...
 
-And the resutling 2.6.31 with LOCKDEP bits enabled still
-can boot on my system.
+CPI: SSDT 000000003fdf66c8 000E0 (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf67b8 0013C (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf68f8 000E0 (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf69e8 0013C (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf6b28 000E0 (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf6c18 0013C (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: SSDT 000000003fdf6d58 000E0 (v01     HP   BL870c 00000006 INTL 20050309)
+ACPI: Local APIC address c0000000fee00000
+SMP: Allowing 16 CPUs, 8 hotplug CPUs
+Initial ramdisk at: 0xe0000100fe9d8000 (5607915 bytes)
+SAL 3.20: HP version 3.11
+SAL Platform features: None
+SAL: AP wakeup using external interrupt vector 0xff
+ACPI: Local APIC address c0000000fee00000
+Unable to handle kernel paging request at virtual address a0000009019b0328
+swapper[0]: Oops 8813272891392 [1]
+Modules linked in:
 
-But let me try more on other ia64 boxes that I can get access.
+Pid: 0, CPU 0, comm:              swapper
+psr : 00001010084a2018 ifs : 8000000000000409 ip  :
+[<a0000001000e8ff0>]    Not tainted (2.6.32)
+ip is at save_trace+0xb0/0x1e0
+unat: 0000000000000000 pfs : 0000000000000409 rsc : 0000000000000003
+rnat: 000000001ad27480 bsps: 000000000001003e pr  : 656960155aa6a559
+ldrs: 0000000000000000 ccv : 0000000001e600f3 fpsr: 0009804c8a70433f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001000e8fc0 b6  : a000000100a6c440 b7  : e00000003f81f3a0
+f6  : 000000000000000000000 f7  : 1003e0000000000000000
+f8  : 1003e0000000000000000 f9  : 1003e0000000000000001
+f10 : 10004c3ffffffff3c0000 f11 : 1003e0000000000000031
+r1  : a00000010132c4b0 r2  : a000000100e07d60 r3  : 000000000000007c
+r8  : a0000001018f2520 r9  : a0000009019b0328 r10 : 00000000ffffffff
+r11 : a0000001019b0330 r12 : a000000100e07d60 r13 : a000000100e00000
+r14 : a0000001018f2af0 r15 : 000000000003fffe r16 : ffffffffffffffff
+r17 : 0000000000000001 r18 : 0000000000000000 r19 : 0000000000000000
+r20 : a0000001019b0330 r21 : a000000101130a00 r22 : a0000001018f2c58
+r23 : 0000000000000003 r24 : 0000000000040000 r25 : 0000000000040000
+r26 : 0000000000000000 r27 : a0000001018f2b20 r28 : 0000000000001000
+r29 : 0000000000000000 r30 : a000000100e00e00 r31 : a000000100e00dd8
+Unable to handle kernel NULL pointer dereference (address 0000000000000000)
+swapper[0]: Oops 8813272891392 [2]
+Modules linked in:
 
-Stay tuned.
-
-[root@localhost linux-2.6.31]# diff ../bad.lockdep.config good.config
-3,4c3,4
-< # Linux kernel version: 2.6.32
-< # Mon Dec  7 11:05:28 2009
----
-> # Linux kernel version: 2.6.31
-> # Tue Dec  8 05:41:56 2009
-28a29
-> # CONFIG_CLASSIC_RCU is not set
-30c31
-< # CONFIG_TREE_PREEMPT_RCU is not set
----
-> # CONFIG_PREEMPT_RCU is not set
-34a36
-> # CONFIG_PREEMPT_RCU_TRACE is not set
-77c79
-< # Kernel Performance Events And Counters
----
-> # Performance Counters
-81a84
-> # CONFIG_STRIP_ASM_SYMS is not set
-86a90
-> # CONFIG_MARKERS is not set
-99c103
-< CONFIG_SLOW_WORK=y
----
-> # CONFIG_SLOW_WORK is not set
-139d142
-< # CONFIG_GENERIC_LOCKBREAK is not set
-146d148
-< CONFIG_HAVE_LEGACY_PER_CPU_AREA=y
-212d213
-< # CONFIG_KSM is not set
-222d222
-< CONFIG_ARCH_PROC_KCORE_TEXT=y
-251d250
-< # CONFIG_PM_RUNTIME is not set
-255d253
-< # CONFIG_ACPI_POWER_METER is not set
-260c258
-< # CONFIG_ACPI_DOCK is not set
----
-> CONFIG_ACPI_DOCK=y
-339d336
-< # CONFIG_RDS is not set
-369d365
-< CONFIG_CFG80211_DEFAULT_PS_VALUE=0
-376a373
-> CONFIG_MAC80211_DEFAULT_PS_VALUE=0
-389d385
-< # CONFIG_DEVTMPFS is not set
-544d539
-< # CONFIG_BE2ISCSI is not set
-575a571
-> # CONFIG_SCSI_IPR is not set
-583d578
-< # CONFIG_SCSI_PMCRAID is not set
-585d579
-< # CONFIG_SCSI_BFA_FC is not set
-588c582,642
-< # CONFIG_ATA is not set
----
-> CONFIG_ATA=m
-> CONFIG_ATA_NONSTANDARD=y
-> CONFIG_ATA_ACPI=y
-> CONFIG_SATA_PMP=y
-> # CONFIG_SATA_AHCI is not set
-> # CONFIG_SATA_SIL24 is not set
-> CONFIG_ATA_SFF=y
-> # CONFIG_SATA_SVW is not set
-> CONFIG_ATA_PIIX=m
-> # CONFIG_SATA_MV is not set
-> # CONFIG_SATA_NV is not set
-> # CONFIG_PDC_ADMA is not set
-> # CONFIG_SATA_QSTOR is not set
-> # CONFIG_SATA_PROMISE is not set
-> # CONFIG_SATA_SX4 is not set
-> # CONFIG_SATA_SIL is not set
-> # CONFIG_SATA_SIS is not set
-> # CONFIG_SATA_ULI is not set
-> # CONFIG_SATA_VIA is not set
-> # CONFIG_SATA_VITESSE is not set
-> # CONFIG_SATA_INIC162X is not set
-> # CONFIG_PATA_ACPI is not set
-> # CONFIG_PATA_ALI is not set
-> # CONFIG_PATA_AMD is not set
-> # CONFIG_PATA_ARTOP is not set
-> # CONFIG_PATA_ATIIXP is not set
-> # CONFIG_PATA_CMD640_PCI is not set
-> # CONFIG_PATA_CMD64X is not set
-> # CONFIG_PATA_CS5520 is not set
-> # CONFIG_PATA_CS5530 is not set
-> # CONFIG_PATA_CYPRESS is not set
-> # CONFIG_PATA_EFAR is not set
-> # CONFIG_ATA_GENERIC is not set
-> # CONFIG_PATA_HPT366 is not set
-> # CONFIG_PATA_HPT37X is not set
-> # CONFIG_PATA_HPT3X2N is not set
-> # CONFIG_PATA_HPT3X3 is not set
-> # CONFIG_PATA_IT821X is not set
-> # CONFIG_PATA_IT8213 is not set
-> # CONFIG_PATA_JMICRON is not set
-> # CONFIG_PATA_TRIFLEX is not set
-> # CONFIG_PATA_MARVELL is not set
-> # CONFIG_PATA_MPIIX is not set
-> # CONFIG_PATA_OLDPIIX is not set
-> # CONFIG_PATA_NETCELL is not set
-> # CONFIG_PATA_NINJA32 is not set
-> # CONFIG_PATA_NS87410 is not set
-> # CONFIG_PATA_NS87415 is not set
-> # CONFIG_PATA_OPTI is not set
-> # CONFIG_PATA_OPTIDMA is not set
-> # CONFIG_PATA_PDC_OLD is not set
-> # CONFIG_PATA_RADISYS is not set
-> # CONFIG_PATA_RZ1000 is not set
-> # CONFIG_PATA_SC1200 is not set
-> # CONFIG_PATA_SERVERWORKS is not set
-> # CONFIG_PATA_PDC2027X is not set
-> # CONFIG_PATA_SIL680 is not set
-> # CONFIG_PATA_SIS is not set
-> # CONFIG_PATA_VIA is not set
-> # CONFIG_PATA_WINBOND is not set
-> # CONFIG_PATA_SCH is not set
-704d757
-< # CONFIG_KS8851_MLL is not set
-714c767
-< # CONFIG_IGB is not set
----
-> CONFIG_IGB=m
-752c805,808
-< CONFIG_WLAN=y
----
->
-> #
-> # Wireless LAN
-> #
-804d859
-< # CONFIG_KEYBOARD_ADP5588 is not set
-806d860
-< # CONFIG_QT2160 is not set
-808d861
-< # CONFIG_KEYBOARD_MAX7359 is not set
-810d862
-< # CONFIG_KEYBOARD_OPENCORES is not set
-821d872
-< # CONFIG_MOUSE_PS2_SENTELIC is not set
-869a921,922
-> # CONFIG_SX is not set
-> # CONFIG_RIO is not set
-911d963
-< CONFIG_I2C_COMPAT=y
-939,943d990
-< # ACPI drivers
-< #
-< # CONFIG_I2C_SCMI is not set
-<
-< #
-970a1018,1020
-> # CONFIG_SENSORS_PCF8574 is not set
-> # CONFIG_PCF8575 is not set
-> # CONFIG_SENSORS_PCA9539 is not set
-992,996d1041
-< # CONFIG_HWMON_DEBUG_CHIP is not set
-<
-< #
-< # Native drivers
-< #
-1046d1090
-< # CONFIG_SENSORS_TMP421 is not set
-1058,1061d1101
-<
-< #
-< # ACPI drivers
-< #
-1062a1103
-> # CONFIG_HWMON_DEBUG_CHIP is not set
-1081d1121
-< # CONFIG_MFD_WM831X is not set
-1093d1132
-< CONFIG_VGA_ARB=y
-1095,1096d1133
-< CONFIG_DRM_KMS_HELPER=m
-< CONFIG_DRM_TTM=m
-1177a1215
-> CONFIG_HID_DEBUG=y
-1201d1238
-< CONFIG_HID_TWINHAN=y
-1255d1291
-< # CONFIG_USB_ISP1362_HCD is not set
-1386d1421
-< # CONFIG_NILFS2_FS is not set
-1453a1489
-> # CONFIG_NILFS2_FS is not set
-1556d1591
-< # CONFIG_STRIP_ASM_SYMS is not set
-1595d1629
-< # CONFIG_DEBUG_CREDENTIALS is not set
-1602d1635
-< # CONFIG_DEBUG_FORCE_WEAK_PER_CPU is not set
-1646c1679
-< # CONFIG_CRYPTO_FIPS is not set
----
-> CONFIG_CRYPTO_FIPS=y
-1689d1721
-< # CONFIG_CRYPTO_VMAC is not set
-1695d1726
-< # CONFIG_CRYPTO_GHASH is not set
-1741a1773
-> CONFIG_HAVE_KVM_IRQCHIP=y
+Pid: 0, CPU 0, comm:              swapper
+psr : 0000101008022018 ifs : 800000000000048e ip  :
+[<a0000001001e1a60>]    Not tainted (2.6.32)
+ip is at kmem_cache_alloc+0xe0/0x3c0
+unat: 0000000000000000 pfs : 000000000000048e rsc : 0000000000000003
+rnat: 0000000000000000 bsps: 0000000000000000 pr  : 656960155aa65965
+ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001001e19f0 b6  : a000000100042420 b7  : a00000010000c9b0
+f6  : 1003ea877512c4d0b873a f7  : 1003e9e3779b97f4a7c16
+f8  : 1003e0a000000100015f7 f9  : 1003e0000000000000001
+f10 : 10004c3ffffffff3c0000 f11 : 1003e0000000000000031
+r1  : a00000010132c4b0 r2  : 0000000012000000 r3  : a000000100e00014
+r8  : 0000000000000002 r9  : 00000000003fff2f r10 : a000000101151a60
+r11 : a000000101151a60 r12 : a000000100e07230 r13 : a000000100e00000
+r14 : 0000000000000000 r15 : 0000000000200000 r16 : 0000000000000000
+r17 : 0000000000000000 r18 : a000000100e01984 r19 : a000000100e072ac
+r20 : a000000100e072a4 r21 : 0000000000000000 r22 : a000000100e072a0
+r23 : a000000100e072a4 r24 : 0000000000000001 r25 : 0000000000000000
+r26 : a000000100e072a0 r27 : 0000000000000000 r28 : a000000100e072a8
+r29 : 000000007fffffff r30 : a00000010110a030 r31 : 0000000000000002
