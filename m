@@ -1,22 +1,42 @@
-From: Len Brown <lenb@kernel.org>
-Date: Tue, 22 Dec 2009 08:43:56 +0000
-Subject: Re: [PATCH 00/11] ACPI: early _PDC eval and unify x86/ia64
-Message-Id: <alpine.LFD.2.00.0912220343140.7435@localhost.localdomain>
+From: "Leonardo Chiquitto" <lchiquitto@novell.com>
+Date: Tue, 15 Dec 2009 10:36:42 +0000
+Subject: Re: [PATCH] ia64: fix SBA IOMMU to handle allocation failure
+Message-Id: <4B274A9A020000860004B505@novprvlin0050.provo.novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091220190434.4274.67855.stgit@bob.kio>
-In-Reply-To: <20091220190434.4274.67855.stgit@bob.kio>
+References: <20091018140631K.fujita.tomonori@lab.ntt.co.jp>
+In-Reply-To: <20091018140631K.fujita.tomonori@lab.ntt.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Chiang <achiang@hp.com>
-Cc: venkatesh.pallipadi@intel.com, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-entire series applied to acpi-test
+>>> On 10/18/2009 at 03:07 AM, in message
+<20091018140631K.fujita.tomonori@lab.ntt.co.jp>, FUJITA Tomonori
+<fujita.tomonori@lab.ntt.co.jp> wrote: 
+> This is an updated patch of the patch that I've posted one year
+> ago. Shehjar reported the problem and confirmed that the patch fixes
+> it:
+> 
+> http://lkml.indiana.edu/hypermail/linux/kernel/0811.0/01562.html
+> 
+> Leonardo told me that he hit the same problem and confirmed that the
+> patch fixes it.
+> 
+> > From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
+> Subject: [PATCH] ia64: fix SBA IOMMU to handle allocation failure properly
+> 
+> It's possible that SBA IOMMU might fail to find I/O space under heavy
+> I/Os. SBA IOMMU panics on allocation failure but it shouldn't; drivers
+> can handle the failure. The majority of other IOMMU drivers don't
+> panic on allocation failure.
+> 
+> This patch fixes SBA IOMMU path to handle allocation failure properly.
 
-nice cleanup, Alex.
-Unless Venki knows of something I don't about upcoming PDC-foo,
-I think it will stick.
+Hello,
 
-thanks,
-Len Brown, Intel Open Source Technology Center
+Please, any chance to have this patch committed to 2.6.33?
+
+Thanks,
+Leonardo
 
