@@ -1,7 +1,7 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Date: Tue, 15 Dec 2009 01:22:58 +0000
+From: David Woodhouse <david.woodhouse@intel.com>
+Date: Wed, 16 Dec 2009 02:45:05 +0000
 Subject: Re: [PATCH] implement early_io{re,un}map for ia64
-Message-Id: <20091215012258.GE1759@sequoia.sous-sol.org>
+Message-Id: <1260931505.11159.59.camel@macbook.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <89khjo$e5tirq@orsmga002.jf.intel.com>
 In-Reply-To: <89khjo$e5tirq@orsmga002.jf.intel.com>
@@ -10,13 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-* Luck, Tony (tony.luck@intel.com) wrote:
-> drivers/pci/dmar.c uses these functions, so provide them for ia64
-> Date: Mon, 14 Dec 2009 12:00:36 -0800
-> Message-Id: <4b26996416535305c4@agluck-desktop.sc.intel.com>
+On Mon, 2009-12-14 at 20:00 +0000, Luck, Tony wrote:
 > 
-> Signed-off-by: Tony Luck <tony.luck@intel.com>
+> David: Do you want to run it through your iommu tree, or should
+> I just pre-emptively push it in via the ia64 tree? 
 
-Sorry about breaking the build Tony.
+I'll push it, thanks. That keeps it very close to the commit which broke
+it, so bisection isn't hard.
 
-Ack
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
