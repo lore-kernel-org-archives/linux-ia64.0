@@ -1,66 +1,94 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Sun, 20 Dec 2009 19:31:04 +0000
-Subject: [PATCH v2 08/11] ACPI: processor: change acpi_processor_eval_pdc
-Message-Id: <20091220193104.5545.76084.stgit@bob.kio>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 17 Dec 2009 00:07:40 +0000
+Subject: 
+Message-Id: <4b29764c3452ae39@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091220192731.5545.20582.stgit@bob.kio>
-In-Reply-To: <20091220192731.5545.20582.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: venkatesh.pallipadi@intel.com, lenb@kernel.org
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-acpi_processor_eval_pdc() really only needs a handle and an
-acpi_object_list * to do its work.
+[resend with fixed vger address :-) ]
 
-No need to pass in a struct acpi_processor *, so let's be more specific
-about what we want.
+Len Brown pointed out that allmodconfig is broken for
+ia64 because of:
 
-Signed-off-by: Alex Chiang <achiang@hp.com>
+arch/ia64/kvm/vmm.c: In function 'vmm_spin_unlock':
+arch/ia64/kvm/vmm.c:70: error: 'spinlock_t' has no member named 'raw_lock'
+
+This is fall-out from the ia64 switch to ticket locks.
+
+I'm not sure why KVM needs to implement its own locking
+mechanisms ... if it does need to roll its own, it should
+not depend on the base kernel spinlock_t type. One possible
+solution is to just have KVM define its own vmm_spinlock_t
+type (see patch below).
+
+Or perhaps this code needs to implement ticket locks?
+
+-Tony
+
 ---
 
- drivers/acpi/processor_pdc.c |   12 ++++--------
- 1 files changed, 4 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
-index 23d2828..974de4e 100644
---- a/drivers/acpi/processor_pdc.c
-+++ b/drivers/acpi/processor_pdc.c
-@@ -97,13 +97,11 @@ static struct acpi_object_list *acpi_processor_alloc_pdc(void)
-  * _PDC is required for a BIOS-OS handshake for most of the newer
-  * ACPI processor features.
-  */
--static int acpi_processor_eval_pdc(struct acpi_processor *pr)
-+static int
-+acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
- {
--	struct acpi_object_list *pdc_in = pr->pdc;
- 	acpi_status status = AE_OK;
+diff --git a/arch/ia64/kvm/vcpu.h b/arch/ia64/kvm/vcpu.h
+index 360724d..988911b 100644
+--- a/arch/ia64/kvm/vcpu.h
++++ b/arch/ia64/kvm/vcpu.h
+@@ -388,6 +388,9 @@ static inline u64 __gpfn_is_io(u64 gpfn)
+ #define _vmm_raw_spin_lock(x)	 do {}while(0)
+ #define _vmm_raw_spin_unlock(x) do {}while(0)
+ #else
++typedef struct {
++	volatile unsigned int lock;
++} vmm_spinlock_t;
+ #define _vmm_raw_spin_lock(x)						\
+ 	do {								\
+ 		__u32 *ia64_spinlock_ptr = (__u32 *) (x);		\
+@@ -405,12 +408,12 @@ static inline u64 __gpfn_is_io(u64 gpfn)
  
--	if (!pdc_in)
--		return status;
- 	if (idle_nomwait) {
- 		/*
- 		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
-@@ -118,7 +116,7 @@ static int acpi_processor_eval_pdc(struct acpi_processor *pr)
- 		buffer[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
+ #define _vmm_raw_spin_unlock(x)				\
+ 	do { barrier();				\
+-		((spinlock_t *)x)->raw_lock.lock = 0; } \
++		((vmm_spinlock_t *)x)->lock = 0; } \
+ while (0)
+ #endif
  
- 	}
--	status = acpi_evaluate_object(pr->handle, "_PDC", pdc_in, NULL);
-+	status = acpi_evaluate_object(handle, "_PDC", pdc_in, NULL);
- 
- 	if (ACPI_FAILURE(status))
- 		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
-@@ -148,9 +146,7 @@ void acpi_processor_set_pdc(struct acpi_processor *pr)
- 	if (!obj_list)
- 		return;
- 
--	pr->pdc = obj_list;
--
--	acpi_processor_eval_pdc(pr);
-+	acpi_processor_eval_pdc(pr->handle, obj_list);
- 	acpi_processor_cleanup_pdc(pr);
+-void vmm_spin_lock(spinlock_t *lock);
+-void vmm_spin_unlock(spinlock_t *lock);
++void vmm_spin_lock(vmm_spinlock_t *lock);
++void vmm_spin_unlock(vmm_spinlock_t *lock);
+ enum {
+ 	I_TLB = 1,
+ 	D_TLB = 2
+diff --git a/arch/ia64/kvm/vmm.c b/arch/ia64/kvm/vmm.c
+index f4b4c89..7a62f75 100644
+--- a/arch/ia64/kvm/vmm.c
++++ b/arch/ia64/kvm/vmm.c
+@@ -60,12 +60,12 @@ static void __exit kvm_vmm_exit(void)
+ 	return ;
  }
- EXPORT_SYMBOL_GPL(acpi_processor_set_pdc);
-
+ 
+-void vmm_spin_lock(spinlock_t *lock)
++void vmm_spin_lock(vmm_spinlock_t *lock)
+ {
+ 	_vmm_raw_spin_lock(lock);
+ }
+ 
+-void vmm_spin_unlock(spinlock_t *lock)
++void vmm_spin_unlock(vmm_spinlock_t *lock)
+ {
+ 	_vmm_raw_spin_unlock(lock);
+ }
+diff --git a/arch/ia64/kvm/vtlb.c b/arch/ia64/kvm/vtlb.c
+index 20b3852..4332f7e 100644
+--- a/arch/ia64/kvm/vtlb.c
++++ b/arch/ia64/kvm/vtlb.c
+@@ -182,7 +182,7 @@ void mark_pages_dirty(struct kvm_vcpu *v, u64 pte, u64 ps)
+ {
+ 	u64 i, dirty_pages = 1;
+ 	u64 base_gfn = (pte&_PAGE_PPN_MASK) >> PAGE_SHIFT;
+-	spinlock_t *lock = __kvm_va(v->arch.dirty_log_lock_pa);
++	vmm_spinlock_t *lock = __kvm_va(v->arch.dirty_log_lock_pa);
+ 	void *dirty_bitmap = (void *)KVM_MEM_DIRTY_LOG_BASE;
+ 
+ 	dirty_pages <<= ps <= PAGE_SHIFT ? 0 : ps - PAGE_SHIFT;
