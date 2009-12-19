@@ -1,25 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Date: Wed, 30 Dec 2009 17:15:20 +0000
-Subject: Re: [PATCH] simeth.c: use %pM to shown MAC address
-Message-Id: <20091230.091520.193699933.davem@davemloft.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sat, 19 Dec 2009 16:25:43 +0000
+Subject: [PATCH] ia64: Include <linux/personality.h> header in <asm/fcntl.h>
+Message-Id: <1261239943.2418.95.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BD79186B4FD85F4B8E60E381CAEE19090200F4B7@mi8nycmail19.Mi8.com>
-In-Reply-To: <BD79186B4FD85F4B8E60E381CAEE19090200F4B7@mi8nycmail19.Mi8.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hartleys@visionengravers.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-From: "H Hartley Sweeten" <hartleys@visionengravers.com>
-Date: Mon, 28 Dec 2009 17:24:38 -0500
+The definition of force_o_largefile() references personality, but this
+header does not include <linux/personality.h>.  This happens to work
+for sys_open(), but may not for any other users.  In particular, aufs2
+now uses this macro and so fails to build on ia64.
 
-> Use the %pM kernel extension to display the HwAddr.
-> 
-> The only difference in the output is that the MAC address is
-> shown in the usual colon-separated hex notation instead of
-> space-separated.
-> 
-> Signed-off-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ arch/ia64/include/asm/fcntl.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Applied.
+diff --git a/arch/ia64/include/asm/fcntl.h b/arch/ia64/include/asm/fcntl.h
+index 1dd275d..3cac8f9 100644
+--- a/arch/ia64/include/asm/fcntl.h
++++ b/arch/ia64/include/asm/fcntl.h
+@@ -5,6 +5,8 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co.
+  */
+ 
++#include <linux/personality.h>
++
+ #define force_o_largefile()	\
+ 		(personality(current->personality) != PER_LINUX32)
+ 
+-- 
+1.6.5.7
+
+
