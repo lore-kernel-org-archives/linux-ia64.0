@@ -1,94 +1,192 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 17 Dec 2009 00:07:40 +0000
-Subject: 
-Message-Id: <4b29764c3452ae39@agluck-desktop.sc.intel.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:19:29 +0000
+Subject: [PATCH 05/11] ACPI: processor: finish unifying
+Message-Id: <20091220191929.4274.88803.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20091220190434.4274.67855.stgit@bob.kio>
+In-Reply-To: <20091220190434.4274.67855.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>
 
-[resend with fixed vger address :-) ]
+The only thing arch-specific about calling _PDC is what bits get
+set in the input obj_list buffer.
 
-Len Brown pointed out that allmodconfig is broken for
-ia64 because of:
+There's no need for several levels of indirection to twiddle those
+bits. Additionally, since we're just messing around with a buffer,
+we can simplify the interface; no need to pass around the entire
+struct acpi_processor * just to get at the buffer.
 
-arch/ia64/kvm/vmm.c: In function 'vmm_spin_unlock':
-arch/ia64/kvm/vmm.c:70: error: 'spinlock_t' has no member named 'raw_lock'
-
-This is fall-out from the ia64 switch to ticket locks.
-
-I'm not sure why KVM needs to implement its own locking
-mechanisms ... if it does need to roll its own, it should
-not depend on the base kernel spinlock_t type. One possible
-solution is to just have KVM define its own vmm_spinlock_t
-type (see patch below).
-
-Or perhaps this code needs to implement ticket locks?
-
--Tony
-
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
 
-diff --git a/arch/ia64/kvm/vcpu.h b/arch/ia64/kvm/vcpu.h
-index 360724d..988911b 100644
---- a/arch/ia64/kvm/vcpu.h
-+++ b/arch/ia64/kvm/vcpu.h
-@@ -388,6 +388,9 @@ static inline u64 __gpfn_is_io(u64 gpfn)
- #define _vmm_raw_spin_lock(x)	 do {}while(0)
- #define _vmm_raw_spin_unlock(x) do {}while(0)
- #else
-+typedef struct {
-+	volatile unsigned int lock;
-+} vmm_spinlock_t;
- #define _vmm_raw_spin_lock(x)						\
- 	do {								\
- 		__u32 *ia64_spinlock_ptr = (__u32 *) (x);		\
-@@ -405,12 +408,12 @@ static inline u64 __gpfn_is_io(u64 gpfn)
- 
- #define _vmm_raw_spin_unlock(x)				\
- 	do { barrier();				\
--		((spinlock_t *)x)->raw_lock.lock = 0; } \
-+		((vmm_spinlock_t *)x)->lock = 0; } \
- while (0)
+ arch/ia64/include/asm/acpi.h      |    4 ++++
+ arch/ia64/kernel/acpi-processor.c |   18 ------------------
+ arch/x86/include/asm/acpi.h       |   19 +++++++++++++++++++
+ arch/x86/kernel/acpi/processor.c  |   34 ----------------------------------
+ drivers/acpi/processor_pdc.c      |    6 +++---
+ include/acpi/processor.h          |    1 -
+ 6 files changed, 26 insertions(+), 56 deletions(-)
+
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index 3b78882..7ae5889 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -133,6 +133,10 @@ extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
  #endif
  
--void vmm_spin_lock(spinlock_t *lock);
--void vmm_spin_unlock(spinlock_t *lock);
-+void vmm_spin_lock(vmm_spinlock_t *lock);
-+void vmm_spin_unlock(vmm_spinlock_t *lock);
- enum {
- 	I_TLB = 1,
- 	D_TLB = 2
-diff --git a/arch/ia64/kvm/vmm.c b/arch/ia64/kvm/vmm.c
-index f4b4c89..7a62f75 100644
---- a/arch/ia64/kvm/vmm.c
-+++ b/arch/ia64/kvm/vmm.c
-@@ -60,12 +60,12 @@ static void __exit kvm_vmm_exit(void)
- 	return ;
+ static inline bool arch_has_acpi_pdc(void) { return true; }
++static inline void arch_acpi_set_pdc_bits(u32 *buf)
++{
++	buf[2] |= ACPI_PDC_EST_CAPABILITY_SMP;
++}
+ 
+ #define acpi_unlazy_tlb(x)
+ 
+diff --git a/arch/ia64/kernel/acpi-processor.c b/arch/ia64/kernel/acpi-processor.c
+index ebe23f5..7ba5acc 100644
+--- a/arch/ia64/kernel/acpi-processor.c
++++ b/arch/ia64/kernel/acpi-processor.c
+@@ -14,24 +14,6 @@
+ #include <acpi/processor.h>
+ #include <asm/acpi.h>
+ 
+-static void init_intel_pdc(struct acpi_processor *pr)
+-{
+-	u32 *buf = (u32 *)pr->pdc->pointer->buffer.pointer;
+-
+-	buf[2] |= ACPI_PDC_EST_CAPABILITY_SMP;
+-
+-	return;
+-}
+-
+-/* Initialize _PDC data based on the CPU vendor */
+-void arch_acpi_processor_init_pdc(struct acpi_processor *pr)
+-{
+-	init_intel_pdc(pr);
+-	return;
+-}
+-
+-EXPORT_SYMBOL(arch_acpi_processor_init_pdc);
+-
+ void arch_acpi_processor_cleanup_pdc(struct acpi_processor *pr)
+ {
+ 	if (pr->pdc) {
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index d787e6e..56f462c 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -149,6 +149,25 @@ static inline bool arch_has_acpi_pdc(void)
+ 		c->x86_vendor = X86_VENDOR_CENTAUR);
  }
  
--void vmm_spin_lock(spinlock_t *lock)
-+void vmm_spin_lock(vmm_spinlock_t *lock)
++static inline void arch_acpi_set_pdc_bits(u32 *buf)
++{
++	struct cpuinfo_x86 *c = &cpu_data(0);
++
++	buf[2] |= ACPI_PDC_C_CAPABILITY_SMP;
++
++	if (cpu_has(c, X86_FEATURE_EST))
++		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
++
++	if (cpu_has(c, X86_FEATURE_ACPI))
++		buf[2] |= ACPI_PDC_T_FFH;
++
++	/*
++	 * If mwait/monitor is unsupported, C2/C3_FFH will be disabled
++	 */
++	if (!cpu_has(c, X86_FEATURE_MWAIT))
++		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
++}
++
+ #else /* !CONFIG_ACPI */
+ 
+ #define acpi_lapic 0
+diff --git a/arch/x86/kernel/acpi/processor.c b/arch/x86/kernel/acpi/processor.c
+index d722ca8..0f57307 100644
+--- a/arch/x86/kernel/acpi/processor.c
++++ b/arch/x86/kernel/acpi/processor.c
+@@ -12,40 +12,6 @@
+ #include <acpi/processor.h>
+ #include <asm/acpi.h>
+ 
+-static void init_intel_pdc(struct acpi_processor *pr, struct cpuinfo_x86 *c)
+-{
+-	u32 *buf = (u32 *)pr->pdc->pointer->buffer.pointer;
+-
+-	buf[2] |= ACPI_PDC_C_CAPABILITY_SMP;
+-
+-	if (cpu_has(c, X86_FEATURE_EST))
+-		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
+-
+-	if (cpu_has(c, X86_FEATURE_ACPI))
+-		buf[2] |= ACPI_PDC_T_FFH;
+-
+-	/*
+-	 * If mwait/monitor is unsupported, C2/C3_FFH will be disabled
+-	 */
+-	if (!cpu_has(c, X86_FEATURE_MWAIT))
+-		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
+-
+-	return;
+-}
+-
+-
+-/* Initialize _PDC data based on the CPU vendor */
+-void arch_acpi_processor_init_pdc(struct acpi_processor *pr)
+-{
+-	struct cpuinfo_x86 *c = &cpu_data(pr->id);
+-
+-	init_intel_pdc(pr, c);
+-
+-	return;
+-}
+-
+-EXPORT_SYMBOL(arch_acpi_processor_init_pdc);
+-
+ void arch_acpi_processor_cleanup_pdc(struct acpi_processor *pr)
  {
- 	_vmm_raw_spin_lock(lock);
+ 	if (pr->pdc) {
+diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
+index ccda7c9..48df08e 100644
+--- a/drivers/acpi/processor_pdc.c
++++ b/drivers/acpi/processor_pdc.c
+@@ -40,6 +40,9 @@ static void acpi_set_pdc_bits(u32 *buf)
+ 
+ 	/* Enable coordination with firmware's _TSD info */
+ 	buf[2] = ACPI_PDC_SMP_T_SWCOORD;
++
++	/* Twiddle arch-specific bits needed for _PDC */
++	arch_acpi_set_pdc_bits(buf);
  }
  
--void vmm_spin_unlock(spinlock_t *lock)
-+void vmm_spin_unlock(vmm_spinlock_t *lock)
- {
- 	_vmm_raw_spin_unlock(lock);
- }
-diff --git a/arch/ia64/kvm/vtlb.c b/arch/ia64/kvm/vtlb.c
-index 20b3852..4332f7e 100644
---- a/arch/ia64/kvm/vtlb.c
-+++ b/arch/ia64/kvm/vtlb.c
-@@ -182,7 +182,7 @@ void mark_pages_dirty(struct kvm_vcpu *v, u64 pte, u64 ps)
- {
- 	u64 i, dirty_pages = 1;
- 	u64 base_gfn = (pte&_PAGE_PPN_MASK) >> PAGE_SHIFT;
--	spinlock_t *lock = __kvm_va(v->arch.dirty_log_lock_pa);
-+	vmm_spinlock_t *lock = __kvm_va(v->arch.dirty_log_lock_pa);
- 	void *dirty_bitmap = (void *)KVM_MEM_DIRTY_LOG_BASE;
+ static void acpi_processor_init_pdc(struct acpi_processor *pr)
+@@ -81,9 +84,6 @@ static void acpi_processor_init_pdc(struct acpi_processor *pr)
+ 	obj_list->pointer = obj;
+ 	pr->pdc = obj_list;
  
- 	dirty_pages <<= ps <= PAGE_SHIFT ? 0 : ps - PAGE_SHIFT;
+-	/* Now let the arch do the bit-twiddling to buf[] */
+-	arch_acpi_processor_init_pdc(pr);
+-
+ 	return;
+ }
+ 
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index a1b748a..50edd73 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -257,7 +257,6 @@ int acpi_processor_notify_smm(struct module *calling_module);
+ DECLARE_PER_CPU(struct acpi_processor *, processors);
+ extern struct acpi_processor_errata errata;
+ 
+-void arch_acpi_processor_init_pdc(struct acpi_processor *pr);
+ void arch_acpi_processor_cleanup_pdc(struct acpi_processor *pr);
+ 
+ #ifdef ARCH_HAS_POWER_INIT
+
