@@ -1,66 +1,66 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 17 Dec 2009 12:50:55 +0000
-Subject: [PATCH] vhost: add missing architectures
-Message-Id: <20091217125055.GA26718@redhat.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:31:04 +0000
+Subject: [PATCH v2 08/11] ACPI: processor: change acpi_processor_eval_pdc
+Message-Id: <20091220193104.5545.76084.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20091220192731.5545.20582.stgit@bob.kio>
+In-Reply-To: <20091220192731.5545.20582.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rusty@rustcorp.com.au, virtualization@lists.linux-foundation.org
-Cc: Avi Kivity <avi@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Xiantao Zhang <xiantao.zhang@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Michael S. Tsirkin" <mst@redhat.com>, Gleb Natapov <gleb@redhat.com>, Hollis Blanchard <hollisb@us.ibm.com>, Christian Ehrhardt <ehrhardt@linux.vnet.ibm.com>, Carsten Otte <cotte@de.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, linux390@de.ibm.com, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, kvm@vger.kernel.org, kvm-ia64@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kvm-ppc@vger.kernel.org, linux-s390@vger.kernel.org
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-vhost is completely portable, but Kconfig include was missing for all
-architectures besides x86, so it did not appear in the menu.  Add the
-relevant Kconfig includes to all architectures that support
-virtualization.
+acpi_processor_eval_pdc() really only needs a handle and an
+acpi_object_list * to do its work.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+No need to pass in a struct acpi_processor *, so let's be more specific
+about what we want.
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
 
-Hi Rusty,
-please apply the following trivial fixup patch for 2.6.33.
-Thanks!
+ drivers/acpi/processor_pdc.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
- arch/ia64/kvm/Kconfig    |    1 +
- arch/powerpc/kvm/Kconfig |    1 +
- arch/s390/kvm/Kconfig    |    1 +
- 3 files changed, 3 insertions(+), 0 deletions(-)
+diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
+index 23d2828..974de4e 100644
+--- a/drivers/acpi/processor_pdc.c
++++ b/drivers/acpi/processor_pdc.c
+@@ -97,13 +97,11 @@ static struct acpi_object_list *acpi_processor_alloc_pdc(void)
+  * _PDC is required for a BIOS-OS handshake for most of the newer
+  * ACPI processor features.
+  */
+-static int acpi_processor_eval_pdc(struct acpi_processor *pr)
++static int
++acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
+ {
+-	struct acpi_object_list *pdc_in = pr->pdc;
+ 	acpi_status status = AE_OK;
+ 
+-	if (!pdc_in)
+-		return status;
+ 	if (idle_nomwait) {
+ 		/*
+ 		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
+@@ -118,7 +116,7 @@ static int acpi_processor_eval_pdc(struct acpi_processor *pr)
+ 		buffer[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
+ 
+ 	}
+-	status = acpi_evaluate_object(pr->handle, "_PDC", pdc_in, NULL);
++	status = acpi_evaluate_object(handle, "_PDC", pdc_in, NULL);
+ 
+ 	if (ACPI_FAILURE(status))
+ 		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+@@ -148,9 +146,7 @@ void acpi_processor_set_pdc(struct acpi_processor *pr)
+ 	if (!obj_list)
+ 		return;
+ 
+-	pr->pdc = obj_list;
+-
+-	acpi_processor_eval_pdc(pr);
++	acpi_processor_eval_pdc(pr->handle, obj_list);
+ 	acpi_processor_cleanup_pdc(pr);
+ }
+ EXPORT_SYMBOL_GPL(acpi_processor_set_pdc);
 
-diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
-index ef3e7be..01c7579 100644
---- a/arch/ia64/kvm/Kconfig
-+++ b/arch/ia64/kvm/Kconfig
-@@ -47,6 +47,7 @@ config KVM_INTEL
- 	  Provides support for KVM on Itanium 2 processors equipped with the VT
- 	  extensions.
- 
-+source drivers/vhost/Kconfig
- source drivers/virtio/Kconfig
- 
- endif # VIRTUALIZATION
-diff --git a/arch/powerpc/kvm/Kconfig b/arch/powerpc/kvm/Kconfig
-index c299268..a1b4c5d 100644
---- a/arch/powerpc/kvm/Kconfig
-+++ b/arch/powerpc/kvm/Kconfig
-@@ -58,6 +58,7 @@ config KVM_E500
- 
- 	  If unsure, say N.
- 
-+source drivers/vhost/Kconfig
- source drivers/virtio/Kconfig
- 
- endif # VIRTUALIZATION
-diff --git a/arch/s390/kvm/Kconfig b/arch/s390/kvm/Kconfig
-index bf164fc..6be6aea 100644
---- a/arch/s390/kvm/Kconfig
-+++ b/arch/s390/kvm/Kconfig
-@@ -36,6 +36,7 @@ config KVM
- 
- # OK, it's a little counter-intuitive to do this, but it puts it neatly under
- # the virtualization menu.
-+source drivers/vhost/Kconfig
- source drivers/virtio/Kconfig
- 
- endif # VIRTUALIZATION
--- 
-1.6.6.rc1.43.gf55cc
