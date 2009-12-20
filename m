@@ -1,62 +1,40 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Wed, 23 Dec 2009 04:09:02 +0000
-Subject: [RFC][PATCH 8/14] Convert ia64 to read/update_persistent_clock
-Message-Id: <1261541342.3508.70.camel@localhost.localdomain>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:23:21 +0000
+Subject: [PATCH 3/3] ACPI: processor: remove _PDC object list from struct
+Message-Id: <20091220192321.5438.45589.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1261540762.3508.61.camel@localhost.localdomain>
-	 <1261540826.3508.62.camel@localhost.localdomain>
-	 <1261540902.3508.63.camel@localhost.localdomain>
-	 <1261540988.3508.64.camel@localhost.localdomain>
-	 <1261541054.3508.65.camel@localhost.localdomain>
-	 <1261541130.3508.66.camel@localhost.localdomain>
-	 <1261541188.3508.67.camel@localhost.localdomain>
-	 <1261541286.3508.69.camel@localhost.localdomain>
-In-Reply-To: <1261541286.3508.69.camel@localhost.localdomain>
+References: <20091220190434.4274.67855.stgit@bob.kio>
+In-Reply-To: <20091220190434.4274.67855.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: lkml <linux-kernel@vger.kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This patch converts the ia64  architecture to use the generic
-read_persistent_clock and update_persistent_clock interfaces, reducing
-the amount of arch specific code we have to maintain, and allowing for
-further cleanups in the future.
+When we call _PDC, we get a handle to the processor, allocate the
+object list buffer as needed, and free it immediately after calling
+_PDC.
 
-I have not built or tested this patch, so help from arch maintainers
-would be appreciated.
+There's no need to drag around this object list with us everywhere
+else, so let's just get rid of it.
 
-Signed-off-by: John Stultz <johnstul@us.ibm.com>
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
- time.c |   12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Index: gettimeoffset/arch/ia64/kernel/time.c
-=================================--- gettimeoffset.orig/arch/ia64/kernel/time.c	2009-12-22 18:50:55.000000000 -0800
-+++ gettimeoffset/arch/ia64/kernel/time.c	2009-12-22 18:51:10.000000000 -0800
-@@ -430,18 +430,16 @@ static int __init rtc_init(void)
- }
- module_init(rtc_init);
- 
-+void read_persistent_clock(struct timespec *ts)
-+{
-+	efi_gettimeofday(ts);
-+}
-+
- void __init
- time_init (void)
- {
- 	register_percpu_irq(IA64_TIMER_VECTOR, &timer_irqaction);
--	efi_gettimeofday(&xtime);
- 	ia64_init_itm();
--
--	/*
--	 * Initialize wall_to_monotonic such that adding it to xtime will yield zero, the
--	 * tv_nsec field must be normalized (i.e., 0 <= nsec < NSEC_PER_SEC).
--	 */
--	set_normalized_timespec(&wall_to_monotonic, -xtime.tv_sec, -xtime.tv_nsec);
- }
- 
- /*
+ include/acpi/processor.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 7cc433d..0ea5ef4 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -224,8 +224,6 @@ struct acpi_processor {
+ 	struct acpi_processor_throttling throttling;
+ 	struct acpi_processor_limit limit;
+ 	struct thermal_cooling_device *cdev;
+-	/* the _PDC objects for this processor, if any */
+-	struct acpi_object_list *pdc;
+ };
+ 
+ struct acpi_processor_errata {
 
