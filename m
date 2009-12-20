@@ -1,81 +1,57 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Wed, 09 Dec 2009 01:56:41 +0000
-Subject: [PATCH] ia64: preallocate IA64_IRQ_MOVE_VECTOR
-Message-Id: <4B1F03D9.7050108@jp.fujitsu.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:23:11 +0000
+Subject: [PATCH 1/3] ACPI: processor: open code acpi_processor_cleanup_pdc
+Message-Id: <20091220192311.5438.53207.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20091220190434.4274.67855.stgit@bob.kio>
+In-Reply-To: <20091220190434.4274.67855.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Previously, we tried to use IA64_DEF_FIRST_DEVICE_VECTOR (0x30) as the
-IA64_IRQ_MOVE_VECTOR.  However, we allocate other IRQs from the device
-vector range, so there's no guarantee that IA64_DEF_FIRST_DEVICE_VECTOR
-will still be available when we register IA64_IRQ_MOVE_VECTOR.
-    
-This patch statically allocates 0x30 for IA64_IRQ_MOVE_VECTOR and
-removes it from the device vector range.
-    
-Without this patch, we crash on machines like the HP rx3600 that use
-vector 48 (0x30) as the ACPI SCI interrupt:
-    
-    kernel BUG at arch/ia64/kernel/irq_ia64.c:647!
-    swapper[0]: bugcheck! 0 [1]
-    Modules linked in:
+We have the acpi_object_list * right there in acpi_processor_set_pdc()
+so it doesn't seem necessary for an entire helper function just to
+free it.
 
-    Pid: 0, CPU 0, comm:              swapper
-    psr : 00001010084a2018 ifs : 800000000000030e ip  : [<a000000100012ed0>]    Not tainted (2.6.32-rc8-00184-gd5d4ec8)
-    ip is at ia64_native_register_percpu_irq+0x110/0x1e0
-    
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Tested-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Tested-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
- arch/ia64/include/asm/hw_irq.h |    6 ++++++
- arch/ia64/kernel/irq_ia64.c    |    6 +-----
- 2 files changed, 7 insertions(+), 5 deletions(-)
 
-Index: linux-2.6.32/arch/ia64/include/asm/hw_irq.h
-=================================--- linux-2.6.32.orig/arch/ia64/include/asm/hw_irq.h
-+++ linux-2.6.32/arch/ia64/include/asm/hw_irq.h
-@@ -59,7 +59,13 @@ typedef u16 ia64_vector;
- extern int ia64_first_device_vector;
- extern int ia64_last_device_vector;
- 
-+#if defined(CONFIG_SMP) && (defined(CONFIG_IA64_GENERIC) || defined (CONFIG_IA64_DIG))
-+/* Reserve the lower priority vector than device vectors for "move IRQ" IPI */
-+#define IA64_IRQ_MOVE_VECTOR		0x30	/* "move IRQ" IPI */
-+#define IA64_DEF_FIRST_DEVICE_VECTOR	0x31
-+#else
- #define IA64_DEF_FIRST_DEVICE_VECTOR	0x30
-+#endif
- #define IA64_DEF_LAST_DEVICE_VECTOR	0xe7
- #define IA64_FIRST_DEVICE_VECTOR	ia64_first_device_vector
- #define IA64_LAST_DEVICE_VECTOR		ia64_last_device_vector
-Index: linux-2.6.32/arch/ia64/kernel/irq_ia64.c
-=================================--- linux-2.6.32.orig/arch/ia64/kernel/irq_ia64.c
-+++ linux-2.6.32/arch/ia64/kernel/irq_ia64.c
-@@ -260,7 +260,6 @@ void __setup_vector_irq(int cpu)
+ drivers/acpi/processor_pdc.c |   15 ++++-----------
+ 1 files changed, 4 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
+index 974de4e..deeba22 100644
+--- a/drivers/acpi/processor_pdc.c
++++ b/drivers/acpi/processor_pdc.c
+@@ -125,16 +125,6 @@ acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
+ 	return status;
  }
  
- #if defined(CONFIG_SMP) && (defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_DIG))
--#define IA64_IRQ_MOVE_VECTOR	IA64_DEF_FIRST_DEVICE_VECTOR
- 
- static enum vector_domain_type {
- 	VECTOR_DOMAIN_NONE,
-@@ -659,11 +658,8 @@ init_IRQ (void)
- 	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
- #ifdef CONFIG_SMP
- #if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_DIG)
--	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
--		BUG_ON(IA64_FIRST_DEVICE_VECTOR != IA64_IRQ_MOVE_VECTOR);
--		IA64_FIRST_DEVICE_VECTOR++;
-+	if (vector_domain_type != VECTOR_DOMAIN_NONE)
- 		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, &irq_move_irqaction);
+-static void acpi_processor_cleanup_pdc(struct acpi_processor *pr)
+-{
+-	if (pr->pdc) {
+-		kfree(pr->pdc->pointer->buffer.pointer);
+-		kfree(pr->pdc->pointer);
+-		kfree(pr->pdc);
+-		pr->pdc = NULL;
 -	}
- #endif
- #endif
- #ifdef CONFIG_PERFMON
+-}
+-
+ void acpi_processor_set_pdc(struct acpi_processor *pr)
+ {
+ 	struct acpi_object_list *obj_list;
+@@ -147,7 +137,10 @@ void acpi_processor_set_pdc(struct acpi_processor *pr)
+ 		return;
+ 
+ 	acpi_processor_eval_pdc(pr->handle, obj_list);
+-	acpi_processor_cleanup_pdc(pr);
++
++	kfree(obj_list->pointer->buffer.pointer);
++	kfree(obj_list->pointer);
++	kfree(obj_list);
+ }
+ EXPORT_SYMBOL_GPL(acpi_processor_set_pdc);
+ 
 
