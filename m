@@ -1,45 +1,90 @@
-From: Avi Kivity <avi@redhat.com>
-Date: Thu, 17 Dec 2009 08:21:33 +0000
-Subject: Re: kvm-ia64 spinlocks
-Message-Id: <4B29EA0D.7040709@redhat.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:30:23 +0000
+Subject: [PATCH v2 00/11] ACPI: early _PDC eval and unify x86/ia64
+Message-Id: <20091220192731.5545.20582.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 12/17/2009 02:07 AM, Luck, Tony wrote:
-> [resend with fixed vger address :-) ]
->
-> Len Brown pointed out that allmodconfig is broken for
-> ia64 because of:
->
-> arch/ia64/kvm/vmm.c: In function 'vmm_spin_unlock':
-> arch/ia64/kvm/vmm.c:70: error: 'spinlock_t' has no member named 'raw_lock'
->
-> This is fall-out from the ia64 switch to ticket locks.
->
-> I'm not sure why KVM needs to implement its own locking
-> mechanisms ... if it does need to roll its own, it should
-> not depend on the base kernel spinlock_t type.
+Extreme apologies, but I had a mailer hiccup and totally botched
+the first attempt at mailing this series.
 
-It does, parts of the ia64 vmm run in guest context.
+Please disregard that earlier attempt.
 
-> One possible
-> solution is to just have KVM define its own vmm_spinlock_t
-> type (see patch below).
->
->    
+v1 -> v2:
+	- no changes to patches; only fixed mail addresses
 
-Looks good.  Changelog/signoff?
+It was recently discovered that some BIOS implementations load
+dynamic SSDTs when a processor's _PDC method is evaluated.
 
-> Or perhaps this code needs to implement ticket locks?
->    
+	http://bugzilla.kernel.org/show_bug.cgi?id824
+	http://bugzilla.kernel.org/show_bug.cgi?id710
 
-This will do for now, I believe.
+In Linux, we do not evaluate _PDC until after we initialize the EC.
+
+Unfortunately, that same BIOS references objects in the dynamic
+table during EC enablement. So we get undefined references to
+methods during enablement, and we fail to initialize certain pieces
+of hardware.
+
+Windows works just fine on this machine, so to me, this is a hint
+that Linux should be evaluating _PDC much earlier.
+
+The first patch in this series does just that and makes Linux
+more compatible with Windows' ACPI implementation.
+
+The remaining 10 patches unify the x86/ia64 implementations of
+calling _PDC. I noticed the two archs were way more similar than
+they were different, so I thought it made sense to combine them
+as much as possible.
+
+This patch series was built on both x86 and ia64 (checkpatch and
+sparse clean).
+
+It was also boot tested on an HP Envy 15 (x86) and an HP rx6600
+(ia64). It resolved the namespace failures on the Envy 15 and did
+not cause any regressions on the rx6600.
+
+This does introduce a boot time namespace walk for all the CPUs
+in the system, looking for and evaluating _PDC. Hopefully that
+will not make life miserable for the giant SGI clusters. If worse
+comes to worse, maybe we can quirk them and avoid the namespace
+walk.
 
 
+---
 
--- 
-error compiling committee.c: too many arguments to function
+Alex Chiang (11):
+      ACPI: processor: call _PDC early
+      ACPI: processor: introduce arch_has_acpi_pdc
+      ACPI: processor: unify arch_acpi_processor_init_pdc
+      ACPI: processor: factor out common _PDC settings
+      ACPI: processor: finish unifying arch_acpi_processor_init_pdc()
+      ACPI: processor: unify arch_acpi_processor_cleanup_pdc
+      ACPI: processor: introduce acpi_processor_alloc_pdc()
+      ACPI: processor: change acpi_processor_eval_pdc interface
+      ACPI: processor: open code acpi_processor_cleanup_pdc
+      ACPI: processor: change acpi_processor_set_pdc() interface
+      ACPI: processor: remove _PDC object list from struct acpi_processor
+
+
+ arch/ia64/include/asm/acpi.h      |    6 +
+ arch/ia64/kernel/Makefile         |    4 -
+ arch/ia64/kernel/acpi-processor.c |   85 -------------------
+ arch/x86/include/asm/acpi.h       |   26 ++++++
+ arch/x86/kernel/acpi/Makefile     |    2 
+ arch/x86/kernel/acpi/processor.c  |  101 -----------------------
+ drivers/acpi/Makefile             |    1 
+ drivers/acpi/bus.c                |    2 
+ drivers/acpi/internal.h           |    1 
+ drivers/acpi/processor_core.c     |   71 ----------------
+ drivers/acpi/processor_pdc.c      |  165 +++++++++++++++++++++++++++++++++++++
+ include/acpi/processor.h          |    8 +-
+ 12 files changed, 206 insertions(+), 266 deletions(-)
+ delete mode 100644 arch/ia64/kernel/acpi-processor.c
+ delete mode 100644 arch/x86/kernel/acpi/processor.c
+ create mode 100644 drivers/acpi/processor_pdc.c
 
