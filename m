@@ -1,75 +1,104 @@
-From: Greg KH <gregkh@suse.de>
-Date: Thu, 17 Dec 2009 03:57:08 +0000
-Subject: [131/151] vmalloc: conditionalize build of pcpu_get_vm_areas()
-Message-Id: <20091217035659.980303721@mini.kroah.org>
+From: Alex Chiang <achiang@hp.com>
+Date: Sun, 20 Dec 2009 19:31:14 +0000
+Subject: [PATCH v2 10/11] ACPI: processor: change acpi_processor_set_pdc()
+Message-Id: <20091220193114.5545.71356.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20091217040208.GA26571@kroah.com>
+References: <20091220192731.5545.20582.stgit@bob.kio>
+In-Reply-To: <20091220192731.5545.20582.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Cc: stable-review@kernel.org, torvalds@linux-foundation.org, akpm@linux-foundation.org, alan@lxorguk.ukuu.org.uk, tony.luck@intel.com, linux-ia64@vger.kernel.org, Jan Beulich <JBeulich@novell.com>, linux-mm@kvack.org, Geert Uytterhoeven <geert@linux-m68k.org>, Tejun Heo <tj@kernel.org>
+To: venkatesh.pallipadi@intel.com, lenb@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-2.6.32-stable review patch.  If anyone has any objections, please let us know.
+When calling _PDC, we really only need the handle to the processor
+to call the method; we don't look at any other parts of the
+struct acpi_processor * given to us.
 
-------------------
+In the early path, when we walk the namespace, we are given the
+handle directly, so just pass it through to acpi_processor_set_pdc()
+without stuffing it into a wasteful struct acpi_processor allocated
+on the stack each time
 
-From: Tejun Heo <teheo@novell.com>
+This saves 2834 bytes of stack.
 
-No matching upstream commit as it was resolved differently there.
+Update the interface accordingly.
 
-
-pcpu_get_vm_areas() is used only when dynamic percpu allocator is used
-by the architecture.  In 2.6.32, ia64 doesn't use dynamic percpu
-allocator and has a macro which makes pcpu_get_vm_areas() buggy via
-local/global variable aliasing and triggers compile warning.
-
-The problem is fixed in upstream and ia64 uses dynamic percpu
-allocators, so the only left issue is inclusion of unnecessary code
-and compile warning on ia64 on 2.6.32.
-
-Don't build pcpu_get_vm_areas() if legacy percpu allocator is in use.
-
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Reported-by: Jan Beulich <JBeulich@novell.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
+Signed-off-by: Alex Chiang <achiang@hp.com>
 ---
- include/linux/vmalloc.h |    2 ++
- mm/vmalloc.c            |    2 ++
- 2 files changed, 4 insertions(+)
 
---- a/include/linux/vmalloc.h
-+++ b/include/linux/vmalloc.h
-@@ -115,9 +115,11 @@ extern rwlock_t vmlist_lock;
- extern struct vm_struct *vmlist;
- extern __init void vm_area_register_early(struct vm_struct *vm, size_t align);
+ drivers/acpi/processor_core.c |    2 +-
+ drivers/acpi/processor_pdc.c  |   18 +++---------------
+ include/acpi/processor.h      |    2 +-
+ 3 files changed, 5 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index a19a4ff..9863c98 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -763,7 +763,7 @@ static int __cpuinit acpi_processor_add(struct acpi_device *device)
+ 	}
  
-+#ifndef CONFIG_HAVE_LEGACY_PER_CPU_AREA
- struct vm_struct **pcpu_get_vm_areas(const unsigned long *offsets,
- 				     const size_t *sizes, int nr_vms,
- 				     size_t align, gfp_t gfp_mask);
-+#endif
+ 	/* _PDC call should be done before doing anything else (if reqd.). */
+-	acpi_processor_set_pdc(pr);
++	acpi_processor_set_pdc(pr->handle);
  
- void pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms);
- 
---- a/mm/vmalloc.c
-+++ b/mm/vmalloc.c
-@@ -1993,6 +1993,7 @@ void free_vm_area(struct vm_struct *area
+ #ifdef CONFIG_CPU_FREQ
+ 	acpi_processor_ppc_has_changed(pr, 0);
+diff --git a/drivers/acpi/processor_pdc.c b/drivers/acpi/processor_pdc.c
+index deeba22..30e4dc0 100644
+--- a/drivers/acpi/processor_pdc.c
++++ b/drivers/acpi/processor_pdc.c
+@@ -125,7 +125,7 @@ acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
+ 	return status;
  }
- EXPORT_SYMBOL_GPL(free_vm_area);
  
-+#ifndef CONFIG_HAVE_LEGACY_PER_CPU_AREA
- static struct vmap_area *node_to_va(struct rb_node *n)
+-void acpi_processor_set_pdc(struct acpi_processor *pr)
++void acpi_processor_set_pdc(acpi_handle handle)
  {
- 	return n ? rb_entry(n, struct vmap_area, rb_node) : NULL;
-@@ -2257,6 +2258,7 @@ err_free:
- 	kfree(vms);
- 	return NULL;
- }
-+#endif
+ 	struct acpi_object_list *obj_list;
  
- /**
-  * pcpu_free_vm_areas - free vmalloc areas for percpu allocator
-
+@@ -136,7 +136,7 @@ void acpi_processor_set_pdc(struct acpi_processor *pr)
+ 	if (!obj_list)
+ 		return;
+ 
+-	acpi_processor_eval_pdc(pr->handle, obj_list);
++	acpi_processor_eval_pdc(handle, obj_list);
+ 
+ 	kfree(obj_list->pointer->buffer.pointer);
+ 	kfree(obj_list->pointer);
+@@ -147,19 +147,7 @@ EXPORT_SYMBOL_GPL(acpi_processor_set_pdc);
+ static acpi_status
+ early_init_pdc(acpi_handle handle, u32 lvl, void *context, void **rv)
+ {
+-	struct acpi_processor pr;
+-
+-	pr.handle = handle;
+-
+-	/* x86 implementation looks at pr.id to determine some
+-	 * CPU capabilites. We can just hard code to 0 since we're
+-	 * assuming the CPUs in the system are homogenous and all
+-	 * have the same capabilities.
+-	 */
+-	pr.id = 0;
+-
+-	acpi_processor_set_pdc(&pr);
+-
++	acpi_processor_set_pdc(handle);
+ 	return AE_OK;
+ }
+ 
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 0873cd5..7cc433d 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -323,7 +323,7 @@ static inline int acpi_processor_get_bios_limit(int cpu, unsigned int *limit)
+ #endif				/* CONFIG_CPU_FREQ */
+ 
+ /* in processor_pdc.c */
+-void acpi_processor_set_pdc(struct acpi_processor *pr);
++void acpi_processor_set_pdc(acpi_handle handle);
+ 
+ /* in processor_throttling.c */
+ int acpi_processor_tstate_has_changed(struct acpi_processor *pr);
 
