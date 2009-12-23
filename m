@@ -1,90 +1,62 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Sun, 20 Dec 2009 19:30:23 +0000
-Subject: [PATCH v2 00/11] ACPI: early _PDC eval and unify x86/ia64
-Message-Id: <20091220192731.5545.20582.stgit@bob.kio>
+From: john stultz <johnstul@us.ibm.com>
+Date: Wed, 23 Dec 2009 04:09:02 +0000
+Subject: [RFC][PATCH 8/14] Convert ia64 to read/update_persistent_clock
+Message-Id: <1261541342.3508.70.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1261540762.3508.61.camel@localhost.localdomain>
+	 <1261540826.3508.62.camel@localhost.localdomain>
+	 <1261540902.3508.63.camel@localhost.localdomain>
+	 <1261540988.3508.64.camel@localhost.localdomain>
+	 <1261541054.3508.65.camel@localhost.localdomain>
+	 <1261541130.3508.66.camel@localhost.localdomain>
+	 <1261541188.3508.67.camel@localhost.localdomain>
+	 <1261541286.3508.69.camel@localhost.localdomain>
+In-Reply-To: <1261541286.3508.69.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: venkatesh.pallipadi@intel.com, lenb@kernel.org
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: lkml <linux-kernel@vger.kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Extreme apologies, but I had a mailer hiccup and totally botched
-the first attempt at mailing this series.
+This patch converts the ia64  architecture to use the generic
+read_persistent_clock and update_persistent_clock interfaces, reducing
+the amount of arch specific code we have to maintain, and allowing for
+further cleanups in the future.
 
-Please disregard that earlier attempt.
+I have not built or tested this patch, so help from arch maintainers
+would be appreciated.
 
-v1 -> v2:
-	- no changes to patches; only fixed mail addresses
-
-It was recently discovered that some BIOS implementations load
-dynamic SSDTs when a processor's _PDC method is evaluated.
-
-	http://bugzilla.kernel.org/show_bug.cgi?id824
-	http://bugzilla.kernel.org/show_bug.cgi?id710
-
-In Linux, we do not evaluate _PDC until after we initialize the EC.
-
-Unfortunately, that same BIOS references objects in the dynamic
-table during EC enablement. So we get undefined references to
-methods during enablement, and we fail to initialize certain pieces
-of hardware.
-
-Windows works just fine on this machine, so to me, this is a hint
-that Linux should be evaluating _PDC much earlier.
-
-The first patch in this series does just that and makes Linux
-more compatible with Windows' ACPI implementation.
-
-The remaining 10 patches unify the x86/ia64 implementations of
-calling _PDC. I noticed the two archs were way more similar than
-they were different, so I thought it made sense to combine them
-as much as possible.
-
-This patch series was built on both x86 and ia64 (checkpatch and
-sparse clean).
-
-It was also boot tested on an HP Envy 15 (x86) and an HP rx6600
-(ia64). It resolved the namespace failures on the Envy 15 and did
-not cause any regressions on the rx6600.
-
-This does introduce a boot time namespace walk for all the CPUs
-in the system, looking for and evaluating _PDC. Hopefully that
-will not make life miserable for the giant SGI clusters. If worse
-comes to worse, maybe we can quirk them and avoid the namespace
-walk.
-
-
+Signed-off-by: John Stultz <johnstul@us.ibm.com>
 ---
+ time.c |   12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Alex Chiang (11):
-      ACPI: processor: call _PDC early
-      ACPI: processor: introduce arch_has_acpi_pdc
-      ACPI: processor: unify arch_acpi_processor_init_pdc
-      ACPI: processor: factor out common _PDC settings
-      ACPI: processor: finish unifying arch_acpi_processor_init_pdc()
-      ACPI: processor: unify arch_acpi_processor_cleanup_pdc
-      ACPI: processor: introduce acpi_processor_alloc_pdc()
-      ACPI: processor: change acpi_processor_eval_pdc interface
-      ACPI: processor: open code acpi_processor_cleanup_pdc
-      ACPI: processor: change acpi_processor_set_pdc() interface
-      ACPI: processor: remove _PDC object list from struct acpi_processor
+Index: gettimeoffset/arch/ia64/kernel/time.c
+=================================--- gettimeoffset.orig/arch/ia64/kernel/time.c	2009-12-22 18:50:55.000000000 -0800
++++ gettimeoffset/arch/ia64/kernel/time.c	2009-12-22 18:51:10.000000000 -0800
+@@ -430,18 +430,16 @@ static int __init rtc_init(void)
+ }
+ module_init(rtc_init);
+ 
++void read_persistent_clock(struct timespec *ts)
++{
++	efi_gettimeofday(ts);
++}
++
+ void __init
+ time_init (void)
+ {
+ 	register_percpu_irq(IA64_TIMER_VECTOR, &timer_irqaction);
+-	efi_gettimeofday(&xtime);
+ 	ia64_init_itm();
+-
+-	/*
+-	 * Initialize wall_to_monotonic such that adding it to xtime will yield zero, the
+-	 * tv_nsec field must be normalized (i.e., 0 <= nsec < NSEC_PER_SEC).
+-	 */
+-	set_normalized_timespec(&wall_to_monotonic, -xtime.tv_sec, -xtime.tv_nsec);
+ }
+ 
+ /*
 
-
- arch/ia64/include/asm/acpi.h      |    6 +
- arch/ia64/kernel/Makefile         |    4 -
- arch/ia64/kernel/acpi-processor.c |   85 -------------------
- arch/x86/include/asm/acpi.h       |   26 ++++++
- arch/x86/kernel/acpi/Makefile     |    2 
- arch/x86/kernel/acpi/processor.c  |  101 -----------------------
- drivers/acpi/Makefile             |    1 
- drivers/acpi/bus.c                |    2 
- drivers/acpi/internal.h           |    1 
- drivers/acpi/processor_core.c     |   71 ----------------
- drivers/acpi/processor_pdc.c      |  165 +++++++++++++++++++++++++++++++++++++
- include/acpi/processor.h          |    8 +-
- 12 files changed, 206 insertions(+), 266 deletions(-)
- delete mode 100644 arch/ia64/kernel/acpi-processor.c
- delete mode 100644 arch/x86/kernel/acpi/processor.c
- create mode 100644 drivers/acpi/processor_pdc.c
 
