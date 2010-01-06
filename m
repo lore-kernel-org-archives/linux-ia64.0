@@ -1,54 +1,49 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 07 Jan 2010 19:58:51 +0000
-Subject: [PATCH 1/2] ACPICA: acpi_get_object_info(): fixup array -> pointer
-Message-Id: <20100107195851.1790.25742.stgit@bob.kio>
+From: Anton Blanchard <anton@samba.org>
+Date: Wed, 06 Jan 2010 04:55:12 +0000
+Subject: [patch 3/6] ia64: cpumask_of_node() should handle -1 as a node
+Message-Id: <20100106045525.082530491@samba.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20100106045509.245662398@samba.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>, Andrew Morton <akpm@linux-foundation.org>
 
+pcibus_to_node can return -1 if we cannot determine which node a pci bus
+is on. If passed -1, cpumask_of_node will negatively index the lookup array
+and pull in random data:
 
-Commit 15b8dd53f5ffa changed the string in info->hardware_id from a static
-array to a pointer and added a length field.  But instead of changing
-"sizeof(array)" to "length", we changed it to "sizeof(length)" (=3D 4),
-which corrupts the string we're trying to null-terminate.
+# cat /sys/devices/pci0000:00/0000:00:01.0/local_cpus
+00000000,00000003,00000000,00000000
+# cat /sys/devices/pci0000:00/0000:00:01.0/local_cpulist
+64-65
 
-We no longer even need to null-terminate the string, but we *do* need to
-check whether we found a HID.  If there's no HID, we used to have an empty
-array, but now we have a null pointer.
+Change cpumask_of_node to check for -1 and return cpu_all_mask in this
+case:
 
-The combination of these defects causes this oops:
+# cat /sys/devices/pci0000:00/0000:00:01.0/local_cpus
+ffffffff,ffffffff,ffffffff,ffffffff
+# cat /sys/devices/pci0000:00/0000:00:01.0/local_cpulist
+0-127
 
-  Unable to handle kernel NULL pointer dereference (address 000000000000000=
-3)
-  modprobe[895]: Oops 8804682956800 [1]
-  ip is at zx1_gart_probe+0xd0/0xcc0 [hp_agp]
-
-  http://marc.info/?l=3Dlinux-ia64&m=126264484923647&w=3D2
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Reported-by: =C3=89meric Maschino <emeric.maschino@gmail.com>
+Signed-off-by: Anton Blanchard <anton@samba.org>
 ---
 
- drivers/char/agp/hp-agp.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+Index: linux-cpumask/arch/ia64/include/asm/topology.h
+=================================--- linux-cpumask.orig/arch/ia64/include/asm/topology.h	2010-01-06 15:20:22.832584260 +1100
++++ linux-cpumask/arch/ia64/include/asm/topology.h	2010-01-06 15:26:46.620650121 +1100
+@@ -33,7 +33,9 @@
+ /*
+  * Returns a bitmask of CPUs on Node 'node'.
+  */
+-#define cpumask_of_node(node) (&node_to_cpu_mask[node])
++#define cpumask_of_node(node) ((node) = -1 ?				\
++			       cpu_all_mask :				\
++			       &node_to_cpu_mask[node])
+ 
+ /*
+  * Returns the number of the node containing Node 'nid'.
 
-
-diff --git a/drivers/char/agp/hp-agp.c b/drivers/char/agp/hp-agp.c
-index 9047b27..dc8a6f7 100644
---- a/drivers/char/agp/hp-agp.c
-+++ b/drivers/char/agp/hp-agp.c
-@@ -488,9 +488,8 @@ zx1_gart_probe (acpi_handle obj, u32 depth, void *conte=
-xt, void **ret)
- 	handle =3D obj;
- 	do {
- 		status =3D acpi_get_object_info(handle, &info);
--		if (ACPI_SUCCESS(status)) {
-+		if (ACPI_SUCCESS(status) && (info->valid & ACPI_VALID_HID)) {
- 			/* TBD check _CID also */
--			info->hardware_id.string[sizeof(info->hardware_id.length)-1] =3D '\0';
- 			match =3D (strcmp(info->hardware_id.string, "HWP0001") =3D 0);
- 			kfree(info);
- 			if (match) {
+-- 
 
