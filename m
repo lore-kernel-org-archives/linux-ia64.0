@@ -1,86 +1,169 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 29 Jan 2010 16:14:30 +0000
-Subject: Re: "new" dependencies on ACPI/BIOS
-Message-Id: <201001290914.31576.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 06 Jan 2010 20:23:25 +0000
+Subject: [PATCH] __per_cpu_idtrs[] is a memory hog
+Message-Id: <4b44f13d318206dd61@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4b61e3dc10565c4ca6@agluck-desktop.sc.intel.com>
-In-Reply-To: <4b61e3dc10565c4ca6@agluck-desktop.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 28 January 2010 07:14:54 pm Tony Luck wrote:
-> On Thu, Jan 28, 2010 at 3:41 PM, Bjorn Helgaas <bjorn.helgaas@hp.com> wro=
-te:
-> > I don't see the connection between the commits you identified and
-> > the fact that we don't find any host bridge memory windows.
-> >
-> > The problem I see is that the PNP0A08:00 host bridge has a bunch
-> > of memory resources that are marked as "Consumer," which means the
-> > bridge doesn't forward those regions downstream. =A0It's normal for
-> > a bridge to have a couple things like that, e.g., 0xcf8, which the
-> > bridge consumes and turns into config space accesses downstream,
-> > but most of these are huge regions that are obviously supposed to
-> > be Producer, not Consumer.
-> >
-> > That would certainly explain why the downstream devices don't work,
-> > but it doesn't explain why they worked prior to 2.6.31. =A0We've been
-> > checking that Producer/Consumer bit since 463eb297401e in 2005.
-> >
-> > Are you sure there wasn't a BIOS change at the time things broke?
-> > I guess if you bisected it, there shouldn't be a BIOS change in the
-> > middle, but I just don't see how this could ever have worked with
-> > the _CRS we're getting from the BIOS.
-> >
-> Bjorn,
->=20
-> Thanks for the help on this.  There was a BIOS change, but I don't
-> think that it is connected to this. I don't have any old boot logs from
-> the old BIOS, but I can definitely build & boot old kernels like
-> 2.6.29 on the new BIOS and see all the devices.
->=20
-> One theory for how old kernels managed to work is that when
-> pci_create_bus() is called it initially sets resource[0] to map
-> all possible IO space, and resource[1] to map all MEM space.
-> In the current kernel these get overwritten with the actual
-> windows before we do anything with them. But perhaps in
-> the old kernel (before Willy changed the ordering) we might
-> have accepted by ehci devices while the bus apparently mapped
-> everything?
+__per_cpu_idtrs is statically allocated ... on CONFIG_NR_CPUS@96
+systems it takes 16MB of memory. This is way too much for a quite
+probably unused facility (only KVM uses dynamic TR registers).
 
-Maybe so.  All HP ia64 boxes have multiple host bridges, so it
-seems like using those default IO and MEM resources would have
-broken any Linux resource assignments, like for hotplug and option
-ROM mapping.  But those haven't been tested very much, so maybe we
-just didn't notice.  Anyway, I don't have a better idea.
+Change to an array of pointers, and allocate entries as needed on
+a per cpu basis.  Change the name too as the __per_cpu_ prefix is
+confusing (this isn't a classic <linux/percpu.h> type object).
 
-> > resource_to_window() ignores consumer-only resources, which explains
-> > why we aren't treating these memory descriptors as host bridge windows.
->=20
-> I commented out that check in resource_to_window() ... and
-> my system booted with a lot more windows reported, and
-> all the devices working.  So a good theory for what is wrong
-> is that the BIOS has all the right windows listed in _CRS, but
-> it just has the wrong flags on some/all of them. But in particular
-> this one:
->=20
-> > DWORD addr space descriptor: [mem 0x50000000-0x9fffffff]
-> >
-> >> =A0 =A0 =A0 =A0 =A0 =A0 =A0 8a 2b 00 00 0d 01 ff ff ff 03 00 00
-> >> =A0 00 00 00 00 00 00 00 01 00 00 fe ff ff ff 00 01
-> >> =A0 00 00 00 00 00 00 00 00 00 00 ff ff ff ff 00 00
-> >> =A0 00 00
->=20
-> I'll see if I can find the BIOS people for this platform and ask
-> them if they can change the 'd' to a 'c'.
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-I would expect the incorrect flags to break Windows as well.
+---
 
-HP host bridges are ACPI devices, not PCI devices, and they have
-both consumer resources (for configuration of the host bridge
-device itself) and producer resources (windows that are forwarded
-downstream).  If we ignored the flag, we'd treat those bridge
-configuration resources as windows, which would be wrong.
+Bjorn found that he couldn't boot a kernel with a few extra drivers
+compiled statically.  Further digging showed that the problem was
+the kernel was too big (max size is controlled by KERNEL_TR_PAGE_SHIFT
+in <asm/pgtable.h> ... currently set to 64MB).
 
-Bjorn
+More digging showed that on a CONFIG_NR_CPUS@96 kernel a full quarter
+of the available kernel space is used by "__per_cpu_idtrs".
+
+diff --git a/arch/ia64/include/asm/tlb.h b/arch/ia64/include/asm/tlb.h
+index 85d965c..23cce99 100644
+--- a/arch/ia64/include/asm/tlb.h
++++ b/arch/ia64/include/asm/tlb.h
+@@ -74,7 +74,7 @@ struct ia64_tr_entry {
+ extern int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size);
+ extern void ia64_ptr_entry(u64 target_mask, int slot);
+ 
+-extern struct ia64_tr_entry __per_cpu_idtrs[NR_CPUS][2][IA64_TR_ALLOC_MAX];
++extern struct ia64_tr_entry *ia64_idtrs[NR_CPUS];
+ 
+ /*
+  region register macros
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 32f2639..378b483 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1225,9 +1225,12 @@ static void mca_insert_tr(u64 iord)
+ 	unsigned long psr;
+ 	int cpu = smp_processor_id();
+ 
++	if (!ia64_idtrs[cpu])
++		return;
++
+ 	psr = ia64_clear_ic();
+ 	for (i = IA64_TR_ALLOC_BASE; i < IA64_TR_ALLOC_MAX; i++) {
+-		p = &__per_cpu_idtrs[cpu][iord-1][i];
++		p = ia64_idtrs[cpu] + (iord - 1) * IA64_TR_ALLOC_MAX;
+ 		if (p->pte & 0x1) {
+ 			old_rr = ia64_get_rr(p->ifa);
+ 			if (old_rr != p->rr) {
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index ee09d26..00914da 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -48,7 +48,7 @@ DEFINE_PER_CPU(u8, ia64_need_tlb_flush);
+ DEFINE_PER_CPU(u8, ia64_tr_num);  /*Number of TR slots in current processor*/
+ DEFINE_PER_CPU(u8, ia64_tr_used); /*Max Slot number used by kernel*/
+ 
+-struct ia64_tr_entry __per_cpu_idtrs[NR_CPUS][2][IA64_TR_ALLOC_MAX];
++struct ia64_tr_entry *ia64_idtrs[NR_CPUS];
+ 
+ /*
+  * Initializes the ia64_ctx.bitmap array based on max_ctx+1.
+@@ -429,10 +429,16 @@ int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+ 	struct ia64_tr_entry *p;
+ 	int cpu = smp_processor_id();
+ 
++	if (!ia64_idtrs[cpu]) {
++		ia64_idtrs[cpu] = kmalloc(2 * IA64_TR_ALLOC_MAX *
++				sizeof (struct ia64_tr_entry), GFP_KERNEL);
++		if (!ia64_idtrs[cpu])
++			return -ENOMEM;
++	}
+ 	r = -EINVAL;
+ 	/*Check overlap with existing TR entries*/
+ 	if (target_mask & 0x1) {
+-		p = &__per_cpu_idtrs[cpu][0][0];
++		p = ia64_idtrs[cpu];
+ 		for (i = IA64_TR_ALLOC_BASE; i <= per_cpu(ia64_tr_used, cpu);
+ 								i++, p++) {
+ 			if (p->pte & 0x1)
+@@ -444,7 +450,7 @@ int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+ 		}
+ 	}
+ 	if (target_mask & 0x2) {
+-		p = &__per_cpu_idtrs[cpu][1][0];
++		p = ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX;
+ 		for (i = IA64_TR_ALLOC_BASE; i <= per_cpu(ia64_tr_used, cpu);
+ 								i++, p++) {
+ 			if (p->pte & 0x1)
+@@ -459,16 +465,16 @@ int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+ 	for (i = IA64_TR_ALLOC_BASE; i < per_cpu(ia64_tr_num, cpu); i++) {
+ 		switch (target_mask & 0x3) {
+ 		case 1:
+-			if (!(__per_cpu_idtrs[cpu][0][i].pte & 0x1))
++			if (!((ia64_idtrs[cpu] + i)->pte & 0x1))
+ 				goto found;
+ 			continue;
+ 		case 2:
+-			if (!(__per_cpu_idtrs[cpu][1][i].pte & 0x1))
++			if (!((ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i)->pte & 0x1))
+ 				goto found;
+ 			continue;
+ 		case 3:
+-			if (!(__per_cpu_idtrs[cpu][0][i].pte & 0x1) &&
+-				!(__per_cpu_idtrs[cpu][1][i].pte & 0x1))
++			if (!((ia64_idtrs[cpu] + i)->pte & 0x1) &&
++			    !((ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i)->pte & 0x1))
+ 				goto found;
+ 			continue;
+ 		default:
+@@ -488,7 +494,7 @@ found:
+ 	if (target_mask & 0x1) {
+ 		ia64_itr(0x1, i, va, pte, log_size);
+ 		ia64_srlz_i();
+-		p = &__per_cpu_idtrs[cpu][0][i];
++		p = ia64_idtrs[cpu] + i;
+ 		p->ifa = va;
+ 		p->pte = pte;
+ 		p->itir = log_size << 2;
+@@ -497,7 +503,7 @@ found:
+ 	if (target_mask & 0x2) {
+ 		ia64_itr(0x2, i, va, pte, log_size);
+ 		ia64_srlz_i();
+-		p = &__per_cpu_idtrs[cpu][1][i];
++		p = ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i;
+ 		p->ifa = va;
+ 		p->pte = pte;
+ 		p->itir = log_size << 2;
+@@ -528,7 +534,7 @@ void ia64_ptr_entry(u64 target_mask, int slot)
+ 		return;
+ 
+ 	if (target_mask & 0x1) {
+-		p = &__per_cpu_idtrs[cpu][0][slot];
++		p = ia64_idtrs[cpu] + i;
+ 		if ((p->pte&0x1) && is_tr_overlap(p, p->ifa, p->itir>>2)) {
+ 			p->pte = 0;
+ 			ia64_ptr(0x1, p->ifa, p->itir>>2);
+@@ -537,7 +543,7 @@ void ia64_ptr_entry(u64 target_mask, int slot)
+ 	}
+ 
+ 	if (target_mask & 0x2) {
+-		p = &__per_cpu_idtrs[cpu][1][slot];
++		p = ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i;
+ 		if ((p->pte & 0x1) && is_tr_overlap(p, p->ifa, p->itir>>2)) {
+ 			p->pte = 0;
+ 			ia64_ptr(0x2, p->ifa, p->itir>>2);
+@@ -546,8 +552,8 @@ void ia64_ptr_entry(u64 target_mask, int slot)
+ 	}
+ 
+ 	for (i = per_cpu(ia64_tr_used, cpu); i >= IA64_TR_ALLOC_BASE; i--) {
+-		if ((__per_cpu_idtrs[cpu][0][i].pte & 0x1) ||
+-				(__per_cpu_idtrs[cpu][1][i].pte & 0x1))
++		if (((ia64_idtrs[cpu] + i)->pte & 0x1) ||
++		    ((ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i)->pte & 0x1))
+ 			break;
+ 	}
+ 	per_cpu(ia64_tr_used, cpu) = i;
