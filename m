@@ -1,59 +1,40 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Wed, 06 Jan 2010 15:24:30 +0000
-Subject: [PATCH] IA64: use helpers for rlimits
-Message-Id: <1262791479-26594-2-git-send-email-jslaby@suse.cz>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 07 Jan 2010 19:58:56 +0000
+Subject: [PATCH 2/2] agp/hp: fail gracefully if we don't find an IOC
+Message-Id: <20100107195856.1790.75016.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1262791479-26594-1-git-send-email-jslaby@suse.cz>
-In-Reply-To: <1262791479-26594-1-git-send-email-jslaby@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jirislaby@gmail.com
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Make sure compiler won't do weird things with limits. E.g. fetching
-them twice may return 2 different values after writable limits are
-implemented.
 
-I.e. either use rlimit helpers added in
-3e10e716abf3c71bdb5d86b8f507f9e72236c9cd
-or ACCESS_ONCE if not applicable.
+Bail out if we don't find an enclosing IOC.  Previously, if we didn't
+find one, we tried to set things up using garbage for the SBA/IOC register
+address, which causes a crash.
 
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+This crash only happens if firmware supplies a defective ACPI namespace, so
+it doesn't fix any problems in the field.
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 ---
- arch/ia64/kernel/perfmon.c |    2 +-
- arch/ia64/mm/init.c        |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 5246285..6bcbe21 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2293,7 +2293,7 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
- 	 * if ((mm->total_vm << PAGE_SHIFT) + len> task->rlim[RLIMIT_AS].rlim_cur)
- 	 * 	return -ENOMEM;
- 	 */
--	if (size > task->signal->rlim[RLIMIT_MEMLOCK].rlim_cur)
-+	if (size > task_rlimit(task, RLIMIT_MEMLOCK))
- 		return -ENOMEM;
+ drivers/char/agp/hp-agp.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+
+diff --git a/drivers/char/agp/hp-agp.c b/drivers/char/agp/hp-agp.c
+index dc8a6f7..58752b7 100644
+--- a/drivers/char/agp/hp-agp.c
++++ b/drivers/char/agp/hp-agp.c
+@@ -508,6 +508,9 @@ zx1_gart_probe (acpi_handle obj, u32 depth, void *context, void **ret)
+ 		handle = parent;
+ 	} while (ACPI_SUCCESS(status));
  
- 	/*
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index b9609c6..7c0d481 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -91,7 +91,7 @@ dma_mark_clean(void *addr, size_t size)
- inline void
- ia64_set_rbs_bot (void)
- {
--	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
-+	unsigned long stack_size = rlimit_max(RLIMIT_STACK) & -16;
++	if (ACPI_FAILURE(status))
++		return AE_OK;	/* found no enclosing IOC */
++
+ 	if (hp_zx1_setup(sba_hpa + HP_ZX1_IOC_OFFSET, lba_hpa))
+ 		return AE_OK;
  
- 	if (stack_size > MAX_USER_STACK_SIZE)
- 		stack_size = MAX_USER_STACK_SIZE;
--- 
-1.6.5.7
 
