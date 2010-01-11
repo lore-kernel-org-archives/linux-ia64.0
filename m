@@ -1,24 +1,43 @@
-From: trouthy_61x65 <trouthy@hotmail.fr>
-Date: Fri, 29 Jan 2010 22:46:03 +0000
-Subject: linux-ia64 crashes with two itanium2 plugged
-Message-Id: <27379296.post@talk.nabble.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Mon, 11 Jan 2010 19:58:25 +0000
+Subject: lockdep support caused an MCA
+Message-Id: <20100111195825.GE10162@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+This patch 2f02b4a12b24c9f077c6d739ac23c9b90840ccca:
 
-Hi all, I try to install a Linux SLESuse10 or Debian5 onto a computer with
-Supermicro's motheboard and Itanium2 based. With once processor Linux-ia64
-perfectly runs up but when i plug the second processor the O.S. crashes.
-Then i tried to re-install it or boot with failsafe mode without good
-result; during the hardware detect or after it it crashes and reboot. I had
-to unplug the second processor and remake the entire installation. Actually
-I take some informations about re-compilation of the kernel but i found
-nothing about that problem. Has anybody got any idea? Thanks (I watched a
-message during the crashes such "number of slaves reached...")
--- 
-View this message in context: http://old.nabble.com/linux-ia64-crashes-with-two-itanium2-plugged-tp27379296p27379296.html
-Sent from the linux-ia64 mailing list archive at Nabble.com.
+Author: Luming Yu <luming.yu@intel.com>  2009-12-04 09:14:30
+
+    [IA64] lockdep support
+    
+    Basic functionality for lockdep on ia64.
+    
+    Known issues:
+    0. dynamic allocate per CPU area in lockdep.
+    1. lock held in leave kernel.
+    2. enabling CONFIG_DEBUG_LOCKDEP triggers the lockdep warning.
+    3. Need to implement save_stack functions
+    4. Replace some cpp macros with inline functions
+    5. Add nmi_enter/nmi_exit
+    
+    Signed-off-by: Bob Picco <bob.picco@hp.com>
+    Signed-off-by: Yu Luming <luming.yu@intel.com>
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+causes a very early MCA on an HP rx8640.
+
+Unfortunately, even with early_printk turned on, the machine
+encounters the MCA and reboots before any output occurs, so I
+don't have any further information.
+
+I haven't done any other triage on this as the patch has already
+been dropped from Tony's tree, but I'd be happy to test the next
+go-around.
+
+Thanks,
+/ac
 
