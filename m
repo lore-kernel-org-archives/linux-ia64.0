@@ -1,12 +1,24 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Mon, 11 Jan 2010 19:58:25 +0000
-Subject: lockdep support caused an MCA
-Message-Id: <20100111195825.GE10162@ldl.fc.hp.com>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Tue, 12 Jan 2010 01:51:16 +0000
+Subject: RE: lockdep support caused an MCA
+Message-Id: <1EC975D79B8B1F4BBDC50EA54418A0040C635FE1B1@shzsmsx501.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20100111195825.GE10162@ldl.fc.hp.com>
+In-Reply-To: <20100111195825.GE10162@ldl.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Let me check if I can get access to an HP rx8640 to re-spin the patch.
+
+
+-----Original Message-----
+From: Alex Chiang [mailto:achiang@hp.com] 
+Sent: Tuesday, January 12, 2010 3:58 AM
+To: Yu, Luming; Luck, Tony
+Cc: linux-ia64@vger.kernel.org
+Subject: lockdep support caused an MCA
 
 This patch 2f02b4a12b24c9f077c6d739ac23c9b90840ccca:
 
