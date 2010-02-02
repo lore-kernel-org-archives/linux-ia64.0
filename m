@@ -1,30 +1,55 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 03 Feb 2010 23:56:35 +0000
-Subject: Re: linux-ia64 crashes with two itanium2 plugged
-Message-Id: <201002031656.35584.bjorn.helgaas@hp.com>
+From: Joe Perches <joe@perches.com>
+Date: Tue, 02 Feb 2010 07:22:07 +0000
+Subject: [PATCH 01/10] arch/ia64: Fix continuation line formats
+Message-Id: <f3f06427c791446de7aaba9df811f29db12dd831.1265095094.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <27379296.post@talk.nabble.com>
-In-Reply-To: <27379296.post@talk.nabble.com>
+References: <cover.1265095093.git.joe@perches.com>
+In-Reply-To: <cover.1265095093.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Xiantao Zhang <xiantao.zhang@intel.com>, Avi Kivity <avi@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, kvm-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tuesday 02 February 2010 12:36:33 am trouthy_61x65 wrote:
-> 
-> Hi all, I try to install a Linux SLESuse10 or Debian5 onto a computer with
-> Supermicro's motheboard and Itanium2 based. With once processor Linux-ia64
-> perfectly runs up but when i plug the second processor the O.S. crashes.
-> Then i tried to re-install it or boot with failsafe mode without good
-> result; during the hardware detect or after it it crashes and reboot. I had
-> to unplug the second processor and remake the entire installation. Actually
-> I take some informations about re-compilation of the kernel but i found
-> nothing about that problem. Has anybody got any idea? Thanks (I watched a
-> message during the crashes such "number of slaves reached..." i also
-> replaced the twin itanium2 proc)
+String constants that are continued on subsequent lines with \
+are not good.
 
-If you can collect a serial console log, or write down the OS crash
-information by hand, or even take a video of the crash, it will help
-give us some idea of where to look.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ arch/ia64/kvm/mmio.c |    4 ++--
+ arch/ia64/kvm/vcpu.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-Bjorn
+diff --git a/arch/ia64/kvm/mmio.c b/arch/ia64/kvm/mmio.c
+index 9bf55af..fb8f9f5 100644
+--- a/arch/ia64/kvm/mmio.c
++++ b/arch/ia64/kvm/mmio.c
+@@ -316,8 +316,8 @@ void emulate_io_inst(struct kvm_vcpu *vcpu, u64 padr, u64 ma)
+ 		return;
+ 	} else {
+ 		inst_type = -1;
+-		panic_vm(vcpu, "Unsupported MMIO access instruction! \
+-				Bunld[0]=0x%lx, Bundle[1]=0x%lx\n",
++		panic_vm(vcpu, "Unsupported MMIO access instruction! "
++				"Bunld[0]=0x%lx, Bundle[1]=0x%lx\n",
+ 				bundle.i64[0], bundle.i64[1]);
+ 	}
+ 
+diff --git a/arch/ia64/kvm/vcpu.c b/arch/ia64/kvm/vcpu.c
+index dce75b7..958815c 100644
+--- a/arch/ia64/kvm/vcpu.c
++++ b/arch/ia64/kvm/vcpu.c
+@@ -1639,8 +1639,8 @@ void vcpu_set_psr(struct kvm_vcpu *vcpu, unsigned long val)
+ 	 * Otherwise panic
+ 	 */
+ 	if (val & (IA64_PSR_PK | IA64_PSR_IS | IA64_PSR_VM))
+-		panic_vm(vcpu, "Only support guests with vpsr.pk =0 \
+-				& vpsr.is=0\n");
++		panic_vm(vcpu, "Only support guests with vpsr.pk =0 "
++				"& vpsr.is=0\n");
+ 
+ 	/*
+ 	 * For those IA64_PSR bits: id/da/dd/ss/ed/ia
+-- 
+1.6.6.rc0.57.gad7a
+
