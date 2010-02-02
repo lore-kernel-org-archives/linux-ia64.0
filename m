@@ -1,27 +1,35 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 04 Feb 2010 18:29:39 +0000
-Subject: Re: [PATCH v2 0/3] pci_root: track downstream bus range for _CBA
-Message-Id: <201002041129.40116.bjorn.helgaas@hp.com>
+From: akpm@linux-foundation.org
+Date: Tue, 02 Feb 2010 22:42:01 +0000
+Subject: [patch 1/1] arch/ia64/uv/kernel/setup.c: wrong attribute of HUB chip written in uv_setup()
+Message-Id: <201002022242.o12Mg2Me019074@imap1.linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20091110170802.10645.91272.stgit@bob.kio>
-In-Reply-To: <20091110170802.10645.91272.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Len Brown <lenb@kernel.org>
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Tuesday 10 November 2009 10:11:28 am Bjorn Helgaas wrote:
-> The PCI Firmware Spec requires BIOS to use _CBA, not MCFG, to report
-> MMCONFIG regions of hot-pluggable host bridges.  Therefore, if the
-> hardware and firmware support host bridge hotplug, we will encounter
-> _CBA even if Linux itself doesn't support hotplug.
-> 
-> These patches make the pci_root driver keep track of the downstream
-> bus range and make it available so arch-specific code can register
-> MMCONFIG regions if necessary.
+From: Roel Kluin <roel.kluin@gmail.com>
 
-I think these patches got forgotten, but I still think they're
-worthwhile.  I'd be glad to refresh them if necessary.
+n_val should be assigned to n_val attribute of HUB chip.
 
-Bjorn
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+
+ arch/ia64/uv/kernel/setup.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN arch/ia64/uv/kernel/setup.c~ia64-wrong-attribute-of-hub-chip-written-in-uv_setup arch/ia64/uv/kernel/setup.c
+--- a/arch/ia64/uv/kernel/setup.c~ia64-wrong-attribute-of-hub-chip-written-in-uv_setup
++++ a/arch/ia64/uv/kernel/setup.c
+@@ -104,7 +104,7 @@ void __init uv_setup(char **cmdline_p)
+ 		uv_cpu_hub_info(cpu)->lowmem_remap_top  			lowmem_redir_base + lowmem_redir_size;
+ 		uv_cpu_hub_info(cpu)->m_val = m_val;
+-		uv_cpu_hub_info(cpu)->n_val = m_val;
++		uv_cpu_hub_info(cpu)->n_val = n_val;
+ 		uv_cpu_hub_info(cpu)->pnode_mask = (1 << n_val) -1;
+ 		uv_cpu_hub_info(cpu)->gpa_mask = (1 << (m_val + n_val)) - 1;
+ 		uv_cpu_hub_info(cpu)->gnode_upper = gnode_upper;
+_
