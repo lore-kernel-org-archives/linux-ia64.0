@@ -1,55 +1,62 @@
-From: Alex Chiang <achiang@hp.com>
-Date: Thu, 25 Feb 2010 21:09:57 +0000
-Subject: [PATCH 2/2] [IA64] build arch/ia64/kernel/acpi-ext.o when CONFIG_ACPI
-Message-Id: <20100225210957.23267.98557.stgit@bob.kio>
+From: Frans Pop <elendil@planet.nl>
+Date: Sat, 06 Feb 2010 17:47:10 +0000
+Subject: [PATCH 03/16] ia64: remove trailing space in messages
+Message-Id: <1265478443-31072-3-git-send-email-elendil@planet.nl>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <201002061844.45212.elendil@planet.nl>
+In-Reply-To: <201002061844.45212.elendil@planet.nl>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Frans Pop <elendil@planet.nl>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-Simplify the makefile slightly by always building acpi-ext.o when
-CONFIG_ACPI is turned on.
-
-Yes, this adds a little bloat to the other configs, but not much:
-   text	   data	    bss	    dec	    hex	filename
-    839	     41	      0	    880	    370	arch/ia64/kernel/acpi-ext.o
-
-Before:
-   text	   data	    bss	    dec		    hex	filename
-10952753	1299212	1334241	13586206	 cf4f1e	vmlinux
-
-After:
-   text	   data	    bss	    dec		    hex	filename
-10953739	1299084	1334241	13587064	 cf5278	vmlinux
-
-(gdb) p 13587064 - 13586206
-$2 = 858
-
-Seems like a small price to pay for the benefit of not having to think
-so hard about the multitude of ia64 configs when reading code/Makefiles.
-
-Signed-off-by: Alex Chiang <achiang@hp.com>
+Signed-off-by: Frans Pop <elendil@planet.nl>
+Cc: linux-ia64@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
 ---
+ arch/ia64/ia32/sys_ia32.c  |    4 ++--
+ arch/ia64/kernel/perfmon.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
- arch/ia64/kernel/Makefile |    5 +----
- 1 files changed, 1 insertions(+), 4 deletions(-)
-
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 78ad418..4138282 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -13,11 +13,8 @@ obj-y := entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64
- 	 salinfo.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o \
- 	 unwind.o mca.o mca_asm.o topology.o dma-mapping.o
+diff --git a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
+index 045b746..8e441a4 100644
+--- a/arch/ia64/ia32/sys_ia32.c
++++ b/arch/ia64/ia32/sys_ia32.c
+@@ -2219,8 +2219,8 @@ static void access_fpreg_ia32(int regno, void *reg,
+ 	else if (regno <= 7)
+ 		f = &sw->f12 + (regno - 4);
+ 	else {
+-		printk(KERN_ERR "regno must be less than 7 \n");
+-		 return;
++		printk(KERN_ERR "regno must be less than 7\n");
++		return;
+ 	}
  
--obj-$(CONFIG_ACPI)		+= acpi.o
-+obj-$(CONFIG_ACPI)		+= acpi.o acpi-ext.o
- obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
--obj-$(CONFIG_IA64_GENERIC)	+= acpi-ext.o
--obj-$(CONFIG_IA64_HP_ZX1)	+= acpi-ext.o
--obj-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += acpi-ext.o
+ 	if (write)
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 6bcbe21..b81e46b 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2713,7 +2713,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+ 			goto buffer_error;
+ 	}
  
- obj-$(CONFIG_IA64_PALINFO)	+= palinfo.o
- obj-$(CONFIG_IOSAPIC)		+= iosapic.o
+-	DPRINT(("ctx=%p flags=0x%x system=%d notify_block=%d excl_idle=%d no_msg=%d ctx_fd=%d \n",
++	DPRINT(("ctx=%p flags=0x%x system=%d notify_block=%d excl_idle=%d no_msg=%d ctx_fd=%d\n",
+ 		ctx,
+ 		ctx_flags,
+ 		ctx->ctx_fl_system,
+@@ -3677,7 +3677,7 @@ pfm_restart(pfm_context_t *ctx, void *arg, int count, struct pt_regs *regs)
+ 	 * "self-monitoring".
+ 	 */
+ 	if (CTX_OVFL_NOBLOCK(ctx) = 0 && state = PFM_CTX_MASKED) {
+-		DPRINT(("unblocking [%d] \n", task_pid_nr(task)));
++		DPRINT(("unblocking [%d]\n", task_pid_nr(task)));
+ 		complete(&ctx->ctx_restart_done);
+ 	} else {
+ 		DPRINT(("[%d] armed exit trap\n", task_pid_nr(task)));
+-- 
+1.6.6.1
 
