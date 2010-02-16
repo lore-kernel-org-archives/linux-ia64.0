@@ -1,23 +1,30 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 08 Feb 2010 19:24:30 +0000
-Subject: Re: binfmt_elf32 / compat_binfmt_elf.c
-Message-Id: <20100208192430.GA30349@infradead.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 16 Feb 2010 19:43:10 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4b7af54e1425728e79@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100205153253.GA24644@infradead.org>
-In-Reply-To: <20100205153253.GA24644@infradead.org>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 08, 2010 at 11:21:33AM -0800, Luck, Tony wrote:
-> > It looks like IA64 still has it's own binfmt_elf32.c instead of using
-> > the generic fs/compat_binfmt_elf.c which is used by other architectures
-> > that have the regset infrastucture.  Any good reason for skipping that
-> > part of the conversion?
-> 
-> What if I just remove it, along with the rest of CONFIG_IA32 support?
-> Nobody uses this code any more.
+Hi Linus,
 
-That would make life even easier..
+please pull from:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/include/asm/elf.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+Tony Luck (1):
+      [IA64] preserve personality flag bits across exec
 
