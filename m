@@ -1,23 +1,55 @@
-From: Avi Kivity <avi@redhat.com>
-Date: Sun, 07 Feb 2010 11:43:01 +0000
-Subject: Re: [PATCH 01/10] arch/ia64: Fix continuation line formats
-Message-Id: <4B6EA745.5020209@redhat.com>
+From: Alex Chiang <achiang@hp.com>
+Date: Thu, 25 Feb 2010 21:09:57 +0000
+Subject: [PATCH 2/2] [IA64] build arch/ia64/kernel/acpi-ext.o when CONFIG_ACPI
+Message-Id: <20100225210957.23267.98557.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1265095093.git.joe@perches.com> <f3f06427c791446de7aaba9df811f29db12dd831.1265095094.git.joe@perches.com>
-In-Reply-To: <f3f06427c791446de7aaba9df811f29db12dd831.1265095094.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>
-Cc: linux-kernel@vger.kernel.org, Xiantao Zhang <xiantao.zhang@intel.com>, Marcelo Tosatti <mtosatti@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, kvm-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 02/02/2010 09:22 AM, Joe Perches wrote:
-> String constants that are continued on subsequent lines with \
-> are not good.
->    
+Simplify the makefile slightly by always building acpi-ext.o when
+CONFIG_ACPI is turned on.
 
-Applied, thanks.
+Yes, this adds a little bloat to the other configs, but not much:
+   text	   data	    bss	    dec	    hex	filename
+    839	     41	      0	    880	    370	arch/ia64/kernel/acpi-ext.o
 
--- 
-error compiling committee.c: too many arguments to function
+Before:
+   text	   data	    bss	    dec		    hex	filename
+10952753	1299212	1334241	13586206	 cf4f1e	vmlinux
+
+After:
+   text	   data	    bss	    dec		    hex	filename
+10953739	1299084	1334241	13587064	 cf5278	vmlinux
+
+(gdb) p 13587064 - 13586206
+$2 = 858
+
+Seems like a small price to pay for the benefit of not having to think
+so hard about the multitude of ia64 configs when reading code/Makefiles.
+
+Signed-off-by: Alex Chiang <achiang@hp.com>
+---
+
+ arch/ia64/kernel/Makefile |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 78ad418..4138282 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -13,11 +13,8 @@ obj-y := entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64
+ 	 salinfo.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o \
+ 	 unwind.o mca.o mca_asm.o topology.o dma-mapping.o
+ 
+-obj-$(CONFIG_ACPI)		+= acpi.o
++obj-$(CONFIG_ACPI)		+= acpi.o acpi-ext.o
+ obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
+-obj-$(CONFIG_IA64_GENERIC)	+= acpi-ext.o
+-obj-$(CONFIG_IA64_HP_ZX1)	+= acpi-ext.o
+-obj-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += acpi-ext.o
+ 
+ obj-$(CONFIG_IA64_PALINFO)	+= palinfo.o
+ obj-$(CONFIG_IOSAPIC)		+= iosapic.o
 
