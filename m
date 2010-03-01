@@ -1,119 +1,114 @@
-From: "Justin P. mattock" <justinmattock@gmail.com>
-Date: Mon, 22 Mar 2010 01:04:08 +0000
-Subject: Re: [PATCH] Cosmetic:Partially remove deprecated __initcall() and
-Message-Id: <4BA6C208.6010000@gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 01 Mar 2010 18:11:12 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4b8c0340666f0cbe@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1269028291-9103-1-git-send-email-justinmattock@gmail.com> <4BA40115.2000509@xenotime.net> <4BA407AC.5030506@gmail.com> <4BA6BAF3.10603@xenotime.net>
-In-Reply-To: <4BA6BAF3.10603@xenotime.net>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Randy Dunlap <rdunlap@xenotime.net>
-Cc: trivial@kernel.org, linux-arm-kernel@lists.infradead.org, linux-audit@redhat.com, uclinux-dist-devel@blackfin.uclinux.org, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, selinux@tycho.nsa.gov, sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 03/21/2010 05:33 PM, Randy Dunlap wrote:
-> On 03/19/10 16:24, Justin P. Mattock wrote:
->> On 03/19/2010 03:56 PM, Randy Dunlap wrote:
->>> On 03/19/10 12:51, Justin P. Mattock wrote:
->>>> After doing some things on a small issue,
->>>> I noticed through web surfing, that there were patches
->>>> submitted pertaining that __initcall is deprecated,
->>>> and device_initcall should be used.
->>>
->>> Where was this discussion?  Do you have any pointers to it?
->>>
->>
->> The best info on this is scripts/checkpatch.pl
->> line #2664
->>
->> when I found this I just did a quick search of __initcall
->> (which gives hits here and there)
->> https://patchwork.kernel.org/patch/23344/
->> (also found others at around 2008 or so)
->
-> Thanks.  IMO there should be something in the kernel source tree
-> that says explicitly that __initcall is deprecated and should be
-> replaced by using<whatever should be used>.  That's missing.
->
+Hi Linus,
 
-agree..
+please pull from:
 
-I should of searched the source tree for something
-that says deprecated and so forth before doing anything(the 
-checkpatch.pl was something I noticed down the line but doesn't say 
-deprecated(say's explicitly).
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
+This will update the files shown below.  The lone non-ia64 file touched
+(drivers/input/input-compat.h) just has some ia64 specific #ifdef code
+removed like this:
 
->
->>> I don't see any mention of __initcall being deprecated in
->>> Linus' mainline git tree, or in linux-next, or in mmotm.
->>> Where are those patches?
->>>
->>
->> I don't know(I'm out of the social pipeline when it comes to Linux news,
->> and updates)..
->> like in the explanation part of the patch
->> I was looking into something else, then ran into this,
->> so as a break(from what I was originally doing)
->> decided to do this and submit.
->>
->>>
->>>> So as a change of subject(since what I was looking at
->>>> was frustrating me),I decided to grep the whole tree
->>>> and make the change(partially).
->>>>
->>>> Currently I'm running this patch on my system, kernel compiles
->>>> without any errors or warnings.(thought there would be a speed increase
->>>> but didn't see much(if any)).
->>>
->>> No, __initcall(x) is just a shorthand version of typing
->>> device_initcall(x).  They do the same thing.
->>>
->>
->> yep, that's what I found out as well(reason for the cosmetic
->> in the subject line).
->>
->>>> Biggest problem I have though is testing this on other hardware types
->>>> (I only have a macbook,and an iMac).
->>>> So please if you have the access to other arch/hardware types please
->>>> test.
->>>>
->>>> Now what I mean by partially is the __initcall function is still
->>>> there, so(if any) userspace apps/libs depend on this it's there
->>>> so they dont break and/or any other subsystem, that needs time
->>>> to make the changes.
->>>
->>> The only thing that might be affected is building out-of-tree drivers,
->>> but those are easy to fix.
->>>
->>
->> alright..main concern is making sure things don't break in the
->> kernel(even though things do).
->>
->> I can have a go at the header files, submit
->> then if it's something people agree they want to do, then they
->> can go from there(if not it's fine as well).
->>
->>>> Note:
->>>> the remaining files that still have __initcall in them are:
->>>> (according to grep)
->>>>
->>>> arch/um/include/shared/init.h
->>>> include/linux/init.h
->>>> scripts/checkpatch.pl
->>>>
->>>> either I or somebody else, can change this(although a bit
->>>> concerned about breaking things).
->>>>
->>>> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->>>> ---
->
->
+diff --git a/drivers/input/input-compat.h b/drivers/input/input-compat.h
+index 47cd9ea..4d8ea32 100644
+--- a/drivers/input/input-compat.h
++++ b/drivers/input/input-compat.h
+@@ -21,8 +21,6 @@
+    you why the ifdefs are needed? Think about it again. -AK */
+ #ifdef CONFIG_X86_64
+ #  define INPUT_COMPAT_TEST is_compat_task()
+-#elif defined(CONFIG_IA64)
+-#  define INPUT_COMPAT_TEST IS_IA32_PROCESS(task_pt_regs(current))
+ #elif defined(CONFIG_S390)
+ #  define INPUT_COMPAT_TEST test_thread_flag(TIF_31BIT)
+ #elif defined(CONFIG_MIPS)
 
+Thanks!
 
-In any case I'll leave this to you guys to decide.
-The patch is in cyberspace now, so if/when this ever
-is decided it's there(patch), then can be used then.
+-Tony
 
-Justin P. Mattock
+ arch/ia64/Kconfig                     |   17 -
+ arch/ia64/Makefile                    |    1 -
+ arch/ia64/configs/bigsur_defconfig    |    2 -
+ arch/ia64/configs/generic_defconfig   |    2 -
+ arch/ia64/configs/gensparse_defconfig |    2 -
+ arch/ia64/configs/sim_defconfig       |    2 -
+ arch/ia64/configs/tiger_defconfig     |    1 -
+ arch/ia64/configs/xen_domu_defconfig  |    2 -
+ arch/ia64/configs/zx1_defconfig       |    2 -
+ arch/ia64/ia32/Makefile               |   11 -
+ arch/ia64/ia32/audit.c                |   42 -
+ arch/ia64/ia32/binfmt_elf32.c         |  245 ---
+ arch/ia64/ia32/elfcore32.h            |  148 --
+ arch/ia64/ia32/ia32_entry.S           |  468 ------
+ arch/ia64/ia32/ia32_ldt.c             |  146 --
+ arch/ia64/ia32/ia32_signal.c          | 1010 ------------
+ arch/ia64/ia32/ia32_support.c         |  253 ---
+ arch/ia64/ia32/ia32_traps.c           |  156 --
+ arch/ia64/ia32/ia32priv.h             |  532 -------
+ arch/ia64/ia32/sys_ia32.c             | 2765 ---------------------------------
+ arch/ia64/include/asm/acpi.h          |   25 +
+ arch/ia64/include/asm/ia32.h          |   40 -
+ arch/ia64/include/asm/processor.h     |   46 -
+ arch/ia64/include/asm/scatterlist.h   |   24 +-
+ arch/ia64/include/asm/syscall.h       |   81 -
+ arch/ia64/include/asm/system.h        |   11 +-
+ arch/ia64/include/asm/unistd.h        |   14 -
+ arch/ia64/kernel/Makefile             |    6 +-
+ arch/ia64/kernel/acpi.c               |   33 +-
+ arch/ia64/kernel/audit.c              |   21 -
+ arch/ia64/kernel/entry.S              |   39 -
+ arch/ia64/kernel/ivt.S                |  114 --
+ arch/ia64/kernel/perfmon.c            |    4 +-
+ arch/ia64/kernel/process.c            |   59 +-
+ arch/ia64/kernel/ptrace.c             |   14 +-
+ arch/ia64/kernel/setup.c              |    5 -
+ arch/ia64/kernel/signal.c             |   54 +-
+ arch/ia64/kernel/smpboot.c            |    5 -
+ arch/ia64/kernel/traps.c              |    9 -
+ arch/ia64/mm/init.c                   |    5 -
+ arch/ia64/uv/kernel/setup.c           |    2 +-
+ arch/ia64/xen/hypercall.S             |    5 -
+ arch/ia64/xen/xen_pv_ops.c            |   16 -
+ drivers/input/input-compat.h          |    2 -
+ 44 files changed, 56 insertions(+), 6385 deletions(-)
+ delete mode 100644 arch/ia64/ia32/Makefile
+ delete mode 100644 arch/ia64/ia32/audit.c
+ delete mode 100644 arch/ia64/ia32/binfmt_elf32.c
+ delete mode 100644 arch/ia64/ia32/elfcore32.h
+ delete mode 100644 arch/ia64/ia32/ia32_entry.S
+ delete mode 100644 arch/ia64/ia32/ia32_ldt.c
+ delete mode 100644 arch/ia64/ia32/ia32_signal.c
+ delete mode 100644 arch/ia64/ia32/ia32_support.c
+ delete mode 100644 arch/ia64/ia32/ia32_traps.c
+ delete mode 100644 arch/ia64/ia32/ia32priv.h
+ delete mode 100644 arch/ia64/ia32/sys_ia32.c
+ delete mode 100644 arch/ia64/include/asm/ia32.h
+
+Alex Chiang (2):
+      [IA64] Only build arch/ia64/kernel/acpi.o when CONFIG_ACPI
+      [IA64] build arch/ia64/kernel/acpi-ext.o when CONFIG_ACPI
+
+FUJITA Tomonori (1):
+      [IA64] use asm-generic/scatterlist.h
+
+Frans Pop (1):
+      [IA64] remove trailing space in messages
+
+Roel Kluin (1):
+      [IA64] wrong attribute of HUB chip written in uv_setup()
+
+Tony Luck (1):
+      [IA64] Remove COMPAT_IA32 support
 
