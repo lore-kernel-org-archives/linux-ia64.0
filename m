@@ -1,125 +1,102 @@
-From: Julia Lawall <julia@diku.dk>
-Date: Fri, 26 Mar 2010 22:02:23 +0000
-Subject: [PATCH 2/7] arch/ia64/kernel: Use set_cpus_allowed_ptr
-Message-Id: <Pine.LNX.4.64.1003262301510.6480@ask.diku.dk>
+From: Albert Herranz <albert_herranz@yahoo.es>
+Date: Sun, 07 Mar 2010 12:11:46 +0000
+Subject: [RFC PATCH v3 05/11] swiotlb: add swiotlb_set_default_size()
+Message-Id: <1267963912-984-6-git-send-email-albert_herranz@yahoo.es>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es>
+In-Reply-To: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peterz@infradead.org, mingo@elte.hu, tglx@linutronix.de, oleg@redhat.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Cc: Albert Herranz <albert_herranz@yahoo.es>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+The current SWIOTLB code uses a default of 64MB for the IO TLB area.
+This size can be influenced using a kernel command line parameter "swiotlb".
+Unfortunately, the parsing of the kernel command line is done _after_ the
+swiotlb is initialized on some architectures.
 
-Use set_cpus_allowed_ptr rather than set_cpus_allowed.
+This patch adds a new function swiotlb_set_default_size() which can be used
+before swiotlb_init() to indicate the desired IO TLB area size in bytes.
 
-The semantic patch that makes this change is as follows:
-(http://coccinelle.lip6.fr/)
+This will be used later to implement a smaller IO TLB on the Nintendo Wii
+video game console which just comes with 24MB + 64MB of RAM.
 
-// <smpl>
-@@
-expression E1,E2;
-@@
-
-- set_cpus_allowed(E1, cpumask_of_cpu(E2))
-+ set_cpus_allowed_ptr(E1, cpumask_of(E2))
-
-@@
-expression E;
-identifier I;
-@@
-
-- set_cpus_allowed(E, I)
-+ set_cpus_allowed_ptr(E, &I)
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
+Signed-off-by: Albert Herranz <albert_herranz@yahoo.es>
+CC: linuxppc-dev@lists.ozlabs.org
+CC: linux-kernel@vger.kernel.org
+CC: x86@kernel.org
+CC: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/cpufreq/acpi-cpufreq.c |   10 +++++-----
- arch/ia64/kernel/salinfo.c              |    5 ++---
- arch/ia64/kernel/topology.c             |    4 ++--
- 3 files changed, 9 insertions(+), 10 deletions(-)
+ include/linux/swiotlb.h |    2 ++
+ lib/swiotlb.c           |   27 ++++++++++++++++++++++++++-
+ 2 files changed, 28 insertions(+), 1 deletions(-)
 
-diff -u -p a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
---- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-+++ b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-@@ -112,7 +112,7 @@ processor_get_freq (
- 	dprintk("processor_get_freq\n");
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index 3954228..2af6a45 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -22,6 +22,8 @@ extern int swiotlb_force;
+  */
+ #define IO_TLB_SHIFT 11
  
- 	saved_mask = current->cpus_allowed;
--	set_cpus_allowed(current, cpumask_of_cpu(cpu));
-+	set_cpus_allowed_ptr(current, cpumask_of(cpu));
- 	if (smp_processor_id() != cpu)
- 		goto migrate_end;
++extern size_t __init swiotlb_set_default_size(size_t size);
++
+ extern void swiotlb_init(int verbose);
  
-@@ -120,7 +120,7 @@ processor_get_freq (
- 	ret = processor_get_pstate(&value);
+ extern void *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index 8f2dad9..c99512d 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -73,6 +73,11 @@ static char *io_tlb_start, *io_tlb_end;
+ static unsigned long io_tlb_nslabs;
  
- 	if (ret) {
--		set_cpus_allowed(current, saved_mask);
-+		set_cpus_allowed_ptr(current, &saved_mask);
- 		printk(KERN_WARNING "get performance failed with error %d\n",
- 		       ret);
- 		ret = 0;
-@@ -130,7 +130,7 @@ processor_get_freq (
- 	ret = (clock_freq*1000);
+ /*
++ * Default size for the IO TLB (64MB).
++ */
++static __initdata size_t io_tlb_default_size = 64 * (1<<20);
++
++/*
+  * When the IOMMU overflows we return a fallback buffer. This sets the size.
+  */
+ static unsigned long io_tlb_overflow = 32*1024;
+@@ -117,6 +122,26 @@ setup_io_tlb_npages(char *str)
+ __setup("swiotlb=", setup_io_tlb_npages);
+ /* make io_tlb_overflow tunable too? */
  
- migrate_end:
--	set_cpus_allowed(current, saved_mask);
-+	set_cpus_allowed_ptr(current, &saved_mask);
- 	return ret;
- }
- 
-@@ -150,7 +150,7 @@ processor_set_freq (
- 	dprintk("processor_set_freq\n");
- 
- 	saved_mask = current->cpus_allowed;
--	set_cpus_allowed(current, cpumask_of_cpu(cpu));
-+	set_cpus_allowed_ptr(current, cpumask_of(cpu));
- 	if (smp_processor_id() != cpu) {
- 		retval = -EAGAIN;
- 		goto migrate_end;
-@@ -207,7 +207,7 @@ processor_set_freq (
- 	retval = 0;
- 
- migrate_end:
--	set_cpus_allowed(current, saved_mask);
-+	set_cpus_allowed_ptr(current, &saved_mask);
- 	return (retval);
- }
- 
-diff -u -p a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -360,12 +360,12 @@ static int __cpuinit cache_add_dev(struc
- 		return 0;
- 
- 	oldmask = current->cpus_allowed;
--	retval = set_cpus_allowed(current, cpumask_of_cpu(cpu));
-+	retval = set_cpus_allowed_ptr(current, cpumask_of(cpu));
- 	if (unlikely(retval))
- 		return retval;
- 
- 	retval = cpu_cache_sysfs_init(cpu);
--	set_cpus_allowed(current, oldmask);
-+	set_cpus_allowed_ptr(current, &oldmask);
- 	if (unlikely(retval < 0))
- 		return retval;
- 
-diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
-index e6676fc..aa8b5fa 100644
---- a/arch/ia64/kernel/salinfo.c
-+++ b/arch/ia64/kernel/salinfo.c
-@@ -404,10 +404,9 @@ static void
- call_on_cpu(int cpu, void (*fn)(void *), void *arg)
++/**
++ * swiotlb_set_default_size() - set the default size for the IO TLB
++ * @size:	size in bytes of the IO TLB
++ *
++ * A platform can use this function to change the default size of the
++ * IO TLB when the default of 64MB is not suitable.
++ * This function must be called before swiotlb_init().
++ *
++ * Note that on some platforms this is the only way to influence the
++ * size of the IO TLB, as the command line may be parsed _after_ the
++ * IO TLB is initialized.
++ */
++size_t __init swiotlb_set_default_size(size_t size)
++{
++	size_t previous_size = io_tlb_default_size;
++
++	io_tlb_default_size = size;
++	return previous_size;
++}
++
+ void * __weak __init swiotlb_alloc_boot(size_t size, unsigned long nslabs)
  {
- 	cpumask_t save_cpus_allowed = current->cpus_allowed;
--	cpumask_t new_cpus_allowed = cpumask_of_cpu(cpu);
--	set_cpus_allowed(current, new_cpus_allowed);
-+	set_cpus_allowed_ptr(current, cpumask_of(cpu));
- 	(*fn)(arg);
--	set_cpus_allowed(current, save_cpus_allowed);
-+	set_cpus_allowed_ptr(current, &save_cpus_allowed);
+ 	return alloc_bootmem_low_pages(size);
+@@ -193,7 +218,7 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
+ void __init
+ swiotlb_init(int verbose)
+ {
+-	swiotlb_init_with_default_size(64 * (1<<20), verbose);	/* default to 64MB */
++	swiotlb_init_with_default_size(io_tlb_default_size, verbose);
  }
  
- static void
+ /*
+-- 
+1.6.3.3
+
