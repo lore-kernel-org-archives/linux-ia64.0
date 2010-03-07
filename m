@@ -1,96 +1,82 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 11 Mar 2010 19:20:11 +0000
-Subject: [PATCH v4 2/2] ACPI: pci_root: pass acpi_pci_root to arch-specific
-Message-Id: <20100311192011.17859.33830.stgit@bob.kio>
+From: Albert Herranz <albert_herranz@yahoo.es>
+Date: Sun, 07 Mar 2010 12:11:44 +0000
+Subject: [RFC PATCH v3 03/11] swiotbl: add back swiotlb_alloc_boot()
+Message-Id: <1267963912-984-4-git-send-email-albert_herranz@yahoo.es>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100311191936.17859.3619.stgit@bob.kio>
-In-Reply-To: <20100311191936.17859.3619.stgit@bob.kio>
+References: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es>
+In-Reply-To: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Len Brown <lenb@kernel.org>
-Cc: linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+To: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Cc: Albert Herranz <albert_herranz@yahoo.es>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
+This patch makes swiotlb_alloc_boot() available again.
 
-The acpi_pci_root structure contains all the individual items (acpi_device,
-domain, bus number) we pass to pci_acpi_scan_root(), so just pass the
-single acpi_pci_root pointer directly.
+This weak function can be overloaded to modify slightly how the SWIOTLB
+and the overflow areas are allocated during boot.
 
-This will make it easier to add _CBA support later.  For _CBA, we need the
-entire downstream bus range, not just the base bus number.  We have that in
-the acpi_pci_root structure, so passing the pointer makes it available to
-the arch-specific code.
+This will be used later to support the Nintendo Wii video game console,
+which requires placing the SWIOTLB area above 0x10000000 (MEM2).
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Reviewed-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Albert Herranz <albert_herranz@yahoo.es>
+CC: linuxppc-dev@lists.ozlabs.org
+CC: linux-kernel@vger.kernel.org
+CC: x86@kernel.org
+CC: linux-ia64@vger.kernel.org
 ---
+ include/linux/swiotlb.h |    2 ++
+ lib/swiotlb.c           |   10 ++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
- arch/ia64/pci/pci.c         |    5 ++++-
- arch/x86/pci/acpi.c         |    5 ++++-
- drivers/acpi/pci_root.c     |    2 +-
- include/acpi/acpi_drivers.h |    3 +--
- 4 files changed, 10 insertions(+), 5 deletions(-)
-
-
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 64aff52..aa2533a 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -335,8 +335,11 @@ pcibios_setup_root_windows(struct pci_bus *bus, struct pci_controller *ctrl)
- }
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index febedcf..3954228 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -24,6 +24,8 @@ extern int swiotlb_force;
  
- struct pci_bus * __devinit
--pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
-+pci_acpi_scan_root(struct acpi_pci_root *root)
- {
-+	struct acpi_device *device = root->device;
-+	int domain = root->segment;
-+	int bus = root->secondary.start;
- 	struct pci_controller *controller;
- 	unsigned int windows = 0;
- 	struct pci_bus *pbus;
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index 5f11ff6..0c36ad5 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -215,8 +215,11 @@ res_alloc_fail:
- 	return;
- }
+ extern void swiotlb_init(int verbose);
  
--struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_device *device, int domain, int busnum)
-+struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_pci_root *root)
- {
-+	struct acpi_device *device = root->device;
-+	int domain = root->segment;
-+	int busnum = root->secondary.start;
- 	struct pci_bus *bus;
- 	struct pci_sysdata *sd;
- 	int node;
-diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
-index bf476fe..680450c 100644
---- a/drivers/acpi/pci_root.c
-+++ b/drivers/acpi/pci_root.c
-@@ -498,7 +498,7 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
- 	 * PCI namespace does not get created until this call is made (and 
- 	 * thus the root bridge's pci_dev does not exist).
++extern void *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
++
+ extern void
+ *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 			dma_addr_t *dma_handle, gfp_t flags);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index 437eedb..94db5df 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -117,6 +117,11 @@ setup_io_tlb_npages(char *str)
+ __setup("swiotlb=", setup_io_tlb_npages);
+ /* make io_tlb_overflow tunable too? */
+ 
++void * __weak __init swiotlb_alloc_boot(size_t size, unsigned long nslabs)
++{
++	return alloc_bootmem_low_pages(size);
++}
++
+ /* Note that this doesn't work with highmem page */
+ static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
+ 				      volatile void *address)
+@@ -158,7 +163,7 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
+ 	/*
+ 	 * Get IO TLB memory from the low pages
  	 */
--	root->bus = pci_acpi_scan_root(device, segment, root->secondary.start);
-+	root->bus = pci_acpi_scan_root(root);
- 	if (!root->bus) {
- 		printk(KERN_ERR PREFIX
- 			    "Bus %04x:%02x not present in PCI namespace\n",
-diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
-index 3a4767c..16903b3 100644
---- a/include/acpi/acpi_drivers.h
-+++ b/include/acpi/acpi_drivers.h
-@@ -102,8 +102,7 @@ int acpi_pci_bind_root(struct acpi_device *device);
- 
- /* Arch-defined function to add a bus to the system */
- 
--struct pci_bus *pci_acpi_scan_root(struct acpi_device *device, int domain,
--				   int bus);
-+struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root);
- void pci_acpi_crs_quirks(void);
- 
- /* --------------------------------------------------------------------------
+-	io_tlb_start = alloc_bootmem_low_pages(bytes);
++	io_tlb_start = swiotlb_alloc_boot(bytes, io_tlb_nslabs);
+ 	if (!io_tlb_start)
+ 		panic("Cannot allocate SWIOTLB buffer");
+ 	io_tlb_end = io_tlb_start + bytes;
+@@ -177,7 +182,8 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
+ 	/*
+ 	 * Get the overflow emergency buffer
+ 	 */
+-	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
++	io_tlb_overflow_buffer = swiotlb_alloc_boot(io_tlb_overflow,
++						    io_tlb_nslabs);
+ 	if (!io_tlb_overflow_buffer)
+ 		panic("Cannot allocate SWIOTLB overflow buffer!\n");
+ 	if (verbose)
+-- 
+1.6.3.3
 
