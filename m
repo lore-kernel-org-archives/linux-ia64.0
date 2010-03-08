@@ -1,114 +1,116 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 01 Mar 2010 18:11:12 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4b8c0340666f0cbe@agluck-desktop.sc.intel.com>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Date: Mon, 08 Mar 2010 16:59:40 +0000
+Subject: Re: [LKML] [RFC PATCH v3 05/11] swiotlb: add
+Message-Id: <20100308165940.GC4568@phenom.dumpdata.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+References: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es> <1267963912-984-6-git-send-email-albert_herranz@yahoo.es>
+In-Reply-To: <1267963912-984-6-git-send-email-albert_herranz@yahoo.es>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Albert Herranz <albert_herranz@yahoo.es>
+Cc: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
-Hi Linus,
+On Sun, Mar 07, 2010 at 01:11:46PM +0100, Albert Herranz wrote:
+> The current SWIOTLB code uses a default of 64MB for the IO TLB area.
+> This size can be influenced using a kernel command line parameter "swiotlb".
+> Unfortunately, the parsing of the kernel command line is done _after_ the
+> swiotlb is initialized on some architectures.
 
-please pull from:
+Why can't it be moved up? I mean move the parsing of the kernel
+parameters before the PCI subsystem?
+> 
+> This patch adds a new function swiotlb_set_default_size() which can be used
+> before swiotlb_init() to indicate the desired IO TLB area size in bytes.
+> 
+> This will be used later to implement a smaller IO TLB on the Nintendo Wii
+> video game console which just comes with 24MB + 64MB of RAM.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+Use the io_tlb_nslabs, which is what swiotlb_init_with_default_size uses
+(the passed in argument is only used if io_tlb_nslabs is not set).
 
-This will update the files shown below.  The lone non-ia64 file touched
-(drivers/input/input-compat.h) just has some ia64 specific #ifdef code
-removed like this:
 
-diff --git a/drivers/input/input-compat.h b/drivers/input/input-compat.h
-index 47cd9ea..4d8ea32 100644
---- a/drivers/input/input-compat.h
-+++ b/drivers/input/input-compat.h
-@@ -21,8 +21,6 @@
-    you why the ifdefs are needed? Think about it again. -AK */
- #ifdef CONFIG_X86_64
- #  define INPUT_COMPAT_TEST is_compat_task()
--#elif defined(CONFIG_IA64)
--#  define INPUT_COMPAT_TEST IS_IA32_PROCESS(task_pt_regs(current))
- #elif defined(CONFIG_S390)
- #  define INPUT_COMPAT_TEST test_thread_flag(TIF_31BIT)
- #elif defined(CONFIG_MIPS)
-
-Thanks!
-
--Tony
-
- arch/ia64/Kconfig                     |   17 -
- arch/ia64/Makefile                    |    1 -
- arch/ia64/configs/bigsur_defconfig    |    2 -
- arch/ia64/configs/generic_defconfig   |    2 -
- arch/ia64/configs/gensparse_defconfig |    2 -
- arch/ia64/configs/sim_defconfig       |    2 -
- arch/ia64/configs/tiger_defconfig     |    1 -
- arch/ia64/configs/xen_domu_defconfig  |    2 -
- arch/ia64/configs/zx1_defconfig       |    2 -
- arch/ia64/ia32/Makefile               |   11 -
- arch/ia64/ia32/audit.c                |   42 -
- arch/ia64/ia32/binfmt_elf32.c         |  245 ---
- arch/ia64/ia32/elfcore32.h            |  148 --
- arch/ia64/ia32/ia32_entry.S           |  468 ------
- arch/ia64/ia32/ia32_ldt.c             |  146 --
- arch/ia64/ia32/ia32_signal.c          | 1010 ------------
- arch/ia64/ia32/ia32_support.c         |  253 ---
- arch/ia64/ia32/ia32_traps.c           |  156 --
- arch/ia64/ia32/ia32priv.h             |  532 -------
- arch/ia64/ia32/sys_ia32.c             | 2765 ---------------------------------
- arch/ia64/include/asm/acpi.h          |   25 +
- arch/ia64/include/asm/ia32.h          |   40 -
- arch/ia64/include/asm/processor.h     |   46 -
- arch/ia64/include/asm/scatterlist.h   |   24 +-
- arch/ia64/include/asm/syscall.h       |   81 -
- arch/ia64/include/asm/system.h        |   11 +-
- arch/ia64/include/asm/unistd.h        |   14 -
- arch/ia64/kernel/Makefile             |    6 +-
- arch/ia64/kernel/acpi.c               |   33 +-
- arch/ia64/kernel/audit.c              |   21 -
- arch/ia64/kernel/entry.S              |   39 -
- arch/ia64/kernel/ivt.S                |  114 --
- arch/ia64/kernel/perfmon.c            |    4 +-
- arch/ia64/kernel/process.c            |   59 +-
- arch/ia64/kernel/ptrace.c             |   14 +-
- arch/ia64/kernel/setup.c              |    5 -
- arch/ia64/kernel/signal.c             |   54 +-
- arch/ia64/kernel/smpboot.c            |    5 -
- arch/ia64/kernel/traps.c              |    9 -
- arch/ia64/mm/init.c                   |    5 -
- arch/ia64/uv/kernel/setup.c           |    2 +-
- arch/ia64/xen/hypercall.S             |    5 -
- arch/ia64/xen/xen_pv_ops.c            |   16 -
- drivers/input/input-compat.h          |    2 -
- 44 files changed, 56 insertions(+), 6385 deletions(-)
- delete mode 100644 arch/ia64/ia32/Makefile
- delete mode 100644 arch/ia64/ia32/audit.c
- delete mode 100644 arch/ia64/ia32/binfmt_elf32.c
- delete mode 100644 arch/ia64/ia32/elfcore32.h
- delete mode 100644 arch/ia64/ia32/ia32_entry.S
- delete mode 100644 arch/ia64/ia32/ia32_ldt.c
- delete mode 100644 arch/ia64/ia32/ia32_signal.c
- delete mode 100644 arch/ia64/ia32/ia32_support.c
- delete mode 100644 arch/ia64/ia32/ia32_traps.c
- delete mode 100644 arch/ia64/ia32/ia32priv.h
- delete mode 100644 arch/ia64/ia32/sys_ia32.c
- delete mode 100644 arch/ia64/include/asm/ia32.h
-
-Alex Chiang (2):
-      [IA64] Only build arch/ia64/kernel/acpi.o when CONFIG_ACPI
-      [IA64] build arch/ia64/kernel/acpi-ext.o when CONFIG_ACPI
-
-FUJITA Tomonori (1):
-      [IA64] use asm-generic/scatterlist.h
-
-Frans Pop (1):
-      [IA64] remove trailing space in messages
-
-Roel Kluin (1):
-      [IA64] wrong attribute of HUB chip written in uv_setup()
-
-Tony Luck (1):
-      [IA64] Remove COMPAT_IA32 support
-
+> 
+> Signed-off-by: Albert Herranz <albert_herranz@yahoo.es>
+> CC: linuxppc-dev@lists.ozlabs.org
+> CC: linux-kernel@vger.kernel.org
+> CC: x86@kernel.org
+> CC: linux-ia64@vger.kernel.org
+> ---
+>  include/linux/swiotlb.h |    2 ++
+>  lib/swiotlb.c           |   27 ++++++++++++++++++++++++++-
+>  2 files changed, 28 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+> index 3954228..2af6a45 100644
+> --- a/include/linux/swiotlb.h
+> +++ b/include/linux/swiotlb.h
+> @@ -22,6 +22,8 @@ extern int swiotlb_force;
+>   */
+>  #define IO_TLB_SHIFT 11
+>  
+> +extern size_t __init swiotlb_set_default_size(size_t size);
+> +
+>  extern void swiotlb_init(int verbose);
+>  
+>  extern void *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
+> diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+> index 8f2dad9..c99512d 100644
+> --- a/lib/swiotlb.c
+> +++ b/lib/swiotlb.c
+> @@ -73,6 +73,11 @@ static char *io_tlb_start, *io_tlb_end;
+>  static unsigned long io_tlb_nslabs;
+>  
+>  /*
+> + * Default size for the IO TLB (64MB).
+> + */
+> +static __initdata size_t io_tlb_default_size = 64 * (1<<20);
+> +
+> +/*
+>   * When the IOMMU overflows we return a fallback buffer. This sets the size.
+>   */
+>  static unsigned long io_tlb_overflow = 32*1024;
+> @@ -117,6 +122,26 @@ setup_io_tlb_npages(char *str)
+>  __setup("swiotlb=", setup_io_tlb_npages);
+>  /* make io_tlb_overflow tunable too? */
+>  
+> +/**
+> + * swiotlb_set_default_size() - set the default size for the IO TLB
+> + * @size:	size in bytes of the IO TLB
+> + *
+> + * A platform can use this function to change the default size of the
+> + * IO TLB when the default of 64MB is not suitable.
+> + * This function must be called before swiotlb_init().
+> + *
+> + * Note that on some platforms this is the only way to influence the
+> + * size of the IO TLB, as the command line may be parsed _after_ the
+> + * IO TLB is initialized.
+> + */
+> +size_t __init swiotlb_set_default_size(size_t size)
+> +{
+> +	size_t previous_size = io_tlb_default_size;
+> +
+> +	io_tlb_default_size = size;
+> +	return previous_size;
+> +}
+> +
+>  void * __weak __init swiotlb_alloc_boot(size_t size, unsigned long nslabs)
+>  {
+>  	return alloc_bootmem_low_pages(size);
+> @@ -193,7 +218,7 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
+>  void __init
+>  swiotlb_init(int verbose)
+>  {
+> -	swiotlb_init_with_default_size(64 * (1<<20), verbose);	/* default to 64MB */
+> +	swiotlb_init_with_default_size(io_tlb_default_size, verbose);
+>  }
+>  
+>  /*
+> -- 
+> 1.6.3.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
