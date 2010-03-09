@@ -1,42 +1,95 @@
-From: Albert Herranz <albert_herranz@yahoo.es>
-Date: Tue, 09 Mar 2010 18:07:25 +0000
-Subject: Re: [LKML] [RFC PATCH v3 04/11] swiotlb: support	NOT_COHERENT_CACHE
-Message-Id: <4B968E5D.5060708@yahoo.es>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 09 Mar 2010 22:53:30 +0000
+Subject: [PATCH v3 2/2] ACPI: pci_root: pass acpi_pci_root to arch-specific
+Message-Id: <20100309225330.27167.20633.stgit@bob.kio>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1267963912-984-1-git-send-email-albert_herranz@yahoo.es> <1267963912-984-5-git-send-email-albert_herranz@yahoo.es> <20100308165500.GB4568@phenom.dumpdata.com>
-In-Reply-To: <20100308165500.GB4568@phenom.dumpdata.com>
+References: <20100309225211.27167.54296.stgit@bob.kio>
+In-Reply-To: <20100309225211.27167.54296.stgit@bob.kio>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+To: Len Brown <lenb@kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
 
-Konrad Rzeszutek Wilk wrote:
-> Hey Albert,
-> 
-> I've been doing some posting in this area to split the physical / bus
-> address translation so that multiple platforms can utilize it. I was
-> wondering if it makes sense to utilize some of those concepts (ie, extend it
-> for DMA coherency) for your code:
-> 
-> https://lists.linux-foundation.org/pipermail/iommu/2010-February/002066.html
-> 
-> And here is the git tree that goes on top of those patches:
-> git://git.kernel.org/pub/scm/linux/kernel/git/konrad/swiotlb-2.6.git xen-swiotlb-0.5
-> 
 
-Hi Konrad,
+The acpi_pci_root structure contains all the individual items (acpi_device,
+domain, bus number) we pass to pci_acpi_scan_root(), so just pass the
+single acpi_pci_root pointer directly.
 
-Thanks for your comments.
+This will make it easier to add _CBA support later.  For _CBA, we need the
+entire downstream bus range, not just the base bus number.  We have that in
+the acpi_pci_root structure, so passing the pointer makes it available to
+the arch-specific code.
 
-In my case, I'd like to re-use as much code from swiotlb as possible.
-Adding a few function calls at strategic spots (which are optimized out for cache coherent platforms) to maintain cache coherency is currently enough for me if that's acceptable.
-A more general approach would involve making swiotlb_bounce() platform-dependent (or at least the actual code for copying the buffers), and re-implementing map_page, sync_single and map_sg at the platform DMA code again.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+---
 
-I've whipped through your patches. If I undestood them, you make available a kind of swiotlb "library" core on top of which you can build alternate swiotlb-based dma ops.
-Wouldn't it be a good idea to split the "library" code from the default swiotlb dma ops?
-A(n embedded) platform may just want the "library" code to implement its own dma ops, without having to pay for the extra default swiotlb dma ops implementation.
+ arch/ia64/pci/pci.c         |    5 ++++-
+ arch/x86/pci/acpi.c         |    5 ++++-
+ drivers/acpi/pci_root.c     |    2 +-
+ include/acpi/acpi_drivers.h |    3 +--
+ 4 files changed, 10 insertions(+), 5 deletions(-)
 
-Thanks,
-Albert
+
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 64aff52..aa2533a 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -335,8 +335,11 @@ pcibios_setup_root_windows(struct pci_bus *bus, struct pci_controller *ctrl)
+ }
+ 
+ struct pci_bus * __devinit
+-pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
++pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
++	struct acpi_device *device = root->device;
++	int domain = root->segment;
++	int bus = root->secondary.start;
+ 	struct pci_controller *controller;
+ 	unsigned int windows = 0;
+ 	struct pci_bus *pbus;
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index 5f11ff6..0c36ad5 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -215,8 +215,11 @@ res_alloc_fail:
+ 	return;
+ }
+ 
+-struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_device *device, int domain, int busnum)
++struct pci_bus * __devinit pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
++	struct acpi_device *device = root->device;
++	int domain = root->segment;
++	int busnum = root->secondary.start;
+ 	struct pci_bus *bus;
+ 	struct pci_sysdata *sd;
+ 	int node;
+diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
+index e309f56..7f554a4 100644
+--- a/drivers/acpi/pci_root.c
++++ b/drivers/acpi/pci_root.c
+@@ -498,7 +498,7 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
+ 	 * PCI namespace does not get created until this call is made (and 
+ 	 * thus the root bridge's pci_dev does not exist).
+ 	 */
+-	root->bus = pci_acpi_scan_root(device, segment, root->secondary.start);
++	root->bus = pci_acpi_scan_root(root);
+ 	if (!root->bus) {
+ 		printk(KERN_ERR PREFIX
+ 			    "Bus %04x:%02x not present in PCI namespace\n",
+diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
+index 3a4767c..16903b3 100644
+--- a/include/acpi/acpi_drivers.h
++++ b/include/acpi/acpi_drivers.h
+@@ -102,8 +102,7 @@ int acpi_pci_bind_root(struct acpi_device *device);
+ 
+ /* Arch-defined function to add a bus to the system */
+ 
+-struct pci_bus *pci_acpi_scan_root(struct acpi_device *device, int domain,
+-				   int bus);
++struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root);
+ void pci_acpi_crs_quirks(void);
+ 
+ /* --------------------------------------------------------------------------
 
