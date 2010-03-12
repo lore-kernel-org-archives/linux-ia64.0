@@ -1,235 +1,179 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 10 Mar 2010 16:15:28 +0000
-Subject: Re: [PATCH v3 1/2] ACPI: pci_root: save downstream bus range
-Message-Id: <201003100915.29768.bjorn.helgaas@hp.com>
+From: Albert Herranz <albert_herranz@yahoo.es>
+Date: Fri, 12 Mar 2010 19:12:39 +0000
+Subject: [PATCH v4 04/11] swiotlb: support NOT_COHERENT_CACHE PowerPC platforms
+Message-Id: <1268421166-4791-5-git-send-email-albert_herranz@yahoo.es>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100309225211.27167.54296.stgit@bob.kio> <20100309225325.27167.60539.stgit@bob.kio> <4B976B49.9090502@jp.fujitsu.com>
-In-Reply-To: <4B976B49.9090502@jp.fujitsu.com>
+References: <1268421166-4791-1-git-send-email-albert_herranz@yahoo.es>
+In-Reply-To: <1268421166-4791-1-git-send-email-albert_herranz@yahoo.es>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Cc: Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org
+To: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Cc: Albert Herranz <albert_herranz@yahoo.es>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
-On Wednesday 10 March 2010 02:50:01 am Kenji Kaneshige wrote:
-> Looks good to me. But one nitpicking.
-> 
-> > +	root->secondary.flags = IORESOURCE_BUS;
-> > +	root->secondary.start = 0;
-> > +	root->secondary.end = 0xFF;
-> > +	status = try_get_root_bridge_busnr(device->handle, &root->secondary);
-> >  	if (ACPI_FAILURE(status)) {
-> 
-> I feel a little strange about initializing 'start' and 'end' fields
-> here because those are changed in try_get_root_bridge_busnr().
-> What about the below?
-> 
-> 	root->secondary.flags = IORESOURCE_BUS;
-> 	status = try_get_root_bridge_busnr(device->handle, &root->secondary);
-> 	if (ACPI_FAILURE(status)) {
-> 		root->secondary = 0xFF;
-> 		...
+The current SWIOTLB code does not support NOT_COHERENT_CACHE platforms.
+This patch adds support for NOT_COHERENT_CACHE platforms to SWIOTLB by
+adding two platform specific functions swiotlb_dma_sync_page() and
+swiotlb_dma_sync() which can be used to explicitly manage cache coherency.
 
-Oooh, that's much better.  Wish I'd thought of that to begin with!
-I'll fix that and repost these.  Thanks!
+On PowerPC these functions are mapped to their corresponding
+__dma_sync_page() and __dma_sync() functions.
+On other architectures using SWIOTLB these functions are optimized out.
 
-Bjorn
+This will be used later to support SWIOTLB on the Nintendo Wii video game
+console.
 
-> Reviewed-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-> 
-> Thanks,
-> Kenji Kaneshige
-> 
-> 
-> Bjorn Helgaas wrote:
-> > Previously, we only saved the root bus number, i.e., the beginning of the
-> > downstream bus range.  We now support IORESOURCE_BUS resources, so this
-> > patch uses that to keep track of both the beginning and the end of the
-> > downstream bus range.
-> > 
-> > It's important to know both the beginning and the end for supporting _CBA
-> > (see PCI Firmware spec, rev 3.0, sec 4.1.3) and so we know the limits for
-> > any possible PCI bus renumbering (we can't renumber downstream buses to be
-> > outside the bus number range claimed by the host bridge).
-> > 
-> > It's clear from the spec that the bus range is supposed to be in _CRS, but
-> > if we don't find it there, we'll assume [_BBN - 0xFF].
-> > 
-> > Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-> > ---
-> > 
-> >  drivers/acpi/pci_root.c |   67 ++++++++++++++++++++++++++++-------------------
-> >  include/acpi/acpi_bus.h |    2 +
-> >  2 files changed, 41 insertions(+), 28 deletions(-)
-> > 
-> > 
-> > diff --git a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
-> > index d724736..e309f56 100644
-> > --- a/drivers/acpi/pci_root.c
-> > +++ b/drivers/acpi/pci_root.c
-> > @@ -119,7 +119,8 @@ acpi_handle acpi_get_pci_rootbridge_handle(unsigned int seg, unsigned int bus)
-> >  	struct acpi_pci_root *root;
-> >  	
-> >  	list_for_each_entry(root, &acpi_pci_roots, node)
-> > -		if ((root->segment = (u16) seg) && (root->bus_nr = (u16) bus))
-> > +		if ((root->segment = (u16) seg) &&
-> > +		    (root->secondary.start = (u16) bus))
-> >  			return root->device->handle;
-> >  	return NULL;		
-> >  }
-> > @@ -153,7 +154,7 @@ EXPORT_SYMBOL_GPL(acpi_is_root_bridge);
-> >  static acpi_status
-> >  get_root_bridge_busnr_callback(struct acpi_resource *resource, void *data)
-> >  {
-> > -	int *busnr = data;
-> > +	struct resource *res = data;
-> >  	struct acpi_resource_address64 address;
-> >  
-> >  	if (resource->type != ACPI_RESOURCE_TYPE_ADDRESS16 &&
-> > @@ -163,28 +164,27 @@ get_root_bridge_busnr_callback(struct acpi_resource *resource, void *data)
-> >  
-> >  	acpi_resource_to_address64(resource, &address);
-> >  	if ((address.address_length > 0) &&
-> > -	    (address.resource_type = ACPI_BUS_NUMBER_RANGE))
-> > -		*busnr = address.minimum;
-> > +	    (address.resource_type = ACPI_BUS_NUMBER_RANGE)) {
-> > +		res->start = address.minimum;
-> > +		res->end = address.minimum + address.address_length - 1;
-> > +	}
-> >  
-> >  	return AE_OK;
-> >  }
-> >  
-> >  static acpi_status try_get_root_bridge_busnr(acpi_handle handle,
-> > -					     unsigned long long *bus)
-> > +					     struct resource *res)
-> >  {
-> >  	acpi_status status;
-> > -	int busnum;
-> >  
-> > -	busnum = -1;
-> > +	res->start = -1;
-> >  	status > >  	    acpi_walk_resources(handle, METHOD_NAME__CRS,
-> > -				get_root_bridge_busnr_callback, &busnum);
-> > +				get_root_bridge_busnr_callback, res);
-> >  	if (ACPI_FAILURE(status))
-> >  		return status;
-> > -	/* Check if we really get a bus number from _CRS */
-> > -	if (busnum = -1)
-> > +	if (res->start = -1)
-> >  		return AE_ERROR;
-> > -	*bus = busnum;
-> >  	return AE_OK;
-> >  }
-> >  
-> > @@ -428,34 +428,47 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
-> >  	struct acpi_device *child;
-> >  	u32 flags, base_flags;
-> >  
-> > +	root = kzalloc(sizeof(struct acpi_pci_root), GFP_KERNEL);
-> > +	if (!root)
-> > +		return -ENOMEM;
-> > +
-> >  	segment = 0;
-> >  	status = acpi_evaluate_integer(device->handle, METHOD_NAME__SEG, NULL,
-> >  				       &segment);
-> >  	if (ACPI_FAILURE(status) && status != AE_NOT_FOUND) {
-> >  		printk(KERN_ERR PREFIX "can't evaluate _SEG\n");
-> > -		return -ENODEV;
-> > +		result = -ENODEV;
-> > +		goto end;
-> >  	}
-> >  
-> >  	/* Check _CRS first, then _BBN.  If no _BBN, default to zero. */
-> > -	bus = 0;
-> > -	status = try_get_root_bridge_busnr(device->handle, &bus);
-> > +	root->secondary.flags = IORESOURCE_BUS;
-> > +	root->secondary.start = 0;
-> > +	root->secondary.end = 0xFF;
-> > +	status = try_get_root_bridge_busnr(device->handle, &root->secondary);
-> >  	if (ACPI_FAILURE(status)) {
-> > +		/*
-> > +		 * We need both the start and end of the downstream bus range
-> > +		 * to interpret _CBA (MMCONFIG base address), so it really is
-> > +		 * supposed to be in _CRS.
-> > +		 */
-> > +		printk(KERN_WARNING FW_BUG PREFIX
-> > +		       "no secondary bus range in _CRS\n");
-> >  		status = acpi_evaluate_integer(device->handle, METHOD_NAME__BBN,					       NULL, &bus);
-> > -		if (ACPI_FAILURE(status) && status != AE_NOT_FOUND) {
-> > -			printk(KERN_ERR PREFIX
-> > -			     "no bus number in _CRS and can't evaluate _BBN\n");
-> > -			return -ENODEV;
-> > +		if (ACPI_SUCCESS(status))
-> > +			root->secondary.start = bus;
-> > +		else if (status = AE_NOT_FOUND)
-> > +			root->secondary.start = 0;
-> > +		else {
-> > +			printk(KERN_ERR PREFIX "can't evaluate _BBN\n");
-> > +			result = -ENODEV;
-> > +			goto end;
-> >  		}
-> >  	}
-> >  
-> > -	root = kzalloc(sizeof(struct acpi_pci_root), GFP_KERNEL);
-> > -	if (!root)
-> > -		return -ENOMEM;
-> > -
-> >  	INIT_LIST_HEAD(&root->node);
-> >  	root->device = device;
-> >  	root->segment = segment & 0xFFFF;
-> > -	root->bus_nr = bus & 0xFF;
-> >  	strcpy(acpi_device_name(device), ACPI_PCI_ROOT_DEVICE_NAME);
-> >  	strcpy(acpi_device_class(device), ACPI_PCI_ROOT_CLASS);
-> >  	device->driver_data = root;
-> > @@ -474,9 +487,9 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
-> >  	/* TBD: Locking */
-> >  	list_add_tail(&root->node, &acpi_pci_roots);
-> >  
-> > -	printk(KERN_INFO PREFIX "%s [%s] (%04x:%02x)\n",
-> > +	printk(KERN_INFO PREFIX "%s [%s] (domain %04x %pR)\n",
-> >  	       acpi_device_name(device), acpi_device_bid(device),
-> > -	       root->segment, root->bus_nr);
-> > +	       root->segment, &root->secondary);
-> >  
-> >  	/*
-> >  	 * Scan the Root Bridge
-> > @@ -485,11 +498,11 @@ static int __devinit acpi_pci_root_add(struct acpi_device *device)
-> >  	 * PCI namespace does not get created until this call is made (and 
-> >  	 * thus the root bridge's pci_dev does not exist).
-> >  	 */
-> > -	root->bus = pci_acpi_scan_root(device, segment, bus);
-> > +	root->bus = pci_acpi_scan_root(device, segment, root->secondary.start);
-> >  	if (!root->bus) {
-> >  		printk(KERN_ERR PREFIX
-> >  			    "Bus %04x:%02x not present in PCI namespace\n",
-> > -			    root->segment, root->bus_nr);
-> > +			    root->segment, (unsigned int)root->secondary.start);
-> >  		result = -ENODEV;
-> >  		goto end;
-> >  	}
-> > diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
-> > index 7bf83dd..baacd98 100644
-> > --- a/include/acpi/acpi_bus.h
-> > +++ b/include/acpi/acpi_bus.h
-> > @@ -373,7 +373,7 @@ struct acpi_pci_root {
-> >  	struct acpi_pci_id id;
-> >  	struct pci_bus *bus;
-> >  	u16 segment;
-> > -	u8 bus_nr;
-> > +	struct resource secondary;	/* downstream bus range */
-> >  
-> >  	u32 osc_support_set;	/* _OSC state of support bits */
-> >  	u32 osc_control_set;	/* _OSC state of control bits */
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > 
-> > 
-> 
-> 
-> 
+CC: linuxppc-dev@lists.ozlabs.org
+CC: linux-kernel@vger.kernel.org
+CC: x86@kernel.org
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Albert Herranz <albert_herranz@yahoo.es>
+---
+ arch/ia64/include/asm/swiotlb.h    |   10 ++++++++++
+ arch/powerpc/include/asm/swiotlb.h |    3 +++
+ arch/x86/include/asm/swiotlb.h     |   10 ++++++++++
+ lib/swiotlb.c                      |   30 ++++++++++++++++++++++++------
+ 4 files changed, 47 insertions(+), 6 deletions(-)
 
+diff --git a/arch/ia64/include/asm/swiotlb.h b/arch/ia64/include/asm/swiotlb.h
+index f0acde6..6722090 100644
+--- a/arch/ia64/include/asm/swiotlb.h
++++ b/arch/ia64/include/asm/swiotlb.h
+@@ -14,4 +14,14 @@ static inline void pci_swiotlb_init(void)
+ }
+ #endif
+ 
++static inline void swiotlb_dma_sync_page(struct page *page,
++					 unsigned long offset,
++					 size_t size, int direction)
++{
++}
++
++static inline void swiotlb_dma_sync(void *vaddr, size_t size, int direction)
++{
++}
++
+ #endif /* ASM_IA64__SWIOTLB_H */
+diff --git a/arch/powerpc/include/asm/swiotlb.h b/arch/powerpc/include/asm/swiotlb.h
+index 8979d4c..603b343 100644
+--- a/arch/powerpc/include/asm/swiotlb.h
++++ b/arch/powerpc/include/asm/swiotlb.h
+@@ -22,4 +22,7 @@ int __init swiotlb_setup_bus_notifier(void);
+ 
+ extern void pci_dma_dev_setup_swiotlb(struct pci_dev *pdev);
+ 
++#define swiotlb_dma_sync_page __dma_sync_page
++#define swiotlb_dma_sync __dma_sync
++
+ #endif /* __ASM_SWIOTLB_H */
+diff --git a/arch/x86/include/asm/swiotlb.h b/arch/x86/include/asm/swiotlb.h
+index 8085277..e5f6d9c 100644
+--- a/arch/x86/include/asm/swiotlb.h
++++ b/arch/x86/include/asm/swiotlb.h
+@@ -20,4 +20,14 @@ static inline void pci_swiotlb_init(void)
+ 
+ static inline void dma_mark_clean(void *addr, size_t size) {}
+ 
++static inline void swiotlb_dma_sync_page(struct page *page,
++					 unsigned long offset,
++					 size_t size, int direction)
++{
++}
++
++static inline void swiotlb_dma_sync(void *vaddr, size_t size, int direction)
++{
++}
++
+ #endif /* _ASM_X86_SWIOTLB_H */
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index 94db5df..8f2dad9 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -346,10 +346,13 @@ static void swiotlb_bounce(phys_addr_t phys, char *dma_addr, size_t size,
+ 			local_irq_save(flags);
+ 			buffer = kmap_atomic(pfn_to_page(pfn),
+ 					     KM_BOUNCE_READ);
+-			if (dir = DMA_TO_DEVICE)
++			if (dir = DMA_TO_DEVICE) {
+ 				memcpy(dma_addr, buffer + offset, sz);
+-			else
++				swiotlb_dma_sync(dma_addr, sz, dir);
++			} else {
++				swiotlb_dma_sync(dma_addr, sz, dir);
+ 				memcpy(buffer + offset, dma_addr, sz);
++			}
+ 			kunmap_atomic(buffer, KM_BOUNCE_READ);
+ 			local_irq_restore(flags);
+ 
+@@ -359,10 +362,14 @@ static void swiotlb_bounce(phys_addr_t phys, char *dma_addr, size_t size,
+ 			offset = 0;
+ 		}
+ 	} else {
+-		if (dir = DMA_TO_DEVICE)
++		if (dir = DMA_TO_DEVICE) {
+ 			memcpy(dma_addr, phys_to_virt(phys), size);
+-		else
++			swiotlb_dma_sync(dma_addr, size, dir);
++
++		} else {
++			swiotlb_dma_sync(dma_addr, size, dir);
+ 			memcpy(phys_to_virt(phys), dma_addr, size);
++		}
+ 	}
+ }
+ 
+@@ -542,6 +549,8 @@ sync_single(struct device *hwdev, char *dma_addr, size_t size,
+ 	}
+ }
+ 
++#ifndef CONFIG_NOT_COHERENT_CACHE
++
+ void *
+ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		       dma_addr_t *dma_handle, gfp_t flags)
+@@ -606,6 +615,8 @@ swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
+ }
+ EXPORT_SYMBOL(swiotlb_free_coherent);
+ 
++#endif /* !CONFIG_NOT_COHERENT_CACHE */
++
+ static void
+ swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
+ {
+@@ -652,8 +663,10 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+ 	 * we can safely return the device addr and not worry about bounce
+ 	 * buffering it.
+ 	 */
+-	if (dma_capable(dev, dev_addr, size) && !swiotlb_force)
++	if (dma_capable(dev, dev_addr, size) && !swiotlb_force) {
++		swiotlb_dma_sync_page(page, offset, size, dir);
+ 		return dev_addr;
++	}
+ 
+ 	/*
+ 	 * Oh well, have to allocate and map a bounce buffer.
+@@ -739,6 +752,8 @@ swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
+ 		return;
+ 	}
+ 
++	swiotlb_dma_sync(phys_to_virt(paddr), size, dir);
++
+ 	if (dir != DMA_FROM_DEVICE)
+ 		return;
+ 
+@@ -835,8 +850,11 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
+ 				return 0;
+ 			}
+ 			sg->dma_address = swiotlb_virt_to_bus(hwdev, map);
+-		} else
++		} else {
++			swiotlb_dma_sync_page(sg_page(sg), sg->offset,
++					      sg->length, dir);
+ 			sg->dma_address = dev_addr;
++		}
+ 		sg->dma_length = sg->length;
+ 	}
+ 	return nelems;
+-- 
+1.6.3.3
 
