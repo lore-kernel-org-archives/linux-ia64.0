@@ -1,82 +1,125 @@
-From: Albert Herranz <albert_herranz@yahoo.es>
-Date: Fri, 12 Mar 2010 19:12:38 +0000
-Subject: [PATCH v4 03/11] swiotbl: add back swiotlb_alloc_boot()
-Message-Id: <1268421166-4791-4-git-send-email-albert_herranz@yahoo.es>
+From: Julia Lawall <julia@diku.dk>
+Date: Fri, 26 Mar 2010 22:02:23 +0000
+Subject: [PATCH 2/7] arch/ia64/kernel: Use set_cpus_allowed_ptr
+Message-Id: <Pine.LNX.4.64.1003262301510.6480@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1268421166-4791-1-git-send-email-albert_herranz@yahoo.es>
-In-Reply-To: <1268421166-4791-1-git-send-email-albert_herranz@yahoo.es>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-usb@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-Cc: Albert Herranz <albert_herranz@yahoo.es>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+To: peterz@infradead.org, mingo@elte.hu, tglx@linutronix.de, oleg@redhat.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-This patch makes swiotlb_alloc_boot() available again.
+From: Julia Lawall <julia@diku.dk>
 
-This weak function can be overloaded to modify slightly how the SWIOTLB
-and the overflow areas are allocated during boot.
+Use set_cpus_allowed_ptr rather than set_cpus_allowed.
 
-This will be used later to support the Nintendo Wii video game console,
-which requires placing the SWIOTLB area above 0x10000000 (MEM2).
+The semantic patch that makes this change is as follows:
+(http://coccinelle.lip6.fr/)
 
-CC: linuxppc-dev@lists.ozlabs.org
-CC: linux-kernel@vger.kernel.org
-CC: x86@kernel.org
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Albert Herranz <albert_herranz@yahoo.es>
+// <smpl>
+@@
+expression E1,E2;
+@@
+
+- set_cpus_allowed(E1, cpumask_of_cpu(E2))
++ set_cpus_allowed_ptr(E1, cpumask_of(E2))
+
+@@
+expression E;
+identifier I;
+@@
+
+- set_cpus_allowed(E, I)
++ set_cpus_allowed_ptr(E, &I)
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
- include/linux/swiotlb.h |    2 ++
- lib/swiotlb.c           |   10 ++++++++--
- 2 files changed, 10 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/cpufreq/acpi-cpufreq.c |   10 +++++-----
+ arch/ia64/kernel/salinfo.c              |    5 ++---
+ arch/ia64/kernel/topology.c             |    4 ++--
+ 3 files changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index febedcf..3954228 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -24,6 +24,8 @@ extern int swiotlb_force;
+diff -u -p a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+--- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
++++ b/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+@@ -112,7 +112,7 @@ processor_get_freq (
+ 	dprintk("processor_get_freq\n");
  
- extern void swiotlb_init(int verbose);
+ 	saved_mask = current->cpus_allowed;
+-	set_cpus_allowed(current, cpumask_of_cpu(cpu));
++	set_cpus_allowed_ptr(current, cpumask_of(cpu));
+ 	if (smp_processor_id() != cpu)
+ 		goto migrate_end;
  
-+extern void *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
-+
- extern void
- *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 			dma_addr_t *dma_handle, gfp_t flags);
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 437eedb..94db5df 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -117,6 +117,11 @@ setup_io_tlb_npages(char *str)
- __setup("swiotlb=", setup_io_tlb_npages);
- /* make io_tlb_overflow tunable too? */
+@@ -120,7 +120,7 @@ processor_get_freq (
+ 	ret = processor_get_pstate(&value);
  
-+void * __weak __init swiotlb_alloc_boot(size_t size, unsigned long nslabs)
-+{
-+	return alloc_bootmem_low_pages(size);
-+}
-+
- /* Note that this doesn't work with highmem page */
- static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
- 				      volatile void *address)
-@@ -158,7 +163,7 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
- 	/*
- 	 * Get IO TLB memory from the low pages
- 	 */
--	io_tlb_start = alloc_bootmem_low_pages(bytes);
-+	io_tlb_start = swiotlb_alloc_boot(bytes, io_tlb_nslabs);
- 	if (!io_tlb_start)
- 		panic("Cannot allocate SWIOTLB buffer");
- 	io_tlb_end = io_tlb_start + bytes;
-@@ -177,7 +182,8 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
- 	/*
- 	 * Get the overflow emergency buffer
- 	 */
--	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
-+	io_tlb_overflow_buffer = swiotlb_alloc_boot(io_tlb_overflow,
-+						    io_tlb_nslabs);
- 	if (!io_tlb_overflow_buffer)
- 		panic("Cannot allocate SWIOTLB overflow buffer!\n");
- 	if (verbose)
--- 
-1.6.3.3
-
+ 	if (ret) {
+-		set_cpus_allowed(current, saved_mask);
++		set_cpus_allowed_ptr(current, &saved_mask);
+ 		printk(KERN_WARNING "get performance failed with error %d\n",
+ 		       ret);
+ 		ret = 0;
+@@ -130,7 +130,7 @@ processor_get_freq (
+ 	ret = (clock_freq*1000);
+ 
+ migrate_end:
+-	set_cpus_allowed(current, saved_mask);
++	set_cpus_allowed_ptr(current, &saved_mask);
+ 	return ret;
+ }
+ 
+@@ -150,7 +150,7 @@ processor_set_freq (
+ 	dprintk("processor_set_freq\n");
+ 
+ 	saved_mask = current->cpus_allowed;
+-	set_cpus_allowed(current, cpumask_of_cpu(cpu));
++	set_cpus_allowed_ptr(current, cpumask_of(cpu));
+ 	if (smp_processor_id() != cpu) {
+ 		retval = -EAGAIN;
+ 		goto migrate_end;
+@@ -207,7 +207,7 @@ processor_set_freq (
+ 	retval = 0;
+ 
+ migrate_end:
+-	set_cpus_allowed(current, saved_mask);
++	set_cpus_allowed_ptr(current, &saved_mask);
+ 	return (retval);
+ }
+ 
+diff -u -p a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -360,12 +360,12 @@ static int __cpuinit cache_add_dev(struc
+ 		return 0;
+ 
+ 	oldmask = current->cpus_allowed;
+-	retval = set_cpus_allowed(current, cpumask_of_cpu(cpu));
++	retval = set_cpus_allowed_ptr(current, cpumask_of(cpu));
+ 	if (unlikely(retval))
+ 		return retval;
+ 
+ 	retval = cpu_cache_sysfs_init(cpu);
+-	set_cpus_allowed(current, oldmask);
++	set_cpus_allowed_ptr(current, &oldmask);
+ 	if (unlikely(retval < 0))
+ 		return retval;
+ 
+diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
+index e6676fc..aa8b5fa 100644
+--- a/arch/ia64/kernel/salinfo.c
++++ b/arch/ia64/kernel/salinfo.c
+@@ -404,10 +404,9 @@ static void
+ call_on_cpu(int cpu, void (*fn)(void *), void *arg)
+ {
+ 	cpumask_t save_cpus_allowed = current->cpus_allowed;
+-	cpumask_t new_cpus_allowed = cpumask_of_cpu(cpu);
+-	set_cpus_allowed(current, new_cpus_allowed);
++	set_cpus_allowed_ptr(current, cpumask_of(cpu));
+ 	(*fn)(arg);
+-	set_cpus_allowed(current, save_cpus_allowed);
++	set_cpus_allowed_ptr(current, &save_cpus_allowed);
+ }
+ 
+ static void
