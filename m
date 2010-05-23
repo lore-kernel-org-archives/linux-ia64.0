@@ -1,70 +1,33 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Date: Wed, 19 May 2010 17:24:15 +0000
-Subject: [PATCH 8/8] ia64: Use unlocked_ioctl from perfmon
-Message-Id: <1274289855-10001-9-git-send-regression-fweisbec@gmail.com>
+From: Andrea Gelmini <andrea.gelmini@gelma.net>
+Date: Sun, 23 May 2010 20:01:51 +0000
+Subject: [PATCH 155/199] arch/ia64/lib/idiv32.S: Checkpatch cleanup
+Message-Id: <1274644930-26600-7-git-send-email-andrea.gelmini@gelma.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1274289855-10001-1-git-send-regression-fweisbec@gmail.com>
-In-Reply-To: <1274289855-10001-1-git-send-regression-fweisbec@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: LKML <linux-kernel@vger.kernel.org>, Frederic Weisbecker <fweisbec@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, IA64 <linux-ia64@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>, John Kacur <jkacur@redhat.com>, Arnd Bergmann <arnd@arndb.de>
+To: linux-ia64@vger.kernel.org
 
-pfm_ioctl() obviously doesn't need the bkl just to print a
-message.
+arch/ia64/lib/idiv32.S:62: ERROR: trailing whitespace
 
-Signed-off-by: Frederic Weisbecker <fweisbec@gmail.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: IA64 <linux-ia64@vger.kernel.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: John Kacur <jkacur@redhat.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
 ---
- arch/ia64/kernel/perfmon.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
+ arch/ia64/lib/idiv32.S |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index ab985f7..7443290 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -1696,8 +1696,8 @@ pfm_poll(struct file *filp, poll_table * wait)
- 	return mask;
- }
- 
--static int
--pfm_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
-+static long
-+pfm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- {
- 	DPRINT(("pfm_ioctl called\n"));
- 	return -EINVAL;
-@@ -2174,15 +2174,15 @@ pfm_no_open(struct inode *irrelevant, struct file *dontcare)
- 
- 
- static const struct file_operations pfm_file_ops = {
--	.llseek   = no_llseek,
--	.read     = pfm_read,
--	.write    = pfm_write,
--	.poll     = pfm_poll,
--	.ioctl    = pfm_ioctl,
--	.open     = pfm_no_open,	/* special open code to disallow open via /proc */
--	.fasync   = pfm_fasync,
--	.release  = pfm_close,
--	.flush	  = pfm_flush
-+	.llseek		= no_llseek,
-+	.read		= pfm_read,
-+	.write		= pfm_write,
-+	.poll		= pfm_poll,
-+	.unlocked_ioctl = pfm_ioctl,
-+	.open		= pfm_no_open,	/* special open code to disallow open via /proc */
-+	.fasync		= pfm_fasync,
-+	.release	= pfm_close,
-+	.flush		= pfm_flush
- };
- 
- static int
+diff --git a/arch/ia64/lib/idiv32.S b/arch/ia64/lib/idiv32.S
+index 2ac28bf..a28d7fc 100644
+--- a/arch/ia64/lib/idiv32.S
++++ b/arch/ia64/lib/idiv32.S
+@@ -59,7 +59,7 @@ GLOBAL_ENTRY(NAME)
+ 	frcpa.s1 f6, p6 = f8, f9	// y0 = frcpa(b)
+ 	;;
+ (p6)	fmpy.s1 f8 = f8, f6		// q0 = a*y0
+-(p6)	fnma.s1 f6 = f9, f6, f1		// e0 = -b*y0 + 1 
++(p6)	fnma.s1 f6 = f9, f6, f1		// e0 = -b*y0 + 1
+ 	;;
+ #ifdef MODULO
+ 	setf.sig f9 = in1		// f9 = -b
 -- 
-1.6.2.3
+1.7.1.251.gf80a2
 
