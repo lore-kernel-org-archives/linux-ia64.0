@@ -1,64 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Date: Mon, 05 Apr 2010 19:05:31 +0000
-Subject: [PATCH 01/11] arch/ia64/hp/common/sba_iommu.c: Rename dev_info to adi
-Message-Id: <efbe5e3689b7668cb68a7e226af88129880e6d3c.1270493677.git.joe@perches.com>
+From: Julia Lawall <julia@diku.dk>
+Date: Wed, 26 May 2010 15:57:05 +0000
+Subject: [PATCH 10/17] arch/ia64/kvm: Add missing spin_unlock
+Message-Id: <Pine.LNX.4.64.1005261756490.23743@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100304232928.2e45bdd1.akpm@linux-foundation.org>
-In-Reply-To: <20100304232928.2e45bdd1.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Avi Kivity <avi@redhat.com>, Marcelo Tosatti <mtosatti@redhat.com>, Xiantao Zhang <xiantao.zhang@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, kvm@vger.kernel.org, kvm-ia64@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-There is a macro called dev_info that prints struct device specific
-information.  Having variables with the same name can be confusing and
-prevents conversion of the macro to a function.
+From: Julia Lawall <julia@diku.dk>
 
-Rename the existing dev_info variables to something else in preparation
-to converting the dev_info macro to a function.
+Add a spin_unlock missing on the error path.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression E1;
+@@
+
+* spin_lock(E1,...);
+  <+... when != E1
+  if (...) {
+    ... when != E1
+*   return ...;
+  }
+  ...+>
+* spin_unlock(E1,...);
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
 ---
- arch/ia64/hp/common/sba_iommu.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ arch/ia64/kvm/kvm-ia64.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index e14c492..4ce8d13 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -2046,13 +2046,13 @@ acpi_sba_ioc_add(struct acpi_device *device)
- 	struct ioc *ioc;
- 	acpi_status status;
- 	u64 hpa, length;
--	struct acpi_device_info *dev_info;
-+	struct acpi_device_info *adi;
- 
- 	status = hp_acpi_csr_space(device->handle, &hpa, &length);
- 	if (ACPI_FAILURE(status))
- 		return 1;
- 
--	status = acpi_get_object_info(device->handle, &dev_info);
-+	status = acpi_get_object_info(device->handle, &adi);
- 	if (ACPI_FAILURE(status))
- 		return 1;
- 
-@@ -2060,13 +2060,13 @@ acpi_sba_ioc_add(struct acpi_device *device)
- 	 * For HWP0001, only SBA appears in ACPI namespace.  It encloses the PCI
- 	 * root bridges, and its CSR space includes the IOC function.
- 	 */
--	if (strncmp("HWP0001", dev_info->hardware_id.string, 7) = 0) {
-+	if (strncmp("HWP0001", adi->hardware_id.string, 7) = 0) {
- 		hpa += ZX1_IOC_OFFSET;
- 		/* zx1 based systems default to kernel page size iommu pages */
- 		if (!iovp_shift)
- 			iovp_shift = min(PAGE_SHIFT, 16);
+diff --git a/arch/ia64/kvm/kvm-ia64.c b/arch/ia64/kvm/kvm-ia64.c
+index d5f4e91..21b7013 100644
+--- a/arch/ia64/kvm/kvm-ia64.c
++++ b/arch/ia64/kvm/kvm-ia64.c
+@@ -144,6 +144,7 @@ int kvm_arch_hardware_enable(void *garbage)
+ 				VP_INIT_ENV : VP_INIT_ENV_INITALIZE,
+ 			__pa(kvm_vm_buffer), KVM_VM_BUFFER_BASE, &tmp_base);
+ 	if (status != 0) {
++		spin_unlock(&vp_lock);
+ 		printk(KERN_WARNING"kvm: Failed to Enable VT Support!!!!\n");
+ 		return -EINVAL;
  	}
--	kfree(dev_info);
-+	kfree(adi);
- 
- 	/*
- 	 * default anything not caught above or specified on cmdline to 4k
--- 
-1.7.0.3.311.g6a6955
-
