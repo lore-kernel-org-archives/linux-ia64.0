@@ -1,18 +1,29 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 18 May 2010 22:04:28 +0000
-Subject: RE: [git pull] ia64 changes
-Message-Id: <987664A83D2D224EAE907B061CE93D53C61D1EE5@orsmsx505.amr.corp.intel.com>
+From: Julia Lawall <julia@diku.dk>
+Date: Sun, 30 May 2010 05:56:43 +0000
+Subject: question about arch/ia64/kernel/iosapic.c
+Message-Id: <Pine.LNX.4.64.1005300754160.12022@ask.diku.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Wait!!!  I ended up finding a bigger bug in the general kernel.
-> I don't think this patch should go in.
+I have the impression that ioremap should not be called with locks held.  
+Is this the case?  If so, what should be done in the following code (from 
+the function iosapic_init):
 
-Ok. I'll redo my tree and issue a new pull request without this one.
+        spin_lock_irqsave(&iosapic_lock, flags);
+        index = find_iosapic(gsi_base);
+        if (index >= 0) {
+                spin_unlock_irqrestore(&iosapic_lock, flags);
+                return -EBUSY;
+        }
 
--Tony
+        addr = ioremap(phys_addr, 0);
+        if (addr = NULL) {
+                spin_unlock_irqrestore(&iosapic_lock, flags);
+                return -ENOMEM;
+        }
+
+thanks,
+julia
