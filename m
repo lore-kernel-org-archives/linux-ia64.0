@@ -1,196 +1,451 @@
-From: Christoph Egger <siccegge@cs.fau.de>
-Date: Mon, 28 Jun 2010 13:41:13 +0000
-Subject: [PATCH 1/2] Removing dead CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
-Message-Id: <92987f5365300b0338e414c147e92b80e311d1ae.1277731915.git.siccegge@cs.fau.de>
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Sat, 19 Jun 2010 15:19:25 +0000
+Subject: [PATCH] ia64: beautify vmlinux.lds.h
+Message-Id: <20100619151925.GA20754@merkur.ravnborg.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1277731915.git.siccegge@cs.fau.de>
-In-Reply-To: <cover.1277731915.git.siccegge@cs.fau.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: vamos@i4.informatik.uni-erlangen.de
+To: linux-ia64@vger.kernel.org
 
-CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK doesn't exist in Kconfig,
-therefore removing all references for it from the source code.
+Use the same style as used for C code in vmlinux.lds.h.
 
-Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
+This is the same format as have been gradually introduced
+for other architectures in the kernel.
+
+This patch do not introduce any functional changes.
+
+Note: Use "git diff -w" to supress whitespace noise.
+
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
 ---
- arch/ia64/include/asm/native/inst.h |   96 ++++++++--------------------------
- 1 files changed, 23 insertions(+), 73 deletions(-)
+I do not have any ia64 toolchain install atm.,
+so this patch is not build tested!
 
-diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
-index d2d46ef..4800a1e 100644
---- a/arch/ia64/include/asm/native/inst.h
-+++ b/arch/ia64/include/asm/native/inst.h
-@@ -33,21 +33,6 @@
- #define paravirt_fsyscall_table			ia64_native_fsyscall_table
- #define paravirt_fsys_bubble_down		ia64_native_fsys_bubble_down
+	Sam
+
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index e07218a..5a4d044 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -6,204 +6,209 @@
  
--#ifdef CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK
--# define PARAVIRT_POISON	0xdeadbeefbaadf00d
--# define CLOBBER(clob)				\
--	;;					\
--	movl clob = PARAVIRT_POISON;		\
--	;;
--# define CLOBBER_PRED(pred_clob)		\
--	;;					\
--	cmp.eq pred_clob, p0 = r0, r0		\
--	;;
--#else
--# define CLOBBER(clob)			/* nothing */
--# define CLOBBER_PRED(pred_clob)	/* nothing */
--#endif
+ #include <asm-generic/vmlinux.lds.h>
+ 
+-#define IVT_TEXT							\
+-		VMLINUX_SYMBOL(__start_ivt_text) = .;			\
+-		*(.text..ivt)						\
+-		VMLINUX_SYMBOL(__end_ivt_text) = .;
 -
- #define MOV_FROM_IFA(reg)	\
- 	mov reg = cr.ifa
+ OUTPUT_FORMAT("elf64-ia64-little")
+ OUTPUT_ARCH(ia64)
+ ENTRY(phys_start)
+ jiffies = jiffies_64;
++
+ PHDRS {
+-  code   PT_LOAD;
+-  percpu PT_LOAD;
+-  data   PT_LOAD;
+-  note   PT_NOTE;
+-  unwind 0x70000001; /* PT_IA_64_UNWIND, but ld doesn't match the name */
++	code   PT_LOAD;
++	percpu PT_LOAD;
++	data   PT_LOAD;
++	note   PT_NOTE;
++	unwind 0x70000001; /* PT_IA_64_UNWIND, but ld doesn't match the name */
+ }
+-SECTIONS
+-{
+-  /* unwind exit sections must be discarded before the rest of the
+-     sections get included. */
+-  /DISCARD/ : {
+-	*(.IA_64.unwind.exit.text)
+-	*(.IA_64.unwind_info.exit.text)
+-	*(.comment)
+-	*(.note)
+-  }
+-
+-  v = PAGE_OFFSET;	/* this symbol is here to make debugging easier... */
+-  phys_start = _start - LOAD_OFFSET;
+-
+-  code : { } :code
+-  . = KERNEL_START;
+-
+-  _text = .;
+-  _stext = .;
+-
+-  .text : AT(ADDR(.text) - LOAD_OFFSET)
+-    {
+-	IVT_TEXT
+-	TEXT_TEXT
+-	SCHED_TEXT
+-	LOCK_TEXT
+-	KPROBES_TEXT
+-	*(.gnu.linkonce.t*)
+-    }
+-  .text2 : AT(ADDR(.text2) - LOAD_OFFSET)
+-	{ *(.text2) }
+-#ifdef CONFIG_SMP
+-  .text..lock : AT(ADDR(.text..lock) - LOAD_OFFSET)
+-	{ *(.text..lock) }
+-#endif
+-  _etext = .;
  
-@@ -70,106 +55,76 @@
- 	mov reg = cr.iip
+-  /* Read-only data */
++SECTIONS {
++	/*
++	 * unwind exit sections must be discarded before
++	 * the rest of the sections get included.
++	 */
++	/DISCARD/ : {
++		*(.IA_64.unwind.exit.text)
++		*(.IA_64.unwind_info.exit.text)
++		*(.comment)
++		*(.note)
++	}
  
- #define MOV_FROM_IVR(reg, clob)	\
--	mov reg = cr.ivr	\
--	CLOBBER(clob)
-+	mov reg = cr.ivr
+-  NOTES :code :note		/* put .notes in text and mark in PT_NOTE  */
+-  code_continues : {} :code	/* switch back to regular program...  */
++	v = PAGE_OFFSET; /* this symbol is here to make debugging easier... */
++	phys_start = _start - LOAD_OFFSET;
++
++	code : {
++	} :code
++	. = KERNEL_START;
++
++	_text = .;
++	_stext = .;
++
++	.text : AT(ADDR(.text) - LOAD_OFFSET) {
++		__start_ivt_text = .;
++		*(.text..ivt)
++		__end_ivt_text = .;
++		TEXT_TEXT
++		SCHED_TEXT
++		LOCK_TEXT
++		KPROBES_TEXT
++		*(.gnu.linkonce.t*)
++	}
  
- #define MOV_FROM_PSR(pred, reg, clob)	\
--(pred)	mov reg = psr			\
--	CLOBBER(clob)
-+(pred)	mov reg = psr
+-  EXCEPTION_TABLE(16)
++	.text2 : AT(ADDR(.text2) - LOAD_OFFSET)	{
++		*(.text2)
++	}
  
- #define MOV_FROM_ITC(pred, pred_clob, reg, clob)	\
--(pred)	mov reg = ar.itc				\
--	CLOBBER(clob)					\
--	CLOBBER_PRED(pred_clob)
-+(pred)	mov reg = ar.itc
+-  /* MCA table */
+-  . = ALIGN(16);
+-  __mca_table : AT(ADDR(__mca_table) - LOAD_OFFSET)
+-	{
+-	  __start___mca_table = .;
+-	  *(__mca_table)
+-	  __stop___mca_table = .;
++#ifdef CONFIG_SMP
++	.text..lock : AT(ADDR(.text..lock) - LOAD_OFFSET) {
++		*(.text..lock)
++	}
++#endif
++	_etext = .;
++
++	/*
++	 * Read-only data
++	 */
++	NOTES :code :note       /* put .notes in text and mark in PT_NOTE  */
++	code_continues : {
++	} : code               /* switch back to regular program...  */
++
++	EXCEPTION_TABLE(16)
++
++	/* MCA table */
++	. = ALIGN(16);
++	__mca_table : AT(ADDR(__mca_table) - LOAD_OFFSET) {
++		__start___mca_table = .;
++		*(__mca_table)
++		__stop___mca_table = .;
+ 	}
  
- #define MOV_TO_IFA(reg, clob)	\
--	mov cr.ifa = reg	\
--	CLOBBER(clob)
-+	mov cr.ifa = reg
+-  .data..patch.phys_stack_reg : AT(ADDR(.data..patch.phys_stack_reg) - LOAD_OFFSET)
+-	{
+-	  __start___phys_stack_reg_patchlist = .;
+-	  *(.data..patch.phys_stack_reg)
+-	  __end___phys_stack_reg_patchlist = .;
++	.data..patch.phys_stack_reg : AT(ADDR(.data..patch.phys_stack_reg) - LOAD_OFFSET) {
++		__start___phys_stack_reg_patchlist = .;
++		*(.data..patch.phys_stack_reg)
++		__end___phys_stack_reg_patchlist = .;
+ 	}
  
- #define MOV_TO_ITIR(pred, reg, clob)	\
--(pred)	mov cr.itir = reg		\
--	CLOBBER(clob)
-+(pred)	mov cr.itir = reg
+-  /* Global data */
+-  _data = .;
++	/*
++	 * Global data
++	 */
++	_data = .;
  
- #define MOV_TO_IHA(pred, reg, clob)	\
--(pred)	mov cr.iha = reg		\
--	CLOBBER(clob)
-+(pred)	mov cr.iha = reg
+-  /* Unwind info & table: */
+-  . = ALIGN(8);
+-  .IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - LOAD_OFFSET)
+-	{ *(.IA_64.unwind_info*) }
+-  .IA_64.unwind : AT(ADDR(.IA_64.unwind) - LOAD_OFFSET)
+-	{
+-	  __start_unwind = .;
+-	  *(.IA_64.unwind*)
+-	  __end_unwind = .;
++	/* Unwind info & table: */
++	. = ALIGN(8);
++	.IA_64.unwind_info : AT(ADDR(.IA_64.unwind_info) - LOAD_OFFSET) {
++		*(.IA_64.unwind_info*)
++	}
++	.IA_64.unwind : AT(ADDR(.IA_64.unwind) - LOAD_OFFSET) {
++		__start_unwind = .;
++		*(.IA_64.unwind*)
++		__end_unwind = .;
+ 	} :code :unwind
+-  code_continues2 : {} : code
++	code_continues2 : {
++	} : code
  
- #define MOV_TO_IPSR(pred, reg, clob)		\
--(pred)	mov cr.ipsr = reg			\
--	CLOBBER(clob)
-+(pred)	mov cr.ipsr = reg
+-  RODATA
++	RODATA
  
- #define MOV_TO_IFS(pred, reg, clob)	\
--(pred)	mov cr.ifs = reg		\
--	CLOBBER(clob)
-+(pred)	mov cr.ifs = reg
+-  .opd : AT(ADDR(.opd) - LOAD_OFFSET)
+-	{ *(.opd) }
+-
+-  /* Initialization code and data: */
++	.opd : AT(ADDR(.opd) - LOAD_OFFSET) {
++		*(.opd)
++	}
  
- #define MOV_TO_IIP(reg, clob)	\
--	mov cr.iip = reg	\
--	CLOBBER(clob)
-+	mov cr.iip = reg
+-  . = ALIGN(PAGE_SIZE);
+-  __init_begin = .;
++	/*
++	 * Initialization code and data:
++	 */
++	. = ALIGN(PAGE_SIZE);
++	__init_begin = .;
  
- #define MOV_TO_KR(kr, reg, clob0, clob1)	\
--	mov IA64_KR(kr) = reg			\
--	CLOBBER(clob0)				\
--	CLOBBER(clob1)
-+	mov IA64_KR(kr) = reg
+-  INIT_TEXT_SECTION(PAGE_SIZE)
+-  INIT_DATA_SECTION(16)
++	INIT_TEXT_SECTION(PAGE_SIZE)
++	INIT_DATA_SECTION(16)
  
- #define ITC_I(pred, reg, clob)	\
--(pred)	itc.i reg		\
--	CLOBBER(clob)
-+(pred)	itc.i reg
+-  .data..patch.vtop : AT(ADDR(.data..patch.vtop) - LOAD_OFFSET)
+-	{
+-	  __start___vtop_patchlist = .;
+-	  *(.data..patch.vtop)
+-	  __end___vtop_patchlist = .;
++	.data..patch.vtop : AT(ADDR(.data..patch.vtop) - LOAD_OFFSET) {
++		__start___vtop_patchlist = .;
++		*(.data..patch.vtop)
++		__end___vtop_patchlist = .;
+ 	}
  
- #define ITC_D(pred, reg, clob)	\
--(pred)	itc.d reg		\
--	CLOBBER(clob)
-+(pred)	itc.d reg
+-  .data..patch.rse : AT(ADDR(.data..patch.rse) - LOAD_OFFSET)
+-	{
+-	  __start___rse_patchlist = .;
+-	  *(.data..patch.rse)
+-	  __end___rse_patchlist = .;
++	.data..patch.rse : AT(ADDR(.data..patch.rse) - LOAD_OFFSET) {
++		__start___rse_patchlist = .;
++		*(.data..patch.rse)
++		__end___rse_patchlist = .;
+ 	}
  
- #define ITC_I_AND_D(pred_i, pred_d, reg, clob)	\
- (pred_i) itc.i reg;				\
--(pred_d) itc.d reg				\
--	CLOBBER(clob)
-+(pred_d) itc.d reg
+-  .data..patch.mckinley_e9 : AT(ADDR(.data..patch.mckinley_e9) - LOAD_OFFSET)
+-	{
+-	  __start___mckinley_e9_bundles = .;
+-	  *(.data..patch.mckinley_e9)
+-	  __end___mckinley_e9_bundles = .;
++	.data..patch.mckinley_e9 : AT(ADDR(.data..patch.mckinley_e9) - LOAD_OFFSET) {
++		__start___mckinley_e9_bundles = .;
++		*(.data..patch.mckinley_e9)
++		__end___mckinley_e9_bundles = .;
+ 	}
  
- #define THASH(pred, reg0, reg1, clob)		\
--(pred)	thash reg0 = reg1			\
--	CLOBBER(clob)
-+(pred)	thash reg0 = reg1
+ #if defined(CONFIG_PARAVIRT)
+-  . = ALIGN(16);
+-  .paravirt_bundles : AT(ADDR(.paravirt_bundles) - LOAD_OFFSET)
+-	{
+-	  __start_paravirt_bundles = .;
+-          *(.paravirt_bundles)
+-	  __stop_paravirt_bundles = .;
+-	}
+-  . = ALIGN(16);
+-  .paravirt_insts : AT(ADDR(.paravirt_insts) - LOAD_OFFSET)
+-	{
+-	  __start_paravirt_insts = .;
+-          *(.paravirt_insts)
+-	  __stop_paravirt_insts = .;
+-	}
+-  . = ALIGN(16);
+-  .paravirt_branches : AT(ADDR(.paravirt_branches) - LOAD_OFFSET)
+-	{
+-	  __start_paravirt_branches = .;
+-	  *(.paravirt_branches)
+-	  __stop_paravirt_branches = .;
++	. = ALIGN(16);
++	.paravirt_bundles : AT(ADDR(.paravirt_bundles) - LOAD_OFFSET) {
++		__start_paravirt_bundles = .;
++		*(.paravirt_bundles)
++		__stop_paravirt_bundles = .;
++	}
++	. = ALIGN(16);
++	.paravirt_insts : AT(ADDR(.paravirt_insts) - LOAD_OFFSET) {
++		__start_paravirt_insts = .;
++		*(.paravirt_insts)
++		__stop_paravirt_insts = .;
++	}
++	. = ALIGN(16);
++	.paravirt_branches : AT(ADDR(.paravirt_branches) - LOAD_OFFSET) {
++		__start_paravirt_branches = .;
++		*(.paravirt_branches)
++		__stop_paravirt_branches = .;
+ 	}
+ #endif
  
- #define SSM_PSR_IC_AND_DEFAULT_BITS_AND_SRLZ_I(clob0, clob1)		\
--	ssm psr.ic | PSR_DEFAULT_BITS					\
--	CLOBBER(clob0)							\
--	CLOBBER(clob1)							\
-+	ssm psr.ic | PSR_DEFAULT_BITS \
- 	;;								\
- 	srlz.i /* guarantee that interruption collectin is on */	\
- 	;;
+ #if defined(CONFIG_IA64_GENERIC)
+-  /* Machine Vector */
+-  . = ALIGN(16);
+-  .machvec : AT(ADDR(.machvec) - LOAD_OFFSET)
+-	{
+-	  machvec_start = .;
+-	  *(.machvec)
+-	  machvec_end = .;
++	/* Machine Vector */
++	. = ALIGN(16);
++	.machvec : AT(ADDR(.machvec) - LOAD_OFFSET) {
++		machvec_start = .;
++		*(.machvec)
++		machvec_end = .;
+ 	}
+ #endif
  
- #define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
--	ssm psr.ic				\
--	CLOBBER(clob0)				\
--	CLOBBER(clob1)				\
-+	ssm psr.ic \
- 	;;					\
- 	srlz.d
+ #ifdef	CONFIG_SMP
+-  . = ALIGN(PERCPU_PAGE_SIZE);
+-  __cpu0_per_cpu = .;
+-  . = . + PERCPU_PAGE_SIZE;	/* cpu0 per-cpu space */
++	. = ALIGN(PERCPU_PAGE_SIZE);
++	__cpu0_per_cpu = .;
++	. = . + PERCPU_PAGE_SIZE;   /* cpu0 per-cpu space */
+ #endif
  
- #define RSM_PSR_IC(clob)	\
--	rsm psr.ic		\
--	CLOBBER(clob)
-+	rsm psr.ic
+-  . = ALIGN(PAGE_SIZE);
+-  __init_end = .;
++	. = ALIGN(PAGE_SIZE);
++	__init_end = .;
  
- #define SSM_PSR_I(pred, pred_clob, clob)	\
--(pred)	ssm psr.i				\
--	CLOBBER(clob)				\
--	CLOBBER_PRED(pred_clob)
-+(pred)	ssm psr.i
+-  .data..page_aligned : AT(ADDR(.data..page_aligned) - LOAD_OFFSET)
+-        {
+-	PAGE_ALIGNED_DATA(PAGE_SIZE)
+-	  . = ALIGN(PAGE_SIZE);
+-	  __start_gate_section = .;
+-	  *(.data..gate)
+-	  __stop_gate_section = .;
++	.data..page_aligned : AT(ADDR(.data..page_aligned) - LOAD_OFFSET) {
++		PAGE_ALIGNED_DATA(PAGE_SIZE)
++		. = ALIGN(PAGE_SIZE);
++		__start_gate_section = .;
++		*(.data..gate)
++		__stop_gate_section = .;
+ #ifdef CONFIG_XEN
+-	  . = ALIGN(PAGE_SIZE);
+-	  __xen_start_gate_section = .;
+-	  *(.data..gate.xen)
+-	  __xen_stop_gate_section = .;
++		. = ALIGN(PAGE_SIZE);
++		__xen_start_gate_section = .;
++		*(.data..gate.xen)
++		__xen_stop_gate_section = .;
+ #endif
+ 	}
+-  . = ALIGN(PAGE_SIZE);		/* make sure the gate page doesn't expose
+-  				 * kernel data
+-				 */
+-
+-  /* Per-cpu data: */
+-  . = ALIGN(PERCPU_PAGE_SIZE);
+-  PERCPU_VADDR(PERCPU_ADDR, :percpu)
+-  __phys_per_cpu_start = __per_cpu_load;
+-  . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits
+-  						 * into percpu page size
+-						 */
+-
+-  data : { } :data
+-  .data : AT(ADDR(.data) - LOAD_OFFSET)
+-	{
++	/*
++	 * make sure the gate page doesn't expose
++	 * kernel data
++	 */
++	. = ALIGN(PAGE_SIZE);
++
++	/* Per-cpu data: */
++	. = ALIGN(PERCPU_PAGE_SIZE);
++	PERCPU_VADDR(PERCPU_ADDR, :percpu)
++	__phys_per_cpu_start = __per_cpu_load;
++	/*
++	 * ensure percpu data fits
++	 * into percpu page size
++	 */
++	. = __phys_per_cpu_start + PERCPU_PAGE_SIZE;
++
++	data : {
++	} :data
++	.data : AT(ADDR(.data) - LOAD_OFFSET) {
+ 		INIT_TASK_DATA(PAGE_SIZE)
+ 		CACHELINE_ALIGNED_DATA(SMP_CACHE_BYTES)
+ 		READ_MOSTLY_DATA(SMP_CACHE_BYTES)
+@@ -213,26 +218,37 @@ SECTIONS
+ 		CONSTRUCTORS
+ 	}
  
- #define RSM_PSR_I(pred, clob0, clob1)	\
--(pred)	rsm psr.i			\
--	CLOBBER(clob0)			\
--	CLOBBER(clob1)
-+(pred)	rsm psr.i
+-  . = ALIGN(16);	/* gp must be 16-byte aligned for exc. table */
+-  .got : AT(ADDR(.got) - LOAD_OFFSET)
+-	{ *(.got.plt) *(.got) }
+-  __gp = ADDR(.got) + 0x200000;
+-  /* We want the small data sections together, so single-instruction offsets
+-     can access them all, and initialized data all before uninitialized, so
+-     we can shorten the on-disk segment size.  */
+-  .sdata : AT(ADDR(.sdata) - LOAD_OFFSET)
+-	{ *(.sdata) *(.sdata1) *(.srdata) }
+-  _edata  =  .;
++	. = ALIGN(16);	/* gp must be 16-byte aligned for exc. table */
++	.got : AT(ADDR(.got) - LOAD_OFFSET) {
++		*(.got.plt)
++		*(.got)
++	}
++	__gp = ADDR(.got) + 0x200000;
++
++	/*
++	 * We want the small data sections together,
++	 * so single-instruction offsets can access
++	 * them all, and initialized data all before
++	 * uninitialized, so we can shorten the
++	 * on-disk segment size.
++	 */
++	.sdata : AT(ADDR(.sdata) - LOAD_OFFSET) {
++		*(.sdata)
++		*(.sdata1)
++		*(.srdata)
++	}
++	_edata  =  .;
  
- #define RSM_PSR_I_IC(clob0, clob1, clob2)	\
--	rsm psr.i | psr.ic			\
--	CLOBBER(clob0)				\
--	CLOBBER(clob1)				\
--	CLOBBER(clob2)
-+	rsm psr.i | psr.ic
+-  BSS_SECTION(0, 0, 0)
++	BSS_SECTION(0, 0, 0)
  
- #define RSM_PSR_DT		\
- 	rsm psr.dt
+-  _end = .;
++	_end = .;
  
- #define RSM_PSR_BE_I(clob0, clob1)	\
--	rsm psr.be | psr.i		\
--	CLOBBER(clob0)			\
--	CLOBBER(clob1)
-+	rsm psr.be | psr.i
+-  code : { } :code
++	code : {
++	} :code
  
- #define SSM_PSR_DT_AND_SRLZ_I	\
- 	ssm psr.dt		\
-@@ -177,15 +132,10 @@
- 	srlz.i
+-  STABS_DEBUG
+-  DWARF_DEBUG
++	STABS_DEBUG
++	DWARF_DEBUG
  
- #define BSW_0(clob0, clob1, clob2)	\
--	bsw.0				\
--	CLOBBER(clob0)			\
--	CLOBBER(clob1)			\
--	CLOBBER(clob2)
-+	bsw.0
- 
- #define BSW_1(clob0, clob1)	\
--	bsw.1			\
--	CLOBBER(clob0)		\
--	CLOBBER(clob1)
-+	bsw.1
- 
- #define COVER	\
- 	cover
--- 
-1.7.0.4
-
+-  /* Default discards */
+-  DISCARDS
++	/* Default discards */
++	DISCARDS
+ }
