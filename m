@@ -1,8 +1,10 @@
 From: amandajones@dsl.pipex.com
-Date: Mon, 21 Jun 2010 04:43:06 +0000
+Date: Mon, 21 Jun 2010 04:43:35 +0000
 Subject: <<<<let's discuss>>>>
-Message-Id: <E1OQYqg-0008uO-CF@mk-webmail-2.b2b.uk.tiscali.com>
+Message-Id: <E1OQYr9-00091T-DQ@mk-webmail-2.b2b.uk.tiscali.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <E1OQYqg-0008uO-CF@mk-webmail-2.b2b.uk.tiscali.com>
+In-Reply-To: <E1OQYqg-0008uO-CF@mk-webmail-2.b2b.uk.tiscali.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
