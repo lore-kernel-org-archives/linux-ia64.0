@@ -1,45 +1,96 @@
 From: "bob_zhang2004" <bob_zhang2004@tom.com>
-Date: Fri, 25 Jun 2010 06:43:07 +0000
+Date: Fri, 25 Jun 2010 14:11:52 +0000
 Subject: Re: Re: [bug report ] hp's rx2860 (kernel is 2.6.27.19-5 in sles11 ia64)power off failrue when "shut
-Message-Id: <201006251443030205791@tom.com>
+Message-Id: <201006252211514433897@tom.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201006242333018701088@tom.com>
+References: <201006242333018701088@tom.com>,
+ <AANLkTinT8YMKGw3obdbIMINkUGNUgfUQEOEzgHMOPOtt@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: "len.brown" <len.brown@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-acpi <linux-acpi@vger.kernel.org>
+To: Tony Luck <tony.luck@intel.com>, "len.brown" <len.brown@intel.com>
+Cc: linux-ia64 <linux-ia64@vger.kernel.org>, linux-acpi <linux-acpi@vger.kernel.org>
 
-Hi, 
+ Hi all, 
 
-	I have a queston not confirm, thanks for answering. 
-from acpi sepc 2.0a
+	I found a amazing problem when debugging this issue. 
+As ACPI spec4.0a , if we want to make the system into S5 (soft-off ) status, what we should do is like this:
 
-7.3.3 \_GTS (Going To Sleep)
-_GTS is an optional control method. If it exists, OSPM must execute the _GTS control method just prior to
-setting the sleep enable (SLP_EN) bit in the PM1 control register when entering the S1, S2, S3, and S4
-sleeping states and when entering S5 for orderly shutdown. _GTS allows ACPI system firmware to perform
-any required system specific functions prior to entering a system sleep state. OSPM will set the sleep
-enable (SLP_EN) bit in the PM1 control register immediately following the execution of the _GTS control
-method without performing any other physical I/O or allowing any interrupt servicing. The sleeping state
-value (1, 2, 3, 4, or 5) is passed as an argument to the _GTS control method. The _GTS method must not
-attempt to directly place the system into a sleeping state. OSPM performs this function by setting the sleep
-enable bit upon return from _GTS. In the case of entry into the S5 soft off state however, _GTS may indeed
-perform operations that place the system into the S5 state as OSPM will not regain control.
-The _GTS method must be self-contained (not call other methods). Additionally, _GTS may only access
-OpRegions that are currently available (see the _REG method for details).
---------
-my questions are followings :
+	P85:
+	The logic is controlled via two bit fields: Sleep Enable (SLP_EN) and Sleep Type (SLP_TYPx). The type
+	of sleep state desired is programmed into the SLP_TYPx field and upon assertion of the SLP_EN the
+	hardware will sequence the system into the defined sleeping state. OSPM gets values for the SLP_TYPx
+	field from the \_Sx objects defined in the static definition block. If the object is missing OSPM assumes the
+	hardware does not support that sleeping state. Prior to entering the desired sleeping state, OSPM will read
+	the designated \_Sx object and place this value in the SLP_TYP field.
 
-1, 
-especially , this sentense ,
+One word , we should write a value to register SLP_TYP, afterwards , set SLP_EN bit,  hardware will sequence the system into the defined sleeping state (for example S5).
+From this sentence " Each sleeping object contains two constant 3-bit values that OSPM will program into the SLP_TYPa and SLP_TYPb fields (in fixed register space)."
+We can simply get a conclusion : The value written to SLP_TYP should be different between S0~S5 ,moreover , this value is gotten from firmware , not controlled by us.
+But  in debugging information, I can see that for S0~S5 , they have the same value by converting ,and then written to SLP_TYP. (see "acpi_enter_sleep_state() ").
 
- "OSPM will set the sleep enable (SLP_EN) bit in the PM1 control register immediately following the execution of the _GTS control
-method without performing any other physical I/O or allowing any interrupt servicing."
+My debugging code:
+acpi_status acpi_enter_sleep_state_prep(u8 sleep_state) {
+	acpi_status status;
+	struct acpi_object_list arg_list;
+	union acpi_object arg;
 
-in fact ,before power supply is off , linux kernel will shutdown all devices by calling driver->shutdown() function. 
-if shutdown () failure, device will not be power off state. in this case, after setting  the sleep enable (SLP_EN) bit   ,what will happen ? 
-Should the power supply be off ?  
+	ACPI_FUNCTION_TRACE(acpi_enter_sleep_state_prep);
+
+	//added by Bob for checking all type_a and type_b values for different State(S0~S5), should be different.
+	{
+		int i=0;
+		u8 bobtype_a;
+		u8 bobtype_b;
+
+		for(i=0;i<6;i++) {
+			acpi_get_sleep_type_data(sleep_state, &bobtype_a, &bobtype_b);
+			printk("for S[%d] status , type_a=%d, type_b=%d\n",sleep_state,bobtype_a,bobtype_b);
+		}
+	} //over.
+	
+
+	//this code is from kernel. Kernel (OSPM) will get this value from firmware ,and by somewhat converting, and then write it into SLP_TYP .
+	/*
+	 * _PSW methods could be run here to enable wake-on keyboard, LAN, etc.
+	 */
+	status = acpi_get_sleep_type_data(sleep_state,
+					  &acpi_gbl_sleep_type_a,
+					  &acpi_gbl_sleep_type_b);
+	if (ACPI_FAILURE(status)) {
+		return_ACPI_STATUS(status);
+	}
+
+
+Following is partial output information:
+We can see that, for S0~S4 ,they all have {128,7) , it apparently is wrong as ACPI 4.0a SPEC.
+For S5 , it is {7,7}. 
+
+only test type value 
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0150 [E000000185900000] [02] get_sleep_type_data   : AE_NOT_FOUND while evaluating SleepState [\_S0_]
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- ****Exception****: AE_NOT_FOUND
+for state S[0] , typea8 , typeb=7
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0150 [E000000185900000] [02] get_sleep_type_data   : AE_NOT_FOUND while evaluating SleepState [\_S1_]
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- ****Exception****: AE_NOT_FOUND
+for state S[1] , typea8 , typeb=7
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0150 [E000000185900000] [02] get_sleep_type_data   : AE_NOT_FOUND while evaluating SleepState [\_S2_]
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- ****Exception****: AE_NOT_FOUND
+for state S[2] , typea8 , typeb=7
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0150 [E000000185900000] [02] get_sleep_type_data   : AE_NOT_FOUND while evaluating SleepState [\_S3_]
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- ****Exception****: AE_NOT_FOUND
+for state S[3] , typea8 , typeb=7
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0150 [E000000185900000] [02] get_sleep_type_data   : AE_NOT_FOUND while evaluating SleepState [\_S4_]
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- ****Exception****: AE_NOT_FOUND
+for state S[4] , typea8 , typeb=7
+  hwregs-0125 [E000000185900000] [02] get_sleep_type_data   : ----Entry
+  hwregs-0218 [E000000185900000] [02] get_sleep_type_data   : ----Exit- AE_OK
+for state S[5] , typea=7 , typeb=7
+ hwsleep-0244 [E000000185900000] [01] enter_sleep_state_prep: ----Exit- AE_OK
 
 
 
