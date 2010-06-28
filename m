@@ -1,50 +1,40 @@
-From: "Bob Zhang" <bob_zhang2004@tom.com>
-Date: Tue, 29 Jun 2010 14:30:03 +0000
-Subject: Re: [bug report ] hp's rx2860 (kernel is 2.6.27.19-5 in sles11 ia64)
-Message-Id: <op.ve2fwdvf8m5662@bob-pc>
+From: Christoph Egger <siccegge@cs.fau.de>
+Date: Mon, 28 Jun 2010 13:41:42 +0000
+Subject: [PATCH 2/2] Removing dead CONFIG_IOMMU_DEBUG
+Message-Id: <79a9f3d21c0b49be4278179357311731ab7ece5c.1277731915.git.siccegge@cs.fau.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201006242333018701088@tom.com>
- <AANLkTinT8YMKGw3obdbIMINkUGNUgfUQEOEzgHMOPOtt@mail.gmail.com>
-In-Reply-To: <AANLkTinT8YMKGw3obdbIMINkUGNUgfUQEOEzgHMOPOtt@mail.gmail.com>
+References: <cover.1277731915.git.siccegge@cs.fau.de>
+In-Reply-To: <cover.1277731915.git.siccegge@cs.fau.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: "len.brown" <len.brown@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-acpi <linux-acpi@vger.kernel.org>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: vamos@i4.informatik.uni-erlangen.de
 
-I finally found "S5" definition , details can got from my following reply.
-Next step, I will send this information to firmware engineer to verify
-SSDT17.dsl is right for our sentosa. Because same values into registers  
-every
-time, but got different hardware behaviors.
-So we must doubt hardware and firmware design.
-Now, from software point of view : acpi_enter_sleep_state() is the last
-function to run when shutdown machine , which write value into acpi  
-registers
-to tell hardware to enter S5 (SLP_TYPx and SLP_EN)  .Once written to these  
-two
-registers, software task has been over. The left things are hardware is to
-work. So I think Linux kernel is good, this issue is from related with
-kernel,at acpi driver's logic is right. I have printed values which will be
-written to acpi registers , those values are the same every time, but  
-hardware
-has different behaviors , so we need firmware engineer to help me check .
+CONFIG_IOMMU_DEBUG doesn't exist in Kconfig, therefore removing all
+references for it from the source code.
 
-Maybe I need to ask firmware designer what is the meaning of this  
-definition:
-Where is {0x7,0x7} from ?? which datasheet ? which document ?
-In "SSDT17.dsl" .
-DefinitionBlock ("SSDT17.aml", "SSDT", 2, "HP    ", "RX2800-2", 0x00000007)
-{
-     Scope (\)
-     {
-         Name (\_S5, Package (0x03)
-         {
-             0x07,
-             0x07,
-             Zero
-         })
-     }
-This is equal of that return from acpi_get_sleep_type_data(5,&type_a,  
-&type_b)
+Signed-off-by: Christoph Egger <siccegge@cs.fau.de>
+---
+ arch/ia64/kernel/pci-dma.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index f6b1ff0..b70d53a 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -26,11 +26,7 @@ EXPORT_SYMBOL(bad_dma_address);
+ static int iommu_sac_force __read_mostly;
+ 
+ int no_iommu __read_mostly;
+-#ifdef CONFIG_IOMMU_DEBUG
+-int force_iommu __read_mostly = 1;
+-#else
+ int force_iommu __read_mostly;
+-#endif
+ 
+ int iommu_pass_through;
+ 
+-- 
+1.7.0.4
 
