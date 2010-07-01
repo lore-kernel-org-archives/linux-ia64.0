@@ -1,61 +1,63 @@
-From: Luming Yu <luming.yu@gmail.com>
-Date: Wed, 14 Jul 2010 12:43:26 +0000
-Subject: Re: [RFC PATCH --take 2] Add TRACE_IRQFLAGS_SUPPORT, LOCKDEP_SUPPORT
-Message-Id: <AANLkTin-m19P35cmNrwiYFhQ5eCK7aS2s-B4uDX6f0JN@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 01 Jul 2010 15:22:02 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4c2cb29a36221fb56@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <AANLkTin0QevX0zZaFc4-LVcoIWfRGmzDKUOSIRKdjKgn@mail.gmail.com>
-In-Reply-To: <AANLkTin0QevX0zZaFc4-LVcoIWfRGmzDKUOSIRKdjKgn@mail.gmail.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, Jul 11, 2010 at 4:48 PM, Luming Yu <luming.yu@gmail.com> wrote:
-> On Sat, Jul 10, 2010 at 6:46 AM, Tony Luck <tony.luck@gmail.com> wrote:
->> On Sat, Jul 3, 2010 at 8:31 PM, Luming Yu <luming.yu@gmail.com> wrote:
->>> Sorry for the inconvenience. Need to git diff HEAD instead of just git diff
->>> An update patch has been enclosed in  attachment of the reply.
->>
->> That's better. All the pieces seem to be there.
->>
->> Which CONFIG options did you turn on for your testing.  My first build
->> without changing any options failed in irq_ia64.c ... it needs:
->>
->> +#ifdef CONFIG_TRACE_IRQFLAGS
->>        if(!current->hardirq_context)
->>                trace_hardirqs_on_delayed();
->> +#endif
->
-> Yes, reproduced and fixed.
->
->>
->> to avoid a complaint about hardirq_context.
->>
->> Next I turned on some lockdep options under the "Kernel Hacking"
->> menu. But probably not the same set that you used for you test.
->> My kernel crashed during boot with:
->
-> I always use a kernel config derived from one shipped with RHEL 5.x distro.
-> so many code path has not been  tested yet..
->
-> I'm trying to reproduce with generic_defconfig in upstream...
->
->>
->> PID hash table entries: 4096 (order: -1, 32768 bytes)
->> Placing 64MB software IO TLB between e000000007580000 - e00000000b580000
->> software IO TLB at phys 0x7580000 - 0xb580000
->> ------------[ cut here ]------------
->> WARNING: at kernel/lockdep.c:2310 trace_hardirqs_on_caller+0x220/0x380()
->> Modules linked in:
->> kernel unaligned access to 0xffffffffffffffff, ip=0xa0000001001aaf41
->>
->
-> Yeah!!!.. reproduced... so we are on same page...
-> Will address it in take-3..
->
-> Please try my config to check if you can have a working kernel with
-> lockdep and ftrace
-> enabled..
->
+Hi Linus,
 
-Weird, the mail didn't hit mailing list..., resend..
+please pull from:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+Regression dates back to 2.6.32 - but I think this fits into the
+"serious" bug category for late inclusion.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/mm/tlb.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+Tony Luck (1):
+      [IA64] Fix spinaphore down_spin()
+
+commit b70f4e85bfc4d7000036355b714a92d5c574f1be
+Author: Tony Luck <tony.luck@intel.com>
+Date:   Wed Jun 30 10:46:16 2010 -0700
+
+    [IA64] Fix spinaphore down_spin()
+    
+    Typo in down_spin() meant it only read the low 32 bits of the
+    "serve" value, instead of the full 64 bits. This results in the
+    system hanging when the values in ticket/serve get larger than
+    32-bits. A big enough system running the right test can hit this
+    in a just a few hours.
+    
+    Broken since 883a3acf5b0d4782ac35981227a0d094e8b44850
+        [IA64] Re-implement spinaphores using ticket lock concepts
+    
+    Reported via IRC by Bjorn Helgaas
+    
+    Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 5dfd916..7b3cdc6 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -121,7 +121,7 @@ static inline void down_spin(struct spinaphore *ss)
+ 	ia64_invala();
+ 
+ 	for (;;) {
+-		asm volatile ("ld4.c.nc %0=[%1]" : "=r"(serve) : "r"(&ss->serve) : "memory");
++		asm volatile ("ld8.c.nc %0=[%1]" : "=r"(serve) : "r"(&ss->serve) : "memory");
+ 		if (time_before(t, serve))
+ 			return;
+ 		cpu_relax();
