@@ -1,63 +1,39 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 01 Jul 2010 15:22:02 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4c2cb29a36221fb56@agluck-desktop.sc.intel.com>
+From: dann frazier <dannf@debian.org>
+Date: Tue, 20 Jul 2010 17:35:12 +0000
+Subject: ia64 hang/mca running gdb 'make check'
+Message-Id: <20100720173512.GF26783@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Hugh Dickins <hugh.dickins@tiscali.co.uk>, Rik van Riel <riel@redhat.com>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Nick Piggin <npiggin@suse.de>, Mel Gorman <mel@csn.ul.ie>, Minchan Kim <minchan.kim@gmail.com>, Ralf Baechle <ralf@linux-mips.org>
 
-Hi Linus,
+Debian's ia64 autobuilders have been experiencing system crashes while
+trying to run the gdb test suite:
+  http://bugs.debian.org/cgi-bin/bugreport.cgi?bugX8574
 
-please pull from:
+I was able to reproduce this w/ the latest git tree, and bisected it
+down to this commit, introduced in 2.6.32:
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+  commit 62eede62dafb4a6633eae7ffbeb34c60dba5e7b1
+  Author: Hugh Dickins <hugh.dickins@tiscali.co.uk>
+  Date:   Mon Sep 21 17:03:34 2009 -0700
 
-Regression dates back to 2.6.32 - but I think this fits into the
-"serious" bug category for late inclusion.
+    mm: ZERO_PAGE without PTE_SPECIAL
 
-Thanks!
+    Reinstate anonymous use of ZERO_PAGE to all architectures, not just to
+    those which __HAVE_ARCH_PTE_SPECIAL: as suggested by Nick Piggin.
 
--Tony
+    Contrary to how I'd imagined it, there's nothing ugly about this, just a
+    zero_pfn test built into one or another block of vm_normal_page().
 
- arch/ia64/mm/tlb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+    But the MIPS ZERO_PAGE-of-many-colours case demands is_zero_pfn() and
+    my_zero_pfn() inlines.  Reinstate its mremap move_pte() shuffling of
+    ZERO_PAGEs we did from 2.6.17 to 2.6.19?  Not unless someone shouts for
+    that: it would have to take vm_flags to weed out some cases.
 
-Tony Luck (1):
-      [IA64] Fix spinaphore down_spin()
-
-commit b70f4e85bfc4d7000036355b714a92d5c574f1be
-Author: Tony Luck <tony.luck@intel.com>
-Date:   Wed Jun 30 10:46:16 2010 -0700
-
-    [IA64] Fix spinaphore down_spin()
-    
-    Typo in down_spin() meant it only read the low 32 bits of the
-    "serve" value, instead of the full 64 bits. This results in the
-    system hanging when the values in ticket/serve get larger than
-    32-bits. A big enough system running the right test can hit this
-    in a just a few hours.
-    
-    Broken since 883a3acf5b0d4782ac35981227a0d094e8b44850
-        [IA64] Re-implement spinaphores using ticket lock concepts
-    
-    Reported via IRC by Bjorn Helgaas
-    
-    Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index 5dfd916..7b3cdc6 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -121,7 +121,7 @@ static inline void down_spin(struct spinaphore *ss)
- 	ia64_invala();
- 
- 	for (;;) {
--		asm volatile ("ld4.c.nc %0=[%1]" : "=r"(serve) : "r"(&ss->serve) : "memory");
-+		asm volatile ("ld8.c.nc %0=[%1]" : "=r"(serve) : "r"(&ss->serve) : "memory");
- 		if (time_before(t, serve))
- 			return;
- 		cpu_relax();
+fyi, I found this to not be reproducible on SLES11 SP1 (which is
+2.6.32-based). I compared the .configs and found that the relevant
+difference is the PAGE_SIZE. It does not fail w/ 64KB pages, but
+reliably fails w/ 16KB pages.
