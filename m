@@ -1,43 +1,43 @@
-From: Hugh Dickins <hughd@google.com>
-Date: Fri, 30 Jul 2010 17:52:36 +0000
-Subject: Re: ia64 hang/mca running gdb 'make check'
-Message-Id: <alpine.DEB.1.00.1007301049230.21157@tigran.mtv.corp.google.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 26 Jul 2010 22:20:48 +0000
+Subject: [RFC] increase ia64 static per cpu area
+Message-Id: <4c4e0a40170612ea22@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100720173512.GF26783@ldl.fc.hp.com> <20100721105136.9d4440de.kamezawa.hiroyu@jp.fujitsu.com> <20100721030629.GA9987@lackof.org> <alpine.DEB.1.00.1007202106420.12760@tigran.mtv.corp.google.com> <20100727071914.GB22945@lackof.org>
- <20100727180330.b6ecba7f.kamezawa.hiroyu@jp.fujitsu.com> <20100727144326.GC22945@lackof.org> <alpine.DEB.1.00.1007282031130.4207@tigran.mtv.corp.google.com> <20100729192216.GF20265@lackof.org> <alpine.DEB.1.00.1007291853450.4466@tigran.mtv.corp.google.com>
- <20100730043423.GH20265@lackof.org>
-In-Reply-To: <20100730043423.GH20265@lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: dann frazier <dannf@dannf.org>
-Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Nick Piggin <npiggin@suse.de>, Mel Gorman <mel@csn.ul.ie>, Minchan Kim <minchan.kim@gmail.com>, Ralf Baechle <ralf@linux-mips.org>
+To: linux-ia64@vger.kernel.org
 
-On Thu, 29 Jul 2010, dann frazier wrote:
-> 
-> dannf@rx2600:~> gdb foo
-> GNU gdb (GDB) SUSE (7.0-0.4.16)
-> Copyright (C) 2009 Free Software Foundation, Inc.
-> License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
-> This is free software: you are free to change and redistribute it.
-> There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
-> and "show warranty" for details.
-> This GDB was configured as "ia64-suse-linux".
-> For bug reporting instructions, please see:
-> <http://www.gnu.org/software/gdb/bugs/>...
-> Reading symbols from /home/dannf/foo...done.
-> (gdb) break leaf
-> Breakpoint 1 at 0x4000000000000401: file foo.c, line 2.
-> (gdb) run
-> Starting program: /home/dannf/foo 
-> 
-> Breakpoint 1, leaf () at foo.c:2
-> 2	     return 0;
-> (gdb) gcore
-> Saved corefile core.3952
-> (gdb) 
+I've been trying to avoid this for a long time ... but per-cpu space
+has slowly been growing.  Tejun has some patches in linux-next that
+pre-reserve some space (PERCPU_DYNAMIC_EARLY_SIZE) for use before
+slab comes online ... and this pushes ia64 above the 64K current
+limit on static percpu space.
 
-Many thanks for pursuing this and reporting back, dann.
-Patch to Linus follows in a few moments.
+I could probably squeeze it back under (we are only over by 512 bytes).
+But I don't think that I'll be able to squeeze it down enough to build
+a comfortable breathing space - and I don't want to keep nibbling off
+a dozen bytes here and there every time some generic code bumps us
+back over the limit.
 
-Hugh
+Next available supported page size is 256K ... so we have to quadruple
+the available space - a bigger jump than I'd like. But perhaps it will
+be enough to last a few more years before it needs to be increased again.
+
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+---
+
+diff --git a/arch/ia64/include/asm/page.h b/arch/ia64/include/asm/page.h
+index 5f271bc..41b6d31 100644
+--- a/arch/ia64/include/asm/page.h
++++ b/arch/ia64/include/asm/page.h
+@@ -41,7 +41,7 @@
+ #define PAGE_SIZE		(__IA64_UL_CONST(1) << PAGE_SHIFT)
+ #define PAGE_MASK		(~(PAGE_SIZE - 1))
+ 
+-#define PERCPU_PAGE_SHIFT	16	/* log2() of max. size of per-CPU area */
++#define PERCPU_PAGE_SHIFT	18	/* log2() of max. size of per-CPU area */
+ #define PERCPU_PAGE_SIZE	(__IA64_UL_CONST(1) << PERCPU_PAGE_SHIFT)
+ 
+ 
