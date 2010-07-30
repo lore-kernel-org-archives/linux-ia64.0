@@ -1,161 +1,19 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Fri, 30 Jul 2010 00:41:39 +0000
+From: Hugh Dickins <hughd@google.com>
+Date: Fri, 30 Jul 2010 02:01:56 +0000
 Subject: Re: ia64 hang/mca running gdb 'make check'
-Message-Id: <20100730094139.e8f75f66.kamezawa.hiroyu@jp.fujitsu.com>
+Message-Id: <alpine.DEB.1.00.1007291853450.4466@tigran.mtv.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100720173512.GF26783@ldl.fc.hp.com>
-	<20100721105136.9d4440de.kamezawa.hiroyu@jp.fujitsu.com>
-	<20100721030629.GA9987@lackof.org>
-	<alpine.DEB.1.00.1007202106420.12760@tigran.mtv.corp.google.com>
-	<20100727071914.GB22945@lackof.org>
-	<20100727180330.b6ecba7f.kamezawa.hiroyu@jp.fujitsu.com>
-	<20100727144326.GC22945@lackof.org>
-	<alpine.DEB.1.00.1007282031130.4207@tigran.mtv.corp.google.com>
-	<20100729192216.GF20265@lackof.org>
+References: <20100720173512.GF26783@ldl.fc.hp.com> <20100721105136.9d4440de.kamezawa.hiroyu@jp.fujitsu.com> <20100721030629.GA9987@lackof.org> <alpine.DEB.1.00.1007202106420.12760@tigran.mtv.corp.google.com> <20100727071914.GB22945@lackof.org>
+ <20100727180330.b6ecba7f.kamezawa.hiroyu@jp.fujitsu.com> <20100727144326.GC22945@lackof.org> <alpine.DEB.1.00.1007282031130.4207@tigran.mtv.corp.google.com> <20100729192216.GF20265@lackof.org>
 In-Reply-To: <20100729192216.GF20265@lackof.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: dann frazier <dannf@debian.org>
-Cc: Hugh Dickins <hughd@google.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Nick Piggin <npiggin@suse.de>, Mel Gorman <mel@csn.ul.ie>, Minchan Kim <minchan.kim@gmail.com>, Ralf Baechle <ralf@linux-mips.org>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Nick Piggin <npiggin@suse.de>, Mel Gorman <mel@csn.ul.ie>, Minchan Kim <minchan.kim@gmail.com>, Ralf Baechle <ralf@linux-mips.org>
 
-On Thu, 29 Jul 2010 13:22:16 -0600
-dann frazier <dannf@debian.org> wrote:
-
+On Thu, 29 Jul 2010, dann frazier wrote:
 > On Wed, Jul 28, 2010 at 08:50:18PM -0700, Hugh Dickins wrote:
-> > On Tue, 27 Jul 2010, dann frazier wrote:
-> > > On Tue, Jul 27, 2010 at 06:03:30PM +0900, KAMEZAWA Hiroyuki wrote:
-> > > > On Tue, 27 Jul 2010 01:19:15 -0600
-> > > > dann frazier <dannf@debian.org> wrote:
-> > > > > On Tue, Jul 20, 2010 at 09:19:50PM -0700, Hugh Dickins wrote:
-> > > > > > On Tue, 20 Jul 2010, dann frazier wrote:
-> > > > > > > On Wed, Jul 21, 2010 at 10:51:36AM +0900, KAMEZAWA Hiroyuki w=
-rote:
-> > > > > > > > On Tue, 20 Jul 2010 11:35:12 -0600
-> > > > > > > > dann frazier <dannf@debian.org> wrote:
-> > > > > > > >=20
-> > > > > > > > > Debian's ia64 autobuilders have been experiencing system =
-crashes while
-> > > > > > > > > trying to run the gdb test suite:
-> > > > > > > > >   http://bugs.debian.org/cgi-bin/bugreport.cgi?bugX8574
-> > > > > > > > >=20
-> > > > > > > > > I was able to reproduce this w/ the latest git tree, and =
-bisected it
-> > > > > > > > > down to this commit, introduced in 2.6.32:
-> > > > > > > > >=20
-> > > > > > > > >   commit 62eede62dafb4a6633eae7ffbeb34c60dba5e7b1
-> > > > > > > > >   Author: Hugh Dickins <hugh.dickins@tiscali.co.uk>
-> > > > > > > > >   Date:   Mon Sep 21 17:03:34 2009 -0700
-> > > > > > > > >=20
-> > > > > > > > >     mm: ZERO_PAGE without PTE_SPECIAL
-> > > > > > > > >=20
-> > > > > > > > >     Reinstate anonymous use of ZERO_PAGE to all architect=
-ures, not just to
-> > > > > > > > >     those which __HAVE_ARCH_PTE_SPECIAL: as suggested by =
-Nick Piggin.
-> > > > > > > > >=20
-> > > > > > > > >     Contrary to how I'd imagined it, there's nothing ugly=
- about this, just a
-> > > > > > > > >     zero_pfn test built into one or another block of vm_n=
-ormal_page().
-> > > > > > > > >=20
-> > > > > > > > >     But the MIPS ZERO_PAGE-of-many-colours case demands i=
-s_zero_pfn() and
-> > > > > > > > >     my_zero_pfn() inlines.  Reinstate its mremap move_pte=
-() shuffling of
-> > > > > > > > >     ZERO_PAGEs we did from 2.6.17 to 2.6.19?  Not unless =
-someone shouts for
-> > > > > > > > >     that: it would have to take vm_flags to weed out some=
- cases.
-> > > > > > > > >=20
-> > > > > > > > > fyi, I found this to not be reproducible on SLES11 SP1 (w=
-hich is
-> > > > > > > > > 2.6.32-based). I compared the .configs and found that the=
- relevant
-> > > > > > > > > difference is the PAGE_SIZE. It does not fail w/ 64KB pag=
-es, but
-> > > > > > > > > reliably fails w/ 16KB pages.
-> > > > > > > > >=20
-> > > > > > > >=20
-> > > > > > > > Sorry, I have no idea...
-> > > > > > > > Hmm, what is the address of empty_zero_page[] on your debia=
-n(16kb-page) ?
-> > > > > > >=20
-> > > > > > >=20
-> > > > > > > dannf@krebs:~$ grep empty_zero_page /boot/System.map-2.6.32-5=
--mckinley=20
-> > > > > > > a0000001008784c0 d __ksymtab_empty_zero_page
-> > > > > > > a000000100882688 d __kcrctab_empty_zero_page
-> > > > > > > a000000100884ca4 r __kstrtab_empty_zero_page
-> > > > > > > a000000100974000 D empty_zero_page
-> > > > > >=20
-> > > > > > Thanks a lot for reporting this, but I too have no idea yet.
-> > > > > >=20
-> > > > > > It is likely that the bug is not to be found in that 62eede62, =
-but
-> > > > > > rather in one of the preceding patches to mm/memory.c which 62e=
-ede62
-> > > > > > was extending to ia64 and other architectures without PTE_SPECI=
-AL.
-> > > > > >=20
-> > > > > > I wonder, from looking at that gdb testsuite log, is it plausib=
-le
-> > > > > > that all these hangs/crashes occurred when writing out a coredu=
-mp?
-> > > > > > Is that something you could check for us? or rule out the possi=
-bility.
-> > > > >=20
-> > > > > Yep, seems so. I've reduced it down to this test case:
-> > > > >=20
-> > > > > dannf@rx2600:~> cat > foo.c
-> > > > > int leaf(void) {
-> > > > >   return 0;
-> > > > > }
-> > > > >=20
-> > > > > int main(void) {
-> > > > >   leaf();
-> > > > > }
-> > > > > dannf@rx2600:~> gcc -g foo.c -o foo
-> > > > > dannf@rx2600:~> gdb ./foo=20
-> > > > > GNU gdb (GDB) SUSE (7.0-0.4.16)
-> > > > > Copyright (C) 2009 Free Software Foundation, Inc.
-> > > > > License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licens=
-es/gpl.html>
-> > > > > This is free software: you are free to change and redistribute it.
-> > > > > There is NO WARRANTY, to the extent permitted by law.  Type "show=
- copying"
-> > > > > and "show warranty" for details.
-> > > > > This GDB was configured as "ia64-suse-linux".
-> > > > > For bug reporting instructions, please see:
-> > > > > <http://www.gnu.org/software/gdb/bugs/>...
-> > > > > Reading symbols from /home/dannf/foo...done.
-> > > > > (gdb) break leaf
-> > > > > Breakpoint 1 at 0x40000000000005c1: file foo.c, line 2.
-> > > > > (gdb) run
-> > > > > Starting program: /home/dannf/foo=20
-> > > > > Missing separate debuginfo for /lib/ld-linux-ia64.so.2
-> > > > > Try: zypper install -C "debuginfo(build-id)=D5bfb8b5940e174d54b97=
-8ca515dc0df76c7618c"
-> > > > > Missing separate debuginfo for /lib/libc.so.6.1
-> > > > > Try: zypper install -C "debuginfo(build-id)=CA78657bd9173653d95f8=
-504a313d2b6db8cb1d6"
-> > > > >=20
-> > > > > Breakpoint 1, leaf () at foo.c:2
-> > > > > 2	     return 0;
-> > > > > (gdb) gcore /tmp/save
-> > > > >=20
-> > > > > [bang]
-> > > > >=20
-> > > >=20
-> > > > Does this happen on 2.6.34 or 2.6.35-rc kernel ?
-> > >=20
-> > > I've been testing w/ a 2.6.35-rc4+, though it was originally reported
-> > > on a 2.6.32.
-> >=20
-> > Thanks a lot for narrowing down to that simple testcase, and
-> > thanks a lot for checking it's just as bad on recent kernels.
-> >=20
-> > I'm sorry to say that I'm still just as baffled.
 > >=20
 > > Let's note that gdb's gcore is building up its own version of a
 > > coredump, not going through the get_dump_page() code I was wondering
@@ -177,16 +35,63 @@ es/gpl.html>
 > [ 2535.074197]  [<a000000100176b00>] access_process_vm+0x2c0/0x380
 > [ 2535.074197]                                 sp=E000004081c77e10 bsp=E0=
 00004081c70f60
->=20
 
-Could you show full stack ? IIUC, ia64's gdb has to call both of strace(PEE=
-K) and
-/proc/pid/mem to check hidden regiter stack.
+Thanks a lot, dann.  But it was the [vdso] line in foo's /proc/<pid>/maps
+which you sent me privately, that set me thinking on the right track.
+Here's what I believe is the appropriate patch: please give it a try
+and let us know...
 
-Thanks,
--Kame
+[PATCH] mm: fix ia64 crash when gcore reads gate area
 
+Debian's ia64 autobuilders have been seeing kernel freeze or reboot
+when running the gdb testsuite (Debian bug 588574): dannf bisected to
+2.6.32 62eede62dafb4a6633eae7ffbeb34c60dba5e7b1 "mm: ZERO_PAGE without
+PTE_SPECIAL"; and reproduced it with gdb's gcore on a simple target.
 
+I'd missed updating the gate_vma handling in __get_user_pages(): that
+happens to use vm_normal_page() (nowadays failing on the zero page),
+yet reported success even when it failed to get a page - boom when
+access_process_vm() tried to copy that to its intermediate buffer.
 
+Fix this, resisting cleanups: in particular, leave it for now reporting
+success when not asked to get any pages - very probably safe to change,
+but let's not risk it without testing exposure.
 
+Why did ia64 crash with 16kB pages, but succeed with 64kB pages?
+Because setup_gate() pads each 64kB of its gate area with zero pages.
 
+Reported-by: Andreas Barth <aba@not.so.argh.org>
+Bisected-by: dann frazier <dannf@debian.org>
+Signed-off-by: Hugh Dickins <hughd@google.com>
+Cc: stable@kernel.org
+---
+
+ mm/memory.c |   16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
+
+--- 2.6.35-rc6/mm/memory.c	2010-05-30 17:58:57.000000000 -0700
++++ linux/mm/memory.c	2010-07-29 17:57:29.000000000 -0700
+@@ -1394,10 +1394,20 @@ int __get_user_pages(struct task_struct
+ 				return i ? : -EFAULT;
+ 			}
+ 			if (pages) {
+-				struct page *page =3D vm_normal_page(gate_vma, start, *pte);
++				struct page *page;
++
++				page =3D vm_normal_page(gate_vma, start, *pte);
++				if (!page) {
++					if (!(gup_flags & FOLL_DUMP) &&
++					     is_zero_pfn(pte_pfn(*pte)))
++						page =3D pte_page(*pte);
++					else {
++						pte_unmap(pte);
++						return i ? : -EFAULT;
++					}
++				}
+ 				pages[i] =3D page;
+-				if (page)
+-					get_page(page);
++				get_page(page);
+ 			}
+ 			pte_unmap(pte);
+ 			if (vmas)
