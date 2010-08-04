@@ -1,56 +1,49 @@
-From: Julia Lawall <julia@diku.dk>
-Date: Wed, 11 Aug 2010 16:23:28 +0000
-Subject: Re: [PATCH 5/5] drivers/serial: Return -ENOMEM on memory allocation
-Message-Id: <Pine.LNX.4.64.1008111818380.8669@ask.diku.dk>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 04 Aug 2010 16:09:56 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4c5990d411458be634@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.64.1008111211440.8669@ask.diku.dk> <4C62C8F3.3090405@sgi.com>
-In-Reply-To: <4C62C8F3.3090405@sgi.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Patrick Gefre <pfg@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-> > I believe this code also leaks earlier instances of port, which are only
-> > referenced by card_ptr, which is freed in the error handling code at the
-> > end of the function.  A lot of operations are done on port on each
-> > iteration, however, so I'm not sure whether it is good enough to just free
-> > them.  Perhaps there is some way to call ioc3uart_remove?
-> > 
-> 
-> Yes you are right, there should be something like this for out4:
-> 
-> out4:
-> 	for (phys_port = 0; phys_port < PORTS_PER_CARD; phys_port++) {
-> 		port = card_ptr->ic_port[phys_port].icp_port;
-> 		if (port) {
-> 			pci_free_consistent(port->ip_idd->pdev,
->                                        TOTAL_RING_BUF_SIZE,
->                                        (void *)port->ip_cpu_ringbuf,
->                                        port->ip_dma_ringbuf);
-> 			kfree(port);
-> 		}
-> 	}
-> 	kfree(card_ptr);
-> 	return ret;
+Hi Linus,
 
-Actually, pci_alloc_consistent is only called when phys_port is 0.  In the 
-subsequent cases, the ip_dma_ringbuf field is just initialized to the 
-previous value.  So it could be:
+please pull from:
 
-out4:
-        for (phys_port = 0; phys_port < PORTS_PER_CARD; phys_port++) {
-                port = card_ptr->ic_port[phys_port].icp_port;
-                if (port) {
-			if (phys_port = 0)
-	                        pci_free_consistent(port->ip_idd->pdev,
-                                       TOTAL_RING_BUF_SIZE,
-                                       (void *)port->ip_cpu_ringbuf,
-                                       port->ip_dma_ringbuf);
-                        kfree(port);
-                }
-        }
-        kfree(card_ptr);
-        return ret;
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-julia
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+ arch/ia64/configs/bigsur_defconfig    | 1428 ++------------------------
+ arch/ia64/configs/generic_defconfig   | 1788 ++++-------------------------=
+----
+ arch/ia64/configs/gensparse_defconfig | 1493 +++------------------------
+ arch/ia64/configs/sim_defconfig       |  756 +-------------
+ arch/ia64/configs/tiger_defconfig     | 1356 +++----------------------
+ arch/ia64/configs/xen_domu_defconfig  | 1678 +++--------------------------=
+--
+ arch/ia64/configs/zx1_defconfig       | 1681 +++--------------------------=
+---
+ arch/ia64/include/asm/page.h          |    2 +-
+ arch/ia64/kernel/perfmon.c            |   22 +-
+ arch/ia64/kernel/vmlinux.lds.S        |  362 ++++----
+ 10 files changed, 1058 insertions(+), 9508 deletions(-)
+
+Arnd Bergmann (1):
+      [IA64] perfmon: convert to unlocked_ioctl
+
+Sam Ravnborg (1):
+      [IA64] beautify vmlinux.lds.h
+
+Tony Luck (2):
+      [IA64] Put ia64 config files on the Uwe Kleine-K=C3=B6nig diet
+      [IA64] increase ia64 static per cpu area
+
