@@ -1,29 +1,76 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 24 Aug 2010 22:23:52 +0000
-Subject: Re: [PATCH] hide guard page for stacks that grow upwards
-Message-Id: <AANLkTin5mxbyH9BOcrGAW2nFiDBOeUE8=HsBR8U=x3bc@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 20 Aug 2010 17:56:47 +0000
+Subject: [RFC - PATCH] leave guard page for upwardly growing stacks too
+Message-Id: <4c6ec1df290705bb68@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4c74419664798b8c9@agluck-desktop.sc.intel.com>
-In-Reply-To: <4c74419664798b8c9@agluck-desktop.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, Kyle McMartin <kyle@mcmartin.ca>, Helge Deller <deller@gmx.de>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matthew Wilcox <willy@linux.intel.com>
 
-On Tue, Aug 24, 2010 at 3:03 PM, Luck, Tony <tony.luck@intel.com> wrote:
->
-> This looks useful too ... but I can't see where the code is that
-> made vm_start be PAGE_SIZE lower to begin with. I'd expect to have
-> to make a matching change to make vm_end PAGE_SIZE higher for the
-> VM_GROWSUP areas.
+In commit 320b2b8de12698082609ebbc1a17165727f4c893
+   mm: keep a guard page below a grow-down stack segment
 
-That's the fault path - the very check_stack_guard_page() logic itself.
+we prevented stacks from growing downwards into other vma areas.
+But some arhictectures (ia64 and pa-risc) have stacks that
+grow upwards. Provide the same protection for them.
 
-In other words, nowhere do we _explicitly_ make the stack larger by
-one page, but nowhere do we explicitly size the stack in the first
-place! The stack grows by being populated, and every time a new page
-is populated, check_stack_guard_page() will have expanded the stack
-vma by one extra page.
+Signed-off-by: Tony Luc <tony.luck@intel.com>
 
-                   Linus
+---
+
+Pointed out to me by Matthew Wilcox.
+
+DANGER, DANGER - NOT TESTED on pa-risc yet DO NOT APPLY WITHOUT AN ACK FROM PA-RISC LAND!
+
+Are there any other architectures with upward growing stacks?
+
+diff --git a/mm/memory.c b/mm/memory.c
+index b6e5fd2..9dcef72 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -2760,21 +2760,35 @@ out_release:
+ }
+ 
+ /*
+- * This is like a special single-page "expand_downwards()",
+- * except we must first make sure that 'address-PAGE_SIZE'
++ * This is like a special single-page "expand_{down|up}wards()",
++ * except we must first make sure that 'address{-|+}PAGE_SIZE'
+  * doesn't hit another vma.
+  *
+  * The "find_vma()" will do the right thing even if we wrap
+  */
+ static inline int check_stack_guard_page(struct vm_area_struct *vma, unsigned long address)
+ {
+-	address &= PAGE_MASK;
+-	if ((vma->vm_flags & VM_GROWSDOWN) && address = vma->vm_start) {
+-		address -= PAGE_SIZE;
+-		if (find_vma(vma->vm_mm, address) != vma)
+-			return -ENOMEM;
++	struct vm_area_struct *v;
++
++	if (vma->vm_flags & VM_GROWSDOWN) {
++		address &= PAGE_MASK;
++		if (address = vma->vm_start) {
++			address -= PAGE_SIZE;
++			if (find_vma(vma->vm_mm, address) != vma)
++				return -ENOMEM;
+ 
+-		expand_stack(vma, address);
++			expand_stack(vma, address);
++		}
++	} else if (vma->vm_flags & VM_GROWSUP) {
++		address = PAGE_ALIGN(address + 1);
++		if (address = vma->vm_end) {
++			address += PAGE_SIZE;
++			if ((v = find_vma(vma->vm_mm, address)) &&
++				v->vm_start <= address) {
++				return -ENOMEM;
++			}
++			expand_upwards(vma, address);
++		}
+ 	}
+ 	return 0;
+ }
