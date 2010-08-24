@@ -1,66 +1,48 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 24 Aug 2010 17:33:02 +0000
-Subject: RE: [PATCH] guard page for stacks that grow upwards
-Message-Id: <987664A83D2D224EAE907B061CE93D53015D8130ED@orsmsx505.amr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="_002_987664A83D2D224EAE907B061CE93D53015D8130EDorsmsx505amrc_"
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 24 Aug 2010 17:51:12 +0000
+Subject: Re: [PATCH] guard page for stacks that grow upwards
+Message-Id: <AANLkTi=-JRUFH08TYNhB7TyN=YscnNbqwtZ_BwcwKJPS@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4c73f3ed34663af90@agluck-desktop.sc.intel.com>
- <AANLkTinQ_0zGJnPHw7AMJ+q+oo4nmA9Z4irw8dqRH9S8@mail.gmail.com>
-In-Reply-To: <AANLkTinQ_0zGJnPHw7AMJ+q+oo4nmA9Z4irw8dqRH9S8@mail.gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-
---_002_987664A83D2D224EAE907B061CE93D53015D8130EDorsmsx505amrc_
-Content-Type: text/plain; charset="us-ascii"
+In-Reply-To: <4c73f3ed34663af90@agluck-desktop.sc.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org, linux-ia64@vger.kernel.org
 
-> But the ia64 grows-up case is tested?
+Hmm. Looking at the patch a bit more..
 
-Yes. The attached hacky test program reports that the RSE stack
-stomps over the mmap'd segment w/o this patch. With it the
-program dies with a SIGBUS. Should be easy to adapt to
-test on pa-risc (hint, hint to parisc people).
-
->> The #ifdefs are ugly - suggestions welcome on how to make
->> the code prettier.
+On Tue, Aug 24, 2010 at 9:31 AM, Luck, Tony <tony.luck@intel.com> wrote:
 >
-> One thing I've considered is to get rid of the CONFIG_STACK_GROWSUP
-> crap entirely in code, and instead just make the VM_GROWSUP #define be
-> 0 for architectures that don't want it. The compiler should then just
-> automatically remove all the code that says
->
->   if (vma->vm_flags & VM_GROWSUP) {
->     ...
->
-> and the code would look more straightforward. Hmm?
+> +#if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
+> + =A0 =A0 =A0 else if (vma->vm_flags & VM_GROWSUP) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 address =3D PAGE_ALIGN(address + 1);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (address =3D vma->vm_end) {
 
-You'd also need some stub declaration for expand_upwards().
-But overall that would look cleaner.
+So I react to two things:
 
--Tony
+ - that "else" looks wrong. At least conceptually, both could happen -
+the code should be entirely able to handle a segment that expands both
+ways (which is something that ia64 could do: stack one way, register
+spills etc other, all in just one happy vma). I guess we don't set it
+up that way now, but the "else" just annoys my sense of aesthetics.
+It's an extra four letters that don't add value - just takes it away.
 
---_002_987664A83D2D224EAE907B061CE93D53015D8130EDorsmsx505amrc_
-Content-Type: text/plain; name="growtest.c"
-Content-Description: growtest.c
-Content-Disposition: attachment; filename="growtest.c"; size=771;
-	creation-date="Tue, 24 Aug 2010 10:26:55 GMT";
-	modification-date="Tue, 24 Aug 2010 10:26:55 GMT"
-Content-Transfer-Encoding: base64
+ - The "address =3D PAGE_ALIGN(address + 1);" thing is just ugly.
+Wouldn't it be nicer to just move the earlier
 
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4KI2luY2x1ZGUgPHN5cy9t
-bWFuLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHVuaXN0ZC5oPgojaW5jbHVkZSA8
-c3RyaW5nLmg+Cgp2b2lkIHdhdGNoKGxvbmcgZGVwdGgsIGNoYXIgKm1hcCkKewoJaW50IGk7CgoJ
-Zm9yIChpID0gMDsgaSA8IDB4MTAwMDA7IGkrKykgewoJCWlmIChtYXBbaV0pIHsKCQkJcHJpbnRm
-KCJGb3VuZCAleCBhdCAlcFxuIiwgbWFwW2ldLCAmbWFwW2ldKTsKCQkJZXhpdCgxKTsKCQl9Cgl9
-CglpZiAoKytkZXB0aCAlIDUwMDAgPT0gMCkKCQlwcmludGYoIm5vdyBhdCBzdGFjayBkZXB0aCAl
-bGRcbiIsIGRlcHRoKTsKCXdhdGNoKGRlcHRoLCBtYXApOwoKCS8qIHdvbid0IGdldCBoZXJlIC4u
-IGJ1dCBzdG9wIGNvbXBpbGVyIGZyb20gZG9pbmcgdGFpbCByZWN1cnNpb24gKi8KCWZvciAoaSA9
-IDA7IGkgPCAweDEwMDAwOyBpKyspIHsKCQlpZiAobWFwW2ldKSB7CgkJCXByaW50ZigiRm91bmQg
-JXggYXQgJXBcbiIsIG1hcFtpXSwgJm1hcFtpXSk7CgkJCWV4aXQoMSk7CgkJfQoJfQp9CgkKbWFp
-bigpCnsKCWNoYXIgKnA7CgoJcCA9IG1tYXAoKHZvaWQgKikweDYwMDgwMDAwMDAwMDAwMDAsIDB4
-MTAwMDAsIFBST1RfUkVBRHxQUk9UX1dSSVRFLAoJCU1BUF9BTk9OWU1PVVN8TUFQX1BSSVZBVEUs
-IC0xLCAwTCk7CgoJcHJpbnRmKCIlcFxuIiwgcCk7CgltZW1zZXQocCwgJ1wwJywgMHgxMDAwMCk7
-CgoJd2F0Y2goMCwgcCk7CgoJcmV0dXJuIDA7Cn0K
+  address &=3D PAGE_MASK
 
---_002_987664A83D2D224EAE907B061CE93D53015D8130EDorsmsx505amrc_--
+back outside the conditionals (and keep the original conditional the
+way it was - you only changed it for that bogus "else" case anyway),
+and then do
+
+  if (address + PAGE_SIZE =3D vma->vm_end)
+
+rather than have "PAGE_ALIGN(address + 1)" as yet another way of
+aligning the address just right.
+
+No?
+
+                              Linus
