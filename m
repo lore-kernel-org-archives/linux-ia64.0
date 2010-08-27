@@ -1,7 +1,7 @@
 From: Petr Tesarik <ptesarik@suse.cz>
-Date: Fri, 27 Aug 2010 20:41:14 +0000
+Date: Fri, 27 Aug 2010 21:03:32 +0000
 Subject: Re: Serious problem with ticket spinlocks on ia64
-Message-Id: <201008272241.15735.ptesarik@suse.cz>
+Message-Id: <201008272303.34228.ptesarik@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <201008271537.35709.ptesarik@suse.cz> <987664A83D2D224EAE907B061CE93D53015D91D029@orsmsx505.amr.corp.intel.com> <987664A83D2D224EAE907B061CE93D53015D91D3B7@orsmsx505.amr.corp.intel.com>
 In-Reply-To: <987664A83D2D224EAE907B061CE93D53015D91D3B7@orsmsx505.amr.corp.intel.com>
@@ -19,11 +19,9 @@ On Friday 27 of August 2010 22:29:41 Luck, Tony wrote:
 > I think I take this back ... if it were a memory ordering problem, then
 > it could show up any time - not just at wrap-around.
 
-Well, I wasn't originally sure if it only happens at wrap-around. OTOH I've 
-now modified my tests, so that they would also catch any other badness, and I 
-still only got another two failures after wrap-around.
-
-From looking at the traces, I'm afraid this smells like another Itanium 
-erratum. I'm now trying to write a minimal test case...
+One more idea. The wrap-around case is the only one when the high word is 
+modified. This is in fact the only case when the fetchadd.acq competes with 
+the st2.rel about the actual contents of that location. I don't know if it 
+matters...
 
 Petr Tesarik
