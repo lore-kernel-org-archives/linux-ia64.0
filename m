@@ -1,53 +1,74 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 27 Aug 2010 16:08:03 +0000
-Subject: RE: Serious problem with ticket spinlocks on ia64
-Message-Id: <987664A83D2D224EAE907B061CE93D53015D91D029@orsmsx505.amr.corp.intel.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Fri, 27 Aug 2010 16:37:08 +0000
+Subject: Re: Serious problem with ticket spinlocks on ia64
+Message-Id: <201008271837.10014.ptesarik@suse.cz>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_2m+dMnDsSqTIwWo"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201008271537.35709.ptesarik@suse.cz>
-In-Reply-To: <201008271537.35709.ptesarik@suse.cz>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+References: <201008271537.35709.ptesarik@suse.cz> <201008271640.49542.ptesarik@suse.cz> <20100827145231.GZ18967@zorg.emea.sgi.com>
+In-Reply-To: <20100827145231.GZ18967@zorg.emea.sgi.com>
+To: Hedi Berriche <hedi@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+
+--Boundary-00=_2m+dMnDsSqTIwWo
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: Petr Tesarik <ptesarik@suse.cz>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Hedi Berriche <hedi@sgi.com>
+Content-Disposition: inline
 
-> Hedi Berriche sent me a simple test case that can
-> trigger the failure on the siglock.
-
-Can you post the test case please. How long does it typically take
-to reproduce the problem?
-
-
-> Next, CPU 5 releases the spinlock with st2.rel, changing the lock
-> value to 0x0 (correct).
+On Friday 27 of August 2010 16:52:31 Hedi Berriche wrote:
+> On Fri, Aug 27, 2010 at 15:40 Petr Tesarik wrote:
+> | On Friday 27 of August 2010 16:31:35 Hedi Berriche wrote:
+> | > That said, I'm letting my already over 36 hours run carry on chewing
+> | > CPU time, and see if it will eventually trip the same problem seen with
+> | > 4-byte ticket locks.
+> |
+> | Hm, this doesn't sound like a viable approach. Since the siglock gets
+> | initialized to 0 when a new process is started, it may never actually
+> | wrap around.
+> |
+> | I would rather attach a SystemTap probe somewhere during process fork and
+> | add a bias to the siglock. That should work fine. Let me knock up the
+> | SystemTap script...
 >
-> SO FAR SO GOOD.
->
-> Now, CPU 4, CPU 5 and CPU 7 all want to acquire the lock again.
-> Interestingly, CPU 5 and CPU 7 are both granted the same ticket,
+> That would be nice. Ta!
 
-What is the duplicate ticket number that CPUs 5 & 7 get at this point?
-Presumably 0x0, yes? Or do they see a stale 0x7fff?
+Here it is. I don't have a system with the old 64-bit ticket spinlocks at 
+hand, so this is completely untested, but it should work fine.
 
-> and the spinlock value (as seen from the debug fault handler) is
-> 0x0 after single-stepping over the fetchadd4.acq, in both cases.
-> CPU 4 correctly sets the spinlock value to 0x1.
+Adjust if needed.
 
-Is the fault handler using "ld.acq" to look at the spinlock value?
-If not, then this might be a red herring. [Though clearly something
-bad is going on here].
+Petr
 
-> Any ideas?
+--Boundary-00=_2m+dMnDsSqTIwWo
+Content-Type: text/x-csrc;
+  charset="iso 8859-15";
+  name="biaslock.stp"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="biaslock.stp"
 
-What cpu model are you running on?
-What is the topological connection between CPU 4, 5 and 7 - are any of
-them hyper-threaded siblings? Cores on same socket? N.B. topology may
-change from boot to boot, so you may need to capture /proc/cpuinfo from
-the same boot where this problem is detected. But the variation is
-usually limited to which socket gets to own logical cpu 0.
+/* Bias the spin lock on fork */
 
-If this is a memory ordering problem (and that seems quite plausible)
-then a liberal sprinkling of "ia64_mf()" calls throughout the spinlock
-routines would probably make it go away.
+%{
+#define LOCK_BIAS ((1ULL << 32) - (1ULL << 15))
+%}
 
--Tony
+function bias_siglock (task:long)
+%{
+	struct task_struct *tsk = (struct task_struct*)THIS->task;
+	tsk->sighand->siglock.raw_lock.lock = LOCK_BIAS + (LOCK_BIAS << 32);
+%}
+
+function is_err (value:long)
+%{
+	THIS->__retvalue = IS_ERR_VALUE((unsigned long)THIS->value);
+%}
+
+probe kernel.function("copy_process").return
+{
+	if (!is_err($return))
+		bias_siglock($return);
+}
+
+--Boundary-00=_2m+dMnDsSqTIwWo--
