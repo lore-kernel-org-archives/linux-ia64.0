@@ -1,70 +1,60 @@
-From: Julia Lawall <julia@diku.dk>
-Date: Fri, 27 Aug 2010 21:01:30 +0000
-Subject: [PATCH 2/2] arch/ia64/kernel: Move up iounmap
-Message-Id: <1282942890-465-2-git-send-email-julia@diku.dk>
+From: Alexander Shishkin <virtuoso@slind.org>
+Date: Tue, 31 Aug 2010 11:45:50 +0000
+Subject: [PATCH 6/7] wire up sys_time_change_notify() on ia64
+Message-Id: <1283255151-6364-6-git-send-email-virtuoso@slind.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1283255151-6364-1-git-send-email-virtuoso@slind.org>
+In-Reply-To: <1283255151-6364-1-git-send-email-virtuoso@slind.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: kernel-janitors@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: lkml@vger.kernel.org
+Cc: Alexander Shishkin <virtuoso@slind.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, David Howells <dhowells@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-By moving the iounmap up above the test, it takes place whether the test
-succeeds or fails.
-
-The sematic match that finds this problem is as follows:
-(http://coccinelle.lip6.fr/)
-
-// <smpl>
-@r exists@
-local idexpression x;
-expression E,E1;
-identifier l;
-statement S;
-@@
-
-*x = ioremap_nocache(...);
-...
-if (x = NULL) S
-... when != iounmap(x)
-    when != if (...) { ... iounmap(x); ... }
-    when != E = x
-if (...) {
-  ... when != iounmap(x)
-      when != if (...) { ... iounmap(x); ... }
-(
-  return <+...x...+>;
-|
-* return ...;
-)
-}
-... when != x = E1
-iounmap(x);
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
+Signed-off-by: Alexander Shishkin <virtuoso@slind.org>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Arnaldo Carvalho de Melo <acme@redhat.com>
+CC: David Howells <dhowells@redhat.com>
+CC: Alexander Shishkin <virtuoso@slind.org>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- arch/ia64/kernel/cyclone.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/include/asm/unistd.h |    3 ++-
+ arch/ia64/kernel/entry.S       |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/cyclone.c b/arch/ia64/kernel/cyclone.c
-index 71e3586..d52f1f7 100644
---- a/arch/ia64/kernel/cyclone.c
-+++ b/arch/ia64/kernel/cyclone.c
-@@ -59,13 +59,13 @@ int __init init_cyclone_clock(void)
- 		return -ENODEV;
- 	}
- 	base = readq(reg);
-+	iounmap(reg);
- 	if(!base){
- 		printk(KERN_ERR "Summit chipset: Could not find valid CBAR"
- 				" value.\n");
- 		use_cyclone = 0;
- 		return -ENODEV;
- 	}
--	iounmap(reg);
+diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
+index 954d398..7445473 100644
+--- a/arch/ia64/include/asm/unistd.h
++++ b/arch/ia64/include/asm/unistd.h
+@@ -315,11 +315,12 @@
+ #define __NR_fanotify_init		1323
+ #define __NR_fanotify_mark		1324
+ #define __NR_prlimit64			1325
++#define __NR_time_change_notify		1326
  
- 	/* setup PMCC */
- 	offset = (base + CYCLONE_PMCC_OFFSET);
+ #ifdef __KERNEL__
+ 
+ 
+-#define NR_syscalls			302 /* length of syscall table */
++#define NR_syscalls			303 /* length of syscall table */
+ 
+ /*
+  * The following defines stop scripts/checksyscalls.sh from complaining about
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index 244704a..48a5682 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1771,6 +1771,7 @@ sys_call_table:
+ 	data8 sys_fanotify_init
+ 	data8 sys_fanotify_mark
+ 	data8 sys_prlimit64			// 1325
++	data8 sys_time_change_notify
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+ #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
+-- 
+1.7.1
 
