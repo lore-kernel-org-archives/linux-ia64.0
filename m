@@ -1,34 +1,36 @@
-From: Joe Perches <joe@perches.com>
-Date: Tue, 14 Sep 2010 04:23:48 +0000
-Subject: [PATCH next 02/16] arch/ia64: Use static const char * const where possible
-Message-Id: <8724a87b1091dce2527278a430ba150f0beb245f.1284435709.git.joe@perches.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Tue, 07 Sep 2010 14:33:34 +0000
+Subject: [patch 24/30] ia64: salinfo: sema_init instead of init_MUTEX
+Message-Id: <20100907125056.990178973@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1284435709.git.joe@perches.com>
-In-Reply-To: <cover.1284435709.git.joe@perches.com>
+References: <20100907124636.880953480@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Christoph Hellwig <hch@infradead.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Get rid of init_MUTEX[_LOCKED]() and use sema_init() instead.
+
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
+
 ---
- arch/ia64/kernel/palinfo.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/salinfo.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
-index fdf6f9d..77597e5 100644
---- a/arch/ia64/kernel/palinfo.c
-+++ b/arch/ia64/kernel/palinfo.c
-@@ -434,7 +434,7 @@ register_info(char *page)
- 	unsigned long phys_stacked;
- 	pal_hints_u_t hints;
- 	unsigned long iregs, dregs;
--	char *info_type[]={
-+	static const char * const info_type[] = {
- 		"Implemented AR(s)",
- 		"AR(s) with read side-effects",
- 		"Implemented CR(s)",
--- 
-1.7.3.rc1
+Index: linux-2.6/arch/ia64/kernel/salinfo.c
+=================================--- linux-2.6.orig/arch/ia64/kernel/salinfo.c
++++ linux-2.6/arch/ia64/kernel/salinfo.c
+@@ -642,7 +642,7 @@ salinfo_init(void)
+ 	for (i = 0; i < ARRAY_SIZE(salinfo_log_name); i++) {
+ 		data = salinfo_data + i;
+ 		data->type = i;
+-		init_MUTEX(&data->mutex);
++		sema_init(&data->mutex, 1);
+ 		dir = proc_mkdir(salinfo_log_name[i], salinfo_dir);
+ 		if (!dir)
+ 			continue;
+
 
