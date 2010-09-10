@@ -1,23 +1,30 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Wed, 08 Sep 2010 15:55:36 +0000
+From: Dave Jones <davej@redhat.com>
+Date: Fri, 10 Sep 2010 02:55:24 +0000
 Subject: Re: Serious problem with ticket spinlocks on ia64
-Message-Id: <AANLkTim5tRPOgxWXAc8nGW6YT59UEDqW-+OBowJmKFQM@mail.gmail.com>
+Message-Id: <20100910025523.GC31280@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <201008271537.35709.ptesarik@suse.cz>
-	<AANLkTikZRiQ5jCpgp42LxtXb_S52sSUy7KP_=vZ3z4Tf@mail.gmail.com>
-	<201009061647.02345.ptesarik@suse.cz>
-	<201009071517.43009.ptesarik@suse.cz>
-	<AANLkTikdHZY1sOJFCMn8Zaca2rO6MsbXL459LZ4HOJTk@mail.gmail.com>
-In-Reply-To: <AANLkTikdHZY1sOJFCMn8Zaca2rO6MsbXL459LZ4HOJTk@mail.gmail.com>
+ <AANLkTimCOWvBs1pdWeMZD9DR=u2ioFPXt7Jja73VQaZn@mail.gmail.com>
+ <201009031104.38433.ptesarik@suse.cz>
+ <201009031635.25093.ptesarik@suse.cz>
+In-Reply-To: <201009031635.25093.ptesarik@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Petr Tesarik <ptesarik@suse.cz>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-On Tue, Sep 7, 2010 at 10:35 AM, Tony Luck <tony.luck@gmail.com> wrote:
-> Started up a test with this patch on my 32-way to confirm.
+On Fri, Sep 03, 2010 at 04:35:23PM +0200, Petr Tesarik wrote:
+ 
+ > I didn't see values around zero on any other CPU in the system. So, either 
+ > there is something seriously broken in hardware, or I made a silly mistake in 
+ > the monitoring code.
 
-Still running now (22 hours). So that one works too.
+ ...
 
--Tony
+ > 	memset(dbr, sizeof dbr, 0);
+                    ^^^^^^^^^^^^^
+swapped arguments.  Perhaps unrelated to the problem, but still silly :)
+
+	Dave
+
