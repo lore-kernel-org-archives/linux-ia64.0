@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 14 Sep 2010 17:37:12 +0000
-Subject: RE: [git pull] ia64 changes
-Message-Id: <987664A83D2D224EAE907B061CE93D53015DDA7B97@orsmsx505.amr.corp.intel.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Tue, 14 Sep 2010 20:38:07 +0000
+Subject: Re: [git pull] ia64 changes
+Message-Id: <201009142238.09249.ptesarik@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -10,11 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Tony's fix works perfectly, but it adds more instructions than
-> necessary. Optimize the fast path again.
+On Tuesday 14 of September 2010 19:37:12 Luck, Tony wrote:
+> > Tony's fix works perfectly, but it adds more instructions than
+> > necessary. Optimize the fast path again.
+>
+> Ah! You spotted that I just pasted in gcc -S output :-)
 
-Ah! You spotted that I just pasted in gcc -S output :-)
+Yeah, it looked like that. ;)
 
-This looks much better.  I'll queue is up for the next merge window.
+> This looks much better.  I'll queue is up for the next merge window.
 
--Tony
+Anyway, since the fix is rather important, I think you should also send a copy 
+of the patch to stable@kernel.org.
+
+Petr Tesarik
