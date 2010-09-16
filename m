@@ -1,105 +1,60 @@
-From: matt mooney <mfm@muteddisk.com>
-Date: Thu, 23 Sep 2010 06:50:29 +0000
-Subject: [PATCH 06/20] ia64: change to new flag variables
-Message-Id: <1285224629-29640-1-git-send-email-mfm@muteddisk.com>
+From: Alexander Shishkin <virtuoso@slind.org>
+Date: Thu, 16 Sep 2010 22:10:48 +0000
+Subject: [PATCH 6/7] wire up sys_time_change_notify() on ia64
+Message-Id: <1284675049-23479-7-git-send-email-virtuoso@slind.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1284675049-23479-1-git-send-email-virtuoso@slind.org>
+In-Reply-To: <1284675049-23479-1-git-send-email-virtuoso@slind.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Xiantao Zhang <xiantao.zhang@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>, Avi Kivity <avi@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: John Stultz <johnstul@us.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, "H. Peter Anvin" <hpa@zytor.com>, Kay Sievers <kay.sievers@vrfy.org>, Greg KH <gregkh@suse.de>, Chris Friesen <chris.friesen@genband.com>, Linus Torvalds <torvalds@linux-foundation.org>, "Kirill A. Shutemov" <kirill@shutemov.name>, Alexander Shishkin <virtuoso@slind.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, David Howells <dhowells@redhat.com>, linux-ia64@vger.kernel.org
 
-Replace EXTRA_CFLAGS with ccflags-y and EXTRA_AFLAGS with asflags-y.
-
-Signed-off-by: matt mooney <mfm@muteddisk.com>
+Signed-off-by: Alexander Shishkin <virtuoso@slind.org>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Arnaldo Carvalho de Melo <acme@redhat.com>
+CC: David Howells <dhowells@redhat.com>
+CC: Alexander Shishkin <virtuoso@slind.org>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- arch/ia64/kvm/Makefile           |    4 ++--
- arch/ia64/sn/kernel/Makefile     |    2 +-
- arch/ia64/sn/kernel/sn2/Makefile |    2 +-
- arch/ia64/sn/pci/Makefile        |    2 +-
- arch/ia64/sn/pci/pcibr/Makefile  |    2 +-
- arch/ia64/uv/kernel/Makefile     |    2 +-
- 6 files changed, 7 insertions(+), 7 deletions(-)
+ arch/ia64/include/asm/unistd.h |    3 ++-
+ arch/ia64/kernel/entry.S       |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kvm/Makefile b/arch/ia64/kvm/Makefile
-index 1089b3e..db3d7c5 100644
---- a/arch/ia64/kvm/Makefile
-+++ b/arch/ia64/kvm/Makefile
-@@ -45,8 +45,8 @@ FORCE : $(obj)/$(offsets-file)
- # Makefile for Kernel-based Virtual Machine module
- #
+diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
+index 954d398..7445473 100644
+--- a/arch/ia64/include/asm/unistd.h
++++ b/arch/ia64/include/asm/unistd.h
+@@ -315,11 +315,12 @@
+ #define __NR_fanotify_init		1323
+ #define __NR_fanotify_mark		1324
+ #define __NR_prlimit64			1325
++#define __NR_time_change_notify		1326
  
--EXTRA_CFLAGS += -Ivirt/kvm -Iarch/ia64/kvm/
--EXTRA_AFLAGS += -Ivirt/kvm -Iarch/ia64/kvm/
-+ccflags-y := -Ivirt/kvm -Iarch/ia64/kvm/
-+asflags-y := -Ivirt/kvm -Iarch/ia64/kvm/
+ #ifdef __KERNEL__
  
- common-objs = $(addprefix ../../../virt/kvm/, kvm_main.o ioapic.o \
- 		coalesced_mmio.o irq_comm.o assigned-dev.o)
-diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
-index 0591038..d27df1d 100644
---- a/arch/ia64/sn/kernel/Makefile
-+++ b/arch/ia64/sn/kernel/Makefile
-@@ -7,7 +7,7 @@
- # Copyright (C) 1999,2001-2006,2008 Silicon Graphics, Inc.  All Rights Reserved.
- #
  
--EXTRA_CFLAGS += -Iarch/ia64/sn/include
-+ccflags-y := -Iarch/ia64/sn/include
+-#define NR_syscalls			302 /* length of syscall table */
++#define NR_syscalls			303 /* length of syscall table */
  
- obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
- 				   huberror.o io_acpi_init.o io_common.o \
-diff --git a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
-index 08e6565..3d09108 100644
---- a/arch/ia64/sn/kernel/sn2/Makefile
-+++ b/arch/ia64/sn/kernel/sn2/Makefile
-@@ -9,7 +9,7 @@
- # sn2 specific kernel files
- #
+ /*
+  * The following defines stop scripts/checksyscalls.sh from complaining about
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index 244704a..48a5682 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1771,6 +1771,7 @@ sys_call_table:
+ 	data8 sys_fanotify_init
+ 	data8 sys_fanotify_mark
+ 	data8 sys_prlimit64			// 1325
++	data8 sys_time_change_notify
  
--EXTRA_CFLAGS += -Iarch/ia64/sn/include
-+ccflags-y := -Iarch/ia64/sn/include
- 
- obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
- 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
-diff --git a/arch/ia64/sn/pci/Makefile b/arch/ia64/sn/pci/Makefile
-index ad4ef34..df2a901 100644
---- a/arch/ia64/sn/pci/Makefile
-+++ b/arch/ia64/sn/pci/Makefile
-@@ -7,6 +7,6 @@
- #
- # Makefile for the sn pci general routines.
- 
--EXTRA_CFLAGS += -Iarch/ia64/sn/include
-+ccflags-y := -Iarch/ia64/sn/include
- 
- obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
-diff --git a/arch/ia64/sn/pci/pcibr/Makefile b/arch/ia64/sn/pci/pcibr/Makefile
-index 01192d3..396bcae 100644
---- a/arch/ia64/sn/pci/pcibr/Makefile
-+++ b/arch/ia64/sn/pci/pcibr/Makefile
-@@ -7,7 +7,7 @@
- #
- # Makefile for the sn2 io routines.
- 
--EXTRA_CFLAGS += -Iarch/ia64/sn/include
-+ccflags-y := -Iarch/ia64/sn/include
- 
- obj-y				+=  pcibr_dma.o pcibr_reg.o \
- 				    pcibr_ate.o pcibr_provider.o
-diff --git a/arch/ia64/uv/kernel/Makefile b/arch/ia64/uv/kernel/Makefile
-index 8d92b46..124e441 100644
---- a/arch/ia64/uv/kernel/Makefile
-+++ b/arch/ia64/uv/kernel/Makefile
-@@ -7,7 +7,7 @@
- # Copyright (C) 2008 Silicon Graphics, Inc.  All Rights Reserved.
- #
- 
--EXTRA_CFLAGS += -Iarch/ia64/sn/include
-+ccflags-y := -Iarch/ia64/sn/include
- 
- obj-y				+= setup.o
- obj-$(CONFIG_IA64_GENERIC)      += machvec.o
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+ #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
 -- 
-1.7.2.1
+1.7.2.1.45.gb66c2
 
