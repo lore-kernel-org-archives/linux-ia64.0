@@ -1,8 +1,10 @@
 From: "Western Union Money Transfer" <info@western.com>
-Date: Sun, 19 Sep 2010 13:27:32 +0000
+Date: Sun, 19 Sep 2010 13:28:52 +0000
 Subject: We have sent 9000.00 USD
-Message-Id: <54448.41.138.185.60.1284902852.squirrel@41.138.185.60>
+Message-Id: <54455.41.138.185.60.1284902932.squirrel@41.138.185.60>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <54448.41.138.185.60.1284902852.squirrel@41.138.185.60>
+In-Reply-To: <54448.41.138.185.60.1284902852.squirrel@41.138.185.60>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
