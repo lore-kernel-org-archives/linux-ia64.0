@@ -1,36 +1,105 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 07 Sep 2010 14:33:34 +0000
-Subject: [patch 24/30] ia64: salinfo: sema_init instead of init_MUTEX
-Message-Id: <20100907125056.990178973@linutronix.de>
+From: matt mooney <mfm@muteddisk.com>
+Date: Thu, 23 Sep 2010 06:50:29 +0000
+Subject: [PATCH 06/20] ia64: change to new flag variables
+Message-Id: <1285224629-29640-1-git-send-email-mfm@muteddisk.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100907124636.880953480@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Christoph Hellwig <hch@infradead.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Xiantao Zhang <xiantao.zhang@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>, Avi Kivity <avi@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
 
-Get rid of init_MUTEX[_LOCKED]() and use sema_init() instead.
+Replace EXTRA_CFLAGS with ccflags-y and EXTRA_AFLAGS with asflags-y.
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-
+Signed-off-by: matt mooney <mfm@muteddisk.com>
 ---
- arch/ia64/kernel/salinfo.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/kvm/Makefile           |    4 ++--
+ arch/ia64/sn/kernel/Makefile     |    2 +-
+ arch/ia64/sn/kernel/sn2/Makefile |    2 +-
+ arch/ia64/sn/pci/Makefile        |    2 +-
+ arch/ia64/sn/pci/pcibr/Makefile  |    2 +-
+ arch/ia64/uv/kernel/Makefile     |    2 +-
+ 6 files changed, 7 insertions(+), 7 deletions(-)
 
-Index: linux-2.6/arch/ia64/kernel/salinfo.c
-=================================--- linux-2.6.orig/arch/ia64/kernel/salinfo.c
-+++ linux-2.6/arch/ia64/kernel/salinfo.c
-@@ -642,7 +642,7 @@ salinfo_init(void)
- 	for (i = 0; i < ARRAY_SIZE(salinfo_log_name); i++) {
- 		data = salinfo_data + i;
- 		data->type = i;
--		init_MUTEX(&data->mutex);
-+		sema_init(&data->mutex, 1);
- 		dir = proc_mkdir(salinfo_log_name[i], salinfo_dir);
- 		if (!dir)
- 			continue;
-
+diff --git a/arch/ia64/kvm/Makefile b/arch/ia64/kvm/Makefile
+index 1089b3e..db3d7c5 100644
+--- a/arch/ia64/kvm/Makefile
++++ b/arch/ia64/kvm/Makefile
+@@ -45,8 +45,8 @@ FORCE : $(obj)/$(offsets-file)
+ # Makefile for Kernel-based Virtual Machine module
+ #
+ 
+-EXTRA_CFLAGS += -Ivirt/kvm -Iarch/ia64/kvm/
+-EXTRA_AFLAGS += -Ivirt/kvm -Iarch/ia64/kvm/
++ccflags-y := -Ivirt/kvm -Iarch/ia64/kvm/
++asflags-y := -Ivirt/kvm -Iarch/ia64/kvm/
+ 
+ common-objs = $(addprefix ../../../virt/kvm/, kvm_main.o ioapic.o \
+ 		coalesced_mmio.o irq_comm.o assigned-dev.o)
+diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
+index 0591038..d27df1d 100644
+--- a/arch/ia64/sn/kernel/Makefile
++++ b/arch/ia64/sn/kernel/Makefile
+@@ -7,7 +7,7 @@
+ # Copyright (C) 1999,2001-2006,2008 Silicon Graphics, Inc.  All Rights Reserved.
+ #
+ 
+-EXTRA_CFLAGS += -Iarch/ia64/sn/include
++ccflags-y := -Iarch/ia64/sn/include
+ 
+ obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
+ 				   huberror.o io_acpi_init.o io_common.o \
+diff --git a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
+index 08e6565..3d09108 100644
+--- a/arch/ia64/sn/kernel/sn2/Makefile
++++ b/arch/ia64/sn/kernel/sn2/Makefile
+@@ -9,7 +9,7 @@
+ # sn2 specific kernel files
+ #
+ 
+-EXTRA_CFLAGS += -Iarch/ia64/sn/include
++ccflags-y := -Iarch/ia64/sn/include
+ 
+ obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
+ 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
+diff --git a/arch/ia64/sn/pci/Makefile b/arch/ia64/sn/pci/Makefile
+index ad4ef34..df2a901 100644
+--- a/arch/ia64/sn/pci/Makefile
++++ b/arch/ia64/sn/pci/Makefile
+@@ -7,6 +7,6 @@
+ #
+ # Makefile for the sn pci general routines.
+ 
+-EXTRA_CFLAGS += -Iarch/ia64/sn/include
++ccflags-y := -Iarch/ia64/sn/include
+ 
+ obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
+diff --git a/arch/ia64/sn/pci/pcibr/Makefile b/arch/ia64/sn/pci/pcibr/Makefile
+index 01192d3..396bcae 100644
+--- a/arch/ia64/sn/pci/pcibr/Makefile
++++ b/arch/ia64/sn/pci/pcibr/Makefile
+@@ -7,7 +7,7 @@
+ #
+ # Makefile for the sn2 io routines.
+ 
+-EXTRA_CFLAGS += -Iarch/ia64/sn/include
++ccflags-y := -Iarch/ia64/sn/include
+ 
+ obj-y				+=  pcibr_dma.o pcibr_reg.o \
+ 				    pcibr_ate.o pcibr_provider.o
+diff --git a/arch/ia64/uv/kernel/Makefile b/arch/ia64/uv/kernel/Makefile
+index 8d92b46..124e441 100644
+--- a/arch/ia64/uv/kernel/Makefile
++++ b/arch/ia64/uv/kernel/Makefile
+@@ -7,7 +7,7 @@
+ # Copyright (C) 2008 Silicon Graphics, Inc.  All Rights Reserved.
+ #
+ 
+-EXTRA_CFLAGS += -Iarch/ia64/sn/include
++ccflags-y := -Iarch/ia64/sn/include
+ 
+ obj-y				+= setup.o
+ obj-$(CONFIG_IA64_GENERIC)      += machvec.o
+-- 
+1.7.2.1
 
