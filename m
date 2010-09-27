@@ -1,104 +1,43 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Mon, 27 Sep 2010 18:01:26 +0000
-Subject: Re: [RFC trollpatch 1/1] genirq: Remove the fits all and nothing
-Message-Id: <alpine.LFD.2.00.1009271953390.2416@localhost6.localdomain6>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="-1463795968-1703548383-1285610489=:2416"
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 27 Sep 2010 18:39:29 +0000
+Subject: RE: [RFC trollpatch 1/1] genirq: Remove the fits all and nothing
+Message-Id: <987664A83D2D224EAE907B061CE93D5301604712B4@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20100908152036.643594727@linutronix.de> <AANLkTikVHO9DmyTX==CwViDK1rP0masBwjMakHZ0U=kZ@mail.gmail.com>
-In-Reply-To: <AANLkTikVHO9DmyTX==CwViDK1rP0masBwjMakHZ0U=kZ@mail.gmail.com>
-To: Tony Luck <tony.luck@intel.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Christoph Hellwig <hch@infradead.org>, linux-alpha@vger.kernel.org, linux-cris-kernel@axis.com, Haavard Skinnemoen <hskinnemoen@atmel.com>, linux-ia64@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Hirokazu Takata <takata@linux-m32r.org>, Greg Ungerer <gerg@uclinux.org>, Jeff Dike <jdike@addtoit.com>, linux-parisc@vger.kernel.org, Chris Zankel <chris@zankel.net>, linux-arch@vger.kernel.org
+References: <20100908152036.643594727@linutronix.de>
+ <AANLkTikVHO9DmyTX==CwViDK1rP0masBwjMakHZ0U=kZ@mail.gmail.com>
+ <alpine.LFD.2.00.1009271953390.2416@localhost6.localdomain6>
+In-Reply-To: <alpine.LFD.2.00.1009271953390.2416@localhost6.localdomain6>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: LKML <linux-kernel@vger.kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <peterz@infradead.org>, Christoph Hellwig <hch@infradead.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-cris-kernel@axis.com" <linux-cris-kernel@axis.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Hirokazu Takata <takata@linux-m32r.org>, Greg Ungerer <gerg@uclinux.org>, Jeff Dike <jdike@addtoit.com>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, Chris Zankel <chris@zankel.net>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+> No, it's deliberate. The solution is to use the correct flow handler
+> for your device. We have currently several flow handlers implemented:
 
----1463795968-1703548383-1285610489=:2416
-Content-Type: TEXT/PLAIN; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Yes, I found the different "handle_*_irq()" functions. The _percpu_
+variant works fine for the ia64 per-cpu interrupt paths.
+
+But *NONE* of them call desc->chip->end() (even though the code flow
+in Documentation/DcoBook/genericirq.tmpl says that three of them do
+call it].  So it appears that this was thought to be necessary when
+the docs were written, but was not put into the code.
+
+The ia64 chip->end function for edge triggered interrupts is a nop(),
+so handle_edge_irq() ought to work just fine for it [can't confirm
+from my initial tests because the HP box I'm using only has level
+triggered ones].
+
+handle_level_irq() works for my level triggered interrupts if I add
+a "desc->chip->end(irq)" call to it.
+
+git grep "chip->end" appears to show that the only use of chip->end
+is in the "Recovery handler for misrouted interrupts": try_one_irq()
+
+At minimum we seem to have some documentation inconsistencies with
+the code.
+
+-Tony
 
 
-
-On Mon, 27 Sep 2010, Tony Luck wrote:
-
-> On Wed, Sep 8, 2010 at 11:14 AM, Thomas Gleixner <tglx@linutronix.de> wro=
-te:
-> > =A0The following architectures are still using __do_IRQ():
-> >
-> > =A0alpha, cris, ia64, h8300, m32r, m68knommu, parisc, um
->=20
-> Thomas,
->=20
-> I (belatedly) took a look at fixing ia64 ... but I've run into a small sn=
-ag.
-> The __do_IRQ() routine makes a call to:
->=20
->  desc->chip->end(irq);
->=20
-> while neither of the "handle_level_irq()" nor "handle_edge_irq()"
-> functions do this.
->=20
-> On ia64 iosapic_end_level_irq() call iosapic_eoi() for me. Without it
-> my system hangs during boot (with some driver timeout complaining
-> about dropped interrupts).
->=20
-> Is the omission of desc->chip->end(irq); deliberate? In which case
-> I need to find another place to call iosapic_eoi(). Or is it accidental?
-
-No, it's deliberate. The solution is to use the correct flow handler
-for your device. We have currently several flow handlers implemented:
-
-    handle_level_irq
-	{
-		if (chip->mask_ack)
-			chip->mask_ack()
-		else {
-		     chip->mask();
-		     if (chip->ack)
-		     	chip->ack();
-		}
-
-		....
-
-		chip->unmask();
-	}
-
-    handle_edge_irq
-	{
-		chip->ack()
-
-		...
-	}
-
-    handle_simple_irq
-	{
-		...
-	}
-
-    handle_fasteoi_irq
-	{
-		...
-		chip->eoi();
-	}
-
-    handle_percpu_irq
-	{=09
-		if (chip->ack)
-		     	chip->ack();
-	=09
-		if (chip->eoi)
-		     	chip->eoi();
-	}
-
-Note, that handle_percpu_irq does not take the irq_desc->lock.
-
-So the trick is to select the matching handler and have separate irq
-chip implementations if necessary.
-
-Hope that helps.
-
-Thanks,
-
-	tglx
-
----1463795968-1703548383-1285610489=:2416--
