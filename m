@@ -1,48 +1,40 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Sat, 30 Oct 2010 19:35:58 +0000
-Subject: [PATCH] IA64 perfmon: Change vmalloc to vzalloc and drop memset.
-Message-Id: <alpine.LNX.2.00.1010302131050.1572@swampdragon.chaosbits.net>
+From: Tony Luck <tony.luck@intel.com>
+Date: Fri, 01 Oct 2010 20:47:52 +0000
+Subject: Re: [PATCH] serial: ioc3_serial: release resources in error return path
+Message-Id: <AANLkTinGZEc7V1MH=xyhdKy5=Pg1NRC9xjVEuqBSWNFL@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1285735279-2952-1-git-send-email-rahul.ruikar@gmail.com>
+In-Reply-To: <1285735279-2952-1-git-send-email-rahul.ruikar@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Stephane Eranian <eranian@hpl.hp.com>, David Mosberger-Tang <davidm@hpl.hp.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Rahul Ruikar <rahul.ruikar@gmail.com>
+Cc: Pat Gefre <pfg@sgi.com>, Greg Kroah-Hartman <gregkh@suse.de>, Alan Cox <alan@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi,
+On Tue, Sep 28, 2010 at 9:41 PM, Rahul Ruikar <rahul.ruikar@gmail.com> wrot=
+e:
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out4;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out3;
 
-vzalloc() nicely zeroes memory for us, so we don't have to do a vmalloc() 
-and then manually memset() the returned memory when all we want is for it 
-to be zero. Patch changes this for pfm_rvmalloc().
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out4;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto out3;
 
+you changed *all* uses of out4 to out3, so with this patch I see:
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
-Untested patch since I have neither the hardware nor tools to even compile 
-this.
+drivers/serial/ioc3_serial.c:2152: warning: label =91out4=92 defined but no=
+t used
 
- perfmon.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+So I dropped the first hunks, and changed the last one to this:
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 39e534f..3aee09d 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -829,10 +829,9 @@ pfm_rvmalloc(unsigned long size)
- 	unsigned long addr;
- 
- 	size = PAGE_ALIGN(size);
--	mem  = vmalloc(size);
-+	mem  = vzalloc(size);
- 	if (mem) {
- 		//printk("perfmon: CPU%d pfm_rvmalloc(%ld)=%p\n", smp_processor_id(), size, mem);
--		memset(mem, 0, size);
- 		addr = (unsigned long)mem;
- 		while (size > 0) {
- 			pfm_reserve_page(addr);
+>   out4:
+> + =A0 =A0 =A0 for (cnt =3D 0; cnt < phys_port; cnt++)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree(ports[cnt]);
+> +
+> =A0 =A0 =A0 =A0kfree(card_ptr);
+> =A0 =A0 =A0 =A0return ret;
 
--- 
-Jesper Juhl <jj@chaosbits.net>             http://www.chaosbits.net/
-Plain text mails only, please      http://www.expita.com/nomime.html
-Don't top-post  http://www.catb.org/~esr/jargon/html/T/top-post.html
+Applied with this change.
 
+Thanks
+
+-Tony
