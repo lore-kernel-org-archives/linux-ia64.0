@@ -1,52 +1,30 @@
-From: Julia Lawall <julia@diku.dk>
-Date: Fri, 15 Oct 2010 12:54:48 +0000
-Subject: [PATCH 6/7] drivers/serial/ioc3_serial.c: Return -ENOMEM on memory allocation failure
-Message-Id: <1287147610-8041-6-git-send-email-julia@diku.dk>
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Fri, 15 Oct 2010 14:08:19 +0000
+Subject: Re: [PATCH 6/7] drivers/serial/ioc3_serial.c: Return -ENOMEM on
+Message-Id: <20101015140819.GA3163@linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1287147610-8041-6-git-send-email-julia@diku.dk>
+In-Reply-To: <1287147610-8041-6-git-send-email-julia@diku.dk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pat Gefre <pfg@sgi.com>
-Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <julia@diku.dk>
+Cc: Pat Gefre <pfg@sgi.com>, kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-kernel@vger.kernel.org
 
-From: Julia Lawall <julia@diku.dk>
+On Fri, Oct 15, 2010 at 03:00:09PM +0200, Julia Lawall wrote:
 
-In this code, 0 is returned on memory allocation failure, even though other
-failures return -ENOMEM or other similar values.
+> From: Julia Lawall <julia@diku.dk>
+> 
+> In this code, 0 is returned on memory allocation failure, even though other
+> failures return -ENOMEM or other similar values.
+> 
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
+Dunno why linux-mips rsp. myself keep receiving patches for the ioc3 serial
+driver - it's only being used on SGI IA64 machines.
 
-// <smpl>
-@@
-expression ret;
-expression x,e1,e2,e3;
-@@
+Either way, I'm willing to funnel this patch upstream - I'm building a
+pull rq for tonight anyway.
 
-ret = 0
-... when != ret = e1
-*x = \(kmalloc\|kcalloc\|kzalloc\)(...)
-... when != ret = e2
-if (x = NULL) { ... when != ret = e3
-  return ret;
-}
-// </smpl>
-
-Signed-off-by: Julia Lawall <julia@diku.dk>
-
----
- drivers/serial/ioc3_serial.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff -u -p a/drivers/serial/ioc3_serial.c b/drivers/serial/ioc3_serial.c
---- a/drivers/serial/ioc3_serial.c
-+++ b/drivers/serial/ioc3_serial.c
-@@ -2045,6 +2045,7 @@ ioc3uart_probe(struct ioc3_submodule *is
- 		if (!port) {
- 			printk(KERN_WARNING
- 			       "IOC3 serial memory not available for port\n");
-+			ret = -ENOMEM;
- 			goto out4;
- 		}
- 		spin_lock_init(&port->ip_lock);
-
+  Ralf
