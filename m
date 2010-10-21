@@ -1,27 +1,85 @@
-From: "Dr. Robert William" <pascale.vial@noos.fr>
-Date: Wed, 27 Oct 2010 00:45:49 +0000
-Subject: Yours Faithfully
-Message-Id: <ea-mime-4cc7763d-d40-48c4b280@webmail.numericable.fr>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 21 Oct 2010 16:00:24 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4cc06398282628127b@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ea-mime-4cc77341-611-6ac86778@webmail.numericable.fr>
-In-Reply-To: <ea-mime-4cc77341-611-6ac86778@webmail.numericable.fr>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: sparclinux@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Good News My Dear Friend,
- 
-I'm happy to inform you about my success in getting those funds transferred under the co-operation of a new partner from Paraguay. Presently i'm in Paraguay for investment projects with my own share of the total sum. meanwhile,i didn't forget your past efforts and attempts to assist me in transferring those funds despite that it failed us some how.
-Now contact my secretary in Benin Republic
+Hi Linus,
 
-His name is Mr. Timothy Adams
-Phone Number: +229 97373889
-Email:  timothyadams90@gmail.com
- 
-Please do let me know immediately you receive it so that we can share the joy after all the sufferings at that time. in the moment, I'm very busy here because of the investment projects which me and the new partner are having at hand, finally, remember that I had forwarded instruction to the secretary on your behalf to receive that money, so feel free to get in touch with Mr. Timothy Adams on timothyadams90@gmail.com, he will send the amount to you without any delay.
- 
-Yours Faithfully
-Dr Robert William
+please pull from:
 
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+
+This will update the files shown below.
+
+Peer with extra suspicion at the octo-merge since this is the first
+time I've used one of these to pull in all my topic branches.  I just
+ran:
+ $ git merge release drop_do_IRQ fix_early_irq misc-2.6.37 next-fixes optimize-unwind remove-compat-h stack_trace
+
+Thanks!
+
+-Tony
+
+ arch/ia64/Kconfig                   |   12 ++-
+ arch/ia64/include/asm/compat.h      |  208 -----------------------------------
+ arch/ia64/include/asm/hardirq.h     |   11 +-
+ arch/ia64/include/asm/iommu_table.h |    6 +
+ arch/ia64/kernel/Makefile           |    1 +
+ arch/ia64/kernel/cyclone.c          |    2 +-
+ arch/ia64/kernel/iosapic.c          |   60 ++---------
+ arch/ia64/kernel/irq_ia64.c         |    5 +
+ arch/ia64/kernel/mca.c              |   38 +++---
+ arch/ia64/kernel/palinfo.c          |    2 +-
+ arch/ia64/kernel/perfmon.c          |   12 +-
+ arch/ia64/kernel/salinfo.c          |    2 +-
+ arch/ia64/kernel/setup.c            |    4 -
+ arch/ia64/kernel/stacktrace.c       |   39 +++++++
+ arch/ia64/kernel/unwind.c           |   23 +++-
+ arch/ia64/xen/xen_pv_ops.c          |    5 +-
+ drivers/serial/ioc3_serial.c        |    4 +
+ 17 files changed, 128 insertions(+), 306 deletions(-)
+ delete mode 100644 arch/ia64/include/asm/compat.h
+ create mode 100644 arch/ia64/include/asm/iommu_table.h
+ create mode 100644 arch/ia64/kernel/stacktrace.c
+
+FUJITA Tomonori (1):
+      [IA64] enable ARCH_DMA_ADDR_T_64BIT
+
+Joe Perches (2):
+      [IA64] Use static const char * const in palinfo.c
+      [IA64] Remove unnecessary casts of private_data in perfmon.c
+
+Julia Lawall (1):
+      [IA64] Fix missing iounmap in error path in cyclone.c
+
+Konrad Rzeszutek Wilk (1):
+      [IA64] iommu: Add a dummy iommu_table.h file in IA64.
+
+Nikitas Angelinas (1):
+      [IA64] xen: use ARRAY_SIZE macro in xen_pv_ops.c
+
+Phil Carmody (2):
+      [IA64] unwind: remove preprocesser noise, and correct comment
+      [IA64] unwind - optimise linked-list searches for modules
+
+Rahul Ruikar (1):
+      [IA64] ioc3_serial: release resources in error return path
+
+Thomas Gleixner (1):
+      [IA64] salinfo: sema_init instead of init_MUTEX
+
+Tony Luck (6):
+      [IA64] Move local_softirq_pending() definition
+      [IA64] Add CONFIG_STACKTRACE_SUPPORT
+      [IA64] remove asm/compat.h
+      [IA64] Stop using the deprecated __do_IRQ() code path
+      [IA64] Initialize interrupts later (from init_IRQ())
+      [IA64] Cannot use register_percpu_irq() from ia64_mca_init()
 
