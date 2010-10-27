@@ -1,12 +1,14 @@
 From: "Dr. Robert William" <pascale.vial@noos.fr>
-Date: Wed, 27 Oct 2010 00:27:08 +0000
+Date: Wed, 27 Oct 2010 00:45:49 +0000
 Subject: Yours Faithfully
-Message-Id: <ea-mime-4cc771dc-35f-8596c7b@webmail.numericable.fr>
+Message-Id: <ea-mime-4cc7763d-d40-48c4b280@webmail.numericable.fr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <ea-mime-4cc77341-611-6ac86778@webmail.numericable.fr>
+In-Reply-To: <ea-mime-4cc77341-611-6ac86778@webmail.numericable.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: sparclinux@vger.kernel.org
 
 Good News My Dear Friend,
  
