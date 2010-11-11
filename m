@@ -1,24 +1,60 @@
-From: "WESTERN UNION PAYMENT" <westy@yahoo.com>
-Date: Fri, 26 Nov 2010 00:33:15 +0000
-Subject: Process your first payment of $ 5,000 USD
-Message-Id: <58744.192.168.0.1.1290731595.squirrel@email.tmk>
+From: Alexander Shishkin <virtuoso@slind.org>
+Date: Thu, 11 Nov 2010 19:29:59 +0000
+Subject: [PATCHv6 4/7] wire up sys_time_change_notify() on ia64
+Message-Id: <1289503802-22444-5-git-send-email-virtuoso@slind.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5476894FE987344B8530D70E318AB39721467DE5@vchexmbp15.vch.ca>
-In-Reply-To: <5476894FE987344B8530D70E318AB39721467DE5@vchexmbp15.vch.ca>
+References: <1289503802-22444-1-git-send-email-virtuoso@slind.org>
+In-Reply-To: <1289503802-22444-1-git-send-email-virtuoso@slind.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
+To: linux-kernel@vger.kernel.org
+Cc: John Stultz <johnstul@us.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, "H. Peter Anvin" <hpa@zytor.com>, Kay Sievers <kay.sievers@vrfy.org>, Greg KH <gregkh@suse.de>, Chris Friesen <chris.friesen@genband.com>, Linus Torvalds <torvalds@linux-foundation.org>, "Kirill A. Shutemov" <kirill@shutemov.name>, Thomas Gleixner <tglx@linutronix.de>, Alexander Shishkin <virtuoso@slind.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, David Howells <dhowells@redhat.com>, linux-ia64@vger.kernel.org
 
-I wish to inform you that we have Process your first payment of $ 5,000
-USD.To track payment use www.westernunion.com before going to pick  it up
-Sender Name: Raymond John, MTCN 577-735-0210,This funds was given to you
-by the United Nations With Ecowas to support individial due to the
-worldwide economy meltdown,your email was luckly picked among other.we are
-mandated to send you the total sum of 150,000USD through Western
-Union.send name, address, phone number for more information To email
-wupayoff2@rocketmail.com
+Signed-off-by: Alexander Shishkin <virtuoso@slind.org>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Arnaldo Carvalho de Melo <acme@redhat.com>
+CC: David Howells <dhowells@redhat.com>
+CC: Alexander Shishkin <virtuoso@slind.org>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+---
+ arch/ia64/include/asm/unistd.h |    3 ++-
+ arch/ia64/kernel/entry.S       |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-Regards
-Pastor Cole Jefferson.
+diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
+index 954d398..7445473 100644
+--- a/arch/ia64/include/asm/unistd.h
++++ b/arch/ia64/include/asm/unistd.h
+@@ -315,11 +315,12 @@
+ #define __NR_fanotify_init		1323
+ #define __NR_fanotify_mark		1324
+ #define __NR_prlimit64			1325
++#define __NR_time_change_notify		1326
+ 
+ #ifdef __KERNEL__
+ 
+ 
+-#define NR_syscalls			302 /* length of syscall table */
++#define NR_syscalls			303 /* length of syscall table */
+ 
+ /*
+  * The following defines stop scripts/checksyscalls.sh from complaining about
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index 244704a..48a5682 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1771,6 +1771,7 @@ sys_call_table:
+ 	data8 sys_fanotify_init
+ 	data8 sys_fanotify_mark
+ 	data8 sys_prlimit64			// 1325
++	data8 sys_time_change_notify
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+ #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
+-- 
+1.7.2.1.45.gb66c2
 
