@@ -1,60 +1,75 @@
-From: Alexander Shishkin <virtuoso@slind.org>
-Date: Thu, 11 Nov 2010 19:29:59 +0000
-Subject: [PATCHv6 4/7] wire up sys_time_change_notify() on ia64
-Message-Id: <1289503802-22444-5-git-send-email-virtuoso@slind.org>
+From: Toshiyuki Okajima <toshi.okajima@jp.fujitsu.com>
+Date: Mon, 22 Nov 2010 03:33:23 +0000
+Subject: [PATCH v2] ia64: fix comment bug of ia64_plt_template
+Message-Id: <20101122123323.8a848670.toshi.okajima@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1289503802-22444-1-git-send-email-virtuoso@slind.org>
-In-Reply-To: <1289503802-22444-1-git-send-email-virtuoso@slind.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: John Stultz <johnstul@us.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, "H. Peter Anvin" <hpa@zytor.com>, Kay Sievers <kay.sievers@vrfy.org>, Greg KH <gregkh@suse.de>, Chris Friesen <chris.friesen@genband.com>, Linus Torvalds <torvalds@linux-foundation.org>, "Kirill A. Shutemov" <kirill@shutemov.name>, Thomas Gleixner <tglx@linutronix.de>, Alexander Shishkin <virtuoso@slind.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, Arnaldo Carvalho de Melo <acme@redhat.com>, David Howells <dhowells@redhat.com>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Alexander Shishkin <virtuoso@slind.org>
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Arnaldo Carvalho de Melo <acme@redhat.com>
-CC: David Howells <dhowells@redhat.com>
-CC: Alexander Shishkin <virtuoso@slind.org>
-CC: linux-ia64@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
+Hi.
+
+I found another comment bug in the same source.
+Please fix it.
+
+-------------------------------------------------------------------
+From: Toshiyuki Okajima <toshi.okajima@jp.fujitsu.com>
+
+This is a patch which fixes a comment bug in arch/ia64/kernel/module.c:
+
+ 212 struct plt_entry {
+ 213         /* Three instruction bundles in PLT. */
+                ^^^^^
+ 214         unsigned char bundle[2][16];
+ 215 };
+ 216 
+ 217 static const struct plt_entry ia64_plt_template = {
+ 218         {
+ 219                 {
+ 220                         0x04, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0 */
+ 221                         0x00, 0x00, 0x00, 0x00, 0x00, 0x20, /*       movl gp=TARGET_GP */
+ 222                         0x00, 0x00, 0x00, 0x60
+ 223                 },
+ 224                 {
+ 225                         0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0 */
+ 226                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /* brl.many gp=TARGET_GP */
+                                                                             ^^^^^^^^^^^^
+ 227                         0x08, 0x00, 0x00, 0xc0
+ 228                 }
+ 229         }
+ 230 };
+
+The correct comment is: 
+/* Three instruction bundles in PLT. */ => /* Two instruction bundles in PLT. */
+/* brl.many gp=TARGET_GP */ => /* brl.many TARGET_IP */
+
+Signed-off-by: Toshiyuki Okajima <toshi.okajima@jp.fujitsu.com>
 ---
- arch/ia64/include/asm/unistd.h |    3 ++-
- arch/ia64/kernel/entry.S       |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/module.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
-index 954d398..7445473 100644
---- a/arch/ia64/include/asm/unistd.h
-+++ b/arch/ia64/include/asm/unistd.h
-@@ -315,11 +315,12 @@
- #define __NR_fanotify_init		1323
- #define __NR_fanotify_mark		1324
- #define __NR_prlimit64			1325
-+#define __NR_time_change_notify		1326
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 1481b0a..8b30b25 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -210,7 +210,7 @@ apply_imm21b (struct module *mod, struct insn *insn, uint64_t val)
+ #if USE_BRL
  
- #ifdef __KERNEL__
+ struct plt_entry {
+-	/* Three instruction bundles in PLT. */
++	/* Two instruction bundles in PLT. */
+  	unsigned char bundle[2][16];
+ };
  
- 
--#define NR_syscalls			302 /* length of syscall table */
-+#define NR_syscalls			303 /* length of syscall table */
- 
- /*
-  * The following defines stop scripts/checksyscalls.sh from complaining about
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index 244704a..48a5682 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1771,6 +1771,7 @@ sys_call_table:
- 	data8 sys_fanotify_init
- 	data8 sys_fanotify_mark
- 	data8 sys_prlimit64			// 1325
-+	data8 sys_time_change_notify
- 
- 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
- #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
+@@ -223,7 +223,7 @@ static const struct plt_entry ia64_plt_template = {
+ 		},
+ 		{
+ 			0x05, 0x00, 0x00, 0x00, 0x01, 0x00, /* [MLX] nop.m 0 */
+-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /*	     brl.many gp=TARGET_GP */
++			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, /*	     brl.many TARGET_IP */
+ 			0x08, 0x00, 0x00, 0xc0
+ 		}
+ 	}
 -- 
-1.7.2.1.45.gb66c2
-
+1.5.5.6
