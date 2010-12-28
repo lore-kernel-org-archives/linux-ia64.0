@@ -1,34 +1,53 @@
-From: Joe Perches <joe@perches.com>
-Date: Fri, 10 Dec 2010 07:16:55 +0000
-Subject: [PATCH 1/2] ia64: Remove unlikely from cpu_is_offline
-Message-Id: <c9efab4f338b1c630072c4b8aa5715dfdbb13533.1291965374.git.joe@perches.com>
+From: Dimitri Sivanich <sivanich@sgi.com>
+Date: Tue, 28 Dec 2010 19:34:42 +0000
+Subject: [PATCH] IA64: eliminate race condition in smp_flush_tlb_mm
+Message-Id: <20101228193442.GA28269@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-cpu_is_offline already uses unlikely internally.
+A race condition exists within smp_call_function_many() when called from
+smp_flush_tlb_mm().  On rare occasions the cpu_vm_mask can be cleared
+while smp_call_function_many is executing, occasionally resulting in a
+hung process.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Make a copy of the mask prior to calling smp_call_function_many().
+
+Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+
 ---
- arch/ia64/kernel/time.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/smp.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index ed6f22e..9702fa9 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -168,7 +168,7 @@ timer_interrupt (int irq, void *dev_id)
+Index: linux-2.6.36.2/arch/ia64/kernel/smp.c
+=================================--- linux-2.6.36.2.orig/arch/ia64/kernel/smp.c	2010-12-28 13:13:16.261122111 -0600
++++ linux-2.6.36.2/arch/ia64/kernel/smp.c	2010-12-28 13:30:17.504590090 -0600
+@@ -293,6 +293,7 @@ smp_flush_tlb_all (void)
+ void
+ smp_flush_tlb_mm (struct mm_struct *mm)
  {
- 	unsigned long new_itm;
- 
--	if (unlikely(cpu_is_offline(smp_processor_id()))) {
-+	if (cpu_is_offline(smp_processor_id())) {
- 		return IRQ_HANDLED;
++	cpumask_var_t cpus;
+ 	preempt_disable();
+ 	/* this happens for the common case of a single-threaded fork():  */
+ 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
+@@ -301,9 +302,15 @@ smp_flush_tlb_mm (struct mm_struct *mm)
+ 		preempt_enable();
+ 		return;
  	}
- 
--- 
-1.7.3.3.398.g0b0cd.dirty
-
+-
+-	smp_call_function_many(mm_cpumask(mm),
+-		(void (*)(void *))local_finish_flush_tlb_mm, mm, 1);
++	if (!alloc_cpumask_var(&cpus, GFP_ATOMIC)) {
++		smp_call_function((void (*)(void *))local_finish_flush_tlb_mm,
++			mm, 1);
++	} else {
++		cpumask_copy(cpus, mm_cpumask(mm));
++		smp_call_function_many(cpus,
++			(void (*)(void *))local_finish_flush_tlb_mm, mm, 1);
++		free_cpumask_var(cpus);
++	}
+ 	local_irq_disable();
+ 	local_finish_flush_tlb_mm(mm);
+ 	local_irq_enable();
