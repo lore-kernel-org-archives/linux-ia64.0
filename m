@@ -1,30 +1,22 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 14 Jan 2011 19:33:19 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4d30a4ff4561d5a6a@agluck-desktop.sc.intel.com>
+Date: Mon, 03 Jan 2011 18:18:22 +0000
+Subject: RE: ia64 lockdep patch prepared for linux 2.6.38
+Message-Id: <987664A83D2D224EAE907B061CE93D530193EF8F1B@orsmsx505.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+References: <AANLkTimJ3au7G+kUA1CjPxzySGnuaPRVJgssjbXSeSu+@mail.gmail.com>
+In-Reply-To: <AANLkTimJ3au7G+kUA1CjPxzySGnuaPRVJgssjbXSeSu+@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+> if you can get the patch merged into your test branch
 
-please pull from:
+My test branch is pulled into each linux-next build ... and there
+are some generic changes at the end of your patch that I don't
+understand - but they look like they will affect other architectures.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
-
-This will update the files shown below.
-
-Thanks!
+What are INIT_{SOFT,HARD}_IRQFLAGS for? Why do we need to add them
+for ia64?
 
 -Tony
-
- arch/ia64/include/asm/page.h |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
-
-Andrea Arcangeli (1):
-      [IA64] fix ia64 build failure in pmdp_get_and_clear
-
