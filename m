@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 13 Jan 2011 18:08:42 +0000
+Date: Thu, 13 Jan 2011 23:10:45 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <4d2f3faa32159c7823@agluck-desktop.sc.intel.com>
+Message-Id: <4d2f8675118271801@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,9 +22,9 @@ Thanks!
 
 -Tony
 
- arch/ia64/kernel/acpi.c |    2 +-
+ arch/ia64/kernel/perfmon.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 Tony Luck (1):
-      [IA64] Fix format warning in arch/ia64/kernel/acpi.c
+      [IA64] fix build error - arch/ia64/kernel/perfmon.c
 
