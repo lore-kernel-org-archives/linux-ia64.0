@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 13 Jan 2011 23:10:45 +0000
+Date: Fri, 14 Jan 2011 19:33:19 +0000
 Subject: [git pull] ia64 changes
-Message-Id: <4d2f8675118271801@agluck-desktop.sc.intel.com>
+Message-Id: <4d30a4ff4561d5a6a@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
@@ -22,9 +22,9 @@ Thanks!
 
 -Tony
 
- arch/ia64/kernel/perfmon.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/include/asm/page.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-Tony Luck (1):
-      [IA64] fix build error - arch/ia64/kernel/perfmon.c
+Andrea Arcangeli (1):
+      [IA64] fix ia64 build failure in pmdp_get_and_clear
 
