@@ -1,27 +1,24 @@
-From: "Ian Davies" <iandavies198@gmail.com>
-Date: Thu, 24 Feb 2011 19:14:15 +0000
-Subject: Please i wait to hear from you urgently, it very important
-Message-Id: <20110224200930.B5F185E000D@mail.dumlupinar.edu.tr>
+From: "Jan Beulich" <JBeulich@novell.com>
+Date: Tue, 22 Feb 2011 08:26:59 +0000
+Subject: [PATCH, v2 0/3] generalize exception table implementation to
+Message-Id: <4D6381630200007800033136@vpn.id2.novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
+To: mingo@elte.hu, tony.luck@intel.com, tglx@linutronix.de, hpa@zytor.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-I am Ian Davies ;an accredited vendor of Alliot Groups, a subsidiary firm of Emirates International Holding (EIH); A private equity funds holding company that focuses on hedge funds.
+This will allow x86-64 to shrink its exception tables by half, and ia64 to
+drop its custom implementation.
 
-I have contacted you in the hope that you can be my associate by accepting to stand as the legal recipient to a Fixed-Income deposit, valued at 25MUSD by provind an International Offshore account to clear the funds.
+v2: Adjust arch/x86/kernel/test_nx.c (leading to some tests no longer
+    getting run on x86-64) and indent some pre-processor directives in
+    patch #2.
 
-Once I file your details as the new recipient to the funds, the fundswill be approved through the AUTOMATED CLEARING HOUSE (ACH) - A facility used by financial institutions to distribute electronic debit and credit entries to bank accounts and therefore settles such entries. Under the automated clearing house system. 
+1/3: x86-64: use macros to generate exception table entries
+2/3: x86-64: use relative 32-bit pointers in exception tables
+3/3: ia64: drop custom exception table implementation
 
-
-upon approval of your details  as the new recipient; a Credit advice will be issued in your favor and the funds will clear in your account within three banking days. I am willing to give you 40% which is 10MUSD as your commission out of the 25MUSD for your assistance in providing an International Offshore account to clear the funds.
-
-
-I am confident you will be honest enough to adhere to our agreed commissions in spite of the 25MUSD coming through your account. I will need you to forward me your legal names address and phone to file your details on the fund as the new recipient in this first Quater of the financial fiscal year 2011.
-
-Looking forward to working with you.
-Ian Davies
-Accredited vendor
-Alliot Groups PS
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
