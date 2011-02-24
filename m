@@ -1,35 +1,45 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Date: Fri, 25 Feb 2011 07:07:05 +0000
-Subject: [PATCH V3 02/21]arch:ia64:setup.c remove one to many l's in the word.
-Message-Id: <1298617625-6227-1-git-send-email-justinmattock@gmail.com>
+From: Jeff Mahoney <jeffm@suse.com>
+Date: Thu, 24 Feb 2011 22:23:09 +0000
+Subject: [PATCH] ia64/mca: Fix cast from integer to pointer warning
+Message-Id: <4D66DA4D.4020609@suse.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: trivial@kernel.org
-Cc: jes@sgi.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, joe@perches.com, hans.boehm@hp.com, "Justin P. Mattock" <justinmattock@gmail.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-The patch below removes an extra "l" in the word.
+ ia64_mca_cpu_init has a void *data local variable that is assigned
+ the value from either __get_free_pages() or mca_bootmem(). The problem
+ is that __get_free_pages returns an unsigned long and mca_bootmem, via
+ alloc_bootmem(), returns a void *. format_mca_init_stack takes the void *,
+ and it's also used with __pa(), but that casts it to long anyway.
 
-Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+ This results in the following build warning:
 
+ arch/ia64/kernel/mca.c:1898: warning: assignment makes pointer from
+ integer without a cast
+
+ This patch casts the return of __get_free_pages to a void * to avoid
+ the warning.
+
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
 ---
- arch/ia64/sn/kernel/setup.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/mca.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
-index dbc4cbe..77db0b5 100644
---- a/arch/ia64/sn/kernel/setup.c
-+++ b/arch/ia64/sn/kernel/setup.c
-@@ -592,7 +592,7 @@ void __cpuinit sn_cpu_init(void)
- 	/*
- 	 * Don't check status. The SAL call is not supported on all PROMs
- 	 * but a failure is harmless.
--	 * Architechtuallly, cpu_init is always called twice on cpu 0. We
-+	 * Architecturally, cpu_init is always called twice on cpu 0. We
- 	 * should set cpu_number on cpu 0 once.
- 	 */
- 	if (cpuid = 0) {
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1859,7 +1859,8 @@ ia64_mca_cpu_init(void *cpu_data)
+ 			data = mca_bootmem();
+ 			first_time = 0;
+ 		} else
+-			data = __get_free_pages(GFP_KERNEL, get_order(sz));
++			data = (void *)__get_free_pages(GFP_KERNEL,
++							get_order(sz));
+ 		if (!data)
+ 			panic("Could not allocate MCA memory for cpu %d\n",
+ 					cpu);
 -- 
-1.7.4.1
-
+Jeff Mahoney
+SUSE Labs
