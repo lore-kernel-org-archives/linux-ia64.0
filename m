@@ -1,32 +1,34 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Wed, 30 Mar 2011 09:51:44 +0000
-Subject: Re: [patch 12/23] ia64: sn: Drop unused function
-Message-Id: <alpine.LFD.2.00.1103301149220.22418@localhost6.localdomain6>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 24 Mar 2011 16:29:44 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4d8b71781902177d76@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20110325204515.641974350@linutronix.de>
-In-Reply-To: <20110325204515.641974350@linutronix.de>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, 29 Mar 2011, Tony Luck wrote:
+Hi Linus,
 
-> On Fri, Mar 25, 2011 at 1:51 PM, Thomas Gleixner <tglx@linutronix.de> wrote:
-> > Leftover from the irq chip conversion.
-> ...
-> > -int sn_force_interrupt_flag = 1;
-> 
-> This seems to be still used ... 2.6.39-rc1 fails to build with:
-> 
-> arch/ia64/sn/built-in.o: In function 'sn_force_interrupt_show':
-> sn_proc_fs.c:(.text+0xdc21): undefined reference to 'sn_force_interrupt_flag'
+please pull from:
 
-Hmpf. Missed that as well. So probably that code in sn_proc_fs should
-be fixed as well, right ?
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
-Thanks,
+This will update the files shown below.
 
-	tglx
+Thanks!
 
+-Tony
+
+ arch/ia64/include/asm/unistd.h |    6 +++++-
+ arch/ia64/kernel/entry.S       |    4 ++++
+ fs/pstore/platform.c           |   15 ++++++++++++---
+ 3 files changed, 21 insertions(+), 4 deletions(-)
+
+Tony Luck (2):
+      [IA64] New syscalls for 2.6.39
+      pstore: cleanups to pstore_dump()
 
