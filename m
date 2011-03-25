@@ -1,62 +1,60 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:51:55 +0000
-Subject: [patch 10/23] ia64: Convert lsapic to new irq_chip functions
-Message-Id: <20110325204515.450958280@linutronix.de>
+Date: Fri, 25 Mar 2011 20:52:03 +0000
+Subject: [patch 21/23] ia64: Provide and use a __irq_is_enabled() helper
+Message-Id: <20110325204516.506729641@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Remove the last open coded access to irq_desc.
+
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/kernel/irq_lsapic.c |   22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ arch/ia64/kernel/irq.c    |    2 +-
+ arch/ia64/sn/kernel/irq.c |    2 +-
+ include/linux/irqdesc.h   |    7 +++++++
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/kernel/irq_lsapic.c
-=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq_lsapic.c
-+++ linux-2.6-tip/arch/ia64/kernel/irq_lsapic.c
-@@ -15,30 +15,30 @@
- #include <linux/irq.h>
+Index: linux-2.6-tip/arch/ia64/kernel/irq.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/kernel/irq.c
+@@ -137,7 +137,7 @@ static void migrate_irqs(void)
+ 		struct irq_data *data = irq_desc_get_irq_data(desc);
+ 		struct irq_chip *chip = irq_data_get_irq_chip(data);
  
- static unsigned int
--lsapic_noop_startup (unsigned int irq)
-+lsapic_noop_startup (struct irq_data *data)
- {
- 	return 0;
+-		if (desc->status = IRQ_DISABLED)
++		if (!__irq_is_enabled(irq))
+ 			continue;
+ 
+ 		/*
+Index: linux-2.6-tip/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/sn/kernel/irq.c
+@@ -412,7 +412,7 @@ sn_call_force_intr_provider(struct sn_ir
+ 	pci_provider = sn_pci_provider[sn_irq_info->irq_bridge_type];
+ 
+ 	/* Don't force an interrupt if the irq has been disabled */
+-	if (!(irq_desc[sn_irq_info->irq_irq].status & IRQ_DISABLED) &&
++	if (__irq_is_enabled(sn_irq_info->irq_irq) &&
+ 	    pci_provider && pci_provider->force_interrupt)
+ 		(*pci_provider->force_interrupt)(sn_irq_info);
  }
+Index: linux-2.6-tip/include/linux/irqdesc.h
+=================================--- linux-2.6-tip.orig/include/linux/irqdesc.h
++++ linux-2.6-tip/include/linux/irqdesc.h
+@@ -231,4 +231,11 @@ __irq_set_preflow_handler(unsigned int i
+ #endif
+ #endif
  
- static void
--lsapic_noop (unsigned int irq)
-+lsapic_noop (struct irq_data *data)
- {
- 	/* nothing to do... */
- }
- 
--static int lsapic_retrigger(unsigned int irq)
-+static int lsapic_retrigger(struct irq_data *data)
- {
--	ia64_resend_irq(irq);
-+	ia64_resend_irq(data->irq);
- 
- 	return 1;
- }
- 
- struct irq_chip irq_type_ia64_lsapic = {
--	.name =		"LSAPIC",
--	.startup =	lsapic_noop_startup,
--	.shutdown =	lsapic_noop,
--	.enable =	lsapic_noop,
--	.disable =	lsapic_noop,
--	.ack =		lsapic_noop,
--	.retrigger =	lsapic_retrigger,
-+	.name =			"LSAPIC",
-+	.irq_startup =		lsapic_noop_startup,
-+	.irq_shutdown =		lsapic_noop,
-+	.irq_enable =		lsapic_noop,
-+	.irq_disable =		lsapic_noop,
-+	.irq_ack =		lsapic_noop,
-+	.irq_retrigger =	lsapic_retrigger,
- };
++static inline bool __irq_is_enabled(unsigned int irq)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++
++	return desc && !desc->depth;
++}
++
+ #endif
 
 
