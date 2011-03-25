@@ -1,118 +1,100 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:51:57 +0000
-Subject: [patch 13/23] ia64: iosapic: Cleanup irq_desc access
-Message-Id: <20110325204515.734357943@linutronix.de>
+Date: Fri, 25 Mar 2011 20:52:04 +0000
+Subject: [patch 23/23] ia64: Convert to the new irq_* function names
+Message-Id: <20110325204516.711107875@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use irq_to_desc() and use accessors for setting chip and handler.
+Scripted with coccinelle.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/kernel/iosapic.c |   32 +++++++++++++++-----------------
- 1 file changed, 15 insertions(+), 17 deletions(-)
+ arch/ia64/hp/sim/hpsim_irq.c |    4 ++--
+ arch/ia64/kernel/irq_ia64.c  |    4 ++--
+ arch/ia64/kernel/msi_ia64.c  |    8 ++++----
+ arch/ia64/sn/kernel/msi_sn.c |    4 ++--
+ 4 files changed, 10 insertions(+), 10 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/kernel/iosapic.c
-=================================--- linux-2.6-tip.orig/arch/ia64/kernel/iosapic.c
-+++ linux-2.6-tip/arch/ia64/kernel/iosapic.c
-@@ -566,8 +566,7 @@ static int
- register_intr (unsigned int gsi, int irq, unsigned char delivery,
- 	       unsigned long polarity, unsigned long trigger)
- {
--	struct irq_desc *idesc;
--	struct irq_chip *irq_type;
-+	struct irq_chip *chip, *irq_type;
- 	int index;
- 	struct iosapic_rte_info *rte;
+Index: linux-2.6-tip/arch/ia64/hp/sim/hpsim_irq.c
+=================================--- linux-2.6-tip.orig/arch/ia64/hp/sim/hpsim_irq.c
++++ linux-2.6-tip/arch/ia64/hp/sim/hpsim_irq.c
+@@ -43,9 +43,9 @@ hpsim_irq_init (void)
+ 	int i;
  
-@@ -614,19 +613,18 @@ register_intr (unsigned int gsi, int irq
+ 	for_each_active_irq(i) {
+-		struct irq_chip *chip = get_irq_chip(i);
++		struct irq_chip *chip = irq_get_chip(i);
  
- 	irq_type = iosapic_get_irq_chip(trigger);
- 
--	idesc = irq_desc + irq;
--	if (irq_type != NULL && idesc->chip != irq_type) {
--		if (idesc->chip != &no_irq_chip)
-+	chip = irq_get_chip(irq);
-+	if (irq_type != NULL && chip != irq_type) {
-+		if (chip != &no_irq_chip)
- 			printk(KERN_WARNING
- 			       "%s: changing vector %d from %s to %s\n",
- 			       __func__, irq_to_vector(irq),
--			       idesc->chip->name, irq_type->name);
--		idesc->chip = irq_type;
-+			       chip->name, irq_type->name);
-+		chip = irq_type;
+ 		if (chip = &no_irq_chip)
+-			set_irq_chip(i, &irq_type_hp_sim);
++			irq_set_chip(i, &irq_type_hp_sim);
  	}
--	if (trigger = IOSAPIC_EDGE)
--		__set_irq_handler_unlocked(irq, handle_edge_irq);
--	else
--		__set_irq_handler_unlocked(irq, handle_level_irq);
-+	__irq_set_chip_handler_name_locked(irq, chip, trigger = IOSAPIC_EDGE ?
-+					   handle_edge_irq : handle_level_irq,
-+					   NULL);
- 	return 0;
+ }
+Index: linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq_ia64.c
++++ linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
+@@ -631,10 +631,10 @@ ia64_native_register_percpu_irq (ia64_ve
+ 	irq = vec;
+ 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
+ 	irq_set_status_flags(irq, IRQ_PER_CPU);
+-	set_irq_chip(irq, &irq_type_ia64_lsapic);
++	irq_set_chip(irq, &irq_type_ia64_lsapic);
+ 	if (action)
+ 		setup_irq(irq, action);
+-	set_irq_handler(irq, handle_percpu_irq);
++	irq_set_handler(irq, handle_percpu_irq);
  }
  
-@@ -736,6 +734,7 @@ iosapic_register_intr (unsigned int gsi,
- 	struct iosapic_rte_info *rte;
- 	u32 low32;
- 	unsigned char dmode;
-+	struct irq_desc *desc;
+ void __init
+Index: linux-2.6-tip/arch/ia64/kernel/msi_ia64.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/msi_ia64.c
++++ linux-2.6-tip/arch/ia64/kernel/msi_ia64.c
+@@ -56,7 +56,7 @@ int ia64_setup_msi_irq(struct pci_dev *p
+ 	if (irq < 0)
+ 		return irq;
  
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
-@@ -763,12 +762,13 @@ iosapic_register_intr (unsigned int gsi,
- 			goto unlock_iosapic_lock;
- 	}
+-	set_irq_msi(irq, desc);
++	irq_set_msi_desc(irq, desc);
+ 	cpus_and(mask, irq_to_domain(irq), cpu_online_map);
+ 	dest_phys_id = cpu_physical_id(first_cpu(mask));
+ 	vector = irq_to_vector(irq);
+@@ -75,7 +75,7 @@ int ia64_setup_msi_irq(struct pci_dev *p
+ 		MSI_DATA_VECTOR(vector);
  
--	raw_spin_lock(&irq_desc[irq].lock);
-+	desc = irq_to_desc(irq);
-+	raw_spin_lock(&desc->lock);
- 	dest = get_target_cpu(gsi, irq);
- 	dmode = choose_dmode();
- 	err = register_intr(gsi, irq, dmode, polarity, trigger);
- 	if (err < 0) {
--		raw_spin_unlock(&irq_desc[irq].lock);
-+		raw_spin_unlock(&desc->lock);
- 		irq = err;
- 		goto unlock_iosapic_lock;
- 	}
-@@ -787,7 +787,7 @@ iosapic_register_intr (unsigned int gsi,
- 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       cpu_logical_id(dest), dest, irq_to_vector(irq));
+ 	write_msi_msg(irq, &msg);
+-	set_irq_chip_and_handler(irq, &ia64_msi_chip, handle_edge_irq);
++	irq_set_chip_and_handler(irq, &ia64_msi_chip, handle_edge_irq);
  
--	raw_spin_unlock(&irq_desc[irq].lock);
-+	raw_spin_unlock(&desc->lock);
-  unlock_iosapic_lock:
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- 	return irq;
-@@ -798,7 +798,6 @@ iosapic_unregister_intr (unsigned int gs
- {
- 	unsigned long flags;
- 	int irq, index;
--	struct irq_desc *idesc;
- 	u32 low32;
- 	unsigned long trigger, polarity;
- 	unsigned int dest;
-@@ -828,7 +827,6 @@ iosapic_unregister_intr (unsigned int gs
- 	if (--rte->refcnt > 0)
- 		goto out;
+ 	return 0;
+ }
+@@ -206,8 +206,8 @@ int arch_setup_dmar_msi(unsigned int irq
+ 	if (ret < 0)
+ 		return ret;
+ 	dmar_msi_write(irq, &msg);
+-	set_irq_chip_and_handler_name(irq, &dmar_msi_type, handle_edge_irq,
+-		"edge");
++	irq_set_chip_and_handler_name(irq, &dmar_msi_type, handle_edge_irq,
++				      "edge");
+ 	return 0;
+ }
+ #endif /* CONFIG_DMAR */
+Index: linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
+=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/msi_sn.c
++++ linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
+@@ -144,9 +144,9 @@ int sn_setup_msi_irq(struct pci_dev *pde
+ 	 */
+ 	msg.data = 0x100 + irq;
  
--	idesc = irq_desc + irq;
- 	rte->refcnt = NO_REF_RTE;
+-	set_irq_msi(irq, entry);
++	irq_set_msi_desc(irq, entry);
+ 	write_msi_msg(irq, &msg);
+-	set_irq_chip_and_handler(irq, &sn_msi_chip, handle_edge_irq);
++	irq_set_chip_and_handler(irq, &sn_msi_chip, handle_edge_irq);
  
- 	/* Mask the interrupt */
-@@ -852,7 +850,7 @@ iosapic_unregister_intr (unsigned int gs
- 	if (iosapic_intr_info[irq].count = 0) {
- #ifdef CONFIG_SMP
- 		/* Clear affinity */
--		cpumask_setall(idesc->affinity);
-+		cpumask_setall(irq_get_irq_data(irq)->affinity);
- #endif
- 		/* Clear the interrupt information */
- 		iosapic_intr_info[irq].dest = 0;
+ 	return 0;
+ }
 
 
