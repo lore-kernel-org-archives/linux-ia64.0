@@ -1,44 +1,71 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:52:00 +0000
-Subject: [patch 18/23] ia64: sn: Use irq_move_irq()
-Message-Id: <20110325204516.214699402@linutronix.de>
+Date: Fri, 25 Mar 2011 20:52:04 +0000
+Subject: [patch 22/23] ia64-use-show.patch
+Message-Id: <20110325204516.603298625@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
-
-This replaces the old move_native_irq() function which is going away.
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/sn/kernel/irq.c    |    2 +-
- arch/ia64/sn/kernel/msi_sn.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/irq.c |   42 ++----------------------------------------
+ 1 file changed, 2 insertions(+), 40 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/irq.c
-+++ linux-2.6-tip/arch/ia64/sn/kernel/irq.c
-@@ -110,7 +110,7 @@ static void sn_ack_irq(struct irq_data *
- 	HUB_S((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED_ALIAS), mask);
- 	__set_bit(irq, (volatile void *)pda->sn_in_service_ivecs);
- 
--	move_native_irq(irq);
-+	irq_move_irq(data);
- }
- 
- static void sn_irq_info_free(struct rcu_head *head);
-Index: linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
-=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/msi_sn.c
-+++ linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
-@@ -214,7 +214,7 @@ static int sn_set_msi_irq_affinity(struc
- 
- static void sn_ack_msi_irq(struct irq_data *data)
+Index: linux-2.6-tip/arch/ia64/kernel/irq.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/kernel/irq.c
+@@ -53,47 +53,9 @@ atomic_t irq_err_count;
+ /*
+  * /proc/interrupts printing:
+  */
+-
+-int show_interrupts(struct seq_file *p, void *v)
++int arch_show_interrupts(struct seq_file *p, int prec)
  {
--	move_native_irq(data->irq);
-+	irq_move_irq(data);
- 	ia64_eoi();
+-	int i =3D *(loff_t *) v, j;
+-	struct irqaction * action;
+-	unsigned long flags;
+-
+-	if (i =3D 0) {
+-		char cpuname[16];
+-		seq_printf(p, "     ");
+-		for_each_online_cpu(j) {
+-			snprintf(cpuname, 10, "CPU%d", j);
+-			seq_printf(p, "%10s ", cpuname);
+-		}
+-		seq_putc(p, '\n');
+-	}
+-
+-	if (i < NR_IRQS) {
+-		raw_spin_lock_irqsave(&irq_desc[i].lock, flags);
+-		action =3D irq_desc[i].action;
+-		if (!action)
+-			goto skip;
+-		seq_printf(p, "%3d: ",i);
+-#ifndef CONFIG_SMP
+-		seq_printf(p, "%10u ", kstat_irqs(i));
+-#else
+-		for_each_online_cpu(j) {
+-			seq_printf(p, "%10u ", kstat_irqs_cpu(i, j));
+-		}
+-#endif
+-		seq_printf(p, " %14s", irq_desc[i].chip->name);
+-		seq_printf(p, "  %s", action->name);
+-
+-		for (action=ACtion->next; action; action =3D action->next)
+-			seq_printf(p, ", %s", action->name);
+-
+-		seq_putc(p, '\n');
+-skip:
+-		raw_spin_unlock_irqrestore(&irq_desc[i].lock, flags);
+-	} else if (i =3D NR_IRQS)
+-		seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
++	seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
+ 	return 0;
  }
- 
+=20
 
 
