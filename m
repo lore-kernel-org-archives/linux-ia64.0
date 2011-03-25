@@ -1,73 +1,103 @@
-From: Prasad Joshi <prasadjoshi124@gmail.com>
-Date: Fri, 18 Mar 2011 19:41:35 +0000
-Subject: [RFC][PATCH v3 00/22] __vmalloc: Propagating GFP allocation flag
-Message-Id: <20110318194135.GA4746@prasad-kvm>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 25 Mar 2011 20:51:58 +0000
+Subject: [patch 15/23] ia64: Use accessor functions all over the place
+Message-Id: <20110325204515.928705077@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, prasadjoshi124@gmail.com, mitra@kqinfotech.com
-Cc: chris@zankel.net, x86@kernel.org, jdike@addtoit.com, tj@kernel.org, cmetcalf@tilera.com, linux-sh@vger.kernel.org, liqin.chen@sunplusct.com, lennox.wu@gmail.com, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, linux390@de.ibm.com, benh@kernel.crashing.org, paulus@samba.org, linuxppc-dev@lists.ozlabs.org, kyle@mcmartin.ca, deller@gmx.de, jejb@parisc-linux.org, linux-parisc@vger.kernel.org, dhowells@redhat.com, yasutake.koichi@jp.panasonic.com, linux-am33-list@redhat.com, ralf@linux-mips.org, linux-mips@linux-mips.org, monstr@monstr.eu, microblaze-uclinux@itee.uq.edu.au, geert@linux-m68k.org, zippel@linux-m68k.org, sammy@sammy.net, linux-m68k@lists.linux-m68k.org, takata@linux-m32r.org, linux-m32r@ml.linux-m32r.org, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, starvik@axis.com, jesper.nilsson@axis.com, linux-cris-kernel@axis.com, hans-christ
+To: linux-ia64@vger.kernel.org
 
-A filesystem might run into a problem while calling __vmalloc(GFP_NOFS)
-inside a lock.
+Use the proper accessor functions instead of open coded irq_desc access.
 
-It is expected than __vmalloc when called with GFP_NOFS should not
-callback the filesystem code even incase of the increased memory
-pressure. But the problem is that even if we pass this flag, __vmalloc
-itself allocates memory with GFP_KERNEL.
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ arch/ia64/kernel/irq.c      |    2 +-
+ arch/ia64/kernel/irq_ia64.c |    6 ++----
+ arch/ia64/kernel/mca.c      |    4 +---
+ arch/ia64/sn/kernel/irq.c   |    6 ++----
+ 4 files changed, 6 insertions(+), 12 deletions(-)
 
-Using GFP_KERNEL allocations may go into the memory reclaim path and try
-to free memory by calling file system evict_inode function. Which might
-lead into deadlock.
+Index: linux-2.6-tip/arch/ia64/kernel/irq.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/kernel/irq.c
+@@ -103,7 +103,7 @@ static char irq_redir [NR_IRQS]; // = { 
+ void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
+ {
+ 	if (irq < NR_IRQS) {
+-		cpumask_copy(irq_desc[irq].affinity,
++		cpumask_copy(irq_get_irq_data(irq)->affinity,
+ 			     cpumask_of(cpu_logical_id(hwid)));
+ 		irq_redir[irq] = (char) (redir & 0xff);
+ 	}
+Index: linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq_ia64.c
++++ linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
+@@ -343,7 +343,7 @@ static irqreturn_t smp_irq_move_cleanup_
+ 		if (irq < 0)
+ 			continue;
+ 
+-		desc = irq_desc + irq;
++		desc = irq_to_desc(irq);
+ 		cfg = irq_cfg + irq;
+ 		raw_spin_lock(&desc->lock);
+ 		if (!cfg->move_cleanup_count)
+@@ -626,13 +626,11 @@ static struct irqaction tlb_irqaction = 
+ void
+ ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ {
+-	struct irq_desc *desc;
+ 	unsigned int irq;
+ 
+ 	irq = vec;
+ 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
+-	desc = irq_desc + irq;
+-	desc->status |= IRQ_PER_CPU;
++	irq_set_status_flags(irq, IRQ_PER_CPU);
+ 	set_irq_chip(irq, &irq_type_ia64_lsapic);
+ 	if (action)
+ 		setup_irq(irq, action);
+Index: linux-2.6-tip/arch/ia64/kernel/mca.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/mca.c
++++ linux-2.6-tip/arch/ia64/kernel/mca.c
+@@ -2125,7 +2125,6 @@ ia64_mca_late_init(void)
+ 	cpe_poll_timer.function = ia64_mca_cpe_poll;
+ 
+ 	{
+-		struct irq_desc *desc;
+ 		unsigned int irq;
+ 
+ 		if (cpe_vector >= 0) {
+@@ -2133,8 +2132,7 @@ ia64_mca_late_init(void)
+ 			irq = local_vector_to_irq(cpe_vector);
+ 			if (irq > 0) {
+ 				cpe_poll_enabled = 0;
+-				desc = irq_desc + irq;
+-				desc->status |= IRQ_PER_CPU;
++				irq_set_status_flags(irq, IRQ_PER_CPU);
+ 				setup_irq(irq, &mca_cpe_irqaction);
+ 				ia64_cpe_irq = irq;
+ 				ia64_mca_register_cpev(cpe_vector);
+Index: linux-2.6-tip/arch/ia64/sn/kernel/irq.c
+=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/sn/kernel/irq.c
+@@ -274,15 +274,13 @@ unsigned int sn_local_vector_to_irq(u8 v
+ void sn_irq_init(void)
+ {
+ 	int i;
+-	struct irq_desc *base_desc = irq_desc;
+ 
+ 	ia64_first_device_vector = IA64_SN2_FIRST_DEVICE_VECTOR;
+ 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
+ 
+ 	for (i = 0; i < NR_IRQS; i++) {
+-		if (base_desc[i].chip = &no_irq_chip) {
+-			base_desc[i].chip = &irq_type_sn;
+-		}
++		if (irq_get_chip(i) = &no_irq_chip)
++			irq_set_chip(i, &irq_type_sn);
+ 	}
+ }
+ 
 
-For further details
-http://marc.info/?l=linux-mm&m8942194520631&w=4
-https://bugzilla.kernel.org/show_bug.cgi?id0702
-
-The patch passes the gfp allocation flag all the way down to those
-allocating functions.
-
- arch/arm/include/asm/pgalloc.h           |   11 +++++-
- arch/avr32/include/asm/pgalloc.h         |    8 ++++-
- arch/cris/include/asm/pgalloc.h          |   10 ++++-
- arch/frv/include/asm/pgalloc.h           |    3 ++
- arch/frv/include/asm/pgtable.h           |    1 +
- arch/frv/mm/pgalloc.c                    |    9 ++++-
- arch/ia64/include/asm/pgalloc.h          |   24 +++++++++++--
- arch/m32r/include/asm/pgalloc.h          |   11 ++++--
- arch/m68k/include/asm/motorola_pgalloc.h |   20 +++++++++--
- arch/m68k/include/asm/sun3_pgalloc.h     |   14 ++++++--
- arch/m68k/mm/memory.c                    |    9 ++++-
- arch/microblaze/include/asm/pgalloc.h    |    3 ++
- arch/microblaze/mm/pgtable.c             |   13 +++++--
- arch/mips/include/asm/pgalloc.h          |   22 ++++++++----
- arch/mn10300/include/asm/pgalloc.h       |    2 +
- arch/mn10300/mm/pgtable.c                |   10 ++++-
- arch/parisc/include/asm/pgalloc.h        |   21 ++++++++---
- arch/powerpc/include/asm/pgalloc-32.h    |    2 +
- arch/powerpc/include/asm/pgalloc-64.h    |   27 +++++++++++---
- arch/powerpc/mm/pgtable_32.c             |   10 ++++-
- arch/s390/include/asm/pgalloc.h          |   30 +++++++++++++---
- arch/s390/mm/pgtable.c                   |   22 +++++++++---
- arch/score/include/asm/pgalloc.h         |   13 ++++---
- arch/sh/include/asm/pgalloc.h            |    8 ++++-
- arch/sh/mm/pgtable.c                     |    8 ++++-
- arch/sparc/include/asm/pgalloc_32.h      |    5 +++
- arch/sparc/include/asm/pgalloc_64.h      |   17 ++++++++-
- arch/tile/include/asm/pgalloc.h          |   13 ++++++-
- arch/tile/mm/pgtable.c                   |   10 ++++-
- arch/um/include/asm/pgalloc.h            |    1 +
- arch/um/kernel/mem.c                     |   21 ++++++++---
- arch/x86/include/asm/pgalloc.h           |   17 ++++++++-
- arch/x86/mm/pgtable.c                    |    8 ++++-
- arch/xtensa/include/asm/pgalloc.h        |    9 ++++-
- arch/xtensa/mm/pgtable.c                 |   11 +++++-
- include/asm-generic/4level-fixup.h       |    8 +++-
- include/asm-generic/pgtable-nopmd.h      |    3 +-
- include/asm-generic/pgtable-nopud.h      |    1 +
- include/linux/mm.h                       |   40 ++++++++++++++++-----
- mm/memory.c                              |   14 ++++---
- mm/vmalloc.c                             |   57 ++++++++++++++++++++----------
- 41 files changed, 427 insertions(+), 119 deletions(-)
 
