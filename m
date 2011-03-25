@@ -1,71 +1,56 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:52:04 +0000
-Subject: [patch 22/23] ia64-use-show.patch
-Message-Id: <20110325204516.603298625@linutronix.de>
+Date: Fri, 25 Mar 2011 20:51:49 +0000
+Subject: [patch 02/23] ia64: Convert migrate_platform_irqs() to new irq chip
+Message-Id: <20110325204514.688003563@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/kernel/irq.c |   42 ++----------------------------------------
- 1 file changed, 2 insertions(+), 40 deletions(-)
+ arch/ia64/kernel/smpboot.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/kernel/irq.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
-+++ linux-2.6-tip/arch/ia64/kernel/irq.c
-@@ -53,47 +53,9 @@ atomic_t irq_err_count;
- /*
-  * /proc/interrupts printing:
-  */
--
--int show_interrupts(struct seq_file *p, void *v)
-+int arch_show_interrupts(struct seq_file *p, int prec)
+Index: linux-2.6-tip/arch/ia64/kernel/smpboot.c
+=================================--- linux-2.6-tip.orig/arch/ia64/kernel/smpboot.c
++++ linux-2.6-tip/arch/ia64/kernel/smpboot.c
+@@ -677,7 +677,7 @@ extern void fixup_irqs(void);
+ int migrate_platform_irqs(unsigned int cpu)
  {
--	int i =3D *(loff_t *) v, j;
--	struct irqaction * action;
--	unsigned long flags;
--
--	if (i =3D 0) {
--		char cpuname[16];
--		seq_printf(p, "     ");
--		for_each_online_cpu(j) {
--			snprintf(cpuname, 10, "CPU%d", j);
--			seq_printf(p, "%10s ", cpuname);
--		}
--		seq_putc(p, '\n');
--	}
--
--	if (i < NR_IRQS) {
--		raw_spin_lock_irqsave(&irq_desc[i].lock, flags);
--		action =3D irq_desc[i].action;
--		if (!action)
--			goto skip;
--		seq_printf(p, "%3d: ",i);
--#ifndef CONFIG_SMP
--		seq_printf(p, "%10u ", kstat_irqs(i));
--#else
--		for_each_online_cpu(j) {
--			seq_printf(p, "%10u ", kstat_irqs_cpu(i, j));
--		}
--#endif
--		seq_printf(p, " %14s", irq_desc[i].chip->name);
--		seq_printf(p, "  %s", action->name);
--
--		for (action=ACtion->next; action; action =3D action->next)
--			seq_printf(p, ", %s", action->name);
--
--		seq_putc(p, '\n');
--skip:
--		raw_spin_unlock_irqrestore(&irq_desc[i].lock, flags);
--	} else if (i =3D NR_IRQS)
--		seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
-+	seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
- 	return 0;
- }
-=20
+ 	int new_cpei_cpu;
+-	struct irq_desc *desc = NULL;
++	struct irq_data *data = NULL;
+ 	const struct cpumask *mask;
+ 	int 		retval = 0;
+ 
+@@ -693,20 +693,20 @@ int migrate_platform_irqs(unsigned int c
+ 			new_cpei_cpu = any_online_cpu(cpu_online_map);
+ 			mask = cpumask_of(new_cpei_cpu);
+ 			set_cpei_target_cpu(new_cpei_cpu);
+-			desc = irq_desc + ia64_cpe_irq;
++			data = irq_get_irq_data(ia64_cpe_irq);
+ 			/*
+ 			 * Switch for now, immediately, we need to do fake intr
+ 			 * as other interrupts, but need to study CPEI behaviour with
+ 			 * polling before making changes.
+ 			 */
+-			if (desc) {
+-				desc->chip->disable(ia64_cpe_irq);
+-				desc->chip->set_affinity(ia64_cpe_irq, mask);
+-				desc->chip->enable(ia64_cpe_irq);
++			if (data && data->chip) {
++				data->chip->irq_disable(data);
++				data->chip->irq_set_affinity(data, mask, false);
++				data->chip->irq_enable(data);
+ 				printk ("Re-targetting CPEI to cpu %d\n", new_cpei_cpu);
+ 			}
+ 		}
+-		if (!desc) {
++		if (!data) {
+ 			printk ("Unable to retarget CPEI, offline cpu [%d] failed\n", cpu);
+ 			retval = -EBUSY;
+ 		}
 
 
