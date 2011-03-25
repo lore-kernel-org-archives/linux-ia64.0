@@ -1,85 +1,87 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:51:52 +0000
-Subject: [patch 07/23] ia64: Convert msi_sn to new irq_chip functions
-Message-Id: <20110325204515.163943967@linutronix.de>
+Date: Fri, 25 Mar 2011 21:14:58 +0000
+Subject: [patch 22/23 -v2] ia64: Use generic show_interrupts()
+Message-Id: <20110325211246.355789847@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
----
- arch/ia64/sn/kernel/msi_sn.c |   28 ++++++++++++++--------------
- 1 file changed, 14 insertions(+), 14 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
-=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/msi_sn.c
-+++ linux-2.6-tip/arch/ia64/sn/kernel/msi_sn.c
-@@ -152,8 +152,8 @@ int sn_setup_msi_irq(struct pci_dev *pde
- }
- 
- #ifdef CONFIG_SMP
--static int sn_set_msi_irq_affinity(unsigned int irq,
--				    const struct cpumask *cpu_mask)
-+static int sn_set_msi_irq_affinity(struct irq_data *data,
-+				   const struct cpumask *cpu_mask, bool force)
+So much for doing last minute changes :(
+
+---
+ arch/ia64/Kconfig      |    1 +
+ arch/ia64/kernel/irq.c |   42 ++----------------------------------------
+ 2 files changed, 3 insertions(+), 40 deletions(-)
+
+Index: linux-2.6-tip/arch/ia64/Kconfig
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6-tip.orig/arch/ia64/Kconfig
++++ linux-2.6-tip/arch/ia64/Kconfig
+@@ -26,6 +26,7 @@ config IA64
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_PENDING_IRQ if SMP
+ 	select IRQ_PER_CPU
++	select GENERIC_IRQ_SHOW
+ 	default y
+ 	help
+ 	  The Itanium Processor Family is Intel's 64-bit successor to
+Index: linux-2.6-tip/arch/ia64/kernel/irq.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
++++ linux-2.6-tip/arch/ia64/kernel/irq.c
+@@ -53,47 +53,9 @@ atomic_t irq_err_count;
+ /*
+  * /proc/interrupts printing:
+  */
+-
+-int show_interrupts(struct seq_file *p, void *v)
++int arch_show_interrupts(struct seq_file *p, int prec)
  {
- 	struct msi_msg msg;
- 	int slice;
-@@ -164,7 +164,7 @@ static int sn_set_msi_irq_affinity(unsig
- 	struct sn_irq_info *sn_irq_info;
- 	struct sn_irq_info *new_irq_info;
- 	struct sn_pcibus_provider *provider;
--	unsigned int cpu;
-+	unsigned int cpu, irq = data->irq;
- 
- 	cpu = cpumask_first(cpu_mask);
- 	sn_irq_info = sn_msi_info[irq].sn_irq_info;
-@@ -206,33 +206,33 @@ static int sn_set_msi_irq_affinity(unsig
- 	msg.address_lo = (u32)(bus_addr & 0x00000000ffffffff);
- 
- 	write_msi_msg(irq, &msg);
--	cpumask_copy(irq_desc[irq].affinity, cpu_mask);
-+	cpumask_copy(data->affinity, cpu_mask);
- 
+-	int i =3D *(loff_t *) v, j;
+-	struct irqaction * action;
+-	unsigned long flags;
+-
+-	if (i =3D 0) {
+-		char cpuname[16];
+-		seq_printf(p, "     ");
+-		for_each_online_cpu(j) {
+-			snprintf(cpuname, 10, "CPU%d", j);
+-			seq_printf(p, "%10s ", cpuname);
+-		}
+-		seq_putc(p, '\n');
+-	}
+-
+-	if (i < NR_IRQS) {
+-		raw_spin_lock_irqsave(&irq_desc[i].lock, flags);
+-		action =3D irq_desc[i].action;
+-		if (!action)
+-			goto skip;
+-		seq_printf(p, "%3d: ",i);
+-#ifndef CONFIG_SMP
+-		seq_printf(p, "%10u ", kstat_irqs(i));
+-#else
+-		for_each_online_cpu(j) {
+-			seq_printf(p, "%10u ", kstat_irqs_cpu(i, j));
+-		}
+-#endif
+-		seq_printf(p, " %14s", irq_desc[i].chip->name);
+-		seq_printf(p, "  %s", action->name);
+-
+-		for (action=ACtion->next; action; action =3D action->next)
+-			seq_printf(p, ", %s", action->name);
+-
+-		seq_putc(p, '\n');
+-skip:
+-		raw_spin_unlock_irqrestore(&irq_desc[i].lock, flags);
+-	} else if (i =3D NR_IRQS)
+-		seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
++	seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
  	return 0;
  }
- #endif /* CONFIG_SMP */
- 
--static void sn_ack_msi_irq(unsigned int irq)
-+static void sn_ack_msi_irq(struct irq_data *data)
- {
--	move_native_irq(irq);
-+	move_native_irq(data->irq);
- 	ia64_eoi();
- }
- 
--static int sn_msi_retrigger_irq(unsigned int irq)
-+static int sn_msi_retrigger_irq(struct irq_data *data)
- {
--	unsigned int vector = irq;
-+	unsigned int vector = data->irq;
- 	ia64_resend_irq(vector);
- 
- 	return 1;
- }
- 
- static struct irq_chip sn_msi_chip = {
--	.name		= "PCI-MSI",
--	.irq_mask	= mask_msi_irq,
--	.irq_unmask	= unmask_msi_irq,
--	.ack		= sn_ack_msi_irq,
-+	.name			= "PCI-MSI",
-+	.irq_mask		= mask_msi_irq,
-+	.irq_unmask		= unmask_msi_irq,
-+	.irq_ack		= sn_ack_msi_irq,
- #ifdef CONFIG_SMP
--	.set_affinity	= sn_set_msi_irq_affinity,
-+	.irq_set_affinity	= sn_set_msi_irq_affinity,
- #endif
--	.retrigger	= sn_msi_retrigger_irq,
-+	.irq_retrigger		= sn_msi_retrigger_irq,
- };
+=20
 
 
