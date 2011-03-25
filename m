@@ -1,103 +1,114 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:51:58 +0000
-Subject: [patch 15/23] ia64: Use accessor functions all over the place
-Message-Id: <20110325204515.928705077@linutronix.de>
+Date: Fri, 25 Mar 2011 20:51:53 +0000
+Subject: [patch 08/23] ia64: Convert sn to new irq_chip functions
+Message-Id: <20110325204515.256557549@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use the proper accessor functions instead of open coded irq_desc access.
-
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/kernel/irq.c      |    2 +-
- arch/ia64/kernel/irq_ia64.c |    6 ++----
- arch/ia64/kernel/mca.c      |    4 +---
- arch/ia64/sn/kernel/irq.c   |    6 ++----
- 4 files changed, 6 insertions(+), 12 deletions(-)
+ arch/ia64/sn/kernel/irq.c |   44 +++++++++++++++++++++++---------------------
+ 1 file changed, 23 insertions(+), 21 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/kernel/irq.c
-=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq.c
-+++ linux-2.6-tip/arch/ia64/kernel/irq.c
-@@ -103,7 +103,7 @@ static char irq_redir [NR_IRQS]; // = { 
- void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
- {
- 	if (irq < NR_IRQS) {
--		cpumask_copy(irq_desc[irq].affinity,
-+		cpumask_copy(irq_get_irq_data(irq)->affinity,
- 			     cpumask_of(cpu_logical_id(hwid)));
- 		irq_redir[irq] = (char) (redir & 0xff);
- 	}
-Index: linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
-=================================--- linux-2.6-tip.orig/arch/ia64/kernel/irq_ia64.c
-+++ linux-2.6-tip/arch/ia64/kernel/irq_ia64.c
-@@ -343,7 +343,7 @@ static irqreturn_t smp_irq_move_cleanup_
- 		if (irq < 0)
- 			continue;
- 
--		desc = irq_desc + irq;
-+		desc = irq_to_desc(irq);
- 		cfg = irq_cfg + irq;
- 		raw_spin_lock(&desc->lock);
- 		if (!cfg->move_cleanup_count)
-@@ -626,13 +626,11 @@ static struct irqaction tlb_irqaction = 
- void
- ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
- {
--	struct irq_desc *desc;
- 	unsigned int irq;
- 
- 	irq = vec;
- 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
--	desc = irq_desc + irq;
--	desc->status |= IRQ_PER_CPU;
-+	irq_set_status_flags(irq, IRQ_PER_CPU);
- 	set_irq_chip(irq, &irq_type_ia64_lsapic);
- 	if (action)
- 		setup_irq(irq, action);
-Index: linux-2.6-tip/arch/ia64/kernel/mca.c
-=================================--- linux-2.6-tip.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6-tip/arch/ia64/kernel/mca.c
-@@ -2125,7 +2125,6 @@ ia64_mca_late_init(void)
- 	cpe_poll_timer.function = ia64_mca_cpe_poll;
- 
- 	{
--		struct irq_desc *desc;
- 		unsigned int irq;
- 
- 		if (cpe_vector >= 0) {
-@@ -2133,8 +2132,7 @@ ia64_mca_late_init(void)
- 			irq = local_vector_to_irq(cpe_vector);
- 			if (irq > 0) {
- 				cpe_poll_enabled = 0;
--				desc = irq_desc + irq;
--				desc->status |= IRQ_PER_CPU;
-+				irq_set_status_flags(irq, IRQ_PER_CPU);
- 				setup_irq(irq, &mca_cpe_irqaction);
- 				ia64_cpe_irq = irq;
- 				ia64_mca_register_cpev(cpe_vector);
 Index: linux-2.6-tip/arch/ia64/sn/kernel/irq.c
 =================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/irq.c
 +++ linux-2.6-tip/arch/ia64/sn/kernel/irq.c
-@@ -274,15 +274,13 @@ unsigned int sn_local_vector_to_irq(u8 v
- void sn_irq_init(void)
- {
- 	int i;
--	struct irq_desc *base_desc = irq_desc;
- 
- 	ia64_first_device_vector = IA64_SN2_FIRST_DEVICE_VECTOR;
- 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
- 
- 	for (i = 0; i < NR_IRQS; i++) {
--		if (base_desc[i].chip = &no_irq_chip) {
--			base_desc[i].chip = &irq_type_sn;
--		}
-+		if (irq_get_chip(i) = &no_irq_chip)
-+			irq_set_chip(i, &irq_type_sn);
- 	}
+@@ -78,34 +78,34 @@ u64 sn_intr_redirect(nasid_t local_nasid
+ 	return ret_stuff.status;
  }
  
+-static unsigned int sn_startup_irq(unsigned int irq)
++static unsigned int sn_startup_irq(struct irq_data *data)
+ {
+ 	return 0;
+ }
+ 
+-static void sn_shutdown_irq(unsigned int irq)
++static void sn_shutdown_irq(struct irq_data *data)
+ {
+ }
+ 
+ extern void ia64_mca_register_cpev(int);
+ 
+-static void sn_disable_irq(unsigned int irq)
++static void sn_disable_irq(struct irq_data *data)
+ {
+-	if (irq = local_vector_to_irq(IA64_CPE_VECTOR))
++	if (data->irq = local_vector_to_irq(IA64_CPE_VECTOR))
+ 		ia64_mca_register_cpev(0);
+ }
+ 
+-static void sn_enable_irq(unsigned int irq)
++static void sn_enable_irq(struct irq_data *data)
+ {
+-	if (irq = local_vector_to_irq(IA64_CPE_VECTOR))
+-		ia64_mca_register_cpev(irq);
++	if (data->irq = local_vector_to_irq(IA64_CPE_VECTOR))
++		ia64_mca_register_cpev(data->irq);
+ }
+ 
+-static void sn_ack_irq(unsigned int irq)
++static void sn_ack_irq(struct irq_data *data)
+ {
+ 	u64 event_occurred, mask;
++	unsigned int irq = data->irq & 0xff;
+ 
+-	irq = irq & 0xff;
+ 	event_occurred = HUB_L((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED));
+ 	mask = event_occurred & SH_ALL_INT_MASK;
+ 	HUB_S((u64*)LOCAL_MMR_ADDR(SH_EVENT_OCCURRED_ALIAS), mask);
+@@ -206,9 +206,11 @@ finish_up:
+ 	return new_irq_info;
+ }
+ 
+-static int sn_set_affinity_irq(unsigned int irq, const struct cpumask *mask)
++static int sn_set_affinity_irq(struct irq_data *data,
++			       const struct cpumask *mask, bool force)
+ {
+ 	struct sn_irq_info *sn_irq_info, *sn_irq_info_safe;
++	unsigned int irq = data->irq;
+ 	nasid_t nasid;
+ 	int slice;
+ 
+@@ -237,25 +239,25 @@ void sn_set_err_irq_affinity(unsigned in
+ #endif
+ 
+ static void
+-sn_mask_irq(unsigned int irq)
++sn_mask_irq(struct irq_data *data)
+ {
+ }
+ 
+ static void
+-sn_unmask_irq(unsigned int irq)
++sn_unmask_irq(struct irq_data *data)
+ {
+ }
+ 
+ struct irq_chip irq_type_sn = {
+-	.name		= "SN hub",
+-	.startup	= sn_startup_irq,
+-	.shutdown	= sn_shutdown_irq,
+-	.enable		= sn_enable_irq,
+-	.disable	= sn_disable_irq,
+-	.ack		= sn_ack_irq,
+-	.mask		= sn_mask_irq,
+-	.unmask		= sn_unmask_irq,
+-	.set_affinity	= sn_set_affinity_irq
++	.name			= "SN hub",
++	.irq_startup		= sn_startup_irq,
++	.irq_shutdown		= sn_shutdown_irq,
++	.irq_enable		= sn_enable_irq,
++	.irq_disable		= sn_disable_irq,
++	.irq_ack		= sn_ack_irq,
++	.irq_mask		= sn_mask_irq,
++	.irq_unmask		= sn_unmask_irq,
++	.irq_set_affinity	= sn_set_affinity_irq
+ };
+ 
+ ia64_vector sn_irq_to_vector(int irq)
 
 
