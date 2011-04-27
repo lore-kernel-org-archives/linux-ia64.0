@@ -1,61 +1,64 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 25 Mar 2011 20:52:02 +0000
-Subject: [patch 20/23] ia64: sn: Provide and use irqd_mark_affinity_set()
-Message-Id: <20110325204516.407896549@linutronix.de>
+From: Jeff Mahoney <jeffm@suse.com>
+Date: Wed, 27 Apr 2011 18:06:07 +0000
+Subject: [PATCH] ia64-kvm: fix sparse warnings
+Message-Id: <4DB85B0F.2010008@suse.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-irq_desc->status is going to be restricted. Provide a helper to set
-that information in irq_data, where it belongs.
+This patch fixes some sparse warning about "dubious one-bit signed bitfield."
 
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Originally-by: Jan Blunck <jblunck@suse.de>
+Signed-off-by: Jan Blunck <jblunck@suse.de>
 ---
- arch/ia64/sn/kernel/irq.c |    4 +---
- include/linux/irq.h       |    5 +++++
- 2 files changed, 6 insertions(+), 3 deletions(-)
+ arch/ia64/kvm/vti.h |   26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
 
-Index: linux-2.6-tip/arch/ia64/sn/kernel/irq.c
-=================================--- linux-2.6-tip.orig/arch/ia64/sn/kernel/irq.c
-+++ linux-2.6-tip/arch/ia64/sn/kernel/irq.c
-@@ -354,7 +354,6 @@ void sn_irq_fixup(struct pci_dev *pci_de
- 	int cpu = nasid_slice_to_cpuid(nasid, slice);
- #ifdef CONFIG_SMP
- 	int cpuphys;
--	struct irq_desc *desc;
- #endif
- 
- 	pci_dev_get(pci_dev);
-@@ -371,12 +370,11 @@ void sn_irq_fixup(struct pci_dev *pci_de
- #ifdef CONFIG_SMP
- 	cpuphys = cpu_physical_id(cpu);
- 	set_irq_affinity_info(sn_irq_info->irq_irq, cpuphys, 0);
--	desc = irq_to_desc(sn_irq_info->irq_irq);
- 	/*
- 	 * Affinity was set by the PROM, prevent it from
- 	 * being reset by the request_irq() path.
- 	 */
--	desc->status |= IRQ_AFFINITY_SET;
-+	irqd_mark_affinity_was_set(irq_get_irq_data(sn_irq_info->irq_irq));
- #endif
- }
- 
-Index: linux-2.6-tip/include/linux/irq.h
-=================================--- linux-2.6-tip.orig/include/linux/irq.h
-+++ linux-2.6-tip/include/linux/irq.h
-@@ -206,6 +206,11 @@ static inline bool irqd_affinity_was_set
- 	return d->state_use_accessors & IRQD_AFFINITY_SET;
- }
- 
-+static inline void irqd_mark_affinity_was_set(struct irq_data *d)
-+{
-+	d->state_use_accessors |= IRQD_AFFINITY_SET;
-+}
-+
- static inline u32 irqd_get_trigger_type(struct irq_data *d)
- {
- 	return d->state_use_accessors & IRQD_TRIGGER_MASK;
-
-
+--- a/arch/ia64/kvm/vti.h
++++ b/arch/ia64/kvm/vti.h
+@@ -83,13 +83,13 @@
+ union vac {
+ 	unsigned long value;
+ 	struct {
+-		int a_int:1;
+-		int a_from_int_cr:1;
+-		int a_to_int_cr:1;
+-		int a_from_psr:1;
+-		int a_from_cpuid:1;
+-		int a_cover:1;
+-		int a_bsw:1;
++		unsigned int a_int:1;
++		unsigned int a_from_int_cr:1;
++		unsigned int a_to_int_cr:1;
++		unsigned int a_from_psr:1;
++		unsigned int a_from_cpuid:1;
++		unsigned int a_cover:1;
++		unsigned int a_bsw:1;
+ 		long reserved:57;
+ 	};
+ };
+@@ -97,12 +97,12 @@ union vac {
+ union vdc {
+ 	unsigned long value;
+ 	struct {
+-		int d_vmsw:1;
+-		int d_extint:1;
+-		int d_ibr_dbr:1;
+-		int d_pmc:1;
+-		int d_to_pmd:1;
+-		int d_itm:1;
++		unsigned int d_vmsw:1;
++		unsigned int d_extint:1;
++		unsigned int d_ibr_dbr:1;
++		unsigned int d_pmc:1;
++		unsigned int d_to_pmd:1;
++		unsigned int d_itm:1;
+ 		long reserved:58;
+ 	};
+ };
+-- 
+Jeff Mahoney
+SUSE Labs
