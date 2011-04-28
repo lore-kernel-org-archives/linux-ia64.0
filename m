@@ -1,12 +1,25 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Date: Wed, 27 Apr 2011 18:06:07 +0000
-Subject: [PATCH] ia64-kvm: fix sparse warnings
-Message-Id: <4DB85B0F.2010008@suse.com>
+From: "Zhang, Xiantao" <xiantao.zhang@intel.com>
+Date: Thu, 28 Apr 2011 00:26:48 +0000
+Subject: RE: [PATCH] ia64-kvm: fix sparse warnings
+Message-Id: <BC00F5384FCFC9499AF06F92E8B78A9E2062639727@shsmsx502.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4DB85B0F.2010008@suse.com>
+In-Reply-To: <4DB85B0F.2010008@suse.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Avi, 
+  Can you take this patch to kvm.git ?  Thanks!
+Acked-by: Xiantao Zhang <xiantao.zhang@intel.com>
+
+-----Original Message-----
+From: Jeff Mahoney [mailto:jeffm@suse.com] 
+Sent: Thursday, April 28, 2011 2:06 AM
+To: Zhang, Xiantao; Avi Kivity; Luck, Tony; Yu, Fenghua
+Cc: linux-ia64@vger.kernel.org
+Subject: [PATCH] ia64-kvm: fix sparse warnings
 
 This patch fixes some sparse warning about "dubious one-bit signed bitfield."
 
