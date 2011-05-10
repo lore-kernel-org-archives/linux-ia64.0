@@ -1,41 +1,47 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 20 May 2011 18:58:41 +0000
-Subject: [git pull] pstore and ia64 changes
-Message-Id: <4dd6b9e1199552af9d@agluck-desktop.sc.intel.com>
+From: Hugh Dickins <hughd@google.com>
+Date: Tue, 10 May 2011 00:44:42 +0000
+Subject: [PATCH] vm: fix vm_pgoff wrap in upward expansion
+Message-Id: <alpine.LSU.2.00.1105091739140.7047@sister.anvils>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Robert Swiecki <robert@swiecki.net>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Linus,
+Commit a626ca6a6564 ("vm: fix vm_pgoff wrap in stack expansion") fixed
+the case of an expanding mapping causing vm_pgoff wrapping when you had
+downward stack expansion.  But there was another case where IA64 and
+PA-RISC expand mappings: upward expansion.
 
-please pull from:
+This fixes that case too.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
+Signed-off-by: Hugh Dickins <hughd@google.com.>
+Cc: stable@kernel.org
+---
+On April 12th you asked "Guys, can you think of any other thing
+that might expand a mapping?": this is the only one I thought of.
 
-This will update the files shown below.
+ mm/mmap.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
 
-Thanks!
-
--Tony
-
- arch/ia64/kernel/vmlinux.lds.S |    1 +
- arch/ia64/oprofile/backtrace.c |    2 +-
- drivers/acpi/apei/Kconfig      |    1 +
- drivers/acpi/apei/erst.c       |   61 +++++++++++++++++++++++++++++----------
- fs/pstore/platform.c           |   12 ++++++--
- include/linux/pstore.h         |    4 ++-
- 6 files changed, 60 insertions(+), 21 deletions(-)
-
-Chen Gong (3):
-      pstore: fix one type of return value in pstore
-      pstore: fix pstore filesystem mount/remount issue
-      pstore: fix potential logic issue in pstore read interface
-
-Tony Luck (3):
-      [IA64] fix build warning in arch/ia64/oprofile/backtrace.c
-      pstore: Fix Kconfig dependencies for apei->pstore
-      [IA64] define "_sdata" symbol
-
+--- 2.6.39-rc6/mm/mmap.c	2011-05-04 12:10:31.477543104 -0700
++++ linux/mm/mmap.c	2011-05-09 17:16:34.251725877 -0700
+@@ -1767,10 +1767,13 @@ int expand_upwards(struct vm_area_struct
+ 		size = address - vma->vm_start;
+ 		grow = (address - vma->vm_end) >> PAGE_SHIFT;
+ 
+-		error = acct_stack_growth(vma, size, grow);
+-		if (!error) {
+-			vma->vm_end = address;
+-			perf_event_mmap(vma);
++		error = -ENOMEM;
++		if (vma->vm_pgoff + (size >> PAGE_SHIFT) >= vma->vm_pgoff) {
++			error = acct_stack_growth(vma, size, grow);
++			if (!error) {
++				vma->vm_end = address;
++				perf_event_mmap(vma);
++			}
+ 		}
+ 	}
+ 	vma_unlock_anon_vma(vma);
