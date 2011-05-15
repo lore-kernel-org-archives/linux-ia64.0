@@ -1,38 +1,79 @@
-From: Joe Perches <joe@perches.com>
-Date: Wed, 25 May 2011 17:02:37 +0000
-Subject: [PATCH 0/4] printk: cleanups of direct includes
-Message-Id: <cover.1306342673.git.joe@perches.com>
+From: =?UTF-8?B?TsOpbWV0aCBNw6FydG9u?= <nm127@freemail.hu>
+Date: Sun, 15 May 2011 19:09:33 +0000
+Subject: [PATCH] x86 pci acpi: rename struct pci_root_info
+Message-Id: <4DD024ED.9000509@freemail.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BANLkTimo30L7feKr9_Ec=fMoe1erw8Rnag@mail.gmail.com>
-In-Reply-To: <BANLkTimo30L7feKr9_Ec=fMoe1erw8Rnag@mail.gmail.com>
+References: <4DCEB5BB.1080202@freemail.hu> <4DCEC4EB.2050107@zytor.com>
+In-Reply-To: <4DCEC4EB.2050107@zytor.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>, kvm-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-ext4@vger.kernel.org, oprofile-list@lists.sf.net
-Cc: Andrew Morton <akpm@linux-foundation.org>, Randy Dunlap <randy.dunlap@oracle.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-wireless@vger.kernel.org, devel@driverdev.osuosl.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Julia Lawall <julia@diku.dk>, LKML <linux-kernel@vger.kernel.org>
 
-printk.h is a subfile of kernel.h, do not allow it to
-be included directly.
+From: Márton Németh <nm127@freemail.hu>
 
-Joe Perches (4):
-  treewide: Remove direct includes of printk.h
-  staging: Remove direct includes of printk.h
-  printk: Don't allow direct inclusion
-  treewide: Remove asmlinkage from printk
+Rename struct pci_root_info to struct acpi_pci_root_info in
+arch/x86/pci/acpi.c because there is already a struct
+pci_root_info declared in arch/x86/pci/bus_numa.h . They both
+belnog to x86 architecture and the two declarations differ,
+so after rename each will have a unique name.
 
- arch/arm/kernel/early_printk.c                |    2 +-
- arch/ia64/kvm/vmm.c                           |    2 +-
- arch/x86/kernel/early_printk.c                |    2 +-
- drivers/staging/brcm80211/brcmfmac/dhd_sdio.c |    1 -
- drivers/staging/brcm80211/util/bcmutils.c     |    1 -
- drivers/staging/usbip/usbip_common.h          |    2 +-
- fs/ext4/inode.c                               |    1 -
- include/linux/oprofile.h                      |    2 +-
- include/linux/printk.h                        |   10 +++++++---
- kernel/printk.c                               |    6 +++---
- kernel/sysctl.c                               |    3 +--
- 11 files changed, 16 insertions(+), 16 deletions(-)
+Signed-off-by: Márton Németh <nm127@freemail.hu>
+---
+--- linux-2.6.39-rc7/arch/x86/pci/acpi.c.orig	2011-05-10 04:33:54.000000000 +0200
++++ linux-2.6.39-rc7/arch/x86/pci/acpi.c	2011-05-15 17:02:52.000000000 +0200
+@@ -7,7 +7,7 @@
+ #include <asm/numa.h>
+ #include <asm/pci_x86.h>
 
--- 
-1.7.4.rc3
+-struct pci_root_info {
++struct acpi_pci_root_info {
+ 	struct acpi_device *bridge;
+ 	char *name;
+ 	unsigned int res_num;
+@@ -120,7 +120,7 @@ resource_to_addr(struct acpi_resource *r
+ static acpi_status
+ count_resource(struct acpi_resource *acpi_res, void *data)
+ {
+-	struct pci_root_info *info = data;
++	struct acpi_pci_root_info *info = data;
+ 	struct acpi_resource_address64 addr;
+ 	acpi_status status;
 
+@@ -133,7 +133,7 @@ count_resource(struct acpi_resource *acp
+ static acpi_status
+ setup_resource(struct acpi_resource *acpi_res, void *data)
+ {
+-	struct pci_root_info *info = data;
++	struct acpi_pci_root_info *info = data;
+ 	struct resource *res;
+ 	struct acpi_resource_address64 addr;
+ 	acpi_status status;
+@@ -188,7 +188,7 @@ static bool resource_contains(struct res
+ 	return false;
+ }
+
+-static void coalesce_windows(struct pci_root_info *info, int type)
++static void coalesce_windows(struct acpi_pci_root_info *info, int type)
+ {
+ 	int i, j;
+ 	struct resource *res1, *res2;
+@@ -223,7 +223,7 @@ static void coalesce_windows(struct pci_
+ 	}
+ }
+
+-static void add_resources(struct pci_root_info *info)
++static void add_resources(struct acpi_pci_root_info *info)
+ {
+ 	int i;
+ 	struct resource *res, *root, *conflict;
+@@ -259,7 +259,7 @@ static void
+ get_current_resources(struct acpi_device *device, int busnum,
+ 			int domain, struct pci_bus *bus)
+ {
+-	struct pci_root_info info;
++	struct acpi_pci_root_info info;
+ 	size_t size;
+
+ 	if (pci_use_crs)
