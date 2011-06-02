@@ -1,7 +1,7 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Wed, 01 Jun 2011 21:07:11 +0000
+From: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Date: Thu, 02 Jun 2011 10:07:12 +0000
 Subject: Re: [PATCH] ia64: Hook up gpiolib support
-Message-Id: <BANLkTi=CKNh_fm_zJFLM8PX5FWVeksgJRQ@mail.gmail.com>
+Message-Id: <20110602100712.GD3085@opensource.wolfsonmicro.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1306921697-31045-1-git-send-email-broonie@opensource.wolfsonmicro.com>
 In-Reply-To: <1306921697-31045-1-git-send-email-broonie@opensource.wolfsonmicro.com>
@@ -10,17 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jun 1, 2011 at 1:25 PM, Mark Brown
-<broonie@opensource.wolfsonmicro.com> wrote:
-> Allow people to use gpiolib on ia64, mostly for build coverage as it
-> seems more useful to standardise on availablity of the API than handle
-> it being optional.
+On Wed, Jun 01, 2011 at 02:07:11PM -0700, Tony Luck wrote:
 
-Well it applies cleanly, builds too. I can even turn on CONFIG_GPIOLIB=y,
-CONFIG_DEBUG_GPIO=y and CONFIG_GPIO_SYSFS=y and build even
-more bits (no warnings, nice).
+> But is there anything that I can do with it to show that it is working
+> correctly?
 
-But is there anything that I can do with it to show that it is working
-correctly?
-
--Tony
+Not really - you can build drivers that use gpiolib but unless you
+obtain some hardware which uses it or write a virtual GPIO driver and a
+consumer for it there's not really a lot doing except build tests.  Like
+I said in the changelog the main thought here was to make build coverage
+easier in a way that is more useful than bodging around optionally
+available stuff.
