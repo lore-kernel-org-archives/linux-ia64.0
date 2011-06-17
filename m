@@ -1,46 +1,93 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 17 Jun 2011 21:20:26 +0000
-Subject: Re: [PATCHv3-resend] atomic: add *_dec_not_zero
-Message-Id: <201106172320.26476.arnd@arndb.de>
+From: Lars-Peter Clausen <lars@metafoo.de>
+Date: Fri, 17 Jun 2011 11:40:31 +0000
+Subject: [PATCH] firmware: Make firmware drivers generally available
+Message-Id: <1308310831-27861-1-git-send-email-lars@metafoo.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1306653200-19176-1-git-send-email-sven@narfation.org> <201106171713.12983.arnd@arndb.de> <2834959.yriPZz3AFK@sven-desktop.home.narfation.org>
-In-Reply-To: <2834959.yriPZz3AFK@sven-desktop.home.narfation.org>
+References: <20110617103218.GA29723@opensource.wolfsonmicro.com>
+In-Reply-To: <20110617103218.GA29723@opensource.wolfsonmicro.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sven Eckelmann <sven@narfation.org>
-Cc: linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Mike Frysinger <vapier@gentoo.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org, Mark Brown <broonie@opensource.wolfsonmicro.com>, Lars-Peter Clausen <lars@metafoo.de>
 
-On Friday 17 June 2011 19:32:57 Sven Eckelmann wrote:
-> On Friday 17 June 2011 17:13:12 Arnd Bergmann wrote:
-> > On Friday 17 June 2011, Sven Eckelmann wrote:
-> > 
-> > Hmm, I didn't look at the first versions unfortunately. Remind me why we
-> > don't just open-code the atomic_add_unless in batman-adv.
-> 
-> Because some developers behind batman-adv and fault_inject thought that it is 
-> easier readable and David S. Miller said that it is a good idea to have 
-> something like it in atomic*.h
-> 
-> Other places were it can be used:
->  * drivers/media/video/omap3isp/ispstat.c
->  * drivers/s390/net/qeth_core_main.c
->  * fs/ext4/ext4.h
->  * fs/xfs/linux-2.6/xfs_buf.c
->  * mm/memcontrol.c
->  * net/core/drop_monitor.c
->  * net/phonet/pep.c
+Currently only x86, ia64 and blackfin architectures include
+drivers/firmware/Kconfig, as a result firmware drivers are only available on
+these platforms. This has not been a problem historically, because all of the
+firmware drivers were architecture specific.
 
-Ok, sounds good then.
+But this has changed with the addition of the SigmaStudio firmware loader
+(commit e359dc24 "sigma-firmware: loader for Analog Devices' SigmaStudio"),
+which is used to parse and load firmware files for Analog Devices' SigmaDSP
+processors. These DSPs are usually embedded in for example audio codecs, which
+use the I2C or SPI bus for communication and are not architecture specific.
+Thus make the firmware drivers generally available, so it can be used on all
+architectures.
 
-> > Since people apparently think that this patch is a good idea, I'll merge it
-> > in the asm-generic tree once I understand why this is done.
-> 
-> Don't feel pushed --- you can just say that you absolutely doesn't want it. I 
-> only tried to keep David happy, but don't want to start a fight over it.
+Note that this moves the Kconfig "Firmware Drivers" entry from the top-level to
+the "Device Drivers" submenu for architectures which had it already available.
 
-No, it's good, thanks for putting the work into sorting this out! I'll go through
-my inbox anyway to see if anything should go into the asm-generic tree for the
-next merge window. I think there are a couple of other patches.
+Reported-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Signed-off-by: Lars-Peter Clausen <lars@metafoo.de>
+---
+ arch/blackfin/Kconfig |    2 --
+ arch/ia64/Kconfig     |    2 --
+ arch/x86/Kconfig      |    2 --
+ drivers/Kconfig       |    2 ++
+ 4 files changed, 2 insertions(+), 6 deletions(-)
 
-	Arnd
+diff --git a/arch/blackfin/Kconfig b/arch/blackfin/Kconfig
+index d619b17..a7c1efa 100644
+--- a/arch/blackfin/Kconfig
++++ b/arch/blackfin/Kconfig
+@@ -1283,8 +1283,6 @@ source "net/Kconfig"
+ 
+ source "drivers/Kconfig"
+ 
+-source "drivers/firmware/Kconfig"
+-
+ source "fs/Kconfig"
+ 
+ source "arch/blackfin/Kconfig.debug"
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 38280ef..34be81e 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -583,8 +583,6 @@ config CRASH_DUMP
+ 	  help
+ 	    Generate crash dump after being started by kexec.
+ 
+-source "drivers/firmware/Kconfig"
+-
+ source "fs/Kconfig.binfmt"
+ 
+ endmenu
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index da34972..e112693 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -2153,8 +2153,6 @@ source "net/Kconfig"
+ 
+ source "drivers/Kconfig"
+ 
+-source "drivers/firmware/Kconfig"
+-
+ source "fs/Kconfig"
+ 
+ source "arch/x86/Kconfig.debug"
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 3bb154d..6b2c238 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -32,6 +32,8 @@ source "drivers/message/fusion/Kconfig"
+ 
+ source "drivers/firewire/Kconfig"
+ 
++source "drivers/firmware/Kconfig"
++
+ source "drivers/message/i2o/Kconfig"
+ 
+ source "drivers/macintosh/Kconfig"
+-- 
+1.7.2.5
+
