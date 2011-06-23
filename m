@@ -1,50 +1,41 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Fri, 17 Jun 2011 08:47:27 +0000
-Subject: [PATCH 08/10] ia64: change valid_phys_addr_range's @addr param to phys_addr_t
-Message-Id: <201106171047.27809.ptesarik@suse.cz>
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Thu, 23 Jun 2011 15:05:57 +0000
+Subject: Re: [PATCH] STAGING: Comedi: Build only on arches providing
+Message-Id: <20110623150557.GA9258@linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201106171038.25988.ptesarik@suse.cz>
-In-Reply-To: <201106171038.25988.ptesarik@suse.cz>
+References: <20110623114536.GA14011@linux-mips.org> <4E032940.5010205@ge.com>
+	<20110623120234.GA22524@linux-mips.org>
+	<8B77EED3-D197-4AB9-9594-278DB7002D6D@kernel.crashing.org>
+In-Reply-To: <8B77EED3-D197-4AB9-9594-278DB7002D6D@kernel.crashing.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Kumar Gala <galak@kernel.crashing.org>
+Cc: devel@driverdev.osuosl.org, David Howells <dhowells@redhat.com>, linux-m32r@ml.linux-m32r.org, linux-ia64@vger.kernel.org, Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Greg Kroah-Hartman <gregkh@suse.de>, linux-kernel@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Martyn Welch <martyn.welch@ge.com>, Fenghua Yu <fenghua.yu@intel.com>, "linuxppc-dev@lists.ozlabs.org Tony Luck" <tony.luck@intel.com>, linux-am33-list@redhat.com, Paul Mackerras <paulus@samba.org>, linux-m32r-ja@ml.linux-m32r.org, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, linux-arch@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, x86@kernel.org
 
-On ia64, this doesn't change anything, because the size of phys_addr_t
-is always the same as the size of unsigned long.
+On Thu, Jun 23, 2011 at 07:10:29AM -0500, Kumar Gala wrote:
 
-Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
----
- arch/ia64/include/asm/io.h |    2 +-
- arch/ia64/kernel/efi.c     |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+> > (Adding the PPC folks to cc.)
+> > 
+> > A "git grep -w PAGE_KERNEL_NOCACHE arch/powerpc/" doesn't find anything so
+> > I don't think the driver will build there.  I don't have a PPC toolchain
+> > to verify that.
+> 
+> I can verify it fails on PPC as well:
+> 
+> drivers/staging/comedi/drivers.c: In function 'comedi_buf_alloc':
+> drivers/staging/comedi/drivers.c:505:37: error: 'PAGE_KERNEL_NOCACHE' undeclared (first use in this function)
+> drivers/staging/comedi/drivers.c:505:37: note: each undeclared identifier is reported only once for each function it appears in
+> 
+> However, we do have a #define for PAGE_KERNEL_NC.
 
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index e5a6c35..d9d3848 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -91,7 +91,7 @@ phys_to_virt (unsigned long address)
- 
- #define ARCH_HAS_VALID_PHYS_ADDR_RANGE
- extern u64 kern_mem_attribute (unsigned long phys_addr, unsigned long size);
--extern int valid_phys_addr_range (unsigned long addr, size_t count); /* efi.c */
-+extern int valid_phys_addr_range (phys_addr_t addr, size_t count); /* efi.c */
- extern int valid_mmap_phys_addr_range (unsigned long pfn, size_t count);
- 
- /*
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 6fc03af..b12d2b4 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -869,7 +869,7 @@ kern_mem_attribute (unsigned long phys_addr, unsigned long size)
- EXPORT_SYMBOL(kern_mem_attribute);
- 
- int
--valid_phys_addr_range (unsigned long phys_addr, unsigned long size)
-+valid_phys_addr_range (phys_addr_t phys_addr, unsigned long size)
- {
- 	u64 attr;
- 
--- 
-1.7.3.4
+Do you think this driver in it's current stage is so valuable that some
+ifdefery to get it to work on PPC is the way to go?
+
+IA-64 has PAGE_KERNEL_UC, so basically the same question for IA-64, too.
+
+But preferably the driver should be sorted out properly and until the v1
+of my patch which disables it on all architectures that don't provide a
+PAGE_KERNEL_NOCACHE definition will do just fine.
+
+  Ralf
