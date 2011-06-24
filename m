@@ -1,33 +1,30 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Tue, 21 Jun 2011 01:45:56 +0000
-Subject: Re: [uclinux-dist-devel] [PATCH] firmware: Make firmware drivers
-Message-Id: <BANLkTinGMN8A99YZMVa1XDRuy3rUSO2UGg@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 24 Jun 2011 13:40:57 +0000
+Subject: Re: [PATCH 00/35]: System Firmware and SMBIOS Support
+Message-Id: <201106241540.57952.arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20110617103218.GA29723@opensource.wolfsonmicro.com>
- <1308310831-27861-1-git-send-email-lars@metafoo.de> <4DFB53B3.8070806@ladisch.de>
- <BANLkTimWfT_LSLX36oLcSSYNqi4buBiJUQ@mail.gmail.com> <4DFB98EE.9000609@ladisch.de>
- <BANLkTi=idGOgMkBXF6p-Uo9ARAmgb1uR_g@mail.gmail.com> <20110621003507.GG1905@opensource.wolfsonmicro.com>
-In-Reply-To: <20110621003507.GG1905@opensource.wolfsonmicro.com>
+References: <20110623172206.27602.34306.sendpatchset@prarit.bos.redhat.com>
+In-Reply-To: <20110623172206.27602.34306.sendpatchset@prarit.bos.redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Lars-Peter Clausen <lars@metafoo.de>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, x86@kernel.org, Clemens Ladisch <clemens@ladisch.de>, linux-kernel@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, uclinux-dist-devel@blackfin.uclinux.org, Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Prarit Bhargava <prarit@redhat.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, linux-acpi@vger.kernel.org, linux-ide@vger.kernel.org, openipmi-developer@lists.sourceforge.net, platform-driver-x86@vger.kernel.org, linux-crypto@vger.kernel.org, dri-devel@lists.freedesktop.org, lm-sensors@lm-sensors.org, linux-i2c@vger.kernel.org, linux-input@vger.kernel.org, linux-media@vger.kernel.org, linux-mmc@vger.kernel.org, netdev@vger.kernel.org, linux-pci@vger.kernel.org, rtc-linux@googlegroups.com, evel@driverdev.osuosl.org, linux-usb@vger.kernel.org, device-drivers-devel@blackfin.uclinux.org, linux-watchdog@vger.kernel.org, grant.likely@secretlab.ca, dz@debian.org, rpurdie@rpsys.net, eric.piel@tremplin-utc.net, abelay@mit.edu, johnpol@2ka.mipt.ru
 
-On Mon, Jun 20, 2011 at 20:35, Mark Brown wrote:
-> On Fri, Jun 17, 2011 at 02:25:21PM -0400, Mike Frysinger wrote:
->> On Fri, Jun 17, 2011 at 14:11, Clemens Ladisch wrote:
->> > "drivers/firmware" is the obvious name for both, but that makes
->> > it ambiguous.  I'd suggest to split the two subsystems into
->> > "drivers/host-firmware" and "drivers/device-firmware".
->
->> i honestly dont see how this is better.  the drivers/firmware/ isnt
->> exactly overflowing, and differentiating between the two modes doesnt
->> seem to gain us anything.
->
-> Do we have anything like an actual subsystem in firmware?  If we do and
-> it's sensible to do things that affect all firmwares then splitting
-> seems reasonable but if not then it's less clear.
+On Thursday 23 June 2011 19:22:06 Prarit Bhargava wrote:
+> This new patchset reworks the existing DMI code into two separate layers.  It is
+> based off of the feedback I received previously when discussing the SMBIOS
+> version patch on LKML.
 
-i dont think there is.  we havent hit enough critical mass yet to warrant it.
--mike
+Hi Prarit,
+
+No objections to the patches, but when you send out a series as long as
+this one, please ensure that all patches are sent as replies to the
+introductory mail. Also, do not repeat the one-line patch summary in the
+body of the email.
+
+When using "git send-email --thread --no-chain-reply", this works
+automatically. It will also let you put the Cc list into the
+patch description and work out where to send each patch.
+
+	Arnd
