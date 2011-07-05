@@ -1,7 +1,7 @@
 From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Tue, 05 Jul 2011 17:56:38 +0000
+Date: Tue, 05 Jul 2011 22:34:51 +0000
 Subject: Re: [PATCH 00/10] Enhance /dev/mem to allow read/write of arbitrary
-Message-Id: <4E135056.3060906@zytor.com>
+Message-Id: <4E13918B.3040208@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <201106171038.25988.ptesarik@suse.cz>
 	<201107012134.45881.ptesarik@suse.cz>
@@ -28,11 +28,8 @@ On 07/05/2011 10:49 AM, Matthew Garrett wrote:
 > in favour of not having to hack the kernel every time.
 > 
 
-That definitely needs to be fixed.
+Alright... I must admit I have lost track...
+
+Where are we at with this patchset, and what path should it go through?
 
 	-hpa
-
--- 
-H. Peter Anvin, Intel Open Source Technology Center
-I work for Intel.  I don't speak on their behalf.
-
