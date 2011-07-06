@@ -1,27 +1,39 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sat, 30 Jul 2011 06:05:36 +0000
-Subject: Re: [git pull] pstore + ia64 changes
-Message-Id: <CA+55aFwHDzqjsuBPAEecpxXiaBSLfDHjhrOUwPKWoG5LANq8CA@mail.gmail.com>
+From: Tony Luck <tony.luck@intel.com>
+Date: Wed, 06 Jul 2011 21:14:58 +0000
+Subject: Re: ia64: replace old cpumask functions with new one
+Message-Id: <CA+8MBbLg4jBmaYkVW13WReNm8nyP1p0k3CPN=pQmvwPfRKyeQA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4e32f13721205e7dbe@agluck-desktop.sc.intel.com>
-In-Reply-To: <4e32f13721205e7dbe@agluck-desktop.sc.intel.com>
+References: <4E031B97.2010609@jp.fujitsu.com>
+In-Reply-To: <4E031B97.2010609@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Jul 29, 2011 at 10:43 AM, Luck, Tony <tony.luck@intel.com> wrote:
->
-> please pull from:
->
-> =A0 =A0 =A0 =A0git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2=
-.6.git release
->
-> This will update the files shown below.
+2011/6/23 KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>:
+> We plan to remove old obsolete cpumask functions and plan to
+> change task->cpus_allowed implementation in future.
+...
+> =A0arch/ia64/kernel/smpboot.c =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 56 +++++++=
+++++++++---------------
 
-Is there any reason why ia64 changes are in the same branch as pstore?
+I get some new warnings in this file with your patch:
 
-It seems totally illogical, and against all the normal "topic branch" rules.
 
-       Linus
+arch/ia64/kernel/smpboot.c:454: warning: passing argument 2 of
+=91cpumask_set_cpu=92 discards qualifiers from pointer target type
+arch/ia64/kernel/smpboot.c:581: warning: passing argument 1 of
+=91cpumask_clear=92 discards qualifiers from pointer target type
+arch/ia64/kernel/smpboot.c:613: warning: passing argument 2 of
+=91cpumask_set_cpu=92 discards qualifiers from pointer target type
+arch/ia64/kernel/smpboot.c:637: warning: passing argument 2 of
+=91cpumask_set_cpu=92 discards qualifiers from pointer target type
+arch/ia64/kernel/smpboot.c:745: warning: passing argument 2 of
+=91cpumask_clear_cpu=92 discards qualifiers from pointer target type
+
+Four of the five involve "cpu_callin_mask" which is "volatile", the other i=
+s for
+"cpu_present_mask" - not sure what the problem is for this one.
+
+-Tony
