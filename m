@@ -1,27 +1,46 @@
-From: Matt Fleming <matt@console-pimps.org>
-Date: Wed, 24 Aug 2011 19:51:31 +0000
-Subject: Re: How performance critical is fsys_rt_sigprocmask()?
-Message-Id: <1314215491.3611.49.camel@mfleming-mobl1.ger.corp.intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 10 Aug 2011 17:57:44 +0000
+Subject: [IA64] fix "allnoconfig" build
+Message-Id: <4e42c69821435a3638@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
-In-Reply-To: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2011-08-24 at 09:13 -0600, David Mosberger-Tang wrote:
-> Matt,
-> 
-> As I remember it, it was the single system-call on the critical path of
-> libunwind.  Don't remember the numbers, but it was significant.
+Link errors:
+arch/ia64/kernel/built-in.o: In function `arch_setup_dmar_msi':
+(.text+0x35972): undefined reference to `dmar_msi_write'
+... and more ...
 
-Interesting. So that'd be the critical path for things like performance
-analysis tools that record stack traces? Yeah, I can see how you'd want
-the stack trace recording to have very little overhead.
+because allnoconfig has CONFIG_DMAR=y due to the "select DMAR"
+in arch/ia64/Kconfig under config IA64_GENERIC.
 
-I guess I'll start writing ia64 assembly then...
+Drop that select, but add CONFIG_DMAR=y to generic_defconfig so
+we keep testbuilding the DMAR code.
 
--- 
-Matt Fleming, Intel Open Source Technology Center
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 
+---
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 1248547..3ff7785 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -162,7 +162,6 @@ config IA64_GENERIC
+ 	select ACPI_NUMA
+ 	select SWIOTLB
+ 	select PCI_MSI
+-	select DMAR
+ 	help
+ 	  This selects the system type of your hardware.  A "generic" kernel
+ 	  will run on any supported IA-64 system.  However, if you configure
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index 1d7bca0..0e5cd14 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -234,3 +234,4 @@ CONFIG_CRYPTO_MD5=y
+ # CONFIG_CRYPTO_ANSI_CPRNG is not set
+ CONFIG_CRC_T10DIF=y
+ CONFIG_MISC_DEVICES=y
++CONFIG_DMAR=y
