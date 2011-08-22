@@ -1,46 +1,31 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 10 Aug 2011 17:57:44 +0000
-Subject: [IA64] fix "allnoconfig" build
-Message-Id: <4e42c69821435a3638@agluck-desktop.sc.intel.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Mon, 22 Aug 2011 07:27:31 +0000
+Subject: ia64 build broken on CONFIG_DEBUG_STACK_USAGE
+Message-Id: <4E5204E3.7070107@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Linux kernel mailing list <linux-kernel@vger.kernel.org>
 
-Link errors:
-arch/ia64/kernel/built-in.o: In function `arch_setup_dmar_msi':
-(.text+0x35972): undefined reference to `dmar_msi_write'
-... and more ...
+Hi,
 
-because allnoconfig has CONFIG_DMAR=y due to the "select DMAR"
-in arch/ia64/Kconfig under config IA64_GENERIC.
+when CONFIG_DEBUG_STACK_USAGE is selected, I get these errors:
+  CC      arch/ia64/kernel/asm-offsets.s
+In file included from arch/ia64/kernel/asm-offsets.c:9:
+include/linux/sched.h: In function =91stack_not_used=92:
+include/linux/sched.h:2419: error: =91IA64_TASK_SIZE=92 undeclared (first
+use in this function)
+include/linux/sched.h:2419: error: (Each undeclared identifier is
+reported only once
+include/linux/sched.h:2419: error: for each function it appears in.)
+include/linux/sched.h:2419: error: =91IA64_THREAD_INFO_SIZE=92 undeclared
+(first use in this function)
+make[1]: *** [arch/ia64/kernel/asm-offsets.s] Error 1
+make: *** [prepare0] Error 2
 
-Drop that select, but add CONFIG_DMAR=y to generic_defconfig so
-we keep testbuilding the DMAR code.
-
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-
----
-
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 1248547..3ff7785 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -162,7 +162,6 @@ config IA64_GENERIC
- 	select ACPI_NUMA
- 	select SWIOTLB
- 	select PCI_MSI
--	select DMAR
- 	help
- 	  This selects the system type of your hardware.  A "generic" kernel
- 	  will run on any supported IA-64 system.  However, if you configure
-diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
-index 1d7bca0..0e5cd14 100644
---- a/arch/ia64/configs/generic_defconfig
-+++ b/arch/ia64/configs/generic_defconfig
-@@ -234,3 +234,4 @@ CONFIG_CRYPTO_MD5=y
- # CONFIG_CRYPTO_ANSI_CPRNG is not set
- CONFIG_CRC_T10DIF=y
- CONFIG_MISC_DEVICES=y
-+CONFIG_DMAR=y
+regards,
+--=20
+js
+suse labs
