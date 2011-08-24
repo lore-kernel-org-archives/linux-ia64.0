@@ -1,32 +1,30 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 01 Aug 2011 16:57:14 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4e36daea25318879b1@agluck-desktop.sc.intel.com>
+From: Matt Fleming <matt@console-pimps.org>
+Date: Wed, 24 Aug 2011 14:39:56 +0000
+Subject: How performance critical is fsys_rt_sigprocmask()?
+Message-Id: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi,
 
-please pull from:
+I'm looking at the code code in fsys_rt_sigprocmask() and I'm wondering
+whether it really needs to be implemented in assembly. I recently posted
+a patch series that converted code modifying current->blocked to use the
+new set_current_blocked() helper but initially missed the code in
+fsys_rt_sigprocmask() because it's not written in C.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git gpiolib
+It seems this sort of thing has happened before too, e.g. with the
+ticket lock implementation as seen in commit f574c8431917 ("[IA64] fix
+siglock"), presumably for the same reasons.
 
-This will update the files shown below.
+So I was wondering, from a code maintenance perspective, would it make
+sense to delete the custom implementation of sys_rt_sigprocmask() and
+use the generic one? Or does that function genuinely have a need to be
+written in hand-optimised assembly?
 
-Thanks!
-
--Tony
-
- arch/ia64/Kconfig            |    4 +++
- arch/ia64/include/asm/gpio.h |   55 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 59 insertions(+), 0 deletions(-)
- create mode 100644 arch/ia64/include/asm/gpio.h
-
-Mark Brown (1):
-      [IA64] Hook up gpiolib support
+-- 
+Matt Fleming, Intel Open Source Technology Center
 
