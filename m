@@ -1,29 +1,26 @@
 From: Matt Fleming <matt@console-pimps.org>
-Date: Wed, 24 Aug 2011 14:39:56 +0000
-Subject: How performance critical is fsys_rt_sigprocmask()?
-Message-Id: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
+Date: Wed, 24 Aug 2011 19:51:31 +0000
+Subject: Re: How performance critical is fsys_rt_sigprocmask()?
+Message-Id: <1314215491.3611.49.camel@mfleming-mobl1.ger.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
+In-Reply-To: <1314196796.3611.38.camel@mfleming-mobl1.ger.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Wed, 2011-08-24 at 09:13 -0600, David Mosberger-Tang wrote:
+> Matt,
+> 
+> As I remember it, it was the single system-call on the critical path of
+> libunwind.  Don't remember the numbers, but it was significant.
 
-I'm looking at the code code in fsys_rt_sigprocmask() and I'm wondering
-whether it really needs to be implemented in assembly. I recently posted
-a patch series that converted code modifying current->blocked to use the
-new set_current_blocked() helper but initially missed the code in
-fsys_rt_sigprocmask() because it's not written in C.
+Interesting. So that'd be the critical path for things like performance
+analysis tools that record stack traces? Yeah, I can see how you'd want
+the stack trace recording to have very little overhead.
 
-It seems this sort of thing has happened before too, e.g. with the
-ticket lock implementation as seen in commit f574c8431917 ("[IA64] fix
-siglock"), presumably for the same reasons.
-
-So I was wondering, from a code maintenance perspective, would it make
-sense to delete the custom implementation of sys_rt_sigprocmask() and
-use the generic one? Or does that function genuinely have a need to be
-written in hand-optimised assembly?
+I guess I'll start writing ia64 assembly then...
 
 -- 
 Matt Fleming, Intel Open Source Technology Center
