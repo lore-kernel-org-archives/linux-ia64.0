@@ -1,29 +1,40 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 16 Aug 2011 16:08:12 +0000
-Subject: [git pull] ia64 - fix broken allnoconfig build
-Message-Id: <4e4a95ec15353af79b@agluck-desktop.sc.intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 01 Sep 2011 04:46:00 +0000
+Subject: [PATCH] ia64, gpio: GENERIC_GPIO default must be n
+Message-Id: <1314852360.3092.155.camel@deadeye>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Since GPIOLIB is optional on ia64, GENERIC_GPIO must not be selected by
+default.  If GPIOLIB is enabled, it will select GENERIC_GPIO.
 
-please pull from:
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Same problem as alpha, seen in this build log:
+<https://buildd.debian.org/status/fetch.php?pkg=linux-2.6&arch=ia64&ver=3.1.0~rc4-1~experimental.1&stamp14841718>.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git fixallnoconfig
+Ben.
 
-This will update the files shown below.
+ arch/ia64/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks!
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 3ff7785..27489b6 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -92,7 +92,7 @@ config HAVE_SETUP_PER_CPU_AREA
+ 	def_bool y
+ 
+ config GENERIC_GPIO
+-	def_bool y
++	bool
+ 
+ config DMI
+ 	bool
+-- 
+1.7.5.4
 
--Tony
-
- arch/ia64/Kconfig                   |    1 -
- arch/ia64/configs/generic_defconfig |    1 +
- 2 files changed, 1 insertions(+), 1 deletions(-)
-
-Tony Luck (1):
-      [IA64] fix "allnoconfig" build
 
