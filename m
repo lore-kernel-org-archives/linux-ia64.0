@@ -1,17 +1,17 @@
 From: Yong Zhang <yong.zhang0@gmail.com>
-Date: Thu, 22 Sep 2011 08:58:35 +0000
-Subject: [PATCH 08/55] ia64: irq: Remove IRQF_DISABLED
-Message-Id: <1316681962-8217-9-git-send-email-yong.zhang0@gmail.com>
+Date: Wed, 21 Sep 2011 09:28:09 +0000
+Subject: [PATCH 08/57] ia64: irq: Remove IRQF_DISABLED
+Message-Id: <1316597339-29861-9-git-send-email-yong.zhang0@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1316681962-8217-1-git-send-email-yong.zhang0@gmail.com>
-In-Reply-To: <1316681962-8217-1-git-send-email-yong.zhang0@gmail.com>
+References: <1316597339-29861-1-git-send-email-yong.zhang0@gmail.com>
+In-Reply-To: <1316597339-29861-1-git-send-email-yong.zhang0@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 Cc: tglx@linutronix.de, yong.zhang0@gmail.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@suse.de>, Alan Cox <alan@linux.intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Jesper Nilsson <jesper.nilsson@axis.com>, Chris Metcalf <cmetcalf@tilera.com>, Jeff Mahoney <jeffm@suse.com>, Nick Piggin <npiggin@kernel.dk>, Al Viro <viro@zeniv.linux.org.uk>, Joe Perches <joe@perches.com>, Jesper Juhl <jj@chaosbits.net>, John Stultz <johnstul@us.ibm.com>, Eric Dumazet <eric.dumazet@gmail.com>, Torben Hohn <torbenh@gmx.de>, Russell King <rmk+kernel@arm.linux.org.uk>, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-ia64@vger.kernel.org
 
-Since commit [e58aa3d2: genirq: Run irq handlers with interrupts disabled],
+Since commit [c58543c8: genirq: Run irq handlers with interrupts disabled],
 We run all interrupt handlers with interrupts disabled
 and we even check and yell when an interrupt handler
 returns with interrupts enabled (see commit [b738a50a:
