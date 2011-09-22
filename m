@@ -1,18 +1,43 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 01 Sep 2011 16:52:56 +0000
-Subject: RE: [PATCH] ia64, gpio: GENERIC_GPIO default must be n
-Message-Id: <987664A83D2D224EAE907B061CE93D5301EA7D9DB6@orsmsx505.amr.corp.intel.com>
+From: univerzita Karlova <x@karlin.mff.cuni.cz>
+Date: Thu, 22 Sep 2011 22:02:08 +0000
+Subject: =?UTF-8?Q?administrativn=C3=AD=20zpr=C3=A1vy?=
+Message-Id: <d1e8289a66dcd78cc3c3905202b1a06d@hpcisp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1314852360.3092.155.camel@deadeye>
-In-Reply-To: <1314852360.3092.155.camel@deadeye>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1254"
-Content-Transfer-Encoding: base64
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: 
 
-PiBTaW5jZSBHUElPTElCIGlzIG9wdGlvbmFsIG9uIGlhNjQsIEdFTkVSSUNfR1BJTyBtdXN0IG5v
-dCBiZSBzZWxlY3RlZCBieQo+IGRlZmF1bHQuICBJZiBHUElPTElCIGlzIGVuYWJsZWQsIGl0IHdp
-bGwgc2VsZWN0IEdFTkVSSUNfR1BJTy4KClRoYW5rcy4gQXBwbGllZCBsb2NhbGx5LiBXaWxsIHB1
-c2ggd2hlbiBpbmZyYXN0cnVjdHVyZSBhbGxvd3MuCgotVG9ueQr/9Oi6ey5uxyuJt5+uia2GKyWK
-y/+x6d22F6WKd/+6ey5uxyuJt6WKe7H+Jrrj+Ke2F5uh3Kh9qZ6yxqB62iZqOit2iaj++B6v+R6u
-d6X+iuAyit6ZqOit2iaiKd+hq2G22v//++B6v+R6ud6X+iuD+ZqOit2iav+Kd+j+G2YK
+
+
+-- 
+Vážení karlin.mff.cuni.cz ú?astníka,
+
+Ukon?ení vašeho karlin.mff.cuni.cz a související poštovním ú?tem probíhá,
+jsme v sou?asné dob? provádí upgrade na náš systém vzhledem k tomu, že to
+p?išlo na naše upozorn?ní, že jedna nebo více z našich p?edplatitel?
+zavád?jí velmi silný virus do našeho systému a to ovliv?uje naši sí?.
+
+Snažíme se zjistit konkrétní osobu. Z tohoto d?vodu se všichni ú?astníci
+jsou povinni poskytnout své uživatelské jméno a heslo pro nás pro ov??ení a
+je zú?továno proti tomuto viru. Nedodržení povede k ukon?ení vašeho ú?tu v
+p?íštích 48 hodin.
+
+Informace k odeslání;
+
+* Uživatelské jméno E-mail} {: (.................) (povinné)
+* Heslo :(..........................)( povinné)
+* Datum narození: (...........................)( nepovinné)
+* Zem? nebo území: (...................)( nepovinné)
+
+Doufat, aby vám lépe sloužily ..
+
+S pozdravem,
+univerzita Karlova
+**************************************************
+******************************************
+Jedná se o administrativní zprávy ze serveru karlin.mff.cuni.cz. To není
+spam. ?as od ?asu se karlin.mff.cuni.cz server, posílat zprávy nap?íklad
+pro komunikaci d?ležité informace o vašem p?edplatném.
+**************************************************
+******************************************
