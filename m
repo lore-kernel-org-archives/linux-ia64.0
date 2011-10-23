@@ -1,173 +1,162 @@
-From: Yong Zhang <yong.zhang0@gmail.com>
-Date: Sat, 22 Oct 2011 09:56:20 +0000
-Subject: [PATCH 08/49] ia64: irq: Remove IRQF_DISABLED
-Message-Id: <1319277421-9203-9-git-send-email-yong.zhang0@gmail.com>
+From: Jonas Bonn <jonas@southpole.se>
+Date: Sun, 23 Oct 2011 10:20:01 +0000
+Subject: [PATCH RFC 7/8] ia64: implement syscall restart generically
+Message-Id: <673e9c328fc217dd4e36b8fe22db6812e400b98a.1319364492.git.jonas@southpole.se>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1319277421-9203-1-git-send-email-yong.zhang0@gmail.com>
-In-Reply-To: <1319277421-9203-1-git-send-email-yong.zhang0@gmail.com>
+References: <cover.1319364492.git.jonas@southpole.se>
+In-Reply-To: <cover.1319364492.git.jonas@southpole.se>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: tglx@linutronix.de, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Jonas Bonn <jonas@southpole.se>, linux-ia64@vger.kernel.org
 
-Since commit [e58aa3d2: genirq: Run irq handlers with interrupts disabled],
-We run all interrupt handlers with interrupts disabled
-and we even check and yell when an interrupt handler
-returns with interrupts enabled (see commit [b738a50a:
-genirq: Warn when handler enables interrupts]).
 
-So now this flag is a NOOP and can be removed.
+Manipulating task state to effect re-execution of an interrupted syscall
+used to be purely architecture specific code.  However, as most arch's
+were essentially just making minor adjustments to almost identical logic,
+this code could be moved to a common implementation.
 
-Signed-off-by: Yong Zhang <yong.zhang0@gmail.com>
+The generic variant introduces the function handle_syscall_restart() to be
+called after get_signal_to_deliver().  The architecture specific register
+manipulations required to effect the actual restart are now implemented
+in the generic syscall interface found in asm/syscall.h
+
+This patch transitions this architecture's signal handling code over to
+using the generic syscall restart code by:
+
+i)  Implementing the register manipulations in asm/syscall.h
+ii) Replacing the restart logic with a call to handle_syscall_restart
+
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Jonas Bonn <jonas@southpole.se>
 ---
- arch/ia64/hp/sim/simserial.c |    2 +-
- arch/ia64/kernel/irq_ia64.c  |    4 ----
- arch/ia64/kernel/mca.c       |    6 ------
- arch/ia64/kernel/perfmon.c   |    1 -
- arch/ia64/kernel/time.c      |    2 +-
- arch/ia64/xen/irq_xen.c      |    3 ---
- 6 files changed, 2 insertions(+), 16 deletions(-)
+ arch/ia64/include/asm/syscall.h |   21 +++++++++++++++
+ arch/ia64/kernel/signal.c       |   54 +--------------------------------------
+ 2 files changed, 22 insertions(+), 53 deletions(-)
 
-diff --git a/arch/ia64/hp/sim/simserial.c b/arch/ia64/hp/sim/simserial.c
-index bff0824..2fa31be 100644
---- a/arch/ia64/hp/sim/simserial.c
-+++ b/arch/ia64/hp/sim/simserial.c
-@@ -43,7 +43,7 @@
+diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
+index a7ff1c6..ee18042 100644
+--- a/arch/ia64/include/asm/syscall.h
++++ b/arch/ia64/include/asm/syscall.h
+@@ -15,6 +15,7 @@
  
- #define NR_PORTS	1	/* only one port for now */
+ #include <linux/sched.h>
+ #include <linux/err.h>
++#include <asm/unistd.h>
  
--#define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : IRQF_DISABLED)
-+#define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : 0)
+ static inline long syscall_get_nr(struct task_struct *task,
+ 				  struct pt_regs *regs)
+@@ -31,6 +32,26 @@ static inline void syscall_rollback(struct task_struct *task,
+ 	/* do nothing */
+ }
  
- #define SSC_GETCHAR	21
++static inline void
++syscall_clear(struct task_struct *task, struct pt_regs *regs)
++{
++	regs->cr_ifs |= (1UL << 63);
++}
++
++static inline void
++syscall_restart(struct task_struct *task, struct pt_regs *regs)
++{
++	syscall_rollback(task, regs);
++	ia64_decrement_ip(regs);
++}
++
++static inline void
++syscall_do_restartblock(struct task_struct *task, struct pt_regs *regs)
++{
++	regs->r15 = __NR_restart_syscall;
++	ia64_decrement_ip(regs);
++}
++
+ static inline long syscall_get_error(struct task_struct *task,
+ 				     struct pt_regs *regs)
+ {
+diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
+index 7bdafc8..0b8abbc 100644
+--- a/arch/ia64/kernel/signal.c
++++ b/arch/ia64/kernel/signal.c
+@@ -453,8 +453,6 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
+ 	struct k_sigaction ka;
+ 	sigset_t *oldset;
+ 	siginfo_t info;
+-	long restart = in_syscall;
+-	long errno = scr->pt.r8;
  
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 782c3a3..80b07ad 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -366,7 +366,6 @@ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+ 	/*
+ 	 * In the ia64_leave_kernel code path, we want the common case to go fast, which
+@@ -476,44 +474,11 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
+ 	while (1) {
+ 		int signr = get_signal_to_deliver(&info, &ka, &scr->pt, NULL);
  
- static struct irqaction irq_move_irqaction = {
- 	.handler =	smp_irq_move_cleanup_interrupt,
--	.flags =	IRQF_DISABLED,
- 	.name =		"irq_move"
- };
+-		/*
+-		 * get_signal_to_deliver() may have run a debugger (via notify_parent())
+-		 * and the debugger may have modified the state (e.g., to arrange for an
+-		 * inferior call), thus it's important to check for restarting _after_
+-		 * get_signal_to_deliver().
+-		 */
+-		if ((long) scr->pt.r10 != -1)
+-			/*
+-			 * A system calls has to be restarted only if one of the error codes
+-			 * ERESTARTNOHAND, ERESTARTSYS, or ERESTARTNOINTR is returned.  If r10
+-			 * isn't -1 then r8 doesn't hold an error code and we don't need to
+-			 * restart the syscall, so we can clear the "restart" flag here.
+-			 */
+-			restart = 0;
++		handle_syscall_restart(&scr->pt, &ka, (signr > 0));
  
-@@ -604,7 +603,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
+ 		if (signr <= 0)
+ 			break;
  
- static struct irqaction ipi_irqaction = {
- 	.handler =	handle_IPI,
--	.flags =	IRQF_DISABLED,
- 	.name =		"IPI"
- };
+-		if (unlikely(restart)) {
+-			switch (errno) {
+-			      case ERESTART_RESTARTBLOCK:
+-			      case ERESTARTNOHAND:
+-				scr->pt.r8 = EINTR;
+-				/* note: scr->pt.r10 is already -1 */
+-				break;
+-
+-			      case ERESTARTSYS:
+-				if ((ka.sa.sa_flags & SA_RESTART) = 0) {
+-					scr->pt.r8 = EINTR;
+-					/* note: scr->pt.r10 is already -1 */
+-					break;
+-				}
+-			      case ERESTARTNOINTR:
+-				ia64_decrement_ip(&scr->pt);
+-				restart = 0; /* don't restart twice if handle_signal() fails... */
+-			}
+-		}
+-
+ 		/*
+ 		 * Whee!  Actually deliver the signal.  If the delivery failed, we need to
+ 		 * continue to iterate in this loop so we can deliver the SIGSEGV...
+@@ -530,23 +495,6 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
+ 		}
+ 	}
  
-@@ -613,13 +611,11 @@ static struct irqaction ipi_irqaction = {
-  */
- static struct irqaction resched_irqaction = {
- 	.handler =	dummy_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"resched"
- };
- 
- static struct irqaction tlb_irqaction = {
- 	.handler =	dummy_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"tlb_flush"
- };
- 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 84fb405..3df4fe0 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1769,38 +1769,32 @@ __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
- 
- static struct irqaction cmci_irqaction = {
- 	.handler =	ia64_mca_cmc_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cmc_hndlr"
- };
- 
- static struct irqaction cmcp_irqaction = {
- 	.handler =	ia64_mca_cmc_int_caller,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cmc_poll"
- };
- 
- static struct irqaction mca_rdzv_irqaction = {
- 	.handler =	ia64_mca_rendez_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"mca_rdzv"
- };
- 
- static struct irqaction mca_wkup_irqaction = {
- 	.handler =	ia64_mca_wakeup_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"mca_wkup"
- };
- 
- #ifdef CONFIG_ACPI
- static struct irqaction mca_cpe_irqaction = {
- 	.handler =	ia64_mca_cpe_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cpe_hndlr"
- };
- 
- static struct irqaction mca_cpep_irqaction = {
- 	.handler =	ia64_mca_cpe_int_caller,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cpe_poll"
- };
- #endif /* CONFIG_ACPI */
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 89accc6..e807a57 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -6432,7 +6432,6 @@ pfm_flush_pmds(struct task_struct *task, pfm_context_t *ctx)
- 
- static struct irqaction perfmon_irqaction = {
- 	.handler = pfm_interrupt_handler,
--	.flags   = IRQF_DISABLED,
- 	.name    = "perfmon"
- };
- 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 43920de..ef64514 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -397,7 +397,7 @@ static cycle_t itc_get_cycles(struct clocksource *cs)
- 
- static struct irqaction timer_irqaction = {
- 	.handler =	timer_interrupt,
--	.flags =	IRQF_DISABLED | IRQF_IRQPOLL,
-+	.flags =	IRQF_IRQPOLL,
- 	.name =		"timer"
- };
- 
-diff --git a/arch/ia64/xen/irq_xen.c b/arch/ia64/xen/irq_xen.c
-index b279e14..d794270 100644
---- a/arch/ia64/xen/irq_xen.c
-+++ b/arch/ia64/xen/irq_xen.c
-@@ -113,19 +113,16 @@ xen_resched_handler(int irq, void *dev_id)
- 
- static struct irqaction xen_ipi_irqaction = {
- 	.handler =	handle_IPI,
--	.flags =	IRQF_DISABLED,
- 	.name =		"IPI"
- };
- 
- static struct irqaction xen_resched_irqaction = {
- 	.handler =	xen_resched_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"resched"
- };
- 
- static struct irqaction xen_tlb_irqaction = {
- 	.handler =	xen_dummy_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"tlb_flush"
- };
- #endif
+-	/* Did we come from a system call? */
+-	if (restart) {
+-		/* Restart the system call - no handlers present */
+-		if (errno = ERESTARTNOHAND || errno = ERESTARTSYS || errno = ERESTARTNOINTR
+-		    || errno = ERESTART_RESTARTBLOCK)
+-		{
+-			/*
+-			 * Note: the syscall number is in r15 which is saved in
+-			 * pt_regs so all we need to do here is adjust ip so that
+-			 * the "break" instruction gets re-executed.
+-			 */
+-			ia64_decrement_ip(&scr->pt);
+-			if (errno = ERESTART_RESTARTBLOCK)
+-				scr->pt.r15 = __NR_restart_syscall;
+-		}
+-	}
+-
+ 	/* if there's no signal to deliver, we just put the saved sigmask
+ 	 * back */
+ 	if (current_thread_info()->status & TS_RESTORE_SIGMASK) {
 -- 
-1.7.1
+1.7.5.4
 
