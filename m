@@ -1,37 +1,43 @@
-From: akpm@linux-foundation.org
-Date: Tue, 15 Nov 2011 22:53:44 +0000
-Subject: [patch 1/1] ia64, exec: remove redundant set_fs(USER_DS)
-Message-Id: <201111152253.pAFMriW2014723@wpaz9.hot.corp.google.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Date: Sat, 12 Nov 2011 19:51:01 +0000
+Subject: [PATCH] ia64: change "select DMAR" to "select INTEL_IOMMU"
+Message-Id: <1321127461.27598.102.camel@x61.thuisdomein>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Suresh Siddha <suresh.b.siddha@intel.com>, Ingo Molnar <mingo@elte.hu>
 
-From: Mathias Krause <minipli@googlemail.com>
-Subject: ia64, exec: remove redundant set_fs(USER_DS)
+Commit d3f138106b ("iommu: Rename the DMAR and INTR_REMAP config
+options") changed all references to DMAR in Kconfig files to INTEL_IOMMU
+(and, likewise, changed the references to CONFIG_DMAR everywhere else
+to CONFIG_INTEL_IOMMU). That commit missed one "select DMAR" statement
+in ia64's Kconfig file. Change that one too.
 
-The address limit is already set in flush_old_exec() so this
-set_fs(USER_DS) is redundant.
-
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 ---
+0) Tested with "make ARCH=ia64 menuconfig" only.
 
- arch/ia64/include/asm/processor.h |    1 -
- 1 file changed, 1 deletion(-)
+1) Everything suggests this was simply an oversight. Otherwise that
+select line would have been dropped, wouldn't it?
 
-diff -puN arch/ia64/include/asm/processor.h~ia64-exec-remove-redundant-set_fsuser_ds arch/ia64/include/asm/processor.h
---- a/arch/ia64/include/asm/processor.h~ia64-exec-remove-redundant-set_fsuser_ds
-+++ a/arch/ia64/include/asm/processor.h
-@@ -309,7 +309,6 @@ struct thread_struct {
- }
+ arch/ia64/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 552cbe9..c7bf0ea 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -185,7 +185,7 @@ config IA64_DIG
  
- #define start_thread(regs,new_ip,new_sp) do {							\
--	set_fs(USER_DS);									\
- 	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET | IA64_PSR_CPL))		\
- 			 & ~(IA64_PSR_BITS_TO_CLEAR | IA64_PSR_RI | IA64_PSR_IS));		\
- 	regs->cr_iip = new_ip;									\
-_
+ config IA64_DIG_VTD
+ 	bool "DIG+Intel+IOMMU"
+-	select DMAR
++	select INTEL_IOMMU
+ 	select PCI_MSI
+ 
+ config IA64_HP_ZX1
+-- 
+1.7.4.4
+
