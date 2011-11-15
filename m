@@ -1,35 +1,37 @@
-From: Thomas Meyer <thomas@m3y3r.de>
-Date: Sat, 19 Nov 2011 11:26:05 +0000
-Subject: [PATCH] ia64: pcibr: Use kmemdup rather than duplicating its
-Message-Id: <1321701965.1624.323.camel@localhost.localdomain>
+From: akpm@linux-foundation.org
+Date: Tue, 15 Nov 2011 22:53:44 +0000
+Subject: [patch 1/1] ia64, exec: remove redundant set_fs(USER_DS)
+Message-Id: <201111152253.pAFMriW2014723@wpaz9.hot.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: jes@sgi.com, tony.luck@intel.com, fenghua.yu@intel.com, linux-altix@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-The semantic patch that makes this change is available
-in scripts/coccinelle/api/memdup.cocci.
+From: Mathias Krause <minipli@googlemail.com>
+Subject: ia64, exec: remove redundant set_fs(USER_DS)
 
-Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+The address limit is already set in flush_old_exec() so this
+set_fs(USER_DS) is redundant.
+
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 ---
 
-diff -u -p a/arch/ia64/sn/pci/pcibr/pcibr_provider.c b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
---- a/arch/ia64/sn/pci/pcibr/pcibr_provider.c 2011-11-07 19:39:05.034456070 +0100
-+++ b/arch/ia64/sn/pci/pcibr/pcibr_provider.c 2011-11-08 11:01:35.484737338 +0100
-@@ -127,12 +127,11 @@ pcibr_bus_fixup(struct pcibus_bussoft *p
- 	 * Allocate kernel bus soft and copy from prom.
- 	 */
- 
--	soft = kmalloc(sizeof(struct pcibus_info), GFP_KERNEL);
-+	soft = kmemdup(prom_bussoft, sizeof(struct pcibus_info), GFP_KERNEL);
- 	if (!soft) {
- 		return NULL;
- 	}
- 
--	memcpy(soft, prom_bussoft, sizeof(struct pcibus_info));
- 	soft->pbi_buscommon.bs_base = (unsigned long)
- 		ioremap(REGION_OFFSET(soft->pbi_buscommon.bs_base),
- 			sizeof(struct pic));
+ arch/ia64/include/asm/processor.h |    1 -
+ 1 file changed, 1 deletion(-)
 
-
+diff -puN arch/ia64/include/asm/processor.h~ia64-exec-remove-redundant-set_fsuser_ds arch/ia64/include/asm/processor.h
+--- a/arch/ia64/include/asm/processor.h~ia64-exec-remove-redundant-set_fsuser_ds
++++ a/arch/ia64/include/asm/processor.h
+@@ -309,7 +309,6 @@ struct thread_struct {
+ }
+ 
+ #define start_thread(regs,new_ip,new_sp) do {							\
+-	set_fs(USER_DS);									\
+ 	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET | IA64_PSR_CPL))		\
+ 			 & ~(IA64_PSR_BITS_TO_CLEAR | IA64_PSR_RI | IA64_PSR_IS));		\
+ 	regs->cr_iip = new_ip;									\
+_
