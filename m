@@ -1,8 +1,10 @@
-From: =?utf-8?B?MjAxMeeni+Wto+W5v+S6pOS8muS5sOWutg==?= <user@wrf.local>
-Date: Thu, 17 Nov 2011 00:39:42 +0000
+From: =?utf-8?B?MjAxMeeni+Wto+W5v+S6pOS8muS5sOWutg==?=
+Date: Thu, 17 Nov 2011 02:10:08 +0000
 Subject: =?utf-8?B?MjAxMeeni+Wto+W5v+S6pOS8muS5sOWutivnvqTlj5Hova/ku7Yr5Lmw5a625pCc?=
-Message-Id: <20121117030937612563@wrf.local>
+Message-Id: <20121116185550325047@sdnmall.co.kr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20121117030937612563@wrf.local>
+In-Reply-To: <20121117030937612563@wrf.local>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
