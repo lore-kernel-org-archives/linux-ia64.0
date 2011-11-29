@@ -1,55 +1,71 @@
-From: =?utf-8?B?MjAxMeeni+Wto+W5v+S6pOS8muS5sOWutg==?=
-Date: Thu, 17 Nov 2011 02:10:08 +0000
-Subject: =?utf-8?B?MjAxMeeni+Wto+W5v+S6pOS8muS5sOWutivnvqTlj5Hova/ku7Yr5Lmw5a625pCc?=
-Message-Id: <20121116185550325047@sdnmall.co.kr>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Tue, 29 Nov 2011 14:01:51 +0000
+Subject: Overlapping reserved regions at boot
+Message-Id: <201111291501.51657.ptesarik@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20121117030937612563@wrf.local>
-In-Reply-To: <20121117030937612563@wrf.local>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-576k5Y+R6L2v5Lu2KzIwMTHnp4vlraPlub/kuqTkvJrkubDlrrbjgIHmtbflhbPmlbDmja7jgIHm
-kJzntKLlvJXmk47kubDlrrYsQjJC6K+i55uY5Lmw5a625YWxNTAw5LiHLOS7hTEw5YWD5q+P5aSp
-44CCIA0K576k5Y+R6L2v5Lu2KzIwMTHnp4vlraPlub/kuqTkvJrkubDlrrbjgIHmtbflhbPmlbDm
-ja7jgIHmkJzntKLlvJXmk47kubDlrrYsQjJC6K+i55uY5Lmw5a625YWxNTAw5LiHLOS7hTEw5YWD
-5q+P5aSp44CCIA0K5L+d6K+B5q+P5aSp6YO95pyJ5Lmw5a625Zue5aSN44CCDQrkv53or4Hmr4/l
-pKnpg73mnInkubDlrrblm57lpI3jgIINCuS/neivgeavj+WkqemDveacieS5sOWutuWbnuWkjeOA
-gg0KDQox44CB576k5Y+R6L2v5Lu277yaIOaTjeS9nOeugOWNle+8jOWKn+iDveW8uuWkp++8jOao
-oeS7v+S6uuW3peaTjeS9nOaooeW8j++8jOWIsOi+vueOh+mrmO+8jOaXpeWPkemAgTXkuIflsIHk
-u6XkuIrjgIIgDQoy44CBNTAw5LiH5Lmw5a626LWE5rqQ77yaIOi1oOmAgeeahDUwMOS4h+S5sOWu
-tui1hOa6kOW6k++8jOabtOaWsCAo5Y+v5Lul5oyJ54Wn5oKo55qE5Lqn5ZOB5o+Q5Y+W5Ye65p2l
-77yM5pu057K+5YeG5byA5Y+RKeOAgiANCjPjgIHotoXnuqfmtbflpJbkubDlrrZFbWFpbOaQnOe0
-ouacuu+8miDlhoXnva7kuoY2MDDkuIfooYzkuJrlhbPplK7or43vvIzmoLnmja7plb/lsL7or43m
-kJzntKLvvIznu5Pmnpzmm7Tnsr7noa7ljLnphY3vvJvmr4/lpKnog73mkJzntKIxLTLkuIfku6Xk
-uIrkubDlrrbnnJ/lrp5FTUFJTO+8jOaIkOWNleeOh+mrmOOAgiANCiANCg0K6KaB55qE5oqT57Sn
-6IGU57O7UVE6IDEzMzk2MjUyMTggICDmiJbogIXnq4vljbPlm57lpI3pgq7nrrE6IDEzMzk2MjUy
-MThAcXEuY29tDQropoHnmoTmipPntKfogZTns7tRUTogMTMzOTYyNTIxOCAgIOaIluiAheeri+WN
-s+WbnuWkjemCrueusTogMTMzOTYyNTIxOEBxcS5jb20NCuimgeeahOaKk+e0p+iBlOezu1FROiAx
-MzM5NjI1MjE4ICAg5oiW6ICF56uL5Y2z5Zue5aSN6YKu566xOiAxMzM5NjI1MjE4QHFxLmNvbQ0K
-IA0K5YWN6LS56LWg6YCBOg0K5LiA5YWxOOS4quWMhSjmlbDmja7mmK/lhajooYzkuJrnmoTvvIzm
-jInnhafooYzkuJrliIblpb3nsbvvvIzlubbkuJTlj6/ku6XmjInnhaflhbPplK7or43mn6Xor6Ln
-moQp77yaIA0KMe+8jDIwMTHmmKXlraMrMjAxMeeni+Wto+W5v+S6pOS8muS5sOWutueOsOWcuuiv
-ouebmOaVsOaNruW6k+aWsOmynOWHuueCie+8jOi2hee6p+aWsOmynOS5sOWutu+8jOaWsOmynOaV
-sOaNru+8jOWuueaYk+aIkOWNle+8gSANCjLvvIzotK3kubDlkI7lj6/ku6XlhY3otLnmm7TmlrAy
-MDEx56eL5a2j5bm/5Lqk5LyaKzIwMTLmmKXlraPlub/kuqTkvJrkubDlrrbmlbDmja7jgILlpKro
-toXlgLzkuobjgIINCjPvvIzmnIDmlrDlhajnkIPkubDlrrblupMs5YWxNDUxNjYw5p2h5pWw5o2u
-44CCICjmnIDmlrDmm7TmlrDml6XmnJ8gMjAxMS0wNS0xNuaXpSkNCjTvvIwyMDA45bm0LDIwMDnl
-ubQsMjAxMOW5tCDmmKXlraMr56eL5a2j5bm/5Lqk5Lya5Lmw5a625ZCN5b2V77yMMTAzIDEwNCAx
-MDUgMTA2IDEwNyAxMDgg5YWx5YWt5bGKIOWFsTEyMC425LiH5pWw5o2u44CCDQo177yMMjAxMOW5
-tOWbvemZheS/g+mUgOWNj+S8mu+8iFBQQUnvvInmiJDlkZjlkI3ljZUgUFBBSSBNZW1iZXJzIERp
-cmVjdG9yee+8jOmdnuW4uOmHjeimgeeahOWkp+S5sOWutuOAgg0KNu+8jDIwMTDlubTliLDpppnm
-uK/ph4fotK3nmoTlm73lpJblrqLkurrlkI3lvZUo6aaZ5riv6LS45Y+R5bGA5o+Q5L6bKe+8jOWF
-sTcuMuS4h+aVsOaNru+8jOi2hee6p+mHjeimgeeahOS5sOWutuOAgg0KN++8jDQ4LjY45LiH5p2h
-5pyA5paw5Lmw5a626K+i55uY77yM6LSt5Lmw5ZCO5q+P5pyI5pu05pawIDEtMuS4h+adoe+8jOWM
-heaLrDLpg6jliIbvvIwx77yM5pyA5paw55qE6K+i55uYIDLvvIzmnIDmlrDnmoTlsZXkvJrkubDl
-rrbjgILlhY3otLnmm7TmlrAzNuS4quaciOOAgg0KOO+8jDIwMDnlubTmtbflhbPmj5DljZXmlbDm
-ja5waWVyc+eJiOaVsOaNriAx5Y2D5LiH44CCDQoNCg0K6K+a5L+h5Li65pys77yM5pSv5oyB5pSv
-5LuY5a6d5ouF5L+d5Lqk5piTICjlhYjlj5HotKflubblronoo4Xorr7nva7nvqTlj5Hova/ku7bv
-vIznhLblkI7ku5jmrL4pIOW9u+W6leaJk+a2iOaCqOeahCDpob7omZHjgIINCg0KIA0KDQoNCiAN
-Cg0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+ae
-gemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeO
-h+aegemrmA0K57K+5YeG5pWw5o2uLeaIkOWNleeOh+aegemrmA0K
+Hello,
 
+while working on the upcoming SLES11 SP2, I ran into an issue with booting the 
+panic kernel on a kernel crash. In the first iteration I found out that the 
+initial register backing store gets overwritten with zeroes, causing a kernel 
+crash shortly afterwards.
 
+Further investigation revealed that rsvd_region[] contains overlapping 
+entries: find_memmap_space() returns a pointer which lies between KERNEL_START 
+and _end. This is correct with the EFI memmap as patched by the kexec 
+purgatory code. That code removes vmlinux LOAD segments from the usable map, 
+but there is a pretty large hole between the gate section and the per-cpu 
+section.
+
+With the following patch, the panic kernel can boot and save the crash dump.
+
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -225,6 +225,23 @@
+ 	}
+ }
+ 
++/* merge overlaps */
++static int __init
++merge_regions (struct rsvd_region *rsvd_region, int max)
++{
++	int i;
++	for (i = 1; i < max; ++i) {
++		if (rsvd_region[i].start >= rsvd_region[i-1].end)
++			continue;
++		if (rsvd_region[i].end > rsvd_region[i-1].end)
++			rsvd_region[i-1].end = rsvd_region[i].end;
++		--max;
++		memmove(&rsvd_region[i], &rsvd_region[i+1],
++			(max - i) * sizeof(struct rsvd_region));
++	}
++	return max;
++}
++
+ /*
+  * Request address space for all standard resources
+  */
+@@ -275,6 +292,7 @@
+ 	if (ret = 0 && size > 0) {
+ 		if (!base) {
+ 			sort_regions(rsvd_region, *n);
++			*n = merge_regions(rsvd_region, *n);
+ 			base = kdump_find_rsvd_region(size,
+ 					rsvd_region, *n);
+ 		}
+@@ -392,6 +410,7 @@
+ 	BUG_ON(IA64_MAX_RSVD_REGIONS + 1 < n);
+ 
+ 	sort_regions(rsvd_region, num_rsvd_regions);
++	num_rsvd_regions = merge_regions(rsvd_region, num_rsvd_regions);
+ }
+ 
+ 
