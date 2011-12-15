@@ -1,310 +1,209 @@
-From: Marek Szyprowski <m.szyprowski@samsung.com>
-Date: Fri, 23 Dec 2011 12:27:23 +0000
-Subject: [PATCH 04/14] PowerPC: adapt for dma_map_ops changes
-Message-Id: <1324643253-3024-5-git-send-email-m.szyprowski@samsung.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 15 Dec 2011 03:29:53 +0000
+Subject: [PATCH 11/15] module_param: make bool parameters really bool (arch)
+Message-Id: <87hb12seu6.fsf@rustcorp.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Marek Szyprowski <m.szyprowski@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Pawel Moll <pawel.moll@arm.com>
 
-From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+module_param(bool) used to counter-intuitively take an int.  In
+fddd5201 (mid-2009) we allowed bool or int/unsigned int using a messy
+trick.
 
-Adapt core PowerPC architecture code for dma_map_ops changes: replace
-alloc/free_coherent with generic alloc/free methods.
+It's time to remove the int/unsigned int option.  For this version
+it'll simply give a warning, but it'll break next kernel version.
 
-Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
-Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 ---
- arch/powerpc/include/asm/dma-mapping.h  |   24 ++++++++++++++++--------
- arch/powerpc/kernel/dma-iommu.c         |   10 ++++++----
- arch/powerpc/kernel/dma-swiotlb.c       |    4 ++--
- arch/powerpc/kernel/dma.c               |   10 ++++++----
- arch/powerpc/kernel/ibmebus.c           |   10 ++++++----
- arch/powerpc/platforms/cell/iommu.c     |   16 +++++++++-------
- arch/powerpc/platforms/ps3/system-bus.c |   13 +++++++------
- 7 files changed, 52 insertions(+), 35 deletions(-)
+ arch/ia64/hp/common/aml_nfw.c  |    2 +-
+ arch/x86/kernel/apm_32.c       |   16 ++++++++--------
+ arch/x86/kvm/mmu.c             |    4 ++--
+ arch/x86/kvm/vmx.c             |   18 +++++++++---------
+ arch/x86/kvm/x86.c             |    4 ++--
+ arch/x86/mm/mmio-mod.c         |    4 ++--
+ arch/x86/platform/geode/alix.c |    2 +-
+ arch/x86/platform/iris/iris.c  |    2 +-
+ 8 files changed, 26 insertions(+), 26 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index dd70fac..62678e3 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -22,9 +22,11 @@
- 
- /* Some dma direct funcs must be visible for use in other dma_ops */
- extern void *dma_direct_alloc_coherent(struct device *dev, size_t size,
--				       dma_addr_t *dma_handle, gfp_t flag);
-+				       dma_addr_t *dma_handle, gfp_t flag,
-+				       struct dma_attrs *attrs);
- extern void dma_direct_free_coherent(struct device *dev, size_t size,
--				     void *vaddr, dma_addr_t dma_handle);
-+				     void *vaddr, dma_addr_t dma_handle,
-+				     struct dma_attrs *attrs);
- 
- 
- #ifdef CONFIG_NOT_COHERENT_CACHE
-@@ -130,23 +132,29 @@ static inline int dma_supported(struct device *dev, u64 mask)
- 
- extern int dma_set_mask(struct device *dev, u64 dma_mask);
- 
--static inline void *dma_alloc_coherent(struct device *dev, size_t size,
--				       dma_addr_t *dma_handle, gfp_t flag)
-+#define dma_alloc_coherent(d,s,h,f)	dma_alloc_attrs(d,s,h,f,NULL)
-+
-+static inline void *dma_alloc_attrs(struct device *dev, size_t size,
-+				    dma_addr_t *dma_handle, gfp_t flag,
-+				    struct dma_attrs *attrs)
- {
- 	struct dma_map_ops *dma_ops = get_dma_ops(dev);
- 	void *cpu_addr;
- 
- 	BUG_ON(!dma_ops);
- 
--	cpu_addr = dma_ops->alloc_coherent(dev, size, dma_handle, flag);
-+	cpu_addr = dma_ops->alloc(dev, size, dma_handle, flag, attrs);
- 
- 	debug_dma_alloc_coherent(dev, size, *dma_handle, cpu_addr);
- 
- 	return cpu_addr;
- }
- 
--static inline void dma_free_coherent(struct device *dev, size_t size,
--				     void *cpu_addr, dma_addr_t dma_handle)
-+#define dma_free_coherent(d,s,c,h) dma_free_attrs(d,s,c,h,NULL)
-+
-+static inline void dma_free_attrs(struct device *dev, size_t size,
-+				  void *cpu_addr, dma_addr_t dma_handle,
-+				  struct dma_attrs *attrs)
- {
- 	struct dma_map_ops *dma_ops = get_dma_ops(dev);
- 
-@@ -154,7 +162,7 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
- 
- 	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
- 
--	dma_ops->free_coherent(dev, size, cpu_addr, dma_handle);
-+	dma_ops->free(dev, size, cpu_addr, dma_handle, attrs);
- }
- 
- static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
-diff --git a/arch/powerpc/kernel/dma-iommu.c b/arch/powerpc/kernel/dma-iommu.c
-index 3f6464b..bcfdcd2 100644
---- a/arch/powerpc/kernel/dma-iommu.c
-+++ b/arch/powerpc/kernel/dma-iommu.c
-@@ -17,7 +17,8 @@
-  * to the dma address (mapping) of the first page.
-  */
- static void *dma_iommu_alloc_coherent(struct device *dev, size_t size,
--				      dma_addr_t *dma_handle, gfp_t flag)
-+				      dma_addr_t *dma_handle, gfp_t flag,
-+				      struct dma_attrs *attrs)
- {
- 	return iommu_alloc_coherent(dev, get_iommu_table_base(dev), size,
- 				    dma_handle, dev->coherent_dma_mask, flag,
-@@ -25,7 +26,8 @@ static void *dma_iommu_alloc_coherent(struct device *dev, size_t size,
- }
- 
- static void dma_iommu_free_coherent(struct device *dev, size_t size,
--				    void *vaddr, dma_addr_t dma_handle)
-+				    void *vaddr, dma_addr_t dma_handle,
-+				    struct dma_attrs *attrs)
- {
- 	iommu_free_coherent(get_iommu_table_base(dev), size, vaddr, dma_handle);
- }
-@@ -105,8 +107,8 @@ static u64 dma_iommu_get_required_mask(struct device *dev)
- }
- 
- struct dma_map_ops dma_iommu_ops = {
--	.alloc_coherent		= dma_iommu_alloc_coherent,
--	.free_coherent		= dma_iommu_free_coherent,
-+	.alloc			= dma_iommu_alloc_coherent,
-+	.free			= dma_iommu_free_coherent,
- 	.map_sg			= dma_iommu_map_sg,
- 	.unmap_sg		= dma_iommu_unmap_sg,
- 	.dma_supported		= dma_iommu_dma_supported,
-diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
-index 1ebc918..4ab88da 100644
---- a/arch/powerpc/kernel/dma-swiotlb.c
-+++ b/arch/powerpc/kernel/dma-swiotlb.c
-@@ -47,8 +47,8 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
-  * for everything else.
-  */
- struct dma_map_ops swiotlb_dma_ops = {
--	.alloc_coherent = dma_direct_alloc_coherent,
--	.free_coherent = dma_direct_free_coherent,
-+	.alloc = dma_direct_alloc_coherent,
-+	.free = dma_direct_free_coherent,
- 	.map_sg = swiotlb_map_sg_attrs,
- 	.unmap_sg = swiotlb_unmap_sg_attrs,
- 	.dma_supported = swiotlb_dma_supported,
-diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
-index 7d0233c..b1ec983 100644
---- a/arch/powerpc/kernel/dma.c
-+++ b/arch/powerpc/kernel/dma.c
-@@ -26,7 +26,8 @@
- 
- 
- void *dma_direct_alloc_coherent(struct device *dev, size_t size,
--				dma_addr_t *dma_handle, gfp_t flag)
-+				dma_addr_t *dma_handle, gfp_t flag,
-+				struct dma_attrs *attrs)
- {
- 	void *ret;
- #ifdef CONFIG_NOT_COHERENT_CACHE
-@@ -54,7 +55,8 @@ void *dma_direct_alloc_coherent(struct device *dev, size_t size,
- }
- 
- void dma_direct_free_coherent(struct device *dev, size_t size,
--			      void *vaddr, dma_addr_t dma_handle)
-+			      void *vaddr, dma_addr_t dma_handle,
-+			      struct dma_attrs *attrs)
- {
- #ifdef CONFIG_NOT_COHERENT_CACHE
- 	__dma_free_coherent(size, vaddr);
-@@ -150,8 +152,8 @@ static inline void dma_direct_sync_single(struct device *dev,
+diff --git a/arch/ia64/hp/common/aml_nfw.c b/arch/ia64/hp/common/aml_nfw.c
+--- a/arch/ia64/hp/common/aml_nfw.c
++++ b/arch/ia64/hp/common/aml_nfw.c
+@@ -31,7 +31,7 @@ MODULE_AUTHOR("Bjorn Helgaas <bjorn.helg
+ MODULE_LICENSE("GPL");
+ MODULE_DESCRIPTION("ACPI opregion handler for native firmware calls");
+=20
+-static int force_register;
++static bool force_register;
+ module_param_named(force, force_register, bool, 0);
+ MODULE_PARM_DESC(force, "Install opregion handler even without HPQ5001 dev=
+ice");
+=20
+diff --git a/arch/x86/kernel/apm_32.c b/arch/x86/kernel/apm_32.c
+--- a/arch/x86/kernel/apm_32.c
++++ b/arch/x86/kernel/apm_32.c
+@@ -383,21 +383,21 @@ static int ignore_sys_suspend;
+ static int ignore_normal_resume;
+ static int bounce_interval __read_mostly =3D DEFAULT_BOUNCE_INTERVAL;
+=20
+-static int debug __read_mostly;
++static bool debug __read_mostly;
+ static int smp __read_mostly;
+ static int apm_disabled =3D -1;
+ #ifdef CONFIG_SMP
+-static int power_off;
++static bool power_off;
+ #else
+-static int power_off =3D 1;
++static bool power_off =3D 1;
  #endif
- 
- struct dma_map_ops dma_direct_ops = {
--	.alloc_coherent			= dma_direct_alloc_coherent,
--	.free_coherent			= dma_direct_free_coherent,
-+	.alloc				= dma_direct_alloc_coherent,
-+	.free				= dma_direct_free_coherent,
- 	.map_sg				= dma_direct_map_sg,
- 	.unmap_sg			= dma_direct_unmap_sg,
- 	.dma_supported			= dma_direct_dma_supported,
-diff --git a/arch/powerpc/kernel/ibmebus.c b/arch/powerpc/kernel/ibmebus.c
-index d39ae60..716d918 100644
---- a/arch/powerpc/kernel/ibmebus.c
-+++ b/arch/powerpc/kernel/ibmebus.c
-@@ -65,7 +65,8 @@ static struct of_device_id __initdata ibmebus_matches[] = {
- static void *ibmebus_alloc_coherent(struct device *dev,
- 				    size_t size,
- 				    dma_addr_t *dma_handle,
--				    gfp_t flag)
-+				    gfp_t flag,
-+				    struct dma_attrs *attrs)
- {
- 	void *mem;
- 
-@@ -77,7 +78,8 @@ static void *ibmebus_alloc_coherent(struct device *dev,
- 
- static void ibmebus_free_coherent(struct device *dev,
- 				  size_t size, void *vaddr,
--				  dma_addr_t dma_handle)
-+				  dma_addr_t dma_handle,
-+				  struct dma_attrs *attrs)
- {
- 	kfree(vaddr);
- }
-@@ -136,8 +138,8 @@ static u64 ibmebus_dma_get_required_mask(struct device *dev)
- }
- 
- static struct dma_map_ops ibmebus_dma_ops = {
--	.alloc_coherent     = ibmebus_alloc_coherent,
--	.free_coherent      = ibmebus_free_coherent,
-+	.alloc              = ibmebus_alloc_coherent,
-+	.free               = ibmebus_free_coherent,
- 	.map_sg             = ibmebus_map_sg,
- 	.unmap_sg           = ibmebus_unmap_sg,
- 	.dma_supported      = ibmebus_dma_supported,
-diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
-index 592c3d5..471c955 100644
---- a/arch/powerpc/platforms/cell/iommu.c
-+++ b/arch/powerpc/platforms/cell/iommu.c
-@@ -564,7 +564,8 @@ static struct iommu_table *cell_get_iommu_table(struct device *dev)
- /* A coherent allocation implies strong ordering */
- 
- static void *dma_fixed_alloc_coherent(struct device *dev, size_t size,
--				      dma_addr_t *dma_handle, gfp_t flag)
-+				      dma_addr_t *dma_handle, gfp_t flag,
-+				      struct dma_attrs *attrs)
- {
- 	if (iommu_fixed_is_weak)
- 		return iommu_alloc_coherent(dev, cell_get_iommu_table(dev),
-@@ -572,18 +573,19 @@ static void *dma_fixed_alloc_coherent(struct device *dev, size_t size,
- 					    device_to_mask(dev), flag,
- 					    dev_to_node(dev));
- 	else
--		return dma_direct_ops.alloc_coherent(dev, size, dma_handle,
--						     flag);
-+		return dma_direct_ops.alloc(dev, size, dma_handle, flag,
-+					    attrs);
- }
- 
- static void dma_fixed_free_coherent(struct device *dev, size_t size,
--				    void *vaddr, dma_addr_t dma_handle)
-+				    void *vaddr, dma_addr_t dma_handle,
-+				    struct dma_attrs *attrs)
- {
- 	if (iommu_fixed_is_weak)
- 		iommu_free_coherent(cell_get_iommu_table(dev), size, vaddr,
- 				    dma_handle);
- 	else
--		dma_direct_ops.free_coherent(dev, size, vaddr, dma_handle);
-+		dma_direct_ops.free(dev, size, vaddr, dma_handle, attrs);
- }
- 
- static dma_addr_t dma_fixed_map_page(struct device *dev, struct page *page,
-@@ -642,8 +644,8 @@ static int dma_fixed_dma_supported(struct device *dev, u64 mask)
- static int dma_set_mask_and_switch(struct device *dev, u64 dma_mask);
- 
- struct dma_map_ops dma_iommu_fixed_ops = {
--	.alloc_coherent = dma_fixed_alloc_coherent,
--	.free_coherent  = dma_fixed_free_coherent,
-+	.alloc          = dma_fixed_alloc_coherent,
-+	.free           = dma_fixed_free_coherent,
- 	.map_sg         = dma_fixed_map_sg,
- 	.unmap_sg       = dma_fixed_unmap_sg,
- 	.dma_supported  = dma_fixed_dma_supported,
-diff --git a/arch/powerpc/platforms/ps3/system-bus.c b/arch/powerpc/platforms/ps3/system-bus.c
-index 880eb9c..5606fe3 100644
---- a/arch/powerpc/platforms/ps3/system-bus.c
-+++ b/arch/powerpc/platforms/ps3/system-bus.c
-@@ -515,7 +515,8 @@ core_initcall(ps3_system_bus_init);
-  * to the dma address (mapping) of the first page.
+-static int realmode_power_off;
++static bool realmode_power_off;
+ #ifdef CONFIG_APM_ALLOW_INTS
+-static int allow_ints =3D 1;
++static bool allow_ints =3D 1;
+ #else
+-static int allow_ints;
++static bool allow_ints;
+ #endif
+-static int broken_psr;
++static bool broken_psr;
+=20
+ static DECLARE_WAIT_QUEUE_HEAD(apm_waitqueue);
+ static DECLARE_WAIT_QUEUE_HEAD(apm_suspend_waitqueue);
+diff --git a/arch/x86/kvm/mmu.c b/arch/x86/kvm/mmu.c
+--- a/arch/x86/kvm/mmu.c
++++ b/arch/x86/kvm/mmu.c
+@@ -83,11 +83,11 @@ char *audit_point_name[] =3D {
+ #endif
+=20
+ #ifdef MMU_DEBUG
+-static int dbg =3D 0;
++static bool dbg =3D 0;
+ module_param(dbg, bool, 0644);
+ #endif
+=20
+-static int oos_shadow =3D 1;
++static bool oos_shadow =3D 1;
+ module_param(oos_shadow, bool, 0644);
+=20
+ #ifndef MMU_DEBUG
+diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
+--- a/arch/x86/kvm/vmx.c
++++ b/arch/x86/kvm/vmx.c
+@@ -50,29 +50,29 @@
+ MODULE_AUTHOR("Qumranet");
+ MODULE_LICENSE("GPL");
+=20
+-static int __read_mostly enable_vpid =3D 1;
++static bool __read_mostly enable_vpid =3D 1;
+ module_param_named(vpid, enable_vpid, bool, 0444);
+=20
+-static int __read_mostly flexpriority_enabled =3D 1;
++static bool __read_mostly flexpriority_enabled =3D 1;
+ module_param_named(flexpriority, flexpriority_enabled, bool, S_IRUGO);
+=20
+-static int __read_mostly enable_ept =3D 1;
++static bool __read_mostly enable_ept =3D 1;
+ module_param_named(ept, enable_ept, bool, S_IRUGO);
+=20
+-static int __read_mostly enable_unrestricted_guest =3D 1;
++static bool __read_mostly enable_unrestricted_guest =3D 1;
+ module_param_named(unrestricted_guest,
+ 			enable_unrestricted_guest, bool, S_IRUGO);
+=20
+-static int __read_mostly emulate_invalid_guest_state =3D 0;
++static bool __read_mostly emulate_invalid_guest_state =3D 0;
+ module_param(emulate_invalid_guest_state, bool, S_IRUGO);
+=20
+-static int __read_mostly vmm_exclusive =3D 1;
++static bool __read_mostly vmm_exclusive =3D 1;
+ module_param(vmm_exclusive, bool, S_IRUGO);
+=20
+-static int __read_mostly yield_on_hlt =3D 1;
++static bool __read_mostly yield_on_hlt =3D 1;
+ module_param(yield_on_hlt, bool, S_IRUGO);
+=20
+-static int __read_mostly fasteoi =3D 1;
++static bool __read_mostly fasteoi =3D 1;
+ module_param(fasteoi, bool, S_IRUGO);
+=20
+ /*
+@@ -80,7 +80,7 @@ module_param(fasteoi, bool, S_IRUGO);
+  * VMX and be a hypervisor for its own guests. If nested=3D0, guests may n=
+ot
+  * use VMX instructions.
   */
- static void * ps3_alloc_coherent(struct device *_dev, size_t size,
--				      dma_addr_t *dma_handle, gfp_t flag)
-+				 dma_addr_t *dma_handle, gfp_t flag,
-+				 struct dma_attrs *attrs)
- {
- 	int result;
- 	struct ps3_system_bus_device *dev = ps3_dev_to_system_bus_dev(_dev);
-@@ -552,7 +553,7 @@ clean_none:
- }
- 
- static void ps3_free_coherent(struct device *_dev, size_t size, void *vaddr,
--	dma_addr_t dma_handle)
-+			      dma_addr_t dma_handle, struct dma_attrs *attrs)
- {
- 	struct ps3_system_bus_device *dev = ps3_dev_to_system_bus_dev(_dev);
- 
-@@ -701,8 +702,8 @@ static u64 ps3_dma_get_required_mask(struct device *_dev)
- }
- 
- static struct dma_map_ops ps3_sb_dma_ops = {
--	.alloc_coherent = ps3_alloc_coherent,
--	.free_coherent = ps3_free_coherent,
-+	.alloc = ps3_alloc_coherent,
-+	.free = ps3_free_coherent,
- 	.map_sg = ps3_sb_map_sg,
- 	.unmap_sg = ps3_sb_unmap_sg,
- 	.dma_supported = ps3_dma_supported,
-@@ -712,8 +713,8 @@ static struct dma_map_ops ps3_sb_dma_ops = {
- };
- 
- static struct dma_map_ops ps3_ioc0_dma_ops = {
--	.alloc_coherent = ps3_alloc_coherent,
--	.free_coherent = ps3_free_coherent,
-+	.alloc = ps3_alloc_coherent,
-+	.free = ps3_free_coherent,
- 	.map_sg = ps3_ioc0_map_sg,
- 	.unmap_sg = ps3_ioc0_unmap_sg,
- 	.dma_supported = ps3_dma_supported,
--- 
-1.7.1.569.g6f426
-
+-static int __read_mostly nested =3D 0;
++static bool __read_mostly nested =3D 0;
+ module_param(nested, bool, S_IRUGO);
+=20
+ #define KVM_GUEST_CR0_MASK_UNRESTRICTED_GUEST				\
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -89,8 +89,8 @@ static void process_nmi(struct kvm_vcpu=20
+ struct kvm_x86_ops *kvm_x86_ops;
+ EXPORT_SYMBOL_GPL(kvm_x86_ops);
+=20
+-int ignore_msrs =3D 0;
+-module_param_named(ignore_msrs, ignore_msrs, bool, S_IRUGO | S_IWUSR);
++static bool ignore_msrs =3D 0;
++module_param(ignore_msrs, bool, S_IRUGO | S_IWUSR);
+=20
+ bool kvm_has_tsc_control;
+ EXPORT_SYMBOL_GPL(kvm_has_tsc_control);
+diff --git a/arch/x86/mm/mmio-mod.c b/arch/x86/mm/mmio-mod.c
+--- a/arch/x86/mm/mmio-mod.c
++++ b/arch/x86/mm/mmio-mod.c
+@@ -75,8 +75,8 @@ static LIST_HEAD(trace_list);		/* struct
+=20
+ /* module parameters */
+ static unsigned long	filter_offset;
+-static int		nommiotrace;
+-static int		trace_pc;
++static bool		nommiotrace;
++static bool		trace_pc;
+=20
+ module_param(filter_offset, ulong, 0);
+ module_param(nommiotrace, bool, 0);
+diff --git a/arch/x86/platform/geode/alix.c b/arch/x86/platform/geode/alix.c
+--- a/arch/x86/platform/geode/alix.c
++++ b/arch/x86/platform/geode/alix.c
+@@ -27,7 +27,7 @@
+=20
+ #include <asm/geode.h>
+=20
+-static int force =3D 0;
++static bool force =3D 0;
+ module_param(force, bool, 0444);
+ /* FIXME: Award bios is not automatically detected as Alix platform */
+ MODULE_PARM_DESC(force, "Force detection as ALIX.2/ALIX.3 platform");
+diff --git a/arch/x86/kernel/apm_32.c b/arch/x86/kernel/apm_32.c
+--- a/arch/x86/kernel/apm_32.c
++++ b/arch/x86/kernel/apm_32.c
+@@ -384,7 +384,7 @@ static int ignore_normal_resume;
+ static int bounce_interval __read_mostly =3D DEFAULT_BOUNCE_INTERVAL;
+=20
+ static bool debug __read_mostly;
+-static int smp __read_mostly;
++static bool smp __read_mostly;
+ static int apm_disabled =3D -1;
+ #ifdef CONFIG_SMP
+ static bool power_off;
+diff --git a/arch/x86/platform/iris/iris.c b/arch/x86/platform/iris/iris.c
+--- a/arch/x86/platform/iris/iris.c
++++ b/arch/x86/platform/iris/iris.c
+@@ -42,7 +42,7 @@ MODULE_AUTHOR("S=C3=A9bastien Hinderer <Seba
+ MODULE_DESCRIPTION("A power_off handler for Iris devices from EuroBraille"=
+);
+ MODULE_SUPPORTED_DEVICE("Eurobraille/Iris");
+=20
+-static int force;
++static bool force;
+=20
+ module_param(force, bool, 0);
+ MODULE_PARM_DESC(force, "Set to one to force poweroff handler installation=
+.");
