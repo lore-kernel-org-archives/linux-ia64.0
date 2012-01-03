@@ -1,48 +1,79 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 05 Jan 2012 17:42:31 +0000
-Subject: [git pull] ia64 changes
-Message-Id: <4f05e10721849ff63@agluck-desktop.sc.intel.com>
+From: Gilad Ben-Yossef <gilad@benyossef.com>
+Date: Tue, 03 Jan 2012 14:19:04 +0000
+Subject: [RFC PATCH 0/9] Remove useless on_each_cpu return value
+Message-Id: <1325600353-10895-1-git-send-email-gilad@benyossef.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: Gilad Ben-Yossef <gilad@benyossef.com>, Michal Nazarewicz <mina86@mina86.com>, David Airlie <airlied@linux.ie>, dri-devel@lists.freedesktop.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Grant Likely <grant.likely@secretlab.ca>, Rob Herring <rob.herring@calxeda.com>, linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, linux-alpha@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Will Deacon <will.deacon@arm.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>, Russell King <linux@arm.linux.org.uk>, linux-arm-kernel@lists.infradead.org
 
-Hi Linus,
+on_each_cpu() returns as its own return value the return value of 
+smp_call_function(). smp_call_function() in turn returns a hard 
+coded value of zero.
 
-please pull from:
+Some callers to on_each_cpu() waste cycles and bloat code space
+by checking the return value to on_each_cpu(), probably for 
+historical reasons.
 
-	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git misc-3.3
-	HEAD=A4b1d1b3619ee2fac40cdf5ca86a4758e45b9358
+This patch set refactors callers to not test on_each_cpu()
+(fixed) return value and then refactors on_each_cpu to
+return void to avoid confusing future users.
 
-This will update the files shown below.
+In other words, this patch aims to delete 18 source code lines
+while not changing any functionality :-)
 
-Thanks!
+I tested as best as I could the x86 changes and compiled some
+of the others, but I don't have access to all the needed hardware
+for testing. Reviewers and testers welcome!
 
--Tony
+CC: Michal Nazarewicz <mina86@mina86.com>
+CC: David Airlie <airlied@linux.ie>
+CC: dri-devel@lists.freedesktop.org
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Grant Likely <grant.likely@secretlab.ca>
+CC: Rob Herring <rob.herring@calxeda.com>
+CC: linuxppc-dev@lists.ozlabs.org
+CC: devicetree-discuss@lists.ozlabs.org
+CC: Richard Henderson <rth@twiddle.net>
+CC: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+CC: Matt Turner <mattst88@gmail.com>
+CC: linux-alpha@vger.kernel.org
+CC: Thomas Gleixner <tglx@linutronix.de>
+CC: Ingo Molnar <mingo@redhat.com>
+CC: "H. Peter Anvin" <hpa@zytor.com>
+CC: x86@kernel.org
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: Will Deacon <will.deacon@arm.com>
+CC: Peter Zijlstra <a.p.zijlstra@chello.nl>
+CC: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+CC: Russell King <linux@arm.linux.org.uk>
+CC: linux-arm-kernel@lists.infradead.org
 
-[Confession time: These commits haven't been exposed to linux-next, because=
- I
- failed to merge the misc-3.3 branch into my "next" branch for Stephen to p=
-ick up :-(
- But it isn't like there's a huge population of ia64 testers checking every
- linux-next release. Petr's fix has seen some testing in the SLES11-SP2-RC =
-series
- the other three are just semantic sugar]
+Gilad Ben-Yossef (9):
+  arm: avoid using on_each_cpu hard coded ret value
+  ia64: avoid using on_each_cpu hard coded ret value
+  x86: avoid using on_each_cpu hard coded ret value
+  alpha: avoid using on_each_cpu hard coded ret value
+  ppc: avoid using on_each_cpu hard coded ret value
+  agp: avoid using on_each_cpu hard coded ret value
+  drm: avoid using on_each_cpu hard coded ret value
+  smp: refactor on_each_cpu to void returning func
+  x86: refactor wbinvd_on_all_cpus to void function
 
- arch/ia64/kernel/setup.c                |   19 +++++++++++++++++++
- arch/ia64/sn/kernel/irq.c               |    5 ++---
- arch/ia64/sn/pci/pcibr/pcibr_provider.c |    3 +--
- arch/ia64/sn/pci/tioca_provider.c       |    4 ++--
- 4 files changed, 24 insertions(+), 7 deletions(-)
-
-Petr Tesarik (1):
-      [IA64] Merge overlapping reserved regions at boot
-
-Thomas Meyer (3):
-      ia64: tioca: Use kmemdup rather than duplicating its implementation
-      ia64: sn: Use kmemdup rather than duplicating its implementation
-      ia64: pcibr: Use kmemdup rather than duplicating its implementation
+ arch/alpha/kernel/smp.c      |    7 ++-----
+ arch/arm/kernel/perf_event.c |    2 +-
+ arch/ia64/kernel/perfmon.c   |   12 ++----------
+ arch/powerpc/kernel/rtas.c   |    3 +--
+ arch/x86/include/asm/smp.h   |    5 ++---
+ arch/x86/lib/cache-smp.c     |    4 ++--
+ drivers/char/agp/generic.c   |    3 +--
+ drivers/gpu/drm/drm_cache.c  |    3 +--
+ include/linux/smp.h          |    7 +++----
+ kernel/smp.c                 |    6 ++----
+ 10 files changed, 17 insertions(+), 35 deletions(-)
 
