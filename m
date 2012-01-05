@@ -1,54 +1,48 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Sun, 08 Jan 2012 16:14:01 +0000
-Subject: Re: [RFC PATCH v2 8/9] smp: refactor on_each_cpu to void returning
-Message-Id: <20120108161401.GE21765@n2100.arm.linux.org.uk>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 05 Jan 2012 17:42:31 +0000
+Subject: [git pull] ia64 changes
+Message-Id: <4f05e10721849ff63@agluck-desktop.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1326029549-2794-1-git-send-email-gilad@benyossef.com> <1326029549-2794-9-git-send-email-gilad@benyossef.com>
-In-Reply-To: <1326029549-2794-9-git-send-email-gilad@benyossef.com>
+References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
+In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Gilad Ben-Yossef <gilad@benyossef.com>
-Cc: linux-kernel@vger.kernel.org, David Airlie <airlied@linux.ie>, dri-devel@lists.freedesktop.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Grant Likely <grant.likely@secretlab.ca>, Rob Herring <rob.herring@calxeda.com>, linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, linux-alpha@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Will Deacon <will.deacon@arm.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Sun, Jan 08, 2012 at 03:32:28PM +0200, Gilad Ben-Yossef wrote:
-> on_each_cpu returns the retunr value of smp_call_function
-> which is hard coded to 0.
-> 
-> Refactor on_each_cpu to a void function and the few callers
-> that check the return value to save compares and branches.
-> 
-> Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
-> Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> Reviewed-by: Michal Nazarewicz <mina86@mina86.com>
-> CC: David Airlie <airlied@linux.ie>
-> CC: dri-devel@lists.freedesktop.org
-> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> CC: Paul Mackerras <paulus@samba.org>
-> CC: Grant Likely <grant.likely@secretlab.ca>
-> CC: Rob Herring <rob.herring@calxeda.com>
-> CC: linuxppc-dev@lists.ozlabs.org
-> CC: devicetree-discuss@lists.ozlabs.org
-> CC: Richard Henderson <rth@twiddle.net>
-> CC: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-> CC: Matt Turner <mattst88@gmail.com>
-> CC: linux-alpha@vger.kernel.org
-> CC: Thomas Gleixner <tglx@linutronix.de>
-> CC: Ingo Molnar <mingo@redhat.com>
-> CC: "H. Peter Anvin" <hpa@zytor.com>
-> CC: x86@kernel.org
-> CC: Tony Luck <tony.luck@intel.com>
-> CC: Fenghua Yu <fenghua.yu@intel.com>
-> CC: linux-ia64@vger.kernel.org
-> CC: Will Deacon <will.deacon@arm.com>
-> CC: Peter Zijlstra <a.p.zijlstra@chello.nl>
-> CC: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-> CC: Russell King <linux@arm.linux.org.uk>
+Hi Linus,
 
-As there's only one place in the ARM code where we look at the return
-value, and you've patched that away in patch 1, this looks fine.  I've
-not checked for users outside of arch/arm, so:
+please pull from:
 
-Acked-by: Russell King <rmk+kernel@arm.linux.org.uk>
+	git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git misc-3.3
+	HEAD=A4b1d1b3619ee2fac40cdf5ca86a4758e45b9358
 
-Thanks.
+This will update the files shown below.
+
+Thanks!
+
+-Tony
+
+[Confession time: These commits haven't been exposed to linux-next, because=
+ I
+ failed to merge the misc-3.3 branch into my "next" branch for Stephen to p=
+ick up :-(
+ But it isn't like there's a huge population of ia64 testers checking every
+ linux-next release. Petr's fix has seen some testing in the SLES11-SP2-RC =
+series
+ the other three are just semantic sugar]
+
+ arch/ia64/kernel/setup.c                |   19 +++++++++++++++++++
+ arch/ia64/sn/kernel/irq.c               |    5 ++---
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |    3 +--
+ arch/ia64/sn/pci/tioca_provider.c       |    4 ++--
+ 4 files changed, 24 insertions(+), 7 deletions(-)
+
+Petr Tesarik (1):
+      [IA64] Merge overlapping reserved regions at boot
+
+Thomas Meyer (3):
+      ia64: tioca: Use kmemdup rather than duplicating its implementation
+      ia64: sn: Use kmemdup rather than duplicating its implementation
+      ia64: pcibr: Use kmemdup rather than duplicating its implementation
+
