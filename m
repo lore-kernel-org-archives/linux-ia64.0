@@ -1,33 +1,68 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Date: Mon, 16 Jan 2012 08:09:40 +0000
-Subject: Re: [PATCH 04/14] PowerPC: adapt for dma_map_ops changes
-Message-Id: <20120116080940.GF4512@truffala.fritz.box>
+From: Gilad Ben-Yossef <gilad@benyossef.com>
+Date: Sun, 08 Jan 2012 13:32:22 +0000
+Subject: [RFC PATCH v2 2/9] ia64: avoid using on_each_cpu hard coded ret value
+Message-Id: <1326029549-2794-3-git-send-email-gilad@benyossef.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
- <1324643253-3024-5-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1324643253-3024-5-git-send-email-m.szyprowski@samsung.com>
+References: <1326029549-2794-1-git-send-email-gilad@benyossef.com>
+In-Reply-To: <1326029549-2794-1-git-send-email-gilad@benyossef.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+To: linux-kernel@vger.kernel.org
+Cc: Gilad Ben-Yossef <gilad@benyossef.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Fri, Dec 23, 2011 at 01:27:23PM +0100, Marek Szyprowski wrote:
-> From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-> 
-> Adapt core PowerPC architecture code for dma_map_ops changes: replace
-> alloc/free_coherent with generic alloc/free methods.
-> 
-> Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-> Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
-> Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+    on_each_cpu always returns a hard coded return code of zero.
 
-Looks sane.
+    Removing all tests based on this return value saves run time
+    cycles for compares and code bloat for branches.
 
-Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+Signed-off-by: Gilad Ben-Yossef <gilad@benyossef.com>
+Acked-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Reviewed-by: Michal Nazarewicz <mina86@mina86.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+---
+ arch/ia64/kernel/perfmon.c |   12 ++----------
+ 1 files changed, 2 insertions(+), 10 deletions(-)
 
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 89accc6..eb7cfa5 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -6511,11 +6511,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	}
+ 
+ 	/* save the current system wide pmu states */
+-	ret = on_each_cpu(pfm_alt_save_pmu_state, NULL, 1);
+-	if (ret) {
+-		DPRINT(("on_each_cpu() failed: %d\n", ret));
+-		goto cleanup_reserve;
+-	}
++	on_each_cpu(pfm_alt_save_pmu_state, NULL, 1);
+ 
+ 	/* officially change to the alternate interrupt handler */
+ 	pfm_alt_intr_handler = hdl;
+@@ -6542,7 +6538,6 @@ int
+ pfm_remove_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ {
+ 	int i;
+-	int ret;
+ 
+ 	if (hdl = NULL) return -EINVAL;
+ 
+@@ -6556,10 +6551,7 @@ pfm_remove_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 
+ 	pfm_alt_intr_handler = NULL;
+ 
+-	ret = on_each_cpu(pfm_alt_restore_pmu_state, NULL, 1);
+-	if (ret) {
+-		DPRINT(("on_each_cpu() failed: %d\n", ret));
+-	}
++	on_each_cpu(pfm_alt_restore_pmu_state, NULL, 1);
+ 
+ 	for_each_online_cpu(i) {
+ 		pfm_unreserve_session(NULL, 1, i);
 -- 
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/~dgibson
+1.7.0.4
+
