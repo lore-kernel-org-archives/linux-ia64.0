@@ -1,66 +1,48 @@
-From: Gilad Ben-Yossef <gilad@benyossef.com>
-Date: Tue, 03 Jan 2012 14:19:06 +0000
-Subject: [RFC PATCH 2/9] ia64: avoid using on_each_cpu hard coded ret value
-Message-Id: <1325600353-10895-3-git-send-email-gilad@benyossef.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Fri, 27 Jan 2012 07:25:51 +0000
+Subject: [PATCH 5/7] ia64, irq: add dummy create_irq_nr()
+Message-Id: <1327649153-16477-6-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1325600353-10895-1-git-send-email-gilad@benyossef.com>
-In-Reply-To: <1325600353-10895-1-git-send-email-gilad@benyossef.com>
+References: <1327649153-16477-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1327649153-16477-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Gilad Ben-Yossef <gilad@benyossef.com>, Michal Nazarewicz <mina86@mina86.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>
+Cc: linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-    on_each_cpu always returns a hard coded return code of zero.
+create_irq() will return -1 when fail to allocate.
+create_irq_nr() will return 0 when fail to allocate.
 
-    Removing all tests based on this return value saves run time
-    cycles for compares and code bloat for branches.
-
-Cc: Michal Nazarewicz <mina86@mina86.com>
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/perfmon.c |   12 ++----------
- 1 files changed, 2 insertions(+), 10 deletions(-)
+ arch/ia64/kernel/irq_ia64.c |   10 ++++++++++
+ 1 files changed, 10 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 89accc6..eb7cfa5 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -6511,11 +6511,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
- 	}
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 782c3a35..07fcbdc 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -431,6 +431,16 @@ int create_irq(void)
+ 	return irq;
+ }
  
- 	/* save the current system wide pmu states */
--	ret = on_each_cpu(pfm_alt_save_pmu_state, NULL, 1);
--	if (ret) {
--		DPRINT(("on_each_cpu() failed: %d\n", ret));
--		goto cleanup_reserve;
--	}
-+	on_each_cpu(pfm_alt_save_pmu_state, NULL, 1);
- 
- 	/* officially change to the alternate interrupt handler */
- 	pfm_alt_intr_handler = hdl;
-@@ -6542,7 +6538,6 @@ int
- pfm_remove_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
++unsigned int create_irq_nr(unsigned int from, int node)
++{
++	int irq = create_irq();
++
++	if (irq < 0)
++		irq = 0;
++
++	return irq;
++}
++
+ void destroy_irq(unsigned int irq)
  {
- 	int i;
--	int ret;
- 
- 	if (hdl = NULL) return -EINVAL;
- 
-@@ -6556,10 +6551,7 @@ pfm_remove_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
- 
- 	pfm_alt_intr_handler = NULL;
- 
--	ret = on_each_cpu(pfm_alt_restore_pmu_state, NULL, 1);
--	if (ret) {
--		DPRINT(("on_each_cpu() failed: %d\n", ret));
--	}
-+	on_each_cpu(pfm_alt_restore_pmu_state, NULL, 1);
- 
- 	for_each_online_cpu(i) {
- 		pfm_unreserve_session(NULL, 1, i);
+ 	dynamic_irq_cleanup(irq);
 -- 
-1.7.0.4
+1.7.7
 
