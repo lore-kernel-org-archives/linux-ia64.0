@@ -1,85 +1,45 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 01 Feb 2012 16:56:29 +0000
+From: Torvald Riegel <triegel@redhat.com>
+Date: Wed, 01 Feb 2012 17:08:57 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <CA+55aFxmdskUXX1iBaPx7rUGD95UqNJxhe1BLeVtZjqHjBpsPA@mail.gmail.com>
+Message-Id: <1328116137.15992.6146.camel@triegel.csb>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <1328114266.5355.44.camel@lenny>
-In-Reply-To: <1328114266.5355.44.camel@lenny>
+References: <20120201151918.GC16714@quack.suse.cz>
+In-Reply-To: <20120201151918.GC16714@quack.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Colin Walters <walters@verbum.org>
-Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
+To: Jan Kara <jack@suse.cz>
+Cc: LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-On Wed, Feb 1, 2012 at 8:37 AM, Colin Walters <walters@verbum.org> wrote:
->
-> 1) Use the same lock for a given bitfield
+On Wed, 2012-02-01 at 16:19 +0100, Jan Kara wrote:
+> I've raised the issue with our GCC guys and they said to me that: "C does
+> not provide such guarantee, nor can you reliably lock different
+> structure fields with different locks if they share naturally aligned
+> word-size memory regions.  The C++11 memory model would guarantee this,
+> but that's not implemented nor do you build the kernel with a C++11
+> compiler."
 
-That's not the problem. All the *bitfield* fields are all accessed
-under the same word already.
+Indeed, it's memory models that specify which kind of behavior is
+allowed, and you need them for both the hardware and the programming
+language.  C++11 and C11 have memory models, in contrast to previous
+versions of these standards.
+GCC 4.7 implements this memory model (C++11's and C11's models are very
+similar), even though there might be some rough edges in this
+implementation (bit fields, for example...).
+http://gcc.gnu.org/wiki/Atomic/GCCMM
 
-> 2) Split up the bitfield into different words
+> So it seems what C/GCC promises does not quite match with what kernel
+> expects. I'm not really an expert in this area so I wanted to report it
+> here so that more knowledgeable people can decide how to solve the issue...
 
-Again, it's not the bitfield that is the problem.
+There needs to be agreement about the memory model.  The only time I
+spoke to a kernel person about memory models, I got the reply that the
+kernel would use its own model.
 
-The problem is that the compiler - when it writes to the word that
-contains the bitfield - will also corrupt the word *NEXT* to the
-bitfield (or before - it probably depends on alignment).
-
-So we have two separate 32-bit words - one of which just happens to
-contain a bitfield. We write to these *separate* words using different
-locking rules (btw, they don't even need to be protected by a lock: we
-may have other rules that protects the individual word contents.
-
-But the compiler turns the access to the bitfield (in a 32-bit aligned
-word) into a 64-bit access that accesses the word *next* to it.
-
-That word next to it might *be* the lock, for example.
-
-So we could literally have this kind of situation:
-
-   struct {
-      atomic_t counter;
-      unsigned int val:4, other:4, data:24;
-   };
-
-and if we write code like this:
-
-    spin_lock(&somelock);
-    s->data++;
-    spin_unlock(&somelock);
-
-and on another CPU we might do
-
-   atomic_inc(&counter);
-
-and the access to the bitfield will *corrupt* the atomic counter, even
-though both of them are perfectly fine!
-
-Quite frankly, if the bug is simply because gcc doesn't actually know
-or care about the underlying size of the bitmask, it is possible that
-we can find a case where gcc clearly is buggy even according to the
-original C rules.
-
-Honza - since you have access to the compiler in question, try
-compiling this trivial test-program:
+What do the kernel folks think about the C11 memory model?  If you can
+spot any issues in there, the GCC community would certainly like to
+know.
 
 
-   struct example {
-      volatile int a;
-      int b:1;
-   };
+Torvald
 
-   ..
-     s->b = 1;
-   ..
-
-and if that bitfield access actually does a 64-bit access that also
-touches 's->a', then dammit, that's a clear violation of even the
-*old* C standard, and the gcc people cannot just wave away their bugs
-by saying "we've got standads, pttthththt".
-
-And I suspect it really is a generic bug that can be shown even with
-the above trivial example.
-
-                               Linus
