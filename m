@@ -1,128 +1,125 @@
-From: "Boehm, Hans" <hans.boehm@hp.com>
-Date: Wed, 01 Feb 2012 19:44:40 +0000
-Subject: RE: Memory corruption due to word sharing
-Message-Id: <A3E67C2071F49C4CBC4F17E6D77CDDD23275408E@G4W3299.americas.hpqcorp.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 01 Feb 2012 19:47:12 +0000
+Subject: Re: Memory corruption due to word sharing
+Message-Id: <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz>
-	 <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+References: <20120201151918.GC16714@quack.suse.cz> <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
  <1328118174.15992.6206.camel@triegel.csb>
 In-Reply-To: <1328118174.15992.6206.camel@triegel.csb>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Torvald Riegel <triegel@redhat.com>, Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "dsterba@suse.cz" <dsterba@suse.cz>, "ptesarik@suse.cz" <ptesarik@suse.cz>, "rguenther@suse.de" <rguenther@suse.de>, "gcc@gcc.gnu.org" <gcc@gcc.gnu.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Torvald Riegel <triegel@redhat.com>
+Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-SSdtIGNsZWFybHkgd2l0aCBUb3J2YWxkIGhlcmUuDQoNClRoZSBvcmlnaW5hbCBzZXQgb2YgcHJv
-YmxlbXMgaGVyZSBpcyB2ZXJ5IGNsZWFybHkgYWRkcmVzc2VkIGJ5IHRoZSBDKzExL0MxMSBtZW1v
-cnkgbW9kZWwuICBJdCBjbGVhcmx5IGltcGxpZXMsIGFtb25nIG90aGVyIHRoaW5nczoNCg0KLSBV
-cGRhdGluZyBhIGJpdC1maWVsZCBtYXkgaW50ZXJmZXJlIChjcmVhdGUgYSBkYXRhIHJhY2Ugd2l0
-aCkgb3RoZXIgdXBkYXRlcyB0byB0aGF0IHNhbWUgY29udGlndW91cyBzZXF1ZW5jZSBvZiBiaXQt
-ZmllbGRzLCBidXQgbm90IHdpdGggb3RoZXIgYWRqYWNlbnQgZmllbGRzLiAgVXBkYXRpbmcgbm9u
-LWJpdC1maWVsZHMgbWF5IG5vdCBpbnRlcmZlcmUgd2l0aCBhY2Nlc3NlcyB0byBhbnkgb3RoZXIg
-ZmllbGQuICBBIHplcm8gbGVuZ3RoIGJpdC1maWVsZCBicmVha3MgYSBzZXF1ZW5jZSBvZiBiaXQt
-ZmllbGRzLiAgVGhlIGluaXRpYWwgZXhhbXBsZSBoZXJlIGlzIGEgY2xlYXIgY29tcGlsZXIgYnVn
-IGJ5IEMxMSBzZW1hbnRpY3MuDQotIEJpdC1maWVsZHMgbWF5IGJlIHVwZGF0ZWQsIGFuZCBpbmRl
-ZWQgbXVzdCBiZSB1cGRhdGVkLCBpbiBzb21lIGNhc2VzLCB3aXRoIG11bHRpcGxlIHNtYWxsZXIg
-c3RvcmVzLiAgRG9pbmcgYW55dGhpbmcgZWxzZSB3b3VsZCB2aW9sYXRlIHRoZSBwcmVjZWRpbmcg
-cnVsZS4NCi0gU3B1cmlvdXMgd3JpdGVzIHRvIGEgdmFyaWFibGUgbWF5IG5ldmVyIGJlIGludHJv
-ZHVjZWQuDQotICJWb2xhdGlsZSIgaGFzIG5vdGhpbmcgdG8gZG8gd2l0aCB0aHJlYWQgaW50ZXJh
-Y3Rpb25zLiAgQXRvbWljIHZhcmlhYmxlcyB3ZXJlIGludHJvZHVjZWQgdG8gYWxsb3cgdW5wcm90
-ZWN0ZWQgYWNjZXNzZXMgdG8gc2hhcmVkIG9iamVjdHMuICAoSXQgZG9lc24ndCBtYWtlIHNlbnNl
-IHRvIHVzZSB2b2xhdGlsZSBmb3IgdGhpcyBmb3IgYSBudW1iZXIgb2YgZ29vZCwgbW9zdGx5IGhp
-c3RvcmljYWxseSBtb3RpdmF0ZWQgcmVhc29ucy4gIFNlZSBodHRwOi8vd3d3Lm9wZW4tc3RkLm9y
-Zy9qdGMxL3NjMjIvd2cyMS9kb2NzL3BhcGVycy8yMDA2L24yMDE2Lmh0bWwgaWYgeW91IHJlYWxs
-eSBjYXJlLikNCg0KKFRlY2huaWNhbGx5LCB0aGlzIGFwcGxpZXMgdG8gQzExIHRocmVhZHMsIGJl
-Y2F1c2UgdGhhdCdzIGFsbCBpdCBjYW4gdGFsayBhYm91dC4gIEJ1dCBhbiBpbXBsZW1lbnRhdGlv
-biB3b3VsZCBoYXZlIHRvIGJlIGluc2FuZSB0byByZXN0cmljdCBpdCB0byB0aGF0LiAgRm9yIGlt
-cGxlbWVudGF0aW9ucyBvZiBhdG9taWMgb3BlcmF0aW9ucywgSSB3b3VsZCBleHBlY3QgbW9zdCBj
-b21waWxlcnMgdG8gYXNzdW1lIG1lbW9yeSBtYXBwaW5ncyBhbmQgY29uc2lzdGVuY3kgYXMgbm9y
-bWFsbHkgc2VlbiBieSB1c2VyIHByb2Nlc3Nlcy4pDQoNCkMxMSBpcyBhIHB1Ymxpc2hlZCBzdGFu
-ZGFyZC4gIExhc3QgSSBjaGVja2VkLCBnY2MgZGlkIG5vdCBmb2xsb3cgbWFueSBvZiB0aGUgYWJv
-dmUgcnVsZXMuICBJdCBsb29rcyBsaWtlIG1ham9yIGNoYW5nZXMgd2VyZSByZWNlbnRseSBtZXJn
-ZWQgaW50byB0aGUgZ2NjIHRydW5rLCBhbmQgSSBoYXZlbid0IGhhZCBhIGNoYW5jZSB0byB0ZXN0
-IHRob3NlLCBzbyBpdCBtYXkgd2VsbCBiZSBmaXhlZC4gIEJ1dCBtb3JlIGltcG9ydGFudGx5LCBz
-byBmYXIgSSBoYXZlbid0IHJlYWQgYW55dGhpbmcgaGVyZSB0byBkaXNzdWFkZSBtZSB0aGF0IHRo
-ZXkgYXJlIHRoZSByaWdodCB0YXJnZXQuDQoNCkhhbnMNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3Nh
-Z2UtLS0tLQ0KPiBGcm9tOiBsaW51eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZyBbbWFpbHRv
-OmxpbnV4LWlhNjQtDQo+IG93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIFRvcnZh
-bGQgUmllZ2VsDQo+IFNlbnQ6IFdlZG5lc2RheSwgRmVicnVhcnkgMDEsIDIwMTIgOTo0MyBBTQ0K
-PiBUbzogTGludXMgVG9ydmFsZHMNCj4gQ2M6IEphbiBLYXJhOyBMS01MOyBsaW51eC1pYTY0QHZn
-ZXIua2VybmVsLm9yZzsgZHN0ZXJiYUBzdXNlLmN6Ow0KPiBwdGVzYXJpa0BzdXNlLmN6OyByZ3Vl
-bnRoZXJAc3VzZS5kZTsgZ2NjQGdjYy5nbnUub3JnDQo+IFN1YmplY3Q6IFJlOiBNZW1vcnkgY29y
-cnVwdGlvbiBkdWUgdG8gd29yZCBzaGFyaW5nDQo+IA0KPiBPbiBXZWQsIDIwMTItMDItMDEgYXQg
-MDg6NDEgLTA4MDAsIExpbnVzIFRvcnZhbGRzIHdyb3RlOg0KPiA+IElmIHRoZSBnY2MgcGVvcGxl
-IGFyZW4ndCB3aWxsaW5nIHRvIGFncmVlIHRoYXQgdGhpcyBpcyBhY3R1YWxseSBhDQo+IGZsYXcN
-Cj4gPiBpbiB0aGUgc3RhbmRhcmQgKG9uZSB0aGF0IGlzIGJlaW5nIGFkZHJlc3NlZCwgbm8gbGVz
-cykNCj4gDQo+IEl0IGhhcyBiZWVuIGFkZHJlc3NlZCBpbiB0aGUgc3RhbmRhcmRzLg0KPiANCj4g
-PiBhbmQgdHJ5IHRvIGZpeA0KPiA+IGl0LA0KPiANCj4gQWdhaW4sIHRoaXMgaXMgYmVpbmcgd29y
-a2VkIG9uLCBzZWUNCj4gaHR0cDovL2djYy5nbnUub3JnL3dpa2kvQXRvbWljL0dDQ01NDQo+IA0K
-PiA+IHdlIGp1c3QgaGF2ZSB0byBleHRlbmQgb3VyIGFzc3VtcHRpb25zIHRvIHNvbWV0aGluZyBs
-aWtlICJhDQo+ID4gY29tcGlsZXIgd291bGQgYmUgc3R1cGlkIHRvIGV2ZXIgYWNjZXNzIGFueXRo
-aW5nIGJpZ2dlciB0aGFuIHRoZQ0KPiA+IGFsaWduZWQgcmVnaXN0ZXItc2l6ZSBhcmVhIi4gSXQn
-cyBzdGlsbCBqdXN0IGFuIGFzc3VtcHRpb24sIGFuZA0KPiA+IGNvbXBpbGVyIHBlb3BsZSBjb3Vs
-ZCBiZSBjcmF6eSwgYnV0IHdlIGNvdWxkIGp1c3QgZXh0ZW5kIHRoZSBjdXJyZW50DQo+ID4gYWxw
-aGEgcnVsZXMgdG8gY292ZXIgbm90IGp1c3QgImludCIsIGJ1dCAibG9uZyIgdG9vLg0KPiANCj4g
-U28sIGxldCdzIGlnbm9yZSBldmVyeW9uZSdzIGNyYXppbmVzcyAodGhlIGtlcm5lbCBpcyBub3Qg
-dGhlIG9ubHkgR0NDDQo+IGNsaWVudC4uLikgYW5kIHRoaW5rIGFib3V0IGhvdyB3ZSBjYW4gaW1w
-cm92ZSB0aGUgc2l0dWF0aW9uLg0KPiANCj4gV2UgbmVlZCBhIHByb3BlciBtZW1vcnkgbW9kZWwu
-ICBObyB2YWd1ZSBhc3N1bXB0aW9ucyB3aXRoIGxvdHMgb2YNCj4gaGFuZC13YXZpbmcuICBJZiB5
-b3UgdGhpbmsgdGhhdCB0aGlzIGlzIHNpbXBsZSBzdHVmZiBhbmQgY2FuDQo+IHN1ZmZpY2llbnRs
-eSBkZXNjcmliZWQgYnkgImRvbid0IGRvIGFueXRoaW5nIHN0dXBpZCIsIHRoZW4gcGxlYXNlIGhh
-dmUNCj4gYQ0KPiBsb29rIGF0IHRoZSBpc3N1ZXMgdGhhdCB0aGUgSmF2YSBtZW1vcnkgbW9kZWwg
-ZmFjZWQsIGFuZCBhbGwgdGhlDQo+IGl0ZXJhdGlvbnMgb2YgdGhlIEMrKzExL0MxMSBtb2RlbCBh
-bmQgZGlzY3Vzc2lvbnMgYWJvdXQgaXQuDQo+IA0KPiBUaGUgb25seSBjYW5kaWRhdGUgdGhhdCBJ
-IHNlZSBpcyB0aGUgQysrMTEvQzExIG1vZGVsLiAgQW55IG90aGVyDQo+IHN1Z2dlc3Rpb25zPw0K
-PiANCj4gTm93LCBpZiB3ZSBhc3N1bWUgdGhpcyBtb2RlbCwgd2hhdCBkb2VzIHRoZSBrZXJuZWwg
-Y29tbXVuaXR5IHRoaW5rDQo+IGFib3V0DQo+IGl0PyAgSXQgbWlnaHQgYmUgZ29vZCB0byBzcGxp
-dCB0aGlzIGRpc2N1c3Npb24gaW50byB0aGUgZm9sbG93aW5nIHR3bw0KPiBwb2ludHMsIHRvIGF2
-b2lkIHN5bnRheCBmbGFtZSB3YXJzOg0KPiAxKSBUaGUgbW9kZWwgaXRzZWxmIChpZSwgdGhlIG1l
-bW9yeSBvcmRlcnMsIG9yZGVyaW5nIGd1YXJhbnRlZXMsIChsYWNrDQo+IG9mKSBwcm9ncmVzcyBn
-dWFyYW50ZWVzLCBldGMuKS4NCj4gMikgVGhlIHN5bnRheC9BUElzIHRvIHNwZWNpZnkgYXRvbWlj
-cy4NCj4gDQo+IElmIHNvbWV0aGluZyBlbHNlIG9yIG1vcmUgaXMgbmVlZGVkLCB0aGUgY29tcGls
-ZXIgbmVlZHMgdG8gaGF2ZSBhDQo+IGZvcm1hbA0KPiBzcGVjaWZpY2F0aW9uIGZvciB0aGF0LiAg
-VGhpcyB3aWxsIGhlbHAgdXNlcnMgdG9vLCBiZWNhdXNlIGl0IGF2b2lkcw0KPiBhbGwNCj4gdGhl
-IGFtYmlndWl0aWVzLg0KPiANCj4gPiBTdXJlLCB0aGUgY29tcGlsZXIgcGVvcGxlIGNvdWxkIHVz
-ZSAibG9hZC9zdG9yZSBtdWx0aXBsZSIgb3INCj4gc29tZXRoaW5nDQo+ID4gbGlrZSB0aGF0LCBi
-dXQgaXQgd291bGQgYmUgb2J2aW91c2x5IGNyYXp5IGNvZGUsIHNvIGlmIGl0IGhhcHBlbnMNCj4g
-cGFzdA0KPiA+IGEgcmVnaXN0ZXIgc2l6ZSwgYXQgbGVhc3QgeW91IGNvdWxkIGFyZ3VlIHRoYXQg
-aXQncyBhIHBlcmZvcm1hbmNlDQo+ID4gaXNzdWUgYW5kIG1heWJlIHRoZSBnY2MgcGVvcGxlIHdv
-dWxkIGNhcmUuDQo+ID4NCj4gPiBIT1dFVkVSLiBUaGUgcHJvYmxlbSB3aXRoIHRoZSBhbHBoYSBy
-dWxlcyAod2hpY2gsIGJ0dywgd2VyZSBodWdlLCBhbmQNCj4gPiBsZWQgdG8gdGhlIENQVSBkZXNp
-Z25lcnMgbGl0ZXJhbGx5IGNoYW5naW5nIHRoZSBDUFUgaW5zdHJ1Y3Rpb24gc2V0DQo+ID4gYmVj
-YXVzZSB0aGV5IGFkbWl0dGVkIHRoZXkgbWFkZSBhIGh1Z2UgbWlzdGFrZSkgd2FzIG5ldmVyIHNv
-IG11Y2ggdGhlDQo+ID4gb2NjYXNpb25hbCBtZW1vcnkgY29ycnVwdGlvbiwgYXMgdGhlIGZhY3Qg
-dGhhdCB0aGUgcGxhY2VzIHdoZXJlIGl0DQo+ID4gY291bGQgaGFwcGVuIHdlcmUgYmFzaWNhbGx5
-IGFsbW9zdCBpbXBvc3NpYmxlIHRvIGZpbmQuDQo+ID4NCj4gPiBTbyB3ZSBwcm9iYWJseSBoYXZl
-IHRvbnMgb2YgcmFuZG9tIHBsYWNlcyBpbiB0aGUga2VybmVsIHRoYXQgdmlvbGF0ZQ0KPiA+IGV2
-ZW4gdGhlIGFscGhhIHJ1bGVzIC0gYmVjYXVzZSB0aGUgY29ycnVwdGlvbiBpcyBzbyByYXJlLCBh
-bmQgdGhlDQo+ID4gYXJjaGl0ZWN0dXJlIHdhcyBzbyByYXJlIGFzIHRvIG1ha2luZyB0aGUgY29y
-cnVwdGlvbiBldmVuIGhhcmRlciB0bw0KPiA+IGZpbmQuDQo+IA0KPiBJIGFzc3VtZSB5b3Ugc3Rp
-bGwgd291bGQgd2FudCBhIHdlYWsgbWVtb3J5IG1vZGVsLCBvciBub3Q/ICAoVGhhdCBpcywNCj4g
-cmVseSBvbiBkYXRhLXJhY2UtZnJlZWRvbSwgb25seSBhdG9taWNzIGRvIG5vdCBjb250cmlidXRl
-IHRvIGRhdGENCj4gcmFjZXMsDQo+IGFuZCB5b3UgbmVlZCB0byBtYXJrIGRhdGEgdXNlZCBmb3Ig
-c3luY2hyb25pemF0aW9uIChvciB3aGljaCBpcyBqdXN0DQo+IGFjY2Vzc2VkIGNvbmN1cnJlbnRs
-eSkgYXMgYXRvbWljcykuDQo+IA0KPiBJZiBzbywgeW91IG5lZWQgdG8gdGVsbCB0aGUgY29tcGls
-ZXIgd2hpY2ggdmFyaWFibGVzIGV0Yy4gYXJlIGF0b21pY3MuDQo+IA0KPiA+IEkgYXNzdW1lIHRo
-aXMgY29kZSBnZW5lcmF0aW9uIGlkaW9jeSBvbmx5IGhhcHBlbnMgd2l0aCBiaXRmaWVsZHM/IFRo
-ZQ0KPiA+IHByb2JsZW0gaXMsIHdlIHJlYWxseSBkb24ndCB3YW50IHRvIG1ha2UgYWxsIGJpdGZp
-ZWxkcyB0YWtlIHVwIDY0DQo+IGJpdHMNCj4gPiBqdXN0IGJlY2F1c2Ugd2UgbWlnaHQgaGF2ZSBh
-IGxvY2sgb3Igc29tZXRoaW5nIGVsc2UgbmV4dCB0byB0aGVtLiBCdXQNCj4gPiB3ZSBjb3VsZCBw
-cm9iYWJseSByZS1vcmRlciB0aGluZ3MgKGFuZCB0aGVuICpvY2Nhc2lvbmFsbHkqIHdhc3RpbmcN
-Cj4gPiBtZW1vcnkpIGlmIHdlIGNvdWxkIGp1c3QgZmluZCB0aGUgb25lcyB0aGF0IGFyZSBwcm9i
-bGVtYXRpYy4NCj4gDQo+IElmIHRoZSBjb21waWxlciBpcyBhd2FyZSB3aGF0IGlzIGEgbG9jayAo
-b3IgYXRvbWljcywgb3Igc2ltaWxhciksIHRoZW4NCj4gYQ0KPiBjb3JyZWN0IGltcGxlbWVudGF0
-aW9uIHNob3VsZCBsZWF2ZSB0aGUgbG9jayBhbG9uZS4gIEJ1dCBpbiBhIHdlYWsNCj4gbWVtb3J5
-IG1vZGVsLCBpdCBuZWVkcyB0byBrbm93IHdoYXQgaXMgYSBsb2NrLg0KPiAoU2FtZSBnb2VzIGZv
-ciB2b2xhdGlsZSBvYnZpb3VzbHksIGxpa2UgaW4gdGhlIG90aGVyIGV4YW1wbGUgcG9zdGVkIGlu
-DQo+IHRoZSB0aHJlYWQgd2hlcmUgdGhlIGJpdGZpZWxkcyBpbnRlcmZlcmVkIHdpdGggdGhlIHZv
-bGF0aWxlLikNCj4gDQo+ID4NCj4gPiBJdCdzIGZpbmRpbmcgdGhlIHByb2JsZW1hdGljIG9uZXMg
-dGhhdCBpcyB0aGUgaXNzdWUuIFdoaWNoIGlzIHdoeSB0aGUNCj4gPiBjb21waWxlciBzaG91bGQg
-anVzdCBnZW5lcmF0ZSBjb2RlIHRoYXQgbWF0Y2hlcyB3aGF0IHdlIHRvbGQgaXQgdG8NCj4gZG8s
-DQo+IA0KPiBTbywgd291bGQgaXQgYmUgb2theSB0byB0ZWxsIHRoZSBjb21waWxlciB3aGljaCBw
-YXJ0IG9mIHRoZSBzdGF0ZSBpcw0KPiBhY2Nlc3NlZCBjb25jdXJyZW50bHkgKGllLCBsb2Nrcywg
-YXRvbWljcywgLi4uKT8NCj4gDQo+IA0KPiBUb3J2YWxkDQo+IA0KPiAtLQ0KPiBUbyB1bnN1YnNj
-cmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2
-NCINCj4gaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5l
-bC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9t
-YWpvcmRvbW8taW5mby5odG1sDQo
+On Wed, Feb 1, 2012 at 9:42 AM, Torvald Riegel <triegel@redhat.com> wrote:
+>
+> We need a proper memory model.
+
+Not really.
+
+The fact is, the kernel will happily take the memory model of the
+underlying hardware. Trying to impose some compiler description of the
+memory model is actually horribly bad, because it automatically also
+involves compiler synchronization points - which will try to be
+portable and easy to understand, and quite frankly, that will
+automatically result in what is technically known as a "shitload of
+crap".
+
+Now, a strict memory model is fine for portability, and to make it
+simple for programmers. I actually largely approve of the Java memory
+model approach, even if it has been horribly problematic and has some
+serious problems. But it's not something that is acceptable for the
+kernel - we absolutely do *not* want the compiler to introduce some
+memory model, because we are very much working together with whatever
+the hardware memory model is, and we do our own serialization
+primitives.
+
+>=A0No vague assumptions with lots of hand-waving.
+
+So here's basically what the kernel needs:
+
+ - if we don't touch a field, the compiler doesn't touch it.
+
+   This is the rule that gcc now violates with bitfields.
+
+   This is a gcc bug. End of story. The "volatile" example proves it -
+anybody who argues otherwise is simply wrong, and is just trying to
+make excuses.
+
+ - if we need to touch something only once, or care about something
+that is touched only conditionally, and we actually need to make sure
+that it is touched *only* under that condition, we already go to quite
+extreme lengths to tell the compiler so.
+
+   We usually use an access with a "volatile" cast on it or tricks
+like that. Or we do the whole "magic asm that says it modified memory
+to let the compiler know not to try anything clever"
+
+ - The kernel IS NOT GOING TO MARK DATA STRUCTURES.
+
+Marking data structures is seriously stupid and wrong. It's not the
+*data* that has access rules, it's the *code* that has rules of
+access.
+
+The traditional C "volatile" is misdesigned and wrong. We don't
+generally mark data volatile, we really mark *code* volatile - which
+is why our "volatiles" are in the casts, not on the data structures.
+
+Stuff that is "volatile" in one context is not volatile in another. If
+you hold a RCU write lock, it may well be entirely stable, and marking
+it volatile is *wrong*, and generating code as if it was volatile is
+pure and utter shit.
+
+On the other hand, if you are touching *the*very*same* field while you
+are only read-locked for RCU, it may well be one of those "this has to
+be read by accessing it exactly once".
+
+And we do all this correctly in the kernel.  Modulo bugs, of course,
+but the fundamental rule really is: "atomicity or volatility is about
+CODE, not DATA".
+
+And no, C11 does *not* do it correctly. The whole "_Atomic" crap is
+exactly the same mistake as "volatile" was. It's wrong. Marking data
+_Atomic is a sure sign that whoever designed it didn't understand
+things.
+
+> The only candidate that I see is the C++11/C11 model. =A0Any other
+> suggestions?
+
+The C11 model addresses the wrong thing, and addresses it badly.
+
+You might as well ignore it as far as the kernel is concerned. I'm
+sure it helps some *other* problem, but it's not the kernel problem.
+
+The rules really are very simple, and the kernel already does
+everything to make it easy for the compiler.
+
+When we do something that the compiler cannot re-order around, we do
+an asm() and mark it as modifying memory so that the compiler won't
+screw things up. In addition, we will do whatever that the CPU
+requires for memory ordering, and quite frankly, the compiler will
+never have sufficient locking primitives to satisfy us, and there is
+no real point in even trying. If you try to do locking in the
+compiler, you *will* do it wrong.
+
+If you add random flags on data structures ("_Atomic" or "volatile" or
+whatever), you *will* do it wrong. It's simply a fundamentally broken
+model.
+
+So the *only* memory model we want from the compiler really is: "don't
+write to fields that the source code didn't write to".
+
+It's really is that simple.
+
+> So, would it be okay to tell the compiler which part of the state is
+> accessed concurrently (ie, locks, atomics, ...)?
+
+Seriously, no.
+
+See above: it's not the "state" that is accessed concurrently. It's
+the code. If you ever try to mark state, you've already lost. The same
+"state" can be atomic or not depending on context. It's not about the
+state or the data structures, and it never will be.
+
+                        Linus
