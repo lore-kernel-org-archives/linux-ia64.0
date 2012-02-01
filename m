@@ -1,51 +1,63 @@
-From: "Boehm, Hans" <hans.boehm@hp.com>
-Date: Wed, 01 Feb 2012 22:18:53 +0000
-Subject: RE: Memory corruption due to word sharing
-Message-Id: <A3E67C2071F49C4CBC4F17E6D77CDDD232754220@G4W3299.americas.hpqcorp.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 01 Feb 2012 22:27:15 +0000
+Subject: Re: Memory corruption due to word sharing
+Message-Id: <CA+55aFyfD_AEotpx=7-pyiCp1Ph5_1QSmnd2_-fS=UH8vZfj1A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz>
-	 <1328116137.15992.6146.camel@triegel.csb>
-	 <CA+55aFyG3EifFPapU6SFYXCjrP+wQOF65hJGs3yyMxCgde5vdg@mail.gmail.com>
-	 <1328129620.15992.6453.camel@triegel.csb>
-	 <CA+55aFx=4AhdFEgjY3b=85__mGYX8BKcaXpFC=1XZzoFFjeTrw@mail.gmail.com>
- <1328132266.15992.6528.camel@triegel.csb>
-In-Reply-To: <1328132266.15992.6528.camel@triegel.csb>
+References: <20120201151918.GC16714@quack.suse.cz> <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+ <1328118174.15992.6206.camel@triegel.csb> <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com>
+ <1328128874.15992.6430.camel@triegel.csb> <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com>
+ <A3E67C2071F49C4CBC4F17E6D77CDDD232754183@G4W3299.americas.hpqcorp.net>
+In-Reply-To: <A3E67C2071F49C4CBC4F17E6D77CDDD232754183@G4W3299.americas.hpqcorp.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Torvald Riegel <triegel@redhat.com>, Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "dsterba@suse.cz" <dsterba@suse.cz>, "ptesarik@suse.cz" <ptesarik@suse.cz>, "rguenther@suse.de" <rguenther@suse.de>, "gcc@gcc.gnu.org" <gcc@gcc.gnu.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "Boehm, Hans" <hans.boehm@hp.com>
+Cc: Torvald Riegel <triegel@redhat.com>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "dsterba@suse.cz" <dsterba@suse.cz>, "ptesarik@suse.cz" <ptesarik@suse.cz>, "rguenther@suse.de" <rguenther@suse.de>, "gcc@gcc.gnu.org" <gcc@gcc.gnu.org>
 
-PiBGcm9tOiBUb3J2YWxkIFJpZWdlbA0KPiA+IE9oLCBvbmUgb2YgbXkgZmF2b3JpdGUgKE5PVCEp
-IHBpZWNlcyBvZiBjb2RlIGluIHRoZSBrZXJuZWwgaXMgdGhlDQo+ID4gaW1wbGVtZW50YXRpb24g
-b2YgdGhlDQo+ID4NCj4gPiAgICBzbXBfcmVhZF9iYXJyaWVyX2RlcGVuZHMoKQ0KPiA+DQo+ID4g
-bWFjcm8sIHdoaWNoIG9uIGV2ZXJ5IHNpbmdsZSBhcmNoaXRlY3R1cmUgZXhjZXB0IGZvciBvbmUg
-KGFscGhhKSBpcyBhDQo+IG5vLW9wLg0KPiA+DQo+ID4gV2UgaGF2ZSBiYXNpY2FsbHkgMzAgb3Ig
-c28gZW1wdHkgZGVmaW5pdGlvbnMgZm9yIGl0LCBhbmQgSSB0aGluayB3ZQ0KPiA+IGhhdmUgc29t
-ZXRoaW5nIGxpa2UgZml2ZSB1c2VzIG9mIGl0LiBPbmUgb2YgdGhlbSwgSSB0aGluaywgaXMNCj4g
-PiBwZXJmb3JtYW5jZSBjcnRpY2lhbCwgYW5kIHRoZSByZWFzb24gZm9yIHRoYXQgbWFjcm8gZXhp
-c3RpbmcuDQo+ID4NCj4gPiBXaGF0IGRvZXMgaXQgZG8/IFRoZSBzZW1hbnRpY3MgaXMgdGhhdCBp
-dCdzIGEgcmVhZCBiYXJyaWVyIGJldHdlZW4NCj4gdHdvDQo+ID4gZGlmZmVyZW50IHJlYWRzIHRo
-YXQgd2Ugd2FudCB0byBoYXBwZW4gaW4gb3JkZXIgd3J0IHR3byB3cml0ZXMgb24gdGhlDQo+ID4g
-d3JpdGluZyBzaWRlICh0aGUgd3JpdGluZyBzaWRlIGFsc28gaGFzIHRvIGhhdmUgYSAic21wX3dt
-YigpIiB0bw0KPiBvcmRlcg0KPiA+IHRob3NlIHdyaXRlcykuIEJ1dCB0aGUgcmVhc29uIGl0IGlz
-bid0IGEgc2ltcGxlIHJlYWQgYmFycmllciBpcyB0aGF0DQo+ID4gdGhlIHJlYWRzIGFyZSBhY3R1
-YWxseSBjYXVzYWxseSAqZGVwZW5kZW50KiwgaWUgd2UgaGF2ZSBjb2RlIGxpa2UNCj4gPg0KPiA+
-ICAgIGZpcnN0X3JlYWQgPSByZWFkX3BvaW50ZXI7DQo+ID4gICAgc21wX3JlYWRfYmFycmllcl9k
-ZXBlbmRzKCk7DQo+ID4gICAgc2Vjb25kX3JlYWQgPSAqZmlyc3RfcmVhZDsNCj4gPg0KPiA+IGFu
-ZCBpdCB0dXJucyBvdXQgdGhhdCBvbiBwcmV0dHkgbXVjaCBhbGwgYXJjaGl0ZWN0dXJlcyAoZXhj
-ZXB0IGZvcg0KPiA+IGFscGhhKSwgdGhlICpkYXRhKmRlcGVuZGVuY3kqIHdpbGwgYWxyZWFkeSBn
-dWFyYW50ZWUgdGhhdCB0aGUgQ1BVDQo+ID4gcmVhZHMgdGhlIHRoaW5nIGluIG9yZGVyLiBBbmQg
-YmVjYXVzZSBhIHJlYWQgYmFycmllciBjYW4gYWN0dWFsbHkgYmUNCj4gPiBxdWl0ZSBleHBlbnNp
-dmUsIHdlIGRvbid0IHdhbnQgdG8gaGF2ZSBhIHJlYWQgYmFycmllciBmb3IgdGhpcyBjYXNlLg0K
-PiANCj4gSSBkb24ndCBoYXZlIHRpbWUgdG8gbG9vayBhdCB0aGlzIGluIGRldGFpbCByaWdodCBu
-b3csIGJ1dCBpdCBsb29rcw0KPiByb3VnaGx5IGNsb3NlIHRvIEMrKzExJ3MgbWVtb3J5X29yZGVy
-X2NvbnN1bWUgdG8gbWUsIHdoaWNoIGlzIHNvbWVod2F0DQo+IGxpa2UgYW4gYWNxdWlyZSwgYnV0
-IGp1c3QgZm9yIHN1YnNlcXVlbnQgZGF0YS1kZXBlbmRlbnQgbG9hZHMuICBBZGRlZA0KPiBmb3Ig
-cGVyZm9ybWFuY2UgcmVhc29ucyBvbiBzb21lIGFyY2hpdGVjdHVyZSBBRkFJUi4NCj4gDQpJdCdz
-IGludGVuZGVkIHRvIGFkZHJlc3MgdGhlIHNhbWUgcHJvYmxlbSwgdGhvdWdoIHNvbWV3aGF0IGRp
-ZmZlcmVudGx5LiAgKEkgc3VzcGVjdCB0aGVyZSB3YXMgb3ZlcmxhcCBpbiB0aGUgcGVvcGxlIGlu
-dm9sdmVkPykgT25lIHJlYXNvbiB0aGF0IEMxMSB0b29rIGEgc2xpZ2h0bHkgZGlmZmVyZW50IHBh
-dGggaXMgdGhhdCBjb21waWxlcnMgY2FuLCBhbmQgc29tZXRpbWVzIGRvLCByZW1vdmUgZGVwZW5k
-ZW5jaWVzLCBtYWtpbmcgc21wX3JlYWRfYmFycmllcl9kZXBlbmRzIGJyaXR0bGUgdW5sZXNzIGl0
-IGFsc28gaW1wb3NlcyBjb21waWxlciBjb25zdHJhaW50cy4NCg0KSGFucw0KDQo
+On Wed, Feb 1, 2012 at 1:25 PM, Boehm, Hans <hans.boehm@hp.com> wrote:
+>
+> Here are some more interesting ones that illustrate the issues (all decla=
+rations are non-local, unless stated otherwise):
+>
+> struct { char a; int b:9; int c:7; char d} x;
+>
+> Is x.b =3D 1 allowed to overwrite x.a? =A0C11 says no, essentially requir=
+ing two byte stores. =A0Gcc currently does so. =A0I'm not sure I understand=
+ Linus' position here.
+
+So I like the fact that the C11 stance seems very strict. But honestly
+I also think it sounds like C11 is actually more strict than I would
+necessarily be.
+
+I really do think that bitfields imply "int", both historically and
+technically. So I would not see the problem with treating the
+bitfields as part of an 'int' and thus overwriting a (and d) when
+writing to b. That's how bitfields work! They are fields of an int.
+
+It would be good if it perhaps caused a *warning*, and gave a good way
+to avoid it. For example, while I think using any other base type than
+'int' is technically an extension of the C bitfield rules (but
+whatever, I don't have any specs in front of me), I think a warning
+together with alowing the user to rewrite it as
+
+  struct { char a; char d; short b:9; short c:7; } x;
+
+would make it clear that now a write to 'b' cannot validly overwrite
+'a' or 'd'.
+
+But forcing the compiler to do two (and sometimes three!) byte
+accesses sounds excessive.
+
+The reason I think the
+
+   int flag:1;
+   int othervariable;
+
+overwriting of "othervariable" is so *obviously* a bug is exactly that
+bitfields are historically about 'int', and no 'long' was there
+anywhere, so using a 64-bit access is clearly not sane in any way,
+shape or form.
+
+I dunno.
+
+                 Linus
