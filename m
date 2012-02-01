@@ -1,104 +1,58 @@
-From: Gilad Ben-Yossef <gilad@benyossef.com>
-Date: Tue, 03 Jan 2012 14:19:12 +0000
-Subject: [RFC PATCH 8/9] smp: refactor on_each_cpu to void returning func
-Message-Id: <1325600353-10895-9-git-send-email-gilad@benyossef.com>
+From: Jan Kara <jack@suse.cz>
+Date: Wed, 01 Feb 2012 15:19:18 +0000
+Subject: Memory corruption due to word sharing
+Message-Id: <20120201151918.GC16714@quack.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1325600353-10895-1-git-send-email-gilad@benyossef.com>
-In-Reply-To: <1325600353-10895-1-git-send-email-gilad@benyossef.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Gilad Ben-Yossef <gilad@benyossef.com>, Michal Nazarewicz <mina86@mina86.com>, David Airlie <airlied@linux.ie>, dri-devel@lists.freedesktop.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Grant Likely <grant.likely@secretlab.ca>, Rob Herring <rob.herring@calxeda.com>, linuxppc-dev@lists.ozlabs.org, devicetree-discuss@lists.ozlabs.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, linux-alpha@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Will Deacon <will.deacon@arm.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>, Russell King <linux@arm.linux.org.uk>, linux-arm-kernel@lists.infradead.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-on_each_cpu returns the retunr value of smp_call_function
-which is hard coded to 0.
+  Hello,
 
-Refactor on_each_cpu to a void function and the few callers
-that check the return value to save compares and branches.
+  we've spotted the following mismatch between what kernel folks expect
+from a compiler and what GCC really does, resulting in memory corruption on
+some architectures. Consider the following structure:
+struct x {
+    long a;
+    unsigned int b1;
+    unsigned int b2:1;
+};
 
-CC: Michal Nazarewicz <mina86@mina86.com>
-CC: David Airlie <airlied@linux.ie>
-CC: dri-devel@lists.freedesktop.org
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Grant Likely <grant.likely@secretlab.ca>
-CC: Rob Herring <rob.herring@calxeda.com>
-CC: linuxppc-dev@lists.ozlabs.org
-CC: devicetree-discuss@lists.ozlabs.org
-CC: Richard Henderson <rth@twiddle.net>
-CC: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-CC: Matt Turner <mattst88@gmail.com>
-CC: linux-alpha@vger.kernel.org
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: Ingo Molnar <mingo@redhat.com>
-CC: "H. Peter Anvin" <hpa@zytor.com>
-CC: x86@kernel.org
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-CC: Will Deacon <will.deacon@arm.com>
-CC: Peter Zijlstra <a.p.zijlstra@chello.nl>
-CC: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-CC: Russell King <linux@arm.linux.org.uk>
-CC: linux-arm-kernel@lists.infradead.org
----
- include/linux/smp.h |    7 +++----
- kernel/smp.c        |    6 ++----
- 2 files changed, 5 insertions(+), 8 deletions(-)
+We have two processes P1 and P2 where P1 updates field b1 and P2 updates
+bitfield b2. The code GCC generates for b2 = 1 e.g. on ia64 is:
+   0:   09 00 21 40 00 21       [MMI]       adds r32=8,r32
+   6:   00 00 00 02 00 e0                   nop.m 0x0
+   c:   11 00 00 90                         mov r15=1;;
+  10:   0b 70 00 40 18 10       [MMI]       ld8 r14=[r32];;
+  16:   00 00 00 02 00 c0                   nop.m 0x0
+  1c:   f1 70 c0 47                         dep r14=r15,r14,32,1;;
+  20:   11 00 38 40 98 11       [MIB]       st8 [r32]=r14
+  26:   00 00 00 02 00 80                   nop.i 0x0
+  2c:   08 00 84 00                         br.ret.sptk.many b0;;
 
-diff --git a/include/linux/smp.h b/include/linux/smp.h
-index 8cc38d3..050ddd4 100644
---- a/include/linux/smp.h
-+++ b/include/linux/smp.h
-@@ -99,7 +99,7 @@ static inline void call_function_init(void) { }
- /*
-  * Call a function on all processors
-  */
--int on_each_cpu(smp_call_func_t func, void *info, int wait);
-+void on_each_cpu(smp_call_func_t func, void *info, int wait);
- 
- /*
-  * Mark the boot cpu "online" so that it can call console drivers in
-@@ -126,12 +126,11 @@ static inline int up_smp_call_function(smp_call_func_t func, void *info)
- #define smp_call_function(func, info, wait) \
- 			(up_smp_call_function(func, info))
- #define on_each_cpu(func,info,wait)		\
--	({					\
-+	{					\
- 		local_irq_disable();		\
- 		func(info);			\
- 		local_irq_enable();		\
--		0;				\
--	})
-+	}
- static inline void smp_send_reschedule(int cpu) { }
- #define num_booting_cpus()			1
- #define smp_prepare_boot_cpu()			do {} while (0)
-diff --git a/kernel/smp.c b/kernel/smp.c
-index db197d6..f66a1b2 100644
---- a/kernel/smp.c
-+++ b/kernel/smp.c
-@@ -687,17 +687,15 @@ void __init smp_init(void)
-  * early_boot_irqs_disabled is set.  Use local_irq_save/restore() instead
-  * of local_irq_disable/enable().
-  */
--int on_each_cpu(void (*func) (void *info), void *info, int wait)
-+void on_each_cpu(void (*func) (void *info), void *info, int wait)
- {
- 	unsigned long flags;
--	int ret = 0;
- 
- 	preempt_disable();
--	ret = smp_call_function(func, info, wait);
-+	smp_call_function(func, info, wait);
- 	local_irq_save(flags);
- 	func(info);
- 	local_irq_restore(flags);
- 	preempt_enable();
--	return ret;
- }
- EXPORT_SYMBOL(on_each_cpu);
+Note that gcc used 64-bit read-modify-write cycle to update b2. Thus if P1
+races with P2, update of b1 can get lost. BTW: I've just checked on x86_64
+and there GCC uses 8-bit bitop to modify the bitfield.
+
+We actually spotted this race in practice in btrfs on structure
+fs/btrfs/ctree.h:struct btrfs_block_rsv where spinlock content got
+corrupted due to update of following bitfield and there seem to be other
+places in kernel where this could happen.
+
+I've raised the issue with our GCC guys and they said to me that: "C does
+not provide such guarantee, nor can you reliably lock different
+structure fields with different locks if they share naturally aligned
+word-size memory regions.  The C++11 memory model would guarantee this,
+but that's not implemented nor do you build the kernel with a C++11
+compiler."
+
+So it seems what C/GCC promises does not quite match with what kernel
+expects. I'm not really an expert in this area so I wanted to report it
+here so that more knowledgeable people can decide how to solve the issue...
+
+								Honza
 -- 
-1.7.0.4
-
+Jan Kara <jack@suse.cz>
+SUSE Labs, CR
