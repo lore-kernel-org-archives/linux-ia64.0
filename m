@@ -1,79 +1,99 @@
-From: Michael Matz <matz@suse.de>
-Date: Wed, 01 Feb 2012 17:41:05 +0000
+From: Torvald Riegel <triegel@redhat.com>
+Date: Wed, 01 Feb 2012 17:42:54 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <Pine.LNX.4.64.1202011818570.25409@wotan.suse.de>
+Message-Id: <1328118174.15992.6206.camel@triegel.csb>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <1328114266.5355.44.camel@lenny>
- <CA+55aFxmdskUXX1iBaPx7rUGD95UqNJxhe1BLeVtZjqHjBpsPA@mail.gmail.com>
- <alpine.LRH.2.00.1202011808240.22725@twin.jikos.cz>
-In-Reply-To: <alpine.LRH.2.00.1202011808240.22725@twin.jikos.cz>
+References: <20120201151918.GC16714@quack.suse.cz>
+	 <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+In-Reply-To: <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jiri Kosina <jkosina@suse.cz>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Colin Walters <walters@verbum.org>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-Hi,
+On Wed, 2012-02-01 at 08:41 -0800, Linus Torvalds wrote:
+> If the gcc people aren't willing to agree that this is actually a flaw
+> in the standard (one that is being addressed, no less)
 
-On Wed, 1 Feb 2012, Jiri Kosina wrote:
+It has been addressed in the standards.
 
-> # cat x.c
-> struct x {
->     long a;
->     volatile unsigned int lock;
->     unsigned int full:1;
-> };
+> and try to fix
+> it,
+
+Again, this is being worked on, see http://gcc.gnu.org/wiki/Atomic/GCCMM
+
+> we just have to extend our assumptions to something like "a
+> compiler would be stupid to ever access anything bigger than the
+> aligned register-size area". It's still just an assumption, and
+> compiler people could be crazy, but we could just extend the current
+> alpha rules to cover not just "int", but "long" too.
+
+So, let's ignore everyone's craziness (the kernel is not the only GCC
+client...) and think about how we can improve the situation.
+
+We need a proper memory model.  No vague assumptions with lots of
+hand-waving.  If you think that this is simple stuff and can
+sufficiently described by "don't do anything stupid", then please have a
+look at the issues that the Java memory model faced, and all the
+iterations of the C++11/C11 model and discussions about it.
+
+The only candidate that I see is the C++11/C11 model.  Any other
+suggestions?
+
+Now, if we assume this model, what does the kernel community think about
+it?  It might be good to split this discussion into the following two
+points, to avoid syntax flame wars:
+1) The model itself (ie, the memory orders, ordering guarantees, (lack
+of) progress guarantees, etc.).
+2) The syntax/APIs to specify atomics.
+
+If something else or more is needed, the compiler needs to have a formal
+specification for that.  This will help users too, because it avoids all
+the ambiguities.
+
+> Sure, the compiler people could use "load/store multiple" or something
+> like that, but it would be obviously crazy code, so if it happens past
+> a register size, at least you could argue that it's a performance
+> issue and maybe the gcc people would care.
 > 
-> void
-> wrong(struct x *ptr)
-> {
->         ptr->full = 1;
-> }
+> HOWEVER. The problem with the alpha rules (which, btw, were huge, and
+> led to the CPU designers literally changing the CPU instruction set
+> because they admitted they made a huge mistake) was never so much the
+> occasional memory corruption, as the fact that the places where it
+> could happen were basically almost impossible to find.
 > 
-> In my opinion, this is a clear bug
+> So we probably have tons of random places in the kernel that violate
+> even the alpha rules - because the corruption is so rare, and the
+> architecture was so rare as to making the corruption even harder to
+> find.
 
-Even that depends (sadly) on who you ask.  half-volatile objects (i.e. 
-struct where some members are volatile and others aren't) are terribly 
-underspecified.  You can make the bitfield volatile, and for ia64 that 
-would at least result of ld8.acq/st8.rel pairs.
+I assume you still would want a weak memory model, or not?  (That is,
+rely on data-race-freedom, only atomics do not contribute to data races,
+and you need to mark data used for synchronization (or which is just
+accessed concurrently) as atomics).
 
-And Linus: don't be so hastily dismissive.  People (even the compiler 
-ones) do agree that using an 8 byte access for a 4 byte entity is 
-problematic.  Even if allowed by the standard it's a quality of 
-implementation problem.
+If so, you need to tell the compiler which variables etc. are atomics.
 
-One problem is that it's not a new problem, GCC emitted similar code since 
-about forever, and still they turned up only now (well, probably because 
-ia64 is dead, but sparc64 should have similar problems).  The bitfield 
-handling code is _terribly_ complex and fixing it is quite involved.  So 
-don't expect any quick fixes.
+> I assume this code generation idiocy only happens with bitfields? The
+> problem is, we really don't want to make all bitfields take up 64 bits
+> just because we might have a lock or something else next to them. But
+> we could probably re-order things (and then *occasionally* wasting
+> memory) if we could just find the ones that are problematic.
 
-The other problem is specification.  While you think that the code you 
-wrote is totally obvious it might not actually be so.  For instance, what 
-about this struct:
+If the compiler is aware what is a lock (or atomics, or similar), then a
+correct implementation should leave the lock alone.  But in a weak
+memory model, it needs to know what is a lock.
+(Same goes for volatile obviously, like in the other example posted in
+the thread where the bitfields interfered with the volatile.)
 
-{long l:32; int i1:16; short s; int i2:1; char c:7; short s2:8; short s3;}
+> 
+> It's finding the problematic ones that is the issue. Which is why the
+> compiler should just generate code that matches what we told it to do,
 
-What are the obviously correct accesses for various writes into this 
-struct?
-
-One rule may be to never write to a bitfield with accesses larger than 
-their underlying declared type.  Well, but only if the bitfield fits into 
-that type (int:96 is quite okay to have, and what accesses should be 
-allowed there?).  That might be one obvious rule.  But it's not how 
-traditional bitfield layout works.  It works based on underlying objects, 
-and for that e.g. the three fields i2,c,s are all in the same one, of int 
-type.
-
-The rule above would at least work for code that most people do write, 
-i.e. sequence of same-typed bitfields mixed with normal members.
-
-And then, there's the last problem: are you sure that if GCC would use 4 
-byte accesses for the case at hand, that the hardware wouldn't screw you 
-again?  What about using atomic instructions for one half of the 
-cache-line (the spinlock) but non-atomic instructions on the other half 
-(the bitfield).  Are you sure the latter won't interfere with the former?
+So, would it be okay to tell the compiler which part of the state is
+accessed concurrently (ie, locks, atomics, ...)?
 
 
-Ciao,
-Michael.
+Torvald
+
