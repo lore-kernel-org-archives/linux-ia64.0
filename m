@@ -1,101 +1,97 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 01 Feb 2012 21:20:51 +0000
+From: Torvald Riegel <triegel@redhat.com>
+Date: Wed, 01 Feb 2012 21:24:58 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <CA+55aFx=4AhdFEgjY3b=85__mGYX8BKcaXpFC=1XZzoFFjeTrw@mail.gmail.com>
+Message-Id: <1328131498.15992.6503.camel@triegel.csb>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <1328116137.15992.6146.camel@triegel.csb>
- <CA+55aFyG3EifFPapU6SFYXCjrP+wQOF65hJGs3yyMxCgde5vdg@mail.gmail.com> <1328129620.15992.6453.camel@triegel.csb>
-In-Reply-To: <1328129620.15992.6453.camel@triegel.csb>
+References: <20120201151918.GC16714@quack.suse.cz>
+	 <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+	 <1328118174.15992.6206.camel@triegel.csb>
+	 <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com>
+	 <1328128874.15992.6430.camel@triegel.csb>
+	 <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com>
+In-Reply-To: <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Torvald Riegel <triegel@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-On Wed, Feb 1, 2012 at 12:53 PM, Torvald Riegel <triegel@redhat.com> wrote:
->
-> For volatile, I agree.
->
-> However, the original btrfs example was *without* a volatile, and that's
-> why I raised the memory model point. =A0This triggered an error in a
-> concurrent execution, so that's memory model land, at least in C
-> language standard.
+On Wed, 2012-02-01 at 12:59 -0800, Linus Torvalds wrote:
+> On Wed, Feb 1, 2012 at 12:41 PM, Torvald Riegel <triegel@redhat.com> wrote:
+> >
+> > You do rely on the compiler to do common transformations I suppose:
+> > hoist loads out of loops, CSE, etc.  How do you expect the compiler to
+> > know whether they are allowed for a particular piece of code or not?
+> 
+> We have barriers.
+> 
+> Compiler barriers are cheap. They look like this:
+[snip]
 
-Sure. The thing is, if you fix the volatile problem, you'll almost
-certainly fix our problem too.
+I know, and I've programmed my chunk of concurrent code with those and
+architecture-specific code too (or libatomic-ops for a bit more
+ready-to-use portability).
 
-The whole "compilers actually do reasonable things" approach really
-does work in reality. It in fact works a lot better than reading some
-spec and trying to figure out if something is "valid" or not, and
-having fifteen different compiler writers and users disagree about
-what the meaning of the word "is" is in some part of it.
+> It's not the only thing we do. We have cases where it's not that you
+> can't hoist things outside of loops, it's that you have to read things
+> exactly *once*, and then use that particular value (ie the compiler
+> can't be allowed to reload the value because it may change). So any
+> *particular* value we read is valid, but we can't allow the compiler
+> to do anything but a single access.
 
-I'm not kidding. With specs, there really *are* people who spend years
-discussing what the meaning of the word "access" is or similar.
-Combine that with a big spec that is 500+ pages in size and then try
-to apply that all to a project that is 15 million lines of code and
-sometimes *knowingly* has to do things that it simply knows are
-outside the spec, and the discussion about these kinds of details is
-just mental masturbation.
+That's what an access to an atomics-typed var would give you as well.
 
+> And I realize that compiler people tend to think that loop hoisting
+> etc is absolutely critical for performance, and some big hammer like
+> "barrier()" makes a compiler person wince. You think it results in
+> horrible code generation problems.
+> 
+> It really doesn't. Loops are fairly unusual in the kernel to begin
+> with, and the compiler barriers are a total non-issue.
 
->> We do end up doing
->> much more aggressive threading, with models that C11 simply doesn't
->> cover.
->
-> Any specific examples for that would be interesting.
+This is interesting, because GCC is currently not optimizing across
+atomics but we we're considering working on this later.
+Do you have real data about this, or is this based on analysis of
+samples of compiled code?
 
-Oh, one of my favorite (NOT!) pieces of code in the kernel is the
-implementation of the
+> We have much
+> more problems with the actual CPU barriers that can be *very*
+> expensive on some architectures, and we work a lot at avoiding those
+> and avoiding cacheline ping-pong issues etc.
 
-   smp_read_barrier_depends()
+Well, obviously...
 
-macro, which on every single architecture except for one (alpha) is a no-op.
+> 
+> >> > No vague assumptions with lots of hand-waving.
+> >>
+> >> So here's basically what the kernel needs:
+> >>
+> >>  - if we don't touch a field, the compiler doesn't touch it.
+> >
+> > "we don't touch a field": what does that mean precisely?  Never touch it
+> > in the same thread?  Same function?  Same basic block?  Between two
+> > sequence points?  When crossing synchronizing code?  For example, in the
+> > above code, can we touch it earlier/later?
+> 
+> Why are you trying to make it more complex than it is?
+> 
+> If the source code doesn't write to it, the assembly the compiler
+> generates doesn't write to it.
 
-We have basically 30 or so empty definitions for it, and I think we
-have something like five uses of it. One of them, I think, is
-performance crticial, and the reason for that macro existing.
+If it would be so easy, then answering my questions would have been easy
+too, right?  Which piece of source code?  The whole kernel?
 
-What does it do? The semantics is that it's a read barrier between two
-different reads that we want to happen in order wrt two writes on the
-writing side (the writing side also has to have a "smp_wmb()" to order
-those writes). But the reason it isn't a simple read barrier is that
-the reads are actually causally *dependent*, ie we have code like
+> 
+> Don't try to make it anything more complicated. This has *nothing* to
+> do with threads or functions or anything else.
+> 
+> If you do massive inlining, and you don't see any barriers or
+> conditionals or other reasons not to write to it, just write to it.
 
-   first_read =3D read_pointer;
-   smp_read_barrier_depends();
-   second_read =3D *first_read;
+And a precise definition of these reasons is what we need to agree on.
 
-and it turns out that on pretty much all architectures (except for
-alpha), the *data*dependency* will already guarantee that the CPU
-reads the thing in order. And because a read barrier can actually be
-quite expensive, we don't want to have a read barrier for this case.
+> Don't try to appear smart and make this into something it isn't.
 
-But alpha? Its memory consistency is so broken that even the data
-dependency doesn't actually guarantee cache access order. It's
-strange, yes. No, it's not that alpha does some magic value prediction
-and can do the second read without having even done the first read
-first to get the address. What's actually going on is that the cache
-itself is unordered, and without the read barrier, you may get a stale
-version from the cache even if the writes were forced (by the write
-barrier in the writer) to happen in the right order.
+Even if I would have done it, it wouldn't be as rude as trying to imply
+that other people aren't smart.
 
-You really want to try to describe issues like this in your memory
-consistency model? No you don't. Nobody will ever really care, except
-for crazy kernel people. And quite frankly, not even kernel people
-care: we have a fairly big kernel developer community, and the people
-who actually talk about memory ordering issues can be counted on one
-hand. There's the "RCU guy" who writes the RCU helper functions, and
-hides the proper serializing code into those helpers, so that normal
-mortal kernel people don't have to care, and don't even have to *know*
-how ignorant they are about the things.
-
-And that's also why the compiler shouldn't have to care. It's a really
-small esoteric detail, and it can be hidden in a header file and a set
-of library routines. Teaching the compiler about crazy memory ordering
-would just not be worth it. 99.99% of all programmers will never need
-to understand any of it, they'll use the locking primitives and follow
-the rules, and the code that makes it all work is basically invisible
-to them.
-
-                        Linus
