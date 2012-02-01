@@ -1,109 +1,57 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Wed, 01 Feb 2012 17:11:29 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 01 Feb 2012 17:29:31 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <alpine.LRH.2.00.1202011808240.22725@twin.jikos.cz>
+Message-Id: <CA+55aFyG3EifFPapU6SFYXCjrP+wQOF65hJGs3yyMxCgde5vdg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <1328114266.5355.44.camel@lenny> <CA+55aFxmdskUXX1iBaPx7rUGD95UqNJxhe1BLeVtZjqHjBpsPA@mail.gmail.com>
-In-Reply-To: <CA+55aFxmdskUXX1iBaPx7rUGD95UqNJxhe1BLeVtZjqHjBpsPA@mail.gmail.com>
+References: <20120201151918.GC16714@quack.suse.cz> <1328116137.15992.6146.camel@triegel.csb>
+In-Reply-To: <1328116137.15992.6146.camel@triegel.csb>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Colin Walters <walters@verbum.org>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Torvald Riegel <triegel@redhat.com>
+Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-On Wed, 1 Feb 2012, Linus Torvalds wrote:
+On Wed, Feb 1, 2012 at 9:08 AM, Torvald Riegel <triegel@redhat.com> wrote:
+>
+> What do the kernel folks think about the C11 memory model? =A0If you can
+> spot any issues in there, the GCC community would certainly like to
+> know.
 
-> But the compiler turns the access to the bitfield (in a 32-bit aligned
-> word) into a 64-bit access that accesses the word *next* to it.
-> 
-> That word next to it might *be* the lock, for example.
-> 
-> So we could literally have this kind of situation:
-> 
->    struct {
->       atomic_t counter;
->       unsigned int val:4, other:4, data:24;
->    };
-> 
-> and if we write code like this:
-> 
->     spin_lock(&somelock);
->     s->data++;
->     spin_unlock(&somelock);
-> 
-> and on another CPU we might do
-> 
->    atomic_inc(&counter);
-> 
-> and the access to the bitfield will *corrupt* the atomic counter, even
-> though both of them are perfectly fine!
-> 
-> Quite frankly, if the bug is simply because gcc doesn't actually know
-> or care about the underlying size of the bitmask, it is possible that
-> we can find a case where gcc clearly is buggy even according to the
-> original C rules.
-> 
-> Honza - since you have access to the compiler in question, try
-> compiling this trivial test-program:
-> 
-> 
->    struct example {
->       volatile int a;
->       int b:1;
->    };
-> 
->    ..
->      s->b = 1;
->    ..
-> 
-> and if that bitfield access actually does a 64-bit access that also
-> touches 's->a', then dammit, that's a clear violation of even the
-> *old* C standard, and the gcc people cannot just wave away their bugs
-> by saying "we've got standads, pttthththt".
-> 
-> And I suspect it really is a generic bug that can be shown even with
-> the above trivial example.
+I don't think this is about memory models except very tangentially.
 
-I have actually tried exactly this earlier today (because while looking at 
-this, I had an idea that putting volatile in place could be a workaround, 
-causing gcc to generate a saner code), but it doesn't work either:
+Gcc currently accesses fields in a way that affects *independent*
+fields, without checking their memory models at all.
 
-# cat x.c
-struct x {
-    long a;
-    volatile unsigned int lock;
-    unsigned int full:1;
-};
+Even original C already has one memory model: "volatile" data is seen
+outside the virtual C machine. And Jiri reports that even that
+*original* memory model is being violated. We're taling about the one
+from about 40 years ago.
 
-void
-wrong(struct x *ptr)
-{
-        ptr->full = 1;
-}
+So no amount of memory model will ever matter, if gcc can't even get
+the 40-year old one right.
 
-int main()
-{
-        wrong(0);
-}
-# gcc -O2 x.c
-# gdb -q ./a.out 
-Reading symbols from /root/a.out...done.
-(gdb) disassemble wrong
-Dump of assembler code for function wrong:
-   0x40000000000005c0 <+0>:     [MMI]       adds r32=8,r32
-   0x40000000000005c1 <+1>:                 nop.m 0x0
-   0x40000000000005c2 <+2>:                 mov r15=1;;
-   0x40000000000005d0 <+16>:    [MMI]       ld8 r14=[r32];;
-   0x40000000000005d1 <+17>:                nop.m 0x0
-   0x40000000000005d2 <+18>:                dep r14=r15,r14,32,1;;
-   0x40000000000005e0 <+32>:    [MIB]       st8 [r32]=r14
-   0x40000000000005e1 <+33>:                nop.i 0x0
-   0x40000000000005e2 <+34>:                br.ret.sptk.many b0;;
+Also, the C11 memory model really isn't going to make any difference
+to this. Again, because this happens even if we have explicit locking
+for the different fields. So they aren't "atomic" or anything like
+that, because we do our own (and sufficient) locking. But once the
+compiler starts to randomly touch data that just happens to be
+adjacent to other data, any memory model about those individual pieces
+is going to be entirely immaterial anyway.
 
-In my opinion, this is a clear bug in gcc (while the original problem, 
-without explitict volatile, is not a C spec violation per se, it's just 
-very inconvenient :) ).
+Finally: I do not believe for a second that we can actually use the
+C11 memory model in the kernel and say "that's sufficient for our
+needs". We will continue to have to do things that are "outside the
+specs" for the very simple reason that the kernel isn't just some
+random application that happens to use pthreads. We do end up doing
+much more aggressive threading, with models that C11 simply doesn't
+cover.
 
--- 
-Jiri Kosina
-SUSE Labs
+_Atomic simply isn't going to make any difference to us. Sure, we
+might use it in a couple of places (where we have sometimes tried to
+use volatile casts, for example), but it would be totally irrelevant
+in this case exactly because *neither* field is really atomic - they
+are both protected, it's just that they are *separately* protected, so
+accessing one does *not* mean that you can access the other, even if
+they are next to each other.
+
+                  Linus
