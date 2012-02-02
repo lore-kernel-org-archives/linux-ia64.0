@@ -1,32 +1,27 @@
-From: Jeff Garzik <jeff@garzik.org>
-Date: Thu, 02 Feb 2012 15:51:20 +0000
+From: Aldy Hernandez <aldyh@redhat.com>
+Date: Thu, 02 Feb 2012 15:58:33 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <4F2AB0F8.5020207@garzik.org>
+Message-Id: <874nv9qlau.fsf@houston.quesejoda.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CA+55aFxmdskUXX1iBaPx7rUGD95UqNJxhe1BLeVtZjqHjBpsPA@mail.gmail.com> <alpine.LRH.2.00.1202011808240.22725@twin.jikos.cz> <Pine.LNX.4.64.1202011818570.25409@wotan.suse.de> <20120201.130905.1131458895704793597.davem@davemloft.net> <4F298865.5000409@redhat.com> <CA+55aFzzaWM=EWsK1hRho27b5ePEYNkzEnqce-DmCQ3kL1w9ZA@mail.gmail.com>
-In-Reply-To: <CA+55aFzzaWM=EWsK1hRho27b5ePEYNkzEnqce-DmCQ3kL1w9ZA@mail.gmail.com>
+References: <20120201151918.GC16714@quack.suse.cz>
+	<CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+	<1328118174.15992.6206.camel@triegel.csb>
+	<20120201194025.GG6148@sunsite.ms.mff.cuni.cz>
+	<CA+55aFzVWjqcs1zRF-93_9yHRDS-YgmpgFTzACw6HQ-059U06Q@mail.gmail.com>
+	<20120201201631.GW18768@tyan-ft48-01.lab.bos.redhat.com>
+	<CA+55aFwcLpD2Cw5VxZ3ym66QBDAeDam3-hprivrC+keUMXJOtw@mail.gmail.com>
+In-Reply-To: <CA+55aFwcLpD2Cw5VxZ3ym66QBDAeDam3-hprivrC+keUMXJOtw@mail.gmail.com>
+	(Linus Torvalds's message of "Wed, 1 Feb 2012 12:44:05 -0800")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Jeff Law <law@redhat.com>, David Miller <davem@davemloft.net>, matz@suse.de, jkosina@suse.cz, walters@verbum.org, jack@suse.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
+Cc: Jakub Jelinek <jakub@redhat.com>, Torvald Riegel <triegel@redhat.com>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-On 02/01/2012 02:09 PM, Linus Torvalds wrote:
-> We have a lot of code, there's still a lot of situations left where
-> bitfields are just really convenient.
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 
-Or even just s/convenient/ingrained habit/   As much as I try to avoid 
-bitfields, engineers writing vendor drivers love to lay out their 
-hardware structures using bitfields, leading to such crapola as
+> Seriously - is there any real argument *against* just using the base
+> type as a hint for access size?
 
-	#ifdef little endian
-		a bunch of bitfields, LE arrangement
-	#else
-		bitfields, now in BE arrangement
-	#endif
-
-This crops up again and again in drivers :/
-
-	Jeff
-
-
+If I'm on the hook for attempting to fix this again, I'd also like to
+know if there are any arguments against using the base type.
