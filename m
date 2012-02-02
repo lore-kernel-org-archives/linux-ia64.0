@@ -1,62 +1,71 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Thu, 02 Feb 2012 18:42:09 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 02 Feb 2012 19:08:25 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <20120202184209.GD2518@linux.vnet.ibm.com>
+Message-Id: <CA+55aFyYxzED4OoYvb3nbET7_zyP5mGhEa2w_QCvQOx55bVjHg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz>
- <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
- <1328118174.15992.6206.camel@triegel.csb>
- <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com>
- <1328128874.15992.6430.camel@triegel.csb>
- <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com>
- <20120201224554.GK2382@linux.vnet.ibm.com>
- <CA+55aFyzYO0CMZOgdrVV0PdG2DkbwTQG7eE7N3bp=0tQmruFEQ@mail.gmail.com>
-In-Reply-To: <CA+55aFyzYO0CMZOgdrVV0PdG2DkbwTQG7eE7N3bp=0tQmruFEQ@mail.gmail.com>
+References: <20120201151918.GC16714@quack.suse.cz> <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com>
+ <1328118174.15992.6206.camel@triegel.csb> <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com>
+ <1328128874.15992.6430.camel@triegel.csb> <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com>
+ <20120201224554.GK2382@linux.vnet.ibm.com> <CA+55aFyzYO0CMZOgdrVV0PdG2DkbwTQG7eE7N3bp=0tQmruFEQ@mail.gmail.com>
+ <20120202184209.GD2518@linux.vnet.ibm.com>
+In-Reply-To: <20120202184209.GD2518@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
+To: paulmck@linux.vnet.ibm.com
 Cc: Torvald Riegel <triegel@redhat.com>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
 
-On Wed, Feb 01, 2012 at 03:11:00PM -0800, Linus Torvalds wrote:
-> On Wed, Feb 1, 2012 at 2:45 PM, Paul E. McKenney
-> <paulmck@linux.vnet.ibm.com> wrote:
-> >
-> > My (perhaps forlorn and naive) hope is that C++11 memory_order_relaxed
-> > will eventually allow ACCESS_ONCE() to be upgraded so that (for example)
-> > access-once increments can generate a single increment-memory instruction
-> > on x86.
-> 
-> I don't think that is a semantic issue.
-> 
-> gcc could do it *today* with volatile accesses. It doesn't, because
-> volatiles are scary and basically disables a lot of optimizations. Why
-> would memory ordering be substantially different just because it has a
-> different name?
+On Thu, Feb 2, 2012 at 10:42 AM, Paul E. McKenney
+<paulmck@linux.vnet.ibm.com> wrote:
+>>
+>> SMP-atomic or percpu atomic? Or both?
+>
+> Only SMP-atomic.
 
-I too would much prefer that gcc volatile worked more sanely.
+And I assume that since the compiler does them, that would now make it
+impossible for us to gather a list of all the 'lock' prefixes so that
+we can undo them if it turns out that we are running on a UP machine.
 
-But several people, including me, pushed on that and consistently got back
-"the standard doesn't say we have to do that".
+When we do SMP operations, we don't just add a "lock" prefix to it. We do this:
 
-So I got together with the standards people and now there is something
-(memory_order_relaxed atomics) that is specified to work the way we want
-it to.  Of course, it will likely be quite some time before it appears
-in usable form in gcc, but probably quite a bit less time than we have
-been pushing on the gcc folks about volatile.
+  #define LOCK_PREFIX_HERE \
+                ".section .smp_locks,\"a\"\n"   \
+                ".balign 4\n"                   \
+                ".long 671f - .\n" /* offset */ \
+                ".previous\n"                   \
+                "671:"
 
-> > New architectures might eventually might define things like atomic_inc()
-> > in terms of C++11 atomics, but let's start with the straightforward stuff
-> > as and if it makes sense.
-> 
-> SMP-atomic or percpu atomic? Or both?
+  #define LOCK_PREFIX LOCK_PREFIX_HERE "\n\tlock; "
 
-Only SMP-atomic.
+and I'm sure you know that, but I'm not sure the gcc people realize
+the kinds of games we play to make things work better.
 
-> We need both variants in the kernel. If the compiler generates one of
-> them for us, that doesn't really much help.
+Sure, "everything will be SMP" some day, but running UP kernels is
+likely still going to remain a good idea in virtualized environments,
+for example. And having to make it a compile-time option is *not* a
+good idea.
 
-I must admit that the non-x86 per-CPU atomics are, ummm, "interesting".
+So compiler intrisics are often *worse* than doing it by hand for us
+for all these kinds of reasons. They aren't generally geared towards
+the very specialized needs that a kernel has.
 
-							Thanx, Paul
+Of course, maybe even user space would want some kind of way to
+automatically strip 'lock' prefixes from a binary, so maybe the
+compiler would have some kind of support like this too.
 
+(And no, disassembling the binary in order to find lock prefixes is
+*not* the answer, at least not for the kernel)
+
+>> We need both variants in the kernel. If the compiler generates one of
+>> them for us, that doesn't really much help.
+>
+> I must admit that the non-x86 per-CPU atomics are, ummm, "interesting".
+
+Most non-x86 cpu's would probably be better off treating them the same
+as smp-atomics (load-locked + store-conditional), but right now we
+have this insane generic infrastructure for having versions that are
+irq-safe by disabling interrupts etc. Ugh. Mainly because nobody
+really is willing to work on and fix up the 25 architectures that
+really don't matter.
+
+              Linus
