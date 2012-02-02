@@ -1,61 +1,71 @@
 From: Richard Guenther <rguenther@suse.de>
-Date: Thu, 02 Feb 2012 11:23:42 +0000
+Date: Thu, 02 Feb 2012 11:24:33 +0000
 Subject: Re: Memory corruption due to word sharing
-Message-Id: <alpine.LNX.2.00.1202021222580.4999@zhemvz.fhfr.qr>
+Message-Id: <alpine.LNX.2.00.1202021223460.4999@zhemvz.fhfr.qr>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="8323584-1749499345-1328181873=:4999"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <20120202111340.GB28416@ds.suse.cz>
-In-Reply-To: <20120202111340.GB28416@ds.suse.cz>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Sterba <dsterba@suse.cz>
-Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, ptesarik@suse.cz, gcc@gcc.gnu.org
+References: <20120201151918.GC16714@quack.suse.cz> <CAAMvbhEc8E39PCCoT1CyjUqSyph18FmPnaJYc7B3ZazYgUu2GQ@mail.gmail.com>
+In-Reply-To: <CAAMvbhEc8E39PCCoT1CyjUqSyph18FmPnaJYc7B3ZazYgUu2GQ@mail.gmail.com>
+To: James Courtier-Dutton <james.dutton@gmail.com>
+Cc: Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, dsterba@suse.cz, ptesarik@suse.cz, gcc@gcc.gnu.org
 
-On Thu, 2 Feb 2012, David Sterba wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> On Wed, Feb 01, 2012 at 04:19:18PM +0100, Jan Kara wrote:
+--8323584-1749499345-1328181873=:4999
+Content-Type: TEXT/PLAIN; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+On Thu, 2 Feb 2012, James Courtier-Dutton wrote:
+
+> On 1 February 2012 15:19, Jan Kara <jack@suse.cz> wrote:
+> >  Hello,
+> >
+> >  we've spotted the following mismatch between what kernel folks expect
+> > from a compiler and what GCC really does, resulting in memory corruption on
+> > some architectures. Consider the following structure:
+> > struct x {
+> >    long a;
+> >    unsigned int b1;
+> >    unsigned int b2:1;
+> > };
+> >
+> > We have two processes P1 and P2 where P1 updates field b1 and P2 updates
+> > bitfield b2. The code GCC generates for b2 = 1 e.g. on ia64 is:
+> >   0:   09 00 21 40 00 21       [MMI]       adds r32=8,r32
+> >   6:   00 00 00 02 00 e0                   nop.m 0x0
+> >   c:   11 00 00 90                         mov r15=1;;
+> >  10:   0b 70 00 40 18 10       [MMI]       ld8 r14=[r32];;
+> >  16:   00 00 00 02 00 c0                   nop.m 0x0
+> >  1c:   f1 70 c0 47                         dep r14=r15,r14,32,1;;
+> >  20:   11 00 38 40 98 11       [MIB]       st8 [r32]=r14
+> >  26:   00 00 00 02 00 80                   nop.i 0x0
+> >  2c:   08 00 84 00                         br.ret.sptk.many b0;;
+> >
+> > Note that gcc used 64-bit read-modify-write cycle to update b2. Thus if P1
+> > races with P2, update of b1 can get lost. BTW: I've just checked on x86_64
+> > and there GCC uses 8-bit bitop to modify the bitfield.
+> >
 > > We actually spotted this race in practice in btrfs on structure
 > > fs/btrfs/ctree.h:struct btrfs_block_rsv where spinlock content got
 > > corrupted due to update of following bitfield and there seem to be other
 > > places in kernel where this could happen.
+> >
+> > I've raised the issue with our GCC guys and they said to me that: "C does
+> > not provide such guarantee, nor can you reliably lock different
+> > structure fields with different locks if they share naturally aligned
+> > word-size memory regions.  The C++11 memory model would guarantee this,
+> > but that's not implemented nor do you build the kernel with a C++11
+> > compiler."
+> >
+> > So it seems what C/GCC promises does not quite match with what kernel
+> > expects. I'm not really an expert in this area so I wanted to report it
+> > here so that more knowledgeable people can decide how to solve the issue...
 > 
-> Here's the list of structures where a bitfield is shared with spinlock
-> or atomic/kref within an 8B word, generated from 3.3-rc2:
-> 
-> spinlock+bitfield:
-> 
-> Struct: struct ak4113; Field: init
-> Struct: struct ak4114; Field: init
-> Struct: struct ak4117; Field: init
-> Struct: struct btrfs_block_rsv; Field: full
-> Struct: struct cm109_dev; Field: buzzer_pending
-> Struct: struct pch_udc_dev; Field: active
-> Struct: struct rds_iw_device; Field: dma_local_lkey
-> Struct: struct sierra_intf_private; Field: suspended
-> Struct: struct sm501_gpio; Field: registered
-> Struct: struct unix_sock; Field: gc_candidate
-> Struct: struct usb_anchor; Field: poisoned
-> Struct: struct usb_wwan_intf_private; Field: suspended
-> 
-> atomic/kref+bitfield:
-> 
-> Struct: struct dlm_lock_resource; Field: migration_pending
-> Struct: struct extent_map; Field: in_tree
-> Struct: struct kobject; Field: state_initialized
-> Struct: struct page; Field: inuse
-> Struct: struct rds_ib_connection; Field: i_flowctl
-> Struct: struct rds_iw_connection; Field: i_flowctl
-> Struct: struct sctp_transport; Field: dead
-> Struct: struct transaction_s; Field: t_synchronous_commit
-> Struct: struct xfs_ioend; Field: io_isasync
-> 
-> 
-> Not all listed structs are necessarily subject to the bug. There may be
-> another mechanism preventing concurrent access to the bitfield and
-> spinlock/atomic, or the bitfield is modified from a single cpu, or is
-> not used. But all of them need to be reviewed of course.
+> What is the recommended work around for this problem?
 
-To hit this bug the containing objects also have to be at least
-8-byte aligned.
+The recommended work around is to re-layout your structures.
 
 Richard.
+--8323584-1749499345-1328181873=:4999--
