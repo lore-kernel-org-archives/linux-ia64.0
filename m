@@ -1,74 +1,44 @@
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Date: Mon, 13 Feb 2012 10:41:37 +0000
-Subject: Re: [PATCH 03/14 v2] MIPS: adapt for dma_map_ops changes
-Message-Id: <4F38E8E1.3070004@mvista.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sun, 05 Feb 2012 06:57:52 +0000
+Subject: [PATCH 08/24] PCI, ia64: Register busn_res for root buses
+Message-Id: <1328425088-6562-9-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-4-git-send-email-m.szyprowski@samsung.com> <1329129329-25205-1-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1329129329-25205-1-git-send-email-m.szyprowski@samsung.com>
+References: <1328425088-6562-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1328425088-6562-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@suse.de>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Hello.
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-On 13-02-2012 14:35, Marek Szyprowski wrote:
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index f82f5d4..936b2f1 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -331,6 +331,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	struct acpi_device *device = root->device;
+ 	int domain = root->segment;
+ 	int bus = root->secondary.start;
++	int busmax = root->secondary.end;
+ 	struct pci_controller *controller;
+ 	unsigned int windows = 0;
+ 	struct pci_root_info info;
+@@ -384,6 +385,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 		return NULL;
+ 	}
+ 
++	pci_bus_insert_busn_res(pbus, busnum, busmax);
+ 	pbus->subordinate = pci_scan_child_bus(pbus);
+ 	return pbus;
+ 
+-- 
+1.7.7
 
-> From: Andrzej Pietrasiewicz<andrzej.p@samsung.com>
-
-> Adapt core MIPS architecture code for dma_map_ops changes: replace
-> alloc/free_coherent with generic alloc/free methods.
-
-> Signed-off-by: Andrzej Pietrasiewicz<andrzej.p@samsung.com>
-> [added missing changes to arch/mips/cavium-octeon/dma-octeon.c]
-> Signed-off-by: Marek Szyprowski<m.szyprowski@samsung.com>
-> Signed-off-by: Kyungmin Park<kyungmin.park@samsung.com>
-[...]
-
-> diff --git a/arch/mips/include/asm/dma-mapping.h b/arch/mips/include/asm/dma-mapping.h
-> index 7aa37dd..cbd41f5 100644
-> --- a/arch/mips/include/asm/dma-mapping.h
-> +++ b/arch/mips/include/asm/dma-mapping.h
-> @@ -57,25 +57,31 @@ dma_set_mask(struct device *dev, u64 mask)
->   extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
->   	       enum dma_data_direction direction);
->
-> -static inline void *dma_alloc_coherent(struct device *dev, size_t size,
-> -				       dma_addr_t *dma_handle, gfp_t gfp)
-> +#define dma_alloc_coherent(d,s,h,f)	dma_alloc_attrs(d,s,h,f,NULL)
-> +
-> +static inline void *dma_alloc_attrs(struct device *dev, size_t size,
-> +				    dma_addr_t *dma_handle, gfp_t gfp,
-> +				    struct dma_attrs *attrs)
->   {
->   	void *ret;
->   	struct dma_map_ops *ops = get_dma_ops(dev);
->
-> -	ret = ops->alloc_coherent(dev, size, dma_handle, gfp);
-> +	ret = ops->alloc(dev, size, dma_handle, gfp, NULL);
-
-    Not 'attrs' instead of NULL?
-
->
->   	debug_dma_alloc_coherent(dev, size, *dma_handle, ret);
->
->   	return ret;
->   }
->
-> -static inline void dma_free_coherent(struct device *dev, size_t size,
-> -				     void *vaddr, dma_addr_t dma_handle)
-> +#define dma_free_coherent(d,s,c,h) dma_free_attrs(d,s,c,h,NULL)
-> +
-> +static inline void dma_free_attrs(struct device *dev, size_t size,
-> +				  void *vaddr, dma_addr_t dma_handle,
-> +				  struct dma_attrs *attrs)
->   {
->   	struct dma_map_ops *ops = get_dma_ops(dev);
->
-> -	ops->free_coherent(dev, size, vaddr, dma_handle);
-> +	ops->free(dev, size, vaddr, dma_handle, NULL);
-
-    Same here...
-
-WBR, Sergei
