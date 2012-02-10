@@ -1,100 +1,115 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Mon, 13 Feb 2012 00:21:45 +0000
-Subject: Re: [PULL REQUEST] DMA-mapping framework redesign preparation patches
-Message-Id: <20120213112145.4b8990c739d297cd30714d52@canb.auug.org.au>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Signature=_Mon__13_Feb_2012_11_21_45_+1100_8oMlxM5sQu=KHg4V"
+From: Raymund Will <rw@suse.de>
+Date: Fri, 10 Feb 2012 15:30:56 +0000
+Subject: [PATCH] ia64: genirq fixup for SGI/SN
+Message-Id: <20120210153055.GA1317@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1328898737-15854-1-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1328898737-15854-1-git-send-email-m.szyprowski@samsung.com>
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Cc: linux-kernel@vger.kernel.org, linux-next@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
---Signature=_Mon__13_Feb_2012_11_21_45_+1100_8oMlxM5sQu=KHg4V
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This patch allows the system to boot and enables the console and at least
+some hardware drivers, as well as some platform error handling.
 
-Hi Marek,
+Tested on a variety of SGI Altix system without issues.
 
-On Fri, 10 Feb 2012 19:32:17 +0100 Marek Szyprowski <m.szyprowski@samsung.c=
-om> wrote:
->
-> Our patches with DMA-mapping framework redesign proposal have been
-> hanging for over a month with just a few comments. We would like to go
-> further in the development, but first I would like to ask You to give
-> them a try in the linux-next kernel.
->=20
-> For everyone interested in this patch series, here is the relevant
-> thread: https://lkml.org/lkml/2011/12/23/97
->=20
-> If there are any problems with our git tree, please contact Marek=20
-> Szyprowski <m.szyprowski@samsung.com> or alternatively Kyungmin Park
-> <kyungmin.park@samsung.com>.
->=20
-> The following changes since commit 62aa2b537c6f5957afd98e29f96897419ed5eb=
-ab:
->=20
->   Linux 3.3-rc2 (2012-01-31 13:31:54 -0800)
->=20
-> are available in the git repository at:
->   git://git.infradead.org/users/kmpark/linux-samsung dma-mapping-next
+Original work from Dimitri Sivanich.
 
-I have added this from today.
+Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
+Test-by: Raymund Will <rw@suse.de>
+---
+ arch/ia64/sn/kernel/huberror.c          |    2 ++
+ arch/ia64/sn/kernel/irq.c               |    2 ++
+ arch/ia64/sn/pci/pcibr/pcibr_provider.c |    1 +
+ arch/ia64/sn/pci/tioca_provider.c       |    1 +
+ arch/ia64/sn/pci/tioce_provider.c       |    1 +
+ drivers/tty/serial/sn_console.c         |    1 +
+ 6 files changed, 8 insertions(+), 0 deletions(-)
 
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgment of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window.=20
+diff --git a/arch/ia64/sn/kernel/huberror.c b/arch/ia64/sn/kernel/huberror.c
+index 08b0d9b..f925dec 100644
+--- a/arch/ia64/sn/kernel/huberror.c
++++ b/arch/ia64/sn/kernel/huberror.c
+@@ -192,6 +192,7 @@ void hub_error_init(struct hubdev_info *hubdev_info)
+ 		    hubdev_info);
+ 		return;
+ 	}
++	irq_set_handler(SGI_II_ERROR, handle_level_irq);
+ 	sn_set_err_irq_affinity(SGI_II_ERROR);
+ }
+ 
+@@ -213,6 +214,7 @@ void ice_error_init(struct hubdev_info *hubdev_info)
+                        hubdev_info);
+ 		return;
+ 	}
++	irq_set_handler(SGI_TIO_ERROR, handle_level_irq);
+ 	sn_set_err_irq_affinity(SGI_TIO_ERROR);
+ }
+ 
+diff --git a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+index dfac09a..62cf4dd 100644
+--- a/arch/ia64/sn/kernel/irq.c
++++ b/arch/ia64/sn/kernel/irq.c
+@@ -352,6 +352,8 @@ void sn_irq_fixup(struct pci_dev *pci_dev, struct sn_irq_info *sn_irq_info)
+ 	spin_lock(&sn_irq_info_lock);
+ 	list_add_rcu(&sn_irq_info->list, sn_irq_lh[sn_irq_info->irq_irq]);
+ 	reserve_irq_vector(sn_irq_info->irq_irq);
++	if (sn_irq_info->irq_int_bit != -1)
++		irq_set_handler(sn_irq_info->irq_irq, handle_level_irq);
+ 	spin_unlock(&sn_irq_info_lock);
+ 
+ 	register_intr_pda(sn_irq_info);
+diff --git a/arch/ia64/sn/pci/pcibr/pcibr_provider.c b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+index 8886a0b..8dbbef4 100644
+--- a/arch/ia64/sn/pci/pcibr/pcibr_provider.c
++++ b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+@@ -146,6 +146,7 @@ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 		printk(KERN_WARNING
+ 		       "pcibr cannot allocate interrupt for error handler\n");
+ 	}
++	irq_set_handler(SGI_PCIASIC_ERROR, handle_level_irq);
+ 	sn_set_err_irq_affinity(SGI_PCIASIC_ERROR);
+ 
+ 	/* 
+diff --git a/arch/ia64/sn/pci/tioca_provider.c b/arch/ia64/sn/pci/tioca_provider.c
+index e77c477..a70b11f 100644
+--- a/arch/ia64/sn/pci/tioca_provider.c
++++ b/arch/ia64/sn/pci/tioca_provider.c
+@@ -649,6 +649,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 		       __func__, SGI_TIOCA_ERROR,
+ 		       (int)tioca_common->ca_common.bs_persist_busnum);
+ 
++	irq_set_handler(SGI_TIOCA_ERROR, handle_level_irq);
+ 	sn_set_err_irq_affinity(SGI_TIOCA_ERROR);
+ 
+ 	/* Setup locality information */
+diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
+index 27faba0..46d3df4 100644
+--- a/arch/ia64/sn/pci/tioce_provider.c
++++ b/arch/ia64/sn/pci/tioce_provider.c
+@@ -1037,6 +1037,7 @@ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 		       tioce_common->ce_pcibus.bs_persist_segment,
+ 		       tioce_common->ce_pcibus.bs_persist_busnum);
+ 
++	irq_set_handler(SGI_PCIASIC_ERROR, handle_level_irq);
+ 	sn_set_err_irq_affinity(SGI_PCIASIC_ERROR);
+ 	return tioce_common;
+ }
+diff --git a/drivers/tty/serial/sn_console.c b/drivers/tty/serial/sn_console.c
+index 238c7df..8e4129c 100644
+--- a/drivers/tty/serial/sn_console.c
++++ b/drivers/tty/serial/sn_console.c
+@@ -743,6 +743,7 @@ static void __init sn_sal_switch_to_interrupts(struct sn_cons_port *port)
+ 			spin_lock_irqsave(&port->sc_port.lock, flags);
+ 			port->sc_port.irq = SGI_UART_VECTOR;
+ 			port->sc_ops = &intr_ops;
++			irq_set_handler(port->sc_port.irq, handle_level_irq);
+ 
+ 			/* turn on receive interrupts */
+ 			ia64_sn_console_intr_enable(SAL_CONSOLE_INTR_RECV);
+-- 
+1.7.6.1
 
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-	Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and=20
-     * destined for the current or next Linux merge window.
-
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
-
---=20
-Cheers,
-Stephen Rothwell=20
-sfr@canb.auug.org.au
-
-Legal Stuff:
-By participating in linux-next, your subsystem tree contributions are
-public and will be included in the linux-next trees.  You may be sent
-e-mail messages indicating errors or other issues when the
-patches/commits from your subsystem tree are merged and tested in
-linux-next.  These messages may also be cross-posted to the linux-next
-mailing list, the linux-kernel mailing list, etc.  The linux-next tree
-project and IBM (my employer) make no warranties regarding the linux-next
-project, the testing procedures, the results, the e-mails, etc.  If you
-don't agree to these ground rules, let me know and I'll remove your tree
-from participation in linux-next.
-
---Signature=_Mon__13_Feb_2012_11_21_45_+1100_8oMlxM5sQu=KHg4V
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQIcBAEBCAAGBQJPOFeZAAoJEECxmPOUX5FEGasQAJRfELGvaG157f04fLOp5cZ+
-BExY8MINAksS9ksXnf+o7emW9FWZFTLZT3pJ7Gnx8j/Po+kYnITOStRQLl6K8h3Y
-+cZmYubikIrZyPJCVYBZUTH0Gi/5VrTCx/rbolS2ai67WicKa7qzPOJ5D/oaeCdY
-CiOWMIgyaNbESpoR/l32Ta4XMJG0aDIV6bWlBpmKZVSzmpOFh40StsbQ3Ej6UUfo
-b+lo7IhOegjvNWITbiuIRDe9bAk5ONW2UU1z5sOWq/aELytRbSw1bNifvJlQF1VG
-AD+VNjEMrYNKg9soRpaZaIqAN1wb8a+I3//iaSL9kVstPo+D5uJLjAIEWBsgUO+N
-Duu3l8/GNL9tb1EvDXrt4d+H8zaow9P11rGHb2e6x9ndLZDmijjcYLQa1R/ektxo
-Z7kZIJNvi6rGlAurojo+q5gjnIP4aDDjZNMJ4pCayn5+YCLfDvu6jcK7od5S5dEM
-fbmVkAAysd8ajciJdN0Yj9Vv/oZ2/ARaQjAMVZtOBNTj5JR/WdRPeYZ0y71a4hSX
-RYNdeiQC3AhYufvXe5YCP7e+MvzMRHW336Rjyd+AMNjYx/cs6JZSOVgz6qKTWX6H
-oWde9Tl8A70eoN3/LtS7kC+WX228gPd9qPn5sHxyiKVV87OxwNaDP3kZqS1k3b3r
-4gyxILj3Uf7TanB2Wbsh
-=mWBa
------END PGP SIGNATURE-----
-
---Signature=_Mon__13_Feb_2012_11_21_45_+1100_8oMlxM5sQu=KHg4V--
+-- 
+Raymund Will                                                rw@SuSE.de
+SUSE LINUX Products GmbH    GF: Jeff Hawn     HRB 16746 (AG Nuernberg)
