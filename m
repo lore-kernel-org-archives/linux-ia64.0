@@ -1,183 +1,118 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 24 Feb 2012 11:10:17 +0000
-Subject: [PATCH 3/4] IA64: hpsim, initialize chip for assigned irqs
-Message-Id: <1330081818-15517-3-git-send-email-jslaby@suse.cz>
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Mon, 13 Feb 2012 10:40:05 +0000
+Subject: [PATCH] Hexagon: adapt for dma_map_ops changes
+Message-Id: <1329129605-27355-1-git-send-email-m.szyprowski@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
-In-Reply-To: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
+References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
+In-Reply-To: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jirislaby@gmail.com
+To: linux-kernel@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Marek Szyprowski <m.szyprowski@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>, linux-hexagon@vger.kernel.org
 
-Currently, when assign_irq_vector is called and the irq connected in
-the simulator, the irq is not ready. request_irq will return ENOSYS
-immediately. It is because the irq chip is unset.
+Adapt core Hexagon architecture code for dma_map_ops changes: replace
+alloc/free_coherent with generic alloc/free methods.
 
-Hence set the chip properly to irq_type_hp_sim. And make sure this is
-done from both users of simulated interrupts.
-
-Also we have to set handler here, otherwise we end up in
-handle_bad_int resulting in spam in logs and no irqs handled. We use
-handle_simple_irq as these are SW interrupts that need no ACK or
-anything.
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
 ---
- arch/ia64/hp/sim/hpsim_irq.c   |   36 ++++++++++++++++++++++++++++++------
- arch/ia64/hp/sim/hpsim_setup.c |    6 ------
- arch/ia64/hp/sim/simeth.c      |   19 +++----------------
- arch/ia64/hp/sim/simserial.c   |    3 +--
- arch/ia64/include/asm/hpsim.h  |    2 +-
- 5 files changed, 35 insertions(+), 31 deletions(-)
 
-diff --git a/arch/ia64/hp/sim/hpsim_irq.c b/arch/ia64/hp/sim/hpsim_irq.c
-index 4bd9a63..0aa70eb 100644
---- a/arch/ia64/hp/sim/hpsim_irq.c
-+++ b/arch/ia64/hp/sim/hpsim_irq.c
-@@ -10,6 +10,8 @@
- #include <linux/sched.h>
- #include <linux/irq.h>
- 
-+#include "hpsim_ssc.h"
-+
- static unsigned int
- hpsim_irq_startup(struct irq_data *data)
- {
-@@ -37,15 +39,37 @@ static struct irq_chip irq_type_hp_sim = {
- 	.irq_set_affinity =	hpsim_set_affinity_noop,
- };
- 
-+static void hpsim_irq_set_chip(int irq)
-+{
-+	struct irq_chip *chip = irq_get_chip(irq);
-+
-+	if (chip = &no_irq_chip)
-+		irq_set_chip(irq, &irq_type_hp_sim);
-+}
-+
-+static void hpsim_connect_irq(int intr, int irq)
-+{
-+	ia64_ssc(intr, irq, 0, 0, SSC_CONNECT_INTERRUPT);
-+}
-+
-+int hpsim_get_irq(int intr)
-+{
-+	int irq = assign_irq_vector(AUTO_ASSIGN);
-+
-+	if (irq >= 0) {
-+		hpsim_irq_set_chip(irq);
-+		irq_set_handler(irq, handle_simple_irq);
-+		hpsim_connect_irq(intr, irq);
-+	}
-+
-+	return irq;
-+}
-+
- void __init
- hpsim_irq_init (void)
- {
- 	int i;
- 
--	for_each_active_irq(i) {
--		struct irq_chip *chip = irq_get_chip(i);
--
--		if (chip = &no_irq_chip)
--			irq_set_chip(i, &irq_type_hp_sim);
--	}
-+	for_each_active_irq(i)
-+		hpsim_irq_set_chip(i);
+Hello,
+
+This patch adds Hexagon architecture to the DMA-mapping framework
+redesign preparation patches. For more information please refer to the
+following thread:
+https://lkml.org/lkml/2011/12/23/97
+
+Best regards
+Marek Szyprowski
+Samsung Poland R&D Center
+---
+ arch/hexagon/include/asm/dma-mapping.h |   18 ++++++++++++------
+ arch/hexagon/kernel/dma.c              |    9 +++++----
+ 2 files changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
+index 448b224..233ed3d 100644
+--- a/arch/hexagon/include/asm/dma-mapping.h
++++ b/arch/hexagon/include/asm/dma-mapping.h
+@@ -71,29 +71,35 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return (dma_addr = bad_dma_address);
  }
-diff --git a/arch/ia64/hp/sim/hpsim_setup.c b/arch/ia64/hp/sim/hpsim_setup.c
-index f629e90..664a540 100644
---- a/arch/ia64/hp/sim/hpsim_setup.c
-+++ b/arch/ia64/hp/sim/hpsim_setup.c
-@@ -26,12 +26,6 @@
- #include "hpsim_ssc.h"
  
- void
--ia64_ssc_connect_irq (long intr, long irq)
--{
--	ia64_ssc(intr, irq, 0, 0, SSC_CONNECT_INTERRUPT);
--}
--
--void
- ia64_ctl_trace (long on)
+-static inline void *dma_alloc_coherent(struct device *dev, size_t size,
+-				       dma_addr_t *dma_handle, gfp_t flag)
++#define dma_alloc_coherent(d,s,h,f)	dma_alloc_attrs(d,s,h,f,NULL)
++
++static inline void *dma_alloc_attrs(struct device *dev, size_t size,
++				    dma_addr_t *dma_handle, gfp_t flag,
++				    struct dma_attrs *attrs)
  {
- 	ia64_ssc(on, 0, 0, 0, SSC_CTL_TRACE);
-diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
-index 47afcc6..e343357 100644
---- a/arch/ia64/hp/sim/simeth.c
-+++ b/arch/ia64/hp/sim/simeth.c
-@@ -129,17 +129,6 @@ netdev_probe(char *name, unsigned char *ether)
+ 	void *ret;
+ 	struct dma_map_ops *ops = get_dma_ops(dev);
  
+ 	BUG_ON(!dma_ops);
  
- static inline int
--netdev_connect(int irq)
--{
--	/* XXX Fix me
--	 * this does not support multiple cards
--	 * also no return value
--	 */
--	ia64_ssc_connect_irq(NETWORK_INTR, irq);
--	return 0;
--}
--
--static inline int
- netdev_attach(int fd, int irq, unsigned int ipaddr)
+-	ret = ops->alloc_coherent(dev, size, dma_handle, flag);
++	ret = ops->alloc(dev, size, dma_handle, flag, attrs);
+ 
+ 	debug_dma_alloc_coherent(dev, size, *dma_handle, ret);
+ 
+ 	return ret;
+ }
+ 
+-static inline void dma_free_coherent(struct device *dev, size_t size,
+-				     void *cpu_addr, dma_addr_t dma_handle)
++#define dma_free_coherent(d,s,c,h) dma_free_attrs(d,s,c,h,NULL)
++
++static inline void dma_free_attrs(struct device *dev, size_t size,
++				  void *cpu_addr, dma_addr_t dma_handle,
++				  struct dma_attrs *attrs)
  {
- 	/* this puts the host interface in the right mode (start interrupting) */
-@@ -226,15 +215,13 @@ simeth_probe1(void)
- 		return err;
- 	}
+ 	struct dma_map_ops *dma_ops = get_dma_ops(dev);
  
--	if ((rc = assign_irq_vector(AUTO_ASSIGN)) < 0)
--		panic("%s: out of interrupt vectors!\n", __func__);
--	dev->irq = rc;
--
- 	/*
- 	 * attach the interrupt in the simulator, this does enable interrupts
- 	 * until a netdev_attach() is called
- 	 */
--	netdev_connect(dev->irq);
-+	if ((rc = hpsim_get_irq(NETWORK_INTR)) < 0)
-+		panic("%s: out of interrupt vectors!\n", __func__);
-+	dev->irq = rc;
+ 	BUG_ON(!dma_ops);
  
- 	printk(KERN_INFO "%s: hosteth=%s simfd=%d, HwAddr",
- 	       dev->name, simeth_device, local->simfd);
-diff --git a/arch/ia64/hp/sim/simserial.c b/arch/ia64/hp/sim/simserial.c
-index 974cac8..797e89a 100644
---- a/arch/ia64/hp/sim/simserial.c
-+++ b/arch/ia64/hp/sim/simserial.c
-@@ -947,11 +947,10 @@ simrs_init (void)
- 		if (state->type = PORT_UNKNOWN) continue;
+-	dma_ops->free_coherent(dev, size, cpu_addr, dma_handle);
++	dma_ops->free(dev, size, cpu_addr, dma_handle, attrs);
  
- 		if (!state->irq) {
--			if ((rc = assign_irq_vector(AUTO_ASSIGN)) < 0)
-+			if ((rc = hpsim_get_irq(KEYBOARD_INTR)) < 0)
- 				panic("%s: out of interrupt vectors!\n",
- 				      __func__);
- 			state->irq = rc;
--			ia64_ssc_connect_irq(KEYBOARD_INTR, state->irq);
- 		}
+ 	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
+ }
+diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
+index e711ace..3730221 100644
+--- a/arch/hexagon/kernel/dma.c
++++ b/arch/hexagon/kernel/dma.c
+@@ -54,7 +54,8 @@ static struct gen_pool *coherent_pool;
+ /* Allocates from a pool of uncached memory that was reserved at boot time */
  
- 		printk(KERN_INFO "ttyS%d at 0x%04lx (irq = %d) is a %s\n",
-diff --git a/arch/ia64/include/asm/hpsim.h b/arch/ia64/include/asm/hpsim.h
-index 892ab19..0fe5022 100644
---- a/arch/ia64/include/asm/hpsim.h
-+++ b/arch/ia64/include/asm/hpsim.h
-@@ -10,7 +10,7 @@ int simcons_register(void);
- struct tty_driver;
- extern struct tty_driver *hp_simserial_driver;
+ void *hexagon_dma_alloc_coherent(struct device *dev, size_t size,
+-				 dma_addr_t *dma_addr, gfp_t flag)
++				 dma_addr_t *dma_addr, gfp_t flag,
++				 struct dma_attrs *attrs)
+ {
+ 	void *ret;
  
--void ia64_ssc_connect_irq(long intr, long irq);
-+extern int hpsim_get_irq(int intr);
- void ia64_ctl_trace(long on);
+@@ -81,7 +82,7 @@ void *hexagon_dma_alloc_coherent(struct device *dev, size_t size,
+ }
  
- #endif
+ static void hexagon_free_coherent(struct device *dev, size_t size, void *vaddr,
+-				  dma_addr_t dma_addr)
++				  dma_addr_t dma_addr, struct dma_attrs *attrs)
+ {
+ 	gen_pool_free(coherent_pool, (unsigned long) vaddr, size);
+ }
+@@ -202,8 +203,8 @@ static void hexagon_sync_single_for_device(struct device *dev,
+ }
+ 
+ struct dma_map_ops hexagon_dma_ops = {
+-	.alloc_coherent	= hexagon_dma_alloc_coherent,
+-	.free_coherent	= hexagon_free_coherent,
++	.alloc		= hexagon_dma_alloc_coherent,
++	.free		= hexagon_free_coherent,
+ 	.map_sg		= hexagon_map_sg,
+ 	.map_page	= hexagon_map_page,
+ 	.sync_single_for_cpu = hexagon_sync_single_for_cpu,
 -- 
-1.7.9
-
+1.7.1.569.g6f426
 
