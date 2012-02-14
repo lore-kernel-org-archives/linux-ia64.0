@@ -1,120 +1,146 @@
-From: Dimitri Sivanich <sivanich@sgi.com>
-Date: Wed, 22 Feb 2012 01:17:41 +0000
-Subject: Re: [PATCH] ia64: genirq fixup for SGI/SN
-Message-Id: <20120222011741.GA31796@sgi.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Tue, 14 Feb 2012 21:47:50 +0000
+Subject: Re: [PATCH] Avoid mask based num_possible_cpus and num_online_cpus -v5
+Message-Id: <4F3AD3B6.8070409@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120210153055.GA1317@suse.de>
-In-Reply-To: <20120210153055.GA1317@suse.de>
+References: <CABeCy1aPp4=v90v_wAsw-KWDwNs59CwwYSJ-36+4t8kMuCaK0w@mail.gmail.com> <1328055439-9441-1-git-send-email-venki@google.com> <20120201140125.c656df41.akpm@linux-foundation.org> <87d39xj955.fsf@rustcorp.com.au> <CA+8MBbJcTgj7X-7RZAgWk8a3Qyaz1FxFzu3ZLk-8LHKD7M8h-Q@mail.gmail.com> <4F3971A1.5010305@linux.vnet.ibm.com> <4F39763D.3070609@linux.vnet.ibm.com> <CA+8MBbLR+rcJqe2z9tAt7Oav4wqgZA3k8Te6zcXNOs+zv2wAaA@mail.gmail.com> <87wr7pbwbz.fsf@rustcorp.com.au>
+In-Reply-To: <87wr7pbwbz.fsf@rustcorp.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Tony Luck <tony.luck@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Venkatesh Pallipadi <venki@google.com>, KOSAKI Motohiro <kosaki.motohiro@gmail.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Mike Travis <travis@sgi.com>, "Paul E. McKenney" <paul.mckenney@linaro.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, Paul Gortmaker <paul.gortmaker@windriver.com>, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Acked-by: Dimitri Sivanich <sivanich@sgi.com>
+On 02/14/2012 02:55 PM, Rusty Russell wrote:
 
-On Fri, Feb 10, 2012 at 04:30:56PM +0100, Raymund Will wrote:
-> This patch allows the system to boot and enables the console and at least
-> some hardware drivers, as well as some platform error handling.
+> On Mon, 13 Feb 2012 13:57:45 -0800, Tony Luck <tony.luck@gmail.com> wrote:
+>> On Mon, Feb 13, 2012 at 12:44 PM, Srivatsa S. Bhat
+>> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
+>>> IOW, what output do you see from the following printk from
+>>> arch/ia64/kernel/smpboot.c?
+>>>
+>>> printk(KERN_INFO "Total of %d processors activated (%lu.%02lu BogoMIPS).\n",
+>>>         (int)num_online_cpus(), bogosum/(500000/HZ), (bogosum/(5000/HZ))%100);
+>>
+>> That is a complicated question - because linux-next also has patches
+>> by Arjan that
+>> change how (when) cpus are brought online. Initially I blamed his
+>> patches and tried
+>> reverting them ... and saw the symptom you are wondering about (message said
+>> "Total of 1 processors", but the BogoMIPs was a number big enough to be all of
+>> them. Thanks to you, I can now understand why.
+>>
+>> Fix will be to stop ia64 from messing directly with cpu_online_map?
 > 
-> Tested on a variety of SGI Altix system without issues.
+> Yes, and the other architectures.
 > 
-> Original work from Dimitri Sivanich.
-> 
-> Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
-> Test-by: Raymund Will <rw@suse.de>
-> ---
->  arch/ia64/sn/kernel/huberror.c          |    2 ++
->  arch/ia64/sn/kernel/irq.c               |    2 ++
->  arch/ia64/sn/pci/pcibr/pcibr_provider.c |    1 +
->  arch/ia64/sn/pci/tioca_provider.c       |    1 +
->  arch/ia64/sn/pci/tioce_provider.c       |    1 +
->  drivers/tty/serial/sn_console.c         |    1 +
->  6 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/arch/ia64/sn/kernel/huberror.c b/arch/ia64/sn/kernel/huberror.c
-> index 08b0d9b..f925dec 100644
-> --- a/arch/ia64/sn/kernel/huberror.c
-> +++ b/arch/ia64/sn/kernel/huberror.c
-> @@ -192,6 +192,7 @@ void hub_error_init(struct hubdev_info *hubdev_info)
->  		    hubdev_info);
->  		return;
->  	}
-> +	irq_set_handler(SGI_II_ERROR, handle_level_irq);
->  	sn_set_err_irq_affinity(SGI_II_ERROR);
->  }
->  
-> @@ -213,6 +214,7 @@ void ice_error_init(struct hubdev_info *hubdev_info)
->                         hubdev_info);
->  		return;
->  	}
-> +	irq_set_handler(SGI_TIO_ERROR, handle_level_irq);
->  	sn_set_err_irq_affinity(SGI_TIO_ERROR);
->  }
->  
-> diff --git a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
-> index dfac09a..62cf4dd 100644
-> --- a/arch/ia64/sn/kernel/irq.c
-> +++ b/arch/ia64/sn/kernel/irq.c
-> @@ -352,6 +352,8 @@ void sn_irq_fixup(struct pci_dev *pci_dev, struct sn_irq_info *sn_irq_info)
->  	spin_lock(&sn_irq_info_lock);
->  	list_add_rcu(&sn_irq_info->list, sn_irq_lh[sn_irq_info->irq_irq]);
->  	reserve_irq_vector(sn_irq_info->irq_irq);
-> +	if (sn_irq_info->irq_int_bit != -1)
-> +		irq_set_handler(sn_irq_info->irq_irq, handle_level_irq);
->  	spin_unlock(&sn_irq_info_lock);
->  
->  	register_intr_pda(sn_irq_info);
-> diff --git a/arch/ia64/sn/pci/pcibr/pcibr_provider.c b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> index 8886a0b..8dbbef4 100644
-> --- a/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> +++ b/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-> @@ -146,6 +146,7 @@ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
->  		printk(KERN_WARNING
->  		       "pcibr cannot allocate interrupt for error handler\n");
->  	}
-> +	irq_set_handler(SGI_PCIASIC_ERROR, handle_level_irq);
->  	sn_set_err_irq_affinity(SGI_PCIASIC_ERROR);
->  
->  	/* 
-> diff --git a/arch/ia64/sn/pci/tioca_provider.c b/arch/ia64/sn/pci/tioca_provider.c
-> index e77c477..a70b11f 100644
-> --- a/arch/ia64/sn/pci/tioca_provider.c
-> +++ b/arch/ia64/sn/pci/tioca_provider.c
-> @@ -649,6 +649,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
->  		       __func__, SGI_TIOCA_ERROR,
->  		       (int)tioca_common->ca_common.bs_persist_busnum);
->  
-> +	irq_set_handler(SGI_TIOCA_ERROR, handle_level_irq);
->  	sn_set_err_irq_affinity(SGI_TIOCA_ERROR);
->  
->  	/* Setup locality information */
-> diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
-> index 27faba0..46d3df4 100644
-> --- a/arch/ia64/sn/pci/tioce_provider.c
-> +++ b/arch/ia64/sn/pci/tioce_provider.c
-> @@ -1037,6 +1037,7 @@ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
->  		       tioce_common->ce_pcibus.bs_persist_segment,
->  		       tioce_common->ce_pcibus.bs_persist_busnum);
->  
-> +	irq_set_handler(SGI_PCIASIC_ERROR, handle_level_irq);
->  	sn_set_err_irq_affinity(SGI_PCIASIC_ERROR);
->  	return tioce_common;
->  }
-> diff --git a/drivers/tty/serial/sn_console.c b/drivers/tty/serial/sn_console.c
-> index 238c7df..8e4129c 100644
-> --- a/drivers/tty/serial/sn_console.c
-> +++ b/drivers/tty/serial/sn_console.c
-> @@ -743,6 +743,7 @@ static void __init sn_sal_switch_to_interrupts(struct sn_cons_port *port)
->  			spin_lock_irqsave(&port->sc_port.lock, flags);
->  			port->sc_port.irq = SGI_UART_VECTOR;
->  			port->sc_ops = &intr_ops;
-> +			irq_set_handler(port->sc_port.irq, handle_level_irq);
->  
->  			/* turn on receive interrupts */
->  			ia64_sn_console_intr_enable(SAL_CONSOLE_INTR_RECV);
-> -- 
-> 1.7.6.1
-> 
-> -- 
-> Raymund Will                                                rw@SuSE.de
-> SUSE LINUX Products GmbH    GF: Jeff Hawn     HRB 16746 (AG Nuernberg)
+
+
+Right. And we should also ensure that nobody messes directly with
+cpu_possible_map as well. I have written up a patch for ia64 (see below).
+Sorry, I haven't even compile tested it - I neither have the toolchain nor the
+hardware. I hope it works!
+
+But don't expect the above printk statement to print the right value if you are
+running a kernel which has the patch posted at https://lkml.org/lkml/2012/1/31/286
+applied. That is another patch that can alter boot-up time and many related
+things. So, it would be best to test Venki's patch + following fix without having
+Arjan's patch applied.
+
+---
+From: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH] ia64: Don't use cpu_set()/cpu_clear() over cpu_[online|possible]_map
+
+Directly using cpu_set() and cpu_clear() on cpu_online_map or cpu_possible_map
+is strongly discouraged. Use the functions set_cpu_online() and
+set_cpu_possible() instead. This also means that the new implementation of
+num_[online|possible]_cpus can track all changes to cpu_[online|possible]_mask
+and hence give the correct results always.
+
+Reported-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ 0 files changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index cd57d73..4d1a550 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -486,7 +486,7 @@ mark_bsp_online (void)
+ {
+ #ifdef CONFIG_SMP
+ 	/* If we register an early console, allow CPU 0 to printk */
+-	cpu_set(smp_processor_id(), cpu_online_map);
++	set_cpu_online(smp_processor_id(), true);
+ #endif
+ }
+ 
+diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+index 0bd537b..8551979 100644
+--- a/arch/ia64/kernel/smp.c
++++ b/arch/ia64/kernel/smp.c
+@@ -77,7 +77,7 @@ stop_this_cpu(void)
+ 	/*
+ 	 * Remove this CPU:
+ 	 */
+-	cpu_clear(smp_processor_id(), cpu_online_map);
++	set_cpu_online(smp_processor_id(), false);
+ 	max_xtp();
+ 	local_irq_disable();
+ 	cpu_halt();
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 5590979..35f6e3c 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -401,7 +401,7 @@ smp_callin (void)
+ 	/* Setup the per cpu irq handling data structures */
+ 	__setup_vector_irq(cpuid);
+ 	notify_cpu_starting(cpuid);
+-	cpu_set(cpuid, cpu_online_map);
++	set_cpu_online(cpuid, true);
+ 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
+ 	spin_unlock(&vector_lock);
+ 	ipi_call_unlock_irq();
+@@ -548,7 +548,7 @@ do_rest:
+ 	if (!cpu_isset(cpu, cpu_callin_map)) {
+ 		printk(KERN_ERR "Processor 0x%x/0x%x is stuck.\n", cpu, sapicid);
+ 		ia64_cpu_to_sapicid[cpu] = -1;
+-		cpu_clear(cpu, cpu_online_map);  /* was set in smp_callin() */
++		set_cpu_online(cpu, false);  /* was set in smp_callin() */
+ 		return -EINVAL;
+ 	}
+ 	return 0;
+@@ -609,7 +609,7 @@ smp_prepare_cpus (unsigned int max_cpus)
+ 	/*
+ 	 * We have the boot CPU online for sure.
+ 	 */
+-	cpu_set(0, cpu_online_map);
++	set_cpu_online(0, true);
+ 	cpu_set(0, cpu_callin_map);
+ 
+ 	local_cpu_data->loops_per_jiffy = loops_per_jiffy;
+@@ -633,7 +633,7 @@ smp_prepare_cpus (unsigned int max_cpus)
+ 
+ void __devinit smp_prepare_boot_cpu(void)
+ {
+-	cpu_set(smp_processor_id(), cpu_online_map);
++	set_cpu_online(smp_processor_id(), true);
+ 	cpu_set(smp_processor_id(), cpu_callin_map);
+ 	set_numa_node(cpu_to_node_map[smp_processor_id()]);
+ 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
+@@ -732,10 +732,10 @@ int __cpu_disable(void)
+ 			return -EBUSY;
+ 	}
+ 
+-	cpu_clear(cpu, cpu_online_map);
++	set_cpu_online(cpu, false);
+ 
+ 	if (migrate_platform_irqs(cpu)) {
+-		cpu_set(cpu, cpu_online_map);
++		set_cpu_online(cpu, true);
+ 		return -EBUSY;
+ 	}
+ 
+
+
