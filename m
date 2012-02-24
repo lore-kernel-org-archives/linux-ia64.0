@@ -1,52 +1,53 @@
-From: Danny Kukawka <danny.kukawka@bisect.de>
-Date: Fri, 24 Feb 2012 13:45:52 +0000
-Subject: [PATCH 01/11] arch/ia64/hp/sim/simeth.c: print MAC via printk format specifier
-Message-Id: <1330091162-8141-2-git-send-email-danny.kukawka@bisect.de>
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 24 Feb 2012 11:10:16 +0000
+Subject: [PATCH 2/4] IA64: simserial, include some headers
+Message-Id: <1330081818-15517-2-git-send-email-jslaby@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
-In-Reply-To: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
+References: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
+In-Reply-To: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Danny Kukawka <dkukawka@suse.de>, "David S. Miller" <davem@davemloft.net>, Jiri Pirko <jpirko@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com
+Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jirislaby@gmail.com
 
-Print MAC/dev_addr via printk extended format specifier %pm
-instead of custom code.
+And remove declarations which are already in the headers.
 
-Signed-off-by: Danny Kukawka <danny.kukawka@bisect.de>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
 ---
- arch/ia64/hp/sim/simeth.c |   10 +++-------
- 1 files changed, 3 insertions(+), 7 deletions(-)
+ arch/ia64/hp/sim/simserial.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
-index 47afcc6..440001e 100644
---- a/arch/ia64/hp/sim/simeth.c
-+++ b/arch/ia64/hp/sim/simeth.c
-@@ -193,7 +193,7 @@ simeth_probe1(void)
- 	unsigned char mac_addr[ETH_ALEN];
- 	struct simeth_local *local;
- 	struct net_device *dev;
--	int fd, i, err, rc;
-+	int fd, err, rc;
+diff --git a/arch/ia64/hp/sim/simserial.c b/arch/ia64/hp/sim/simserial.c
+index bff0824..974cac8 100644
+--- a/arch/ia64/hp/sim/simserial.c
++++ b/arch/ia64/hp/sim/simserial.c
+@@ -34,9 +34,12 @@
+ #include <linux/sysrq.h>
  
- 	/*
- 	 * XXX Fix me
-@@ -236,12 +236,8 @@ simeth_probe1(void)
- 	 */
- 	netdev_connect(dev->irq);
+ #include <asm/irq.h>
++#include <asm/hpsim.h>
+ #include <asm/hw_irq.h>
+ #include <asm/uaccess.h>
  
--	printk(KERN_INFO "%s: hosteth=%s simfd=%d, HwAddr",
--	       dev->name, simeth_device, local->simfd);
--	for(i = 0; i < ETH_ALEN; i++) {
--		printk(" %2.2x", dev->dev_addr[i]);
--	}
--	printk(", IRQ %d\n", dev->irq);
-+	printk(KERN_INFO "%s: hosteth=%s simfd=%d, HwAddr=%pm, IRQ %d\n",
-+	       dev->name, simeth_device, local->simfd, dev->dev_addr, dev->irq);
++#include "hpsim_ssc.h"
++
+ #undef SIMSERIAL_DEBUG	/* define this to get some debug information */
  
- 	return 0;
- }
+ #define KEYBOARD_INTR	3	/* must match with simulator! */
+@@ -45,11 +48,6 @@
+ 
+ #define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : IRQF_DISABLED)
+ 
+-#define SSC_GETCHAR	21
+-
+-extern long ia64_ssc (long, long, long, long, int);
+-extern void ia64_ssc_connect_irq (long intr, long irq);
+-
+ static char *serial_name = "SimSerial driver";
+ static char *serial_version = "0.6";
+ 
 -- 
-1.7.8.3
+1.7.9
+
 
