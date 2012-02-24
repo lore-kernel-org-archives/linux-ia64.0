@@ -1,44 +1,27 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Sun, 05 Feb 2012 06:57:52 +0000
-Subject: [PATCH 08/24] PCI, ia64: Register busn_res for root buses
-Message-Id: <1328425088-6562-9-git-send-email-yinghai@kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 24 Feb 2012 15:48:59 +0000
+Subject: Re: [PATCH 00/14] DMA-mapping framework redesign preparation
+Message-Id: <201202241548.59791.arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1328425088-6562-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1328425088-6562-1-git-send-email-yinghai@kernel.org>
+References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
+In-Reply-To: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@suse.de>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Marek Szyprowski <m.szyprowski@samsung.com>
+Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/pci/pci.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+On Friday 23 December 2011, Marek Szyprowski wrote:
+> The solution we found is to introduce a new public dma mapping functions
+> with additional attributes argument: dma_alloc_attrs and
+> dma_free_attrs(). This way all different kinds of architecture specific
+> buffer mappings can be hidden behind the attributes without the need of
+> creating several versions of dma_alloc_ function.
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index f82f5d4..936b2f1 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -331,6 +331,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
- 	struct acpi_device *device = root->device;
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
-+	int busmax = root->secondary.end;
- 	struct pci_controller *controller;
- 	unsigned int windows = 0;
- 	struct pci_root_info info;
-@@ -384,6 +385,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
- 		return NULL;
- 	}
- 
-+	pci_bus_insert_busn_res(pbus, busnum, busmax);
- 	pbus->subordinate = pci_scan_child_bus(pbus);
- 	return pbus;
- 
--- 
-1.7.7
+Since the patches are now in linux-next, we should make sure that they
+can actually get merged into 3.4.
 
+I've looked at all the patches again and found them to be straightforward
+and helpful, I hope we can get them merged next time. Please add my
+
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
