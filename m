@@ -1,80 +1,45 @@
-From: Richard Henderson <rth@redhat.com>
-Date: Fri, 10 Feb 2012 19:27:34 +0000
-Subject: Re: Memory corruption due to word sharing
-Message-Id: <4F356FA6.4000104@redhat.com>
+From: Danny Kukawka <danny.kukawka@bisect.de>
+Date: Fri, 24 Feb 2012 13:45:51 +0000
+Subject: [PATCH 00/11] print MAC via printk format specifier
+Message-Id: <1330091162-8141-1-git-send-email-danny.kukawka@bisect.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120201151918.GC16714@quack.suse.cz> <CA+55aFy55Q=+pFCZcS9cOM6SL+ZT3sNDB+c4qFvVqwwSpTqJ7g@mail.gmail.com> <1328118174.15992.6206.camel@triegel.csb> <CA+55aFw=z2SKFGoSE5e_0ZmKcAAjK5q0DBM4PaxBH2D9tuikzA@mail.gmail.com> <1328128874.15992.6430.camel@triegel.csb> <CA+55aFx4SdtZcYaWZ-=JG3yVFJxsBa-Yqn0m+h4Y=QHdRjx6_w@mail.gmail.com> <20120201224554.GK2382@linux.vnet.ibm.com> <CA+55aFyzYO0CMZOgdrVV0PdG2DkbwTQG7eE7N3bp=0tQmruFEQ@mail.gmail.com> <20120202184209.GD2518@linux.vnet.ibm.com> <CA+55aFyYxzED4OoYvb3nbET7_zyP5mGhEa2w_QCvQOx55bVjHg@mail.gmail.com> <20120202193747.GG2518@linux.vnet.ibm.com> <4F2C0D8A.70103@redhat.com> <CA+55aFx1NjR9XMQ9iLyVk05Erwtqgf7hfZkBCMJzkCMFJS8CHw@mail.gmail.com> <4F2C329B.2080107@redhat.com> <CA+55aFxoW0zexd4Zy33gToK9V0UU6wbQFFogEyFPPiGuNq2GGQ@mail.gmail.com>
-In-Reply-To: <CA+55aFxoW0zexd4Zy33gToK9V0UU6wbQFFogEyFPPiGuNq2GGQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Andrew MacLeod <amacleod@redhat.com>, paulmck@linux.vnet.ibm.com, Torvald Riegel <triegel@redhat.com>, Jan Kara <jack@suse.cz>, LKML <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, dsterba@suse.cz, ptesarik@suse.cz, rguenther@suse.de, gcc@gcc.gnu.org
+To: "David S. Miller" <davem@davemloft.net>, Grant Grundler <grundler@parisc-linux.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Henk de Groot <pe1dnn@amsat.org>, Lennert Buytenhek <kernel@wantstofly.org>, Marek Belisko <marek.belisko@gmail.com>, Oliver Neukum <oneukum@suse.de>
+Cc: Danny Kukawka <dkukawka@suse.de>, devel@driverdev.osuosl.org, e1000-devel@lists.sourceforge.net, Geert Uytterhoeven <geert@linux-m68k.org>, Grant Likely <grant.likely@secretlab.ca>, Jiri Kosina <jkosina@suse.cz>, Jiri Pirko <jpirko@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org, netdev@vger.kernel.org, Tobias Klauser <tklauser@distanz.ch>
 
-On 02/03/2012 12:00 PM, Linus Torvalds wrote:
->    do {
->      load-link %r,%m
->      if (r = value)
->          return 0;
->      add
->    } while (store-conditional %r,%m)
->    return 1;
-> 
-> and it is used to implement two *very* common (and critical)
-> reference-counting use cases:
-> 
->  - decrement ref-count locklessly, and if it hits free, take a lock
-> atomically (ie "it would be a bug for anybody to ever see it decrement
-> to zero while holding the lock")
-> 
->  - increment ref-count locklessly, but if we race with the final free,
-> don't touch it, because it's gone (ie "if somebody decremented it to
-> zero while holding the lock, we absolutely cannot increment it again")
-> 
-> They may sound odd, but those two operations are absolutely critical
-> for most lock-less refcount management. And taking locks for reference
-> counting is absolutely death to performance, and is often impossible
-> anyway (the lock may be a local lock that is *inside* the structure
-> that is being reference-counted, so if the refcount is zero, then you
-> cannot even look at the lock!)
-> 
-> In the above example, the load-locked -> store-conditional would
-> obviously be a cmpxchg loop instead on architectures that do cmpxchg
-> instead of ll/sc.
-> 
-> Of course, it you expose some intrinsic for the whole "ll/sc" model
-> (and you then turn it into cmpxchg on demand), we could literally
-> open-code it.
+Print MAC/dev_addr via printk extended format specifier %pm/%pM
+instead of using custom code.
 
-We can't expose the ll/sc model directly, due to various target-specific
-hardware constraints (e.g. no other memory references, i.e. no spills).
-But the "weak" compare-exchange is sorta-kinda close.
+These patches are against net-next.
 
-A "weak" compare-exchange is a ll/sc pair, without the loop for restart
-on sc failure.  Thus a weak compare-exchange can fail for arbitrary reasons.
-You do, however, get back the current value in the memory, so you can loop
-back yourself and try again.
+Danny Kukawka (11):
+  arch/ia64/hp/sim/simeth.c: print MAC via printk format specifier
+  amd/hplance.c: print MAC via printk format specifier
+  cirrus/mac89x0: print MAC via printk format specifier
+  dec/tulip/de4x5: print MAC via printk format specifier
+  ixgbevf: print MAC via printk format specifier
+  sun/sunqe: print MAC via printk format specifier
+  xscale/ixp2000/ixpdev: print MAC via printk format specifier
+  usb/cdc_ncm: print MAC via printk format specifier
+  usb/kaweth: print MAC via printk format specifier
+  Staging: ft1000-pcmcia: print MAC via printk format specifier
+  Staging: wlags49_h2: print MAC via printk format specifier
 
-So that loop above becomes the familiar expression as for CAS:
+ arch/ia64/hp/sim/simeth.c                         |   10 +++-------
+ drivers/net/ethernet/amd/hplance.c                |   10 ++--------
+ drivers/net/ethernet/cirrus/mac89x0.c             |   12 ++++++++----
+ drivers/net/ethernet/dec/tulip/de4x5.c            |    6 +-----
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    8 +-------
+ drivers/net/ethernet/sun/sunqe.c                  |   10 ++--------
+ drivers/net/ethernet/xscale/ixp2000/ixpdev.c      |    7 ++-----
+ drivers/net/usb/cdc_ncm.c                         |    6 +-----
+ drivers/net/usb/kaweth.c                          |    8 +-------
+ drivers/staging/ft1000/ft1000-pcmcia/ft1000_hw.c  |    7 ++-----
+ drivers/staging/wlags49_h2/wl_cs.c                |    7 ++-----
+ 11 files changed, 25 insertions(+), 66 deletions(-)
 
-  r = *m;
-  do {
-    if (r = value)
-      return;
-    n = r + inc;
-  } while (!atomic_compare_exchange(m, &r, n, /*weak=*/true,
-				    __ATOMIC_RELAXED, __ATOMIC_RELAXED));
+-- 
+1.7.8.3
 
-which, unlike with the current __sync_val_compare_and_swap, does not
-result in a nested loop for the ll/sc architectures.
-
-Yes, the ll/sc architectures can technically do slightly better by writing
-this as inline asm, but the gain is significantly less than before.  Given
-that the line must be in L1 cache already, the redundant load from M in
-the ll insn should be nearly negligible.
-
-Of course for architectures that implement cas, there is no difference
-between "weak" and "strong".
-
-
-r~
