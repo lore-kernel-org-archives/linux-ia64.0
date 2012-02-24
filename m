@@ -1,118 +1,44 @@
-From: Marek Szyprowski <m.szyprowski@samsung.com>
-Date: Mon, 13 Feb 2012 10:40:05 +0000
-Subject: [PATCH] Hexagon: adapt for dma_map_ops changes
-Message-Id: <1329129605-27355-1-git-send-email-m.szyprowski@samsung.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Fri, 24 Feb 2012 10:18:54 +0000
+Subject: [PATCH 06/23] PCI, ia64: Register busn_res for root buses
+Message-Id: <1330078751-7299-7-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
+References: <1330078751-7299-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1330078751-7299-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Marek Szyprowski <m.szyprowski@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>, linux-hexagon@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Adapt core Hexagon architecture code for dma_map_ops changes: replace
-alloc/free_coherent with generic alloc/free methods.
-
-Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
-Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-Hello,
-
-This patch adds Hexagon architecture to the DMA-mapping framework
-redesign preparation patches. For more information please refer to the
-following thread:
-https://lkml.org/lkml/2011/12/23/97
-
-Best regards
-Marek Szyprowski
-Samsung Poland R&D Center
----
- arch/hexagon/include/asm/dma-mapping.h |   18 ++++++++++++------
- arch/hexagon/kernel/dma.c              |    9 +++++----
- 2 files changed, 17 insertions(+), 10 deletions(-)
-
-diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
-index 448b224..233ed3d 100644
---- a/arch/hexagon/include/asm/dma-mapping.h
-+++ b/arch/hexagon/include/asm/dma-mapping.h
-@@ -71,29 +71,35 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
- 	return (dma_addr = bad_dma_address);
- }
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index f82f5d4..936b2f1 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -331,6 +331,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	struct acpi_device *device = root->device;
+ 	int domain = root->segment;
+ 	int bus = root->secondary.start;
++	int busmax = root->secondary.end;
+ 	struct pci_controller *controller;
+ 	unsigned int windows = 0;
+ 	struct pci_root_info info;
+@@ -384,6 +385,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 		return NULL;
+ 	}
  
--static inline void *dma_alloc_coherent(struct device *dev, size_t size,
--				       dma_addr_t *dma_handle, gfp_t flag)
-+#define dma_alloc_coherent(d,s,h,f)	dma_alloc_attrs(d,s,h,f,NULL)
-+
-+static inline void *dma_alloc_attrs(struct device *dev, size_t size,
-+				    dma_addr_t *dma_handle, gfp_t flag,
-+				    struct dma_attrs *attrs)
- {
- 	void *ret;
- 	struct dma_map_ops *ops = get_dma_ops(dev);
++	pci_bus_insert_busn_res(pbus, busnum, busmax);
+ 	pbus->subordinate = pci_scan_child_bus(pbus);
+ 	return pbus;
  
- 	BUG_ON(!dma_ops);
- 
--	ret = ops->alloc_coherent(dev, size, dma_handle, flag);
-+	ret = ops->alloc(dev, size, dma_handle, flag, attrs);
- 
- 	debug_dma_alloc_coherent(dev, size, *dma_handle, ret);
- 
- 	return ret;
- }
- 
--static inline void dma_free_coherent(struct device *dev, size_t size,
--				     void *cpu_addr, dma_addr_t dma_handle)
-+#define dma_free_coherent(d,s,c,h) dma_free_attrs(d,s,c,h,NULL)
-+
-+static inline void dma_free_attrs(struct device *dev, size_t size,
-+				  void *cpu_addr, dma_addr_t dma_handle,
-+				  struct dma_attrs *attrs)
- {
- 	struct dma_map_ops *dma_ops = get_dma_ops(dev);
- 
- 	BUG_ON(!dma_ops);
- 
--	dma_ops->free_coherent(dev, size, cpu_addr, dma_handle);
-+	dma_ops->free(dev, size, cpu_addr, dma_handle, attrs);
- 
- 	debug_dma_free_coherent(dev, size, cpu_addr, dma_handle);
- }
-diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
-index e711ace..3730221 100644
---- a/arch/hexagon/kernel/dma.c
-+++ b/arch/hexagon/kernel/dma.c
-@@ -54,7 +54,8 @@ static struct gen_pool *coherent_pool;
- /* Allocates from a pool of uncached memory that was reserved at boot time */
- 
- void *hexagon_dma_alloc_coherent(struct device *dev, size_t size,
--				 dma_addr_t *dma_addr, gfp_t flag)
-+				 dma_addr_t *dma_addr, gfp_t flag,
-+				 struct dma_attrs *attrs)
- {
- 	void *ret;
- 
-@@ -81,7 +82,7 @@ void *hexagon_dma_alloc_coherent(struct device *dev, size_t size,
- }
- 
- static void hexagon_free_coherent(struct device *dev, size_t size, void *vaddr,
--				  dma_addr_t dma_addr)
-+				  dma_addr_t dma_addr, struct dma_attrs *attrs)
- {
- 	gen_pool_free(coherent_pool, (unsigned long) vaddr, size);
- }
-@@ -202,8 +203,8 @@ static void hexagon_sync_single_for_device(struct device *dev,
- }
- 
- struct dma_map_ops hexagon_dma_ops = {
--	.alloc_coherent	= hexagon_dma_alloc_coherent,
--	.free_coherent	= hexagon_free_coherent,
-+	.alloc		= hexagon_dma_alloc_coherent,
-+	.free		= hexagon_free_coherent,
- 	.map_sg		= hexagon_map_sg,
- 	.map_page	= hexagon_map_page,
- 	.sync_single_for_cpu = hexagon_sync_single_for_cpu,
 -- 
-1.7.1.569.g6f426
+1.7.7
 
