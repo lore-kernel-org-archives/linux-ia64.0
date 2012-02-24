@@ -1,60 +1,66 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Tue, 14 Feb 2012 23:00:43 +0000
-Subject: Re: [PATCH] Avoid mask based num_possible_cpus and num_online_cpus -v5
-Message-Id: <CA+8MBbLZhacoWj03bLciA-r+wrfyW03C3QrXgWuBrM3axBdGAg@mail.gmail.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 24 Feb 2012 11:10:15 +0000
+Subject: [PATCH 1/4] IA64: hpsim, fix SAL handling in fw-emu
+Message-Id: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CABeCy1aPp4=v90v_wAsw-KWDwNs59CwwYSJ-36+4t8kMuCaK0w@mail.gmail.com>
-	<1328055439-9441-1-git-send-email-venki@google.com>
-	<20120201140125.c656df41.akpm@linux-foundation.org>
-	<87d39xj955.fsf@rustcorp.com.au>
-	<CA+8MBbJcTgj7X-7RZAgWk8a3Qyaz1FxFzu3ZLk-8LHKD7M8h-Q@mail.gmail.com>
-	<4F3971A1.5010305@linux.vnet.ibm.com>
-	<4F39763D.3070609@linux.vnet.ibm.com>
-	<CA+8MBbLR+rcJqe2z9tAt7Oav4wqgZA3k8Te6zcXNOs+zv2wAaA@mail.gmail.com>
-	<87wr7pbwbz.fsf@rustcorp.com.au>
-	<4F3AD3B6.8070409@linux.vnet.ibm.com>
-In-Reply-To: <4F3AD3B6.8070409@linux.vnet.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Andrew Morton <akpm@linux-foundation.org>, Venkatesh Pallipadi <venki@google.com>, KOSAKI Motohiro <kosaki.motohiro@gmail.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Mike Travis <travis@sgi.com>, "Paul E. McKenney" <paul.mckenney@linaro.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, Paul Gortmaker <paul.gortmaker@windriver.com>, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com
+Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jirislaby@gmail.com
 
-On Tue, Feb 14, 2012 at 1:35 PM, Srivatsa S. Bhat
-<srivatsa.bhat@linux.vnet.ibm.com> wrote:
-> Right. And we should also ensure that nobody messes directly with
-> cpu_possible_map as well. I have written up a patch for ia64 (see below).
-> Sorry, I haven't even compile tested it - I neither have the toolchain no=
-r the
-> hardware. I hope it works!
+The switch-cases of SAL_FREQ_BASE generate non-relocatable code. The
+same as for the ifs one level upper. This causes oopses early in boot
+because the kernel jumps to the hell instead of the offset in sal
+callback.
 
-Thanks for doing this - compiles and seems to work.
+So use ifs here for SAL_FREQ_BASE decision too.
 
-Tested-by: Tony Luck <tony.luck@intel.com>
+Isn't there any compiler directive or settings to solve that cleanly?
 
-Can we get this added to the series - so it gets applied along with
-Venki's patch.
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+---
+ arch/ia64/hp/sim/boot/fw-emu.c |   17 ++++-------------
+ 1 files changed, 4 insertions(+), 13 deletions(-)
 
-> =A00 files changed, 0 insertions(+), 0 deletions(-)
+diff --git a/arch/ia64/hp/sim/boot/fw-emu.c b/arch/ia64/hp/sim/boot/fw-emu.c
+index bf6d9d8..0216e28 100644
+--- a/arch/ia64/hp/sim/boot/fw-emu.c
++++ b/arch/ia64/hp/sim/boot/fw-emu.c
+@@ -160,28 +160,19 @@ sal_emulator (long index, unsigned long in1, unsigned long in2,
+ 	 */
+ 	status = 0;
+ 	if (index = SAL_FREQ_BASE) {
+-		switch (in1) {
+-		      case SAL_FREQ_BASE_PLATFORM:
++		if (in1 = SAL_FREQ_BASE_PLATFORM)
+ 			r9 = 200000000;
+-			break;
+-
+-		      case SAL_FREQ_BASE_INTERVAL_TIMER:
++		else if (in1 = SAL_FREQ_BASE_INTERVAL_TIMER) {
+ 			/*
+ 			 * Is this supposed to be the cr.itc frequency
+ 			 * or something platform specific?  The SAL
+ 			 * doc ain't exactly clear on this...
+ 			 */
+ 			r9 = 700000000;
+-			break;
+-
+-		      case SAL_FREQ_BASE_REALTIME_CLOCK:
++		} else if (in1 = SAL_FREQ_BASE_REALTIME_CLOCK)
+ 			r9 = 1;
+-			break;
+-
+-		      default:
++		else
+ 			status = -1;
+-			break;
+-		}
+ 	} else if (index = SAL_SET_VECTORS) {
+ 		;
+ 	} else if (index = SAL_GET_STATE_INFO) {
+-- 
+1.7.9
 
-I think your patch generation script needs some attention - I see
- arch/ia64/kernel/setup.c   |    2 +-
- arch/ia64/kernel/smp.c     |    2 +-
- arch/ia64/kernel/smpboot.c |   12 ++++++------
- 3 files changed, 8 insertions(+), 8 deletions(-)
 
-> @@ -609,7 +609,7 @@ smp_prepare_cpus (unsigned int max_cpus)
-> =A0 =A0 =A0 =A0/*
-> =A0 =A0 =A0 =A0 * We have the boot CPU online for sure.
-> =A0 =A0 =A0 =A0 */
-> - =A0 =A0 =A0 cpu_set(0, cpu_online_map);
-> + =A0 =A0 =A0 set_cpu_online(0, true);
-> =A0 =A0 =A0 =A0cpu_set(0, cpu_callin_map);
->
-> =A0 =A0 =A0 =A0local_cpu_data->loops_per_jiffy =3D loops_per_jiffy;
-
-Generic code has already marked cpu 0 online ... so this one could
-just be dropped (and the preceding comment too). Though it does no
-harm to set it again.
-
--Tony
