@@ -1,27 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 24 Feb 2012 15:48:59 +0000
-Subject: Re: [PATCH 00/14] DMA-mapping framework redesign preparation
-Message-Id: <201202241548.59791.arnd@arndb.de>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sat, 25 Feb 2012 23:24:31 +0000
+Subject: [PATCH] ia64: fix warning from machine_kexec.c
+Message-Id: <1330212271-23921-1-git-send-email-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+To: linux-ia64@vger.kernel.org
 
-On Friday 23 December 2011, Marek Szyprowski wrote:
-> The solution we found is to introduce a new public dma mapping functions
-> with additional attributes argument: dma_alloc_attrs and
-> dma_free_attrs(). This way all different kinds of architecture specific
-> buffer mappings can be hidden behind the attributes without the need of
-> creating several versions of dma_alloc_ function.
+Use proper cpp defined(...) constructs to avoid this:
 
-Since the patches are now in linux-next, we should make sure that they
-can actually get merged into 3.4.
+arch/ia64/kernel/machine_kexec.c: In function 'arch_crash_save_vmcoreinfo':
+arch/ia64/kernel/machine_kexec.c:160:8: warning: "CONFIG_PGTABLE_4" is not defined
 
-I've looked at all the patches again and found them to be straightforward
-and helpful, I hope we can get them merged next time. Please add my
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
+---
+
+[seen in linux-next-20120224 tree; probably also an issue in mainline]
+
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index 4eed358..070e8ef 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -157,7 +157,7 @@ void arch_crash_save_vmcoreinfo(void)
+ #endif
+ #ifdef CONFIG_PGTABLE_3
+ 	VMCOREINFO_CONFIG(PGTABLE_3);
+-#elif  CONFIG_PGTABLE_4
++#elif defined(CONFIG_PGTABLE_4)
+ 	VMCOREINFO_CONFIG(PGTABLE_4);
+ #endif
+ }
+-- 
+1.7.9.1
+
