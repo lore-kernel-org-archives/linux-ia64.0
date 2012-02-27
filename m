@@ -1,31 +1,50 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Wed, 15 Feb 2012 09:41:17 +0000
-Subject: Re: [PATCH 11/12] documentation: remove references to cpu_*_map.
-Message-Id: <4F3B7AED.1070309@linux.vnet.ibm.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 27 Feb 2012 23:08:25 +0000
+Subject: [PATCH] ia64: fix a couple of warnings for EXPORT_SYMBOL
+Message-Id: <1330384105-27794-1-git-send-email-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1329281884.8121.rusty@rustcorp.com.au>
-In-Reply-To: <1329281884.8121.rusty@rustcorp.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rusty Russell <rusty@rustcorp.com.au>
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org, Chris Metcalf <cmetcalf@tilera.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Venkatesh Pallipadi <venki@google.com>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>
+To: tony.luck@intel.com, jes@trained-monkey.org, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>
 
-On 02/15/2012 10:28 AM, Rusty Russell wrote:
+To get rid of things like:
 
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> 
-> This has been obsolescent for a while, fix documentation and
-> misc comments.
-> 
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> ---
+arch/ia64/sn/kernel/sn2/sn_hwperf.c:1002:1: warning: data definition has no type or storage class
+arch/ia64/sn/kernel/sn2/sn_hwperf.c:1002:1: warning: type defaults to 'int' in declaration of 'EXPORT_SYMBOL'
+arch/ia64/sn/kernel/sn2/sn_hwperf.c:1002:1: warning: parameter names (without types) in function declaration
 
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
 
-Reviewed-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+[I can carry this patch if required, but it is 100% independent and
+ can go in via the ia64 maintainers.  Let me know which is best. ]
 
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 4433dd0..fbb5f2f 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -7,6 +7,7 @@
+  */
  
-
-Regards,
-Srivatsa S. Bhat
+ #include <linux/bootmem.h>
++#include <linux/export.h>
+ #include <linux/slab.h>
+ #include <asm/sn/types.h>
+ #include <asm/sn/addrs.h>
+diff --git a/arch/ia64/sn/kernel/sn2/sn_hwperf.c b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+index 2de41d4..4554f68 100644
+--- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -25,6 +25,7 @@
+ 
+ #include <linux/fs.h>
+ #include <linux/slab.h>
++#include <linux/export.h>
+ #include <linux/vmalloc.h>
+ #include <linux/seq_file.h>
+ #include <linux/miscdevice.h>
+-- 
+1.7.9.1
 
