@@ -1,53 +1,44 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 24 Feb 2012 11:10:16 +0000
-Subject: [PATCH 2/4] IA64: simserial, include some headers
-Message-Id: <1330081818-15517-2-git-send-email-jslaby@suse.cz>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Tue, 28 Feb 2012 02:09:57 +0000
+Subject: [PATCH 06/18] PCI, ia64: Register busn_res for root buses
+Message-Id: <1330395009-29260-7-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
-In-Reply-To: <1330081818-15517-1-git-send-email-jslaby@suse.cz>
+References: <1330395009-29260-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1330395009-29260-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jirislaby@gmail.com
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-And remove declarations which are already in the headers.
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/hp/sim/simserial.c |    8 +++-----
- 1 files changed, 3 insertions(+), 5 deletions(-)
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/hp/sim/simserial.c b/arch/ia64/hp/sim/simserial.c
-index bff0824..974cac8 100644
---- a/arch/ia64/hp/sim/simserial.c
-+++ b/arch/ia64/hp/sim/simserial.c
-@@ -34,9 +34,12 @@
- #include <linux/sysrq.h>
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index d1ce320..bc59e950 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -332,6 +332,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	struct acpi_device *device = root->device;
+ 	int domain = root->segment;
+ 	int bus = root->secondary.start;
++	int busmax = root->secondary.end;
+ 	struct pci_controller *controller;
+ 	unsigned int windows = 0;
+ 	struct pci_root_info info;
+@@ -385,6 +386,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 		return NULL;
+ 	}
  
- #include <asm/irq.h>
-+#include <asm/hpsim.h>
- #include <asm/hw_irq.h>
- #include <asm/uaccess.h>
- 
-+#include "hpsim_ssc.h"
-+
- #undef SIMSERIAL_DEBUG	/* define this to get some debug information */
- 
- #define KEYBOARD_INTR	3	/* must match with simulator! */
-@@ -45,11 +48,6 @@
- 
- #define IRQ_T(info) ((info->flags & ASYNC_SHARE_IRQ) ? IRQF_SHARED : IRQF_DISABLED)
- 
--#define SSC_GETCHAR	21
--
--extern long ia64_ssc (long, long, long, long, int);
--extern void ia64_ssc_connect_irq (long intr, long irq);
--
- static char *serial_name = "SimSerial driver";
- static char *serial_version = "0.6";
++	pci_bus_insert_busn_res(pbus, busnum, busmax);
+ 	pbus->subordinate = pci_scan_child_bus(pbus);
+ 	return pbus;
  
 -- 
-1.7.9
-
+1.7.7
 
