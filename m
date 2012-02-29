@@ -1,37 +1,39 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Sat, 25 Feb 2012 23:24:31 +0000
-Subject: [PATCH] ia64: fix warning from machine_kexec.c
-Message-Id: <1330212271-23921-1-git-send-email-paul.gortmaker@windriver.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Wed, 29 Feb 2012 23:07:25 +0000
+Subject: [PATCH 26/39] PCI, ia64: Register busn_res for root buses
+Message-Id: <1330556858-11768-27-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1330556858-11768-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1330556858-11768-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, x86 <x86@kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Use proper cpp defined(...) constructs to avoid this:
+-v2: according to Bjorn, use root->secondary directly.
 
-arch/ia64/kernel/machine_kexec.c: In function 'arch_crash_save_vmcoreinfo':
-arch/ia64/kernel/machine_kexec.c:160:8: warning: "CONFIG_PGTABLE_4" is not defined
-
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-[seen in linux-next-20120224 tree; probably also an issue in mainline]
-
-diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
-index 4eed358..070e8ef 100644
---- a/arch/ia64/kernel/machine_kexec.c
-+++ b/arch/ia64/kernel/machine_kexec.c
-@@ -157,7 +157,7 @@ void arch_crash_save_vmcoreinfo(void)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index d1ce320..6c7c4ae 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -352,6 +352,8 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
  #endif
- #ifdef CONFIG_PGTABLE_3
- 	VMCOREINFO_CONFIG(PGTABLE_3);
--#elif  CONFIG_PGTABLE_4
-+#elif defined(CONFIG_PGTABLE_4)
- 	VMCOREINFO_CONFIG(PGTABLE_4);
- #endif
- }
+ 
+ 	INIT_LIST_HEAD(&info.resources);
++	/* insert busn resource at first */
++	pci_add_resource(&info.resources, &root->secondary);
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+ 			&windows);
+ 	if (windows) {
 -- 
-1.7.9.1
+1.7.7
 
