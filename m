@@ -1,95 +1,39 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Thu, 29 Mar 2012 16:44:53 +0000
-Subject: [PATCH v2 3/3] IRQ,IA64: normalize return value of chip->irq_set_affinity() method
-Message-Id: <1333039493-4090-3-git-send-email-jiang.liu@huawei.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Thu, 01 Mar 2012 03:00:25 +0000
+Subject: [PATCH 24/36] PCI, ia64: Register busn_res for root buses
+Message-Id: <1330570837-26638-25-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1333039493-4090-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1333039493-4090-1-git-send-email-jiang.liu@huawei.com>
+References: <1330570837-26638-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1330570837-26638-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>, Jes Sorensen <jes@sgi.com>, David Howells <dhowells@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Suresh Siddha <suresh.b.siddha@intel.com>, Ingo Molnar <mingo@elte.hu>, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, Lucas De Marchi <lucas.demarchi@profusion.mobi>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-altix@sgi.com, Jiang Liu <liuj97@gmail.com>, Keping Chen <chenkeping@huawei.com>
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, x86 <x86@kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On IA64 platforms, interrupt controller chip's irq_set_affinity() method
-always copies affinity mask to irq_data->affinity field but still returns
-0(IRQ_SET_MASK_OK). That return value causes the interrupt core logic
-unnecessarily copies the mask to irq_data->affinity field again.
-So return IRQ_SET_MASK_OK_NOCOPY instead of IRQ_SET_MASK_OK to get rid of
-the duplicated copy operation.
+-v2: according to Bjorn, use root->secondary directly.
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/iosapic.c   |    4 +++-
- arch/ia64/kernel/msi_ia64.c  |    4 ++--
- arch/ia64/sn/kernel/irq.c    |    2 +-
- arch/ia64/sn/kernel/msi_sn.c |    2 +-
- 4 files changed, 7 insertions(+), 5 deletions(-)
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index ef4b5d8..47a4d1e 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -373,8 +373,10 @@ iosapic_set_affinity(struct irq_data *data, const struct cpumask *mask,
- 		iosapic_write(iosapic, IOSAPIC_RTE_LOW(rte_index), low32);
- 	}
- 
-+	return IRQ_SET_MASK_OK_NOCOPY;
-+#else
-+	return IRQ_SET_MASK_OK;
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index d1ce320..6c7c4ae 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -352,6 +352,8 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
  #endif
--	return 0;
- }
  
- /*
-diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-index fb2f1e6..ca66c6a 100644
---- a/arch/ia64/kernel/msi_ia64.c
-+++ b/arch/ia64/kernel/msi_ia64.c
-@@ -41,7 +41,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
- 	write_msi_msg(irq, &msg);
- 	cpumask_copy(idata->affinity, cpumask_of(cpu));
- 
--	return 0;
-+	return IRQ_SET_MASK_OK_NOCOPY;
- }
- #endif /* CONFIG_SMP */
- 
-@@ -157,7 +157,7 @@ static int dmar_msi_set_affinity(struct irq_data *data,
- 	dmar_msi_write(irq, &msg);
- 	cpumask_copy(data->affinity, mask);
- 
--	return 0;
-+	return IRQ_SET_MASK_OK_NOCOPY;
- }
- #endif /* CONFIG_SMP */
- 
-diff --git a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
-index 62cf4dd..aa58931 100644
---- a/arch/ia64/sn/kernel/irq.c
-+++ b/arch/ia64/sn/kernel/irq.c
-@@ -216,7 +216,7 @@ static int sn_set_affinity_irq(struct irq_data *data,
- 				 sn_irq_lh[irq], list)
- 		(void)sn_retarget_vector(sn_irq_info, nasid, slice);
- 
--	return 0;
-+	return IRQ_SET_MASK_OK_NOCOPY;
- }
- 
- #ifdef CONFIG_SMP
-diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
-index 2b98b9e..ebb5b55 100644
---- a/arch/ia64/sn/kernel/msi_sn.c
-+++ b/arch/ia64/sn/kernel/msi_sn.c
-@@ -208,7 +208,7 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
- 	write_msi_msg(irq, &msg);
- 	cpumask_copy(data->affinity, cpu_mask);
- 
--	return 0;
-+	return IRQ_SET_MASK_OK_NOCOPY;
- }
- #endif /* CONFIG_SMP */
- 
+ 	INIT_LIST_HEAD(&info.resources);
++	/* insert busn resource at first */
++	pci_add_resource(&info.resources, &root->secondary);
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+ 			&windows);
+ 	if (windows) {
 -- 
-1.7.5.4
+1.7.7
 
