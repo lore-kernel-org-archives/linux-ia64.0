@@ -1,57 +1,40 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Tue, 13 Mar 2012 14:07:09 +0000
-Subject: [PATCH] IA64: fix ISA IRQ trigger model and polarity setting
-Message-Id: <1331647629-11550-1-git-send-email-jiang.liu@huawei.com>
+From: Tony Luck <tony.luck@gmail.com>
+Date: Wed, 14 Mar 2012 21:12:06 +0000
+Subject: Re: [PATCH] IA64: fix ISA IRQ trigger model and polarity setting
+Message-Id: <CA+8MBbLsA8OysJNFMN4a0p6Yj3qmmawvtE0pGtcnAJpULjNi+A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1331647629-11550-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1331647629-11550-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
+To: Jiang Liu <liuj97@gmail.com>
 Cc: Liu Jiang <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, open list <linux-kernel@vger.kernel.org>, chenkeping@huawei.com
 
-From: Liu Jiang <jiang.liu@huawei.com>
+> When handling Interrupt Source Override in MADT table, the default
+> ISA IRQ trigger model and poliarity should be edge-rising.
+> Current IA64 implmentation doesn't follow the specification and
+> set default ISA IRQ trigger model as level-low. With that wrong
+> configuration and when system runs out of interrupt vectors,
+> it will cause vector sharing among edge triggered ISA IRQ and
+> level triggered PCI IRQ, then interrupt storm. So change the code
+> to follow the specification.
 
-This bug interfered with another bug in QLA FC driver has caused big
-trouble to us during the past month when validating a 32P Poulson
-system with plenty of IO devices. Hope it could find its way into the
-mainstream kernel. Thanks!
+I chased the reference in ACPI to the MPS spec:
+ http://www.intel.com/design/pentium/datashts/24201606.pdf
 
----
+Which says in table 4-10 "for example. EISA is active-low for
+level triggered interrupt" and "for example, EISA is edge-triggered".
 
-When handling Interrupt Source Override in MADT table, the default
-ISA IRQ trigger model and poliarity should be edge-rising.
-Current IA64 implmentation doesn't follow the specification and
-set default ISA IRQ trigger model as level-low. With that wrong
-configuration and when system runs out of interrupt vectors,
-it will cause vector sharing among edge triggered ISA IRQ and
-level triggered PCI IRQ, then interrupt storm. So change the code
-to follow the specification.
+It looks to me that if MADT says "high", we should set high, if it says
+"low" we should set low. Ditto for trigger vs. level. But if we see the
+value "0" - then we have more work to do to determine what the
+bus we are on uses for its default.
 
-Signed-off-by: Liu Jiang <jiang.liu@huawei.com>
----
- arch/ia64/kernel/acpi.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+Did you find some other specification that gives a better explanation?
+Or did I miss something - can we only get to this routine for ISA?
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index bfb4d01..18c33d6 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -349,11 +349,11 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	iosapic_override_isa_irq(p->source_irq, p->global_irq,
- 				 ((p->inti_flags & ACPI_MADT_POLARITY_MASK) =
--				  ACPI_MADT_POLARITY_ACTIVE_HIGH) ?
--				 IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
-+				  ACPI_MADT_POLARITY_ACTIVE_LOW) ?
-+				 IOSAPIC_POL_LOW : IOSAPIC_POL_HIGH,
- 				 ((p->inti_flags & ACPI_MADT_TRIGGER_MASK) =
--				 ACPI_MADT_TRIGGER_EDGE) ?
--				 IOSAPIC_EDGE : IOSAPIC_LEVEL);
-+				 ACPI_MADT_TRIGGER_LEVEL) ?
-+				 IOSAPIC_LEVEL : IOSAPIC_EDGE);
- 	return 0;
- }
- 
--- 
-1.7.1
+You've tested this patch - and it works for you - but is there a risk
+that it will break someone else?
 
+-Tony
