@@ -1,44 +1,39 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 29 Mar 2012 20:35:22 +0000
-Subject: [PATCH] Fix ia64 build errors (fallout from system.h disintegration)
-Message-Id: <4f74c78a501635b91@agluck-desktop.sc.intel.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Mon, 19 Mar 2012 05:42:44 +0000
+Subject: [PATCH -v11 13/30] PCI, ia64: Register busn_res for root buses
+Message-Id: <1332135781-13695-14-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1332135781-13695-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1332135781-13695-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, x86 <x86@kernel.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-In file included from include/linux/sched.h:92,
-                from arch/ia64/kernel/asm-offsets.c:9:
-include/linux/llist.h:59:25: error: asm/cmpxchg.h: No such file or directory
-make[1]: *** [arch/ia64/kernel/asm-offsets.s] Error 1
+-v2: according to Bjorn, use root->secondary directly.
 
-Right now we don't seem to need any actual contents for the
-asm/cmpxchg.h to make the build work ... so leave the migration
-of xchg() and cmpxchg() to this new header file for a future patch.
-
-Also process.c needs <asm/switch_to.h> (for definition of pfm_syst_info).
-
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
+ arch/ia64/pci/pci.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/ia64/include/asm/cmpxchg.h b/arch/ia64/include/asm/cmpxchg.h
-new file mode 100644
-index 0000000..507c66c
---- /dev/null
-+++ b/arch/ia64/include/asm/cmpxchg.h
-@@ -0,0 +1 @@
-+/* Future home of xchg() and cmpxchg() */
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 9dc52b6..ce74e14 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -38,6 +38,7 @@
- #include <asm/pgalloc.h>
- #include <asm/processor.h>
- #include <asm/sal.h>
-+#include <asm/switch_to.h>
- #include <asm/tlbflush.h>
- #include <asm/uaccess.h>
- #include <asm/unwind.h>
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index d1ce320..6c7c4ae 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -352,6 +352,8 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ #endif
+ 
+ 	INIT_LIST_HEAD(&info.resources);
++	/* insert busn resource at first */
++	pci_add_resource(&info.resources, &root->secondary);
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+ 			&windows);
+ 	if (windows) {
+-- 
+1.7.7
+
