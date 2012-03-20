@@ -1,71 +1,115 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 23 Mar 2012 17:23:14 +0000
-Subject: [GIT PULL] ia64 changes
-Message-Id: <4f6cb1823081914aa@agluck-desktop.sc.intel.com>
+From: Kautuk Consul <consul.kautuk@gmail.com>
+Date: Tue, 20 Mar 2012 13:18:14 +0000
+Subject: [PATCH 0/20] mmu: arch/mm: Port OOM changes to arch page fault handlers.
+Message-Id: <CAFPAmTQs9dOpQTaXU=6Or66YU+my_CnPw33TE4h++YArBNa38g@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="0016368e2a82ddd5fa04bbac811c"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-In-Reply-To: <1FE6DD409037234FAB833C420AA843EC0122AEB1@orsmsx424.amr.corp.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux@lists.openrisc.net, linux-am33-list@redhat.com, microblaze-uclinux@itee.uq.edu.au, linux-m68k@lists.linux-m68k.org, linux-m32r-ja@ml.linux-m32r.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-cris-kernel@axis.com, linux-sh@vger.kernel.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
-The following changes since commit 62aa2b537c6f5957afd98e29f96897419ed5ebab:
+--0016368e2a82ddd5fa04bbac811c
+Content-Type: text/plain; charset=ISO-8859-1
 
-  Linux 3.3-rc2 (2012-01-31 13:31:54 -0800)
+Commit d065bd810b6deb67d4897a14bfe21f8eb526ba99
+(mm: retry page fault when blocking on disk transfer) and
+commit 37b23e0525d393d48a7d59f870b3bc061a30ccdb
+(x86,mm: make pagefault killable)
 
-are available in the git repository at:
+The above commits introduced changes into the x86 pagefault handler
+for making the page fault handler retryable as well as killable.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git ia64-for-linus
+These changes reduce the mmap_sem hold time, which is crucial
+during OOM killer invocation.
 
-for you to fetch changes up to b86c4782ab501e3b69e5e0b32050455f95caa681:
+I was facing hang and livelock problems on my ARM and MIPS boards when
+I invoked OOM by running the stress_32k.c test-case attached to this email.
 
-  Documentation/kernel-parameters: remove inttest parameter (2012-03-22 16:07:18 -0700)
+Since both the ARM and MIPS porting chainges were accepted, me and my
+co-worker decided to take the initiative to port these changes to all other
+MMU based architectures.
 
-----------------------------------------------------------------
-Miscellaneous Itanium patches
+Please review and do write back if there is any way I need to
+improve/rewrite any
+of these patches.
 
-----------------------------------------------------------------
-Dimitri Sivanich (1):
-      [IA64] genirq fixup for SGI/SN
+Signed-off-by: Mohd. Faris <mohdfarisq2010@gmail.com>
+Signed-off-by: Kautuk Consul <consul.kautuk@gmail.com>
+---
 
-Jiri Kosina (1):
-      [IA64] disable interrupts when exiting from ia64_mca_cmc_int_handler()
+--0016368e2a82ddd5fa04bbac811c
+Content-Type: text/x-csrc; charset=US-ASCII; name="stress_32k.c"
+Content-Disposition: attachment; filename="stress_32k.c"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_h00yqhf60
 
-Jiri Slaby (4):
-      [IA64] hpsim, fix SAL handling in fw-emu
-      [IA64] simserial, include some headers
-      [IA64] hpsim, initialize chip for assigned irqs
-      [IA64] simserial, bail out when request_irq fails
-
-Liu Jiang (1):
-      [IA64] Fix ISA IRQ trigger model and polarity setting
-
-Paul Gortmaker (3):
-      [IA64] Fix warning from machine_kexec.c
-      [IA64] Check return from device_register() in cx_device_register()
-      [IA64] Fix a couple of warnings for EXPORT_SYMBOL
-
-Sebastian Andrzej Siewior (1):
-      Documentation/kernel-parameters: remove inttest parameter
-
- Documentation/kernel-parameters.txt     |    2 -
- arch/ia64/hp/sim/boot/fw-emu.c          |   17 +++-----------
- arch/ia64/hp/sim/hpsim_irq.c            |   36 +++++++++++++++++++++++++-----
- arch/ia64/hp/sim/hpsim_setup.c          |    6 -----
- arch/ia64/hp/sim/simeth.c               |   19 ++-------------
- arch/ia64/hp/sim/simserial.c            |   20 ++++-------------
- arch/ia64/include/asm/hpsim.h           |    2 +-
- arch/ia64/kernel/acpi.c                 |    8 +++---
- arch/ia64/kernel/machine_kexec.c        |    2 +-
- arch/ia64/kernel/mca.c                  |    2 +
- arch/ia64/sn/kernel/huberror.c          |    2 +
- arch/ia64/sn/kernel/io_common.c         |    1 +
- arch/ia64/sn/kernel/irq.c               |    2 +
- arch/ia64/sn/kernel/sn2/sn_hwperf.c     |    1 +
- arch/ia64/sn/kernel/tiocx.c             |    7 +++++-
- arch/ia64/sn/pci/pcibr/pcibr_provider.c |    1 +
- arch/ia64/sn/pci/tioca_provider.c       |    1 +
- arch/ia64/sn/pci/tioce_provider.c       |    1 +
- drivers/tty/serial/sn_console.c         |    1 +
- 19 files changed, 66 insertions(+), 65 deletions(-)
+I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5o
+PgojaW5jbHVkZSA8cHRocmVhZC5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CgojZGVmaW5lIEFMTE9D
+X0JZVEUgNTEyKjEwMjQKI2RlZmluZSBDT1VOVCA1MAoKdm9pZCAqYWxsb2NfZnVuY3Rpb25fb25l
+KCB2b2lkICpwdHIgKTsKdm9pZCAqYWxsb2NfZnVuY3Rpb25fdHdvKCB2b2lkICpwdHIgKTsKdm9p
+ZCAqYWxsb2NfZnVuY3Rpb25fdGhyZWUoIHZvaWQgKnB0ciApOwp2b2lkICphbGxvY19mdW5jdGlv
+bl9mb3VyKCB2b2lkICpwdHIgKTsKdm9pZCAqYWxsb2NfZnVuY3Rpb25fZml2ZSggdm9pZCAqcHRy
+ICk7CnZvaWQgKmVuYWJsZV9mdW5jdGlvbiggdm9pZCAqcHRyICk7CgoKaW50IG1haW4oaW50IGFy
+Z2MsIGNoYXIgKmFyZ3ZbXSkKewoJcHRocmVhZF90IHRocmVhZDEsIHRocmVhZDIsIHRocmVhZDMs
+IHRocmVhZDQsIHRocmVhZDU7CgljaGFyICptZXNzYWdlMSA9ICJUaHJlYWQgMSI7CgljaGFyICpt
+ZXNzYWdlMiA9ICJUaHJlYWQgMiI7CgljaGFyICptZXNzYWdlMyA9ICJUaHJlYWQgMyI7CgljaGFy
+ICptZXNzYWdlNCA9ICJUaHJlYWQgNCI7CgljaGFyICptZXNzYWdlNSA9ICJUaHJlYWQgNSI7Cglp
+bnQgaXJldDEgPSAtMTsKCWludCBpcmV0MiA9IC0xOwoJaW50IGlyZXQzID0gLTE7CglpbnQgaXJl
+dDQgPSAtMTsKCWludCBpcmV0NSA9IC0xOwoJZm9yaygpOwoJaXJldDEgPSBwdGhyZWFkX2NyZWF0
+ZSggJnRocmVhZDEsIE5VTEwsIGFsbG9jX2Z1bmN0aW9uX29uZSwgKHZvaWQqKSBtZXNzYWdlMSk7
+CglpcmV0MiA9IHB0aHJlYWRfY3JlYXRlKCAmdGhyZWFkMiwgTlVMTCwgYWxsb2NfZnVuY3Rpb25f
+dHdvLCAodm9pZCopIG1lc3NhZ2UyKTsKCWlyZXQyID0gcHRocmVhZF9jcmVhdGUoICZ0aHJlYWQz
+LCBOVUxMLCBhbGxvY19mdW5jdGlvbl90aHJlZSwgKHZvaWQqKSBtZXNzYWdlMik7CglpcmV0MiA9
+IHB0aHJlYWRfY3JlYXRlKCAmdGhyZWFkNCwgTlVMTCwgYWxsb2NfZnVuY3Rpb25fZm91ciwgKHZv
+aWQqKSBtZXNzYWdlMik7CglpcmV0MiA9IHB0aHJlYWRfY3JlYXRlKCAmdGhyZWFkNSwgTlVMTCwg
+YWxsb2NfZnVuY3Rpb25fZml2ZSwgKHZvaWQqKSBtZXNzYWdlMik7CgoJcHRocmVhZF9qb2luKCB0
+aHJlYWQxLCBOVUxMKTsKCXB0aHJlYWRfam9pbiggdGhyZWFkMiwgTlVMTCk7CglwdGhyZWFkX2pv
+aW4oIHRocmVhZDMsIE5VTEwpOwoJcHRocmVhZF9qb2luKCB0aHJlYWQ0LCBOVUxMKTsKCXB0aHJl
+YWRfam9pbiggdGhyZWFkNSwgTlVMTCk7CgoJcHJpbnRmKCJUaHJlYWQgMSByZXR1cm5zOiAlZFxu
+IixpcmV0MSk7CglwcmludGYoIlRocmVhZCAyIHJldHVybnM6ICVkXG4iLGlyZXQyKTsKCXByaW50
+ZigiVGhyZWFkIDMgcmV0dXJuczogJWRcbiIsaXJldDMpOwoJcHJpbnRmKCJUaHJlYWQgNCByZXR1
+cm5zOiAlZFxuIixpcmV0NCk7CglwcmludGYoIlRocmVhZCA1IHJldHVybnM6ICVkXG4iLGlyZXQ1
+KTsKCWV4aXQoMCk7Cn0KCnZvaWQgKmFsbG9jX2Z1bmN0aW9uX3R3byggdm9pZCAqcHRyICkKewoJ
+Y2hhciAqbWVzc2FnZTsKCW1lc3NhZ2UgPSAoY2hhciAqKSBwdHI7Cgl2b2lkICpteWJsb2NrW0NP
+VU5UXTsKCWludCBpPSAwLGo9MDsKCWludCBmcmVlZD0wOwoJcHJpbnRmKCJtZXNzYWdlX2FsbG9j
+ICBcbiIpOwoJd2hpbGUoMSkKCXsKCQltZW1zZXQobXlibG9jaywwLHNpemVvZihteWJsb2NrKSk7
+CgkJcHJpbnRmKCJtZXNzYWdlX2FsbG9jICVzIFxuIixtZXNzYWdlKTsKCQlmb3IoaT0wO2k8IENP
+VU5UIDtpKyspCgkJewoJCQlteWJsb2NrW2ldID0gKHZvaWQgKikgbWFsbG9jKEFMTE9DX0JZVEUp
+OwoJCQltZW1zZXQobXlibG9ja1tpXSwxLCBBTExPQ19CWVRFKTsKCQl9Cgl9Cn0KCgp2b2lkICph
+bGxvY19mdW5jdGlvbl9vbmUoIHZvaWQgKnB0ciApCnsKCWNoYXIgKm1lc3NhZ2U7CgltZXNzYWdl
+ID0gKGNoYXIgKikgcHRyOwoJdm9pZCAqbXlibG9ja1tDT1VOVF07CglpbnQgaT0gMCxqPTA7Cglp
+bnQgZnJlZWQ9MDsKCXByaW50ZigibWVzc2FnZV9hbGxvYyAgXG4iKTsKCXdoaWxlKDEpCgl7CgkJ
+bWVtc2V0KG15YmxvY2ssMCxzaXplb2YobXlibG9jaykpOwoJCXByaW50ZigibWVzc2FnZV9hbGxv
+YyAlcyBcbiIsbWVzc2FnZSk7CgkJZm9yKGk9MDtpPCBDT1VOVCA7aSsrKQoJCXsKCQkJbXlibG9j
+a1tpXSA9ICh2b2lkICopIG1hbGxvYyhBTExPQ19CWVRFKTsKCQkJbWVtc2V0KG15YmxvY2tbaV0s
+MSwgQUxMT0NfQllURSk7CgkJfQoJfQp9Cgp2b2lkICphbGxvY19mdW5jdGlvbl90aHJlZSggdm9p
+ZCAqcHRyICkKewogICAgICAgY2hhciAqbWVzc2FnZTsKICAgICAgICBtZXNzYWdlID0gKGNoYXIg
+KikgcHRyOwogICAgICAgIHZvaWQgKm15YmxvY2tbQ09VTlRdOwogICAgICAgIGludCBpPSAwLGo9
+MDsKICAgICAgICBpbnQgZnJlZWQ9MDsKICAgICAgICBwcmludGYoIm1lc3NhZ2VfYWxsb2MgIFxu
+Iik7CiAgICAgICAgd2hpbGUoMSkKICAgICAgICB7CiAgICAgICAgICAgICAgICBtZW1zZXQobXli
+bG9jaywwLHNpemVvZihteWJsb2NrKSk7CiAgICAgICAgICAgICAgICBwcmludGYoIm1lc3NhZ2Vf
+YWxsb2MgJXMgXG4iLG1lc3NhZ2UpOwogICAgICAgICAgICAgICAgZm9yKGk9MDtpPCBDT1VOVCA7
+aSsrKQogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICBteWJsb2NrW2ld
+ID0gKHZvaWQgKikgbWFsbG9jKEFMTE9DX0JZVEUpOwogICAgICAgICAgICAgICAgICAgICAgICBt
+ZW1zZXQobXlibG9ja1tpXSwxLCBBTExPQ19CWVRFKTsKICAgICAgICAgICAgICAgIH0KICAgICAg
+ICB9Cn0Kdm9pZCAqYWxsb2NfZnVuY3Rpb25fZm91ciggdm9pZCAqcHRyICkKewogICAgICAgY2hh
+ciAqbWVzc2FnZTsKICAgICAgICBtZXNzYWdlID0gKGNoYXIgKikgcHRyOwogICAgICAgIHZvaWQg
+Km15YmxvY2tbQ09VTlRdOwogICAgICAgIGludCBpPSAwLGo9MDsKICAgICAgICBpbnQgZnJlZWQ9
+MDsKICAgICAgICBwcmludGYoIm1lc3NhZ2VfYWxsb2MgIFxuIik7CiAgICAgICAgd2hpbGUoMSkK
+ICAgICAgICB7CiAgICAgICAgICAgICAgICBtZW1zZXQobXlibG9jaywwLHNpemVvZihteWJsb2Nr
+KSk7CiAgICAgICAgICAgICAgICBwcmludGYoIm1lc3NhZ2VfYWxsb2MgJXMgXG4iLG1lc3NhZ2Up
+OwogICAgICAgICAgICAgICAgZm9yKGk9MDtpPCBDT1VOVCA7aSsrKQogICAgICAgICAgICAgICAg
+ewogICAgICAgICAgICAgICAgICAgICAgICBteWJsb2NrW2ldID0gKHZvaWQgKikgbWFsbG9jKEFM
+TE9DX0JZVEUpOwogICAgICAgICAgICAgICAgICAgICAgICBtZW1zZXQobXlibG9ja1tpXSwxLCBB
+TExPQ19CWVRFKTsKICAgICAgICAgICAgICAgIH0KICAgICAgICB9Cn0Kdm9pZCAqYWxsb2NfZnVu
+Y3Rpb25fZml2ZSggdm9pZCAqcHRyICkKewogICAgICAgY2hhciAqbWVzc2FnZTsKICAgICAgICBt
+ZXNzYWdlID0gKGNoYXIgKikgcHRyOwogICAgICAgIHZvaWQgKm15YmxvY2tbQ09VTlRdOwogICAg
+ICAgIGludCBpPSAwLGo9MDsKICAgICAgICBpbnQgZnJlZWQ9MDsKICAgICAgICBwcmludGYoIm1l
+c3NhZ2VfYWxsb2MgIFxuIik7CiAgICAgICAgd2hpbGUoMSkKICAgICAgICB7CiAgICAgICAgICAg
+ICAgICBtZW1zZXQobXlibG9jaywwLHNpemVvZihteWJsb2NrKSk7CiAgICAgICAgICAgICAgICBw
+cmludGYoIm1lc3NhZ2VfYWxsb2MgJXMgXG4iLG1lc3NhZ2UpOwogICAgICAgICAgICAgICAgZm9y
+KGk9MDtpPCBDT1VOVCA7aSsrKQogICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAg
+ICAgICBteWJsb2NrW2ldID0gKHZvaWQgKikgbWFsbG9jKEFMTE9DX0JZVEUpOwogICAgICAgICAg
+ICAgICAgICAgICAgICBtZW1zZXQobXlibG9ja1tpXSwxLCBBTExPQ19CWVRFKTsKICAgICAgICAg
+ICAgICAgIH0KICAgICAgICB9Cn0K
+--0016368e2a82ddd5fa04bbac811c--
