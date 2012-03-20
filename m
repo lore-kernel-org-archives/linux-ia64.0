@@ -1,109 +1,107 @@
-From: Kautuk Consul <consul.kautuk@gmail.com>
-Date: Sat, 31 Mar 2012 12:03:32 +0000
-Subject: [PATCH 09/19 v2] ia64/mm/fault.c: Port OOM changes to ia64_do_page_fault
-Message-Id: <1333195412-5217-1-git-send-email-consul.kautuk@gmail.com>
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Tue, 20 Mar 2012 07:24:43 +0000
+Subject: [GIT PULL] DMA-mapping framework updates for 3.4
+Message-Id: <1332228283-29077-1-git-send-email-m.szyprowski@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Kautuk Consul <consul.kautuk@gmail.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Marek Szyprowski <m.szyprowski@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 
-Commit d065bd810b6deb67d4897a14bfe21f8eb526ba99
-(mm: retry page fault when blocking on disk transfer) and
-commit 37b23e0525d393d48a7d59f870b3bc061a30ccdb
-(x86,mm: make pagefault killable)
+Hi Linus,
 
-The above commits introduced changes into the x86 pagefault handler
-for making the page fault handler retryable as well as killable.
+Please pull the dma-mapping framework updates for v3.4 since commit
+c16fa4f2ad19908a47c63d8fa436a1178438c7e7:
 
-These changes reduce the mmap_sem hold time, which is crucial
-during OOM killer invocation.
+  Linux 3.3
 
-Port these changes to ia64.
+with the top-most commit e749a9f707f1102735e02338fa564be86be3bb69
 
-Signed-off-by: Kautuk Consul <consul.kautuk@gmail.com>
----
- arch/ia64/mm/fault.c |   38 ++++++++++++++++++++++++++++++--------
- 1 files changed, 30 insertions(+), 8 deletions(-)
+  common: DMA-mapping: add NON-CONSISTENT attribute
 
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index 02d29c2..b0c3b29 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -81,6 +81,12 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	struct siginfo si;
- 	unsigned long mask;
- 	int fault;
-+	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
-+
-+	mask = ((((isr >> IA64_ISR_X_BIT) & 1UL) << VM_EXEC_BIT)
-+		| (((isr >> IA64_ISR_W_BIT) & 1UL) << VM_WRITE_BIT));
-+
-+	flags |= ((mask & VM_WRITE) ? FAULT_FLAG_WRITE : 0);
- 
- 	/* mmap_sem is performance critical.... */
- 	prefetchw(&mm->mmap_sem);
-@@ -109,6 +115,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	if (notify_page_fault(regs, TRAP_BRKPT))
- 		return;
- 
-+retry:
- 	down_read(&mm->mmap_sem);
- 
- 	vma = find_vma_prev(mm, address, &prev_vma);
-@@ -142,9 +149,6 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	if (((isr >> IA64_ISR_R_BIT) & 1UL) && (!(vma->vm_flags & (VM_READ | VM_WRITE))))
- 		goto bad_area;
- 
--	mask = (  (((isr >> IA64_ISR_X_BIT) & 1UL) << VM_EXEC_BIT)
--		| (((isr >> IA64_ISR_W_BIT) & 1UL) << VM_WRITE_BIT));
--
- 	if ((vma->vm_flags & mask) != mask)
- 		goto bad_area;
- 
-@@ -153,7 +157,11 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	 * sure we exit gracefully rather than endlessly redo the
- 	 * fault.
- 	 */
--	fault = handle_mm_fault(mm, vma, address, (mask & VM_WRITE) ? FAULT_FLAG_WRITE : 0);
-+	fault = handle_mm_fault(mm, vma, address, flags);
-+
-+	if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current))
-+		return;
-+
- 	if (unlikely(fault & VM_FAULT_ERROR)) {
- 		/*
- 		 * We ran out of memory, or some other thing happened
-@@ -168,10 +176,24 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 		}
- 		BUG();
- 	}
--	if (fault & VM_FAULT_MAJOR)
--		current->maj_flt++;
--	else
--		current->min_flt++;
-+
-+	if (flags & FAULT_FLAG_ALLOW_RETRY) {
-+		if (fault & VM_FAULT_MAJOR)
-+			current->maj_flt++;
-+		else
-+			current->min_flt++;
-+		if (fault & VM_FAULT_RETRY) {
-+			flags &= ~FAULT_FLAG_ALLOW_RETRY;
-+
-+			 /* No need to up_read(&mm->mmap_sem) as we would
-+			 * have already released it in __lock_page_or_retry
-+			 * in mm/filemap.c.
-+			 */
-+
-+			goto retry;
-+		}
-+	}
-+
- 	up_read(&mm->mmap_sem);
- 	return;
- 
--- 
-1.7.5.4
+from the git repository at:
+
+  git://git.infradead.org/users/kmpark/linux-samsung dma-mapping-next
+
+Those patches introduce a new alloc method (with support for memory
+attributes) in dma_map_ops structure, which will later replace
+dma_alloc_coherent and dma_alloc_writecombine functions.
+
+Thanks!
+
+Best regards
+Marek Szyprowski
+Samsung Poland R&D Center
+
+Patch summary:
+
+Andrzej Pietrasiewicz (9):
+      X86: adapt for dma_map_ops changes
+      MIPS: adapt for dma_map_ops changes
+      PowerPC: adapt for dma_map_ops changes
+      IA64: adapt for dma_map_ops changes
+      SPARC: adapt for dma_map_ops changes
+      Alpha: adapt for dma_map_ops changes
+      SH: adapt for dma_map_ops changes
+      Microblaze: adapt for dma_map_ops changes
+      Unicore32: adapt for dma_map_ops changes
+
+Marek Szyprowski (6):
+      common: dma-mapping: introduce alloc_attrs and free_attrs methods
+      Hexagon: adapt for dma_map_ops changes
+      common: dma-mapping: remove old alloc_coherent and free_coherent methods
+      common: dma-mapping: introduce mmap method
+      common: DMA-mapping: add WRITE_COMBINE attribute
+      common: DMA-mapping: add NON-CONSISTENT attribute
+
+ Documentation/DMA-attributes.txt          |   19 +++++++++++++++++++
+ arch/alpha/include/asm/dma-mapping.h      |   18 ++++++++++++------
+ arch/alpha/kernel/pci-noop.c              |   10 ++++++----
+ arch/alpha/kernel/pci_iommu.c             |   10 ++++++----
+ arch/hexagon/include/asm/dma-mapping.h    |   18 ++++++++++++------
+ arch/hexagon/kernel/dma.c                 |    9 +++++----
+ arch/ia64/hp/common/sba_iommu.c           |   11 ++++++-----
+ arch/ia64/include/asm/dma-mapping.h       |   18 ++++++++++++------
+ arch/ia64/kernel/pci-swiotlb.c            |    9 +++++----
+ arch/ia64/sn/pci/pci_dma.c                |    9 +++++----
+ arch/microblaze/include/asm/dma-mapping.h |   18 ++++++++++++------
+ arch/microblaze/kernel/dma.c              |   10 ++++++----
+ arch/mips/cavium-octeon/dma-octeon.c      |   16 ++++++++--------
+ arch/mips/include/asm/dma-mapping.h       |   18 ++++++++++++------
+ arch/mips/mm/dma-default.c                |    8 ++++----
+ arch/powerpc/include/asm/dma-mapping.h    |   24 ++++++++++++++++--------
+ arch/powerpc/kernel/dma-iommu.c           |   10 ++++++----
+ arch/powerpc/kernel/dma-swiotlb.c         |    4 ++--
+ arch/powerpc/kernel/dma.c                 |   10 ++++++----
+ arch/powerpc/kernel/ibmebus.c             |   10 ++++++----
+ arch/powerpc/kernel/vio.c                 |   14 ++++++++------
+ arch/powerpc/platforms/cell/iommu.c       |   16 +++++++++-------
+ arch/powerpc/platforms/ps3/system-bus.c   |   13 +++++++------
+ arch/sh/include/asm/dma-mapping.h         |   28 ++++++++++++++++++----------
+ arch/sh/kernel/dma-nommu.c                |    4 ++--
+ arch/sh/mm/consistent.c                   |    6 ++++--
+ arch/sparc/include/asm/dma-mapping.h      |   18 ++++++++++++------
+ arch/sparc/kernel/iommu.c                 |   10 ++++++----
+ arch/sparc/kernel/ioport.c                |   18 ++++++++++--------
+ arch/sparc/kernel/pci_sun4v.c             |    9 +++++----
+ arch/unicore32/include/asm/dma-mapping.h  |   18 ++++++++++++------
+ arch/unicore32/mm/dma-swiotlb.c           |    4 ++--
+ arch/x86/include/asm/dma-mapping.h        |   26 ++++++++++++++++----------
+ arch/x86/kernel/amd_gart_64.c             |   11 ++++++-----
+ arch/x86/kernel/pci-calgary_64.c          |    9 +++++----
+ arch/x86/kernel/pci-dma.c                 |    3 ++-
+ arch/x86/kernel/pci-nommu.c               |    6 +++---
+ arch/x86/kernel/pci-swiotlb.c             |   12 +++++++-----
+ arch/x86/xen/pci-swiotlb-xen.c            |    4 ++--
+ drivers/iommu/amd_iommu.c                 |   10 ++++++----
+ drivers/iommu/intel-iommu.c               |    9 +++++----
+ drivers/xen/swiotlb-xen.c                 |    5 +++--
+ include/linux/dma-attrs.h                 |    2 ++
+ include/linux/dma-mapping.h               |   13 +++++++++----
+ include/linux/swiotlb.h                   |    6 ++++--
+ include/xen/swiotlb-xen.h                 |    6 ++++--
+ lib/swiotlb.c                             |    5 +++--
+ 47 files changed, 338 insertions(+), 206 deletions(-)
+
 
