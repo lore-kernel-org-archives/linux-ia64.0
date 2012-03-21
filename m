@@ -1,46 +1,49 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Tue, 27 Mar 2012 21:20:05 +0000
-Subject: Re: [PATCH 05/14] IA64: adapt for dma_map_ops changes
-Message-Id: <CA+8MBbLAafFbVwviFmkjD0DNz5RsCbB_TNLL67wEi2k-hyXkXA@mail.gmail.com>
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Wed, 21 Mar 2012 06:56:50 +0000
+Subject: [PATCH 09/16] mm/ia64: use vm_flags_t for vma flags
+Message-Id: <20120321065650.13852.75898.stgit@zurg>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
-	<1324643253-3024-6-git-send-email-m.szyprowski@samsung.com>
-In-Reply-To: <1324643253-3024-6-git-send-email-m.szyprowski@samsung.com>
+References: <20120321065140.13852.52315.stgit@zurg>
+In-Reply-To: <20120321065140.13852.52315.stgit@zurg>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Marek Szyprowski <m.szyprowski@samsung.com>
-Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>
 
-On Fri, Dec 23, 2011 at 4:27 AM, Marek Szyprowski
-<m.szyprowski@samsung.com> wrote:
-> From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
->
-> Adapt core IA64 architecture code for dma_map_ops changes: replace
-> alloc/free_coherent with generic alloc/free methods.
->
-> Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
-> Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
-> Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
-> ---
-> =A0arch/ia64/hp/common/sba_iommu.c =A0 =A0 | =A0 11 ++++++-----
-> =A0arch/ia64/include/asm/dma-mapping.h | =A0 18 ++++++++++++------
-> =A0arch/ia64/kernel/pci-swiotlb.c =A0 =A0 =A0| =A0 =A09 +++++----
-> =A0arch/ia64/sn/pci/pci_dma.c =A0 =A0 =A0 =A0 =A0| =A0 =A09 +++++----
-> =A04 files changed, 28 insertions(+), 19 deletions(-)
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/mm/fault.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
 
-The series breaks bisection from part 2 (when the x86 part changes
-lib/swiotlb.c)
-until part 5 (when ia64 sees the changes to match).  You could either merge=
- part
-5 into part 2 (to make a combined x86+ia64 piece) ... or try to pull
-the libswiotlb
-changes into their own piece (which would have some of the ia64 and x86 bit=
-s).
-Or at the very least minimize the breakage window by putting ia64
-right after x86
-in the patch sequence.
+diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
+index 20b3593..e50259d 100644
+--- a/arch/ia64/mm/fault.c
++++ b/arch/ia64/mm/fault.c
+@@ -80,7 +80,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
+ 	struct vm_area_struct *vma, *prev_vma;
+ 	struct mm_struct *mm = current->mm;
+ 	struct siginfo si;
+-	unsigned long mask;
++	vm_flags_t mask;
+ 	int fault;
+ 
+ 	/* mmap_sem is performance critical.... */
+@@ -135,10 +135,9 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
+ #	define VM_WRITE_BIT	1
+ #	define VM_EXEC_BIT	2
+ 
+-#	if (((1 << VM_READ_BIT) != VM_READ || (1 << VM_WRITE_BIT) != VM_WRITE) \
+-	    || (1 << VM_EXEC_BIT) != VM_EXEC)
+-#		error File is out of sync with <linux/mm.h>.  Please update.
+-#	endif
++	BUILD_BUG_ON((1 << VM_READ_BIT) != VM_READ);
++	BUILD_BUG_ON((1 << VM_WRITE_BIT) != VM_WRITE);
++	BUILD_BUG_ON((1 << VM_EXEC_BIT) != VM_EXEC);
+ 
+ 	if (((isr >> IA64_ISR_R_BIT) & 1UL) && (!(vma->vm_flags & (VM_READ | VM_WRITE))))
+ 		goto bad_area;
 
-Otherwise seems OK
-
-Acked-by: Tony Luck <tony.luck@intel.com>
