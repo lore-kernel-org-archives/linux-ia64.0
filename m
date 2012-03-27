@@ -1,39 +1,46 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Thu, 01 Mar 2012 03:00:25 +0000
-Subject: [PATCH 24/36] PCI, ia64: Register busn_res for root buses
-Message-Id: <1330570837-26638-25-git-send-email-yinghai@kernel.org>
+From: Tony Luck <tony.luck@intel.com>
+Date: Tue, 27 Mar 2012 21:20:05 +0000
+Subject: Re: [PATCH 05/14] IA64: adapt for dma_map_ops changes
+Message-Id: <CA+8MBbLAafFbVwviFmkjD0DNz5RsCbB_TNLL67wEi2k-hyXkXA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1330570837-26638-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1330570837-26638-1-git-send-email-yinghai@kernel.org>
+References: <1324643253-3024-1-git-send-email-m.szyprowski@samsung.com>
+	<1324643253-3024-6-git-send-email-m.szyprowski@samsung.com>
+In-Reply-To: <1324643253-3024-6-git-send-email-m.szyprowski@samsung.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@virtuousgeek.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Tony Luck <tony.luck@intel.com>, David Miller <davem@davemloft.net>, x86 <x86@kernel.org>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Dominik Brodowski <linux@dominikbrodowski.net>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Marek Szyprowski <m.szyprowski@samsung.com>
+Cc: linux-kernel@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Stephen Rothwell <sfr@canb.auug.org.au>, microblaze-uclinux@itee.uq.edu.au, linux-arch@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mips@linux-mips.org, discuss@x86-64.org, linux-arm-kernel@lists.infradead.org, linux-mm@kvack.org, linaro-mm-sig@lists.linaro.org, Jonathan Corbet <corbet@lwn.net>, Kyungmin Park <kyungmin.park@samsung.com>, Andrzej Pietrasiewicz <andrzej.p@samsung.com>
 
--v2: according to Bjorn, use root->secondary directly.
+On Fri, Dec 23, 2011 at 4:27 AM, Marek Szyprowski
+<m.szyprowski@samsung.com> wrote:
+> From: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+>
+> Adapt core IA64 architecture code for dma_map_ops changes: replace
+> alloc/free_coherent with generic alloc/free methods.
+>
+> Signed-off-by: Andrzej Pietrasiewicz <andrzej.p@samsung.com>
+> Signed-off-by: Marek Szyprowski <m.szyprowski@samsung.com>
+> Signed-off-by: Kyungmin Park <kyungmin.park@samsung.com>
+> ---
+> =A0arch/ia64/hp/common/sba_iommu.c =A0 =A0 | =A0 11 ++++++-----
+> =A0arch/ia64/include/asm/dma-mapping.h | =A0 18 ++++++++++++------
+> =A0arch/ia64/kernel/pci-swiotlb.c =A0 =A0 =A0| =A0 =A09 +++++----
+> =A0arch/ia64/sn/pci/pci_dma.c =A0 =A0 =A0 =A0 =A0| =A0 =A09 +++++----
+> =A04 files changed, 28 insertions(+), 19 deletions(-)
 
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/pci/pci.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+The series breaks bisection from part 2 (when the x86 part changes
+lib/swiotlb.c)
+until part 5 (when ia64 sees the changes to match).  You could either merge=
+ part
+5 into part 2 (to make a combined x86+ia64 piece) ... or try to pull
+the libswiotlb
+changes into their own piece (which would have some of the ia64 and x86 bit=
+s).
+Or at the very least minimize the breakage window by putting ia64
+right after x86
+in the patch sequence.
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index d1ce320..6c7c4ae 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -352,6 +352,8 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
- #endif
- 
- 	INIT_LIST_HEAD(&info.resources);
-+	/* insert busn resource at first */
-+	pci_add_resource(&info.resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
- 			&windows);
- 	if (windows) {
--- 
-1.7.7
+Otherwise seems OK
 
+Acked-by: Tony Luck <tony.luck@intel.com>
