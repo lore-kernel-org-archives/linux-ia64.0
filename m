@@ -1,10 +1,10 @@
 From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=  <u.kleine-koenig@pengutronix.de>
-Date: Thu, 29 Mar 2012 21:12:27 +0000
-Subject: [PATCH 10/17] ia64: mark const init data with __initconst instead of __initdata
-Message-Id: <1333055554-31300-10-git-send-email-u.kleine-koenig@pengutronix.de>
+Date: Fri, 30 Mar 2012 20:04:59 +0000
+Subject: [PATCH v2 09/15] ia64: mark const init data with __initconst instead of __initdata
+Message-Id: <1333137905-13809-9-git-send-email-u.kleine-koenig@pengutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120329211131.GA31250@pengutronix.de>
-In-Reply-To: <20120329211131.GA31250@pengutronix.de>
+References: <20120330200358.GV15647@pengutronix.de>
+In-Reply-To: <20120330200358.GV15647@pengutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -25,6 +25,8 @@ Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
 ---
+no changes since (implicit) v1
+
  arch/ia64/xen/irq_xen.c |    2 +-
  arch/ia64/xen/irq_xen.h |    2 +-
  2 files changed, 2 insertions(+), 2 deletions(-)
@@ -56,5 +58,5 @@ index 26110f3..1778517 100644
  extern void xen_send_ipi(int cpu, int vec);
 =20
 --=20
-1.7.9.1
+1.7.9.5
 
