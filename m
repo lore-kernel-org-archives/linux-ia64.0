@@ -1,29 +1,54 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Date: Tue, 20 Mar 2012 13:36:06 +0000
-Subject: Re: [PATCH 0/20] mmu: arch/mm: Port OOM changes to arch page fault handlers.
-Message-Id: <CAFLxGvyVbDndbu_2ZbUBwbrJCq+d4rRZW0ROxTpQxAvetRm=0w@mail.gmail.com>
+From: Kautuk Consul <consul.kautuk@gmail.com>
+Date: Sat, 31 Mar 2012 11:58:04 +0000
+Subject: [PATCH 0/19 v2] mmu: arch/mm: Port OOM changes to arch page fault handlers.
+Message-Id: <CAFPAmTT19hFymnFftLkV1jQjYmJgyk3y4b-kTXO3VP1YCR-_fQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAFPAmTQs9dOpQTaXU=6Or66YU+my_CnPw33TE4h++YArBNa38g@mail.gmail.com>
-	<CAFLxGvwW2XcYSoidZZ0XF_a-pH3SwONqS+hCnpGUecQ__DLa_g@mail.gmail.com>
-	<CAFPAmTSzV9mrkbP68p4PA-0i0o2Hz7JiBY=0A0V_myJEzWubjQ@mail.gmail.com>
-In-Reply-To: <CAFPAmTSzV9mrkbP68p4PA-0i0o2Hz7JiBY=0A0V_myJEzWubjQ@mail.gmail.com>
+In-Reply-To: <CAFPAmTQs9dOpQTaXU=6Or66YU+my_CnPw33TE4h++YArBNa38g@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kautuk Consul <consul.kautuk@gmail.com>
-Cc: linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux@lists.openrisc.net, linux-am33-list@redhat.com, microblaze-uclinux@itee.uq.edu.au, linux-m68k@lists.linux-m68k.org, linux-m32r-ja@ml.linux-m32r.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-cris-kernel@axis.com, linux-sh@vger.kernel.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux@lists.openrisc.net, linux-am33-list@redhat.com, microblaze-uclinux@itee.uq.edu.au, linux-m68k@lists.linux-m68k.org, linux-m32r-ja@ml.linux-m32r.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-cris-kernel@axis.com, linux-sh@vger.kernel.org, linux-parisc@vger.kernel.org, linux-mm@kvack.org, linux-arch@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-On Tue, Mar 20, 2012 at 2:34 PM, Kautuk Consul <consul.kautuk@gmail.com> wrote:
->>
->> What about arch/um/?
->> Does UML not need this change?
->
-> Oh yes, extremely sorry I accidentally missed that one out.
-> Mind if I send it separately ?
+Commit d065bd810b6deb67d4897a14bfe21f8eb526ba99
+(mm: retry page fault when blocking on disk transfer) and
+commit 37b23e0525d393d48a7d59f870b3bc061a30ccdb
+(x86,mm: make pagefault killable)
 
-No problem.
-handle_page_fault() is the function you want to patch. :)
+The above commits introduced changes into the x86 pagefault handler
+for making the page fault handler retryable as well as killable.
 
--- 
-Thanks,
-//richard
+These changes reduce the mmap_sem hold time, which is crucial
+during OOM killer invocation.
+
+I was facing hang and livelock problems on my ARM and MIPS boards when
+I invoked OOM by running the stress_32k.c test-case attached to this email.
+
+Since both the ARM and MIPS porting changes were accepted, me and my
+co-worker decided to take the initiative to port these changes to all other
+MMU based architectures.
+
+This is v2 of this patch set as there were some problems with the v1 of this
+patchset:
+- Whitespace issues as reported by David Miller and Joe Perches
+- In 2 of the patches, the write(or equivalent) local variable has
+been removed from the
+  page fault handler because it is not really needed anymore with the
+advent of the "flags"
+  local variable. Thanks to Geert Uytterhoeven for that.
+- The powerpc patch for this has been removed as this has already been
+done by someone
+  else for powerpc.
+
+At the moment, 8 of these patches have Acked these patches as valid.
+I have included their ACKed-By headers for them in their respective
+arch patches.
+
+And thanks to Guan Xuetao for actually testing this out on unicore32.
+
+Rest of the arch owners: Please review these patches.
+
+Signed-off-by: Mohd. Faris <mohdfarisq2010@gmail.com>
+Signed-off-by: Kautuk Consul <consul.kautuk@gmail.com>
+---
