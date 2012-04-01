@@ -1,41 +1,64 @@
-From: =?ISO-8859-1?Q?=C9meric_Maschino?= <emeric.maschino@gmail.com>
-Date: Sun, 15 Apr 2012 21:19:11 +0000
-Subject: Re: [PATCH] [IA64] Fix futex_atomic_cmpxchg_inatomic()
-Message-Id: <CAA9xbM4cWu0yjd=zgzvmOZuW8KOQufBaYNgYE41P1JXpDiNKjw@mail.gmail.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Sun, 01 Apr 2012 16:33:51 +0000
+Subject: [PATCH 3/4] IRQ,IA64: remove redundant memory copy operations in chip->irq_set_affinity()
+Message-Id: <1333298032-4047-3-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <a3bcb07f7bd1106089a51033a6c104562fb90f89.1334342735.git.tony.luck@intel.com>
-In-Reply-To: <a3bcb07f7bd1106089a51033a6c104562fb90f89.1334342735.git.tony.luck@intel.com>
+References: <1333298032-4047-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1333298032-4047-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Jiang Liu <jiang.liu@huawei.com>, Jiang Liu <liuj97@gmail.com>, Keping Chen <chenkeping@huawei.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-altix@sgi.com
 
-Hi,
+Changeset 3b8249e7 has introduced standard return value IRQ_SET_MASK_OK(0) and
+IRQ_SET_MASK_OK_NOCOPY(1) for interrupt controller chip's set_irq_affinity()
+method. If chip->irq_set_affinity() doesn't change the affinity mask passed in,
+it should return IRQ_SET_MASK_OK and the core logic will copy the affinity
+mask to irq_data->affinity field.
 
-Just rebuilt kernel with the patch proposed by Tony: issue fixed :-)
+Several xxx_irq_set_affinity() methods for IA64 platforms still return
+0(IRQ_SET_MASK_OK) after copying the affinity mask to irq_data->affinity field,
+so remove the redundant memory copy operations.
 
-Many thanks,
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+---
+ arch/ia64/kernel/msi_ia64.c  |    2 --
+ arch/ia64/sn/kernel/msi_sn.c |    1 -
+ 2 files changed, 0 insertions(+), 3 deletions(-)
 
-     Emeric
+diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
+index fb2f1e6..05f5dc6 100644
+--- a/arch/ia64/kernel/msi_ia64.c
++++ b/arch/ia64/kernel/msi_ia64.c
+@@ -39,7 +39,6 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
+ 	msg.data = data;
+ 
+ 	write_msi_msg(irq, &msg);
+-	cpumask_copy(idata->affinity, cpumask_of(cpu));
+ 
+ 	return 0;
+ }
+@@ -155,7 +154,6 @@ static int dmar_msi_set_affinity(struct irq_data *data,
+ 	msg.address_lo |= MSI_ADDR_DEST_ID_CPU(cpu_physical_id(cpu));
+ 
+ 	dmar_msi_write(irq, &msg);
+-	cpumask_copy(data->affinity, mask);
+ 
+ 	return 0;
+ }
+diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
+index 2b98b9e..a033fc9 100644
+--- a/arch/ia64/sn/kernel/msi_sn.c
++++ b/arch/ia64/sn/kernel/msi_sn.c
+@@ -206,7 +206,6 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
+ 	msg.address_lo = (u32)(bus_addr & 0x00000000ffffffff);
+ 
+ 	write_msi_msg(irq, &msg);
+-	cpumask_copy(data->affinity, cpu_mask);
+ 
+ 	return 0;
+ }
+-- 
+1.7.5.4
 
-
-Le 14 avril 2012 00:31, Michel Lespinasse <walken@google.com> a =E9crit :
-> On Fri, Apr 13, 2012 at 8:32 PM, Luck, Tony <tony.luck@intel.com> wrote:
->> Michel Lespinasse cleaned up the futex calling conventions in
->> commit 37a9d912b24f96a0591773e6e6c3642991ae5a70
->> =A0 =A0futex: Sanitize cmpxchg_futex_value_locked API
->>
->> But the ia64 implementation was subtly broken. Gcc does not know
->> that register "r8" will be updated by the fault handler if the
->> cmpxchg instruction takes an exception. So it feels safe in letting
->> the initialization of r8 slide to after the cmpxchg. Result: we
->> always return 0 whether the user address faulted or not.
->>
->> Fix by moving the initialization of r8 into the __asm__ code so
->> gcc won't move it.
->
-> Looks good. Sorry for the trouble.
->
-> --
-> Michel "Walken" Lespinasse
-> A program is never fully debugged until the last user dies.
