@@ -1,317 +1,314 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 03 Apr 2012 19:00:10 +0000
-Subject: [PATCH] ia64: populate the cmpxchg header with appropriate code
-Message-Id: <1333479610-13321-1-git-send-email-paul.gortmaker@windriver.com>
+Date: Tue, 10 Apr 2012 22:35:57 +0000
+Subject: Re: [PATCH] ia64: populate the cmpxchg header with appropriate code
+Message-Id: <CAP=VYLroi_uGBUmwEE2g=nH2z-oD6nYwo_D+o+QHMtWERP=yvA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1333479610-13321-1-git-send-email-paul.gortmaker@windriver.com>
+In-Reply-To: <1333479610-13321-1-git-send-email-paul.gortmaker@windriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, David Howells <dhowells@redhat.com>
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+Cc: linux-kernel@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>, Fenghua Yu <fenghua.yu@intel.com>, David Howells <dhowells@redhat.com>
 
-commit 93f378883cecb9dcb2cf5b51d9d24175906659da
-
-    "Fix ia64 build errors (fallout from system.h disintegration)"
-
-introduced arch/ia64/include/asm/cmpxchg.h as a temporary
-build fix and stated:
-
-    "... leave the migration of xchg() and cmpxchg() to this new
-     header file for a future patch."
-
-Migrate the appropriate chunks from asm/intrinsics.h and fix
-the whitespace issues in the migrated chunk.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: David Howells <dhowells@redhat.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
-diff --git a/arch/ia64/include/asm/cmpxchg.h b/arch/ia64/include/asm/cmpxchg.h
-index 4c96187..4f37dbb 100644
---- a/arch/ia64/include/asm/cmpxchg.h
-+++ b/arch/ia64/include/asm/cmpxchg.h
-@@ -1 +1,147 @@
--#include <asm/intrinsics.h>
-+#ifndef _ASM_IA64_CMPXCHG_H
-+#define _ASM_IA64_CMPXCHG_H
-+
-+/*
-+ * Compare/Exchange, forked from asm/intrinsics.h
-+ * which was:
-+ *
-+ *	Copyright (C) 2002-2003 Hewlett-Packard Co
-+ *	David Mosberger-Tang <davidm@hpl.hp.com>
-+ */
-+
-+#ifndef __ASSEMBLY__
-+
-+#include <linux/types.h>
-+/* include compiler specific intrinsics */
-+#include <asm/ia64regs.h>
-+#ifdef __INTEL_COMPILER
-+# include <asm/intel_intrin.h>
-+#else
-+# include <asm/gcc_intrin.h>
-+#endif
-+
-+/*
-+ * This function doesn't exist, so you'll get a linker error if
-+ * something tries to do an invalid xchg().
-+ */
-+extern void ia64_xchg_called_with_bad_pointer(void);
-+
-+#define __xchg(x, ptr, size)						\
-+({									\
-+	unsigned long __xchg_result;					\
-+									\
-+	switch (size) {							\
-+	case 1:								\
-+		__xchg_result = ia64_xchg1((__u8 *)ptr, x);		\
-+		break;							\
-+									\
-+	case 2:								\
-+		__xchg_result = ia64_xchg2((__u16 *)ptr, x);		\
-+		break;							\
-+									\
-+	case 4:								\
-+		__xchg_result = ia64_xchg4((__u32 *)ptr, x);		\
-+		break;							\
-+									\
-+	case 8:								\
-+		__xchg_result = ia64_xchg8((__u64 *)ptr, x);		\
-+		break;							\
-+	default:							\
-+		ia64_xchg_called_with_bad_pointer();			\
-+	}								\
-+	__xchg_result;							\
-+})
-+
-+#define xchg(ptr, x)							\
-+((__typeof__(*(ptr))) __xchg((unsigned long) (x), (ptr), sizeof(*(ptr))))
-+
-+/*
-+ * Atomic compare and exchange.  Compare OLD with MEM, if identical,
-+ * store NEW in MEM.  Return the initial value in MEM.  Success is
-+ * indicated by comparing RETURN with OLD.
-+ */
-+
-+#define __HAVE_ARCH_CMPXCHG 1
-+
-+/*
-+ * This function doesn't exist, so you'll get a linker error
-+ * if something tries to do an invalid cmpxchg().
-+ */
-+extern long ia64_cmpxchg_called_with_bad_pointer(void);
-+
-+#define ia64_cmpxchg(sem, ptr, old, new, size)				\
-+({									\
-+	__u64 _o_, _r_;							\
-+									\
-+	switch (size) {							\
-+	case 1:								\
-+		_o_ = (__u8) (long) (old);				\
-+		break;							\
-+	case 2:								\
-+		_o_ = (__u16) (long) (old);				\
-+		break;							\
-+	case 4:								\
-+		_o_ = (__u32) (long) (old);				\
-+		break;							\
-+	case 8:								\
-+		_o_ = (__u64) (long) (old);				\
-+		break;							\
-+	default:							\
-+		break;							\
-+	}								\
-+	switch (size) {							\
-+	case 1:								\
-+		_r_ = ia64_cmpxchg1_##sem((__u8 *) ptr, new, _o_);	\
-+		break;							\
-+									\
-+	case 2:								\
-+		_r_ = ia64_cmpxchg2_##sem((__u16 *) ptr, new, _o_);	\
-+		break;							\
-+									\
-+	case 4:								\
-+		_r_ = ia64_cmpxchg4_##sem((__u32 *) ptr, new, _o_);	\
-+		break;							\
-+									\
-+	case 8:								\
-+		_r_ = ia64_cmpxchg8_##sem((__u64 *) ptr, new, _o_);	\
-+		break;							\
-+									\
-+	default:							\
-+		_r_ = ia64_cmpxchg_called_with_bad_pointer();		\
-+		break;							\
-+	}								\
-+	(__typeof__(old)) _r_;						\
-+})
-+
-+#define cmpxchg_acq(ptr, o, n)	\
-+	ia64_cmpxchg(acq, (ptr), (o), (n), sizeof(*(ptr)))
-+#define cmpxchg_rel(ptr, o, n)	\
-+	ia64_cmpxchg(rel, (ptr), (o), (n), sizeof(*(ptr)))
-+
-+/* for compatibility with other platforms: */
-+#define cmpxchg(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
-+#define cmpxchg64(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
-+
-+#define cmpxchg_local		cmpxchg
-+#define cmpxchg64_local		cmpxchg64
-+
-+#ifdef CONFIG_IA64_DEBUG_CMPXCHG
-+# define CMPXCHG_BUGCHECK_DECL	int _cmpxchg_bugcheck_count = 128;
-+# define CMPXCHG_BUGCHECK(v)						\
-+do {									\
-+	if (_cmpxchg_bugcheck_count-- <= 0) {				\
-+		void *ip;						\
-+		extern int printk(const char *fmt, ...);		\
-+		ip = (void *) ia64_getreg(_IA64_REG_IP);		\
-+		printk("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v));\
-+		break;							\
-+	}								\
-+} while (0)
-+#else /* !CONFIG_IA64_DEBUG_CMPXCHG */
-+# define CMPXCHG_BUGCHECK_DECL
-+# define CMPXCHG_BUGCHECK(v)
-+#endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
-+
-+#endif /* !__ASSEMBLY__ */
-+
-+#endif /* _ASM_IA64_CMPXCHG_H */
-diff --git a/arch/ia64/include/asm/intrinsics.h b/arch/ia64/include/asm/intrinsics.h
-index e4076b5..d129e36 100644
---- a/arch/ia64/include/asm/intrinsics.h
-+++ b/arch/ia64/include/asm/intrinsics.h
-@@ -18,6 +18,7 @@
- #else
- # include <asm/gcc_intrin.h>
- #endif
-+#include <asm/cmpxchg.h>
- 
- #define ia64_native_get_psr_i()	(ia64_native_getreg(_IA64_REG_PSR) & IA64_PSR_I)
- 
-@@ -81,119 +82,6 @@ extern unsigned long __bad_increment_for_ia64_fetch_and_add (void);
- 
- #define ia64_fetch_and_add(i,v)	(ia64_fetchadd(i, v, rel) + (i)) /* return new value */
- 
--/*
-- * This function doesn't exist, so you'll get a linker error if
-- * something tries to do an invalid xchg().
-- */
--extern void ia64_xchg_called_with_bad_pointer (void);
--
--#define __xchg(x,ptr,size)						\
--({									\
--	unsigned long __xchg_result;					\
--									\
--	switch (size) {							\
--	      case 1:							\
--		__xchg_result = ia64_xchg1((__u8 *)ptr, x);		\
--		break;							\
--									\
--	      case 2:							\
--		__xchg_result = ia64_xchg2((__u16 *)ptr, x);		\
--		break;							\
--									\
--	      case 4:							\
--		__xchg_result = ia64_xchg4((__u32 *)ptr, x);		\
--		break;							\
--									\
--	      case 8:							\
--		__xchg_result = ia64_xchg8((__u64 *)ptr, x);		\
--		break;							\
--	      default:							\
--		ia64_xchg_called_with_bad_pointer();			\
--	}								\
--	__xchg_result;							\
--})
--
--#define xchg(ptr,x)							     \
--  ((__typeof__(*(ptr))) __xchg ((unsigned long) (x), (ptr), sizeof(*(ptr))))
--
--/*
-- * Atomic compare and exchange.  Compare OLD with MEM, if identical,
-- * store NEW in MEM.  Return the initial value in MEM.  Success is
-- * indicated by comparing RETURN with OLD.
-- */
--
--#define __HAVE_ARCH_CMPXCHG 1
--
--/*
-- * This function doesn't exist, so you'll get a linker error
-- * if something tries to do an invalid cmpxchg().
-- */
--extern long ia64_cmpxchg_called_with_bad_pointer (void);
--
--#define ia64_cmpxchg(sem,ptr,old,new,size)						\
--({											\
--	__u64 _o_, _r_;									\
--											\
--	switch (size) {									\
--	      case 1: _o_ = (__u8 ) (long) (old); break;				\
--	      case 2: _o_ = (__u16) (long) (old); break;				\
--	      case 4: _o_ = (__u32) (long) (old); break;				\
--	      case 8: _o_ = (__u64) (long) (old); break;				\
--	      default: break;								\
--	}										\
--	switch (size) {									\
--	      case 1:									\
--	      	_r_ = ia64_cmpxchg1_##sem((__u8 *) ptr, new, _o_);			\
--		break;									\
--											\
--	      case 2:									\
--	       _r_ = ia64_cmpxchg2_##sem((__u16 *) ptr, new, _o_);			\
--		break;									\
--											\
--	      case 4:									\
--	      	_r_ = ia64_cmpxchg4_##sem((__u32 *) ptr, new, _o_);			\
--		break;									\
--											\
--	      case 8:									\
--		_r_ = ia64_cmpxchg8_##sem((__u64 *) ptr, new, _o_);			\
--		break;									\
--											\
--	      default:									\
--		_r_ = ia64_cmpxchg_called_with_bad_pointer();				\
--		break;									\
--	}										\
--	(__typeof__(old)) _r_;								\
--})
--
--#define cmpxchg_acq(ptr, o, n)	\
--	ia64_cmpxchg(acq, (ptr), (o), (n), sizeof(*(ptr)))
--#define cmpxchg_rel(ptr, o, n)	\
--	ia64_cmpxchg(rel, (ptr), (o), (n), sizeof(*(ptr)))
--
--/* for compatibility with other platforms: */
--#define cmpxchg(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
--#define cmpxchg64(ptr, o, n)	cmpxchg_acq((ptr), (o), (n))
--
--#define cmpxchg_local		cmpxchg
--#define cmpxchg64_local		cmpxchg64
--
--#ifdef CONFIG_IA64_DEBUG_CMPXCHG
--# define CMPXCHG_BUGCHECK_DECL	int _cmpxchg_bugcheck_count = 128;
--# define CMPXCHG_BUGCHECK(v)							\
--  do {										\
--	if (_cmpxchg_bugcheck_count-- <= 0) {					\
--		void *ip;							\
--		extern int printk(const char *fmt, ...);			\
--		ip = (void *) ia64_getreg(_IA64_REG_IP);			\
--		printk("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v));	\
--		break;								\
--	}									\
--  } while (0)
--#else /* !CONFIG_IA64_DEBUG_CMPXCHG */
--# define CMPXCHG_BUGCHECK_DECL
--# define CMPXCHG_BUGCHECK(v)
--#endif /* !CONFIG_IA64_DEBUG_CMPXCHG */
--
- #endif
- 
- #ifdef __KERNEL__
--- 
-1.7.9.1
-
+T24gVHVlLCBBcHIgMywgMjAxMiBhdCAzOjAwIFBNLCBQYXVsIEdvcnRtYWtlcgo8cGF1bC5nb3J0
+bWFrZXJAd2luZHJpdmVyLmNvbT4gd3JvdGU6Cj4gY29tbWl0IDkzZjM3ODg4M2NlY2I5ZGNiMmNm
+NWI1MWQ5ZDI0MTc1OTA2NjU5ZGEKPgo+IKAgoCJGaXggaWE2NCBidWlsZCBlcnJvcnMgKGZhbGxv
+dXQgZnJvbSBzeXN0ZW0uaCBkaXNpbnRlZ3JhdGlvbikiCj4KPiBpbnRyb2R1Y2VkIGFyY2gvaWE2
+NC9pbmNsdWRlL2FzbS9jbXB4Y2hnLmggYXMgYSB0ZW1wb3JhcnkKPiBidWlsZCBmaXggYW5kIHN0
+YXRlZDoKPgo+IKAgoCIuLi4gbGVhdmUgdGhlIG1pZ3JhdGlvbiBvZiB4Y2hnKCkgYW5kIGNtcHhj
+aGcoKSB0byB0aGlzIG5ldwo+IKAgoCBoZWFkZXIgZmlsZSBmb3IgYSBmdXR1cmUgcGF0Y2guIgo+
+Cj4gTWlncmF0ZSB0aGUgYXBwcm9wcmlhdGUgY2h1bmtzIGZyb20gYXNtL2ludHJpbnNpY3MuaCBh
+bmQgZml4Cj4gdGhlIHdoaXRlc3BhY2UgaXNzdWVzIGluIHRoZSBtaWdyYXRlZCBjaHVuay4KPgo+
+IENjOiBUb255IEx1Y2sgPHRvbnkubHVja0BpbnRlbC5jb20+CgpIaSBUb255LAoKSnVzdCB3b25k
+ZXJpbmcgaWYgeW91IGhhZCBhIGNoYW5jZSB0byBsb29rIGF0IHRoaXMsIGFuZAp3aGV0aGVyIGl0
+IHdhcyBPSyBhbmQgaW4geW91ciBxdWV1ZS4KCkl0IGhhcyBiZWVuIGluIGxpbnV4LW5leHQgZm9y
+ID4gMXdrLiAgSSd2ZSBnb3QgYSBmaXggZm9yCmFyY2gvYWxwaGEgYW5kIEkgY2FuIGJ1bmRsZSB0
+aGlzIGFsb25nIHdpdGggaXQgaW4gYSBwdWxsCnJlcXVlc3QgaWYgeW91IGRvbid0IGhhdmUgaXQg
+aW4geW91ciBxdWV1ZSBhbHJlYWR5LgoKVGhhbmtzLApQYXVsLgotLQoKPiBDYzogRmVuZ2h1YSBZ
+dSA8ZmVuZ2h1YS55dUBpbnRlbC5jb20+Cj4gQ2M6IERhdmlkIEhvd2VsbHMgPGRob3dlbGxzQHJl
+ZGhhdC5jb20+Cj4gU2lnbmVkLW9mZi1ieTogUGF1bCBHb3J0bWFrZXIgPHBhdWwuZ29ydG1ha2Vy
+QHdpbmRyaXZlci5jb20+Cj4KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2Nt
+cHhjaGcuaCBiL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9jbXB4Y2hnLmgKPiBpbmRleCA0Yzk2MTg3
+Li40ZjM3ZGJiIDEwMDY0NAo+IC0tLSBhL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9jbXB4Y2hnLmgK
+PiArKysgYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vY21weGNoZy5oCj4gQEAgLTEgKzEsMTQ3IEBA
+Cj4gLSNpbmNsdWRlIDxhc20vaW50cmluc2ljcy5oPgo+ICsjaWZuZGVmIF9BU01fSUE2NF9DTVBY
+Q0hHX0gKPiArI2RlZmluZSBfQVNNX0lBNjRfQ01QWENIR19ICj4gKwo+ICsvKgo+ICsgKiBDb21w
+YXJlL0V4Y2hhbmdlLCBmb3JrZWQgZnJvbSBhc20vaW50cmluc2ljcy5oCj4gKyAqIHdoaWNoIHdh
+czoKPiArICoKPiArICogoCCgIENvcHlyaWdodCAoQykgMjAwMi0yMDAzIEhld2xldHQtUGFja2Fy
+ZCBDbwo+ICsgKiCgIKAgRGF2aWQgTW9zYmVyZ2VyLVRhbmcgPGRhdmlkbUBocGwuaHAuY29tPgo+
+ICsgKi8KPiArCj4gKyNpZm5kZWYgX19BU1NFTUJMWV9fCj4gKwo+ICsjaW5jbHVkZSA8bGludXgv
+dHlwZXMuaD4KPiArLyogaW5jbHVkZSBjb21waWxlciBzcGVjaWZpYyBpbnRyaW5zaWNzICovCj4g
+KyNpbmNsdWRlIDxhc20vaWE2NHJlZ3MuaD4KPiArI2lmZGVmIF9fSU5URUxfQ09NUElMRVIKPiAr
+IyBpbmNsdWRlIDxhc20vaW50ZWxfaW50cmluLmg+Cj4gKyNlbHNlCj4gKyMgaW5jbHVkZSA8YXNt
+L2djY19pbnRyaW4uaD4KPiArI2VuZGlmCj4gKwo+ICsvKgo+ICsgKiBUaGlzIGZ1bmN0aW9uIGRv
+ZXNuJ3QgZXhpc3QsIHNvIHlvdSdsbCBnZXQgYSBsaW5rZXIgZXJyb3IgaWYKPiArICogc29tZXRo
+aW5nIHRyaWVzIHRvIGRvIGFuIGludmFsaWQgeGNoZygpLgo+ICsgKi8KPiArZXh0ZXJuIHZvaWQg
+aWE2NF94Y2hnX2NhbGxlZF93aXRoX2JhZF9wb2ludGVyKHZvaWQpOwo+ICsKPiArI2RlZmluZSBf
+X3hjaGcoeCwgcHRyLCBzaXplKSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCBcCj4gKyh7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgdW5zaWduZWQgbG9uZyBfX3hjaGdf
+cmVzdWx0OyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCBcCj4gKyCgIKAgoCBzd2l0Y2ggKHNpemUpIHsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgY2FzZSAxOiCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAg
+oCCgIKAgX194Y2hnX3Jlc3VsdCA9IGlhNjRfeGNoZzEoKF9fdTggKilwdHIsIHgpOyCgIKAgoCCg
+IKAgoCBcCj4gKyCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIGNh
+c2UgMjogoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCBcCj4gKyCgIKAgoCCgIKAgoCCgIF9feGNoZ19yZXN1bHQgPSBpYTY0X3hjaGcyKChfX3Ux
+NiAqKXB0ciwgeCk7IKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCBcCj4gKyCgIKAgoCBjYXNlIDQ6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfX3hjaGdfcmVzdWx0
+ID0gaWE2NF94Y2hnNCgoX191MzIgKilwdHIsIHgpOyCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAg
+oCCgIKAgYnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKBcCj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgY2FzZSA4OiCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAg
+oCCgIKAgX194Y2hnX3Jlc3VsdCA9IGlhNjRfeGNoZzgoKF9fdTY0ICopcHRyLCB4KTsgoCCgIKAg
+oCCgIKBcCj4gKyCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgZGVmYXVsdDogoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAg
+oCCgIKAgaWE2NF94Y2hnX2NhbGxlZF93aXRoX2JhZF9wb2ludGVyKCk7IKAgoCCgIKAgoCCgIKAg
+oCCgIKBcCj4gKyCgIKAgoCB9IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgX194Y2hnX3Jlc3VsdDsgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArfSkKPiArCj4g
+KyNkZWZpbmUgeGNoZyhwdHIsIHgpIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgXAo+ICsoKF9fdHlwZW9mX18oKihwdHIpKSkgX194Y2hnKCh1bnNpZ25l
+ZCBsb25nKSAoeCksIChwdHIpLCBzaXplb2YoKihwdHIpKSkpCj4gKwo+ICsvKgo+ICsgKiBBdG9t
+aWMgY29tcGFyZSBhbmQgZXhjaGFuZ2UuIKBDb21wYXJlIE9MRCB3aXRoIE1FTSwgaWYgaWRlbnRp
+Y2FsLAo+ICsgKiBzdG9yZSBORVcgaW4gTUVNLiCgUmV0dXJuIHRoZSBpbml0aWFsIHZhbHVlIGlu
+IE1FTS4goFN1Y2Nlc3MgaXMKPiArICogaW5kaWNhdGVkIGJ5IGNvbXBhcmluZyBSRVRVUk4gd2l0
+aCBPTEQuCj4gKyAqLwo+ICsKPiArI2RlZmluZSBfX0hBVkVfQVJDSF9DTVBYQ0hHIDEKPiArCj4g
+Ky8qCj4gKyAqIFRoaXMgZnVuY3Rpb24gZG9lc24ndCBleGlzdCwgc28geW91J2xsIGdldCBhIGxp
+bmtlciBlcnJvcgo+ICsgKiBpZiBzb21ldGhpbmcgdHJpZXMgdG8gZG8gYW4gaW52YWxpZCBjbXB4
+Y2hnKCkuCj4gKyAqLwo+ICtleHRlcm4gbG9uZyBpYTY0X2NtcHhjaGdfY2FsbGVkX3dpdGhfYmFk
+X3BvaW50ZXIodm9pZCk7Cj4gKwo+ICsjZGVmaW5lIGlhNjRfY21weGNoZyhzZW0sIHB0ciwgb2xk
+LCBuZXcsIHNpemUpIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArKHsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCBfX3U2NCBfb18sIF9yXzsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIHN3aXRjaCAo
+c2l6ZSkgeyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCBjYXNlIDE6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfb18gPSAoX191OCkgKGxvbmcp
+IChvbGQpOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCBjYXNlIDI6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfb18gPSAoX191MTYpIChsb25n
+KSAob2xkKTsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCBjYXNlIDQ6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfb18gPSAoX191MzIpIChsb25n
+KSAob2xkKTsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCBjYXNlIDg6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfb18gPSAoX191NjQpIChsb25n
+KSAob2xkKTsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCBkZWZhdWx0OiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIH0goCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCBzd2l0Y2ggKHNpemUpIHsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgY2FzZSAxOiCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+X3JfID0gaWE2NF9jbXB4Y2hnMV8jI3NlbSgoX191OCAqKSBwdHIsIG5ldywgX29fKTsgoCCgIKBc
+Cj4gKyCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIGNhc2UgMjog
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCCgIKAgoCCgIF9yXyA9IGlhNjRfY21weGNoZzJfIyNzZW0oKF9fdTE2ICopIHB0
+ciwgbmV3LCBfb18pOyCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCBjYXNlIDQ6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBfcl8gPSBpYTY0X2NtcHhjaGc0
+XyMjc2VtKChfX3UzMiAqKSBwdHIsIG5ldywgX29fKTsgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgY2FzZSA4OiCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIKAgoCCgIKAg
+X3JfID0gaWE2NF9jbXB4Y2hnOF8jI3NlbSgoX191NjQgKikgcHRyLCBuZXcsIF9vXyk7IKAgoCBc
+Cj4gKyCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIGRlZmF1bHQ6
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gKyCgIKAgoCCgIKAgoCCgIF9yXyA9IGlhNjRfY21weGNoZ19jYWxsZWRfd2l0aF9iYWRfcG9p
+bnRlcigpOyCgIKAgoCCgIKAgXAo+ICsgoCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIH0goCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gKyCgIKAgoCAoX190eXBlb2ZfXyhvbGQpKSBfcl87IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+ICt9KQo+ICsKPiArI2RlZmluZSBjbXB4Y2hnX2FjcShwdHIs
+IG8sIG4pIFwKPiArIKAgoCCgIGlhNjRfY21weGNoZyhhY3EsIChwdHIpLCAobyksIChuKSwgc2l6
+ZW9mKCoocHRyKSkpCj4gKyNkZWZpbmUgY21weGNoZ19yZWwocHRyLCBvLCBuKSBcCj4gKyCgIKAg
+oCBpYTY0X2NtcHhjaGcocmVsLCAocHRyKSwgKG8pLCAobiksIHNpemVvZigqKHB0cikpKQo+ICsK
+PiArLyogZm9yIGNvbXBhdGliaWxpdHkgd2l0aCBvdGhlciBwbGF0Zm9ybXM6ICovCj4gKyNkZWZp
+bmUgY21weGNoZyhwdHIsIG8sIG4pIKAgoCBjbXB4Y2hnX2FjcSgocHRyKSwgKG8pLCAobikpCj4g
+KyNkZWZpbmUgY21weGNoZzY0KHB0ciwgbywgbikgoCBjbXB4Y2hnX2FjcSgocHRyKSwgKG8pLCAo
+bikpCj4gKwo+ICsjZGVmaW5lIGNtcHhjaGdfbG9jYWwgoCCgIKAgoCCgY21weGNoZwo+ICsjZGVm
+aW5lIGNtcHhjaGc2NF9sb2NhbCCgIKAgoCCgIKAgoCCgIKBjbXB4Y2hnNjQKPiArCj4gKyNpZmRl
+ZiBDT05GSUdfSUE2NF9ERUJVR19DTVBYQ0hHCj4gKyMgZGVmaW5lIENNUFhDSEdfQlVHQ0hFQ0tf
+REVDTCBpbnQgX2NtcHhjaGdfYnVnY2hlY2tfY291bnQgPSAxMjg7Cj4gKyMgZGVmaW5lIENNUFhD
+SEdfQlVHQ0hFQ0sodikgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+XAo+ICtkbyB7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIFwKPiArIKAgoCCgIGlmIChfY21weGNoZ19idWdjaGVja19jb3Vu
+dC0tIDw9IDApIHsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gKyCgIKAgoCCgIKAgoCCg
+IHZvaWQgKmlwOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+XAo+ICsgoCCgIKAgoCCgIKAgoCBleHRlcm4gaW50IHByaW50ayhjb25zdCBjaGFyICpmbXQsIC4u
+Lik7IKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIKAgoCCgIKAgaXAgPSAodm9pZCAqKSBpYTY0
+X2dldHJlZyhfSUE2NF9SRUdfSVApOyCgIKAgoCCgIKAgoCCgIKBcCj4gKyCgIKAgoCCgIKAgoCCg
+IHByaW50aygiQ01QWENIR19CVUdDSEVDSzogc3R1Y2sgYXQgJXAgb24gd29yZCAlcFxuIiwgaXAs
+ICh2KSk7XAo+ICsgoCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiArIKAgoCCgIH0goCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gK30gd2hpbGUg
+KDApCj4gKyNlbHNlIC8qICFDT05GSUdfSUE2NF9ERUJVR19DTVBYQ0hHICovCj4gKyMgZGVmaW5l
+IENNUFhDSEdfQlVHQ0hFQ0tfREVDTAo+ICsjIGRlZmluZSBDTVBYQ0hHX0JVR0NIRUNLKHYpCj4g
+KyNlbmRpZiAvKiAhQ09ORklHX0lBNjRfREVCVUdfQ01QWENIRyAqLwo+ICsKPiArI2VuZGlmIC8q
+ICFfX0FTU0VNQkxZX18gKi8KPiArCj4gKyNlbmRpZiAvKiBfQVNNX0lBNjRfQ01QWENIR19IICov
+Cj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9pbnRyaW5zaWNzLmggYi9hcmNo
+L2lhNjQvaW5jbHVkZS9hc20vaW50cmluc2ljcy5oCj4gaW5kZXggZTQwNzZiNS4uZDEyOWUzNiAx
+MDA2NDQKPiAtLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vaW50cmluc2ljcy5oCj4gKysrIGIv
+YXJjaC9pYTY0L2luY2x1ZGUvYXNtL2ludHJpbnNpY3MuaAo+IEBAIC0xOCw2ICsxOCw3IEBACj4g
+oCNlbHNlCj4goCMgaW5jbHVkZSA8YXNtL2djY19pbnRyaW4uaD4KPiCgI2VuZGlmCj4gKyNpbmNs
+dWRlIDxhc20vY21weGNoZy5oPgo+Cj4goCNkZWZpbmUgaWE2NF9uYXRpdmVfZ2V0X3Bzcl9pKCkg
+oCCgIKAgoChpYTY0X25hdGl2ZV9nZXRyZWcoX0lBNjRfUkVHX1BTUikgJiBJQTY0X1BTUl9JKQo+
+Cj4gQEAgLTgxLDExOSArODIsNiBAQCBleHRlcm4gdW5zaWduZWQgbG9uZyBfX2JhZF9pbmNyZW1l
+bnRfZm9yX2lhNjRfZmV0Y2hfYW5kX2FkZCAodm9pZCk7Cj4KPiCgI2RlZmluZSBpYTY0X2ZldGNo
+X2FuZF9hZGQoaSx2KSCgIKAgoCCgKGlhNjRfZmV0Y2hhZGQoaSwgdiwgcmVsKSArIChpKSkgLyog
+cmV0dXJuIG5ldyB2YWx1ZSAqLwo+Cj4gLS8qCj4gLSAqIFRoaXMgZnVuY3Rpb24gZG9lc24ndCBl
+eGlzdCwgc28geW91J2xsIGdldCBhIGxpbmtlciBlcnJvciBpZgo+IC0gKiBzb21ldGhpbmcgdHJp
+ZXMgdG8gZG8gYW4gaW52YWxpZCB4Y2hnKCkuCj4gLSAqLwo+IC1leHRlcm4gdm9pZCBpYTY0X3hj
+aGdfY2FsbGVkX3dpdGhfYmFkX3BvaW50ZXIgKHZvaWQpOwo+IC0KPiAtI2RlZmluZSBfX3hjaGco
+eCxwdHIsc2l6ZSkgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gLSh7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgdW5zaWduZWQgbG9uZyBfX3hjaGdfcmVzdWx0
+OyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gLSCgIKAgoCBzd2l0Y2ggKHNpemUpIHsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgY2FzZSAxOiCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIKAg
+X194Y2hnX3Jlc3VsdCA9IGlhNjRfeGNoZzEoKF9fdTggKilwdHIsIHgpOyCgIKAgoCCgIKAgoCBc
+Cj4gLSCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIGNh
+c2UgMjogoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gLSCgIKAgoCCgIKAgoCCgIF9feGNoZ19yZXN1bHQgPSBpYTY0X3hjaGcyKChfX3UxNiAqKXB0
+ciwgeCk7IKAgoCCgIKAgoCCgXAo+IC0goCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gLSCgIKAgoCCgIKAgoCBjYXNlIDQ6IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgoCBfX3hjaGdfcmVzdWx0ID0gaWE2
+NF94Y2hnNCgoX191MzIgKilwdHIsIHgpOyCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgY2FzZSA4OiCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIKAg
+X194Y2hnX3Jlc3VsdCA9IGlhNjRfeGNoZzgoKF9fdTY0ICopcHRyLCB4KTsgoCCgIKAgoCCgIKBc
+Cj4gLSCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgXAo+IC0goCCgIKAgoCCgIKAgZGVmYXVsdDogoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAg
+aWE2NF94Y2hnX2NhbGxlZF93aXRoX2JhZF9wb2ludGVyKCk7IKAgoCCgIKAgoCCgIKAgoCCgIKBc
+Cj4gLSCgIKAgoCB9IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgX194Y2hnX3Jlc3VsdDsgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiAtfSkKPiAtCj4gLSNkZWZp
+bmUgeGNoZyhwdHIseCkgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCBcCj4gLSCgKChfX3R5cGVvZl9fKCoocHRyKSkpIF9feGNoZyAoKHVuc2ln
+bmVkIGxvbmcpICh4KSwgKHB0ciksIHNpemVvZigqKHB0cikpKSkKPiAtCj4gLS8qCj4gLSAqIEF0
+b21pYyBjb21wYXJlIGFuZCBleGNoYW5nZS4goENvbXBhcmUgT0xEIHdpdGggTUVNLCBpZiBpZGVu
+dGljYWwsCj4gLSAqIHN0b3JlIE5FVyBpbiBNRU0uIKBSZXR1cm4gdGhlIGluaXRpYWwgdmFsdWUg
+aW4gTUVNLiCgU3VjY2VzcyBpcwo+IC0gKiBpbmRpY2F0ZWQgYnkgY29tcGFyaW5nIFJFVFVSTiB3
+aXRoIE9MRC4KPiAtICovCj4gLQo+IC0jZGVmaW5lIF9fSEFWRV9BUkNIX0NNUFhDSEcgMQo+IC0K
+PiAtLyoKPiAtICogVGhpcyBmdW5jdGlvbiBkb2Vzbid0IGV4aXN0LCBzbyB5b3UnbGwgZ2V0IGEg
+bGlua2VyIGVycm9yCj4gLSAqIGlmIHNvbWV0aGluZyB0cmllcyB0byBkbyBhbiBpbnZhbGlkIGNt
+cHhjaGcoKS4KPiAtICovCj4gLWV4dGVybiBsb25nIGlhNjRfY21weGNoZ19jYWxsZWRfd2l0aF9i
+YWRfcG9pbnRlciAodm9pZCk7Cj4gLQo+IC0jZGVmaW5lIGlhNjRfY21weGNoZyhzZW0scHRyLG9s
+ZCxuZXcsc2l6ZSkgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBc
+Cj4gLSh7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIF9fdTY0IF9vXywg
+X3JfOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAg
+oCBzd2l0Y2ggKHNpemUpIHsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIGNhc2UgMTogX29fID0g
+KF9fdTggKSAobG9uZykgKG9sZCk7IGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgXAo+IC0goCCgIKAgoCCgIKAgY2FzZSAyOiBfb18gPSAoX191MTYpIChsb25nKSAob2xkKTsg
+YnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBcCj4gLSCgIKAgoCCgIKAgoCBj
+YXNlIDQ6IF9vXyA9IChfX3UzMikgKGxvbmcpIChvbGQpOyBicmVhazsgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIGNhc2UgODogX29fID0gKF9fdTY0KSAo
+bG9uZykgKG9sZCk7IGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+IC0g
+oCCgIKAgoCCgIKAgZGVmYXVsdDogYnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAgoCB9IKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIFwKPiAtIKAgoCCgIHN3aXRjaCAoc2l6ZSkgeyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCg
+IKAgY2FzZSAxOiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAgoCCgIKAgoCCgIF9yXyA9IGlhNjRfY21weGNo
+ZzFfIyNzZW0oKF9fdTggKikgcHRyLCBuZXcsIF9vXyk7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwK
+PiAtIKAgoCCgIKAgoCCgIKAgYnJlYWs7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+IC0goCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCBcCj4gLSCgIKAgoCCgIKAgoCBjYXNlIDI6IKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCg
+IKAgoCCgIKBfcl8gPSBpYTY0X2NtcHhjaGcyXyMjc2VtKChfX3UxNiAqKSBwdHIsIG5ldywgX29f
+KTsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+IC0goCCgIKAgoCCgIKAgoCBicmVhazsgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKBcCj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIGNh
+c2UgNDogoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgoCBfcl8gPSBpYTY0X2NtcHhjaGc0XyMj
+c2VtKChfX3UzMiAqKSBwdHIsIG5ldywgX29fKTsgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCg
+IKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgXAo+IC0goCCgIKAgoCCgIKAgY2FzZSA4OiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAgoCCgIKAg
+oCCgIF9yXyA9IGlhNjRfY21weGNoZzhfIyNzZW0oKF9fdTY0ICopIHB0ciwgbmV3LCBfb18pOyCg
+IKAgoCCgIKAgoCCgIKAgoCCgIFwKPiAtIKAgoCCgIKAgoCCgIKAgYnJlYWs7IKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+
+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAgoCCgIKAgoCBkZWZhdWx0
+OiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoFwKPiAtIKAgoCCgIKAgoCCgIKAgX3JfID0gaWE2NF9jbXB4Y2hnX2NhbGxlZF93
+aXRoX2JhZF9wb2ludGVyKCk7IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgXAo+IC0goCCgIKAg
+oCCgIKAgoCBicmVhazsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBcCj4gLSCgIKAgoCB9IKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IFwKPiAtIKAgoCCgIChfX3R5cGVvZl9fKG9sZCkpIF9yXzsgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgXAo+IC19KQo+IC0KPiAtI2RlZmlu
+ZSBjbXB4Y2hnX2FjcShwdHIsIG8sIG4pIFwKPiAtIKAgoCCgIGlhNjRfY21weGNoZyhhY3EsIChw
+dHIpLCAobyksIChuKSwgc2l6ZW9mKCoocHRyKSkpCj4gLSNkZWZpbmUgY21weGNoZ19yZWwocHRy
+LCBvLCBuKSBcCj4gLSCgIKAgoCBpYTY0X2NtcHhjaGcocmVsLCAocHRyKSwgKG8pLCAobiksIHNp
+emVvZigqKHB0cikpKQo+IC0KPiAtLyogZm9yIGNvbXBhdGliaWxpdHkgd2l0aCBvdGhlciBwbGF0
+Zm9ybXM6ICovCj4gLSNkZWZpbmUgY21weGNoZyhwdHIsIG8sIG4pIKAgoCBjbXB4Y2hnX2FjcSgo
+cHRyKSwgKG8pLCAobikpCj4gLSNkZWZpbmUgY21weGNoZzY0KHB0ciwgbywgbikgoCBjbXB4Y2hn
+X2FjcSgocHRyKSwgKG8pLCAobikpCj4gLQo+IC0jZGVmaW5lIGNtcHhjaGdfbG9jYWwgoCCgIKAg
+oCCgY21weGNoZwo+IC0jZGVmaW5lIGNtcHhjaGc2NF9sb2NhbCCgIKAgoCCgIKAgoCCgIKBjbXB4
+Y2hnNjQKPiAtCj4gLSNpZmRlZiBDT05GSUdfSUE2NF9ERUJVR19DTVBYQ0hHCj4gLSMgZGVmaW5l
+IENNUFhDSEdfQlVHQ0hFQ0tfREVDTCBpbnQgX2NtcHhjaGdfYnVnY2hlY2tfY291bnQgPSAxMjg7
+Cj4gLSMgZGVmaW5lIENNUFhDSEdfQlVHQ0hFQ0sodikgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgZG8geyCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4g
+LSCgIKAgoCBpZiAoX2NtcHhjaGdfYnVnY2hlY2tfY291bnQtLSA8PSAwKSB7IKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCgIKAgoCCgIKAgoCCgIHZvaWQgKmlwOyCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBcCj4gLSCg
+IKAgoCCgIKAgoCCgIGV4dGVybiBpbnQgcHJpbnRrKGNvbnN0IGNoYXIgKmZtdCwgLi4uKTsgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKBcCj4gLSCgIKAgoCCgIKAgoCCgIGlwID0gKHZvaWQgKikgaWE2
+NF9nZXRyZWcoX0lBNjRfUkVHX0lQKTsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBcCj4gLSCgIKAg
+oCCgIKAgoCCgIHByaW50aygiQ01QWENIR19CVUdDSEVDSzogc3R1Y2sgYXQgJXAgb24gd29yZCAl
+cFxuIiwgaXAsICh2KSk7IKBcCj4gLSCgIKAgoCCgIKAgoCCgIGJyZWFrOyCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBcCj4gLSCgIKAgoCB9
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCBcCj4gLSCgfSB3aGlsZSAoMCkKPiAtI2Vsc2UgLyogIUNPTkZJR19JQTY0
+X0RFQlVHX0NNUFhDSEcgKi8KPiAtIyBkZWZpbmUgQ01QWENIR19CVUdDSEVDS19ERUNMCj4gLSMg
+ZGVmaW5lIENNUFhDSEdfQlVHQ0hFQ0sodikKPiAtI2VuZGlmIC8qICFDT05GSUdfSUE2NF9ERUJV
+R19DTVBYQ0hHICovCj4gLQo+IKAjZW5kaWYKPgo+IKAjaWZkZWYgX19LRVJORUxfXwo+IC0tCj4g
+MS43LjkuMQo+Cj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUg
+bGluZSAidW5zdWJzY3JpYmUgbGludXgta2VybmVsIiBpbgo+IHRoZSBib2R5IG9mIGEgbWVzc2Fn
+ZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCCg
+aHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sCj4gUGxlYXNlIHJlYWQg
+dGhlIEZBUSBhdCCgaHR0cDovL3d3dy50dXgub3JnL2xrbWwvCg=
