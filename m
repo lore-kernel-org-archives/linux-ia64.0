@@ -1,112 +1,51 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Sun, 01 Apr 2012 18:12:11 +0000
-Subject: Re: [PATCH RFC] Simplify the Linux kernel by reducing its state space
-Message-Id: <20120401181211.GZ2450@linux.vnet.ibm.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 13 Apr 2012 18:32:44 +0000
+Subject: [PATCH] [IA64] Fix futex_atomic_cmpxchg_inatomic()
+Message-Id: <a3bcb07f7bd1106089a51033a6c104562fb90f89.1334342735.git.tony.luck@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120331163321.GA15809@linux.vnet.ibm.com>
- <20120331223200.GA32482@n2100.arm.linux.org.uk>
- <alpine.LFD.2.02.1204011930010.2542@ionos>
-In-Reply-To: <alpine.LFD.2.02.1204011930010.2542@ionos>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: linux-ia64@vger.kernel.org
 
-On Sun, Apr 01, 2012 at 07:34:55PM +0200, Thomas Gleixner wrote:
-> On Sat, 31 Mar 2012, Russell King - ARM Linux wrote:
-> 
-> > On Sun, Apr 01, 2012 at 12:33:21AM +0800, Paul E. McKenney wrote:
-> > > Although there have been numerous complaints about the complexity of
-> > > parallel programming (especially over the past 5-10 years), the plain
-> > > truth is that the incremental complexity of parallel programming over
-> > > that of sequential programming is not as large as is commonly believed.
-> > > Despite that you might have heard, the mind-numbing complexity of modern
-> > > computer systems is not due so much to there being multiple CPUs, but
-> > > rather to there being any CPUs at all.  In short, for the ultimate in
-> > > computer-system simplicity, the optimal choice is NR_CPUS=0.
-> > > 
-> > > This commit therefore limits kernel builds to zero CPUs.  This change
-> > > has the beneficial side effect of rendering all kernel bugs harmless.
-> > > Furthermore, this commit enables additional beneficial changes, for
-> > > example, the removal of those parts of the kernel that are not needed
-> > > when there are zero CPUs.
-> > > 
-> > > Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > > Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
-> > 
-> > Great work, but I don't think you've gone far enough with this.
-> > 
-> > What would really help is if you could consolidate all these NR_CPUS
-> > definitions into one place so we don't have essentially the same thing
-> > scattered across all these architectures.  We're already doing this on
-> > ARM across our platforms, and its about time such an approach was taken
-> > across the entire kernel tree.
-> > 
-> > It looks like the MIPS solution would be the best one to pick.
-> > Could you rework your patch to do this please?
-> > 
-> > While you're at it, you might like to consider that having zero CPUs
-> > makes all this architecture support redundant, so maybe you've missed
-> > a trick there - according to my count, we could get rid of almost 3
-> > million lines of code from arch.  We could replace all that with a
-> > single standard implementation.
-> 
-> For a first step we can deprecated arch/ and make it depend on
-> CONFIG_STAGING. That way we can have it around a bit for sentimental
-> reasons w/o having a lot of churn.
-> 
-> Suggested-by: Russell King <rmk+kernel@arm.linux.org.uk>
-> Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Michel Lespinasse cleaned up the futex calling conventions in
+commit 37a9d912b24f96a0591773e6e6c3642991ae5a70
+    futex: Sanitize cmpxchg_futex_value_locked API
 
-;-) ;-) ;-)
+But the ia64 implementation was subtly broken. Gcc does not know
+that register "r8" will be updated by the fault handler if the
+cmpxchg instruction takes an exception. So it feels safe in letting
+the initialization of r8 slide to after the cmpxchg. Result: we
+always return 0 whether the user address faulted or not.
 
-Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Fix by moving the initialization of r8 into the __asm__ code so
+gcc won't move it.
 
-							Thanx, Paul
+Reported-by: <emeric.maschino@gmail.com>
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?idB757
+Cc: stable@vger.kernel.org # v2.6.39+
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/ia64/include/asm/futex.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> Index: tip/Makefile
-> =================================> --- tip.orig/Makefile
-> +++ tip/Makefile
-> @@ -564,7 +564,9 @@ else
->  KBUILD_CFLAGS	+= -O2
->  endif
-> 
-> +ifdef CONFIG_ARCH_SUPPORT
->  include $(srctree)/arch/$(SRCARCH)/Makefile
-> +endif
-> 
->  ifneq ($(CONFIG_FRAME_WARN),0)
->  KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
-> Index: tip/drivers/staging/Kconfig
-> =================================> --- tip.orig/drivers/staging/Kconfig
-> +++ tip/drivers/staging/Kconfig
-> @@ -1,6 +1,10 @@
-> +config ARCH_SUPPORT
-> +	bool
-> +
->  menuconfig STAGING
->  	bool "Staging drivers"
->  	default n
-> +	select ARCH_SUPPORT
->  	---help---
->  	  This option allows you to select a number of drivers that are
->  	  not of the "normal" Linux kernel quality level.  These drivers
-> Index: tip/Documentation/feature-removal-schedule.txt
-> =================================> --- tip.orig/Documentation/feature-removal-schedule.txt
-> +++ tip/Documentation/feature-removal-schedule.txt
-> @@ -537,3 +537,13 @@ When:	3.6
->  Why:	setitimer is not returning -EFAULT if user pointer is NULL. This
->  	violates the spec.
->  Who:	Sasikantha Babu <sasikanth.v19@gmail.com>
-> +
-> +-----------------------------
-> +
-> +What:	Remove arch
-> +When:	April 1st 2013
-> +Why:    NR_CPUS=0 made arch/ obsolete. Keep it around a bit for
-> +	sentimental reasons.
-> +Who:	paulmck,tglx.rmk
-> +
-> +	
-> 
+diff --git a/arch/ia64/include/asm/futex.h b/arch/ia64/include/asm/futex.h
+index 0ab82cc..841b062 100644
+--- a/arch/ia64/include/asm/futex.h
++++ b/arch/ia64/include/asm/futex.h
+@@ -106,10 +106,11 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
+ 		return -EFAULT;
+ 
+ 	{
+-		register unsigned long r8 __asm ("r8") = 0;
++		register unsigned long r8 __asm ("r8");
+ 		unsigned long prev;
+ 		__asm__ __volatile__(
+ 			"	mf;;					\n"
++			"	mov r8=r0				\n"
+ 			"	mov ar.ccv=%3;;				\n"
+ 			"[1:]	cmpxchg4.acq %0=[%1],%2,ar.ccv		\n"
+ 			"	.xdata4 \"__ex_table\", 1b-., 2f-.	\n"
+-- 
+1.7.9.rc2.1.g69204
 
