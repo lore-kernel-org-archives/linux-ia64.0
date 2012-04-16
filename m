@@ -1,110 +1,64 @@
-From: Kautuk Consul <consul.kautuk@gmail.com>
-Date: Tue, 20 Mar 2012 13:23:14 +0000
-Subject: [PATCH 10/20] ia64/mm/fault.c: Port OOM changes to ia64_do_page_fault
-Message-Id: <1332249794-2936-1-git-send-email-consul.kautuk@gmail.com>
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Mon, 16 Apr 2012 07:21:58 +0000
+Subject: Re: [PATCH] gpiolib/arches: Centralise bolierplate asm/gpio.h
+Message-Id: <CACRpkdZ8yH1ZSG-nQ9dLm0TipHS-jZDuxwqohUC=LGH9V-5q4w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1334483574-3997-1-git-send-email-broonie@opensource.wolfsonmicro.com>
+In-Reply-To: <1334483574-3997-1-git-send-email-broonie@opensource.wolfsonmicro.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Kautuk Consul <consul.kautuk@gmail.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Mark Brown <broonie@opensource.wolfsonmicro.com>
+Cc: Grant Likely <grant@secretlab.ca>, Linus Walleij <linus.walleij@stericsson.com>, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, microblaze-uclinux@itee.uq.edu.au, linux@openrisc.net, "linuxppc-dev@lists.ozlabs.org list" <linuxppc-dev@lists.ozlabs.org>, sparclinux@vger.kernel.org, Chris Zankel <chris@zankel.net>
 
-Commit d065bd810b6deb67d4897a14bfe21f8eb526ba99
-(mm: retry page fault when blocking on disk transfer) and
-commit 37b23e0525d393d48a7d59f870b3bc061a30ccdb
-(x86,mm: make pagefault killable)
+On Sun, Apr 15, 2012 at 11:52 AM, Mark Brown
+<broonie@opensource.wolfsonmicro.com> wrote:
 
-The above commits introduced changes into the x86 pagefault handler
-for making the page fault handler retryable as well as killable.
-
-These changes reduce the mmap_sem hold time, which is crucial
-during OOM killer invocation.
-
-Port these changes to ia64.
-
-Signed-off-by: Kautuk Consul <consul.kautuk@gmail.com>
+> Rather than requiring architectures that use gpiolib but don't have any
+> need to define anything custom to copy an asm/gpio.h provide a Kconfig
+> symbol which architectures must select in order to include gpio.h and
+> for other architectures just provide the trivial implementation directly.
+>
+> This makes it much easier to do gpiolib updates and is also a step towards
+> making gpiolib APIs available on every architecture.
+>
+> For architectures with existing boilerplate code leave a stub header in
+> place which warns on direct inclusion of asm/gpio.h and includes
+> linux/gpio.h to catch code that's doing this. =A0Direct inclusion of
+> asm/gpio.h has long been deprecated.
+>
+> Signed-off-by: Mark Brown <broonie@opensource.wolfsonmicro.com>
+> ---
+> =A0arch/alpha/include/asm/gpio.h =A0 =A0 =A0| =A0 59 ++------------------=
+----------
+> =A0arch/arm/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A01 +
+> =A0arch/avr32/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A01 +
+> =A0arch/blackfin/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
+> =A0arch/ia64/include/asm/gpio.h =A0 =A0 =A0 | =A0 59 ++------------------=
+----------
+> =A0arch/m68k/Kconfig.cpu =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
+> =A0arch/microblaze/include/asm/gpio.h | =A0 57 ++------------------------=
 ---
- arch/ia64/mm/fault.c |   39 +++++++++++++++++++++++++++++++--------
- 1 files changed, 31 insertions(+), 8 deletions(-)
+> =A0arch/mips/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
+> =A0arch/openrisc/include/asm/gpio.h =A0 | =A0 69 ++----------------------=
+-----------
+> =A0arch/powerpc/include/asm/gpio.h =A0 =A0| =A0 57 ++--------------------=
+-------
+> =A0arch/sh/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 =A01 +
+> =A0arch/sparc/include/asm/gpio.h =A0 =A0 =A0| =A0 40 ++-------------------
+> =A0arch/unicore32/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A01 +
+> =A0arch/x86/include/asm/gpio.h =A0 =A0 =A0 =A0| =A0 57 ++----------------=
+-----------
+> =A0arch/xtensa/include/asm/gpio.h =A0 =A0 | =A0 60 ++--------------------=
+---------
+> =A0drivers/gpio/Kconfig =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 =A08 ++++
+> =A0include/linux/gpio.h =A0 =A0 =A0 =A0 =A0 =A0 =A0 | =A0 34 ++++++++++++=
++++++
+> =A017 files changed, 81 insertions(+), 426 deletions(-)
 
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index 20b3593..7ff9ae8 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -82,6 +82,12 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	struct siginfo si;
- 	unsigned long mask;
- 	int fault;
-+	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
-+
-+	mask = ((((isr >> IA64_ISR_X_BIT) & 1UL) << VM_EXEC_BIT)
-+		| (((isr >> IA64_ISR_W_BIT) & 1UL) << VM_WRITE_BIT));
-+
-+	flags |= ((mask & VM_WRITE) ? FAULT_FLAG_WRITE : 0);
- 
- 	/* mmap_sem is performance critical.... */
- 	prefetchw(&mm->mmap_sem);
-@@ -110,6 +116,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	if (notify_page_fault(regs, TRAP_BRKPT))
- 		return;
- 
-+retry:
- 	down_read(&mm->mmap_sem);
- 
- 	vma = find_vma_prev(mm, address, &prev_vma);
-@@ -143,9 +150,6 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	if (((isr >> IA64_ISR_R_BIT) & 1UL) && (!(vma->vm_flags & (VM_READ | VM_WRITE))))
- 		goto bad_area;
- 
--	mask = (  (((isr >> IA64_ISR_X_BIT) & 1UL) << VM_EXEC_BIT)
--		| (((isr >> IA64_ISR_W_BIT) & 1UL) << VM_WRITE_BIT));
--
- 	if ((vma->vm_flags & mask) != mask)
- 		goto bad_area;
- 
-@@ -154,7 +158,11 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 	 * sure we exit gracefully rather than endlessly redo the
- 	 * fault.
- 	 */
--	fault = handle_mm_fault(mm, vma, address, (mask & VM_WRITE) ? FAULT_FLAG_WRITE : 0);
-+	fault = handle_mm_fault(mm, vma, address, flags);
-+
-+	if ((fault & VM_FAULT_RETRY) && fatal_signal_pending(current))
-+		return;
-+
- 	if (unlikely(fault & VM_FAULT_ERROR)) {
- 		/*
- 		 * We ran out of memory, or some other thing happened
-@@ -169,10 +177,25 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
- 		}
- 		BUG();
- 	}
--	if (fault & VM_FAULT_MAJOR)
--		current->maj_flt++;
--	else
--		current->min_flt++;
-+
-+	if (flags & FAULT_FLAG_ALLOW_RETRY) {
-+		if (fault & VM_FAULT_MAJOR)
-+			current->maj_flt++;
-+		else
-+			current->min_flt++;
-+		if (fault & VM_FAULT_RETRY) {
-+			flags &= ~FAULT_FLAG_ALLOW_RETRY;
-+
-+			/*
-+			 * No need to up_read(&mm->mmap_sem) as we would
-+			 * have already released it in __lock_page_or_retry
-+			 * in mm/filemap.c.
-+			 */
-+
-+			goto retry;
-+		}
-+	}
-+
- 	up_read(&mm->mmap_sem);
- 	return;
- 
--- 
-1.7.5.4
+This looks good but I think we need to page the alpha, ia64, m68k, microbla=
+ze,
+openrisc etc subarch maintainers on this patch so they have their say.
 
+Yours,
+Linus Walleij
