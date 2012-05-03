@@ -1,29 +1,134 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Sat, 12 May 2012 00:08:53 +0000
-Subject: Re: [PATCH] gpiolib/arches: Centralise bolierplate asm/gpio.h
-Message-Id: <20120512000853.A96353E0791@localhost>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Thu, 03 May 2012 23:37:49 +0000
+Subject: Re: [PATCH 1/1] page_alloc.c: remove argument to pageblock_default_order
+Message-Id: <20120503163749.d24bf07f.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1334483574-3997-1-git-send-email-broonie@opensource.wolfsonmicro.com> <CACRpkdZ8yH1ZSG-nQ9dLm0TipHS-jZDuxwqohUC=LGH9V-5q4w@mail.gmail.com> <20120416081532.GA3238@opensource.wolfsonmicro.com>
-In-Reply-To: <20120416081532.GA3238@opensource.wolfsonmicro.com>
+References: <1336065312-2891-1-git-send-email-rajman.mekaco@gmail.com>
+In-Reply-To: <1336065312-2891-1-git-send-email-rajman.mekaco@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mark Brown <broonie@opensource.wolfsonmicro.com>, Linus Walleij <linus.walleij@linaro.org>
-Cc: Grant Likely <grant@secretlab.ca>, Linus Walleij <linus.walleij@stericsson.com>, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, microblaze-uclinux@itee.uq.edu.au, linux@openrisc.net, "linuxppc-dev@lists.ozlabs.org list" <linuxppc-dev@lists.ozlabs.org>, sparclinux@vger.kernel.org, Chris Zankel <chris@zankel.net>
+To: rajman mekaco <rajman.mekaco@gmail.com>
+Cc: Mel Gorman <mel@csn.ul.ie>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Tejun Heo <tj@kernel.org>, Minchan Kim <minchan.kim@gmail.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org
 
-On Mon, 16 Apr 2012 09:15:32 +0100, Mark Brown <broonie@opensource.wolfsonmicro.com> wrote:
-> On Mon, Apr 16, 2012 at 09:21:58AM +0200, Linus Walleij wrote:
+On Thu,  3 May 2012 22:45:12 +0530
+rajman mekaco <rajman.mekaco@gmail.com> wrote:
+
+> When CONFIG_HUGETLB_PAGE_SIZE_VARIABLE is not defined, then
+> pageblock_default_order has an argument to it.
 > 
-> > This looks good but I think we need to page the alpha, ia64, m68k, microblaze,
-> > openrisc etc subarch maintainers on this patch so they have their say.
+> However, free_area_init_core will call it without any argument
+> anyway.
 > 
-> That's why I CCed linux-arch, to get all the architecture maintainers
-> included.  vger would get upset if I CCed everyone individually.
+> Remove the argument to pageblock_default_order when
+> CONFIG_HUGETLB_PAGE_SIZE_VARIABLE is not defined.
+> 
+> Signed-off-by: rajman mekaco <rajman.mekaco@gmail.com>
+> ---
+>  mm/page_alloc.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+> index a712fb9..4b95412 100644
+> --- a/mm/page_alloc.c
+> +++ b/mm/page_alloc.c
+> @@ -4274,7 +4274,7 @@ static inline void __init set_pageblock_order(unsigned int order)
+>   * at compile-time. See include/linux/pageblock-flags.h for the values of
+>   * pageblock_order based on the kernel config
+>   */
+> -static inline int pageblock_default_order(unsigned int order)
+> +static inline int pageblock_default_order(void)
+>  {
+>  	return MAX_ORDER-1;
+>  }
 
-Meh; it's been long enough.  I'll build the major ones and then throw it into linux-next.
+Interesting.  It has been that way since at least 3.1.
 
-g.
+It didn't break the build because pageblock_default_order() is only
+ever invoked by set_pageblock_order(), with:
 
--- 
-Grant Likely, B.Sc, P.Eng.
-Secret Lab Technologies, Ltd.
+	set_pageblock_order(pageblock_default_order());
+
+and set_pageblock_order() is a macro:
+
+#define set_pageblock_order(x)	do {} while (0)
+
+
+There's yet another reason not to use macros, dammit - they hide bugs.
+
+
+Mel, can you have a think about this please?  Can we just kill off
+pageblock_default_order() and fold its guts into
+set_pageblock_order(void)?  Only ia64 and powerpc can define
+CONFIG_HUGETLB_PAGE_SIZE_VARIABLE.
+
+--- a/mm/page_alloc.c~a
++++ a/mm/page_alloc.c
+@@ -4300,25 +4300,24 @@ static inline void setup_usemap(struct p
+ 
+ #ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
+ 
+-/* Return a sensible default order for the pageblock size. */
+-static inline int pageblock_default_order(void)
+-{
+-	if (HPAGE_SHIFT > PAGE_SHIFT)
+-		return HUGETLB_PAGE_ORDER;
+-
+-	return MAX_ORDER-1;
+-}
+-
+ /* Initialise the number of pages represented by NR_PAGEBLOCK_BITS */
+-static inline void __init set_pageblock_order(unsigned int order)
++static inline void __init set_pageblock_order(void)
+ {
++	unsigned int order;
++
+ 	/* Check that pageblock_nr_pages has not already been setup */
+ 	if (pageblock_order)
+ 		return;
+ 
++	if (HPAGE_SHIFT > PAGE_SHIFT)
++		order = HUGETLB_PAGE_ORDER;
++	else
++		order = MAX_ORDER - 1;
++
+ 	/*
+ 	 * Assume the largest contiguous order of interest is a huge page.
+-	 * This value may be variable depending on boot parameters on IA64
++	 * This value may be variable depending on boot parameters on IA64 and
++	 * powerpc.
+ 	 */
+ 	pageblock_order = order;
+ }
+@@ -4326,15 +4325,13 @@ static inline void __init set_pageblock_
+ 
+ /*
+  * When CONFIG_HUGETLB_PAGE_SIZE_VARIABLE is not set, set_pageblock_order()
+- * and pageblock_default_order() are unused as pageblock_order is set
+- * at compile-time. See include/linux/pageblock-flags.h for the values of
+- * pageblock_order based on the kernel config
++ * is unused as pageblock_order is set at compile-time. See
++ * include/linux/pageblock-flags.h for the values of pageblock_order based on
++ * the kernel config
+  */
+-static inline int pageblock_default_order(unsigned int order)
++static inline void set_pageblock_order(void)
+ {
+-	return MAX_ORDER-1;
+ }
+-#define set_pageblock_order(x)	do {} while (0)
+ 
+ #endif /* CONFIG_HUGETLB_PAGE_SIZE_VARIABLE */
+ 
+@@ -4422,7 +4419,7 @@ static void __paginginit free_area_init_
+ 		if (!size)
+ 			continue;
+ 
+-		set_pageblock_order(pageblock_default_order());
++		set_pageblock_order();
+ 		setup_usemap(pgdat, zone, size);
+ 		ret = init_currently_empty_zone(zone, zone_start_pfn,
+ 						size, MEMMAP_EARLY);
+_
+
+
