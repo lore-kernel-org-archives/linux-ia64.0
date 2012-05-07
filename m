@@ -1,15 +1,15 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Date: Mon, 07 May 2012 23:12:29 +0000
+Date: Mon, 07 May 2012 23:53:48 +0000
 Subject: Re: getcpu() returns EFAULT when called via the vdso
-Message-Id: <201205071912.30351.vapier@gentoo.org>
+Message-Id: <201205071953.50114.vapier@gentoo.org>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart1511845.acmmLYfxhp"
+Content-Type: multipart/mixed; boundary="nextPart1763928.G1DajcIKmv"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <201205061645.24398.vapier@gentoo.org>
 In-Reply-To: <201205061645.24398.vapier@gentoo.org>
 To: linux-ia64@vger.kernel.org
 
---nextPart1511845.acmmLYfxhp
+--nextPart1763928.G1DajcIKmv
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -34,51 +34,48 @@ On Monday 07 May 2012 13:58:53 Luck, Tony wrote:
 > When the "br.call" is executed, we flip to the new register
 > frame and r34/r35 in the sched_getcpu() frame become r32/r33
 > in the new frame.
-
-i think only one register is rotated because we called alloc with locals=3D=
-1. =20
-stepping through with gdb shows that -- on the first insn in=20
-__kernel_syscall_via_epc, r32 is now the local variable on the stack, r33 a=
-nd=20
-r34 are 0.
-
+>=20
 > So you get -EFAULT because the VDSO tries to dereference a NULL
 > pointer for each of the *cpu and *node arguments.
 
-the kernel doesn't care if cpu/node are NULL:
-SYSCALL_DEFINE3(getcpu, unsigned __user *, cpup, unsigned __user *, nodep,
-        struct getcpu_cache __user *, unused)
-{
-    int err =3D 0;
-    int cpu =3D raw_smp_processor_id();
-    if (cpup)
-        err |=3D put_user(cpu, cpup);
-    if (nodep)
-        err |=3D put_user(cpu_to_node(cpu), nodep);
-    return err ? -EFAULT : 0;
-}
+oh, i think i see.  the funcs implemented via the ia64 vdso are not the nor=
+mal=20
+kernel funcs.  instead they're hand coded assembly.  in this case, fsys_get=
+cpu=20
+in arch/ia64/kernel/fsys.S is lacking handling for NULL cpu/node arguments =
+and=20
+if either is NULL, it incorrectly fails.
+
+EX(.fail_efault, probe.w.fault r32, 3)     // M This takes 5 cycles
+EX(.fail_efault, probe.w.fault r33, 3)     // M This takes 5 cycles
+
+i guess that needs to load some p reg with a NULL pointer test and then do =
+the=20
+loads/stores based on that.  calling getcpu(NULL, NULL, NULL) from userspac=
+e=20
+shouldn't trigger EFAULT.
 =2Dmike
 
---nextPart1511845.acmmLYfxhp
+--nextPart1763928.G1DajcIKmv
 Content-Type: application/pgp-signature; name=signature.asc 
 Content-Description: This is a digitally signed message part.
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.17 (GNU/Linux)
 
-iQIcBAABAgAGBQJPqFbeAAoJEEFjO5/oN/WBX44P/0HpsKP/ebso0OHqCZRucrR1
-YO7ITtpM8mqGbafXmlRacWeT3ujod+yRytO0yu0PafMIEEd1b7YskZcByK8ZYReT
-/Gx3m1p9WPdRiB4MtNYJ/yorHy6jYsene99ebGC7nesZnOiG/zU5/k45b9nHSt6K
-ULgY6JSigr9DDWswAk83F7znuLJlkoGzaL446KQP+E8rsgzjZZmVBsd6VBKzgXI5
-E6cjQDFr60mrMBVr3RUpG06bqNqpt1I6Nb+88TbIDi6dYPVDMvbL0o48GcD5tRH+
-sgjFkBEbfYxz8B6HVB23QkZQbK6BowcDzcLFBVbhBDU6mqI6gehlSBFjK4inAIH1
-5fVUNMwzW6T4hCR9MAWDTrR8zFyZoOVZazQtM5iVCoNjv6VoI5sj5PcMVOhcmoQn
-4f8TecvAPP3S9bI6EqqOYbB+79H7W0C2bGI55XBO19yAHQFNFpGdNi7W+Ki2rYHC
-P5/4BtY+q72Im0KVZ2rgEwZXoUmGACBsCuIe3RV63di4vgzJSI4omvZKcwieaEJv
-MqUIAKepYyAxp0WughFYUkF6DxQgy7kZJlQO+vEi0bP+ezUXrO7Ks8HaETDsq0A8
-7m/ncDC9qeSpb46cQr4Q/dy0xi5BdCY59deyH64vOYzYyp8gcVs3mSaPmwuVa1+e
-lBJZ4hYSAkLyAJ33I3P8
-=mG0b
+iQIcBAABAgAGBQJPqGCOAAoJEEFjO5/oN/WBkjQP/1uRuZ82uytuRX+hDH/1k/NI
+3xAoiS+09rgH4p/MLL9UniIXAZNi9jaOFolSs6tqeDj9AcKfejJss/ljFNndHLZk
+fGZ60542siC+N2EeSYSDhO+Sxep5g+H2OCzkFshuAykz7YwSZ3gVqXjOZTsflBR7
+oQMnFKZvvkXKkm0ZZr3zFtD/GYvVug6E9G9GD8byfIkIYizD4/D4HyaZzt4wZCkv
+oE5aZ3vtkZMpcn6uJNgkJkSLw32WRkAAB4L1yXwO7kY7IM2dbgklM1jP/LDTIT6n
+tHKwMB/QH7tB9jav6pxhlloBm6qgMBsmJ5O2NZp5IpcXT65Xlgqp4iakpSowobDz
+0y07whN2mHc8HVJY9wNqC/VO0IRYOp3DwSCedJhaqj6LWtSIwl94GFODWkj5vgEc
+kyMEVObtLvARRHgtlvo+wsZMc2R1VL1Gc6pUYiveVEi8+TxSgNZnDWh5s+mGeqCK
+7+1LL53ujP0ELqUwhmeq5JgMzkIdzEXMAFmqgzYME+xSWlAwinN/pk8DIQjKoNri
+qzc3pfA1iN1FFsRuH0bR5IDuwmKVJKwAkYO1QX6Ab48381YN5o6xY5u/vjD9w3tO
+OtDIChdWa/99HsenbwH0a7kzx/tQz9YEwN1w9lD0+38a1GkZvMs7+ofLOpVJrHhO
+bSdxbskPqyH/qRf5chPh
+=lo1y
 -----END PGP SIGNATURE-----
 
---nextPart1511845.acmmLYfxhp--
+--nextPart1763928.G1DajcIKmv--
