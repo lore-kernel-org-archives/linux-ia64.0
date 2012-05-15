@@ -1,21 +1,21 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Date: Tue, 08 May 2012 22:31:59 +0000
+Date: Tue, 15 May 2012 05:41:11 +0000
 Subject: Re: getcpu() returns EFAULT when called via the vdso
-Message-Id: <201205081832.01092.vapier@gentoo.org>
+Message-Id: <201205150141.12655.vapier@gentoo.org>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart1406265.jBrRuf9GU5"
+Content-Type: multipart/mixed; boundary="nextPart2914234.N9p8QcNVCb"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <201205061645.24398.vapier@gentoo.org>
 In-Reply-To: <201205061645.24398.vapier@gentoo.org>
 To: linux-ia64@vger.kernel.org
 
---nextPart1406265.jBrRuf9GU5
+--nextPart2914234.N9p8QcNVCb
 Content-Type: Text/Plain;
   charset="utf-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Tuesday 08 May 2012 17:13:28 Tony Luck wrote:
-> On Mon, May 7, 2012 at 4:53 PM, Mike Frysinger wrote:
+> On Mon, May 7, 2012 at 4:53 PM, Mike Frysinger <vapier@gentoo.org> wrote:
 > > i guess that needs to load some p reg with a NULL pointer test and then
 > > do the loads/stores based on that.  calling getcpu(NULL, NULL, NULL)
 > > from userspace shouldn't trigger EFAULT.
@@ -24,40 +24,34 @@ On Tuesday 08 May 2012 17:13:28 Tony Luck wrote:
 > the sched_getcpu() code much ... it would stop getting -EFAULT, but
 > it still wouldn't have the right return value.
 
-wouldn't it though ?  the return value with getcpu is just "0" when things=
-=20
-worked.  if i do:
-	int i;
-	syscall(__NR_getcpu, &i, NULL, NULL);
-this should return 0 and fill in "i" with the cpu value.  i think your prop=
-osed=20
-patch would make things work as no fault would be triggered, and the return=
-=20
-value (r8) would be set to 0.
+seems to work for me
+Tested-by: Mike Frysinger <vapier@gentoo.org>
 
-i'll have to rebuild the kernel to double check though.
+also, strace shows the successful syscall via the vdso, but not the failing=
+=20
+ones.  not sure where things are going wrong with that though.
 =2Dmike
 
---nextPart1406265.jBrRuf9GU5
+--nextPart2914234.N9p8QcNVCb
 Content-Type: application/pgp-signature; name=signature.asc 
 Content-Description: This is a digitally signed message part.
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2.0.17 (GNU/Linux)
 
-iQIcBAABAgAGBQJPqZ7gAAoJEEFjO5/oN/WB35MP/0UiWJr/SRYy+jrBtGgC15ly
-azMWswu0WKVCHiv5cpIV1b8wPaUbsVMDcQwJ06ow8lTdi9TWEKiV7svPacGrIPle
-LA5IdvSWzFxryh3U2tGL3aEJ8xvvvszIXJTUtkXCwnQZ+woYGvAQQaJPE+YtTaic
-n2iXQlVYar239+7hqS2R86/Wjj3PfCbWf3lClMQL2Q5hwior0Ta6eLKBof6wGdHQ
-gZLuifFOrsj6PLO8GkyvfnfU5L/5Cxnz/R2nDQNugZ+3ND4HrkdVGpK4HFvdAHqY
-QhZwC5qRKcSauqXJIV6Dla+i6e6CSUlCNCJ0xGtVlZAUf9AzUkXo1cn3Xf1x+hAL
-0hUFtIhsTgj5JTiuPVda7/INlS1WmsYvNp6WCTA3lVbRpzGR14U0ZKRn/sn+P8ic
-YttpXBLj3z7FhpSucz0YdDxTMHb5TpbS06yLglV5JjiqNVDm+tvQnSZo4ZSe+wj+
-y0c1SSWmuvzLSYoIOf8/b8PRdpqiYLz4xqLhSXYq/mIGQAepzd4JaKB16N+vR+8y
-hITpN+9mkvh6FdBp0GTHxHAjh99HM70acsuhX9kmLOEgx+sQjRQny2dOGVxpw85g
-hyhDJpz7iTFLmU/5ZKvFflNR78Ye7+RQDgTRCP9pNyAG/6M9AmYFDLfOj9radPD6
-ulkJk6Yl12AQgSE8+uax
-=JFa+
+iQIcBAABAgAGBQJPsex4AAoJEEFjO5/oN/WBD9wQANvFfAXaSr54wJHPMDKEVrWi
+Z6u5BObZP5UoA9tpTRbRLHaaRtGXS7QUzib9t4CfSE1qEOwnGN7bq4go/YFP3JFa
+5Zv/rxz0KsY23aRSc8ly6CI9gDVeaZIFMHu5+a5Bns9xTLvA8fe+dbbyhgK7/MqB
+VA2RLyGbUWfplhpmRcoDgel9G2RAZtyh3IcqxAU6iamzrI8u/NADarIBj1AtKw40
+/24pG2jYHHjEuyirIOSe1WFdHVa7Om4u+ycX107/0LvvCx7UMancniyckdz2DGiz
+nAcqoPVhjBsdReks3/HR47AGtQnBkaIJBkUY3oealKW+1F/8Gfc1Gk9547MXReBF
+9MwENkzvc0S8XEOdOZOPT9RXn6bg6cwbaknm6KQjf9ZlLPH+sguhk90+0lMAeA1F
+N7ahfHenERfrN6P/frQsI4j5zoXZkWJczT1NlbVGJmHQGs6tBO86bRK0Tl8jO+h9
+i6ty5OFeUi1qNWpO5Lg2nbwyhBQ2YDuNGp2I1xi4wlat9dwAkbiXfmI1LAjWxGnv
+l+0EQxnoHPPxX/0DxY1tGnO3N+Q/ZWFVkwC+KPuS3l64zv8NECtfVemdtinKlFo7
+kAkFMzzWc+A1JHRb22/j4gLFBsKzuhLmoE2dq8vnZA8eAdPTfDPBEYOAHrpcPfA9
+iCC8TCCAUJsyrdshSE1q
+=A+Hw
 -----END PGP SIGNATURE-----
 
---nextPart1406265.jBrRuf9GU5--
+--nextPart2914234.N9p8QcNVCb--
