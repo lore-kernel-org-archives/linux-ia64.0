@@ -1,29 +1,35 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 29 May 2012 22:46:28 +0000
-Subject: [linux-next] "x86, realmode: Move ACPI wakeup to unified realmode code" commit breaks ia64
-Message-Id: <20120529224628.GB16055@windriver.com>
+From: maximilian attems <max@stro.at>
+Date: Wed, 16 May 2012 07:46:30 +0000
+Subject: [PATCH] ia64: add cmpxchg.h to exported userspace headers
+Message-Id: <1337154390-23185-1-git-send-email-max@stro.at>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jarkko Sakkinen <jarkko.sakkinen@intel.com>
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Len Brown <len.brown@intel.com>, "H. Peter Anvin" <hpa@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-next@vger.kernel.org
+To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Stephan Mueller <stephan.mueller@atsec.com>, maximilian attems <max@stro.at>, Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>
 
-Hi all,
+Fixes klibc build on ia64 after 85f8f7759e418c814ee2ceacf73eddb9bed39492.
 
-This commit: c9b77ccb52a5c77233b0e557b7d4417b00ef4012 in linux-next
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Signed-off-by: maximilian attems <max@stro.at>
+---
+ arch/ia64/include/asm/Kbuild |    1 +
+ 1 file changed, 1 insertion(+)
 
-    x86, realmode: Move ACPI wakeup to unified realmode code
-
-causes breakage on itanic:
-
-  drivers/acpi/sleep.c:28:26: fatal error: asm/realmode.h: No such file or directory
-
-Full log at:
-	http://kisskb.ellerman.id.au/kisskb/buildresult/6395679/
-
-Have a look if you can please.
-
-Thanks,
-Paul.
+diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
+index 241d1c5..d4eb938 100644
+--- a/arch/ia64/include/asm/Kbuild
++++ b/arch/ia64/include/asm/Kbuild
+@@ -1,6 +1,7 @@
+ include include/asm-generic/Kbuild.asm
+ 
+ header-y += break.h
++header-y += cmpxchg.h
+ header-y += fpu.h
+ header-y += gcc_intrin.h
+ header-y += ia64regs.h
+-- 
+1.7.10
 
