@@ -1,57 +1,37 @@
-From: Mike Frysinger <vapier@gentoo.org>
-Date: Tue, 15 May 2012 05:41:11 +0000
-Subject: Re: getcpu() returns EFAULT when called via the vdso
-Message-Id: <201205150141.12655.vapier@gentoo.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nextPart2914234.N9p8QcNVCb"
+From: Avi Kivity <avi@redhat.com>
+Date: Thu, 17 May 2012 10:14:08 +0000
+Subject: [PATCH] KVM: ia64: Mark ia64 KVM as BROKEN
+Message-Id: <1337249648-16894-1-git-send-email-avi@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201205061645.24398.vapier@gentoo.org>
-In-Reply-To: <201205061645.24398.vapier@gentoo.org>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Marcelo Tosatti <mtosatti@redhat.com>, Xiantao Zhang <xiantao.zhang@intel.com>
+Cc: kvm@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
---nextPart2914234.N9p8QcNVCb
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
+Practically all patches to ia64 KVM are build fixes; numerous warnings remain;
+the last patch from the maintainer was committed more than three years ago.  It
+is clear that no one is using this thing.
 
-On Tuesday 08 May 2012 17:13:28 Tony Luck wrote:
-> On Mon, May 7, 2012 at 4:53 PM, Mike Frysinger <vapier@gentoo.org> wrote:
-> > i guess that needs to load some p reg with a NULL pointer test and then
-> > do the loads/stores based on that.  calling getcpu(NULL, NULL, NULL)
-> > from userspace shouldn't trigger EFAULT.
->=20
-> We could do that (see attached, untested, patch). But it wouldn't help
-> the sched_getcpu() code much ... it would stop getting -EFAULT, but
-> it still wouldn't have the right return value.
+Mark as BROKEN to ensure people don't get hit by pointless build problems.
 
-seems to work for me
-Tested-by: Mike Frysinger <vapier@gentoo.org>
+Signed-off-by: Avi Kivity <avi@redhat.com>
+---
+ arch/ia64/kvm/Kconfig |    1 +
+ 1 file changed, 1 insertion(+)
 
-also, strace shows the successful syscall via the vdso, but not the failing=
-=20
-ones.  not sure where things are going wrong with that though.
-=2Dmike
+diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
+index 9806e55..df5351e 100644
+--- a/arch/ia64/kvm/Kconfig
++++ b/arch/ia64/kvm/Kconfig
+@@ -19,6 +19,7 @@ if VIRTUALIZATION
+ 
+ config KVM
+ 	tristate "Kernel-based Virtual Machine (KVM) support"
++	depends on BROKEN
+ 	depends on HAVE_KVM && MODULES && EXPERIMENTAL
+ 	# for device assignment:
+ 	depends on PCI
+-- 
+1.7.10.1
 
---nextPart2914234.N9p8QcNVCb
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
-
-iQIcBAABAgAGBQJPsex4AAoJEEFjO5/oN/WBD9wQANvFfAXaSr54wJHPMDKEVrWi
-Z6u5BObZP5UoA9tpTRbRLHaaRtGXS7QUzib9t4CfSE1qEOwnGN7bq4go/YFP3JFa
-5Zv/rxz0KsY23aRSc8ly6CI9gDVeaZIFMHu5+a5Bns9xTLvA8fe+dbbyhgK7/MqB
-VA2RLyGbUWfplhpmRcoDgel9G2RAZtyh3IcqxAU6iamzrI8u/NADarIBj1AtKw40
-/24pG2jYHHjEuyirIOSe1WFdHVa7Om4u+ycX107/0LvvCx7UMancniyckdz2DGiz
-nAcqoPVhjBsdReks3/HR47AGtQnBkaIJBkUY3oealKW+1F/8Gfc1Gk9547MXReBF
-9MwENkzvc0S8XEOdOZOPT9RXn6bg6cwbaknm6KQjf9ZlLPH+sguhk90+0lMAeA1F
-N7ahfHenERfrN6P/frQsI4j5zoXZkWJczT1NlbVGJmHQGs6tBO86bRK0Tl8jO+h9
-i6ty5OFeUi1qNWpO5Lg2nbwyhBQ2YDuNGp2I1xi4wlat9dwAkbiXfmI1LAjWxGnv
-l+0EQxnoHPPxX/0DxY1tGnO3N+Q/ZWFVkwC+KPuS3l64zv8NECtfVemdtinKlFo7
-kAkFMzzWc+A1JHRb22/j4gLFBsKzuhLmoE2dq8vnZA8eAdPTfDPBEYOAHrpcPfA9
-iCC8TCCAUJsyrdshSE1q
-=A+Hw
------END PGP SIGNATURE-----
-
---nextPart2914234.N9p8QcNVCb--
