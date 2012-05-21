@@ -1,52 +1,68 @@
-From: Alessandro Rubini <rubini@gnudd.com>
-Date: Thu, 24 May 2012 18:53:25 +0000
-Subject: Re: [PATCH] swiotlb: add "dma_attrs" argument to alloc and free, to match dma_map_ops
-Message-Id: <20120524185325.GA16292@mail.gnudd.com>
+From: <ronrajan@yahoo.com>
+Date: Mon, 21 May 2012 07:12:07 +0000
+Subject: =?iso-8859-1?Q?SHOCKING_SYSTEM.=28and_one_weird_rule=29_Recommends_Advanc?= =?iso-8859-1?Q?ed_Sports
+Message-Id: <C76F9DEDBDE64370B2DE72A33CA95765@g19.win.smewh.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120524174741.GG24934@phenom.dumpdata.com>
-  <20120524114422.GA25950@mail.gnudd.com>
-In-Reply-To: <20120524174741.GG24934@phenom.dumpdata.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: konrad.wilk@oracle.com
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, giancarlo.asnaghi@st.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, gxt@mprc.pku.edu.cn, tglx@linutronix.de, kyungmin.park@samsung.com, fujita.tomonori@lab.ntt.co.jp
+To: linux-ia64@vger.kernel.org
 
->> The alloc and free pointers within "struct dma_map_ops" receive a
->> pointer to dma_attrs that was not present in the generic swiotlb
->> functions.  For this reason, a few files had a local wrapper for the
->> free function that just removes the attrs argument before calling the
->> generic function.
->> 
->> This patch adds the extra argument to generic functions and removes
->> such wrappers when they are no more needed.  This also fixes a
->> compiler warning for sta2x11-fixup.c, that would have required yet
->> another wrapper.
+From         :SHOCKING SYSTEM.(and one weird rule)
+Email        :ronrajan@yahoo.com
+Friend Name  :Friend
+Friend Email :linux-ia64@vger.kernel.org
+comment      :
 
-> So .. what is this based on?
 
-Current linux-next. But it has been like this for a while. I had
-the warning in sta2x11-fixup.c pending for a while, and yesterday
-I raised the issue.
+Hi Friend,
 
-> I see in mainline  alloc_coherent and free_coherent
-> which are obviously changed here.
+Here's a controversial new system revealing
 
-Do you refer to the swiotlb methods (I confirm they are changed, like
-all their users) or something else? I'm only changing the two methods
-in swiotlb, nothing else is affected.
+affiliate marketing's number one rule...
 
-Actually, I wanted to call them alloc and free, like the field they
-are assigned to, but swiotlb_free is already there, to do something
-else.
- 
-> Don't you also need to change these two files:
-> 
->  arch/x86/xen/pci-swiotlb-xen.c
->  drivers/xen/swiotlb-xen.c
+====>  http://bit.ly/LarThw
 
-No, because xen implements the dma_map_ops with the proper prototypes.
-I grepped for all users, and found these are not related.
+During this revealing presentation, this crazy
+underground affiliate reveals the BRUTAL TRUTH why
+most beginner marketers DON'T make even one cent
+online.
 
-Thank your for checking
-/alessandro
+Ya, you might say it's a bit controversial...
+
+.BUT if you want to discover the truth about
+driving insane amounts of traffic the way the top
+super affiliates do it, and find out the number
+one rule that's been kept from you all along, then
+you need to check out what this guy has to say:
+
+====>  http://bit.ly/LarThw
+
+This WON'T be available forever so my best advice
+is to go check it out right now.
+
+Ron Rajan
+
+P.S. If you've been looking for a STEP BY STEP
+system for getting crazy amounts of laser targeted
+traffic, then you'll certainly want to check this
+out.
+
+Just make sure you pay close attention to the
+weird rule he outlines... it's different than most
+have been suggesting, but it works like crazy:
+
+====>  http://bit.ly/LarThw
+
+
+
+
+
+
+
+
+
+
+
+
+
