@@ -1,8 +1,10 @@
 From: <danniel@gmail.com>
-Date: Fri, 25 May 2012 15:38:07 +0000
+Date: Fri, 25 May 2012 18:58:07 +0000
 Subject: Friend,Could you "build-up" your own energy? Recommends Advanced Sports to you
-Message-Id: <6DF87211C675460381EEC0A3FE9986CE@g19.win.smewh.net>
+Message-Id: <38551A2233EC4730BD662CF615BF50C9@g19.win.smewh.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <6DF87211C675460381EEC0A3FE9986CE@g19.win.smewh.net>
+In-Reply-To: <6DF87211C675460381EEC0A3FE9986CE@g19.win.smewh.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
