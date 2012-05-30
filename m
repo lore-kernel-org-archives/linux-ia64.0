@@ -1,24 +1,58 @@
-From: Matt Fleming <matt.fleming@intel.com>
-Date: Tue, 15 May 2012 11:29:06 +0000
-Subject: RE: [PATCH] Liberate the signal layer from IA64 assembler
-Message-Id: <1337081346.27692.17.camel@mfleming-mobl1.ger.corp.intel.com>
+From: <christian@ymail.com>
+Date: Wed, 30 May 2012 07:38:30 +0000
+Subject: You have an unanswered message Recommends Advanced Sports to you
+Message-Id: <BA8C61861A574FD1B69255E7262716EC@g19.win.smewh.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1337031869-14718-1-git-send-email-andi@firstfloor.org>
-	 <3908561D78D1C84285E8C5FCA982C28F192EEF5D@ORSMSX104.amr.corp.intel.com>
-In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F192EEF5D@ORSMSX104.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <andi@firstfloor.org>
-Cc: "viro@zeniv.linux.org.uk" <viro@zeniv.linux.org.uk>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Mon, 2012-05-14 at 22:00 +0000, Luck, Tony wrote:
-> Adding Cc: linux-ia64
+From         :You have an unanswered message
+Email        :christian@ymail.com
+Friend Name  :Friend
+Friend Email :linux-ia64@vger.kernel.org
+comment      :
 
-I'm obviously all for this patch given that I started the following
-thread on linux-ia64 last year,
 
-	http://www.spinics.net/lists/linux-ia64/msg08362.html
+Hi Friend,
 
-and *still* haven't found the time to write any ia64 assembly.
+Mike IS still waiting for an
+answer...
+
+It's very rare that some will actually
+take you by the hand and flat-out
+give you their personal ClickBank 
+software
+
+Downloads are currently available
+at the time of writing this to you.
+
+What are you waiting for? The site
+to be closed down?
+
+Watch a live demo and see verified 
+proof of ClickBank income here... 
+
+=>http://www.mymillionaire-society.com/?codeOc2ae6b6f40c 
+
+Christian
+
+
+
+
+PS: Before you close the site wait
+    you have special $10 Discount!
+
+
+=>http://www.mymillionaire-society.com/?codeOc2ae6b6f40c 
+
+
+
+
+
+
+
+
+
 
