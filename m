@@ -1,8 +1,10 @@
 From: <christian@ymail.com>
-Date: Wed, 30 May 2012 07:38:30 +0000
+Date: Wed, 30 May 2012 19:07:09 +0000
 Subject: You have an unanswered message Recommends Advanced Sports to you
-Message-Id: <BA8C61861A574FD1B69255E7262716EC@g19.win.smewh.net>
+Message-Id: <430C33663A2E46948B7D5E039CC080BD@g19.win.smewh.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <BA8C61861A574FD1B69255E7262716EC@g19.win.smewh.net>
+In-Reply-To: <BA8C61861A574FD1B69255E7262716EC@g19.win.smewh.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
