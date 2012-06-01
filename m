@@ -1,50 +1,78 @@
-From: David Mosberger-Tang <davidm@egauge.net>
-Date: Tue, 12 Jun 2012 18:33:55 +0000
-Subject: Re: Wrong NaTVal in unw_access_gr ?
-Message-Id: <CACwUX0NnTOCDfztvtq_ECnWn19EEU3HTEaTK-j4gMmX+EMN0MQ@mail.gmail.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Fri, 01 Jun 2012 09:25:28 +0000
+Subject: [PATCH 14/27] ia64: Move holding of vector_lock to __setup_vector_irq()
+Message-Id: <20120601091319.31979.93871.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201206121907.04177.ptesarik@suse.cz>
-In-Reply-To: <201206121907.04177.ptesarik@suse.cz>
+References: <20120601090952.31979.24799.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20120601090952.31979.24799.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tglx@linutronix.de, peterz@infradead.org, paulmck@linux.vnet.ibm.com
+Cc: rusty@rustcorp.com.au, mingo@kernel.org, yong.zhang0@gmail.com, akpm@linux-foundation.org, vatsa@linux.vnet.ibm.com, rjw@sisk.pl, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Andrew Morton <akpm@linux-foundation.org>, David Howells <dhowells@redhat.com>, Mike Frysinger <vapier@gentoo.org>, linux-ia64@vger.kernel.org
 
-UGV0ciwKClRoYXQgZG9lcyBsb29rIGxpa2UgYSB0eXBvIHRvIG1lLCB3aGljaCB3YXMgcHJvYmFi
-bHkgbXkgYmFkLgoKbGlidW53aW5kIGxvb2tzIGZpbmU6IEdyZWdzLmM6YWNjZXNzX25hdCgpIGNv
-bXBhcmVzIGFnYWluc3QKR2dsb2JhbC5jOm5hdF92YWxfYnl0ZXMsIHdoaWNoIGhhcyB0aGUgcHJv
-cGVyIHZhbHVlcyAoMHgxLCAweGZmLAoweGZlKS4KCkdDQyB1c2VkIHRvIGhhdmUgdGhlIHNhbWUg
-YnVnZ3kgYml0cyBpbiB1bndpbmQtaWE2NC5jIGJ1dCBJIGJlbGlldmUKdGhhdCB3YXMgcmVtb3Zl
-ZCB3aGVuIGl0IHN3aXRjaGVkIG92ZXIgdG8gdXNpbmcgbGlidW53aW5kLgoKoCAtLWRhdmlkCgpP
-biBUdWUsIEp1biAxMiwgMjAxMiBhdCAxMTowNyBBTSwgUGV0ciBUZXNhcmlrIDxwdGVzYXJpa0Bz
-dXNlLmN6PiB3cm90ZToKPgo+IEhlbGxvLAo+Cj4gSSd2ZSBiZWVuIGxvb2tpbmcgYXQgdGhlIGZv
-bGxvd2luZyBjb2RlIHRyeWluZyB0byB1bmRlcnN0YW5kIHdoYXQgaXQgZG9lczoKPgo+IKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoC8qIHNpbXVsYXRlIGdldGYuc2lnL3Nl
-dGYuc2lnICovCj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgaWYgKHdy
-aXRlKSB7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBp
-ZiAoKm5hdCkgewo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAvKiB3cml0ZSBOYVRWYWwgYW5kIGJlIGRvbmUgd2l0aCBpdCAqLwo+IKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBhZGRyWzBd
-ID0gMDsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
-IKAgoCCgYWRkclsxXSA9IDB4MWZmZmU7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoHJldHVybiAwOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgYWRkclsxXSA9IDB4MTAwM2U7Cj4goCCgIKAgoCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfSBlbHNlIHsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGlmIChhZGRyWzBdID09IDAgJiYgYWRkclsxXSA9PSAw
-eDFmZmUpIHsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgLyogcmV0dXJuIE5hVCBhbmQgYmUgZG9uZSB3aXRoIGl0ICovCj4goCCgIKAgoCCg
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCp2YWwgPSAwOwo+
-IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAq
-bmF0ID0gMTsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgcmV0dXJuIDA7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
-oCCgIKAgoCCgIKB9Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+
-Cj4gSW4gcGFydGljdWxhciwgSSdtIHB1enpsZWQgYWJvdXQgdGhlICIweDFmZmUiIGNvbnN0YW50
-IGZvciB0aGUgcmVhZCBjYXNlLgo+IFNob3VsZG4ndCB0aGF0IGJlIDB4MWZmZmUgKHdpdGggb25l
-IG1vcmUgJ2YnKSwgaS5lLiB0aGUgYmluYXJ5IHJlcHJlc2VudGF0aW9uCj4gb2YgTmFUVmFsPwo+
-Cj4gUGV0ciBUZXNhcmlrCj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2Vu
-ZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KPiB0aGUgYm9keSBvZiBhIG1l
-c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGluZm8g
-YXQgoGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbAoKCgoKLS0KZUdh
-dWdlIFN5c3RlbXMgTExDLCBodHRwOi8vZWdhdWdlLm5ldC8sIDEuODc3LUVHQVVHRTEsIGZheCA3
-MjAuNTQ1Ljk3NjgK
+__setup_vector_irq() expects that its caller holds the vector_lock.
+As of now there is only one caller - smp_callin(); and acquiring the lock
+in smp_callin() around the call to __setup_vector_irq() obstructs the
+conversion of ia64 to generic smp booting code. So move the lock acquisition
+to __setup_vector_irq() itself (mimicking what x86 does).
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Mike Frysinger <vapier@gentoo.org>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ arch/ia64/kernel/irq_ia64.c |    5 +++--
+ arch/ia64/kernel/smpboot.c  |    2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 5c3e088..6ac99c8 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -241,13 +241,13 @@ reserve_irq_vector (int vector)
+ }
+ 
+ /*
+- * Initialize vector_irq on a new cpu. This function must be called
+- * with vector_lock held.
++ * Initialize vector_irq on a new cpu.
+  */
+ void __setup_vector_irq(int cpu)
+ {
+ 	int irq, vector;
+ 
++	spin_lock(&vector_lock);
+ 	/* Clear vector_irq */
+ 	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector)
+ 		per_cpu(vector_irq, cpu)[vector] = -1;
+@@ -258,6 +258,7 @@ void __setup_vector_irq(int cpu)
+ 		vector = irq_to_vector(irq);
+ 		per_cpu(vector_irq, cpu)[vector] = irq;
+ 	}
++	spin_unlock(&vector_lock);
+ }
+ 
+ #if defined(CONFIG_SMP) && (defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_DIG))
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index df00a3c..709ce07 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -378,10 +378,10 @@ smp_callin (void)
+ 	set_numa_node(cpu_to_node_map[cpuid]);
+ 	set_numa_mem(local_memory_node(cpu_to_node_map[cpuid]));
+ 
+-	spin_lock(&vector_lock);
+ 	/* Setup the per cpu irq handling data structures */
+ 	__setup_vector_irq(cpuid);
+ 	notify_cpu_starting(cpuid);
++	spin_lock(&vector_lock);
+ 	set_cpu_online(cpuid, true);
+ 	per_cpu(cpu_state, cpuid) = CPU_ONLINE;
+ 	spin_unlock(&vector_lock);
+
