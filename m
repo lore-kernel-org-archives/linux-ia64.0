@@ -1,42 +1,46 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 08 Jun 2012 08:03:59 +0000
-Subject: Re: [PATCH] IA64: Export <asm/cmpxchg.h> to userland
-Message-Id: <20120608080359.GB24167@kroah.com>
+From: Alex Shi <alex.shi@intel.com>
+Date: Wed, 06 Jun 2012 06:52:51 +0000
+Subject: [RFC PATCH] sched/numa: do load balance between remote nodes
+Message-Id: <1338965571-9812-1-git-send-email-alex.shi@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1339041112.21665.77.camel@deadeye.wl.decadent.org.uk>
-In-Reply-To: <1339041112.21665.77.camel@deadeye.wl.decadent.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: a.p.zijlstra@chello.nl
+Cc: anton@samba.org, benh@kernel.crashing.org, cmetcalf@tilera.com, dhowells@redhat.com, davem@davemloft.net, fenghua.yu@intel.com, hpa@zytor.com, ink@jurassic.park.msu.ru, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, mattst88@gmail.com, paulus@samba.org, lethal@linux-sh.org, ralf@linux-mips.org, rth@twiddle.net, sparclinux@vger.kernel.org, tony.luck@intel.com, x86@kernel.org, sivanich@sgi.com, greg.pearson@hp.com, kamezawa.hiroyu@jp.fujitsu.com, bob.picco@oracle.com, chris.mason@oracle.com, torvalds@linux-foundation.org, akpm@linux-foundation.org, mingo@kernel.org, pjt@google.com, tglx@linutronix.de, seto.hidetoshi@jp.fujitsu.com, ak@linux.intel.com, arjan.van.de.ven@intel.com
 
-On Fri, Jun 08, 2012 at 03:09:50AM +0100, Ben Hutchings wrote:
-> On Fri, 2012-06-08 at 10:43 +0900, Greg Kroah-Hartman wrote:
-> > On Thu, Jun 07, 2012 at 09:07:13PM +0100, Ben Hutchings wrote:
-> > > On Thu, Jun 07, 2012 at 04:54:56PM +0000, Luck, Tony wrote:
-> > > > > Parts of <asm/intrinsics.h> were moved to <asm/cmpxchg.h>, and the
-> > > > > former now includes the latter.  The former is exported to userland
-> > > > > so the latter must be too.
-> > > > 
-> > > > Already received and applied a patch that does this (though it added
-> > > > the cmpxchg.h a few lines earlier that you did).
-> > > > 
-> > > > See commit: 98e4cff73
-> > > > 
-> > > > It didn't get marked for stable though ... so if you need this to
-> > > > get pulled into the stable branches you'll need to poke Greg etc.
-> > > > manually.
-> > > 
-> > > Greg, please cherry-pick commit
-> > > 85f8f7759e418c814ee2ceacf73eddb9bed39492 ('[IA64] Add cmpxchg.h to
-> > > exported userspace headers') for 3.4.y.
-> > 
-> > I tried, but it doesn't apply properly.  Can someone backport it and
-> > send it to me?
-> 
-> Sorry, I mean 98e4cff73a18af27f0d40d0b0d37f105dfc1994a; the former
-> commit is already in 3.4 and resulted in this breakage.
+commit cb83b629b remove the NODE sched domain and check if the node
+distance in SLIT table is farther than REMOTE_DISTANCE, if so, it will
+lose the load balance chance at exec/fork/wake_affine points.
 
-Ah, that's better, now applied.
+But actually, even the node distance is farther than REMOTE_DISTANCE,
+Modern CPUs also has QPI like connections, that make memory access is
+not too slow between nodes. So above losing on NUMA machine make a
+huge performance regression on benchmark: hackbench, tbench, netperf
+and oltp etc.
 
-greg k-h
+This patch will recover the scheduler behavior to old mode on all my
+Intel platforms: NHM EP/EX, WSM EP, SNB EP/EP4S, and so remove the
+perfromance regressions. (all of them just has 2 kinds distance, 10 21)
+
+Signed-off-by: Alex Shi <alex.shi@intel.com>
+---
+ kernel/sched/core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 39eb601..b2ee41a 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -6286,7 +6286,7 @@ static int sched_domains_curr_level;
+ 
+ static inline int sd_local_flags(int level)
+ {
+-	if (sched_domains_numa_distance[level] > REMOTE_DISTANCE)
++	if (sched_domains_numa_distance[level] > RECLAIM_DISTANCE)
+ 		return 0;
+ 
+ 	return SD_BALANCE_EXEC | SD_BALANCE_FORK | SD_WAKE_AFFINE;
+-- 
+1.7.5.4
+
