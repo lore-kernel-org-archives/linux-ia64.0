@@ -1,54 +1,69 @@
-From: Kautuk Consul <consul.kautuk@gmail.com>
-Date: Thu, 14 Jun 2012 16:53:18 +0000
-Subject: Re: [PATCH 09/19 v2] ia64/mm/fault.c: Port OOM changes to ia64_do_page_fault
-Message-Id: <CAFPAmTSoeo8Zxbz=D0VUzrG=NeNqX2AdaNvZ+xoKNQ9-8t=9Jw@mail.gmail.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 07 Jun 2012 03:51:52 +0000
+Subject: [PATCH] IA64: Export <asm/cmpxchg.h> to userland
+Message-Id: <1339041112.21665.77.camel@deadeye.wl.decadent.org.uk>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-doPXabYEVz7M66X1NSvo"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1333195412-5217-1-git-send-email-consul.kautuk@gmail.com>
-In-Reply-To: <1333195412-5217-1-git-send-email-consul.kautuk@gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jun 14, 2012 at 10:13 PM, Luck, Tony <tony.luck@intel.com> wrote:
->> Maybe you can try my test-case at https://lkml.org/lkml/2012/3/31/90 ?
->
-> There seem to be a few cut & paste errors in that version (threads 3, 4, 5
-> think they are "Thread 2"). =A0Also no check for malloc failing (which si=
-nce
-> it is done in an infinite loop seems inevitable - unless your machines ha=
-ve
-> infinite memory :-)
 
-Yes. This test-case was written in a hurry to run on ARM and the test-case =
-was
-just meant to blindly allocate and fault pages till OOM happens.
+--=-doPXabYEVz7M66X1NSvo
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-So sorry about that !
+Parts of <asm/intrinsics.h> were moved to <asm/cmpxchg.h>, and the
+former now includes the latter.  The former is exported to userland
+so the latter must be too.
 
-Evidently on ARM we OOM much before the mallocs start failing. That
-maybe due to
-some overcommit_memory setting which I had on that board.
+Cc: stable@vger.kernel.org # v3.4
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+Both these header files still provoke a lot of warnings from
+headers_check, but this at least fixes the (new) fatal error.
 
->
-> Fixed up version attached. =A0Seems to run without any lockups on a kernel
-> with your patch applied until either the malloc's start to fail, or the O=
-OM
-> killer zaps it.
+Ben.
 
-Thank you for that.
-Really appreciate your help !
+ arch/ia64/include/asm/Kbuild |    1 +
+ 1 file changed, 1 insertion(+)
 
->
-> I put your patch into my "next" tree - it's in linux-next tag "next-20120=
-614"
-> and I'll push to Linus in the next merge window.
+diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
+index 241d1c5..c929a53 100644
+--- a/arch/ia64/include/asm/Kbuild
++++ b/arch/ia64/include/asm/Kbuild
+@@ -6,6 +6,7 @@ header-y +=3D gcc_intrin.h
+ header-y +=3D ia64regs.h
+ header-y +=3D intel_intrin.h
+ header-y +=3D intrinsics.h
++header-y +=3D cmpxchg.h
+ header-y +=3D perfmon.h
+ header-y +=3D perfmon_default_smpl.h
+ header-y +=3D ptrace_offsets.h
+--=20
+1.7.10
 
-And thanks again for that. :-)
 
->
-> Thanks
->
-> -Tony
->
->
+
+--=-doPXabYEVz7M66X1NSvo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAT9AlWOe/yOyVhhEJAQqNsA//dHBWw6pDegrzCrsQAwzmDekQUG0hNKlP
+AaJwE6Ks8qSASWu58WwglcqY4rruiNM6gCxQhBjdIbKveOcZkDQ37XMc2vNkF1Km
+jBL5PYHIso7XI8PZFwSTm5eX8iv0HEpfnY8UmbVqU8Jpc4pPBKIpgukjANbCIGFo
+6MWwD8kffZiZo5sbkKnHO2elvRJwTGQKf271mM65UJwNZl08olac4vVzxhVJMmoK
+ScZNUF6LvTjcHGyr2gFN1DrYM5pQCyalVfYKqWLzKHaPetYiIkf2RHFIV5wTkxPe
+4V7gTDI0cKBPclIRAqPY2Dvj/gkga7NBebHX7RKAFA8bGhOR1LxcKMyKgCSbyL8Q
+NgQCVR8BUIQDym2+c6dvS4GGerMDjA1+wbzjyC4/tg3B/Gu7X3yqgciug62POZbT
+RcehfkXaDpNEPeFxYr2bkQU7xYLypkTSnXeYqY9Kwmnk617SdoYFpE6U45bwMT7G
+3PpZcpU/5m9QZs8+OABhwbYWrWsqunJNqRXDqSjVo2YpxJkkQDu5Ace94gMsrYnO
+Q0IWbvtzO+Ki0BgtKBWHWcg6wrse9UsKxwIgFiPGAdASs0k1y4X02uVl28ibEX0J
++4JbB6xWdziAoP8CBOITX90wLtYheQa03rViNpQwDfX0M4/tAuhgvKln5TK4MqQz
+6EPd3g83hq8=
+=h+M/
+-----END PGP SIGNATURE-----
+
+--=-doPXabYEVz7M66X1NSvo--
