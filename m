@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 07 Jun 2012 16:54:56 +0000
-Subject: RE: [PATCH] IA64: Export <asm/cmpxchg.h> to userland
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F19304A57@ORSMSX104.amr.corp.intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Thu, 07 Jun 2012 20:07:13 +0000
+Subject: Re: [PATCH] IA64: Export <asm/cmpxchg.h> to userland
+Message-Id: <20120607200713.GB2753@decadent.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1339041112.21665.77.camel@deadeye.wl.decadent.org.uk>
 In-Reply-To: <1339041112.21665.77.camel@deadeye.wl.decadent.org.uk>
@@ -10,12 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-PiBQYXJ0cyBvZiA8YXNtL2ludHJpbnNpY3MuaD4gd2VyZSBtb3ZlZCB0byA8YXNtL2NtcHhjaGcu
-aD4sIGFuZCB0aGUNCj4gZm9ybWVyIG5vdyBpbmNsdWRlcyB0aGUgbGF0dGVyLiAgVGhlIGZvcm1l
-ciBpcyBleHBvcnRlZCB0byB1c2VybGFuZA0KPiBzbyB0aGUgbGF0dGVyIG11c3QgYmUgdG9vLg0K
-DQpBbHJlYWR5IHJlY2VpdmVkIGFuZCBhcHBsaWVkIGEgcGF0Y2ggdGhhdCBkb2VzIHRoaXMgKHRo
-b3VnaCBpdCBhZGRlZA0KdGhlIGNtcHhjaGcuaCBhIGZldyBsaW5lcyBlYXJsaWVyIHRoYXQgeW91
-IGRpZCkuDQoNClNlZSBjb21taXQ6IDk4ZTRjZmY3Mw0KDQpJdCBkaWRuJ3QgZ2V0IG1hcmtlZCBm
-b3Igc3RhYmxlIHRob3VnaCAuLi4gc28gaWYgeW91IG5lZWQgdGhpcyB0bw0KZ2V0IHB1bGxlZCBp
-bnRvIHRoZSBzdGFibGUgYnJhbmNoZXMgeW91J2xsIG5lZWQgdG8gcG9rZSBHcmVnIGV0Yy4NCm1h
-bnVhbGx5Lg0KDQotVG9ueQ0K
+On Thu, Jun 07, 2012 at 04:54:56PM +0000, Luck, Tony wrote:
+> > Parts of <asm/intrinsics.h> were moved to <asm/cmpxchg.h>, and the
+> > former now includes the latter.  The former is exported to userland
+> > so the latter must be too.
+> 
+> Already received and applied a patch that does this (though it added
+> the cmpxchg.h a few lines earlier that you did).
+> 
+> See commit: 98e4cff73
+> 
+> It didn't get marked for stable though ... so if you need this to
+> get pulled into the stable branches you'll need to poke Greg etc.
+> manually.
+
+Greg, please cherry-pick commit
+85f8f7759e418c814ee2ceacf73eddb9bed39492 ('[IA64] Add cmpxchg.h to
+exported userspace headers') for 3.4.y.
+
+Ben.
+
+-- 
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camus
