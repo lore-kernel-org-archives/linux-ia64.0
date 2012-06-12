@@ -1,37 +1,50 @@
-From: Petr Tesarik <ptesarik@suse.cz>
-Date: Tue, 12 Jun 2012 17:07:03 +0000
-Subject: Wrong NaTVal in unw_access_gr ?
-Message-Id: <201206121907.04177.ptesarik@suse.cz>
+From: David Mosberger-Tang <davidm@egauge.net>
+Date: Tue, 12 Jun 2012 18:33:55 +0000
+Subject: Re: Wrong NaTVal in unw_access_gr ?
+Message-Id: <CACwUX0NnTOCDfztvtq_ECnWn19EEU3HTEaTK-j4gMmX+EMN0MQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <201206121907.04177.ptesarik@suse.cz>
+In-Reply-To: <201206121907.04177.ptesarik@suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
-
-I've been looking at the following code trying to understand what it does:
-
-					/* simulate getf.sig/setf.sig */
-					if (write) {
-						if (*nat) {
-							/* write NaTVal and be done with it */
-							addr[0] = 0;
-							addr[1] = 0x1fffe;
-							return 0;
-						}
-						addr[1] = 0x1003e;
-					} else {
-						if (addr[0] = 0 && addr[1] = 0x1ffe) {
-							/* return NaT and be done with it */
-							*val = 0;
-							*nat = 1;
-							return 0;
-						}
-					}
-
-In particular, I'm puzzled about the "0x1ffe" constant for the read case. 
-Shouldn't that be 0x1fffe (with one more 'f'), i.e. the binary representation 
-of NaTVal?
-
-Petr Tesarik
+UGV0ciwKClRoYXQgZG9lcyBsb29rIGxpa2UgYSB0eXBvIHRvIG1lLCB3aGljaCB3YXMgcHJvYmFi
+bHkgbXkgYmFkLgoKbGlidW53aW5kIGxvb2tzIGZpbmU6IEdyZWdzLmM6YWNjZXNzX25hdCgpIGNv
+bXBhcmVzIGFnYWluc3QKR2dsb2JhbC5jOm5hdF92YWxfYnl0ZXMsIHdoaWNoIGhhcyB0aGUgcHJv
+cGVyIHZhbHVlcyAoMHgxLCAweGZmLAoweGZlKS4KCkdDQyB1c2VkIHRvIGhhdmUgdGhlIHNhbWUg
+YnVnZ3kgYml0cyBpbiB1bndpbmQtaWE2NC5jIGJ1dCBJIGJlbGlldmUKdGhhdCB3YXMgcmVtb3Zl
+ZCB3aGVuIGl0IHN3aXRjaGVkIG92ZXIgdG8gdXNpbmcgbGlidW53aW5kLgoKoCAtLWRhdmlkCgpP
+biBUdWUsIEp1biAxMiwgMjAxMiBhdCAxMTowNyBBTSwgUGV0ciBUZXNhcmlrIDxwdGVzYXJpa0Bz
+dXNlLmN6PiB3cm90ZToKPgo+IEhlbGxvLAo+Cj4gSSd2ZSBiZWVuIGxvb2tpbmcgYXQgdGhlIGZv
+bGxvd2luZyBjb2RlIHRyeWluZyB0byB1bmRlcnN0YW5kIHdoYXQgaXQgZG9lczoKPgo+IKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoC8qIHNpbXVsYXRlIGdldGYuc2lnL3Nl
+dGYuc2lnICovCj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgaWYgKHdy
+aXRlKSB7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBp
+ZiAoKm5hdCkgewo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAvKiB3cml0ZSBOYVRWYWwgYW5kIGJlIGRvbmUgd2l0aCBpdCAqLwo+IKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBhZGRyWzBd
+ID0gMDsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgYWRkclsxXSA9IDB4MWZmZmU7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoHJldHVybiAwOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgYWRkclsxXSA9IDB4MTAwM2U7Cj4goCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfSBlbHNlIHsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGlmIChhZGRyWzBdID09IDAgJiYgYWRkclsxXSA9PSAw
+eDFmZmUpIHsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgLyogcmV0dXJuIE5hVCBhbmQgYmUgZG9uZSB3aXRoIGl0ICovCj4goCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCp2YWwgPSAwOwo+
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAq
+bmF0ID0gMTsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgcmV0dXJuIDA7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKB9Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+
+Cj4gSW4gcGFydGljdWxhciwgSSdtIHB1enpsZWQgYWJvdXQgdGhlICIweDFmZmUiIGNvbnN0YW50
+IGZvciB0aGUgcmVhZCBjYXNlLgo+IFNob3VsZG4ndCB0aGF0IGJlIDB4MWZmZmUgKHdpdGggb25l
+IG1vcmUgJ2YnKSwgaS5lLiB0aGUgYmluYXJ5IHJlcHJlc2VudGF0aW9uCj4gb2YgTmFUVmFsPwo+
+Cj4gUGV0ciBUZXNhcmlrCj4gLS0KPiBUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2Vu
+ZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KPiB0aGUgYm9keSBvZiBhIG1l
+c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwo+IE1vcmUgbWFqb3Jkb21vIGluZm8g
+YXQgoGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbAoKCgoKLS0KZUdh
+dWdlIFN5c3RlbXMgTExDLCBodHRwOi8vZWdhdWdlLm5ldC8sIDEuODc3LUVHQVVHRTEsIGZheCA3
+MjAuNTQ1Ljk3NjgK
