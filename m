@@ -1,33 +1,37 @@
-From: Alex Shi <alex.shi@intel.com>
-Date: Thu, 07 Jun 2012 00:33:28 +0000
-Subject: Re: [RFC PATCH] sched/numa: do load balance between remote nodes
-Message-Id: <4FCFF6D8.70507@intel.com>
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Tue, 12 Jun 2012 17:07:03 +0000
+Subject: Wrong NaTVal in unw_access_gr ?
+Message-Id: <201206121907.04177.ptesarik@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1338965571-9812-1-git-send-email-alex.shi@intel.com> <1338973295.2749.81.camel@twins>
-In-Reply-To: <1338973295.2749.81.camel@twins>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: anton@samba.org, benh@kernel.crashing.org, cmetcalf@tilera.com, dhowells@redhat.com, davem@davemloft.net, fenghua.yu@intel.com, hpa@zytor.com, ink@jurassic.park.msu.ru, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, mattst88@gmail.com, paulus@samba.org, lethal@linux-sh.org, ralf@linux-mips.org, rth@twiddle.net, sparclinux@vger.kernel.org, tony.luck@intel.com, x86@kernel.org, sivanich@sgi.com, greg.pearson@hp.com, kamezawa.hiroyu@jp.fujitsu.com, bob.picco@oracle.com, chris.mason@oracle.com, torvalds@linux-foundation.org, akpm@linux-foundation.org, mingo@kernel.org, pjt@google.com, tglx@linutronix.de, seto.hidetoshi@jp.fujitsu.com, ak@linux.intel.com, arjan.van.de.ven@intel.com
+To: linux-ia64@vger.kernel.org
 
-On 06/06/2012 05:01 PM, Peter Zijlstra wrote:
+Hello,
 
-> On Wed, 2012-06-06 at 14:52 +0800, Alex Shi wrote:
->> -       if (sched_domains_numa_distance[level] > REMOTE_DISTANCE)
->> +       if (sched_domains_numa_distance[level] > RECLAIM_DISTANCE) 
-> 
-> I actually considered this.. I just felt a little uneasy re-purposing
-> the RECLAIM_DISTANCE for this, but I guess its all the same anyway. Both
-> mean expensive-away-distance.
-> 
+I've been looking at the following code trying to understand what it does:
 
+					/* simulate getf.sig/setf.sig */
+					if (write) {
+						if (*nat) {
+							/* write NaTVal and be done with it */
+							addr[0] = 0;
+							addr[1] = 0x1fffe;
+							return 0;
+						}
+						addr[1] = 0x1003e;
+					} else {
+						if (addr[0] = 0 && addr[1] = 0x1ffe) {
+							/* return NaT and be done with it */
+							*val = 0;
+							*nat = 1;
+							return 0;
+						}
+					}
 
-I understand you, the BIOS guys don't have a good alignment with us on
-this.
+In particular, I'm puzzled about the "0x1ffe" constant for the read case. 
+Shouldn't that be 0x1fffe (with one more 'f'), i.e. the binary representation 
+of NaTVal?
 
-> So I've taken this.
-> 
-> thanks!
-
-
+Petr Tesarik
