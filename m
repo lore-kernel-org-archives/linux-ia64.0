@@ -1,124 +1,54 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 14 Jun 2012 16:43:07 +0000
-Subject: RE: [PATCH 09/19 v2] ia64/mm/fault.c: Port OOM changes to ia64_do_page_fault
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F19313123@ORSMSX104.amr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="_002_3908561D78D1C84285E8C5FCA982C28F19313123ORSMSX104amrcor_"
+From: Kautuk Consul <consul.kautuk@gmail.com>
+Date: Thu, 14 Jun 2012 16:53:18 +0000
+Subject: Re: [PATCH 09/19 v2] ia64/mm/fault.c: Port OOM changes to ia64_do_page_fault
+Message-Id: <CAFPAmTSoeo8Zxbz=D0VUzrG=NeNqX2AdaNvZ+xoKNQ9-8t=9Jw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1333195412-5217-1-git-send-email-consul.kautuk@gmail.com>
 In-Reply-To: <1333195412-5217-1-git-send-email-consul.kautuk@gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
---_002_3908561D78D1C84285E8C5FCA982C28F19313123ORSMSX104amrcor_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Thu, Jun 14, 2012 at 10:13 PM, Luck, Tony <tony.luck@intel.com> wrote:
+>> Maybe you can try my test-case at https://lkml.org/lkml/2012/3/31/90 ?
+>
+> There seem to be a few cut & paste errors in that version (threads 3, 4, 5
+> think they are "Thread 2"). =A0Also no check for malloc failing (which si=
+nce
+> it is done in an infinite loop seems inevitable - unless your machines ha=
+ve
+> infinite memory :-)
 
-> Maybe you can try my test-case at https://lkml.org/lkml/2012/3/31/90 ?
+Yes. This test-case was written in a hurry to run on ARM and the test-case =
+was
+just meant to blindly allocate and fault pages till OOM happens.
 
-There seem to be a few cut & paste errors in that version (threads 3, 4, 5
-think they are "Thread 2").  Also no check for malloc failing (which since
-it is done in an infinite loop seems inevitable - unless your machines have
-infinite memory :-)
+So sorry about that !
 
-Fixed up version attached.  Seems to run without any lockups on a kernel
-with your patch applied until either the malloc's start to fail, or the OOM
-killer zaps it.
+Evidently on ARM we OOM much before the mallocs start failing. That
+maybe due to
+some overcommit_memory setting which I had on that board.
 
-I put your patch into my "next" tree - it's in linux-next tag "next-2012061=
-4"
-and I'll push to Linus in the next merge window.
+>
+> Fixed up version attached. =A0Seems to run without any lockups on a kernel
+> with your patch applied until either the malloc's start to fail, or the O=
+OM
+> killer zaps it.
 
-Thanks
+Thank you for that.
+Really appreciate your help !
 
--Tony
+>
+> I put your patch into my "next" tree - it's in linux-next tag "next-20120=
+614"
+> and I'll push to Linus in the next merge window.
 
+And thanks again for that. :-)
 
-
---_002_3908561D78D1C84285E8C5FCA982C28F19313123ORSMSX104amrcor_
-Content-Type: text/plain; name="kautuk.c"
-Content-Description: kautuk.c
-Content-Disposition: attachment; filename="kautuk.c"; size=4420;
-	creation-date="Thu, 14 Jun 2012 16:39:05 GMT";
-	modification-date="Thu, 14 Jun 2012 16:37:28 GMT"
-Content-Transfer-Encoding: base64
-
-LyogaHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTIvMy8zMS85MCAqLwoKI2luY2x1ZGUgPHN0ZGlv
-Lmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmluZy5oPgojaW5jbHVkZSA8cHRo
-cmVhZC5oPgojaW5jbHVkZSA8dW5pc3RkLmg+CgojZGVmaW5lIEFMTE9DX0JZVEUgNTEyKjEwMjQK
-I2RlZmluZSBDT1VOVCA1MAoKdm9pZCAqYWxsb2NfZnVuY3Rpb25fb25lKCB2b2lkICpwdHIgKTsK
-dm9pZCAqYWxsb2NfZnVuY3Rpb25fdHdvKCB2b2lkICpwdHIgKTsKdm9pZCAqYWxsb2NfZnVuY3Rp
-b25fdGhyZWUoIHZvaWQgKnB0ciApOwp2b2lkICphbGxvY19mdW5jdGlvbl9mb3VyKCB2b2lkICpw
-dHIgKTsKdm9pZCAqYWxsb2NfZnVuY3Rpb25fZml2ZSggdm9pZCAqcHRyICk7CnZvaWQgKmVuYWJs
-ZV9mdW5jdGlvbiggdm9pZCAqcHRyICk7CgoKaW50IG1haW4oaW50IGFyZ2MsIGNoYXIgKmFyZ3Zb
-XSkKewoJcHRocmVhZF90IHRocmVhZDEsIHRocmVhZDIsIHRocmVhZDMsIHRocmVhZDQsIHRocmVh
-ZDU7CgljaGFyICptZXNzYWdlMSA9ICJUaHJlYWQgMSI7CgljaGFyICptZXNzYWdlMiA9ICJUaHJl
-YWQgMiI7CgljaGFyICptZXNzYWdlMyA9ICJUaHJlYWQgMyI7CgljaGFyICptZXNzYWdlNCA9ICJU
-aHJlYWQgNCI7CgljaGFyICptZXNzYWdlNSA9ICJUaHJlYWQgNSI7CglpbnQgaXJldDEgPSAtMTsK
-CWludCBpcmV0MiA9IC0xOwoJaW50IGlyZXQzID0gLTE7CglpbnQgaXJldDQgPSAtMTsKCWludCBp
-cmV0NSA9IC0xOwoJZm9yaygpOwoJaXJldDEgPSBwdGhyZWFkX2NyZWF0ZSggJnRocmVhZDEsIE5V
-TEwsIGFsbG9jX2Z1bmN0aW9uX29uZSwgKHZvaWQqKSBtZXNzYWdlMSk7CglpcmV0MiA9IHB0aHJl
-YWRfY3JlYXRlKCAmdGhyZWFkMiwgTlVMTCwgYWxsb2NfZnVuY3Rpb25fdHdvLCAodm9pZCopIG1l
-c3NhZ2UyKTsKCWlyZXQzID0gcHRocmVhZF9jcmVhdGUoICZ0aHJlYWQzLCBOVUxMLCBhbGxvY19m
-dW5jdGlvbl90aHJlZSwgKHZvaWQqKSBtZXNzYWdlMyk7CglpcmV0NCA9IHB0aHJlYWRfY3JlYXRl
-KCAmdGhyZWFkNCwgTlVMTCwgYWxsb2NfZnVuY3Rpb25fZm91ciwgKHZvaWQqKSBtZXNzYWdlNCk7
-CglpcmV0NSA9IHB0aHJlYWRfY3JlYXRlKCAmdGhyZWFkNSwgTlVMTCwgYWxsb2NfZnVuY3Rpb25f
-Zml2ZSwgKHZvaWQqKSBtZXNzYWdlNSk7CglwdGhyZWFkX2pvaW4oIHRocmVhZDEsIE5VTEwpOwoJ
-cHRocmVhZF9qb2luKCB0aHJlYWQyLCBOVUxMKTsKCXB0aHJlYWRfam9pbiggdGhyZWFkMywgTlVM
-TCk7CglwdGhyZWFkX2pvaW4oIHRocmVhZDQsIE5VTEwpOwoJcHRocmVhZF9qb2luKCB0aHJlYWQ1
-LCBOVUxMKTsKCglwcmludGYoIlRocmVhZCAxIHJldHVybnM6ICVkXG4iLGlyZXQxKTsKCXByaW50
-ZigiVGhyZWFkIDIgcmV0dXJuczogJWRcbiIsaXJldDIpOwoJcHJpbnRmKCJUaHJlYWQgMyByZXR1
-cm5zOiAlZFxuIixpcmV0Myk7CglwcmludGYoIlRocmVhZCA0IHJldHVybnM6ICVkXG4iLGlyZXQ0
-KTsKCXByaW50ZigiVGhyZWFkIDUgcmV0dXJuczogJWRcbiIsaXJldDUpOwoJZXhpdCgwKTsKfQp2
-b2lkICphbGxvY19mdW5jdGlvbl90d28oIHZvaWQgKnB0ciApCnsKCWNoYXIgKm1lc3NhZ2U7Cglt
-ZXNzYWdlID0gKGNoYXIgKikgcHRyOwoJdm9pZCAqbXlibG9ja1tDT1VOVF07CglpbnQgaT0gMCxq
-PTA7CglpbnQgZnJlZWQ9MDsKCXByaW50ZigibWVzc2FnZV9hbGxvYyAgXG4iKTsKCXdoaWxlKDEp
-Cgl7CgkJbWVtc2V0KG15YmxvY2ssMCxzaXplb2YobXlibG9jaykpOwoJCXByaW50ZigibWVzc2Fn
-ZV9hbGxvYyAlcyBcbiIsbWVzc2FnZSk7CgkJZm9yKGk9MDtpPCBDT1VOVCA7aSsrKQoJCXsKCQkJ
-bXlibG9ja1tpXSA9ICh2b2lkICopIG1hbGxvYyhBTExPQ19CWVRFKTsKCQkJaWYgKG15YmxvY2tb
-aV0gPT0gTlVMTCkgewoJCQkJcHJpbnRmKCJtYWxsb2MgZmFpbGVkIGluICVzXG4iLCBtZXNzYWdl
-KTsKCQkJCXJldHVybiBOVUxMOwoJCQl9CgkJCW1lbXNldChteWJsb2NrW2ldLDEsIEFMTE9DX0JZ
-VEUpOwoJCX0KCX0KfQoKdm9pZCAqYWxsb2NfZnVuY3Rpb25fb25lKCB2b2lkICpwdHIgKQp7Cglj
-aGFyICptZXNzYWdlOwoJbWVzc2FnZSA9IChjaGFyICopIHB0cjsKCXZvaWQgKm15YmxvY2tbQ09V
-TlRdOwoJaW50IGk9IDAsaj0wOwoJaW50IGZyZWVkPTA7CglwcmludGYoIm1lc3NhZ2VfYWxsb2Mg
-IFxuIik7Cgl3aGlsZSgxKQoJewoJCW1lbXNldChteWJsb2NrLDAsc2l6ZW9mKG15YmxvY2spKTsK
-CQlwcmludGYoIm1lc3NhZ2VfYWxsb2MgJXMgXG4iLG1lc3NhZ2UpOwoJCWZvcihpPTA7aTwgQ09V
-TlQgO2krKykKCQl7CgkJCW15YmxvY2tbaV0gPSAodm9pZCAqKSBtYWxsb2MoQUxMT0NfQllURSk7
-CgkJCWlmIChteWJsb2NrW2ldID09IE5VTEwpIHsKCQkJCXByaW50ZigibWFsbG9jIGZhaWxlZCBp
-biAlc1xuIiwgbWVzc2FnZSk7CgkJCQlyZXR1cm4gTlVMTDsKCQkJfQoJCQltZW1zZXQobXlibG9j
-a1tpXSwxLCBBTExPQ19CWVRFKTsKCQl9Cgl9Cn0Kdm9pZCAqYWxsb2NfZnVuY3Rpb25fdGhyZWUo
-IHZvaWQgKnB0ciApCnsKICAgICAgIGNoYXIgKm1lc3NhZ2U7CiAgICAgICAgbWVzc2FnZSA9IChj
-aGFyICopIHB0cjsKICAgICAgICB2b2lkICpteWJsb2NrW0NPVU5UXTsKICAgICAgICBpbnQgaT0g
-MCxqPTA7CiAgICAgICAgaW50IGZyZWVkPTA7CiAgICAgICAgcHJpbnRmKCJtZXNzYWdlX2FsbG9j
-ICBcbiIpOwogICAgICAgIHdoaWxlKDEpCiAgICAgICAgewogICAgICAgICAgICAgICAgbWVtc2V0
-KG15YmxvY2ssMCxzaXplb2YobXlibG9jaykpOwogICAgICAgICAgICAgICAgcHJpbnRmKCJtZXNz
-YWdlX2FsbG9jICVzIFxuIixtZXNzYWdlKTsKICAgICAgICAgICAgICAgIGZvcihpPTA7aTwgQ09V
-TlQgO2krKykKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICAgICAgbXlibG9j
-a1tpXSA9ICh2b2lkICopIG1hbGxvYyhBTExPQ19CWVRFKTsKCQkJaWYgKG15YmxvY2tbaV0gPT0g
-TlVMTCkgewoJCQkJcHJpbnRmKCJtYWxsb2MgZmFpbGVkIGluICVzXG4iLCBtZXNzYWdlKTsKCQkJ
-CXJldHVybiBOVUxMOwoJCQl9CiAgICAgICAgICAgICAgICAgICAgICAgIG1lbXNldChteWJsb2Nr
-W2ldLDEsIEFMTE9DX0JZVEUpOwogICAgICAgICAgICAgICAgfQogICAgICAgIH0KfQp2b2lkICph
-bGxvY19mdW5jdGlvbl9mb3VyKCB2b2lkICpwdHIgKQp7CiAgICAgICBjaGFyICptZXNzYWdlOwog
-ICAgICAgIG1lc3NhZ2UgPSAoY2hhciAqKSBwdHI7CiAgICAgICAgdm9pZCAqbXlibG9ja1tDT1VO
-VF07CiAgICAgICAgaW50IGk9IDAsaj0wOwogICAgICAgIGludCBmcmVlZD0wOwogICAgICAgIHBy
-aW50ZigibWVzc2FnZV9hbGxvYyAgXG4iKTsKICAgICAgICB3aGlsZSgxKQogICAgICAgIHsKICAg
-ICAgICAgICAgICAgIG1lbXNldChteWJsb2NrLDAsc2l6ZW9mKG15YmxvY2spKTsKICAgICAgICAg
-ICAgICAgIHByaW50ZigibWVzc2FnZV9hbGxvYyAlcyBcbiIsbWVzc2FnZSk7CiAgICAgICAgICAg
-ICAgICBmb3IoaT0wO2k8IENPVU5UIDtpKyspCiAgICAgICAgICAgICAgICB7CiAgICAgICAgICAg
-ICAgICAgICAgICAgIG15YmxvY2tbaV0gPSAodm9pZCAqKSBtYWxsb2MoQUxMT0NfQllURSk7CgkJ
-CWlmIChteWJsb2NrW2ldID09IE5VTEwpIHsKCQkJCXByaW50ZigibWFsbG9jIGZhaWxlZCBpbiAl
-c1xuIiwgbWVzc2FnZSk7CgkJCQlyZXR1cm4gTlVMTDsKCQkJfQogICAgICAgICAgICAgICAgICAg
-ICAgICBtZW1zZXQobXlibG9ja1tpXSwxLCBBTExPQ19CWVRFKTsKICAgICAgICAgICAgICAgIH0K
-ICAgICAgICB9Cn0Kdm9pZCAqYWxsb2NfZnVuY3Rpb25fZml2ZSggdm9pZCAqcHRyICkKewogICAg
-ICAgY2hhciAqbWVzc2FnZTsKICAgICAgICBtZXNzYWdlID0gKGNoYXIgKikgcHRyOwogICAgICAg
-IHZvaWQgKm15YmxvY2tbQ09VTlRdOwogICAgICAgIGludCBpPSAwLGo9MDsKICAgICAgICBpbnQg
-ZnJlZWQ9MDsKICAgICAgICBwcmludGYoIm1lc3NhZ2VfYWxsb2MgIFxuIik7CiAgICAgICAgd2hp
-bGUoMSkKICAgICAgICB7CiAgICAgICAgICAgICAgICBtZW1zZXQobXlibG9jaywwLHNpemVvZiht
-eWJsb2NrKSk7CiAgICAgICAgICAgICAgICBwcmludGYoIm1lc3NhZ2VfYWxsb2MgJXMgXG4iLG1l
-c3NhZ2UpOwogICAgICAgICAgICAgICAgZm9yKGk9MDtpPCBDT1VOVCA7aSsrKQogICAgICAgICAg
-ICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICBteWJsb2NrW2ldID0gKHZvaWQgKikgbWFs
-bG9jKEFMTE9DX0JZVEUpOwoJCQlpZiAobXlibG9ja1tpXSA9PSBOVUxMKSB7CgkJCQlwcmludGYo
-Im1hbGxvYyBmYWlsZWQgaW4gJXNcbiIsIG1lc3NhZ2UpOwoJCQkJcmV0dXJuIE5VTEw7CgkJCX0K
-ICAgICAgICAgICAgICAgICAgICAgICAgbWVtc2V0KG15YmxvY2tbaV0sMSwgQUxMT0NfQllURSk7
-CiAgICAgICAgICAgICAgICB9CiAgICAgICAgfQp9Cg==
-
---_002_3908561D78D1C84285E8C5FCA982C28F19313123ORSMSX104amrcor_--
+>
+> Thanks
+>
+> -Tony
+>
+>
