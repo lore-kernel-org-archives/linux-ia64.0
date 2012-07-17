@@ -1,76 +1,78 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Mon, 30 Jul 2012 03:47:51 +0000
-Subject: Re: [RFC PATCH v5 19/19] memory-hotplug: remove sysfs file of node
-Message-Id: <501603E7.1060200@cn.fujitsu.com>
+From: Sedat Dilek <sedat.dilek@gmail.com>
+Date: Tue, 17 Jul 2012 11:33:13 +0000
+Subject: [PATCH -next] random: Remove remaining relicts of rand_initialize_irq()
+Message-Id: <1342524793-2522-1-git-send-email-sedat.dilek@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <50126B83.3050201@cn.fujitsu.com> <50126F21.803@cn.fujitsu.com> <5012712E.9000005@jp.fujitsu.com>
-In-Reply-To: <5012712E.9000005@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Linus Walleij <linus.walleij@stericsson.com>, Samuel Ortiz <sameo@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, David Howells <dhowells@redhat.com>, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, Theodore Ts'o <tytso@mit.edu>, "David S. Miller" <davem@davemloft.net>, Eric Dumazet <eric.dumazet@gmail.com>, "H. Peter Anvin" <hpa@linux.intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Sedat Dilek <sedat.dilek@gmail.com>
 
-At 07/27/2012 06:45 PM, Yasuaki Ishimatsu Wrote:
-> Hi Wen,
-> 
-> 2012/07/27 19:36, Wen Congyang wrote:
->> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->>
->> The patch adds node_set_offline() and unregister_one_node() to
->> remove_memory()
->> for removing sysfs file of node.
->>
->> CC: David Rientjes <rientjes@google.com>
->> CC: Jiang Liu <liuj97@gmail.com>
->> CC: Len Brown <len.brown@intel.com>
->> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> CC: Paul Mackerras <paulus@samba.org>
->> CC: Christoph Lameter <cl@linux.com>
->> Cc: Minchan Kim <minchan.kim@gmail.com>
->> CC: Andrew Morton <akpm@linux-foundation.org>
->> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
->> CC: Wen Congyang <wency@cn.fujitsu.com>
->> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->> ---
->>   mm/memory_hotplug.c |    5 +++++
->>   1 files changed, 5 insertions(+), 0 deletions(-)
->>
->> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
->> index 5ac035f..5681968 100644
->> --- a/mm/memory_hotplug.c
->> +++ b/mm/memory_hotplug.c
->> @@ -1267,6 +1267,11 @@ int __ref remove_memory(int nid, u64 start, u64
->> size)
->>       /* remove memmap entry */
->>       firmware_map_remove(start, start + size, "System RAM");
->>
->> +    if (!node_present_pages(nid)) {
-> 
-> Applying [PATCH v5 17/19], pgdat->node_spanned_pages can become 0 when
-> all memory of the pgdat is removed. When pgdat->node_spanned_pages is 0,
-> it means the pgdat has no memory. So I think node_spanned_pages() is
-> better.
+rand_initialize_irq() was removed here:
 
-Hmm, if the node contains cpu, and the cpu is onlined, can we offline
-this node?
+commit 946672f548682905d8ecdab33bb6e2c705418505
+"random: remove rand_initialize_irq()"
 
-Thanks
-Wen Congyang
+The AB3100 mfd-driver is the only driver still using it and breaks
+with the following error-messages in linux-next (next-20120717):
+...
+drivers/built-in.o: In function `ab3100_probe':
+ab3100-core.c:(.devinit.text+0xbf97): undefined reference to `rand_initialize_irq'
 
-> 
-> Thanks,
-> Yasuaki Ishimatsu
-> 
->> +        node_set_offline(nid);
->> +        unregister_one_node(nid);
->> +    }
->> +
->>       arch_remove_memory(start, size);
->>   out:
->>       unlock_memory_hotplug();
->>
-> 
-> 
-> 
+Fix this issue and remove all remaining relicts of rand_initialize_irq().
+
+Might be worth to fold-in these changes into the original commit.
+
+Tested against linux-next (next-20120717) on a Ubuntu/precise AMD64 host.
+
+[ v2: Polish up subject and commit message ]
+
+Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
+---
+ arch/ia64/kernel/irq_ia64.c |    1 -
+ drivers/mfd/ab3100-core.c   |    2 --
+ include/linux/random.h      |    2 --
+ 3 files changed, 5 deletions(-)
+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 5c3e088..1034884 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -23,7 +23,6 @@
+ #include <linux/ioport.h>
+ #include <linux/kernel_stat.h>
+ #include <linux/ptrace.h>
+-#include <linux/random.h>	/* for rand_initialize_irq() */
+ #include <linux/signal.h>
+ #include <linux/smp.h>
+ #include <linux/threads.h>
+diff --git a/drivers/mfd/ab3100-core.c b/drivers/mfd/ab3100-core.c
+index e799050..78fca29 100644
+--- a/drivers/mfd/ab3100-core.c
++++ b/drivers/mfd/ab3100-core.c
+@@ -934,8 +934,6 @@ static int __devinit ab3100_probe(struct i2c_client *client,
+ 					IRQF_ONESHOT, "ab3100-core", ab3100);
+ 	if (err)
+ 		goto exit_no_irq;
+-	/* This real unpredictable IRQ is of course sampled for entropy */
+-	rand_initialize_irq(client->irq);
+ 
+ 	err = abx500_register_ops(&client->dev, &ab3100_ops);
+ 	if (err)
+diff --git a/include/linux/random.h b/include/linux/random.h
+index 29e217a..ac621ce 100644
+--- a/include/linux/random.h
++++ b/include/linux/random.h
+@@ -48,8 +48,6 @@ struct rnd_state {
+ 
+ #ifdef __KERNEL__
+ 
+-extern void rand_initialize_irq(int irq);
+-
+ extern void add_device_randomness(const void *, unsigned int);
+ extern void add_input_randomness(unsigned int type, unsigned int code,
+ 				 unsigned int value);
+-- 
+1.7.9.5
 
