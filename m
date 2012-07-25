@@ -1,18 +1,24 @@
 From: Fengguang Wu <fengguang.wu@intel.com>
-Date: Wed, 25 Jul 2012 07:15:13 +0000
+Date: Wed, 25 Jul 2012 08:06:53 +0000
 Subject: [PATCH] ia64: rename platform_name to ia64_platform_name
-Message-Id: <20120725071513.GA11381@localhost>
+Message-Id: <20120725080653.GA18233@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20120725071513.GA11381@localhost>
+In-Reply-To: <20120725071513.GA11381@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Fengguang Wu <fengguang.wu@intel.com>, alsa-devel@alsa-project.org
 
 The macro name is too generic and conflicts with
-snd_soc_dai_link.platform_name, which triggers lots of build errors.
+snd_soc_dai_link.platform_name, which triggers lots of ALSA build errors.
 
 Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
 ---
+
+(not sure if the previous sent was successful, so resend)
+
  arch/ia64/include/asm/machvec.h               |    2 +-
  arch/ia64/include/asm/machvec_dig.h           |    2 +-
  arch/ia64/include/asm/machvec_dig_vtd.h       |    2 +-
