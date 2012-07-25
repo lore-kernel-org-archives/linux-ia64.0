@@ -1,251 +1,56 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Fri, 20 Jul 2012 08:38:41 +0000
-Subject: Re: [RFC PATCH 6/8] memory-hotplug: introduce new function arch_remove_memory()
-Message-Id: <50091911.7080303@cn.fujitsu.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Date: Wed, 25 Jul 2012 07:53:49 +0000
+Subject: [PATCH] ia64: mark PARAVIRT and KVM as broken
+Message-Id: <20120725075349.GA17762@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5009038A.4090001@cn.fujitsu.com> <500904D6.3030109@cn.fujitsu.com> <5009151F.3060903@jp.fujitsu.com>
-In-Reply-To: <5009151F.3060903@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, cmetcalf@tilera.com
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
 
-At 07/20/2012 04:21 PM, Yasuaki Ishimatsu Wrote:
-> 2012/07/20 16:12, Wen Congyang wrote:
->> We don't call __add_pages() directly in the function add_memory()
->> because some other architecture related thins needs to be done
->> before or after calling __add_pages(). So we should not call
->> __remove_pages() directly in the function remove_memory.
->> Introduce new function arch_remove_memory() to revert the things done
->> in arch_add_memory().
->>
->> Note: the function for x86_64 will be implemented later. And I don't
->> know how to implement it for s390.
-> 
-> I think you need cc to other arch ML for reviewing the patch.
+Well, this at least makes allmodconfig happy.
 
-I forgot to do it.
+Proposed-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+---
+ arch/ia64/Kconfig     |    3 +--
+ arch/ia64/kvm/Kconfig |    1 +
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-> 
-> 
->> CC: David Rientjes <rientjes@google.com>
->> CC: Jiang Liu <liuj97@gmail.com>
->> CC: Len Brown <len.brown@intel.com>
->> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> CC: Paul Mackerras <paulus@samba.org>
->> CC: Christoph Lameter <cl@linux.com>
->> Cc: Minchan Kim <minchan.kim@gmail.com>
->> CC: Andrew Morton <akpm@linux-foundation.org>
->> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
->> CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->> Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
->> ---
->>   arch/ia64/mm/init.c            |   16 ++++++++++++++++
->>   arch/powerpc/mm/mem.c          |   14 ++++++++++++++
->>   arch/s390/mm/init.c            |    8 ++++++++
->>   arch/sh/mm/init.c              |   15 +++++++++++++++
->>   arch/tile/mm/init.c            |    8 ++++++++
->>   arch/x86/mm/init_32.c          |   10 ++++++++++
->>   arch/x86/mm/init_64.c          |    7 +++++++
->>   include/linux/memory_hotplug.h |    1 +
->>   mm/memory_hotplug.c            |    2 +-
->>   9 files changed, 80 insertions(+), 1 deletions(-)
->>
->> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
->> index 0eab454..1e345ed 100644
->> --- a/arch/ia64/mm/init.c
->> +++ b/arch/ia64/mm/init.c
->> @@ -688,6 +688,22 @@ int arch_add_memory(int nid, u64 start, u64 size)
->>
->>       return ret;
->>   }
->> +
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(u64 start, u64 size)
->> +{
->> +    unsigned long start_pfn = start >> PAGE_SHIFT;
->> +    unsigned long nr_pages = size >> PAGE_SHIFT;
->> +    int ret;
->> +
->> +    ret = __remove_pages(start_pfn, nr_pages);
->> +    if (ret)
->> +        pr_warn("%s: Problem encountered in __remove_pages() as"
->> +            " ret=%d\n", __func__,  ret);
->> +
->> +    return ret;
->> +}
->> +#endif
->>   #endif
->>
->>   /*
->> diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
->> index baaafde..249cef4 100644
->> --- a/arch/powerpc/mm/mem.c
->> +++ b/arch/powerpc/mm/mem.c
->> @@ -133,6 +133,20 @@ int arch_add_memory(int nid, u64 start, u64 size)
->>
->>       return __add_pages(nid, zone, start_pfn, nr_pages);
->>   }
->> +
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(u64 start, u64 size)
->> +{
->> +    unsigned long start_pfn = start >> PAGE_SHIFT;
->> +    unsigned long nr_pages = size >> PAGE_SHIFT;
->> +
->> +    start = (unsigned long)__va(start);
->> +    if (remove_section_mapping(start, start + size))
->> +        return -EINVAL;
->> +
->> +    return __remove_pages(start_pfn, nr_pages);
->> +}
->> +#endif
->>   #endif /* CONFIG_MEMORY_HOTPLUG */
->>
->>   /*
->> diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
->> index 2bea060..3de0d5b 100644
->> --- a/arch/s390/mm/init.c
->> +++ b/arch/s390/mm/init.c
->> @@ -259,4 +259,12 @@ int arch_add_memory(int nid, u64 start, u64 size)
->>           vmem_remove_mapping(start, size);
->>       return rc;
->>   }
->> +
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(u64 start, u64 size)
->> +{
->> +    /* TODO */
->> +    return -EBUSY;
->> +}
->> +#endif
->>   #endif /* CONFIG_MEMORY_HOTPLUG */
->> diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
->> index 82cc576..fc84491 100644
->> --- a/arch/sh/mm/init.c
->> +++ b/arch/sh/mm/init.c
->> @@ -558,4 +558,19 @@ int memory_add_physaddr_to_nid(u64 addr)
->>   EXPORT_SYMBOL_GPL(memory_add_physaddr_to_nid);
->>   #endif
->>
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(u64 start, u64 size)
->> +{
->> +    unsigned long start_pfn = start >> PAGE_SHIFT;
->> +    unsigned long nr_pages = size >> PAGE_SHIFT;
->> +    int ret;
->> +
->> +    ret = __remove_pages(start_pfn, nr_pages);
->> +    if (unlikely(ret))
->> +        pr_warn("%s: Failed, __remove_pages() = %d\n", __func__,
->> +            ret);
->> +
->> +    return ret;
->> +}
->> +#endif
->>   #endif /* CONFIG_MEMORY_HOTPLUG */
->> diff --git a/arch/tile/mm/init.c b/arch/tile/mm/init.c
->> index 630dd2c..bdd8a99 100644
->> --- a/arch/tile/mm/init.c
->> +++ b/arch/tile/mm/init.c
->> @@ -947,6 +947,14 @@ int remove_memory(u64 start, u64 size)
->>   {
->>       return -EINVAL;
->>   }
->> +
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(u64 start, u64 size)
->> +{
->> +    /* TODO */
->> +    return -EBUSY;
->> +}
->> +#endif
->>   #endif
->>
->>   struct kmem_cache *pgd_cache;
->> diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
->> index 575d86f..a690153 100644
->> --- a/arch/x86/mm/init_32.c
->> +++ b/arch/x86/mm/init_32.c
->> @@ -842,6 +842,16 @@ int arch_add_memory(int nid, u64 start, u64 size)
->>
->>       return __add_pages(nid, zone, start_pfn, nr_pages);
->>   }
->> +
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(unsigned long start, unsigned long size)
->> +{
->> +    unsigned long start_pfn = start >> PAGE_SHIFT;
->> +    unsigned long nr_pages = size >> PAGE_SHIFT;
->> +
->> +    return __remove_pages(start_pfn, nr_pages);
->> +}
->> +#endif
->>   #endif
->>
->>   /*
->> diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
->> index 9e635b3..78b94bc 100644
->> --- a/arch/x86/mm/init_64.c
->> +++ b/arch/x86/mm/init_64.c
->> @@ -675,6 +675,13 @@ int arch_add_memory(int nid, u64 start, u64 size)
->>   }
->>   EXPORT_SYMBOL_GPL(arch_add_memory);
->>
->> +#ifdef CONFIG_MEMORY_HOTREMOVE
->> +int arch_remove_memory(unsigned long start, unsigned long size)
->> +{
->> +    /* TODO */
->> +    return -EBUSY;
->> +}
->> +#endif
-> 
-> Why does not the function call __remove_pages()?
-
-arch_remove_memory() should clear the page table after remove pages here.
-I implement this function in patch 8.
-
-Thanks
-Wen Congyang
-
-> 
-> Thanks,
-> Yasuaki ishimatsu
-> 
->>   #endif /* CONFIG_MEMORY_HOTPLUG */
->>
->>   static struct kcore_list kcore_vsyscall;
->> diff --git a/include/linux/memory_hotplug.h
->> b/include/linux/memory_hotplug.h
->> index 2ba0a1a..8639799 100644
->> --- a/include/linux/memory_hotplug.h
->> +++ b/include/linux/memory_hotplug.h
->> @@ -84,6 +84,7 @@ extern void __online_page_free(struct page *page);
->>
->>   #ifdef CONFIG_MEMORY_HOTREMOVE
->>   extern bool is_pageblock_removable_nolock(struct page *page);
->> +extern int arch_remove_memory(unsigned long start, unsigned long size);
->>   #endif /* CONFIG_MEMORY_HOTREMOVE */
->>
->>   /* reasonably generic interface to expand the physical pages in a
->> zone  */
->> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
->> index dccdf71..cc2c8b9 100644
->> --- a/mm/memory_hotplug.c
->> +++ b/mm/memory_hotplug.c
->> @@ -1055,7 +1055,7 @@ int __ref remove_memory(int nid, u64 start, u64
->> size)
->>           unregister_one_node(nid);
->>       }
->>
->> -    __remove_pages(start >> PAGE_SHIFT, size >> PAGE_SHIFT);
->> +    arch_remove_memory(start, size);
->>   out:
->>       unlock_memory_hotplug();
->>       return ret;
->>
-> 
-> 
-> 
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 8186ec5..310cf57 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -126,6 +126,7 @@ config AUDIT_ARCH
+ 
+ menuconfig PARAVIRT_GUEST
+ 	bool "Paravirtualized guest support"
++	depends on BROKEN
+ 	help
+ 	  Say Y here to get to see options related to running Linux under
+ 	  various hypervisors.  This option alone does not add any kernel code.
+@@ -138,8 +139,6 @@ config PARAVIRT
+ 	bool "Enable paravirtualization code"
+ 	depends on PARAVIRT_GUEST
+ 	default y
+-	bool
+-	default y
+ 	help
+ 	  This changes the kernel so it can modify itself when it is run
+ 	  under a hypervisor, potentially improving performance significantly
+diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
+index 9806e55..8ca8e35 100644
+--- a/arch/ia64/kvm/Kconfig
++++ b/arch/ia64/kvm/Kconfig
+@@ -22,6 +22,7 @@ config KVM
+ 	depends on HAVE_KVM && MODULES && EXPERIMENTAL
+ 	# for device assignment:
+ 	depends on PCI
++	depends on BROKEN
+ 	select PREEMPT_NOTIFIERS
+ 	select ANON_INODES
+ 	select HAVE_KVM_IRQCHIP
+-- 
+1.7.10
 
