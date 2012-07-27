@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Fri, 27 Jul 2012 10:34:08 +0000
-Subject: [RFC PATCH v5 15/19] memory-hotplug: implement register_page_bootmem_info_section of sparse-vmemmap
-Message-Id: <50126EA0.3000408@cn.fujitsu.com>
+Date: Fri, 27 Jul 2012 10:35:22 +0000
+Subject: [RFC PATCH v5 17/19] memory_hotplug: clear zone when the memory is removed
+Message-Id: <50126EEA.4070209@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <50126B83.3050201@cn.fujitsu.com>
 In-Reply-To: <50126B83.3050201@cn.fujitsu.com>
@@ -13,10 +13,9 @@ Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.cras
 
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-For removing memmap region of sparse-vmemmap which is allocated bootmem,
-memmap region of sparse-vmemmap needs to be registered by get_page_bootmem().
-So the patch searches pages of virtual mapping and registers the pages by
-get_page_bootmem().
+When a memory is added, we update zone's and pgdat's start_pfn and spanned_pages
+in the function __add_zone(). So we should revert these when the memory is
+removed. Add a new function __remove_zone() to do this.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -30,144 +29,211 @@ CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 CC: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- arch/x86/mm/init_64.c          |   52 ++++++++++++++++++++++++++++++++++++++++
- include/linux/memory_hotplug.h |    2 +
- include/linux/mm.h             |    3 +-
- mm/memory_hotplug.c            |   23 +++++++++++++++--
- 4 files changed, 76 insertions(+), 4 deletions(-)
+ mm/memory_hotplug.c |  181 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 181 insertions(+), 0 deletions(-)
 
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index f1554a9..a151145 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -1138,6 +1138,58 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
- 	return 0;
- }
- 
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	unsigned long addr = (unsigned long)start_page;
-+	unsigned long end = (unsigned long)(start_page + size);
-+	unsigned long next;
-+	pgd_t *pgd;
-+	pud_t *pud;
-+	pmd_t *pmd;
-+
-+	for (; addr < end; addr = next) {
-+		pte_t *pte = NULL;
-+
-+		pgd = pgd_offset_k(addr);
-+		if (pgd_none(*pgd)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pgd_page(*pgd), MIX_SECTION_INFO);
-+
-+		pud = pud_offset(pgd, addr);
-+		if (pud_none(*pud)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pud_page(*pud), MIX_SECTION_INFO);
-+
-+		if (!cpu_has_pse) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 MIX_SECTION_INFO);
-+
-+			pte = pte_offset_kernel(pmd, addr);
-+			if (pte_none(*pte))
-+				continue;
-+			get_page_bootmem(section_nr, pte_page(*pte),
-+					 SECTION_INFO);
-+		} else {
-+			next = pmd_addr_end(addr, end);
-+
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 SECTION_INFO);
-+		}
-+	}
-+}
-+
- void __meminit vmemmap_populate_print_last(void)
- {
- 	if (p_start) {
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index fe50a9b..e79d744 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -164,6 +164,8 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
- 
- extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
- extern void put_page_bootmem(struct page *page);
-+extern void get_page_bootmem(unsigned long ingo, struct page *page,
-+			     unsigned long type);
- 
- /*
-  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index f9f279c..716f38b 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1586,7 +1586,8 @@ int vmemmap_populate_basepages(struct page *start_page,
- 						unsigned long pages, int node);
- int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
- void vmemmap_populate_print_last(void);
--
-+void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
-+				  unsigned long size);
- 
- enum mf_flags {
- 	MF_COUNT_INCREASED = 1 << 0,
 diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 180d555..adcc93d 100644
+index 859425c..5ac035f 100644
 --- a/mm/memory_hotplug.c
 +++ b/mm/memory_hotplug.c
-@@ -91,8 +91,8 @@ static void release_memory_resource(struct resource *res)
+@@ -300,10 +300,187 @@ static int __meminit __add_section(int nid, struct zone *zone,
+ 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
  }
  
- #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
--static void get_page_bootmem(unsigned long info,  struct page *page,
--			     unsigned long type)
-+void get_page_bootmem(unsigned long info,  struct page *page,
-+		      unsigned long type)
- {
- 	unsigned long page_type;
- 
-@@ -164,8 +164,25 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
- 
- }
- #else
--static inline void register_page_bootmem_info_section(unsigned long start_pfn)
-+static void register_page_bootmem_info_section(unsigned long start_pfn)
- {
-+	unsigned long mapsize, section_nr;
++/* find the smallest valid pfn in the range [start_pfn, end_pfn) */
++static int find_smallest_section_pfn(unsigned long start_pfn,
++				     unsigned long end_pfn)
++{
 +	struct mem_section *ms;
-+	struct page *page, *memmap;
 +
-+	if (!pfn_valid(start_pfn))
++	for (; start_pfn < end_pfn; start_pfn += PAGES_PER_SECTION) {
++		ms = __pfn_to_section(start_pfn);
++
++		if (unlikely(!valid_section(ms)))
++			continue;
++
++		return start_pfn;
++	}
++
++	return 0;
++}
++
++/* find the biggest valid pfn in the range [start_pfn, end_pfn). */
++static int find_biggest_section_pfn(unsigned long start_pfn,
++				    unsigned long end_pfn)
++{
++	struct mem_section *ms;
++	unsigned long pfn;
++
++	/* pfn is the end pfn of a memory section. */
++	pfn = end_pfn - 1;
++	for (; pfn >= start_pfn; pfn -= PAGES_PER_SECTION) {
++		ms = __pfn_to_section(pfn);
++
++		if (unlikely(!valid_section(ms)))
++			continue;
++
++		return pfn;
++	}
++
++	return 0;
++}
++
++static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
++			     unsigned long end_pfn)
++{
++	unsigned long zone_start_pfn =  zone->zone_start_pfn;
++	unsigned long zone_end_pfn = zone->zone_start_pfn + zone->spanned_pages;
++	unsigned long pfn;
++	struct mem_section *ms;
++
++	zone_span_writelock(zone);
++	if (zone_start_pfn = start_pfn) {
++		/*
++		 * If the section is smallest section in the zone, it need
++		 * shrink zone->zone_start_pfn and zone->zone_spanned_pages.
++		 * In this case, we find second smallest valid mem_section
++		 * for shrinking zone.
++		 */
++		pfn = find_smallest_section_pfn(end_pfn, zone_end_pfn);
++		if (pfn) {
++			zone->zone_start_pfn = pfn;
++			zone->spanned_pages = zone_end_pfn - pfn;
++		}
++	} else if (zone_end_pfn = end_pfn) {
++		/*
++		 * If the section is biggest section in the zone, it need
++		 * shrink zone->spanned_pages.
++		 * In this case, we find second biggest valid mem_section for
++		 * shrinking zone.
++		 */
++		pfn = find_biggest_section_pfn(zone_start_pfn, start_pfn);
++		if (pfn)
++			zone->spanned_pages = pfn - zone_start_pfn + 1;
++	}
++
++	/*
++	 * The section is not biggest or smallest mem_section in the zone, it
++	 * only creates a hole in the zone. So in this case, we need not
++	 * change the zone. But perhaps, the zone has only hole data. Thus
++	 * it check the zone has only hole or not.
++	 */
++	pfn = zone_start_pfn;
++	for (; pfn < zone_end_pfn; pfn += PAGES_PER_SECTION) {
++		ms = __pfn_to_section(pfn);
++
++		if (unlikely(!valid_section(ms)))
++			continue;
++
++		 /* If the section is current section, it continues the loop */
++		if (start_pfn = pfn)
++			continue;
++
++		/* If we find valid section, we have nothing to do */
++		zone_span_writeunlock(zone);
 +		return;
++	}
 +
-+	section_nr = pfn_to_section_nr(start_pfn);
-+	ms = __nr_to_section(section_nr);
++	/* The zone has no valid section */
++	zone->zone_start_pfn = 0;
++	zone->spanned_pages = 0;
++	zone_span_writeunlock(zone);
++}
 +
-+	memmap = sparse_decode_mem_map(ms->section_mem_map, section_nr);
++static void shrink_pgdat_span(struct pglist_data *pgdat,
++			      unsigned long start_pfn, unsigned long end_pfn)
++{
++	unsigned long pgdat_start_pfn =  pgdat->node_start_pfn;
++	unsigned long pgdat_end_pfn +		pgdat->node_start_pfn + pgdat->node_spanned_pages;
++	unsigned long pfn;
++	struct mem_section *ms;
 +
-+	page = virt_to_page(memmap);
-+	mapsize = sizeof(struct page) * PAGES_PER_SECTION;
-+	mapsize = PAGE_ALIGN(mapsize) >> PAGE_SHIFT;
++	if (pgdat_start_pfn = start_pfn) {
++		/*
++		 * If the section is smallest section in the pgdat, it need
++		 * shrink pgdat->node_start_pfn and pgdat->node_spanned_pages.
++		 * In this case, we find second smallest valid mem_section
++		 * for shrinking zone.
++		 */
++		pfn = find_smallest_section_pfn(end_pfn, pgdat_end_pfn);
++		if (pfn) {
++			pgdat->node_start_pfn = pfn;
++			pgdat->node_spanned_pages = pgdat_end_pfn - pfn;
++		}
++	} else if (pgdat_end_pfn = end_pfn) {
++		/*
++		 * If the section is biggest section in the pgdat, it need
++		 * shrink pgdat->node_spanned_pages.
++		 * In this case, we find second biggest valid mem_section for
++		 * shrinking zone.
++		 */
++		pfn = find_biggest_section_pfn(pgdat_start_pfn, start_pfn);
++		if (pfn)
++			pgdat->node_spanned_pages = pfn - pgdat_start_pfn + 1;
++	}
 +
-+	register_page_bootmem_memmap(section_nr, memmap, PAGES_PER_SECTION);
- }
- #endif
++	/*
++	 * If the section is not biggest or smallest mem_section in the pgdat,
++	 * it only creates a hole in the pgdat. So in this case, we need not
++	 * change the pgdat.
++	 * But perhaps, the pgdat has only hole data. Thus it check the pgdat
++	 * has only hole or not.
++	 */
++	pfn = pgdat_start_pfn;
++	for (; pfn < pgdat_end_pfn; pfn += PAGES_PER_SECTION) {
++		ms = __pfn_to_section(pfn);
++
++		if (unlikely(!valid_section(ms)))
++			continue;
++
++		 /* If the section is current section, it continues the loop */
++		if (start_pfn = pfn)
++			continue;
++
++		/* If we find valid section, we have nothing to do */
++		return;
++	}
++
++	/* The pgdat has no valid section */
++	pgdat->node_start_pfn = 0;
++	pgdat->node_spanned_pages = 0;
++}
++
++static void __remove_zone(struct zone *zone, unsigned long start_pfn)
++{
++	struct pglist_data *pgdat = zone->zone_pgdat;
++	int nr_pages = PAGES_PER_SECTION;
++	int zone_type;
++	unsigned long flags;
++
++	zone_type = zone - pgdat->node_zones;
++
++	pgdat_resize_lock(zone->zone_pgdat, &flags);
++	shrink_zone_span(zone, start_pfn, start_pfn + nr_pages);
++	shrink_pgdat_span(pgdat, start_pfn, start_pfn + nr_pages);
++	pgdat_resize_unlock(zone->zone_pgdat, &flags);
++}
++
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ {
+ 	unsigned long flags;
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
++	unsigned long start_pfn;
++	int scn_nr;
+ 	int ret = -EINVAL;
  
+ 	if (!valid_section(ms))
+@@ -313,6 +490,10 @@ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ 	if (ret)
+ 		return ret;
+ 
++	scn_nr = __section_nr(ms);
++	start_pfn = section_nr_to_pfn(scn_nr);
++	__remove_zone(zone, start_pfn);
++
+ 	pgdat_resize_lock(pgdat, &flags);
+ 	sparse_remove_one_section(zone, ms);
+ 	pgdat_resize_unlock(pgdat, &flags);
 -- 
 1.7.1
 
