@@ -1,56 +1,97 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Date: Wed, 25 Jul 2012 07:53:49 +0000
-Subject: [PATCH] ia64: mark PARAVIRT and KVM as broken
-Message-Id: <20120725075349.GA17762@localhost>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Fri, 27 Jul 2012 10:22:33 +0000
+Subject: [RFC PATCH 0/19] firmware_map : unify argument of firmware_map_add_early/hotplug
+Message-Id: <50126BE9.2010803@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <50126B83.3050201@cn.fujitsu.com>
+In-Reply-To: <50126B83.3050201@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, Yasuaki ISIMATU <isimatu.yasuaki@jp.fujitsu.com>
 
-Well, this at least makes allmodconfig happy.
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-Proposed-by: David Howells <dhowells@redhat.com>
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+There are two ways to create /sys/firmware/memmap/X sysfs:
+
+  - firmware_map_add_early
+    When the system starts, it is calledd from e820_reserve_resources()
+  - firmware_map_add_hotplug
+    When the memory is hot plugged, it is called from add_memory()
+
+But these functions are called without unifying value of end argument as below:
+
+  - end argument of firmware_map_add_early()   : start + size - 1
+  - end argument of firmware_map_add_hogplug() : start + size
+
+The patch unifies them to "start + size". Even if applying the patch,
+/sys/firmware/memmap/X/end file content does not change.
+
+CC: Thomas Gleixner <tglx@linutronix.de>
+CC: Ingo Molnar <mingo@kernel.org>
+CC: H. Peter Anvin <hpa@zytor.com>
+CC: Tejun Heo <tj@kernel.org>
+CC: Andrew Morton <akpm@linux-foundation.org>
+Reviewed-by: Dave Hansen <dave@linux.vnet.ibm.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+
 ---
- arch/ia64/Kconfig     |    3 +--
- arch/ia64/kvm/Kconfig |    1 +
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/x86/kernel/e820.c    |    2 +-
+ drivers/firmware/memmap.c |    8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 8186ec5..310cf57 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -126,6 +126,7 @@ config AUDIT_ARCH
+Index: linux-3.5-rc6/arch/x86/kernel/e820.c
+=================================--- linux-3.5-rc6.orig/arch/x86/kernel/e820.c	2012-07-18 17:19:38.391365260 +0900
++++ linux-3.5-rc6/arch/x86/kernel/e820.c	2012-07-18 17:19:43.616300222 +0900
+@@ -944,7 +944,7 @@ void __init e820_reserve_resources(void)
+ 	for (i = 0; i < e820_saved.nr_map; i++) {
+ 		struct e820entry *entry = &e820_saved.map[i];
+ 		firmware_map_add_early(entry->addr,
+-			entry->addr + entry->size - 1,
++			entry->addr + entry->size,
+ 			e820_type_to_string(entry->type));
+ 	}
+ }
+Index: linux-3.5-rc6/drivers/firmware/memmap.c
+=================================--- linux-3.5-rc6.orig/drivers/firmware/memmap.c	2012-07-18 17:19:38.388365299 +0900
++++ linux-3.5-rc6/drivers/firmware/memmap.c	2012-07-18 18:30:47.608390251 +0900
+@@ -98,7 +98,7 @@ static LIST_HEAD(map_entries);
+ /**
+  * firmware_map_add_entry() - Does the real work to add a firmware memmap entry.
+  * @start: Start of the memory range.
+- * @end:   End of the memory range (inclusive).
++ * @end:   End of the memory range.
+  * @type:  Type of the memory range.
+  * @entry: Pre-allocated (either kmalloc() or bootmem allocator), uninitialised
+  *         entry.
+@@ -113,7 +113,7 @@ static int firmware_map_add_entry(u64 st
+ 	BUG_ON(start > end);
  
- menuconfig PARAVIRT_GUEST
- 	bool "Paravirtualized guest support"
-+	depends on BROKEN
- 	help
- 	  Say Y here to get to see options related to running Linux under
- 	  various hypervisors.  This option alone does not add any kernel code.
-@@ -138,8 +139,6 @@ config PARAVIRT
- 	bool "Enable paravirtualization code"
- 	depends on PARAVIRT_GUEST
- 	default y
--	bool
--	default y
- 	help
- 	  This changes the kernel so it can modify itself when it is run
- 	  under a hypervisor, potentially improving performance significantly
-diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
-index 9806e55..8ca8e35 100644
---- a/arch/ia64/kvm/Kconfig
-+++ b/arch/ia64/kvm/Kconfig
-@@ -22,6 +22,7 @@ config KVM
- 	depends on HAVE_KVM && MODULES && EXPERIMENTAL
- 	# for device assignment:
- 	depends on PCI
-+	depends on BROKEN
- 	select PREEMPT_NOTIFIERS
- 	select ANON_INODES
- 	select HAVE_KVM_IRQCHIP
--- 
-1.7.10
+ 	entry->start = start;
+-	entry->end = end;
++	entry->end = end - 1;
+ 	entry->type = type;
+ 	INIT_LIST_HEAD(&entry->list);
+ 	kobject_init(&entry->kobj, &memmap_ktype);
+@@ -148,7 +148,7 @@ static int add_sysfs_fw_map_entry(struct
+  * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
+  * memory hotplug.
+  * @start: Start of the memory range.
+- * @end:   End of the memory range (inclusive).
++ * @end:   End of the memory range.
+  * @type:  Type of the memory range.
+  *
+  * Adds a firmware mapping entry. This function is for memory hotplug, it is
+@@ -175,7 +175,7 @@ int __meminit firmware_map_add_hotplug(u
+ /**
+  * firmware_map_add_early() - Adds a firmware mapping entry.
+  * @start: Start of the memory range.
+- * @end:   End of the memory range (inclusive).
++ * @end:   End of the memory range.
+  * @type:  Type of the memory range.
+  *
+  * Adds a firmware mapping entry. This function uses the bootmem allocator
+
+
 
