@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Fri, 27 Jul 2012 10:22:33 +0000
-Subject: [RFC PATCH 0/19] firmware_map : unify argument of firmware_map_add_early/hotplug
-Message-Id: <50126BE9.2010803@cn.fujitsu.com>
+Date: Fri, 27 Jul 2012 10:30:34 +0000
+Subject: [RFC PATCH v5 09/19] memory-hotplug: does not release memory region in PAGES_PER_SECTION chunks
+Message-Id: <50126DCA.9010201@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <50126B83.3050201@cn.fujitsu.com>
 In-Reply-To: <50126B83.3050201@cn.fujitsu.com>
@@ -13,85 +13,80 @@ Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.cras
 
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-There are two ways to create /sys/firmware/memmap/X sysfs:
+Since applying a patch(de7f0cba96786c), release_mem_region() has been changed
+as called in PAGES_PER_SECTION chunks because register_memory_resource() is
+called in PAGES_PER_SECTION chunks by add_memory(). But it seems firmware
+dependency. If CRS are written in the PAGES_PER_SECTION chunks in ACPI DSDT
+Table, register_memory_resource() is called in PAGES_PER_SECTION chunks.
+But if CRS are written in the DIMM unit in ACPI DSDT Table,
+register_memory_resource() is called in DIMM unit. So release_mem_region()
+should not be called in PAGES_PER_SECTION chunks. The patch fixes it.
 
-  - firmware_map_add_early
-    When the system starts, it is calledd from e820_reserve_resources()
-  - firmware_map_add_hotplug
-    When the memory is hot plugged, it is called from add_memory()
-
-But these functions are called without unifying value of end argument as below:
-
-  - end argument of firmware_map_add_early()   : start + size - 1
-  - end argument of firmware_map_add_hogplug() : start + size
-
-The patch unifies them to "start + size". Even if applying the patch,
-/sys/firmware/memmap/X/end file content does not change.
-
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: Ingo Molnar <mingo@kernel.org>
-CC: H. Peter Anvin <hpa@zytor.com>
-CC: Tejun Heo <tj@kernel.org>
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
 CC: Andrew Morton <akpm@linux-foundation.org>
-Reviewed-by: Dave Hansen <dave@linux.vnet.ibm.com>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-
 ---
- arch/x86/kernel/e820.c    |    2 +-
- drivers/firmware/memmap.c |    8 ++++----
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ arch/powerpc/platforms/pseries/hotplug-memory.c |   13 +++++++++----
+ mm/memory_hotplug.c                             |    4 ++--
+ 2 files changed, 11 insertions(+), 6 deletions(-)
 
-Index: linux-3.5-rc6/arch/x86/kernel/e820.c
-=================================--- linux-3.5-rc6.orig/arch/x86/kernel/e820.c	2012-07-18 17:19:38.391365260 +0900
-+++ linux-3.5-rc6/arch/x86/kernel/e820.c	2012-07-18 17:19:43.616300222 +0900
-@@ -944,7 +944,7 @@ void __init e820_reserve_resources(void)
- 	for (i = 0; i < e820_saved.nr_map; i++) {
- 		struct e820entry *entry = &e820_saved.map[i];
- 		firmware_map_add_early(entry->addr,
--			entry->addr + entry->size - 1,
-+			entry->addr + entry->size,
- 			e820_type_to_string(entry->type));
- 	}
- }
-Index: linux-3.5-rc6/drivers/firmware/memmap.c
-=================================--- linux-3.5-rc6.orig/drivers/firmware/memmap.c	2012-07-18 17:19:38.388365299 +0900
-+++ linux-3.5-rc6/drivers/firmware/memmap.c	2012-07-18 18:30:47.608390251 +0900
-@@ -98,7 +98,7 @@ static LIST_HEAD(map_entries);
- /**
-  * firmware_map_add_entry() - Does the real work to add a firmware memmap entry.
-  * @start: Start of the memory range.
-- * @end:   End of the memory range (inclusive).
-+ * @end:   End of the memory range.
-  * @type:  Type of the memory range.
-  * @entry: Pre-allocated (either kmalloc() or bootmem allocator), uninitialised
-  *         entry.
-@@ -113,7 +113,7 @@ static int firmware_map_add_entry(u64 st
- 	BUG_ON(start > end);
+diff --git a/arch/powerpc/platforms/pseries/hotplug-memory.c b/arch/powerpc/platforms/pseries/hotplug-memory.c
+index 11d8e05..dc0a035 100644
+--- a/arch/powerpc/platforms/pseries/hotplug-memory.c
++++ b/arch/powerpc/platforms/pseries/hotplug-memory.c
+@@ -77,7 +77,8 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ {
+ 	unsigned long start, start_pfn;
+ 	struct zone *zone;
+-	int ret;
++	int i, ret;
++	int sections_to_remove;
  
- 	entry->start = start;
--	entry->end = end;
-+	entry->end = end - 1;
- 	entry->type = type;
- 	INIT_LIST_HEAD(&entry->list);
- 	kobject_init(&entry->kobj, &memmap_ktype);
-@@ -148,7 +148,7 @@ static int add_sysfs_fw_map_entry(struct
-  * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
-  * memory hotplug.
-  * @start: Start of the memory range.
-- * @end:   End of the memory range (inclusive).
-+ * @end:   End of the memory range.
-  * @type:  Type of the memory range.
-  *
-  * Adds a firmware mapping entry. This function is for memory hotplug, it is
-@@ -175,7 +175,7 @@ int __meminit firmware_map_add_hotplug(u
- /**
-  * firmware_map_add_early() - Adds a firmware mapping entry.
-  * @start: Start of the memory range.
-- * @end:   End of the memory range (inclusive).
-+ * @end:   End of the memory range.
-  * @type:  Type of the memory range.
-  *
-  * Adds a firmware mapping entry. This function uses the bootmem allocator
-
-
+ 	start_pfn = base >> PAGE_SHIFT;
+ 
+@@ -97,9 +98,13 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ 	 * to sysfs "state" file and we can't remove sysfs entries
+ 	 * while writing to it. So we have to defer it to here.
+ 	 */
+-	ret = __remove_pages(zone, start_pfn, memblock_size >> PAGE_SHIFT);
+-	if (ret)
+-		return ret;
++	sections_to_remove = (memblock_size >> PAGE_SHIFT) / PAGES_PER_SECTION;
++	for (i = 0; i < sections_to_remove; i++) {
++		unsigned long pfn = start_pfn + i * PAGES_PER_SECTION;
++		ret = __remove_pages(zone, start_pfn,  PAGES_PER_SECTION);
++		if (ret)
++			return ret;
++	}
+ 
+ 	/*
+ 	 * Update memory regions for memory remove
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 5237d49..d360c5c 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -358,11 +358,11 @@ int __remove_pages(struct zone *zone, unsigned long phys_start_pfn,
+ 	BUG_ON(phys_start_pfn & ~PAGE_SECTION_MASK);
+ 	BUG_ON(nr_pages % PAGES_PER_SECTION);
+ 
++	release_mem_region(phys_start_pfn << PAGE_SHIFT,  nr_pages * PAGE_SIZE);
++
+ 	sections_to_remove = nr_pages / PAGES_PER_SECTION;
+ 	for (i = 0; i < sections_to_remove; i++) {
+ 		unsigned long pfn = phys_start_pfn + i*PAGES_PER_SECTION;
+-		release_mem_region(pfn << PAGE_SHIFT,
+-				   PAGES_PER_SECTION << PAGE_SHIFT);
+ 		ret = __remove_section(zone, __pfn_to_section(pfn));
+ 		if (ret)
+ 			break;
+-- 
+1.7.1
 
