@@ -1,47 +1,38 @@
-From: Peter Chubb <peter.chubb@nicta.com.au>
-Date: Thu, 26 Jul 2012 22:17:50 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Sat, 28 Jul 2012 08:12:31 +0000
 Subject: Re: [PATCH] debug: Do not permit CONFIG_DEBUG_STACK_USAGE=y on IA64 or PARISC
-Message-Id: <w4k3xq9ng1.wl%peter@chubb.wattle.id.au>
+Message-Id: <1343463151.3328.4.camel@dabdike.int.hansenpartnership.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4a613b26cc402fb3ed8130cd07a37e76f4c133ef.1342634029.git.tony.luck@intel.com>
-	<20120725074501.GB27950@gmail.com>
-	<1343203348.3139.16.camel@dabdike>
-	<20120726120122.GA24672@gmail.com>
-In-Reply-To: <20120726120122.GA24672@gmail.com>
+In-Reply-To: <4a613b26cc402fb3ed8130cd07a37e76f4c133ef.1342634029.git.tony.luck@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: James Bottomley <James.Bottomley@HansenPartnership.com>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, Helge Deller <deller@gmx.de>, linux-parisc@vger.kernel.org, linux-ia64@vger.kernel.org, Fengguang Wu <fengguang.wu@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>
+To: Tony Luck <tony.luck@intel.com>
+Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, linux-parisc@vger.kernel.org, linux-ia64@vger.kernel.org, Fengguang Wu <fengguang.wu@intel.com>
 
->>>>> "Ingo" = Ingo Molnar <mingo@kernel.org> writes:
+On Wed, 2012-07-18 at 10:35 -0700, Tony Luck wrote:
+> The stack_not_used() function in <linux/sched.h> assumes that stacks
+> grow downwards. This is not true on IA64 or PARISC, so this function
+> would walk off in the wrong direction and into the weeds.
 
-Ingo> * James Bottomley <James.Bottomley@HansenPartnership.com> wrote:
->> Since the problem is an invalid assumption about how the stack
->> grows, why not just condition it on that.  We actually have a
->> config option for this: CONFIG_STACK_GROWSUP.  But for some reason
->> ia64 doesn't define this, why not, Tony?  It looks deliberate
->> because you have replaced a lot of
->> 
->> #ifdef CONFIG_STACK_GROWSUP
->> 
->> with
->> 
->> #if defined(CONFIG_STACK_GROWSUP) || defined(CONFIG_IA64)
->> 
->> but not all of them.
+OK, so looking at all of this, that statement's not quite true ... at
+least for parisc, we begin the stack where end_of_stack() says the end
+should be and so the walker will likely find the next word after the
+canary skip occupied and terminate there, so we think the stack is
+larger than it really is.  It gets the wrong value, but it will never
+even walk out of the stack area.
 
-Ingo> Yes, that's another possible solution, assuming that it's really
-Ingo> only about the up/down difference.
+> Found on IA64 because of a compilation failure with recursive dependencies
+> on IA64_TASKSIZE and IA64_THREAD_INFO_SIZE.
+> 
+> Fixing the code is possible, but should be combined with other
+> infrastructure additions to set up the "canary" at the end of the stack.
 
-Ingo> Thanks,
+I agree with this.  Most of it looks easily fixable, but how would I
+enable the fix for ia64?  For PA it's simple: I'll just use
+CONFIG_STACK_GROWSUP, but that won't work for you.
 
-IA64 has two stacks -- the standard one, that grows down, and the
-register stack engine backing store, that grows up.  The usual
-mechanisms for stack growth are used, so only some of the bits
-predicated on `STACK_GROWSUP' are useful.
+James
 
-Peter C
---
-Dr Peter Chubb				        peter.chubb AT nicta.com.au
-http://www.ssrg.nicta.com.au          Software Systems Research Group/NICTA
+
