@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Mon, 30 Jul 2012 02:03:27 +0000
+Date: Mon, 30 Jul 2012 03:47:51 +0000
 Subject: Re: [RFC PATCH v5 19/19] memory-hotplug: remove sysfs file of node
-Message-Id: <5015EB6F.40901@cn.fujitsu.com>
+Message-Id: <501603E7.1060200@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <50126B83.3050201@cn.fujitsu.com> <50126F21.803@cn.fujitsu.com> <5012712E.9000005@jp.fujitsu.com>
 In-Reply-To: <5012712E.9000005@jp.fujitsu.com>
@@ -52,10 +52,8 @@ At 07/27/2012 06:45 PM, Yasuaki Ishimatsu Wrote:
 > it means the pgdat has no memory. So I think node_spanned_pages() is
 > better.
 
-node_spanned_pages = present_pages + hole_pages
-
-So present_pages is always less or equal than spanned_pages, and I think
-checking present pages is better.
+Hmm, if the node contains cpu, and the cpu is onlined, can we offline
+this node?
 
 Thanks
 Wen Congyang
