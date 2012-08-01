@@ -1,59 +1,55 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Date: Mon, 20 Aug 2012 07:46:46 +0000
-Subject: Re: [BUGFIX PATCH][RESEND] kexec & iosapic: kexec oops when iosapic was removed
-Message-Id: <5031EB66.50307@huawei.com>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Wed, 01 Aug 2012 06:09:27 +0000
+Subject: Re: [RFC PATCH v5 16/19] memory-hotplug: free memmap of sparse-vmemmap
+Message-Id: <5018C817.80509@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1344583395-9128-1-git-send-email-guohanjun@huawei.com>  <5025CD41.2030502@huawei.com>  <3908561D78D1C84285E8C5FCA982C28F19375F30@ORSMSX104.amr.corp.intel.com>  <502CCB38.1030705@huawei.com> <1345145597.4732.21.camel@misato.fc.hp.com>
-In-Reply-To: <1345145597.4732.21.camel@misato.fc.hp.com>
+References: <50126B83.3050201@cn.fujitsu.com>	<50126EBE.1020006@cn.fujitsu.com> <20120731142251.5b2cae37@thinkpad>
+In-Reply-To: <20120731142251.5b2cae37@thinkpad>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Toshi Kani <toshi.kani@hp.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jiang Liu <jiang.liu@huawei.com>, Eric Biederman <ebiederm@xmission.com>, Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, Yinghai Lu <yinghai@kernel.org>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Taku Izumi <izumi.taku@jp.fujitsu.com>, Wen Congyang <wency@cn.fujitsu.com>, Tang Chen <tangchen@cn.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
+To: gerald.schaefer@de.ibm.com
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, Yasuaki ISIMATU <isimatu.yasuaki@jp.fujitsu.com>
 
-On 2012/8/17 3:33, Toshi Kani wrote:
-> On Thu, 2012-08-16 at 18:28 +0800, Hanjun Guo wrote:
->> On 2012/8/13 10:54, Luck, Tony wrote:
->>>> 		vec = irq_to_vector(irq);
->>>> 		list_for_each_entry(rte, &info->rtes,
->>>> 				rte_list) {
->>>> +			if (rte->refcnt = NO_REF_RTE)
->>>> +				continue;
->>>> +
->>>> 			iosapic_write(rte->iosapic,
->>>> 					IOSAPIC_RTE_LOW(rte->rte_index),
->>>> 					IOSAPIC_MASK|vec);
->>>
->>> This will work - but is it papering over a problem when you removed the
->>> iosapic? Should we really have removed this "rte" from rte_list when the
->>> iosapic was removed?
->>>
->>> -Tony
->>>
->>
->> Hi Tony,
->>     Thanks for your comments, and sorry for the late reply.
->>
->> We only set rte->refcnt to NO_REF_RTE if no device attach to this RTE when
->> unregister a GSI, and increase the rte->refcnt if the RTE is already existing
->> when register a GSI, so "rte" will not removed from rte_list when the
->> iosapic is removed.
+At 07/31/2012 08:22 PM, Gerald Schaefer Wrote:
+> On Fri, 27 Jul 2012 18:34:38 +0800
+> Wen Congyang <wency@cn.fujitsu.com> wrote:
 > 
-> Hi Hanjun,
+>> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+>>
+>> All pages of virtual mapping in removed memory cannot be freed, since
+>> some pages used as PGD/PUD includes not only removed memory but also
+>> other memory. So the patch checks whether page can be freed or not.
+>>
+>> How to check whether page can be freed or not?
+>>  1. When removing memory, the page structs of the revmoved memory are
+>> filled with 0FD.
+>>  2. All page structs are filled with 0xFD on PT/PMD, PT/PMD can be
+>> cleared. In this case, the page used as PT/PMD can be freed.
+>>
+>> Applying patch, __remove_section() of CONFIG_SPARSEMEM_VMEMMAP is
+>> integrated into one. So __remove_section() of
+>> CONFIG_SPARSEMEM_VMEMMAP is deleted.
 > 
-> I think updating rte->refcnt makes sense as long as rte->iosapic points
-> to a valid iosapic entry.  It looks odd to me that rte->iosapic is left
-> pointing an invalid iosapic entry after this iosapic is removed.  So, I
-> agree with Tony's concern.
+> There should also be generic or dummy versions of the functions
+> vmemmap_free_bootmem(), vmemmap_kfree() and
+> register_page_bootmem_memmap(). It doesn't compile on other
+> archtitectures than x86 as it is now:
+> 
+> mm/built-in.o: In function `sparse_remove_one_section':
+> (.text+0x49fa6): undefined reference to `vmemmap_free_bootmem'
+> mm/built-in.o: In function `sparse_remove_one_section':
+> (.text+0x49fcc): undefined reference to `vmemmap_kfree'
+> mm/built-in.o: In function `register_page_bootmem_info_node':
+> (.text+0x57c06): undefined reference to `register_page_bootmem_memmap'
+> mm/built-in.o: In function `sparse_add_one_section':
+> (.meminit.text+0x2506): undefined reference to `vmemmap_kfree'
+> mm/built-in.o: In function `sparse_add_one_section':
+> (.meminit.text+0x2528): undefined reference to `vmemmap_kfree'
+> make: *** [vmlinux] Error 1
+> 
+> 
 
-Hi Toshi,
+Thanks for testing. I will fix it.
 
-I agree with you and Tony.
-I will find a better solution and do some clean up, and then send another patch.
-
-Thanks
-Hanjun Guo
-
-
-
-
+Wen Congyang
