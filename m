@@ -1,7 +1,7 @@
 From: wency@cn.fujitsu.com
-Date: Fri, 03 Aug 2012 07:49:08 +0000
-Subject: [RFC PATCH V6 06/19] memory-hotplug: export the function acpi_bus_remove()
-Message-Id: <1343980161-14254-7-git-send-email-wency@cn.fujitsu.com>
+Date: Fri, 03 Aug 2012 07:49:20 +0000
+Subject: [RFC PATCH V6 18/19] memory-hotplug: add node_device_release
+Message-Id: <1343980161-14254-19-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1343980161-14254-1-git-send-email-wency@cn.fujitsu.com>
 In-Reply-To: <1343980161-14254-1-git-send-email-wency@cn.fujitsu.com>
@@ -11,11 +11,15 @@ Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
 Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-From: Wen Congyang <wency@cn.fujitsu.com>
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-The function acpi_bus_remove() can remove a acpi device from acpi device.
-When a acpi device is removed, we need to call this function to remove
-the acpi device from acpi bus. So export this function.
+When calling unregister_node(), the function shows following message at
+device_release().
+
+Device 'node2' does not have a release() function, it is broken and must be
+fixed.
+
+So the patch implements node_device_release()
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -26,46 +30,38 @@ CC: Christoph Lameter <cl@linux.com>
 Cc: Minchan Kim <minchan.kim@gmail.com>
 CC: Andrew Morton <akpm@linux-foundation.org>
 CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- drivers/acpi/scan.c     |    3 ++-
- include/acpi/acpi_bus.h |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ drivers/base/node.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
-index d1ecca2..1cefc34 100644
---- a/drivers/acpi/scan.c
-+++ b/drivers/acpi/scan.c
-@@ -1224,7 +1224,7 @@ static int acpi_device_set_context(struct acpi_device *device)
- 	return -ENODEV;
- }
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+index af1a177..9bc2f57 100644
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -252,6 +252,13 @@ static inline void hugetlb_register_node(struct node *node) {}
+ static inline void hugetlb_unregister_node(struct node *node) {}
+ #endif
  
--static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
-+int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
- {
- 	if (!dev)
- 		return -EINVAL;
-@@ -1246,6 +1246,7 @@ static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
++static void node_device_release(struct device *dev)
++{
++	struct node *node_dev = to_node(dev);
++
++	flush_work(&node_dev->node_work);
++	memset(node_dev, 0, sizeof(struct node));
++}
  
- 	return 0;
- }
-+EXPORT_SYMBOL(acpi_bus_remove);
+ /*
+  * register_node - Setup a sysfs device for a node.
+@@ -265,6 +272,7 @@ int register_node(struct node *node, int num, struct node *parent)
  
- static int acpi_add_single_object(struct acpi_device **child,
- 				  acpi_handle handle, int type,
-diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
-index bde976e..2ccf109 100644
---- a/include/acpi/acpi_bus.h
-+++ b/include/acpi/acpi_bus.h
-@@ -360,6 +360,7 @@ bool acpi_bus_power_manageable(acpi_handle handle);
- bool acpi_bus_can_wakeup(acpi_handle handle);
- int acpi_power_resource_register_device(struct device *dev, acpi_handle handle);
- void acpi_power_resource_unregister_device(struct device *dev, acpi_handle handle);
-+int acpi_bus_remove(struct acpi_device *dev, int rmdevice);
- #ifdef CONFIG_ACPI_PROC_EVENT
- int acpi_bus_generate_proc_event(struct acpi_device *device, u8 type, int data);
- int acpi_bus_generate_proc_event4(const char *class, const char *bid, u8 type, int data);
+ 	node->dev.id = num;
+ 	node->dev.bus = &node_subsys;
++	node->dev.release = node_device_release;
+ 	error = device_register(&node->dev);
+ 
+ 	if (!error){
 -- 
 1.7.1
 
