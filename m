@@ -1,10 +1,10 @@
 From: wency@cn.fujitsu.com
-Date: Mon, 20 Aug 2012 09:35:31 +0000
-Subject: [RFC V7 PATCH 08/19] memory-hotplug: remove /sys/firmware/memmap/X sysfs
-Message-Id: <1345455342-27752-9-git-send-email-wency@cn.fujitsu.com>
+Date: Fri, 03 Aug 2012 07:49:10 +0000
+Subject: [RFC PATCH V6 08/19] memory-hotplug: remove /sys/firmware/memmap/X sysfs
+Message-Id: <1343980161-14254-9-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
+References: <1343980161-14254-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1343980161-14254-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
