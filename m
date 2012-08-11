@@ -1,146 +1,135 @@
-From: wujianguo <wujianguo106@gmail.com>
-Date: Fri, 24 Aug 2012 02:38:37 +0000
-Subject: Re: [PATCH] mm/ia64: fix a memory block size bug
-Message-Id: <5036E92D.8090803@gmail.com>
+From: Hanjun Guo <guohanjun@huawei.com>
+Date: Sat, 11 Aug 2012 03:10:57 +0000
+Subject: [BUGFIX PATCH][RESEND] kexec & iosapic: kexec oops when iosapic was removed
+Message-Id: <5025CD41.2030502@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <50330482.4070204@gmail.com> <20120823154646.GA10789@dhcp22.suse.cz>
-In-Reply-To: <20120823154646.GA10789@dhcp22.suse.cz>
+References: <1344583395-9128-1-git-send-email-guohanjun@huawei.com>
+In-Reply-To: <1344583395-9128-1-git-send-email-guohanjun@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: Michal Hocko <mhocko@suse.cz>
-Cc: tony.luck@intel.com, kay.sievers@vrfy.org, minchan.kim@gmail.com, mgorman@suse.de, Christoph Lameter <cl@linux.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, wency@cn.fujitsu.com, akpm@linux-foundation.org, yinghai@kernel.org, liuj97@gmail.com, jiang.liu@huawei.com, qiuxishi@huawei.com, wujianguo@huawei.com, guohanjun@huawei.com, Greg KH <greg@kroah.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jiang Liu <jiang.liu@huawei.com>, Eric Biederman <ebiederm@xmission.com>, Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, Toshi Kani <toshi.kani@hp.com>, Yinghai Lu <yinghai@kernel.org>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Taku Izumi <izumi.taku@jp.fujitsu.com>, Wen Congyang <wency@cn.fujitsu.com>, Tang Chen <tangchen@cn.fujitsu.com>, Hanjun Guo <guohanjun@huawei.com>, Jianguo Wu <wujianguo@huawei.com>
 
-Hi Michal,
-	Thanks for your comments and review.
+Hi, all
+We are working on a node hot-plug project, and IOAPIC is one of these devic=
+es to
+be removed. but after IOSAPIC was removed, we use kexec to start a new kern=
+el,
+oops happended.
 
-On 2012-8-23 23:48, Michal Hocko wrote:
-> [Fixed gregkh email address]
->=20
-> On Tue 21-08-12 11:46:10, wujianguo wrote:
->> From: Jianguo Wu <wujianguo@huawei.com>
->>
->> Hi all,
->> 	I found following definition in include/linux/memory.h, in my IA64
->> platform, SECTION_SIZE_BITS is equal to 32, and MIN_MEMORY_BLOCK_SIZE wi=
-ll be 0.
->> 	#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
->=20
-> OK, so I assume you have CONFIG_FORCE_MAX_ZONEORDER 17 and PAGE_SHIFT
-> 16, right? But even CONFIG_FORCE_MAX_ZONEORDER 16 would be a problem.
->=20
+I reviewed the code and find out:
+iosapic_remove
+  iosapic_free
+    memset(&iosapic_lists[index], 0, sizeof(iosapic_lists[0]))
+      iosapic_lists[index].addr was set to 0;
 
-Yes, you are right, CONFIG_FORCE_MAX_ZONEORDER 16 would be a problem too.
+and then kexec a new kernel
+kexec_disable_iosapic
+  iosapic_write(rte->iosapic,..)
+    __iosapic_write(iosapic->addr, reg, val);
+      addr was set to 0 when iosapic_remove, and oops happened
 
->> 	Because MIN_MEMORY_BLOCK_SIZE is 32bits, so MIN_MEMORY_BLOCK_SIZE(1 << =
-32)
->> will equal to 0. This will cause wrong system memory infomation in sysfs=
-. I think
->> it should be:
->> 	#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
->>
->=20
-> I guess the part below is not necessary for the changelog
->=20
+here is the oops information:
 
-Thanks for your suggestion, I will delete them in version 2.
+Starting new kernel
+kexec[11336]: Oops 8804682956800 [1]
+Modules linked in: raw(N) ipv6(N) acpi_cpufreq(N) binfmt_misc(N) fuse(N) nl=
+s_iso
+8859_1(N) loop(N) ipmi_si(N) ipmi_devintf(N) ipmi_msghandler(N) mca_ereport=
+(N) s
+csi_ereport(N) nic_ereport(N) pcie_ereport(N) err_transport(N) nvlist(PN) d=
+m_mod
+(N) tpm_tis(N) tpm(N) ppdev(N) tpm_bios(N) serio_raw(N) i2c_i801(N) iTCO_wd=
+t(N)
+i2c_core(N) iTCO_vendor_support(N) sg(N) ioatdma(N) igb(N) mptctl(N) dca(N)=
+ parp
+ort_pc(N) parport(N) container(N) button(N) usbhid(N) hid(N) uhci_hcd(N) eh=
+ci_hc
+d(N) usbcore(N) sd_mod(N) crc_t10dif(N) ext3(N) mbcache(N) jbd(N) fan(N) pr=
+ocess
+or(N) ide_pci_generic(N) ide_core(N) ata_piix(N) libata(N) mptsas(N) mptscs=
+ih(N)
+ mptbase(N) scsi_transport_sas(N) scsi_mod(N) thermal(N) thermal_sys(N) hwm=
+on(N)
 
->> linux-drf:/sys/devices/system/memory # ll
->> total 0
->> -r--r--r-- 1 root root 65536 Aug 20 02:35 block_size_bytes
->> drwxr-xr-x 3 root root     0 Aug 20 02:19 memory0
->> drwxr-xr-x 2 root root     0 Aug 20 02:35 power
->> -rw-r--r-- 1 root root 65536 Aug 20 02:35 uevent
->>
->> linux-drf:/sys/devices/system/memory # cat block_size_bytes
->> 0
->>
->> linux-drf:/sys/devices/system/memory/memory0 # cat *
->> 8000000000000000
->> cat: node0: Is a directory
->> cat: node1: Is a directory
->> cat: node2: Is a directory
->> cat: node3: Is a directory
->> 0
->> 8000000000000000
->> cat: power: Is a directory
->> 1
->> online
->> cat: subsystem: Is a directory
->>
->=20
-> Up to here.
->=20
->> 	And "echo offline > memory0/state" will cause following call trace:
->>
->> kernel BUG at mm/memory_hotplug.c:885!
->> sh[6455]: bugcheck! 0 [1]
->>
->> Pid: 6455, CPU 0, comm:                   sh
->> psr : 0000101008526030 ifs : 8000000000000fa4 ip  : [<a0000001008c40f0>]=
-    Not tainted (3.6.0-rc1)
->> ip is at offline_pages+0x210/0xee0
->> unat: 0000000000000000 pfs : 0000000000000fa4 rsc : 0000000000000003
->> rnat: a0000001008f2d50 bsps: 0000000000000000 pr  : 65519a96659a9565
->> ldrs: 0000000000000000 ccv : 0000010b9263f310 fpsr: 0009804c0270033f
->> csd : 0000000000000000 ssd : 0000000000000000
->> b0  : a0000001008c40f0 b6  : a000000100473980 b7  : a0000001000106d0
->> f6  : 000000000000000000000 f7  : 1003e0000000085c9354c
->> f8  : 1003e0044b82fa09b5a53 f9  : 1003e000000d65cd62abf
->> f10 : 1003efd02efdec682803d f11 : 1003e0000000000000042
->> r1  : a00000010152c2e0 r2  : 0000000000006ada r3  : 000000000000fffe
->> r8  : 0000000000000026 r9  : a00000010121cc18 r10 : a0000001013309f0
->> r11 : 65519a96659a19e9 r12 : e00000070a91fdf0 r13 : e00000070a910000
->> r14 : 0000000000006ada r15 : 0000000000004000 r16 : 000000006ad8356c
->> r17 : a0000001019a525e r18 : 0000000000007fff r19 : 0000000000000000
->> r20 : 0000000000006ad6 r21 : 0000000000006ad6 r22 : a00000010133bec8
->> r23 : 0000000000006ad4 r24 : 0000000000000002 r25 : 8200000000260038
->> r26 : 00000000000004f9 r27 : 00000000000004f8 r28 : 000000000001cf98
->> r29 : 0000000000000038 r30 : a0000001019a5ae0 r31 : 000000000001cf60
->>
->> Call Trace:
->>  [<a0000001000163e0>] show_stack+0x80/0xa0
->>                                 sp=E00000070a91f9b0 bsp=E00000070a9115e0
->>  [<a000000100016a40>] show_regs+0x640/0x920
->>                                 sp=E00000070a91fb80 bsp=E00000070a911588
->>  [<a000000100040590>] die+0x190/0x2c0
->>                                 sp=E00000070a91fb90 bsp=E00000070a911548
->>  [<a000000100040710>] die_if_kernel+0x50/0x80
->>                                 sp=E00000070a91fb90 bsp=E00000070a911518
->>  [<a0000001008f8030>] ia64_bad_break+0x3d0/0x6e0
->>                                 sp=E00000070a91fb90 bsp=E00000070a9114f0
->>  [<a00000010000c0c0>] ia64_native_leave_kernel+0x0/0x270
->>                                 sp=E00000070a91fc20 bsp=E00000070a9114f0
->>  [<a0000001008c40f0>] offline_pages+0x210/0xee0
->>                                 sp=E00000070a91fdf0 bsp=E00000070a9113c8
->>  [<a00000010022d580>] alloc_pages_current+0x180/0x2a0
->>                                 sp=E00000070a91fe20 bsp=E00000070a9113a
->>
->> This patch is trying to fix the bug.
->=20
-> not just trying ;)
->=20
->>
->> Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
->=20
-> Reviewed-by: Michal Hocko <mhocko@suse.cz>
->=20
->> ---
->>  include/linux/memory.h |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/include/linux/memory.h b/include/linux/memory.h
->> index 1ac7f6e..ff9a9f8 100644
->> --- a/include/linux/memory.h
->> +++ b/include/linux/memory.h
->> @@ -19,7 +19,7 @@
->>  #include <linux/compiler.h>
->>  #include <linux/mutex.h>
->>
->> -#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
->> +#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
->>
->>  struct memory_block {
->>  	unsigned long start_section_nr;
->=20
+Supported: Yes, External
+
+Pid: 11336, CPU 0, comm:                kexec
+psr : 0000101009522030 ifs : 8000000000000791 ip  : [<a00000010004c160>]   =
+ Tain
+ted: P          N  (2.6.32.12_RAS_V1R3C00B011)
+ip is at kexec_disable_iosapic+0x120/0x1e0
+unat: 0000000000000000 pfs : 0000000000000791 rsc : 0000000000000003
+rnat: 0000000000000000 bsps: 0000000000000000 pr  : 65519aa6a555a659
+ldrs: 0000000000000000 ccv : 00000000ea3cf51e fpsr: 0009804c8a70033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a00000010004c150 b6  : a000000100012620 b7  : a00000010000cda0
+f6  : 000000000000000000000 f7  : 1003e0000000002000000
+f8  : 1003e0000000050000003 f9  : 1003e0000028fb97183cd
+f10 : 1003ee9f380df3c548b67 f11 : 1003e00000000000000cc
+r1  : a0000001016cf660 r2  : 0000000000000000 r3  : 0000000000000000
+r8  : 0000001009526030 r9  : a000000100012620 r10 : e00000010053f600
+r11 : c0000000fec34040 r12 : e00000078f76fd30 r13 : e00000078f760000
+r14 : 0000000000000000 r15 : 0000000000000000 r16 : 0000000000000000
+r17 : 0000000000000000 r18 : 0000000000007fff r19 : 0000000000000000
+r20 : 0000000000000000 r21 : e00000010053f590 r22 : a000000100cf0000
+r23 : 0000000000000036 r24 : e0000007002f8a84 r25 : 0000000000000022
+r26 : e0000007002f8a88 r27 : 0000000000000020 r28 : 0000000000000002
+r29 : a0000001012c8c60 r30 : 0000000000000000 r31 : 0000000000322e49
+
+Call Trace:
+ [<a000000100018ca0>] show_stack+0x80/0xa0
+                                sp=E00000078f76f8f0 bsp=E00000078f761380
+ [<a000000100019300>] show_regs+0x640/0x920
+                                sp=E00000078f76fac0 bsp=E00000078f761328
+ [<a00000010002a130>] die+0x190/0x2e0
+                                sp=E00000078f76fad0 bsp=E00000078f7612e8
+ [<a000000100922fa0>] ia64_do_page_fault+0x840/0xb20
+                                sp=E00000078f76fad0 bsp=E00000078f761288
+ [<a00000010000d5c0>] ia64_native_leave_kernel+0x0/0x270
+                                sp=E00000078f76fb60 bsp=E00000078f761288
+ [<a00000010004c160>] kexec_disable_iosapic+0x120/0x1e0
+                                sp=E00000078f76fd30 bsp=E00000078f761200
+ [<a000000100016970>] machine_shutdown+0x110/0x140
+                                sp=E00000078f76fd30 bsp=E00000078f7611c8
+ [<a000000100133530>] kernel_kexec+0xd0/0x120
+                                sp=E00000078f76fd30 bsp=E00000078f7611a0
+ [<a0000001000eca40>] sys_reboot+0x480/0x4e0
+                                sp=E00000078f76fd30 bsp=E00000078f761128
+ [<a00000010000d420>] ia64_ret_from_syscall+0x0/0x20
+                                sp=E00000078f76fe30 bsp=E00000078f761120
+Kernel panic - not syncing: Fatal exception
+irq 69: nobody cared (try booting with the "irqpoll" option)
+
+
+Signed-off-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
+---
+ arch/ia64/kernel/iosapic.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index ef4b5d8..11ce1ec 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -276,6 +276,9 @@ kexec_disable_iosapic(void)
+ 		vec =3D irq_to_vector(irq);
+ 		list_for_each_entry(rte, &info->rtes,
+ 				rte_list) {
++			if (rte->refcnt =3D NO_REF_RTE)
++				continue;
++
+ 			iosapic_write(rte->iosapic,
+ 					IOSAPIC_RTE_LOW(rte->rte_index),
+ 					IOSAPIC_MASK|vec);
+--=20
+1.7.6.1
+
+
+
+.
+
+
+
 
