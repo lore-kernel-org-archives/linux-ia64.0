@@ -1,168 +1,226 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Fri, 31 Aug 2012 21:06:23 +0000
-Subject: Re: [RFC v8 PATCH 08/20] memory-hotplug: remove /sys/firmware/memmap/X sysfs
-Message-Id: <20120831140623.8d13bd2c.akpm@linux-foundation.org>
+From: wujianguo <wujianguo106@gmail.com>
+Date: Mon, 20 Aug 2012 06:38:10 +0000
+Subject: [PATCH]mm: fix-up zone present pages
+Message-Id: <5031DB52.9030806@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
-	<1346148027-24468-9-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1346148027-24468-9-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: wency@cn.fujitsu.com
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: tony.luck@intel.com, fenghua.yu@intel.com, dhowells@redhat.com, tj@kernel.org, mgorman@suse.de, yinghai@kernel.org, minchan.kim@gmail.com
+Cc: akpm@linux-foundation.org, viro@zeniv.linux.org.uk, aarcange@redhat.com, davem@davemloft.net, hannes@cmpxchg.org, liuj97@gmail.com, wency@cn.fujitsu.com, rientjes@google.com, kamezawa.hiroyu@jp.fujitsu.com, mhocko@suse.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, ptesarik@suse.cz, jiang.liu@huawei.com, guohanjun@huawei.com, qiuxishi@huawei.com
 
-On Tue, 28 Aug 2012 18:00:15 +0800
-wency@cn.fujitsu.com wrote:
+From: Jianguo Wu <wujianguo@huawei.com>
 
-> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-> 
-> When (hot)adding memory into system, /sys/firmware/memmap/X/{end, start, type}
-> sysfs files are created. But there is no code to remove these files. The patch
-> implements the function to remove them.
-> 
-> Note : The code does not free firmware_map_entry since there is no way to free
->        memory which is allocated by bootmem.
-> 
-> ....
->
-> +#define to_memmap_entry(obj) container_of(obj, struct firmware_map_entry, kobj)
+Hi all,
+	I think zone->present_pages indicates pages that buddy system can manageme=
+nt,
+it should be:
+	zone->present_pages =3D spanned pages - absent pages - bootmem pages,
+but now:
+	zone->present_pages =3D spanned pages - absent pages - memmap pages.
+spanned pages=EF=BC=9Atotal size, including holes.
+absent pages: holes.
+bootmem pages: pages used in system boot, managed by bootmem allocator.
+memmap pages: pages used by page structs.
 
-It would be better to implement this as an inlined C function.  That
-has improved type safety and improved readability.
+This may cause zone->present_pages less than it should be.
+For example, numa node 1 has ZONE_NORMAL and ZONE_MOVABLE,
+it's memmap and other bootmem will be allocated from ZONE_MOVABLE,
+so ZONE_NORMAL's present_pages should be spanned pages - absent pages,
+but now it also minus memmap pages(free_area_init_core), which are actually=
+ allocated
+from ZONE_MOVABLE. When offline all memory of a zone, This will cause zone-=
+>present_pages
+less than 0, because present_pages is unsigned long type, it is actually
+a very large integer, it indirectly caused zone->watermark[WMARK_MIN]
+become a large integer(setup_per_zone_wmarks()), than cause totalreserve_pa=
+ges
+become a large integer(calculate_totalreserve_pages()), and finally cause m=
+emory
+allocating failure when fork process(__vm_enough_memory()).
 
-> +static void release_firmware_map_entry(struct kobject *kobj)
-> +{
-> +	struct firmware_map_entry *entry = to_memmap_entry(kobj);
-> +	struct page *page;
-> +
-> +	page = virt_to_page(entry);
-> +	if (PageSlab(page) || PageCompound(page))
+[root@localhost ~]# dmesg
+-bash: fork: Cannot allocate memory
 
-That PageCompound() test looks rather odd.  Why is this done?
+I think bug described in http://marc.info/?l=3Dlinux-mm&m=134502182714186&w=
+=3D2 is also
+caused by wrong zone present pages.
 
-> +		kfree(entry);
-> +
-> +	/* There is no way to free memory allocated from bootmem*/
-> +}
+This patch intends to fix-up zone->present_pages when memory are freed to
+buddy system in x86_64 and IA64 platform.
 
-This function is a bit ugly - poking around in page flags to determine
-whether or not the memory came from bootmem.  It would be cleaner to
-use a separate boolean.  Although I guess we can live with it as you
-have it here.
+Thanks.
 
->  static struct kobj_type memmap_ktype = {
-> +	.release	= release_firmware_map_entry,
->  	.sysfs_ops	= &memmap_attr_ops,
->  	.default_attrs	= def_attrs,
->  };
-> @@ -123,6 +139,16 @@ static int firmware_map_add_entry(u64 start, u64 end,
->  	return 0;
->  }
->  
-> +/**
-> + * firmware_map_remove_entry() - Does the real work to remove a firmware
-> + * memmap entry.
-> + * @entry: removed entry.
-> + **/
-> +static inline void firmware_map_remove_entry(struct firmware_map_entry *entry)
-> +{
-> +	list_del(&entry->list);
-> +}
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+---
+ arch/ia64/mm/init.c |    1 +
+ include/linux/mm.h  |    4 ++++
+ mm/bootmem.c        |    9 ++++++++-
+ mm/memory_hotplug.c |    7 +++++++
+ mm/nobootmem.c      |    3 +++
+ mm/page_alloc.c     |   34 ++++++++++++++++++++++++++++++++++
+ 6 files changed, 57 insertions(+), 1 deletions(-)
 
-Is there no locking  to protect that list?
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index b960ba0..c78e3fd 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -640,6 +640,7 @@ mem_init (void)
+ 	free_floating_node_bootmem();
+ #endif
 
->  /*
->   * Add memmap entry on sysfs
->   */
-> @@ -144,6 +170,31 @@ static int add_sysfs_fw_map_entry(struct firmware_map_entry *entry)
->  	return 0;
->  }
->  
-> +/*
-> + * Remove memmap entry on sysfs
-> + */
-> +static inline void remove_sysfs_fw_map_entry(struct firmware_map_entry *entry)
-> +{
-> +	kobject_put(&entry->kobj);
-> +}
-> +
-> +/*
-> + * Search memmap entry
-> + */
-> +
-> +struct firmware_map_entry * __meminit
-> +find_firmware_map_entry(u64 start, u64 end, const char *type)
++	reset_zone_present_pages();
+ 	for_each_online_pgdat(pgdat)
+ 		if (pgdat->bdata->node_bootmem_map)
+ 			totalram_pages +=3D free_all_bootmem_node(pgdat);
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 311be90..a1bd8ea 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1662,5 +1662,9 @@ static inline unsigned int debug_guardpage_minorder(v=
+oid) { return 0; }
+ static inline bool page_is_guard(struct page *page) { return false; }
+ #endif /* CONFIG_DEBUG_PAGEALLOC */
 
-A better name would be firmware_map_find_entry().  To retain the (good)
-convention that symbols exported from here all start with
-"firmware_map_".
++extern void reset_zone_present_pages(void);
++extern void fixup_zone_present_pages(int nid, unsigned long start_pfn,
++				unsigned long end_pfn);
++
+ #endif /* __KERNEL__ */
+ #endif /* _LINUX_MM_H */
+diff --git a/mm/bootmem.c b/mm/bootmem.c
+index bcb63ac..e00b491 100644
+--- a/mm/bootmem.c
++++ b/mm/bootmem.c
+@@ -198,6 +198,8 @@ static unsigned long __init free_all_bootmem_core(bootm=
+em_data_t *bdata)
+ 			int order =3D ilog2(BITS_PER_LONG);
 
-> +{
-> +	struct firmware_map_entry *entry;
-> +
-> +	list_for_each_entry(entry, &map_entries, list)
-> +		if ((entry->start = start) && (entry->end = end) &&
-> +		    (!strcmp(entry->type, type)))
-> +			return entry;
-> +
-> +	return NULL;
-> +}
-> +
->  /**
->   * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
->   * memory hotplug.
-> @@ -196,6 +247,32 @@ int __init firmware_map_add_early(u64 start, u64 end, const char *type)
->  	return firmware_map_add_entry(start, end, type, entry);
->  }
->  
-> +/**
-> + * firmware_map_remove() - remove a firmware mapping entry
-> + * @start: Start of the memory range.
-> + * @end:   End of the memory range.
-> + * @type:  Type of the memory range.
-> + *
-> + * removes a firmware mapping entry.
-> + *
-> + * Returns 0 on success, or -EINVAL if no entry.
-> + **/
-> +int __meminit firmware_map_remove(u64 start, u64 end, const char *type)
-> +{
-> +	struct firmware_map_entry *entry;
-> +
-> +	entry = find_firmware_map_entry(start, end - 1, type);
-> +	if (!entry)
-> +		return -EINVAL;
-> +
-> +	firmware_map_remove_entry(entry);
-> +
-> +	/* remove the memmap entry */
-> +	remove_sysfs_fw_map_entry(entry);
-> +
-> +	return 0;
-> +}
+ 			__free_pages_bootmem(pfn_to_page(start), order);
++			fixup_zone_present_pages(page_to_nid(pfn_to_page(start)),
++					start, start + BITS_PER_LONG);
+ 			count +=3D BITS_PER_LONG;
+ 			start +=3D BITS_PER_LONG;
+ 		} else {
+@@ -208,6 +210,8 @@ static unsigned long __init free_all_bootmem_core(bootm=
+em_data_t *bdata)
+ 				if (vec & 1) {
+ 					page =3D pfn_to_page(start + off);
+ 					__free_pages_bootmem(page, 0);
++					fixup_zone_present_pages(page_to_nid(page),
++							start + off, start + off + 1);
+ 					count++;
+ 				}
+ 				vec >>=3D 1;
+@@ -221,8 +225,11 @@ static unsigned long __init free_all_bootmem_core(boot=
+mem_data_t *bdata)
+ 	pages =3D bdata->node_low_pfn - bdata->node_min_pfn;
+ 	pages =3D bootmem_bootmap_pages(pages);
+ 	count +=3D pages;
+-	while (pages--)
++	while (pages--) {
++		fixup_zone_present_pages(page_to_nid(page),
++				page_to_pfn(page), page_to_pfn(page) + 1);
+ 		__free_pages_bootmem(page++, 0);
++	}
 
-Again, the lack of locking looks bad.
+ 	bdebug("nid=3D%td released=3D%lx\n", bdata - bootmem_node_data, count);
 
-> ...
->
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -1052,9 +1052,9 @@ int offline_memory(u64 start, u64 size)
->  	return 0;
->  }
->  
-> -int remove_memory(int nid, u64 start, u64 size)
-> +int __ref remove_memory(int nid, u64 start, u64 size)
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 3ad25f9..bc7e7a2 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -106,6 +106,7 @@ static void get_page_bootmem(unsigned long info,  struc=
+t page *page,
+ void __ref put_page_bootmem(struct page *page)
+ {
+ 	unsigned long type;
++	struct zone *zone;
 
-Why was __ref added?
+ 	type =3D (unsigned long) page->lru.next;
+ 	BUG_ON(type < MEMORY_HOTPLUG_MIN_BOOTMEM_TYPE ||
+@@ -116,6 +117,12 @@ void __ref put_page_bootmem(struct page *page)
+ 		set_page_private(page, 0);
+ 		INIT_LIST_HEAD(&page->lru);
+ 		__free_pages_bootmem(page, 0);
++
++		zone =3D page_zone(page);
++		zone_span_writelock(zone);
++		zone->present_pages++;
++		zone_span_writeunlock(zone);
++		totalram_pages++;
+ 	}
 
->  {
-> -	int ret = -EBUSY;
-> +	int ret = 0;
->  	lock_memory_hotplug();
->  	/*
->  	 * The memory might become online by other task, even if you offine it.
->
-> ...
->
+ }
+diff --git a/mm/nobootmem.c b/mm/nobootmem.c
+index 4055730..8027861 100644
+--- a/mm/nobootmem.c
++++ b/mm/nobootmem.c
+@@ -116,6 +116,8 @@ static unsigned long __init __free_memory_core(phys_add=
+r_t start,
+ 		return 0;
+
+ 	__free_pages_memory(start_pfn, end_pfn);
++	fixup_zone_present_pages(pfn_to_nid(start >> PAGE_SHIFT),
++			start_pfn, end_pfn);
+
+ 	return end_pfn - start_pfn;
+ }
+@@ -126,6 +128,7 @@ unsigned long __init free_low_memory_core_early(int nod=
+eid)
+ 	phys_addr_t start, end, size;
+ 	u64 i;
+
++	reset_zone_present_pages();
+ 	for_each_free_mem_range(i, MAX_NUMNODES, &start, &end, NULL)
+ 		count +=3D __free_memory_core(start, end);
+
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index fcb0932..36c35bb 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -6074,3 +6074,37 @@ void dump_page(struct page *page)
+ 	dump_page_flags(page->flags);
+ 	mem_cgroup_print_bad_page(page);
+ }
++
++/* reset zone->present_pages */
++void reset_zone_present_pages(void)
++{
++	struct zone *z;
++	int i, nid;
++
++	for_each_node_state(nid, N_HIGH_MEMORY) {
++		for (i =3D 0; i < MAX_NR_ZONES; i++) {
++			z =3D NODE_DATA(nid)->node_zones + i;
++			z->present_pages =3D 0;
++		}
++	}
++}
++
++/* calculate zone's present pages in buddy system */
++void fixup_zone_present_pages(int nid, unsigned long start_pfn,
++				unsigned long end_pfn)
++{
++	struct zone *z;
++	unsigned long zone_start_pfn, zone_end_pfn;
++	int i;
++
++	for (i =3D 0; i < MAX_NR_ZONES; i++) {
++		z =3D NODE_DATA(nid)->node_zones + i;
++		zone_start_pfn =3D z->zone_start_pfn;
++		zone_end_pfn =3D zone_start_pfn + z->spanned_pages;
++
++		/* if the two regions intersect */
++		if (!(zone_start_pfn >=3D end_pfn	|| zone_end_pfn <=3D start_pfn))
++			z->present_pages +=3D min(end_pfn, zone_end_pfn) -
++								max(start_pfn, zone_start_pfn);
++	}
++}
+--=20
+1.7.6.1
+
+
+
+.
