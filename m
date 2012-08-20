@@ -1,7 +1,7 @@
 From: wency@cn.fujitsu.com
-Date: Mon, 20 Aug 2012 09:35:36 +0000
-Subject: [RFC V7 PATCH 13/19] memory-hotplug: check page type in get_page_bootmem
-Message-Id: <1345455342-27752-14-git-send-email-wency@cn.fujitsu.com>
+Date: Mon, 20 Aug 2012 09:35:29 +0000
+Subject: [RFC V7 PATCH 06/19] memory-hotplug: export the function acpi_bus_remove()
+Message-Id: <1345455342-27752-7-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
 In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
@@ -11,11 +11,11 @@ Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
 Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-There is a possibility that get_page_bootmem() is called to the same page many
-times. So when get_page_bootmem is called to the same page, the function only
-increments page->_count.
+The function acpi_bus_remove() can remove a acpi device from acpi device.
+When a acpi device is removed, we need to call this function to remove
+the acpi device from acpi bus. So export this function.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -26,38 +26,46 @@ CC: Christoph Lameter <cl@linux.com>
 Cc: Minchan Kim <minchan.kim@gmail.com>
 CC: Andrew Morton <akpm@linux-foundation.org>
 CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- mm/memory_hotplug.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+ drivers/acpi/scan.c     |    3 ++-
+ include/acpi/acpi_bus.h |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 5f9f8c7..d85af6d 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -95,10 +95,17 @@ static void release_memory_resource(struct resource *res)
- static void get_page_bootmem(unsigned long info,  struct page *page,
- 			     unsigned long type)
- {
--	page->lru.next = (struct list_head *) type;
--	SetPagePrivate(page);
--	set_page_private(page, info);
--	atomic_inc(&page->_count);
-+	unsigned long page_type;
-+
-+	page_type = (unsigned long) page->lru.next;
-+	if (page_type < MEMORY_HOTPLUG_MIN_BOOTMEM_TYPE ||
-+	    page_type > MEMORY_HOTPLUG_MAX_BOOTMEM_TYPE){
-+		page->lru.next = (struct list_head *) type;
-+		SetPagePrivate(page);
-+		set_page_private(page, info);
-+		atomic_inc(&page->_count);
-+	} else
-+		atomic_inc(&page->_count);
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+index d1ecca2..1cefc34 100644
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -1224,7 +1224,7 @@ static int acpi_device_set_context(struct acpi_device *device)
+ 	return -ENODEV;
  }
  
- /* reference to __meminit __free_pages_bootmem is valid
+-static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
++int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
+ {
+ 	if (!dev)
+ 		return -EINVAL;
+@@ -1246,6 +1246,7 @@ static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(acpi_bus_remove);
+ 
+ static int acpi_add_single_object(struct acpi_device **child,
+ 				  acpi_handle handle, int type,
+diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
+index bde976e..2ccf109 100644
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -360,6 +360,7 @@ bool acpi_bus_power_manageable(acpi_handle handle);
+ bool acpi_bus_can_wakeup(acpi_handle handle);
+ int acpi_power_resource_register_device(struct device *dev, acpi_handle handle);
+ void acpi_power_resource_unregister_device(struct device *dev, acpi_handle handle);
++int acpi_bus_remove(struct acpi_device *dev, int rmdevice);
+ #ifdef CONFIG_ACPI_PROC_EVENT
+ int acpi_bus_generate_proc_event(struct acpi_device *device, u8 type, int data);
+ int acpi_bus_generate_proc_event4(const char *class, const char *bid, u8 type, int data);
 -- 
 1.7.1
 
