@@ -1,14 +1,14 @@
 From: wency@cn.fujitsu.com
-Date: Tue, 28 Aug 2012 10:00:19 +0000
-Subject: [RFC v8 PATCH 12/20] memory-hotplug: introduce new function arch_remove_memory()
-Message-Id: <1346148027-24468-13-git-send-email-wency@cn.fujitsu.com>
+Date: Mon, 20 Aug 2012 09:35:35 +0000
+Subject: [RFC V7 PATCH 12/19] memory-hotplug: introduce new function arch_remove_memory()
+Message-Id: <1345455342-27752-13-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
+References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
 Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
 From: Wen Congyang <wency@cn.fujitsu.com>
@@ -75,7 +75,7 @@ index 0eab454..1e345ed 100644
  
  /*
 diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index fbdad0e..011170b 100644
+index baaafde..249cef4 100644
 --- a/arch/powerpc/mm/mem.c
 +++ b/arch/powerpc/mm/mem.c
 @@ -133,6 +133,20 @@ int arch_add_memory(int nid, u64 start, u64 size)
@@ -368,7 +368,7 @@ index 2b6b4a3..e0d88ba 100644
  
  static struct kcore_list kcore_vsyscall;
 diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
-index a718e0d..7dcb6f9 100644
+index 931930a..c22963d 100644
 --- a/arch/x86/mm/pageattr.c
 +++ b/arch/x86/mm/pageattr.c
 @@ -501,21 +501,13 @@ out_unlock:
