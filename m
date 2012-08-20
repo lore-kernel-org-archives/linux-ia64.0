@@ -1,67 +1,86 @@
-From: wency@cn.fujitsu.com
-Date: Mon, 20 Aug 2012 09:35:41 +0000
-Subject: [RFC V7 PATCH 18/19] memory-hotplug: add node_device_release
-Message-Id: <1345455342-27752-19-git-send-email-wency@cn.fujitsu.com>
+From: Jianguo Wu <wujianguo106@gmail.com>
+Date: Mon, 20 Aug 2012 14:09:40 +0000
+Subject: Re: [RFC V7 PATCH 18/19] memory-hotplug: add node_device_release
+Message-Id: <50324524.5000501@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
+References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com> <1345455342-27752-19-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1345455342-27752-19-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
-Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
+To: wency@cn.fujitsu.com
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+On 2012/8/20 17:35, wency@cn.fujitsu.com wrote:
+> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+> 
+> When calling unregister_node(), the function shows following message at
+> device_release().
+> 
+> Device 'node2' does not have a release() function, it is broken and must be
+> fixed.
+> 
+> So the patch implements node_device_release()
+> 
+> CC: David Rientjes <rientjes@google.com>
+> CC: Jiang Liu <liuj97@gmail.com>
+> CC: Len Brown <len.brown@intel.com>
+> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> CC: Paul Mackerras <paulus@samba.org>
+> CC: Christoph Lameter <cl@linux.com>
+> Cc: Minchan Kim <minchan.kim@gmail.com>
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+> Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+> ---
+>  drivers/base/node.c |    8 ++++++++
+>  1 files changed, 8 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/base/node.c b/drivers/base/node.c
+> index af1a177..9bc2f57 100644
+> --- a/drivers/base/node.c
+> +++ b/drivers/base/node.c
+> @@ -252,6 +252,13 @@ static inline void hugetlb_register_node(struct node *node) {}
+>  static inline void hugetlb_unregister_node(struct node *node) {}
+>  #endif
+>  
+> +static void node_device_release(struct device *dev)
+> +{
+> +	struct node *node_dev = to_node(dev);
+> +
+> +	flush_work(&node_dev->node_work);
 
-When calling unregister_node(), the function shows following message at
-device_release().
+Hi Congyang,
+	I think this should be:
+#if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_HUGETLBFS)
+	flush_work(&node_dev->node_work);
+#endif
 
-Device 'node2' does not have a release() function, it is broken and must be
-fixed.
+	As struct node defined in node.h:
+struct node {
+	struct sys_device	sysdev;
 
-So the patch implements node_device_release()
+#if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_HUGETLBFS)
+	struct work_struct	node_work;
+#endif
+};
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
----
- drivers/base/node.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+	Thanks
+	Jianguo Wu
 
-diff --git a/drivers/base/node.c b/drivers/base/node.c
-index af1a177..9bc2f57 100644
---- a/drivers/base/node.c
-+++ b/drivers/base/node.c
-@@ -252,6 +252,13 @@ static inline void hugetlb_register_node(struct node *node) {}
- static inline void hugetlb_unregister_node(struct node *node) {}
- #endif
- 
-+static void node_device_release(struct device *dev)
-+{
-+	struct node *node_dev = to_node(dev);
-+
-+	flush_work(&node_dev->node_work);
-+	memset(node_dev, 0, sizeof(struct node));
-+}
- 
- /*
-  * register_node - Setup a sysfs device for a node.
-@@ -265,6 +272,7 @@ int register_node(struct node *node, int num, struct node *parent)
- 
- 	node->dev.id = num;
- 	node->dev.bus = &node_subsys;
-+	node->dev.release = node_device_release;
- 	error = device_register(&node->dev);
- 
- 	if (!error){
--- 
-1.7.1
+> +	memset(node_dev, 0, sizeof(struct node));
+> +}
+>  
+>  /*
+>   * register_node - Setup a sysfs device for a node.
+> @@ -265,6 +272,7 @@ int register_node(struct node *node, int num, struct node *parent)
+>  
+>  	node->dev.id = num;
+>  	node->dev.bus = &node_subsys;
+> +	node->dev.release = node_device_release;
+>  	error = device_register(&node->dev);
+>  
+>  	if (!error){
+> 
 
