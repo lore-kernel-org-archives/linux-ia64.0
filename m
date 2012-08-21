@@ -1,97 +1,123 @@
-From: Jianguo Wu <wujianguo106@gmail.com>
-Date: Mon, 20 Aug 2012 13:54:17 +0000
-Subject: Re: [PATCH]mm/ia64: fix a node distance bug
-Message-Id: <50324189.9040406@gmail.com>
+From: wujianguo <wujianguo106@gmail.com>
+Date: Tue, 21 Aug 2012 03:46:10 +0000
+Subject: [PATCH] mm/ia64: fix a memory block size bug
+Message-Id: <50330482.4070204@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5031D763.9010808@gmail.com> <5031E208.2080202@cn.fujitsu.com>
-In-Reply-To: <5031E208.2080202@cn.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Wen Congyang <wency@cn.fujitsu.com>
-Cc: tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jiang.liu@huawei.com, guohanjun@huawei.com, qiuxishi@huawei.com, liuj97@gmail.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: tony.luck@intel.com, gregkh@suse.de, kay.sievers@vrfy.org, minchan.kim@gmail.com, mgorman@suse.de, Christoph Lameter <cl@linux.com>
+Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, wency@cn.fujitsu.com, akpm@linux-foundation.org, yinghai@kernel.org, liuj97@gmail.com, jiang.liu@huawei.com, qiuxishi@huawei.com, wujianguo@huawei.com, guohanjun@huawei.com
 
-On 2012/8/20 15:06, Wen Congyang wrote:
-> At 08/20/2012 02:21 PM, wujianguo Wrote:
->> From: Jianguo Wu <wujianguo@huawei.com>
->>
->> Hi all,
->> 	When doing memory-hot-plug, We found node distance is wrong after offline
->> a node in IA64 platform. For example system has 4 nodes:
->> node distances:
->> node   0   1   2   3
->>   0:  10  21  21  32
->>   1:  21  10  32  21
->>   2:  21  32  10  21
->>   3:  32  21  21  10
->>
->> linux-drf:/sys/devices/system/node/node0 # cat distance
->> 10  21  21  32
->> linux-drf:/sys/devices/system/node/node1 # cat distance
->> 21  10  32  21
->>
->> After offline node2:
->> linux-drf:/sys/devices/system/node/node0 # cat distance
->> 10 21 32
->> linux-drf:/sys/devices/system/node/node1 # cat distance
->> 32 21 32	--------->expected value is: 21  10  21
->>
->> In arch IA, we have following definition:
->> extern u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
->> #define node_distance(from,to) (numa_slit[(from) * num_online_nodes() + (to)])
->>
->> node distance is setup as following:
->> acpi_numa_arch_fixup()
->> {
->> 	...
->> 	memset(numa_slit, -1, sizeof(numa_slit));
->> 	for (i = 0; i < slit_table->locality_count; i++) {
->> 		if (!pxm_bit_test(i))
->> 			continue;
->> 		node_from = pxm_to_node(i);
->> 		for (j = 0; j < slit_table->locality_count; j++) {
->> 			if (!pxm_bit_test(j))
->> 				continue;
->> 			node_to = pxm_to_node(j);
->> 			node_distance(node_from, node_to) >> 			    slit_table->entry[i * slit_table->locality_count + j];
->> 		}
->> 	}
->> 	...
->> }
->> 	num_online_nodes() is a variable value, during system boot the return vale is 4,
->> but after offline node2, the return value is 3, so we read a wrong node distance value.
->> This patch is trying to fix this bug.
->>
->> Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
->> ---
->>  arch/ia64/include/asm/numa.h |    2 +-
->>  1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/arch/ia64/include/asm/numa.h b/arch/ia64/include/asm/numa.h
->> index 6a8a27c..2e27ef1 100644
->> --- a/arch/ia64/include/asm/numa.h
->> +++ b/arch/ia64/include/asm/numa.h
->> @@ -59,7 +59,7 @@ extern struct node_cpuid_s node_cpuid[NR_CPUS];
->>   */
->>
->>  extern u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
->> -#define node_distance(from,to) (numa_slit[(from) * num_online_nodes() + (to)])
->> +#define node_distance(from,to) (numa_slit[(from) * MAX_NUMNODES + (to)])
-> 
-> Hmm, MAX_NUMNODES is too large. I think num_possible_nodes() is better.
-> 
-> Thanks
-> Wen Congyang
-> 
+From: Jianguo Wu <wujianguo@huawei.com>
 
-Hi Congyang,
-	Thanks for you comments.
-	numa_slit[MAX_NUMNODES * MAX_NUMNODES] is a static array, so I think it makes
-no difference using MAX_NUMNODES or num_online_nodes().
+Hi all,
+	I found following definition in include/linux/memory.h, in my IA64
+platform, SECTION_SIZE_BITS is equal to 32, and MIN_MEMORY_BLOCK_SIZE will =
+be 0.
+	#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
 
->>
->>  extern int paddr_to_nid(unsigned long paddr);
->>
-> 
-> 
+	Because MIN_MEMORY_BLOCK_SIZE is 32bits, so MIN_MEMORY_BLOCK_SIZE(1 << 32)
+will equal to 0. This will cause wrong system memory infomation in sysfs. I=
+ think
+it should be:
+	#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
+
+linux-drf:/sys/devices/system/memory # ll
+total 0
+-r--r--r-- 1 root root 65536 Aug 20 02:35 block_size_bytes
+drwxr-xr-x 3 root root     0 Aug 20 02:19 memory0
+drwxr-xr-x 2 root root     0 Aug 20 02:35 power
+-rw-r--r-- 1 root root 65536 Aug 20 02:35 uevent
+
+linux-drf:/sys/devices/system/memory # cat block_size_bytes
+0
+
+linux-drf:/sys/devices/system/memory/memory0 # cat *
+8000000000000000
+cat: node0: Is a directory
+cat: node1: Is a directory
+cat: node2: Is a directory
+cat: node3: Is a directory
+0
+8000000000000000
+cat: power: Is a directory
+1
+online
+cat: subsystem: Is a directory
+
+	And "echo offline > memory0/state" will cause following call trace:
+
+kernel BUG at mm/memory_hotplug.c:885!
+sh[6455]: bugcheck! 0 [1]
+
+Pid: 6455, CPU 0, comm:                   sh
+psr : 0000101008526030 ifs : 8000000000000fa4 ip  : [<a0000001008c40f0>]   =
+ Not tainted (3.6.0-rc1)
+ip is at offline_pages+0x210/0xee0
+unat: 0000000000000000 pfs : 0000000000000fa4 rsc : 0000000000000003
+rnat: a0000001008f2d50 bsps: 0000000000000000 pr  : 65519a96659a9565
+ldrs: 0000000000000000 ccv : 0000010b9263f310 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001008c40f0 b6  : a000000100473980 b7  : a0000001000106d0
+f6  : 000000000000000000000 f7  : 1003e0000000085c9354c
+f8  : 1003e0044b82fa09b5a53 f9  : 1003e000000d65cd62abf
+f10 : 1003efd02efdec682803d f11 : 1003e0000000000000042
+r1  : a00000010152c2e0 r2  : 0000000000006ada r3  : 000000000000fffe
+r8  : 0000000000000026 r9  : a00000010121cc18 r10 : a0000001013309f0
+r11 : 65519a96659a19e9 r12 : e00000070a91fdf0 r13 : e00000070a910000
+r14 : 0000000000006ada r15 : 0000000000004000 r16 : 000000006ad8356c
+r17 : a0000001019a525e r18 : 0000000000007fff r19 : 0000000000000000
+r20 : 0000000000006ad6 r21 : 0000000000006ad6 r22 : a00000010133bec8
+r23 : 0000000000006ad4 r24 : 0000000000000002 r25 : 8200000000260038
+r26 : 00000000000004f9 r27 : 00000000000004f8 r28 : 000000000001cf98
+r29 : 0000000000000038 r30 : a0000001019a5ae0 r31 : 000000000001cf60
+
+Call Trace:
+ [<a0000001000163e0>] show_stack+0x80/0xa0
+                                sp=E00000070a91f9b0 bsp=E00000070a9115e0
+ [<a000000100016a40>] show_regs+0x640/0x920
+                                sp=E00000070a91fb80 bsp=E00000070a911588
+ [<a000000100040590>] die+0x190/0x2c0
+                                sp=E00000070a91fb90 bsp=E00000070a911548
+ [<a000000100040710>] die_if_kernel+0x50/0x80
+                                sp=E00000070a91fb90 bsp=E00000070a911518
+ [<a0000001008f8030>] ia64_bad_break+0x3d0/0x6e0
+                                sp=E00000070a91fb90 bsp=E00000070a9114f0
+ [<a00000010000c0c0>] ia64_native_leave_kernel+0x0/0x270
+                                sp=E00000070a91fc20 bsp=E00000070a9114f0
+ [<a0000001008c40f0>] offline_pages+0x210/0xee0
+                                sp=E00000070a91fdf0 bsp=E00000070a9113c8
+ [<a00000010022d580>] alloc_pages_current+0x180/0x2a0
+                                sp=E00000070a91fe20 bsp=E00000070a9113a
+
+This patch is trying to fix the bug.
+
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
+---
+ include/linux/memory.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/memory.h b/include/linux/memory.h
+index 1ac7f6e..ff9a9f8 100644
+--- a/include/linux/memory.h
++++ b/include/linux/memory.h
+@@ -19,7 +19,7 @@
+ #include <linux/compiler.h>
+ #include <linux/mutex.h>
+
+-#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
++#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
+
+ struct memory_block {
+ 	unsigned long start_section_nr;
+--=20
+1.7.6.1
+
+
+
+
+.
+
+
 
