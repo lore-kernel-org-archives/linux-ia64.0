@@ -1,100 +1,98 @@
-From: wency@cn.fujitsu.com
-Date: Tue, 28 Aug 2012 10:00:21 +0000
-Subject: [RFC v8 PATCH 14/20] memory-hotplug: move register_page_bootmem_info_node and put_page_bootmem for s
-Message-Id: <1346148027-24468-15-git-send-email-wency@cn.fujitsu.com>
+From: wujianguo <wujianguo106@gmail.com>
+Date: Fri, 24 Aug 2012 03:10:08 +0000
+Subject: [PATCH v2] mm/ia64: fix a memory block size bug
+Message-Id: <5036F090.4040209@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: akpm@linux-foundation.org, tony.luck@intel.com
+Cc: Michal Hocko <mhocko@suse.cz>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, liuj97@gmail.com, jiang.liu@huawei.com, wency@cn.fujitsu.com, yinghai@kernel.org, qiuxishi@huawei.com, guohanjun@huawei.com, wujianguo@huawei.com, minchan.kim@gmail.com, mgorman@suse.de, Christoph Lameter <cl@linux.com>, kay.sievers@vrfy.org
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+From: Jianguo Wu <wujianguo@huawei.com>
 
-For implementing register_page_bootmem_info_node of sparse-vmemmap,
-register_page_bootmem_info_node and put_page_bootmem are moved to
-memory_hotplug.c
+I found following definition in include/linux/memory.h, in my IA64
+platform, SECTION_SIZE_BITS is equal to 32, and MIN_MEMORY_BLOCK_SIZE will =
+be 0.
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
+
+Because MIN_MEMORY_BLOCK_SIZE is int type and length of 32bits,
+so MIN_MEMORY_BLOCK_SIZE(1 << 32) will will equal to 0.
+Actually when SECTION_SIZE_BITS >=3D 31, MIN_MEMORY_BLOCK_SIZE will be wron=
+g.
+This will cause wrong system memory infomation in sysfs.
+I think it should be:
+
+#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
+
+And "echo offline > memory0/state" will cause following call trace:
+
+kernel BUG at mm/memory_hotplug.c:885!
+sh[6455]: bugcheck! 0 [1]
+
+Pid: 6455, CPU 0, comm:                   sh
+psr : 0000101008526030 ifs : 8000000000000fa4 ip  : [<a0000001008c40f0>]   =
+ Not tainted (3.6.0-rc1)
+ip is at offline_pages+0x210/0xee0
+unat: 0000000000000000 pfs : 0000000000000fa4 rsc : 0000000000000003
+rnat: a0000001008f2d50 bsps: 0000000000000000 pr  : 65519a96659a9565
+ldrs: 0000000000000000 ccv : 0000010b9263f310 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a0000001008c40f0 b6  : a000000100473980 b7  : a0000001000106d0
+f6  : 000000000000000000000 f7  : 1003e0000000085c9354c
+f8  : 1003e0044b82fa09b5a53 f9  : 1003e000000d65cd62abf
+f10 : 1003efd02efdec682803d f11 : 1003e0000000000000042
+r1  : a00000010152c2e0 r2  : 0000000000006ada r3  : 000000000000fffe
+r8  : 0000000000000026 r9  : a00000010121cc18 r10 : a0000001013309f0
+r11 : 65519a96659a19e9 r12 : e00000070a91fdf0 r13 : e00000070a910000
+r14 : 0000000000006ada r15 : 0000000000004000 r16 : 000000006ad8356c
+r17 : a0000001019a525e r18 : 0000000000007fff r19 : 0000000000000000
+r20 : 0000000000006ad6 r21 : 0000000000006ad6 r22 : a00000010133bec8
+r23 : 0000000000006ad4 r24 : 0000000000000002 r25 : 8200000000260038
+r26 : 00000000000004f9 r27 : 00000000000004f8 r28 : 000000000001cf98
+r29 : 0000000000000038 r30 : a0000001019a5ae0 r31 : 000000000001cf60
+
+Call Trace:
+ [<a0000001000163e0>] show_stack+0x80/0xa0
+                                sp=E00000070a91f9b0 bsp=E00000070a9115e0
+ [<a000000100016a40>] show_regs+0x640/0x920
+                                sp=E00000070a91fb80 bsp=E00000070a911588
+ [<a000000100040590>] die+0x190/0x2c0
+                                sp=E00000070a91fb90 bsp=E00000070a911548
+ [<a000000100040710>] die_if_kernel+0x50/0x80
+                                sp=E00000070a91fb90 bsp=E00000070a911518
+ [<a0000001008f8030>] ia64_bad_break+0x3d0/0x6e0
+                                sp=E00000070a91fb90 bsp=E00000070a9114f0
+ [<a00000010000c0c0>] ia64_native_leave_kernel+0x0/0x270
+                                sp=E00000070a91fc20 bsp=E00000070a9114f0
+ [<a0000001008c40f0>] offline_pages+0x210/0xee0
+                                sp=E00000070a91fdf0 bsp=E00000070a9113c8
+ [<a00000010022d580>] alloc_pages_current+0x180/0x2a0
+                                sp=E00000070a91fe20 bsp=E00000070a9113a
+
+This patch will fix the bug.
+
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Reviewed-by: Michal Hocko <mhocko@suse.cz>
 ---
- include/linux/memory_hotplug.h |    9 ---------
- mm/memory_hotplug.c            |    8 ++++++--
- 2 files changed, 6 insertions(+), 11 deletions(-)
+ include/linux/memory.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index cdbbd79..1133e63 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -162,17 +162,8 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
- #endif /* CONFIG_NUMA */
- #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
- 
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
--{
--}
--static inline void put_page_bootmem(struct page *page)
--{
--}
--#else
- extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
- extern void put_page_bootmem(struct page *page);
--#endif
- 
- /*
-  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index d85af6d..3ca66bc 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -91,7 +91,6 @@ static void release_memory_resource(struct resource *res)
- }
- 
- #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void get_page_bootmem(unsigned long info,  struct page *page,
- 			     unsigned long type)
- {
-@@ -127,6 +126,7 @@ void __ref put_page_bootmem(struct page *page)
- 
- }
- 
-+#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void register_page_bootmem_info_section(unsigned long start_pfn)
- {
- 	unsigned long *usemap, mapsize, section_nr, i;
-@@ -163,6 +163,11 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
- 		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
- 
- }
-+#else
-+static inline void register_page_bootmem_info_section(unsigned long start_pfn)
-+{
-+}
-+#endif
- 
- void register_page_bootmem_info_node(struct pglist_data *pgdat)
- {
-@@ -198,7 +203,6 @@ void register_page_bootmem_info_node(struct pglist_data *pgdat)
- 		register_page_bootmem_info_section(pfn);
- 
- }
--#endif /* !CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void grow_zone_span(struct zone *zone, unsigned long start_pfn,
- 			   unsigned long end_pfn)
--- 
-1.7.1
+diff --git a/include/linux/memory.h b/include/linux/memory.h
+index 1ac7f6e..ff9a9f8 100644
+--- a/include/linux/memory.h
++++ b/include/linux/memory.h
+@@ -19,7 +19,7 @@
+ #include <linux/compiler.h>
+ #include <linux/mutex.h>
+
+-#define MIN_MEMORY_BLOCK_SIZE     (1 << SECTION_SIZE_BITS)
++#define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
+
+ struct memory_block {
+ 	unsigned long start_section_nr;
+--=20
+1.7.6.1
 
