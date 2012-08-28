@@ -1,26 +1,20 @@
 From: wency@cn.fujitsu.com
-Date: Mon, 20 Aug 2012 09:35:32 +0000
-Subject: [RFC V7 PATCH 09/19] memory-hotplug: does not release memory region in PAGES_PER_SECTION chunks
-Message-Id: <1345455342-27752-10-git-send-email-wency@cn.fujitsu.com>
+Date: Tue, 28 Aug 2012 10:00:12 +0000
+Subject: [RFC v8 PATCH 05/20] memory-hotplug: check whether memory is present or not
+Message-Id: <1346148027-24468-6-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
+References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-Since applying a patch(de7f0cba96786c), release_mem_region() has been changed
-as called in PAGES_PER_SECTION chunks because register_memory_resource() is
-called in PAGES_PER_SECTION chunks by add_memory(). But it seems firmware
-dependency. If CRS are written in the PAGES_PER_SECTION chunks in ACPI DSDT
-Table, register_memory_resource() is called in PAGES_PER_SECTION chunks.
-But if CRS are written in the DIMM unit in ACPI DSDT Table,
-register_memory_resource() is called in DIMM unit. So release_mem_region()
-should not be called in PAGES_PER_SECTION chunks. The patch fixes it.
+If system supports memory hot-remove, online_pages() may online removed pages.
+So online_pages() need to check whether onlining pages are present or not.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -34,59 +28,64 @@ CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 CC: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- arch/powerpc/platforms/pseries/hotplug-memory.c |   13 +++++++++----
- mm/memory_hotplug.c                             |    4 ++--
- 2 files changed, 11 insertions(+), 6 deletions(-)
+ include/linux/mmzone.h |   19 +++++++++++++++++++
+ mm/memory_hotplug.c    |   13 +++++++++++++
+ 2 files changed, 32 insertions(+), 0 deletions(-)
 
-diff --git a/arch/powerpc/platforms/pseries/hotplug-memory.c b/arch/powerpc/platforms/pseries/hotplug-memory.c
-index 11d8e05..dc0a035 100644
---- a/arch/powerpc/platforms/pseries/hotplug-memory.c
-+++ b/arch/powerpc/platforms/pseries/hotplug-memory.c
-@@ -77,7 +77,8 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
- {
- 	unsigned long start, start_pfn;
- 	struct zone *zone;
--	int ret;
-+	int i, ret;
-+	int sections_to_remove;
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 2daa54f..ac3ae30 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -1180,6 +1180,25 @@ void sparse_init(void);
+ #define sparse_index_init(_sec, _nid)  do {} while (0)
+ #endif /* CONFIG_SPARSEMEM */
  
- 	start_pfn = base >> PAGE_SHIFT;
- 
-@@ -97,9 +98,13 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
- 	 * to sysfs "state" file and we can't remove sysfs entries
- 	 * while writing to it. So we have to defer it to here.
- 	 */
--	ret = __remove_pages(zone, start_pfn, memblock_size >> PAGE_SHIFT);
--	if (ret)
--		return ret;
-+	sections_to_remove = (memblock_size >> PAGE_SHIFT) / PAGES_PER_SECTION;
-+	for (i = 0; i < sections_to_remove; i++) {
-+		unsigned long pfn = start_pfn + i * PAGES_PER_SECTION;
-+		ret = __remove_pages(zone, start_pfn,  PAGES_PER_SECTION);
-+		if (ret)
-+			return ret;
++#ifdef CONFIG_SPARSEMEM
++static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
++{
++	int i;
++	for (i = 0; i < nr_pages; i++) {
++		if (pfn_present(pfn + i))
++			continue;
++		else
++			return -EINVAL;
 +	}
- 
- 	/*
- 	 * Update memory regions for memory remove
++	return 0;
++}
++#else
++static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
++{
++	return 0;
++}
++#endif /* CONFIG_SPARSEMEM*/
++
+ #ifdef CONFIG_NODES_SPAN_OTHER_NODES
+ bool early_pfn_in_nid(unsigned long pfn, int nid);
+ #else
 diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 45b03b3..29aff4d 100644
+index 80cded7..3f1d7c5 100644
 --- a/mm/memory_hotplug.c
 +++ b/mm/memory_hotplug.c
-@@ -358,11 +358,11 @@ int __remove_pages(struct zone *zone, unsigned long phys_start_pfn,
- 	BUG_ON(phys_start_pfn & ~PAGE_SECTION_MASK);
- 	BUG_ON(nr_pages % PAGES_PER_SECTION);
+@@ -467,6 +467,19 @@ int __ref online_pages(unsigned long pfn, unsigned long nr_pages)
+ 	struct memory_notify arg;
  
-+	release_mem_region(phys_start_pfn << PAGE_SHIFT,  nr_pages * PAGE_SIZE);
-+
- 	sections_to_remove = nr_pages / PAGES_PER_SECTION;
- 	for (i = 0; i < sections_to_remove; i++) {
- 		unsigned long pfn = phys_start_pfn + i*PAGES_PER_SECTION;
--		release_mem_region(pfn << PAGE_SHIFT,
--				   PAGES_PER_SECTION << PAGE_SHIFT);
- 		ret = __remove_section(zone, __pfn_to_section(pfn));
- 		if (ret)
- 			break;
+ 	lock_memory_hotplug();
++	/*
++	 * If system supports memory hot-remove, the memory may have been
++	 * removed. So we check whether the memory has been removed or not.
++	 *
++	 * Note: When CONFIG_SPARSEMEM is defined, pfns_present() become
++	 *       effective. If CONFIG_SPARSEMEM is not defined, pfns_present()
++	 *       always returns 0.
++	 */
++	ret = pfns_present(pfn, nr_pages);
++	if (ret) {
++		unlock_memory_hotplug();
++		return ret;
++	}
+ 	arg.start_pfn = pfn;
+ 	arg.nr_pages = nr_pages;
+ 	arg.status_change_nid = -1;
 -- 
 1.7.1
 
