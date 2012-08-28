@@ -1,169 +1,181 @@
 From: wency@cn.fujitsu.com
-Date: Fri, 03 Aug 2012 07:49:02 +0000
-Subject: [RFC PATCH V6 00/19] memory-hotplug: hot-remove physical memory
-Message-Id: <1343980161-14254-1-git-send-email-wency@cn.fujitsu.com>
+Date: Tue, 28 Aug 2012 10:00:09 +0000
+Subject: [RFC v8 PATCH 02/20] memory-hotplug: implement offline_memory()
+Message-Id: <1346148027-24468-3-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
-Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>, Vasilis Liaskovitis <vasilis.liaskovitis@profitbricks.com>
 
 From: Wen Congyang <wency@cn.fujitsu.com>
 
-This patch series aims to support physical memory hot-remove.
+The function offline_memory() will be called when hot removing a
+memory device. The memory device may contain more than one memory
+block. If the memory block has been offlined, __offline_pages()
+will fail. So we should try to offline one memory block at a
+time.
 
-The patches can free/remove following things:
+If the memory block is offlined in offline_memory(), we also
+update it's state, and notify the userspace that its state is
+changed.
 
-  - acpi_memory_info                          : [RFC PATCH 4/19]
-  - /sys/firmware/memmap/X/{end, start, type} : [RFC PATCH 8/19]
-  - iomem_resource                            : [RFC PATCH 9/19]
-  - mem_section and related sysfs files       : [RFC PATCH 10-11, 13-16/19]
-  - page table of removed memory              : [RFC PATCH 12/19]
-  - node and related sysfs files              : [RFC PATCH 18-19/19]
+The function offline_memory() also check each memory block's
+state. So there is no need to check the memory block's state
+before calling offline_memory().
 
-If you find lack of function for physical memory hot-remove, please let me
-know.
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Vasilis Liaskovitis <vasilis.liaskovitis@profitbricks.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+---
+ drivers/base/memory.c          |   31 +++++++++++++++++++++++++++----
+ include/linux/memory_hotplug.h |    2 ++
+ mm/memory_hotplug.c            |   37 ++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 65 insertions(+), 5 deletions(-)
 
-change log of v6:
- [RFC PATCH v5 12/19]
-   * fix building error on other archtitectures than x86
-
- [RFC PATCH v5 15-16/19]
-   * fix building error on other archtitectures than x86
-
-change log of v5:
- * merge the patchset to clear page table and the patchset to hot remove
-   memory(from ishimatsu) to one big patchset.
-
- [RFC PATCH v5 1/19]
-   * rename remove_memory() to offline_memory()/offline_pages()
-
- [RFC PATCH v5 2/19]
-   * new patch: implement offline_memory(). This function offlines pages,
-     update memory block's state, and notify the userspace that the memory
-     block's state is changed.
-
- [RFC PATCH v5 4/19]
-   * offline and remove memory in acpi_memory_disable_device() too.
-
- [RFC PATCH v5 17/19]
-   * new patch: add a new function __remove_zone() to revert the things done
-     in the function __add_zone().
-
- [RFC PATCH v5 18/19]
-   * flush work befor reseting node device.
-
-change log of v4:
- * remove "memory-hotplug : unify argument of firmware_map_add_early/hotplug"
-   from the patch series, since the patch is a bugfix. It is being disccussed
-   on other thread. But for testing the patch series, the patch is needed.
-   So I added the patch as [PATCH 0/13].
-
- [RFC PATCH v4 2/13]
-   * check memory is online or not at remove_memory()
-   * add memory_add_physaddr_to_nid() to acpi_memory_device_remove() for
-     getting node id
+diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+index 44e7de6..86c8821 100644
+--- a/drivers/base/memory.c
++++ b/drivers/base/memory.c
+@@ -275,13 +275,11 @@ memory_block_action(unsigned long phys_index, unsigned long action)
+ 	return ret;
+ }
  
- [RFC PATCH v4 3/13]
-   * create new patch : check memory is online or not at online_pages()
-
- [RFC PATCH v4 4/13]
-   * add __ref section to remove_memory()
-   * call firmware_map_remove_entry() before remove_sysfs_fw_map_entry()
-
- [RFC PATCH v4 11/13]
-   * rewrite register_page_bootmem_memmap() for removing page used as PT/PMD
-
-change log of v3:
- * rebase to 3.5.0-rc6
-
- [RFC PATCH v2 2/13]
-   * remove extra kobject_put()
-
-   * The patch was commented by Wen. Wen's comment is
-     "acpi_memory_device_remove() should ignore a return value of
-     remove_memory() since caller does not care the return value".
-     But I did not change it since I think caller should care the
-     return value. And I am trying to fix it as follow:
-
-     https://lkml.org/lkml/2012/7/5/624
-
- [RFC PATCH v2 4/13]
-   * remove a firmware_memmap_entry allocated by kzmalloc()
-
-change log of v2:
- [RFC PATCH v2 2/13]
-   * check whether memory block is offline or not before calling offline_memory()
-   * check whether section is valid or not in is_memblk_offline()
-   * call kobject_put() for each memory_block in is_memblk_offline()
-
- [RFC PATCH v2 3/13]
-   * unify the end argument of firmware_map_add_early/hotplug
-
- [RFC PATCH v2 4/13]
-   * add release_firmware_map_entry() for freeing firmware_map_entry
-
- [RFC PATCH v2 6/13]
-  * add release_memory_block() for freeing memory_block
-
- [RFC PATCH v2 11/13]
-  * fix wrong arguments of free_pages()
-
-Wen Congyang (6):
-  memory-hotplug: implement offline_memory()
-  memory-hotplug: store the node id in acpi_memory_device
-  memory-hotplug: export the function acpi_bus_remove()
-  memory-hotplug: call acpi_bus_remove() to remove memory device
-  memory-hotplug: introduce new function arch_remove_memory()
-  memory-hotplug: free memmap of sparse-vmemmap
-
-Yasuaki Ishimatsu (13):
-  memory-hotplug: rename remove_memory() to
-    offline_memory()/offline_pages()
-  memory-hotplug: offline and remove memory when removing the memory
-    device
-  memory-hotplug: check whether memory is present or not
-  memory-hotplug: remove /sys/firmware/memmap/X sysfs
-  memory-hotplug: does not release memory region in PAGES_PER_SECTION
-    chunks
-  memory-hotplug: add memory_block_release
-  memory-hotplug: remove_memory calls __remove_pages
-  memory-hotplug: check page type in get_page_bootmem
-  memory-hotplug: move register_page_bootmem_info_node and
-    put_page_bootmem for sparse-vmemmap
-  memory-hotplug: implement register_page_bootmem_info_section of
-    sparse-vmemmap
-  memory_hotplug: clear zone when the memory is removed
-  memory-hotplug: add node_device_release
-  memory-hotplug: remove sysfs file of node
-
- arch/ia64/mm/discontig.c                        |   14 +
- arch/ia64/mm/init.c                             |   16 +
- arch/powerpc/mm/init_64.c                       |   14 +
- arch/powerpc/mm/mem.c                           |   14 +
- arch/powerpc/platforms/pseries/hotplug-memory.c |   16 +-
- arch/s390/mm/init.c                             |   12 +
- arch/s390/mm/vmem.c                             |   14 +
- arch/sh/mm/init.c                               |   15 +
- arch/sparc/mm/init_64.c                         |   14 +
- arch/tile/mm/init.c                             |    8 +
- arch/x86/include/asm/pgtable_types.h            |    1 +
- arch/x86/mm/init_32.c                           |   10 +
- arch/x86/mm/init_64.c                           |  331 ++++++++++++++++++++++
- arch/x86/mm/pageattr.c                          |   47 ++--
- drivers/acpi/acpi_memhotplug.c                  |   51 +++-
- drivers/acpi/scan.c                             |    3 +-
- drivers/base/memory.c                           |   90 ++++++-
- drivers/base/node.c                             |    8 +
- drivers/firmware/memmap.c                       |   78 +++++-
- include/acpi/acpi_bus.h                         |    1 +
- include/linux/firmware-map.h                    |    6 +
- include/linux/memory.h                          |    5 +
- include/linux/memory_hotplug.h                  |   25 +-
- include/linux/mm.h                              |    5 +-
- include/linux/mmzone.h                          |   19 ++
- mm/memory_hotplug.c                             |  337 +++++++++++++++++++++--
- mm/sparse.c                                     |    5 +-
- 27 files changed, 1068 insertions(+), 91 deletions(-)
+-static int memory_block_change_state(struct memory_block *mem,
++static int __memory_block_change_state(struct memory_block *mem,
+ 		unsigned long to_state, unsigned long from_state_req)
+ {
+ 	int ret = 0;
+ 
+-	mutex_lock(&mem->state_mutex);
+-
+ 	if (mem->state != from_state_req) {
+ 		ret = -EINVAL;
+ 		goto out;
+@@ -309,10 +307,20 @@ static int memory_block_change_state(struct memory_block *mem,
+ 		break;
+ 	}
+ out:
+-	mutex_unlock(&mem->state_mutex);
+ 	return ret;
+ }
+ 
++static int memory_block_change_state(struct memory_block *mem,
++		unsigned long to_state, unsigned long from_state_req)
++{
++	int ret;
++
++	mutex_lock(&mem->state_mutex);
++	ret = __memory_block_change_state(mem, to_state, from_state_req);
++	mutex_unlock(&mem->state_mutex);
++
++	return ret;
++}
+ static ssize_t
+ store_mem_state(struct device *dev,
+ 		struct device_attribute *attr, const char *buf, size_t count)
+@@ -653,6 +661,21 @@ int unregister_memory_section(struct mem_section *section)
+ }
+ 
+ /*
++ * offline one memory block. If the memory block has been offlined, do nothing.
++ */
++int offline_memory_block(struct memory_block *mem)
++{
++	int ret = 0;
++
++	mutex_lock(&mem->state_mutex);
++	if (mem->state != MEM_OFFLINE)
++		ret = __memory_block_change_state(mem, MEM_OFFLINE, MEM_ONLINE);
++	mutex_unlock(&mem->state_mutex);
++
++	return ret;
++}
++
++/*
+  * Initialize the sysfs support for memory devices...
+  */
+ int __init memory_dev_init(void)
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index c183f39..0b040bb 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -10,6 +10,7 @@ struct page;
+ struct zone;
+ struct pglist_data;
+ struct mem_section;
++struct memory_block;
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
+ 
+@@ -234,6 +235,7 @@ extern int mem_online_node(int nid);
+ extern int add_memory(int nid, u64 start, u64 size);
+ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int offline_pages(unsigned long start_pfn, unsigned long nr_pages);
++extern int offline_memory_block(struct memory_block *mem);
+ extern int offline_memory(u64 start, u64 size);
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+ 								int nr_pages);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index c182c76..3113cd4 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1001,7 +1001,42 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages)
+ 
+ int offline_memory(u64 start, u64 size)
+ {
+-	return -EINVAL;
++	struct memory_block *mem = NULL;
++	struct mem_section *section;
++	unsigned long start_pfn, end_pfn;
++	unsigned long pfn, section_nr;
++	int ret;
++
++	start_pfn = PFN_DOWN(start);
++	end_pfn = start_pfn + PFN_DOWN(size);
++
++	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
++		section_nr = pfn_to_section_nr(pfn);
++		if (!present_section_nr(section_nr))
++			continue;
++
++		section = __nr_to_section(section_nr);
++		/* same memblock? */
++		if (mem)
++			if ((section_nr >= mem->start_section_nr) &&
++			    (section_nr <= mem->end_section_nr))
++				continue;
++
++		mem = find_memory_block_hinted(section, mem);
++		if (!mem)
++			continue;
++
++		ret = offline_memory_block(mem);
++		if (ret) {
++			kobject_put(&mem->dev.kobj);
++			return ret;
++		}
++	}
++
++	if (mem)
++		kobject_put(&mem->dev.kobj);
++
++	return 0;
+ }
+ #else
+ int offline_pages(u64 start, u64 size)
+-- 
+1.7.1
 
