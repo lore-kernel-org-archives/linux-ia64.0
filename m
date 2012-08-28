@@ -1,20 +1,21 @@
 From: wency@cn.fujitsu.com
-Date: Mon, 20 Aug 2012 09:35:28 +0000
-Subject: [RFC V7 PATCH 05/19] memory-hotplug: check whether memory is present or not
-Message-Id: <1345455342-27752-6-git-send-email-wency@cn.fujitsu.com>
+Date: Tue, 28 Aug 2012 10:00:10 +0000
+Subject: [RFC v8 PATCH 03/20] memory-hotplug: store the node id in acpi_memory_device
+Message-Id: <1346148027-24468-4-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1345455342-27752-1-git-send-email-wency@cn.fujitsu.com>
+References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-If system supports memory hot-remove, online_pages() may online removed pages.
-So online_pages() need to check whether onlining pages are present or not.
+The memory device has only one node id. Store the node id when
+enable the memory device, and we can reuse it when removing the
+memory device.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -25,67 +26,35 @@ CC: Christoph Lameter <cl@linux.com>
 Cc: Minchan Kim <minchan.kim@gmail.com>
 CC: Andrew Morton <akpm@linux-foundation.org>
 CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Reviewed-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- include/linux/mmzone.h |   19 +++++++++++++++++++
- mm/memory_hotplug.c    |   13 +++++++++++++
- 2 files changed, 32 insertions(+), 0 deletions(-)
+ drivers/acpi/acpi_memhotplug.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 2daa54f..ac3ae30 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -1180,6 +1180,25 @@ void sparse_init(void);
- #define sparse_index_init(_sec, _nid)  do {} while (0)
- #endif /* CONFIG_SPARSEMEM */
+diff --git a/drivers/acpi/acpi_memhotplug.c b/drivers/acpi/acpi_memhotplug.c
+index 2a7beac..7873832 100644
+--- a/drivers/acpi/acpi_memhotplug.c
++++ b/drivers/acpi/acpi_memhotplug.c
+@@ -83,6 +83,7 @@ struct acpi_memory_info {
+ struct acpi_memory_device {
+ 	struct acpi_device * device;
+ 	unsigned int state;	/* State of the memory device */
++	int nid;
+ 	struct list_head res_list;
+ };
  
-+#ifdef CONFIG_SPARSEMEM
-+static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
-+{
-+	int i;
-+	for (i = 0; i < nr_pages; i++) {
-+		if (pfn_present(pfn + i))
-+			continue;
-+		else
-+			return -EINVAL;
-+	}
-+	return 0;
-+}
-+#else
-+static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
-+{
-+	return 0;
-+}
-+#endif /* CONFIG_SPARSEMEM*/
+@@ -256,6 +257,9 @@ static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
+ 		info->enabled = 1;
+ 		num_enabled++;
+ 	}
 +
- #ifdef CONFIG_NODES_SPAN_OTHER_NODES
- bool early_pfn_in_nid(unsigned long pfn, int nid);
- #else
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 80cded7..3f1d7c5 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -467,6 +467,19 @@ int __ref online_pages(unsigned long pfn, unsigned long nr_pages)
- 	struct memory_notify arg;
- 
- 	lock_memory_hotplug();
-+	/*
-+	 * If system supports memory hot-remove, the memory may have been
-+	 * removed. So we check whether the memory has been removed or not.
-+	 *
-+	 * Note: When CONFIG_SPARSEMEM is defined, pfns_present() become
-+	 *       effective. If CONFIG_SPARSEMEM is not defined, pfns_present()
-+	 *       always returns 0.
-+	 */
-+	ret = pfns_present(pfn, nr_pages);
-+	if (ret) {
-+		unlock_memory_hotplug();
-+		return ret;
-+	}
- 	arg.start_pfn = pfn;
- 	arg.nr_pages = nr_pages;
- 	arg.status_change_nid = -1;
++	mem_device->nid = node;
++
+ 	if (!num_enabled) {
+ 		printk(KERN_ERR PREFIX "add_memory failed\n");
+ 		mem_device->state = MEMORY_INVALID_STATE;
 -- 
 1.7.1
 
