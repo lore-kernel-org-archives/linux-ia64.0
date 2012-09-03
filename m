@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Mon, 03 Sep 2012 05:51:10 +0000
+Date: Mon, 03 Sep 2012 07:31:00 +0000
 Subject: Re: [RFC v8 PATCH 08/20] memory-hotplug: remove /sys/firmware/memmap/X sysfs
-Message-Id: <5044454E.7070909@cn.fujitsu.com>
+Message-Id: <50445CB4.80303@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>	<1346148027-24468-9-git-send-email-wency@cn.fujitsu.com> <20120831140623.8d13bd2c.akpm@linux-foundation.org>
 In-Reply-To: <20120831140623.8d13bd2c.akpm@linux-foundation.org>
@@ -30,6 +30,11 @@ At 09/01/2012 05:06 AM, Andrew Morton Wrote:
 > 
 > It would be better to implement this as an inlined C function.  That
 > has improved type safety and improved readability.
+
+Hmm, this macro is not a new macro. It is defined after the function
+release_firmware_map_entry(). We just moved it here because we
+need it in the function release_firmware_map_entry().
+
 > 
 >> +static void release_firmware_map_entry(struct kobject *kobj)
 >> +{
@@ -40,11 +45,6 @@ At 09/01/2012 05:06 AM, Andrew Morton Wrote:
 >> +	if (PageSlab(page) || PageCompound(page))
 > 
 > That PageCompound() test looks rather odd.  Why is this done?
-
-Liu Jiang and Christoph Lameter discussed how to find slab page
-in this mail:
-https://lkml.org/lkml/2012/7/6/333.
-
 > 
 >> +		kfree(entry);
 >> +
@@ -76,6 +76,12 @@ https://lkml.org/lkml/2012/7/6/333.
 >> +}
 > 
 > Is there no locking  to protect that list?
+
+OK, I will add a lock to protect it.
+
+Thanks
+Wen Congyang
+
 > 
 >>  /*
 >>   * Add memmap entry on sysfs
@@ -102,9 +108,6 @@ https://lkml.org/lkml/2012/7/6/333.
 > A better name would be firmware_map_find_entry().  To retain the (good)
 > convention that symbols exported from here all start with
 > "firmware_map_".
-
-OK.
-
 > 
 >> +{
 >> +	struct firmware_map_entry *entry;
@@ -164,13 +167,6 @@ OK.
 >> +int __ref remove_memory(int nid, u64 start, u64 size)
 > 
 > Why was __ref added?
-
-Hmm, firmware_map_remove() was put in meminit section, and we call it
-in this function, so __ref is added here.
-
-Thanks
-Wen Congyang
-
 > 
 >>  {
 >> -	int ret = -EBUSY;
