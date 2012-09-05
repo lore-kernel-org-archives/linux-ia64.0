@@ -1,254 +1,331 @@
-From: Ni zhan Chen <nizhan.chen@gmail.com>
-Date: Sat, 29 Sep 2012 08:19:38 +0000
-Subject: Re: [RFC v9 PATCH 00/21] memory-hotplug: hot-remove physical memory
-Message-Id: <5066AF1A.4090509@gmail.com>
+From: wency@cn.fujitsu.com
+Date: Wed, 05 Sep 2012 09:25:50 +0000
+Subject: [RFC v9 PATCH 16/21] memory-hotplug: free memmap of sparse-vmemmap
+Message-Id: <1346837155-534-17-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: wency@cn.fujitsu.com
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-On 09/05/2012 05:25 PM, wency@cn.fujitsu.com wrote:
-> From: Wen Congyang <wency@cn.fujitsu.com>
->
-> This patch series aims to support physical memory hot-remove.
->
-> The patches can free/remove the following things:
->
->    - acpi_memory_info                          : [RFC PATCH 4/19]
->    - /sys/firmware/memmap/X/{end, start, type} : [RFC PATCH 8/19]
->    - iomem_resource                            : [RFC PATCH 9/19]
->    - mem_section and related sysfs files       : [RFC PATCH 10-11, 13-16/19]
->    - page table of removed memory              : [RFC PATCH 12/19]
->    - node and related sysfs files              : [RFC PATCH 18-19/19]
->
-> If you find lack of function for physical memory hot-remove, please let me
-> know.
->
-> How to test this patchset?
-> 1. apply this patchset and build the kernel. MEMORY_HOTPLUG, MEMORY_HOTREMOVE,
->     ACPI_HOTPLUG_MEMORY must be selected.
-> 2. load the module acpi_memhotplug
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-Hi Yasuaki,
+All pages of virtual mapping in removed memory cannot be freed, since some pages
+used as PGD/PUD includes not only removed memory but also other memory. So the
+patch checks whether page can be freed or not.
 
-where is the acpi_memhotplug module?
+How to check whether page can be freed or not?
+ 1. When removing memory, the page structs of the revmoved memory are filled
+    with 0FD.
+ 2. All page structs are filled with 0xFD on PT/PMD, PT/PMD can be cleared.
+    In this case, the page used as PT/PMD can be freed.
 
-> 3. hotplug the memory device(it depends on your hardware)
->     You will see the memory device under the directory /sys/bus/acpi/devices/.
->     Its name is PNP0C80:XX.
-> 4. online/offline pages provided by this memory device
->     You can write online/offline to /sys/devices/system/memory/memoryX/state to
->     online/offline pages provided by this memory device
-> 5. hotremove the memory device
->     You can hotremove the memory device by the hardware, or writing 1 to
->     /sys/bus/acpi/devices/PNP0C80:XX/eject.
->
-> Note: if the memory provided by the memory device is used by the kernel, it
-> can't be offlined. It is not a bug.
->
-> Known problems:
-> 1. memory can't be offlined when CONFIG_MEMCG is selected.
->     For example: there is a memory device on node 1. The address range
->     is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
->     and memory11 under the directory /sys/devices/system/memory/.
->     If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
->     when we online pages. When we online memory8, the memory stored page cgroup
->     is not provided by this memory device. But when we online memory9, the memory
->     stored page cgroup may be provided by memory8. So we can't offline memory8
->     now. We should offline the memory in the reversed order.
->     When the memory device is hotremoved, we will auto offline memory provided
->     by this memory device. But we don't know which memory is onlined first, so
->     offlining memory may fail. In such case, you should offline the memory by
->     hand before hotremoving the memory device.
-> 2. hotremoving memory device may cause kernel panicked
->     This bug will be fixed by Liu Jiang's patch:
->     https://lkml.org/lkml/2012/7/3/1
->
-> change log of v9:
->   [RFC PATCH v9 8/21]
->     * add a lock to protect the list map_entries
->     * add an indicator to firmware_map_entry to remember whether the memory
->       is allocated from bootmem
->   [RFC PATCH v9 10/21]
->     * change the macro to inline function
->   [RFC PATCH v9 19/21]
->     * don't offline the node if the cpu on the node is onlined
->   [RFC PATCH v9 21/21]
->     * create new patch: auto offline page_cgroup when onlining memory block
->       failed
->
-> change log of v8:
->   [RFC PATCH v8 17/20]
->     * Fix problems when one node's range include the other nodes
->   [RFC PATCH v8 18/20]
->     * fix building error when CONFIG_MEMORY_HOTPLUG_SPARSE or CONFIG_HUGETLBFS
->       is not defined.
->   [RFC PATCH v8 19/20]
->     * don't offline node when some memory sections are not removed
->   [RFC PATCH v8 20/20]
->     * create new patch: clear hwpoisoned flag when onlining pages
->
-> change log of v7:
->   [RFC PATCH v7 4/19]
->     * do not continue if acpi_memory_device_remove_memory() fails.
->   [RFC PATCH v7 15/19]
->     * handle usemap in register_page_bootmem_info_section() too.
->
-> change log of v6:
->   [RFC PATCH v6 12/19]
->     * fix building error on other archtitectures than x86
->
->   [RFC PATCH v6 15-16/19]
->     * fix building error on other archtitectures than x86
->
-> change log of v5:
->   * merge the patchset to clear page table and the patchset to hot remove
->     memory(from ishimatsu) to one big patchset.
->
->   [RFC PATCH v5 1/19]
->     * rename remove_memory() to offline_memory()/offline_pages()
->
->   [RFC PATCH v5 2/19]
->     * new patch: implement offline_memory(). This function offlines pages,
->       update memory block's state, and notify the userspace that the memory
->       block's state is changed.
->
->   [RFC PATCH v5 4/19]
->     * offline and remove memory in acpi_memory_disable_device() too.
->
->   [RFC PATCH v5 17/19]
->     * new patch: add a new function __remove_zone() to revert the things done
->       in the function __add_zone().
->
->   [RFC PATCH v5 18/19]
->     * flush work befor reseting node device.
->
-> change log of v4:
->   * remove "memory-hotplug : unify argument of firmware_map_add_early/hotplug"
->     from the patch series, since the patch is a bugfix. It is being disccussed
->     on other thread. But for testing the patch series, the patch is needed.
->     So I added the patch as [PATCH 0/13].
->
->   [RFC PATCH v4 2/13]
->     * check memory is online or not at remove_memory()
->     * add memory_add_physaddr_to_nid() to acpi_memory_device_remove() for
->       getting node id
->   
->   [RFC PATCH v4 3/13]
->     * create new patch : check memory is online or not at online_pages()
->
->   [RFC PATCH v4 4/13]
->     * add __ref section to remove_memory()
->     * call firmware_map_remove_entry() before remove_sysfs_fw_map_entry()
->
->   [RFC PATCH v4 11/13]
->     * rewrite register_page_bootmem_memmap() for removing page used as PT/PMD
->
-> change log of v3:
->   * rebase to 3.5.0-rc6
->
->   [RFC PATCH v2 2/13]
->     * remove extra kobject_put()
->
->     * The patch was commented by Wen. Wen's comment is
->       "acpi_memory_device_remove() should ignore a return value of
->       remove_memory() since caller does not care the return value".
->       But I did not change it since I think caller should care the
->       return value. And I am trying to fix it as follow:
->
->       https://lkml.org/lkml/2012/7/5/624
->
->   [RFC PATCH v2 4/13]
->     * remove a firmware_memmap_entry allocated by kzmalloc()
->
-> change log of v2:
->   [RFC PATCH v2 2/13]
->     * check whether memory block is offline or not before calling offline_memory()
->     * check whether section is valid or not in is_memblk_offline()
->     * call kobject_put() for each memory_block in is_memblk_offline()
->
->   [RFC PATCH v2 3/13]
->     * unify the end argument of firmware_map_add_early/hotplug
->
->   [RFC PATCH v2 4/13]
->     * add release_firmware_map_entry() for freeing firmware_map_entry
->
->   [RFC PATCH v2 6/13]
->    * add release_memory_block() for freeing memory_block
->
->   [RFC PATCH v2 11/13]
->    * fix wrong arguments of free_pages()
->
->
-> Wen Congyang (8):
->    memory-hotplug: implement offline_memory()
->    memory-hotplug: store the node id in acpi_memory_device
->    memory-hotplug: export the function acpi_bus_remove()
->    memory-hotplug: call acpi_bus_remove() to remove memory device
->    memory-hotplug: introduce new function arch_remove_memory()
->    memory-hotplug: remove sysfs file of node
->    memory-hotplug: clear hwpoisoned flag when onlining pages
->    memory-hotplug: auto offline page_cgroup when onlining memory block
->      failed
->
-> Yasuaki Ishimatsu (13):
->    memory-hotplug: rename remove_memory() to
->      offline_memory()/offline_pages()
->    memory-hotplug: offline and remove memory when removing the memory
->      device
->    memory-hotplug: check whether memory is present or not
->    memory-hotplug: remove /sys/firmware/memmap/X sysfs
->    memory-hotplug: does not release memory region in PAGES_PER_SECTION
->      chunks
->    memory-hotplug: add memory_block_release
->    memory-hotplug: remove_memory calls __remove_pages
->    memory-hotplug: check page type in get_page_bootmem
->    memory-hotplug: move register_page_bootmem_info_node and
->      put_page_bootmem for sparse-vmemmap
->    memory-hotplug: implement register_page_bootmem_info_section of
->      sparse-vmemmap
->    memory-hotplug: free memmap of sparse-vmemmap
->    memory_hotplug: clear zone when the memory is removed
->    memory-hotplug: add node_device_release
->
->   arch/ia64/mm/discontig.c                        |   14 +
->   arch/ia64/mm/init.c                             |   16 +
->   arch/powerpc/mm/init_64.c                       |   14 +
->   arch/powerpc/mm/mem.c                           |   14 +
->   arch/powerpc/platforms/pseries/hotplug-memory.c |   16 +-
->   arch/s390/mm/init.c                             |   12 +
->   arch/s390/mm/vmem.c                             |   14 +
->   arch/sh/mm/init.c                               |   15 +
->   arch/sparc/mm/init_64.c                         |   14 +
->   arch/tile/mm/init.c                             |    8 +
->   arch/x86/include/asm/pgtable_types.h            |    1 +
->   arch/x86/mm/init_32.c                           |   10 +
->   arch/x86/mm/init_64.c                           |  331 ++++++++++++++++++
->   arch/x86/mm/pageattr.c                          |   47 ++--
->   drivers/acpi/acpi_memhotplug.c                  |   54 +++-
->   drivers/acpi/scan.c                             |    3 +-
->   drivers/base/memory.c                           |   88 ++++-
->   drivers/base/node.c                             |   11 +
->   drivers/firmware/memmap.c                       |   98 +++++-
->   include/acpi/acpi_bus.h                         |    1 +
->   include/linux/firmware-map.h                    |    6 +
->   include/linux/memory.h                          |    5 +
->   include/linux/memory_hotplug.h                  |   25 +-
->   include/linux/mm.h                              |    5 +-
->   include/linux/mmzone.h                          |   19 +
->   mm/memory_hotplug.c                             |  424 +++++++++++++++++++++--
->   mm/page_cgroup.c                                |    3 +
->   mm/sparse.c                                     |    5 +-
->   28 files changed, 1181 insertions(+), 92 deletions(-)
->
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
->
+Applying patch, __remove_section() of CONFIG_SPARSEMEM_VMEMMAP is integrated
+into one. So __remove_section() of CONFIG_SPARSEMEM_VMEMMAP is deleted.
+
+Note:  vmemmap_kfree() and vmemmap_free_bootmem() are not implemented for ia64,
+ppc, s390, and sparc.
+
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+---
+ arch/ia64/mm/discontig.c  |    8 +++
+ arch/powerpc/mm/init_64.c |    8 +++
+ arch/s390/mm/vmem.c       |    8 +++
+ arch/sparc/mm/init_64.c   |    8 +++
+ arch/x86/mm/init_64.c     |  119 +++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/mm.h        |    2 +
+ mm/memory_hotplug.c       |   17 +------
+ mm/sparse.c               |    5 +-
+ 8 files changed, 158 insertions(+), 17 deletions(-)
+
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 33943db..0d23b69 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -823,6 +823,14 @@ int __meminit vmemmap_populate(struct page *start_page,
+ 	return vmemmap_populate_basepages(start_page, size, node);
+ }
+ 
++void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++{
++}
++
++void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
++{
++}
++
+ void register_page_bootmem_memmap(unsigned long section_nr,
+ 				  struct page *start_page, unsigned long size)
+ {
+diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
+index 3690c44..835a2b3 100644
+--- a/arch/powerpc/mm/init_64.c
++++ b/arch/powerpc/mm/init_64.c
+@@ -299,6 +299,14 @@ int __meminit vmemmap_populate(struct page *start_page,
+ 	return 0;
+ }
+ 
++void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++{
++}
++
++void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
++{
++}
++
+ void register_page_bootmem_memmap(unsigned long section_nr,
+ 				  struct page *start_page, unsigned long size)
+ {
+diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
+index eda55cd..4b42b0b 100644
+--- a/arch/s390/mm/vmem.c
++++ b/arch/s390/mm/vmem.c
+@@ -227,6 +227,14 @@ out:
+ 	return ret;
+ }
+ 
++void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++{
++}
++
++void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
++{
++}
++
+ void register_page_bootmem_memmap(unsigned long section_nr,
+ 				  struct page *start_page, unsigned long size)
+ {
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index add1cc7..1384826 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -2078,6 +2078,14 @@ void __meminit vmemmap_populate_print_last(void)
+ 	}
+ }
+ 
++void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++{
++}
++
++void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
++{
++}
++
+ void register_page_bootmem_memmap(unsigned long section_nr,
+ 				  struct page *start_page, unsigned long size)
+ {
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 0075592..4e8f8a4 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -1138,6 +1138,125 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
+ 	return 0;
+ }
+ 
++#define PAGE_INUSE 0xFD
++
++unsigned long find_and_clear_pte_page(unsigned long addr, unsigned long end,
++			    struct page **pp, int *page_size)
++{
++	pgd_t *pgd;
++	pud_t *pud;
++	pmd_t *pmd;
++	pte_t *pte;
++	void *page_addr;
++	unsigned long next;
++
++	*pp = NULL;
++
++	pgd = pgd_offset_k(addr);
++	if (pgd_none(*pgd))
++		return pgd_addr_end(addr, end);
++
++	pud = pud_offset(pgd, addr);
++	if (pud_none(*pud))
++		return pud_addr_end(addr, end);
++
++	if (!cpu_has_pse) {
++		next = (addr + PAGE_SIZE) & PAGE_MASK;
++		pmd = pmd_offset(pud, addr);
++		if (pmd_none(*pmd))
++			return next;
++
++		pte = pte_offset_kernel(pmd, addr);
++		if (pte_none(*pte))
++			return next;
++
++		*page_size = PAGE_SIZE;
++		*pp = pte_page(*pte);
++	} else {
++		next = pmd_addr_end(addr, end);
++
++		pmd = pmd_offset(pud, addr);
++		if (pmd_none(*pmd))
++			return next;
++
++		*page_size = PMD_SIZE;
++		*pp = pmd_page(*pmd);
++	}
++
++	/*
++	 * Removed page structs are filled with 0xFD.
++	 */
++	memset((void *)addr, PAGE_INUSE, next - addr);
++
++	page_addr = page_address(*pp);
++
++	/*
++	 * Check the page is filled with 0xFD or not.
++	 * memchr_inv() returns the address. In this case, we cannot
++	 * clear PTE/PUD entry, since the page is used by other.
++	 * So we cannot also free the page.
++	 *
++	 * memchr_inv() returns NULL. In this case, we can clear
++	 * PTE/PUD entry, since the page is not used by other.
++	 * So we can also free the page.
++	 */
++	if (memchr_inv(page_addr, PAGE_INUSE, *page_size)) {
++		*pp = NULL;
++		return next;
++	}
++
++	if (!cpu_has_pse)
++		pte_clear(&init_mm, addr, pte);
++	else
++		pmd_clear(pmd);
++
++	return next;
++}
++
++void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++{
++	unsigned long addr = (unsigned long)memmap;
++	unsigned long end = (unsigned long)(memmap + nr_pages);
++	unsigned long next;
++	struct page *page;
++	int page_size;
++
++	for (; addr < end; addr = next) {
++		page = NULL;
++		page_size = 0;
++		next = find_and_clear_pte_page(addr, end, &page, &page_size);
++		if (!page)
++			continue;
++
++		free_pages((unsigned long)page_address(page),
++			    get_order(page_size));
++		__flush_tlb_one(addr);
++	}
++}
++
++void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
++{
++	unsigned long addr = (unsigned long)memmap;
++	unsigned long end = (unsigned long)(memmap + nr_pages);
++	unsigned long next;
++	struct page *page;
++	int page_size;
++	unsigned long magic;
++
++	for (; addr < end; addr = next) {
++		page = NULL;
++		page_size = 0;
++		next = find_and_clear_pte_page(addr, end, &page, &page_size);
++		if (!page)
++			continue;
++
++		magic = (unsigned long) page->lru.next;
++		if (magic = SECTION_INFO)
++			put_page_bootmem(page);
++		flush_tlb_kernel_range(addr, end);
++	}
++}
++
+ void register_page_bootmem_memmap(unsigned long section_nr,
+ 				  struct page *start_page, unsigned long size)
+ {
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index c607913..fb0d1fc 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1620,6 +1620,8 @@ int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
+ void vmemmap_populate_print_last(void);
+ void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
+ 				  unsigned long size);
++void vmemmap_kfree(struct page *memmpa, unsigned long nr_pages);
++void vmemmap_free_bootmem(struct page *memmpa, unsigned long nr_pages);
+ 
+ enum mf_flags {
+ 	MF_COUNT_INCREASED = 1 << 0,
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 647a7f2..c54922c 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -308,19 +308,6 @@ static int __meminit __add_section(int nid, struct zone *zone,
+ 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
+ }
+ 
+-#ifdef CONFIG_SPARSEMEM_VMEMMAP
+-static int __remove_section(struct zone *zone, struct mem_section *ms)
+-{
+-	int ret = -EINVAL;
+-
+-	if (!valid_section(ms))
+-		return ret;
+-
+-	ret = unregister_memory_section(ms);
+-
+-	return ret;
+-}
+-#else
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ {
+ 	unsigned long flags;
+@@ -337,9 +324,9 @@ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ 	pgdat_resize_lock(pgdat, &flags);
+ 	sparse_remove_one_section(zone, ms);
+ 	pgdat_resize_unlock(pgdat, &flags);
+-	return 0;
++
++	return ret;
+ }
+-#endif
+ 
+ /*
+  * Reasonably generic function for adding memory.  It is
+diff --git a/mm/sparse.c b/mm/sparse.c
+index fac95f2..ab9d755 100644
+--- a/mm/sparse.c
++++ b/mm/sparse.c
+@@ -613,12 +613,13 @@ static inline struct page *kmalloc_section_memmap(unsigned long pnum, int nid,
+ 	/* This will make the necessary allocations eventually. */
+ 	return sparse_mem_map_populate(pnum, nid);
+ }
+-static void __kfree_section_memmap(struct page *memmap, unsigned long nr_pages)
++static void __kfree_section_memmap(struct page *page, unsigned long nr_pages)
+ {
+-	return; /* XXX: Not implemented yet */
++	vmemmap_kfree(page, nr_pages);
+ }
+ static void free_map_bootmem(struct page *page, unsigned long nr_pages)
+ {
++	vmemmap_free_bootmem(page, nr_pages);
+ }
+ #else
+ static struct page *__kmalloc_section_memmap(unsigned long nr_pages)
+-- 
+1.7.1
 
