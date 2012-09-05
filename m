@@ -1,80 +1,91 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Tue, 04 Sep 2012 09:54:30 +0000
-Subject: Re: [RFC v8 PATCH 13/20] memory-hotplug: check page type in get_page_bootmem
-Message-Id: <5045CFD6.9040408@jp.fujitsu.com>
+From: wency@cn.fujitsu.com
+Date: Wed, 05 Sep 2012 09:25:39 +0000
+Subject: [RFC v9 PATCH 05/21] memory-hotplug: check whether memory is present or not
+Message-Id: <1346837155-534-6-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>	<1346148027-24468-14-git-send-email-wency@cn.fujitsu.com> <20120831143032.1343e99a.akpm@linux-foundation.org> <50457983.1050304@cn.fujitsu.com>
-In-Reply-To: <50457983.1050304@cn.fujitsu.com>
+References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Wen Congyang <wency@cn.fujitsu.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-Hi Wen,
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-2012/09/04 12:46, Wen Congyang wrote:
-> Hi, isimatu-san
->
-> At 09/01/2012 05:30 AM, Andrew Morton Wrote:
->> On Tue, 28 Aug 2012 18:00:20 +0800
->> wency@cn.fujitsu.com wrote:
->>
->>> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->>>
->>> There is a possibility that get_page_bootmem() is called to the same page many
->>> times. So when get_page_bootmem is called to the same page, the function only
->>> increments page->_count.
->>
->> I really don't understand this explanation, even after having looked at
->> the code.  Can you please have another attempt at the changelog?
->
-> What is the problem that you want to fix? The function get_page_bootmem()
-> may be called to the same page more than once, but I don't find any problem
-> about current implementation.
+If system supports memory hot-remove, online_pages() may online removed pages.
+So online_pages() need to check whether onlining pages are present or not.
 
-The patch is just optimization. The patch does not fix a problems.
-As you know, the function may be called many times for the same page.
-I think if a page is sets to page_type and Page Private flag and page->private,
-the page need not be set the same things again. So we check page_type when
-get_page_bootmem() is called. And if the page has been set to them, the page
-is only incremented page->_count.
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+---
+ include/linux/mmzone.h |   19 +++++++++++++++++++
+ mm/memory_hotplug.c    |   13 +++++++++++++
+ 2 files changed, 32 insertions(+), 0 deletions(-)
 
-Thanks,
-Yasuaki Ishimatsu
-
->
-> Thanks
-> Wen Congyang
->
->>
->>> --- a/mm/memory_hotplug.c
->>> +++ b/mm/memory_hotplug.c
->>> @@ -95,10 +95,17 @@ static void release_memory_resource(struct resource *res)
->>>   static void get_page_bootmem(unsigned long info,  struct page *page,
->>>   			     unsigned long type)
->>>   {
->>> -	page->lru.next = (struct list_head *) type;
->>> -	SetPagePrivate(page);
->>> -	set_page_private(page, info);
->>> -	atomic_inc(&page->_count);
->>> +	unsigned long page_type;
->>> +
->>> +	page_type = (unsigned long) page->lru.next;
->>> +	if (page_type < MEMORY_HOTPLUG_MIN_BOOTMEM_TYPE ||
->>> +	    page_type > MEMORY_HOTPLUG_MAX_BOOTMEM_TYPE){
->>> +		page->lru.next = (struct list_head *) type;
->>> +		SetPagePrivate(page);
->>> +		set_page_private(page, info);
->>> +		atomic_inc(&page->_count);
->>> +	} else
->>> +		atomic_inc(&page->_count);
->>>   }
->>
->> And a code comment which explains what is going on would be good.  As
->> is always the case ;)
->>
->>
->
-
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 2daa54f..ac3ae30 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -1180,6 +1180,25 @@ void sparse_init(void);
+ #define sparse_index_init(_sec, _nid)  do {} while (0)
+ #endif /* CONFIG_SPARSEMEM */
+ 
++#ifdef CONFIG_SPARSEMEM
++static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
++{
++	int i;
++	for (i = 0; i < nr_pages; i++) {
++		if (pfn_present(pfn + i))
++			continue;
++		else
++			return -EINVAL;
++	}
++	return 0;
++}
++#else
++static inline int pfns_present(unsigned long pfn, unsigned long nr_pages)
++{
++	return 0;
++}
++#endif /* CONFIG_SPARSEMEM*/
++
+ #ifdef CONFIG_NODES_SPAN_OTHER_NODES
+ bool early_pfn_in_nid(unsigned long pfn, int nid);
+ #else
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 49f7747..299747d 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -467,6 +467,19 @@ int __ref online_pages(unsigned long pfn, unsigned long nr_pages)
+ 	struct memory_notify arg;
+ 
+ 	lock_memory_hotplug();
++	/*
++	 * If system supports memory hot-remove, the memory may have been
++	 * removed. So we check whether the memory has been removed or not.
++	 *
++	 * Note: When CONFIG_SPARSEMEM is defined, pfns_present() become
++	 *       effective. If CONFIG_SPARSEMEM is not defined, pfns_present()
++	 *       always returns 0.
++	 */
++	ret = pfns_present(pfn, nr_pages);
++	if (ret) {
++		unlock_memory_hotplug();
++		return ret;
++	}
+ 	arg.start_pfn = pfn;
+ 	arg.nr_pages = nr_pages;
+ 	arg.status_change_nid = -1;
+-- 
+1.7.1
 
