@@ -1,81 +1,71 @@
-From: Stephan Schreiber <info@fs-driver.org>
-Date: Sat, 29 Sep 2012 22:09:34 +0000
-Subject: Re: [RFC/PATCH v2] ia64, SR870, EFI bug breaks ata_piix, uninitialized ICH4 IDE EXBAR mem resource
-Message-Id: <20120930000934.Horde.grdOKKGZi1VQZ3GeI_YW9ZA@webmail.df.eu>
+From: wency@cn.fujitsu.com
+Date: Wed, 05 Sep 2012 09:25:40 +0000
+Subject: [RFC v9 PATCH 06/21] memory-hotplug: export the function acpi_bus_remove()
+Message-Id: <1346837155-534-7-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20120916183914.Horde._TGALdjz9kRQVgCy6ATxxJA@webmail.df.eu>
- <20120917115619.13d3a3cb@pyramind.ukuu.org.uk>
- <20120920161603.Horde.aF7BBcL8999QWyUjk2AmsNA@webmail.df.eu>
- <CAErSpo6+WYE6wnj4CcKVidNHmg-oGH9SBsvg3QP9syC+vo09HQ@mail.gmail.com>
- <20120924190912.Horde.qznUIqGZi1VQYJO46HeGkwA@webmail.df.eu>
- <20120924235457.GA31372@google.com>
-In-Reply-To: <20120924235457.GA31372@google.com>
+References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, 679545@bugs.debian.org, jrnieder@gmail.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-Hello Bjorn,
-thank you very much for the patch.
-I tested it; it works.
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-(typing mistake: it must read PCI_COMMAND_MEMORY instead of  
-PCI_COMMAND_MEM at one location;
-some hunks of the patch couldn't be applied automatically on Kernel  
-3.2.23 because some comments in the contexts are different)
+The function acpi_bus_remove() can remove a acpi device from acpi device.
+When a acpi device is removed, we need to call this function to remove
+the acpi device from acpi bus. So export this function.
 
-The dmesg output:
-[    0.000000] Initializing cgroup subsys cpuset
-[    0.000000] Initializing cgroup subsys cpu
-[    0.000000] Linux version 3.2.0-3-mckinley (Debian 3.2.23-1)  
-(debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-8) )  
-#1 SMP Fri Sep 28 21:57:11 CEST 2012
-...
-[    0.065510] pci 0000:00:1f.1: [8086:24cb] type 0 class 0x000101
-[    0.065524] pci 0000:00:1f.1: reg 10: [io  0x0000-0x0007]
-[    0.065535] pci 0000:00:1f.1: reg 14: [io  0x0000-0x0003]
-[    0.065546] pci 0000:00:1f.1: reg 18: [io  0x0000-0x0007]
-[    0.065556] pci 0000:00:1f.1: reg 1c: [io  0x0000-0x0003]
-[    0.065567] pci 0000:00:1f.1: reg 20: [io  0x1000-0x100f]
-[    0.065578] pci 0000:00:1f.1: reg 24: [mem 0x00000000-0x000003ff unset]
-...
-[    1.391380] libata version 3.00 loaded.
-[    1.391922] ata_piix 0000:00:1f.1: version 2.13
-[    1.391938] ata_piix 0000:00:1f.1: can't derive routing for PCI INT A
-[    1.392493] scsi0 : ata_piix
-[    1.392886] scsi1 : ata_piix
-[    1.393018] ata1: PATA max UDMA/100 cmd 0x1f0 ctl 0x3f6 bmdma 0x1000 irq 34
-[    1.393066] ata2: PATA max UDMA/100 cmd 0x170 ctl 0x376 bmdma 0x1008 irq 33
-[    1.557756] ata1.00: ATAPI: HL-DT-ST DVDRAM GSA-T40N, JR03, max UDMA/33
-[    1.573616] ata1.00: configured for UDMA/33
-[    1.579147] scsi 0:0:0:0: CD-ROM            HL-DT-ST DVDRAM  
-GSA-T40N  JR03 PQ: 0 ANSI: 5
-[    1.590806] sr0: scsi3-mmc drive: 24x/24x writer dvd-ram cd/rw  
-xa/form2 cdda tray
-[    1.590872] cdrom: Uniform CD-ROM driver Revision: 3.20
-[    1.591272] sr 0:0:0:0: Attached scsi CD-ROM sr0
-[    1.593910] sr 0:0:0:0: Attached scsi generic sg0 type 5
-...
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+---
+ drivers/acpi/scan.c     |    3 ++-
+ include/acpi/acpi_bus.h |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-
-How is the chance to get this patch or a similar one into linux-next?
-
-
-
-> On x86, Windows normally doesn't reconfigure PCI devices unless it
-> finds a problem with the configuration done by the BIOS.  I suspect
-> it works similarly on ia64.  I would guess that Windows noticed that
-> the MEM bit was not set, and therefore ignored the MEM BAR contents.
-
-Since I have the four Windows versions 'for Itanium Based Systems' on  
-that box as well (XP, Server 2003, 2008, 2008 R2), I can tell you more:
-The Device Manager shows a memory range FFBFFC00-FFBFFFFF for the  
-"Intel 82801DB Ultra ATA Storage Controller-24CB" - on any of these  
-Windows versions.
-
-
-Stephan
-
-
+diff --git a/drivers/acpi/scan.c b/drivers/acpi/scan.c
+index d1ecca2..1cefc34 100644
+--- a/drivers/acpi/scan.c
++++ b/drivers/acpi/scan.c
+@@ -1224,7 +1224,7 @@ static int acpi_device_set_context(struct acpi_device *device)
+ 	return -ENODEV;
+ }
+ 
+-static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
++int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
+ {
+ 	if (!dev)
+ 		return -EINVAL;
+@@ -1246,6 +1246,7 @@ static int acpi_bus_remove(struct acpi_device *dev, int rmdevice)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(acpi_bus_remove);
+ 
+ static int acpi_add_single_object(struct acpi_device **child,
+ 				  acpi_handle handle, int type,
+diff --git a/include/acpi/acpi_bus.h b/include/acpi/acpi_bus.h
+index bde976e..2ccf109 100644
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -360,6 +360,7 @@ bool acpi_bus_power_manageable(acpi_handle handle);
+ bool acpi_bus_can_wakeup(acpi_handle handle);
+ int acpi_power_resource_register_device(struct device *dev, acpi_handle handle);
+ void acpi_power_resource_unregister_device(struct device *dev, acpi_handle handle);
++int acpi_bus_remove(struct acpi_device *dev, int rmdevice);
+ #ifdef CONFIG_ACPI_PROC_EVENT
+ int acpi_bus_generate_proc_event(struct acpi_device *device, u8 type, int data);
+ int acpi_bus_generate_proc_event4(const char *class, const char *bid, u8 type, int data);
+-- 
+1.7.1
 
