@@ -1,7 +1,7 @@
 From: wency@cn.fujitsu.com
-Date: Wed, 05 Sep 2012 09:25:48 +0000
-Subject: [RFC v9 PATCH 14/21] memory-hotplug: move register_page_bootmem_info_node and put_page_bootmem for s
-Message-Id: <1346837155-534-15-git-send-email-wency@cn.fujitsu.com>
+Date: Wed, 05 Sep 2012 09:25:43 +0000
+Subject: [RFC v9 PATCH 09/21] memory-hotplug: does not release memory region in PAGES_PER_SECTION chunks
+Message-Id: <1346837155-534-10-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
@@ -13,9 +13,14 @@ Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.cras
 
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-For implementing register_page_bootmem_info_node of sparse-vmemmap,
-register_page_bootmem_info_node and put_page_bootmem are moved to
-memory_hotplug.c
+Since applying a patch(de7f0cba96786c), release_mem_region() has been changed
+as called in PAGES_PER_SECTION chunks because register_memory_resource() is
+called in PAGES_PER_SECTION chunks by add_memory(). But it seems firmware
+dependency. If CRS are written in the PAGES_PER_SECTION chunks in ACPI DSDT
+Table, register_memory_resource() is called in PAGES_PER_SECTION chunks.
+But if CRS are written in the DIMM unit in ACPI DSDT Table,
+register_memory_resource() is called in DIMM unit. So release_mem_region()
+should not be called in PAGES_PER_SECTION chunks. The patch fixes it.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -29,72 +34,59 @@ CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 CC: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- include/linux/memory_hotplug.h |    9 ---------
- mm/memory_hotplug.c            |    8 ++++++--
- 2 files changed, 6 insertions(+), 11 deletions(-)
+ arch/powerpc/platforms/pseries/hotplug-memory.c |   13 +++++++++----
+ mm/memory_hotplug.c                             |    4 ++--
+ 2 files changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index cdbbd79..1133e63 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -162,17 +162,8 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
- #endif /* CONFIG_NUMA */
- #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
+diff --git a/arch/powerpc/platforms/pseries/hotplug-memory.c b/arch/powerpc/platforms/pseries/hotplug-memory.c
+index 11d8e05..dc0a035 100644
+--- a/arch/powerpc/platforms/pseries/hotplug-memory.c
++++ b/arch/powerpc/platforms/pseries/hotplug-memory.c
+@@ -77,7 +77,8 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ {
+ 	unsigned long start, start_pfn;
+ 	struct zone *zone;
+-	int ret;
++	int i, ret;
++	int sections_to_remove;
  
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
--{
--}
--static inline void put_page_bootmem(struct page *page)
--{
--}
--#else
- extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
- extern void put_page_bootmem(struct page *page);
--#endif
+ 	start_pfn = base >> PAGE_SHIFT;
  
- /*
-  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
+@@ -97,9 +98,13 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ 	 * to sysfs "state" file and we can't remove sysfs entries
+ 	 * while writing to it. So we have to defer it to here.
+ 	 */
+-	ret = __remove_pages(zone, start_pfn, memblock_size >> PAGE_SHIFT);
+-	if (ret)
+-		return ret;
++	sections_to_remove = (memblock_size >> PAGE_SHIFT) / PAGES_PER_SECTION;
++	for (i = 0; i < sections_to_remove; i++) {
++		unsigned long pfn = start_pfn + i * PAGES_PER_SECTION;
++		ret = __remove_pages(zone, start_pfn,  PAGES_PER_SECTION);
++		if (ret)
++			return ret;
++	}
+ 
+ 	/*
+ 	 * Update memory regions for memory remove
 diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 26a5012..df6857b 100644
+index e74a01d..2353887 100644
 --- a/mm/memory_hotplug.c
 +++ b/mm/memory_hotplug.c
-@@ -91,7 +91,6 @@ static void release_memory_resource(struct resource *res)
- }
+@@ -358,11 +358,11 @@ int __remove_pages(struct zone *zone, unsigned long phys_start_pfn,
+ 	BUG_ON(phys_start_pfn & ~PAGE_SECTION_MASK);
+ 	BUG_ON(nr_pages % PAGES_PER_SECTION);
  
- #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void get_page_bootmem(unsigned long info,  struct page *page,
- 			     unsigned long type)
- {
-@@ -127,6 +126,7 @@ void __ref put_page_bootmem(struct page *page)
- 
- }
- 
-+#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void register_page_bootmem_info_section(unsigned long start_pfn)
- {
- 	unsigned long *usemap, mapsize, section_nr, i;
-@@ -163,6 +163,11 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
- 		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
- 
- }
-+#else
-+static inline void register_page_bootmem_info_section(unsigned long start_pfn)
-+{
-+}
-+#endif
- 
- void register_page_bootmem_info_node(struct pglist_data *pgdat)
- {
-@@ -198,7 +203,6 @@ void register_page_bootmem_info_node(struct pglist_data *pgdat)
- 		register_page_bootmem_info_section(pfn);
- 
- }
--#endif /* !CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void grow_zone_span(struct zone *zone, unsigned long start_pfn,
- 			   unsigned long end_pfn)
++	release_mem_region(phys_start_pfn << PAGE_SHIFT,  nr_pages * PAGE_SIZE);
++
+ 	sections_to_remove = nr_pages / PAGES_PER_SECTION;
+ 	for (i = 0; i < sections_to_remove; i++) {
+ 		unsigned long pfn = phys_start_pfn + i*PAGES_PER_SECTION;
+-		release_mem_region(pfn << PAGE_SHIFT,
+-				   PAGES_PER_SECTION << PAGE_SHIFT);
+ 		ret = __remove_section(zone, __pfn_to_section(pfn));
+ 		if (ret)
+ 			break;
 -- 
 1.7.1
 
