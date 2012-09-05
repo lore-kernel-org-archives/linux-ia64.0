@@ -1,67 +1,129 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Tue, 25 Sep 2012 08:26:22 +0000
-Subject: [PATCH 21/29] PCI, ia64: kill pci_find_next_bus
-Message-Id: <1348561590-28067-22-git-send-email-yinghai@kernel.org>
+From: wency@cn.fujitsu.com
+Date: Wed, 05 Sep 2012 09:25:45 +0000
+Subject: [RFC v9 PATCH 11/21] memory-hotplug: remove_memory calls __remove_pages
+Message-Id: <1346837155-534-12-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1348561590-28067-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1348561590-28067-1-git-send-email-yinghai@kernel.org>
+References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, Len Brown <lenb@kernel.org>
-Cc: linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-altix@sgi.com
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+
+The patch adds __remove_pages() to remove_memory(). Then the range of
+phys_start_pfn argument and nr_pages argument in __remove_pagse() may
+have different zone. So zone argument is removed from __remove_pages()
+and __remove_pages() caluculates zone in each section.
+
+When CONFIG_SPARSEMEM_VMEMMAP is defined, there is no way to remove a memmap.
+So __remove_section only calls unregister_memory_section().
+
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- arch/ia64/hp/common/sba_iommu.c |    7 ++++---
- arch/ia64/sn/kernel/io_common.c |    5 +++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ arch/powerpc/platforms/pseries/hotplug-memory.c |    5 +----
+ include/linux/memory_hotplug.h                  |    3 +--
+ mm/memory_hotplug.c                             |   17 ++++++++++-------
+ 3 files changed, 12 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index bcda5b2..0f27a37 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -2155,9 +2155,10 @@ sba_init(void)
- 
- #ifdef CONFIG_PCI
- 	{
--		struct pci_bus *b = NULL;
--		while ((b = pci_find_next_bus(b)) != NULL)
--			sba_connect_bus(b);
-+		struct pci_host_bridge *host_bridge = NULL;
-+
-+		for_each_pci_host_bridge(host_bridge)
-+			sba_connect_bus(host_bridge->bus);
- 	}
- #endif
- 
-diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
-index 8630875..131938b 100644
---- a/arch/ia64/sn/kernel/io_common.c
-+++ b/arch/ia64/sn/kernel/io_common.c
-@@ -516,6 +516,7 @@ arch_initcall(sn_io_early_init);
- int __init
- sn_io_late_init(void)
+diff --git a/arch/powerpc/platforms/pseries/hotplug-memory.c b/arch/powerpc/platforms/pseries/hotplug-memory.c
+index dc0a035..cc14da4 100644
+--- a/arch/powerpc/platforms/pseries/hotplug-memory.c
++++ b/arch/powerpc/platforms/pseries/hotplug-memory.c
+@@ -76,7 +76,6 @@ unsigned long memory_block_size_bytes(void)
+ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_size)
  {
-+	struct pci_host_bridge *host_bridge = NULL;
- 	struct pci_bus *bus;
- 	struct pcibus_bussoft *bussoft;
- 	cnodeid_t cnode;
-@@ -530,8 +531,8 @@ sn_io_late_init(void)
- 	 * PIC, TIOCP, TIOCE (TIOCA does it during bus fixup using
- 	 * info from the PROM).
- 	 */
--	bus = NULL;
--	while ((bus = pci_find_next_bus(bus)) != NULL) {
-+	for_each_pci_host_bridge(host_bridge) {
-+		bus = host_bridge->bus;
- 		bussoft = SN_PCIBUS_BUSSOFT(bus);
- 		nasid = NASID_GET(bussoft->bs_base);
- 		cnode = nasid_to_cnodeid(nasid);
+ 	unsigned long start, start_pfn;
+-	struct zone *zone;
+ 	int i, ret;
+ 	int sections_to_remove;
+ 
+@@ -87,8 +86,6 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ 		return 0;
+ 	}
+ 
+-	zone = page_zone(pfn_to_page(start_pfn));
+-
+ 	/*
+ 	 * Remove section mappings and sysfs entries for the
+ 	 * section of the memory we are removing.
+@@ -101,7 +98,7 @@ static int pseries_remove_memblock(unsigned long base, unsigned int memblock_siz
+ 	sections_to_remove = (memblock_size >> PAGE_SHIFT) / PAGES_PER_SECTION;
+ 	for (i = 0; i < sections_to_remove; i++) {
+ 		unsigned long pfn = start_pfn + i * PAGES_PER_SECTION;
+-		ret = __remove_pages(zone, start_pfn,  PAGES_PER_SECTION);
++		ret = __remove_pages(start_pfn,  PAGES_PER_SECTION);
+ 		if (ret)
+ 			return ret;
+ 	}
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index fd84ea9..8bf820d 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -90,8 +90,7 @@ extern bool is_pageblock_removable_nolock(struct page *page);
+ /* reasonably generic interface to expand the physical pages in a zone  */
+ extern int __add_pages(int nid, struct zone *zone, unsigned long start_pfn,
+ 	unsigned long nr_pages);
+-extern int __remove_pages(struct zone *zone, unsigned long start_pfn,
+-	unsigned long nr_pages);
++extern int __remove_pages(unsigned long start_pfn, unsigned long nr_pages);
+ 
+ #ifdef CONFIG_NUMA
+ extern int memory_add_physaddr_to_nid(u64 start);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 2353887..7fbfc9f 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -275,11 +275,14 @@ static int __meminit __add_section(int nid, struct zone *zone,
+ #ifdef CONFIG_SPARSEMEM_VMEMMAP
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ {
+-	/*
+-	 * XXX: Freeing memmap with vmemmap is not implement yet.
+-	 *      This should be removed later.
+-	 */
+-	return -EBUSY;
++	int ret = -EINVAL;
++
++	if (!valid_section(ms))
++		return ret;
++
++	ret = unregister_memory_section(ms);
++
++	return ret;
+ }
+ #else
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+@@ -346,8 +349,7 @@ EXPORT_SYMBOL_GPL(__add_pages);
+  * sure that pages are marked reserved and zones are adjust properly by
+  * calling offline_pages().
+  */
+-int __remove_pages(struct zone *zone, unsigned long phys_start_pfn,
+-		 unsigned long nr_pages)
++int __remove_pages(unsigned long phys_start_pfn, unsigned long nr_pages)
+ {
+ 	unsigned long i, ret = 0;
+ 	int sections_to_remove;
+@@ -363,6 +365,7 @@ int __remove_pages(struct zone *zone, unsigned long phys_start_pfn,
+ 	sections_to_remove = nr_pages / PAGES_PER_SECTION;
+ 	for (i = 0; i < sections_to_remove; i++) {
+ 		unsigned long pfn = phys_start_pfn + i*PAGES_PER_SECTION;
++		struct zone *zone = page_zone(pfn_to_page(pfn));
+ 		ret = __remove_section(zone, __pfn_to_section(pfn));
+ 		if (ret)
+ 			break;
 -- 
-1.7.7
+1.7.1
 
