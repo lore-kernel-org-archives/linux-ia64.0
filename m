@@ -1,58 +1,76 @@
-From: Minchan Kim <minchan@kernel.org>
-Date: Wed, 12 Sep 2012 06:17:47 +0000
+From: Vasilis Liaskovitis <vasilis.liaskovitis@profitbricks.com>
+Date: Wed, 12 Sep 2012 17:18:14 +0000
 Subject: Re: [RFC v8 PATCH 00/20] memory-hotplug: hot-remove physical memory
-Message-Id: <20120912061747.GA31798@bbox>
+Message-Id: <20120912171814.GB5253@dhcp-192-168-178-175.profitbricks.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346148027-24468-1-git-send-email-wency@cn.fujitsu.com>
  <20120831134956.fec0f681.akpm@linux-foundation.org>
  <504D467D.2080201@jp.fujitsu.com>
  <504D4A08.7090602@cn.fujitsu.com>
  <20120910135213.GA1550@dhcp-192-168-178-175.profitbricks.localdomain>
- <CAAV+Mu7YWRWnxt78F4ZDMrrUsWB=n-_qkYOcQT7WQ2HwP89Obw@mail.gmail.com>
- <20120911012345.GD14205@bbox>
- <CAAV+Mu4hb0qbW2Ry6w5FAGUM06puDH0v_H-jr584-G9CzJqSGw@mail.gmail.com>
-In-Reply-To: <CAAV+Mu4hb0qbW2Ry6w5FAGUM06puDH0v_H-jr584-G9CzJqSGw@mail.gmail.com>
+ <50501B9C.7000200@cn.fujitsu.com>
+In-Reply-To: <50501B9C.7000200@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jerry <uulinux@gmail.com>
-Cc: Wen Congyang <wency@cn.fujitsu.com>, Andrew Morton <akpm@linux-foundation.org>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Vasilis Liaskovitis <vasilis.liaskovitis@profitbricks.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, kosaki.motohiro@jp.fujitsu.com
+To: Wen Congyang <wency@cn.fujitsu.com>
+Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Andrew Morton <akpm@linux-foundation.org>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com
 
-On Tue, Sep 11, 2012 at 01:18:24PM +0800, Jerry wrote:
-> Hi Kim,
+Hi,
+
+On Wed, Sep 12, 2012 at 01:20:28PM +0800, Wen Congyang wrote:
+> > 
+> > On Mon, Sep 10, 2012 at 10:01:44AM +0800, Wen Congyang wrote:
+> >> At 09/10/2012 09:46 AM, Yasuaki Ishimatsu Wrote:
+> >>> How do you test the patch? As Andrew says, for hot-removing memory,
+> >>> we need a particular hardware. I think so too. So many people may want
+> >>> to know how to test the patch.
+> >>> If we apply following patch to kvm guest, can we hot-remove memory on
+> >>> kvm guest?
+> >>>
+> >>> http://lists.gnu.org/archive/html/qemu-devel/2012-07/msg01389.html
+> >>
+> >> Yes, if we apply this patchset, we can test hot-remove memory on kvm guest.
+> >> But that patchset doesn't implement _PS3, so there is some restriction.
+> > 
+> > the following repos contain the patchset above, plus 2 more patches that add
+> > PS3 support to the dimm devices in qemu/seabios:
+> > 
+> > https://github.com/vliaskov/seabios/commits/memhp-v2
+> > https://github.com/vliaskov/qemu-kvm/commits/memhp-v2
+> > 
+> > I have not posted the PS3 patches yet in the qemu list, but will post them
+> > soon for v3 of the memory hotplug series. If you have issues testing, let me
+> > know.
 > 
-> Thank you for your kindness. Let me clarify this:
+> Hmm, seabios doesn't support ACPI table SLIT. We can specify node it for dimm
+> device, so I think we should support SLIT in seabios. Otherwise we may meet
+> the following kernel messages:
+> [  325.016769] init_memory_mapping: [mem 0x40000000-0x5fffffff]
+> [  325.018060]  [mem 0x40000000-0x5fffffff] page 2M
+> [  325.019168] [ffffea0001000000-ffffea00011fffff] potential offnode page_structs
+> [  325.024172] [ffffea0001200000-ffffea00013fffff] potential offnode page_structs
+> [  325.028596]  [ffffea0001400000-ffffea00017fffff] PMD -> [ffff880035000000-ffff8800353fffff] on node 1
+> [  325.031775] [ffffea0001600000-ffffea00017fffff] potential offnode page_structs
 > 
-> On ARM architecture, there are 32 bits physical addresses space. However,
-> the addresses space is divided into 8 banks normally. Each bank
-> disabled/enabled by a chip selector signal. In my platform, bank0 connects
-> a DDR chip, and bank1 also connects another DDR chip. And each DDR chip
-> whose capability is 512MB is integrated into the main board. So, it could
-> not be removed by hand. We can disable/enable each bank by peripheral
-> device controller registers.
-> 
-> When system enter suspend state, if all the pages allocated could be
-> migrated to one bank, there are no valid data in the another bank. In this
-> time, I could disable the free bank. It isn't necessary to provided power
-> to this chip in the suspend state. When system resume, I just need to
-> enable it again.
-> 
+> Do you have plan to do it?
+thanks for testing.
 
-Yes. I already know it and other trials for that a few years ago[1].
-A few years ago, I investigated the benefit between power consumption
-benefit during suspend VS start-up latency of resume and
-power consumption cost of migration(page migration and IO write for
-migration) and concluded normally the gain is not big. :)
-The situation could be changed these days as workload are changing
-but I'm skeptical about that approach, still.
+commit 5294828 from https://github.com/vliaskov/seabios/commits/memhp-v2
+implements a SLIT table for the given numa nodes.
 
-Anyway, it's my private thought so you don't need to care about that.
-If you are ready to submit the patchset, please send out.
+However I am not sure the SLIT is the problem. The kernel builds a default
+numa_distance table in arch/x86/mm/numa.c: numa_alloc_distance(). If the BIOS
+doesn't present a SLIT, this should take effect (numactl --hardware should
+report this table)
 
-1. http://lwn.net/Articles/478049/
+Do you have more details on how to reproduce the warning? e.g. how many dimms
+are present in the system? Does this happen on the first dimm hot-plugged?
+Are all SRAT entries parsed correctly at boot-time or do you see any other
+warnings at boot-time?
 
-Thanks.
+I 'll investigate a bit more and report back.
 
-- 
-Kind regards,
-Minchan Kim
+thanks,
+
+- Vasilis
