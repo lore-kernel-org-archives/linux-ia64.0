@@ -1,271 +1,198 @@
-From: Ni zhan Chen <nizhan.chen@gmail.com>
-Date: Fri, 28 Sep 2012 04:48:49 +0000
-Subject: Re: [RFC v9 PATCH 04/21] memory-hotplug: offline and remove memory when removing the memory device
-Message-Id: <50652C31.1090706@gmail.com>
+From: Stephan Schreiber <info@fs-driver.org>
+Date: Sun, 16 Sep 2012 16:39:14 +0000
+Subject: [RFC/PATCH] ia64, SR870, EFI bug breaks ata_piix, uninitialized ICH4 IDE EXBAR mem resource
+Message-Id: <20120916183914.Horde._TGALdjz9kRQVgCy6ATxxJA@webmail.df.eu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com> <1346837155-534-5-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1346837155-534-5-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: wency@cn.fujitsu.com
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
+To: linux-ia64@vger.kernel.org
+Cc: alan@lxorguk.ukuu.org.uk, linux-pci@vger.kernel.org, linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, 679545@bugs.debian.org, jrnieder@gmail.com
 
-On 09/05/2012 05:25 PM, wency@cn.fujitsu.com wrote:
-> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->
-> We should offline and remove memory when removing the memory device.
-> The memory device can be removed by 2 ways:
-> 1. send eject request by SCI
-> 2. echo 1 >/sys/bus/pci/devices/PNP0C80:XX/eject
->
-> In the 1st case, acpi_memory_disable_device() will be called. In the 2nd
-> case, acpi_memory_device_remove() will be called. acpi_memory_device_remove()
-> will also be called when we unbind the memory device from the driver
-> acpi_memhotplug. If the type is ACPI_BUS_REMOVAL_EJECT, it means
-> that the user wants to eject the memory device, and we should offline
-> and remove memory in acpi_memory_device_remove().
->
-> The function remove_memory() is not implemeted now. It only check whether
-> all memory has been offllined now.
->
-> CC: David Rientjes <rientjes@google.com>
-> CC: Jiang Liu <liuj97@gmail.com>
-> CC: Len Brown <len.brown@intel.com>
-> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> CC: Paul Mackerras <paulus@samba.org>
-> CC: Christoph Lameter <cl@linux.com>
-> Cc: Minchan Kim <minchan.kim@gmail.com>
-> CC: Andrew Morton <akpm@linux-foundation.org>
-> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-> Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
-> ---
->   drivers/acpi/acpi_memhotplug.c |   45 +++++++++++++++++++++++++++++++++------
->   drivers/base/memory.c          |   39 ++++++++++++++++++++++++++++++++++
->   include/linux/memory.h         |    5 ++++
->   include/linux/memory_hotplug.h |    5 ++++
->   mm/memory_hotplug.c            |   22 +++++++++++++++++++
->   5 files changed, 109 insertions(+), 7 deletions(-)
->
-> diff --git a/drivers/acpi/acpi_memhotplug.c b/drivers/acpi/acpi_memhotplug.c
-> index 7873832..9d47458 100644
-> --- a/drivers/acpi/acpi_memhotplug.c
-> +++ b/drivers/acpi/acpi_memhotplug.c
-> @@ -29,6 +29,7 @@
->   #include <linux/module.h>
->   #include <linux/init.h>
->   #include <linux/types.h>
-> +#include <linux/memory.h>
->   #include <linux/memory_hotplug.h>
->   #include <linux/slab.h>
->   #include <acpi/acpi_drivers.h>
-> @@ -310,25 +311,44 @@ static int acpi_memory_powerdown_device(struct acpi_memory_device *mem_device)
->   	return 0;
->   }
->   
-> -static int acpi_memory_disable_device(struct acpi_memory_device *mem_device)
-> +static int
-> +acpi_memory_device_remove_memory(struct acpi_memory_device *mem_device)
->   {
->   	int result;
->   	struct acpi_memory_info *info, *n;
-> +	int node = mem_device->nid;
->   
-> -
-> -	/*
-> -	 * Ask the VM to offline this memory range.
-> -	 * Note: Assume that this function returns zero on success
-> -	 */
->   	list_for_each_entry_safe(info, n, &mem_device->res_list, list) {
->   		if (info->enabled) {
->   			result = offline_memory(info->start_addr, info->length);
->   			if (result)
->   				return result;
-> +
-> +			result = remove_memory(node, info->start_addr,
-> +					       info->length);
-> +			if (result)
-> +				return result;
->   		}
-> +
-> +		list_del(&info->list);
->   		kfree(info);
->   	}
->   
-> +	return 0;
-> +}
-> +
-> +static int acpi_memory_disable_device(struct acpi_memory_device *mem_device)
-> +{
-> +	int result;
-> +
-> +	/*
-> +	 * Ask the VM to offline this memory range.
-> +	 * Note: Assume that this function returns zero on success
-> +	 */
-> +	result = acpi_memory_device_remove_memory(mem_device);
-> +	if (result)
-> +		return result;
-> +
->   	/* Power-off and eject the device */
->   	result = acpi_memory_powerdown_device(mem_device);
->   	if (result) {
-> @@ -477,12 +497,23 @@ static int acpi_memory_device_add(struct acpi_device *device)
->   static int acpi_memory_device_remove(struct acpi_device *device, int type)
->   {
->   	struct acpi_memory_device *mem_device = NULL;
-> -
-> +	int result;
->   
->   	if (!device || !acpi_driver_data(device))
->   		return -EINVAL;
->   
->   	mem_device = acpi_driver_data(device);
-> +
-> +	if (type = ACPI_BUS_REMOVAL_EJECT) {
-> +		/*
-> +		 * offline and remove memory only when the memory device is
-> +		 * ejected.
-> +		 */
-> +		result = acpi_memory_device_remove_memory(mem_device);
-> +		if (result)
-> +			return result;
-> +	}
-> +
->   	kfree(mem_device);
->   
->   	return 0;
-> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-> index 86c8821..038be73 100644
-> --- a/drivers/base/memory.c
-> +++ b/drivers/base/memory.c
-> @@ -70,6 +70,45 @@ void unregister_memory_isolate_notifier(struct notifier_block *nb)
->   }
->   EXPORT_SYMBOL(unregister_memory_isolate_notifier);
->   
-> +bool is_memblk_offline(unsigned long start, unsigned long size)
-> +{
-> +	struct memory_block *mem = NULL;
-> +	struct mem_section *section;
-> +	unsigned long start_pfn, end_pfn;
-> +	unsigned long pfn, section_nr;
-> +
-> +	start_pfn = PFN_DOWN(start);
-> +	end_pfn = PFN_UP(start + size);
-> +
-> +	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
-> +		section_nr = pfn_to_section_nr(pfn);
-> +		if (!present_section_nr(section_nr))
-> +			continue;
-> +
-> +		section = __nr_to_section(section_nr);
-> +		/* same memblock? */
-> +		if (mem)
-> +			if ((section_nr >= mem->start_section_nr) &&
-> +			    (section_nr <= mem->end_section_nr))
-> +				continue;
-> +
-> +		mem = find_memory_block_hinted(section, mem);
-> +		if (!mem)
-> +			continue;
-> +		if (mem->state = MEM_OFFLINE)
-> +			continue;
-> +
-> +		kobject_put(&mem->dev.kobj);
-> +		return false;
-> +	}
-> +
-> +	if (mem)
-> +		kobject_put(&mem->dev.kobj);
-> +
-> +	return true;
-> +}
-> +EXPORT_SYMBOL(is_memblk_offline);
-> +
->   /*
->    * register_memory - Setup a sysfs device for a memory block
->    */
-> diff --git a/include/linux/memory.h b/include/linux/memory.h
-> index 1ac7f6e..7c66126 100644
-> --- a/include/linux/memory.h
-> +++ b/include/linux/memory.h
-> @@ -106,6 +106,10 @@ static inline int memory_isolate_notify(unsigned long val, void *v)
->   {
->   	return 0;
->   }
-> +static inline bool is_memblk_offline(unsigned long start, unsigned long size)
-> +{
-> +	return false;
-> +}
->   #else
->   extern int register_memory_notifier(struct notifier_block *nb);
->   extern void unregister_memory_notifier(struct notifier_block *nb);
-> @@ -120,6 +124,7 @@ extern int memory_isolate_notify(unsigned long val, void *v);
->   extern struct memory_block *find_memory_block_hinted(struct mem_section *,
->   							struct memory_block *);
->   extern struct memory_block *find_memory_block(struct mem_section *);
-> +extern bool is_memblk_offline(unsigned long start, unsigned long size);
->   #define CONFIG_MEM_BLOCK_SIZE	(PAGES_PER_SECTION<<PAGE_SHIFT)
->   enum mem_add_context { BOOT, HOTPLUG };
->   #endif /* CONFIG_MEMORY_HOTPLUG_SPARSE */
-> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-> index 0b040bb..fd84ea9 100644
-> --- a/include/linux/memory_hotplug.h
-> +++ b/include/linux/memory_hotplug.h
-> @@ -222,6 +222,7 @@ static inline void unlock_memory_hotplug(void) {}
->   #ifdef CONFIG_MEMORY_HOTREMOVE
->   
->   extern int is_mem_section_removable(unsigned long pfn, unsigned long nr_pages);
-> +extern int remove_memory(int nid, u64 start, u64 size);
->   
->   #else
->   static inline int is_mem_section_removable(unsigned long pfn,
-> @@ -229,6 +230,10 @@ static inline int is_mem_section_removable(unsigned long pfn,
->   {
->   	return 0;
->   }
-> +static inline int remove_memory(int nid, u64 start, u64 size)
-> +{
-> +	return -EBUSY;
-> +}
->   #endif /* CONFIG_MEMORY_HOTREMOVE */
->   
->   extern int mem_online_node(int nid);
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index 6fc1908..49f7747 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -1038,6 +1038,28 @@ int offline_memory(u64 start, u64 size)
->   
->   	return 0;
->   }
-> +
-> +int remove_memory(int nid, u64 start, u64 size)
-> +{
-> +	int ret = -EBUSY;
-> +	lock_memory_hotplug();
-> +	/*
-> +	 * The memory might become online by other task, even if you offine it.
+Hello,
+please could you add some comments about the problem or review the  
+proposed patch?
 
-s/offine/offline
+Kernel 3.2.23 with Debian patches (Debian Wheezy, testing)
+Debian bug#679545 (http://bugs.debian.org/cgi-bin/bugreport.cgi?bugg9545)
 
-> +	 * So we check whether the memory has been onlined or not.
-> +	 */
-> +	if (!is_memblk_offline(start, size)) {
-> +		pr_warn("memory removing [mem %#010llx-%#010llx] failed, "
-> +			"because the memmory range is online\n",
-> +			start, start + size);
-> +		ret = -EAGAIN;
-> +	}
-> +
-> +	unlock_memory_hotplug();
-> +	return ret;
-> +
-> +}
-> +EXPORT_SYMBOL_GPL(remove_memory);
-> +
->   #else
->   int offline_pages(unsigned long start, unsigned long size)
->   {
+Machine: Dell PowerEdge 3250 (equivalent with Intel SR870BH2)
+Processor: 2x Itanium Madison 1.5GHz 6M
+Memory: 4GB
+
+Intel ICH4 (82801DB), IDE host adapter. The ata_piix module fails to  
+initialize.
+
+A snippet from dmesg:
+[    0.000000] Initializing cgroup subsys cpuset
+[    0.000000] Initializing cgroup subsys cpu
+[    0.000000] Linux version 3.2.0-3-mckinley (Debian 3.2.23-1)  
+(debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-8) )  
+#1 SMP Mon Jul 23 09:01:02 UTC 2012
+...
+[    0.065516] pci 0000:00:1f.1: [8086:24cb] type 0 class 0x000101
+[    0.065530] pci 0000:00:1f.1: reg 10: [io  0x0000-0x0007]
+[    0.065541] pci 0000:00:1f.1: reg 14: [io  0x0000-0x0003]
+[    0.065552] pci 0000:00:1f.1: reg 18: [io  0x0000-0x0007]
+[    0.065563] pci 0000:00:1f.1: reg 1c: [io  0x0000-0x0003]
+[    0.065574] pci 0000:00:1f.1: reg 20: [io  0x1000-0x100f]
+[    0.065585] pci 0000:00:1f.1: reg 24: [mem 0x00000000-0x000003ff]
+...
+[    1.640965] libata version 3.00 loaded.
+[    1.641656] ata_piix 0000:00:1f.1: version 2.13
+[    1.641671] ata_piix 0000:00:1f.1: device not available (can't  
+reserve [mem 0x00000000-0x000003ff])
+[    1.641747] ata_piix: probe of 0000:00:1f.1 failed with error -22
+...
+
+lspci -vvxxx reports:
+
+00:1f.1 IDE interface: Intel Corporation 82801DB (ICH4) IDE Controller  
+(rev 02) (prog-if 8a [Master SecP PriP])
+	Subsystem: Intel Corporation Device 3404
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-  
+Stepping- SERR- FastB2B- DisINTx-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-  
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 0
+	Region 0: I/O ports at 01f0 [size=8]
+	Region 1: I/O ports at 03f4 [size=1]
+	Region 2: I/O ports at 0170 [size=8]
+	Region 3: I/O ports at 0374 [size=1]
+	Region 4: I/O ports at 1000 [size]
+00: 86 80 cb 24 05 00 80 02 02 8a 01 01 00 00 00 00
+10: 01 00 00 00 01 00 00 00 01 00 00 00 01 00 00 00
+20: 01 10 00 00 00 00 00 00 00 00 00 00 86 80 04 34
+30: 00 00 00 00 00 00 00 00 00 00 00 00 00 01 00 00
+40: 03 a3 00 80 00 00 00 00 01 00 02 00 00 00 00 00
+50: 00 00 00 00 00 04 00 00 00 00 00 00 00 00 00 00
+60: 08 00 00 00 00 00 00 00 08 00 00 00 00 00 00 00
+70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+80: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+90: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+a0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+b0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+c0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+d0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+e0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+f0: 00 00 00 00 00 00 00 00 60 0f 00 00 00 00 00 00
+
+
+You can read in the "Intel 82801DB I/O Controller Hub 4 (ICH4)" datasheet
+(http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/82801db-io-controller-hub-4-datasheet.pdf)
+about the EXBAR register at offset 0x24 (4 bytes):
+"EXBAR register
+This is a memory mapped BAR that requires 1 KB of DWord-aligned memory  
+that is Intel reserved
+for future functionality. BIOS needs to program the base address for a  
+1-KB memory space."
+
+The dump shows that EXBAR is 0x0000, equal to the default value after  
+reset; EFI doesn't initialize it.
+
+ata_piix uses pcim_enable_device() which enables this along with the  
+I/O BARs. In systems based on the Intel SR870 platform the firmware  
+does not initialize the EXBAR and pcim_enable_device() fails because  
+the memory region 0x0-0x3FF cannot be allocated.
+
+The proposed patch adds ia64 arch-specific 'pci quirk' code.
+Since the patched Kernel doesn't see any memory resource of IDE  
+hostadapter, it doesn't set the PCI_COMMAND_MEMORY bit in the CMD  
+register; the EXBAR resource is *not* visible in the memeory space at  
+all.
+
+A snippet of the dmesg output on the patched Kernel:
+[    0.000000] Initializing cgroup subsys cpuset
+[    0.000000] Initializing cgroup subsys cpu
+[    0.000000] Linux version 3.2.0-3-mckinley (Debian 3.2.23-1)  
+(debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-8) )  
+#1 SMP Sun Sep 16 15:16:55 CEST 2012
+...
+[    0.065491] pci 0000:00:1f.1: [8086:24cb] type 0 class 0x000101
+[    0.065505] pci 0000:00:1f.1: reg 10: [io  0x0000-0x0007]
+[    0.065516] pci 0000:00:1f.1: reg 14: [io  0x0000-0x0003]
+[    0.065527] pci 0000:00:1f.1: reg 18: [io  0x0000-0x0007]
+[    0.065537] pci 0000:00:1f.1: reg 1c: [io  0x0000-0x0003]
+[    0.065548] pci 0000:00:1f.1: reg 20: [io  0x1000-0x100f]
+[    0.065559] pci 0000:00:1f.1: reg 24: [mem 0x00000000-0x000003ff]
+[    0.065574] pci 0000:00:1f.1: SR870 EFI bug workaround; hide EXBAR  
+memory resource.
+...
+[    1.391942] libata version 3.00 loaded.
+[    1.392567] ata_piix 0000:00:1f.1: version 2.13
+[    1.392807] ata_piix 0000:00:1f.1: can't derive routing for PCI INT A
+[    1.399383] scsi0 : ata_piix
+[    1.402505] scsi1 : ata_piix
+[    1.402609] ata1: PATA max UDMA/100 cmd 0x1f0 ctl 0x3f6 bmdma 0x1000 irq 34
+[    1.402658] ata2: PATA max UDMA/100 cmd 0x170 ctl 0x376 bmdma 0x1008 irq 33
+[    1.565703] ata1.00: ATAPI: HL-DT-ST DVDRAM GSA-T40N, JR03, max UDMA/33
+[    1.581571] ata1.00: configured for UDMA/33
+[    1.587075] scsi 0:0:0:0: CD-ROM            HL-DT-ST DVDRAM  
+GSA-T40N  JR03 PQ: 0 ANSI: 5
+[    1.598796] sr0: scsi3-mmc drive: 24x/24x writer dvd-ram cd/rw  
+xa/form2 cdda tray
+[    1.598863] cdrom: Uniform CD-ROM driver Revision: 3.20
+[    1.599263] sr 0:0:0:0: Attached scsi CD-ROM sr0
+[    1.601972] sr 0:0:0:0: Attached scsi generic sg0 type 5
+...
+
+
+(Note: The patch of this posting differs slightly from the one which I  
+have posted on Debian bug#679545 - just cosmetic improvements.)
+
+Kind regards,
+Stephan Schreiber
+
+
+
+--- linux-3.2.23/arch/ia64/pci/fixup.c.orig	2012-09-16  
+11:23:30.000000000 +0200
++++ linux-3.2.23/arch/ia64/pci/fixup.c	2012-09-16 11:52:13.000000000 +0200
+@@ -67,3 +67,40 @@ static void __devinit pci_fixup_video(st
+  	}
+  }
+  DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, pci_fixup_video);
++
++
++/*
++ * Fixup the EFI bug of Intel's SR870 platform
++ *
++ * The EFI of Intel's SR870BH2 and SR870BN4 including their OEM  
+equivalents by
++ * Fujitsu and Dell doesn't initialize the memory resource of the ICH4 IDE
++ * hostadapter. The memory resource has the default after reset: 0x0-0x3FF.
++ * The ata_piix driver uses pcim_enable_device() which attempts to  
+enable this
++ * along with the I/O BARs and pcim_enable_device() fails because the memory
++ * region 0x0-0x3FF cannot be allocated.
++ * The memory resource is the 6th resource of the ICH4 IDE hostadapter;
++ * Intel's datasheet "Intel 82801DB I/O Controller Hub 4 (ICH4)" (Document
++ * Number: 290744-001) states in section "10.1.15 EXBAR - Expansion Base
++ * Address Register (IDE-D31:F1)" on page 389:
++ * "This is a memory mapped BAR ... that is Intel reserved for future
++ * functionality. BIOS needs to program the base address for a 1-KB memory
++ * space."
++ * Since nothing uses the EXBAR, we hide it so that only the I/O BARs will be
++ * enabled.
++ */
++
++static void __devinit pci_fixup_sr870_ich4(struct pci_dev *dev)
++{
++	struct resource *r;
++
++	r = &dev->resource[5];
++	if ((r->flags & IORESOURCE_MEM)
++	&& r->start = 0 && r->end != 0) {
++		dev_info(&dev->dev,
++			"SR870 EFI bug workaround; hide EXBAR memory resource.\n");
++		r->flags = 0;
++		r->end = 0;
++	}
++}
++DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82801DB_11,
++						pci_fixup_sr870_ich4);
+
+Signed-off-by: Stephan Schreiber <info@fs-driver.org>
+
 
