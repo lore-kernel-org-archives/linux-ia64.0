@@ -1,70 +1,50 @@
-From: wency@cn.fujitsu.com
-Date: Wed, 05 Sep 2012 09:25:52 +0000
-Subject: [RFC v9 PATCH 18/21] memory-hotplug: add node_device_release
-Message-Id: <1346837155-534-19-git-send-email-wency@cn.fujitsu.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Wed, 19 Sep 2012 18:54:17 +0000
+Subject: [PATCH 03/40] PCI, ia64: clear initial value for root info resources
+Message-Id: <1348080894-23412-4-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com>
+References: <CAE9FiQWFcVNKMnV1qaHchwCXfZuMpyxf_f7GQy3FZid9YuLD3w@mail.gmail.com>
+ <1348080894-23412-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1348080894-23412-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
+To: Bjorn Helgaas <bhelgaas@google.com>, Len Brown <lenb@kernel.org>, Taku Izumi <izumi.taku@jp.fujitsu.com>, Jiang Liu <jiang.liu@huawei.com>, x86 <x86@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+after
+	PCI, x86: clear initial value for root info resources
 
-When calling unregister_node(), the function shows following message at
-device_release().
+change ia64 code accordingly, because later ia64 will support root bus removal too.
 
-Device 'node2' does not have a release() function, it is broken and must be
-fixed.
-
-So the patch implements node_device_release()
-
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- drivers/base/node.c |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ arch/ia64/pci/pci.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/base/node.c b/drivers/base/node.c
-index af1a177..07523fb 100644
---- a/drivers/base/node.c
-+++ b/drivers/base/node.c
-@@ -252,6 +252,16 @@ static inline void hugetlb_register_node(struct node *node) {}
- static inline void hugetlb_unregister_node(struct node *node) {}
- #endif
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index a7ebe94..5faa66c 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -295,7 +295,6 @@ static __devinit acpi_status add_window(struct acpi_resource *res, void *data)
+ 	window->resource.flags = flags;
+ 	window->resource.start = addr.minimum + offset;
+ 	window->resource.end = window->resource.start + addr.address_length - 1;
+-	window->resource.child = NULL;
+ 	window->offset = offset;
  
-+static void node_device_release(struct device *dev)
-+{
-+	struct node *node_dev = to_node(dev);
-+
-+#if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_HUGETLBFS)
-+	flush_work(&node_dev->node_work);
-+#endif
-+
-+	memset(node_dev, 0, sizeof(struct node));
-+}
- 
- /*
-  * register_node - Setup a sysfs device for a node.
-@@ -265,6 +275,7 @@ int register_node(struct node *node, int num, struct node *parent)
- 
- 	node->dev.id = num;
- 	node->dev.bus = &node_subsys;
-+	node->dev.release = node_device_release;
- 	error = device_register(&node->dev);
- 
- 	if (!error){
+ 	if (insert_resource(root, &window->resource)) {
+@@ -357,7 +356,7 @@ pci_acpi_scan_root(struct acpi_pci_root *root)
+ 			&windows);
+ 	if (windows) {
+ 		controller->window -			kmalloc_node(sizeof(*controller->window) * windows,
++			kzalloc_node(sizeof(*controller->window) * windows,
+ 				     GFP_KERNEL, controller->node);
+ 		if (!controller->window)
+ 			goto out2;
 -- 
-1.7.1
+1.7.7
 
