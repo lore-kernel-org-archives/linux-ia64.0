@@ -1,29 +1,67 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Thu, 27 Sep 2012 19:37:07 +0000
-Subject: Re: [PATCH] ia64/xen: fix return value check in xencomm_vtop()
-Message-Id: <CA+8MBb+hG9A0vOqc3ZGQX1XULiJ_pLF=twFFz=zJnQEVo8Q=sQ@mail.gmail.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Tue, 25 Sep 2012 08:26:22 +0000
+Subject: [PATCH 21/29] PCI, ia64: kill pci_find_next_bus
+Message-Id: <1348561590-28067-22-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAPgLHd_Z-4j0KNuwy=i0PgoyB+Q3dHCmdey58cadeoqJbnbc4w@mail.gmail.com>
-In-Reply-To: <CAPgLHd_Z-4j0KNuwy=i0PgoyB+Q3dHCmdey58cadeoqJbnbc4w@mail.gmail.com>
+References: <1348561590-28067-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1348561590-28067-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, Len Brown <lenb@kernel.org>
+Cc: linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
 
-On Thu, Sep 20, 2012 at 9:30 PM, Wei Yongjun <weiyj.lk@gmail.com> wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> In case of error, the function follow_page() returns ERR_PTR()
-> or NULL pointer. The NULL test in the error handling should be
-> replaced with IS_ERR_OR_NULL().
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-altix@sgi.com
+---
+ arch/ia64/hp/common/sba_iommu.c |    7 ++++---
+ arch/ia64/sn/kernel/io_common.c |    5 +++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-I added a:
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index bcda5b2..0f27a37 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2155,9 +2155,10 @@ sba_init(void)
+ 
+ #ifdef CONFIG_PCI
+ 	{
+-		struct pci_bus *b = NULL;
+-		while ((b = pci_find_next_bus(b)) != NULL)
+-			sba_connect_bus(b);
++		struct pci_host_bridge *host_bridge = NULL;
++
++		for_each_pci_host_bridge(host_bridge)
++			sba_connect_bus(host_bridge->bus);
+ 	}
+ #endif
+ 
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 8630875..131938b 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -516,6 +516,7 @@ arch_initcall(sn_io_early_init);
+ int __init
+ sn_io_late_init(void)
+ {
++	struct pci_host_bridge *host_bridge = NULL;
+ 	struct pci_bus *bus;
+ 	struct pcibus_bussoft *bussoft;
+ 	cnodeid_t cnode;
+@@ -530,8 +531,8 @@ sn_io_late_init(void)
+ 	 * PIC, TIOCP, TIOCE (TIOCA does it during bus fixup using
+ 	 * info from the PROM).
+ 	 */
+-	bus = NULL;
+-	while ((bus = pci_find_next_bus(bus)) != NULL) {
++	for_each_pci_host_bridge(host_bridge) {
++		bus = host_bridge->bus;
+ 		bussoft = SN_PCIBUS_BUSSOFT(bus);
+ 		nasid = NASID_GET(bussoft->bs_base);
+ 		cnode = nasid_to_cnodeid(nasid);
+-- 
+1.7.7
 
-#include <linux/err.h>
-
-so that the definition of IS_ERR_OR_NULL() became visible
-to xencomm.c and applied.
-
-Thanks
-
--Tony
