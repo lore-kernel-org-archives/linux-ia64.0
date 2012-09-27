@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Thu, 27 Sep 2012 00:59:51 +0000
+Date: Thu, 27 Sep 2012 06:37:14 +0000
 Subject: Re: [RFC v9 PATCH 00/21] memory-hotplug: hot-remove physical memory
-Message-Id: <5063A507.3030004@cn.fujitsu.com>
+Message-Id: <5063F41A.3010600@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com> <20120926164649.GA7559@dhcp-192-168-178-175.profitbricks.localdomain>
 In-Reply-To: <20120926164649.GA7559@dhcp-192-168-178-175.profitbricks.localdomain>
@@ -10,6 +10,8 @@ Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: Vasilis Liaskovitis <vasilis.liaskovitis@profitbricks.com>
 Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
+
+Hi Vasilis Liaskovitis
 
 At 09/27/2012 12:46 AM, Vasilis Liaskovitis Wrote:
 > Hi,
@@ -24,6 +26,17 @@ At 09/27/2012 12:46 AM, Vasilis Liaskovitis Wrote:
  > /sys/bus/acpi/devices/PNP/eject"
 > When I do the OSPM-eject, I often get slab corruption in "acpi-state" cac=
 he, or in other caches
+
+I can't reproduce this problem. Can you provide the following information:
+1. config file
+2. qemu's command line
+
+You said you did OSPM-eject. Do you mean write 1 to /sys/bus/acpi/devices/P=
+NP0C80:XX/eject?
+
+Thanks
+Wen Congyang
+
 >=20
 > [  170.566995] Slab corruption (Not tainted): Acpi-State start=FFff88009f=
 c1e548, len=80
@@ -313,12 +326,6 @@ tion can't
 > I have seen similar problems with CONFIG_SLUB (I did not have debug_optio=
 ns
 > there but I can also provide those if helpful)
-
-Thanks for testing it.
-It is not a know issue. I will start to investigate it.
-
-Wen Congyang
-
 >=20
 > [1] https://lkml.org/lkml/2012/9/6/635
 > [2] https://lkml.org/lkml/2012/9/11/542
@@ -328,5 +335,10 @@ Wen Congyang
 > thanks,
 >=20
 > - Vasilis
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 >=20
 
