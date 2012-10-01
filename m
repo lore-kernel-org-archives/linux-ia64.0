@@ -1,38 +1,94 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Mon, 08 Oct 2012 05:26:16 +0000
-Subject: Re: [PATCH 0/10] memory-hotplug: hot-remove physical memory
-Message-Id: <507263F8.9040200@cn.fujitsu.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Mon, 01 Oct 2012 16:28:20 +0000
+Subject: Re: [RFC/PATCH v2] ia64, SR870, EFI bug breaks ata_piix, uninitialized ICH4 IDE EXBAR mem resource
+Message-Id: <CAErSpo4ErJsp5pWNLsu3x4YL9ZrtxHfk0tkYL7hZaY5TmMtH+A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <506E43E0.70507@jp.fujitsu.com> <CAHGf_=qCZvL7xcOkea80Y995sZWkOMQLLVnuvLUto4W+qpUbWA@mail.gmail.com>
-In-Reply-To: <CAHGf_=qCZvL7xcOkea80Y995sZWkOMQLLVnuvLUto4W+qpUbWA@mail.gmail.com>
+References: <20120916183914.Horde._TGALdjz9kRQVgCy6ATxxJA@webmail.df.eu>
+ <20120917115619.13d3a3cb@pyramind.ukuu.org.uk> <20120920161603.Horde.aF7BBcL8999QWyUjk2AmsNA@webmail.df.eu>
+ <CAErSpo6+WYE6wnj4CcKVidNHmg-oGH9SBsvg3QP9syC+vo09HQ@mail.gmail.com>
+ <20120924190912.Horde.qznUIqGZi1VQYJO46HeGkwA@webmail.df.eu>
+ <20120924235457.GA31372@google.com> <20120930000934.Horde.grdOKKGZi1VQZ3GeI_YW9ZA@webmail.df.eu>
+In-Reply-To: <20120930000934.Horde.grdOKKGZi1VQZ3GeI_YW9ZA@webmail.df.eu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org
+To: Stephan Schreiber <info@fs-driver.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, 679545@bugs.debian.org, jrnieder@gmail.com
 
-At 10/06/2012 03:06 AM, KOSAKI Motohiro Wrote:
->> Known problems:
->> 1. memory can't be offlined when CONFIG_MEMCG is selected.
->>    For example: there is a memory device on node 1. The address range
->>    is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
->>    and memory11 under the directory /sys/devices/system/memory/.
->>    If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
->>    when we online pages. When we online memory8, the memory stored page cgroup
->>    is not provided by this memory device. But when we online memory9, the memory
->>    stored page cgroup may be provided by memory8. So we can't offline memory8
->>    now. We should offline the memory in the reversed order.
->>    When the memory device is hotremoved, we will auto offline memory provided
->>    by this memory device. But we don't know which memory is onlined first, so
->>    offlining memory may fail. In such case, you should offline the memory by
->>    hand before hotremoving the memory device.
-> 
-> Just iterate twice. 1st iterate: offline every non primary memory
-> block. 2nd iterate:
-> offline primary (i.e. first added) memory block. It may work.
-> 
+On Sat, Sep 29, 2012 at 4:09 PM, Stephan Schreiber <info@fs-driver.org> wrote:
+> Hello Bjorn,
+> thank you very much for the patch.
+> I tested it; it works.
+>
+> (typing mistake: it must read PCI_COMMAND_MEMORY instead of PCI_COMMAND_MEM
+> at one location;
+> some hunks of the patch couldn't be applied automatically on Kernel 3.2.23
+> because some comments in the contexts are different)
 
-OK, I will try it.
+Thanks a lot for testing this!  I'll fix up this typo and work on
+getting something like this merged.
 
-Thanks
-Wen Congyang
+> The dmesg output:
+>
+> [    0.000000] Initializing cgroup subsys cpuset
+> [    0.000000] Initializing cgroup subsys cpu
+> [    0.000000] Linux version 3.2.0-3-mckinley (Debian 3.2.23-1)
+> (debian-kernel@lists.debian.org) (gcc version 4.6.3 (Debian 4.6.3-8) ) #1
+> SMP Fri Sep 28 21:57:11 CEST 2012
+> ...
+> [    0.065510] pci 0000:00:1f.1: [8086:24cb] type 0 class 0x000101
+> [    0.065524] pci 0000:00:1f.1: reg 10: [io  0x0000-0x0007]
+> [    0.065535] pci 0000:00:1f.1: reg 14: [io  0x0000-0x0003]
+> [    0.065546] pci 0000:00:1f.1: reg 18: [io  0x0000-0x0007]
+> [    0.065556] pci 0000:00:1f.1: reg 1c: [io  0x0000-0x0003]
+> [    0.065567] pci 0000:00:1f.1: reg 20: [io  0x1000-0x100f]
+> [    0.065578] pci 0000:00:1f.1: reg 24: [mem 0x00000000-0x000003ff unset]
+> ...
+> [    1.391380] libata version 3.00 loaded.
+> [    1.391922] ata_piix 0000:00:1f.1: version 2.13
+> [    1.391938] ata_piix 0000:00:1f.1: can't derive routing for PCI INT A
+> [    1.392493] scsi0 : ata_piix
+> [    1.392886] scsi1 : ata_piix
+> [    1.393018] ata1: PATA max UDMA/100 cmd 0x1f0 ctl 0x3f6 bmdma 0x1000 irq
+> 34
+> [    1.393066] ata2: PATA max UDMA/100 cmd 0x170 ctl 0x376 bmdma 0x1008 irq
+> 33
+> [    1.557756] ata1.00: ATAPI: HL-DT-ST DVDRAM GSA-T40N, JR03, max UDMA/33
+> [    1.573616] ata1.00: configured for UDMA/33
+> [    1.579147] scsi 0:0:0:0: CD-ROM            HL-DT-ST DVDRAM GSA-T40N
+> JR03 PQ: 0 ANSI: 5
+> [    1.590806] sr0: scsi3-mmc drive: 24x/24x writer dvd-ram cd/rw xa/form2
+> cdda tray
+> [    1.590872] cdrom: Uniform CD-ROM driver Revision: 3.20
+> [    1.591272] sr 0:0:0:0: Attached scsi CD-ROM sr0
+> [    1.593910] sr 0:0:0:0: Attached scsi generic sg0 type 5
+> ...
+
+>> On x86, Windows normally doesn't reconfigure PCI devices unless it
+>> finds a problem with the configuration done by the BIOS.  I suspect
+>> it works similarly on ia64.  I would guess that Windows noticed that
+>> the MEM bit was not set, and therefore ignored the MEM BAR contents.
+>
+>
+> Since I have the four Windows versions 'for Itanium Based Systems' on that
+> box as well (XP, Server 2003, 2008, 2008 R2), I can tell you more:
+> The Device Manager shows a memory range FFBFFC00-FFBFFFFF for the "Intel
+> 82801DB Ultra ATA Storage Controller-24CB" - on any of these Windows
+> versions.
+
+Oh, that's good data, thanks!  It looks like Windows noticed that the
+BAR was invalid and assigned a valid resource to it.  That's in the
+third aperture below:
+
+ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-01])
+pci_root PNP0A03:00: host bridge window [mem 0x000a0000-0x000fffff]
+pci_root PNP0A03:00: host bridge window [mem 0xfa000000-0xfbffffff]
+pci_root PNP0A03:00: host bridge window [mem 0xff000000-0xffffffff]
+pci_root PNP0A03:00: host bridge window [mem 0xfec00000-0xfec0ffff]
+
+Linux *should* probably do the same (though at a different actual
+address because we assign bottom-up instead of top-down as Windows
+does).  I don't know off the top of my head whether we actually do in
+this case or not.
+
+What's the output of "dmesg | grep 0000:00:1f.1; lspci -vs00:1f.1"?
