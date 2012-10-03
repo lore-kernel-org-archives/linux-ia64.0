@@ -1,176 +1,40 @@
-From: wency@cn.fujitsu.com
-Date: Tue, 23 Oct 2012 10:30:41 +0000
-Subject: [PATCH v2 03/12] memory-hotplug: remove redundant codes
-Message-Id: <1350988250-31294-4-git-send-email-wency@cn.fujitsu.com>
+From: Bettoni Fabio <fabio.bettoni@telecomitalia.it>
+Date: Wed, 03 Oct 2012 11:55:34 +0000
+Subject: rx4640 does not boot wheezy 3.2.0-3-mckinley kernel
+Message-Id: <5DA6D16A39710843ACA344B75F2C76891AAF0D13BD@GRFMBX702RM001.griffon.local>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
+To: linux-ia64@vger.kernel.org
 
-From: Wen Congyang <wency@cn.fujitsu.com>
 
-offlining memory blocks and checking whether memory blocks are offlined
-are very similar. This patch introduces a new function to remove
-redundant codes.
+Hi,
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
----
- mm/memory_hotplug.c |  101 ++++++++++++++++++++++++++++-----------------------
- 1 files changed, 55 insertions(+), 46 deletions(-)
+I'm trying to boot wheezy with  3.2.0-3-mckinley kernel on rx4640 but does not boot at all.
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index f4fdedd..80fc70c 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1012,20 +1012,14 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages)
- 	return __offline_pages(start_pfn, start_pfn + nr_pages, 120 * HZ);
- }
- 
--int remove_memory(u64 start, u64 size)
-+static int walk_memory_range(unsigned long start_pfn, unsigned long end_pfn,
-+		void *arg, int (*func)(struct memory_block *, void *))
- {
- 	struct memory_block *mem = NULL;
- 	struct mem_section *section;
--	unsigned long start_pfn, end_pfn;
- 	unsigned long pfn, section_nr;
- 	int ret;
--	int return_on_error = 0;
--	int retry = 0;
--
--	start_pfn = PFN_DOWN(start);
--	end_pfn = start_pfn + PFN_DOWN(size);
- 
--repeat:
- 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
- 		section_nr = pfn_to_section_nr(pfn);
- 		if (!present_section_nr(section_nr))
-@@ -1042,22 +1036,61 @@ repeat:
- 		if (!mem)
- 			continue;
- 
--		ret = offline_memory_block(mem);
-+		ret = func(mem, arg);
- 		if (ret) {
--			if (return_on_error) {
--				kobject_put(&mem->dev.kobj);
--				return ret;
--			} else {
--				retry = 1;
--			}
-+			kobject_put(&mem->dev.kobj);
-+			return ret;
- 		}
- 	}
- 
- 	if (mem)
- 		kobject_put(&mem->dev.kobj);
- 
--	if (retry) {
--		return_on_error = 1;
-+	return 0;
-+}
-+
-+static int offline_memory_block_cb(struct memory_block *mem, void *arg)
-+{
-+	int *ret = arg;
-+	int error = offline_memory_block(mem);
-+
-+	if (error != 0 && *ret = 0)
-+		*ret = error;
-+
-+	return 0;
-+}
-+
-+static int is_memblock_offlined_cb(struct memory_block *mem, void *arg)
-+{
-+	int ret = !is_memblock_offlined(mem);
-+
-+	if (unlikely(ret))
-+		pr_warn("removing memory fails, because memory "
-+			"[%#010llx-%#010llx] is onlined\n",
-+			PFN_PHYS(section_nr_to_pfn(mem->start_section_nr)),
-+			PFN_PHYS(section_nr_to_pfn(mem->end_section_nr + 1))-1);
-+
-+	return ret;
-+}
-+
-+int remove_memory(u64 start, u64 size)
-+{
-+	unsigned long start_pfn, end_pfn;
-+	int ret = 0;
-+	int retry = 1;
-+
-+	start_pfn = PFN_DOWN(start);
-+	end_pfn = start_pfn + PFN_DOWN(size);
-+
-+repeat:
-+	walk_memory_range(start_pfn, end_pfn, &ret,
-+			  offline_memory_block_cb);
-+	if (ret) {
-+		if (!retry)
-+			return ret;
-+
-+		retry = 0;
-+		ret = 0;
- 		goto repeat;
- 	}
- 
-@@ -1075,37 +1108,13 @@ repeat:
- 	 * memory blocks are offlined.
- 	 */
- 
--	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
--		section_nr = pfn_to_section_nr(pfn);
--		if (!present_section_nr(section_nr))
--			continue;
--
--		section = __nr_to_section(section_nr);
--		/* same memblock? */
--		if (mem)
--			if ((section_nr >= mem->start_section_nr) &&
--			    (section_nr <= mem->end_section_nr))
--				continue;
--
--		mem = find_memory_block_hinted(section, mem);
--		if (!mem)
--			continue;
--
--		ret = is_memblock_offlined(mem);
--		if (!ret) {
--			pr_warn("removing memory fails, because memory "
--				"[%#010llx-%#010llx] is onlined\n",
--				PFN_PHYS(section_nr_to_pfn(mem->start_section_nr)),
--				PFN_PHYS(section_nr_to_pfn(mem->end_section_nr + 1)) - 1);
--
--			kobject_put(&mem->dev.kobj);
--			unlock_memory_hotplug();
--			return ret;
--		}
-+	ret = walk_memory_range(start_pfn, end_pfn, NULL,
-+				is_memblock_offlined_cb);
-+	if (ret) {
-+		unlock_memory_hotplug();
-+		return ret;
- 	}
- 
--	if (mem)
--		kobject_put(&mem->dev.kobj);
- 	unlock_memory_hotplug();
- 
- 	return 0;
--- 
-1.7.1
+Uncompressing Linux... done
+Loading file \initrd.gz...done
+***********************************************************
+* ROM Version : 04.28
+* ROM Date    : 06/06/2007
+* BMC Version :  04.06
+***********************************************************
+0 0 0x0015B2 0x0000000019211505 boot time event
+1 0 0x0000A4 0x0000000000000000 start memory configuration 0 0 0x0015B2 0x0000000024971388 boot time event
+1 0 0x000014 0x0000000000000000 CPU0 starting cell relocation
+
+
+Old kernel 2.6.32-5-mckinley from squeeze was booting correctly
+
+
+What can I do ?
+
+
+Fabio
+
+
+Questo messaggio e i suoi allegati sono indirizzati esclusivamente alle persone indicate. La diffusione, copia o qualsiasi altra azione derivante dalla conoscenza di queste informazioni sono rigorosamente vietate. Qualora abbiate ricevuto questo documento per errore siete cortesemente pregati di darne immediata comunicazione al mittente e di provvedere alla sua distruzione, Grazie.
+
+This e-mail and any attachments is confidential and may contain privileged information intended for the addressee(s) only. Dissemination, copying, printing or use by anybody else is unauthorised. If you are not the intended recipient, please delete this message and any attachments and advise the sender by return e-mail, Thanks.
 
