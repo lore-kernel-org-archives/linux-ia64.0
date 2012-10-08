@@ -1,73 +1,55 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Mon, 01 Oct 2012 07:38:44 +0000
-Subject: Re: [RFC v9 PATCH 03/21] memory-hotplug: store the node id in acpi_memory_device
-Message-Id: <50694884.7090706@jp.fujitsu.com>
+From: =?ISO-8859-1?Q?=C9meric_Maschino?= <emeric.maschino@gmail.com>
+Date: Mon, 08 Oct 2012 22:18:05 +0000
+Subject: Re: [POLL] Which Linux distro now? And tomorrow?
+Message-Id: <CAA9xbM5=5d0t+ciFodTGT7r5nc8deiAfjxdr_13V-9hh3Odw3Q@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com> <1346837155-534-4-git-send-email-wency@cn.fujitsu.com> <506517C1.7050909@gmail.com>
-In-Reply-To: <506517C1.7050909@gmail.com>
+References: <CAA9xbM5F9eMaJSbo+CQFcst=UdCvi5N5+jAvBqmYbf9oW5nsdw@mail.gmail.com>
+In-Reply-To: <CAA9xbM5F9eMaJSbo+CQFcst=UdCvi5N5+jAvBqmYbf9oW5nsdw@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Ni zhan Chen <nizhan.chen@gmail.com>
-Cc: wency@cn.fujitsu.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Hi Chen,
+Hi,
 
-2012/09/28 12:21, Ni zhan Chen wrote:
-> On 09/05/2012 05:25 PM, wency@cn.fujitsu.com wrote:
->> From: Wen Congyang <wency@cn.fujitsu.com>
->>
->> The memory device has only one node id. Store the node id when
->> enable the memory device, and we can reuse it when removing the
->> memory device.
+Well, not many answers there...
+
+Anyway, thank you for your feedback.
+
+A minimal Gentoo installation is currently running on my third HDD.
+I'm experiencing various issues building a working KDE environment,
+but this is beyond the topic of this list, so stopping now. I'll
+probably ask for help on #gentoo-ia64 one of these days ;-)
+
+Best regards,
+
+     Emeric
+
+
+2012/9/26 Ra=FAl Porcel <armin76@gentoo.org>:
+> Hi,
 >
-> one question:
-> if use numa emulation, memory device will associated to one node or ...?
-
-Memory device has only one node, even if you use numa emulation.
-
-Thanks,
-Yasuaki Ishimatsu
-
 >
+> On 09/25/12 19:18, Ra=FAl Porcel wrote:
 >>
->> CC: David Rientjes <rientjes@google.com>
->> CC: Jiang Liu <liuj97@gmail.com>
->> CC: Len Brown <len.brown@intel.com>
->> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> CC: Paul Mackerras <paulus@samba.org>
->> CC: Christoph Lameter <cl@linux.com>
->> Cc: Minchan Kim <minchan.kim@gmail.com>
->> CC: Andrew Morton <akpm@linux-foundation.org>
->> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
->> CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->> Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
->> Reviewed-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
->> ---
->>   drivers/acpi/acpi_memhotplug.c |    4 ++++
->>   1 files changed, 4 insertions(+), 0 deletions(-)
+>> Hi,
 >>
->> diff --git a/drivers/acpi/acpi_memhotplug.c b/drivers/acpi/acpi_memhotplug.c
->> index 2a7beac..7873832 100644
->> --- a/drivers/acpi/acpi_memhotplug.c
->> +++ b/drivers/acpi/acpi_memhotplug.c
->> @@ -83,6 +83,7 @@ struct acpi_memory_info {
->>   struct acpi_memory_device {
->>       struct acpi_device * device;
->>       unsigned int state;    /* State of the memory device */
->> +    int nid;
->>       struct list_head res_list;
->>   };
->> @@ -256,6 +257,9 @@ static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
->>           info->enabled = 1;
->>           num_enabled++;
->>       }
->> +
->> +    mem_device->nid = node;
->> +
->>       if (!num_enabled) {
->>           printk(KERN_ERR PREFIX "add_memory failed\n");
->>           mem_device->state = MEMORY_INVALID_STATE;
+>> On 09/25/12 17:23, =C9meric Maschino wrote:
+>>>
+>>> I thought that Gentoo was still active, but ISOs are several months
+>>> old and Gentoo-ia64 list was closed long time ago.
+>>>
+>>
+>> The ISOs are months old because they have failed to build. I didn't
+>> noticed the installcds haven't been built for so long...i'll check that
+>> right now.
+>>
 >
-
-
+> and the new ISOs are in the mirrors. The isos were built but they weren't
+> getting copied.
+>
+> On the other hand, whether there are updated autobuilds or ISOs or whether
+> they're outdated(because they failed to build), there are new versions of
+> packages available in both stable and unstable...
+>
+> Thanks
