@@ -1,269 +1,148 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Fri, 05 Oct 2012 02:33:27 +0000
-Subject: [PATCH 6/10] memory-hotplug : implement register_page_bootmem_info_section of sparse-vmemmap
-Message-Id: <506E46F7.4080006@jp.fujitsu.com>
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 09 Oct 2012 09:15:29 +0000
+Subject: [GIT PULL] Disintegrate UAPI for ia64 [ver #2]
+Message-Id: <21137.1349774129@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <506E43E0.70507@jp.fujitsu.com>
-In-Reply-To: <506E43E0.70507@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, wency@cn.fujitsu.com
+To: tony.luck@intel.com
+Cc: dhowells@redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-For removing memmap region of sparse-vmemmap which is allocated bootmem,
-memmap region of sparse-vmemmap needs to be registered by get_page_bootmem().
-So the patch searches pages of virtual mapping and registers the pages by
-get_page_bootmem().
+Can you merge the following branch into the ia64 tree please.
 
-Note: register_page_bootmem_memmap() is not implemented for ia64, ppc, s390,
-and sparc.
+This is to complete part of the UAPI disintegration for which the preparatory
+patches were pulled recently.
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
----
- arch/ia64/mm/discontig.c       |    6 ++++
- arch/powerpc/mm/init_64.c      |    6 ++++
- arch/s390/mm/vmem.c            |    6 ++++
- arch/sparc/mm/init_64.c        |    6 ++++
- arch/x86/mm/init_64.c          |   52 +++++++++++++++++++++++++++++++++++++++++
- include/linux/memory_hotplug.h |   11 +-------
- include/linux/mm.h             |    3 +-
- mm/memory_hotplug.c            |   37 ++++++++++++++++++++++++++---
- 8 files changed, 113 insertions(+), 14 deletions(-)
+Now that the fixups and the asm-generic chunk have been merged, I've
+regenerated the patches to get rid of those dependencies and to take account of
+any changes made so far in the merge window.  If you have already pulled the
+older version of the branch aimed at you, then please feel free to ignore this
+request.
 
-Index: linux-3.6/include/linux/memory_hotplug.h
-=================================--- linux-3.6.orig/include/linux/memory_hotplug.h	2012-10-04 17:15:03.029828127 +0900
-+++ linux-3.6/include/linux/memory_hotplug.h	2012-10-04 17:15:59.010833688 +0900
-@@ -163,17 +163,10 @@ static inline void arch_refresh_nodedata
- #endif /* CONFIG_NUMA */
- #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
- 
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
--{
--}
--static inline void put_page_bootmem(struct page *page)
--{
--}
--#else
- extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
- extern void put_page_bootmem(struct page *page);
--#endif
-+extern void get_page_bootmem(unsigned long ingo, struct page *page,
-+			     unsigned long type);
- 
- /*
-  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
-Index: linux-3.6/mm/memory_hotplug.c
-=================================--- linux-3.6.orig/mm/memory_hotplug.c	2012-10-04 17:15:27.213831361 +0900
-+++ linux-3.6/mm/memory_hotplug.c	2012-10-04 17:37:00.176401540 +0900
-@@ -91,9 +91,8 @@ static void release_memory_resource(stru
- }
- 
- #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
--static void get_page_bootmem(unsigned long info,  struct page *page,
--			     unsigned long type)
-+void get_page_bootmem(unsigned long info,  struct page *page,
-+		      unsigned long type)
- {
- 	unsigned long page_type;
- 
-@@ -127,6 +126,7 @@ void __ref put_page_bootmem(struct page 
- 
- }
- 
-+#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void register_page_bootmem_info_section(unsigned long start_pfn)
- {
- 	unsigned long *usemap, mapsize, section_nr, i;
-@@ -160,6 +160,36 @@ static void register_page_bootmem_info_s
- 		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
- 
- }
-+#else
-+static void register_page_bootmem_info_section(unsigned long start_pfn)
-+{
-+	unsigned long *usemap, mapsize, section_nr, i;
-+	struct mem_section *ms;
-+	struct page *page, *memmap;
-+
-+	if (!pfn_valid(start_pfn))
-+		return;
-+
-+	section_nr = pfn_to_section_nr(start_pfn);
-+	ms = __nr_to_section(section_nr);
-+
-+	memmap = sparse_decode_mem_map(ms->section_mem_map, section_nr);
-+
-+	page = virt_to_page(memmap);
-+	mapsize = sizeof(struct page) * PAGES_PER_SECTION;
-+	mapsize = PAGE_ALIGN(mapsize) >> PAGE_SHIFT;
-+
-+	register_page_bootmem_memmap(section_nr, memmap, PAGES_PER_SECTION);
-+
-+	usemap = __nr_to_section(section_nr)->pageblock_flags;
-+	page = virt_to_page(usemap);
-+
-+	mapsize = PAGE_ALIGN(usemap_size()) >> PAGE_SHIFT;
-+
-+	for (i = 0; i < mapsize; i++, page++)
-+		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
-+}
-+#endif
- 
- void register_page_bootmem_info_node(struct pglist_data *pgdat)
- {
-@@ -202,7 +232,6 @@ void register_page_bootmem_info_node(str
- 			register_page_bootmem_info_section(pfn);
- 	}
- }
--#endif /* !CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void grow_zone_span(struct zone *zone, unsigned long start_pfn,
- 			   unsigned long end_pfn)
-Index: linux-3.6/arch/ia64/mm/discontig.c
-=================================--- linux-3.6.orig/arch/ia64/mm/discontig.c	2012-10-01 08:47:46.000000000 +0900
-+++ linux-3.6/arch/ia64/mm/discontig.c	2012-10-04 17:15:59.209833459 +0900
-@@ -822,4 +822,10 @@ int __meminit vmemmap_populate(struct pa
- {
- 	return vmemmap_populate_basepages(start_page, size, node);
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif
-Index: linux-3.6/arch/powerpc/mm/init_64.c
-=================================--- linux-3.6.orig/arch/powerpc/mm/init_64.c	2012-10-01 08:47:46.000000000 +0900
-+++ linux-3.6/arch/powerpc/mm/init_64.c	2012-10-04 17:15:59.217833663 +0900
-@@ -298,5 +298,11 @@ int __meminit vmemmap_populate(struct pa
- 
- 	return 0;
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif /* CONFIG_SPARSEMEM_VMEMMAP */
- 
-Index: linux-3.6/arch/s390/mm/vmem.c
-=================================--- linux-3.6.orig/arch/s390/mm/vmem.c	2012-10-01 08:47:46.000000000 +0900
-+++ linux-3.6/arch/s390/mm/vmem.c	2012-10-04 17:15:59.227833764 +0900
-@@ -227,6 +227,12 @@ out:
- 	return ret;
- }
- 
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
-+
- /*
-  * Add memory segment to the segment list if it doesn't overlap with
-  * an already present segment.
-Index: linux-3.6/arch/sparc/mm/init_64.c
-=================================--- linux-3.6.orig/arch/sparc/mm/init_64.c	2012-10-01 08:47:46.000000000 +0900
-+++ linux-3.6/arch/sparc/mm/init_64.c	2012-10-04 17:15:59.232833747 +0900
-@@ -2077,6 +2077,12 @@ void __meminit vmemmap_populate_print_la
- 		node_start = 0;
- 	}
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif /* CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void prot_init_common(unsigned long page_none,
-Index: linux-3.6/arch/x86/mm/init_64.c
-=================================--- linux-3.6.orig/arch/x86/mm/init_64.c	2012-10-04 17:15:03.021828121 +0900
-+++ linux-3.6/arch/x86/mm/init_64.c	2012-10-04 17:15:59.240833769 +0900
-@@ -993,6 +993,58 @@ vmemmap_populate(struct page *start_page
- 	return 0;
- }
- 
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	unsigned long addr = (unsigned long)start_page;
-+	unsigned long end = (unsigned long)(start_page + size);
-+	unsigned long next;
-+	pgd_t *pgd;
-+	pud_t *pud;
-+	pmd_t *pmd;
-+
-+	for (; addr < end; addr = next) {
-+		pte_t *pte = NULL;
-+
-+		pgd = pgd_offset_k(addr);
-+		if (pgd_none(*pgd)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pgd_page(*pgd), MIX_SECTION_INFO);
-+
-+		pud = pud_offset(pgd, addr);
-+		if (pud_none(*pud)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pud_page(*pud), MIX_SECTION_INFO);
-+
-+		if (!cpu_has_pse) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 MIX_SECTION_INFO);
-+
-+			pte = pte_offset_kernel(pmd, addr);
-+			if (pte_none(*pte))
-+				continue;
-+			get_page_bootmem(section_nr, pte_page(*pte),
-+					 SECTION_INFO);
-+		} else {
-+			next = pmd_addr_end(addr, end);
-+
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 SECTION_INFO);
-+		}
-+	}
-+}
-+
- void __meminit vmemmap_populate_print_last(void)
- {
- 	if (p_start) {
-Index: linux-3.6/include/linux/mm.h
-=================================--- linux-3.6.orig/include/linux/mm.h	2012-10-01 08:47:46.000000000 +0900
-+++ linux-3.6/include/linux/mm.h	2012-10-04 17:15:59.246833767 +0900
-@@ -1618,7 +1618,8 @@ int vmemmap_populate_basepages(struct pa
- 						unsigned long pages, int node);
- int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
- void vmemmap_populate_print_last(void);
--
-+void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
-+				  unsigned long size);
- 
- enum mf_flags {
- 	MF_COUNT_INCREASED = 1 << 0,
+The following changes since commit 9e2d8656f5e8aa214e66b462680cf86b210b74a8:
 
+  Merge branch 'akpm' (Andrew's patch-bomb) (2012-10-09 16:23:15 +0900)
+
+are available in the git repository at:
+
+
+  git://git.infradead.org/users/dhowells/linux-headers.git tags/disintegrate-ia64-20121009
+
+for you to fetch changes up to 43e40f25d2c090392fc36cb900b42972e88cc2e2:
+
+  UAPI: (Scripted) Disintegrate arch/ia64/include/asm (2012-10-09 09:47:00 +0100)
+
+----------------------------------------------------------------
+UAPI Disintegration 2012-10-09
+
+----------------------------------------------------------------
+David Howells (1):
+      UAPI: (Scripted) Disintegrate arch/ia64/include/asm
+
+ arch/ia64/include/asm/Kbuild                       |  14 -
+ arch/ia64/include/asm/gcc_intrin.h                 | 615 +-------------------
+ arch/ia64/include/asm/intrinsics.h                 | 120 +---
+ arch/ia64/include/asm/kvm_para.h                   |  10 +-
+ arch/ia64/include/asm/mman.h                       |  12 +-
+ arch/ia64/include/asm/param.h                      |  22 +-
+ arch/ia64/include/asm/perfmon.h                    | 171 +-----
+ arch/ia64/include/asm/ptrace.h                     | 236 +-------
+ arch/ia64/include/asm/siginfo.h                    | 118 +---
+ arch/ia64/include/asm/signal.h                     | 122 +---
+ arch/ia64/include/asm/termios.h                    |  46 +-
+ arch/ia64/include/asm/types.h                      |  19 +-
+ arch/ia64/include/asm/unistd.h                     | 324 +----------
+ arch/ia64/include/asm/ustack.h                     |  11 +-
+ arch/ia64/include/uapi/asm/Kbuild                  |  45 ++
+ arch/ia64/include/{ => uapi}/asm/auxvec.h          |   0
+ arch/ia64/include/{ => uapi}/asm/bitsperlong.h     |   0
+ arch/ia64/include/{ => uapi}/asm/break.h           |   0
+ arch/ia64/include/{ => uapi}/asm/byteorder.h       |   0
+ arch/ia64/include/{ => uapi}/asm/cmpxchg.h         |   0
+ arch/ia64/include/{ => uapi}/asm/errno.h           |   0
+ arch/ia64/include/{ => uapi}/asm/fcntl.h           |   0
+ arch/ia64/include/{ => uapi}/asm/fpu.h             |   0
+ arch/ia64/include/uapi/asm/gcc_intrin.h            | 618 +++++++++++++++++++++
+ arch/ia64/include/{ => uapi}/asm/ia64regs.h        |   0
+ arch/ia64/include/{ => uapi}/asm/intel_intrin.h    |   0
+ arch/ia64/include/uapi/asm/intrinsics.h            | 124 +++++
+ arch/ia64/include/{ => uapi}/asm/ioctl.h           |   0
+ arch/ia64/include/{ => uapi}/asm/ioctls.h          |   0
+ arch/ia64/include/{ => uapi}/asm/ipcbuf.h          |   0
+ arch/ia64/include/{ => uapi}/asm/kvm.h             |   0
+ arch/ia64/include/uapi/asm/mman.h                  |  16 +
+ arch/ia64/include/{ => uapi}/asm/msgbuf.h          |   0
+ arch/ia64/include/uapi/asm/param.h                 |  29 +
+ arch/ia64/include/uapi/asm/perfmon.h               | 177 ++++++
+ .../include/{ => uapi}/asm/perfmon_default_smpl.h  |   0
+ arch/ia64/include/{ => uapi}/asm/poll.h            |   0
+ arch/ia64/include/{ => uapi}/asm/posix_types.h     |   0
+ arch/ia64/include/uapi/asm/ptrace.h                | 247 ++++++++
+ arch/ia64/include/{ => uapi}/asm/ptrace_offsets.h  |   0
+ arch/ia64/include/{ => uapi}/asm/resource.h        |   0
+ arch/ia64/include/{ => uapi}/asm/rse.h             |   0
+ arch/ia64/include/{ => uapi}/asm/sembuf.h          |   0
+ arch/ia64/include/{ => uapi}/asm/setup.h           |   0
+ arch/ia64/include/{ => uapi}/asm/shmbuf.h          |   0
+ arch/ia64/include/{ => uapi}/asm/sigcontext.h      |   0
+ arch/ia64/include/uapi/asm/siginfo.h               | 121 ++++
+ arch/ia64/include/uapi/asm/signal.h                | 127 +++++
+ arch/ia64/include/{ => uapi}/asm/socket.h          |   0
+ arch/ia64/include/{ => uapi}/asm/sockios.h         |   0
+ arch/ia64/include/{ => uapi}/asm/stat.h            |   0
+ arch/ia64/include/{ => uapi}/asm/statfs.h          |   0
+ arch/ia64/include/{ => uapi}/asm/swab.h            |   0
+ arch/ia64/include/{ => uapi}/asm/termbits.h        |   0
+ arch/ia64/include/uapi/asm/termios.h               |  50 ++
+ arch/ia64/include/uapi/asm/types.h                 |  31 ++
+ arch/ia64/include/{ => uapi}/asm/ucontext.h        |   0
+ arch/ia64/include/uapi/asm/unistd.h                | 328 +++++++++++
+ arch/ia64/include/uapi/asm/ustack.h                |  12 +
+ 59 files changed, 1961 insertions(+), 1804 deletions(-)
+ rename arch/ia64/include/{ => uapi}/asm/auxvec.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/bitsperlong.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/break.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/byteorder.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/cmpxchg.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/errno.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/fcntl.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/fpu.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/gcc_intrin.h
+ rename arch/ia64/include/{ => uapi}/asm/ia64regs.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/intel_intrin.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/intrinsics.h
+ rename arch/ia64/include/{ => uapi}/asm/ioctl.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/ioctls.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/ipcbuf.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/kvm.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/kvm_para.h
+ create mode 100644 arch/ia64/include/uapi/asm/mman.h
+ rename arch/ia64/include/{ => uapi}/asm/msgbuf.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/param.h
+ create mode 100644 arch/ia64/include/uapi/asm/perfmon.h
+ rename arch/ia64/include/{ => uapi}/asm/perfmon_default_smpl.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/poll.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/posix_types.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/ptrace.h
+ rename arch/ia64/include/{ => uapi}/asm/ptrace_offsets.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/resource.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/rse.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/sembuf.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/setup.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/shmbuf.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/sigcontext.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/siginfo.h
+ create mode 100644 arch/ia64/include/uapi/asm/signal.h
+ rename arch/ia64/include/{ => uapi}/asm/socket.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/sockios.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/stat.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/statfs.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/swab.h (100%)
+ rename arch/ia64/include/{ => uapi}/asm/termbits.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/termios.h
+ create mode 100644 arch/ia64/include/uapi/asm/types.h
+ rename arch/ia64/include/{ => uapi}/asm/ucontext.h (100%)
+ create mode 100644 arch/ia64/include/uapi/asm/unistd.h
+ create mode 100644 arch/ia64/include/uapi/asm/ustack.h
+.
