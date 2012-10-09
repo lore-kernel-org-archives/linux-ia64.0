@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Tue, 09 Oct 2012 06:16:09 +0000
+Date: Tue, 09 Oct 2012 08:11:31 +0000
 Subject: Re: [RFC v9 PATCH 00/21] memory-hotplug: hot-remove physical memory
-Message-Id: <5073C129.4080001@cn.fujitsu.com>
+Message-Id: <5073DC33.10404@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1346837155-534-1-git-send-email-wency@cn.fujitsu.com> <20120926164649.GA7559@dhcp-192-168-178-175.profitbricks.localdomain>
 In-Reply-To: <20120926164649.GA7559@dhcp-192-168-178-175.profitbricks.localdomain>
@@ -25,18 +25,11 @@ At 09/27/2012 12:46 AM, Vasilis Liaskovitis Wrote:
 > When I do the OSPM-eject, I often get slab corruption in "acpi-state" cac=
 he, or in other caches
 
-I found the reason: when you do OSPM-eject, the kernel will auto offline an=
-d remove the memory.
-But, offlining memory fails, and the memory is still used by the kernel. Bu=
-t device_release_driver()
-doesn't tell this error to the caller acpi_bus_remove(). The kernel will po=
-weroff and eject
-the device by emulate _PS3 and _EJ0. The kernel uses some memory which does=
-n't exist. It's
-very dangerous.
+The following patch can fix this problem:
+https://lkml.org/lkml/2012/7/12/186
 
 Thanks
-Wen Conyang
+Wen Congyang
 
 >=20
 > [  170.566995] Slab corruption (Not tainted): Acpi-State start=FFff88009f=
