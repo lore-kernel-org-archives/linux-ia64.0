@@ -1,148 +1,133 @@
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 09 Oct 2012 09:15:29 +0000
-Subject: [GIT PULL] Disintegrate UAPI for ia64 [ver #2]
-Message-Id: <21137.1349774129@warthog.procyon.org.uk>
+From: wency@cn.fujitsu.com
+Date: Tue, 23 Oct 2012 10:30:40 +0000
+Subject: [PATCH v2 02/12] memory-hotplug: check whether all memory blocks are offlined or not when removing m
+Message-Id: <1350988250-31294-3-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: dhowells@redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-Can you merge the following branch into the ia64 tree please.
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-This is to complete part of the UAPI disintegration for which the preparatory
-patches were pulled recently.
+We remove the memory like this:
+1. lock memory hotplug
+2. offline a memory block
+3. unlock memory hotplug
+4. repeat 1-3 to offline all memory blocks
+5. lock memory hotplug
+6. remove memory(TODO)
+7. unlock memory hotplug
 
-Now that the fixups and the asm-generic chunk have been merged, I've
-regenerated the patches to get rid of those dependencies and to take account of
-any changes made so far in the merge window.  If you have already pulled the
-older version of the branch aimed at you, then please feel free to ignore this
-request.
+All memory blocks must be offlined before removing memory. But we don't hold
+the lock in the whole operation. So we should check whether all memory blocks
+are offlined before step6. Otherwise, kernel maybe panicked.
 
-The following changes since commit 9e2d8656f5e8aa214e66b462680cf86b210b74a8:
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+---
+ drivers/base/memory.c          |    6 +++++
+ include/linux/memory_hotplug.h |    1 +
+ mm/memory_hotplug.c            |   47 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 54 insertions(+), 0 deletions(-)
 
-  Merge branch 'akpm' (Andrew's patch-bomb) (2012-10-09 16:23:15 +0900)
+diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+index 86c8821..badb025 100644
+--- a/drivers/base/memory.c
++++ b/drivers/base/memory.c
+@@ -675,6 +675,12 @@ int offline_memory_block(struct memory_block *mem)
+ 	return ret;
+ }
+ 
++/* return true if the memory block is offlined, otherwise, return false */
++bool is_memblock_offlined(struct memory_block *mem)
++{
++	return mem->state = MEM_OFFLINE;
++}
++
+ /*
+  * Initialize the sysfs support for memory devices...
+  */
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 95573ec..38675e9 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -236,6 +236,7 @@ extern int add_memory(int nid, u64 start, u64 size);
+ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int offline_pages(unsigned long start_pfn, unsigned long nr_pages);
+ extern int offline_memory_block(struct memory_block *mem);
++extern bool is_memblock_offlined(struct memory_block *mem);
+ extern int remove_memory(u64 start, u64 size);
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+ 								int nr_pages);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 600e200..f4fdedd 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1061,6 +1061,53 @@ repeat:
+ 		goto repeat;
+ 	}
+ 
++	lock_memory_hotplug();
++
++	/*
++	 * we have offlined all memory blocks like this:
++	 *   1. lock memory hotplug
++	 *   2. offline a memory block
++	 *   3. unlock memory hotplug
++	 *
++	 * repeat step1-3 to offline the memory block. All memory blocks
++	 * must be offlined before removing memory. But we don't hold the
++	 * lock in the whole operation. So we should check whether all
++	 * memory blocks are offlined.
++	 */
++
++	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
++		section_nr = pfn_to_section_nr(pfn);
++		if (!present_section_nr(section_nr))
++			continue;
++
++		section = __nr_to_section(section_nr);
++		/* same memblock? */
++		if (mem)
++			if ((section_nr >= mem->start_section_nr) &&
++			    (section_nr <= mem->end_section_nr))
++				continue;
++
++		mem = find_memory_block_hinted(section, mem);
++		if (!mem)
++			continue;
++
++		ret = is_memblock_offlined(mem);
++		if (!ret) {
++			pr_warn("removing memory fails, because memory "
++				"[%#010llx-%#010llx] is onlined\n",
++				PFN_PHYS(section_nr_to_pfn(mem->start_section_nr)),
++				PFN_PHYS(section_nr_to_pfn(mem->end_section_nr + 1)) - 1);
++
++			kobject_put(&mem->dev.kobj);
++			unlock_memory_hotplug();
++			return ret;
++		}
++	}
++
++	if (mem)
++		kobject_put(&mem->dev.kobj);
++	unlock_memory_hotplug();
++
+ 	return 0;
+ }
+ #else
+-- 
+1.7.1
 
-are available in the git repository at:
-
-
-  git://git.infradead.org/users/dhowells/linux-headers.git tags/disintegrate-ia64-20121009
-
-for you to fetch changes up to 43e40f25d2c090392fc36cb900b42972e88cc2e2:
-
-  UAPI: (Scripted) Disintegrate arch/ia64/include/asm (2012-10-09 09:47:00 +0100)
-
-----------------------------------------------------------------
-UAPI Disintegration 2012-10-09
-
-----------------------------------------------------------------
-David Howells (1):
-      UAPI: (Scripted) Disintegrate arch/ia64/include/asm
-
- arch/ia64/include/asm/Kbuild                       |  14 -
- arch/ia64/include/asm/gcc_intrin.h                 | 615 +-------------------
- arch/ia64/include/asm/intrinsics.h                 | 120 +---
- arch/ia64/include/asm/kvm_para.h                   |  10 +-
- arch/ia64/include/asm/mman.h                       |  12 +-
- arch/ia64/include/asm/param.h                      |  22 +-
- arch/ia64/include/asm/perfmon.h                    | 171 +-----
- arch/ia64/include/asm/ptrace.h                     | 236 +-------
- arch/ia64/include/asm/siginfo.h                    | 118 +---
- arch/ia64/include/asm/signal.h                     | 122 +---
- arch/ia64/include/asm/termios.h                    |  46 +-
- arch/ia64/include/asm/types.h                      |  19 +-
- arch/ia64/include/asm/unistd.h                     | 324 +----------
- arch/ia64/include/asm/ustack.h                     |  11 +-
- arch/ia64/include/uapi/asm/Kbuild                  |  45 ++
- arch/ia64/include/{ => uapi}/asm/auxvec.h          |   0
- arch/ia64/include/{ => uapi}/asm/bitsperlong.h     |   0
- arch/ia64/include/{ => uapi}/asm/break.h           |   0
- arch/ia64/include/{ => uapi}/asm/byteorder.h       |   0
- arch/ia64/include/{ => uapi}/asm/cmpxchg.h         |   0
- arch/ia64/include/{ => uapi}/asm/errno.h           |   0
- arch/ia64/include/{ => uapi}/asm/fcntl.h           |   0
- arch/ia64/include/{ => uapi}/asm/fpu.h             |   0
- arch/ia64/include/uapi/asm/gcc_intrin.h            | 618 +++++++++++++++++++++
- arch/ia64/include/{ => uapi}/asm/ia64regs.h        |   0
- arch/ia64/include/{ => uapi}/asm/intel_intrin.h    |   0
- arch/ia64/include/uapi/asm/intrinsics.h            | 124 +++++
- arch/ia64/include/{ => uapi}/asm/ioctl.h           |   0
- arch/ia64/include/{ => uapi}/asm/ioctls.h          |   0
- arch/ia64/include/{ => uapi}/asm/ipcbuf.h          |   0
- arch/ia64/include/{ => uapi}/asm/kvm.h             |   0
- arch/ia64/include/uapi/asm/mman.h                  |  16 +
- arch/ia64/include/{ => uapi}/asm/msgbuf.h          |   0
- arch/ia64/include/uapi/asm/param.h                 |  29 +
- arch/ia64/include/uapi/asm/perfmon.h               | 177 ++++++
- .../include/{ => uapi}/asm/perfmon_default_smpl.h  |   0
- arch/ia64/include/{ => uapi}/asm/poll.h            |   0
- arch/ia64/include/{ => uapi}/asm/posix_types.h     |   0
- arch/ia64/include/uapi/asm/ptrace.h                | 247 ++++++++
- arch/ia64/include/{ => uapi}/asm/ptrace_offsets.h  |   0
- arch/ia64/include/{ => uapi}/asm/resource.h        |   0
- arch/ia64/include/{ => uapi}/asm/rse.h             |   0
- arch/ia64/include/{ => uapi}/asm/sembuf.h          |   0
- arch/ia64/include/{ => uapi}/asm/setup.h           |   0
- arch/ia64/include/{ => uapi}/asm/shmbuf.h          |   0
- arch/ia64/include/{ => uapi}/asm/sigcontext.h      |   0
- arch/ia64/include/uapi/asm/siginfo.h               | 121 ++++
- arch/ia64/include/uapi/asm/signal.h                | 127 +++++
- arch/ia64/include/{ => uapi}/asm/socket.h          |   0
- arch/ia64/include/{ => uapi}/asm/sockios.h         |   0
- arch/ia64/include/{ => uapi}/asm/stat.h            |   0
- arch/ia64/include/{ => uapi}/asm/statfs.h          |   0
- arch/ia64/include/{ => uapi}/asm/swab.h            |   0
- arch/ia64/include/{ => uapi}/asm/termbits.h        |   0
- arch/ia64/include/uapi/asm/termios.h               |  50 ++
- arch/ia64/include/uapi/asm/types.h                 |  31 ++
- arch/ia64/include/{ => uapi}/asm/ucontext.h        |   0
- arch/ia64/include/uapi/asm/unistd.h                | 328 +++++++++++
- arch/ia64/include/uapi/asm/ustack.h                |  12 +
- 59 files changed, 1961 insertions(+), 1804 deletions(-)
- rename arch/ia64/include/{ => uapi}/asm/auxvec.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/bitsperlong.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/break.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/byteorder.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/cmpxchg.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/errno.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/fcntl.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/fpu.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/gcc_intrin.h
- rename arch/ia64/include/{ => uapi}/asm/ia64regs.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/intel_intrin.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/intrinsics.h
- rename arch/ia64/include/{ => uapi}/asm/ioctl.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/ioctls.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/ipcbuf.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/kvm.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/kvm_para.h
- create mode 100644 arch/ia64/include/uapi/asm/mman.h
- rename arch/ia64/include/{ => uapi}/asm/msgbuf.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/param.h
- create mode 100644 arch/ia64/include/uapi/asm/perfmon.h
- rename arch/ia64/include/{ => uapi}/asm/perfmon_default_smpl.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/poll.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/posix_types.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/ptrace.h
- rename arch/ia64/include/{ => uapi}/asm/ptrace_offsets.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/resource.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/rse.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/sembuf.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/setup.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/shmbuf.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/sigcontext.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/siginfo.h
- create mode 100644 arch/ia64/include/uapi/asm/signal.h
- rename arch/ia64/include/{ => uapi}/asm/socket.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/sockios.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/stat.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/statfs.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/swab.h (100%)
- rename arch/ia64/include/{ => uapi}/asm/termbits.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/termios.h
- create mode 100644 arch/ia64/include/uapi/asm/types.h
- rename arch/ia64/include/{ => uapi}/asm/ucontext.h (100%)
- create mode 100644 arch/ia64/include/uapi/asm/unistd.h
- create mode 100644 arch/ia64/include/uapi/asm/ustack.h
-.
