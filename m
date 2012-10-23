@@ -1,89 +1,255 @@
-From: Jan Kiszka <jan.kiszka@web.de>
-Date: Wed, 03 Oct 2012 11:21:31 +0000
-Subject: [PATCH 00/13] Add gdb python scripts as kernel debugging helpers
-Message-Id: <cover.1349263293.git.jan.kiszka@web.de>
+From: wency@cn.fujitsu.com
+Date: Tue, 23 Oct 2012 10:30:42 +0000
+Subject: [PATCH v2 04/12] memory-hotplug: remove /sys/firmware/memmap/X sysfs
+Message-Id: <1350988250-31294-5-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Kay Sievers <kay@vrfy.org>, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.cz>, sparclinux@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-I'm sitting too long on this stuff, time to finally role it out:
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-This adds the infrastructure and first tools that make kernel debugging
-through gdb more comfortable. Since 7.0, gdb supports python scripting.
-And this opens the doors to automate steps like the tedious loading of
-module symbols at the right address, resolving per-cpu variables or even
-retrieving the current kernel log without resuming an stopped target.
+When (hot)adding memory into system, /sys/firmware/memmap/X/{end, start, type}
+sysfs files are created. But there is no code to remove these files. The patch
+implements the function to remove them.
 
-Many of the helpers naturally depend on the layout of structures or
-internal mechanics of the kernel. So the best place to maintain such
-things, keeping them consistent with the corresponding kernel is, well,
-the kernel itself.
+Note: The code does not free firmware_map_entry which is allocated by bootmem.
+      So the patch makes memory leak. But I think the memory leak size is
+      very samll. And it does not affect the system.
 
-While these scripts have been originally developed for debugging via
-QEMU/KVM, I've now also added the required bits for KGDB. Works fine,
-but as QEMU/KVM tends to outperform KGDB it remains the recommendation
-- when available.
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+---
+ drivers/firmware/memmap.c    |   98 +++++++++++++++++++++++++++++++++++++++++-
+ include/linux/firmware-map.h |    6 +++
+ mm/memory_hotplug.c          |    5 ++-
+ 3 files changed, 106 insertions(+), 3 deletions(-)
 
-There are two architecture dependencies so far, one regarding per-cpu,
-the other regarding thread_info calculation. None of them I was able to
-test on a target, so I'm counting on review/testing by the corresponding
-communities.
-
-This series should be considered the foundation of much more kernel
-state exploration helper, e.g. around tasks, timers, locks, sockets -
-I guess people will have even more ideas.
-
-Hope it's useful!
-
-PS: Also available via git://git.kiszka.org/linux.git queues/gdb-scripts
-
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: Kay Sievers <kay@vrfy.org>
-CC: linux-ia64@vger.kernel.org
-CC: linux-kbuild@vger.kernel.org
-CC: Michal Marek <mmarek@suse.cz>
-CC: sparclinux@vger.kernel.org
-CC: Tony Luck <tony.luck@intel.com>
-
-Jan Kiszka (13):
-  scripts/gdb: Add infrastructure
-  scripts/gdb: Add container_of helper and convenience function
-  scripts/gdb: Add lx-symbols command
-  scripts/gdb: Add get_target_endianness helper
-  scripts/gdb: Add read_u16/32/64 helpers
-  scripts/gdb: Add lx-dmesg command
-  scripts/gdb: Add task iteration helper
-  scripts/gdb: Add helper and convenience function to look up tasks
-  scripts/gdb: Add is_target_arch helper
-  scripts/gdb: Add internal helper and convenience function to retrieve
-    thread_info
-  scripts/gdb: Add get_gdbserver_type helper
-  scripts/gdb: Add internal helper and convenience function for per-cpu
-    lookup
-  scripts/gdb: Add lx_current convenience function
-
- Makefile                   |    6 ++-
- scripts/Makefile           |    3 +-
- scripts/gdb/Makefile       |    9 +++
- scripts/gdb/dmesg.py       |   63 +++++++++++++++++++++
- scripts/gdb/percpu.py      |   76 +++++++++++++++++++++++++
- scripts/gdb/symbols.py     |   88 +++++++++++++++++++++++++++++
- scripts/gdb/task.py        |  108 +++++++++++++++++++++++++++++++++++
- scripts/gdb/utils.py       |  134 ++++++++++++++++++++++++++++++++++++++++++++
- scripts/gdb/vmlinux-gdb.py |   26 +++++++++
- 9 files changed, 511 insertions(+), 2 deletions(-)
- create mode 100644 scripts/gdb/Makefile
- create mode 100644 scripts/gdb/dmesg.py
- create mode 100644 scripts/gdb/percpu.py
- create mode 100644 scripts/gdb/symbols.py
- create mode 100644 scripts/gdb/task.py
- create mode 100644 scripts/gdb/utils.py
- create mode 100644 scripts/gdb/vmlinux-gdb.py
-
+diff --git a/drivers/firmware/memmap.c b/drivers/firmware/memmap.c
+index 90723e6..49be12a 100644
+--- a/drivers/firmware/memmap.c
++++ b/drivers/firmware/memmap.c
+@@ -21,6 +21,7 @@
+ #include <linux/types.h>
+ #include <linux/bootmem.h>
+ #include <linux/slab.h>
++#include <linux/mm.h>
+ 
+ /*
+  * Data types ------------------------------------------------------------------
+@@ -41,6 +42,7 @@ struct firmware_map_entry {
+ 	const char		*type;	/* type of the memory range */
+ 	struct list_head	list;	/* entry for the linked list */
+ 	struct kobject		kobj;   /* kobject for each entry */
++	unsigned int		bootmem:1; /* allocated from bootmem */
+ };
+ 
+ /*
+@@ -79,7 +81,26 @@ static const struct sysfs_ops memmap_attr_ops = {
+ 	.show = memmap_attr_show,
+ };
+ 
++
++static inline struct firmware_map_entry *
++to_memmap_entry(struct kobject *kobj)
++{
++	return container_of(kobj, struct firmware_map_entry, kobj);
++}
++
++static void release_firmware_map_entry(struct kobject *kobj)
++{
++	struct firmware_map_entry *entry = to_memmap_entry(kobj);
++
++	if (entry->bootmem)
++		/* There is no way to free memory allocated from bootmem */
++		return;
++
++	kfree(entry);
++}
++
+ static struct kobj_type memmap_ktype = {
++	.release	= release_firmware_map_entry,
+ 	.sysfs_ops	= &memmap_attr_ops,
+ 	.default_attrs	= def_attrs,
+ };
+@@ -94,6 +115,7 @@ static struct kobj_type memmap_ktype = {
+  * in firmware initialisation code in one single thread of execution.
+  */
+ static LIST_HEAD(map_entries);
++static DEFINE_SPINLOCK(map_entries_lock);
+ 
+ /**
+  * firmware_map_add_entry() - Does the real work to add a firmware memmap entry.
+@@ -118,11 +140,25 @@ static int firmware_map_add_entry(u64 start, u64 end,
+ 	INIT_LIST_HEAD(&entry->list);
+ 	kobject_init(&entry->kobj, &memmap_ktype);
+ 
++	spin_lock(&map_entries_lock);
+ 	list_add_tail(&entry->list, &map_entries);
++	spin_unlock(&map_entries_lock);
+ 
+ 	return 0;
+ }
+ 
++/**
++ * firmware_map_remove_entry() - Does the real work to remove a firmware
++ * memmap entry.
++ * @entry: removed entry.
++ **/
++static inline void firmware_map_remove_entry(struct firmware_map_entry *entry)
++{
++	spin_lock(&map_entries_lock);
++	list_del(&entry->list);
++	spin_unlock(&map_entries_lock);
++}
++
+ /*
+  * Add memmap entry on sysfs
+  */
+@@ -144,6 +180,35 @@ static int add_sysfs_fw_map_entry(struct firmware_map_entry *entry)
+ 	return 0;
+ }
+ 
++/*
++ * Remove memmap entry on sysfs
++ */
++static inline void remove_sysfs_fw_map_entry(struct firmware_map_entry *entry)
++{
++	kobject_put(&entry->kobj);
++}
++
++/*
++ * Search memmap entry
++ */
++
++static struct firmware_map_entry * __meminit
++firmware_map_find_entry(u64 start, u64 end, const char *type)
++{
++	struct firmware_map_entry *entry;
++
++	spin_lock(&map_entries_lock);
++	list_for_each_entry(entry, &map_entries, list)
++		if ((entry->start = start) && (entry->end = end) &&
++		    (!strcmp(entry->type, type))) {
++			spin_unlock(&map_entries_lock);
++			return entry;
++		}
++
++	spin_unlock(&map_entries_lock);
++	return NULL;
++}
++
+ /**
+  * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
+  * memory hotplug.
+@@ -193,9 +258,36 @@ int __init firmware_map_add_early(u64 start, u64 end, const char *type)
+ 	if (WARN_ON(!entry))
+ 		return -ENOMEM;
+ 
++	entry->bootmem = 1;
+ 	return firmware_map_add_entry(start, end, type, entry);
+ }
+ 
++/**
++ * firmware_map_remove() - remove a firmware mapping entry
++ * @start: Start of the memory range.
++ * @end:   End of the memory range.
++ * @type:  Type of the memory range.
++ *
++ * removes a firmware mapping entry.
++ *
++ * Returns 0 on success, or -EINVAL if no entry.
++ **/
++int __meminit firmware_map_remove(u64 start, u64 end, const char *type)
++{
++	struct firmware_map_entry *entry;
++
++	entry = firmware_map_find_entry(start, end - 1, type);
++	if (!entry)
++		return -EINVAL;
++
++	firmware_map_remove_entry(entry);
++
++	/* remove the memmap entry */
++	remove_sysfs_fw_map_entry(entry);
++
++	return 0;
++}
++
+ /*
+  * Sysfs functions -------------------------------------------------------------
+  */
+@@ -217,8 +309,10 @@ static ssize_t type_show(struct firmware_map_entry *entry, char *buf)
+ 	return snprintf(buf, PAGE_SIZE, "%s\n", entry->type);
+ }
+ 
+-#define to_memmap_attr(_attr) container_of(_attr, struct memmap_attribute, attr)
+-#define to_memmap_entry(obj) container_of(obj, struct firmware_map_entry, kobj)
++static inline struct memmap_attribute *to_memmap_attr(struct attribute *attr)
++{
++	return container_of(attr, struct memmap_attribute, attr);
++}
+ 
+ static ssize_t memmap_attr_show(struct kobject *kobj,
+ 				struct attribute *attr, char *buf)
+diff --git a/include/linux/firmware-map.h b/include/linux/firmware-map.h
+index 43fe52f..71d4fa7 100644
+--- a/include/linux/firmware-map.h
++++ b/include/linux/firmware-map.h
+@@ -25,6 +25,7 @@
+ 
+ int firmware_map_add_early(u64 start, u64 end, const char *type);
+ int firmware_map_add_hotplug(u64 start, u64 end, const char *type);
++int firmware_map_remove(u64 start, u64 end, const char *type);
+ 
+ #else /* CONFIG_FIRMWARE_MEMMAP */
+ 
+@@ -38,6 +39,11 @@ static inline int firmware_map_add_hotplug(u64 start, u64 end, const char *type)
+ 	return 0;
+ }
+ 
++static inline int firmware_map_remove(u64 start, u64 end, const char *type)
++{
++	return 0;
++}
++
+ #endif /* CONFIG_FIRMWARE_MEMMAP */
+ 
+ #endif /* _LINUX_FIRMWARE_MAP_H */
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 80fc70c..050ddb0 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1073,7 +1073,7 @@ static int is_memblock_offlined_cb(struct memory_block *mem, void *arg)
+ 	return ret;
+ }
+ 
+-int remove_memory(u64 start, u64 size)
++int __ref remove_memory(u64 start, u64 size)
+ {
+ 	unsigned long start_pfn, end_pfn;
+ 	int ret = 0;
+@@ -1115,6 +1115,9 @@ repeat:
+ 		return ret;
+ 	}
+ 
++	/* remove memmap entry */
++	firmware_map_remove(start, start + size, "System RAM");
++
+ 	unlock_memory_hotplug();
+ 
+ 	return 0;
 -- 
-1.7.3.4
+1.7.1
 
