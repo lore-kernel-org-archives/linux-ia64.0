@@ -1,317 +1,240 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Fri, 05 Oct 2012 02:34:41 +0000
-Subject: [PATCH 7/10] memory-hotplug : remove memmap of sparse-vmemmap
-Message-Id: <506E4741.6080402@jp.fujitsu.com>
+From: wency@cn.fujitsu.com
+Date: Tue, 23 Oct 2012 10:30:43 +0000
+Subject: [PATCH v2 05/12] memory-hotplug: introduce new function arch_remove_memory() for removing page table
+Message-Id: <1350988250-31294-6-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <506E43E0.70507@jp.fujitsu.com>
-In-Reply-To: <506E43E0.70507@jp.fujitsu.com>
+References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, wency@cn.fujitsu.com
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-All pages of virtual mapping in removed memory cannot be freed, since some pages
-used as PGD/PUD includes not only removed memory but also other memory. So the
-patch checks whether page can be freed or not.
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-How to check whether page can be freed or not?
- 1. When removing memory, the page structs of the revmoved memory are filled
-    with 0FD.
- 2. All page structs are filled with 0xFD on PT/PMD, PT/PMD can be cleared.
-    In this case, the page used as PT/PMD can be freed.
+For removing memory, we need to remove page table. But it depends
+on architecture. So the patch introduce arch_remove_memory() for
+removing page table. Now it only calls __remove_pages().
 
-Applying patch, __remove_section() of CONFIG_SPARSEMEM_VMEMMAP is integrated
-into one. So __remove_section() of CONFIG_SPARSEMEM_VMEMMAP is deleted.
-
-Note:  vmemmap_kfree() and vmemmap_free_bootmem() are not implemented for ia64,
-ppc, s390, and sparc.
+Note: __remove_pages() for some archtecuture is not implemented
+      (I don't know how to implement it for s390).
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
 CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
 CC: Christoph Lameter <cl@linux.com>
 Cc: Minchan Kim <minchan.kim@gmail.com>
 CC: Andrew Morton <akpm@linux-foundation.org>
 CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- arch/ia64/mm/discontig.c  |    8 +++
- arch/powerpc/mm/init_64.c |    8 +++
- arch/s390/mm/vmem.c       |    8 +++
- arch/sparc/mm/init_64.c   |    8 +++
- arch/x86/mm/init_64.c     |  119 ++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/mm.h        |    2 
- mm/memory_hotplug.c       |   17 ------
- mm/sparse.c               |    5 +
- 8 files changed, 158 insertions(+), 17 deletions(-)
+ arch/ia64/mm/init.c            |   18 ++++++++++++++++++
+ arch/powerpc/mm/mem.c          |   12 ++++++++++++
+ arch/s390/mm/init.c            |   12 ++++++++++++
+ arch/sh/mm/init.c              |   17 +++++++++++++++++
+ arch/tile/mm/init.c            |    8 ++++++++
+ arch/x86/mm/init_32.c          |   12 ++++++++++++
+ arch/x86/mm/init_64.c          |   15 +++++++++++++++
+ include/linux/memory_hotplug.h |    1 +
+ mm/memory_hotplug.c            |    2 ++
+ 9 files changed, 97 insertions(+), 0 deletions(-)
 
-Index: linux-3.6/arch/ia64/mm/discontig.c
-=================================--- linux-3.6.orig/arch/ia64/mm/discontig.c	2012-10-04 18:30:15.475692638 +0900
-+++ linux-3.6/arch/ia64/mm/discontig.c	2012-10-04 18:30:21.145698389 +0900
-@@ -823,6 +823,14 @@ int __meminit vmemmap_populate(struct pa
- 	return vmemmap_populate_basepages(start_page, size, node);
- }
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index acd5b68..1d36ba2 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -690,6 +690,24 @@ int arch_add_memory(int nid, u64 start, u64 size)
  
-+void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
-+void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-Index: linux-3.6/arch/powerpc/mm/init_64.c
-=================================--- linux-3.6.orig/arch/powerpc/mm/init_64.c	2012-10-04 18:30:15.494692657 +0900
-+++ linux-3.6/arch/powerpc/mm/init_64.c	2012-10-04 18:30:21.150698394 +0900
-@@ -299,6 +299,14 @@ int __meminit vmemmap_populate(struct pa
- 	return 0;
- }
- 
-+void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
-+void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-Index: linux-3.6/arch/s390/mm/vmem.c
-=================================--- linux-3.6.orig/arch/s390/mm/vmem.c	2012-10-04 18:30:15.506692670 +0900
-+++ linux-3.6/arch/s390/mm/vmem.c	2012-10-04 18:30:21.157698401 +0900
-@@ -227,6 +227,14 @@ out:
  	return ret;
  }
- 
-+void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
++
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
 +{
-+}
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++	int ret;
 +
-+void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-Index: linux-3.6/arch/sparc/mm/init_64.c
-=================================--- linux-3.6.orig/arch/sparc/mm/init_64.c	2012-10-04 18:30:15.512692676 +0900
-+++ linux-3.6/arch/sparc/mm/init_64.c	2012-10-04 18:30:21.163698408 +0900
-@@ -2078,6 +2078,14 @@ void __meminit vmemmap_populate_print_la
- 	}
- }
- 
-+void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
-+void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-Index: linux-3.6/arch/x86/mm/init_64.c
-=================================--- linux-3.6.orig/arch/x86/mm/init_64.c	2012-10-04 18:30:15.517692681 +0900
-+++ linux-3.6/arch/x86/mm/init_64.c	2012-10-04 18:30:21.171698416 +0900
-@@ -993,6 +993,125 @@ vmemmap_populate(struct page *start_page
- 	return 0;
- }
- 
-+#define PAGE_INUSE 0xFD
-+
-+unsigned long find_and_clear_pte_page(unsigned long addr, unsigned long end,
-+			    struct page **pp, int *page_size)
-+{
-+	pgd_t *pgd;
-+	pud_t *pud;
-+	pmd_t *pmd;
-+	pte_t *pte;
-+	void *page_addr;
-+	unsigned long next;
-+
-+	*pp = NULL;
-+
-+	pgd = pgd_offset_k(addr);
-+	if (pgd_none(*pgd))
-+		return pgd_addr_end(addr, end);
-+
-+	pud = pud_offset(pgd, addr);
-+	if (pud_none(*pud))
-+		return pud_addr_end(addr, end);
-+
-+	if (!cpu_has_pse) {
-+		next = (addr + PAGE_SIZE) & PAGE_MASK;
-+		pmd = pmd_offset(pud, addr);
-+		if (pmd_none(*pmd))
-+			return next;
-+
-+		pte = pte_offset_kernel(pmd, addr);
-+		if (pte_none(*pte))
-+			return next;
-+
-+		*page_size = PAGE_SIZE;
-+		*pp = pte_page(*pte);
-+	} else {
-+		next = pmd_addr_end(addr, end);
-+
-+		pmd = pmd_offset(pud, addr);
-+		if (pmd_none(*pmd))
-+			return next;
-+
-+		*page_size = PMD_SIZE;
-+		*pp = pmd_page(*pmd);
-+	}
-+
-+	/*
-+	 * Removed page structs are filled with 0xFD.
-+	 */
-+	memset((void *)addr, PAGE_INUSE, next - addr);
-+
-+	page_addr = page_address(*pp);
-+
-+	/*
-+	 * Check the page is filled with 0xFD or not.
-+	 * memchr_inv() returns the address. In this case, we cannot
-+	 * clear PTE/PUD entry, since the page is used by other.
-+	 * So we cannot also free the page.
-+	 *
-+	 * memchr_inv() returns NULL. In this case, we can clear
-+	 * PTE/PUD entry, since the page is not used by other.
-+	 * So we can also free the page.
-+	 */
-+	if (memchr_inv(page_addr, PAGE_INUSE, *page_size)) {
-+		*pp = NULL;
-+		return next;
-+	}
-+
-+	if (!cpu_has_pse)
-+		pte_clear(&init_mm, addr, pte);
-+	else
-+		pmd_clear(pmd);
-+
-+	return next;
-+}
-+
-+void vmemmap_kfree(struct page *memmap, unsigned long nr_pages)
-+{
-+	unsigned long addr = (unsigned long)memmap;
-+	unsigned long end = (unsigned long)(memmap + nr_pages);
-+	unsigned long next;
-+	struct page *page;
-+	int page_size;
-+
-+	for (; addr < end; addr = next) {
-+		page = NULL;
-+		page_size = 0;
-+		next = find_and_clear_pte_page(addr, end, &page, &page_size);
-+		if (!page)
-+			continue;
-+
-+		free_pages((unsigned long)page_address(page),
-+			    get_order(page_size));
-+		__flush_tlb_one(addr);
-+	}
-+}
-+
-+void vmemmap_free_bootmem(struct page *memmap, unsigned long nr_pages)
-+{
-+	unsigned long addr = (unsigned long)memmap;
-+	unsigned long end = (unsigned long)(memmap + nr_pages);
-+	unsigned long next;
-+	struct page *page;
-+	int page_size;
-+	unsigned long magic;
-+
-+	for (; addr < end; addr = next) {
-+		page = NULL;
-+		page_size = 0;
-+		next = find_and_clear_pte_page(addr, end, &page, &page_size);
-+		if (!page)
-+			continue;
-+
-+		magic = (unsigned long) page->lru.next;
-+		if (magic = SECTION_INFO)
-+			put_page_bootmem(page);
-+		flush_tlb_kernel_range(addr, end);
-+	}
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-Index: linux-3.6/include/linux/mm.h
-=================================--- linux-3.6.orig/include/linux/mm.h	2012-10-04 18:30:15.524692688 +0900
-+++ linux-3.6/include/linux/mm.h	2012-10-04 18:30:21.177698422 +0900
-@@ -1620,6 +1620,8 @@ int vmemmap_populate(struct page *start_
- void vmemmap_populate_print_last(void);
- void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
- 				  unsigned long size);
-+void vmemmap_kfree(struct page *memmpa, unsigned long nr_pages);
-+void vmemmap_free_bootmem(struct page *memmpa, unsigned long nr_pages);
- 
- enum mf_flags {
- 	MF_COUNT_INCREASED = 1 << 0,
-Index: linux-3.6/mm/memory_hotplug.c
-=================================--- linux-3.6.orig/mm/memory_hotplug.c	2012-10-04 18:30:15.464692627 +0900
-+++ linux-3.6/mm/memory_hotplug.c	2012-10-04 18:30:21.182698427 +0900
-@@ -312,19 +312,6 @@ static int __meminit __add_section(int n
- 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
- }
- 
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static int __remove_section(struct zone *zone, struct mem_section *ms)
--{
--	int ret = -EINVAL;
--
--	if (!valid_section(ms))
--		return ret;
--
--	ret = unregister_memory_section(ms);
--
--	return ret;
--}
--#else
- static int __remove_section(struct zone *zone, struct mem_section *ms)
- {
- 	unsigned long flags;
-@@ -341,9 +328,9 @@ static int __remove_section(struct zone 
- 	pgdat_resize_lock(pgdat, &flags);
- 	sparse_remove_one_section(zone, ms);
- 	pgdat_resize_unlock(pgdat, &flags);
--	return 0;
++	zone = page_zone(pfn_to_page(start_pfn));
++	ret = __remove_pages(zone, start_pfn, nr_pages);
++	if (ret)
++		pr_warn("%s: Problem encountered in __remove_pages() as"
++			" ret=%d\n", __func__,  ret);
 +
 +	return ret;
- }
--#endif
++}
++#endif
+ #endif
  
  /*
-  * Reasonably generic function for adding memory.  It is
-Index: linux-3.6/mm/sparse.c
-=================================--- linux-3.6.orig/mm/sparse.c	2012-10-04 18:26:53.908488966 +0900
-+++ linux-3.6/mm/sparse.c	2012-10-04 18:30:21.185698430 +0900
-@@ -613,12 +613,13 @@ static inline struct page *kmalloc_secti
- 	/* This will make the necessary allocations eventually. */
- 	return sparse_mem_map_populate(pnum, nid);
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index 0dba506..09c6451 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -133,6 +133,18 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ 
+ 	return __add_pages(nid, zone, start_pfn, nr_pages);
  }
--static void __kfree_section_memmap(struct page *memmap, unsigned long nr_pages)
-+static void __kfree_section_memmap(struct page *page, unsigned long nr_pages)
++
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
++{
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++
++	zone = page_zone(pfn_to_page(start_pfn));
++	return __remove_pages(zone, start_pfn, nr_pages);
++}
++#endif
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+ 
+ /*
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index 81e596c..b565190 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -257,4 +257,16 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ 		vmem_remove_mapping(start, size);
+ 	return rc;
+ }
++
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
++{
++	/*
++	 * There is no hardware or firmware interface which could trigger a
++	 * hot memory remove on s390. So there is nothing that needs to be
++	 * implemented.
++	 */
++	return -EBUSY;
++}
++#endif
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+index 82cc576..1057940 100644
+--- a/arch/sh/mm/init.c
++++ b/arch/sh/mm/init.c
+@@ -558,4 +558,21 @@ int memory_add_physaddr_to_nid(u64 addr)
+ EXPORT_SYMBOL_GPL(memory_add_physaddr_to_nid);
+ #endif
+ 
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
++{
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++	int ret;
++
++	zone = page_zone(pfn_to_page(start_pfn));
++	ret = __remove_pages(zone, start_pfn, nr_pages);
++	if (unlikely(ret))
++		pr_warn("%s: Failed, __remove_pages() = %d\n", __func__,
++			ret);
++
++	return ret;
++}
++#endif
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+diff --git a/arch/tile/mm/init.c b/arch/tile/mm/init.c
+index ef29d6c..2749515 100644
+--- a/arch/tile/mm/init.c
++++ b/arch/tile/mm/init.c
+@@ -935,6 +935,14 @@ int remove_memory(u64 start, u64 size)
  {
--	return; /* XXX: Not implemented yet */
-+	vmemmap_kfree(page, nr_pages);
+ 	return -EINVAL;
  }
- static void free_map_bootmem(struct page *page, unsigned long nr_pages)
- {
-+	vmemmap_free_bootmem(page, nr_pages);
++
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
++{
++	/* TODO */
++	return -EBUSY;
++}
++#endif
+ #endif
+ 
+ struct kmem_cache *pgd_cache;
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index 11a5800..b19eba4 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -839,6 +839,18 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ 
+ 	return __add_pages(nid, zone, start_pfn, nr_pages);
  }
- #else
- static struct page *__kmalloc_section_memmap(unsigned long nr_pages)
++
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int arch_remove_memory(u64 start, u64 size)
++{
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++
++	zone = page_zone(pfn_to_page(start_pfn));
++	return __remove_pages(zone, start_pfn, nr_pages);
++}
++#endif
+ #endif
+ 
+ /*
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 2b6b4a3..2309cf0 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -675,6 +675,21 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ }
+ EXPORT_SYMBOL_GPL(arch_add_memory);
+ 
++#ifdef CONFIG_MEMORY_HOTREMOVE
++int __ref arch_remove_memory(u64 start, u64 size)
++{
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++	int ret;
++
++	zone = page_zone(pfn_to_page(start_pfn));
++	ret = __remove_pages(zone, start_pfn, nr_pages);
++	WARN_ON_ONCE(ret);
++
++	return ret;
++}
++#endif
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+ 
+ static struct kcore_list kcore_vsyscall;
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 38675e9..191b2d9 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -85,6 +85,7 @@ extern void __online_page_free(struct page *page);
+ 
+ #ifdef CONFIG_MEMORY_HOTREMOVE
+ extern bool is_pageblock_removable_nolock(struct page *page);
++extern int arch_remove_memory(u64 start, u64 size);
+ #endif /* CONFIG_MEMORY_HOTREMOVE */
+ 
+ /* reasonably generic interface to expand the physical pages in a zone  */
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 050ddb0..ca07433 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1118,6 +1118,8 @@ repeat:
+ 	/* remove memmap entry */
+ 	firmware_map_remove(start, start + size, "System RAM");
+ 
++	arch_remove_memory(start, size);
++
+ 	unlock_memory_hotplug();
+ 
+ 	return 0;
+-- 
+1.7.1
 
