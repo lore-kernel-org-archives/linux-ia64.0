@@ -1,40 +1,76 @@
-From: Shuah Khan <shuah.khan@hp.com>
-Date: Fri, 26 Oct 2012 15:45:08 +0000
-Subject: [PATCH RFT RESEND linux-next] ia64: dma-mapping: support debug_dma_mapping_error
-Message-Id: <1351266308.4013.5.camel@lorien2>
+From: wency@cn.fujitsu.com
+Date: Tue, 23 Oct 2012 10:30:50 +0000
+Subject: [PATCH v2 12/12] memory-hotplug: free node_data when a node is offlined
+Message-Id: <1350988250-31294-13-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1351207286.6851.13.camel@lorien2>
-In-Reply-To: <1351207286.6851.13.camel@lorien2>
+References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com, m.szyprowski@samsung.com, arnd@arndb.de, andrzej.p@samsung.com, kyungmin.park@samsung.com
-Cc: linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, shuahkhan@gmail.com
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, Wen Congyang <wency@cn.fujitsu.com>
 
-Add support for debug_dma_mapping_error() call to avoid warning from
-debug_dma_unmap() interface when it checks for mapping error checked
-status. Without this patch, device driver failed to check map error
-warning is generated.
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-Signed-off-by: Shuah Khan <shuah.khan@hp.com>
+We call hotadd_new_pgdat() to allocate memory to store node_data. So we
+should free it when removing a node.
+
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- arch/ia64/include/asm/dma-mapping.h |    1 +
- 1 file changed, 1 insertion(+)
+ mm/memory_hotplug.c |   20 +++++++++++++++++++-
+ 1 files changed, 19 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 4f5e814..cf3ab7e 100644
---- a/arch/ia64/include/asm/dma-mapping.h
-+++ b/arch/ia64/include/asm/dma-mapping.h
-@@ -58,6 +58,7 @@ static inline void dma_free_attrs(struct device *dev, size_t size,
- static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index b1fe41d..6b4cd53 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1320,9 +1320,12 @@ static int check_cpu_on_node(void *data)
+ /* offline the node if all memory sections of this node are removed */
+ static void try_offline_node(int nid)
  {
- 	struct dma_map_ops *ops = platform_dma_get_ops(dev);
-+	debug_dma_mapping_error(dev, daddr);
- 	return ops->mapping_error(dev, daddr);
++	pg_data_t *pgdat = NODE_DATA(nid);
+ 	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
+-	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
++	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
+ 	unsigned long pfn;
++	struct page *pgdat_page = virt_to_page(pgdat);
++	int i;
+ 
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+ 		unsigned long section_nr = pfn_to_section_nr(pfn);
+@@ -1349,6 +1352,21 @@ static void try_offline_node(int nid)
+ 	 */
+ 	node_set_offline(nid);
+ 	unregister_one_node(nid);
++
++	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
++		/* node data is allocated from boot memory */
++		return;
++
++	/* free waittable in each zone */
++	for (i = 0; i < MAX_NR_ZONES; i++) {
++		struct zone *zone = pgdat->node_zones + i;
++
++		if (zone->wait_table)
++			vfree(zone->wait_table);
++	}
++
++	arch_refresh_nodedata(nid, NULL);
++	arch_free_nodedata(pgdat);
  }
  
+ int __ref remove_memory(int nid, u64 start, u64 size)
 -- 
-1.7.9.5
-
-
+1.7.1
 
