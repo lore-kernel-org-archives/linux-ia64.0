@@ -1,38 +1,38 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Wed, 17 Oct 2012 15:09:49 +0000
-Subject: [PATCH] [IA64] kprobes: remove unused variable in get_kprobe_inst()
-Message-Id: <CAPgLHd8TVWxi__9pQzbSCBHq2fcQu1jk_2pn55V2EyLO88rUQA@mail.gmail.com>
+From: Shuah Khan <shuah.khan@hp.com>
+Date: Thu, 25 Oct 2012 23:21:26 +0000
+Subject: [PATCH RFT] ia64: dma-mapping: support debug_dma_mapping_error
+Message-Id: <1351207286.6851.13.camel@lorien2>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com, kyungmin.park@samsung.com, m.szyprowski@samsung.com, arnd@arndb.de, andrzej.p@samsung.com
+Cc: linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, shuahkhan@gmail.com
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Add support for debug_dma_mapping_error() call to avoid warning from
+debug_dma_unmap() interface when it checks for mapping error checked
+status. Without this patch, device driver failed to check map error
+warning is generated.
 
-The variable template is initialized but never used
-otherwise, so remove the unused variable.
-
-dpatch engine is used to auto generate this patch.
-(https://github.com/weiyj/dpatch)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Signed-off-by: Shuah Khan <shuah.khan@hp.com>
 ---
- arch/ia64/kernel/kprobes.c | 3 ---
- 1 file changed, 3 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h |    1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 7026b29..ba4ad68 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -337,9 +337,6 @@ static void __kprobes get_kprobe_inst(bundle_t *bundle, uint slot,
- 	       	unsigned long *kprobe_inst, uint *major_opcode)
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 4f5e814..cf3ab7e 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -58,6 +58,7 @@ static inline void dma_free_attrs(struct device *dev, size_t size,
+ static inline int dma_mapping_error(struct device *dev, dma_addr_t daddr)
  {
- 	unsigned long kprobe_inst_p0, kprobe_inst_p1;
--	unsigned int template;
--
--	template = bundle->quad0.template;
+ 	struct dma_map_ops *ops = platform_dma_get_ops(dev);
++	debug_dma_mapping_error(dev, daddr);
+ 	return ops->mapping_error(dev, daddr);
+ }
  
- 	switch (slot) {
- 	  case 0:
+-- 
+1.7.9.5
+
+
 
