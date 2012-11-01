@@ -1,80 +1,133 @@
-From: Josh Triplett <josh@joshtriplett.org>
-Date: Mon, 19 Nov 2012 05:27:49 +0000
-Subject: [PATCH 10/58] swiotlb: Prototype swiotlb_late_init_with_default_size in swiotlb.h
-Message-Id: <1353302917-13995-11-git-send-email-josh@joshtriplett.org>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Thu, 01 Nov 2012 09:44:33 +0000
+Subject: [PATCH v3 02/12] memory-hotplug: check whether all memory blocks are offlined or not when removing m
+Message-Id: <1351763083-7905-3-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1353302917-13995-1-git-send-email-josh@joshtriplett.org>
-In-Reply-To: <1353302917-13995-1-git-send-email-josh@joshtriplett.org>
+References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Josh Triplett <josh@joshtriplett.org>, David Howells <dhowells@redhat.com>, Kyungmin Park <kyungmin.park@samsung.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Alessandro Rubini <rubini@gnudd.com>, Giancarlo Asnaghi <giancarlo.asnaghi@st.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
 
-Several source files reference swiotlb_late_init_with_default_size with
-an extern prototype; declare it in linux/swiotlb.h instead.
+From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-This also ensures that lib/swiotlb.c has a matching prototype for
-swiotlb_late_init_with_default_size, keeping the types in sync, and
-eliminating warnings from GCC (-Wmissing-prototypes) and Sparse
-(-Wdecl).
+We remove the memory like this:
+1. lock memory hotplug
+2. offline a memory block
+3. unlock memory hotplug
+4. repeat 1-3 to offline all memory blocks
+5. lock memory hotplug
+6. remove memory(TODO)
+7. unlock memory hotplug
 
-lib/swiotlb.c:207:1: warning: no previous prototype for ‘swiotlb_late_init_with_default_size’ [-Wmissing-prototypes]
+All memory blocks must be offlined before removing memory. But we don't hold
+the lock in the whole operation. So we should check whether all memory blocks
+are offlined before step6. Otherwise, kernel maybe panicked.
 
-Signed-off-by: Josh Triplett <josh@joshtriplett.org>
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- arch/ia64/hp/common/sba_iommu.c |    3 +--
- arch/x86/pci/sta2x11-fixup.c    |    2 +-
- include/linux/swiotlb.h         |    1 +
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/base/memory.c          |  6 ++++++
+ include/linux/memory_hotplug.h |  1 +
+ mm/memory_hotplug.c            | 47 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 54 insertions(+)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index bcda5b2..d37d4af 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -38,6 +38,7 @@
- #include <linux/iommu-helper.h>
- #include <linux/dma-mapping.h>
- #include <linux/prefetch.h>
-+#include <linux/swiotlb.h>
+diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+index 86c8821..badb025 100644
+--- a/drivers/base/memory.c
++++ b/drivers/base/memory.c
+@@ -675,6 +675,12 @@ int offline_memory_block(struct memory_block *mem)
+ 	return ret;
+ }
  
- #include <asm/delay.h>		/* ia64_get_itc() */
- #include <asm/io.h>
-@@ -46,8 +47,6 @@
- 
- #include <asm/acpi-ext.h>
- 
--extern int swiotlb_late_init_with_default_size (size_t size);
--
- #define PFX "IOC: "
- 
++/* return true if the memory block is offlined, otherwise, return false */
++bool is_memblock_offlined(struct memory_block *mem)
++{
++	return mem->state = MEM_OFFLINE;
++}
++
  /*
-diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
-index 9d8a509..27dde02 100644
---- a/arch/x86/pci/sta2x11-fixup.c
-+++ b/arch/x86/pci/sta2x11-fixup.c
-@@ -26,9 +26,9 @@
- #include <linux/pci_ids.h>
- #include <linux/export.h>
- #include <linux/list.h>
-+#include <linux/swiotlb.h>
+  * Initialize the sysfs support for memory devices...
+  */
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 95573ec..38675e9 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -236,6 +236,7 @@ extern int add_memory(int nid, u64 start, u64 size);
+ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int offline_pages(unsigned long start_pfn, unsigned long nr_pages);
+ extern int offline_memory_block(struct memory_block *mem);
++extern bool is_memblock_offlined(struct memory_block *mem);
+ extern int remove_memory(u64 start, u64 size);
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+ 								int nr_pages);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 600e200..f4fdedd 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1061,6 +1061,53 @@ repeat:
+ 		goto repeat;
+ 	}
  
- #define STA2X11_SWIOTLB_SIZE (4*1024*1024)
--extern int swiotlb_late_init_with_default_size(size_t default_size);
- 
- /*
-  * We build a list of bus numbers that are under the ConneXt. The
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index 8d08b3e..7e3b8c5 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -23,6 +23,7 @@ extern int swiotlb_force;
- #define IO_TLB_SHIFT 11
- 
- extern void swiotlb_init(int verbose);
-+extern int swiotlb_late_init_with_default_size(size_t default_size);
- extern void swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
- extern unsigned long swiotlb_nr_tbl(void);
- extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
++	lock_memory_hotplug();
++
++	/*
++	 * we have offlined all memory blocks like this:
++	 *   1. lock memory hotplug
++	 *   2. offline a memory block
++	 *   3. unlock memory hotplug
++	 *
++	 * repeat step1-3 to offline the memory block. All memory blocks
++	 * must be offlined before removing memory. But we don't hold the
++	 * lock in the whole operation. So we should check whether all
++	 * memory blocks are offlined.
++	 */
++
++	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
++		section_nr = pfn_to_section_nr(pfn);
++		if (!present_section_nr(section_nr))
++			continue;
++
++		section = __nr_to_section(section_nr);
++		/* same memblock? */
++		if (mem)
++			if ((section_nr >= mem->start_section_nr) &&
++			    (section_nr <= mem->end_section_nr))
++				continue;
++
++		mem = find_memory_block_hinted(section, mem);
++		if (!mem)
++			continue;
++
++		ret = is_memblock_offlined(mem);
++		if (!ret) {
++			pr_warn("removing memory fails, because memory "
++				"[%#010llx-%#010llx] is onlined\n",
++				PFN_PHYS(section_nr_to_pfn(mem->start_section_nr)),
++				PFN_PHYS(section_nr_to_pfn(mem->end_section_nr + 1)) - 1);
++
++			kobject_put(&mem->dev.kobj);
++			unlock_memory_hotplug();
++			return ret;
++		}
++	}
++
++	if (mem)
++		kobject_put(&mem->dev.kobj);
++	unlock_memory_hotplug();
++
+ 	return 0;
+ }
+ #else
 -- 
-1.7.10.4
+1.8.0
 
