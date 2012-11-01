@@ -1,79 +1,74 @@
-From: Bill Pemberton <wfp5p@virginia.edu>
-Date: Mon, 19 Nov 2012 18:24:50 +0000
-Subject: [PATCH 341/493] ia64: remove use of __devinitdata
-Message-Id: <1353349642-3677-341-git-send-email-wfp5p@virginia.edu>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Thu, 01 Nov 2012 09:44:43 +0000
+Subject: [PATCH v3 12/12] memory-hotplug: free node_data when a node is offlined
+Message-Id: <1351763083-7905-13-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
 
-CONFIG_HOTPLUG is going away as an option so __devinitdata is no
-longer needed.
+We call hotadd_new_pgdat() to allocate memory to store node_data. So we
+should free it when removing a node.
 
-Signed-off-by: Bill Pemberton <wfp5p@virginia.edu>
-Cc: Tony Luck <tony.luck@intel.com>  PL...)
-Cc: Fenghua Yu <fenghua.yu@intel.com>  PL...)
-Cc: linux-ia64@vger.kernel.org  PL...)
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Paul Mackerras <paulus@samba.org>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- arch/ia64/include/asm/acpi.h | 2 +-
- arch/ia64/include/asm/smp.h  | 2 +-
- arch/ia64/kernel/acpi.c      | 2 +-
- arch/ia64/kernel/iosapic.c   | 2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ mm/memory_hotplug.c | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
-index 301609c..359e68a 100644
---- a/arch/ia64/include/asm/acpi.h
-+++ b/arch/ia64/include/asm/acpi.h
-@@ -153,7 +153,7 @@ extern int additional_cpus;
- #else
- #define MAX_PXM_DOMAINS (256)
- #endif
--extern int __devinitdata pxm_to_nid_map[MAX_PXM_DOMAINS];
-+extern int pxm_to_nid_map[MAX_PXM_DOMAINS];
- extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
- #endif
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index d965da3..e281c31 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1320,9 +1320,12 @@ static int check_cpu_on_node(void *data)
+ /* offline the node if all memory sections of this node are removed */
+ static void try_offline_node(int nid)
+ {
++	pg_data_t *pgdat = NODE_DATA(nid);
+ 	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
+-	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
++	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
+ 	unsigned long pfn;
++	struct page *pgdat_page = virt_to_page(pgdat);
++	int i;
  
-diff --git a/arch/ia64/include/asm/smp.h b/arch/ia64/include/asm/smp.h
-index 0b3b399..fea21e9 100644
---- a/arch/ia64/include/asm/smp.h
-+++ b/arch/ia64/include/asm/smp.h
-@@ -55,7 +55,7 @@ extern struct smp_boot_data {
- 	int cpu_phys_id[NR_CPUS];
- } smp_boot_data __initdata;
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+ 		unsigned long section_nr = pfn_to_section_nr(pfn);
+@@ -1349,6 +1352,21 @@ static void try_offline_node(int nid)
+ 	 */
+ 	node_set_offline(nid);
+ 	unregister_one_node(nid);
++
++	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
++		/* node data is allocated from boot memory */
++		return;
++
++	/* free waittable in each zone */
++	for (i = 0; i < MAX_NR_ZONES; i++) {
++		struct zone *zone = pgdat->node_zones + i;
++
++		if (zone->wait_table)
++			vfree(zone->wait_table);
++	}
++
++	arch_refresh_nodedata(nid, NULL);
++	arch_free_nodedata(pgdat);
+ }
  
--extern char no_int_routing __devinitdata;
-+extern char no_int_routing;
- 
- extern cpumask_t cpu_core_map[NR_CPUS];
- DECLARE_PER_CPU_SHARED_ALIGNED(cpumask_t, cpu_sibling_map);
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index fbaefd8..af28275 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -422,7 +422,7 @@ static int __init acpi_parse_madt(struct acpi_table_header *table)
- #define PXM_FLAG_LEN ((MAX_PXM_DOMAINS + 1)/32)
- 
- static int __initdata srat_num_cpus;	/* number of cpus */
--static u32 __devinitdata pxm_flag[PXM_FLAG_LEN];
-+static u32 pxm_flag[PXM_FLAG_LEN];
- #define pxm_bit_set(bit)	(set_bit(bit,(void *)pxm_flag))
- #define pxm_bit_test(bit)	(test_bit(bit,(void *)pxm_flag))
- static struct acpi_table_slit __initdata *slit_table;
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index bf8709c..6d712b7 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -147,7 +147,7 @@ static struct iosapic_intr_info {
- 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
- } iosapic_intr_info[NR_IRQS];
- 
--static unsigned char pcat_compat __devinitdata;	/* 8259 compatibility flag */
-+static unsigned char pcat_compat;	/* 8259 compatibility flag */
- 
- static inline void
- iosapic_write(struct iosapic *iosapic, unsigned int reg, u32 val)
+ int __ref remove_memory(int nid, u64 start, u64 size)
 -- 
 1.8.0
 
