@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Thu, 01 Nov 2012 09:44:35 +0000
-Subject: [PATCH v3 04/12] memory-hotplug: remove /sys/firmware/memmap/X sysfs
-Message-Id: <1351763083-7905-5-git-send-email-wency@cn.fujitsu.com>
+Date: Thu, 01 Nov 2012 09:44:38 +0000
+Subject: [PATCH v3 07/12] memory-hotplug: implement register_page_bootmem_info_section of sparse-vmemmap
+Message-Id: <1351763083-7905-8-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
 In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
@@ -13,13 +13,13 @@ Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brow
 
 From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 
-When (hot)adding memory into system, /sys/firmware/memmap/X/{end, start, type}
-sysfs files are created. But there is no code to remove these files. The patch
-implements the function to remove them.
+For removing memmap region of sparse-vmemmap which is allocated bootmem,
+memmap region of sparse-vmemmap needs to be registered by get_page_bootmem().
+So the patch searches pages of virtual mapping and registers the pages by
+get_page_bootmem().
 
-Note: The code does not free firmware_map_entry which is allocated by bootmem.
-      So the patch makes memory leak. But I think the memory leak size is
-      very samll. And it does not affect the system.
+Note: register_page_bootmem_memmap() is not implemented for ia64, ppc, s390,
+and sparc.
 
 CC: David Rientjes <rientjes@google.com>
 CC: Jiang Liu <liuj97@gmail.com>
@@ -31,225 +31,251 @@ CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
 Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
 ---
- drivers/firmware/memmap.c    | 98 +++++++++++++++++++++++++++++++++++++++++++-
- include/linux/firmware-map.h |  6 +++
- mm/memory_hotplug.c          |  5 ++-
- 3 files changed, 106 insertions(+), 3 deletions(-)
+ arch/ia64/mm/discontig.c       |  6 +++++
+ arch/powerpc/mm/init_64.c      |  6 +++++
+ arch/s390/mm/vmem.c            |  6 +++++
+ arch/sparc/mm/init_64.c        |  6 +++++
+ arch/x86/mm/init_64.c          | 52 ++++++++++++++++++++++++++++++++++++++++++
+ include/linux/memory_hotplug.h | 11 ++-------
+ include/linux/mm.h             |  3 ++-
+ mm/memory_hotplug.c            | 37 ++++++++++++++++++++++++++----
+ 8 files changed, 113 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/firmware/memmap.c b/drivers/firmware/memmap.c
-index 90723e6..49be12a 100644
---- a/drivers/firmware/memmap.c
-+++ b/drivers/firmware/memmap.c
-@@ -21,6 +21,7 @@
- #include <linux/types.h>
- #include <linux/bootmem.h>
- #include <linux/slab.h>
-+#include <linux/mm.h>
- 
- /*
-  * Data types ------------------------------------------------------------------
-@@ -41,6 +42,7 @@ struct firmware_map_entry {
- 	const char		*type;	/* type of the memory range */
- 	struct list_head	list;	/* entry for the linked list */
- 	struct kobject		kobj;   /* kobject for each entry */
-+	unsigned int		bootmem:1; /* allocated from bootmem */
- };
- 
- /*
-@@ -79,7 +81,26 @@ static const struct sysfs_ops memmap_attr_ops = {
- 	.show = memmap_attr_show,
- };
- 
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index c641333..33943db 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -822,4 +822,10 @@ int __meminit vmemmap_populate(struct page *start_page,
+ {
+ 	return vmemmap_populate_basepages(start_page, size, node);
+ }
 +
-+static inline struct firmware_map_entry *
-+to_memmap_entry(struct kobject *kobj)
++void register_page_bootmem_memmap(unsigned long section_nr,
++				  struct page *start_page, unsigned long size)
 +{
-+	return container_of(kobj, struct firmware_map_entry, kobj);
++	/* TODO */
 +}
-+
-+static void release_firmware_map_entry(struct kobject *kobj)
-+{
-+	struct firmware_map_entry *entry = to_memmap_entry(kobj);
-+
-+	if (entry->bootmem)
-+		/* There is no way to free memory allocated from bootmem */
-+		return;
-+
-+	kfree(entry);
-+}
-+
- static struct kobj_type memmap_ktype = {
-+	.release	= release_firmware_map_entry,
- 	.sysfs_ops	= &memmap_attr_ops,
- 	.default_attrs	= def_attrs,
- };
-@@ -94,6 +115,7 @@ static struct kobj_type memmap_ktype = {
-  * in firmware initialisation code in one single thread of execution.
-  */
- static LIST_HEAD(map_entries);
-+static DEFINE_SPINLOCK(map_entries_lock);
- 
- /**
-  * firmware_map_add_entry() - Does the real work to add a firmware memmap entry.
-@@ -118,11 +140,25 @@ static int firmware_map_add_entry(u64 start, u64 end,
- 	INIT_LIST_HEAD(&entry->list);
- 	kobject_init(&entry->kobj, &memmap_ktype);
- 
-+	spin_lock(&map_entries_lock);
- 	list_add_tail(&entry->list, &map_entries);
-+	spin_unlock(&map_entries_lock);
+ #endif
+diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
+index 95a4529..6466440 100644
+--- a/arch/powerpc/mm/init_64.c
++++ b/arch/powerpc/mm/init_64.c
+@@ -297,5 +297,11 @@ int __meminit vmemmap_populate(struct page *start_page,
  
  	return 0;
  }
- 
-+/**
-+ * firmware_map_remove_entry() - Does the real work to remove a firmware
-+ * memmap entry.
-+ * @entry: removed entry.
-+ **/
-+static inline void firmware_map_remove_entry(struct firmware_map_entry *entry)
++
++void register_page_bootmem_memmap(unsigned long section_nr,
++				  struct page *start_page, unsigned long size)
 +{
-+	spin_lock(&map_entries_lock);
-+	list_del(&entry->list);
-+	spin_unlock(&map_entries_lock);
++	/* TODO */
 +}
-+
- /*
-  * Add memmap entry on sysfs
-  */
-@@ -144,6 +180,35 @@ static int add_sysfs_fw_map_entry(struct firmware_map_entry *entry)
- 	return 0;
- }
+ #endif /* CONFIG_SPARSEMEM_VMEMMAP */
  
-+/*
-+ * Remove memmap entry on sysfs
-+ */
-+static inline void remove_sysfs_fw_map_entry(struct firmware_map_entry *entry)
-+{
-+	kobject_put(&entry->kobj);
-+}
-+
-+/*
-+ * Search memmap entry
-+ */
-+
-+static struct firmware_map_entry * __meminit
-+firmware_map_find_entry(u64 start, u64 end, const char *type)
-+{
-+	struct firmware_map_entry *entry;
-+
-+	spin_lock(&map_entries_lock);
-+	list_for_each_entry(entry, &map_entries, list)
-+		if ((entry->start = start) && (entry->end = end) &&
-+		    (!strcmp(entry->type, type))) {
-+			spin_unlock(&map_entries_lock);
-+			return entry;
-+		}
-+
-+	spin_unlock(&map_entries_lock);
-+	return NULL;
-+}
-+
- /**
-  * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
-  * memory hotplug.
-@@ -193,9 +258,36 @@ int __init firmware_map_add_early(u64 start, u64 end, const char *type)
- 	if (WARN_ON(!entry))
- 		return -ENOMEM;
- 
-+	entry->bootmem = 1;
- 	return firmware_map_add_entry(start, end, type, entry);
- }
- 
-+/**
-+ * firmware_map_remove() - remove a firmware mapping entry
-+ * @start: Start of the memory range.
-+ * @end:   End of the memory range.
-+ * @type:  Type of the memory range.
-+ *
-+ * removes a firmware mapping entry.
-+ *
-+ * Returns 0 on success, or -EINVAL if no entry.
-+ **/
-+int __meminit firmware_map_remove(u64 start, u64 end, const char *type)
-+{
-+	struct firmware_map_entry *entry;
-+
-+	entry = firmware_map_find_entry(start, end - 1, type);
-+	if (!entry)
-+		return -EINVAL;
-+
-+	firmware_map_remove_entry(entry);
-+
-+	/* remove the memmap entry */
-+	remove_sysfs_fw_map_entry(entry);
-+
-+	return 0;
-+}
-+
- /*
-  * Sysfs functions -------------------------------------------------------------
-  */
-@@ -217,8 +309,10 @@ static ssize_t type_show(struct firmware_map_entry *entry, char *buf)
- 	return snprintf(buf, PAGE_SIZE, "%s\n", entry->type);
- }
- 
--#define to_memmap_attr(_attr) container_of(_attr, struct memmap_attribute, attr)
--#define to_memmap_entry(obj) container_of(obj, struct firmware_map_entry, kobj)
-+static inline struct memmap_attribute *to_memmap_attr(struct attribute *attr)
-+{
-+	return container_of(attr, struct memmap_attribute, attr);
-+}
- 
- static ssize_t memmap_attr_show(struct kobject *kobj,
- 				struct attribute *attr, char *buf)
-diff --git a/include/linux/firmware-map.h b/include/linux/firmware-map.h
-index 43fe52fc..71d4fa7 100644
---- a/include/linux/firmware-map.h
-+++ b/include/linux/firmware-map.h
-@@ -25,6 +25,7 @@
- 
- int firmware_map_add_early(u64 start, u64 end, const char *type);
- int firmware_map_add_hotplug(u64 start, u64 end, const char *type);
-+int firmware_map_remove(u64 start, u64 end, const char *type);
- 
- #else /* CONFIG_FIRMWARE_MEMMAP */
- 
-@@ -38,6 +39,11 @@ static inline int firmware_map_add_hotplug(u64 start, u64 end, const char *type)
- 	return 0;
- }
- 
-+static inline int firmware_map_remove(u64 start, u64 end, const char *type)
-+{
-+	return 0;
-+}
-+
- #endif /* CONFIG_FIRMWARE_MEMMAP */
- 
- #endif /* _LINUX_FIRMWARE_MAP_H */
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 80fc70c..050ddb0 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1073,7 +1073,7 @@ static int is_memblock_offlined_cb(struct memory_block *mem, void *arg)
+diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
+index 387c7c6..4f4803a 100644
+--- a/arch/s390/mm/vmem.c
++++ b/arch/s390/mm/vmem.c
+@@ -236,6 +236,12 @@ out:
  	return ret;
  }
  
--int remove_memory(u64 start, u64 size)
-+int __ref remove_memory(u64 start, u64 size)
- {
- 	unsigned long start_pfn, end_pfn;
- 	int ret = 0;
-@@ -1115,6 +1115,9 @@ repeat:
- 		return ret;
- 	}
- 
-+	/* remove memmap entry */
-+	firmware_map_remove(start, start + size, "System RAM");
++void register_page_bootmem_memmap(unsigned long section_nr,
++				  struct page *start_page, unsigned long size)
++{
++	/* TODO */
++}
 +
- 	unlock_memory_hotplug();
+ /*
+  * Add memory segment to the segment list if it doesn't overlap with
+  * an already present segment.
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 9e28a11..75a984b 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -2231,6 +2231,12 @@ void __meminit vmemmap_populate_print_last(void)
+ 		node_start = 0;
+ 	}
+ }
++
++void register_page_bootmem_memmap(unsigned long section_nr,
++				  struct page *start_page, unsigned long size)
++{
++	/* TODO */
++}
+ #endif /* CONFIG_SPARSEMEM_VMEMMAP */
  
+ static void prot_init_common(unsigned long page_none,
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 5675335..795dae3 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -998,6 +998,58 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
  	return 0;
+ }
+ 
++void register_page_bootmem_memmap(unsigned long section_nr,
++				  struct page *start_page, unsigned long size)
++{
++	unsigned long addr = (unsigned long)start_page;
++	unsigned long end = (unsigned long)(start_page + size);
++	unsigned long next;
++	pgd_t *pgd;
++	pud_t *pud;
++	pmd_t *pmd;
++
++	for (; addr < end; addr = next) {
++		pte_t *pte = NULL;
++
++		pgd = pgd_offset_k(addr);
++		if (pgd_none(*pgd)) {
++			next = (addr + PAGE_SIZE) & PAGE_MASK;
++			continue;
++		}
++		get_page_bootmem(section_nr, pgd_page(*pgd), MIX_SECTION_INFO);
++
++		pud = pud_offset(pgd, addr);
++		if (pud_none(*pud)) {
++			next = (addr + PAGE_SIZE) & PAGE_MASK;
++			continue;
++		}
++		get_page_bootmem(section_nr, pud_page(*pud), MIX_SECTION_INFO);
++
++		if (!cpu_has_pse) {
++			next = (addr + PAGE_SIZE) & PAGE_MASK;
++			pmd = pmd_offset(pud, addr);
++			if (pmd_none(*pmd))
++				continue;
++			get_page_bootmem(section_nr, pmd_page(*pmd),
++					 MIX_SECTION_INFO);
++
++			pte = pte_offset_kernel(pmd, addr);
++			if (pte_none(*pte))
++				continue;
++			get_page_bootmem(section_nr, pte_page(*pte),
++					 SECTION_INFO);
++		} else {
++			next = pmd_addr_end(addr, end);
++
++			pmd = pmd_offset(pud, addr);
++			if (pmd_none(*pmd))
++				continue;
++			get_page_bootmem(section_nr, pmd_page(*pmd),
++					 SECTION_INFO);
++		}
++	}
++}
++
+ void __meminit vmemmap_populate_print_last(void)
+ {
+ 	if (p_start) {
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 191b2d9..d4c4402 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -163,17 +163,10 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
+ #endif /* CONFIG_NUMA */
+ #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
+ 
+-#ifdef CONFIG_SPARSEMEM_VMEMMAP
+-static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
+-{
+-}
+-static inline void put_page_bootmem(struct page *page)
+-{
+-}
+-#else
+ extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
+ extern void put_page_bootmem(struct page *page);
+-#endif
++extern void get_page_bootmem(unsigned long ingo, struct page *page,
++			     unsigned long type);
+ 
+ /*
+  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index fa06804..8e5a56f 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1640,7 +1640,8 @@ int vmemmap_populate_basepages(struct page *start_page,
+ 						unsigned long pages, int node);
+ int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
+ void vmemmap_populate_print_last(void);
+-
++void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
++				  unsigned long size);
+ 
+ enum mf_flags {
+ 	MF_COUNT_INCREASED = 1 << 0,
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 66a79a7..db9806c 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -91,9 +91,8 @@ static void release_memory_resource(struct resource *res)
+ }
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
+-#ifndef CONFIG_SPARSEMEM_VMEMMAP
+-static void get_page_bootmem(unsigned long info,  struct page *page,
+-			     unsigned long type)
++void get_page_bootmem(unsigned long info,  struct page *page,
++		      unsigned long type)
+ {
+ 	page->lru.next = (struct list_head *) type;
+ 	SetPagePrivate(page);
+@@ -127,6 +126,7 @@ void __ref put_page_bootmem(struct page *page)
+ 
+ }
+ 
++#ifndef CONFIG_SPARSEMEM_VMEMMAP
+ static void register_page_bootmem_info_section(unsigned long start_pfn)
+ {
+ 	unsigned long *usemap, mapsize, section_nr, i;
+@@ -160,6 +160,36 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
+ 		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
+ 
+ }
++#else
++static void register_page_bootmem_info_section(unsigned long start_pfn)
++{
++	unsigned long *usemap, mapsize, section_nr, i;
++	struct mem_section *ms;
++	struct page *page, *memmap;
++
++	if (!pfn_valid(start_pfn))
++		return;
++
++	section_nr = pfn_to_section_nr(start_pfn);
++	ms = __nr_to_section(section_nr);
++
++	memmap = sparse_decode_mem_map(ms->section_mem_map, section_nr);
++
++	page = virt_to_page(memmap);
++	mapsize = sizeof(struct page) * PAGES_PER_SECTION;
++	mapsize = PAGE_ALIGN(mapsize) >> PAGE_SHIFT;
++
++	register_page_bootmem_memmap(section_nr, memmap, PAGES_PER_SECTION);
++
++	usemap = __nr_to_section(section_nr)->pageblock_flags;
++	page = virt_to_page(usemap);
++
++	mapsize = PAGE_ALIGN(usemap_size()) >> PAGE_SHIFT;
++
++	for (i = 0; i < mapsize; i++, page++)
++		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
++}
++#endif
+ 
+ void register_page_bootmem_info_node(struct pglist_data *pgdat)
+ {
+@@ -202,7 +232,6 @@ void register_page_bootmem_info_node(struct pglist_data *pgdat)
+ 			register_page_bootmem_info_section(pfn);
+ 	}
+ }
+-#endif /* !CONFIG_SPARSEMEM_VMEMMAP */
+ 
+ static void grow_zone_span(struct zone *zone, unsigned long start_pfn,
+ 			   unsigned long end_pfn)
 -- 
 1.8.0
 
