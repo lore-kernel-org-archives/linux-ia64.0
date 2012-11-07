@@ -1,281 +1,121 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Thu, 01 Nov 2012 09:44:38 +0000
-Subject: [PATCH v3 07/12] memory-hotplug: implement register_page_bootmem_info_section of sparse-vmemmap
-Message-Id: <1351763083-7905-8-git-send-email-wency@cn.fujitsu.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Wed, 07 Nov 2012 07:40:44 +0000
+Subject: [PATCH] Update start_pfn in zone and pg_data when spanned_pages == 0.
+Message-Id: <509A107C.9050702@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+References: <1350988250-31294-1-git-send-email-wency@cn.fujitsu.com> <1350988250-31294-11-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1350988250-31294-11-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
+To: wency@cn.fujitsu.com
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, akpm@linux-foundation.org, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+On 10/23/2012 06:30 PM, wency@cn.fujitsu.com wrote:
+> From: Yasuaki Ishimatsu<isimatu.yasuaki@jp.fujitsu.com>
+......
+> +	/* The zone has no valid section */
+> +	zone->zone_start_pfn = 0;
+> +	zone->spanned_pages = 0;
+> +	zone_span_writeunlock(zone);
+> +}
+> +
+> +static void shrink_pgdat_span(struct pglist_data *pgdat,
+> +			      unsigned long start_pfn, unsigned long end_pfn)
+> +{
+......
+> +	/* The pgdat has no valid section */
+> +	pgdat->node_start_pfn = 0;
+> +	pgdat->node_spanned_pages = 0;
+> +}
 
-For removing memmap region of sparse-vmemmap which is allocated bootmem,
-memmap region of sparse-vmemmap needs to be registered by get_page_bootmem().
-So the patch searches pages of virtual mapping and registers the pages by
-get_page_bootmem().
+Hi,
 
-Note: register_page_bootmem_memmap() is not implemented for ia64, ppc, s390,
-and sparc.
+If we hot-remove memory only and leave the cpus alive, the corresponding
+node will not be removed. But the node_start_pfn and node_spanned_pages
+in pg_data will be reset to 0. In this case, when we hot-add the memory
+back next time, the node_start_pfn will always be 0 because no pfn is less
+than 0. After that, if we hot-remove the memory again, it will cause kernel
+panic in function find_biggest_section_pfn() when it tries to scan all 
+the pfns.
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+The zone will also have the same problem.
+
+This patch sets start_pfn to the start_pfn of the section being added when
+spanned_pages of the zone or pg_data is 0.
+
+---How to reproduce---
+
+1. hot-add a container with some memory and cpus;
+2. hot-remove the container's memory, and leave cpus there;
+3. hot-add these memory again;
+4. hot-remove them again;
+
+then, the kernel will panic.
+
+---Call trace---
+
+[10530.646285] BUG: unable to handle kernel paging request at 
+00000fff82a8cc38
+[10530.729670] IP: [<ffffffff811c0d55>] find_biggest_section_pfn+0xe5/0x180
+......
+[10533.064975] Call Trace:
+[10533.094162]  [<ffffffff811c0fcf>] ? __remove_zone+0x2f/0x1b0
+[10533.161757]  [<ffffffff811c1124>] __remove_zone+0x184/0x1b0
+[10533.228318]  [<ffffffff811c11dc>] __remove_section+0x8c/0xb0
+[10533.295916]  [<ffffffff811c12e7>] __remove_pages+0xe7/0x120
+[10533.362476]  [<ffffffff81654f7c>] arch_remove_memory+0x2c/0x80
+[10533.432151]  [<ffffffff81655bb6>] remove_memory+0x56/0x90
+[10533.496633]  [<ffffffff813da0c8>] 
+acpi_memory_device_remove_memory+0x48/0x73
+[10533.580846]  [<ffffffff813da55a>] acpi_memory_device_notify+0x153/0x274
+[10533.659865]  [<ffffffff813a63cf>] ? acpi_bus_get_device+0x2f/0x77
+[10533.732653]  [<ffffffff813a6589>] ? acpi_bus_notify+0xb5/0xec
+[10533.801291]  [<ffffffff813b6786>] acpi_ev_notify_dispatch+0x41/0x5f
+[10533.876156]  [<ffffffff813a3867>] acpi_os_execute_deferred+0x27/0x34
+[10533.952062]  [<ffffffff81090589>] process_one_work+0x219/0x680
+[10534.021736]  [<ffffffff81090528>] ? process_one_work+0x1b8/0x680
+[10534.093488]  [<ffffffff813a3840>] ? 
+acpi_os_wait_events_complete+0x23/0x23
+[10534.175622]  [<ffffffff810923be>] worker_thread+0x12e/0x320
+[10534.242181]  [<ffffffff81092290>] ? manage_workers+0x110/0x110
+[10534.311855]  [<ffffffff81098396>] kthread+0xc6/0xd0
+[10534.370111]  [<ffffffff8167c7c4>] kernel_thread_helper+0x4/0x10
+[10534.440824]  [<ffffffff81672230>] ? retint_restore_args+0x13/0x13
+[10534.513612]  [<ffffffff810982d0>] ? __init_kthread_worker+0x70/0x70
+[10534.588480]  [<ffffffff8167c7c0>] ? gs_change+0x13/0x13
+......
+[10535.045543] ---[ end trace 96d845dbf33fee11 ]---
+
+
+Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/ia64/mm/discontig.c       |  6 +++++
- arch/powerpc/mm/init_64.c      |  6 +++++
- arch/s390/mm/vmem.c            |  6 +++++
- arch/sparc/mm/init_64.c        |  6 +++++
- arch/x86/mm/init_64.c          | 52 ++++++++++++++++++++++++++++++++++++++++++
- include/linux/memory_hotplug.h | 11 ++-------
- include/linux/mm.h             |  3 ++-
- mm/memory_hotplug.c            | 37 ++++++++++++++++++++++++++----
- 8 files changed, 113 insertions(+), 14 deletions(-)
+  mm/memory_hotplug.c |    4 ++--
+  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index c641333..33943db 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -822,4 +822,10 @@ int __meminit vmemmap_populate(struct page *start_page,
- {
- 	return vmemmap_populate_basepages(start_page, size, node);
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif
-diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
-index 95a4529..6466440 100644
---- a/arch/powerpc/mm/init_64.c
-+++ b/arch/powerpc/mm/init_64.c
-@@ -297,5 +297,11 @@ int __meminit vmemmap_populate(struct page *start_page,
- 
- 	return 0;
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif /* CONFIG_SPARSEMEM_VMEMMAP */
- 
-diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
-index 387c7c6..4f4803a 100644
---- a/arch/s390/mm/vmem.c
-+++ b/arch/s390/mm/vmem.c
-@@ -236,6 +236,12 @@ out:
- 	return ret;
- }
- 
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
-+
- /*
-  * Add memory segment to the segment list if it doesn't overlap with
-  * an already present segment.
-diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
-index 9e28a11..75a984b 100644
---- a/arch/sparc/mm/init_64.c
-+++ b/arch/sparc/mm/init_64.c
-@@ -2231,6 +2231,12 @@ void __meminit vmemmap_populate_print_last(void)
- 		node_start = 0;
- 	}
- }
-+
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	/* TODO */
-+}
- #endif /* CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void prot_init_common(unsigned long page_none,
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index 5675335..795dae3 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -998,6 +998,58 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
- 	return 0;
- }
- 
-+void register_page_bootmem_memmap(unsigned long section_nr,
-+				  struct page *start_page, unsigned long size)
-+{
-+	unsigned long addr = (unsigned long)start_page;
-+	unsigned long end = (unsigned long)(start_page + size);
-+	unsigned long next;
-+	pgd_t *pgd;
-+	pud_t *pud;
-+	pmd_t *pmd;
-+
-+	for (; addr < end; addr = next) {
-+		pte_t *pte = NULL;
-+
-+		pgd = pgd_offset_k(addr);
-+		if (pgd_none(*pgd)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pgd_page(*pgd), MIX_SECTION_INFO);
-+
-+		pud = pud_offset(pgd, addr);
-+		if (pud_none(*pud)) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			continue;
-+		}
-+		get_page_bootmem(section_nr, pud_page(*pud), MIX_SECTION_INFO);
-+
-+		if (!cpu_has_pse) {
-+			next = (addr + PAGE_SIZE) & PAGE_MASK;
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 MIX_SECTION_INFO);
-+
-+			pte = pte_offset_kernel(pmd, addr);
-+			if (pte_none(*pte))
-+				continue;
-+			get_page_bootmem(section_nr, pte_page(*pte),
-+					 SECTION_INFO);
-+		} else {
-+			next = pmd_addr_end(addr, end);
-+
-+			pmd = pmd_offset(pud, addr);
-+			if (pmd_none(*pmd))
-+				continue;
-+			get_page_bootmem(section_nr, pmd_page(*pmd),
-+					 SECTION_INFO);
-+		}
-+	}
-+}
-+
- void __meminit vmemmap_populate_print_last(void)
- {
- 	if (p_start) {
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index 191b2d9..d4c4402 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -163,17 +163,10 @@ static inline void arch_refresh_nodedata(int nid, pg_data_t *pgdat)
- #endif /* CONFIG_NUMA */
- #endif /* CONFIG_HAVE_ARCH_NODEDATA_EXTENSION */
- 
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static inline void register_page_bootmem_info_node(struct pglist_data *pgdat)
--{
--}
--static inline void put_page_bootmem(struct page *page)
--{
--}
--#else
- extern void register_page_bootmem_info_node(struct pglist_data *pgdat);
- extern void put_page_bootmem(struct page *page);
--#endif
-+extern void get_page_bootmem(unsigned long ingo, struct page *page,
-+			     unsigned long type);
- 
- /*
-  * Lock for memory hotplug guarantees 1) all callbacks for memory hotplug
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index fa06804..8e5a56f 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1640,7 +1640,8 @@ int vmemmap_populate_basepages(struct page *start_page,
- 						unsigned long pages, int node);
- int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
- void vmemmap_populate_print_last(void);
--
-+void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
-+				  unsigned long size);
- 
- enum mf_flags {
- 	MF_COUNT_INCREASED = 1 << 0,
 diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 66a79a7..db9806c 100644
+index 56b758a..4aa313c 100644
 --- a/mm/memory_hotplug.c
 +++ b/mm/memory_hotplug.c
-@@ -91,9 +91,8 @@ static void release_memory_resource(struct resource *res)
- }
- 
- #ifdef CONFIG_MEMORY_HOTPLUG_SPARSE
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
--static void get_page_bootmem(unsigned long info,  struct page *page,
--			     unsigned long type)
-+void get_page_bootmem(unsigned long info,  struct page *page,
-+		      unsigned long type)
- {
- 	page->lru.next = (struct list_head *) type;
- 	SetPagePrivate(page);
-@@ -127,6 +126,7 @@ void __ref put_page_bootmem(struct page *page)
- 
- }
- 
-+#ifndef CONFIG_SPARSEMEM_VMEMMAP
- static void register_page_bootmem_info_section(unsigned long start_pfn)
- {
- 	unsigned long *usemap, mapsize, section_nr, i;
-@@ -160,6 +160,36 @@ static void register_page_bootmem_info_section(unsigned long start_pfn)
- 		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
- 
- }
-+#else
-+static void register_page_bootmem_info_section(unsigned long start_pfn)
-+{
-+	unsigned long *usemap, mapsize, section_nr, i;
-+	struct mem_section *ms;
-+	struct page *page, *memmap;
-+
-+	if (!pfn_valid(start_pfn))
-+		return;
-+
-+	section_nr = pfn_to_section_nr(start_pfn);
-+	ms = __nr_to_section(section_nr);
-+
-+	memmap = sparse_decode_mem_map(ms->section_mem_map, section_nr);
-+
-+	page = virt_to_page(memmap);
-+	mapsize = sizeof(struct page) * PAGES_PER_SECTION;
-+	mapsize = PAGE_ALIGN(mapsize) >> PAGE_SHIFT;
-+
-+	register_page_bootmem_memmap(section_nr, memmap, PAGES_PER_SECTION);
-+
-+	usemap = __nr_to_section(section_nr)->pageblock_flags;
-+	page = virt_to_page(usemap);
-+
-+	mapsize = PAGE_ALIGN(usemap_size()) >> PAGE_SHIFT;
-+
-+	for (i = 0; i < mapsize; i++, page++)
-+		get_page_bootmem(section_nr, page, MIX_SECTION_INFO);
-+}
-+#endif
- 
- void register_page_bootmem_info_node(struct pglist_data *pgdat)
- {
-@@ -202,7 +232,6 @@ void register_page_bootmem_info_node(struct pglist_data *pgdat)
- 			register_page_bootmem_info_section(pfn);
- 	}
- }
--#endif /* !CONFIG_SPARSEMEM_VMEMMAP */
- 
- static void grow_zone_span(struct zone *zone, unsigned long start_pfn,
- 			   unsigned long end_pfn)
+@@ -212,7 +212,7 @@ static void grow_zone_span(struct zone *zone, 
+unsigned long start_pfn,
+         zone_span_writelock(zone);
+
+         old_zone_end_pfn = zone->zone_start_pfn + zone->spanned_pages;
+-       if (start_pfn < zone->zone_start_pfn)
++       if (!zone->spanned_pages || start_pfn < zone->zone_start_pfn)
+                 zone->zone_start_pfn = start_pfn;
+
+         zone->spanned_pages = max(old_zone_end_pfn, end_pfn) -
+@@ -227,7 +227,7 @@ static void grow_pgdat_span(struct pglist_data 
+*pgdat, unsigned long start_pfn,
+         unsigned long old_pgdat_end_pfn                  pgdat->node_start_pfn + pgdat->node_spanned_pages;
+
+-       if (start_pfn < pgdat->node_start_pfn)
++       if (!pgdat->node_spanned_pages || start_pfn < pgdat->node_start_pfn)
+                 pgdat->node_start_pfn = start_pfn;
+
+         pgdat->node_spanned_pages = max(old_pgdat_end_pfn, end_pfn) -
 -- 
-1.8.0
+1.7.10.1
 
