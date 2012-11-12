@@ -1,74 +1,39 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Tue, 27 Nov 2012 09:59:20 +0000
-Subject: [Patch v4 12/12] memory-hotplug: free node_data when a node is offlined
-Message-Id: <1354010422-19648-13-git-send-email-wency@cn.fujitsu.com>
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Mon, 12 Nov 2012 21:43:27 +0000
+Subject: fs/pstore/platform.c:175:3: error: too few arguments to function 'psinfo->write'
+Message-Id: <50a16d7f./pVyLLFGO2zYdnIn%fengguang.wu@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
+To: linux-ia64@vger.kernel.org
 
-We call hotadd_new_pgdat() to allocate memory to store node_data. So we
-should free it when removing a node.
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git next
+head:   16e4591b892978586ec79b003665f46528cf19a9
+commit: 7c0e29acbf054eff3e9d32f6b434d60cd19468e9 efi_pstore: Add a sequence counter to a variable name
+date:   31 minutes ago
+config: make ARCH=x86_64 allmodconfig
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+All error/warnings:
+
+fs/pstore/platform.c: In function 'pstore_console_write':
+fs/pstore/platform.c:175:3: warning: passing argument 6 of 'psinfo->write' makes integer from pointer without a cast [enabled by default]
+fs/pstore/platform.c:175:3: note: expected 'size_t' but argument is of type 'struct pstore_info *'
+fs/pstore/platform.c:175:3: error: too few arguments to function 'psinfo->write'
+
+vim +175 fs/pstore/platform.c
+
+80c9d03c Chuansheng Liu  2012-09-18  169  			if (!spin_trylock_irqsave(&psinfo->buf_lock, flags))
+80c9d03c Chuansheng Liu  2012-09-18  170  				break;
+80c9d03c Chuansheng Liu  2012-09-18  171  		} else {
+80c9d03c Chuansheng Liu  2012-09-18  172  			spin_lock_irqsave(&psinfo->buf_lock, flags);
+80c9d03c Chuansheng Liu  2012-09-18  173  		}
+f29e5956 Anton Vorontsov 2012-05-26  174  		memcpy(psinfo->buf, s, c);
+f29e5956 Anton Vorontsov 2012-05-26 @175  		psinfo->write(PSTORE_TYPE_CONSOLE, 0, NULL, 0, c, psinfo);
+f29e5956 Anton Vorontsov 2012-05-26  176  		spin_unlock_irqrestore(&psinfo->buf_lock, flags);
+f29e5956 Anton Vorontsov 2012-05-26  177  		s += c;
+f29e5956 Anton Vorontsov 2012-05-26  178  		c = e - s;
+
 ---
- mm/memory_hotplug.c | 20 +++++++++++++++++++-
- 1 file changed, 19 insertions(+), 1 deletion(-)
-
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 449663e..d1451ab 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1309,9 +1309,12 @@ static int check_cpu_on_node(void *data)
- /* offline the node if all memory sections of this node are removed */
- static void try_offline_node(int nid)
- {
-+	pg_data_t *pgdat = NODE_DATA(nid);
- 	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
--	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
-+	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
- 	unsigned long pfn;
-+	struct page *pgdat_page = virt_to_page(pgdat);
-+	int i;
- 
- 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
- 		unsigned long section_nr = pfn_to_section_nr(pfn);
-@@ -1338,6 +1341,21 @@ static void try_offline_node(int nid)
- 	 */
- 	node_set_offline(nid);
- 	unregister_one_node(nid);
-+
-+	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
-+		/* node data is allocated from boot memory */
-+		return;
-+
-+	/* free waittable in each zone */
-+	for (i = 0; i < MAX_NR_ZONES; i++) {
-+		struct zone *zone = pgdat->node_zones + i;
-+
-+		if (zone->wait_table)
-+			vfree(zone->wait_table);
-+	}
-+
-+	arch_refresh_nodedata(nid, NULL);
-+	arch_free_nodedata(pgdat);
- }
- 
- int __ref remove_memory(int nid, u64 start, u64 size)
--- 
-1.8.0
-
+0-DAY kernel build testing backend         Open Source Technology Center
+Fengguang Wu, Yuanhan Liu                              Intel Corporation
