@@ -1,74 +1,80 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Thu, 01 Nov 2012 09:44:43 +0000
-Subject: [PATCH v3 12/12] memory-hotplug: free node_data when a node is offlined
-Message-Id: <1351763083-7905-13-git-send-email-wency@cn.fujitsu.com>
+From: Josh Triplett <josh@joshtriplett.org>
+Date: Mon, 19 Nov 2012 05:27:49 +0000
+Subject: [PATCH 10/58] swiotlb: Prototype swiotlb_late_init_with_default_size in swiotlb.h
+Message-Id: <1353302917-13995-11-git-send-email-josh@joshtriplett.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+References: <1353302917-13995-1-git-send-email-josh@joshtriplett.org>
+In-Reply-To: <1353302917-13995-1-git-send-email-josh@joshtriplett.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Linus Torvalds <torvalds@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Josh Triplett <josh@joshtriplett.org>, David Howells <dhowells@redhat.com>, Kyungmin Park <kyungmin.park@samsung.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Alessandro Rubini <rubini@gnudd.com>, Giancarlo Asnaghi <giancarlo.asnaghi@st.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-We call hotadd_new_pgdat() to allocate memory to store node_data. So we
-should free it when removing a node.
+Several source files reference swiotlb_late_init_with_default_size with
+an extern prototype; declare it in linux/swiotlb.h instead.
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-CC: Paul Mackerras <paulus@samba.org>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+This also ensures that lib/swiotlb.c has a matching prototype for
+swiotlb_late_init_with_default_size, keeping the types in sync, and
+eliminating warnings from GCC (-Wmissing-prototypes) and Sparse
+(-Wdecl).
+
+lib/swiotlb.c:207:1: warning: no previous prototype for ‘swiotlb_late_init_with_default_size’ [-Wmissing-prototypes]
+
+Signed-off-by: Josh Triplett <josh@joshtriplett.org>
 ---
- mm/memory_hotplug.c | 20 +++++++++++++++++++-
- 1 file changed, 19 insertions(+), 1 deletion(-)
+ arch/ia64/hp/common/sba_iommu.c |    3 +--
+ arch/x86/pci/sta2x11-fixup.c    |    2 +-
+ include/linux/swiotlb.h         |    1 +
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index d965da3..e281c31 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1320,9 +1320,12 @@ static int check_cpu_on_node(void *data)
- /* offline the node if all memory sections of this node are removed */
- static void try_offline_node(int nid)
- {
-+	pg_data_t *pgdat = NODE_DATA(nid);
- 	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
--	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
-+	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
- 	unsigned long pfn;
-+	struct page *pgdat_page = virt_to_page(pgdat);
-+	int i;
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index bcda5b2..d37d4af 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -38,6 +38,7 @@
+ #include <linux/iommu-helper.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/prefetch.h>
++#include <linux/swiotlb.h>
  
- 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
- 		unsigned long section_nr = pfn_to_section_nr(pfn);
-@@ -1349,6 +1352,21 @@ static void try_offline_node(int nid)
- 	 */
- 	node_set_offline(nid);
- 	unregister_one_node(nid);
-+
-+	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
-+		/* node data is allocated from boot memory */
-+		return;
-+
-+	/* free waittable in each zone */
-+	for (i = 0; i < MAX_NR_ZONES; i++) {
-+		struct zone *zone = pgdat->node_zones + i;
-+
-+		if (zone->wait_table)
-+			vfree(zone->wait_table);
-+	}
-+
-+	arch_refresh_nodedata(nid, NULL);
-+	arch_free_nodedata(pgdat);
- }
+ #include <asm/delay.h>		/* ia64_get_itc() */
+ #include <asm/io.h>
+@@ -46,8 +47,6 @@
  
- int __ref remove_memory(int nid, u64 start, u64 size)
+ #include <asm/acpi-ext.h>
+ 
+-extern int swiotlb_late_init_with_default_size (size_t size);
+-
+ #define PFX "IOC: "
+ 
+ /*
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index 9d8a509..27dde02 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -26,9 +26,9 @@
+ #include <linux/pci_ids.h>
+ #include <linux/export.h>
+ #include <linux/list.h>
++#include <linux/swiotlb.h>
+ 
+ #define STA2X11_SWIOTLB_SIZE (4*1024*1024)
+-extern int swiotlb_late_init_with_default_size(size_t default_size);
+ 
+ /*
+  * We build a list of bus numbers that are under the ConneXt. The
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index 8d08b3e..7e3b8c5 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -23,6 +23,7 @@ extern int swiotlb_force;
+ #define IO_TLB_SHIFT 11
+ 
+ extern void swiotlb_init(int verbose);
++extern int swiotlb_late_init_with_default_size(size_t default_size);
+ extern void swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
+ extern unsigned long swiotlb_nr_tbl(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
 -- 
-1.8.0
+1.7.10.4
 
