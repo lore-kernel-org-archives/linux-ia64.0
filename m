@@ -1,60 +1,69 @@
-From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Thu, 01 Nov 2012 09:44:37 +0000
-Subject: [PATCH v3 06/12] memory-hotplug: unregister memory section on SPARSEMEM_VMEMMAP
-Message-Id: <1351763083-7905-7-git-send-email-wency@cn.fujitsu.com>
+From: Jaegeuk Hanse <jaegeuk.hanse@gmail.com>
+Date: Tue, 20 Nov 2012 06:22:28 +0000
+Subject: Re: [PATCH v3 06/12] memory-hotplug: unregister memory section on SPARSEMEM_VMEMMAP
+Message-Id: <50AB21A4.8050709@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com> <1351763083-7905-7-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1351763083-7905-7-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
-Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
+To: Wen Congyang <wency@cn.fujitsu.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
 
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+On 11/01/2012 05:44 PM, Wen Congyang wrote:
+> From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+>
+> Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
+> we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
+>
+> So the patch add unregister_memory_section() into __remove_section().
 
-Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
-we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
+Hi Yasuaki,
 
-So the patch add unregister_memory_section() into __remove_section().
+In order to review this patch, I should dig sparse memory codes in 
+advance. But I have some confuse of codes. Why need encode/decode mem 
+map instead of set mem_map to ms->section_mem_map directly?
 
-CC: David Rientjes <rientjes@google.com>
-CC: Jiang Liu <liuj97@gmail.com>
-CC: Len Brown <len.brown@intel.com>
-CC: Christoph Lameter <cl@linux.com>
-Cc: Minchan Kim <minchan.kim@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
-CC: Wen Congyang <wency@cn.fujitsu.com>
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
----
- mm/memory_hotplug.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+Regards,
+Jaegeuk
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index ca07433..66a79a7 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -286,11 +286,14 @@ static int __meminit __add_section(int nid, struct zone *zone,
- #ifdef CONFIG_SPARSEMEM_VMEMMAP
- static int __remove_section(struct zone *zone, struct mem_section *ms)
- {
--	/*
--	 * XXX: Freeing memmap with vmemmap is not implement yet.
--	 *      This should be removed later.
--	 */
--	return -EBUSY;
-+	int ret = -EINVAL;
-+
-+	if (!valid_section(ms))
-+		return ret;
-+
-+	ret = unregister_memory_section(ms);
-+
-+	return ret;
- }
- #else
- static int __remove_section(struct zone *zone, struct mem_section *ms)
--- 
-1.8.0
+>
+> CC: David Rientjes <rientjes@google.com>
+> CC: Jiang Liu <liuj97@gmail.com>
+> CC: Len Brown <len.brown@intel.com>
+> CC: Christoph Lameter <cl@linux.com>
+> Cc: Minchan Kim <minchan.kim@gmail.com>
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+> CC: Wen Congyang <wency@cn.fujitsu.com>
+> Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+> ---
+>   mm/memory_hotplug.c | 13 ++++++++-----
+>   1 file changed, 8 insertions(+), 5 deletions(-)
+>
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index ca07433..66a79a7 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -286,11 +286,14 @@ static int __meminit __add_section(int nid, struct zone *zone,
+>   #ifdef CONFIG_SPARSEMEM_VMEMMAP
+>   static int __remove_section(struct zone *zone, struct mem_section *ms)
+>   {
+> -	/*
+> -	 * XXX: Freeing memmap with vmemmap is not implement yet.
+> -	 *      This should be removed later.
+> -	 */
+> -	return -EBUSY;
+> +	int ret = -EINVAL;
+> +
+> +	if (!valid_section(ms))
+> +		return ret;
+> +
+> +	ret = unregister_memory_section(ms);
+> +
+> +	return ret;
+>   }
+>   #else
+>   static int __remove_section(struct zone *zone, struct mem_section *ms)
 
