@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Wed, 21 Nov 2012 05:12:40 +0000
+Date: Wed, 21 Nov 2012 05:28:43 +0000
 Subject: Re: [PATCH v3 06/12] memory-hotplug: unregister memory section on SPARSEMEM_VMEMMAP
-Message-Id: <50AC62C8.8020500@cn.fujitsu.com>
+Message-Id: <50AC668B.3050201@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com> <1351763083-7905-7-git-send-email-wency@cn.fujitsu.com> <50AB669D.3060007@gmail.com> <50AC4505.1000007@cn.fujitsu.com> <50AC571C.4030504@gmail.com> <50AC5BC1.9050200@cn.fujitsu.com> <50AC608F.2020307@gmail.com>
 In-Reply-To: <50AC608F.2020307@gmail.com>
@@ -61,18 +61,23 @@ At 11/21/2012 01:03 PM, Jaegeuk Hanse Wrote:
 > pseries_remove_memory()
 >     pseries_remove_memblock()
 >         memblock_remove()
+
+It seems that pseries servers don't use ACPI(ACPI is only supported for
+ia64 and x86 now. arm will be supported in the furture).
+
+I am not ppc expert, and I don't know why we touch memblock when hotadding
+memory in ppc case. But IIRC, we don't need memblock after the machine has
+booted up in x86 case. So there is no need to touch it when hotadd/hotremove
+the memory in x86 case.
+
+Thanks
+Wen Congyang
+
 > 
 > Furthermore, memblock is set to record available memory ranges get from
 > e820 map(you can check it in memblock_x86_fill()) in x86 case, after
 > hot-remove memory, this range of memory can't be available, why not
 > remove them as pseries servers' codes do.
-
-Oh, it is powerpc, and I don't read this code. I will check it now.
-
-Thanks for pointing it out.
-
-Wen Congyang
-
 > 
 >>> memblock_remove()
 >>>             __memblock_remove()memory-hotplug: unregister memory
