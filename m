@@ -1,39 +1,39 @@
-From: kbuild test robot <fengguang.wu@intel.com>
-Date: Mon, 12 Nov 2012 21:43:27 +0000
-Subject: fs/pstore/platform.c:175:3: error: too few arguments to function 'psinfo->write'
-Message-Id: <50a16d7f./pVyLLFGO2zYdnIn%fengguang.wu@intel.com>
+From: Shuah Khan <shuah.khan@hp.com>
+Date: Fri, 23 Nov 2012 21:32:06 +0000
+Subject: [PATCH 2/9] c6x: dma_debug: add debug_dma_mapping_error support
+Message-Id: <1353706326.5270.97.camel@lorien2>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 
-tree:   git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git next
-head:   16e4591b892978586ec79b003665f46528cf19a9
-commit: 7c0e29acbf054eff3e9d32f6b434d60cd19468e9 efi_pstore: Add a sequence counter to a variable name
-date:   31 minutes ago
-config: make ARCH=x86_64 allmodconfig
+Add dma-debug interface debug_dma_mapping_error() to debug drivers that fail
+to check dma mapping errors on addresses returned by dma_map_single() and
+dma_map_page() interfaces.
 
-All error/warnings:
-
-fs/pstore/platform.c: In function 'pstore_console_write':
-fs/pstore/platform.c:175:3: warning: passing argument 6 of 'psinfo->write' makes integer from pointer without a cast [enabled by default]
-fs/pstore/platform.c:175:3: note: expected 'size_t' but argument is of type 'struct pstore_info *'
-fs/pstore/platform.c:175:3: error: too few arguments to function 'psinfo->write'
-
-vim +175 fs/pstore/platform.c
-
-80c9d03c Chuansheng Liu  2012-09-18  169  			if (!spin_trylock_irqsave(&psinfo->buf_lock, flags))
-80c9d03c Chuansheng Liu  2012-09-18  170  				break;
-80c9d03c Chuansheng Liu  2012-09-18  171  		} else {
-80c9d03c Chuansheng Liu  2012-09-18  172  			spin_lock_irqsave(&psinfo->buf_lock, flags);
-80c9d03c Chuansheng Liu  2012-09-18  173  		}
-f29e5956 Anton Vorontsov 2012-05-26  174  		memcpy(psinfo->buf, s, c);
-f29e5956 Anton Vorontsov 2012-05-26 @175  		psinfo->write(PSTORE_TYPE_CONSOLE, 0, NULL, 0, c, psinfo);
-f29e5956 Anton Vorontsov 2012-05-26  176  		spin_unlock_irqrestore(&psinfo->buf_lock, flags);
-f29e5956 Anton Vorontsov 2012-05-26  177  		s += c;
-f29e5956 Anton Vorontsov 2012-05-26  178  		c = e - s;
-
+Signed-off-by: Shuah Khan <shuah.khan@hp.com>
+Acked-by: Mark Salter <msalter@redhat.com>
 ---
-0-DAY kernel build testing backend         Open Source Technology Center
-Fengguang Wu, Yuanhan Liu                              Intel Corporation
+ arch/c6x/include/asm/dma-mapping.h |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/c6x/include/asm/dma-mapping.h b/arch/c6x/include/asm/dma-mapping.h
+index 03579fd..3c69406 100644
+--- a/arch/c6x/include/asm/dma-mapping.h
++++ b/arch/c6x/include/asm/dma-mapping.h
+@@ -32,6 +32,7 @@ static inline int dma_set_mask(struct device *dev, u64 dma_mask)
+  */
+ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
++	debug_dma_mapping_error(dev, dma_addr);
+ 	return dma_addr = ~0;
+ }
+ 
+-- 
+1.7.9.5
+
+
+
+
+
