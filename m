@@ -1,51 +1,39 @@
-From: Shuah Khan <shuah.khan@hp.com>
-Date: Fri, 23 Nov 2012 21:29:02 +0000
-Subject: [PATCH 0/9] dma_debug: add debug_dma_mapping_error support to architectures that support DMA_DEBUG_A
-Message-Id: <1353706142.5270.93.camel@lorien2>
+From: Marek Szyprowski <m.szyprowski@samsung.com>
+Date: Mon, 26 Nov 2012 10:57:19 +0000
+Subject: Re: [PATCH 0/9] dma_debug: add debug_dma_mapping_error support to architectures that support DMA_DEB
+Message-Id: <50B34B0F.3080204@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1353706142.5270.93.camel@lorien2>
+In-Reply-To: <1353706142.5270.93.camel@lorien2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-arm-kernel@lists.infradead.org
 
-An earlier patch added dma mapping error debug feature to dma_debug
-infrastructure. References:
+Hello,
 
-https://lkml.org/lkml/2012/10/8/296
-https://lkml.org/lkml/2012/11/3/219
+On 11/23/2012 10:29 PM, Shuah Khan wrote:
+> An earlier patch added dma mapping error debug feature to dma_debug
+> infrastructure. References:
+>
+> https://lkml.org/lkml/2012/10/8/296
+> https://lkml.org/lkml/2012/11/3/219
+>
+> The following series of patches adds the call to debug_dma_mapping_error() to
+> architecture specific dma_mapping_error() interfaces on the following
+> architectures that support CONFIG_DMA_API_DEBUG.
 
-The following series of patches adds the call to debug_dma_mapping_error() to
-architecture specific dma_mapping_error() interfaces on the following
-architectures that support CONFIG_DMA_API_DEBUG.
+I've took all the patches to the next-dma-debug branch in my tree, I sorry
+that You have to wait so long for it. My branch is based on Joerg's
+dma-debug branch and I've included it for testing in linux-next branch.
 
-arm64
-c6x
-ia64
-microblaze
-mips
-powerpc
-sh
-sparc
-tile
+Joerg: would You mind if I handle pushing the whole branch to v3.8
+via my kernel tree? Those changes should be kept close together to
+avoid build breaks for bisecting.
 
-arm - Change is already in Marek's dma-mapping tree[1] 
-https://patchwork.kernel.org/patch/1625601/
+Best regards
+-- 
+Marek Szyprowski
+Samsung Poland R&D Center
 
-microblaze - Change is already in linux-next. Including it for completeness
-linux-next commit f229605441030bcd315c21d97b25889d63ed0130
-
-x86 - done in the first patch that added the feature.
-
-ARM64: dma_debug: add debug_dma_mapping_error support
-c6x: dma_debug: add debug_dma_mapping_error support
-ia64: dma_debug: add debug_dma_mapping_error support
-microblaze: dma-mapping: support debug_dma_mapping_error
-mips: dma_debug: add debug_dma_mapping_error support
-powerpc: dma_debug: add debug_dma_mapping_error support
-sh: dma_debug: add debug_dma_mapping_error support
-sparc: dma_debug: add debug_dma_mapping_error support
-tile: dma_debug: add debug_dma_mapping_error support
-
-Thanks,
--- Shuah
 
