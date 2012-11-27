@@ -1,77 +1,92 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Mon, 05 Nov 2012 16:09:03 +0000
-Subject: [PATCH 10/13] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
-Message-Id: <d295f423570accdaae79d1e8d8e581ae66694a9d.1352131731.git.jan.kiszka@siemens.com>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Tue, 27 Nov 2012 09:58:19 +0000
+Subject: [Patch v4 01/12] memory-hotplug: try to offline the memory twice to avoid dependence
+Message-Id: <1354010422-19648-2-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1352131729.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1352131729.git.jan.kiszka@siemens.com>
+References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>
 
-Add the internal helper get_thread_info that calculated the thread_info
-from a given task variable. Also export this service as a convenience
-function.
+memory can't be offlined when CONFIG_MEMCG is selected.
+For example: there is a memory device on node 1. The address range
+is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
+and memory11 under the directory /sys/devices/system/memory/.
 
-Note: ia64 version is untested.
+If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
+when we online pages. When we online memory8, the memory stored page cgroup
+is not provided by this memory device. But when we online memory9, the memory
+stored page cgroup may be provided by memory8. So we can't offline memory8
+now. We should offline the memory in the reversed order.
 
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+When the memory device is hotremoved, we will auto offline memory provided
+by this memory device. But we don't know which memory is onlined first, so
+offlining memory may fail. In such case, iterate twice to offline the memory.
+1st iterate: offline every non primary memory block.
+2nd iterate: offline primary (i.e. first added) memory block.
+
+This idea is suggested by KOSAKI Motohiro.
+
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 ---
- scripts/gdb/task.py |   39 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ mm/memory_hotplug.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/scripts/gdb/task.py b/scripts/gdb/task.py
-index 41d85cc..523e495 100644
---- a/scripts/gdb/task.py
-+++ b/scripts/gdb/task.py
-@@ -67,3 +67,42 @@ class LxTaskByPidFunc(gdb.Function):
- 			raise gdb.GdbError("No task of PID " + str(pid))
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index e4eeaca..b825dbc 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1012,10 +1012,13 @@ int remove_memory(u64 start, u64 size)
+ 	unsigned long start_pfn, end_pfn;
+ 	unsigned long pfn, section_nr;
+ 	int ret;
++	int return_on_error = 0;
++	int retry = 0;
  
- LxTaskByPidFunc()
+ 	start_pfn = PFN_DOWN(start);
+ 	end_pfn = start_pfn + PFN_DOWN(size);
+ 
++repeat:
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+ 		section_nr = pfn_to_section_nr(pfn);
+ 		if (!present_section_nr(section_nr))
+@@ -1034,14 +1037,23 @@ int remove_memory(u64 start, u64 size)
+ 
+ 		ret = offline_memory_block(mem);
+ 		if (ret) {
+-			kobject_put(&mem->dev.kobj);
+-			return ret;
++			if (return_on_error) {
++				kobject_put(&mem->dev.kobj);
++				return ret;
++			} else {
++				retry = 1;
++			}
+ 		}
+ 	}
+ 
+ 	if (mem)
+ 		kobject_put(&mem->dev.kobj);
+ 
++	if (retry) {
++		return_on_error = 1;
++		goto repeat;
++	}
 +
-+
-+thread_info_ptr_type = None
-+
-+def get_thread_info_ptr_type():
-+	global thread_info_ptr_type
-+	if thread_info_ptr_type = None:
-+		thread_info_ptr_type = get_type('struct thread_info').pointer()
-+	return thread_info_ptr_type
-+
-+ia64_task_size = None
-+
-+def get_thread_info(task):
-+	if is_target_arch("ia64"):
-+		global ia64_task_size
-+		if ia64_task_size = None:
-+			ia64_task_size = gdb.parse_and_eval(
-+						"sizeof(struct task_struct)")
-+		thread_info_addr = task.address + ia64_task_size
-+		thread_info = thread_info_addr.cast(get_thread_info_ptr_type())
-+	else:
-+		thread_info = task['stack'].cast(get_thread_info_ptr_type())
-+	return thread_info.dereference()
-+
-+
-+class LxThreadInfoFunc (gdb.Function):
-+	# Calculate Linux thread_info from task variable.
-+	__doc__ = "Calculate Linux thread_info from task variable.\n" \
-+		  "\n" \
-+		  "$lx_thread_info(TASK): Given TASK, return the corresponding thread_info\n" \
-+		  "variable.\n"
-+
-+	def __init__(self):
-+		super(LxThreadInfoFunc, self).__init__("lx_thread_info")
-+
-+	def invoke(self, task):
-+		return get_thread_info(task)
-+
-+LxThreadInfoFunc()
+ 	return 0;
+ }
+ #else
 -- 
-1.7.3.4
+1.8.0
 
