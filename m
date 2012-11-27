@@ -1,147 +1,378 @@
-From: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Date: Thu, 22 Nov 2012 01:33:32 +0000
-Subject: Re: [PATCH v3 00/12] memory-hotplug: hot-remove physical memory
-Message-Id: <50AD80EC.8050101@jp.fujitsu.com>
+From: Wen Congyang <wency@cn.fujitsu.com>
+Date: Tue, 27 Nov 2012 09:59:57 +0000
+Subject: [Patch v4 09/12] memory-hotplug: remove page table of x86_64 architecture
+Message-Id: <1354010422-19648-10-git-send-email-wency@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com>
+References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Wen Congyang <wency@cn.fujitsu.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
+To: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Cc: David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>, Jiang Liu <jiang.liu@huawei.com>
 
-Hi Andrew,
+For hot removing memory, we sholud remove page table about the memory.
+So the patch searches a page table about the removed memory, and clear
+page table.
 
-The patch-set aims to linux-3.8. So we would like you to merge
-the patch-set into your tree.
+CC: David Rientjes <rientjes@google.com>
+CC: Jiang Liu <liuj97@gmail.com>
+CC: Len Brown <len.brown@intel.com>
+CC: Christoph Lameter <cl@linux.com>
+Cc: Minchan Kim <minchan.kim@gmail.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>
+CC: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+---
+ arch/x86/include/asm/pgtable_types.h |   1 +
+ arch/x86/mm/init_64.c                | 231 +++++++++++++++++++++++++++++++++++
+ arch/x86/mm/pageattr.c               |  47 +++----
+ 3 files changed, 257 insertions(+), 22 deletions(-)
 
-The patch-set applied many comments. Currently there is no
-comment to the patch-set.
-
-Additionally, we have spent a lot of time on the verification
-of the patch-set. And we found many bugs, and fixed them.
-
-So we believe that Linux on x86_64 can support memory hot remove
-by the patch-set. 
-
-Thanks,
-Yasuaki Ishimatsu
-
-2012/11/01 18:44, Wen Congyang wrote:
-> The patch-set was divided from following thread's patch-set.
->      https://lkml.org/lkml/2012/9/5/201
-> 
-> The last version of this patchset:
->      https://lkml.org/lkml/2012/10/23/213
-> 
-> If you want to know the reason, please read following thread.
-> 
-> https://lkml.org/lkml/2012/10/2/83
-> 
-> The patch-set has only the function of kernel core side for physical
-> memory hot remove. So if you use the patch, please apply following
-> patches.
-> 
-> - bug fix for memory hot remove
->    https://lkml.org/lkml/2012/10/31/269
->    
-> - acpi framework
->    https://lkml.org/lkml/2012/10/26/175
-> 
-> The patches can free/remove the following things:
-> 
->    - /sys/firmware/memmap/X/{end, start, type} : [PATCH 2/10]
->    - mem_section and related sysfs files       : [PATCH 3-4/10]
->    - memmap of sparse-vmemmap                  : [PATCH 5-7/10]
->    - page table of removed memory              : [RFC PATCH 8/10]
->    - node and related sysfs files              : [RFC PATCH 9-10/10]
-> 
-> * [PATCH 2/10] checks whether the memory can be removed or not.
-> 
-> If you find lack of function for physical memory hot-remove, please let me
-> know.
-> 
-> How to test this patchset?
-> 1. apply this patchset and build the kernel. MEMORY_HOTPLUG, MEMORY_HOTREMOVE,
->     ACPI_HOTPLUG_MEMORY must be selected.
-> 2. load the module acpi_memhotplug
-> 3. hotplug the memory device(it depends on your hardware)
->     You will see the memory device under the directory /sys/bus/acpi/devices/.
->     Its name is PNP0C80:XX.
-> 4. online/offline pages provided by this memory device
->     You can write online/offline to /sys/devices/system/memory/memoryX/state to
->     online/offline pages provided by this memory device
-> 5. hotremove the memory device
->     You can hotremove the memory device by the hardware, or writing 1 to
->     /sys/bus/acpi/devices/PNP0C80:XX/eject.
-> 
-> Note: if the memory provided by the memory device is used by the kernel, it
-> can't be offlined. It is not a bug.
-> 
-> Known problems:
-> 1. hotremoving memory device may cause kernel panicked
->     This bug will be fixed by Liu Jiang's patch:
->     https://lkml.org/lkml/2012/7/3/1
-> 
-> 
-> Changelogs from v2 to v3:
->   Patch9: call sync_global_pgds() if pgd is changed
->   Patch10: fix a problem int the patch
-> 
-> Changelogs from v1 to v2:
->   Patch1: new patch, offline memory twice. 1st iterate: offline every non primary
->           memory block. 2nd iterate: offline primary (i.e. first added) memory
->           block.
-> 
->   Patch3: new patch, no logical change, just remove reduntant codes.
-> 
->   Patch9: merge the patch from wujianguo into this patch. flush tlb on all cpu
->           after the pagetable is changed.
-> 
->   Patch12: new patch, free node_data when a node is offlined
-> 
-> Wen Congyang (6):
->    memory-hotplug: try to offline the memory twice to avoid dependence
->    memory-hotplug: remove redundant codes
->    memory-hotplug: introduce new function arch_remove_memory() for
->      removing page table depends on architecture
->    memory-hotplug: remove page table of x86_64 architecture
->    memory-hotplug: remove sysfs file of node
->    memory-hotplug: free node_data when a node is offlined
-> 
-> Yasuaki Ishimatsu (6):
->    memory-hotplug: check whether all memory blocks are offlined or not
->      when removing memory
->    memory-hotplug: remove /sys/firmware/memmap/X sysfs
->    memory-hotplug: unregister memory section on SPARSEMEM_VMEMMAP
->    memory-hotplug: implement register_page_bootmem_info_section of
->      sparse-vmemmap
->    memory-hotplug: remove memmap of sparse-vmemmap
->    memory-hotplug: memory_hotplug: clear zone when removing the memory
-> 
->   arch/ia64/mm/discontig.c             |  14 ++
->   arch/ia64/mm/init.c                  |  18 ++
->   arch/powerpc/mm/init_64.c            |  14 ++
->   arch/powerpc/mm/mem.c                |  12 +
->   arch/s390/mm/init.c                  |  12 +
->   arch/s390/mm/vmem.c                  |  14 ++
->   arch/sh/mm/init.c                    |  17 ++
->   arch/sparc/mm/init_64.c              |  14 ++
->   arch/tile/mm/init.c                  |   8 +
->   arch/x86/include/asm/pgtable_types.h |   1 +
->   arch/x86/mm/init_32.c                |  12 +
->   arch/x86/mm/init_64.c                | 417 +++++++++++++++++++++++++++++++++++
->   arch/x86/mm/pageattr.c               |  47 ++--
->   drivers/acpi/acpi_memhotplug.c       |   8 +-
->   drivers/base/memory.c                |   6 +
->   drivers/firmware/memmap.c            |  98 +++++++-
->   include/linux/firmware-map.h         |   6 +
->   include/linux/memory_hotplug.h       |  15 +-
->   include/linux/mm.h                   |   5 +-
->   mm/memory_hotplug.c                  | 409 ++++++++++++++++++++++++++++++++--
->   mm/sparse.c                          |   5 +-
->   21 files changed, 1095 insertions(+), 57 deletions(-)
-> 
-
+diff --git a/arch/x86/include/asm/pgtable_types.h b/arch/x86/include/asm/pgtable_types.h
+index ec8a1fc..fb0c24d 100644
+--- a/arch/x86/include/asm/pgtable_types.h
++++ b/arch/x86/include/asm/pgtable_types.h
+@@ -332,6 +332,7 @@ static inline void update_page_count(int level, unsigned long pages) { }
+  * as a pte too.
+  */
+ extern pte_t *lookup_address(unsigned long address, unsigned int *level);
++extern int __split_large_page(pte_t *kpte, unsigned long address, pte_t *pbase);
+ 
+ #endif	/* !__ASSEMBLY__ */
+ 
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index e85626d..23d932a 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -680,6 +680,235 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ }
+ EXPORT_SYMBOL_GPL(arch_add_memory);
+ 
++static inline void free_pagetable(struct page *page)
++{
++	struct zone *zone;
++	bool bootmem = false;
++
++	/* bootmem page has reserved flag */
++	if (PageReserved(page)) {
++		__ClearPageReserved(page);
++		bootmem = true;
++	}
++
++	__free_page(page);
++
++	if (bootmem) {
++		zone = page_zone(page);
++		zone_span_writelock(zone);
++		zone->present_pages++;
++		zone_span_writeunlock(zone);
++		totalram_pages++;
++	}
++}
++
++static void free_pte_table(pte_t *pte_start, pmd_t *pmd)
++{
++	pte_t *pte;
++	int i;
++
++	for (i = 0; i < PTRS_PER_PTE; i++) {
++		pte = pte_start + i;
++		if (pte_val(*pte))
++			return;
++	}
++
++	/* free a pte talbe */
++	free_pagetable(pmd_page(*pmd));
++	pmd_clear(pmd);
++}
++
++static void free_pmd_table(pmd_t *pmd_start, pud_t *pud)
++{
++	pmd_t *pmd;
++	int i;
++
++	for (i = 0; i < PTRS_PER_PMD; i++) {
++		pmd = pmd_start + i;
++		if (pmd_val(*pmd))
++			return;
++	}
++
++	/* free a pmd talbe */
++	free_pagetable(pud_page(*pud));
++	pud_clear(pud);
++}
++
++/* return true if pgd is changed, otherwise return false */
++static bool free_pud_table(pud_t *pud_start, pgd_t *pgd)
++{
++	pud_t *pud;
++	int i;
++
++	for (i = 0; i < PTRS_PER_PUD; i++) {
++		pud = pud_start + i;
++		if (pud_val(*pud))
++			return false;
++	}
++
++	/* free a pud table */
++	free_pagetable(pgd_page(*pgd));
++	pgd_clear(pgd);
++
++	return true;
++}
++
++static void __meminit
++phys_pte_remove(pte_t *pte_page, unsigned long addr, unsigned long end)
++{
++	unsigned pages = 0;
++	int i = pte_index(addr);
++
++	pte_t *pte = pte_page + pte_index(addr);
++
++	for (; i < PTRS_PER_PTE; i++, addr += PAGE_SIZE, pte++) {
++
++		if (addr >= end)
++			break;
++
++		if (!pte_present(*pte))
++			continue;
++
++		pages++;
++		set_pte(pte, __pte(0));
++	}
++
++	update_page_count(PG_LEVEL_4K, -pages);
++}
++
++static void __meminit
++phys_pmd_remove(pmd_t *pmd_page, unsigned long addr, unsigned long end)
++{
++	unsigned long pages = 0, next;
++	int i = pmd_index(addr);
++
++	for (; i < PTRS_PER_PMD && addr < end; i++, addr = next) {
++		unsigned long pte_phys;
++		pmd_t *pmd = pmd_page + pmd_index(addr);
++		pte_t *pte;
++
++		next = pmd_addr_end(addr, end);
++
++		if (!pmd_present(*pmd))
++			continue;
++
++		if (pmd_large(*pmd)) {
++			if (IS_ALIGNED(addr, PMD_SIZE) &&
++			    IS_ALIGNED(next, PMD_SIZE)) {
++				set_pmd(pmd, __pmd(0));
++				pages++;
++				continue;
++			}
++
++			/*
++			 * We use 2M page, but we need to remove part of them,
++			 * so split 2M page to 4K page.
++			 */
++			pte = alloc_low_page(&pte_phys);
++			BUG_ON(!pte);
++			__split_large_page((pte_t *)pmd,
++					   (unsigned long)__va(addr), pte);
++
++			spin_lock(&init_mm.page_table_lock);
++			pmd_populate_kernel(&init_mm, pmd, __va(pte_phys));
++			spin_unlock(&init_mm.page_table_lock);
++
++			/* Do a global flush tlb after splitting a large page */
++			flush_tlb_all();
++		}
++
++		spin_lock(&init_mm.page_table_lock);
++		pte = map_low_page((pte_t *)pmd_page_vaddr(*pmd));
++		phys_pte_remove(pte, addr, next);
++		free_pte_table(pte, pmd);
++		unmap_low_page(pte);
++		spin_unlock(&init_mm.page_table_lock);
++	}
++	update_page_count(PG_LEVEL_2M, -pages);
++}
++
++static void __meminit
++phys_pud_remove(pud_t *pud_page, unsigned long addr, unsigned long end)
++{
++	unsigned long pages = 0, next;
++	int i = pud_index(addr);
++
++	for (; i < PTRS_PER_PUD && addr < end; i++, addr = next) {
++		unsigned long pmd_phys;
++		pud_t *pud = pud_page + pud_index(addr);
++		pmd_t *pmd;
++
++		next = pud_addr_end(addr, end);
++
++		if (!pud_present(*pud))
++			continue;
++
++		if (pud_large(*pud)) {
++			if (IS_ALIGNED(addr, PUD_SIZE) &&
++			    IS_ALIGNED(next, PUD_SIZE)) {
++				set_pud(pud, __pud(0));
++				pages++;
++				continue;
++			}
++
++			/*
++			 * We use 1G page, but we need to remove part of them,
++			 * so split 1G page to 2M page.
++			 */
++			pmd = alloc_low_page(&pmd_phys);
++			BUG_ON(!pmd);
++			__split_large_page((pte_t *)pud,
++					   (unsigned long)__va(addr),
++					   (pte_t *)pmd);
++
++			spin_lock(&init_mm.page_table_lock);
++			pud_populate(&init_mm, pud, __va(pmd_phys));
++			spin_unlock(&init_mm.page_table_lock);
++
++			/* Do a global flush tlb after splitting a large page */
++			flush_tlb_all();
++		}
++
++		pmd = map_low_page((pmd_t *)pud_page_vaddr(*pud));
++		phys_pmd_remove(pmd, addr, next);
++		free_pmd_table(pmd, pud);
++		unmap_low_page(pmd);
++	}
++
++	update_page_count(PG_LEVEL_1G, -pages);
++}
++
++void __meminit
++kernel_physical_mapping_remove(unsigned long start, unsigned long end)
++{
++	unsigned long next;
++	bool pgd_changed = false;
++
++	start = (unsigned long)__va(start);
++	end = (unsigned long)__va(end);
++
++	for (; start < end; start = next) {
++		pgd_t *pgd = pgd_offset_k(start);
++		pud_t *pud;
++
++		next = pgd_addr_end(start, end);
++
++		if (!pgd_present(*pgd))
++			continue;
++
++		pud = map_low_page((pud_t *)pgd_page_vaddr(*pgd));
++		phys_pud_remove(pud, __pa(start), __pa(next));
++		if (free_pud_table(pud, pgd))
++			pgd_changed = true;
++		unmap_low_page(pud);
++	}
++
++	if (pgd_changed)
++		sync_global_pgds(start, end - 1);
++
++	flush_tlb_all();
++}
++
+ #ifdef CONFIG_MEMORY_HOTREMOVE
+ int __ref arch_remove_memory(u64 start, u64 size)
+ {
+@@ -692,6 +921,8 @@ int __ref arch_remove_memory(u64 start, u64 size)
+ 	ret = __remove_pages(zone, start_pfn, nr_pages);
+ 	WARN_ON_ONCE(ret);
+ 
++	kernel_physical_mapping_remove(start, start + size);
++
+ 	return ret;
+ }
+ #endif
+diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
+index a718e0d..7dcb6f9 100644
+--- a/arch/x86/mm/pageattr.c
++++ b/arch/x86/mm/pageattr.c
+@@ -501,21 +501,13 @@ out_unlock:
+ 	return do_split;
+ }
+ 
+-static int split_large_page(pte_t *kpte, unsigned long address)
++int __split_large_page(pte_t *kpte, unsigned long address, pte_t *pbase)
+ {
+ 	unsigned long pfn, pfninc = 1;
+ 	unsigned int i, level;
+-	pte_t *pbase, *tmp;
++	pte_t *tmp;
+ 	pgprot_t ref_prot;
+-	struct page *base;
+-
+-	if (!debug_pagealloc)
+-		spin_unlock(&cpa_lock);
+-	base = alloc_pages(GFP_KERNEL | __GFP_NOTRACK, 0);
+-	if (!debug_pagealloc)
+-		spin_lock(&cpa_lock);
+-	if (!base)
+-		return -ENOMEM;
++	struct page *base = virt_to_page(pbase);
+ 
+ 	spin_lock(&pgd_lock);
+ 	/*
+@@ -523,10 +515,11 @@ static int split_large_page(pte_t *kpte, unsigned long address)
+ 	 * up for us already:
+ 	 */
+ 	tmp = lookup_address(address, &level);
+-	if (tmp != kpte)
+-		goto out_unlock;
++	if (tmp != kpte) {
++		spin_unlock(&pgd_lock);
++		return 1;
++	}
+ 
+-	pbase = (pte_t *)page_address(base);
+ 	paravirt_alloc_pte(&init_mm, page_to_pfn(base));
+ 	ref_prot = pte_pgprot(pte_clrhuge(*kpte));
+ 	/*
+@@ -579,17 +572,27 @@ static int split_large_page(pte_t *kpte, unsigned long address)
+ 	 * going on.
+ 	 */
+ 	__flush_tlb_all();
++	spin_unlock(&pgd_lock);
+ 
+-	base = NULL;
++	return 0;
++}
+ 
+-out_unlock:
+-	/*
+-	 * If we dropped out via the lookup_address check under
+-	 * pgd_lock then stick the page back into the pool:
+-	 */
+-	if (base)
++static int split_large_page(pte_t *kpte, unsigned long address)
++{
++	pte_t *pbase;
++	struct page *base;
++
++	if (!debug_pagealloc)
++		spin_unlock(&cpa_lock);
++	base = alloc_pages(GFP_KERNEL | __GFP_NOTRACK, 0);
++	if (!debug_pagealloc)
++		spin_lock(&cpa_lock);
++	if (!base)
++		return -ENOMEM;
++
++	pbase = (pte_t *)page_address(base);
++	if (__split_large_page(kpte, address, pbase))
+ 		__free_page(base);
+-	spin_unlock(&pgd_lock);
+ 
+ 	return 0;
+ }
+-- 
+1.8.0
 
