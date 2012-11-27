@@ -1,7 +1,7 @@
 From: Wen Congyang <wency@cn.fujitsu.com>
-Date: Tue, 27 Nov 2012 06:39:55 +0000
+Date: Tue, 27 Nov 2012 06:49:03 +0000
 Subject: Re: [PATCH v3 08/12] memory-hotplug: remove memmap of sparse-vmemmap
-Message-Id: <50B4603B.1040600@cn.fujitsu.com>
+Message-Id: <50B4625F.1050307@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1351763083-7905-1-git-send-email-wency@cn.fujitsu.com> <1351763083-7905-9-git-send-email-wency@cn.fujitsu.com> <50B45400.20800@huawei.com>
 In-Reply-To: <50B45400.20800@huawei.com>
@@ -329,14 +329,6 @@ At 11/27/2012 01:47 PM, Jianguo Wu Wrote:
 > Hi Congyang,
 > 	For vmemmap, nr_pages should be PAGES_PER_SECTION for free_map_bootmem(),
 > which is passed by free_section_usemap(), right? 
-
-Yes, you are right. I will merge it into my patchset.
-
-I will sent the new patchset later today.
-
-Thanks
-Wen Congyang
-
 > But now, nr_pages = PAGE_ALIGN(PAGES_PER_SECTION * sizeof(struct page)) >> PAGE_SHIFT.
 > 
 > Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
@@ -358,6 +350,13 @@ Wen Congyang
 >  		nr_pages = PAGE_ALIGN(PAGES_PER_SECTION * sizeof(struct page))
 >  			>> PAGE_SHIFT;
 > +#endif
+
+Hmm, to avoid using ifdef, I think we can pass PAGE_PER_SECTION to free_map_bootmem(),
+and calculate how many pages is used to store struct page.
+
+Thanks
+Wen Congyang
+
 >  
 >  		free_map_bootmem(memmap_page, nr_pages);
 >  	}
