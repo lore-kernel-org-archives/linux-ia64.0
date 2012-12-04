@@ -1,96 +1,76 @@
-From: Jianguo Wu <wujianguo@huawei.com>
-Date: Fri, 07 Dec 2012 07:06:16 +0000
-Subject: Re: [Patch v4 09/12] memory-hotplug: remove page table of x86_64 architecture
-Message-Id: <50C19568.7080500@huawei.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Tue, 04 Dec 2012 10:10:13 +0000
+Subject: Re: [Patch v4 12/12] memory-hotplug: free node_data when a node is offlined
+Message-Id: <50BDCC05.7090800@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com> <1354010422-19648-10-git-send-email-wency@cn.fujitsu.com> <50C19022.9000501@cn.fujitsu.com>
-In-Reply-To: <50C19022.9000501@cn.fujitsu.com>
+References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com> <1354010422-19648-13-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1354010422-19648-13-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tang Chen <tangchen@cn.fujitsu.com>
-Cc: Wen Congyang <wency@cn.fujitsu.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jiang Liu <jiang.liu@huawei.com>
+To: Wen Congyang <wency@cn.fujitsu.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
 
-On 2012/12/7 14:43, Tang Chen wrote:
-
-> On 11/27/2012 06:00 PM, Wen Congyang wrote:
->> For hot removing memory, we sholud remove page table about the memory.
->> So the patch searches a page table about the removed memory, and clear
->> page table.
-> 
-> (snip)
-> 
->> +void __meminit
->> +kernel_physical_mapping_remove(unsigned long start, unsigned long end)
->> +{
->> +    unsigned long next;
->> +    bool pgd_changed = false;
->> +
->> +    start = (unsigned long)__va(start);
->> +    end = (unsigned long)__va(end);
-> 
-> Hi Wu,
-> 
-> Here, you expect start and end are physical addresses. But in
-> phys_xxx_remove() function, I think using virtual addresses is just
-> fine. Functions like pmd_addr_end() and pud_index() only calculate
-> an offset.
+On 11/27/2012 06:00 PM, Wen Congyang wrote:
+> We call hotadd_new_pgdat() to allocate memory to store node_data. So we
+> should free it when removing a node.
 >
+> CC: David Rientjes<rientjes@google.com>
+> CC: Jiang Liu<liuj97@gmail.com>
+> CC: Len Brown<len.brown@intel.com>
+> CC: Benjamin Herrenschmidt<benh@kernel.crashing.org>
+> CC: Paul Mackerras<paulus@samba.org>
+> CC: Christoph Lameter<cl@linux.com>
+> Cc: Minchan Kim<minchan.kim@gmail.com>
+> CC: Andrew Morton<akpm@linux-foundation.org>
+> CC: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
+> CC: Yasuaki Ishimatsu<isimatu.yasuaki@jp.fujitsu.com>
+> Signed-off-by: Wen Congyang<wency@cn.fujitsu.com>
 
-Hi Tang,
+Reviewed-by: Tang Chen <tangchen@cn.fujitsu.com>
 
- 
-
-Virtual addresses will work fine, I used physical addresses in order to
-keep consistent with phys_pud[pmd/pte]_init(), So I think we should keep this.
-
-Thanks,
-Jianguo Wu
-
-> So, would you please tell me if we have to use physical addresses here ?
-> 
-> Thanks. :)
-> 
->> +
->> +    for (; start<  end; start = next) {
->> +        pgd_t *pgd = pgd_offset_k(start);
->> +        pud_t *pud;
->> +
->> +        next = pgd_addr_end(start, end);
->> +
->> +        if (!pgd_present(*pgd))
->> +            continue;
->> +
->> +        pud = map_low_page((pud_t *)pgd_page_vaddr(*pgd));
->> +        phys_pud_remove(pud, __pa(start), __pa(next));
->> +        if (free_pud_table(pud, pgd))
->> +            pgd_changed = true;
->> +        unmap_low_page(pud);
->> +    }
->> +
->> +    if (pgd_changed)
->> +        sync_global_pgds(start, end - 1);
->> +
->> +    flush_tlb_all();
->> +}
->> +
->>   #ifdef CONFIG_MEMORY_HOTREMOVE
->>   int __ref arch_remove_memory(u64 start, u64 size)
->>   {
->> @@ -692,6 +921,8 @@ int __ref arch_remove_memory(u64 start, u64 size)
->>       ret = __remove_pages(zone, start_pfn, nr_pages);
->>       WARN_ON_ONCE(ret);
->>
->> +    kernel_physical_mapping_remove(start, start + size);
->> +
->>       return ret;
->>   }
->>   #endif
-> 
-> 
-> 
-> .
-> 
-
-
+> ---
+>   mm/memory_hotplug.c | 20 +++++++++++++++++++-
+>   1 file changed, 19 insertions(+), 1 deletion(-)
+>
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index 449663e..d1451ab 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -1309,9 +1309,12 @@ static int check_cpu_on_node(void *data)
+>   /* offline the node if all memory sections of this node are removed */
+>   static void try_offline_node(int nid)
+>   {
+> +	pg_data_t *pgdat = NODE_DATA(nid);
+>   	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
+> -	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
+> +	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
+>   	unsigned long pfn;
+> +	struct page *pgdat_page = virt_to_page(pgdat);
+> +	int i;
+>
+>   	for (pfn = start_pfn; pfn<  end_pfn; pfn += PAGES_PER_SECTION) {
+>   		unsigned long section_nr = pfn_to_section_nr(pfn);
+> @@ -1338,6 +1341,21 @@ static void try_offline_node(int nid)
+>   	 */
+>   	node_set_offline(nid);
+>   	unregister_one_node(nid);
+> +
+> +	if (!PageSlab(pgdat_page)&&  !PageCompound(pgdat_page))
+> +		/* node data is allocated from boot memory */
+> +		return;
+> +
+> +	/* free waittable in each zone */
+> +	for (i = 0; i<  MAX_NR_ZONES; i++) {
+> +		struct zone *zone = pgdat->node_zones + i;
+> +
+> +		if (zone->wait_table)
+> +			vfree(zone->wait_table);
+> +	}
+> +
+> +	arch_refresh_nodedata(nid, NULL);
+> +	arch_free_nodedata(pgdat);
+>   }
+>
+>   int __ref remove_memory(int nid, u64 start, u64 size)
 
