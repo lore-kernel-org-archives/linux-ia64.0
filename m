@@ -1,99 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Date: Wed, 12 Dec 2012 18:18:49 +0000
-Subject: [TRIVIAL PATCH 00/26] treewide: Add and use vsprintf extension %pSR
-Message-Id: <cover.1355335227.git.joe@perches.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Tue, 04 Dec 2012 09:34:04 +0000
+Subject: Re: [Patch v4 06/12] memory-hotplug: unregister memory section on SPARSEMEM_VMEMMAP
+Message-Id: <50BDC38C.1060209@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com> <1354010422-19648-7-git-send-email-wency@cn.fujitsu.com>
+In-Reply-To: <1354010422-19648-7-git-send-email-wency@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Wen Congyang <wency@cn.fujitsu.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
 
-Remove the somewhat awkward uses of print_symbol and convert all the
-existing uses to a new vsprintf pointer type of %pSR.
+On 11/27/2012 06:00 PM, Wen Congyang wrote:
+> From: Yasuaki Ishimatsu<isimatu.yasuaki@jp.fujitsu.com>
+>
+> Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
+> we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
+>
+> So the patch add unregister_memory_section() into __remove_section().
+>
+> CC: David Rientjes<rientjes@google.com>
+> CC: Jiang Liu<liuj97@gmail.com>
+> CC: Len Brown<len.brown@intel.com>
+> CC: Christoph Lameter<cl@linux.com>
+> Cc: Minchan Kim<minchan.kim@gmail.com>
+> CC: Andrew Morton<akpm@linux-foundation.org>
+> CC: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
+> Signed-off-by: Yasuaki Ishimatsu<isimatu.yasuaki@jp.fujitsu.com>
+> Signed-off-by: Wen Congyang<wency@cn.fujitsu.com>
 
-print_symbol can be interleaved when it is used in a sequence like:
+__remove_section() of CONFIG_SPARSEMEM_VMEMMAP will be integrated
+into one in [PATCH 08/12], so I think we can merge this patch into
+[PATCH 08/12].
 
-	printk("something: ...");
-	print_symbol("%s", addr);
-	printk("\n");
+Reviewed-by: Tang Chen <tangchen@cn.fujitsu.com>
 
-Instead use:
-
-	printk("something: %pSR\n", (void *)addr);
-
-Add a new %p[SsFf]R vsprintf extension that can perform the same
-symbol function/address/offset formatting as print_symbol to
-reduce the number and styles of message logging functions.
-
-print_symbol used __builtin_extract_return_addr for those architectures
-like S/390 and SPARC that have offset or masked addressing.
-%p[FfSs]R uses the same gcc __builtin
-
-Joe Perches (26):
-  vsprintf: Add extension %pSR - print_symbol replacement
-  alpha: Convert print_symbol to %pSR
-  arm: Convert print_symbol to %pSR
-  arm64: Convert print_symbol to %pSR
-  avr32: Convert print_symbol to %pSR
-  c6x: Convert print_symbol to %pSR
-  ia64: Convert print_symbol to %pSR
-  m32r: Convert print_symbol to %pSR
-  mn10300: Convert print_symbol to %pSR
-  openrisc: Convert print_symbol to %pSR
-  powerpc: Convert print_symbol to %pSR
-  s390: Convert print_symbol to %pSR
-  sh: Convert print_symbol to %pSR
-  um: Convert print_symbol to %pSR
-  unicore32: Convert print_symbol to %pSR
-  x86: Convert print_symbol to %pSR
-  xtensa: Convert print_symbol to %pSR
-  drivers: base: Convert print_symbol to %pSR
-  gfs2: Convert print_symbol to %pSR
-  sysfs: Convert print_symbol to %pSR
-  irq: Convert print_symbol to %pSR
-  smp_processor_id: Convert print_symbol to %pSR
-  mm: Convert print_symbol to %pSR
-  xtensa: Convert print_symbol to %pSR
-  x86: head_64.S: Use vsprintf extension %pSR not print_symbol
-  kallsyms: Remove print_symbol
-
- Documentation/filesystems/sysfs.txt         |    4 +-
- Documentation/printk-formats.txt            |    2 +
- Documentation/zh_CN/filesystems/sysfs.txt   |    4 +-
- arch/alpha/kernel/traps.c                   |    8 ++----
- arch/arm/kernel/process.c                   |    4 +-
- arch/arm64/kernel/process.c                 |    4 +-
- arch/avr32/kernel/process.c                 |   25 ++++++-----------------
- arch/c6x/kernel/traps.c                     |    3 +-
- arch/ia64/kernel/process.c                  |   13 ++++-------
- arch/m32r/kernel/traps.c                    |    6 +---
- arch/mn10300/kernel/traps.c                 |    8 +++---
- arch/openrisc/kernel/traps.c                |    7 +----
- arch/powerpc/platforms/cell/spu_callbacks.c |   12 ++++------
- arch/s390/kernel/traps.c                    |   28 +++++++++++++++-----------
- arch/sh/kernel/process_32.c                 |    4 +-
- arch/um/kernel/sysrq.c                      |    6 +---
- arch/unicore32/kernel/process.c             |    5 ++-
- arch/x86/kernel/cpu/mcheck/mce.c            |   13 ++++++-----
- arch/x86/kernel/dumpstack.c                 |    5 +--
- arch/x86/kernel/head_64.S                   |    4 +-
- arch/x86/kernel/process_32.c                |    2 +-
- arch/x86/mm/mmio-mod.c                      |    4 +-
- arch/x86/um/sysrq_32.c                      |    9 ++-----
- arch/xtensa/kernel/traps.c                  |    6 +---
- drivers/base/core.c                         |    4 +-
- fs/gfs2/glock.c                             |    4 +-
- fs/gfs2/trans.c                             |    3 +-
- fs/sysfs/file.c                             |    4 +-
- include/linux/kallsyms.h                    |   18 -----------------
- kernel/irq/debug.h                          |   15 ++++++-------
- kernel/kallsyms.c                           |   11 ----------
- lib/smp_processor_id.c                      |    2 +-
- lib/vsprintf.c                              |   18 ++++++++++++----
- mm/memory.c                                 |    8 +++---
- mm/slab.c                                   |    8 ++----
- 35 files changed, 117 insertions(+), 164 deletions(-)
-
--- 
-1.7.8.112.g3fd21
+> ---
+>   mm/memory_hotplug.c | 13 ++++++++-----
+>   1 file changed, 8 insertions(+), 5 deletions(-)
+>
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index e741732..171610d 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -279,11 +279,14 @@ static int __meminit __add_section(int nid, struct zone *zone,
+>   #ifdef CONFIG_SPARSEMEM_VMEMMAP
+>   static int __remove_section(struct zone *zone, struct mem_section *ms)
+>   {
+> -	/*
+> -	 * XXX: Freeing memmap with vmemmap is not implement yet.
+> -	 *      This should be removed later.
+> -	 */
+> -	return -EBUSY;
+> +	int ret = -EINVAL;
+> +
+> +	if (!valid_section(ms))
+> +		return ret;
+> +
+> +	ret = unregister_memory_section(ms);
+> +
+> +	return ret;
+>   }
+>   #else
+>   static int __remove_section(struct zone *zone, struct mem_section *ms)
 
