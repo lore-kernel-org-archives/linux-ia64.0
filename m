@@ -1,94 +1,150 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Tue, 04 Dec 2012 09:17:30 +0000
-Subject: Re: [Patch v4 01/12] memory-hotplug: try to offline the memory twice to avoid dependence
-Message-Id: <50BDBFAA.7040008@cn.fujitsu.com>
+From: <Vineet.Gupta1@synopsys.com>
+Date: Thu, 20 Dec 2012 11:23:38 +0000
+Subject: [PATCH] sysctl: convert arch specific unaligned access regulators to generic ones
+Message-Id: <1356001898-2960-2-git-send-email-vgupta@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1354010422-19648-1-git-send-email-wency@cn.fujitsu.com> <1354010422-19648-2-git-send-email-wency@cn.fujitsu.com>
-In-Reply-To: <1354010422-19648-2-git-send-email-wency@cn.fujitsu.com>
+References: <50D2B75A.3000208@synopsys.com>
+ <1356001898-2960-1-git-send-email-vgupta@synopsys.com>
+In-Reply-To: <1356001898-2960-1-git-send-email-vgupta@synopsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Wen Congyang <wency@cn.fujitsu.com>
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, David Rientjes <rientjes@google.com>, Jiang Liu <liuj97@gmail.com>, Len Brown <len.brown@intel.com>, benh@kernel.crashing.org, paulus@samba.org, Christoph Lameter <cl@linux.com>, Minchan Kim <minchan.kim@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>, Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>, Jianguo Wu <wujianguo@huawei.com>
+To: linux-arch@vger.kernel.org
+Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, "Eric W. Biederman" <ebiederm@xmission.com>, Serge Hallyn <serge.hallyn@canonical.com>, "David S. Miller" <davem@davemloft.net>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 11/27/2012 06:00 PM, Wen Congyang wrote:
-> memory can't be offlined when CONFIG_MEMCG is selected.
-> For example: there is a memory device on node 1. The address range
-> is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
-> and memory11 under the directory /sys/devices/system/memory/.
->
-> If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
-> when we online pages. When we online memory8, the memory stored page cgroup
-> is not provided by this memory device. But when we online memory9, the memory
-> stored page cgroup may be provided by memory8. So we can't offline memory8
-> now. We should offline the memory in the reversed order.
->
-> When the memory device is hotremoved, we will auto offline memory provided
-> by this memory device. But we don't know which memory is onlined first, so
-> offlining memory may fail. In such case, iterate twice to offline the memory.
-> 1st iterate: offline every non primary memory block.
-> 2nd iterate: offline primary (i.e. first added) memory block.
->
-> This idea is suggested by KOSAKI Motohiro.
->
-> CC: David Rientjes<rientjes@google.com>
-> CC: Jiang Liu<liuj97@gmail.com>
-> CC: Len Brown<len.brown@intel.com>
-> CC: Christoph Lameter<cl@linux.com>
-> Cc: Minchan Kim<minchan.kim@gmail.com>
-> CC: Andrew Morton<akpm@linux-foundation.org>
-> CC: KOSAKI Motohiro<kosaki.motohiro@jp.fujitsu.com>
-> CC: Yasuaki Ishimatsu<isimatu.yasuaki@jp.fujitsu.com>
-> Signed-off-by: Wen Congyang<wency@cn.fujitsu.com>
+From: Vineet Gupta <vgupta@synopsys.com>
 
-Reviewed-by: Tang Chen <tangchen@cn.fujitsu.com>
+* parisc: /proc/sys/kernel/unaligned-trap => SYSCTL_ARCH_UNALIGN_ALLOW
 
-> ---
->   mm/memory_hotplug.c | 16 ++++++++++++++--
->   1 file changed, 14 insertions(+), 2 deletions(-)
->
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index e4eeaca..b825dbc 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -1012,10 +1012,13 @@ int remove_memory(u64 start, u64 size)
->   	unsigned long start_pfn, end_pfn;
->   	unsigned long pfn, section_nr;
->   	int ret;
-> +	int return_on_error = 0;
-> +	int retry = 0;
->
->   	start_pfn = PFN_DOWN(start);
->   	end_pfn = start_pfn + PFN_DOWN(size);
->
-> +repeat:
->   	for (pfn = start_pfn; pfn<  end_pfn; pfn += PAGES_PER_SECTION) {
->   		section_nr = pfn_to_section_nr(pfn);
->   		if (!present_section_nr(section_nr))
-> @@ -1034,14 +1037,23 @@ int remove_memory(u64 start, u64 size)
->
->   		ret = offline_memory_block(mem);
->   		if (ret) {
-> -			kobject_put(&mem->dev.kobj);
-> -			return ret;
-> +			if (return_on_error) {
-> +				kobject_put(&mem->dev.kobj);
-> +				return ret;
-> +			} else {
-> +				retry = 1;
-> +			}
->   		}
->   	}
->
->   	if (mem)
->   		kobject_put(&mem->dev.kobj);
->
-> +	if (retry) {
-> +		return_on_error = 1;
-> +		goto repeat;
-> +	}
-> +
->   	return 0;
->   }
->   #else
+* ia64: /proc/sys/kernel/ignore-unaligned-usertrap =>
+					SYSCTL_ARCH_UNALIGN_NO_WARN
+
+This allows other architectures, specifically ARC to reuse these sysctl
+knobs.
+
+Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Serge Hallyn <serge.hallyn@canonical.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ arch/ia64/Kconfig   |    1 +
+ arch/parisc/Kconfig |    1 +
+ init/Kconfig        |   16 ++++++++++++++++
+ kernel/sysctl.c     |   16 +++++++++++++---
+ 4 files changed, 31 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 3279646..5fb1064 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -40,6 +40,7 @@ config IA64
+ 	select ARCH_THREAD_INFO_ALLOCATOR
+ 	select ARCH_CLOCKSOURCE_DATA
+ 	select GENERIC_TIME_VSYSCALL_OLD
++	select SYSCTL_ARCH_UNALIGN_NO_WARN
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+ 	default y
+diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
+index 11def45..7d9de54 100644
+--- a/arch/parisc/Kconfig
++++ b/arch/parisc/Kconfig
+@@ -20,6 +20,7 @@ config PARISC
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_STRNCPY_FROM_USER
++	select SYSCTL_ARCH_UNALIGN_ALLOW
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+ 
+diff --git a/init/Kconfig b/init/Kconfig
+index 6fdd6e3..de4b184 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1169,6 +1169,22 @@ config SYSCTL_EXCEPTION_TRACE
+ 	help
+ 	  Enable support for /proc/sys/debug/exception-trace.
+ 
++config SYSCTL_ARCH_UNALIGN_NO_WARN
++	bool
++	help
++	  Enable support for /proc/sys/kernel/ignore-unaligned-usertrap
++	  Allows arch to define/use @no_unaligned_warning to possbly warn about
++	  unaligned access emulation going on under the hood.
++	  see arch/ia64/kernel/unaligned.c for reference
++
++config SYSCTL_ARCH_UNALIGN_ALLOW
++	bool
++	help
++	  Enable support for /proc/sys/kernel/unaligned-trap
++	  Allows arches to define/use @unaligned_enabled to runtime toggle
++	  the unaligned access emulation.
++	  see arch/parisc/kernel/unaligned.c for reference
++
+ config KALLSYMS
+ 	 bool "Load all symbols for debugging/ksymoops" if EXPERT
+ 	 default y
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 26f65ea..9c618bf 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -157,14 +157,20 @@ extern int sysctl_tsb_ratio;
+ 
+ #ifdef __hppa__
+ extern int pwrsw_enabled;
+-extern int unaligned_enabled;
+ #endif
+ 
+ #ifdef CONFIG_IA64
+-extern int no_unaligned_warning;
+ extern int unaligned_dump_stack;
+ #endif
+ 
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
++extern int unaligned_enabled;
++#endif
++
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
++extern int no_unaligned_warning;
++#endif
++
+ #ifdef CONFIG_PROC_SYSCTL
+ static int proc_do_cad_pid(struct ctl_table *table, int write,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos);
+@@ -504,6 +510,8 @@ static struct ctl_table kern_table[] = {
+ 	 	.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++#endif
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
+ 	{
+ 		.procname	= "unaligned-trap",
+ 		.data		= &unaligned_enabled,
+@@ -870,7 +878,7 @@ static struct ctl_table kern_table[] = {
+ 		.proc_handler	= proc_doulongvec_minmax,
+ 	},
+ #endif
+-#ifdef CONFIG_IA64
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
+ 	{
+ 		.procname	= "ignore-unaligned-usertrap",
+ 		.data		= &no_unaligned_warning,
+@@ -878,6 +886,8 @@ static struct ctl_table kern_table[] = {
+ 	 	.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++#endif
++#ifdef CONFIG_IA64
+ 	{
+ 		.procname	= "unaligned-dump-stack",
+ 		.data		= &unaligned_dump_stack,
+-- 
+1.7.4.1
 
