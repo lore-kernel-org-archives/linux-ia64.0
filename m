@@ -1,66 +1,55 @@
-From: Joe Perches <joe@perches.com>
-Date: Wed, 12 Dec 2012 18:18:56 +0000
-Subject: [TRIVIAL PATCH 07/26] ia64: Convert print_symbol to %pSR
-Message-Id: <90df189c061ddc1580efd32a179a9c409967b1d5.1355335227.git.joe@perches.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Mon, 24 Dec 2012 12:09:21 +0000
+Subject: [PATCH v5 11/14] memory-hotplug: Integrated __remove_section() of CONFIG_SPARSEMEM_VMEMMAP.
+Message-Id: <1356350964-13437-12-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1355335227.git.joe@perches.com>
-In-Reply-To: <cover.1355335227.git.joe@perches.com>
+References: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jiri Kosina <trivial@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-Use the new vsprintf extension to avoid any possible
-message interleaving.
+Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
+we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/ia64/kernel/process.c |   13 +++++--------
- 1 files changed, 5 insertions(+), 8 deletions(-)
+ mm/memory_hotplug.c |   11 -----------
+ 1 files changed, 0 insertions(+), 11 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 31360cb..f11105a 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -1,4 +1,4 @@
--/*
-+ /*
-  * Architecture-specific setup.
-  *
-  * Copyright (C) 1998-2003 Hewlett-Packard Co
-@@ -66,7 +66,6 @@ void
- ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- {
- 	unsigned long ip, sp, bsp;
--	char buf[128];			/* don't make it so big that it overflows the stack! */
- 
- 	printk("\nCall Trace:\n");
- 	do {
-@@ -76,11 +75,9 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- 
- 		unw_get_sp(info, &sp);
- 		unw_get_bsp(info, &bsp);
--		snprintf(buf, sizeof(buf),
--			 " [<%016lx>] %%s\n"
--			 "                                sp=%016lx bsp=%016lx\n",
--			 ip, sp, bsp);
--		print_symbol(buf, ip);
-+		printk(" [<%016lx>] %pSR\n"
-+		       "                                sp=%016lx bsp=%016lx\n",
-+		       ip, (void *)ip, sp, bsp);
- 	} while (unw_unwind(info) >= 0);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index c12bd55..71cb656 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -430,16 +430,6 @@ static int __meminit __add_section(int nid, struct zone *zone,
+ 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
  }
  
-@@ -116,7 +113,7 @@ show_regs (struct pt_regs *regs)
- 	printk("psr : %016lx ifs : %016lx ip  : [<%016lx>]    %s (%s)\n",
- 	       regs->cr_ipsr, regs->cr_ifs, ip, print_tainted(),
- 	       init_utsname()->release);
--	print_symbol("ip is at %s\n", ip);
-+	printk("ip is at %pSR\n", (void *)ip);
- 	printk("unat: %016lx pfs : %016lx rsc : %016lx\n",
- 	       regs->ar_unat, regs->ar_pfs, regs->ar_rsc);
- 	printk("rnat: %016lx bsps: %016lx pr  : %016lx\n",
+-#ifdef CONFIG_SPARSEMEM_VMEMMAP
+-static int __remove_section(struct zone *zone, struct mem_section *ms)
+-{
+-	/*
+-	 * XXX: Freeing memmap with vmemmap is not implement yet.
+-	 *      This should be removed later.
+-	 */
+-	return -EBUSY;
+-}
+-#else
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ {
+ 	int ret = -EINVAL;
+@@ -454,7 +444,6 @@ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ 	sparse_remove_one_section(zone, ms);
+ 	return 0;
+ }
+-#endif
+ 
+ /*
+  * Reasonably generic function for adding memory.  It is
 -- 
-1.7.8.112.g3fd21
+1.7.1
 
