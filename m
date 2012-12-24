@@ -1,150 +1,127 @@
-From: <Vineet.Gupta1@synopsys.com>
-Date: Thu, 20 Dec 2012 11:23:38 +0000
-Subject: [PATCH] sysctl: convert arch specific unaligned access regulators to generic ones
-Message-Id: <1356001898-2960-2-git-send-email-vgupta@synopsys.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Mon, 24 Dec 2012 12:09:10 +0000
+Subject: [PATCH v5 00/14] memory-hotplug: hot-remove physical memory
+Message-Id: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <50D2B75A.3000208@synopsys.com>
- <1356001898-2960-1-git-send-email-vgupta@synopsys.com>
-In-Reply-To: <1356001898-2960-1-git-send-email-vgupta@synopsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, "Eric W. Biederman" <ebiederm@xmission.com>, Serge Hallyn <serge.hallyn@canonical.com>, "David S. Miller" <davem@davemloft.net>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-From: Vineet Gupta <vgupta@synopsys.com>
+Hi Andrew,
 
-* parisc: /proc/sys/kernel/unaligned-trap => SYSCTL_ARCH_UNALIGN_ALLOW
+Here is the physical memory hot-remove patch-set based on 3.8rc-1.
 
-* ia64: /proc/sys/kernel/ignore-unaligned-usertrap =>
-					SYSCTL_ARCH_UNALIGN_NO_WARN
+This patch-set aims to implement physical memory hot-removing.
 
-This allows other architectures, specifically ARC to reuse these sysctl
-knobs.
+The patches can free/remove the following things:
 
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Serge Hallyn <serge.hallyn@canonical.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-parisc@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- arch/ia64/Kconfig   |    1 +
- arch/parisc/Kconfig |    1 +
- init/Kconfig        |   16 ++++++++++++++++
- kernel/sysctl.c     |   16 +++++++++++++---
- 4 files changed, 31 insertions(+), 3 deletions(-)
+  - /sys/firmware/memmap/X/{end, start, type} : [PATCH 4/14]
+  - memmap of sparse-vmemmap                  : [PATCH 6,7,8,10/14]
+  - page table of removed memory              : [RFC PATCH 7,8,10/14]
+  - node and related sysfs files              : [RFC PATCH 13-14/14]
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 3279646..5fb1064 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -40,6 +40,7 @@ config IA64
- 	select ARCH_THREAD_INFO_ALLOCATOR
- 	select ARCH_CLOCKSOURCE_DATA
- 	select GENERIC_TIME_VSYSCALL_OLD
-+	select SYSCTL_ARCH_UNALIGN_NO_WARN
- 	select HAVE_MOD_ARCH_SPECIFIC
- 	select MODULES_USE_ELF_RELA
- 	default y
-diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
-index 11def45..7d9de54 100644
---- a/arch/parisc/Kconfig
-+++ b/arch/parisc/Kconfig
-@@ -20,6 +20,7 @@ config PARISC
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_SMP_IDLE_THREAD
- 	select GENERIC_STRNCPY_FROM_USER
-+	select SYSCTL_ARCH_UNALIGN_ALLOW
- 	select HAVE_MOD_ARCH_SPECIFIC
- 	select MODULES_USE_ELF_RELA
- 
-diff --git a/init/Kconfig b/init/Kconfig
-index 6fdd6e3..de4b184 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1169,6 +1169,22 @@ config SYSCTL_EXCEPTION_TRACE
- 	help
- 	  Enable support for /proc/sys/debug/exception-trace.
- 
-+config SYSCTL_ARCH_UNALIGN_NO_WARN
-+	bool
-+	help
-+	  Enable support for /proc/sys/kernel/ignore-unaligned-usertrap
-+	  Allows arch to define/use @no_unaligned_warning to possbly warn about
-+	  unaligned access emulation going on under the hood.
-+	  see arch/ia64/kernel/unaligned.c for reference
-+
-+config SYSCTL_ARCH_UNALIGN_ALLOW
-+	bool
-+	help
-+	  Enable support for /proc/sys/kernel/unaligned-trap
-+	  Allows arches to define/use @unaligned_enabled to runtime toggle
-+	  the unaligned access emulation.
-+	  see arch/parisc/kernel/unaligned.c for reference
-+
- config KALLSYMS
- 	 bool "Load all symbols for debugging/ksymoops" if EXPERT
- 	 default y
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 26f65ea..9c618bf 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -157,14 +157,20 @@ extern int sysctl_tsb_ratio;
- 
- #ifdef __hppa__
- extern int pwrsw_enabled;
--extern int unaligned_enabled;
- #endif
- 
- #ifdef CONFIG_IA64
--extern int no_unaligned_warning;
- extern int unaligned_dump_stack;
- #endif
- 
-+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
-+extern int unaligned_enabled;
-+#endif
-+
-+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
-+extern int no_unaligned_warning;
-+#endif
-+
- #ifdef CONFIG_PROC_SYSCTL
- static int proc_do_cad_pid(struct ctl_table *table, int write,
- 		  void __user *buffer, size_t *lenp, loff_t *ppos);
-@@ -504,6 +510,8 @@ static struct ctl_table kern_table[] = {
- 	 	.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+#endif
-+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_ALLOW
- 	{
- 		.procname	= "unaligned-trap",
- 		.data		= &unaligned_enabled,
-@@ -870,7 +878,7 @@ static struct ctl_table kern_table[] = {
- 		.proc_handler	= proc_doulongvec_minmax,
- 	},
- #endif
--#ifdef CONFIG_IA64
-+#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
- 	{
- 		.procname	= "ignore-unaligned-usertrap",
- 		.data		= &no_unaligned_warning,
-@@ -878,6 +886,8 @@ static struct ctl_table kern_table[] = {
- 	 	.mode		= 0644,
- 		.proc_handler	= proc_dointvec,
- 	},
-+#endif
-+#ifdef CONFIG_IA64
- 	{
- 		.procname	= "unaligned-dump-stack",
- 		.data		= &unaligned_dump_stack,
--- 
-1.7.4.1
+
+How to test this patchset?
+1. apply this patchset and build the kernel. MEMORY_HOTPLUG, MEMORY_HOTREMOVE,
+   ACPI_HOTPLUG_MEMORY must be selected.
+2. load the module acpi_memhotplug
+3. hotplug the memory device(it depends on your hardware)
+   You will see the memory device under the directory /sys/bus/acpi/devices/.
+   Its name is PNP0C80:XX.
+4. online/offline pages provided by this memory device
+   You can write online/offline to /sys/devices/system/memory/memoryX/state to
+   online/offline pages provided by this memory device
+5. hotremove the memory device
+   You can hotremove the memory device by the hardware, or writing 1 to
+   /sys/bus/acpi/devices/PNP0C80:XX/eject.
+
+Note: if the memory provided by the memory device is used by the kernel, it
+can't be offlined. It is not a bug.
+
+
+Changelogs from v4 to v5:
+ Patch7: new patch, move pgdat_resize_lock into sparse_remove_one_section() to
+         avoid disabling irq because we need flush tlb when free pagetables.
+ Patch8: new patch, pick up some common APIs that are used to free direct mapping
+         and vmemmap pagetables.
+ Patch9: free direct mapping pagetables on x86_64 arch.
+ Patch10: free vmemmap pagetables.
+ Patch11: since freeing memmap with vmemmap has been implemented, the config
+          macro CONFIG_SPARSEMEM_VMEMMAP when defining __remove_section() is
+          no longer needed.
+ Patch13: no need to modify acpi_memory_disable_device() since it was removed,
+          and add nid parameter when calling remove_memory().
+
+Changelogs from v3 to v4:
+ Patch7: remove unused codes.
+ Patch8: fix nr_pages that is passed to free_map_bootmem()
+
+Changelogs from v2 to v3:
+ Patch9: call sync_global_pgds() if pgd is changed
+ Patch10: fix a problem int the patch
+
+Changelogs from v1 to v2:
+ Patch1: new patch, offline memory twice. 1st iterate: offline every non primary
+         memory block. 2nd iterate: offline primary (i.e. first added) memory
+         block.
+
+ Patch3: new patch, no logical change, just remove reduntant codes.
+
+ Patch9: merge the patch from wujianguo into this patch. flush tlb on all cpu
+         after the pagetable is changed.
+
+ Patch12: new patch, free node_data when a node is offlined.
+
+
+Tang Chen (5):
+  memory-hotplug: move pgdat_resize_lock into
+    sparse_remove_one_section()
+  memory-hotplug: remove page table of x86_64 architecture
+  memory-hotplug: remove memmap of sparse-vmemmap
+  memory-hotplug: Integrated __remove_section() of
+    CONFIG_SPARSEMEM_VMEMMAP.
+  memory-hotplug: remove sysfs file of node
+
+Wen Congyang (5):
+  memory-hotplug: try to offline the memory twice to avoid dependence
+  memory-hotplug: remove redundant codes
+  memory-hotplug: introduce new function arch_remove_memory() for
+    removing page table depends on architecture
+  memory-hotplug: Common APIs to support page tables hot-remove
+  memory-hotplug: free node_data when a node is offlined
+
+Yasuaki Ishimatsu (4):
+  memory-hotplug: check whether all memory blocks are offlined or not
+    when removing memory
+  memory-hotplug: remove /sys/firmware/memmap/X sysfs
+  memory-hotplug: implement register_page_bootmem_info_section of
+    sparse-vmemmap
+  memory-hotplug: memory_hotplug: clear zone when removing the memory
+
+ arch/arm64/mm/mmu.c                  |    3 +
+ arch/ia64/mm/discontig.c             |   10 +
+ arch/ia64/mm/init.c                  |   18 ++
+ arch/powerpc/mm/init_64.c            |   10 +
+ arch/powerpc/mm/mem.c                |   12 +
+ arch/s390/mm/init.c                  |   12 +
+ arch/s390/mm/vmem.c                  |   10 +
+ arch/sh/mm/init.c                    |   17 ++
+ arch/sparc/mm/init_64.c              |   10 +
+ arch/tile/mm/init.c                  |    8 +
+ arch/x86/include/asm/pgtable_types.h |    1 +
+ arch/x86/mm/init_32.c                |   12 +
+ arch/x86/mm/init_64.c                |  382 ++++++++++++++++++++++++++++++++
+ arch/x86/mm/pageattr.c               |   47 ++--
+ drivers/acpi/acpi_memhotplug.c       |    8 +-
+ drivers/base/memory.c                |    6 +
+ drivers/firmware/memmap.c            |   98 ++++++++-
+ include/linux/bootmem.h              |    1 +
+ include/linux/firmware-map.h         |    6 +
+ include/linux/memory_hotplug.h       |   15 +-
+ include/linux/mm.h                   |    4 +-
+ mm/memory_hotplug.c                  |  406 ++++++++++++++++++++++++++++++++--
+ mm/sparse.c                          |    8 +-
+ 23 files changed, 1043 insertions(+), 61 deletions(-)
 
