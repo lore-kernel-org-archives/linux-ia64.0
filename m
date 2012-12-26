@@ -1,7 +1,7 @@
-From: Glauber Costa <glommer@parallels.com>
-Date: Tue, 25 Dec 2012 08:35:15 +0000
+From: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Wed, 26 Dec 2012 03:02:00 +0000
 Subject: Re: [PATCH v5 01/14] memory-hotplug: try to offline the memory twice to avoid dependence
-Message-Id: <50D96543.6010903@parallels.com>
+Message-Id: <50DA68A8.4060001@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com> <1356350964-13437-2-git-send-email-tangchen@cn.fujitsu.com>
 In-Reply-To: <1356350964-13437-2-git-send-email-tangchen@cn.fujitsu.com>
@@ -11,7 +11,7 @@ Content-Transfer-Encoding: 7bit
 To: Tang Chen <tangchen@cn.fujitsu.com>
 Cc: akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-On 12/24/2012 04:09 PM, Tang Chen wrote:
+(2012/12/24 21:09), Tang Chen wrote:
 > From: Wen Congyang <wency@cn.fujitsu.com>
 > 
 > memory can't be offlined when CONFIG_MEMCG is selected.
@@ -25,6 +25,11 @@ On 12/24/2012 04:09 PM, Tang Chen wrote:
 > stored page cgroup may be provided by memory8. So we can't offline memory8
 > now. We should offline the memory in the reversed order.
 > 
+
+If memory8 is onlined as NORMAL memory ...right ?
+
+IIUC, vmalloc() uses __GFP_HIGHMEM but doesn't use __GFP_MOVABLE.
+
 > When the memory device is hotremoved, we will auto offline memory provided
 > by this memory device. But we don't know which memory is onlined first, so
 > offlining memory may fail. In such case, iterate twice to offline the memory.
@@ -35,17 +40,62 @@ On 12/24/2012 04:09 PM, Tang Chen wrote:
 > 
 > Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 
-Maybe there is something here that I am missing - I admit that I came
-late to this one, but this really sounds like a very ugly hack, that
-really has no place in here.
+I'm not sure but the whole DIMM should be onlined as MOVABLE mem ?
 
-Retrying, of course, may make sense, if we have reasonable belief that
-we may now succeed. If this is the case, you need to document - in the
-code - while is that.
+Anyway, I agree this kind of retry is required if memory is onlined as NORMAL mem.
+But retry-once is ok ?
 
-The memcg argument, however, doesn't really cut it. Why can't we make
-all page_cgroup allocations local to the node they are describing? If
-memcg is the culprit here, we should fix it, and not retry. If there is
-still any benefit in retrying, then we retry being very specific about why.
+Thanks,
+-Kame
+
+> ---
+>   mm/memory_hotplug.c |   16 ++++++++++++++--
+>   1 files changed, 14 insertions(+), 2 deletions(-)
+> 
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index d04ed87..62e04c9 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -1388,10 +1388,13 @@ int remove_memory(u64 start, u64 size)
+>   	unsigned long start_pfn, end_pfn;
+>   	unsigned long pfn, section_nr;
+>   	int ret;
+> +	int return_on_error = 0;
+> +	int retry = 0;
+>   
+>   	start_pfn = PFN_DOWN(start);
+>   	end_pfn = start_pfn + PFN_DOWN(size);
+>   
+> +repeat:
+>   	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+>   		section_nr = pfn_to_section_nr(pfn);
+>   		if (!present_section_nr(section_nr))
+> @@ -1410,14 +1413,23 @@ int remove_memory(u64 start, u64 size)
+>   
+>   		ret = offline_memory_block(mem);
+>   		if (ret) {
+> -			kobject_put(&mem->dev.kobj);
+> -			return ret;
+> +			if (return_on_error) {
+> +				kobject_put(&mem->dev.kobj);
+> +				return ret;
+> +			} else {
+> +				retry = 1;
+> +			}
+>   		}
+>   	}
+>   
+>   	if (mem)
+>   		kobject_put(&mem->dev.kobj);
+>   
+> +	if (retry) {
+> +		return_on_error = 1;
+> +		goto repeat;
+> +	}
+> +
+>   	return 0;
+>   }
+>   #else
+> 
 
 
