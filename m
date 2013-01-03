@@ -1,83 +1,47 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Wed, 09 Jan 2013 09:32:38 +0000
-Subject: [PATCH v6 14/15] memory-hotplug: free node_data when a node is offlined
-Message-Id: <1357723959-5416-15-git-send-email-tangchen@cn.fujitsu.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Thu, 03 Jan 2013 06:59:32 +0000
+Subject: [RESEND PATCH] Convert IA64 sysctl to generic
+Message-Id: <1357195653-998-1-git-send-email-vgupta@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+References: <50D2B75A.3000208@synopsys.com>
+In-Reply-To: <50D2B75A.3000208@synopsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, Vineet Gupta <Vineet.Gupta1@synopsys.com>
 
-From: Wen Congyang <wency@cn.fujitsu.com>
+Hi,
 
-We call hotadd_new_pgdat() to allocate memory to store node_data. So we
-should free it when removing a node.
+This came out ARC Port's review by Arnd where he suggested using the existing
+sysctl knobs in parisc and/or ia64 for runtime controlling unaligned access
+emulation.
 
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
-Reviewed-by: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
----
- mm/memory_hotplug.c |   30 +++++++++++++++++++++++++++---
- 1 files changed, 27 insertions(+), 3 deletions(-)
+Turns out that ARC port needs bit of both.
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index a8703f7..8b67752 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -1699,9 +1699,12 @@ static int check_cpu_on_node(void *data)
- /* offline the node if all memory sections of this node are removed */
- static void try_offline_node(int nid)
- {
--	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
--	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
-+	pg_data_t *pgdat = NODE_DATA(nid);
-+	unsigned long start_pfn = pgdat->node_start_pfn;
-+	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
- 	unsigned long pfn;
-+	struct page *pgdat_page = virt_to_page(pgdat);
-+	int i;
- 
- 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
- 		unsigned long section_nr = pfn_to_section_nr(pfn);
-@@ -1719,7 +1722,7 @@ static void try_offline_node(int nid)
- 		return;
- 	}
- 
--	if (stop_machine(check_cpu_on_node, NODE_DATA(nid), NULL))
-+	if (stop_machine(check_cpu_on_node, pgdat, NULL))
- 		return;
- 
- 	/*
-@@ -1728,6 +1731,27 @@ static void try_offline_node(int nid)
- 	 */
- 	node_set_offline(nid);
- 	unregister_one_node(nid);
-+
-+	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
-+		/* node data is allocated from boot memory */
-+		return;
-+
-+	/* free waittable in each zone */
-+	for (i = 0; i < MAX_NR_ZONES; i++) {
-+		struct zone *zone = pgdat->node_zones + i;
-+
-+		if (zone->wait_table)
-+			vfree(zone->wait_table);
-+	}
-+
-+	/*
-+	 * Since there is no way to guarentee the address of pgdat/zone is not
-+	 * on stack of any kernel threads or used by other kernel objects
-+	 * without reference counting or other symchronizing method, do not
-+	 * reset node_data and free pgdat here. Just reset it to 0 and reuse
-+	 * the memory when the node is online again.
-+	 */
-+	memset(pgdat, 0, sizeof(*pgdat));
- }
- 
- int __ref remove_memory(int nid, u64 start, u64 size)
+The common sysctl knobs are now #ifdef based on init/Kconfig options which
+the corresponding arches now select in their Kconfigs.
+No other arch code is touched (although code has not been compile tested).
+
+If this patch is ACKable, I would request you to please take this patch
+via your arch tree - to avoid any merge-hassles and other interdependencies
+later.
+
+P.S. I've deliberately NOT added the new items at the end of arch/*/Kconfig,
+to avoid any merge conflicts going further - anyhow both the ia64/parisc
+Kconfigs are not sorted either.
+
+Thx,
+-Vineet
+
+Vineet Gupta (1):
+  sysctl: Enable IA64 "ignore-unaligned-usertrap" to be used cross-arch
+
+ arch/ia64/Kconfig |    1 +
+ init/Kconfig      |    8 ++++++++
+ kernel/sysctl.c   |    9 +++++++--
+ 3 files changed, 16 insertions(+), 2 deletions(-)
+
 -- 
-1.7.1
+1.7.4.1
 
