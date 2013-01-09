@@ -1,408 +1,160 @@
-From: Cong Ding <dinggnu@gmail.com>
-Date: Mon, 14 Jan 2013 20:56:04 +0000
-Subject: [PATCH v2] ia64: sn/pci/pcibr/pcibr_reg.c: remove unnecessary check null pointer
-Message-Id: <20130114205604.GA7066@gmail.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Wed, 09 Jan 2013 09:32:37 +0000
+Subject: [PATCH v6 13/15] memory-hotplug: remove sysfs file of node
+Message-Id: <1357723959-5416-14-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1358185998-5997-1-git-send-email-dinggnu@gmail.com>
- <CAErSpo6AfLBGZpdByuUeqbD5pUc1o-YD-EyVekOgWP5m6Yv-pw@mail.gmail.com>
- <20130114184706.GA3383@gmail.com>
- <CAErSpo5zhQijO_-GfFnRt3zaWgcuC7F1uaGi+eEBoxnyczdZvg@mail.gmail.com>
-In-Reply-To: <CAErSpo5zhQijO_-GfFnRt3zaWgcuC7F1uaGi+eEBoxnyczdZvg@mail.gmail.com>
+References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-altix@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-At first, all the null pointer checks are after the pointer is dereferenced in
-the same function. The followings are evidences of all the unnecessary null
-pointer checks.
+This patch introduces a new function try_offline_node() to
+remove sysfs file of node when all memory sections of this
+node are removed. If some memory sections of this node are
+not removed, this function does nothing.
 
-These functions pcireg_control_bit_clr and pcireg_control_bit_set are called
-only from pcibr_bus_fixup() in pcibr_provider.c, and it's impossible for it to
-pass a null pointer due to null pointer check.
-
-The function pcireg_tflush_get is called only from ate_write() (ate_write()
-is called by pcibr_ate_free()) in pcibr_ate.c, and it's impossible for it to
-pass a null pointer due to pointer dereference before the calling.
-
-The functions pcireg_intr_status_get, pcireg_intr_enable_bit_clr and
-pcireg_force_intr_set get the parameter from
-pcidev_info->pdi_host_pcidev_info->pdi_pcibus_info, which is impossible to be
-null because the pcidev_info is from sn_irq_info->irq_pciioinfo and the
-irq_pciioinfo is checked in file irq.c and msi_sn.c.
-
-The functions pcireg_intr_enable_bit_set and pcireg_intr_addr_addr_set are
-called after pcireg_intr_enable_bit_clr, so there are also impossible to be
-null.
-
-The function pcireg_wrb_flush_get get the parameter from sn_dma_flush() in
-file pcibr_dma.c, where the parameter common->sfdl_pcibus_info is passed. The
-common->sfdl_pcibus_info is guaranteed to be not null by function
-pcibr_bus_fixup() in file pcibr_provider.c.
-
-The functions pcireg_int_ate_set and pcireg_int_ate_addr are similar as
-pcireg_int_ate_set.
-
-
-Signed-off-by: Cong Ding <dinggnu@gmail.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/ia64/sn/pci/pcibr/pcibr_reg.c |  271 ++++++++++++++++--------------------
- 1 files changed, 120 insertions(+), 151 deletions(-)
+ drivers/acpi/acpi_memhotplug.c |    8 ++++-
+ include/linux/memory_hotplug.h |    2 +-
+ mm/memory_hotplug.c            |   58 ++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 63 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/sn/pci/pcibr/pcibr_reg.c b/arch/ia64/sn/pci/pcibr/pcibr_reg.c
-index 8b8bbd5..ae16be3c 100644
---- a/arch/ia64/sn/pci/pcibr/pcibr_reg.c
-+++ b/arch/ia64/sn/pci/pcibr/pcibr_reg.c
-@@ -27,19 +27,16 @@ void pcireg_control_bit_clr(struct pcibus_info *pcibus_info, u64 bits)
+diff --git a/drivers/acpi/acpi_memhotplug.c b/drivers/acpi/acpi_memhotplug.c
+index eb30e5a..9c53cc6 100644
+--- a/drivers/acpi/acpi_memhotplug.c
++++ b/drivers/acpi/acpi_memhotplug.c
+@@ -295,9 +295,11 @@ static int acpi_memory_enable_device(struct acpi_memory_device *mem_device)
+ 
+ static int acpi_memory_remove_memory(struct acpi_memory_device *mem_device)
  {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
+-	int result = 0;
++	int result = 0, nid;
+ 	struct acpi_memory_info *info, *n;
  
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			__sn_clrq_relaxed(&ptr->tio.cp_control, bits);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			__sn_clrq_relaxed(&ptr->pic.p_wid_control, bits);
--			break;
--		default:
--			panic
--			    ("pcireg_control_bit_clr: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		__sn_clrq_relaxed(&ptr->tio.cp_control, bits);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		__sn_clrq_relaxed(&ptr->pic.p_wid_control, bits);
-+		break;
-+	default:
-+		panic("pcireg_control_bit_clr: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -47,19 +44,16 @@ void pcireg_control_bit_set(struct pcibus_info *pcibus_info, u64 bits)
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			__sn_setq_relaxed(&ptr->tio.cp_control, bits);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			__sn_setq_relaxed(&ptr->pic.p_wid_control, bits);
--			break;
--		default:
--			panic
--			    ("pcireg_control_bit_set: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		__sn_setq_relaxed(&ptr->tio.cp_control, bits);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		__sn_setq_relaxed(&ptr->pic.p_wid_control, bits);
-+		break;
-+	default:
-+		panic("pcireg_control_bit_set: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -71,19 +65,16 @@ u64 pcireg_tflush_get(struct pcibus_info *pcibus_info)
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 	u64 ret = 0;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			ret = __sn_readq_relaxed(&ptr->tio.cp_tflush);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			ret = __sn_readq_relaxed(&ptr->pic.p_wid_tflush);
--			break;
--		default:
--			panic
--			    ("pcireg_tflush_get: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		ret = __sn_readq_relaxed(&ptr->tio.cp_tflush);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		ret = __sn_readq_relaxed(&ptr->pic.p_wid_tflush);
-+		break;
-+	default:
-+		panic("pcireg_tflush_get: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- 
- 	/* Read of the Target Flush should always return zero */
-@@ -96,24 +87,21 @@ u64 pcireg_tflush_get(struct pcibus_info *pcibus_info)
- /*
-  * Interrupt Status Register Access -- Read Only		    0000_0100
-  */
--u64 pcireg_intr_status_get(struct pcibus_info * pcibus_info)
-+u64 pcireg_intr_status_get(struct pcibus_info *pcibus_info)
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 	u64 ret = 0;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			ret = __sn_readq_relaxed(&ptr->tio.cp_int_status);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			ret = __sn_readq_relaxed(&ptr->pic.p_int_status);
--			break;
--		default:
--			panic
--			    ("pcireg_intr_status_get: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		ret = __sn_readq_relaxed(&ptr->tio.cp_int_status);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		ret = __sn_readq_relaxed(&ptr->pic.p_int_status);
-+		break;
-+	default:
-+		panic("pcireg_intr_status_get: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- 	return ret;
- }
-@@ -125,19 +113,16 @@ void pcireg_intr_enable_bit_clr(struct pcibus_info *pcibus_info, u64 bits)
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			__sn_clrq_relaxed(&ptr->tio.cp_int_enable, bits);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			__sn_clrq_relaxed(&ptr->pic.p_int_enable, bits);
--			break;
--		default:
--			panic
--			    ("pcireg_intr_enable_bit_clr: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		__sn_clrq_relaxed(&ptr->tio.cp_int_enable, bits);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		__sn_clrq_relaxed(&ptr->pic.p_int_enable, bits);
-+		break;
-+	default:
-+		panic("pcireg_intr_enable_bit_clr: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -145,19 +130,16 @@ void pcireg_intr_enable_bit_set(struct pcibus_info *pcibus_info, u64 bits)
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			__sn_setq_relaxed(&ptr->tio.cp_int_enable, bits);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			__sn_setq_relaxed(&ptr->pic.p_int_enable, bits);
--			break;
--		default:
--			panic
--			    ("pcireg_intr_enable_bit_set: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		__sn_setq_relaxed(&ptr->tio.cp_int_enable, bits);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		__sn_setq_relaxed(&ptr->pic.p_int_enable, bits);
-+		break;
-+	default:
-+		panic("pcireg_intr_enable_bit_set: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -169,25 +151,22 @@ void pcireg_intr_addr_addr_set(struct pcibus_info *pcibus_info, int int_n,
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			__sn_clrq_relaxed(&ptr->tio.cp_int_addr[int_n],
--			    TIOCP_HOST_INTR_ADDR);
--			__sn_setq_relaxed(&ptr->tio.cp_int_addr[int_n],
--			    (addr & TIOCP_HOST_INTR_ADDR));
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			__sn_clrq_relaxed(&ptr->pic.p_int_addr[int_n],
--			    PIC_HOST_INTR_ADDR);
--			__sn_setq_relaxed(&ptr->pic.p_int_addr[int_n],
--			    (addr & PIC_HOST_INTR_ADDR));
--			break;
--		default:
--			panic
--			    ("pcireg_intr_addr_addr_get: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		__sn_clrq_relaxed(&ptr->tio.cp_int_addr[int_n],
-+		    TIOCP_HOST_INTR_ADDR);
-+		__sn_setq_relaxed(&ptr->tio.cp_int_addr[int_n],
-+		    (addr & TIOCP_HOST_INTR_ADDR));
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		__sn_clrq_relaxed(&ptr->pic.p_int_addr[int_n],
-+		    PIC_HOST_INTR_ADDR);
-+		__sn_setq_relaxed(&ptr->pic.p_int_addr[int_n],
-+		    (addr & PIC_HOST_INTR_ADDR));
-+		break;
-+	default:
-+		panic("pcireg_intr_addr_addr_get: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -198,19 +177,16 @@ void pcireg_force_intr_set(struct pcibus_info *pcibus_info, int int_n)
- {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			writeq(1, &ptr->tio.cp_force_pin[int_n]);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			writeq(1, &ptr->pic.p_force_pin[int_n]);
--			break;
--		default:
--			panic
--			    ("pcireg_force_intr_set: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		writeq(1, &ptr->tio.cp_force_pin[int_n]);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		writeq(1, &ptr->pic.p_force_pin[int_n]);
-+		break;
-+	default:
-+		panic("pcireg_force_intr_set: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- }
- 
-@@ -222,21 +198,20 @@ u64 pcireg_wrb_flush_get(struct pcibus_info *pcibus_info, int device)
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 	u64 ret = 0;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			ret -			    __sn_readq_relaxed(&ptr->tio.cp_wr_req_buf[device]);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			ret -			    __sn_readq_relaxed(&ptr->pic.p_wr_req_buf[device]);
--			break;
--		default:
--		      panic("pcireg_wrb_flush_get: unknown bridgetype bridge 0x%p", ptr);
--		}
--
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		ret +		    __sn_readq_relaxed(&ptr->tio.cp_wr_req_buf[device]);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		ret +		    __sn_readq_relaxed(&ptr->pic.p_wr_req_buf[device]);
-+		break;
-+	default:
-+	      panic("pcireg_wrb_flush_get: unknown bridgetype bridge 0x%p",
-+			      ptr);
- 	}
++	nid = acpi_get_node(mem_device->device->handle);
 +
- 	/* Read of the Write Buffer Flush should always return zero */
+ 	list_for_each_entry_safe(info, n, &mem_device->res_list, list) {
+ 		if (info->failed)
+ 			/* The kernel does not use this memory block */
+@@ -310,7 +312,9 @@ static int acpi_memory_remove_memory(struct acpi_memory_device *mem_device)
+ 			 */
+ 			return -EBUSY;
+ 
+-		result = remove_memory(info->start_addr, info->length);
++		if (nid < 0)
++			nid = memory_add_physaddr_to_nid(info->start_addr);
++		result = remove_memory(nid, info->start_addr, info->length);
+ 		if (result)
+ 			return result;
+ 
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 2441f36..f60e728 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -242,7 +242,7 @@ extern int arch_add_memory(int nid, u64 start, u64 size);
+ extern int offline_pages(unsigned long start_pfn, unsigned long nr_pages);
+ extern int offline_memory_block(struct memory_block *mem);
+ extern bool is_memblock_offlined(struct memory_block *mem);
+-extern int remove_memory(u64 start, u64 size);
++extern int remove_memory(int nid, u64 start, u64 size);
+ extern int sparse_add_one_section(struct zone *zone, unsigned long start_pfn,
+ 								int nr_pages);
+ extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index da20c14..a8703f7 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -29,6 +29,7 @@
+ #include <linux/suspend.h>
+ #include <linux/mm_inline.h>
+ #include <linux/firmware-map.h>
++#include <linux/stop_machine.h>
+ 
+ #include <asm/tlbflush.h>
+ 
+@@ -1678,7 +1679,58 @@ static int is_memblock_offlined_cb(struct memory_block *mem, void *arg)
  	return ret;
  }
-@@ -246,19 +221,16 @@ void pcireg_int_ate_set(struct pcibus_info *pcibus_info, int ate_index,
+ 
+-int __ref remove_memory(u64 start, u64 size)
++static int check_cpu_on_node(void *data)
++{
++	struct pglist_data *pgdat = data;
++	int cpu;
++
++	for_each_present_cpu(cpu) {
++		if (cpu_to_node(cpu) = pgdat->node_id)
++			/*
++			 * the cpu on this node isn't removed, and we can't
++			 * offline this node.
++			 */
++			return -EBUSY;
++	}
++
++	return 0;
++}
++
++/* offline the node if all memory sections of this node are removed */
++static void try_offline_node(int nid)
++{
++	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
++	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
++	unsigned long pfn;
++
++	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
++		unsigned long section_nr = pfn_to_section_nr(pfn);
++
++		if (!present_section_nr(section_nr))
++			continue;
++
++		if (pfn_to_nid(pfn) != nid)
++			continue;
++
++		/*
++		 * some memory sections of this node are not removed, and we
++		 * can't offline node now.
++		 */
++		return;
++	}
++
++	if (stop_machine(check_cpu_on_node, NODE_DATA(nid), NULL))
++		return;
++
++	/*
++	 * all memory/cpu of this node are removed, we can offline this
++	 * node now.
++	 */
++	node_set_offline(nid);
++	unregister_one_node(nid);
++}
++
++int __ref remove_memory(int nid, u64 start, u64 size)
  {
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
+ 	unsigned long start_pfn, end_pfn;
+ 	int ret = 0;
+@@ -1733,6 +1785,8 @@ repeat:
  
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			writeq(val, &ptr->tio.cp_int_ate_ram[ate_index]);
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			writeq(val, &ptr->pic.p_int_ate_ram[ate_index]);
--			break;
--		default:
--			panic
--			    ("pcireg_int_ate_set: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		writeq(val, &ptr->tio.cp_int_ate_ram[ate_index]);
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		writeq(val, &ptr->pic.p_int_ate_ram[ate_index]);
-+		break;
-+	default:
-+		panic("pcireg_int_ate_set: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
+ 	arch_remove_memory(start, size);
+ 
++	try_offline_node(nid);
++
+ 	unlock_memory_hotplug();
+ 
+ 	return 0;
+@@ -1742,7 +1796,7 @@ int offline_pages(unsigned long start_pfn, unsigned long nr_pages)
+ {
+ 	return -EINVAL;
  }
- 
-@@ -267,19 +239,16 @@ u64 __iomem *pcireg_int_ate_addr(struct pcibus_info *pcibus_info, int ate_index)
- 	union br_ptr __iomem *ptr = (union br_ptr __iomem *)pcibus_info->pbi_buscommon.bs_base;
- 	u64 __iomem *ret = NULL;
- 
--	if (pcibus_info) {
--		switch (pcibus_info->pbi_bridge_type) {
--		case PCIBR_BRIDGETYPE_TIOCP:
--			ret = &ptr->tio.cp_int_ate_ram[ate_index];
--			break;
--		case PCIBR_BRIDGETYPE_PIC:
--			ret = &ptr->pic.p_int_ate_ram[ate_index];
--			break;
--		default:
--			panic
--			    ("pcireg_int_ate_addr: unknown bridgetype bridge 0x%p",
--			     ptr);
--		}
-+	switch (pcibus_info->pbi_bridge_type) {
-+	case PCIBR_BRIDGETYPE_TIOCP:
-+		ret = &ptr->tio.cp_int_ate_ram[ate_index];
-+		break;
-+	case PCIBR_BRIDGETYPE_PIC:
-+		ret = &ptr->pic.p_int_ate_ram[ate_index];
-+		break;
-+	default:
-+		panic("pcireg_int_ate_addr: unknown bridgetype bridge 0x%p",
-+				ptr);
- 	}
- 	return ret;
+-int remove_memory(u64 start, u64 size)
++int remove_memory(int nid, u64 start, u64 size)
+ {
+ 	return -EINVAL;
  }
 -- 
-1.7.4.5
+1.7.1
 
