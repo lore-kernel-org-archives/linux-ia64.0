@@ -1,65 +1,55 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Thu, 10 Jan 2013 05:56:07 +0000
-Subject: Re: [PATCH v6 02/15] memory-hotplug: check whether all memory blocks are offlined or not when removi
-Message-Id: <50EE57F7.1000304@cn.fujitsu.com>
+From: Michel Lespinasse <walken@google.com>
+Date: Wed, 09 Jan 2013 01:28:09 +0000
+Subject: [PATCH 2/8] mm: use vm_unmapped_area() on alpha architecture
+Message-Id: <1357694895-520-3-git-send-email-walken@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com> <1357723959-5416-3-git-send-email-tangchen@cn.fujitsu.com> <20130109151140.76982b9e.akpm@linux-foundation.org>
-In-Reply-To: <20130109151140.76982b9e.akpm@linux-foundation.org>
+References: <1357694895-520-1-git-send-email-walken@google.com>
+In-Reply-To: <1357694895-520-1-git-send-email-walken@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: Rik van Riel <riel@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Andrew,
+Update the alpha arch_get_unmapped_area function to make use of
+vm_unmapped_area() instead of implementing a brute force search.
 
-On 01/10/2013 07:11 AM, Andrew Morton wrote:
-> On Wed, 9 Jan 2013 17:32:26 +0800
-> Tang Chen<tangchen@cn.fujitsu.com>  wrote:
->
->> We remove the memory like this:
->> 1. lock memory hotplug
->> 2. offline a memory block
->> 3. unlock memory hotplug
->> 4. repeat 1-3 to offline all memory blocks
->> 5. lock memory hotplug
->> 6. remove memory(TODO)
->> 7. unlock memory hotplug
->>
->> All memory blocks must be offlined before removing memory. But we don't hold
->> the lock in the whole operation. So we should check whether all memory blocks
->> are offlined before step6. Otherwise, kernel maybe panicked.
->
-> Well, the obvious question is: why don't we hold lock_memory_hotplug()
-> for all of steps 1-4?  Please send the reasons for this in a form which
-> I can paste into the changelog.
+Signed-off-by: Michel Lespinasse <walken@google.com>
 
-In the changelog form:
+---
+ arch/alpha/kernel/osf_sys.c |   20 +++++++++-----------
+ 1 files changed, 9 insertions(+), 11 deletions(-)
 
-Offlining a memory block and removing a memory device can be two
-different operations. Users can just offline some memory blocks
-without removing the memory device. For this purpose, the kernel has
-held lock_memory_hotplug() in __offline_pages(). To reuse the code
-for memory hot-remove, we repeat step 1-3 to offline all the memory
-blocks, repeatedly lock and unlock memory hotplug, but not hold the
-memory hotplug lock in the whole operation.
-
->
->
-> Actually, I wonder if doing this would fix a race in the current
-> remove_memory() repeat: loop.  That code does a
-> find_memory_block_hinted() followed by offline_memory_block(), but
-> afaict find_memory_block_hinted() only does a get_device().  Is the
-> get_device() sufficiently strong to prevent problems if another thread
-> concurrently offlines or otherwise alters this memory_block's state?
-
-I think we already have memory_block->state_mutex to protect the
-concurrently changing of memory_block's state.
-
-The find_memory_block_hinted() here is to find the memory_block
-corresponding to the memory section we are dealing with.
-
-Thanks. :)
-
->
-
+diff --git a/arch/alpha/kernel/osf_sys.c b/arch/alpha/kernel/osf_sys.c
+index 14db93e4c8a8..ba707e23ef37 100644
+--- a/arch/alpha/kernel/osf_sys.c
++++ b/arch/alpha/kernel/osf_sys.c
+@@ -1298,17 +1298,15 @@ static unsigned long
+ arch_get_unmapped_area_1(unsigned long addr, unsigned long len,
+ 		         unsigned long limit)
+ {
+-	struct vm_area_struct *vma = find_vma(current->mm, addr);
+-
+-	while (1) {
+-		/* At this point:  (!vma || addr < vma->vm_end). */
+-		if (limit - len < addr)
+-			return -ENOMEM;
+-		if (!vma || addr + len <= vma->vm_start)
+-			return addr;
+-		addr = vma->vm_end;
+-		vma = vma->vm_next;
+-	}
++	struct vm_unmapped_area_info info;
++
++	info.flags = 0;
++	info.length = len;
++	info.low_limit = addr;
++	info.high_limit = limit;
++	info.align_mask = 0;
++	info.align_offset = 0;
++	return vm_unmapped_area(&info);
+ }
+ 
+ unsigned long
+-- 
+1.7.7.3
