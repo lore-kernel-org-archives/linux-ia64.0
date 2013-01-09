@@ -1,74 +1,86 @@
-From: Michel Lespinasse <walken@google.com>
-Date: Thu, 24 Jan 2013 01:29:43 +0000
-Subject: [PATCH 0/8] convert remaining archs to use vm_unmapped_area()
-Message-Id: <1358990991-21316-1-git-send-email-walken@google.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Wed, 09 Jan 2013 09:32:25 +0000
+Subject: [PATCH v6 01/15] memory-hotplug: try to offline the memory twice to avoid dependence
+Message-Id: <1357723959-5416-2-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-This is a resend of my "finish the mission" patch series. I need arch
-maintainers to approve so I can push this to andrew's -mm tree.
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-These patches, which apply on top of v3.8-rc kernels, are to complete the
-VMA gap finding code I introduced (following Rik's initial proposal) in
-v3.8-rc1.
+memory can't be offlined when CONFIG_MEMCG is selected.
+For example: there is a memory device on node 1. The address range
+is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
+and memory11 under the directory /sys/devices/system/memory/.
 
-First 5 patches introduce the use of vm_unmapped_area() to replace brute
-force searches on parisc, alpha, frv and ia64 architectures (all relatively
-trivial uses of the vm_unmapped_area() infrastructure)
+If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
+when we online pages. When we online memory8, the memory stored page cgroup
+is not provided by this memory device. But when we online memory9, the memory
+stored page cgroup may be provided by memory8. So we can't offline memory8
+now. We should offline the memory in the reversed order.
 
-Next 2 patches do the same as above for the powerpc architecture. This
-change is not as trivial as for the other architectures, because we
-need to account for each address space slice potentially having a
-different page size.
+When the memory device is hotremoved, we will auto offline memory provided
+by this memory device. But we don't know which memory is onlined first, so
+offlining memory may fail. In such case, iterate twice to offline the memory.
+1st iterate: offline every non primary memory block.
+2nd iterate: offline primary (i.e. first added) memory block.
 
-The last patch removes the free_area_cache, which was used by all the
-brute force searches before they got converted to the
-vm_unmapped_area() infrastructure.
+This idea is suggested by KOSAKI Motohiro.
 
-I did some basic testing on x86 and powerpc; however the first 5 (simpler)
-patches for parisc, alpha, frv and ia64 architectures are untested.
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+---
+ mm/memory_hotplug.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-Michel Lespinasse (8):
-  mm: use vm_unmapped_area() on parisc architecture
-  mm: use vm_unmapped_area() on alpha architecture
-  mm: use vm_unmapped_area() on frv architecture
-  mm: use vm_unmapped_area() on ia64 architecture
-  mm: use vm_unmapped_area() in hugetlbfs on ia64 architecture
-  mm: remove free_area_cache use in powerpc architecture
-  mm: use vm_unmapped_area() on powerpc architecture
-  mm: remove free_area_cache
-
- arch/alpha/kernel/osf_sys.c              |   20 ++--
- arch/arm/mm/mmap.c                       |    2 -
- arch/arm64/mm/mmap.c                     |    2 -
- arch/frv/mm/elf-fdpic.c                  |   49 +++----
- arch/ia64/kernel/sys_ia64.c              |   37 ++----
- arch/ia64/mm/hugetlbpage.c               |   20 ++--
- arch/mips/mm/mmap.c                      |    2 -
- arch/parisc/kernel/sys_parisc.c          |   46 +++----
- arch/powerpc/include/asm/page_64.h       |    3 +-
- arch/powerpc/mm/hugetlbpage.c            |    2 +-
- arch/powerpc/mm/mmap_64.c                |    2 -
- arch/powerpc/mm/slice.c                  |  228 +++++++++++++-----------------
- arch/powerpc/platforms/cell/spufs/file.c |    2 +-
- arch/s390/mm/mmap.c                      |    4 -
- arch/sparc/kernel/sys_sparc_64.c         |    2 -
- arch/tile/mm/mmap.c                      |    2 -
- arch/x86/ia32/ia32_aout.c                |    2 -
- arch/x86/mm/mmap.c                       |    2 -
- fs/binfmt_aout.c                         |    2 -
- fs/binfmt_elf.c                          |    2 -
- include/linux/mm_types.h                 |    3 -
- include/linux/sched.h                    |    2 -
- kernel/fork.c                            |    4 -
- mm/mmap.c                                |   28 ----
- mm/nommu.c                               |    4 -
- mm/util.c                                |    1 -
- 26 files changed, 163 insertions(+), 310 deletions(-)
-
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index d04ed87..62e04c9 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1388,10 +1388,13 @@ int remove_memory(u64 start, u64 size)
+ 	unsigned long start_pfn, end_pfn;
+ 	unsigned long pfn, section_nr;
+ 	int ret;
++	int return_on_error = 0;
++	int retry = 0;
+ 
+ 	start_pfn = PFN_DOWN(start);
+ 	end_pfn = start_pfn + PFN_DOWN(size);
+ 
++repeat:
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+ 		section_nr = pfn_to_section_nr(pfn);
+ 		if (!present_section_nr(section_nr))
+@@ -1410,14 +1413,23 @@ int remove_memory(u64 start, u64 size)
+ 
+ 		ret = offline_memory_block(mem);
+ 		if (ret) {
+-			kobject_put(&mem->dev.kobj);
+-			return ret;
++			if (return_on_error) {
++				kobject_put(&mem->dev.kobj);
++				return ret;
++			} else {
++				retry = 1;
++			}
+ 		}
+ 	}
+ 
+ 	if (mem)
+ 		kobject_put(&mem->dev.kobj);
+ 
++	if (retry) {
++		return_on_error = 1;
++		goto repeat;
++	}
++
+ 	return 0;
+ }
+ #else
 -- 
-1.7.7.3
+1.7.1
+
