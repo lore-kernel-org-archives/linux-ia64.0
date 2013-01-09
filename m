@@ -1,46 +1,54 @@
-From: Michel Lespinasse <walken@google.com>
-Date: Wed, 09 Jan 2013 02:38:56 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 09 Jan 2013 03:32:56 +0000
 Subject: Re: [PATCH 7/8] mm: use vm_unmapped_area() on powerpc architecture
-Message-Id: <CANN689EJV_7Q7J4j1ttDxZuqbwD53PAuCHb5DhiE-AVbmNSR7Q@mail.gmail.com>
+Message-Id: <1357702376.4838.32.camel@pasglop>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1357694895-520-1-git-send-email-walken@google.com>
-	<1357694895-520-8-git-send-email-walken@google.com>
-	<1357697739.4838.30.camel@pasglop>
-In-Reply-To: <1357697739.4838.30.camel@pasglop>
+	 <1357694895-520-8-git-send-email-walken@google.com>
+	 <1357697739.4838.30.camel@pasglop>
+	 <CANN689EJV_7Q7J4j1ttDxZuqbwD53PAuCHb5DhiE-AVbmNSR7Q@mail.gmail.com>
+In-Reply-To: <CANN689EJV_7Q7J4j1ttDxZuqbwD53PAuCHb5DhiE-AVbmNSR7Q@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Michel Lespinasse <walken@google.com>
 Cc: Rik van Riel <riel@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, Jan 8, 2013 at 6:15 PM, Benjamin Herrenschmidt
-<benh@kernel.crashing.org> wrote:
-> On Tue, 2013-01-08 at 17:28 -0800, Michel Lespinasse wrote:
->> Update the powerpc slice_get_unmapped_area function to make use of
->> vm_unmapped_area() instead of implementing a brute force search.
->>
->> Signed-off-by: Michel Lespinasse <walken@google.com>
->>
->> ---
->>  arch/powerpc/mm/slice.c |  128 +++++++++++++++++++++++++++++-----------------
->>  1 files changed, 81 insertions(+), 47 deletions(-)
->
-> That doesn't look good ... the resulting code is longer than the
-> original, which makes me wonder how it is an improvement...
+On Tue, 2013-01-08 at 18:38 -0800, Michel Lespinasse wrote:
+> 
+> Well no fair, the previous patch (for powerpc as well) has 22
+> insertions and 93 deletions :)
+> 
+> The benefit is that the new code has lower algorithmic complexity, it
+> replaces a per-vma loop with O(N) complexity with an outer loop that
+> finds contiguous slice blocks and passes them to vm_unmapped_area()
+> which is only O(log N) complexity. So the new code will be faster for
+> workloads which use lots of vmas.
+> 
+> That said, I do agree that the code that looks for contiguous
+> available slices looks kinda ugly - just not sure how to make it look
+> nicer though.
 
-Well no fair, the previous patch (for powerpc as well) has 22
-insertions and 93 deletions :)
+Ok. I think at least you can move that construct:
 
-The benefit is that the new code has lower algorithmic complexity, it
-replaces a per-vma loop with O(N) complexity with an outer loop that
-finds contiguous slice blocks and passes them to vm_unmapped_area()
-which is only O(log N) complexity. So the new code will be faster for
-workloads which use lots of vmas.
++               if (addr < SLICE_LOW_TOP) {
++                       slice = GET_LOW_SLICE_INDEX(addr);
++                       addr = (slice + 1) << SLICE_LOW_SHIFT;
++                       if (!(available.low_slices & (1u << slice)))
++                               continue;
++               } else {
++                       slice = GET_HIGH_SLICE_INDEX(addr);
++                       addr = (slice + 1) << SLICE_HIGH_SHIFT;
++                       if (!(available.high_slices & (1u << slice)))
++                               continue;
++               }
 
-That said, I do agree that the code that looks for contiguous
-available slices looks kinda ugly - just not sure how to make it look
-nicer though.
+Into some kind of helper. It will probably compile to the same thing but
+at least it's more readable and it will avoid a fuckup in the future if
+somebody changes the algorithm and forgets to update one of the
+copies :-)
 
--- 
-Michel "Walken" Lespinasse
-A program is never fully debugged until the last user dies.
+Cheers,
+Ben.
+
+
