@@ -1,200 +1,83 @@
 From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Tue, 15 Jan 2013 10:54:27 +0000
-Subject: [BUG Fix Patch 6/6] Bug fix: Reuse the storage of /sys/firmware/memmap/X/ allocated by bootmem.
-Message-Id: <1358247267-18089-7-git-send-email-tangchen@cn.fujitsu.com>
+Date: Wed, 09 Jan 2013 09:32:38 +0000
+Subject: [PATCH v6 14/15] memory-hotplug: free node_data when a node is offlined
+Message-Id: <1357723959-5416-15-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
+References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, jiang.liu@huawei.com
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
 Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-Now we don't free firmware_map_entry which is allocated by bootmem because
-there is no way to do so when the system is up. But we can at least remember
-the address of that memory and reuse the storage when the memory is added
-next time.
+From: Wen Congyang <wency@cn.fujitsu.com>
 
-This patch introduces a new list map_entries_bootmem to link the map entries
-allocated by bootmem when they are removed, and a lock to protect it.
-And these entries will be reused when the memory is hot-added again.
+We call hotadd_new_pgdat() to allocate memory to store node_data. So we
+should free it when removing a node.
 
-The idea is suggestted by Andrew Morton <akpm@linux-foundation.org>
-
-Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Reviewed-by: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 ---
- drivers/firmware/memmap.c |  103 ++++++++++++++++++++++++++++++++++++++-------
- 1 files changed, 88 insertions(+), 15 deletions(-)
+ mm/memory_hotplug.c |   30 +++++++++++++++++++++++++++---
+ 1 files changed, 27 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/firmware/memmap.c b/drivers/firmware/memmap.c
-index ae823b4..0710179 100644
---- a/drivers/firmware/memmap.c
-+++ b/drivers/firmware/memmap.c
-@@ -53,6 +53,9 @@ static ssize_t start_show(struct firmware_map_entry *entry, char *buf);
- static ssize_t end_show(struct firmware_map_entry *entry, char *buf);
- static ssize_t type_show(struct firmware_map_entry *entry, char *buf);
- 
-+static struct firmware_map_entry * __meminit
-+firmware_map_find_entry(u64 start, u64 end, const char *type);
-+
- /*
-  * Static data -----------------------------------------------------------------
-  */
-@@ -80,6 +83,19 @@ static const struct sysfs_ops memmap_attr_ops = {
- 	.show = memmap_attr_show,
- };
- 
-+/* Firmware memory map entries. */
-+static LIST_HEAD(map_entries);
-+static DEFINE_SPINLOCK(map_entries_lock);
-+
-+/*
-+ * For memory hotplug, there is no way to free memory map entries allocated
-+ * by boot mem after the system is up. So when we hot-remove memory whose
-+ * map entry is allocated by bootmem, we need to remember the storage and
-+ * reuse it when the memory is hot-added again.
-+ */
-+static LIST_HEAD(map_entries_bootmem);
-+static DEFINE_SPINLOCK(map_entries_bootmem_lock);
-+
- 
- static inline struct firmware_map_entry *
- to_memmap_entry(struct kobject *kobj)
-@@ -91,9 +107,22 @@ static void release_firmware_map_entry(struct kobject *kobj)
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index a8703f7..8b67752 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1699,9 +1699,12 @@ static int check_cpu_on_node(void *data)
+ /* offline the node if all memory sections of this node are removed */
+ static void try_offline_node(int nid)
  {
- 	struct firmware_map_entry *entry = to_memmap_entry(kobj);
+-	unsigned long start_pfn = NODE_DATA(nid)->node_start_pfn;
+-	unsigned long end_pfn = start_pfn + NODE_DATA(nid)->node_spanned_pages;
++	pg_data_t *pgdat = NODE_DATA(nid);
++	unsigned long start_pfn = pgdat->node_start_pfn;
++	unsigned long end_pfn = start_pfn + pgdat->node_spanned_pages;
+ 	unsigned long pfn;
++	struct page *pgdat_page = virt_to_page(pgdat);
++	int i;
  
--	if (PageReserved(virt_to_page(entry)))
--		/* There is no way to free memory allocated from bootmem */
-+	if (PageReserved(virt_to_page(entry))) {
-+		/*
-+		 * Remember the storage allocated by bootmem, and reuse it when
-+		 * the memory is hot-added again. The entry will be added to
-+		 * map_entries_bootmem here, and deleted from &map_entries in
-+		 * firmware_map_remove_entry().
-+		 */
-+		if (firmware_map_find_entry(entry->start, entry->end,
-+		    entry->type)) {
-+			spin_lock(&map_entries_bootmem_lock);
-+			list_add(&entry->list, &map_entries_bootmem);
-+			spin_unlock(&map_entries_bootmem_lock);
-+		}
-+
+ 	for (pfn = start_pfn; pfn < end_pfn; pfn += PAGES_PER_SECTION) {
+ 		unsigned long section_nr = pfn_to_section_nr(pfn);
+@@ -1719,7 +1722,7 @@ static void try_offline_node(int nid)
  		return;
+ 	}
+ 
+-	if (stop_machine(check_cpu_on_node, NODE_DATA(nid), NULL))
++	if (stop_machine(check_cpu_on_node, pgdat, NULL))
+ 		return;
+ 
+ 	/*
+@@ -1728,6 +1731,27 @@ static void try_offline_node(int nid)
+ 	 */
+ 	node_set_offline(nid);
+ 	unregister_one_node(nid);
++
++	if (!PageSlab(pgdat_page) && !PageCompound(pgdat_page))
++		/* node data is allocated from boot memory */
++		return;
++
++	/* free waittable in each zone */
++	for (i = 0; i < MAX_NR_ZONES; i++) {
++		struct zone *zone = pgdat->node_zones + i;
++
++		if (zone->wait_table)
++			vfree(zone->wait_table);
 +	}
- 
- 	kfree(entry);
- }
-@@ -108,10 +137,6 @@ static struct kobj_type memmap_ktype = {
-  * Registration functions ------------------------------------------------------
-  */
- 
--/* Firmware memory map entries. */
--static LIST_HEAD(map_entries);
--static DEFINE_SPINLOCK(map_entries_lock);
--
- /**
-  * firmware_map_add_entry() - Does the real work to add a firmware memmap entry.
-  * @start: Start of the memory range.
-@@ -184,23 +209,25 @@ static inline void remove_sysfs_fw_map_entry(struct firmware_map_entry *entry)
++
++	/*
++	 * Since there is no way to guarentee the address of pgdat/zone is not
++	 * on stack of any kernel threads or used by other kernel objects
++	 * without reference counting or other symchronizing method, do not
++	 * reset node_data and free pgdat here. Just reset it to 0 and reuse
++	 * the memory when the node is online again.
++	 */
++	memset(pgdat, 0, sizeof(*pgdat));
  }
  
- /*
-- * firmware_map_find_entry: Search memmap entry.
-+ * firmware_map_find_entry_in_list: Search memmap entry in a given list.
-  * @start: Start of the memory range.
-  * @end:   End of the memory range (exclusive).
-  * @type:  Type of the memory range.
-+ * @list:  In which to find the entry.
-  *
-- * This function is to find the memmap entey of a given memory range.
-- * The caller must hold map_entries_lock, and must not release the lock
-- * until the processing of the returned entry has completed.
-+ * This function is to find the memmap entey of a given memory range in a
-+ * given list. The caller must hold map_entries_lock, and must not release
-+ * the lock until the processing of the returned entry has completed.
-  *
-  * Return pointer to the entry to be found on success, or NULL on failure.
-  */
- static struct firmware_map_entry * __meminit
--firmware_map_find_entry(u64 start, u64 end, const char *type)
-+firmware_map_find_entry_in_list(u64 start, u64 end, const char *type,
-+				struct list_head *list)
- {
- 	struct firmware_map_entry *entry;
- 
--	list_for_each_entry(entry, &map_entries, list)
-+	list_for_each_entry(entry, list, list)
- 		if ((entry->start = start) && (entry->end = end) &&
- 		    (!strcmp(entry->type, type))) {
- 			return entry;
-@@ -209,6 +236,42 @@ firmware_map_find_entry(u64 start, u64 end, const char *type)
- 	return NULL;
- }
- 
-+/*
-+ * firmware_map_find_entry: Search memmap entry in map_entries.
-+ * @start: Start of the memory range.
-+ * @end:   End of the memory range (exclusive).
-+ * @type:  Type of the memory range.
-+ *
-+ * This function is to find the memmap entey of a given memory range.
-+ * The caller must hold map_entries_lock, and must not release the lock
-+ * until the processing of the returned entry has completed.
-+ *
-+ * Return pointer to the entry to be found on success, or NULL on failure.
-+ */
-+static struct firmware_map_entry * __meminit
-+firmware_map_find_entry(u64 start, u64 end, const char *type)
-+{
-+	return firmware_map_find_entry_in_list(start, end, type, &map_entries);
-+}
-+
-+/*
-+ * firmware_map_find_entry_bootmem: Search memmap entry in map_entries_bootmem.
-+ * @start: Start of the memory range.
-+ * @end:   End of the memory range (exclusive).
-+ * @type:  Type of the memory range.
-+ *
-+ * This function is similar to firmware_map_find_entry except that it find the
-+ * given entry in map_entries_bootmem.
-+ *
-+ * Return pointer to the entry to be found on success, or NULL on failure.
-+ */
-+static struct firmware_map_entry * __meminit
-+firmware_map_find_entry_bootmem(u64 start, u64 end, const char *type)
-+{
-+	return firmware_map_find_entry_in_list(start, end, type,
-+					       &map_entries_bootmem);
-+}
-+
- /**
-  * firmware_map_add_hotplug() - Adds a firmware mapping entry when we do
-  * memory hotplug.
-@@ -226,9 +289,19 @@ int __meminit firmware_map_add_hotplug(u64 start, u64 end, const char *type)
- {
- 	struct firmware_map_entry *entry;
- 
--	entry = kzalloc(sizeof(struct firmware_map_entry), GFP_ATOMIC);
--	if (!entry)
--		return -ENOMEM;
-+	entry = firmware_map_find_entry_bootmem(start, end, type);
-+	if (!entry) {
-+		entry = kzalloc(sizeof(struct firmware_map_entry), GFP_ATOMIC);
-+		if (!entry)
-+			return -ENOMEM;
-+	} else {
-+		/* Reuse storage allocated by bootmem. */
-+		spin_lock(&map_entries_bootmem_lock);
-+		list_del(&entry->list);
-+		spin_unlock(&map_entries_bootmem_lock);
-+
-+		memset(entry, 0, sizeof(*entry));
-+	}
- 
- 	firmware_map_add_entry(start, end, type, entry);
- 	/* create the memmap entry */
+ int __ref remove_memory(int nid, u64 start, u64 size)
 -- 
 1.7.1
 
