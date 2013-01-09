@@ -1,7 +1,7 @@
 From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 09 Jan 2013 22:23:14 +0000
+Date: Wed, 09 Jan 2013 23:33:24 +0000
 Subject: Re: [PATCH v6 00/15] memory-hotplug: hot-remove physical memory
-Message-Id: <20130109142314.1ce04a96.akpm@linux-foundation.org>
+Message-Id: <20130109153324.bbd019b3.akpm@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
@@ -14,76 +14,23 @@ Cc: rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@s
 On Wed, 9 Jan 2013 17:32:24 +0800
 Tang Chen <tangchen@cn.fujitsu.com> wrote:
 
-> Here is the physical memory hot-remove patch-set based on 3.8rc-2.
-> 
 > This patch-set aims to implement physical memory hot-removing.
-> 
-> The patches can free/remove the following things:
-> 
->   - /sys/firmware/memmap/X/{end, start, type} : [PATCH 4/15]
->   - memmap of sparse-vmemmap                  : [PATCH 6,7,8,10/15]
->   - page table of removed memory              : [RFC PATCH 7,8,10/15]
->   - node and related sysfs files              : [RFC PATCH 13-15/15]
-> 
-> 
-> Existing problem:
-> If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
-> when we online pages.
-> 
-> For example: there is a memory device on node 1. The address range
-> is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
-> and memory11 under the directory /sys/devices/system/memory/.
-> 
-> If CONFIG_MEMCG is selected, when we online memory8, the memory stored page
-> cgroup is not provided by this memory device. But when we online memory9, the
-> memory stored page cgroup may be provided by memory8. So we can't offline
-> memory8 now. We should offline the memory in the reversed order.
-> 
-> When the memory device is hotremoved, we will auto offline memory provided
-> by this memory device. But we don't know which memory is onlined first, so
-> offlining memory may fail.
 
-This does sound like a significant problem.  We should assume that
-mmecg is available and in use.
+As you were on th patch delivery path, all of these patches should have
+your Signed-off-by:.  But some were missing it.  I fixed this in my
+copy of the patches.
 
-> In patch1, we provide a solution which is not good enough:
-> Iterate twice to offline the memory.
-> 1st iterate: offline every non primary memory block.
-> 2nd iterate: offline primary (i.e. first added) memory block.
 
-Let's flesh this out a bit.
+I suspect this patchset adds a significant amount of code which will
+not be used if CONFIG_MEMORY_HOTPLUG=n.  "[PATCH v6 06/15]
+memory-hotplug: implement register_page_bootmem_info_section of
+sparse-vmemmap", for example.  This is not a good thing, so please go
+through the patchset (in fact, go through all the memhotplug code) and
+let's see if we can reduce the bloat for CONFIG_MEMORY_HOTPLUG=n
+kernels.
 
-If we online memory8, memory9, memory10 and memory11 then I'd have
-thought that they would need to offlined in reverse order, which will
-require four iterations, not two.  Is this wrong and if so, why?
-
-Also, what happens if we wish to offline only memory9?  Do we offline
-memory11 then memory10 then memory9 and then re-online memory10 and
-memory11?
-
-> And a new idea from Wen Congyang <wency@cn.fujitsu.com> is:
-> allocate the memory from the memory block they are describing.
-
-Yes.
-
-> But we are not sure if it is OK to do so because there is not existing API
-> to do so, and we need to move page_cgroup memory allocation from MEM_GOING_ONLINE
-> to MEM_ONLINE.
-
-This all sounds solvable - can we proceed in this fashion?
-
-> And also, it may interfere the hugepage.
-
-Please provide full details on this problem.
-
-> Note: if the memory provided by the memory device is used by the kernel, it
-> can't be offlined. It is not a bug.
-
-Right.  But how often does this happen in testing?  In other words,
-please provide an overall description of how well memory hot-remove is
-presently operating.  Is it reliable?  What is the success rate in
-real-world situations?  Are there precautions which the administrator
-can take to improve the success rate?  What are the remaining problems
-and are there plans to address them?
+This needn't be done immediately - it would be OK by me if you were to
+defer this exercise until all the new memhotplug code is largely in
+place.  But please, let's do it.
 
 
