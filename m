@@ -1,77 +1,55 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Mon, 21 Jan 2013 17:06:17 +0000
-Subject: [PATCH v4 10/13] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
-Message-Id: <84d53bb35efce297ea2d654260cfa5937edb214e.1358787929.git.jan.kiszka@siemens.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Wed, 09 Jan 2013 09:32:35 +0000
+Subject: [PATCH v6 11/15] memory-hotplug: Integrated __remove_section() of CONFIG_SPARSEMEM_VMEMMAP.
+Message-Id: <1357723959-5416-12-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1358787929.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1358787929.git.jan.kiszka@siemens.com>
+References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-Add the internal helper get_thread_info that calculated the thread_info
-from a given task variable. Also export this service as a convenience
-function.
+Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
+we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
 
-Note: ia64 version is untested.
-
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
+Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- scripts/gdb/task.py |   39 +++++++++++++++++++++++++++++++++++++++
- 1 files changed, 39 insertions(+), 0 deletions(-)
+ mm/memory_hotplug.c |   11 -----------
+ 1 files changed, 0 insertions(+), 11 deletions(-)
 
-diff --git a/scripts/gdb/task.py b/scripts/gdb/task.py
-index 93e6c0c..0a45b3c 100644
---- a/scripts/gdb/task.py
-+++ b/scripts/gdb/task.py
-@@ -67,3 +67,42 @@ class LxTaskByPidFunc(gdb.Function):
- 			raise gdb.GdbError("No task of PID " + str(pid))
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 674e791..b20c4c7 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -430,16 +430,6 @@ static int __meminit __add_section(int nid, struct zone *zone,
+ 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
+ }
  
- LxTaskByPidFunc()
-+
-+
-+thread_info_ptr_type = None
-+
-+def get_thread_info_ptr_type():
-+	global thread_info_ptr_type
-+	if thread_info_ptr_type = None:
-+		thread_info_ptr_type = get_type('struct thread_info').pointer()
-+	return thread_info_ptr_type
-+
-+ia64_task_size = None
-+
-+def get_thread_info(task):
-+	if is_target_arch("ia64"):
-+		global ia64_task_size
-+		if ia64_task_size = None:
-+			ia64_task_size = gdb.parse_and_eval(
-+						"sizeof(struct task_struct)")
-+		thread_info_addr = task.address + ia64_task_size
-+		thread_info = thread_info_addr.cast(get_thread_info_ptr_type())
-+	else:
-+		thread_info = task['stack'].cast(get_thread_info_ptr_type())
-+	return thread_info.dereference()
-+
-+
-+class LxThreadInfoFunc (gdb.Function):
-+	# Calculate Linux thread_info from task variable.
-+	__doc__ = "Calculate Linux thread_info from task variable.\n" \
-+		  "\n" \
-+		  "$lx_thread_info(TASK): Given TASK, return the corresponding thread_info\n" \
-+		  "variable.\n"
-+
-+	def __init__(self):
-+		super(LxThreadInfoFunc, self).__init__("lx_thread_info")
-+
-+	def invoke(self, task):
-+		return get_thread_info(task)
-+
-+LxThreadInfoFunc()
+-#ifdef CONFIG_SPARSEMEM_VMEMMAP
+-static int __remove_section(struct zone *zone, struct mem_section *ms)
+-{
+-	/*
+-	 * XXX: Freeing memmap with vmemmap is not implement yet.
+-	 *      This should be removed later.
+-	 */
+-	return -EBUSY;
+-}
+-#else
+ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ {
+ 	int ret = -EINVAL;
+@@ -454,7 +444,6 @@ static int __remove_section(struct zone *zone, struct mem_section *ms)
+ 	sparse_remove_one_section(zone, ms);
+ 	return 0;
+ }
+-#endif
+ 
+ /*
+  * Reasonably generic function for adding memory.  It is
 -- 
-1.7.3.4
+1.7.1
 
