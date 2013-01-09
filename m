@@ -1,93 +1,87 @@
-From: Simon Jeons <simon.jeons@gmail.com>
-Date: Thu, 31 Jan 2013 10:38:25 +0000
-Subject: Re: [PATCH v6 00/15] memory-hotplug: hot-remove physical memory
-Message-Id: <1359628705.2048.5.camel@kernel>
+From: Michel Lespinasse <walken@google.com>
+Date: Wed, 09 Jan 2013 01:28:11 +0000
+Subject: [PATCH 4/8] mm: use vm_unmapped_area() on ia64 architecture
+Message-Id: <1357694895-520-5-git-send-email-walken@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
-	    <1359463973.1624.15.camel@kernel> <5108F2B3.3090506@cn.fujitsu.com>
-	   <1359595344.1557.13.camel@kernel> <5109E59F.5080104@cn.fujitsu.com>
-	  <1359613162.1587.0.camel@kernel> <510A18FA.2010107@cn.fujitsu.com>
-	 <1359622123.1391.19.camel@kernel> <510A3CE6.202@cn.fujitsu.com>
-In-Reply-To: <510A3CE6.202@cn.fujitsu.com>
+References: <1357694895-520-1-git-send-email-walken@google.com>
+In-Reply-To: <1357694895-520-1-git-send-email-walken@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tang Chen <tangchen@cn.fujitsu.com>
-Cc: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: Rik van Riel <riel@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Tang,
-On Thu, 2013-01-31 at 17:44 +0800, Tang Chen wrote:
-> Hi Simon,
-> 
-> On 01/31/2013 04:48 PM, Simon Jeons wrote:
-> > Hi Tang,
-> > On Thu, 2013-01-31 at 15:10 +0800, Tang Chen wrote:
-> >
-> > 1. IIUC, there is a button on machine which supports hot-remove memory,
-> > then what's the difference between press button and echo to /sys?
-> 
-> No important difference, I think. Since I don't have the machine you are
-> saying, I cannot surely answer you. :)
-> AFAIK, pressing the button means trigger the hotplug from hardware, sysfs
-> is just another entrance. At last, they will run into the same code.
-> 
-> > 2. Since kernel memory is linear mapping(I mean direct mapping part),
-> > why can't put kernel direct mapping memory into one memory device, and
-> > other memory into the other devices?
-> 
-> We cannot do that because in that way, we will lose NUMA performance.
-> 
-> If you know NUMA, you will understand the following example:
-> 
-> node0:                    node1:
->     cpu0~cpu15                cpu16~cpu31
->     memory0~memory511         memory512~memory1023
-> 
-> cpu16~cpu31 access memory16~memory1023 much faster than memory0~memory511.
-> If we set direct mapping area in node0, and movable area in node1, then
-> the kernel code running on cpu16~cpu31 will have to access 
-> memory0~memory511.
-> This is a terrible performance down.
+Update the ia64 arch_get_unmapped_area function to make use of
+vm_unmapped_area() instead of implementing a brute force search.
 
-So if config NUMA, kernel memory will not be linear mapping anymore? For
-example, 
+Signed-off-by: Michel Lespinasse <walken@google.com>
 
-Node 0  Node 1 
+---
+ arch/ia64/kernel/sys_ia64.c |   37 ++++++++++++-------------------------
+ 1 files changed, 12 insertions(+), 25 deletions(-)
 
-0 ~ 10G 11G~14G
-
-kernel memory only at Node 0? Can part of kernel memory also at Node 1?
-
-How big is kernel direct mapping memory in x86_64? Is there max limit?
-It seems that only around 896MB on x86_32. 
-
-> 
-> >As you know x86_64 don't need
-> > highmem, IIUC, all kernel memory will linear mapping in this case. Is my
-> > idea available? If is correct, x86_32 can't implement in the same way
-> > since highmem(kmap/kmap_atomic/vmalloc) can map any address, so it's
-> > hard to focus kernel memory on single memory device.
-> 
-> Sorry, I'm not quite familiar with x86_32 box.
-> 
-> > 3. In current implementation, if memory hotplug just need memory
-> > subsystem and ACPI codes support? Or also needs firmware take part in?
-> > Hope you can explain in details, thanks in advance. :)
-> 
-> We need firmware take part in, such as SRAT in ACPI BIOS, or the firmware
-> based memory migration mentioned by Liu Jiang.
-
-Is there any material about firmware based memory migration?
-
-> 
-> So far, I only know this. :)
-> 
-> > 4. What's the status of memory hotplug? Apart from can't remove kernel
-> > memory, other things are fully implementation?
-> 
-> I think the main job is done for now. And there are still bugs to fix.
-> And this functionality is not stable.
-> 
-> Thanks. :)
-
-
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index d9439ef2f661..41e33f84c185 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -25,9 +25,9 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
+ 			unsigned long pgoff, unsigned long flags)
+ {
+ 	long map_shared = (flags & MAP_SHARED);
+-	unsigned long start_addr, align_mask = PAGE_SIZE - 1;
++	unsigned long align_mask = 0;
+ 	struct mm_struct *mm = current->mm;
+-	struct vm_area_struct *vma;
++	struct vm_unmapped_area_info info;
+ 
+ 	if (len > RGN_MAP_LIMIT)
+ 		return -ENOMEM;
+@@ -44,7 +44,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
+ 		addr = 0;
+ #endif
+ 	if (!addr)
+-		addr = mm->free_area_cache;
++		addr = TASK_UNMAPPED_BASE;
+ 
+ 	if (map_shared && (TASK_SIZE > 0xfffffffful))
+ 		/*
+@@ -53,28 +53,15 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
+ 		 * tasks, we prefer to avoid exhausting the address space too quickly by
+ 		 * limiting alignment to a single page.
+ 		 */
+-		align_mask = SHMLBA - 1;
+-
+-  full_search:
+-	start_addr = addr = (addr + align_mask) & ~align_mask;
+-
+-	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
+-		/* At this point:  (!vma || addr < vma->vm_end). */
+-		if (TASK_SIZE - len < addr || RGN_MAP_LIMIT - len < REGION_OFFSET(addr)) {
+-			if (start_addr != TASK_UNMAPPED_BASE) {
+-				/* Start a new search --- just in case we missed some holes.  */
+-				addr = TASK_UNMAPPED_BASE;
+-				goto full_search;
+-			}
+-			return -ENOMEM;
+-		}
+-		if (!vma || addr + len <= vma->vm_start) {
+-			/* Remember the address where we stopped this search:  */
+-			mm->free_area_cache = addr + len;
+-			return addr;
+-		}
+-		addr = (vma->vm_end + align_mask) & ~align_mask;
+-	}
++		align_mask = PAGE_MASK & (SHMLBA - 1);
++
++	info.flags = 0;
++	info.length = len;
++	info.low_limit = addr;
++	info.high_limit = TASK_SIZE;
++	info.align_mask = align_mask;
++	info.align_offset = 0;
++	return vm_unmapped_area(&info);
+ }
+ 
+ asmlinkage long
+-- 
+1.7.7.3
