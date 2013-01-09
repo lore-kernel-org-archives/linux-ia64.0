@@ -1,46 +1,181 @@
-From: Borislav Petkov <bp@alien8.de>
-Date: Tue, 29 Jan 2013 14:15:18 +0000
-Subject: Re: [PATCH v5 00/20] Add gdb python scripts as kernel debugging helpers
-Message-Id: <20130129141518.GI14302@pd.tnic>
+From: Michel Lespinasse <walken@google.com>
+Date: Wed, 09 Jan 2013 01:28:14 +0000
+Subject: [PATCH 7/8] mm: use vm_unmapped_area() on powerpc architecture
+Message-Id: <1357694895-520-8-git-send-email-walken@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1359463075.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1359463075.git.jan.kiszka@siemens.com>
+References: <1357694895-520-1-git-send-email-walken@google.com>
+In-Reply-To: <1357694895-520-1-git-send-email-walken@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jan Kiszka <jan.kiszka@siemens.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Kay Sievers <kay@vrfy.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.cz>, Rob Landley <rob@landley.net>, sparclinux@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Rik van Riel <riel@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, Jan 29, 2013 at 01:37:43PM +0100, Jan Kiszka wrote:
-> Version 5 comes with the following changes:
->  - moved tutorial into Documentation/gdb-kernel-debugging.txt
->  - improved caching of gdb.Type objects, ensure they are in sync with
->    currently loaded symbols
->  - added new functions and commands
->     - lx_module -- Find module by name and return the module variable
->     - lx_modvar -- Return global variable of a module
->     - lx-lsmod -- List currently loaded modules
-> 
-> See http://lkml.indiana.edu/hypermail/linux/kernel/1210.0/01598.html for
-> the original description and
-> 
->     git://git.kiszka.org/linux.git queues/gdb-scripts
-> 
-> for the latest version.
+Update the powerpc slice_get_unmapped_area function to make use of
+vm_unmapped_area() instead of implementing a brute force search.
 
-Ok, I've seldomly shown any feelings when acking a patch{,set} besides
-maybe "hm, ok, fine" but this patchset is very very cool and it is an
-enormous fun playing with it.
+Signed-off-by: Michel Lespinasse <walken@google.com>
 
-So maybe this is the most enthusiasm I've shown sofar:
+---
+ arch/powerpc/mm/slice.c |  128 +++++++++++++++++++++++++++++-----------------
+ 1 files changed, 81 insertions(+), 47 deletions(-)
 
-Emphatically-acked-by: Borislav Petkov <bp@suse.de>
-
-Thanks Jan, very good work!
-
+diff --git a/arch/powerpc/mm/slice.c b/arch/powerpc/mm/slice.c
+index 999a74f25ebe..048346b7eed5 100644
+--- a/arch/powerpc/mm/slice.c
++++ b/arch/powerpc/mm/slice.c
+@@ -242,31 +242,51 @@ static unsigned long slice_find_area_bottomup(struct mm_struct *mm,
+ 					      struct slice_mask available,
+ 					      int psize)
+ {
+-	struct vm_area_struct *vma;
+-	unsigned long addr;
+-	struct slice_mask mask;
+ 	int pshift = max_t(int, mmu_psize_defs[psize].shift, PAGE_SHIFT);
++	unsigned long addr, found, slice;
++	struct vm_unmapped_area_info info;
+ 
+-	addr = TASK_UNMAPPED_BASE;
++	info.flags = 0;
++	info.length = len;
++	info.align_mask = PAGE_MASK & ((1ul << pshift) - 1);
++	info.align_offset = 0;
+ 
+-	for (;;) {
+-		addr = _ALIGN_UP(addr, 1ul << pshift);
+-		if ((TASK_SIZE - len) < addr)
+-			break;
+-		vma = find_vma(mm, addr);
+-		BUG_ON(vma && (addr >= vma->vm_end));
++	addr = TASK_UNMAPPED_BASE;
++	while (addr < TASK_SIZE) {
++		info.low_limit = addr;
++		if (addr < SLICE_LOW_TOP) {
++			slice = GET_LOW_SLICE_INDEX(addr);
++			addr = (slice + 1) << SLICE_LOW_SHIFT;
++			if (!(available.low_slices & (1u << slice)))
++				continue;
++		} else {
++			slice = GET_HIGH_SLICE_INDEX(addr);
++			addr = (slice + 1) << SLICE_HIGH_SHIFT;
++			if (!(available.high_slices & (1u << slice)))
++				continue;
++		}
+ 
+-		mask = slice_range_to_mask(addr, len);
+-		if (!slice_check_fit(mask, available)) {
+-			if (addr < SLICE_LOW_TOP)
+-				addr = _ALIGN_UP(addr + 1,  1ul << SLICE_LOW_SHIFT);
+-			else
+-				addr = _ALIGN_UP(addr + 1,  1ul << SLICE_HIGH_SHIFT);
+-			continue;
++ next_slice:
++		if (addr >= TASK_SIZE)
++			addr = TASK_SIZE;
++		else if (addr < SLICE_LOW_TOP) {
++			slice = GET_LOW_SLICE_INDEX(addr);
++			if (available.low_slices & (1u << slice)) {
++				addr = (slice + 1) << SLICE_LOW_SHIFT;
++				goto next_slice;
++			}
++		} else {
++			slice = GET_HIGH_SLICE_INDEX(addr);
++			if (available.high_slices & (1u << slice)) {
++				addr = (slice + 1) << SLICE_HIGH_SHIFT;
++				goto next_slice;
++			}
+ 		}
+-		if (!vma || addr + len <= vma->vm_start)
+-			return addr;
+-		addr = vma->vm_end;
++		info.high_limit = addr;
++
++		found = vm_unmapped_area(&info);
++		if (!(found & ~PAGE_MASK))
++			return found;
+ 	}
+ 
+ 	return -ENOMEM;
+@@ -277,39 +297,53 @@ static unsigned long slice_find_area_topdown(struct mm_struct *mm,
+ 					     struct slice_mask available,
+ 					     int psize)
+ {
+-	struct vm_area_struct *vma;
+-	unsigned long addr;
+-	struct slice_mask mask;
+ 	int pshift = max_t(int, mmu_psize_defs[psize].shift, PAGE_SHIFT);
++	unsigned long addr, found, slice;
++	struct vm_unmapped_area_info info;
+ 
+-	addr = mm->mmap_base;
+-	while (addr > len) {
+-		/* Go down by chunk size */
+-		addr = _ALIGN_DOWN(addr - len, 1ul << pshift);
++	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
++	info.length = len;
++	info.align_mask = PAGE_MASK & ((1ul << pshift) - 1);
++	info.align_offset = 0;
+ 
+-		/* Check for hit with different page size */
+-		mask = slice_range_to_mask(addr, len);
+-		if (!slice_check_fit(mask, available)) {
+-			if (addr < SLICE_LOW_TOP)
+-				addr = _ALIGN_DOWN(addr, 1ul << SLICE_LOW_SHIFT);
+-			else if (addr < (1ul << SLICE_HIGH_SHIFT))
+-				addr = SLICE_LOW_TOP;
+-			else
+-				addr = _ALIGN_DOWN(addr, 1ul << SLICE_HIGH_SHIFT);
+-			continue;
++	addr = mm->mmap_base;
++	while (addr > PAGE_SIZE) {
++		info.high_limit = addr;
++                if (addr < SLICE_LOW_TOP) {
++			slice = GET_LOW_SLICE_INDEX(addr - 1);
++			addr = slice << SLICE_LOW_SHIFT;
++			if (!(available.low_slices & (1u << slice)))
++				continue;
++		} else {
++			slice = GET_HIGH_SLICE_INDEX(addr - 1);
++			addr = slice ? (slice << SLICE_HIGH_SHIFT) :
++								SLICE_LOW_TOP;
++			if (!(available.high_slices & (1u << slice)))
++				continue;
+ 		}
+ 
+-		/*
+-		 * Lookup failure means no vma is above this address,
+-		 * else if new region fits below vma->vm_start,
+-		 * return with success:
+-		 */
+-		vma = find_vma(mm, addr);
+-		if (!vma || (addr + len) <= vma->vm_start)
+-			return addr;
++ next_slice:
++		if (addr < PAGE_SIZE)
++			addr = PAGE_SIZE;
++		else if (addr < SLICE_LOW_TOP) {
++			slice = GET_LOW_SLICE_INDEX(addr - 1);
++			if (available.low_slices & (1u << slice)) {
++				addr = slice << SLICE_LOW_SHIFT;
++				goto next_slice;
++			}
++		} else {
++			slice = GET_HIGH_SLICE_INDEX(addr - 1);
++			if (available.high_slices & (1u << slice)) {
++				addr = slice ? (slice << SLICE_HIGH_SHIFT) :
++								SLICE_LOW_TOP;
++				goto next_slice;
++			}
++		}
++		info.low_limit = addr;
+ 
+-		/* try just below the current vma->vm_start */
+-		addr = vma->vm_start;
++		found = vm_unmapped_area(&info);
++		if (!(found & ~PAGE_MASK))
++			return found;
+ 	}
+ 
+ 	/*
 -- 
-Regards/Gruss,
-    Boris.
-
-Sent from a fat crate under my desk. Formatting is fine.
---
+1.7.7.3
