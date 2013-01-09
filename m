@@ -1,37 +1,103 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Thu, 10 Jan 2013 02:25:56 +0000
-Subject: Re: [PATCH v6 05/15] memory-hotplug: introduce new function arch_remove_memory() for removing page t
-Message-Id: <50EE26B4.40204@cn.fujitsu.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Wed, 09 Jan 2013 14:48:28 +0000
+Subject: [PATCH v2] sysctl: Enable IA64 "ignore-unaligned-usertrap" to be used cross-arch
+Message-Id: <1357742188-8941-1-git-send-email-vgupta@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com> <1357723959-5416-6-git-send-email-tangchen@cn.fujitsu.com> <20130109145031.210505d0.akpm@linux-foundation.org>
-In-Reply-To: <20130109145031.210505d0.akpm@linux-foundation.org>
+References: <50ED7B4B.7080603@synopsys.com>
+In-Reply-To: <50ED7B4B.7080603@synopsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: tony.luck@intel.com
+Cc: Vineet Gupta <Vineet.Gupta1@synopsys.com>, Fenghua Yu <fenghua.yu@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Serge Hallyn <serge.hallyn@canonical.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
 
-Hi Andrew,
+IA64 defines /proc/sys/kernel/ignore-unaligned-usertrap to control
+verbose warnings on unaligned access emulation.
 
-On 01/10/2013 06:50 AM, Andrew Morton wrote:
-> On Wed, 9 Jan 2013 17:32:29 +0800
-> Tang Chen<tangchen@cn.fujitsu.com>  wrote:
->
->> For removing memory, we need to remove page table. But it depends
->> on architecture. So the patch introduce arch_remove_memory() for
->> removing page table. Now it only calls __remove_pages().
->>
->> Note: __remove_pages() for some archtecuture is not implemented
->>        (I don't know how to implement it for s390).
->
-> Can this break the build for s390?
+The exact mechanics of what to do with sysctl (ignore/shout) are arch
+specific, this change enables the sysctl to be usable cross-arch.
 
-No, I don't think so. The arch_remove_memory() in s390 will only
-return -EBUSY.
+Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Serge Hallyn <serge.hallyn@canonical.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org
+---
+ arch/ia64/Kconfig |    1 +
+ init/Kconfig      |    7 +++++++
+ kernel/sysctl.c   |    9 +++++++--
+ 3 files changed, 15 insertions(+), 2 deletions(-)
 
-Thanks. :)
-
->
->
->
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 3279646..5fb1064 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -40,6 +40,7 @@ config IA64
+ 	select ARCH_THREAD_INFO_ALLOCATOR
+ 	select ARCH_CLOCKSOURCE_DATA
+ 	select GENERIC_TIME_VSYSCALL_OLD
++	select SYSCTL_ARCH_UNALIGN_NO_WARN
+ 	select HAVE_MOD_ARCH_SPECIFIC
+ 	select MODULES_USE_ELF_RELA
+ 	default y
+diff --git a/init/Kconfig b/init/Kconfig
+index 7d30240..523bee1 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1232,6 +1232,13 @@ config SYSCTL_EXCEPTION_TRACE
+ 	help
+ 	  Enable support for /proc/sys/debug/exception-trace.
+ 
++config SYSCTL_ARCH_UNALIGN_NO_WARN
++	bool
++	help
++	  Enable support for /proc/sys/kernel/ignore-unaligned-usertrap
++	  Allows arch to define/use @no_unaligned_warning to possibly warn
++	  about unaligned access emulation going on under the hood.
++
+ config KALLSYMS
+ 	 bool "Load all symbols for debugging/ksymoops" if EXPERT
+ 	 default y
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index c88878d..840fd5e 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -161,10 +161,13 @@ extern int unaligned_enabled;
+ #endif
+ 
+ #ifdef CONFIG_IA64
+-extern int no_unaligned_warning;
+ extern int unaligned_dump_stack;
+ #endif
+ 
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
++extern int no_unaligned_warning;
++#endif
++
+ #ifdef CONFIG_PROC_SYSCTL
+ static int proc_do_cad_pid(struct ctl_table *table, int write,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos);
+@@ -911,7 +914,7 @@ static struct ctl_table kern_table[] = {
+ 		.proc_handler	= proc_doulongvec_minmax,
+ 	},
+ #endif
+-#ifdef CONFIG_IA64
++#ifdef CONFIG_SYSCTL_ARCH_UNALIGN_NO_WARN
+ 	{
+ 		.procname	= "ignore-unaligned-usertrap",
+ 		.data		= &no_unaligned_warning,
+@@ -919,6 +922,8 @@ static struct ctl_table kern_table[] = {
+ 	 	.mode		= 0644,
+ 		.proc_handler	= proc_dointvec,
+ 	},
++#endif
++#ifdef CONFIG_IA64
+ 	{
+ 		.procname	= "unaligned-dump-stack",
+ 		.data		= &unaligned_dump_stack,
+-- 
+1.7.4.1
 
