@@ -1,173 +1,55 @@
-From: Xishi Qiu <qiuxishi@huawei.com>
-Date: Tue, 29 Jan 2013 03:52:38 +0000
-Subject: [PATCH] ia64/mm: fix a bad_page bug when crash kernel booting
-Message-Id: <51074786.5030007@huawei.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Thu, 10 Jan 2013 01:38:10 +0000
+Subject: Re: [PATCH v5 01/14] memory-hotplug: try to offline the memory twice to avoid dependence
+Message-Id: <50EE1B82.4090601@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com> <1356350964-13437-2-git-send-email-tangchen@cn.fujitsu.com> <50D96543.6010903@parallels.com> <50DFD7F7.5090408@cn.fujitsu.com> <50ED8834.1090804@parallels.com>
+In-Reply-To: <50ED8834.1090804@parallels.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "Luck, Tony" <tony.luck@intel.com>, fenghua.yu@intel.com, matt.fleming@intel.com, Xishi Qiu <qiuxishi@huawei.com>, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Glauber Costa <glommer@parallels.com>
+Cc: Wen Congyang <wency@cn.fujitsu.com>, akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
 
-On ia64 platform, I set "crashkernel=1024M-:600M", and dmesg shows 128M-728M
-memory is reserved for crash kernel. Then "echo c > /proc/sysrq-trigger" to
-test kdump.
+Hi Glauber,
 
-When crash kernel booting, efi_init() will aligns the memory address in
-IA64_GRANULE_SIZE(16M), so 720M-728M memory will be dropped, It means
-crash kernel only manage 128M-720M memory.
+On 01/09/2013 11:09 PM, Glauber Costa wrote:
+>>
+>> We try to make all page_cgroup allocations local to the node they are describing
+>> now. If the memory is the first memory onlined in this node, we will allocate
+>> it from the other node.
+>>
+>> For example, node1 has 4 memory blocks: 8-11, and we online it from 8 to 11
+>> 1. memory block 8, page_cgroup allocations are in the other nodes
+>> 2. memory block 9, page_cgroup allocations are in memory block 8
+>>
+>> So we should offline memory block 9 first. But we don't know in which order
+>> the user online the memory block.
+>>
+>> I think we can modify memcg like this:
+>> allocate the memory from the memory block they are describing
+>>
+>> I am not sure it is OK to do so.
+>
+> I don't see a reason why not.
 
-But initrd start and end are fixed in boot loader, it is before efi_init(),
-so initrd size maybe overflow when free_initrd_mem().
+I'm not sure, but if we do this, we could bring in a fragment for each
+memory block (a memory section, 128MB, right?). Is this a problem when
+we use large page (such as 1GB page) ?
 
-Here is the dmesg when crash kernel booting:
+Even if not, will these fragments make any bad effects ?
 
-...
-Ignoring memory below 128MB
-Ignoring memory above 720MB
-    // aligns the address in IA64_GRANULE_SIZE(16M)
-...
-Initial ramdisk at: 0xe00000002c3f0000 (20176579 bytes)
-    // initrd uses 707M-726M memory
-...
-Kernel command line:  root=3D/dev/disk/by-id/ata-STEC_MACH16_M16ISD2-100UCT=
-_STM000142A2D-part3
-console=3DttyS0,115200n8 console=3Dtty0 initcall_debug elevator=DEadline sy=
-srq=3D1 reset_devices
-irqpoll maxcpus=3D1 initcall_debug linuxrc=3Dtrace elfcorehdrt5216K max_add=
-rr8M min_addr=128M
-    // show crash kernel parameters
-...
-Unpacking initramfs...
-    // called by populate_rootfs()
-Freeing initrd memory: 19648kB freed
-    // called by free_initrd()->free_initrd_mem()
-BUG: Bad page state in process swapper  pfn:02d00
-    // it is a mistake to free over 720M memory to OS (ia64's page size is =
-64KB)
-page:e0000000102dd800 flags:(null) count:0 mapcount:1 mapping:(null) index:0
+Thank. :)
 
-Call Trace:
- [<a000000100018dc0>] show_stack+0x80/0xa0
-                                sp=E000000021e8fbd0 bsp=E000000021e81360
- [<a00000010090fcc0>] dump_stack+0x30/0x50
-                                sp=E000000021e8fda0 bsp=E000000021e81348
- [<a0000001001a3180>] bad_page+0x280/0x380
-                                sp=E000000021e8fda0 bsp=E000000021e81308
- [<a0000001001a8740>] free_hot_cold_page+0x3a0/0x5c0
-                                sp=E000000021e8fda0 bsp=E000000021e812a0
- [<a0000001001a8a50>] free_hot_page+0x30/0x60
-                                sp=E000000021e8fda0 bsp=E000000021e81280
- [<a0000001001a8b30>] __free_pages+0xb0/0xe0
-                                sp=E000000021e8fda0 bsp=E000000021e81258
- [<a0000001001a8c00>] free_pages+0xa0/0xc0
-                                sp=E000000021e8fda0 bsp=E000000021e81230
- [<a000000100bb40c0>] free_initrd_mem+0x230/0x290
-                                sp=E000000021e8fda0 bsp=E000000021e811d8
- [<a000000100ba6620>] populate_rootfs+0x1c0/0x280
-                                sp=E000000021e8fdb0 bsp=E000000021e811a0
- [<a00000010000ac30>] do_one_initcall+0x3b0/0x3e0
-                                sp=E000000021e8fdb0 bsp=E000000021e81158
- [<a000000100ba0a90>] kernel_init+0x3f0/0x4b0
-                                sp=E000000021e8fdb0 bsp=E000000021e81108
- [<a000000100016890>] kernel_thread_helper+0xd0/0x100
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
- [<a00000010000a4c0>] start_kernel_thread+0x20/0x40
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
-Disabling lock debugging due to kernel taint
-BUG: Bad page state in process swapper  pfn:02d01
-page:e0000000102dd838 flags:(null) count:0 mapcount:1 mapping:(null) index:0
-
-Call Trace:
- [<a000000100018dc0>] show_stack+0x80/0xa0
-                                sp=E000000021e8fbd0 bsp=E000000021e81360
- [<a00000010090fcc0>] dump_stack+0x30/0x50
-                                sp=E000000021e8fda0 bsp=E000000021e81348
- [<a0000001001a3180>] bad_page+0x280/0x380
-                                sp=E000000021e8fda0 bsp=E000000021e81308
- [<a0000001001a8740>] free_hot_cold_page+0x3a0/0x5c0
-                                sp=E000000021e8fda0 bsp=E000000021e812a0
- [<a0000001001a8a50>] free_hot_page+0x30/0x60
-                                sp=E000000021e8fda0 bsp=E000000021e81280
- [<a0000001001a8b30>] __free_pages+0xb0/0xe0
-                                sp=E000000021e8fda0 bsp=E000000021e81258
- [<a0000001001a8c00>] free_pages+0xa0/0xc0
-                                sp=E000000021e8fda0 bsp=E000000021e81230
- [<a000000100bb40c0>] free_initrd_mem+0x230/0x290
-                                sp=E000000021e8fda0 bsp=E000000021e811d8
- [<a000000100ba6620>] populate_rootfs+0x1c0/0x280
-                                sp=E000000021e8fdb0 bsp=E000000021e811a0
- [<a00000010000ac30>] do_one_initcall+0x3b0/0x3e0
-                                sp=E000000021e8fdb0 bsp=E000000021e81158
- [<a000000100ba0a90>] kernel_init+0x3f0/0x4b0
-                                sp=E000000021e8fdb0 bsp=E000000021e81108
- [<a000000100016890>] kernel_thread_helper+0xd0/0x100
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
- [<a00000010000a4c0>] start_kernel_thread+0x20/0x40
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
-...
-
-Signed-off-by: Xishi Qiu <qiuxishi@huawei.com>
----
- arch/ia64/include/asm/meminit.h |    2 ++
- arch/ia64/kernel/efi.c          |    2 +-
- arch/ia64/mm/init.c             |   11 +++++++++++
- 3 files changed, 14 insertions(+), 1 deletions(-)
-
-diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/memini=
-t.h
-index 61c7b17..925ecb5 100644
---- a/arch/ia64/include/asm/meminit.h
-+++ b/arch/ia64/include/asm/meminit.h
-@@ -49,6 +49,8 @@ extern int reserve_elfcorehdr(u64 *start, u64 *end);
- #define GRANULEROUNDDOWN(n)	((n) & ~(IA64_GRANULE_SIZE-1))
- #define GRANULEROUNDUP(n)	(((n)+IA64_GRANULE_SIZE-1) & ~(IA64_GRANULE_SIZE=
--1))
-
-+extern u64 max_addr;
-+
- #ifdef CONFIG_NUMA
-   extern void call_pernode_memory (unsigned long start, unsigned long len,=
- void *func);
- #else
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index f034563..f6522cb 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -49,7 +49,7 @@ extern efi_status_t efi_call_phys (void *, ...);
- struct efi efi;
- EXPORT_SYMBOL(efi);
- static efi_runtime_services_t *runtime;
--static u64 mem_limit =3D ~0UL, max_addr =3D ~0UL, min_addr =3D 0UL;
-+u64 mem_limit =3D ~0UL, max_addr =3D ~0UL, min_addr =3D 0UL;
-
- #define efi_call_virt(f, args...)	(*(f))(args)
-
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index b755ea9..cfdb1eb 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -207,6 +207,17 @@ free_initrd_mem (unsigned long start, unsigned long en=
-d)
- 	start =3D PAGE_ALIGN(start);
- 	end =3D end & PAGE_MASK;
-
-+	/*
-+	 * Initrd size is fixed in boot loader, but kernel parameter max_addr
-+	 * which aligns in granules is fixed after boot loader, so initrd size
-+	 * maybe overflow.
-+	 */
-+	if (max_addr !=3D ~0UL) {
-+		end =3D GRANULEROUNDDOWN(end);
-+		if (start > end)
-+			start =3D end;
-+	}
-+
- 	if (start < end)
- 		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >=
-> 10);
-
---=20
-1.7.1
-
+>
+> You would have to tweak a bit the lookup function for page_cgroup, but
+> assuming you will always have the pfns and limits, it should be easy to do.
+>
+> I think the only tricky part is that today we have a single
+> node_page_cgroup, and we would of course have to have one per memory
+> block. My assumption is that the number of memory blocks is limited and
+> likely not very big. So even a static array would do.
+>
+> Kamezawa, do you have any input in here?
+>
 
