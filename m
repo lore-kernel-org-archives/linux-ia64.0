@@ -1,55 +1,54 @@
 From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Wed, 09 Jan 2013 09:32:35 +0000
-Subject: [PATCH v6 11/15] memory-hotplug: Integrated __remove_section() of CONFIG_SPARSEMEM_VMEMMAP.
-Message-Id: <1357723959-5416-12-git-send-email-tangchen@cn.fujitsu.com>
+Date: Tue, 15 Jan 2013 10:54:24 +0000
+Subject: [BUG Fix Patch 3/6] Bug fix: Do not free direct mapping pages twice.
+Message-Id: <1358247267-18089-4-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+References: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, jiang.liu@huawei.com
 Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-Currently __remove_section for SPARSEMEM_VMEMMAP does nothing. But even if
-we use SPARSEMEM_VMEMMAP, we can unregister the memory_section.
+Direct mapped pages were freed when they were offlined, or they were
+not allocated. So we only need to free vmemmap pages, no need to free
+direct mapped pages.
 
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- mm/memory_hotplug.c |   11 -----------
- 1 files changed, 0 insertions(+), 11 deletions(-)
+ arch/x86/mm/init_64.c |    9 +++++++--
+ 1 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 674e791..b20c4c7 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -430,16 +430,6 @@ static int __meminit __add_section(int nid, struct zone *zone,
- 	return register_new_memory(nid, __pfn_to_section(phys_start_pfn));
- }
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 368cc3f..e77d312 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -804,6 +804,10 @@ remove_pte_table(pte_t *pte_start, unsigned long addr, unsigned long end,
  
--#ifdef CONFIG_SPARSEMEM_VMEMMAP
--static int __remove_section(struct zone *zone, struct mem_section *ms)
--{
--	/*
--	 * XXX: Freeing memmap with vmemmap is not implement yet.
--	 *      This should be removed later.
--	 */
--	return -EBUSY;
--}
--#else
- static int __remove_section(struct zone *zone, struct mem_section *ms)
- {
- 	int ret = -EINVAL;
-@@ -454,7 +444,6 @@ static int __remove_section(struct zone *zone, struct mem_section *ms)
- 	sparse_remove_one_section(zone, ms);
- 	return 0;
- }
--#endif
+ 		if (IS_ALIGNED(addr, PAGE_SIZE) &&
+ 		    IS_ALIGNED(next, PAGE_SIZE)) {
++			/*
++			 * Do not free direct mapping pages since they were
++			 * freed when offlining.
++			 */
+ 			if (!direct)
+ 				free_pagetable(pte_page(*pte), 0);
  
- /*
-  * Reasonably generic function for adding memory.  It is
+@@ -819,10 +823,11 @@ remove_pte_table(pte_t *pte_start, unsigned long addr, unsigned long end,
+ 			 * remove the page when it is wholly filled with 0xFD.
+ 			 */
+ 			memset((void *)addr, PAGE_INUSE, next - addr);
+-			page_addr = page_address(pte_page(*pte));
+ 
++			page_addr = page_address(pte_page(*pte));
+ 			if (!memchr_inv(page_addr, PAGE_INUSE, PAGE_SIZE)) {
+-				free_pagetable(pte_page(*pte), 0);
++				if (!direct)
++					free_pagetable(pte_page(*pte), 0);
+ 
+ 				spin_lock(&init_mm.page_table_lock);
+ 				pte_clear(&init_mm, addr, pte);
 -- 
 1.7.1
 
