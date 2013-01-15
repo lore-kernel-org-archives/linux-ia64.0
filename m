@@ -1,158 +1,94 @@
 From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Wed, 09 Jan 2013 09:32:34 +0000
-Subject: [PATCH v6 10/15] memory-hotplug: remove memmap of sparse-vmemmap
-Message-Id: <1357723959-5416-11-git-send-email-tangchen@cn.fujitsu.com>
+Date: Tue, 15 Jan 2013 10:54:23 +0000
+Subject: [BUG Fix Patch 2/6] Bug fix: Do not calculate direct mapping pages when freeing vmemmap pagetables.
+Message-Id: <1358247267-18089-3-git-send-email-tangchen@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
+References: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
+In-Reply-To: <1358247267-18089-1-git-send-email-tangchen@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com
+To: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, tangchen@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, jiang.liu@huawei.com
 Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-This patch introduces a new API vmemmap_free() to free and remove
-vmemmap pagetables. Since pagetable implements are different, each
-architecture has to provide its own version of vmemmap_free(), just
-like vmemmap_populate().
+We only need to update direct_pages_count[level] when we freeing direct mapped
+pagetables.
 
-Note:  vmemmap_free() are not implemented for ia64, ppc, s390, and sparc.
-
-Signed-off-by: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
-Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
 Signed-off-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/arm64/mm/mmu.c       |    3 +++
- arch/ia64/mm/discontig.c  |    4 ++++
- arch/powerpc/mm/init_64.c |    4 ++++
- arch/s390/mm/vmem.c       |    4 ++++
- arch/sparc/mm/init_64.c   |    4 ++++
- arch/x86/mm/init_64.c     |    8 ++++++++
- include/linux/mm.h        |    1 +
- mm/sparse.c               |    3 ++-
- 8 files changed, 30 insertions(+), 1 deletions(-)
+ arch/x86/mm/init_64.c |   17 +++++++----------
+ 1 files changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
-index a6885d8..9834886 100644
---- a/arch/arm64/mm/mmu.c
-+++ b/arch/arm64/mm/mmu.c
-@@ -392,4 +392,7 @@ int __meminit vmemmap_populate(struct page *start_page,
- 	return 0;
- }
- #endif	/* CONFIG_ARM64_64K_PAGES */
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+}
- #endif	/* CONFIG_SPARSEMEM_VMEMMAP */
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 33943db..882a0fd 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -823,6 +823,10 @@ int __meminit vmemmap_populate(struct page *start_page,
- 	return vmemmap_populate_basepages(start_page, size, node);
- }
- 
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
-index 6466440..2969591 100644
---- a/arch/powerpc/mm/init_64.c
-+++ b/arch/powerpc/mm/init_64.c
-@@ -298,6 +298,10 @@ int __meminit vmemmap_populate(struct page *start_page,
- 	return 0;
- }
- 
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
-index 2c14bc2..81e6ba3 100644
---- a/arch/s390/mm/vmem.c
-+++ b/arch/s390/mm/vmem.c
-@@ -272,6 +272,10 @@ out:
- 	return ret;
- }
- 
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
-index 1f30db3..5afe21a 100644
---- a/arch/sparc/mm/init_64.c
-+++ b/arch/sparc/mm/init_64.c
-@@ -2232,6 +2232,10 @@ void __meminit vmemmap_populate_print_last(void)
- 	}
- }
- 
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
 diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index d950f9b..e829113 100644
+index e829113..368cc3f 100644
 --- a/arch/x86/mm/init_64.c
 +++ b/arch/x86/mm/init_64.c
-@@ -1309,6 +1309,14 @@ vmemmap_populate(struct page *start_page, unsigned long size, int node)
- 	return 0;
- }
+@@ -804,14 +804,13 @@ remove_pte_table(pte_t *pte_start, unsigned long addr, unsigned long end,
  
-+void __ref vmemmap_free(struct page *memmap, unsigned long nr_pages)
-+{
-+	unsigned long start = (unsigned long)memmap;
-+	unsigned long end = (unsigned long)(memmap + nr_pages);
-+
-+	remove_pagetable(start, end, false);
-+}
-+
- void register_page_bootmem_memmap(unsigned long section_nr,
- 				  struct page *start_page, unsigned long size)
- {
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 1eca498..31d5e5d 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1709,6 +1709,7 @@ int vmemmap_populate_basepages(struct page *start_page,
- 						unsigned long pages, int node);
- int vmemmap_populate(struct page *start_page, unsigned long pages, int node);
- void vmemmap_populate_print_last(void);
-+void vmemmap_free(struct page *memmap, unsigned long nr_pages);
- void register_page_bootmem_memmap(unsigned long section_nr, struct page *map,
- 				  unsigned long size);
+ 		if (IS_ALIGNED(addr, PAGE_SIZE) &&
+ 		    IS_ALIGNED(next, PAGE_SIZE)) {
+-			if (!direct) {
++			if (!direct)
+ 				free_pagetable(pte_page(*pte), 0);
+-				pages++;
+-			}
  
-diff --git a/mm/sparse.c b/mm/sparse.c
-index 05ca73a..cff9796 100644
---- a/mm/sparse.c
-+++ b/mm/sparse.c
-@@ -615,10 +615,11 @@ static inline struct page *kmalloc_section_memmap(unsigned long pnum, int nid,
- }
- static void __kfree_section_memmap(struct page *memmap, unsigned long nr_pages)
- {
--	return; /* XXX: Not implemented yet */
-+	vmemmap_free(memmap, nr_pages);
- }
- static void free_map_bootmem(struct page *memmap, unsigned long nr_pages)
- {
-+	vmemmap_free(memmap, nr_pages);
- }
- #else
- static struct page *__kmalloc_section_memmap(unsigned long nr_pages)
+ 			spin_lock(&init_mm.page_table_lock);
+ 			pte_clear(&init_mm, addr, pte);
+ 			spin_unlock(&init_mm.page_table_lock);
++			pages++;
+ 		} else {
+ 			/*
+ 			 * If we are not removing the whole page, it means
+@@ -824,11 +823,11 @@ remove_pte_table(pte_t *pte_start, unsigned long addr, unsigned long end,
+ 
+ 			if (!memchr_inv(page_addr, PAGE_INUSE, PAGE_SIZE)) {
+ 				free_pagetable(pte_page(*pte), 0);
+-				pages++;
+ 
+ 				spin_lock(&init_mm.page_table_lock);
+ 				pte_clear(&init_mm, addr, pte);
+ 				spin_unlock(&init_mm.page_table_lock);
++				pages++;
+ 			}
+ 		}
+ 	}
+@@ -857,15 +856,14 @@ remove_pmd_table(pmd_t *pmd_start, unsigned long addr, unsigned long end,
+ 		if (pmd_large(*pmd)) {
+ 			if (IS_ALIGNED(addr, PMD_SIZE) &&
+ 			    IS_ALIGNED(next, PMD_SIZE)) {
+-				if (!direct) {
++				if (!direct)
+ 					free_pagetable(pmd_page(*pmd),
+ 						       get_order(PMD_SIZE));
+-					pages++;
+-				}
+ 
+ 				spin_lock(&init_mm.page_table_lock);
+ 				pmd_clear(pmd);
+ 				spin_unlock(&init_mm.page_table_lock);
++				pages++;
+ 				continue;
+ 			}
+ 
+@@ -914,15 +912,14 @@ remove_pud_table(pud_t *pud_start, unsigned long addr, unsigned long end,
+ 		if (pud_large(*pud)) {
+ 			if (IS_ALIGNED(addr, PUD_SIZE) &&
+ 			    IS_ALIGNED(next, PUD_SIZE)) {
+-				if (!direct) {
++				if (!direct)
+ 					free_pagetable(pud_page(*pud),
+ 						       get_order(PUD_SIZE));
+-					pages++;
+-				}
+ 
+ 				spin_lock(&init_mm.page_table_lock);
+ 				pud_clear(pud);
+ 				spin_unlock(&init_mm.page_table_lock);
++				pages++;
+ 				continue;
+ 			}
+ 
 -- 
 1.7.1
 
