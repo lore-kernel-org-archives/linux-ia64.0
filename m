@@ -1,88 +1,57 @@
-From: Michel Lespinasse <walken@google.com>
-Date: Thu, 24 Jan 2013 01:29:47 +0000
-Subject: [PATCH 4/8] mm: use vm_unmapped_area() on ia64 architecture
-Message-Id: <1358990991-21316-5-git-send-email-walken@google.com>
+From: Lin Feng <linfeng@cn.fujitsu.com>
+Date: Wed, 16 Jan 2013 08:14:17 +0000
+Subject: [PATCH v3 0/2] memory-hotplug: introduce CONFIG_HAVE_BOOTMEM_INFO_NODE and revert register_page_boot
+Message-Id: <1358324059-9608-1-git-send-email-linfeng@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1358990991-21316-1-git-send-email-walken@google.com>
-In-Reply-To: <1358990991-21316-1-git-send-email-walken@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org, mhocko@suse.cz, linux-mm@kvack.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, jbeulich@suse.com, dhowells@redhat.com, wency@cn.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, paul.gortmaker@windriver.com, laijs@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com, mel@csn.ul.ie, minchan@kernel.org, aquini@redhat.com, jiang.liu@huawei.com, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, davem@davemloft.net, michael@ellerman.id.au, gerald.schaefer@de.ibm.com, gregkh@linuxfoundation.org
+Cc: x86@kernel.org, linux390@de.ibm.com, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linfeng@cn.fujitsu.com, tangchen@cn.fujitsu.com
 
-Update the ia64 arch_get_unmapped_area function to make use of
-vm_unmapped_area() instead of implementing a brute force search.
+Memory-hotplug codes for x86_64 have been implemented by patchset:
+https://lkml.org/lkml/2013/1/9/124
+While other platforms haven't been completely implemented yet.
 
-Signed-off-by: Michel Lespinasse <walken@google.com>
-Acked-by: Rik van Riel <riel@redhat.com>
+If we enable both CONFIG_MEMORY_HOTPLUG_SPARSE and CONFIG_SPARSEMEM_VMEMMAP,
+register_page_bootmem_info_node() may be buggy, which is a hotplug generic
+function but falling back to call platform related function
+register_page_bootmem_memmap().
 
----
- arch/ia64/kernel/sys_ia64.c |   37 ++++++++++++-------------------------
- 1 files changed, 12 insertions(+), 25 deletions(-)
+Other platforms such as powerpc it's not implemented, so on such platforms,
+revert them to empty as they were before.
 
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index d9439ef2f661..41e33f84c185 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -25,9 +25,9 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
- 			unsigned long pgoff, unsigned long flags)
- {
- 	long map_shared = (flags & MAP_SHARED);
--	unsigned long start_addr, align_mask = PAGE_SIZE - 1;
-+	unsigned long align_mask = 0;
- 	struct mm_struct *mm = current->mm;
--	struct vm_area_struct *vma;
-+	struct vm_unmapped_area_info info;
- 
- 	if (len > RGN_MAP_LIMIT)
- 		return -ENOMEM;
-@@ -44,7 +44,7 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
- 		addr = 0;
- #endif
- 	if (!addr)
--		addr = mm->free_area_cache;
-+		addr = TASK_UNMAPPED_BASE;
- 
- 	if (map_shared && (TASK_SIZE > 0xfffffffful))
- 		/*
-@@ -53,28 +53,15 @@ arch_get_unmapped_area (struct file *filp, unsigned long addr, unsigned long len
- 		 * tasks, we prefer to avoid exhausting the address space too quickly by
- 		 * limiting alignment to a single page.
- 		 */
--		align_mask = SHMLBA - 1;
--
--  full_search:
--	start_addr = addr = (addr + align_mask) & ~align_mask;
--
--	for (vma = find_vma(mm, addr); ; vma = vma->vm_next) {
--		/* At this point:  (!vma || addr < vma->vm_end). */
--		if (TASK_SIZE - len < addr || RGN_MAP_LIMIT - len < REGION_OFFSET(addr)) {
--			if (start_addr != TASK_UNMAPPED_BASE) {
--				/* Start a new search --- just in case we missed some holes.  */
--				addr = TASK_UNMAPPED_BASE;
--				goto full_search;
--			}
--			return -ENOMEM;
--		}
--		if (!vma || addr + len <= vma->vm_start) {
--			/* Remember the address where we stopped this search:  */
--			mm->free_area_cache = addr + len;
--			return addr;
--		}
--		addr = (vma->vm_end + align_mask) & ~align_mask;
--	}
-+		align_mask = PAGE_MASK & (SHMLBA - 1);
-+
-+	info.flags = 0;
-+	info.length = len;
-+	info.low_limit = addr;
-+	info.high_limit = TASK_SIZE;
-+	info.align_mask = align_mask;
-+	info.align_offset = 0;
-+	return vm_unmapped_area(&info);
- }
- 
- asmlinkage long
--- 
-1.7.7.3
+It's implemented by adding a new Kconfig option named
+CONFIG_HAVE_BOOTMEM_INFO_NODE, which will be automatically selected by
+memory-hotplug supported archs(currently only on x86_64).
+
+changeLog v2->v3:
+1) patch 1/2:
+- Rename the patch title to conform it's content.
+- Update memory_hotplug.h and remove the misleading TODO pointed out by Michal.
+2) patch 2/2:
+- New added, remove unimplemented functions suggested by Michal.
+
+ChangeLog v1->v2:
+1) patch 1/2:
+- Add a Kconfig option named HAVE_BOOTMEM_INFO_NODE suggested by Michal, which
+  will be automatically selected by supported archs(currently only on x86_64).
+
+Lin Feng (1):
+  memory-hotplug: revert register_page_bootmem_info_node() to empty
+    when platform related code is not implemented
+
+Michal Hocko (1):
+  memory-hotplug: cleanup: removing the arch specific functions without
+    any implementation
+
+ arch/ia64/mm/discontig.c       |    5 -----
+ arch/powerpc/mm/init_64.c      |    5 -----
+ arch/s390/mm/vmem.c            |    6 ------
+ arch/sparc/mm/init_64.c        |    5 -----
+ arch/x86/mm/init_64.c          |    2 +-
+ include/linux/memory_hotplug.h |    6 ++++++
+ mm/Kconfig                     |    8 ++++++++
+ mm/memory_hotplug.c            |    2 ++
+ 8 files changed, 17 insertions(+), 22 deletions(-)
+
