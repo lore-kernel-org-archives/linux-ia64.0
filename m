@@ -1,70 +1,96 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Sun, 27 Jan 2013 19:23:41 +0000
-Subject: [PATCH v3 14/22] PCI, ia64: Kill pci_find_next_bus
-Message-Id: <1359314629-18651-15-git-send-email-yinghai@kernel.org>
+From: Lin Feng <linfeng@cn.fujitsu.com>
+Date: Wed, 16 Jan 2013 08:14:19 +0000
+Subject: [PATCH 2/2] memory-hotplug: cleanup: removing the arch specific functions without any implementation
+Message-Id: <1358324059-9608-3-git-send-email-linfeng@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAE9FiQXHG01NjnYNDbC-KEpbcvY-q4pBe97CxTOGS7W4vZQBYQ@mail.gmail.com>
- <1359314629-18651-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1359314629-18651-1-git-send-email-yinghai@kernel.org>
+References: <1358324059-9608-1-git-send-email-linfeng@cn.fujitsu.com>
+In-Reply-To: <1358324059-9608-1-git-send-email-linfeng@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@huawei.com>, "Rafael J. Wysocki" <rjw@sisk.pl>, Taku Izumi <izumi.taku@jp.fujitsu.com>, Toshi Kani <toshi.kani@hp.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
+To: akpm@linux-foundation.org, mhocko@suse.cz, linux-mm@kvack.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, jbeulich@suse.com, dhowells@redhat.com, wency@cn.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, paul.gortmaker@windriver.com, laijs@cn.fujitsu.com, kamezawa.hiroyu@jp.fujitsu.com, mel@csn.ul.ie, minchan@kernel.org, aquini@redhat.com, jiang.liu@huawei.com, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, davem@davemloft.net, michael@ellerman.id.au, gerald.schaefer@de.ibm.com, gregkh@linuxfoundation.org
+Cc: x86@kernel.org, linux390@de.ibm.com, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linfeng@cn.fujitsu.com, tangchen@cn.fujitsu.com
 
-Replace that with hotplug-safe version iteration.
+From: Michal Hocko <mhocko@suse.cz>
 
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-altix@sgi.com
+After introducing CONFIG_HAVE_BOOTMEM_INFO_NODE Kconfig option, the related arch
+specific functions become confusing, remove them.
+
+Guys who want to implement memory-hotplug feature on such archs for this part
+should look into register_page_bootmem_info_node() and flesh out from top to
+end.
+
+Signed-off-by: Michal Hocko <mhocko@suse.cz>
+Signed-off-by: Lin Feng <linfeng@cn.fujitsu.com>
 ---
- arch/ia64/hp/common/sba_iommu.c |    7 ++++---
- arch/ia64/sn/kernel/io_common.c |    5 +++--
- 2 files changed, 7 insertions(+), 5 deletions(-)
+ arch/ia64/mm/discontig.c  |    5 -----
+ arch/powerpc/mm/init_64.c |    5 -----
+ arch/s390/mm/vmem.c       |    6 ------
+ arch/sparc/mm/init_64.c   |    5 -----
+ 4 files changed, 0 insertions(+), 21 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index bcda5b2..0f27a37 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -2155,9 +2155,10 @@ sba_init(void)
- 
- #ifdef CONFIG_PCI
- 	{
--		struct pci_bus *b = NULL;
--		while ((b = pci_find_next_bus(b)) != NULL)
--			sba_connect_bus(b);
-+		struct pci_host_bridge *host_bridge = NULL;
-+
-+		for_each_pci_host_bridge(host_bridge)
-+			sba_connect_bus(host_bridge->bus);
- 	}
- #endif
- 
-diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
-index 8630875..131938b 100644
---- a/arch/ia64/sn/kernel/io_common.c
-+++ b/arch/ia64/sn/kernel/io_common.c
-@@ -516,6 +516,7 @@ arch_initcall(sn_io_early_init);
- int __init
- sn_io_late_init(void)
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 882a0fd..cb5e1ff 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -827,9 +827,4 @@ void vmemmap_free(struct page *memmap, unsigned long nr_pages)
  {
-+	struct pci_host_bridge *host_bridge = NULL;
- 	struct pci_bus *bus;
- 	struct pcibus_bussoft *bussoft;
- 	cnodeid_t cnode;
-@@ -530,8 +531,8 @@ sn_io_late_init(void)
- 	 * PIC, TIOCP, TIOCE (TIOCA does it during bus fixup using
- 	 * info from the PROM).
- 	 */
--	bus = NULL;
--	while ((bus = pci_find_next_bus(bus)) != NULL) {
-+	for_each_pci_host_bridge(host_bridge) {
-+		bus = host_bridge->bus;
- 		bussoft = SN_PCIBUS_BUSSOFT(bus);
- 		nasid = NASID_GET(bussoft->bs_base);
- 		cnode = nasid_to_cnodeid(nasid);
+ }
+ 
+-void register_page_bootmem_memmap(unsigned long section_nr,
+-				  struct page *start_page, unsigned long size)
+-{
+-	/* TODO */
+-}
+ #endif
+diff --git a/arch/powerpc/mm/init_64.c b/arch/powerpc/mm/init_64.c
+index 2969591..7e2246f 100644
+--- a/arch/powerpc/mm/init_64.c
++++ b/arch/powerpc/mm/init_64.c
+@@ -302,10 +302,5 @@ void vmemmap_free(struct page *memmap, unsigned long nr_pages)
+ {
+ }
+ 
+-void register_page_bootmem_memmap(unsigned long section_nr,
+-				  struct page *start_page, unsigned long size)
+-{
+-	/* TODO */
+-}
+ #endif /* CONFIG_SPARSEMEM_VMEMMAP */
+ 
+diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
+index 81e6ba3..fa09c2f 100644
+--- a/arch/s390/mm/vmem.c
++++ b/arch/s390/mm/vmem.c
+@@ -276,12 +276,6 @@ void vmemmap_free(struct page *memmap, unsigned long nr_pages)
+ {
+ }
+ 
+-void register_page_bootmem_memmap(unsigned long section_nr,
+-				  struct page *start_page, unsigned long size)
+-{
+-	/* TODO */
+-}
+-
+ /*
+  * Add memory segment to the segment list if it doesn't overlap with
+  * an already present segment.
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 5afe21a..76ac544 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -2236,11 +2236,6 @@ void vmemmap_free(struct page *memmap, unsigned long nr_pages)
+ {
+ }
+ 
+-void register_page_bootmem_memmap(unsigned long section_nr,
+-				  struct page *start_page, unsigned long size)
+-{
+-	/* TODO */
+-}
+ #endif /* CONFIG_SPARSEMEM_VMEMMAP */
+ 
+ static void prot_init_common(unsigned long page_none,
 -- 
-1.7.10.4
+1.7.1
 
