@@ -1,47 +1,39 @@
-From: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Mon, 07 Jan 2013 05:30:37 +0000
-Subject: Re: [PATCH v5 14/14] memory-hotplug: free node_data when a node is offlined
-Message-Id: <50EA5D7D.7000703@jp.fujitsu.com>
+From: =?UTF-8?Q?Matematicko-fyzik=C3=A1ln=C3=AD_fakulta?=  <service@karlin.mff.cuni.cz
+Date: Sat, 26 Jan 2013 10:00:50 +0000
+Subject: =?UTF-8?Q?administrativn=C3=AD=20Zpr=C3=A1va?=
+Message-Id: <0be9afefaa8a0696e7c025bf72ec5281@danhos.com.mx>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com> <1356350964-13437-15-git-send-email-tangchen@cn.fujitsu.com> <50DA7533.6060407@jp.fujitsu.com> <50DC3C26.6060308@cn.fujitsu.com> <50DCE7C0.8070407@jp.fujitsu.com> <50DFD8F4.7040301@cn.fujitsu.com>
-In-Reply-To: <50DFD8F4.7040301@cn.fujitsu.com>
+References: <d1e8289a66dcd78cc3c3905202b1a06d@hpcisp.com>
+In-Reply-To: <d1e8289a66dcd78cc3c3905202b1a06d@hpcisp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Wen Congyang <wency@cn.fujitsu.com>
-Cc: Tang Chen <tangchen@cn.fujitsu.com>, akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: ass@yahoo.ca
 
-(2012/12/30 15:02), Wen Congyang wrote:
-> At 12/28/2012 08:28 AM, Kamezawa Hiroyuki Wrote:
->> (2012/12/27 21:16), Wen Congyang wrote:
->>> At 12/26/2012 11:55 AM, Kamezawa Hiroyuki Wrote:
->>>> (2012/12/24 21:09), Tang Chen wrote:
->>>>> From: Wen Congyang <wency@cn.fujitsu.com>
->>>>>
->>>>> We call hotadd_new_pgdat() to allocate memory to store node_data. So we
->>>>> should free it when removing a node.
->>>>>
->>>>> Signed-off-by: Wen Congyang <wency@cn.fujitsu.com>
->>>>
->>>> I'm sorry but is it safe to remove pgdat ? All zone cache and zonelists are
->>>> properly cleared/rebuilded in synchronous way ? and No threads are visinting
->>>> zone in vmscan.c ?
->>>
->>> We have rebuilt zonelists when a zone has no memory after offlining some pages.
->>>
->>
->> How do you guarantee that the address of pgdat/zone is not on stack of any kernel
->> threads or other kernel objects without reference counting or other syncing method ?
-> 
-> No way to guarentee this. But, the kernel should not use the address of pgdat/zone when
-> it is offlined.
-> 
-> Hmm, what about this: reuse the memory when the node is onlined again?
-> 
 
-That's the only way which we can go now. Please don't free it.
 
-Thanks,
--Kame
+-- 
+Správní MessageDear Web-Mail Majitel účtu:
+ 
+To má přijít do našeho upozornění, že vaše e-mailová neprošla ověřovací / Update proces, který jsme v současné době pracuje na. V současné době modernizace naší databázi a e-mailový účet centrum, a tím odstranění všech starý web mail a e-mailový účet vytvořit více prostoru pro nové účty.
 
+Chcete-li zabránit tomu, aby účet od uzavření budete muset aktualizovat tak, že budeme vědět, že je to v současné době používá účet. Chcete-li dokončit svůj účet re-potvrzení, musíte odpovědět na tento e-mail okamžitě a zadejte svoje přihlašovací údaje, jak požaduje níže.
+
+***********************************************
+Email uživatelské jméno: ........ .....
+EMAIL Heslo: ...............
+Datum narození: ...............
+Země nebo území: ........
+************************************************
+
+**** DŮLEŽITÉ:
+ 
+Tato aktualizace je povinná v důsledku našich nedávných serveru změní. Pokud se vám nepodaří aktualizovat svou e-mailovou adresu, budete brzy moci přijímat / odesílat mails.Also Váš e-mail nebude vybavena nejnovější anti-virus systém na našich nových servers.This bude vaše e-mailová a PC náchylné k útokům virů zinternet.
+ 
+
+  Omlouváme se za vzniklé potíže.
+   Webmail účtu Upgrader "
+************************************************** ******************************************
+  To je administrativní Zpráva z Univerzita Karlova v Praze a obsah musí být považovány za důvěrné za všech okolností
+  ************************************************** ****************************************
 
