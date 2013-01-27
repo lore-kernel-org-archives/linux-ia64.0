@@ -1,47 +1,70 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Date: Thu, 03 Jan 2013 06:59:32 +0000
-Subject: [RESEND PATCH] Convert IA64 sysctl to generic
-Message-Id: <1357195653-998-1-git-send-email-vgupta@synopsys.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sun, 27 Jan 2013 19:23:41 +0000
+Subject: [PATCH v3 14/22] PCI, ia64: Kill pci_find_next_bus
+Message-Id: <1359314629-18651-15-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <50D2B75A.3000208@synopsys.com>
-In-Reply-To: <50D2B75A.3000208@synopsys.com>
+References: <CAE9FiQXHG01NjnYNDbC-KEpbcvY-q4pBe97CxTOGS7W4vZQBYQ@mail.gmail.com>
+ <1359314629-18651-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1359314629-18651-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, Vineet Gupta <Vineet.Gupta1@synopsys.com>
+To: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@huawei.com>, "Rafael J. Wysocki" <rjw@sisk.pl>, Taku Izumi <izumi.taku@jp.fujitsu.com>, Toshi Kani <toshi.kani@hp.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
 
-Hi,
+Replace that with hotplug-safe version iteration.
 
-This came out ARC Port's review by Arnd where he suggested using the existing
-sysctl knobs in parisc and/or ia64 for runtime controlling unaligned access
-emulation.
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-altix@sgi.com
+---
+ arch/ia64/hp/common/sba_iommu.c |    7 ++++---
+ arch/ia64/sn/kernel/io_common.c |    5 +++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-Turns out that ARC port needs bit of both.
-
-The common sysctl knobs are now #ifdef based on init/Kconfig options which
-the corresponding arches now select in their Kconfigs.
-No other arch code is touched (although code has not been compile tested).
-
-If this patch is ACKable, I would request you to please take this patch
-via your arch tree - to avoid any merge-hassles and other interdependencies
-later.
-
-P.S. I've deliberately NOT added the new items at the end of arch/*/Kconfig,
-to avoid any merge conflicts going further - anyhow both the ia64/parisc
-Kconfigs are not sorted either.
-
-Thx,
--Vineet
-
-Vineet Gupta (1):
-  sysctl: Enable IA64 "ignore-unaligned-usertrap" to be used cross-arch
-
- arch/ia64/Kconfig |    1 +
- init/Kconfig      |    8 ++++++++
- kernel/sysctl.c   |    9 +++++++--
- 3 files changed, 16 insertions(+), 2 deletions(-)
-
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index bcda5b2..0f27a37 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2155,9 +2155,10 @@ sba_init(void)
+ 
+ #ifdef CONFIG_PCI
+ 	{
+-		struct pci_bus *b = NULL;
+-		while ((b = pci_find_next_bus(b)) != NULL)
+-			sba_connect_bus(b);
++		struct pci_host_bridge *host_bridge = NULL;
++
++		for_each_pci_host_bridge(host_bridge)
++			sba_connect_bus(host_bridge->bus);
+ 	}
+ #endif
+ 
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 8630875..131938b 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -516,6 +516,7 @@ arch_initcall(sn_io_early_init);
+ int __init
+ sn_io_late_init(void)
+ {
++	struct pci_host_bridge *host_bridge = NULL;
+ 	struct pci_bus *bus;
+ 	struct pcibus_bussoft *bussoft;
+ 	cnodeid_t cnode;
+@@ -530,8 +531,8 @@ sn_io_late_init(void)
+ 	 * PIC, TIOCP, TIOCE (TIOCA does it during bus fixup using
+ 	 * info from the PROM).
+ 	 */
+-	bus = NULL;
+-	while ((bus = pci_find_next_bus(bus)) != NULL) {
++	for_each_pci_host_bridge(host_bridge) {
++		bus = host_bridge->bus;
+ 		bussoft = SN_PCIBUS_BUSSOFT(bus);
+ 		nasid = NASID_GET(bussoft->bs_base);
+ 		cnode = nasid_to_cnodeid(nasid);
 -- 
-1.7.4.1
+1.7.10.4
 
