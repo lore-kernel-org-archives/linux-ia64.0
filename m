@@ -1,64 +1,68 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 03 Jan 2013 18:33:48 +0000
-Subject: [PATCH] [IA64] Wire up finit_module syscall
-Message-Id: <2f8c256f88493da2c1f8cf370bd87a4beefceb1f.1357237777.git.tony.luck@intel.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sun, 27 Jan 2013 05:36:35 +0000
+Subject: [PATCH v2 14/22] PCI, ia64: Kill pci_find_next_bus
+Message-Id: <1359265003-16166-15-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <CAE9FiQUhrVPNKcdWbiqHLa5PzH7Dg-uduVc9BP-OjM-eCqSXdw@mail.gmail.com>
+ <1359265003-16166-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1359265003-16166-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@huawei.com>, "Rafael J. Wysocki" <rjw@sisk.pl>, Taku Izumi <izumi.taku@jp.fujitsu.com>
+Cc: linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-altix@sgi.com
 
-Linux was granted a new system call to load modules by
-file descriptor in:
-
-  commit 34e1169d996ab148490c01b65b4ee371cf8ffba2
-  module: add syscall to load module from fd
-
-Wire it up for ia64 (ready for the Chrome port :-)
-
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-altix@sgi.com
 ---
- arch/ia64/include/asm/unistd.h      |    2 +-
- arch/ia64/include/uapi/asm/unistd.h |    1 +
- arch/ia64/kernel/entry.S            |    1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
+ arch/ia64/hp/common/sba_iommu.c |    7 ++++---
+ arch/ia64/sn/kernel/io_common.c |    5 +++--
+ 2 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
-index 8b3ff2f..c3cc42a 100644
---- a/arch/ia64/include/asm/unistd.h
-+++ b/arch/ia64/include/asm/unistd.h
-@@ -11,7 +11,7 @@
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index bcda5b2..0f27a37 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2155,9 +2155,10 @@ sba_init(void)
  
+ #ifdef CONFIG_PCI
+ 	{
+-		struct pci_bus *b = NULL;
+-		while ((b = pci_find_next_bus(b)) != NULL)
+-			sba_connect_bus(b);
++		struct pci_host_bridge *host_bridge = NULL;
++
++		for_each_pci_host_bridge(host_bridge)
++			sba_connect_bus(host_bridge->bus);
+ 	}
+ #endif
  
- 
--#define NR_syscalls			311 /* length of syscall table */
-+#define NR_syscalls			312 /* length of syscall table */
- 
- /*
-  * The following defines stop scripts/checksyscalls.sh from complaining about
-diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
-index b706aa5..34fd6fe 100644
---- a/arch/ia64/include/uapi/asm/unistd.h
-+++ b/arch/ia64/include/uapi/asm/unistd.h
-@@ -324,5 +324,6 @@
- #define __NR_process_vm_readv		1332
- #define __NR_process_vm_writev		1333
- #define __NR_accept4			1334
-+#define __NR_finit_module		1335
- 
- #endif /* _UAPI_ASM_IA64_UNISTD_H */
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index e25b784..6bfd842 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1785,6 +1785,7 @@ sys_call_table:
- 	data8 sys_process_vm_readv
- 	data8 sys_process_vm_writev
- 	data8 sys_accept4
-+	data8 sys_finit_module			// 1335
- 
- 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
- #endif /* __IA64_ASM_PARAVIRTUALIZED_NATIVE */
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 8630875..131938b 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -516,6 +516,7 @@ arch_initcall(sn_io_early_init);
+ int __init
+ sn_io_late_init(void)
+ {
++	struct pci_host_bridge *host_bridge = NULL;
+ 	struct pci_bus *bus;
+ 	struct pcibus_bussoft *bussoft;
+ 	cnodeid_t cnode;
+@@ -530,8 +531,8 @@ sn_io_late_init(void)
+ 	 * PIC, TIOCP, TIOCE (TIOCA does it during bus fixup using
+ 	 * info from the PROM).
+ 	 */
+-	bus = NULL;
+-	while ((bus = pci_find_next_bus(bus)) != NULL) {
++	for_each_pci_host_bridge(host_bridge) {
++		bus = host_bridge->bus;
+ 		bussoft = SN_PCIBUS_BUSSOFT(bus);
+ 		nasid = NASID_GET(bussoft->bs_base);
+ 		cnode = nasid_to_cnodeid(nasid);
 -- 
 1.7.10.4
 
