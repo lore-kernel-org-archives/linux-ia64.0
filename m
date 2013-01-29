@@ -1,26 +1,73 @@
-From: Michael Cree <mcree@orcon.net.nz>
-Date: Fri, 25 Jan 2013 03:49:58 +0000
-Subject: Re: [PATCH 2/8] mm: use vm_unmapped_area() on alpha architecture
-Message-Id: <43E02291-8F84-40CD-B429-847E7533EA18@orcon.net.nz>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Tue, 29 Jan 2013 12:37:57 +0000
+Subject: [PATCH v5 14/20] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
+Message-Id: <c4fb2b8d82932f2e86956bd0bd08caf15855b652.1359463075.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357694895-520-1-git-send-email-walken@google.com> <1357694895-520-3-git-send-email-walken@google.com>
-In-Reply-To: <1357694895-520-3-git-send-email-walken@google.com>
+References: <cover.1359463075.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1359463075.git.jan.kiszka@siemens.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michel Lespinasse <walken@google.com>
-Cc: Rik van Riel <riel@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@alien8.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On 9/01/2013, at 2:28 PM, Michel Lespinasse wrote:
-> Update the alpha arch_get_unmapped_area function to make use of
-> vm_unmapped_area() instead of implementing a brute force search.
->
-> Signed-off-by: Michel Lespinasse <walken@google.com>
+Add the internal helper get_thread_info that calculated the thread_info
+from a given task variable. Also export this service as a convenience
+function.
 
-'Tis running fine on my alpha.
+Note: ia64 version is untested.
 
-Tested-by: Michael Cree <mcree@orcon.net.nz>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+---
+ scripts/gdb/task.py |   35 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 35 insertions(+), 0 deletions(-)
 
-Cheers
-Michael.
+diff --git a/scripts/gdb/task.py b/scripts/gdb/task.py
+index fe42eb0..8e96238 100644
+--- a/scripts/gdb/task.py
++++ b/scripts/gdb/task.py
+@@ -62,3 +62,38 @@ class LxTaskByPidFunc(gdb.Function):
+ 			raise gdb.GdbError("No task of PID " + str(pid))
+ 
+ LxTaskByPidFunc()
++
++
++thread_info_type = CachedType("struct thread_info")
++
++ia64_task_size = None
++
++def get_thread_info(task):
++	global thread_info_type
++	thread_info_ptr_type = thread_info_type.get_type().pointer()
++	if is_target_arch("ia64"):
++		global ia64_task_size
++		if ia64_task_size = None:
++			ia64_task_size = gdb.parse_and_eval(
++						"sizeof(struct task_struct)")
++		thread_info_addr = task.address + ia64_task_size
++		thread_info = thread_info_addr.cast(thread_info_ptr_type)
++	else:
++		thread_info = task['stack'].cast(thread_info_ptr_type)
++	return thread_info.dereference()
++
++
++class LxThreadInfoFunc (gdb.Function):
++	# Calculate Linux thread_info from task variable.
++	__doc__ = "Calculate Linux thread_info from task variable.\n" \
++		  "\n" \
++		  "$lx_thread_info(TASK): Given TASK, return the corresponding thread_info\n" \
++		  "variable."
++
++	def __init__(self):
++		super(LxThreadInfoFunc, self).__init__("lx_thread_info")
++
++	def invoke(self, task):
++		return get_thread_info(task)
++
++LxThreadInfoFunc()
+-- 
+1.7.3.4
 
