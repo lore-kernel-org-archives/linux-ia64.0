@@ -1,63 +1,173 @@
-From: Michel Lespinasse <walken@google.com>
-Date: Thu, 24 Jan 2013 01:29:48 +0000
-Subject: [PATCH 5/8] mm: use vm_unmapped_area() in hugetlbfs on ia64 architecture
-Message-Id: <1358990991-21316-6-git-send-email-walken@google.com>
+From: Xishi Qiu <qiuxishi@huawei.com>
+Date: Tue, 29 Jan 2013 03:52:38 +0000
+Subject: [PATCH] ia64/mm: fix a bad_page bug when crash kernel booting
+Message-Id: <51074786.5030007@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1358990991-21316-1-git-send-email-walken@google.com>
-In-Reply-To: <1358990991-21316-1-git-send-email-walken@google.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: "Luck, Tony" <tony.luck@intel.com>, fenghua.yu@intel.com, matt.fleming@intel.com, Xishi Qiu <qiuxishi@huawei.com>, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org
 
-Update the ia64 hugetlb_get_unmapped_area function to make use of
-vm_unmapped_area() instead of implementing a brute force search.
+On ia64 platform, I set "crashkernel=1024M-:600M", and dmesg shows 128M-728M
+memory is reserved for crash kernel. Then "echo c > /proc/sysrq-trigger" to
+test kdump.
 
-Signed-off-by: Michel Lespinasse <walken@google.com>
-Acked-by: Rik van Riel <riel@redhat.com>
+When crash kernel booting, efi_init() will aligns the memory address in
+IA64_GRANULE_SIZE(16M), so 720M-728M memory will be dropped, It means
+crash kernel only manage 128M-720M memory.
 
+But initrd start and end are fixed in boot loader, it is before efi_init(),
+so initrd size maybe overflow when free_initrd_mem().
+
+Here is the dmesg when crash kernel booting:
+
+...
+Ignoring memory below 128MB
+Ignoring memory above 720MB
+    // aligns the address in IA64_GRANULE_SIZE(16M)
+...
+Initial ramdisk at: 0xe00000002c3f0000 (20176579 bytes)
+    // initrd uses 707M-726M memory
+...
+Kernel command line:  root=3D/dev/disk/by-id/ata-STEC_MACH16_M16ISD2-100UCT=
+_STM000142A2D-part3
+console=3DttyS0,115200n8 console=3Dtty0 initcall_debug elevator=DEadline sy=
+srq=3D1 reset_devices
+irqpoll maxcpus=3D1 initcall_debug linuxrc=3Dtrace elfcorehdrt5216K max_add=
+rr8M min_addr=128M
+    // show crash kernel parameters
+...
+Unpacking initramfs...
+    // called by populate_rootfs()
+Freeing initrd memory: 19648kB freed
+    // called by free_initrd()->free_initrd_mem()
+BUG: Bad page state in process swapper  pfn:02d00
+    // it is a mistake to free over 720M memory to OS (ia64's page size is =
+64KB)
+page:e0000000102dd800 flags:(null) count:0 mapcount:1 mapping:(null) index:0
+
+Call Trace:
+ [<a000000100018dc0>] show_stack+0x80/0xa0
+                                sp=E000000021e8fbd0 bsp=E000000021e81360
+ [<a00000010090fcc0>] dump_stack+0x30/0x50
+                                sp=E000000021e8fda0 bsp=E000000021e81348
+ [<a0000001001a3180>] bad_page+0x280/0x380
+                                sp=E000000021e8fda0 bsp=E000000021e81308
+ [<a0000001001a8740>] free_hot_cold_page+0x3a0/0x5c0
+                                sp=E000000021e8fda0 bsp=E000000021e812a0
+ [<a0000001001a8a50>] free_hot_page+0x30/0x60
+                                sp=E000000021e8fda0 bsp=E000000021e81280
+ [<a0000001001a8b30>] __free_pages+0xb0/0xe0
+                                sp=E000000021e8fda0 bsp=E000000021e81258
+ [<a0000001001a8c00>] free_pages+0xa0/0xc0
+                                sp=E000000021e8fda0 bsp=E000000021e81230
+ [<a000000100bb40c0>] free_initrd_mem+0x230/0x290
+                                sp=E000000021e8fda0 bsp=E000000021e811d8
+ [<a000000100ba6620>] populate_rootfs+0x1c0/0x280
+                                sp=E000000021e8fdb0 bsp=E000000021e811a0
+ [<a00000010000ac30>] do_one_initcall+0x3b0/0x3e0
+                                sp=E000000021e8fdb0 bsp=E000000021e81158
+ [<a000000100ba0a90>] kernel_init+0x3f0/0x4b0
+                                sp=E000000021e8fdb0 bsp=E000000021e81108
+ [<a000000100016890>] kernel_thread_helper+0xd0/0x100
+                                sp=E000000021e8fe30 bsp=E000000021e810e0
+ [<a00000010000a4c0>] start_kernel_thread+0x20/0x40
+                                sp=E000000021e8fe30 bsp=E000000021e810e0
+Disabling lock debugging due to kernel taint
+BUG: Bad page state in process swapper  pfn:02d01
+page:e0000000102dd838 flags:(null) count:0 mapcount:1 mapping:(null) index:0
+
+Call Trace:
+ [<a000000100018dc0>] show_stack+0x80/0xa0
+                                sp=E000000021e8fbd0 bsp=E000000021e81360
+ [<a00000010090fcc0>] dump_stack+0x30/0x50
+                                sp=E000000021e8fda0 bsp=E000000021e81348
+ [<a0000001001a3180>] bad_page+0x280/0x380
+                                sp=E000000021e8fda0 bsp=E000000021e81308
+ [<a0000001001a8740>] free_hot_cold_page+0x3a0/0x5c0
+                                sp=E000000021e8fda0 bsp=E000000021e812a0
+ [<a0000001001a8a50>] free_hot_page+0x30/0x60
+                                sp=E000000021e8fda0 bsp=E000000021e81280
+ [<a0000001001a8b30>] __free_pages+0xb0/0xe0
+                                sp=E000000021e8fda0 bsp=E000000021e81258
+ [<a0000001001a8c00>] free_pages+0xa0/0xc0
+                                sp=E000000021e8fda0 bsp=E000000021e81230
+ [<a000000100bb40c0>] free_initrd_mem+0x230/0x290
+                                sp=E000000021e8fda0 bsp=E000000021e811d8
+ [<a000000100ba6620>] populate_rootfs+0x1c0/0x280
+                                sp=E000000021e8fdb0 bsp=E000000021e811a0
+ [<a00000010000ac30>] do_one_initcall+0x3b0/0x3e0
+                                sp=E000000021e8fdb0 bsp=E000000021e81158
+ [<a000000100ba0a90>] kernel_init+0x3f0/0x4b0
+                                sp=E000000021e8fdb0 bsp=E000000021e81108
+ [<a000000100016890>] kernel_thread_helper+0xd0/0x100
+                                sp=E000000021e8fe30 bsp=E000000021e810e0
+ [<a00000010000a4c0>] start_kernel_thread+0x20/0x40
+                                sp=E000000021e8fe30 bsp=E000000021e810e0
+...
+
+Signed-off-by: Xishi Qiu <qiuxishi@huawei.com>
 ---
- arch/ia64/mm/hugetlbpage.c |   20 +++++++++-----------
- 1 files changed, 9 insertions(+), 11 deletions(-)
+ arch/ia64/include/asm/meminit.h |    2 ++
+ arch/ia64/kernel/efi.c          |    2 +-
+ arch/ia64/mm/init.c             |   11 +++++++++++
+ 3 files changed, 14 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
-index 5ca674b74737..76069c18ee42 100644
---- a/arch/ia64/mm/hugetlbpage.c
-+++ b/arch/ia64/mm/hugetlbpage.c
-@@ -148,7 +148,7 @@ void hugetlb_free_pgd_range(struct mmu_gather *tlb,
- unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
- 		unsigned long pgoff, unsigned long flags)
- {
--	struct vm_area_struct *vmm;
-+	struct vm_unmapped_area_info info;
- 
- 	if (len > RGN_MAP_LIMIT)
- 		return -ENOMEM;
-@@ -165,16 +165,14 @@ unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr, u
- 	/* This code assumes that RGN_HPAGE != 0. */
- 	if ((REGION_NUMBER(addr) != RGN_HPAGE) || (addr & (HPAGE_SIZE - 1)))
- 		addr = HPAGE_REGION_BASE;
--	else
--		addr = ALIGN(addr, HPAGE_SIZE);
--	for (vmm = find_vma(current->mm, addr); ; vmm = vmm->vm_next) {
--		/* At this point:  (!vmm || addr < vmm->vm_end). */
--		if (REGION_OFFSET(addr) + len > RGN_MAP_LIMIT)
--			return -ENOMEM;
--		if (!vmm || (addr + len) <= vmm->vm_start)
--			return addr;
--		addr = ALIGN(vmm->vm_end, HPAGE_SIZE);
--	}
+diff --git a/arch/ia64/include/asm/meminit.h b/arch/ia64/include/asm/memini=
+t.h
+index 61c7b17..925ecb5 100644
+--- a/arch/ia64/include/asm/meminit.h
++++ b/arch/ia64/include/asm/meminit.h
+@@ -49,6 +49,8 @@ extern int reserve_elfcorehdr(u64 *start, u64 *end);
+ #define GRANULEROUNDDOWN(n)	((n) & ~(IA64_GRANULE_SIZE-1))
+ #define GRANULEROUNDUP(n)	(((n)+IA64_GRANULE_SIZE-1) & ~(IA64_GRANULE_SIZE=
+-1))
+
++extern u64 max_addr;
 +
-+	info.flags = 0;
-+	info.length = len;
-+	info.low_limit = addr;
-+	info.high_limit = HPAGE_REGION_BASE + RGN_MAP_LIMIT;
-+	info.align_mask = PAGE_MASK & (HPAGE_SIZE - 1);
-+	info.align_offset = 0;
-+	return vm_unmapped_area(&info);
- }
- 
- static int __init hugetlb_setup_sz(char *str)
--- 
-1.7.7.3
+ #ifdef CONFIG_NUMA
+   extern void call_pernode_memory (unsigned long start, unsigned long len,=
+ void *func);
+ #else
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index f034563..f6522cb 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -49,7 +49,7 @@ extern efi_status_t efi_call_phys (void *, ...);
+ struct efi efi;
+ EXPORT_SYMBOL(efi);
+ static efi_runtime_services_t *runtime;
+-static u64 mem_limit =3D ~0UL, max_addr =3D ~0UL, min_addr =3D 0UL;
++u64 mem_limit =3D ~0UL, max_addr =3D ~0UL, min_addr =3D 0UL;
+
+ #define efi_call_virt(f, args...)	(*(f))(args)
+
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index b755ea9..cfdb1eb 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -207,6 +207,17 @@ free_initrd_mem (unsigned long start, unsigned long en=
+d)
+ 	start =3D PAGE_ALIGN(start);
+ 	end =3D end & PAGE_MASK;
+
++	/*
++	 * Initrd size is fixed in boot loader, but kernel parameter max_addr
++	 * which aligns in granules is fixed after boot loader, so initrd size
++	 * maybe overflow.
++	 */
++	if (max_addr !=3D ~0UL) {
++		end =3D GRANULEROUNDDOWN(end);
++		if (start > end)
++			start =3D end;
++	}
++
+ 	if (start < end)
+ 		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >=
+> 10);
+
+--=20
+1.7.1
+
+
