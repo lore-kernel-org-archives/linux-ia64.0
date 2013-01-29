@@ -1,55 +1,51 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Thu, 10 Jan 2013 06:15:04 +0000
-Subject: Re: [PATCH v6 04/15] memory-hotplug: remove /sys/firmware/memmap/X sysfs
-Message-Id: <50EE5C68.4030402@cn.fujitsu.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Tue, 29 Jan 2013 22:48:37 +0000
+Subject: [PATCH] MAINTAINERS: update SGI & ia64 Altix stuff
+Message-Id: <20130129224837.7237.78495.stgit@bhelgaas.mtv.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com> <1357723959-5416-5-git-send-email-tangchen@cn.fujitsu.com> <20130109151920.fb9b4029.akpm@linux-foundation.org>
-In-Reply-To: <20130109151920.fb9b4029.akpm@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: Jes Sorensen <jes@trained-monkey.org>, Dimitri Sivanich <sivanich@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Lori Gilbertson <loriann@sgi.com>, Robin Holt <holt@sgi.com>
 
-Hi Andrew,
+Dimitri and Robin have taken over GRU maintenance.
 
-On 01/10/2013 07:19 AM, Andrew Morton wrote:
->> ...
->>
->> +	entry = firmware_map_find_entry(start, end - 1, type);
->> +	if (!entry)
->> +		return -EINVAL;
->> +
->> +	firmware_map_remove_entry(entry);
->>
->> ...
->>
->
-> The above code looks racy.  After firmware_map_find_entry() does the
-> spin_unlock() there is nothing to prevent a concurrent
-> firmware_map_remove_entry() from removing the entry, so the kernel ends
-> up calling firmware_map_remove_entry() twice against the same entry.
->
-> An easy fix for this is to hold the spinlock across the entire
-> lookup/remove operation.
->
->
-> This problem is inherent to firmware_map_find_entry() as you have
-> implemented it, so this function simply should not exist in the current
-> form - no caller can use it without being buggy!  A simple fix for this
-> is to remove the spin_lock()/spin_unlock() from
-> firmware_map_find_entry() and add locking documentation to
-> firmware_map_find_entry(), explaining that the caller must hold
-> map_entries_lock and must not release that lock until processing of
-> firmware_map_find_entry()'s return value has completed.
+Linux on Altix is no longer maintained except as part of ia64, and
+there's already a separate IA64 maintainer entry.
 
-Thank you for your advice, I'll fix it soon.
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ MAINTAINERS |   11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
 
-Since you have merged the patch-set, do I need to resend all these
-patches again, or just send a patch to fix it based on the current
-one ?
-
-Thanks. :)
-
->
+diff --git a/MAINTAINERS b/MAINTAINERS
+index fa309ab..0526e21 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -6768,7 +6768,8 @@ S:	Supported
+ F:	drivers/net/ethernet/sfc/
+ 
+ SGI GRU DRIVER
+-M:	Jack Steiner <steiner@sgi.com>
++M:	Dimitri Sivanich <sivanich@sgi.com>
++M:	Robin Holt <holt@sgi.com>
+ S:	Maintained
+ F:	drivers/misc/sgi-gru/
+ 
+@@ -6963,14 +6964,6 @@ L:	linux-fbdev@vger.kernel.org
+ S:	Maintained
+ F:	drivers/video/smscufx.c
+ 
+-SN-IA64 (Itanium) SUB-PLATFORM
+-M:	Jes Sorensen <jes@sgi.com>
+-L:	linux-altix@sgi.com
+-L:	linux-ia64@vger.kernel.org
+-W:	http://www.sgi.com/altix
+-S:	Maintained
+-F:	arch/ia64/sn/
+-
+ SOC-CAMERA V4L2 SUBSYSTEM
+ M:	Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+ L:	linux-media@vger.kernel.org
 
