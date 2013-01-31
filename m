@@ -1,7 +1,7 @@
 From: Simon Jeons <simon.jeons@gmail.com>
-Date: Thu, 31 Jan 2013 08:17:08 +0000
+Date: Thu, 31 Jan 2013 08:48:43 +0000
 Subject: Re: [PATCH v6 00/15] memory-hotplug: hot-remove physical memory
-Message-Id: <1359620228.1391.0.camel@kernel>
+Message-Id: <1359622123.1391.19.camel@kernel>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
 	   <1359463973.1624.15.camel@kernel> <5108F2B3.3090506@cn.fujitsu.com>
@@ -16,6 +16,23 @@ Cc: akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@ke
 
 Hi Tang,
 On Thu, 2013-01-31 at 15:10 +0800, Tang Chen wrote:
+
+1. IIUC, there is a button on machine which supports hot-remove memory,
+then what's the difference between press button and echo to /sys?
+2. Since kernel memory is linear mapping(I mean direct mapping part),
+why can't put kernel direct mapping memory into one memory device, and
+other memory into the other devices? As you know x86_64 don't need
+highmem, IIUC, all kernel memory will linear mapping in this case. Is my
+idea available? If is correct, x86_32 can't implement in the same way
+since highmem(kmap/kmap_atomic/vmalloc) can map any address, so it's
+hard to focus kernel memory on single memory device.
+3. In current implementation, if memory hotplug just need memory
+subsystem and ACPI codes support? Or also needs firmware take part in?
+Hope you can explain in details, thanks in advance. :)
+4. What's the status of memory hotplug? Apart from can't remove kernel
+memory, other things are fully implementation?  
+
+
 > On 01/31/2013 02:19 PM, Simon Jeons wrote:
 > > Hi Tang,
 > > On Thu, 2013-01-31 at 11:31 +0800, Tang Chen wrote:
@@ -107,9 +124,6 @@ On Thu, 2013-01-31 at 15:10 +0800, Tang Chen wrote:
 > we use N_MEMORY. :)
 > 
 > That is my understanding of this.
-
-Thanks for your clarify, very clear now. :)
-
 > 
 > Thanks. :)
 > 
