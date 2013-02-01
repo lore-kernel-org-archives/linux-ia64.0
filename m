@@ -1,73 +1,106 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Mon, 04 Feb 2013 23:04:17 +0000
-Subject: Re: [PATCH v6 08/15] memory-hotplug: Common APIs to support page tables hot-remove
-Message-Id: <20130204150417.2b1256b1.akpm@linux-foundation.org>
+From: Jianguo Wu <wujianguo@huawei.com>
+Date: Fri, 01 Feb 2013 01:32:59 +0000
+Subject: Re: [PATCH v6 00/15] memory-hotplug: hot-remove physical memory
+Message-Id: <510B1B4B.5080207@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>
-	<1357723959-5416-9-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1357723959-5416-9-git-send-email-tangchen@cn.fujitsu.com>
+References: <1357723959-5416-1-git-send-email-tangchen@cn.fujitsu.com>     <1359463973.1624.15.camel@kernel> <5108F2B3.3090506@cn.fujitsu.com>    <1359595344.1557.13.camel@kernel> <5109E59F.5080104@cn.fujitsu.com>   <1359613162.1587.0.camel@kernel> <510A18FA.2010107@cn.fujitsu.com>  <1359622123.1391.19.camel@kernel> <510A3CE6.202@cn.fujitsu.com> <1359628705.2048.5.camel@kernel>
+In-Reply-To: <1359628705.2048.5.camel@kernel>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tang Chen <tangchen@cn.fujitsu.com>
-Cc: rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
+To: Simon Jeons <simon.jeons@gmail.com>
+Cc: Tang Chen <tangchen@cn.fujitsu.com>, akpm@linux-foundation.org, rientjes@google.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wency@cn.fujitsu.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, glommer@parallels.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org
 
-On Wed, 9 Jan 2013 17:32:32 +0800
-Tang Chen <tangchen@cn.fujitsu.com> wrote:
+On 2013/1/31 18:38, Simon Jeons wrote:
 
-> +static void __meminit
-> +remove_pagetable(unsigned long start, unsigned long end, bool direct)
-> +{
-> +	unsigned long next;
-> +	pgd_t *pgd;
-> +	pud_t *pud;
-> +	bool pgd_changed = false;
-> +
-> +	for (; start < end; start = next) {
-> +		pgd = pgd_offset_k(start);
-> +		if (!pgd_present(*pgd))
-> +			continue;
-> +
-> +		next = pgd_addr_end(start, end);
-> +
-> +		pud = (pud_t *)map_low_page((pud_t *)pgd_page_vaddr(*pgd));
-> +		remove_pud_table(pud, start, next, direct);
-> +		if (free_pud_table(pud, pgd))
-> +			pgd_changed = true;
-> +		unmap_low_page(pud);
-> +	}
-> +
-> +	if (pgd_changed)
-> +		sync_global_pgds(start, end - 1);
-> +
-> +	flush_tlb_all();
-> +}
+> Hi Tang,
+> On Thu, 2013-01-31 at 17:44 +0800, Tang Chen wrote:
+>> Hi Simon,
+>>
+>> On 01/31/2013 04:48 PM, Simon Jeons wrote:
+>>> Hi Tang,
+>>> On Thu, 2013-01-31 at 15:10 +0800, Tang Chen wrote:
+>>>
+>>> 1. IIUC, there is a button on machine which supports hot-remove memory,
+>>> then what's the difference between press button and echo to /sys?
+>>
+>> No important difference, I think. Since I don't have the machine you are
+>> saying, I cannot surely answer you. :)
+>> AFAIK, pressing the button means trigger the hotplug from hardware, sysfs
+>> is just another entrance. At last, they will run into the same code.
+>>
+>>> 2. Since kernel memory is linear mapping(I mean direct mapping part),
+>>> why can't put kernel direct mapping memory into one memory device, and
+>>> other memory into the other devices?
+>>
+>> We cannot do that because in that way, we will lose NUMA performance.
+>>
+>> If you know NUMA, you will understand the following example:
+>>
+>> node0:                    node1:
+>>     cpu0~cpu15                cpu16~cpu31
+>>     memory0~memory511         memory512~memory1023
+>>
+>> cpu16~cpu31 access memory16~memory1023 much faster than memory0~memory511.
+>> If we set direct mapping area in node0, and movable area in node1, then
+>> the kernel code running on cpu16~cpu31 will have to access 
+>> memory0~memory511.
+>> This is a terrible performance down.
+> 
+> So if config NUMA, kernel memory will not be linear mapping anymore? For
+> example, 
+> 
+> Node 0  Node 1 
+> 
+> 0 ~ 10G 11G~14G
+> 
+> kernel memory only at Node 0? Can part of kernel memory also at Node 1?
+> 
+> How big is kernel direct mapping memory in x86_64? Is there max limit?
 
-This generates a compiler warning saying that `next' may be used
-uninitialised.
 
-The warning is correct.  If we take that `continue' on the first pass
-through the loop, the "start = next" will copy uninitialised data into
-`start'.
+Max kernel direct mapping memory in x86_64 is 64TB.
 
-Is this the correct fix?
+> It seems that only around 896MB on x86_32. 
+> 
+>>
+>>> As you know x86_64 don't need
+>>> highmem, IIUC, all kernel memory will linear mapping in this case. Is my
+>>> idea available? If is correct, x86_32 can't implement in the same way
+>>> since highmem(kmap/kmap_atomic/vmalloc) can map any address, so it's
+>>> hard to focus kernel memory on single memory device.
+>>
+>> Sorry, I'm not quite familiar with x86_32 box.
+>>
+>>> 3. In current implementation, if memory hotplug just need memory
+>>> subsystem and ACPI codes support? Or also needs firmware take part in?
+>>> Hope you can explain in details, thanks in advance. :)
+>>
+>> We need firmware take part in, such as SRAT in ACPI BIOS, or the firmware
+>> based memory migration mentioned by Liu Jiang.
+> 
+> Is there any material about firmware based memory migration?
+> 
+>>
+>> So far, I only know this. :)
+>>
+>>> 4. What's the status of memory hotplug? Apart from can't remove kernel
+>>> memory, other things are fully implementation?
+>>
+>> I think the main job is done for now. And there are still bugs to fix.
+>> And this functionality is not stable.
+>>
+>> Thanks. :)
+> 
+> 
+> --
+> To unsubscribe, send a message with 'unsubscribe linux-mm' in
+> the body to majordomo@kvack.org.  For more info on Linux MM,
+> see: http://www.linux-mm.org/ .
+> Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+> 
+> .
+> 
 
---- a/arch/x86/mm/init_64.c~memory-hotplug-common-apis-to-support-page-tables-hot-remove-fix-fix-fix-fix-fix-fix-fix
-+++ a/arch/x86/mm/init_64.c
-@@ -993,12 +993,12 @@ remove_pagetable(unsigned long start, un
- 	bool pgd_changed = false;
- 
- 	for (; start < end; start = next) {
-+		next = pgd_addr_end(start, end);
-+
- 		pgd = pgd_offset_k(start);
- 		if (!pgd_present(*pgd))
- 			continue;
- 
--		next = pgd_addr_end(start, end);
--
- 		pud = (pud_t *)pgd_page_vaddr(*pgd);
- 		remove_pud_table(pud, start, next, direct);
- 		if (free_pud_table(pud, pgd))
-_
+
 
