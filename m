@@ -1,17 +1,17 @@
-From: Paul Mundt <lethal@linux-sh.org>
-Date: Mon, 04 Feb 2013 11:30:44 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Mon, 04 Feb 2013 18:30:17 +0000
 Subject: Re: [PATCH RESEND 1/1] arch Kconfig: remove references to IRQ_PER_CPU
-Message-Id: <20130204113043.GB12216@linux-sh.org>
+Message-Id: <1360002617.2465.33.camel@dabdike>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1359972583-17134-1-git-send-email-james.hogan@imgtec.com>
-In-Reply-To: <1359972583-17134-1-git-send-email-james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1359972583-17134-1-git-send-email-james.hogan@imgtec.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>
-Cc: linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Helge Deller <deller-Mmb7MZpHnFY@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Fenghua Yu <fenghua.yu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "James E.J. Bottomley" <jejb-6jwH94ZQLHl74goWV3ctuw@public.gmane.org>, Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>, Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, uclinux-dist-devel-ZG0+EudsQA8dtHy/vicBwGD2FQJk+8+b@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>
+To: James Hogan <james.hogan@imgtec.com>
+Cc: linux-kernel@vger.kernel.org, uclinux-dist-devel@blackfin.uclinux.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Mike Frysinger <vapier@gentoo.org>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Mundt <lethal@linux-sh.org>
 
-On Mon, Feb 04, 2013 at 10:09:43AM +0000, James Hogan wrote:
+On Mon, 2013-02-04 at 10:09 +0000, James Hogan wrote:
 > The IRQ_PER_CPU Kconfig symbol was removed in the following commit:
 > 
 > Commit 6a58fb3bad099076f36f0f30f44507bc3275cdb6 ("genirq: Remove
@@ -34,4 +34,15 @@ On Mon, Feb 04, 2013 at 10:09:43AM +0000, James Hogan wrote:
 > Acked-by: Tony Luck <tony.luck@intel.com>
 > Acked-by: Richard Kuo <rkuo@codeaurora.org>
 
-Acked-by: Paul Mundt <lethal@linux-sh.org>
+For what it's worth ACK, but I don't really think you need it since the
+patch is trivial and obviously correct.
+
+> 
+> Does anybody want to pick this patch up?
+
+I see Thomas already has.  Thanks, by the way, for not doing this as one
+patch per architecture ...
+
+James
+
+
