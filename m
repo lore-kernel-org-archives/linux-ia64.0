@@ -1,64 +1,72 @@
-From: Lars-Peter Clausen <lars@metafoo.de>
-Date: Thu, 21 Feb 2013 10:15:47 +0000
-Subject: Re: [PATCH 09/16] ia64 idle: delete pm_idle
-Message-Id: <5125F3D3.6040309@metafoo.de>
+From: Matt Fleming <matt.fleming@intel.com>
+Date: Mon, 04 Feb 2013 16:32:45 +0000
+Subject: Re: [PATCH] ia64/mm: fix a bad_page bug when crash kernel booting
+Message-Id: <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1360475903-30007-1-git-send-email-lenb@kernel.org> <7dc2a692a27e9c3da86acf150c4a89024e48bd05.1360475150.git.len.brown@intel.com>
-In-Reply-To: <7dc2a692a27e9c3da86acf150c4a89024e48bd05.1360475150.git.len.brown@intel.com>
+References: <51074786.5030007@huawei.com>
+In-Reply-To: <51074786.5030007@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Len Brown <lenb@kernel.org>
-Cc: linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, Len Brown <len.brown@intel.com>, linux-ia64@vger.kernel.org
+To: Xishi Qiu <qiuxishi@huawei.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, fenghua.yu@intel.com, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org
 
-On 02/10/2013 06:58 AM, Len Brown wrote:
-> From: Len Brown <len.brown@intel.com>
+On Tue, 2013-01-29 at 11:52 +0800, Xishi Qiu wrote:
+> On ia64 platform, I set "crashkernel24M-:600M", and dmesg shows 128M-728M
+> memory is reserved for crash kernel. Then "echo c > /proc/sysrq-trigger" to
+> test kdump.
 > 
-> pm_idle() on ia64 was a synonym for default_idle().
-> So simply invoke default_idle() directly.
+> When crash kernel booting, efi_init() will aligns the memory address in
+> IA64_GRANULE_SIZE(16M), so 720M-728M memory will be dropped, It means
+> crash kernel only manage 128M-720M memory.
 > 
-> Signed-off-by: Len Brown <len.brown@intel.com>
-> Cc: linux-ia64@vger.kernel.org
-> ---
->  arch/ia64/kernel/process.c | 3 ---
->  arch/ia64/kernel/setup.c   | 1 -
->  2 files changed, 4 deletions(-)
-> 
-> diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-> index 31360cb..e34f565 100644
-> --- a/arch/ia64/kernel/process.c
-> +++ b/arch/ia64/kernel/process.c
-> @@ -57,8 +57,6 @@ void (*ia64_mark_idle)(int);
->  
->  unsigned long boot_option_idle_override = IDLE_NO_OVERRIDE;
->  EXPORT_SYMBOL(boot_option_idle_override);
-> -void (*pm_idle) (void);
-> -EXPORT_SYMBOL(pm_idle);
->  void (*pm_power_off) (void);
->  EXPORT_SYMBOL(pm_power_off);
->  
-> @@ -301,7 +299,6 @@ cpu_idle (void)
->  			if (mark_idle)
->  				(*mark_idle)(1);
->  
-> -			idle = pm_idle;
->  			if (!idle)
+> But initrd start and end are fixed in boot loader, it is before efi_init(),
+> so initrd size maybe overflow when free_initrd_mem().
 
-Hm, if I'm not mistaken idle will uninitialized at this point, so this could
-quite likely lead to a crash.
+[...]
 
->  				idle = default_idle;
->  			(*idle)();
-> diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-> index aaefd9b..2029cc0 100644
-> --- a/arch/ia64/kernel/setup.c
-> +++ b/arch/ia64/kernel/setup.c
-> @@ -1051,7 +1051,6 @@ cpu_init (void)
->  		max_num_phys_stacked = num_phys_stacked;
->  	}
->  	platform_cpu_init();
-> -	pm_idle = default_idle;
->  }
->  
->  void __init
+> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+> index b755ea9..cfdb1eb 100644
+> --- a/arch/ia64/mm/init.c
+> +++ b/arch/ia64/mm/init.c
+> @@ -207,6 +207,17 @@ free_initrd_mem (unsigned long start, unsigned long end)
+>  	start = PAGE_ALIGN(start);
+>  	end = end & PAGE_MASK;
+> 
+> +	/*
+> +	 * Initrd size is fixed in boot loader, but kernel parameter max_addr
+> +	 * which aligns in granules is fixed after boot loader, so initrd size
+> +	 * maybe overflow.
+> +	 */
+> +	if (max_addr != ~0UL) {
+> +		end = GRANULEROUNDDOWN(end);
+> +		if (start > end)
+> +			start = end;
+> +	}
+> +
+>  	if (start < end)
+>  		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >> 10);
+
+I don't think this is the correct fix.
+
+Now, my ia64-fu is weak, but could it be that there's actually a bug in
+efi_init() and that the following patch would be the best way to fix
+this?
+
+---
+
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index f034563..8d579f1 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -482,7 +482,7 @@ efi_init (void)
+ 		if (memcmp(cp, "mem=", 4) = 0) {
+ 			mem_limit = memparse(cp + 4, &cp);
+ 		} else if (memcmp(cp, "max_addr=", 9) = 0) {
+-			max_addr = GRANULEROUNDDOWN(memparse(cp + 9, &cp));
++			max_addr = GRANULEROUNDUP(memparse(cp + 9, &cp));
+ 		} else if (memcmp(cp, "min_addr=", 9) = 0) {
+ 			min_addr = GRANULEROUNDDOWN(memparse(cp + 9, &cp));
+ 		} else {
+
 
