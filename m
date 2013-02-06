@@ -1,92 +1,124 @@
-From: Xishi Qiu <qiuxishi@huawei.com>
-Date: Tue, 05 Feb 2013 03:48:54 +0000
-Subject: Re: [PATCH] ia64/mm: fix a bad_page bug when crash kernel booting
-Message-Id: <51108126.3050905@huawei.com>
+From: Tang Chen <tangchen@cn.fujitsu.com>
+Date: Wed, 06 Feb 2013 03:07:23 +0000
+Subject: Re: [PATCH v5 01/14] memory-hotplug: try to offline the memory twice to avoid dependence
+Message-Id: <5111C8EB.6090805@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <51074786.5030007@huawei.com> <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
-In-Reply-To: <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
+References: <1356350964-13437-1-git-send-email-tangchen@cn.fujitsu.com> <1356350964-13437-2-git-send-email-tangchen@cn.fujitsu.com> <50D96543.6010903@parallels.com> <50DFD7F7.5090408@cn.fujitsu.com> <50ED8834.1090804@parallels.com>
+In-Reply-To: <50ED8834.1090804@parallels.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matt Fleming <matt.fleming@intel.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, fenghua.yu@intel.com, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org
+To: Glauber Costa <glommer@parallels.com>
+Cc: Wen Congyang <wency@cn.fujitsu.com>, akpm@linux-foundation.org, rientjes@google.com, liuj97@gmail.com, len.brown@intel.com, benh@kernel.crashing.org, paulus@samba.org, cl@linux.com, minchan.kim@gmail.com, kosaki.motohiro@jp.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, wujianguo@huawei.com, hpa@zytor.com, linfeng@cn.fujitsu.com, laijs@cn.fujitsu.com, mgorman@suse.de, yinghai@kernel.org, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, cmetcalf@tilera.com, sparclinux@vger.kernel.org, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Miao Xie <miaox@cn.fujitsu.com>
 
-On 2013/2/5 0:32, Matt Fleming wrote:
+Hi Glauber, all,
 
-> On Tue, 2013-01-29 at 11:52 +0800, Xishi Qiu wrote:
->> On ia64 platform, I set "crashkernel24M-:600M", and dmesg shows 128M-728M
->> memory is reserved for crash kernel. Then "echo c > /proc/sysrq-trigger" to
->> test kdump.
+An old thing I want to discuss with you. :)
+
+On 01/09/2013 11:09 PM, Glauber Costa wrote:
+>>>> memory can't be offlined when CONFIG_MEMCG is selected.
+>>>> For example: there is a memory device on node 1. The address range
+>>>> is [1G, 1.5G). You will find 4 new directories memory8, memory9, memory10,
+>>>> and memory11 under the directory /sys/devices/system/memory/.
+>>>>
+>>>> If CONFIG_MEMCG is selected, we will allocate memory to store page cgroup
+>>>> when we online pages. When we online memory8, the memory stored page cgroup
+>>>> is not provided by this memory device. But when we online memory9, the memory
+>>>> stored page cgroup may be provided by memory8. So we can't offline memory8
+>>>> now. We should offline the memory in the reversed order.
+>>>>
+>>>> When the memory device is hotremoved, we will auto offline memory provided
+>>>> by this memory device. But we don't know which memory is onlined first, so
+>>>> offlining memory may fail. In such case, iterate twice to offline the memory.
+>>>> 1st iterate: offline every non primary memory block.
+>>>> 2nd iterate: offline primary (i.e. first added) memory block.
+>>>>
+>>>> This idea is suggested by KOSAKI Motohiro.
+>>>>
+>>>> Signed-off-by: Wen Congyang<wency@cn.fujitsu.com>
+>>>
+>>> Maybe there is something here that I am missing - I admit that I came
+>>> late to this one, but this really sounds like a very ugly hack, that
+>>> really has no place in here.
+>>>
+>>> Retrying, of course, may make sense, if we have reasonable belief that
+>>> we may now succeed. If this is the case, you need to document - in the
+>>> code - while is that.
+>>>
+>>> The memcg argument, however, doesn't really cut it. Why can't we make
+>>> all page_cgroup allocations local to the node they are describing? If
+>>> memcg is the culprit here, we should fix it, and not retry. If there is
+>>> still any benefit in retrying, then we retry being very specific about why.
 >>
->> When crash kernel booting, efi_init() will aligns the memory address in
->> IA64_GRANULE_SIZE(16M), so 720M-728M memory will be dropped, It means
->> crash kernel only manage 128M-720M memory.
+>> We try to make all page_cgroup allocations local to the node they are describing
+>> now. If the memory is the first memory onlined in this node, we will allocate
+>> it from the other node.
 >>
->> But initrd start and end are fixed in boot loader, it is before efi_init(),
->> so initrd size maybe overflow when free_initrd_mem().
-> 
-> [...]
-> 
->> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
->> index b755ea9..cfdb1eb 100644
->> --- a/arch/ia64/mm/init.c
->> +++ b/arch/ia64/mm/init.c
->> @@ -207,6 +207,17 @@ free_initrd_mem (unsigned long start, unsigned long end)
->>  	start = PAGE_ALIGN(start);
->>  	end = end & PAGE_MASK;
+>> For example, node1 has 4 memory blocks: 8-11, and we online it from 8 to 11
+>> 1. memory block 8, page_cgroup allocations are in the other nodes
+>> 2. memory block 9, page_cgroup allocations are in memory block 8
 >>
->> +	/*
->> +	 * Initrd size is fixed in boot loader, but kernel parameter max_addr
->> +	 * which aligns in granules is fixed after boot loader, so initrd size
->> +	 * maybe overflow.
->> +	 */
->> +	if (max_addr != ~0UL) {
->> +		end = GRANULEROUNDDOWN(end);
->> +		if (start > end)
->> +			start = end;
->> +	}
->> +
->>  	if (start < end)
->>  		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >> 10);
-> 
-> I don't think this is the correct fix.
-> 
-> Now, my ia64-fu is weak, but could it be that there's actually a bug in
-> efi_init() and that the following patch would be the best way to fix
-> this?
-> 
-> ---
-> 
-> diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-> index f034563..8d579f1 100644
-> --- a/arch/ia64/kernel/efi.c
-> +++ b/arch/ia64/kernel/efi.c
-> @@ -482,7 +482,7 @@ efi_init (void)
->  		if (memcmp(cp, "mem=", 4) = 0) {
->  			mem_limit = memparse(cp + 4, &cp);
->  		} else if (memcmp(cp, "max_addr=", 9) = 0) {
-> -			max_addr = GRANULEROUNDDOWN(memparse(cp + 9, &cp));
-> +			max_addr = GRANULEROUNDUP(memparse(cp + 9, &cp));
->  		} else if (memcmp(cp, "min_addr=", 9) = 0) {
->  			min_addr = GRANULEROUNDDOWN(memparse(cp + 9, &cp));
->  		} else {
-> 
-> 
+>> So we should offline memory block 9 first. But we don't know in which order
+>> the user online the memory block.
+>>
+>> I think we can modify memcg like this:
+>> allocate the memory from the memory block they are describing
+>>
+>> I am not sure it is OK to do so.
+>
+> I don't see a reason why not.
+>
+> You would have to tweak a bit the lookup function for page_cgroup, but
+> assuming you will always have the pfns and limits, it should be easy to do.
+>
+> I think the only tricky part is that today we have a single
+> node_page_cgroup, and we would of course have to have one per memory
+> block. My assumption is that the number of memory blocks is limited and
+> likely not very big. So even a static array would do.
+>
 
-Hi Matt,
+About the idea "allocate the memory from the memory block they are 
+describing",
 
-Thanks for your awareness.
+online_pages()
+  |-->memory_notify(MEM_GOING_ONLINE, &arg) ----------- memory of this 
+section is not in buddy yet.
+       |-->page_cgroup_callback()
+            |-->online_page_cgroup()
+                 |-->init_section_page_cgroup()
+                      |-->alloc_page_cgroup() --------- allocate 
+page_cgroup from buddy system.
 
-I have a question. If we set "crashkernel24M-:600M", the log shows 128M-728M memory
-is reserved for crash kernel. So if "max_addr = GRANULEROUNDUP()", when crash kernel boot,
-it uses 128M-736M memory, overflow! (suppose IA64_GRANULE_SIZEM).
+When onlining pages, we allocate page_cgroup from buddy. And the being 
+onlined pages are not in
+buddy yet. I think we can reserve some memory in the section for 
+page_cgroup, and return all the
+rest to the buddy.
 
-Thanks,
-Xishi Qiu
+But when the system is booting,
 
-> 
-> .
-> 
+start_kernel()
+  |-->setup_arch()
+  |-->mm_init()
+  |    |-->mem_init()
+  |         |-->numa_free_all_bootmem() -------------- all the pages are 
+in buddy system.
+  |-->page_cgroup_init()
+       |-->init_section_page_cgroup()
+            |-->alloc_page_cgroup() ------------------ I don't know how 
+to reserve memory in each section.
+
+So any idea about how to deal with it when the system is booting please?
+
+
+And one more question, a memory section is 128MB in Linux. If we reserve 
+part of the them for page_cgroup,
+then anyone who wants to allocate a contiguous memory larger than 128MB, 
+it will fail, right ?
+Is it OK ?
+
+Thanks. :)
+
 
 
 
