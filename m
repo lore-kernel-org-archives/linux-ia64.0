@@ -1,66 +1,20 @@
-From: Xishi Qiu <qiuxishi@huawei.com>
-Date: Sat, 16 Feb 2013 01:55:44 +0000
-Subject: Re: [PATCH V3] ia64/mm: fix a bad_page bug when crash kernel booting
-Message-Id: <511EE720.6060907@huawei.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 19 Feb 2013 21:38:52 +0000
+Subject: RE: [PATCH V3] ia64/mm: fix a bad_page bug when crash kernel booting
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F1E06A8F1@ORSMSX108.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <51074786.5030007@huawei.com>  <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>  <51131248.3080203@huawei.com> <5113450C.1080109@huawei.com> <1360750028.24917.28.camel@mfleming-mobl1.ger.corp.intel.com>
-In-Reply-To: <1360750028.24917.28.camel@mfleming-mobl1.ger.corp.intel.com>
+References: <51074786.5030007@huawei.com>
+ <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
+ <51131248.3080203@huawei.com> <5113450C.1080109@huawei.com>
+In-Reply-To: <5113450C.1080109@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matt Fleming <matt.fleming@intel.com>, "Luck, Tony" <tony.luck@intel.com>, fenghua.yu@intel.com, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org, Hanjun Guo <guohanjun@huawei.com>, WuJianguo <wujianguo@huawei.com>
+To: Xishi Qiu <qiuxishi@huawei.com>
+Cc: "Fleming, Matt" <matt.fleming@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Hanjun Guo <guohanjun@huawei.com>, WuJianguo <wujianguo@huawei.com>
 
-On 2013/2/13 18:07, Matt Fleming wrote:
-
->> In efi_init() memory aligns in IA64_GRANULE_SIZE(16M). If set "crashkernel24M-:600M"
->> and use sparse memory model, when crash kernel booting it changes [128M-728M] to [128M-720M].
->> But initrd memory is in [709M-727M], and virt_addr_valid() *can not* check the invalid pages
->> when freeing initrd memory. There are some pages missed at the end of the seciton.
->>
->> ChangeLog V3:
->> 	fixed vaddr mistake
->> ChangeLog V2:
->> 	add invalid pages check when freeing initrd memory
->>
->> Signed-off-by: Xishi Qiu <qiuxishi@huawei.com>
->> ---
->>  arch/ia64/mm/init.c |    4 ++++
->>  1 files changed, 4 insertions(+), 0 deletions(-)
->>
->> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
->> index 082e383..8a269f8 100644
->> --- a/arch/ia64/mm/init.c
->> +++ b/arch/ia64/mm/init.c
->> @@ -173,6 +173,7 @@ void __init
->>  free_initrd_mem (unsigned long start, unsigned long end)
->>  {
->>  	struct page *page;
->> +	unsigned long pfn;
->>  	/*
->>  	 * EFI uses 4KB pages while the kernel can use 4KB or bigger.
->>  	 * Thus EFI and the kernel may have different page sizes. It is
->> @@ -213,6 +214,9 @@ free_initrd_mem (unsigned long start, unsigned long end)
->>  	for (; start < end; start += PAGE_SIZE) {
->>  		if (!virt_addr_valid(start))
->>  			continue;
->> +		pfn = __pa(start) >> PAGE_SHIFT;
->> +		if (pfn >= max_low_pfn)
->> +			continue;
->>  		page = virt_to_page(start);
->>  		ClearPageReserved(page);
->>  		init_page_count(page);
-> 
-> I would have presumed that fixing this bug would involve modifying the
-> ia64-specific kexec code?
-> 
-> Tony, Fenghua? Any thoughts?
-
-
-Hi, I had the Spring Festival a few days ago. Please ignore the earlier
-patch and consider the V3 one above.
-
-Thanks,
-Xishi Qiu
-
-
+PiBJbiBlZmlfaW5pdCgpIG1lbW9yeSBhbGlnbnMgaW4gSUE2NF9HUkFOVUxFX1NJWkUoMTZNKS4g
+SWYgc2V0ICJjcmFzaGtlcm5lbD0xMDI0TS06NjAwTSINCg0KSXMgdGhpcyB3aGVyZSB0aGUgcmVh
+bCBwcm9ibGVtIGJlZ2lucz8gIFNob3VsZCB3ZSBpbnNpc3QgdGhhdCB1c2VycyBwcm92aWRlIGNy
+YXNoa2VybmVsDQpwYXJhbWV0ZXJzIHJvdW5kZWQgdG8gR1JBTlVMRSBib3VuZGFyaWVzPw0KDQot
+VG9ueQ0K
