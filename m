@@ -1,26 +1,37 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Tue, 19 Feb 2013 21:56:55 +0000
+From: Xishi Qiu <qiuxishi@huawei.com>
+Date: Wed, 20 Feb 2013 01:38:16 +0000
 Subject: Re: [PATCH V3] ia64/mm: fix a bad_page bug when crash kernel booting
-Message-Id: <CA+8MBbKuBheEj9t8whJBc=S7NdxCF8MvuD2Ajm7suP=7JC01fg@mail.gmail.com>
+Message-Id: <51242908.2050308@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <51074786.5030007@huawei.com>
-	<1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
-	<51131248.3080203@huawei.com>
-	<5113450C.1080109@huawei.com>
-In-Reply-To: <5113450C.1080109@huawei.com>
+References: <51074786.5030007@huawei.com> <1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com> <51131248.3080203@huawei.com> <5113450C.1080109@huawei.com> <CA+8MBbKuBheEj9t8whJBc=S7NdxCF8MvuD2Ajm7suP=7JC01fg@mail.gmail.com>
+In-Reply-To: <CA+8MBbKuBheEj9t8whJBc=S7NdxCF8MvuD2Ajm7suP=7JC01fg@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Xishi Qiu <qiuxishi@huawei.com>
+To: Tony Luck <tony.luck@gmail.com>
 Cc: Matt Fleming <matt.fleming@intel.com>, fenghua.yu@intel.com, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org, Hanjun Guo <guohanjun@huawei.com>, WuJianguo <wujianguo@huawei.com>
 
-Foolishly sent an earlier reply from Outlook which appears
-to have mangled/lost it. Trying again ...
+On 2013/2/20 5:56, Tony Luck wrote:
 
-> In efi_init() memory aligns in IA64_GRANULE_SIZE(16M). If set "crashkernel24M-:600M"
+> Foolishly sent an earlier reply from Outlook which appears
+> to have mangled/lost it. Trying again ...
+> 
+>> In efi_init() memory aligns in IA64_GRANULE_SIZE(16M). If set "crashkernel24M-:600M"
+> 
+> Is this where the real problem begins?  Should we insist that users
 
-Is this where the real problem begins?  Should we insist that users
-provide crashkernel
-parameters rounded to GRANULE boundaries?
+Hi Tony, I think this is the real problem begins and it only appears when use Sparse-Memory.
 
--Tony
+> provide crashkernel
+> parameters rounded to GRANULE boundaries?
+> 
+
+Seems like a good idea, should we modify "\linux\Documentation\kernel-parameters.txt"?
+
+Thanks,
+Xishi Qiu
+
+> -Tony
+>  
+
+
