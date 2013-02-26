@@ -1,45 +1,60 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Thu, 21 Feb 2013 18:21:46 +0000
-Subject: Re: [PATCH V3] ia64/mm: fix a bad_page bug when crash kernel booting
-Message-Id: <CA+8MBbJdOCh5Hh-K6wRDzACy-a4S1qV2S5zxwJk2MhAhZvxbqg@mail.gmail.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Tue, 26 Feb 2013 15:25:47 +0000
+Subject: [PATCH v8 07/13] PCI, IA64: implement pcibios_{add|remove}_bus() hooks
+Message-Id: <1361892353-14786-8-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <51074786.5030007@huawei.com>
-	<1359995565.7515.178.camel@mfleming-mobl1.ger.corp.intel.com>
-	<51131248.3080203@huawei.com>
-	<5113450C.1080109@huawei.com>
-	<CA+8MBbKuBheEj9t8whJBc=S7NdxCF8MvuD2Ajm7suP=7JC01fg@mail.gmail.com>
-	<51242908.2050308@huawei.com>
-In-Reply-To: <51242908.2050308@huawei.com>
+References: <1361892353-14786-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1361892353-14786-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Xishi Qiu <qiuxishi@huawei.com>
-Cc: Matt Fleming <matt.fleming@intel.com>, fenghua.yu@intel.com, Liujiang <jiang.liu@huawei.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, linux-mm@kvack.org, Hanjun Guo <guohanjun@huawei.com>, WuJianguo <wujianguo@huawei.com>, linux-arch@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rjw@sisk.pl>
+Cc: Jiang Liu <jiang.liu@huawei.com>, Yinghai Lu <yinghai@kernel.org>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Tue, Feb 19, 2013 at 5:38 PM, Xishi Qiu <qiuxishi@huawei.com> wrote:
-> Seems like a good idea, should we modify "\linux\Documentation\kernel-parameters.txt"?
+Implement pcibios_{add|remove}_bus() hooks for IA64 platforms.
 
-Perhaps in Documentation/kdump/kdump.txt (which the crashkernel entry
-in kernel-parameters.txt
-points at).  The ia64 section of kdump.txt notes that the start
-address will be rounded up to
-a GRANULE boundary, but doesn't talk about restrictions on the size.
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: Toshi Kani <toshi.kani@hp.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ arch/ia64/pci/pci.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-I wonder if any other architectures have alignment restrictions on the
-addresses in
-"crashkernel" parameters? Does x86 like them to be 2MB aligned?
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 00e59c7..e60aeb7 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -15,6 +15,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/pci.h>
++#include <linux/pci-acpi.h>
+ #include <linux/init.h>
+ #include <linux/ioport.h>
+ #include <linux/slab.h>
+@@ -463,6 +464,16 @@ pcibios_fixup_bus (struct pci_bus *b)
+ 	platform_pci_fixup_bus(b);
+ }
+ 
++void pcibios_add_bus(struct pci_bus *bus)
++{
++	acpi_pci_add_bus(bus);
++}
++
++void pcibios_remove_bus(struct pci_bus *bus)
++{
++	acpi_pci_remove_bus(bus);
++}
++
+ void pcibios_set_master (struct pci_dev *dev)
+ {
+ 	/* No special bus mastering setup handling */
+-- 
+1.7.9.5
 
-Second question is whether we should check and warn in parse_crashkernel_mem()?
-I think the answer is "yes" (since the consequences of getting this
-wrong don't show
-up till much later, and the errors aren't all that obviously connected
-back to the original
-mistake).  Perhaps each architecture that cares could provide defines:
-
-#define ARCH_CRASH_KERNEL_START_ALIGN (... arch value here ...)
-#define ARCH_CRASH_KERNEL_SIZE_ALIGN (... arch value here ...)
-
-[Suggestion provided mostly to provoke somebody to provide a more
-elegant solution]
-
--Tony
