@@ -1,70 +1,35 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 20 Mar 2013 22:32:01 +0000
-Subject: Re: [patch] mm: speedup in __early_pfn_to_nid
-Message-Id: <20130320153201.29c19769f9b29470bab822b5@linux-foundation.org>
+From: Hanjun Guo <guohanjun@huawei.com>
+Date: Mon, 04 Mar 2013 03:46:48 +0000
+Subject: [PATCH 1/2] ia64: iosapic: fix a minor typo in comments
+Message-Id: <1362368808-28996-1-git-send-email-guohanjun@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130318155619.GA18828@sgi.com>
-In-Reply-To: <20130318155619.GA18828@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russ Anderson <rja@sgi.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
 
-On Mon, 18 Mar 2013 10:56:19 -0500 Russ Anderson <rja@sgi.com> wrote:
+describeinterrupts -> describe interrupts
 
-> When booting on a large memory system, the kernel spends
-> considerable time in memmap_init_zone() setting up memory zones.
-> Analysis shows significant time spent in __early_pfn_to_nid().
-> 
-> The routine memmap_init_zone() checks each PFN to verify the
-> nid is valid.  __early_pfn_to_nid() sequentially scans the list of
-> pfn ranges to find the right range and returns the nid.  This does
-> not scale well.  On a 4 TB (single rack) system there are 308
-> memory ranges to scan.  The higher the PFN the more time spent
-> sequentially spinning through memory ranges.
-> 
-> Since memmap_init_zone() increments pfn, it will almost always be
-> looking for the same range as the previous pfn, so check that
-> range first.  If it is in the same range, return that nid.
-> If not, scan the list as before.
-> 
-> A 4 TB (single rack) UV1 system takes 512 seconds to get through
-> the zone code.  This performance optimization reduces the time
-> by 189 seconds, a 36% improvement.
-> 
-> A 2 TB (single rack) UV2 system goes from 212.7 seconds to 99.8 seconds,
-> a 112.9 second (53%) reduction.
-> 
-> ...
->
-> --- linux.orig/mm/page_alloc.c	2013-03-18 10:52:11.510988843 -0500
-> +++ linux/mm/page_alloc.c	2013-03-18 10:52:14.214931348 -0500
-> @@ -4161,10 +4161,19 @@ int __meminit __early_pfn_to_nid(unsigne
->  {
->  	unsigned long start_pfn, end_pfn;
->  	int i, nid;
-> +	static unsigned long last_start_pfn, last_end_pfn;
-> +	static int last_nid;
-> +
-> +	if (last_start_pfn <= pfn && pfn < last_end_pfn)
-> +		return last_nid;
->  
->  	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid)
-> -		if (start_pfn <= pfn && pfn < end_pfn)
-> +		if (start_pfn <= pfn && pfn < end_pfn) {
-> +			last_nid = nid;
-> +			last_start_pfn = start_pfn;
-> +			last_end_pfn = end_pfn;
->  			return nid;
-> +		}
->  	/* This is a memory hole */
->  	return -1;
+Signed-off-by: Hanjun Guo <guohanjun@huawei.com>
+---
+ arch/ia64/kernel/iosapic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-lol.  And yes, it seems pretty safe to assume that the kernel is
-running single-threaded at this time.
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index ee33c3a..a6e2f75 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -76,7 +76,7 @@
+  *	PCI pin -> global system interrupt (GSI) -> IA-64 vector <-> IRQ
+  *
+  * Note: The term "IRQ" is loosely used everywhere in Linux kernel to
+- * describeinterrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
++ * describe interrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
+  * (isa_irq) is the only exception in this source code.
+  */
+ 
+-- 
+1.6.0.2
 
-arch/ia64/mm/numa.c's __early_pfn_to_nid might benefit from the same
-treatment.  In fact if this had been implemented as a caching wrapper
-around an unchanged __early_pfn_to_nid(), no ia64 edits would be
-needed?
+
