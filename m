@@ -1,50 +1,35 @@
-From: Richard Weinberger <richard@nod.at>
-Date: Wed, 20 Mar 2013 11:06:59 +0000
-Subject: [PATCH] IA64: Fix stack overflow in create_palinfo_proc_entries
-Message-Id: <1363777619-15830-1-git-send-email-richard@nod.at>
+From: Hanjun Guo <guohanjun@huawei.com>
+Date: Fri, 08 Mar 2013 04:32:52 +0000
+Subject: [PATCH V2 1/2] ia64: iosapic: fix a minor typo in comments
+Message-Id: <1362717172-36280-1-git-send-email-guohanjun@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Richard Weinberger <richard@nod.at>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>
 
-Having more than 99 CPUs causes an overflow of cpustr.
-If an attacker is able to control the number CPUs he might able to inject code
-...kind of. ;-)
+describeinterrupts -> describe interrupts
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
+Signed-off-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- arch/ia64/kernel/palinfo.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/iosapic.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
-index 77597e5..35bee152 100644
---- a/arch/ia64/kernel/palinfo.c
-+++ b/arch/ia64/kernel/palinfo.c
-@@ -971,20 +971,18 @@ palinfo_read_entry(char *page, char **start, off_t off, int count, int *eof, voi
- static void __cpuinit
- create_palinfo_proc_entries(unsigned int cpu)
- {
--#	define CPUSTR	"cpu%d"
--
- 	pal_func_cpu_u_t f;
- 	struct proc_dir_entry **pdir;
- 	struct proc_dir_entry *cpu_dir;
- 	int j;
--	char cpustr[sizeof(CPUSTR)];
-+	char cpustr[32];
- 
- 
- 	/*
- 	 * we keep track of created entries in a depth-first order for
- 	 * cleanup purposes. Each entry is stored into palinfo_proc_entries
- 	 */
--	sprintf(cpustr,CPUSTR, cpu);
-+	snprintf(cpustr, sizeof(cpustr), "cpu%d", cpu);
- 
- 	cpu_dir = proc_mkdir(cpustr, palinfo_dir);
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index ee33c3a..a6e2f75 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -76,7 +76,7 @@
+  *	PCI pin -> global system interrupt (GSI) -> IA-64 vector <-> IRQ
+  *
+  * Note: The term "IRQ" is loosely used everywhere in Linux kernel to
+- * describeinterrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
++ * describe interrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
+  * (isa_irq) is the only exception in this source code.
+  */
  
 -- 
-1.8.1.4
+1.6.0.2
+
 
