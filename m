@@ -1,139 +1,80 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Sun, 24 Mar 2013 07:24:56 +0000
-Subject: [RFC PATCH v2, part4 19/39] mm/IA64: prepare for removing num_physpages and simplify mem_init()
-Message-Id: <1364109934-7851-31-git-send-email-jiang.liu@huawei.com>
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
+Date: Mon, 18 Mar 2013 02:45:43 +0000
+Subject: [PATCH 1/1] ia64, mm: add WB check for early_ioremap
+Message-Id: <1363574743-4839-1-git-send-email-zhen-hual@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, David Rientjes <rientjes@google.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>, linux-ia64@vger.kernel.org
+To: lizhenhua@hp.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
-Prepare for removing num_physpages and simplify mem_init().
+From: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+On ia64 system , the function early_ioremap returned to uncached memory without checking. This causes efi error and kernel failed in booting.
+So I add a check to test whether memory has EFI_MEMORY_WB set.
+And the function kern_mem_attribute can be called in early_ function.
+
+See the document Documentation/ia64/aliasing.txt for more details.
+
+Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
 ---
- arch/ia64/mm/contig.c    |   11 -----------
- arch/ia64/mm/discontig.c |    3 ---
- arch/ia64/mm/init.c      |   27 +--------------------------
- 3 files changed, 1 insertion(+), 40 deletions(-)
+ arch/ia64/mm/ioremap.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 67c59eb..e4a6a536 100644
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -295,14 +295,6 @@ find_memory (void)
- 	alloc_per_cpu_data();
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index 3dccdd8..43964cd 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -16,7 +16,7 @@
+ #include <asm/meminit.h>
+ 
+ static inline void __iomem *
+-__ioremap (unsigned long phys_addr)
++__ioremap_uc(unsigned long phys_addr)
+ {
+ 	return (void __iomem *) (__IA64_UNCACHED_OFFSET | phys_addr);
+ }
+@@ -24,7 +24,11 @@ __ioremap (unsigned long phys_addr)
+ void __iomem *
+ early_ioremap (unsigned long phys_addr, unsigned long size)
+ {
+-	return __ioremap(phys_addr);
++	u64 attr;
++	attr = kern_mem_attribute(phys_addr, size);
++	if (attr & EFI_MEMORY_WB)
++		return (void __iomem *) phys_to_virt(phys_addr);
++	return __ioremap_uc(phys_addr);
  }
  
--static int count_pages(u64 start, u64 end, void *arg)
--{
--	unsigned long *count = arg;
--
--	*count += (end - start) >> PAGE_SHIFT;
--	return 0;
--}
--
- /*
-  * Set up the page tables.
-  */
-@@ -313,9 +305,6 @@ paging_init (void)
- 	unsigned long max_dma;
- 	unsigned long max_zone_pfns[MAX_NR_ZONES];
- 
--	num_physpages = 0;
--	efi_memmap_walk(count_pages, &num_physpages);
--
- 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
- #ifdef CONFIG_ZONE_DMA
- 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index a57436e..8febadc 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -37,7 +37,6 @@ struct early_node_data {
- 	struct ia64_node_data *node_data;
- 	unsigned long pernode_addr;
- 	unsigned long pernode_size;
--	unsigned long num_physpages;
- #ifdef CONFIG_ZONE_DMA
- 	unsigned long num_dma_physpages;
- #endif
-@@ -732,7 +731,6 @@ static __init int count_node_pages(unsigned long start, unsigned long len, int n
- {
- 	unsigned long end = start + len;
- 
--	mem_data[node].num_physpages += len >> PAGE_SHIFT;
- #ifdef CONFIG_ZONE_DMA
- 	if (start <= __pa(MAX_DMA_ADDRESS))
- 		mem_data[node].num_dma_physpages +@@ -778,7 +776,6 @@ void __init paging_init(void)
- #endif
- 
- 	for_each_online_node(node) {
--		num_physpages += mem_data[node].num_physpages;
- 		pfn_offset = mem_data[node].min_pfn;
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index b5b71e8..d4382dc 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -546,19 +546,6 @@ int __init register_active_ranges(u64 start, u64 len, int nid)
- 	return 0;
- }
- 
--static int __init
--count_reserved_pages(u64 start, u64 end, void *arg)
--{
--	unsigned long num_reserved = 0;
--	unsigned long *count = arg;
--
--	for (; start < end; start += PAGE_SIZE)
--		if (PageReserved(virt_to_page(start)))
--			++num_reserved;
--	*count += num_reserved;
--	return 0;
--}
--
- int
- find_max_min_low_pfn (u64 start, u64 end, void *arg)
- {
-@@ -597,7 +584,6 @@ __setup("nolwsys", nolwsys_setup);
- void __init
- mem_init (void)
- {
--	long reserved_pages, codesize, datasize, initsize;
- 	pg_data_t *pgdat;
- 	int i;
- 
-@@ -625,18 +611,7 @@ mem_init (void)
- 		if (pgdat->bdata->node_bootmem_map)
- 			free_all_bootmem_node(pgdat);
- 
--	reserved_pages = 0;
--	efi_memmap_walk(count_reserved_pages, &reserved_pages);
--
--	codesize =  (unsigned long) _etext - (unsigned long) _stext;
--	datasize =  (unsigned long) _edata - (unsigned long) _etext;
--	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
--
--	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
--	       "%luk data, %luk init)\n", nr_free_pages() << (PAGE_SHIFT - 10),
--	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
--	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
--
-+	mem_init_print_info(NULL);
+ void __iomem *
+@@ -47,7 +51,7 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 	if (attr & EFI_MEMORY_WB)
+ 		return (void __iomem *) phys_to_virt(phys_addr);
+ 	else if (attr & EFI_MEMORY_UC)
+-		return __ioremap(phys_addr);
++		return __ioremap_uc(phys_addr);
  
  	/*
- 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+ 	 * Some chipsets don't support UC access to memory.  If
+@@ -93,7 +97,7 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 		return (void __iomem *) (offset + (char __iomem *)addr);
+ 	}
+ 
+-	return __ioremap(phys_addr);
++	return __ioremap_uc(phys_addr);
+ }
+ EXPORT_SYMBOL(ioremap);
+ 
+@@ -103,7 +107,7 @@ ioremap_nocache (unsigned long phys_addr, unsigned long size)
+ 	if (kern_mem_attribute(phys_addr, size) & EFI_MEMORY_WB)
+ 		return NULL;
+ 
+-	return __ioremap(phys_addr);
++	return __ioremap_uc(phys_addr);
+ }
+ EXPORT_SYMBOL(ioremap_nocache);
+ 
 -- 
-1.7.9.5
+1.7.10.4
 
