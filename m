@@ -1,80 +1,95 @@
-From: "Li, Zhen-Hua" <zhen-hual@hp.com>
-Date: Mon, 18 Mar 2013 02:45:43 +0000
-Subject: [PATCH 1/1] ia64, mm: add WB check for early_ioremap
-Message-Id: <1363574743-4839-1-git-send-email-zhen-hual@hp.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Tue, 19 Mar 2013 00:03:03 +0000
+Subject: fsys_getppid is broken on ia64.
+Message-Id: <87boagxnm0.fsf@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: lizhenhua@hp.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: "Li, Zhen-Hua" <zhen-hual@hp.com>
+To: linux-ia64@vger.kernel.org
 
-From: "Li, Zhen-Hua" <zhen-hual@hp.com>
 
-On ia64 system , the function early_ioremap returned to uncached memory without checking. This causes efi error and kernel failed in booting.
-So I add a check to test whether memory has EFI_MEMORY_WB set.
-And the function kern_mem_attribute can be called in early_ function.
+In particular fsys_getppid always returns the ppid in the initial pid
+namespace so it does not work for a process in a pid namespace.
 
-See the document Documentation/ia64/aliasing.txt for more details.
+It looks like fsys_getppid has been broken for 5 years.  It sounds like
+Pavel intended to fix this years ago but has never got around to it.
 
-Signed-off-by: Li, Zhen-Hua <zhen-hual@hp.com>
----
- arch/ia64/mm/ioremap.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+Since no one seems to care my inclination is that we should just kill it
+and make getppid use the slow path.  Something like the patch below.  I
+don't have access to an ia64 machine, or even an ia64 compiler anymore
+so I can't even begin to test.
 
-diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
-index 3dccdd8..43964cd 100644
---- a/arch/ia64/mm/ioremap.c
-+++ b/arch/ia64/mm/ioremap.c
-@@ -16,7 +16,7 @@
- #include <asm/meminit.h>
+Tony, Fenghua do you think one of you could look at this?
+
+Eric
+
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index c4cd45d..abc6dee 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -90,53 +90,6 @@ ENTRY(fsys_getpid)
+ 	FSYS_RETURN
+ END(fsys_getpid)
  
- static inline void __iomem *
--__ioremap (unsigned long phys_addr)
-+__ioremap_uc(unsigned long phys_addr)
- {
- 	return (void __iomem *) (__IA64_UNCACHED_OFFSET | phys_addr);
- }
-@@ -24,7 +24,11 @@ __ioremap (unsigned long phys_addr)
- void __iomem *
- early_ioremap (unsigned long phys_addr, unsigned long size)
- {
--	return __ioremap(phys_addr);
-+	u64 attr;
-+	attr = kern_mem_attribute(phys_addr, size);
-+	if (attr & EFI_MEMORY_WB)
-+		return (void __iomem *) phys_to_virt(phys_addr);
-+	return __ioremap_uc(phys_addr);
- }
- 
- void __iomem *
-@@ -47,7 +51,7 @@ ioremap (unsigned long phys_addr, unsigned long size)
- 	if (attr & EFI_MEMORY_WB)
- 		return (void __iomem *) phys_to_virt(phys_addr);
- 	else if (attr & EFI_MEMORY_UC)
--		return __ioremap(phys_addr);
-+		return __ioremap_uc(phys_addr);
- 
- 	/*
- 	 * Some chipsets don't support UC access to memory.  If
-@@ -93,7 +97,7 @@ ioremap (unsigned long phys_addr, unsigned long size)
- 		return (void __iomem *) (offset + (char __iomem *)addr);
- 	}
- 
--	return __ioremap(phys_addr);
-+	return __ioremap_uc(phys_addr);
- }
- EXPORT_SYMBOL(ioremap);
- 
-@@ -103,7 +107,7 @@ ioremap_nocache (unsigned long phys_addr, unsigned long size)
- 	if (kern_mem_attribute(phys_addr, size) & EFI_MEMORY_WB)
- 		return NULL;
- 
--	return __ioremap(phys_addr);
-+	return __ioremap_uc(phys_addr);
- }
- EXPORT_SYMBOL(ioremap_nocache);
- 
--- 
-1.7.10.4
+-ENTRY(fsys_getppid)
+-	.prologue
+-	.altrp b6
+-	.body
+-	add r17=IA64_TASK_GROUP_LEADER_OFFSET,r16
+-	;;
+-	ld8 r17=[r17]				// r17 = current->group_leader
+-	add r9=TI_FLAGS+IA64_TASK_SIZE,r16
+-	;;
+-
+-	ld4 r9=[r9]
+-	add r17=IA64_TASK_REAL_PARENT_OFFSET,r17 // r17 = &current->group_leader->real_parent
+-	;;
+-	and r9=TIF_ALLWORK_MASK,r9
+-
+-1:	ld8 r18=[r17]				// r18 = current->group_leader->real_parent
+-	;;
+-	cmp.ne p8,p0=0,r9
+-	add r8=IA64_TASK_TGID_OFFSET,r18	// r8 = &current->group_leader->real_parent->tgid
+-	;;
+-
+-	/*
+-	 * The .acq is needed to ensure that the read of tgid has returned its data before
+-	 * we re-check "real_parent".
+-	 */
+-	ld4.acq r8=[r8]				// r8 = current->group_leader->real_parent->tgid
+-#ifdef CONFIG_SMP
+-	/*
+-	 * Re-read current->group_leader->real_parent.
+-	 */
+-	ld8 r19=[r17]				// r19 = current->group_leader->real_parent
+-(p8)	br.spnt.many fsys_fallback_syscall
+-	;;
+-	cmp.ne p6,p0=r18,r19			// did real_parent change?
+-	mov r19=0			// i must not leak kernel bits...
+-(p6)	br.cond.spnt.few 1b			// yes -> redo the read of tgid and the check
+-	;;
+-	mov r17=0			// i must not leak kernel bits...
+-	mov r18=0			// i must not leak kernel bits...
+-#else
+-	mov r17=0			// i must not leak kernel bits...
+-	mov r18=0			// i must not leak kernel bits...
+-	mov r19=0			// i must not leak kernel bits...
+-#endif
+-	FSYS_RETURN
+-END(fsys_getppid)
+-
+ ENTRY(fsys_set_tid_address)
+ 	.prologue
+ 	.altrp b6
+@@ -614,7 +567,7 @@ paravirt_fsyscall_table:
+ 	data8 0				// chown
+ 	data8 0				// lseek		// 1040
+ 	data8 fsys_getpid		// getpid
+-	data8 fsys_getppid		// getppid
++	data8 0				// getppid
+ 	data8 0				// mount
+ 	data8 0				// umount
+ 	data8 0				// setuid		// 1045
+
 
