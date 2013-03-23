@@ -1,54 +1,76 @@
-From: "H. Peter Anvin" <hpa@linux.intel.com>
-Date: Fri, 29 Mar 2013 21:50:51 +0000
-Subject: Re: drivers/acpi/bgrt.c:undefined reference to `bgrt_tab' (defined in arch/x86/platform/efi/efi-bgrt
-Message-Id: <51560CBB.2010408@linux.intel.com>
+From: Hugh Dickins <hughd@google.com>
+Date: Sat, 23 Mar 2013 21:33:27 +0000
+Subject: Re: remap kernel static memory to user space
+Message-Id: <alpine.LNX.2.00.1303231423420.14373@eggly.anvils>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130327005555.GA14974@localhost>
-In-Reply-To: <20130327005555.GA14974@localhost>
+References: <CAHG_u-=ChwiQ72O-9z1eD5Pex-niYMaRwMUOQOryYuPO154G=A@mail.gmail.com>
+In-Reply-To: <CAHG_u-=ChwiQ72O-9z1eD5Pex-niYMaRwMUOQOryYuPO154G=A@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Eduardo Cruz <eduardohmdacruz@gmail.com>
+Cc: Clemens Ladisch <clemens@ladisch.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On 03/29/2013 02:50 PM, Tony Luck wrote:
-> 
-> 
-> 
-> On Tue, Mar 26, 2013 at 5:55 PM, Fengguang Wu <fengguang.wu@intel.com
-> <mailto:fengguang.wu@intel.com>> wrote:
-> 
-> 
->     The problem is, drivers/acpi/bgrt.c references bgrt_tab etc. variables
->     defined in arch/x86/platform/efi/efi-bgrt.c which is obviously not
->     available in ia64.
-> 
-> 
-> So perhaps the solution is to not let the user configure
-> this on IA64.  I don't think we have platforms with
-> boot graphics support (many ia64 machines are headless
-> so have *no* graphics at all!).
-> 
-> gmail will whitespace destroy this patch - but easier to type
-> in the half dozen extra characters anyway:
-> 
->  diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-> index 4fc0ffc..8fcae6d 100644
-> --- a/drivers/acpi/Kconfig
-> +++ b/drivers/acpi/Kconfig
-> @@ -395,7 +395,7 @@ config ACPI_CUSTOM_METHOD
->  
->  config ACPI_BGRT
->         bool "Boottime Graphics Resource Table support"
-> -       depends on EFI
-> +       depends on EFI && X86
->          help
->           This driver adds support for exposing the ACPI Boottime Graphics
->           Resource Table, which allows the operating system to obtain
-> 
+On Wed, 20 Mar 2013, Eduardo Cruz wrote:
 
-Makes sense to me.
+> Hello.
+> 
+> I'm trying to remap some kernel static memory to user space using
+> remap_pfn_range.
+> For that, I wrote a module that initializes a device, which later I
+> use mknod, etc.
+> 
+> When I allocate the memory with kmalloc, everything works:   (where
+> user_space_shared was allocated with kmalloc)
+> 
+> if ((ret = remap_pfn_range(vma, vma->vm_start,
+> virt_to_phys(user_space_shared) >> PAGE_SHIFT, length,
+> vma->vm_page_prot)) < 0)
 
-Acked-by: H. Peter Anvin <hpa@zytor.com>
+I have no ia64 experience, but my guess is that your problem is with
+that virt_to_phys(user_space_shared).
 
-	-hpa
+virt_to_phys() expects to be given an address from the kernel's direct
+map of physical memory; whereas if you declare user_space_shared[] in
+kernel static memory, I believe ia64 places that in a different region.
 
+Try changing that to virt_to_phys(ia64_imva(user_space_shared))
+and I expect it will then work: see comment above ia64_imva()
+in arch/ia64/include/asm/processor.h.
+
+Hugh
+
+> 
+> In the application in user space:
+> kstc = mmap(0, sizeof(user_space_shared_t), PROT_READ|PROT_WRITE,
+> MAP_SHARED| MAP_LOCKED, fd, 0);
+> 
+> With user_space_shared allocated using kmalloc, it is working.
+> The application is able to read the data I wrote in the kernel module.
+> 
+> However, when I define and allocate that var in arch/ia64/mm/fault.c:
+> 
+> unsigned char user_space_shared[ sizeof(user_space_shared_t) +
+> PAGE_SIZE ] __attribute__((aligned(PAGE_SIZE)));
+> EXPORT_SYMBOL(user_space_shared);
+> 
+> And access that var from the module:
+> 
+> extern unsigned char user_space_shared[ sizeof(user_space_shared_t) +
+> PAGE_SIZE ];
+> 
+> There is no error message, but I can't read the contents i wrote
+> inside the kernel module from the application.
+> 
+> Your help would be appreciated.
+> 
+> ps:
+> I am taking care of page offsets/boundaries.
+> I'm using kernel 2.6.32 for ia64.
+> 
+> 
+> -- 
+> Eduardo Henrique Molina da Cruz
+> PhD student
+> Parallel and Distributed Processing Group
+> Federal University of Rio Grande do Sul (UFRGS)
