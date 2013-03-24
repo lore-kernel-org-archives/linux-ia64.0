@@ -1,87 +1,139 @@
-From: Xishi Qiu <qiuxishi@huawei.com>
-Date: Mon, 25 Mar 2013 11:14:16 +0000
-Subject: [PATCH] ia64/mm: add size restriction to the kdump
-Message-Id: <51503188.8060706@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Sun, 24 Mar 2013 07:24:56 +0000
+Subject: [RFC PATCH v2, part4 19/39] mm/IA64: prepare for removing num_physpages and simplify mem_init()
+Message-Id: <1364109934-7851-31-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1364109934-7851-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "Luck, Tony" <tony.luck@intel.com>, vgoyal@redhat.com, hbabu@us.ibm.com, rob@landley.net
-Cc: kexec@lists.infradead.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>, David Rientjes <rientjes@google.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>, linux-ia64@vger.kernel.org
 
-In efi_init() memory aligns in IA64_GRANULE_SIZE(16M). If set "crashkernel=
-=1024M-:600M"
-and use sparse memory model, when crash kernel booting it changes [128M-728=
-M] to [128M-720M].
+Prepare for removing num_physpages and simplify mem_init().
 
-But initrd memory is in [709M-727M], and virt_addr_valid() *can not* check =
-the invalid pages
-when freeing initrd memory, because there are some pages missed at the end =
-of the seciton,
-and this causes error.
-
-...
-Unpacking initramfs...
-Freeing initrd memory: 19648kB freed
-BUG: Bad page state in process swapper  pfn:02d00
-page:e0000000102dd800 flags:(null) count:0 mapcount:1 mapping:(null) index:0
-
-Call Trace:
- [<a000000100018dc0>] show_stack+0x80/0xa0
-                                sp=E000000021e8fbd0 bsp=E000000021e81360
- [<a00000010090fcc0>] dump_stack+0x30/0x50
-                                sp=E000000021e8fda0 bsp=E000000021e81348
- [<a0000001001a3180>] bad_page+0x280/0x380
-                                sp=E000000021e8fda0 bsp=E000000021e81308
- [<a0000001001a8740>] free_hot_cold_page+0x3a0/0x5c0
-                                sp=E000000021e8fda0 bsp=E000000021e812a0
- [<a0000001001a8a50>] free_hot_page+0x30/0x60
-                                sp=E000000021e8fda0 bsp=E000000021e81280
- [<a0000001001a8b30>] __free_pages+0xb0/0xe0
-                                sp=E000000021e8fda0 bsp=E000000021e81258
- [<a0000001001a8c00>] free_pages+0xa0/0xc0
-                                sp=E000000021e8fda0 bsp=E000000021e81230
- [<a000000100bb40c0>] free_initrd_mem+0x230/0x290
-                                sp=E000000021e8fda0 bsp=E000000021e811d8
- [<a000000100ba6620>] populate_rootfs+0x1c0/0x280
-                                sp=E000000021e8fdb0 bsp=E000000021e811a0
- [<a00000010000ac30>] do_one_initcall+0x3b0/0x3e0
-                                sp=E000000021e8fdb0 bsp=E000000021e81158
- [<a000000100ba0a90>] kernel_init+0x3f0/0x4b0
-                                sp=E000000021e8fdb0 bsp=E000000021e81108
- [<a000000100016890>] kernel_thread_helper+0xd0/0x100
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
- [<a00000010000a4c0>] start_kernel_thread+0x20/0x40
-                                sp=E000000021e8fe30 bsp=E000000021e810e0
-...
-
-In "http://marc.info/?l=3Dlinux-arch&m=136147092429314&w=3D2" Tony said:
-"Perhaps in Documentation/kdump/kdump.txt (which the crashkernel entry
-in kernel-parameters.txt points at).  The ia64 section of kdump.txt
-notes that the start address will be rounded up to a GRANULE boundary,
-but doesn't talk about restrictions on the size."
-
-This patch add size restriction to the documentation of kdump.
-
-Signed-off-by: Xishi Qiu <qiuxishi@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- Documentation/kdump/kdump.txt |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ arch/ia64/mm/contig.c    |   11 -----------
+ arch/ia64/mm/discontig.c |    3 ---
+ arch/ia64/mm/init.c      |   27 +--------------------------
+ 3 files changed, 1 insertion(+), 40 deletions(-)
 
-diff --git a/Documentation/kdump/kdump.txt b/Documentation/kdump/kdump.txt
-index 13f1aa0..9c7fd98 100644
---- a/Documentation/kdump/kdump.txt
-+++ b/Documentation/kdump/kdump.txt
-@@ -297,6 +297,7 @@ Boot into System Kernel
-    On ia64, 256M@256M is a generous value that typically works.
-    The region may be automatically placed on ia64, see the
-    dump-capture kernel config option notes above.
-+   If use sparse memory, the size should be rounded to GRANULE boundaries.
-
-    On s390x, typically use "crashkernel=3DxxM". The value of xx is depende=
-nt
-    on the memory consumption of the kdump system. In general this is not
---=20
-1.7.6.1
-
+diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
+index 67c59eb..e4a6a536 100644
+--- a/arch/ia64/mm/contig.c
++++ b/arch/ia64/mm/contig.c
+@@ -295,14 +295,6 @@ find_memory (void)
+ 	alloc_per_cpu_data();
+ }
+ 
+-static int count_pages(u64 start, u64 end, void *arg)
+-{
+-	unsigned long *count = arg;
+-
+-	*count += (end - start) >> PAGE_SHIFT;
+-	return 0;
+-}
+-
+ /*
+  * Set up the page tables.
+  */
+@@ -313,9 +305,6 @@ paging_init (void)
+ 	unsigned long max_dma;
+ 	unsigned long max_zone_pfns[MAX_NR_ZONES];
+ 
+-	num_physpages = 0;
+-	efi_memmap_walk(count_pages, &num_physpages);
+-
+ 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+ #ifdef CONFIG_ZONE_DMA
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index a57436e..8febadc 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -37,7 +37,6 @@ struct early_node_data {
+ 	struct ia64_node_data *node_data;
+ 	unsigned long pernode_addr;
+ 	unsigned long pernode_size;
+-	unsigned long num_physpages;
+ #ifdef CONFIG_ZONE_DMA
+ 	unsigned long num_dma_physpages;
+ #endif
+@@ -732,7 +731,6 @@ static __init int count_node_pages(unsigned long start, unsigned long len, int n
+ {
+ 	unsigned long end = start + len;
+ 
+-	mem_data[node].num_physpages += len >> PAGE_SHIFT;
+ #ifdef CONFIG_ZONE_DMA
+ 	if (start <= __pa(MAX_DMA_ADDRESS))
+ 		mem_data[node].num_dma_physpages +@@ -778,7 +776,6 @@ void __init paging_init(void)
+ #endif
+ 
+ 	for_each_online_node(node) {
+-		num_physpages += mem_data[node].num_physpages;
+ 		pfn_offset = mem_data[node].min_pfn;
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index b5b71e8..d4382dc 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -546,19 +546,6 @@ int __init register_active_ranges(u64 start, u64 len, int nid)
+ 	return 0;
+ }
+ 
+-static int __init
+-count_reserved_pages(u64 start, u64 end, void *arg)
+-{
+-	unsigned long num_reserved = 0;
+-	unsigned long *count = arg;
+-
+-	for (; start < end; start += PAGE_SIZE)
+-		if (PageReserved(virt_to_page(start)))
+-			++num_reserved;
+-	*count += num_reserved;
+-	return 0;
+-}
+-
+ int
+ find_max_min_low_pfn (u64 start, u64 end, void *arg)
+ {
+@@ -597,7 +584,6 @@ __setup("nolwsys", nolwsys_setup);
+ void __init
+ mem_init (void)
+ {
+-	long reserved_pages, codesize, datasize, initsize;
+ 	pg_data_t *pgdat;
+ 	int i;
+ 
+@@ -625,18 +611,7 @@ mem_init (void)
+ 		if (pgdat->bdata->node_bootmem_map)
+ 			free_all_bootmem_node(pgdat);
+ 
+-	reserved_pages = 0;
+-	efi_memmap_walk(count_reserved_pages, &reserved_pages);
+-
+-	codesize =  (unsigned long) _etext - (unsigned long) _stext;
+-	datasize =  (unsigned long) _edata - (unsigned long) _etext;
+-	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
+-
+-	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
+-	       "%luk data, %luk init)\n", nr_free_pages() << (PAGE_SHIFT - 10),
+-	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
+-	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+-
++	mem_init_print_info(NULL);
+ 
+ 	/*
+ 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+-- 
+1.7.9.5
 
