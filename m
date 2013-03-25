@@ -1,35 +1,27 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Date: Fri, 08 Mar 2013 04:32:52 +0000
-Subject: [PATCH V2 1/2] ia64: iosapic: fix a minor typo in comments
-Message-Id: <1362717172-36280-1-git-send-email-guohanjun@huawei.com>
+From: Xishi Qiu <qiuxishi@huawei.com>
+Date: Mon, 25 Mar 2013 10:20:02 +0000
+Subject: report: IA64 boot failed when set "mem=xxG" in sparse memory
+Message-Id: <515024D2.6000008@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>
+To: "Luck, Tony" <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-describeinterrupts -> describe interrupts
+On IA64 platform, I change the config, set "Memory model (sparse Memory)",
+do not set "Sparse Memory virtual memmap", others is based on SLES11's
+default config(/boot/config-2.6.32.12-0.7-default).
 
-Signed-off-by: Hanjun Guo <guohanjun@huawei.com>
----
- arch/ia64/kernel/iosapic.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+After finish making a new kernel(v3.8), I add "mem=xxG" to the command line,
+then reboot the system.
 
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index ee33c3a..a6e2f75 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -76,7 +76,7 @@
-  *	PCI pin -> global system interrupt (GSI) -> IA-64 vector <-> IRQ
-  *
-  * Note: The term "IRQ" is loosely used everywhere in Linux kernel to
-- * describeinterrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
-+ * describe interrupts.  Now we use "IRQ" only for Linux IRQ's.  ISA IRQ
-  * (isa_irq) is the only exception in this source code.
-  */
- 
--- 
-1.6.0.2
+Boot failed and there is no print on the screen!
 
+If both set "Memory model (sparse Memory)" and "Sparse Memory virtual memmap",
+then add "mem=xxG" to the command line, reboot is OK.
+
+I don't know whether it is a problem only in my system.
+
+Thanks,
+Xishi Qiu
 
