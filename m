@@ -1,148 +1,156 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Tue, 26 Mar 2013 15:54:39 +0000
-Subject: [PATCH v3, part4 20/39] mm/IA64: prepare for removing num_physpages and simplify mem_init()
-Message-Id: <1364313298-17336-21-git-send-email-jiang.liu@huawei.com>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Date: Mon, 25 Mar 2013 17:06:40 +0000
+Subject: [PATCH 4/9] ia64: cpufreq:  move cpufreq driver to drivers/cpufreq
+Message-Id: <afc636963b63becccf34d092203c53369bd1b735.1364229828.git.viresh.kumar@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1364313298-17336-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1364313298-17336-1-git-send-email-jiang.liu@huawei.com>
+References: <cover.1364229828.git.viresh.kumar@linaro.org>
+In-Reply-To: <cover.1364229828.git.viresh.kumar@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, David Rientjes <rientjes@google.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, James Bottomley <James.Bottomley@HansenPartnership.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, David Howells <dhowells@redhat.com>, Mark Salter <msalter@redhat.com>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>, linux-ia64@vger.kernel.org
+To: rjw@sisk.pl
+Cc: arvind.chauhan@arm.com, robin.randhawa@arm.com, Steve.Bannister@arm.com, Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com, cpufreq@vger.kernel.org, linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, linaro-kernel@lists.linaro.org, arnd.bergmann@linaro.org, Viresh Kumar <viresh.kumar@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Prepare for removing num_physpages and simplify mem_init().
+This patch moves cpufreq driver of IA64 architecture to drivers/cpufreq.
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
 Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 ---
-Hi all,
-	Sorry for my mistake that my previous patch series has been screwed up.
-So I regenerate a third version and also set up a git tree at:
-	git://github.com/jiangliu/linux.git mem_init
-	Any help to review and test are welcomed!
+ arch/ia64/Kconfig                                  |  5 ++--
+ arch/ia64/kernel/Makefile                          |  1 -
+ arch/ia64/kernel/cpufreq/Kconfig                   | 29 ----------------------
+ arch/ia64/kernel/cpufreq/Makefile                  |  2 --
+ drivers/cpufreq/Kconfig                            | 17 +++++++++++++
+ drivers/cpufreq/Makefile                           |  1 +
+ .../cpufreq/ia64-acpi-cpufreq.c                    |  1 -
+ 7 files changed, 20 insertions(+), 36 deletions(-)
+ delete mode 100644 arch/ia64/kernel/cpufreq/Kconfig
+ delete mode 100644 arch/ia64/kernel/cpufreq/Makefile
+ rename arch/ia64/kernel/cpufreq/acpi-cpufreq.c => drivers/cpufreq/ia64-acpi-cpufreq.c (99%)
 
-	Regards!
-	Gerry
----
- arch/ia64/mm/contig.c    |   11 -----------
- arch/ia64/mm/discontig.c |    3 ---
- arch/ia64/mm/init.c      |   27 +--------------------------
- 3 files changed, 1 insertion(+), 40 deletions(-)
-
-diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index 67c59eb..e4a6a536 100644
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -295,14 +295,6 @@ find_memory (void)
- 	alloc_per_cpu_data();
- }
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 9a02f71..dd59848 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -591,9 +591,8 @@ source "kernel/power/Kconfig"
+ source "drivers/acpi/Kconfig"
  
--static int count_pages(u64 start, u64 end, void *arg)
--{
--	unsigned long *count = arg;
+ if PM
 -
--	*count += (end - start) >> PAGE_SHIFT;
--	return 0;
--}
+-source "arch/ia64/kernel/cpufreq/Kconfig"
 -
++menu "CPU Frequency scaling"
++source "drivers/cpufreq/Kconfig"
+ endif
+ 
+ endmenu
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index d959c84..20678a9 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -23,7 +23,6 @@ obj-$(CONFIG_SMP)		+= smp.o smpboot.o
+ obj-$(CONFIG_NUMA)		+= numa.o
+ obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
+ obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
+-obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
+ obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
+ obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
+ obj-$(CONFIG_DYNAMIC_FTRACE)	+= ftrace.o
+diff --git a/arch/ia64/kernel/cpufreq/Kconfig b/arch/ia64/kernel/cpufreq/Kconfig
+deleted file mode 100644
+index 2d9d527..0000000
+--- a/arch/ia64/kernel/cpufreq/Kconfig
++++ /dev/null
+@@ -1,29 +0,0 @@
+-
+-#
+-# CPU Frequency scaling
+-#
+-
+-menu "CPU Frequency scaling"
+-
+-source "drivers/cpufreq/Kconfig"
+-
+-if CPU_FREQ
+-
+-comment "CPUFreq processor drivers"
+-
+-config IA64_ACPI_CPUFREQ
+-	tristate "ACPI Processor P-States driver"
+-	select CPU_FREQ_TABLE
+-	depends on ACPI_PROCESSOR
+-	help
+-	This driver adds a CPUFreq driver which utilizes the ACPI
+-	Processor Performance States.
+-
+-	For details, take a look at <file:Documentation/cpu-freq/>.
+-
+-	If in doubt, say N.
+-
+-endif   # CPU_FREQ
+-
+-endmenu
+-
+diff --git a/arch/ia64/kernel/cpufreq/Makefile b/arch/ia64/kernel/cpufreq/Makefile
+deleted file mode 100644
+index 4838f2a..0000000
+--- a/arch/ia64/kernel/cpufreq/Makefile
++++ /dev/null
+@@ -1,2 +0,0 @@
+-obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= acpi-cpufreq.o
+-
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index d7ce6cc..a2f1600 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -218,6 +218,23 @@ config AVR32_AT32AP_CPUFREQ
+ 
+ endmenu
+ 
++menu "CPUFreq processor drivers"
++depends on IA64
++
++config IA64_ACPI_CPUFREQ
++	tristate "ACPI Processor P-States driver"
++	select CPU_FREQ_TABLE
++	depends on ACPI_PROCESSOR
++	help
++	This driver adds a CPUFreq driver which utilizes the ACPI
++	Processor Performance States.
++
++	For details, take a look at <file:Documentation/cpu-freq/>.
++
++	If in doubt, say N.
++
++endmenu
++
+ menu "PowerPC CPU frequency scaling drivers"
+ depends on PPC32 || PPC64
+ source "drivers/cpufreq/Kconfig.powerpc"
+diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
+index 8fbfbbf..312141d 100644
+--- a/drivers/cpufreq/Makefile
++++ b/drivers/cpufreq/Makefile
+@@ -82,3 +82,4 @@ obj-$(CONFIG_AVR32_AT32AP_CPUFREQ)	+= at32ap-cpufreq.o
+ obj-$(CONFIG_BLACKFIN)			+= blackfin-cpufreq.o
+ obj-$(CONFIG_CRIS_MACH_ARTPEC3)		+= cris-artpec3-cpufreq.o
+ obj-$(CONFIG_ETRAXFS)			+= cris-etraxfs-cpufreq.o
++obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= ia64-acpi-cpufreq.o
+diff --git a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/drivers/cpufreq/ia64-acpi-cpufreq.c
+similarity index 99%
+rename from arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+rename to drivers/cpufreq/ia64-acpi-cpufreq.c
+index 4700fef..c0075db 100644
+--- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
++++ b/drivers/cpufreq/ia64-acpi-cpufreq.c
+@@ -1,5 +1,4 @@
  /*
-  * Set up the page tables.
-  */
-@@ -313,9 +305,6 @@ paging_init (void)
- 	unsigned long max_dma;
- 	unsigned long max_zone_pfns[MAX_NR_ZONES];
- 
--	num_physpages = 0;
--	efi_memmap_walk(count_pages, &num_physpages);
--
- 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
- #ifdef CONFIG_ZONE_DMA
- 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index a57436e..8febadc 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -37,7 +37,6 @@ struct early_node_data {
- 	struct ia64_node_data *node_data;
- 	unsigned long pernode_addr;
- 	unsigned long pernode_size;
--	unsigned long num_physpages;
- #ifdef CONFIG_ZONE_DMA
- 	unsigned long num_dma_physpages;
- #endif
-@@ -732,7 +731,6 @@ static __init int count_node_pages(unsigned long start, unsigned long len, int n
- {
- 	unsigned long end = start + len;
- 
--	mem_data[node].num_physpages += len >> PAGE_SHIFT;
- #ifdef CONFIG_ZONE_DMA
- 	if (start <= __pa(MAX_DMA_ADDRESS))
- 		mem_data[node].num_dma_physpages +@@ -778,7 +776,6 @@ void __init paging_init(void)
- #endif
- 
- 	for_each_online_node(node) {
--		num_physpages += mem_data[node].num_physpages;
- 		pfn_offset = mem_data[node].min_pfn;
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index b5b71e8..d4382dc 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -546,19 +546,6 @@ int __init register_active_ranges(u64 start, u64 len, int nid)
- 	return 0;
- }
- 
--static int __init
--count_reserved_pages(u64 start, u64 end, void *arg)
--{
--	unsigned long num_reserved = 0;
--	unsigned long *count = arg;
--
--	for (; start < end; start += PAGE_SIZE)
--		if (PageReserved(virt_to_page(start)))
--			++num_reserved;
--	*count += num_reserved;
--	return 0;
--}
--
- int
- find_max_min_low_pfn (u64 start, u64 end, void *arg)
- {
-@@ -597,7 +584,6 @@ __setup("nolwsys", nolwsys_setup);
- void __init
- mem_init (void)
- {
--	long reserved_pages, codesize, datasize, initsize;
- 	pg_data_t *pgdat;
- 	int i;
- 
-@@ -625,18 +611,7 @@ mem_init (void)
- 		if (pgdat->bdata->node_bootmem_map)
- 			free_all_bootmem_node(pgdat);
- 
--	reserved_pages = 0;
--	efi_memmap_walk(count_reserved_pages, &reserved_pages);
--
--	codesize =  (unsigned long) _etext - (unsigned long) _stext;
--	datasize =  (unsigned long) _edata - (unsigned long) _etext;
--	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
--
--	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
--	       "%luk data, %luk init)\n", nr_free_pages() << (PAGE_SHIFT - 10),
--	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
--	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
--
-+	mem_init_print_info(NULL);
- 
- 	/*
- 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+- * arch/ia64/kernel/cpufreq/acpi-cpufreq.c
+  * This file provides the ACPI based P-state support. This
+  * module works with generic cpufreq infrastructure. Most of
+  * the code is based on i386 version
 -- 
-1.7.9.5
+1.7.12.rc2.18.g61b472e
 
