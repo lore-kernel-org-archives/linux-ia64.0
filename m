@@ -1,156 +1,50 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Mon, 25 Mar 2013 17:06:40 +0000
-Subject: [PATCH 4/9] ia64: cpufreq:  move cpufreq driver to drivers/cpufreq
-Message-Id: <afc636963b63becccf34d092203c53369bd1b735.1364229828.git.viresh.kumar@linaro.org>
+From: Len Brown <lenb@kernel.org>
+Date: Tue, 26 Mar 2013 04:29:37 +0000
+Subject: [PATCH] ia64 idle: delete (*idle)()
+Message-Id: <51512431.9060309@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1364229828.git.viresh.kumar@linaro.org>
-In-Reply-To: <cover.1364229828.git.viresh.kumar@linaro.org>
+References: <1360475903-30007-1-git-send-email-lenb@kernel.org> <7dc2a692a27e9c3da86acf150c4a89024e48bd05.1360475150.git.len.brown@intel.com> <5125F3D3.6040309@metafoo.de> <1A7043D5F58CCB44A599DFD55ED4C9482976B321@FMSMSX108.amr.corp.intel.com>
+In-Reply-To: <1A7043D5F58CCB44A599DFD55ED4C9482976B321@FMSMSX108.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rjw@sisk.pl
-Cc: arvind.chauhan@arm.com, robin.randhawa@arm.com, Steve.Bannister@arm.com, Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com, cpufreq@vger.kernel.org, linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, linaro-kernel@lists.linaro.org, arnd.bergmann@linaro.org, Viresh Kumar <viresh.kumar@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: Lars-Peter Clausen <lars@metafoo.de>, "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-This patch moves cpufreq driver of IA64 architecture to drivers/cpufreq.
+From: Len Brown <len.brown@intel.com>
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+3e7fc708eb (ia64 idle: delete pm_idle) in 3.9-rc1
+didn't finish the job, leaving an un-initialized
+reference to (*idle)().
+
+Reported-by: Lars-Peter Clausen <lars@metafoo.de>
+Signed-off-by: Len Brown <len.brown@intel.com>
 ---
- arch/ia64/Kconfig                                  |  5 ++--
- arch/ia64/kernel/Makefile                          |  1 -
- arch/ia64/kernel/cpufreq/Kconfig                   | 29 ----------------------
- arch/ia64/kernel/cpufreq/Makefile                  |  2 --
- drivers/cpufreq/Kconfig                            | 17 +++++++++++++
- drivers/cpufreq/Makefile                           |  1 +
- .../cpufreq/ia64-acpi-cpufreq.c                    |  1 -
- 7 files changed, 20 insertions(+), 36 deletions(-)
- delete mode 100644 arch/ia64/kernel/cpufreq/Kconfig
- delete mode 100644 arch/ia64/kernel/cpufreq/Makefile
- rename arch/ia64/kernel/cpufreq/acpi-cpufreq.c => drivers/cpufreq/ia64-acpi-cpufreq.c (99%)
+ arch/ia64/kernel/process.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 9a02f71..dd59848 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -591,9 +591,8 @@ source "kernel/power/Kconfig"
- source "drivers/acpi/Kconfig"
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index e34f565..6f7dc8b 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -291,7 +291,6 @@ cpu_idle (void)
+ 		}
  
- if PM
--
--source "arch/ia64/kernel/cpufreq/Kconfig"
--
-+menu "CPU Frequency scaling"
-+source "drivers/cpufreq/Kconfig"
- endif
+ 		if (!need_resched()) {
+-			void (*idle)(void);
+ #ifdef CONFIG_SMP
+ 			min_xtp();
+ #endif
+@@ -299,9 +298,7 @@ cpu_idle (void)
+ 			if (mark_idle)
+ 				(*mark_idle)(1);
  
- endmenu
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index d959c84..20678a9 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -23,7 +23,6 @@ obj-$(CONFIG_SMP)		+= smp.o smpboot.o
- obj-$(CONFIG_NUMA)		+= numa.o
- obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
- obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
--obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
- obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
- obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
- obj-$(CONFIG_DYNAMIC_FTRACE)	+= ftrace.o
-diff --git a/arch/ia64/kernel/cpufreq/Kconfig b/arch/ia64/kernel/cpufreq/Kconfig
-deleted file mode 100644
-index 2d9d527..0000000
---- a/arch/ia64/kernel/cpufreq/Kconfig
-+++ /dev/null
-@@ -1,29 +0,0 @@
--
--#
--# CPU Frequency scaling
--#
--
--menu "CPU Frequency scaling"
--
--source "drivers/cpufreq/Kconfig"
--
--if CPU_FREQ
--
--comment "CPUFreq processor drivers"
--
--config IA64_ACPI_CPUFREQ
--	tristate "ACPI Processor P-States driver"
--	select CPU_FREQ_TABLE
--	depends on ACPI_PROCESSOR
--	help
--	This driver adds a CPUFreq driver which utilizes the ACPI
--	Processor Performance States.
--
--	For details, take a look at <file:Documentation/cpu-freq/>.
--
--	If in doubt, say N.
--
--endif   # CPU_FREQ
--
--endmenu
--
-diff --git a/arch/ia64/kernel/cpufreq/Makefile b/arch/ia64/kernel/cpufreq/Makefile
-deleted file mode 100644
-index 4838f2a..0000000
---- a/arch/ia64/kernel/cpufreq/Makefile
-+++ /dev/null
-@@ -1,2 +0,0 @@
--obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= acpi-cpufreq.o
--
-diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
-index d7ce6cc..a2f1600 100644
---- a/drivers/cpufreq/Kconfig
-+++ b/drivers/cpufreq/Kconfig
-@@ -218,6 +218,23 @@ config AVR32_AT32AP_CPUFREQ
- 
- endmenu
- 
-+menu "CPUFreq processor drivers"
-+depends on IA64
-+
-+config IA64_ACPI_CPUFREQ
-+	tristate "ACPI Processor P-States driver"
-+	select CPU_FREQ_TABLE
-+	depends on ACPI_PROCESSOR
-+	help
-+	This driver adds a CPUFreq driver which utilizes the ACPI
-+	Processor Performance States.
-+
-+	For details, take a look at <file:Documentation/cpu-freq/>.
-+
-+	If in doubt, say N.
-+
-+endmenu
-+
- menu "PowerPC CPU frequency scaling drivers"
- depends on PPC32 || PPC64
- source "drivers/cpufreq/Kconfig.powerpc"
-diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
-index 8fbfbbf..312141d 100644
---- a/drivers/cpufreq/Makefile
-+++ b/drivers/cpufreq/Makefile
-@@ -82,3 +82,4 @@ obj-$(CONFIG_AVR32_AT32AP_CPUFREQ)	+= at32ap-cpufreq.o
- obj-$(CONFIG_BLACKFIN)			+= blackfin-cpufreq.o
- obj-$(CONFIG_CRIS_MACH_ARTPEC3)		+= cris-artpec3-cpufreq.o
- obj-$(CONFIG_ETRAXFS)			+= cris-etraxfs-cpufreq.o
-+obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= ia64-acpi-cpufreq.o
-diff --git a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/drivers/cpufreq/ia64-acpi-cpufreq.c
-similarity index 99%
-rename from arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-rename to drivers/cpufreq/ia64-acpi-cpufreq.c
-index 4700fef..c0075db 100644
---- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-+++ b/drivers/cpufreq/ia64-acpi-cpufreq.c
-@@ -1,5 +1,4 @@
- /*
-- * arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-  * This file provides the ACPI based P-state support. This
-  * module works with generic cpufreq infrastructure. Most of
-  * the code is based on i386 version
+-			if (!idle)
+-				idle = default_idle;
+-			(*idle)();
++			default_idle();
+ 			if (mark_idle)
+ 				(*mark_idle)(0);
+ #ifdef CONFIG_SMP
 -- 
-1.7.12.rc2.18.g61b472e
 
