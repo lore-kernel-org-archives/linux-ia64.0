@@ -1,25 +1,27 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Thu, 28 Mar 2013 20:21:18 +0000
-Subject: Re: [PATCH][RESEND] [IA64] tiocx: check retval from bus_register()
-Message-Id: <CA+8MBbLkqb5ZEGcX117erfe330JfiGmz8xAjo2+EkYs6FaqRRg@mail.gmail.com>
+From: "Brown, Len" <len.brown@intel.com>
+Date: Tue, 26 Mar 2013 03:12:35 +0000
+Subject: RE: [PATCH 09/16] ia64 idle: delete pm_idle
+Message-Id: <1A7043D5F58CCB44A599DFD55ED4C9482976B321@FMSMSX108.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LNX.2.00.1303191035010.9529@pobox.suse.cz>
-In-Reply-To: <alpine.LNX.2.00.1303191035010.9529@pobox.suse.cz>
+References: <1360475903-30007-1-git-send-email-lenb@kernel.org>
+ <7dc2a692a27e9c3da86acf150c4a89024e48bd05.1360475150.git.len.brown@intel.com>
+ <5125F3D3.6040309@metafoo.de>
+In-Reply-To: <5125F3D3.6040309@metafoo.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Lars-Peter Clausen <lars@metafoo.de>, Len Brown <lenb@kernel.org>
+Cc: "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On Wed, Mar 27, 2013 at 6:19 AM, Jiri Kosina <jkosina@suse.cz> wrote:
-> Is anyone please going to apply/nack this, please?
+> > -			idle = pm_idle;
+> >  			if (!idle)
+> 
+> Hm, if I'm not mistaken idle will uninitialized at this point, so this
+> could quite likely lead to a crash.
 
-Sorry - I didn't send an "applied" message. I picked this up last week
-and it is in my "next" tree and linux-next as:
 
-commit d7c6797fbc2c2efa7573817685d2a76fd274d2de
-Author: Jiri Kosina <jkosina@suse.cz>
-Date:   Tue Mar 19 10:36:13 2013 +0100
+thanks,
+will fix.
 
-    tiocx: check retval from bus_register()
+-Len
 
--Tony
