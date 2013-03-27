@@ -1,27 +1,46 @@
-From: "Brown, Len" <len.brown@intel.com>
-Date: Tue, 26 Mar 2013 03:12:35 +0000
-Subject: RE: [PATCH 09/16] ia64 idle: delete pm_idle
-Message-Id: <1A7043D5F58CCB44A599DFD55ED4C9482976B321@FMSMSX108.amr.corp.intel.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Date: Wed, 27 Mar 2013 00:55:55 +0000
+Subject: drivers/acpi/bgrt.c:undefined reference to `bgrt_tab' (defined in arch/x86/platform/efi/efi-bgrt.c)
+Message-Id: <20130327005555.GA14974@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1360475903-30007-1-git-send-email-lenb@kernel.org>
- <7dc2a692a27e9c3da86acf150c4a89024e48bd05.1360475150.git.len.brown@intel.com>
- <5125F3D3.6040309@metafoo.de>
-In-Reply-To: <5125F3D3.6040309@metafoo.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lars-Peter Clausen <lars@metafoo.de>, Len Brown <lenb@kernel.org>
-Cc: "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-
-> > -			idle = pm_idle;
-> >  			if (!idle)
-> 
-> Hm, if I'm not mistaken idle will uninitialized at this point, so this
-> could quite likely lead to a crash.
+To: linux-ia64@vger.kernel.org
 
 
-thanks,
-will fix.
+Hi,
 
--Len
+The error is bisected down to below commit, however I don't see
+obvious correlations.
 
+The problem is, drivers/acpi/bgrt.c references bgrt_tab etc. variables
+defined in arch/x86/platform/efi/efi-bgrt.c which is obviously not
+available in ia64.
+
+tree:   git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux master
+head:   c4052ba9dad9cc86cb3a1f0f8cb032514fa414be
+commit: 18a44a7ff1075ce5157ac07cde573aca6b5e9973 Merge branch 'x86-urgent-for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip
+date:   4 weeks ago
+config: make ARCH=ia64 allmodconfig
+
+All error/warnings:
+
+   drivers/built-in.o: In function `show_yoffset':
+>> bgrt.c:(.text+0xe5a71): undefined reference to `bgrt_tab'
+>> bgrt.c:(.text+0xe5a91): undefined reference to `bgrt_tab'
+   drivers/built-in.o: In function `show_xoffset':
+>> bgrt.c:(.text+0xe5b51): undefined reference to `bgrt_tab'
+>> bgrt.c:(.text+0xe5b71): undefined reference to `bgrt_tab'
+   drivers/built-in.o: In function `show_type':
+>> bgrt.c:(.text+0xe5c31): undefined reference to `bgrt_tab'
+   drivers/built-in.o:bgrt.c:(.text+0xe5c51): more undefined references to `bgrt_tab' follow
+   drivers/built-in.o: In function `bgrt_init':
+   bgrt.c:(.init.text+0x8931): undefined reference to `bgrt_image'
+   bgrt.c:(.init.text+0x8932): undefined reference to `bgrt_image_size'
+   bgrt.c:(.init.text+0x8950): undefined reference to `bgrt_image'
+   bgrt.c:(.init.text+0x8960): undefined reference to `bgrt_image_size'
+
+---
+0-DAY kernel build testing backend              Open Source Technology Center
+http://lists.01.org/mailman/listinfo/kbuild                 Intel Corporation
