@@ -1,39 +1,54 @@
-From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Date: Tue, 12 Mar 2013 04:47:08 +0000
-Subject: [PATCH 02/18] ia64: remove cast for kmalloc return value
-Message-Id: <513EB34C.5060608@cn.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 29 Mar 2013 18:02:30 +0000
+Subject: [PATCH] [IA64] idle: delete (*idle)()
+Message-Id: <5155d7361472244cb0@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <513EB23D.7020303@cn.fujitsu.com>
-In-Reply-To: <513EB23D.7020303@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-remove cast for kmalloc return value.
+From: Len Brown <len.brown@intel.com>
 
-Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-ia64@vger.kernel.org
+Commit 3e7fc708eb
+	ia64 idle: delete pm_idle
+in 3.9-rc1 didn't finish the job, leaving an un-initialized
+reference to (*idle)().
+
+Reported-by: Lars-Peter Clausen <lars@metafoo.de>
+Signed-off-by: Len Brown <len.brown@intel.com>
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 ---
- arch/ia64/kernel/mca_drv.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+[Haven't seen a crash from this - but seems like we are
+ just being lucky that "idle" is zero so it does get
+ initialized before we jump to randomland]
 
-diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
-index 9392e02..94f8bf7 100644
---- a/arch/ia64/kernel/mca_drv.c
-+++ b/arch/ia64/kernel/mca_drv.c
-@@ -349,7 +349,7 @@ init_record_index_pools(void)
+ arch/ia64/kernel/process.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index e34f565..6f7dc8b 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -291,7 +291,6 @@ cpu_idle (void)
+ 		}
  
- 	/* - 3 - */
- 	slidx_pool.max_idx = (rec_max_size/sect_min_size) * 2 + 1;
--	slidx_pool.buffer = (slidx_list_t *)
-+	slidx_pool.buffer  		kmalloc(slidx_pool.max_idx * sizeof(slidx_list_t), GFP_KERNEL);
+ 		if (!need_resched()) {
+-			void (*idle)(void);
+ #ifdef CONFIG_SMP
+ 			min_xtp();
+ #endif
+@@ -299,9 +298,7 @@ cpu_idle (void)
+ 			if (mark_idle)
+ 				(*mark_idle)(1);
  
- 	return slidx_pool.buffer ? 0 : -ENOMEM;
+-			if (!idle)
+-				idle = default_idle;
+-			(*idle)();
++			default_idle();
+ 			if (mark_idle)
+ 				(*mark_idle)(0);
+ #ifdef CONFIG_SMP
 -- 
-1.7.1
+1.8.1.4
 
