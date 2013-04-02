@@ -1,29 +1,27 @@
-From: James Hogan <james.hogan@imgtec.com>
-Date: Sun, 28 Apr 2013 10:24:35 +0000
-Subject: Re: [PATCH -next] ia64, metag: Do not export min_low_pfn in arch-specific code
-Message-Id: <CAAG0J982gbca3XHHSpTHgqPgeGyJRtG8Lm1cWsT0HsThqdFeMw@mail.gmail.com>
+From: diemei <ccmm8023@yahoo.com>
+Date: Tue, 02 Apr 2013 08:28:39 +0000
+Subject: Re: [PATCH] altix:  driver bugfixes and hardware workarounds for CE1.0 asic
+Message-Id: <1364891319418-5710587.post@n5.nabble.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1367086831-10740-1-git-send-email-geert@linux-m68k.org>
-In-Reply-To: <1367086831-10740-1-git-send-email-geert@linux-m68k.org>
+References: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
+In-Reply-To: <20060124200904.29302.86899.26965@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Sanjay Lal <sanjayl@kymasys.com>, Ralf Baechle <ralf@linux-mips.org>, kvm@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, linux-next@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 27 April 2013 19:20, Geert Uytterhoeven <geert@linux-m68k.org> wrote:
-> As of commit 787dcbe6984b3638e94f60d807dcb51bb8a07211 ("MIPS: Export
-> symbols used by KVM/MIPS module"), min_low_pfn is already exported by
-> the generic mm/bootmem.c, causing:
->
-> WARNING: vmlinux: 'min_low_pfn' exported twice. Previous export was in vmlinux
->
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Then you can ask how to buy a 18-carat Hermes Birkin, not abandoned a replica
+one. Firstly you may achieve a lot of money, assumed to say, to achieve the
+adapted acclimation arise the Hermes, and adjournment until the  hermes
+victoria <http://buyhermesol.com/Hermes-Victoria-category-18.html>   lets
+you apperceive this accomplishment is adorable to you personally. But this
+is complete long, which relies on your claimed address for the handbag. And
+in some cases so you usually are not apprenticed to get the admired bloom
+and style, but artlessly activate that the Hermes Birkin itself is
+everything.<br />
 
-This has been pointed out several times and needs fixing in the mips
-tree where the warning was introduced.
 
-Acked-by: James Hogan <james.hogan@imgtec.com>
 
-Cheers
-James
+--
+View this message in context: http://linux-ia64.1045702.n5.nabble.com/PATCH-altix-driver-bugfixes-and-hardware-workarounds-for-CE1-0-asic-tp2231904p5710587.html
+Sent from the linux-ia64 mailing list archive at Nabble.com.
