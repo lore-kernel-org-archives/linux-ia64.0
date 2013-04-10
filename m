@@ -1,97 +1,55 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Sat, 27 Apr 2013 09:12:24 +0000
-Subject: [PATCH 2/7] PCI/IA64: SN: remove sn_pci_window_fixup()
-Message-Id: <1367053949-38424-3-git-send-email-wangyijing@huawei.com>
+From: Hanjun Guo <guohanjun@huawei.com>
+Date: Wed, 10 Apr 2013 10:23:00 +0000
+Subject: [PATCH 3/4] ACPI: Untangle a return statement for better readability
+Message-Id: <1365589381-5624-4-git-send-email-guohanjun@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
+References: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
+In-Reply-To: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: kernel.openeuler@huawei.com
+Cc: Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Currently, pcibios_bus_to_resource() and pcibios_resource_to_bus()
-functions use pci_host_bridge_window in pci_host_bridge to translate
-bus side to/from cpu side addresses. Pci_window in pci_controller
-under IA64 is no used again, so remove this function.
+From: Thomas Renninger <trenn@suse.de>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+mainline inclusion
+from mainline-3.6
+upstream commit f3946fb6e50b750d34f445188fa6746d14596afa
+category: cleanup
+
+This patch is cleanup patch, but the next bugfix patch is
+upon it.
+
+--------------------------------------------------------
+
+No functional change.
+
+Signed-off-by: Thomas Renninger <trenn@suse.de>
+Signed-off-by: Len Brown <len.brown@intel.com>
+Integrated-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- arch/ia64/sn/kernel/io_init.c |   49 +----------------------------------------
- 1 files changed, 1 insertions(+), 48 deletions(-)
+ drivers/acpi/numa.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
-index 238e2c5..99710f5 100644
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -149,48 +149,6 @@ sn_legacy_pci_window_fixup(struct pci_controller *controller,
- }
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index e56f3be..2a63993 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -304,8 +304,10 @@ int __init acpi_numa_init(void)
  
- /*
-- * sn_pci_window_fixup() - Create a pci_window for each device resource.
-- *			   It will setup pci_windows for use by
-- *			   pcibios_bus_to_resource(), pcibios_resource_to_bus(),
-- *			   etc.
-- */
--static void
--sn_pci_window_fixup(struct pci_dev *dev, unsigned int count,
--		    s64 * pci_addrs)
--{
--	struct pci_controller *controller = PCI_CONTROLLER(dev->bus);
--	unsigned int i;
--	unsigned int idx;
--	unsigned int new_count;
--	struct pci_window *new_window;
--
--	if (count = 0)
--		return;
--	idx = controller->windows;
--	new_count = controller->windows + count;
--	new_window = kcalloc(new_count, sizeof(struct pci_window), GFP_KERNEL);
--	BUG_ON(new_window = NULL);
--	if (controller->window) {
--		memcpy(new_window, controller->window,
--		       sizeof(struct pci_window) * controller->windows);
--		kfree(controller->window);
--	}
--
--	/* Setup a pci_window for each device resource. */
--	for (i = 0; i <= PCI_ROM_RESOURCE; i++) {
--		if (pci_addrs[i] = -1)
--			continue;
--
--		new_window[idx].offset = dev->resource[i].start - pci_addrs[i];
--		new_window[idx].resource = dev->resource[i];
--		idx++;
--	}
--
--	controller->windows = new_count;
--	controller->window = new_window;
--}
--
--/*
-  * sn_io_slot_fixup() -   We are not running with an ACPI capable PROM,
-  *			  and need to convert the pci_dev->resource
-  *			  'start' and 'end' addresses to mapped addresses,
-@@ -276,12 +234,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
- 						 IORESOURCE_ROM_BIOS_COPY;
- 		}
- 	}
--	/* Create a pci_window in the pci_controller struct for
--	 * each device resource.
--	 */
--	if (count > 0)
--		sn_pci_window_fixup(dev, count, pci_addrs);
--
-+
- 	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
+ 	acpi_numa_arch_fixup();
+ 
+-	if (cnt <= 0)
+-		return cnt ?: -ENOENT;
++	if (cnt < 0)
++		return cnt;
++	else if (cnt = 0)
++		return -ENOENT;
+ 	return 0;
  }
  
 -- 
-1.7.1
+1.6.0.2
 
 
