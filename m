@@ -1,112 +1,196 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Fri, 12 Apr 2013 15:44:20 +0000
-Subject: [PATCH v9 06/16] PCI: introduce platform dependent hooks for creating/destroying PCI busses
-Message-Id: <1365781470-32379-7-git-send-email-jiang.liu@huawei.com>
+From: Hanjun Guo <guohanjun@huawei.com>
+Date: Wed, 10 Apr 2013 10:22:59 +0000
+Subject: [PATCH 2/4] cpufreq: Fix sysfs deadlock with concurrent hotplug/frequency switch
+Message-Id: <1365589381-5624-3-git-send-email-guohanjun@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
+References: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
+In-Reply-To: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rjw@sisk.pl>
-Cc: Jiang Liu <jiang.liu@huawei.com>, Yinghai Lu <yinghai@kernel.org>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, linux-ia64@vger.kernel.org, x86@kernel.org
+To: kernel.openeuler@huawei.com
+Cc: Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On ACPI based platforms, the pci_slot driver creates PCI slot devices
-according to information from ACPI tables by registering an ACPI PCI
-subdriver. The ACPI PCI subdriver will only be called when creating/
-destroying PCI root buses, and it won't be called when hot-plugging
-P2P bridges. It may cause stale PCI slot devices after hot-removing
-a P2P bridge if that bridge has associated PCI slots. And the acpiphp
-driver has the same issue too.
+From: Stephen Boyd <sboyd@codeaurora.org>
 
-This patch introduces two hook points into the PCI core, which will
-be invoked when creating/destroying PCI busses for PCI host and P2P
-bridges. They could be used to setup/destroy platform dependent staffs
-in a unified way, both at boot time and for PCI hotplug operations.
+mainline inclusion
+from mainline-3.6
+upstream commit a9144436271583115a2230db15d0b6ae2c481d3c
+category: bugfix
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-Cc: Toshi Kani <toshi.kani@hp.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Myron Stowe <myron.stowe@redhat.com>
-Cc: linux-pci@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
-Cc: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org
+As cpu offline/online and DVFS will be used in the actual
+production environment, this patch is worth to be backported.
+
+--------------------------------------------------------
+
+Running one program that continuously hotplugs and replugs a cpu
+concurrently with another program that continuously writes to the
+scaling_setspeed node eventually deadlocks with:
+
+======================[ INFO: possible recursive locking detected ]
+3.4.0 #37 Tainted: G        W
+---------------------------------------------
+filemonkey/122 is trying to acquire lock:
+ (s_active#13){++++.+}, at: [<c01a3d28>] sysfs_remove_dir+0x9c/0xb4
+
+but task is already holding lock:
+ (s_active#13){++++.+}, at: [<c01a22f0>] sysfs_write_file+0xe8/0x140
+
+other info that might help us debug this:
+ Possible unsafe locking scenario:
+
+       CPU0
+       ----
+  lock(s_active#13);
+  lock(s_active#13);
+
+ *** DEADLOCK ***
+
+ May be due to missing lock nesting notation
+
+2 locks held by filemonkey/122:
+ #0:  (&buffer->mutex){+.+.+.}, at: [<c01a2230>] sysfs_write_file+0x28/0x140
+ #1:  (s_active#13){++++.+}, at: [<c01a22f0>] sysfs_write_file+0xe8/0x140
+
+stack backtrace:
+[<c0014fcc>] (unwind_backtrace+0x0/0x120) from [<c00ca600>] (validate_chain+0x6f8/0x1054)
+[<c00ca600>] (validate_chain+0x6f8/0x1054) from [<c00cb778>] (__lock_acquire+0x81c/0x8d8)
+[<c00cb778>] (__lock_acquire+0x81c/0x8d8) from [<c00cb9c0>] (lock_acquire+0x18c/0x1e8)
+[<c00cb9c0>] (lock_acquire+0x18c/0x1e8) from [<c01a3ba8>] (sysfs_addrm_finish+0xd0/0x180)
+[<c01a3ba8>] (sysfs_addrm_finish+0xd0/0x180) from [<c01a3d28>] (sysfs_remove_dir+0x9c/0xb4)
+[<c01a3d28>] (sysfs_remove_dir+0x9c/0xb4) from [<c02d0e5c>] (kobject_del+0x10/0x38)
+[<c02d0e5c>] (kobject_del+0x10/0x38) from [<c02d0f74>] (kobject_release+0xf0/0x194)
+[<c02d0f74>] (kobject_release+0xf0/0x194) from [<c0565a98>] (cpufreq_cpu_put+0xc/0x24)
+[<c0565a98>] (cpufreq_cpu_put+0xc/0x24) from [<c05683f0>] (store+0x6c/0x74)
+[<c05683f0>] (store+0x6c/0x74) from [<c01a2314>] (sysfs_write_file+0x10c/0x140)
+[<c01a2314>] (sysfs_write_file+0x10c/0x140) from [<c014af44>] (vfs_write+0xb0/0x128)
+[<c014af44>] (vfs_write+0xb0/0x128) from [<c014b06c>] (sys_write+0x3c/0x68)
+[<c014b06c>] (sys_write+0x3c/0x68) from [<c000e0e0>] (ret_fast_syscall+0x0/0x3c)
+
+This is because store() in cpufreq.c indirectly calls
+kobject_get() via cpufreq_cpu_get() and is the last one to call
+kobject_put() via cpufreq_cpu_put(). Sysfs code should not call
+kobject_get() or kobject_put() directly (see the comment around
+sysfs_schedule_callback() for more information).
+
+Fix this deadlock by introducing two new functions:
+
+	struct cpufreq_policy *cpufreq_cpu_get_sysfs(unsigned int cpu)
+	void cpufreq_cpu_put_sysfs(struct cpufreq_policy *data)
+
+which do the same thing as cpufreq_cpu_{get,put}() but don't call
+kobject functions.
+
+To easily trigger this deadlock you can insert an msleep() with a
+reasonably large value right after the fail label at the bottom
+of the store() function in cpufreq.c and then write
+scaling_setspeed in one task and offline the cpu in another. The
+first task will hang and be detected by the hung task detector.
+
+Signed-off-by: Stephen Boyd <sboyd@codeaurora.org>
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Integrated-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- drivers/pci/probe.c  |   12 ++++++++++++
- drivers/pci/remove.c |    1 +
- include/linux/pci.h  |    2 ++
- 3 files changed, 15 insertions(+)
+ drivers/cpufreq/cpufreq.c |   35 +++++++++++++++++++++++++++--------
+ 1 files changed, 27 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 45c93b3..43ece5d 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -673,6 +673,8 @@ add_dev:
- 	ret = device_register(&child->dev);
- 	WARN_ON(ret < 0);
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+index 7f2f149..fb8a527 100644
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -138,7 +138,7 @@ void disable_cpufreq(void)
+ static LIST_HEAD(cpufreq_governor_list);
+ static DEFINE_MUTEX(cpufreq_governor_mutex);
  
-+	pcibios_add_bus(child);
-+
- 	/* Create legacy_io and legacy_mem files for this bus */
- 	pci_create_legacy_files(child);
- 
-@@ -1660,6 +1662,14 @@ int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
- 	return 0;
- }
- 
-+void __weak pcibios_add_bus(struct pci_bus *bus)
-+{
-+}
-+
-+void __weak pcibios_remove_bus(struct pci_bus *bus)
-+{
-+}
-+
- struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+-struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
++static struct cpufreq_policy *__cpufreq_cpu_get(unsigned int cpu, bool sysfs)
  {
-@@ -1714,6 +1724,8 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 	if (error)
- 		goto class_dev_reg_err;
+ 	struct cpufreq_policy *data;
+ 	unsigned long flags;
+@@ -162,7 +162,7 @@ struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
+ 	if (!data)
+ 		goto err_out_put_module;
  
-+	pcibios_add_bus(b);
-+
- 	/* Create legacy_io and legacy_mem files for this bus */
- 	pci_create_legacy_files(b);
+-	if (!kobject_get(&data->kobj))
++	if (!sysfs && !kobject_get(&data->kobj))
+ 		goto err_out_put_module;
  
-diff --git a/drivers/pci/remove.c b/drivers/pci/remove.c
-index a831880..8fc54b7 100644
---- a/drivers/pci/remove.c
-+++ b/drivers/pci/remove.c
-@@ -51,6 +51,7 @@ void pci_remove_bus(struct pci_bus *bus)
- 	pci_bus_release_busn_res(bus);
- 	up_write(&pci_bus_sem);
- 	pci_remove_legacy_files(bus);
-+	pcibios_remove_bus(bus);
- 	device_unregister(&bus->dev);
+ 	spin_unlock_irqrestore(&cpufreq_driver_lock, flags);
+@@ -175,16 +175,35 @@ err_out_unlock:
+ err_out:
+ 	return NULL;
  }
- EXPORT_SYMBOL(pci_remove_bus);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 849a336..7eb6023 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -693,6 +693,8 @@ extern struct list_head pci_root_buses;	/* list of all known PCI buses */
- extern int no_pci_devices(void);
++
++struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
++{
++	return __cpufreq_cpu_get(cpu, false);
++}
+ EXPORT_SYMBOL_GPL(cpufreq_cpu_get);
  
- void pcibios_resource_survey_bus(struct pci_bus *bus);
-+void pcibios_add_bus(struct pci_bus *bus);
-+void pcibios_remove_bus(struct pci_bus *bus);
- void pcibios_fixup_bus(struct pci_bus *);
- int __must_check pcibios_enable_device(struct pci_dev *, int mask);
- /* Architecture specific versions may override this (weak) */
++static struct cpufreq_policy *cpufreq_cpu_get_sysfs(unsigned int cpu)
++{
++	return __cpufreq_cpu_get(cpu, true);
++}
+ 
+-void cpufreq_cpu_put(struct cpufreq_policy *data)
++static void __cpufreq_cpu_put(struct cpufreq_policy *data, bool sysfs)
+ {
+-	kobject_put(&data->kobj);
++	if (!sysfs)
++		kobject_put(&data->kobj);
+ 	module_put(cpufreq_driver->owner);
+ }
++
++void cpufreq_cpu_put(struct cpufreq_policy *data)
++{
++	__cpufreq_cpu_put(data, false);
++}
+ EXPORT_SYMBOL_GPL(cpufreq_cpu_put);
+ 
++static void cpufreq_cpu_put_sysfs(struct cpufreq_policy *data)
++{
++	__cpufreq_cpu_put(data, true);
++}
+ 
+ /*********************************************************************
+  *            EXTERNALLY AFFECTING FREQUENCY CHANGES                 *
+@@ -617,7 +636,7 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
+ 	struct cpufreq_policy *policy = to_policy(kobj);
+ 	struct freq_attr *fattr = to_attr(attr);
+ 	ssize_t ret = -EINVAL;
+-	policy = cpufreq_cpu_get(policy->cpu);
++	policy = cpufreq_cpu_get_sysfs(policy->cpu);
+ 	if (!policy)
+ 		goto no_policy;
+ 
+@@ -631,7 +650,7 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
+ 
+ 	unlock_policy_rwsem_read(policy->cpu);
+ fail:
+-	cpufreq_cpu_put(policy);
++	cpufreq_cpu_put_sysfs(policy);
+ no_policy:
+ 	return ret;
+ }
+@@ -642,7 +661,7 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
+ 	struct cpufreq_policy *policy = to_policy(kobj);
+ 	struct freq_attr *fattr = to_attr(attr);
+ 	ssize_t ret = -EINVAL;
+-	policy = cpufreq_cpu_get(policy->cpu);
++	policy = cpufreq_cpu_get_sysfs(policy->cpu);
+ 	if (!policy)
+ 		goto no_policy;
+ 
+@@ -656,7 +675,7 @@ static ssize_t store(struct kobject *kobj, struct attribute *attr,
+ 
+ 	unlock_policy_rwsem_write(policy->cpu);
+ fail:
+-	cpufreq_cpu_put(policy);
++	cpufreq_cpu_put_sysfs(policy);
+ no_policy:
+ 	return ret;
+ }
 -- 
-1.7.9.5
+1.6.0.2
+
 
