@@ -1,158 +1,200 @@
-From: Viresh Kumar <viresh.kumar@linaro.org>
-Date: Thu, 04 Apr 2013 12:59:04 +0000
-Subject: [PATCH 12/18] cpufreq: ia64: move cpufreq driver to drivers/cpufreq
-Message-Id: <00f0f8aa0af6d40d0a8730033a0e0fe221604c7c.1365079581.git.viresh.kumar@linaro.org>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Fri, 12 Apr 2013 00:56:03 +0000
+Subject: [PATCH v4 17/22] x86, ACPI, numa, ia64: split SLIT handling out
+Message-Id: <1365728168-32067-18-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1365079581.git.viresh.kumar@linaro.org>
-In-Reply-To: <cover.1365079581.git.viresh.kumar@linaro.org>
+References: <1365728168-32067-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1365728168-32067-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rjw@sisk.pl
-Cc: robin.randhawa@arm.com, Steve.Bannister@arm.com, Liviu.Dudau@arm.com, charles.garcia-tobin@arm.com, arvind.chauhan@arm.com, cpufreq@vger.kernel.org, linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Viresh Kumar <viresh.kumar@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Thomas Renninger <trenn@suse.de>, Tang Chen <tangchen@cn.fujitsu.com>
+Cc: linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-This patch moves cpufreq driver of IA64 architecture to drivers/cpufreq.
+We need to handle slit later, as it need to allocate buffer for distance
+matrix. Also we do not need SLIT info before init_mem_mapping.
 
+So move SLIT parsing later.
+
+x86_acpi_numa_init become x86_acpi_numa_init_srat/x86_acpi_numa_init_slit.
+
+It should not break ia64 by replacing acpi_numa_init with
+acpi_numa_init_srat/acpi_numa_init_slit/acpi_num_arch_fixup.
+
+-v2: Change name to acpi_numa_init_srat/acpi_numa_init_slit according tj.
+     remove the reset_numa_distance() in numa_init(), as get we only set
+     distance in slit handling.
+
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Rafael J. Wysocki <rjw@sisk.pl>
+Cc: linux-acpi@vger.kernel.org
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
-Acked-by: Tony Luck <tony.luck@intel.com>
+Tested-by: Tony Luck <tony.luck@intel.com>
 ---
- arch/ia64/Kconfig                                  |  6 ++---
- arch/ia64/kernel/Makefile                          |  1 -
- arch/ia64/kernel/cpufreq/Kconfig                   | 29 ----------------------
- arch/ia64/kernel/cpufreq/Makefile                  |  2 --
- drivers/cpufreq/Kconfig                            | 17 +++++++++++++
- drivers/cpufreq/Makefile                           |  1 +
- .../cpufreq/ia64-acpi-cpufreq.c                    |  1 -
- 7 files changed, 21 insertions(+), 36 deletions(-)
- delete mode 100644 arch/ia64/kernel/cpufreq/Kconfig
- delete mode 100644 arch/ia64/kernel/cpufreq/Makefile
- rename arch/ia64/kernel/cpufreq/acpi-cpufreq.c => drivers/cpufreq/ia64-acpi-cpufreq.c (99%)
+ arch/ia64/kernel/setup.c    |  4 +++-
+ arch/x86/include/asm/acpi.h |  3 ++-
+ arch/x86/mm/numa.c          | 14 ++++++++++++--
+ arch/x86/mm/srat.c          | 11 +++++++----
+ drivers/acpi/numa.c         | 13 +++++++------
+ include/linux/acpi.h        |  3 ++-
+ 6 files changed, 33 insertions(+), 15 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 9a02f71..152b5f2 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -591,9 +591,9 @@ source "kernel/power/Kconfig"
- source "drivers/acpi/Kconfig"
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 2029cc0..6a2efb5 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -558,7 +558,9 @@ setup_arch (char **cmdline_p)
+ 	acpi_table_init();
+ 	early_acpi_boot_init();
+ # ifdef CONFIG_ACPI_NUMA
+-	acpi_numa_init();
++	acpi_numa_init_srat();
++	acpi_numa_init_slit();
++	acpi_numa_arch_fixup();
+ #  ifdef CONFIG_ACPI_HOTPLUG_CPU
+ 	prefill_possible_map();
+ #  endif
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index b31bf97..651db0b 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -178,7 +178,8 @@ static inline void disable_acpi(void) { }
  
- if PM
--
--source "arch/ia64/kernel/cpufreq/Kconfig"
--
-+menu "CPU Frequency scaling"
-+source "drivers/cpufreq/Kconfig"
-+endmenu
- endif
+ #ifdef CONFIG_ACPI_NUMA
+ extern int acpi_numa;
+-extern int x86_acpi_numa_init(void);
++int x86_acpi_numa_init_srat(void);
++void x86_acpi_numa_init_slit(void);
+ #endif /* CONFIG_ACPI_NUMA */
  
- endmenu
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index d959c84..20678a9 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -23,7 +23,6 @@ obj-$(CONFIG_SMP)		+= smp.o smpboot.o
- obj-$(CONFIG_NUMA)		+= numa.o
- obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
- obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
--obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
- obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
- obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
- obj-$(CONFIG_DYNAMIC_FTRACE)	+= ftrace.o
-diff --git a/arch/ia64/kernel/cpufreq/Kconfig b/arch/ia64/kernel/cpufreq/Kconfig
-deleted file mode 100644
-index 2d9d527..0000000
---- a/arch/ia64/kernel/cpufreq/Kconfig
-+++ /dev/null
-@@ -1,29 +0,0 @@
--
--#
--# CPU Frequency scaling
--#
--
--menu "CPU Frequency scaling"
--
--source "drivers/cpufreq/Kconfig"
--
--if CPU_FREQ
--
--comment "CPUFreq processor drivers"
--
--config IA64_ACPI_CPUFREQ
--	tristate "ACPI Processor P-States driver"
--	select CPU_FREQ_TABLE
--	depends on ACPI_PROCESSOR
--	help
--	This driver adds a CPUFreq driver which utilizes the ACPI
--	Processor Performance States.
--
--	For details, take a look at <file:Documentation/cpu-freq/>.
--
--	If in doubt, say N.
--
--endif   # CPU_FREQ
--
--endmenu
--
-diff --git a/arch/ia64/kernel/cpufreq/Makefile b/arch/ia64/kernel/cpufreq/Makefile
-deleted file mode 100644
-index 4838f2a..0000000
---- a/arch/ia64/kernel/cpufreq/Makefile
-+++ /dev/null
-@@ -1,2 +0,0 @@
--obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= acpi-cpufreq.o
--
-diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
-index d7ce6cc..a2f1600 100644
---- a/drivers/cpufreq/Kconfig
-+++ b/drivers/cpufreq/Kconfig
-@@ -218,6 +218,23 @@ config AVR32_AT32AP_CPUFREQ
+ #define acpi_unlazy_tlb(x)	leave_mm(x)
+diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
+index 90fd123..182e085 100644
+--- a/arch/x86/mm/numa.c
++++ b/arch/x86/mm/numa.c
+@@ -598,7 +598,6 @@ static int __init numa_init(int (*init_func)(void))
  
- endmenu
+ 	nodes_clear(numa_nodes_parsed);
+ 	memset(&numa_meminfo, 0, sizeof(numa_meminfo));
+-	numa_reset_distance();
  
-+menu "CPUFreq processor drivers"
-+depends on IA64
+ 	ret = init_func();
+ 	if (ret < 0)
+@@ -636,6 +635,10 @@ static int __init dummy_numa_init(void)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_ACPI_NUMA
++static bool srat_used __initdata;
++#endif
 +
-+config IA64_ACPI_CPUFREQ
-+	tristate "ACPI Processor P-States driver"
-+	select CPU_FREQ_TABLE
-+	depends on ACPI_PROCESSOR
-+	help
-+	This driver adds a CPUFreq driver which utilizes the ACPI
-+	Processor Performance States.
+ /**
+  * x86_numa_init - Initialize NUMA
+  *
+@@ -651,8 +654,10 @@ static void __init early_x86_numa_init(void)
+ 			return;
+ #endif
+ #ifdef CONFIG_ACPI_NUMA
+-		if (!numa_init(x86_acpi_numa_init))
++		if (!numa_init(x86_acpi_numa_init_srat)) {
++			srat_used = true;
+ 			return;
++		}
+ #endif
+ #ifdef CONFIG_AMD_NUMA
+ 		if (!numa_init(amd_numa_init))
+@@ -670,6 +675,11 @@ void __init x86_numa_init(void)
+ 
+ 	early_x86_numa_init();
+ 
++#ifdef CONFIG_ACPI_NUMA
++	if (srat_used)
++		x86_acpi_numa_init_slit();
++#endif
 +
-+	For details, take a look at <file:Documentation/cpu-freq/>.
+ 	numa_emulation(&numa_meminfo, numa_distance_cnt);
+ 
+ 	node_possible_map = numa_nodes_parsed;
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index cdd0da9..443f9ef 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -185,14 +185,17 @@ out_err:
+ 	return -1;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void) {}
+-
+-int __init x86_acpi_numa_init(void)
++int __init x86_acpi_numa_init_srat(void)
+ {
+ 	int ret;
+ 
+-	ret = acpi_numa_init();
++	ret = acpi_numa_init_srat();
+ 	if (ret < 0)
+ 		return ret;
+ 	return srat_disabled() ? -EINVAL : 0;
+ }
 +
-+	If in doubt, say N.
++void __init x86_acpi_numa_init_slit(void)
++{
++	acpi_numa_init_slit();
++}
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 33e609f..6460db4 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -282,7 +282,7 @@ acpi_table_parse_srat(enum acpi_srat_type id,
+ 					    handler, max_entries);
+ }
+ 
+-int __init acpi_numa_init(void)
++int __init acpi_numa_init_srat(void)
+ {
+ 	int cnt = 0;
+ 
+@@ -303,11 +303,6 @@ int __init acpi_numa_init(void)
+ 					    NR_NODE_MEMBLKS);
+ 	}
+ 
+-	/* SLIT: System Locality Information Table */
+-	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
+-
+-	acpi_numa_arch_fixup();
+-
+ 	if (cnt < 0)
+ 		return cnt;
+ 	else if (!parsed_numa_memblks)
+@@ -315,6 +310,12 @@ int __init acpi_numa_init(void)
+ 	return 0;
+ }
+ 
++void __init acpi_numa_init_slit(void)
++{
++	/* SLIT: System Locality Information Table */
++	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
++}
 +
-+endmenu
-+
- menu "PowerPC CPU frequency scaling drivers"
- depends on PPC32 || PPC64
- source "drivers/cpufreq/Kconfig.powerpc"
-diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
-index 751815d..aaa018c 100644
---- a/drivers/cpufreq/Makefile
-+++ b/drivers/cpufreq/Makefile
-@@ -86,3 +86,4 @@ obj-$(CONFIG_AVR32_AT32AP_CPUFREQ)	+= at32ap-cpufreq.o
- obj-$(CONFIG_BLACKFIN)			+= blackfin-cpufreq.o
- obj-$(CONFIG_CRIS_MACH_ARTPEC3)		+= cris-artpec3-cpufreq.o
- obj-$(CONFIG_ETRAXFS)			+= cris-etraxfs-cpufreq.o
-+obj-$(CONFIG_IA64_ACPI_CPUFREQ)		+= ia64-acpi-cpufreq.o
-diff --git a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c b/drivers/cpufreq/ia64-acpi-cpufreq.c
-similarity index 99%
-rename from arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-rename to drivers/cpufreq/ia64-acpi-cpufreq.c
-index 4700fef..c0075db 100644
---- a/arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-+++ b/drivers/cpufreq/ia64-acpi-cpufreq.c
-@@ -1,5 +1,4 @@
- /*
-- * arch/ia64/kernel/cpufreq/acpi-cpufreq.c
-  * This file provides the ACPI based P-state support. This
-  * module works with generic cpufreq infrastructure. Most of
-  * the code is based on i386 version
+ int acpi_get_pxm(acpi_handle h)
+ {
+ 	unsigned long long pxm;
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 4b943e6..4a78235 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -85,7 +85,8 @@ int early_acpi_boot_init(void);
+ int acpi_boot_init (void);
+ void acpi_boot_table_init (void);
+ int acpi_mps_check (void);
+-int acpi_numa_init (void);
++int acpi_numa_init_srat(void);
++void acpi_numa_init_slit(void);
+ 
+ int acpi_table_init (void);
+ int acpi_table_parse(char *id, acpi_tbl_table_handler handler);
 -- 
-1.7.12.rc2.18.g61b472e
+1.8.1.4
 
