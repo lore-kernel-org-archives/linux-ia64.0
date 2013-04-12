@@ -1,196 +1,112 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Sat, 27 Apr 2013 09:12:27 +0000
-Subject: [PATCH 5/7] PCI/IA64: fix memleak for create pci root bus fail
-Message-Id: <1367053949-38424-6-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Fri, 12 Apr 2013 15:44:20 +0000
+Subject: [PATCH v9 06/16] PCI: introduce platform dependent hooks for creating/destroying PCI busses
+Message-Id: <1365781470-32379-7-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
+References: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rjw@sisk.pl>
+Cc: Jiang Liu <jiang.liu@huawei.com>, Yinghai Lu <yinghai@kernel.org>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, linux-ia64@vger.kernel.org, x86@kernel.org
 
-From: Jiang Liu <jiang.liu@huawei.com>
+On ACPI based platforms, the pci_slot driver creates PCI slot devices
+according to information from ACPI tables by registering an ACPI PCI
+subdriver. The ACPI PCI subdriver will only be called when creating/
+destroying PCI root buses, and it won't be called when hot-plugging
+P2P bridges. It may cause stale PCI slot devices after hot-removing
+a P2P bridge if that bridge has associated PCI slots. And the acpiphp
+driver has the same issue too.
 
-If pci_create_root_bus() return fail, we should release
-pci root info, pci controller etc.
+This patch introduces two hook points into the PCI core, which will
+be invoked when creating/destroying PCI busses for PCI host and P2P
+bridges. They could be used to setup/destroy platform dependent staffs
+in a unified way, both at boot time and for PCI hotplug operations.
 
 Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: Toshi Kani <toshi.kani@hp.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Myron Stowe <myron.stowe@redhat.com>
+Cc: linux-pci@vger.kernel.org
 Cc: linux-ia64@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- arch/ia64/include/asm/pci.h |    6 +++
- arch/ia64/pci/pci.c         |   74 ++++++++++++++++++++++++++++++++++---------
- 2 files changed, 65 insertions(+), 15 deletions(-)
+ drivers/pci/probe.c  |   12 ++++++++++++
+ drivers/pci/remove.c |    1 +
+ include/linux/pci.h  |    2 ++
+ 3 files changed, 15 insertions(+)
 
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 82a236c..fe813c2 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -89,6 +89,11 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
- #define pci_legacy_read platform_pci_legacy_read
- #define pci_legacy_write platform_pci_legacy_write
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 45c93b3..43ece5d 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -673,6 +673,8 @@ add_dev:
+ 	ret = device_register(&child->dev);
+ 	WARN_ON(ret < 0);
  
-+struct iospace_resource {
-+	struct list_head list;
-+	struct resource res;
-+};
++	pcibios_add_bus(child);
 +
- struct pci_controller {
- 	void *acpi_handle;
- 	void *iommu;
-@@ -105,6 +110,7 @@ struct pci_root_info {
- 	struct resource *res;
- 	resource_size_t *res_offset;
- 	unsigned int res_num;
-+	struct list_head io_resources;
- 	char *name;
- };
+ 	/* Create legacy_io and legacy_mem files for this bus */
+ 	pci_create_legacy_files(child);
  
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 1f2779d..658030f 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -162,25 +162,21 @@ new_space (u64 phys_base, int sparse)
- static u64 add_io_space(struct pci_root_info *info,
- 			struct acpi_resource_address64 *addr)
- {
-+	struct iospace_resource *iospace;
- 	struct resource *resource;
- 	char *name;
- 	unsigned long base, min, max, base_port;
- 	unsigned int sparse = 0, space_nr, len;
- 
--	resource = kzalloc(sizeof(*resource), GFP_KERNEL);
--	if (!resource) {
-+	len = strlen(info->name) + 32;
-+	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
-+	if (!iospace) {
- 		printk(KERN_ERR "PCI: No memory for %s I/O port space\n",
- 			info->name);
- 		goto out;
- 	}
- 
--	len = strlen(info->name) + 32;
--	name = kzalloc(len, GFP_KERNEL);
--	if (!name) {
--		printk(KERN_ERR "PCI: No memory for %s I/O port space name\n",
--			info->name);
--		goto free_resource;
--	}
-+	name = (char *)(iospace + 1);
- 
- 	min = addr->minimum;
- 	max = min + addr->address_length - 1;
-@@ -189,7 +185,7 @@ static u64 add_io_space(struct pci_root_info *info,
- 
- 	space_nr = new_space(addr->translation_offset, sparse);
- 	if (space_nr = ~0)
--		goto free_name;
-+		goto free_resource;
- 
- 	base = __pa(io_space[space_nr].mmio_base);
- 	base_port = IO_SPACE_BASE(space_nr);
-@@ -204,18 +200,23 @@ static u64 add_io_space(struct pci_root_info *info,
- 	if (space_nr = 0)
- 		sparse = 1;
- 
-+	resource = &iospace->res;
- 	resource->name  = name;
- 	resource->flags = IORESOURCE_MEM;
- 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
- 	resource->end   = base + (sparse ? IO_SPACE_SPARSE_ENCODING(max) : max);
--	insert_resource(&iomem_resource, resource);
-+	if (insert_resource(&iomem_resource, resource)) {
-+		dev_err(&info->bridge->dev,
-+				"can't allocate host bridge io space resource  %pR\n",
-+				resource);
-+		goto free_resource;
-+	}
- 
-+	list_add_tail(&iospace->list, &info->io_resources);
- 	return base_port;
- 
--free_name:
--	kfree(name);
- free_resource:
--	kfree(resource);
-+	kfree(iospace);
- out:
- 	return ~0;
- }
-@@ -316,6 +317,47 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
- 	return AE_OK;
+@@ -1660,6 +1662,14 @@ int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 	return 0;
  }
  
-+static void free_pci_root_info_res(struct pci_root_info *info)
++void __weak pcibios_add_bus(struct pci_bus *bus)
 +{
-+	struct iospace_resource *iospace, *tmp;
-+
-+	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list)
-+		kfree(iospace);
-+
-+	kfree(info->res);
-+	info->res = NULL;
-+	kfree(info->res_offset);
-+	info->res_offset = NULL;
-+	info->res_num = 0;
-+	kfree(info->controller);
-+	info->controller = NULL;
 +}
 +
-+static void __release_pci_root_info(struct pci_root_info *info)
++void __weak pcibios_remove_bus(struct pci_bus *bus)
 +{
-+	int i;
-+	struct resource *res;
-+	struct iospace_resource *iospace;
-+
-+	list_for_each_entry(iospace, &info->io_resources, list)
-+		release_resource(&iospace->res);
-+
-+	for (i = 0; i < info->res_num; i++) {
-+		res = &info->res[i];
-+
-+		if (!res->parent)
-+			continue;
-+
-+		if (!(res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
-+			continue;
-+
-+		release_resource(res);
-+	}
-+
-+	free_pci_root_info_res(info);
-+	kfree(info);
 +}
 +
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
  {
- 	struct acpi_device *device = root->device;
-@@ -346,7 +388,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 				"ignored (out of memory)\n", root->segment, busnum);
- 		goto out2;
- 	}
--
-+
-+	INIT_LIST_HEAD(&info->io_resources);
- 	INIT_LIST_HEAD(&info->resources);
- 	/* insert busn resource at first */
- 	pci_add_resource(&info->resources, &root->secondary);
-@@ -387,6 +430,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 				   &info->resources);
- 	if (!pbus) {
- 		pci_free_resource_list(&info->resources);
-+		__release_pci_root_info(info);
- 		return NULL;
- 	}
+@@ -1714,6 +1724,8 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 	if (error)
+ 		goto class_dev_reg_err;
  
++	pcibios_add_bus(b);
++
+ 	/* Create legacy_io and legacy_mem files for this bus */
+ 	pci_create_legacy_files(b);
+ 
+diff --git a/drivers/pci/remove.c b/drivers/pci/remove.c
+index a831880..8fc54b7 100644
+--- a/drivers/pci/remove.c
++++ b/drivers/pci/remove.c
+@@ -51,6 +51,7 @@ void pci_remove_bus(struct pci_bus *bus)
+ 	pci_bus_release_busn_res(bus);
+ 	up_write(&pci_bus_sem);
+ 	pci_remove_legacy_files(bus);
++	pcibios_remove_bus(bus);
+ 	device_unregister(&bus->dev);
+ }
+ EXPORT_SYMBOL(pci_remove_bus);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 849a336..7eb6023 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -693,6 +693,8 @@ extern struct list_head pci_root_buses;	/* list of all known PCI buses */
+ extern int no_pci_devices(void);
+ 
+ void pcibios_resource_survey_bus(struct pci_bus *bus);
++void pcibios_add_bus(struct pci_bus *bus);
++void pcibios_remove_bus(struct pci_bus *bus);
+ void pcibios_fixup_bus(struct pci_bus *);
+ int __must_check pcibios_enable_device(struct pci_dev *, int mask);
+ /* Architecture specific versions may override this (weak) */
 -- 
-1.7.1
-
+1.7.9.5
 
