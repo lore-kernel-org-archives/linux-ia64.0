@@ -1,60 +1,60 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Sat, 27 Apr 2013 09:12:28 +0000
-Subject: [PATCH 6/7] PCI/IA64: add host bridge resource release for _CRS path
-Message-Id: <1367053949-38424-7-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Fri, 12 Apr 2013 15:44:22 +0000
+Subject: [PATCH v9 08/16] PCI, IA64: implement pcibios_{add|remove}_bus() hooks
+Message-Id: <1365781470-32379-9-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
+References: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1365781470-32379-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rjw@sisk.pl>
+Cc: Jiang Liu <jiang.liu@huawei.com>, Yinghai Lu <yinghai@kernel.org>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, ACPI Devel Maling List <linux-acpi@vger.kernel.org>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Set IA64 host bridge release function to make sure root bridge
-related resources get freed during root bus removal.
+Implement pcibios_{add|remove}_bus() hooks for IA64 platforms.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: Toshi Kani <toshi.kani@hp.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- arch/ia64/pci/pci.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ arch/ia64/pci/pci.c |   11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
 diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 658030f..2857a83 100644
+index 60532ab..de1474f 100644
 --- a/arch/ia64/pci/pci.c
 +++ b/arch/ia64/pci/pci.c
-@@ -358,6 +358,13 @@ static void __release_pci_root_info(struct pci_root_info *info)
- 	kfree(info);
+@@ -15,6 +15,7 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/pci.h>
++#include <linux/pci-acpi.h>
+ #include <linux/init.h>
+ #include <linux/ioport.h>
+ #include <linux/slab.h>
+@@ -458,6 +459,16 @@ void pcibios_fixup_bus(struct pci_bus *b)
+ 	platform_pci_fixup_bus(b);
  }
  
-+static void release_pci_root_info(struct pci_host_bridge *bridge)
++void pcibios_add_bus(struct pci_bus *bus)
 +{
-+	struct pci_root_info *info = bridge->release_data;
-+
-+	__release_pci_root_info(info);
++	acpi_pci_add_bus(bus);
 +}
 +
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- {
- 	struct acpi_device *device = root->device;
-@@ -433,7 +440,9 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		__release_pci_root_info(info);
- 		return NULL;
- 	}
--
++void pcibios_remove_bus(struct pci_bus *bus)
++{
++	acpi_pci_remove_bus(bus);
++}
 +
-+	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
-+			release_pci_root_info, info);
- 	pci_scan_child_bus(pbus);
- 	return pbus;
- 
+ void pcibios_set_master (struct pci_dev *dev)
+ {
+ 	/* No special bus mastering setup handling */
 -- 
-1.7.1
-
+1.7.9.5
 
