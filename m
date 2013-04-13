@@ -1,55 +1,60 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Date: Wed, 10 Apr 2013 10:23:00 +0000
-Subject: [PATCH 3/4] ACPI: Untangle a return statement for better readability
-Message-Id: <1365589381-5624-4-git-send-email-guohanjun@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Sat, 13 Apr 2013 15:36:23 +0000
+Subject: [RFC PATCH v1 03/19] mm/IA64: prepare for killing free_all_bootmem_node()
+Message-Id: <1365867399-21323-4-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
-In-Reply-To: <1365589381-5624-1-git-send-email-guohanjun@huawei.com>
+References: <1365867399-21323-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1365867399-21323-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kernel.openeuler@huawei.com
-Cc: Toshi Kani <toshi.kani@hp.com>, Jiang Liu <jiang.liu@huawei.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Yinghai Lu <yinghai@kernel.org>
+Cc: Jiang Liu <jiang.liu@huawei.com>, David Rientjes <rientjes@google.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, David Howells <dhowells@redhat.com>, Mark Salter <msalter@redhat.com>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tang Chen <tangchen@cn.fujitsu.com>, linux-ia64@vger.kernel.org
 
-From: Thomas Renninger <trenn@suse.de>
+Prepare for killing free_all_bootmem_node() by using
+free_all_bootmem().
 
-mainline inclusion
-from mainline-3.6
-upstream commit f3946fb6e50b750d34f445188fa6746d14596afa
-category: cleanup
-
-This patch is cleanup patch, but the next bugfix patch is
-upon it.
-
---------------------------------------------------------
-
-No functional change.
-
-Signed-off-by: Thomas Renninger <trenn@suse.de>
-Signed-off-by: Len Brown <len.brown@intel.com>
-Integrated-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Tang Chen <tangchen@cn.fujitsu.com>
+Cc: David Rientjes <rientjes@google.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- drivers/acpi/numa.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ arch/ia64/mm/init.c |    9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index e56f3be..2a63993 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -304,8 +304,10 @@ int __init acpi_numa_init(void)
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index d4382dc..26eeb74 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -584,7 +584,6 @@ __setup("nolwsys", nolwsys_setup);
+ void __init
+ mem_init (void)
+ {
+-	pg_data_t *pgdat;
+ 	int i;
  
- 	acpi_numa_arch_fixup();
+ 	BUG_ON(PTRS_PER_PGD * sizeof(pgd_t) != PAGE_SIZE);
+@@ -602,15 +601,11 @@ mem_init (void)
  
--	if (cnt <= 0)
--		return cnt ?: -ENOENT;
-+	if (cnt < 0)
-+		return cnt;
-+	else if (cnt = 0)
-+		return -ENOENT;
- 	return 0;
- }
+ #ifdef CONFIG_FLATMEM
+ 	BUG_ON(!mem_map);
+-	max_mapnr = max_low_pfn;
+ #endif
  
++	set_max_mapnr(max_low_pfn);
+ 	high_memory = __va(max_low_pfn * PAGE_SIZE);
+-
+-	for_each_online_pgdat(pgdat)
+-		if (pgdat->bdata->node_bootmem_map)
+-			free_all_bootmem_node(pgdat);
+-
++	free_all_bootmem();
+ 	mem_init_print_info(NULL);
+ 
+ 	/*
 -- 
-1.6.0.2
-
+1.7.9.5
 
