@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Sat, 27 Apr 2013 09:12:26 +0000
-Subject: [PATCH 4/7] PCI/IA64: Allocate pci_root_info instead of using stack
-Message-Id: <1367053949-38424-5-git-send-email-wangyijing@huawei.com>
+Date: Sat, 27 Apr 2013 09:12:24 +0000
+Subject: [PATCH 2/7] PCI/IA64: SN: remove sn_pci_window_fixup()
+Message-Id: <1367053949-38424-3-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1367053949-38424-1-git-send-email-wangyijing@huawei.com>
@@ -9,120 +9,88 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
+Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-We need to pass around info for release function.
+Currently, pcibios_bus_to_resource() and pcibios_resource_to_bus()
+functions use pci_host_bridge_window in pci_host_bridge to translate
+bus side to/from cpu side addresses. Pci_window in pci_controller
+under IA64 is no used again, so remove this function.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/pci/pci.c |   59 ++++++++++++++++++++++++++++++--------------------
- 1 files changed, 35 insertions(+), 24 deletions(-)
+ arch/ia64/sn/kernel/io_init.c |   49 +----------------------------------------
+ 1 files changed, 1 insertions(+), 48 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index d7681c6..1f2779d 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -322,7 +322,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
- 	struct pci_controller *controller;
--	struct pci_root_info info;
-+	struct pci_root_info *info = NULL;
-+	int busnum = root->secondary.start;
- 	struct pci_bus *pbus;
- 	char *name;
- 	int pxm;
-@@ -339,35 +340,42 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		controller->node = pxm_to_node(pxm);
- #endif
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+index 238e2c5..99710f5 100644
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -149,48 +149,6 @@ sn_legacy_pci_window_fixup(struct pci_controller *controller,
+ }
  
--	INIT_LIST_HEAD(&info.resources);
-+	info = kzalloc(sizeof(*info), GFP_KERNEL);
-+	if (!info) {
-+		printk(KERN_WARNING "pci_bus %04x:%02x: "
-+				"ignored (out of memory)\n", root->segment, busnum);
-+		goto out2;
-+	}
-+
-+	INIT_LIST_HEAD(&info->resources);
- 	/* insert busn resource at first */
--	pci_add_resource(&info.resources, &root->secondary);
-+	pci_add_resource(&info->resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&info.res_num);
--	if (info.res_num) {
--		info.res -			kzalloc_node(sizeof(*info.res) * info.res_num,
-+			&info->res_num);
-+	if (info->res_num) {
-+		info->res +			kzalloc_node(sizeof(*info->res) * info->res_num,
- 				     GFP_KERNEL, controller->node);
--		if (!info.res)
--			goto out2;
--		
--		info.res_offset = 
--			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
--				GFP_KERNEL, controller->node);
--		if (!info.res_offset)
-+		if (!info->res)
- 			goto out3;
-+
-+		info->res_offset +			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
-+					GFP_KERNEL, controller->node);
-+		if (!info->res_offset)
-+			goto out4;
- 
- 		name = kmalloc(16, GFP_KERNEL);
- 		if (!name)
--			goto out4;
-+			goto out5;
- 
- 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
--		info.bridge = device;
--		info.controller = controller;
--		info.name = name;
--		info.res_num = 0;
-+		info->bridge = device;
-+		info->controller = controller;
-+		info->name = name;
-+		info->res_num = 0;
- 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
--			add_window, &info);
-+			add_window, info);
+ /*
+- * sn_pci_window_fixup() - Create a pci_window for each device resource.
+- *			   It will setup pci_windows for use by
+- *			   pcibios_bus_to_resource(), pcibios_resource_to_bus(),
+- *			   etc.
+- */
+-static void
+-sn_pci_window_fixup(struct pci_dev *dev, unsigned int count,
+-		    s64 * pci_addrs)
+-{
+-	struct pci_controller *controller = PCI_CONTROLLER(dev->bus);
+-	unsigned int i;
+-	unsigned int idx;
+-	unsigned int new_count;
+-	struct pci_window *new_window;
+-
+-	if (count = 0)
+-		return;
+-	idx = controller->windows;
+-	new_count = controller->windows + count;
+-	new_window = kcalloc(new_count, sizeof(struct pci_window), GFP_KERNEL);
+-	BUG_ON(new_window = NULL);
+-	if (controller->window) {
+-		memcpy(new_window, controller->window,
+-		       sizeof(struct pci_window) * controller->windows);
+-		kfree(controller->window);
+-	}
+-
+-	/* Setup a pci_window for each device resource. */
+-	for (i = 0; i <= PCI_ROM_RESOURCE; i++) {
+-		if (pci_addrs[i] = -1)
+-			continue;
+-
+-		new_window[idx].offset = dev->resource[i].start - pci_addrs[i];
+-		new_window[idx].resource = dev->resource[i];
+-		idx++;
+-	}
+-
+-	controller->windows = new_count;
+-	controller->window = new_window;
+-}
+-
+-/*
+  * sn_io_slot_fixup() -   We are not running with an ACPI capable PROM,
+  *			  and need to convert the pci_dev->resource
+  *			  'start' and 'end' addresses to mapped addresses,
+@@ -276,12 +234,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
+ 						 IORESOURCE_ROM_BIOS_COPY;
+ 		}
  	}
- 	/*
- 	 * See arch/x86/pci/acpi.c.
-@@ -376,18 +384,21 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	 * such quirk. So we just ignore the case now.
- 	 */
- 	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops, controller,
--				   &info.resources);
-+				   &info->resources);
- 	if (!pbus) {
--		pci_free_resource_list(&info.resources);
-+		pci_free_resource_list(&info->resources);
- 		return NULL;
- 	}
- 
- 	pci_scan_child_bus(pbus);
- 	return pbus;
+-	/* Create a pci_window in the pci_controller struct for
+-	 * each device resource.
+-	 */
+-	if (count > 0)
+-		sn_pci_window_fixup(dev, count, pci_addrs);
+-
 +
-+out5:
-+	kfree(info->res_offset);
- out4:
--	kfree(info.res_offset);
-+	kfree(info->res);
- out3:
--	kfree(info.res);
-+	kfree(info);
- out2:
- 	kfree(controller);
- out1:
+ 	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
+ }
+ 
 -- 
 1.7.1
 
