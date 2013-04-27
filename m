@@ -1,29 +1,50 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Fri, 05 Apr 2013 22:16:48 +0000
-Subject: Re: [PATCH v3 17/22] x86, ACPI, numa, ia64: split SLIT handling out
-Message-Id: <CAE9FiQW9LsXo7gRvpAUv2ORbe2iuZaYO9nNOP-vTWa-_P450tg@mail.gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Sat, 27 Apr 2013 18:20:31 +0000
+Subject: [PATCH -next] ia64, metag: Do not export min_low_pfn in arch-specific code
+Message-Id: <1367086831-10740-1-git-send-email-geert@linux-m68k.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1365119186-23487-1-git-send-email-yinghai@kernel.org>
-	<1365119186-23487-18-git-send-email-yinghai@kernel.org>
-	<CA+8MBbJMk2w77VGBswoYCEKQZ4HTC9jBhWun5UzGLOj15Nqrmg@mail.gmail.com>
-In-Reply-To: <CA+8MBbJMk2w77VGBswoYCEKQZ4HTC9jBhWun5UzGLOj15Nqrmg@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Thomas Renninger <trenn@suse.de>, Tang Chen <tangchen@cn.fujitsu.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, linux-acpi <linux-acpi@vger.kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: Sanjay Lal <sanjayl@kymasys.com>, Ralf Baechle <ralf@linux-mips.org>
+Cc: kvm@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, linux-kernel@vger.kernel.org, linux-next@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On Fri, Apr 5, 2013 at 2:54 PM, Tony Luck <tony.luck@gmail.com> wrote:
-> On Thu, Apr 4, 2013 at 4:46 PM, Yinghai Lu <yinghai@kernel.org> wrote:
->> It should not break ia64 by replacing acpi_numa_init with
->> acpi_numa_init_srat/acpi_numa_init_slit/acpi_num_arch_fixup.
->
-> You are right - it doesn't break ia64.  All my test configs still
-> build.  Machines both with and without NUMA still boot and
-> nothing strange happens.
->
-> Tested-by: Tony Luck <tony.luck@intel.com>
+As of commit 787dcbe6984b3638e94f60d807dcb51bb8a07211 ("MIPS: Export
+symbols used by KVM/MIPS module"), min_low_pfn is already exported by
+the generic mm/bootmem.c, causing:
 
-Great, Thanks a lot for testing them.
+WARNING: vmlinux: 'min_low_pfn' exported twice. Previous export was in vmlinux
 
-Yinghai
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ arch/ia64/kernel/ia64_ksyms.c   |    1 -
+ arch/metag/kernel/metag_ksyms.c |    1 -
+ 2 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/kernel/ia64_ksyms.c b/arch/ia64/kernel/ia64_ksyms.c
+index 5b7791d..ca95c8b 100644
+--- a/arch/ia64/kernel/ia64_ksyms.c
++++ b/arch/ia64/kernel/ia64_ksyms.c
+@@ -25,7 +25,6 @@ EXPORT_SYMBOL(copy_page);
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ #include <linux/bootmem.h>
+-EXPORT_SYMBOL(min_low_pfn);	/* defined by bootmem.c, but not exported by generic code */
+ EXPORT_SYMBOL(max_low_pfn);	/* defined by bootmem.c, but not exported by generic code */
+ #endif
+ 
+diff --git a/arch/metag/kernel/metag_ksyms.c b/arch/metag/kernel/metag_ksyms.c
+index ec872ef..08e9b6f 100644
+--- a/arch/metag/kernel/metag_ksyms.c
++++ b/arch/metag/kernel/metag_ksyms.c
+@@ -12,7 +12,6 @@ EXPORT_SYMBOL(copy_page);
+ #ifdef CONFIG_FLATMEM
+ /* needed for the pfn_valid macro */
+ EXPORT_SYMBOL(max_pfn);
+-EXPORT_SYMBOL(min_low_pfn);
+ #endif
+ 
+ /* TBI symbols */
+-- 
+1.7.0.4
+
