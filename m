@@ -1,60 +1,78 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 17 May 2013 09:55:49 +0000
-Subject: [PATCH -v2 6/7] PCI/IA64: add host bridge resource release for _CRS path
-Message-Id: <1368784550-18332-7-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Tue, 14 May 2013 16:51:50 +0000
+Subject: [RFC PATCH v2, part 2 06/18] PCI, IA64: use hotplug-safe iterators to walk PCI buses
+Message-Id: <1368550322-1045-6-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
+References: <1368550322-1045-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1368550322-1045-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, Yinghai Lu <yinghai@kernel.org>
+Cc: Jiang Liu <jiang.liu@huawei.com>, "Rafael J . Wysocki" <rjw@sisk.pl>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Gu Zheng <guz.fnst@cn.fujitsu.com>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Set IA64 host bridge release function to make sure root bridge
-related resources get freed during root bus removal.
+Enhance IA64 architecture specific code to use hotplug-safe iterators
+to walk PCI buses.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
 Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- arch/ia64/pci/pci.c |   11 ++++++++++-
- 1 files changed, 10 insertions(+), 1 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c   | 2 +-
+ arch/ia64/sn/kernel/io_common.c   | 2 +-
+ arch/ia64/sn/pci/tioca_provider.c | 3 ++-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 658030f..2857a83 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -358,6 +358,13 @@ static void __release_pci_root_info(struct pci_root_info *info)
- 	kfree(info);
- }
- 
-+static void release_pci_root_info(struct pci_host_bridge *bridge)
-+{
-+	struct pci_root_info *info = bridge->release_data;
-+
-+	__release_pci_root_info(info);
-+}
-+
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- {
- 	struct acpi_device *device = root->device;
-@@ -433,7 +440,9 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		__release_pci_root_info(info);
- 		return NULL;
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index bcda5b2..6faf241 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2156,7 +2156,7 @@ sba_init(void)
+ #ifdef CONFIG_PCI
+ 	{
+ 		struct pci_bus *b = NULL;
+-		while ((b = pci_find_next_bus(b)) != NULL)
++		for_each_pci_root_bus(b)
+ 			sba_connect_bus(b);
  	}
--
-+
-+	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
-+			release_pci_root_info, info);
- 	pci_scan_child_bus(pbus);
- 	return pbus;
+ #endif
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 11f2275..87d8d8f 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -530,7 +530,7 @@ sn_io_late_init(void)
+ 	 * info from the PROM).
+ 	 */
+ 	bus = NULL;
+-	while ((bus = pci_find_next_bus(bus)) != NULL) {
++	for_each_pci_root_bus(bus) {
+ 		bussoft = SN_PCIBUS_BUSSOFT(bus);
+ 		nasid = NASID_GET(bussoft->bs_base);
+ 		cnode = nasid_to_cnodeid(nasid);
+diff --git a/arch/ia64/sn/pci/tioca_provider.c b/arch/ia64/sn/pci/tioca_provider.c
+index a70b11f..cd8c0fb 100644
+--- a/arch/ia64/sn/pci/tioca_provider.c
++++ b/arch/ia64/sn/pci/tioca_provider.c
+@@ -624,7 +624,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 	    nasid_to_cnodeid(tioca_common->ca_closest_nasid);
+ 	tioca_common->ca_kernel_private = (u64) tioca_kern;
  
+-	bus = pci_find_bus(tioca_common->ca_common.bs_persist_segment,
++	bus = pci_get_bus(tioca_common->ca_common.bs_persist_segment,
+ 		tioca_common->ca_common.bs_persist_busnum);
+ 	BUG_ON(!bus);
+ 	tioca_kern->ca_devices = &bus->devices;
+@@ -632,6 +632,7 @@ tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 	/* init GART */
+ 
+ 	if (tioca_gart_init(tioca_kern) < 0) {
++		pci_bus_put(bus);
+ 		kfree(tioca_kern);
+ 		kfree(tioca_common);
+ 		return NULL;
 -- 
-1.7.1
-
+1.8.1.2
 
