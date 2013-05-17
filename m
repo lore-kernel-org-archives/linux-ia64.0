@@ -1,52 +1,60 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Wed, 29 May 2013 10:05:18 +0000
-Subject: [PATCH] ia64: use %*phD specifier to dump small buffers
-Message-Id: <1369821918-3935-1-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 17 May 2013 09:55:49 +0000
+Subject: [PATCH -v2 6/7] PCI/IA64: add host bridge resource release for _CRS path
+Message-Id: <1368784550-18332-7-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
 
-pfm_uuid_t value is defined as unsigned char [16]. Thus, we may dump its value
-as byte buffer using %*phD specifier.
+Set IA64 host bridge release function to make sure root bridge
+related resources get freed during root bus removal.
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/perfmon.c | 20 ++------------------
- 1 file changed, 2 insertions(+), 18 deletions(-)
+ arch/ia64/pci/pci.c |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 9ea25fc..5a9ff1c 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -5647,24 +5647,8 @@ pfm_proc_show_header(struct seq_file *m)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 658030f..2857a83 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -358,6 +358,13 @@ static void __release_pci_root_info(struct pci_root_info *info)
+ 	kfree(info);
+ }
  
- 	list_for_each(pos, &pfm_buffer_fmt_list) {
- 		entry = list_entry(pos, pfm_buffer_fmt_t, fmt_list);
--		seq_printf(m, "format                    : %02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x-%02x %s\n",
--			entry->fmt_uuid[0],
--			entry->fmt_uuid[1],
--			entry->fmt_uuid[2],
--			entry->fmt_uuid[3],
--			entry->fmt_uuid[4],
--			entry->fmt_uuid[5],
--			entry->fmt_uuid[6],
--			entry->fmt_uuid[7],
--			entry->fmt_uuid[8],
--			entry->fmt_uuid[9],
--			entry->fmt_uuid[10],
--			entry->fmt_uuid[11],
--			entry->fmt_uuid[12],
--			entry->fmt_uuid[13],
--			entry->fmt_uuid[14],
--			entry->fmt_uuid[15],
--			entry->fmt_name);
-+		seq_printf(m, "format                    : %16phD %s\n",
-+			   entry->fmt_uuid, entry->fmt_name);
++static void release_pci_root_info(struct pci_host_bridge *bridge)
++{
++	struct pci_root_info *info = bridge->release_data;
++
++	__release_pci_root_info(info);
++}
++
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
+ 	struct acpi_device *device = root->device;
+@@ -433,7 +440,9 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 		__release_pci_root_info(info);
+ 		return NULL;
  	}
- 	spin_unlock(&pfm_buffer_fmt_lock);
+-
++
++	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
++			release_pci_root_info, info);
+ 	pci_scan_child_bus(pbus);
+ 	return pbus;
  
 -- 
-1.8.2.rc0.22.gb3600c3
+1.7.1
+
 
