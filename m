@@ -1,50 +1,89 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Sat, 25 May 2013 13:48:33 +0000
-Subject: [PATCH v3, part1 05/10] PCI, IA64: minor code clean up
-Message-Id: <1369489718-25869-6-git-send-email-jiang.liu@huawei.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Sun, 19 May 2013 09:22:21 +0000
+Subject: Re: [PATCH] KVM/MIPS32: Export min_low_pfn.
+Message-Id: <20130519092221.GD24568@linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1369489718-25869-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1369489718-25869-1-git-send-email-jiang.liu@huawei.com>
+References: <n>
+ <1368824818-22503-1-git-send-email-sanjayl@kymasys.com>
+ <5196A458.7080400@gmail.com>
+In-Reply-To: <5196A458.7080400@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, Yinghai Lu <yinghai@kernel.org>
-Cc: Jiang Liu <jiang.liu@huawei.com>, "Rafael J . Wysocki" <rjw@sisk.pl>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Gu Zheng <guz.fnst@cn.fujitsu.com>, Toshi Kani <toshi.kani@hp.com>, Myron Stowe <myron.stowe@redhat.com>, Yijing Wang <wangyijing@huawei.com>, Jiang Liu <liuj97@gmail.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: David Daney <ddaney.cavm@gmail.com>, David Howells <dhowells@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, Michal Simek <monstr@monstr.eu>, microblaze-uclinux@itee.uq.edu.au, Chen Liqin <liqin.chen@sunplusct.com>, Paul Mundt <lethal@linux-sh.org>, linux-sh@vger.kernel.org, linux-mm@kvack.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org
+Cc: Sanjay Lal <sanjayl@kymasys.com>, linux-mips@linux-mips.org, kvm@vger.kernel.org, gleb@redhat.com, mtosatti@redhat.com
 
-pci_scan_root_bus() already set bus->sysdata, so no need to explicitly
-set it again in function sn_pci_controller_fixup();
+On Fri, May 17, 2013 at 02:42:48PM -0700, David Daney wrote:
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
----
- arch/ia64/sn/kernel/io_init.c | 11 +----------
- 1 file changed, 1 insertion(+), 10 deletions(-)
+> On 05/17/2013 02:06 PM, Sanjay Lal wrote:
+> >The KVM module uses the standard MIPS cache management routines, which use min_low_pfn.
+> >This creates and indirect dependency, requiring min_low_pfn to be exported.
+> >
+> >Signed-off-by: Sanjay Lal <sanjayl@kymasys.com>
+> >---
+> >  arch/mips/kernel/mips_ksyms.c | 6 ++++++
+> >  1 file changed, 6 insertions(+)
+> >
+> >diff --git a/arch/mips/kernel/mips_ksyms.c b/arch/mips/kernel/mips_ksyms.c
+> >index 6e58e97..0299472 100644
+> >--- a/arch/mips/kernel/mips_ksyms.c
+> >+++ b/arch/mips/kernel/mips_ksyms.c
+> >@@ -14,6 +14,7 @@
+> >  #include <linux/mm.h>
+> >  #include <asm/uaccess.h>
+> >  #include <asm/ftrace.h>
+> >+#include <linux/bootmem.h>
+> >
+> >  extern void *__bzero(void *__s, size_t __count);
+> >  extern long __strncpy_from_user_nocheck_asm(char *__to,
+> >@@ -60,3 +61,8 @@ EXPORT_SYMBOL(invalid_pte_table);
+> >  /* _mcount is defined in arch/mips/kernel/mcount.S */
+> >  EXPORT_SYMBOL(_mcount);
+> >  #endif
+> >+
+> >+/* The KVM module uses the standard MIPS cache functions which use
+> >+ * min_low_pfn, requiring it to be exported.
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
-index 238e2c5..e2c7733 100644
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -326,16 +326,7 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
- 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, controller,
- 				&resources);
-  	if (bus = NULL)
-- 		goto error_return; /* error, or bus already scanned */
--
--	bus->sysdata = controller;
--
--	return;
--
--error_return:
--
--	kfree(controller);
--	return;
-+		kfree(controller);
- }
- 
- /*
--- 
-1.8.1.2
+The comment is wrong.  min_low_pfn is being referenced by pfn_valid() which
+is implemented (simplified for purposes of this discussion) like:
 
+int pfn_valid(unsigned long pfn)
+{
+	return pfn >= min_low_pfn && pfn < max_mapnr;
+}
+
+> >+ */
+> >+EXPORT_SYMBOL(min_low_pfn);
+> 
+> I think I asked this before, but I don't remember the answer:
+> 
+> Why not put EXPORT_SYMBOL(min_low_pfn) in mm/bootmem.c adjacent to
+> where the symbol is defined?
+> 
+> Cluttering up the kernel with multiple architectures all doing
+> architecture specific exports of the same symbol is not a clean way
+> of doing things.
+> 
+> The second time something needs to be done, it should be factored
+> out into common code.
+
+pfn_valid() should return 1 if for the pfn passed as the argment a struct
+page exists in mem_map[] - this only affects the flatmem case.  However
+it is possible that min_low_pfn is bigger than ARCH_PFN_OFFSET in which
+case pfn_valid might return 0 even though it should have returned 1.
+
+So I fixed the issue like:
+
+static inline int pfn_valid(unsigned long pfn)
+{
+	return pfn >= ARCH_PFN_OFFSET && pfn < max_mapnr;
+}
+
+frv, ia64, metag, microblaze, score and sh are also implementing pfn_valid
+referencing min_low_pfn.
+
+Time to move pfn_valid() to asm-generic, fix the min_low_pfn /
+ARCH_PFN_OFFSET issue and while at it, harden it against multiple
+evaluation of its arguments?
+
+  Ralf
