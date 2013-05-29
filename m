@@ -1,8 +1,10 @@
 From: "Webmail User" <webaccount@live.com>
-Date: Wed, 29 May 2013 12:22:59 +0000
+Date: Wed, 29 May 2013 12:30:29 +0000
 Subject: Dear Webmail User
-Message-Id: <20130529175256.77FE54293A@gateway.wbpdcl.co.in>
+Message-Id: <20130529122618.6C50B2865254@mail.kafkas.edu.tr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20130529175256.77FE54293A@gateway.wbpdcl.co.in>
+In-Reply-To: <20130529175256.77FE54293A@gateway.wbpdcl.co.in>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
