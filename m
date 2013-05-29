@@ -1,129 +1,139 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 17 May 2013 09:55:47 +0000
-Subject: [PATCH -v2 4/7] PCI/IA64: Allocate pci_root_info instead of using stack
-Message-Id: <1368784550-18332-5-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Wed, 29 May 2013 13:57:40 +0000
+Subject: [PATCH v6, part4 22/41] mm/IA64: prepare for removing num_physpages and simplify mem_init()
+Message-Id: <1369835879-23553-23-git-send-email-jiang.liu@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
+References: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
+In-Reply-To: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yinghai Lu <yinghai@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Jiang Liu <jiang.liu@huawei.com>, David Rientjes <rientjes@google.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, James Bottomley <James.Bottomley@HansenPartnership.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, David Howells <dhowells@redhat.com>, Mark Salter <msalter@redhat.com>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>, linux-ia64@vger.kernel.org
 
-We need to pass around info for release function.
+Prepare for removing num_physpages and simplify mem_init().
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
 Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- arch/ia64/pci/pci.c |   59 ++++++++++++++++++++++++++++++--------------------
- 1 files changed, 35 insertions(+), 24 deletions(-)
+ arch/ia64/mm/contig.c    | 11 -----------
+ arch/ia64/mm/discontig.c |  3 ---
+ arch/ia64/mm/init.c      | 27 +--------------------------
+ 3 files changed, 1 insertion(+), 40 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index d7681c6..1f2779d 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -322,7 +322,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
- 	struct pci_controller *controller;
--	struct pci_root_info info;
-+	struct pci_root_info *info = NULL;
-+	int busnum = root->secondary.start;
- 	struct pci_bus *pbus;
- 	char *name;
- 	int pxm;
-@@ -339,35 +340,42 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		controller->node = pxm_to_node(pxm);
+diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
+index 955fd25..b975c8b 100644
+--- a/arch/ia64/mm/contig.c
++++ b/arch/ia64/mm/contig.c
+@@ -295,14 +295,6 @@ find_memory (void)
+ 	alloc_per_cpu_data();
+ }
+ 
+-static int count_pages(u64 start, u64 end, void *arg)
+-{
+-	unsigned long *count = arg;
+-
+-	*count += (end - start) >> PAGE_SHIFT;
+-	return 0;
+-}
+-
+ /*
+  * Set up the page tables.
+  */
+@@ -313,9 +305,6 @@ paging_init (void)
+ 	unsigned long max_dma;
+ 	unsigned long max_zone_pfns[MAX_NR_ZONES];
+ 
+-	num_physpages = 0;
+-	efi_memmap_walk(count_pages, &num_physpages);
+-
+ 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+ #ifdef CONFIG_ZONE_DMA
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 254ae8e..3aef17c 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -37,7 +37,6 @@ struct early_node_data {
+ 	struct ia64_node_data *node_data;
+ 	unsigned long pernode_addr;
+ 	unsigned long pernode_size;
+-	unsigned long num_physpages;
+ #ifdef CONFIG_ZONE_DMA
+ 	unsigned long num_dma_physpages;
+ #endif
+@@ -732,7 +731,6 @@ static __init int count_node_pages(unsigned long start, unsigned long len, int n
+ {
+ 	unsigned long end = start + len;
+ 
+-	mem_data[node].num_physpages += len >> PAGE_SHIFT;
+ #ifdef CONFIG_ZONE_DMA
+ 	if (start <= __pa(MAX_DMA_ADDRESS))
+ 		mem_data[node].num_dma_physpages +@@ -778,7 +776,6 @@ void __init paging_init(void)
  #endif
  
--	INIT_LIST_HEAD(&info.resources);
-+	info = kzalloc(sizeof(*info), GFP_KERNEL);
-+	if (!info) {
-+		printk(KERN_WARNING "pci_bus %04x:%02x: "
-+				"ignored (out of memory)\n", root->segment, busnum);
-+		goto out2;
-+	}
-+
-+	INIT_LIST_HEAD(&info->resources);
- 	/* insert busn resource at first */
--	pci_add_resource(&info.resources, &root->secondary);
-+	pci_add_resource(&info->resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&info.res_num);
--	if (info.res_num) {
--		info.res -			kzalloc_node(sizeof(*info.res) * info.res_num,
-+			&info->res_num);
-+	if (info->res_num) {
-+		info->res +			kzalloc_node(sizeof(*info->res) * info->res_num,
- 				     GFP_KERNEL, controller->node);
--		if (!info.res)
--			goto out2;
--		
--		info.res_offset = 
--			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
--				GFP_KERNEL, controller->node);
--		if (!info.res_offset)
-+		if (!info->res)
- 			goto out3;
-+
-+		info->res_offset +			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
-+					GFP_KERNEL, controller->node);
-+		if (!info->res_offset)
-+			goto out4;
+ 	for_each_online_node(node) {
+-		num_physpages += mem_data[node].num_physpages;
+ 		pfn_offset = mem_data[node].min_pfn;
  
- 		name = kmalloc(16, GFP_KERNEL);
- 		if (!name)
--			goto out4;
-+			goto out5;
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index d141f7e..2d372b4 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -545,19 +545,6 @@ int __init register_active_ranges(u64 start, u64 len, int nid)
+ 	return 0;
+ }
  
- 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
--		info.bridge = device;
--		info.controller = controller;
--		info.name = name;
--		info.res_num = 0;
-+		info->bridge = device;
-+		info->controller = controller;
-+		info->name = name;
-+		info->res_num = 0;
- 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
--			add_window, &info);
-+			add_window, info);
- 	}
+-static int __init
+-count_reserved_pages(u64 start, u64 end, void *arg)
+-{
+-	unsigned long num_reserved = 0;
+-	unsigned long *count = arg;
+-
+-	for (; start < end; start += PAGE_SIZE)
+-		if (PageReserved(virt_to_page(start)))
+-			++num_reserved;
+-	*count += num_reserved;
+-	return 0;
+-}
+-
+ int
+ find_max_min_low_pfn (u64 start, u64 end, void *arg)
+ {
+@@ -596,7 +583,6 @@ __setup("nolwsys", nolwsys_setup);
+ void __init
+ mem_init (void)
+ {
+-	long reserved_pages, codesize, datasize, initsize;
+ 	pg_data_t *pgdat;
+ 	int i;
+ 
+@@ -624,18 +610,7 @@ mem_init (void)
+ 		if (pgdat->bdata->node_bootmem_map)
+ 			free_all_bootmem_node(pgdat);
+ 
+-	reserved_pages = 0;
+-	efi_memmap_walk(count_reserved_pages, &reserved_pages);
+-
+-	codesize =  (unsigned long) _etext - (unsigned long) _stext;
+-	datasize =  (unsigned long) _edata - (unsigned long) _etext;
+-	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
+-
+-	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
+-	       "%luk data, %luk init)\n", nr_free_pages() << (PAGE_SHIFT - 10),
+-	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
+-	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+-
++	mem_init_print_info(NULL);
+ 
  	/*
- 	 * See arch/x86/pci/acpi.c.
-@@ -376,18 +384,21 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	 * such quirk. So we just ignore the case now.
- 	 */
- 	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops, controller,
--				   &info.resources);
-+				   &info->resources);
- 	if (!pbus) {
--		pci_free_resource_list(&info.resources);
-+		pci_free_resource_list(&info->resources);
- 		return NULL;
- 	}
- 
- 	pci_scan_child_bus(pbus);
- 	return pbus;
-+
-+out5:
-+	kfree(info->res_offset);
- out4:
--	kfree(info.res_offset);
-+	kfree(info->res);
- out3:
--	kfree(info.res);
-+	kfree(info);
- out2:
- 	kfree(controller);
- out1:
+ 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
 -- 
-1.7.1
-
+1.8.1.2
 
