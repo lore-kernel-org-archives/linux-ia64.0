@@ -1,60 +1,39 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Wed, 29 May 2013 14:44:42 +0000
-Subject: [PATCH, v2 03/13] mm/IA64: prepare for killing free_all_bootmem_node()
-Message-Id: <1369838692-26860-4-git-send-email-jiang.liu@huawei.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 29 May 2013 21:55:02 +0000
+Subject: [PATCH] ia64/PCI: Remove unused fallback_dev
+Message-Id: <20130529215502.4977.2759.stgit@bhelgaas-glaptop>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1369838692-26860-1-git-send-email-jiang.liu@huawei.com>
-In-Reply-To: <1369838692-26860-1-git-send-email-jiang.liu@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Jiang Liu <jiang.liu@huawei.com>, David Rientjes <rientjes@google.com>, Wen Congyang <wency@cn.fujitsu.com>, Mel Gorman <mgorman@suse.de>, Minchan Kim <minchan@kernel.org>, KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>, Michal Hocko <mhocko@suse.cz>, James Bottomley <James.Bottomley@HansenPartnership.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, David Howells <dhowells@redhat.com>, Mark Salter <msalter@redhat.com>, Jianguo Wu <wujianguo@huawei.com>, linux-mm@kvack.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tang Chen <tangchen@cn.fujitsu.com>, linux-ia64@vger.kernel.org
+To: Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Prepare for killing free_all_bootmem_node() by using
-free_all_bootmem().
+There are no users of fallback_dev, so remove it.
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Tang Chen <tangchen@cn.fujitsu.com>
-Cc: David Rientjes <rientjes@google.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- arch/ia64/mm/init.c | 9 ++-------
- 1 file changed, 2 insertions(+), 7 deletions(-)
+ arch/ia64/kernel/pci-dma.c |    9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 2d372b4..b6f7f43 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -583,7 +583,6 @@ __setup("nolwsys", nolwsys_setup);
- void __init
- mem_init (void)
- {
--	pg_data_t *pgdat;
- 	int i;
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 1ddcfe5..992c109 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -33,15 +33,6 @@ int force_iommu __read_mostly;
  
- 	BUG_ON(PTRS_PER_PGD * sizeof(pgd_t) != PAGE_SIZE);
-@@ -601,15 +600,11 @@ mem_init (void)
+ int iommu_pass_through;
  
- #ifdef CONFIG_FLATMEM
- 	BUG_ON(!mem_map);
--	max_mapnr = max_low_pfn;
- #endif
- 
-+	set_max_mapnr(max_low_pfn);
- 	high_memory = __va(max_low_pfn * PAGE_SIZE);
+-/* Dummy device used for NULL arguments (normally ISA). Better would
+-   be probably a smaller DMA mask, but this is bug-to-bug compatible
+-   to i386. */
+-struct device fallback_dev = {
+-	.init_name = "fallback device",
+-	.coherent_dma_mask = DMA_BIT_MASK(32),
+-	.dma_mask = &fallback_dev.coherent_dma_mask,
+-};
 -
--	for_each_online_pgdat(pgdat)
--		if (pgdat->bdata->node_bootmem_map)
--			free_all_bootmem_node(pgdat);
--
-+	free_all_bootmem();
- 	mem_init_print_info(NULL);
+ extern struct dma_map_ops intel_dma_ops;
  
- 	/*
--- 
-1.8.1.2
+ static int __init pci_iommu_init(void)
 
