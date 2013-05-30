@@ -1,97 +1,41 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 17 May 2013 09:55:45 +0000
-Subject: [PATCH -v2 2/7] PCI/IA64: SN: remove sn_pci_window_fixup()
-Message-Id: <1368784550-18332-3-git-send-email-wangyijing@huawei.com>
+From: Chen Gang <gang.chen@asianux.com>
+Date: Thu, 30 May 2013 02:35:34 +0000
+Subject: [PATCH] arch: ia64: hp: sim: sprintf() memory overflow, need really use the default value just as it
+Message-Id: <51A6BAF6.4010901@asianux.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1368784550-18332-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>
 
-Currently, pcibios_bus_to_resource() and pcibios_resource_to_bus()
-functions use pci_host_bridge_window in pci_host_bridge to translate
-bus side to/from cpu side addresses. Pci_window in pci_controller
-under IA64 is no used again, so remove this function.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+When "strlen(s) > MAX_ROOT_LEN", it has already said to use the default
+value, but in fact, it still use the input value.
+
+If happens, next sprintf() for 'fname' in simscsi_queuecommand_lck()
+may be memory overflow.
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
 ---
- arch/ia64/sn/kernel/io_init.c |   49 +----------------------------------------
- 1 files changed, 1 insertions(+), 48 deletions(-)
+ arch/ia64/hp/sim/simscsi.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
-index 238e2c5..99710f5 100644
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -149,48 +149,6 @@ sn_legacy_pci_window_fixup(struct pci_controller *controller,
- }
- 
- /*
-- * sn_pci_window_fixup() - Create a pci_window for each device resource.
-- *			   It will setup pci_windows for use by
-- *			   pcibios_bus_to_resource(), pcibios_resource_to_bus(),
-- *			   etc.
-- */
--static void
--sn_pci_window_fixup(struct pci_dev *dev, unsigned int count,
--		    s64 * pci_addrs)
--{
--	struct pci_controller *controller = PCI_CONTROLLER(dev->bus);
--	unsigned int i;
--	unsigned int idx;
--	unsigned int new_count;
--	struct pci_window *new_window;
--
--	if (count = 0)
--		return;
--	idx = controller->windows;
--	new_count = controller->windows + count;
--	new_window = kcalloc(new_count, sizeof(struct pci_window), GFP_KERNEL);
--	BUG_ON(new_window = NULL);
--	if (controller->window) {
--		memcpy(new_window, controller->window,
--		       sizeof(struct pci_window) * controller->windows);
--		kfree(controller->window);
+diff --git a/arch/ia64/hp/sim/simscsi.c b/arch/ia64/hp/sim/simscsi.c
+index 331de72..3a428f1 100644
+--- a/arch/ia64/hp/sim/simscsi.c
++++ b/arch/ia64/hp/sim/simscsi.c
+@@ -88,8 +88,8 @@ simscsi_setup (char *s)
+ 	if (strlen(s) > MAX_ROOT_LEN) {
+ 		printk(KERN_ERR "simscsi_setup: prefix too long---using default %s\n",
+ 		       simscsi_root);
 -	}
--
--	/* Setup a pci_window for each device resource. */
--	for (i = 0; i <= PCI_ROM_RESOURCE; i++) {
--		if (pci_addrs[i] = -1)
--			continue;
--
--		new_window[idx].offset = dev->resource[i].start - pci_addrs[i];
--		new_window[idx].resource = dev->resource[i];
--		idx++;
--	}
--
--	controller->windows = new_count;
--	controller->window = new_window;
--}
--
--/*
-  * sn_io_slot_fixup() -   We are not running with an ACPI capable PROM,
-  *			  and need to convert the pci_dev->resource
-  *			  'start' and 'end' addresses to mapped addresses,
-@@ -276,12 +234,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
- 						 IORESOURCE_ROM_BIOS_COPY;
- 		}
- 	}
--	/* Create a pci_window in the pci_controller struct for
--	 * each device resource.
--	 */
--	if (count > 0)
--		sn_pci_window_fixup(dev, count, pci_addrs);
--
-+
- 	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
+-	simscsi_root = s;
++	} else
++		simscsi_root = s;
+ 	return 1;
  }
  
 -- 
-1.7.1
-
-
+1.7.7.6
