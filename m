@@ -1,33 +1,117 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 17 Jun 2013 20:47:22 +0000
-Subject: [GIT PULL] Fix ia64 build breakage
-Message-Id: <51bf75da154314b73f@agluck-desk.sc.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Tue, 04 Jun 2013 10:59:08 +0000
+Subject: [PATCH -v3 2/8] PCI/IA64: SN: use normal resource instead of pci_window
+Message-Id: <1370343554-11812-3-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4bff019827164eea63@agluck-desktop.sc.intel.com>
-In-Reply-To: <4bff019827164eea63@agluck-desktop.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The following changes since commit 8177a9d79c0e942dcac3312f15585d0344d505a5:
+Pci_window in pci_controller will not be used again,
+use normal resource instead of pci_window in
+sn_legacy_pci_window_fixup(), this patch is to prepare
+remove pci_window in IA64.
 
-  lseek(fd, n, SEEK_END) does *not* go to eof - n (2013-06-16 08:10:53 -1000)
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/ia64/sn/kernel/io_init.c |   54 +++++++++++++++++++----------------------
+ 1 files changed, 25 insertions(+), 29 deletions(-)
 
-are available in the git repository at:
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+index b8ff9ea..3fd15e8 100644
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -118,34 +118,29 @@ static void __init sn_fixup_ionodes(void)
+ }
+ 
+ /*
+- * sn_pci_legacy_window_fixup - Create PCI controller windows for
++ * sn_pci_legacy_window_fixup - Create PCI resources for
+  *				legacy IO and MEM space. This needs to
+  *				be done here, as the PROM does not have
+  *				ACPI support defining the root buses
+  *				and their resources (_CRS),
+  */
+ static void
+-sn_legacy_pci_window_fixup(struct pci_controller *controller,
+-			   u64 legacy_io, u64 legacy_mem)
++sn_legacy_pci_window_fixup(struct resource *res,
++		u64 legacy_io, u64 legacy_mem)
+ {
+-		controller->window = kcalloc(2, sizeof(struct pci_window),
++		res = kcalloc(2, sizeof(struct resource),
+ 					     GFP_KERNEL);
+-		BUG_ON(controller->window = NULL);
+-		controller->window[0].offset = legacy_io;
+-		controller->window[0].resource.name = "legacy_io";
+-		controller->window[0].resource.flags = IORESOURCE_IO;
+-		controller->window[0].resource.start = legacy_io;
+-		controller->window[0].resource.end -	    			controller->window[0].resource.start + 0xffff;
+-		controller->window[0].resource.parent = &ioport_resource;
+-		controller->window[1].offset = legacy_mem;
+-		controller->window[1].resource.name = "legacy_mem";
+-		controller->window[1].resource.flags = IORESOURCE_MEM;
+-		controller->window[1].resource.start = legacy_mem;
+-		controller->window[1].resource.end -	    	       controller->window[1].resource.start + (1024 * 1024) - 1;
+-		controller->window[1].resource.parent = &iomem_resource;
+-		controller->windows = 2;
++		BUG_ON(res = NULL);
++		res[0].name = "legacy_io";
++		res[0].flags = IORESOURCE_IO;
++		res[0].start = legacy_io;
++		res[0].end = res->start + 0xffff;
++		res[0].parent = &ioport_resource;
++		res[1].name = "legacy_mem";
++		res[1].flags = IORESOURCE_MEM;
++		res[1].start = legacy_mem;
++		res[1].end = res->start + (1024 * 1024) - 1;
++		res[1].parent = &iomem_resource;
+ }
+ 
+ /*
+@@ -244,8 +239,8 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	s64 status = 0;
+ 	struct pci_controller *controller;
+ 	struct pcibus_bussoft *prom_bussoft_ptr;
++	struct resource *res = NULL;
+ 	LIST_HEAD(resources);
+-	int i;
+ 
+  	status = sal_get_pcibus_info((u64) segment, (u64) busnum,
+  				     (u64) ia64_tpa(&prom_bussoft_ptr));
+@@ -263,13 +258,14 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	 */
+ 	controller->platform_data = prom_bussoft_ptr;
+ 
+-	sn_legacy_pci_window_fixup(controller,
+-				   prom_bussoft_ptr->bs_legacy_io,
+-				   prom_bussoft_ptr->bs_legacy_mem);
+-	for (i = 0; i < controller->windows; i++)
+-		pci_add_resource_offset(&resources,
+-					&controller->window[i].resource,
+-					controller->window[i].offset);
++	sn_legacy_pci_window_fixup(res,
++			prom_bussoft_ptr->bs_legacy_io,
++			prom_bussoft_ptr->bs_legacy_mem);
++	pci_add_resource_offset(&resources,	&res[0],
++			prom_bussoft_ptr->bs_legacy_io);
++	pci_add_resource_offset(&resources,	&res[1],
++			prom_bussoft_ptr->bs_legacy_mem);
++
+ 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, controller,
+ 				&resources);
+  	if (bus = NULL)
+@@ -280,7 +276,7 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	return;
+ 
+ error_return:
+-
++	kfree(res);
+ 	kfree(controller);
+ 	return;
+ }
+-- 
+1.7.1
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-fixia64
 
-for you to fetch changes up to f75773103d24faaa75323597c2804edfb4a48a52:
-
-  [IA64] Fix include dependency in asm/irqflags.h (2013-06-17 13:39:52 -0700)
-
-----------------------------------------------------------------
-Fix ia64 build breakage by adding newly needed #include
-
-----------------------------------------------------------------
-David Daney (1):
-      [IA64] Fix include dependency in asm/irqflags.h
-
- arch/ia64/include/asm/irqflags.h | 1 +
- 1 file changed, 1 insertion(+)
