@@ -1,104 +1,132 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Thu, 27 Jun 2013 20:11:07 +0000
-Subject: [PATCH v3 36/45] ia64: smp, tlb: Use get/put_online_cpus_atomic() to prevent CPU offline
-Message-Id: <20130627195907.29830.12505.stgit@srivatsabhat.in.ibm.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 05 Jun 2013 06:01:50 +0000
+Subject: [PATCH -v4 1/8] PCI/IA64: SN: remove sn_pci_window_fixup()
+Message-Id: <1370412117-12860-2-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
-In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
+References: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com, David.Laight@aculab.com
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, John Keller <jpk@sgi.com>, Jay Lan <jlan@engr.sgi.com>, Jack Steiner <steiner@sgi.com>, Mark Maule <maule@sgi.com>
 
-Once stop_machine() is gone from the CPU offline path, we won't be able
-to depend on disabling preemption to prevent CPUs from going offline
-from under us.
+Currently, pcibios_bus_to_resource() and pcibios_resource_to_bus()
+functions use pci_host_bridge_window in pci_host_bridge to translate
+bus side to/from cpu side addresses. Pci_window in pci_controller
+under IA64 is no used again, so it's no need to use sn_pci_window_fixup()
+to setup pci_window again, remove it.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-offline, while invoking from atomic context.
-
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: John Keller <jpk@sgi.com>
+Cc: Jay Lan <jlan@engr.sgi.com>
+Cc: Jack Steiner <steiner@sgi.com>
+Cc: Mark Maule <maule@sgi.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
+ arch/ia64/sn/kernel/io_init.c |   55 +----------------------------------------
+ 1 files changed, 1 insertions(+), 54 deletions(-)
 
- arch/ia64/kernel/smp.c |   12 ++++++------
- arch/ia64/mm/tlb.c     |    4 ++--
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-index 9fcd4e6..25991ba 100644
---- a/arch/ia64/kernel/smp.c
-+++ b/arch/ia64/kernel/smp.c
-@@ -24,6 +24,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
- #include <linux/kernel_stat.h>
- #include <linux/mm.h>
- #include <linux/cache.h>
-@@ -259,8 +260,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 	cpumask_t cpumask = xcpumask;
- 	int mycpu, cpu, flush_mycpu = 0;
- 
--	preempt_disable();
--	mycpu = smp_processor_id();
-+	mycpu = get_online_cpus_atomic();
- 
- 	for_each_cpu_mask(cpu, cpumask)
- 		counts[cpu] = local_tlb_flush_counts[cpu].count & 0xffff;
-@@ -280,7 +280,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 		while(counts[cpu] = (local_tlb_flush_counts[cpu].count & 0xffff))
- 			udelay(FLUSH_DELAY);
- 
--	preempt_enable();
-+	put_online_cpus_atomic();
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+index 238e2c5..b8ff9ea 100644
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -149,48 +149,6 @@ sn_legacy_pci_window_fixup(struct pci_controller *controller,
  }
  
+ /*
+- * sn_pci_window_fixup() - Create a pci_window for each device resource.
+- *			   It will setup pci_windows for use by
+- *			   pcibios_bus_to_resource(), pcibios_resource_to_bus(),
+- *			   etc.
+- */
+-static void
+-sn_pci_window_fixup(struct pci_dev *dev, unsigned int count,
+-		    s64 * pci_addrs)
+-{
+-	struct pci_controller *controller = PCI_CONTROLLER(dev->bus);
+-	unsigned int i;
+-	unsigned int idx;
+-	unsigned int new_count;
+-	struct pci_window *new_window;
+-
+-	if (count = 0)
+-		return;
+-	idx = controller->windows;
+-	new_count = controller->windows + count;
+-	new_window = kcalloc(new_count, sizeof(struct pci_window), GFP_KERNEL);
+-	BUG_ON(new_window = NULL);
+-	if (controller->window) {
+-		memcpy(new_window, controller->window,
+-		       sizeof(struct pci_window) * controller->windows);
+-		kfree(controller->window);
+-	}
+-
+-	/* Setup a pci_window for each device resource. */
+-	for (i = 0; i <= PCI_ROM_RESOURCE; i++) {
+-		if (pci_addrs[i] = -1)
+-			continue;
+-
+-		new_window[idx].offset = dev->resource[i].start - pci_addrs[i];
+-		new_window[idx].resource = dev->resource[i];
+-		idx++;
+-	}
+-
+-	controller->windows = new_count;
+-	controller->window = new_window;
+-}
+-
+-/*
+  * sn_io_slot_fixup() -   We are not running with an ACPI capable PROM,
+  *			  and need to convert the pci_dev->resource
+  *			  'start' and 'end' addresses to mapped addresses,
+@@ -199,9 +157,7 @@ sn_pci_window_fixup(struct pci_dev *dev, unsigned int count,
  void
-@@ -293,12 +293,12 @@ void
- smp_flush_tlb_mm (struct mm_struct *mm)
+ sn_io_slot_fixup(struct pci_dev *dev)
  {
- 	cpumask_var_t cpus;
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	/* this happens for the common case of a single-threaded fork():  */
- 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
- 	{
- 		local_finish_flush_tlb_mm(mm);
--		preempt_enable();
-+		put_online_cpus_atomic();
- 		return;
+-	unsigned int count = 0;
+ 	int idx;
+-	s64 pci_addrs[PCI_ROM_RESOURCE + 1];
+ 	unsigned long addr, end, size, start;
+ 	struct pcidev_info *pcidev_info;
+ 	struct sn_irq_info *sn_irq_info;
+@@ -229,7 +185,6 @@ sn_io_slot_fixup(struct pci_dev *dev)
+ 	for (idx = 0; idx <= PCI_ROM_RESOURCE; idx++) {
+ 
+ 		if (!pcidev_info->pdi_pio_mapped_addr[idx]) {
+-			pci_addrs[idx] = -1;
+ 			continue;
+ 		}
+ 
+@@ -237,11 +192,8 @@ sn_io_slot_fixup(struct pci_dev *dev)
+ 		end = dev->resource[idx].end;
+ 		size = end - start;
+ 		if (size = 0) {
+-			pci_addrs[idx] = -1;
+ 			continue;
+ 		}
+-		pci_addrs[idx] = start;
+-		count++;
+ 		addr = pcidev_info->pdi_pio_mapped_addr[idx];
+ 		addr = ((addr << 4) >> 4) | __IA64_UNCACHED_OFFSET;
+ 		dev->resource[idx].start = addr;
+@@ -276,12 +228,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
+ 						 IORESOURCE_ROM_BIOS_COPY;
+ 		}
  	}
- 	if (!alloc_cpumask_var(&cpus, GFP_ATOMIC)) {
-@@ -313,7 +313,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
- 	local_irq_disable();
- 	local_finish_flush_tlb_mm(mm);
- 	local_irq_enable();
--	preempt_enable();
-+	put_online_cpus_atomic();
+-	/* Create a pci_window in the pci_controller struct for
+-	 * each device resource.
+-	 */
+-	if (count > 0)
+-		sn_pci_window_fixup(dev, count, pci_addrs);
+-
++
+ 	sn_pci_fixup_slot(dev, pcidev_info, sn_irq_info);
  }
  
- void arch_send_call_function_single_ipi(int cpu)
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index ed61297..8c55ef5 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -87,11 +87,11 @@ wrap_mmu_context (struct mm_struct *mm)
- 	 * can't call flush_tlb_all() here because of race condition
- 	 * with O(1) scheduler [EF]
- 	 */
--	cpu = get_cpu(); /* prevent preemption/migration */
-+	cpu = get_online_cpus_atomic(); /* prevent preemption/migration */
- 	for_each_online_cpu(i)
- 		if (i != cpu)
- 			per_cpu(ia64_need_tlb_flush, i) = 1;
--	put_cpu();
-+	put_online_cpus_atomic();
- 	local_flush_tlb_all();
- }
- 
+-- 
+1.7.1
+
 
