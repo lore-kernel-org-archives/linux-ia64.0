@@ -1,10 +1,10 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 06 Jun 2013 07:34:50 +0000
-Subject: [PATCH -v5 5/8] PCI/IA64: fix memleak for create pci root bus fail
-Message-Id: <1370504093-14908-6-git-send-email-wangyijing@huawei.com>
+Date: Wed, 05 Jun 2013 06:01:54 +0000
+Subject: [PATCH -v4 5/8] PCI/IA64: fix memleak for create pci root bus fail
+Message-Id: <1370412117-12860-6-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
+References: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,11 +25,11 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
 ---
  arch/ia64/include/asm/pci.h |    5 +++
- arch/ia64/pci/pci.c         |   74 ++++++++++++++++++++++++++++++++++--------
- 2 files changed, 65 insertions(+), 14 deletions(-)
+ arch/ia64/pci/pci.c         |   75 ++++++++++++++++++++++++++++++++++--------
+ 2 files changed, 65 insertions(+), 15 deletions(-)
 
 diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index a7ebe5f..80775f5 100644
+index a7ebe5f..00487b8 100644
 --- a/arch/ia64/include/asm/pci.h
 +++ b/arch/ia64/include/asm/pci.h
 @@ -89,6 +89,11 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
@@ -45,7 +45,7 @@ index a7ebe5f..80775f5 100644
  	void *acpi_handle;
  	void *iommu;
 diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 6da469a..99a9f67 100644
+index 3a8b361..dfb6149 100644
 --- a/arch/ia64/pci/pci.c
 +++ b/arch/ia64/pci/pci.c
 @@ -137,6 +137,7 @@ struct pci_root_info {
@@ -124,7 +124,7 @@ index 6da469a..99a9f67 100644
  out:
  	return ~0;
  }
-@@ -325,6 +327,48 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
+@@ -325,6 +327,47 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
  	return AE_OK;
  }
  
@@ -135,7 +135,6 @@ index 6da469a..99a9f67 100644
 +	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list)
 +		kfree(iospace);
 +
-+	kfree(info->name);
 +	kfree(info->res);
 +	info->res = NULL;
 +	kfree(info->res_offset);
@@ -173,15 +172,17 @@ index 6da469a..99a9f67 100644
  struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  {
  	struct acpi_device *device = root->device;
-@@ -357,6 +401,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+@@ -355,7 +398,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 				"ignored (out of memory)\n", root->segment, busnum);
  		goto out2;
  	}
- 
+-
++
 +	INIT_LIST_HEAD(&info->io_resources);
  	INIT_LIST_HEAD(&info->resources);
  	/* insert busn resource at first */
  	pci_add_resource(&info->resources, &root->secondary);
-@@ -397,6 +442,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+@@ -396,6 +440,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  				   &info->resources);
  	if (!pbus) {
  		pci_free_resource_list(&info->resources);
