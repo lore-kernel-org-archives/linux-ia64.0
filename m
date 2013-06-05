@@ -1,176 +1,134 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Sun, 23 Jun 2013 13:57:59 +0000
-Subject: [PATCH 35/45] ia64: irq, perfmon: Use get/put_online_cpus_atomic() to prevent CPU offline
-Message-Id: <20130623134555.19094.5855.stgit@srivatsabhat.in.ibm.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 05 Jun 2013 06:01:51 +0000
+Subject: [PATCH -v4 2/8] PCI/IA64: SN: use normal resource instead of pci_window
+Message-Id: <1370412117-12860-3-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+References: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, John Keller <jpk@sgi.com>, Jay Lan <jlan@engr.sgi.com>, Jack Steiner <steiner@sgi.com>, Mark Maule <maule@sgi.com>
 
-Once stop_machine() is gone from the CPU offline path, we won't be able
-to depend on disabling preemption to prevent CPUs from going offline
-from under us.
+Pci_window in pci_controller will not be used again,
+use normal resource instead of pci_window in
+sn_legacy_pci_window_fixup(), this patch is to prepare
+remove pci_window in IA64.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-offline, while invoking from atomic context.
-
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: John Keller <jpk@sgi.com>
+Cc: Jay Lan <jlan@engr.sgi.com>
+Cc: Jack Steiner <steiner@sgi.com>
+Cc: Mark Maule <maule@sgi.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
+ arch/ia64/sn/kernel/io_init.c |   56 +++++++++++++++++++----------------------
+ 1 files changed, 26 insertions(+), 30 deletions(-)
 
- arch/ia64/kernel/irq_ia64.c |   15 +++++++++++++++
- arch/ia64/kernel/perfmon.c  |    8 +++++++-
- 2 files changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 1034884..f58b162 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -25,6 +25,7 @@
- #include <linux/ptrace.h>
- #include <linux/signal.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
- #include <linux/threads.h>
- #include <linux/bitops.h>
- #include <linux/irq.h>
-@@ -160,9 +161,11 @@ int bind_irq_vector(int irq, int vector, cpumask_t domain)
- 	unsigned long flags;
- 	int ret;
- 
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	ret = __bind_irq_vector(irq, vector, domain);
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
- 	return ret;
- }
- 
-@@ -190,9 +193,11 @@ static void clear_irq_vector(int irq)
- {
- 	unsigned long flags;
- 
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	__clear_irq_vector(irq);
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
- }
- 
- int
-@@ -204,6 +209,7 @@ ia64_native_assign_irq_vector (int irq)
- 
- 	vector = -ENOSPC;
- 
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	for_each_online_cpu(cpu) {
- 		domain = vector_allocation_domain(cpu);
-@@ -218,6 +224,7 @@ ia64_native_assign_irq_vector (int irq)
- 	BUG_ON(__bind_irq_vector(irq, vector, domain));
-  out:
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
- 	return vector;
- }
- 
-@@ -302,9 +309,11 @@ int irq_prepare_move(int irq, int cpu)
- 	unsigned long flags;
- 	int ret;
- 
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	ret = __irq_prepare_move(irq, cpu);
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
- 	return ret;
- }
- 
-@@ -320,11 +329,13 @@ void irq_complete_move(unsigned irq)
- 	if (unlikely(cpu_isset(smp_processor_id(), cfg->old_domain)))
- 		return;
- 
-+	get_online_cpus_atomic();
- 	cpumask_and(&cleanup_mask, &cfg->old_domain, cpu_online_mask);
- 	cfg->move_cleanup_count = cpus_weight(cleanup_mask);
- 	for_each_cpu_mask(i, cleanup_mask)
- 		platform_send_ipi(i, IA64_IRQ_MOVE_VECTOR, IA64_IPI_DM_INT, 0);
- 	cfg->move_in_progress = 0;
-+	put_online_cpus_atomic();
- }
- 
- static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
-@@ -393,10 +404,12 @@ void destroy_and_reserve_irq(unsigned int irq)
- 
- 	dynamic_irq_cleanup(irq);
- 
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	__clear_irq_vector(irq);
- 	irq_status[irq] = IRQ_RSVD;
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+index b8ff9ea..d97e2b4 100644
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -118,34 +118,26 @@ static void __init sn_fixup_ionodes(void)
  }
  
  /*
-@@ -409,6 +422,7 @@ int create_irq(void)
- 	cpumask_t domain = CPU_MASK_NONE;
- 
- 	irq = vector = -ENOSPC;
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&vector_lock, flags);
- 	for_each_online_cpu(cpu) {
- 		domain = vector_allocation_domain(cpu);
-@@ -424,6 +438,7 @@ int create_irq(void)
- 	BUG_ON(__bind_irq_vector(irq, vector, domain));
-  out:
- 	spin_unlock_irqrestore(&vector_lock, flags);
-+	put_online_cpus_atomic();
- 	if (irq >= 0)
- 		dynamic_irq_init(irq);
- 	return irq;
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 9ea25fc..16c8303 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -6476,9 +6476,12 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
- 	/* do the easy test first */
- 	if (pfm_alt_intr_handler) return -EBUSY;
- 
-+	get_online_cpus_atomic();
-+
- 	/* one at a time in the install or remove, just fail the others */
- 	if (!spin_trylock(&pfm_alt_install_check)) {
--		return -EBUSY;
-+		ret = -EBUSY;
-+		goto out;
- 	}
- 
- 	/* reserve our session */
-@@ -6498,6 +6501,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
- 	pfm_alt_intr_handler = hdl;
- 
- 	spin_unlock(&pfm_alt_install_check);
-+	put_online_cpus_atomic();
- 
- 	return 0;
- 
-@@ -6510,6 +6514,8 @@ cleanup_reserve:
- 	}
- 
- 	spin_unlock(&pfm_alt_install_check);
-+out:
-+	put_online_cpus_atomic();
- 
- 	return ret;
+- * sn_pci_legacy_window_fixup - Create PCI controller windows for
++ * sn_pci_legacy_window_fixup - Setup PCI resources for
+  *				legacy IO and MEM space. This needs to
+  *				be done here, as the PROM does not have
+  *				ACPI support defining the root buses
+  *				and their resources (_CRS),
+  */
+ static void
+-sn_legacy_pci_window_fixup(struct pci_controller *controller,
+-			   u64 legacy_io, u64 legacy_mem)
++sn_legacy_pci_window_fixup(struct resource *res,
++		u64 legacy_io, u64 legacy_mem)
+ {
+-		controller->window = kcalloc(2, sizeof(struct pci_window),
+-					     GFP_KERNEL);
+-		BUG_ON(controller->window = NULL);
+-		controller->window[0].offset = legacy_io;
+-		controller->window[0].resource.name = "legacy_io";
+-		controller->window[0].resource.flags = IORESOURCE_IO;
+-		controller->window[0].resource.start = legacy_io;
+-		controller->window[0].resource.end -	    			controller->window[0].resource.start + 0xffff;
+-		controller->window[0].resource.parent = &ioport_resource;
+-		controller->window[1].offset = legacy_mem;
+-		controller->window[1].resource.name = "legacy_mem";
+-		controller->window[1].resource.flags = IORESOURCE_MEM;
+-		controller->window[1].resource.start = legacy_mem;
+-		controller->window[1].resource.end -	    	       controller->window[1].resource.start + (1024 * 1024) - 1;
+-		controller->window[1].resource.parent = &iomem_resource;
+-		controller->windows = 2;
++		res[0].name = "legacy_io";
++		res[0].flags = IORESOURCE_IO;
++		res[0].start = legacy_io;
++		res[0].end = res[0].start + 0xffff;
++		res[0].parent = &ioport_resource;
++		res[1].name = "legacy_mem";
++		res[1].flags = IORESOURCE_MEM;
++		res[1].start = legacy_mem;
++		res[1].end = res[1].start + (1024 * 1024) - 1;
++		res[1].parent = &iomem_resource;
  }
+ 
+ /*
+@@ -244,8 +236,8 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	s64 status = 0;
+ 	struct pci_controller *controller;
+ 	struct pcibus_bussoft *prom_bussoft_ptr;
++	struct resource *res;
+ 	LIST_HEAD(resources);
+-	int i;
+ 
+  	status = sal_get_pcibus_info((u64) segment, (u64) busnum,
+  				     (u64) ia64_tpa(&prom_bussoft_ptr));
+@@ -257,19 +249,23 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	BUG_ON(!controller);
+ 	controller->segment = segment;
+ 
++	res = kcalloc(2, sizeof(struct resource), GFP_KERNEL);
++	BUG_ON(!res);
++
+ 	/*
+ 	 * Temporarily save the prom_bussoft_ptr for use by sn_bus_fixup().
+ 	 * (platform_data will be overwritten later in sn_common_bus_fixup())
+ 	 */
+ 	controller->platform_data = prom_bussoft_ptr;
+ 
+-	sn_legacy_pci_window_fixup(controller,
+-				   prom_bussoft_ptr->bs_legacy_io,
+-				   prom_bussoft_ptr->bs_legacy_mem);
+-	for (i = 0; i < controller->windows; i++)
+-		pci_add_resource_offset(&resources,
+-					&controller->window[i].resource,
+-					controller->window[i].offset);
++	sn_legacy_pci_window_fixup(res,
++			prom_bussoft_ptr->bs_legacy_io,
++			prom_bussoft_ptr->bs_legacy_mem);
++	pci_add_resource_offset(&resources,	&res[0],
++			prom_bussoft_ptr->bs_legacy_io);
++	pci_add_resource_offset(&resources,	&res[1],
++			prom_bussoft_ptr->bs_legacy_mem);
++
+ 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, controller,
+ 				&resources);
+  	if (bus = NULL)
+@@ -280,7 +276,7 @@ sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
+ 	return;
+ 
+ error_return:
+-
++	kfree(res);
+ 	kfree(controller);
+ 	return;
+ }
+-- 
+1.7.1
+
 
