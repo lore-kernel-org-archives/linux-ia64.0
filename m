@@ -1,202 +1,198 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Sat, 15 Jun 2013 00:56:35 +0000
-Subject: [PATCH v5 17/22] x86, ACPI, numa, ia64: split SLIT handling out
-Message-Id: <1371257800-11720-18-git-send-email-yinghai@kernel.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 06 Jun 2013 07:34:48 +0000
+Subject: [PATCH -v5 3/8] PCI/IA64: embed pci hostbridge resources into pci_root_info
+Message-Id: <1370504093-14908-4-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1371257800-11720-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1371257800-11720-1-git-send-email-yinghai@kernel.org>
+References: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Thomas Renninger <trenn@suse.de>, Tang Chen <tangchen@cn.fujitsu.com>, linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Thierry Reding <thierry.reding@avionic-design.de>
 
-We need to handle slit later, as it need to allocate buffer for distance
-matrix. Also we do not need SLIT info before init_mem_mapping.
+Currently, pcibios_resource_to_bus() and pcibios_bus_to_resource()
+functions use pci_host_bridge to translate bus side address from/to
+cpu side address. The pci_window in pci_controller never be used again.
+So we remove pci_window in pci_controller and embed hostbridge resource
+into pci_root_info. Bjorn suggested to implement hostbridge resources
+release in IA64 like in X86, this patch is to prepare for that.
 
-So move SLIT parsing later.
-
-x86_acpi_numa_init become x86_acpi_numa_init_srat/x86_acpi_numa_init_slit.
-
-It should not break ia64 by replacing acpi_numa_init with
-acpi_numa_init_srat/acpi_numa_init_slit/acpi_num_arch_fixup.
-
--v2: Change name to acpi_numa_init_srat/acpi_numa_init_slit according tj.
-     remove the reset_numa_distance() in numa_init(), as get we only set
-     distance in slit handling.
-
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Rafael J. Wysocki <rjw@sisk.pl>
-Cc: linux-acpi@vger.kernel.org
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thierry Reding <thierry.reding@avionic-design.de>
 Cc: linux-ia64@vger.kernel.org
-Tested-by: Tony Luck <tony.luck@intel.com>
-Reviewed-by: Tang Chen <tangchen@cn.fujitsu.com>
-Tested-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/ia64/kernel/setup.c    |  4 +++-
- arch/x86/include/asm/acpi.h |  3 ++-
- arch/x86/mm/numa.c          | 14 ++++++++++++--
- arch/x86/mm/srat.c          | 11 +++++++----
- drivers/acpi/numa.c         | 13 +++++++------
- include/linux/acpi.h        |  3 ++-
- 6 files changed, 33 insertions(+), 15 deletions(-)
+ arch/ia64/include/asm/pci.h |    9 +-----
+ arch/ia64/pci/pci.c         |   65 ++++++++++++++++++++++++------------------
+ 2 files changed, 38 insertions(+), 36 deletions(-)
 
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 13bfdd2..5f7db4a 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -558,7 +558,9 @@ setup_arch (char **cmdline_p)
- 	acpi_table_init();
- 	early_acpi_boot_init();
- # ifdef CONFIG_ACPI_NUMA
--	acpi_numa_init();
-+	acpi_numa_init_srat();
-+	acpi_numa_init_slit();
-+	acpi_numa_arch_fixup();
- #  ifdef CONFIG_ACPI_HOTPLUG_CPU
- 	prefill_possible_map();
- #  endif
-diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
-index b31bf97..651db0b 100644
---- a/arch/x86/include/asm/acpi.h
-+++ b/arch/x86/include/asm/acpi.h
-@@ -178,7 +178,8 @@ static inline void disable_acpi(void) { }
+diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
+index 5e04b59..a7ebe5f 100644
+--- a/arch/ia64/include/asm/pci.h
++++ b/arch/ia64/include/asm/pci.h
+@@ -89,23 +89,16 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
+ #define pci_legacy_read platform_pci_legacy_read
+ #define pci_legacy_write platform_pci_legacy_write
  
- #ifdef CONFIG_ACPI_NUMA
- extern int acpi_numa;
--extern int x86_acpi_numa_init(void);
-+int x86_acpi_numa_init_srat(void);
-+void x86_acpi_numa_init_slit(void);
- #endif /* CONFIG_ACPI_NUMA */
- 
- #define acpi_unlazy_tlb(x)	leave_mm(x)
-diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
-index 3254f22..630e09f 100644
---- a/arch/x86/mm/numa.c
-+++ b/arch/x86/mm/numa.c
-@@ -595,7 +595,6 @@ static int __init numa_init(int (*init_func)(void))
- 
- 	nodes_clear(numa_nodes_parsed);
- 	memset(&numa_meminfo, 0, sizeof(numa_meminfo));
--	numa_reset_distance();
- 
- 	ret = init_func();
- 	if (ret < 0)
-@@ -633,6 +632,10 @@ static int __init dummy_numa_init(void)
- 	return 0;
- }
- 
-+#ifdef CONFIG_ACPI_NUMA
-+static bool srat_used __initdata;
-+#endif
-+
- /**
-  * x86_numa_init - Initialize NUMA
-  *
-@@ -648,8 +651,10 @@ static void __init early_x86_numa_init(void)
- 			return;
- #endif
- #ifdef CONFIG_ACPI_NUMA
--		if (!numa_init(x86_acpi_numa_init))
-+		if (!numa_init(x86_acpi_numa_init_srat)) {
-+			srat_used = true;
- 			return;
-+		}
- #endif
- #ifdef CONFIG_AMD_NUMA
- 		if (!numa_init(amd_numa_init))
-@@ -667,6 +672,11 @@ void __init x86_numa_init(void)
- 
- 	early_x86_numa_init();
- 
-+#ifdef CONFIG_ACPI_NUMA
-+	if (srat_used)
-+		x86_acpi_numa_init_slit();
-+#endif
-+
- 	numa_emulation(&numa_meminfo, numa_distance_cnt);
- 
- 	node_possible_map = numa_nodes_parsed;
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index cdd0da9..443f9ef 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -185,14 +185,17 @@ out_err:
- 	return -1;
- }
- 
--void __init acpi_numa_arch_fixup(void) {}
+-struct pci_window {
+-	struct resource resource;
+-	u64 offset;
+-};
 -
--int __init x86_acpi_numa_init(void)
-+int __init x86_acpi_numa_init_srat(void)
- {
- 	int ret;
+ struct pci_controller {
+ 	void *acpi_handle;
+ 	void *iommu;
+ 	int segment;
+ 	int node;		/* nearest node with memory or -1 for global allocation */
  
--	ret = acpi_numa_init();
-+	ret = acpi_numa_init_srat();
- 	if (ret < 0)
- 		return ret;
- 	return srat_disabled() ? -EINVAL : 0;
- }
+-	unsigned int windows;
+-	struct pci_window *window;
+-
+ 	void *platform_data;
+ };
+ 
 +
-+void __init x86_acpi_numa_init_slit(void)
-+{
-+	acpi_numa_init_slit();
-+}
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 33e609f..6460db4 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -282,7 +282,7 @@ acpi_table_parse_srat(enum acpi_srat_type id,
- 					    handler, max_entries);
- }
+ #define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
+ #define pci_domain_nr(busdev)    (PCI_CONTROLLER(busdev)->segment)
  
--int __init acpi_numa_init(void)
-+int __init acpi_numa_init_srat(void)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index de1474f..82eb8b2 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -134,6 +134,9 @@ struct pci_root_info {
+ 	struct acpi_device *bridge;
+ 	struct pci_controller *controller;
+ 	struct list_head resources;
++	struct resource *res;
++	resource_size_t *res_offset;
++	unsigned int res_num;
+ 	char *name;
+ };
+ 
+@@ -265,7 +268,7 @@ static acpi_status count_window(struct acpi_resource *resource, void *data)
+ static acpi_status add_window(struct acpi_resource *res, void *data)
  {
- 	int cnt = 0;
+ 	struct pci_root_info *info = data;
+-	struct pci_window *window;
++	struct resource *resource;
+ 	struct acpi_resource_address64 addr;
+ 	acpi_status status;
+ 	unsigned long flags, offset = 0;
+@@ -289,37 +292,36 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
+ 	} else
+ 		return AE_OK;
  
-@@ -303,11 +303,6 @@ int __init acpi_numa_init(void)
- 					    NR_NODE_MEMBLKS);
+-	window = &info->controller->window[info->controller->windows++];
+-	window->resource.name = info->name;
+-	window->resource.flags = flags;
+-	window->resource.start = addr.minimum + offset;
+-	window->resource.end = window->resource.start + addr.address_length - 1;
+-	window->offset = offset;
++	resource = &info->res[info->res_num];
++	resource->name = info->name;
++	resource->flags = flags;
++	resource->start = addr.minimum + offset;
++	resource->end = resource->start + addr.address_length - 1;
++	info->res_offset[info->res_num] = offset;
+ 
+-	if (insert_resource(root, &window->resource)) {
++	if (insert_resource(root, resource)) {
+ 		dev_err(&info->bridge->dev,
+ 			"can't allocate host bridge window %pR\n",
+-			&window->resource);
++			resource);
+ 	} else {
+ 		if (offset)
+ 			dev_info(&info->bridge->dev, "host bridge window %pR "
+ 				 "(PCI address [%#llx-%#llx])\n",
+-				 &window->resource,
+-				 window->resource.start - offset,
+-				 window->resource.end - offset);
++				 resource,
++				 resource->start - offset,
++				 resource->end - offset);
+ 		else
+ 			dev_info(&info->bridge->dev,
+-				 "host bridge window %pR\n",
+-				 &window->resource);
++				 "host bridge window %pR\n", resource);
  	}
+-
+ 	/* HP's firmware has a hack to work around a Windows bug.
+ 	 * Ignore these tiny memory ranges */
+-	if (!((window->resource.flags & IORESOURCE_MEM) &&
+-	      (window->resource.end - window->resource.start < 16)))
+-		pci_add_resource_offset(&info->resources, &window->resource,
+-					window->offset);
++	if (!((resource->flags & IORESOURCE_MEM) &&
++	      (resource->end - resource->start < 16)))
++		pci_add_resource_offset(&info->resources, resource,
++					info->res_offset[info->res_num]);
  
--	/* SLIT: System Locality Information Table */
--	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
--
--	acpi_numa_arch_fixup();
--
- 	if (cnt < 0)
- 		return cnt;
- 	else if (!parsed_numa_memblks)
-@@ -315,6 +310,12 @@ int __init acpi_numa_init(void)
- 	return 0;
++	info->res_num++;
+ 	return AE_OK;
  }
  
-+void __init acpi_numa_init_slit(void)
-+{
-+	/* SLIT: System Locality Information Table */
-+	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
-+}
-+
- int acpi_get_pxm(acpi_handle h)
- {
- 	unsigned long long pxm;
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 4e3731b..92463b5 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -85,7 +85,8 @@ int early_acpi_boot_init(void);
- int acpi_boot_init (void);
- void acpi_boot_table_init (void);
- int acpi_mps_check (void);
--int acpi_numa_init (void);
-+int acpi_numa_init_srat(void);
-+void acpi_numa_init_slit(void);
+@@ -329,7 +331,6 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	int domain = root->segment;
+ 	int bus = root->secondary.start;
+ 	struct pci_controller *controller;
+-	unsigned int windows = 0;
+ 	struct pci_root_info info;
+ 	struct pci_bus *pbus;
+ 	char *name;
+@@ -351,22 +352,29 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	/* insert busn resource at first */
+ 	pci_add_resource(&info.resources, &root->secondary);
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+-			&windows);
+-	if (windows) {
+-		controller->window -			kzalloc_node(sizeof(*controller->window) * windows,
++			&info.res_num);
++	if (info.res_num) {
++		info.res +			kzalloc_node(sizeof(*info.res) * info.res_num,
+ 				     GFP_KERNEL, controller->node);
+-		if (!controller->window)
++		if (!info.res)
+ 			goto out2;
  
- int acpi_table_init (void);
- int acpi_table_parse(char *id, acpi_tbl_table_handler handler);
++		info.res_offset +			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
++				GFP_KERNEL, controller->node);
++		if (!info.res_offset)
++			goto out3;
++
+ 		name = kmalloc(16, GFP_KERNEL);
+ 		if (!name)
+-			goto out3;
++			goto out4;
+ 
+ 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
+ 		info.bridge = device;
+ 		info.controller = controller;
+ 		info.name = name;
++		info.res_num = 0;
+ 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+ 			add_window, &info);
+ 	}
+@@ -385,9 +393,10 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 
+ 	pci_scan_child_bus(pbus);
+ 	return pbus;
+-
++out4:
++	kfree(info.res_offset);
+ out3:
+-	kfree(controller->window);
++	kfree(info.res);
+ out2:
+ 	kfree(controller);
+ out1:
 -- 
-1.8.1.4
+1.7.1
+
 
