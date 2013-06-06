@@ -1,77 +1,81 @@
-From: Joe Perches <joe@perches.com>
-Date: Fri, 14 Jun 2013 02:37:28 +0000
-Subject: [Trivial PATCH 03/33] ia64: crash: Convert use of typedef ctl_table to struct ctl_table
-Message-Id: <6b052bed2e582dd6565311829a9c99473c083c5e.1371177118.git.joe@perches.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 06 Jun 2013 07:34:53 +0000
+Subject: [PATCH -v5 8/8] PCI: Replace printks with appropriate pr_*()
+Message-Id: <1370504093-14908-9-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1371177118.git.joe@perches.com>
-In-Reply-To: <cover.1371177118.git.joe@perches.com>
+References: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jiri Kosina <trivial@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-This typedef is unnecessary and should just be removed.
+Replace deprecated printk(KERN_ERR...) with pr_err() in arch/ia64/pci/pci.c
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Yinghai Lu <yinghai@kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/ia64/kernel/crash.c   | 4 ++--
- arch/ia64/kernel/perfmon.c | 6 +++---
- 2 files changed, 5 insertions(+), 5 deletions(-)
+ arch/ia64/pci/pci.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index b942f40..2955f35 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -237,7 +237,7 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
- }
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 586cac1..2326790 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -157,7 +157,7 @@ new_space (u64 phys_base, int sparse)
+ 			return i;
  
- #ifdef CONFIG_SYSCTL
--static ctl_table kdump_ctl_table[] = {
-+static struct ctl_table kdump_ctl_table[] = {
- 	{
- 		.procname = "kdump_on_init",
- 		.data = &kdump_on_init,
-@@ -255,7 +255,7 @@ static ctl_table kdump_ctl_table[] = {
- 	{ }
- };
+ 	if (num_io_spaces = MAX_IO_SPACES) {
+-		printk(KERN_ERR "PCI: Too many IO port spaces "
++		pr_err("PCI: Too many IO port spaces "
+ 			"(MAX_IO_SPACES=%lu)\n", MAX_IO_SPACES);
+ 		return ~0;
+ 	}
+@@ -181,8 +181,9 @@ static u64 add_io_space(struct pci_root_info *info,
+ 	len = strlen(info->name) + 32;
+ 	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
+ 	if (!iospace) {
+-		printk(KERN_ERR "PCI: No memory for %s I/O port space\n",
+-			info->name);
++		dev_err(&info->bridge->dev,
++				"PCI: No memory for %s I/O port space\n",
++				info->name);
+ 		goto out;
+ 	}
  
--static ctl_table sys_table[] = {
-+static struct ctl_table sys_table[] = {
- 	{
- 	  .procname = "kernel",
- 	  .mode = 0555,
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 5a9ff1c..81c962b 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -521,7 +521,7 @@ static pmu_config_t		*pmu_conf;
- pfm_sysctl_t pfm_sysctl;
- EXPORT_SYMBOL(pfm_sysctl);
+@@ -445,7 +446,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  
--static ctl_table pfm_ctl_table[]={
-+static struct ctl_table pfm_ctl_table[] = {
- 	{
- 		.procname	= "debug",
- 		.data		= &pfm_sysctl.debug,
-@@ -552,7 +552,7 @@ static ctl_table pfm_ctl_table[]={
- 	},
- 	{}
- };
--static ctl_table pfm_sysctl_dir[] = {
-+static struct ctl_table pfm_sysctl_dir[] = {
- 	{
- 		.procname	= "perfmon",
- 		.mode		= 0555,
-@@ -560,7 +560,7 @@ static ctl_table pfm_sysctl_dir[] = {
- 	},
-  	{}
- };
--static ctl_table pfm_sysctl_root[] = {
-+static struct ctl_table pfm_sysctl_root[] = {
- 	{
- 		.procname	= "kernel",
- 		.mode		= 0555,
+ 	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info) {
+-		printk(KERN_WARNING
++		dev_err(&device->dev,
+ 				"pci_bus %04x:%02x: ignored (out of memory)\n",
+ 				domain, busnum);
+ 		kfree(controller);
+@@ -781,7 +782,7 @@ static void __init set_pci_dfl_cacheline_size(void)
+ 
+ 	status = ia64_pal_cache_summary(&levels, &unique_caches);
+ 	if (status != 0) {
+-		printk(KERN_ERR "%s: ia64_pal_cache_summary() failed "
++		pr_err("%s: ia64_pal_cache_summary() failed "
+ 			"(status=%ld)\n", __func__, status);
+ 		return;
+ 	}
+@@ -789,7 +790,7 @@ static void __init set_pci_dfl_cacheline_size(void)
+ 	status = ia64_pal_cache_config_info(levels - 1,
+ 				/* cache_type (data_or_unified)= */ 2, &cci);
+ 	if (status != 0) {
+-		printk(KERN_ERR "%s: ia64_pal_cache_config_info() failed "
++		pr_err("%s: ia64_pal_cache_config_info() failed "
+ 			"(status=%ld)\n", __func__, status);
+ 		return;
+ 	}
 -- 
-1.8.1.2.459.gbcd45b4.dirty
+1.7.1
+
 
