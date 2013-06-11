@@ -1,8 +1,10 @@
 From: "System Administrator" <sbirici@firat.edu.tr>
-Date: Tue, 11 Jun 2013 08:32:15 +0000
+Date: Tue, 11 Jun 2013 09:54:43 +0000
 Subject: Your mailbox
-Message-Id: <20130611082032.5D2E444500F@zimbra.apolar.imb.br>
+Message-Id: <20130611094256.28A7A28F9471@mail.ekon.go.id>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20130611082032.5D2E444500F@zimbra.apolar.imb.br>
+In-Reply-To: <20130611082032.5D2E444500F@zimbra.apolar.imb.br>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
