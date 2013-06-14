@@ -1,198 +1,101 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 06 Jun 2013 07:34:48 +0000
-Subject: [PATCH -v5 3/8] PCI/IA64: embed pci hostbridge resources into pci_root_info
-Message-Id: <1370504093-14908-4-git-send-email-wangyijing@huawei.com>
+From: Joe Perches <joe@perches.com>
+Date: Fri, 14 Jun 2013 02:37:25 +0000
+Subject: [Trivial PATCH 00/33] Remove uses of typedef ctl_table
+Message-Id: <cover.1371177118.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1370504093-14908-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Thierry Reding <thierry.reding@avionic-design.de>
+To: Jiri Kosina <trivial@kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, openipmi-developer@lists.sourceforge.net, linux-rdma@vger.kernel.org, linux-raid@vger.kernel.org, linux-scsi@vger.kernel.org, codalist@coda.cs.cmu.edu, linux-fsdevel@vger.kernel.org, linux-cachefs@redhat.com, linux-nfs@vger.kernel.org, linux-ntfs-dev@lists.sourceforge.net, ocfs2-devel@oss.oracle.com, xfs@oss.sgi.com, keyrings@linux-nfs.org, netdev@vger.kernel.org, linux-mm@kvack.org, linux-security-module@vger.kernel.org
 
-Currently, pcibios_resource_to_bus() and pcibios_bus_to_resource()
-functions use pci_host_bridge to translate bus side address from/to
-cpu side address. The pci_window in pci_controller never be used again.
-So we remove pci_window in pci_controller and embed hostbridge resource
-into pci_root_info. Bjorn suggested to implement hostbridge resources
-release in IA64 like in X86, this patch is to prepare for that.
+It's clearer to use struct ctl_table instead
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Thierry Reding <thierry.reding@avionic-design.de>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/include/asm/pci.h |    9 +-----
- arch/ia64/pci/pci.c         |   65 ++++++++++++++++++++++++------------------
- 2 files changed, 38 insertions(+), 36 deletions(-)
+Joe Perches (33):
+  arm: kernel: isa: Convert use of typedef ctl_table to struct ctl_table
+  frv: Convert use of typedef ctl_table to struct ctl_table
+  ia64: crash: Convert use of typedef ctl_table to struct ctl_table
+  mips: lasat: sysctl: Convert use of typedef ctl_table to struct ctl_table
+  powerpc: idle: Convert use of typedef ctl_table to struct ctl_table
+  s390: Convert use of typedef ctl_table to struct ctl_table
+  tile: proc: Convert use of typedef ctl_table to struct ctl_table
+  x86: vdso: Convert use of typedef ctl_table to struct ctl_table
+  cdrom: Convert use of typedef ctl_table to struct ctl_table
+  char: Convert use of typedef ctl_table to struct ctl_table
+  infiniband: Convert use of typedef ctl_table to struct ctl_table
+  macintosh: Convert use of typedef ctl_table to struct ctl_table
+  md: Convert use of typedef ctl_table to struct ctl_table
+  sgi: xpc: Convert use of typedef ctl_table to struct ctl_table
+  parport: Convert use of typedef ctl_table to struct ctl_table
+  scsi_sysctl: Convert use of typedef ctl_table to struct ctl_table
+  coda: Convert use of typedef ctl_table to struct ctl_table
+  fscache: Convert use of typedef ctl_table to struct ctl_table
+  lockd: Convert use of typedef ctl_table to struct ctl_table
+  nfs: Convert use of typedef ctl_table to struct ctl_table
+  inotify: Convert use of typedef ctl_table to struct ctl_table
+  ntfs: Convert use of typedef ctl_table to struct ctl_table
+  ocfs2: Convert use of typedef ctl_table to struct ctl_table
+  quota: Convert use of typedef ctl_table to struct ctl_table
+  xfs: Convert use of typedef ctl_table to struct ctl_table
+  fs: Convert use of typedef ctl_table to struct ctl_table
+  key: Convert use of typedef ctl_table to struct ctl_table
+  ipv6: Convert use of typedef ctl_table to struct ctl_table
+  ndisc: Convert use of typedef ctl_table to struct ctl_table
+  ipc: Convert use of typedef ctl_table to struct ctl_table
+  sysctl: Convert use of typedef ctl_table to struct ctl_table
+  mm: Convert use of typedef ctl_table to struct ctl_table
+  security: keys: Convert use of typedef ctl_table to struct ctl_table
 
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 5e04b59..a7ebe5f 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -89,23 +89,16 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
- #define pci_legacy_read platform_pci_legacy_read
- #define pci_legacy_write platform_pci_legacy_write
- 
--struct pci_window {
--	struct resource resource;
--	u64 offset;
--};
--
- struct pci_controller {
- 	void *acpi_handle;
- 	void *iommu;
- 	int segment;
- 	int node;		/* nearest node with memory or -1 for global allocation */
- 
--	unsigned int windows;
--	struct pci_window *window;
--
- 	void *platform_data;
- };
- 
-+
- #define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
- #define pci_domain_nr(busdev)    (PCI_CONTROLLER(busdev)->segment)
- 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index de1474f..82eb8b2 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -134,6 +134,9 @@ struct pci_root_info {
- 	struct acpi_device *bridge;
- 	struct pci_controller *controller;
- 	struct list_head resources;
-+	struct resource *res;
-+	resource_size_t *res_offset;
-+	unsigned int res_num;
- 	char *name;
- };
- 
-@@ -265,7 +268,7 @@ static acpi_status count_window(struct acpi_resource *resource, void *data)
- static acpi_status add_window(struct acpi_resource *res, void *data)
- {
- 	struct pci_root_info *info = data;
--	struct pci_window *window;
-+	struct resource *resource;
- 	struct acpi_resource_address64 addr;
- 	acpi_status status;
- 	unsigned long flags, offset = 0;
-@@ -289,37 +292,36 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
- 	} else
- 		return AE_OK;
- 
--	window = &info->controller->window[info->controller->windows++];
--	window->resource.name = info->name;
--	window->resource.flags = flags;
--	window->resource.start = addr.minimum + offset;
--	window->resource.end = window->resource.start + addr.address_length - 1;
--	window->offset = offset;
-+	resource = &info->res[info->res_num];
-+	resource->name = info->name;
-+	resource->flags = flags;
-+	resource->start = addr.minimum + offset;
-+	resource->end = resource->start + addr.address_length - 1;
-+	info->res_offset[info->res_num] = offset;
- 
--	if (insert_resource(root, &window->resource)) {
-+	if (insert_resource(root, resource)) {
- 		dev_err(&info->bridge->dev,
- 			"can't allocate host bridge window %pR\n",
--			&window->resource);
-+			resource);
- 	} else {
- 		if (offset)
- 			dev_info(&info->bridge->dev, "host bridge window %pR "
- 				 "(PCI address [%#llx-%#llx])\n",
--				 &window->resource,
--				 window->resource.start - offset,
--				 window->resource.end - offset);
-+				 resource,
-+				 resource->start - offset,
-+				 resource->end - offset);
- 		else
- 			dev_info(&info->bridge->dev,
--				 "host bridge window %pR\n",
--				 &window->resource);
-+				 "host bridge window %pR\n", resource);
- 	}
--
- 	/* HP's firmware has a hack to work around a Windows bug.
- 	 * Ignore these tiny memory ranges */
--	if (!((window->resource.flags & IORESOURCE_MEM) &&
--	      (window->resource.end - window->resource.start < 16)))
--		pci_add_resource_offset(&info->resources, &window->resource,
--					window->offset);
-+	if (!((resource->flags & IORESOURCE_MEM) &&
-+	      (resource->end - resource->start < 16)))
-+		pci_add_resource_offset(&info->resources, resource,
-+					info->res_offset[info->res_num]);
- 
-+	info->res_num++;
- 	return AE_OK;
- }
- 
-@@ -329,7 +331,6 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
- 	struct pci_controller *controller;
--	unsigned int windows = 0;
- 	struct pci_root_info info;
- 	struct pci_bus *pbus;
- 	char *name;
-@@ -351,22 +352,29 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	/* insert busn resource at first */
- 	pci_add_resource(&info.resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&windows);
--	if (windows) {
--		controller->window -			kzalloc_node(sizeof(*controller->window) * windows,
-+			&info.res_num);
-+	if (info.res_num) {
-+		info.res +			kzalloc_node(sizeof(*info.res) * info.res_num,
- 				     GFP_KERNEL, controller->node);
--		if (!controller->window)
-+		if (!info.res)
- 			goto out2;
- 
-+		info.res_offset +			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
-+				GFP_KERNEL, controller->node);
-+		if (!info.res_offset)
-+			goto out3;
-+
- 		name = kmalloc(16, GFP_KERNEL);
- 		if (!name)
--			goto out3;
-+			goto out4;
- 
- 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
- 		info.bridge = device;
- 		info.controller = controller;
- 		info.name = name;
-+		info.res_num = 0;
- 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
- 			add_window, &info);
- 	}
-@@ -385,9 +393,10 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 
- 	pci_scan_child_bus(pbus);
- 	return pbus;
--
-+out4:
-+	kfree(info.res_offset);
- out3:
--	kfree(controller->window);
-+	kfree(info.res);
- out2:
- 	kfree(controller);
- out1:
+ arch/arm/kernel/isa.c              |  6 ++--
+ arch/frv/kernel/pm.c               |  8 +++---
+ arch/frv/kernel/sysctl.c           |  4 +--
+ arch/ia64/kernel/crash.c           |  4 +--
+ arch/ia64/kernel/perfmon.c         |  6 ++--
+ arch/mips/lasat/sysctl.c           | 14 ++++-----
+ arch/powerpc/kernel/idle.c         |  4 +--
+ arch/s390/appldata/appldata_base.c | 16 +++++------
+ arch/s390/kernel/debug.c           |  4 +--
+ arch/s390/mm/cmm.c                 |  6 ++--
+ arch/tile/kernel/proc.c            |  4 +--
+ arch/x86/vdso/vdso32-setup.c       |  4 +--
+ drivers/cdrom/cdrom.c              | 10 +++----
+ drivers/char/hpet.c                |  6 ++--
+ drivers/char/ipmi/ipmi_poweroff.c  |  6 ++--
+ drivers/char/random.c              |  8 +++---
+ drivers/char/rtc.c                 |  6 ++--
+ drivers/infiniband/core/ucma.c     |  2 +-
+ drivers/macintosh/mac_hid.c        |  8 +++---
+ drivers/md/md.c                    |  6 ++--
+ drivers/misc/sgi-xp/xpc_main.c     |  6 ++--
+ drivers/parport/procfs.c           | 58 +++++++++++++++++++-------------------
+ drivers/scsi/scsi_sysctl.c         |  6 ++--
+ fs/coda/sysctl.c                   |  4 +--
+ fs/dcache.c                        |  2 +-
+ fs/drop_caches.c                   |  2 +-
+ fs/eventpoll.c                     |  2 +-
+ fs/file_table.c                    |  4 +--
+ fs/fscache/main.c                  |  4 +--
+ fs/inode.c                         |  2 +-
+ fs/lockd/svc.c                     |  6 ++--
+ fs/nfs/nfs4sysctl.c                |  6 ++--
+ fs/nfs/sysctl.c                    |  6 ++--
+ fs/notify/inotify/inotify_user.c   |  2 +-
+ fs/ntfs/sysctl.c                   |  4 +--
+ fs/ocfs2/stackglue.c               |  8 +++---
+ fs/quota/dquot.c                   |  6 ++--
+ fs/xfs/xfs_sysctl.c                | 26 ++++++++---------
+ include/linux/key.h                |  2 +-
+ include/net/ipv6.h                 |  4 +--
+ include/net/ndisc.h                |  2 +-
+ ipc/ipc_sysctl.c                   | 14 ++++-----
+ ipc/mq_sysctl.c                    | 10 +++----
+ kernel/sysctl.c                    |  2 +-
+ kernel/utsname_sysctl.c            |  6 ++--
+ mm/page-writeback.c                |  2 +-
+ mm/page_alloc.c                    | 15 +++++-----
+ security/keys/sysctl.c             |  2 +-
+ 48 files changed, 174 insertions(+), 171 deletions(-)
+
 -- 
-1.7.1
-
+1.8.1.2.459.gbcd45b4.dirty
 
