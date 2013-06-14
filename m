@@ -1,104 +1,77 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Sun, 23 Jun 2013 13:58:09 +0000
-Subject: [PATCH 36/45] ia64: smp, tlb: Use get/put_online_cpus_atomic() to prevent CPU offline
-Message-Id: <20130623134605.19094.47993.stgit@srivatsabhat.in.ibm.com>
+From: Joe Perches <joe@perches.com>
+Date: Fri, 14 Jun 2013 02:37:28 +0000
+Subject: [Trivial PATCH 03/33] ia64: crash: Convert use of typedef ctl_table to struct ctl_table
+Message-Id: <6b052bed2e582dd6565311829a9c99473c083c5e.1371177118.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+References: <cover.1371177118.git.joe@perches.com>
+In-Reply-To: <cover.1371177118.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Jiri Kosina <trivial@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Once stop_machine() is gone from the CPU offline path, we won't be able
-to depend on disabling preemption to prevent CPUs from going offline
-from under us.
+This typedef is unnecessary and should just be removed.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-offline, while invoking from atomic context.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
+ arch/ia64/kernel/crash.c   | 4 ++--
+ arch/ia64/kernel/perfmon.c | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
- arch/ia64/kernel/smp.c |   12 ++++++------
- arch/ia64/mm/tlb.c     |    4 ++--
- 2 files changed, 8 insertions(+), 8 deletions(-)
-
-diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-index 9fcd4e6..25991ba 100644
---- a/arch/ia64/kernel/smp.c
-+++ b/arch/ia64/kernel/smp.c
-@@ -24,6 +24,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
- #include <linux/kernel_stat.h>
- #include <linux/mm.h>
- #include <linux/cache.h>
-@@ -259,8 +260,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 	cpumask_t cpumask = xcpumask;
- 	int mycpu, cpu, flush_mycpu = 0;
- 
--	preempt_disable();
--	mycpu = smp_processor_id();
-+	mycpu = get_online_cpus_atomic();
- 
- 	for_each_cpu_mask(cpu, cpumask)
- 		counts[cpu] = local_tlb_flush_counts[cpu].count & 0xffff;
-@@ -280,7 +280,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 		while(counts[cpu] = (local_tlb_flush_counts[cpu].count & 0xffff))
- 			udelay(FLUSH_DELAY);
- 
--	preempt_enable();
-+	put_online_cpus_atomic();
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index b942f40..2955f35 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -237,7 +237,7 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
  }
  
- void
-@@ -293,12 +293,12 @@ void
- smp_flush_tlb_mm (struct mm_struct *mm)
- {
- 	cpumask_var_t cpus;
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	/* this happens for the common case of a single-threaded fork():  */
- 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
+ #ifdef CONFIG_SYSCTL
+-static ctl_table kdump_ctl_table[] = {
++static struct ctl_table kdump_ctl_table[] = {
  	{
- 		local_finish_flush_tlb_mm(mm);
--		preempt_enable();
-+		put_online_cpus_atomic();
- 		return;
- 	}
- 	if (!alloc_cpumask_var(&cpus, GFP_ATOMIC)) {
-@@ -313,7 +313,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
- 	local_irq_disable();
- 	local_finish_flush_tlb_mm(mm);
- 	local_irq_enable();
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
+ 		.procname = "kdump_on_init",
+ 		.data = &kdump_on_init,
+@@ -255,7 +255,7 @@ static ctl_table kdump_ctl_table[] = {
+ 	{ }
+ };
  
- void arch_send_call_function_single_ipi(int cpu)
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index ed61297..8c55ef5 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -87,11 +87,11 @@ wrap_mmu_context (struct mm_struct *mm)
- 	 * can't call flush_tlb_all() here because of race condition
- 	 * with O(1) scheduler [EF]
- 	 */
--	cpu = get_cpu(); /* prevent preemption/migration */
-+	cpu = get_online_cpus_atomic(); /* prevent preemption/migration */
- 	for_each_online_cpu(i)
- 		if (i != cpu)
- 			per_cpu(ia64_need_tlb_flush, i) = 1;
--	put_cpu();
-+	put_online_cpus_atomic();
- 	local_flush_tlb_all();
- }
+-static ctl_table sys_table[] = {
++static struct ctl_table sys_table[] = {
+ 	{
+ 	  .procname = "kernel",
+ 	  .mode = 0555,
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5a9ff1c..81c962b 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -521,7 +521,7 @@ static pmu_config_t		*pmu_conf;
+ pfm_sysctl_t pfm_sysctl;
+ EXPORT_SYMBOL(pfm_sysctl);
  
+-static ctl_table pfm_ctl_table[]={
++static struct ctl_table pfm_ctl_table[] = {
+ 	{
+ 		.procname	= "debug",
+ 		.data		= &pfm_sysctl.debug,
+@@ -552,7 +552,7 @@ static ctl_table pfm_ctl_table[]={
+ 	},
+ 	{}
+ };
+-static ctl_table pfm_sysctl_dir[] = {
++static struct ctl_table pfm_sysctl_dir[] = {
+ 	{
+ 		.procname	= "perfmon",
+ 		.mode		= 0555,
+@@ -560,7 +560,7 @@ static ctl_table pfm_sysctl_dir[] = {
+ 	},
+  	{}
+ };
+-static ctl_table pfm_sysctl_root[] = {
++static struct ctl_table pfm_sysctl_root[] = {
+ 	{
+ 		.procname	= "kernel",
+ 		.mode		= 0555,
+-- 
+1.8.1.2.459.gbcd45b4.dirty
 
