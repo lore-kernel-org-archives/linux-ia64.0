@@ -1,24 +1,22 @@
-From: Tang Chen <tangchen@cn.fujitsu.com>
-Date: Thu, 13 Jun 2013 13:03:04 +0000
-Subject: [Part1 PATCH v5 17/22] x86, ACPI, numa, ia64: split SLIT handling out
-Message-Id: <1371128589-8953-18-git-send-email-tangchen@cn.fujitsu.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sat, 15 Jun 2013 00:56:35 +0000
+Subject: [PATCH v5 17/22] x86, ACPI, numa, ia64: split SLIT handling out
+Message-Id: <1371257800-11720-18-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1371128589-8953-1-git-send-email-tangchen@cn.fujitsu.com>
-In-Reply-To: <1371128589-8953-1-git-send-email-tangchen@cn.fujitsu.com>
+References: <1371257800-11720-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1371257800-11720-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tglx@linutronix.de, mingo@elte.hu, hpa@zytor.com, akpm@linux-foundation.org, tj@kernel.org, trenn@suse.de, yinghai@kernel.org, jiang.liu@huawei.com, wency@cn.fujitsu.com, laijs@cn.fujitsu.com, isimatu.yasuaki@jp.fujitsu.com, mgorman@suse.de, minchan@kernel.org, mina86@mina86.com, gong.chen@linux.intel.com, vasilis.liaskovitis@profitbricks.com, lwoodman@redhat.com, riel@redhat.com, jweiner@redhat.com, prarit@redhat.com
-Cc: x86@kernel.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, "Rafael J. Wysocki" <rjw@sisk.pl>, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
-
-From: Yinghai Lu <yinghai@kernel.org>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@linux-foundation.org>, Tejun Heo <tj@kernel.org>, Thomas Renninger <trenn@suse.de>, Tang Chen <tangchen@cn.fujitsu.com>, linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
 We need to handle slit later, as it need to allocate buffer for distance
-matrix. Also we do not need SLIT info before init_mem_mapping. So move
-SLIT parsing procedure later.
+matrix. Also we do not need SLIT info before init_mem_mapping.
 
-x86_acpi_numa_init() will be splited into x86_acpi_numa_init_srat() and
-x86_acpi_numa_init_slit().
+So move SLIT parsing later.
+
+x86_acpi_numa_init become x86_acpi_numa_init_srat/x86_acpi_numa_init_slit.
 
 It should not break ia64 by replacing acpi_numa_init with
 acpi_numa_init_srat/acpi_numa_init_slit/acpi_num_arch_fixup.
@@ -37,12 +35,12 @@ Tested-by: Tony Luck <tony.luck@intel.com>
 Reviewed-by: Tang Chen <tangchen@cn.fujitsu.com>
 Tested-by: Tang Chen <tangchen@cn.fujitsu.com>
 ---
- arch/ia64/kernel/setup.c    |    4 +++-
- arch/x86/include/asm/acpi.h |    3 ++-
- arch/x86/mm/numa.c          |   14 ++++++++++++--
- arch/x86/mm/srat.c          |   11 +++++++----
- drivers/acpi/numa.c         |   13 +++++++------
- include/linux/acpi.h        |    3 ++-
+ arch/ia64/kernel/setup.c    |  4 +++-
+ arch/x86/include/asm/acpi.h |  3 ++-
+ arch/x86/mm/numa.c          | 14 ++++++++++++--
+ arch/x86/mm/srat.c          | 11 +++++++----
+ drivers/acpi/numa.c         | 13 +++++++------
+ include/linux/acpi.h        |  3 ++-
  6 files changed, 33 insertions(+), 15 deletions(-)
 
 diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
@@ -200,5 +198,5 @@ index 4e3731b..92463b5 100644
  int acpi_table_init (void);
  int acpi_table_parse(char *id, acpi_tbl_table_handler handler);
 -- 
-1.7.1
+1.8.1.4
 
