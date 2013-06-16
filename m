@@ -1,38 +1,37 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 06 Jun 2013 07:32:12 +0000
-Subject: Re: [PATCH -v4 0/8] Add hostbridge resource release to support root bus hotplug in IA64
-Message-Id: <51B03AFC.5060807@huawei.com>
+From: ddaney.cavm@gmail.com
+Date: Sun, 16 Jun 2013 20:06:28 +0000
+Subject: [PATCH 1/2] ia64: Fix include dependency in asm/irqflags.h
+Message-Id: <1371413189-2568-2-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1370412117-12860-1-git-send-email-wangyijing@huawei.com> <CAErSpo5+rj_47kvy1shG0jjRuo5t2zWu5RHqGragxPoBDMVXtg@mail.gmail.com>
-In-Reply-To: <CAErSpo5+rj_47kvy1shG0jjRuo5t2zWu5RHqGragxPoBDMVXtg@mail.gmail.com>
+References: <1371413189-2568-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1371413189-2568-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Yinghai Lu <yinghai@kernel.org>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, Jiang Liu <jiang.liu@huawei.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, David Howells <dhowells@redhat.com>, Koichi Yasutake <yasutake.koichi@jp.panasonic.com>, linux-am33-list@redhat.com
+Cc: david.s.daney@gmail.com, David Daney <ddaney@caviumnetworks.com>, David Daney <david.daney@cavium.com>
 
-Hi Bjorn,
-   This series is based your pci-next branch, I used stgit to format this series, I try to
-git am them to pci-next, but indeed patch 4 was applied fail, it's strange.
-Now I use git format-patch to format this series again, tag v5, and test them in pci-next, result is ok.
+From: David Daney <ddaney@caviumnetworks.com>
 
-Thanks!
-Yijing.
+asm/kregs.h isn't always included first, so we need an explicit include.
 
-On 2013/6/6 1:27, Bjorn Helgaas wrote:
-> On Wed, Jun 5, 2013 at 12:01 AM, Yijing Wang <wangyijing@huawei.com> wrote:
->> v3->v4: fix memory allocation problem and use dev_err instead of pr_err follow Bjorn's suggestion.
-> 
-> What does this series apply to?  I normally apply patches to topic
-> branches based on -rc1, but these don't apply cleanly to either
-> v3.10-rc1 or to the next-20130605 linux-next tree.
-> 
-> Bjorn
-> 
-> 
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ arch/ia64/include/asm/irqflags.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-
+diff --git a/arch/ia64/include/asm/irqflags.h b/arch/ia64/include/asm/irqflags.h
+index 1bf2cf2..cec6c06 100644
+--- a/arch/ia64/include/asm/irqflags.h
++++ b/arch/ia64/include/asm/irqflags.h
+@@ -11,6 +11,7 @@
+ #define _ASM_IA64_IRQFLAGS_H
+ 
+ #include <asm/pal.h>
++#include <asm/kregs.h>
+ 
+ #ifdef CONFIG_IA64_DEBUG_IRQ
+ extern unsigned long last_cli_ip;
 -- 
-Thanks!
-Yijing
+1.7.11.7
 
