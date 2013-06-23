@@ -1,160 +1,176 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 04 Jun 2013 10:59:13 +0000
-Subject: [PATCH -v3 7/8] PCI/IA64: introduce probe_pci_root_info() to manage  _CRS resource
-Message-Id: <1370343554-11812-8-git-send-email-wangyijing@huawei.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Sun, 23 Jun 2013 13:57:59 +0000
+Subject: [PATCH 35/45] ia64: irq, perfmon: Use get/put_online_cpus_atomic() to prevent CPU offline
+Message-Id: <20130623134555.19094.5855.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>, linux-ia64@vger.kernel.org
 
-Currently, initialize _CRS resource code in IA64 make pci_acpi_scan_root()
-some lengthiness. Introduce probe_pci_root_info() to manage it like in X86,
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- arch/ia64/pci/pci.c |  100 +++++++++++++++++++++++++++++----------------------
- 1 files changed, 57 insertions(+), 43 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 4383b03..f2139b4 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -375,6 +375,50 @@ static void release_pci_root_info(struct pci_host_bridge *bridge)
- 	__release_pci_root_info(info);
+ arch/ia64/kernel/irq_ia64.c |   15 +++++++++++++++
+ arch/ia64/kernel/perfmon.c  |    8 +++++++-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 1034884..f58b162 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -25,6 +25,7 @@
+ #include <linux/ptrace.h>
+ #include <linux/signal.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/threads.h>
+ #include <linux/bitops.h>
+ #include <linux/irq.h>
+@@ -160,9 +161,11 @@ int bind_irq_vector(int irq, int vector, cpumask_t domain)
+ 	unsigned long flags;
+ 	int ret;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __bind_irq_vector(irq, vector, domain);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
  }
  
-+static int
-+probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
-+		int busnum, int domain)
-+{
-+	char *name;
-+
-+	name = kmalloc(16, GFP_KERNEL);
-+	if (!name)
-+		return -ENOMEM;
-+
-+	sprintf(name, "PCI Bus %04x:%02x", domain, busnum);
-+	info->bridge = device;
-+	info->name = name;
-+
-+	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
-+			&info->res_num);
-+	if (info->res_num) {
-+		info->res +			kzalloc_node(sizeof(*info->res) * info->res_num,
-+				     GFP_KERNEL, info->controller->node);
-+		if (!info->res) {
-+			kfree(name);
-+			return -ENOMEM;
-+		}
-+
-+		info->res_offset +			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
-+					GFP_KERNEL, info->controller->node);
-+		if (!info->res_offset) {
-+			kfree(name);
-+			kfree(info->res);
-+			info->res = NULL;
-+			return -ENOMEM;
-+		}
-+
-+		info->res_num = 0;
-+		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
-+			add_window, info);
-+	} else
-+		kfree(name);
-+
-+	return 0;
-+}
-+
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+@@ -190,9 +193,11 @@ static void clear_irq_vector(int irq)
  {
- 	struct acpi_device *device = root->device;
-@@ -384,12 +428,11 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	struct pci_root_info *info = NULL;
- 	int busnum = root->secondary.start;
- 	struct pci_bus *pbus;
--	char *name;
--	int pxm;
-+	int pxm, ret;
+ 	unsigned long flags;
  
- 	controller = alloc_pci_controller(domain);
- 	if (!controller)
--		goto out1;
-+		return NULL;
- 
- 	controller->acpi_handle = device->handle;
- 
-@@ -402,41 +445,23 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	info = kzalloc(sizeof(*info), GFP_KERNEL);
- 	if (!info) {
- 		printk(KERN_WARNING "pci_bus %04x:%02x: "
--				"ignored (out of memory)\n", root->segment, busnum);
--		goto out2;
-+				"ignored (out of memory)\n", domain, busnum);
-+		kfree(controller);
-+		return NULL;
- 	}
- 	
-+	info->controller = controller;
- 	INIT_LIST_HEAD(&info->io_resources);
- 	INIT_LIST_HEAD(&info->resources);
-+	ret = probe_pci_root_info(info, device, busnum, domain);
-+	if (ret) {
-+		kfree(info->controller);
-+		kfree(info);
-+		return NULL;
-+	}
-+
- 	/* insert busn resource at first */
- 	pci_add_resource(&info->resources, &root->secondary);
--	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&info->res_num);
--	if (info->res_num) {
--		info->res -			kzalloc_node(sizeof(*info->res) * info->res_num,
--				     GFP_KERNEL, controller->node);
--		if (!info->res)
--			goto out3;
--		
--		info->res_offset = 
--			kzalloc_node(sizeof(*info->res_offset) * info->res_num, 
--					GFP_KERNEL, controller->node);
--		if (!info->res_offset)
--			goto out4;
--
--		name = kmalloc(16, GFP_KERNEL);
--		if (!name)
--			goto out5;
--
--		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
--		info->bridge = device;
--		info->controller = controller;
--		info->name = name;
--		info->res_num = 0;
--		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
--			add_window, info);
--	}
- 	/*
- 	 * See arch/x86/pci/acpi.c.
- 	 * The desired pci bus might already be scanned in a quirk. We
-@@ -455,17 +480,6 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 			release_pci_root_info, info);
- 	pci_scan_child_bus(pbus);
- 	return pbus;
--
--out5:
--	kfree(info->res_offset);
--out4:
--	kfree(info->res);
--out3:
--	kfree(info);
--out2:
--	kfree(controller);
--out1:
--	return NULL;
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
  }
  
- int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
--- 
-1.7.1
-
+ int
+@@ -204,6 +209,7 @@ ia64_native_assign_irq_vector (int irq)
+ 
+ 	vector = -ENOSPC;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -218,6 +224,7 @@ ia64_native_assign_irq_vector (int irq)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return vector;
+ }
+ 
+@@ -302,9 +309,11 @@ int irq_prepare_move(int irq, int cpu)
+ 	unsigned long flags;
+ 	int ret;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __irq_prepare_move(irq, cpu);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
+ }
+ 
+@@ -320,11 +329,13 @@ void irq_complete_move(unsigned irq)
+ 	if (unlikely(cpu_isset(smp_processor_id(), cfg->old_domain)))
+ 		return;
+ 
++	get_online_cpus_atomic();
+ 	cpumask_and(&cleanup_mask, &cfg->old_domain, cpu_online_mask);
+ 	cfg->move_cleanup_count = cpus_weight(cleanup_mask);
+ 	for_each_cpu_mask(i, cleanup_mask)
+ 		platform_send_ipi(i, IA64_IRQ_MOVE_VECTOR, IA64_IPI_DM_INT, 0);
+ 	cfg->move_in_progress = 0;
++	put_online_cpus_atomic();
+ }
+ 
+ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+@@ -393,10 +404,12 @@ void destroy_and_reserve_irq(unsigned int irq)
+ 
+ 	dynamic_irq_cleanup(irq);
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	irq_status[irq] = IRQ_RSVD;
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -409,6 +422,7 @@ int create_irq(void)
+ 	cpumask_t domain = CPU_MASK_NONE;
+ 
+ 	irq = vector = -ENOSPC;
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -424,6 +438,7 @@ int create_irq(void)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	if (irq >= 0)
+ 		dynamic_irq_init(irq);
+ 	return irq;
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 9ea25fc..16c8303 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -6476,9 +6476,12 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	/* do the easy test first */
+ 	if (pfm_alt_intr_handler) return -EBUSY;
+ 
++	get_online_cpus_atomic();
++
+ 	/* one at a time in the install or remove, just fail the others */
+ 	if (!spin_trylock(&pfm_alt_install_check)) {
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto out;
+ 	}
+ 
+ 	/* reserve our session */
+@@ -6498,6 +6501,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	pfm_alt_intr_handler = hdl;
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++	put_online_cpus_atomic();
+ 
+ 	return 0;
+ 
+@@ -6510,6 +6514,8 @@ cleanup_reserve:
+ 	}
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++out:
++	put_online_cpus_atomic();
+ 
+ 	return ret;
+ }
 
