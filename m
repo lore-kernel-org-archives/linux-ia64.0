@@ -1,198 +1,176 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 05 Jun 2013 06:01:52 +0000
-Subject: [PATCH -v4 3/8] PCI/IA64: embed pci hostbridge resources into pci_root_info
-Message-Id: <1370412117-12860-4-git-send-email-wangyijing@huawei.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Tue, 25 Jun 2013 20:44:11 +0000
+Subject: [PATCH v2 35/45] ia64: irq, perfmon: Use get/put_online_cpus_atomic() to prevent CPU offline
+Message-Id: <20130625203211.16593.71188.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1370412117-12860-1-git-send-email-wangyijing@huawei.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Yinghai Lu <yinghai@kernel.org>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <guohanjun@huawei.com>, jiang.liu@huawei.com, Yijing Wang <wangyijing@huawei.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Thierry Reding <thierry.reding@avionic-design.de>
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 
-Currently, pcibios_resource_to_bus() and pcibios_bus_to_resource()
-functions use pci_host_bridge to translate bus side address from/to
-cpu side address. The pci_window in pci_controller never be used again.
-So we remove pci_window in pci_controller and embed hostbridge resource
-into pci_root_info. Bjorn suggested to implement hostbridge resources
-release in IA64 like in X86, this patch is to prepare for that.
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
+
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Thierry Reding <thierry.reding@avionic-design.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- arch/ia64/include/asm/pci.h |    9 +-----
- arch/ia64/pci/pci.c         |   65 ++++++++++++++++++++++++------------------
- 2 files changed, 38 insertions(+), 36 deletions(-)
 
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 5e04b59..a7ebe5f 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -89,23 +89,16 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
- #define pci_legacy_read platform_pci_legacy_read
- #define pci_legacy_write platform_pci_legacy_write
+ arch/ia64/kernel/irq_ia64.c |   15 +++++++++++++++
+ arch/ia64/kernel/perfmon.c  |    8 +++++++-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 1034884..f58b162 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -25,6 +25,7 @@
+ #include <linux/ptrace.h>
+ #include <linux/signal.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/threads.h>
+ #include <linux/bitops.h>
+ #include <linux/irq.h>
+@@ -160,9 +161,11 @@ int bind_irq_vector(int irq, int vector, cpumask_t domain)
+ 	unsigned long flags;
+ 	int ret;
  
--struct pci_window {
--	struct resource resource;
--	u64 offset;
--};
--
- struct pci_controller {
- 	void *acpi_handle;
- 	void *iommu;
- 	int segment;
- 	int node;		/* nearest node with memory or -1 for global allocation */
- 
--	unsigned int windows;
--	struct pci_window *window;
--
- 	void *platform_data;
- };
- 
-+
- #define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
- #define pci_domain_nr(busdev)    (PCI_CONTROLLER(busdev)->segment)
- 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index de1474f..a2f91b0 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -134,6 +134,9 @@ struct pci_root_info {
- 	struct acpi_device *bridge;
- 	struct pci_controller *controller;
- 	struct list_head resources;
-+	struct resource *res;
-+	resource_size_t *res_offset;
-+	unsigned int res_num;
- 	char *name;
- };
- 
-@@ -265,7 +268,7 @@ static acpi_status count_window(struct acpi_resource *resource, void *data)
- static acpi_status add_window(struct acpi_resource *res, void *data)
- {
- 	struct pci_root_info *info = data;
--	struct pci_window *window;
-+	struct resource *resource;
- 	struct acpi_resource_address64 addr;
- 	acpi_status status;
- 	unsigned long flags, offset = 0;
-@@ -289,37 +292,36 @@ static acpi_status add_window(struct acpi_resource *res, void *data)
- 	} else
- 		return AE_OK;
- 
--	window = &info->controller->window[info->controller->windows++];
--	window->resource.name = info->name;
--	window->resource.flags = flags;
--	window->resource.start = addr.minimum + offset;
--	window->resource.end = window->resource.start + addr.address_length - 1;
--	window->offset = offset;
-+	resource = &info->res[info->res_num];
-+	resource->name = info->name;
-+	resource->flags = flags;
-+	resource->start = addr.minimum + offset;
-+	resource->end = resource->start + addr.address_length - 1;
-+	info->res_offset[info->res_num] = offset;
- 
--	if (insert_resource(root, &window->resource)) {
-+	if (insert_resource(root, resource)) {
- 		dev_err(&info->bridge->dev,
- 			"can't allocate host bridge window %pR\n",
--			&window->resource);
-+			resource);
- 	} else {
- 		if (offset)
- 			dev_info(&info->bridge->dev, "host bridge window %pR "
- 				 "(PCI address [%#llx-%#llx])\n",
--				 &window->resource,
--				 window->resource.start - offset,
--				 window->resource.end - offset);
-+				 resource,
-+				 resource->start - offset,
-+				 resource->end - offset);
- 		else
- 			dev_info(&info->bridge->dev,
--				 "host bridge window %pR\n",
--				 &window->resource);
-+				 "host bridge window %pR\n", resource);
- 	}
--
- 	/* HP's firmware has a hack to work around a Windows bug.
- 	 * Ignore these tiny memory ranges */
--	if (!((window->resource.flags & IORESOURCE_MEM) &&
--	      (window->resource.end - window->resource.start < 16)))
--		pci_add_resource_offset(&info->resources, &window->resource,
--					window->offset);
-+	if (!((resource->flags & IORESOURCE_MEM) &&
-+	      (resource->end - resource->start < 16)))
-+		pci_add_resource_offset(&info->resources, resource,
-+					info->res_offset[info->res_num]);
- 
-+	info->res_num++;
- 	return AE_OK;
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __bind_irq_vector(irq, vector, domain);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
  }
  
-@@ -329,7 +331,6 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
- 	struct pci_controller *controller;
--	unsigned int windows = 0;
- 	struct pci_root_info info;
- 	struct pci_bus *pbus;
- 	char *name;
-@@ -351,22 +352,29 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	/* insert busn resource at first */
- 	pci_add_resource(&info.resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&windows);
--	if (windows) {
--		controller->window -			kzalloc_node(sizeof(*controller->window) * windows,
-+			&info.res_num);
-+	if (info.res_num) {
-+		info.res +			kzalloc_node(sizeof(*info.res) * info.res_num,
- 				     GFP_KERNEL, controller->node);
--		if (!controller->window)
-+		if (!info.res)
- 			goto out2;
+@@ -190,9 +193,11 @@ static void clear_irq_vector(int irq)
+ {
+ 	unsigned long flags;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ }
+ 
+ int
+@@ -204,6 +209,7 @@ ia64_native_assign_irq_vector (int irq)
+ 
+ 	vector = -ENOSPC;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -218,6 +224,7 @@ ia64_native_assign_irq_vector (int irq)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return vector;
+ }
+ 
+@@ -302,9 +309,11 @@ int irq_prepare_move(int irq, int cpu)
+ 	unsigned long flags;
+ 	int ret;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __irq_prepare_move(irq, cpu);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
+ }
+ 
+@@ -320,11 +329,13 @@ void irq_complete_move(unsigned irq)
+ 	if (unlikely(cpu_isset(smp_processor_id(), cfg->old_domain)))
+ 		return;
+ 
++	get_online_cpus_atomic();
+ 	cpumask_and(&cleanup_mask, &cfg->old_domain, cpu_online_mask);
+ 	cfg->move_cleanup_count = cpus_weight(cleanup_mask);
+ 	for_each_cpu_mask(i, cleanup_mask)
+ 		platform_send_ipi(i, IA64_IRQ_MOVE_VECTOR, IA64_IPI_DM_INT, 0);
+ 	cfg->move_in_progress = 0;
++	put_online_cpus_atomic();
+ }
+ 
+ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+@@ -393,10 +404,12 @@ void destroy_and_reserve_irq(unsigned int irq)
+ 
+ 	dynamic_irq_cleanup(irq);
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	irq_status[irq] = IRQ_RSVD;
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -409,6 +422,7 @@ int create_irq(void)
+ 	cpumask_t domain = CPU_MASK_NONE;
+ 
+ 	irq = vector = -ENOSPC;
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -424,6 +438,7 @@ int create_irq(void)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	if (irq >= 0)
+ 		dynamic_irq_init(irq);
+ 	return irq;
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 9ea25fc..16c8303 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -6476,9 +6476,12 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	/* do the easy test first */
+ 	if (pfm_alt_intr_handler) return -EBUSY;
+ 
++	get_online_cpus_atomic();
 +
-+		info.res_offset +			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
-+				GFP_KERNEL, controller->node);
-+		if (!info.res_offset)
-+			goto out3;
- 
- 		name = kmalloc(16, GFP_KERNEL);
- 		if (!name)
--			goto out3;
-+			goto out4;
- 
- 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
- 		info.bridge = device;
- 		info.controller = controller;
- 		info.name = name;
-+		info.res_num = 0;
- 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
- 			add_window, &info);
+ 	/* one at a time in the install or remove, just fail the others */
+ 	if (!spin_trylock(&pfm_alt_install_check)) {
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto out;
  	}
-@@ -385,9 +393,10 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  
- 	pci_scan_child_bus(pbus);
- 	return pbus;
--
-+out4:
-+	kfree(info.res_offset);
- out3:
--	kfree(controller->window);
-+	kfree(info.res);
- out2:
- 	kfree(controller);
- out1:
--- 
-1.7.1
-
+ 	/* reserve our session */
+@@ -6498,6 +6501,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	pfm_alt_intr_handler = hdl;
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++	put_online_cpus_atomic();
+ 
+ 	return 0;
+ 
+@@ -6510,6 +6514,8 @@ cleanup_reserve:
+ 	}
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++out:
++	put_online_cpus_atomic();
+ 
+ 	return ret;
+ }
 
