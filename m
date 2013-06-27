@@ -1,126 +1,104 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 04 Jun 2013 10:59:10 +0000
-Subject: [PATCH -v3 4/8] PCI/IA64: Allocate pci_root_info instead of using stack
-Message-Id: <1370343554-11812-5-git-send-email-wangyijing@huawei.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Thu, 27 Jun 2013 20:11:07 +0000
+Subject: [PATCH v3 36/45] ia64: smp, tlb: Use get/put_online_cpus_atomic() to prevent CPU offline
+Message-Id: <20130627195907.29830.12505.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20130627195136.29830.10445.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com, David.Laight@aculab.com
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com, srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 
-We need to pass around info for release function.
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
+
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yinghai Lu <yinghai@kernel.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- arch/ia64/pci/pci.c |   59 ++++++++++++++++++++++++++++++--------------------
- 1 files changed, 35 insertions(+), 24 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index a2f91b0..3a8b361 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -331,7 +331,8 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
- 	struct pci_controller *controller;
--	struct pci_root_info info;
-+	struct pci_root_info *info = NULL;
-+	int busnum = root->secondary.start;
- 	struct pci_bus *pbus;
- 	char *name;
- 	int pxm;
-@@ -348,35 +349,42 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		controller->node = pxm_to_node(pxm);
- #endif
+ arch/ia64/kernel/smp.c |   12 ++++++------
+ arch/ia64/mm/tlb.c     |    4 ++--
+ 2 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+index 9fcd4e6..25991ba 100644
+--- a/arch/ia64/kernel/smp.c
++++ b/arch/ia64/kernel/smp.c
+@@ -24,6 +24,7 @@
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/kernel_stat.h>
+ #include <linux/mm.h>
+ #include <linux/cache.h>
+@@ -259,8 +260,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
+ 	cpumask_t cpumask = xcpumask;
+ 	int mycpu, cpu, flush_mycpu = 0;
  
--	INIT_LIST_HEAD(&info.resources);
-+	info = kzalloc(sizeof(*info), GFP_KERNEL);
-+	if (!info) {
-+		printk(KERN_WARNING "pci_bus %04x:%02x: "
-+				"ignored (out of memory)\n", root->segment, busnum);
-+		goto out2;
-+	}
-+
-+	INIT_LIST_HEAD(&info->resources);
- 	/* insert busn resource at first */
--	pci_add_resource(&info.resources, &root->secondary);
-+	pci_add_resource(&info->resources, &root->secondary);
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&info.res_num);
--	if (info.res_num) {
--		info.res -			kzalloc_node(sizeof(*info.res) * info.res_num,
-+			&info->res_num);
-+	if (info->res_num) {
-+		info->res +			kzalloc_node(sizeof(*info->res) * info->res_num,
- 				     GFP_KERNEL, controller->node);
--		if (!info.res)
--			goto out2;
--		
--		info.res_offset = 
--			kzalloc_node(sizeof(*info.res_offset) * info.res_num,
--				GFP_KERNEL, controller->node);
--		if (!info.res_offset)
-+		if (!info->res)
- 			goto out3;
-+
-+		info->res_offset +			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
-+					GFP_KERNEL, controller->node);
-+		if (!info->res_offset)
-+			goto out4;
+-	preempt_disable();
+-	mycpu = smp_processor_id();
++	mycpu = get_online_cpus_atomic();
  
- 		name = kmalloc(16, GFP_KERNEL);
- 		if (!name)
--			goto out4;
-+			goto out5;
+ 	for_each_cpu_mask(cpu, cpumask)
+ 		counts[cpu] = local_tlb_flush_counts[cpu].count & 0xffff;
+@@ -280,7 +280,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
+ 		while(counts[cpu] = (local_tlb_flush_counts[cpu].count & 0xffff))
+ 			udelay(FLUSH_DELAY);
  
- 		sprintf(name, "PCI Bus %04x:%02x", domain, bus);
--		info.bridge = device;
--		info.controller = controller;
--		info.name = name;
--		info.res_num = 0;
-+		info->bridge = device;
-+		info->controller = controller;
-+		info->name = name;
-+		info->res_num = 0;
- 		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
--			add_window, &info);
-+			add_window, info);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ void
+@@ -293,12 +293,12 @@ void
+ smp_flush_tlb_mm (struct mm_struct *mm)
+ {
+ 	cpumask_var_t cpus;
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	/* this happens for the common case of a single-threaded fork():  */
+ 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
+ 	{
+ 		local_finish_flush_tlb_mm(mm);
+-		preempt_enable();
++		put_online_cpus_atomic();
+ 		return;
  	}
- 	/*
- 	 * See arch/x86/pci/acpi.c.
-@@ -385,18 +393,21 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	 * such quirk. So we just ignore the case now.
+ 	if (!alloc_cpumask_var(&cpus, GFP_ATOMIC)) {
+@@ -313,7 +313,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
+ 	local_irq_disable();
+ 	local_finish_flush_tlb_mm(mm);
+ 	local_irq_enable();
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ void arch_send_call_function_single_ipi(int cpu)
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index ed61297..8c55ef5 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -87,11 +87,11 @@ wrap_mmu_context (struct mm_struct *mm)
+ 	 * can't call flush_tlb_all() here because of race condition
+ 	 * with O(1) scheduler [EF]
  	 */
- 	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops, controller,
--				   &info.resources);
-+				   &info->resources);
- 	if (!pbus) {
--		pci_free_resource_list(&info.resources);
-+		pci_free_resource_list(&info->resources);
- 		return NULL;
- 	}
+-	cpu = get_cpu(); /* prevent preemption/migration */
++	cpu = get_online_cpus_atomic(); /* prevent preemption/migration */
+ 	for_each_online_cpu(i)
+ 		if (i != cpu)
+ 			per_cpu(ia64_need_tlb_flush, i) = 1;
+-	put_cpu();
++	put_online_cpus_atomic();
+ 	local_flush_tlb_all();
+ }
  
- 	pci_scan_child_bus(pbus);
- 	return pbus;
-+
-+out5:
-+	kfree(info->res_offset);
- out4:
--	kfree(info.res_offset);
-+	kfree(info->res);
- out3:
--	kfree(info.res);
-+	kfree(info);
- out2:
- 	kfree(controller);
- out1:
--- 
-1.7.1
-
 
