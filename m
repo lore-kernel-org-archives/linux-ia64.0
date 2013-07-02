@@ -1,58 +1,54 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 01 Jul 2013 16:47:14 +0000
-Subject: [GIT PULL] Miscellaneous ia64 changes for 3.11 merge window
-Message-Id: <51d1b292169713ed3@agluck-desk.sc.intel.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Tue, 02 Jul 2013 16:39:25 +0000
+Subject: [PATCH 01/13] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+Message-Id: <f2af909c37be9ee8b35fe1ff7b9dfdc9bf42da4c.1372777600.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1372777600.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1372777600.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Yann Droneaud <ydroneaud@opteya.com>
 
-The following changes since commit d683b96b072dc4680fc74964eca77e6a23d1fa6e:
+Macro get_unused_fd() is used to allocate a file descriptor with
+default flags. Those default flags (0) can be "unsafe":
+O_CLOEXEC must be used by default to not leak file descriptor
+across exec().
 
-  Linux 3.10-rc4 (2013-06-02 17:11:17 +0900)
+Instead of macro get_unused_fd(), functions anon_inode_getfd()
+or get_unused_fd_flags() should be used with flags given by userspace.
+If not possible, flags should be set to O_CLOEXEC to provide userspace
+with a default safe behavor.
 
-are available in the git repository at:
+In a further patch, get_unused_fd() will be removed so that
+new code start using anon_inode_getfd() or get_unused_fd_flags()
+with correct flags.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-3.11
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
 
-for you to fetch changes up to ccce9bb83ed20bca52f82ff9d7cf889d23a2ec01:
+The hard coded flag value (0) should be reviewed on a per-subsystem basis,
+and, if possible, set to O_CLOEXEC.
 
-  [IA64] Delete __cpuinit usage from all ia64 users (2013-06-24 15:44:27 -0700)
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+---
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-----------------------------------------------------------------
-Miscellaneous ia64 changes for 3.11 merge window
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5a9ff1c..64757c1 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2668,7 +2668,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+ 
+ 	ret = -ENOMEM;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
+ 
+-- 
+1.8.3.1
 
-----------------------------------------------------------------
-Andy Shevchenko (1):
-      [IA64] perfmon: Use %*phD specifier to dump small buffers
-
-Bjorn Helgaas (1):
-      [IA64] pci: Remove unused fallback_dev
-
-Chen Gang (2):
-      [IA64] Fix trap #45 handling
-      [IA64] hpsim: Fix check for overlong simscsi prefix.
-
-Paul Gortmaker (1):
-      [IA64] Delete __cpuinit usage from all ia64 users
-
- arch/ia64/hp/sim/simscsi.c    |  4 ++--
- arch/ia64/kernel/acpi.c       |  4 ++--
- arch/ia64/kernel/err_inject.c |  8 ++++----
- arch/ia64/kernel/mca.c        | 12 ++++++------
- arch/ia64/kernel/numa.c       |  4 ++--
- arch/ia64/kernel/palinfo.c    |  4 ++--
- arch/ia64/kernel/pci-dma.c    |  9 ---------
- arch/ia64/kernel/perfmon.c    | 20 ++------------------
- arch/ia64/kernel/salinfo.c    |  4 ++--
- arch/ia64/kernel/setup.c      | 10 +++++-----
- arch/ia64/kernel/smpboot.c    |  8 ++++----
- arch/ia64/kernel/topology.c   | 18 +++++++++---------
- arch/ia64/kernel/traps.c      |  2 +-
- arch/ia64/mm/contig.c         |  3 +--
- arch/ia64/mm/discontig.c      |  2 +-
- arch/ia64/mm/numa.c           |  2 +-
- arch/ia64/sn/kernel/setup.c   |  8 ++++----
- arch/ia64/xen/hypervisor.c    |  2 +-
- 18 files changed, 49 insertions(+), 75 deletions(-)
