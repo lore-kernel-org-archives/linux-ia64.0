@@ -1,32 +1,38 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Fri, 26 Jul 2013 12:42:11 +0000
-Subject: Re: [PATCH 1/2] PCI: hotplug: Convert to be builtin only, not modular
-Message-Id: <CAE9FiQVNYB7z7e1s=1PGsgQe_kexy+7V10WAxkReA-kiQ=10yg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Date: Tue, 09 Jul 2013 17:13:03 +0000
+Subject: ia64: dmi.h: Make dmi_alloc use kzalloc
+Message-Id: <1373389983.14604.18.camel@joe-AO722>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20130725175242.6006.56007.stgit@bhelgaas-glaptop>
-	<20130725175720.6006.96448.stgit@bhelgaas-glaptop>
-In-Reply-To: <20130725175720.6006.96448.stgit@bhelgaas-glaptop>
+References: <1373384438.4391.6.camel@chaos.site>
+	 <1373384574.4391.9.camel@chaos.site> <1373386794.14604.14.camel@joe-AO722>
+In-Reply-To: <1373386794.14604.14.camel@joe-AO722>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, Paul Mundt <lethal@linux-sh.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org
+To: Jean Delvare <jdelvare@suse.de>
+Cc: linux-kernel@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-On Thu, Jul 25, 2013 at 10:57 AM, Bjorn Helgaas <bhelgaas@google.com> wrote:
-> Convert CONFIG_HOTPLUG_PCI from tristate to bool.  This only affects
-> the hotplug core; several of the hotplug drivers can still be modules.
->
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-> ---
->  arch/ia64/configs/generic_defconfig    |    2 +-
->  arch/ia64/configs/gensparse_defconfig  |    2 +-
->  arch/ia64/configs/tiger_defconfig      |    2 +-
->  arch/ia64/configs/xen_domu_defconfig   |    2 +-
->  arch/powerpc/configs/ppc64_defconfig   |    2 +-
->  arch/powerpc/configs/ppc64e_defconfig  |    2 +-
->  arch/powerpc/configs/pseries_defconfig |    2 +-
->  arch/sh/configs/sh03_defconfig         |    2 +-
->  drivers/pci/hotplug/Kconfig            |    5 +----
->  9 files changed, 9 insertions(+), 12 deletions(-)
+x86/ia64 have a slight mismatch in dmi_alloc as
+x86 does a memset(0), and ia64 just does kmalloc.
 
-Acked-by: Yinghai Lu <yinghai@kernel.org>
+Make the ia64 dmi_alloc match the x86 style.
+
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ arch/ia64/include/asm/dmi.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/ia64/include/asm/dmi.h b/arch/ia64/include/asm/dmi.h
+index 1ed4c8f..185d3d1 100644
+--- a/arch/ia64/include/asm/dmi.h
++++ b/arch/ia64/include/asm/dmi.h
+@@ -7,6 +7,6 @@
+ /* Use normal IO mappings for DMI */
+ #define dmi_ioremap ioremap
+ #define dmi_iounmap(x,l) iounmap(x)
+-#define dmi_alloc(l) kmalloc(l, GFP_ATOMIC)
++#define dmi_alloc(l) kzalloc(l, GFP_ATOMIC)
+ 
+ #endif
+
+
