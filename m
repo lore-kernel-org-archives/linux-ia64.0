@@ -1,43 +1,21 @@
-From: Leif Lindholm <leif.lindholm@linaro.org>
-Date: Tue, 30 Jul 2013 16:47:34 +0000
-Subject: [PATCH 0/4] Make commonly useful UEFI functions common
-Message-Id: <1375202858-28470-1-git-send-email-leif.lindholm@linaro.org>
+From: Tony Luck <tony.luck@gmail.com>
+Date: Tue, 30 Jul 2013 19:57:49 +0000
+Subject: Re: [PATCH 0/4] Make commonly useful UEFI functions common
+Message-Id: <CA+8MBb+VzakCg0NAfxTxQ+LipvKhjTL4QaU5Q-vEU=hVZViq_A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1375202858-28470-1-git-send-email-leif.lindholm@linaro.org>
+In-Reply-To: <1375202858-28470-1-git-send-email-leif.lindholm@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, hpa@zytor.com, tglx@linutronix.de, patches@linaro.org, Leif Lindholm <leif.lindholm@linaro.org>
+To: Leif Lindholm <leif.lindholm@linaro.org>
+Cc: "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Matt Fleming <matt.fleming@intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, patches@linaro.org
 
-This set breaks out some common code from x86/ia64 EFI support
-code and puts it into drivers/firmware/efi.
+On Tue, Jul 30, 2013 at 9:47 AM, Leif Lindholm <leif.lindholm@linaro.org> wrote:
+> IA64 code compile tested only.
 
-First it takes the definition of the global "efi" data structure
-and moves it into global efi.c. Then it implements a common version
-of efi_config_init().
+Compiled on a bunch of ia64 configurations, Boot tested. But not on machine that
+does the PROCESSOR_ABSTRACTION_LAYER_OVERWRITE_GUID thingy.
+Code to do the arch specific thing looks ok though.
 
-Secondly it breaks the efi_lookup_mapped_addr() function out of x86
-and places it in global efi.c, for shared use with future ARM
-patches.
-
-IA64 code compile tested only.
-
-Pardon the delay in getting this out - back to back conferences
-followed by a bad case of the man flu.
-
-Leif Lindholm (4):
-  efi: provide a generic efi_config_init()
-  efi: x86: use common code for (U)EFI configuration scanning
-  efi: ia64: use common code for (U)EFI configuration scanning
-  efi: x86: make efi_lookup_mapped_addr() a common function
-
- arch/ia64/include/asm/io.h  |    1 +
- arch/ia64/kernel/efi.c      |   54 ++++-------------
- arch/x86/platform/efi/efi.c |  124 +++------------------------------------
- drivers/firmware/efi/efi.c  |  136 +++++++++++++++++++++++++++++++++++++++++++
- include/linux/efi.h         |    7 +++
- 5 files changed, 163 insertions(+), 159 deletions(-)
-
--- 
-1.7.10.4
-
+-Tony
