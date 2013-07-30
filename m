@@ -1,177 +1,153 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Mon, 01 Jul 2013 13:42:08 +0000
-Subject: [PATCHv4 03/11] pci: remove ARCH_SUPPORTS_MSI kconfig option
-Message-Id: <1372686136-1370-4-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Leif Lindholm <leif.lindholm@linaro.org>
+Date: Tue, 30 Jul 2013 16:47:36 +0000
+Subject: [PATCH 2/4] efi: x86: use common code for (U)EFI configuration scanning
+Message-Id: <1375202858-28470-3-git-send-email-leif.lindholm@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1372686136-1370-1-git-send-email-thomas.petazzoni@free-electrons.com>
-In-Reply-To: <1372686136-1370-1-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <1375202858-28470-1-git-send-email-leif.lindholm@linaro.org>
+In-Reply-To: <1375202858-28470-1-git-send-email-leif.lindholm@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, Russell King <linux@arm.linux.org.uk>, Grant Likely <grant.likely@secretlab.ca>, Rob Herring <rob.herring@calxeda.com>, Thomas Gleixner <tglx@linutronix.de>, Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>, Gregory Clement <gregory.clement@free-electrons.com>
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>, linux-arm-kernel@lists.infradead.org, Maen Suleiman <maen@marvell.com>, Lior Amsalem <alior@marvell.com>, Thierry Reding <thierry.reding@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux390@de.ibm.com, linux-s390@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>
+To: linux-efi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, hpa@zytor.com, tglx@linutronix.de, patches@linaro.org, Leif Lindholm <leif.lindholm@linaro.org>
 
-Now that we have weak versions for each of the PCI MSI architecture
-functions, we can actually build the MSI support for all platforms,
-regardless of whether they provide or not architecture-specific
-versions of those functions. For this reason, the ARCH_SUPPORTS_MSI
-hidden kconfig boolean becomes useless, and this patch gets rid of it.
+This patch makes x86 use the new common code for EFI configuration
+table scanning. It also removes the local definition of the global
+"efi" data structure.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: linux-mips@linux-mips.org
-Cc: David S. Miller <davem@davemloft.net>
-Cc: sparclinux@vger.kernel.org
-Cc: Chris Metcalf <cmetcalf@tilera.com>
+Signed-off-by: Leif Lindholm <leif.lindholm@linaro.org>
 ---
- arch/arm/Kconfig     | 1 -
- arch/ia64/Kconfig    | 1 -
- arch/mips/Kconfig    | 2 --
- arch/powerpc/Kconfig | 1 -
- arch/s390/Kconfig    | 1 -
- arch/sparc/Kconfig   | 1 -
- arch/tile/Kconfig    | 1 -
- arch/x86/Kconfig     | 1 -
- drivers/pci/Kconfig  | 4 ----
- 9 files changed, 13 deletions(-)
+ arch/x86/platform/efi/efi.c |   96 ++++---------------------------------------
+ 1 file changed, 8 insertions(+), 88 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 8ab5962..3413679 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -435,7 +435,6 @@ config ARCH_NETX
- config ARCH_IOP13XX
- 	bool "IOP13xx-based"
- 	depends on MMU
--	select ARCH_SUPPORTS_MSI
- 	select CPU_XSC3
- 	select NEED_MACH_MEMORY_H
- 	select NEED_RET_TO_USER
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 1a2b774..943d425 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -9,7 +9,6 @@ config IA64
- 	select PCI if (!IA64_HP_SIM)
- 	select ACPI if (!IA64_HP_SIM)
- 	select PM if (!IA64_HP_SIM)
--	select ARCH_SUPPORTS_MSI
- 	select HAVE_UNSTABLE_SCHED_CLOCK
- 	select HAVE_IDE
- 	select HAVE_OPROFILE
-diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index 7a58ab9..96c1225 100644
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -763,7 +763,6 @@ config CAVIUM_OCTEON_REFERENCE_BOARD
- 	select SYS_HAS_CPU_CAVIUM_OCTEON
- 	select SWAP_IO_SPACE
- 	select HW_HAS_PCI
--	select ARCH_SUPPORTS_MSI
- 	select ZONE_DMA32
- 	select USB_ARCH_HAS_OHCI
- 	select USB_ARCH_HAS_EHCI
-@@ -799,7 +798,6 @@ config NLM_XLR_BOARD
- 	select CEVT_R4K
- 	select CSRC_R4K
- 	select IRQ_CPU
--	select ARCH_SUPPORTS_MSI
- 	select ZONE_DMA32 if 64BIT
- 	select SYNC_R4K
- 	select SYS_HAS_EARLY_PRINTK
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index c33e3ad..f9d9d8e 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -734,7 +734,6 @@ config PCI
- 	default y if !40x && !CPM2 && !8xx && !PPC_83xx \
- 		&& !PPC_85xx && !PPC_86xx && !GAMECUBE_COMMON
- 	default PCI_QSPAN if !4xx && !CPM2 && 8xx
--	select ARCH_SUPPORTS_MSI
- 	select GENERIC_PCI_IOMAP
- 	help
- 	  Find out whether your system includes a PCI bus. PCI is the name of
-diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index da183c5..9a6225b 100644
---- a/arch/s390/Kconfig
-+++ b/arch/s390/Kconfig
-@@ -429,7 +429,6 @@ menuconfig PCI
- 	bool "PCI support"
- 	default n
- 	depends on 64BIT
--	select ARCH_SUPPORTS_MSI
- 	select PCI_MSI
- 	help
- 	  Enable PCI support.
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index 9ac9f16..822e1a1 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -52,7 +52,6 @@ config SPARC32
+diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
+index 90f6ed1..ed2be58 100644
+--- a/arch/x86/platform/efi/efi.c
++++ b/arch/x86/platform/efi/efi.c
+@@ -60,19 +60,6 @@
  
- config SPARC64
- 	def_bool 64BIT
--	select ARCH_SUPPORTS_MSI
- 	select HAVE_FUNCTION_TRACER
- 	select HAVE_FUNCTION_GRAPH_TRACER
- 	select HAVE_FUNCTION_GRAPH_FP_TEST
-diff --git a/arch/tile/Kconfig b/arch/tile/Kconfig
-index 3aa3766..d2d519c 100644
---- a/arch/tile/Kconfig
-+++ b/arch/tile/Kconfig
-@@ -379,7 +379,6 @@ config PCI
- 	select PCI_DOMAINS
- 	select GENERIC_PCI_IOMAP
- 	select TILE_GXIO_TRIO if TILEGX
--	select ARCH_SUPPORTS_MSI if TILEGX
- 	select PCI_MSI if TILEGX
- 	---help---
- 	  Enable PCI root complex support, so PCIe endpoint devices can
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 685692c..4229ce0 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -1999,7 +1999,6 @@ menu "Bus options (PCI etc.)"
- config PCI
- 	bool "PCI support"
- 	default y
--	select ARCH_SUPPORTS_MSI if (X86_LOCAL_APIC && X86_IO_APIC)
- 	---help---
- 	  Find out whether you have a PCI motherboard. PCI is the name of a
- 	  bus system, i.e. the way the CPU talks to the other stuff inside
-diff --git a/drivers/pci/Kconfig b/drivers/pci/Kconfig
-index ac45398..3d4c061 100644
---- a/drivers/pci/Kconfig
-+++ b/drivers/pci/Kconfig
-@@ -1,13 +1,9 @@
- #
- # PCI configuration
- #
--config ARCH_SUPPORTS_MSI
--	bool
+ static efi_char16_t efi_dummy_name[6] = { 'D', 'U', 'M', 'M', 'Y', 0 };
+ 
+-struct efi __read_mostly efi = {
+-	.mps        = EFI_INVALID_TABLE_ADDR,
+-	.acpi       = EFI_INVALID_TABLE_ADDR,
+-	.acpi20     = EFI_INVALID_TABLE_ADDR,
+-	.smbios     = EFI_INVALID_TABLE_ADDR,
+-	.sal_systab = EFI_INVALID_TABLE_ADDR,
+-	.boot_info  = EFI_INVALID_TABLE_ADDR,
+-	.hcdp       = EFI_INVALID_TABLE_ADDR,
+-	.uga        = EFI_INVALID_TABLE_ADDR,
+-	.uv_systab  = EFI_INVALID_TABLE_ADDR,
+-};
+-EXPORT_SYMBOL(efi);
 -
- config PCI_MSI
- 	bool "Message Signaled Interrupts (MSI and MSI-X)"
- 	depends on PCI
--	depends on ARCH_SUPPORTS_MSI
- 	help
- 	   This allows device drivers to enable MSI (Message Signaled
- 	   Interrupts).  Message Signaled Interrupts enable a device to
+ struct efi_memory_map memmap;
+ 
+ static struct efi efi_phys __initdata;
+@@ -80,6 +67,13 @@ static efi_system_table_t efi_systab __initdata;
+ 
+ unsigned long x86_efi_facility;
+ 
++static __initdata efi_config_table_type_t arch_tables[] = {
++#ifdef CONFIG_X86_UV
++	{UV_SYSTEM_TABLE_GUID, "UVsystab", &efi.uv_systab},
++#endif
++	{NULL_GUID, NULL, 0},
++};
++
+ /*
+  * Returns 1 if 'facility' is enabled, 0 otherwise.
+  */
+@@ -578,80 +572,6 @@ static int __init efi_systab_init(void *phys)
+ 	return 0;
+ }
+ 
+-static int __init efi_config_init(u64 tables, int nr_tables)
+-{
+-	void *config_tables, *tablep;
+-	int i, sz;
+-
+-	if (efi_enabled(EFI_64BIT))
+-		sz = sizeof(efi_config_table_64_t);
+-	else
+-		sz = sizeof(efi_config_table_32_t);
+-
+-	/*
+-	 * Let's see what config tables the firmware passed to us.
+-	 */
+-	config_tables = early_ioremap(tables, nr_tables * sz);
+-	if (config_tables = NULL) {
+-		pr_err("Could not map Configuration table!\n");
+-		return -ENOMEM;
+-	}
+-
+-	tablep = config_tables;
+-	pr_info("");
+-	for (i = 0; i < efi.systab->nr_tables; i++) {
+-		efi_guid_t guid;
+-		unsigned long table;
+-
+-		if (efi_enabled(EFI_64BIT)) {
+-			u64 table64;
+-			guid = ((efi_config_table_64_t *)tablep)->guid;
+-			table64 = ((efi_config_table_64_t *)tablep)->table;
+-			table = table64;
+-#ifdef CONFIG_X86_32
+-			if (table64 >> 32) {
+-				pr_cont("\n");
+-				pr_err("Table located above 4GB, disabling EFI.\n");
+-				early_iounmap(config_tables,
+-					      efi.systab->nr_tables * sz);
+-				return -EINVAL;
+-			}
+-#endif
+-		} else {
+-			guid = ((efi_config_table_32_t *)tablep)->guid;
+-			table = ((efi_config_table_32_t *)tablep)->table;
+-		}
+-		if (!efi_guidcmp(guid, MPS_TABLE_GUID)) {
+-			efi.mps = table;
+-			pr_cont(" MPS=0x%lx ", table);
+-		} else if (!efi_guidcmp(guid, ACPI_20_TABLE_GUID)) {
+-			efi.acpi20 = table;
+-			pr_cont(" ACPI 2.0=0x%lx ", table);
+-		} else if (!efi_guidcmp(guid, ACPI_TABLE_GUID)) {
+-			efi.acpi = table;
+-			pr_cont(" ACPI=0x%lx ", table);
+-		} else if (!efi_guidcmp(guid, SMBIOS_TABLE_GUID)) {
+-			efi.smbios = table;
+-			pr_cont(" SMBIOS=0x%lx ", table);
+-#ifdef CONFIG_X86_UV
+-		} else if (!efi_guidcmp(guid, UV_SYSTEM_TABLE_GUID)) {
+-			efi.uv_systab = table;
+-			pr_cont(" UVsystab=0x%lx ", table);
+-#endif
+-		} else if (!efi_guidcmp(guid, HCDP_TABLE_GUID)) {
+-			efi.hcdp = table;
+-			pr_cont(" HCDP=0x%lx ", table);
+-		} else if (!efi_guidcmp(guid, UGA_IO_PROTOCOL_GUID)) {
+-			efi.uga = table;
+-			pr_cont(" UGA=0x%lx ", table);
+-		}
+-		tablep += sz;
+-	}
+-	pr_cont("\n");
+-	early_iounmap(config_tables, efi.systab->nr_tables * sz);
+-	return 0;
+-}
+-
+ static int __init efi_runtime_init(void)
+ {
+ 	efi_runtime_services_t *runtime;
+@@ -745,7 +665,7 @@ void __init efi_init(void)
+ 		efi.systab->hdr.revision >> 16,
+ 		efi.systab->hdr.revision & 0xffff, vendor);
+ 
+-	if (efi_config_init(efi.systab->tables, efi.systab->nr_tables))
++	if (efi_config_init(arch_tables))
+ 		return;
+ 
+ 	set_bit(EFI_CONFIG_TABLES, &x86_efi_facility);
 -- 
-1.8.1.2
+1.7.10.4
 
