@@ -1,46 +1,127 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Date: Tue, 27 Aug 2013 09:20:50 +0000
-Subject: RE: [PATCH 0/2] fs: supply inode uid/gid setting interface
-Message-Id: <AE90C24D6B3A694183C094C60CF0A2F6026B7307@saturn3.aculab.com>
+From: Leif Lindholm <leif.lindholm@linaro.org>
+Date: Fri, 02 Aug 2013 16:56:21 +0000
+Subject: [PATCH v2 4/5] efi: ia64: use common code for (U)EFI configuration scanning
+Message-Id: <1375462582-16423-5-git-send-email-leif.lindholm@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1377226118-43756-1-git-send-email-rui.xiang@huawei.com> <20130823041010.GA12296@kroah.com> <5217100E.6080506@huawei.com>
-In-Reply-To: <5217100E.6080506@huawei.com>
+References: <1375462582-16423-1-git-send-email-leif.lindholm@linaro.org>
+In-Reply-To: <1375462582-16423-1-git-send-email-leif.lindholm@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rui Xiang <rui.xiang@huawei.com>, Greg KH <gregkh@linuxfoundation.org>
-Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-rdma@vger.kernel.org, netdev@vger.kernel.org, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, viro@zeniv.linux.org.uk, cgroups@vger.kernel.org, linux-fsdevel@vger.kernel.org, v9fs-developer@lists.sourceforge.net, linuxppc-dev@lists.ozlabs.org
+To: linux-efi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, tony.luck@gmail.com, patches@linaro.org, Leif Lindholm <leif.lindholm@linaro.org>
 
-> Subject: Re: [PATCH 0/2] fs: supply inode uid/gid setting interface
-> 
-> On 2013/8/23 12:10, Greg KH wrote:
-> > On Fri, Aug 23, 2013 at 10:48:36AM +0800, Rui Xiang wrote:
-> >> This patchset implements an accessor functions to set uid/gid
-> >> in inode struct. Just finish code clean up.
-> >
-> > Why?
-> >
-> It can introduce a new function to reduce some codes.
->  Just clean up.
+This patch makes ia64 use the new common code for configuration table
+scanning. It also removes the local definition of the global "efi"
+data structure.
 
-In what sense is it a 'cleanup' ?
+Signed-off-by: Leif Lindholm <leif.lindholm@linaro.org>
+---
+ arch/ia64/kernel/efi.c |   54 ++++++++++--------------------------------------
+ 1 file changed, 11 insertions(+), 43 deletions(-)
 
-To my mind it just means that anyone reading the code has
-to go and look at another file in order to see what the
-function does (it might be expected to be more complex).
-
-It also adds run time cost, while probably not directly
-measurable I suspect it more than doubles the execution
-time of that code fragment - do that everywhere and the
-system will run like a sick pig.
-
-The only real use for accessor functions is when you
-don't want the structure offset to be public.
-In this case that is obviously not the case since
-all the drivers are directly accessing other members
-of the structure.
-
-	David
-
-
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 51bce59..da5b462 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -44,10 +44,15 @@
+ 
+ #define EFI_DEBUG	0
+ 
++static __initdata unsigned long palo_phys;
++
++static __initdata efi_config_table_type_t arch_tables[] = {
++	{PROCESSOR_ABSTRACTION_LAYER_OVERWRITE_GUID, "PALO", &palo_phys},
++	{NULL_GUID, NULL, 0},
++};
++
+ extern efi_status_t efi_call_phys (void *, ...);
+ 
+-struct efi efi;
+-EXPORT_SYMBOL(efi);
+ static efi_runtime_services_t *runtime;
+ static u64 mem_limit = ~0UL, max_addr = ~0UL, min_addr = 0UL;
+ 
+@@ -423,9 +428,9 @@ static u8 __init palo_checksum(u8 *buffer, u32 length)
+  * Parse and handle PALO table which is published at:
+  * http://www.dig64.org/home/DIG64_PALO_R1_0.pdf
+  */
+-static void __init handle_palo(unsigned long palo_phys)
++static void __init handle_palo(unsigned long phys_addr)
+ {
+-	struct palo_table *palo = __va(palo_phys);
++	struct palo_table *palo = __va(phys_addr);
+ 	u8  checksum;
+ 
+ 	if (strncmp(palo->signature, PALO_SIG, sizeof(PALO_SIG) - 1)) {
+@@ -467,12 +472,10 @@ void __init
+ efi_init (void)
+ {
+ 	void *efi_map_start, *efi_map_end;
+-	efi_config_table_t *config_tables;
+ 	efi_char16_t *c16;
+ 	u64 efi_desc_size;
+ 	char *cp, vendor[100] = "unknown";
+ 	int i;
+-	unsigned long palo_phys;
+ 
+ 	/*
+ 	 * It's too early to be able to use the standard kernel command line
+@@ -514,8 +517,6 @@ efi_init (void)
+ 		       efi.systab->hdr.revision >> 16,
+ 		       efi.systab->hdr.revision & 0xffff);
+ 
+-	config_tables = __va(efi.systab->tables);
+-
+ 	/* Show what we know for posterity */
+ 	c16 = __va(efi.systab->fw_vendor);
+ 	if (c16) {
+@@ -528,43 +529,10 @@ efi_init (void)
+ 	       efi.systab->hdr.revision >> 16,
+ 	       efi.systab->hdr.revision & 0xffff, vendor);
+ 
+-	efi.mps        = EFI_INVALID_TABLE_ADDR;
+-	efi.acpi       = EFI_INVALID_TABLE_ADDR;
+-	efi.acpi20     = EFI_INVALID_TABLE_ADDR;
+-	efi.smbios     = EFI_INVALID_TABLE_ADDR;
+-	efi.sal_systab = EFI_INVALID_TABLE_ADDR;
+-	efi.boot_info  = EFI_INVALID_TABLE_ADDR;
+-	efi.hcdp       = EFI_INVALID_TABLE_ADDR;
+-	efi.uga        = EFI_INVALID_TABLE_ADDR;
+-
+ 	palo_phys      = EFI_INVALID_TABLE_ADDR;
+ 
+-	for (i = 0; i < (int) efi.systab->nr_tables; i++) {
+-		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) = 0) {
+-			efi.mps = config_tables[i].table;
+-			printk(" MPS=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) = 0) {
+-			efi.acpi20 = config_tables[i].table;
+-			printk(" ACPI 2.0=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) = 0) {
+-			efi.acpi = config_tables[i].table;
+-			printk(" ACPI=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
+-			efi.smbios = config_tables[i].table;
+-			printk(" SMBIOS=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, SAL_SYSTEM_TABLE_GUID) = 0) {
+-			efi.sal_systab = config_tables[i].table;
+-			printk(" SALsystab=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid, HCDP_TABLE_GUID) = 0) {
+-			efi.hcdp = config_tables[i].table;
+-			printk(" HCDP=0x%lx", config_tables[i].table);
+-		} else if (efi_guidcmp(config_tables[i].guid,
+-			 PROCESSOR_ABSTRACTION_LAYER_OVERWRITE_GUID) = 0) {
+-			palo_phys = config_tables[i].table;
+-			printk(" PALO=0x%lx", config_tables[i].table);
+-		}
+-	}
+-	printk("\n");
++	if (efi_config_init(arch_tables) != 0)
++		return;
+ 
+ 	if (palo_phys != EFI_INVALID_TABLE_ADDR)
+ 		handle_palo(palo_phys);
+-- 
+1.7.10.4
 
