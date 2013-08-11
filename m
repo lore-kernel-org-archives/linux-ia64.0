@@ -1,46 +1,50 @@
-From: Akinobu Mita <akinobu.mita@gmail.com>
-Date: Wed, 14 Aug 2013 13:06:59 +0000
-Subject: [PATCH] ia64: use asm-generic/bitops/builtin-ffs.h
-Message-Id: <1376485619-5166-1-git-send-email-akinobu.mita@gmail.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Sun, 11 Aug 2013 02:47:55 +0000
+Subject: [PATCH v4 09/28] ia64, irq: Add dummy create_irq_nr()
+Message-Id: <1376189294-32022-10-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1376189294-32022-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1376189294-32022-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Akinobu Mita <akinobu.mita@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Tony Luck <tony.luck@intel.com>, Bjorn Helgaas <bhelgaas@google.com>, "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, stable@vger.kernel.org
 
-The definision of ffs() for ia64 is almost same as
-asm-generic/bitops/builtin-ffs.h.  The only difference is that it is
-defined as inline function or macro function.  So this switches to use
-the header.
+create_irq() will return -1 when fail to allocate.
+create_irq_nr() will return 0 when fail to allocate.
 
-Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
-Cc: Tony Luck <tony.luck@intel.com>
+Will use it to fix one return value checking for dmar_msi irq.
+
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
+Cc: stable@vger.kernel.org
 ---
- arch/ia64/include/asm/bitops.h | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ arch/ia64/kernel/irq_ia64.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/arch/ia64/include/asm/bitops.h b/arch/ia64/include/asm/bitops.h
-index 8e20bff..c27eccd 100644
---- a/arch/ia64/include/asm/bitops.h
-+++ b/arch/ia64/include/asm/bitops.h
-@@ -425,13 +425,7 @@ __fls (unsigned long x)
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 1034884..38e46df 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -429,6 +429,16 @@ int create_irq(void)
+ 	return irq;
+ }
  
- #include <asm-generic/bitops/fls64.h>
- 
--/*
-- * ffs: find first bit set. This is defined the same way as the libc and
-- * compiler builtin ffs routines, therefore differs in spirit from the above
-- * ffz (man ffs): it operates on "int" values only and the result value is the
-- * bit number + 1.  ffs(0) is defined to return zero.
-- */
--#define ffs(x)	__builtin_ffs(x)
-+#include <asm-generic/bitops/builtin-ffs.h>
- 
- /*
-  * hweightN: returns the hamming weight (i.e. the number
++unsigned int create_irq_nr(unsigned int from, int node)
++{
++	int irq = create_irq();
++
++	if (irq < 0)
++		irq = 0;
++
++	return irq;
++}
++
+ void destroy_irq(unsigned int irq)
+ {
+ 	dynamic_irq_cleanup(irq);
 -- 
-1.8.3.1
+1.8.1.4
 
