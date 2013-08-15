@@ -1,50 +1,55 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Sun, 11 Aug 2013 02:47:55 +0000
-Subject: [PATCH v4 09/28] ia64, irq: Add dummy create_irq_nr()
-Message-Id: <1376189294-32022-10-git-send-email-yinghai@kernel.org>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Thu, 15 Aug 2013 13:10:51 +0000
+Subject: [PATCH v2 01/10] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+Message-Id: <e592269fefdc1f0d2149d807d1d1300a1e86ee23.1376327678.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1376189294-32022-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1376189294-32022-1-git-send-email-yinghai@kernel.org>
+References: <cover.1376327678.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1376327678.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Tony Luck <tony.luck@intel.com>, Bjorn Helgaas <bhelgaas@google.com>, "Rafael J. Wysocki" <rjw@sisk.pl>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, stable@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>
+Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-create_irq() will return -1 when fail to allocate.
-create_irq_nr() will return 0 when fail to allocate.
+Macro get_unused_fd() is used to allocate a file descriptor with
+default flags. Those default flags (0) can be "unsafe":
+O_CLOEXEC must be used by default to not leak file descriptor
+across exec().
 
-Will use it to fix one return value checking for dmar_msi irq.
+Instead of macro get_unused_fd(), functions anon_inode_getfd()
+or get_unused_fd_flags() should be used with flags given by userspace.
+If not possible, flags should be set to O_CLOEXEC to provide userspace
+with a default safe behavor.
 
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: stable@vger.kernel.org
+In a further patch, get_unused_fd() will be removed so that
+new code start using anon_inode_getfd() or get_unused_fd_flags()
+with correct flags.
+
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
+
+The hard coded flag value (0) should be reviewed on a per-subsystem basis,
+and, if possible, set to O_CLOEXEC.
+
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+Link: http://lkml.kernel.org/r/cover.1376327678.git.ydroneaud@opteya.com
 ---
- arch/ia64/kernel/irq_ia64.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 1034884..38e46df 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -429,6 +429,16 @@ int create_irq(void)
- 	return irq;
- }
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5a9ff1c..64757c1 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2668,7 +2668,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
  
-+unsigned int create_irq_nr(unsigned int from, int node)
-+{
-+	int irq = create_irq();
-+
-+	if (irq < 0)
-+		irq = 0;
-+
-+	return irq;
-+}
-+
- void destroy_irq(unsigned int irq)
- {
- 	dynamic_irq_cleanup(irq);
+ 	ret = -ENOMEM;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
+ 
 -- 
-1.8.1.4
+1.8.3.1
 
