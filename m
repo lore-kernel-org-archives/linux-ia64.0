@@ -1,128 +1,60 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 20 Aug 2013 19:38:03 +0000
-Subject: [PATCH] Kconfig: Remove hotplug enable hints in CONFIG_KEXEC help texts
-Message-Id: <1377027483-17025-1-git-send-email-geert@linux-m68k.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 21 Aug 2013 01:13:23 +0000
+Subject: Re: [PATCH] Kconfig: Remove hotplug enable hints in CONFIG_KEXEC help texts
+Message-Id: <20130821111323.1325e3f37faf2f54f3549832@canb.auug.org.au>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Signature=_Wed__21_Aug_2013_11_13_23_+1000_GADke1ldKgHjpl8v"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <1377027483-17025-1-git-send-email-geert@linux-m68k.org>
+In-Reply-To: <1377027483-17025-1-git-send-email-geert@linux-m68k.org>
 To: linux-arm-kernel@lists.infradead.org
 
-commit 40b313608ad4ea655addd2ec6cdd106477ae8e15 ("Finally eradicate
-CONFIG_HOTPLUG") removed remaining references to CONFIG_HOTPLUG, but missed
-a few plain English references in the CONFIG_KEXEC help texts.
+--Signature=_Wed__21_Aug_2013_11_13_23_+1000_GADke1ldKgHjpl8v
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Remove them, too.
+Hi Geert,
 
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
----
- arch/arm/Kconfig     |    3 +--
- arch/ia64/Kconfig    |    6 +++---
- arch/mips/Kconfig    |    6 +++---
- arch/powerpc/Kconfig |    6 +++---
- arch/sh/Kconfig      |    6 +++---
- arch/x86/Kconfig     |    6 +++---
- 6 files changed, 16 insertions(+), 17 deletions(-)
+On Tue, 20 Aug 2013 21:38:03 +0200 Geert Uytterhoeven <geert@linux-m68k.org=
+> wrote:
+>
+> commit 40b313608ad4ea655addd2ec6cdd106477ae8e15 ("Finally eradicate
+> CONFIG_HOTPLUG") removed remaining references to CONFIG_HOTPLUG, but miss=
+ed
+> a few plain English references in the CONFIG_KEXEC help texts.
+>=20
+> Remove them, too.
+>=20
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 43594d5..cd5c1c9 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -2064,8 +2064,7 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.
-+	  initially work for you.
- 
- config ATAGS_PROC
- 	bool "Export atags in procfs"
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 5a768ad..b36370d 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -565,9 +565,9 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.  As of this writing the exact hardware interface is
--	  strongly in flux, so no good recommendation can be made.
-+	  initially work for you.  As of this writing the exact hardware
-+	  interface is strongly in flux, so no good recommendation can be
-+	  made.
- 
- config CRASH_DUMP
- 	  bool "kernel crash dumps"
-diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
-index e12764c..dccd7ce 100644
---- a/arch/mips/Kconfig
-+++ b/arch/mips/Kconfig
-@@ -2305,9 +2305,9 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.  As of this writing the exact hardware interface is
--	  strongly in flux, so no good recommendation can be made.
-+	  initially work for you.  As of this writing the exact hardware
-+	  interface is strongly in flux, so no good recommendation can be
-+	  made.
- 
- config CRASH_DUMP
- 	  bool "Kernel crash dumps"
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index dbd9d3c..cc61418 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -369,9 +369,9 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.  As of this writing the exact hardware interface is
--	  strongly in flux, so no good recommendation can be made.
-+	  initially work for you.  As of this writing the exact hardware
-+	  interface is strongly in flux, so no good recommendation can be
-+	  made.
- 
- config CRASH_DUMP
- 	bool "Build a kdump crash kernel"
-diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
-index 1020dd8..1018ed3 100644
---- a/arch/sh/Kconfig
-+++ b/arch/sh/Kconfig
-@@ -643,9 +643,9 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.  As of this writing the exact hardware interface is
--	  strongly in flux, so no good recommendation can be made.
-+	  initially work for you.  As of this writing the exact hardware
-+	  interface is strongly in flux, so no good recommendation can be
-+	  made.
- 
- config CRASH_DUMP
- 	bool "kernel crash dumps (EXPERIMENTAL)"
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index b32ebf9..6ace5de 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -1627,9 +1627,9 @@ config KEXEC
- 
- 	  It is an ongoing process to be certain the hardware in a machine
- 	  is properly shutdown, so do not be surprised if this code does not
--	  initially work for you.  It may help to enable device hotplugging
--	  support.  As of this writing the exact hardware interface is
--	  strongly in flux, so no good recommendation can be made.
-+	  initially work for you.  As of this writing the exact hardware
-+	  interface is strongly in flux, so no good recommendation can be
-+	  made.
- 
- config CRASH_DUMP
- 	bool "kernel crash dumps"
--- 
-1.7.9.5
+Looks good to me.  Thanks.
 
+Acked-by: Stephen Rothwell <sfr@canb.auug.org.au>
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__21_Aug_2013_11_13_23_+1000_GADke1ldKgHjpl8v
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJSFBQ4AAoJEECxmPOUX5FETsMP/3VZR2oZGvtk3dTQaWWzB2dD
+EkosPsIrqso9g4eHsEBYlDjZ8v45CKoTbp6kbV05x8YWsE+76NWWs6ey8jjoi9Cn
+sSUvUjJ+PuNWGEjM2lsNDIAOfEdcudUVCfTv6aImxGcgCNz4KI0sbxtbWsi9yhlY
+qwQJYtIjxv9gwb3f/gmdEfiyIsTMZPeBslrvWZLhM8yqi1iIFUntRFW8faX4UWAm
+VP9WC92xExfClmaA+jb9iv7bwIB0wsyLMC9v2PipkaWIl5DxAi1f9O1TqlWQUCAE
+FSzsvHl2iwB0vwPRzBSeB+VbJZxVtH9VHqVu3vrZWvPmFMZH00P4l6jkxgH/yUiK
+EBNVKCOUpZyOpBaZ7DYVd6IR8V32LUFysQQijbE81YM+8d/D5JAOUlMu10I8Bzsq
+sWZAe0Yn+tn7uhjIjG/HImewVnxwNjKwWqB258Wo7uvb0ku9+FPstFocAkNtKp3B
+R9wt/F22neliAI5JwuBsd8YE0mJG/MUJNjkJ6Whq+CDzsTZnqGAcvlMin2Tazc3J
+IjCz7Yjn63Pjv9spNvtTdotrzMalNRM7SSG/u7IvR505KYB1VcxL51AYCDnyAtUl
+gLOzWvSxyeq6c1XTr/vO+SKs98Sn0ONl+tlMMgaX04XkWx79qYBKOVlmpqfoiZgK
+ppDQ3M3O70TzO+fk5hNp
+=3DQN
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__21_Aug_2013_11_13_23_+1000_GADke1ldKgHjpl8v--
