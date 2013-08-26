@@ -1,315 +1,441 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Fri, 09 Aug 2013 20:27:06 +0000
-Subject: [PATCHv9 01/10] PCI: use weak functions for MSI arch-specific functions
-Message-Id: <1376080035-29344-2-git-send-email-thomas.petazzoni@free-electrons.com>
+From: Christoph Lameter <cl@linux.com>
+Date: Mon, 26 Aug 2013 20:44:43 +0000
+Subject: [guv v2 19/31] ia64: Replace __get_cpu_var uses
+Message-Id: <00000140bc5f14be-eda60f95-f72e-415e-abb6-eb8f5335d468-000000@email.amazonses.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1376080035-29344-1-git-send-email-thomas.petazzoni@free-electrons.com>
-In-Reply-To: <1376080035-29344-1-git-send-email-thomas.petazzoni@free-electrons.com>
+References: <20130826204351.725357339@linux.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, Russell King <linux@arm.linux.org.uk>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rob Herring <rob.herring@calxeda.com>, Thomas Gleixner <tglx@linutronix.de>, Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>, Gregory Clement <gregory.clement@free-electrons.com>
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>, linux-arm-kernel@lists.infradead.org, Maen Suleiman <maen@marvell.com>, Lior Amsalem <alior@marvell.com>, Thierry Reding <thierry.reding@gmail.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux390@de.ibm.com, linux-s390@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-mips@linux-mips.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>
+To: Tejun Heo <tj@kernel.org>
+Cc: akpm@linuxfoundation.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Until now, the MSI architecture-specific functions could be overloaded
-using a fairly complex set of #define and compile-time
-conditionals. In order to prepare for the introduction of the msi_chip
-infrastructure, it is desirable to switch all those functions to use
-the 'weak' mechanism. This commit converts all the architectures that
-were overidding those MSI functions to use the new strategy.
+__get_cpu_var() is used for multiple purposes in the kernel source. One of them is
+address calculation via the form &__get_cpu_var(x). This calculates the address for
+the instance of the percpu variable of the current processor based on an offset.
 
-Note that we keep two separate, non-weak, functions
-default_teardown_msi_irqs() and default_restore_msi_irqs() for the
-default behavior of the arch_teardown_msi_irqs() and
-arch_restore_msi_irqs(), as the default behavior is needed by x86 PCI
-code.
+Others usage cases are for storing and retrieving data from the current processors percpu area.
+__get_cpu_var() can be used as an lvalue when writing data or on the right side of an assignment.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Tested-by: Daniel Price <daniel.price@gmail.com>
-Tested-by: Thierry Reding <thierry.reding@gmail.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: linux-mips@linux-mips.org
-Cc: David S. Miller <davem@davemloft.net>
-Cc: sparclinux@vger.kernel.org
-Cc: Chris Metcalf <cmetcalf@tilera.com>
----
- arch/mips/include/asm/pci.h    |  5 -----
- arch/powerpc/include/asm/pci.h |  5 -----
- arch/s390/include/asm/pci.h    |  4 ----
- arch/x86/include/asm/pci.h     | 30 --------------------------
- arch/x86/kernel/x86_init.c     | 24 +++++++++++++++++++++
- drivers/pci/msi.c              | 48 +++++++++++++++++++++---------------------
- include/linux/msi.h            |  8 ++++++-
- 7 files changed, 55 insertions(+), 69 deletions(-)
+__get_cpu_var() is defined as :
 
-diff --git a/arch/mips/include/asm/pci.h b/arch/mips/include/asm/pci.h
-index fa8e0aa..f194c08 100644
---- a/arch/mips/include/asm/pci.h
-+++ b/arch/mips/include/asm/pci.h
-@@ -136,11 +136,6 @@ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
- 	return channel ? 15 : 14;
+
+#define __get_cpu_var(var) (*this_cpu_ptr(&(var)))
+
+
+
+__get_cpu_var() always only does a address determination. However, store and retrieve operations
+could use a segment prefix (or global register on other platforms) to avoid the address calculation.
+
+this_cpu_write() and this_cpu_read() can directly take an offset into a percpu area and use
+optimized assembly code to read and write per cpu variables.
+
+
+This patch converts __get_cpu_var into either and explicit address calculation using this_cpu_ptr()
+or into a use of this_cpu operations that use the offset. Thereby address calcualtions are avoided
+and less registers are used when code is generated.
+
+At the end of the patchset all uses of __get_cpu_var have been removed so the macro is removed too.
+
+The patchset includes passes over all arches as well. Once these operations are used throughout then
+specialized macros can be defined in non -x86 arches as well in order to optimize per cpu access by
+f.e. using a global register that may be set to the per cpu base.
+
+
+
+
+Transformations done to __get_cpu_var()
+
+
+1. Determine the address of the percpu instance of the current processor.
+
+	DEFINE_PER_CPU(int, y);
+	int *x = &__get_cpu_var(y);
+
+    Converts to
+
+	int *x = this_cpu_ptr(&y);
+
+
+2. Same as #1 but this time an array structure is involved.
+
+	DEFINE_PER_CPU(int, y[20]);
+	int *x = __get_cpu_var(y);
+
+    Converts to
+
+	int *x = this_cpu_ptr(y);
+
+
+3. Retrieve the content of the current processors instance of a per cpu variable.
+
+	DEFINE_PER_CPU(int, u);
+	int x = __get_cpu_var(y)
+
+   Converts to
+
+	int x = __this_cpu_read(y);
+
+
+4. Retrieve the content of a percpu struct
+
+	DEFINE_PER_CPU(struct mystruct, y);
+	struct mystruct x = __get_cpu_var(y);
+
+   Converts to
+
+	memcpy(this_cpu_ptr(&y), x, sizeof(x));
+
+
+5. Assignment to a per cpu variable
+
+	DEFINE_PER_CPU(int, y)
+	__get_cpu_var(y) = x;
+
+   Converts to
+
+	this_cpu_write(y, x);
+
+
+6. Increment/Decrement etc of a per cpu variable
+
+	DEFINE_PER_CPU(int, y);
+	__get_cpu_var(y)++
+
+   Converts to
+
+	this_cpu_inc(y)
+
+
+
+Signed-off-by: Christoph Lameter <cl@linux.com>
+
+Index: linux/arch/alpha/kernel/perf_event.c
+=================================--- linux.orig/arch/alpha/kernel/perf_event.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/alpha/kernel/perf_event.c	2013-08-23 09:10:22.665620124 -0500
+@@ -803,7 +803,7 @@ static void alpha_perf_event_irq_handler
+ 	struct hw_perf_event *hwc;
+ 	int idx, j;
+ 
+-	__get_cpu_var(irq_pmi_count)++;
++	__this_cpu_inc(irq_pmi_count);
+ 	cpuc = &__get_cpu_var(cpu_hw_events);
+ 
+ 	/* Completely counting through the PMC's period to trigger a new PMC
+Index: linux/arch/ia64/kernel/irq.c
+=================================--- linux.orig/arch/ia64/kernel/irq.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/irq.c	2013-08-23 09:10:22.665620124 -0500
+@@ -42,7 +42,7 @@ ia64_vector __ia64_irq_to_vector(int irq
+ 
+ unsigned int __ia64_local_vector_to_irq (ia64_vector vec)
+ {
+-	return __get_cpu_var(vector_irq)[vec];
++	return __this_cpu_read(vector_irq[vec]);
  }
- 
--#ifdef CONFIG_CPU_CAVIUM_OCTEON
--/* MSI arch hook for OCTEON */
--#define arch_setup_msi_irqs arch_setup_msi_irqs
--#endif
--
- extern char * (*pcibios_plat_setup)(char *str);
- 
- #ifdef CONFIG_OF
-diff --git a/arch/powerpc/include/asm/pci.h b/arch/powerpc/include/asm/pci.h
-index 6653f27..95145a1 100644
---- a/arch/powerpc/include/asm/pci.h
-+++ b/arch/powerpc/include/asm/pci.h
-@@ -113,11 +113,6 @@ extern int pci_domain_nr(struct pci_bus *bus);
- /* Decide whether to display the domain number in /proc */
- extern int pci_proc_domain(struct pci_bus *bus);
- 
--/* MSI arch hooks */
--#define arch_setup_msi_irqs arch_setup_msi_irqs
--#define arch_teardown_msi_irqs arch_teardown_msi_irqs
--#define arch_msi_check_device arch_msi_check_device
--
- struct vm_area_struct;
- /* Map a range of PCI memory or I/O space for a device into user space */
- int pci_mmap_page_range(struct pci_dev *pdev, struct vm_area_struct *vma,
-diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
-index 6e577ba..262b91b 100644
---- a/arch/s390/include/asm/pci.h
-+++ b/arch/s390/include/asm/pci.h
-@@ -21,10 +21,6 @@ void pci_iounmap(struct pci_dev *, void __iomem *);
- int pci_domain_nr(struct pci_bus *);
- int pci_proc_domain(struct pci_bus *);
- 
--/* MSI arch hooks */
--#define arch_setup_msi_irqs	arch_setup_msi_irqs
--#define arch_teardown_msi_irqs	arch_teardown_msi_irqs
--
- #define ZPCI_BUS_NR			0	/* default bus number */
- #define ZPCI_DEVFN			0	/* default device number */
- 
-diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index d9e9e6c..7d74432 100644
---- a/arch/x86/include/asm/pci.h
-+++ b/arch/x86/include/asm/pci.h
-@@ -100,29 +100,6 @@ static inline void early_quirks(void) { }
- extern void pci_iommu_alloc(void);
- 
- #ifdef CONFIG_PCI_MSI
--/* MSI arch specific hooks */
--static inline int x86_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
--{
--	return x86_msi.setup_msi_irqs(dev, nvec, type);
--}
--
--static inline void x86_teardown_msi_irqs(struct pci_dev *dev)
--{
--	x86_msi.teardown_msi_irqs(dev);
--}
--
--static inline void x86_teardown_msi_irq(unsigned int irq)
--{
--	x86_msi.teardown_msi_irq(irq);
--}
--static inline void x86_restore_msi_irqs(struct pci_dev *dev, int irq)
--{
--	x86_msi.restore_msi_irqs(dev, irq);
--}
--#define arch_setup_msi_irqs x86_setup_msi_irqs
--#define arch_teardown_msi_irqs x86_teardown_msi_irqs
--#define arch_teardown_msi_irq x86_teardown_msi_irq
--#define arch_restore_msi_irqs x86_restore_msi_irqs
- /* implemented in arch/x86/kernel/apic/io_apic. */
- struct msi_desc;
- int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
-@@ -130,16 +107,9 @@ void native_teardown_msi_irq(unsigned int irq);
- void native_restore_msi_irqs(struct pci_dev *dev, int irq);
- int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
- 		  unsigned int irq_base, unsigned int irq_offset);
--/* default to the implementation in drivers/lib/msi.c */
--#define HAVE_DEFAULT_MSI_TEARDOWN_IRQS
--#define HAVE_DEFAULT_MSI_RESTORE_IRQS
--void default_teardown_msi_irqs(struct pci_dev *dev);
--void default_restore_msi_irqs(struct pci_dev *dev, int irq);
- #else
- #define native_setup_msi_irqs		NULL
- #define native_teardown_msi_irq		NULL
--#define default_teardown_msi_irqs	NULL
--#define default_restore_msi_irqs	NULL
  #endif
  
- #define PCI_DMA_BUS_IS_PHYS (dma_ops->is_phys)
-diff --git a/arch/x86/kernel/x86_init.c b/arch/x86/kernel/x86_init.c
-index 5f24c71..8ce0072 100644
---- a/arch/x86/kernel/x86_init.c
-+++ b/arch/x86/kernel/x86_init.c
-@@ -107,6 +107,8 @@ struct x86_platform_ops x86_platform = {
- };
+Index: linux/arch/ia64/kernel/irq_ia64.c
+=================================--- linux.orig/arch/ia64/kernel/irq_ia64.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/irq_ia64.c	2013-08-23 09:10:22.669620084 -0500
+@@ -338,7 +338,7 @@ static irqreturn_t smp_irq_move_cleanup_
+ 		int irq;
+ 		struct irq_desc *desc;
+ 		struct irq_cfg *cfg;
+-		irq = __get_cpu_var(vector_irq)[vector];
++		irq = __this_cpu_read(vector_irq[vector]);
+ 		if (irq < 0)
+ 			continue;
  
- EXPORT_SYMBOL_GPL(x86_platform);
-+
-+#if defined(CONFIG_PCI_MSI)
- struct x86_msi_ops x86_msi = {
- 	.setup_msi_irqs		= native_setup_msi_irqs,
- 	.compose_msi_msg	= native_compose_msi_msg,
-@@ -116,6 +118,28 @@ struct x86_msi_ops x86_msi = {
- 	.setup_hpet_msi		= default_setup_hpet_msi,
- };
+@@ -352,7 +352,7 @@ static irqreturn_t smp_irq_move_cleanup_
+ 			goto unlock;
  
-+/* MSI arch specific hooks */
-+int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+{
-+	return x86_msi.setup_msi_irqs(dev, nvec, type);
-+}
-+
-+void arch_teardown_msi_irqs(struct pci_dev *dev)
-+{
-+	x86_msi.teardown_msi_irqs(dev);
-+}
-+
-+void arch_teardown_msi_irq(unsigned int irq)
-+{
-+	x86_msi.teardown_msi_irq(irq);
-+}
-+
-+void arch_restore_msi_irqs(struct pci_dev *dev, int irq)
-+{
-+	x86_msi.restore_msi_irqs(dev, irq);
-+}
-+#endif
-+
- struct x86_io_apic_ops x86_io_apic_ops = {
- 	.init			= native_io_apic_init_mappings,
- 	.read			= native_io_apic_read,
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index aca7578..823c386 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -30,20 +30,21 @@ static int pci_msi_enable = 1;
- 
- /* Arch hooks */
- 
--#ifndef arch_msi_check_device
--int arch_msi_check_device(struct pci_dev *dev, int nvec, int type)
-+int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ 		spin_lock_irqsave(&vector_lock, flags);
+-		__get_cpu_var(vector_irq)[vector] = -1;
++		__this_cpu_write(vector_irq[vector], -1);
+ 		cpu_clear(me, vector_table[vector]);
+ 		spin_unlock_irqrestore(&vector_lock, flags);
+ 		cfg->move_cleanup_count--;
+Index: linux/arch/ia64/kernel/kprobes.c
+=================================--- linux.orig/arch/ia64/kernel/kprobes.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/kprobes.c	2013-08-23 09:10:22.669620084 -0500
+@@ -396,7 +396,7 @@ static void __kprobes restore_previous_k
  {
--	return 0;
-+	return -EINVAL;
+ 	unsigned int i;
+ 	i = atomic_read(&kcb->prev_kprobe_index);
+-	__get_cpu_var(current_kprobe) = kcb->prev_kprobe[i-1].kp;
++	__this_cpu_write(current_kprobe, kcb->prev_kprobe[i-1].kp);
+ 	kcb->kprobe_status = kcb->prev_kprobe[i-1].status;
+ 	atomic_sub(1, &kcb->prev_kprobe_index);
  }
--#endif
- 
--#ifndef arch_setup_msi_irqs
--# define arch_setup_msi_irqs default_setup_msi_irqs
--# define HAVE_DEFAULT_MSI_SETUP_IRQS
--#endif
-+void __weak arch_teardown_msi_irq(unsigned int irq)
-+{
-+}
- 
--#ifdef HAVE_DEFAULT_MSI_SETUP_IRQS
--int default_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+int __weak arch_msi_check_device(struct pci_dev *dev, int nvec, int type)
-+{
-+	return 0;
-+}
-+
-+int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+@@ -404,7 +404,7 @@ static void __kprobes restore_previous_k
+ static void __kprobes set_current_kprobe(struct kprobe *p,
+ 			struct kprobe_ctlblk *kcb)
  {
- 	struct msi_desc *entry;
- 	int ret;
-@@ -65,14 +66,11 @@ int default_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 
- 	return 0;
+-	__get_cpu_var(current_kprobe) = p;
++	__this_cpu_write(current_kprobe, p);
  }
--#endif
--
--#ifndef arch_teardown_msi_irqs
--# define arch_teardown_msi_irqs default_teardown_msi_irqs
--# define HAVE_DEFAULT_MSI_TEARDOWN_IRQS
--#endif
  
--#ifdef HAVE_DEFAULT_MSI_TEARDOWN_IRQS
-+/*
-+ * We have a default implementation available as a separate non-weak
-+ * function, as it is used by the Xen x86 PCI code
-+ */
- void default_teardown_msi_irqs(struct pci_dev *dev)
- {
- 	struct msi_desc *entry;
-@@ -89,14 +87,12 @@ void default_teardown_msi_irqs(struct pci_dev *dev)
- 			arch_teardown_msi_irq(entry->irq + i);
+ static void kretprobe_trampoline(void)
+@@ -823,7 +823,7 @@ static int __kprobes pre_kprobes_handler
+ 			/*
+ 			 * jprobe instrumented function just completed
+ 			 */
+-			p = __get_cpu_var(current_kprobe);
++			p = __this_cpu_read(current_kprobe);
+ 			if (p->break_handler && p->break_handler(p, regs)) {
+ 				goto ss_probe;
+ 			}
+Index: linux/arch/ia64/kernel/mca.c
+=================================--- linux.orig/arch/ia64/kernel/mca.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/mca.c	2013-08-23 09:11:54.244715775 -0500
+@@ -1341,7 +1341,7 @@ ia64_mca_handler(struct pt_regs *regs, s
+ 		ia64_mlogbuf_finish(1);
  	}
+ 
+-	if (__get_cpu_var(ia64_mca_tr_reload)) {
++	if (__this_cpu_read(ia64_mca_tr_reload)) {
+ 		mca_insert_tr(0x1); /*Reload dynamic itrs*/
+ 		mca_insert_tr(0x2); /*Reload dynamic itrs*/
+ 	}
+@@ -1874,14 +1874,14 @@ ia64_mca_cpu_init(void *cpu_data)
+ 		"MCA", cpu);
+ 	format_mca_init_stack(data, offsetof(struct ia64_mca_cpu, init_stack),
+ 		"INIT", cpu);
+-	__get_cpu_var(ia64_mca_data) = __per_cpu_mca[cpu] = __pa(data);
++	__this_cpu_write(ia64_mca_data, __per_cpu_mca[cpu] = __pa(data));
+ 
+ 	/*
+ 	 * Stash away a copy of the PTE needed to map the per-CPU page.
+ 	 * We may need it during MCA recovery.
+ 	 */
+-	__get_cpu_var(ia64_mca_per_cpu_pte) -		pte_val(mk_pte_phys(__pa(cpu_data), PAGE_KERNEL));
++	__this_cpu_write(ia64_mca_per_cpu_pte,
++		pte_val(mk_pte_phys(__pa(cpu_data), PAGE_KERNEL)));
+ 
+ 	/*
+ 	 * Also, stash away a copy of the PAL address and the PTE
+@@ -1890,10 +1890,10 @@ ia64_mca_cpu_init(void *cpu_data)
+ 	pal_vaddr = efi_get_pal_addr();
+ 	if (!pal_vaddr)
+ 		return;
+-	__get_cpu_var(ia64_mca_pal_base) -		GRANULEROUNDDOWN((unsigned long) pal_vaddr);
+-	__get_cpu_var(ia64_mca_pal_pte) = pte_val(mk_pte_phys(__pa(pal_vaddr),
+-							      PAGE_KERNEL));
++	__this_cpu_write(ia64_mca_pal_base,
++		GRANULEROUNDDOWN((unsigned long) pal_vaddr));
++	__this_cpu_write(ia64_mca_pal_pte, pte_val(mk_pte_phys(__pa(pal_vaddr),
++							      PAGE_KERNEL)));
  }
--#endif
  
--#ifndef arch_restore_msi_irqs
--# define arch_restore_msi_irqs default_restore_msi_irqs
--# define HAVE_DEFAULT_MSI_RESTORE_IRQS
--#endif
-+void __weak arch_teardown_msi_irqs(struct pci_dev *dev)
-+{
-+	return default_teardown_msi_irqs(dev);
-+}
+ static void ia64_mca_cmc_vector_adjust(void *dummy)
+Index: linux/arch/ia64/kernel/process.c
+=================================--- linux.orig/arch/ia64/kernel/process.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/process.c	2013-08-23 09:10:22.669620084 -0500
+@@ -215,7 +215,7 @@ static inline void play_dead(void)
+ 	unsigned int this_cpu = smp_processor_id();
  
--#ifdef HAVE_DEFAULT_MSI_RESTORE_IRQS
- void default_restore_msi_irqs(struct pci_dev *dev, int irq)
- {
- 	struct msi_desc *entry;
-@@ -114,7 +110,11 @@ void default_restore_msi_irqs(struct pci_dev *dev, int irq)
- 	if (entry)
- 		write_msi_msg(irq, &entry->msg);
+ 	/* Ack it */
+-	__get_cpu_var(cpu_state) = CPU_DEAD;
++	__this_cpu_write(cpu_state, CPU_DEAD);
+ 
+ 	max_xtp();
+ 	local_irq_disable();
+@@ -273,7 +273,7 @@ ia64_save_extra (struct task_struct *tas
+ 	if ((task->thread.flags & IA64_THREAD_PM_VALID) != 0)
+ 		pfm_save_regs(task);
+ 
+-	info = __get_cpu_var(pfm_syst_info);
++	info = __this_cpu_read(pfm_syst_info);
+ 	if (info & PFM_CPUINFO_SYST_WIDE)
+ 		pfm_syst_wide_update_task(task, info, 0);
+ #endif
+@@ -293,7 +293,7 @@ ia64_load_extra (struct task_struct *tas
+ 	if ((task->thread.flags & IA64_THREAD_PM_VALID) != 0)
+ 		pfm_load_regs(task);
+ 
+-	info = __get_cpu_var(pfm_syst_info);
++	info = __this_cpu_read(pfm_syst_info);
+ 	if (info & PFM_CPUINFO_SYST_WIDE) 
+ 		pfm_syst_wide_update_task(task, info, 1);
+ #endif
+Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
+=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2013-08-23 09:10:22.669620084 -0500
+@@ -134,8 +134,8 @@ sn2_ipi_flush_all_tlb(struct mm_struct *
+ 	itc = ia64_get_itc();
+ 	smp_flush_tlb_cpumask(*mm_cpumask(mm));
+ 	itc = ia64_get_itc() - itc;
+-	__get_cpu_var(ptcstats).shub_ipi_flushes_itc_clocks += itc;
+-	__get_cpu_var(ptcstats).shub_ipi_flushes++;
++	__this_cpu_add(ptcstats.shub_ipi_flushes_itc_clocks, itc);
++	__this_cpu_inc(ptcstats.shub_ipi_flushes);
  }
--#endif
-+
-+void __weak arch_restore_msi_irqs(struct pci_dev *dev, int irq)
-+{
-+	return default_restore_msi_irqs(dev, irq);
-+}
  
- static void msi_set_enable(struct pci_dev *dev, int enable)
+ /**
+@@ -199,14 +199,14 @@ sn2_global_tlb_purge(struct mm_struct *m
+ 			start += (1UL << nbits);
+ 		} while (start < end);
+ 		ia64_srlz_i();
+-		__get_cpu_var(ptcstats).ptc_l++;
++		__this_cpu_inc(ptcstats.ptc_l);
+ 		preempt_enable();
+ 		return;
+ 	}
+ 
+ 	if (atomic_read(&mm->mm_users) = 1 && mymm) {
+ 		flush_tlb_mm(mm);
+-		__get_cpu_var(ptcstats).change_rid++;
++		__this_cpu_inc(ptcstats.change_rid);
+ 		preempt_enable();
+ 		return;
+ 	}
+@@ -250,11 +250,11 @@ sn2_global_tlb_purge(struct mm_struct *m
+ 	spin_lock_irqsave(PTC_LOCK(shub1), flags);
+ 	itc2 = ia64_get_itc();
+ 
+-	__get_cpu_var(ptcstats).lock_itc_clocks += itc2 - itc;
+-	__get_cpu_var(ptcstats).shub_ptc_flushes++;
+-	__get_cpu_var(ptcstats).nodes_flushed += nix;
++	__this_cpu_add(ptcstats.lock_itc_clocks, itc2 - itc);
++	__this_cpu_inc(ptcstats.shub_ptc_flushes);
++	__this_cpu_add(ptcstats.nodes_flushed, nix);
+ 	if (!mymm)
+-		 __get_cpu_var(ptcstats).shub_ptc_flushes_not_my_mm++;
++		 __this_cpu_inc(ptcstats.shub_ptc_flushes_not_my_mm);
+ 
+ 	if (use_cpu_ptcga && !mymm) {
+ 		old_rr = ia64_get_rr(start);
+@@ -299,9 +299,9 @@ sn2_global_tlb_purge(struct mm_struct *m
+ 
+ done:
+ 	itc2 = ia64_get_itc() - itc2;
+-	__get_cpu_var(ptcstats).shub_itc_clocks += itc2;
+-	if (itc2 > __get_cpu_var(ptcstats).shub_itc_clocks_max)
+-		__get_cpu_var(ptcstats).shub_itc_clocks_max = itc2;
++	__this_cpu_add(ptcstats)shub_itc_clocks, itc2);
++	if (itc2 > __this_cpu_read(ptcstats.shub_itc_clocks_max))
++		__this_cpu_write(ptcstats).shub_itc_clocks_max, itc2);
+ 
+ 	if (old_rr) {
+ 		ia64_set_rr(start, old_rr);
+@@ -311,7 +311,7 @@ done:
+ 	spin_unlock_irqrestore(PTC_LOCK(shub1), flags);
+ 
+ 	if (flush_opt = 1 && deadlock) {
+-		__get_cpu_var(ptcstats).deadlocks++;
++		__this_cpu_inc(ptcstats.deadlocks);
+ 		sn2_ipi_flush_all_tlb(mm);
+ 	}
+ 
+@@ -334,7 +334,7 @@ sn2_ptc_deadlock_recovery(short *nasids,
+ 	short nasid, i;
+ 	unsigned long *piows, zeroval, n;
+ 
+-	__get_cpu_var(ptcstats).deadlocks++;
++	__this_cpu_inc(ptcstats.deadlocks);
+ 
+ 	piows = (unsigned long *) pda->pio_write_status_addr;
+ 	zeroval = pda->pio_write_status_val;
+@@ -349,7 +349,7 @@ sn2_ptc_deadlock_recovery(short *nasids,
+ 			ptc1 = CHANGE_NASID(nasid, ptc1);
+ 
+ 		n = sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows, zeroval);
+-		__get_cpu_var(ptcstats).deadlocks2 += n;
++		__this_cpu_add(ptcstats.deadlocks2, n);
+ 	}
+ 
+ }
+Index: linux/arch/ia64/include/asm/hw_irq.h
+=================================--- linux.orig/arch/ia64/include/asm/hw_irq.h	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/include/asm/hw_irq.h	2013-08-23 09:10:22.673620044 -0500
+@@ -160,7 +160,7 @@ static inline ia64_vector __ia64_irq_to_
+ static inline unsigned int
+ __ia64_local_vector_to_irq (ia64_vector vec)
  {
-diff --git a/include/linux/msi.h b/include/linux/msi.h
-index ee66f3a..271dfd1 100644
---- a/include/linux/msi.h
-+++ b/include/linux/msi.h
-@@ -51,12 +51,18 @@ struct msi_desc {
- };
+-	return __get_cpu_var(vector_irq)[vec];
++	return __this_cpu_read(vector_irq[vec]);
+ }
+ #endif
+ 
+Index: linux/arch/ia64/include/asm/sn/nodepda.h
+=================================--- linux.orig/arch/ia64/include/asm/sn/nodepda.h	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/include/asm/sn/nodepda.h	2013-08-23 09:10:22.673620044 -0500
+@@ -70,7 +70,7 @@ typedef struct nodepda_s nodepda_t;
+  */
+ 
+ DECLARE_PER_CPU(struct nodepda_s *, __sn_nodepda);
+-#define sn_nodepda		(__get_cpu_var(__sn_nodepda))
++#define sn_nodepda		__this_cpu_read(__sn_nodepda)
+ #define	NODEPDA(cnodeid)	(sn_nodepda->pernode_pdaindr[cnodeid])
  
  /*
-- * The arch hook for setup up msi irqs
-+ * The arch hooks to setup up msi irqs. Those functions are
-+ * implemented as weak symbols so that they /can/ be overriden by
-+ * architecture specific code if needed.
-  */
- int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc);
- void arch_teardown_msi_irq(unsigned int irq);
- int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
- void arch_teardown_msi_irqs(struct pci_dev *dev);
- int arch_msi_check_device(struct pci_dev* dev, int nvec, int type);
-+void arch_restore_msi_irqs(struct pci_dev *dev, int irq);
-+
-+void default_teardown_msi_irqs(struct pci_dev *dev);
-+void default_restore_msi_irqs(struct pci_dev *dev, int irq);
+Index: linux/arch/ia64/include/asm/switch_to.h
+=================================--- linux.orig/arch/ia64/include/asm/switch_to.h	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/include/asm/switch_to.h	2013-08-23 09:10:22.673620044 -0500
+@@ -32,7 +32,7 @@ extern void ia64_load_extra (struct task
  
- #endif /* LINUX_MSI_H */
--- 
-1.8.1.2
+ #ifdef CONFIG_PERFMON
+   DECLARE_PER_CPU(unsigned long, pfm_syst_info);
+-# define PERFMON_IS_SYSWIDE() (__get_cpu_var(pfm_syst_info) & 0x1)
++# define PERFMON_IS_SYSWIDE() (__this_cpu_read(pfm_syst_info) & 0x1)
+ #else
+ # define PERFMON_IS_SYSWIDE() (0)
+ #endif
+Index: linux/arch/ia64/include/asm/sn/arch.h
+=================================--- linux.orig/arch/ia64/include/asm/sn/arch.h	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/include/asm/sn/arch.h	2013-08-23 09:10:22.673620044 -0500
+@@ -57,7 +57,7 @@ struct sn_hub_info_s {
+ 	u16 nasid_bitmask;
+ };
+ DECLARE_PER_CPU(struct sn_hub_info_s, __sn_hub_info);
+-#define sn_hub_info 	(&__get_cpu_var(__sn_hub_info))
++#define sn_hub_info 	this_cpu_ptr(&__sn_hub_info)
+ #define is_shub2()	(sn_hub_info->shub2)
+ #define is_shub1()	(sn_hub_info->shub2 = 0)
+ 
+@@ -72,7 +72,7 @@ DECLARE_PER_CPU(struct sn_hub_info_s, __
+  * cpu.
+  */
+ DECLARE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_COMPACT_NODES]);
+-#define sn_cnodeid_to_nasid	(&__get_cpu_var(__sn_cnodeid_to_nasid[0]))
++#define sn_cnodeid_to_nasid	this_cpu_ptr(&__sn_cnodeid_to_nasid[0])
+ 
+ 
+ extern u8 sn_partition_id;
+Index: linux/arch/ia64/include/asm/uv/uv_hub.h
+=================================--- linux.orig/arch/ia64/include/asm/uv/uv_hub.h	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/include/asm/uv/uv_hub.h	2013-08-23 09:10:22.673620044 -0500
+@@ -108,7 +108,7 @@ struct uv_hub_info_s {
+ 	unsigned char	n_val;
+ };
+ DECLARE_PER_CPU(struct uv_hub_info_s, __uv_hub_info);
+-#define uv_hub_info 		(&__get_cpu_var(__uv_hub_info))
++#define uv_hub_info 		this_cpu_ptr(&__uv_hub_info)
+ #define uv_cpu_hub_info(cpu)	(&per_cpu(__uv_hub_info, cpu))
+ 
+ /*
+Index: linux/arch/ia64/kernel/traps.c
+=================================--- linux.orig/arch/ia64/kernel/traps.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/kernel/traps.c	2013-08-23 09:10:22.673620044 -0500
+@@ -299,7 +299,7 @@ handle_fpu_swa (int fp_fault, struct pt_
+ 
+ 	if (!(current->thread.flags & IA64_THREAD_FPEMU_NOPRINT))  {
+ 		unsigned long count, current_jiffies = jiffies;
+-		struct fpu_swa_msg *cp = &__get_cpu_var(cpulast);
++		struct fpu_swa_msg *cp = this_cpu_ptr(&cpulast);
+ 
+ 		if (unlikely(current_jiffies > cp->time))
+ 			cp->count = 0;
+Index: linux/arch/ia64/xen/time.c
+=================================--- linux.orig/arch/ia64/xen/time.c	2013-08-23 09:10:22.673620044 -0500
++++ linux/arch/ia64/xen/time.c	2013-08-23 09:10:22.673620044 -0500
+@@ -68,7 +68,7 @@ static void get_runstate_snapshot(struct
+ 
+ 	BUG_ON(preemptible());
+ 
+-	state = &__get_cpu_var(xen_runstate);
++	state = this_cpu_ptr(&xen_runstate);
+ 
+ 	/*
+ 	 * The runstate info is always updated by the hypervisor on
 
