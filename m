@@ -1,58 +1,40 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Sat, 31 Aug 2013 10:16:00 +0000
-Subject: [PATCH 5/6] ACPI / processor: remove unnecessary if (!pr) check
-Message-Id: <1377944162-18574-5-git-send-email-hanjun.guo@linaro.org>
+From: Jianguo Wu <wujianguo@huawei.com>
+Date: Fri, 30 Aug 2013 03:42:31 +0000
+Subject: [PATCH 4/5] mm/ia64: use N_MEMORY instead of N_HIGH_MEMORY
+Message-Id: <522014A7.3040002@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1377944162-18574-1-git-send-email-hanjun.guo@linaro.org>
-In-Reply-To: <1377944162-18574-1-git-send-email-hanjun.guo@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
+To: tony.luck@intel.com, laijs@cn.fujitsu.com
+Cc: fenghua.yu@intel.com, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-acpi_processor_errata() is only called in acpi_processor_get_info(),
-and the argument 'pr' passed to acpi_processor_errata() will be never
-NULL, so the if (!pr) check is unnecessary.
+Since commit 8219fc48a(mm: node_states: introduce N_MEMORY),
+we introduced N_MEMORY, now N_MEMORY stands for the nodes that has any memory,
+and N_HIGH_MEMORY stands for the nodes that has normal or high memory.
 
-Since the 'pr' argument is not used by acpi_processor_errata() any more,
-so change the argument into void.
+The code here need to handle with the nodes which have memory,
+we should use N_MEMORY instead.
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Jianguo Wu <wujianguo@huawei.com>
 ---
- drivers/acpi/acpi_processor.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ arch/ia64/kernel/uncached.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index a2a71d0..d1cabe5 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -140,15 +140,11 @@ static int acpi_processor_errata_piix4(struct pci_dev *dev)
- 	return 0;
- }
+diff --git a/arch/ia64/kernel/uncached.c b/arch/ia64/kernel/uncached.c
+index a96bcf8..d2e5545 100644
+--- a/arch/ia64/kernel/uncached.c
++++ b/arch/ia64/kernel/uncached.c
+@@ -196,7 +196,7 @@ unsigned long uncached_alloc_page(int starting_nid, int n_pages)
+ 	nid = starting_nid;
  
--static int acpi_processor_errata(struct acpi_processor *pr)
-+static int acpi_processor_errata(void)
- {
- 	int result = 0;
- 	struct pci_dev *dev = NULL;
- 
--
--	if (!pr)
--		return -EINVAL;
--
- 	/*
- 	 * PIIX4
- 	 */
-@@ -220,7 +216,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
- 	acpi_status status = AE_OK;
- 	static int cpu0_initialized;
- 
--	acpi_processor_errata(pr);
-+	acpi_processor_errata();
- 
- 	/*
- 	 * Check to see if we have bus mastering arbitration control.  This
+ 	do {
+-		if (!node_state(nid, N_HIGH_MEMORY))
++		if (!node_state(nid, N_MEMORY))
+ 			continue;
+ 		uc_pool = &uncached_pools[nid];
+ 		if (uc_pool->pool = NULL)
 -- 
-1.7.9.5
+1.7.1
+
 
