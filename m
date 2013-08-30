@@ -1,153 +1,141 @@
-From: Leif Lindholm <leif.lindholm@linaro.org>
-Date: Wed, 07 Aug 2013 18:54:18 +0000
-Subject: [PATCH v3 3/5] efi: x86: use common code for (U)EFI configuration scanning
-Message-Id: <1375901660-23541-4-git-send-email-leif.lindholm@linaro.org>
+From: Barclay Jameson <almightybeeij@gmail.com>
+Date: Fri, 30 Aug 2013 03:13:27 +0000
+Subject: Kernel oops
+Message-Id: <CAMzumdY89wpc26ca7Tzg-GMqyMr6xODiniSzg+4gRyNKEVtszA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1375901660-23541-1-git-send-email-leif.lindholm@linaro.org>
-In-Reply-To: <1375901660-23541-1-git-send-email-leif.lindholm@linaro.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, tony.luck@gmail.com, grant.likely@secretlab.ca, Leif Lindholm <leif.lindholm@linaro.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-This patch makes x86 use the new common code for configuration table
-scanning. It also removes the local definition of the global "efi"
-data structure.
+I have retried compiling the 3.4 Kernel this time in Squeeze. The
+Kernel compiles fine and will boot up to 255 cores; however, after
+that if fails out with the following Kernel oops when booting more
+than 255 cores (Kernel is compiled with 512). Here is the boot log
+with the option bootmem_debug=3D1. I have tried to shorten the boot log
+and leave what I think are the important parts; however if anyone
+needs the 35M boot log then I will gladly send as attachment.
 
-Signed-off-by: Leif Lindholm <leif.lindholm@linaro.org>
----
- arch/x86/platform/efi/efi.c |   96 ++++---------------------------------------
- 1 file changed, 8 insertions(+), 88 deletions(-)
+[    0.000000] Initializing cgroup subsys cpuset
+[    0.000000] Initializing cgroup subsys cpu
+[    0.000000] Linux version 3.4.49 (beeij@debian-hpc) (gcc version
+4.4.5 (Debian 4.4.5-8) ) #16 SMP Thu Aug 29 14:41:59 CDT 2013
+[    0.000000] EFI v1.10 by INTEL: SALsystab=3D0x1802c2d990 ACPI 2.0=3D0x18=
+02c2da80
+[    0.000000] booting generic kernel on platform sn2
+[    0.000000] console [sn_sal0] enabled
+[    0.000000] ACPI: RSDP 0000001802c2da80 00024 (v02    SGI)
+[    0.000000] ACPI: XSDT 0000001802c38df0 00044 (v01    SGI  XSDTSN2
+00010001    ? 00000094)
+[    0.000000] ACPI: APIC 0000001802c2f5a0 0152C (v01    SGI  APICSN2
+00010001    ? 00000001)
+[    0.000000] ACPI: SRAT 0000001802c30ae0 02DB0 (v01    SGI  SRATSN2
+00010001    ? 00000001)
+[    0.000000] ACPI: SLIT 0000001802c338a0 0312C (v01    SGI  SLITSN2
+00010001    ? 00000001)
+[    0.000000] ACPI: FACP 0000001802c369e0 000F4 (v03    SGI  FACPSN2
+00030001    ? 00000001)
+[    0.000000] ACPI Warning: 32/64X length mismatch in Pm1aEventBlock:
+32/0 (20120320/tbfadt-548)
+[    0.000000] ACPI Warning: 32/64X length mismatch in
+Pm1aControlBlock: 16/0 (20120320/tbfadt-548)
+[    0.000000] ACPI Warning: 32/64X length mismatch in PmTimerBlock:
+32/0 (20120320/tbfadt-548)
+[    0.000000] ACPI Warning: 32/64X length mismatch in Gpe0Block: 64/0
+(20120320/tbfadt-548)
+[    0.000000] ACPI Warning: Invalid length for Pm1aEventBlock: 0,
+using default 32 (20120320/tbfadt-629)
+[    0.000000] ACPI Warning: Invalid length for Pm1aControlBlock: 0,
+using default 16 (20120320/tbfadt-629)
+[    0.000000] ACPI Warning: Invalid length for PmTimerBlock: 0, using
+default 32 (20120320/tbfadt-629)
+[    0.000000] ACPI: DSDT 0000001802c3af20 00024 (v02    SGI  DSDTSN2
+00020001    ? 00002483)
+[    0.000000] ACPI: FACS 0000001802c2e1e0 00040
+[    0.000000] ACPI: Local APIC address c0000000fee00000
+[    0.000000] 448 CPUs available, 448 CPUs total
+[    0.000000] Number of logical nodes in system =3D 112
+[    0.000000] Number of memory chunks in system =3D 112
+[    0.000000] SMP: Allowing 448 CPUs, 0 hotplug CPUs
 
-diff --git a/arch/x86/platform/efi/efi.c b/arch/x86/platform/efi/efi.c
-index 90f6ed1..ed2be58 100644
---- a/arch/x86/platform/efi/efi.c
-+++ b/arch/x86/platform/efi/efi.c
-@@ -60,19 +60,6 @@
- 
- static efi_char16_t efi_dummy_name[6] = { 'D', 'U', 'M', 'M', 'Y', 0 };
- 
--struct efi __read_mostly efi = {
--	.mps        = EFI_INVALID_TABLE_ADDR,
--	.acpi       = EFI_INVALID_TABLE_ADDR,
--	.acpi20     = EFI_INVALID_TABLE_ADDR,
--	.smbios     = EFI_INVALID_TABLE_ADDR,
--	.sal_systab = EFI_INVALID_TABLE_ADDR,
--	.boot_info  = EFI_INVALID_TABLE_ADDR,
--	.hcdp       = EFI_INVALID_TABLE_ADDR,
--	.uga        = EFI_INVALID_TABLE_ADDR,
--	.uv_systab  = EFI_INVALID_TABLE_ADDR,
--};
--EXPORT_SYMBOL(efi);
--
- struct efi_memory_map memmap;
- 
- static struct efi efi_phys __initdata;
-@@ -80,6 +67,13 @@ static efi_system_table_t efi_systab __initdata;
- 
- unsigned long x86_efi_facility;
- 
-+static __initdata efi_config_table_type_t arch_tables[] = {
-+#ifdef CONFIG_X86_UV
-+	{UV_SYSTEM_TABLE_GUID, "UVsystab", &efi.uv_systab},
-+#endif
-+	{NULL_GUID, NULL, 0},
-+};
-+
- /*
-  * Returns 1 if 'facility' is enabled, 0 otherwise.
-  */
-@@ -578,80 +572,6 @@ static int __init efi_systab_init(void *phys)
- 	return 0;
- }
- 
--static int __init efi_config_init(u64 tables, int nr_tables)
--{
--	void *config_tables, *tablep;
--	int i, sz;
--
--	if (efi_enabled(EFI_64BIT))
--		sz = sizeof(efi_config_table_64_t);
--	else
--		sz = sizeof(efi_config_table_32_t);
--
--	/*
--	 * Let's see what config tables the firmware passed to us.
--	 */
--	config_tables = early_ioremap(tables, nr_tables * sz);
--	if (config_tables = NULL) {
--		pr_err("Could not map Configuration table!\n");
--		return -ENOMEM;
--	}
--
--	tablep = config_tables;
--	pr_info("");
--	for (i = 0; i < efi.systab->nr_tables; i++) {
--		efi_guid_t guid;
--		unsigned long table;
--
--		if (efi_enabled(EFI_64BIT)) {
--			u64 table64;
--			guid = ((efi_config_table_64_t *)tablep)->guid;
--			table64 = ((efi_config_table_64_t *)tablep)->table;
--			table = table64;
--#ifdef CONFIG_X86_32
--			if (table64 >> 32) {
--				pr_cont("\n");
--				pr_err("Table located above 4GB, disabling EFI.\n");
--				early_iounmap(config_tables,
--					      efi.systab->nr_tables * sz);
--				return -EINVAL;
--			}
--#endif
--		} else {
--			guid = ((efi_config_table_32_t *)tablep)->guid;
--			table = ((efi_config_table_32_t *)tablep)->table;
--		}
--		if (!efi_guidcmp(guid, MPS_TABLE_GUID)) {
--			efi.mps = table;
--			pr_cont(" MPS=0x%lx ", table);
--		} else if (!efi_guidcmp(guid, ACPI_20_TABLE_GUID)) {
--			efi.acpi20 = table;
--			pr_cont(" ACPI 2.0=0x%lx ", table);
--		} else if (!efi_guidcmp(guid, ACPI_TABLE_GUID)) {
--			efi.acpi = table;
--			pr_cont(" ACPI=0x%lx ", table);
--		} else if (!efi_guidcmp(guid, SMBIOS_TABLE_GUID)) {
--			efi.smbios = table;
--			pr_cont(" SMBIOS=0x%lx ", table);
--#ifdef CONFIG_X86_UV
--		} else if (!efi_guidcmp(guid, UV_SYSTEM_TABLE_GUID)) {
--			efi.uv_systab = table;
--			pr_cont(" UVsystab=0x%lx ", table);
--#endif
--		} else if (!efi_guidcmp(guid, HCDP_TABLE_GUID)) {
--			efi.hcdp = table;
--			pr_cont(" HCDP=0x%lx ", table);
--		} else if (!efi_guidcmp(guid, UGA_IO_PROTOCOL_GUID)) {
--			efi.uga = table;
--			pr_cont(" UGA=0x%lx ", table);
--		}
--		tablep += sz;
--	}
--	pr_cont("\n");
--	early_iounmap(config_tables, efi.systab->nr_tables * sz);
--	return 0;
--}
--
- static int __init efi_runtime_init(void)
- {
- 	efi_runtime_services_t *runtime;
-@@ -745,7 +665,7 @@ void __init efi_init(void)
- 		efi.systab->hdr.revision >> 16,
- 		efi.systab->hdr.revision & 0xffff, vendor);
- 
--	if (efi_config_init(efi.systab->tables, efi.systab->nr_tables))
-+	if (efi_config_init(arch_tables))
- 		return;
- 
- 	set_bit(EFI_CONFIG_TABLES, &x86_efi_facility);
--- 
-1.7.10.4
+[=3D=3D=3D=3D=3D=3D=3D=3D=3DSNIP=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D]
+[    0.000000] On node 63 totalpages: 504832
+[    0.000000] free_area_init_node: node 63, pgdat e0000fd8040c1f80,
+node_mem_map a0007ff57d62a000
+[    0.000000]   DMA zone: 2650 pages used for memmap
+[    0.000000]   DMA zone: 0 pages reserved
+[    0.000000]   DMA zone: 502182 pages, LIFO batch:7
+[    0.000000] bootmem::alloc_bootmem_core nidc size=18 [1 pages]
+align=80 goal@00000000000 limit=3D0
+[    0.000000] bootmem::__reserve nidc start?601318 end?601319 flags=3D1
+[    0.000000] bootmem::alloc_bootmem_core nidc size=18000 [6 pages]
+align=80 goal@00000000000 limit=3D0
+[    0.000000] bootmem::__reserve nidc start?601319 end?60131f flags=3D1
+[    0.000000] Could not find start_pfn for node 64
+[    0.000000] On node 64 totalpages: 0
+[    0.000000] free_area_init_node: node 64, pgdat e000101804102000,
+node_mem_map a0007ff5b562a000
+[    0.000000] Could not find start_pfn for node 65
+[    0.000000] On node 65 totalpages: 0
+[    0.000000] free_area_init_node: node 65, pgdat e000105804142080,
+node_mem_map a0007ff5ed62a000
+[    0.000000] Could not find start_pfn for node 66
+[    0.000000] On node 66 totalpages: 0
+[=3D=3D=3D=3D=3D=3D=3D=3D=3DSNIP=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D]
 
+ [    0.000000] BUG: Bad page state in process swapper  pfn:40601318
+[    0.000000] page:a0007ff5b5642d40 count:0 mapcount:1 mapping:
+   (null) index:0x0
+[    0.000000] page flags: 0x0()
+[    0.000000] Modules linked in:
+[    0.000000] Unable to handle kernel NULL pointer dereference
+(address 0000000000000018)
+[    0.000000] swapper[0]: Oops 11003706212352 [1]
+[    0.000000] Modules linked in:
+[    0.000000]
+[    0.000000] Pid: 0, CPU 0, comm:              swapper
+[    0.000000] psr : 00001210084a2018 ifs : 800000000000cc18 ip  :
+[<a0000001003ea1b1>]    Not tainted (3.4.49)
+[    0.000000] ip is at __copy_user+0x891/0x950
+[    0.000000] unat: 0000000000000000 pfs : 0000000000000792 rsc :
+0000000000000003
+[    0.000000] rnat: 0000000000000000 bsps: 0000000000000000 pr  :
+0bad0bad0baa55a9
+[    0.000000] ldrs: 0000000000000000 ccv : 0000000000000000 fpsr:
+0009804c8a70433f
+[    0.000000] csd : 0000000000000000 ssd : 0000000000000000
+[    0.000000] b0  : a000000100043430 b6  : a000000100043660 b7  :
+a00000010000c3b0
+[    0.000000] f6  : 000000000000000000000 f7  : 1003e9e3779b97f4a7c16
+[    0.000000] f8  : 1003e0a00000010001577 f9  : 10006c7fffffffd73ea5c
+[    0.000000] f10 : 1003e0000000000000000 f11 : 1003e0044b82fa09b5a53
+[    0.000000] r1  : a000000100dfa9e0 r2  : a000000100ac75f0 r3  :
+a000000100ac75f8
+[    0.000000] r8  : 0000000000000298 r9  : 0000000000000013 r10 :
+0000000000000000
+[    0.000000] r11 : 0bad0bad0baa11e9 r12 : a000000100ac7550 r13 :
+a000000100ac0000
+[    0.000000] r14 : a000000100e44080 r15 : a000000100e44030 r16 :
+0000000000000298
+[    0.000000] r17 : 0000000000000010 r18 : 0000000000000018 r19 :
+a000000100ac7850
+[    0.000000] r20 : 0000000000000290 r21 : a000000100ac75b4 r22 :
+a000000100c12f20
+[    0.000000] r23 : a000000100ac75b0 r24 : 0000000000000000 r25 :
+a000000100e44030
+[    0.000000] r26 : a0000001007ea718 r27 : 0000000000018869 r28 :
+a000000100ac4000
+[    0.000000] r29 : 0000000000000014 r30 : 0000000000000000 r31 :
+0000000000000792
+
+It looks like after Node 64 which would be cores 256 and up, it can
+not find start_pfn and
+it shows 0 total pages. The instruction pointer is at
+[__copy_user+0x891/0x950].  In the meantime I
+have compiled the 2.6.35 Kernel with support for 1024 CPUs that works
+as a hold over. Anyone have any ideas as to why it is failing out at
+this point?
+
+Thanks,
+
+Beeij
