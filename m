@@ -1,49 +1,41 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Date: Thu, 08 Aug 2013 08:36:27 +0000
-Subject: [PATCH 06/10] serial: ioc4_serial: Staticize ioc4_serial_attach_one()
-Message-Id: <006101ce9412$5f9eae00$1edc0a00$@samsung.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Sat, 31 Aug 2013 10:15:59 +0000
+Subject: [PATCH 4/6] ACPI / processor: remove some dead code in acpi_processor_get_info()
+Message-Id: <1377944162-18574-4-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1377944162-18574-1-git-send-email-hanjun.guo@linaro.org>
+In-Reply-To: <1377944162-18574-1-git-send-email-hanjun.guo@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
-Cc: 'Jiri Slaby' <jslaby@suse.cz>, linux-serial@vger.kernel.org, 'Pat Gefre' <pfg@sgi.com>, linux-ia64@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Jiang Liu <jiang.liu@huawei.com>, Hanjun Guo <hanjun.guo@linaro.org>
 
-ioc4_serial_attach_one() is used only in this file.
-Also, ioc4_serial is not used; it can be removed.
-Fix the following sparse warnings:
+From: Jiang Liu <jiang.liu@huawei.com>
 
-drivers/tty/serial/ioc4_serial.c:300:3: warning: symbol 'ioc4_serial' was not declared. Should it be static?
-drivers/tty/serial/ioc4_serial.c:2771:1: warning: symbol 'ioc4_serial_attach_one' was not declared. Should it be static?
+errata.smp is used by anywhere, so variable assignment is meanless,
+remove it.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 ---
- drivers/tty/serial/ioc4_serial.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/acpi/acpi_processor.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/tty/serial/ioc4_serial.c b/drivers/tty/serial/ioc4_serial.c
-index e2520ab..1274499 100644
---- a/drivers/tty/serial/ioc4_serial.c
-+++ b/drivers/tty/serial/ioc4_serial.c
-@@ -297,7 +297,7 @@ struct ioc4_serial {
- 	struct ioc4_uartregs uart_1;
- 	struct ioc4_uartregs uart_2;
- 	struct ioc4_uartregs uart_3;
--} ioc4_serial;
-+};
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 488e5d8..a2a71d0 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -220,9 +220,6 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 	acpi_status status = AE_OK;
+ 	static int cpu0_initialized;
  
- /* UART clock speed */
- #define IOC4_SER_XIN_CLK_66     66666667
-@@ -2767,7 +2767,7 @@ ioc4_serial_core_attach(struct pci_dev *pdev, int port_type)
-  *		called per card found from IOC4 master module.
-  * @idd: Master module data for this IOC4
-  */
--int
-+static int
- ioc4_serial_attach_one(struct ioc4_driver_data *idd)
- {
- 	unsigned long tmp_addr1;
+-	if (num_online_cpus() > 1)
+-		errata.smp = TRUE;
+-
+ 	acpi_processor_errata(pr);
+ 
+ 	/*
 -- 
-1.7.10.4
-
+1.7.9.5
 
